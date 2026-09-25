@@ -1,20 +1,46 @@
 /*
  * Entry point for Raspberry Pi Zero / Zero W (BCM2835, ARM1176JZF-S).
  *
- * The GPU firmware (start.elf) loads kernel.img at 0x8000 and jumps here
+ * The GPU firmware (start.elf), or the serial chainloader, jumps to 0x8000
  * in SVC mode with MMU and D-cache off:
  *   r0 = 0, r1 = machine type, r2 = ATAGS/DTB address
  */
+
+#define MODE_FIQ 0x11
+#define MODE_IRQ 0x12
+#define MODE_SVC 0x13
+#define MODE_ABT 0x17
+#define MODE_UND 0x1B
 
     .section .text.boot
     .arm
     .globl _start
 _start:
     cpsid   if                      @ mask IRQ and FIQ
-
-    ldr     sp, =__stack_top
-
     mov     r4, r2                  @ keep ATAGS/DTB pointer for kernel_main
+
+    /* One stack per exception mode, then back to SVC. */
+    cps     #MODE_UND
+    ldr     sp, =__und_stack_top
+    cps     #MODE_ABT
+    ldr     sp, =__abt_stack_top
+    cps     #MODE_FIQ
+    ldr     sp, =__fiq_stack_top
+    cps     #MODE_IRQ
+    ldr     sp, =__irq_stack_top
+    cps     #MODE_SVC
+    ldr     sp, =__svc_stack_top
+
+    /* Install the exception vectors at 0x00000000 (low vectors). */
+    ldr     r0, =exception_vectors
+    mov     r1, #0
+    ldmia   r0!, {r2, r3, r5, r6, r7, r8, r9, r10}
+    stmia   r1!, {r2, r3, r5, r6, r7, r8, r9, r10}
+    ldmia   r0!, {r2, r3, r5, r6, r7, r8, r9, r10}
+    stmia   r1!, {r2, r3, r5, r6, r7, r8, r9, r10}
+    mrc     p15, 0, r0, c1, c0, 0   @ SCTLR
+    bic     r0, r0, #(1 << 13)      @ V = 0: vectors at 0x0
+    mcr     p15, 0, r0, c1, c0, 0
 
     /* Enable VFP: full access to coprocessors 10 and 11 (CPACR). */
     mrc     p15, 0, r0, c1, c0, 2

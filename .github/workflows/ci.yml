@@ -1,0 +1,40 @@
+name: ci
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  build-test:
+    # Pinned: the screen reference hash depends on the QEMU version (8.2 here).
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Install toolchain and QEMU
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends \
+            gcc-arm-none-eabi libnewlib-arm-none-eabi binutils-arm-none-eabi \
+            qemu-system-arm make python3
+
+      - name: Build
+        run: make -j"$(nproc)"
+
+      - name: QEMU tests
+        run: make test
+
+      - name: Screenshot
+        if: always()
+        run: make qemu-screenshot || true
+
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: bm33-images
+          path: |
+            build/kernel.img
+            build/chainloader.img
+            build/screen.png

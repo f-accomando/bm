@@ -20,8 +20,8 @@ M0 ─ M1 ─ M2 ─ M3 ─ M4 ─ M5 ─ M6 ─┬─ M7 ─┬─ M9 (MVP)
 - `start.S`, linker a 0x8000, mailbox, framebuffer 32 bpp, LED ACT, barre colore.
 - **Fatto quando:** pattern visibile su HDMI; `make qemu-screenshot` produce l'immagine.
 
-## M1 — Infrastruttura di debug (S)
-- Mini UART su GPIO14/15 (115200 8N1); `kprintf` minimale (`%d %u %x %s %c %p`).
+## M1 — Infrastruttura di debug ✅ (S)
+- UART PL011 su GPIO14/15 (115200 8N1); `kprintf` minimale (`%d %u %x %s %c %p`).
 - Tabella dei vettori delle eccezioni: undefined / prefetch abort / data abort
   → dump dei registri su UART + codice di errore sul LED.
 - **Chainloader via seriale** (stile *raspbootin*): un kernel fisso sulla SD

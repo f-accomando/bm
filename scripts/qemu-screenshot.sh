@@ -1,6 +1,6 @@
 #!/bin/sh
 # Boots the kernel in QEMU (raspi0) headless and dumps the framebuffer.
-# Usage: qemu-screenshot.sh <kernel.elf> <out.png> [seconds]
+# Usage: qemu-screenshot.sh <kernel.img> <out.png> [seconds]
 set -eu
 
 ELF=$1
@@ -13,6 +13,6 @@ QEMU=${QEMU:-qemu-system-arm}
     echo "screendump $OUT -f png"
     sleep 1
     echo "quit"
-} | "$QEMU" -M raspi0 -kernel "$ELF" -display none -monitor stdio -serial null >/dev/null
+} | "$QEMU" -M raspi0 -bios "$ELF" -display none -monitor stdio -serial null >/dev/null
 
 test -s "$OUT" && echo "saved $OUT"

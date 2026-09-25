@@ -5,64 +5,101 @@ CC      := $(CROSS)gcc
 OBJCOPY := $(CROSS)objcopy
 OBJDUMP := $(CROSS)objdump
 QEMU    ?= qemu-system-arm
+PYTHON  ?= python3
 
 BUILD   := build
 DIST    := dist
 FW_DIR  := firmware
 
+# Serial port of the USB-TTL adapter, used by `make run-serial`.
+PORT    ?= /dev/ttyUSB0
+BAUD    ?= 115200
+
+VERSION := $(shell git describe --always --dirty 2>/dev/null || echo dev)
+
 ARCH    := -mcpu=arm1176jzf-s -marm -mfpu=vfp -mfloat-abi=hard
 CFLAGS  := $(ARCH) -std=c11 -O2 -Wall -Wextra -ffreestanding -nostdlib \
-           -fno-builtin -fno-tree-loop-distribute-patterns -g
-ASFLAGS := $(ARCH) -g
-LDFLAGS := $(ARCH) -nostdlib -nostartfiles -T linker.ld -Wl,--gc-sections \
-           -Wl,-Map=$(BUILD)/kernel.map
+           -fno-builtin -fno-tree-loop-distribute-patterns -g -Isrc \
+           -DUART_BAUD=$(BAUD) -DBM33_VERSION=\"$(VERSION)\"
+ASFLAGS := $(ARCH) -g -Isrc -Isrc/kernel
+LDFLAGS := $(ARCH) -nostdlib -nostartfiles -Wl,--gc-sections
 LDLIBS  := -lgcc
 
-SRCS_C  := $(shell find src -name '*.c')
-SRCS_S  := $(shell find src -name '*.S')
-OBJS    := $(patsubst src/%,$(BUILD)/%.o,$(SRCS_S) $(SRCS_C))
+KERNEL_SRCS := $(shell find src -name '*.c' -o -name '*.S')
+LOADER_SRCS := $(wildcard chainloader/*.S chainloader/*.c) \
+               src/drivers/uart.c src/drivers/gpio.c src/drivers/mbox.c \
+               src/drivers/prop.c src/drivers/timer.c src/drivers/led.c \
+               src/lib/string.c src/lib/crc32.c
 
-.PHONY: all clean firmware sdcard qemu qemu-screenshot disasm
+KERNEL_OBJS := $(patsubst %,$(BUILD)/k/%.o,$(KERNEL_SRCS))
+LOADER_OBJS := $(patsubst %,$(BUILD)/l/%.o,$(LOADER_SRCS))
 
-all: $(BUILD)/kernel.img
+.PHONY: all clean firmware sdcard sdcard-chainloader qemu qemu-screenshot \
+        run-serial test disasm
 
-$(BUILD)/%.S.o: src/%.S
+all: $(BUILD)/kernel.img $(BUILD)/chainloader.img
+
+$(BUILD)/k/%.S.o $(BUILD)/l/%.S.o: %.S
 	@mkdir -p $(dir $@)
 	$(CC) $(ASFLAGS) -c $< -o $@
 
-$(BUILD)/%.c.o: src/%.c
+$(BUILD)/k/%.c.o: %.c
 	@mkdir -p $(dir $@)
 	$(CC) $(CFLAGS) -MMD -MP -c $< -o $@
 
-$(BUILD)/kernel.elf: $(OBJS) linker.ld
-	$(CC) $(LDFLAGS) $(OBJS) $(LDLIBS) -o $@
+$(BUILD)/l/%.c.o: %.c
+	@mkdir -p $(dir $@)
+	$(CC) $(CFLAGS) -Os -MMD -MP -c $< -o $@
 
-$(BUILD)/kernel.img: $(BUILD)/kernel.elf
+$(BUILD)/kernel.elf: $(KERNEL_OBJS) linker.ld
+	$(CC) $(LDFLAGS) -T linker.ld -Wl,-Map=$(BUILD)/kernel.map $(KERNEL_OBJS) $(LDLIBS) -o $@
+
+$(BUILD)/chainloader.elf: $(LOADER_OBJS) chainloader/linker.ld
+	$(CC) $(LDFLAGS) -T chainloader/linker.ld -Wl,-Map=$(BUILD)/chainloader.map $(LOADER_OBJS) $(LDLIBS) -o $@
+
+$(BUILD)/%.img: $(BUILD)/%.elf
 	$(OBJCOPY) -O binary $< $@
-	@echo "kernel.img: $$(stat -c %s $@) bytes"
+	@echo "$@: $$(stat -c %s $@) bytes"
 
-disasm: $(BUILD)/kernel.elf
-	$(OBJDUMP) -d $< > $(BUILD)/kernel.lst
+disasm: $(BUILD)/kernel.elf $(BUILD)/chainloader.elf
+	$(OBJDUMP) -d $(BUILD)/kernel.elf > $(BUILD)/kernel.lst
+	$(OBJDUMP) -d $(BUILD)/chainloader.elf > $(BUILD)/chainloader.lst
 
 firmware:
 	./scripts/fetch-firmware.sh $(FW_DIR)
 
-# Everything that goes on the FAT32 boot partition of the SD card.
-sdcard: $(BUILD)/kernel.img
+# FAT32 boot partition contents. KERNEL=chainloader puts the serial loader on
+# the card instead of the kernel (flash it once, then use `make run-serial`).
+KERNEL ?= kernel
+sdcard: $(BUILD)/$(KERNEL).img
 	@test -f $(FW_DIR)/start.elf || { echo "Run 'make firmware' first"; exit 1; }
 	@mkdir -p $(DIST)
 	cp $(FW_DIR)/bootcode.bin $(FW_DIR)/start.elf $(FW_DIR)/fixup.dat $(DIST)/
-	cp boot/config.txt $(BUILD)/kernel.img $(DIST)/
-	@echo "Copy the contents of $(DIST)/ to the root of a FAT32 SD card."
+	cp boot/config.txt $(DIST)/
+	cp $(BUILD)/$(KERNEL).img $(DIST)/kernel.img
+	@echo "Copy the contents of $(DIST)/ ($(KERNEL)) to the root of a FAT32 SD card."
 
-qemu: $(BUILD)/kernel.elf
-	$(QEMU) -M raspi0 -kernel $<
+sdcard-chainloader:
+	$(MAKE) sdcard KERNEL=chainloader
 
-# Headless run: boots for a few seconds and saves the screen to build/screen.png
-qemu-screenshot: $(BUILD)/kernel.elf
+# Upload the kernel to a Pi running the chainloader, then open a terminal.
+# Rebooting the Pi (monitor command 'r') re-sends the current kernel.img.
+run-serial: $(BUILD)/kernel.img
+	$(PYTHON) tools/bm33_load.py --baud $(BAUD) $(PORT) $<
+
+# QEMU boots raw images at 0x8000 through -bios, like the real firmware.
+QEMU_ARGS := -M raspi0 -serial stdio -serial null
+
+qemu: $(BUILD)/kernel.img
+	$(QEMU) $(QEMU_ARGS) -bios $<
+
+qemu-screenshot: $(BUILD)/kernel.img
 	./scripts/qemu-screenshot.sh $< $(BUILD)/screen.png
+
+test: all
+	$(PYTHON) tests/qemu_test.py --build $(BUILD)
 
 clean:
 	rm -rf $(BUILD) $(DIST)
 
--include $(OBJS:.o=.d)
+-include $(KERNEL_OBJS:.o=.d) $(LOADER_OBJS:.o=.d)
