@@ -1,0 +1,21 @@
+# bm33 - Raspberry Pi Zero / Zero W boot configuration
+
+kernel=kernel.img
+arm_64bit=0
+
+# Always drive HDMI even if no monitor is detected at power-on
+hdmi_force_hotplug=1
+# HDMI (not DVI) mode, so the TV also gets audio/proper levels
+hdmi_drive=2
+# Use the full screen area; our pattern draws a 1px border to check this
+disable_overscan=1
+
+# Uncomment to force 720p60 if the monitor picks something odd
+#hdmi_group=1
+#hdmi_mode=4
+
+# Skip the rainbow splash
+disable_splash=1
+
+# Mini UART on GPIO14/15 for future serial debug output
+enable_uart=1
