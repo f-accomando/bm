@@ -5,13 +5,21 @@ MVP di una console bare metal (Assembly / C / Lua embedded) per
 
 ## Roadmap
 
-| Milestone | Obiettivo | Stato |
-|-----------|-----------|-------|
-| **M0** | Boot + schermata di test a colori via HDMI | ✅ |
-| M1 | UART di debug, font bitmap, console testuale | |
-| M2 | MMU + cache, heap, newlib | |
-| M3 | Lua embedded (REPL su seriale/schermo) | |
-| M4 | Input (USB HID / GPIO), API grafica per Lua | |
+Dettagli, criteri di completamento e rischi in [docs/ROADMAP.md](docs/ROADMAP.md).
+
+| # | Obiettivo | Stato |
+|---|-----------|-------|
+| **M0** | Boot + test pattern HDMI | ✅ |
+| M1 | Debug: UART, eccezioni, chainloader seriale, CI | |
+| M2 | Console testuale su schermo | |
+| M3 | MMU, cache, heap, newlib | |
+| M4 | Interrupt, timer, double buffering 60 fps | |
+| M5 | Lua 5.4 embedded + REPL | |
+| M6 | API grafica Lua + ciclo `_update`/`_draw` | |
+| M7 | Input: pad GPIO, poi USB HID | |
+| M8 | SD + FAT, caricamento delle cart | |
+| M9 | **MVP**: launcher, giochi demo, immagine SD | |
+| M10 | Audio PWM (opzionale) | |
 
 ## Milestone 0
 
