@@ -23,7 +23,7 @@ import bm33_load  # noqa: E402
 QEMU = os.environ.get("QEMU", "qemu-system-arm")
 REF_DIR = os.path.join(HERE, "ref")
 PROMPT = b"type 'h' for help"
-DEMO = b"animation demo"
+DEMO = b"s32: playing"
 
 
 def free_port():
@@ -71,7 +71,7 @@ class Qemu:
         """Waits for the monitor prompt, skipping the boot animation demo."""
         out = self.expect(DEMO, timeout=20)
         if skip_demo:
-            self.send(" ")
+            self.send("q")
         out += self.expect(PROMPT, timeout=20)
         out += self.expect("> ")
         return out
@@ -176,7 +176,7 @@ def test_boot_banner(b, opts):
         plain = re.sub(rb"\x1b\[[0-9;]*m", b"", out).decode(errors="replace")
         for s in ("MMU+caches on", "console 80x21", "benchmark (us)",
                   "libc selftest: ok", "printf 3.142, sqrt(2) 1.414213562",
-                  "IRQ on: timer 1000 Hz", "demo:", "vsync probe"):
+                  "IRQ on: timer 1000 Hz", "s32: playing the built-in demo.cart", "vsync probe"):
             assert s in plain, f"missing {s!r} in boot log"
         text = "\n".join(screen_text(q.screendump()))
         for s in ("Lua 5.4 on bm33", "2^10=1024.0 7//2=3 sqrt(2)=1.414214 THE QUICK BROWN FOX co:1,4,9",
@@ -197,8 +197,12 @@ def test_console_ansi_and_status(b, opts):
     q = Qemu(b("kernel.img"))
     try:
         q.boot()
-        img = q.screendump()
-        text = screen_text(img)
+        for _ in range(10):                 # the uptime appears once the monitor waits
+            img = q.screendump()
+            text = screen_text(img)
+            if "up 00:00:" in text[0]:
+                break
+            time.sleep(0.2)
         assert text[0].startswith(" bm33 "), f"status bar: {text[0]!r}"
         assert "up 00:00:0" in text[0], f"uptime in status bar: {text[0]!r}"
         assert pixel(img, 2, 2) == (0, 170, 170), "status bar colour"
@@ -283,7 +287,8 @@ def test_exc_data_abort(b, opts):
 def test_demo_60fps(b, opts):
     q = Qemu(b("kernel.img"))
     try:
-        q.expect(DEMO, timeout=20)
+        q.boot()
+        q.send("d")
         time.sleep(2.0)
         # QEMU's display does not seem to honour the virtual offset, so a
         # screendump can catch a page mid-draw: take a few samples.
@@ -294,20 +299,21 @@ def test_demo_60fps(b, opts):
                 break
         assert top.startswith(" bm33 M4 demo") and "fps" in top, f"demo overlay: {top!r}"
         assert pixel(img, 320, 200) != (0, 0, 0), "demo background not drawn"
-        out = q.expect(PROMPT, timeout=20).decode(errors="replace")
+        time.sleep(4.0)
+        q.send(" ")
+        out = q.expect("dropped", timeout=10).decode(errors="replace")
         m = re.search(r"demo: (\d+) frames in ([\d.]+) s = ([\d.]+) fps \((\w+)\)\s+"
                       r"frame (\d+)-(\d+) us, (\d+) dropped", out)
         assert m, out
         frames, secs, fps, pacing = int(m[1]), float(m[2]), float(m[3]), m[4]
         dropped = int(m[7])
-        assert 9.9 <= secs <= 10.5, secs
+        assert 5.5 <= secs <= 8, secs
         assert 55 <= fps <= 62, f"{fps} fps"
         assert pacing == "timer", "QEMU has no real vsync"
         assert dropped <= frames // 20, f"{dropped} dropped frames"
-        # console restored on page 0 afterwards
         q.expect("> ")
         text = "\n".join(screen_text(q.screendump()))
-        assert "demo:" in text and "type 'h' for help" in text, text
+        assert "demo:" in text and "dropped" in text, text
     finally:
         q.close()
 
@@ -381,6 +387,64 @@ def test_lua_out_of_memory(b, opts):
         assert b"not enough memory" in out, out
         q.send("t = nil collectgarbage() print('alive', 6 * 7)\r")
         assert b"alive\t42" in q.expect("lua> ", timeout=20)
+    finally:
+        q.close()
+
+
+def yellow_square(img):
+    pts = [(x, y) for y in range(0, 224) for x in range(0, 320) if pixel(img, x, y) == (230, 200, 40)]
+    return (min(pts), max(pts)) if pts else None
+
+
+def test_s32_boot_attract(b, opts):
+    q = Qemu(b("kernel.img"))
+    try:
+        q.expect(DEMO, timeout=25)
+        time.sleep(1.5)
+        img = q.screendump()
+        assert img[:2] == (320, 224), img[:2]
+        assert pixel(img, 5, 5) == (20, 30, 60), "demo.cart background colour"
+        sq1 = yellow_square(img)
+        assert sq1 and sq1[1][0] - sq1[0][0] == 15, f"16x16 sprite: {sq1}"
+        time.sleep(1.0)
+        sq2 = yellow_square(q.screendump())
+        assert sq2 and sq2 != sq1, "attract mode should move the sprite"
+        out = q.expect(PROMPT, timeout=30).decode(errors="replace")
+        m = re.search(r'"Demo - quadrato mobile" (\d+) ticks, ([\d.]+) fps \(attract\), (\d+) dropped', out)
+        assert m, out
+        assert 850 <= int(m[1]) <= 920 and 55 <= float(m[2]) <= 62, m.group(0)
+        q.expect("> ")
+        img = q.screendump()
+        assert img[:2] == (640, 360), "console resolution restored"
+        assert any("s32:" in l for l in screen_text(img)), "stats on the console"
+    finally:
+        q.close()
+
+
+def test_s32_keys(b, opts):
+    q = Qemu(b("kernel.img"))
+    try:
+        q.boot()
+        q.send("g")
+        time.sleep(1.0)
+        start = yellow_square(q.screendump())
+        assert start and start[0] == (150, 100), f"initial position {start}"
+        for _ in range(25):                    # right: 'd' (held ~10 ticks each)
+            q.send("d")
+            time.sleep(0.05)
+        time.sleep(0.5)
+        right = yellow_square(q.screendump())
+        assert right[0][0] > start[0][0] + 40 and right[0][1] == 100, f"{start} -> {right}"
+        for _ in range(10):
+            q.send("\x1b[A")                   # arrow up
+            time.sleep(0.05)
+        time.sleep(0.5)
+        up = yellow_square(q.screendump())
+        assert up[0][1] < 100, f"{right} -> {up}"
+        q.send("q")
+        out = q.expect("render", timeout=10).decode(errors="replace")
+        assert "(attract)" not in out, out
+        q.expect("> ")
     finally:
         q.close()
 

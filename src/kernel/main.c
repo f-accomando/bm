@@ -27,6 +27,7 @@
 #include "lib/heap.h"
 #include "lib/printf.h"
 #include "script/luavm.h"
+#include "s32/player.h"
 
 #ifndef BM33_VERSION
 #define BM33_VERSION "dev"
@@ -48,7 +49,7 @@ static void print_palette(void)
 }
 
 #define TICK_HZ     1000
-#define DEMO_SECS   10
+#define S32_ATTRACT_SECS 15
 
 static void heartbeat(uint32_t tick)
 {
@@ -68,6 +69,7 @@ static void report_irq(void)
 }
 
 extern const char boot_lua[], boot_lua_end[];
+extern const uint8_t s32_demo_cart[], s32_demo_cart_end[];
 
 static void run_boot_script(void)
 {
@@ -134,10 +136,12 @@ void kernel_main(uint32_t atags)
     libc_selftest();
     report_irq();
 
-    kprintf("running the %u s animation demo (any key on serial skips it)...\n", DEMO_SECS);
-    demo_stats_t st;
-    demo_run(&fb, DEMO_SECS, &st);
-    demo_print(&st);
+    kprintf("s32: playing the built-in demo.cart for %u s ('q' on serial skips it)...\n",
+            S32_ATTRACT_SECS);
+    s32_play_stats_t ps;
+    s32_play(&fb, s32_demo_cart, (size_t)(s32_demo_cart_end - s32_demo_cart),
+             S32_ATTRACT_SECS, 1, &ps);
+    s32_play_print(&ps);
 
     uint32_t vs[5];
     if (fb_vsync_probe(vs, 5) == 0)

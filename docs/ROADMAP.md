@@ -9,7 +9,7 @@ possibile, un test automatico in QEMU (`-M raspi0`).
 Dimensione: **S** = pochi giorni, **M** = 1–2 settimane, **L** = più di 2 settimane.
 
 ```
-M0 ─ M1 ─ M2 ─ M3 ─ M4 ─ M5 ─ M6 ─┬─ M7 ─┬─ M9 (MVP)
+M0 ─ M1 ─ M2 ─ M3 ─ M4 ─ M5 ─ M6 (s32) ─┬─ M7 ─┬─ M9 (MVP)
                                   └─ M8 ─┘
                                      M10 audio (opzionale per l'MVP)
 ```
@@ -66,13 +66,20 @@ M0 ─ M1 ─ M2 ─ M3 ─ M4 ─ M5 ─ M6 ─┬─ M7 ─┬─ M9 (MVP)
   Circa 100 ns per operazione semplice della VM: ~150k operazioni Lua per frame
   a 60 fps, un budget simile a quello di PICO-8. Interi a 64 bit mantenuti.
 
-## M6 — API grafica e ciclo di gioco (M)
-- Risoluzione logica bassa (es. 320×240, 8 bpp con palette oppure 16 bpp):
-  il firmware la scala in hardware sull'uscita HDMI, quindi il disegno è veloce.
-- API Lua: `cls pset pget line rect rectfill circ spr print pal camera clip`.
-- Callback della cart: `_init()`, `_update()`, `_draw()` a 60 fps.
-- Sprite sheet e font integrati; formato cart = sorgente `.lua` + asset.
-- **Fatto quando:** una demo con 100 sprite in movimento gira a 60 fps.
+## M6 — Core s32 (compatibilità con lua32) ✅ (M)
+Decisione: bm33 è compatibile con le cartucce `.cart` della console **s32**
+(`f-accomando/lua32`): stessa macchina (risoluzioni, palette, tile, VRAM 552 KiB, OAM,
+CGRAM, APU, porte), implementata in C nativo, non un'emulazione del motore di lua32.
+- Specifica comune `spec/s32/s32-spec.md` (fonte: lua32, `docs/spec`), sincronizzata con
+  `scripts/sync-s32-spec.sh`.
+- `src/s32/`: CPU (83 opcode), PPU (tilemap 128×128 con celle coperte, tile 8–64, sprite
+  con flip e priorità), loader `.cart` (header 264 byte, CRC), player a 320×224 con doppio
+  buffer, 60 tick/s.
+- Conformità: i vettori generati da lua32 (`spec/s32/conformance`) passano **byte per
+  byte** sia su x86 sia sul codice ARM1176 in `qemu-arm` (`make test-s32 test-s32-arm`).
+- All'avvio: `demo.cart` in modalità attract per 15 s; comando `g` per giocarla dalla seriale.
+- **Fatto quando:** tutti i vettori passano; la demo gira a 60 fps sul Pi.
+- Prossimo: cartucce Lua (`code_type` 1, proposta nella spec §11) e APU.
 
 ## M7 — Input (L, rischio alto)
 - **Fase A (S):** pulsanti su GPIO oppure pad SNES/NES via GPIO (latch/clock/data):
@@ -80,13 +87,15 @@ M0 ─ M1 ─ M2 ─ M3 ─ M4 ─ M5 ─ M6 ─┬─ M7 ─┬─ M9 (MVP)
 - **Fase B (L):** controller USB DWC OTG → HID tastiera/gamepad.
   È il pezzo più complesso: valutare il porting di **USPi** (C, compatibile con il Pi 1,
   licenza GPLv3) rispetto a uno stack scritto da zero.
-- API Lua: `btn(i)`, `btnp(i)`, più tastiera per il REPL/editor.
+- Mappatura sull'`input_byte` di s32 (bit 0–4: su, giù, sinistra, destra, azione;
+  fino a 8 giocatori), più tastiera per il REPL.
 - **Fatto quando:** una cart di esempio si gioca con il pad; (fase B) una tastiera USB
   scrive nel REPL.
 
 ## M8 — Storage e caricamento delle cart (M)
 - Driver EMMC/SDHCI per la SD (lettura, poi scrittura), **FatFs** sopra.
-- Lettura di `/carts/*.lua` (+ asset), salvataggio di high score e config.
+- Lettura di `/carts/*.cart` (s32, codice macchina o Lua), picker delle cartucce come
+  `s32_os` di lua32, salvataggio di config.
 - **Fatto quando:** copiando una nuova cart sulla SD da PC, questa compare nel menu.
 
 ## M9 — MVP (M)
@@ -100,8 +109,8 @@ M0 ─ M1 ─ M2 ─ M3 ─ M4 ─ M5 ─ M6 ─┬─ M7 ─┬─ M9 (MVP)
 ## M10 — Audio (M, opzionale per l'MVP)
 - Il Pi Zero non ha jack audio: PWM su GPIO18/13 con filtro RC esterno
   (semplice) oppure audio via HDMI (complesso, poco documentato).
-- DMA + PWM, mixer a 4 canali (quadra/triangolo/rumore/sample), IRQ di refill.
-- API Lua: `sfx(n)`, `music(n)`.
+- APU di s32: 8 canali (quadra/triangolo/dente di sega/rumore) con ADSR, registri
+  memory-mapped; DMA + PWM, IRQ di refill.
 - **Fatto quando:** i giochi demo hanno effetti sonori senza cali di frame rate.
 
 ---

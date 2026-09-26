@@ -44,11 +44,11 @@ LUA_OBJS    := $(patsubst %,$(BUILD)/k/%.o,$(LUA_SRCS))
 # Third-party code: its own warning policy, not ours.
 $(LUA_OBJS): WARN := -w
 # Lua scripts embedded with .incbin
-$(BUILD)/k/src/script/embed.S.o: $(wildcard src/script/*.lua)
+$(BUILD)/k/src/script/embed.S.o: $(wildcard src/script/*.lua) spec/s32/conformance/demo.cart
 
 .DEFAULT_GOAL := all
 .PHONY: all clean firmware sdcard sdcard-chainloader qemu qemu-screenshot \
-        run-serial test disasm
+        run-serial test test-s32 test-s32-arm disasm
 
 all: $(BUILD)/kernel.img $(BUILD)/chainloader.img
 
@@ -109,8 +109,28 @@ qemu: $(BUILD)/kernel.img
 qemu-screenshot: $(BUILD)/kernel.img
 	./scripts/qemu-screenshot.sh $< $(BUILD)/screen.png
 
-test: all
+test: all test-s32
 	$(PYTHON) tests/qemu_test.py --build $(BUILD)
+
+# s32 conformance (spec/s32): the C core must reproduce lua32's vectors.
+S32_CORE := src/s32/cpu.c src/s32/ppu.c src/s32/cart.c src/lib/crc32.c
+HOSTCC   ?= cc
+
+$(BUILD)/host/s32_conformance: tests/s32/conformance.c $(S32_CORE) src/s32/s32.h
+	@mkdir -p $(dir $@)
+	$(HOSTCC) -O2 -Wall -Wextra -Isrc -o $@ tests/s32/conformance.c $(S32_CORE)
+
+# Same code built for the ARM1176 with the kernel's compiler, run in qemu-arm
+# (semihosting): catches target-specific differences.
+$(BUILD)/host/s32_conformance_arm: tests/s32/conformance.c $(S32_CORE) src/s32/s32.h
+	@mkdir -p $(dir $@)
+	$(CC) $(ARCH) -O2 -Isrc --specs=rdimon.specs -o $@ tests/s32/conformance.c $(S32_CORE)
+
+test-s32: $(BUILD)/host/s32_conformance
+	$< spec/s32/conformance
+
+test-s32-arm: $(BUILD)/host/s32_conformance_arm
+	qemu-arm -cpu arm1176 $< spec/s32/conformance
 
 clean:
 	rm -rf $(BUILD) $(DIST)

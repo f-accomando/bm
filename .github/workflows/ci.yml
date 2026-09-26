@@ -18,10 +18,13 @@ jobs:
           sudo apt-get update
           sudo apt-get install -y --no-install-recommends \
             gcc-arm-none-eabi libnewlib-arm-none-eabi binutils-arm-none-eabi \
-            qemu-system-arm make python3
+            qemu-system-arm qemu-user make python3
 
       - name: Build
         run: make -j"$(nproc)"
+
+      - name: s32 conformance (host and ARM1176 in qemu-arm)
+        run: make test-s32 test-s32-arm
 
       - name: QEMU tests
         run: make test

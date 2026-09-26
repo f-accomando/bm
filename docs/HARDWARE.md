@@ -15,7 +15,7 @@ Legenda fonti: *(M)* misurato su Pi Zero W reale, *(Q)* misurato in QEMU,
 
 | Risorsa | Pi Zero W | s32 (spec) | bm33 oggi | Uso / margine |
 |---|---|---|---|---|
-| CPU | ARM1176JZF-S (ARMv6), 1 core, 700 MHz all'avvio → **1000 MHz** *(M)* | CPU virtuale 16 bit, 83 opcode | 1 core a 1000 MHz, MMU + cache I/D + branch prediction attive *(M)* | 1 core su 1 (100% disponibile per noi, nessun OS) |
+| CPU | ARM1176JZF-S (ARMv6), 1 core, 700 MHz all'avvio → **1000 MHz** *(M)* | CPU virtuale 16 bit, 83 opcode | 1 core a 1000 MHz, MMU + cache I/D + branch prediction attive *(M)*; CPU s32 interpretata in C | 1 core su 1 (100% disponibile per noi, nessun OS) |
 | FPU | VFPv2, double in hardware *(D)* | — (solo interi 16 bit) | usata da Lua (double) e dal C | — |
 | Cache | L1 16 KiB istruzioni + 16 KiB dati; L2 128 KiB nella VideoCore *(D)* | — | L1 attive | — |
 | Divisione intera | non in hardware (libgcc) *(D)* | — | — | le divisioni costano, evitarle nei cicli caldi |
@@ -29,14 +29,14 @@ Legenda fonti: *(M)* misurato su Pi Zero W reale, *(Q)* misurato in QEMU,
 | RAM totale | **512 MiB** LPDDR2, condivisa CPU/GPU *(D)* | — | — | — |
 | RAM dell'ARM | 448 MiB (con `gpu_mem=64`) *(M)* | spazio di indirizzi 16 MiB | kernel ~340 KiB + stack 1,1 MiB + heap ~447 MiB *(M)* | tutto disponibile |
 | RAM della GPU | 64 MiB *(M)* | — | framebuffer 640×360×4×2 = 1,8 MiB | 2,8% della memoria GPU |
-| WRAM | — | **128 KiB** *(S)* | (in arrivo con il core s32) | 0,03% della RAM ARM |
-| VRAM | — | **552 KiB**: tilemap 32 KiB + directory 8 KiB + archivio 512 KiB *(S)* | (in arrivo) | 0,12% |
-| OAM | — | **4 KiB**, 512 sprite *(S)* | (in arrivo) | ~0 |
-| CGRAM | — | **6 KiB**, 8 palette × 256 colori RGB888 *(S)* | (in arrivo) | ~0 |
-| Porte + APU | — | 256 B + 128 B *(S)* | (in arrivo) | ~0 |
-| Macchina s32 completa | — | **16 MiB** di spazio di indirizzi, ~691 KiB assegnati *(S)* | — | 3,6% della RAM ARM (16 MiB) |
+| WRAM | — | **128 KiB** *(S)* | dentro lo spazio s32 da 16 MiB (heap) | 0,03% della RAM ARM |
+| VRAM | — | **552 KiB**: tilemap 32 KiB + directory 8 KiB + archivio 512 KiB *(S)* | come da spec | 0,12% |
+| OAM | — | **4 KiB**, 512 sprite *(S)* | come da spec | ~0 |
+| CGRAM | — | **6 KiB**, 8 palette × 256 colori RGB888 *(S)* | come da spec | ~0 |
+| Porte + APU | — | 256 B + 128 B *(S)* | porte sì, APU registri senza uscita audio | ~0 |
+| Macchina s32 completa | — | **16 MiB** di spazio di indirizzi, ~691 KiB assegnati *(S)* | 16 MiB allocati dall'heap al primo avvio di una cartuccia | 3,6% della RAM ARM |
 | Memoria per Lua | — | — | limite **64 MiB** *(M)*; boot.lua ne usa 84 KiB, picco 3,4 MiB | 14% della RAM ARM come tetto |
-| Cartuccia | microSD (GB) | demo.cart = 572 KiB (1 banco grafico da 520 KiB) | — | trascurabile |
+| Cartuccia | microSD (GB) | demo.cart = 572 KiB (1 banco grafico da 520 KiB) | demo.cart incorporata nel kernel (kernel.img ~900 KiB) | trascurabile |
 
 In pratica **la macchina s32 usa meno dell'1% della RAM del Pi**: la memoria non è un
 vincolo; lo sono il tempo per frame e la banda verso la RAM (memcpy ~100 MB/s,
@@ -48,7 +48,7 @@ riempimento ~430 MB/s *(M)*).
 |---|---|---|---|---|
 | Uscita | mini-HDMI fino a 1920×1080 a 60 Hz; composito (pad TV) *(D)* | — | HDMI *(M)* | — |
 | GPU | VideoCore IV, core 250 MHz *(M)*, OpenGL ES 2.0, scaler hardware (HVS) *(D)* | — | solo lo scaler (framebuffer ingrandito dalla GPU) | GPU 3D inutilizzata |
-| Risoluzione logica | qualsiasi, scalata dalla GPU | **320×224** (4:3); 384×224 (16:9) previsto *(S)* | console 640×360; demo 640×360 | 320×224 = 3,5% dei pixel di 1080p |
+| Risoluzione logica | qualsiasi, scalata dalla GPU | **320×224** (4:3); 384×224 (16:9) previsto *(S)* | console 640×360; cartucce s32 320×224 (cambio di risoluzione via mailbox) | 320×224 = 3,5% dei pixel di 1080p |
 | Colori | framebuffer 32 bit (16,7 milioni) *(M)* | 8 palette × 256 colori a 24 bit; tile a 8 bit indicizzati *(S)* | 32 bit RGB | 2048 colori contemporanei su 16,7 M |
 | Tile | — | 2048, taglie 8/16/32/64 px *(S)* | — | — |
 | Sprite | nessun limite hardware (disegno software) | **512** *(S)* | 64 nella demo C | — |

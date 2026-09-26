@@ -1,6 +1,7 @@
 #include "monitor.h"
 #include "bench.h"
 #include "demo.h"
+#include "s32/player.h"
 #include "input.h"
 #include "script/repl.h"
 #include "sysinfo.h"
@@ -22,6 +23,7 @@ static void help(void)
             "  m  heap usage\n"
             "  k  run the benchmark\n"
             "  d  animation demo (60 fps, double buffered; any key stops it)\n"
+            "  g  play the built-in s32 demo.cart (w/a/s/d, space, q quits)\n"
             "  t  HDMI test pattern (any key returns to the console)\n"
             "  r  reboot (watchdog; the chainloader will ask for a new kernel)\n"
             "  u  test: undefined instruction\n"
@@ -82,6 +84,14 @@ void monitor_run(void)
         case 'l': repl_run(); break;
         case 'c': console_clear(); break;
         case 'm': sysinfo_print_heap(); break;
+        case 'g': {
+            extern const uint8_t s32_demo_cart[], s32_demo_cart_end[];
+            s32_play_stats_t ps;
+            s32_play(console_framebuffer(), s32_demo_cart,
+                     (size_t)(s32_demo_cart_end - s32_demo_cart), 3600, 0, &ps);
+            s32_play_print(&ps);
+            break;
+        }
         case 'd': {
             demo_stats_t st;
             demo_run(console_framebuffer(), 60, &st);
