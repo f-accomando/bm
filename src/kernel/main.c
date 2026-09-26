@@ -122,6 +122,13 @@ void kernel_main(uint32_t atags)
     libc_selftest();
     report_irq();
 
+    uint32_t vs[5];
+    if (fb_vsync_probe(vs, 5) == 0)
+        kprintf("vsync probe: tag ok, waits %lu %lu %lu %lu %lu us\n",
+                vs[0], vs[1], vs[2], vs[3], vs[4]);
+    else
+        kprintf("vsync probe: tag not supported by the firmware\n");
+
     kprintf("running the %u s animation demo (any key on serial skips it)...\n", DEMO_SECS);
     demo_stats_t st;
     demo_run(&fb, DEMO_SECS, &st);

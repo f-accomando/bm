@@ -29,6 +29,11 @@ void fb_show(framebuffer_t *fb, uint32_t index);
  * Returns 1 if it synchronised to vsync, 0 if the caller must pace frames. */
 int fb_flip(framebuffer_t *fb);
 
+/* Diagnostics: calls "wait for vsync" n times (n <= 8) and stores how long
+ * each call took in us[]. Returns 0 if the firmware answered the tag,
+ * -1 if it rejected it. */
+int fb_vsync_probe(uint32_t *us, int n);
+
 static inline uint32_t fb_color(const framebuffer_t *fb, uint8_t r, uint8_t g, uint8_t b)
 {
     return fb->is_rgb

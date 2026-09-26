@@ -45,11 +45,13 @@ M0 ─ M1 ─ M2 ─ M3 ─ M4 ─ M5 ─ M6 ─┬─ M7 ─┬─ M9 (MVP)
 - Benchmark: fill a schermo intero e `memcpy`, prima e dopo le cache.
 - **Fatto quando:** `malloc`/`printf` di newlib funzionano; il clear 320×240 richiede meno di 1 ms.
 
-## M4 — Interrupt e temporizzazione ✅ (M)
+## M4 — Interrupt e temporizzazione ✅ verificato su Pi Zero W (M)
 - Controller IRQ BCM2835, IRQ del system timer, contatore di tick a 1 kHz.
 - Doppio buffer: framebuffer virtuale alto 2×, scambio tramite il tag *set virtual offset*.
 - Frame loop a 60 Hz stabile (sync al vblank se il firmware lo espone, altrimenti timer).
 - **Fatto quando:** un rettangolo in movimento scorre fluido, senza tearing visibile, a 60 fps.
+- Risultato: 60 fps, 0 frame persi, 2,7 ms di disegno per frame; ritmo dal timer.
+  Da capire: sincronizzazione al vsync reale (il tag 0x4000E non è stato usato).
 
 ## M5 — Lua embedded (M)
 - Lua 5.4 in `third_party/lua`, compilato con newlib e VFP hard-float.

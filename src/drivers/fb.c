@@ -141,3 +141,15 @@ int fb_flip(framebuffer_t *fb)
     fb->base = fb->mem + (drawn ^ 1) * fb->height * fb->pitch;
     return fb->vsync;
 }
+
+int fb_vsync_probe(uint32_t *us, int n)
+{
+    for (int i = 0; i < n; i++) {
+        uint32_t v[1] = { 0 };
+        uint32_t t0 = timer_ticks();
+        if (prop_query(TAG_WAIT_FOR_VSYNC, v, 1) != 0)
+            return -1;
+        us[i] = timer_ticks() - t0;
+    }
+    return 0;
+}

@@ -71,6 +71,11 @@ Stato del LED ACT:
   6 IRQ, 7 FIQ, 9 panic)
 - **lampeggio a 0,5 Hz** (cambia stato ogni secondo): chainloader in attesa del kernel
 
+Demo animata su Pi Zero W reale: 600 frame in 10 s, intervallo tra frame
+16667 µs costante, 0 frame persi, 2,7 ms di disegno per frame (su 16,7 disponibili),
+timer IRQ misurato 999 Hz, nessun tearing visibile. Il ritmo è dato dal timer:
+il vsync del firmware non è stato usato (vedi la riga `vsync probe` all'avvio).
+
 Demo animata (M4, QEMU):
 
 ![demo](docs/m4-demo.png)
