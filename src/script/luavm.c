@@ -69,6 +69,14 @@ lua_State *luavm_init(void)
     return L;
 }
 
+lua_State *luavm_newstate(void)
+{
+    lua_State *l = lua_newstate(lua_alloc, NULL);
+    if (l)
+        lua_atpanic(l, panic_handler);
+    return l;
+}
+
 lua_State *luavm_state(void)
 {
     return L;

@@ -28,6 +28,7 @@
 #include "lib/printf.h"
 #include "script/luavm.h"
 #include "s32/player.h"
+#include "b33/runtime.h"
 
 #ifndef BM33_VERSION
 #define BM33_VERSION "dev"
@@ -49,7 +50,8 @@ static void print_palette(void)
 }
 
 #define TICK_HZ     1000
-#define S32_ATTRACT_SECS 15
+#define S32_ATTRACT_SECS 10
+#define B33_DEMO_SECS    15
 
 static void heartbeat(uint32_t tick)
 {
@@ -70,6 +72,7 @@ static void report_irq(void)
 
 extern const char boot_lua[], boot_lua_end[];
 extern const uint8_t s32_demo_cart[], s32_demo_cart_end[];
+extern const uint8_t b33_demo_cart[], b33_demo_cart_end[];
 
 static void run_boot_script(void)
 {
@@ -142,6 +145,14 @@ void kernel_main(uint32_t atags)
     s32_play(&fb, s32_demo_cart, (size_t)(s32_demo_cart_end - s32_demo_cart),
              S32_ATTRACT_SECS, 1, &ps);
     s32_play_print(&ps);
+
+    kprintf("b33: C benchmark and native demo cart ('q' on serial skips)...\n");
+    uint32_t bench_us = b33_bench(&fb, 120);
+    kprintf("b33 bench: full map + 256 sprites at 640x360 RGB565: %lu.%02lu ms/frame (%lu%% of 16.7 ms)\n",
+            bench_us / 1000, bench_us % 1000 / 10, bench_us * 100 / 16667);
+    b33_stats_t bs;
+    b33_play(&fb, b33_demo_cart, (size_t)(b33_demo_cart_end - b33_demo_cart), B33_DEMO_SECS, &bs);
+    b33_print_stats(&bs);
 
     uint32_t vs[5];
     if (fb_vsync_probe(vs, 5) == 0)

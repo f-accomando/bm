@@ -44,11 +44,19 @@ LUA_OBJS    := $(patsubst %,$(BUILD)/k/%.o,$(LUA_SRCS))
 # Third-party code: its own warning policy, not ours.
 $(LUA_OBJS): WARN := -w
 # Lua scripts embedded with .incbin
-$(BUILD)/k/src/script/embed.S.o: $(wildcard src/script/*.lua) spec/s32/conformance/demo.cart
+$(BUILD)/k/src/script/embed.S.o: $(wildcard src/script/*.lua) spec/s32/conformance/demo.cart \
+                                 $(BUILD)/demo.b33
+
+# Native demo cartridge (.b33): Lua + sprite sheet + map
+DEMO_B33_SRC := carts/demo/main.lua carts/demo/sheet.png carts/demo/map.csv
+$(BUILD)/demo.b33: $(DEMO_B33_SRC) scripts/mkb33.py
+	@mkdir -p $(dir $@)
+	$(PYTHON) scripts/mkb33.py -o $@ --lua carts/demo/main.lua --sheet carts/demo/sheet.png \
+	    --map carts/demo/map.csv --title "bm33 native demo" --author bm33
 
 .DEFAULT_GOAL := all
 .PHONY: all clean firmware sdcard sdcard-chainloader qemu qemu-screenshot \
-        run-serial test test-s32 test-s32-arm disasm
+        run-serial test test-s32 test-s32-arm test-b33 disasm
 
 all: $(BUILD)/kernel.img $(BUILD)/chainloader.img
 
@@ -109,8 +117,15 @@ qemu: $(BUILD)/kernel.img
 qemu-screenshot: $(BUILD)/kernel.img
 	./scripts/qemu-screenshot.sh $< $(BUILD)/screen.png
 
-test: all test-s32
+test: all test-s32 test-b33
 	$(PYTHON) tests/qemu_test.py --build $(BUILD)
+
+$(BUILD)/host/test_b33: tests/b33/test_b33.c src/b33/gfx16.c src/b33/format.c src/lib/crc32.c src/b33/*.h
+	@mkdir -p $(dir $@)
+	$(HOSTCC) -O2 -Wall -Wextra -Isrc -o $@ tests/b33/test_b33.c src/b33/gfx16.c src/b33/format.c src/lib/crc32.c
+
+test-b33: $(BUILD)/host/test_b33 $(BUILD)/demo.b33
+	$< $(BUILD)/demo.b33
 
 # s32 conformance (spec/s32): the C core must reproduce lua32's vectors.
 S32_CORE := src/s32/cpu.c src/s32/ppu.c src/s32/cart.c src/lib/crc32.c

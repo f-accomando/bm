@@ -18,6 +18,12 @@ static volatile uint32_t __attribute__((aligned(CACHE_LINE))) msg[36];
 
 int fb_init(framebuffer_t *fb, uint32_t width, uint32_t height, uint32_t buffers)
 {
+    return fb_init_depth(fb, width, height, buffers, 32);
+}
+
+int fb_init_depth(framebuffer_t *fb, uint32_t width, uint32_t height,
+                  uint32_t buffers, uint32_t depth)
+{
     int i = 0;
 
     msg[i++] = 0;                       /* total size, patched below */
@@ -35,8 +41,9 @@ int fb_init(framebuffer_t *fb, uint32_t width, uint32_t height, uint32_t buffers
     msg[i++] = TAG_SET_VIRT_OFFSET; msg[i++] = 8; msg[i++] = 0;
     msg[i++] = 0;                msg[i++] = 0;
 
+    const int depth_idx = i + 3;
     msg[i++] = TAG_SET_DEPTH;    msg[i++] = 4; msg[i++] = 0;
-    msg[i++] = 32;
+    msg[i++] = depth;
 
     const int porder = i + 3;
     msg[i++] = TAG_SET_PIXEL_ORDER; msg[i++] = 4; msg[i++] = 0;
@@ -69,6 +76,9 @@ int fb_init(framebuffer_t *fb, uint32_t width, uint32_t height, uint32_t buffers
     fb->buffers = msg[virt + 1] >= fb->height * 2 ? 2 : 1;
     fb->shown  = 0;
     fb->vsync  = -1;
+    fb->depth  = msg[depth_idx];
+    if (fb->depth != depth)
+        return -3;
     return 0;
 }
 

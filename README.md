@@ -17,12 +17,13 @@ Risorse del Pi Zero W e quanto ne usano bm33/s32: [docs/HARDWARE.md](docs/HARDWA
 | **M4** | Interrupt, timer, double buffering 60 fps | ✅ |
 | **M5** | Lua 5.4 embedded + REPL | ✅ |
 | **M6** | Core **s32** in C: cartucce `.cart` compatibili con lua32 | ✅ |
-| M7 | Input: pad GPIO, poi USB HID (→ input s32) | |
+| **M7** | Cartucce native **`.b33`**: Lua 5.4 + grafica C a 640×360 RGB565 | ✅ |
+| M7b | Input: pad GPIO, poi USB HID | |
 | M8 | SD + FAT, picker delle `.cart` | |
 | M9 | **MVP**: launcher, giochi demo, immagine SD | |
 | M10 | APU s32 su PWM (opzionale) | |
 
-## Cosa fa il kernel (M0–M6)
+## Cosa fa il kernel (M0–M7)
 
 All'avvio:
 1. `src/boot/start.S`: maschera gli IRQ, imposta uno stack per ogni modo della CPU,
@@ -39,13 +40,16 @@ All'avvio:
 7. esegue un self-test di newlib (stdio con float, libm, malloc/free) e mostra il riepilogo
 8. attiva gli **interrupt**: tick di sistema a 1 kHz (system timer, compare 1), che
    fa anche lampeggiare il LED; misura la frequenza reale e la mostra
-9. esegue per 15 s la cartuccia **s32** `demo.cart` (da lua32) a 320×224 in modalità
+9. esegue per 10 s la cartuccia **s32** `demo.cart` (da lua32) a 320×224 in modalità
    *attract* (il quadrato si muove da solo), poi mostra le statistiche (tick, fps,
-   tempo CPU per tick e per istruzione, tempo di rendering) e torna alla console
-10. avvia **Lua 5.4.7** ed esegue lo script incorporato `src/script/boot.lua`:
+   tempo CPU per tick e per istruzione, tempo di rendering)
+10. esegue il **benchmark di rendering** delle cartucce native (mappa a tutto schermo +
+    256 sprite 16×16 a 640×360 RGB565, 2 s) e poi per 15 s la **cartuccia nativa**
+    `demo.b33`, e mostra le statistiche (fps, ms di `_update`+`_draw`, % del frame)
+11. avvia **Lua 5.4.7** ed esegue lo script incorporato `src/script/boot.lua`:
     versione, alcune funzioni del linguaggio, un errore intercettato con `pcall`,
     micro-benchmark (fib, cicli, sort, stringhe) e memoria usata
-11. avvia un **monitor** a tasto singolo sulla seriale:
+12. avvia un **monitor** a tasto singolo sulla seriale:
 
 | Tasto | Azione |
 |-------|--------|
@@ -57,6 +61,9 @@ All'avvio:
 | `k` | esegue di nuovo il benchmark |
 | `d` | demo animata in C (60 fps, doppio buffer; un tasto la interrompe) |
 | `g` | gioca `demo.cart` (s32): w/a/s/d o frecce, spazio = azione, q = esci |
+| `n` | gioca `demo.b33` (nativa): frecce/wasd, spazio = A, k/x = B, q = esci |
+| `p` | benchmark di rendering 640×360 RGB565 |
+| `U` | riceve una cartuccia dalla seriale (`bm33_load.py PORTA --cart file.b33`) e la esegue |
 | `t` | test pattern HDMI (un tasto qualsiasi torna alla console) |
 | `r` | reboot via watchdog (con il chainloader, ricarica il kernel) |
 | `u` `s` `b` `a` | test: undefined instruction, SVC, prefetch abort (BKPT), data abort |
@@ -153,6 +160,38 @@ Sul Pi Zero il core s32 esegue la demo a circa 26 µs per tick in QEMU (CPU s32 
 PPU in C); i numeri reali vanno misurati sul Pi (riga `s32:` all'avvio).
 
 ![s32 demo](docs/m6-s32-demo.png)
+
+## Cartucce native `.b33`
+
+Cartucce solo per bm33 che sfruttano il Pi Zero: **640×360, colore diretto a 16 bit
+(RGB565), 60 fps**, logica in Lua 5.4, tutto il disegno in C. Formato in
+`src/b33/b33.h` (header + sezioni: codice Lua, sprite sheet RGBA, mappa); la grafica
+è salvata in un formato indipendente dallo schermo, pronta per un futuro 32 bit.
+
+```sh
+python3 scripts/mkb33.py -o gioco.b33 --lua main.lua --sheet sheet.png --map map.csv \
+        --title "Il mio gioco"
+```
+
+La cartuccia definisce `_init()`, `_update()` e `_draw()` (60 volte al secondo) e usa:
+
+| Funzione | Descrizione |
+|---|---|
+| `cls([c])`, `pset(x,y,c)`, `pget(x,y)` | schermo e pixel (colori `0xRRGGBB` o `rgb(r,g,b)`) |
+| `line`, `rect(x,y,w,h,c)`, `rectfill`, `circ(x,y,r,c)`, `circfill` | forme |
+| `spr(n,x,y,[w,h,flip_x,flip_y])`, `sspr(sx,sy,sw,sh,dx,dy,...)` | sprite dallo sheet (celle 8×8) |
+| `map(mx,my,x,y,mw,mh)`, `mget`, `mset` | mappa a tile (cella 0 = vuota) |
+| `sget`, `sset(x,y,c)` | modifica dello sheet (c = nil: trasparente) |
+| `print(s,x,y,[c])` | testo (font 8×16) |
+| `camera([x,y])`, `clip([x,y,w,h])` | scorrimento e ritaglio |
+| `btn(i)`, `btnp(i)` | 0 sinistra, 1 destra, 2 su, 3 giù, 4 A, 5 B |
+| `time()`, `stat(n)` | tempo; 0 KiB Lua, 1 ms CPU del frame, 2 fps, 3 numero di frame |
+
+Sandbox: niente `io`, `os`, `load`, `dofile`, `require`. Un errore o un ciclo infinito
+(oltre 20 milioni di istruzioni in un frame) ferma la cartuccia e mostra l'errore
+sulla console, senza bloccare il kernel. GC generazionale per pause brevi.
+
+![demo b33](docs/m7-b33-demo.png)
 
 ## Lua
 
@@ -254,6 +293,10 @@ src/kernel/tick.c        tick di sistema (system timer compare 1)
 src/kernel/demo.c        demo animata a 60 fps
 src/gfx/draw.c           primitive: clear, rect, sprite 16×16, testo
 src/s32/                 macchina s32: CPU, PPU, loader .cart, player 320×224
+src/b33/                 cartucce native: formato, grafica RGB565 (gfx16), runtime Lua
+carts/demo/              cartuccia nativa demo: main.lua, sheet.png, map.csv
+scripts/mkb33.py         packer .b33 (PNG e CSV, solo libreria standard Python)
+tests/b33/               test host della grafica e del formato
 spec/s32/                specifica comune e vettori di conformità (da lua32)
 tests/s32/               runner di conformità (host e ARM in qemu-arm)
 src/script/luavm.c       stato Lua, allocatore con limite (64 MiB), esecuzione protetta

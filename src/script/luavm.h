@@ -10,6 +10,10 @@ typedef struct lua_State lua_State;
 lua_State *luavm_init(void);
 lua_State *luavm_state(void);
 
+/* A fresh, empty state sharing the kernel's allocator and memory limit
+ * (used for sandboxed cartridges). Close it with lua_close(). */
+lua_State *luavm_newstate(void);
+
 /* Compiles and runs a chunk in protected mode. Errors are printed with a
  * traceback (in red on the console) and never propagate. Returns 0 on
  * success. */

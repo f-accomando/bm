@@ -105,7 +105,18 @@ Priorità attuale: sviluppo della console bm33; la parte s32 avanza al ritmo di 
 - **Budget**: disegno completo (mappa piena + 256 sprite) sotto il 25% del frame,
   verificato da un benchmark a schermo; tutto il disegno in C, Lua solo logica.
 
-## M7 — Input (L, rischio alto)
+## M7 — Cartucce native `.b33` ✅ (M)
+- Formato `.b33` (header 128 byte + sezioni Lua / sheet RGBA / mappa, CRC), packer
+  `scripts/mkb33.py` con PNG e CSV.
+- Grafica C in RGB565 (`src/b33/gfx16.c`): forme, sprite con flip e trasparenza,
+  scorciatoia per celle opache, mappa, testo, camera, clip.
+- Runtime: stato Lua isolato per cartuccia, `_init/_update/_draw` a 60 fps, input
+  seriale, limite di istruzioni per frame, errori mostrati sulla console, GC
+  generazionale; caricamento dalla seriale (`U`).
+- Benchmark C e demo nativa all'avvio.
+- **Fatto quando:** mappa piena + 256 sprite sotto il 25% del frame sul Pi reale.
+
+## M7b — Input (L, rischio alto)
 - **Fase A (S):** pulsanti su GPIO oppure pad SNES/NES via GPIO (latch/clock/data):
   semplice, deterministico, pronto per giocare subito.
 - **Fase B (L):** controller USB DWC OTG → HID tastiera/gamepad.

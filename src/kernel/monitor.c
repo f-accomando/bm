@@ -2,6 +2,8 @@
 #include "bench.h"
 #include "demo.h"
 #include "s32/player.h"
+#include "b33/runtime.h"
+#include "upload.h"
 #include "input.h"
 #include "script/repl.h"
 #include "sysinfo.h"
@@ -24,6 +26,9 @@ static void help(void)
             "  k  run the benchmark\n"
             "  d  animation demo (60 fps, double buffered; any key stops it)\n"
             "  g  play the built-in s32 demo.cart (w/a/s/d, space, q quits)\n"
+            "  n  play the built-in native demo.b33 (arrows/wasd, space, q quits)\n"
+            "  p  C rendering benchmark at 640x360 RGB565\n"
+            "  U  receive a cartridge over serial and play it\n"
             "  t  HDMI test pattern (any key returns to the console)\n"
             "  r  reboot (watchdog; the chainloader will ask for a new kernel)\n"
             "  u  test: undefined instruction\n"
@@ -90,6 +95,21 @@ void monitor_run(void)
             s32_play(console_framebuffer(), s32_demo_cart,
                      (size_t)(s32_demo_cart_end - s32_demo_cart), 3600, 0, &ps);
             s32_play_print(&ps);
+            break;
+        }
+        case 'n': {
+            extern const uint8_t b33_demo_cart[], b33_demo_cart_end[];
+            b33_stats_t bs;
+            b33_play(console_framebuffer(), b33_demo_cart,
+                     (size_t)(b33_demo_cart_end - b33_demo_cart), 3600, &bs);
+            b33_print_stats(&bs);
+            break;
+        }
+        case 'U': upload_and_play(console_framebuffer()); break;
+        case 'p': {
+            uint32_t us = b33_bench(console_framebuffer(), 120);
+            kprintf("b33 bench: %lu.%02lu ms/frame (%lu%% of 16.7 ms)\n",
+                    us / 1000, us % 1000 / 10, us * 100 / 16667);
             break;
         }
         case 'd': {

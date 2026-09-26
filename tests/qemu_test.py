@@ -18,12 +18,15 @@ import traceback
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, os.path.join(HERE, "..", "tools"))
+sys.path.insert(0, os.path.join(HERE, "..", "scripts"))
 import bm33_load  # noqa: E402
+import mkb33  # noqa: E402
 
 QEMU = os.environ.get("QEMU", "qemu-system-arm")
 REF_DIR = os.path.join(HERE, "ref")
 PROMPT = b"type 'h' for help"
 DEMO = b"s32: playing"
+B33_DEMO = b"native demo cart"
 
 
 def free_port():
@@ -72,7 +75,10 @@ class Qemu:
         out = self.expect(DEMO, timeout=20)
         if skip_demo:
             self.send("q")
-        out += self.expect(PROMPT, timeout=20)
+        out += self.expect(B33_DEMO, timeout=20)
+        if skip_demo:
+            self.send("q")
+        out += self.expect(PROMPT, timeout=40)
         out += self.expect("> ")
         return out
 
@@ -401,18 +407,21 @@ def test_s32_boot_attract(b, opts):
     try:
         q.expect(DEMO, timeout=25)
         time.sleep(1.5)
-        img = q.screendump()
+        img, _ = settled_screen(q, lambda i, t: pixel(i, 5, 5) == (20, 30, 60))
         assert img[:2] == (320, 224), img[:2]
         assert pixel(img, 5, 5) == (20, 30, 60), "demo.cart background colour"
         sq1 = yellow_square(img)
         assert sq1 and sq1[1][0] - sq1[0][0] == 15, f"16x16 sprite: {sq1}"
         time.sleep(1.0)
-        sq2 = yellow_square(q.screendump())
+        img2, _ = settled_screen(q, lambda i, t: pixel(i, 5, 5) == (20, 30, 60) and yellow_square(i))
+        sq2 = yellow_square(img2)
         assert sq2 and sq2 != sq1, "attract mode should move the sprite"
-        out = q.expect(PROMPT, timeout=30).decode(errors="replace")
+        out = q.expect(B33_DEMO, timeout=30).decode(errors="replace")
+        q.send("q")
+        q.expect(PROMPT, timeout=30)
         m = re.search(r'"Demo - quadrato mobile" (\d+) ticks, ([\d.]+) fps \(attract\), (\d+) dropped', out)
         assert m, out
-        assert 850 <= int(m[1]) <= 920 and 55 <= float(m[2]) <= 62, m.group(0)
+        assert 570 <= int(m[1]) <= 620 and 55 <= float(m[2]) <= 62, m.group(0)
         q.expect("> ")
         img = q.screendump()
         assert img[:2] == (640, 360), "console resolution restored"
@@ -445,6 +454,138 @@ def test_s32_keys(b, opts):
         out = q.expect("render", timeout=10).decode(errors="replace")
         assert "(attract)" not in out, out
         q.expect("> ")
+    finally:
+        q.close()
+
+
+B33_COLOURS = [(248, 0, 0), (0, 252, 0), (0, 0, 248), (248, 252, 248)]
+
+
+def settled_screen(q, ok, tries=8):
+    """QEMU shows page 0 even while it is being drawn (it ignores the
+    virtual offset), so a screendump can catch a frame half drawn: retry
+    until `ok(img, text)` holds."""
+    for _ in range(tries):
+        img = q.screendump()
+        text = screen_text(img)
+        if ok(img, text):
+            return img, text
+    return img, text
+
+
+def test_b33_boot_demo(b, opts):
+    q = Qemu(b("kernel.img"))
+    try:
+        q.expect(DEMO, timeout=25)
+        q.send("q")
+        q.expect(B33_DEMO, timeout=20)
+        out = q.expect("b33 bench:", timeout=20)
+        time.sleep(3.0)
+        img, text = settled_screen(q, lambda i, t: t[0].startswith("bm33 native") and "sprites" in t[-1])
+        assert img[:2] == (640, 360), img[:2]
+        assert text[0].startswith("bm33 native .b33") and "fps" in text[0], text[0]
+        assert "sprites" in text[-1] and "attract" in text[-1], text[-1]
+        got = [pixel(img, 640 - 80 + i * 20 + 8, 8) for i in range(4)]
+        assert got == B33_COLOURS, f"RGB565 colour check {got}"
+        out = q.expect(PROMPT, timeout=30).decode(errors="replace")
+        m = re.search(r'b33: "bm33 native demo" (\d+) frames, ([\d.]+) fps', out)
+        assert m and 850 <= int(m[1]) <= 920 and 55 <= float(m[2]) <= 62, out
+        assert re.search(r"update\+draw avg [\d.]+ ms", out), out
+        q.expect("> ")
+        assert q.screendump()[:2] == (640, 360)
+    finally:
+        q.close()
+
+
+def test_b33_keys(b, opts):
+    q = Qemu(b("kernel.img"))
+    try:
+        q.boot()
+        q.send("n")
+        time.sleep(1.5)
+        _, text = settled_screen(q, lambda i, t: "attract" in t[-1])
+        assert "attract" in text[-1], text[-1]
+        for _ in range(10):
+            q.send("d")
+            time.sleep(0.05)
+        time.sleep(0.5)
+        _, text = settled_screen(q, lambda i, t: "arrows/wasd" in t[-1])
+        bottom = text[-1]
+        assert "arrows/wasd" in bottom, bottom
+        q.send("q")
+        q.expect("update+draw", timeout=10)
+        q.expect("> ")
+    finally:
+        q.close()
+
+
+def _upload(q, data):
+    q.send("U")
+    q.expect("15 s timeout\r\n")
+    loader = bm33_load.Loader(q.port, echo=q)
+    return loader.upload(data)
+
+
+def _b33(src):
+    return mkb33.pack(src.encode(), title="test cart")
+
+
+def test_b33_upload_errors(b, opts):
+    q = Qemu(b("kernel.img"))
+    try:
+        q.boot()
+        cases = [
+            ("function _update() error('boom42') end", "boom42"),
+            ("function _draw() while true do end end", "cart timeout"),
+            ("function _init( end", "main.lua:1"),
+            ("local x = nil + 1", "attempt to perform arithmetic"),
+        ]
+        for src, needle in cases:
+            assert _upload(q, _b33(src)), src
+            out = q.expect("> ", timeout=30).decode(errors="replace")
+            assert "stopped with an error" in out and needle in out, out
+            img = q.screendump()
+            assert img[:2] == (640, 360), "console restored after the error"
+        # sandbox: no file loading
+        assert _upload(q, _b33("function _init() assert(dofile == nil and load == nil and io == nil and os == nil) error('sandbox ok') end"))
+        assert b"sandbox ok" in q.expect("> ", timeout=20)
+        # a working cart that exits by itself is not needed: 'q' stops it
+        assert _upload(q, _b33("function _draw() cls(0x102030) print('hello', 8, 16) end"))
+        time.sleep(1.0)
+        img, _ = settled_screen(q, lambda i, t: "hello" in t[1])
+        assert pixel(img, 300, 300) == (16, 32, 48), pixel(img, 300, 300)
+        assert "hello" in screen_text(img)[1], screen_text(img)[:3]
+        q.send("q")
+        q.expect("update+draw", timeout=10)
+        q.expect("> ")
+    finally:
+        q.close()
+
+
+def test_upload_s32_and_corrupt(b, opts):
+    q = Qemu(b("kernel.img"))
+    try:
+        q.boot()
+        with open(os.path.join(HERE, "..", "spec", "s32", "conformance", "demo.cart"), "rb") as f:
+            cart = f.read()
+        assert _upload(q, cart)
+        time.sleep(1.0)
+        assert q.screendump()[:2] == (320, 224), "s32 cart via upload"
+        q.send("q")
+        q.expect("render", timeout=10)
+        q.expect("> ")
+        # CRC failure is reported, the monitor carries on
+        q.send("U")
+        q.expect("15 s timeout\r\n")
+        import struct, zlib
+        data = b"BM33CART" + b"x" * 100
+        q.send(b"BM33" + struct.pack("<II", len(data), zlib.crc32(data) ^ 1))
+        loader = bm33_load.Loader(q.port, echo=q)
+        assert loader._reply() == b"OK"
+        q.send(data)
+        assert loader._reply() == b"CE"
+        q.send("h")
+        q.expect("commands:")
     finally:
         q.close()
 

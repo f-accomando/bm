@@ -5,6 +5,8 @@ then acts as a serial terminal. Standard library only (Linux / macOS).
 
   bm33_load.py /dev/ttyUSB0 build/kernel.img          upload + terminal
   bm33_load.py tcp:127.0.0.1:4444 build/kernel.img    QEMU serial socket
+  bm33_load.py /dev/ttyUSB0 --cart game.b33           send a cartridge to a
+                                                      running kernel (monitor)
 
 In the terminal, Ctrl-] quits. Whenever the chainloader announces itself
 again (e.g. after the monitor 'r' command), the kernel file is re-read and
@@ -169,7 +171,7 @@ def terminal(loader, kernel_path):
                     return
                 loader.port.write(data)
             if loader.port in r:
-                if loader._feed(loader.port.read(0)):
+                if loader._feed(loader.port.read(0)) and kernel_path:
                     loader.tail = b""
                     log("chainloader restarted, re-sending kernel")
                     loader.upload_file(kernel_path)
@@ -178,11 +180,31 @@ def terminal(loader, kernel_path):
             termios.tcsetattr(stdin, termios.TCSADRAIN, old)
 
 
+def send_cart(loader, path, term):
+    """Asks the running kernel's monitor to receive a cartridge ('U')."""
+    loader.port.write(b"U")
+    deadline = time.time() + 5
+    buf = b""
+    while b"send a .b33" not in buf:
+        if time.time() > deadline:
+            log("the kernel did not answer (is the monitor prompt active?)")
+            return 1
+        buf += loader.port.read(0.2)
+    with open(path, "rb") as f:
+        data = f.read()
+    if not loader.upload(data):
+        return 1
+    if term:
+        terminal(loader, None)
+    return 0
+
+
 def main():
     ap = argparse.ArgumentParser(description=__doc__,
                                  formatter_class=argparse.RawDescriptionHelpFormatter)
     ap.add_argument("port", help="serial device or tcp:HOST:PORT")
-    ap.add_argument("kernel", help="kernel.img to upload")
+    ap.add_argument("kernel", nargs="?", help="kernel.img to upload")
+    ap.add_argument("--cart", help="send this .b33/.cart to a running kernel and play it")
     ap.add_argument("--baud", type=int, default=115200)
     ap.add_argument("--no-term", action="store_true", help="exit after upload")
     ap.add_argument("--timeout", type=float, default=None,
@@ -191,6 +213,10 @@ def main():
 
     port = Port(args.port, args.baud)
     loader = Loader(port)
+    if args.cart:
+        return send_cart(loader, args.cart, not args.no_term)
+    if not args.kernel:
+        ap.error("kernel image required (or --cart)")
     log(f"waiting for chainloader on {args.port} (reset the Pi)")
     if not loader.wait_ready(args.timeout):
         log("chainloader not found")

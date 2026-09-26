@@ -14,12 +14,17 @@ typedef struct {
     uint32_t buffers;   /* 1, or 2 when double buffered */
     uint32_t shown;     /* index of the buffer on screen */
     int vsync;          /* firmware supports "wait for vsync" (-1 = unknown) */
+    uint32_t depth;     /* bits per pixel: 32 (console) or 16 (RGB565) */
 } framebuffer_t;
 
 /* Asks the firmware for a 32bpp framebuffer with `buffers` (1 or 2) pages
  * stacked vertically in a virtual screen. Returns 0 on success. Drawing
  * starts on page 0, which is also the one shown. */
 int fb_init(framebuffer_t *fb, uint32_t width, uint32_t height, uint32_t buffers);
+
+/* Same, with an explicit depth: 32 (XRGB8888) or 16 (RGB565). */
+int fb_init_depth(framebuffer_t *fb, uint32_t width, uint32_t height,
+                  uint32_t buffers, uint32_t depth);
 
 /* Shows page `index` (virtual offset) and makes it the drawing target. */
 void fb_show(framebuffer_t *fb, uint32_t index);

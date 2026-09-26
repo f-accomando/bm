@@ -1,0 +1,310 @@
+#include "gfx16.h"
+
+#include <stdlib.h>
+#include <string.h>
+
+uint32_t g16_to_rgb24(uint16_t c)
+{
+    uint32_t r = c >> 11, g = c >> 5 & 0x3F, b = c & 0x1F;
+    return (r << 3 | r >> 2) << 16 | (g << 2 | g >> 4) << 8 | (b << 3 | b >> 2);
+}
+
+void g16_target(g16_t *g, uint16_t *px, uint32_t stride, int w, int h, const font_t *font)
+{
+    g->px = px;
+    g->stride = stride;
+    g->w = w;
+    g->h = h;
+    g->font = font;
+    g->cam_x = g->cam_y = 0;
+    g16_clip(g, 0, 0, 0, 0);
+}
+
+void g16_clip(g16_t *g, int x, int y, int w, int h)
+{
+    if (w <= 0 || h <= 0) {
+        g->cx0 = 0; g->cy0 = 0; g->cx1 = g->w; g->cy1 = g->h;
+        return;
+    }
+    g->cx0 = x < 0 ? 0 : x;
+    g->cy0 = y < 0 ? 0 : y;
+    g->cx1 = x + w > g->w ? g->w : x + w;
+    g->cy1 = y + h > g->h ? g->h : y + h;
+    if (g->cx1 < g->cx0) g->cx1 = g->cx0;
+    if (g->cy1 < g->cy0) g->cy1 = g->cy0;
+}
+
+void g16_camera(g16_t *g, int x, int y)
+{
+    g->cam_x = x;
+    g->cam_y = y;
+}
+
+/* Horizontal span in screen coordinates, already clipped by the caller. */
+static inline void span(uint16_t *p, int n, uint16_t c)
+{
+    if (n > 0 && ((uintptr_t)p & 2)) { *p++ = c; n--; }
+    uint32_t c2 = (uint32_t)c << 16 | c, *q = (uint32_t *)p;
+    while (n >= 8) { q[0] = c2; q[1] = c2; q[2] = c2; q[3] = c2; q += 4; n -= 8; }
+    while (n >= 2) { *q++ = c2; n -= 2; }
+    if (n) *(uint16_t *)q = c;
+}
+
+void g16_cls(g16_t *g, uint16_t c)
+{
+    for (int y = 0; y < g->h; y++)
+        span(g->px + (uint32_t)y * g->stride, g->w, c);
+}
+
+static inline void hline(g16_t *g, int x0, int x1, int y, uint16_t c)   /* screen coords, inclusive */
+{
+    if (y < g->cy0 || y >= g->cy1) return;
+    if (x0 < g->cx0) x0 = g->cx0;
+    if (x1 >= g->cx1) x1 = g->cx1 - 1;
+    if (x0 > x1) return;
+    span(g->px + (uint32_t)y * g->stride + x0, x1 - x0 + 1, c);
+}
+
+static inline void plot(g16_t *g, int x, int y, uint16_t c)             /* screen coords */
+{
+    if (x >= g->cx0 && x < g->cx1 && y >= g->cy0 && y < g->cy1)
+        g->px[(uint32_t)y * g->stride + x] = c;
+}
+
+void g16_pset(g16_t *g, int x, int y, uint16_t c)
+{
+    plot(g, x - g->cam_x, y - g->cam_y, c);
+}
+
+int g16_pget(const g16_t *g, int x, int y)
+{
+    x -= g->cam_x;
+    y -= g->cam_y;
+    if (x < 0 || y < 0 || x >= g->w || y >= g->h)
+        return -1;
+    return g->px[(uint32_t)y * g->stride + x];
+}
+
+void g16_line(g16_t *g, int x0, int y0, int x1, int y1, uint16_t c)
+{
+    x0 -= g->cam_x; x1 -= g->cam_x; y0 -= g->cam_y; y1 -= g->cam_y;
+    if (y0 == y1) {
+        hline(g, x0 < x1 ? x0 : x1, x0 < x1 ? x1 : x0, y0, c);
+        return;
+    }
+    int dx = abs(x1 - x0), sx = x0 < x1 ? 1 : -1;
+    int dy = -abs(y1 - y0), sy = y0 < y1 ? 1 : -1;
+    int err = dx + dy;
+    for (;;) {
+        plot(g, x0, y0, c);
+        if (x0 == x1 && y0 == y1) break;
+        int e2 = 2 * err;
+        if (e2 >= dy) { err += dy; x0 += sx; }
+        if (e2 <= dx) { err += dx; y0 += sy; }
+    }
+}
+
+void g16_rectfill(g16_t *g, int x, int y, int w, int h, uint16_t c)
+{
+    x -= g->cam_x;
+    y -= g->cam_y;
+    int x1 = x + w - 1, y1 = y + h - 1;
+    if (y < g->cy0) y = g->cy0;
+    if (y1 >= g->cy1) y1 = g->cy1 - 1;
+    for (; y <= y1; y++)
+        hline(g, x, x1, y, c);
+}
+
+void g16_rect(g16_t *g, int x, int y, int w, int h, uint16_t c)
+{
+    if (w <= 0 || h <= 0) return;
+    int sx = x - g->cam_x, sy = y - g->cam_y;
+    hline(g, sx, sx + w - 1, sy, c);
+    hline(g, sx, sx + w - 1, sy + h - 1, c);
+    for (int yy = sy + 1; yy < sy + h - 1; yy++) {
+        plot(g, sx, yy, c);
+        plot(g, sx + w - 1, yy, c);
+    }
+}
+
+void g16_circ(g16_t *g, int cx, int cy, int r, uint16_t c)
+{
+    cx -= g->cam_x;
+    cy -= g->cam_y;
+    int x = r, y = 0, err = 1 - r;
+    while (x >= y) {
+        plot(g, cx + x, cy + y, c); plot(g, cx - x, cy + y, c);
+        plot(g, cx + x, cy - y, c); plot(g, cx - x, cy - y, c);
+        plot(g, cx + y, cy + x, c); plot(g, cx - y, cy + x, c);
+        plot(g, cx + y, cy - x, c); plot(g, cx - y, cy - x, c);
+        y++;
+        if (err < 0) err += 2 * y + 1;
+        else { x--; err += 2 * (y - x) + 1; }
+    }
+}
+
+void g16_circfill(g16_t *g, int cx, int cy, int r, uint16_t c)
+{
+    cx -= g->cam_x;
+    cy -= g->cam_y;
+    int x = r, y = 0, err = 1 - r;
+    while (x >= y) {
+        hline(g, cx - x, cx + x, cy + y, c);
+        hline(g, cx - x, cx + x, cy - y, c);
+        hline(g, cx - y, cx + y, cy + x, c);
+        hline(g, cx - y, cx + y, cy - x, c);
+        y++;
+        if (err < 0) err += 2 * y + 1;
+        else { x--; err += 2 * (y - x) + 1; }
+    }
+}
+
+/* Core blit: sheet rectangle -> screen position (screen coords), clipped. */
+static void blit(g16_t *g, const g16_sheet_t *s, int sx, int sy, int sw, int sh,
+                 int dx, int dy, int flip_x, int flip_y, int opaque)
+{
+    int x0 = dx, y0 = dy, x1 = dx + sw, y1 = dy + sh;
+    if (x0 < g->cx0) x0 = g->cx0;
+    if (y0 < g->cy0) y0 = g->cy0;
+    if (x1 > g->cx1) x1 = g->cx1;
+    if (y1 > g->cy1) y1 = g->cy1;
+    if (x0 >= x1 || y0 >= y1)
+        return;
+
+    const int n = x1 - x0;
+    for (int y = y0; y < y1; y++) {
+        int ly = y - dy;
+        int srow = sy + (flip_y ? sh - 1 - ly : ly);
+        uint16_t *dst = g->px + (uint32_t)y * g->stride + x0;
+        const uint32_t sbase = (uint32_t)srow * s->w;
+        if (!flip_x) {
+            const uint16_t *src = s->px + sbase + sx + (x0 - dx);
+            if (opaque) {
+                memcpy(dst, src, (size_t)n * 2);
+            } else {
+                const uint8_t *a = s->alpha + sbase + sx + (x0 - dx);
+                for (int i = 0; i < n; i++)
+                    if (a[i]) dst[i] = src[i];
+            }
+        } else {
+            int scol = sx + sw - 1 - (x0 - dx);
+            const uint16_t *src = s->px + sbase;
+            const uint8_t *a = s->alpha + sbase;
+            for (int i = 0; i < n; i++, scol--)
+                if (opaque || a[scol]) dst[i] = src[scol];
+        }
+    }
+}
+
+static int clamp_rect(const g16_sheet_t *s, int *sx, int *sy, int *sw, int *sh)
+{
+    if (*sx < 0 || *sy < 0 || *sw <= 0 || *sh <= 0)
+        return 0;
+    if (*sx + *sw > s->w) *sw = s->w - *sx;
+    if (*sy + *sh > s->h) *sh = s->h - *sy;
+    return *sw > 0 && *sh > 0;
+}
+
+void g16_spr(g16_t *g, const g16_sheet_t *s, int n, int x, int y,
+             int wc, int hc, int flip_x, int flip_y)
+{
+    if (!s->px || n < 0) return;
+    int per_row = s->w / G16_CELL;
+    int sx = n % per_row * G16_CELL, sy = n / per_row * G16_CELL;
+    int sw = wc * G16_CELL, sh = hc * G16_CELL;
+    if (!clamp_rect(s, &sx, &sy, &sw, &sh)) return;
+    int opaque = wc == 1 && hc == 1 && s->cell_opaque[n];
+    blit(g, s, sx, sy, sw, sh, x - g->cam_x, y - g->cam_y, flip_x, flip_y, opaque);
+}
+
+void g16_sspr(g16_t *g, const g16_sheet_t *s, int sx, int sy, int sw, int sh,
+              int dx, int dy, int flip_x, int flip_y)
+{
+    if (!s->px || !clamp_rect(s, &sx, &sy, &sw, &sh)) return;
+    blit(g, s, sx, sy, sw, sh, dx - g->cam_x, dy - g->cam_y, flip_x, flip_y, 0);
+}
+
+void g16_map(g16_t *g, const g16_sheet_t *s, const g16_map_t *m,
+             int mx, int my, int x, int y, int mw, int mh)
+{
+    if (!s->px || !m->cells) return;
+    const int per_row = s->w / G16_CELL, ncells = per_row * (s->h / G16_CELL);
+    x -= g->cam_x;
+    y -= g->cam_y;
+    for (int cy = 0; cy < mh; cy++) {
+        int row = my + cy, py = y + cy * G16_CELL;
+        if (row < 0 || row >= m->h || py >= g->cy1 || py + G16_CELL <= g->cy0) continue;
+        for (int cx = 0; cx < mw; cx++) {
+            int col = mx + cx, px = x + cx * G16_CELL;
+            if (col < 0 || col >= m->w || px >= g->cx1 || px + G16_CELL <= g->cx0) continue;
+            int n = m->cells[row * m->w + col];
+            if (n == 0 || n >= ncells) continue;
+            blit(g, s, n % per_row * G16_CELL, n / per_row * G16_CELL, G16_CELL, G16_CELL,
+                 px, py, 0, 0, s->cell_opaque[n]);
+        }
+    }
+}
+
+int g16_text(g16_t *g, int x, int y, const char *str, uint16_t c)
+{
+    const font_t *f = g->font;
+    int sx = x - g->cam_x, sy = y - g->cam_y;
+    for (; *str; str++, sx += 8, x += 8) {
+        if (*str == '\n') { sy += f->height; sx = x = x - 8; continue; }
+        if (sx >= g->cx1 || sx + 8 <= g->cx0 || sy >= g->cy1 || sy + f->height <= g->cy0)
+            continue;
+        const uint8_t *gl = f->glyphs + (uint8_t)*str * f->height;
+        for (int r = 0; r < f->height; r++) {
+            uint8_t bits = gl[r];
+            for (int b = 0; bits; b++, bits <<= 1)
+                if (bits & 0x80) plot(g, sx + b, sy + r, c);
+        }
+    }
+    return x;
+}
+
+int g16_sheet_alloc(g16_sheet_t *s, int w, int h)
+{
+    memset(s, 0, sizeof *s);
+    w = (w + G16_CELL - 1) / G16_CELL * G16_CELL;
+    h = (h + G16_CELL - 1) / G16_CELL * G16_CELL;
+    s->px = calloc((size_t)w * h, 2);
+    s->alpha = calloc((size_t)w * h, 1);
+    s->cell_opaque = calloc((size_t)(w / G16_CELL) * (h / G16_CELL), 1);
+    if (!s->px || !s->alpha || !s->cell_opaque) {
+        g16_sheet_free(s);
+        return -1;
+    }
+    s->w = w;
+    s->h = h;
+    return 0;
+}
+
+void g16_sheet_free(g16_sheet_t *s)
+{
+    free(s->px);
+    free(s->alpha);
+    free(s->cell_opaque);
+    memset(s, 0, sizeof *s);
+}
+
+void g16_sheet_set(g16_sheet_t *s, int x, int y, uint16_t c, int opaque)
+{
+    if (x < 0 || y < 0 || x >= s->w || y >= s->h) return;
+    uint32_t i = (uint32_t)y * s->w + x;
+    s->px[i] = c;
+    s->alpha[i] = opaque ? 1 : 0;
+    if (!opaque)
+        s->cell_opaque[(y / G16_CELL) * (s->w / G16_CELL) + x / G16_CELL] = 0;
+}
+
+void g16_sheet_update_cell(g16_sheet_t *s, int cx, int cy)
+{
+    int per_row = s->w / G16_CELL;
+    if (cx < 0 || cy < 0 || cx >= per_row || cy >= s->h / G16_CELL) return;
+    int all = 1;
+    for (int y = 0; y < G16_CELL && all; y++)
+        for (int x = 0; x < G16_CELL; x++)
+            if (!s->alpha[(uint32_t)(cy * G16_CELL + y) * s->w + cx * G16_CELL + x]) { all = 0; break; }
+    s->cell_opaque[cy * per_row + cx] = (uint8_t)all;
+}

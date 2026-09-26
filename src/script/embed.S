@@ -14,3 +14,11 @@ boot_lua_end:
 s32_demo_cart:
     .incbin "spec/s32/conformance/demo.cart"
 s32_demo_cart_end:
+
+/* native bm33 demo cartridge, packed by scripts/mkb33.py (see Makefile) */
+    .section .rodata
+    .balign 4
+    .globl b33_demo_cart, b33_demo_cart_end
+b33_demo_cart:
+    .incbin "build/demo.b33"
+b33_demo_cart_end:
