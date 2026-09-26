@@ -1,7 +1,7 @@
 /* BCM2835 / ARM1176JZF-S: the VideoCore firmware loads kernel.img at 0x8000. */
 ENTRY(_start)
 
-SVC_STACK_SIZE = 0x10000;   /* 64 KiB */
+SVC_STACK_SIZE = 0x100000;  /* 1 MiB: the Lua parser and VM recurse on it */
 IRQ_STACK_SIZE = 0x1000;
 FIQ_STACK_SIZE = 0x1000;
 ABT_STACK_SIZE = 0x1000;
@@ -18,6 +18,13 @@ SECTIONS
 
     .rodata : ALIGN(8) {
         *(.rodata .rodata.*)
+    }
+
+    /* Exception-unwinding index, referenced by libgcc's unwinder. */
+    .ARM.exidx : ALIGN(4) {
+        __exidx_start = .;
+        *(.ARM.exidx* .gnu.linkonce.armexidx.*)
+        __exidx_end = .;
     }
 
     .data : ALIGN(8) {

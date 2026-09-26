@@ -1,6 +1,8 @@
 #include "monitor.h"
 #include "bench.h"
 #include "demo.h"
+#include "input.h"
+#include "script/repl.h"
 #include "sysinfo.h"
 #include "testpattern.h"
 #include "drivers/fb.h"
@@ -14,6 +16,7 @@ static void help(void)
 {
     kprintf("commands:\n"
             "  h  help\n"
+            "  l  Lua REPL (Ctrl-D or exit() returns here)\n"
             "  i  system info\n"
             "  c  clear screen\n"
             "  m  heap usage\n"
@@ -52,37 +55,13 @@ static void __attribute__((noinline)) trigger_swi(void)
     __asm__ volatile("svc #0x42");
 }
 
-static void update_uptime(void)
-{
-    char buf[24];
-    uint32_t s = timer_ticks() / 1000000;
-    ksnprintf(buf, sizeof buf, "up %02lu:%02lu:%02lu", s / 3600, s / 60 % 60, s % 60);
-    console_set_status(0, buf);
-}
-
-/* Waits for a key, refreshing the uptime in the status bar. */
-static char wait_key(void)
-{
-    uint32_t last = timer_ticks();
-    char c;
-
-    update_uptime();
-    while (!uart_getc_timeout(10000, &c)) {
-        if (timer_ticks() - last >= 1000000) {
-            last += 1000000;
-            update_uptime();
-        }
-    }
-    return c;
-}
-
 static void show_test_pattern(void)
 {
     framebuffer_t *fb = console_framebuffer();
     console_suspend(1);
     draw_test_pattern(fb);
     kprintf("test pattern shown, press any key\n");
-    wait_key();
+    input_getc();
     console_suspend(0);
 }
 
@@ -92,7 +71,7 @@ void monitor_run(void)
 
     for (;;) {
         kprintf("> ");
-        char c = wait_key();
+        char c = input_getc();
         if (c >= ' ' && c < 127)
             kprintf("%c", c);
         kprintf("\n");
@@ -100,6 +79,7 @@ void monitor_run(void)
         switch (c) {
         case 'h': case '?': help(); break;
         case 'i': sysinfo_print(); break;
+        case 'l': repl_run(); break;
         case 'c': console_clear(); break;
         case 'm': sysinfo_print_heap(); break;
         case 'd': {

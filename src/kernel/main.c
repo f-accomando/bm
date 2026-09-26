@@ -26,6 +26,7 @@
 #include "gfx/font.h"
 #include "lib/heap.h"
 #include "lib/printf.h"
+#include "script/luavm.h"
 
 #ifndef BM33_VERSION
 #define BM33_VERSION "dev"
@@ -64,6 +65,17 @@ static void report_irq(void)
     kprintf("IRQ on: timer %lu Hz (measured %lu Hz), double buffer %s\n",
             tick_hz(), (uint32_t)((uint64_t)n * 1000000u / us),
             fb.buffers == 2 ? "on" : "OFF");
+}
+
+extern const char boot_lua[], boot_lua_end[];
+
+static void run_boot_script(void)
+{
+    if (!luavm_init()) {
+        kprintf("\x1b[91mLua: cannot create the state\x1b[0m\n");
+        return;
+    }
+    luavm_run(boot_lua, (size_t)(boot_lua_end - boot_lua), "@boot.lua");
 }
 
 /* End of the ARM's share of SDRAM (the GPU owns the rest). */
@@ -122,6 +134,11 @@ void kernel_main(uint32_t atags)
     libc_selftest();
     report_irq();
 
+    kprintf("running the %u s animation demo (any key on serial skips it)...\n", DEMO_SECS);
+    demo_stats_t st;
+    demo_run(&fb, DEMO_SECS, &st);
+    demo_print(&st);
+
     uint32_t vs[5];
     if (fb_vsync_probe(vs, 5) == 0)
         kprintf("vsync probe: tag ok, waits %lu %lu %lu %lu %lu us\n",
@@ -129,10 +146,7 @@ void kernel_main(uint32_t atags)
     else
         kprintf("vsync probe: tag not supported by the firmware\n");
 
-    kprintf("running the %u s animation demo (any key on serial skips it)...\n", DEMO_SECS);
-    demo_stats_t st;
-    demo_run(&fb, DEMO_SECS, &st);
-    demo_print(&st);
+    run_boot_script();
 
     monitor_run();
 }

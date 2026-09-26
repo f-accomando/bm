@@ -22,7 +22,7 @@ COMMON  := $(ARCH) -std=c11 -O2 -Wall -Wextra -g -Isrc \
            -ffunction-sections -fdata-sections \
            -DUART_BAUD=$(BAUD) -DBM33_VERSION=\"$(VERSION)\"
 # Kernel: hosted C on top of newlib (libc, libm), see src/lib/syscalls.c.
-CFLAGS  := $(COMMON) -D_DEFAULT_SOURCE
+CFLAGS  = $(COMMON) -D_DEFAULT_SOURCE -Ithird_party/lua $(WARN)
 # Chainloader: freestanding, no libc.
 LCFLAGS := $(COMMON) -Os -ffreestanding -fno-builtin -fno-tree-loop-distribute-patterns
 ASFLAGS := $(ARCH) -g -Isrc -Isrc/kernel
@@ -30,7 +30,8 @@ LDFLAGS := $(ARCH) -nostartfiles -Wl,--gc-sections
 LDLIBS  := -Wl,--start-group -lc -lm -lgcc -Wl,--end-group
 LLDLIBS := -nostdlib -lgcc
 
-KERNEL_SRCS := $(shell find src -name '*.c' -o -name '*.S')
+LUA_SRCS    := $(wildcard third_party/lua/*.c)
+KERNEL_SRCS := $(shell find src -name '*.c' -o -name '*.S') $(LUA_SRCS)
 LOADER_SRCS := $(wildcard chainloader/*.S chainloader/*.c) \
                src/drivers/uart.c src/drivers/gpio.c src/drivers/mbox.c \
                src/drivers/prop.c src/drivers/timer.c src/drivers/led.c \
@@ -38,7 +39,14 @@ LOADER_SRCS := $(wildcard chainloader/*.S chainloader/*.c) \
 
 KERNEL_OBJS := $(patsubst %,$(BUILD)/k/%.o,$(KERNEL_SRCS))
 LOADER_OBJS := $(patsubst %,$(BUILD)/l/%.o,$(LOADER_SRCS))
+LUA_OBJS    := $(patsubst %,$(BUILD)/k/%.o,$(LUA_SRCS))
 
+# Third-party code: its own warning policy, not ours.
+$(LUA_OBJS): WARN := -w
+# Lua scripts embedded with .incbin
+$(BUILD)/k/src/script/embed.S.o: $(wildcard src/script/*.lua)
+
+.DEFAULT_GOAL := all
 .PHONY: all clean firmware sdcard sdcard-chainloader qemu qemu-screenshot \
         run-serial test disasm
 

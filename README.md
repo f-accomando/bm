@@ -14,14 +14,14 @@ Dettagli, criteri di completamento e rischi in [docs/ROADMAP.md](docs/ROADMAP.md
 | **M2** | Console testuale su schermo | ✅ |
 | **M3** | MMU, cache, heap, newlib | ✅ |
 | **M4** | Interrupt, timer, double buffering 60 fps | ✅ |
-| M5 | Lua 5.4 embedded + REPL | |
+| **M5** | Lua 5.4 embedded + REPL | ✅ |
 | M6 | API grafica Lua + ciclo `_update`/`_draw` | |
 | M7 | Input: pad GPIO, poi USB HID | |
 | M8 | SD + FAT, caricamento delle cart | |
 | M9 | **MVP**: launcher, giochi demo, immagine SD | |
 | M10 | Audio PWM (opzionale) | |
 
-## Cosa fa il kernel (M0–M4)
+## Cosa fa il kernel (M0–M5)
 
 All'avvio:
 1. `src/boot/start.S`: maschera gli IRQ, imposta uno stack per ogni modo della CPU,
@@ -42,11 +42,15 @@ All'avvio:
    un rettangolo, una barra verticale veloce (se c'è tearing la barra appare spezzata)
    e una riga con fps e tempo di disegno; poi mostra le statistiche (frame, fps,
    frame persi, tempo medio di disegno) e torna alla console
-10. avvia un **monitor** a tasto singolo sulla seriale:
+10. avvia **Lua 5.4.7** ed esegue lo script incorporato `src/script/boot.lua`:
+    versione, alcune funzioni del linguaggio, un errore intercettato con `pcall`,
+    micro-benchmark (fib, cicli, sort, stringhe) e memoria usata
+11. avvia un **monitor** a tasto singolo sulla seriale:
 
 | Tasto | Azione |
 |-------|--------|
 | `h` | aiuto |
+| `l` | **REPL Lua** (Ctrl-D o `exit()` per tornare al monitor) |
 | `i` | info di sistema |
 | `c` | pulisce lo schermo |
 | `m` | uso dell'heap |
@@ -70,6 +74,10 @@ Stato del LED ACT:
 - **N lampeggi + pausa**: eccezione N (1 undef, 2 SVC, 3 prefetch abort, 4 data abort,
   6 IRQ, 7 FIQ, 9 panic)
 - **lampeggio a 0,5 Hz** (cambia stato ogni secondo): chainloader in attesa del kernel
+
+REPL Lua (M5, QEMU):
+
+![lua](docs/m5-lua.png)
 
 Demo animata su Pi Zero W reale: 600 frame in 10 s, intervallo tra frame
 16667 µs costante, 0 frame persi, 2,7 ms di disegno per frame (su 16,7 disponibili),
@@ -126,6 +134,30 @@ Se modifichi di proposito il test pattern: `python3 tests/qemu_test.py --update-
 I test leggono il testo mostrato sullo schermo confrontando ogni cella 8×16
 con i glifi del font, quindi verificano anche ciò che appare sull'HDMI.
 
+## Lua
+
+Lua 5.4.7 completo (numeri double, interi a 64 bit, coroutine, string, table,
+math, utf8, os, io su stdout/stdin). `print` scrive su seriale e schermo.
+Gli errori non bloccano il kernel: vengono stampati in rosso con il traceback.
+Lua ha un limite di 64 MiB di memoria; oltre, `not enough memory` (recuperabile).
+
+Modulo `bm33`:
+
+| Funzione | Descrizione |
+|----------|-------------|
+| `bm33.micros()` | contatore a 1 MHz (intero) |
+| `bm33.millis()` | millisecondi dal tick di sistema |
+| `bm33.sleep(ms)` | attesa |
+| `bm33.mem()` | byte usati da Lua, picco, byte in uso nell'heap C |
+| `bm33.color(fg [, bg])` | colori della console 0–15 (ordine ANSI) |
+| `bm33.cls()` | pulisce lo schermo |
+| `bm33.reboot()` | riavvio (watchdog) |
+| `bm33.version` | versione del kernel |
+
+Senza seriale non puoi scrivere nel REPL; per ora lo script eseguito all'avvio
+è `src/script/boot.lua` (modificalo e ricompila). Da M8 le cart Lua si
+caricheranno dalla SD.
+
 ## Collegamento seriale
 
 Adattatore USB-seriale **a 3.3 V** (mai 5 V: danneggia il SoC). Non collegare il VCC.
@@ -158,8 +190,8 @@ nel terminale seriale → il Pi si riavvia e riceve il nuovo `build/kernel.img`.
 Protocollo (vedi `chainloader/main.c`): il loader invia `\x03\x03\x03` ogni
 secondo; il PC risponde `BM33` + dimensione + CRC-32; il loader verifica, copia il
 kernel a `0x8000` e ci salta. Il chainloader si ricopia prima a `0x02000000`, quindi
-il kernel può essere grande fino a ~31 MiB. A 115200 baud la velocità è ~11 KB/s;
-per kernel più grandi usa `BAUD=921600` (deve essere uguale per build e `run-serial`,
+il kernel può essere grande fino a ~31 MiB. A 115200 baud la velocità è ~11 KB/s:
+con Lua il kernel è ~340 KB, cioè ~30 s per caricarlo. Conviene `BAUD=921600` (deve essere uguale per build e `run-serial`,
 e va rifatto anche il chainloader sulla SD).
 
 ## Aggiornare solo il kernel sulla SD (senza seriale)
@@ -196,6 +228,11 @@ src/kernel/irq.c         controller IRQ BCM2835, registrazione e dispatch
 src/kernel/tick.c        tick di sistema (system timer compare 1)
 src/kernel/demo.c        demo animata a 60 fps
 src/gfx/draw.c           primitive: clear, rect, sprite 16×16, testo
+src/script/luavm.c       stato Lua, allocatore con limite (64 MiB), esecuzione protetta
+src/script/repl.c        REPL: espressioni, righe di continuazione, traceback
+src/script/lib_bm33.c    modulo Lua `bm33`
+src/script/boot.lua      script di avvio (incluso nell'immagine con .incbin)
+third_party/lua/         Lua 5.4.7 non modificato (licenza MIT)
 src/kernel/selftest.c    self-test di newlib
 src/arch/mmu.c           tabella delle sezioni da 1 MiB, attivazione MMU e cache
 src/arch/cache.c         clean/invalidate della D-cache per range (mailbox)

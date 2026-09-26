@@ -53,7 +53,7 @@ M0 ─ M1 ─ M2 ─ M3 ─ M4 ─ M5 ─ M6 ─┬─ M7 ─┬─ M9 (MVP)
 - Risultato: 60 fps, 0 frame persi, 2,7 ms di disegno per frame; ritmo dal timer.
   Da capire: sincronizzazione al vsync reale (il tag 0x4000E non è stato usato).
 
-## M5 — Lua embedded (M)
+## M5 — Lua embedded ✅ (M)
 - Lua 5.4 in `third_party/lua`, compilato con newlib e VFP hard-float.
 - Allocatore dedicato per `lua_State`, `print` → console, errori con traceback su schermo.
 - REPL su UART; script di avvio incluso nell'immagine (`.incbin`).

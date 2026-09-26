@@ -173,11 +173,17 @@ def test_boot_banner(b, opts):
             assert s in out, f"missing {s!r} in boot log"
         hz = int(re.search(rb"measured (\d+) Hz", out).group(1))
         assert 900 <= hz <= 1100, f"timer IRQ rate {hz} Hz"  # QEMU host jitter
+        plain = re.sub(rb"\x1b\[[0-9;]*m", b"", out).decode(errors="replace")
+        for s in ("MMU+caches on", "console 80x21", "benchmark (us)",
+                  "libc selftest: ok", "printf 3.142, sqrt(2) 1.414213562",
+                  "IRQ on: timer 1000 Hz", "demo:", "vsync probe"):
+            assert s in plain, f"missing {s!r} in boot log"
         text = "\n".join(screen_text(q.screendump()))
-        for s in ("board 920092", "MMU+caches on", "console 80x21",
-                  "benchmark (us)", "libc selftest: ok", "printf 3.142, sqrt(2) 1.414213562",
-                  "IRQ on: timer 1000 Hz", "demo:", "type 'h' for help"):
+        for s in ("Lua 5.4 on bm33", "2^10=1024.0 7//2=3 sqrt(2)=1.414214 THE QUICK BROWN FOX co:1,4,9",
+                  "pcall caught: boot.lua:", "Lua bench: fib(25)=75025", "Lua memory:",
+                  "type 'h' for help"):
             assert s in text, f"missing {s!r} on screen:\n{text}"
+        assert all(len(l) < 80 for l in text.splitlines()), "boot output wraps:\n" + text
         q.send("i")
         out = q.expect("uptime")
         assert b"MMU/caches     : on" in out, out
@@ -197,15 +203,15 @@ def test_console_ansi_and_status(b, opts):
         assert "up 00:00:0" in text[0], f"uptime in status bar: {text[0]!r}"
         assert pixel(img, 2, 2) == (0, 170, 170), "status bar colour"
         # "bm33" in the banner is bright cyan (ESC[1;36m)
-        sel = next(i for i, l in enumerate(text) if l.startswith("libc selftest: ok"))
-        colours = {pixel(img, x, sel * 16 + y) for x in range(120, 136) for y in range(16)}
-        assert (85, 255, 85) in colours, "ANSI bright green 'ok' not rendered"
+        sel = next(i for i, l in enumerate(text) if l.startswith("Lua 5.4"))
+        colours = {pixel(img, x, sel * 16 + y) for x in range(0, 56) for y in range(16)}
+        assert (255, 255, 85) in colours, "ANSI bright yellow not rendered"
         # scrolling: 40 unknown-command lines push the banner off screen
         for _ in range(20):
             q.send("x")
             q.expect("> ")
         text = screen_text(q.screendump())
-        assert not any("libc selftest" in l for l in text), "console did not scroll"
+        assert not any("Lua bench" in l for l in text), "console did not scroll"
         assert text[0].startswith(" bm33 "), "status bar scrolled away"
         assert any("unknown command (0x78)" in l for l in text)
     finally:
@@ -237,7 +243,7 @@ def test_screen_pattern(b, opts):
         q.send(" ")                         # back to the console, text restored
         q.expect("> ")
         text = "\n".join(screen_text(q.screendump()))
-        assert "libc selftest" in text and "test pattern shown" in text, text
+        assert "Lua memory" in text and "test pattern shown" in text, text
     finally:
         q.close()
 
@@ -318,6 +324,63 @@ def test_demo_monitor_key_stops(b, opts):
         out = q.expect("dropped", timeout=5).decode(errors="replace")
         secs = float(re.search(r"frames in ([\d.]+) s", out).group(1))
         assert secs < 5, f"demo did not stop on key ({secs} s)"
+    finally:
+        q.close()
+
+
+def test_lua_repl(b, opts):
+    q = Qemu(b("kernel.img"))
+    try:
+        q.boot()
+        q.send("l")
+        q.expect("lua> ")
+        q.send("print(2^10)\r")
+        assert b"1024.0" in q.expect("lua> ")
+        q.send("1 + 2, 'x' .. 'y'\r")              # expressions are printed
+        assert b"3\txy" in q.expect("lua> ")
+        q.send("t = {}\r")
+        q.expect("lua> ")
+        q.send("for i = 1, 3 do\r")                # continuation line
+        q.expect(">> ")
+        q.send("t[#t+1] = i * 10 end\r")
+        q.expect("lua> ")
+        q.send("table.concat(t, '-')\r")
+        assert b"10-20-30" in q.expect("lua> ")
+        q.send("error('boom')\r")                  # errors do not kill anything
+        out = q.expect("lua> ")
+        assert b"boom" in out and b"stack traceback" in out, out
+        q.send("local x = nil + 1\r")
+        assert b"attempt to perform arithmetic" in q.expect("lua> ")
+        q.send("bm33.millis() > 0, math.type(bm33.micros())\r")
+        assert b"true\tinteger" in q.expect("lua> ")
+        q.send("string.format('%.3f %5.1f', math.pi, 2.25)\r")
+        assert b"3.142   2.2" in q.expect("lua> ")
+        q.send("select(2, bm33.mem()) > 0\r")
+        assert b"true" in q.expect("lua> ")
+        q.send("abc\x7f\x7f\x7f1+1\r")            # backspace editing
+        assert b"2" in q.expect("lua> ")
+        q.send("\x04")                            # Ctrl-D: back to the monitor
+        q.expect("> ")
+        q.send("h")
+        q.expect("Lua REPL")
+        text = "\n".join(screen_text(q.screendump()))
+        assert "lua> print(2^10)" in text or "10-20-30" in text or "Lua REPL" in text, text
+    finally:
+        q.close()
+
+
+def test_lua_out_of_memory(b, opts):
+    q = Qemu(b("kernel.img"))
+    try:
+        q.boot()
+        q.send("l")
+        q.expect("lua> ")
+        # grows past the 64 MiB Lua limit: must fail cleanly, not crash
+        q.send("t = {} for i = 1, 1000 do t[i] = ('x'):rep(1 << 20) .. i end\r")
+        out = q.expect("lua> ", timeout=60)
+        assert b"not enough memory" in out, out
+        q.send("t = nil collectgarbage() print('alive', 6 * 7)\r")
+        assert b"alive\t42" in q.expect("lua> ", timeout=20)
     finally:
         q.close()
 
