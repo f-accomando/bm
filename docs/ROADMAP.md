@@ -92,6 +92,19 @@ CGRAM, APU, porte), implementata in C nativo, non un'emulazione del motore di lu
 
 Priorità attuale: sviluppo della console bm33; la parte s32 avanza al ritmo di lua32.
 
+### Cartucce native `.b33`: video (decisione 2026-09-26)
+- **640×360**, 16:9, scala intera ×2 su 720p e ×3 su 1080p; è la risoluzione della
+  console, quindi nessun cambio di modo. 320×180 facoltativa (header).
+- **16 bit RGB565** (65 536 colori, colore diretto): metà banda del 32 bit
+  (fill stimato ~1,1 ms contro 2,2 ms misurati).
+- **Espandibile a 32 bit** in seguito: l'API riceve i colori come RGB888 e la
+  grafica delle cartucce è salvata in un formato indipendente dal framebuffer;
+  il formato di pixel è un campo dell'header `.b33` e il disegno in C è
+  parametrizzato sulla profondità. Il 24 bit "impacchettato" (3 byte per pixel,
+  non allineato) si evita: l'espansione utile è il 32 bit.
+- **Budget**: disegno completo (mappa piena + 256 sprite) sotto il 25% del frame,
+  verificato da un benchmark a schermo; tutto il disegno in C, Lua solo logica.
+
 ## M7 — Input (L, rischio alto)
 - **Fase A (S):** pulsanti su GPIO oppure pad SNES/NES via GPIO (latch/clock/data):
   semplice, deterministico, pronto per giocare subito.
