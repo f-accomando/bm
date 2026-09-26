@@ -3,6 +3,8 @@
 #include "drivers/uart.h"
 #include "gfx/console.h"
 #include "lib/printf.h"
+#include "usb/hid.h"
+#include "usb/usb.h"
 
 static void update_uptime(void)
 {
@@ -12,17 +14,41 @@ static void update_uptime(void)
     console_set_status(0, buf);
 }
 
+int input_key(void)
+{
+    if (uart_rx_ready())
+        return (unsigned char)uart_getc();
+    usb_poll();
+    return hid_getc();
+}
+
 char input_getc(void)
 {
     uint32_t last = timer_ticks();
-    char c;
+    int c;
 
     update_uptime();
-    while (!uart_getc_timeout(10000, &c)) {
+    while ((c = input_key()) < 0) {
         if (timer_ticks() - last >= 1000000) {
             last += 1000000;
             update_uptime();
         }
     }
-    return c;
+    return (char)c;
+}
+
+uint32_t input_buttons(int *quit)
+{
+    usb_poll();
+    if (hid_quit_pressed())
+        *quit = 1;
+    return hid_buttons();
+}
+
+void input_flush(void)
+{
+    usb_poll();
+    while (hid_getc() >= 0)
+        ;
+    hid_quit_pressed();
 }

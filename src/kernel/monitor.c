@@ -15,6 +15,8 @@
 #include "drivers/uart.h"
 #include "drivers/watchdog.h"
 #include "lib/printf.h"
+#include "usb/hid.h"
+#include "usb/usb.h"
 
 static void help(void)
 {
@@ -26,12 +28,14 @@ static void help(void)
             "  m  heap usage\n"
             "  k  run the benchmark\n"
             "  d  animation demo (60 fps, double buffered; any key stops it)\n"
-            "  g  play the built-in s32 demo.cart (w/a/s/d, space, q quits)\n"
-            "  n  play the built-in native demo.b33 (arrows/wasd, space, q quits)\n"
+            "  g  play the built-in s32 demo.cart (arrows/wasd, space; q or Esc quits)\n"
+            "  n  play the built-in native demo.b33 (arrows/wasd, space; q or Esc quits)\n"
             "  p  C rendering benchmark at 640x360 RGB565\n"
             "  U  receive a cartridge over serial and play it\n"
             "  S  rendering stress test (sprites, triangles, 3D; C and Lua)\n"
             "  t  HDMI test pattern (any key returns to the console)\n"
+            "  y  USB: scan the port again (after plugging a device)\n"
+            "  L  keyboard layout: Italian / US\n"
             "  r  reboot (watchdog; the chainloader will ask for a new kernel)\n"
             "  u  test: undefined instruction\n"
             "  a  test: data abort (unaligned access with alignment checking)\n"
@@ -76,7 +80,7 @@ static void show_test_pattern(void)
 
 void monitor_run(void)
 {
-    kprintf("\ntype 'h' for help (serial)\n");
+    kprintf("\ntype 'h' for help\n");
 
     for (;;) {
         kprintf("> ");
@@ -136,6 +140,11 @@ void monitor_run(void)
             break;
         }
         case 't': show_test_pattern(); break;
+        case 'y': usb_init(); usb_print(); break;
+        case 'L':
+            hid_set_layout(hid_layout()[0] == 'i' ? "us" : "it");
+            kprintf("keyboard layout: %s\n", hid_layout());
+            break;
         case 'r':
             kprintf("rebooting...\n");
             uart_flush();

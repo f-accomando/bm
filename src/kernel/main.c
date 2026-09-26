@@ -30,6 +30,7 @@
 #include "s32/player.h"
 #include "b33/runtime.h"
 #include "b33/stress.h"
+#include "usb/usb.h"
 
 #ifndef BM33_VERSION
 #define BM33_VERSION "dev"
@@ -152,20 +153,22 @@ void kernel_main(uint32_t atags)
     bench_print(bench, 3);
     libc_selftest();
     report_irq();
+    usb_init();
+    usb_print();
 
 #ifdef BM33_BOOT_STRESS
     run_stress();
     monitor_run();
 #endif
 
-    kprintf("s32: playing the built-in demo.cart for %u s ('q' on serial skips it)...\n",
+    kprintf("s32: playing the built-in demo.cart for %u s ('q' or Esc skips it)...\n",
             S32_ATTRACT_SECS);
     s32_play_stats_t ps;
     s32_play(&fb, s32_demo_cart, (size_t)(s32_demo_cart_end - s32_demo_cart),
              S32_ATTRACT_SECS, 1, &ps);
     s32_play_print(&ps);
 
-    kprintf("b33: C benchmark and native demo cart ('q' on serial skips)...\n");
+    kprintf("b33: C benchmark and native demo cart ('q' or Esc skips)...\n");
     uint32_t bench_us = b33_bench(&fb, 120);
     kprintf("b33 bench: map + 256 sprites, 640x360: %lu.%02lu ms/frame (%lu%% of 16.7 ms)\n",
             bench_us / 1000, bench_us % 1000 / 10, bench_us * 100 / 16667);

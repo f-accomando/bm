@@ -2,6 +2,8 @@
 #include "s32.h"
 #include "drivers/timer.h"
 #include "drivers/uart.h"
+#include "kernel/input.h"
+#include "usb/hid.h"
 #include "gfx/console.h"
 #include "lib/printf.h"
 
@@ -127,6 +129,12 @@ void s32_play(framebuffer_t *fb, const uint8_t *data, size_t len,
     for (;;) {
         if (poll_keys(hold, &esc, &seen_serial))
             break;
+        int quit = 0;
+        uint32_t pad = input_buttons(&quit);
+        if (quit)
+            break;
+        if (pad)
+            seen_serial = 1;
         if (timer_ticks() - start >= seconds * 1000000u)
             break;
 
@@ -134,6 +142,11 @@ void s32_play(framebuffer_t *fb, const uint8_t *data, size_t len,
         if (seen_serial) {
             for (int b = 0; b < 5; b++)
                 if (hold[b]) { in[0] |= 1u << b; hold[b]--; }
+            if (pad & HID_UP)    in[0] |= 1u << 0;
+            if (pad & HID_DOWN)  in[0] |= 1u << 1;
+            if (pad & HID_LEFT)  in[0] |= 1u << 2;
+            if (pad & HID_RIGHT) in[0] |= 1u << 3;
+            if (pad & HID_A)     in[0] |= 1u << 4;
         } else {
             in[0] = attract_input(st->ticks);
         }
@@ -166,6 +179,7 @@ void s32_play(framebuffer_t *fb, const uint8_t *data, size_t len,
 
     st->elapsed_us = timer_ticks() - start;
     st->attract = !seen_serial;
+    input_flush();
     fb_init(fb, con_w, con_h, 2);
     console_suspend(0);
     if (st->status > 0)

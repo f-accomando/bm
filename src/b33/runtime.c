@@ -8,6 +8,8 @@
 #include "r3d.h"
 #include "drivers/timer.h"
 #include "drivers/uart.h"
+#include "kernel/input.h"
+#include "usb/hid.h"
 #include "gfx/console.h"
 #include "gfx/font.h"
 #include "lib/printf.h"
@@ -460,11 +462,13 @@ static int poll_keys(void)
         if (b >= 0)
             rt.hold[b] = HOLD_FRAMES;
     }
+    int quit = 0;
+    uint32_t pad = input_buttons(&quit);
     rt.prev = rt.now;
-    rt.now = 0;
+    rt.now = pad & ((1u << BTN_COUNT) - 1);   /* HID_* bits match btn() numbers */
     for (int b = 0; b < BTN_COUNT; b++)
         if (rt.hold[b]) { rt.now |= 1u << b; rt.hold[b]--; }
-    return 0;
+    return quit;
 }
 
 /* ---------------------------------------------------------------- loading */
@@ -535,6 +539,7 @@ static int enter_mode(framebuffer_t *fb, int w, int h)
 static void leave_mode(framebuffer_t *fb, uint32_t w, uint32_t h)
 {
     b33_video_leave(fb, w, h);
+    input_flush();              /* keys typed in the game stay in the game */
 }
 
 static void present(framebuffer_t *fb, uint32_t *deadline, uint32_t *prev, uint32_t *dropped)

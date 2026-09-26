@@ -36,7 +36,7 @@ def free_port():
 
 
 class Qemu:
-    def __init__(self, image):
+    def __init__(self, image, extra=()):
         self.tmp = tempfile.mkdtemp(prefix="bm33-")
         self.mon_path = os.path.join(self.tmp, "mon.sock")
         tcp = free_port()
@@ -44,7 +44,7 @@ class Qemu:
             [QEMU, "-M", "raspi0", "-bios", image, "-display", "none",
              "-serial", f"tcp:127.0.0.1:{tcp},server=on,wait=on",
              "-serial", "null",
-             "-monitor", f"unix:{self.mon_path},server=on,wait=off"],
+             "-monitor", f"unix:{self.mon_path},server=on,wait=off", *extra],
             stdout=subprocess.DEVNULL, stderr=subprocess.PIPE)
         self.port = bm33_load.Port(f"tcp:127.0.0.1:{tcp}", 115200)
         self.buf = b""
@@ -515,6 +515,68 @@ def test_b33_keys(b, opts):
         q.send("q")
         q.expect("update+draw", timeout=10)
         q.expect("> ")
+    finally:
+        q.close()
+
+
+USB_KBD = ["-device", "usb-kbd,port=1"]      # port=1: on the root port, no hub
+
+
+def sendkeys(q, keys, gap=0.15):
+    """Types on the emulated USB keyboard (QEMU key names)."""
+    for k in keys.split():
+        with socket.socket(socket.AF_UNIX) as s:
+            s.connect(q.mon_path)
+            s.sendall(f"sendkey {k}\n".encode())
+            time.sleep(0.05)
+        time.sleep(gap)
+
+
+def test_usb_keyboard(b, opts):
+    q = Qemu(b("kernel.img"), USB_KBD)
+    try:
+        out = q.expect(DEMO, timeout=25)
+        assert b"usb: keyboard 0627:0001 'QEMU USB Keyboard', high speed, layout it" in out, out
+        time.sleep(1.0)
+        sendkeys(q, "esc")                     # Esc on the keyboard skips the demos
+        out = q.expect(B33_DEMO, timeout=20).decode(errors="replace")
+        m = re.search(r'" (\d+) ticks', out)
+        assert m and int(m[1]) < 200, out
+        q.expect("b33 bench:", timeout=20)
+        time.sleep(1.0)
+        sendkeys(q, "esc")
+        out = q.expect(PROMPT, timeout=30).decode(errors="replace")
+        m = re.search(r'demo" (\d+) frames', out)
+        assert m and int(m[1]) < 300, out
+        q.expect("> ")
+
+        # s32: held arrow keys move the square
+        sendkeys(q, "g")
+        time.sleep(1.0)
+        start = yellow_square(q.screendump())
+        assert start and start[0] == (150, 100), f"initial position {start}"
+        q.monitor("sendkey right 800")
+        time.sleep(1.2)
+        right = yellow_square(q.screendump())
+        assert right[0][0] > start[0][0] + 40 and right[0][1] == 100, f"{start} -> {right}"
+        sendkeys(q, "esc")
+        out = q.expect("render", timeout=10).decode(errors="replace")
+        assert "(attract)" not in out, out
+        q.expect("> ")
+
+        # monitor command and Lua REPL typed on the Italian layout:
+        # shift-8 = '(', shift-] = '*', shift-2 = '"', ';' key = 'ò' (CP437 0x95)
+        sendkeys(q, "l")
+        q.expect("lua> ", timeout=10)
+        sendkeys(q, "p r i n t shift-8 3 shift-bracket_right 4 shift-9 ret")
+        q.expect("\n12\r\n", timeout=10)
+        sendkeys(q, "p r i n t shift-8 shift-2 semicolon shift-2 shift-9 ret")
+        q.expect(b'"\x95")', timeout=10)
+        q.expect(b"\x95\r\n", timeout=10)
+        sendkeys(q, "ctrl-d")
+        q.expect("> ", timeout=10)
+        sendkeys(q, "shift-l")
+        q.expect("keyboard layout: us", timeout=10)
     finally:
         q.close()
 
