@@ -7,7 +7,16 @@ OBJDUMP := $(CROSS)objdump
 QEMU    ?= qemu-system-arm
 PYTHON  ?= python3
 
+# BOOT=stress builds a kernel that runs the rendering stress test at boot
+# (its own build directory, so normal and stress objects never mix).
+BOOT    ?= normal
+ifeq ($(BOOT),stress)
+BUILD   := build-stress
+BOOT_DEFS := -DBM33_BOOT_STRESS
+else
 BUILD   := build
+BOOT_DEFS :=
+endif
 DIST    := dist
 FW_DIR  := firmware
 
@@ -20,12 +29,12 @@ VERSION := $(shell git describe --always --dirty 2>/dev/null || echo dev)
 ARCH    := -mcpu=arm1176jzf-s -marm -mfpu=vfp -mfloat-abi=hard
 COMMON  := $(ARCH) -std=c11 -O2 -Wall -Wextra -g -Isrc \
            -ffunction-sections -fdata-sections \
-           -DUART_BAUD=$(BAUD) -DBM33_VERSION=\"$(VERSION)\"
+           -DUART_BAUD=$(BAUD) -DBM33_VERSION=\"$(VERSION)\" $(BOOT_DEFS)
 # Kernel: hosted C on top of newlib (libc, libm), see src/lib/syscalls.c.
 CFLAGS  = $(COMMON) -D_DEFAULT_SOURCE -Ithird_party/lua $(WARN)
 # Chainloader: freestanding, no libc.
 LCFLAGS := $(COMMON) -Os -ffreestanding -fno-builtin -fno-tree-loop-distribute-patterns
-ASFLAGS := $(ARCH) -g -Isrc -Isrc/kernel
+ASFLAGS := $(ARCH) -g -Isrc -Isrc/kernel -Wa,-I$(BUILD)
 LDFLAGS := $(ARCH) -nostartfiles -Wl,--gc-sections
 LDLIBS  := -Wl,--start-group -lc -lm -lgcc -Wl,--end-group
 LLDLIBS := -nostdlib -lgcc
@@ -45,7 +54,11 @@ LUA_OBJS    := $(patsubst %,$(BUILD)/k/%.o,$(LUA_SRCS))
 $(LUA_OBJS): WARN := -w
 # Lua scripts embedded with .incbin
 $(BUILD)/k/src/script/embed.S.o: $(wildcard src/script/*.lua) spec/s32/conformance/demo.cart \
-                                 $(BUILD)/demo.b33
+                                 $(BUILD)/demo.b33 $(BUILD)/stress.b33
+
+$(BUILD)/stress.b33: carts/stress/main.lua scripts/mkb33.py
+	@mkdir -p $(dir $@)
+	$(PYTHON) scripts/mkb33.py -o $@ --lua $< --title "bm33 stress test" --author bm33
 
 # Native demo cartridge (.b33): Lua + sprite sheet + map
 DEMO_B33_SRC := carts/demo/main.lua carts/demo/sheet.png carts/demo/map.csv
@@ -55,7 +68,7 @@ $(BUILD)/demo.b33: $(DEMO_B33_SRC) scripts/mkb33.py
 	    --map carts/demo/map.csv --title "bm33 native demo" --author bm33
 
 .DEFAULT_GOAL := all
-.PHONY: all clean firmware sdcard sdcard-chainloader qemu qemu-screenshot \
+.PHONY: all clean firmware sdcard sdcard-chainloader sdcard-stress qemu qemu-screenshot \
         run-serial test test-s32 test-s32-arm test-b33 disasm
 
 all: $(BUILD)/kernel.img $(BUILD)/chainloader.img
@@ -103,6 +116,10 @@ sdcard: $(BUILD)/$(KERNEL).img
 sdcard-chainloader:
 	$(MAKE) sdcard KERNEL=chainloader
 
+# SD card contents with the stress-test kernel (make sdcard-stress)
+sdcard-stress:
+	$(MAKE) sdcard BOOT=stress
+
 # Upload the kernel to a Pi running the chainloader, then open a terminal.
 # Rebooting the Pi (monitor command 'r') re-sends the current kernel.img.
 run-serial: $(BUILD)/kernel.img
@@ -120,9 +137,9 @@ qemu-screenshot: $(BUILD)/kernel.img
 test: all test-s32 test-b33
 	$(PYTHON) tests/qemu_test.py --build $(BUILD)
 
-$(BUILD)/host/test_b33: tests/b33/test_b33.c src/b33/gfx16.c src/b33/format.c src/lib/crc32.c src/b33/*.h
+$(BUILD)/host/test_b33: tests/b33/test_b33.c src/b33/gfx16.c src/b33/r3d.c src/b33/format.c src/lib/crc32.c src/b33/*.h
 	@mkdir -p $(dir $@)
-	$(HOSTCC) -O2 -Wall -Wextra -Isrc -o $@ tests/b33/test_b33.c src/b33/gfx16.c src/b33/format.c src/lib/crc32.c
+	$(HOSTCC) -O2 -Wall -Wextra -Isrc -o $@ tests/b33/test_b33.c src/b33/gfx16.c src/b33/r3d.c src/b33/format.c src/lib/crc32.c -lm
 
 test-b33: $(BUILD)/host/test_b33 $(BUILD)/demo.b33
 	$< $(BUILD)/demo.b33
@@ -148,6 +165,6 @@ test-s32-arm: $(BUILD)/host/s32_conformance_arm
 	qemu-arm -cpu arm1176 $< spec/s32/conformance
 
 clean:
-	rm -rf $(BUILD) $(DIST)
+	rm -rf build build-stress $(DIST)
 
 -include $(KERNEL_OBJS:.o=.d) $(LOADER_OBJS:.o=.d)

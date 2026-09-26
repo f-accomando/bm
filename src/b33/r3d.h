@@ -1,0 +1,55 @@
+/*
+ * Software 3D for native cartridges: flat-shaded, z-buffered triangles in
+ * RGB565, perspective projection, back-face culling, one directional light.
+ * Everything runs on the ARM (VFP for the transforms, fixed point in the
+ * inner loops); the VideoCore 3D unit is not used.
+ */
+#ifndef R3D_H
+#define R3D_H
+
+#include <stdint.h>
+
+#include "gfx16.h"
+
+typedef struct { float x, y, z; } v3_t;
+
+typedef struct {
+    int nverts, nfaces;
+    v3_t *verts;
+    uint16_t *faces;            /* 3 vertex indices per face */
+    uint32_t *colors;           /* 0xRRGGBB per face */
+    v3_t *normals;              /* per face, object space */
+} r3d_mesh_t;
+
+typedef struct {
+    g16_t *g;
+    uint16_t *zbuf;             /* g->w * g->h, 0 = far */
+    v3_t cam_pos;
+    float cam_yaw, cam_pitch;
+    float focal;                /* pixels: (w/2) / tan(fov/2) */
+    v3_t light;                 /* unit vector towards the light, world space */
+    float ambient;
+    /* statistics of the last frame (reset by r3d_zclear) */
+    uint32_t tris_in, tris_drawn, pixels;
+} r3d_t;
+
+int  r3d_init(r3d_t *r, g16_t *g);
+void r3d_free(r3d_t *r);
+void r3d_zclear(r3d_t *r);
+void r3d_camera(r3d_t *r, float x, float y, float z, float yaw, float pitch, float fov_deg);
+void r3d_light(r3d_t *r, float x, float y, float z, float ambient);
+
+/* Draws a mesh at position p, rotated by (rx, ry, rz) radians, scaled. */
+void r3d_draw(r3d_t *r, const r3d_mesh_t *m, v3_t p, float rx, float ry, float rz, float scale);
+
+/* Mesh helpers */
+int  r3d_mesh_alloc(r3d_mesh_t *m, int nverts, int nfaces);
+void r3d_mesh_free(r3d_mesh_t *m);
+void r3d_mesh_normals(r3d_mesh_t *m);
+int  r3d_mesh_sphere(r3d_mesh_t *m, int rings, int segments, uint32_t c1, uint32_t c2);
+int  r3d_mesh_cube(r3d_mesh_t *m, uint32_t color);
+
+/* 2D filled triangle (no z), screen coordinates + camera of g. */
+void g16_tri(g16_t *g, int x0, int y0, int x1, int y1, int x2, int y2, uint16_t c);
+
+#endif

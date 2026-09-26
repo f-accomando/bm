@@ -5,6 +5,7 @@
 #include "runtime.h"
 #include "b33.h"
 #include "gfx16.h"
+#include "r3d.h"
 #include "drivers/timer.h"
 #include "drivers/uart.h"
 #include "gfx/console.h"
@@ -38,7 +39,12 @@ static struct {
     uint32_t last_cpu_us, fps;
     uint32_t hook_count;
     int esc;
+    int quit;
+    r3d_t r3d;
+    int r3d_ready;
 } rt;
+
+#define MESH_MT "b33.mesh"
 
 /* ---------------------------------------------------------------- helpers */
 
@@ -190,7 +196,8 @@ static int l_time(lua_State *L)
     return 1;
 }
 
-/* stat(n): 0 Lua KiB, 1 last frame CPU ms (update+draw), 2 fps, 3 frame number */
+/* stat(n): 0 Lua KiB, 1 last frame CPU ms (update+draw), 2 fps, 3 frame number,
+ *         4 3D triangles drawn and 5 3D pixels written since the last zclear() */
 static int l_stat(lua_State *L)
 {
     switch (ival(L, 1)) {
@@ -198,9 +205,148 @@ static int l_stat(lua_State *L)
     case 1: lua_pushnumber(L, rt.last_cpu_us / 1000.0); break;
     case 2: lua_pushinteger(L, rt.fps); break;
     case 3: lua_pushinteger(L, rt.frame); break;
+    case 4: lua_pushinteger(L, rt.r3d_ready ? rt.r3d.tris_drawn : 0); break;
+    case 5: lua_pushinteger(L, rt.r3d_ready ? rt.r3d.pixels : 0); break;
     default: lua_pushnil(L);
     }
     return 1;
+}
+
+static int l_tri(lua_State *L)
+{
+    g16_tri(&rt.g, ival(L, 1), ival(L, 2), ival(L, 3), ival(L, 4), ival(L, 5), ival(L, 6),
+            col(L, 7, 0xFFFFFF));
+    return 0;
+}
+
+/* ---- 3D (software rasterizer, see r3d.h) */
+
+static r3d_t *r3d(lua_State *L)
+{
+    if (!rt.r3d_ready) {
+        if (r3d_init(&rt.r3d, &rt.g) != 0)
+            luaL_error(L, "not enough memory for the z-buffer");
+        rt.r3d_ready = 1;
+    }
+    return &rt.r3d;
+}
+
+static r3d_mesh_t *new_mesh(lua_State *L)
+{
+    r3d_mesh_t *m = lua_newuserdatauv(L, sizeof *m, 0);
+    memset(m, 0, sizeof *m);
+    luaL_setmetatable(L, MESH_MT);
+    return m;
+}
+
+static int l_mesh_gc(lua_State *L)
+{
+    r3d_mesh_free(luaL_checkudata(L, 1, MESH_MT));
+    return 0;
+}
+
+/* mesh({x,y,z, x,y,z, ...}, {a,b,c,colour, ...}) - 1-based vertex indices,
+ * faces counter-clockwise seen from outside. */
+static int l_mesh(lua_State *L)
+{
+    luaL_checktype(L, 1, LUA_TTABLE);
+    luaL_checktype(L, 2, LUA_TTABLE);
+    int nv = (int)(luaL_len(L, 1) / 3), nf = (int)(luaL_len(L, 2) / 4);
+    luaL_argcheck(L, nv > 0 && nv <= 4096, 1, "1 to 4096 vertices");
+    luaL_argcheck(L, nf > 0 && nf <= 16384, 2, "1 to 16384 faces");
+    r3d_mesh_t *m = new_mesh(L);
+    if (r3d_mesh_alloc(m, nv, nf) != 0)
+        return luaL_error(L, "not enough memory for the mesh");
+    for (int i = 0; i < nv * 3; i++) {
+        lua_rawgeti(L, 1, i + 1);
+        ((float *)m->verts)[i] = (float)lua_tonumber(L, -1);
+        lua_pop(L, 1);
+    }
+    for (int f = 0; f < nf; f++) {
+        for (int k = 0; k < 3; k++) {
+            lua_rawgeti(L, 2, f * 4 + k + 1);
+            lua_Integer idx = lua_tointeger(L, -1);
+            lua_pop(L, 1);
+            if (idx < 1 || idx > nv)
+                return luaL_error(L, "face %d: vertex index %d out of range", f + 1, (int)idx);
+            m->faces[f * 3 + k] = (uint16_t)(idx - 1);
+        }
+        lua_rawgeti(L, 2, f * 4 + 4);
+        m->colors[f] = (uint32_t)lua_tointeger(L, -1);
+        lua_pop(L, 1);
+    }
+    r3d_mesh_normals(m);
+    return 1;
+}
+
+static int l_mesh_sphere(lua_State *L)
+{
+    r3d_mesh_t *m = new_mesh(L);
+    if (r3d_mesh_sphere(m, oval(L, 1, 8), oval(L, 2, 16),
+                        (uint32_t)luaL_optinteger(L, 3, 0xFFFFFF), (uint32_t)luaL_optinteger(L, 4, 0xC0C0C0)) != 0)
+        return luaL_error(L, "cannot build the sphere");
+    return 1;
+}
+
+static int l_mesh_cube(lua_State *L)
+{
+    r3d_mesh_t *m = new_mesh(L);
+    if (r3d_mesh_cube(m, (uint32_t)luaL_optinteger(L, 1, 0xFFFFFF)) != 0)
+        return luaL_error(L, "cannot build the cube");
+    return 1;
+}
+
+static float fnum(lua_State *L, int i, float def)
+{
+    return (float)luaL_optnumber(L, i, def);
+}
+
+/* draw3d(mesh, x, y, z [, rx, ry, rz, scale]) */
+static int l_draw3d(lua_State *L)
+{
+    r3d_mesh_t *m = luaL_checkudata(L, 1, MESH_MT);
+    v3_t p = { fnum(L, 2, 0), fnum(L, 3, 0), fnum(L, 4, 0) };
+    r3d_draw(r3d(L), m, p, fnum(L, 5, 0), fnum(L, 6, 0), fnum(L, 7, 0), fnum(L, 8, 1));
+    return 0;
+}
+
+/* camera3d(x, y, z [, yaw, pitch, fov]) */
+static int l_camera3d(lua_State *L)
+{
+    r3d_camera(r3d(L), fnum(L, 1, 0), fnum(L, 2, 0), fnum(L, 3, -5), fnum(L, 4, 0), fnum(L, 5, 0), fnum(L, 6, 60));
+    return 0;
+}
+
+/* light3d(x, y, z [, ambient]) - direction towards the light */
+static int l_light3d(lua_State *L)
+{
+    r3d_light(r3d(L), fnum(L, 1, 0), fnum(L, 2, 1), fnum(L, 3, 0), fnum(L, 4, 0.25f));
+    return 0;
+}
+
+static int l_zclear(lua_State *L)
+{
+    r3d_zclear(r3d(L));
+    return 0;
+}
+
+/* log(...) - text to the kernel log (serial + console), not the screen */
+static int l_log(lua_State *L)
+{
+    int n = lua_gettop(L);
+    for (int i = 1; i <= n; i++) {
+        kprintf("%s%s", i > 1 ? "\t" : "", luaL_tolstring(L, i, NULL));
+        lua_pop(L, 1);
+    }
+    kprintf("\n");
+    return 0;
+}
+
+static int l_quit(lua_State *L)
+{
+    (void)L;
+    rt.quit = 1;
+    return 0;
 }
 
 static const luaL_Reg api[] = {
@@ -209,7 +355,10 @@ static const luaL_Reg api[] = {
     { "spr", l_spr }, { "sspr", l_sspr }, { "map", l_map }, { "mget", l_mget }, { "mset", l_mset },
     { "sget", l_sget }, { "sset", l_sset }, { "print", l_print }, { "camera", l_camera },
     { "clip", l_clip }, { "rgb", l_rgb }, { "btn", l_btn }, { "btnp", l_btnp },
-    { "time", l_time }, { "stat", l_stat },
+    { "time", l_time }, { "stat", l_stat }, { "tri", l_tri },
+    { "mesh", l_mesh }, { "mesh_sphere", l_mesh_sphere }, { "mesh_cube", l_mesh_cube },
+    { "draw3d", l_draw3d }, { "camera3d", l_camera3d }, { "light3d", l_light3d },
+    { "zclear", l_zclear }, { "log", l_log }, { "quit", l_quit },
     { NULL, NULL },
 };
 
@@ -244,6 +393,10 @@ static lua_State *new_cart_state(const b33_cart_t *c)
         lua_pushnil(L);
         lua_setglobal(L, *r);
     }
+    luaL_newmetatable(L, MESH_MT);
+    lua_pushcfunction(L, l_mesh_gc);
+    lua_setfield(L, -2, "__gc");
+    lua_pop(L, 1);
     lua_pushglobaltable(L);
     luaL_setfuncs(L, api, 0);
     lua_pop(L, 1);
@@ -359,19 +512,29 @@ static void free_assets(void)
 
 /* ---------------------------------------------------------------- player */
 
-static int enter_mode(framebuffer_t *fb, int w, int h)
+int b33_video_enter(framebuffer_t *fb, int w, int h, g16_t *g)
 {
     console_suspend(1);
     if (fb_init_depth(fb, (uint32_t)w, (uint32_t)h, 2, 16) != 0)
         return -1;
-    g16_target(&rt.g, (uint16_t *)fb->base, fb->pitch / 2, w, h, &font_console_8x16);
+    g16_target(g, (uint16_t *)fb->base, fb->pitch / 2, w, h, &font_console_8x16);
     return 0;
+}
+
+void b33_video_leave(framebuffer_t *fb, uint32_t w, uint32_t h)
+{
+    fb_init(fb, w, h, 2);
+    console_suspend(0);
+}
+
+static int enter_mode(framebuffer_t *fb, int w, int h)
+{
+    return b33_video_enter(fb, w, h, &rt.g);
 }
 
 static void leave_mode(framebuffer_t *fb, uint32_t w, uint32_t h)
 {
-    fb_init(fb, w, h, 2);
-    console_suspend(0);
+    b33_video_leave(fb, w, h);
 }
 
 static void present(framebuffer_t *fb, uint32_t *deadline, uint32_t *prev, uint32_t *dropped)
@@ -429,7 +592,7 @@ void b33_play(framebuffer_t *fb, const uint8_t *data, size_t len,
     uint32_t start = timer_ticks(), deadline = start + FRAME_US, prev = start;
     uint32_t fps_t0 = start, fps_frames = 0;
     while (!error) {
-        if (poll_keys() || timer_ticks() - start >= seconds * 1000000u)
+        if (rt.quit || poll_keys() || timer_ticks() - start >= seconds * 1000000u)
             break;
         uint32_t t0 = timer_ticks();
         if (call(L, "_update") != 0 || call(L, "_draw") != 0) {
@@ -456,7 +619,9 @@ void b33_play(framebuffer_t *fb, const uint8_t *data, size_t len,
     if (error)
         kprintf("\x1b[91mb33: \"%s\" stopped with an error:\n%s\x1b[0m\n", cart.title, error);
     st->ok = error == NULL;
-    lua_close(L);
+    lua_close(L);               /* frees meshes (__gc) before the z-buffer */
+    if (rt.r3d_ready)
+        r3d_free(&rt.r3d);
     free_assets();
 }
 

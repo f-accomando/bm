@@ -20,5 +20,12 @@ s32_demo_cart_end:
     .balign 4
     .globl b33_demo_cart, b33_demo_cart_end
 b33_demo_cart:
-    .incbin "build/demo.b33"
+    .incbin "demo.b33"          /* found through -Wa,-I$(BUILD) */
 b33_demo_cart_end:
+
+    .section .rodata
+    .balign 4
+    .globl b33_stress_cart, b33_stress_cart_end
+b33_stress_cart:
+    .incbin "stress.b33"
+b33_stress_cart_end:

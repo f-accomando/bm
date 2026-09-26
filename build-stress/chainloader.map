@@ -1,0 +1,406 @@
+Archive member included to satisfy reference by file (symbol)
+
+/usr/lib/gcc/arm-none-eabi/13.2.1/arm/v5te/hard/libgcc.a(_udivsi3.o)
+                              build-stress/l/src/drivers/gpio.c.o (__aeabi_uidivmod)
+/usr/lib/gcc/arm-none-eabi/13.2.1/arm/v5te/hard/libgcc.a(_dvmd_tls.o)
+                              /usr/lib/gcc/arm-none-eabi/13.2.1/arm/v5te/hard/libgcc.a(_udivsi3.o) (__aeabi_idiv0)
+
+Discarded input sections
+
+ .text          0x00000000        0x0 build-stress/l/chainloader/start.S.o
+ .data          0x00000000        0x0 build-stress/l/chainloader/start.S.o
+ .bss           0x00000000        0x0 build-stress/l/chainloader/start.S.o
+ .ARM.attributes
+                0x00000000       0x1f build-stress/l/chainloader/start.S.o
+ .text          0x00000000        0x0 build-stress/l/chainloader/main.c.o
+ .data          0x00000000        0x0 build-stress/l/chainloader/main.c.o
+ .bss           0x00000000        0x0 build-stress/l/chainloader/main.c.o
+ .comment       0x00000000       0x27 build-stress/l/chainloader/main.c.o
+ .ARM.attributes
+                0x00000000       0x33 build-stress/l/chainloader/main.c.o
+ .text          0x00000000        0x0 build-stress/l/chainloader/string.c.o
+ .data          0x00000000        0x0 build-stress/l/chainloader/string.c.o
+ .bss           0x00000000        0x0 build-stress/l/chainloader/string.c.o
+ .text.memset   0x00000000       0x18 build-stress/l/chainloader/string.c.o
+ .text.memcpy   0x00000000       0x1c build-stress/l/chainloader/string.c.o
+ .debug_info    0x00000000      0x13d build-stress/l/chainloader/string.c.o
+ .debug_abbrev  0x00000000       0xd1 build-stress/l/chainloader/string.c.o
+ .debug_loclists
+                0x00000000       0xaf build-stress/l/chainloader/string.c.o
+ .debug_aranges
+                0x00000000       0x28 build-stress/l/chainloader/string.c.o
+ .debug_rnglists
+                0x00000000       0x19 build-stress/l/chainloader/string.c.o
+ .debug_line    0x00000000       0xb2 build-stress/l/chainloader/string.c.o
+ .debug_str     0x00000000      0x15b build-stress/l/chainloader/string.c.o
+ .comment       0x00000000       0x27 build-stress/l/chainloader/string.c.o
+ .debug_frame   0x00000000       0x30 build-stress/l/chainloader/string.c.o
+ .ARM.attributes
+                0x00000000       0x33 build-stress/l/chainloader/string.c.o
+ .text          0x00000000        0x0 build-stress/l/src/drivers/uart.c.o
+ .data          0x00000000        0x0 build-stress/l/src/drivers/uart.c.o
+ .bss           0x00000000        0x0 build-stress/l/src/drivers/uart.c.o
+ .text.uart_clock
+                0x00000000       0x10 build-stress/l/src/drivers/uart.c.o
+ .comment       0x00000000       0x27 build-stress/l/src/drivers/uart.c.o
+ .ARM.attributes
+                0x00000000       0x33 build-stress/l/src/drivers/uart.c.o
+ .text          0x00000000        0x0 build-stress/l/src/drivers/gpio.c.o
+ .data          0x00000000        0x0 build-stress/l/src/drivers/gpio.c.o
+ .bss           0x00000000        0x0 build-stress/l/src/drivers/gpio.c.o
+ .text.gpio_read
+                0x00000000       0x24 build-stress/l/src/drivers/gpio.c.o
+ .comment       0x00000000       0x27 build-stress/l/src/drivers/gpio.c.o
+ .ARM.attributes
+                0x00000000       0x33 build-stress/l/src/drivers/gpio.c.o
+ .text          0x00000000        0x0 build-stress/l/src/drivers/mbox.c.o
+ .data          0x00000000        0x0 build-stress/l/src/drivers/mbox.c.o
+ .bss           0x00000000        0x0 build-stress/l/src/drivers/mbox.c.o
+ .comment       0x00000000       0x27 build-stress/l/src/drivers/mbox.c.o
+ .ARM.attributes
+                0x00000000       0x33 build-stress/l/src/drivers/mbox.c.o
+ .text          0x00000000        0x0 build-stress/l/src/drivers/prop.c.o
+ .data          0x00000000        0x0 build-stress/l/src/drivers/prop.c.o
+ .bss           0x00000000        0x0 build-stress/l/src/drivers/prop.c.o
+ .text.prop_clock_set_max
+                0x00000000       0x7c build-stress/l/src/drivers/prop.c.o
+ .comment       0x00000000       0x27 build-stress/l/src/drivers/prop.c.o
+ .ARM.attributes
+                0x00000000       0x33 build-stress/l/src/drivers/prop.c.o
+ .text          0x00000000        0x0 build-stress/l/src/drivers/timer.c.o
+ .data          0x00000000        0x0 build-stress/l/src/drivers/timer.c.o
+ .bss           0x00000000        0x0 build-stress/l/src/drivers/timer.c.o
+ .text.timer_delay_ms
+                0x00000000       0x20 build-stress/l/src/drivers/timer.c.o
+ .comment       0x00000000       0x27 build-stress/l/src/drivers/timer.c.o
+ .ARM.attributes
+                0x00000000       0x33 build-stress/l/src/drivers/timer.c.o
+ .text          0x00000000        0x0 build-stress/l/src/drivers/led.c.o
+ .data          0x00000000        0x0 build-stress/l/src/drivers/led.c.o
+ .bss           0x00000000        0x0 build-stress/l/src/drivers/led.c.o
+ .text.led_blink_forever
+                0x00000000       0x30 build-stress/l/src/drivers/led.c.o
+ .text.led_blink_code
+                0x00000000       0x50 build-stress/l/src/drivers/led.c.o
+ .comment       0x00000000       0x27 build-stress/l/src/drivers/led.c.o
+ .ARM.attributes
+                0x00000000       0x33 build-stress/l/src/drivers/led.c.o
+ .text          0x00000000        0x0 build-stress/l/src/arch/cache.c.o
+ .data          0x00000000        0x0 build-stress/l/src/arch/cache.c.o
+ .bss           0x00000000        0x0 build-stress/l/src/arch/cache.c.o
+ .text.dcache_clean_range
+                0x00000000       0x28 build-stress/l/src/arch/cache.c.o
+ .text.icache_invalidate_all
+                0x00000000       0x10 build-stress/l/src/arch/cache.c.o
+ .comment       0x00000000       0x27 build-stress/l/src/arch/cache.c.o
+ .ARM.attributes
+                0x00000000       0x33 build-stress/l/src/arch/cache.c.o
+ .text          0x00000000        0x0 build-stress/l/src/lib/crc32.c.o
+ .data          0x00000000        0x0 build-stress/l/src/lib/crc32.c.o
+ .bss           0x00000000        0x0 build-stress/l/src/lib/crc32.c.o
+ .comment       0x00000000       0x27 build-stress/l/src/lib/crc32.c.o
+ .ARM.attributes
+                0x00000000       0x33 build-stress/l/src/lib/crc32.c.o
+ .data          0x00000000        0x0 /usr/lib/gcc/arm-none-eabi/13.2.1/arm/v5te/hard/libgcc.a(_udivsi3.o)
+ .bss           0x00000000        0x0 /usr/lib/gcc/arm-none-eabi/13.2.1/arm/v5te/hard/libgcc.a(_udivsi3.o)
+ .ARM.attributes
+                0x00000000       0x1f /usr/lib/gcc/arm-none-eabi/13.2.1/arm/v5te/hard/libgcc.a(_udivsi3.o)
+ .data          0x00000000        0x0 /usr/lib/gcc/arm-none-eabi/13.2.1/arm/v5te/hard/libgcc.a(_dvmd_tls.o)
+ .bss           0x00000000        0x0 /usr/lib/gcc/arm-none-eabi/13.2.1/arm/v5te/hard/libgcc.a(_dvmd_tls.o)
+ .ARM.attributes
+                0x00000000       0x1f /usr/lib/gcc/arm-none-eabi/13.2.1/arm/v5te/hard/libgcc.a(_dvmd_tls.o)
+
+Memory Configuration
+
+Name             Origin             Length             Attributes
+*default*        0x00000000         0xffffffff
+
+Linker script and memory map
+
+LOAD build-stress/l/chainloader/start.S.o
+LOAD build-stress/l/chainloader/main.c.o
+LOAD build-stress/l/chainloader/string.c.o
+LOAD build-stress/l/src/drivers/uart.c.o
+LOAD build-stress/l/src/drivers/gpio.c.o
+LOAD build-stress/l/src/drivers/mbox.c.o
+LOAD build-stress/l/src/drivers/prop.c.o
+LOAD build-stress/l/src/drivers/timer.c.o
+LOAD build-stress/l/src/drivers/led.c.o
+LOAD build-stress/l/src/arch/cache.c.o
+LOAD build-stress/l/src/lib/crc32.c.o
+LOAD /usr/lib/gcc/arm-none-eabi/13.2.1/arm/v5te/hard/libgcc.a
+                0x02000000                        LOAD_ADDR = 0x2000000
+                0x02000000                        . = LOAD_ADDR
+
+.text           0x02000000      0x9e4
+ *(.text.boot)
+ .text.boot     0x02000000       0xc0 build-stress/l/chainloader/start.S.o
+                0x02000000                _start
+                0x02000094                boot_kernel
+ *(.text .text.*)
+ .text.read_u32
+                0x020000c0       0x50 build-stress/l/chainloader/main.c.o
+ .text.loader_main
+                0x02000110      0x1b0 build-stress/l/chainloader/main.c.o
+                0x02000110                loader_main
+ .text.uart_init
+                0x020002c0       0xd8 build-stress/l/src/drivers/uart.c.o
+                0x020002c0                uart_init
+ .text.uart_putc
+                0x02000398       0x1c build-stress/l/src/drivers/uart.c.o
+                0x02000398                uart_putc
+ .text.uart_puts
+                0x020003b4       0x3c build-stress/l/src/drivers/uart.c.o
+                0x020003b4                uart_puts
+ .text.uart_write
+                0x020003f0       0x20 build-stress/l/src/drivers/uart.c.o
+                0x020003f0                uart_write
+ .text.uart_rx_ready
+                0x02000410       0x1c build-stress/l/src/drivers/uart.c.o
+                0x02000410                uart_rx_ready
+ .text.uart_getc
+                0x0200042c       0x24 build-stress/l/src/drivers/uart.c.o
+                0x0200042c                uart_getc
+ .text.uart_getc_timeout
+                0x02000450       0x50 build-stress/l/src/drivers/uart.c.o
+                0x02000450                uart_getc_timeout
+ .text.uart_flush
+                0x020004a0       0x18 build-stress/l/src/drivers/uart.c.o
+                0x020004a0                uart_flush
+ .text.gpio_set_function
+                0x020004b8       0x4c build-stress/l/src/drivers/gpio.c.o
+                0x020004b8                gpio_set_function
+ .text.gpio_set_pull
+                0x02000504       0x54 build-stress/l/src/drivers/gpio.c.o
+                0x02000504                gpio_set_pull
+ .text.gpio_write
+                0x02000558       0x30 build-stress/l/src/drivers/gpio.c.o
+                0x02000558                gpio_write
+ .text.mbox_call
+                0x02000588       0x88 build-stress/l/src/drivers/mbox.c.o
+                0x02000588                mbox_call
+ .text.prop_query
+                0x02000610       0xbc build-stress/l/src/drivers/prop.c.o
+                0x02000610                prop_query
+ .text.prop_clock_rate
+                0x020006cc       0x38 build-stress/l/src/drivers/prop.c.o
+                0x020006cc                prop_clock_rate
+ .text.timer_ticks
+                0x02000704       0x10 build-stress/l/src/drivers/timer.c.o
+                0x02000704                timer_ticks
+ .text.timer_delay_us
+                0x02000714       0x20 build-stress/l/src/drivers/timer.c.o
+                0x02000714                timer_delay_us
+ .text.led_set  0x02000734       0x10 build-stress/l/src/drivers/led.c.o
+                0x02000734                led_set
+ .text.led_init
+                0x02000744       0x1c build-stress/l/src/drivers/led.c.o
+                0x02000744                led_init
+ .text.dcache_clean_invalidate_range
+                0x02000760       0x28 build-stress/l/src/arch/cache.c.o
+                0x02000760                dcache_clean_invalidate_range
+ .text.crc32    0x02000788       0x4c build-stress/l/src/lib/crc32.c.o
+                0x02000788                crc32
+ .text          0x020007d4      0x20c /usr/lib/gcc/arm-none-eabi/13.2.1/arm/v5te/hard/libgcc.a(_udivsi3.o)
+                0x020007d4                __udivsi3
+                0x020007d4                __aeabi_uidiv
+                0x020009c0                __aeabi_uidivmod
+ .text          0x020009e0        0x4 /usr/lib/gcc/arm-none-eabi/13.2.1/arm/v5te/hard/libgcc.a(_dvmd_tls.o)
+                0x020009e0                __aeabi_ldiv0
+                0x020009e0                __aeabi_idiv0
+
+.glue_7         0x020009e4        0x0
+ .glue_7        0x020009e4        0x0 linker stubs
+
+.glue_7t        0x020009e4        0x0
+ .glue_7t       0x020009e4        0x0 linker stubs
+
+.vfp11_veneer   0x020009e4        0x0
+ .vfp11_veneer  0x020009e4        0x0 linker stubs
+
+.v4_bx          0x020009e4        0x0
+ .v4_bx         0x020009e4        0x0 linker stubs
+
+.iplt           0x020009e4        0x0
+ .iplt          0x020009e4        0x0 build-stress/l/chainloader/start.S.o
+
+.rodata         0x020009e8       0x3b
+ *(.rodata .rodata.*)
+ .rodata.loader_main.str1.1
+                0x020009e8       0x37 build-stress/l/chainloader/main.c.o
+ .rodata.magic  0x02000a1f        0x4 build-stress/l/chainloader/main.c.o
+
+.rel.dyn        0x02000a24        0x0
+ .rel.iplt      0x02000a24        0x0 build-stress/l/chainloader/start.S.o
+
+.data
+ *(.data .data.*)
+                0x02000a23                        __image_end = .
+
+.igot.plt       0x02000a24        0x0
+ .igot.plt      0x02000a24        0x0 build-stress/l/chainloader/start.S.o
+
+.bss            0x02000a40       0x60
+                0x02000a40                        __bss_start = .
+ *(.bss .bss.*)
+ .bss.clock_hz  0x02000a40        0x4 build-stress/l/src/drivers/uart.c.o
+ *fill*         0x02000a44       0x1c 
+ .bss.msg       0x02000a60       0x38 build-stress/l/src/drivers/prop.c.o
+ *(COMMON)
+                0x02000aa0                        . = ALIGN (0x10)
+ *fill*         0x02000a98        0x8 
+                0x02000aa0                        __bss_end = .
+
+/DISCARD/
+ *(.comment)
+ *(.note*)
+ *(.ARM.attributes)
+OUTPUT(build-stress/chainloader.elf elf32-littlearm)
+LOAD linker stubs
+
+.debug_line     0x00000000     0x11b6
+ .debug_line    0x00000000       0x7e build-stress/l/chainloader/start.S.o
+ .debug_line    0x0000007e      0x29d build-stress/l/chainloader/main.c.o
+ .debug_line    0x0000031b      0x3fc build-stress/l/src/drivers/uart.c.o
+ .debug_line    0x00000717      0x23e build-stress/l/src/drivers/gpio.c.o
+ .debug_line    0x00000955      0x15d build-stress/l/src/drivers/mbox.c.o
+ .debug_line    0x00000ab2      0x200 build-stress/l/src/drivers/prop.c.o
+ .debug_line    0x00000cb2      0x121 build-stress/l/src/drivers/timer.c.o
+ .debug_line    0x00000dd3      0x128 build-stress/l/src/drivers/led.c.o
+ .debug_line    0x00000efb      0x137 build-stress/l/src/arch/cache.c.o
+ .debug_line    0x00001032       0xd3 build-stress/l/src/lib/crc32.c.o
+ .debug_line    0x00001105       0x67 /usr/lib/gcc/arm-none-eabi/13.2.1/arm/v5te/hard/libgcc.a(_udivsi3.o)
+ .debug_line    0x0000116c       0x4a /usr/lib/gcc/arm-none-eabi/13.2.1/arm/v5te/hard/libgcc.a(_dvmd_tls.o)
+
+.debug_line_str
+                0x00000000       0xb9
+ .debug_line_str
+                0x00000000       0xb9 build-stress/l/chainloader/start.S.o
+                                 0x24 (size before relaxing)
+ .debug_line_str
+                0x000000b9       0x95 /usr/lib/gcc/arm-none-eabi/13.2.1/arm/v5te/hard/libgcc.a(_udivsi3.o)
+ .debug_line_str
+                0x000000b9       0x95 /usr/lib/gcc/arm-none-eabi/13.2.1/arm/v5te/hard/libgcc.a(_dvmd_tls.o)
+
+.debug_info     0x00000000     0x1b99
+ .debug_info    0x00000000       0x25 build-stress/l/chainloader/start.S.o
+ .debug_info    0x00000025      0x4ae build-stress/l/chainloader/main.c.o
+ .debug_info    0x000004d3      0x699 build-stress/l/src/drivers/uart.c.o
+ .debug_info    0x00000b6c      0x3e5 build-stress/l/src/drivers/gpio.c.o
+ .debug_info    0x00000f51      0x268 build-stress/l/src/drivers/mbox.c.o
+ .debug_info    0x000011b9      0x276 build-stress/l/src/drivers/prop.c.o
+ .debug_info    0x0000142f      0x1b3 build-stress/l/src/drivers/timer.c.o
+ .debug_info    0x000015e2      0x29f build-stress/l/src/drivers/led.c.o
+ .debug_info    0x00001881      0x18d build-stress/l/src/arch/cache.c.o
+ .debug_info    0x00001a0e      0x111 build-stress/l/src/lib/crc32.c.o
+ .debug_info    0x00001b1f       0x3e /usr/lib/gcc/arm-none-eabi/13.2.1/arm/v5te/hard/libgcc.a(_udivsi3.o)
+ .debug_info    0x00001b5d       0x3c /usr/lib/gcc/arm-none-eabi/13.2.1/arm/v5te/hard/libgcc.a(_dvmd_tls.o)
+
+.debug_abbrev   0x00000000      0xd50
+ .debug_abbrev  0x00000000       0x14 build-stress/l/chainloader/start.S.o
+ .debug_abbrev  0x00000014      0x20f build-stress/l/chainloader/main.c.o
+ .debug_abbrev  0x00000223      0x272 build-stress/l/src/drivers/uart.c.o
+ .debug_abbrev  0x00000495      0x1c2 build-stress/l/src/drivers/gpio.c.o
+ .debug_abbrev  0x00000657      0x196 build-stress/l/src/drivers/mbox.c.o
+ .debug_abbrev  0x000007ed      0x133 build-stress/l/src/drivers/prop.c.o
+ .debug_abbrev  0x00000920      0x125 build-stress/l/src/drivers/timer.c.o
+ .debug_abbrev  0x00000a45      0x138 build-stress/l/src/drivers/led.c.o
+ .debug_abbrev  0x00000b7d       0xd4 build-stress/l/src/arch/cache.c.o
+ .debug_abbrev  0x00000c51       0xb1 build-stress/l/src/lib/crc32.c.o
+ .debug_abbrev  0x00000d02       0x28 /usr/lib/gcc/arm-none-eabi/13.2.1/arm/v5te/hard/libgcc.a(_udivsi3.o)
+ .debug_abbrev  0x00000d2a       0x26 /usr/lib/gcc/arm-none-eabi/13.2.1/arm/v5te/hard/libgcc.a(_dvmd_tls.o)
+
+.debug_aranges  0x00000000      0x228
+ .debug_aranges
+                0x00000000       0x20 build-stress/l/chainloader/start.S.o
+ .debug_aranges
+                0x00000020       0x28 build-stress/l/chainloader/main.c.o
+ .debug_aranges
+                0x00000048       0x60 build-stress/l/src/drivers/uart.c.o
+ .debug_aranges
+                0x000000a8       0x38 build-stress/l/src/drivers/gpio.c.o
+ .debug_aranges
+                0x000000e0       0x20 build-stress/l/src/drivers/mbox.c.o
+ .debug_aranges
+                0x00000100       0x30 build-stress/l/src/drivers/prop.c.o
+ .debug_aranges
+                0x00000130       0x30 build-stress/l/src/drivers/timer.c.o
+ .debug_aranges
+                0x00000160       0x38 build-stress/l/src/drivers/led.c.o
+ .debug_aranges
+                0x00000198       0x30 build-stress/l/src/arch/cache.c.o
+ .debug_aranges
+                0x000001c8       0x20 build-stress/l/src/lib/crc32.c.o
+ .debug_aranges
+                0x000001e8       0x20 /usr/lib/gcc/arm-none-eabi/13.2.1/arm/v5te/hard/libgcc.a(_udivsi3.o)
+ .debug_aranges
+                0x00000208       0x20 /usr/lib/gcc/arm-none-eabi/13.2.1/arm/v5te/hard/libgcc.a(_dvmd_tls.o)
+
+.debug_str      0x00000000      0x5a8
+ .debug_str     0x00000000      0x5a8 build-stress/l/chainloader/start.S.o
+                                 0x30 (size before relaxing)
+ .debug_str     0x000005a8      0x251 build-stress/l/chainloader/main.c.o
+ .debug_str     0x000005a8      0x2f8 build-stress/l/src/drivers/uart.c.o
+ .debug_str     0x000005a8      0x291 build-stress/l/src/drivers/gpio.c.o
+ .debug_str     0x000005a8      0x1d8 build-stress/l/src/drivers/mbox.c.o
+ .debug_str     0x000005a8      0x1d3 build-stress/l/src/drivers/prop.c.o
+ .debug_str     0x000005a8      0x1c0 build-stress/l/src/drivers/timer.c.o
+ .debug_str     0x000005a8      0x24c build-stress/l/src/drivers/led.c.o
+ .debug_str     0x000005a8      0x1df build-stress/l/src/arch/cache.c.o
+ .debug_str     0x000005a8      0x195 build-stress/l/src/lib/crc32.c.o
+ .debug_str     0x000005a8       0xbc /usr/lib/gcc/arm-none-eabi/13.2.1/arm/v5te/hard/libgcc.a(_udivsi3.o)
+ .debug_str     0x000005a8       0xbd /usr/lib/gcc/arm-none-eabi/13.2.1/arm/v5te/hard/libgcc.a(_dvmd_tls.o)
+
+.debug_loclists
+                0x00000000      0xa16
+ .debug_loclists
+                0x00000000      0x147 build-stress/l/chainloader/main.c.o
+ .debug_loclists
+                0x00000147      0x245 build-stress/l/src/drivers/uart.c.o
+ .debug_loclists
+                0x0000038c      0x2b4 build-stress/l/src/drivers/gpio.c.o
+ .debug_loclists
+                0x00000640       0xab build-stress/l/src/drivers/mbox.c.o
+ .debug_loclists
+                0x000006eb      0x10c build-stress/l/src/drivers/prop.c.o
+ .debug_loclists
+                0x000007f7       0x6b build-stress/l/src/drivers/timer.c.o
+ .debug_loclists
+                0x00000862       0x7a build-stress/l/src/drivers/led.c.o
+ .debug_loclists
+                0x000008dc       0x84 build-stress/l/src/arch/cache.c.o
+ .debug_loclists
+                0x00000960       0xb6 build-stress/l/src/lib/crc32.c.o
+
+.debug_rnglists
+                0x00000000      0x26f
+ .debug_rnglists
+                0x00000000       0x66 build-stress/l/chainloader/main.c.o
+ .debug_rnglists
+                0x00000066       0x9b build-stress/l/src/drivers/uart.c.o
+ .debug_rnglists
+                0x00000101       0x61 build-stress/l/src/drivers/gpio.c.o
+ .debug_rnglists
+                0x00000162       0x44 build-stress/l/src/drivers/mbox.c.o
+ .debug_rnglists
+                0x000001a6       0x38 build-stress/l/src/drivers/prop.c.o
+ .debug_rnglists
+                0x000001de       0x1f build-stress/l/src/drivers/timer.c.o
+ .debug_rnglists
+                0x000001fd       0x31 build-stress/l/src/drivers/led.c.o
+ .debug_rnglists
+                0x0000022e       0x1f build-stress/l/src/arch/cache.c.o
+ .debug_rnglists
+                0x0000024d       0x22 build-stress/l/src/lib/crc32.c.o
+
+.debug_frame    0x00000000      0x370
+ .debug_frame   0x00000000       0x58 build-stress/l/chainloader/main.c.o
+ .debug_frame   0x00000058       0xd4 build-stress/l/src/drivers/uart.c.o
+ .debug_frame   0x0000012c       0x68 build-stress/l/src/drivers/gpio.c.o
+ .debug_frame   0x00000194       0x2c build-stress/l/src/drivers/mbox.c.o
+ .debug_frame   0x000001c0       0x74 build-stress/l/src/drivers/prop.c.o
+ .debug_frame   0x00000234       0x48 build-stress/l/src/drivers/timer.c.o
+ .debug_frame   0x0000027c       0x6c build-stress/l/src/drivers/led.c.o
+ .debug_frame   0x000002e8       0x40 build-stress/l/src/arch/cache.c.o
+ .debug_frame   0x00000328       0x28 build-stress/l/src/lib/crc32.c.o
+ .debug_frame   0x00000350       0x20 /usr/lib/gcc/arm-none-eabi/13.2.1/arm/v5te/hard/libgcc.a(_udivsi3.o)

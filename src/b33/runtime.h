@@ -5,6 +5,7 @@
 #include <stdint.h>
 
 #include "drivers/fb.h"
+#include "gfx16.h"
 
 typedef struct {
     char title[49];
@@ -31,5 +32,10 @@ void b33_print_stats(const b33_stats_t *st);
  * 640x360 RGB565. Shows it on screen for `frames` frames; returns the
  * average drawing time in microseconds. */
 uint32_t b33_bench(framebuffer_t *fb, uint32_t frames);
+
+/* Switches the screen to w x h RGB565 double buffered and points g at the
+ * back page (console suspended); leave restores the w x h console. */
+int  b33_video_enter(framebuffer_t *fb, int w, int h, g16_t *g);
+void b33_video_leave(framebuffer_t *fb, uint32_t w, uint32_t h);
 
 #endif

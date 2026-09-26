@@ -590,6 +590,31 @@ def test_upload_s32_and_corrupt(b, opts):
         q.close()
 
 
+def test_stress_monitor(b, opts):
+    q = Qemu(b("kernel.img"))
+    try:
+        q.boot()
+        q.send("S")
+        q.expect("stress test:", timeout=10)
+        time.sleep(3)
+        _, text = settled_screen(q, lambda i, t: t[0].startswith("stress:"))
+        assert text[0].startswith("stress:"), text[0]
+        out = q.expect("3D spheres 96 (Lua)", timeout=300)
+        out += q.expect("> ", timeout=60)
+        plain = re.sub(rb"\x1b\[[0-9;]*m", b"", out).decode(errors="replace")
+        for name in ("sprites 16x16 (C)", "sprites 32x32 (C)", "triangles 2D ~170px",
+                     "3D spheres 96 (C)", "sprites 16x16 (Lua)"):
+            m = re.search(re.escape(name) + r"\s+(\S+)", plain)
+            assert m, f"{name} missing:\n{plain}"
+        m = re.search(r"sprites 16x16 \(C\)\s+(\d+)\s+(\d+)", plain)
+        assert m and int(m[2]) > int(m[1]) > 100, m and m.group(0)
+        assert re.search(r"3D spheres 96 \(C\)\s+\d+ \(\d+ tri\)", plain), plain
+        text = "\n".join(screen_text(q.screendump()))
+        assert "sprites 16x16 (C)" in text and "3D spheres 96 (Lua)" in text, text
+    finally:
+        q.close()
+
+
 def test_chainloader(b, opts):
     q = Qemu(b("chainloader.img"))
     try:

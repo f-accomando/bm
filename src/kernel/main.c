@@ -29,6 +29,7 @@
 #include "script/luavm.h"
 #include "s32/player.h"
 #include "b33/runtime.h"
+#include "b33/stress.h"
 
 #ifndef BM33_VERSION
 #define BM33_VERSION "dev"
@@ -73,6 +74,19 @@ static void report_irq(void)
 extern const char boot_lua[], boot_lua_end[];
 extern const uint8_t s32_demo_cart[], s32_demo_cart_end[];
 extern const uint8_t b33_demo_cart[], b33_demo_cart_end[];
+extern const uint8_t b33_stress_cart[], b33_stress_cart_end[];
+
+#ifdef BM33_BOOT_STRESS
+/* Stress-test boot (make BOOT=stress): C and Lua rendering stress tests,
+ * results left on the console for a photo. */
+static void run_stress(void)
+{
+    b33_stress_run(&fb);
+    kprintf("Lua part (cartridge API):\n");
+    b33_stats_t bs;
+    b33_play(&fb, b33_stress_cart, (size_t)(b33_stress_cart_end - b33_stress_cart), 600, &bs);
+}
+#endif
 
 static void run_boot_script(void)
 {
@@ -139,6 +153,11 @@ void kernel_main(uint32_t atags)
     libc_selftest();
     report_irq();
 
+#ifdef BM33_BOOT_STRESS
+    run_stress();
+    monitor_run();
+#endif
+
     kprintf("s32: playing the built-in demo.cart for %u s ('q' on serial skips it)...\n",
             S32_ATTRACT_SECS);
     s32_play_stats_t ps;
@@ -148,7 +167,7 @@ void kernel_main(uint32_t atags)
 
     kprintf("b33: C benchmark and native demo cart ('q' on serial skips)...\n");
     uint32_t bench_us = b33_bench(&fb, 120);
-    kprintf("b33 bench: full map + 256 sprites at 640x360 RGB565: %lu.%02lu ms/frame (%lu%% of 16.7 ms)\n",
+    kprintf("b33 bench: map + 256 sprites, 640x360: %lu.%02lu ms/frame (%lu%% of 16.7 ms)\n",
             bench_us / 1000, bench_us % 1000 / 10, bench_us * 100 / 16667);
     b33_stats_t bs;
     b33_play(&fb, b33_demo_cart, (size_t)(b33_demo_cart_end - b33_demo_cart), B33_DEMO_SECS, &bs);

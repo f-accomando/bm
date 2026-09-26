@@ -7,6 +7,7 @@ MVP di una console bare metal (Assembly / C / Lua embedded) per
 
 Dettagli, criteri di completamento e rischi in [docs/ROADMAP.md](docs/ROADMAP.md).
 Risorse del Pi Zero W e quanto ne usano bm33/s32: [docs/HARDWARE.md](docs/HARDWARE.md).
+Stress test di rendering (soglie 60/30 fps): [docs/STRESS.md](docs/STRESS.md) — `make sdcard-stress`.
 
 | # | Obiettivo | Stato |
 |---|-----------|-------|
@@ -64,6 +65,7 @@ All'avvio:
 | `n` | gioca `demo.b33` (nativa): frecce/wasd, spazio = A, k/x = B, q = esci |
 | `p` | benchmark di rendering 640×360 RGB565 |
 | `U` | riceve una cartuccia dalla seriale (`bm33_load.py PORTA --cart file.b33`) e la esegue |
+| `S` | stress test di rendering (sprite, triangoli, 3D; C e Lua): vedi [docs/STRESS.md](docs/STRESS.md) |
 | `t` | test pattern HDMI (un tasto qualsiasi torna alla console) |
 | `r` | reboot via watchdog (con il chainloader, ricarica il kernel) |
 | `u` `s` `b` `a` | test: undefined instruction, SVC, prefetch abort (BKPT), data abort |
@@ -185,7 +187,12 @@ La cartuccia definisce `_init()`, `_update()` e `_draw()` (60 volte al secondo) 
 | `print(s,x,y,[c])` | testo (font 8×16) |
 | `camera([x,y])`, `clip([x,y,w,h])` | scorrimento e ritaglio |
 | `btn(i)`, `btnp(i)` | 0 sinistra, 1 destra, 2 su, 3 giù, 4 A, 5 B |
-| `time()`, `stat(n)` | tempo; 0 KiB Lua, 1 ms CPU del frame, 2 fps, 3 numero di frame |
+| `time()`, `stat(n)` | tempo; 0 KiB Lua, 1 ms CPU del frame, 2 fps, 3 numero di frame, 4 triangoli 3D, 5 pixel 3D |
+| `tri(x0,y0,x1,y1,x2,y2,c)` | triangolo 2D pieno |
+| `mesh(v,f)`, `mesh_sphere(r,s,c1,c2)`, `mesh_cube(c)` | mesh 3D (`v` = x,y,z…; `f` = a,b,c,colore…) |
+| `draw3d(m,x,y,z,[rx,ry,rz,scala])` | disegna una mesh (z-buffer, luce per faccia) |
+| `camera3d(x,y,z,[yaw,pitch,fov])`, `light3d(x,y,z,[amb])`, `zclear()` | camera, luce, pulizia dello z-buffer |
+| `log(...)`, `quit()` | testo nel log del kernel; fine della cartuccia |
 
 Sandbox: niente `io`, `os`, `load`, `dofile`, `require`. Un errore o un ciclo infinito
 (oltre 20 milioni di istruzioni in un frame) ferma la cartuccia e mostra l'errore
@@ -293,7 +300,8 @@ src/kernel/tick.c        tick di sistema (system timer compare 1)
 src/kernel/demo.c        demo animata a 60 fps
 src/gfx/draw.c           primitive: clear, rect, sprite 16×16, testo
 src/s32/                 macchina s32: CPU, PPU, loader .cart, player 320×224
-src/b33/                 cartucce native: formato, grafica RGB565 (gfx16), runtime Lua
+src/b33/                 cartucce native: formato, grafica RGB565 (gfx16), 3D software (r3d),
+                         runtime Lua, stress test
 carts/demo/              cartuccia nativa demo: main.lua, sheet.png, map.csv
 scripts/mkb33.py         packer .b33 (PNG e CSV, solo libreria standard Python)
 tests/b33/               test host della grafica e del formato

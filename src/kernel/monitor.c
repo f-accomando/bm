@@ -4,6 +4,7 @@
 #include "s32/player.h"
 #include "b33/runtime.h"
 #include "upload.h"
+#include "b33/stress.h"
 #include "input.h"
 #include "script/repl.h"
 #include "sysinfo.h"
@@ -29,6 +30,7 @@ static void help(void)
             "  n  play the built-in native demo.b33 (arrows/wasd, space, q quits)\n"
             "  p  C rendering benchmark at 640x360 RGB565\n"
             "  U  receive a cartridge over serial and play it\n"
+            "  S  rendering stress test (sprites, triangles, 3D; C and Lua)\n"
             "  t  HDMI test pattern (any key returns to the console)\n"
             "  r  reboot (watchdog; the chainloader will ask for a new kernel)\n"
             "  u  test: undefined instruction\n"
@@ -106,6 +108,15 @@ void monitor_run(void)
             break;
         }
         case 'U': upload_and_play(console_framebuffer()); break;
+        case 'S': {
+            extern const uint8_t b33_stress_cart[], b33_stress_cart_end[];
+            b33_stress_run(console_framebuffer());
+            kprintf("Lua part (cartridge API):\n");
+            b33_stats_t bs;
+            b33_play(console_framebuffer(), b33_stress_cart,
+                     (size_t)(b33_stress_cart_end - b33_stress_cart), 600, &bs);
+            break;
+        }
         case 'p': {
             uint32_t us = b33_bench(console_framebuffer(), 120);
             kprintf("b33 bench: %lu.%02lu ms/frame (%lu%% of 16.7 ms)\n",

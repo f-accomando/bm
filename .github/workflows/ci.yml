@@ -21,7 +21,7 @@ jobs:
             qemu-system-arm qemu-user make python3
 
       - name: Build
-        run: make -j"$(nproc)"
+        run: make -j"$(nproc)" && make -j"$(nproc)" BOOT=stress
 
       - name: s32 conformance (host and ARM1176 in qemu-arm)
         run: make test-s32 test-s32-arm
@@ -40,4 +40,5 @@ jobs:
           path: |
             build/kernel.img
             build/chainloader.img
+            build-stress/kernel.img
             build/screen.png

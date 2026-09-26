@@ -5,6 +5,7 @@
 
 #include "b33/b33.h"
 #include "b33/gfx16.h"
+#include "b33/r3d.h"
 
 static int fails, checks;
 #define CHECK(c, ...) do { checks++; if (!(c)) { fails++; printf("FAIL %s:%d: ", __FILE__, __LINE__); printf(__VA_ARGS__); printf("\n"); } } while (0)
@@ -125,6 +126,60 @@ static void test_text(void)
     CHECK(at(2, 4) == 0xFFFF && at(9, 4) == 0xFFFF && at(3, 4) == 0 && at(10, 4) == 0xFFFF, "glyph pixels");
 }
 
+static void test_3d(void)
+{
+    static uint16_t big[360 * 640];
+    g16_t g;
+    r3d_t r;
+    r3d_mesh_t sphere, cube;
+    g16_target(&g, big, 640, 640, 360, &font);
+    CHECK(r3d_init(&r, &g) == 0, "r3d init");
+    CHECK(r3d_mesh_sphere(&sphere, 8, 16, 0xFF0000, 0xFF0000) == 0, "sphere");
+    CHECK(r3d_mesh_cube(&cube, 0x00FF00) == 0, "cube");
+
+    int outward = 0;
+    for (int t = 0; t < 12; t++) {
+        v3_t a = cube.verts[cube.faces[t * 3]], n = cube.normals[t];
+        outward += n.x * a.x + n.y * a.y + n.z * a.z > 0;
+    }
+    CHECK(outward == 12, "cube normals point outwards (%d)", outward);
+
+    /* camera at z=-5 looking +z: a sphere at the origin fills the centre */
+    g16_cls(&g, 0);
+    r3d_zclear(&r);
+    r3d_camera(&r, 0, 0, -5, 0, 0, 60);
+    r3d_light(&r, 0, 0, -1, 0);              /* light from the camera, no ambient */
+    r3d_draw(&r, &sphere, (v3_t){ 0, 0, 0 }, 0, 0, 0, 1);
+    /* from 5 radii away ~40% of a sphere is visible; pole faces are degenerate */
+    CHECK(r.tris_drawn > (uint32_t)sphere.nfaces / 4 && r.tris_drawn < (uint32_t)sphere.nfaces / 2,
+          "back faces culled (%u of %d drawn)", r.tris_drawn, sphere.nfaces);
+    uint32_t centre = g16_to_rgb24(big[180 * 640 + 320]);
+    CHECK((centre >> 16) > 200 && (centre & 0xFFFF) == 0, "front of the sphere lit (%06x)", centre);
+    CHECK(big[5 * 640 + 5] == 0, "background untouched");
+
+    /* z-buffer: a cube in front hides the sphere, one behind does not */
+    r3d_draw(&r, &cube, (v3_t){ 0, 0, 5 }, 0, 0, 0, 0.3f);
+    CHECK(g16_to_rgb24(big[180 * 640 + 320]) >> 16 > 200, "cube behind is hidden");
+    r3d_draw(&r, &cube, (v3_t){ 0, 0, -2 }, 0, 0, 0, 0.3f);
+    CHECK((g16_to_rgb24(big[180 * 640 + 320]) >> 8 & 0xFF) > 200, "cube in front is visible");
+
+    /* behind the camera: nothing drawn, no crash */
+    uint32_t before = r.tris_drawn;
+    r3d_draw(&r, &sphere, (v3_t){ 0, 0, -20 }, 0, 0, 0, 1);
+    CHECK(r.tris_drawn == before, "objects behind the camera are skipped");
+
+    /* 2D triangle */
+    g16_cls(&g, 0);
+    g16_tri(&g, 10, 10, 50, 10, 10, 50, 0xFFFF);
+    CHECK(big[12 * 640 + 12] == 0xFFFF && big[45 * 640 + 45] == 0, "2D triangle");
+    g16_tri(&g, -100, -100, 1000, -50, 300, 1000, 0x1234);   /* huge, clipped */
+    CHECK(big[180 * 640 + 320] == 0x1234, "clipped big triangle");
+
+    r3d_mesh_free(&sphere);
+    r3d_mesh_free(&cube);
+    r3d_free(&r);
+}
+
 static uint8_t *read_file(const char *p, size_t *n)
 {
     FILE *f = fopen(p, "rb");
@@ -165,6 +220,7 @@ int main(int argc, char **argv)
     test_primitives();
     test_sprites();
     test_text();
+    test_3d();
     test_format(argc > 1 ? argv[1] : "build/demo.b33");
     printf("b33: %d/%d checks passed\n", checks - fails, checks);
     return fails != 0;
