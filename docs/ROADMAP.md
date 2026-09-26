@@ -79,7 +79,18 @@ CGRAM, APU, porte), implementata in C nativo, non un'emulazione del motore di lu
   byte** sia su x86 sia sul codice ARM1176 in `qemu-arm` (`make test-s32 test-s32-arm`).
 - All'avvio: `demo.cart` in modalità attract per 15 s; comando `g` per giocarla dalla seriale.
 - **Fatto quando:** tutti i vettori passano; la demo gira a 60 fps sul Pi.
-- Prossimo: cartucce Lua (`code_type` 1, proposta nella spec §11) e APU.
+- Prossimo lato s32: cartucce Lua (`code_type` 1, spec §11, domande in lua32 PR #2) e APU,
+  quando lua32 sarà più maturo.
+
+## Tipi di cartuccia (decisione 2026-09-26)
+| Tipo | Formato | Gira su | Priorità |
+|---|---|---|---|
+| s32 codice macchina | `.cart`, `code_type` 0 | bm33 + lua32 | ✅ fatto |
+| **bm33 nativa Lua** | **`.b33`** (formato separato, non tocca la spec s32) | solo bm33, sfrutta tutto il Pi | **prossima** |
+| s32 Lua | `.cart`, `code_type` 1 | bm33 + lua32 | quando lua32 è pronto |
+| bm33 nativa ARM (C) | `.b33` | solo bm33, user mode + MMU | dopo l'MVP |
+
+Priorità attuale: sviluppo della console bm33; la parte s32 avanza al ritmo di lua32.
 
 ## M7 — Input (L, rischio alto)
 - **Fase A (S):** pulsanti su GPIO oppure pad SNES/NES via GPIO (latch/clock/data):
