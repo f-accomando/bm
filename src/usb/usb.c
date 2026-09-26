@@ -172,6 +172,8 @@ int usb_init(void)
             report_len = (uint16_t)(c[i + 7] | c[i + 8] << 8);
         } else if (c[i + 1] == DESC_ENDPOINT && i + 6 < total && !hid_ep.active &&
                    (c[i + 2] & 0x80) && (c[i + 3] & 3) == EP_INTERRUPT) {
+            if (cur_class == 3 && cur_sub == 1 && cur_proto == 2)
+                continue;                       /* boot mouse: not an input we use */
             int k = cur_class == 3 ? (cur_proto == 1 && cur_sub == 1 ? USB_KEYBOARD : USB_GAMEPAD)
                   : (cur_class == 0xFF && cur_sub == 0x5D && cur_proto == 0x01) ? USB_XBOX360 : -1;
             if (k < 0)

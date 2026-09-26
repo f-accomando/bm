@@ -104,13 +104,16 @@ firmware:
 
 # FAT32 boot partition contents. KERNEL=chainloader puts the serial loader on
 # the card instead of the kernel (flash it once, then use `make run-serial`).
+# Cartridges go to carts/ (the menu also looks in the root directory).
 KERNEL ?= kernel
-sdcard: $(BUILD)/$(KERNEL).img
+SD_CARTS := $(BUILD)/demo.b33 $(BUILD)/stress.b33 spec/s32/conformance/demo.cart
+sdcard: $(BUILD)/$(KERNEL).img $(SD_CARTS)
 	@test -f $(FW_DIR)/start.elf || { echo "Run 'make firmware' first"; exit 1; }
-	@mkdir -p $(DIST)
+	@mkdir -p $(DIST)/carts
 	cp $(FW_DIR)/bootcode.bin $(FW_DIR)/start.elf $(FW_DIR)/fixup.dat $(DIST)/
 	cp boot/config.txt $(DIST)/
 	cp $(BUILD)/$(KERNEL).img $(DIST)/kernel.img
+	cp $(SD_CARTS) $(DIST)/carts/
 	@echo "Copy the contents of $(DIST)/ ($(KERNEL)) to the root of a FAT32 SD card."
 
 sdcard-chainloader:

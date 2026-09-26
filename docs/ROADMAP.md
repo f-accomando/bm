@@ -119,22 +119,26 @@ Priorità attuale: sviluppo della console bm33; la parte s32 avanza al ritmo di 
   RGB565 corretto (rosso, verde, blu, bianco); 256 sprite 16×16 ≈ 0,9 ms
   (vedi docs/STRESS.md).
 
-## M7b — Input (L, rischio alto)
-- **Fase A (S):** pulsanti su GPIO oppure pad SNES/NES via GPIO (latch/clock/data):
-  semplice, deterministico, pronto per giocare subito.
-- **Fase B (L):** controller USB DWC OTG → HID tastiera/gamepad.
-  È il pezzo più complesso: valutare il porting di **USPi** (C, compatibile con il Pi 1,
-  licenza GPLv3) rispetto a uno stack scritto da zero.
-- Mappatura sull'`input_byte` di s32 (bit 0–4: su, giù, sinistra, destra, azione;
-  fino a 8 giocatori), più tastiera per il REPL.
-- **Fatto quando:** una cart di esempio si gioca con il pad; (fase B) una tastiera USB
-  scrive nel REPL.
+## M7b — Input ✅ QEMU, da verificare sul Pi (L)
+- Stack USB scritto da zero (non USPi): controller DWC2 in modalità host, DMA a buffer,
+  polling dal ciclo principale; enumerazione di un dispositivo sulla porta radice.
+- **Tastiera** HID (protocollo boot): layout italiano/US, ripetizione; monitor e REPL
+  leggono da seriale o tastiera. **Gamepad HID** generici (analisi del descrittore) e
+  **Xbox 360** cablati. Mappatura su `btn()` delle `.b33` e sui bit 0–4 di s32.
+- Esc o Start+Select escono dal gioco. Niente hub (decisione: un dispositivo alla volta),
+  niente Bluetooth (BCM43438 condivide la UART della console; firmware + HCI: troppo costoso).
+- Pad su GPIO (fase A) non necessario per ora.
+- **Fatto quando:** una tastiera USB scrive nel REPL e un gamepad muove il giocatore
+  (verificato in QEMU con `usb-kbd` e `usb-tablet`; manca la prova sul Pi).
 
-## M8 — Storage e caricamento delle cart (M)
-- Driver EMMC/SDHCI per la SD (lettura, poi scrittura), **FatFs** sopra.
-- Lettura di `/carts/*.cart` (s32, codice macchina o Lua), picker delle cartucce come
-  `s32_os` di lua32, salvataggio di config.
-- **Fatto quando:** copiando una nuova cart sulla SD da PC, questa compare nel menu.
+## M8 — Storage e caricamento delle cart ✅ QEMU, da verificare sul Pi (M)
+- Driver SD sul controller EMMC (Arasan SDHCI) in PIO, bus a 4 bit a 25 MHz, SDSC e SDHC;
+  FAT16/FAT32 con nomi lunghi, in sola lettura (scritto da zero, non FatFs).
+- Menu delle cartucce: incorporate + `.b33`/`.cart` in `/carts` e nella radice; si apre
+  all'avvio se c'è un dispositivo USB di input.
+- Da fare: scrittura (salvataggi, config), anteprime.
+- **Fatto quando:** copiando una nuova cart sulla SD da PC, questa compare nel menu
+  (verificato in QEMU con immagini FAT32 da 128 MiB e 4 GiB).
 
 ## M9 — MVP (M)
 - Launcher: menu con elenco delle cart, anteprima, ritorno al menu (combinazione di tasti).
@@ -156,7 +160,7 @@ Priorità attuale: sviluppo della console bm33; la parte s32 avanza al ritmo di 
 ## Rischi principali
 | Rischio | Mitigazione |
 |---------|-------------|
-| Stack USB (M7B) molto complesso | Fase A con pad via GPIO per sbloccare l'MVP; USPi come base |
+| Stack USB (M7B) molto complesso | Stack minimo scritto da zero (un dispositivo, HID); testato in QEMU |
 | Prestazioni Lua su ARM1176 a 1 GHz | Cache attive (M3), bassa risoluzione, API di blit in C |
 | Firmware closed-source che cambia comportamento | Fissare la versione con `FW_REF` |
 | Test solo su hardware | QEMU raspi0 in CI + chainloader via seriale |

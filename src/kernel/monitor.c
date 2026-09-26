@@ -17,30 +17,24 @@
 #include "lib/printf.h"
 #include "usb/hid.h"
 #include "usb/usb.h"
+#include "carts.h"
 
 static void help(void)
 {
-    kprintf("commands:\n"
-            "  h  help\n"
+    kprintf("commands (games: arrows/wasd, space = A; q or Esc quits):\n"
+            "  M  cartridge menu (built-in + SD card: / and /carts)\n"
+            "  f  list cartridges        F  re-read the SD card\n"
+            "  g  built-in s32 demo.cart n  built-in native demo.b33\n"
             "  l  Lua REPL (Ctrl-D or exit() returns here)\n"
-            "  i  system info\n"
-            "  c  clear screen\n"
-            "  m  heap usage\n"
-            "  k  run the benchmark\n"
-            "  d  animation demo (60 fps, double buffered; any key stops it)\n"
-            "  g  play the built-in s32 demo.cart (arrows/wasd, space; q or Esc quits)\n"
-            "  n  play the built-in native demo.b33 (arrows/wasd, space; q or Esc quits)\n"
-            "  p  C rendering benchmark at 640x360 RGB565\n"
             "  U  receive a cartridge over serial and play it\n"
+            "  i  system info            m  heap usage          c  clear screen\n"
+            "  y  USB: scan the port     L  keyboard layout Italian / US\n"
+            "  k  CPU benchmark          p  rendering benchmark 640x360 RGB565\n"
             "  S  rendering stress test (sprites, triangles, 3D; C and Lua)\n"
-            "  t  HDMI test pattern (any key returns to the console)\n"
-            "  y  USB: scan the port again (after plugging a device)\n"
-            "  L  keyboard layout: Italian / US\n"
+            "  d  animation demo (60 fps; any key stops it)\n"
+            "  t  HDMI test pattern (any key returns)\n"
             "  r  reboot (watchdog; the chainloader will ask for a new kernel)\n"
-            "  u  test: undefined instruction\n"
-            "  a  test: data abort (unaligned access with alignment checking)\n"
-            "  b  test: prefetch abort (BKPT)\n"
-            "  s  test: software interrupt (SVC)\n");
+            "  u a b s  tests: undefined insn, data abort, prefetch abort, SVC\n");
 }
 
 static void __attribute__((noinline)) trigger_undef(void)
@@ -140,6 +134,9 @@ void monitor_run(void)
             break;
         }
         case 't': show_test_pattern(); break;
+        case 'M': carts_menu(console_framebuffer()); break;
+        case 'f': carts_list(); break;
+        case 'F': carts_init(); carts_list(); break;
         case 'y': usb_init(); usb_print(); break;
         case 'L':
             hid_set_layout(hid_layout()[0] == 'i' ? "us" : "it");

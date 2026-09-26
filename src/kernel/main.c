@@ -31,6 +31,7 @@
 #include "b33/runtime.h"
 #include "b33/stress.h"
 #include "usb/usb.h"
+#include "carts.h"
 
 #ifndef BM33_VERSION
 #define BM33_VERSION "dev"
@@ -155,6 +156,7 @@ void kernel_main(uint32_t atags)
     report_irq();
     usb_init();
     usb_print();
+    carts_init();
 
 #ifdef BM33_BOOT_STRESS
     run_stress();
@@ -184,6 +186,12 @@ void kernel_main(uint32_t atags)
         kprintf("vsync probe: tag not supported by the firmware\n");
 
     run_boot_script();
+
+    /* With a USB keyboard or gamepad the console starts on the cartridge
+     * menu; Esc (or Start+Select) goes to the monitor. */
+    int k = usb_info()->kind;
+    if (k == USB_KEYBOARD || k == USB_GAMEPAD || k == USB_XBOX360)
+        carts_menu(&fb);
 
     monitor_run();
 }

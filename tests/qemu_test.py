@@ -21,6 +21,7 @@ sys.path.insert(0, os.path.join(HERE, "..", "tools"))
 sys.path.insert(0, os.path.join(HERE, "..", "scripts"))
 import bm33_load  # noqa: E402
 import mkb33  # noqa: E402
+import mksd  # noqa: E402
 
 QEMU = os.environ.get("QEMU", "qemu-system-arm")
 REF_DIR = os.path.join(HERE, "ref")
@@ -545,9 +546,12 @@ def test_usb_keyboard(b, opts):
         q.expect("b33 bench:", timeout=20)
         time.sleep(1.0)
         sendkeys(q, "esc")
-        out = q.expect(PROMPT, timeout=30).decode(errors="replace")
+        out = q.expect("cartridge menu", timeout=30).decode(errors="replace")
         m = re.search(r'demo" (\d+) frames', out)
         assert m and int(m[1]) < 300, out
+        time.sleep(0.5)                        # with a keyboard, boot ends in the menu
+        sendkeys(q, "esc")
+        q.expect(PROMPT, timeout=10)
         q.expect("> ")
 
         # s32: held arrow keys move the square
@@ -577,6 +581,92 @@ def test_usb_keyboard(b, opts):
         q.expect("> ", timeout=10)
         sendkeys(q, "shift-l")
         q.expect("keyboard layout: us", timeout=10)
+    finally:
+        q.close()
+
+
+def test_sd_cartridges(b, opts):
+    tmp = tempfile.mkdtemp(prefix="bm33-sd-")
+    img = os.path.join(tmp, "sd.img")
+    mksd.build(img, [(b("demo.b33"), "Il mio gioco lungo.b33"),
+                     (os.path.join(HERE, "..", "spec", "s32", "conformance", "demo.cart"),
+                      "carts/demo2.cart"),
+                     (os.path.join(HERE, "..", "README.md"), "README.md")])
+    q = Qemu(b("kernel.img"), ["-drive", f"if=sd,format=raw,file={img}"])
+    try:
+        out = q.boot().decode(errors="replace")
+        assert "sd: SD card, FAT32, 127 MiB, label BM33SD; 2 cartridges" in out, out
+        q.send("f")
+        out = q.expect("demo2.cart\r\n").decode(errors="replace")
+        assert "Il mio gioco lungo.b33" in out and "/carts/demo2.cart" in out, out
+        q.expect("> ")
+        q.send("M")
+        q.expect("cartridge menu")
+        time.sleep(0.5)
+        _, text = settled_screen(q, lambda i, t: any("cartridges" in l for l in t))
+        screen = "\n".join(text)
+        for s_ in ("bm33 - cartridges", "demo.b33 (built-in)", "Il mio gioco lungo.b33", "demo2.cart"):
+            assert s_ in screen, screen
+        q.send("ss\r")                        # third entry: the first one on the SD card
+        q.expect("playing Il mio gioco lungo.b33", timeout=10)
+        time.sleep(1.0)
+        q.send("q")
+        out = q.expect("update+draw", timeout=15).decode(errors="replace")
+        assert '"bm33 native demo"' in out, out
+        q.send("s\r")                         # next: /carts/demo2.cart (s32)
+        q.expect("playing demo2.cart", timeout=10)
+        time.sleep(1.0)
+        q.send("q")
+        q.expect("render", timeout=15)
+        q.send("q")
+        q.expect("back to the monitor", timeout=10)
+        q.expect("> ")
+    finally:
+        q.close()
+
+
+def test_sd_sdhc_and_usb_menu(b, opts):
+    """4 GiB card (SDHC addressing); with a USB keyboard boot ends in the menu."""
+    tmp = tempfile.mkdtemp(prefix="bm33-sd-")
+    img = os.path.join(tmp, "sd.img")
+    mksd.build(img, [(b("demo.b33"), "carts/game.b33")], 4096)
+    q = Qemu(b("kernel.img"), ["-drive", f"if=sd,format=raw,file={img}"] + USB_KBD)
+    try:
+        out = q.expect("cartridge menu", timeout=90).decode(errors="replace")
+        assert "sd: SDHC card, FAT32, 4095 MiB, label BM33SD; 1 cartridges" in out, out
+        time.sleep(1.0)
+        sendkeys(q, "down down ret")
+        q.expect("playing game.b33", timeout=10)
+        time.sleep(1.5)
+        sendkeys(q, "esc")
+        q.expect("update+draw", timeout=15)
+        time.sleep(0.5)
+        sendkeys(q, "esc")
+        q.expect("back to the monitor", timeout=10)
+        q.expect("> ")
+    finally:
+        q.close()
+        os.remove(img)
+
+
+def test_usb_hid_gamepad(b, opts):
+    """Generic HID parser: QEMU's usb-tablet (report descriptor with 3
+    buttons and absolute X/Y) is taken as a gamepad; button 1 = A."""
+    q = Qemu(b("kernel.img"), ["-device", "usb-tablet,port=1"])
+    try:
+        out = q.expect("cartridge menu", timeout=90).decode(errors="replace")
+        assert "usb: gamepad 0627:0001 'QEMU USB Tablet'" in out, out
+        q.monitor("mouse_move 16384 16384")    # centre: stick released
+        q.send("w")                            # the menu restarts from the top
+        time.sleep(0.5)
+        q.monitor("mouse_button 1")
+        q.monitor("mouse_button 0")
+        q.expect("playing demo.b33", timeout=10)
+        time.sleep(1.0)
+        q.send("q")
+        q.expect("update+draw", timeout=15)
+        q.send("q")
+        q.expect("back to the monitor", timeout=10)
     finally:
         q.close()
 
@@ -647,7 +737,7 @@ def test_upload_s32_and_corrupt(b, opts):
         q.send(data)
         assert loader._reply() == b"CE"
         q.send("h")
-        q.expect("commands:")
+        q.expect("commands (")
     finally:
         q.close()
 

@@ -19,12 +19,12 @@ Stress test di rendering (soglie 60/30 fps): [docs/STRESS.md](docs/STRESS.md) �
 | **M5** | Lua 5.4 embedded + REPL | ✅ |
 | **M6** | Core **s32** in C: cartucce `.cart` compatibili con lua32 | ✅ |
 | **M7** | Cartucce native **`.b33`**: Lua 5.4 + grafica C a 640×360 RGB565 | ✅ |
-| M7b | Input: pad GPIO, poi USB HID | |
-| M8 | SD + FAT, picker delle `.cart` | |
+| **M7b** | Input: tastiera e gamepad **USB** (HID) | ✅ QEMU, da verificare sul Pi |
+| **M8** | **SD** + FAT32, menu delle cartucce | ✅ QEMU, da verificare sul Pi |
 | M9 | **MVP**: launcher, giochi demo, immagine SD | |
 | M10 | APU s32 su PWM (opzionale) | |
 
-## Cosa fa il kernel (M0–M7)
+## Cosa fa il kernel (M0–M8)
 
 All'avvio:
 1. `src/boot/start.S`: maschera gli IRQ, imposta uno stack per ogni modo della CPU,
@@ -41,16 +41,21 @@ All'avvio:
 7. esegue un self-test di newlib (stdio con float, libm, malloc/free) e mostra il riepilogo
 8. attiva gli **interrupt**: tick di sistema a 1 kHz (system timer, compare 1), che
    fa anche lampeggiare il LED; misura la frequenza reale e la mostra
-9. esegue per 10 s la cartuccia **s32** `demo.cart` (da lua32) a 320×224 in modalità
+9. inizializza l'**USB** e riconosce il dispositivo collegato (riga `usb: keyboard ...`
+   o `usb: gamepad ...`), poi legge la **SD** e cerca le cartucce
+   (riga `sd: SDHC card, FAT32, ...; N cartridges`)
+10. esegue per 10 s la cartuccia **s32** `demo.cart` (da lua32) a 320×224 in modalità
    *attract* (il quadrato si muove da solo), poi mostra le statistiche (tick, fps,
    tempo CPU per tick e per istruzione, tempo di rendering)
-10. esegue il **benchmark di rendering** delle cartucce native (mappa a tutto schermo +
+11. esegue il **benchmark di rendering** delle cartucce native (mappa a tutto schermo +
     256 sprite 16×16 a 640×360 RGB565, 2 s) e poi per 15 s la **cartuccia nativa**
     `demo.b33`, e mostra le statistiche (fps, ms di `_update`+`_draw`, % del frame)
-11. avvia **Lua 5.4.7** ed esegue lo script incorporato `src/script/boot.lua`:
+12. avvia **Lua 5.4.7** ed esegue lo script incorporato `src/script/boot.lua`:
     versione, alcune funzioni del linguaggio, un errore intercettato con `pcall`,
     micro-benchmark (fib, cicli, sort, stringhe) e memoria usata
-12. avvia un **monitor** a tasto singolo sulla seriale:
+13. con una tastiera o un gamepad USB collegati apre il **menu delle cartucce**
+    (vedi sotto); Esc (o Start+Select) porta al monitor
+14. avvia un **monitor** a tasto singolo (dalla seriale o dalla tastiera USB):
 
 | Tasto | Azione |
 |-------|--------|
@@ -61,8 +66,12 @@ All'avvio:
 | `m` | uso dell'heap |
 | `k` | esegue di nuovo il benchmark |
 | `d` | demo animata in C (60 fps, doppio buffer; un tasto la interrompe) |
-| `g` | gioca `demo.cart` (s32): w/a/s/d o frecce, spazio = azione, q = esci |
-| `n` | gioca `demo.b33` (nativa): frecce/wasd, spazio = A, k/x = B, q = esci |
+| `g` | gioca `demo.cart` (s32): w/a/s/d o frecce, spazio = azione, q o Esc = esci |
+| `n` | gioca `demo.b33` (nativa): frecce/wasd, spazio = A, k/x = B, q o Esc = esci |
+| `M` | **menu delle cartucce** (incorporate + SD) |
+| `f` / `F` | elenca le cartucce / rilegge la SD |
+| `y` | USB: cerca di nuovo il dispositivo (dopo averlo collegato) |
+| `L` | layout tastiera: italiano ↔ US |
 | `p` | benchmark di rendering 640×360 RGB565 |
 | `U` | riceve una cartuccia dalla seriale (`bm33_load.py PORTA --cart file.b33`) e la esegue |
 | `S` | stress test di rendering (sprite, triangoli, 3D; C e Lua): vedi [docs/STRESS.md](docs/STRESS.md) |
@@ -74,8 +83,36 @@ Un'eccezione fatale stampa PC/LR/SP/CPSR, r0–r12, DFAR/DFSR o IFSR e
 l'istruzione in errore, sulla seriale **e sullo schermo** (bianco su rosso),
 e il LED lampeggia il codice. Senza cavo seriale basta quindi l'HDMI per il debug.
 
-Senza adattatore seriale il monitor non riceve comandi, ma la console mostra
-comunque il log di avvio e l'uptime nella barra di stato si aggiorna ogni secondo.
+Senza adattatore seriale basta una **tastiera USB**: i comandi del monitor e il
+REPL Lua funzionano anche da lì.
+
+## Tastiera, gamepad e SD (M7b, M8)
+
+**USB.** Il Pi Zero W ha una sola porta micro-USB OTG (quella vicino al centro,
+*non* quella di alimentazione): serve un adattatore OTG micro-USB → USB-A.
+Si usa **un dispositivo alla volta** collegato direttamente (niente hub USB).
+Il dispositivo va collegato prima dell'accensione (o dopo, con il comando `y`).
+
+- **Tastiera** (protocollo boot HID): layout **italiano** (`L` passa a US), lettere
+  accentate, ripetizione dei tasti. Nei giochi: frecce o WASD, spazio/Z/J = A,
+  X/K = B, Invio = Start, Tab = Select, **Esc = esci**.
+- **Gamepad HID generici** (il descrittore HID viene analizzato: pulsanti, assi X/Y,
+  croce direzionale) e **controller Xbox 360 cablati**: croce o levetta sinistra,
+  A/X = A, B/Y = B, **Start+Select (Back) = esci**.
+
+**SD.** All'avvio il kernel legge la prima partizione **FAT32** (o FAT16) della SD
+(quella da cui si avvia il Pi) e cerca i file **`.b33`** e **`.cart`** nella
+cartella `carts/` e nella radice. Nomi lunghi supportati. `make sdcard` mette in
+`dist/carts/` le cartucce di esempio (`demo.b33`, `stress.b33`, `demo.cart`).
+
+**Menu delle cartucce.** Su/giù per scegliere, Invio (o A) per giocare, Esc (o
+Start+Select) per tornare al menu dal gioco e dal menu al monitor; `R` rilegge la SD.
+Dalla seriale: w/s, Invio, q. Per aggiungere un gioco basta copiarlo in `carts/`
+sulla SD dal PC.
+
+Limiti attuali: SD in sola lettura; un solo dispositivo USB, senza hub; niente
+Bluetooth (il chip BCM43438 usa la stessa UART della console seriale e richiede
+firmware e stack HCI/L2CAP/HID: troppo per ora).
 
 Stato del LED ACT:
 - **acceso fisso**: inizializzazione in corso (se resta così, blocco prima degli interrupt)
@@ -140,7 +177,8 @@ del kernel. `git log --oneline` mostra a quale milestone corrisponde; se compare
 ## Requisiti
 
 ```sh
-sudo apt install gcc-arm-none-eabi binutils-arm-none-eabi qemu-system-arm make curl python3
+sudo apt install gcc-arm-none-eabi binutils-arm-none-eabi qemu-system-arm make curl python3 \
+    dosfstools mtools     # per i test SD in QEMU
 ```
 
 ## Build e test
@@ -285,14 +323,15 @@ Dalla cartella del progetto, con la SD montata (in WSL: `sudo mount -t drvfs D: 
 ```sh
 make sdcard
 cp dist/kernel.img dist/config.txt /mnt/d/
+mkdir -p /mnt/d/carts && cp dist/carts/* /mnt/d/carts/     # cartucce
 ```
 
 ## Scheda SD senza chainloader
 
 1. Formatta la SD con una partizione **FAT32** (tabella MBR).
 2. `make firmware && make sdcard` (per fissare una versione del firmware: `FW_REF=<tag> make firmware`).
-3. Copia il contenuto di `dist/` nella root della SD:
-   `bootcode.bin  start.elf  fixup.dat  config.txt  kernel.img`
+3. Copia il contenuto di `dist/` nella root della SD (`cp -r dist/* /mnt/d/`):
+   `bootcode.bin  start.elf  fixup.dat  config.txt  kernel.img  carts/`
 4. Collega l'HDMI (mini-HDMI) *prima* di alimentare il Pi.
 
 ## Struttura
@@ -312,6 +351,11 @@ src/kernel/irq.c         controller IRQ BCM2835, registrazione e dispatch
 src/kernel/tick.c        tick di sistema (system timer compare 1)
 src/kernel/demo.c        demo animata a 60 fps
 src/gfx/draw.c           primitive: clear, rect, sprite 16×16, testo
+src/usb/                 host USB DWC2 (DMA, polling), enumerazione, HID tastiera/gamepad/Xbox 360
+src/drivers/sd.c         SD sul controller EMMC (Arasan SDHCI), PIO, sola lettura
+src/fs/fat.c             FAT16/FAT32 in sola lettura, nomi lunghi
+src/kernel/carts.c       elenco delle cartucce (incorporate + SD) e menu
+src/kernel/input.c       input unificato: seriale + tastiera/gamepad USB
 src/s32/                 macchina s32: CPU, PPU, loader .cart, player 320×224
 src/b33/                 cartucce native: formato, grafica RGB565 (gfx16), 3D software (r3d),
                          runtime Lua, stress test
@@ -335,7 +379,8 @@ src/drivers/             mmio, mailbox, prop tags, framebuffer, gpio, uart (PL01
 src/lib/                 kprintf, crc32, syscalls newlib (_sbrk, _write, ...)
 chainloader/             bootloader seriale (si riloca a 0x02000000)
 tools/bm33_load.py       invio del kernel + terminale seriale (solo stdlib Python)
-tests/qemu_test.py       test end-to-end in QEMU
+tests/qemu_test.py       test end-to-end in QEMU (anche tastiera USB, gamepad HID, SD)
+tests/mksd.py            crea un'immagine SD (MBR + FAT32) per i test in QEMU
 scripts/                 download firmware, screenshot QEMU, conversione font (psf2c.py)
 ```
 

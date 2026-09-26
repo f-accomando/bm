@@ -66,7 +66,7 @@ riempimento ~430 MB/s *(M)*).
 
 | Risorsa | Pi Zero W | s32 (spec) | bm33 oggi | Uso |
 |---|---|---|---|---|
-| USB | 1 × micro-USB OTG (USB 2.0, controller DWC) *(D)* | — | non usato (M7, parte difficile) | 0 |
+| USB | 1 × micro-USB OTG (USB 2.0, controller DWC) *(D)* | — | host DWC2: **1 dispositivo HID** (tastiera o gamepad), senza hub *(M7b)* | 1 porta |
 | GPIO | header a 40 pin (28 GPIO, da saldare sul Zero W) *(D)* | — | GPIO14/15 UART, GPIO47 LED | 2 su 28 |
 | UART | PL011 + mini UART *(D)* | — | PL011 a 115200 baud, clock 48 MHz *(M)* | — |
 | Giocatori | limitati da USB/GPIO | **8** porte di input (5 bit usati: frecce + azione) *(S)* | — | — |
@@ -74,7 +74,7 @@ riempimento ~430 MB/s *(M)*).
 | DMA | 16 canali *(D)* | — | non usato | 0 |
 | Wi-Fi / Bluetooth | 802.11 b/g/n 2,4 GHz + BT 4.1/BLE (BCM43438) *(D)* | — | **non usati** (driver bare metal molto complessi) | 0 |
 | Fotocamera | connettore CSI *(D)* | — | non usato | 0 |
-| Storage | microSD *(D)* | — | solo avvio via firmware (driver SD in M8) | — |
+| Storage | microSD *(D)* | — | lettura FAT16/32 via EMMC (PIO, 4 bit, 25 MHz): cartucce in `/carts` *(M8)* | sola lettura |
 
 ## 6. Cosa ci dicono i numeri
 

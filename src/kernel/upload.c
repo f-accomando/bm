@@ -1,4 +1,5 @@
 #include "upload.h"
+#include "carts.h"
 #include "b33/runtime.h"
 #include "drivers/uart.h"
 #include "lib/crc32.h"
@@ -66,16 +67,6 @@ void upload_and_play(framebuffer_t *fb)
     uart_write("OK", 2);
     kprintf("\nupload: %lu bytes received\n", size);
 
-    if (size >= 8 && memcmp(buf, "BM33CART", 8) == 0) {
-        b33_stats_t st;
-        b33_play(fb, buf, size, 3600, &st);
-        b33_print_stats(&st);
-    } else if (size >= 8 && memcmp(buf, "S32CART1", 8) == 0) {
-        s32_play_stats_t st;
-        s32_play(fb, buf, size, 3600, 0, &st);
-        s32_play_print(&st);
-    } else {
-        kprintf("upload: unknown cartridge format\n");
-    }
+    carts_play_buffer(fb, buf, size);
     free(buf);
 }
