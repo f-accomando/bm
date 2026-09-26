@@ -51,7 +51,9 @@ M0 ─ M1 ─ M2 ─ M3 ─ M4 ─ M5 ─ M6 ─┬─ M7 ─┬─ M9 (MVP)
 - Frame loop a 60 Hz stabile (sync al vblank se il firmware lo espone, altrimenti timer).
 - **Fatto quando:** un rettangolo in movimento scorre fluido, senza tearing visibile, a 60 fps.
 - Risultato: 60 fps, 0 frame persi, 2,7 ms di disegno per frame; ritmo dal timer.
-  Da capire: sincronizzazione al vsync reale (il tag 0x4000E non è stato usato).
+  Vsync: il firmware del Pi Zero risponde "tag not supported" a 0x4000E (wait for
+  vsync). Alternativa da provare in M6: interrupt SMI (IRQ 48) che il firmware
+  genera a ogni vsync, come faceva il driver Linux bcm2708_fb.
 
 ## M5 — Lua embedded ✅ (M)
 - Lua 5.4 in `third_party/lua`, compilato con newlib e VFP hard-float.
