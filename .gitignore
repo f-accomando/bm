@@ -2,3 +2,4 @@ build/
 dist/
 firmware/
 __pycache__/
+build-stress/
