@@ -4,9 +4,9 @@ Obiettivo: capire **quanti oggetti per frame** può disegnare bm33 prima di scen
 **60 fps** (16,7 ms per frame) e sotto **30 fps** (33,3 ms per frame), per sprite e
 per poligoni 2D/3D, sia dal C sia attraverso l'API delle cartucce Lua (`.b33`).
 
-> **Stato:** strumento pronto e verificato in QEMU. **I numeri sul Pi reale sono da
-> raccogliere** (vedi "Come eseguirlo"): QEMU non emula cache, bus di memoria né
-> tempi reali, quindi i suoi valori servono solo a controllare che il test funzioni.
+> **Stato:** misurato sul Pi Zero W reale (kernel `792787f`, 2026-09-26). I valori
+> QEMU sono riportati solo come controllo: QEMU non emula cache, bus di memoria né
+> tempi reali.
 
 ## Metodo
 
@@ -62,19 +62,38 @@ con modifiche locali non committate.
 
 | Misura | Versione | Data |
 |---|---|---|
-| Pi Zero W | *da misurare* | |
+| Pi Zero W v1.1, 1 GHz, cache attive | `792787f` | 2026-09-26 |
 | QEMU (controllo) | `1b31924` | 2026-09-26 |
 
 Numero massimo di oggetti per frame (640×360, RGB565):
 
-| Test | **Pi Zero W 60 fps** | **Pi Zero W 30 fps** | Pi us/item | QEMU 60 fps | QEMU 30 fps |
+| Test | **Pi 60 fps** | **Pi 30 fps** | **Pi µs/oggetto** | QEMU 60 fps | QEMU 30 fps |
 |---|---:|---:|---:|---:|---:|
-| sprites 16×16 (C) | *da misurare* | *da misurare* | | 2133 | 4088 |
-| sprites 32×32 (C) | *da misurare* | *da misurare* | | 635 | 1363 |
-| triangles 2D ~170px | *da misurare* | *da misurare* | | 1340 | 2680 |
-| 3D spheres 96 (C) | *da misurare* | *da misurare* | | 16 (602 tri) | 53 (2065 tri) |
-| sprites 16×16 (Lua) | *da misurare* | *da misurare* | | 994 | 1822 |
-| 3D spheres 96 (Lua) | *da misurare* | *da misurare* | | 16 (603 tri) | 48 (1868 tri) |
+| sprites 16×16 (C) | **4482** | **9255** | 3,49 | 2133 | 4088 |
+| sprites 32×32 (C) | **1513** | **3130** | 10,30 | 635 | 1363 |
+| triangles 2D ~170px | **2594** | **5368** | 6,00 | 1340 | 2680 |
+| 3D spheres 96 (C) | **31** (1195 tri) | **129** (5011 tri) | 162,88 | 16 (602 tri) | 53 (2065 tri) |
+| sprites 16×16 (Lua) | **1829** | **3774** | 8,52 | 994 | 1822 |
+| 3D spheres 96 (Lua) | **29** (1115 tri) | **120** (4692 tri) | 169,97 | 16 (603 tri) | 48 (1868 tri) |
+
+### Cosa dicono i numeri del Pi
+
+- **Sprite in C:** ~4500 sprite 16×16 a 60 fps. Il costo è quasi tutto nei pixel:
+  3,5 µs per 256 pixel (~14 ns/pixel); il 32×32 ha 4× i pixel e costa 3× (10,3 µs),
+  quindi la gestione del singolo sprite pesa poco e il limite è la banda verso la
+  memoria video.
+- **Sprite da Lua:** ~1800 a 60 fps. La differenza con il C (8,5 − 3,5 ≈ **5 µs per
+  sprite**) è la logica Lua del test (calcolo della posizione) più la chiamata `spr()`.
+  Per un gioco: centinaia di sprite con logica vera restano abbondantemente a 60 fps.
+- **Triangoli 2D** (~170 px): ~2600 a 60 fps, 6 µs l'uno (~35 ns/pixel compresa la
+  preparazione della scanline).
+- **3D:** ~**1200 triangoli disegnati** a 60 fps, ~5000 a 30 fps (circa 14 µs per
+  triangolo disegnato, comprese trasformazioni, facce scartate, pulizia di schermo e
+  z-buffer). Da Lua il costo è quasi identico (+4%), perché tutto il lavoro 3D è in C.
+  È un budget da console di fine anni '90 in software: scene low-poly a 60 fps,
+  scene più ricche a 30 fps.
+- **Confronto con il budget dichiarato per `.b33`** (mappa piena + 256 sprite sotto il
+  25% del frame): 256 sprite 16×16 costano ~0,9 ms, ampiamente dentro.
 
 Dati di riferimento già misurati sul Pi reale (M3–M7): riempimento 640×360 a 32 bit
 2,2 ms; demo C con 64 sprite 2,7 ms per frame; Lua circa 100 ns per operazione semplice.
