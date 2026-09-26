@@ -36,7 +36,7 @@ M0 ─ M1 ─ M2 ─ M3 ─ M4 ─ M5 ─ M6 ─┬─ M7 ─┬─ M9 (MVP)
 - `kprintf` scrive sia su UART sia su schermo; il panic appare anche su HDMI.
 - **Fatto quando:** i log di boot sono leggibili sul monitor senza cavo seriale.
 
-## M3 — Memoria, cache e libc ✅ (M)
+## M3 — Memoria, cache e libc ✅ verificato su Pi Zero W (M)
 - MMU con mappa identità a sezioni da 1 MB: RAM cacheable, periferiche
   device/strongly-ordered, framebuffer write-through (o cache + flush esplicito).
 - Attivazione di I-cache, D-cache e branch prediction (senza cache l'ARM1176 è

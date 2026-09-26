@@ -67,6 +67,20 @@ Schermata di avvio (QEMU: i tempi non sono indicativi, QEMU non emula cache e cl
 
 ![avvio](docs/m3-boot.png)
 
+Benchmark misurato su Pi Zero W reale (µs, più basso è meglio):
+
+| Test | 700 MHz, no cache | 1 GHz, no cache | 1 GHz + MMU/cache | Guadagno |
+|------|------:|------:|------:|------:|
+| fill 640×360 | 4270 | 4272 | 2160 | ×2,0 |
+| memset 1 MiB | 7308 | 7316 | 2395 | ×3,1 |
+| memcpy 1 MiB | 19390 | 19424 | 10269 | ×1,9 |
+| crc32 64 KiB | 35720 | 35573 | 3670 | ×9,7 |
+| float 100k | 8399 | 8304 | 1400 | ×5,9 |
+
+Senza cache il clock non conta: ogni istruzione viene letta dalla SDRAM, quindi
+700 MHz e 1 GHz danno gli stessi tempi. Il codice di calcolo (crc32, float) guadagna
+6–10 volte con le cache; memset/memcpy/fill restano limitati dalla banda della RAM.
+
 Console ed eccezione (M2):
 
 ![console](docs/m2-console.png) ![eccezione](docs/m2-exception.png)
