@@ -103,6 +103,48 @@ def read_ppm(path):
     return w, h, data[pos + 1:]
 
 
+def load_font():
+    """Glyph bitmaps from src/gfx/font8x16.c, keyed by row bytes."""
+    import re
+    src = open(os.path.join(HERE, "..", "src", "gfx", "font8x16.c")).read()
+    rows = re.findall(r"\{ (0x[0-9a-f]{2}(?:, 0x[0-9a-f]{2}){15}) \}", src)
+    table = {}
+    for code, r in enumerate(rows):
+        key = bytes(int(b, 16) for b in r.split(", "))
+        table.setdefault(key, bytes([code]).decode("cp437"))
+    return table
+
+
+FONT = None
+
+
+def screen_text(img, cw=8, ch=16):
+    """Reads the console back from a screendump: one string per text row.
+    Unknown cells become '?'."""
+    global FONT
+    if FONT is None:
+        FONT = load_font()
+    w, h, px = img
+    lines = []
+    for row in range(h // ch):
+        line = []
+        for col in range(w // cw):
+            x0, y0 = col * cw, row * ch
+            cell = [[pixel(img, x0 + x, y0 + y) for x in range(cw)] for y in range(ch)]
+            bg = cell[0][0]
+            for y in (ch - 1, ch - 2):          # glyphs rarely touch the corners
+                if cell[y][0] != bg and cell[y][cw - 1] == cell[0][cw - 1]:
+                    bg = cell[0][cw - 1]
+            bits = bytes(sum(0x80 >> x for x in range(cw) if cell[y][x] != bg)
+                         for y in range(ch))
+            if not any(bits):
+                line.append(" ")
+            else:
+                line.append(FONT.get(bits, "?"))
+        lines.append("".join(line).rstrip())
+    return lines
+
+
 def pixel(img, x, y):
     w, _, px = img
     i = (y * w + x) * 3
@@ -115,11 +157,41 @@ def test_boot_banner(b, opts):
     q = Qemu(b("kernel.img"))
     try:
         out = q.expect(PROMPT)
-        for s in (b"bm33 kernel", b"board revision", b"framebuffer    : 1280x720"):
+        for s in (b"bm33\x1b[0m kernel", b"board revision", b"framebuffer    : 640x360"):
             assert s in out, f"missing {s!r} in boot log"
         q.expect("> ")
+        text = "\n".join(screen_text(q.screendump()))
+        for s in ("bm33 kernel", "board revision : 00920092",
+                  "console        : 80x21, 8x16 font", "type 'h' for help"):
+            assert s in text, f"missing {s!r} on screen:\n{text}"
         q.send("i")
         q.expect("uptime")
+    finally:
+        q.close()
+
+
+def test_console_ansi_and_status(b, opts):
+    q = Qemu(b("kernel.img"))
+    try:
+        q.expect(PROMPT)
+        q.expect("> ")
+        img = q.screendump()
+        text = screen_text(img)
+        assert text[0].startswith(" bm33 "), f"status bar: {text[0]!r}"
+        assert "up 00:00:0" in text[0], f"uptime in status bar: {text[0]!r}"
+        assert pixel(img, 2, 2) == (0, 170, 170), "status bar colour"
+        # "bm33" in the banner is bright cyan (ESC[1;36m)
+        banner = next(i for i, l in enumerate(text) if "kernel" in l and l.startswith("bm33"))
+        colours = {pixel(img, x, banner * 16 + y) for x in range(32) for y in range(16)}
+        assert (85, 255, 255) in colours, "ANSI bright cyan not rendered"
+        # scrolling: 40 unknown-command lines push the banner off screen
+        for _ in range(20):
+            q.send("x")
+            q.expect("> ")
+        text = screen_text(q.screendump())
+        assert not any("board revision" in l for l in text), "console did not scroll"
+        assert text[0].startswith(" bm33 "), "status bar scrolled away"
+        assert any("unknown command (0x78)" in l for l in text)
     finally:
         q.close()
 
@@ -128,14 +200,18 @@ def test_screen_pattern(b, opts):
     q = Qemu(b("kernel.img"))
     try:
         q.expect(PROMPT)
+        q.expect("> ")
+        q.send("t")
+        q.expect("press any key")
         w, h, px = img = q.screendump()
-        assert (w, h) == (1280, 720), (w, h)
+        assert (w, h) == (640, 360), (w, h)
         assert pixel(img, 0, 0) == (255, 255, 255), "border"
-        assert pixel(img, 90, 200) == (191, 191, 191), "white bar"
-        assert pixel(img, 1000, 200) == (191, 0, 0), "red bar (RGB order)"
-        assert pixel(img, 1180, 200) == (0, 0, 191), "blue bar"
+        assert pixel(img, 45, 100) == (191, 191, 191), "white bar"
+        assert pixel(img, 500, 100) == (191, 0, 0), "red bar (RGB order)"
+        assert pixel(img, 590, 100) == (0, 0, 191), "blue bar"
         digest = hashlib.sha256(px).hexdigest()
-        ref = os.path.join(REF_DIR, "testpattern-1280x720.sha256")
+        ref = os.path.join(REF_DIR, "testpattern-640x360.sha256")
+        os.makedirs(REF_DIR, exist_ok=True)
         if opts.update_ref or not os.path.exists(ref):
             with open(ref, "w") as f:
                 f.write(digest + "\n")
@@ -143,6 +219,10 @@ def test_screen_pattern(b, opts):
         else:
             with open(ref) as f:
                 assert f.read().strip() == digest, "screen differs from reference"
+        q.send(" ")                         # back to the console, text restored
+        q.expect("> ")
+        text = "\n".join(screen_text(q.screendump()))
+        assert "board revision" in text and "test pattern shown" in text, text
     finally:
         q.close()
 
@@ -156,7 +236,10 @@ def _exception_case(b, key, needles, code):
         out = q.expect(f"LED blink code: {code}")
         for s in needles:
             assert s.encode() in out, f"missing {s!r}:\n{out.decode(errors='replace')}"
-        assert pixel(q.screendump(), 640, 360) == (170, 0, 0), "panic screen not red"
+        img = q.screendump()
+        assert pixel(img, 639, 359) == (170, 0, 0), "panic screen not red"
+        text = "\n".join(screen_text(img))
+        assert "*** EXCEPTION:" in text and "System halted" in text, text
     finally:
         q.close()
 

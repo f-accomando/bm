@@ -12,8 +12,10 @@ int kvprintf(putc_fn out, void *ctx, const char *fmt, va_list ap);
 int ksnprintf(char *buf, size_t size, const char *fmt, ...)
     __attribute__((format(printf, 3, 4)));
 
-/* Kernel log to the serial console ('\n' becomes "\r\n"). */
+/* Kernel log: serial console ('\n' becomes "\r\n") plus an optional
+ * second sink such as the framebuffer console. */
 int kprintf(const char *fmt, ...) __attribute__((format(printf, 1, 2)));
 int kvlog(const char *fmt, va_list ap);
+void kprintf_set_sink(void (*sink)(char c));
 
 #endif

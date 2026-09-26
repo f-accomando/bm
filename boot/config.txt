@@ -10,6 +10,10 @@ hdmi_drive=2
 # Use the full screen area; our pattern draws a 1px border to check this
 disable_overscan=1
 
+# The kernel asks for a 640x360 framebuffer and the GPU scales it to the
+# HDMI mode; nearest-neighbour keeps the text sharp instead of blurred.
+scaling_kernel=8
+
 # Uncomment to force 720p60 if the monitor picks something odd
 #hdmi_group=1
 #hdmi_mode=4

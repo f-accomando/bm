@@ -130,17 +130,26 @@ int ksnprintf(char *buf, size_t size, const char *fmt, ...)
     return n;
 }
 
-static void console_putc(char c, void *ctx)
+static void (*log_sink)(char c);
+
+void kprintf_set_sink(void (*sink)(char c))
+{
+    log_sink = sink;
+}
+
+static void log_putc(char c, void *ctx)
 {
     (void)ctx;
     if (c == '\n')
         uart_putc('\r');
     uart_putc(c);
+    if (log_sink)
+        log_sink(c);
 }
 
 int kvlog(const char *fmt, va_list ap)
 {
-    return kvprintf(console_putc, 0, fmt, ap);
+    return kvprintf(log_putc, 0, fmt, ap);
 }
 
 int kprintf(const char *fmt, ...)

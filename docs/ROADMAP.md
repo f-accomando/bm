@@ -30,8 +30,9 @@ M0 ─ M1 ─ M2 ─ M3 ─ M4 ─ M5 ─ M6 ─┬─ M7 ─┬─ M9 (MVP)
 - **Fatto quando:** `make run-serial` avvia un nuovo kernel sul Pi in meno di 5 s;
   un accesso a indirizzo non valido stampa PC/LR/CPSR.
 
-## M2 — Console testuale su schermo (S)
-- Font bitmap 8×8 (o 8×16) in `rodata`, rendering carattere, cursore, a capo, scroll.
+## M2 — Console testuale su schermo ✅ (S)
+- Font bitmap 8×16 (CP437, derivato da Terminus) in `rodata`, rendering carattere, cursore, a capo, scroll,
+  colori ANSI, barra di stato; framebuffer 640×360 scalato dalla GPU.
 - `kprintf` scrive sia su UART sia su schermo; il panic appare anche su HDMI.
 - **Fatto quando:** i log di boot sono leggibili sul monitor senza cavo seriale.
 
