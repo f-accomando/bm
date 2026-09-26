@@ -36,6 +36,7 @@ static inline uint32_t read_dfar(void) { uint32_t v; __asm__ volatile("mrc p15, 
  * follows is readable on HDMI; otherwise the raw framebuffer is filled. */
 static void panic_screen(void)
 {
+    __asm__ volatile("cpsid i" ::: "memory");  /* stop the tick (LED, etc.) */
     if (console_active())
         console_panic();
     else if (panic_fb)

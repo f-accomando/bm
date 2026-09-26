@@ -2,6 +2,8 @@
 #include "mbox.h"
 #include "arch/cache.h"
 #include "mmio.h"
+#include "prop.h"
+#include "timer.h"
 
 #define TAG_ALLOCATE_BUFFER   0x00040001u
 #define TAG_GET_PITCH         0x00040008u
@@ -10,10 +12,11 @@
 #define TAG_SET_DEPTH         0x00048005u
 #define TAG_SET_PIXEL_ORDER   0x00048006u
 #define TAG_SET_VIRT_OFFSET   0x00048009u
+#define TAG_WAIT_FOR_VSYNC    0x0004000Eu
 
 static volatile uint32_t __attribute__((aligned(CACHE_LINE))) msg[36];
 
-int fb_init(framebuffer_t *fb, uint32_t width, uint32_t height)
+int fb_init(framebuffer_t *fb, uint32_t width, uint32_t height, uint32_t buffers)
 {
     int i = 0;
 
@@ -23,8 +26,11 @@ int fb_init(framebuffer_t *fb, uint32_t width, uint32_t height)
     msg[i++] = TAG_SET_PHYS_WH;  msg[i++] = 8; msg[i++] = 0;
     msg[i++] = width;            msg[i++] = height;
 
+    if (buffers < 1 || buffers > 2)
+        buffers = 1;
+    const int virt = i + 3;
     msg[i++] = TAG_SET_VIRT_WH;  msg[i++] = 8; msg[i++] = 0;
-    msg[i++] = width;            msg[i++] = height;
+    msg[i++] = width;            msg[i++] = height * buffers;
 
     msg[i++] = TAG_SET_VIRT_OFFSET; msg[i++] = 8; msg[i++] = 0;
     msg[i++] = 0;                msg[i++] = 0;
@@ -57,8 +63,12 @@ int fb_init(framebuffer_t *fb, uint32_t width, uint32_t height)
     fb->height = msg[6];
     fb->pitch  = msg[pitch];
     fb->is_rgb = msg[porder];
-    fb->base   = (uint8_t *)BUS_TO_ARM(msg[alloc]);
+    fb->mem    = (uint8_t *)BUS_TO_ARM(msg[alloc]);
+    fb->base   = fb->mem;
     fb->size   = msg[alloc + 1];
+    fb->buffers = msg[virt + 1] >= fb->height * 2 ? 2 : 1;
+    fb->shown  = 0;
+    fb->vsync  = -1;
     return 0;
 }
 
@@ -88,4 +98,46 @@ void fb_fill_rect(framebuffer_t *fb, uint32_t x, uint32_t y,
 
     for (uint32_t row = y; row < y + h; row++)
         fill32((uint32_t *)(fb->base + row * fb->pitch) + x, color, w);
+}
+
+static void set_offset(uint32_t y)
+{
+    uint32_t v[2] = { 0, y };
+    prop_query(TAG_SET_VIRT_OFFSET, v, 2);
+}
+
+void fb_show(framebuffer_t *fb, uint32_t index)
+{
+    if (index >= fb->buffers)
+        index = 0;
+    set_offset(index * fb->height);
+    fb->shown = index;
+    fb->base = fb->mem + index * fb->height * fb->pitch;
+}
+
+int fb_flip(framebuffer_t *fb)
+{
+    if (fb->buffers < 2)
+        return 0;
+
+    uint32_t drawn = (uint32_t)(fb->base - fb->mem) / (fb->height * fb->pitch);
+    set_offset(drawn * fb->height);
+    fb->shown = drawn;
+
+    if (fb->vsync != 0) {
+        /* Emulators (QEMU) may accept the tag but return at once. Two
+         * vblanks less than 8 ms apart cannot happen on a real display
+         * (<= 120 Hz): after a few of those, fall back to timer pacing. */
+        static uint32_t last, fast;
+        uint32_t v[1] = { 0 };
+        int ok = prop_query(TAG_WAIT_FOR_VSYNC, v, 1) == 0;
+        uint32_t now = timer_ticks();
+        if (ok && fb->vsync == 1 && now - last < 8000)
+            ok = ++fast < 3;
+        last = now;
+        fb->vsync = ok;
+    }
+
+    fb->base = fb->mem + (drawn ^ 1) * fb->height * fb->pitch;
+    return fb->vsync;
 }

@@ -13,7 +13,7 @@ Dettagli, criteri di completamento e rischi in [docs/ROADMAP.md](docs/ROADMAP.md
 | **M1** | Debug: UART, eccezioni, chainloader seriale, CI | ✅ |
 | **M2** | Console testuale su schermo | ✅ |
 | **M3** | MMU, cache, heap, newlib | ✅ |
-| M4 | Interrupt, timer, double buffering 60 fps | |
+| **M4** | Interrupt, timer, double buffering 60 fps | ✅ |
 | M5 | Lua 5.4 embedded + REPL | |
 | M6 | API grafica Lua + ciclo `_update`/`_draw` | |
 | M7 | Input: pad GPIO, poi USB HID | |
@@ -21,7 +21,7 @@ Dettagli, criteri di completamento e rischi in [docs/ROADMAP.md](docs/ROADMAP.md
 | M9 | **MVP**: launcher, giochi demo, immagine SD | |
 | M10 | Audio PWM (opzionale) | |
 
-## Cosa fa il kernel (M0–M3)
+## Cosa fa il kernel (M0–M4)
 
 All'avvio:
 1. `src/boot/start.S`: maschera gli IRQ, imposta uno stack per ogni modo della CPU,
@@ -36,7 +36,13 @@ All'avvio:
    **benchmark** tre volte: come lasciato dal firmware (700 MHz, senza cache), con il
    clock ARM al massimo (1 GHz, chiesto via mailbox) e con **MMU + cache** attive
 7. esegue un self-test di newlib (stdio con float, libm, malloc/free) e mostra il riepilogo
-8. avvia un **monitor** a tasto singolo sulla seriale:
+8. attiva gli **interrupt**: tick di sistema a 1 kHz (system timer, compare 1), che
+   fa anche lampeggiare il LED; misura la frequenza reale e la mostra
+9. esegue per 10 s una **demo animata a 60 fps** con doppio buffer: 64 palline,
+   un rettangolo, una barra verticale veloce (se c'è tearing la barra appare spezzata)
+   e una riga con fps e tempo di disegno; poi mostra le statistiche (frame, fps,
+   frame persi, tempo medio di disegno) e torna alla console
+10. avvia un **monitor** a tasto singolo sulla seriale:
 
 | Tasto | Azione |
 |-------|--------|
@@ -45,6 +51,7 @@ All'avvio:
 | `c` | pulisce lo schermo |
 | `m` | uso dell'heap |
 | `k` | esegue di nuovo il benchmark |
+| `d` | demo animata (60 s, un tasto la interrompe) |
 | `t` | test pattern HDMI (un tasto qualsiasi torna alla console) |
 | `r` | reboot via watchdog (con il chainloader, ricarica il kernel) |
 | `u` `s` `b` `a` | test: undefined instruction, SVC, prefetch abort (BKPT), data abort |
@@ -57,11 +64,16 @@ Senza adattatore seriale il monitor non riceve comandi, ma la console mostra
 comunque il log di avvio e l'uptime nella barra di stato si aggiorna ogni secondo.
 
 Stato del LED ACT:
-- **acceso fisso**: inizializzazione in corso (se resta così, blocco prima della seriale)
-- **lampeggio a 1 Hz**: kernel in esecuzione, monitor in attesa
+- **acceso fisso**: inizializzazione in corso (se resta così, blocco prima degli interrupt)
+- **lampeggio a 1 Hz**: kernel in esecuzione (generato dall'interrupt del timer:
+  se si ferma, gli interrupt sono bloccati)
 - **N lampeggi + pausa**: eccezione N (1 undef, 2 SVC, 3 prefetch abort, 4 data abort,
   6 IRQ, 7 FIQ, 9 panic)
 - **lampeggio a 0,5 Hz** (cambia stato ogni secondo): chainloader in attesa del kernel
+
+Demo animata (M4, QEMU):
+
+![demo](docs/m4-demo.png)
 
 Schermata di avvio (QEMU: i tempi non sono indicativi, QEMU non emula cache e clock):
 
@@ -175,6 +187,10 @@ src/kernel/monitor.c     monitor seriale a tasto singolo
 src/kernel/sysinfo.c     info scheda via mailbox
 src/kernel/testpattern.c test pattern HDMI
 src/kernel/bench.c       benchmark (fill, memset, memcpy, crc32, float)
+src/kernel/irq.c         controller IRQ BCM2835, registrazione e dispatch
+src/kernel/tick.c        tick di sistema (system timer compare 1)
+src/kernel/demo.c        demo animata a 60 fps
+src/gfx/draw.c           primitive: clear, rect, sprite 16×16, testo
 src/kernel/selftest.c    self-test di newlib
 src/arch/mmu.c           tabella delle sezioni da 1 MiB, attivazione MMU e cache
 src/arch/cache.c         clean/invalidate della D-cache per range (mailbox)
@@ -201,6 +217,14 @@ scripts/                 download firmware, screenshot QEMU, conversione font (p
   della D-cache prima e dopo la chiamata, perché la GPU legge la RAM, non la cache.
 - Il firmware avvia l'ARM del Pi Zero a 700 MHz; il kernel chiede il massimo
   (`arm_freq`, 1 GHz) con i tag *get max clock rate* / *set clock rate*.
+- Interrupt: `irq_entry` (vectors.S) salva il contesto con `srsdb`, passa in modo
+  SVC, salva anche i registri VFP d0–d7 e FPSCR (il C hard-float può usarli),
+  chiama `irq_handler()` e ritorna con `rfeia`. Gli IRQ non si annidano.
+- Doppio buffer: framebuffer virtuale alto 2×360 righe; `fb_flip()` imposta il
+  *virtual offset* sulla pagina appena disegnata e aspetta il vsync col tag
+  *wait for vsync* (0x0004000E). Se il vsync manca o è finto (QEMU risponde subito),
+  il ritmo dei frame lo dà il timer (60 Hz). QEMU inoltre sembra ignorare l'offset
+  virtuale in visualizzazione: il tearing si verifica solo sul Pi reale.
 - Il kernel è C "hosted" su newlib (`libc.a`, `libm.a`, multilib `arm/v5te/hard`);
   le syscall sono in `src/lib/syscalls.c`. Il chainloader resta freestanding.
 - L'ordine dei pixel (RGB/BGR) viene letto dalla risposta del firmware e

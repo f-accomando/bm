@@ -45,7 +45,7 @@ M0 ─ M1 ─ M2 ─ M3 ─ M4 ─ M5 ─ M6 ─┬─ M7 ─┬─ M9 (MVP)
 - Benchmark: fill a schermo intero e `memcpy`, prima e dopo le cache.
 - **Fatto quando:** `malloc`/`printf` di newlib funzionano; il clear 320×240 richiede meno di 1 ms.
 
-## M4 — Interrupt e temporizzazione (M)
+## M4 — Interrupt e temporizzazione ✅ (M)
 - Controller IRQ BCM2835, IRQ del system timer, contatore di tick a 1 kHz.
 - Doppio buffer: framebuffer virtuale alto 2×, scambio tramite il tag *set virtual offset*.
 - Frame loop a 60 Hz stabile (sync al vblank se il firmware lo espone, altrimenti timer).

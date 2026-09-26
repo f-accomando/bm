@@ -7,6 +7,7 @@ End-to-end tests in QEMU (-M raspi0). Images are loaded at 0x8000 through
 """
 import argparse
 import hashlib
+import re
 import os
 import socket
 import subprocess
@@ -22,6 +23,7 @@ import bm33_load  # noqa: E402
 QEMU = os.environ.get("QEMU", "qemu-system-arm")
 REF_DIR = os.path.join(HERE, "ref")
 PROMPT = b"type 'h' for help"
+DEMO = b"animation demo"
 
 
 def free_port():
@@ -64,6 +66,15 @@ class Qemu:
         i = self.buf.index(needle) + len(needle)
         seen, self.buf = self.buf[:i], self.buf[i:]
         return seen
+
+    def boot(self, skip_demo=True):
+        """Waits for the monitor prompt, skipping the boot animation demo."""
+        out = self.expect(DEMO, timeout=20)
+        if skip_demo:
+            self.send(" ")
+        out += self.expect(PROMPT, timeout=20)
+        out += self.expect("> ")
+        return out
 
     def send(self, data):
         self.port.write(data.encode() if isinstance(data, str) else data)
@@ -156,14 +167,16 @@ def pixel(img, x, y):
 def test_boot_banner(b, opts):
     q = Qemu(b("kernel.img"))
     try:
-        out = q.expect(PROMPT)
-        for s in (b"bm33\x1b[0m kernel", b"board 920092", b"screen 640x360"):
+        out = q.boot()
+        for s in (b"bm33\x1b[0m kernel", b"board 920092", b"screen 640x360",
+                  b"double buffer on"):
             assert s in out, f"missing {s!r} in boot log"
-        q.expect("> ")
+        hz = int(re.search(rb"measured (\d+) Hz", out).group(1))
+        assert 900 <= hz <= 1100, f"timer IRQ rate {hz} Hz"  # QEMU host jitter
         text = "\n".join(screen_text(q.screendump()))
-        for s in ("bm33 kernel", "board 920092", "MMU+caches on", "console 80x21",
+        for s in ("board 920092", "MMU+caches on", "console 80x21",
                   "benchmark (us)", "libc selftest: ok", "printf 3.142, sqrt(2) 1.414213562",
-                  "type 'h' for help"):
+                  "IRQ on: timer 1000 Hz", "demo:", "type 'h' for help"):
             assert s in text, f"missing {s!r} on screen:\n{text}"
         q.send("i")
         out = q.expect("uptime")
@@ -177,23 +190,22 @@ def test_boot_banner(b, opts):
 def test_console_ansi_and_status(b, opts):
     q = Qemu(b("kernel.img"))
     try:
-        q.expect(PROMPT)
-        q.expect("> ")
+        q.boot()
         img = q.screendump()
         text = screen_text(img)
         assert text[0].startswith(" bm33 "), f"status bar: {text[0]!r}"
         assert "up 00:00:0" in text[0], f"uptime in status bar: {text[0]!r}"
         assert pixel(img, 2, 2) == (0, 170, 170), "status bar colour"
         # "bm33" in the banner is bright cyan (ESC[1;36m)
-        banner = next(i for i, l in enumerate(text) if "kernel" in l and l.startswith("bm33"))
-        colours = {pixel(img, x, banner * 16 + y) for x in range(32) for y in range(16)}
-        assert (85, 255, 255) in colours, "ANSI bright cyan not rendered"
+        sel = next(i for i, l in enumerate(text) if l.startswith("libc selftest: ok"))
+        colours = {pixel(img, x, sel * 16 + y) for x in range(120, 136) for y in range(16)}
+        assert (85, 255, 85) in colours, "ANSI bright green 'ok' not rendered"
         # scrolling: 40 unknown-command lines push the banner off screen
         for _ in range(20):
             q.send("x")
             q.expect("> ")
         text = screen_text(q.screendump())
-        assert not any("board 920092" in l for l in text), "console did not scroll"
+        assert not any("libc selftest" in l for l in text), "console did not scroll"
         assert text[0].startswith(" bm33 "), "status bar scrolled away"
         assert any("unknown command (0x78)" in l for l in text)
     finally:
@@ -203,8 +215,7 @@ def test_console_ansi_and_status(b, opts):
 def test_screen_pattern(b, opts):
     q = Qemu(b("kernel.img"))
     try:
-        q.expect(PROMPT)
-        q.expect("> ")
+        q.boot()
         q.send("t")
         q.expect("press any key")
         w, h, px = img = q.screendump()
@@ -234,8 +245,7 @@ def test_screen_pattern(b, opts):
 def _exception_case(b, key, needles, code):
     q = Qemu(b("kernel.img"))
     try:
-        q.expect(PROMPT)
-        q.expect("> ")
+        q.boot()
         q.send(key)
         out = q.expect(f"LED blink code: {code}")
         for s in needles:
@@ -264,6 +274,54 @@ def test_exc_data_abort(b, opts):
     _exception_case(b, "a", ["Data abort", "DFAR=00008001"], 4)
 
 
+def test_demo_60fps(b, opts):
+    q = Qemu(b("kernel.img"))
+    try:
+        q.expect(DEMO, timeout=20)
+        time.sleep(2.0)
+        # QEMU's display does not seem to honour the virtual offset, so a
+        # screendump can catch a page mid-draw: take a few samples.
+        for _ in range(5):
+            img = q.screendump()
+            top = screen_text(img)[0]
+            if top.startswith(" bm33 M4 demo"):
+                break
+        assert top.startswith(" bm33 M4 demo") and "fps" in top, f"demo overlay: {top!r}"
+        assert pixel(img, 320, 200) != (0, 0, 0), "demo background not drawn"
+        out = q.expect(PROMPT, timeout=20).decode(errors="replace")
+        m = re.search(r"demo: (\d+) frames in ([\d.]+) s = ([\d.]+) fps \((\w+)\)\s+"
+                      r"frame (\d+)-(\d+) us, (\d+) dropped", out)
+        assert m, out
+        frames, secs, fps, pacing = int(m[1]), float(m[2]), float(m[3]), m[4]
+        dropped = int(m[7])
+        assert 9.9 <= secs <= 10.5, secs
+        assert 55 <= fps <= 62, f"{fps} fps"
+        assert pacing == "timer", "QEMU has no real vsync"
+        assert dropped <= frames // 20, f"{dropped} dropped frames"
+        # console restored on page 0 afterwards
+        q.expect("> ")
+        text = "\n".join(screen_text(q.screendump()))
+        assert "demo:" in text and "type 'h' for help" in text, text
+    finally:
+        q.close()
+
+
+def test_demo_monitor_key_stops(b, opts):
+    q = Qemu(b("kernel.img"))
+    try:
+        q.boot()
+        q.send("d")
+        time.sleep(1.5)
+        assert any(screen_text(q.screendump())[0].startswith(" bm33 M4 demo")
+                   for _ in range(5)), "demo not on screen"
+        q.send(" ")
+        out = q.expect("dropped", timeout=5).decode(errors="replace")
+        secs = float(re.search(r"frames in ([\d.]+) s", out).group(1))
+        assert secs < 5, f"demo did not stop on key ({secs} s)"
+    finally:
+        q.close()
+
+
 def test_chainloader(b, opts):
     q = Qemu(b("chainloader.img"))
     try:
@@ -271,15 +329,14 @@ def test_chainloader(b, opts):
         assert loader.wait_ready(timeout=10), "chainloader did not announce itself"
         assert b"bm33 chainloader" in q.buf
         assert loader.upload_file(b("kernel.img")), "upload failed"
-        q.expect(PROMPT)
+        q.boot()
 
         # Reboot from the monitor: chainloader comes back and takes a new kernel.
-        q.expect("> ")
         q.send("r")
         q.expect("rebooting")
         assert loader.wait_ready(timeout=10), "no chainloader after reboot"
         assert loader.upload_file(b("kernel.img")), "second upload failed"
-        q.expect(PROMPT)
+        q.boot()
     finally:
         q.close()
 

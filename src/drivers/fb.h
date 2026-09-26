@@ -8,12 +8,26 @@ typedef struct {
     uint32_t height;
     uint32_t pitch;     /* bytes per row */
     uint32_t is_rgb;    /* 1: R in low byte, 0: B in low byte */
-    uint8_t *base;
+    uint8_t *base;      /* buffer being drawn into */
     uint32_t size;
+    uint8_t *mem;       /* start of the whole (virtual) framebuffer */
+    uint32_t buffers;   /* 1, or 2 when double buffered */
+    uint32_t shown;     /* index of the buffer on screen */
+    int vsync;          /* firmware supports "wait for vsync" (-1 = unknown) */
 } framebuffer_t;
 
-/* Asks the firmware for a 32bpp framebuffer. Returns 0 on success. */
-int fb_init(framebuffer_t *fb, uint32_t width, uint32_t height);
+/* Asks the firmware for a 32bpp framebuffer with `buffers` (1 or 2) pages
+ * stacked vertically in a virtual screen. Returns 0 on success. Drawing
+ * starts on page 0, which is also the one shown. */
+int fb_init(framebuffer_t *fb, uint32_t width, uint32_t height, uint32_t buffers);
+
+/* Shows page `index` (virtual offset) and makes it the drawing target. */
+void fb_show(framebuffer_t *fb, uint32_t index);
+
+/* Double buffering: shows the page just drawn, waits for the vertical
+ * blank if the firmware supports it, then points `base` at the other page.
+ * Returns 1 if it synchronised to vsync, 0 if the caller must pace frames. */
+int fb_flip(framebuffer_t *fb);
 
 static inline uint32_t fb_color(const framebuffer_t *fb, uint8_t r, uint8_t g, uint8_t b)
 {

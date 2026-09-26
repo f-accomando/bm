@@ -3,12 +3,15 @@
  *
  * ACT LED protocol:
  *   solid on               -> init in progress (stuck here = early hang)
- *   1 Hz heartbeat         -> running, monitor waiting for commands
+ *   1 Hz heartbeat         -> running (driven by the 1 kHz timer IRQ)
  *   N blinks + pause       -> fatal exception number N (9 = panic)
  */
 #include <stdint.h>
 
 #include "bench.h"
+#include "demo.h"
+#include "irq.h"
+#include "tick.h"
 #include "exceptions.h"
 #include "monitor.h"
 #include "selftest.h"
@@ -17,6 +20,7 @@
 #include "drivers/fb.h"
 #include "drivers/led.h"
 #include "drivers/prop.h"
+#include "drivers/timer.h"
 #include "drivers/uart.h"
 #include "gfx/console.h"
 #include "gfx/font.h"
@@ -42,6 +46,26 @@ static void print_palette(void)
     kprintf("\x1b[0m\n");
 }
 
+#define TICK_HZ     1000
+#define DEMO_SECS   10
+
+static void heartbeat(uint32_t tick)
+{
+    if (tick % (TICK_HZ / 2) == 0)
+        led_set((tick / (TICK_HZ / 2)) & 1);
+}
+
+/* Counts timer IRQs against the free-running counter for 200 ms. */
+static void report_irq(void)
+{
+    uint32_t t0 = timer_ticks(), n0 = tick_count();
+    timer_delay_us(200000);
+    uint32_t n = tick_count() - n0, us = timer_ticks() - t0;
+    kprintf("IRQ on: timer %lu Hz (measured %lu Hz), double buffer %s\n",
+            tick_hz(), (uint32_t)((uint64_t)n * 1000000u / us),
+            fb.buffers == 2 ? "on" : "OFF");
+}
+
 /* End of the ARM's share of SDRAM (the GPU owns the rest). */
 static uint32_t arm_memory_end(void)
 {
@@ -59,7 +83,7 @@ void kernel_main(uint32_t atags)
     led_set(1);
     uart_init();
 
-    int err = fb_init(&fb, SCREEN_W, SCREEN_H);
+    int err = fb_init(&fb, SCREEN_W, SCREEN_H, 2);
     if (err == 0) {
         exceptions_set_panic_fb(&fb);
         console_init(&fb, &font_console_8x16);
@@ -83,6 +107,11 @@ void kernel_main(uint32_t atags)
     mmu_init(mem_end);
     bench_run(&bench[2], &fb, "max + cache");
 
+    irq_init();
+    tick_init(TICK_HZ);
+    tick_set_hook(heartbeat);
+    irq_cpu_enable();
+
     sysinfo_print_short();
     uint32_t cols, rows;
     console_size(&cols, &rows);
@@ -91,6 +120,12 @@ void kernel_main(uint32_t atags)
     print_palette();
     bench_print(bench, 3);
     libc_selftest();
+    report_irq();
+
+    kprintf("running the %u s animation demo (any key on serial skips it)...\n", DEMO_SECS);
+    demo_stats_t st;
+    demo_run(&fb, DEMO_SECS, &st);
+    demo_print(&st);
 
     monitor_run();
 }

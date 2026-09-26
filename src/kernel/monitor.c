@@ -1,10 +1,10 @@
 #include "monitor.h"
 #include "bench.h"
+#include "demo.h"
 #include "sysinfo.h"
 #include "testpattern.h"
 #include "drivers/fb.h"
 #include "gfx/console.h"
-#include "drivers/led.h"
 #include "drivers/timer.h"
 #include "drivers/uart.h"
 #include "drivers/watchdog.h"
@@ -18,6 +18,7 @@ static void help(void)
             "  c  clear screen\n"
             "  m  heap usage\n"
             "  k  run the benchmark\n"
+            "  d  animation demo (60 fps, double buffered; any key stops it)\n"
             "  t  HDMI test pattern (any key returns to the console)\n"
             "  r  reboot (watchdog; the chainloader will ask for a new kernel)\n"
             "  u  test: undefined instruction\n"
@@ -59,21 +60,17 @@ static void update_uptime(void)
     console_set_status(0, buf);
 }
 
-/* Waits for a key, blinking the LED at 1 Hz and refreshing the uptime. */
+/* Waits for a key, refreshing the uptime in the status bar. */
 static char wait_key(void)
 {
     uint32_t last = timer_ticks();
-    int led = 0;
     char c;
 
     update_uptime();
     while (!uart_getc_timeout(10000, &c)) {
-        if (timer_ticks() - last >= 500000) {
-            last = timer_ticks();
-            led = !led;
-            led_set(led);
-            if (!led)
-                update_uptime();
+        if (timer_ticks() - last >= 1000000) {
+            last += 1000000;
+            update_uptime();
         }
     }
     return c;
@@ -105,6 +102,12 @@ void monitor_run(void)
         case 'i': sysinfo_print(); break;
         case 'c': console_clear(); break;
         case 'm': sysinfo_print_heap(); break;
+        case 'd': {
+            demo_stats_t st;
+            demo_run(console_framebuffer(), 60, &st);
+            demo_print(&st);
+            break;
+        }
         case 'k': {
             bench_t b;
             bench_run(&b, console_framebuffer(), "now");

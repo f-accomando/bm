@@ -27,7 +27,7 @@ v_swi:      .word exc_swi
 v_pabt:     .word exc_pabt
 v_dabt:     .word exc_dabt
 v_unused:   .word exc_unused
-v_irq:      .word exc_irq
+v_irq:      .word irq_entry
 v_fiq:      .word exc_fiq
 
 /* lr_adj turns the banked LR into the address of the faulting instruction. */
@@ -46,7 +46,6 @@ v_fiq:      .word exc_fiq
     EXC_STUB exc_pabt,   EXC_PABT,   4
     EXC_STUB exc_dabt,   EXC_DABT,   8
     EXC_STUB exc_unused, EXC_UNUSED, 4
-    EXC_STUB exc_irq,    EXC_IRQ,    4
     EXC_STUB exc_fiq,    EXC_FIQ,    4
 
 /* r0 = type. Fetch banked SP/LR of the interrupted mode (User -> System). */
@@ -67,3 +66,27 @@ exc_common:
     mov     r1, sp
     bl      exception_handler
 1:  b       1b
+
+/*
+ * IRQ entry: runs the C handler in SVC mode (IRQs still masked) and returns
+ * to the interrupted code. Saves the AAPCS caller-saved registers, including
+ * VFP d0-d7 and FPSCR, since C code built for hard-float may use them.
+ */
+    .globl irq_entry
+irq_entry:
+    sub     lr, lr, #4
+    srsdb   sp!, #0x13              @ push lr_irq, spsr_irq on the SVC stack
+    cps     #0x13
+    push    {r0-r3, r12, lr}        @ 8 words total with the SRS frame
+    vpush   {d0-d7}
+    vmrs    r0, fpscr
+    and     r1, sp, #4              @ realign the stack to 8 bytes (AAPCS)
+    sub     sp, sp, r1
+    push    {r0, r1}
+    bl      irq_handler
+    pop     {r0, r1}
+    add     sp, sp, r1
+    vmsr    fpscr, r0
+    vpop    {d0-d7}
+    pop     {r0-r3, r12, lr}
+    rfeia   sp!                     @ restore pc and cpsr from the SRS frame
