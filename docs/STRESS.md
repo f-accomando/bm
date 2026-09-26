@@ -54,6 +54,17 @@ API per le cartucce: `mesh`, `mesh_sphere`, `mesh_cube`, `draw3d`, `camera3d`,
 
 ## Risultati
 
+**Versione del kernel:** la sigla in alto a sinistra sullo schermo (barra azzurra,
+es. `bm33 1b31924`) è il commit git con cui è stato compilato il kernel. Lo stress
+test esiste dalla versione `1b31924`: con una sigla diversa (es. `7044581`, che è M5)
+sulla SD c'è un kernel più vecchio. Se compare `-dirty`, il kernel è stato compilato
+con modifiche locali non committate.
+
+| Misura | Versione | Data |
+|---|---|---|
+| Pi Zero W | *da misurare* | |
+| QEMU (controllo) | `1b31924` | 2026-09-26 |
+
 Numero massimo di oggetti per frame (640×360, RGB565):
 
 | Test | **Pi Zero W 60 fps** | **Pi Zero W 30 fps** | Pi us/item | QEMU 60 fps | QEMU 30 fps |

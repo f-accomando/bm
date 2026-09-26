@@ -124,6 +124,19 @@ Test pattern (comando `t`):
 
 ![test pattern](docs/m0-test-pattern.png)
 
+## Che versione ho sulla SD?
+
+La sigla nella barra azzurra in alto a sinistra (es. `bm33 1b31924`) è il commit git
+del kernel. `git log --oneline` mostra a quale milestone corrisponde; se compare
+`-dirty` il kernel contiene modifiche locali non committate.
+
+| Commit | Contenuto |
+|---|---|
+| `7044581` | M5: Lua embedded |
+| `ab9af30` | M6: core s32 (demo.cart all'avvio) |
+| `c7ec2c3` | M7: cartucce native .b33 (demo nativa all'avvio) |
+| `1b31924` | stress test di rendering e 3D software (`make sdcard-stress`) |
+
 ## Requisiti
 
 ```sh
