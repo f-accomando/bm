@@ -66,7 +66,7 @@ M0 ─ M1 ─ M2 ─ M3 ─ M4 ─ M5 ─ M6 (s32) ─┬─ M7 ─┬─ M9 (MV
   Circa 100 ns per operazione semplice della VM: ~150k operazioni Lua per frame
   a 60 fps, un budget simile a quello di PICO-8. Interi a 64 bit mantenuti.
 
-## M6 — Core s32 (compatibilità con lua32) ✅ (M)
+## M6 — Core s32 (compatibilità con lua32) ✅ verificato su Pi Zero W (M)
 Decisione: bm33 è compatibile con le cartucce `.cart` della console **s32**
 (`f-accomando/lua32`): stessa macchina (risoluzioni, palette, tile, VRAM 552 KiB, OAM,
 CGRAM, APU, porte), implementata in C nativo, non un'emulazione del motore di lua32.
@@ -105,7 +105,7 @@ Priorità attuale: sviluppo della console bm33; la parte s32 avanza al ritmo di 
 - **Budget**: disegno completo (mappa piena + 256 sprite) sotto il 25% del frame,
   verificato da un benchmark a schermo; tutto il disegno in C, Lua solo logica.
 
-## M7 — Cartucce native `.b33` ✅ (M)
+## M7 — Cartucce native `.b33` ✅ verificato su Pi Zero W (M)
 - Formato `.b33` (header 128 byte + sezioni Lua / sheet RGBA / mappa, CRC), packer
   `scripts/mkb33.py` con PNG e CSV.
 - Grafica C in RGB565 (`src/b33/gfx16.c`): forme, sprite con flip e trasparenza,
@@ -115,6 +115,9 @@ Priorità attuale: sviluppo della console bm33; la parte s32 avanza al ritmo di 
   generazionale; caricamento dalla seriale (`U`).
 - Benchmark C e demo nativa all'avvio.
 - **Fatto quando:** mappa piena + 256 sprite sotto il 25% del frame sul Pi reale.
+- Risultato (kernel `a63bfb0`): demo s32 e demo nativa a schermo pieno, controllo colori
+  RGB565 corretto (rosso, verde, blu, bianco); 256 sprite 16×16 ≈ 0,9 ms
+  (vedi docs/STRESS.md).
 
 ## M7b — Input (L, rischio alto)
 - **Fase A (S):** pulsanti su GPIO oppure pad SNES/NES via GPIO (latch/clock/data):
