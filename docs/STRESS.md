@@ -76,6 +76,10 @@ Numero massimo di oggetti per frame (640×360, RGB565):
 | sprites 16×16 (Lua) | **1829** | **3774** | 8,52 | 994 | 1822 |
 | 3D spheres 96 (Lua) | **29** (1115 tri) | **120** (4692 tri) | 169,97 | 16 (603 tri) | 48 (1868 tri) |
 
+Ripetibilità: una seconda esecuzione sullo stesso Pi ha dato gli stessi valori entro
+±1 oggetto (es. 4481 contro 4482 sprite, 5010 contro 5011 triangoli), quindi la misura
+è stabile.
+
 ### Cosa dicono i numeri del Pi
 
 - **Sprite in C:** ~4500 sprite 16×16 a 60 fps. Il costo è quasi tutto nei pixel:
