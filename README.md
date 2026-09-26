@@ -6,6 +6,7 @@ MVP di una console bare metal (Assembly / C / Lua embedded) per
 ## Roadmap
 
 Dettagli, criteri di completamento e rischi in [docs/ROADMAP.md](docs/ROADMAP.md).
+Risorse del Pi Zero W e quanto ne usano bm33/s32: [docs/HARDWARE.md](docs/HARDWARE.md).
 
 | # | Obiettivo | Stato |
 |---|-----------|-------|
