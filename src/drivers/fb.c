@@ -1,5 +1,6 @@
 #include "fb.h"
 #include "mbox.h"
+#include "arch/cache.h"
 #include "mmio.h"
 
 #define TAG_ALLOCATE_BUFFER   0x00040001u
@@ -10,7 +11,7 @@
 #define TAG_SET_PIXEL_ORDER   0x00048006u
 #define TAG_SET_VIRT_OFFSET   0x00048009u
 
-static volatile uint32_t __attribute__((aligned(16))) msg[36];
+static volatile uint32_t __attribute__((aligned(CACHE_LINE))) msg[36];
 
 int fb_init(framebuffer_t *fb, uint32_t width, uint32_t height)
 {
@@ -61,6 +62,20 @@ int fb_init(framebuffer_t *fb, uint32_t width, uint32_t height)
     return 0;
 }
 
+/* Plain (non-volatile) stores: the framebuffer is normal memory, so the
+ * compiler may use STM bursts, which the write buffer merges. */
+static void fill32(uint32_t *p, uint32_t v, uint32_t n)
+{
+    while (n >= 8) {
+        p[0] = v; p[1] = v; p[2] = v; p[3] = v;
+        p[4] = v; p[5] = v; p[6] = v; p[7] = v;
+        p += 8;
+        n -= 8;
+    }
+    while (n--)
+        *p++ = v;
+}
+
 void fb_fill_rect(framebuffer_t *fb, uint32_t x, uint32_t y,
                   uint32_t w, uint32_t h, uint32_t color)
 {
@@ -71,9 +86,6 @@ void fb_fill_rect(framebuffer_t *fb, uint32_t x, uint32_t y,
     if (h > fb->height - y)
         h = fb->height - y;
 
-    for (uint32_t row = y; row < y + h; row++) {
-        volatile uint32_t *p = (volatile uint32_t *)(fb->base + row * fb->pitch) + x;
-        for (uint32_t col = 0; col < w; col++)
-            p[col] = color;
-    }
+    for (uint32_t row = y; row < y + h; row++)
+        fill32((uint32_t *)(fb->base + row * fb->pitch) + x, color, w);
 }

@@ -12,7 +12,7 @@ Dettagli, criteri di completamento e rischi in [docs/ROADMAP.md](docs/ROADMAP.md
 | **M0** | Boot + test pattern HDMI | ✅ |
 | **M1** | Debug: UART, eccezioni, chainloader seriale, CI | ✅ |
 | **M2** | Console testuale su schermo | ✅ |
-| M3 | MMU, cache, heap, newlib | |
+| **M3** | MMU, cache, heap, newlib | ✅ |
 | M4 | Interrupt, timer, double buffering 60 fps | |
 | M5 | Lua 5.4 embedded + REPL | |
 | M6 | API grafica Lua + ciclo `_update`/`_draw` | |
@@ -21,7 +21,7 @@ Dettagli, criteri di completamento e rischi in [docs/ROADMAP.md](docs/ROADMAP.md
 | M9 | **MVP**: launcher, giochi demo, immagine SD | |
 | M10 | Audio PWM (opzionale) | |
 
-## Cosa fa il kernel (M0–M2)
+## Cosa fa il kernel (M0–M3)
 
 All'avvio:
 1. `src/boot/start.S`: maschera gli IRQ, imposta uno stack per ogni modo della CPU,
@@ -31,14 +31,20 @@ All'avvio:
 4. ottiene dal firmware un framebuffer **640×360** a 32 bpp (la GPU lo scala
    sull'uscita HDMI: ×2 a 720p, ×3 a 1080p) e avvia la **console testuale**:
    80×21 caratteri, font 8×16, barra di stato con versione e uptime, colori ANSI
-5. tutti i messaggi (`kprintf`) vanno sia sulla seriale sia sullo schermo
-6. avvia un **monitor** a tasto singolo sulla seriale:
+5. tutti i messaggi (`kprintf`, e `printf` di newlib) vanno sia sulla seriale sia sullo schermo
+6. inizializza l'heap (da fine kernel a fine RAM ARM, ~447 MiB), esegue un
+   **benchmark** tre volte: come lasciato dal firmware (700 MHz, senza cache), con il
+   clock ARM al massimo (1 GHz, chiesto via mailbox) e con **MMU + cache** attive
+7. esegue un self-test di newlib (stdio con float, libm, malloc/free) e mostra il riepilogo
+8. avvia un **monitor** a tasto singolo sulla seriale:
 
 | Tasto | Azione |
 |-------|--------|
 | `h` | aiuto |
 | `i` | info di sistema |
 | `c` | pulisce lo schermo |
+| `m` | uso dell'heap |
+| `k` | esegue di nuovo il benchmark |
 | `t` | test pattern HDMI (un tasto qualsiasi torna alla console) |
 | `r` | reboot via watchdog (con il chainloader, ricarica il kernel) |
 | `u` `s` `b` `a` | test: undefined instruction, SVC, prefetch abort (BKPT), data abort |
@@ -57,7 +63,11 @@ Stato del LED ACT:
   6 IRQ, 7 FIQ, 9 panic)
 - **lampeggio a 0,5 Hz** (cambia stato ogni secondo): chainloader in attesa del kernel
 
-Console all'avvio ed eccezione (screenshot da QEMU):
+Schermata di avvio (QEMU: i tempi non sono indicativi, QEMU non emula cache e clock):
+
+![avvio](docs/m3-boot.png)
+
+Console ed eccezione (M2):
 
 ![console](docs/m2-console.png) ![eccezione](docs/m2-exception.png)
 
@@ -150,11 +160,15 @@ src/kernel/exceptions.c  dump dei registri, panic, schermo rosso, codice LED
 src/kernel/monitor.c     monitor seriale a tasto singolo
 src/kernel/sysinfo.c     info scheda via mailbox
 src/kernel/testpattern.c test pattern HDMI
+src/kernel/bench.c       benchmark (fill, memset, memcpy, crc32, float)
+src/kernel/selftest.c    self-test di newlib
+src/arch/mmu.c           tabella delle sezioni da 1 MiB, attivazione MMU e cache
+src/arch/cache.c         clean/invalidate della D-cache per range (mailbox)
 src/gfx/console.c        console testuale: celle, scroll, cursore, ANSI, barra di stato
 src/gfx/font8x16.c       font 8×16 CP437 (derivato da Terminus, OFL: docs/LICENSE.font)
 src/drivers/             mmio, mailbox, prop tags, framebuffer, gpio, uart (PL011),
                          timer, LED, watchdog
-src/lib/                 printf (kprintf/ksnprintf), crc32, memset/memcpy
+src/lib/                 kprintf, crc32, syscalls newlib (_sbrk, _write, ...)
 chainloader/             bootloader seriale (si riloca a 0x02000000)
 tools/bm33_load.py       invio del kernel + terminale seriale (solo stdlib Python)
 tests/qemu_test.py       test end-to-end in QEMU
@@ -166,7 +180,15 @@ scripts/                 download firmware, screenshot QEMU, conversione font (p
 - Le periferiche BCM2835 sono a `0x20000000` (lato ARM); la RAM vista dalla GPU
   è all'alias `0x40000000` (L2 cached). L'indirizzo passato alla mailbox viene
   convertito con `ARM_TO_BUS()`, quello del framebuffer restituito con `BUS_TO_ARM()`.
-- MMU e D-cache sono spente fino a M3, quindi non serve flush della cache tra ARM e GPU.
+- Mappa di memoria (sezioni da 1 MiB, identità): RAM ARM cacheable write-back,
+  memoria GPU (framebuffer) normal non-cacheable bufferable, periferiche device.
+  Sull'ARM1176 il bit S rende la memoria non cacheable, quindi resta a 0.
+- I buffer della mailbox stanno in RAM cacheable: `mbox_call()` fa clean+invalidate
+  della D-cache prima e dopo la chiamata, perché la GPU legge la RAM, non la cache.
+- Il firmware avvia l'ARM del Pi Zero a 700 MHz; il kernel chiede il massimo
+  (`arm_freq`, 1 GHz) con i tag *get max clock rate* / *set clock rate*.
+- Il kernel è C "hosted" su newlib (`libc.a`, `libm.a`, multilib `arm/v5te/hard`);
+  le syscall sono in `src/lib/syscalls.c`. Il chainloader resta freestanding.
 - L'ordine dei pixel (RGB/BGR) viene letto dalla risposta del firmware e
   gestito da `fb_color()`.
 - Se il monitor sceglie una risoluzione strana, decommenta `hdmi_group=1` /

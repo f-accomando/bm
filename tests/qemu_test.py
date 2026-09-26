@@ -157,15 +157,19 @@ def test_boot_banner(b, opts):
     q = Qemu(b("kernel.img"))
     try:
         out = q.expect(PROMPT)
-        for s in (b"bm33\x1b[0m kernel", b"board revision", b"framebuffer    : 640x360"):
+        for s in (b"bm33\x1b[0m kernel", b"board 920092", b"screen 640x360"):
             assert s in out, f"missing {s!r} in boot log"
         q.expect("> ")
         text = "\n".join(screen_text(q.screendump()))
-        for s in ("bm33 kernel", "board revision : 00920092",
-                  "console        : 80x21, 8x16 font", "type 'h' for help"):
+        for s in ("bm33 kernel", "board 920092", "MMU+caches on", "console 80x21",
+                  "benchmark (us)", "libc selftest: ok", "printf 3.142, sqrt(2) 1.414213562",
+                  "type 'h' for help"):
             assert s in text, f"missing {s!r} on screen:\n{text}"
         q.send("i")
-        q.expect("uptime")
+        out = q.expect("uptime")
+        assert b"MMU/caches     : on" in out, out
+        q.send("m")
+        q.expect("KiB in use")
     finally:
         q.close()
 
@@ -189,7 +193,7 @@ def test_console_ansi_and_status(b, opts):
             q.send("x")
             q.expect("> ")
         text = screen_text(q.screendump())
-        assert not any("board revision" in l for l in text), "console did not scroll"
+        assert not any("board 920092" in l for l in text), "console did not scroll"
         assert text[0].startswith(" bm33 "), "status bar scrolled away"
         assert any("unknown command (0x78)" in l for l in text)
     finally:
@@ -222,7 +226,7 @@ def test_screen_pattern(b, opts):
         q.send(" ")                         # back to the console, text restored
         q.expect("> ")
         text = "\n".join(screen_text(q.screendump()))
-        assert "board revision" in text and "test pattern shown" in text, text
+        assert "libc selftest" in text and "test pattern shown" in text, text
     finally:
         q.close()
 

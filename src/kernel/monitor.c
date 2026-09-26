@@ -1,4 +1,5 @@
 #include "monitor.h"
+#include "bench.h"
 #include "sysinfo.h"
 #include "testpattern.h"
 #include "drivers/fb.h"
@@ -15,6 +16,8 @@ static void help(void)
             "  h  help\n"
             "  i  system info\n"
             "  c  clear screen\n"
+            "  m  heap usage\n"
+            "  k  run the benchmark\n"
             "  t  HDMI test pattern (any key returns to the console)\n"
             "  r  reboot (watchdog; the chainloader will ask for a new kernel)\n"
             "  u  test: undefined instruction\n"
@@ -88,7 +91,7 @@ static void show_test_pattern(void)
 
 void monitor_run(void)
 {
-    kprintf("type 'h' for help\n");
+    kprintf("\ntype 'h' for help (serial)\n");
 
     for (;;) {
         kprintf("> ");
@@ -101,6 +104,13 @@ void monitor_run(void)
         case 'h': case '?': help(); break;
         case 'i': sysinfo_print(); break;
         case 'c': console_clear(); break;
+        case 'm': sysinfo_print_heap(); break;
+        case 'k': {
+            bench_t b;
+            bench_run(&b, console_framebuffer(), "now");
+            bench_print(&b, 1);
+            break;
+        }
         case 't': show_test_pattern(); break;
         case 'r':
             kprintf("rebooting...\n");

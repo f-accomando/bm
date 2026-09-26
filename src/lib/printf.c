@@ -137,14 +137,19 @@ void kprintf_set_sink(void (*sink)(char c))
     log_sink = sink;
 }
 
-static void log_putc(char c, void *ctx)
+void klog_putc(char c)
 {
-    (void)ctx;
     if (c == '\n')
         uart_putc('\r');
     uart_putc(c);
     if (log_sink)
         log_sink(c);
+}
+
+static void log_putc(char c, void *ctx)
+{
+    (void)ctx;
+    klog_putc(c);
 }
 
 int kvlog(const char *fmt, va_list ap)

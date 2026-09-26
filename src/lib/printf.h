@@ -17,5 +17,6 @@ int ksnprintf(char *buf, size_t size, const char *fmt, ...)
 int kprintf(const char *fmt, ...) __attribute__((format(printf, 1, 2)));
 int kvlog(const char *fmt, va_list ap);
 void kprintf_set_sink(void (*sink)(char c));
+void klog_putc(char c);   /* one byte to all log outputs */
 
 #endif

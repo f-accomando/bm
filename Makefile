@@ -18,18 +18,23 @@ BAUD    ?= 115200
 VERSION := $(shell git describe --always --dirty 2>/dev/null || echo dev)
 
 ARCH    := -mcpu=arm1176jzf-s -marm -mfpu=vfp -mfloat-abi=hard
-CFLAGS  := $(ARCH) -std=c11 -O2 -Wall -Wextra -ffreestanding -nostdlib \
-           -fno-builtin -fno-tree-loop-distribute-patterns -g -Isrc \
+COMMON  := $(ARCH) -std=c11 -O2 -Wall -Wextra -g -Isrc \
+           -ffunction-sections -fdata-sections \
            -DUART_BAUD=$(BAUD) -DBM33_VERSION=\"$(VERSION)\"
+# Kernel: hosted C on top of newlib (libc, libm), see src/lib/syscalls.c.
+CFLAGS  := $(COMMON) -D_DEFAULT_SOURCE
+# Chainloader: freestanding, no libc.
+LCFLAGS := $(COMMON) -Os -ffreestanding -fno-builtin -fno-tree-loop-distribute-patterns
 ASFLAGS := $(ARCH) -g -Isrc -Isrc/kernel
-LDFLAGS := $(ARCH) -nostdlib -nostartfiles -Wl,--gc-sections
-LDLIBS  := -lgcc
+LDFLAGS := $(ARCH) -nostartfiles -Wl,--gc-sections
+LDLIBS  := -Wl,--start-group -lc -lm -lgcc -Wl,--end-group
+LLDLIBS := -nostdlib -lgcc
 
 KERNEL_SRCS := $(shell find src -name '*.c' -o -name '*.S')
 LOADER_SRCS := $(wildcard chainloader/*.S chainloader/*.c) \
                src/drivers/uart.c src/drivers/gpio.c src/drivers/mbox.c \
                src/drivers/prop.c src/drivers/timer.c src/drivers/led.c \
-               src/lib/string.c src/lib/crc32.c
+               src/arch/cache.c src/lib/crc32.c
 
 KERNEL_OBJS := $(patsubst %,$(BUILD)/k/%.o,$(KERNEL_SRCS))
 LOADER_OBJS := $(patsubst %,$(BUILD)/l/%.o,$(LOADER_SRCS))
@@ -49,13 +54,13 @@ $(BUILD)/k/%.c.o: %.c
 
 $(BUILD)/l/%.c.o: %.c
 	@mkdir -p $(dir $@)
-	$(CC) $(CFLAGS) -Os -MMD -MP -c $< -o $@
+	$(CC) $(LCFLAGS) -MMD -MP -c $< -o $@
 
 $(BUILD)/kernel.elf: $(KERNEL_OBJS) linker.ld
 	$(CC) $(LDFLAGS) -T linker.ld -Wl,-Map=$(BUILD)/kernel.map $(KERNEL_OBJS) $(LDLIBS) -o $@
 
 $(BUILD)/chainloader.elf: $(LOADER_OBJS) chainloader/linker.ld
-	$(CC) $(LDFLAGS) -T chainloader/linker.ld -Wl,-Map=$(BUILD)/chainloader.map $(LOADER_OBJS) $(LDLIBS) -o $@
+	$(CC) $(LDFLAGS) -T chainloader/linker.ld -Wl,-Map=$(BUILD)/chainloader.map $(LOADER_OBJS) $(LLDLIBS) -o $@
 
 $(BUILD)/%.img: $(BUILD)/%.elf
 	$(OBJCOPY) -O binary $< $@

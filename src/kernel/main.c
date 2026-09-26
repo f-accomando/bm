@@ -8,14 +8,19 @@
  */
 #include <stdint.h>
 
+#include "bench.h"
 #include "exceptions.h"
 #include "monitor.h"
+#include "selftest.h"
 #include "sysinfo.h"
+#include "arch/mmu.h"
 #include "drivers/fb.h"
 #include "drivers/led.h"
+#include "drivers/prop.h"
 #include "drivers/uart.h"
 #include "gfx/console.h"
 #include "gfx/font.h"
+#include "lib/heap.h"
 #include "lib/printf.h"
 
 #ifndef BM33_VERSION
@@ -31,14 +36,25 @@ static framebuffer_t fb;
 
 static void print_palette(void)
 {
-    kprintf("colours        : ");
+    kprintf("colours ");
     for (int i = 0; i < 16; i++)
         kprintf("\x1b[%dm\xdb\xdb", i < 8 ? 30 + i : 90 + i - 8);
     kprintf("\x1b[0m\n");
 }
 
+/* End of the ARM's share of SDRAM (the GPU owns the rest). */
+static uint32_t arm_memory_end(void)
+{
+    uint32_t v[2] = { 0, 0 };
+    if (prop_query(PROP_GET_ARM_MEMORY, v, 2) != 0 || v[1] == 0)
+        return 0x10000000u;             /* 256 MiB: safe for gpu_mem <= 256 */
+    return v[0] + v[1];
+}
+
 void kernel_main(uint32_t atags)
 {
+    bench_t bench[3];
+
     led_init();
     led_set(1);
     uart_init();
@@ -52,18 +68,29 @@ void kernel_main(uint32_t atags)
     }
 
     kprintf("\n\x1b[1;36mbm33\x1b[0m kernel %s - Raspberry Pi Zero (BCM2835)\n", BM33_VERSION);
-    kprintf("atags/dtb at %p\n", (void *)atags);
+    (void)atags;
     if (err)
         panic("framebuffer init failed (%d)", err);
 
-    sysinfo_print();
-    kprintf("framebuffer    : %lux%lu, pitch %lu, %s, at %p\n",
-            fb.width, fb.height, fb.pitch, fb.is_rgb ? "RGB" : "BGR", fb.base);
+    uint32_t mem_end = arm_memory_end();
+    heap_init(mem_end);
+
+    /* Same work three times: as the firmware left us, at full clock, and
+     * with MMU + caches on. */
+    bench_run(&bench[0], &fb, "700MHz nocache");
+    prop_clock_set_max(CLOCK_ARM);
+    bench_run(&bench[1], &fb, "max nocache");
+    mmu_init(mem_end);
+    bench_run(&bench[2], &fb, "max + cache");
+
+    sysinfo_print_short();
     uint32_t cols, rows;
     console_size(&cols, &rows);
-    kprintf("console        : %lux%lu, 8x16 font\n", cols, rows);
+    kprintf("screen %lux%lu %s, console %lux%lu; serial 115200 8N1 on GPIO14/15\n",
+            fb.width, fb.height, fb.is_rgb ? "RGB" : "BGR", cols, rows);
     print_palette();
-    kprintf("serial         : 115200 8N1 on GPIO14 (TX, pin 8) / GPIO15 (RX, pin 10)\n\n");
+    bench_print(bench, 3);
+    libc_selftest();
 
     monitor_run();
 }

@@ -57,7 +57,7 @@ static void draw_cell(uint32_t col, uint32_t row, int cursor)
         uint32_t bits = g[y];
         if (cursor && y >= h - 2)
             bits = 0xFF;
-        volatile uint32_t *p = (volatile uint32_t *)line;
+        uint32_t *p = (uint32_t *)line;
         p[0] = bits & 0x80 ? fg : bg;
         p[1] = bits & 0x40 ? fg : bg;
         p[2] = bits & 0x20 ? fg : bg;
