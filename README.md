@@ -141,6 +141,11 @@ math, utf8, os, io su stdout/stdin). `print` scrive su seriale e schermo.
 Gli errori non bloccano il kernel: vengono stampati in rosso con il traceback.
 Lua ha un limite di 64 MiB di memoria; oltre, `not enough memory` (recuperabile).
 
+Prestazioni misurate su Pi Zero W (1 GHz, MMU e cache attive): `fib(25)` 83 ms,
+1 milione di addizioni in un ciclo 104 ms, `table.sort` di 100k interi 657 ms,
+20k `tostring` + `table.concat` 104 ms. In un frame a 60 fps (16,7 ms, di cui
+~2,7 ms per disegnare) restano circa 150k operazioni Lua semplici.
+
 Modulo `bm33`:
 
 | Funzione | Descrizione |

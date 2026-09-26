@@ -55,12 +55,16 @@ M0 ─ M1 ─ M2 ─ M3 ─ M4 ─ M5 ─ M6 ─┬─ M7 ─┬─ M9 (MVP)
   vsync). Alternativa da provare in M6: interrupt SMI (IRQ 48) che il firmware
   genera a ogni vsync, come faceva il driver Linux bcm2708_fb.
 
-## M5 — Lua embedded ✅ (M)
+## M5 — Lua embedded ✅ verificato su Pi Zero W (M)
 - Lua 5.4 in `third_party/lua`, compilato con newlib e VFP hard-float.
 - Allocatore dedicato per `lua_State`, `print` → console, errori con traceback su schermo.
 - REPL su UART; script di avvio incluso nell'immagine (`.incbin`).
 - **Fatto quando:** dalla seriale `> print(2^10)` risponde `1024.0`; un errore Lua
   non blocca il kernel.
+- Risultato su Pi Zero W (1 GHz, cache on): fib(25) 83 ms, 1M addizioni 104 ms,
+  sort di 100k interi 657 ms, 20k stringhe 104 ms, boot.lua 987 ms.
+  Circa 100 ns per operazione semplice della VM: ~150k operazioni Lua per frame
+  a 60 fps, un budget simile a quello di PICO-8. Interi a 64 bit mantenuti.
 
 ## M6 — API grafica e ciclo di gioco (M)
 - Risoluzione logica bassa (es. 320×240, 8 bpp con palette oppure 16 bpp):
