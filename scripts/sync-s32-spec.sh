@@ -9,7 +9,7 @@ DST=spec/s32
 
 test -f "$SRC/docs/spec/s32-spec.md" || { echo "no docs/spec in $SRC"; exit 1; }
 mkdir -p "$DST/conformance"
-cp "$SRC/docs/spec/s32-spec.md" "$DST/"
+cp "$SRC/docs/spec/s32-spec.md" "$SRC/docs/spec/s32-bm33.md" "$DST/"
 cp "$SRC"/docs/spec/conformance/*.cart "$SRC"/docs/spec/conformance/*.vec "$DST/conformance/"
 printf 'lua32 %s @ %s\n' "$(git -C "$SRC" branch --show-current)" \
     "$(git -C "$SRC" rev-parse --short HEAD)" > "$DST/SOURCE"

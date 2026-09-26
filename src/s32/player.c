@@ -102,6 +102,8 @@ void s32_play(framebuffer_t *fb, const uint8_t *data, size_t len,
         kprintf("s32: code type %u not supported yet\n", cart.code_type);
         return;
     }
+    if (cart.screen_mode != 0)       /* decided in s32-bm33.md, not implemented yet */
+        kprintf("s32: 16:9 mode not supported yet, playing at 320x224\n");
     if (!machine_mem && !(machine_mem = malloc(S32_MEM_SIZE))) {
         kprintf("s32: out of memory\n");
         return;

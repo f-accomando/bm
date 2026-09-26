@@ -68,7 +68,8 @@ typedef struct {
     const uint8_t *gfx;         /* gfx_count * S32_GFX_BANK_BYTES */
     uint32_t gfx_count;
     const uint8_t *cgram;       /* NULL if absent */
-    uint8_t code_type;          /* spec 11: 0 = s32 machine code */
+    uint8_t code_type;          /* reserved0[0]: 0 = s32 machine code, 1 = Lua */
+    uint8_t screen_mode;        /* reserved0[1]: 0 = 320x224, 1 = 384x224 (16:9) */
 } s32_cart_t;
 
 typedef struct {

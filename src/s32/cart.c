@@ -39,6 +39,7 @@ int s32_cart_parse(const uint8_t *d, size_t len, s32_cart_t *c,
     memcpy(c->title, d + 28, 64);
     memcpy(c->author, d + 92, 32);
     c->code_type = d[9];
+    c->screen_mode = d[10];
 
     uint32_t code_off = rd32(d + 128), code_size = rd32(d + 132);
     uint32_t stage_count = rd16(d + 136), stage_size = rd32(d + 140), stage_off = rd32(d + 144);
