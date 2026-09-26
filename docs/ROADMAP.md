@@ -16,7 +16,7 @@ M0 ─ M1 ─ M2 ─ M3 ─ M4 ─ M5 ─ M6 ─┬─ M7 ─┬─ M9 (MVP)
 
 ---
 
-## M0 — Boot e test pattern HDMI ✅ (S)
+## M0 — Boot e test pattern HDMI ✅ verificato su Pi Zero W (S)
 - `start.S`, linker a 0x8000, mailbox, framebuffer 32 bpp, LED ACT, barre colore.
 - **Fatto quando:** pattern visibile su HDMI; `make qemu-screenshot` produce l'immagine.
 
