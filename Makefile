@@ -87,7 +87,7 @@ $(BUILD)/carts/%.b33: carts/%/main.lua scripts/mkb33.py
 	$(PYTHON) scripts/mkb33.py -o $@ --lua $< --title "$(title_$*)" --author bm33
 
 .DEFAULT_GOAL := all
-.PHONY: FORCE all clean firmware sdcard sdcard-chainloader sdcard-stress qemu qemu-screenshot \
+.PHONY: FORCE all clean firmware image sdcard sdcard-chainloader sdcard-stress qemu qemu-screenshot \
         run-serial test test-s32 test-s32-arm test-b33 test-usb disasm
 
 all: $(BUILD)/kernel.img $(BUILD)/chainloader.img $(GAME_CARTS)
@@ -134,6 +134,18 @@ sdcard: $(BUILD)/$(KERNEL).img $(SD_CARTS)
 	cp $(BUILD)/$(KERNEL).img $(DIST)/kernel.img
 	cp $(SD_CARTS) $(DIST)/carts/
 	@echo "Copy the contents of $(DIST)/ ($(KERNEL)) to the root of a FAT32 SD card."
+
+# Whole SD card image (MBR + FAT32): firmware, config, kernel and the
+# cartridges. Write it with Raspberry Pi Imager ("Use custom"), balenaEtcher
+# or dd. Needs dosfstools and mtools.
+image: $(BUILD)/kernel.img $(SD_CARTS)
+	@test -f $(FW_DIR)/start.elf || { echo "Run 'make firmware' first"; exit 1; }
+	@mkdir -p $(DIST)
+	$(PYTHON) scripts/mksd.py $(DIST)/bm33.img --size-mib 64 --label BM33 \
+	    $(FW_DIR)/bootcode.bin=bootcode.bin $(FW_DIR)/start.elf=start.elf \
+	    $(FW_DIR)/fixup.dat=fixup.dat boot/config.txt=config.txt \
+	    $(BUILD)/kernel.img=kernel.img \
+	    $(foreach c,$(SD_CARTS),$(c)=carts/$(notdir $(c)))
 
 sdcard-chainloader:
 	$(MAKE) sdcard KERNEL=chainloader

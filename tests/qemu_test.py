@@ -9,6 +9,7 @@ import argparse
 import hashlib
 import re
 import os
+import shutil
 import socket
 import subprocess
 import sys
@@ -642,6 +643,40 @@ def test_sd_cartridges(b, opts):
         q.expect("> ")
     finally:
         q.close()
+
+
+def test_make_image(b, opts):
+    """`make image` (with placeholder firmware files): the SD image boots to
+    a menu with the demo games, and one of them runs from the card."""
+    tmp = tempfile.mkdtemp(prefix="bm33-img-")
+    fw = os.path.join(tmp, "fw")
+    os.makedirs(fw)
+    for n in ("bootcode.bin", "start.elf", "fixup.dat"):
+        with open(os.path.join(fw, n), "wb") as f:
+            f.write(b"placeholder")
+    root = os.path.join(HERE, "..")
+    subprocess.run(["make", "-s", "-C", root, "image", f"FW_DIR={fw}", f"DIST={tmp}",
+                    f"BUILD={os.path.abspath(b('.'))}"], check=True, stdout=subprocess.DEVNULL)
+    img = os.path.join(tmp, "bm33.img")
+    assert os.path.getsize(img) == 64 << 20, os.path.getsize(img)
+    q = Qemu(b("kernel.img"), ["-drive", f"if=sd,format=raw,file={img}"])
+    try:
+        out = q.expect(MENU, timeout=30).decode(errors="replace")
+        assert "FAT32, 63 MiB, label BM33; 6 cartridges" in out, out
+        time.sleep(0.5)
+        _, text = settled_screen(q, lambda i, t: any("Star Shooter" in l for l in t))
+        screen = "\n".join(text)
+        for title in ("Pong", "Snake", "Star Shooter", "bm33 native demo", "Demo - quadrato mobile"):
+            assert title in screen, screen
+        q.send("q")
+        q.expect(PROMPT)
+        q.expect("> ")
+        q.send("f")
+        out = q.expect('Star Shooter"\r\n').decode(errors="replace")
+        assert "/carts/pong.b33" in out and "/carts/shooter.b33" in out, out
+    finally:
+        q.close()
+        shutil.rmtree(tmp, ignore_errors=True)
 
 
 def test_sd_sdhc_and_usb_menu(b, opts):

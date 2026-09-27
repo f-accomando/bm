@@ -1,9 +1,11 @@
 #!/usr/bin/env python3
 """
-Builds an SD card image for QEMU: MBR + one FAT32 partition (type 0x0C)
-starting at 1 MiB, filled with the given files. Needs mkfs.vfat and mtools.
+Builds an SD card image: MBR + one FAT32 partition (type 0x0C) starting at
+1 MiB, filled with the given files. Used by `make image` (bm33.img, ready
+for Raspberry Pi Imager / balenaEtcher / dd) and by the QEMU tests.
+Needs mkfs.vfat (dosfstools) and mtools.
 
-  tests/mksd.py OUT.img [--size-mib 128] [SRC=DEST ...]
+  scripts/mksd.py OUT.img [--size-mib 128] [--label BM33SD] [SRC=DEST ...]
 """
 import argparse
 import os
@@ -12,7 +14,7 @@ import subprocess
 import tempfile
 
 
-def build(out, files, size_mib=128):
+def build(out, files, size_mib=128, label="BM33SD"):
     start = 2048                                    # sectors
     total = size_mib * 2048                         # QEMU wants a power of 2
     part_sectors = total - start
@@ -21,7 +23,7 @@ def build(out, files, size_mib=128):
         with open(part, "wb") as f:
             f.truncate(part_sectors * 512)
         small = ["-s", "1"] if size_mib <= 256 else []   # FAT32 needs >= 65525 clusters
-        subprocess.run(["mkfs.vfat", "-F", "32", *small, "-n", "BM33SD", part],
+        subprocess.run(["mkfs.vfat", "-F", "32", *small, "-n", label, part],
                        check=True, stdout=subprocess.DEVNULL)
         env = dict(os.environ, MTOOLS_SKIP_CHECK="1")
         dirs = set()
@@ -55,8 +57,10 @@ def main():
     ap.add_argument("out")
     ap.add_argument("files", nargs="*", help="SRC=DEST")
     ap.add_argument("--size-mib", type=int, default=128)
-    a = ap.parse_args()
-    build(a.out, [tuple(f.split("=", 1)) for f in a.files], a.size_mib)
+    ap.add_argument("--label", default="BM33SD")
+    a = ap.parse_intermixed_args()
+    build(a.out, [tuple(f.split("=", 1)) for f in a.files], a.size_mib, a.label)
+    print(f"{a.out}: {a.size_mib} MiB, {len(a.files)} files")
 
 
 if __name__ == "__main__":
