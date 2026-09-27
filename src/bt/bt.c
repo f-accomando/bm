@@ -77,6 +77,7 @@ static struct {
     uint8_t key_addr[6], key[16];   /* the paired pad */
     int announced;
     int pairing;
+    int disc_reason;                /* last Disconnection Complete, -1 none */
 } bt;
 
 static int tracing(void)
@@ -530,6 +531,7 @@ static void handle_event(const hci_pkt_t *p)
             if (bt.announced)
                 kprintf("bt: controller disconnected\n");
             reset_link();
+            bt.disc_reason = e[3];
         }
         break;
     case 0x06:                                  /* Authentication Complete */
@@ -693,41 +695,76 @@ static int pair(const found_t *f)
     return r;
 }
 
+/* Why a step failed, in one line. */
+static void fail(const char *what, int cmd_status)
+{
+    if (cmd_status > 0)
+        kprintf("\x1b[91mbt: %s: the chip refused the command (status %02x)\x1b[0m\n",
+                what, cmd_status);
+    else if (cmd_status < 0)
+        kprintf("\x1b[91mbt: %s: no answer from the chip\x1b[0m\n", what);
+    else if (!bt.connected && bt.disc_reason >= 0)
+        kprintf("\x1b[91mbt: %s: the controller disconnected (reason %02x)\x1b[0m\n",
+                what, bt.disc_reason);
+    else
+        kprintf("\x1b[91mbt: %s: timeout\x1b[0m\n", what);
+}
+
+/* Lets the link settle (role switch, features) for `ms`, handling events. */
+static void settle(uint32_t ms)
+{
+    static int never;
+    wait_for(&never, ms);
+}
+
 static int pair_steps(const found_t *f)
 {
     uint8_t p[13];
+    int st;
+    bt.disc_reason = -1;
     memcpy(p, f->addr, 6);
     put16(p + 6, 0xCC18);                       /* DM1..DH5 */
     p[8] = f->psrm;
     p[9] = 0;
     put16(p + 10, f->clock | 0x8000);
     p[12] = 1;                                  /* allow role switch */
-    if (hci_cmd(HCI_CREATE_CONNECTION, p, 13, NULL, 0, 1000000) != 0 ||
+    if ((st = hci_cmd(HCI_CREATE_CONNECTION, p, 13, NULL, 0, 1000000)) != 0 ||
         wait_for(&bt.connected, 10000) != 0) {
-        kprintf("\x1b[91mbt: cannot connect (is it still flashing?)\x1b[0m\n");
+        fail("cannot connect (is it still flashing?)", st);
         return -1;
     }
+    settle(300);
     uint8_t h[3];
     put16(h, bt.handle);
-    if (hci_cmd(HCI_AUTH_REQUESTED, h, 2, NULL, 0, 1000000) != 0 ||
-        wait_for(&bt.auth_done, 20000) != 0 || bt.auth_status != 0) {
-        kprintf("\x1b[91mbt: pairing failed (status %02x)\x1b[0m\n", bt.auth_status);
+    st = hci_cmd(HCI_AUTH_REQUESTED, h, 2, NULL, 0, 1000000);
+    if (st > 0 && bt.connected) {               /* busy with the link: once more */
+        trace("authentication request refused (%02x), retrying", st);
+        settle(700);
+        st = hci_cmd(HCI_AUTH_REQUESTED, h, 2, NULL, 0, 1000000);
+    }
+    if (st != 0 || wait_for(&bt.auth_done, 20000) != 0) {
+        fail("pairing failed", st);
+        return -1;
+    }
+    if (bt.auth_status != 0) {
+        kprintf("\x1b[91mbt: pairing failed: authentication status %02x\x1b[0m\n",
+                bt.auth_status);
         return -1;
     }
     h[2] = 1;
-    if (hci_cmd(HCI_SET_CONN_ENCRYPTION, h, 3, NULL, 0, 1000000) != 0 ||
+    if ((st = hci_cmd(HCI_SET_CONN_ENCRYPTION, h, 3, NULL, 0, 1000000)) != 0 ||
         wait_for(&bt.enc, 10000) != 0) {
-        kprintf("\x1b[91mbt: encryption failed\x1b[0m\n");
+        fail("encryption failed", st);
         return -1;
     }
     l2cap_connect(&bt.ctrl, PSM_HID_CONTROL);
     if (wait_for(&bt.ctrl.open, 10000) != 0) {
-        kprintf("\x1b[91mbt: HID control channel not opened\x1b[0m\n");
+        fail("HID control channel not opened", 0);
         return -1;
     }
     l2cap_connect(&bt.intr, PSM_HID_INTERRUPT);
     if (wait_for(&bt.intr.open, 10000) != 0) {
-        kprintf("\x1b[91mbt: HID interrupt channel not opened\x1b[0m\n");
+        fail("HID interrupt channel not opened", 0);
         return -1;
     }
     kprintf("bt: paired; next time just press PS on the controller\n");
