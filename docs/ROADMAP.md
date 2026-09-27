@@ -9,9 +9,8 @@ possibile, un test automatico in QEMU (`-M raspi0`).
 Dimensione: **S** = pochi giorni, **M** = 1–2 settimane, **L** = più di 2 settimane.
 
 ```
-M0 ─ M1 ─ M2 ─ M3 ─ M4 ─ M5 ─ M6 (s32) ─┬─ M7 ─┬─ M9 (MVP)
+M0 ─ M1 ─ M2 ─ M3 ─ M4 ─ M5 ─ M6 (s32) ─┬─ M7 ─┬─ M9 (MVP) ─ M10…M14 (vedi "Dopo l'MVP")
                                   └─ M8 ─┘
-                                     M10 audio (opzionale per l'MVP)
 ```
 
 ---
@@ -163,12 +162,79 @@ Priorità attuale: sviluppo della console bm33; la parte s32 avanza al ritmo di 
   senza PC collegato (in QEMU: `test_make_image`, `test_games`; sul Pi, kernel
   `83f4f82`: menu all'avvio e i tre giochi funzionano).
 
-## M10 — Audio (M, opzionale per l'MVP)
-- Il Pi Zero non ha jack audio: PWM su GPIO18/13 con filtro RC esterno
-  (semplice) oppure audio via HDMI (complesso, poco documentato).
-- APU di s32: 8 canali (quadra/triangolo/dente di sega/rumore) con ADSR, registri
-  memory-mapped; DMA + PWM, IRQ di refill.
-- **Fatto quando:** i giochi demo hanno effetti sonori senza cali di frame rate.
+## Dopo l'MVP (decisione 2026-09-27)
+
+```
+M9 (MVP) ─┬─ M10 audio
+          ├─ M11 SD in scrittura ─── M12 Bluetooth (controller)
+          ├─ M13 altri tipi di cartuccia (s32 Lua quando lua32 è pronto, ARM nativo)
+          └─ M14 grafica 2.0 (DMA, 32 bit, 3D con texture)
+```
+
+## M10 — Audio (M/L)
+- Il Pi Zero non ha jack. Due uscite:
+  - **HDMI** (nessun hardware in più: il suono esce dal monitor/TV). Più complessa
+    (blocco audio HDMI della GPU, poco documentato; riferimento: Circle, che lo
+    supporta sul Pi 1/Zero); prima scelta.
+  - **PWM** su GPIO18/13 con filtro RC esterno (270 Ω + 33 nF) e jack: semplice, ma
+    richiede di saldare.
+- Mixer software in C a 44,1 o 48 kHz, riempito da DMA con IRQ di refill (nessun
+  lavoro nel ciclo del gioco).
+- **APU di s32**: 8 canali (quadra/triangolo/dente di sega/rumore) con ADSR, registri
+  memory-mapped come da spec; vettori audio di lua32 se disponibili.
+- API `.b33`: `sfx(n)` / `note(canale, freq, forma, volume)` / `music(...)`; effetti
+  sonori nei tre giochi demo.
+- **Fatto quando:** i giochi demo hanno effetti sonori senza cali di frame rate e
+  senza scatti audio per 10 minuti.
+
+## M11 — SD in scrittura, salvataggi e impostazioni (M)
+- Driver SD: scrittura a blocchi (CMD24/25) e FAT32 in scrittura (creare e riscrivere
+  un file, allocare cluster, aggiornare le due FAT e la directory), con attenzione a
+  non corrompere la scheda (ordine delle scritture, verifica in QEMU con `fsck.vfat`).
+- File `/bm33/config.txt` (layout tastiera, modo di disegno, volume, dispositivi
+  Bluetooth abbinati) e `/bm33/save/<cart>.sav`.
+- API `.b33`: `save(tabella)` / `load()` per record e progressi; punteggi migliori nei
+  giochi demo.
+- **Fatto quando:** un record di Snake sopravvive allo spegnimento; `fsck.vfat` pulito
+  dopo 1000 salvataggi in QEMU.
+
+## M12 — Controller Bluetooth (L, rischio alto)
+Analisi dei costi: ~3000 righe di C (5 volte lo stack USB), 10–15 prove sul Pi; nessun
+emulatore del chip, quindi niente test in QEMU se non su tracce HCI registrate.
+- La UART PL011 passa al chip BCM43438 (GPIO 30–33, RTS/CTS); la console seriale si
+  sposta sulla **mini UART** (stessi pin GPIO14/15, `core_freq` fissa in `config.txt`).
+- Accensione del chip e caricamento della patch firmware Broadcom (`BCM43430A1.hcd`,
+  scaricata con `make firmware`, non nel repository), poi baud rate alto.
+- HCI (reset, ricerca, connessioni), L2CAP, SDP client (descrittore HID), HID classico
+  sui canali 0x11/0x13, abbinamento SSP "Just Works" dal menu (voce "Abbina
+  controller"), chiavi salvate su SD (M11) e riconnessione automatica.
+- Un **controller di riferimento** prima di tutto (da scegliere: es. 8BitDo, DualShock 4,
+  Switch Pro); il report arriva al layer HID esistente (stessi `btn()`).
+- BLE (controller Xbox recenti) in un secondo momento: GATT + abbinamento LE.
+- Alternativa senza costo, già funzionante: ricevitore USB del controller
+  (es. 8BitDo USB Adapter 2), visto come controller USB.
+- **Fatto quando:** il controller di riferimento si abbina dal menu, si riconnette da
+  solo alla riaccensione e i giochi demo si giocano senza fili.
+
+## M13 — Altri tipi di cartuccia (M)
+- **s32 Lua** (`code_type` Lua): quando lua32 avrà risposto alle domande aperte in
+  `s32-bm33.md` (PR #2); stesse API di lua32, eseguite dal Lua 5.4 di bm33.
+- Modo s32 16:9 (`screen_mode`, già deciso in `s32-bm33.md`).
+- **ARM nativo**: sezione di codice ARM in `.b33` (per giochi in C), caricata in una
+  zona di memoria dedicata con API tramite tabella di funzioni; senza protezione
+  della memoria (solo cartucce fidate).
+- **Fatto quando:** una cart Lua di lua32 gira uguale su lua32 e bm33; un gioco demo
+  in C gira come `.b33` nativa.
+
+## M14 — Grafica 2.0 (M)
+- **DMA** del BCM2835 per riempimenti e copie (liberano la CPU: `cls`, mappe, copia
+  dei frame) e misura sul Pi di cosa conviene (la lettura della SDRAM è il collo di
+  bottiglia: vedi M9).
+- Modo **32 bit** (XRGB8888) per le `.b33`, previsto dal formato (pixel format 2).
+- 3D: texture sui triangoli e Gouraud; rimisurare `docs/STRESS.md`.
+- Menu grafico con anteprime delle cartucce (immagine nell'header `.b33`).
+- **Fatto quando:** lo stress test mostra il guadagno del DMA e una demo 3D con
+  texture gira a 60 fps.
 
 ---
 
@@ -179,9 +245,12 @@ Priorità attuale: sviluppo della console bm33; la parte s32 avanza al ritmo di 
 | Prestazioni Lua su ARM1176 a 1 GHz | Cache attive (M3), bassa risoluzione, API di blit in C |
 | Firmware closed-source che cambia comportamento | Fissare la versione con `FW_REF` |
 | Test solo su hardware | QEMU raspi0 in CI + chainloader via seriale |
+| Bluetooth (M12) senza emulatore | un solo controller di riferimento, tracce HCI registrate sul Pi per i test |
+| Scrittura su SD (M11) che corrompe la scheda | test in QEMU con `fsck.vfat`, file di bm33 in una cartella dedicata |
 
 ## Hardware consigliato per lo sviluppo
 - Adattatore USB-seriale 3.3 V (**non 5 V**) su GPIO14/15 + GND
 - Cavo mini-HDMI, alimentatore 5 V 2 A stabile
 - Pulsanti o pad SNES + qualche resistenza per M7A
-- Filtro RC (270 Ω + 33 nF) e jack per M10
+- Filtro RC (270 Ω + 33 nF) e jack per M10 (solo se l'audio va su PWM)
+- Per M12: un controller Bluetooth di riferimento

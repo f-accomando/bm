@@ -35,7 +35,11 @@ Stress test di rendering (soglie 60/30 fps): [docs/STRESS.md](docs/STRESS.md) �
 | **M7b** | Input: tastiera e gamepad **USB** (HID) | ✅ tastiera verificata sul Pi (gamepad solo QEMU) |
 | **M8** | **SD** + FAT32, menu delle cartucce | ✅ verificato sul Pi |
 | **M9** | **MVP**: avvio sul menu, giochi demo, immagine SD, guida API | ✅ verificato sul Pi |
-| M10 | APU s32 su PWM (opzionale) | |
+| M10 | Audio: HDMI (o PWM), APU s32, suoni nei giochi | |
+| M11 | SD in scrittura: salvataggi, record, impostazioni | |
+| M12 | Controller **Bluetooth** (uno di riferimento, poi altri) | |
+| M13 | Altri tipi di cartuccia: s32 Lua (con lua32), codice ARM nativo | |
+| M14 | Grafica 2.0: DMA, modo 32 bit, 3D con texture, menu con anteprime | |
 
 ## Cosa fa il kernel
 
