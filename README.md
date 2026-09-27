@@ -36,7 +36,7 @@ Stress test di rendering (soglie 60/30 fps): [docs/STRESS.md](docs/STRESS.md) �
 | **M8** | **SD** + FAT32, menu delle cartucce | ✅ verificato sul Pi |
 | **M9** | **MVP**: avvio sul menu, giochi demo, immagine SD, guida API | ✅ verificato sul Pi |
 | M10 | Audio: HDMI (o PWM), APU s32, suoni nei giochi | |
-| **M11** | SD in scrittura: salvataggi, record, impostazioni | ✅ QEMU, da verificare sul Pi |
+| **M11** | SD in scrittura: salvataggi, record, impostazioni | ✅ verificato sul Pi |
 | M12 | Controller **Bluetooth** (uno di riferimento, poi altri) | |
 | M13 | Altri tipi di cartuccia: s32 Lua (con lua32), codice ARM nativo | |
 | M14 | Grafica 2.0: DMA, modo 32 bit, 3D con texture, menu con anteprime | |
@@ -68,7 +68,7 @@ Lua `boot.lua`) si esegue dal monitor con **`b`**.
 |-------|--------|
 | `h` | aiuto |
 | `b` / `B` | diagnostica: la vecchia sequenza di avvio (benchmark, demo s32 e b33, `boot.lua`) |
-| `l` | **REPL Lua** (Ctrl-D o `exit()` per tornare al monitor) |
+| `l` | **REPL Lua** (Esc su riga vuota, Ctrl-D o `exit()` per tornare al monitor) |
 | `i` | info di sistema |
 | `c` | pulisce lo schermo |
 | `m` | uso dell'heap |

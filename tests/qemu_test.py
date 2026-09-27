@@ -598,7 +598,7 @@ def test_usb_keyboard(b, opts):
         sendkeys(q, "p r i n t shift-8 shift-2 semicolon shift-2 shift-9 ret")
         q.expect(b'"\x95")', timeout=10)
         q.expect(b"\x95\r\n", timeout=10)
-        sendkeys(q, "ctrl-d")
+        sendkeys(q, "esc")                     # Esc on an empty line leaves the REPL
         q.expect("> ", timeout=10)
         sendkeys(q, "shift-l")
         q.expect("keyboard layout: us", timeout=10)

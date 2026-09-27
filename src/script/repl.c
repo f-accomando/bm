@@ -8,6 +8,7 @@
 #include "repl.h"
 #include "luavm.h"
 #include "kernel/input.h"
+#include "drivers/timer.h"
 #include "lib/printf.h"
 
 #include <stdio.h>
@@ -45,6 +46,25 @@ static int read_line(const char *prompt, char *buf)
         if (c == 0x04 && n == 0) {              /* Ctrl-D */
             kprintf("\n");
             return -1;
+        }
+        if (c == 0x1B) {
+            /* serial arrow keys are ESC [ x: skip them; a lone Esc on an
+             * empty line leaves the REPL (the USB keyboard's Esc) */
+            int next = -1;
+            uint32_t t0 = timer_ticks();
+            while (next < 0 && timer_ticks() - t0 < 30000)
+                next = input_key();
+            if (next == '[') {
+                uint32_t t1 = timer_ticks();
+                while (input_key() < 0 && timer_ticks() - t1 < 30000)
+                    ;
+                continue;
+            }
+            if (n == 0) {
+                kprintf("\n");
+                return -1;
+            }
+            continue;
         }
         if (c == 0x03) {                        /* Ctrl-C */
             kprintf("^C\n%s", prompt);
@@ -157,7 +177,7 @@ void repl_run(void)
     lua_setglobal(L, "exit");
     want_exit = 0;
 
-    kprintf("%s - Ctrl-D or exit() to leave\n", LUA_COPYRIGHT);
+    kprintf("%s - Esc (empty line), Ctrl-D or exit() to leave\n", LUA_COPYRIGHT);
     while (!want_exit) {
         int n = read_line("lua> ", chunk);
         if (n < 0)

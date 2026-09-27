@@ -63,7 +63,7 @@ local function spawn_wave()
     for c = 1, cols do
       local boss = (r == 1 and wave % 3 == 0)
       enemies[#enemies + 1] = {
-        x = 80 + (c - 1) * 60, y = -40 - r * 36, home = 40 + r * 36,
+        hx = 80 + (c - 1) * 60, x = 80 + (c - 1) * 60, y = -40 - r * 36, home = 40 + r * 36,
         phase = c * 0.6 + r, hp = boss and 3 or 1, boss = boss,
       }
     end
@@ -131,14 +131,18 @@ function _update()
   local t = time()
   for i = #enemies, 1, -1 do
     local e = enemies[i]
+    -- x is always computed from the ship's home column (hx), never
+    -- accumulated: ships cannot drift off screen and block the wave
+    local sway = math.sin(t * 1.5 + e.phase) * 30
     if e.y < e.home and not e.diving then
       e.y = e.y + 3
+      e.x = e.hx + sway
     elseif e.diving then
       e.y = e.y + 3 + wave * 0.3
-      e.x = e.x + math.sin(t * 4 + e.phase) * 3
+      e.x = e.hx + sway + math.sin(t * 4 + e.phase) * 60
       if e.y > H + 20 then e.y = -20; e.diving = false end
     else
-      e.x = e.x + math.sin(t * 1.5 + e.phase) * 1.2
+      e.x = e.hx + sway
       if math.random() < 0.0015 * wave then e.diving = true end
       if math.random() < 0.003 + 0.001 * wave then
         bolts[#bolts + 1] = { x = e.x + 7, y = e.y + 14 }
@@ -228,6 +232,7 @@ function _draw()
   end
 
   for _, e in ipairs(enemies) do
+    e.x = math.max(0, math.min(W - 16, e.x))
     spr(e.boss and SPR.boss or SPR.alien, math.floor(e.x), math.floor(e.y), 2, 2)
   end
   for _, s in ipairs(shots) do rectfill(s.x, s.y, 4, 10, 0xFFE060) end

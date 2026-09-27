@@ -64,10 +64,14 @@ con modifiche locali non committate.
 |---|---|---|
 | Pi Zero W v1.1, 1 GHz, cache attive | `792787f` | 2026-09-26 |
 | QEMU (controllo) | `1b31924` | 2026-09-26 |
+| Pi Zero W, ripetuto (disegno diretto) | `89452b3` | 2026-09-27 |
 
 > Lo stress test conta anche l'eventuale copia sullo schermo quando le cartucce
 > disegnano via RAM (comando `V`, non il default). I numeri qui sotto sono stati
-> misurati disegnando direttamente nella memoria video, come fa il default.
+> misurati disegnando direttamente nella memoria video, come fa il default; ripetuti
+> con `89452b3` danno gli stessi valori (4481 sprite 16×16, 1207 triangoli 3D a 60 fps).
+> Il benchmark `p` sullo stesso kernel: mappa piena + 256 sprite 8,50 ms diretti,
+> 12,65 ms via RAM.
 
 Numero massimo di oggetti per frame (640×360, RGB565):
 

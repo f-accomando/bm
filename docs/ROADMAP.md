@@ -156,8 +156,9 @@ Priorità attuale: sviluppo della console bm33; la parte s32 avanza al ritmo di 
   e la memoria video non ha cache. s32 ora disegna a strisce di 8 righe che restano in
   cache e le scrive una volta sullo schermo, senza riletture (`render` era 7997 µs/tick,
   poi 5577 con il primo tentativo). Per `.b33` il benchmark misura sia il disegno diretto
-  sia quello via RAM (`p`, `V`); il default resta diretto finché i numeri del Pi non
-  dicono altro.
+  sia quello via RAM (`p`, `V`): sul Pi (kernel `89452b3`) mappa piena + 256 sprite
+  costano **8,50 ms diretti** contro 12,65 ms via RAM (la copia rilegge la SDRAM), quindi
+  il default resta il disegno diretto.
 - **Fatto quando:** da una SD appena scritta si accende, si sceglie un gioco e si gioca
   senza PC collegato (in QEMU: `test_make_image`, `test_games`; sul Pi, kernel
   `83f4f82`: menu all'avvio e i tre giochi funzionano).
@@ -191,7 +192,7 @@ M9 (MVP) ─┬─ M10 audio
 - **Fatto quando:** i giochi demo hanno effetti sonori senza cali di frame rate e
   senza scatti audio per 10 minuti.
 
-## M11 — SD in scrittura, salvataggi e impostazioni ✅ QEMU, da verificare sul Pi (M)
+## M11 — SD in scrittura, salvataggi e impostazioni ✅ verificato sul Pi Zero W (M)
 - Driver SD: scrittura a blocchi (CMD24/25) e FAT32 in scrittura (creare e riscrivere
   un file, allocare cluster, aggiornare le due FAT e la directory), con attenzione a
   non corrompere la scheda (ordine delle scritture, verifica in QEMU con `fsck.vfat`).
@@ -204,6 +205,8 @@ M9 (MVP) ─┬─ M10 audio
 - **Fatto quando:** un record di Snake sopravvive allo spegnimento; `fsck.vfat` pulito
   dopo 1000 salvataggi (test sul PC `make test-fat`: 1000 riscritture, 200 file, fsck e
   mtools; QEMU `test_sd_save_and_config`: salvataggio e impostazioni dopo un riavvio).
+  Sul Pi (kernel `89452b3`): il record di Snake resta dopo lo spegnimento, il layout
+  scelto con `L` resta dopo il riavvio; DualShock 4 via USB funzionante.
 
 ## M12 — Controller Bluetooth (L, rischio alto)
 Analisi dei costi: ~3000 righe di C (5 volte lo stack USB), 10–15 prove sul Pi; nessun
