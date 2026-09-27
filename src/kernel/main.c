@@ -34,6 +34,7 @@
 #include "carts.h"
 #include "config.h"
 #include "bt/bt.h"
+#include "audio/audio.h"
 #include "version.h"
 
 
@@ -179,6 +180,13 @@ void kernel_main(uint32_t atags)
 
     sysinfo_print_short();
     report_irq();
+    if (audio_init() == 0) {
+        kprintf("audio: %s\n", audio_status());
+        audio_note(0, 523, 90, 1, 110);         /* short chime: sound works */
+        audio_note(1, 784, 160, 1, 90);
+    } else {
+        kprintf("audio: off - %s\n", audio_status());
+    }
     usb_init();
     usb_print();
     carts_init();

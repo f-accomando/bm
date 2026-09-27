@@ -16,6 +16,7 @@
 #include "gfx/font.h"
 #include "lib/printf.h"
 #include "script/luavm.h"
+#include "audio/audio.h"
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -479,6 +480,82 @@ static int l_saved(lua_State *L)
     return 1;
 }
 
+/* ---------------------------------------------------------------- sound */
+
+static unsigned voice_arg(lua_State *L)
+{
+    lua_Integer ch = luaL_checkinteger(L, 1);
+    luaL_argcheck(L, ch >= 0 && ch < 8, 1, "voice 0..7");
+    return (unsigned)ch;
+}
+
+static uint32_t hz_arg(lua_State *L, int i)
+{
+    lua_Number f = luaL_checknumber(L, i);
+    return f <= 0 ? 0 : f >= 65535 ? 65535 : (uint32_t)(f + 0.5);
+}
+
+/* note(ch, freq, [ms], [wave], [vol]): restarts the envelope; ms > 0
+ * releases the note by itself, else it holds until noteoff(ch). */
+static int l_note(lua_State *L)
+{
+    unsigned ch = voice_arg(L);
+    uint32_t hz = hz_arg(L, 2);
+    lua_Integer ms = luaL_optinteger(L, 3, 0);
+    audio_note(ch, hz, ms > 0 ? (uint32_t)ms : 0,
+               (int)luaL_optinteger(L, 4, -1), (int)luaL_optinteger(L, 5, -1));
+    return 0;
+}
+
+static int l_noteoff(lua_State *L)
+{
+    audio_note_off(voice_arg(L));
+    return 0;
+}
+
+/* freq(ch, hz): changes the pitch without restarting (slides, vibrato) */
+static int l_freq(lua_State *L)
+{
+    audio_freq(voice_arg(L), hz_arg(L, 2));
+    return 0;
+}
+
+static int l_envelope(lua_State *L)
+{
+    unsigned ch = voice_arg(L);
+    audio_envelope(ch, (int)luaL_checkinteger(L, 2), (int)luaL_checkinteger(L, 3),
+                   (int)luaL_checkinteger(L, 4), (int)luaL_checkinteger(L, 5));
+    return 0;
+}
+
+static int l_duty(lua_State *L)
+{
+    audio_duty(voice_arg(L), (int)luaL_checkinteger(L, 2));
+    return 0;
+}
+
+/* playing(ch): true while the voice sounds (release included) */
+static int l_playing(lua_State *L)
+{
+    lua_pushboolean(L, audio_busy(voice_arg(L)));
+    return 1;
+}
+
+/* apu(ch, reg, [value]): raw register byte, the s32 APU layout (§8) */
+static int l_apu(lua_State *L)
+{
+    unsigned ch = voice_arg(L);
+    lua_Integer reg = luaL_checkinteger(L, 2);
+    luaL_argcheck(L, reg >= 0 && reg < 16, 2, "register 0..15");
+    volatile uint8_t *r = audio_regs() + ch * 16 + reg;
+    if (lua_gettop(L) >= 3) {
+        *r = (uint8_t)luaL_checkinteger(L, 3);
+        return 0;
+    }
+    lua_pushinteger(L, *r);
+    return 1;
+}
+
 static int l_quit(lua_State *L)
 {
     (void)L;
@@ -497,6 +574,8 @@ static const luaL_Reg api[] = {
     { "draw3d", l_draw3d }, { "camera3d", l_camera3d }, { "light3d", l_light3d },
     { "zclear", l_zclear }, { "log", l_log }, { "quit", l_quit },
     { "save", l_save }, { "saved", l_saved },
+    { "note", l_note }, { "noteoff", l_noteoff }, { "freq", l_freq },
+    { "envelope", l_envelope }, { "duty", l_duty }, { "playing", l_playing }, { "apu", l_apu },
     { NULL, NULL },
 };
 
@@ -538,6 +617,11 @@ static lua_State *new_cart_state(const b33_cart_t *c)
     lua_pushglobaltable(L);
     luaL_setfuncs(L, api, 0);
     lua_pop(L, 1);
+    static const char *const waves[] = { "SQUARE", "TRIANGLE", "SAW", "NOISE" };
+    for (int w = 0; w < 4; w++) {
+        lua_pushinteger(L, w);
+        lua_setglobal(L, waves[w]);
+    }
     lua_pushinteger(L, c->width);
     lua_setglobal(L, "SCREEN_W");
     lua_pushinteger(L, c->height);
@@ -772,6 +856,7 @@ void b33_play(framebuffer_t *fb, const uint8_t *data, size_t len,
         int n = ksnprintf(id, sizeof id, "%s\n%s", cart.title, cart.author);
         ksnprintf(rt.save_name, sizeof rt.save_name, "%08lX.SAV", crc32(id, (uint32_t)n));
     }
+    audio_reset();
     rt.start_us = timer_ticks();
     rt.hook_count = 0;
     if (luaL_loadbuffer(L, cart.lua, cart.lua_size, "=main.lua") != LUA_OK ||
@@ -803,6 +888,7 @@ void b33_play(framebuffer_t *fb, const uint8_t *data, size_t len,
         }
     }
 
+    audio_reset();
     st->frames = rt.frame;
     st->elapsed_us = timer_ticks() - start;
     st->lua_kb = (uint32_t)(luavm_mem() / 1024);

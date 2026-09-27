@@ -165,8 +165,8 @@ Priorità attuale: sviluppo della console bm33; la parte s32 avanza al ritmo di 
 
 ## Dopo l'MVP (decisione 2026-09-27)
 
-Decisioni: **M10 in pausa** (uscita scelta: HDMI, dagli altoparlanti del monitor);
-priorità **M11 → M12**; controller di riferimento per M12: **DualShock 4 (PS4)**,
+Decisioni: M10 rimandato (uscita scelta: HDMI, dagli altoparlanti del monitor) e poi
+fatto dopo M12; priorità **M11 → M12**; controller di riferimento per M12: **DualShock 4 (PS4)**,
 provato prima via USB (stesso formato dei report che poi arrivano via Bluetooth).
 
 ```
@@ -176,19 +176,22 @@ M9 (MVP) ─┬─ M10 audio
           └─ M14 grafica 2.0 (DMA, 32 bit, 3D con texture)
 ```
 
-## M10 — Audio (M/L) — in pausa
-- Il Pi Zero non ha jack. Due uscite:
-  - **HDMI** (nessun hardware in più: il suono esce dal monitor/TV). Più complessa
-    (blocco audio HDMI della GPU, poco documentato; riferimento: Circle, che lo
-    supporta sul Pi 1/Zero); prima scelta.
-  - **PWM** su GPIO18/13 con filtro RC esterno (270 Ω + 33 nF) e jack: semplice, ma
-    richiede di saldare.
-- Mixer software in C a 44,1 o 48 kHz, riempito da DMA con IRQ di refill (nessun
-  lavoro nel ciclo del gioco).
-- **APU di s32**: 8 canali (quadra/triangolo/dente di sega/rumore) con ADSR, registri
-  memory-mapped come da spec; vettori audio di lua32 se disponibili.
-- API `.b33`: `sfx(n)` / `note(canale, freq, forma, volume)` / `music(...)`; effetti
-  sonori nei tre giochi demo.
+## M10 — Audio HDMI (M/L) — implementato, da verificare sul Pi
+- Uscita **HDMI** (dagli altoparlanti del monitor), `src/audio/audio.c`: blocco audio
+  HDMI del BCM2835 (FIFO MAI, rigenerazione del clock N/CTS, InfoFrame audio) come in
+  Circle; campioni IEC 958 a 48 kHz (`iec958.c`) mandati da un canale DMA con DREQ
+  HDMI su due buffer ad anello da 256 campioni (5,3 ms). L'interrupt di fine buffer
+  genera il blocco successivo: nessun lavoro nel ciclo del gioco.
+- Sintetizzatore `synth.c`: 8 voci con la semantica dell'APU di s32 (`apu.lua` di
+  lua32: quadra con duty, triangolo, dente di sega, rumore LFSR a 15 bit, ADSR lineare,
+  somma senza normalizzazione con saturazione). Test su host: `make test-audio`.
+- **APU di s32**: durante una `.cart` il sintetizzatore legge direttamente i registri a
+  `0x0AC900` della macchina.
+- API `.b33`: `note`, `noteoff`, `freq`, `envelope`, `duty`, `playing`, `apu`
+  (docs/API.md); effetti e melodie nei tre giochi demo.
+- Monitor: `a` stato dell'audio (clock, canale DMA, blocchi suonati, costo della sintesi)
+  e una melodia di prova con tutte le forme d'onda. All'avvio, se l'audio funziona, due
+  note brevi. Senza audio HDMI (QEMU, modo DVI) tutto funziona in silenzio.
 - **Fatto quando:** i giochi demo hanno effetti sonori senza cali di frame rate e
   senza scatti audio per 10 minuti.
 

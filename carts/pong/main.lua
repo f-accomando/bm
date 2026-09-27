@@ -14,6 +14,19 @@ local you, cpu, ball
 local score, winner, serve_dir, flash
 local record = { wins = 0, losses = 0 }  -- kept on the SD card with save()
 
+-- sound: effects on voices 0-2, short tunes on voice 3 ({hz, frames}, 0 = rest)
+local tune, tune_i, tune_t
+local function jingle(notes) tune, tune_i, tune_t = notes, 1, 0 end
+local function update_jingle()
+  if not tune then return end
+  tune_t = tune_t - 1
+  if tune_t > 0 then return end
+  local n = tune[tune_i]
+  if not n then tune = nil; return end
+  if n[1] > 0 then note(3, n[1], n[2] * 14, TRIANGLE, 120) end
+  tune_t, tune_i = n[2], tune_i + 1
+end
+
 local function reset_ball(dir)
   ball = { x = W / 2 - BALL / 2, y = (TOP + H) / 2, vx = 0, vy = 0 }
   serve_dir = dir
@@ -46,6 +59,7 @@ local function hit(p, dir)
   ball.vx = dir * speed * math.cos(angle)
   ball.vy = speed * math.sin(angle)
   flash = 6
+  note(0, dir > 0 and 440 or 330, 45, SQUARE, 110)
 end
 
 local function point(side)
@@ -55,13 +69,20 @@ local function point(side)
     state = "over"
     if side == 1 then record.wins = record.wins + 1 else record.losses = record.losses + 1 end
     save(record)
+    if side == 1 then
+      jingle({ { 523, 8 }, { 659, 8 }, { 784, 8 }, { 1047, 24 } })
+    else
+      jingle({ { 392, 12 }, { 370, 12 }, { 349, 12 }, { 262, 30 } })
+    end
   else
     reset_ball(side == 1 and 1 or -1)
     state = "serve"
+    if side == 1 then jingle({ { 659, 5 }, { 988, 10 } }) else jingle({ { 330, 6 }, { 247, 12 } }) end
   end
 end
 
 function _update()
+  update_jingle()
   if state == "title" or state == "over" then
     if btnp(4) or btnp(5) then
       math.randomseed(stat(3))
@@ -87,14 +108,15 @@ function _update()
       local a = (math.random() - 0.5) * 0.8
       ball.vx, ball.vy = serve_dir * 6 * math.cos(a), 6 * math.sin(a)
       state = "play"
+      note(0, 880, 30, SQUARE, 90)
     end
     return
   end
 
   ball.x = ball.x + ball.vx
   ball.y = ball.y + ball.vy
-  if ball.y < TOP then ball.y = TOP; ball.vy = -ball.vy end
-  if ball.y > H - BALL then ball.y = H - BALL; ball.vy = -ball.vy end
+  if ball.y < TOP then ball.y = TOP; ball.vy = -ball.vy; note(1, 220, 30, SQUARE, 80) end
+  if ball.y > H - BALL then ball.y = H - BALL; ball.vy = -ball.vy; note(1, 220, 30, SQUARE, 80) end
 
   if ball.vx < 0 and ball.x <= you.x + PW and ball.x + BALL >= you.x and
      ball.y + BALL >= you.y and ball.y <= you.y + PH then

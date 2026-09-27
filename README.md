@@ -35,7 +35,7 @@ Stress test di rendering (soglie 60/30 fps): [docs/STRESS.md](docs/STRESS.md) �
 | **M7b** | Input: tastiera e gamepad **USB** (HID) | ✅ tastiera verificata sul Pi (gamepad solo QEMU) |
 | **M8** | **SD** + FAT32, menu delle cartucce | ✅ verificato sul Pi |
 | **M9** | **MVP**: avvio sul menu, giochi demo, immagine SD, guida API | ✅ verificato sul Pi |
-| M10 | Audio: HDMI, APU s32, suoni nei giochi | ⏸ in pausa |
+| M10 | Audio: HDMI, APU s32, suoni nei giochi | 🔊 fatto, da provare sul Pi |
 | **M11** | SD in scrittura: salvataggi, record, impostazioni | ✅ verificato sul Pi |
 | **M12** | Controller **Bluetooth** (DualShock 4) | ✅ verificato sul Pi |
 | M13 | Altri tipi di cartuccia: s32 Lua (con lua32), codice ARM nativo | |
@@ -81,6 +81,7 @@ Lua `boot.lua`) si esegue dal monitor con **`b`**.
 | `y` | USB: cerca di nuovo il dispositivo (dopo averlo collegato) |
 | `Y` | USB: test dal vivo per 10 s (contatori ok/nak/err e ultimo report) |
 | `L` | layout tastiera: italiano ↔ US |
+| `a` | audio: stato dell'uscita HDMI (clock, canale DMA, costo della sintesi) e una melodia di prova con le quattro forme d'onda |
 | `T` | Bluetooth: cerca per 8 s e **abbina il primo controller** trovato (DS4: Share + PS finché lampeggia); la console seriale passa alla mini UART (stessi pin) |
 | `p` | benchmark di rendering 640×360 RGB565, disegnando direttamente sullo schermo e via RAM |
 | `V` | cartucce `.b33`: disegno diretto sullo schermo (default) o via buffer in RAM |

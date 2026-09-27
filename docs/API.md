@@ -161,6 +161,39 @@ end
 if score > best then best = score; save({ best = best }) end
 ```
 
+### Suono
+
+Otto voci (0–7) di sintesi, le stesse dell'APU di s32: forme d'onda `SQUARE`,
+`TRIANGLE`, `SAW`, `NOISE`, inviluppo ADSR, uscita HDMI a 48 kHz (dagli altoparlanti
+del monitor). Il suono è generato in un interrupt: non costa nulla al tuo `_update`.
+
+| Funzione | Descrizione |
+|---|---|
+| `note(v, hz, [ms], [forma], [vol])` | suona una nota sulla voce `v` (riparte da capo l'inviluppo); con `ms` si spegne da sola, senza resta accesa fino a `noteoff(v)`. `vol` 0–255 (predefinito 128) |
+| `noteoff(v)` | rilascia la nota (parte la fase di release) |
+| `freq(v, hz)` | cambia l'altezza senza ripartire: glissandi, vibrato, sirene |
+| `envelope(v, a, d, s, r)` | inviluppo della voce: attack, decay e release sono tempi 0–255 (0 = istantaneo, 255 = 2 s), sustain è un livello 0–255. Predefinito `1, 0, 255, 10` |
+| `duty(v, d)` | larghezza dell'onda quadra, 0–255 (128 = 50%; 32–64 suona più "nasale") |
+| `playing(v)` | `true` finché la voce suona (release compreso) |
+| `apu(v, reg, [valore])` | legge o scrive un registro grezzo della voce, formato APU di s32 (spec §8) |
+
+Forma e volume restano quelli dell'ultima nota della voce, quindi basta darli una volta.
+All'avvio e all'uscita della cartuccia le voci si spengono e tornano ai valori
+predefiniti. Più voci forti insieme si sommano e possono saturare: tieni i volumi
+intorno a 100–130. Esempi:
+
+```lua
+note(0, 880, 60, SQUARE, 100)          -- "blip" di 60 ms
+envelope(2, 0, 60, 0, 30)              -- esplosione che si smorza...
+note(2, 2500, 300, NOISE, 130)         -- ...con il rumore
+-- laser: la nota parte alta, poi in _update un passo di freq() per frame
+note(1, 1300, 100, SQUARE, 70); laser = 6
+if laser > 0 then laser = laser - 1; freq(1, 400 + laser * 150) end
+```
+
+Pong, Snake e Star Shooter in `carts/` usano effetti e piccole melodie (una funzione
+`jingle` di 10 righe che suona una nota per volta sulla voce 3).
+
 ### 3D (software)
 
 | Funzione | Descrizione |

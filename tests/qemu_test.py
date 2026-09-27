@@ -1175,6 +1175,45 @@ def _b33(src):
     return mkb33.pack(src.encode(), title="test cart")
 
 
+AUDIO_CART = r"""
+function _init()
+  envelope(2, 0, 60, 0, 30)
+  duty(0, 64)
+  note(0, 440, 50, SQUARE, 100)
+  note(2, 2500.7, 0, NOISE)
+  freq(2, 1200)
+  apu(5, 4, 77)
+  log("apu", apu(0, 0) + apu(0, 1) * 256, apu(0, 2), apu(0, 3), apu(2, 0) + apu(2, 1) * 256,
+      apu(2, 2), apu(2, 6), apu(5, 4), apu(2, 9))
+  noteoff(2)
+  log("off", apu(2, 9), type(playing(0)), TRIANGLE, SAW)
+  log("bad", select(2, pcall(note, 8, 440)), select(2, pcall(apu, 0, 16)))
+  quit()
+end
+"""
+
+
+def test_audio(b, opts):
+    """M10: without HDMI audio (QEMU) the console says why and stays silent;
+    the .b33 sound API writes the APU-layout registers."""
+    q = Qemu(b("kernel.img"))
+    try:
+        out = q.boot().decode(errors="replace")
+        assert "audio: off - no HDMI audio" in out, out
+        q.send("a")
+        q.expect("audio: off - no HDMI audio")
+        q.expect("> ")
+        assert _upload(q, mkb33.pack(AUDIO_CART.encode(), title="audio test"))
+        out = q.expect("bad\t", timeout=15).decode(errors="replace")
+        out += q.expect("\n").decode(errors="replace")
+        assert "apu\t440\t0\t64\t1200\t3\t60\t77\t1" in out, out
+        assert "off\t0\tboolean\t1\t2" in out, out
+        assert "bad\t" in out and "voice 0..7" in out and "register 0..15" in out, out
+        q.expect("> ", timeout=10)
+    finally:
+        q.close()
+
+
 def test_b33_upload_errors(b, opts):
     q = Qemu(b("kernel.img"))
     try:

@@ -6,6 +6,7 @@
 #include "usb/hid.h"
 #include "gfx/console.h"
 #include "lib/printf.h"
+#include "audio/audio.h"
 
 #include <stdlib.h>
 #include <string.h>
@@ -138,6 +139,9 @@ void s32_play(framebuffer_t *fb, const uint8_t *data, size_t len,
         return;
     }
 
+    audio_reset();
+    audio_use_regs(machine_mem + S32_APU_BASE);     /* the APU is the synth's registers */
+
     uint8_t hold[5] = { 0 };
     int esc = 0, seen_serial = !attract;
     uint32_t start = timer_ticks(), deadline = start + TICK_US, prev = start;
@@ -194,6 +198,8 @@ void s32_play(framebuffer_t *fb, const uint8_t *data, size_t len,
 
     st->elapsed_us = timer_ticks() - start;
     st->attract = !seen_serial;
+    audio_use_regs(0);
+    audio_reset();
     input_flush();
     fb_init(fb, con_w, con_h, 2);
     console_suspend(0);

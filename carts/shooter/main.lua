@@ -45,11 +45,26 @@ end
 local state = "title"                   -- "title", "play", "over"
 local player, shots, enemies, bolts, sparks, stars
 local score, best, lives, wave, fire_cd, invuln, wave_timer = 0, 0, 3, 0, 0, 0, 0
+local laser = 0                         -- frames left of the shot's falling pitch
+
+-- sound: effects on voices 0-2, short tunes on voice 3 ({hz, frames}, 0 = rest)
+local tune, tune_i, tune_t
+local function jingle(notes) tune, tune_i, tune_t = notes, 1, 0 end
+local function update_jingle()
+  if not tune then return end
+  tune_t = tune_t - 1
+  if tune_t > 0 then return end
+  local n = tune[tune_i]
+  if not n then tune = nil; return end
+  if n[1] > 0 then note(3, n[1], n[2] * 14, TRIANGLE, 120) end
+  tune_t, tune_i = n[2], tune_i + 1
+end
 
 function _init()
   local data = saved()                  -- the record survives power off (SD card)
   if data and data.best then best = data.best end
   for name, cell in pairs(SPR) do paint(name, cell) end
+  envelope(2, 0, 60, 0, 30)             -- explosions: a bang that dies away
   stars = {}
   for i = 1, 120 do
     stars[i] = { x = math.random(0, W - 1), y = math.random(0, H - 1), z = math.random(1, 3) }
@@ -69,6 +84,7 @@ local function spawn_wave()
     end
   end
   wave_timer = 90
+  jingle({ { 523, 6 }, { 659, 6 }, { 784, 6 }, { 1047, 12 } })
 end
 
 local function new_game()
@@ -100,6 +116,11 @@ local function update_stars(speed)
 end
 
 function _update()
+  update_jingle()
+  if laser > 0 then                     -- a slide: freq() changes the pitch, no restart
+    laser = laser - 1
+    freq(0, 400 + laser * 150)
+  end
   update_stars(state == "play" and 1 or 0.4)
   if state ~= "play" then
     if btnp(4) then new_game() end
@@ -118,6 +139,9 @@ function _update()
   if btn(4) and fire_cd <= 0 then
     shots[#shots + 1] = { x = player.x + 6, y = player.y - 6 }
     fire_cd = 8
+    duty(0, 64)
+    note(0, 1300, 90, SQUARE, 70)
+    laser = 6
   end
   if invuln > 0 then invuln = invuln - 1 end
 
@@ -154,7 +178,9 @@ function _update()
         table.remove(shots, j)
         e.hp = e.hp - 1
         burst(s.x, s.y, 0xFFE060, 4)
+        if e.hp > 0 then note(1, 180, 40, SQUARE, 90) end   -- the boss takes a hit
         if e.hp <= 0 then
+          note(2, e.boss and 700 or 2500, e.boss and 450 or 160, NOISE, 130)
           score = score + (e.boss and 50 or 10)
           burst(e.x + 8, e.y + 6, e.boss and 0xE04880 or 0x70E060, 18)
           table.remove(enemies, i)
@@ -184,6 +210,8 @@ function _update()
     if hit then
       lives = lives - 1
       burst(player.x + 8, player.y + 8, 0xFF8020, 30)
+      note(2, 400, 700, NOISE, 170)
+      note(1, 110, 500, SAW, 110)
       invuln = 120
       if lives <= 0 then
         if score > best then
@@ -191,6 +219,7 @@ function _update()
           save({ best = best })
         end
         state = "over"
+        jingle({ { 0, 30 }, { 392, 12 }, { 311, 12 }, { 262, 12 }, { 196, 40 } })
       end
     end
   end
