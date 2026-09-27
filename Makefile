@@ -76,11 +76,21 @@ $(BUILD)/demo.b33: $(DEMO_B33_SRC) scripts/mkb33.py
 	$(PYTHON) scripts/mkb33.py -o $@ --lua carts/demo/main.lua --sheet carts/demo/sheet.png \
 	    --map carts/demo/map.csv --title "bm33 native demo" --author bm33
 
+# Demo games (Lua only, sprites drawn in code): build/carts/<name>.b33
+GAMES := pong snake shooter
+GAME_CARTS := $(patsubst %,$(BUILD)/carts/%.b33,$(GAMES))
+title_pong    := Pong
+title_snake   := Snake
+title_shooter := Star Shooter
+$(BUILD)/carts/%.b33: carts/%/main.lua scripts/mkb33.py
+	@mkdir -p $(dir $@)
+	$(PYTHON) scripts/mkb33.py -o $@ --lua $< --title "$(title_$*)" --author bm33
+
 .DEFAULT_GOAL := all
 .PHONY: FORCE all clean firmware sdcard sdcard-chainloader sdcard-stress qemu qemu-screenshot \
         run-serial test test-s32 test-s32-arm test-b33 test-usb disasm
 
-all: $(BUILD)/kernel.img $(BUILD)/chainloader.img
+all: $(BUILD)/kernel.img $(BUILD)/chainloader.img $(GAME_CARTS)
 
 $(BUILD)/k/%.S.o $(BUILD)/l/%.S.o: %.S
 	@mkdir -p $(dir $@)
@@ -115,7 +125,7 @@ firmware:
 # the card instead of the kernel (flash it once, then use `make run-serial`).
 # Cartridges go to carts/ (the menu also looks in the root directory).
 KERNEL ?= kernel
-SD_CARTS := $(BUILD)/demo.b33 $(BUILD)/stress.b33 spec/s32/conformance/demo.cart
+SD_CARTS := $(GAME_CARTS) $(BUILD)/demo.b33 $(BUILD)/stress.b33 spec/s32/conformance/demo.cart
 sdcard: $(BUILD)/$(KERNEL).img $(SD_CARTS)
 	@test -f $(FW_DIR)/start.elf || { echo "Run 'make firmware' first"; exit 1; }
 	@mkdir -p $(DIST)/carts

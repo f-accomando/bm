@@ -690,6 +690,56 @@ def test_usb_hid_gamepad(b, opts):
         q.close()
 
 
+GAMES = {                                  # cart -> text on its title screen
+    "pong": "press A to start",
+    "snake": "S N A K E",
+    "shooter": "S T A R   S H O O T E R",
+}
+
+
+def test_games(b, opts):
+    """The demo games: title screen, start with A, play a few seconds with
+    serial keys, no Lua error, quit with 'q'."""
+    q = Qemu(b("kernel.img"))
+    try:
+        q.boot()
+        for name, title in GAMES.items():
+            with open(b(f"carts/{name}.b33"), "rb") as f:
+                assert _upload(q, f.read()), name
+            time.sleep(1.0)
+            _, text = settled_screen(q, lambda i, t: any(title in l for l in t))
+            assert any(title in l for l in text), f"{name}: title screen\n" + "\n".join(text)
+            if opts.shots:
+                _save_png(q.screendump(), os.path.join(opts.shots, f"{name}-title.png"))
+            q.send(" ")                        # A: start
+            time.sleep(0.5)
+            for k in "ddddwwwwssssaaaa" * 2:  # move around, fire
+                q.send(k + " ")
+                time.sleep(0.08)
+            img = q.screendump()
+            if opts.shots:
+                _save_png(img, os.path.join(opts.shots, f"{name}-play.png"))
+            q.send("q")
+            out = q.expect("update+draw", timeout=10).decode(errors="replace")
+            assert "stopped with an error" not in out, out
+            q.expect("> ")
+    finally:
+        q.close()
+
+
+def _save_png(img, path):
+    import struct
+    import zlib
+    w, h, px = img
+    raw = b"".join(b"\0" + px[y * w * 3:(y + 1) * w * 3] for y in range(h))
+
+    def chunk(t, d):
+        return struct.pack(">I", len(d)) + t + d + struct.pack(">I", zlib.crc32(t + d))
+    with open(path, "wb") as f:
+        f.write(b"\x89PNG\r\n\x1a\n" + chunk(b"IHDR", struct.pack(">IIBBBBB", w, h, 8, 2, 0, 0, 0))
+                + chunk(b"IDAT", zlib.compress(raw)) + chunk(b"IEND", b""))
+
+
 def _upload(q, data):
     q.send("U")
     q.expect("15 s timeout\r\n")
@@ -825,6 +875,7 @@ def main():
     ap.add_argument("--build", default="build")
     ap.add_argument("--update-ref", action="store_true")
     ap.add_argument("-k", dest="filter", default="")
+    ap.add_argument("--shots", default="", help="directory for screenshots of the games")
     opts = ap.parse_args()
 
     def b(name):
