@@ -33,14 +33,20 @@ void b33_print_stats(const b33_stats_t *st);
  * 640x360 RGB565. Shows it on screen for `frames` frames; returns the
  * average drawing time in microseconds. */
 uint32_t b33_bench(framebuffer_t *fb, uint32_t frames);
+/* b33_bench drawing directly and via RAM; prints one line. */
+void b33_bench_report(framebuffer_t *fb, uint32_t frames);
 
-/* Switches the screen to w x h RGB565 double buffered and points g at a
- * cached RAM buffer of the same size (console suspended); present copies
- * it to the screen; leave restores the w x h console. */
+/* Switches the screen to w x h RGB565 double buffered and points g at the
+ * back page, or at a cached RAM buffer when "via RAM" is on (console
+ * suspended); present shows the frame; leave restores the w x h console. */
 int  b33_video_enter(framebuffer_t *fb, int w, int h, g16_t *g);
 void b33_video_leave(framebuffer_t *fb, uint32_t w, uint32_t h);
-/* g draws into a cached RAM buffer: copies it to the back page and flips.
- * Returns the copy time in microseconds. */
-uint32_t b33_video_present(framebuffer_t *fb, const g16_t *g);
+/* Shows the frame drawn in g (copying it first when drawing via RAM) and
+ * points g at the next one. Returns the copy time in microseconds (0 when
+ * drawing directly). */
+uint32_t b33_video_present(framebuffer_t *fb, g16_t *g);
+/* Draw target: 0 = framebuffer back page (default), 1 = RAM buffer + copy. */
+void b33_set_via_ram(int on);
+int  b33_via_ram(void);
 
 #endif

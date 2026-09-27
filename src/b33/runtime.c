@@ -517,27 +517,45 @@ static void free_assets(void)
 
 /* ---------------------------------------------------------------- player */
 
-/* Drawing happens in a cached RAM buffer ("shadow"), copied to the
- * framebuffer once per frame. The framebuffer is uncached GPU memory:
- * pixel-by-pixel 16-bit stores there cost several times a cached store,
- * while one sequential copy of the whole screen is cheap. It also makes
- * pget() fast and keeps the previous frame in the buffer. */
+/* Two ways to draw a frame:
+ * - direct: into the framebuffer's back page (uncached GPU memory; writes
+ *   only, pget() is slow);
+ * - via RAM: into a cached buffer ("shadow") copied to the back page once
+ *   per frame. On the ARM1176 the copy has to read the buffer back from
+ *   SDRAM (16 KB data cache, reads ~4x slower than writes), so it is not
+ *   obviously a win: b33_bench() measures both. Default: direct. */
+static int via_ram;
 static uint16_t *shadow;
+
+void b33_set_via_ram(int on) { via_ram = on; }
+int b33_via_ram(void) { return via_ram; }
 
 int b33_video_enter(framebuffer_t *fb, int w, int h, g16_t *g)
 {
     console_suspend(1);
     free(shadow);
-    shadow = malloc((size_t)w * (size_t)h * 2);
-    if (!shadow || fb_init_depth(fb, (uint32_t)w, (uint32_t)h, 2, 16) != 0)
+    shadow = NULL;
+    if (fb_init_depth(fb, (uint32_t)w, (uint32_t)h, 2, 16) != 0)
         return -1;
-    memset(shadow, 0, (size_t)w * (size_t)h * 2);
-    g16_target(g, shadow, (uint32_t)w, w, h, &font_console_8x16);
+    if (via_ram) {
+        shadow = malloc((size_t)w * (size_t)h * 2);
+        if (!shadow)
+            return -1;
+        memset(shadow, 0, (size_t)w * (size_t)h * 2);
+        g16_target(g, shadow, (uint32_t)w, w, h, &font_console_8x16);
+    } else {
+        g16_target(g, (uint16_t *)fb->base, fb->pitch / 2, w, h, &font_console_8x16);
+    }
     return 0;
 }
 
-uint32_t b33_video_present(framebuffer_t *fb, const g16_t *g)
+uint32_t b33_video_present(framebuffer_t *fb, g16_t *g)
 {
+    if (!shadow) {
+        fb_flip(fb);
+        g->px = (uint16_t *)fb->base;
+        return 0;
+    }
     uint32_t t0 = timer_ticks();
     const uint32_t row = (uint32_t)g->w * 2;
     if (fb->pitch == row) {
@@ -670,7 +688,8 @@ void b33_print_stats(const b33_stats_t *st)
     kprintf("     update+draw avg %lu.%02lu ms (%lu%% of frame), max %lu.%02lu ms, Lua %lu KiB\n",
             avg / 1000, avg % 1000 / 10, avg * 100 / FRAME_US,
             st->cpu_us_max / 1000, st->cpu_us_max % 1000 / 10, st->lua_kb);
-    kprintf("     copy to screen %lu.%02lu ms per frame\n", copy / 1000, copy % 1000 / 10);
+    if (copy)
+        kprintf("     copy to screen %lu.%02lu ms per frame\n", copy / 1000, copy % 1000 / 10);
 }
 
 /* ---------------------------------------------------------------- C bench */
@@ -723,4 +742,17 @@ uint32_t b33_bench(framebuffer_t *fb, uint32_t frames)
     free(rt.map.cells);
     rt.map.cells = NULL;
     return frames ? total / frames : 0;
+}
+
+/* The benchmark both ways (direct and via RAM), one line; the faster one
+ * is not chosen automatically: see b33_set_via_ram. */
+void b33_bench_report(framebuffer_t *fb, uint32_t frames)
+{
+    int saved = via_ram;
+    via_ram = 0;
+    uint32_t direct = b33_bench(fb, frames);
+    via_ram = 1;
+    uint32_t ram = b33_bench(fb, frames);
+    via_ram = saved;
+    kprintf("b33 bench (map + 256 sprites): direct %lu.%02lu ms, via RAM %lu.%02lu ms\n", direct / 1000, direct % 1000 / 10, ram / 1000, ram % 1000 / 10);
 }

@@ -39,7 +39,20 @@ static int tile_info(const uint8_t *mem, uint16_t tile, uint32_t *pixels, int *s
     return 1;
 }
 
-static void render_background(const s32_machine_t *m, uint32_t *out, uint32_t stride)
+/* Background tiles that are drawn this frame, in drawing order, after the
+ * "covered" pass over the whole screen. Rendering can then go band by band
+ * (a few rows at a time, in the cache) with the same result pixel for
+ * pixel: every band draws the same tiles in the same order. */
+typedef struct {
+    int16_t x, y;               /* top-left on screen */
+    uint8_t size;
+    uint32_t pix, pal_base;
+} bg_tile_t;
+
+static bg_tile_t bg_tiles[MAX_ROWS * MAX_COLS];
+static int bg_count;
+
+static void collect_background(const s32_machine_t *m)
 {
     static uint8_t covered[MAX_ROWS * MAX_COLS];
     const uint8_t *mem = m->mem;
@@ -50,6 +63,7 @@ static void render_background(const s32_machine_t *m, uint32_t *out, uint32_t st
     const int last_cx = (sx + W - 1) / CELL, last_cy = (sy + H - 1) / CELL;
     const int cols = last_cx - first_cx + 1;
     memset(covered, 0, sizeof covered);
+    bg_count = 0;
 
     for (int cy = first_cy; cy <= last_cy; cy++) {
         const int crow = (cy - first_cy) * cols;
@@ -74,28 +88,43 @@ static void render_background(const s32_machine_t *m, uint32_t *out, uint32_t st
                 for (int dx = 0; dx <= dx_max; dx++)
                     covered[crow + dy * cols + (cx - first_cx) + dx] = 1;
 
-            const uint32_t pal_base = S32_CGRAM_BASE + ((word >> 11) & 7) * 256u * 3u;
-            const int wx = cx * CELL, wy = cy * CELL;
-            for (int ly = 0; ly < size; ly++) {
-                int oy = wy + ly - sy;
-                if (oy < 0 || oy >= H)
+            const int x = cx * CELL - sx, y = cy * CELL - sy;
+            if (x + size <= 0 || y + size <= 0)
+                continue;                       /* entirely off screen */
+            bg_tiles[bg_count++] = (bg_tile_t){
+                (int16_t)x, (int16_t)y, (uint8_t)size, pix,
+                S32_CGRAM_BASE + ((word >> 11) & 7) * 256u * 3u,
+            };
+        }
+    }
+}
+
+/* Rows y0..y1-1 of the screen into out (row y0 at out[0]). */
+static void draw_background(const s32_machine_t *m, uint32_t *out, uint32_t stride, int y0, int y1)
+{
+    const uint8_t *mem = m->mem;
+    const int W = S32_SCREEN_W;
+
+    for (int t = 0; t < bg_count; t++) {
+        const bg_tile_t *b = &bg_tiles[t];
+        int ly0 = y0 - b->y > 0 ? y0 - b->y : 0;
+        int ly1 = y1 - b->y < b->size ? y1 - b->y : b->size;
+        for (int ly = ly0; ly < ly1; ly++) {
+            uint32_t *row = out + (uint32_t)(b->y + ly - y0) * stride;
+            uint32_t src = b->pix + (uint32_t)ly * b->size;
+            for (int lx = 0; lx < b->size; lx++) {
+                int ox = b->x + lx;
+                if (ox < 0 || ox >= W)
                     continue;
-                uint32_t *row = out + (uint32_t)oy * stride;
-                uint32_t src = pix + (uint32_t)ly * size;
-                for (int lx = 0; lx < size; lx++) {
-                    int ox = wx + lx - sx;
-                    if (ox < 0 || ox >= W)
-                        continue;
-                    uint8_t idx = mem[mask(src + lx)];
-                    if (idx)
-                        row[ox] = color(mem, pal_base, idx);
-                }
+                uint8_t idx = mem[mask(src + lx)];
+                if (idx)
+                    row[ox] = color(mem, b->pal_base, idx);
             }
         }
     }
 }
 
-static void render_sprites(const s32_machine_t *m, uint32_t *out, uint32_t stride)
+static void draw_sprites(const s32_machine_t *m, uint32_t *out, uint32_t stride, int y0, int y1)
 {
     const uint8_t *mem = m->mem;
 
@@ -111,16 +140,17 @@ static void render_sprites(const s32_machine_t *m, uint32_t *out, uint32_t strid
 
         uint32_t pix;
         int size;
+        if (y >= y1 || y + 64 <= y0)            /* 64 = largest tile: skip early */
+            continue;
         if (!tile_info(mem, word & 0x7FF, &pix, &size))
             continue;
         const uint32_t pal_base = S32_CGRAM_BASE + ((word >> 11) & 7) * 256u * 3u;
 
-        for (int ly = 0; ly < size; ly++) {
-            int oy = y + ly;
-            if (oy < 0 || oy >= S32_SCREEN_H)
-                continue;
+        int ly0 = y0 - y > 0 ? y0 - y : 0;
+        int ly1 = y1 - y < size ? y1 - y : size;
+        for (int ly = ly0; ly < ly1; ly++) {
             int ty = flip_y ? size - 1 - ly : ly;
-            uint32_t *row = out + (uint32_t)oy * stride;
+            uint32_t *row = out + (uint32_t)(y + ly - y0) * stride;
             uint32_t src = pix + (uint32_t)ty * size;
             for (int lx = 0; lx < size; lx++) {
                 int ox = x + lx;
@@ -134,10 +164,21 @@ static void render_sprites(const s32_machine_t *m, uint32_t *out, uint32_t strid
     }
 }
 
+void s32_render_begin(const s32_machine_t *m)
+{
+    collect_background(m);
+}
+
+void s32_render_rows(const s32_machine_t *m, uint32_t *out, uint32_t stride, int y0, int y1)
+{
+    for (int y = y0; y < y1; y++)
+        memset(out + (uint32_t)(y - y0) * stride, 0, S32_SCREEN_W * 4);
+    draw_background(m, out, stride, y0, y1);
+    draw_sprites(m, out, stride, y0, y1);
+}
+
 void s32_render(const s32_machine_t *m, uint32_t *out, uint32_t stride)
 {
-    for (int y = 0; y < S32_SCREEN_H; y++)
-        memset(out + (uint32_t)y * stride, 0, S32_SCREEN_W * 4);
-    render_background(m, out, stride);
-    render_sprites(m, out, stride);
+    s32_render_begin(m);
+    s32_render_rows(m, out, stride, 0, S32_SCREEN_H);
 }

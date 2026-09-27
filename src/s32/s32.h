@@ -100,5 +100,10 @@ const char *s32_status_str(enum s32_status st);
 /* Renders the frame as 0x00RRGGBB pixels, S32_SCREEN_W x S32_SCREEN_H,
  * `stride` pixels per row. */
 void s32_render(const s32_machine_t *m, uint32_t *out, uint32_t stride);
+/* The same picture band by band: s32_render_begin once per frame, then
+ * s32_render_rows for rows y0..y1-1 (row y0 at out[0]). A band of a few
+ * rows stays in the data cache. */
+void s32_render_begin(const s32_machine_t *m);
+void s32_render_rows(const s32_machine_t *m, uint32_t *out, uint32_t stride, int y0, int y1);
 
 #endif

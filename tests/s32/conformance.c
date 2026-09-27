@@ -90,6 +90,19 @@ static int run(const char *dir, const char *name, uint8_t *mem)
             break;
         }
         s32_render(&m, frame, S32_SCREEN_W);
+        /* the player renders in bands of 8 rows: must be the same picture */
+        static uint32_t band[S32_SCREEN_W * 8];
+        s32_render_begin(&m);
+        for (int y0 = 0; y0 < S32_SCREEN_H; y0 += 8) {
+            int y1 = y0 + 8 < S32_SCREEN_H ? y0 + 8 : S32_SCREEN_H;
+            s32_render_rows(&m, band, S32_SCREEN_W, y0, y1);
+            if (memcmp(band, frame + y0 * S32_SCREEN_W, (size_t)(y1 - y0) * S32_SCREEN_W * 4) != 0) {
+                printf("FAIL %-16s tick %d: band at row %d differs from the full render\n",
+                       name, tick, y0);
+                fails++;
+                break;
+            }
+        }
         char got[160];
         snprintf(got, sizeof got, "%08lx %08lx %08lx %04x %04x %04x %02x %06lx",
                  (unsigned long)crc32(m.mem, S32_WRAM_END),

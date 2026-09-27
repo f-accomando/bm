@@ -501,7 +501,7 @@ def test_b33_boot_demo(b, opts):
         q.expect(DEMO, timeout=25)
         q.send("q")
         q.expect(B33_DEMO, timeout=20)
-        out = q.expect("b33 bench:", timeout=20)
+        out = q.expect("b33 bench (", timeout=20)
         time.sleep(3.0)
         img, text = settled_screen(q, lambda i, t: t[0].startswith("bm33 native") and "sprites" in t[-1])
         assert img[:2] == (640, 360), img[:2]

@@ -77,7 +77,8 @@ Lua `boot.lua`) si esegue dal monitor con **`B`**.
 | `y` | USB: cerca di nuovo il dispositivo (dopo averlo collegato) |
 | `Y` | USB: test dal vivo per 10 s (contatori ok/nak/err e ultimo report) |
 | `L` | layout tastiera: italiano ↔ US |
-| `p` | benchmark di rendering 640×360 RGB565 |
+| `p` | benchmark di rendering 640×360 RGB565, disegnando direttamente sullo schermo e via RAM |
+| `V` | cartucce `.b33`: disegno diretto sullo schermo (default) o via buffer in RAM |
 | `U` | riceve una cartuccia dalla seriale (`bm33_load.py PORTA --cart file.b33`) e la esegue |
 | `S` | stress test di rendering (sprite, triangoli, 3D; C e Lua): vedi [docs/STRESS.md](docs/STRESS.md) |
 | `t` | test pattern HDMI (un tasto qualsiasi torna alla console) |
@@ -248,8 +249,9 @@ disegnati nel codice con `sset`), `carts/demo` (sprite sheet PNG e mappa CSV).
 
 Sandbox: niente `io`, `os`, `load`, `dofile`, `require`. Un errore o un ciclo infinito
 (oltre 20 milioni di istruzioni in un frame) ferma la cartuccia e mostra l'errore
-sulla console, senza bloccare il kernel. Il disegno avviene in un buffer in RAM con
-cache, copiato sullo schermo una volta per frame.
+sulla console, senza bloccare il kernel. Il disegno va direttamente nella pagina
+nascosta del framebuffer (in alternativa, comando `V`, in un buffer in RAM copiato
+una volta per frame: `p` confronta i due modi).
 
 ![demo b33](docs/m7-b33-demo.png)
 

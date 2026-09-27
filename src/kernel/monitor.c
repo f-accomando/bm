@@ -32,6 +32,7 @@ static void help(void)
             "  L  keyboard layout Italian / US\n"
             "  B  boot diagnostics: benchmarks, s32 and b33 demos, Lua boot script\n"
             "  k  CPU benchmark          p  rendering benchmark 640x360 RGB565\n"
+            "  V  .b33 drawing: direct on screen / via RAM (compare with p)\n"
             "  S  rendering stress test (sprites, triangles, 3D; C and Lua)\n"
             "  d  animation demo (60 fps; any key stops it)\n"
             "  t  HDMI test pattern (any key returns)\n"
@@ -117,12 +118,11 @@ void monitor_run(void)
                      (size_t)(b33_stress_cart_end - b33_stress_cart), 600, &bs);
             break;
         }
-        case 'p': {
-            uint32_t us = b33_bench(console_framebuffer(), 120);
-            kprintf("b33 bench: %lu.%02lu ms/frame (%lu%% of 16.7 ms)\n",
-                    us / 1000, us % 1000 / 10, us * 100 / 16667);
+        case 'p': b33_bench_report(console_framebuffer(), 120); break;
+        case 'V':
+            b33_set_via_ram(!b33_via_ram());
+            kprintf(".b33 carts draw %s\n", b33_via_ram() ? "via a RAM buffer" : "directly on screen");
             break;
-        }
         case 'd': {
             demo_stats_t st;
             demo_run(console_framebuffer(), 60, &st);

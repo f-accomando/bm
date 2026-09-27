@@ -65,10 +65,9 @@ con modifiche locali non committate.
 | Pi Zero W v1.1, 1 GHz, cache attive | `792787f` | 2026-09-26 |
 | QEMU (controllo) | `1b31924` | 2026-09-26 |
 
-> Dal kernel `6ef0a58` le cartucce disegnano in un buffer in RAM con cache, copiato
-> sullo schermo una volta per frame, e lo stress test conta anche la copia: i numeri
-> qui sotto (misurati prima, scrivendo direttamente nella memoria video senza cache)
-> vanno rimisurati.
+> Lo stress test conta anche l'eventuale copia sullo schermo quando le cartucce
+> disegnano via RAM (comando `V`, non il default). I numeri qui sotto sono stati
+> misurati disegnando direttamente nella memoria video, come fa il default.
 
 Numero massimo di oggetti per frame (640×360, RGB565):
 

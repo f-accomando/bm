@@ -129,9 +129,7 @@ void diagnostics_run(void)
     s32_play_print(&ps);
 
     kprintf("b33: C benchmark and native demo cart ('q' or Esc skips)...\n");
-    uint32_t bench_us = b33_bench(&fb, 120);
-    kprintf("b33 bench: map + 256 sprites, 640x360: %lu.%02lu ms/frame (%lu%% of 16.7 ms)\n",
-            bench_us / 1000, bench_us % 1000 / 10, bench_us * 100 / 16667);
+    b33_bench_report(&fb, 120);
     b33_stats_t bs;
     b33_play(&fb, b33_demo_cart, (size_t)(b33_demo_cart_end - b33_demo_cart), B33_DEMO_SECS, &bs);
     b33_print_stats(&bs);
