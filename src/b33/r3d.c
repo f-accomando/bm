@@ -116,9 +116,22 @@ void r3d_camera(r3d_t *r, float x, float y, float z, float yaw, float pitch, flo
     r->cam_pos = (v3_t){ x, y, z };
     r->cam_yaw = yaw;
     r->cam_pitch = pitch;
+    r->cam_roll = 0;
     if (fov_deg < 10) fov_deg = 10;
     if (fov_deg > 150) fov_deg = 150;
     r->focal = (r->g->w * 0.5f) / tanf(fov_deg * 3.14159265f / 360.0f);
+}
+
+void r3d_camera_roll(r3d_t *r, float roll)
+{
+    r->cam_roll = roll;
+}
+
+void r3d_fog(r3d_t *r, uint32_t rgb, float near, float far)
+{
+    r->fog_rgb = rgb;
+    r->fog_near = near;
+    r->fog_far = far;
 }
 
 void r3d_light(r3d_t *r, float x, float y, float z, float ambient)
@@ -138,10 +151,82 @@ static void rot_matrix(float m[9], float rx, float ry, float rz)
     m[6] = -sy;     m[7] = cy * sx;                m[8] = cy * cx;
 }
 
-static uint16_t shade(uint32_t rgb, float k)
+/* light factor k, then fog: fraction f of the fog colour */
+static uint16_t shade(uint32_t rgb, float k, uint32_t fog, float f)
 {
-    uint32_t r = (uint32_t)((rgb >> 16 & 0xFF) * k), g = (uint32_t)((rgb >> 8 & 0xFF) * k), b = (uint32_t)((rgb & 0xFF) * k);
-    return g16_rgb(r > 255 ? 255 : r, g > 255 ? 255 : g, b > 255 ? 255 : b);
+    float r = (rgb >> 16 & 0xFF) * k, g = (rgb >> 8 & 0xFF) * k, b = (rgb & 0xFF) * k;
+    if (f > 0) {
+        r += ((fog >> 16 & 0xFF) - r) * f;
+        g += ((fog >> 8 & 0xFF) - g) * f;
+        b += ((fog & 0xFF) - b) * f;
+    }
+    uint32_t ri = (uint32_t)r, gi = (uint32_t)g, bi = (uint32_t)b;
+    return g16_rgb(ri > 255 ? 255 : ri, gi > 255 ? 255 : gi, bi > 255 ? 255 : bi);
+}
+
+typedef struct {
+    float c[9];                 /* world -> camera rotation (yaw, pitch, roll) */
+    float hw, hh, f;
+} view_t;
+
+static void view_setup(const r3d_t *r, view_t *v)
+{
+    const float cy = cosf(r->cam_yaw), sy = sinf(r->cam_yaw);
+    const float cp = cosf(r->cam_pitch), sp = sinf(r->cam_pitch);
+    const float cr = cosf(r->cam_roll), sr = sinf(r->cam_roll);
+    /* x1 = cy x - sy z; z1 = sy x + cy z; y2 = cp y - sp z1; z2 = sp y + cp z1;
+     * then the roll turns (x1, y2) in the screen plane */
+    float ax = cy, az = -sy;                        /* x1 */
+    float by = cp, bx = -sp * sy, bz = -sp * cy;    /* y2 */
+    float zy = sp, zx = cp * sy, zz = cp * cy;      /* z2 */
+    v->c[0] = cr * ax + sr * bx; v->c[1] = sr * by; v->c[2] = cr * az + sr * bz;
+    v->c[3] = -sr * ax + cr * bx; v->c[4] = cr * by; v->c[5] = -sr * az + cr * bz;
+    v->c[6] = zx; v->c[7] = zy; v->c[8] = zz;
+    v->hw = r->g->w * 0.5f;
+    v->hh = r->g->h * 0.5f;
+    v->f = r->focal;
+}
+
+int r3d_project(const r3d_t *r, v3_t p, float *sx, float *sy, float *depth)
+{
+    view_t v;
+    view_setup(r, &v);
+    float wx = p.x - r->cam_pos.x, wy = p.y - r->cam_pos.y, wz = p.z - r->cam_pos.z;
+    float x = v.c[0] * wx + v.c[1] * wy + v.c[2] * wz;
+    float y = v.c[3] * wx + v.c[4] * wy + v.c[5] * wz;
+    float z = v.c[6] * wx + v.c[7] * wy + v.c[8] * wz;
+    *depth = z;
+    if (z < NEAR)
+        return 0;
+    *sx = v.hw + x * v.f / z;
+    *sy = v.hh - y * v.f / z;
+    return 1;
+}
+
+typedef struct { float x, y, z; } cv_t;     /* camera space */
+
+static sv_t project(const view_t *v, cv_t c)
+{
+    float iz = 1.0f / c.z;
+    return (sv_t){ v->hw + c.x * v->f * iz, v->hh - c.y * v->f * iz, iz };
+}
+
+/* The part of triangle abc in front of the near plane, as a fan of up to
+ * 4 points. */
+static int clip_near(const cv_t in[3], cv_t out[4])
+{
+    int n = 0;
+    for (int i = 0; i < 3; i++) {
+        cv_t a = in[i], b = in[(i + 1) % 3];
+        int ia = a.z >= NEAR, ib = b.z >= NEAR;
+        if (ia)
+            out[n++] = a;
+        if (ia != ib) {
+            float t = (NEAR - a.z) / (b.z - a.z);
+            out[n++] = (cv_t){ a.x + (b.x - a.x) * t, a.y + (b.y - a.y) * t, NEAR };
+        }
+    }
+    return n;
 }
 
 #define MAX_VERTS 4096
@@ -149,40 +234,50 @@ static uint16_t shade(uint32_t rgb, float k)
 void r3d_draw(r3d_t *r, const r3d_mesh_t *m, v3_t p, float rx, float ry, float rz, float scale)
 {
     static sv_t sv[MAX_VERTS];
-    static uint8_t behind[MAX_VERTS];
+    static cv_t cv[MAX_VERTS];
     if (m->nverts > MAX_VERTS)
         return;
 
     float R[9];
     rot_matrix(R, rx, ry, rz);
-    const float cyw = cosf(r->cam_yaw), syw = sinf(r->cam_yaw);
-    const float cpt = cosf(r->cam_pitch), spt = sinf(r->cam_pitch);
-    const float hw = r->g->w * 0.5f, hh = r->g->h * 0.5f, f = r->focal;
+    view_t v;
+    view_setup(r, &v);
+    const float *C = v.c;
+    const int fog = r->fog_far > r->fog_near;
+    const float fog_k = fog ? 1.0f / (r->fog_far - r->fog_near) : 0;
 
     for (int i = 0; i < m->nverts; i++) {
-        v3_t v = m->verts[i];
-        /* object -> world */
-        float wx = (R[0] * v.x + R[1] * v.y + R[2] * v.z) * scale + p.x - r->cam_pos.x;
-        float wy = (R[3] * v.x + R[4] * v.y + R[5] * v.z) * scale + p.y - r->cam_pos.y;
-        float wz = (R[6] * v.x + R[7] * v.y + R[8] * v.z) * scale + p.z - r->cam_pos.z;
-        /* world -> camera: yaw around y, then pitch around x */
-        float x1 = cyw * wx - syw * wz, z1 = syw * wx + cyw * wz;
-        float y2 = cpt * wy - spt * z1, z2 = spt * wy + cpt * z1;
-        behind[i] = z2 < NEAR;
-        if (!behind[i]) {
-            float iz = 1.0f / z2;
-            sv[i].x = hw + x1 * f * iz;
-            sv[i].y = hh - y2 * f * iz;
-            sv[i].z = iz;
-        }
+        v3_t o = m->verts[i];
+        /* object -> world, relative to the camera */
+        float wx = (R[0] * o.x + R[1] * o.y + R[2] * o.z) * scale + p.x - r->cam_pos.x;
+        float wy = (R[3] * o.x + R[4] * o.y + R[5] * o.z) * scale + p.y - r->cam_pos.y;
+        float wz = (R[6] * o.x + R[7] * o.y + R[8] * o.z) * scale + p.z - r->cam_pos.z;
+        cv_t c = { C[0] * wx + C[1] * wy + C[2] * wz, C[3] * wx + C[4] * wy + C[5] * wz,
+                   C[6] * wx + C[7] * wy + C[8] * wz };
+        cv[i] = c;
+        if (c.z >= NEAR)
+            sv[i] = project(&v, c);
     }
 
     for (int t = 0; t < m->nfaces; t++) {
         const uint16_t *fc = m->faces + t * 3;
         r->tris_in++;
-        if (behind[fc[0]] || behind[fc[1]] || behind[fc[2]])
-            continue;                       /* no near-plane clipping: drop it */
-        sv_t a = sv[fc[0]], b = sv[fc[1]], c = sv[fc[2]];
+        cv_t tri[3] = { cv[fc[0]], cv[fc[1]], cv[fc[2]] };
+        int nin = (tri[0].z >= NEAR) + (tri[1].z >= NEAR) + (tri[2].z >= NEAR);
+        if (nin == 0)
+            continue;
+        sv_t pts[4];
+        int np;
+        if (nin == 3) {
+            pts[0] = sv[fc[0]]; pts[1] = sv[fc[1]]; pts[2] = sv[fc[2]];
+            np = 3;
+        } else {
+            cv_t cl[4];
+            np = clip_near(tri, cl);
+            for (int i = 0; i < np; i++)
+                pts[i] = project(&v, cl[i]);
+        }
+        sv_t a = pts[0], b = pts[1], c = pts[2];
         float area = (b.x - a.x) * (c.y - a.y) - (b.y - a.y) * (c.x - a.x);
         if (area <= 0)
             continue;                       /* back face (y points down on screen) */
@@ -193,7 +288,15 @@ void r3d_draw(r3d_t *r, const r3d_mesh_t *m, v3_t p, float rx, float ry, float r
         float nz = R[6] * n.x + R[7] * n.y + R[8] * n.z;
         float d = nx * r->light.x + ny * r->light.y + nz * r->light.z;
         float k = r->ambient + (1.0f - r->ambient) * (d > 0 ? d : 0);
-        r->pixels += raster(r->g, r->zbuf, a, b, c, shade(m->colors[t], k));
+        float ff = 0;
+        if (fog) {
+            ff = ((tri[0].z + tri[1].z + tri[2].z) * (1.0f / 3.0f) - r->fog_near) * fog_k;
+            ff = ff < 0 ? 0 : ff > 1 ? 1 : ff;
+        }
+        uint16_t col = shade(m->colors[t], k, r->fog_rgb, ff);
+        r->pixels += raster(r->g, r->zbuf, a, b, c, col);
+        if (np == 4)
+            r->pixels += raster(r->g, r->zbuf, a, c, pts[3], col);
         r->tris_drawn++;
     }
 }

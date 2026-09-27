@@ -1,6 +1,7 @@
 /*
  * Software 3D for native cartridges: flat-shaded, z-buffered triangles in
- * RGB565, perspective projection, back-face culling, one directional light.
+ * RGB565, perspective projection, back-face culling, clipping on the near
+ * plane, one directional light, optional distance fog.
  * Everything runs on the ARM (VFP for the transforms, fixed point in the
  * inner loops); the VideoCore 3D unit is not used.
  */
@@ -25,10 +26,12 @@ typedef struct {
     g16_t *g;
     uint16_t *zbuf;             /* g->w * g->h, 0 = far */
     v3_t cam_pos;
-    float cam_yaw, cam_pitch;
+    float cam_yaw, cam_pitch, cam_roll;
     float focal;                /* pixels: (w/2) / tan(fov/2) */
     v3_t light;                 /* unit vector towards the light, world space */
     float ambient;
+    uint32_t fog_rgb;           /* faces fade to this colour ... */
+    float fog_near, fog_far;    /* ... between these depths (off if far <= near) */
     /* statistics of the last frame (reset by r3d_zclear) */
     uint32_t tris_in, tris_drawn, pixels;
 } r3d_t;
@@ -37,7 +40,12 @@ int  r3d_init(r3d_t *r, g16_t *g);
 void r3d_free(r3d_t *r);
 void r3d_zclear(r3d_t *r);
 void r3d_camera(r3d_t *r, float x, float y, float z, float yaw, float pitch, float fov_deg);
+void r3d_camera_roll(r3d_t *r, float roll);
 void r3d_light(r3d_t *r, float x, float y, float z, float ambient);
+void r3d_fog(r3d_t *r, uint32_t rgb, float near, float far);
+
+/* World point -> screen. Returns 0 if it is behind the camera. */
+int r3d_project(const r3d_t *r, v3_t p, float *sx, float *sy, float *depth);
 
 /* Draws a mesh at position p, rotated by (rx, ry, rz) radians, scaled. */
 void r3d_draw(r3d_t *r, const r3d_mesh_t *m, v3_t p, float rx, float ry, float rz, float scale);

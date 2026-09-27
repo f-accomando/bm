@@ -4,6 +4,7 @@
 #include "mmio.h"
 #include "prop.h"
 #include "timer.h"
+#include "dma.h"
 
 #define TAG_ALLOCATE_BUFFER   0x00040001u
 #define TAG_GET_PITCH         0x00040008u
@@ -77,6 +78,7 @@ int fb_init_depth(framebuffer_t *fb, uint32_t width, uint32_t height,
     fb->shown  = 0;
     fb->vsync  = -1;
     fb->depth  = msg[depth_idx];
+    dma_map_region((uint32_t)fb->mem, fb->size, msg[alloc]);
     if (fb->depth != depth)
         return -3;
     return 0;

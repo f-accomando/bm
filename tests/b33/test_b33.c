@@ -168,6 +168,32 @@ static void test_3d(void)
     r3d_draw(&r, &sphere, (v3_t){ 0, 0, -20 }, 0, 0, 0, 1);
     CHECK(r.tris_drawn == before, "objects behind the camera are skipped");
 
+    /* near-plane clipping: a floor that passes under the camera is drawn
+     * down to the bottom of the screen, not dropped */
+    g16_cls(&g, 0);
+    r3d_zclear(&r);
+    r3d_light(&r, 0, 1, 0, 0);
+    r3d_draw(&r, &cube, (v3_t){ 0, -7, 0 }, 0, 0, 0, 6);
+    CHECK((g16_to_rgb24(big[358 * 640 + 320]) >> 8 & 0xFF) > 200, "floor clipped at the near plane");
+    CHECK(big[5 * 640 + 320] == 0, "sky above the floor");
+
+    /* fog: far faces take the fog colour */
+    g16_cls(&g, 0);
+    r3d_zclear(&r);
+    r3d_fog(&r, 0x0000FF, 1, 2);
+    r3d_draw(&r, &cube, (v3_t){ 0, 0, 20 }, 0, 0, 0, 1);
+    CHECK(g16_to_rgb24(big[180 * 640 + 320]) == 0x0000FF, "fogged face (%06x)", g16_to_rgb24(big[180 * 640 + 320]));
+    r3d_fog(&r, 0, 0, 0);
+
+    /* roll: a point right of centre goes down when the camera rolls +90 deg */
+    float sx, sy, d;
+    r3d_camera(&r, 0, 0, -5, 0, 0, 60);
+    r3d_camera_roll(&r, 1.5707963f);
+    CHECK(r3d_project(&r, (v3_t){ 1, 0, 0 }, &sx, &sy, &d) && sx > 319 && sx < 321 && sy > 250 && d > 4.9f,
+          "roll (%f, %f)", sx, sy);
+    r3d_camera_roll(&r, 0);
+    CHECK(!r3d_project(&r, (v3_t){ 0, 0, -6 }, &sx, &sy, &d), "behind the camera");
+
     /* 2D triangle */
     g16_cls(&g, 0);
     g16_tri(&g, 10, 10, 50, 10, 10, 50, 0xFFFF);

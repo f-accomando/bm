@@ -25,3 +25,15 @@ void icache_invalidate_all(void)
     __asm__ volatile("mcr p15, 0, %0, c7, c5, 0" : : "r"(0) : "memory");
     arm_isb();
 }
+
+void dcache_clean_all(void)
+{
+    __asm__ volatile("mcr p15, 0, %0, c7, c10, 0" : : "r"(0) : "memory");
+    arm_dsb();
+}
+
+void dcache_clean_invalidate_all(void)
+{
+    __asm__ volatile("mcr p15, 0, %0, c7, c14, 0" : : "r"(0) : "memory");
+    arm_dsb();
+}

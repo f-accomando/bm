@@ -12,6 +12,7 @@
 #include "arch/cache.h"
 #include "drivers/mmio.h"
 #include "drivers/prop.h"
+#include "drivers/dma.h"
 #include "drivers/timer.h"
 #include "kernel/irq.h"
 #include "lib/printf.h"
@@ -82,7 +83,6 @@
 #define TI_PERMAP(p)            ((uint32_t)(p) << 16)
 #define DREQ_HDMI               17
 #define IRQ_DMA(c)              (16 + (c))
-#define PROP_GET_DMA_CHANNELS   0x00060001u
 
 typedef struct {
     uint32_t ti, src, dst, len, stride, next, pad[2];
@@ -233,15 +233,11 @@ int audio_init(void)
     if (!hsm_rate || !pixel_rate || pixel_rate > 200000000)
         return fail("cannot read the HDMI clocks");
 
-    uint32_t mask[1] = { 0 };
-    if (prop_query(PROP_GET_DMA_CHANNELS, mask, 1) != 0)
-        mask[0] = 0x7F35;
     static const uint8_t pref[] = { 5, 4, 2, 0 };
-    dma_ch = 99;
-    for (unsigned i = 0; i < sizeof pref; i++)
-        if (mask[0] >> pref[i] & 1) { dma_ch = pref[i]; break; }
-    if (dma_ch == 99)
+    int c = dma_channel_claim(pref, sizeof pref);
+    if (c < 0)
         return fail("no free DMA channel");
+    dma_ch = (unsigned)c;
 
     /* audio clock regeneration: N = 128 fs / 1000, CTS = pixel N / 128 fs */
     rational(hsm_rate, AUDIO_RATE, 0xFFFFFF, 256, &smp_n, &smp_m);

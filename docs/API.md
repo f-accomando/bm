@@ -201,9 +201,16 @@ Pong, Snake e Star Shooter in `carts/` usano effetti e piccole melodie (una funz
 | `mesh(v, f)` | mesh da tabelle: `v` = {x,y,z, x,y,z, …}, `f` = {a,b,c,colore, …} (indici da 1) |
 | `mesh_sphere([r, segmenti, c1, c2])`, `mesh_cube([c])` | mesh pronte |
 | `draw3d(m, x, y, z, [rx, ry, rz, scala])` | disegna una mesh con z-buffer e luce per faccia |
-| `camera3d(x, y, z, [yaw, pitch, fov])` | camera (default a z = −5, fov 60°) |
+| `camera3d(x, y, z, [yaw, pitch, fov, roll])` | camera (default a z = −5, fov 60°); `roll` inclina l'inquadratura (radianti) |
 | `light3d(x, y, z, [ambiente])` | direzione della luce e luce ambiente (0–1) |
 | `zclear()` | pulisce lo z-buffer (a ogni fotogramma, prima di `draw3d`) |
+| `fog3d(colore, vicino, lontano)` | nebbia: le facce sfumano nel colore tra le due distanze; `fog3d()` la toglie |
+| `project3d(x, y, z)` | punto del mondo → `sx, sy, profondità` sullo schermo (`nil` se è dietro la camera): per disegnare in 2D cose allineate al 3D (orizzonte, mirini, etichette) |
+
+I triangoli che attraversano il piano vicino alla camera vengono tagliati, non scartati:
+pavimenti e oggetti grandi restano interi anche quando passano accanto alla camera.
+Esempio completo: `carts/astrowing` (volo in stile Star Fox: modelli costruiti in
+codice, orizzonte con `project3d`, nebbia, esplosioni, boss).
 
 ## Budget e consigli
 

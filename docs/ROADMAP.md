@@ -275,7 +275,15 @@ emulatore del chip, quindi niente test in QEMU se non su tracce HCI registrate.
 - **Fatto quando:** una cart Lua di lua32 gira uguale su lua32 e bm33; un gioco demo
   in C gira come `.b33` nativa.
 
-## M14 — Grafica 2.0 (M)
+## M14 — Grafica 2.0 (M) — in corso
+Fatto finora (da verificare sul Pi):
+- driver DMA (`src/drivers/dma.c`, canali assegnati insieme all'audio); il disegno
+  `.b33` "via RAM" copia il fotogramma con il DMA; il comando `p` confronta CPU e DMA
+  (riempimento dello schermo, copia RAM → schermo, pulizia dello z-buffer);
+- 3D: clipping sul piano vicino, nebbia (`fog3d`), rollio della camera, `project3d`;
+- gioco di prova **Astro Wing** (`carts/astrowing`, in stile Star Fox).
+
+Previsto:
 - **DMA** del BCM2835 per riempimenti e copie (liberano la CPU: `cls`, mappe, copia
   dei frame) e misura sul Pi di cosa conviene (la lettura della SDRAM è il collo di
   bottiglia: vedi M9).

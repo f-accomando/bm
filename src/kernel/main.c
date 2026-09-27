@@ -35,6 +35,7 @@
 #include "config.h"
 #include "bt/bt.h"
 #include "audio/audio.h"
+#include "drivers/dma.h"
 #include "version.h"
 
 
@@ -187,6 +188,8 @@ void kernel_main(uint32_t atags)
     } else {
         kprintf("audio: off - %s\n", audio_status());
     }
+    if (dma_init() != 0)
+        kprintf("dma: no free channel, copies by the CPU\n");
     usb_init();
     usb_print();
     carts_init();

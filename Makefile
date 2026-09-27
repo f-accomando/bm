@@ -77,11 +77,12 @@ $(BUILD)/demo.b33: $(DEMO_B33_SRC) scripts/mkb33.py
 	    --map carts/demo/map.csv --title "bm33 native demo" --author bm33
 
 # Demo games (Lua only, sprites drawn in code): build/carts/<name>.b33
-GAMES := pong snake shooter
+GAMES := pong snake shooter astrowing
 GAME_CARTS := $(patsubst %,$(BUILD)/carts/%.b33,$(GAMES))
 title_pong    := Pong
 title_snake   := Snake
 title_shooter := Star Shooter
+title_astrowing := Astro Wing
 $(BUILD)/carts/%.b33: carts/%/main.lua scripts/mkb33.py
 	@mkdir -p $(dir $@)
 	$(PYTHON) scripts/mkb33.py -o $@ --lua $< --title "$(title_$*)" --author bm33

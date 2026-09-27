@@ -24,6 +24,12 @@ void dcache_clean_range(const volatile void *addr, uint32_t len);
  * Also cleans them first, so partially covered lines are never lost. */
 void dcache_clean_invalidate_range(const volatile void *addr, uint32_t len);
 
+/* Writes every dirty line of the data cache back (16 KB: cheaper than a
+ * range when the range is much bigger than the cache). */
+void dcache_clean_all(void);
+/* The same, then drops every line (before a device writes cached RAM). */
+void dcache_clean_invalidate_all(void);
+
 void icache_invalidate_all(void);
 
 #endif
