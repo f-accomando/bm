@@ -27,6 +27,15 @@ static void tick_irq(void *arg)
         ticks++;
     } while ((int32_t)(now - next) >= 0 && ++late);
     mmio_write(ST_C1, next);
+    /* If the counter got past `next` while it was being written, the
+     * compare would match again only after the 32-bit wrap (71 minutes):
+     * catch up until the compare value is really in the future. */
+    while ((int32_t)(mmio_read(ST_CLO) - next) >= 0) {
+        next += period_us;
+        ticks++;
+        late++;
+        mmio_write(ST_C1, next);
+    }
 
     if (tick_hook)
         tick_hook(ticks);
