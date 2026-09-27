@@ -615,7 +615,7 @@ def test_sd_cartridges(b, opts):
         out = q.boot().decode(errors="replace")
         assert "sd: SD card, FAT32, 127 MiB, label BM33SD; 2 cartridges" in out, out
         q.send("f")
-        out = q.expect("demo2.cart\r\n").decode(errors="replace")
+        out = q.expect("quadrato mobile\"\r\n").decode(errors="replace")
         assert "Il mio gioco lungo.b33" in out and "/carts/demo2.cart" in out, out
         q.expect("> ")
         q.send("M")
@@ -623,9 +623,10 @@ def test_sd_cartridges(b, opts):
         time.sleep(0.5)
         _, text = settled_screen(q, lambda i, t: any("cartridges" in l for l in t))
         screen = "\n".join(text)
-        for s_ in ("bm33 - cartridges", "demo.b33 (built-in)", "Il mio gioco lungo.b33", "demo2.cart"):
+        for s_ in ("bm33 - cartridges", "bm33 native demo", "Demo - quadrato mobile",
+                   "/Il mio gioco lungo.b33"):
             assert s_ in screen, screen
-        q.send("ss\r")                        # third entry: the first one on the SD card
+        q.send("\r")                          # SD cartridges come first, by title
         q.expect("playing Il mio gioco lungo.b33", timeout=10)
         time.sleep(1.0)
         q.send("q")
@@ -653,7 +654,7 @@ def test_sd_sdhc_and_usb_menu(b, opts):
         out = q.expect("cartridge menu", timeout=90).decode(errors="replace")
         assert "sd: SDHC card, FAT32, 4095 MiB, label BM33SD; 1 cartridges" in out, out
         time.sleep(1.0)
-        sendkeys(q, "down down ret")
+        sendkeys(q, "ret")
         q.expect("playing game.b33", timeout=10)
         time.sleep(1.5)
         sendkeys(q, "esc")

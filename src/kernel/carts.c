@@ -27,6 +27,8 @@ extern const uint8_t b33_demo_cart[], b33_demo_cart_end[];
 enum { KIND_S32, KIND_B33 };
 
 typedef struct {
+    char title[49];             /* from the header; the file name if none */
+    char author[33];
     char name[FAT_NAME_MAX];
     char dir[8];                /* "" for built-in, "/" or "/carts" */
     int kind;
@@ -36,7 +38,7 @@ typedef struct {
 } cart_t;
 
 static cart_t carts[MAX_CARTS];
-static int ncarts, sd_ok;
+static int ncarts, nsd, sd_ok;
 static char last_msg[80];
 
 static int ends_with(const char *s, const char *ext)
@@ -53,6 +55,30 @@ static int ends_with(const char *s, const char *ext)
     return 1;
 }
 
+/* Title and author from the first bytes of the image (.b33 or .cart). */
+static void read_header(cart_t *c, const uint8_t *h, uint32_t len)
+{
+    size_t toff = 0, tlen = 0, aoff = 0, alen = 0;
+    if (len >= 128 && memcmp(h, "BM33CART", 8) == 0) {
+        toff = 24; tlen = 48; aoff = 72; alen = 32;
+    } else if (len >= 124 && memcmp(h, "S32CART1", 8) == 0) {
+        toff = 28; tlen = 64; aoff = 92; alen = 32;
+    }
+    if (tlen) {
+        size_t n = tlen < sizeof c->title - 1 ? tlen : sizeof c->title - 1;
+        memcpy(c->title, h + toff, n);
+        c->title[n] = 0;
+        memcpy(c->author, h + aoff, alen < sizeof c->author - 1 ? alen : sizeof c->author - 1);
+        c->author[sizeof c->author - 1] = 0;
+    }
+    for (char *p = c->title; *p; p++)           /* the console font is CP437 */
+        if ((unsigned char)*p < 32) *p = ' ';
+    for (char *p = c->author; *p; p++)
+        if ((unsigned char)*p < 32) *p = ' ';
+    if (!c->title[0])
+        ksnprintf(c->title, sizeof c->title, "%s", c->name);
+}
+
 static void add_builtin(const char *name, int kind, const uint8_t *start, const uint8_t *end)
 {
     cart_t *c = &carts[ncarts++];
@@ -61,6 +87,7 @@ static void add_builtin(const char *name, int kind, const uint8_t *start, const 
     c->kind = kind;
     c->builtin = start;
     c->size = (uint32_t)(end - start);
+    read_header(c, start, c->size);
 }
 
 static void scan_dir(const char *path)
@@ -82,17 +109,38 @@ static void scan_dir(const char *path)
         c->kind = kind;
         c->size = e.size;
         c->fe = e;
+        static uint8_t head[512] __attribute__((aligned(4)));
+        if (fat_read_head(&e, head) == 0)
+            read_header(c, head, e.size < 512 ? e.size : 512);
+        else
+            read_header(c, head, 0);
+    }
+}
+
+static int title_cmp(const void *a, const void *b)
+{
+    const char *x = ((const cart_t *)a)->title, *y = ((const cart_t *)b)->title;
+    for (;; x++, y++) {
+        int cx = *x >= 'A' && *x <= 'Z' ? *x + 32 : *x;
+        int cy = *y >= 'A' && *y <= 'Z' ? *y + 32 : *y;
+        if (cx != cy || !cx)
+            return cx - cy;
     }
 }
 
 static void rescan(void)
 {
+    /* SD cartridges by title; the built-in ones only when the SD has none */
     ncarts = 0;
-    add_builtin("demo.b33 (built-in)", KIND_B33, b33_demo_cart, b33_demo_cart_end);
-    add_builtin("demo.cart (built-in)", KIND_S32, s32_demo_cart, s32_demo_cart_end);
     if (sd_ok) {
         scan_dir("/");
         scan_dir("/carts");
+        qsort(carts, (size_t)ncarts, sizeof *carts, title_cmp);
+    }
+    nsd = ncarts;
+    if (!nsd) {
+        add_builtin("demo.b33 (built-in)", KIND_B33, b33_demo_cart, b33_demo_cart_end);
+        add_builtin("demo.cart (built-in)", KIND_S32, s32_demo_cart, s32_demo_cart_end);
     }
 }
 
@@ -110,7 +158,7 @@ void carts_init(void)
     rescan();
     if (sd_ok)
         kprintf("sd: %s card, %s; %d cartridges\n", sd_is_hc() ? "SDHC" : "SD",
-                fat_describe(), ncarts - 2);
+                fat_describe(), nsd);
 }
 
 int carts_count(void)
@@ -121,9 +169,9 @@ int carts_count(void)
 void carts_list(void)
 {
     for (int i = 0; i < ncarts; i++)
-        kprintf("  %2d  %-4s %7lu  %s%s%s\n", i + 1, carts[i].kind == KIND_B33 ? "b33" : "s32",
+        kprintf("  %2d  %-4s %7lu  %s%s%s  \"%s\"\n", i + 1, carts[i].kind == KIND_B33 ? "b33" : "s32",
                 carts[i].size, carts[i].dir, carts[i].dir[0] && strcmp(carts[i].dir, "/") ? "/" : "",
-                carts[i].name);
+                carts[i].name, carts[i].title);
 }
 
 void carts_play_buffer(framebuffer_t *fb, const uint8_t *data, size_t len)
@@ -190,15 +238,26 @@ static void draw(int sel, int top, int rows)
     out("\n\n");
     for (int i = top; i < ncarts && i < top + rows; i++) {
         const cart_t *c = &carts[i];
-        char name[57];
-        ksnprintf(name, sizeof name, "%s", c->name);
-        outf("%s %c %-56s %-4s %5lu KiB \x1b[0m\n", i == sel ? "\x1b[7m" : "",
-             i == sel ? '>' : ' ', name, c->kind == KIND_B33 ? "b33" : "s32",
-             (c->size + 1023) / 1024);
+        char title[39], author[19];
+        ksnprintf(title, sizeof title, "%s", c->title);
+        ksnprintf(author, sizeof author, "%s", c->author);
+        /* SGR 7 swaps the colours: the selected row gets it once, no
+         * other attribute inside */
+        outf("%s %c %-38s %s%-18s%s %-3s %5lu KiB \x1b[0m\n",
+             i == sel ? "\x1b[7m" : "", i == sel ? '>' : ' ', title,
+             i == sel ? "" : "\x1b[90m", author, i == sel ? "" : "\x1b[0m",
+             c->kind == KIND_B33 ? "b33" : "s32", (c->size + 1023) / 1024);
     }
     for (int i = ncarts - top; i < rows; i++)
         out("\n");
-    outf("\n\x1b[90m %s\x1b[0m\n", last_msg[0] ? last_msg : "");
+    if (sel < ncarts) {
+        const cart_t *c = &carts[sel];
+        if (c->builtin)
+            outf("\x1b[90m %s\x1b[0m\n", c->name);
+        else
+            outf("\x1b[90m %s%s%s\x1b[0m\n", c->dir, strcmp(c->dir, "/") ? "/" : "", c->name);
+    }
+    outf("\x1b[90m %s\x1b[0m\n", last_msg[0] ? last_msg : "");
     out("\x1b[93m up/down choose   Enter/A play   Esc or Start+Select: monitor   R rescan SD\x1b[0m");
 }
 
@@ -206,7 +265,7 @@ void carts_menu(framebuffer_t *fb)
 {
     uint32_t cols, rows;
     console_size(&cols, &rows);
-    int list_rows = (int)rows - 6;
+    int list_rows = (int)rows - 7;
     if (list_rows < 3)
         list_rows = 3;
     int sel = 0, top = 0, redraw = 1, esc = 0;

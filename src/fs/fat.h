@@ -34,6 +34,9 @@ int fat_opendir(fat_dir_t *d, const char *path);
 /* Next entry (skips volume labels, "." and ".."). Returns 1, or 0 at the end. */
 int fat_readdir(fat_dir_t *d, fat_entry_t *e);
 
+/* Reads the first 512 bytes of a file (zero padded). */
+int fat_read_head(const fat_entry_t *e, uint8_t buf[512]);
+
 /* Reads a whole file into a malloc'd buffer (caller frees). */
 int fat_load(const fat_entry_t *e, uint8_t **data, size_t *len);
 

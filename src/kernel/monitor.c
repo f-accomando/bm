@@ -22,7 +22,7 @@
 static void help(void)
 {
     kprintf("commands (games: arrows/wasd, space = A; q or Esc quits):\n"
-            "  M  cartridge menu (built-in + SD card: / and /carts)\n"
+            "  M  cartridge menu (SD card: / and /carts; built-in demos if none)\n"
             "  f  list cartridges        F  re-read the SD card\n"
             "  g  built-in s32 demo.cart n  built-in native demo.b33\n"
             "  l  Lua REPL (Ctrl-D or exit() returns here)\n"

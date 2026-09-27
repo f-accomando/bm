@@ -282,6 +282,24 @@ int fat_readdir(fat_dir_t *d, fat_entry_t *e)
     }
 }
 
+int fat_read_head(const fat_entry_t *e, uint8_t buf[512])
+{
+    memset(buf, 0, 512);
+    if (!vol.mounted || e->is_dir || !e->size)
+        return -1;
+    if (e->cluster < 2 || e->cluster >= vol.clusters + 2) {
+        err = "broken cluster chain";
+        return -1;
+    }
+    if (sd_read(cluster_lba(e->cluster), 1, buf)) {
+        err = "SD read error";
+        return -1;
+    }
+    if (e->size < 512)
+        memset(buf + e->size, 0, 512 - e->size);
+    return 0;
+}
+
 int fat_load(const fat_entry_t *e, uint8_t **data, size_t *len)
 {
     *data = NULL;
