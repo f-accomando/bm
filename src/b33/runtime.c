@@ -39,6 +39,7 @@ static struct {
     uint8_t now, prev;              /* button bits this frame / last frame */
     uint32_t start_us, frame;
     uint32_t last_cpu_us, fps;
+    uint32_t present_us;        /* last copy of the frame to the framebuffer */
     uint32_t hook_count;
     int esc;
     int quit;
@@ -516,17 +517,44 @@ static void free_assets(void)
 
 /* ---------------------------------------------------------------- player */
 
+/* Drawing happens in a cached RAM buffer ("shadow"), copied to the
+ * framebuffer once per frame. The framebuffer is uncached GPU memory:
+ * pixel-by-pixel 16-bit stores there cost several times a cached store,
+ * while one sequential copy of the whole screen is cheap. It also makes
+ * pget() fast and keeps the previous frame in the buffer. */
+static uint16_t *shadow;
+
 int b33_video_enter(framebuffer_t *fb, int w, int h, g16_t *g)
 {
     console_suspend(1);
-    if (fb_init_depth(fb, (uint32_t)w, (uint32_t)h, 2, 16) != 0)
+    free(shadow);
+    shadow = malloc((size_t)w * (size_t)h * 2);
+    if (!shadow || fb_init_depth(fb, (uint32_t)w, (uint32_t)h, 2, 16) != 0)
         return -1;
-    g16_target(g, (uint16_t *)fb->base, fb->pitch / 2, w, h, &font_console_8x16);
+    memset(shadow, 0, (size_t)w * (size_t)h * 2);
+    g16_target(g, shadow, (uint32_t)w, w, h, &font_console_8x16);
     return 0;
+}
+
+uint32_t b33_video_present(framebuffer_t *fb, const g16_t *g)
+{
+    uint32_t t0 = timer_ticks();
+    const uint32_t row = (uint32_t)g->w * 2;
+    if (fb->pitch == row) {
+        memcpy(fb->base, g->px, row * (uint32_t)g->h);
+    } else {
+        for (int y = 0; y < g->h; y++)
+            memcpy(fb->base + (uint32_t)y * fb->pitch, g->px + (uint32_t)y * g->stride, row);
+    }
+    uint32_t us = timer_ticks() - t0;
+    fb_flip(fb);
+    return us;
 }
 
 void b33_video_leave(framebuffer_t *fb, uint32_t w, uint32_t h)
 {
+    free(shadow);
+    shadow = NULL;
     fb_init(fb, w, h, 2);
     console_suspend(0);
 }
@@ -544,8 +572,7 @@ static void leave_mode(framebuffer_t *fb, uint32_t w, uint32_t h)
 
 static void present(framebuffer_t *fb, uint32_t *deadline, uint32_t *prev, uint32_t *dropped)
 {
-    fb_flip(fb);
-    rt.g.px = (uint16_t *)fb->base;
+    rt.present_us = b33_video_present(fb, &rt.g);
     while ((int32_t)(timer_ticks() - *deadline) < 0)
         ;
     uint32_t now = timer_ticks();
@@ -610,6 +637,7 @@ void b33_play(framebuffer_t *fb, const uint8_t *data, size_t len,
             st->cpu_us_max = rt.last_cpu_us;
         rt.frame++;
         present(fb, &deadline, &prev, &st->dropped);
+        st->copy_us_total += rt.present_us;
         if (++fps_frames, timer_ticks() - fps_t0 >= 1000000) {
             rt.fps = fps_frames;
             fps_frames = 0;
@@ -638,9 +666,11 @@ void b33_print_stats(const b33_stats_t *st)
     uint32_t avg = st->cpu_us_total / st->frames;
     kprintf("b33: \"%s\" %lu frames, %lu.%lu fps, %lu dropped\n",
             st->title, st->frames, fps10 / 10, fps10 % 10, st->dropped);
+    uint32_t copy = st->copy_us_total / st->frames;
     kprintf("     update+draw avg %lu.%02lu ms (%lu%% of frame), max %lu.%02lu ms, Lua %lu KiB\n",
             avg / 1000, avg % 1000 / 10, avg * 100 / FRAME_US,
             st->cpu_us_max / 1000, st->cpu_us_max % 1000 / 10, st->lua_kb);
+    kprintf("     copy to screen %lu.%02lu ms per frame\n", copy / 1000, copy % 1000 / 10);
 }
 
 /* ---------------------------------------------------------------- C bench */
@@ -686,6 +716,7 @@ uint32_t b33_bench(framebuffer_t *fb, uint32_t frames)
         g16_text(&rt.g, 0, 0, "b33 C benchmark: full map + 256 sprites 16x16", 0xFFFF);
         total += timer_ticks() - t0;
         present(fb, &deadline, &prev, NULL);
+        total += rt.present_us;             /* the frame is on screen only after the copy */
     }
     leave_mode(fb, con_w, con_h);
     g16_sheet_free(&rt.sheet);

@@ -156,7 +156,7 @@ void b33_stress_run(framebuffer_t *fb)
     thr_t results[4][2];
     float per_item[4];
 
-    kprintf("stress test: 640x360 RGB565, %d frames per step, draw time only\n", FRAMES_PER_STEP);
+    kprintf("stress test: 640x360 RGB565, %d frames per step, draw + copy to screen\n", FRAMES_PER_STEP);
     if (b33_video_enter(fb, W, H, &g) != 0) {
         b33_video_leave(fb, con_w, con_h);
         kprintf("stress: cannot set the video mode\n");
@@ -175,10 +175,9 @@ void b33_stress_run(framebuffer_t *fb)
             for (int f = 0; f < FRAMES_PER_STEP; f++) {
                 uint32_t t0 = timer_ticks();
                 T->frame(n, f);
-                total += timer_ticks() - t0;
-                overlay(T->name, n, total / 1000.0f / (f + 1));
-                fb_flip(fb);
-                g.px = (uint16_t *)fb->base;
+                uint32_t draw = timer_ticks() - t0;
+                overlay(T->name, n, (total + draw) / 1000.0f / (f + 1));
+                total += draw + b33_video_present(fb, &g);  /* the copy is part of the frame */
             }
             float ms = total / 1000.0f / FRAMES_PER_STEP;
             samples[count++] = (sample_t){ n, ms, (float)tris_last };

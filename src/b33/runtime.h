@@ -15,6 +15,7 @@ typedef struct {
     uint32_t cpu_us_max;
     uint32_t dropped;
     uint32_t lua_kb;
+    uint32_t copy_us_total;     /* frame copies to the framebuffer */
     int ok;                     /* 0 = error (message printed), 1 = ran */
 } b33_stats_t;
 
@@ -33,9 +34,13 @@ void b33_print_stats(const b33_stats_t *st);
  * average drawing time in microseconds. */
 uint32_t b33_bench(framebuffer_t *fb, uint32_t frames);
 
-/* Switches the screen to w x h RGB565 double buffered and points g at the
- * back page (console suspended); leave restores the w x h console. */
+/* Switches the screen to w x h RGB565 double buffered and points g at a
+ * cached RAM buffer of the same size (console suspended); present copies
+ * it to the screen; leave restores the w x h console. */
 int  b33_video_enter(framebuffer_t *fb, int w, int h, g16_t *g);
 void b33_video_leave(framebuffer_t *fb, uint32_t w, uint32_t h);
+/* g draws into a cached RAM buffer: copies it to the back page and flips.
+ * Returns the copy time in microseconds. */
+uint32_t b33_video_present(framebuffer_t *fb, const g16_t *g);
 
 #endif
