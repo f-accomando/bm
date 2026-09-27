@@ -143,7 +143,7 @@ Priorità attuale: sviluppo della console bm33; la parte s32 avanza al ritmo di 
   (QEMU con immagini FAT32 da 128 MiB e 4 GiB; sul Pi, kernel `25f5dbc`: SDHC 8 GB,
   FAT32 `BOOTFS`, 3 cartucce in `carts/`, giocate dal menu).
 
-## M9 — MVP ✅ QEMU, da verificare sul Pi (M)
+## M9 — MVP ✅ verificato sul Pi Zero W (M)
 - Avvio in ~2 s direttamente sul **menu delle cartucce** (titolo e autore letti dalle
   cartucce, ordinate per titolo); la vecchia sequenza di diagnostica è nel monitor (`B`).
   Esc / Start+Select: dal gioco al menu, dal menu al monitor.
@@ -160,7 +160,8 @@ Priorità attuale: sviluppo della console bm33; la parte s32 avanza al ritmo di 
   sia quello via RAM (`p`, `V`); il default resta diretto finché i numeri del Pi non
   dicono altro.
 - **Fatto quando:** da una SD appena scritta si accende, si sceglie un gioco e si gioca
-  senza PC collegato (in QEMU: `test_make_image`, `test_games`).
+  senza PC collegato (in QEMU: `test_make_image`, `test_games`; sul Pi, kernel
+  `83f4f82`: menu all'avvio e i tre giochi funzionano).
 
 ## M10 — Audio (M, opzionale per l'MVP)
 - Il Pi Zero non ha jack audio: PWM su GPIO18/13 con filtro RC esterno

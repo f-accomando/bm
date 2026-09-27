@@ -83,7 +83,7 @@ class Qemu:
 
     def diagnostics(self, skip_demo=True):
         """Monitor 'B': the old boot sequence (benchmarks, demos, boot.lua)."""
-        self.send("B")
+        self.send("b")             # lower or upper case
         out = self.expect(DEMO, timeout=20)
         if skip_demo:
             self.send("q")
@@ -280,6 +280,8 @@ def _exception_case(b, key, needles, code):
     q = Qemu(b("kernel.img"))
     try:
         q.boot()
+        q.send("X")
+        q.expect("other keys cancel")
         q.send(key)
         out = q.expect(f"LED blink code: {code}")
         for s in needles:

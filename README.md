@@ -34,7 +34,7 @@ Stress test di rendering (soglie 60/30 fps): [docs/STRESS.md](docs/STRESS.md) �
 | **M7** | Cartucce native **`.b33`**: Lua 5.4 + grafica C a 640×360 RGB565 | ✅ |
 | **M7b** | Input: tastiera e gamepad **USB** (HID) | ✅ tastiera verificata sul Pi (gamepad solo QEMU) |
 | **M8** | **SD** + FAT32, menu delle cartucce | ✅ verificato sul Pi |
-| **M9** | **MVP**: avvio sul menu, giochi demo, immagine SD, guida API | ✅ QEMU, da verificare sul Pi |
+| **M9** | **MVP**: avvio sul menu, giochi demo, immagine SD, guida API | ✅ verificato sul Pi |
 | M10 | APU s32 su PWM (opzionale) | |
 
 ## Cosa fa il kernel
@@ -58,12 +58,12 @@ All'avvio (circa 2 secondi):
 
 La sequenza di avvio delle versioni precedenti (benchmark CPU, self-test di newlib,
 demo s32 in modalità *attract*, benchmark e demo `.b33`, sonda del vsync, script
-Lua `boot.lua`) si esegue dal monitor con **`B`**.
+Lua `boot.lua`) si esegue dal monitor con **`b`**.
 
 | Tasto | Azione |
 |-------|--------|
 | `h` | aiuto |
-| `B` | diagnostica: la vecchia sequenza di avvio (benchmark, demo s32 e b33, `boot.lua`) |
+| `b` / `B` | diagnostica: la vecchia sequenza di avvio (benchmark, demo s32 e b33, `boot.lua`) |
 | `l` | **REPL Lua** (Ctrl-D o `exit()` per tornare al monitor) |
 | `i` | info di sistema |
 | `c` | pulisce lo schermo |
@@ -80,10 +80,10 @@ Lua `boot.lua`) si esegue dal monitor con **`B`**.
 | `p` | benchmark di rendering 640×360 RGB565, disegnando direttamente sullo schermo e via RAM |
 | `V` | cartucce `.b33`: disegno diretto sullo schermo (default) o via buffer in RAM |
 | `U` | riceve una cartuccia dalla seriale (`bm33_load.py PORTA --cart file.b33`) e la esegue |
-| `S` | stress test di rendering (sprite, triangoli, 3D; C e Lua): vedi [docs/STRESS.md](docs/STRESS.md) |
+| `s` / `S` | stress test di rendering (sprite, triangoli, 3D; C e Lua): vedi [docs/STRESS.md](docs/STRESS.md) |
 | `t` | test pattern HDMI (un tasto qualsiasi torna alla console) |
 | `r` | reboot via watchdog (con il chainloader, ricarica il kernel) |
-| `u` `s` `b` `a` | test: undefined instruction, SVC, prefetch abort (BKPT), data abort |
+| `X` poi `u` `s` `b` `a` | test di crash: undefined instruction, SVC, prefetch abort (BKPT), data abort (due tasti, per non fermare la console per errore) |
 
 Un'eccezione fatale stampa PC/LR/SP/CPSR, r0–r12, DFAR/DFSR o IFSR e
 l'istruzione in errore, sulla seriale **e sullo schermo** (bianco su rosso),

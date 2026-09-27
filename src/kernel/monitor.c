@@ -30,14 +30,14 @@ static void help(void)
             "  i  system info            m  heap usage          c  clear screen\n"
             "  y  USB: scan the port     Y  USB live test (10 s)\n"
             "  L  keyboard layout Italian / US\n"
-            "  B  boot diagnostics: benchmarks, s32 and b33 demos, Lua boot script\n"
+            "  b  boot diagnostics: benchmarks, s32 and b33 demos, Lua boot script\n"
             "  k  CPU benchmark          p  rendering benchmark 640x360 RGB565\n"
             "  V  .b33 drawing: direct on screen / via RAM (compare with p)\n"
-            "  S  rendering stress test (sprites, triangles, 3D; C and Lua)\n"
+            "  s  rendering stress test (sprites, triangles, 3D; C and Lua)\n"
             "  d  animation demo (60 fps; any key stops it)\n"
             "  t  HDMI test pattern (any key returns)\n"
             "  r  reboot (watchdog; the chainloader will ask for a new kernel)\n"
-            "  u a b s  tests: undefined insn, data abort, prefetch abort, SVC\n");
+            "  X  crash tests (then u, a, b or s): the red exception screen\n");
 }
 
 static void __attribute__((noinline)) trigger_undef(void)
@@ -109,7 +109,7 @@ void monitor_run(void)
             break;
         }
         case 'U': upload_and_play(console_framebuffer()); break;
-        case 'S': {
+        case 'S': case 's': {
             extern const uint8_t b33_stress_cart[], b33_stress_cart_end[];
             b33_stress_run(console_framebuffer());
             kprintf("Lua part (cartridge API):\n");
@@ -136,7 +136,7 @@ void monitor_run(void)
             break;
         }
         case 't': show_test_pattern(); break;
-        case 'B': diagnostics_run(); break;
+        case 'B': case 'b': diagnostics_run(); break;
         case 'M': carts_menu(console_framebuffer()); break;
         case 'f': carts_list(); break;
         case 'F': carts_init(); carts_list(); break;
@@ -150,10 +150,18 @@ void monitor_run(void)
             kprintf("rebooting...\n");
             uart_flush();
             watchdog_reboot();
-        case 'u': trigger_undef(); break;
-        case 'a': trigger_dabt(); break;
-        case 'b': trigger_pabt(); break;
-        case 's': trigger_swi(); break;
+        case 'X': {
+            /* two keys, so that a stray key never halts the console */
+            kprintf("crash test: u undefined insn, a data abort, b prefetch abort, "
+                    "s SVC; other keys cancel\n");
+            char t = input_getc();
+            if (t == 'u') trigger_undef();
+            else if (t == 'a') trigger_dabt();
+            else if (t == 'b') trigger_pabt();
+            else if (t == 's') trigger_swi();
+            else kprintf("cancelled\n");
+            break;
+        }
         case '\r': case '\n': break;
         default:
             kprintf("unknown command (0x%02x), 'h' for help\n", (unsigned char)c);
