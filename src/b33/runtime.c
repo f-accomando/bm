@@ -8,6 +8,8 @@
 #include "r3d.h"
 #include "drivers/timer.h"
 #include "drivers/uart.h"
+#include "fs/fat.h"
+#include "lib/crc32.h"
 #include "kernel/input.h"
 #include "usb/hid.h"
 #include "gfx/console.h"
@@ -15,6 +17,7 @@
 #include "lib/printf.h"
 #include "script/luavm.h"
 
+#include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 
@@ -45,6 +48,7 @@ static struct {
     int quit;
     r3d_t r3d;
     int r3d_ready;
+    char save_name[13];         /* "1A2B3C4D.SAV": CRC-32 of title and author */
 } rt;
 
 #define MESH_MT "b33.mesh"
@@ -345,6 +349,136 @@ static int l_log(lua_State *L)
     return 0;
 }
 
+/* ---- save() / saved(): one table per cartridge in /bm33/save, as Lua
+ * source ("return {...}") read back in an empty environment: data only. */
+
+#define SAVE_DIR   "/bm33/save"
+#define SAVE_MAX   (32 * 1024)
+
+static void ser(lua_State *L, luaL_Buffer *b, int idx, int depth);
+
+static void ser_string(luaL_Buffer *b, const char *str, size_t len)
+{
+    luaL_addchar(b, '"');
+    for (size_t i = 0; i < len; i++) {
+        unsigned char c = (unsigned char)str[i];
+        if (c == '"' || c == '\\') {
+            luaL_addchar(b, '\\');
+            luaL_addchar(b, (char)c);
+        } else if (c < 32 || c == 127) {
+            char esc[8];
+            snprintf(esc, sizeof esc, "\\%03u", c);
+            luaL_addstring(b, esc);
+        } else {
+            luaL_addchar(b, (char)c);
+        }
+    }
+    luaL_addchar(b, '"');
+}
+
+static void ser_value(lua_State *L, luaL_Buffer *b, int idx, int depth)
+{
+    char num[40];
+    switch (lua_type(L, idx)) {
+    case LUA_TBOOLEAN:
+        luaL_addstring(b, lua_toboolean(L, idx) ? "true" : "false");
+        break;
+    case LUA_TNUMBER:
+        if (lua_isinteger(L, idx)) {
+            snprintf(num, sizeof num, "%lld", (long long)lua_tointeger(L, idx));
+        } else {
+            double d = lua_tonumber(L, idx);
+            if (d != d || d - d != 0)
+                luaL_error(L, "save: cannot store nan or inf");
+            snprintf(num, sizeof num, "%.17g", d);
+            if (!strpbrk(num, ".eEn"))
+                strcat(num, ".0");              /* stays a float when read back */
+        }
+        luaL_addstring(b, num);
+        break;
+    case LUA_TSTRING: {
+        size_t len;
+        const char *str = lua_tolstring(L, idx, &len);
+        ser_string(b, str, len);
+        break;
+    }
+    case LUA_TTABLE:
+        ser(L, b, idx, depth + 1);
+        break;
+    default:
+        luaL_error(L, "save: cannot store a %s", luaL_typename(L, idx));
+    }
+}
+
+static void ser(lua_State *L, luaL_Buffer *b, int idx, int depth)
+{
+    if (depth > 16)
+        luaL_error(L, "save: tables nested too deep (or a cycle)");
+    idx = lua_absindex(L, idx);
+    luaL_addchar(b, '{');
+    lua_pushnil(L);
+    while (lua_next(L, idx)) {
+        luaL_addchar(b, '[');
+        ser_value(L, b, -2, depth);
+        luaL_addstring(b, "]=");
+        ser_value(L, b, -1, depth);
+        luaL_addchar(b, ',');
+        lua_pop(L, 1);
+        if (luaL_bufflen(b) > SAVE_MAX)
+            luaL_error(L, "save: more than %d bytes", SAVE_MAX);
+    }
+    luaL_addchar(b, '}');
+}
+
+/* save(t): true, or false and a message (no SD card, card full...) */
+static int l_save(lua_State *L)
+{
+    luaL_checktype(L, 1, LUA_TTABLE);
+    lua_settop(L, 1);
+    luaL_Buffer b;
+    luaL_buffinit(L, &b);
+    luaL_addstring(&b, "return ");
+    ser(L, &b, 1, 0);
+    luaL_pushresult(&b);
+    size_t len;
+    const char *text = lua_tolstring(L, -1, &len);
+    if (fat_mkdirs(SAVE_DIR) != 0 || fat_write_file(SAVE_DIR, rt.save_name, text, len) != 0) {
+        lua_pushboolean(L, 0);
+        lua_pushstring(L, fat_error());
+        return 2;
+    }
+    lua_pushboolean(L, 1);
+    return 1;
+}
+
+/* saved(): the saved table, or nil. (Not "load": that is Lua's code loader,
+ * which the sandbox removes.) */
+static int l_saved(lua_State *L)
+{
+    char path[40];
+    fat_entry_t e;
+    uint8_t *data;
+    size_t len;
+    ksnprintf(path, sizeof path, "%s/%s", SAVE_DIR, rt.save_name);
+    if (fat_find(path, &e) != 0 || e.size > SAVE_MAX || fat_load(&e, &data, &len) != 0) {
+        lua_pushnil(L);
+        return 1;
+    }
+    int ok = luaL_loadbufferx(L, (const char *)data, len, "=save", "t") == LUA_OK;
+    free(data);
+    if (!ok) {
+        lua_pushnil(L);
+        return 1;
+    }
+    lua_newtable(L);                            /* empty environment: data only */
+    lua_setupvalue(L, -2, 1);
+    if (lua_pcall(L, 0, 1, 0) != LUA_OK || !lua_istable(L, -1)) {
+        lua_pushnil(L);
+        return 1;
+    }
+    return 1;
+}
+
 static int l_quit(lua_State *L)
 {
     (void)L;
@@ -362,6 +496,7 @@ static const luaL_Reg api[] = {
     { "mesh", l_mesh }, { "mesh_sphere", l_mesh_sphere }, { "mesh_cube", l_mesh_cube },
     { "draw3d", l_draw3d }, { "camera3d", l_camera3d }, { "light3d", l_light3d },
     { "zclear", l_zclear }, { "log", l_log }, { "quit", l_quit },
+    { "save", l_save }, { "saved", l_saved },
     { NULL, NULL },
 };
 
@@ -632,6 +767,11 @@ void b33_play(framebuffer_t *fb, const uint8_t *data, size_t len,
         return;
     }
 
+    {
+        char id[96];
+        int n = ksnprintf(id, sizeof id, "%s\n%s", cart.title, cart.author);
+        ksnprintf(rt.save_name, sizeof rt.save_name, "%08lX.SAV", crc32(id, (uint32_t)n));
+    }
     rt.start_us = timer_ticks();
     rt.hook_count = 0;
     if (luaL_loadbuffer(L, cart.lua, cart.lua_size, "=main.lua") != LUA_OK ||

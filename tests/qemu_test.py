@@ -681,6 +681,63 @@ def test_make_image(b, opts):
         shutil.rmtree(tmp, ignore_errors=True)
 
 
+SAVE_CART = r"""
+function _init()
+  local d = saved()
+  local n = (d and d.n or 0) + 1
+  if d then log("loaded", d.s, d.t[2], d.t[3], math.type(d.t[2]), d.nested.x) end
+  local ok, err = save({ n = n, s = 'q"uo\\te\n', t = { 1, 2.5, true }, nested = { x = -7 } })
+  log("runs", n, ok, err)
+  quit()
+end
+"""
+
+
+def test_sd_save_and_config(b, opts):
+    """M11: a cart's save() and the monitor settings survive a reboot; the
+    card is still a clean FAT32 volume afterwards (fsck.vfat, mtools)."""
+    tmp = tempfile.mkdtemp(prefix="bm33-save-")
+    img = os.path.join(tmp, "sd.img")
+    mksd.build(img, [(b("carts/snake.b33"), "carts/snake.b33")])
+    cart = mkb33.pack(SAVE_CART.encode(), title="save test")
+    drive = ["-drive", f"if=sd,format=raw,file={img}"]
+    try:
+        for run in (1, 2):
+            q = Qemu(b("kernel.img"), drive)
+            try:
+                out = q.boot().decode(errors="replace")
+                if run == 2:
+                    assert "config: /bm33/config.txt, layout us, .b33 drawing direct" in out, out
+                assert _upload(q, cart)
+                out = q.expect(f"runs\t{run}\t", timeout=15).decode(errors="replace")
+                line = q.expect("\n").decode(errors="replace")
+                assert line.startswith("true"), line
+                if run == 2:
+                    assert 'loaded\tq"uo\\te\r\n\t2.5\ttrue\tfloat\t-7' in out, out  # serial: \r\n
+                q.expect("> ", timeout=10)
+                if run == 1:
+                    q.send("L")                    # Italian -> US, saved in config.txt
+                    q.expect("keyboard layout: us")
+                    q.expect("> ")
+            finally:
+                q.close()
+        part = os.path.join(tmp, "part.img")
+        with open(img, "rb") as f, open(part, "wb") as o:
+            f.seek(2048 * 512)
+            o.write(f.read())
+        fsck = subprocess.run(["fsck.vfat", "-n", part], capture_output=True, text=True)
+        assert fsck.returncode == 0, fsck.stdout + fsck.stderr
+        env = dict(os.environ, MTOOLS_SKIP_CHECK="1")
+        cfg = subprocess.run(["mtype", "-i", part, "::/BM33/CONFIG.TXT"], capture_output=True,
+                             text=True, env=env).stdout
+        assert "layout=us" in cfg and "draw=direct" in cfg, cfg
+        saves = subprocess.run(["mdir", "-b", "-i", part, "::/BM33/SAVE"], capture_output=True,
+                               text=True, env=env).stdout
+        assert saves.count(".SAV") == 1, saves
+    finally:
+        shutil.rmtree(tmp, ignore_errors=True)
+
+
 def test_sd_sdhc_and_usb_menu(b, opts):
     """4 GiB card (SDHC addressing); with a USB keyboard boot ends in the menu."""
     tmp = tempfile.mkdtemp(prefix="bm33-sd-")

@@ -139,6 +139,28 @@ della mappa; ogni numero è una cella dello sheet).
 Numeri casuali: `math.random`. Per partite diverse a ogni avvio, inizializza il
 generatore quando il giocatore preme un tasto: `math.randomseed(stat(3))`.
 
+### Salvataggi
+
+| Funzione | Descrizione |
+|---|---|
+| `save(t)` | salva la tabella `t` sulla SD; `true`, oppure `false` e il motivo (niente SD, scheda piena...) |
+| `saved()` | la tabella salvata l'ultima volta, oppure `nil` |
+
+Ogni cartuccia ha **un** salvataggio, in `/bm33/save/XXXXXXXX.SAV` sulla SD (il nome
+dipende da titolo e autore: cambiandoli si riparte da zero). La tabella può contenere
+numeri, stringhe, booleani e altre tabelle (niente funzioni, al massimo 32 KiB).
+Scrivere sulla SD richiede qualche millisecondo: chiama `save()` in momenti come la fine
+della partita, non a ogni fotogramma. Esempio (record di Snake):
+
+```lua
+function _init()
+  local data = saved()
+  if data then best = data.best end
+end
+-- a fine partita
+if score > best then best = score; save({ best = best }) end
+```
+
 ### 3D (software)
 
 | Funzione | Descrizione |

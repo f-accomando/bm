@@ -47,6 +47,8 @@ local player, shots, enemies, bolts, sparks, stars
 local score, best, lives, wave, fire_cd, invuln, wave_timer = 0, 0, 3, 0, 0, 0, 0
 
 function _init()
+  local data = saved()                  -- the record survives power off (SD card)
+  if data and data.best then best = data.best end
   for name, cell in pairs(SPR) do paint(name, cell) end
   stars = {}
   for i = 1, 120 do
@@ -180,7 +182,10 @@ function _update()
       burst(player.x + 8, player.y + 8, 0xFF8020, 30)
       invuln = 120
       if lives <= 0 then
-        best = math.max(best, score)
+        if score > best then
+          best = score
+          save({ best = best })
+        end
         state = "over"
       end
     end

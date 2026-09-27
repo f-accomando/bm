@@ -35,7 +35,10 @@ local function new_game()
   state = "play"
 end
 
-function _init() end
+function _init()
+  local data = saved()                  -- the record survives power off (SD card)
+  if data and data.best then best = data.best end
+end
 
 local function turn(x, y)
   -- no U-turn onto the neck
@@ -64,7 +67,10 @@ function _update()
     end
   end
   if state == "over" then
-    best = math.max(best, score)
+    if score > best then
+      best = score
+      save({ best = best })
+    end
     return
   end
 

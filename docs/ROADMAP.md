@@ -191,16 +191,19 @@ M9 (MVP) ─┬─ M10 audio
 - **Fatto quando:** i giochi demo hanno effetti sonori senza cali di frame rate e
   senza scatti audio per 10 minuti.
 
-## M11 — SD in scrittura, salvataggi e impostazioni (M)
+## M11 — SD in scrittura, salvataggi e impostazioni ✅ QEMU, da verificare sul Pi (M)
 - Driver SD: scrittura a blocchi (CMD24/25) e FAT32 in scrittura (creare e riscrivere
   un file, allocare cluster, aggiornare le due FAT e la directory), con attenzione a
   non corrompere la scheda (ordine delle scritture, verifica in QEMU con `fsck.vfat`).
 - File `/bm33/config.txt` (layout tastiera, modo di disegno, volume, dispositivi
   Bluetooth abbinati) e `/bm33/save/<cart>.sav`.
-- API `.b33`: `save(tabella)` / `load()` per record e progressi; punteggi migliori nei
+- API `.b33`: `save(tabella)` / `saved()` per record e progressi; punteggi migliori nei
   giochi demo.
+- File di salvataggio: `/bm33/save/<CRC-32 di titolo e autore>.SAV` (nomi 8.3: bm33 non
+  scrive nomi lunghi); contenuto: tabella Lua come testo, riletta in un ambiente vuoto.
 - **Fatto quando:** un record di Snake sopravvive allo spegnimento; `fsck.vfat` pulito
-  dopo 1000 salvataggi in QEMU.
+  dopo 1000 salvataggi (test sul PC `make test-fat`: 1000 riscritture, 200 file, fsck e
+  mtools; QEMU `test_sd_save_and_config`: salvataggio e impostazioni dopo un riavvio).
 
 ## M12 — Controller Bluetooth (L, rischio alto)
 Analisi dei costi: ~3000 righe di C (5 volte lo stack USB), 10–15 prove sul Pi; nessun

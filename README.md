@@ -36,7 +36,7 @@ Stress test di rendering (soglie 60/30 fps): [docs/STRESS.md](docs/STRESS.md) �
 | **M8** | **SD** + FAT32, menu delle cartucce | ✅ verificato sul Pi |
 | **M9** | **MVP**: avvio sul menu, giochi demo, immagine SD, guida API | ✅ verificato sul Pi |
 | M10 | Audio: HDMI (o PWM), APU s32, suoni nei giochi | |
-| M11 | SD in scrittura: salvataggi, record, impostazioni | |
+| **M11** | SD in scrittura: salvataggi, record, impostazioni | ✅ QEMU, da verificare sul Pi |
 | M12 | Controller **Bluetooth** (uno di riferimento, poi altri) | |
 | M13 | Altri tipi di cartuccia: s32 Lua (con lua32), codice ARM nativo | |
 | M14 | Grafica 2.0: DMA, modo 32 bit, 3D con texture, menu con anteprime | |
@@ -126,7 +126,11 @@ Esc (o Start+Select) per tornare al menu dal gioco e dal menu al monitor; `R` ri
 Dalla seriale: w/s, Invio, q. Per aggiungere un gioco basta copiarlo in `carts/`
 sulla SD dal PC.
 
-Limiti attuali: SD in sola lettura; un solo dispositivo USB, senza hub; niente
+**Scrittura (M11).** bm33 scrive solo nella cartella `bm33/` della SD:
+`bm33/config.txt` (layout della tastiera, modo di disegno; si può modificare anche dal
+PC) e `bm33/save/*.SAV` (salvataggi e record delle cartucce: `save()`/`saved()`).
+
+Limiti attuali: un solo dispositivo USB, senza hub; niente
 Bluetooth (il chip BCM43438 usa la stessa UART della console seriale e richiede
 firmware e stack HCI/L2CAP/HID: troppo per ora).
 

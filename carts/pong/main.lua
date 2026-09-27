@@ -12,6 +12,7 @@ local BG, FG, DIM, ACCENT = 0x101820, 0xF0F0F0, 0x405060, 0xFFC040
 local state                             -- "title", "serve", "play", "over"
 local you, cpu, ball
 local score, winner, serve_dir, flash
+local record = { wins = 0, losses = 0 }  -- kept on the SD card with save()
 
 local function reset_ball(dir)
   ball = { x = W / 2 - BALL / 2, y = (TOP + H) / 2, vx = 0, vy = 0 }
@@ -29,6 +30,8 @@ local function new_game()
 end
 
 function _init()
+  local data = saved()
+  if data then record.wins, record.losses = data.wins or 0, data.losses or 0 end
   new_game()
   state = "title"
 end
@@ -50,6 +53,8 @@ local function point(side)
   if score[side] >= WIN then
     winner = side
     state = "over"
+    if side == 1 then record.wins = record.wins + 1 else record.losses = record.losses + 1 end
+    save(record)
   else
     reset_ball(side == 1 and 1 or -1)
     state = "serve"
@@ -133,6 +138,9 @@ function _draw()
     center("P O N G", 112, ACCENT)
     center("up / down to move", 160, FG)
     center("first to " .. WIN .. " points wins", 192, FG)
+    if record.wins + record.losses > 0 then
+      center(string.format("you %d - %d console", record.wins, record.losses), 288, DIM)
+    end
     center("press A to start", 240, ACCENT)
   elseif state == "serve" and serve_dir > 0 then
     center("press A to serve", H - 40, DIM)

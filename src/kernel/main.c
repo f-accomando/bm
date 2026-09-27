@@ -32,6 +32,7 @@
 #include "b33/stress.h"
 #include "usb/usb.h"
 #include "carts.h"
+#include "config.h"
 #include "version.h"
 
 
@@ -180,6 +181,7 @@ void kernel_main(uint32_t atags)
     usb_init();
     usb_print();
     carts_init();
+    config_load();
 
 #ifdef BM33_BOOT_STRESS
     run_stress();

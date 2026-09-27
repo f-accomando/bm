@@ -18,6 +18,7 @@
 #include "usb/hid.h"
 #include "usb/usb.h"
 #include "carts.h"
+#include "config.h"
 
 static void help(void)
 {
@@ -122,6 +123,7 @@ void monitor_run(void)
         case 'V':
             b33_set_via_ram(!b33_via_ram());
             kprintf(".b33 carts draw %s\n", b33_via_ram() ? "via a RAM buffer" : "directly on screen");
+            config_save();
             break;
         case 'd': {
             demo_stats_t st;
@@ -145,6 +147,7 @@ void monitor_run(void)
         case 'L':
             hid_set_layout(hid_layout()[0] == 'i' ? "us" : "it");
             kprintf("keyboard layout: %s\n", hid_layout());
+            config_save();
             break;
         case 'r':
             kprintf("rebooting...\n");
