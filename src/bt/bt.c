@@ -25,6 +25,8 @@
 #include "lib/printf.h"
 #include "usb/hid.h"
 
+#include <stdarg.h>
+#include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 
@@ -74,9 +76,33 @@ static struct {
     int have_key;
     uint8_t key_addr[6], key[16];   /* the paired pad */
     int announced;
+    int pairing;
 } bt;
 
+static int tracing(void)
+{
+    return bt.pairing || (bt.connected && !bt.announced);
+}
+
 /* ---------------------------------------------------------------- helpers */
+
+/* While a pad is being paired or is coming back, every event and L2CAP
+ * signal is shown (grey): a photo of the screen tells what the pad did. */
+static void trace(const char *fmt, ...) __attribute__((format(printf, 1, 2)));
+
+static int tracing(void);
+
+static void trace(const char *fmt, ...)
+{
+    if (!tracing())
+        return;
+    char buf[96];
+    va_list ap;
+    va_start(ap, fmt);
+    vsnprintf(buf, sizeof buf, fmt, ap);
+    va_end(ap);
+    kprintf("\x1b[90mbt:   %s\x1b[0m\n", buf);
+}
 
 static void put16(uint8_t *p, uint16_t v) { p[0] = (uint8_t)v; p[1] = (uint8_t)(v >> 8); }
 static uint16_t get16(const uint8_t *p) { return (uint16_t)(p[0] | p[1] << 8); }
@@ -337,6 +363,12 @@ static void handle_signaling(const uint8_t *s, uint16_t len)
         const uint8_t *p = s + 4;
         if (n + 4u > len)
             return;
+        trace("<- L2CAP %s (%02x) %02x %02x %02x %02x %02x %02x",
+              code == L2_CONN_REQ ? "connect request" : code == L2_CONN_RSP ? "connect response" :
+              code == L2_CONF_REQ ? "config request" : code == L2_CONF_RSP ? "config response" :
+              code == L2_DISC_REQ ? "disconnect" : "signal", code,
+              n > 0 ? p[0] : 0, n > 1 ? p[1] : 0, n > 2 ? p[2] : 0, n > 3 ? p[3] : 0,
+              n > 4 ? p[4] : 0, n > 5 ? p[5] : 0);
         switch (code) {
         case L2_CONN_REQ: {                     /* the pad opens a channel (reconnect) */
             uint16_t psm = get16(p), scid = get16(p + 2);
@@ -441,10 +473,35 @@ static void reset_link(void)
     hid_bt_clear();
 }
 
+static const char *event_name(uint8_t code)
+{
+    switch (code) {
+    case 0x03: return "connection complete";
+    case 0x04: return "connection request";
+    case 0x05: return "disconnected";
+    case 0x06: return "authentication complete";
+    case 0x08: return "encryption change";
+    case 0x12: return "role change";
+    case 0x16: return "PIN code request";
+    case 0x17: return "link key request";
+    case 0x18: return "link key (paired)";
+    case 0x1B: return "max slots change";
+    case 0x20: return "page scan mode change";
+    case 0x31: return "IO capability request";
+    case 0x32: return "IO capability response";
+    case 0x33: return "user confirmation request";
+    case 0x36: return "simple pairing complete";
+    default: return "event";
+    }
+}
+
 static void handle_event(const hci_pkt_t *p)
 {
     const uint8_t *e = p->data + 2;
     uint8_t r[23];
+    trace("<- %s (%02x) %02x %02x %02x %02x", event_name(p->data[0]), p->data[0],
+          p->data[1] > 0 ? e[0] : 0, p->data[1] > 1 ? e[1] : 0,
+          p->data[1] > 2 ? e[2] : 0, p->data[1] > 3 ? e[3] : 0);
     switch (p->data[0]) {
     case 0x03:                                  /* Connection Complete */
         if (e[0] == 0) {
@@ -623,12 +680,21 @@ static int inquiry(unsigned seconds, found_t *list, int max)
     return n;
 }
 
+static int pair_steps(const found_t *f);
+
 static int pair(const found_t *f)
 {
     char as[18];
     addr_str(as, f->addr);
     kprintf("bt: pairing with %s...\n", as);
+    bt.pairing = 1;
+    int r = pair_steps(f);
+    bt.pairing = 0;
+    return r;
+}
 
+static int pair_steps(const found_t *f)
+{
     uint8_t p[13];
     memcpy(p, f->addr, 6);
     put16(p + 6, 0xCC18);                       /* DM1..DH5 */

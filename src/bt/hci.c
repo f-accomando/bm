@@ -1,5 +1,6 @@
 #include "hci.h"
 #include "btuart.h"
+#include "drivers/timer.h"
 
 #include <string.h>
 
@@ -91,9 +92,11 @@ int hci_cmd(uint16_t opcode, const void *params, uint8_t len,
             uint8_t *ret, uint8_t ret_size, uint32_t timeout_us)
 {
     hci_send(opcode, params, len);
+    const uint32_t t0 = timer_ticks();
     for (;;) {
         hci_pkt_t *p = &scratch;
-        if (read_packet(p, timeout_us) != 0)
+        /* other packets keep coming: bound the whole wait, not each read */
+        if (timer_ticks() - t0 > timeout_us * 2 || read_packet(p, timeout_us) != 0)
             return -1;
         if (p->type == HCI_EVENT) {
             const uint8_t *e = p->data + 2;
