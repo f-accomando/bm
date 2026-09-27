@@ -28,7 +28,8 @@ static void help(void)
             "  l  Lua REPL (Ctrl-D or exit() returns here)\n"
             "  U  receive a cartridge over serial and play it\n"
             "  i  system info            m  heap usage          c  clear screen\n"
-            "  y  USB: scan the port     L  keyboard layout Italian / US\n"
+            "  y  USB: scan the port     Y  USB live test (10 s)\n"
+            "  L  keyboard layout Italian / US\n"
             "  k  CPU benchmark          p  rendering benchmark 640x360 RGB565\n"
             "  S  rendering stress test (sprites, triangles, 3D; C and Lua)\n"
             "  d  animation demo (60 fps; any key stops it)\n"
@@ -138,6 +139,7 @@ void monitor_run(void)
         case 'f': carts_list(); break;
         case 'F': carts_init(); carts_list(); break;
         case 'y': usb_init(); usb_print(); break;
+        case 'Y': usb_live_test(10); break;
         case 'L':
             hid_set_layout(hid_layout()[0] == 'i' ? "us" : "it");
             kprintf("keyboard layout: %s\n", hid_layout());

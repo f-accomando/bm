@@ -24,6 +24,11 @@ const usb_info_t *usb_info(void);
 /* One line on the console: what is attached. */
 void usb_print(void);
 
+/* Transfer counters and the last report, one line. */
+void usb_diag(char *buf, unsigned size);
+/* Polls for `seconds` showing usb_diag live on the console. */
+void usb_live_test(uint32_t seconds);
+
 /* Polls the HID endpoint (rate-limited to its bInterval). Call often. */
 void usb_poll(void);
 

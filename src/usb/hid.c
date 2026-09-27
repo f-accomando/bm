@@ -112,14 +112,69 @@ static uint32_t key_button(uint8_t u)
     return 0;
 }
 
-void hid_keyboard_attach(void)
+static uint8_t kbd_report_id;
+
+void hid_keyboard_attach(uint8_t report_id)
 {
     memset(prev_keys, 0, sizeof prev_keys);
     kbd_buttons = 0;
+    kbd_report_id = report_id;
+}
+
+int hid_is_keyboard(const uint8_t *d, uint32_t len, uint8_t *report_id)
+{
+    uint32_t usage_page = 0, usage = 0;
+    int in_kbd = 0, depth = 0, found = 0;
+    *report_id = 0;
+    for (uint32_t i = 0; i < len;) {
+        uint8_t prefix = d[i];
+        if (prefix == 0xFE) {                   /* long item */
+            if (i + 1 >= len) break;
+            i += 3 + d[i + 1];
+            continue;
+        }
+        uint32_t sz = prefix & 3;
+        if (sz == 3) sz = 4;
+        if (i + 1 + sz > len) break;
+        uint32_t v = 0;
+        for (uint32_t k = 0; k < sz; k++) v |= (uint32_t)d[i + 1 + k] << (8 * k);
+        i += 1 + sz;
+        switch (prefix & 0xFC) {
+        case 0x04: usage_page = v; break;
+        case 0x08: usage = sz == 4 ? v & 0xFFFF : v; break;
+        case 0xA0:                              /* Collection */
+            depth++;
+            if (depth == 1 && v == 1 && usage_page == 0x01 && usage == 0x06) {
+                in_kbd = 1;
+                found = 1;
+            }
+            break;
+        case 0xC0:                              /* End Collection */
+            if (depth > 0 && --depth == 0)
+                in_kbd = 0;
+            break;
+        case 0x84:                              /* Report ID */
+            if (in_kbd && !*report_id)
+                *report_id = (uint8_t)v;
+            break;
+        }
+        if ((prefix & 0x0C) == 0x00)            /* main item: clears local usage */
+            usage = 0;
+    }
+    return found;
 }
 
 static void keyboard_report(const uint8_t *r, uint32_t len)
 {
+    /* A keyboard that ignored SET_PROTOCOL(boot) sends report protocol:
+     * [report id] mods reserved keys... ; other report IDs (media keys,
+     * battery...) are not ours. */
+    if (kbd_report_id && len >= 9) {
+        if (r[0] != kbd_report_id)
+            return;
+        r++;
+        len--;
+    }
     if (len < 8 || r[2] == 1)                   /* roll-over error: ignore */
         return;
     uint8_t mods = r[0];

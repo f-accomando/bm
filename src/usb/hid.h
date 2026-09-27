@@ -13,7 +13,12 @@
 #define HID_START   (1u << 6)
 #define HID_SELECT  (1u << 7)
 
-void hid_keyboard_attach(void);
+/* report_id: the keyboard's report ID if the device may send report
+ * protocol reports (first byte = ID), else 0. */
+void hid_keyboard_attach(uint8_t report_id);
+/* 1 if the report descriptor has a keyboard application collection;
+ * *report_id gets its report ID (0 if none). */
+int  hid_is_keyboard(const uint8_t *desc, uint32_t len, uint8_t *report_id);
 int  hid_gamepad_attach(const uint8_t *report_desc, uint32_t len);
 void hid_xbox360_attach(void);
 void hid_report(int kind, const uint8_t *data, uint32_t len);

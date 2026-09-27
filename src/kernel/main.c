@@ -156,6 +156,7 @@ void kernel_main(uint32_t atags)
     report_irq();
     usb_init();
     usb_print();
+    usb_live_test(5);            /* on screen: shows whether reports arrive */
     carts_init();
 
 #ifdef BM33_BOOT_STRESS

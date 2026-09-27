@@ -69,7 +69,7 @@ $(BUILD)/demo.b33: $(DEMO_B33_SRC) scripts/mkb33.py
 
 .DEFAULT_GOAL := all
 .PHONY: all clean firmware sdcard sdcard-chainloader sdcard-stress qemu qemu-screenshot \
-        run-serial test test-s32 test-s32-arm test-b33 disasm
+        run-serial test test-s32 test-s32-arm test-b33 test-usb disasm
 
 all: $(BUILD)/kernel.img $(BUILD)/chainloader.img
 
@@ -137,12 +137,19 @@ qemu: $(BUILD)/kernel.img
 qemu-screenshot: $(BUILD)/kernel.img
 	./scripts/qemu-screenshot.sh $< $(BUILD)/screen.png
 
-test: all test-s32 test-b33
+test: all test-s32 test-b33 test-usb
 	$(PYTHON) tests/qemu_test.py --build $(BUILD)
 
 $(BUILD)/host/test_b33: tests/b33/test_b33.c src/b33/gfx16.c src/b33/r3d.c src/b33/format.c src/lib/crc32.c src/b33/*.h
 	@mkdir -p $(dir $@)
 	$(HOSTCC) -O2 -Wall -Wextra -Isrc -o $@ tests/b33/test_b33.c src/b33/gfx16.c src/b33/r3d.c src/b33/format.c src/lib/crc32.c -lm
+
+test-usb: $(BUILD)/host/test_hid
+	$<
+
+$(BUILD)/host/test_hid: tests/usb/test_hid.c src/usb/hid.c src/usb/hid.h src/usb/usb.h
+	@mkdir -p $(dir $@)
+	$(HOSTCC) -O2 -Wall -Wextra -Isrc -o $@ tests/usb/test_hid.c src/usb/hid.c
 
 test-b33: $(BUILD)/host/test_b33 $(BUILD)/demo.b33
 	$< $(BUILD)/demo.b33

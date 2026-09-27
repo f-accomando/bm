@@ -32,6 +32,8 @@ static struct {
     int active;
 } hid_ep;
 
+static struct { uint32_t ok, nak, err, tmo; uint8_t last[8]; uint32_t last_len; } st;
+
 static uint8_t dma[512] __attribute__((aligned(CACHE_LINE)));
 static uint8_t report[64] __attribute__((aligned(CACHE_LINE)));
 
@@ -108,6 +110,7 @@ int usb_init(void)
 {
     memset(&info, 0, sizeof info);
     memset(&hid_ep, 0, sizeof hid_ep);
+    memset(&st, 0, sizeof st);
     if (dwc2_init() != 0)
         return USB_NONE;
     if (!dwc2_port_connected()) {
@@ -162,50 +165,91 @@ int usb_init(void)
         return USB_OTHER;
     uint8_t config_value = c[5];
 
-    /* first HID (or Xbox 360) interface with an interrupt IN endpoint */
-    int kind = USB_OTHER, cur_class = -1, cur_sub = -1, cur_proto = -1, cur_iface = -1;
-    uint16_t report_len = 0;
+    /* every interface with an interrupt IN endpoint is a candidate */
+    struct cand { uint8_t iface, cls, sub, proto, ep, interval; uint16_t mps, rlen; } cand[8];
+    int nc = 0, have_ep = 0;
     for (int i = 0; i + 1 < total && c[i]; i += c[i]) {
-        if (c[i + 1] == DESC_INTERFACE && i + 8 < total) {
-            cur_iface = c[i + 2]; cur_class = c[i + 5]; cur_sub = c[i + 6]; cur_proto = c[i + 7];
-        } else if (c[i + 1] == 0x21 && i + 8 < total && cur_class == 3 && !hid_ep.active) {
-            report_len = (uint16_t)(c[i + 7] | c[i + 8] << 8);
-        } else if (c[i + 1] == DESC_ENDPOINT && i + 6 < total && !hid_ep.active &&
+        if (c[i + 1] == DESC_INTERFACE && i + 8 < total && nc < 8) {
+            cand[nc] = (struct cand){ c[i + 2], c[i + 5], c[i + 6], c[i + 7], 0, 0, 0, 0 };
+            have_ep = 0;
+            nc++;
+        } else if (c[i + 1] == 0x21 && i + 8 < total && nc) {
+            cand[nc - 1].rlen = (uint16_t)(c[i + 7] | c[i + 8] << 8);
+        } else if (c[i + 1] == DESC_ENDPOINT && i + 6 < total && nc && !have_ep &&
                    (c[i + 2] & 0x80) && (c[i + 3] & 3) == EP_INTERRUPT) {
-            if (cur_class == 3 && cur_sub == 1 && cur_proto == 2)
-                continue;                       /* boot mouse: not an input we use */
-            int k = cur_class == 3 ? (cur_proto == 1 && cur_sub == 1 ? USB_KEYBOARD : USB_GAMEPAD)
-                  : (cur_class == 0xFF && cur_sub == 0x5D && cur_proto == 0x01) ? USB_XBOX360 : -1;
-            if (k < 0)
-                continue;
-            kind = k;
-            hid_ep.ep = c[i + 2] & 0x0F;
-            hid_ep.mps = (uint16_t)((c[i + 4] | c[i + 5] << 8) & 0x7FF);
-            hid_ep.interval = c[i + 6] ? c[i + 6] : 10;
-            hid_ep.iface = (uint8_t)cur_iface;
-            hid_ep.active = 1;
+            cand[nc - 1].ep = c[i + 2] & 0x0F;
+            cand[nc - 1].mps = (uint16_t)((c[i + 4] | c[i + 5] << 8) & 0x7FF);
+            cand[nc - 1].interval = c[i + 6] ? c[i + 6] : 10;
+            have_ep = 1;
         }
     }
-    (void)dev_class;
     if (control(0x00, 9, config_value, 0, NULL, 0) < 0) {  /* SET_CONFIGURATION */
         kprintf("usb: SET_CONFIGURATION failed\n");
         return USB_OTHER;
     }
 
-    if (kind == USB_KEYBOARD) {
-        control(0x21, 0x0B, 0, hid_ep.iface, NULL, 0);      /* SET_PROTOCOL boot */
-        control(0x21, 0x0A, 0, hid_ep.iface, NULL, 0);      /* SET_IDLE 0 */
-        hid_keyboard_attach();
-    } else if (kind == USB_GAMEPAD) {
-        static uint8_t rd[512];
-        if (report_len > sizeof rd) report_len = sizeof rd;
-        int n = report_len ? control(0x81, 6, DESC_HID_REPORT << 8, hid_ep.iface, rd, report_len) : -1;
-        control(0x21, 0x0A, 0, hid_ep.iface, NULL, 0);
-        if (n <= 0 || hid_gamepad_attach(rd, (uint32_t)n) != 0)
-            kind = USB_OTHER;
-    } else if (kind == USB_XBOX360) {
-        hid_xbox360_attach();
+    /* Pick one: a keyboard (boot interface, or a HID report descriptor with a
+     * keyboard collection), else an Xbox 360 pad, else a HID gamepad. */
+    static uint8_t rd[512];
+    int kind = USB_OTHER, best = -1, best_score = 0;
+    uint8_t kbd_id = 0;
+    for (int n = 0; n < nc; n++) {
+        struct cand *k = &cand[n];
+        int score = 0, rl = -1;
+        uint8_t id = 0;
+        if (!k->ep)
+            continue;
+        if (k->cls == 3 && k->rlen) {
+            uint16_t want = k->rlen > sizeof rd ? sizeof rd : k->rlen;
+            rl = control(0x81, 6, DESC_HID_REPORT << 8, k->iface, rd, want);
+        }
+        int kbd_desc = k->cls == 3 && rl > 0 && hid_is_keyboard(rd, (uint32_t)rl, &id);
+        if (k->cls == 3 && k->sub == 1 && k->proto == 2) {
+            score = 0;                                  /* boot mouse: not used */
+        } else if (k->cls == 3 && ((k->sub == 1 && k->proto == 1) || kbd_desc)) {
+            score = 4;
+        } else if (k->cls == 0xFF && k->sub == 0x5D && k->proto == 0x01) {
+            score = 3;
+        } else if (k->cls == 3 && rl > 0 && hid_gamepad_attach(rd, (uint32_t)rl) == 0) {
+            score = 2;
+        }
+        kprintf("usb: if%u class %02x/%02x/%02x ep %02x mps %u every %u%s, report desc %d%s\n",
+                k->iface, k->cls, k->sub, k->proto, k->ep | 0x80, k->mps, k->interval,
+                dev_speed == USB_SPEED_HIGH ? "uf" : "ms", rl,
+                score == 4 ? (id ? " keyboard (report id)" : " keyboard") : score == 3 ? " xbox" :
+                score == 2 ? " gamepad" : "");
+        if (score > best_score) {
+            best_score = score;
+            best = n;
+            kbd_id = id;
+        }
     }
+    if (best >= 0) {
+        struct cand *k = &cand[best];
+        hid_ep.ep = k->ep;
+        hid_ep.mps = k->mps;
+        hid_ep.interval = k->interval;
+        hid_ep.iface = k->iface;
+        hid_ep.active = 1;
+        if (best_score == 4) {
+            kind = USB_KEYBOARD;
+            if (k->sub == 1)
+                control(0x21, 0x0B, 0, k->iface, NULL, 0);  /* SET_PROTOCOL boot */
+            control(0x21, 0x0A, 0, k->iface, NULL, 0);      /* SET_IDLE 0 */
+            hid_keyboard_attach(kbd_id);
+        } else if (best_score == 3) {
+            kind = USB_XBOX360;
+            hid_xbox360_attach();
+        } else {
+            kind = USB_GAMEPAD;
+            int rl = k->rlen ? control(0x81, 6, DESC_HID_REPORT << 8, k->iface, rd,
+                                       k->rlen > sizeof rd ? sizeof rd : k->rlen) : -1;
+            control(0x21, 0x0A, 0, k->iface, NULL, 0);
+            if (rl <= 0 || hid_gamepad_attach(rd, (uint32_t)rl) != 0)
+                kind = USB_OTHER;
+        }
+    }
+    (void)dev_class;
     if (kind == USB_OTHER)
         hid_ep.active = 0;
     if (hid_ep.mps > sizeof report)
@@ -233,8 +277,46 @@ void usb_poll(void)
     dwc2_pipe_t p = { addr, hid_ep.ep, 1, EP_INTERRUPT, hid_ep.mps, dev_speed, &hid_ep.toggle };
     uint32_t got = 0;
     int r = dwc2_transfer(CH_INTR, &p, hid_ep.toggle, report, hid_ep.mps, &got, 20);
-    if (r == XFER_OK && got)
-        hid_report(info.kind, report, got);
-    else if (r == XFER_ERROR || r == XFER_TIMEOUT)
+    if (r == XFER_OK) {
+        st.ok++;
+        if (got) {
+            st.last_len = got;
+            memcpy(st.last, report, got < 8 ? got : 8);
+            hid_report(info.kind, report, got);
+        }
+    } else if (r == XFER_NAK) {
+        st.nak++;
+    } else {
+        if (r == XFER_TIMEOUT) st.tmo++; else st.err++;
         hid_ep.toggle = PID_DATA0;
+    }
+}
+
+void usb_diag(char *buf, unsigned size)
+{
+    int n = ksnprintf(buf, size, "ok %lu nak %lu err %lu tmo %lu, last %lu:",
+                      st.ok, st.nak, st.err, st.tmo, st.last_len);
+    for (uint32_t i = 0; i < 8 && i < st.last_len && n + 4 < (int)size; i++)
+        n += ksnprintf(buf + n, size - (unsigned)n, " %02x", st.last[i]);
+}
+
+void usb_live_test(uint32_t seconds)
+{
+    char line[96];
+    if (!hid_ep.active)
+        return;
+    kprintf("usb test for %lu s: press some keys / buttons\n", seconds);
+    uint32_t t0 = timer_ticks(), shown = 0;
+    while (timer_ticks() - t0 < seconds * 1000000u) {
+        usb_poll();
+        if (timer_ticks() - shown >= 200000) {
+            shown = timer_ticks();
+            usb_diag(line, sizeof line);
+            kprintf("\r  %s\x1b[K", line);
+        }
+    }
+    kprintf("\n");
+    while (hid_getc() >= 0)                     /* keys pressed here are not commands */
+        ;
+    hid_quit_pressed();
 }
