@@ -21,6 +21,11 @@ void hid_keyboard_attach(uint8_t report_id);
 int  hid_is_keyboard(const uint8_t *desc, uint32_t len, uint8_t *report_id);
 int  hid_gamepad_attach(const uint8_t *report_desc, uint32_t len);
 void hid_xbox360_attach(void);
+/* Sony DualShock 4 (USB report 0x01, Bluetooth report 0x11). */
+void hid_ds4_attach(void);
+/* Buttons from the DS4 data that follows the report header (sticks
+ * first); *ps = PS button. Shared by USB and Bluetooth. */
+uint32_t hid_ds4_buttons(const uint8_t *d, uint32_t len, int *ps);
 void hid_report(int kind, const uint8_t *data, uint32_t len);
 
 /* Text input from the keyboard (layout applied): next byte or -1. */

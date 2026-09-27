@@ -19,6 +19,7 @@
 #define DESC_HID_REPORT 0x22
 
 static usb_info_t info;
+static int ds4;
 static uint8_t dev_speed;
 static uint16_t mps0 = 8;
 static uint8_t addr;
@@ -103,12 +104,15 @@ void usb_print(void)
             info.name[0] ? info.name : "?", info.speed < 3 ? speeds[info.speed] : "?");
     if (info.kind == USB_KEYBOARD)
         kprintf(", layout %s", hid_layout());
+    if (ds4)
+        kprintf(" (DualShock 4)");
     kprintf("\n");
 }
 
 int usb_init(void)
 {
     memset(&info, 0, sizeof info);
+    ds4 = 0;
     memset(&hid_ep, 0, sizeof hid_ep);
     memset(&st, 0, sizeof st);
     if (dwc2_init() != 0)
@@ -210,6 +214,8 @@ int usb_init(void)
             score = 4;
         } else if (k->cls == 0xFF && k->sub == 0x5D && k->proto == 0x01) {
             score = 3;
+        } else if (k->cls == 3 && info.vid == 0x054C) {
+            score = 2;                                  /* Sony pad: fixed report layout */
         } else if (k->cls == 3 && rl > 0 && hid_gamepad_attach(rd, (uint32_t)rl) == 0) {
             score = 2;
         }
@@ -240,6 +246,12 @@ int usb_init(void)
         } else if (best_score == 3) {
             kind = USB_XBOX360;
             hid_xbox360_attach();
+        } else if (info.vid == 0x054C && (info.pid == 0x05C4 || info.pid == 0x09CC ||
+                                          info.pid == 0x0BA0)) {
+            kind = USB_GAMEPAD;                 /* DualShock 4 (or its USB dongle) */
+            ds4 = 1;
+            control(0x21, 0x0A, 0, k->iface, NULL, 0);
+            hid_ds4_attach();
         } else {
             kind = USB_GAMEPAD;
             int rl = k->rlen ? control(0x81, 6, DESC_HID_REPORT << 8, k->iface, rd,

@@ -87,6 +87,30 @@ int main(void)
     hid_report(USB_KEYBOARD, up, 8);
     CHECK(hid_getc() == '@');
 
+    /* DualShock 4: USB report 0x01, Bluetooth report 0x11 (2 more bytes) */
+    hid_ds4_attach();
+    uint8_t usb[64] = { 0x01, 128, 128, 128, 128, 0x08 };     /* centred, hat none */
+    hid_report(USB_GAMEPAD, usb, 64);
+    CHECK(hid_buttons() == 0);
+    usb[5] = 0x20 | 2;                                         /* cross + hat right */
+    hid_report(USB_GAMEPAD, usb, 64);
+    CHECK(hid_buttons() == (HID_A | HID_RIGHT));
+    usb[5] = 0x40 | 8; usb[2] = 10;                            /* circle + stick up */
+    hid_report(USB_GAMEPAD, usb, 64);
+    CHECK(hid_buttons() == (HID_B | HID_UP));
+    usb[2] = 128; usb[5] = 8; usb[6] = 0x20 | 0x10;            /* options + share */
+    hid_report(USB_GAMEPAD, usb, 64);
+    CHECK(hid_buttons() == (HID_START | HID_SELECT));
+    CHECK(hid_quit_pressed() == 1);                            /* Start+Select */
+    usb[6] = 0; usb[7] = 1;                                    /* PS button */
+    hid_report(USB_GAMEPAD, usb, 64);
+    CHECK(hid_quit_pressed() == 1);
+    hid_report(USB_GAMEPAD, usb, 64);                          /* held: once only */
+    CHECK(hid_quit_pressed() == 0);
+    uint8_t bt[78] = { 0x11, 0xC0, 0x00, 128, 128, 128, 128, 0x10 | 6 };  /* square + left */
+    hid_report(USB_GAMEPAD, bt, 78);
+    CHECK(hid_buttons() == (HID_A | HID_LEFT));
+
     printf("hid: %d/%d checks passed\n", checks - fails, checks);
     return fails != 0;
 }

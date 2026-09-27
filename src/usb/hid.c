@@ -243,6 +243,7 @@ static struct {
     int32_t x_min, x_max, y_min, y_max, hat_min;
     int have_x, have_y, have_hat;
     int xbox;
+    int ds4, ps_held;
 } pad;
 
 static uint32_t bits(const uint8_t *d, uint32_t len, field_t f)
@@ -338,6 +339,41 @@ void hid_xbox360_attach(void)
     pad_buttons = 0;
 }
 
+void hid_ds4_attach(void)
+{
+    memset(&pad, 0, sizeof pad);
+    pad.ds4 = 1;
+    pad_buttons = 0;
+}
+
+/* DualShock 4: after the report ID, d[0..3] sticks (LX LY RX RY, 0..255,
+ * 128 = centre), d[4] hat (low nibble, 8 = none) and square/cross/circle/
+ * triangle (bits 4..7), d[5] L1 R1 L2 R2 share options L3 R3, d[6] bit 0 PS.
+ * USB sends report 0x01 with d at byte 1; Bluetooth report 0x11 at byte 3. */
+uint32_t hid_ds4_buttons(const uint8_t *d, uint32_t len, int *ps)
+{
+    uint32_t b = 0;
+    if (len < 7)
+        return 0;
+    static const uint32_t dirs[8] = {
+        HID_UP, HID_UP | HID_RIGHT, HID_RIGHT, HID_RIGHT | HID_DOWN,
+        HID_DOWN, HID_DOWN | HID_LEFT, HID_LEFT, HID_LEFT | HID_UP,
+    };
+    if ((d[4] & 15) < 8) b |= dirs[d[4] & 15];
+    if (d[0] < 64) b |= HID_LEFT;
+    if (d[0] > 192) b |= HID_RIGHT;
+    if (d[1] < 64) b |= HID_UP;
+    if (d[1] > 192) b |= HID_DOWN;
+    if (d[4] & 0x20) b |= HID_A;                /* cross */
+    if (d[4] & 0x10) b |= HID_A;                /* square */
+    if (d[4] & 0x40) b |= HID_B;                /* circle */
+    if (d[4] & 0x80) b |= HID_B;                /* triangle */
+    if (d[5] & 0x20) b |= HID_START;            /* options */
+    if (d[5] & 0x10) b |= HID_SELECT;           /* share */
+    *ps = d[6] & 1;
+    return b;
+}
+
 static uint32_t axis(int32_t v, int32_t lo, int32_t hi, uint32_t neg, uint32_t pos)
 {
     int32_t range = hi - lo;
@@ -350,7 +386,16 @@ static uint32_t axis(int32_t v, int32_t lo, int32_t hi, uint32_t neg, uint32_t p
 static void gamepad_report(const uint8_t *r, uint32_t len)
 {
     uint32_t b = 0;
-    if (pad.xbox) {
+    if (pad.ds4) {
+        int off = len && r[0] == 0x01 ? 1 : len && r[0] == 0x11 ? 3 : -1;
+        if (off < 0 || len < (uint32_t)off + 7)
+            return;
+        int ps = 0;
+        b = hid_ds4_buttons(r + off, len - (uint32_t)off, &ps);
+        if (ps && !pad.ps_held)
+            quit_edge = 1;                      /* the PS button leaves the game */
+        pad.ps_held = ps;
+    } else if (pad.xbox) {
         if (len < 10 || r[0] != 0x00) return;
         uint8_t d = r[2], k = r[3];
         if (d & 0x01) b |= HID_UP;

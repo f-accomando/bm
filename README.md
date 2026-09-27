@@ -113,6 +113,10 @@ viene scelta l'interfaccia tastiera, anche se il dispositivo usa i report con ID
 - **Gamepad HID generici** (il descrittore HID viene analizzato: pulsanti, assi X/Y,
   croce direzionale) e **controller Xbox 360 cablati**: croce o levetta sinistra,
   A/X = A, B/Y = B, **Start+Select (Back) = esci**.
+- **DualShock 4 (PS4)** via cavo USB: croce direzionale o levetta sinistra,
+  croce/quadrato = A, cerchio/triangolo = B, Options = Start, Share = Select,
+  **tasto PS (o Share+Options) = esci**. Lo stesso decodificatore servirà per il
+  Bluetooth (M12).
 
 **SD.** All'avvio il kernel legge la prima partizione **FAT32** (o FAT16) della SD
 (quella da cui si avvia il Pi) e cerca i file **`.b33`** e **`.cart`** nella
