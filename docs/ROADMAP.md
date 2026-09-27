@@ -176,7 +176,7 @@ M9 (MVP) ─┬─ M10 audio
           └─ M14 grafica 2.0 (DMA, 32 bit, 3D con texture)
 ```
 
-## M10 — Audio HDMI (M/L) — implementato, da verificare sul Pi
+## M10 — Audio HDMI (M/L) ✅ verificato sul Pi Zero W
 - Uscita **HDMI** (dagli altoparlanti del monitor), `src/audio/audio.c`: blocco audio
   HDMI del BCM2835 (FIFO MAI, rigenerazione del clock N/CTS, InfoFrame audio) come in
   Circle; campioni IEC 958 a 48 kHz (`iec958.c`) mandati da un canale DMA con DREQ
@@ -192,6 +192,9 @@ M9 (MVP) ─┬─ M10 audio
 - Monitor: `a` stato dell'audio (clock, canale DMA, blocchi suonati, costo della sintesi)
   e una melodia di prova con tutte le forme d'onda. All'avvio, se l'audio funziona, due
   note brevi. Senza audio HDMI (QEMU, modo DVI) tutto funziona in silenzio.
+- Verificato sul Pi (kernel `0831d5e`, monitor ASUS via HDMI): la melodia di prova del
+  comando `a` (quattro forme d'onda e accordo) e i suoni dei tre giochi escono dagli
+  altoparlanti del monitor.
 - **Fatto quando:** i giochi demo hanno effetti sonori senza cali di frame rate e
   senza scatti audio per 10 minuti.
 
