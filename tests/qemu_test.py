@@ -823,7 +823,7 @@ def test_bt_start_and_scan(b, opts):
             mini += q.mini.read(0.1)
         text = mini.decode(errors="replace")
         for s_ in ("power-cycling the chip", "firmware patch loaded (2 records, 18 bytes)",
-                   "bt: ready, address 11:22:33:44:55:66, HCI 9, LMP subversion 4106",
+                   "bt: ready, address 11:22:33:44:55:66, HCI 9, LMP subversion 4106, 921600 baud",
                    "bt: found 1c:66:6d:01:02:03 class 5a020c (phone)", "bt: 1 device found",
                    "bt: no game controller among them"):
             assert s_ in text, text
@@ -888,6 +888,9 @@ class FakeDs4Chip(FakeBtChip):
         self.cmd(0x0C03)
         self.cmd(0x1001, ret=bytes([7, 0x09, 0x22, 7, 0x0F, 0, 0x09, 0x22]))
         self.cmd(0x1009, ret=self.ADDR)
+        baud = self.cmd(0xFC18)                                        # UART speed up
+        assert baud == bytes([0, 0]) + (921600).to_bytes(4, "little"), baud.hex()
+        self.cmd(0x1009, ret=self.ADDR)                                # check at the new speed
         for op in (0x0C01, 0x0C56, 0x0C13, 0x0C24, 0x0C1A):
             self.cmd(op)
 

@@ -222,7 +222,10 @@ Stato:
    bonding generale), cifratura, canali L2CAP 0x11/0x13, report HID del DS4 nel layer
    di input (menu e giochi); chiave in `bm33/config.txt`; all'avvio page scan e
    riconnessione avviata dal DS4 (tasto PS) con la chiave salvata. SDP non serve (report
-   noto). Test `test_bt_pair_and_reconnect` con un DS4 simulato. Da verificare sul Pi.
+   noto). Test `test_bt_pair_and_reconnect` con un DS4 simulato. Sul Pi (kernel
+   `73d199c`): abbinamento del DS4 riuscito e input funzionante, ma con oltre 1 s di
+   ritardo: a 115200 baud i report del DS4 si accumulavano nel chip. Dopo il firmware la
+   UART passa a 921600 baud (0xFC18) e `bt_poll` svuota tutto a ogni fotogramma.
 3. velocità UART alta (0xFC18), ricezione a interrupt, avvio più rapido (firmware a
    velocità alta), abbinamento anche dal menu, più controller.
 

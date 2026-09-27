@@ -30,6 +30,7 @@
 #include <stdlib.h>
 #include <string.h>
 
+#define BT_FAST_BAUD 921600u       /* UART speed after the firmware patch */
 #define BT_ON_GPIO   45             /* BT_REG_ON of the BCM43438 on the Zero W */
 #define LPO_GPIO     43             /* GPCLK2: 32.768 kHz sleep clock */
 
@@ -265,6 +266,24 @@ int bt_start(void)
     hci_cmd(HCI_READ_LOCAL_VERSION, NULL, 0, v, sizeof v, 500000);
     hci_cmd(HCI_READ_BD_ADDR, NULL, 0, a, sizeof a, 500000);
 
+    /* 115200 baud carries ~550 small packets a second; a DS4 sends more,
+     * and the chip queued them (over a second of lag on the Pi). */
+    uint8_t baud[6] = { 0, 0 };
+    uint32_t fast = BT_FAST_BAUD;
+    memcpy(baud + 2, &fast, 4);
+    if (hci_cmd(HCI_BCM_UPDATE_BAUD, baud, 6, NULL, 0, 500000) == 0) {
+        timer_delay_ms(10);
+        btuart_set_baud(fast);
+        timer_delay_ms(10);
+        if (hci_cmd(HCI_READ_BD_ADDR, NULL, 0, a, sizeof a, 500000) != 0) {
+            kprintf("\x1b[91mbt: no answer at %lu baud\x1b[0m\n", fast);
+            return -1;
+        }
+    } else {
+        kprintf("bt: the chip stays at 115200 baud (input may lag)\n");
+        fast = 115200;
+    }
+
     /* events we handle (SSP ones are not in the default mask), SSP on,
      * our name and class (console), page scan so the pad can come back */
     static const uint8_t mask[8] = { 0xFF, 0xFF, 0xFB, 0xFF, 0x07, 0xF8, 0xBF, 0x3D };
@@ -282,7 +301,8 @@ int bt_start(void)
 
     char as[18];
     addr_str(as, a);
-    kprintf("bt: ready, address %s, HCI %u, LMP subversion %04x\n", as, v[0], v[6] | v[7] << 8);
+    kprintf("bt: ready, address %s, HCI %u, LMP subversion %04x, %lu baud\n", as, v[0],
+            v[6] | v[7] << 8, fast);
     bt.started = 1;
     load_key();
     if (bt.have_key) {
@@ -589,7 +609,10 @@ void bt_poll(void)
     static hci_pkt_t p;
     if (!bt.started)
         return;
-    for (int n = 0; n < 16 && hci_pending(); n++) {
+    /* everything that arrived since the last call: the buttons must be
+     * the newest state, not a queue (bounded to 4 ms of work) */
+    uint32_t t0 = timer_ticks();
+    while (hci_pending() && timer_ticks() - t0 < 4000) {
         if (hci_recv(&p, 20000) != 0)
             break;
         dispatch(&p);
