@@ -993,10 +993,19 @@ def test_bt_pair_and_reconnect(b, opts):
             q.mini.write(b"M")
             _mini_expect(q, "cartridge menu")
             time.sleep(0.3)
-            chip.report(0x08 | 0x20)
+            # the real pad streams reports all the time: a burst of 600 idle
+            # ones must not delay the next press (it did on the Pi)
+            for _ in range(int(os.environ.get('BURST', 600))):
+                chip.report(0x08)
             time.sleep(0.2)
+            t_press = time.time()
+            chip.report(0x08 | 0x20)
+            time.sleep(0.05)
             chip.report(0x08)
-            _mini_expect(q, "playing snake.b33")
+            _mini_expect(q, "playing snake.b33", timeout=60)
+            lag = time.time() - t_press
+            print(f"    lag after burst: {lag:.2f} s")
+            assert lag < 0.5, f"input lag {lag:.2f} s after a burst of reports"
             time.sleep(1.0)
             chip.report(0x08, ps=1)
             _mini_expect(q, "update+draw")

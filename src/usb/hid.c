@@ -49,6 +49,10 @@ static uint8_t prev_keys[8];
 static uint8_t queue[64];
 static unsigned q_head, q_tail;
 static uint32_t kbd_buttons, pad_buttons, bt_buttons;
+/* Buttons seen pressed since the last hid_buttons(): a press and release
+ * that both arrive between two frames (a quick tap, or a backlog of
+ * reports processed at once) still count for one frame. */
+static uint32_t latched;
 static int bt_ps_held;
 static int quit_edge;
 static int caps;
@@ -203,6 +207,7 @@ static void keyboard_report(const uint8_t *r, uint32_t len)
     for (int i = 2; i < 8; i++) held |= r[i] == rep_usage;
     if (!held) rep_usage = 0;
     kbd_buttons = buttons;
+    latched |= buttons;
     memcpy(prev_keys, r, 8);
 }
 
@@ -222,7 +227,9 @@ int hid_getc(void)
 
 uint32_t hid_buttons(void)
 {
-    return kbd_buttons | pad_buttons | bt_buttons;
+    uint32_t b = kbd_buttons | pad_buttons | bt_buttons | latched;
+    latched = 0;
+    return b;
 }
 
 void hid_bt_report(const uint8_t *r, uint32_t len)
@@ -238,6 +245,7 @@ void hid_bt_report(const uint8_t *r, uint32_t len)
         quit_edge = 1;
     bt_ps_held = ps;
     bt_buttons = b;
+    latched |= b;
 }
 
 void hid_bt_clear(void)
@@ -468,6 +476,7 @@ static void gamepad_report(const uint8_t *r, uint32_t len)
         (pad_buttons & (HID_START | HID_SELECT)) != (HID_START | HID_SELECT))
         quit_edge = 1;
     pad_buttons = b;
+    latched |= b;
 }
 
 void hid_report(int kind, const uint8_t *data, uint32_t len)

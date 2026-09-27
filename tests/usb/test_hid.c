@@ -111,6 +111,15 @@ int main(void)
     hid_report(USB_GAMEPAD, bt, 78);
     CHECK(hid_buttons() == (HID_A | HID_LEFT));
 
+    /* press and release between two reads: seen once, then gone */
+    hid_ds4_attach();
+    uint8_t tap[64] = { 0x01, 128, 128, 128, 128, 0x08 | 0x20 };
+    hid_report(USB_GAMEPAD, tap, 64);
+    tap[5] = 0x08;
+    hid_report(USB_GAMEPAD, tap, 64);
+    CHECK(hid_buttons() == HID_A);
+    CHECK(hid_buttons() == 0);
+
     printf("hid: %d/%d checks passed\n", checks - fails, checks);
     return fails != 0;
 }

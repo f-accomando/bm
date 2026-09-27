@@ -226,6 +226,12 @@ Stato:
    `73d199c`): abbinamento del DS4 riuscito e input funzionante, ma con oltre 1 s di
    ritardo: a 115200 baud i report del DS4 si accumulavano nel chip. Dopo il firmware la
    UART passa a 921600 baud (0xFC18) e `bt_poll` svuota tutto a ogni fotogramma.
+   Con `97f7ea1` il ritardo è sceso ma restava (~7 passi di Snake): leggendo la UART solo
+   una volta per fotogramma, la FIFO da 16 byte si riempiva, RTS fermava il chip e passava
+   circa un pacchetto per fotogramma. Ora la ricezione è **a interrupt** in un buffer
+   circolare da 16 KiB, e i tasti premuti tra due fotogrammi restano validi per uno
+   (una pressione breve non si perde). Il test in QEMU manda una raffica di 600 report e
+   poi un tasto: deve arrivare entro 0,5 s (misurati ~0,1 s).
 3. velocità UART alta (0xFC18), ricezione a interrupt, avvio più rapido (firmware a
    velocità alta), abbinamento anche dal menu, più controller.
 
