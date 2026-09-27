@@ -7,8 +7,12 @@
 #define UART_BAUD 115200
 #endif
 
-/* PL011 UART0 on GPIO14 (TXD, pin 8) / GPIO15 (RXD, pin 10). */
+/* Serial console on GPIO14 (TXD, pin 8) / GPIO15 (RXD, pin 10): the PL011
+ * UART0 after uart_init, the mini UART after uart_use_mini (when the PL011
+ * is given to the Bluetooth chip). Same pins and baud rate either way. */
 void     uart_init(void);
+void     uart_use_mini(void);
+int      uart_is_mini(void);
 uint32_t uart_clock(void);
 void     uart_putc(char c);
 void     uart_puts(const char *s);

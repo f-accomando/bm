@@ -208,7 +208,18 @@ M9 (MVP) ─┬─ M10 audio
   Sul Pi (kernel `89452b3`): il record di Snake resta dopo lo spegnimento, il layout
   scelto con `L` resta dopo il riavvio; DualShock 4 via USB funzionante.
 
-## M12 — Controller Bluetooth (L, rischio alto)
+## M12 — Controller Bluetooth (L, rischio alto) — in corso
+
+Stato:
+1. ✅ (QEMU) console sulla mini UART, UART0 al chip (GPIO30–33, RTS/CTS), clock 32 kHz
+   (GPCLK2 su GPIO43), BT_ON su GPIO45 con power-cycle se il chip non risponde, patch
+   firmware da `bm33/BCM43430A1.hcd`, indirizzo e versione, ricerca dispositivi
+   (monitor `T`). Test in QEMU con un **chip simulato** in Python sulla UART0
+   (`test_bt_start_and_scan`): è la base per provare anche i passi successivi.
+2. connessione ACL, L2CAP, SDP, HID (canali 0x11/0x13) con il DS4;
+3. abbinamento SSP dal menu, chiavi in `bm33/config.txt`, riconnessione automatica;
+4. velocità UART alta (0xFC18) e ricezione a interrupt per i report del DS4.
+
 Analisi dei costi: ~3000 righe di C (5 volte lo stack USB), 10–15 prove sul Pi; nessun
 emulatore del chip, quindi niente test in QEMU se non su tracce HCI registrate.
 - La UART PL011 passa al chip BCM43438 (GPIO 30–33, RTS/CTS); la console seriale si

@@ -19,6 +19,7 @@
 #include "usb/usb.h"
 #include "carts.h"
 #include "config.h"
+#include "bt/bt.h"
 
 static void help(void)
 {
@@ -30,7 +31,7 @@ static void help(void)
             "  U  receive a cartridge over serial and play it\n"
             "  i  system info            m  heap usage          c  clear screen\n"
             "  y  USB: scan the port     Y  USB live test (10 s)\n"
-            "  L  keyboard layout Italian / US\n"
+            "  L  keyboard layout Italian / US   T  Bluetooth: start and search (M12)\n"
             "  b  boot diagnostics: benchmarks, s32 and b33 demos, Lua boot script\n"
             "  k  CPU benchmark          p  rendering benchmark 640x360 RGB565\n"
             "  V  .b33 drawing: direct on screen / via RAM (compare with p)\n"
@@ -144,6 +145,7 @@ void monitor_run(void)
         case 'F': carts_init(); carts_list(); break;
         case 'y': usb_init(); usb_print(); break;
         case 'Y': usb_live_test(10); break;
+        case 'T': bt_scan(8); break;
         case 'L':
             hid_set_layout(hid_layout()[0] == 'i' ? "us" : "it");
             kprintf("keyboard layout: %s\n", hid_layout());

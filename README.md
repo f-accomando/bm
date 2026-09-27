@@ -37,7 +37,7 @@ Stress test di rendering (soglie 60/30 fps): [docs/STRESS.md](docs/STRESS.md) �
 | **M9** | **MVP**: avvio sul menu, giochi demo, immagine SD, guida API | ✅ verificato sul Pi |
 | M10 | Audio: HDMI (o PWM), APU s32, suoni nei giochi | |
 | **M11** | SD in scrittura: salvataggi, record, impostazioni | ✅ verificato sul Pi |
-| M12 | Controller **Bluetooth** (uno di riferimento, poi altri) | |
+| M12 | Controller **Bluetooth** (DualShock 4) | 🔧 passo 1: chip e ricerca (QEMU con chip simulato) |
 | M13 | Altri tipi di cartuccia: s32 Lua (con lua32), codice ARM nativo | |
 | M14 | Grafica 2.0: DMA, modo 32 bit, 3D con texture, menu con anteprime | |
 
@@ -81,6 +81,7 @@ Lua `boot.lua`) si esegue dal monitor con **`b`**.
 | `y` | USB: cerca di nuovo il dispositivo (dopo averlo collegato) |
 | `Y` | USB: test dal vivo per 10 s (contatori ok/nak/err e ultimo report) |
 | `L` | layout tastiera: italiano ↔ US |
+| `T` | Bluetooth (M12, in corso): avvia il chip, carica il firmware, cerca dispositivi per 8 s; la console seriale passa alla mini UART (stessi pin) |
 | `p` | benchmark di rendering 640×360 RGB565, disegnando direttamente sullo schermo e via RAM |
 | `V` | cartucce `.b33`: disegno diretto sullo schermo (default) o via buffer in RAM |
 | `U` | riceve una cartuccia dalla seriale (`bm33_load.py PORTA --cart file.b33`) e la esegue |

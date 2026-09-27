@@ -133,6 +133,8 @@ sdcard: $(BUILD)/$(KERNEL).img $(SD_CARTS)
 	cp boot/config.txt $(DIST)/
 	cp $(BUILD)/$(KERNEL).img $(DIST)/kernel.img
 	cp $(SD_CARTS) $(DIST)/carts/
+	@if [ -f $(FW_DIR)/BCM43430A1.hcd ]; then mkdir -p $(DIST)/bm33 && \
+	    cp $(FW_DIR)/BCM43430A1.hcd $(DIST)/bm33/ && echo "cp BCM43430A1.hcd -> $(DIST)/bm33/"; fi
 	@echo "Copy the contents of $(DIST)/ ($(KERNEL)) to the root of a FAT32 SD card."
 
 # Whole SD card image (MBR + FAT32): firmware, config, kernel and the
@@ -145,7 +147,8 @@ image: $(BUILD)/kernel.img $(SD_CARTS)
 	    $(FW_DIR)/bootcode.bin=bootcode.bin $(FW_DIR)/start.elf=start.elf \
 	    $(FW_DIR)/fixup.dat=fixup.dat boot/config.txt=config.txt \
 	    $(BUILD)/kernel.img=kernel.img \
-	    $(foreach c,$(SD_CARTS),$(c)=carts/$(notdir $(c)))
+	    $(foreach c,$(SD_CARTS),$(c)=carts/$(notdir $(c))) \
+	    $(if $(wildcard $(FW_DIR)/BCM43430A1.hcd),$(FW_DIR)/BCM43430A1.hcd=bm33/BCM43430A1.hcd)
 
 sdcard-chainloader:
 	$(MAKE) sdcard KERNEL=chainloader

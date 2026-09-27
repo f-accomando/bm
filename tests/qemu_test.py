@@ -39,17 +39,21 @@ def free_port():
 
 
 class Qemu:
-    def __init__(self, image, extra=()):
+    def __init__(self, image, extra=(), mini_uart=False):
+        """mini_uart: the second serial port (the mini UART, where the
+        console goes when the PL011 is given to Bluetooth) on a socket too,
+        as self.mini."""
         self.tmp = tempfile.mkdtemp(prefix="bm33-")
         self.mon_path = os.path.join(self.tmp, "mon.sock")
-        tcp = free_port()
+        tcp, tcp2 = free_port(), free_port()
         self.proc = subprocess.Popen(
             [QEMU, "-M", "raspi0", "-bios", image, "-display", "none",
              "-serial", f"tcp:127.0.0.1:{tcp},server=on,wait=on",
-             "-serial", "null",
+             "-serial", f"tcp:127.0.0.1:{tcp2},server=on,wait=on" if mini_uart else "null",
              "-monitor", f"unix:{self.mon_path},server=on,wait=off", *extra],
             stdout=subprocess.DEVNULL, stderr=subprocess.PIPE)
         self.port = bm33_load.Port(f"tcp:127.0.0.1:{tcp}", 115200)
+        self.mini = bm33_load.Port(f"tcp:127.0.0.1:{tcp2}", 115200) if mini_uart else None
         self.buf = b""
 
     # file-like sink so bm33_load.Loader can echo into our buffer
@@ -735,6 +739,105 @@ def test_sd_save_and_config(b, opts):
                                text=True, env=env).stdout
         assert saves.count(".SAV") == 1, saves
     finally:
+        shutil.rmtree(tmp, ignore_errors=True)
+
+
+class FakeBtChip:
+    """Plays the BCM43438 on the PL011 socket: answers HCI commands (H4)
+    like the real chip, ignoring the first reset to exercise the power
+    cycle, and reports one DualShock 4 during inquiry."""
+
+    ADDR = bytes([0x66, 0x55, 0x44, 0x33, 0x22, 0x11])          # 11:22:33:44:55:66
+    DS4 = bytes([0x03, 0x02, 0x01, 0x6D, 0x66, 0x1C])           # 1c:66:6d:01:02:03
+
+    def __init__(self, port):
+        self.port, self.buf, self.log = port, b"", []
+        self.resets = 0
+
+    def _read(self, n, timeout=5.0):
+        deadline = time.time() + timeout
+        while len(self.buf) < n:
+            if time.time() > deadline:
+                raise AssertionError(f"fake chip: waiting for {n} bytes, got {self.buf!r}")
+            self.buf += self.port.read(0.05)
+        out, self.buf = self.buf[:n], self.buf[n:]
+        return out
+
+    def _event(self, code, params):
+        self.port.write(bytes([0x04, code, len(params)]) + params)
+
+    def _complete(self, op, ret=b""):
+        self._event(0x0E, bytes([1, op & 0xFF, op >> 8, 0]) + ret)
+
+    def serve(self, until_op, timeout=20.0):
+        """Answers commands until `until_op` has been answered."""
+        deadline = time.time() + timeout
+        while time.time() < deadline:
+            t = self._read(1)[0]
+            assert t == 0x01, f"fake chip: packet type {t:#x}"
+            op = int.from_bytes(self._read(2), "little")
+            params = self._read(self._read(1)[0])
+            self.log.append((op, params))
+            if op == 0x0C03:                                   # reset
+                self.resets += 1
+                if self.resets == 1:
+                    continue                                   # silent: power cycle
+                self._complete(op)
+            elif op == 0x1001:                                 # local version
+                self._complete(op, bytes([9, 0x2B, 0, 9, 0x0F, 0, 0x06, 0x41]))
+            elif op == 0x1009:                                 # BD_ADDR
+                self._complete(op, self.ADDR)
+            elif op == 0x0401:                                 # inquiry
+                self._event(0x0F, bytes([0, 1, op & 0xFF, op >> 8]))
+                self._event(0x22, bytes([1]) + self.DS4 + bytes([1, 0, 0x08, 0x25, 0x00, 0, 0, 0xC4]))
+                self._event(0x01, bytes([0]))
+            else:                                              # firmware records etc.
+                self._complete(op)
+            if op == until_op:
+                return
+        raise AssertionError("fake chip: timeout")
+
+
+def test_bt_start_and_scan(b, opts):
+    """M12 step 1 against a simulated chip: the console moves to the mini
+    UART, the chip is reset (power cycle after a silent first try), the
+    firmware patch from the SD card is sent record by record, address and
+    version are read, and an inquiry finds a DualShock 4."""
+    tmp = tempfile.mkdtemp(prefix="bm33-bt-")
+    img = os.path.join(tmp, "sd.img")
+    hcd = os.path.join(tmp, "BCM43430A1.hcd")
+    with open(hcd, "wb") as f:                         # two records, like the real file
+        f.write(bytes([0x4C, 0xFC, 8]) + bytes(range(8)) + bytes([0x4E, 0xFC, 4, 0xFF, 0xFF, 0xFF, 0xFF]))
+    mksd.build(img, [(hcd, "bm33/BCM43430A1.hcd")])
+    q = Qemu(b("kernel.img"), ["-drive", f"if=sd,format=raw,file={img}"], mini_uart=True)
+    try:
+        q.boot()
+        q.send("T")
+        q.expect("(same pins, same speed)\r\n")
+        chip = FakeBtChip(q.port)
+        chip.buf, q.buf = q.buf, b""                   # HCI bytes already read
+        chip.serve(0x0401)                             # ... up to the inquiry
+        mini = b""
+        deadline = time.time() + 20
+        while b"device found" not in mini and time.time() < deadline:
+            mini += q.mini.read(0.1)
+        text = mini.decode(errors="replace")
+        for s_ in ("power-cycling the chip", "firmware patch loaded (2 records, 18 bytes)",
+                   "bt: ready, address 11:22:33:44:55:66, HCI 9, LMP subversion 4106",
+                   "bt: found 1c:66:6d:01:02:03 class 002508 (gamepad)", "bt: 1 device found"):
+            assert s_ in text, text
+        ops = [op for op, _ in chip.log]
+        assert ops[:4] == [0x0C03, 0x0C03, 0xFC2E, 0xFC4C], [hex(o) for o in ops]
+        assert chip.log[3][1] == bytes(range(8)) and 0xFC4E in ops, chip.log
+        # the monitor now answers on the mini UART
+        q.mini.write(b"i")
+        out = b""
+        deadline = time.time() + 5
+        while b"uptime" not in out and time.time() < deadline:
+            out += q.mini.read(0.1)
+        assert b"uptime" in out, out
+    finally:
+        q.close()
         shutil.rmtree(tmp, ignore_errors=True)
 
 
