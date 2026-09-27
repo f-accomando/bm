@@ -28,6 +28,12 @@ void hid_ds4_attach(void);
 uint32_t hid_ds4_buttons(const uint8_t *d, uint32_t len, int *ps);
 void hid_report(int kind, const uint8_t *data, uint32_t len);
 
+/* DualShock 4 over Bluetooth: an input report as it comes from the
+ * interrupt channel, after the 0xA1 header (r[0] = report ID 0x01 or
+ * 0x11). Its buttons join hid_buttons(); clear on disconnection. */
+void hid_bt_report(const uint8_t *r, uint32_t len);
+void hid_bt_clear(void);
+
 /* Text input from the keyboard (layout applied): next byte or -1. */
 int      hid_getc(void);
 /* Buttons held now, from keyboard or gamepad. */

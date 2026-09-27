@@ -104,6 +104,10 @@ void uart_use_mini(void)
     mmio_write(MU_CNTL, 3);                     /* RX and TX on */
     clock_hz = core;
     mini = 1;
+    /* switching the pins can clock in a stray byte (0x80 seen on the Pi) */
+    timer_delay_us(2000);
+    while (mmio_read(MU_LSR) & LSR_RX_READY)
+        (void)mmio_read(MU_IO);
 }
 
 int uart_is_mini(void)

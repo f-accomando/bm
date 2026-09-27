@@ -48,7 +48,8 @@ static const keydef_t *layout = layout_it;
 static uint8_t prev_keys[8];
 static uint8_t queue[64];
 static unsigned q_head, q_tail;
-static uint32_t kbd_buttons, pad_buttons;
+static uint32_t kbd_buttons, pad_buttons, bt_buttons;
+static int bt_ps_held;
 static int quit_edge;
 static int caps;
 
@@ -221,7 +222,28 @@ int hid_getc(void)
 
 uint32_t hid_buttons(void)
 {
-    return kbd_buttons | pad_buttons;
+    return kbd_buttons | pad_buttons | bt_buttons;
+}
+
+void hid_bt_report(const uint8_t *r, uint32_t len)
+{
+    int off = len && r[0] == 0x01 ? 1 : len && r[0] == 0x11 ? 3 : -1;
+    if (off < 0 || len < (uint32_t)off + 7)
+        return;
+    int ps = 0;
+    uint32_t b = hid_ds4_buttons(r + off, len - (uint32_t)off, &ps);
+    if ((ps && !bt_ps_held) ||
+        ((b & (HID_START | HID_SELECT)) == (HID_START | HID_SELECT) &&
+         (bt_buttons & (HID_START | HID_SELECT)) != (HID_START | HID_SELECT)))
+        quit_edge = 1;
+    bt_ps_held = ps;
+    bt_buttons = b;
+}
+
+void hid_bt_clear(void)
+{
+    bt_buttons = 0;
+    bt_ps_held = 0;
 }
 
 int hid_quit_pressed(void)

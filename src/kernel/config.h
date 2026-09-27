@@ -11,6 +11,9 @@ void config_load(void);
 /* Writes the current settings; prints an error if it cannot. */
 void config_save(void);
 
+/* Sets a key (written by the next config_save). */
+void config_set(const char *key, const char *value);
+
 /* Value of a key read from the file, or NULL. */
 const char *config_get(const char *key);
 

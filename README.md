@@ -37,7 +37,7 @@ Stress test di rendering (soglie 60/30 fps): [docs/STRESS.md](docs/STRESS.md) �
 | **M9** | **MVP**: avvio sul menu, giochi demo, immagine SD, guida API | ✅ verificato sul Pi |
 | M10 | Audio: HDMI (o PWM), APU s32, suoni nei giochi | |
 | **M11** | SD in scrittura: salvataggi, record, impostazioni | ✅ verificato sul Pi |
-| M12 | Controller **Bluetooth** (DualShock 4) | 🔧 passo 1: chip e ricerca (QEMU con chip simulato) |
+| M12 | Controller **Bluetooth** (DualShock 4) | 🔧 abbinamento e riconnessione in QEMU (DS4 simulato), da verificare sul Pi |
 | M13 | Altri tipi di cartuccia: s32 Lua (con lua32), codice ARM nativo | |
 | M14 | Grafica 2.0: DMA, modo 32 bit, 3D con texture, menu con anteprime | |
 
@@ -81,7 +81,7 @@ Lua `boot.lua`) si esegue dal monitor con **`b`**.
 | `y` | USB: cerca di nuovo il dispositivo (dopo averlo collegato) |
 | `Y` | USB: test dal vivo per 10 s (contatori ok/nak/err e ultimo report) |
 | `L` | layout tastiera: italiano ↔ US |
-| `T` | Bluetooth (M12, in corso): avvia il chip, carica il firmware, cerca dispositivi per 8 s; la console seriale passa alla mini UART (stessi pin) |
+| `T` | Bluetooth: cerca per 8 s e **abbina il primo controller** trovato (DS4: Share + PS finché lampeggia); la console seriale passa alla mini UART (stessi pin) |
 | `p` | benchmark di rendering 640×360 RGB565, disegnando direttamente sullo schermo e via RAM |
 | `V` | cartucce `.b33`: disegno diretto sullo schermo (default) o via buffer in RAM |
 | `U` | riceve una cartuccia dalla seriale (`bm33_load.py PORTA --cart file.b33`) e la esegue |
@@ -114,6 +114,11 @@ viene scelta l'interfaccia tastiera, anche se il dispositivo usa i report con ID
 - **Gamepad HID generici** (il descrittore HID viene analizzato: pulsanti, assi X/Y,
   croce direzionale) e **controller Xbox 360 cablati**: croce o levetta sinistra,
   A/X = A, B/Y = B, **Start+Select (Back) = esci**.
+- **DualShock 4 (PS4) via Bluetooth** (M12): dal monitor `T` con il controller in
+  abbinamento (Share + PS finché la luce lampeggia). La chiave viene salvata in
+  `bm33/config.txt` (`bt_pad=`): dalle accensioni successive il Bluetooth parte da solo
+  (circa 3 s in più all'avvio per il firmware del chip) e basta premere **PS**.
+  Stessi tasti del cavo USB.
 - **DualShock 4 (PS4)** via cavo USB: croce direzionale o levetta sinistra,
   croce/quadrato = A, cerchio/triangolo = B, Options = Start, Share = Select,
   **tasto PS (o Share+Options) = esci**. Lo stesso decodificatore servirà per il

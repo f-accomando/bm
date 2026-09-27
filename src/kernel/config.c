@@ -22,7 +22,7 @@ const char *config_get(const char *key)
     return NULL;
 }
 
-static void set(const char *key, const char *value)
+void config_set(const char *key, const char *value)
 {
     for (int i = 0; i < nkv; i++)
         if (strcmp(kv[i].key, key) == 0) {
@@ -57,7 +57,7 @@ static void parse(const char *text, size_t len)
         key[kl] = 0;
         memcpy(value, eq + 1, vl);
         value[vl] = 0;
-        set(key, value);
+        config_set(key, value);
     }
 }
 
@@ -83,8 +83,8 @@ void config_load(void)
 
 void config_save(void)
 {
-    set("layout", hid_layout());
-    set("draw", b33_via_ram() ? "ram" : "direct");
+    config_set("layout", hid_layout());
+    config_set("draw", b33_via_ram() ? "ram" : "direct");
 
     char *buf = malloc(MAX_KEYS * 100 + 64);
     if (!buf)

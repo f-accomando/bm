@@ -13,6 +13,8 @@ void btuart_set_baud(uint32_t baud);
 void btuart_write(const void *buf, uint32_t len);
 /* One byte, or -1 after timeout_us. */
 int  btuart_read(uint32_t timeout_us);
+/* 1 if a byte is waiting. */
+int  btuart_ready(void);
 /* Drops whatever is waiting in the receive FIFO. */
 void btuart_drain(void);
 

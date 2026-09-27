@@ -33,6 +33,7 @@
 #include "usb/usb.h"
 #include "carts.h"
 #include "config.h"
+#include "bt/bt.h"
 #include "version.h"
 
 
@@ -182,6 +183,8 @@ void kernel_main(uint32_t atags)
     usb_print();
     carts_init();
     config_load();
+    if (bt_paired())
+        bt_start();             /* a paired pad can come back with its PS button */
 
 #ifdef BM33_BOOT_STRESS
     run_stress();

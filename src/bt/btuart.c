@@ -80,6 +80,11 @@ int btuart_read(uint32_t timeout_us)
     return (int)(mmio_read(UART_DR) & 0xFF);
 }
 
+int btuart_ready(void)
+{
+    return !(mmio_read(UART_FR) & FR_RXFE);
+}
+
 void btuart_drain(void)
 {
     while (!(mmio_read(UART_FR) & FR_RXFE))

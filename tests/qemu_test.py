@@ -745,7 +745,7 @@ def test_sd_save_and_config(b, opts):
 class FakeBtChip:
     """Plays the BCM43438 on the PL011 socket: answers HCI commands (H4)
     like the real chip, ignoring the first reset to exercise the power
-    cycle, and reports one DualShock 4 during inquiry."""
+    cycle, and reports one phone during inquiry (nothing to pair)."""
 
     ADDR = bytes([0x66, 0x55, 0x44, 0x33, 0x22, 0x11])          # 11:22:33:44:55:66
     DS4 = bytes([0x03, 0x02, 0x01, 0x6D, 0x66, 0x1C])           # 1c:66:6d:01:02:03
@@ -789,7 +789,7 @@ class FakeBtChip:
                 self._complete(op, self.ADDR)
             elif op == 0x0401:                                 # inquiry
                 self._event(0x0F, bytes([0, 1, op & 0xFF, op >> 8]))
-                self._event(0x22, bytes([1]) + self.DS4 + bytes([1, 0, 0x08, 0x25, 0x00, 0, 0, 0xC4]))
+                self._event(0x22, bytes([1]) + self.DS4 + bytes([1, 0, 0x0C, 0x02, 0x5A, 0, 0, 0xC4]))
                 self._event(0x01, bytes([0]))
             else:                                              # firmware records etc.
                 self._complete(op)
@@ -802,7 +802,7 @@ def test_bt_start_and_scan(b, opts):
     """M12 step 1 against a simulated chip: the console moves to the mini
     UART, the chip is reset (power cycle after a silent first try), the
     firmware patch from the SD card is sent record by record, address and
-    version are read, and an inquiry finds a DualShock 4."""
+    version are read, and an inquiry lists a device (a phone: no pairing)."""
     tmp = tempfile.mkdtemp(prefix="bm33-bt-")
     img = os.path.join(tmp, "sd.img")
     hcd = os.path.join(tmp, "BCM43430A1.hcd")
@@ -819,12 +819,13 @@ def test_bt_start_and_scan(b, opts):
         chip.serve(0x0401)                             # ... up to the inquiry
         mini = b""
         deadline = time.time() + 20
-        while b"device found" not in mini and time.time() < deadline:
+        while b"no game controller among them" not in mini and time.time() < deadline:
             mini += q.mini.read(0.1)
         text = mini.decode(errors="replace")
         for s_ in ("power-cycling the chip", "firmware patch loaded (2 records, 18 bytes)",
                    "bt: ready, address 11:22:33:44:55:66, HCI 9, LMP subversion 4106",
-                   "bt: found 1c:66:6d:01:02:03 class 002508 (gamepad)", "bt: 1 device found"):
+                   "bt: found 1c:66:6d:01:02:03 class 5a020c (phone)", "bt: 1 device found",
+                   "bt: no game controller among them"):
             assert s_ in text, text
         ops = [op for op, _ in chip.log]
         assert ops[:4] == [0x0C03, 0x0C03, 0xFC2E, 0xFC4C], [hex(o) for o in ops]
@@ -838,6 +839,217 @@ def test_bt_start_and_scan(b, opts):
         assert b"uptime" in out, out
     finally:
         q.close()
+        shutil.rmtree(tmp, ignore_errors=True)
+
+
+class FakeDs4Chip(FakeBtChip):
+    """The chip plus a DualShock 4 behind it: pairing (SSP Just Works),
+    encryption, HID channels, input reports, and the reconnection the pad
+    starts itself when its PS button is pressed."""
+
+    KEY = bytes(range(0xA0, 0xB0))
+    HANDLE = 0x000B
+
+    def packet(self):
+        t = self._read(1)[0]
+        if t == 0x01:
+            op = int.from_bytes(self._read(2), "little")
+            return "cmd", op, self._read(self._read(1)[0])
+        assert t == 0x02, f"fake chip: packet type {t:#x}"
+        hdr = self._read(4)
+        payload = self._read(int.from_bytes(hdr[2:4], "little"))
+        return "acl", int.from_bytes(hdr[:2], "little") & 0x0FFF, payload
+
+    def status(self, op, st=0):
+        self._event(0x0F, bytes([st, 1, op & 0xFF, op >> 8]))
+
+    def cmd(self, want, reply="complete", ret=b""):
+        """Reads the next packet: it must be command `want`; answers it."""
+        kind, op, params = self.packet()
+        assert kind == "cmd" and op == want, f"expected command {want:#06x}, got {kind} {op:#06x}"
+        self.log.append((op, params))
+        if reply == "complete":
+            self._complete(op, ret)
+        elif reply == "status":
+            self.status(op)
+        return params
+
+    def init(self, reset_silent):
+        """Reset (maybe silent), firmware, version, address, setup commands."""
+        if reset_silent:
+            self.cmd(0x0C03, reply=None)
+        self.cmd(0x0C03)
+        self.cmd(0xFC2E)
+        while True:
+            kind, op, params = self.packet()
+            self._complete(op)
+            if op == 0xFC4E:
+                break
+        self.cmd(0x0C03)
+        self.cmd(0x1001, ret=bytes([7, 0x09, 0x22, 7, 0x0F, 0, 0x09, 0x22]))
+        self.cmd(0x1009, ret=self.ADDR)
+        for op in (0x0C01, 0x0C56, 0x0C13, 0x0C24, 0x0C1A):
+            self.cmd(op)
+
+    # L2CAP from the pad's side
+    def l2(self, cid, data):
+        frame = len(data).to_bytes(2, "little") + cid.to_bytes(2, "little") + data
+        hdr = (self.HANDLE | 0x2000).to_bytes(2, "little") + len(frame).to_bytes(2, "little")
+        self.port.write(bytes([0x02]) + hdr + frame)
+
+    def sig(self, code, ident, data):
+        self.l2(0x0001, bytes([code, ident]) + len(data).to_bytes(2, "little") + data)
+
+    def host_sig(self):
+        """Next signaling command from the host: (code, id, data)."""
+        kind, handle, payload = self.packet()
+        assert kind == "acl" and handle == self.HANDLE, (kind, handle)
+        cid = int.from_bytes(payload[2:4], "little")
+        assert cid == 1, f"host sent data on cid {cid:#x}, expected signaling"
+        s = payload[4:]
+        return s[0], s[1], s[4:4 + int.from_bytes(s[2:4], "little")]
+
+    def configure(self, our_cid, host_cid):
+        """Host config request -> accepted; ours -> host accepts it."""
+        code, ident, data = self.host_sig()
+        assert code == 0x04 and int.from_bytes(data[:2], "little") == our_cid, (code, data)
+        self.sig(0x05, ident, host_cid.to_bytes(2, "little") + bytes(4))
+        self.sig(0x04, 0x77, host_cid.to_bytes(2, "little") + bytes(2))
+        code, ident, data = self.host_sig()
+        assert code == 0x05 and ident == 0x77, (code, data)
+
+    def report(self, buttons=0x08, ps=0):
+        """DS4 reduced input report 0x01 on the host's interrupt channel."""
+        self.l2(0x0041, bytes([0xA1, 0x01, 128, 128, 128, 128, buttons, 0, ps, 0, 0]))
+
+
+def _mini_expect(q, needle, timeout=20):
+    if isinstance(needle, str):
+        needle = needle.encode()
+    deadline = time.time() + timeout
+    while needle not in q.mini_buf:
+        assert time.time() < deadline, f"mini UART: waiting for {needle!r}:\n" + \
+            q.mini_buf.decode(errors="replace")
+        q.mini_buf += q.mini.read(0.05)
+    i = q.mini_buf.index(needle) + len(needle)
+    seen, q.mini_buf = q.mini_buf[:i], q.mini_buf[i:]
+    return seen.decode(errors="replace")
+
+
+def test_bt_pair_and_reconnect(b, opts):
+    """M12 with a simulated DualShock 4: pairing from the monitor ('T'),
+    the pad drives the menu and quits a game with PS; after a reboot the
+    stack starts by itself, the pad reconnects with the saved link key."""
+    tmp = tempfile.mkdtemp(prefix="bm33-bt-")
+    img = os.path.join(tmp, "sd.img")
+    hcd = os.path.join(tmp, "BCM43430A1.hcd")
+    with open(hcd, "wb") as f:
+        f.write(bytes([0x4C, 0xFC, 4, 1, 2, 3, 4, 0x4E, 0xFC, 4, 0xFF, 0xFF, 0xFF, 0xFF]))
+    mksd.build(img, [(hcd, "bm33/BCM43430A1.hcd"), (b("carts/snake.b33"), "carts/snake.b33")])
+    drive = ["-drive", f"if=sd,format=raw,file={img}"]
+    pad = FakeDs4Chip.DS4
+    try:
+        # ---- first boot: pair from the monitor
+        q = Qemu(b("kernel.img"), drive, mini_uart=True)
+        q.mini_buf = b""
+        try:
+            q.boot()
+            q.send("T")
+            q.expect("(same pins, same speed)\r\n")
+            chip = FakeDs4Chip(q.port)
+            chip.buf, q.buf = q.buf, b""
+            chip.init(reset_silent=False)
+            chip.cmd(0x0401, reply="status")                                   # inquiry
+            chip._event(0x22, bytes([1]) + pad + bytes([1, 0, 0x08, 0x25, 0x00, 0x34, 0x12, 0xC4]))
+            chip._event(0x01, bytes([0]))
+            p = chip.cmd(0x0405, reply="status")                               # create connection
+            assert p[:6] == pad and p[8] == 1 and p[10:12] == bytes([0x34, 0x92]), p.hex()
+            chip._event(0x03, bytes([0]) + chip.HANDLE.to_bytes(2, "little") + pad + bytes([1, 0]))
+            chip.cmd(0x0411, reply="status")                                   # authentication
+            chip._event(0x17, pad)                                             # link key request
+            chip.cmd(0x040C)                                                   # -> no key yet
+            chip._event(0x31, pad)                                             # IO capability request
+            io = chip.cmd(0x042B)
+            assert io == pad + bytes([0x03, 0x00, 0x04]), io.hex()             # NoInputNoOutput
+            chip._event(0x33, pad + (123456).to_bytes(4, "little"))            # user confirmation
+            chip.cmd(0x042C)
+            chip._event(0x36, bytes([0]) + pad)
+            chip._event(0x18, pad + chip.KEY + bytes([4]))                     # link key
+            chip._event(0x06, bytes([0]) + chip.HANDLE.to_bytes(2, "little"))
+            chip.cmd(0x0413, reply="status")                                   # encryption on
+            chip._event(0x08, bytes([0]) + chip.HANDLE.to_bytes(2, "little") + bytes([1]))
+            for psm, host_cid, pad_cid in ((0x11, 0x40, 0x70), (0x13, 0x41, 0x71)):
+                code, ident, data = chip.host_sig()
+                assert code == 0x02 and data == psm.to_bytes(2, "little") + host_cid.to_bytes(2, "little")
+                chip.sig(0x03, ident, pad_cid.to_bytes(2, "little") + host_cid.to_bytes(2, "little") + bytes(4))
+                chip.configure(pad_cid, host_cid)
+            out = _mini_expect(q, "next time just press PS")
+            assert "bt: pairing with 1c:66:6d:01:02:03" in out and \
+                "bt: controller 1c:66:6d:01:02:03 connected" in out, out
+            # the pad drives the menu: cross plays the first cart, PS quits
+            q.mini.write(b"M")
+            _mini_expect(q, "cartridge menu")
+            time.sleep(0.3)
+            chip.report(0x08 | 0x20)
+            time.sleep(0.2)
+            chip.report(0x08)
+            _mini_expect(q, "playing snake.b33")
+            time.sleep(1.0)
+            chip.report(0x08, ps=1)
+            _mini_expect(q, "update+draw")
+            chip.report(0x08, ps=0)
+            time.sleep(0.3)
+            q.mini.write(b"q")
+            _mini_expect(q, "back to the monitor")
+        finally:
+            q.close()
+
+        part = os.path.join(tmp, "part.img")
+        with open(img, "rb") as f, open(part, "wb") as o:
+            f.seek(2048 * 512)
+            o.write(f.read())
+        env = dict(os.environ, MTOOLS_SKIP_CHECK="1")
+        cfg = subprocess.run(["mtype", "-i", part, "::/BM33/CONFIG.TXT"], capture_output=True,
+                             text=True, env=env).stdout
+        assert "bt_pad=1c:66:6d:01:02:03 " + FakeDs4Chip.KEY.hex() in cfg, cfg
+
+        # ---- second boot: the stack starts by itself, the pad comes back
+        q = Qemu(b("kernel.img"), drive, mini_uart=True)
+        q.mini_buf = b""
+        try:
+            q.expect("(same pins, same speed)\r\n", timeout=30)
+            chip = FakeDs4Chip(q.port)
+            chip.buf, q.buf = q.buf, b""
+            chip.init(reset_silent=False)
+            _mini_expect(q, "paired pad 1c:66:6d:01:02:03: press its PS button")
+            _mini_expect(q, "cartridge menu")
+            chip._event(0x04, pad + bytes([0x08, 0x25, 0x00, 1]))            # connection request
+            acc = chip.cmd(0x0409, reply="status")
+            assert acc == pad + bytes([0]), acc.hex()
+            chip._event(0x03, bytes([0]) + chip.HANDLE.to_bytes(2, "little") + pad + bytes([1, 0]))
+            chip._event(0x17, pad)                                             # link key request
+            reply = chip.cmd(0x040B)
+            assert reply == pad + FakeDs4Chip.KEY, reply.hex()                # the saved key
+            chip._event(0x08, bytes([0]) + chip.HANDLE.to_bytes(2, "little") + bytes([1]))
+            for psm, pad_cid, host_cid in ((0x11, 0x50, 0x40), (0x13, 0x51, 0x41)):
+                chip.sig(0x02, 0x10 + psm, psm.to_bytes(2, "little") + pad_cid.to_bytes(2, "little"))
+                code, ident, data = chip.host_sig()
+                assert code == 0x03 and data[:4] == host_cid.to_bytes(2, "little") + pad_cid.to_bytes(2, "little") \
+                    and data[4:6] == bytes(2), (code, data)
+                code, ident, data = chip.host_sig()                            # host's config request
+                assert code == 0x04 and int.from_bytes(data[:2], "little") == pad_cid
+                chip.sig(0x05, ident, host_cid.to_bytes(2, "little") + bytes(4))
+                chip.sig(0x04, 0x66, host_cid.to_bytes(2, "little") + bytes(2))
+                code, ident, data = chip.host_sig()
+                assert code == 0x05 and ident == 0x66
+            _mini_expect(q, "bt: controller 1c:66:6d:01:02:03 connected")
+            chip.report(0x08 | 0x20)
+            time.sleep(0.2)
+            chip.report(0x08)
+            _mini_expect(q, "playing snake.b33")
+        finally:
+            q.close()
+    finally:
         shutil.rmtree(tmp, ignore_errors=True)
 
 

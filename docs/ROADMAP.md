@@ -216,9 +216,15 @@ Stato:
    firmware da `bm33/BCM43430A1.hcd`, indirizzo e versione, ricerca dispositivi
    (monitor `T`). Test in QEMU con un **chip simulato** in Python sulla UART0
    (`test_bt_start_and_scan`): è la base per provare anche i passi successivi.
-2. connessione ACL, L2CAP, SDP, HID (canali 0x11/0x13) con il DS4;
-3. abbinamento SSP dal menu, chiavi in `bm33/config.txt`, riconnessione automatica;
-4. velocità UART alta (0xFC18) e ricezione a interrupt per i report del DS4.
+   Sul Pi (kernel `7c36bb3`): chip e firmware ok (121 record), indirizzo
+   b8:27:eb:62:7c:08, DS4 trovato (00:1f:e2:bf:d7:dd, classe 002508).
+2. ✅ (QEMU) connessione ACL, abbinamento SSP "Just Works" (IO NoInputNoOutput,
+   bonding generale), cifratura, canali L2CAP 0x11/0x13, report HID del DS4 nel layer
+   di input (menu e giochi); chiave in `bm33/config.txt`; all'avvio page scan e
+   riconnessione avviata dal DS4 (tasto PS) con la chiave salvata. SDP non serve (report
+   noto). Test `test_bt_pair_and_reconnect` con un DS4 simulato. Da verificare sul Pi.
+3. velocità UART alta (0xFC18), ricezione a interrupt, avvio più rapido (firmware a
+   velocità alta), abbinamento anche dal menu, più controller.
 
 Analisi dei costi: ~3000 righe di C (5 volte lo stack USB), 10–15 prove sul Pi; nessun
 emulatore del chip, quindi niente test in QEMU se non su tracce HCI registrate.
