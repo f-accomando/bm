@@ -3,6 +3,7 @@
  */
 #include "carts.h"
 #include "input.h"
+#include "upload.h"
 #include "b33/runtime.h"
 #include "drivers/sd.h"
 #include "drivers/timer.h"
@@ -300,6 +301,7 @@ void carts_menu(framebuffer_t *fb)
             case '\r': case '\n': case ' ': action = 1; break;
             case 'q': case 'Q': quit = 1; break;
             case 'r': case 'R': action = 2; break;
+            case 'U': action = 3; break;         /* bm33_load.py --cart */
             }
         }
 
@@ -330,6 +332,11 @@ void carts_menu(framebuffer_t *fb)
         if (action == 2) {
             carts_init();
             if (sel >= ncarts) sel = 0;
+            redraw = 1;
+        } else if (action == 3) {
+            upload_and_play(fb);
+            input_flush();
+            prev_btn = hid_buttons();
             redraw = 1;
         } else if (action == 1) {
             play(fb, &carts[sel]);

@@ -3,6 +3,19 @@
 MVP di una console bare metal (Assembly / C / Lua embedded) per
 **Raspberry Pi Zero W v1.1** (SoC BCM2835, CPU ARM1176JZF-S, ARMv6).
 
+## In breve: giocare
+
+```sh
+make firmware && make image      # dist/bm33.img (64 MiB): firmware, kernel e giochi
+```
+
+Scrivi `dist/bm33.img` sulla microSD con **Raspberry Pi Imager** ("Use custom"),
+balenaEtcher o `dd`; collega HDMI e una **tastiera o un gamepad USB** (adattatore OTG
+sulla porta micro-USB centrale) e accendi. Il Pi si avvia in un paio di secondi sul
+**menu delle cartucce**: Pong, Snake, Star Shooter e le demo. Frecce per scegliere,
+Invio (o A) per giocare, **Esc** (o Start+Select) per tornare al menu.
+Per scrivere un gioco: [docs/API.md](docs/API.md).
+
 ## Roadmap
 
 Dettagli, criteri di completamento e rischi in [docs/ROADMAP.md](docs/ROADMAP.md).
@@ -21,45 +34,36 @@ Stress test di rendering (soglie 60/30 fps): [docs/STRESS.md](docs/STRESS.md) �
 | **M7** | Cartucce native **`.b33`**: Lua 5.4 + grafica C a 640×360 RGB565 | ✅ |
 | **M7b** | Input: tastiera e gamepad **USB** (HID) | ✅ tastiera verificata sul Pi (gamepad solo QEMU) |
 | **M8** | **SD** + FAT32, menu delle cartucce | ✅ verificato sul Pi |
-| M9 | **MVP**: launcher, giochi demo, immagine SD | |
+| **M9** | **MVP**: avvio sul menu, giochi demo, immagine SD, guida API | ✅ QEMU, da verificare sul Pi |
 | M10 | APU s32 su PWM (opzionale) | |
 
-## Cosa fa il kernel (M0–M8)
+## Cosa fa il kernel
 
-All'avvio:
+All'avvio (circa 2 secondi):
 1. `src/boot/start.S`: maschera gli IRQ, imposta uno stack per ogni modo della CPU,
    installa i vettori delle eccezioni a `0x0`, abilita la VFP, azzera `.bss`
 2. inizializza il LED ACT e la seriale (PL011 su GPIO14/15, 115200 8N1)
-3. stampa sulla seriale le info di sistema (revisione scheda, memoria, clock, temperatura)
-4. ottiene dal firmware un framebuffer **640×360** a 32 bpp (la GPU lo scala
+3. ottiene dal firmware un framebuffer **640×360** a 32 bpp (la GPU lo scala
    sull'uscita HDMI: ×2 a 720p, ×3 a 1080p) e avvia la **console testuale**:
-   80×21 caratteri, font 8×16, barra di stato con versione e uptime, colori ANSI
-5. tutti i messaggi (`kprintf`, e `printf` di newlib) vanno sia sulla seriale sia sullo schermo
-6. inizializza l'heap (da fine kernel a fine RAM ARM, ~447 MiB), esegue un
-   **benchmark** tre volte: come lasciato dal firmware (700 MHz, senza cache), con il
-   clock ARM al massimo (1 GHz, chiesto via mailbox) e con **MMU + cache** attive
-7. esegue un self-test di newlib (stdio con float, libm, malloc/free) e mostra il riepilogo
-8. attiva gli **interrupt**: tick di sistema a 1 kHz (system timer, compare 1), che
-   fa anche lampeggiare il LED; misura la frequenza reale e la mostra
-9. inizializza l'**USB** e riconosce il dispositivo collegato (riga `usb: keyboard ...`
-   o `usb: gamepad ...`), poi legge la **SD** e cerca le cartucce
-   (riga `sd: SDHC card, FAT32, ...; N cartridges`)
-10. esegue per 10 s la cartuccia **s32** `demo.cart` (da lua32) a 320×224 in modalità
-   *attract* (il quadrato si muove da solo), poi mostra le statistiche (tick, fps,
-   tempo CPU per tick e per istruzione, tempo di rendering)
-11. esegue il **benchmark di rendering** delle cartucce native (mappa a tutto schermo +
-    256 sprite 16×16 a 640×360 RGB565, 2 s) e poi per 15 s la **cartuccia nativa**
-    `demo.b33`, e mostra le statistiche (fps, ms di `_update`+`_draw`, % del frame)
-12. avvia **Lua 5.4.7** ed esegue lo script incorporato `src/script/boot.lua`:
-    versione, alcune funzioni del linguaggio, un errore intercettato con `pcall`,
-    micro-benchmark (fib, cicli, sort, stringhe) e memoria usata
-13. con una tastiera o un gamepad USB collegati apre il **menu delle cartucce**
-    (vedi sotto); Esc (o Start+Select) porta al monitor
-14. avvia un **monitor** a tasto singolo (dalla seriale o dalla tastiera USB):
+   80×21 caratteri, font 8×16, barra di stato con versione e uptime, colori ANSI;
+   tutti i messaggi (`kprintf`, e `printf` di newlib) vanno sia sulla seriale sia sullo schermo
+4. heap (da fine kernel a fine RAM ARM, ~445 MiB), clock ARM al massimo (1 GHz),
+   **MMU + cache**; riga con scheda, clock, memoria e temperatura
+5. **interrupt**: tick di sistema a 1 kHz (system timer, compare 1), che fa anche
+   lampeggiare il LED; misura la frequenza reale e la mostra
+6. **USB**: riconosce il dispositivo collegato (righe `usb: ...`), poi legge la **SD**
+   e cerca le cartucce (riga `sd: SDHC card, FAT32, ...; N cartridges`)
+7. apre il **menu delle cartucce**; Esc (o Start+Select, o `q` dalla seriale) porta
+   al **monitor** a tasto singolo (dalla seriale o dalla tastiera USB)
+
+La sequenza di avvio delle versioni precedenti (benchmark CPU, self-test di newlib,
+demo s32 in modalità *attract*, benchmark e demo `.b33`, sonda del vsync, script
+Lua `boot.lua`) si esegue dal monitor con **`B`**.
 
 | Tasto | Azione |
 |-------|--------|
 | `h` | aiuto |
+| `B` | diagnostica: la vecchia sequenza di avvio (benchmark, demo s32 e b33, `boot.lua`) |
 | `l` | **REPL Lua** (Ctrl-D o `exit()` per tornare al monitor) |
 | `i` | info di sistema |
 | `c` | pulisce lo schermo |
@@ -68,7 +72,7 @@ All'avvio:
 | `d` | demo animata in C (60 fps, doppio buffer; un tasto la interrompe) |
 | `g` | gioca `demo.cart` (s32): w/a/s/d o frecce, spazio = azione, q o Esc = esci |
 | `n` | gioca `demo.b33` (nativa): frecce/wasd, spazio = A, k/x = B, q o Esc = esci |
-| `M` | **menu delle cartucce** (incorporate + SD) |
+| `M` | **menu delle cartucce** (SD; le demo incorporate se la SD non ne ha) |
 | `f` / `F` | elenca le cartucce / rilegge la SD |
 | `y` | USB: cerca di nuovo il dispositivo (dopo averlo collegato) |
 | `Y` | USB: test dal vivo per 10 s (contatori ok/nak/err e ultimo report) |
@@ -108,10 +112,12 @@ viene scelta l'interfaccia tastiera, anche se il dispositivo usa i report con ID
 **SD.** All'avvio il kernel legge la prima partizione **FAT32** (o FAT16) della SD
 (quella da cui si avvia il Pi) e cerca i file **`.b33`** e **`.cart`** nella
 cartella `carts/` e nella radice. Nomi lunghi supportati. `make sdcard` mette in
-`dist/carts/` le cartucce di esempio (`demo.b33`, `stress.b33`, `demo.cart`).
+`dist/carts/` i giochi e le demo (`pong.b33`, `snake.b33`, `shooter.b33`, `demo.b33`,
+`stress.b33`, `demo.cart`); `make image` li mette nell'immagine SD.
 
-**Menu delle cartucce.** Su/giù per scegliere, Invio (o A) per giocare, Esc (o
-Start+Select) per tornare al menu dal gioco e dal menu al monitor; `R` rilegge la SD.
+**Menu delle cartucce.** Mostra titolo e autore letti dalle cartucce (ordinate per
+titolo) e sotto il nome del file scelto. Su/giù per scegliere, Invio (o A) per giocare,
+Esc (o Start+Select) per tornare al menu dal gioco e dal menu al monitor; `R` rilegge la SD.
 Dalla seriale: w/s, Invio, q. Per aggiungere un gioco basta copiarlo in `carts/`
 sulla SD dal PC.
 
@@ -178,6 +184,9 @@ del kernel. `git log --oneline` mostra a quale milestone corrisponde; se compare
 | `ab9af30` | M6: core s32 (demo.cart all'avvio) |
 | `c7ec2c3` | M7: cartucce native .b33 (demo nativa all'avvio) |
 | `1b31924` | stress test di rendering e 3D software (`make sdcard-stress`) |
+| `a2a8b6f` | M7b + M8: tastiera/gamepad USB, SD e menu delle cartucce |
+| `25f5dbc` | tastiere USB composite (Apple Magic Keyboard) |
+| `a7223f7` | M9: avvio direttamente sul menu (diagnostica con `B`); dopo: giochi demo, `make image` |
 
 ## Requisiti
 
@@ -231,28 +240,16 @@ python3 scripts/mkb33.py -o gioco.b33 --lua main.lua --sheet sheet.png --map map
         --title "Il mio gioco"
 ```
 
-La cartuccia definisce `_init()`, `_update()` e `_draw()` (60 volte al secondo) e usa:
-
-| Funzione | Descrizione |
-|---|---|
-| `cls([c])`, `pset(x,y,c)`, `pget(x,y)` | schermo e pixel (colori `0xRRGGBB` o `rgb(r,g,b)`) |
-| `line`, `rect(x,y,w,h,c)`, `rectfill`, `circ(x,y,r,c)`, `circfill` | forme |
-| `spr(n,x,y,[w,h,flip_x,flip_y])`, `sspr(sx,sy,sw,sh,dx,dy,...)` | sprite dallo sheet (celle 8×8) |
-| `map(mx,my,x,y,mw,mh)`, `mget`, `mset` | mappa a tile (cella 0 = vuota) |
-| `sget`, `sset(x,y,c)` | modifica dello sheet (c = nil: trasparente) |
-| `print(s,x,y,[c])` | testo (font 8×16) |
-| `camera([x,y])`, `clip([x,y,w,h])` | scorrimento e ritaglio |
-| `btn(i)`, `btnp(i)` | 0 sinistra, 1 destra, 2 su, 3 giù, 4 A, 5 B |
-| `time()`, `stat(n)` | tempo; 0 KiB Lua, 1 ms CPU del frame, 2 fps, 3 numero di frame, 4 triangoli 3D, 5 pixel 3D |
-| `tri(x0,y0,x1,y1,x2,y2,c)` | triangolo 2D pieno |
-| `mesh(v,f)`, `mesh_sphere(r,s,c1,c2)`, `mesh_cube(c)` | mesh 3D (`v` = x,y,z…; `f` = a,b,c,colore…) |
-| `draw3d(m,x,y,z,[rx,ry,rz,scala])` | disegna una mesh (z-buffer, luce per faccia) |
-| `camera3d(x,y,z,[yaw,pitch,fov])`, `light3d(x,y,z,[amb])`, `zclear()` | camera, luce, pulizia dello z-buffer |
-| `log(...)`, `quit()` | testo nel log del kernel; fine della cartuccia |
+La cartuccia definisce `_init()`, `_update()` e `_draw()` (60 volte al secondo) e usa
+un'API in stile PICO-8: forme, sprite e mappa, testo, input (`btn`/`btnp`), tempo,
+3D software. **Riferimento completo e guida alla prima cartuccia: [docs/API.md](docs/API.md).**
+Giochi di esempio: `carts/pong`, `carts/snake`, `carts/shooter` (solo Lua, sprite
+disegnati nel codice con `sset`), `carts/demo` (sprite sheet PNG e mappa CSV).
 
 Sandbox: niente `io`, `os`, `load`, `dofile`, `require`. Un errore o un ciclo infinito
 (oltre 20 milioni di istruzioni in un frame) ferma la cartuccia e mostra l'errore
-sulla console, senza bloccare il kernel. GC generazionale per pause brevi.
+sulla console, senza bloccare il kernel. Il disegno avviene in un buffer in RAM con
+cache, copiato sullo schermo una volta per frame.
 
 ![demo b33](docs/m7-b33-demo.png)
 
@@ -333,6 +330,10 @@ mkdir -p /mnt/d/carts && cp dist/carts/* /mnt/d/carts/     # cartucce
 
 ## Scheda SD senza chainloader
 
+Il modo più semplice è l'immagine completa: `make firmware && make image`, poi scrivi
+`dist/bm33.img` con Raspberry Pi Imager ("Use custom"), balenaEtcher o `dd`
+(serve `sudo apt install dosfstools mtools`). In alternativa, a mano:
+
 1. Formatta la SD con una partizione **FAT32** (tabella MBR).
 2. `make firmware && make sdcard` (per fissare una versione del firmware: `FW_REF=<tag> make firmware`).
 3. Copia il contenuto di `dist/` nella root della SD (`cp -r dist/* /mnt/d/`):
@@ -365,7 +366,10 @@ src/s32/                 macchina s32: CPU, PPU, loader .cart, player 320×224
 src/b33/                 cartucce native: formato, grafica RGB565 (gfx16), 3D software (r3d),
                          runtime Lua, stress test
 carts/demo/              cartuccia nativa demo: main.lua, sheet.png, map.csv
+carts/pong|snake|shooter giochi demo (solo Lua)
+docs/API.md              API delle cartucce .b33 e guida alla prima cartuccia
 scripts/mkb33.py         packer .b33 (PNG e CSV, solo libreria standard Python)
+scripts/mksd.py          immagine SD (MBR + FAT32): make image e test in QEMU
 tests/b33/               test host della grafica e del formato
 spec/s32/                specifica comune e vettori di conformità (da lua32)
 tests/s32/               runner di conformità (host e ARM in qemu-arm)

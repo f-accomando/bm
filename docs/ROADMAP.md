@@ -143,13 +143,21 @@ Priorità attuale: sviluppo della console bm33; la parte s32 avanza al ritmo di 
   (QEMU con immagini FAT32 da 128 MiB e 4 GiB; sul Pi, kernel `25f5dbc`: SDHC 8 GB,
   FAT32 `BOOTFS`, 3 cartucce in `carts/`, giocate dal menu).
 
-## M9 — MVP (M)
-- Launcher: menu con elenco delle cart, anteprima, ritorno al menu (combinazione di tasti).
-- 2–3 giochi demo (es. pong, snake, shooter) che coprono tutta l'API.
-- `make image` → `bm33.img` pronto da scrivere con Raspberry Pi Imager / `dd`.
-- Documentazione dell'API Lua e guida "scrivi la tua prima cart".
+## M9 — MVP ✅ QEMU, da verificare sul Pi (M)
+- Avvio in ~2 s direttamente sul **menu delle cartucce** (titolo e autore letti dalle
+  cartucce, ordinate per titolo); la vecchia sequenza di diagnostica è nel monitor (`B`).
+  Esc / Start+Select: dal gioco al menu, dal menu al monitor.
+- 3 giochi demo in Lua: **Pong** (contro la console), **Snake**, **Star Shooter**
+  (ondate, boss, esplosioni, sprite disegnati con `sset`).
+- `make image` → `dist/bm33.img` (64 MiB, MBR + FAT32) pronto per Raspberry Pi Imager /
+  balenaEtcher / `dd`.
+- Guida all'API e alla prima cartuccia: `docs/API.md`.
+- Prestazioni: le cartucce `.b33` disegnano in un buffer in RAM con cache e lo copiano
+  sullo schermo una volta per frame (prima: scritture pixel per pixel nella memoria
+  video senza cache, 7,95 ms per mappa piena + 256 sprite); anche s32 non rilegge più
+  il framebuffer (8 ms per tick). Da rimisurare sul Pi.
 - **Fatto quando:** da una SD appena scritta si accende, si sceglie un gioco e si gioca
-  senza PC collegato.
+  senza PC collegato (in QEMU: `test_make_image`, `test_games`).
 
 ## M10 — Audio (M, opzionale per l'MVP)
 - Il Pi Zero non ha jack audio: PWM su GPIO18/13 con filtro RC esterno

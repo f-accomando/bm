@@ -737,7 +737,8 @@ def test_games(b, opts):
     serial keys, no Lua error, quit with 'q'."""
     q = Qemu(b("kernel.img"))
     try:
-        q.boot()
+        q.expect(MENU, timeout=30)             # uploads work from the menu too
+        time.sleep(0.5)
         for name, title in GAMES.items():
             with open(b(f"carts/{name}.b33"), "rb") as f:
                 assert _upload(q, f.read()), name
@@ -757,7 +758,9 @@ def test_games(b, opts):
             q.send("q")
             out = q.expect("update+draw", timeout=10).decode(errors="replace")
             assert "stopped with an error" not in out, out
-            q.expect("> ")
+            time.sleep(0.5)                    # back in the menu
+        q.send("q")
+        q.expect(PROMPT)
     finally:
         q.close()
 
