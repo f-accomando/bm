@@ -12,9 +12,7 @@
 #include "lauxlib.h"
 #include "lua.h"
 
-#ifndef BM33_VERSION
-#define BM33_VERSION "dev"
-#endif
+#include "kernel/version.h"
 
 /* bm33.micros() -> free-running microsecond counter (wraps every ~71 min) */
 static int l_micros(lua_State *L)
@@ -92,7 +90,7 @@ static const luaL_Reg funcs[] = {
 int luaopen_bm33(lua_State *L)
 {
     luaL_newlib(L, funcs);
-    lua_pushstring(L, BM33_VERSION);
+    lua_pushstring(L, bm33_version);
     lua_setfield(L, -2, "version");
     return 1;
 }

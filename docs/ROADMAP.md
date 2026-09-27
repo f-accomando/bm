@@ -119,7 +119,7 @@ Priorità attuale: sviluppo della console bm33; la parte s32 avanza al ritmo di 
   RGB565 corretto (rosso, verde, blu, bianco); 256 sprite 16×16 ≈ 0,9 ms
   (vedi docs/STRESS.md).
 
-## M7b — Input ✅ QEMU, da verificare sul Pi (L)
+## M7b — Input ✅ tastiera verificata sul Pi Zero W (L)
 - Stack USB scritto da zero (non USPi): controller DWC2 in modalità host, DMA a buffer,
   polling dal ciclo principale; enumerazione di un dispositivo sulla porta radice.
 - **Tastiera** HID (protocollo boot): layout italiano/US, ripetizione; monitor e REPL
@@ -129,16 +129,19 @@ Priorità attuale: sviluppo della console bm33; la parte s32 avanza al ritmo di 
   niente Bluetooth (BCM43438 condivide la UART della console; firmware + HCI: troppo costoso).
 - Pad su GPIO (fase A) non necessario per ora.
 - **Fatto quando:** una tastiera USB scrive nel REPL e un gamepad muove il giocatore
-  (verificato in QEMU con `usb-kbd` e `usb-tablet`; manca la prova sul Pi).
+  (QEMU con `usb-kbd` e `usb-tablet`; sul Pi, kernel `25f5dbc`: Apple Magic Keyboard
+  05ac:0267 via OTG, composita a 3 interfacce, report con ID: menu e giochi ok;
+  gamepad non ancora provato sul Pi).
 
-## M8 — Storage e caricamento delle cart ✅ QEMU, da verificare sul Pi (M)
+## M8 — Storage e caricamento delle cart ✅ verificato sul Pi Zero W (M)
 - Driver SD sul controller EMMC (Arasan SDHCI) in PIO, bus a 4 bit a 25 MHz, SDSC e SDHC;
   FAT16/FAT32 con nomi lunghi, in sola lettura (scritto da zero, non FatFs).
 - Menu delle cartucce: incorporate + `.b33`/`.cart` in `/carts` e nella radice; si apre
   all'avvio se c'è un dispositivo USB di input.
 - Da fare: scrittura (salvataggi, config), anteprime.
 - **Fatto quando:** copiando una nuova cart sulla SD da PC, questa compare nel menu
-  (verificato in QEMU con immagini FAT32 da 128 MiB e 4 GiB).
+  (QEMU con immagini FAT32 da 128 MiB e 4 GiB; sul Pi, kernel `25f5dbc`: SDHC 8 GB,
+  FAT32 `BOOTFS`, 3 cartucce in `carts/`, giocate dal menu).
 
 ## M9 — MVP (M)
 - Launcher: menu con elenco delle cart, anteprima, ritorno al menu (combinazione di tasti).

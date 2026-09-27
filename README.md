@@ -19,8 +19,8 @@ Stress test di rendering (soglie 60/30 fps): [docs/STRESS.md](docs/STRESS.md) �
 | **M5** | Lua 5.4 embedded + REPL | ✅ |
 | **M6** | Core **s32** in C: cartucce `.cart` compatibili con lua32 | ✅ |
 | **M7** | Cartucce native **`.b33`**: Lua 5.4 + grafica C a 640×360 RGB565 | ✅ |
-| **M7b** | Input: tastiera e gamepad **USB** (HID) | ✅ QEMU, da verificare sul Pi |
-| **M8** | **SD** + FAT32, menu delle cartucce | ✅ QEMU, da verificare sul Pi |
+| **M7b** | Input: tastiera e gamepad **USB** (HID) | ✅ tastiera verificata sul Pi (gamepad solo QEMU) |
+| **M8** | **SD** + FAT32, menu delle cartucce | ✅ verificato sul Pi |
 | M9 | **MVP**: launcher, giochi demo, immagine SD | |
 | M10 | APU s32 su PWM (opzionale) | |
 
@@ -71,6 +71,7 @@ All'avvio:
 | `M` | **menu delle cartucce** (incorporate + SD) |
 | `f` / `F` | elenca le cartucce / rilegge la SD |
 | `y` | USB: cerca di nuovo il dispositivo (dopo averlo collegato) |
+| `Y` | USB: test dal vivo per 10 s (contatori ok/nak/err e ultimo report) |
 | `L` | layout tastiera: italiano ↔ US |
 | `p` | benchmark di rendering 640×360 RGB565 |
 | `U` | riceve una cartuccia dalla seriale (`bm33_load.py PORTA --cart file.b33`) e la esegue |
@@ -92,6 +93,10 @@ REPL Lua funzionano anche da lì.
 *non* quella di alimentazione): serve un adattatore OTG micro-USB → USB-A.
 Si usa **un dispositivo alla volta** collegato direttamente (niente hub USB).
 Il dispositivo va collegato prima dell'accensione (o dopo, con il comando `y`).
+
+All'avvio compare una riga `usb: ifN class ...` per ogni interfaccia del dispositivo
+e poi quella scelta; con tastiere composite (es. Apple Magic Keyboard, verificata)
+viene scelta l'interfaccia tastiera, anche se il dispositivo usa i report con ID.
 
 - **Tastiera** (protocollo boot HID): layout **italiano** (`L` passa a US), lettere
   accentate, ripetizione dei tasti. Nei giochi: frecce o WASD, spazio/Z/J = A,

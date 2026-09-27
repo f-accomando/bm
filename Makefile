@@ -29,7 +29,7 @@ VERSION := $(shell git describe --always --dirty 2>/dev/null || echo dev)
 ARCH    := -mcpu=arm1176jzf-s -marm -mfpu=vfp -mfloat-abi=hard
 COMMON  := $(ARCH) -std=c11 -O2 -Wall -Wextra -g -Isrc \
            -ffunction-sections -fdata-sections \
-           -DUART_BAUD=$(BAUD) -DBM33_VERSION=\"$(VERSION)\" $(BOOT_DEFS)
+           -DUART_BAUD=$(BAUD) $(BOOT_DEFS)
 # Kernel: hosted C on top of newlib (libc, libm), see src/lib/syscalls.c.
 CFLAGS  = $(COMMON) -D_DEFAULT_SOURCE -Ithird_party/lua $(WARN)
 # Chainloader: freestanding, no libc.
@@ -50,6 +50,15 @@ KERNEL_OBJS := $(patsubst %,$(BUILD)/k/%.o,$(KERNEL_SRCS))
 LOADER_OBJS := $(patsubst %,$(BUILD)/l/%.o,$(LOADER_SRCS))
 LUA_OBJS    := $(patsubst %,$(BUILD)/k/%.o,$(LUA_SRCS))
 
+# The version string lives in one object, rebuilt when `git describe` changes.
+VERSION_STAMP := $(BUILD)/version.txt
+$(VERSION_STAMP): FORCE
+	@mkdir -p $(dir $@)
+	@echo '$(VERSION)' | cmp -s - $@ || echo '$(VERSION)' > $@
+$(BUILD)/k/src/kernel/version.c.o: $(VERSION_STAMP)
+$(BUILD)/k/src/kernel/version.c.o: CFLAGS += -DBM33_VERSION=\"$(VERSION)\"
+FORCE:
+
 # Third-party code: its own warning policy, not ours.
 $(LUA_OBJS): WARN := -w
 # Lua scripts embedded with .incbin
@@ -68,7 +77,7 @@ $(BUILD)/demo.b33: $(DEMO_B33_SRC) scripts/mkb33.py
 	    --map carts/demo/map.csv --title "bm33 native demo" --author bm33
 
 .DEFAULT_GOAL := all
-.PHONY: all clean firmware sdcard sdcard-chainloader sdcard-stress qemu qemu-screenshot \
+.PHONY: FORCE all clean firmware sdcard sdcard-chainloader sdcard-stress qemu qemu-screenshot \
         run-serial test test-s32 test-s32-arm test-b33 test-usb disasm
 
 all: $(BUILD)/kernel.img $(BUILD)/chainloader.img

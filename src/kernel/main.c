@@ -32,10 +32,8 @@
 #include "b33/stress.h"
 #include "usb/usb.h"
 #include "carts.h"
+#include "version.h"
 
-#ifndef BM33_VERSION
-#define BM33_VERSION "dev"
-#endif
 
 /* Low resolution, 16:9: the firmware scales it to the HDMI mode in hardware
  * (x2 on 720p, x3 on 1080p), so drawing stays cheap. 80x22 text cells. */
@@ -120,11 +118,13 @@ void kernel_main(uint32_t atags)
     if (err == 0) {
         exceptions_set_panic_fb(&fb);
         console_init(&fb, &font_console_8x16);
-        console_set_status("bm33 " BM33_VERSION, 0);
+        char title[40];
+        ksnprintf(title, sizeof title, "bm33 %s", bm33_version);
+        console_set_status(title, 0);
         kprintf_set_sink(console_putc);
     }
 
-    kprintf("\n\x1b[1;36mbm33\x1b[0m kernel %s - Raspberry Pi Zero (BCM2835)\n", BM33_VERSION);
+    kprintf("\n\x1b[1;36mbm33\x1b[0m kernel %s - Raspberry Pi Zero (BCM2835)\n", bm33_version);
     (void)atags;
     if (err)
         panic("framebuffer init failed (%d)", err);
@@ -156,7 +156,6 @@ void kernel_main(uint32_t atags)
     report_irq();
     usb_init();
     usb_print();
-    usb_live_test(5);            /* on screen: shows whether reports arrive */
     carts_init();
 
 #ifdef BM33_BOOT_STRESS

@@ -72,17 +72,27 @@ static int poll_keys(uint8_t hold[5], int *esc_state, int *seen)
     return 0;
 }
 
-/* Canonical 0x00RRGGBB -> the framebuffer's pixel order, opaque alpha. */
-static void convert(framebuffer_t *fb)
+/* The PPU draws into a cached RAM buffer; here it becomes the framebuffer's
+ * pixel order with opaque alpha and is written out row by row. The
+ * framebuffer is uncached GPU memory: writing it is fine, reading it back
+ * costs ~100 ns per pixel on the Pi (that was 8 ms per tick). */
+static uint32_t *frame;
+
+static void present_frame(framebuffer_t *fb)
 {
     for (uint32_t y = 0; y < S32_SCREEN_H; y++) {
-        uint32_t *p = (uint32_t *)(fb->base + y * fb->pitch);
-        for (uint32_t x = 0; x < S32_SCREEN_W; x++) {
-            uint32_t c = p[x];
-            if (fb->is_rgb)
-                c = (c >> 16 & 0xFF) | (c & 0xFF00) | (c & 0xFF) << 16;
-            p[x] = c | 0xFF000000u;
+        uint32_t *src = frame + y * S32_SCREEN_W;
+        uint32_t *dst = (uint32_t *)(fb->base + y * fb->pitch);
+        if (fb->is_rgb) {
+            for (uint32_t x = 0; x < S32_SCREEN_W; x++) {
+                uint32_t c = src[x];
+                src[x] = (c >> 16 & 0xFF) | (c & 0xFF00) | (c & 0xFF) << 16 | 0xFF000000u;
+            }
+        } else {
+            for (uint32_t x = 0; x < S32_SCREEN_W; x++)
+                src[x] |= 0xFF000000u;
         }
+        memcpy(dst, src, S32_SCREEN_W * 4);
     }
 }
 
@@ -106,6 +116,10 @@ void s32_play(framebuffer_t *fb, const uint8_t *data, size_t len,
     }
     if (cart.screen_mode != 0)       /* decided in s32-bm33.md, not implemented yet */
         kprintf("s32: 16:9 mode not supported yet, playing at 320x224\n");
+    if (!frame && !(frame = malloc(S32_SCREEN_W * S32_SCREEN_H * 4))) {
+        kprintf("s32: out of memory\n");
+        return;
+    }
     if (!machine_mem && !(machine_mem = malloc(S32_MEM_SIZE))) {
         kprintf("s32: out of memory\n");
         return;
@@ -161,8 +175,8 @@ void s32_play(framebuffer_t *fb, const uint8_t *data, size_t len,
         if (s != S32_OK)
             break;
 
-        s32_render(&m, (uint32_t *)fb->base, fb->pitch / 4);
-        convert(fb);
+        s32_render(&m, frame, S32_SCREEN_W);
+        present_frame(fb);
         st->render_us += timer_ticks() - t1;
 
         fb_flip(fb);
