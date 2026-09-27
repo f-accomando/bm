@@ -88,7 +88,7 @@ $(BUILD)/carts/%.b33: carts/%/main.lua scripts/mkb33.py
 
 .DEFAULT_GOAL := all
 .PHONY: FORCE all clean firmware image sdcard sdcard-chainloader sdcard-stress qemu qemu-screenshot \
-        run-serial test test-s32 test-s32-arm test-b33 test-usb disasm
+        run-serial test test-s32 test-s32-arm test-b33 test-usb test-fat disasm
 
 all: $(BUILD)/kernel.img $(BUILD)/chainloader.img $(GAME_CARTS)
 
@@ -168,12 +168,19 @@ qemu: $(BUILD)/kernel.img
 qemu-screenshot: $(BUILD)/kernel.img
 	./scripts/qemu-screenshot.sh $< $(BUILD)/screen.png
 
-test: all test-s32 test-b33 test-usb
+test: all test-s32 test-b33 test-usb test-fat
 	$(PYTHON) tests/qemu_test.py --build $(BUILD)
 
 $(BUILD)/host/test_b33: tests/b33/test_b33.c src/b33/gfx16.c src/b33/r3d.c src/b33/format.c src/lib/crc32.c src/b33/*.h
 	@mkdir -p $(dir $@)
 	$(HOSTCC) -O2 -Wall -Wextra -Isrc -o $@ tests/b33/test_b33.c src/b33/gfx16.c src/b33/r3d.c src/b33/format.c src/lib/crc32.c -lm
+
+test-fat: $(BUILD)/host/test_fat
+	$(PYTHON) tests/fs/run.py $<
+
+$(BUILD)/host/test_fat: tests/fs/test_fat.c src/fs/fat.c src/fs/fat.h src/drivers/sd.h
+	@mkdir -p $(dir $@)
+	$(HOSTCC) -O2 -Wall -Wextra -Isrc -o $@ tests/fs/test_fat.c src/fs/fat.c
 
 test-usb: $(BUILD)/host/test_hid
 	$<

@@ -1,6 +1,6 @@
 /*
  * SD card on the BCM2835 EMMC controller (Arasan SDHCI, 0x20300000).
- * Polled PIO, 4-bit bus at 25 MHz, read only.
+ * Polled PIO, 4-bit bus at 25 MHz, read and write.
  *
  * The Arasan block may lose a register write that follows another one
  * within two SD clock cycles, so every write is followed by a short delay
@@ -71,6 +71,7 @@
 /* INTERRUPT */
 #define INT_CMD_DONE    (1u << 0)
 #define INT_DATA_DONE   (1u << 1)
+#define INT_WRITE_RDY   (1u << 4)
 #define INT_READ_RDY    (1u << 5)
 #define INT_ERR         (1u << 15)
 #define INT_CTO         (1u << 16)
@@ -333,6 +334,91 @@ int sd_read(uint32_t lba, uint32_t count, void *buf)
             if (read_blocks(lba, n, p))         /* one retry */
                 return -1;
         }
+        lba += n;
+        count -= n;
+        p += n * 512;
+    }
+    return 0;
+}
+
+/* Waits until the card has programmed the data: CMD13 until "ready for
+ * data" in the transfer state. */
+static int wait_card_ready(void)
+{
+    uint32_t r[4], t0 = timer_ticks();
+    for (;;) {
+        if (cmd(13, R1, rca << 16, r) == 0 && (r[0] & (1u << 8)) && ((r[0] >> 9) & 15) == 4)
+            return 0;
+        if (timer_ticks() - t0 > 1000000) {
+            err = "card busy after write";
+            return -1;
+        }
+    }
+}
+
+static int write_blocks(uint32_t lba, uint32_t count, const uint8_t *buf)
+{
+    wr(BLKSIZECNT, count << 16 | 512);
+    uint32_t flags = R1 | CMD_ISDATA;
+    if (count > 1)
+        flags |= TM_MULTI | TM_BLKCNT_EN | TM_AUTO_CMD12;
+    if (cmd(count > 1 ? 25 : 24, flags, hc ? lba : lba * 512, NULL))
+        return -1;
+
+    for (uint32_t b = 0; b < count; b++) {
+        uint32_t t0 = timer_ticks(), irq;
+        while (!((irq = mmio_read(INTERRUPT)) & (INT_WRITE_RDY | INT_ERR))) {
+            if (timer_ticks() - t0 > 500000) {
+                err = "write timeout";
+                goto fail;
+            }
+        }
+        if (irq & INT_ERR_MASK) {
+            err = "write error";
+            goto fail;
+        }
+        wr(INTERRUPT, INT_WRITE_RDY);
+        for (int i = 0; i < 128; i++) {
+            uint32_t w;
+            memcpy(&w, buf + i * 4, 4);
+            mmio_write(DATA, w);
+        }
+        buf += 512;
+    }
+    uint32_t t0 = timer_ticks(), irq;
+    while (!((irq = mmio_read(INTERRUPT)) & (INT_DATA_DONE | INT_ERR))) {
+        if (timer_ticks() - t0 > 1000000) {
+            err = "write not completed";
+            goto fail;
+        }
+    }
+    if (irq & INT_ERR_MASK) {
+        err = "write error";
+        goto fail;
+    }
+    wr(INTERRUPT, 0xFFFFFFFFu);
+    return wait_card_ready();
+
+fail:
+    wr(INTERRUPT, 0xFFFFFFFFu);
+    reset_line(C1_SRST_CMD | C1_SRST_DATA);
+    if (count > 1)
+        cmd(12, R1B, 0, NULL);                  /* STOP_TRANSMISSION */
+    wait_card_ready();
+    return -1;
+}
+
+int sd_write(uint32_t lba, uint32_t count, const void *buf)
+{
+    if (!ready) {
+        err = "not initialised";
+        return -1;
+    }
+    const uint8_t *p = buf;
+    while (count) {
+        uint32_t n = count > 128 ? 128 : count;
+        if (write_blocks(lba, n, p) && write_blocks(lba, n, p))   /* one retry */
+            return -1;
         lba += n;
         count -= n;
         p += n * 512;

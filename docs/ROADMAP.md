@@ -164,6 +164,10 @@ Priorità attuale: sviluppo della console bm33; la parte s32 avanza al ritmo di 
 
 ## Dopo l'MVP (decisione 2026-09-27)
 
+Decisioni: **M10 in pausa** (uscita scelta: HDMI, dagli altoparlanti del monitor);
+priorità **M11 → M12**; controller di riferimento per M12: **DualShock 4 (PS4)**,
+provato prima via USB (stesso formato dei report che poi arrivano via Bluetooth).
+
 ```
 M9 (MVP) ─┬─ M10 audio
           ├─ M11 SD in scrittura ─── M12 Bluetooth (controller)
@@ -171,7 +175,7 @@ M9 (MVP) ─┬─ M10 audio
           └─ M14 grafica 2.0 (DMA, 32 bit, 3D con texture)
 ```
 
-## M10 — Audio (M/L)
+## M10 — Audio (M/L) — in pausa
 - Il Pi Zero non ha jack. Due uscite:
   - **HDMI** (nessun hardware in più: il suono esce dal monitor/TV). Più complessa
     (blocco audio HDMI della GPU, poco documentato; riferimento: Circle, che lo
@@ -208,8 +212,9 @@ emulatore del chip, quindi niente test in QEMU se non su tracce HCI registrate.
 - HCI (reset, ricerca, connessioni), L2CAP, SDP client (descrittore HID), HID classico
   sui canali 0x11/0x13, abbinamento SSP "Just Works" dal menu (voce "Abbina
   controller"), chiavi salvate su SD (M11) e riconnessione automatica.
-- Un **controller di riferimento** prima di tutto (da scegliere: es. 8BitDo, DualShock 4,
-  Switch Pro); il report arriva al layer HID esistente (stessi `btn()`).
+- Controller di riferimento: **DualShock 4** (Bluetooth classico, abbinamento SSP;
+  report 0x11 dopo il comando che lo attiva). Il suo report viene prima mappato via USB
+  (054c:05c4 / 09cc), poi riusato uguale via Bluetooth.
 - BLE (controller Xbox recenti) in un secondo momento: GATT + abbinamento LE.
 - Alternativa senza costo, già funzionante: ricevitore USB del controller
   (es. 8BitDo USB Adapter 2), visto come controller USB.
