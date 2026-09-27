@@ -208,7 +208,7 @@ M9 (MVP) ─┬─ M10 audio
   Sul Pi (kernel `89452b3`): il record di Snake resta dopo lo spegnimento, il layout
   scelto con `L` resta dopo il riavvio; DualShock 4 via USB funzionante.
 
-## M12 — Controller Bluetooth (L, rischio alto) — in corso
+## M12 — Controller Bluetooth ✅ verificato sul Pi Zero W (L)
 
 Stato:
 1. ✅ (QEMU) console sulla mini UART, UART0 al chip (GPIO30–33, RTS/CTS), clock 32 kHz
@@ -232,8 +232,11 @@ Stato:
    circolare da 16 KiB, e i tasti premuti tra due fotogrammi restano validi per uno
    (una pressione breve non si perde). Il test in QEMU manda una raffica di 600 report e
    poi un tasto: deve arrivare entro 0,5 s (misurati ~0,1 s).
-3. velocità UART alta (0xFC18), ricezione a interrupt, avvio più rapido (firmware a
-   velocità alta), abbinamento anche dal menu, più controller.
+   Sul Pi (kernel `7da5130`): **DS4 via Bluetooth perfettamente reattivo**, riconnessione
+   con PS ok.
+3. Rimandato (non necessario oggi): avvio più rapido (firmware caricato a velocità alta),
+   abbinamento anche dal menu, più controller insieme, BLE (Xbox recenti), luce e
+   vibrazione del DS4.
 
 Analisi dei costi: ~3000 righe di C (5 volte lo stack USB), 10–15 prove sul Pi; nessun
 emulatore del chip, quindi niente test in QEMU se non su tracce HCI registrate.
@@ -254,8 +257,11 @@ emulatore del chip, quindi niente test in QEMU se non su tracce HCI registrate.
   solo alla riaccensione e i giochi demo si giocano senza fili.
 
 ## M13 — Altri tipi di cartuccia (M)
-- **s32 Lua** (`code_type` Lua): quando lua32 avrà risposto alle domande aperte in
-  `s32-bm33.md` (PR #2); stesse API di lua32, eseguite dal Lua 5.4 di bm33.
+- **s32 Lua** (`code_type` 1): **sbloccato** — le regole sono decise in `s32-bm33.md`
+  (sincronizzato da lua32 `dbaa650`) e implementate in lua32: API `peek/poke`,
+  `peek16/poke16`, `btn`, funzioni di comodo (`spr`, `mset`, `pal`, `camera`...),
+  costanti nominate, sandbox, budget di istruzioni anche su `_init()`, sul codice di
+  primo livello e su ogni coroutine.
 - Modo s32 16:9 (`screen_mode`, già deciso in `s32-bm33.md`).
 - **ARM nativo**: sezione di codice ARM in `.b33` (per giochi in C), caricata in una
   zona di memoria dedicata con API tramite tabella di funzioni; senza protezione

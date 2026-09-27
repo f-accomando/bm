@@ -227,7 +227,7 @@ function _draw()
     center("S T A R   S H O O T E R", 128, ACCENT)
     center("arrows move, A fires, B goes faster", 176, TEXT)
     center("press A to start", 208, ACCENT)
-    if best > 0 then center("best " .. best, 300, DIM) end
+    if best > 0 then center("record " .. best, 288, ACCENT) end
     return
   end
 
@@ -243,13 +243,14 @@ function _draw()
   end
 
   print(string.format("score %d", score), 8, 4, TEXT)
+  print(string.format("record %d", math.max(best, score)), 136, 4, score > best and ACCENT or DIM)
   print("wave " .. wave, W // 2 - 24, 4, DIM)
   for i = 1, lives do spr(SPR.ship, W - 8 - i * 20, 2, 2, 2) end
   if #enemies == 0 and state == "play" then center("wave " .. (wave + 1), 160, ACCENT) end
 
   if state == "over" then
     center("GAME OVER", 150, ACCENT)
-    center("score " .. score .. "   best " .. best, 180, TEXT)
+    center("score " .. score .. "   record " .. best, 180, TEXT)
     center("press A to play again", 210, TEXT)
   end
 end

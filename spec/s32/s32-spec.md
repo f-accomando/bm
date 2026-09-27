@@ -364,12 +364,82 @@ limiti) al posto della CPU s32.
   l'API di LuaJIT (`bit.band`, `bit.bor`, `bit.bxor`, `bit.lshift`, `bit.rshift`, ...),
   che bm33 fornisce identico. Non si deve dipendere dalla differenza intero/decimale
   (`tostring(2^10)` dà `1024` su 5.1 e `1024.0` su 5.4).
-- **Ciclo**: lo script viene eseguito una volta all'installazione; poi a ogni tick,
-  dopo aver scritto le porte di input, si chiama la funzione globale `_update()`, poi la
-  PPU genera il frame come per le cartucce s32.
-- **API minima**: `peek(a)`, `poke(a, v)` (8 bit), `peek16(a)`, `poke16(a, v)` (16 bit con
-  le stesse regole delle porte di §2.1), `btn(b [, player])`. Tutto il resto (tile, sprite,
-  palette, suono) passa dalla mappa di memoria, esattamente come per il codice s32.
-- **Da decidere**: limite di tempo per tick (es. numero massimo di istruzioni della VM
-  tramite hook), gestione degli errori (equivalente al crash di §4.5), sandbox (niente
-  `io`, `os`, `require`).
+- **Ciclo**: lo script viene eseguito una volta all'installazione (poi, se definita, si
+  chiama `_init()` una volta sola); a ogni tick, dopo aver scritto le porte di input, si
+  chiama la funzione globale `_update()`, poi la PPU genera il frame come per le cartucce
+  s32. Variabili globali e locali della cartuccia persistono fra un tick e l'altro (stesso
+  principio dei registri della CPU macchina, §4.3) - `_update()` NON riparte da zero.
+- **API minima**: `peek(a)` / `poke(a, v)` — 8 bit, accesso diretto senza gli effetti
+  delle porte (`§2.1`) anche su un indirizzo di porta; `peek16(a)` — semantica di
+  `read_mem` (porte di input a 8 bit); `poke16(a, v)` — semantica esatta di `write16`
+  (porte incluse); indirizzi mascherati a 24 bit. `btn(b [, player])` — `true` se il bit
+  `b` (0-4, §5) del byte input del giocatore `player` (1-8, default 1) è a 1. Tutto il
+  resto (tile, sprite, palette, suono) passa dalla mappa di memoria, esattamente come per
+  il codice s32.
+- **Costanti nominate (proposta)**: per evitare indirizzi hardcoded nel codice cartuccia che
+  si rompono a ogni modifica della mappa di memoria, l'ambiente Lua espone come variabili
+  globali, lette dal vero stato della macchina (mai valori congelati a compile-time):
+  `SCREEN_W`, `SCREEN_H`, `TILE_SIZE`, `OAM_BASE`, `OAM_SLOT_BYTES`, `OAM_MAX_SPRITES`,
+  `OAM_ATTR_VISIBLE`, `OAM_ATTR_FLIP_X`, `OAM_ATTR_FLIP_Y`, `PORT_SCROLL_X`, `PORT_SCROLL_Y`,
+  `PORT_STAGE_SELECT`, `PORT_GFX_BANK_SELECT`.
+- **Funzioni di comodo (proposta, ispirate a Pico-8 ma vincolate all'hardware reale)**: oltre
+  all'API minima sopra, si propongono le seguenti funzioni. Sono tutte wrapper diretti su
+  `peek`/`poke`/`peek16`/`poke16` (nessun nuovo hardware, nessuna nuova memoria) - chi
+  implementa bm33 deve fornire funzioni identiche per nome, firma e semantica:
+  - `spr(slot, tile_index, x, y [, flip_x, flip_y, palette])` - scrive uno sprite nello slot
+    OAM `slot` (§7.3): x/y a 16 bit, tile+palette codificati nel tile descriptor, bit
+    `ATTR_VISIBLE` sempre a 1, `ATTR_FLIP_X`/`ATTR_FLIP_Y` secondo i flag opzionali (default
+    `false`), `palette` default 0.
+  - `sprhide(slot)` - azzera solo il byte ATTR dello slot (`ATTR_VISIBLE` a 0); x/y/tile
+    restano intatti (a differenza di riscrivere lo slot, non serve altro stato).
+  - `mset(col, row, tile_index [, palette])` / `mget(col, row)` - scrive/legge una cella
+    della tilemap di sfondo (§7.2) in coordinate tile (non byte); `mget` su una cella mai
+    scritta restituisce `tile_index = 0` (§7.2: "0 = vuoto" vale per lo sfondo, non per gli
+    sprite, dove il tile 0 è un tile disegnabile normale).
+  - `pal(index, r, g, b)` - scrive un colore CGRAM (§7.1) all'indice `index` della palette
+    attiva.
+  - `camera(x, y)` - scrive in un'unica chiamata le porte di scroll orizzontale/verticale
+    (§2.1); `x`/`y` default 0 se omessi.
+  - `stage(n)` - scrive la porta di stage-select (§2.1): come per la CPU macchina lo swap è
+    sincrono, non asincrono.
+  - `gfxbank(n)` - scrive la porta di gfx-bank-select (§2.1).
+
+  Restano esplicitamente **fuori scope**, e non proposte qui: `pset`, `rect`, `circ`, `cls`
+  in stile Pico-8. La PPU (§7) compone solo tile e sprite pre-esistenti in VRAM, non ha un
+  framebuffer scrivibile pixel-per-pixel - implementarle richiederebbe un nuovo layer
+  hardware (non solo software), una decisione più grande rimandata a parte.
+- **Budget per tick**: hook a conteggio (`debug.sethook(f, "", 1000000)`) su `_update()`;
+  superarlo è un crash (§4.5). Le due VM non contano le istruzioni allo stesso modo, quindi
+  il limite è solo un argine ai cicli infiniti, non una misura di prestazioni comune - un
+  gioco corretto deve restarne ben al di sotto.
+  **Va applicato anche al codice di primo livello e a `_init()`, non solo a `_update()`**
+  (bug reale trovato dopo l'implementazione in lua32, non nella spec originale: un loop
+  infinito in `_init()` non è coperto da nessun hook durante il caricamento, quindi non
+  produce un crash recuperabile - blocca l'INTERO processo per sempre, molto peggio di un
+  crash normale, verificato sia in negativo - senza questa protezione un `while true do
+  end` dentro `_init()` non ritorna mai entro un timeout di 8s - sia in positivo -
+  con la stessa identica infrastruttura ad hook già usata per `_update()`, applicata anche
+  lì, il caricamento fallisce pulito con lo stesso messaggio). Chi implementa l'ambiente
+  Lua deve armare l'hook di conteggio anche attorno all'esecuzione del chunk di primo
+  livello e alla chiamata di `_init()`, non solo attorno a ogni tick di `_update()`.
+- **Errori**: un errore Lua (caricamento o dentro `_update()`) è un crash (§4.5) - stessa
+  gestione delle cartucce macchina, il sistema torna al menu.
+- **Sandbox**: visibili `assert error ipairs next pairs pcall select tonumber tostring
+  type unpack xpcall`, le librerie `math string table coroutine`, `bit`, e l'API s32 sopra.
+  Non visibili `io os require load loadstring dofile debug collectgarbage print`. `unpack`
+  va fornito come globale anche su Lua 5.4 (dove esiste solo `table.unpack`). `math.random`
+  escluso in v1: nessuna cartuccia macchina ha una sorgente di casualità hardware (nessun
+  opcode RNG), quindi l'esclusione mantiene la stessa parità fra i due tipi di cartuccia,
+  non solo la riproducibilità dei vettori di conformità.
+  **Attenzione implementazione** (verificato con una prova diretta in LuaJIT, non solo
+  ipotizzato): un `debug.sethook` di conteggio impostato sul thread principale NON scatta
+  dentro una coroutine creata con `coroutine.create`/`wrap` - un cartuccia potrebbe girare
+  in un ciclo infinito dentro una coroutine e aggirare del tutto il budget per tick sopra.
+  Chi implementa l'ambiente Lua deve attaccare lo stesso hook ad ogni coroutine creata
+  dalla cartuccia (`debug.sethook` accetta un thread esplicito come primo argomento in
+  entrambe le VM), non solo al thread principale.
+- **Vettori di conformità**: previsti (1-2 cartucce Lua nel dialetto comune, stesso
+  formato `.vec` di §9) ma non ancora generabili - dipendono dall'implementazione vera
+  del supporto `code_type = 1` in lua32, non ancora costruita.
+
+Dettaglio delle decisioni e chi le ha proposte in `s32-bm33.md`.

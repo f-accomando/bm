@@ -35,9 +35,9 @@ Stress test di rendering (soglie 60/30 fps): [docs/STRESS.md](docs/STRESS.md) �
 | **M7b** | Input: tastiera e gamepad **USB** (HID) | ✅ tastiera verificata sul Pi (gamepad solo QEMU) |
 | **M8** | **SD** + FAT32, menu delle cartucce | ✅ verificato sul Pi |
 | **M9** | **MVP**: avvio sul menu, giochi demo, immagine SD, guida API | ✅ verificato sul Pi |
-| M10 | Audio: HDMI (o PWM), APU s32, suoni nei giochi | |
+| M10 | Audio: HDMI, APU s32, suoni nei giochi | ⏸ in pausa |
 | **M11** | SD in scrittura: salvataggi, record, impostazioni | ✅ verificato sul Pi |
-| M12 | Controller **Bluetooth** (DualShock 4) | 🔧 abbinamento e riconnessione in QEMU (DS4 simulato), da verificare sul Pi |
+| **M12** | Controller **Bluetooth** (DualShock 4) | ✅ verificato sul Pi |
 | M13 | Altri tipi di cartuccia: s32 Lua (con lua32), codice ARM nativo | |
 | M14 | Grafica 2.0: DMA, modo 32 bit, 3D con texture, menu con anteprime | |
 
