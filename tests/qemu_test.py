@@ -28,6 +28,7 @@ REF_DIR = os.path.join(HERE, "ref")
 PROMPT = b"type 'h' for help"
 DEMO = b"s32: playing"
 B33_DEMO = b"native demo cart"
+MENU = b"cartridge menu"
 
 
 def free_port():
@@ -71,15 +72,24 @@ class Qemu:
         seen, self.buf = self.buf[:i], self.buf[i:]
         return seen
 
-    def boot(self, skip_demo=True):
-        """Waits for the monitor prompt, skipping the boot animation demo."""
+    def boot(self):
+        """Boot ends in the cartridge menu: 'q' goes to the monitor prompt."""
+        out = self.expect(MENU, timeout=30)
+        self.send("q")
+        out += self.expect(PROMPT, timeout=10)
+        out += self.expect("> ")
+        return out
+
+    def diagnostics(self, skip_demo=True):
+        """Monitor 'B': the old boot sequence (benchmarks, demos, boot.lua)."""
+        self.send("B")
         out = self.expect(DEMO, timeout=20)
         if skip_demo:
             self.send("q")
         out += self.expect(B33_DEMO, timeout=20)
         if skip_demo:
             self.send("q")
-        out += self.expect(PROMPT, timeout=40)
+        out += self.expect("Lua memory:", timeout=40)
         out += self.expect("> ")
         return out
 
@@ -175,8 +185,9 @@ def test_boot_banner(b, opts):
     q = Qemu(b("kernel.img"))
     try:
         out = q.boot()
+        out += q.diagnostics()
         for s in (b"bm33\x1b[0m kernel", b"board 920092", b"screen 640x360",
-                  b"double buffer on"):
+                  b"double buffer on", b"sd: no card", b"usb: nothing attached"):
             assert s in out, f"missing {s!r} in boot log"
         hz = int(re.search(rb"measured (\d+) Hz", out).group(1))
         assert 900 <= hz <= 1100, f"timer IRQ rate {hz} Hz"  # QEMU host jitter
@@ -187,8 +198,7 @@ def test_boot_banner(b, opts):
             assert s in plain, f"missing {s!r} in boot log"
         text = "\n".join(screen_text(q.screendump()))
         for s in ("Lua 5.4 on bm33", "2^10=1024.0 7//2=3 sqrt(2)=1.414214 THE QUICK BROWN FOX co:1,4,9",
-                  "pcall caught: boot.lua:", "Lua bench: fib(25)=75025", "Lua memory:",
-                  "type 'h' for help"):
+                  "pcall caught: boot.lua:", "Lua bench: fib(25)=75025", "Lua memory:"):
             assert s in text, f"missing {s!r} on screen:\n{text}"
         assert all(len(l) < 80 for l in text.splitlines()), "boot output wraps:\n" + text
         q.send("i")
@@ -203,7 +213,17 @@ def test_boot_banner(b, opts):
 def test_console_ansi_and_status(b, opts):
     q = Qemu(b("kernel.img"))
     try:
-        q.boot()
+        q.expect(MENU, timeout=30)
+        # the menu footer is bright yellow (ESC[93m)
+        _, text = settled_screen(q, lambda i, t: any("up/down choose" in l for l in t))
+        img = q.screendump()
+        text = screen_text(img)
+        sel = next(i for i, l in enumerate(text) if "up/down choose" in l)
+        colours = {pixel(img, x, sel * 16 + y) for x in range(8, 64) for y in range(16)}
+        assert (255, 255, 85) in colours, "ANSI bright yellow not rendered"
+        q.send("q")
+        q.expect(PROMPT)
+        q.expect("> ")
         for _ in range(10):                 # the uptime appears once the monitor waits
             img = q.screendump()
             text = screen_text(img)
@@ -213,16 +233,12 @@ def test_console_ansi_and_status(b, opts):
         assert text[0].startswith(" bm33 "), f"status bar: {text[0]!r}"
         assert "up 00:00:0" in text[0], f"uptime in status bar: {text[0]!r}"
         assert pixel(img, 2, 2) == (0, 170, 170), "status bar colour"
-        # "bm33" in the banner is bright cyan (ESC[1;36m)
-        sel = next(i for i, l in enumerate(text) if l.startswith("Lua 5.4"))
-        colours = {pixel(img, x, sel * 16 + y) for x in range(0, 56) for y in range(16)}
-        assert (255, 255, 85) in colours, "ANSI bright yellow not rendered"
-        # scrolling: 40 unknown-command lines push the banner off screen
+        # scrolling: 40 unknown-command lines push the prompt text off screen
         for _ in range(20):
             q.send("x")
             q.expect("> ")
         text = screen_text(q.screendump())
-        assert not any("Lua bench" in l for l in text), "console did not scroll"
+        assert not any("back to the monitor" in l for l in text), "console did not scroll"
         assert text[0].startswith(" bm33 "), "status bar scrolled away"
         assert any("unknown command (0x78)" in l for l in text)
     finally:
@@ -254,7 +270,7 @@ def test_screen_pattern(b, opts):
         q.send(" ")                         # back to the console, text restored
         q.expect("> ")
         text = "\n".join(screen_text(q.screendump()))
-        assert "Lua memory" in text and "test pattern shown" in text, text
+        assert "type 'h' for help" in text and "test pattern shown" in text, text
     finally:
         q.close()
 
@@ -406,6 +422,8 @@ def yellow_square(img):
 def test_s32_boot_attract(b, opts):
     q = Qemu(b("kernel.img"))
     try:
+        q.boot()
+        q.send("B")
         q.expect(DEMO, timeout=25)
         time.sleep(1.5)
         img, _ = settled_screen(q, lambda i, t: pixel(i, 5, 5) == (20, 30, 60))
@@ -419,7 +437,7 @@ def test_s32_boot_attract(b, opts):
         assert sq2 and sq2 != sq1, "attract mode should move the sprite"
         out = q.expect(B33_DEMO, timeout=30).decode(errors="replace")
         q.send("q")
-        q.expect(PROMPT, timeout=30)
+        q.expect("Lua memory:", timeout=30)
         m = re.search(r'"Demo - quadrato mobile" (\d+) ticks, ([\d.]+) fps \(attract\), (\d+) dropped', out)
         assert m, out
         assert 570 <= int(m[1]) <= 620 and 55 <= float(m[2]) <= 62, m.group(0)
@@ -477,6 +495,8 @@ def settled_screen(q, ok, tries=8):
 def test_b33_boot_demo(b, opts):
     q = Qemu(b("kernel.img"))
     try:
+        q.boot()
+        q.send("B")
         q.expect(DEMO, timeout=25)
         q.send("q")
         q.expect(B33_DEMO, timeout=20)
@@ -488,7 +508,7 @@ def test_b33_boot_demo(b, opts):
         assert "sprites" in text[-1] and "attract" in text[-1], text[-1]
         got = [pixel(img, 640 - 80 + i * 20 + 8, 8) for i in range(4)]
         assert got == B33_COLOURS, f"RGB565 colour check {got}"
-        out = q.expect(PROMPT, timeout=30).decode(errors="replace")
+        out = q.expect("Lua memory:", timeout=30).decode(errors="replace")
         m = re.search(r'b33: "bm33 native demo" (\d+) frames, ([\d.]+) fps', out)
         assert m and 850 <= int(m[1]) <= 920 and 55 <= float(m[2]) <= 62, out
         assert re.search(r"update\+draw avg [\d.]+ ms", out), out
@@ -536,22 +556,20 @@ def sendkeys(q, keys, gap=0.15):
 def test_usb_keyboard(b, opts):
     q = Qemu(b("kernel.img"), USB_KBD)
     try:
-        out = q.expect(DEMO, timeout=25)
+        out = q.expect(MENU, timeout=30)
         assert b"usb: keyboard 0627:0001 'QEMU USB Keyboard', high speed, layout it" in out, out
-        time.sleep(1.0)
-        sendkeys(q, "esc")                     # Esc on the keyboard skips the demos
-        out = q.expect(B33_DEMO, timeout=20).decode(errors="replace")
-        m = re.search(r'" (\d+) ticks', out)
-        assert m and int(m[1]) < 200, out
-        q.expect("b33 bench:", timeout=20)
-        time.sleep(1.0)
+        time.sleep(0.5)
+        sendkeys(q, "esc")                     # Esc: from the menu to the monitor
+        q.expect(PROMPT, timeout=10)
+        q.expect("> ")
+
+        # b33: Esc quits the game
+        sendkeys(q, "n")
+        time.sleep(1.5)
         sendkeys(q, "esc")
-        out = q.expect("cartridge menu", timeout=30).decode(errors="replace")
+        out = q.expect("update+draw", timeout=10).decode(errors="replace")
         m = re.search(r'demo" (\d+) frames', out)
         assert m and int(m[1]) < 300, out
-        time.sleep(0.5)                        # with a keyboard, boot ends in the menu
-        sendkeys(q, "esc")
-        q.expect(PROMPT, timeout=10)
         q.expect("> ")
 
         # s32: held arrow keys move the square

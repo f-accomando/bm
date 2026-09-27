@@ -30,6 +30,7 @@ static void help(void)
             "  i  system info            m  heap usage          c  clear screen\n"
             "  y  USB: scan the port     Y  USB live test (10 s)\n"
             "  L  keyboard layout Italian / US\n"
+            "  B  boot diagnostics: benchmarks, s32 and b33 demos, Lua boot script\n"
             "  k  CPU benchmark          p  rendering benchmark 640x360 RGB565\n"
             "  S  rendering stress test (sprites, triangles, 3D; C and Lua)\n"
             "  d  animation demo (60 fps; any key stops it)\n"
@@ -135,6 +136,7 @@ void monitor_run(void)
             break;
         }
         case 't': show_test_pattern(); break;
+        case 'B': diagnostics_run(); break;
         case 'M': carts_menu(console_framebuffer()); break;
         case 'f': carts_list(); break;
         case 'F': carts_init(); carts_list(); break;

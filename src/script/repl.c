@@ -147,7 +147,7 @@ static void eval(lua_State *L, char *chunk)
 void repl_run(void)
 {
     static char chunk[CHUNK_MAX];
-    lua_State *L = luavm_state();
+    lua_State *L = luavm_init();     /* created on first use */
 
     if (!L) {
         kprintf("Lua is not available\n");

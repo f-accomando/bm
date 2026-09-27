@@ -106,62 +106,20 @@ static uint32_t arm_memory_end(void)
     return v[0] + v[1];
 }
 
-void kernel_main(uint32_t atags)
+/* Everything the boot used to show before M9: palette, CPU benchmark,
+ * libc self-test, the s32 attract demo, the b33 benchmark and demo, the
+ * vsync probe and the Lua boot script. Monitor command 'B'. */
+void diagnostics_run(void)
 {
-    bench_t bench[3];
-
-    led_init();
-    led_set(1);
-    uart_init();
-
-    int err = fb_init(&fb, SCREEN_W, SCREEN_H, 2);
-    if (err == 0) {
-        exceptions_set_panic_fb(&fb);
-        console_init(&fb, &font_console_8x16);
-        char title[40];
-        ksnprintf(title, sizeof title, "bm33 %s", bm33_version);
-        console_set_status(title, 0);
-        kprintf_set_sink(console_putc);
-    }
-
-    kprintf("\n\x1b[1;36mbm33\x1b[0m kernel %s - Raspberry Pi Zero (BCM2835)\n", bm33_version);
-    (void)atags;
-    if (err)
-        panic("framebuffer init failed (%d)", err);
-
-    uint32_t mem_end = arm_memory_end();
-    heap_init(mem_end);
-
-    /* Same work three times: as the firmware left us, at full clock, and
-     * with MMU + caches on. */
-    bench_run(&bench[0], &fb, "700MHz nocache");
-    prop_clock_set_max(CLOCK_ARM);
-    bench_run(&bench[1], &fb, "max nocache");
-    mmu_init(mem_end);
-    bench_run(&bench[2], &fb, "max + cache");
-
-    irq_init();
-    tick_init(TICK_HZ);
-    tick_set_hook(heartbeat);
-    irq_cpu_enable();
-
-    sysinfo_print_short();
+    bench_t bench;
     uint32_t cols, rows;
     console_size(&cols, &rows);
     kprintf("screen %lux%lu %s, console %lux%lu; serial 115200 8N1 on GPIO14/15\n",
             fb.width, fb.height, fb.is_rgb ? "RGB" : "BGR", cols, rows);
     print_palette();
-    bench_print(bench, 3);
+    bench_run(&bench, &fb, "max + cache");
+    bench_print(&bench, 1);
     libc_selftest();
-    report_irq();
-    usb_init();
-    usb_print();
-    carts_init();
-
-#ifdef BM33_BOOT_STRESS
-    run_stress();
-    monitor_run();
-#endif
 
     kprintf("s32: playing the built-in demo.cart for %u s ('q' or Esc skips it)...\n",
             S32_ATTRACT_SECS);
@@ -186,12 +144,53 @@ void kernel_main(uint32_t atags)
         kprintf("vsync probe: tag not supported by the firmware\n");
 
     run_boot_script();
+}
 
-    /* With a USB keyboard or gamepad the console starts on the cartridge
-     * menu; Esc (or Start+Select) goes to the monitor. */
-    int k = usb_info()->kind;
-    if (k == USB_KEYBOARD || k == USB_GAMEPAD || k == USB_XBOX360)
-        carts_menu(&fb);
+void kernel_main(uint32_t atags)
+{
+    led_init();
+    led_set(1);
+    uart_init();
 
+    int err = fb_init(&fb, SCREEN_W, SCREEN_H, 2);
+    if (err == 0) {
+        exceptions_set_panic_fb(&fb);
+        console_init(&fb, &font_console_8x16);
+        char title[40];
+        ksnprintf(title, sizeof title, "bm33 %s", bm33_version);
+        console_set_status(title, 0);
+        kprintf_set_sink(console_putc);
+    }
+
+    kprintf("\n\x1b[1;36mbm33\x1b[0m kernel %s - Raspberry Pi Zero (BCM2835)\n", bm33_version);
+    (void)atags;
+    if (err)
+        panic("framebuffer init failed (%d)", err);
+
+    uint32_t mem_end = arm_memory_end();
+    heap_init(mem_end);
+    prop_clock_set_max(CLOCK_ARM);
+    mmu_init(mem_end);
+
+    irq_init();
+    tick_init(TICK_HZ);
+    tick_set_hook(heartbeat);
+    irq_cpu_enable();
+
+    sysinfo_print_short();
+    report_irq();
+    usb_init();
+    usb_print();
+    carts_init();
+
+#ifdef BM33_BOOT_STRESS
+    run_stress();
+    monitor_run();
+#endif
+
+    /* The console starts on the cartridge menu; Esc, Start+Select or 'q'
+     * on the serial port go to the monitor ('B' there runs the old boot
+     * diagnostics). */
+    carts_menu(&fb);
     monitor_run();
 }
