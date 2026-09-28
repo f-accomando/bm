@@ -77,19 +77,25 @@ $(BUILD)/demo.b33: $(DEMO_B33_SRC) scripts/mkb33.py
 	    --map carts/demo/map.csv --title "bm33 native demo" --author bm33
 
 # Demo games (Lua only, sprites drawn in code): build/carts/<name>.b33
-GAMES := pong snake shooter astrowing
+GAMES := pong snake shooter astrowing hunt
 GAME_CARTS := $(patsubst %,$(BUILD)/carts/%.b33,$(GAMES))
 title_pong    := Pong
 title_snake   := Snake
 title_shooter := Star Shooter
 title_astrowing := Astro Wing
-# carts/<game>/cover.png (optional, scripts/mkcovers.py): printed on the
-# cartridge in the menu
+title_hunt := Hunter's Night
+res_hunt := 320x180
+# Optional per game: carts/<game>/cover.png (printed on the cartridge in the
+# menu, scripts/mkcovers.py), sheet.png and map.csv, res_<game> := 320x180.
 .SECONDEXPANSION:
-$(BUILD)/carts/%.b33: carts/%/main.lua scripts/mkb33.py $$(wildcard carts/$$*/cover.png)
+$(BUILD)/carts/%.b33: carts/%/main.lua scripts/mkb33.py \
+                      $$(wildcard carts/$$*/cover.png carts/$$*/sheet.png carts/$$*/map.csv)
 	@mkdir -p $(dir $@)
 	$(PYTHON) scripts/mkb33.py -o $@ --lua $< --title "$(title_$*)" --author bm33 \
-	    $(if $(wildcard carts/$*/cover.png),--cover carts/$*/cover.png)
+	    --res $(or $(res_$*),640x360) \
+	    $(if $(wildcard carts/$*/cover.png),--cover carts/$*/cover.png) \
+	    $(if $(wildcard carts/$*/sheet.png),--sheet carts/$*/sheet.png) \
+	    $(if $(wildcard carts/$*/map.csv),--map carts/$*/map.csv)
 
 .DEFAULT_GOAL := all
 .PHONY: FORCE all clean firmware image sdcard sdcard-chainloader sdcard-stress qemu qemu-screenshot \

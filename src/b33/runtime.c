@@ -34,7 +34,7 @@
 #define HOOK_EVERY      1000        /* instructions between hook calls */
 #define FRAME_BUDGET    20000       /* x HOOK_EVERY = 20 M instructions per callback */
 
-enum { BTN_LEFT, BTN_RIGHT, BTN_UP, BTN_DOWN, BTN_A, BTN_B, BTN_COUNT };
+enum { BTN_LEFT, BTN_RIGHT, BTN_UP, BTN_DOWN, BTN_A, BTN_B, BTN_X, BTN_Y, BTN_COUNT };
 
 static struct {
     g16_t g;
@@ -43,6 +43,7 @@ static struct {
     uint8_t *cell_dirty;
     int sheet_dirty;
     uint8_t hold[BTN_COUNT];
+    int uses_xy;                /* the cart asked for btn(6) or btn(7) */
     uint8_t now, prev;              /* button bits this frame / last frame */
     uint32_t start_us, frame;
     uint32_t last_cpu_us, fps;
@@ -52,6 +53,7 @@ static struct {
     int quit;
     r3d_t r3d;
     int r3d_ready;
+    g16_light_t light;          /* light_begin() .. light_end() */
     char save_name[13];         /* "1A2B3C4D.SAV": CRC-32 of title and author */
 } rt;
 
@@ -187,9 +189,18 @@ static int l_rgb(lua_State *L)
     return 1;
 }
 
+/* A cartridge that never asks for X or Y gets them as A and B (square and
+ * triangle keep working in the older games). */
+static void note_xy(int b)
+{
+    if (b == BTN_X || b == BTN_Y)
+        rt.uses_xy = 1;
+}
+
 static int l_btn(lua_State *L)
 {
     int b = ival(L, 1);
+    note_xy(b);
     lua_pushboolean(L, b >= 0 && b < BTN_COUNT && (rt.now >> b & 1));
     return 1;
 }
@@ -197,6 +208,7 @@ static int l_btn(lua_State *L)
 static int l_btnp(lua_State *L)
 {
     int b = ival(L, 1);
+    note_xy(b);
     lua_pushboolean(L, b >= 0 && b < BTN_COUNT && (rt.now >> b & 1) && !(rt.prev >> b & 1));
     return 1;
 }
@@ -599,6 +611,41 @@ static int l_apu(lua_State *L)
     return 1;
 }
 
+/* ---------------------------------------------------------------- light */
+
+static int video_to_ram(g16_t *g);
+
+/* light_begin([ambient]): starts the lights of this frame; everything drawn
+ * so far will be lit by light_end(). The cartridge draws into RAM from now
+ * on (lighting reads the picture back). */
+static int l_light_begin(lua_State *L)
+{
+    if (!rt.light.rgb && g16_light_init(&rt.light, rt.g.w, rt.g.h) != 0)
+        return luaL_error(L, "not enough memory for lighting");
+    if (video_to_ram(&rt.g) != 0)
+        return luaL_error(L, "not enough memory for lighting");
+    g16_light_clear(&rt.light, (uint32_t)luaL_optinteger(L, 1, 0x000000));
+    return 0;
+}
+
+/* light(x, y, radius, colour [, intensity]) - world coordinates (camera) */
+static int l_light(lua_State *L)
+{
+    if (!rt.light.rgb)
+        return luaL_error(L, "light() before light_begin()");
+    g16_light_add(&rt.light, fnum(L, 1, 0) - (float)rt.g.cam_x, fnum(L, 2, 0) - (float)rt.g.cam_y,
+                  fnum(L, 3, 32), (uint32_t)luaL_optinteger(L, 4, 0xFFFFFF), fnum(L, 5, 1));
+    return 0;
+}
+
+static int l_light_end(lua_State *L)
+{
+    (void)L;
+    if (rt.light.rgb)
+        g16_light_apply(&rt.g, &rt.light);
+    return 0;
+}
+
 static int l_quit(lua_State *L)
 {
     (void)L;
@@ -618,6 +665,7 @@ static const luaL_Reg api[] = {
     { "fog3d", l_fog3d }, { "project3d", l_project3d },
     { "zclear", l_zclear }, { "log", l_log }, { "quit", l_quit },
     { "save", l_save }, { "saved", l_saved },
+    { "light_begin", l_light_begin }, { "light", l_light }, { "light_end", l_light_end },
     { "note", l_note }, { "noteoff", l_noteoff }, { "freq", l_freq },
     { "envelope", l_envelope }, { "duty", l_duty }, { "playing", l_playing }, { "apu", l_apu },
     { NULL, NULL },
@@ -720,6 +768,8 @@ static int poll_keys(void)
             case 's': case 'S': b = BTN_DOWN; break;
             case ' ': case 'j': case 'J': b = BTN_A; break;
             case 'k': case 'K': case 'x': case 'X': b = BTN_B; break;
+            case 'c': case 'C': case 'l': case 'L': b = BTN_X; break;
+            case 'v': case 'V': case 'i': case 'I': b = BTN_Y; break;
             case 'q': case 'Q': return 1;
             }
         }
@@ -729,7 +779,9 @@ static int poll_keys(void)
     int quit = 0;
     uint32_t pad = input_buttons(&quit);
     rt.prev = rt.now;
-    rt.now = pad & ((1u << BTN_COUNT) - 1);   /* HID_* bits match btn() numbers */
+    rt.now = pad & 0x3F;                    /* HID_* bits match btn() 0-5 */
+    if (pad & HID_X) rt.now |= rt.uses_xy ? 1u << BTN_X : 1u << BTN_A;
+    if (pad & HID_Y) rt.now |= rt.uses_xy ? 1u << BTN_Y : 1u << BTN_B;
     for (int b = 0; b < BTN_COUNT; b++)
         if (rt.hold[b]) { rt.now |= 1u << b; rt.hold[b]--; }
     return quit;
@@ -792,6 +844,22 @@ static int dma_frames;          /* copy by DMA: off until the DMA test passes on
 static uint16_t *shadow;
 
 void b33_set_via_ram(int on) { via_ram = on; }
+
+/* Switches a running cartridge to the RAM buffer (keeps clip and camera). */
+static int video_to_ram(g16_t *g)
+{
+    if (shadow)
+        return 0;
+    shadow = malloc((size_t)g->w * (size_t)g->h * 2);
+    if (!shadow)
+        return -1;
+    memset(shadow, 0, (size_t)g->w * (size_t)g->h * 2);
+    g16_t keep = *g;
+    g16_target(g, shadow, (uint32_t)g->w, g->w, g->h, keep.font);
+    g->cx0 = keep.cx0; g->cy0 = keep.cy0; g->cx1 = keep.cx1; g->cy1 = keep.cy1;
+    g->cam_x = keep.cam_x; g->cam_y = keep.cam_y;
+    return 0;
+}
 int b33_via_ram(void) { return via_ram; }
 
 int b33_video_enter(framebuffer_t *fb, int w, int h, g16_t *g)
@@ -948,6 +1016,7 @@ void b33_play(framebuffer_t *fb, const uint8_t *data, size_t len,
         kprintf("\x1b[91mb33: \"%s\" stopped with an error:\n%s\x1b[0m\n", cart.title, error);
     st->ok = error == NULL;
     lua_close(L);               /* frees meshes (__gc) before the z-buffer */
+    g16_light_free(&rt.light);
     if (rt.r3d_ready)
         r3d_free(&rt.r3d);
     free_assets();

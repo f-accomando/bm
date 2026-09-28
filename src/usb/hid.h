@@ -12,6 +12,8 @@
 #define HID_B       (1u << 5)
 #define HID_START   (1u << 6)
 #define HID_SELECT  (1u << 7)
+#define HID_X       (1u << 8)       /* third and fourth face buttons: .b33 btn(6), btn(7) */
+#define HID_Y       (1u << 9)
 
 /* report_id: the keyboard's report ID if the device may send report
  * protocol reports (first byte = ID), else 0. */

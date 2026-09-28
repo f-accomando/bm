@@ -290,6 +290,10 @@ Fatto finora (da verificare sul Pi):
   copertina stampata (sezione `COVER` 128×80 nel `.b33`, `mkb33.py --cover`, copertine
   dei giochi demo da `scripts/mkcovers.py`, etichetta col titolo per le altre) e i
   contatti in rame sul retro; la scheda scelta ondeggia e ogni 7 s si gira.
+- **luce** per le `.b33` (`light_begin`/`light`/`light_end`, griglia 4×4 in C) e i
+  pulsanti **X/Y** (`btn(6)`, `btn(7)`); gioco **Hunter's Night** (`carts/hunt`, 320×180,
+  città gotica 2048×2048 illuminata solo da lampade e candele, mannaia a sega, pistola
+  che stordisce, schivata, fiale di sangue, lampade-checkpoint, boss nella cattedrale).
 - Blocchi sul Pi (Astro Wing dopo un paio di minuti, con ronzio audio): il VFP11
   dell'ARM1176 non era in modalità **RunFast** e mandava in eccezione i numeri
   denormali (una velocità che si dimezza a ogni fotogramma lo diventa in ~90 s); la

@@ -129,8 +129,13 @@ della mappa; ogni numero è una cella dello sheet).
 | 1 destra | → o D | croce / levetta | `d` o → |
 | 2 su | ↑ o W | croce / levetta | `w` o ↑ |
 | 3 giù | ↓ o S | croce / levetta | `s` o ↓ |
-| 4 **A** | spazio, Z, J | A (e X) | spazio, `j` |
-| 5 **B** | X, K | B (e Y) | `x`, `k` |
+| 4 **A** | spazio, Z, J | A / croce (DS4) | spazio, `j` |
+| 5 **B** | X, K | B / cerchio | `x`, `k` |
+| 6 **X** | C, L | X / quadrato | `c`, `l` |
+| 7 **Y** | V, I | Y / triangolo | `v`, `i` |
+
+Una cartuccia che non chiede mai `btn(6)`/`btn(7)` (o `btnp`) riceve X come A e Y come B:
+i giochi con due tasti funzionano con tutti e quattro.
 
 ### Tempo e sistema
 
@@ -198,6 +203,30 @@ if laser > 0 then laser = laser - 1; freq(1, 400 + laser * 150) end
 
 Pong, Snake e Star Shooter in `carts/` usano effetti e piccole melodie (una funzione
 `jingle` di 10 righe che suona una nota per volta sulla voce 3).
+
+### Luce
+
+Scene al buio illuminate solo da lampade, candele, torce: il disegno del fotogramma viene
+moltiplicato per una "mappa di luce" calcolata in C (una griglia ogni 4 pixel,
+interpolata e con un leggero dithering). Dal primo `light_begin()` la cartuccia disegna
+in RAM invece che direttamente sullo schermo.
+
+| Funzione | Descrizione |
+|---|---|
+| `light_begin([ambiente])` | inizia le luci del fotogramma: `ambiente` è il colore della luce di fondo (`0x000000` buio pesto, `0xFFFFFF` nessun effetto) |
+| `light(x, y, raggio, colore, [intensità])` | una luce morbida in coordinate del mondo (vale `camera`); più luci si sommano, fino a 2× la luminosità |
+| `light_end()` | applica la luce a tutto ciò che è stato disegnato; quello che disegni dopo (HUD, testi) resta alla luce piena |
+
+```lua
+cls(0); map(...); spr(...)                  -- la scena
+light_begin(0x0A0A16)                        -- notte blu scura
+light(lx, ly, 50 * (0.95 + math.random() * 0.1), 0xFFB060)   -- un lampione che tremola
+light(px, py, 40, 0xFFC888, 0.9)             -- la lanterna del giocatore
+light_end()
+print("vita", 4, 4, 0xFFFFFF)                -- l'HUD non viene oscurato
+```
+
+Esempio completo: `carts/hunt` (Hunter's Night).
 
 ### 3D (software)
 

@@ -670,7 +670,7 @@ def test_make_image(b, opts):
     q = Qemu(b("kernel.img"), ["-drive", f"if=sd,format=raw,file={img}"])
     try:
         out = q.expect(MENU, timeout=30).decode(errors="replace")
-        assert "FAT32, 63 MiB, label BM33; 7 cartridges" in out, out
+        assert "FAT32, 63 MiB, label BM33; 8 cartridges" in out, out
         time.sleep(0.5)
         _, text = settled_screen(q, lambda i, t: any("Star Shooter" in l for l in t))
         screen = "\n".join(text)
@@ -1118,6 +1118,7 @@ GAMES = {                                  # cart -> text on its title screen
     "snake": "S N A K E",
     "shooter": "S T A R   S H O O T E R",
     "astrowing": "A S T R O   W I N G",
+    "hunt": "HUNTER'S NIGHT",
 }
 
 

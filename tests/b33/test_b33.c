@@ -126,6 +126,35 @@ static void test_text(void)
     CHECK(at(2, 4) == 0xFFFF && at(9, 4) == 0xFFFF && at(3, 4) == 0 && at(10, 4) == 0xFFFF, "glyph pixels");
 }
 
+static void test_light(void)
+{
+    static uint16_t px[64 * 64];
+    g16_t g;
+    g16_light_t l;
+    g16_target(&g, px, 64, 64, 64, &font);
+    CHECK(g16_light_init(&l, 64, 64) == 0, "light init");
+    g16_cls(&g, g16_rgb(200, 160, 120));
+    uint16_t base = px[0];
+    g16_light_clear(&l, 0xFFFFFF);
+    g16_light_apply(&g, &l);
+    CHECK(px[0] == base && px[33 * 64 + 20] == base, "white light keeps the picture (%04x)", px[0]);
+    g16_light_clear(&l, 0x000000);
+    g16_light_add(&l, 32, 32, 20, 0xFFFFFF, 1.0f);
+    g16_light_apply(&g, &l);
+    uint32_t centre = g16_to_rgb24(px[32 * 64 + 32]), edge = g16_to_rgb24(px[32 * 64 + 45]);
+    CHECK(px[2 * 64 + 2] == 0, "dark outside the light (%04x)", px[2 * 64 + 2]);
+    CHECK((centre >> 16) > 180 && (centre >> 16) > (edge >> 16) && (edge >> 16) > 10,
+          "soft light: centre %06x edge %06x", centre, edge);
+    /* a warm light over a grey wall comes out orange, and can brighten */
+    g16_cls(&g, g16_rgb(100, 100, 100));
+    g16_light_clear(&l, 0x000000);
+    g16_light_add(&l, 32, 32, 30, 0xFFA040, 2.0f);
+    g16_light_apply(&g, &l);
+    uint32_t c = g16_to_rgb24(px[32 * 64 + 32]);
+    CHECK((c >> 16) > 150 && (c >> 16) > (c >> 8 & 255) && (c >> 8 & 255) > (c & 255), "warm (%06x)", c);
+    g16_light_free(&l);
+}
+
 static void test_3d(void)
 {
     static uint16_t big[360 * 640];
@@ -284,6 +313,7 @@ int main(int argc, char **argv)
     test_primitives();
     test_sprites();
     test_text();
+    test_light();
     test_3d();
     test_format(argc > 1 ? argv[1] : "build/demo.b33");
     printf("b33: %d/%d checks passed\n", checks - fails, checks);

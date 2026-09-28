@@ -71,6 +71,22 @@ void g16_map(g16_t *g, const g16_sheet_t *s, const g16_map_t *m,
 /* Text with the console font, transparent background. Returns the end x. */
 int  g16_text(g16_t *g, int x, int y, const char *str, uint16_t c);
 
+/* Lighting: a grid of light values every 4 pixels (8.8 fixed point, 256 =
+ * unchanged, up to 2x), filled with an ambient colour and soft round
+ * lights, then multiplied into the picture (interpolated, dithered). */
+typedef struct {
+    int w, h;                   /* screen pixels */
+    int nx, ny;                 /* nodes: w/4+1 x h/4+1 */
+    uint16_t *rgb;              /* 3 per node */
+} g16_light_t;
+
+int  g16_light_init(g16_light_t *l, int w, int h);
+void g16_light_free(g16_light_t *l);
+void g16_light_clear(g16_light_t *l, uint32_t ambient_rgb);   /* 0xFFFFFF = unlit picture */
+/* Adds a light at screen (x, y): full strength at the centre, zero at radius. */
+void g16_light_add(g16_light_t *l, float x, float y, float radius, uint32_t rgb, float intensity);
+void g16_light_apply(g16_t *g, const g16_light_t *l);
+
 /* Sheet helpers */
 int  g16_sheet_alloc(g16_sheet_t *s, int w, int h);
 void g16_sheet_free(g16_sheet_t *s);

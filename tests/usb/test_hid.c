@@ -109,7 +109,10 @@ int main(void)
     CHECK(hid_quit_pressed() == 0);
     uint8_t bt[78] = { 0x11, 0xC0, 0x00, 128, 128, 128, 128, 0x10 | 6 };  /* square + left */
     hid_report(USB_GAMEPAD, bt, 78);
-    CHECK(hid_buttons() == (HID_A | HID_LEFT));
+    CHECK(hid_buttons() == (HID_X | HID_LEFT));
+    bt[7] = 0x80 | 8;                                          /* triangle */
+    hid_report(USB_GAMEPAD, bt, 78);
+    CHECK(hid_buttons() == HID_Y);
 
     /* press and release between two reads: seen once, then gone */
     hid_ds4_attach();

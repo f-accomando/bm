@@ -111,6 +111,8 @@ static uint32_t key_button(uint8_t u)
     case 0x51: case 0x16: return HID_DOWN;      /* down arrow, S */
     case 0x2C: case 0x1D: case 0x0D: return HID_A;  /* space, Z, J */
     case 0x1B: case 0x0E: return HID_B;         /* X, K */
+    case 0x06: case 0x0F: return HID_X;         /* C, L */
+    case 0x19: case 0x0C: return HID_Y;         /* V, I */
     case 0x28: return HID_START;                /* Enter */
     case 0x2B: return HID_SELECT;               /* Tab */
     }
@@ -395,9 +397,9 @@ uint32_t hid_ds4_buttons(const uint8_t *d, uint32_t len, int *ps)
     if (d[1] < 64) b |= HID_UP;
     if (d[1] > 192) b |= HID_DOWN;
     if (d[4] & 0x20) b |= HID_A;                /* cross */
-    if (d[4] & 0x10) b |= HID_A;                /* square */
+    if (d[4] & 0x10) b |= HID_X;                /* square */
     if (d[4] & 0x40) b |= HID_B;                /* circle */
-    if (d[4] & 0x80) b |= HID_B;                /* triangle */
+    if (d[4] & 0x80) b |= HID_Y;                /* triangle */
     if (d[5] & 0x20) b |= HID_START;            /* options */
     if (d[5] & 0x10) b |= HID_SELECT;           /* share */
     *ps = d[6] & 1;
@@ -434,8 +436,10 @@ static void gamepad_report(const uint8_t *r, uint32_t len)
         if (d & 0x08) b |= HID_RIGHT;
         if (d & 0x10) b |= HID_START;
         if (d & 0x20) b |= HID_SELECT;
-        if (k & (0x10 | 0x40)) b |= HID_A;      /* A, X */
-        if (k & (0x20 | 0x80)) b |= HID_B;      /* B, Y */
+        if (k & 0x10) b |= HID_A;
+        if (k & 0x20) b |= HID_B;
+        if (k & 0x40) b |= HID_X;
+        if (k & 0x80) b |= HID_Y;
         int16_t lx = (int16_t)(r[6] | r[7] << 8), ly = (int16_t)(r[8] | r[9] << 8);
         if (lx < -12000) b |= HID_LEFT;
         if (lx > 12000) b |= HID_RIGHT;
@@ -448,8 +452,10 @@ static void gamepad_report(const uint8_t *r, uint32_t len)
         for (int i = 0; i < pad.nbuttons; i++) {
             if (!bits(r, len, pad.buttons[i])) continue;
             switch (i) {
-            case 0: case 2: b |= HID_A; break;
-            case 1: case 3: b |= HID_B; break;
+            case 0: b |= HID_A; break;
+            case 1: b |= HID_B; break;
+            case 2: b |= HID_X; break;
+            case 3: b |= HID_Y; break;
             case 8: b |= HID_SELECT; break;
             case 9: b |= HID_START; break;
             default: if (i >= 4 && i < 8) b |= (i & 1) ? HID_B : HID_A;

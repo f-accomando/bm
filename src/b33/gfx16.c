@@ -308,3 +308,103 @@ void g16_sheet_update_cell(g16_sheet_t *s, int cx, int cy)
             if (!s->alpha[(uint32_t)(cy * G16_CELL + y) * s->w + cx * G16_CELL + x]) { all = 0; break; }
     s->cell_opaque[cy * per_row + cx] = (uint8_t)all;
 }
+
+/* ---------------------------------------------------------------- light */
+
+#define LCELL 4
+#define LMAX  512                   /* 2x */
+
+int g16_light_init(g16_light_t *l, int w, int h)
+{
+    l->w = w;
+    l->h = h;
+    l->nx = w / LCELL + 1;
+    l->ny = h / LCELL + 1;
+    l->rgb = malloc((size_t)l->nx * l->ny * 3 * sizeof *l->rgb);
+    return l->rgb ? 0 : -1;
+}
+
+void g16_light_free(g16_light_t *l)
+{
+    free(l->rgb);
+    l->rgb = NULL;
+}
+
+static uint16_t chan(uint32_t v)            /* 0..255 -> 0..256 */
+{
+    return (uint16_t)(v + (v >> 7));
+}
+
+void g16_light_clear(g16_light_t *l, uint32_t amb)
+{
+    uint16_t r = chan(amb >> 16 & 255), g = chan(amb >> 8 & 255), b = chan(amb & 255);
+    uint16_t *p = l->rgb;
+    for (int i = l->nx * l->ny; i > 0; i--, p += 3) {
+        p[0] = r; p[1] = g; p[2] = b;
+    }
+}
+
+void g16_light_add(g16_light_t *l, float x, float y, float radius, uint32_t rgb, float k)
+{
+    if (radius <= 0 || k <= 0)
+        return;
+    int x0 = (int)((x - radius) / LCELL), x1 = (int)((x + radius) / LCELL) + 1;
+    int y0 = (int)((y - radius) / LCELL), y1 = (int)((y + radius) / LCELL) + 1;
+    if (x0 < 0) x0 = 0;
+    if (y0 < 0) y0 = 0;
+    if (x1 >= l->nx) x1 = l->nx - 1;
+    if (y1 >= l->ny) y1 = l->ny - 1;
+    const float inv = 1.0f / (radius * radius);
+    const float cr = (rgb >> 16 & 255) * k, cg = (rgb >> 8 & 255) * k, cb = (rgb & 255) * k;
+    for (int j = y0; j <= y1; j++) {
+        float dy = j * LCELL - y;
+        uint16_t *p = l->rgb + ((size_t)j * l->nx + x0) * 3;
+        for (int i = x0; i <= x1; i++, p += 3) {
+            float dx = i * LCELL - x;
+            float t = 1.0f - (dx * dx + dy * dy) * inv;
+            if (t <= 0)
+                continue;
+            t *= t;                             /* soft edge */
+            int r = p[0] + (int)(cr * t), g = p[1] + (int)(cg * t), b = p[2] + (int)(cb * t);
+            p[0] = (uint16_t)(r > LMAX ? LMAX : r);
+            p[1] = (uint16_t)(g > LMAX ? LMAX : g);
+            p[2] = (uint16_t)(b > LMAX ? LMAX : b);
+        }
+    }
+}
+
+/* 4x4 ordered dither, 0..15 scaled to the 8 fractional bits */
+static const uint8_t bayer[4][4] = {
+    { 0, 128, 32, 160 }, { 192, 64, 224, 96 }, { 48, 176, 16, 144 }, { 240, 112, 208, 80 },
+};
+
+void g16_light_apply(g16_t *g, const g16_light_t *l)
+{
+    const int w = g->w < l->w ? g->w : l->w, h = g->h < l->h ? g->h : l->h;
+    for (int by = 0; by < h; by += LCELL) {
+        const uint16_t *top = l->rgb + (size_t)(by / LCELL) * l->nx * 3;
+        const uint16_t *bot = top + l->nx * 3;
+        for (int bx = 0; bx < w; bx += LCELL) {
+            const uint16_t *a = top + (bx / LCELL) * 3, *b = a + 3, *c = bot + (bx / LCELL) * 3, *d = c + 3;
+            for (int j = 0; j < LCELL && by + j < h; j++) {
+                uint16_t *row = g->px + (uint32_t)(by + j) * g->stride + bx;
+                int lr = a[0] * (LCELL - j) + c[0] * j, rr = b[0] * (LCELL - j) + d[0] * j;
+                int lg = a[1] * (LCELL - j) + c[1] * j, rg = b[1] * (LCELL - j) + d[1] * j;
+                int lb = a[2] * (LCELL - j) + c[2] * j, rb = b[2] * (LCELL - j) + d[2] * j;
+                for (int i = 0; i < LCELL && bx + i < w; i++) {
+                    /* light x 16 (bilinear weights sum to 16) */
+                    int vr = lr * (LCELL - i) + rr * i, vg = lg * (LCELL - i) + rg * i;
+                    int vb = lb * (LCELL - i) + rb * i;
+                    uint32_t p = row[i], dth = bayer[j][i];
+                    uint32_t r5 = ((p >> 11) * (uint32_t)vr / 16 + dth) >> 8;
+                    uint32_t g6 = ((p >> 5 & 63) * (uint32_t)vg / 16 + dth) >> 8;
+                    uint32_t b5 = ((p & 31) * (uint32_t)vb / 16 + dth) >> 8;
+                    if (r5 > 31) r5 = 31;
+                    if (g6 > 63) g6 = 63;
+                    if (b5 > 31) b5 = 31;
+                    row[i] = (uint16_t)(r5 << 11 | g6 << 5 | b5);
+                }
+            }
+        }
+    }
+}

@@ -200,8 +200,34 @@ def astrowing():
     return c
 
 
+def hunt():
+    import math
+    c = Canvas()
+    c.vgradient(0, H, 0x06040A, 0x1A0C10)
+    c.circle(98, 22, 11, 0xE8D8B0)           # a pale moon, veiled
+    c.circle(102, 19, 10, 0x0C080E)
+    # the cathedral: towers and spires in black
+    for x0, w, h in ((14, 10, 44), (26, 20, 34), (48, 10, 50), (60, 18, 30), (80, 8, 40)):
+        c.rect(x0, H - h, w, h, 0x000000)
+        c.tri((x0, H - h), (x0 + w, H - h), (x0 + w / 2, H - h - 14), 0x000000)
+    for x in (18, 52, 83):                    # lit windows
+        c.rect(x, H - 30, 2, 5, 0xFFA040)
+    # the hunter: hat, coat, the cleaver raised
+    c.tri((104, 44), (122, 44), (113, 38), 0x100808)
+    c.rect(108, 44, 10, 4, 0x100808)
+    c.tri((104, 48), (122, 48), (113, 78), 0x160C0C)
+    c.rect(111, 52, 4, 3, 0x801010)
+    for i in range(10):
+        c.set(120 + i // 2, 46 - i, 0xC8C8D0)
+    c.ctext("HUNTER'S", 2, 0xB01818, scale=1, outline=0x000000)
+    c.ctext("NIGHT", 18, 0xC01818, scale=2, outline=0x000000)
+    _ = math
+    return c
+
+
 def main():
-    for name, fn in (("pong", pong), ("snake", snake), ("shooter", shooter), ("astrowing", astrowing)):
+    for name, fn in (("pong", pong), ("snake", snake), ("shooter", shooter), ("astrowing", astrowing),
+                     ("hunt", hunt)):
         path = os.path.join(ROOT, "carts", name, "cover.png")
         fn().save(path)
         print(path)
