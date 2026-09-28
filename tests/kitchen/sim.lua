@@ -374,6 +374,128 @@ for _, st in ipairs(K.Data.STAGES) do
 end
 K.G.players = { { pad = 1, chef = 1 } }
 
+-- endless mode: through the menu, then the register. Every purchase must
+-- land in the kitchen without cutting it in two or walling a station in.
+local function whole(run, first_new)
+  local seen, q, n = {}, {}, 0
+  local function walk(x, z)
+    if x < 0 or z < 0 or x >= run.w or z >= run.h or seen[z * run.w + x] then return end
+    if K.Kit.blocked(K.Kit.cell(run, x, z)) then return end
+    seen[z * run.w + x] = true
+    q[#q + 1] = { x, z }
+  end
+  local sp = run.spawns[1]
+  walk(math.floor(sp[1]), math.floor(sp[2]))
+  local i = 1
+  while q[i] do
+    local x, z = q[i][1], q[i][2]
+    walk(x + 1, z) walk(x - 1, z) walk(x, z + 1) walk(x, z - 1)
+    i = i + 1
+  end
+  for z = 0, run.h - 1 do
+    for x = 0, run.w - 1 do
+      if not K.Kit.blocked(K.Kit.cell(run, x, z)) and not seen[z * run.w + x] then
+        return false, string.format("floor cell %d,%d cut off", x, z)
+      end
+    end
+  end
+  for i, st in ipairs(run.stations) do
+    local x, z = st.cx, st.cz
+    -- (plain counters of the starting layout may be corner furniture)
+    local furniture = st.kind == "counter" and i < first_new
+    if st.kind ~= "valve" and not furniture and not (seen[z * run.w + x + 1] or seen[z * run.w + x - 1] or
+                                   seen[(z + 1) * run.w + x] or seen[(z - 1) * run.w + x]) then
+      return false, string.format("the %s at %d,%d cannot be reached", st.kind, x, z)
+    end
+  end
+  return true
+end
+
+K.G.players = {}
+K.Scr.go("menu")
+run_frames(10)
+press(1, 3)                    -- down: ENDLESS
+press(1, 4)
+label = "endless lobby"
+run_frames(5)
+press(1, 4)                    -- join (the last players are still in: ready)
+press(1, 4)
+run_frames(60)
+assert(K.G.screen == "endless", "expected the endless intro, got " .. K.G.screen)
+press(1, 4)
+assert(K.G.screen == "play", "expected play, got " .. K.G.screen)
+run_frames(120)
+local run = K.G.run
+assert(run.endless and run.hearts == 5, "endless run")
+label = "endless register"
+-- walk up to the register: stand in front of it, facing it
+local reg = K.Kit.find(run, "register")[1]
+local chef = run.chefs[1]
+chef.x, chef.z, chef.yaw = reg.x, reg.z - 1, 0
+run_frames(2)
+press(1, 4)
+assert(chef.panel, "the register did not open")
+local bought, stations0 = 0, #run.stations
+local function offers()
+  local t = {}
+  for i = 1, 3 do t[i] = run.offers[i] and run.offers[i].id or "-" end
+  return table.concat(t, " ")
+end
+-- a few at the first tier, then everything is on offer
+for i = 1, 40 do
+  if i == 8 then run.earned = 2000 end
+  run.coins = 5000
+  held[1] = 1 << 1             -- right: the next offer
+  frame()
+  held[1] = 0
+  frame()
+  local before = 0
+  for _, k in pairs(run.bought) do before = before + k end
+  press(1, 4)
+  local after = 0
+  for _, k in pairs(run.bought) do after = after + k end
+  assert(run.offers[1] and run.offers[2] and run.offers[3] or after >= 30,
+         "the register ran out of offers after " .. after .. ": " .. offers())
+  bought = bought + (after - before)
+  run_frames(50)               -- it drops into place
+  local ok, why = whole(run, stations0 + 1)
+  assert(ok, "after " .. bought .. " purchases: " .. tostring(why))
+end
+press(1, 5)                    -- B: close the register
+assert(not chef.panel, "the register did not close")
+local kinds = {}
+for i = stations0 + 1, #run.stations do kinds[run.stations[i].kind] = (kinds[run.stations[i].kind] or 0) + 1 end
+local list = {}
+for k, n in pairs(kinds) do list[#list + 1] = k .. " " .. n end
+table.sort(list)
+io.write(string.format("endless: %d purchases, %d new stations (%s), %d dishes on the menu\n", bought,
+                       #run.stations - stations0, table.concat(list, ", "), #run.pool))
+assert(bought >= 20, "only " .. bought .. " purchases went through")
+for _, st in ipairs(run.stations) do assert(not st.drop, "a station never landed") end
+
+-- computer chefs cook in the grown kitchen for a while
+for i = 1, 3 do
+  run.chefs[i] = run.chefs[i] or K.Chef.new(run, i, i, i)
+  run.chefs[i].bot = true
+end
+label = "endless bots"
+run.no_burn = true
+for _ = 1, 60 * 150 do frame() end
+io.write(string.format("endless bots: %d served, %d lost, tier %d, %d hearts, %d earned\n", run.served, run.failed,
+                       run.tier, run.hearts, run.earned))
+assert(run.served > 0, "endless: the computer chefs served nothing")
+-- the kitchen closes when the hearts run out: the records are saved
+run.hearts = 1
+for _, c in ipairs(run.chefs) do c.bot = false end
+for _, o in ipairs(run.orders) do o.t = 0.01 end
+run.order_t = 0
+run_frames(60 * 6)
+assert(K.G.screen == "endless_results", "expected the endless results, got " .. K.G.screen)
+run_frames(90)
+assert(saved_table.endless.served > 0 and saved_table.endless.time > 0, "endless records not saved")
+press(1, 5)
+assert(K.G.screen == "menu", "expected the menu, got " .. K.G.screen)
+
 -- let one stage run to the end: results, save
 K.G.players = { { pad = 1, chef = 2 } }
 K.Scr.go("intro", K.Data.STAGES[1])

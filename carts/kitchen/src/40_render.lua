@@ -295,7 +295,18 @@ function Ren.world(run)
     sx, sy = (random() - 0.5) * cam.shake * 0.4, (random() - 0.5) * cam.shake * 0.3
   end
   set_cam(cam.x, cam.z, cam.d, sx, sy)
-  light3d(-0.45, 0.85, -0.35, run.ambient or 0.45)
+  -- lights out (ghosts): only what is near a chef is lit
+  if run.dark and run.dark > 0 then
+    -- the sun from below: no face gets it, only the ambient and the lamps
+    light3d(0, -1, 0, 0.1)
+    for i = 1, 4 do
+      local c = run.chefs[i]
+      if c then lamp3d(i, c.x, 1.0, c.z, 2.8, 1.1) else lamp3d(i) end
+    end
+  else
+    light3d(-0.45, 0.85, -0.35, run.ambient or 0.45)
+    lamp3d()
+  end
 
   local km = run.meshes
   -- no z-buffer for what lies flat under everything else
@@ -335,13 +346,14 @@ function Ren.world(run)
     end
   end
   for _, st in ipairs(run.stations) do
-    if st.item or st.box or st.fire > 0 or st.n or st.dirty then draw_station_top(run, st) end
+    if (st.item or st.box or st.fire > 0 or st.n or st.dirty) and not st.drop then draw_station_top(run, st) end
   end
   for _, l in ipairs(run.loose) do
     draw_item(l.item, l.x, l.y, l.z, l.spin or 0)
   end
   Dis.draw(run)
   Haz.draw(run)
+  if run.endless then End.draw3d(run) end
   for _, c in ipairs(run.chefs) do
     c.head_y = Ren.chef(c, c.x, c.y, c.z, c.yaw)
   end

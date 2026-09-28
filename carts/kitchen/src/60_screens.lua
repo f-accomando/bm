@@ -39,7 +39,7 @@ function Scr.new_run(stage, opts)
   for _, id in ipairs(opts.recipes or stage.recipes) do pool[#pool + 1] = Data.RECIPE[id] end
   Food.set_pool(run, pool)
   Ord.init(run, { every = stage.every or 17, patience = stage.patience or 1 })
-  run.time_left = opts.endless and nil or stage.time
+  if not opts.endless then run.time_left = stage.time end
   run.goals = Scr.goals(stage, #run.chefs)
   Haz.init(run)
   Dis.init(run)
@@ -107,6 +107,18 @@ screens.title = {
   end,
   update = function(dt)
     Scr.step(attract, dt, false)
+    -- up, up, down, down: every kitchen open (to try them all)
+    for bnum = 2, 3 do
+      if btnp(bnum) then
+        G.code = ((G.code or "") .. bnum):sub(-4)
+        if G.code == "2233" then
+          G.all_open = not G.all_open
+          Snd.cash()
+          G.code_t = 2
+        end
+      end
+    end
+    if G.code_t then G.code_t = G.code_t - dt; if G.code_t <= 0 then G.code_t = nil end end
     if G.t > 0.4 and (btnp(BA) or btnp(BSTART)) then
       Snd.ui_ok()
       Scr.go("menu")
@@ -119,6 +131,9 @@ screens.title = {
     text_cs("KITCHEN", W / 2, y + 66, 0xFF6040, 4, 0x401008)
     text_cs("a cooking game for 1-4 chefs", W / 2, y + 136, 0xFFFFFF, 1, 0x000000)
     if (G.frame // 30) % 2 == 0 then text_cs("press A", W / 2, y + 170, 0xFFFFFF, 2, 0x000000) end
+    if G.code_t then
+      text_cs(G.all_open and "ALL KITCHENS OPEN" or "KITCHENS BACK TO NORMAL", W / 2, H - 40, 0xFFE060, 1, 0x000000)
+    end
   end,
 }
 
@@ -433,7 +448,7 @@ screens.play = {
     end
     if play.phase == "over" then
       Fx.update(dt)
-      if play.t > 2.6 then Scr.go("results") end
+      if play.t > 2.6 then Scr.go(run.endless and "endless_results" or "results") end
       return
     end
     for _, c in ipairs(run.chefs) do
@@ -581,6 +596,105 @@ screens.results = {
   end,
 }
 
+---------------------------------------------------------------- endless
+
+-- The endless kitchen: the rules, the records, then straight in.
+screens.endless = {
+  enter = function()
+    G.run = Scr.new_run(Data.ENDLESS, { endless = true })
+    End.setup(G.run)
+  end,
+  update = function(dt)
+    Ren.update_cam(G.run, dt)
+    if G.t > 0.3 and (btnp(BA) or btnp(BSTART)) then
+      Snd.ui_ok()
+      Scr.go("play")
+    elseif btnp(BB) then
+      Snd.ui_back()
+      Scr.go("menu")
+    end
+  end,
+  draw = function()
+    Ren.world(G.run)
+    panel(40, 30, W - 80, H - 60, 0x201C2C, 0xFFD040)
+    text_c("ENDLESS KITCHEN", W / 2, 40, 0xFFD040, 2)
+    local lines = {
+      { Hud.IC.coin, "every dish pays: the money is yours to spend" },
+      { Hud.IC.register, "at the register (A) three offers, bought on the spot" },
+      { Hud.IC.box, "what you buy drops into the kitchen by itself" },
+      { Hud.IC.heart, "a lost order costs a heart, 5 dishes in a row give one" },
+      { Hud.IC.skull, "it gets busier and wilder: how long can you last?" },
+    }
+    for i, l in ipairs(lines) do
+      local y = 80 + (i - 1) * 26
+      Hud.icon(l[1], 90, y)
+      print(l[2], 114, y + 4, 0xFFFFFF)
+    end
+    local e = Save.data.endless
+    panel(W / 2 - 150, 220, 300, 62, 0x302A3A, 0x806040)
+    text_c("BEST", W / 2, 224, 0xA0A0C0)
+    text_c(fmt("%s   %d coins   %d dishes", fmt_time(e.time or 0), e.money or 0, e.served or 0), W / 2, 242, 0xFFE060)
+    text_c(fmt("%d chef%s", #G.run.chefs, #G.run.chefs > 1 and "s" or ""), W / 2, 262, 0xC0C0D0)
+    if (G.frame // 30) % 2 == 0 then text_c("press A to open the kitchen", W / 2, H - 46, 0xFFFFFF) end
+  end,
+}
+
+local eres = {}
+
+screens.endless_results = {
+  enter = function()
+    local run = G.run
+    local e = Save.data.endless
+    eres.t = 0
+    eres.best = {
+      time = run.t > (e.time or 0),
+      money = run.earned > (e.money or 0),
+      served = run.served > (e.served or 0),
+    }
+    if eres.best.time then e.time = floor(run.t) end
+    if eres.best.money then e.money = run.earned end
+    if eres.best.served then e.served = run.served end
+    G.stats_add("endless", 1)
+    Save.write()
+    Snd.stop_song()
+    if eres.best.time or eres.best.money then Snd.fanfare() else Snd.expire() end
+  end,
+  update = function(dt)
+    eres.t = eres.t + dt
+    if eres.t < 1 then return end
+    if btnp(BA) or btnp(BX) then
+      Snd.ui_ok()
+      Scr.go("endless")
+    elseif btnp(BB) then
+      Snd.ui_back()
+      Scr.go("menu")
+    end
+  end,
+  draw = function()
+    local run = G.run
+    Ren.world(run)
+    panel(90, 40, W - 180, H - 80, 0x201C2C, 0xFFD040)
+    text_c("KITCHEN CLOSED", W / 2, 50, 0xFFD040, 2)
+    local function row(y, label, value, best)
+      print(label, 130, y, 0xC0C0D0)
+      print(value, 300, y, 0xFFFFFF)
+      if best and (G.frame // 20) % 3 ~= 0 then print("NEW BEST!", W - 210, y, 0xFFE060) end
+    end
+    row(96, "open for", fmt_time(run.t), eres.best.time)
+    row(120, "coins earned", tostring(run.earned), eres.best.money)
+    row(144, "dishes served", tostring(run.served), eres.best.served)
+    row(168, "orders lost", tostring(run.failed))
+    row(192, "best combo", "x" .. min(4, run.best_combo))
+    row(216, "tier reached", tostring(run.tier))
+    local n = 0
+    for _, k in pairs(run.bought) do n = n + k end
+    row(240, "upgrades bought", fmt("%d  (%d coins)", n, run.spent))
+    if eres.t > 1 then
+      text_c("A: again   B: menu", W / 2, H - 64, 0xC0C0D0)
+    end
+  end,
+}
+
 ---------------------------------------------------------------- stubs for later phases
 
 screens.options = {
@@ -590,9 +704,6 @@ screens.options = {
 screens.book = {
   update = function() if btnp(BB) or btnp(BA) then Scr.go("menu") end end,
   draw = function() cls(0x201C2C); text_c("RECIPE BOOK", W / 2, 40, 0xFFD040, 2) end,
-}
-screens.endless = {
-  enter = function() Scr.go("map") end,
 }
 screens.practice = {
   enter = function() Scr.go("map") end,

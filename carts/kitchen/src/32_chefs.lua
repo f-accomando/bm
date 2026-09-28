@@ -143,6 +143,7 @@ local function drop_front(run, c)
 end
 
 local function press_a(run, c)
+  if Dis.chef_press(run, c) then set_act(c, "pick", 0.22) return end
   local st = c.target
   if st then
     local ok, why = Food.interact(run, c, st)

@@ -10,8 +10,8 @@ local IC = {
   burnt = 72, ext = 73, coin = 74, star = 75, star0 = 76, heart = 77, heart0 = 78, clock = 79,
   fire = 80, drop = 81, rat = 82, duck = 83, ghost = 84, tornado = 85, steam = 86, lock = 87,
   check = 88, cross = 89, arrow = 90, bA = 91, bB = 92, bX = 93, bY = 94, register = 95,
-  up = 96, snow = 97, wrench = 98, trophy = 100, bell = 102, speed = 103, shield = 104,
-  box = 105, book = 107,
+  up = 96, snow = 97, wrench = 98, heart2 = 99, trophy = 100, skull = 101, bell = 102, speed = 103,
+  shield = 104, box = 105, knife2 = 106, book = 107,
 }
 Hud.IC = IC
 local MINI = { chop = 0, boil = 1, fry = 2, bake = 3, blend = 4, tick = 5, cross = 6, fire = 7 }
@@ -100,6 +100,7 @@ end
 
 function Hud.orders(run)
   local x = 6
+  local right = run.endless and W - 126 or W - 76
   for i, o in ipairs(run.orders) do
     local r = o.rec
     local h = Hud.card_height(r)
@@ -118,7 +119,7 @@ function Hud.orders(run)
       rect(x + shake - 1, y - 1, CARD_W + 2, h + 2, 0xFFFFFF)
     end
     x = x + CARD_W + 6
-    if x + CARD_W > W - 76 then break end
+    if x + CARD_W > right then break end
   end
 end
 

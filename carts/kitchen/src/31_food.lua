@@ -216,6 +216,8 @@ function Food.interact(run, chef, st)
   local h = chef.hold
   local def = st.def
   if st.fire > 0 then return false, "fire" end
+  if st.possessed then return false, "haunted!" end
+  if st.kind == "valve" then return false, "hold X" end
 
   -- serving window
   if st.kind == "serve" then
@@ -442,6 +444,8 @@ end
 -- What X does at this station; nil if nothing.
 function Food.work_kind(run, chef, st)
   if st.fire > 0 then return nil end
+  if st.kind == "valve" and st.leak then return "valve" end
+  if st.possessed then return nil end
   if st.kind == "board" and st.item and st.item.key then
     local k = Food.parse(st.item.key)
     if k.ing and not k.chopped and Data.ING[k.ing].chop and not chef.hold then return "chop" end
