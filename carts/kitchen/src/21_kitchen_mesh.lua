@@ -208,22 +208,28 @@ function Mesh.kitchen(run)
   end
   out.static = sb.build()
 
-  -- platforms: floor and stations at their own origin (0, 0)
+  -- platforms: floor and stations around the platform's centre (drawn at
+  -- its centre, turned by its angle)
   for i, p in ipairs(run.plats) do
     local pf, ps = multi(false), multi(true)
+    local hx, hz = p.w / 2, p.h / 2
     for lz = 0, p.h - 1 do
       for lx = 0, p.w - 1 do
         local c = p.cells[lz * p.w + lx + 1]
         if c.kind ~= "void" then
           local bb = pf.get()
-          floor_quad(bb, lx, lz, floor_color(world, c.kind, lx + p.x0, lz + p.z0))
-          if c.st then station_model(ps, c.st, lx, lz, world) end
+          floor_quad(bb, lx - hx, lz - hz, floor_color(world, c.kind, lx + p.x0, lz + p.z0))
+          if c.st then station_model(ps, c.st, lx - hx, lz - hz, world) end
         end
       end
     end
     -- the deck's edge, so it reads as a raft
     local bb = pf.get()
-    bb.quad({ 0, 0, 0 }, { p.w, 0, 0 }, { p.w, -0.3, 0 }, { 0, -0.3, 0 }, 0x6A4A2A, 0, 0, -1)
+    local ec = p.def.rotate and 0x5A5A6A or 0x6A4A2A
+    bb.quad({ -hx, 0, -hz }, { hx, 0, -hz }, { hx, -0.3, -hz }, { -hx, -0.3, -hz }, ec, 0, 0, -1)
+    bb.quad({ -hx, 0, hz }, { hx, 0, hz }, { hx, -0.3, hz }, { -hx, -0.3, hz }, ec, 0, 0, 1)
+    bb.quad({ -hx, 0, -hz }, { -hx, 0, hz }, { -hx, -0.3, hz }, { -hx, -0.3, -hz }, ec, -1, 0, 0)
+    bb.quad({ hx, 0, -hz }, { hx, 0, hz }, { hx, -0.3, hz }, { hx, -0.3, -hz }, ec, 1, 0, 0)
     out.pfloor[i] = pf.build()
     out.pstatic[i] = ps.build()
   end

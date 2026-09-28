@@ -302,7 +302,10 @@ function Ren.world(run)
   if km.water then draw3d(km.water, 0, 0, 0, 0, 0, 0, 1, 1) end
   draw_list(km.floor, 0, 0, 0, 1)
   for i, p in ipairs(run.plats) do
-    draw_list(km.pfloor[i], p.x0 + p.ox, 0, p.z0 + p.oz, 1)
+    local list = km.pfloor[i]
+    for j = 1, #list do
+      draw3d(list[j], p.x0 + p.w / 2 + p.ox, 0, p.z0 + p.h / 2 + p.oz, 0, p.rot, 0, 1, 1)
+    end
   end
   Haz.draw_floor(run)
   for _, c in ipairs(run.chefs) do
@@ -318,7 +321,10 @@ function Ren.world(run)
   -- everything that stands up
   draw_list(km.static)
   for i, p in ipairs(run.plats) do
-    draw_list(km.pstatic[i], p.x0 + p.ox, 0, p.z0 + p.oz)
+    local list = km.pstatic[i]
+    for j = 1, #list do
+      draw3d(list[j], p.x0 + p.w / 2 + p.ox, 0, p.z0 + p.h / 2 + p.oz, 0, p.rot, 0, 1)
+    end
   end
   -- the stations the chefs face
   for _, c in ipairs(run.chefs) do

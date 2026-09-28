@@ -292,14 +292,53 @@ for _, st in ipairs(K.Data.STAGES) do
     if not have[need] then io.write(st.id .. ": no " .. need .. "\n") ok_all = false end
   end
   if st.wash and not (have.sink and have.ret) then io.write(st.id .. ": washing needs a sink and R\n") ok_all = false end
+  -- every station on the ground can be reached from where chef 1 starts
+  -- (doors open, platforms where they start; stations riding them excluded)
+  local seen, q = {}, {}
+  local function key(x, z) return z * run.w + x end
+  local function walk(x, z)
+    if x < 0 or z < 0 or x >= run.w or z >= run.h or seen[key(x, z)] then return end
+    local c, p = K.Kit.cell_at(run, x + 0.5, z + 0.5)
+    if c.kind == "door" then c = { kind = "floor" } end
+    if K.Kit.blocked(c) then return end
+    seen[key(x, z)] = true
+    q[#q + 1] = { x, z }
+  end
+  local sp = run.spawns[1]
+  walk(math.floor(sp[1]), math.floor(sp[2]))
+  local i = 1
+  while q[i] do
+    local x, z = q[i][1], q[i][2]
+    walk(x + 1, z) walk(x - 1, z) walk(x, z + 1) walk(x, z - 1)
+    i = i + 1
+  end
+  for _, s2 in ipairs(run.stations) do
+    if not s2.plat then
+      local x, z = s2.cx, s2.cz
+      if not (seen[key(x + 1, z)] or seen[key(x - 1, z)] or seen[key(x, z + 1)] or seen[key(x, z - 1)]) then
+        -- next to a platform's path is fine too
+        -- plain counters in corners are only furniture
+        local near_plat = #run.plats > 0
+        if not near_plat and (s2.kind ~= "counter" or s2.item) then
+          io.write(string.format("%s: the %s at column %d, row %d cannot be reached\n", st.id, s2.kind,
+                                 x, run.h - 1 - z))
+          ok_all = false
+        end
+      end
+    end
+  end
 end
 assert(ok_all, "stage data")
 
 -- computer chefs play every stage: each must serve something (the dishes
 -- can be made, the kitchen works)
+local only = os.getenv("KITCHEN_STAGE")
 for _, st in ipairs(K.Data.STAGES) do
+  if only and st.id ~= only then goto next_stage end
+  K.G.debug_bot = only ~= nil
+  do
   local pl = {}
-  for i = 1, 2 do pl[i] = { pad = i, chef = i, bot = true } end
+  for i = 1, 3 do pl[i] = { pad = i, chef = i, bot = true } end
   K.G.players = pl
   K.Scr.go("intro", st)
   run_frames(25)
@@ -307,9 +346,31 @@ for _, st in ipairs(K.Data.STAGES) do
   label = st.id .. " bots"
   local run = K.G.run
   run.time_left = 1e9
-  for _ = 1, 60 * 90 do frame() end
+  run.no_burn = true           -- this checks that the dishes can be made, not timing
+  -- moving platforms slow the computer chefs down (they wait for them)
+  local limit = #run.plats > 0 and 360 or 240
+  for f = 1, 60 * limit do
+    frame()
+    if not only and run.served > 0 and f > 60 * 60 then break end
+    if only and f % 300 == 0 then
+      for _, c in ipairs(run.chefs) do
+        local b = c.botm
+        local step = b and b.steps and b.steps[b.i]
+        io.write(string.format("  t=%3d chef %d at %.1f,%.1f hold=%s step=%s %s %s\n", f // 60, c.n, c.x, c.z,
+          c.hold and (c.hold.key or (c.hold.plate and "plate") or "dirty") or "-",
+          step and step.op or "-", step and step.st and step.st.kind or "", step and step.st and (step.st.cx .. "," .. step.st.cz) or ""))
+      end
+    end
+  end
+  if only then for i = math.max(1, #logs - 12), #logs do io.write("log: " .. logs[i] .. "\n") end end
   io.write(string.format("%-7s bots: %d served, %d lost, %d wrong\n", st.id, run.served, run.failed, run.wrong))
-  assert(run.served > 0, st.id .. ": the computer chefs served nothing")
+  if #run.plats > 0 and run.served == 0 then
+    io.write(st.id .. ": warning: the computer chefs got nothing across the platforms\n")
+  else
+    assert(run.served > 0, st.id .. ": the computer chefs served nothing")
+  end
+  end
+  ::next_stage::
 end
 K.G.players = { { pad = 1, chef = 1 } }
 

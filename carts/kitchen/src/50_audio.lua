@@ -92,6 +92,7 @@ function Snd.alarm() jingle({ { 880, 5 }, { 660, 5 }, { 880, 5 }, { 660, 5 } }, 
 function Snd.wind() play(4, 300 + random(200), 200, NOISE, 70) end
 function Snd.hiss() slide(4, 4000, 2000, 20, 400, NOISE, 80) end
 function Snd.clang() play(4, 1400, 120, SQUARE, 80) end
+function Snd.bell() jingle({ { 1760, 3 }, { 0, 2 }, { 1760, 5 } }, TRIANGLE, 90) end
 
 ---------------------------------------------------------------- music
 

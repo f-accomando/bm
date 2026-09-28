@@ -7,12 +7,20 @@
 
 local DIRS = { { 1, 0 }, { -1, 0 }, { 0, 1 }, { 0, -1 } }
 
--- cells next to a station a chef can stand on
+-- a cell the computer chefs may plan through: free now, or crossed by a
+-- platform (they wait for it)
+local function walk_ok(run, cx, cz)
+  return Kit.walkable_cell(run, cx, cz) or
+    (run.plat_cover[cz * run.w + cx] and not Kit.station_at(run, cx + 0.5, cz + 0.5))
+end
+
+-- cells next to a station a chef can stand on (where the station is now)
 local function stand_cells(run, st)
   local out = {}
+  local sx, sz = floor(st.x), floor(st.z)
   for _, d in ipairs(DIRS) do
-    local cx, cz = st.cx + d[1], st.cz + d[2]
-    if Kit.walkable_cell(run, cx, cz) then out[#out + 1] = { cx, cz } end
+    local cx, cz = sx + d[1], sz + d[2]
+    if walk_ok(run, cx, cz) then out[#out + 1] = { cx, cz } end
   end
   return out
 end
@@ -31,7 +39,7 @@ local function bfs(run, sx, sz, goals)
     for _, d in ipairs(DIRS) do
       local nx, nz = cx + d[1], cz + d[2]
       local nk = nz * w + nx
-      if not prev[nk] and Kit.walkable_cell(run, nx, nz) then
+      if not prev[nk] and walk_ok(run, nx, nz) then
         prev[nk] = k
         if goal[nk] then
           local path = {}
@@ -73,8 +81,24 @@ end
 
 local BOX = { boil = "pot", fry = "pan", bake = "oven", blend = "blender" }
 
+local produce
+
+-- steps that put what a process needs into a free station of its kind (and
+-- leave it cooking); returns the station
+local function start_cooking(run, c, key, steps)
+  local k = Food.parse(key)
+  local s = free_station(run, BOX[k.proc], c, function(st) return #st.box.items == 0 end)
+  if not s then return nil end
+  s.res = c
+  for _, kid in ipairs(k.kids) do
+    if not produce(run, c, kid, steps) then return nil end
+    steps[#steps + 1] = { op = "use", st = s, want = "empty" }
+  end
+  return s
+end
+
 -- steps that end with the chef holding `key`
-local function produce(run, c, key, steps)
+function produce(run, c, key, steps)
   local k = Food.parse(key)
   if k.ing then
     local cr = crate_of(run, k.ing, c)
@@ -90,40 +114,89 @@ local function produce(run, c, key, steps)
     end
     return true
   end
-  local kind = BOX[k.proc]
-  local s = free_station(run, kind, c, function(st) return #st.box.items == 0 end)
+  local s = start_cooking(run, c, key, steps)
   if not s then return false end
-  s.res = c
-  for _, kid in ipairs(k.kids) do
-    if not produce(run, c, kid, steps) then return false end
-    steps[#steps + 1] = { op = "use", st = s, want = "empty" }
-  end
   steps[#steps + 1] = { op = "wait", st = s, until_done = true }
   steps[#steps + 1] = { op = "use", st = s, want = "hold", release = s }
   return true
+end
+
+-- the parts a plate still needs for recipe r, or nil if it has something else
+local function missing(r, parts)
+  local need = {}
+  for _, k in ipairs(r.parts) do need[k] = (need[k] or 0) + 1 end
+  for _, k in ipairs(parts) do
+    if not need[k] or need[k] == 0 then return nil end
+    need[k] = need[k] - 1
+  end
+  local out = {}
+  for _, k in ipairs(r.parts) do
+    if need[k] > 0 then out[#out + 1] = k; need[k] = need[k] - 1 end
+  end
+  return out
 end
 
 local function plan_order(run, c, o)
   local steps = {}
   -- a counter near the window to build the plate on
   local serve = free_station(run, "serve", c)
-  if not serve then return nil end
+  if not serve then if G.debug_bot then log("no serve") end return nil end
   local here = { x = serve.x, z = serve.z }
-  local counter = free_station(run, "counter", here, function(st) return not st.item end)
-  if not counter then return nil end
-  counter.res = c
-  -- a clean plate
-  local plates = free_station(run, "plates", c, function(st) return st.n > 0 end)
-  local sink = free_station(run, "sink", c, function(st) return st.clean > 0 end)
-  if plates then steps[#steps + 1] = { op = "use", st = plates, want = "hold" }
-  elseif sink then steps[#steps + 1] = { op = "use", st = sink, want = "hold" }
-  else counter.res = nil return nil end
-  steps[#steps + 1] = { op = "use", st = counter, want = "empty" }
-  for _, part in ipairs(o.rec.parts) do
-    if not produce(run, c, part, steps) then
-      for _, st in ipairs(run.stations) do if st.res == c then st.res = nil end end
-      return nil
+  -- a plate already on a counter with nothing wrong on it (maybe half made),
+  -- or a free counter and a clean plate
+  local todo
+  local counter = free_station(run, "counter", here, function(st)
+    return st.item and st.item.plate and missing(o.rec, st.item.parts) ~= nil
+  end)
+  if counter then
+    counter.res = c
+    todo = missing(o.rec, counter.item.parts)
+  else
+    counter = free_station(run, "counter", here, function(st) return not st.item end)
+    if not counter then if G.debug_bot then log("no counter") end return nil end
+    counter.res = c
+    local plates = free_station(run, "plates", c, function(st) return st.n > 0 end)
+    local sink = free_station(run, "sink", c, function(st) return st.clean > 0 end)
+    if plates then steps[#steps + 1] = { op = "use", st = plates, want = "hold" }
+    elseif sink then steps[#steps + 1] = { op = "use", st = sink, want = "hold" }
+    else counter.res = nil if G.debug_bot then log("no plate") end return nil end
+    steps[#steps + 1] = { op = "use", st = counter, want = "empty" }
+    todo = o.rec.parts
+  end
+  local function fail(what)
+    for _, st in ipairs(run.stations) do if st.res == c then st.res = nil end end
+    if G.debug_bot then log("cannot produce " .. what) end
+    return nil
+  end
+  -- slow cooking first (pots, ovens, blenders), then the raw and chopped
+  -- parts while it cooks, then the pans (they burn fast), then the rest
+  local cooking = {}
+  local function kind(part)
+    local k = Food.parse(part)
+    return k.proc and (k.proc == "fry" and "fry" or "slow") or "plain"
+  end
+  for _, part in ipairs(todo) do
+    if kind(part) == "slow" then
+      local s = start_cooking(run, c, part, steps)
+      if not s then return fail(part) end
+      cooking[#cooking + 1] = s
     end
+  end
+  for _, part in ipairs(todo) do
+    if kind(part) == "plain" then
+      if not produce(run, c, part, steps) then return fail(part) end
+      steps[#steps + 1] = { op = "use", st = counter, want = "empty" }
+    end
+  end
+  for _, part in ipairs(todo) do
+    if kind(part) == "fry" then
+      if not produce(run, c, part, steps) then return fail(part) end
+      steps[#steps + 1] = { op = "use", st = counter, want = "empty" }
+    end
+  end
+  for _, s in ipairs(cooking) do
+    steps[#steps + 1] = { op = "wait", st = s, until_done = true }
+    steps[#steps + 1] = { op = "use", st = s, want = "hold", release = s }
     steps[#steps + 1] = { op = "use", st = counter, want = "empty" }
   end
   steps[#steps + 1] = { op = "use", st = counter, want = "hold", release = counter }
@@ -147,6 +220,20 @@ local function plan_wash(run, c)
   steps[#steps + 1] = { op = "work", st = sink }
   steps[#steps + 1] = { op = "idle", t = 0.3, release = sink }
   return steps
+end
+
+-- a pot or pan left full (burnt, or cooked for a plan that was dropped):
+-- empty it into the trash
+local function plan_cleanup(run, c)
+  local st = free_station(run, "pot", c, function(s) return s.box.burnt or s.box.done end)
+    or free_station(run, "pan", c, function(s) return s.box.burnt or s.box.done end)
+    or free_station(run, "oven", c, function(s) return s.box.burnt or s.box.done end)
+    or free_station(run, "blender", c, function(s) return s.box.done end)
+  if not st then return nil end
+  local tr = free_station(run, "trash", c)
+  if not tr then return nil end
+  st.res = c
+  return { { op = "use", st = st, want = "hold", release = st }, { op = "use", st = tr, want = "empty" } }
 end
 
 local function release_all(run, c)
@@ -190,6 +277,11 @@ local function approach_st(run, c, b, st, dt)
   local d = sqrt(dx * dx + dz * dz)
   if d < 0.12 then
     remove(b.path, 1)
+  elseif Kit.solid_at(run, nxt[1], nxt[2]) then
+    -- water where a platform will be: wait for it, standing at a cell centre
+    local hx, hz = floor(c.x) + 0.5 - c.x, floor(c.z) + 0.5 - c.z
+    c.inp.mx, c.inp.mz = hx * 3, hz * 3
+    b.repath = max(b.repath, 0.5)
   else
     c.inp.mx, c.inp.mz = dx / d, dz / d
   end
@@ -214,11 +306,22 @@ function Bot.update(run, c, dt)
     b.stuck = 0
   end
   b.lx, b.lz = c.x, c.z
-  if b.stuck > 2.5 then
+  if b.stuck > 1.5 then
     b.stuck = 0
     b.path = nil
+    -- whoever stands in the way steps aside too
+    for _, o in ipairs(run.chefs) do
+      if o ~= c and o.botm and dist2(o.x, o.z, c.x, c.z) < 1.2 then
+        o.botm.shove, o.botm.sx, o.botm.sz = 0.6, o.x - c.x + (random() - 0.5), o.z - c.z + (random() - 0.5)
+      end
+    end
     c.inp.mx, c.inp.mz = random() * 2 - 1, random() * 2 - 1
     b.wait = 0.3
+    return
+  end
+  if b.shove and b.shove > 0 then
+    b.shove = b.shove - dt
+    c.inp.mx, c.inp.mz = b.sx, b.sz
     return
   end
 
@@ -241,8 +344,15 @@ function Bot.update(run, c, dt)
         end
       end
       if not b.steps then
-        b.steps, b.i = plan_wash(run, c), 1
-        if not b.steps then b.wait = 0.4 return end
+        b.steps, b.i = plan_cleanup(run, c) or plan_wash(run, c), 1
+        if not b.steps then
+          -- nothing to do: out of the way, back where this chef started
+          local sp = run.spawns[c.n]
+          local dx, dz = sp[1] - c.x, sp[2] - c.z
+          if dx * dx + dz * dz > 0.04 then c.inp.mx, c.inp.mz = dx, dz end
+          b.wait = 0.1
+          return
+        end
       end
     end
     b.path = nil
@@ -265,7 +375,14 @@ function Bot.update(run, c, dt)
     if not done then approach_st(run, c, b, step.st, dt) end
   else
     local r = approach_st(run, c, b, step.st, dt)
-    if r == nil then release_all(run, c) b.steps = nil b.wait = 0.5 return end
+    if r == nil then
+      -- no way there right now (a platform, a door, a cart): wait a while
+      step.lost = (step.lost or 0) + 0.5
+      b.wait = 0.5
+      b.path = nil
+      if step.lost > 8 then release_all(run, c) b.steps = nil end
+      return
+    end
     if r then
       if step.op == "use" then
         if step.want == "hold" and c.hold then done = true

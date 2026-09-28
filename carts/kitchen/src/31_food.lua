@@ -152,7 +152,7 @@ function Food.update(run, dt)
           Snd.ding()
           Fx.puff(st.x, Kit.TOP + 0.4, st.z, 0xFFFFFF, 3)
         end
-      elseif def.burn then
+      elseif def.burn and not run.no_burn then
         b.t2 = b.t2 + dt / burn_k
         local left = def.burn - b.t2
         if left < def.burn * 0.55 then

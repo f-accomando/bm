@@ -73,6 +73,7 @@ local function make_platforms(run, stage)
         if pc.st then
           pc.st.plat = p
           pc.st.lx, pc.st.lz = lx, lz
+          pc.st.lx0, pc.st.lz0 = lx, lz
           p.stations[#p.stations + 1] = pc.st
         end
         p.cells[lz * p.w + lx + 1] = pc
@@ -80,6 +81,25 @@ local function make_platforms(run, stage)
       end
     end
     run.plats[#run.plats + 1] = p
+  end
+  -- the cells a platform's floor passes over (the computer chefs wait there
+  -- for the platform instead of giving up)
+  run.plat_cover = {}
+  for _, p in ipairs(run.plats) do
+    local d = p.def
+    local steps = max(abs(d.dx or 0), abs(d.dy or 0))
+    for k = 0, steps do
+      local ox = steps > 0 and floor((d.dx or 0) * k / steps + 0.5) or 0
+      local oz = steps > 0 and -floor((d.dy or 0) * k / steps + 0.5) or 0
+      for lz = 0, p.h - 1 do
+        for lx = 0, p.w - 1 do
+          local c = p.cells[lz * p.w + lx + 1]
+          if c.kind ~= "void" and not c.st then
+            run.plat_cover[(p.z0 + lz + oz) * run.w + p.x0 + lx + ox] = true
+          end
+        end
+      end
+    end
   end
 end
 
@@ -132,13 +152,13 @@ end
 
 local function blocked(cell)
   local k = cell.kind
-  return cell.st ~= nil or k == "wall" or k == "void" or (k == "door" and not cell.open)
+  return cell.st ~= nil or k == "wall" or k == "void" or (k == "door" and not cell.open) or cell.debris
 end
 Kit.blocked = blocked
 
 function Kit.solid_at(run, x, z)
   local c = Kit.cell_at(run, x, z)
-  return blocked(c)
+  return blocked(c) or (#run.carts > 0 and Haz.solid_at(run, x, z))
 end
 
 -- the station whose cell contains the point
@@ -147,20 +167,55 @@ function Kit.station_at(run, x, z)
   return c.st
 end
 
--- world position of a station (it may ride a platform)
+-- world position of a station (it may ride a platform, maybe turning)
 function Kit.update_station_pos(run)
   for _, p in ipairs(run.plats) do
-    for _, st in ipairs(p.stations) do
-      st.x = p.x0 + p.ox + st.lx + 0.5
-      st.z = p.z0 + p.oz + st.lz + 0.5
+    if p.def.rotate then
+      local cx, cz = p.x0 + p.w / 2, p.z0 + p.h / 2
+      local ca, sa = cos(p.rot), sin(p.rot)
+      for _, st in ipairs(p.stations) do
+        local dx, dz = st.lx0 + 0.5 - p.w / 2, st.lz0 + 0.5 - p.h / 2
+        st.x, st.z = cx + dx * ca + dz * sa, cz - dx * sa + dz * ca
+      end
+    else
+      for _, st in ipairs(p.stations) do
+        st.x = p.x0 + p.ox + st.lx + 0.5
+        st.z = p.z0 + p.oz + st.lz + 0.5
+      end
+    end
+  end
+end
+
+-- a quarter turn of a square platform: every cell moves round the centre
+-- (the same way draw3d turns its meshes with a positive angle)
+function Kit.rotate_platform(run, p)
+  local cells = {}
+  local w, h = p.w, p.h
+  for lz = 0, h - 1 do
+    for lx = 0, w - 1 do
+      local c = p.cells[lz * w + lx + 1]
+      local dx, dz = lx + 0.5 - w / 2, lz + 0.5 - h / 2
+      local nx, nz = floor(dz + w / 2), floor(-dx + h / 2)
+      cells[nz * w + nx + 1] = c
+      if c.st then c.st.lx, c.st.lz = nx, nz end
+    end
+  end
+  p.cells = cells
+  -- loose items on it turn too
+  local cx, cz = p.x0 + w / 2, p.z0 + h / 2
+  for _, l in ipairs(run.loose) do
+    local _, pp = Kit.cell_at(run, l.x, l.z)
+    if pp == p and not l.fly then
+      local dx, dz = l.x - cx, l.z - cz
+      l.x, l.z = cx + dz, cz - dx
     end
   end
 end
 
 -- Cells a chef can stand on next to a station, for the computer chefs.
 function Kit.walkable_cell(run, cx, cz)
-  local c = Kit.cell(run, cx, cz)
-  return not blocked(c)
+  if cx < 0 or cz < 0 or cx >= run.w or cz >= run.h then return false end
+  return not Kit.solid_at(run, cx + 0.5, cz + 0.5)
 end
 
 ---------------------------------------------------------------- loose items

@@ -94,6 +94,7 @@ local function attract_run()
   r.time_left = nil
   r.attract = true
   r.no_fire = true
+  r.no_burn = true
   return r
 end
 
