@@ -291,6 +291,12 @@ Fatto finora (da verificare sul Pi):
   schermata d'errore visibile anche nei giochi con "while: <cosa girava>", e un
   **watchdog** (3 s) che riavvia un Pi bloccato: all'avvio successivo la console dice
   in rosso cosa stava facendo (`src/kernel/crumbs.c`, area di RAM non azzerata).
+- Misure sul Pi (kernel `af8942d`): `D` passa tutti i passi. 450 KiB RAM → RAM: CPU
+  3,70 ms, DMA 2,99 ms; riempimento RAM 450 KiB: CPU 1,02 ms, DMA 0,85 ms; fascia di
+  schermo (48 righe): riempimento CPU 0,29 ms / DMA 0,23 ms, copia RAM → schermo CPU
+  0,87 ms / DMA 0,26 ms (3,4×: la CPU paga la lettura della SDRAM). `p` (prima di `D`,
+  copia con la CPU): diretto 8,58 ms, via RAM 11,85 ms. Astro Wing: 59,9 fps,
+  update+draw 6,34 ms di media (max 12,57), nessun blocco dopo RunFast.
 
 Previsto:
 - **DMA** del BCM2835 per riempimenti e copie (liberano la CPU: `cls`, mappe, copia
