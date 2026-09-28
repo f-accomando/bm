@@ -256,8 +256,10 @@ static int l_mesh_gc(lua_State *L)
     return 0;
 }
 
-/* mesh({x,y,z, x,y,z, ...}, {a,b,c,colour, ...}) - 1-based vertex indices,
- * faces counter-clockwise seen from outside. */
+/* mesh({x,y,z, x,y,z, ...}, {a,b,c,colour, ...} [, {u0,v0,u1,v1,u2,v2, ...}])
+ * - 1-based vertex indices, faces counter-clockwise seen from outside. With
+ * the third table (6 numbers per face, sprite-sheet pixels), faces whose
+ * colour is -1 are textured with the sprite sheet. */
 static int l_mesh(lua_State *L)
 {
     luaL_checktype(L, 1, LUA_TTABLE);
@@ -285,6 +287,17 @@ static int l_mesh(lua_State *L)
         lua_rawgeti(L, 2, f * 4 + 4);
         m->colors[f] = (uint32_t)lua_tointeger(L, -1);
         lua_pop(L, 1);
+    }
+    if (lua_istable(L, 3)) {
+        luaL_argcheck(L, luaL_len(L, 3) >= (lua_Integer)nf * 6, 3, "6 texture coordinates per face");
+        if (r3d_mesh_alloc_uv(m) != 0)
+            return luaL_error(L, "not enough memory for the mesh");
+        for (int i = 0; i < nf * 6; i++) {
+            lua_rawgeti(L, 3, i + 1);
+            m->uv[i] = (float)lua_tonumber(L, -1);
+            lua_pop(L, 1);
+        }
+        m->tex = &rt.sheet;             /* live: sset() changes the texture too */
     }
     r3d_mesh_normals(m);
     return 1;

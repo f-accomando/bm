@@ -194,6 +194,44 @@ static void test_3d(void)
     r3d_camera_roll(&r, 0);
     CHECK(!r3d_project(&r, (v3_t){ 0, 0, -6 }, &sx, &sy, &d), "behind the camera");
 
+    /* textured quad facing the camera: left half red texels, right half
+     * blue; transparent texels leave the background */
+    {
+        g16_sheet_t tex;
+        r3d_mesh_t q;
+        CHECK(g16_sheet_alloc(&tex, 16, 16) == 0, "texture");
+        for (int y = 0; y < 16; y++)
+            for (int x = 0; x < 16; x++)
+                g16_sheet_set(&tex, x, y, x < 8 ? g16_rgb(255, 0, 0) : g16_rgb(0, 0, 255), y < 12);
+        CHECK(r3d_mesh_alloc(&q, 4, 2) == 0 && r3d_mesh_alloc_uv(&q) == 0, "quad");
+        q.verts[0] = (v3_t){ -1, -1, 0 }; q.verts[1] = (v3_t){ 1, -1, 0 };
+        q.verts[2] = (v3_t){ 1, 1, 0 };   q.verts[3] = (v3_t){ -1, 1, 0 };
+        static const uint16_t f[6] = { 0, 2, 1, 0, 3, 2 };
+        memcpy(q.faces, f, sizeof f);
+        /* texel v grows downwards: vertex y = +1 is v = 0 */
+        static const float uv[12] = { 0, 16, 16, 0, 16, 16,   0, 16, 0, 0, 16, 0 };
+        memcpy(q.uv, uv, sizeof uv);
+        q.colors[0] = q.colors[1] = R3D_TEXTURED;
+        q.tex = &tex;
+        r3d_mesh_normals(&q);
+        g16_cls(&g, 0);
+        r3d_zclear(&r);
+        r3d_camera(&r, 0, 0, -3, 0, 0, 60);
+        r3d_light(&r, 0, 0, -1, 1);          /* full ambient: texels unchanged */
+        r3d_draw(&r, &q, (v3_t){ 0, 0, 0 }, 0, 0, 0, 1);
+        CHECK(big[150 * 640 + 280] == g16_rgb(255, 0, 0), "left texel red (%04x)", big[150 * 640 + 280]);
+        CHECK(big[150 * 640 + 360] == g16_rgb(0, 0, 255), "right texel blue (%04x)", big[150 * 640 + 360]);
+        CHECK(big[320 * 640 + 300] == 0, "transparent texels skipped (%04x)", big[320 * 640 + 300]);
+        /* the same quad as a floor passing under the camera: clipped, still textured */
+        g16_cls(&g, 0);
+        r3d_zclear(&r);
+        r3d_draw(&r, &q, (v3_t){ 0, -1, 0 }, 1.5707963f, 0, 0, 8);
+        uint16_t px = big[350 * 640 + 300];
+        CHECK(px == g16_rgb(255, 0, 0) || px == g16_rgb(0, 0, 255), "clipped textured floor (%04x)", px);
+        r3d_mesh_free(&q);
+        g16_sheet_free(&tex);
+    }
+
     /* 2D triangle */
     g16_cls(&g, 0);
     g16_tri(&g, 10, 10, 50, 10, 10, 50, 0xFFFF);

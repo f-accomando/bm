@@ -67,6 +67,15 @@ int b33_parse(const uint8_t *d, size_t len, b33_cart_t *c, char *err, size_t err
                 return fail(err, errlen, "bad map size");
             c->map_cells = p + 4;
             break;
+        case B33_SEC_COVER:
+            if (size < 4) return fail(err, errlen, "bad cover");
+            c->cover_w = rd16(p);
+            c->cover_h = rd16(p + 2);
+            if (!c->cover_w || !c->cover_h || c->cover_w > 512 || c->cover_h > 512 ||
+                4 + (uint64_t)c->cover_w * c->cover_h * 4 != size)
+                return fail(err, errlen, "bad cover size");
+            c->cover_rgba = p + 4;
+            break;
         default:
             break;      /* unknown sections are ignored (forward compatible) */
         }

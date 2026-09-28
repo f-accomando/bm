@@ -284,6 +284,12 @@ Fatto finora (da verificare sul Pi):
   passa il disegno `.b33` "via RAM" copia i fotogrammi con il DMA;
 - 3D: clipping sul piano vicino, nebbia (`fog3d`), rollio della camera, `project3d`;
 - gioco di prova **Astro Wing** (`carts/astrowing`, in stile Star Fox).
+- **texture** sui triangoli (prospettiva corretta, anche dopo il clipping; `mesh(v, f, uv)`
+  in Lua con lo sprite sheet);
+- **menu grafico**: ogni cartuccia è una scheda 3D a forma di Memory Stick Duo con la
+  copertina stampata (sezione `COVER` 128×80 nel `.b33`, `mkb33.py --cover`, copertine
+  dei giochi demo da `scripts/mkcovers.py`, etichetta col titolo per le altre) e i
+  contatti in rame sul retro; la scheda scelta ondeggia e ogni 7 s si gira.
 - Blocchi sul Pi (Astro Wing dopo un paio di minuti, con ronzio audio): il VFP11
   dell'ARM1176 non era in modalità **RunFast** e mandava in eccezione i numeri
   denormali (una velocità che si dimezza a ogni fotogramma lo diventa in ~90 s); la

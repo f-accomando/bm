@@ -14,7 +14,7 @@ import struct
 import sys
 import zlib
 
-SEC_LUA, SEC_SHEET, SEC_MAP = 1, 2, 3
+SEC_LUA, SEC_SHEET, SEC_MAP, SEC_COVER = 1, 2, 3, 4
 
 
 def read_png(path):
@@ -70,8 +70,40 @@ def crc32(b):
     return zlib.crc32(b) & 0xFFFFFFFF
 
 
-def pack(lua, sheet=None, map_=None, title="", author="", res=(640, 360)):
-    sections = [(SEC_LUA, lua)]
+COVER_W, COVER_H = 128, 80
+
+
+def make_cover(img):
+    """Any picture -> 128x80 RGBA: centre crop to 16:10, then box filter."""
+    w, h, rgba = img
+    if w * COVER_H > h * COVER_W:           # too wide: crop the sides
+        cw, ch = h * COVER_W // COVER_H, h
+    else:
+        cw, ch = w, w * COVER_H // COVER_W
+    x0, y0 = (w - cw) // 2, (h - ch) // 2
+    out = bytearray()
+    for y in range(COVER_H):
+        sy0, sy1 = y0 + y * ch // COVER_H, y0 + max((y + 1) * ch // COVER_H, y * ch // COVER_H + 1)
+        for x in range(COVER_W):
+            sx0, sx1 = x0 + x * cw // COVER_W, x0 + max((x + 1) * cw // COVER_W, x * cw // COVER_W + 1)
+            acc, n = [0, 0, 0, 0], 0
+            for sy in range(sy0, sy1):
+                row = sy * w * 4
+                for sx in range(sx0, sx1):
+                    i = row + sx * 4
+                    for k in range(4):
+                        acc[k] += rgba[i + k]
+                    n += 1
+            out += bytes(v // n for v in acc)
+    return COVER_W, COVER_H, bytes(out)
+
+
+def pack(lua, sheet=None, map_=None, title="", author="", res=(640, 360), cover=None):
+    sections = []
+    if cover:                               # first: the menu reads only the start
+        w, h, rgba = cover
+        sections.append((SEC_COVER, struct.pack("<HH", w, h) + rgba))
+    sections.append((SEC_LUA, lua))
     if sheet:
         w, h, rgba = sheet
         sections.append((SEC_SHEET, struct.pack("<HH", w, h) + rgba))
@@ -103,6 +135,7 @@ def main():
     ap.add_argument("--lua", required=True)
     ap.add_argument("--sheet")
     ap.add_argument("--map")
+    ap.add_argument("--cover", help="picture for the menu (PNG, any size: cropped to 16:10, 128x80)")
     ap.add_argument("--title", default="")
     ap.add_argument("--author", default="")
     ap.add_argument("--res", default="640x360", choices=["640x360", "320x180"])
@@ -111,7 +144,8 @@ def main():
     sheet = read_png(a.sheet) if a.sheet else None
     map_ = read_map(a.map) if a.map else None
     res = tuple(int(v) for v in a.res.split("x"))
-    data = pack(lua, sheet, map_, a.title, a.author, res)
+    cover = make_cover(read_png(a.cover)) if a.cover else None
+    data = pack(lua, sheet, map_, a.title, a.author, res, cover)
     open(a.output, "wb").write(data)
     print(f"{a.output}: {len(data)} bytes ({a.title or 'untitled'}, {a.res})")
 

@@ -38,6 +38,11 @@ logica. Esempi completi in `carts/`: `pong/`, `snake/`, `shooter/` (solo codice)
    Per aggiungerla alla build, metti il nome in `GAMES` nel `Makefile` e il titolo in
    una riga `title_ciao := Ciao`: `make` la crea in `build/carts/ciao.b33`.
 
+   **Copertina** (facoltativa): `--cover copertina.png`, un PNG di qualsiasi misura
+   (viene ritagliato a 16:10 e ridotto a 128×80) che il menu stampa sulla scheda. Nella
+   build basta un file `carts/ciao/cover.png`; quelle dei giochi demo sono disegnate da
+   `scripts/mkcovers.py`. Senza copertina il menu stampa il titolo.
+
 3. Provala:
    - **sul Pi**: copia `ciao.b33` nella cartella `carts/` della SD, riaccendi (o premi
      `R` nel menu): compare nel menu con titolo e autore;
@@ -198,7 +203,7 @@ Pong, Snake e Star Shooter in `carts/` usano effetti e piccole melodie (una funz
 
 | Funzione | Descrizione |
 |---|---|
-| `mesh(v, f)` | mesh da tabelle: `v` = {x,y,z, x,y,z, …}, `f` = {a,b,c,colore, …} (indici da 1) |
+| `mesh(v, f, [uv])` | mesh da tabelle: `v` = {x,y,z, x,y,z, …}, `f` = {a,b,c,colore, …} (indici da 1). Con `uv` (6 numeri per faccia: u,v dei tre vertici in pixel dello sprite sheet) le facce con colore `-1` hanno la **texture** dello sprite sheet (prospettiva corretta, i pixel trasparenti restano vuoti) |
 | `mesh_sphere([r, segmenti, c1, c2])`, `mesh_cube([c])` | mesh pronte |
 | `draw3d(m, x, y, z, [rx, ry, rz, scala])` | disegna una mesh con z-buffer e luce per faccia |
 | `camera3d(x, y, z, [yaw, pitch, fov, roll])` | camera (default a z = −5, fov 60°); `roll` inclina l'inquadratura (radianti) |

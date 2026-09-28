@@ -12,7 +12,9 @@ make firmware && make image      # dist/bm33.img (64 MiB): firmware, kernel e gi
 Scrivi `dist/bm33.img` sulla microSD con **Raspberry Pi Imager** ("Use custom"),
 balenaEtcher o `dd`; collega HDMI e una **tastiera o un gamepad USB** (adattatore OTG
 sulla porta micro-USB centrale) e accendi. Il Pi si avvia in un paio di secondi sul
-**menu delle cartucce**: Pong, Snake, Star Shooter, Astro Wing (3D) e le demo. Frecce per scegliere,
+**menu delle cartucce** (in 3D: ogni gioco è una piccola scheda a forma di Memory
+Stick Duo con la copertina stampata sopra e i contatti in rame sul retro): Pong,
+Snake, Star Shooter, Astro Wing (3D) e le demo. Frecce per scegliere,
 Invio (o A) per giocare, **Esc** (o Start+Select) per tornare al menu.
 Per scrivere un gioco: [docs/API.md](docs/API.md).
 
@@ -254,12 +256,12 @@ PPU in C); i numeri reali vanno misurati sul Pi (riga `s32:` all'avvio).
 
 Cartucce solo per bm33 che sfruttano il Pi Zero: **640×360, colore diretto a 16 bit
 (RGB565), 60 fps**, logica in Lua 5.4, tutto il disegno in C. Formato in
-`src/b33/b33.h` (header + sezioni: codice Lua, sprite sheet RGBA, mappa); la grafica
+`src/b33/b33.h` (header + sezioni: copertina, codice Lua, sprite sheet RGBA, mappa); la grafica
 è salvata in un formato indipendente dallo schermo, pronta per un futuro 32 bit.
 
 ```sh
 python3 scripts/mkb33.py -o gioco.b33 --lua main.lua --sheet sheet.png --map map.csv \
-        --title "Il mio gioco"
+        --title "Il mio gioco" --cover copertina.png
 ```
 
 La cartuccia definisce `_init()`, `_update()` e `_draw()` (60 volte al secondo) e usa

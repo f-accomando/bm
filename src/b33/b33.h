@@ -19,6 +19,9 @@
  *   1 LUA    main script, UTF-8 source
  *   2 SHEET  u16 w, u16 h, then w*h RGBA8888 pixels (alpha < 128 = transparent)
  *   3 MAP    u16 w, u16 h, then w*h u16 cells (sprite index, 0 = empty)
+ *   4 COVER  u16 w, u16 h, then w*h RGBA8888: the picture printed on the
+ *            cartridge in the menu (mkb33.py makes it 128x80); first in the
+ *            file, so the menu can read it without the rest
  * Graphics are stored independently of the screen format and converted when
  * the cartridge is loaded, so the same file works if 32-bit output is added.
  */
@@ -35,6 +38,9 @@
 #define B33_SEC_LUA         1
 #define B33_SEC_SHEET       2
 #define B33_SEC_MAP         3
+#define B33_SEC_COVER       4
+#define B33_COVER_W         128
+#define B33_COVER_H         80
 
 typedef struct {
     char title[49];
@@ -47,6 +53,8 @@ typedef struct {
     uint16_t sheet_w, sheet_h;
     const uint8_t *map_cells;       /* little-endian u16 cells */
     uint16_t map_w, map_h;
+    const uint8_t *cover_rgba;      /* NULL if the cartridge has no cover */
+    uint16_t cover_w, cover_h;
 } b33_cart_t;
 
 int b33_parse(const uint8_t *data, size_t len, b33_cart_t *c, char *err, size_t errlen);

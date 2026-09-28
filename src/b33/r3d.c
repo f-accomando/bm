@@ -76,6 +76,79 @@ static uint32_t raster(g16_t *g, uint16_t *zbuf, sv_t a, sv_t b, sv_t c, uint16_
     return count;
 }
 
+/* Textured triangle: u and v are divided by depth at the vertices and
+ * interpolated with 1/z, then divided back per pixel (perspective correct).
+ * k = light, 0..256. Transparent texels are skipped. */
+typedef struct { float x, y, z, u, v; } tv_t;       /* z = 1/depth; u, v premultiplied by z */
+
+static uint32_t raster_tex(g16_t *g, uint16_t *zbuf, tv_t a, tv_t b, tv_t c,
+                           const g16_sheet_t *t, uint32_t k)
+{
+    tv_t s;
+    if (a.y > b.y) { s = a; a = b; b = s; }
+    if (b.y > c.y) { s = b; b = c; c = s; }
+    if (a.y > b.y) { s = a; a = b; b = s; }
+    if (c.y - a.y < 1e-6f)
+        return 0;
+    int y0 = (int)ceilf(a.y - 0.5f), y1 = (int)ceilf(c.y - 0.5f);
+    if (y0 < g->cy0) y0 = g->cy0;
+    if (y1 > g->cy1) y1 = g->cy1;
+    uint32_t count = 0;
+    const int tw = t->w, th = t->h;
+
+    for (int y = y0; y < y1; y++) {
+        float py = y + 0.5f;
+        float tl = (py - a.y) / (c.y - a.y);
+        tv_t l = { a.x + (c.x - a.x) * tl, 0, a.z + (c.z - a.z) * tl,
+                   a.u + (c.u - a.u) * tl, a.v + (c.v - a.v) * tl };
+        tv_t r;
+        if (py < b.y) {
+            float ts = (py - a.y) / (b.y - a.y);
+            r = (tv_t){ a.x + (b.x - a.x) * ts, 0, a.z + (b.z - a.z) * ts,
+                        a.u + (b.u - a.u) * ts, a.v + (b.v - a.v) * ts };
+        } else {
+            float d = c.y - b.y;
+            float ts = d > 1e-6f ? (py - b.y) / d : 1.0f;
+            r = (tv_t){ b.x + (c.x - b.x) * ts, 0, b.z + (c.z - b.z) * ts,
+                        b.u + (c.u - b.u) * ts, b.v + (c.v - b.v) * ts };
+        }
+        if (l.x > r.x) { s = l; l = r; r = s; }
+        int x0 = (int)ceilf(l.x - 0.5f), x1 = (int)ceilf(r.x - 0.5f);
+        if (x0 < g->cx0) x0 = g->cx0;
+        if (x1 > g->cx1) x1 = g->cx1;
+        if (x0 >= x1)
+            continue;
+        float w = r.x - l.x, inv = w > 1e-6f ? 1.0f / w : 0.0f;
+        float dz = (r.z - l.z) * inv, du = (r.u - l.u) * inv, dv = (r.v - l.v) * inv;
+        float off = x0 + 0.5f - l.x;
+        float z = l.z + off * dz, u = l.u + off * du, v = l.v + off * dv;
+        uint16_t *row = g->px + (uint32_t)y * g->stride;
+        uint16_t *zrow = zbuf + (uint32_t)y * g->w;
+        for (int x = x0; x < x1; x++, z += dz, u += du, v += dv) {
+            int32_t zz = (int32_t)(z * 65535.0f);
+            if (zz > 65535) zz = 65535;
+            if (zz <= zrow[x])
+                continue;
+            float iz = 1.0f / z;
+            int tx = (int)(u * iz), ty = (int)(v * iz);
+            if (tx < 0) tx = 0; else if (tx >= tw) tx = tw - 1;
+            if (ty < 0) ty = 0; else if (ty >= th) ty = th - 1;
+            uint32_t i = (uint32_t)ty * (uint32_t)tw + (uint32_t)tx;
+            if (!t->alpha[i])
+                continue;
+            uint32_t p = t->px[i];
+            if (k < 256) {
+                uint32_t rr = (p >> 11) * k >> 8, gg = (p >> 5 & 63) * k >> 8, bb = (p & 31) * k >> 8;
+                p = rr << 11 | gg << 5 | bb;
+            }
+            zrow[x] = (uint16_t)zz;
+            row[x] = (uint16_t)p;
+            count++;
+        }
+    }
+    return count;
+}
+
 void g16_tri(g16_t *g, int x0, int y0, int x1, int y1, int x2, int y2, uint16_t c)
 {
     sv_t a = { (float)(x0 - g->cam_x), (float)(y0 - g->cam_y), 0 };
@@ -203,7 +276,7 @@ int r3d_project(const r3d_t *r, v3_t p, float *sx, float *sy, float *depth)
     return 1;
 }
 
-typedef struct { float x, y, z; } cv_t;     /* camera space */
+typedef struct { float x, y, z, u, v; } cv_t;   /* camera space, texture coordinates */
 
 static sv_t project(const view_t *v, cv_t c)
 {
@@ -223,7 +296,8 @@ static int clip_near(const cv_t in[3], cv_t out[4])
             out[n++] = a;
         if (ia != ib) {
             float t = (NEAR - a.z) / (b.z - a.z);
-            out[n++] = (cv_t){ a.x + (b.x - a.x) * t, a.y + (b.y - a.y) * t, NEAR };
+            out[n++] = (cv_t){ a.x + (b.x - a.x) * t, a.y + (b.y - a.y) * t, NEAR,
+                               a.u + (b.u - a.u) * t, a.v + (b.v - a.v) * t };
         }
     }
     return n;
@@ -253,7 +327,7 @@ void r3d_draw(r3d_t *r, const r3d_mesh_t *m, v3_t p, float rx, float ry, float r
         float wy = (R[3] * o.x + R[4] * o.y + R[5] * o.z) * scale + p.y - r->cam_pos.y;
         float wz = (R[6] * o.x + R[7] * o.y + R[8] * o.z) * scale + p.z - r->cam_pos.z;
         cv_t c = { C[0] * wx + C[1] * wy + C[2] * wz, C[3] * wx + C[4] * wy + C[5] * wz,
-                   C[6] * wx + C[7] * wy + C[8] * wz };
+                   C[6] * wx + C[7] * wy + C[8] * wz, 0, 0 };
         cv[i] = c;
         if (c.z >= NEAR)
             sv[i] = project(&v, c);
@@ -263,19 +337,29 @@ void r3d_draw(r3d_t *r, const r3d_mesh_t *m, v3_t p, float rx, float ry, float r
         const uint16_t *fc = m->faces + t * 3;
         r->tris_in++;
         cv_t tri[3] = { cv[fc[0]], cv[fc[1]], cv[fc[2]] };
+        const int textured = (m->colors[t] & R3D_TEXTURED) && m->uv && m->tex;
+        if (textured)
+            for (int i = 0; i < 3; i++) {
+                tri[i].u = m->uv[t * 6 + i * 2];
+                tri[i].v = m->uv[t * 6 + i * 2 + 1];
+            }
         int nin = (tri[0].z >= NEAR) + (tri[1].z >= NEAR) + (tri[2].z >= NEAR);
         if (nin == 0)
             continue;
         sv_t pts[4];
+        float uvs[4][2];
         int np;
         if (nin == 3) {
             pts[0] = sv[fc[0]]; pts[1] = sv[fc[1]]; pts[2] = sv[fc[2]];
+            for (int i = 0; i < 3; i++) { uvs[i][0] = tri[i].u; uvs[i][1] = tri[i].v; }
             np = 3;
         } else {
             cv_t cl[4];
             np = clip_near(tri, cl);
-            for (int i = 0; i < np; i++)
+            for (int i = 0; i < np; i++) {
                 pts[i] = project(&v, cl[i]);
+                uvs[i][0] = cl[i].u; uvs[i][1] = cl[i].v;
+            }
         }
         sv_t a = pts[0], b = pts[1], c = pts[2];
         float area = (b.x - a.x) * (c.y - a.y) - (b.y - a.y) * (c.x - a.x);
@@ -292,6 +376,18 @@ void r3d_draw(r3d_t *r, const r3d_mesh_t *m, v3_t p, float rx, float ry, float r
         if (fog) {
             ff = ((tri[0].z + tri[1].z + tri[2].z) * (1.0f / 3.0f) - r->fog_near) * fog_k;
             ff = ff < 0 ? 0 : ff > 1 ? 1 : ff;
+        }
+        if (textured) {
+            tv_t tv[4];
+            for (int i = 0; i < np; i++)
+                tv[i] = (tv_t){ pts[i].x, pts[i].y, pts[i].z, uvs[i][0] * pts[i].z, uvs[i][1] * pts[i].z };
+            uint32_t k8 = (uint32_t)(k * 256.0f);
+            if (k8 > 256) k8 = 256;
+            r->pixels += raster_tex(r->g, r->zbuf, tv[0], tv[1], tv[2], m->tex, k8);
+            if (np == 4)
+                r->pixels += raster_tex(r->g, r->zbuf, tv[0], tv[2], tv[3], m->tex, k8);
+            r->tris_drawn++;
+            continue;
         }
         uint16_t col = shade(m->colors[t], k, r->fog_rgb, ff);
         r->pixels += raster(r->g, r->zbuf, a, b, c, col);
@@ -319,9 +415,16 @@ int r3d_mesh_alloc(r3d_mesh_t *m, int nverts, int nfaces)
     return 0;
 }
 
+int r3d_mesh_alloc_uv(r3d_mesh_t *m)
+{
+    free(m->uv);
+    m->uv = calloc((size_t)m->nfaces * 6, sizeof *m->uv);
+    return m->uv ? 0 : -1;
+}
+
 void r3d_mesh_free(r3d_mesh_t *m)
 {
-    free(m->verts); free(m->faces); free(m->colors); free(m->normals);
+    free(m->verts); free(m->faces); free(m->colors); free(m->normals); free(m->uv);
     memset(m, 0, sizeof *m);
 }
 

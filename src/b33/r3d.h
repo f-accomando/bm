@@ -1,7 +1,8 @@
 /*
  * Software 3D for native cartridges: flat-shaded, z-buffered triangles in
  * RGB565, perspective projection, back-face culling, clipping on the near
- * plane, one directional light, optional distance fog.
+ * plane, one directional light, optional distance fog, textured faces
+ * (perspective correct, from a sprite sheet).
  * Everything runs on the ARM (VFP for the transforms, fixed point in the
  * inner loops); the VideoCore 3D unit is not used.
  */
@@ -18,9 +19,13 @@ typedef struct {
     int nverts, nfaces;
     v3_t *verts;
     uint16_t *faces;            /* 3 vertex indices per face */
-    uint32_t *colors;           /* 0xRRGGBB per face */
+    uint32_t *colors;           /* 0xRRGGBB per face, or R3D_TEXTURED */
     v3_t *normals;              /* per face, object space */
+    float *uv;                  /* NULL, or 6 per face: u0 v0 u1 v1 u2 v2 in texels */
+    const g16_sheet_t *tex;     /* texture of the R3D_TEXTURED faces */
 } r3d_mesh_t;
+
+#define R3D_TEXTURED 0x80000000u
 
 typedef struct {
     g16_t *g;
@@ -52,6 +57,7 @@ void r3d_draw(r3d_t *r, const r3d_mesh_t *m, v3_t p, float rx, float ry, float r
 
 /* Mesh helpers */
 int  r3d_mesh_alloc(r3d_mesh_t *m, int nverts, int nfaces);
+int  r3d_mesh_alloc_uv(r3d_mesh_t *m);         /* adds the uv array (zeroed) */
 void r3d_mesh_free(r3d_mesh_t *m);
 void r3d_mesh_normals(r3d_mesh_t *m);
 int  r3d_mesh_sphere(r3d_mesh_t *m, int rings, int segments, uint32_t c1, uint32_t c2);

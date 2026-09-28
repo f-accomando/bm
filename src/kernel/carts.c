@@ -3,6 +3,8 @@
  */
 #include "carts.h"
 #include "crumbs.h"
+#include "menu3d.h"
+#include "b33/b33.h"
 #include "input.h"
 #include "upload.h"
 #include "b33/runtime.h"
@@ -37,6 +39,8 @@ typedef struct {
     const uint8_t *builtin;     /* NULL: file on SD */
     uint32_t size;
     fat_entry_t fe;
+    g16_sheet_t cover;          /* printed on the card in the menu (px NULL: none) */
+    char path[FAT_NAME_MAX + 10];
 } cart_t;
 
 static cart_t carts[MAX_CARTS];
@@ -131,9 +135,30 @@ static int title_cmp(const void *a, const void *b)
     }
 }
 
+/* The cover from the .b33 COVER section, or a label with the title. */
+static void load_cover(cart_t *c)
+{
+    b33_cart_t bc;
+    char err[8];
+    if (c->kind == KIND_B33) {
+        uint8_t *data = NULL;
+        size_t len = c->size;
+        const uint8_t *d = c->builtin;
+        if (!d && fat_load(&c->fe, &data, &len) == 0)
+            d = data;
+        if (d && b33_parse(d, len, &bc, err, sizeof err) == 0 && bc.cover_rgba)
+            menu3d_load_cover(&c->cover, bc.cover_rgba, bc.cover_w, bc.cover_h);
+        free(data);
+    }
+    if (!c->cover.px)
+        menu3d_make_cover(&c->cover, c->title, c->kind == KIND_B33 ? "b33" : "s32");
+}
+
 static void rescan(void)
 {
     /* SD cartridges by title; the built-in ones only when the SD has none */
+    for (int i = 0; i < ncarts; i++)
+        g16_sheet_free(&carts[i].cover);
     ncarts = 0;
     if (sd_ok) {
         scan_dir("/");
@@ -144,6 +169,14 @@ static void rescan(void)
     if (!nsd) {
         add_builtin("demo.b33 (built-in)", KIND_B33, b33_demo_cart, b33_demo_cart_end);
         add_builtin("demo.cart (built-in)", KIND_S32, s32_demo_cart, s32_demo_cart_end);
+    }
+    for (int i = 0; i < ncarts; i++) {
+        cart_t *c = &carts[i];
+        if (c->builtin)
+            ksnprintf(c->path, sizeof c->path, "%s", c->name);
+        else
+            ksnprintf(c->path, sizeof c->path, "%s%s%s", c->dir, strcmp(c->dir, "/") ? "/" : "", c->name);
+        load_cover(c);
     }
 }
 
@@ -289,10 +322,20 @@ void carts_menu(framebuffer_t *fb)
 
     kprintf("\ncartridge menu: w/s or arrows, Enter plays, q returns to the monitor\n");
     input_flush();
+    static menu_item_t items[MAX_CARTS];
+    char header[64];
+    int gfx = menu3d_open(fb) == 0;         /* else the text menu */
     for (;;) {
         if (sel < top) top = sel;
         if (sel >= top + list_rows) top = sel - list_rows + 1;
-        if (redraw) {
+        if (gfx) {
+            for (int i = 0; i < ncarts; i++)
+                items[i] = (menu_item_t){ carts[i].title, carts[i].author, carts[i].path,
+                                          carts[i].kind == KIND_B33 ? "b33" : "s32", carts[i].size,
+                                          carts[i].cover.px ? &carts[i].cover : NULL };
+            ksnprintf(header, sizeof header, "   SD: %s", sd_ok ? fat_describe() : sd_error());
+            menu3d_frame(fb, items, ncarts, sel, header, last_msg);
+        } else if (redraw) {
             draw(sel, top, list_rows);
             redraw = 0;
         }
@@ -348,19 +391,24 @@ void carts_menu(framebuffer_t *fb)
             carts_init();
             if (sel >= ncarts) sel = 0;
             redraw = 1;
-        } else if (action == 3) {
-            upload_and_play(fb);
+        } else if (action == 3 || action == 1) {
+            if (gfx)
+                menu3d_close(fb);
+            if (action == 3)
+                upload_and_play(fb);
+            else
+                play(fb, &carts[sel]);
             input_flush();
             prev_btn = hid_buttons();
             redraw = 1;
-        } else if (action == 1) {
-            play(fb, &carts[sel]);
-            input_flush();
-            prev_btn = hid_buttons();
-            redraw = 1;
+            if (gfx)
+                gfx = menu3d_open(fb) == 0;
         }
-        timer_delay_us(2000);
+        if (!gfx)
+            timer_delay_us(2000);
     }
+    if (gfx)
+        menu3d_close(fb);
     console_clear();
     kprintf("back to the monitor\n");
 }

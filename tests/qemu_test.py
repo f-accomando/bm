@@ -225,7 +225,9 @@ def test_console_ansi_and_status(b, opts):
         text = screen_text(img)
         sel = next(i for i, l in enumerate(text) if "up/down choose" in l)
         colours = {pixel(img, x, sel * 16 + y) for x in range(8, 64) for y in range(16)}
-        assert (255, 255, 85) in colours, "ANSI bright yellow not rendered"
+        # the graphical menu is RGB565: bright yellow comes out as ~(255, 255, 82)
+        assert any(r > 240 and g > 240 and b < 100 for r, g, b in colours), \
+            f"bright yellow not rendered {colours}"
         q.send("q")
         q.expect(PROMPT)
         q.expect("> ")
@@ -1224,6 +1226,43 @@ def test_dma(b, opts):
         out = q.expect("DMA test passed", timeout=60).decode(errors="replace")
         assert out.count(" ok") == 6 and "FAILED" not in out, out
         q.expect("> ")
+    finally:
+        q.close()
+
+
+TEX_CART = r"""
+local m
+function _init()
+  for y = 0, 15 do for x = 0, 15 do sset(x, y, x < 8 and 0xFF0000 or 0x0000FF) end end
+  m = mesh({ -1,-1,0, 1,-1,0, 1,1,0, -1,1,0 }, { 1,3,2,-1, 1,4,3,-1 },
+           { 0,16, 16,0, 16,16,   0,16, 0,0, 16,0 })
+end
+local n = 0
+function _update() n = n + 1 end
+function _draw()
+  cls(0)
+  zclear()
+  camera3d(0, 0, -3)
+  light3d(0, 0, -1, 1)
+  draw3d(m, 0, 0, 0)
+  if n == 3 then
+    log("tex", string.format("%06x %06x", pget(280, 180), pget(360, 180)), stat(4))
+    quit()
+  end
+end
+"""
+
+
+def test_textured_mesh(b, opts):
+    """M14: mesh() with texture coordinates draws the sprite sheet on faces."""
+    q = Qemu(b("kernel.img"))
+    try:
+        q.boot()
+        assert _upload(q, mkb33.pack(TEX_CART.encode(), title="texture test"))
+        out = q.expect("tex\t", timeout=15).decode(errors="replace")
+        out += q.expect("\n").decode(errors="replace")
+        assert "ff0000 0000ff\t2" in out, out
+        q.expect("> ", timeout=10)
     finally:
         q.close()
 

@@ -1,6 +1,5 @@
 #include "dmatest.h"
 #include "arch/cache.h"
-#include "b33/runtime.h"
 #include "drivers/dma.h"
 #include "drivers/timer.h"
 #include "lib/printf.h"
@@ -119,10 +118,11 @@ out:
     free(a);
     free(b);
     if (failed) {
-        kprintf("DMA test \x1b[91mfailed\x1b[0m: copies stay on the CPU\n");
-        b33_set_dma_frames(0);
+        kprintf("DMA test \x1b[91mfailed\x1b[0m\n");
     } else {
-        kprintf("DMA test passed: .b33 frames drawn \"via RAM\" are now copied by DMA\n");
-        b33_set_dma_frames(1);
+        /* measured on the Pi: a whole 640x360 frame "via RAM" takes 14.06 ms
+         * with the DMA copy against 11.85 ms with the CPU, so frames stay on
+         * the CPU (b33_set_dma_frames exists for further experiments) */
+        kprintf("DMA test passed\n");
     }
 }
