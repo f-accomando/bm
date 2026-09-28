@@ -323,7 +323,7 @@ Previsto:
 
 ---
 
-## M15 — Editor sulla console (L) — prima versione fatta, da provare sul Pi
+## M15 — Editor sulla console (L) ✅ verificato sul Pi Zero W
 Decisione 2026-09-28: editor **sulla console** (come PICO-8), prima del multiplayer.
 - **`bm33 editor`**, sempre ultimo nel menu delle cartucce (freccia su dal primo; e `e` dal monitor): una
   cartuccia `.b33` incorporata nel kernel (`carts/editor/main.lua`).
