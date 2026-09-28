@@ -83,7 +83,7 @@ $(BUILD)/demo.b33: $(DEMO_B33_SRC) scripts/mkb33.py
 	    --map carts/demo/map.csv --title "bm33 native demo" --author bm33
 
 # Demo games (Lua only, sprites drawn in code): build/carts/<name>.b33
-GAMES := pong snake shooter astrowing hunt
+GAMES := pong snake shooter astrowing hunt kitchen
 GAME_CARTS := $(patsubst %,$(BUILD)/carts/%.b33,$(GAMES))
 title_pong    := Pong
 title_snake   := Snake
@@ -91,6 +91,7 @@ title_shooter := Star Shooter
 title_astrowing := Astro Wing
 title_hunt := Hunter's Night
 res_hunt := 320x180
+title_kitchen := Chaos Kitchen
 # Optional per game: carts/<game>/cover.png (printed on the cartridge in the
 # menu, scripts/mkcovers.py), sheet.png and map.csv, res_<game> := 320x180.
 .SECONDEXPANSION:
@@ -103,9 +104,28 @@ $(BUILD)/carts/%.b33: carts/%/main.lua scripts/mkb33.py \
 	    $(if $(wildcard carts/$*/sheet.png),--sheet carts/$*/sheet.png) \
 	    $(if $(wildcard carts/$*/map.csv),--map carts/$*/map.csv)
 
+# Chaos Kitchen (M17) is written in several Lua files, joined by its build.py
+KITCHEN_SRC := $(sort $(wildcard carts/kitchen/src/*.lua))
+$(BUILD)/kitchen/main.lua: $(KITCHEN_SRC) carts/kitchen/build.py
+	$(PYTHON) carts/kitchen/build.py $@ --map $(BUILD)/kitchen/main.map
+
+$(BUILD)/carts/kitchen.b33: $(BUILD)/kitchen/main.lua carts/kitchen/sheet.png carts/kitchen/cover.png scripts/mkb33.py
+	@mkdir -p $(dir $@)
+	$(PYTHON) scripts/mkb33.py -o $@ --lua $< --title "$(title_kitchen)" --author bm33 \
+	    --sheet carts/kitchen/sheet.png --cover carts/kitchen/cover.png
+
+# A Lua interpreter for the PC (the same Lua 5.4 as the console): host tests
+# of the Lua cartridges.
+$(BUILD)/host/luahost: tests/kitchen/luahost.c $(LUA_SRCS)
+	@mkdir -p $(dir $@)
+	$(HOSTCC) -O2 -w -Ithird_party/lua -o $@ tests/kitchen/luahost.c $(LUA_SRCS) -lm
+
+test-kitchen: $(BUILD)/host/luahost $(BUILD)/kitchen/main.lua
+	$< tests/kitchen/sim.lua $(BUILD)/kitchen/main.lua $(BUILD)/kitchen/main.map
+
 .DEFAULT_GOAL := all
 .PHONY: FORCE all clean firmware image sdcard sdcard-chainloader sdcard-stress qemu qemu-screenshot \
-        run-serial test test-s32 test-s32-arm test-b33 test-usb test-audio test-fat disasm
+        run-serial test test-s32 test-s32-arm test-b33 test-usb test-audio test-fat test-kitchen disasm
 
 all: $(BUILD)/kernel.img $(BUILD)/chainloader.img $(GAME_CARTS)
 
@@ -188,7 +208,7 @@ qemu: $(BUILD)/kernel.img
 qemu-screenshot: $(BUILD)/kernel.img
 	./scripts/qemu-screenshot.sh $< $(BUILD)/screen.png
 
-test: all test-s32 test-b33 test-usb test-fat test-audio
+test: all test-s32 test-b33 test-usb test-fat test-audio test-kitchen
 	$(PYTHON) tests/qemu_test.py --build $(BUILD)
 
 $(BUILD)/host/test_b33: tests/b33/test_b33.c src/b33/gfx16.c src/b33/r3d.c src/b33/format.c src/lib/crc32.c src/b33/*.h
