@@ -2,6 +2,7 @@
 #include "arch/cache.h"
 #include "drivers/dma.h"
 #include "drivers/timer.h"
+#include "gfx/console.h"
 #include "lib/printf.h"
 
 #include <stdlib.h>
@@ -112,11 +113,14 @@ void dma_test(framebuffer_t *fb)
     ok = dma_wait() == 0;
     d = timer_ticks() - t0;
     result(ok && memcmp(band, a, bytes) == 0, cpu, d);
-    memset(band, 0, bytes);
 
 out:
     free(a);
     free(b);
+    /* steps 5 and 6 painted over the bottom of the console: redraw it all
+     * (a black band was left there) */
+    console_suspend(1);
+    console_suspend(0);
     if (failed) {
         kprintf("DMA test \x1b[91mfailed\x1b[0m\n");
     } else {
