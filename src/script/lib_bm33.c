@@ -2,6 +2,7 @@
 #include "luavm.h"
 #include "drivers/timer.h"
 #include "drivers/watchdog.h"
+#include "kernel/crumbs.h"
 #include "gfx/console.h"
 #include "kernel/tick.h"
 #include "lib/printf.h"
@@ -73,6 +74,7 @@ static int l_reboot(lua_State *L)
     (void)L;
     fflush(stdout);
     kprintf("rebooting...\n");
+    crumbs_clean_exit();
     watchdog_reboot();
 }
 

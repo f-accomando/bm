@@ -22,6 +22,8 @@
 #include "bt/bt.h"
 #include "audio/audio.h"
 #include "dmatest.h"
+#include "crumbs.h"
+#include "drivers/watchdog.h"
 
 static void help(void)
 {
@@ -44,7 +46,7 @@ static void help(void)
             "  d  animation demo (60 fps; any key stops it)\n"
             "  t  HDMI test pattern (any key returns)\n"
             "  r  reboot (watchdog; the chainloader will ask for a new kernel)\n"
-            "  X  crash tests (then u, a, b or s): the red exception screen\n");
+            "  X  crash tests (then u, a, b, s or f): exception screen, freeze\n");
 }
 
 static void __attribute__((noinline)) trigger_undef(void)
@@ -88,10 +90,13 @@ void monitor_run(void)
 
     for (;;) {
         kprintf("> ");
+        crumb("monitor, waiting for a key", NULL);
         char c = input_getc();
         if (c >= ' ' && c < 127)
             kprintf("%c", c);
         kprintf("\n");
+        char cmd[2] = { c >= ' ' && c < 127 ? c : '?', 0 };
+        crumb("monitor command", cmd);
 
         switch (c) {
         case 'h': case '?': help(); break;
@@ -160,17 +165,24 @@ void monitor_run(void)
             break;
         case 'r':
             kprintf("rebooting...\n");
+            crumbs_clean_exit();
             uart_flush();
             watchdog_reboot();
         case 'X': {
             /* two keys, so that a stray key never halts the console */
             kprintf("crash test: u undefined insn, a data abort, b prefetch abort, "
-                    "s SVC; other keys cancel\n");
+                    "s SVC,\n  f freeze (the watchdog restarts the Pi in 3 s); other keys cancel\n");
             char t = input_getc();
             if (t == 'u') trigger_undef();
             else if (t == 'a') trigger_dabt();
             else if (t == 'b') trigger_pabt();
             else if (t == 's') trigger_swi();
+            else if (t == 'f') {
+                crumb("freeze test (X f)", NULL);
+                __asm__ volatile("cpsid i" ::: "memory");
+                for (;;)
+                    ;
+            }
             else kprintf("cancelled\n");
             break;
         }

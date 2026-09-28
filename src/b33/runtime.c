@@ -19,6 +19,7 @@
 #include "audio/audio.h"
 #include "drivers/dma.h"
 #include "arch/cache.h"
+#include "kernel/crumbs.h"
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -915,6 +916,7 @@ void b33_play(framebuffer_t *fb, const uint8_t *data, size_t len,
         if (rt.last_cpu_us > st->cpu_us_max)
             st->cpu_us_max = rt.last_cpu_us;
         rt.frame++;
+        crumb_frame(rt.frame);
         present(fb, &deadline, &prev, &st->dropped);
         st->copy_us_total += rt.present_us;
         if (++fps_frames, timer_ticks() - fps_t0 >= 1000000) {

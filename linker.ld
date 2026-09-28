@@ -39,6 +39,11 @@ SECTIONS
         __bss_end = .;
     }
 
+    /* kept across a watchdog reset: never cleared (src/kernel/crumbs.c) */
+    .noinit (NOLOAD) : ALIGN(32) {
+        *(.noinit .noinit.*)
+    }
+
     .stack (NOLOAD) : ALIGN(16) {
         . += UND_STACK_SIZE; __und_stack_top = .;
         . += ABT_STACK_SIZE; __abt_stack_top = .;

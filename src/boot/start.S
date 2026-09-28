@@ -50,6 +50,12 @@ _start:
     mcr     p15, 0, r0, c7, c5, 4   @ ARMv6 prefetch flush (ISB)
     mov     r0, #0x40000000         @ FPEXC.EN
     vmsr    fpexc, r0
+    /* RunFast mode (FZ + DN, no traps): without it the VFP11 "bounces"
+     * denormal and NaN operands to a support code we do not have, as an
+     * undefined-instruction exception. A speed that decays towards zero
+     * frame after frame in a Lua game becomes denormal in a minute or two. */
+    mov     r0, #0x03000000         @ FPSCR.DN | FPSCR.FZ
+    vmsr    fpscr, r0
 
     /* Zero .bss */
     ldr     r0, =__bss_start

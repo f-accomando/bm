@@ -284,6 +284,13 @@ Fatto finora (da verificare sul Pi):
   passa il disegno `.b33` "via RAM" copia i fotogrammi con il DMA;
 - 3D: clipping sul piano vicino, nebbia (`fog3d`), rollio della camera, `project3d`;
 - gioco di prova **Astro Wing** (`carts/astrowing`, in stile Star Fox).
+- Blocchi sul Pi (Astro Wing dopo un paio di minuti, con ronzio audio): il VFP11
+  dell'ARM1176 non era in modalità **RunFast** e mandava in eccezione i numeri
+  denormali (una velocità che si dimezza a ogni fotogramma lo diventa in ~90 s); la
+  schermata d'errore finiva sulla pagina nascosta del gioco. Ora: RunFast all'avvio,
+  schermata d'errore visibile anche nei giochi con "while: <cosa girava>", e un
+  **watchdog** (3 s) che riavvia un Pi bloccato: all'avvio successivo la console dice
+  in rosso cosa stava facendo (`src/kernel/crumbs.c`, area di RAM non azzerata).
 
 Previsto:
 - **DMA** del BCM2835 per riempimenti e copie (liberano la CPU: `cls`, mappe, copia

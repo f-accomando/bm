@@ -2,6 +2,7 @@
  * Cartridge list (built-in + SD card) and the on-screen menu.
  */
 #include "carts.h"
+#include "crumbs.h"
 #include "input.h"
 #include "upload.h"
 #include "b33/runtime.h"
@@ -40,7 +41,8 @@ typedef struct {
 
 static cart_t carts[MAX_CARTS];
 static int ncarts, nsd, sd_ok;
-static char last_msg[80];
+static char last_msg[96];
+static char perf_msg[80];          /* speed of the last .b33 game */
 
 static int ends_with(const char *s, const char *ext)
 {
@@ -181,6 +183,15 @@ void carts_play_buffer(framebuffer_t *fb, const uint8_t *data, size_t len)
         b33_stats_t st;
         b33_play(fb, data, len, PLAY_SECS, &st);
         b33_print_stats(&st);
+        perf_msg[0] = 0;
+        if (st.frames) {
+            uint32_t ms = st.elapsed_us / 1000, fps10 = ms ? st.frames * 10000u / ms : 0;
+            uint32_t avg = st.cpu_us_total / st.frames;
+            ksnprintf(perf_msg, sizeof perf_msg,
+                      ", %lu.%lu fps, update+draw %lu.%02lu ms (max %lu.%02lu)",
+                      fps10 / 10, fps10 % 10, avg / 1000, avg % 1000 / 10,
+                      st.cpu_us_max / 1000, st.cpu_us_max % 1000 / 10);
+        }
     } else if (len >= 8 && memcmp(data, "S32CART1", 8) == 0) {
         s32_play_stats_t st;
         s32_play(fb, data, len, PLAY_SECS, 0, &st);
@@ -193,9 +204,12 @@ void carts_play_buffer(framebuffer_t *fb, const uint8_t *data, size_t len)
 static void play(framebuffer_t *fb, const cart_t *c)
 {
     kprintf("\nplaying %s\n", c->name);
+    perf_msg[0] = 0;
+    crumb("playing", c->title[0] ? c->title : c->name);
     if (c->builtin) {
         carts_play_buffer(fb, c->builtin, c->size);
-        ksnprintf(last_msg, sizeof last_msg, "last: %s", c->name);
+        ksnprintf(last_msg, sizeof last_msg, "last: %s%s", c->name, perf_msg);
+        crumb("cartridge menu", NULL);
         return;
     }
     uint8_t *data;
@@ -207,7 +221,8 @@ static void play(framebuffer_t *fb, const cart_t *c)
     }
     carts_play_buffer(fb, data, len);
     free(data);
-    ksnprintf(last_msg, sizeof last_msg, "last: %s", c->name);
+    ksnprintf(last_msg, sizeof last_msg, "last: %s%s", c->name, perf_msg);
+    crumb("cartridge menu", NULL);
 }
 
 /* ---------------------------------------------------------------- menu */

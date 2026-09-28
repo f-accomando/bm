@@ -91,6 +91,7 @@ Lua `boot.lua`) si esegue dal monitor con **`b`**.
 | `t` | test pattern HDMI (un tasto qualsiasi torna alla console) |
 | `r` | reboot via watchdog (con il chainloader, ricarica il kernel) |
 | `X` poi `u` `s` `b` `a` | test di crash: undefined instruction, SVC, prefetch abort (BKPT), data abort (due tasti, per non fermare la console per errore) |
+| `X` poi `f` | blocco simulato (interrupt spenti): il watchdog riavvia il Pi in 3 s e all'avvio compare cosa stava facendo |
 
 Un'eccezione fatale stampa PC/LR/SP/CPSR, r0–r12, DFAR/DFSR o IFSR e
 l'istruzione in errore, sulla seriale **e sullo schermo** (bianco su rosso),

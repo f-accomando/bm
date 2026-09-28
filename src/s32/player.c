@@ -7,6 +7,7 @@
 #include "gfx/console.h"
 #include "lib/printf.h"
 #include "audio/audio.h"
+#include "kernel/crumbs.h"
 
 #include <stdlib.h>
 #include <string.h>
@@ -178,6 +179,7 @@ void s32_play(framebuffer_t *fb, const uint8_t *data, size_t len,
         st->instructions += m.steps;
         st->status = s;
         st->ticks++;
+        crumb_frame(st->ticks);
         if (s != S32_OK)
             break;
 

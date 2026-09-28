@@ -4,6 +4,8 @@
  * equal to the exception number (1 = undef, 2 = swi, 3 = pabt, 4 = dabt...).
  */
 #include "exceptions.h"
+#include "drivers/watchdog.h"
+#include "crumbs.h"
 #include "drivers/fb.h"
 #include "gfx/console.h"
 #include "drivers/led.h"
@@ -12,6 +14,7 @@
 #include <stdarg.h>
 
 static framebuffer_t *panic_fb;
+static uint32_t panic_w, panic_h;       /* the console's mode */
 
 static const char *const exc_names[] = {
     "Reset", "Undefined instruction", "Software interrupt (SWI)",
@@ -26,6 +29,8 @@ static const char *const mode_names[16] = {
 void exceptions_set_panic_fb(void *fb)
 {
     panic_fb = fb;
+    panic_w = panic_fb->width;
+    panic_h = panic_fb->height;
 }
 
 static inline uint32_t read_dfsr(void) { uint32_t v; __asm__ volatile("mrc p15, 0, %0, c5, c0, 0" : "=r"(v)); return v; }
@@ -37,6 +42,12 @@ static inline uint32_t read_dfar(void) { uint32_t v; __asm__ volatile("mrc p15, 
 static void panic_screen(void)
 {
     __asm__ volatile("cpsid i" ::: "memory");  /* stop the tick (LED, etc.) */
+    watchdog_stop();                            /* the crash screen stays */
+    /* during a game the screen is in the game's mode and the console is
+     * suspended: back to the console mode, or the dump is never seen */
+    if (console_active() && panic_fb &&
+        (panic_fb->depth != 32 || panic_fb->width != panic_w || panic_fb->height != panic_h))
+        fb_init(panic_fb, panic_w, panic_h, 2);
     if (console_active())
         console_panic();
     else if (panic_fb)
@@ -57,6 +68,7 @@ void exception_handler(uint32_t type, exc_frame_t *f)
 
     panic_screen();
     kprintf("\n*** EXCEPTION: %s ***\n", name);
+    crumbs_print();
     kprintf("PC=%08lx LR=%08lx SP=%08lx CPSR=%08lx (%s mode)\n",
             f->pc, f->lr, f->sp, f->spsr, mode ? mode : "???");
     for (int i = 0; i < 13; i++)
@@ -81,5 +93,6 @@ void panic(const char *fmt, ...)
     kvlog(fmt, ap);
     va_end(ap);
     kprintf("\n");
+    crumbs_print();
     die(9);
 }

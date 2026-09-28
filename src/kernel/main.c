@@ -35,6 +35,8 @@
 #include "config.h"
 #include "bt/bt.h"
 #include "audio/audio.h"
+#include "crumbs.h"
+#include "drivers/watchdog.h"
 #include "drivers/dma.h"
 #include "version.h"
 
@@ -62,6 +64,10 @@ static void heartbeat(uint32_t tick)
 {
     if (tick % (TICK_HZ / 2) == 0)
         led_set((tick / (TICK_HZ / 2)) & 1);
+    if (tick % (TICK_HZ / 10) == 0) {       /* 10 Hz: freeze guard */
+        watchdog_pet();
+        crumb_tick(tick * (1000 / TICK_HZ));
+    }
 }
 
 /* Counts timer IRQs against the free-running counter for 200 ms. */
@@ -180,6 +186,9 @@ void kernel_main(uint32_t atags)
     irq_cpu_enable();
 
     sysinfo_print_short();
+    crumbs_boot();
+    if (watchdog_arm(3000) != 0)    /* a frozen Pi restarts and says what it was doing */
+        kprintf("watchdog: not available, no freeze guard\n");
     report_irq();
     if (audio_init() == 0) {
         kprintf("audio: %s\n", audio_status());

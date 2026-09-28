@@ -1,6 +1,7 @@
 #include "irq.h"
 #include "exceptions.h"
 #include "drivers/mmio.h"
+#include "crumbs.h"
 
 #define IRQ_BASE        (PERIPHERAL_BASE + 0xB200)
 #define IRQ_PENDING1    (IRQ_BASE + 0x04)
@@ -75,7 +76,9 @@ void irq_handler(void)
             unsigned irq = bank * 32 + bit;
             p &= p - 1;
             if (handlers[irq].fn) {
+                crumb_irq((int)irq);
                 handlers[irq].fn(handlers[irq].arg);
+                crumb_irq(-1);
             } else {
                 irq_disable(irq);
                 panic("unhandled IRQ %u", irq);
