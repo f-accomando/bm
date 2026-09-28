@@ -13,7 +13,7 @@
 
 #define MOD_CTRL    0x11
 #define MOD_SHIFT   0x22
-#define MOD_ALTGR   0x40
+#define MOD_ALTGR   0x44            /* either Alt: Option on Apple keyboards, left or right */
 
 /* layouts: [usage] = { normal, shift, altgr }; 0 = nothing. Accented
  * letters use code page 437, the console font. */
@@ -251,6 +251,14 @@ uint32_t hid_buttons(void)
     uint32_t b = kbd_buttons | pad_buttons | bt_buttons | latched;
     latched = latched_pad = 0;
     return b;
+}
+
+int hid_usage_held(uint8_t u)
+{
+    for (int i = 2; i < 8; i++)
+        if (prev_keys[i] == u)
+            return 1;
+    return 0;
 }
 
 uint32_t hid_pad_buttons(void)

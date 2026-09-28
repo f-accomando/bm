@@ -1,6 +1,7 @@
 -- bm33 editor: code, sprites and map of a .b33 cartridge, on the console.
 -- F1 code, F2 sprites, F3 map, Esc menu; Ctrl+S save, Ctrl+R (or F5) try it.
--- On a gamepad: Y + left/right changes page, Y + B opens the menu.
+-- Hold F12 for the list of keys. On a gamepad: Y + left/right changes page,
+-- Y + B opens the menu.
 
 local W, H = SCREEN_W, SCREEN_H
 local C_BG, C_PANEL, C_BAR = 0x14161E, 0x1C2030, 0x2A3048
@@ -397,7 +398,9 @@ end
 local SPRITE_KEYS = { up = "up", down = "down", left = "left", right = "right", [" "] = "paint",
   ["\b"] = "erase", del = "erase", x = "pick", f = "fill", ["]"] = "next", ["["] = "prev",
   z = "size", h = "fliph", v = "flipv", ["^c"] = "copy", ["^v"] = "paste", ["^z"] = "undo",
-  u = "undo", ["\t"] = "focus", ["\n"] = "ok" }
+  u = "undo", ["\t"] = "focus", ["\n"] = "ok",
+  -- the same keys without AltGr/Option: , . on every layout, è + on the Italian one
+  [","] = "prev", ["."] = "next", ["\138"] = "prev", ["\130"] = "prev", ["+"] = "next", ["*"] = "next" }
 
 local function checker(x, y, w, h, s)
   rectfill(x, y, w, h, 0x303440)
@@ -625,14 +628,7 @@ local function draw_menu()
     if i == msel and not choosing and not input then rectfill(24, y, 300, 16, C_SEL) end
     print(it[1], 32, y, C_TEXT)
   end
-  local help = {
-    "F1 code  F2 sprites  F3 map", "Ctrl+S save  Ctrl+R/F5 try it", "",
-    "code: Ctrl+Z undo  Ctrl+K cut line", "  Ctrl+D copy line  Ctrl+G error", "",
-    "sprites/map: arrows, space draw,", "  x pick, f fill, [ ] colour/tile,",
-    "  Tab sheet, z size, h/v flip, u undo", "",
-    "pad: A draw  B pick  X next", "  Y+left/right page  Y+B menu",
-  }
-  for i, h in ipairs(help) do print(h, 344, 64 + (i - 1) * 16, C_DIM) end
+  print("hold F12 to see the keys", 344, 64, C_DIM)
   if choosing then
     rectfill(40, 40, 560, 280, C_PANEL)
     rect(40, 40, 560, 280, C_ACC)
@@ -752,6 +748,35 @@ local function watch_y()
   y_was = y
 end
 
+local KEYS = {
+  all = { "F1 code   F2 sprites   F3 map   Esc or F4 menu", "Ctrl+S save   Ctrl+R or F5 try the game" },
+  code = { "arrows Home End PgUp PgDn   move", "Tab            two spaces", "Ctrl+Z         undo",
+           "Ctrl+K         cut the line", "Ctrl+D         duplicate the line", "Ctrl+G         go to the error" },
+  sprite = { "arrows         move", "space          draw     Backspace  erase", "x              pick the colour",
+             "f              fill", ", or [ or \138   colour before", ". or ] or +   colour after",
+             "Tab            choose on the sheet", "z              8x8 / 16x16", "h / v          flip",
+             "Ctrl+C Ctrl+V  copy, paste", "u or Ctrl+Z    undo" },
+  map = { "arrows PgUp PgDn   move", "space          place the tile", "Backspace      clear the cell",
+          "x              pick the tile", "f              fill", ", . \138 +      tile before / after",
+          "Tab            choose the tile", "u or Ctrl+Z    undo" },
+  menu = { "up/down        choose", "Enter          select", "Esc            back" },
+  pad = { "gamepad: A draw  B pick  X next  Y sheet/tiles", "Y + left/right page   Y + B menu" },
+}
+
+local function draw_keys()
+  local list = {}
+  for _, l in ipairs(KEYS.all) do list[#list + 1] = l end
+  list[#list + 1] = ""
+  for _, l in ipairs(KEYS[page] or {}) do list[#list + 1] = l end
+  list[#list + 1] = ""
+  for _, l in ipairs(KEYS.pad) do list[#list + 1] = l end
+  local h = (#list + 2) * 16
+  local y0 = (H - h) // 32 * 16
+  rectfill(64, y0, 512, h, C_PANEL)
+  rect(64, y0, 512, h, C_ACC)
+  for i, l in ipairs(list) do print(l, 80, y0 + i * 16, i <= #KEYS.all and C_ACC or C_TEXT) end
+end
+
 function _draw()
   watch_y()
   cls(C_BG)
@@ -778,12 +803,12 @@ function _draw()
   local status
   if msg_t > 0 and msg then status = msg
   elseif page == "code" then
-    status = string.format("line %d/%d  col %d   Ctrl+S save  Ctrl+R try  Ctrl+Z undo", cy, #lines, cx + 1)
-    if err_text then status = err_text end
-  elseif page == "sprite" then status = focus == "sheet" and "sheet: arrows choose, Tab/Enter back to drawing" or
-    "arrows move  space draw  x pick  f fill  [ ] colour  Tab sheet  z 8/16  u undo"
-  elseif page == "map" then status = picking and "tile: arrows choose, space/Tab done" or
-    string.format("(%d,%d) = %d   tile %d   space place  x pick  f fill  Tab tiles", mx, my, mget(mx, my), tile)
+    status = err_text or string.format("line %d/%d  col %d", cy, #lines, cx + 1)
+  elseif page == "sprite" then status = focus == "sheet" and "choosing on the sheet" or ""
+  elseif page == "map" then status = picking and "choosing a tile" or
+    string.format("(%d,%d) = %d   tile %d", mx, my, mget(mx, my), tile)
   else status = "up/down choose, Enter select" end
+  if #status < 58 then status = status .. string.rep(" ", 58 - #status) .. "hold F12: keys" end
+  if keyheld("f12") then draw_keys() end
   print(status:sub(1, 79), 0, 16 + ROWS * 16, (msg_t > 0 and msg_c) or (err_text and page == "code" and C_ERR) or C_TEXT)
 end

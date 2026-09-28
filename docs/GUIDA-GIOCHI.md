@@ -11,8 +11,9 @@ monitor). Con una tastiera USB (e se vuoi un gamepad Bluetooth per disegnare):
 | Tasto | Pagina |
 |---|---|
 | **F1** | codice (Ctrl+Z annulla, Ctrl+K taglia riga, Ctrl+D duplica) |
-| **F2** | sprite: frecce, spazio disegna, `x` preleva il colore, `f` riempie, `[` `]` colore, Tab passa al foglio, `z` 8×8/16×16, `h`/`v` specchia, `u` annulla |
-| **F3** | mappa: frecce, spazio piazza la tile, `x` la preleva, `f` riempie, Tab sceglie la tile |
+| **F2** | sprite: frecce, spazio disegna, `x` preleva il colore, `f` riempie, `,` `.` (o `è` `+`, o `[` `]`) colore, Tab passa al foglio, `z` 8×8/16×16, `h`/`v` specchia, `u` annulla |
+| **F3** | mappa: frecce, spazio piazza la tile, `x` la preleva, `f` riempie, `,` `.` (o `è` `+`) tile, Tab sceglie la tile |
+| **F12** (tenuto premuto) | l'elenco dei tasti della pagina |
 | **Esc** | menu: nuovo, apri, salva, salva come, titolo, autore, risoluzione, esci |
 | **Ctrl+S** / **Ctrl+R** (F5) | salva / prova il gioco (poi si torna all'editor) |
 

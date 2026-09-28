@@ -647,6 +647,23 @@ static int l_keyp(lua_State *L)
     return 1;
 }
 
+/* keyheld(name): true while a key is held on the USB keyboard: "f1".."f12",
+ * "tab", "space", "enter", "esc" */
+static int l_keyheld(lua_State *L)
+{
+    const char *n = luaL_checkstring(L, 1);
+    int u = 0;
+    if ((n[0] == 'f' || n[0] == 'F') && n[1] >= '1' && n[1] <= '9') {
+        int k = atoi(n + 1);
+        if (k >= 1 && k <= 12) u = 0x3A + k - 1;
+    } else if (!strcmp(n, "tab")) u = 0x2B;
+    else if (!strcmp(n, "space")) u = 0x2C;
+    else if (!strcmp(n, "enter")) u = 0x28;
+    else if (!strcmp(n, "esc")) u = 0x29;
+    lua_pushboolean(L, u && hid_usage_held((uint8_t)u));
+    return 1;
+}
+
 /* cartridge files, for the editor (defined after the asset loader) */
 static int l_ls(lua_State *L);
 static int l_cart_load(lua_State *L);
@@ -709,7 +726,7 @@ static const luaL_Reg api[] = {
     { "fog3d", l_fog3d }, { "project3d", l_project3d },
     { "zclear", l_zclear }, { "log", l_log }, { "quit", l_quit },
     { "save", l_save }, { "saved", l_saved },
-    { "keyp", l_keyp }, { "ls", l_ls }, { "cart_load", l_cart_load }, { "cart_new", l_cart_new },
+    { "keyp", l_keyp }, { "keyheld", l_keyheld }, { "ls", l_ls }, { "cart_load", l_cart_load }, { "cart_new", l_cart_new },
     { "cart_save", l_cart_save }, { "cart_run", l_cart_run }, { "cart_arg", l_cart_arg },
     { "light_begin", l_light_begin }, { "light", l_light }, { "light_end", l_light_end },
     { "note", l_note }, { "noteoff", l_noteoff }, { "freq", l_freq },
