@@ -1,0 +1,174 @@
+BM33 Community License 1.0
+
+Copyright © 2026 F. Accomando
+
+All rights reserved, except as expressly granted by this License.
+
+1. Definitions
+
+"Software" means the source code, object code, scripts, documentation,
+specifications, configuration files, and other material identified by the
+copyright holder as part of the BM33 project and released under this License.
+
+"Original Project" means the BM33 project and its materials released under this
+License.
+
+"Modified Version" means a work based upon, derived from, or incorporating a
+substantial portion of the Software that has been modified, adapted, extended,
+or otherwise changed.
+
+"Individual" means a natural person acting solely on their own behalf and not
+on behalf of an Organization.
+
+"Organization" means a company, corporation, partnership, association,
+institution, government body, non-profit organization, or other organized
+entity, including any person acting on its behalf.
+
+"Source Code" means the preferred form of the Software or Modified Version for
+making modifications.
+
+"Distribute" means making the Software or a Modified Version available to
+another person or entity, including by sale, transfer, download, publication,
+or inclusion in a product.
+
+2. License Grant
+
+Subject to this License, the copyright holder grants Individuals a worldwide,
+royalty-free, non-exclusive license to:
+
+  * use and study the Software;
+  * modify the Software and create Modified Versions;
+  * copy and distribute the Software and Modified Versions;
+  * use the Software in personal, educational, research, hobby, and other
+    lawful projects;
+  * manufacture, assemble, give away, or sell physical products incorporating
+    the Software when acting independently and not on behalf of an
+    Organization.
+
+3. Distribution and Copyleft
+
+An Individual distributing the Software or a Modified Version must:
+
+  1. retain existing copyright and attribution notices;
+  2. provide a copy of this License;
+  3. identify the Original Project as the source;
+  4. clearly indicate any modifications;
+  5. not falsely represent a Modified Version as an official BM33 release;
+  6. make the complete corresponding Source Code of the distributed Modified
+     Version available to recipients; and
+  7. distribute the Modified Version under this same License.
+
+The Source Code may be provided through a public repository, downloadable
+archive, or another reasonable method.
+
+4. Attribution and Trademarks
+
+The following attribution, or substantially equivalent attribution, must remain
+clearly visible in distributed copies and Modified Versions:
+
+    BM33 is a project by F. Accomando.
+
+The name BM33, the name of the copyright holder, and associated logos or
+trademarks may not be used to imply official endorsement, sponsorship, or
+affiliation without permission.
+
+Modified Versions may use their own names. The name BM33 may be used to
+accurately describe compatibility or technical origin, provided that no false
+claim of official status is made.
+
+5. Commercial Use by Individuals
+
+Individuals may use the Software commercially without payment to the copyright
+holder when acting independently and not on behalf of an Organization.
+
+This includes, for example, personally building and selling a limited number of
+devices based on BM33.
+
+All other requirements of this License, including attribution and the Source
+Code requirements for Modified Versions, continue to apply.
+
+6. Organizations and Commercial Licensing
+
+This License does not grant Organizations general rights to incorporate BM33
+into commercial products, services, or business operations.
+
+An Organization may obtain such rights through a separate written Commercial
+License from the copyright holder.
+
+A Commercial License may permit uses not permitted by this License, including
+proprietary modifications, commercial distribution, sublicensing, or
+distribution without publication of modifications.
+
+Commercial terms, including any one-time fee, royalty, support agreement, or
+other consideration, are determined separately between the copyright holder and
+the Organization.
+
+The copyright holder is under no obligation to grant a Commercial License.
+
+7. Third-Party Components
+
+Third-party software and other third-party materials included with or
+distributed alongside BM33 are not automatically covered by this License.
+
+Such components remain subject to their own licenses. Recipients must comply
+with those licenses.
+
+Where a component is identified as third-party material, its applicable license
+takes precedence over this License with respect to that component.
+
+8. Contributions
+
+Unless otherwise agreed in writing, contributions intentionally submitted for
+inclusion in BM33 are provided under the same license applicable to the part of
+the project to which they are contributed.
+
+Contributors must have the necessary rights to submit their contributions under
+these terms.
+
+9. Disclaimer and Limitation of Liability
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, TO THE MAXIMUM EXTENT PERMITTED BY LAW.
+
+THE COPYRIGHT HOLDER DISCLAIMS WARRANTIES OF MERCHANTABILITY, FITNESS FOR A
+PARTICULAR PURPOSE, TITLE, NON-INFRINGEMENT, ACCURACY, AND RELIABILITY.
+
+TO THE MAXIMUM EXTENT PERMITTED BY LAW, THE COPYRIGHT HOLDER SHALL NOT BE LIABLE
+FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, CONSEQUENTIAL, OR OTHER DAMAGES
+ARISING FROM THE USE OF OR INABILITY TO USE THE SOFTWARE.
+
+10. Termination
+
+The rights granted by this License terminate automatically upon material
+violation of its terms.
+
+If the violation can be corrected, the rights are reinstated when the violation
+is completely remedied within 30 days after written notice.
+
+Termination does not affect rights already granted to recipients who obtained
+the Software in compliance with this License.
+
+11. Reservation of Rights
+
+All rights not expressly granted by this License are reserved.
+
+The copyright holder may release future versions of BM33 under different
+license terms or grant separate licenses to particular individuals or
+Organizations.
+
+12. License Version
+
+This is BM33 Community License 1.0.
+
+The copyright holder may publish later versions of this License. A recipient
+may continue using a particular version of the Software under the license under
+which that version was released, unless the recipient has separately agreed to
+a later license.
+
+13. Contact
+
+For commercial licensing or permissions outside the scope of this License:
+
+F. Accomando
+Project: BM33
+Repository: https://github.com/f-accomando/bm33

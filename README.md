@@ -455,3 +455,21 @@ scripts/                 download firmware, screenshot QEMU, conversione font (p
   il kernel la ricollega a GPIO14/15 (ALT0), quindi il Bluetooth non è
   utilizzabile (non serve per l'MVP).
 - In QEMU le immagini vengono caricate con `-bios`, cioè a `0x8000` come fa il firmware reale.
+
+## Licenza
+
+BM33 is a project by F. Accomando.
+
+bm33 è distribuito con la **BM33 Community License 1.0** (file [`LICENSE`](LICENSE)):
+uso, modifica e redistribuzione libera per le persone fisiche (anche commerciale,
+se in proprio), con obbligo di attribuzione e di pubblicare il sorgente delle
+versioni modificate sotto la stessa licenza. Le organizzazioni hanno bisogno di
+una licenza commerciale separata.
+
+Componenti di terze parti, con la loro licenza (sezione 7 della licenza):
+
+- `third_party/lua/` — Lua 5.4.7, licenza MIT (`third_party/lua/LICENSE`);
+- `src/gfx/font8x16.c` — font derivato da Terminus, SIL OFL (`docs/LICENSE.font`);
+- `spec/s32/` — specifica e vettori di conformità copiati dal progetto lua32;
+- firmware del Raspberry Pi (scaricato da `scripts/`, non incluso nel repository),
+  con la licenza di Raspberry Pi Ltd.
