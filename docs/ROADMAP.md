@@ -277,9 +277,11 @@ emulatore del chip, quindi niente test in QEMU se non su tracce HCI registrate.
 
 ## M14 — Grafica 2.0 (M) — in corso
 Fatto finora (da verificare sul Pi):
-- driver DMA (`src/drivers/dma.c`, canali assegnati insieme all'audio); il disegno
-  `.b33` "via RAM" copia il fotogramma con il DMA; il comando `p` confronta CPU e DMA
-  (riempimento dello schermo, copia RAM → schermo, pulizia dello z-buffer);
+- driver DMA (`src/drivers/dma.c`, canali assegnati insieme all'audio). Sul Pi la
+  prima versione (burst da 8, priorità alta, `WAIT_RESP`) dentro `p` ha bloccato il
+  sistema: ora usa le impostazioni di Circle e si prova con il comando `D`, passo per
+  passo, con ogni passo scritto sullo schermo prima di eseguirlo; solo se il test
+  passa il disegno `.b33` "via RAM" copia i fotogrammi con il DMA;
 - 3D: clipping sul piano vicino, nebbia (`fog3d`), rollio della camera, `project3d`;
 - gioco di prova **Astro Wing** (`carts/astrowing`, in stile Star Fox).
 

@@ -1215,6 +1215,19 @@ def test_audio(b, opts):
         q.close()
 
 
+def test_dma(b, opts):
+    """M14: the DMA test copies and fills RAM and the screen correctly."""
+    q = Qemu(b("kernel.img"))
+    try:
+        q.boot()
+        q.send("D")
+        out = q.expect("DMA test passed", timeout=60).decode(errors="replace")
+        assert out.count(" ok") == 6 and "FAILED" not in out, out
+        q.expect("> ")
+    finally:
+        q.close()
+
+
 def test_b33_upload_errors(b, opts):
     q = Qemu(b("kernel.img"))
     try:

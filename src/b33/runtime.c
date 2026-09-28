@@ -774,7 +774,7 @@ static void free_assets(void)
  *   SDRAM (16 KB data cache, reads ~4x slower than writes), so it is not
  *   obviously a win: b33_bench() measures both. Default: direct. */
 static int via_ram;
-static int cpu_copy;            /* benchmark: copy with the CPU even if DMA works */
+static int dma_frames;          /* copy by DMA: off until the DMA test passes on the Pi */
 static uint16_t *shadow;
 
 void b33_set_via_ram(int on) { via_ram = on; }
@@ -808,7 +808,7 @@ uint32_t b33_video_present(framebuffer_t *fb, g16_t *g)
     }
     uint32_t t0 = timer_ticks();
     const uint32_t row = (uint32_t)g->w * 2;
-    if (fb->pitch == row && dma_ready() && !cpu_copy) {
+    if (fb->pitch == row && dma_ready() && dma_frames) {
         /* the DMA reads the SDRAM much faster than the ARM1176 */
         dcache_clean_all();
         dma_copy(fb->base, g->px, row * (uint32_t)g->h);
@@ -1013,57 +1013,7 @@ static void ms2(const char *label, uint32_t us)
     kprintf("%s %lu.%02lu ms", label, us / 1000, us % 1000 / 10);
 }
 
-/* Fills and copies of one 640x360 RGB565 frame (450 KiB), CPU against DMA. */
-static void dma_bench(framebuffer_t *fb)
-{
-    const uint32_t con_w = fb->width, con_h = fb->height, n = 20;
-    const uint32_t bytes = 640 * 360 * 2;
-    uint16_t *ram = malloc(bytes), *z = malloc(bytes);
-    if (!ram || !z || enter_mode(fb, 640, 360) != 0 || fb->pitch != 640 * 2) {
-        free(ram); free(z);
-        leave_mode(fb, con_w, con_h);
-        kprintf("dma bench: cannot set up\n");
-        return;
-    }
-    uint32_t t[6], t0;
-    memset(ram, 0x55, bytes);
-    t0 = timer_ticks();
-    for (uint32_t i = 0; i < n; i++) g16_cls(&rt.g, (uint16_t)(i * 1234));
-    t[0] = (timer_ticks() - t0) / n;
-    t0 = timer_ticks();
-    for (uint32_t i = 0; i < n; i++) { dma_fill(fb->base, i * 0x04D204D2u, bytes); dma_wait(); }
-    t[1] = (timer_ticks() - t0) / n;
-    t0 = timer_ticks();
-    for (uint32_t i = 0; i < n; i++) memcpy(fb->base, ram, bytes);
-    t[2] = (timer_ticks() - t0) / n;
-    t0 = timer_ticks();
-    for (uint32_t i = 0; i < n; i++) { dcache_clean_all(); dma_copy(fb->base, ram, bytes); dma_wait(); }
-    t[3] = (timer_ticks() - t0) / n;
-    t0 = timer_ticks();
-    for (uint32_t i = 0; i < n; i++) memset(z, 0, bytes);
-    t[4] = (timer_ticks() - t0) / n;
-    t0 = timer_ticks();
-    for (uint32_t i = 0; i < n; i++) {
-        dcache_clean_invalidate_all();
-        dma_fill(z, 0, bytes);
-        dma_wait();
-    }
-    t[5] = (timer_ticks() - t0) / n;
-    /* check: the last DMA fill of the RAM buffer really landed */
-    int ok = z[0] == 0 && z[bytes / 2 - 1] == 0;
-    memset(z, 0x11, bytes);
-    dcache_clean_invalidate_all();
-    dma_copy(z, ram, bytes);
-    dma_wait();
-    ok = ok && memcmp(z, ram, bytes) == 0;
-    leave_mode(fb, con_w, con_h);
-    free(ram);
-    free(z);
-    kprintf("dma bench (640x360x2 = 450 KiB, channel %d)%s:\n", dma_channel(), ok ? "" : " \x1b[91mDATA WRONG\x1b[0m");
-    ms2("  screen fill: CPU", t[0]); ms2(", DMA", t[1]); kprintf("\n");
-    ms2("  RAM -> screen copy: CPU", t[2]); ms2(", DMA", t[3]); kprintf("\n");
-    ms2("  RAM fill (z-buffer): CPU", t[4]); ms2(", DMA", t[5]); kprintf("\n");
-}
+void b33_set_dma_frames(int on) { dma_frames = on; }
 
 void b33_bench_report(framebuffer_t *fb, uint32_t frames)
 {
@@ -1071,16 +1021,10 @@ void b33_bench_report(framebuffer_t *fb, uint32_t frames)
     via_ram = 0;
     uint32_t direct = b33_bench(fb, frames);
     via_ram = 1;
-    cpu_copy = 1;
     uint32_t ram = b33_bench(fb, frames);
-    cpu_copy = 0;
-    uint32_t ram_dma = dma_ready() ? b33_bench(fb, frames) : 0;
     via_ram = saved;
     kprintf("b33 bench (map + 256 sprites):");
     ms2(" direct", direct);
-    ms2(",\n  via RAM, CPU copy", ram);
-    if (dma_ready()) ms2(", via RAM, DMA copy", ram_dma);
+    ms2(", via RAM", ram);
     kprintf("\n");
-    if (dma_ready())
-        dma_bench(fb);
 }

@@ -81,6 +81,7 @@ Lua `boot.lua`) si esegue dal monitor con **`b`**.
 | `y` | USB: cerca di nuovo il dispositivo (dopo averlo collegato) |
 | `Y` | USB: test dal vivo per 10 s (contatori ok/nak/err e ultimo report) |
 | `L` | layout tastiera: italiano ↔ US |
+| `D` | test del DMA passo per passo (copie e riempimenti, tempi CPU contro DMA) |
 | `a` | audio: stato dell'uscita HDMI (clock, canale DMA, costo della sintesi) e una melodia di prova con le quattro forme d'onda |
 | `T` | Bluetooth: cerca per 8 s e **abbina il primo controller** trovato (DS4: Share + PS finché lampeggia); la console seriale passa alla mini UART (stessi pin) |
 | `p` | benchmark di rendering 640×360 RGB565, disegnando direttamente sullo schermo e via RAM |

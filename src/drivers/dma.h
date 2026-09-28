@@ -29,6 +29,6 @@ int dma_channel(void);
 void dma_fill(void *dst, uint32_t value, uint32_t len);
 void dma_copy(void *dst, const void *src, uint32_t len);
 int  dma_busy(void);
-void dma_wait(void);
+int  dma_wait(void);                    /* 0, or -1 if it timed out (channel reset) */
 
 #endif

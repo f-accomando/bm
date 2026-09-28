@@ -21,6 +21,7 @@
 #include "config.h"
 #include "bt/bt.h"
 #include "audio/audio.h"
+#include "dmatest.h"
 
 static void help(void)
 {
@@ -37,6 +38,7 @@ static void help(void)
             "  T  Bluetooth: search and pair a controller (DS4: Share + PS)\n"
             "  b  boot diagnostics: benchmarks, s32 and b33 demos, Lua boot script\n"
             "  k  CPU benchmark          p  rendering benchmark 640x360 RGB565\n"
+            "  D  DMA test step by step (CPU against DMA timings)\n"
             "  V  .b33 drawing: direct on screen / via RAM (compare with p)\n"
             "  s  rendering stress test (sprites, triangles, 3D; C and Lua)\n"
             "  d  animation demo (60 fps; any key stops it)\n"
@@ -150,6 +152,7 @@ void monitor_run(void)
         case 'Y': usb_live_test(10); break;
         case 'T': bt_scan(8); break;
         case 'a': audio_test(); break;
+        case 'D': dma_test(console_framebuffer()); break;
         case 'L':
             hid_set_layout(hid_layout()[0] == 'i' ? "us" : "it");
             kprintf("keyboard layout: %s\n", hid_layout());

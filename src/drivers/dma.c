@@ -20,12 +20,10 @@
 #define CS_RESET            (1u << 31)
 #define DEBUG_LITE          (1u << 28)
 
-#define TI_WAIT_RESP        (1u << 3)
 #define TI_DEST_INC         (1u << 4)
 #define TI_DEST_WIDTH       (1u << 5)       /* 128-bit writes */
 #define TI_SRC_INC          (1u << 8)
 #define TI_SRC_WIDTH        (1u << 9)       /* 128-bit reads */
-#define TI_BURST(n)         ((uint32_t)(n) << 12)
 #define PROP_GET_DMA_CHANNELS 0x00060001u
 
 typedef struct {
@@ -115,24 +113,26 @@ int dma_busy(void)
     return 0;
 }
 
-void dma_wait(void)
+int dma_wait(void)
 {
     if (!pending)
-        return;
+        return 0;
     uint32_t t0 = timer_ticks();
     while (dma_busy())
         if (timer_ticks() - t0 > 100000) {       /* 100 ms: a stuck transfer */
             mmio_write(DMA_CS(ch), CS_RESET);
             pending = 0;
-            break;
+            dmb();
+            return -1;
         }
     dmb();
+    return 0;
 }
 
 static void start(uint32_t ti, uint32_t src, void *dst, uint32_t len)
 {
     dma_wait();
-    cb.ti = ti | TI_WAIT_RESP | TI_BURST(8);
+    cb.ti = ti;                         /* as Circle: no burst, no WAIT_RESP */
     cb.src = src;
     cb.dst = bus(dst);
     cb.len = len;
@@ -142,7 +142,7 @@ static void start(uint32_t ti, uint32_t src, void *dst, uint32_t len)
     dmb();
     mmio_write(DMA_CS(ch), CS_INT | CS_END);
     mmio_write(DMA_CONBLK_AD(ch), ARM_TO_BUS(&cb));
-    mmio_write(DMA_CS(ch), CS_WAIT_WRITES | CS_PANIC_PRIORITY(15) | CS_PRIORITY(8) | CS_ACTIVE);
+    mmio_write(DMA_CS(ch), CS_WAIT_WRITES | CS_PANIC_PRIORITY(15) | CS_PRIORITY(1) | CS_ACTIVE);
     dmb();
     pending = 1;
 }

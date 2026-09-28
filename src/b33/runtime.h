@@ -49,4 +49,7 @@ uint32_t b33_video_present(framebuffer_t *fb, g16_t *g);
 void b33_set_via_ram(int on);
 int  b33_via_ram(void);
 
+/* Copy "via RAM" frames by DMA (after the DMA test passed). */
+void b33_set_dma_frames(int on);
+
 #endif
