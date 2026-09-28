@@ -16,7 +16,8 @@ sulla porta micro-USB centrale) e accendi. Il Pi si avvia in un paio di secondi 
 Stick Duo con la copertina stampata sopra e i contatti in rame sul retro): Pong,
 Snake, Star Shooter, Astro Wing (3D), Hunter's Night (gotico, 320×180 con luci) e le demo. Frecce per scegliere,
 Invio (o A) per giocare, **Esc** (o Start+Select) per tornare al menu.
-Per scrivere un gioco: [docs/API.md](docs/API.md).
+Per scrivere un gioco: [docs/GUIDA-GIOCHI.md](docs/GUIDA-GIOCHI.md) (guida pratica) e
+[docs/API.md](docs/API.md) (riferimento).
 
 ## Roadmap
 

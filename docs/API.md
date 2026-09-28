@@ -1,5 +1,8 @@
 # Cartucce native `.b33`: API e prima cartuccia
 
+> Guida pratica passo per passo (sprite, mappe, modelli 3D, suono, luci, salvataggi):
+> [GUIDA-GIOCHI.md](GUIDA-GIOCHI.md).
+
 Una cartuccia `.b33` è un gioco per bm33 scritto in **Lua 5.4**. Il kernel disegna in C
 (640×360, colore a 16 bit RGB565, 60 fotogrammi al secondo); Lua si occupa solo della
 logica. Esempi completi in `carts/`: `pong/`, `snake/`, `shooter/` (solo codice) e
