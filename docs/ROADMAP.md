@@ -175,7 +175,8 @@ M9 (MVP) ─┬─ M10 audio
           ├─ M13 altri tipi di cartuccia (s32 Lua quando lua32 è pronto, ARM nativo)
           ├─ M14 grafica 2.0 (DMA, 32 bit, 3D con texture)
           ├─ M15 editor sulla console (codice, sprite, mappa)
-          └─ M16 multiplayer locale (più controller Bluetooth) ─── M17 gioco cooperativo (ultima)
+          └─ M16 multiplayer locale (più controller Bluetooth) ─── M17 gioco cooperativo
+                                                        └─ M18 WiFi, console di rete ─── M19 HTTPS: aggiornamenti e "git leggero"
 ```
 
 ## M10 — Audio HDMI (M/L) ✅ verificato sul Pi Zero W
@@ -368,7 +369,7 @@ Decisione 2026-09-28: solo **Bluetooth**; USB e hub restano con un solo disposit
 - **Fatto quando:** due DS4 collegati insieme giocano Pong uno contro l'altro (Pong con
   modalità 2 giocatori).
 
-## M17 — Gioco cooperativo in stile Overcooked (L) — ultima milestone
+## M17 — Gioco cooperativo in stile Overcooked (L)
 - Cartuccia `.b33` per **1–4 giocatori** in cooperativa locale (M16): una cucina vista
   dall'alto, gli ordini arrivano a tempo e vanno preparati insieme: prendere gli
   ingredienti, tagliarli, cuocerli (con il rischio di bruciarli), comporre il piatto,
@@ -379,6 +380,43 @@ Decisione 2026-09-28: solo **Bluetooth**; USB e hub restano con un solo disposit
 - Con un solo giocatore: si passa da un cuoco all'altro con Y.
 - Grafica e suoni con gli strumenti già fatti (sprite da script, luci, sintetizzatore).
 - **Fatto quando:** 2+ giocatori completano un livello sul Pi senza cali di frame rate.
+
+## M18 — WiFi e console di rete (L/XL)
+Decisione 2026-09-28: versioni "leggere", in coda dopo M17.
+- **WiFi**: il BCM43438 (lo stesso chip del Bluetooth) è sul bus SDIO. Driver SDIO sul
+  secondo controller (la SD resta sul suo, o si scambiano come fa Linux), caricamento
+  del firmware WiFi (`brcmfmac43430-sdio.bin`, `.txt`, `.clm_blob` da
+  RPi-Distro/firmware-nonfree, come `BCM43430A1.hcd`), protocollo di controllo del chip
+  (FullMAC: associazione e WPA2 li fa il firmware). Rete e password in
+  `/bm33/config.txt` (`wifi_ssid`, `wifi_psk`), comando del monitor per scegliere la
+  rete.
+- **TCP/IP**: lwIP (licenza BSD) con DHCP; IP e stato mostrati sullo schermo.
+- **Console di rete** ("pseudo-SSH" leggero): una connessione TCP in chiaro, con
+  password, che dà lo stesso monitor e la stessa REPL Lua della seriale (`nc` o uno
+  script dal PC); si attiva dalle impostazioni, pensata per la rete di casa.
+- **Invio dal PC via WiFi**: `bm33_load.py` anche su TCP per `kernel.img` e cartucce
+  (scritti sulla SD, poi riavvio o gioco) — fine delle copie a mano sulla SD.
+  Aggiornamento del kernel sicuro: file nuovo verificato (CRC + firma), scambio con il
+  vecchio, copia di riserva e ritorno al kernel precedente se il nuovo non parte
+  (watchdog + chainloader).
+- Niente emulatore del WiFi in QEMU: prove sul Pi con diagnostica a schermo (come M12);
+  in QEMU si provano lwIP e la console di rete con una scheda di rete emulata, se
+  disponibile, o con test su host.
+- **Fatto quando:** il Pi prende un IP dalla rete di casa, dal PC si apre la console e si
+  manda una cartuccia che parte subito.
+
+## M19 — HTTPS: aggiornamenti e "git leggero" (L)
+- **TLS**: mbedTLS (licenza Apache 2.0) sopra lwIP; certificati radice essenziali sulla
+  SD.
+- **Aggiornamenti da internet**: il Pi controlla le release di GitHub del progetto,
+  scarica `kernel.img` e cartucce, verifica la firma e installa come in M18.
+- **"git leggero"** invece di git completo: in lettura, l'archivio di un ramo o di una
+  release di un repository (es. cartucce da un repository di giochi); in scrittura,
+  le API di GitHub con un token personale per caricare un file (es. un `.b33` salvato
+  dall'editor). Token in `config.txt`.
+- Più avanti, solo se serve davvero: SSH vero, git completo (clone/push).
+- **Fatto quando:** un aggiornamento pubblicato come release arriva sul Pi dal menu, e
+  l'editor carica un gioco su un repository.
 
 ## Rischi principali
 | Rischio | Mitigazione |

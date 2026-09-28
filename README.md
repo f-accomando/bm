@@ -45,7 +45,9 @@ Stress test di rendering (soglie 60/30 fps): [docs/STRESS.md](docs/STRESS.md) �
 | M14 | Grafica 2.0: DMA, modo 32 bit, 3D con texture, menu con anteprime | |
 | M15 | Editor sulla console: codice, sprite, mappa, prova e torna | 🛠 fatto, da provare sul Pi |
 | M16 | Multiplayer locale: più controller Bluetooth, `btn(i, giocatore)` | |
-| M17 | Gioco cooperativo in stile Overcooked (1–4 giocatori), ultima milestone | |
+| M17 | Gioco cooperativo in stile Overcooked (1–4 giocatori) | |
+| M18 | WiFi, console di rete con password, invio di kernel e cartucce dal PC | |
+| M19 | HTTPS: aggiornamenti da GitHub, "git leggero" (archivi e API con token) | |
 
 ## Cosa fa il kernel
 
