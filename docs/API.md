@@ -207,6 +207,17 @@ if laser > 0 then laser = laser - 1; freq(1, 400 + laser * 150) end
 Pong, Snake e Star Shooter in `carts/` usano effetti e piccole melodie (una funzione
 `jingle` di 10 righe che suona una nota per volta sulla voce 3).
 
+### Tastiera e file (per strumenti come l'editor)
+
+| Funzione | Descrizione |
+|---|---|
+| `keyp()` | il prossimo tasto scritto: un carattere (`"a"`, `"\n"` Invio, `"\b"` Backspace, `"\t"`), un nome (`"up"`, `"down"`, `"left"`, `"right"`, `"home"`, `"end"`, `"pgup"`, `"pgdn"`, `"del"`, `"esc"`, `"f1"`…`"f5"`) o `"^s"` per Ctrl+S; `nil` se nessuno. Dalla prima chiamata la tastiera scrive e non fa più da gamepad per `btn()`, ed Esc non chiude la cartuccia (Start+Select e PS sì) |
+| `ls([cartella])` | i file della SD: `{ {name=, size=, dir=}, … }` |
+| `cart_load(percorso)` | apre un `.b33`: il suo sprite sheet e la sua mappa sostituiscono quelli della cartuccia che chiama; restituisce `{title, author, res, lua, sheet_w, sheet_h, map_w, map_h}` |
+| `cart_new()` | sprite sheet e mappa vuoti (256×256) |
+| `cart_save(percorso, {title, author, res, lua})` | scrive un `.b33` con il codice dato e lo sprite sheet, la mappa (e la copertina) correnti; nome 8.3, es. `"/carts/GIOCO.B33"` |
+| `cart_run(percorso)` | esce, gioca quel file e poi riapre la cartuccia che l'ha chiesto, con `cart_arg()` = `{path=, error=}` |
+
 ### Luce
 
 Scene al buio illuminate solo da lampade, candele, torce: il disegno del fotogramma viene

@@ -52,4 +52,11 @@ int  b33_via_ram(void);
 /* Copy "via RAM" frames by DMA (after the DMA test passed). */
 void b33_set_dma_frames(int on);
 
+/* Editor support: what cart_arg() returns in the next cartridge, the
+ * file a cartridge asked to play with cart_run() (0 if none), and the
+ * error the last cartridge stopped with ("" if none). */
+void b33_set_arg(const char *path, const char *error);
+int  b33_take_run(char *path, size_t n);
+const char *b33_last_error(void);
+
 #endif

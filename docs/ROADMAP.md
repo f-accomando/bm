@@ -174,7 +174,8 @@ M9 (MVP) ─┬─ M10 audio
           ├─ M11 SD in scrittura ─── M12 Bluetooth (controller)
           ├─ M13 altri tipi di cartuccia (s32 Lua quando lua32 è pronto, ARM nativo)
           ├─ M14 grafica 2.0 (DMA, 32 bit, 3D con texture)
-          └─ M15 multiplayer locale (più controller Bluetooth) ─── M16 gioco cooperativo (ultima)
+          ├─ M15 editor sulla console (codice, sprite, mappa)
+          └─ M16 multiplayer locale (più controller Bluetooth) ─── M17 gioco cooperativo (ultima)
 ```
 
 ## M10 — Audio HDMI (M/L) ✅ verificato sul Pi Zero W
@@ -321,7 +322,32 @@ Previsto:
 
 ---
 
-## M15 — Multiplayer locale con controller Bluetooth (L)
+## M15 — Editor sulla console (L) — prima versione fatta, da provare sul Pi
+Decisione 2026-09-28: editor **sulla console** (come PICO-8), prima del multiplayer.
+- **`bm33 editor`**, sempre ultimo nel menu delle cartucce (freccia su dal primo; e `e` dal monitor): una
+  cartuccia `.b33` incorporata nel kernel (`carts/editor/main.lua`).
+- **Codice** (F1): colori della sintassi Lua, numeri di riga, scorrimento, rientro
+  automatico, Ctrl+Z annulla, Ctrl+K taglia riga, Ctrl+D duplica riga.
+- **Sprite** (F2): pixel ingranditi (8×8 o 16×16), foglio intero a fianco, tavolozza di
+  32 colori più trasparente, matita, riempimento, contagocce, specchio, copia/incolla,
+  annulla.
+- **Mappa** (F3): la mappa a grandezza reale, piazza/preleva tile, riempimento, scelta
+  della tile dal foglio, annulla.
+- **Menu** (Esc): nuovo, apri (i `.b33` della SD), salva, salva come (nome 8.3 in
+  `/carts`), titolo, autore, risoluzione, **prova** (Ctrl+R/F5): salva, gioca, poi
+  torna all'editor; se il gioco si ferma con un errore l'editor apre la riga in rosso.
+- Tastiera USB per scrivere; col gamepad (Bluetooth) si disegna: A disegna, B preleva,
+  X colore/tile successivo, Y+sinistra/destra cambia pagina, Y+B menu.
+- Kernel: `keyp()` (tasti come testo, anche frecce, F1–F5, Ctrl+lettera; la seriale
+  capisce le sequenze dei terminali), `ls`, `cart_load`, `cart_new`, `cart_save`,
+  `cart_run`, `cart_arg`; la tastiera in modalità testo non fa più da gamepad ed Esc
+  non esce.
+- Test in QEMU (`test_editor`): nuovo progetto, salva sulla SD, prova, errore riportato
+  alla riga, `fsck.vfat` pulito.
+- Dopo: editor di suoni ed effetti, colori della tavolozza modificabili, copertina
+  disegnata nell'editor, cerca nel codice, sprite sheet più grande di 256×256 a zoom.
+
+## M16 — Multiplayer locale con controller Bluetooth (L)
 Decisione 2026-09-28: solo **Bluetooth**; USB e hub restano con un solo dispositivo.
 - Più controller abbinati: `bt_pad1`, `bt_pad2`, … in `config.txt` (il vecchio
   `bt_pad` diventa il giocatore 1); `T` abbina il prossimo controller libero; la
@@ -342,8 +368,8 @@ Decisione 2026-09-28: solo **Bluetooth**; USB e hub restano con un solo disposit
 - **Fatto quando:** due DS4 collegati insieme giocano Pong uno contro l'altro (Pong con
   modalità 2 giocatori).
 
-## M16 — Gioco cooperativo in stile Overcooked (L) — ultima milestone
-- Cartuccia `.b33` per **1–4 giocatori** in cooperativa locale (M15): una cucina vista
+## M17 — Gioco cooperativo in stile Overcooked (L) — ultima milestone
+- Cartuccia `.b33` per **1–4 giocatori** in cooperativa locale (M16): una cucina vista
   dall'alto, gli ordini arrivano a tempo e vanno preparati insieme: prendere gli
   ingredienti, tagliarli, cuocerli (con il rischio di bruciarli), comporre il piatto,
   servirlo, lavare i piatti.

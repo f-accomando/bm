@@ -48,6 +48,15 @@ uint32_t input_buttons(int *quit)
     return hid_buttons();
 }
 
+uint32_t input_pad_buttons(int *quit)
+{
+    usb_poll();
+    bt_poll();
+    if (hid_quit_pressed())
+        *quit = 1;
+    return hid_pad_buttons();
+}
+
 void input_flush(void)
 {
     usb_poll();

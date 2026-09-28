@@ -14,6 +14,9 @@ int input_key(void);
  * gamepad (HID_* bits); *quit is set once per Esc / Start+Select. */
 uint32_t input_buttons(int *quit);
 
+/* The same, gamepads only (the keyboard types text). */
+uint32_t input_pad_buttons(int *quit);
+
 /* Drops keys typed on the USB keyboard while a game was running. */
 void input_flush(void);
 

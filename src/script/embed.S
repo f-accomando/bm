@@ -25,6 +25,13 @@ b33_demo_cart_end:
 
     .section .rodata
     .balign 4
+    .globl b33_editor_cart, b33_editor_cart_end
+b33_editor_cart:
+    .incbin "editor.b33"
+b33_editor_cart_end:
+
+    .section .rodata
+    .balign 4
     .globl b33_stress_cart, b33_stress_cart_end
 b33_stress_cart:
     .incbin "stress.b33"

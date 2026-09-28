@@ -27,6 +27,7 @@
 
 extern const uint8_t s32_demo_cart[], s32_demo_cart_end[];
 extern const uint8_t b33_demo_cart[], b33_demo_cart_end[];
+extern const uint8_t b33_editor_cart[], b33_editor_cart_end[];
 
 enum { KIND_S32, KIND_B33 };
 
@@ -170,6 +171,16 @@ static void rescan(void)
         add_builtin("demo.b33 (built-in)", KIND_B33, b33_demo_cart, b33_demo_cart_end);
         add_builtin("demo.cart (built-in)", KIND_S32, s32_demo_cart, s32_demo_cart_end);
     }
+    /* the editor always comes last (up from the first cartridge) */
+    if (ncarts < MAX_CARTS) {
+        cart_t *c = &carts[ncarts++];
+        memset(c, 0, sizeof *c);
+        strcpy(c->name, "editor (built-in)");
+        c->kind = KIND_B33;
+        c->builtin = b33_editor_cart;
+        c->size = (uint32_t)(b33_editor_cart_end - b33_editor_cart);
+        read_header(c, b33_editor_cart, c->size);
+    }
     for (int i = 0; i < ncarts; i++) {
         cart_t *c = &carts[i];
         if (c->builtin)
@@ -234,8 +245,44 @@ void carts_play_buffer(framebuffer_t *fb, const uint8_t *data, size_t len)
     }
 }
 
+/* The editor, and the games it tries: when the editor asks to play a
+ * file (cart_run), play it, then open the editor again on that file with
+ * the error the game stopped with, if any. */
+void carts_editor(framebuffer_t *fb)
+{
+    char path[64] = "", err[512] = "";
+    for (;;) {
+        crumb("editor", NULL);
+        b33_set_arg(path[0] ? path : NULL, err[0] ? err : NULL);
+        b33_stats_t st;
+        b33_play(fb, b33_editor_cart, (size_t)(b33_editor_cart_end - b33_editor_cart), PLAY_SECS, &st);
+        b33_set_arg(NULL, NULL);
+        if (!b33_take_run(path, sizeof path))
+            break;
+        err[0] = 0;
+        fat_entry_t e;
+        uint8_t *data;
+        size_t len;
+        if (fat_find(path, &e) != 0 || fat_load(&e, &data, &len) != 0) {
+            ksnprintf(err, sizeof err, "cannot read %s: %s", path, fat_error());
+            continue;
+        }
+        crumb("editor: trying", path);
+        b33_play(fb, data, len, PLAY_SECS, &st);
+        b33_print_stats(&st);
+        free(data);
+        ksnprintf(err, sizeof err, "%s", b33_last_error());
+    }
+}
+
 static void play(framebuffer_t *fb, const cart_t *c)
 {
+    if (c->builtin == b33_editor_cart) {
+        carts_editor(fb);
+        ksnprintf(last_msg, sizeof last_msg, "last: editor");
+        crumb("cartridge menu", NULL);
+        return;
+    }
     kprintf("\nplaying %s\n", c->name);
     perf_msg[0] = 0;
     crumb("playing", c->title[0] ? c->title : c->name);

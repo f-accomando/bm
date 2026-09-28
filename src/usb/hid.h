@@ -40,6 +40,21 @@ void hid_bt_clear(void);
 int      hid_getc(void);
 /* Buttons held now, from keyboard or gamepad. */
 uint32_t hid_buttons(void);
+/* The same without the keyboard (text mode: the keyboard types). */
+uint32_t hid_pad_buttons(void);
+/* Text mode (editors): hid_getc() also returns the navigation keys as the
+ * codes below, and Esc no longer counts as "quit". */
+void hid_text_mode(int on);
+#define HID_KEY_UP      0xF0
+#define HID_KEY_DOWN    0xF1
+#define HID_KEY_LEFT    0xF2
+#define HID_KEY_RIGHT   0xF3
+#define HID_KEY_HOME    0xF4
+#define HID_KEY_END     0xF5
+#define HID_KEY_PGUP    0xF6
+#define HID_KEY_PGDN    0xF7
+#define HID_KEY_DEL     0xF8
+#define HID_KEY_F1      0xF9            /* .. F5 = 0xFD */
 /* 1 once per press of Esc (keyboard) or Start+Select (gamepad). */
 int      hid_quit_pressed(void);
 

@@ -1099,8 +1099,8 @@ def test_usb_hid_gamepad(b, opts):
         out = q.expect("cartridge menu", timeout=90).decode(errors="replace")
         assert "usb: gamepad 0627:0001 'QEMU USB Tablet'" in out, out
         q.monitor("mouse_move 16384 16384")    # centre: stick released
-        q.send("w")                            # the menu restarts from the top
-        time.sleep(0.5)
+        q.send("s")                            # one down: the tablet's button report also
+        time.sleep(0.5)                        # moves the selection up once
         q.monitor("mouse_button 1")
         q.monitor("mouse_button 0")
         q.expect("playing demo.b33", timeout=10)
@@ -1266,6 +1266,75 @@ def test_textured_mesh(b, opts):
         q.expect("> ", timeout=10)
     finally:
         q.close()
+
+
+def test_editor(b, opts):
+    """M15: the editor makes a new game, saves it on the SD card, tries it,
+    comes back; a game that stops with an error brings the editor to the
+    line; the card is still a clean FAT32 volume."""
+    tmp = tempfile.mkdtemp(prefix="bm33-ed-")
+    img = os.path.join(tmp, "sd.img")
+    mksd.build(img, [(b("carts/pong.b33"), "carts/pong.b33")])
+    q = Qemu(b("kernel.img"), ["-drive", f"if=sd,format=raw,file={img}"])
+
+    def k(s, gap=0.15):
+        q.send(s)
+        time.sleep(gap)
+
+    def see(word, tries=40):
+        for _ in range(tries):
+            _, text = settled_screen(q, lambda i, t: any(word in l for l in t), tries=2)
+            if any(word in l for l in text):
+                return text
+            time.sleep(0.25)
+        raise AssertionError(f"not on screen: {word}\n" + "\n".join(text))
+    try:
+        q.boot()
+        k("e")
+        see("bm33 editor")
+        k("\x1b", 0.5)                                      # menu -> code
+        see("line 1/")
+        k("\x1b", 0.5)                                      # code -> menu
+        see("Exit editor")
+        for _ in range(4):
+            k("\x1b[B", 0.25)                               # down to "Save as..."
+        k("\r")
+        see("file name")
+        k("\r")                                             # MYGAME.B33
+        see("saved /carts/MYGAME.B33")
+        k("\x12", 3)                                        # Ctrl+R: try it
+        k("q")                                              # and back to the editor
+        out = q.expect('b33: "New game"', timeout=20).decode(errors="replace")
+        assert "stopped with an error" not in out, out
+        time.sleep(3)
+        k("\x1b[H", 0.3)
+        for ch in "error('boom')\r":
+            k(ch, 0.05)
+        k("\x12")
+        out = q.expect("main.lua:1: boom", timeout=20).decode(errors="replace")
+        time.sleep(3)
+        _, text = settled_screen(q, lambda i, t: any("the game stopped" in l for l in t))
+        assert any("the game stopped" in l for l in text), "\n".join(text)
+        k("\x1b", 0.4)
+        k("\x1b[A", 0.3)                                    # Exit editor
+        k("\r", 0.3)
+        k("\r")                                             # confirm: unsaved changes
+        q.expect("> ", timeout=10)
+    finally:
+        q.close()
+    try:
+        part = os.path.join(tmp, "part.img")
+        with open(img, "rb") as f, open(part, "wb") as o:
+            f.seek(2048 * 512)
+            o.write(f.read())
+        fsck = subprocess.run(["fsck.vfat", "-n", part], capture_output=True, text=True)
+        assert fsck.returncode == 0, fsck.stdout + fsck.stderr
+        env = dict(os.environ, MTOOLS_SKIP_CHECK="1")
+        saved = subprocess.run(["mtype", "-i", part, "::/CARTS/MYGAME.B33"], capture_output=True,
+                               env=env).stdout
+        assert saved[:8] == b"BM33CART" and b"error('boom')" in saved, saved[:200]
+    finally:
+        shutil.rmtree(tmp, ignore_errors=True)
 
 
 def test_b33_upload_errors(b, opts):

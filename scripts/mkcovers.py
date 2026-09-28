@@ -225,9 +225,27 @@ def hunt():
     return c
 
 
+def editor():
+    c = Canvas()
+    c.vgradient(0, H, 0x1C2030, 0x2A3048)
+    # a sprite grid on the left, a code page on the right
+    for j in range(8):
+        for i in range(8):
+            v = (i * 3 + j * 5) % 7
+            col = (0xFFC050, 0x3060D0, 0x70A8F0, 0xE04040, 0x6CC04A, 0x14161E, 0xE0E4F0)[v]
+            c.rect(8 + i * 6, 30 + j * 6, 5, 5, col)
+    for k, (w, col) in enumerate(((30, 0xFF7AB0), (44, 0x70D0FF), (22, 0x90E070), (38, 0xE0E4F0), (18, 0xFFB060), (34, 0x70D0FF))):
+        c.rect(64, 32 + k * 7, 6, 3, 0x707890)
+        c.rect(74, 32 + k * 7, w, 3, col)
+    c.tri((96, 70), (118, 48), (122, 52), 0xFFC050)       # a pencil
+    c.tri((96, 70), (100, 66), (104, 70), 0xE0C8A0)
+    c.ctext("EDITOR", 4, 0xFFC050, scale=2, outline=0x000000)
+    return c
+
+
 def main():
     for name, fn in (("pong", pong), ("snake", snake), ("shooter", shooter), ("astrowing", astrowing),
-                     ("hunt", hunt)):
+                     ("hunt", hunt), ("editor", editor)):
         path = os.path.join(ROOT, "carts", name, "cover.png")
         fn().save(path)
         print(path)

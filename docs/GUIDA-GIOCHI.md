@@ -3,6 +3,23 @@
 Guida pratica: dal primo file Lua alla cartuccia sulla SD, con sprite, mappe, modelli 3D,
 suono e salvataggi. Il riferimento completo di ogni funzione è in [API.md](API.md).
 
+## 0. Sulla console: l'editor
+
+Senza PC: nel menu delle cartucce l'ultimo elemento è **bm33 editor** (freccia su dal primo; anche `e` dal
+monitor). Con una tastiera USB (e se vuoi un gamepad Bluetooth per disegnare):
+
+| Tasto | Pagina |
+|---|---|
+| **F1** | codice (Ctrl+Z annulla, Ctrl+K taglia riga, Ctrl+D duplica) |
+| **F2** | sprite: frecce, spazio disegna, `x` preleva il colore, `f` riempie, `[` `]` colore, Tab passa al foglio, `z` 8×8/16×16, `h`/`v` specchia, `u` annulla |
+| **F3** | mappa: frecce, spazio piazza la tile, `x` la preleva, `f` riempie, Tab sceglie la tile |
+| **Esc** | menu: nuovo, apri, salva, salva come, titolo, autore, risoluzione, esci |
+| **Ctrl+S** / **Ctrl+R** (F5) | salva / prova il gioco (poi si torna all'editor) |
+
+Se il gioco si ferma con un errore, l'editor torna sulla riga in rosso (Ctrl+G la
+ritrova). I giochi si salvano in `/carts` con un nome 8.3 (es. `MIOGIOCO.B33`) e
+compaiono nel menu. Tutto il resto di questa guida vale anche per l'editor.
+
 ## 1. Com'è fatta una cartuccia
 
 Una cartuccia `.b33` è un unico file che contiene:

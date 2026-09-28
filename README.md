@@ -43,8 +43,9 @@ Stress test di rendering (soglie 60/30 fps): [docs/STRESS.md](docs/STRESS.md) �
 | **M12** | Controller **Bluetooth** (DualShock 4) | ✅ verificato sul Pi |
 | M13 | Altri tipi di cartuccia: s32 Lua (con lua32), codice ARM nativo | |
 | M14 | Grafica 2.0: DMA, modo 32 bit, 3D con texture, menu con anteprime | |
-| M15 | Multiplayer locale: più controller Bluetooth, `btn(i, giocatore)` | |
-| M16 | Gioco cooperativo in stile Overcooked (1–4 giocatori), ultima milestone | |
+| M15 | Editor sulla console: codice, sprite, mappa, prova e torna | 🛠 fatto, da provare sul Pi |
+| M16 | Multiplayer locale: più controller Bluetooth, `btn(i, giocatore)` | |
+| M17 | Gioco cooperativo in stile Overcooked (1–4 giocatori), ultima milestone | |
 
 ## Cosa fa il kernel
 
@@ -87,6 +88,7 @@ Lua `boot.lua`) si esegue dal monitor con **`b`**.
 | `Y` | USB: test dal vivo per 10 s (contatori ok/nak/err e ultimo report) |
 | `L` | layout tastiera: italiano ↔ US |
 | `D` | test del DMA passo per passo (copie e riempimenti, tempi CPU contro DMA) |
+| `e` | **editor** dei giochi `.b33` (codice, sprite, mappa; è anche l'ultimo elemento del menu) |
 | `a` | audio: stato dell'uscita HDMI (clock, canale DMA, costo della sintesi) e una melodia di prova con le quattro forme d'onda |
 | `T` | Bluetooth: cerca per 8 s e **abbina il primo controller** trovato (DS4: Share + PS finché lampeggia); la console seriale passa alla mini UART (stessi pin) |
 | `p` | benchmark di rendering 640×360 RGB565, disegnando direttamente sullo schermo e via RAM |

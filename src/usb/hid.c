@@ -52,7 +52,8 @@ static uint32_t kbd_buttons, pad_buttons, bt_buttons;
 /* Buttons seen pressed since the last hid_buttons(): a press and release
  * that both arrive between two frames (a quick tap, or a backlog of
  * reports processed at once) still count for one frame. */
-static uint32_t latched;
+static uint32_t latched, latched_pad;   /* short presses, all / pads only */
+static int text_mode;                   /* editors: navigation keys as codes, Esc stays */
 static int bt_ps_held;
 static int quit_edge;
 static int caps;
@@ -89,6 +90,20 @@ static uint8_t translate(uint8_t u, uint8_t mods)
         if (shift ^ caps) c = (char)(c - 32);
         return (uint8_t)c;
     }
+    if (text_mode)
+        switch (u) {
+        case 0x52: return HID_KEY_UP;
+        case 0x51: return HID_KEY_DOWN;
+        case 0x50: return HID_KEY_LEFT;
+        case 0x4F: return HID_KEY_RIGHT;
+        case 0x4A: return HID_KEY_HOME;
+        case 0x4D: return HID_KEY_END;
+        case 0x4B: return HID_KEY_PGUP;
+        case 0x4E: return HID_KEY_PGDN;
+        case 0x4C: return HID_KEY_DEL;
+        case 0x3A: case 0x3B: case 0x3C: case 0x3D: case 0x3E:
+            return (uint8_t)(HID_KEY_F1 + (u - 0x3A));
+        }
     switch (u) {
     case 0x28: case 0x58: return '\r';          /* Enter, keypad Enter */
     case 0x2A: return 0x7F;                     /* Backspace */
@@ -194,7 +209,11 @@ static void keyboard_report(const uint8_t *r, uint32_t len)
         for (int j = 2; j < 8; j++) was |= prev_keys[j] == u;
         if (was) continue;
         /* new key */
-        if (u == 0x29) { quit_edge = 1; push(0x1B); continue; }    /* Esc */
+        if (u == 0x29) {                                            /* Esc */
+            if (!text_mode) quit_edge = 1;
+            push(0x1B);
+            continue;
+        }
         if (u == 0x39) { caps = !caps; continue; }                  /* Caps Lock */
         uint8_t c = translate(u, mods);
         if (c) {
@@ -230,8 +249,20 @@ int hid_getc(void)
 uint32_t hid_buttons(void)
 {
     uint32_t b = kbd_buttons | pad_buttons | bt_buttons | latched;
-    latched = 0;
+    latched = latched_pad = 0;
     return b;
+}
+
+uint32_t hid_pad_buttons(void)
+{
+    uint32_t b = pad_buttons | bt_buttons | latched_pad;
+    latched = latched_pad = 0;
+    return b;
+}
+
+void hid_text_mode(int on)
+{
+    text_mode = on;
 }
 
 void hid_bt_report(const uint8_t *r, uint32_t len)
@@ -248,6 +279,7 @@ void hid_bt_report(const uint8_t *r, uint32_t len)
     bt_ps_held = ps;
     bt_buttons = b;
     latched |= b;
+    latched_pad |= b;
 }
 
 void hid_bt_clear(void)
@@ -483,6 +515,7 @@ static void gamepad_report(const uint8_t *r, uint32_t len)
         quit_edge = 1;
     pad_buttons = b;
     latched |= b;
+    latched_pad |= b;
 }
 
 void hid_report(int kind, const uint8_t *data, uint32_t len)

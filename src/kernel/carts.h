@@ -24,4 +24,7 @@ void carts_menu(framebuffer_t *fb);
 /* Plays a cartridge image by its magic (BM33CART or S32CART1). */
 void carts_play_buffer(framebuffer_t *fb, const uint8_t *data, size_t len);
 
+/* The built-in editor (menu, monitor 'e'). */
+void carts_editor(framebuffer_t *fb);
+
 #endif

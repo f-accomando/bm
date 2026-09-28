@@ -54,6 +54,11 @@ static struct {
     r3d_t r3d;
     int r3d_ready;
     g16_light_t light;          /* light_begin() .. light_end() */
+    int text_mode;              /* keyp() was called: the keyboard types */
+    int esc_wait;               /* frames since a serial Esc */
+    int esc_num;                /* ESC [ n ~ */
+    uint8_t tq[256];            /* typed keys for keyp() */
+    uint8_t tq_head, tq_tail;
     char save_name[13];         /* "1A2B3C4D.SAV": CRC-32 of title and author */
 } rt;
 
@@ -611,6 +616,45 @@ static int l_apu(lua_State *L)
     return 1;
 }
 
+/* ---------------------------------------------------------------- keys */
+
+/* keyp(): the next key typed, as text ("a", "\n", "\b", "\t"), a name
+ * ("up", "down", "left", "right", "home", "end", "pgup", "pgdn", "del",
+ * "esc", "f1".."f5") or "^s" for Ctrl+S; nil if none. The first call
+ * turns on typing: the keyboard stops being a gamepad for btn(), Esc no
+ * longer leaves the cartridge (Start+Select and PS still do). */
+static int l_keyp(lua_State *L)
+{
+    if (!rt.text_mode) {
+        rt.text_mode = 1;
+        hid_text_mode(1);
+    }
+    if (rt.tq_tail == rt.tq_head) {
+        lua_pushnil(L);
+        return 1;
+    }
+    uint8_t c = rt.tq[rt.tq_tail++];
+    static const char *const nav[] = { "up", "down", "left", "right", "home", "end", "pgup", "pgdn",
+                                       "del", "f1", "f2", "f3", "f4", "f5" };
+    char buf[4];
+    if (c >= HID_KEY_UP && c <= HID_KEY_F1 + 4) lua_pushstring(L, nav[c - HID_KEY_UP]);
+    else if (c == 0x1B) lua_pushstring(L, "esc");
+    else if (c == '\r') lua_pushstring(L, "\n");
+    else if (c == 0x7F) lua_pushstring(L, "\b");
+    else if (c == '\t') lua_pushstring(L, "\t");
+    else if (c >= 1 && c <= 26) { buf[0] = '^'; buf[1] = (char)('a' + c - 1); buf[2] = 0; lua_pushstring(L, buf); }
+    else { buf[0] = (char)c; buf[1] = 0; lua_pushstring(L, buf); }
+    return 1;
+}
+
+/* cartridge files, for the editor (defined after the asset loader) */
+static int l_ls(lua_State *L);
+static int l_cart_load(lua_State *L);
+static int l_cart_new(lua_State *L);
+static int l_cart_save(lua_State *L);
+static int l_cart_run(lua_State *L);
+static int l_cart_arg(lua_State *L);
+
 /* ---------------------------------------------------------------- light */
 
 static int video_to_ram(g16_t *g);
@@ -665,6 +709,8 @@ static const luaL_Reg api[] = {
     { "fog3d", l_fog3d }, { "project3d", l_project3d },
     { "zclear", l_zclear }, { "log", l_log }, { "quit", l_quit },
     { "save", l_save }, { "saved", l_saved },
+    { "keyp", l_keyp }, { "ls", l_ls }, { "cart_load", l_cart_load }, { "cart_new", l_cart_new },
+    { "cart_save", l_cart_save }, { "cart_run", l_cart_run }, { "cart_arg", l_cart_arg },
     { "light_begin", l_light_begin }, { "light", l_light }, { "light_end", l_light_end },
     { "note", l_note }, { "noteoff", l_noteoff }, { "freq", l_freq },
     { "envelope", l_envelope }, { "duty", l_duty }, { "playing", l_playing }, { "apu", l_apu },
@@ -750,11 +796,72 @@ static int call(lua_State *L, const char *name)
 
 /* ---------------------------------------------------------------- input */
 
+/* ---------------------------------------------------------------- typing */
+
+static void text_push(uint8_t c)
+{
+    if ((uint8_t)(rt.tq_head + 1) != rt.tq_tail)
+        rt.tq[rt.tq_head++] = c;
+}
+
+/* serial terminal: ESC [ A..D arrows, ESC [ H / F home and end,
+ * ESC O P..S F1..F4, ESC [ n ~ (3 delete, 5/6 page up/down, 15 F5) */
+static void serial_text(char c)
+{
+    if (rt.esc == 1) {
+        if (c == '[') { rt.esc = 2; rt.esc_num = 0; return; }
+        if (c == 'O') { rt.esc = 3; return; }
+        text_push(0x1B);
+        rt.esc = 0;
+    }
+    if (rt.esc == 3) {
+        rt.esc = 0;
+        if (c >= 'P' && c <= 'S') text_push((uint8_t)(HID_KEY_F1 + (c - 'P')));
+        return;
+    }
+    if (rt.esc == 2 && c >= '0' && c <= '9') {
+        rt.esc_num = rt.esc_num * 10 + (c - '0');
+        return;
+    }
+    if (rt.esc == 2 && c == '~') {
+        rt.esc = 0;
+        switch (rt.esc_num) {
+        case 3: text_push(HID_KEY_DEL); break;
+        case 5: text_push(HID_KEY_PGUP); break;
+        case 6: text_push(HID_KEY_PGDN); break;
+        case 15: text_push(HID_KEY_F1 + 4); break;
+        case 1: text_push(HID_KEY_HOME); break;
+        case 4: text_push(HID_KEY_END); break;
+        }
+        return;
+    }
+    if (rt.esc == 2) {
+        rt.esc = 0;
+        switch (c) {
+        case 'A': text_push(HID_KEY_UP); return;
+        case 'B': text_push(HID_KEY_DOWN); return;
+        case 'C': text_push(HID_KEY_RIGHT); return;
+        case 'D': text_push(HID_KEY_LEFT); return;
+        case 'H': text_push(HID_KEY_HOME); return;
+        case 'F': text_push(HID_KEY_END); return;
+        }
+        return;
+    }
+    if (c == 0x1B) { rt.esc = 1; return; }
+    if (c == '\n') return;                  /* terminals send \r or \r\n */
+    if (c == 0x08) c = 0x7F;
+    text_push((uint8_t)c);
+}
+
 static int poll_keys(void)
 {
     while (uart_rx_ready()) {
         char c = uart_getc();
         int b = -1;
+        if (rt.text_mode) {
+            serial_text(c);
+            continue;
+        }
         if (rt.esc == 1) { rt.esc = c == '[' ? 2 : 0; continue; }
         if (rt.esc == 2) {
             rt.esc = 0;
@@ -776,8 +883,18 @@ static int poll_keys(void)
         if (b >= 0)
             rt.hold[b] = HOLD_FRAMES;
     }
+    /* a lone Esc, not the start of a sequence: after 6 frames of nothing */
+    if (rt.text_mode && rt.esc == 1 && ++rt.esc_wait >= 6) {
+        text_push(0x1B);
+        rt.esc = 0;
+    }
+    if (rt.esc != 1)
+        rt.esc_wait = 0;
     int quit = 0;
-    uint32_t pad = input_buttons(&quit);
+    uint32_t pad = rt.text_mode ? input_pad_buttons(&quit) : input_buttons(&quit);
+    if (rt.text_mode)
+        for (int k; (k = hid_getc()) >= 0;)
+            text_push((uint8_t)k);
     rt.prev = rt.now;
     rt.now = pad & 0x3F;                    /* HID_* bits match btn() 0-5 */
     if (pad & HID_X) rt.now |= rt.uses_xy ? 1u << BTN_X : 1u << BTN_A;
@@ -828,6 +945,261 @@ static void free_assets(void)
     free(rt.map.cells);
     rt.cell_dirty = NULL;
     rt.map.cells = NULL;
+}
+
+/* ---------------------------------------------------------------- editor */
+
+/* The project open in the editor lives in the editor's own sprite sheet and
+ * map; its cover is kept here as it came. Across the editor's "run" the
+ * kernel keeps a request (which file to play) and an argument (the file,
+ * and the error it stopped with). */
+static uint8_t *proj_cover;
+static uint16_t proj_cover_w, proj_cover_h;
+static char run_request[64];
+static char arg_path[64], arg_error[512], last_error[512];
+
+void b33_set_arg(const char *path, const char *error)
+{
+    ksnprintf(arg_path, sizeof arg_path, "%s", path ? path : "");
+    ksnprintf(arg_error, sizeof arg_error, "%s", error ? error : "");
+}
+
+int b33_take_run(char *path, size_t n)
+{
+    if (!run_request[0])
+        return 0;
+    ksnprintf(path, n, "%s", run_request);
+    run_request[0] = 0;
+    return 1;
+}
+
+const char *b33_last_error(void)
+{
+    return last_error;
+}
+
+/* ls([dir]) -> { {name=, size=, dir=}, ... } */
+static int l_ls(lua_State *L)
+{
+    const char *dir = luaL_optstring(L, 1, "/");
+    lua_newtable(L);
+    fat_dir_t d;
+    fat_entry_t e;
+    if (fat_opendir(&d, dir) != 0)
+        return 1;
+    int i = 1;
+    while (fat_readdir(&d, &e)) {
+        if (e.name[0] == '.')
+            continue;
+        lua_newtable(L);
+        lua_pushstring(L, e.name);
+        lua_setfield(L, -2, "name");
+        lua_pushinteger(L, (lua_Integer)e.size);
+        lua_setfield(L, -2, "size");
+        lua_pushboolean(L, e.is_dir);
+        lua_setfield(L, -2, "dir");
+        lua_rawseti(L, -2, i++);
+    }
+    return 1;
+}
+
+static void push_project(lua_State *L, const char *title, const char *author, int w, const char *lua,
+                         size_t lua_len)
+{
+    lua_newtable(L);
+    lua_pushstring(L, title);
+    lua_setfield(L, -2, "title");
+    lua_pushstring(L, author);
+    lua_setfield(L, -2, "author");
+    lua_pushstring(L, w == 320 ? "320x180" : "640x360");
+    lua_setfield(L, -2, "res");
+    lua_pushlstring(L, lua, lua_len);
+    lua_setfield(L, -2, "lua");
+    lua_pushinteger(L, rt.sheet.w);
+    lua_setfield(L, -2, "sheet_w");
+    lua_pushinteger(L, rt.sheet.h);
+    lua_setfield(L, -2, "sheet_h");
+    lua_pushinteger(L, rt.map.w);
+    lua_setfield(L, -2, "map_w");
+    lua_pushinteger(L, rt.map.h);
+    lua_setfield(L, -2, "map_h");
+}
+
+/* cart_load(path) -> project table, or nil and a message. The cartridge's
+ * sprite sheet and map replace the running cartridge's own. */
+static int l_cart_load(lua_State *L)
+{
+    const char *path = luaL_checkstring(L, 1);
+    fat_entry_t e;
+    uint8_t *data;
+    size_t len;
+    b33_cart_t c;
+    char err[64];
+    if (fat_find(path, &e) != 0 || fat_load(&e, &data, &len) != 0) {
+        lua_pushnil(L);
+        lua_pushstring(L, fat_error());
+        return 2;
+    }
+    if (b33_parse(data, len, &c, err, sizeof err) != 0) {
+        free(data);
+        lua_pushnil(L);
+        lua_pushstring(L, err);
+        return 2;
+    }
+    free_assets();
+    if (load_assets(&c) != 0) {
+        free(data);
+        return luaL_error(L, "not enough memory for the cartridge");
+    }
+    free(proj_cover);
+    proj_cover = NULL;
+    if (c.cover_rgba && (proj_cover = malloc((size_t)c.cover_w * c.cover_h * 4)) != NULL) {
+        memcpy(proj_cover, c.cover_rgba, (size_t)c.cover_w * c.cover_h * 4);
+        proj_cover_w = c.cover_w;
+        proj_cover_h = c.cover_h;
+    }
+    char title[49], author[33];
+    memcpy(title, c.title, sizeof title);
+    memcpy(author, c.author, sizeof author);
+    title[48] = author[32] = 0;
+    push_project(L, title, author, c.width, c.lua, c.lua_size);
+    free(data);
+    return 1;
+}
+
+/* cart_new(): an empty 256x256 sprite sheet and map, no cover */
+static int l_cart_new(lua_State *L)
+{
+    b33_cart_t c;
+    memset(&c, 0, sizeof c);
+    free_assets();
+    if (load_assets(&c) != 0)
+        return luaL_error(L, "not enough memory for the cartridge");
+    free(proj_cover);
+    proj_cover = NULL;
+    return 0;
+}
+
+static void put16(uint8_t *p, uint32_t v) { p[0] = (uint8_t)v; p[1] = (uint8_t)(v >> 8); }
+static void put32(uint8_t *p, uint32_t v) { put16(p, v); put16(p + 2, v >> 16); }
+
+static const char *field(lua_State *L, int t, const char *k, const char *def)
+{
+    lua_getfield(L, t, k);
+    const char *s = lua_isstring(L, -1) ? lua_tostring(L, -1) : def;
+    lua_pop(L, 1);
+    return s;
+}
+
+/* cart_save(path, {title=, author=, res=, lua=}) -> true, or false and a
+ * message. Sprite sheet and map are the running cartridge's; the file
+ * name must be 8.3 (e.g. "/carts/MYGAME.B33"). */
+static int l_cart_save(lua_State *L)
+{
+    const char *path = luaL_checkstring(L, 1);
+    luaL_checktype(L, 2, LUA_TTABLE);
+    const char *title = field(L, 2, "title", ""), *author = field(L, 2, "author", "");
+    const char *res = field(L, 2, "res", "640x360");
+    lua_getfield(L, 2, "lua");
+    size_t lua_len;
+    const char *lua = luaL_checklstring(L, -1, &lua_len);
+    int w = strcmp(res, "320x180") == 0 ? 320 : 640, h = w == 320 ? 180 : 360;
+
+    char dir[64], name[16];
+    const char *slash = strrchr(path, '/');
+    if (slash) {
+        size_t n = (size_t)(slash - path);
+        if (n >= sizeof dir) n = sizeof dir - 1;
+        memcpy(dir, path, n);
+        dir[n] = 0;
+        if (!dir[0]) strcpy(dir, "/");
+        ksnprintf(name, sizeof name, "%s", slash + 1);
+    } else {
+        strcpy(dir, "/carts");
+        ksnprintf(name, sizeof name, "%s", path);
+    }
+
+    const uint32_t sw = (uint32_t)rt.sheet.w, sh = (uint32_t)rt.sheet.h;
+    const uint32_t mw = (uint32_t)rt.map.w, mh = (uint32_t)rt.map.h;
+    uint32_t sizes[4] = { proj_cover ? 4u + (uint32_t)proj_cover_w * proj_cover_h * 4 : 0, (uint32_t)lua_len,
+                          4 + sw * sh * 4, 4 + mw * mh * 2 };
+    static const uint32_t types[4] = { B33_SEC_COVER, B33_SEC_LUA, B33_SEC_SHEET, B33_SEC_MAP };
+    uint32_t count = 0, total = B33_HEADER_SIZE;
+    for (int i = 0; i < 4; i++)
+        if (sizes[i]) { count++; total += 16 + ((sizes[i] + 3) & ~3u); }
+    uint8_t *buf = calloc(total, 1);
+    if (!buf)
+        return luaL_error(L, "not enough memory to save");
+    uint8_t *tab = buf + B33_HEADER_SIZE, *p = tab + count * 16;
+    for (int i = 0; i < 4; i++) {
+        if (!sizes[i]) continue;
+        put32(tab, types[i]);
+        put32(tab + 4, (uint32_t)(p - buf));
+        put32(tab + 8, sizes[i]);
+        tab += 16;
+        if (i == 0) {
+            put16(p, proj_cover_w); put16(p + 2, proj_cover_h);
+            memcpy(p + 4, proj_cover, sizes[i] - 4);
+        } else if (i == 1) {
+            memcpy(p, lua, lua_len);
+        } else if (i == 2) {
+            sheet_commit();
+            put16(p, sw); put16(p + 2, sh);
+            for (uint32_t k = 0; k < sw * sh; k++) {
+                uint32_t rgb = g16_to_rgb24(rt.sheet.px[k]);
+                uint8_t *q = p + 4 + k * 4;
+                q[0] = (uint8_t)(rgb >> 16); q[1] = (uint8_t)(rgb >> 8); q[2] = (uint8_t)rgb;
+                q[3] = rt.sheet.alpha[k] ? 255 : 0;
+            }
+        } else {
+            put16(p, mw); put16(p + 2, mh);
+            for (uint32_t k = 0; k < mw * mh; k++)
+                put16(p + 4 + k * 2, rt.map.cells[k]);
+        }
+        p += (sizes[i] + 3) & ~3u;
+    }
+    memcpy(buf, "BM33CART", 8);
+    put16(buf + 8, 1);
+    put16(buf + 10, B33_HEADER_SIZE);
+    put16(buf + 12, (uint32_t)w);
+    put16(buf + 14, (uint32_t)h);
+    buf[16] = B33_FMT_RGB565;
+    buf[17] = (uint8_t)count;
+    strncpy((char *)buf + 24, title, 47);
+    strncpy((char *)buf + 72, author, 31);
+    put32(buf + 20, crc32(buf + B33_HEADER_SIZE, total - B33_HEADER_SIZE));
+    int ok = fat_mkdirs(dir) == 0 && fat_write_file(dir, name, buf, total) == 0;
+    free(buf);
+    lua_pushboolean(L, ok);
+    if (ok)
+        return 1;
+    lua_pushstring(L, fat_error());
+    return 2;
+}
+
+/* cart_run(path): leaves the editor, plays the cartridge, then comes back
+ * to the editor with cart_arg() = { path =, error = } */
+static int l_cart_run(lua_State *L)
+{
+    ksnprintf(run_request, sizeof run_request, "%s", luaL_checkstring(L, 1));
+    rt.quit = 1;
+    return 0;
+}
+
+static int l_cart_arg(lua_State *L)
+{
+    if (!arg_path[0]) {
+        lua_pushnil(L);
+        return 1;
+    }
+    lua_newtable(L);
+    lua_pushstring(L, arg_path);
+    lua_setfield(L, -2, "path");
+    if (arg_error[0]) {
+        lua_pushstring(L, arg_error);
+        lua_setfield(L, -2, "error");
+    }
+    return 1;
 }
 
 /* ---------------------------------------------------------------- player */
@@ -1012,6 +1384,8 @@ void b33_play(framebuffer_t *fb, const uint8_t *data, size_t len,
     st->elapsed_us = timer_ticks() - start;
     st->lua_kb = (uint32_t)(luavm_mem() / 1024);
     leave_mode(fb, con_w, con_h);
+    ksnprintf(last_error, sizeof last_error, "%s", error ? error : "");
+    hid_text_mode(0);
     if (error)
         kprintf("\x1b[91mb33: \"%s\" stopped with an error:\n%s\x1b[0m\n", cart.title, error);
     st->ok = error == NULL;
