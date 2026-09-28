@@ -78,7 +78,7 @@ static void report_irq(void)
     uint32_t n = tick_count() - n0, us = timer_ticks() - t0;
     kprintf("IRQ on: timer %lu Hz (measured %lu Hz), double buffer %s\n",
             tick_hz(), (uint32_t)((uint64_t)n * 1000000u / us),
-            fb.buffers == 2 ? "on" : "OFF");
+            fb.buffers >= 2 ? "on" : "OFF");
 }
 
 extern const char boot_lua[], boot_lua_end[];

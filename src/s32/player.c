@@ -133,7 +133,7 @@ void s32_play(framebuffer_t *fb, const uint8_t *data, size_t len,
 
     const uint32_t con_w = fb->width, con_h = fb->height;
     console_suspend(1);
-    if (fb_init(fb, S32_SCREEN_W, S32_SCREEN_H, 2) != 0) {
+    if (fb_init(fb, S32_SCREEN_W, S32_SCREEN_H, 3) != 0) {
         fb_init(fb, con_w, con_h, 2);
         console_suspend(0);
         kprintf("s32: cannot set 320x224\n");

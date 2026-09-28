@@ -867,7 +867,7 @@ int b33_video_enter(framebuffer_t *fb, int w, int h, g16_t *g)
     console_suspend(1);
     free(shadow);
     shadow = NULL;
-    if (fb_init_depth(fb, (uint32_t)w, (uint32_t)h, 2, 16) != 0)
+    if (fb_init_depth(fb, (uint32_t)w, (uint32_t)h, 3, 16) != 0)
         return -1;
     if (via_ram) {
         shadow = malloc((size_t)w * (size_t)h * 2);

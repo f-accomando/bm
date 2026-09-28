@@ -33,7 +33,7 @@ int fb_init_depth(framebuffer_t *fb, uint32_t width, uint32_t height,
     msg[i++] = TAG_SET_PHYS_WH;  msg[i++] = 8; msg[i++] = 0;
     msg[i++] = width;            msg[i++] = height;
 
-    if (buffers < 1 || buffers > 2)
+    if (buffers < 1 || buffers > 3)
         buffers = 1;
     const int virt = i + 3;
     msg[i++] = TAG_SET_VIRT_WH;  msg[i++] = 8; msg[i++] = 0;
@@ -74,7 +74,9 @@ int fb_init_depth(framebuffer_t *fb, uint32_t width, uint32_t height,
     fb->mem    = (uint8_t *)BUS_TO_ARM(msg[alloc]);
     fb->base   = fb->mem;
     fb->size   = msg[alloc + 1];
-    fb->buffers = msg[virt + 1] >= fb->height * 2 ? 2 : 1;
+    fb->buffers = msg[virt + 1] / fb->height;
+    if (fb->buffers > buffers) fb->buffers = buffers;
+    if (fb->buffers < 1) fb->buffers = 1;
     fb->shown  = 0;
     fb->vsync  = -1;
     fb->depth  = msg[depth_idx];
@@ -150,7 +152,10 @@ int fb_flip(framebuffer_t *fb)
         fb->vsync = ok;
     }
 
-    fb->base = fb->mem + (drawn ^ 1) * fb->height * fb->pitch;
+    /* with three pages the next one was on screen two flips ago: even if
+     * the firmware applies the new offset only at the next vertical blank,
+     * nothing is drawn into a page still being scanned out */
+    fb->base = fb->mem + ((drawn + 1) % fb->buffers) * fb->height * fb->pitch;
     return fb->vsync;
 }
 

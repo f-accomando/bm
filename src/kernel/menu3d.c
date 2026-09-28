@@ -88,7 +88,7 @@ static void rect(build_t *b, float x0, float y0, float x1, float y1, float z, in
 static int build_stick(r3d_mesh_t *m)
 {
     static const float ol[5][2] = { { -15.5f, -10 }, { 15.5f, -10 }, { 15.5f, 7.5f }, { 13, 10 }, { -15.5f, 10 } };
-    const float zf = -0.8f, zb = 0.8f, lift = 0.25f;
+    const float zf = -0.8f, zb = 0.8f, lift = 0.4f;   /* clear of the 16-bit z-buffer steps */
     const int pads = 10;
     int nf = 3 + 3 + 10 + 2 + pads * 2 + 2 + 1;
     if (r3d_mesh_alloc(m, nf * 3, nf) != 0 || r3d_mesh_alloc_uv(m) != 0)
@@ -213,7 +213,7 @@ int menu3d_open(framebuffer_t *fb)
     con_w = fb->width;
     con_h = fb->height;
     console_suspend(1);
-    if (fb_init_depth(fb, SW, SH, 2, 16) != 0) {
+    if (fb_init_depth(fb, SW, SH, 3, 16) != 0) {
         fb_init(fb, con_w, con_h, 2);
         console_suspend(0);
         return -1;
