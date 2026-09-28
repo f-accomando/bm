@@ -173,7 +173,8 @@ provato prima via USB (stesso formato dei report che poi arrivano via Bluetooth)
 M9 (MVP) ─┬─ M10 audio
           ├─ M11 SD in scrittura ─── M12 Bluetooth (controller)
           ├─ M13 altri tipi di cartuccia (s32 Lua quando lua32 è pronto, ARM nativo)
-          └─ M14 grafica 2.0 (DMA, 32 bit, 3D con texture)
+          ├─ M14 grafica 2.0 (DMA, 32 bit, 3D con texture)
+          └─ M15 multiplayer locale (più controller Bluetooth) ─── M16 gioco cooperativo (ultima)
 ```
 
 ## M10 — Audio HDMI (M/L) ✅ verificato sul Pi Zero W
@@ -319,6 +320,39 @@ Previsto:
   texture gira a 60 fps.
 
 ---
+
+## M15 — Multiplayer locale con controller Bluetooth (L)
+Decisione 2026-09-28: solo **Bluetooth**; USB e hub restano con un solo dispositivo.
+- Più controller abbinati: `bt_pad1`, `bt_pad2`, … in `config.txt` (il vecchio
+  `bt_pad` diventa il giocatore 1); `T` abbina il prossimo controller libero; la
+  riconnessione con il tasto PS funziona per tutti.
+- Stack Bluetooth con più connessioni ACL e canali L2CAP HID contemporanei (il
+  BCM43438 ne regge diverse; obiettivo: **4 giocatori**, 2 come minimo verificato sul
+  Pi), il ritardo d'input misurato come in M12 con due pad insieme.
+- Pulsanti **per giocatore**: il controller n è il giocatore n; la tastiera USB (e la
+  seriale) è un giocatore a parte (il primo libero). Il LED dei DS4 prende il colore
+  del giocatore (report di output).
+- API `.b33`: `btn(i, [p])`, `btnp(i, [p])` con `p` = 1..4 (default 1: i giochi attuali
+  non cambiano), `players()` = quanti giocatori sono collegati; l'uscita dal gioco
+  (Start+Select, PS) resta per ogni controller.
+- s32: il player riempie anche `INPUT2`–`INPUT8`.
+- Menu: la barra di stato mostra i controller collegati; il test `Y` del monitor li
+  elenca con i pulsanti premuti.
+- Test in QEMU: il chip simulato (`FakeDs4Chip`) con due pad.
+- **Fatto quando:** due DS4 collegati insieme giocano Pong uno contro l'altro (Pong con
+  modalità 2 giocatori).
+
+## M16 — Gioco cooperativo in stile Overcooked (L) — ultima milestone
+- Cartuccia `.b33` per **1–4 giocatori** in cooperativa locale (M15): una cucina vista
+  dall'alto, gli ordini arrivano a tempo e vanno preparati insieme: prendere gli
+  ingredienti, tagliarli, cuocerli (con il rischio di bruciarli), comporre il piatto,
+  servirlo, lavare i piatti.
+- Più livelli con cucine che cambiano (piani che si muovono, ostacoli, fuoco da
+  spegnere), punteggio a stelle per livello salvato sulla SD.
+- Comandi: movimento in 8 direzioni, A prendi/posa, B usa (taglia, lava), X scatto.
+- Con un solo giocatore: si passa da un cuoco all'altro con Y.
+- Grafica e suoni con gli strumenti già fatti (sprite da script, luci, sintetizzatore).
+- **Fatto quando:** 2+ giocatori completano un livello sul Pi senza cali di frame rate.
 
 ## Rischi principali
 | Rischio | Mitigazione |
