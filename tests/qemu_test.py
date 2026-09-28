@@ -851,6 +851,8 @@ class FakeDs4Chip(FakeBtChip):
 
     KEY = bytes(range(0xA0, 0xB0))
     HANDLE = 0x000B
+    # the light colour bm33 gives each player (bt.c)
+    LIGHT = [(0x00, 0x20, 0x80), (0x80, 0x08, 0x00), (0x00, 0x80, 0x10), (0x80, 0x00, 0x50)]
 
     def packet(self):
         t = self._read(1)[0]
@@ -897,35 +899,106 @@ class FakeDs4Chip(FakeBtChip):
             self.cmd(op)
 
     # L2CAP from the pad's side
-    def l2(self, cid, data):
+    def l2(self, cid, data, handle=None):
         frame = len(data).to_bytes(2, "little") + cid.to_bytes(2, "little") + data
-        hdr = (self.HANDLE | 0x2000).to_bytes(2, "little") + len(frame).to_bytes(2, "little")
+        h = self.HANDLE if handle is None else handle
+        hdr = (h | 0x2000).to_bytes(2, "little") + len(frame).to_bytes(2, "little")
         self.port.write(bytes([0x02]) + hdr + frame)
 
-    def sig(self, code, ident, data):
-        self.l2(0x0001, bytes([code, ident]) + len(data).to_bytes(2, "little") + data)
+    def sig(self, code, ident, data, handle=None):
+        self.l2(0x0001, bytes([code, ident]) + len(data).to_bytes(2, "little") + data, handle)
 
-    def host_sig(self):
+    def host_sig(self, handle=None):
         """Next signaling command from the host: (code, id, data)."""
-        kind, handle, payload = self.packet()
-        assert kind == "acl" and handle == self.HANDLE, (kind, handle)
+        kind, h, payload = self.packet()
+        want = self.HANDLE if handle is None else handle
+        assert kind == "acl" and h == want, (kind, h)
         cid = int.from_bytes(payload[2:4], "little")
         assert cid == 1, f"host sent data on cid {cid:#x}, expected signaling"
         s = payload[4:]
         return s[0], s[1], s[4:4 + int.from_bytes(s[2:4], "little")]
 
-    def configure(self, our_cid, host_cid):
+    def configure(self, our_cid, host_cid, handle=None):
         """Host config request -> accepted; ours -> host accepts it."""
-        code, ident, data = self.host_sig()
+        code, ident, data = self.host_sig(handle)
         assert code == 0x04 and int.from_bytes(data[:2], "little") == our_cid, (code, data)
-        self.sig(0x05, ident, host_cid.to_bytes(2, "little") + bytes(4))
-        self.sig(0x04, 0x77, host_cid.to_bytes(2, "little") + bytes(2))
-        code, ident, data = self.host_sig()
+        self.sig(0x05, ident, host_cid.to_bytes(2, "little") + bytes(4), handle)
+        self.sig(0x04, 0x77, host_cid.to_bytes(2, "little") + bytes(2), handle)
+        code, ident, data = self.host_sig(handle)
         assert code == 0x05 and ident == 0x77, (code, data)
 
-    def report(self, buttons=0x08, ps=0):
+    def expect_light(self, cid, player, handle=None):
+        """The output report that lights the pad in the player's colour, on
+        the pad's interrupt channel, with the CRC the DS4 checks."""
+        kind, h, payload = self.packet()
+        want = self.HANDLE if handle is None else handle
+        assert kind == "acl" and h == want, (kind, h)
+        assert int.from_bytes(payload[2:4], "little") == cid, payload.hex()
+        r = payload[4:]
+        assert len(r) == 79 and r[:2] == bytes([0xA2, 0x11]), r.hex()
+        assert tuple(r[9:12]) == self.LIGHT[player - 1], (player, r[9:12].hex())
+        import zlib
+        assert zlib.crc32(r[:75]) == int.from_bytes(r[75:79], "little"), "bad CRC"
+
+    def reconnect(self, pad, key, handle, pad_cids, player):
+        """The pad comes back (PS button): connection, saved key, encryption,
+        the pad opens both HID channels, the host lights it."""
+        self._event(0x04, pad + bytes([0x08, 0x25, 0x00, 1]))            # connection request
+        acc = self.cmd(0x0409, reply="status")
+        assert acc == pad + bytes([0]), acc.hex()
+        self._event(0x03, bytes([0]) + handle.to_bytes(2, "little") + pad + bytes([1, 0]))
+        self._event(0x17, pad)                                           # link key request
+        reply = self.cmd(0x040B)
+        assert reply == pad + key, reply.hex()                           # the saved key
+        self._event(0x08, bytes([0]) + handle.to_bytes(2, "little") + bytes([1]))
+        for psm, pad_cid, host_cid in ((0x11, pad_cids[0], 0x40), (0x13, pad_cids[1], 0x41)):
+            self.sig(0x02, 0x10 + psm, psm.to_bytes(2, "little") + pad_cid.to_bytes(2, "little"), handle)
+            code, ident, data = self.host_sig(handle)
+            assert code == 0x03 and data[:4] == host_cid.to_bytes(2, "little") + pad_cid.to_bytes(2, "little") \
+                and data[4:6] == bytes(2), (code, data)
+            code, ident, data = self.host_sig(handle)                    # host's config request
+            assert code == 0x04 and int.from_bytes(data[:2], "little") == pad_cid
+            self.sig(0x05, ident, host_cid.to_bytes(2, "little") + bytes(4), handle)
+            self.sig(0x04, 0x66, host_cid.to_bytes(2, "little") + bytes(2), handle)
+            code, ident, data = self.host_sig(handle)
+            assert code == 0x05 and ident == 0x66
+        self.expect_light(pad_cids[1], player, handle)
+
+    def pair(self, pad, key, handle, pad_cids, player, clock=(0x34, 0x12)):
+        """Pairing from the monitor ('T'): inquiry finds the pad, the host
+        connects, SSP Just Works, encryption, the host opens both channels
+        and lights the pad in the colour of the player it became."""
+        self.cmd(0x0401, reply="status")                                   # inquiry
+        self._event(0x22, bytes([1]) + pad + bytes([1, 0, 0x08, 0x25, 0x00, *clock, 0xC4]))
+        self._event(0x01, bytes([0]))
+        p = self.cmd(0x0405, reply="status")                               # create connection
+        assert p[:6] == pad and p[8] == 1 and p[10:12] == bytes([clock[0], clock[1] | 0x80]), p.hex()
+        hb = handle.to_bytes(2, "little")
+        self._event(0x03, bytes([0]) + hb + pad + bytes([1, 0]))
+        self.cmd(0x0411, reply="status")                                   # authentication
+        self._event(0x17, pad)                                             # link key request
+        self.cmd(0x040C)                                                   # -> no key yet
+        self._event(0x31, pad)                                             # IO capability request
+        io = self.cmd(0x042B)
+        assert io == pad + bytes([0x03, 0x00, 0x04]), io.hex()             # NoInputNoOutput
+        self._event(0x33, pad + (123456).to_bytes(4, "little"))            # user confirmation
+        self.cmd(0x042C)
+        self._event(0x36, bytes([0]) + pad)
+        self._event(0x18, pad + key + bytes([4]))                          # link key
+        self._event(0x06, bytes([0]) + hb)
+        self.cmd(0x0413, reply="status")                                   # encryption on
+        self._event(0x08, bytes([0]) + hb + bytes([1]))
+        for psm, host_cid, pad_cid in ((0x11, 0x40, pad_cids[0]), (0x13, 0x41, pad_cids[1])):
+            code, ident, data = self.host_sig(handle)
+            assert code == 0x02 and data == psm.to_bytes(2, "little") + host_cid.to_bytes(2, "little")
+            self.sig(0x03, ident, pad_cid.to_bytes(2, "little") + host_cid.to_bytes(2, "little") + bytes(4),
+                     handle)
+            self.configure(pad_cid, host_cid, handle)
+        self.expect_light(pad_cids[1], player, handle)
+
+    def report(self, buttons=0x08, ps=0, handle=None, lx=128, ly=128):
         """DS4 reduced input report 0x01 on the host's interrupt channel."""
-        self.l2(0x0041, bytes([0xA1, 0x01, 128, 128, 128, 128, buttons, 0, ps, 0, 0]))
+        self.l2(0x0041, bytes([0xA1, 0x01, lx, ly, 128, 128, buttons, 0, ps, 0, 0]), handle)
 
 
 def _mini_expect(q, needle, timeout=20):
@@ -964,33 +1037,10 @@ def test_bt_pair_and_reconnect(b, opts):
             chip = FakeDs4Chip(q.port)
             chip.buf, q.buf = q.buf, b""
             chip.init(reset_silent=False)
-            chip.cmd(0x0401, reply="status")                                   # inquiry
-            chip._event(0x22, bytes([1]) + pad + bytes([1, 0, 0x08, 0x25, 0x00, 0x34, 0x12, 0xC4]))
-            chip._event(0x01, bytes([0]))
-            p = chip.cmd(0x0405, reply="status")                               # create connection
-            assert p[:6] == pad and p[8] == 1 and p[10:12] == bytes([0x34, 0x92]), p.hex()
-            chip._event(0x03, bytes([0]) + chip.HANDLE.to_bytes(2, "little") + pad + bytes([1, 0]))
-            chip.cmd(0x0411, reply="status")                                   # authentication
-            chip._event(0x17, pad)                                             # link key request
-            chip.cmd(0x040C)                                                   # -> no key yet
-            chip._event(0x31, pad)                                             # IO capability request
-            io = chip.cmd(0x042B)
-            assert io == pad + bytes([0x03, 0x00, 0x04]), io.hex()             # NoInputNoOutput
-            chip._event(0x33, pad + (123456).to_bytes(4, "little"))            # user confirmation
-            chip.cmd(0x042C)
-            chip._event(0x36, bytes([0]) + pad)
-            chip._event(0x18, pad + chip.KEY + bytes([4]))                     # link key
-            chip._event(0x06, bytes([0]) + chip.HANDLE.to_bytes(2, "little"))
-            chip.cmd(0x0413, reply="status")                                   # encryption on
-            chip._event(0x08, bytes([0]) + chip.HANDLE.to_bytes(2, "little") + bytes([1]))
-            for psm, host_cid, pad_cid in ((0x11, 0x40, 0x70), (0x13, 0x41, 0x71)):
-                code, ident, data = chip.host_sig()
-                assert code == 0x02 and data == psm.to_bytes(2, "little") + host_cid.to_bytes(2, "little")
-                chip.sig(0x03, ident, pad_cid.to_bytes(2, "little") + host_cid.to_bytes(2, "little") + bytes(4))
-                chip.configure(pad_cid, host_cid)
+            chip.pair(pad, chip.KEY, chip.HANDLE, (0x70, 0x71), 1)              # player 1: blue
             out = _mini_expect(q, "next time just press PS")
             assert "bt: pairing with 1c:66:6d:01:02:03" in out and \
-                "bt: controller 1c:66:6d:01:02:03 connected" in out, out
+                "bt: controller 1c:66:6d:01:02:03 connected (player 1)" in out, out
             # the pad drives the menu: cross plays the first cart, PS quits
             q.mini.write(b"M")
             _mini_expect(q, "cartridge menu")
@@ -1025,7 +1075,7 @@ def test_bt_pair_and_reconnect(b, opts):
         env = dict(os.environ, MTOOLS_SKIP_CHECK="1")
         cfg = subprocess.run(["mtype", "-i", part, "::/BM33/CONFIG.TXT"], capture_output=True,
                              text=True, env=env).stdout
-        assert "bt_pad=1c:66:6d:01:02:03 " + FakeDs4Chip.KEY.hex() in cfg, cfg
+        assert "bt_pad1=1c:66:6d:01:02:03 " + FakeDs4Chip.KEY.hex() in cfg, cfg
 
         # ---- second boot: the stack starts by itself, the pad comes back
         q = Qemu(b("kernel.img"), drive, mini_uart=True)
@@ -1035,34 +1085,122 @@ def test_bt_pair_and_reconnect(b, opts):
             chip = FakeDs4Chip(q.port)
             chip.buf, q.buf = q.buf, b""
             chip.init(reset_silent=False)
-            _mini_expect(q, "paired pad 1c:66:6d:01:02:03: press its PS button")
+            _mini_expect(q, "paired pad 1c:66:6d:01:02:03 (player 1): press its PS button")
             _mini_expect(q, "cartridge menu")
-            chip._event(0x04, pad + bytes([0x08, 0x25, 0x00, 1]))            # connection request
-            acc = chip.cmd(0x0409, reply="status")
-            assert acc == pad + bytes([0]), acc.hex()
-            chip._event(0x03, bytes([0]) + chip.HANDLE.to_bytes(2, "little") + pad + bytes([1, 0]))
-            chip._event(0x17, pad)                                             # link key request
-            reply = chip.cmd(0x040B)
-            assert reply == pad + FakeDs4Chip.KEY, reply.hex()                # the saved key
-            chip._event(0x08, bytes([0]) + chip.HANDLE.to_bytes(2, "little") + bytes([1]))
-            for psm, pad_cid, host_cid in ((0x11, 0x50, 0x40), (0x13, 0x51, 0x41)):
-                chip.sig(0x02, 0x10 + psm, psm.to_bytes(2, "little") + pad_cid.to_bytes(2, "little"))
-                code, ident, data = chip.host_sig()
-                assert code == 0x03 and data[:4] == host_cid.to_bytes(2, "little") + pad_cid.to_bytes(2, "little") \
-                    and data[4:6] == bytes(2), (code, data)
-                code, ident, data = chip.host_sig()                            # host's config request
-                assert code == 0x04 and int.from_bytes(data[:2], "little") == pad_cid
-                chip.sig(0x05, ident, host_cid.to_bytes(2, "little") + bytes(4))
-                chip.sig(0x04, 0x66, host_cid.to_bytes(2, "little") + bytes(2))
-                code, ident, data = chip.host_sig()
-                assert code == 0x05 and ident == 0x66
-            _mini_expect(q, "bt: controller 1c:66:6d:01:02:03 connected")
+            chip.reconnect(pad, FakeDs4Chip.KEY, chip.HANDLE, (0x50, 0x51), 1)
+            _mini_expect(q, "bt: controller 1c:66:6d:01:02:03 connected (player 1)")
             chip.report(0x08 | 0x20)
             time.sleep(0.2)
             chip.report(0x08)
             _mini_expect(q, "playing snake.b33")
         finally:
             q.close()
+    finally:
+        shutil.rmtree(tmp, ignore_errors=True)
+
+
+PLAYERS_CART = r"""
+local last, lastn = {}, nil
+function _update()
+  for p = 1, 4 do
+    local s = ""
+    for b = 0, 7 do if btn(b, p) then s = s .. b end end
+    local x, y = stick(p)
+    s = s .. string.format(" %.1f,%.1f", x, y)
+    if s ~= last[p] then last[p] = s; log("player " .. p .. " [" .. s .. "]") end
+  end
+  local n, m = players()
+  if n ~= lastn then lastn = n; log("players " .. n .. " mask " .. m) end
+end
+function _draw() cls(0) end
+"""
+
+
+def test_bt_two_pads(b, opts):
+    """M16: two DS4 paired earlier (the first by an older kernel, as
+    'bt_pad') come back together and light up in their players' colours; a
+    third one pairs as player 3 (the old key becomes bt_pad1). In a game each
+    pad drives its own player (btn(i, p), stick(p)); the serial keys are the
+    first player without a pad."""
+    tmp = tempfile.mkdtemp(prefix="bm33-bt-")
+    img = os.path.join(tmp, "sd.img")
+    hcd = os.path.join(tmp, "BCM43430A1.hcd")
+    with open(hcd, "wb") as f:
+        f.write(bytes([0x4C, 0xFC, 4, 1, 2, 3, 4, 0x4E, 0xFC, 4, 0xFF, 0xFF, 0xFF, 0xFF]))
+    pad_a, key_a = FakeDs4Chip.DS4, FakeDs4Chip.KEY
+    pad_b, key_b = bytes([0x0B, 0x0A, 0x09, 0x6D, 0x66, 0x1C]), bytes(range(0xC0, 0xD0))
+    pad_c, key_c = bytes([0x0E, 0x0D, 0x0C, 0x6D, 0x66, 0x1C]), bytes(range(0xD0, 0xE0))
+    cfg = os.path.join(tmp, "config.txt")
+    with open(cfg, "w") as f:
+        f.write(f"layout=it\nbt_pad=1c:66:6d:01:02:03 {key_a.hex()}\n"
+                f"bt_pad2=1c:66:6d:09:0a:0b {key_b.hex()}\n")
+    cart = os.path.join(tmp, "players.b33")
+    with open(cart, "wb") as f:
+        f.write(mkb33.pack(PLAYERS_CART.encode(), title="AAA players"))
+    mksd.build(img, [(hcd, "bm33/BCM43430A1.hcd"), (cfg, "bm33/config.txt"),
+                     (cart, "carts/players.b33")])
+    q = Qemu(b("kernel.img"), ["-drive", f"if=sd,format=raw,file={img}"], mini_uart=True)
+    q.mini_buf = b""
+    try:
+        q.expect("(same pins, same speed)\r\n", timeout=30)
+        chip = FakeDs4Chip(q.port)
+        chip.buf, q.buf = q.buf, b""
+        chip.init(reset_silent=False)
+        _mini_expect(q, "paired pad 1c:66:6d:01:02:03 (player 1)")
+        _mini_expect(q, "paired pad 1c:66:6d:09:0a:0b (player 2)")
+        _mini_expect(q, "cartridge menu")
+        chip.reconnect(pad_b, key_b, 0x0C, (0x60, 0x61), 2)       # red
+        _mini_expect(q, "bt: controller 1c:66:6d:09:0a:0b connected (player 2)")
+        chip.reconnect(pad_a, key_a, 0x0B, (0x50, 0x51), 1)       # blue
+        _mini_expect(q, "bt: controller 1c:66:6d:01:02:03 connected (player 1)")
+
+        # a third pad pairs from the monitor and becomes player 3
+        q.mini.write(b"q")
+        _mini_expect(q, "back to the monitor")
+        q.mini.write(b"T")
+        chip.pair(pad_c, key_c, 0x0D, (0x72, 0x73), 3)             # green
+        out = _mini_expect(q, "next time just press PS")
+        assert "connected (player 3)" in out and "paired as player 3" in out, out
+
+        # in a game each pad is its own player
+        q.mini.write(b"M")
+        _mini_expect(q, "cartridge menu")
+        time.sleep(0.3)
+        chip.report(0x08 | 0x20, handle=0x0D)                      # pad 3: cross plays
+        time.sleep(0.1)
+        chip.report(0x08, handle=0x0D)
+        _mini_expect(q, "playing players.b33")
+        _mini_expect(q, "player 4 [ 0.0,0.0]")                    # first frame: all idle
+        _mini_expect(q, "players 3 mask 7")
+        chip.report(0x08 | 0x10, handle=0x0C)                      # pad 2: square = X
+        _mini_expect(q, "player 2 [6 0.0,0.0]")
+        chip.report(0x08, handle=0x0B, lx=0)                       # pad 1: stick left
+        _mini_expect(q, "player 1 [0 -1.0,0.0]")
+        chip.report(0x08, handle=0x0B)
+        _mini_expect(q, "player 1 [ 0.0,0.0]")
+        q.mini.write(b"d")                                         # serial: the 4th player
+        _mini_expect(q, "player 4 [1 1.0,0.0]")
+        chip.report(0x08, ps=1, handle=0x0C)                       # PS on pad 2 quits
+        _mini_expect(q, "update+draw")
+        chip.report(0x08, ps=0, handle=0x0C)
+        time.sleep(0.3)
+        q.mini.write(b"q")
+        _mini_expect(q, "back to the monitor")
+    finally:
+        q.close()
+    try:
+        part = os.path.join(tmp, "part.img")
+        with open(img, "rb") as f, open(part, "wb") as o:
+            f.seek(2048 * 512)
+            o.write(f.read())
+        env = dict(os.environ, MTOOLS_SKIP_CHECK="1")
+        text = subprocess.run(["mtype", "-i", part, "::/BM33/CONFIG.TXT"], capture_output=True,
+                              text=True, env=env).stdout
+        lines = text.splitlines()
+        assert f"bt_pad1=1c:66:6d:01:02:03 {key_a.hex()}" in lines, text
+        assert f"bt_pad2=1c:66:6d:09:0a:0b {key_b.hex()}" in lines, text
+        assert f"bt_pad3=1c:66:6d:0c:0d:0e {key_c.hex()}" in lines, text
+        assert not any(l.startswith("bt_pad=") for l in lines), text
     finally:
         shutil.rmtree(tmp, ignore_errors=True)
 

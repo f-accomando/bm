@@ -34,11 +34,11 @@ static void help(void)
             "  l  Lua REPL (Esc, Ctrl-D or exit() returns here)\n"
             "  U  receive a cartridge over serial and play it\n"
             "  i  system info            m  heap usage          c  clear screen\n"
-            "  y  USB: scan the port     Y  USB live test (10 s)\n"
+            "  y  USB: scan the port     Y  input test: USB, then each player (10 s)\n"
             "  L  keyboard layout Italian / US\n"
             "  a  audio: HDMI sound status and a test tune\n"
             "  e  editor: code, sprites and map of a .b33 cartridge\n"
-            "  T  Bluetooth: search and pair a controller (DS4: Share + PS)\n"
+            "  T  Bluetooth: pair a controller as the next player (DS4: Share + PS)\n"
             "  b  boot diagnostics: benchmarks, s32 and b33 demos, Lua boot script\n"
             "  k  CPU benchmark          p  rendering benchmark 640x360 RGB565\n"
             "  D  DMA test step by step (CPU against DMA timings)\n"
@@ -155,7 +155,7 @@ void monitor_run(void)
         case 'f': carts_list(); break;
         case 'F': carts_init(); carts_list(); break;
         case 'y': usb_init(); usb_print(); break;
-        case 'Y': usb_live_test(10); break;
+        case 'Y': usb_live_test(5); input_live_test(10); break;
         case 'T': bt_scan(8); break;
         case 'a': audio_test(); break;
         case 'e': carts_editor(console_framebuffer()); break;

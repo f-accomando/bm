@@ -27,6 +27,8 @@ typedef struct {
 
 #define R3D_TEXTURED 0x80000000u
 
+#define R3D_LAMPS 4
+
 typedef struct {
     g16_t *g;
     uint16_t *zbuf;             /* g->w * g->h, 0 = far */
@@ -35,6 +37,7 @@ typedef struct {
     float focal;                /* pixels: (w/2) / tan(fov/2) */
     v3_t light;                 /* unit vector towards the light, world space */
     float ambient;
+    struct { v3_t pos; float r2, k; int on; } lamp[R3D_LAMPS];  /* point lights, per face */
     uint32_t fog_rgb;           /* faces fade to this colour ... */
     float fog_near, fog_far;    /* ... between these depths (off if far <= near) */
     /* statistics of the last frame (reset by r3d_zclear) */
@@ -48,12 +51,21 @@ void r3d_camera(r3d_t *r, float x, float y, float z, float yaw, float pitch, flo
 void r3d_camera_roll(r3d_t *r, float roll);
 void r3d_light(r3d_t *r, float x, float y, float z, float ambient);
 void r3d_fog(r3d_t *r, uint32_t rgb, float near, float far);
+/* Point light i (0..R3D_LAMPS-1): faces whose centre is within `radius` get
+ * up to `k` more light, fading with the distance; radius <= 0 turns it off. */
+void r3d_lamp(r3d_t *r, int i, float x, float y, float z, float radius, float k);
 
 /* World point -> screen. Returns 0 if it is behind the camera. */
 int r3d_project(const r3d_t *r, v3_t p, float *sx, float *sy, float *depth);
 
 /* Draws a mesh at position p, rotated by (rx, ry, rz) radians, scaled. */
 void r3d_draw(r3d_t *r, const r3d_mesh_t *m, v3_t p, float rx, float ry, float rz, float scale);
+/* The same with flags: R3D_NOZ ignores the z-buffer (no test, no write:
+ * for floors and backdrops drawn before the rest), R3D_UNLIT full colour. */
+#define R3D_NOZ   1u
+#define R3D_UNLIT 2u
+void r3d_draw_flags(r3d_t *r, const r3d_mesh_t *m, v3_t p, float rx, float ry, float rz,
+                    float scale, unsigned flags);
 
 /* Mesh helpers */
 int  r3d_mesh_alloc(r3d_mesh_t *m, int nverts, int nfaces);

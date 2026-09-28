@@ -36,6 +36,16 @@ void config_set(const char *key, const char *value)
     }
 }
 
+void config_unset(const char *key)
+{
+    for (int i = 0; i < nkv; i++)
+        if (strcmp(kv[i].key, key) == 0) {
+            memmove(&kv[i], &kv[i + 1], (size_t)(nkv - i - 1) * sizeof kv[0]);
+            nkv--;
+            return;
+        }
+}
+
 static void parse(const char *text, size_t len)
 {
     size_t i = 0;

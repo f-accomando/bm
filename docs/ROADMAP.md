@@ -348,8 +348,32 @@ Decisione 2026-09-28: editor **sulla console** (come PICO-8), prima del multipla
 - Dopo: editor di suoni ed effetti, colori della tavolozza modificabili, copertina
   disegnata nell'editor, cerca nel codice, sprite sheet più grande di 256×256 a zoom.
 
-## M16 — Multiplayer locale con controller Bluetooth (L)
+## M16 — Multiplayer locale con controller Bluetooth (L) — 🛠 fatto, da provare sul Pi
 Decisione 2026-09-28: solo **Bluetooth**; USB e hub restano con un solo dispositivo.
+
+Fatto (QEMU, `test_bt_pair_and_reconnect`, `test_bt_two_pads`):
+- `src/bt/bt.c`: fino a 4 collegamenti ACL contemporanei, ognuno con i suoi canali L2CAP
+  (stessi CID locali: sono per collegamento), la sua chiave e il suo giocatore; chiavi
+  `bt_pad1`…`bt_pad4` (il vecchio `bt_pad` è il giocatore 1 e viene convertito al primo
+  abbinamento); `T` abbina il prossimo posto libero (se sono tutti presi, sostituisce il
+  primo pad non collegato); riconnessione con PS per tutti.
+- Luce del DS4 nel colore del giocatore: report di output 0x11 sul canale interrupt
+  (intestazione 0xA2, CRC-32 come vuole il pad), che passa anche il pad al report
+  completo a 125 Hz (8 ms: quattro pad stanno nei 921600 baud della UART).
+- Input per giocatore (`hid_players`, `input_players`): tasti e levetta di ogni pad; la
+  tastiera/USB e la seriale sono il primo giocatore senza pad.
+- API `.b33`: `btn(i, [p])`, `btnp(i, [p])`, `players()` (quanti e quali), `stick([p])`
+  (levetta analogica, o la croce). **Differenza dalla decisione iniziale:** senza `p`,
+  `btn(i)` risponde a *qualsiasi* controller invece che al solo giocatore 1: così i
+  giochi a un giocatore non cambiano davvero (con "default 1" la tastiera smetterebbe di
+  funzionare appena si collega un pad, perché diventa il giocatore 2).
+- s32: le porte `INPUT`–`INPUT4` hanno ciascuna il suo giocatore.
+- Menu: `pads: 1 2 - -` nell'intestazione e nella barra di stato; `Y` mostra i tasti di
+  ogni giocatore; Pong con la modalità 2 giocatori.
+
+Da provare sul Pi: due DS4 insieme (ritardo d'input come in M12), la luce, Pong a 2.
+
+Piano iniziale:
 - Più controller abbinati: `bt_pad1`, `bt_pad2`, … in `config.txt` (il vecchio
   `bt_pad` diventa il giocatore 1); `T` abbina il prossimo controller libero; la
   riconnessione con il tasto PS funziona per tutti.

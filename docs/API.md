@@ -97,7 +97,7 @@ Le coordinate sono in pixel, (0,0) in alto a sinistra; `w` e `h` sono larghezza 
 | `rect(x, y, w, h, c)` / `rectfill(x, y, w, h, c)` | rettangolo vuoto / pieno |
 | `circ(x, y, r, c)` / `circfill(x, y, r, c)` | cerchio vuoto / pieno |
 | `tri(x0, y0, x1, y1, x2, y2, c)` | triangolo pieno |
-| `print(testo, x, y, [c])` | testo con il font 8×16 (bianco se `c` manca); restituisce la x dopo l'ultimo carattere |
+| `print(testo, x, y, [c, scala])` | testo con il font 8×16 (bianco se `c` manca), ingrandito `scala` volte (1–8: 2 = caratteri 16×32); restituisce la x dopo l'ultimo carattere |
 | `camera([x, y])` | sposta tutto il disegno di (−x, −y); senza argomenti la azzera |
 | `clip([x, y, w, h])` | limita il disegno al rettangolo; senza argomenti tutto lo schermo |
 
@@ -123,8 +123,17 @@ della mappa; ogni numero è una cella dello sheet).
 
 | Funzione | Descrizione |
 |---|---|
-| `btn(i)` | `true` finché il tasto è premuto |
-| `btnp(i)` | `true` solo nel fotogramma in cui viene premuto |
+| `btn(i, [p])` | `true` finché il tasto è premuto; senza `p` da **qualsiasi** controller, con `p` = 1–4 solo da quello del giocatore `p` |
+| `btnp(i, [p])` | `true` solo nel fotogramma in cui viene premuto (stesso `p`) |
+| `players()` | quanti giocatori hanno un controller (almeno 1) e, come secondo valore, quali: bit `n` = giocatore `n+1` (es. `3, 7` = giocatori 1, 2 e 3) |
+| `stick([p])` | la levetta sinistra del giocatore `p`: `x, y` tra −1 e 1 (x verso destra, y verso il basso), con zona morta; con la tastiera o un pad senza levetta vale la croce (8 direzioni). Senza `p`: quella spinta di più |
+
+**Più giocatori (M16).** Il controller Bluetooth *n* è il giocatore *n* (abbinati dal monitor
+con `T`, uno alla volta: ognuno prende il primo posto libero e la sua luce il colore del
+giocatore: 1 blu, 2 rosso, 3 verde, 4 rosa). La tastiera o il gamepad USB e la seriale sono
+il primo giocatore senza pad (senza pad Bluetooth: il giocatore 1). I giochi a un giocatore
+usano `btn(i)` senza `p` e funzionano con qualsiasi controller; un gioco a più giocatori
+chiede `btn(i, p)` per ciascuno (esempio: `carts/pong`, modalità 2 giocatori).
 
 | `i` | Tastiera | Gamepad | Seriale |
 |---|---|---|---|
@@ -136,6 +145,11 @@ della mappa; ogni numero è una cella dello sheet).
 | 5 **B** | X, K | B / cerchio | `x`, `k` |
 | 6 **X** | C, L | X / quadrato | `c`, `l` |
 | 7 **Y** | V, I | Y / triangolo | `v`, `i` |
+| 8 **Start** | Invio | Start / Options | Invio |
+| 9 **Select** | Tab | Select / Share | — |
+
+Start+Select insieme (o il tasto PS) chiudono sempre la cartuccia: Start da solo è libero
+per la pausa del gioco.
 
 Una cartuccia che non chiede mai `btn(6)`/`btn(7)` (o `btnp`) riceve X come A e Y come B:
 i giochi con due tasti funzionano con tutti e quattro.
@@ -248,11 +262,12 @@ Esempio completo: `carts/hunt` (Hunter's Night).
 |---|---|
 | `mesh(v, f, [uv])` | mesh da tabelle: `v` = {x,y,z, x,y,z, …}, `f` = {a,b,c,colore, …} (indici da 1). Con `uv` (6 numeri per faccia: u,v dei tre vertici in pixel dello sprite sheet) le facce con colore `-1` hanno la **texture** dello sprite sheet (prospettiva corretta, i pixel trasparenti restano vuoti) |
 | `mesh_sphere([r, segmenti, c1, c2])`, `mesh_cube([c])` | mesh pronte |
-| `draw3d(m, x, y, z, [rx, ry, rz, scala])` | disegna una mesh con z-buffer e luce per faccia |
+| `draw3d(m, x, y, z, [rx, ry, rz, scala, flag])` | disegna una mesh con z-buffer e luce per faccia. `flag`: 1 = senza z-buffer (né prova né scrittura: pavimenti e sfondi disegnati per primi, più veloci), 2 = senza luce (colori pieni); si sommano |
 | `camera3d(x, y, z, [yaw, pitch, fov, roll])` | camera (default a z = −5, fov 60°); `roll` inclina l'inquadratura (radianti) |
 | `light3d(x, y, z, [ambiente])` | direzione della luce e luce ambiente (0–1) |
 | `zclear()` | pulisce lo z-buffer (a ogni fotogramma, prima di `draw3d`) |
 | `fog3d(colore, vicino, lontano)` | nebbia: le facce sfumano nel colore tra le due distanze; `fog3d()` la toglie |
+| `lamp3d(i, x, y, z, raggio, [k])` | luce puntiforme `i` (1–4): le facce con il centro entro `raggio` diventano più chiare, fino a `k` in più (predefinito 1) al centro; `lamp3d(i)` la spegne, `lamp3d()` le spegne tutte. Con `light3d` ad ambiente basso fa scene al buio con lanterne |
 | `project3d(x, y, z)` | punto del mondo → `sx, sy, profondità` sullo schermo (`nil` se è dietro la camera): per disegnare in 2D cose allineate al 3D (orizzonte, mirini, etichette) |
 
 I triangoli che attraversano il piano vicino alla camera vengono tagliati, non scartati:

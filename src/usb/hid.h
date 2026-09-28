@@ -30,11 +30,23 @@ void hid_ds4_attach(void);
 uint32_t hid_ds4_buttons(const uint8_t *d, uint32_t len, int *ps);
 void hid_report(int kind, const uint8_t *data, uint32_t len);
 
-/* DualShock 4 over Bluetooth: an input report as it comes from the
- * interrupt channel, after the 0xA1 header (r[0] = report ID 0x01 or
- * 0x11). Its buttons join hid_buttons(); clear on disconnection. */
-void hid_bt_report(const uint8_t *r, uint32_t len);
-void hid_bt_clear(void);
+#define HID_PLAYERS 4
+
+/* DualShock 4 over Bluetooth, the pad of player slot+1: an input report as
+ * it comes from the interrupt channel, after the 0xA1 header (r[0] = report
+ * ID 0x01 or 0x11). Its buttons join hid_buttons(); clear on disconnection. */
+void hid_bt_report(int slot, const uint8_t *r, uint32_t len);
+void hid_bt_clear(int slot);
+
+/* Buttons of each player (out[0] = player 1) and their OR: the Bluetooth
+ * pads by player, the USB keyboard/gamepad as player local+1 (none if
+ * local < 0; with text != 0 the keyboard types and is left out). Clears the
+ * short presses, like hid_buttons(). */
+uint32_t hid_players(uint32_t out[HID_PLAYERS], int text, int local);
+/* Left stick, -127..127 each (x right, y down), of the Bluetooth pad in
+ * slot, or of the USB gamepad with slot -1. Returns 1 if the pad has an
+ * analog stick (else xy is 0). */
+int hid_stick(int slot, int8_t xy[2]);
 
 /* Text input from the keyboard (layout applied): next byte or -1. */
 int      hid_getc(void);

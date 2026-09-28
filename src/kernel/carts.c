@@ -370,7 +370,7 @@ void carts_menu(framebuffer_t *fb)
     kprintf("\ncartridge menu: w/s or arrows, Enter plays, q returns to the monitor\n");
     input_flush();
     static menu_item_t items[MAX_CARTS];
-    char header[64];
+    char header[96], pads[24];
     int gfx = menu3d_open(fb) == 0;         /* else the text menu */
     for (;;) {
         if (sel < top) top = sel;
@@ -380,7 +380,8 @@ void carts_menu(framebuffer_t *fb)
                 items[i] = (menu_item_t){ carts[i].title, carts[i].author, carts[i].path,
                                           carts[i].kind == KIND_B33 ? "b33" : "s32", carts[i].size,
                                           carts[i].cover.px ? &carts[i].cover : NULL };
-            ksnprintf(header, sizeof header, "   SD: %s", sd_ok ? fat_describe() : sd_error());
+            input_status(pads, sizeof pads);
+            ksnprintf(header, sizeof header, "   SD: %s   %s", sd_ok ? fat_describe() : sd_error(), pads);
             menu3d_frame(fb, items, ncarts, sel, header, last_msg);
         } else if (redraw) {
             draw(sel, top, list_rows);

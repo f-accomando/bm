@@ -34,7 +34,8 @@
 #define HOOK_EVERY      1000        /* instructions between hook calls */
 #define FRAME_BUDGET    20000       /* x HOOK_EVERY = 20 M instructions per callback */
 
-enum { BTN_LEFT, BTN_RIGHT, BTN_UP, BTN_DOWN, BTN_A, BTN_B, BTN_X, BTN_Y, BTN_COUNT };
+enum { BTN_LEFT, BTN_RIGHT, BTN_UP, BTN_DOWN, BTN_A, BTN_B, BTN_X, BTN_Y, BTN_START, BTN_SELECT,
+       BTN_COUNT };
 
 static struct {
     g16_t g;
@@ -44,7 +45,10 @@ static struct {
     int sheet_dirty;
     uint8_t hold[BTN_COUNT];
     int uses_xy;                /* the cart asked for btn(6) or btn(7) */
-    uint8_t now, prev;              /* button bits this frame / last frame */
+    uint16_t now, prev;             /* button bits this frame / last frame, any player */
+    uint16_t pnow[INPUT_PLAYERS], pprev[INPUT_PLAYERS];     /* the same per player */
+    uint32_t praw[INPUT_PLAYERS];   /* HID bits per player (stick() from the cross) */
+    int local;                      /* player of the keyboard / USB / serial, or -1 */
     uint32_t start_us, frame;
     uint32_t last_cpu_us, fps;
     uint32_t present_us;        /* last copy of the frame to the framebuffer */
@@ -174,13 +178,16 @@ static int l_sset(lua_State *L)
     return 0;
 }
 
+/* print(text, x, y [, colour, scale]) */
 static int l_print(lua_State *L)
 {
     /* read the numeric arguments first: luaL_tolstring pushes a value */
     int x = ival(L, 2), y = ival(L, 3);
     uint16_t c = col(L, 4, 0xFFFFFF);
+    int scale = oval(L, 5, 1);
+    if (scale > 8) scale = 8;
     const char *s = luaL_tolstring(L, 1, NULL);
-    lua_pushinteger(L, g16_text(&rt.g, x, y, s, c));
+    lua_pushinteger(L, g16_text_scaled(&rt.g, x, y, s, c, scale));
     return 1;
 }
 
@@ -202,20 +209,74 @@ static void note_xy(int b)
         rt.uses_xy = 1;
 }
 
-static int l_btn(lua_State *L)
+/* btn(i [, p]): without p any player; p = 1..4 that player only */
+static int buttons(lua_State *L, uint16_t *now, uint16_t *prev)
 {
     int b = ival(L, 1);
     note_xy(b);
-    lua_pushboolean(L, b >= 0 && b < BTN_COUNT && (rt.now >> b & 1));
+    if (lua_isnoneornil(L, 2)) {
+        *now = rt.now;
+        *prev = rt.prev;
+    } else {
+        int p = ival(L, 2);
+        *now = p >= 1 && p <= INPUT_PLAYERS ? rt.pnow[p - 1] : 0;
+        *prev = p >= 1 && p <= INPUT_PLAYERS ? rt.pprev[p - 1] : 0;
+    }
+    return b >= 0 && b < BTN_COUNT ? b : -1;
+}
+
+static int l_btn(lua_State *L)
+{
+    uint16_t now, prev;
+    int b = buttons(L, &now, &prev);
+    lua_pushboolean(L, b >= 0 && (now >> b & 1));
     return 1;
 }
 
 static int l_btnp(lua_State *L)
 {
-    int b = ival(L, 1);
-    note_xy(b);
-    lua_pushboolean(L, b >= 0 && b < BTN_COUNT && (rt.now >> b & 1) && !(rt.prev >> b & 1));
+    uint16_t now, prev;
+    int b = buttons(L, &now, &prev);
+    lua_pushboolean(L, b >= 0 && (now >> b & 1) && !(prev >> b & 1));
     return 1;
+}
+
+/* players() -> how many players have a controller, and which (bit n =
+ * player n+1) */
+static int l_players(lua_State *L)
+{
+    unsigned m = input_connected(), n = 0;
+    for (int p = 0; p < INPUT_PLAYERS; p++)
+        n += m >> p & 1;
+    lua_pushinteger(L, n ? n : 1);
+    lua_pushinteger(L, m ? m : 1);
+    return 2;
+}
+
+/* stick([p]) -> x, y in -1..1 (x right, y down): the left stick of player
+ * p, or the cross; without p the one pushed furthest */
+static int l_stick(lua_State *L)
+{
+    float x = 0, y = 0;
+    if (lua_isnoneornil(L, 1)) {
+        float best = -1;
+        for (int p = 0; p < INPUT_PLAYERS; p++) {
+            float px, py;
+            input_stick(p, rt.praw[p], &px, &py);
+            if (px * px + py * py > best) {
+                best = px * px + py * py;
+                x = px;
+                y = py;
+            }
+        }
+    } else {
+        int p = ival(L, 1);
+        if (p >= 1 && p <= INPUT_PLAYERS)
+            input_stick(p - 1, rt.praw[p - 1], &x, &y);
+    }
+    lua_pushnumber(L, x);
+    lua_pushnumber(L, y);
+    return 2;
 }
 
 static int l_time(lua_State *L)
@@ -342,12 +403,14 @@ static float fnum(lua_State *L, int i, float def)
     return (float)luaL_optnumber(L, i, def);
 }
 
-/* draw3d(mesh, x, y, z [, rx, ry, rz, scale]) */
+/* draw3d(mesh, x, y, z [, rx, ry, rz, scale, flags]) - flags: 1 no z-buffer
+ * (floors and backdrops drawn first), 2 unlit (full colour) */
 static int l_draw3d(lua_State *L)
 {
     r3d_mesh_t *m = luaL_checkudata(L, 1, MESH_MT);
     v3_t p = { fnum(L, 2, 0), fnum(L, 3, 0), fnum(L, 4, 0) };
-    r3d_draw(r3d(L), m, p, fnum(L, 5, 0), fnum(L, 6, 0), fnum(L, 7, 0), fnum(L, 8, 1));
+    r3d_draw_flags(r3d(L), m, p, fnum(L, 5, 0), fnum(L, 6, 0), fnum(L, 7, 0), fnum(L, 8, 1),
+                   (unsigned)luaL_optinteger(L, 9, 0));
     return 0;
 }
 
@@ -389,6 +452,25 @@ static int l_project3d(lua_State *L)
 static int l_light3d(lua_State *L)
 {
     r3d_light(r3d(L), fnum(L, 1, 0), fnum(L, 2, 1), fnum(L, 3, 0), fnum(L, 4, 0.25f));
+    return 0;
+}
+
+/* lamp3d(i, x, y, z, radius [, k]) - point light i (1-4) that brightens the
+ * faces near it by up to k (default 1); lamp3d(i) or lamp3d() turns it (them) off */
+static int l_lamp3d(lua_State *L)
+{
+    r3d_t *r = r3d(L);
+    if (lua_isnoneornil(L, 1)) {
+        for (int i = 0; i < R3D_LAMPS; i++)
+            r3d_lamp(r, i, 0, 0, 0, 0, 0);
+        return 0;
+    }
+    int i = ival(L, 1) - 1;
+    luaL_argcheck(L, i >= 0 && i < R3D_LAMPS, 1, "lamp 1 to 4");
+    if (lua_isnoneornil(L, 2))
+        r3d_lamp(r, i, 0, 0, 0, 0, 0);
+    else
+        r3d_lamp(r, i, fnum(L, 2, 0), fnum(L, 3, 0), fnum(L, 4, 0), fnum(L, 5, 3), fnum(L, 6, 1));
     return 0;
 }
 
@@ -720,10 +802,11 @@ static const luaL_Reg api[] = {
     { "spr", l_spr }, { "sspr", l_sspr }, { "map", l_map }, { "mget", l_mget }, { "mset", l_mset },
     { "sget", l_sget }, { "sset", l_sset }, { "print", l_print }, { "camera", l_camera },
     { "clip", l_clip }, { "rgb", l_rgb }, { "btn", l_btn }, { "btnp", l_btnp },
+    { "players", l_players }, { "stick", l_stick },
     { "time", l_time }, { "stat", l_stat }, { "tri", l_tri },
     { "mesh", l_mesh }, { "mesh_sphere", l_mesh_sphere }, { "mesh_cube", l_mesh_cube },
     { "draw3d", l_draw3d }, { "camera3d", l_camera3d }, { "light3d", l_light3d },
-    { "fog3d", l_fog3d }, { "project3d", l_project3d },
+    { "fog3d", l_fog3d }, { "project3d", l_project3d }, { "lamp3d", l_lamp3d },
     { "zclear", l_zclear }, { "log", l_log }, { "quit", l_quit },
     { "save", l_save }, { "saved", l_saved },
     { "keyp", l_keyp }, { "keyheld", l_keyheld }, { "ls", l_ls }, { "cart_load", l_cart_load }, { "cart_new", l_cart_new },
@@ -870,6 +953,18 @@ static void serial_text(char c)
     text_push((uint8_t)c);
 }
 
+/* HID_* bits -> btn() bits: 0-5 are the same; X and Y are 6 and 7, or A
+ * and B for a cartridge that never asked for them */
+static uint16_t hid_to_btn(uint32_t pad)
+{
+    uint16_t b = pad & 0x3F;
+    if (pad & HID_START) b |= 1u << BTN_START;
+    if (pad & HID_SELECT) b |= 1u << BTN_SELECT;
+    if (pad & HID_X) b |= rt.uses_xy ? 1u << BTN_X : 1u << BTN_A;
+    if (pad & HID_Y) b |= rt.uses_xy ? 1u << BTN_Y : 1u << BTN_B;
+    return b;
+}
+
 static int poll_keys(void)
 {
     while (uart_rx_ready()) {
@@ -894,6 +989,7 @@ static int poll_keys(void)
             case 'k': case 'K': case 'x': case 'X': b = BTN_B; break;
             case 'c': case 'C': case 'l': case 'L': b = BTN_X; break;
             case 'v': case 'V': case 'i': case 'I': b = BTN_Y; break;
+            case '\r': b = BTN_START; break;
             case 'q': case 'Q': return 1;
             }
         }
@@ -908,16 +1004,27 @@ static int poll_keys(void)
     if (rt.esc != 1)
         rt.esc_wait = 0;
     int quit = 0;
-    uint32_t pad = rt.text_mode ? input_pad_buttons(&quit) : input_buttons(&quit);
+    uint32_t per[INPUT_PLAYERS];
+    uint32_t pad = input_players(per, rt.text_mode, &quit, &rt.local);
     if (rt.text_mode)
         for (int k; (k = hid_getc()) >= 0;)
             text_push((uint8_t)k);
-    rt.prev = rt.now;
-    rt.now = pad & 0x3F;                    /* HID_* bits match btn() 0-5 */
-    if (pad & HID_X) rt.now |= rt.uses_xy ? 1u << BTN_X : 1u << BTN_A;
-    if (pad & HID_Y) rt.now |= rt.uses_xy ? 1u << BTN_Y : 1u << BTN_B;
+    uint32_t serial = 0;                    /* HID_* bits of the serial keys held */
     for (int b = 0; b < BTN_COUNT; b++)
-        if (rt.hold[b]) { rt.now |= 1u << b; rt.hold[b]--; }
+        if (rt.hold[b]) {
+            serial |= b == BTN_X ? HID_X : b == BTN_Y ? HID_Y : b == BTN_START ? HID_START :
+                      b == BTN_SELECT ? HID_SELECT : 1u << b;
+            rt.hold[b]--;
+        }
+    rt.prev = rt.now;
+    rt.now = hid_to_btn(pad | serial);
+    for (int p = 0; p < INPUT_PLAYERS; p++) {
+        if (p == rt.local)
+            per[p] |= serial;
+        rt.praw[p] = per[p];
+        rt.pprev[p] = rt.pnow[p];
+        rt.pnow[p] = hid_to_btn(per[p]);
+    }
     return quit;
 }
 

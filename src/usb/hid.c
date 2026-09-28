@@ -48,13 +48,16 @@ static const keydef_t *layout = layout_it;
 static uint8_t prev_keys[8];
 static uint8_t queue[64];
 static unsigned q_head, q_tail;
-static uint32_t kbd_buttons, pad_buttons, bt_buttons;
-/* Buttons seen pressed since the last hid_buttons(): a press and release
- * that both arrive between two frames (a quick tap, or a backlog of
- * reports processed at once) still count for one frame. */
-static uint32_t latched, latched_pad;   /* short presses, all / pads only */
+static uint32_t kbd_buttons, pad_buttons;
+static uint32_t bt_buttons[HID_PLAYERS];        /* Bluetooth pads, by player */
+/* Buttons seen pressed since the last read: a press and release that both
+ * arrive between two frames (a quick tap, or a backlog of reports processed
+ * at once) still count for one frame. */
+static uint32_t latched_kbd, latched_pad, bt_latched[HID_PLAYERS];
 static int text_mode;                   /* editors: navigation keys as codes, Esc stays */
-static int bt_ps_held;
+static int bt_ps_held[HID_PLAYERS];
+static int8_t bt_axis[HID_PLAYERS][2], pad_axis[2];     /* left stick, -127..127 */
+static int bt_analog[HID_PLAYERS], pad_analog;
 static int quit_edge;
 static int caps;
 
@@ -228,7 +231,7 @@ static void keyboard_report(const uint8_t *r, uint32_t len)
     for (int i = 2; i < 8; i++) held |= r[i] == rep_usage;
     if (!held) rep_usage = 0;
     kbd_buttons = buttons;
-    latched |= buttons;
+    latched_kbd |= buttons;
     memcpy(prev_keys, r, 8);
 }
 
@@ -246,11 +249,56 @@ int hid_getc(void)
     return c;
 }
 
+static uint32_t bt_all(void)
+{
+    uint32_t b = 0;
+    for (int s = 0; s < HID_PLAYERS; s++)
+        b |= bt_buttons[s] | bt_latched[s];
+    return b;
+}
+
+static void clear_latches(void)
+{
+    latched_kbd = latched_pad = 0;
+    for (int s = 0; s < HID_PLAYERS; s++)
+        bt_latched[s] = 0;
+}
+
 uint32_t hid_buttons(void)
 {
-    uint32_t b = kbd_buttons | pad_buttons | bt_buttons | latched;
-    latched = latched_pad = 0;
+    uint32_t b = kbd_buttons | pad_buttons | latched_kbd | latched_pad | bt_all();
+    clear_latches();
     return b;
+}
+
+uint32_t hid_players(uint32_t out[HID_PLAYERS], int text, int local)
+{
+    uint32_t mine = pad_buttons | latched_pad, any;
+    if (!text)
+        mine |= kbd_buttons | latched_kbd;
+    any = mine;
+    for (int s = 0; s < HID_PLAYERS; s++) {
+        out[s] = bt_buttons[s] | bt_latched[s];
+        any |= out[s];
+    }
+    if (local >= 0 && local < HID_PLAYERS)
+        out[local] |= mine;
+    clear_latches();
+    return any;
+}
+
+int hid_stick(int slot, int8_t xy[2])
+{
+    if (slot < 0) {
+        xy[0] = pad_axis[0];
+        xy[1] = pad_axis[1];
+        return pad_analog;
+    }
+    if (slot >= HID_PLAYERS)
+        return 0;
+    xy[0] = bt_axis[slot][0];
+    xy[1] = bt_axis[slot][1];
+    return bt_analog[slot];
 }
 
 int hid_usage_held(uint8_t u)
@@ -263,8 +311,8 @@ int hid_usage_held(uint8_t u)
 
 uint32_t hid_pad_buttons(void)
 {
-    uint32_t b = pad_buttons | bt_buttons | latched_pad;
-    latched = latched_pad = 0;
+    uint32_t b = pad_buttons | latched_pad | bt_all();
+    clear_latches();
     return b;
 }
 
@@ -273,27 +321,40 @@ void hid_text_mode(int on)
     text_mode = on;
 }
 
-void hid_bt_report(const uint8_t *r, uint32_t len)
+/* stick byte 0..255 (128 = centre) -> -127..127 */
+static int8_t ds4_axis(uint8_t v)
+{
+    int a = (int)v - 128;
+    return (int8_t)(a < -127 ? -127 : a);
+}
+
+void hid_bt_report(int slot, const uint8_t *r, uint32_t len)
 {
     int off = len && r[0] == 0x01 ? 1 : len && r[0] == 0x11 ? 3 : -1;
-    if (off < 0 || len < (uint32_t)off + 7)
+    if (slot < 0 || slot >= HID_PLAYERS || off < 0 || len < (uint32_t)off + 7)
         return;
     int ps = 0;
     uint32_t b = hid_ds4_buttons(r + off, len - (uint32_t)off, &ps);
-    if ((ps && !bt_ps_held) ||
+    if ((ps && !bt_ps_held[slot]) ||
         ((b & (HID_START | HID_SELECT)) == (HID_START | HID_SELECT) &&
-         (bt_buttons & (HID_START | HID_SELECT)) != (HID_START | HID_SELECT)))
+         (bt_buttons[slot] & (HID_START | HID_SELECT)) != (HID_START | HID_SELECT)))
         quit_edge = 1;
-    bt_ps_held = ps;
-    bt_buttons = b;
-    latched |= b;
-    latched_pad |= b;
+    bt_ps_held[slot] = ps;
+    bt_buttons[slot] = b;
+    bt_latched[slot] |= b;
+    bt_axis[slot][0] = ds4_axis(r[off]);
+    bt_axis[slot][1] = ds4_axis(r[off + 1]);
+    bt_analog[slot] = 1;
 }
 
-void hid_bt_clear(void)
+void hid_bt_clear(int slot)
 {
-    bt_buttons = 0;
-    bt_ps_held = 0;
+    if (slot < 0 || slot >= HID_PLAYERS)
+        return;
+    bt_buttons[slot] = 0;
+    bt_ps_held[slot] = 0;
+    bt_axis[slot][0] = bt_axis[slot][1] = 0;
+    bt_analog[slot] = 0;
 }
 
 int hid_quit_pressed(void)
@@ -401,6 +462,7 @@ int hid_gamepad_attach(const uint8_t *d, uint32_t len)
 done:
     pad.report_id = report_id > 0 ? (uint8_t)report_id : 0;
     pad_buttons = 0;
+    pad_analog = pad.have_x && pad.have_y;
     return (pad.nbuttons || pad.have_hat || pad.have_x) ? 0 : -1;
 }
 
@@ -409,6 +471,7 @@ void hid_xbox360_attach(void)
     memset(&pad, 0, sizeof pad);
     pad.xbox = 1;
     pad_buttons = 0;
+    pad_analog = 1;
 }
 
 void hid_ds4_attach(void)
@@ -416,6 +479,7 @@ void hid_ds4_attach(void)
     memset(&pad, 0, sizeof pad);
     pad.ds4 = 1;
     pad_buttons = 0;
+    pad_analog = 1;
 }
 
 /* DualShock 4: after the report ID, d[0..3] sticks (LX LY RX RY, 0..255,
@@ -455,6 +519,15 @@ static uint32_t axis(int32_t v, int32_t lo, int32_t hi, uint32_t neg, uint32_t p
     return 0;
 }
 
+/* v in lo..hi -> -127..127 */
+static int8_t norm_axis(int32_t v, int32_t lo, int32_t hi)
+{
+    if (hi <= lo)
+        return 0;
+    int32_t a = (int32_t)(((int64_t)(v - lo) * 254) / (hi - lo)) - 127;
+    return (int8_t)(a < -127 ? -127 : a > 127 ? 127 : a);
+}
+
 static void gamepad_report(const uint8_t *r, uint32_t len)
 {
     uint32_t b = 0;
@@ -464,6 +537,8 @@ static void gamepad_report(const uint8_t *r, uint32_t len)
             return;
         int ps = 0;
         b = hid_ds4_buttons(r + off, len - (uint32_t)off, &ps);
+        pad_axis[0] = ds4_axis(r[off]);
+        pad_axis[1] = ds4_axis(r[off + 1]);
         if (ps && !pad.ps_held)
             quit_edge = 1;                      /* the PS button leaves the game */
         pad.ps_held = ps;
@@ -481,6 +556,8 @@ static void gamepad_report(const uint8_t *r, uint32_t len)
         if (k & 0x40) b |= HID_X;
         if (k & 0x80) b |= HID_Y;
         int16_t lx = (int16_t)(r[6] | r[7] << 8), ly = (int16_t)(r[8] | r[9] << 8);
+        pad_axis[0] = (int8_t)(lx / 258);
+        pad_axis[1] = (int8_t)(-(ly / 258));
         if (lx < -12000) b |= HID_LEFT;
         if (lx > 12000) b |= HID_RIGHT;
         if (ly > 12000) b |= HID_UP;
@@ -504,10 +581,12 @@ static void gamepad_report(const uint8_t *r, uint32_t len)
         if (pad.have_x) {
             int32_t v = pad.x_min < 0 ? sign_extend(bits(r, len, pad.x), pad.x.size) : (int32_t)bits(r, len, pad.x);
             b |= axis(v, pad.x_min, pad.x_max, HID_LEFT, HID_RIGHT);
+            pad_axis[0] = norm_axis(v, pad.x_min, pad.x_max);
         }
         if (pad.have_y) {
             int32_t v = pad.y_min < 0 ? sign_extend(bits(r, len, pad.y), pad.y.size) : (int32_t)bits(r, len, pad.y);
             b |= axis(v, pad.y_min, pad.y_max, HID_UP, HID_DOWN);
+            pad_axis[1] = norm_axis(v, pad.y_min, pad.y_max);
         }
         if (pad.have_hat) {
             static const uint32_t dirs[8] = {
@@ -522,7 +601,6 @@ static void gamepad_report(const uint8_t *r, uint32_t len)
         (pad_buttons & (HID_START | HID_SELECT)) != (HID_START | HID_SELECT))
         quit_edge = 1;
     pad_buttons = b;
-    latched |= b;
     latched_pad |= b;
 }
 

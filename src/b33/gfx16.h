@@ -70,6 +70,8 @@ void g16_map(g16_t *g, const g16_sheet_t *s, const g16_map_t *m,
              int mx, int my, int x, int y, int mw, int mh);
 /* Text with the console font, transparent background. Returns the end x. */
 int  g16_text(g16_t *g, int x, int y, const char *str, uint16_t c);
+/* The same, every font pixel drawn as a scale x scale square. */
+int  g16_text_scaled(g16_t *g, int x, int y, const char *str, uint16_t c, int scale);
 
 /* Lighting: a grid of light values every 4 pixels (8.8 fixed point, 256 =
  * unchanged, up to 2x), filled with an ambient colour and soft round

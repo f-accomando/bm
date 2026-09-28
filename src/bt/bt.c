@@ -1,16 +1,21 @@
 /*
- * Bluetooth on the Pi Zero W (BCM43438): one HID game controller (the
- * DualShock 4 is the reference). Classic Bluetooth only:
+ * Bluetooth on the Pi Zero W (BCM43438): up to four HID game controllers
+ * (the DualShock 4 is the reference), one per player. Classic Bluetooth
+ * only:
  *
  *   chip up      power, 32 kHz clock, firmware patch, event mask, SSP on
  *   pairing      inquiry, Create Connection, SSP "Just Works" (no MITM),
  *                encryption, L2CAP channels 0x11 (control) 0x13 (interrupt);
- *                the link key goes to bm33/config.txt
- *   reconnect    page scan on: the pad connects to us (PS button), we answer
- *                the Link Key Request with the saved key, it opens the
+ *                the link key goes to bm33/config.txt as bt_pad<player>
+ *   reconnect    page scan on: a pad connects to us (PS button), we answer
+ *                the Link Key Request with its saved key, it opens the
  *                L2CAP channels
- *   input        HID reports (0xA1 ...) on the interrupt channel -> hid layer
+ *   input        HID reports (0xA1 ...) on the interrupt channel -> hid layer,
+ *                as the buttons of that pad's player
+ *   light        an output report sets the pad's light to the player colour
  *
+ * Each pad is an ACL link of its own, with its own L2CAP channels (channel
+ * ids are per link, so every link uses the same local ones).
  * No SDP: the report format of the supported pad is known.
  */
 #include "bt.h"
@@ -22,6 +27,7 @@
 #include "drivers/uart.h"
 #include "fs/fat.h"
 #include "kernel/config.h"
+#include "lib/crc32.h"
 #include "lib/printf.h"
 #include "usb/hid.h"
 
@@ -43,7 +49,7 @@
 #define PSM_HID_CONTROL   0x11
 #define PSM_HID_INTERRUPT 0x13
 #define CID_SIGNALING     0x0001
-#define CID_CONTROL       0x0040    /* our local channel ids */
+#define CID_CONTROL       0x0040    /* our local channel ids (per link) */
 #define CID_INTERRUPT     0x0041
 
 /* L2CAP signaling codes */
@@ -59,14 +65,19 @@
 #define L2_INFO_REQ     0x0A
 #define L2_INFO_RSP     0x0B
 
+/* DualShock 4 output report 0x11 over Bluetooth: 78 bytes, CRC-32 of the
+ * 0xA2 header and the first 74 bytes in the last four. */
+#define DS4_OUT_LEN     78
+#define DS4_POLL_MS     8           /* report every 8 ms: four pads fit the UART */
+
 typedef struct {
     uint16_t lcid, rcid;
     int requested, open;
     int conf_in, conf_out;          /* their config accepted / ours accepted */
 } chan_t;
 
-static struct {
-    int started;
+typedef struct {
+    int used;                       /* connecting or connected */
     int connected;                  /* ACL link up */
     uint16_t handle;
     uint8_t addr[6];                /* peer */
@@ -74,29 +85,42 @@ static struct {
     int enc;
     chan_t ctrl, intr;
     uint8_t sig_id;
-    int have_key;
-    uint8_t key_addr[6], key[16];   /* the paired pad */
     int announced;
+    int slot;                       /* player - 1, or -1 before it has a key */
+} link_t;
+
+static struct {
+    int started;
+    link_t link[BT_PADS];
+    int have_key[BT_PADS];
+    uint8_t key_addr[BT_PADS][6], key[BT_PADS][16];
+    int legacy_key;                 /* slot 0 came from the old "bt_pad" key */
     int pairing;
     int disc_reason;                /* last Disconnection Complete, -1 none */
 } bt;
 
-static int tracing(void)
+/* The player colours, also used by the games (dim: the light bar is bright) */
+static const uint8_t led_rgb[BT_PADS][3] = {
+    { 0x00, 0x20, 0x80 },           /* 1 blue */
+    { 0x80, 0x08, 0x00 },           /* 2 red */
+    { 0x00, 0x80, 0x10 },           /* 3 green */
+    { 0x80, 0x00, 0x50 },           /* 4 pink */
+};
+
+static int tracing(const link_t *l)
 {
-    return bt.pairing || (bt.connected && !bt.announced);
+    return bt.pairing || (l && l->connected && !l->announced);
 }
 
 /* ---------------------------------------------------------------- helpers */
 
 /* While a pad is being paired or is coming back, every event and L2CAP
  * signal is shown (grey): a photo of the screen tells what the pad did. */
-static void trace(const char *fmt, ...) __attribute__((format(printf, 1, 2)));
+static void trace(const link_t *l, const char *fmt, ...) __attribute__((format(printf, 2, 3)));
 
-static int tracing(void);
-
-static void trace(const char *fmt, ...)
+static void trace(const link_t *l, const char *fmt, ...)
 {
-    if (!tracing())
+    if (!tracing(l))
         return;
     char buf[96];
     va_list ap;
@@ -133,31 +157,165 @@ static int parse_hex(const char *s, uint8_t *out, int n, char sep)
     return 0;
 }
 
-/* "bt_pad=00:1f:e2:bf:d7:dd <32 hex digits of the link key>" */
-static void load_key(void)
+static void key_name(char *out, int slot)
 {
-    const char *v = config_get("bt_pad");
-    uint8_t a[6];
-    bt.have_key = 0;
-    if (!v || parse_hex(v, a, 6, ':') || v[17] != ' ' || parse_hex(v + 18, bt.key, 16, 0))
-        return;
-    for (int i = 0; i < 6; i++)
-        bt.key_addr[i] = a[5 - i];              /* written most significant first */
-    bt.have_key = 1;
+    ksnprintf(out, 12, "bt_pad%d", slot + 1);
 }
 
-static void save_key(const uint8_t *addr, const uint8_t *key)
+/* "bt_pad1=00:1f:e2:bf:d7:dd <32 hex digits of the link key>"; the key of
+ * older versions, "bt_pad", is player 1 when bt_pad1 is not there. */
+static int parse_key(const char *v, int slot)
 {
-    char v[72], a[18];
-    addr_str(a, addr);
-    int n = ksnprintf(v, sizeof v, "%s ", a);
+    uint8_t a[6];
+    if (!v || parse_hex(v, a, 6, ':') || v[17] != ' ' || parse_hex(v + 18, bt.key[slot], 16, 0))
+        return 0;
+    for (int i = 0; i < 6; i++)
+        bt.key_addr[slot][i] = a[5 - i];        /* written most significant first */
+    return 1;
+}
+
+static void load_keys(void)
+{
+    char name[12];
+    for (int s = 0; s < BT_PADS; s++) {
+        key_name(name, s);
+        bt.have_key[s] = parse_key(config_get(name), s);
+    }
+    bt.legacy_key = 0;
+    if (!bt.have_key[0] && parse_key(config_get("bt_pad"), 0))
+        bt.have_key[0] = bt.legacy_key = 1;
+}
+
+static int nkeys(void)
+{
+    int n = 0;
+    for (int s = 0; s < BT_PADS; s++)
+        n += bt.have_key[s];
+    return n;
+}
+
+static int key_slot(const uint8_t *addr)
+{
+    for (int s = 0; s < BT_PADS; s++)
+        if (bt.have_key[s] && memcmp(bt.key_addr[s], addr, 6) == 0)
+            return s;
+    return -1;
+}
+
+static void key_line(char *v, int slot)
+{
+    char a[18];
+    addr_str(a, bt.key_addr[slot]);
+    int n = ksnprintf(v, 72, "%s ", a);
     for (int i = 0; i < 16; i++)
-        n += ksnprintf(v + n, sizeof v - (unsigned)n, "%02x", key[i]);
-    config_set("bt_pad", v);
+        n += ksnprintf(v + n, 72 - (unsigned)n, "%02x", bt.key[slot][i]);
+}
+
+static int slot_connected(int s);
+
+/* The slot a newly paired pad takes: its own if it was paired before, else
+ * the first free one, else the first whose pad is not connected. */
+static int new_slot(const uint8_t *addr)
+{
+    int s = key_slot(addr);
+    if (s >= 0)
+        return s;
+    for (s = 0; s < BT_PADS; s++)
+        if (!bt.have_key[s])
+            return s;
+    for (s = 0; s < BT_PADS; s++)
+        if (!slot_connected(s)) {
+            kprintf("bt: all %d player slots are taken: the new pad replaces player %d\n",
+                    BT_PADS, s + 1);
+            return s;
+        }
+    return -1;
+}
+
+static int save_key(const uint8_t *addr, const uint8_t *key)
+{
+    int s = new_slot(addr);
+    if (s < 0)
+        return -1;
+    memcpy(bt.key_addr[s], addr, 6);
+    memcpy(bt.key[s], key, 16);
+    bt.have_key[s] = 1;
+    char name[12], v[72];
+    if (bt.legacy_key) {                        /* the old key becomes bt_pad1 */
+        if (s != 0) {
+            key_line(v, 0);
+            config_set("bt_pad1", v);
+        }
+        config_unset("bt_pad");
+        bt.legacy_key = 0;
+    }
+    key_name(name, s);
+    key_line(v, s);
+    config_set(name, v);
     config_save();
-    memcpy(bt.key_addr, addr, 6);
-    memcpy(bt.key, key, 16);
-    bt.have_key = 1;
+    return s;
+}
+
+/* ---------------------------------------------------------------- links */
+
+static link_t *link_by_handle(uint16_t h)
+{
+    for (int i = 0; i < BT_PADS; i++)
+        if (bt.link[i].used && bt.link[i].connected && bt.link[i].handle == h)
+            return &bt.link[i];
+    return NULL;
+}
+
+static link_t *link_by_addr(const uint8_t *a)
+{
+    for (int i = 0; i < BT_PADS; i++)
+        if (bt.link[i].used && memcmp(bt.link[i].addr, a, 6) == 0)
+            return &bt.link[i];
+    return NULL;
+}
+
+static void reset_link(link_t *l)
+{
+    if (l->slot >= 0)
+        hid_bt_clear(l->slot);
+    l->connected = l->auth_done = l->enc = l->announced = 0;
+    memset(&l->ctrl, 0, sizeof l->ctrl);
+    memset(&l->intr, 0, sizeof l->intr);
+    l->ctrl.lcid = CID_CONTROL;
+    l->intr.lcid = CID_INTERRUPT;
+}
+
+/* A link for this address: the existing one, or a free entry. */
+static link_t *link_open(const uint8_t *addr)
+{
+    link_t *l = link_by_addr(addr);
+    if (l)
+        return l;
+    for (int i = 0; i < BT_PADS; i++)
+        if (!bt.link[i].used) {
+            l = &bt.link[i];
+            memset(l, 0, sizeof *l);
+            l->used = 1;
+            memcpy(l->addr, addr, 6);
+            l->slot = key_slot(addr);
+            reset_link(l);
+            return l;
+        }
+    return NULL;
+}
+
+static void link_close(link_t *l)
+{
+    reset_link(l);
+    l->used = 0;
+}
+
+static int slot_connected(int s)
+{
+    for (int i = 0; i < BT_PADS; i++)
+        if (bt.link[i].used && bt.link[i].slot == s && bt.link[i].ctrl.open && bt.link[i].intr.open)
+            return 1;
+    return 0;
 }
 
 /* ---------------------------------------------------------------- chip */
@@ -285,7 +443,7 @@ int bt_start(void)
     }
 
     /* events we handle (SSP ones are not in the default mask), SSP on,
-     * our name and class (console), page scan so the pad can come back */
+     * our name and class (console), page scan so the pads can come back */
     static const uint8_t mask[8] = { 0xFF, 0xFF, 0xFB, 0xFF, 0x07, 0xF8, 0xBF, 0x3D };
     hci_cmd(HCI_SET_EVENT_MASK, mask, 8, NULL, 0, 500000);
     uint8_t one = 1;
@@ -304,43 +462,52 @@ int bt_start(void)
     kprintf("bt: ready, address %s, HCI %u, LMP subversion %04x, %lu baud\n", as, v[0],
             v[6] | v[7] << 8, fast);
     bt.started = 1;
-    load_key();
-    if (bt.have_key) {
-        addr_str(as, bt.key_addr);
-        kprintf("bt: paired pad %s: press its PS button to connect\n", as);
-    }
+    for (int i = 0; i < BT_PADS; i++)
+        bt.link[i].used = 0;
+    load_keys();
+    for (int s = 0; s < BT_PADS; s++)
+        if (bt.have_key[s]) {
+            addr_str(as, bt.key_addr[s]);
+            kprintf("bt: paired pad %s (player %d): press its PS button to connect\n", as, s + 1);
+        }
     return 0;
 }
 
 int bt_paired(void)
 {
+    char name[12];
+    for (int s = 0; s < BT_PADS; s++) {
+        key_name(name, s);
+        if (config_get(name))
+            return 1;
+    }
     return config_get("bt_pad") != NULL;
 }
 
 /* ---------------------------------------------------------------- L2CAP */
 
-static void l2cap_send(uint16_t cid, const uint8_t *data, uint16_t len)
+static void l2cap_send(link_t *l, uint16_t cid, const uint8_t *data, uint16_t len)
 {
-    static uint8_t buf[80];
+    static uint8_t buf[96];
     if (len + 4u > sizeof buf)
         return;
     put16(buf, len);
     put16(buf + 2, cid);
     memcpy(buf + 4, data, len);
-    hci_acl_send(bt.handle, buf, (uint16_t)(len + 4));
+    hci_acl_send(l->handle, buf, (uint16_t)(len + 4));
 }
 
-static void sig_send(uint8_t code, uint8_t id, const uint8_t *data, uint16_t len)
+static void sig_send(link_t *l, uint8_t code, uint8_t id, const uint8_t *data, uint16_t len)
 {
     uint8_t buf[64];
     buf[0] = code;
     buf[1] = id;
     put16(buf + 2, len);
     memcpy(buf + 4, data, len);
-    l2cap_send(CID_SIGNALING, buf, (uint16_t)(len + 4));
+    l2cap_send(l, CID_SIGNALING, buf, (uint16_t)(len + 4));
 }
 
-static void send_config(chan_t *c)
+static void send_config(link_t *l, chan_t *c)
 {
     uint8_t p[8];
     put16(p, c->rcid);
@@ -348,35 +515,65 @@ static void send_config(chan_t *c)
     p[4] = 0x01;                                /* option: MTU */
     p[5] = 2;
     put16(p + 6, 672);
-    sig_send(L2_CONF_REQ, ++bt.sig_id, p, 8);
+    sig_send(l, L2_CONF_REQ, ++l->sig_id, p, 8);
 }
 
-static void l2cap_connect(chan_t *c, uint16_t psm)
+static void l2cap_connect(link_t *l, chan_t *c, uint16_t psm)
 {
     uint8_t p[4];
     put16(p, psm);
     put16(p + 2, c->lcid);
     c->requested = 1;
-    sig_send(L2_CONN_REQ, ++bt.sig_id, p, 4);
+    sig_send(l, L2_CONN_REQ, ++l->sig_id, p, 4);
 }
 
-static chan_t *by_lcid(uint16_t lcid)
+static chan_t *by_lcid(link_t *l, uint16_t lcid)
 {
-    return lcid == bt.ctrl.lcid ? &bt.ctrl : lcid == bt.intr.lcid ? &bt.intr : NULL;
+    return lcid == l->ctrl.lcid ? &l->ctrl : lcid == l->intr.lcid ? &l->intr : NULL;
 }
 
-static void check_open(chan_t *c)
+/* The DualShock 4 light in the player colour. Also switches the pad to
+ * its full report (0x11), at DS4_POLL_MS. */
+static void send_light(link_t *l)
+{
+    uint8_t p[1 + DS4_OUT_LEN];
+    if (l->slot < 0 || !l->intr.open)
+        return;
+    memset(p, 0, sizeof p);
+    p[0] = 0xA2;                                /* DATA | Output */
+    uint8_t *r = p + 1;
+    r[0] = 0x11;
+    r[1] = 0xC0 | DS4_POLL_MS;                  /* HID + CRC, report interval */
+    r[3] = 0x07;                                /* rumble, light, flash */
+    r[8] = led_rgb[l->slot][0];
+    r[9] = led_rgb[l->slot][1];
+    r[10] = led_rgb[l->slot][2];
+    uint32_t crc = crc32(p, 1 + DS4_OUT_LEN - 4);
+    r[74] = (uint8_t)crc;
+    r[75] = (uint8_t)(crc >> 8);
+    r[76] = (uint8_t)(crc >> 16);
+    r[77] = (uint8_t)(crc >> 24);
+    l2cap_send(l, l->intr.rcid, p, sizeof p);
+}
+
+static void check_open(link_t *l, chan_t *c)
 {
     c->open = c->conf_in && c->conf_out;
-    if (bt.ctrl.open && bt.intr.open && !bt.announced) {
+    if (l->ctrl.open && l->intr.open && !l->announced) {
         char as[18];
-        addr_str(as, bt.addr);
-        kprintf("bt: controller %s connected\n", as);
-        bt.announced = 1;
+        addr_str(as, l->addr);
+        if (l->slot < 0)
+            l->slot = key_slot(l->addr);
+        if (l->slot >= 0)
+            kprintf("bt: controller %s connected (player %d)\n", as, l->slot + 1);
+        else
+            kprintf("bt: controller %s connected (no player: not paired)\n", as);
+        l->announced = 1;
+        send_light(l);
     }
 }
 
-static void handle_signaling(const uint8_t *s, uint16_t len)
+static void handle_signaling(link_t *l, const uint8_t *s, uint16_t len)
 {
     while (len >= 4) {
         uint8_t code = s[0], id = s[1];
@@ -384,7 +581,7 @@ static void handle_signaling(const uint8_t *s, uint16_t len)
         const uint8_t *p = s + 4;
         if (n + 4u > len)
             return;
-        trace("<- L2CAP %s (%02x) %02x %02x %02x %02x %02x %02x",
+        trace(l, "<- L2CAP %s (%02x) %02x %02x %02x %02x %02x %02x",
               code == L2_CONN_REQ ? "connect request" : code == L2_CONN_RSP ? "connect response" :
               code == L2_CONF_REQ ? "config request" : code == L2_CONF_RSP ? "config response" :
               code == L2_DISC_REQ ? "disconnect" : "signal", code,
@@ -393,26 +590,26 @@ static void handle_signaling(const uint8_t *s, uint16_t len)
         switch (code) {
         case L2_CONN_REQ: {                     /* the pad opens a channel (reconnect) */
             uint16_t psm = get16(p), scid = get16(p + 2);
-            chan_t *c = psm == PSM_HID_CONTROL ? &bt.ctrl : psm == PSM_HID_INTERRUPT ? &bt.intr : NULL;
+            chan_t *c = psm == PSM_HID_CONTROL ? &l->ctrl : psm == PSM_HID_INTERRUPT ? &l->intr : NULL;
             uint8_t r[8];
             put16(r, c ? c->lcid : 0);
             put16(r + 2, scid);
             put16(r + 4, c ? 0 : 2);            /* success / PSM not supported */
             put16(r + 6, 0);
-            sig_send(L2_CONN_RSP, id, r, 8);
+            sig_send(l, L2_CONN_RSP, id, r, 8);
             if (c) {
                 c->rcid = scid;
                 c->conf_in = c->conf_out = c->open = 0;
-                send_config(c);
+                send_config(l, c);
             }
             break;
         }
         case L2_CONN_RSP: {
             uint16_t dcid = get16(p), scid = get16(p + 2), result = get16(p + 4);
-            chan_t *c = by_lcid(scid);
+            chan_t *c = by_lcid(l, scid);
             if (c && result == 0) {
                 c->rcid = dcid;
-                send_config(c);
+                send_config(l, c);
             } else if (c && result != 1) {      /* 1 = pending */
                 kprintf("bt: channel refused (result %u)\n", result);
                 c->requested = 0;
@@ -420,43 +617,43 @@ static void handle_signaling(const uint8_t *s, uint16_t len)
             break;
         }
         case L2_CONF_REQ: {
-            chan_t *c = by_lcid(get16(p));
+            chan_t *c = by_lcid(l, get16(p));
             uint8_t r[6];
             put16(r, c ? c->rcid : 0);
             put16(r + 2, 0);
             put16(r + 4, 0);                    /* success: we take their options */
-            sig_send(L2_CONF_RSP, id, r, 6);
+            sig_send(l, L2_CONF_RSP, id, r, 6);
             if (c) {
                 c->conf_in = 1;
-                check_open(c);
+                check_open(l, c);
             }
             break;
         }
         case L2_CONF_RSP: {
-            chan_t *c = by_lcid(get16(p));
+            chan_t *c = by_lcid(l, get16(p));
             if (c && get16(p + 4) == 0) {
                 c->conf_out = 1;
-                check_open(c);
+                check_open(l, c);
             }
             break;
         }
         case L2_DISC_REQ: {
             uint8_t r[4];
             memcpy(r, p, 4);
-            sig_send(L2_DISC_RSP, id, r, 4);
-            chan_t *c = by_lcid(get16(p));
+            sig_send(l, L2_DISC_RSP, id, r, 4);
+            chan_t *c = by_lcid(l, get16(p));
             if (c)
                 c->open = c->conf_in = c->conf_out = c->requested = 0;
             break;
         }
         case L2_ECHO_REQ:
-            sig_send(L2_ECHO_RSP, id, NULL, 0);
+            sig_send(l, L2_ECHO_RSP, id, NULL, 0);
             break;
         case L2_INFO_REQ: {
             uint8_t r[4];
             memcpy(r, p, 2);
             put16(r + 2, 1);                    /* not supported */
-            sig_send(L2_INFO_RSP, id, r, 4);
+            sig_send(l, L2_INFO_RSP, id, r, 4);
             break;
         }
         default:
@@ -469,30 +666,23 @@ static void handle_signaling(const uint8_t *s, uint16_t len)
 
 static void handle_acl(const hci_pkt_t *p)
 {
-    if (p->len < 8 || (get16(p->data) & 0x0FFF) != bt.handle)
+    if (p->len < 8)
+        return;
+    link_t *l = link_by_handle(get16(p->data) & 0x0FFF);
+    if (!l)
         return;
     uint16_t l2len = get16(p->data + 4), cid = get16(p->data + 6);
     const uint8_t *d = p->data + 8;
     if (l2len + 8u > p->len)
         return;                                 /* fragments are not expected */
     if (cid == CID_SIGNALING) {
-        handle_signaling(d, l2len);
-    } else if (cid == bt.intr.lcid && l2len >= 2 && d[0] == 0xA1) {
-        hid_bt_report(d + 1, l2len - 1u);       /* DATA | Input, then report ID */
+        handle_signaling(l, d, l2len);
+    } else if (cid == l->intr.lcid && l2len >= 2 && d[0] == 0xA1 && l->slot >= 0) {
+        hid_bt_report(l->slot, d + 1, l2len - 1u);   /* DATA | Input, then report ID */
     }
 }
 
 /* ---------------------------------------------------------------- events */
-
-static void reset_link(void)
-{
-    bt.connected = bt.auth_done = bt.enc = bt.announced = 0;
-    memset(&bt.ctrl, 0, sizeof bt.ctrl);
-    memset(&bt.intr, 0, sizeof bt.intr);
-    bt.ctrl.lcid = CID_CONTROL;
-    bt.intr.lcid = CID_INTERRUPT;
-    hid_bt_clear();
-}
 
 static const char *event_name(uint8_t code)
 {
@@ -516,28 +706,49 @@ static const char *event_name(uint8_t code)
     }
 }
 
+/* The link an event is about: by handle (bytes 1-2 after the status) or by
+ * address (first 6 bytes), depending on the event. */
+static link_t *event_link(uint8_t code, const uint8_t *e)
+{
+    switch (code) {
+    case 0x03: return link_by_addr(e + 3);
+    case 0x05: case 0x06: case 0x08: return link_by_handle(get16(e + 1) & 0x0FFF);
+    case 0x04: case 0x16: case 0x17: case 0x18: case 0x31: case 0x32: case 0x33:
+        return link_by_addr(e);
+    case 0x36: return link_by_addr(e + 1);
+    default: return NULL;
+    }
+}
+
 static void handle_event(const hci_pkt_t *p)
 {
+    const uint8_t code = p->data[0];
     const uint8_t *e = p->data + 2;
     uint8_t r[23];
-    trace("<- %s (%02x) %02x %02x %02x %02x", event_name(p->data[0]), p->data[0],
+    link_t *l = event_link(code, e);
+    trace(l, "<- %s (%02x) %02x %02x %02x %02x", event_name(code), code,
           p->data[1] > 0 ? e[0] : 0, p->data[1] > 1 ? e[1] : 0,
           p->data[1] > 2 ? e[2] : 0, p->data[1] > 3 ? e[3] : 0);
-    switch (p->data[0]) {
+    switch (code) {
     case 0x03:                                  /* Connection Complete */
         if (e[0] == 0) {
-            reset_link();
-            bt.connected = 1;
-            bt.handle = get16(e + 1) & 0x0FFF;
-            memcpy(bt.addr, e + 3, 6);
+            if (!l)
+                l = link_open(e + 3);
+            if (l) {
+                reset_link(l);
+                l->connected = 1;
+                l->handle = get16(e + 1) & 0x0FFF;
+            }
         } else {
             kprintf("bt: connection failed (status %02x)\n", e[0]);
+            if (l && !l->connected)
+                link_close(l);
         }
         break;
-    case 0x04: {                                /* Connection Request: the pad is back */
-        int ours = bt.have_key && memcmp(e, bt.key_addr, 6) == 0;
+    case 0x04: {                                /* Connection Request: a pad is back */
+        int ours = key_slot(e) >= 0;
         memcpy(r, e, 6);
-        if (ours || !bt.have_key) {
+        if ((ours || nkeys() == 0) && link_open(e)) {
             r[6] = 0x00;                        /* become master */
             hci_send(HCI_ACCEPT_CONNECTION, r, 7);
         } else {
@@ -547,19 +758,25 @@ static void handle_event(const hci_pkt_t *p)
         break;
     }
     case 0x05:                                  /* Disconnection Complete */
-        if (bt.connected && (get16(e + 1) & 0x0FFF) == bt.handle) {
-            if (bt.announced)
-                kprintf("bt: controller disconnected\n");
-            reset_link();
+        if (l) {
+            if (l->announced) {
+                char as[18];
+                addr_str(as, l->addr);
+                kprintf("bt: controller %s disconnected (player %d)\n", as, l->slot + 1);
+            }
+            link_close(l);
             bt.disc_reason = e[3];
         }
         break;
     case 0x06:                                  /* Authentication Complete */
-        bt.auth_done = 1;
-        bt.auth_status = e[0];
+        if (l) {
+            l->auth_done = 1;
+            l->auth_status = e[0];
+        }
         break;
     case 0x08:                                  /* Encryption Change */
-        bt.enc = e[0] == 0 && e[3];
+        if (l)
+            l->enc = e[0] == 0 && e[3];
         break;
     case 0x16:                                  /* PIN Code Request (legacy pads) */
         memcpy(r, e, 6);
@@ -568,18 +785,23 @@ static void handle_event(const hci_pkt_t *p)
         memcpy(r + 7, "0000", 4);
         hci_send(HCI_PIN_CODE_REPLY, r, 23);
         break;
-    case 0x17:                                  /* Link Key Request */
+    case 0x17: {                                /* Link Key Request */
+        int s = key_slot(e);
         memcpy(r, e, 6);
-        if (bt.have_key && memcmp(e, bt.key_addr, 6) == 0) {
-            memcpy(r + 6, bt.key, 16);
+        if (s >= 0) {
+            memcpy(r + 6, bt.key[s], 16);
             hci_send(HCI_LINK_KEY_REPLY, r, 22);
         } else {
             hci_send(HCI_LINK_KEY_NEG_REPLY, r, 6);
         }
         break;
-    case 0x18:                                  /* Link Key Notification: paired */
-        save_key(e, e + 6);
+    }
+    case 0x18: {                                /* Link Key Notification: paired */
+        int s = save_key(e, e + 6);
+        if (l)
+            l->slot = s;
         break;
+    }
     case 0x31:                                  /* IO Capability Request */
         memcpy(r, e, 6);
         r[6] = 0x03;                            /* NoInputNoOutput: Just Works */
@@ -619,8 +841,9 @@ void bt_poll(void)
     }
 }
 
-/* Runs the stack until *flag is set or timeout_ms passes; 0 if set. */
-static int wait_for(const int *flag, uint32_t timeout_ms)
+/* Runs the stack until *flag is set or timeout_ms passes; 0 if set. -1 also
+ * when link l drops (unless the flag is its "connected"). */
+static int wait_for(link_t *l, const int *flag, uint32_t timeout_ms)
 {
     static hci_pkt_t p;
     uint32_t t0 = timer_ticks();
@@ -629,7 +852,7 @@ static int wait_for(const int *flag, uint32_t timeout_ms)
             return -1;
         if (hci_recv(&p, 50000) == 0)
             dispatch(&p);
-        if (!bt.connected && flag != &bt.connected)
+        if (l && (!l->used || (!l->connected && flag != &l->connected)))
             return -1;                          /* the link dropped */
     }
     return 0;
@@ -705,28 +928,39 @@ static int inquiry(unsigned seconds, found_t *list, int max)
     return n;
 }
 
-static int pair_steps(const found_t *f);
+static int pair_steps(link_t *l, const found_t *f);
 
 static int pair(const found_t *f)
 {
     char as[18];
     addr_str(as, f->addr);
+    link_t *l = link_by_addr(f->addr);
+    if (l && l->connected) {
+        kprintf("bt: %s is already connected\n", as);
+        return -1;
+    }
+    if (!(l = link_open(f->addr))) {
+        kprintf("bt: no free link for another controller\n");
+        return -1;
+    }
     kprintf("bt: pairing with %s...\n", as);
     bt.pairing = 1;
-    int r = pair_steps(f);
+    int r = pair_steps(l, f);
     bt.pairing = 0;
+    if (r != 0 && l->used && !l->connected)
+        link_close(l);
     return r;
 }
 
 /* Why a step failed, in one line. */
-static void fail(const char *what, int cmd_status)
+static void fail(const link_t *l, const char *what, int cmd_status)
 {
     if (cmd_status > 0)
         kprintf("\x1b[91mbt: %s: the chip refused the command (status %02x)\x1b[0m\n",
                 what, cmd_status);
     else if (cmd_status < 0)
         kprintf("\x1b[91mbt: %s: no answer from the chip\x1b[0m\n", what);
-    else if (!bt.connected && bt.disc_reason >= 0)
+    else if ((!l->used || !l->connected) && bt.disc_reason >= 0)
         kprintf("\x1b[91mbt: %s: the controller disconnected (reason %02x)\x1b[0m\n",
                 what, bt.disc_reason);
     else
@@ -734,13 +968,13 @@ static void fail(const char *what, int cmd_status)
 }
 
 /* Lets the link settle (role switch, features) for `ms`, handling events. */
-static void settle(uint32_t ms)
+static void settle(link_t *l, uint32_t ms)
 {
     static int never;
-    wait_for(&never, ms);
+    wait_for(l, &never, ms);
 }
 
-static int pair_steps(const found_t *f)
+static int pair_steps(link_t *l, const found_t *f)
 {
     uint8_t p[13];
     int st;
@@ -752,45 +986,45 @@ static int pair_steps(const found_t *f)
     put16(p + 10, f->clock | 0x8000);
     p[12] = 1;                                  /* allow role switch */
     if ((st = hci_cmd(HCI_CREATE_CONNECTION, p, 13, NULL, 0, 1000000)) != 0 ||
-        wait_for(&bt.connected, 10000) != 0) {
-        fail("cannot connect (is it still flashing?)", st);
+        wait_for(l, &l->connected, 10000) != 0) {
+        fail(l, "cannot connect (is it still flashing?)", st);
         return -1;
     }
-    settle(300);
+    settle(l, 300);
     uint8_t h[3];
-    put16(h, bt.handle);
+    put16(h, l->handle);
     st = hci_cmd(HCI_AUTH_REQUESTED, h, 2, NULL, 0, 1000000);
-    if (st > 0 && bt.connected) {               /* busy with the link: once more */
-        trace("authentication request refused (%02x), retrying", st);
-        settle(700);
+    if (st > 0 && l->connected) {               /* busy with the link: once more */
+        trace(l, "authentication request refused (%02x), retrying", st);
+        settle(l, 700);
         st = hci_cmd(HCI_AUTH_REQUESTED, h, 2, NULL, 0, 1000000);
     }
-    if (st != 0 || wait_for(&bt.auth_done, 20000) != 0) {
-        fail("pairing failed", st);
+    if (st != 0 || wait_for(l, &l->auth_done, 20000) != 0) {
+        fail(l, "pairing failed", st);
         return -1;
     }
-    if (bt.auth_status != 0) {
+    if (l->auth_status != 0) {
         kprintf("\x1b[91mbt: pairing failed: authentication status %02x\x1b[0m\n",
-                bt.auth_status);
+                l->auth_status);
         return -1;
     }
     h[2] = 1;
     if ((st = hci_cmd(HCI_SET_CONN_ENCRYPTION, h, 3, NULL, 0, 1000000)) != 0 ||
-        wait_for(&bt.enc, 10000) != 0) {
-        fail("encryption failed", st);
+        wait_for(l, &l->enc, 10000) != 0) {
+        fail(l, "encryption failed", st);
         return -1;
     }
-    l2cap_connect(&bt.ctrl, PSM_HID_CONTROL);
-    if (wait_for(&bt.ctrl.open, 10000) != 0) {
-        fail("HID control channel not opened", 0);
+    l2cap_connect(l, &l->ctrl, PSM_HID_CONTROL);
+    if (wait_for(l, &l->ctrl.open, 10000) != 0) {
+        fail(l, "HID control channel not opened", 0);
         return -1;
     }
-    l2cap_connect(&bt.intr, PSM_HID_INTERRUPT);
-    if (wait_for(&bt.intr.open, 10000) != 0) {
-        fail("HID interrupt channel not opened", 0);
+    l2cap_connect(l, &l->intr, PSM_HID_INTERRUPT);
+    if (wait_for(l, &l->intr.open, 10000) != 0) {
+        fail(l, "HID interrupt channel not opened", 0);
         return -1;
     }
-    kprintf("bt: paired; next time just press PS on the controller\n");
+    kprintf("bt: paired as player %d; next time just press PS on the controller\n", l->slot + 1);
     return 0;
 }
 
@@ -798,8 +1032,13 @@ void bt_scan(unsigned seconds)
 {
     if (!bt.started && bt_start() != 0)
         return;
-    if (!bt.ctrl.lcid)
-        reset_link();
+    int on = 0;
+    for (int s = 0; s < BT_PADS; s++)
+        on += slot_connected(s);
+    if (on >= BT_PADS) {
+        kprintf("bt: %d controllers are connected already\n", BT_PADS);
+        return;
+    }
     found_t list[8];
     int n = inquiry(seconds, list, 8);
     for (int i = 0; i < n; i++)
@@ -813,5 +1052,32 @@ void bt_scan(unsigned seconds)
 
 int bt_connected(void)
 {
-    return bt.ctrl.open && bt.intr.open;
+    for (int s = 0; s < BT_PADS; s++)
+        if (slot_connected(s))
+            return 1;
+    return 0;
+}
+
+unsigned bt_pads(void)
+{
+    unsigned m = 0;
+    for (int s = 0; s < BT_PADS; s++)
+        if (slot_connected(s))
+            m |= 1u << s;
+    return m;
+}
+
+int bt_pad_addr(int slot, char out[18])
+{
+    for (int i = 0; i < BT_PADS; i++)
+        if (bt.link[i].used && bt.link[i].slot == slot) {
+            addr_str(out, bt.link[i].addr);
+            return 1;
+        }
+    if (slot >= 0 && slot < BT_PADS && bt.have_key[slot]) {
+        addr_str(out, bt.key_addr[slot]);
+        return 0;
+    }
+    out[0] = 0;
+    return 0;
 }
