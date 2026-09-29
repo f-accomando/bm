@@ -17,4 +17,9 @@ int wifi_start(void);
  * name). Returns how many, -1 if WiFi is not started. */
 int wifi_scan(void);
 
+/* After wifi_scan: joins the network saved in bm33/config.txt (wifi_ssid,
+ * wifi_psk) if it is in range, else asks which one and its password and
+ * saves them. WPA2-PSK, WPA-PSK or open; the firmware does the handshake. */
+int wifi_connect(void);
+
 #endif

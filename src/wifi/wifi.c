@@ -17,8 +17,11 @@
 #include "drivers/sd.h"
 #include "drivers/timer.h"
 #include "fs/fat.h"
+#include "kernel/config.h"
+#include "kernel/input.h"
 #include "lib/printf.h"
 
+#include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 
@@ -71,6 +74,10 @@
 
 /* ioctls */
 #define WLC_UP          2
+#define WLC_SET_INFRA   20
+#define WLC_SET_AUTH    22
+#define WLC_SET_SSID    26
+#define WLC_SET_WSEC_PMK 268
 #define WLC_SET_PM      86
 #define WLC_GET_VAR     262
 #define WLC_SET_VAR     263
@@ -850,7 +857,186 @@ int wifi_scan(void)
     qsort(nets, (size_t)nnets, sizeof *nets, cmp_rssi);
     kprintf("wifi: %d network%s%s\n", nnets, nnets == 1 ? "" : "s", done ? "" : " (scan timed out)");
     for (int i = 0; i < nnets; i++)
-        kprintf("  %4d dBm  ch %2d  %-4s  %s\n", nets[i].rssi, nets[i].channel, nets[i].security,
-                nets[i].ssid[0] ? nets[i].ssid : "(hidden)");
+        kprintf("  %2d  %4d dBm  ch %2d  %-4s  %s\n", i + 1, nets[i].rssi, nets[i].channel,
+                nets[i].security, nets[i].ssid[0] ? nets[i].ssid : "(hidden)");
     return nnets;
+}
+
+/* ---------------------------------------------------------------- join */
+
+static int joined;
+static char joined_ssid[33];
+
+/* Joins `ssid`: open, or WPA/WPA2 with `psk` (8-63 characters); the
+ * firmware does the 4-way handshake ("sup_wpa"). Waits for the events. */
+static int join(const char *ssid, const char *psk, const char *security)
+{
+    int open_net = strcmp(security, "open") == 0;
+    int wpa2 = strcmp(security, "WPA2") == 0;
+    if (strcmp(security, "WEP") == 0) {
+        kprintf("\x1b[91mwifi: WEP networks are not supported\x1b[0m\n");
+        return -1;
+    }
+    size_t pl = psk ? strlen(psk) : 0;
+    if (!open_net && (pl < 8 || pl > 63)) {
+        kprintf("\x1b[91mwifi: the password must be 8 to 63 characters\x1b[0m\n");
+        return -1;
+    }
+    joined = 0;
+    ioctl_int(WLC_SET_INFRA, 1);
+    ioctl_int(WLC_SET_AUTH, 0);                 /* open system; WPA on top */
+    set_int_var("wsec", open_net ? 0 : wpa2 ? 4 : 6);          /* AES, or TKIP+AES */
+    set_int_var("wpa_auth", open_net ? 0 : wpa2 ? 0x80 : 0x04); /* WPA2-PSK / WPA-PSK */
+    set_int_var("sup_wpa", open_net ? 0 : 1);
+    if (!open_net) {
+        static uint8_t pmk[2 + 2 + 129];
+        memset(pmk, 0, sizeof pmk);
+        pmk[0] = (uint8_t)pl;
+        pmk[2] = 1;                             /* a passphrase, not a key */
+        memcpy(pmk + 4, psk, pl);
+        timer_delay_ms(2);                      /* sup_wpa takes a moment (brcmfmac) */
+        int r = ioctl_(WLC_SET_WSEC_PMK, 1, pmk, (sizeof pmk + 3) & ~3u, NULL, 0, 1000);
+        if (r) {
+            say("password refused by the firmware (WSEC_PMK)", 0, (uint32_t)-r);
+            return -1;
+        }
+    }
+    uint8_t sl = (uint8_t)strlen(ssid);
+    if (sl > 32) sl = 32;
+    uint8_t sb[36];
+    memset(sb, 0, sizeof sb);
+    sb[0] = sl;
+    memcpy(sb + 4, ssid, sl);
+    kprintf("wifi: joining \"%s\" (%s)...\n", ssid, security);
+    int r = ioctl_(WLC_SET_SSID, 1, sb, sizeof sb, NULL, 0, 1000);
+    if (r) {
+        say("join refused (SET_SSID)", 0, (uint32_t)-r);
+        return -1;
+    }
+    /* events: SET_SSID (0) says associated or not, PSK_SUP (46) status 6
+     * says the keys are in, LINK (16) flag 1 the link; DEAUTH / DISASSOC
+     * (5, 6, 11, 12) or a bad status: failed */
+    int assoc = 0, keyed = open_net, link = 0;
+    uint32_t t0 = timer_ticks();
+    while (timer_ticks() - t0 < 15000000u) {
+        int n = read_frame();
+        if (n <= 0) {
+            timer_delay_us(500);
+            continue;
+        }
+        if ((frame[5] & 0xF) != 1)
+            continue;
+        uint32_t status, dlen;
+        const uint8_t *d;
+        int type = parse_event(n, &status, &d, &dlen);
+        if (type < 0)
+            continue;
+        uint32_t off = frame[7];
+        const uint8_t *ev = frame + off + 4 + frame[off + 3] * 4u + 14 + 10;
+        uint16_t flags = (uint16_t)(ev[2] << 8 | ev[3]);
+        switch (type) {
+        case 0:                                 /* SET_SSID */
+            if (status != 0) {
+                kprintf("\x1b[91mwifi: could not join (status %lu%s)\x1b[0m\n", status,
+                        status == 3 ? ": network not found" : status == 1 ? ": failed" : "");
+                return -1;
+            }
+            assoc = 1;
+            kprintf("wifi: associated\n");
+            break;
+        case 46:                                /* PSK_SUP */
+            if (status == 6) {
+                keyed = 1;
+                kprintf("wifi: password accepted, keys set\n");
+            } else if (status == 7) {           /* WLC_SUP_TIMEOUT; others are progress */
+                kprintf("\x1b[91mwifi: the password was not accepted (status %lu)\x1b[0m\n", status);
+                return -1;
+            }
+            break;
+        case 16:                                /* LINK */
+            link = flags & 1;
+            if (!link && assoc) {
+                kprintf("\x1b[91mwifi: link lost (wrong password?)\x1b[0m\n");
+                return -1;
+            }
+            break;
+        case 5: case 6: case 11: case 12:       /* deauth / disassoc */
+            kprintf("\x1b[91mwifi: the access point sent us away (event %d, wrong password?)\x1b[0m\n",
+                    type);
+            return -1;
+        }
+        if (assoc && keyed && link) {
+            joined = 1;
+            snprintf(joined_ssid, sizeof joined_ssid, "%s", ssid);
+            kprintf("\x1b[92mwifi: connected to \"%s\"\x1b[0m (next: IP address)\n", ssid);
+            return 0;
+        }
+    }
+    kprintf("\x1b[91mwifi: no answer from the network in 15 s\x1b[0m\n");
+    return -1;
+}
+
+/* A line typed on the keyboard or the serial port; Esc cancels. */
+static int read_line(char *buf, int max, int secret)
+{
+    int n = 0;
+    for (;;) {
+        char c = input_getc();
+        if (c == '\r' || c == '\n') {
+            buf[n] = 0;
+            kprintf("\n");
+            return n;
+        }
+        if (c == 0x1B) {
+            kprintf("  (cancelled)\n");
+            return -1;
+        }
+        if ((c == 0x7F || c == 0x08) && n > 0) {
+            n--;
+            kprintf("\b \b");
+            continue;
+        }
+        if ((unsigned char)c >= 32 && (unsigned char)c < 127 && n < max - 1) {
+            buf[n++] = c;
+            kprintf("%c", secret ? '*' : c);
+        }
+    }
+}
+
+int wifi_connect(void)
+{
+    if (!w.up || nnets <= 0)
+        return -1;
+    /* the saved network, if it is in range */
+    const char *ssid = config_get("wifi_ssid"), *psk = config_get("wifi_psk");
+    if (ssid && ssid[0])
+        for (int i = 0; i < nnets; i++)
+            if (strcmp(nets[i].ssid, ssid) == 0) {
+                kprintf("wifi: saved network \"%s\" is in range\n", ssid);
+                return join(ssid, psk, nets[i].security);
+            }
+    kprintf("wifi: number of the network to join (Enter or Esc: none): ");
+    char line[72];
+    if (read_line(line, 4, 0) <= 0)
+        return -1;
+    int k = atoi(line);
+    if (k < 1 || k > nnets || !nets[k - 1].ssid[0]) {
+        kprintf("wifi: no network %s\n", line);
+        return -1;
+    }
+    const net_t *nt = &nets[k - 1];
+    line[0] = 0;
+    if (strcmp(nt->security, "open") != 0) {
+        kprintf("wifi: password for \"%s\": ", nt->ssid);
+        if (read_line(line, 64, 1) < 0)
+            return -1;
+    }
+    if (join(nt->ssid, line, nt->security) != 0)
+        return -1;
+    /* remembered for next time (plain text on the SD card) */
+    config_set("wifi_ssid", nt->ssid);
+    config_set("wifi_psk", line);
+    config_save();
+    kprintf("wifi: saved in bm33/config.txt (W reconnects by itself)\n");
+    return 0;
 }

@@ -549,8 +549,16 @@ Decisione 2026-09-28: versioni "leggere", in coda dopo M17.
    (`WLC_UP`, niente risparmio energetico, eventi abilitati) e fa una `escan`. I risultati
    arrivano come eventi sul canale 1; l'elenco è ordinato per segnale, con canale,
    sicurezza (WPA2/WPA/WEP/aperta, dagli IE) e nome.
-   Poi: associazione WPA2 fatta dal firmware, con `wifi_ssid` / `wifi_psk` in `config.txt`.
-5. lwIP con DHCP; console di rete; invio di cartucce e kernel dal PC.
+   Elenco numerato.
+5. 🛠 (da provare sul Pi) **Connessione**:
+   - dopo l'elenco, `W` chiede il numero della rete e la password (asterischi);
+   - la rete salvata (`wifi_ssid` / `wifi_psk` in `bm33/config.txt`, in chiaro) si
+     ricollega da sola;
+   - WPA2-PSK (AES), WPA-PSK o aperta, con il 4-way handshake fatto dal firmware
+     (`sup_wpa`, `WSEC_PMK`);
+   - esito dagli eventi SET_SSID, PSK_SUP, LINK, DEAUTH.
+6. Poi: IP con DHCP (lwIP), console di rete, invio di cartucce e kernel dal PC.
+
 
 ## M19 — HTTPS: aggiornamenti e "git leggero" (L)
 - **TLS**: mbedTLS (licenza Apache 2.0) sopra lwIP; certificati radice essenziali sulla

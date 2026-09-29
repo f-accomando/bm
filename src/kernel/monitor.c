@@ -41,7 +41,7 @@ static const char help_text[] =
             "  e  editor: code, sprites and map of a .b33 cartridge\n"
             "  T  Bluetooth: pair a controller as the next player (DS4: Share + PS)\n"
             "  P  Bluetooth: forget all paired pads (asks first)\n"
-            "  W  WiFi: start the chip and its firmware, list the networks (M18)\n"
+            "  W  WiFi: start, list the networks, join one (M18; saved in bm33/config.txt)\n"
             "  b  boot diagnostics: benchmarks, s32 and b33 demos, Lua boot script\n"
             "  k  CPU benchmark          p  rendering benchmark 640x360 RGB565\n"
             "  D  DMA test step by step (CPU against DMA timings)\n"
@@ -165,7 +165,7 @@ void monitor_run(void)
         case 'y': usb_init(); usb_print(); break;
         case 'Y': usb_live_test(5); input_live_test(10); break;
         case 'T': bt_scan(8); break;
-        case 'W': if (wifi_start() == 0) wifi_scan(); break;
+        case 'W': if (wifi_start() == 0 && wifi_scan() > 0) wifi_connect(); break;
         case 'o': pager_show(klog_text()); break;
         case 'P': {
             kprintf("forget all Bluetooth pads (keys removed from bm33/config.txt)? y = yes\n");
