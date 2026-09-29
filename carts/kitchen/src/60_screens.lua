@@ -494,9 +494,6 @@ screens.play = {
     elseif play.phase == "over" then
       text_cs(run.over_text or "TIME'S UP!", W / 2, H / 2 - 30, 0xFFE040, 4, 0x000000)
     end
-    if G.debug then
-      print(fmt("%.1f ms %d fps %d tri", stat(1), stat(2), stat(4)), 130, H - 24, 0xFFFFFF)
-    end
   end,
 }
 

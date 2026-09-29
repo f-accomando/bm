@@ -11,46 +11,100 @@
 typedef struct { float x, y, z; } sv_t;     /* screen x, y; z = 1/depth */
 
 /*
- * Scanline rasterizer for one triangle. Pixel centres are sampled at
- * (x + 0.5, y + 0.5) so shared edges are drawn once. With zbuf == NULL
- * it is a plain 2D fill.
+ * Triangle setup shared by the rasterizers. Pixel centres are sampled at
+ * (x + 0.5, y + 0.5) so shared edges are drawn once. The vertices are
+ * sorted by y; the edges are walked with slopes computed once, and every
+ * attribute (depth, colour, texture) is linear in screen space, so it has
+ * constant gradients d/dx and d/dy: no division per scanline.
+ */
+typedef struct {
+    float ax, ay, bx, by;       /* top and middle vertex */
+    float s_ac, s_ab, s_bc;     /* dx/dy of the long edge and the two short ones */
+    float area;                 /* twice the signed area (for the gradients) */
+    float e1x, e1y, e2x, e2y;   /* b - a, c - a */
+    int y0, y1;                 /* scanlines [y0, y1), clipped */
+} tri_t;
+
+/* ceil() for the pixel rules; exact for the values a screen can hold */
+static inline int iceil(float f)
+{
+    int i = (int)f;
+    return i + (f > (float)i);
+}
+
+static int tri_setup(tri_t *t, const g16_t *g, float ax, float ay, float bx, float by,
+                     float cx, float cy)
+{
+    if (cy - ay < 1e-6f)
+        return 0;
+    t->ax = ax; t->ay = ay; t->bx = bx; t->by = by;
+    t->e1x = bx - ax; t->e1y = by - ay; t->e2x = cx - ax; t->e2y = cy - ay;
+    t->area = t->e1x * t->e2y - t->e2x * t->e1y;
+    if (t->area > -1e-6f && t->area < 1e-6f)
+        return 0;
+    t->s_ac = (cx - ax) / (cy - ay);
+    t->s_ab = by - ay > 1e-6f ? (bx - ax) / (by - ay) : 0.0f;
+    t->s_bc = cy - by > 1e-6f ? (cx - bx) / (cy - by) : 0.0f;
+    t->y0 = iceil(ay - 0.5f);
+    t->y1 = iceil(cy - 0.5f);
+    if (t->y0 < g->cy0) t->y0 = g->cy0;
+    if (t->y1 > g->cy1) t->y1 = g->cy1;
+    return t->y0 < t->y1;
+}
+
+/* Gradients of an attribute with values va, vb, vc at the vertices. */
+static inline void tri_grad(const tri_t *t, float va, float vb, float vc, float *ddx, float *ddy)
+{
+    float d1 = vb - va, d2 = vc - va, inv = 1.0f / t->area;
+    *ddx = (d1 * t->e2y - d2 * t->e1y) * inv;
+    *ddy = (d2 * t->e1x - d1 * t->e2x) * inv;
+}
+
+/* Pixels [x0, x1) of scanline y, clipped; 0 if none. */
+static inline int tri_span(const tri_t *t, const g16_t *g, int y, int *x0, int *x1)
+{
+    float py = y + 0.5f;
+    float xl = t->ax + (py - t->ay) * t->s_ac;
+    float xr = py < t->by ? t->ax + (py - t->ay) * t->s_ab : t->bx + (py - t->by) * t->s_bc;
+    if (xl > xr) { float s = xl; xl = xr; xr = s; }
+    int a = iceil(xl - 0.5f), b = iceil(xr - 0.5f);
+    if (a < g->cx0) a = g->cx0;
+    if (b > g->cx1) b = g->cx1;
+    *x0 = a;
+    *x1 = b;
+    return a < b;
+}
+
+/* value of an attribute at the centre of pixel (x, y) */
+#define ATTR(t, va, ddx, ddy, x, y) ((va) + ((x) + 0.5f - (t)->ax) * (ddx) + ((y) + 0.5f - (t)->ay) * (ddy))
+
+#define SORT3(T, a, b, c) do { T s_;                            \
+        if (a.y > b.y) { s_ = a; a = b; b = s_; }               \
+        if (b.y > c.y) { s_ = b; b = c; c = s_; }               \
+        if (a.y > b.y) { s_ = a; a = b; b = s_; } } while (0)
+
+/* z = 1/depth, 16-bit z-buffer: bigger = nearer; stepped in 24.8 */
+#define ZSCALE (65535.0f * 256.0f)
+
+/*
+ * Flat triangle. With zbuf == NULL it is a plain 2D fill.
  */
 static uint32_t raster(g16_t *g, uint16_t *zbuf, sv_t a, sv_t b, sv_t c, uint16_t color)
 {
-    sv_t t;
-    if (a.y > b.y) { t = a; a = b; b = t; }
-    if (b.y > c.y) { t = b; b = c; c = t; }
-    if (a.y > b.y) { t = a; a = b; b = t; }
-    if (c.y - a.y < 1e-6f)
+    SORT3(sv_t, a, b, c);
+    tri_t t;
+    if (!tri_setup(&t, g, a.x, a.y, b.x, b.y, c.x, c.y))
         return 0;
-
-    int y0 = (int)ceilf(a.y - 0.5f), y1 = (int)ceilf(c.y - 0.5f);
-    if (y0 < g->cy0) y0 = g->cy0;
-    if (y1 > g->cy1) y1 = g->cy1;
+    float dzx = 0, dzy = 0;
+    if (zbuf)
+        tri_grad(&t, a.z, b.z, c.z, &dzx, &dzy);
+    const int32_t dzf = (int32_t)(dzx * ZSCALE);
     uint32_t count = 0;
 
-    for (int y = y0; y < y1; y++) {
-        float py = y + 0.5f;
-        /* long edge a-c, short edge a-b or b-c */
-        float tl = (py - a.y) / (c.y - a.y);
-        float xl = a.x + (c.x - a.x) * tl, zl = a.z + (c.z - a.z) * tl;
-        float xr, zr;
-        if (py < b.y) {
-            float ts = (py - a.y) / (b.y - a.y);
-            xr = a.x + (b.x - a.x) * ts; zr = a.z + (b.z - a.z) * ts;
-        } else {
-            float d = c.y - b.y;
-            float ts = d > 1e-6f ? (py - b.y) / d : 1.0f;
-            xr = b.x + (c.x - b.x) * ts; zr = b.z + (c.z - b.z) * ts;
-        }
-        if (xl > xr) { float s = xl; xl = xr; xr = s; s = zl; zl = zr; zr = s; }
-
-        int x0 = (int)ceilf(xl - 0.5f), x1 = (int)ceilf(xr - 0.5f);
-        if (x0 < g->cx0) x0 = g->cx0;
-        if (x1 > g->cx1) x1 = g->cx1;
-        if (x0 >= x1)
+    for (int y = t.y0; y < t.y1; y++) {
+        int x0, x1;
+        if (!tri_span(&t, g, y, &x0, &x1))
             continue;
-
         uint16_t *row = g->px + (uint32_t)y * g->stride;
         if (!zbuf) {
             for (int x = x0; x < x1; x++)
@@ -58,10 +112,7 @@ static uint32_t raster(g16_t *g, uint16_t *zbuf, sv_t a, sv_t b, sv_t c, uint16_
             count += (uint32_t)(x1 - x0);
             continue;
         }
-        /* z = 1/depth, scaled to 16 bits: bigger = nearer */
-        float dz = (xr - xl) > 1e-6f ? (zr - zl) / (xr - xl) : 0.0f;
-        float z = zl + (x0 + 0.5f - xl) * dz;
-        int32_t zf = (int32_t)(z * 65535.0f * 256.0f), dzf = (int32_t)(dz * 65535.0f * 256.0f);
+        int32_t zf = (int32_t)(ATTR(&t, a.z, dzx, dzy, x0, y) * ZSCALE);
         uint16_t *zrow = zbuf + (uint32_t)y * g->w;
         for (int x = x0; x < x1; x++, zf += dzf) {
             int32_t zz = zf >> 8;
@@ -77,18 +128,17 @@ static uint32_t raster(g16_t *g, uint16_t *zbuf, sv_t a, sv_t b, sv_t c, uint16_
 }
 
 /* 4x4 ordered dither, 0..15: the colour steps of RGB565 (8 levels of red
- * and blue, 4 of green) become a fine pattern instead of bands. */
+ * and blue, 4 of green) become a fine pattern instead of bands. Per pixel
+ * the offsets are (d >> 1, d >> 2, d >> 1), packed here. */
 static const uint8_t bayer4[4][4] = {
     { 0, 8, 2, 10 }, { 12, 4, 14, 6 }, { 3, 11, 1, 9 }, { 15, 7, 13, 5 },
 };
 
-static inline uint16_t dither565(int32_t r, int32_t g, int32_t b, uint32_t d)
+/* r, g, b: 0..248 / 0..252 / 0..248 (the vertex colours are limited so that
+ * the dither never overflows: 248 + 7 still rounds to the top level) */
+static inline uint16_t dither565(uint32_t r, uint32_t g, uint32_t b, uint32_t d)
 {
-    /* r, g, b: 0..255 (may overshoot slightly); d: 0..15 */
-    r += (int32_t)(d >> 1); g += (int32_t)(d >> 2); b += (int32_t)(d >> 1);
-    r = r < 0 ? 0 : r > 255 ? 255 : r;
-    g = g < 0 ? 0 : g > 255 ? 255 : g;
-    b = b < 0 ? 0 : b > 255 ? 255 : b;
+    r += d >> 1; g += d >> 2; b += d >> 1;
     return (uint16_t)((r >> 3) << 11 | (g >> 2) << 5 | (b >> 3));
 }
 
@@ -96,66 +146,55 @@ static inline uint16_t dither565(int32_t r, int32_t g, int32_t b, uint32_t d)
  * the face, in screen space, and dithered. With zbuf == NULL, a 2D fill. */
 typedef struct { float x, y, z, r, g, b; } gv_t;
 
+static inline float climit(float v, float hi)
+{
+    return v < 0.5f ? 0.5f : v > hi ? hi : v;
+}
+
 static uint32_t raster_gouraud(g16_t *g, uint16_t *zbuf, gv_t a, gv_t b, gv_t c)
 {
-    gv_t s;
-    if (a.y > b.y) { s = a; a = b; b = s; }
-    if (b.y > c.y) { s = b; b = c; c = s; }
-    if (a.y > b.y) { s = a; a = b; b = s; }
-    if (c.y - a.y < 1e-6f)
+    SORT3(gv_t, a, b, c);
+    tri_t t;
+    if (!tri_setup(&t, g, a.x, a.y, b.x, b.y, c.x, c.y))
         return 0;
-    int y0 = (int)ceilf(a.y - 0.5f), y1 = (int)ceilf(c.y - 0.5f);
-    if (y0 < g->cy0) y0 = g->cy0;
-    if (y1 > g->cy1) y1 = g->cy1;
+    a.r = climit(a.r, 248.4f); b.r = climit(b.r, 248.4f); c.r = climit(c.r, 248.4f);
+    a.g = climit(a.g, 252.4f); b.g = climit(b.g, 252.4f); c.g = climit(c.g, 252.4f);
+    a.b = climit(a.b, 248.4f); b.b = climit(b.b, 248.4f); c.b = climit(c.b, 248.4f);
+    float drx, dry, dgx, dgy, dbx, dby, dzx = 0, dzy = 0;
+    tri_grad(&t, a.r, b.r, c.r, &drx, &dry);
+    tri_grad(&t, a.g, b.g, c.g, &dgx, &dgy);
+    tri_grad(&t, a.b, b.b, c.b, &dbx, &dby);
+    if (zbuf)
+        tri_grad(&t, a.z, b.z, c.z, &dzx, &dzy);
+    /* 16.16 fixed point across the spans */
+    const int32_t ir = (int32_t)(drx * 65536.0f), ig = (int32_t)(dgx * 65536.0f),
+                  ib = (int32_t)(dbx * 65536.0f), dzf = (int32_t)(dzx * ZSCALE);
     uint32_t count = 0;
 
-    for (int y = y0; y < y1; y++) {
-        float py = y + 0.5f;
-        float tl = (py - a.y) / (c.y - a.y);
-        gv_t l = { a.x + (c.x - a.x) * tl, 0, a.z + (c.z - a.z) * tl,
-                   a.r + (c.r - a.r) * tl, a.g + (c.g - a.g) * tl, a.b + (c.b - a.b) * tl };
-        gv_t r;
-        if (py < b.y) {
-            float ts = (py - a.y) / (b.y - a.y);
-            r = (gv_t){ a.x + (b.x - a.x) * ts, 0, a.z + (b.z - a.z) * ts,
-                        a.r + (b.r - a.r) * ts, a.g + (b.g - a.g) * ts, a.b + (b.b - a.b) * ts };
-        } else {
-            float d = c.y - b.y;
-            float ts = d > 1e-6f ? (py - b.y) / d : 1.0f;
-            r = (gv_t){ b.x + (c.x - b.x) * ts, 0, b.z + (c.z - b.z) * ts,
-                        b.r + (c.r - b.r) * ts, b.g + (c.g - b.g) * ts, b.b + (c.b - b.b) * ts };
-        }
-        if (l.x > r.x) { s = l; l = r; r = s; }
-        int x0 = (int)ceilf(l.x - 0.5f), x1 = (int)ceilf(r.x - 0.5f);
-        if (x0 < g->cx0) x0 = g->cx0;
-        if (x1 > g->cx1) x1 = g->cx1;
-        if (x0 >= x1)
+    for (int y = t.y0; y < t.y1; y++) {
+        int x0, x1;
+        if (!tri_span(&t, g, y, &x0, &x1))
             continue;
-        float w = r.x - l.x, inv = w > 1e-6f ? 1.0f / w : 0.0f;
-        float off = x0 + 0.5f - l.x;
-        /* 16.16 fixed point across the span */
-        float dr = (r.r - l.r) * inv, dg = (r.g - l.g) * inv, db = (r.b - l.b) * inv;
-        int32_t cr = (int32_t)((l.r + off * dr) * 65536.0f), cg = (int32_t)((l.g + off * dg) * 65536.0f),
-                cb = (int32_t)((l.b + off * db) * 65536.0f);
-        int32_t ir = (int32_t)(dr * 65536.0f), ig = (int32_t)(dg * 65536.0f), ib = (int32_t)(db * 65536.0f);
+        /* the edge rounding can step a hair outside the vertex range */
+        int32_t cr = (int32_t)(climit(ATTR(&t, a.r, drx, dry, x0, y), 248.4f) * 65536.0f);
+        int32_t cg = (int32_t)(climit(ATTR(&t, a.g, dgx, dgy, x0, y), 252.4f) * 65536.0f);
+        int32_t cb = (int32_t)(climit(ATTR(&t, a.b, dbx, dby, x0, y), 248.4f) * 65536.0f);
         const uint8_t *dith = bayer4[y & 3];
         uint16_t *row = g->px + (uint32_t)y * g->stride;
         if (!zbuf) {
             for (int x = x0; x < x1; x++, cr += ir, cg += ig, cb += ib)
-                row[x] = dither565(cr >> 16, cg >> 16, cb >> 16, dith[x & 3]);
+                row[x] = dither565((uint32_t)cr >> 16, (uint32_t)cg >> 16, (uint32_t)cb >> 16, dith[x & 3]);
             count += (uint32_t)(x1 - x0);
             continue;
         }
-        float dz = (r.z - l.z) * inv;
-        float z = l.z + off * dz;
-        int32_t zf = (int32_t)(z * 65535.0f * 256.0f), dzf = (int32_t)(dz * 65535.0f * 256.0f);
+        int32_t zf = (int32_t)(ATTR(&t, a.z, dzx, dzy, x0, y) * ZSCALE);
         uint16_t *zrow = zbuf + (uint32_t)y * g->w;
         for (int x = x0; x < x1; x++, zf += dzf, cr += ir, cg += ig, cb += ib) {
             int32_t zz = zf >> 8;
             if (zz > 65535) zz = 65535;
             if (zz > zrow[x]) {
                 zrow[x] = (uint16_t)zz;
-                row[x] = dither565(cr >> 16, cg >> 16, cb >> 16, dith[x & 3]);
+                row[x] = dither565((uint32_t)cr >> 16, (uint32_t)cg >> 16, (uint32_t)cb >> 16, dith[x & 3]);
                 count++;
             }
         }
@@ -166,80 +205,67 @@ static uint32_t raster_gouraud(g16_t *g, uint16_t *zbuf, gv_t a, gv_t b, gv_t c)
 /* Textured triangle: u and v are divided by depth at the vertices and
  * interpolated with 1/z, then divided back every TEX_RUN pixels and linear in
  * between (perspective correct to a fraction of a texel, one division per run).
- * k = light at each vertex, 0..256 (the same at the three vertices for flat
+ * k = light at each vertex, 0..1 (the same at the three vertices for flat
  * shading). Transparent texels are skipped. */
 #define TEX_RUN 16                  /* pixels between exact perspective divisions */
 
 typedef struct { float x, y, z, u, v, k; } tv_t;    /* z = 1/depth; u, v premultiplied by z */
 
 static uint32_t raster_tex(g16_t *g, uint16_t *zbuf, tv_t a, tv_t b, tv_t c,
-                           const g16_sheet_t *t)
+                           const g16_sheet_t *tex)
 {
-    tv_t s;
-    if (a.y > b.y) { s = a; a = b; b = s; }
-    if (b.y > c.y) { s = b; b = c; c = s; }
-    if (a.y > b.y) { s = a; a = b; b = s; }
-    if (c.y - a.y < 1e-6f)
+    SORT3(tv_t, a, b, c);
+    tri_t t;
+    if (!tri_setup(&t, g, a.x, a.y, b.x, b.y, c.x, c.y))
         return 0;
-    int y0 = (int)ceilf(a.y - 0.5f), y1 = (int)ceilf(c.y - 0.5f);
-    if (y0 < g->cy0) y0 = g->cy0;
-    if (y1 > g->cy1) y1 = g->cy1;
+    float dzx, dzy, dux, duy, dvx, dvy, dkx, dky;
+    tri_grad(&t, a.z, b.z, c.z, &dzx, &dzy);
+    tri_grad(&t, a.u, b.u, c.u, &dux, &duy);
+    tri_grad(&t, a.v, b.v, c.v, &dvx, &dvy);
+    tri_grad(&t, a.k, b.k, c.k, &dkx, &dky);
+    const int flat_k = a.k == b.k && b.k == c.k;
+    /* light in 8.8 fixed point of 0..256 */
+    const int32_t dkf = flat_k ? 0 : (int32_t)(dkx * 65536.0f), dzf = (int32_t)(dzx * ZSCALE);
+    const int tw = tex->w, th = tex->h;
     uint32_t count = 0;
-    const int tw = t->w, th = t->h;
 
-    for (int y = y0; y < y1; y++) {
-        float py = y + 0.5f;
-        float tl = (py - a.y) / (c.y - a.y);
-        tv_t l = { a.x + (c.x - a.x) * tl, 0, a.z + (c.z - a.z) * tl,
-                   a.u + (c.u - a.u) * tl, a.v + (c.v - a.v) * tl, a.k + (c.k - a.k) * tl };
-        tv_t r;
-        if (py < b.y) {
-            float ts = (py - a.y) / (b.y - a.y);
-            r = (tv_t){ a.x + (b.x - a.x) * ts, 0, a.z + (b.z - a.z) * ts,
-                        a.u + (b.u - a.u) * ts, a.v + (b.v - a.v) * ts, a.k + (b.k - a.k) * ts };
-        } else {
-            float d = c.y - b.y;
-            float ts = d > 1e-6f ? (py - b.y) / d : 1.0f;
-            r = (tv_t){ b.x + (c.x - b.x) * ts, 0, b.z + (c.z - b.z) * ts,
-                        b.u + (c.u - b.u) * ts, b.v + (c.v - b.v) * ts, b.k + (c.k - b.k) * ts };
-        }
-        if (l.x > r.x) { s = l; l = r; r = s; }
-        int x0 = (int)ceilf(l.x - 0.5f), x1 = (int)ceilf(r.x - 0.5f);
-        if (x0 < g->cx0) x0 = g->cx0;
-        if (x1 > g->cx1) x1 = g->cx1;
-        if (x0 >= x1)
+    for (int y = t.y0; y < t.y1; y++) {
+        int x0, x1;
+        if (!tri_span(&t, g, y, &x0, &x1))
             continue;
-        float w = r.x - l.x, inv = w > 1e-6f ? 1.0f / w : 0.0f;
-        float dz = (r.z - l.z) * inv, du = (r.u - l.u) * inv, dv = (r.v - l.v) * inv;
-        float off = x0 + 0.5f - l.x;
-        float z = l.z + off * dz, u = l.u + off * du, v = l.v + off * dv;
-        /* light in 8.8 fixed point of 0..256 */
-        int32_t kf = (int32_t)((l.k + off * (r.k - l.k) * inv) * 65536.0f);
-        int32_t dkf = (int32_t)((r.k - l.k) * inv * 65536.0f);
+        float z = ATTR(&t, a.z, dzx, dzy, x0, y), u = ATTR(&t, a.u, dux, duy, x0, y),
+              v = ATTR(&t, a.v, dvx, dvy, x0, y);
+        int32_t kf = (int32_t)((flat_k ? a.k : ATTR(&t, a.k, dkx, dky, x0, y)) * 65536.0f);
+        int32_t zf = (int32_t)(z * ZSCALE);
         uint16_t *row = g->px + (uint32_t)y * g->stride;
         uint16_t *zrow = zbuf ? zbuf + (uint32_t)y * g->w : NULL;
-        int32_t zf = (int32_t)(z * 65535.0f * 256.0f), dzf = (int32_t)(dz * 65535.0f * 256.0f);
         /* texel coordinates (16.16) exact every TEX_RUN pixels, linear in between */
-        float iz = 1.0f / z;
+        float iz = 1.0f / (z > 1e-9f ? z : 1e-9f);
         int32_t uf = (int32_t)(u * iz * 65536.0f), vf = (int32_t)(v * iz * 65536.0f);
         for (int x = x0; x < x1;) {
             int n = x1 - x < TEX_RUN ? x1 - x : TEX_RUN;
-            z += dz * n; u += du * n; v += dv * n;
-            float iz2 = 1.0f / (z > 1e-9f ? z : 1e-9f), in = 1.0f / n;
+            z += dzx * n; u += dux * n; v += dvx * n;
+            float iz2 = 1.0f / (z > 1e-9f ? z : 1e-9f);
             int32_t uf2 = (int32_t)(u * iz2 * 65536.0f), vf2 = (int32_t)(v * iz2 * 65536.0f);
-            int32_t duf = (int32_t)((float)(uf2 - uf) * in), dvf = (int32_t)((float)(vf2 - vf) * in);
+            int32_t duf, dvf;
+            if (n == TEX_RUN) {
+                duf = (uf2 - uf) / TEX_RUN; dvf = (vf2 - vf) / TEX_RUN;
+            } else {
+                float in = 1.0f / n;
+                duf = (int32_t)((float)(uf2 - uf) * in); dvf = (int32_t)((float)(vf2 - vf) * in);
+            }
             for (int e = x + n; x < e; x++, zf += dzf, uf += duf, vf += dvf, kf += dkf) {
                 int32_t zz = zf >> 8;
                 if (zz > 65535) zz = 65535;
                 if (zrow && zz <= zrow[x])
                     continue;
                 int tx = uf >> 16, ty = vf >> 16;
-                if (tx < 0) tx = 0; else if (tx >= tw) tx = tw - 1;
-                if (ty < 0) ty = 0; else if (ty >= th) ty = th - 1;
+                if ((unsigned)tx >= (unsigned)tw) tx = tx < 0 ? 0 : tw - 1;
+                if ((unsigned)ty >= (unsigned)th) ty = ty < 0 ? 0 : th - 1;
                 uint32_t i = (uint32_t)ty * (uint32_t)tw + (uint32_t)tx;
-                if (!t->alpha[i])
+                if (!tex->alpha[i])
                     continue;
-                uint32_t p = t->px[i];
+                uint32_t p = tex->px[i];
                 uint32_t k = kf <= 0 ? 0 : (uint32_t)(kf >> 8);
                 if (k < 256) {
                     uint32_t rr = (p >> 11) * k >> 8, gg = (p >> 5 & 63) * k >> 8, bb = (p & 31) * k >> 8;
@@ -344,6 +370,11 @@ void r3d_light(r3d_t *r, float x, float y, float z, float ambient)
 /* rotation matrix R = Rz * Ry * Rx, row major */
 static void rot_matrix(float m[9], float rx, float ry, float rz)
 {
+    if (rx == 0 && ry == 0 && rz == 0) {        /* most scenery: no trigonometry */
+        static const float id[9] = { 1, 0, 0, 0, 1, 0, 0, 0, 1 };
+        memcpy(m, id, sizeof id);
+        return;
+    }
     float cx = cosf(rx), sx = sinf(rx), cy = cosf(ry), sy = sinf(ry), cz = cosf(rz), sz = sinf(rz);
     m[0] = cz * cy; m[1] = cz * sy * sx - sz * cx; m[2] = cz * sy * cx + sz * sx;
     m[3] = sz * cy; m[4] = sz * sy * sx + cz * cx; m[5] = sz * sy * cx - cz * sx;
@@ -370,6 +401,14 @@ typedef struct {
 
 static void view_setup(const r3d_t *r, view_t *v)
 {
+    /* the camera rarely changes within a frame: many draw3d() calls share
+     * the same matrix (six sines and cosines saved each time) */
+    static struct { float yaw, pitch, roll, focal; int w, h, ok; view_t v; } cache;
+    if (cache.ok && cache.yaw == r->cam_yaw && cache.pitch == r->cam_pitch &&
+        cache.roll == r->cam_roll && cache.focal == r->focal && cache.w == r->g->w && cache.h == r->g->h) {
+        *v = cache.v;
+        return;
+    }
     const float cy = cosf(r->cam_yaw), sy = sinf(r->cam_yaw);
     const float cp = cosf(r->cam_pitch), sp = sinf(r->cam_pitch);
     const float cr = cosf(r->cam_roll), sr = sinf(r->cam_roll);
@@ -384,6 +423,10 @@ static void view_setup(const r3d_t *r, view_t *v)
     v->hw = r->g->w * 0.5f;
     v->hh = r->g->h * 0.5f;
     v->f = r->focal;
+    cache.yaw = r->cam_yaw; cache.pitch = r->cam_pitch; cache.roll = r->cam_roll;
+    cache.focal = r->focal; cache.w = r->g->w; cache.h = r->g->h;
+    cache.v = *v;
+    cache.ok = 1;
 }
 
 int r3d_project(const r3d_t *r, v3_t p, float *sx, float *sy, float *depth)

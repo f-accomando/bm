@@ -2,6 +2,7 @@
 #include "gfx16.h"
 #include "r3d.h"
 #include "runtime.h"
+#include "drivers/prop.h"
 #include "drivers/timer.h"
 #include "drivers/uart.h"
 #include "lib/printf.h"
@@ -188,6 +189,27 @@ static void overlay(const char *name, int n, float ms)
     g16_text(&g, 0, 0, line, 0xFFFF);
 }
 
+/* One line about the machine: clocks, temperature, the firmware's
+ * throttling flags (under-voltage, capped frequency...) and the time of a
+ * fixed CPU-only loop (it grows if interrupts take time away). */
+static void machine_line(const char *when)
+{
+    uint32_t temp[2] = { 0, 0 }, thr[1] = { 0xFFFF };
+    prop_query(PROP_GET_TEMPERATURE, temp, 2);
+    int have_thr = prop_query(PROP_GET_THROTTLED, thr, 1) == 0;
+    volatile uint32_t acc = 1;
+    uint32_t t0 = timer_ticks();
+    for (uint32_t i = 0; i < 2000000; i++)
+        acc = acc * 1664525u + 1013904223u;
+    uint32_t loop = timer_ticks() - t0;
+    char th[16];
+    if (have_thr) ksnprintf(th, sizeof th, "%05lx", thr[0]);
+    else ksnprintf(th, sizeof th, "n/a");
+    kprintf("%s: ARM %lu MHz, core %lu MHz, %lu.%lu C, throttled %s, cpu loop %lu.%02lu ms\n",
+            when, prop_clock_rate(CLOCK_ARM) / 1000000, prop_clock_rate(CLOCK_CORE) / 1000000,
+            temp[1] / 1000, temp[1] / 100 % 10, th, loop / 1000, loop / 10 % 100);
+}
+
 void b33_stress_run(framebuffer_t *fb)
 {
     const uint32_t con_w = fb->width, con_h = fb->height;
@@ -196,6 +218,7 @@ void b33_stress_run(framebuffer_t *fb)
     float per_item[NTESTS];
 
     kprintf("stress test: 640x360 RGB565, %d frames per step, draw + copy to screen\n", FRAMES_PER_STEP);
+    machine_line("before");
     if (b33_video_enter(fb, W, H, &g) != 0) {
         b33_video_leave(fb, con_w, con_h);
         kprintf("stress: cannot set the video mode\n");
@@ -240,6 +263,7 @@ void b33_stress_run(framebuffer_t *fb)
                                   (samples[count - 1].n - samples[0].n) : 0;
     }
     b33_video_leave(fb, con_w, con_h);
+    machine_line("after C part");
 
     kprintf("\x1b[1m%-24s%16s%16s%12s\x1b[0m\n", "test (max per frame)", "60 fps", "30 fps", "us/item");
     for (size_t t = 0; t < sizeof tests / sizeof *tests; t++) {

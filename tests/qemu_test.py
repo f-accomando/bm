@@ -964,6 +964,46 @@ class FakeDs4Chip(FakeBtChip):
             assert code == 0x05 and ident == 0x66
         self.expect_light(pad_cids[1], player, handle)
 
+    def reconnect_sdp(self, pad, key, handle, pad_cids, player, sdp_cid=0x42):
+        """A pad that comes back, asks the host's SDP first (seen on the Pi:
+        it gave up when the channel was refused) and then waits: the host
+        answers with no records and opens both HID channels itself."""
+        self._event(0x04, pad + bytes([0x08, 0x25, 0x00, 1]))
+        self.cmd(0x0409, reply="status")
+        self._event(0x03, bytes([0]) + handle.to_bytes(2, "little") + pad + bytes([1, 0]))
+        self._event(0x17, pad)
+        assert self.cmd(0x040B) == pad + key
+        self._event(0x08, bytes([0]) + handle.to_bytes(2, "little") + bytes([1]))
+        # SDP channel from the pad (PSM 1)
+        self.sig(0x02, 0x21, (1).to_bytes(2, "little") + sdp_cid.to_bytes(2, "little"), handle)
+        code, ident, data = self.host_sig(handle)
+        assert code == 0x03 and data[:6] == (0x42).to_bytes(2, "little") + sdp_cid.to_bytes(2, "little") \
+            + bytes(2), (code, data.hex())
+        code, ident, data = self.host_sig(handle)
+        assert code == 0x04 and int.from_bytes(data[:2], "little") == sdp_cid
+        self.sig(0x05, ident, (0x42).to_bytes(2, "little") + bytes(4), handle)
+        self.sig(0x04, 0x68, (0x42).to_bytes(2, "little") + bytes(2), handle)
+        code, ident, data = self.host_sig(handle)
+        assert code == 0x05 and ident == 0x68
+        # Service Search Attribute request -> empty answer
+        req = bytes([0x06, 0x00, 0x01, 0x00, 0x0F, 0x35, 0x03, 0x19, 0x12, 0x00, 0xFF, 0xFF,
+                     0x35, 0x05, 0x0A, 0x00, 0x00, 0xFF, 0xFF, 0x00])
+        self.l2(0x0042, req, handle)
+        kind, h, payload = self.packet()
+        assert kind == "acl" and h == handle and int.from_bytes(payload[2:4], "little") == sdp_cid, \
+            payload.hex()
+        assert payload[4:] == bytes([0x07, 0x00, 0x01, 0x00, 0x05, 0x00, 0x02, 0x35, 0x00, 0x00]), \
+            payload[4:].hex()
+        # the pad waits: the host opens the HID channels (as when pairing)
+        for psm, host_cid, pad_cid in ((0x11, 0x40, pad_cids[0]), (0x13, 0x41, pad_cids[1])):
+            code, ident, data = self.host_sig(handle)
+            assert code == 0x02 and data == psm.to_bytes(2, "little") + host_cid.to_bytes(2, "little"), \
+                (code, data.hex())
+            self.sig(0x03, ident, pad_cid.to_bytes(2, "little") + host_cid.to_bytes(2, "little") + bytes(4),
+                     handle)
+            self.configure(pad_cid, host_cid, handle)
+        self.expect_light(pad_cids[1], player, handle)
+
     def pair(self, pad, key, handle, pad_cids, player, clock=(0x34, 0x12)):
         """Pairing from the monitor ('T'): inquiry finds the pad, the host
         connects, SSP Just Works, encryption, the host opens both channels
@@ -1149,7 +1189,7 @@ def test_bt_two_pads(b, opts):
         _mini_expect(q, "paired pad 1c:66:6d:01:02:03 (player 1)")
         _mini_expect(q, "paired pad 1c:66:6d:09:0a:0b (player 2)")
         _mini_expect(q, "cartridge menu")
-        chip.reconnect(pad_b, key_b, 0x0C, (0x60, 0x61), 2)       # red
+        chip.reconnect_sdp(pad_b, key_b, 0x0C, (0x60, 0x61), 2)   # red, asks SDP first
         _mini_expect(q, "bt: controller 1c:66:6d:09:0a:0b connected (player 2)")
         chip.reconnect(pad_a, key_a, 0x0B, (0x50, 0x51), 1)       # blue
         _mini_expect(q, "bt: controller 1c:66:6d:01:02:03 connected (player 1)")

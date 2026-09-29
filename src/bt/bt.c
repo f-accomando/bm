@@ -46,11 +46,17 @@
 #define CM_ENAB      (1u << 4)
 #define CM_BUSY      (1u << 7)
 
+#define PSM_SDP           0x01
 #define PSM_HID_CONTROL   0x11
 #define PSM_HID_INTERRUPT 0x13
 #define CID_SIGNALING     0x0001
 #define CID_CONTROL       0x0040    /* our local channel ids (per link) */
 #define CID_INTERRUPT     0x0041
+#define CID_SDP           0x0042
+
+/* a pad that came back and opened no HID channel after this long gets them
+ * opened by us (some pads ask SDP first and then wait for the host) */
+#define HOST_OPEN_MS      1000
 
 /* L2CAP signaling codes */
 #define L2_CMD_REJECT   0x01
@@ -83,8 +89,10 @@ typedef struct {
     uint8_t addr[6];                /* peer */
     int auth_done, auth_status;
     int enc;
-    chan_t ctrl, intr;
+    chan_t ctrl, intr, sdp;
     uint8_t sig_id;
+    uint32_t since;                 /* timer_ticks() of Connection Complete */
+    int host_step;                  /* HOST_OPEN_MS fallback: 0 idle, 1 auth, 2 encrypt, 3 channels */
     int announced;
     int slot;                       /* player - 1, or -1 before it has a key */
 } link_t;
@@ -281,8 +289,11 @@ static void reset_link(link_t *l)
     l->connected = l->auth_done = l->enc = l->announced = 0;
     memset(&l->ctrl, 0, sizeof l->ctrl);
     memset(&l->intr, 0, sizeof l->intr);
+    memset(&l->sdp, 0, sizeof l->sdp);
     l->ctrl.lcid = CID_CONTROL;
     l->intr.lcid = CID_INTERRUPT;
+    l->sdp.lcid = CID_SDP;
+    l->host_step = 0;
 }
 
 /* A link for this address: the existing one, or a free entry. */
@@ -529,7 +540,8 @@ static void l2cap_connect(link_t *l, chan_t *c, uint16_t psm)
 
 static chan_t *by_lcid(link_t *l, uint16_t lcid)
 {
-    return lcid == l->ctrl.lcid ? &l->ctrl : lcid == l->intr.lcid ? &l->intr : NULL;
+    return lcid == l->ctrl.lcid ? &l->ctrl : lcid == l->intr.lcid ? &l->intr :
+           lcid == l->sdp.lcid ? &l->sdp : NULL;
 }
 
 /* The DualShock 4 light in the player colour. Also switches the pad to
@@ -590,7 +602,8 @@ static void handle_signaling(link_t *l, const uint8_t *s, uint16_t len)
         switch (code) {
         case L2_CONN_REQ: {                     /* the pad opens a channel (reconnect) */
             uint16_t psm = get16(p), scid = get16(p + 2);
-            chan_t *c = psm == PSM_HID_CONTROL ? &l->ctrl : psm == PSM_HID_INTERRUPT ? &l->intr : NULL;
+            chan_t *c = psm == PSM_HID_CONTROL ? &l->ctrl : psm == PSM_HID_INTERRUPT ? &l->intr :
+                        psm == PSM_SDP ? &l->sdp : NULL;
             uint8_t r[8];
             put16(r, c ? c->lcid : 0);
             put16(r + 2, scid);
@@ -613,6 +626,8 @@ static void handle_signaling(link_t *l, const uint8_t *s, uint16_t len)
             } else if (c && result != 1) {      /* 1 = pending */
                 kprintf("bt: channel refused (result %u)\n", result);
                 c->requested = 0;
+                if (l->host_step == 3)
+                    l->host_step = 4;           /* do not insist: the pad decides */
             }
             break;
         }
@@ -664,6 +679,45 @@ static void handle_signaling(link_t *l, const uint8_t *s, uint16_t len)
     }
 }
 
+/* SDP server with no records: some pads ask the host before opening the
+ * HID channels, and give up when the channel is refused. Every search gets
+ * a valid, empty answer. PDU: id, transaction (BE), parameter length (BE). */
+static void sdp_reply(link_t *l, const uint8_t *d, uint16_t len)
+{
+    if (len < 5 || !l->sdp.open)
+        return;
+    uint8_t r[12];
+    uint16_t n;
+    r[1] = d[1];
+    r[2] = d[2];
+    switch (d[0]) {
+    case 0x02:                                  /* Service Search -> none */
+        r[0] = 0x03;
+        r[5] = 0; r[6] = 0;                     /* total records */
+        r[7] = 0; r[8] = 0;                     /* records in this answer */
+        r[9] = 0;                               /* no continuation */
+        n = 5;
+        break;
+    case 0x04:                                  /* Service Attribute */
+    case 0x06:                                  /* Service Search Attribute */
+        r[0] = (uint8_t)(d[0] + 1);
+        r[5] = 0; r[6] = 2;                     /* attribute list byte count */
+        r[7] = 0x35; r[8] = 0x00;               /* empty data element sequence */
+        r[9] = 0;
+        n = 5;
+        break;
+    default:
+        r[0] = 0x01;                            /* Error Response */
+        r[5] = 0; r[6] = 0x03;                  /* invalid request syntax */
+        n = 2;
+        break;
+    }
+    r[3] = (uint8_t)(n >> 8);
+    r[4] = (uint8_t)n;
+    trace(l, "SDP request %02x answered (no records)", d[0]);
+    l2cap_send(l, l->sdp.rcid, r, (uint16_t)(5 + n));
+}
+
 static void handle_acl(const hci_pkt_t *p)
 {
     if (p->len < 8)
@@ -677,6 +731,8 @@ static void handle_acl(const hci_pkt_t *p)
         return;                                 /* fragments are not expected */
     if (cid == CID_SIGNALING) {
         handle_signaling(l, d, l2len);
+    } else if (cid == l->sdp.lcid) {
+        sdp_reply(l, d, l2len);
     } else if (cid == l->intr.lcid && l2len >= 2 && d[0] == 0xA1 && l->slot >= 0) {
         hid_bt_report(l->slot, d + 1, l2len - 1u);   /* DATA | Input, then report ID */
     }
@@ -738,6 +794,7 @@ static void handle_event(const hci_pkt_t *p)
                 reset_link(l);
                 l->connected = 1;
                 l->handle = get16(e + 1) & 0x0FFF;
+                l->since = timer_ticks();
             }
         } else {
             kprintf("bt: connection failed (status %02x)\n", e[0]);
@@ -826,11 +883,62 @@ static void dispatch(const hci_pkt_t *p)
         handle_acl(p);
 }
 
+/* A paired pad that connected by itself but opened no HID channel: we
+ * authenticate, encrypt and open the channels, as when pairing (without
+ * waiting: the events arrive through bt_poll). */
+static void host_open(link_t *l)
+{
+    if (!l->connected || l->announced || l->slot < 0 || bt.pairing)
+        return;
+    if (l->host_step == 0) {
+        if (l->ctrl.rcid || l->intr.rcid || timer_ticks() - l->since < HOST_OPEN_MS * 1000u)
+            return;                             /* the pad is opening them itself */
+        trace(l, "no HID channel from the pad: opening them");
+        l->host_step = 1;
+    }
+    uint8_t h[3];
+    put16(h, l->handle);
+    switch (l->host_step) {
+    case 1:
+        if (l->enc) {
+            l->host_step = 3;
+        } else if (!l->auth_done) {
+            hci_send(HCI_AUTH_REQUESTED, h, 2);
+            l->host_step = 2;
+        } else {
+            l->host_step = 2;
+        }
+        break;
+    case 2:
+        if (l->auth_done == 1 && l->auth_status == 0 && !l->enc) {
+            h[2] = 1;
+            hci_send(HCI_SET_CONN_ENCRYPTION, h, 3);
+            l->auth_done = 2;                   /* sent: wait for Encryption Change */
+        } else if (l->auth_done == 1 && l->auth_status != 0) {
+            l->host_step = 4;                   /* give up: the pad decides */
+        }
+        if (l->enc)
+            l->host_step = 3;
+        break;
+    case 3:
+        if (!l->ctrl.requested && !l->ctrl.rcid)
+            l2cap_connect(l, &l->ctrl, PSM_HID_CONTROL);
+        else if (l->ctrl.open && !l->intr.requested && !l->intr.rcid)
+            l2cap_connect(l, &l->intr, PSM_HID_INTERRUPT);
+        break;
+    default:
+        break;
+    }
+}
+
 void bt_poll(void)
 {
     static hci_pkt_t p;
     if (!bt.started)
         return;
+    for (int i = 0; i < BT_PADS; i++)
+        if (bt.link[i].used)
+            host_open(&bt.link[i]);
     /* everything that arrived since the last call: the buttons must be
      * the newest state, not a queue (bounded to 4 ms of work) */
     uint32_t t0 = timer_ticks();

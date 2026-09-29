@@ -1,6 +1,8 @@
 # Raspberry Pi Zero W v1.1: risorse hardware e utilizzo di bm33 / s32
 
 Scopo: vedere **quanto dell'hardware usiamo** e **quanto margine resta**.
+Alcune righe (DMA, USB, Bluetooth, audio) sono della fase MVP: lo stato attuale e le
+scelte tecniche con le misure sono in [`PRESTAZIONI.md`](PRESTAZIONI.md).
 Colonne:
 
 - **Pi Zero W** — capacità dell'hardware (datasheet o misurate sul nostro Pi);

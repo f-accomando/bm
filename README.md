@@ -24,6 +24,7 @@ Per scrivere un gioco: [docs/GUIDA-GIOCHI.md](docs/GUIDA-GIOCHI.md) (guida prati
 Dettagli, criteri di completamento e rischi in [docs/ROADMAP.md](docs/ROADMAP.md).
 Risorse del Pi Zero W e quanto ne usano bm33/s32: [docs/HARDWARE.md](docs/HARDWARE.md).
 Stress test di rendering (soglie 60/30 fps): [docs/STRESS.md](docs/STRESS.md) — `make sdcard-stress`.
+Prestazioni e scelte tecniche (limiti del Pi, atteso contro misurato): [docs/PRESTAZIONI.md](docs/PRESTAZIONI.md).
 
 | # | Obiettivo | Stato |
 |---|-----------|-------|
@@ -42,7 +43,7 @@ Stress test di rendering (soglie 60/30 fps): [docs/STRESS.md](docs/STRESS.md) �
 | **M11** | SD in scrittura: salvataggi, record, impostazioni | ✅ verificato sul Pi |
 | **M12** | Controller **Bluetooth** (DualShock 4) | ✅ verificato sul Pi |
 | M13 | Altri tipi di cartuccia: s32 Lua (con lua32), codice ARM nativo | |
-| M14 | Grafica 2.0: DMA, modo 32 bit, 3D con texture, menu con anteprime | |
+| M14 | Grafica 2.0: DMA, 3D con texture e Gouraud, menu con anteprime (32 bit rimandato) | 🛠 in corso |
 | **M15** | Editor sulla console: codice, sprite, mappa, prova e torna | ✅ verificato sul Pi |
 | **M16** | Multiplayer locale: fino a 4 controller Bluetooth, `btn(i, giocatore)`, Pong a 2 | 🛠 fatto, da provare sul Pi |
 | **M17** | **Chaos Kitchen**: cucina cooperativa in 3D per 1–4 giocatori (campagna, infinita, pratica) | 🛠 fatto, da provare sul Pi |

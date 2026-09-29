@@ -114,6 +114,12 @@ Ripetibilità: una seconda esecuzione sullo stesso Pi ha dato gli stessi valori 
 Dati di riferimento già misurati sul Pi reale (M3–M7): riempimento 640×360 a 32 bit
 2,2 ms; demo C con 64 sprite 2,7 ms per frame; Lua circa 100 ns per operazione semplice.
 
+### Misura del 2026-09-29 (`8298b15`)
+
+Tabella e analisi in `docs/ROADMAP.md` (M14): parte C più lenta che a settembre, parte
+Lua uguale; da allora lo stress test stampa clock, temperatura, throttling e un ciclo di
+sola CPU prima e dopo la parte C, per capire la differenza alla prossima misura.
+
 ## Come eseguirlo sul Pi
 
 ```sh

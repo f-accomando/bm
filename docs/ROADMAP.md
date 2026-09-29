@@ -320,11 +320,42 @@ Fatto finora (da verificare sul Pi):
   (`tests/b33`) e due righe nuove nello stress test `s`: "3D smooth (Gouraud)" e
   "3D textured" (le stesse sfere), da misurare sul Pi.
 
+- Misure sul Pi (kernel `8298b15`, 2026-09-29), stress test `s` con un DS4 collegato:
+
+  | Test | 60 fps | 30 fps | µs/oggetto |
+  |---|---:|---:|---:|
+  | sprites 16×16 (C) | 3500 | 8237 | 3,52 |
+  | sprites 32×32 (C) | 1183 | 2791 | 10,37 |
+  | triangles 2D ~170px | 2053 | 4838 | 5,98 |
+  | 3D spheres 96 (C) | 15 (556 tri) | 93 (3601 tri) | 208 |
+  | 3D smooth (Gouraud) | <1 | 45 (1726 tri) | 277 |
+  | 3D textured | <1 | <1 | 262 |
+  | sprites 16×16 (Lua) | 1854 | 3826 | 8,41 |
+  | 3D spheres 96 (Lua) | 26 (1015 tri) | 108 (4200 tri) | 184 |
+
+  Rispetto a `792787f` la parte C è più lenta (sprite −22% con la stessa pendenza:
+  ~3,5 ms fissi in più per frame; 3D −50%) mentre la parte Lua, subito dopo, no: la
+  causa non è chiara, per questo lo stress test ora stampa prima e dopo la parte C clock
+  ARM/core, temperatura, stato di throttling del firmware e il tempo di un ciclo di sola
+  CPU. Con n = 1 la sfera copre quasi tutto lo schermo (~180 000 pixel): Gouraud e
+  texture non ci stanno in 16,7 ms, cioè costano per pixel molto più del piatto.
+  Titan Clash 11,6 ms (61 fps); Chaos Kitchen 1-1 14,1 ms ma 54 fps (alcuni frame oltre
+  16,7 ms); Astro Wing con il nucleo liscio ok.
+- **Rasterizzatore più veloce** (dopo le misure): gradienti di profondità, colore e
+  texture calcolati una volta per triangolo invece di 2–3 divisioni per riga, `ceilf`
+  (funzione di libreria) sostituita da un arrotondamento in linea, Gouraud senza
+  saturazioni per pixel (i colori vengono limitati sui vertici), la matrice della camera
+  in cache tra un `draw3d` e l'altro e nessun seno/coseno per le mesh non ruotate. Le
+  facce piatte danno gli stessi identici pixel di prima (test host).
+- Decisione 2026-09-29: il **modo 32 bit** è rimandato (fuori da M14): raddoppia la
+  banda di memoria, che è il limite del Pi Zero, e le sfumature ora le copre il
+  dithering.
+
 Previsto:
 - **DMA** del BCM2835 per riempimenti e copie (liberano la CPU: `cls`, mappe, copia
   dei frame) e misura sul Pi di cosa conviene (la lettura della SDRAM è il collo di
   bottiglia: vedi M9).
-- Modo **32 bit** (XRGB8888) per le `.b33`, previsto dal formato (pixel format 2).
+- ~~Modo **32 bit** (XRGB8888) per le `.b33`~~: rimandato (vedi sopra).
 - 3D: texture sui triangoli e Gouraud (fatti); rimisurare `docs/STRESS.md` sul Pi.
 - Menu grafico con anteprime delle cartucce (immagine nell'header `.b33`).
 - **Fatto quando:** lo stress test mostra il guadagno del DMA e una demo 3D con
@@ -381,6 +412,12 @@ Fatto (QEMU, `test_bt_pair_and_reconnect`, `test_bt_two_pads`):
   ogni giocatore; Pong con la modalità 2 giocatori.
 
 Da provare sul Pi: due DS4 insieme (ritardo d'input come in M12), la luce, Pong a 2.
+
+Sul Pi (2026-09-29, `8298b15`): con un pad collegato, un secondo DS4 già abbinato si
+connetteva, apriva il canale **SDP** (PSM 1) prima di quelli HID e, al rifiuto, chiudeva
+(motivo 0x13), in ciclo. Ora bm33 ha un piccolo server SDP che risponde "nessun record"
+e, se un pad abbinato non apre i canali HID entro 1 s, li apre la console (come
+nell'abbinamento). Test QEMU: in `test_bt_two_pads` il secondo pad fa proprio così.
 
 Piano iniziale:
 - Più controller abbinati: `bt_pad1`, `bt_pad2`, … in `config.txt` (il vecchio
