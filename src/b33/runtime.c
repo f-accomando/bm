@@ -1030,21 +1030,33 @@ static int poll_keys(void)
 
 /* ---------------------------------------------------------------- loading */
 
+static void sheet8_set(void *ctx, int x, int y, const uint8_t rgba[4])
+{
+    (void)ctx;
+    g16_sheet_set(&rt.sheet, x, y, g16_rgb(rgba[0], rgba[1], rgba[2]), rgba[3] >= 128);
+}
+
 static int load_assets(const b33_cart_t *c)
 {
-    int sw = c->sheet_rgba ? c->sheet_w : 256, sh = c->sheet_rgba ? c->sheet_h : 256;
+    int has = c->sheet_rgba || c->sheet8;
+    int sw = has ? c->sheet_w : 256, sh = has ? c->sheet_h : 256;
     if (g16_sheet_alloc(&rt.sheet, sw, sh) != 0)
         return -1;
     int cells = (rt.sheet.w / G16_CELL) * (rt.sheet.h / G16_CELL);
     rt.cell_dirty = calloc((size_t)cells, 1);
     if (!rt.cell_dirty)
         return -1;
-    if (c->sheet_rgba) {
-        for (int y = 0; y < c->sheet_h; y++)
-            for (int x = 0; x < c->sheet_w; x++) {
-                const uint8_t *p = c->sheet_rgba + ((uint32_t)y * c->sheet_w + x) * 4;
-                g16_sheet_set(&rt.sheet, x, y, g16_rgb(p[0], p[1], p[2]), p[3] >= 128);
-            }
+    if (has) {
+        if (c->sheet8) {
+            if (b33_sheet8_unpack(c, sheet8_set, NULL) != 0)
+                return -1;
+        } else {
+            for (int y = 0; y < c->sheet_h; y++)
+                for (int x = 0; x < c->sheet_w; x++) {
+                    const uint8_t *p = c->sheet_rgba + ((uint32_t)y * c->sheet_w + x) * 4;
+                    g16_sheet_set(&rt.sheet, x, y, g16_rgb(p[0], p[1], p[2]), p[3] >= 128);
+                }
+        }
         for (int i = 0; i < cells; i++)
             rt.cell_dirty[i] = 1;
         rt.sheet_dirty = 1;

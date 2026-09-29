@@ -175,8 +175,9 @@ M9 (MVP) ─┬─ M10 audio
           ├─ M13 altri tipi di cartuccia (s32 Lua quando lua32 è pronto, ARM nativo)
           ├─ M14 grafica 2.0 (DMA, 32 bit, 3D con texture)
           ├─ M15 editor sulla console (codice, sprite, mappa)
-          └─ M16 multiplayer locale (più controller Bluetooth) ─── M17 gioco cooperativo
-                                                        └─ M18 WiFi, console di rete ─── M19 HTTPS: aggiornamenti e "git leggero"
+          └─ M16 multiplayer locale (più controller Bluetooth) ─┬─ M17 gioco cooperativo
+                                                                ├─ M20 picchiaduro a robot giganti
+                                                                └─ M18 WiFi, console di rete ─── M19 HTTPS: aggiornamenti e "git leggero"
 ```
 
 ## M10 — Audio HDMI (M/L) ✅ verificato sul Pi Zero W
@@ -524,6 +525,31 @@ Si procede per incrementi, sempre con una build giocabile:
   hurtbox per frame.
 - **Fatto quando:** il vertical slice è giocabile sul Pi a 60 fps con robot grandi e
   l'autore conferma il feeling; poi ogni passo successivo ha il suo criterio.
+
+**Stato (2026-09-29): prima base giocabile, da provare sul Pi.** Su richiesta
+dell'autore si è partiti subito da un MVP (passi 1–3 insieme, con un solo robot):
+progettazione in [`docs/giochi/mecha-fighter-design.md`](giochi/mecha-fighter-design.md),
+cartuccia **Titan Clash** (`carts/titan`).
+- Kernel: sezione **SHEET8** del `.b33` (palette di ≤256 colori + RLE, decodificata al
+  caricamento) e sheet fino a 4096 pixel di lato; `mkb33.py --sheet8`; test host in
+  `tests/b33`.
+- Arte pre-renderizzata (`mkrobot.py`): il robot VANGUARD è un modello 3D procedurale
+  su uno scheletro, reso in vista 3/4 con cel shading a 6 toni e contorni, 62 frame in
+  23 animazioni, **a strati** (armatura pesante, spallaccio integro/crepato, cannoni,
+  spada sulla schiena o in mano) e in due livree (P1 acciaio e arancio, P2 cremisi e
+  oro); hurtbox e hitbox per frame dalle ossa. `art.py`: città al tramonto in 4 piani
+  di parallasse, hangar, effetti, scritte. Tutto in `sheet.png` (2048×3376, 166 colori).
+- Gioco: 1P contro CPU (3 livelli), 2 giocatori, CPU contro CPU e demo; armatura
+  leggera/pesante (velocità, salto e doppio salto, scatto, resistenza) e spada
+  (fendente a energia) o cannoni (raffiche con calore); pugni e calci leggeri/pesanti
+  anche accovacciati e in aria, parata alta/bassa, scatti anche aerei, cancel in mosse
+  più forti, launcher e juggle, knockdown; vita e armatura con lo spallaccio che si
+  crepa a metà e vola via a zero; round al meglio di 3 da 99 s; hangar animato
+  (operai, saldature, gru); musica e suoni; pausa con la lista delle mosse.
+- Test: `make test-titan` (menu, hangar, partita contro la CPU, pausa, tempo scaduto,
+  24 incontri CPU contro CPU con ogni coppia di configurazioni e ogni livello,
+  2 giocatori, demo; costo dei frame) e `test_titan` in QEMU. Select mostra il tempo
+  di frame sul Pi.
 
 ## Rischi principali
 | Rischio | Mitigazione |

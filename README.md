@@ -48,7 +48,7 @@ Stress test di rendering (soglie 60/30 fps): [docs/STRESS.md](docs/STRESS.md) �
 | **M17** | **Chaos Kitchen**: cucina cooperativa in 3D per 1–4 giocatori (campagna, infinita, pratica) | 🛠 fatto, da provare sul Pi |
 | M18 | WiFi, console di rete con password, invio di kernel e cartucce dal PC | |
 | M19 | HTTPS: aggiornamenti da GitHub, "git leggero" (archivi e API con token) | |
-| M20 | Picchiaduro 2D a robot giganti modulari (SF2 Turbo × MSH vs SF), hangar, tag team | |
+| **M20** | **Titan Clash**: picchiaduro 2D a robot giganti; prima base giocabile (1 robot, armatura leggera/pesante, spada o cannoni, hangar, contro CPU o in 2) | 🛠 base fatta, da provare sul Pi |
 
 ## Cosa fa il kernel
 
@@ -144,7 +144,7 @@ viene scelta l'interfaccia tastiera, anche se il dispositivo usa i report con ID
 (quella da cui si avvia il Pi) e cerca i file **`.b33`** e **`.cart`** nella
 cartella `carts/` e nella radice. Nomi lunghi supportati. `make sdcard` mette in
 `dist/carts/` i giochi e le demo (`pong.b33`, `snake.b33`, `shooter.b33`, `astrowing.b33`, `hunt.b33`,
-`kitchen.b33`, `demo.b33`, `stress.b33`, `demo.cart`); `make image` li mette nell'immagine SD.
+`kitchen.b33`, `titan.b33`, `demo.b33`, `stress.b33`, `demo.cart`); `make image` li mette nell'immagine SD.
 
 **Menu delle cartucce.** Mostra titolo e autore letti dalle cartucce (ordinate per
 titolo) e sotto il nome del file scelto. Su/giù per scegliere, Invio (o A) per giocare,
@@ -281,7 +281,9 @@ un'API in stile PICO-8: forme, sprite e mappa, testo, input (`btn`/`btnp`), temp
 Giochi di esempio: `carts/pong`, `carts/snake`, `carts/shooter`, `carts/astrowing` (3D), `carts/hunt` (mappa 2048×2048, luci; grafica e mappa da `mkassets.py`) (solo Lua, sprite
 disegnati nel codice con `sset`), `carts/demo` (sprite sheet PNG e mappa CSV),
 `carts/kitchen` (Chaos Kitchen: gioco grande in più file Lua uniti da `build.py`, 3D,
-fino a 4 giocatori, simulatore host in `tests/kitchen/`).
+fino a 4 giocatori, simulatore host in `tests/kitchen/`), `carts/titan` (Titan Clash:
+picchiaduro con sprite grandi pre-renderizzati da un modello 3D, sheet 2048×3376 con
+palette, simulatore host in `tests/titan/`).
 
 Sandbox: niente `io`, `os`, `load`, `dofile`, `require`. Un errore o un ciclo infinito
 (oltre 20 milioni di istruzioni in un frame) ferma la cartuccia e mostra l'errore
@@ -408,6 +410,9 @@ carts/pong|snake|shooter|astrowing|hunt giochi demo (solo Lua)
 carts/kitchen/           Chaos Kitchen (M17): src/*.lua, build.py, mkassets.py,
                          models/*.glb e import_chefs.py (modelli 3D degli chef)
 tests/kitchen/           simulatore host di Chaos Kitchen (luahost + sim.lua)
+carts/titan/             Titan Clash (M20): src/*.lua, build.py; mkrobot.py (il robot
+                         pre-renderizzato), art.py e mkassets.py (sheet.png)
+tests/titan/             simulatore host di Titan Clash (sim.lua)
 docs/API.md              API delle cartucce .b33 e guida alla prima cartuccia
 scripts/mkb33.py         packer .b33 (PNG e CSV, solo libreria standard Python)
 scripts/mksd.py          immagine SD (MBR + FAT32): make image e test in QEMU

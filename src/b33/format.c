@@ -16,6 +16,42 @@ static int fail(char *err, size_t n, const char *msg)
     return -1;
 }
 
+/* Walks the runs of a SHEET8 section; with `set`, draws the pixels. Returns
+ * 0 if the runs give exactly w*h valid indices. */
+static int sheet8_walk(const uint8_t *p, uint32_t size, void (*set)(void *, int, int, const uint8_t *),
+                       void *ctx)
+{
+    unsigned w = rd16(p), h = rd16(p + 2), ncol = rd16(p + 4);
+    const uint8_t *pal = p + 8, *q = pal + ncol * 4, *end = p + size;
+    uint32_t n = (uint32_t)w * h, i = 0;
+    while (i < n) {
+        if (q >= end)
+            return -1;
+        unsigned t = *q++, run, lit = t < 128;
+        run = lit ? t + 1 : t - 126;
+        if (i + run > n || q + (lit ? run : 1) > end)
+            return -1;
+        for (unsigned k = 0; k < run; k++) {
+            unsigned idx = lit ? q[k] : q[0];
+            if (idx >= ncol)
+                return -1;
+            if (set)
+                set(ctx, (int)(i % w), (int)(i / w), pal + idx * 4);
+            i++;
+        }
+        q += lit ? run : 1;
+    }
+    return q == end ? 0 : -1;
+}
+
+int b33_sheet8_unpack(const b33_cart_t *c, void (*set)(void *ctx, int x, int y, const uint8_t rgba[4]),
+                      void *ctx)
+{
+    if (!c->sheet8)
+        return -1;
+    return sheet8_walk(c->sheet8, c->sheet8_size, set, ctx);
+}
+
 int b33_parse(const uint8_t *d, size_t len, b33_cart_t *c, char *err, size_t errlen)
 {
     memset(c, 0, sizeof *c);
@@ -54,11 +90,25 @@ int b33_parse(const uint8_t *d, size_t len, b33_cart_t *c, char *err, size_t err
             if (size < 4) return fail(err, errlen, "bad sheet");
             c->sheet_w = rd16(p);
             c->sheet_h = rd16(p + 2);
-            if (!c->sheet_w || !c->sheet_h || c->sheet_w > 2048 || c->sheet_h > 2048 ||
+            if (!c->sheet_w || !c->sheet_h || c->sheet_w > B33_SHEET_MAX || c->sheet_h > B33_SHEET_MAX ||
                 4 + (uint64_t)c->sheet_w * c->sheet_h * 4 != size)
                 return fail(err, errlen, "bad sheet size");
             c->sheet_rgba = p + 4;
             break;
+        case B33_SEC_SHEET8: {
+            if (size < 12) return fail(err, errlen, "bad sheet");
+            unsigned w = rd16(p), h = rd16(p + 2), ncol = rd16(p + 4);
+            if (!w || !h || w > B33_SHEET_MAX || h > B33_SHEET_MAX || !ncol || ncol > 256 ||
+                8 + ncol * 4 > size)
+                return fail(err, errlen, "bad sheet size");
+            if (sheet8_walk(p, size, NULL, NULL) != 0)
+                return fail(err, errlen, "bad sheet data");
+            c->sheet_w = (uint16_t)w;
+            c->sheet_h = (uint16_t)h;
+            c->sheet8 = p;
+            c->sheet8_size = size;
+            break;
+        }
         case B33_SEC_MAP:
             if (size < 4) return fail(err, errlen, "bad map");
             c->map_w = rd16(p);
@@ -82,5 +132,7 @@ int b33_parse(const uint8_t *d, size_t len, b33_cart_t *c, char *err, size_t err
     }
     if (!c->lua)
         return fail(err, errlen, "no Lua section");
+    if (c->sheet_rgba && c->sheet8)
+        return fail(err, errlen, "two sheets");
     return 0;
 }

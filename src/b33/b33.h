@@ -22,6 +22,12 @@
  *   4 COVER  u16 w, u16 h, then w*h RGBA8888: the picture printed on the
  *            cartridge in the menu (mkb33.py makes it 128x80); first in the
  *            file, so the menu can read it without the rest
+ *   5 SHEET8 the sheet with at most 256 colours, much smaller for big
+ *            sprites: u16 w, u16 h, u16 colours (1..256), u16 reserved (0),
+ *            the palette (colours x RGBA8888, alpha < 128 = transparent), then
+ *            the w*h palette indices, row by row, as runs: a byte t < 128 is
+ *            followed by t+1 indices; t >= 128 by one index, repeated t-126
+ *            times. A cartridge has SHEET or SHEET8, not both.
  * Graphics are stored independently of the screen format and converted when
  * the cartridge is loaded, so the same file works if 32-bit output is added.
  */
@@ -39,6 +45,8 @@
 #define B33_SEC_SHEET       2
 #define B33_SEC_MAP         3
 #define B33_SEC_COVER       4
+#define B33_SEC_SHEET8      5
+#define B33_SHEET_MAX       4096            /* width and height of a sheet */
 #define B33_COVER_W         128
 #define B33_COVER_H         80
 
@@ -50,6 +58,8 @@ typedef struct {
     const char *lua;
     uint32_t lua_size;
     const uint8_t *sheet_rgba;
+    const uint8_t *sheet8;          /* SHEET8 section (from its header), or NULL */
+    uint32_t sheet8_size;
     uint16_t sheet_w, sheet_h;
     const uint8_t *map_cells;       /* little-endian u16 cells */
     uint16_t map_w, map_h;
@@ -58,5 +68,10 @@ typedef struct {
 } b33_cart_t;
 
 int b33_parse(const uint8_t *data, size_t len, b33_cart_t *c, char *err, size_t errlen);
+
+/* Unpacks a SHEET8 section: set(x, y, rgba) for every pixel. Returns 0, or
+ * -1 if the data is broken (b33_parse has already checked it). */
+int b33_sheet8_unpack(const b33_cart_t *c, void (*set)(void *ctx, int x, int y, const uint8_t rgba[4]),
+                      void *ctx);
 
 #endif

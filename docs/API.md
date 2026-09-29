@@ -107,6 +107,10 @@ Lo **sprite sheet** è un'immagine divisa in celle 8×8: la cella `n` è alla co
 `n % (larghezza/8)` e riga `n // (larghezza/8)`. Viene da `--sheet foglio.png`
 (PNG RGB o RGBA; alfa < 128 = trasparente) oppure, senza PNG, è un foglio 256×256
 trasparente da disegnare con `sset` (32 celle per riga: vedi `carts/shooter`).
+Lo sheet può arrivare a 4096×4096 pixel. Uno sheet grande con al massimo 256 colori
+va messo nella cartuccia con `--sheet foglio.png --sheet8`: palette e sequenze
+ripetute (RLE) invece di 4 byte per pixel, decodificati al caricamento (Titan Clash:
+2048×3376 pixel in 1,7 MB).
 
 | Funzione | Descrizione |
 |---|---|

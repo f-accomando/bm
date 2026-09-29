@@ -308,6 +308,61 @@ static void test_format(const char *path)
     free(d);
 }
 
+/* A SHEET8 section built by hand: palette, literal and repeated runs. */
+static uint8_t px8[4][8][4];
+
+static void set8(void *ctx, int x, int y, const uint8_t rgba[4])
+{
+    (void)ctx;
+    memcpy(px8[y][x], rgba, 4);
+}
+
+static void put16(uint8_t *p, unsigned v) { p[0] = (uint8_t)v; p[1] = (uint8_t)(v >> 8); }
+static void put32(uint8_t *p, uint32_t v) { put16(p, v & 0xFFFF); put16(p + 2, v >> 16); }
+
+static void test_sheet8(void)
+{
+    static const char lua[] = "-- sheet8\n";
+    uint8_t sec[64];
+    size_t n = 0;
+    put16(sec, 8); put16(sec + 2, 4); put16(sec + 4, 3); put16(sec + 6, 0);
+    n = 8;
+    const uint8_t pal[12] = { 0, 0, 0, 0,  255, 0, 0, 255,  0, 0, 255, 255 };
+    memcpy(sec + n, pal, 12); n += 12;
+    /* 32 pixels: 20 transparent (repeat), 3 literals 1 2 1, 9 blue (repeat) */
+    sec[n++] = 20 + 126; sec[n++] = 0;
+    sec[n++] = 2; sec[n++] = 1; sec[n++] = 2; sec[n++] = 1;
+    sec[n++] = 9 + 126; sec[n++] = 2;
+
+    uint8_t cart[B33_HEADER_SIZE + 32 + 16 + 64] = { 0 };
+    size_t off = B33_HEADER_SIZE + 32;
+    memcpy(cart, "BM33CART", 8);
+    put16(cart + 8, 1); put16(cart + 10, B33_HEADER_SIZE); put16(cart + 12, 640); put16(cart + 14, 360);
+    cart[16] = B33_FMT_RGB565; cart[17] = 2;
+    uint8_t *t = cart + B33_HEADER_SIZE;
+    put32(t, B33_SEC_LUA); put32(t + 4, (uint32_t)off); put32(t + 8, sizeof lua - 1);
+    memcpy(cart + off, lua, sizeof lua - 1);
+    size_t off2 = off + 16;
+    put32(t + 16, B33_SEC_SHEET8); put32(t + 20, (uint32_t)off2); put32(t + 24, (uint32_t)n);
+    memcpy(cart + off2, sec, n);
+    size_t len = off2 + n;
+    put32(cart + 20, crc32(cart + B33_HEADER_SIZE, (uint32_t)(len - B33_HEADER_SIZE)));
+
+    b33_cart_t c;
+    char err[64] = "";
+    CHECK(b33_parse(cart, len, &c, err, sizeof err) == 0, "sheet8 parse: %s", err);
+    CHECK(c.sheet8 && c.sheet_w == 8 && c.sheet_h == 4 && !c.sheet_rgba, "sheet8 size");
+    CHECK(b33_sheet8_unpack(&c, set8, NULL) == 0, "sheet8 unpack");
+    CHECK(px8[0][0][3] == 0 && px8[2][3][3] == 0, "transparent run");
+    CHECK(px8[2][4][0] == 255 && px8[2][5][2] == 255 && px8[2][6][0] == 255, "literal run");
+    CHECK(px8[2][7][2] == 255 && px8[3][7][2] == 255 && px8[3][7][3] == 255, "repeated run");
+
+    /* a run past the end is refused */
+    cart[off2 + 20] = 30 + 126;
+    put32(cart + 20, crc32(cart + B33_HEADER_SIZE, (uint32_t)(len - B33_HEADER_SIZE)));
+    CHECK(b33_parse(cart, len, &c, err, sizeof err) != 0 && strstr(err, "sheet"), "broken runs refused");
+}
+
 int main(int argc, char **argv)
 {
     test_primitives();
@@ -316,6 +371,7 @@ int main(int argc, char **argv)
     test_light();
     test_3d();
     test_format(argc > 1 ? argv[1] : "build/demo.b33");
+    test_sheet8();
     printf("b33: %d/%d checks passed\n", checks - fails, checks);
     return fails != 0;
 }

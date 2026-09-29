@@ -283,3 +283,4 @@ disegnate da `scripts/mkcovers.py`. Senza copertina il menu stampa il titolo.
 | `carts/hunt` | 320×180, mappa 2048×2048 generata, luci, combattimento, boss |
 | `carts/demo` | sprite sheet PNG e mappa CSV veri e propri |
 | `carts/kitchen` | gioco grande: sorgenti in più file uniti da `build.py`, 3D con mesh costruite in codice, 1–4 giocatori (`btn(i, p)`, `players()`), salvataggi, e un simulatore host (`tests/kitchen/sim.lua`) che gioca da solo per trovare errori e misurare il costo di ogni frame |
+| `carts/titan` | sprite grandi pre-renderizzati (un modello 3D fatto in Python diventa pixel art a strati: un frame, tante combinazioni di equipaggiamento), sheet grande con palette (`--sheet8`), parallasse, stati di un picchiaduro con hitbox per frame, CPU avversaria |

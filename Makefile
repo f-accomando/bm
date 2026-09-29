@@ -83,7 +83,7 @@ $(BUILD)/demo.b33: $(DEMO_B33_SRC) scripts/mkb33.py
 	    --map carts/demo/map.csv --title "bm33 native demo" --author bm33
 
 # Demo games (Lua only, sprites drawn in code): build/carts/<name>.b33
-GAMES := pong snake shooter astrowing hunt kitchen
+GAMES := pong snake shooter astrowing hunt kitchen titan
 GAME_CARTS := $(patsubst %,$(BUILD)/carts/%.b33,$(GAMES))
 title_pong    := Pong
 title_snake   := Snake
@@ -92,6 +92,7 @@ title_astrowing := Astro Wing
 title_hunt := Hunter's Night
 res_hunt := 320x180
 title_kitchen := Chaos Kitchen
+title_titan := Titan Clash
 # Optional per game: carts/<game>/cover.png (printed on the cartridge in the
 # menu, scripts/mkcovers.py), sheet.png and map.csv, res_<game> := 320x180.
 .SECONDEXPANSION:
@@ -114,6 +115,17 @@ $(BUILD)/carts/kitchen.b33: $(BUILD)/kitchen/main.lua carts/kitchen/sheet.png ca
 	$(PYTHON) scripts/mkb33.py -o $@ --lua $< --title "$(title_kitchen)" --author bm33 \
 	    --sheet carts/kitchen/sheet.png --cover carts/kitchen/cover.png
 
+# Titan Clash (M20): several Lua files too; its sheet has more colours than
+# fit in RGBA sections, so it goes as SHEET8 (a palette and RLE)
+TITAN_SRC := $(sort $(wildcard carts/titan/src/*.lua))
+$(BUILD)/titan/main.lua: $(TITAN_SRC) carts/titan/build.py
+	$(PYTHON) carts/titan/build.py $@ --map $(BUILD)/titan/main.map
+
+$(BUILD)/carts/titan.b33: $(BUILD)/titan/main.lua carts/titan/sheet.png carts/titan/cover.png scripts/mkb33.py
+	@mkdir -p $(dir $@)
+	$(PYTHON) scripts/mkb33.py -o $@ --lua $< --title "$(title_titan)" --author bm33 \
+	    --sheet carts/titan/sheet.png --sheet8 --cover carts/titan/cover.png
+
 # A Lua interpreter for the PC (the same Lua 5.4 as the console): host tests
 # of the Lua cartridges.
 $(BUILD)/host/luahost: tests/kitchen/luahost.c $(LUA_SRCS)
@@ -123,9 +135,12 @@ $(BUILD)/host/luahost: tests/kitchen/luahost.c $(LUA_SRCS)
 test-kitchen: $(BUILD)/host/luahost $(BUILD)/kitchen/main.lua
 	$< tests/kitchen/sim.lua $(BUILD)/kitchen/main.lua $(BUILD)/kitchen/main.map
 
+test-titan: $(BUILD)/host/luahost $(BUILD)/titan/main.lua
+	$< tests/titan/sim.lua $(BUILD)/titan/main.lua $(BUILD)/titan/main.map
+
 .DEFAULT_GOAL := all
 .PHONY: FORCE all clean firmware image sdcard sdcard-chainloader sdcard-stress qemu qemu-screenshot \
-        run-serial test test-s32 test-s32-arm test-b33 test-usb test-audio test-fat test-kitchen disasm
+        run-serial test test-s32 test-s32-arm test-b33 test-usb test-audio test-fat test-kitchen test-titan disasm
 
 all: $(BUILD)/kernel.img $(BUILD)/chainloader.img $(GAME_CARTS)
 
@@ -208,7 +223,7 @@ qemu: $(BUILD)/kernel.img
 qemu-screenshot: $(BUILD)/kernel.img
 	./scripts/qemu-screenshot.sh $< $(BUILD)/screen.png
 
-test: all test-s32 test-b33 test-usb test-fat test-audio test-kitchen
+test: all test-s32 test-b33 test-usb test-fat test-audio test-kitchen test-titan
 	$(PYTHON) tests/qemu_test.py --build $(BUILD)
 
 $(BUILD)/host/test_b33: tests/b33/test_b33.c src/b33/gfx16.c src/b33/r3d.c src/b33/format.c src/lib/crc32.c src/b33/*.h
