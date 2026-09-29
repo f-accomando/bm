@@ -7,6 +7,7 @@
 #include "usb/usb.h"
 #include "bt/bt.h"
 #include "net/net.h"
+#include "net/netcon.h"
 
 #include <math.h>
 
@@ -26,6 +27,9 @@ int input_key(void)
     usb_poll();
     bt_poll();
     net_poll();
+    int c = netcon_getc();
+    if (c >= 0)
+        return c;
     return hid_getc();
 }
 

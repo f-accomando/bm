@@ -557,7 +557,7 @@ Decisione 2026-09-28: versioni "leggere", in coda dopo M17.
    - WPA2-PSK (AES), WPA-PSK o aperta, con il 4-way handshake fatto dal firmware
      (`sup_wpa`, `WSEC_PMK`);
    - esito dagli eventi SET_SSID, PSK_SUP, LINK, DEAUTH.
-6. ✅ (Pi, `cbd9356`: IP 192.168.1.108 dal router) **Indirizzo IP**: lwIP 2.2.0 (`third_party/lwip`, BSD), senza
+6. ✅ (Pi, `cbd9356`: IP 192.168.1.108 dal router, ping 4–9 ms) **Indirizzo IP**: lwIP 2.2.0 (`third_party/lwip`, BSD), senza
    sistema operativo e interrogato dai cicli di input (`net_poll`, al più una volta al ms):
    - interfaccia Ethernet `wl` sul canale dati SDPCM (2) con intestazione BDC; i frame
      ricevuti durante ioctl e join vanno in una coda di 8, controllo di flusso con i
@@ -565,7 +565,16 @@ Decisione 2026-09-28: versioni "leggere", in coda dopo M17.
    - dopo la connessione `W` chiede l'indirizzo con DHCP (nome `bm33`) e stampa
      `net: IP ...`; la rete resta attiva nel monitor, nel menu e nei giochi;
    - verifica: `ping <IP>` dal PC.
-7. Poi: console di rete, invio di cartucce e kernel dal PC.
+7. 🛠 (da provare sul Pi) **Console di rete**: il monitor su TCP, porta 3333
+   (`src/net/netcon.c`), un client alla volta:
+   - password `net_password` in `bm33/config.txt`; se manca, un PIN di 6 cifre creato,
+     salvato e mostrato sullo schermo dopo l'IP; 3 tentativi, poi la connessione si chiude;
+   - tutto ciò che il kernel stampa va anche al client (anello di 32 KiB svuotato da
+     `net_poll`, mai dentro lwIP); i tasti del client arrivano come quelli della tastiera;
+   - dal PC: `tools/bm33_net.py IP` (terminale raw, Ctrl-] esce);
+   - in chiaro: solo per la rete di casa (TLS con M19);
+   - test sul PC: `make test-net` (lwIP con interfaccia di loopback).
+8. Poi: invio di cartucce e kernel dal PC via rete, WiFi all'avvio.
 
 
 ## M19 — HTTPS: aggiornamenti e "git leggero" (L)

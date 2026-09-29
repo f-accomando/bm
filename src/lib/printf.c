@@ -131,10 +131,16 @@ int ksnprintf(char *buf, size_t size, const char *fmt, ...)
 }
 
 static void (*log_sink)(char c);
+static void (*log_tap)(char c);
 
 void kprintf_set_sink(void (*sink)(char c))
 {
     log_sink = sink;
+}
+
+void kprintf_set_tap(void (*tap)(char c))
+{
+    log_tap = tap;
 }
 
 /* Everything printed since boot, without the colour escapes, for the
@@ -174,6 +180,8 @@ void klog_putc(char c)
     uart_putc(c);
     if (log_sink)
         log_sink(c);
+    if (log_tap)
+        log_tap(c);
 }
 
 static void log_putc(char c, void *ctx)

@@ -144,7 +144,7 @@ test-titan: $(BUILD)/host/luahost $(BUILD)/titan/main.lua
 
 .DEFAULT_GOAL := all
 .PHONY: FORCE all clean firmware image sdcard install sdcard-chainloader sdcard-stress qemu qemu-screenshot \
-        run-serial test test-s32 test-s32-arm test-b33 test-usb test-audio test-fat test-kitchen test-titan disasm
+        run-serial test test-s32 test-s32-arm test-b33 test-usb test-audio test-fat test-kitchen test-titan test-net disasm
 
 all: $(BUILD)/kernel.img $(BUILD)/chainloader.img $(GAME_CARTS)
 
@@ -246,7 +246,7 @@ qemu: $(BUILD)/kernel.img
 qemu-screenshot: $(BUILD)/kernel.img
 	./scripts/qemu-screenshot.sh $< $(BUILD)/screen.png
 
-test: all test-s32 test-b33 test-usb test-fat test-audio test-kitchen test-titan
+test: all test-s32 test-b33 test-usb test-fat test-audio test-kitchen test-titan test-net
 	$(PYTHON) tests/qemu_test.py --build $(BUILD)
 
 $(BUILD)/host/test_b33: tests/b33/test_b33.c src/b33/gfx16.c src/b33/r3d.c src/b33/format.c src/lib/crc32.c src/b33/*.h
@@ -259,6 +259,15 @@ test-fat: $(BUILD)/host/test_fat
 $(BUILD)/host/test_fat: tests/fs/test_fat.c src/fs/fat.c src/fs/fat.h src/drivers/sd.h
 	@mkdir -p $(dir $@)
 	$(HOSTCC) -O2 -Wall -Wextra -Isrc -o $@ tests/fs/test_fat.c src/fs/fat.c
+
+# Network console on lwIP's loopback interface (the WiFi chip is not in QEMU)
+test-net: $(BUILD)/host/test_netcon
+	$(BUILD)/host/test_netcon
+
+$(BUILD)/host/test_netcon: tests/net/test_netcon.c src/net/netcon.c src/net/netcon.h src/net/lwipopts.h $(LWIP_SRCS)
+	@mkdir -p $(dir $@)
+	$(HOSTCC) -O1 -w -DBM33_HOST_TEST -Isrc -Isrc/net -Ithird_party/lwip/src/include -o $@ \
+		tests/net/test_netcon.c src/net/netcon.c $(LWIP_SRCS)
 
 test-audio: $(BUILD)/host/test_audio
 	$<

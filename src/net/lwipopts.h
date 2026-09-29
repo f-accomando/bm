@@ -43,4 +43,9 @@
 
 #define LWIP_CHKSUM_ALGORITHM   3
 
+#ifdef BM33_HOST_TEST   /* tests/net: a loopback interface instead of the chip */
+#define LWIP_HAVE_LOOPIF        1
+#define LWIP_NETIF_LOOPBACK     1
+#endif
+
 #endif
