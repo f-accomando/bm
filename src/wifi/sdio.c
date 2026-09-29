@@ -7,6 +7,7 @@
 #include "drivers/mmio.h"
 #include "drivers/prop.h"
 #include "drivers/timer.h"
+#include "lib/printf.h"
 
 #include <string.h>
 
@@ -63,6 +64,7 @@
 
 static uint32_t base_clock, write_delay = 6, rca;
 static const char *err = "not started";
+static char errbuf[64];
 
 static void wr(uint32_t reg, uint32_t v)
 {
@@ -170,24 +172,33 @@ int sdio_write8(unsigned fn, uint32_t addr, uint8_t v)
 int sdio_rw_block(int write, unsigned fn, uint32_t addr, int incr, void *buf, uint32_t len)
 {
     /* CMD53 IO_RW_EXTENDED in byte mode, up to 512 bytes, 4-byte multiples */
-    if (len == 0 || len > 512 || (len & 3)) {
+    uint32_t max = fn == 1 ? SDIO_F1_BLOCK : SDIO_F2_BLOCK;
+    if (len == 0 || len > max || (len & 3)) {
         err = "CMD53 length";
         return -1;
     }
     wr(BLKSIZECNT, 1u << 16 | len);
     uint32_t arg = (write ? 1u << 31 : 0) | (fn & 7) << 28 | (incr ? 1u << 26 : 0) |
                    (addr & 0x1FFFF) << 9 | (len == 512 ? 0 : len);
-    uint32_t flags = R5 | CMD_ISDATA | (write ? 0 : TM_DAT_READ);
-    if (cmd(53, flags, arg, NULL))
+    uint32_t flags = R5 | CMD_ISDATA | (write ? 0 : TM_DAT_READ), r5 = 0;
+    if (cmd(53, flags, arg, &r5))
         return -1;
+    if (r5 & 0xCB00) {                          /* the chip refused it: no data follows */
+        ksnprintf(errbuf, sizeof errbuf, "CMD53 refused, R5 flags %04lx", r5 & 0xFF00);
+        err = errbuf;
+        goto fail;
+    }
     uint32_t want = write ? INT_WRITE_RDY : INT_READ_RDY, t0 = timer_ticks(), irq;
     while (!((irq = mmio_read(INTERRUPT)) & (want | INT_ERR)))
         if (timer_ticks() - t0 > 200000) {
-            err = "CMD53 data timeout";
+            ksnprintf(errbuf, sizeof errbuf, "CMD53 data timeout, irq %08lx status %08lx",
+                      irq, mmio_read(STATUS));
+            err = errbuf;
             goto fail;
         }
     if (irq & INT_ERR_MASK) {
-        err = "CMD53 data error";
+        ksnprintf(errbuf, sizeof errbuf, "CMD53 data error, irq %08lx", irq);
+        err = errbuf;
         goto fail;
     }
     wr(INTERRUPT, want);
@@ -305,6 +316,15 @@ int sdio_init(void (*say)(const char *step, int ok, uint32_t value))
     if (set_clock(25000000) == 0)
         write_delay = 1;
     say("clock 25 MHz", 1, 0);
+    /* block sizes of functions 1 and 2 (FBR 0x110 / 0x210): at power-up they
+     * are not set, and a CMD53 then gets no data (seen on the Pi). In byte
+     * mode a CMD53 carries at most one block. */
+    if (sdio_write8(0, 0x110, SDIO_F1_BLOCK & 0xFF) || sdio_write8(0, 0x111, SDIO_F1_BLOCK >> 8) ||
+        sdio_write8(0, 0x210, SDIO_F2_BLOCK & 0xFF) || sdio_write8(0, 0x211, SDIO_F2_BLOCK >> 8)) {
+        say("block sizes refused", 0, 0);
+        return -1;
+    }
+    say("block sizes: function 1 64, function 2 512", 1, 0);
     return 0;
 }
 

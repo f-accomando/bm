@@ -147,7 +147,7 @@ static int bp_mem(int write, uint32_t addr, uint8_t *buf, uint32_t len)
         uint32_t off = addr & (SB_WINDOW - 1);
         uint32_t n = SB_WINDOW - off;
         if (n > len) n = len;
-        if (n > 512) n = 512;
+        if (n > SDIO_F1_BLOCK) n = SDIO_F1_BLOCK;
         if (set_window(addr) || sdio_rw_block(write, 1, off | SB_32BIT, 1, buf, n))
             return -1;
         addr += n;
@@ -309,7 +309,7 @@ static int f2_rw(int write, uint8_t *buf, uint32_t len)
     if (set_window(ENUM_BASE))
         return -1;
     while (len) {
-        uint32_t n = len > 512 ? 512 : len;
+        uint32_t n = len > SDIO_F2_BLOCK ? SDIO_F2_BLOCK : len;
         if (sdio_rw_block(write, 2, SB_32BIT, 0, buf, n))
             return -1;
         buf += n;
