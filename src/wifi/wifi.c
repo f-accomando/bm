@@ -268,6 +268,24 @@ static int ram_scan(void)
 
 /* ---------------------------------------------------------------- files */
 
+/* What the SD card has in /bm33 (when a firmware file is missing). */
+static void list_bm33(void)
+{
+    fat_dir_t d;
+    fat_entry_t e;
+    if (fat_opendir(&d, "/bm33") != 0) {
+        kprintf("wifi: there is no /bm33 folder on the SD card\n");
+        return;
+    }
+    kprintf("wifi: /bm33 on the SD card has:");
+    int n = 0;
+    while (fat_readdir(&d, &e) == 1) {
+        kprintf("%s %s", n % 3 ? "," : "\n     ", e.name);
+        n++;
+    }
+    kprintf("%s\n", n ? "" : " nothing");
+}
+
 static uint8_t *load_file(const char *path, size_t *len)
 {
     fat_entry_t e;
@@ -538,12 +556,14 @@ int wifi_start(void)
     uint8_t *fw = load_file(FW_FILE, &fw_len);
     if (!fw) {
         kprintf("\x1b[91mwifi: %s not on the SD card (make firmware; make sdcard)\x1b[0m\n", FW_FILE);
+        list_bm33();
         return -1;
     }
     uint8_t *nv = load_file(NVRAM_FILE, &nv_len);
     if (!nv) {
         free(fw);
         kprintf("\x1b[91mwifi: %s not on the SD card (make firmware; make sdcard)\x1b[0m\n", NVRAM_FILE);
+        list_bm33();
         return -1;
     }
     uint8_t *nvram = malloc(nv_len + 8);
