@@ -557,7 +557,7 @@ Decisione 2026-09-28: versioni "leggere", in coda dopo M17.
    - WPA2-PSK (AES), WPA-PSK o aperta, con il 4-way handshake fatto dal firmware
      (`sup_wpa`, `WSEC_PMK`);
    - esito dagli eventi SET_SSID, PSK_SUP, LINK, DEAUTH.
-6. 🛠 (da provare sul Pi) **Indirizzo IP**: lwIP 2.2.0 (`third_party/lwip`, BSD), senza
+6. ✅ (Pi, `cbd9356`: IP 192.168.1.108 dal router) **Indirizzo IP**: lwIP 2.2.0 (`third_party/lwip`, BSD), senza
    sistema operativo e interrogato dai cicli di input (`net_poll`, al più una volta al ms):
    - interfaccia Ethernet `wl` sul canale dati SDPCM (2) con intestazione BDC; i frame
      ricevuti durante ioctl e join vanno in una coda di 8, controllo di flusso con i

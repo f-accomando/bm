@@ -50,7 +50,7 @@ Prestazioni e scelte tecniche (limiti del Pi, atteso contro misurato): [docs/PRE
 | **M15** | Editor sulla console: codice, sprite, mappa, prova e torna | ✅ verificato sul Pi |
 | **M16** | Multiplayer locale: fino a 4 controller Bluetooth, `btn(i, giocatore)`, Pong a 2 | 🛠 fatto, da provare sul Pi |
 | **M17** | **Chaos Kitchen**: cucina cooperativa in 3D per 1–4 giocatori (campagna, infinita, pratica) | 🛠 fatto, da provare sul Pi |
-| M18 | WiFi, console di rete con password, invio di kernel e cartucce dal PC | 🛠 connessione WPA2 verificata sul Pi; IP con DHCP (lwIP) da provare |
+| M18 | WiFi, console di rete con password, invio di kernel e cartucce dal PC | 🛠 connessione WPA2 e IP con DHCP (lwIP) verificati sul Pi; prossimo: console di rete |
 | M19 | HTTPS: aggiornamenti da GitHub, "git leggero" (archivi e API con token) | |
 | **M20** | **Titan Clash**: picchiaduro 2D a robot giganti; prima base giocabile (1 robot, armatura leggera/pesante, spada o cannoni, hangar, contro CPU o in 2) | 🛠 base fatta, da provare sul Pi |
 | M21 | Menu "home" a griglia (Games / Dev) e giochi sospesi in memoria | 🛠 fatto, da provare sul Pi |
