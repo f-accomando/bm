@@ -27,6 +27,19 @@ typedef struct {
  */
 void b33_play(framebuffer_t *fb, const uint8_t *data, size_t len,
               uint32_t seconds, b33_stats_t *st);
+/* The same; with `suspendable`, leaving with Esc / PS / Start+Select / 'q'
+ * keeps the cartridge frozen in memory (B33_SUSPENDED) instead of closing
+ * it (quit(), an error or the time limit still close it). Starting a
+ * cartridge closes the suspended one first. */
+enum { B33_ENDED = 0, B33_SUSPENDED = 1 };
+int  b33_run(framebuffer_t *fb, const uint8_t *data, size_t len,
+             uint32_t seconds, b33_stats_t *st, int suspendable);
+/* Continues the suspended cartridge from the frame it stopped at. */
+int  b33_resume(framebuffer_t *fb, uint32_t seconds, b33_stats_t *st);
+/* 1 if a cartridge is suspended (its title in `title`). */
+int  b33_suspended(char *title, size_t n);
+/* Closes the suspended cartridge and frees its memory. */
+void b33_close_suspended(void);
 void b33_print_stats(const b33_stats_t *st);
 
 /* Pure C worst case: full-screen map + 256 16x16 sprites + text, at
@@ -48,6 +61,8 @@ uint32_t b33_video_present(framebuffer_t *fb, g16_t *g);
 /* Draw target: 0 = framebuffer back page (default), 1 = RAM buffer + copy. */
 void b33_set_via_ram(int on);
 int  b33_via_ram(void);
+/* 1 while the running cartridge draws into a RAM buffer (lights). */
+int  b33_video_uses_ram(void);
 
 /* Copy "via RAM" frames by DMA (after the DMA test passed). */
 void b33_set_dma_frames(int on);

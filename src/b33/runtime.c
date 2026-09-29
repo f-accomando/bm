@@ -1378,6 +1378,7 @@ static int video_to_ram(g16_t *g)
     return 0;
 }
 int b33_via_ram(void) { return via_ram; }
+int b33_video_uses_ram(void) { return shadow != NULL; }
 
 int b33_video_enter(framebuffer_t *fb, int w, int h, g16_t *g)
 {
@@ -1456,54 +1457,45 @@ static void present(framebuffer_t *fb, uint32_t *deadline, uint32_t *prev, uint3
         *deadline = now + FRAME_US;
 }
 
-void b33_play(framebuffer_t *fb, const uint8_t *data, size_t len,
-              uint32_t seconds, b33_stats_t *st)
+/* A cartridge left with Esc / PS / Start+Select (when the caller allows
+ * it) stays in memory, frozen: its Lua state, sheet, map, 3D and lights
+ * stay as they are; b33_resume() continues from the same frame. */
+static struct {
+    lua_State *L;
+    int active;
+    char title[49];
+    int w, h;
+    g16_t g;                    /* clip and camera at the moment it stopped */
+    int used_ram;               /* it was drawing via RAM (lights) */
+    uint32_t since;
+} susp;
+
+/* Frees what a cartridge holds (after leave_mode). */
+static void release(lua_State *L)
 {
-    b33_cart_t cart;
-    char err[64];
-    const char *error = NULL;
-    lua_State *L = NULL;
+    lua_close(L);               /* frees meshes (__gc) before the z-buffer */
+    g16_light_free(&rt.light);
+    if (rt.r3d_ready)
+        r3d_free(&rt.r3d);
+    rt.r3d_ready = 0;
+    free_assets();
+}
 
-    memset(st, 0, sizeof *st);
-    memset(&rt, 0, sizeof rt);
-    if (b33_parse(data, len, &cart, err, sizeof err) != 0) {
-        kprintf("\x1b[91mb33: %s\x1b[0m\n", err);
-        return;
-    }
-    memcpy(st->title, cart.title, sizeof st->title);
-    if (load_assets(&cart) != 0 || !(L = new_cart_state(&cart))) {
-        free_assets();
-        kprintf("\x1b[91mb33: out of memory\x1b[0m\n");
-        return;
-    }
-
-    const uint32_t con_w = fb->width, con_h = fb->height;
-    if (enter_mode(fb, cart.width, cart.height) != 0) {
-        leave_mode(fb, con_w, con_h);
-        lua_close(L);
-        free_assets();
-        kprintf("\x1b[91mb33: cannot set %ux%u RGB565\x1b[0m\n", cart.width, cart.height);
-        return;
-    }
-
-    {
-        char id[96];
-        int n = ksnprintf(id, sizeof id, "%s\n%s", cart.title, cart.author);
-        ksnprintf(rt.save_name, sizeof rt.save_name, "%08lX.SAV", crc32(id, (uint32_t)n));
-    }
-    audio_reset();
-    rt.start_us = timer_ticks();
-    rt.hook_count = 0;
-    if (luaL_loadbuffer(L, cart.lua, cart.lua_size, "=main.lua") != LUA_OK ||
-        (lua_pushcfunction(L, traceback), lua_insert(L, -2), lua_pcall(L, 0, 0, -2)) != LUA_OK ||
-        call(L, "_init") != 0)
-        error = lua_tostring(L, -1);
-
+/* The frame loop, then either suspend or close. */
+static int run_frames(framebuffer_t *fb, lua_State *L, const char *title, int w, int h,
+                      uint32_t con_w, uint32_t con_h, uint32_t seconds, b33_stats_t *st,
+                      const char *error, int suspendable)
+{
     uint32_t start = timer_ticks(), deadline = start + FRAME_US, prev = start;
     uint32_t fps_t0 = start, fps_frames = 0;
+    int left = 0;                           /* Esc, PS, Start+Select, 'q' */
     while (!error) {
-        if (rt.quit || poll_keys() || timer_ticks() - start >= seconds * 1000000u)
+        if (rt.quit || timer_ticks() - start >= seconds * 1000000u)
             break;
+        if (poll_keys()) {
+            left = 1;
+            break;
+        }
         uint32_t t0 = timer_ticks();
         if (call(L, "_update") != 0 || call(L, "_draw") != 0) {
             error = lua_tostring(L, -1);
@@ -1525,20 +1517,139 @@ void b33_play(framebuffer_t *fb, const uint8_t *data, size_t len,
     }
 
     audio_reset();
-    st->frames = rt.frame;
+    st->frames = (uint32_t)rt.frame;
     st->elapsed_us = timer_ticks() - start;
     st->lua_kb = (uint32_t)(luavm_mem() / 1024);
+    st->ok = error == NULL;
+
+    if (!error && left && suspendable) {
+        susp.L = L;
+        susp.active = 1;
+        susp.w = w;
+        susp.h = h;
+        susp.g = rt.g;
+        susp.used_ram = b33_video_uses_ram();
+        susp.since = timer_ticks();
+        ksnprintf(susp.title, sizeof susp.title, "%s", title);
+        leave_mode(fb, con_w, con_h);
+        hid_text_mode(0);
+        last_error[0] = 0;
+        kprintf("b33: \"%s\" suspended (A on its cover resumes it)\n", title);
+        return B33_SUSPENDED;
+    }
+
     leave_mode(fb, con_w, con_h);
     ksnprintf(last_error, sizeof last_error, "%s", error ? error : "");
     hid_text_mode(0);
     if (error)
-        kprintf("\x1b[91mb33: \"%s\" stopped with an error:\n%s\x1b[0m\n", cart.title, error);
-    st->ok = error == NULL;
-    lua_close(L);               /* frees meshes (__gc) before the z-buffer */
-    g16_light_free(&rt.light);
-    if (rt.r3d_ready)
-        r3d_free(&rt.r3d);
-    free_assets();
+        kprintf("\x1b[91mb33: \"%s\" stopped with an error:\n%s\x1b[0m\n", title, error);
+    release(L);
+    return B33_ENDED;
+}
+
+int b33_run(framebuffer_t *fb, const uint8_t *data, size_t len,
+            uint32_t seconds, b33_stats_t *st, int suspendable)
+{
+    b33_cart_t cart;
+    char err[64];
+    const char *error = NULL;
+    lua_State *L = NULL;
+
+    b33_close_suspended();              /* one cartridge in memory at a time */
+    memset(st, 0, sizeof *st);
+    memset(&rt, 0, sizeof rt);
+    if (b33_parse(data, len, &cart, err, sizeof err) != 0) {
+        kprintf("\x1b[91mb33: %s\x1b[0m\n", err);
+        return B33_ENDED;
+    }
+    memcpy(st->title, cart.title, sizeof st->title);
+    if (load_assets(&cart) != 0 || !(L = new_cart_state(&cart))) {
+        free_assets();
+        kprintf("\x1b[91mb33: out of memory\x1b[0m\n");
+        return B33_ENDED;
+    }
+
+    const uint32_t con_w = fb->width, con_h = fb->height;
+    if (enter_mode(fb, cart.width, cart.height) != 0) {
+        leave_mode(fb, con_w, con_h);
+        lua_close(L);
+        free_assets();
+        kprintf("\x1b[91mb33: cannot set %ux%u RGB565\x1b[0m\n", cart.width, cart.height);
+        return B33_ENDED;
+    }
+
+    {
+        char id[96];
+        int n = ksnprintf(id, sizeof id, "%s\n%s", cart.title, cart.author);
+        ksnprintf(rt.save_name, sizeof rt.save_name, "%08lX.SAV", crc32(id, (uint32_t)n));
+    }
+    audio_reset();
+    rt.start_us = timer_ticks();
+    rt.hook_count = 0;
+    if (luaL_loadbuffer(L, cart.lua, cart.lua_size, "=main.lua") != LUA_OK ||
+        (lua_pushcfunction(L, traceback), lua_insert(L, -2), lua_pcall(L, 0, 0, -2)) != LUA_OK ||
+        call(L, "_init") != 0)
+        error = lua_tostring(L, -1);
+    return run_frames(fb, L, cart.title, cart.width, cart.height, con_w, con_h, seconds, st,
+                      error, suspendable);
+}
+
+void b33_play(framebuffer_t *fb, const uint8_t *data, size_t len,
+              uint32_t seconds, b33_stats_t *st)
+{
+    b33_run(fb, data, len, seconds, st, 0);
+}
+
+int b33_resume(framebuffer_t *fb, uint32_t seconds, b33_stats_t *st)
+{
+    if (!susp.active)
+        return B33_ENDED;
+    memset(st, 0, sizeof *st);
+    memcpy(st->title, susp.title, sizeof st->title);
+    lua_State *L = susp.L;
+    susp.active = 0;
+    susp.L = NULL;
+    const uint32_t con_w = fb->width, con_h = fb->height;
+    if (enter_mode(fb, susp.w, susp.h) != 0) {
+        leave_mode(fb, con_w, con_h);
+        release(L);
+        kprintf("\x1b[91mb33: cannot set %ux%u RGB565\x1b[0m\n", susp.w, susp.h);
+        return B33_ENDED;
+    }
+    /* the same clip, camera and draw target as when it stopped */
+    rt.g.cx0 = susp.g.cx0; rt.g.cy0 = susp.g.cy0; rt.g.cx1 = susp.g.cx1; rt.g.cy1 = susp.g.cy1;
+    rt.g.cam_x = susp.g.cam_x; rt.g.cam_y = susp.g.cam_y;
+    if (susp.used_ram)
+        video_to_ram(&rt.g);
+    /* the time spent in the menu does not count for time() */
+    rt.start_us += timer_ticks() - susp.since;
+    rt.esc = 0;
+    memset(rt.hold, 0, sizeof rt.hold);
+    input_flush();
+    /* buttons still held (the A that resumed) are not new presses */
+    rt.now = rt.prev = hid_to_btn(hid_buttons());
+    for (int p = 0; p < INPUT_PLAYERS; p++)
+        rt.pnow[p] = rt.pprev[p] = rt.now;
+    hid_text_mode(rt.text_mode);
+    kprintf("b33: \"%s\" resumed\n", susp.title);
+    return run_frames(fb, L, susp.title, susp.w, susp.h, con_w, con_h, seconds, st, NULL, 1);
+}
+
+int b33_suspended(char *title, size_t n)
+{
+    if (title && n)
+        ksnprintf(title, n, "%s", susp.active ? susp.title : "");
+    return susp.active;
+}
+
+void b33_close_suspended(void)
+{
+    if (!susp.active)
+        return;
+    susp.active = 0;
+    kprintf("b33: \"%s\" closed, memory freed\n", susp.title);
+    release(susp.L);
+    susp.L = NULL;
 }
 
 void b33_print_stats(const b33_stats_t *st)
@@ -1562,6 +1673,7 @@ void b33_print_stats(const b33_stats_t *st)
 uint32_t b33_bench(framebuffer_t *fb, uint32_t frames)
 {
     const uint32_t con_w = fb->width, con_h = fb->height;
+    b33_close_suspended();
     memset(&rt, 0, sizeof rt);
     if (g16_sheet_alloc(&rt.sheet, 128, 128) != 0)
         return 0;

@@ -33,6 +33,8 @@ typedef struct {
     const char *pads;           /* "pads: 1 - - -" */
     const char *details;        /* line under the grid (path, size) */
     const char *note;           /* last game, errors */
+    const char *ask;            /* a question over the menu (A yes, B no), or NULL */
+    const char *ask_detail;
 } menu_view_t;
 
 /* Switches the screen to the menu mode; -1 if it cannot (the caller keeps

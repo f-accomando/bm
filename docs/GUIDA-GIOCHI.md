@@ -75,7 +75,8 @@ Pulsanti: `btn(i)` finché è premuto, `btnp(i)` solo al momento della pressione
 | 6 | X | quadrato | C, L |
 | 7 | Y | triangolo | V, I |
 
-Esc, Start+Select o il tasto PS tornano al menu.
+Esc, Start+Select o il tasto PS tornano al menu, e il gioco resta **sospeso** in memoria
+(A sulla sua copertina lo riprende). `quit()` invece chiude davvero la cartuccia.
 
 **Più giocatori.** Con due o più controller Bluetooth (abbinati dal monitor con `T`: il
 primo è il giocatore 1, il secondo il giocatore 2...) ogni giocatore ha i suoi tasti:

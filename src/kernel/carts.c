@@ -48,6 +48,7 @@ static cart_t carts[MAX_CARTS];
 static int ncarts, nsd, sd_ok;
 static char last_msg[96];
 static char perf_msg[80];          /* speed of the last .b33 game */
+static char susp_path[FAT_NAME_MAX + 10];   /* the cartridge frozen in memory, "" if none */
 
 static int ends_with(const char *s, const char *ext)
 {
@@ -221,6 +222,35 @@ void carts_list(void)
                 carts[i].name, carts[i].title);
 }
 
+static void perf_line(const b33_stats_t *st)
+{
+    perf_msg[0] = 0;
+    if (st->frames) {
+        uint32_t ms = st->elapsed_us / 1000, fps10 = ms ? st->frames * 10000u / ms : 0;
+        uint32_t avg = st->cpu_us_total / st->frames;
+        ksnprintf(perf_msg, sizeof perf_msg,
+                  ", %lu.%lu fps, update+draw %lu.%02lu ms (max %lu.%02lu)",
+                  fps10 / 10, fps10 % 10, avg / 1000, avg % 1000 / 10,
+                  st->cpu_us_max / 1000, st->cpu_us_max % 1000 / 10);
+    }
+}
+
+/* A cartridge from the menu: .b33 ones can be left suspended. Returns
+ * B33_SUSPENDED if it was. */
+static int run_buffer(framebuffer_t *fb, const uint8_t *data, size_t len, int suspendable)
+{
+    if (len >= 8 && memcmp(data, "BM33CART", 8) == 0) {
+        b33_stats_t st;
+        int r = b33_run(fb, data, len, PLAY_SECS, &st, suspendable);
+        b33_print_stats(&st);
+        perf_line(&st);
+        return r;
+    }
+    b33_close_suspended();
+    carts_play_buffer(fb, data, len);
+    return B33_ENDED;
+}
+
 void carts_play_buffer(framebuffer_t *fb, const uint8_t *data, size_t len)
 {
     if (len >= 8 && memcmp(data, "BM33CART", 8) == 0) {
@@ -277,6 +307,21 @@ void carts_editor(framebuffer_t *fb)
 
 static void play(framebuffer_t *fb, const cart_t *c)
 {
+    if (susp_path[0] && strcmp(susp_path, c->path) == 0 && b33_suspended(NULL, 0)) {
+        kprintf("\nresuming %s\n", c->name);
+        crumb("playing", c->title[0] ? c->title : c->name);
+        b33_stats_t st;
+        int r = b33_resume(fb, PLAY_SECS, &st);
+        b33_print_stats(&st);
+        perf_line(&st);
+        if (r != B33_SUSPENDED)
+            susp_path[0] = 0;
+        ksnprintf(last_msg, sizeof last_msg, "last: %s%s", c->name, perf_msg);
+        crumb("cartridge menu", NULL);
+        return;
+    }
+    b33_close_suspended();              /* the menu asked first */
+    susp_path[0] = 0;
     if (c->builtin == b33_editor_cart) {
         carts_editor(fb);
         ksnprintf(last_msg, sizeof last_msg, "last: editor");
@@ -287,7 +332,8 @@ static void play(framebuffer_t *fb, const cart_t *c)
     perf_msg[0] = 0;
     crumb("playing", c->title[0] ? c->title : c->name);
     if (c->builtin) {
-        carts_play_buffer(fb, c->builtin, c->size);
+        if (run_buffer(fb, c->builtin, c->size, 1) == B33_SUSPENDED)
+            ksnprintf(susp_path, sizeof susp_path, "%s", c->path);
         ksnprintf(last_msg, sizeof last_msg, "last: %s%s", c->name, perf_msg);
         crumb("cartridge menu", NULL);
         return;
@@ -299,7 +345,8 @@ static void play(framebuffer_t *fb, const cart_t *c)
         ksnprintf(last_msg, sizeof last_msg, "cannot read %s: %s", c->name, fat_error());
         return;
     }
-    carts_play_buffer(fb, data, len);
+    if (run_buffer(fb, data, len, 1) == B33_SUSPENDED)
+        ksnprintf(susp_path, sizeof susp_path, "%s", c->path);
     free(data);
     ksnprintf(last_msg, sizeof last_msg, "last: %s%s", c->name, perf_msg);
     crumb("cartridge menu", NULL);
@@ -389,7 +436,8 @@ void carts_menu(framebuffer_t *fb)
     input_flush();
     static menu_item_t items[MAX_CARTS];
     static int idx[MAX_CARTS];
-    char pads[24], details[128];
+    char pads[24], details[128], ask[64], susp_title[49];
+    int confirm = -1;                        /* cartridge waiting for "close the suspended one?" */
     int gfx = menu_ui_open(fb) == 0;         /* else the text menu */
     for (;;) {
         int n = tab_items(tab, idx);
@@ -398,7 +446,8 @@ void carts_menu(framebuffer_t *fb)
             for (int i = 0; i < n; i++) {
                 const cart_t *c = &carts[idx[i]];
                 items[i] = (menu_item_t){ c->title, c->author, c->path, c->kind == KIND_B33 ? "b33" : "s32",
-                                          c->size, c->cover.px ? &c->cover : NULL, 0 };
+                                          c->size, c->cover.px ? &c->cover : NULL,
+                                          susp_path[0] && strcmp(susp_path, c->path) == 0 };
             }
             input_status(pads, sizeof pads);
             details[0] = 0;
@@ -408,7 +457,13 @@ void carts_menu(framebuffer_t *fb)
                           c->author[0] ? c->author : "-", c->kind == KIND_B33 ? "b33" : "s32",
                           (c->size + 1023) / 1024, c->path);
             }
-            menu_view_t v = { tabs, 2, tab, on_tabs, items, n, tsel[tab], pads, details, last_msg };
+            menu_view_t v = { tabs, 2, tab, on_tabs, items, n, tsel[tab], pads, details, last_msg,
+                              NULL, NULL };
+            if (confirm >= 0 && b33_suspended(susp_title, sizeof susp_title)) {
+                ksnprintf(ask, sizeof ask, "Close %s?", susp_title);
+                v.ask = ask;
+                v.ask_detail = "It is suspended: what was not saved is lost.";
+            }
             menu_ui_frame(fb, &v);
         } else {
             if (sel < top) top = sel;
@@ -476,6 +531,28 @@ void carts_menu(framebuffer_t *fb)
                 switch_tab = 1;
         }
 
+        if (confirm >= 0) {
+            /* A (Enter) closes the suspended game and starts the new one,
+             * B / q / Esc cancel */
+            int yes = action == 1, no = quit || (pressed & HID_B);
+            quit = 0;
+            action = 0;
+            dx = dy = switch_tab = 0;
+            if (no) {
+                confirm = -1;
+            } else if (yes) {
+                int target = confirm;
+                confirm = -1;
+                b33_close_suspended();
+                susp_path[0] = 0;
+                menu_ui_close(fb);
+                play(fb, &carts[target]);
+                input_flush();
+                prev_btn = hid_buttons();
+                on_tabs = 0;
+                gfx = menu_ui_open(fb) == 0;
+            }
+        }
         if (quit)
             break;
         if (gfx) {
@@ -512,8 +589,13 @@ void carts_menu(framebuffer_t *fb)
             if (sel >= ncarts) sel = 0;
             redraw = 1;
         } else if (action == 3 || (action == 1 && (!gfx || tab_items(tab, idx) > 0))) {
-            /* A plays the highlighted cartridge, also from the tab bar */
+            /* A plays the highlighted cartridge, also from the tab bar; if
+             * another one is suspended, ask first */
             const cart_t *c = gfx ? &carts[idx[tsel[tab]]] : &carts[sel];
+            if (gfx && action == 1 && b33_suspended(NULL, 0) && strcmp(susp_path, c->path) != 0) {
+                confirm = (int)(c - carts);
+                continue;
+            }
             if (gfx)
                 menu_ui_close(fb);
             if (action == 3)

@@ -631,7 +631,7 @@ solo per la scelta dei giochi.
    - A (anche dalle schede) avvia la copertina evidenziata.
    
    L'editor ora si chiama **bm33 SDK**.
-2. **Giochi sospesi**:
+2. ✅ (QEMU, `test_suspend_resume`) **Giochi sospesi**:
    - Esc, o PS sul controller, esce dal gioco ma lo lascia congelato in memoria (stato
      Lua, sheet, mappa, 3D; audio muto);
    - nel menu la copertina ha il badge **Playing** (già disegnato da `menu_ui`);
@@ -639,8 +639,15 @@ solo per la scelta dei giochi.
    - avviare un'altra applicazione chiede conferma, chiude quella sospesa e libera la
      memoria.
    
-   Serve dividere `b33_play` in avvio / riprendi / chiudi; una sola applicazione sospesa
-   alla volta, come sulle console.
+   Fatto: `b33_run` (con `suspendable`), `b33_resume`, `b33_close_suspended`.
+   - Alla ripresa tornano:
+     - la stessa area di disegno (clip e camera);
+     - il disegno via RAM, se il gioco usa le luci;
+     - `time()` senza il tempo passato nel menu.
+   - I tasti ancora premuti non contano come nuove pressioni.
+   - Una sola applicazione sospesa alla volta, come sulle console.
+   - `quit()`, un errore e le prove dall'SDK chiudono davvero.
+   - Le cartucce s32 non si sospendono (ancora).
 - **Fatto quando:** sul Pi il menu è fluido a 60 fps con tutte le cartucce e un gioco
   sospeso riprende dal punto in cui era.
 

@@ -359,10 +359,11 @@ void menu_ui_frame(framebuffer_t *fb, const menu_view_t *v)
                        v->on_tabs ? c16(0x8A8A96) : pulse(t));
         card(v->items[i].cover, x, y);
         if (v->items[i].running) {
-            int by = y + CARD_H - 22;
-            if (by >= GRID_TOP && by + 18 <= GRID_BOT) {
-                round_rect(x + 6, by, 64, 18, 9, c16(0x101014));
-                g16_text(&g, x + 14, by + 1, "Playing", c16(C_TEXT));
+            /* on the 8x16 text grid, in the lower part of the cover */
+            int tx = (x + 8 + 7) / 8 * 8, ty = (y + CARD_H - 20) / 16 * 16;
+            if (ty >= GRID_TOP && ty + 16 <= GRID_BOT) {
+                round_rect(tx - 6, ty - 2, 7 * 8 + 12, 20, 10, c16(0x101014));
+                g16_text(&g, tx, ty, "Playing", c16(C_TEXT));
             }
         }
     }
@@ -416,6 +417,22 @@ void menu_ui_frame(framebuffer_t *fb, const menu_view_t *v)
     col = 34;
     col = hint(col, 21, "A", "Play");
     g16_text(&g, col * 8, 21 * 16, "Start+Select Monitor", c16(C_TEXT));
+
+    /* a question in a panel over everything */
+    if (v->ask) {
+        const int px = 12 * 8, py = 8 * 16 - 8, pw = SW - 24 * 8, ph = 5 * 16 + 16;
+        round_rect(px - 2, py - 2, pw + 4, ph + 4, 14, c16(C_LINE));
+        round_rect(px, py, pw, ph, 12, c16(C_BAR));
+        char q[64];
+        ksnprintf(q, sizeof q, "%s", v->ask);
+        g16_text(&g, (SW / 8 - (int)strlen(q)) / 2 * 8, 9 * 16, q, c16(C_TEXT));
+        if (v->ask_detail) {
+            ksnprintf(q, sizeof q, "%s", v->ask_detail);
+            g16_text(&g, (SW / 8 - (int)strlen(q)) / 2 * 8, 10 * 16, q, c16(C_DIM));
+        }
+        int c = hint(26, 12, "A", "Close it");
+        hint(c + 2, 12, "B", "Cancel");
+    }
 
     fb_flip(fb);
     while ((int32_t)(timer_ticks() - deadline) < 0)

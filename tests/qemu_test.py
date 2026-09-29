@@ -669,6 +669,9 @@ def test_sd_cartridges(b, opts):
         out = q.expect("update+draw", timeout=15).decode(errors="replace")
         assert '"bm33 native demo"' in out, out
         q.send("d\r")                         # next: /carts/demo2.cart (s32)
+        _, text = settled_screen(q, lambda i, t: any("Close bm33 native demo?" in l for l in t))
+        assert any("Close bm33 native demo?" in l for l in text), "\n".join(text)
+        q.send("\r")                          # the demo was suspended: close it
         q.expect("playing demo2.cart", timeout=10)
         time.sleep(1.0)
         q.send("q")
@@ -678,6 +681,64 @@ def test_sd_cartridges(b, opts):
         q.expect("> ")
     finally:
         q.close()
+
+
+COUNTER_CART = r"""
+local n = 0
+function _init() log("counter start") end
+function _update()
+  n = n + 1
+  if n % 60 == 0 then log("frame " .. n) end
+end
+function _draw() cls(0x203040) print("frame " .. n, 8, 8, 0xFFFFFF) end
+"""
+
+
+def test_suspend_resume(b, opts):
+    """M21: leaving a game from the menu keeps it frozen in memory ("Playing"
+    on its cover); A on it resumes from the same frame; starting another
+    cartridge asks first (B keeps it, A closes it and frees the memory)."""
+    tmp = tempfile.mkdtemp(prefix="bm33-susp-")
+    img = os.path.join(tmp, "sd.img")
+    cart = os.path.join(tmp, "counter.b33")
+    with open(cart, "wb") as f:
+        f.write(mkb33.pack(COUNTER_CART.encode(), title="AAA counter"))
+    mksd.build(img, [(cart, "carts/counter.b33"), (b("demo.b33"), "carts/zdemo.b33")])
+    q = Qemu(b("kernel.img"), ["-drive", f"if=sd,format=raw,file={img}"])
+    try:
+        q.expect(MENU, timeout=30)
+        time.sleep(0.5)
+        q.send("\r")
+        q.expect("counter start", timeout=10)
+        q.expect("frame 120", timeout=10)
+        q.send("q")
+        q.expect('"AAA counter" suspended', timeout=10)
+        _, text = settled_screen(q, lambda i, t: any("Playing" in l for l in t))
+        assert any("Playing" in l for l in text), "\n".join(text)
+        time.sleep(2.0)                        # time in the menu does not run the game
+        q.send("\r")
+        out = q.expect('"AAA counter" resumed', timeout=10).decode(errors="replace")
+        assert "counter start" not in out, out
+        out = q.expect("frame ", timeout=10) + q.expect("\n", timeout=5)
+        m = re.search(rb"frame (\d+)", out)
+        assert m and 120 <= int(m[1]) <= 240, out   # continues, does not restart
+        q.send("q")
+        q.expect("suspended", timeout=10)
+        time.sleep(0.5)
+        q.send("d\r")                         # another cartridge: the question
+        _, text = settled_screen(q, lambda i, t: any("Close AAA counter?" in l for l in t))
+        assert any("Close AAA counter?" in l for l in text), "\n".join(text)
+        q.send("q")                            # no: still suspended
+        time.sleep(0.5)
+        q.send("\r")
+        _, text = settled_screen(q, lambda i, t: any("Close AAA counter?" in l for l in t))
+        assert any("Close AAA counter?" in l for l in text), "\n".join(text)
+        q.send("\r")                          # yes: closed, the demo starts
+        out = q.expect("playing zdemo.b33", timeout=10).decode(errors="replace")
+        assert '"AAA counter" closed, memory freed' in out, out
+    finally:
+        q.close()
+        shutil.rmtree(tmp, ignore_errors=True)
 
 
 def test_make_image(b, opts):

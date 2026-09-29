@@ -15,7 +15,10 @@ sulla porta micro-USB centrale) e accendi. Il Pi si avvia in un paio di secondi 
 **menu delle cartucce** (in 3D: ogni gioco è una piccola scheda a forma di Memory
 Stick Duo con la copertina stampata sopra e i contatti in rame sul retro): Pong,
 Snake, Star Shooter, Astro Wing (3D), Hunter's Night (gotico, 320×180 con luci) e le demo. Frecce per scegliere,
-Invio (o A) per giocare, **Esc** (o Start+Select) per tornare al menu.
+Nel menu le copertine stanno in una griglia (schede **Games** e **Dev**); frecce per
+muoversi, Invio (o A) per giocare. **Esc** (o Start+Select, o PS) torna al menu e lascia
+il gioco **sospeso**: la copertina mostra "Playing" e A lo riprende dal punto in cui era.
+Avviare un altro gioco chiede prima di chiudere quello sospeso.
 Per scrivere un gioco: [docs/GUIDA-GIOCHI.md](docs/GUIDA-GIOCHI.md) (guida pratica) e
 [docs/API.md](docs/API.md) (riferimento).
 
@@ -50,7 +53,7 @@ Prestazioni e scelte tecniche (limiti del Pi, atteso contro misurato): [docs/PRE
 | M18 | WiFi, console di rete con password, invio di kernel e cartucce dal PC | 🛠 avviata: SD su SDHOST, chip WiFi (`W`) |
 | M19 | HTTPS: aggiornamenti da GitHub, "git leggero" (archivi e API con token) | |
 | **M20** | **Titan Clash**: picchiaduro 2D a robot giganti; prima base giocabile (1 robot, armatura leggera/pesante, spada o cannoni, hangar, contro CPU o in 2) | 🛠 base fatta, da provare sul Pi |
-| M21 | Menu "home" a griglia (Games / Dev) e giochi sospesi in memoria | 🛠 griglia fatta, sospensione da fare |
+| M21 | Menu "home" a griglia (Games / Dev) e giochi sospesi in memoria | 🛠 fatto, da provare sul Pi |
 | M22 | SDK e strumenti dedicati: codice, pixel art, 3D, musica, import/export, 3D→sprite, sprite stacking | in coda |
 
 ## Cosa fa il kernel
