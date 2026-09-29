@@ -55,6 +55,8 @@ Prestazioni e scelte tecniche (limiti del Pi, atteso contro misurato): [docs/PRE
 | **M20** | **Titan Clash**: picchiaduro 2D a robot giganti; prima base giocabile (1 robot, armatura leggera/pesante, spada o cannoni, hangar, contro CPU o in 2) | 🛠 base fatta, da provare sul Pi |
 | M21 | Menu "home" a griglia (Games / Dev) e giochi sospesi in memoria | 🛠 fatto, da provare sul Pi |
 | M22 | SDK e strumenti dedicati: codice, pixel art, 3D, musica, import/export, 3D→sprite, sprite stacking | in coda |
+| M23 | Emulatore di cartucce `.p8` / `.p8.png` (stile PICO-8) | in coda |
+| M24 | Scambio di giochi e risorse: store su GitHub, P2P in rete locale | in coda |
 
 ## Cosa fa il kernel
 

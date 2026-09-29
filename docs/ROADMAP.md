@@ -729,6 +729,63 @@ Considerazioni:
     impostazioni del progetto.
 - Ordine proposto: 22.0 → 22.1 → 22.2 → 22.4 → 22.5 → 22.3 → 22.6 → 22.7.
 
+## M23 — Emulatore di cartucce `.p8` / `.p8.png` (stile PICO-8) (L/XL)
+Decisione 2026-09-29: in coda. Scritto da zero in C sul runtime di bm33 (non il port di
+fake-08, in C++). Nessun nome, logo o font di PICO-8 (prodotto di Lexaloffle): nome e
+font nostri; le cartucce del forum sono per lo più CC BY-NC-SA (uso non commerciale).
+1. **Caricatore**:
+   - `.p8.png`: PNG con inflate, 32 KiB nascosti nei 2 bit bassi dei colori, codice
+     compresso nei formati `:c:` e `pxa`;
+   - `.p8` di testo;
+   - l'immagine fa da copertina nel menu.
+2. **Dialetto Lua** tradotto in Lua 5.4 prima di eseguirlo: `+=`, `!=`, `if (c) x`
+   su una riga, `?`, `\`, operatori sui bit, `@`/`%`/`$`, commenti `//`.
+3. **Macchina**: RAM di 32 KiB emulata (schermo 128×128 a 4 bit, stato del disegno,
+   sprite, mappa, `peek`/`poke`/`memcpy`), convertita in colore a ogni fotogramma
+   (framebuffer piccolo, ingrandito dalla GPU).
+4. **API grafica e input** (`spr`, `sspr`, `map`, `tline`, `fillp`, `pal`, `print`
+   con i codici di controllo, `btn`/`btnp` per più giocatori con M16).
+5. **Audio**: 4 canali, 8 forme d'onda, strumenti personalizzati, effetti, musica.
+6. **Numeri a virgola fissa 16.16** (Lua modificato): dal ~70–80% al ~95% delle
+   cartucce compatibili.
+- **Fatto quando:** un gioco senza suono gira dalla SD (primo traguardo), poi con audio
+  e numeri 16.16.
+
+## M24 — Scambio di giochi e risorse: store e P2P (L, dopo M18/M19)
+Decisione 2026-09-29: in coda, da definire meglio; considerazioni iniziali.
+- **Cosa si scambia**:
+  - cartucce `.b33` (già un contenitore unico) e pacchetti di risorse (sprite, mesh,
+    suoni: un `.b33` senza codice);
+  - ogni pacchetto con un manifesto: nome, autore, versione, licenza, hash SHA-256.
+- **Catalogo su un repository GitHub** (consigliato come "store"):
+  - hosting gratuito, versioni e cronologia, moderazione con le pull request;
+  - il Pi legge un indice firmato via HTTPS (M19) e scarica;
+  - dall'SDK si pubblica con il token personale (M19, "git leggero").
+- **P2P in rete locale** (dopo M18, economico):
+  - le console si trovano con un annuncio UDP in broadcast;
+  - si passano cartucce e risorse via TCP, per esempio tra amici sulla stessa rete.
+- **P2P via internet** tra console: **sconsigliato** sul Pi Zero bare metal.
+  - Servono traversamento del NAT, server di appoggio (relay) comunque, TLS e una DHT:
+    molto codice, e senza un server centrale il valore aggiunto è poco.
+  - Alternativa: file indirizzati per hash, scaricabili da qualunque fonte (repository o
+    console vicina), con la stessa verifica.
+- **Sicurezza**:
+  - pacchetti firmati dagli autori (Ed25519, codice piccolo: monocypher/TweetNaCl) e
+    hash verificati prima di installare;
+  - le cartucce Lua girano già in un ambiente chiuso; il codice ARM nativo (M13) no:
+    senza isolamento della memoria, solo da autori fidati o mai dallo store.
+- **Market a pagamento**: account, pagamenti e licenze vanno su un servizio web, non sul
+  Pi; il Pi scarica solo ciò che l'account ha sbloccato. È un progetto a sé.
+- **Licenze**: il campo licenza è obbligatorio. La BM33 Community License vale per bm33,
+  non per i contenuti degli utenti; attenzione a CC BY-NC-SA (uso non commerciale) e ai
+  contenuti di terzi.
+- **Passi proposti**:
+  1. scambio in rete locale;
+  2. catalogo in lettura da GitHub;
+  3. pubblicazione dall'SDK;
+  4. firme e scheda "Store" nel menu;
+  5. (eventuale) market web.
+
 ## Rischi principali
 | Rischio | Mitigazione |
 |---------|-------------|
