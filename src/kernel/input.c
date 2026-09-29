@@ -138,10 +138,16 @@ void input_stick(int p, uint32_t b, float *x, float *y)
 
 void input_status(char *buf, unsigned size)
 {
-    unsigned m = input_connected();
+    /* a number: that player's pad is connected; k: the player who uses
+     * the keyboard (or the USB pad) */
+    unsigned m = input_connected(), pads = bt_pads();
     int n = ksnprintf(buf, size, "pads:");
-    for (int p = 0; p < INPUT_PLAYERS && n + 3 < (int)size; p++)
-        n += ksnprintf(buf + n, size - (unsigned)n, (m >> p & 1) ? " %d" : " -", p + 1);
+    for (int p = 0; p < INPUT_PLAYERS && n + 3 < (int)size; p++) {
+        if (pads >> p & 1)
+            n += ksnprintf(buf + n, size - (unsigned)n, " %d", p + 1);
+        else
+            n += ksnprintf(buf + n, size - (unsigned)n, (m >> p & 1) ? " k" : " -");
+    }
 }
 
 void input_live_test(uint32_t seconds)

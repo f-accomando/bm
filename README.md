@@ -81,7 +81,7 @@ Lua `boot.lua`) si esegue dal monitor con **`b`**.
 
 | Tasto | Azione |
 |-------|--------|
-| `h` | aiuto |
+| `h` | aiuto, a pagine: frecce su/giù, PagSu/PagGiù, spazio (dalla seriale `w`/`s`); `q` o Esc esce |
 | `b` / `B` | diagnostica: la vecchia sequenza di avvio (benchmark, demo s32 e b33, `boot.lua`) |
 | `l` | **REPL Lua** (Esc su riga vuota, Ctrl-D o `exit()` per tornare al monitor) |
 | `i` | info di sistema |
@@ -101,6 +101,7 @@ Lua `boot.lua`) si esegue dal monitor con **`b`**.
 | `a` | audio: stato dell'uscita HDMI (clock, canale DMA, costo della sintesi) e una melodia di prova con le quattro forme d'onda |
 | `T` | Bluetooth: cerca per 8 s e **abbina il primo controller** trovato come **prossimo giocatore** (fino a 4; DS4: Share + PS finché lampeggia); la console seriale passa alla mini UART (stessi pin) |
 | `P` | Bluetooth: **dimentica tutti i pad** abbinati (chiede conferma con `y`): chiavi tolte da `bm33/config.txt`, pad scollegati; poi si riabbinano con `T` |
+| `o` | **log dell'avvio**: tutto quello che il kernel ha scritto dall'accensione (primi 64 KiB), a pagine |
 | `W` | WiFi (M18): accende il chip e lo identifica, un passo per riga |
 | `p` | benchmark di rendering 640×360 RGB565, disegnando direttamente sullo schermo e via RAM |
 | `V` | cartucce `.b33`: disegno diretto sullo schermo (default) o via buffer in RAM |
@@ -141,7 +142,7 @@ viene scelta l'interfaccia tastiera, anche se il dispositivo usa i report con ID
   (`bt_pad1=` … `bt_pad4=`; il vecchio `bt_pad=` diventa il giocatore 1). Dalle accensioni
   successive il Bluetooth parte da solo (circa 3 s in più all'avvio per il firmware del
   chip) e basta premere **PS**: la luce del pad prende il colore del giocatore (1 blu,
-  2 rosso, 3 verde, 4 rosa). Il menu mostra in alto i giocatori collegati (`pads: 1 2 - -`).
+  2 rosso, 3 verde, 4 rosa). Il menu mostra in alto i giocatori collegati (`pads: 1 2 - -`; `k` è il giocatore che usa la tastiera).
   Stessi tasti del cavo USB; tastiera e gamepad USB sono il primo giocatore senza pad.
 - **DualShock 4 (PS4)** via cavo USB: croce direzionale o levetta sinistra,
   croce/quadrato = A, cerchio/triangolo = B, Options = Start, Share = Select,

@@ -253,6 +253,31 @@ def test_console_ansi_and_status(b, opts):
         q.close()
 
 
+def test_pager(b, opts):
+    """'h' is longer than the screen: it scrolls (s / arrows) and q returns;
+    'o' shows everything printed since boot, from the first line."""
+    q = Qemu(b("kernel.img"))
+    try:
+        q.boot()
+        q.send("h")
+        q.expect("-- lines 1-", timeout=5)
+        q.send("s")
+        q.expect("-- lines 2-", timeout=5)
+        q.send("\x1b[B")                     # arrow down, serial sequence
+        q.expect("-- lines 3-", timeout=5)
+        q.send("q")
+        q.expect("> ", timeout=5)
+        q.send("o")
+        out = q.expect("-- lines 1-", timeout=5).decode(errors="replace")
+        assert "bm33 kernel" in out and "\x1b" not in out.split("bm33 kernel")[1][:40], out[-300:]
+        q.send("\x1b")                       # Esc alone returns
+        q.expect("> ", timeout=5)
+        _, text = settled_screen(q, lambda i, t: any(l.startswith(">") for l in t))
+        assert text[0].startswith(" bm33 "), text[0]
+    finally:
+        q.close()
+
+
 def test_screen_pattern(b, opts):
     q = Qemu(b("kernel.img"))
     try:

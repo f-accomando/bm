@@ -21,14 +21,14 @@
 #include "config.h"
 #include "bt/bt.h"
 #include "wifi/wifi.h"
+#include "pager.h"
 #include "audio/audio.h"
 #include "dmatest.h"
 #include "crumbs.h"
 #include "drivers/watchdog.h"
 
-static void help(void)
-{
-    kprintf("commands (games: arrows/wasd, space = A; q or Esc quits):\n"
+static const char help_text[] =
+            "commands (games: arrows/wasd, space = A; q or Esc quits):\n"
             "  M  cartridge menu (SD card: / and /carts; built-in demos if none)\n"
             "  f  list cartridges        F  re-read the SD card\n"
             "  g  built-in s32 demo.cart n  built-in native demo.b33\n"
@@ -50,7 +50,12 @@ static void help(void)
             "  d  animation demo (60 fps; any key stops it)\n"
             "  t  HDMI test pattern (any key returns)\n"
             "  r  reboot (watchdog; the chainloader will ask for a new kernel)\n"
-            "  X  crash tests (then u, a, b, s or f): exception screen, freeze\n");
+            "  X  crash tests (then u, a, b, s or f): exception screen, freeze\n"
+            "  o  everything printed since boot (scrolls like this help)\n";
+
+static void help(void)
+{
+    pager_show(help_text);
 }
 
 static void __attribute__((noinline)) trigger_undef(void)
@@ -161,9 +166,12 @@ void monitor_run(void)
         case 'Y': usb_live_test(5); input_live_test(10); break;
         case 'T': bt_scan(8); break;
         case 'W': wifi_start(); break;
+        case 'o': pager_show(klog_text()); break;
         case 'P': {
             kprintf("forget all Bluetooth pads (keys removed from bm33/config.txt)? y = yes\n");
-            if (input_getc() == 'y') {
+            input_flush();                      /* only a key pressed after the question */
+            char k = input_getc();
+            if (k == 'y' || k == 'Y') {
                 int n = bt_forget_all();
                 kprintf("bt: %d pad%s forgotten; pair again with T (DS4: Share + PS)\n",
                         n, n == 1 ? "" : "s");

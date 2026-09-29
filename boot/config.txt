@@ -14,9 +14,12 @@ disable_overscan=1
 # HDMI mode; nearest-neighbour keeps the text sharp instead of blurred.
 scaling_kernel=8
 
-# Uncomment to force 720p60 if the monitor picks something odd
-#hdmi_group=1
-#hdmi_mode=4
+# Always 1080p60 (16:9, CEA): the picture keeps its shape. Left to the
+# monitor's list, an ultrawide one may be driven at its 21:9 mode and the
+# 16:9 picture gets stretched. If the monitor still fills the width, set
+# its aspect option to "original" / "1:1". For 720p60: hdmi_mode=4.
+hdmi_group=1
+hdmi_mode=16
 
 # Skip the rainbow splash
 disable_splash=1

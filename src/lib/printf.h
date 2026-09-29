@@ -19,4 +19,7 @@ int kvlog(const char *fmt, va_list ap);
 void kprintf_set_sink(void (*sink)(char c));
 void klog_putc(char c);   /* one byte to all log outputs */
 
+/* Everything printed since boot (first 64 KiB), colour escapes removed. */
+const char *klog_text(void);
+
 #endif

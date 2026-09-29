@@ -137,8 +137,38 @@ void kprintf_set_sink(void (*sink)(char c))
     log_sink = sink;
 }
 
+/* Everything printed since boot, without the colour escapes, for the
+ * monitor's 'o' (the first 64 KiB). */
+#define BOOTLOG_SIZE (64 * 1024)
+static char bootlog[BOOTLOG_SIZE];
+static unsigned bootlog_len;
+static int bootlog_esc;
+
+static void bootlog_putc(char c)
+{
+    if (bootlog_esc) {                          /* ESC [ ... letter */
+        if ((c >= 'A' && c <= 'Z') || (c >= 'a' && c <= 'z'))
+            bootlog_esc = 0;
+        return;
+    }
+    if (c == 0x1B) {
+        bootlog_esc = 1;
+        return;
+    }
+    if (c == '\r' || bootlog_len + 1 >= BOOTLOG_SIZE)
+        return;
+    bootlog[bootlog_len++] = c;
+    bootlog[bootlog_len] = 0;
+}
+
+const char *klog_text(void)
+{
+    return bootlog;
+}
+
 void klog_putc(char c)
 {
+    bootlog_putc(c);
     if (c == '\n')
         uart_putc('\r');
     uart_putc(c);
