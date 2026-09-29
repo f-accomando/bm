@@ -562,7 +562,7 @@ function _draw()
   if boss then
     local m = (boss.hit and boss.hit > 0) and M.core_hot or M.core
     if boss.hit and boss.hit > 0 then boss.hit = boss.hit - 1 end
-    draw3d(boss.open and m or M.core, boss.x, boss.y, boss.z, 0, boss.t * 0.02, 0, 4)
+    draw3d(boss.open and m or M.core, boss.x, boss.y, boss.z, 0, boss.t * 0.02, 0, 4, 4)  -- flag 4: smooth (Gouraud)
     for _, tu in ipairs(boss.turrets) do
       if tu.hp > 0 then
         local x, y, z = turret_pos(tu)

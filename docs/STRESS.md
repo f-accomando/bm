@@ -30,6 +30,8 @@ per poligoni 2D/3D, sia dal C sia attraverso l'API delle cartucce Lua (`.b33`).
 | sprites 32×32 (C) | come sopra, 32×32 | 4× i pixel per sprite |
 | triangles 2D ~170px | N triangoli pieni di circa 20 px di lato (≈170 pixel l'uno) | rasterizzatore a scanline |
 | 3D spheres 96 (C) | N sfere di 96 triangoli (6×8), ruotanti, prospettiva, z-buffer, luce per faccia | circa il 40% dei triangoli è visibile (gli altri vengono scartati come facce posteriori) |
+| 3D smooth (Gouraud) | le stesse sfere con `R3D_SMOOTH`: luce per vertice, colore sfumato e dithering | dal kernel con Gouraud (M14), da misurare sul Pi |
+| 3D textured | le stesse sfere con una texture a scacchi 16×32 dello sheet (prospettiva corretta) | dal kernel con Gouraud (M14), da misurare sul Pi |
 | sprites 16×16 (Lua) | come il test C, ma ogni sprite è una chiamata `spr()` da Lua con il calcolo della posizione in Lua | costo reale per una cartuccia |
 | 3D spheres 96 (Lua) | come il test C, con `draw3d()` chiamato da Lua | trasformazioni e raster in C |
 
@@ -45,7 +47,9 @@ sull'ARM (`src/b33/r3d.c`).
   clipping sul piano vicino: un triangolo che lo attraversa viene scartato);
 - triangoli pieni a scanline con **z-buffer a 16 bit** (1/z), ombreggiatura piatta
   (Lambert per faccia + luce ambiente);
-- nessuna texture, nessuna interpolazione del colore (Gouraud) per ora.
+- dal 2026-09-27 texture (prospettiva corretta) e clipping sul piano vicino; dal
+  2026-09-29 Gouraud (flag `R3D_SMOOTH`, luce per vertice, dithering 4×4). Le misure
+  qui sotto sono del rasterizzatore piatto.
 
 API per le cartucce: `mesh`, `mesh_sphere`, `mesh_cube`, `draw3d`, `camera3d`,
 `light3d`, `zclear`, `tri` (vedi README).

@@ -6,6 +6,7 @@
 #include "b33/b33.h"
 #include "b33/gfx16.h"
 #include "b33/r3d.h"
+#include "lib/crc32.h"
 
 static int fails, checks;
 #define CHECK(c, ...) do { checks++; if (!(c)) { fails++; printf("FAIL %s:%d: ", __FILE__, __LINE__); printf(__VA_ARGS__); printf("\n"); } } while (0)
@@ -267,6 +268,38 @@ static void test_3d(void)
     CHECK(big[12 * 640 + 12] == 0xFFFF && big[45 * 640 + 45] == 0, "2D triangle");
     g16_tri(&g, -100, -100, 1000, -50, 300, 1000, 0x1234);   /* huge, clipped */
     CHECK(big[180 * 640 + 320] == 0x1234, "clipped big triangle");
+
+    /* 2D Gouraud triangle: near each corner its own colour, in between a blend */
+    g16_cls(&g, 0);
+    g16_tri_gouraud(&g, 0, 0, 200, 0, 0, 200, 0xFF0000, 0x00FF00, 0x0000FF);
+    {
+        uint32_t c0 = g16_to_rgb24(big[1 * 640 + 1]), c1 = g16_to_rgb24(big[1 * 640 + 196]);
+        uint32_t c2 = g16_to_rgb24(big[196 * 640 + 1]), cm = g16_to_rgb24(big[66 * 640 + 66]);
+        CHECK((c0 >> 16) > 0xF0 && (c0 & 0xFFFF) < 0x1010, "gouraud corner red (%06x)", c0);
+        CHECK((c1 >> 8 & 0xFF) > 0xF0 && (c1 >> 16) < 0x10, "gouraud corner green (%06x)", c1);
+        CHECK((c2 & 0xFF) > 0xF0 && (c2 >> 8) < 0x1010, "gouraud corner blue (%06x)", c2);
+        CHECK((cm >> 16) > 0x40 && (cm >> 16) < 0xC0 && (cm >> 8 & 0xFF) > 0x40 && (cm & 0xFF) > 0x40,
+              "gouraud centre is a blend (%06x)", cm);
+    }
+
+    /* smooth sphere: the light changes inside every face, so neighbouring
+     * pixels along a row differ more often than on the flat one; nothing
+     * leaks outside the silhouette */
+    {
+        int changes[2] = { 0, 0 };
+        for (int smooth = 0; smooth < 2; smooth++) {
+            g16_cls(&g, 0);
+            r3d_zclear(&r);
+            r3d_camera(&r, 0, 0, -3, 0, 0, 60);
+            r3d_light(&r, -0.5f, 0.6f, -0.6f, 0.2f);
+            r3d_draw_flags(&r, &sphere, (v3_t){ 0, 0, 0 }, 0.3f, 0.2f, 0, 1, smooth ? R3D_SMOOTH : 0);
+            for (int x = 250; x < 390; x++)
+                changes[smooth] += big[180 * 640 + x] != big[180 * 640 + x + 1];
+            CHECK(big[5 * 640 + 5] == 0, "smooth sphere: background untouched");
+        }
+        CHECK(changes[1] > changes[0] * 3, "smooth shading varies inside faces (%d vs %d)",
+              changes[1], changes[0]);
+    }
 
     r3d_mesh_free(&sphere);
     r3d_mesh_free(&cube);

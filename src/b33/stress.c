@@ -32,6 +32,7 @@ static g16_sheet_t sheet;
 static r3d_t r3d;
 static r3d_mesh_t sphere;
 static uint32_t tris_last;
+static unsigned spheres_flags;     /* r3d flags of the spheres test */
 
 /* ---------------------------------------------------------------- scenes */
 
@@ -97,9 +98,44 @@ static void spheres3d(int n, int f)
     float step = 9.0f / (side > 1 ? side : 1);
     for (int i = 0; i < n; i++) {
         float x = -4.5f + step * (i % side + 0.5f), y = 2.6f - step * 0.56f * (i / side + 0.5f);
-        r3d_draw(&r3d, &sphere, (v3_t){ x, y, (float)(i % 3) }, f * 0.03f + i, f * 0.05f, 0, step * 0.45f);
+        r3d_draw_flags(&r3d, &sphere, (v3_t){ x, y, (float)(i % 3) }, f * 0.03f + i, f * 0.05f, 0,
+                       step * 0.45f, spheres_flags);
     }
     tris_last = r3d.tris_drawn;
+}
+
+static void spheres3d_smooth(int n, int f)
+{
+    spheres_flags = R3D_SMOOTH;
+    spheres3d(n, f);
+    spheres_flags = 0;
+}
+
+/* the spheres textured with a 32x32 checker of the sheet (u, v per face
+ * from the sphere's rings and segments) */
+static void tex_sphere_setup(void)
+{
+    sheet_setup();
+    for (int y = 0; y < 32; y++)
+        for (int x = 48; x < 64; x++)
+            g16_sheet_set(&sheet, x, y, ((x >> 2) ^ (y >> 2)) & 1 ? g16_rgb(240, 200, 60) : g16_rgb(40, 90, 200), 1);
+    sphere_setup();
+    r3d_mesh_alloc_uv(&sphere);
+    for (int t = 0; t < sphere.nfaces; t++) {
+        sphere.colors[t] = R3D_TEXTURED;
+        for (int i = 0; i < 3; i++) {
+            int v = sphere.faces[t * 3 + i];
+            sphere.uv[t * 6 + i * 2] = 48 + (v % 8) * 2.0f;
+            sphere.uv[t * 6 + i * 2 + 1] = (v / 8) * 5.0f;
+        }
+    }
+    sphere.tex = &sheet;
+}
+
+static void tex_sphere_teardown(void)
+{
+    sphere_teardown();
+    sheet_teardown();
 }
 
 static const test_t tests[] = {
@@ -107,7 +143,10 @@ static const test_t tests[] = {
     { "sprites 32x32 (C)", "spr",  16, 30000, sheet_setup,  spr32,     sheet_teardown },
     { "triangles 2D ~170px", "tri", 16, 60000, NULL,        tris2d,    NULL },
     { "3D spheres 96 (C)", "obj",   1,  4000, sphere_setup, spheres3d, sphere_teardown },
+    { "3D smooth (Gouraud)", "obj", 1,  4000, sphere_setup, spheres3d_smooth, sphere_teardown },
+    { "3D textured", "obj",         1,  4000, tex_sphere_setup, spheres3d, tex_sphere_teardown },
 };
+#define NTESTS (int)(sizeof tests / sizeof *tests)
 
 /* ---------------------------------------------------------------- runner
  * Per-step details go to the serial port only (uart_puts), the summary
@@ -153,8 +192,8 @@ void b33_stress_run(framebuffer_t *fb)
 {
     const uint32_t con_w = fb->width, con_h = fb->height;
     static sample_t samples[64];
-    thr_t results[4][2];
-    float per_item[4];
+    thr_t results[NTESTS][2];
+    float per_item[NTESTS];
 
     kprintf("stress test: 640x360 RGB565, %d frames per step, draw + copy to screen\n", FRAMES_PER_STEP);
     if (b33_video_enter(fb, W, H, &g) != 0) {
@@ -185,7 +224,7 @@ void b33_stress_run(framebuffer_t *fb)
             int ms100 = (int)(ms * 100);
             ksnprintf(line, sizeof line, "  n=%6d  %4d.%02d ms\n", n, ms100 / 100, ms100 % 100);
             uart_puts(line);
-            if (T == &tests[3]) {
+            if (T->unit[0] == 'o') {
                 ksnprintf(line, sizeof line, "           %lu triangles drawn\n", tris_last);
                 uart_puts(line);
             }

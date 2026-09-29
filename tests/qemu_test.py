@@ -1673,12 +1673,16 @@ def test_stress_monitor(b, opts):
         out += q.expect("> ", timeout=60)
         plain = re.sub(rb"\x1b\[[0-9;]*m", b"", out).decode(errors="replace")
         for name in ("sprites 16x16 (C)", "sprites 32x32 (C)", "triangles 2D ~170px",
-                     "3D spheres 96 (C)", "sprites 16x16 (Lua)"):
+                     "3D spheres 96 (C)", "3D smooth (Gouraud)", "3D textured",
+                     "sprites 16x16 (Lua)"):
             m = re.search(re.escape(name) + r"\s+(\S+)", plain)
             assert m, f"{name} missing:\n{plain}"
         m = re.search(r"sprites 16x16 \(C\)\s+(\d+)\s+(\d+)", plain)
         assert m and int(m[2]) > int(m[1]) > 100, m and m.group(0)
         assert re.search(r"3D spheres 96 \(C\)\s+\d+ \(\d+ tri\)", plain), plain
+        # QEMU is slow at floating point: the new 3D rows may start below 1
+        assert re.search(r"3D smooth \(Gouraud\)\s+(<1|\d+ \(\d+ tri\))", plain), plain
+        assert re.search(r"3D textured\s+(<1|\d+ \(\d+ tri\))", plain), plain
         text = "\n".join(screen_text(q.screendump()))
         assert "sprites 16x16 (C)" in text and "3D spheres 96 (Lua)" in text, text
     finally:

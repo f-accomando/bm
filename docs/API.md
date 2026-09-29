@@ -96,7 +96,7 @@ Le coordinate sono in pixel, (0,0) in alto a sinistra; `w` e `h` sono larghezza 
 | `line(x0, y0, x1, y1, c)` | linea |
 | `rect(x, y, w, h, c)` / `rectfill(x, y, w, h, c)` | rettangolo vuoto / pieno |
 | `circ(x, y, r, c)` / `circfill(x, y, r, c)` | cerchio vuoto / pieno |
-| `tri(x0, y0, x1, y1, x2, y2, c)` | triangolo pieno |
+| `tri(x0, y0, x1, y1, x2, y2, c, [c1, c2])` | triangolo pieno; con tre colori (uno per vertice) il colore sfuma da un angolo all'altro (Gouraud, con dithering) |
 | `print(testo, x, y, [c, scala])` | testo con il font 8×16 (bianco se `c` manca), ingrandito `scala` volte (1–8: 2 = caratteri 16×32); restituisce la x dopo l'ultimo carattere |
 | `camera([x, y])` | sposta tutto il disegno di (−x, −y); senza argomenti la azzera |
 | `clip([x, y, w, h])` | limita il disegno al rettangolo; senza argomenti tutto lo schermo |
@@ -266,7 +266,7 @@ Esempio completo: `carts/hunt` (Hunter's Night).
 |---|---|
 | `mesh(v, f, [uv])` | mesh da tabelle: `v` = {x,y,z, x,y,z, …}, `f` = {a,b,c,colore, …} (indici da 1). Con `uv` (6 numeri per faccia: u,v dei tre vertici in pixel dello sprite sheet) le facce con colore `-1` hanno la **texture** dello sprite sheet (prospettiva corretta, i pixel trasparenti restano vuoti) |
 | `mesh_sphere([r, segmenti, c1, c2])`, `mesh_cube([c])` | mesh pronte |
-| `draw3d(m, x, y, z, [rx, ry, rz, scala, flag])` | disegna una mesh con z-buffer e luce per faccia. `flag`: 1 = senza z-buffer (né prova né scrittura: pavimenti e sfondi disegnati per primi, più veloci), 2 = senza luce (colori pieni); si sommano |
+| `draw3d(m, x, y, z, [rx, ry, rz, scala, flag])` | disegna una mesh con z-buffer e luce per faccia. `flag`: 1 = senza z-buffer (né prova né scrittura: pavimenti e sfondi disegnati per primi, più veloci), 2 = senza luce (colori pieni), 4 = **liscia** (Gouraud: luce calcolata sui vertici e sfumata sulla faccia, con dithering; le facce che condividono gli stessi indici di vertice sembrano una superficie curva, per gli spigoli vivi usare vertici separati); si sommano |
 | `camera3d(x, y, z, [yaw, pitch, fov, roll])` | camera (default a z = −5, fov 60°); `roll` inclina l'inquadratura (radianti) |
 | `light3d(x, y, z, [ambiente])` | direzione della luce e luce ambiente (0–1) |
 | `zclear()` | pulisce lo z-buffer (a ogni fotogramma, prima di `draw3d`) |

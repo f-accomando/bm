@@ -1,8 +1,8 @@
 /*
- * Software 3D for native cartridges: flat-shaded, z-buffered triangles in
- * RGB565, perspective projection, back-face culling, clipping on the near
- * plane, one directional light, optional distance fog, textured faces
- * (perspective correct, from a sprite sheet).
+ * Software 3D for native cartridges: z-buffered triangles in RGB565, flat or
+ * Gouraud-shaded (dithered), perspective projection, back-face culling,
+ * clipping on the near plane, one directional light and point lamps, optional
+ * distance fog, textured faces (perspective correct, from a sprite sheet).
  * Everything runs on the ARM (VFP for the transforms, fixed point in the
  * inner loops); the VideoCore 3D unit is not used.
  */
@@ -21,6 +21,7 @@ typedef struct {
     uint16_t *faces;            /* 3 vertex indices per face */
     uint32_t *colors;           /* 0xRRGGBB per face, or R3D_TEXTURED */
     v3_t *normals;              /* per face, object space */
+    v3_t *vnormals;             /* per vertex (average of its faces), for Gouraud */
     float *uv;                  /* NULL, or 6 per face: u0 v0 u1 v1 u2 v2 in texels */
     const g16_sheet_t *tex;     /* texture of the R3D_TEXTURED faces */
 } r3d_mesh_t;
@@ -61,9 +62,12 @@ int r3d_project(const r3d_t *r, v3_t p, float *sx, float *sy, float *depth);
 /* Draws a mesh at position p, rotated by (rx, ry, rz) radians, scaled. */
 void r3d_draw(r3d_t *r, const r3d_mesh_t *m, v3_t p, float rx, float ry, float rz, float scale);
 /* The same with flags: R3D_NOZ ignores the z-buffer (no test, no write:
- * for floors and backdrops drawn before the rest), R3D_UNLIT full colour. */
-#define R3D_NOZ   1u
-#define R3D_UNLIT 2u
+ * for floors and backdrops drawn before the rest), R3D_UNLIT full colour,
+ * R3D_SMOOTH Gouraud shading (light per vertex, colour interpolated and
+ * dithered; faces that share vertex indices look like one curved surface). */
+#define R3D_NOZ    1u
+#define R3D_UNLIT  2u
+#define R3D_SMOOTH 4u
 void r3d_draw_flags(r3d_t *r, const r3d_mesh_t *m, v3_t p, float rx, float ry, float rz,
                     float scale, unsigned flags);
 
@@ -77,5 +81,8 @@ int  r3d_mesh_cube(r3d_mesh_t *m, uint32_t color);
 
 /* 2D filled triangle (no z), screen coordinates + camera of g. */
 void g16_tri(g16_t *g, int x0, int y0, int x1, int y1, int x2, int y2, uint16_t c);
+/* The same with a colour (0xRRGGBB) at each corner, blended and dithered. */
+void g16_tri_gouraud(g16_t *g, int x0, int y0, int x1, int y1, int x2, int y2,
+                     uint32_t c0, uint32_t c1, uint32_t c2);
 
 #endif

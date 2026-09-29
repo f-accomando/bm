@@ -301,8 +301,16 @@ static int l_stat(lua_State *L)
     return 1;
 }
 
+/* tri(x0, y0, x1, y1, x2, y2, c [, c1, c2]): with three colours, one per
+ * corner, blended across the triangle (Gouraud, dithered) */
 static int l_tri(lua_State *L)
 {
+    if (!lua_isnoneornil(L, 8)) {
+        uint32_t c0 = (uint32_t)luaL_optinteger(L, 7, 0xFFFFFF);
+        g16_tri_gouraud(&rt.g, ival(L, 1), ival(L, 2), ival(L, 3), ival(L, 4), ival(L, 5), ival(L, 6),
+                        c0, (uint32_t)luaL_checkinteger(L, 8), (uint32_t)luaL_optinteger(L, 9, (lua_Integer)c0));
+        return 0;
+    }
     g16_tri(&rt.g, ival(L, 1), ival(L, 2), ival(L, 3), ival(L, 4), ival(L, 5), ival(L, 6),
             col(L, 7, 0xFFFFFF));
     return 0;
@@ -404,7 +412,8 @@ static float fnum(lua_State *L, int i, float def)
 }
 
 /* draw3d(mesh, x, y, z [, rx, ry, rz, scale, flags]) - flags: 1 no z-buffer
- * (floors and backdrops drawn first), 2 unlit (full colour) */
+ * (floors and backdrops drawn first), 2 unlit (full colour), 4 smooth
+ * (Gouraud) */
 static int l_draw3d(lua_State *L)
 {
     r3d_mesh_t *m = luaL_checkudata(L, 1, MESH_MT);

@@ -311,13 +311,21 @@ Fatto finora (da verificare sul Pi):
   0,87 ms / DMA 0,26 ms (3,4×: la CPU paga la lettura della SDRAM). `p` (prima di `D`,
   copia con la CPU): diretto 8,58 ms, via RAM 11,85 ms. Astro Wing: 59,9 fps,
   update+draw 6,34 ms di media (max 12,57), nessun blocco dopo RunFast.
+- **Gouraud** (2026-09-29): `draw3d(..., flag 4)` calcola la luce (direzionale e
+  lampade) sui vertici, con le normali medie delle facce che li condividono, e la sfuma
+  sulla faccia con un dithering ordinato 4×4 (niente bande del RGB565); vale anche per
+  le facce con texture e dopo il clipping. `tri(..., c, c1, c2)` fa triangoli 2D
+  sfumati. Le texture fanno la divisione prospettica ogni 16 pixel (lineari in mezzo)
+  invece che a ogni pixel. Il nucleo del boss di Astro Wing è liscio. Test host
+  (`tests/b33`) e due righe nuove nello stress test `s`: "3D smooth (Gouraud)" e
+  "3D textured" (le stesse sfere), da misurare sul Pi.
 
 Previsto:
 - **DMA** del BCM2835 per riempimenti e copie (liberano la CPU: `cls`, mappe, copia
   dei frame) e misura sul Pi di cosa conviene (la lettura della SDRAM è il collo di
   bottiglia: vedi M9).
 - Modo **32 bit** (XRGB8888) per le `.b33`, previsto dal formato (pixel format 2).
-- 3D: texture sui triangoli e Gouraud; rimisurare `docs/STRESS.md`.
+- 3D: texture sui triangoli e Gouraud (fatti); rimisurare `docs/STRESS.md` sul Pi.
 - Menu grafico con anteprime delle cartucce (immagine nell'header `.b33`).
 - **Fatto quando:** lo stress test mostra il guadagno del DMA e una demo 3D con
   texture gira a 60 fps.
