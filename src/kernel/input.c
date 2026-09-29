@@ -36,6 +36,31 @@ int input_key(void)
     return hid_getc();
 }
 
+int input_remote_ready(void)
+{
+    if (uart_rx_ready())
+        return 1;
+    net_poll();
+    return netcon_pending();
+}
+
+int input_remote_getc(void)
+{
+    if (uart_rx_ready())
+        return (unsigned char)uart_getc();
+    net_poll();
+    return netcon_getc();
+}
+
+int input_remote_follows(void)
+{
+    uint32_t t0 = timer_ticks();
+    while (timer_ticks() - t0 < 30000)
+        if (input_remote_ready())
+            return 1;
+    return 0;
+}
+
 char input_getc(void)
 {
     uint32_t last = timer_ticks();

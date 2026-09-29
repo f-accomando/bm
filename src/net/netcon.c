@@ -214,6 +214,11 @@ int netcon_getc(void)
     return (unsigned char)in[in_tail++ % IN_SIZE];
 }
 
+int netcon_pending(void)
+{
+    return in_tail != in_head;
+}
+
 const char *netcon_password(void)
 {
     return password;

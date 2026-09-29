@@ -478,8 +478,8 @@ void carts_menu(framebuffer_t *fb)
         int dx = 0, dy = 0, action = 0, quit = 0, switch_tab = 0;
 
         /* serial */
-        while (uart_rx_ready()) {
-            char c = uart_getc();
+        for (int k; (k = input_remote_getc()) >= 0; ) {
+            char c = (char)k;
             if (esc == 1) { esc = c == '[' ? 2 : 0; continue; }
             if (esc == 2) {
                 esc = 0;
@@ -490,7 +490,9 @@ void carts_menu(framebuffer_t *fb)
                 continue;
             }
             switch (c) {
-            case 0x1B: esc = 1; break;
+            case 0x1B:                          /* an arrow key, or Esc alone: back */
+                if (input_remote_follows()) esc = 1; else quit = 1;
+                break;
             case 'w': case 'W': case 'k': dy--; break;
             case 's': case 'S': case 'j': dy++; break;
             case 'a': case 'A': case 'h': dx--; break;

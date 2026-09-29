@@ -46,8 +46,8 @@ static uint8_t attract_input(uint32_t tick)
 /* Serial keys -> held bits. Returns 1 if 'q' was pressed. */
 static int poll_keys(uint8_t hold[5], int *esc_state, int *seen)
 {
-    while (uart_rx_ready()) {
-        char c = uart_getc();
+    for (int k; (k = input_remote_getc()) >= 0; ) {
+        char c = (char)k;
         int bitn = -1;
         *seen = 1;
         if (*esc_state == 1) { *esc_state = c == '[' ? 2 : 0; continue; }

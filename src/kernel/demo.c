@@ -1,4 +1,5 @@
 #include "demo.h"
+#include "input.h"
 #include "tick.h"
 #include "drivers/timer.h"
 #include "drivers/uart.h"
@@ -97,7 +98,7 @@ void demo_run(framebuffer_t *fb, uint32_t seconds, demo_stats_t *st)
     fps_t0 = start;
     uint32_t deadline = start + FRAME_US;
 
-    while (timer_ticks() - start < seconds * 1000000u && !uart_rx_ready()) {
+    while (timer_ticks() - start < seconds * 1000000u && !input_remote_ready()) {
         uint32_t t_draw = timer_ticks();
 
         gfx_clear(fb, bg);
@@ -154,8 +155,8 @@ void demo_run(framebuffer_t *fb, uint32_t seconds, demo_stats_t *st)
     st->draw_us_avg = st->frames ? draw_total / st->frames : 0;
     if (st->min_frame_us == ~0u)
         st->min_frame_us = 0;
-    while (uart_rx_ready())
-        uart_getc();
+    while (input_remote_getc() >= 0)
+        ;
 
     fb_show(fb, 0);
     console_suspend(0);

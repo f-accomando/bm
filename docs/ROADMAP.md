@@ -580,11 +580,13 @@ Decisione 2026-09-28: versioni "leggere", in coda dopo M17.
    - `bm33_net.py IP --send gioco.b33` → salvata in `/carts` (nomi 8.3, `--name`,
      `--to`); il menu rilegge la SD da solo;
    - `--play gioco.b33` → giocata subito (dal menu o dal monitor), senza salvarla;
-   - `--kernel build/kernel.img` → scritto come `kernel.img` (prima i dati, poi la
+   - ✅ (Pi: 1.3 MB in 7,7 s, 170 KiB/s) `--kernel build/kernel.img` → scritto come `kernel.img` (prima i dati, poi la
      voce della directory: un'interruzione lascia il vecchio o il nuovo) e riavvio;
    - all'avvio la rete salvata si ricollega da sola, senza scansione
      (`wifi_boot=0` in `bm33/config.txt` la spegne); l'IP compare nella barra di stato;
-   - test sul PC: `make test-net` (salvataggio, password, crc, play, kernel).
+   - test sul PC: `make test-net` (salvataggio, password, crc, play, kernel);
+   - i tasti del terminale di rete arrivano anche a menu, giochi, pager e demo, come
+     quelli della seriale (`input_remote_getc`); Esc da solo esce dal menu.
 9. Poi: aggiornamento del kernel da GitHub (M19), rete nelle cartucce.
 
 

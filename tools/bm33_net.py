@@ -6,7 +6,7 @@ Standard library only (Linux / macOS / WSL).
   bm33_net.py 192.168.1.108             asks for the password
   bm33_net.py 192.168.1.108 -p 123456   (or BM33_PASSWORD=123456)
 
-  bm33_net.py IP --send game.b33           saved on the SD card in /carts
+  bm33_net.py IP --send build/carts/pong.b33   saved on the SD card in /carts
   bm33_net.py IP --send x.b33 --to /bm33   (another folder)
   bm33_net.py IP --play game.b33           played at once, not saved
   bm33_net.py IP --kernel build/kernel.img written as kernel.img, then reboot
@@ -67,8 +67,12 @@ def recv_answer(sock, timeout):
 
 
 def transfer(args, op, path, name, password):
-    with open(path, "rb") as f:
-        data = f.read()
+    try:
+        with open(path, "rb") as f:
+            data = f.read()
+    except OSError as e:
+        print(f"{path}: {e.strerror} (the games are in build/carts/, e.g. build/carts/pong.b33)")
+        return 1
     if op == b"S" and not re.fullmatch(r"[A-Za-z0-9_~$!#%&'()@^{}-]{1,8}(\.[A-Za-z0-9_~$!#%&'()@^{}-]{1,3})?", name):
         print(f"'{name}' is not an 8.3 name (at most 8 letters, dot, 3): use --name")
         return 1

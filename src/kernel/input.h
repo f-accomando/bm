@@ -9,6 +9,12 @@ char input_getc(void);
 
 /* Non-blocking: next key from serial or USB keyboard, or -1. */
 int input_key(void);
+/* Keys typed on a remote terminal: the serial port or the network
+ * console (bm33_net.py); -1 if none. Menus and games read them as text. */
+int input_remote_getc(void);
+int input_remote_ready(void);
+/* After a remote Esc: does more follow within 30 ms (an arrow key)? */
+int input_remote_follows(void);
 /* What input_key returns once when a cartridge sent over the network
  * (bm33_net.py --play) waits to be played: the monitor plays it. */
 #define INPUT_NET_PLAY 0x10

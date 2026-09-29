@@ -976,8 +976,8 @@ static uint16_t hid_to_btn(uint32_t pad)
 
 static int poll_keys(void)
 {
-    while (uart_rx_ready()) {
-        char c = uart_getc();
+    for (int k; (k = input_remote_getc()) >= 0; ) {
+        char c = (char)k;
         int b = -1;
         if (rt.text_mode) {
             serial_text(c);

@@ -39,16 +39,6 @@ static int split(const char *t, int cols)
     return n;
 }
 
-/* after a serial Esc: does a sequence follow within 30 ms? */
-static int serial_follows(void)
-{
-    uint32_t t0 = timer_ticks();
-    while (timer_ticks() - t0 < 30000)
-        if (uart_rx_ready())
-            return 1;
-    return 0;
-}
-
 static void show(int top, int n, int rows)
 {
     console_clear();
@@ -91,7 +81,7 @@ void pager_show(const char *text)
         } else if (c == 0x1B) {
             /* serial: the start of a sequence; the USB keyboard in text mode
              * sends Esc alone */
-            if (serial_follows()) { esc = 1; continue; }
+            if (input_remote_follows()) { esc = 1; continue; }
             break;
         } else if (c == 'q' || c == 'Q') {
             break;

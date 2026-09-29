@@ -16,6 +16,7 @@ int  netcon_start(void);
 void netcon_poll(void);
 /* A byte typed by the client, -1 if none. */
 int  netcon_getc(void);
+int  netcon_pending(void);
 /* The password, for the screen. */
 const char *netcon_password(void);
 /* A client is logged in. */
