@@ -545,7 +545,7 @@ Decisione 2026-09-28: versioni "leggere", in coda dopo M17.
    - avvio del processore ARM del chip, clock veloce (HT), funzione 2;
    - sul canale di controllo (SDPCM + BCDC): `ver` (versione del firmware),
      `cur_etheraddr` (MAC) e `clmload` (dati regolatori).
-4. 🛠 (da provare sul Pi) **Scansione delle reti**: dopo il firmware `W` accende la radio
+4. ✅ (Pi, `1c3d6a1`: 3 reti WPA2 trovate) **Scansione delle reti**: dopo il firmware `W` accende la radio
    (`WLC_UP`, niente risparmio energetico, eventi abilitati) e fa una `escan`. I risultati
    arrivano come eventi sul canale 1; l'elenco è ordinato per segnale, con canale,
    sicurezza (WPA2/WPA/WEP/aperta, dagli IE) e nome.
