@@ -677,8 +677,24 @@ Sotto-milestone:
 - **22.6 Da 3D a sprite**: come `carts/titan/mkrobot.py` ma sul Pi. Si parte da un
   modello con scheletro e pose, si scelgono viste e dimensione; poi cel shading, contorni,
   riduzione della tavolozza, fotogrammi nello sheet con hitbox e hurtbox.
-- **22.7 Simulazioni 3D del 2D**: significato da definire con l'autore (vedi le
-  proposte nella conversazione del 2026-09-29).
+- **22.7 Sprite stacking** (decisione 2026-09-29, come i layer di Aseprite):
+  - un oggetto è una pila di **fette** 2D (un layer per altezza), disegnate in pixel art;
+  - sovrapposte con un piccolo scarto verticale e ruotate, danno l'illusione di un volume
+    3D, girabile su x, y, z;
+  - editor: fette in griglia e sovrapposte, onion skin della fetta sotto, anteprima che
+    gira dal vivo.
+  
+  In gioco, disegno in C con due livelli di costo:
+  - **solo rotazione z** (lo stacking classico, visto dall'alto): N fette ruotate e
+    spostate, economico;
+  - **x, y, z libere**: la pila diventa un volume di voxel disegnato punto per punto
+    dalla faccia visibile (per esempio 32×32×32), più costoso.
+  
+  API: `stack(sx, sy, w, h, n, x, y, [rz, rx, ry, scala])`.
+  
+  Legami con gli altri strumenti:
+  - le fette sono sprite dello sheet (22.2 con i layer);
+  - un volume può diventare MESH (22.3) o fotogrammi pre-renderizzati con 22.6.
 
 Considerazioni:
 - **Contenitore unico: il `.b33` stesso** (come le cartucce PICO-8): codice, sheet,
