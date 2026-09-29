@@ -3,8 +3,12 @@
  * loopback interface: a client connects to 127.0.0.1:3333, gets the
  * greeting, fails and passes the password, sees what kprintf prints, and
  * its keys come out of netcon_getc; a second client is turned away.
+ * Then the transfers (src/net/netxfer.c): a file saved on the "SD card",
+ * a wrong password, a damaged file, a cartridge to play, a kernel.
  */
 #include "net/netcon.h"
+#include "net/netxfer.h"
+#include "lib/crc32.h"
 #include "lib/printf.h"
 
 #include "lwip/init.h"
@@ -25,8 +29,39 @@ static char saved_pw[40];
 const char *config_get(const char *key) { return strcmp(key, "net_password") ? NULL : cfg_pw; }
 void config_set(const char *key, const char *value) { (void)key; snprintf(saved_pw, sizeof saved_pw, "%s", value); }
 void config_save(void) {}
-uint32_t timer_ticks(void) { return (uint32_t)clock(); }
-u32_t sys_now(void) { return (u32_t)(clock() * 1000 / CLOCKS_PER_SEC); }
+static uint32_t fake_us;                /* advanced by spin() */
+uint32_t timer_ticks(void) { return fake_us; }
+void timer_delay_ms(uint32_t ms) { fake_us += ms * 1000; }
+u32_t sys_now(void) { return fake_us / 1000; }
+
+/* the SD card: the last file written */
+static char w_dir[80], w_name[40];
+static uint8_t *w_data;
+static size_t w_len;
+static int reboots;
+int fat_mkdirs(const char *path) { (void)path; return 0; }
+int fat_write_file(const char *dir, const char *name, const void *data, size_t len)
+{
+    snprintf(w_dir, sizeof w_dir, "%s", dir);
+    snprintf(w_name, sizeof w_name, "%s", name);
+    free(w_data);
+    w_data = malloc(len);
+    memcpy(w_data, data, len);
+    w_len = len;
+    return 0;
+}
+const char *fat_error(void) { return "test"; }
+static int fails;
+static void check(int ok, const char *what);
+/* the kernel transfer is the last case: the reboot ends the test */
+void watchdog_reboot(void)
+{
+    reboots++;
+    check(strcmp(w_dir, "/") == 0 && strcmp(w_name, "kernel.img") == 0 && w_len == 100000,
+          "kernel received, written as /kernel.img, then reboot");
+    printf(fails ? "\n%d FAILED\n" : "\nnetcon: all passed\n", fails);
+    exit(fails != 0);
+}
 
 static int quiet;
 static void (*tap)(char c);
@@ -82,10 +117,12 @@ static void spin(int rounds)
         netif_poll_all();
         sys_check_timeouts();
         netcon_poll();
+        netxfer_poll();
+        fake_us += 1000;
     }
 }
 
-static void connect_client(client_t *c)
+static void connect_port(client_t *c, u16_t port)
 {
     memset(c, 0, sizeof *c);
     c->pcb = tcp_new();
@@ -94,9 +131,11 @@ static void connect_client(client_t *c)
     tcp_err(c->pcb, c_err);
     ip_addr_t lo;
     IP_ADDR4(&lo, 127, 0, 0, 1);
-    tcp_connect(c->pcb, &lo, NETCON_PORT, c_conn);
+    tcp_connect(c->pcb, &lo, port, c_conn);
     spin(50);
 }
+
+static void connect_client(client_t *c) { connect_port(c, NETCON_PORT); }
 
 static void send_str(client_t *c, const char *s)
 {
@@ -105,7 +144,6 @@ static void send_str(client_t *c, const char *s)
     spin(50);
 }
 
-static int fails;
 static void check(int ok, const char *what)
 {
     printf("%s %s\n", ok ? "ok  " : "FAIL", what);
@@ -172,6 +210,67 @@ int main(void)
     spin(50);
     check(c.closed && strstr(c.got, "bye"), "three wrong passwords: closed");
 
-    printf(fails ? "\n%d FAILED\n" : "\nnetcon: all passed\n", fails);
-    return fails != 0;
+    /* ---- transfers */
+    check(netxfer_start() == 0, "transfers listening on port 3334");
+    static uint8_t file[100000];
+    for (unsigned i = 0; i < sizeof file; i++)
+        file[i] = (uint8_t)(i * 7 + (i >> 8));
+
+    struct { char op; const char *pw, *path; uint32_t crc_xor; const char *answer, *what; } cases[] = {
+        { 'S', "secret", "carts/pong.b33", 0, "OKOK", "file saved on the SD card" },
+        { 'S', "nope", "carts/pong.b33", 0, "PW", "wrong password refused" },
+        { 'S', "secret", "carts/bad.b33", 1, "OKCE", "damaged file refused" },
+        { 'P', "secret", "x.b33", 0, "OKOK", "cartridge to play received" },
+        { 'K', "secret", "kernel.img", 0, "OKOK", "kernel received" },
+    };
+    for (unsigned t = 0; t < sizeof cases / sizeof cases[0]; t++) {
+        w_name[0] = 0;
+        client_t x;
+        connect_port(&x, NETXFER_PORT);
+        uint8_t h[200];
+        unsigned n = 0;
+        memcpy(h, "BM3X", 4); n = 4;
+        h[n++] = (uint8_t)cases[t].op;
+        h[n++] = (uint8_t)strlen(cases[t].pw);
+        memcpy(h + n, cases[t].pw, strlen(cases[t].pw)); n += strlen(cases[t].pw);
+        h[n++] = (uint8_t)strlen(cases[t].path);
+        memcpy(h + n, cases[t].path, strlen(cases[t].path)); n += strlen(cases[t].path);
+        uint32_t sz = sizeof file, c = crc32(file, sizeof file) ^ cases[t].crc_xor;
+        memcpy(h + n, &sz, 4); n += 4;
+        memcpy(h + n, &c, 4); n += 4;
+        tcp_write(x.pcb, h, (u16_t)n, TCP_WRITE_FLAG_COPY);
+        tcp_output(x.pcb);
+        spin(50);
+        if (strcmp(x.got, "OK") == 0)
+            for (unsigned off = 0; off < sizeof file && x.pcb; ) {
+                u16_t room = tcp_sndbuf(x.pcb);
+                unsigned k = sizeof file - off < room ? sizeof file - off : room;
+                if (k && tcp_write(x.pcb, file + off, (u16_t)k, TCP_WRITE_FLAG_COPY) == ERR_OK)
+                    off += k;
+                tcp_output(x.pcb);
+                spin(5);
+            }
+        spin(600);                      /* the answer, then the server closes */
+        if (strcmp(x.got, cases[t].answer) != 0 || !x.closed)
+            printf("  got \"%s\" closed %d connected %d\n", x.got, x.closed, x.connected);
+        check(strcmp(x.got, cases[t].answer) == 0 && x.closed, cases[t].what);
+        if (t == 0)
+            check(strcmp(w_dir, "/carts") == 0 && strcmp(w_name, "pong.b33") == 0 &&
+                  w_len == sizeof file && memcmp(w_data, file, w_len) == 0 && netxfer_saves() == 1,
+                  "  in /carts/pong.b33, same bytes");
+        if (t == 1 || t == 2)
+            check(w_name[0] == 0, "  nothing written");
+        if (t == 3) {
+            uint8_t *pb;
+            size_t pl;
+            check(netxfer_play_announce() == 1 && netxfer_play_announce() == 0, "  announced once");
+            check(netxfer_take_play(&pb, &pl) && pl == sizeof file && memcmp(pb, file, pl) == 0,
+                  "  the monitor gets the same bytes");
+            free(pb);
+            check(!netxfer_take_play(&pb, &pl), "  taken only once");
+        }
+    }
+
+    printf("FAIL the kernel transfer did not reboot\n");
+    return 1;
 }

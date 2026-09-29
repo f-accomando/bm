@@ -5,6 +5,7 @@
  */
 #include "net.h"
 #include "netcon.h"
+#include "netxfer.h"
 #include "wifi/wifi.h"
 #include "drivers/timer.h"
 #include "lib/printf.h"
@@ -77,10 +78,12 @@ static void show_ip(void)
     char gw[16];
     ip4addr_ntoa_r(netif_ip4_gw(&nif), gw, sizeof gw);
     kprintf("\x1b[92mnet: IP %s\x1b[0m (gateway %s, name bm33)\n", ip_text, gw);
-    if (netcon_start() == 0)
+    if (netcon_start() == 0) {
+        netxfer_start();
         kprintf("net: console on port %d, password %s\n"
                 "     from the PC: python3 tools/bm33_net.py %s\n",
                 NETCON_PORT, netcon_password(), ip_text);
+    }
 }
 
 int net_start(void)
@@ -126,6 +129,7 @@ static void poll_now(void)
     sys_check_timeouts();
     show_ip();
     netcon_poll();
+    netxfer_poll();
 }
 
 void net_poll(void)

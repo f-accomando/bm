@@ -565,7 +565,7 @@ Decisione 2026-09-28: versioni "leggere", in coda dopo M17.
    - dopo la connessione `W` chiede l'indirizzo con DHCP (nome `bm33`) e stampa
      `net: IP ...`; la rete resta attiva nel monitor, nel menu e nei giochi;
    - verifica: `ping <IP>` dal PC.
-7. 🛠 (da provare sul Pi) **Console di rete**: il monitor su TCP, porta 3333
+7. ✅ (Pi, `455e4ff`: login, `h`, `i`, REPL Lua dal PC) **Console di rete**: il monitor su TCP, porta 3333
    (`src/net/netcon.c`), un client alla volta:
    - password `net_password` in `bm33/config.txt`; se manca, un PIN di 6 cifre creato,
      salvato e mostrato sullo schermo dopo l'IP; 3 tentativi, poi la connessione si chiude;
@@ -574,7 +574,18 @@ Decisione 2026-09-28: versioni "leggere", in coda dopo M17.
    - dal PC: `tools/bm33_net.py IP` (terminale raw, Ctrl-] esce);
    - in chiaro: solo per la rete di casa (TLS con M19);
    - test sul PC: `make test-net` (lwIP con interfaccia di loopback).
-8. Poi: invio di cartucce e kernel dal PC via rete, WiFi all'avvio.
+8. 🛠 (da provare sul Pi) **File dal PC e WiFi all'avvio**:
+   - porta TCP 3334, stessa password della console (`src/net/netxfer.c`);
+     richiesta `BM3X`, operazione, password, percorso, dimensione, crc32, dati;
+   - `bm33_net.py IP --send gioco.b33` → salvata in `/carts` (nomi 8.3, `--name`,
+     `--to`); il menu rilegge la SD da solo;
+   - `--play gioco.b33` → giocata subito (dal menu o dal monitor), senza salvarla;
+   - `--kernel build/kernel.img` → scritto come `kernel.img` (prima i dati, poi la
+     voce della directory: un'interruzione lascia il vecchio o il nuovo) e riavvio;
+   - all'avvio la rete salvata si ricollega da sola, senza scansione
+     (`wifi_boot=0` in `bm33/config.txt` la spegne); l'IP compare nella barra di stato;
+   - test sul PC: `make test-net` (salvataggio, password, crc, play, kernel).
+9. Poi: aggiornamento del kernel da GitHub (M19), rete nelle cartucce.
 
 
 ## M19 — HTTPS: aggiornamenti e "git leggero" (L)

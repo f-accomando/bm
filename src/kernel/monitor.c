@@ -22,11 +22,13 @@
 #include "bt/bt.h"
 #include "wifi/wifi.h"
 #include "net/net.h"
+#include "net/netxfer.h"
 #include "pager.h"
 #include "audio/audio.h"
 #include "dmatest.h"
 #include "crumbs.h"
 #include "drivers/watchdog.h"
+#include <stdlib.h>
 
 static const char help_text[] =
             "commands (games: arrows/wasd, space = A; q or Esc quits):\n"
@@ -43,6 +45,7 @@ static const char help_text[] =
             "  T  Bluetooth: pair a controller as the next player (DS4: Share + PS)\n"
             "  P  Bluetooth: forget all paired pads (asks first)\n"
             "  W  WiFi: start, list the networks, join one (M18; saved in bm33/config.txt)\n"
+            "     from the PC: tools/bm33_net.py IP (console, --send/--play a cart, --kernel)\n"
             "  b  boot diagnostics: benchmarks, s32 and b33 demos, Lua boot script\n"
             "  k  CPU benchmark          p  rendering benchmark 640x360 RGB565\n"
             "  D  DMA test step by step (CPU against DMA timings)\n"
@@ -216,6 +219,15 @@ void monitor_run(void)
             break;
         }
         case '\r': case '\n': break;
+        case INPUT_NET_PLAY: {                  /* bm33_net.py --play */
+            uint8_t *buf;
+            size_t len;
+            if (netxfer_take_play(&buf, &len)) {
+                carts_play_buffer(console_framebuffer(), buf, len);
+                free(buf);
+            }
+            break;
+        }
         default:
             kprintf("unknown command (0x%02x), 'h' for help\n", (unsigned char)c);
         }

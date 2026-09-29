@@ -39,6 +39,10 @@
 #include "drivers/watchdog.h"
 #include "drivers/dma.h"
 #include "version.h"
+#include "net/net.h"
+#include "wifi/wifi.h"
+
+#include <string.h>
 
 
 /* Low resolution, 16:9: the firmware scales it to the HDMI mode in hardware
@@ -154,6 +158,20 @@ void diagnostics_run(void)
     run_boot_script();
 }
 
+
+/* The saved WiFi network is joined at boot (wifi_boot=0 in
+ * bm33/config.txt turns it off); the address comes later, in the
+ * background, and shows in the status line. */
+static void wifi_boot(void)
+{
+    const char *ssid = config_get("wifi_ssid"), *on = config_get("wifi_boot");
+    if (!ssid || !ssid[0] || (on && strcmp(on, "0") == 0))
+        return;
+    kprintf("wifi: joining the saved network (wifi_boot=0 in bm33/config.txt: off)\n");
+    if (wifi_start() == 0 && wifi_connect_saved() == 0)
+        net_start();
+}
+
 void kernel_main(uint32_t atags)
 {
     led_init();
@@ -208,6 +226,7 @@ void kernel_main(uint32_t atags)
     config_load();
     if (bt_paired())
         bt_start();             /* a paired pad can come back with its PS button */
+    wifi_boot();
 
 #ifdef BM33_BOOT_STRESS
     run_stress();

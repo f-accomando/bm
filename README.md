@@ -50,7 +50,7 @@ Prestazioni e scelte tecniche (limiti del Pi, atteso contro misurato): [docs/PRE
 | **M15** | Editor sulla console: codice, sprite, mappa, prova e torna | ✅ verificato sul Pi |
 | **M16** | Multiplayer locale: fino a 4 controller Bluetooth, `btn(i, giocatore)`, Pong a 2 | 🛠 fatto, da provare sul Pi |
 | **M17** | **Chaos Kitchen**: cucina cooperativa in 3D per 1–4 giocatori (campagna, infinita, pratica) | 🛠 fatto, da provare sul Pi |
-| M18 | WiFi, console di rete con password, invio di kernel e cartucce dal PC | 🛠 WPA2, IP con DHCP e ping verificati sul Pi; console di rete da provare |
+| M18 | WiFi, console di rete con password, invio di kernel e cartucce dal PC | 🛠 WPA2, DHCP, ping e console di rete verificati sul Pi; invio di file e WiFi all'avvio da provare |
 | M19 | HTTPS: aggiornamenti da GitHub, "git leggero" (archivi e API con token) | |
 | **M20** | **Titan Clash**: picchiaduro 2D a robot giganti; prima base giocabile (1 robot, armatura leggera/pesante, spada o cannoni, hangar, contro CPU o in 2) | 🛠 base fatta, da provare sul Pi |
 | M21 | Menu "home" a griglia (Games / Dev) e giochi sospesi in memoria | 🛠 fatto, da provare sul Pi |
@@ -451,7 +451,7 @@ src/drivers/             mmio, mailbox, prop tags, framebuffer, gpio, uart (PL01
 src/lib/                 kprintf, crc32, syscalls newlib (_sbrk, _write, ...)
 chainloader/             bootloader seriale (si riloca a 0x02000000)
 tools/bm33_load.py       invio del kernel + terminale seriale (solo stdlib Python)
-tools/bm33_net.py        console di rete: il monitor via WiFi (solo stdlib Python)
+tools/bm33_net.py        via WiFi: console (monitor), invio di cartucce e kernel (solo stdlib Python)
 tests/qemu_test.py       test end-to-end in QEMU (anche tastiera USB, gamepad HID, SD)
 tests/mksd.py            crea un'immagine SD (MBR + FAT32) per i test in QEMU
 scripts/                 download firmware, screenshot QEMU, conversione font (psf2c.py)

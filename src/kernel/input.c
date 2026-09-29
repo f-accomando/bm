@@ -8,12 +8,13 @@
 #include "bt/bt.h"
 #include "net/net.h"
 #include "net/netcon.h"
+#include "net/netxfer.h"
 
 #include <math.h>
 
 static void update_uptime(void)
 {
-    char buf[48], pads[24];
+    char buf[80], pads[48];
     uint32_t s = timer_ticks() / 1000000;
     input_status(pads, sizeof pads);
     ksnprintf(buf, sizeof buf, "%s  up %02lu:%02lu:%02lu", pads, s / 3600, s / 60 % 60, s % 60);
@@ -30,6 +31,8 @@ int input_key(void)
     int c = netcon_getc();
     if (c >= 0)
         return c;
+    if (netxfer_play_announce())
+        return INPUT_NET_PLAY;
     return hid_getc();
 }
 
@@ -158,6 +161,8 @@ void input_status(char *buf, unsigned size)
         else
             n += ksnprintf(buf + n, size - (unsigned)n, (m >> p & 1) ? " k" : " -");
     }
+    if (net_ip() && n + 18 < (int)size)          /* on the network: its address */
+        ksnprintf(buf + n, size - (unsigned)n, "  IP %s", net_ip_text());
 }
 
 void input_live_test(uint32_t seconds)

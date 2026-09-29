@@ -22,6 +22,10 @@ int wifi_scan(void);
  * saves them. WPA2-PSK, WPA-PSK or open; the firmware does the handshake. */
 int wifi_connect(void);
 
+/* Joins the network saved in bm33/config.txt without scanning (at boot);
+ * -1 if none is saved or the join fails. */
+int wifi_connect_saved(void);
+
 /* The data path, for the network stack (src/net). */
 int  wifi_linked(void);                 /* joined, link up */
 const unsigned char *wifi_mac(void);

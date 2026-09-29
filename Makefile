@@ -264,10 +264,10 @@ $(BUILD)/host/test_fat: tests/fs/test_fat.c src/fs/fat.c src/fs/fat.h src/driver
 test-net: $(BUILD)/host/test_netcon
 	$(BUILD)/host/test_netcon
 
-$(BUILD)/host/test_netcon: tests/net/test_netcon.c src/net/netcon.c src/net/netcon.h src/net/lwipopts.h $(LWIP_SRCS)
+$(BUILD)/host/test_netcon: tests/net/test_netcon.c src/net/netcon.c src/net/netxfer.c src/net/*.h src/lib/crc32.c $(LWIP_SRCS)
 	@mkdir -p $(dir $@)
 	$(HOSTCC) -O1 -w -DBM33_HOST_TEST -Isrc -Isrc/net -Ithird_party/lwip/src/include -o $@ \
-		tests/net/test_netcon.c src/net/netcon.c $(LWIP_SRCS)
+		tests/net/test_netcon.c src/net/netcon.c src/net/netxfer.c src/lib/crc32.c $(LWIP_SRCS)
 
 test-audio: $(BUILD)/host/test_audio
 	$<

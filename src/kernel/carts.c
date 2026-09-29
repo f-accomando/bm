@@ -7,6 +7,7 @@
 #include "b33/b33.h"
 #include "input.h"
 #include "upload.h"
+#include "net/netxfer.h"
 #include "b33/runtime.h"
 #include "drivers/sd.h"
 #include "drivers/timer.h"
@@ -436,7 +437,7 @@ void carts_menu(framebuffer_t *fb)
     input_flush();
     static menu_item_t items[MAX_CARTS];
     static int idx[MAX_CARTS];
-    char pads[24], details[128], ask[64], susp_title[49];
+    char pads[48], details[128], ask[64], susp_title[49];
     int confirm = -1;                        /* cartridge waiting for "close the suspended one?" */
     int gfx = menu_ui_open(fb) == 0;         /* else the text menu */
     for (;;) {
@@ -584,11 +585,24 @@ void carts_menu(framebuffer_t *fb)
             sel = ((sel + dx + dy) % ncarts + ncarts) % ncarts;
             redraw = 1;
         }
+        /* from the network (bm33_net.py): a file saved on the SD card
+         * shows up in the list, a cartridge sent to play starts */
+        static unsigned seen_saves;
+        uint8_t *net_buf = NULL;
+        size_t net_len = 0;
+        if (netxfer_saves() != seen_saves) {
+            seen_saves = netxfer_saves();
+            if (!action)
+                action = 2;
+        }
+        if (!action && netxfer_take_play(&net_buf, &net_len))
+            action = 4;
+
         if (action == 2) {
             carts_init();
             if (sel >= ncarts) sel = 0;
             redraw = 1;
-        } else if (action == 3 || (action == 1 && (!gfx || tab_items(tab, idx) > 0))) {
+        } else if (action >= 3 || (action == 1 && (!gfx || tab_items(tab, idx) > 0))) {
             /* A plays the highlighted cartridge, also from the tab bar; if
              * another one is suspended, ask first */
             const cart_t *c = gfx ? &carts[idx[tsel[tab]]] : &carts[sel];
@@ -598,10 +612,14 @@ void carts_menu(framebuffer_t *fb)
             }
             if (gfx)
                 menu_ui_close(fb);
-            if (action == 3)
+            if (action == 3) {
                 upload_and_play(fb);
-            else
+            } else if (action == 4) {
+                carts_play_buffer(fb, net_buf, net_len);
+                free(net_buf);
+            } else {
                 play(fb, c);
+            }
             input_flush();
             prev_btn = hid_buttons();
             redraw = 1;

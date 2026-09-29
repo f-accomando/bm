@@ -9,6 +9,9 @@ char input_getc(void);
 
 /* Non-blocking: next key from serial or USB keyboard, or -1. */
 int input_key(void);
+/* What input_key returns once when a cartridge sent over the network
+ * (bm33_net.py --play) waits to be played: the monitor plays it. */
+#define INPUT_NET_PLAY 0x10
 
 /* Polls USB and returns the game buttons held on the USB keyboard or
  * gamepad (HID_* bits); *quit is set once per Esc / Start+Select. */

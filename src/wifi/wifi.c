@@ -1058,7 +1058,14 @@ int wifi_connect(void)
         for (int i = 0; i < nnets; i++)
             if (strcmp(nets[i].ssid, ssid) == 0) {
                 kprintf("wifi: saved network \"%s\" is in range\n", ssid);
-                return join(ssid, psk, nets[i].security);
+                if (join(ssid, psk, nets[i].security) != 0)
+                    return -1;
+                const char *sec = config_get("wifi_security");
+                if (!sec || strcmp(sec, nets[i].security) != 0) {
+                    config_set("wifi_security", nets[i].security);
+                    config_save();
+                }
+                return 0;
             }
     kprintf("wifi: number of the network to join (Enter or Esc: none): ");
     char line[72];
@@ -1081,6 +1088,7 @@ int wifi_connect(void)
     /* remembered for next time (plain text on the SD card) */
     config_set("wifi_ssid", nt->ssid);
     config_set("wifi_psk", line);
+    config_set("wifi_security", nt->security);
     config_save();
     kprintf("wifi: saved in bm33/config.txt (W reconnects by itself)\n");
     return 0;
@@ -1147,4 +1155,13 @@ int wifi_send(const void *eth, int len)
     tx[12] = 0x20;                              /* BDC version 2, priority 0 */
     memcpy(tx + 16, eth, (size_t)len);
     return f2_rw(1, tx, (total + 3) & ~3u);
+}
+
+int wifi_connect_saved(void)
+{
+    const char *ssid = config_get("wifi_ssid"), *psk = config_get("wifi_psk");
+    const char *sec = config_get("wifi_security");
+    if (!w.up || !ssid || !ssid[0])
+        return -1;
+    return join(ssid, psk, sec && sec[0] ? sec : "WPA2");
 }
