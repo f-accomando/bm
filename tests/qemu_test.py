@@ -1249,6 +1249,52 @@ function _draw() cls(0) end
 """
 
 
+def test_bt_forget(b, opts):
+    """'P' then 'y' forgets every paired pad: the keys leave bm33/config.txt
+    (other settings stay)."""
+    tmp = tempfile.mkdtemp(prefix="bm33-bt-")
+    img = os.path.join(tmp, "sd.img")
+    cfg = os.path.join(tmp, "config.txt")
+    with open(cfg, "w") as f:
+        f.write("layout=it\nbt_pad1=1c:66:6d:01:02:03 " + "a0" * 16 + "\n"
+                "bt_pad2=1c:66:6d:09:0a:0b " + "c0" * 16 + "\n")
+    hcd = os.path.join(tmp, "BCM43430A1.hcd")
+    with open(hcd, "wb") as f:
+        f.write(bytes([0x4C, 0xFC, 4, 1, 2, 3, 4, 0x4E, 0xFC, 4, 0xFF, 0xFF, 0xFF, 0xFF]))
+    mksd.build(img, [(hcd, "bm33/BCM43430A1.hcd"), (cfg, "bm33/config.txt")])
+    q = Qemu(b("kernel.img"), ["-drive", f"if=sd,format=raw,file={img}"], mini_uart=True)
+    q.mini_buf = b""
+    try:
+        q.expect("(same pins, same speed)\r\n", timeout=30)   # paired pads: the stack starts
+        chip = FakeDs4Chip(q.port)
+        chip.buf, q.buf = q.buf, b""
+        chip.init(reset_silent=False)
+        _mini_expect(q, "cartridge menu")
+        q.mini.write(b"q")
+        _mini_expect(q, "back to the monitor")
+        q.mini.write(b"P")
+        _mini_expect(q, "y = yes")
+        q.mini.write(b"n")
+        _mini_expect(q, "cancelled")
+        q.mini.write(b"P")
+        _mini_expect(q, "y = yes")
+        q.mini.write(b"y")
+        _mini_expect(q, "bt: 2 pads forgotten")
+    finally:
+        q.close()
+    try:
+        part = os.path.join(tmp, "part.img")
+        with open(img, "rb") as f, open(part, "wb") as o:
+            f.seek(2048 * 512)
+            o.write(f.read())
+        env = dict(os.environ, MTOOLS_SKIP_CHECK="1")
+        text = subprocess.run(["mtype", "-i", part, "::/BM33/CONFIG.TXT"], capture_output=True,
+                              text=True, env=env).stdout
+        assert "bt_pad" not in text and "layout=it" in text, text
+    finally:
+        shutil.rmtree(tmp, ignore_errors=True)
+
+
 def test_bt_two_pads(b, opts):
     """M16: two DS4 paired earlier (the first by an older kernel, as
     'bt_pad') come back together and light up in their players' colours; a

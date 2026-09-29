@@ -485,6 +485,40 @@ int bt_start(void)
     return 0;
 }
 
+/* Forgets every paired pad: the links are dropped and the keys removed
+ * from bm33/config.txt; each pad must be paired again with T. */
+int bt_forget_all(void)
+{
+    int n = 0;
+    for (int i = 0; i < BT_PADS; i++) {
+        link_t *l = &bt.link[i];
+        if (!l->used)
+            continue;
+        if (l->connected && bt.started) {
+            uint8_t d[3];
+            put16(d, l->handle);
+            d[2] = 0x13;                        /* remote user terminated */
+            hci_send(0x0406, d, 3);             /* Disconnect */
+        }
+        link_close(l);
+    }
+    char name[12];
+    for (int s = 0; s < BT_PADS; s++) {
+        key_name(name, s);
+        if (bt.have_key[s] || config_get(name))
+            n++;
+        bt.have_key[s] = 0;
+        hid_bt_clear(s);
+        config_unset(name);
+    }
+    if (config_get("bt_pad"))
+        n++;
+    config_unset("bt_pad");
+    bt.legacy_key = 0;
+    config_save();
+    return n;
+}
+
 int bt_paired(void)
 {
     char name[12];

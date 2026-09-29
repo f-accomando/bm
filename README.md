@@ -100,6 +100,8 @@ Lua `boot.lua`) si esegue dal monitor con **`b`**.
 | `e` | **editor** dei giochi `.b33` (codice, sprite, mappa; è anche l'ultimo elemento del menu) |
 | `a` | audio: stato dell'uscita HDMI (clock, canale DMA, costo della sintesi) e una melodia di prova con le quattro forme d'onda |
 | `T` | Bluetooth: cerca per 8 s e **abbina il primo controller** trovato come **prossimo giocatore** (fino a 4; DS4: Share + PS finché lampeggia); la console seriale passa alla mini UART (stessi pin) |
+| `P` | Bluetooth: **dimentica tutti i pad** abbinati (chiede conferma con `y`): chiavi tolte da `bm33/config.txt`, pad scollegati; poi si riabbinano con `T` |
+| `W` | WiFi (M18): accende il chip e lo identifica, un passo per riga |
 | `p` | benchmark di rendering 640×360 RGB565, disegnando direttamente sullo schermo e via RAM |
 | `V` | cartucce `.b33`: disegno diretto sullo schermo (default) o via buffer in RAM |
 | `U` | riceve una cartuccia dalla seriale (`bm33_load.py PORTA --cart file.b33`) e la esegue |

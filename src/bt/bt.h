@@ -20,6 +20,10 @@ void bt_scan(unsigned seconds);
  * does nothing until bt_start. */
 void bt_poll(void);
 
+/* Forgets all pads (links dropped, keys removed from bm33/config.txt).
+ * Returns how many keys there were. */
+int bt_forget_all(void);
+
 /* 1 once a pad has been paired (a bt_pad key in bm33/config.txt). */
 int bt_paired(void);
 

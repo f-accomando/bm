@@ -40,6 +40,7 @@ static void help(void)
             "  a  audio: HDMI sound status and a test tune\n"
             "  e  editor: code, sprites and map of a .b33 cartridge\n"
             "  T  Bluetooth: pair a controller as the next player (DS4: Share + PS)\n"
+            "  P  Bluetooth: forget all paired pads (asks first)\n"
             "  W  WiFi: power the chip and identify it (M18, step by step)\n"
             "  b  boot diagnostics: benchmarks, s32 and b33 demos, Lua boot script\n"
             "  k  CPU benchmark          p  rendering benchmark 640x360 RGB565\n"
@@ -160,6 +161,17 @@ void monitor_run(void)
         case 'Y': usb_live_test(5); input_live_test(10); break;
         case 'T': bt_scan(8); break;
         case 'W': wifi_probe(); break;
+        case 'P': {
+            kprintf("forget all Bluetooth pads (keys removed from bm33/config.txt)? y = yes\n");
+            if (input_getc() == 'y') {
+                int n = bt_forget_all();
+                kprintf("bt: %d pad%s forgotten; pair again with T (DS4: Share + PS)\n",
+                        n, n == 1 ? "" : "s");
+            }
+            else
+                kprintf("cancelled\n");
+            break;
+        }
         case 'a': audio_test(); break;
         case 'e': carts_editor(console_framebuffer()); break;
         case 'D': dma_test(console_framebuffer()); break;
