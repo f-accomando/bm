@@ -83,10 +83,20 @@ static void rx_irq_enable(void)
     }
 }
 
+/* waits for bits of UART_FR to clear, at most `us`; every wait on the chip
+ * is bounded (after a warm reboot the chip may hold CTS or stream bytes) */
+static int fr_wait_clear(uint32_t bits, uint32_t us)
+{
+    uint32_t t0 = timer_ticks();
+    while (mmio_read(UART_FR) & bits)
+        if (timer_ticks() - t0 > us)
+            return -1;
+    return 0;
+}
+
 void btuart_set_baud(uint32_t baud)
 {
-    while (mmio_read(UART_FR) & FR_BUSY)
-        ;
+    fr_wait_clear(FR_BUSY, 20000);
     mmio_write(UART_CR, 0);
     uint32_t div = (clock_hz * 4 + baud / 2) / baud;       /* 1/64 units */
     mmio_write(UART_ICR, 0x7FF);
@@ -121,8 +131,8 @@ void btuart_write(const void *buf, uint32_t len)
 {
     const uint8_t *p = buf;
     while (len--) {
-        while (mmio_read(UART_FR) & FR_TXFF)
-            ;
+        if (fr_wait_clear(FR_TXFF, 20000))
+            return;                             /* the chip does not take bytes (CTS) */
         mmio_write(UART_DR, *p++);
     }
 }
@@ -152,7 +162,7 @@ int btuart_ready(void)
 void btuart_drain(void)
 {
     uint32_t s = irq_save();
-    while (!(mmio_read(UART_FR) & FR_RXFE))
+    for (int n = 0; n < 4096 && !(mmio_read(UART_FR) & FR_RXFE); n++)
         (void)mmio_read(UART_DR);
     r_tail = r_head;
     irq_restore(s);

@@ -176,11 +176,12 @@ int uart_getc_timeout(uint32_t timeout_us, char *c)
 
 void uart_flush(void)
 {
+    uint32_t t0 = timer_ticks();                /* bounded: 50 ms is ~570 bytes */
     if (mini) {
-        while (!(mmio_read(MU_LSR) & LSR_TX_IDLE))
+        while (!(mmio_read(MU_LSR) & LSR_TX_IDLE) && timer_ticks() - t0 < 50000)
             ;
         return;
     }
-    while (mmio_read(UART_FR) & FR_BUSY)
+    while ((mmio_read(UART_FR) & FR_BUSY) && timer_ticks() - t0 < 50000)
         ;
 }

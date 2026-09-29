@@ -414,11 +414,15 @@ int bt_start(void)
     kprintf("bt: the serial console moves to the mini UART (same pins, same speed)\n");
     uart_use_mini();
     kprintf("bt: 32 kHz clock %s\n", bcm43438_lpo_clock());
+    /* always from a clean state: after a warm reboot the chip keeps its
+     * speed, its links and its flow control from before */
+    kprintf("bt: power-cycling the chip (GPIO%d)\n", BT_ON_GPIO);
+    power_cycle();
     btuart_init(115200);
 
     int r = reset();
     if (r != 0) {
-        kprintf("bt: no answer to HCI reset, power-cycling the chip (GPIO%d)\n", BT_ON_GPIO);
+        kprintf("bt: no answer to HCI reset, power-cycling the chip again (GPIO%d)\n", BT_ON_GPIO);
         power_cycle();
         btuart_init(115200);
         r = reset();

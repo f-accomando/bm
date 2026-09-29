@@ -10,6 +10,7 @@
 #define PM_RSTC_WRCFG_FULL_RESET 0x00000020u
 
 static uint32_t wd_ticks;               /* 0 = off */
+static uint32_t probe_loaded, probe_left;  /* last detection, for the boot line */
 
 static void wd_write(uint32_t ticks)
 {
@@ -33,6 +34,8 @@ int watchdog_arm(uint32_t ms)
     timer_delay_ms(20);
     uint32_t left = mmio_read(PM_WDOG) & 0xFFFFF;
     dmb();
+    probe_loaded = t;
+    probe_left = left;
     if (left == 0 || left >= t)
         return -1;
     wd_ticks = t;
@@ -63,4 +66,10 @@ void watchdog_reboot(void)
                | PM_RSTC_WRCFG_FULL_RESET);
     for (;;)
         __asm__ volatile("wfi");
+}
+
+void watchdog_probe_values(uint32_t *loaded, uint32_t *left)
+{
+    *loaded = probe_loaded;
+    *left = probe_left;
 }

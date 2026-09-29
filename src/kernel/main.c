@@ -187,8 +187,11 @@ void kernel_main(uint32_t atags)
 
     sysinfo_print_short();
     crumbs_boot();
-    if (watchdog_arm(3000) != 0)    /* a frozen Pi restarts and says what it was doing */
-        kprintf("watchdog: not available, no freeze guard\n");
+    if (watchdog_arm(3000) != 0) {  /* a frozen Pi restarts and says what it was doing */
+        uint32_t ld, lf;
+        watchdog_probe_values(&ld, &lf);
+        kprintf("watchdog: not available, no freeze guard (loaded %lu, after 20 ms %lu)\n", ld, lf);
+    }
     report_irq();
     if (audio_init() == 0) {
         kprintf("audio: %s\n", audio_status());
