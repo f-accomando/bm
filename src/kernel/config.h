@@ -14,6 +14,9 @@ void config_save(void);
 /* Sets a key (written by the next config_save). */
 void config_set(const char *key, const char *value);
 
+/* Removes a key (from the file at the next config_save). */
+void config_unset(const char *key);
+
 /* Value of a key read from the file, or NULL. */
 const char *config_get(const char *key);
 

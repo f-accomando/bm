@@ -77,6 +77,19 @@ Pulsanti: `btn(i)` finché è premuto, `btnp(i)` solo al momento della pressione
 
 Esc, Start+Select o il tasto PS tornano al menu.
 
+**Più giocatori.** Con due o più controller Bluetooth (abbinati dal monitor con `T`: il
+primo è il giocatore 1, il secondo il giocatore 2...) ogni giocatore ha i suoi tasti:
+
+```lua
+local n = players()                       -- quanti controller ci sono
+if btn(2, 1) then p1.y = p1.y - 3 end     -- su, giocatore 1
+if btn(2, 2) then p2.y = p2.y - 3 end     -- su, giocatore 2
+local x, y = stick(1)                     -- levetta del giocatore 1, da -1 a 1
+```
+
+`btn(i)` senza giocatore risponde a tutti i controller: va bene per i menu e i giochi a
+un giocatore. La tastiera USB è il primo giocatore che non ha un pad.
+
 ## 3. Impacchettare e provare
 
 ```sh
@@ -269,3 +282,4 @@ disegnate da `scripts/mkcovers.py`. Senza copertina il menu stampa il titolo.
 | `carts/astrowing` | 3D: modelli, nebbia, camera che si inclina, orizzonte |
 | `carts/hunt` | 320×180, mappa 2048×2048 generata, luci, combattimento, boss |
 | `carts/demo` | sprite sheet PNG e mappa CSV veri e propri |
+| `carts/kitchen` | gioco grande: sorgenti in più file uniti da `build.py`, 3D con mesh costruite in codice, 1–4 giocatori (`btn(i, p)`, `players()`), salvataggi, e un simulatore host (`tests/kitchen/sim.lua`) che gioca da solo per trovare errori e misurare il costo di ogni frame |

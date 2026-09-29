@@ -123,6 +123,33 @@ int main(void)
     CHECK(hid_buttons() == HID_A);
     CHECK(hid_buttons() == 0);
 
+    /* M16: Bluetooth pads by player, the USB gamepad as the local player */
+    uint32_t pl[HID_PLAYERS];
+    uint8_t p1[11] = { 0x01, 128, 128, 128, 128, 0x08 | 0x20 };   /* player 1: cross */
+    uint8_t p3[11] = { 0x11, 0xC0, 0x00, 0, 255, 128, 128, 0x08 };  /* player 3: stick left+down */
+    hid_bt_report(0, p1, sizeof p1);
+    hid_bt_report(2, p3, sizeof p3);
+    tap[5] = 0x08 | 0x40;                                      /* USB pad: circle */
+    hid_report(USB_GAMEPAD, tap, 64);
+    uint32_t any = hid_players(pl, 0, 1);                      /* USB = player 2 */
+    CHECK(pl[0] == HID_A && pl[1] == HID_B && pl[2] == (HID_LEFT | HID_DOWN) && pl[3] == 0);
+    CHECK(any == (HID_A | HID_B | HID_LEFT | HID_DOWN));
+    int8_t xy[2];
+    CHECK(hid_stick(2, xy) == 1 && xy[0] == -127 && xy[1] == 127);
+    CHECK(hid_stick(1, xy) == 0);
+    p1[5] = 0x08;                                              /* released before the read: */
+    hid_bt_report(0, p1, sizeof p1);
+    hid_bt_report(0, p1, sizeof p1);
+    CHECK(hid_players(pl, 0, 1) != 0 && pl[0] == 0);           /* the earlier read took it */
+    hid_bt_clear(2);
+    tap[5] = 0x08;
+    hid_report(USB_GAMEPAD, tap, 64);
+    hid_players(pl, 0, 1);
+    CHECK(hid_players(pl, 0, -1) == 0 && pl[2] == 0);
+    p1[5] = 0x08; p1[7] = 1;                                   /* PS on a Bluetooth pad quits */
+    hid_bt_report(0, p1, sizeof p1);
+    CHECK(hid_quit_pressed() == 1);
+
     printf("hid: %d/%d checks passed\n", checks - fails, checks);
     return fails != 0;
 }

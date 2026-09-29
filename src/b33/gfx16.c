@@ -263,6 +263,34 @@ int g16_text(g16_t *g, int x, int y, const char *str, uint16_t c)
     return x;
 }
 
+int g16_text_scaled(g16_t *g, int x, int y, const char *str, uint16_t c, int scale)
+{
+    if (scale <= 1)
+        return g16_text(g, x, y, str, c);
+    const font_t *f = g->font;
+    const int cw = 8 * scale, ch = f->height * scale;
+    int x0 = x;
+    for (; *str; str++, x += cw) {
+        if (*str == '\n') { y += ch; x = x0 - cw; continue; }
+        int sx = x - g->cam_x, sy = y - g->cam_y;
+        if (sx >= g->cx1 || sx + cw <= g->cx0 || sy >= g->cy1 || sy + ch <= g->cy0)
+            continue;
+        const uint8_t *gl = f->glyphs + (uint8_t)*str * f->height;
+        for (int r = 0; r < f->height; r++) {
+            uint8_t bits = gl[r];
+            /* runs of lit pixels: one rectangle each */
+            for (int b = 0; b < 8;) {
+                if (!(bits & (0x80 >> b))) { b++; continue; }
+                int e = b;
+                while (e < 8 && (bits & (0x80 >> e))) e++;
+                g16_rectfill(g, x + b * scale, y + r * scale, (e - b) * scale, scale, c);
+                b = e;
+            }
+        }
+    }
+    return x;
+}
+
 int g16_sheet_alloc(g16_sheet_t *s, int w, int h)
 {
     memset(s, 0, sizeof *s);

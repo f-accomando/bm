@@ -123,11 +123,11 @@ static uint32_t raster_tex(g16_t *g, uint16_t *zbuf, tv_t a, tv_t b, tv_t c,
         float off = x0 + 0.5f - l.x;
         float z = l.z + off * dz, u = l.u + off * du, v = l.v + off * dv;
         uint16_t *row = g->px + (uint32_t)y * g->stride;
-        uint16_t *zrow = zbuf + (uint32_t)y * g->w;
+        uint16_t *zrow = zbuf ? zbuf + (uint32_t)y * g->w : NULL;
         for (int x = x0; x < x1; x++, z += dz, u += du, v += dv) {
             int32_t zz = (int32_t)(z * 65535.0f);
             if (zz > 65535) zz = 65535;
-            if (zz <= zrow[x])
+            if (zrow && zz <= zrow[x])
                 continue;
             float iz = 1.0f / z;
             int tx = (int)(u * iz), ty = (int)(v * iz);
@@ -141,7 +141,8 @@ static uint32_t raster_tex(g16_t *g, uint16_t *zbuf, tv_t a, tv_t b, tv_t c,
                 uint32_t rr = (p >> 11) * k >> 8, gg = (p >> 5 & 63) * k >> 8, bb = (p & 31) * k >> 8;
                 p = rr << 11 | gg << 5 | bb;
             }
-            zrow[x] = (uint16_t)zz;
+            if (zrow)
+                zrow[x] = (uint16_t)zz;
             row[x] = (uint16_t)p;
             count++;
         }
@@ -205,6 +206,16 @@ void r3d_fog(r3d_t *r, uint32_t rgb, float near, float far)
     r->fog_rgb = rgb;
     r->fog_near = near;
     r->fog_far = far;
+}
+
+void r3d_lamp(r3d_t *r, int i, float x, float y, float z, float radius, float k)
+{
+    if (i < 0 || i >= R3D_LAMPS)
+        return;
+    r->lamp[i].pos = (v3_t){ x, y, z };
+    r->lamp[i].r2 = radius * radius;
+    r->lamp[i].k = k;
+    r->lamp[i].on = radius > 0;
 }
 
 void r3d_light(r3d_t *r, float x, float y, float z, float ambient)
@@ -307,6 +318,13 @@ static int clip_near(const cv_t in[3], cv_t out[4])
 
 void r3d_draw(r3d_t *r, const r3d_mesh_t *m, v3_t p, float rx, float ry, float rz, float scale)
 {
+    r3d_draw_flags(r, m, p, rx, ry, rz, scale, 0);
+}
+
+void r3d_draw_flags(r3d_t *r, const r3d_mesh_t *m, v3_t p, float rx, float ry, float rz,
+                    float scale, unsigned flags)
+{
+    uint16_t *zbuf = (flags & R3D_NOZ) ? NULL : r->zbuf;
     static sv_t sv[MAX_VERTS];
     static cv_t cv[MAX_VERTS];
     if (m->nverts > MAX_VERTS)
@@ -319,6 +337,20 @@ void r3d_draw(r3d_t *r, const r3d_mesh_t *m, v3_t p, float rx, float ry, float r
     const float *C = v.c;
     const int fog = r->fog_far > r->fog_near;
     const float fog_k = fog ? 1.0f / (r->fog_far - r->fog_near) : 0;
+    /* the lamps in camera space (distances do not change) */
+    v3_t lamp[R3D_LAMPS];
+    float lamp_r2[R3D_LAMPS], lamp_k[R3D_LAMPS];
+    int nlamps = 0;
+    for (int i = 0; i < R3D_LAMPS; i++) {
+        if (!r->lamp[i].on)
+            continue;
+        float wx = r->lamp[i].pos.x - r->cam_pos.x, wy = r->lamp[i].pos.y - r->cam_pos.y,
+              wz = r->lamp[i].pos.z - r->cam_pos.z;
+        lamp[nlamps] = (v3_t){ C[0] * wx + C[1] * wy + C[2] * wz, C[3] * wx + C[4] * wy + C[5] * wz,
+                               C[6] * wx + C[7] * wy + C[8] * wz };
+        lamp_r2[nlamps] = r->lamp[i].r2;
+        lamp_k[nlamps++] = r->lamp[i].k;
+    }
 
     for (int i = 0; i < m->nverts; i++) {
         v3_t o = m->verts[i];
@@ -371,7 +403,18 @@ void r3d_draw(r3d_t *r, const r3d_mesh_t *m, v3_t p, float rx, float ry, float r
         float ny = R[3] * n.x + R[4] * n.y + R[5] * n.z;
         float nz = R[6] * n.x + R[7] * n.y + R[8] * n.z;
         float d = nx * r->light.x + ny * r->light.y + nz * r->light.z;
-        float k = r->ambient + (1.0f - r->ambient) * (d > 0 ? d : 0);
+        float k = (flags & R3D_UNLIT) ? 1.0f : r->ambient + (1.0f - r->ambient) * (d > 0 ? d : 0);
+        if (nlamps && !(flags & R3D_UNLIT)) {
+            float fx = (tri[0].x + tri[1].x + tri[2].x) * (1.0f / 3.0f);
+            float fy = (tri[0].y + tri[1].y + tri[2].y) * (1.0f / 3.0f);
+            float fz = (tri[0].z + tri[1].z + tri[2].z) * (1.0f / 3.0f);
+            for (int i = 0; i < nlamps; i++) {
+                float dx = fx - lamp[i].x, dy = fy - lamp[i].y, dz = fz - lamp[i].z;
+                float d2 = dx * dx + dy * dy + dz * dz;
+                if (d2 < lamp_r2[i])
+                    k += lamp_k[i] * (1.0f - d2 / lamp_r2[i]);
+            }
+        }
         float ff = 0;
         if (fog) {
             ff = ((tri[0].z + tri[1].z + tri[2].z) * (1.0f / 3.0f) - r->fog_near) * fog_k;
@@ -383,16 +426,16 @@ void r3d_draw(r3d_t *r, const r3d_mesh_t *m, v3_t p, float rx, float ry, float r
                 tv[i] = (tv_t){ pts[i].x, pts[i].y, pts[i].z, uvs[i][0] * pts[i].z, uvs[i][1] * pts[i].z };
             uint32_t k8 = (uint32_t)(k * 256.0f);
             if (k8 > 256) k8 = 256;
-            r->pixels += raster_tex(r->g, r->zbuf, tv[0], tv[1], tv[2], m->tex, k8);
+            r->pixels += raster_tex(r->g, zbuf, tv[0], tv[1], tv[2], m->tex, k8);
             if (np == 4)
-                r->pixels += raster_tex(r->g, r->zbuf, tv[0], tv[2], tv[3], m->tex, k8);
+                r->pixels += raster_tex(r->g, zbuf, tv[0], tv[2], tv[3], m->tex, k8);
             r->tris_drawn++;
             continue;
         }
         uint16_t col = shade(m->colors[t], k, r->fog_rgb, ff);
-        r->pixels += raster(r->g, r->zbuf, a, b, c, col);
+        r->pixels += raster(r->g, zbuf, a, b, c, col);
         if (np == 4)
-            r->pixels += raster(r->g, r->zbuf, a, c, pts[3], col);
+            r->pixels += raster(r->g, zbuf, a, c, pts[3], col);
         r->tris_drawn++;
     }
 }

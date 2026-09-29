@@ -348,8 +348,32 @@ Decisione 2026-09-28: editor **sulla console** (come PICO-8), prima del multipla
 - Dopo: editor di suoni ed effetti, colori della tavolozza modificabili, copertina
   disegnata nell'editor, cerca nel codice, sprite sheet più grande di 256×256 a zoom.
 
-## M16 — Multiplayer locale con controller Bluetooth (L)
+## M16 — Multiplayer locale con controller Bluetooth (L) — 🛠 fatto, da provare sul Pi
 Decisione 2026-09-28: solo **Bluetooth**; USB e hub restano con un solo dispositivo.
+
+Fatto (QEMU, `test_bt_pair_and_reconnect`, `test_bt_two_pads`):
+- `src/bt/bt.c`: fino a 4 collegamenti ACL contemporanei, ognuno con i suoi canali L2CAP
+  (stessi CID locali: sono per collegamento), la sua chiave e il suo giocatore; chiavi
+  `bt_pad1`…`bt_pad4` (il vecchio `bt_pad` è il giocatore 1 e viene convertito al primo
+  abbinamento); `T` abbina il prossimo posto libero (se sono tutti presi, sostituisce il
+  primo pad non collegato); riconnessione con PS per tutti.
+- Luce del DS4 nel colore del giocatore: report di output 0x11 sul canale interrupt
+  (intestazione 0xA2, CRC-32 come vuole il pad), che passa anche il pad al report
+  completo a 125 Hz (8 ms: quattro pad stanno nei 921600 baud della UART).
+- Input per giocatore (`hid_players`, `input_players`): tasti e levetta di ogni pad; la
+  tastiera/USB e la seriale sono il primo giocatore senza pad.
+- API `.b33`: `btn(i, [p])`, `btnp(i, [p])`, `players()` (quanti e quali), `stick([p])`
+  (levetta analogica, o la croce). **Differenza dalla decisione iniziale:** senza `p`,
+  `btn(i)` risponde a *qualsiasi* controller invece che al solo giocatore 1: così i
+  giochi a un giocatore non cambiano davvero (con "default 1" la tastiera smetterebbe di
+  funzionare appena si collega un pad, perché diventa il giocatore 2).
+- s32: le porte `INPUT`–`INPUT4` hanno ciascuna il suo giocatore.
+- Menu: `pads: 1 2 - -` nell'intestazione e nella barra di stato; `Y` mostra i tasti di
+  ogni giocatore; Pong con la modalità 2 giocatori.
+
+Da provare sul Pi: due DS4 insieme (ritardo d'input come in M12), la luce, Pong a 2.
+
+Piano iniziale:
 - Più controller abbinati: `bt_pad1`, `bt_pad2`, … in `config.txt` (il vecchio
   `bt_pad` diventa il giocatore 1); `T` abbina il prossimo controller libero; la
   riconnessione con il tasto PS funziona per tutti.
@@ -369,17 +393,53 @@ Decisione 2026-09-28: solo **Bluetooth**; USB e hub restano con un solo disposit
 - **Fatto quando:** due DS4 collegati insieme giocano Pong uno contro l'altro (Pong con
   modalità 2 giocatori).
 
-## M17 — Gioco cooperativo in stile Overcooked (L)
-- Cartuccia `.b33` per **1–4 giocatori** in cooperativa locale (M16): una cucina vista
-  dall'alto, gli ordini arrivano a tempo e vanno preparati insieme: prendere gli
-  ingredienti, tagliarli, cuocerli (con il rischio di bruciarli), comporre il piatto,
-  servirlo, lavare i piatti.
-- Più livelli con cucine che cambiano (piani che si muovono, ostacoli, fuoco da
-  spegnere), punteggio a stelle per livello salvato sulla SD.
-- Comandi: movimento in 8 direzioni, A prendi/posa, B usa (taglia, lava), X scatto.
-- Con un solo giocatore: si passa da un cuoco all'altro con Y.
-- Grafica e suoni con gli strumenti già fatti (sprite da script, luci, sintetizzatore).
-- **Fatto quando:** 2+ giocatori completano un livello sul Pi senza cali di frame rate.
+## M17 — Gioco cooperativo in stile Overcooked (L) — 🛠 fatto, da provare sul Pi
+Decisione 2026-09-28: il gioco è **Chaos Kitchen** (`carts/kitchen`), opera originale
+(personaggi, ricette, cucine, musica e interfaccia nostri), in 3D. Comandi scelti
+dall'utente: **A** prendi/posa/usa, **X** taglia/lava/usa (tenuto premuto), **B** scatto,
+**Y** lancia; Start pausa. **Differenza dal piano iniziale:** niente cambio di cuoco con Y
+per il giocatore solo (Y lancia): chi gioca da solo guida un cuoco, e le cucine sono
+tarate sul numero di giocatori.
+
+Fatto (host: `make test-kitchen`; QEMU: `test_kitchen`):
+- **3D** con il renderer software: cucina come poche mesh grandi (pavimento senza
+  z-buffer, facce nascoste tolte), quattro cuochi articolati con animazioni proprie,
+  23 ingredienti (crudi e tagliati) e i piatti composti fatti in codice; una sola
+  telecamera che inquadra tutti e si allontana quando i cuochi si separano.
+- **Quattro cuochi diversi**: Basil (standard), Bun (lento, taglia più forte, niente
+  scatto: saltella), Noodle (veloce), Pepper (piccolo, taglia bene, non lancia).
+- **Cibo**: 23 ingredienti con stati (crudo, tagliato, cotto, bruciato), pentola,
+  padella, forno, frullatore, piatti che si compongono, lavello e piatti sporchi.
+  **51 ricette** in 4 livelli di difficoltà (ingredienti, passi, valore e pazienza).
+- **Lanci** lungo un arco visibile, e prese al volo (anche in una pentola o su un
+  bancone).
+- **Campagna**: 31 cucine in 6 mondi, ognuno con una meccanica nuova (nastri, carretti,
+  piattaforme sull'acqua, ghiaccio, vapore, porte, buio...), 3 stelle a cucina.
+- **Disastri** comici e sempre risolvibili: topi, anatre, tubo che perde, fantasmi (luci
+  spente), utensili posseduti, poltergeist, cibo che scappa, tornado.
+- **Ordini** con pazienza, combo da x1 a x4 sulle mance.
+- **Infinita**: la cucina parte piccola e cresce; la **cassa** è nella cucina e mostra 3
+  offerte senza fermare il gioco; ciò che si compra cade in cucina da solo, vicino alle
+  stazioni simili, mai dove chiuderebbe un passaggio (test: 40 acquisti di fila);
+  fasce di prezzo, 7 categorie, difficoltà che sale, 5 cuori.
+- **Pratica**: una ricetta, una cucina fatta apposta, niente orologio né pazienza.
+- **Ricettario** (piatto in 3D che gira), **opzioni** (musica, suoni) e **statistiche**.
+- **Salvataggi** sulla SD: stelle, record, ricette viste, record dell'infinita,
+  statistiche.
+- Effetti: particelle, vapore, fumo, sfrigolio, monete che volano, scosse dello schermo;
+  la musica accelera quando gli ordini si accumulano.
+- Il simulatore host (`tests/kitchen/sim.lua`) fa giocare cuochi del computer in ogni
+  cucina e in ogni ricetta (tutte cucinabili), controlla che ogni stazione sia
+  raggiungibile e misura istruzioni Lua e triangoli per frame.
+- Misure in QEMU (circa 2× più lento del Pi nel 3D): 1-1 con un cuoco ~15–17 ms per
+  frame, ~800 triangoli; l'infinita ~15 ms.
+
+Da provare sul Pi: **Select** mostra in basso a destra ms per frame, fps e triangoli;
+2+ giocatori con i DS4 in una cucina con piattaforme (mondo 3) e nella cucina più piena
+(mondo 6) senza cali sotto i 60 fps. Codice per aprire tutte le cucine: sul titolo
+su, su, giù, giù (o dalle opzioni).
+
+Dopo: modelli 3D importati da file (OBJ), variazioni di lancio per cuoco.
 
 ## M18 — WiFi e console di rete (L/XL)
 Decisione 2026-09-28: versioni "leggere", in coda dopo M17.

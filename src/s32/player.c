@@ -150,8 +150,9 @@ void s32_play(framebuffer_t *fb, const uint8_t *data, size_t len,
     for (;;) {
         if (poll_keys(hold, &esc, &seen_serial))
             break;
-        int quit = 0;
-        uint32_t pad = input_buttons(&quit);
+        int quit = 0, local;
+        uint32_t per[INPUT_PLAYERS];
+        uint32_t pad = input_players(per, 0, &quit, &local);
         if (quit)
             break;
         if (pad)
@@ -159,15 +160,22 @@ void s32_play(framebuffer_t *fb, const uint8_t *data, size_t len,
         if (timer_ticks() - start >= seconds * 1000000u)
             break;
 
+        /* one port per player (INPUT, INPUT2...); the serial keys are the
+         * player of the keyboard (the first one without a Bluetooth pad) */
         uint8_t in[8] = { 0 };
         if (seen_serial) {
+            uint8_t serial = 0;
             for (int b = 0; b < 5; b++)
-                if (hold[b]) { in[0] |= 1u << b; hold[b]--; }
-            if (pad & HID_UP)    in[0] |= 1u << 0;
-            if (pad & HID_DOWN)  in[0] |= 1u << 1;
-            if (pad & HID_LEFT)  in[0] |= 1u << 2;
-            if (pad & HID_RIGHT) in[0] |= 1u << 3;
-            if (pad & HID_A)     in[0] |= 1u << 4;
+                if (hold[b]) { serial |= 1u << b; hold[b]--; }
+            for (int p = 0; p < INPUT_PLAYERS; p++) {
+                uint32_t h = per[p];
+                if (h & HID_UP)    in[p] |= 1u << 0;
+                if (h & HID_DOWN)  in[p] |= 1u << 1;
+                if (h & HID_LEFT)  in[p] |= 1u << 2;
+                if (h & HID_RIGHT) in[p] |= 1u << 3;
+                if (h & HID_A)     in[p] |= 1u << 4;
+            }
+            in[local >= 0 ? local : 0] |= serial;
         } else {
             in[0] = attract_input(st->ticks);
         }

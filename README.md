@@ -42,10 +42,10 @@ Stress test di rendering (soglie 60/30 fps): [docs/STRESS.md](docs/STRESS.md) �
 | **M11** | SD in scrittura: salvataggi, record, impostazioni | ✅ verificato sul Pi |
 | **M12** | Controller **Bluetooth** (DualShock 4) | ✅ verificato sul Pi |
 | M13 | Altri tipi di cartuccia: s32 Lua (con lua32), codice ARM nativo | |
-| M14 | Grafica 2.0: DMA, modo 32 bit, 3D con texture, menu con anteprime | 🛠 in corso |
+| M14 | Grafica 2.0: DMA, modo 32 bit, 3D con texture, menu con anteprime | |
 | **M15** | Editor sulla console: codice, sprite, mappa, prova e torna | ✅ verificato sul Pi |
-| M16 | Multiplayer locale: più controller Bluetooth, `btn(i, giocatore)` | |
-| M17 | Gioco cooperativo in stile Overcooked (1–4 giocatori) | |
+| **M16** | Multiplayer locale: fino a 4 controller Bluetooth, `btn(i, giocatore)`, Pong a 2 | 🛠 fatto, da provare sul Pi |
+| **M17** | **Chaos Kitchen**: cucina cooperativa in 3D per 1–4 giocatori (campagna, infinita, pratica) | 🛠 fatto, da provare sul Pi |
 | M18 | WiFi, console di rete con password, invio di kernel e cartucce dal PC | |
 | M19 | HTTPS: aggiornamenti da GitHub, "git leggero" (archivi e API con token) | |
 | M20 | Picchiaduro 2D a robot giganti modulari (SF2 Turbo × MSH vs SF), hangar, tag team | |
@@ -88,12 +88,12 @@ Lua `boot.lua`) si esegue dal monitor con **`b`**.
 | `M` | **menu delle cartucce** (SD; le demo incorporate se la SD non ne ha) |
 | `f` / `F` | elenca le cartucce / rilegge la SD |
 | `y` | USB: cerca di nuovo il dispositivo (dopo averlo collegato) |
-| `Y` | USB: test dal vivo per 10 s (contatori ok/nak/err e ultimo report) |
+| `Y` | input: test USB dal vivo (contatori ok/nak/err e ultimo report), poi per 10 s i tasti tenuti da ogni giocatore (P1–P4; `*` = tastiera/seriale) |
 | `L` | layout tastiera: italiano ↔ US |
 | `D` | test del DMA passo per passo (copie e riempimenti, tempi CPU contro DMA) |
 | `e` | **editor** dei giochi `.b33` (codice, sprite, mappa; è anche l'ultimo elemento del menu) |
 | `a` | audio: stato dell'uscita HDMI (clock, canale DMA, costo della sintesi) e una melodia di prova con le quattro forme d'onda |
-| `T` | Bluetooth: cerca per 8 s e **abbina il primo controller** trovato (DS4: Share + PS finché lampeggia); la console seriale passa alla mini UART (stessi pin) |
+| `T` | Bluetooth: cerca per 8 s e **abbina il primo controller** trovato come **prossimo giocatore** (fino a 4; DS4: Share + PS finché lampeggia); la console seriale passa alla mini UART (stessi pin) |
 | `p` | benchmark di rendering 640×360 RGB565, disegnando direttamente sullo schermo e via RAM |
 | `V` | cartucce `.b33`: disegno diretto sullo schermo (default) o via buffer in RAM |
 | `U` | riceve una cartuccia dalla seriale (`bm33_load.py PORTA --cart file.b33`) e la esegue |
@@ -127,11 +127,14 @@ viene scelta l'interfaccia tastiera, anche se il dispositivo usa i report con ID
 - **Gamepad HID generici** (il descrittore HID viene analizzato: pulsanti, assi X/Y,
   croce direzionale) e **controller Xbox 360 cablati**: croce o levetta sinistra,
   A/X = A, B/Y = B, **Start+Select (Back) = esci**.
-- **DualShock 4 (PS4) via Bluetooth** (M12): dal monitor `T` con il controller in
-  abbinamento (Share + PS finché la luce lampeggia). La chiave viene salvata in
-  `bm33/config.txt` (`bt_pad=`): dalle accensioni successive il Bluetooth parte da solo
-  (circa 3 s in più all'avvio per il firmware del chip) e basta premere **PS**.
-  Stessi tasti del cavo USB.
+- **DualShock 4 (PS4) via Bluetooth** (M12, M16): dal monitor `T` con il controller in
+  abbinamento (Share + PS finché la luce lampeggia). Fino a **4 controller**, uno per
+  giocatore: ogni `T` abbina il prossimo, la chiave va in `bm33/config.txt`
+  (`bt_pad1=` … `bt_pad4=`; il vecchio `bt_pad=` diventa il giocatore 1). Dalle accensioni
+  successive il Bluetooth parte da solo (circa 3 s in più all'avvio per il firmware del
+  chip) e basta premere **PS**: la luce del pad prende il colore del giocatore (1 blu,
+  2 rosso, 3 verde, 4 rosa). Il menu mostra in alto i giocatori collegati (`pads: 1 2 - -`).
+  Stessi tasti del cavo USB; tastiera e gamepad USB sono il primo giocatore senza pad.
 - **DualShock 4 (PS4)** via cavo USB: croce direzionale o levetta sinistra,
   croce/quadrato = A, cerchio/triangolo = B, Options = Start, Share = Select,
   **tasto PS (o Share+Options) = esci**. Lo stesso decodificatore servirà per il
@@ -140,8 +143,8 @@ viene scelta l'interfaccia tastiera, anche se il dispositivo usa i report con ID
 **SD.** All'avvio il kernel legge la prima partizione **FAT32** (o FAT16) della SD
 (quella da cui si avvia il Pi) e cerca i file **`.b33`** e **`.cart`** nella
 cartella `carts/` e nella radice. Nomi lunghi supportati. `make sdcard` mette in
-`dist/carts/` i giochi e le demo (`pong.b33`, `snake.b33`, `shooter.b33`, `astrowing.b33`, `demo.b33`,
-`stress.b33`, `demo.cart`); `make image` li mette nell'immagine SD.
+`dist/carts/` i giochi e le demo (`pong.b33`, `snake.b33`, `shooter.b33`, `astrowing.b33`, `hunt.b33`,
+`kitchen.b33`, `demo.b33`, `stress.b33`, `demo.cart`); `make image` li mette nell'immagine SD.
 
 **Menu delle cartucce.** Mostra titolo e autore letti dalle cartucce (ordinate per
 titolo) e sotto il nome del file scelto. Su/giù per scegliere, Invio (o A) per giocare,
@@ -276,7 +279,9 @@ La cartuccia definisce `_init()`, `_update()` e `_draw()` (60 volte al secondo) 
 un'API in stile PICO-8: forme, sprite e mappa, testo, input (`btn`/`btnp`), tempo,
 3D software. **Riferimento completo e guida alla prima cartuccia: [docs/API.md](docs/API.md).**
 Giochi di esempio: `carts/pong`, `carts/snake`, `carts/shooter`, `carts/astrowing` (3D), `carts/hunt` (mappa 2048×2048, luci; grafica e mappa da `mkassets.py`) (solo Lua, sprite
-disegnati nel codice con `sset`), `carts/demo` (sprite sheet PNG e mappa CSV).
+disegnati nel codice con `sset`), `carts/demo` (sprite sheet PNG e mappa CSV),
+`carts/kitchen` (Chaos Kitchen: gioco grande in più file Lua uniti da `build.py`, 3D,
+fino a 4 giocatori, simulatore host in `tests/kitchen/`).
 
 Sandbox: niente `io`, `os`, `load`, `dofile`, `require`. Un errore o un ciclo infinito
 (oltre 20 milioni di istruzioni in un frame) ferma la cartuccia e mostra l'errore
@@ -400,6 +405,8 @@ src/b33/                 cartucce native: formato, grafica RGB565 (gfx16), 3D so
                          runtime Lua, stress test
 carts/demo/              cartuccia nativa demo: main.lua, sheet.png, map.csv
 carts/pong|snake|shooter|astrowing|hunt giochi demo (solo Lua)
+carts/kitchen/           Chaos Kitchen (M17): src/*.lua, build.py, mkassets.py
+tests/kitchen/           simulatore host di Chaos Kitchen (luahost + sim.lua)
 docs/API.md              API delle cartucce .b33 e guida alla prima cartuccia
 scripts/mkb33.py         packer .b33 (PNG e CSV, solo libreria standard Python)
 scripts/mksd.py          immagine SD (MBR + FAT32): make image e test in QEMU

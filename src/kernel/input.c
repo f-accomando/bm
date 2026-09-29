@@ -7,11 +7,14 @@
 #include "usb/usb.h"
 #include "bt/bt.h"
 
+#include <math.h>
+
 static void update_uptime(void)
 {
-    char buf[24];
+    char buf[48], pads[24];
     uint32_t s = timer_ticks() / 1000000;
-    ksnprintf(buf, sizeof buf, "up %02lu:%02lu:%02lu", s / 3600, s / 60 % 60, s % 60);
+    input_status(pads, sizeof pads);
+    ksnprintf(buf, sizeof buf, "%s  up %02lu:%02lu:%02lu", pads, s / 3600, s / 60 % 60, s % 60);
     console_set_status(0, buf);
 }
 
@@ -64,4 +67,125 @@ void input_flush(void)
     while (hid_getc() >= 0)
         ;
     hid_quit_pressed();
+}
+
+int input_local_player(void)
+{
+    unsigned pads = bt_pads();
+    for (int p = 0; p < INPUT_PLAYERS; p++)
+        if (!(pads >> p & 1))
+            return p;
+    return -1;
+}
+
+uint32_t input_players(uint32_t out[INPUT_PLAYERS], int text, int *quit, int *local)
+{
+    usb_poll();
+    bt_poll();
+    if (hid_quit_pressed())
+        *quit = 1;
+    *local = input_local_player();
+    return hid_players(out, text, *local);
+}
+
+static int usb_input(void)
+{
+    int k = usb_info()->kind;
+    return k == USB_KEYBOARD || k == USB_GAMEPAD || k == USB_XBOX360;
+}
+
+unsigned input_connected(void)
+{
+    unsigned m = bt_pads();
+    int local = input_local_player();
+    if (local >= 0 && (usb_input() || !m))
+        m |= 1u << local;
+    return m;
+}
+
+void input_stick(int p, uint32_t b, float *x, float *y)
+{
+    int8_t xy[2] = { 0, 0 };
+    int analog = (bt_pads() >> p & 1) ? hid_stick(p, xy)
+               : p == input_local_player() ? hid_stick(-1, xy) : 0;
+    if (analog) {
+        /* dead zone, then the rest of the range scaled back to 0..1 */
+        float ax = xy[0] / 127.0f, ay = xy[1] / 127.0f, m = sqrtf(ax * ax + ay * ay);
+        if (m < 0.25f) {
+            ax = ay = 0;
+        } else {
+            float k = (m > 1 ? 1 : m) - 0.25f;
+            k = k / 0.75f / m;
+            ax *= k;
+            ay *= k;
+        }
+        if (ax != 0 || ay != 0 || !(b & (HID_LEFT | HID_RIGHT | HID_UP | HID_DOWN))) {
+            *x = ax;
+            *y = ay;
+            return;
+        }
+    }
+    /* the cross (or keys): 8 directions of length 1 */
+    float dx = (b & HID_RIGHT ? 1.0f : 0) - (b & HID_LEFT ? 1.0f : 0);
+    float dy = (b & HID_DOWN ? 1.0f : 0) - (b & HID_UP ? 1.0f : 0);
+    if (dx != 0 && dy != 0) {
+        dx *= 0.7071f;
+        dy *= 0.7071f;
+    }
+    *x = dx;
+    *y = dy;
+}
+
+void input_status(char *buf, unsigned size)
+{
+    unsigned m = input_connected();
+    int n = ksnprintf(buf, size, "pads:");
+    for (int p = 0; p < INPUT_PLAYERS && n + 3 < (int)size; p++)
+        n += ksnprintf(buf + n, size - (unsigned)n, (m >> p & 1) ? " %d" : " -", p + 1);
+}
+
+void input_live_test(uint32_t seconds)
+{
+    static const char *const names[] = { "<", ">", "^", "v", "A", "B", "St", "Se", "X", "Y" };
+    kprintf("input test for %lu s: players and the buttons they hold\n", seconds);
+    for (int p = 0; p < INPUT_PLAYERS; p++) {
+        char a[18];
+        int on = bt_pad_addr(p, a);
+        if (a[0])
+            kprintf("  player %d: pad %s%s\n", p + 1, a, on ? "" : " (not connected: press PS)");
+    }
+    kprintf("  keyboard / USB / serial: the first player without a pad\n");
+    uint32_t t0 = timer_ticks(), shown = 0, seen[INPUT_PLAYERS] = { 0 };
+    while (timer_ticks() - t0 < seconds * 1000000u) {
+        uint32_t out[INPUT_PLAYERS];
+        int quit = 0, local;
+        input_players(out, 0, &quit, &local);
+        for (int p = 0; p < INPUT_PLAYERS; p++)
+            seen[p] |= out[p];
+        if (timer_ticks() - shown < 200000)
+            continue;
+        shown = timer_ticks();
+        char line[128];
+        int n = 0;
+        unsigned m = input_connected();
+        for (int p = 0; p < INPUT_PLAYERS; p++) {
+            n += ksnprintf(line + n, sizeof line - (unsigned)n, " P%d%s:", p + 1,
+                           p == local ? "*" : "");
+            if (!(m >> p & 1)) {
+                n += ksnprintf(line + n, sizeof line - (unsigned)n, " -   ");
+                continue;
+            }
+            int any = 0;
+            for (int b = 0; b < 10; b++)
+                if (seen[p] >> b & 1) {
+                    n += ksnprintf(line + n, sizeof line - (unsigned)n, "%s", names[b]);
+                    any = 1;
+                }
+            n += ksnprintf(line + n, sizeof line - (unsigned)n, any ? " " : " .   ");
+            seen[p] = 0;
+        }
+        kprintf("\r%s\x1b[K", line);
+    }
+    kprintf("\n");
+    input_flush();
 }

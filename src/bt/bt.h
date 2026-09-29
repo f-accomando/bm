@@ -1,25 +1,35 @@
 /*
- * Bluetooth on the Pi Zero W (BCM43438), M12: one HID game controller
- * (DualShock 4), paired once and then reconnected with the PS button.
+ * Bluetooth on the Pi Zero W (BCM43438), M12 and M16: up to four HID game
+ * controllers (DualShock 4), one per player, paired once and then
+ * reconnected with the PS button.
  */
 #ifndef BT_H
 #define BT_H
 
+#define BT_PADS 4                   /* players with a Bluetooth pad */
+
 /* Moves the console to the mini UART, starts the chip (firmware patch
- * from the SD card), turns on page scan for a paired pad. Returns 0. */
+ * from the SD card), turns on page scan for the paired pads. Returns 0. */
 int bt_start(void);
 
-/* Searches for `seconds`; pairs with the first game controller found. */
+/* Searches for `seconds`; pairs the first game controller found as the
+ * next free player (bt_pad1..bt_pad4 in bm33/config.txt). */
 void bt_scan(unsigned seconds);
 
 /* Processes what the chip sent (connections, HID reports). Call often;
  * does nothing until bt_start. */
 void bt_poll(void);
 
-/* 1 once a pad has been paired (bt_pad in bm33/config.txt). */
+/* 1 once a pad has been paired (a bt_pad key in bm33/config.txt). */
 int bt_paired(void);
 
-/* 1 while the pad's HID channels are open. */
+/* 1 while at least one pad has its HID channels open. */
 int bt_connected(void);
+
+/* Players with a connected pad: bit n = player n + 1. */
+unsigned bt_pads(void);
+
+/* Address of player slot+1's pad ("" if none); 1 if it is connected. */
+int bt_pad_addr(int slot, char out[18]);
 
 #endif
