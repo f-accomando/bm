@@ -8,6 +8,7 @@
  */
 #include "net/netcon.h"
 #include "net/netxfer.h"
+#include "net/stream.h"
 #include "lib/crc32.h"
 #include "lib/printf.h"
 
@@ -122,6 +123,11 @@ static void spin(int rounds)
     }
 }
 
+/* stream.c's needs (net.c) */
+uint32_t net_ip(void) { return 1; }
+void net_wait_step(void) { spin(1); }
+void net_time_set(unsigned long sec) { (void)sec; }
+
 static void connect_port(client_t *c, u16_t port)
 {
     memset(c, 0, sizeof *c);
@@ -209,6 +215,42 @@ int main(void)
     send_str(&c, "c\r\n");
     spin(50);
     check(c.closed && strstr(c.got, "bye"), "three wrong passwords: closed");
+
+    /* ---- stream.c: the blocking connection, against the console */
+    {
+        char err[64] = "";
+        stream_t *s = stream_open("127.0.0.1", NETCON_PORT, 2000, err, sizeof err);
+        check(s != NULL, "stream: connected to 127.0.0.1:3333");
+        char buf[256] = { 0 };
+        int n = s ? stream_read(s, buf, sizeof buf - 1, 1000) : -1;
+        check(n > 0 && strstr(buf, "password: "), "stream: greeting read");
+        check(s && stream_write(s, "secret\r\n", 8) == 0, "stream: password written");
+        memset(buf, 0, sizeof buf);
+        int got = 0;
+        for (int i = 0; i < 20 && !strstr(buf, "ok - "); i++) {
+            n = stream_read(s, buf + got, sizeof buf - 1 - (size_t)got, 200);
+            if (n > 0) got += n;
+        }
+        check(strstr(buf, "ok - ") != NULL, "stream: logged in");
+        quiet = 1;
+        for (int i = 0; i < 300; i++)
+            kprintf("stream line %03d of the output\n", i);
+        quiet = 0;
+        static char all[16384];
+        got = 0;
+        while (got < (int)sizeof all - 1 && !strstr(all, "stream line 299")) {
+            n = stream_read(s, all + got, sizeof all - 1 - (size_t)got, 500);
+            if (n <= 0) break;
+            got += n;
+            all[got] = 0;
+        }
+        check(strstr(all, "stream line 000") && strstr(all, "stream line 299 of the output\r\n"),
+              "stream: 10 KB read in pieces, in order");
+        stream_close(s);
+        spin(50);
+        check(stream_open("127.0.0.1", 9, 500, err, sizeof err) == NULL && err[0],
+              "stream: closed port, an error");
+    }
 
     /* ---- transfers */
     check(netxfer_start() == 0, "transfers listening on port 3334");

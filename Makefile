@@ -42,7 +42,7 @@ LLDLIBS := -nostdlib -lgcc
 
 LUA_SRCS    := $(wildcard third_party/lua/*.c)
 LWIP_SRCS   := $(wildcard third_party/lwip/src/core/*.c third_party/lwip/src/core/ipv4/*.c) \
-               third_party/lwip/src/netif/ethernet.c
+               third_party/lwip/src/netif/ethernet.c third_party/lwip/src/apps/sntp/sntp.c
 KERNEL_SRCS := $(shell find src -name '*.c' -o -name '*.S') $(LUA_SRCS) $(LWIP_SRCS)
 LOADER_SRCS := $(wildcard chainloader/*.S chainloader/*.c) \
                src/drivers/uart.c src/drivers/gpio.c src/drivers/mbox.c \
@@ -144,7 +144,7 @@ test-titan: $(BUILD)/host/luahost $(BUILD)/titan/main.lua
 
 .DEFAULT_GOAL := all
 .PHONY: FORCE all clean firmware image sdcard install sdcard-chainloader sdcard-stress qemu qemu-screenshot \
-        run-serial test test-s32 test-s32-arm test-b33 test-usb test-audio test-fat test-kitchen test-titan test-net disasm
+        run-serial test test-s32 test-s32-arm test-b33 test-usb test-audio test-fat test-kitchen test-titan test-net test-http disasm
 
 all: $(BUILD)/kernel.img $(BUILD)/chainloader.img $(GAME_CARTS)
 
@@ -246,7 +246,7 @@ qemu: $(BUILD)/kernel.img
 qemu-screenshot: $(BUILD)/kernel.img
 	./scripts/qemu-screenshot.sh $< $(BUILD)/screen.png
 
-test: all test-s32 test-b33 test-usb test-fat test-audio test-kitchen test-titan test-net
+test: all test-s32 test-b33 test-usb test-fat test-audio test-kitchen test-titan test-net test-http
 	$(PYTHON) tests/qemu_test.py --build $(BUILD)
 
 $(BUILD)/host/test_b33: tests/b33/test_b33.c src/b33/gfx16.c src/b33/r3d.c src/b33/format.c src/lib/crc32.c src/b33/*.h
@@ -264,10 +264,18 @@ $(BUILD)/host/test_fat: tests/fs/test_fat.c src/fs/fat.c src/fs/fat.h src/driver
 test-net: $(BUILD)/host/test_netcon
 	$(BUILD)/host/test_netcon
 
-$(BUILD)/host/test_netcon: tests/net/test_netcon.c src/net/netcon.c src/net/netxfer.c src/net/*.h src/lib/crc32.c $(LWIP_SRCS)
+$(BUILD)/host/test_netcon: tests/net/test_netcon.c src/net/netcon.c src/net/netxfer.c src/net/stream.c src/net/*.h src/lib/crc32.c $(LWIP_SRCS)
 	@mkdir -p $(dir $@)
 	$(HOSTCC) -O1 -w -DBM33_HOST_TEST -Isrc -Isrc/net -Ithird_party/lwip/src/include -o $@ \
-		tests/net/test_netcon.c src/net/netcon.c src/net/netxfer.c src/lib/crc32.c $(LWIP_SRCS)
+		tests/net/test_netcon.c src/net/netcon.c src/net/netxfer.c src/net/stream.c src/lib/crc32.c $(LWIP_SRCS)
+
+# HTTP client over POSIX sockets, against a local Python server
+test-http: $(BUILD)/host/test_http
+	$(PYTHON) tests/net/run_http_test.py $(BUILD)/host/test_http
+
+$(BUILD)/host/test_http: tests/net/test_http.c src/net/http.c src/net/http.h
+	@mkdir -p $(dir $@)
+	$(HOSTCC) -O1 -Wall -Wextra -Isrc -DHTTP_USER_AGENT='"test"' -o $@ tests/net/test_http.c src/net/http.c
 
 test-audio: $(BUILD)/host/test_audio
 	$<

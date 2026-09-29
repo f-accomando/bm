@@ -16,9 +16,11 @@
 #include "lwip/etharp.h"
 #include "lwip/pbuf.h"
 #include "lwip/timeouts.h"
+#include "lwip/apps/sntp.h"
 #include "netif/ethernet.h"
 
 #include <string.h>
+#include <time.h>
 
 static struct netif nif;
 static int started;
@@ -78,6 +80,10 @@ static void show_ip(void)
     char gw[16];
     ip4addr_ntoa_r(netif_ip4_gw(&nif), gw, sizeof gw);
     kprintf("\x1b[92mnet: IP %s\x1b[0m (gateway %s, name bm33)\n", ip_text, gw);
+    if (!sntp_enabled()) {
+        sntp_setoperatingmode(SNTP_OPMODE_POLL);
+        sntp_init();
+    }
     if (netcon_start() == 0) {
         netxfer_start();
         kprintf("net: console on port %d, password %s\n"
@@ -130,6 +136,45 @@ static void poll_now(void)
     show_ip();
     netcon_poll();
     netxfer_poll();
+}
+
+void net_wait_step(void)
+{
+    if (!started)
+        return;
+    poll_now();
+    timer_delay_us(200);
+}
+
+static unsigned long time_base;         /* seconds at time_ms */
+static uint32_t time_ms;
+
+void net_time_set(unsigned long sec)
+{
+    int first = time_base == 0;
+    time_base = sec;
+    time_ms = sys_now();
+    if (first)
+        kprintf("net: time %s\n", net_time_text());
+}
+
+unsigned long net_time(void)
+{
+    if (!time_base)
+        return 0;
+    return time_base + (sys_now() - time_ms) / 1000;
+}
+
+const char *net_time_text(void)
+{
+    static char buf[32];
+    time_t t = (time_t)net_time();
+    if (!t)
+        return "unknown";
+    struct tm tm;
+    gmtime_r(&t, &tm);
+    strftime(buf, sizeof buf, "%Y-%m-%d %H:%M UTC", &tm);
+    return buf;
 }
 
 void net_poll(void)

@@ -251,3 +251,31 @@ void input_live_test(uint32_t seconds)
     kprintf("\n");
     input_flush();
 }
+
+int input_read_line(char *buf, int max, int secret)
+{
+    int n = 0;
+    for (;;) {
+        char c = input_getc();
+        if (c == '\r' || c == '\n') {
+            buf[n] = 0;
+            kprintf("\n");
+            return n;
+        }
+        if (c == 0x1B) {
+            if (input_skip_sequence())
+                continue;               /* an arrow key, not Esc */
+            kprintf("  (cancelled)\n");
+            return -1;
+        }
+        if ((c == 0x7F || c == 0x08) && n > 0) {
+            n--;
+            kprintf("\b \b");
+            continue;
+        }
+        if ((unsigned char)c >= 32 && (unsigned char)c < 127 && n < max - 1) {
+            buf[n++] = c;
+            kprintf("%c", secret ? '*' : c);
+        }
+    }
+}

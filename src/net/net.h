@@ -14,6 +14,13 @@ int  net_wait_ip(uint32_t ms);
 /* Moves frames and lwIP's timers; called from the input loops, cheap when
  * WiFi is off (at most once per millisecond otherwise). */
 void net_poll(void);
+/* One round of the network (frames, timers) and a short pause: for code
+ * that waits for an answer (stream.c). */
+void net_wait_step(void);
+/* Seconds since 1970 (UTC) from the network (SNTP), 0 until known. */
+unsigned long net_time(void);
+/* "2026-09-29 18:04 UTC", or "unknown" */
+const char *net_time_text(void);
 /* The IPv4 address (network order), 0 if none. */
 uint32_t net_ip(void);
 /* "192.168.1.23", or "-" */

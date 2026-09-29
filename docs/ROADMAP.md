@@ -603,6 +603,29 @@ Decisione 2026-09-28: versioni "leggere", in coda dopo M17.
 - **Fatto quando:** un aggiornamento pubblicato come release arriva sul Pi dal menu, e
   l'editor carica un gioco su un repository.
 
+Passi (2026-09-29):
+1. 🛠 (da provare sul Pi) **HTTP e ora di rete**: `src/net/stream.c` (connessione TCP usata
+   come un socket bloccante: DNS, scrittura, lettura con timeout, attese che fanno girare
+   `net_poll`), `src/net/http.c` (HTTP/1.1: GET/PUT, redirect, corpo a lunghezza, a
+   blocchi o fino alla chiusura, trasporto intercambiabile), ora da `pool.ntp.org`
+   (SNTP di lwIP) stampata come `net: time ...`. Monitor `G`: scarica un indirizzo e
+   mostra stato, dimensione, velocità e l'inizio. Test sul PC: `make test-http` (client
+   HTTP contro un server Python locale) e `make test-net` (stream su lwIP).
+2. **HTTPS**: mbedTLS 3.6 LTS (Apache 2.0) sotto lo stesso trasporto; entropia dal
+   generatore hardware del BCM2835; certificati radice in `bm33/ca.pem` (quelli che
+   servono a GitHub e poco altro); verifica di nome e date (per questo l'ora). Test
+   sul PC contro un server TLS locale con una CA di prova.
+3. **Release**: GitHub Actions costruisce `kernel.img` e le cartucce a ogni tag `v*`, le
+   allega alla release con un manifesto (versione, SHA-256, firma ECDSA P-256 con una
+   chiave nei secret del repository; la chiave pubblica è nel kernel).
+4. **Aggiornamento dal Pi**: comando nel monitor e voce nel menu Dev: controlla l'ultima
+   release, confronta la versione, scarica, verifica SHA-256 e firma, installa come
+   `--kernel` e riavvia; le cartucce nuove vanno in `/carts`.
+5. **Git leggero in lettura**: cartucce da un repository (API "contents" di GitHub,
+   file per file, senza archivi da decomprimere).
+6. **Git leggero in scrittura**: l'editor carica un `.b33` su un repository con un
+   token personale (`github_token` in `bm33/config.txt`, API "contents", PUT).
+
 ## M20 — Picchiaduro a robot giganti (XL)
 Decisione 2026-09-28: in coda dopo M19. Concept completo dell'autore:
 [`docs/giochi/mecha-fighter-concept.md`](giochi/mecha-fighter-concept.md).

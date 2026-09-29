@@ -19,6 +19,9 @@ int input_remote_follows(void);
  * PgUp: ESC [ ... final letter or ~), reads it all; returns 1. A lone Esc
  * (the USB keyboard's): 0, nothing read. */
 int input_skip_sequence(void);
+/* A line typed on the keyboard, the serial port or the network console,
+ * echoed (as '*' if secret); Enter ends it. Its length, -1 on Esc. */
+int input_read_line(char *buf, int max, int secret);
 /* What input_key returns once when a cartridge sent over the network
  * (bm33_net.py --play) waits to be played: the monitor plays it. */
 #define INPUT_NET_PLAY 0x10

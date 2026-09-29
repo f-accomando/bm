@@ -22,13 +22,16 @@
 #include "bt/bt.h"
 #include "wifi/wifi.h"
 #include "net/net.h"
+#include "net/http.h"
 #include "net/netxfer.h"
 #include "pager.h"
 #include "audio/audio.h"
 #include "dmatest.h"
 #include "crumbs.h"
 #include "drivers/watchdog.h"
+#include <stdio.h>
 #include <stdlib.h>
+#include <string.h>
 
 static const char help_text[] =
             "commands (games: arrows/wasd, space = A; q or Esc quits):\n"
@@ -46,6 +49,7 @@ static const char help_text[] =
             "  P  Bluetooth: forget all paired pads (asks first)\n"
             "  W  WiFi: start, list the networks, join one (M18; saved in bm33/config.txt)\n"
             "     from the PC: tools/bm33_net.py IP (console, --send/--play a cart, --kernel)\n"
+            "  G  get a web address (http; https with M19.2): status, size, speed, start\n"
             "  b  boot diagnostics: benchmarks, s32 and b33 demos, Lua boot script\n"
             "  k  CPU benchmark          p  rendering benchmark 640x360 RGB565\n"
             "  D  DMA test step by step (CPU against DMA timings)\n"
@@ -95,6 +99,44 @@ static void show_test_pattern(void)
     kprintf("test pattern shown, press any key\n");
     input_getc();
     console_suspend(0);
+}
+
+/* 'G': a GET, to try the network from the monitor (M19) */
+static void net_get_test(void)
+{
+    static char url[256] = "http://example.com/";
+    kprintf("address (Enter: %s): ", url);
+    char line[240];
+    int n = input_read_line(line, sizeof line, 0);
+    if (n < 0)
+        return;
+    if (n > 0)
+        snprintf(url, sizeof url, "%s%s", strstr(line, "://") ? "" : "http://", line);
+    uint32_t t0 = timer_ticks();
+    uint8_t *data;
+    size_t len;
+    http_info_t info;
+    int st = http_get_buffer(url, NULL, 8u << 20, &data, &len, &info);
+    uint32_t ms = (timer_ticks() - t0) / 1000;
+    if (st < 0) {
+        kprintf("\x1b[91mget: %s\x1b[0m\n", info.error);
+    } else {
+        kprintf("get: %d, %lu bytes in %lu ms (%lu KiB/s), %s\n", st, (unsigned long)len, ms,
+                ms ? (unsigned long)(len * 1000 / 1024 / ms) : 0, info.type[0] ? info.type : "no type");
+        if (strcmp(info.url, url) != 0)
+            kprintf("     from %s\n", info.url);
+        if (info.error[0])
+            kprintf("     %s\n", info.error);
+        size_t show = len < 300 ? len : 300;
+        for (size_t i = 0; i < show; i++) {
+            char c = (char)data[i];
+            kprintf("%c", (c == '\n' || (c >= 32 && c < 127)) ? c : '.');
+        }
+        if (show)
+            kprintf("%s\n", len > show ? "..." : "");
+    }
+    kprintf("net: time %s\n", net_time_text());
+    free(data);
 }
 
 void monitor_run(void)
@@ -226,6 +268,7 @@ void monitor_run(void)
         }
         case '\r': case '\n': break;
         case 0x1B: break;               /* Esc alone: already at the monitor */
+        case 'G': net_get_test(); break;
         case INPUT_NET_PLAY: {                  /* bm33_net.py --play */
             uint8_t *buf;
             size_t len;

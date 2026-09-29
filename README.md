@@ -265,7 +265,8 @@ generati da lua32 devono passare **byte per byte**:
 
 ```sh
 make test-s32        # core s32 compilato per il PC
-make test-net        # console di rete su lwIP (interfaccia di loopback, sul PC)
+make test-net        # console di rete e stream su lwIP (interfaccia di loopback, sul PC)
+make test-http       # client HTTP contro un server Python locale
 make test-s32-arm    # stesso codice compilato per ARM1176, in qemu-arm
 scripts/sync-s32-spec.sh ../lua32   # aggiorna spec e vettori da lua32
 ```

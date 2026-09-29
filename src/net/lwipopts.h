@@ -43,6 +43,15 @@
 
 #define LWIP_CHKSUM_ALGORITHM   3
 
+/* network time (M19: certificates have dates), from pool.ntp.org */
+#define SNTP_SERVER_DNS         1
+#define SNTP_SERVER_ADDRESS     "pool.ntp.org"
+#define SNTP_STARTUP_DELAY      0
+#define SNTP_UPDATE_DELAY       3600000
+#define SNTP_SET_SYSTEM_TIME(sec) net_time_set((unsigned long)(sec))
+void net_time_set(unsigned long sec);
+#define DNS_MAX_SERVERS         2
+
 #ifdef BM33_HOST_TEST   /* tests/net: a loopback interface instead of the chip */
 #define LWIP_HAVE_LOOPIF        1
 #define LWIP_NETIF_LOOPBACK     1
