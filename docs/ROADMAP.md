@@ -577,9 +577,9 @@ Decisione 2026-09-28: versioni "leggere", in coda dopo M17.
 8. 🛠 (da provare sul Pi) **File dal PC e WiFi all'avvio**:
    - porta TCP 3334, stessa password della console (`src/net/netxfer.c`);
      richiesta `BM3X`, operazione, password, percorso, dimensione, crc32, dati;
-   - `bm33_net.py IP --send gioco.b33` → salvata in `/carts` (nomi 8.3, `--name`,
+   - ✅ (Pi, `ddca333`) `bm33_net.py IP --send gioco.b33` → salvata in `/carts` (nomi 8.3, `--name`,
      `--to`); il menu rilegge la SD da solo;
-   - `--play gioco.b33` → giocata subito (dal menu o dal monitor), senza salvarla;
+   - ✅ (Pi: Pong a 59,9 fps) `--play gioco.b33` → giocata subito (dal menu o dal monitor), senza salvarla;
    - ✅ (Pi: 1.3 MB in 7,7 s, 170 KiB/s) `--kernel build/kernel.img` → scritto come `kernel.img` (prima i dati, poi la
      voce della directory: un'interruzione lascia il vecchio o il nuovo) e riavvio;
    - ✅ (Pi, `ddca333`) all'avvio la rete salvata si ricollega da sola, senza scansione
