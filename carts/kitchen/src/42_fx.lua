@@ -38,6 +38,11 @@ function Fx.bits(x, y, z, color)
   end
 end
 
+function Fx.sizzle(x, z)
+  spawn(x + rnd(-0.2, 0.2), Kit.TOP + 0.1, z + rnd(-0.2, 0.2), rnd(-0.6, 0.6), rnd(1.2, 2.0), rnd(-0.6, 0.6),
+        rnd(0.2, 0.35), random() < 0.5 and 0xFFF0B0 or 0xFFFFFF, 2, 9, "bit")
+end
+
 function Fx.dust(x, z)
   spawn(x + rnd(-0.1, 0.1), 0.05, z + rnd(-0.1, 0.1), rnd(-0.4, 0.4), rnd(0.2, 0.5), rnd(-0.4, 0.4),
         rnd(0.25, 0.45), 0xE8E0D0, rnd(2, 4), 0, "puff")

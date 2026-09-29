@@ -124,6 +124,7 @@ function Ord.serve(run, plate, st, chef)
     if dist2(c.x, c.z, st.x, st.z) < 16 or c == chef then Chef.set_act(c, "cheer", 0.7) end
   end
   G.stats_add("served", 1)
+  G.stats_add("r:" .. o.rec.id, 1)
   G.recipe_seen(o.rec.id)
   if run.on_serve then run.on_serve(run, o, gain) end
   return true

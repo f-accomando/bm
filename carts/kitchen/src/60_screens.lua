@@ -39,7 +39,7 @@ function Scr.new_run(stage, opts)
   for _, id in ipairs(opts.recipes or stage.recipes) do pool[#pool + 1] = Data.RECIPE[id] end
   Food.set_pool(run, pool)
   Ord.init(run, { every = stage.every or 17, patience = stage.patience or 1 })
-  if not opts.endless then run.time_left = stage.time end
+  if not (opts.endless or opts.practice) then run.time_left = stage.time end
   run.goals = Scr.goals(stage, #run.chefs)
   Haz.init(run)
   Dis.init(run)
@@ -149,6 +149,7 @@ local MENU = {
 local menu_sel = 1
 
 screens.menu = {
+  enter = function(sel) if sel then menu_sel = sel end end,
   update = function(dt)
     Scr.step(attract, dt, false)
     local d = Pad.nav(nil, "y")
@@ -511,12 +512,14 @@ screens.pause = {
     if btnp(BA) then
       local m = PAUSE[pause_sel]
       Snd.ui_ok()
+      local run = G.run
       if m == "RESUME" then G.screen = "play"
       elseif m == "RESTART" then
-        local run = G.run
-        if run.endless then Scr.go("endless") else Scr.go("intro", run.stage) end
+        if run.endless then Scr.go("endless")
+        elseif run.practice then Scr.go("practice_go", run.practice)
+        else Scr.go("intro", run.stage) end
       else
-        Scr.go(G.run.endless and "menu" or "map")
+        Scr.go(run.endless and "menu" or (run.practice and "practice" or "map"))
       end
     end
   end,
@@ -695,18 +698,275 @@ screens.endless_results = {
   end,
 }
 
----------------------------------------------------------------- stubs for later phases
+---------------------------------------------------------------- recipes
+
+-- a world is open when its first stage is
+function Scr.world_open(w)
+  for _, s in ipairs(Data.STAGES) do
+    if s.world == w then return Save.open(s) end
+  end
+  return false
+end
+
+local PROC_ICON = { chop = "knife", boil = "pot", fry = "pan", bake = "oven", blend = "blender" }
+local PROC_ORDER = { "chop", "boil", "fry", "bake", "blend" }
+
+-- the plated dish in 3D, turning, centred on screen point (sx, sy)
+local function dish_3d(r, sx, sy)
+  zclear()
+  camera3d(0, 4.2, -5.6, 0, -0.64, 30)
+  light3d(-0.4, 0.8, -0.6, 0.55)
+  lamp3d()
+  -- find the world point under (sx, sy): two Newton steps are plenty
+  local px, pz = 0, 0
+  for _ = 1, 2 do
+    local x0, y0 = project3d(px, 0, pz)
+    local x1 = project3d(px + 0.1, 0, pz)
+    local _, y1 = project3d(px, 0, pz + 0.1)
+    if not (x0 and x1 and y1) then break end
+    px = px + (sx - x0) / (x1 - x0) * 0.1
+    pz = pz + (sy - y0) / (y1 - y0) * 0.1
+  end
+  Ren.draw_item({ plate = true, parts = r.parts }, px, 0, pz, G.t * 0.9, 1.5)
+end
+
+-- The list on the left, the dish on the right. `known(r)`: shown in full;
+-- `locked(r)`: why it is not.
+local function recipe_list(sel, top, known, title, hint, locked)
+  cls(0x201C2C)
+  for i = 0, 5 do rectfill(0, 300 + i * 10, W, 10, mix_rgb(0x201C2C, 0x4A3A5A, i / 5)) end
+  text_cs(title, W / 2, 6, 0xFFD040, 2, 0x000000)
+  local n = #Data.RECIPES
+  local rows = 15
+  for i = 0, rows - 1 do
+    local r = Data.RECIPES[top + i]
+    if not r then break end
+    local y = 44 + i * 19
+    local on = top + i == sel
+    if on then rectfill(8, y - 2, 196, 18, 0xFFD040) end
+    local k = known(r)
+    local c = on and 0x301808 or (k and 0xFFFFFF or 0x707080)
+    print(k and r.name or "???", 14, y, c)
+    if not k then Hud.mini(Hud.MINI.cross, 190, y + 3) end
+  end
+  if top > 1 then text_c("^", 106, 34, 0xA0A0B0) end
+  if top + rows <= n then text_c("v", 106, 44 + rows * 19 - 4, 0xA0A0B0) end
+  -- the dish
+  local r = Data.RECIPES[sel]
+  local x0, y0, pw = 218, 42, W - 226
+  panel(x0, y0, pw, 290, 0xFFF8EC, 0x806040)
+  if known(r) then
+    text_c(r.name, x0 + pw / 2, y0 + 6, 0x40302A, 2)
+    local wd = Data.WORLDS[r.world]
+    text_c(fmt("world %d  %s   -   %s", r.world, wd.name, ({ "easy", "medium", "hard", "very hard" })[r.tier]),
+           x0 + pw / 2, y0 + 40, 0x806040)
+    -- the plate, as icons and in 3D
+    dish_3d(r, x0 + pw - 74, y0 + 128)
+    print("ON THE PLATE", x0 + 14, y0 + 62, 0xA08060)
+    local h = Hud.draw_parts(r.parts, x0 + 14, y0 + 80, pw - 150)
+    local y = y0 + 90 + h
+    -- ingredients
+    print("INGREDIENTS", x0 + 14, y, 0xA08060)
+    for i, id in ipairs(r.ingredients) do
+      local g = Data.ING[id]
+      local ix = x0 + 14 + ((i - 1) % 4) * 64
+      local iy = y + 16 + (i - 1) // 4 * 36
+      Hud.icon(g.icon, ix, iy)
+      print(sub(g.name, 1, 7), ix, iy + 18, 0x605040)
+    end
+    y = y + 54 + (#r.ingredients - 1) // 4 * 36
+    -- stations
+    print("STATIONS", x0 + 14, y, 0xA08060)
+    local sx = x0 + 14
+    for _, p in ipairs(PROC_ORDER) do
+      if r.st[p] then
+        Hud.icon(Hud.IC[PROC_ICON[p]], sx, y + 16)
+        print(p, sx + 18, y + 20, 0x605040)
+        sx = sx + 30 + #p * 8
+      end
+    end
+    y = y + 44
+    Hud.icon(Hud.IC.coin, x0 + 14, y)
+    print(fmt("%d coins", r.value), x0 + 34, y + 4, 0x806020)
+    Hud.icon(Hud.IC.clock, x0 + 150, y)
+    print(fmt("patience %ds", r.patience), x0 + 170, y + 4, 0x806020)
+    local best = Save.data.stats and Save.data.stats["r:" .. r.id]
+    if best then print(fmt("served %d", best), x0 + pw - 104, y + 4, 0x40A040) end
+  else
+    Hud.icon(Hud.IC.lock, x0 + pw / 2 - 8, y0 + 110)
+    text_c(locked(r), x0 + pw / 2, y0 + 134, 0x806040)
+    text_c(fmt("it first shows up in world %d, %s", r.world, Data.WORLDS[r.world].name), x0 + pw / 2, y0 + 154, 0xA08060)
+  end
+  text_cs(hint, W / 2, H - 20, 0xC0C0D0)
+end
+
+local function list_nav(st)
+  local d = Pad.nav(nil, "y") + Pad.nav(nil, "x") * 5
+  if d ~= 0 then
+    st.sel = clamp(st.sel + d, 1, #Data.RECIPES)
+    if st.sel < st.top then st.top = st.sel end
+    if st.sel > st.top + 14 then st.top = st.sel - 14 end
+    Snd.ui_move()
+  end
+end
+
+---------------------------------------------------------------- recipe book
+
+local book = { sel = 1, top = 1 }
+local function seen(r) return Save.data.seen[r.id] end
+
+screens.book = {
+  update = function()
+    list_nav(book)
+    if btnp(BB) then Snd.ui_back(); Scr.go("menu") end
+  end,
+  draw = function()
+    local n = 0
+    for _, r in ipairs(Data.RECIPES) do if seen(r) then n = n + 1 end end
+    recipe_list(book.sel, book.top, seen, fmt("RECIPE BOOK  %d/%d", n, #Data.RECIPES),
+                "up/down: dish   left/right: page   B: back", function() return "not met yet" end)
+  end,
+}
+
+---------------------------------------------------------------- practice
+
+-- One dish, no clock, no patience: a kitchen made for it, with a crate for
+-- each ingredient and the stations it needs.
+local practice = { sel = 1, top = 1 }
+local function can_practice(r) return Scr.world_open(r.world) end
+
+function Scr.practice_stage(r)
+  local inv = {}
+  for ch, id in pairs(Data.CRATE_CHAR) do inv[id] = ch end
+  local back = ""
+  for _, id in ipairs(r.ingredients) do back = back .. inv[id] end
+  back = back .. "CBCB"
+  back = back .. string.rep("C", 12 - #back)
+  local front = "C"
+  if r.st.boil then front = front .. "PCPC" end
+  if r.st.fry then front = front .. "FC" end
+  if r.st.bake then front = front .. "OC" end
+  if r.st.blend then front = front .. "MC" end
+  front = front .. "DCT"
+  front = front .. string.rep("C", 14 - #front)
+  return {
+    id = "practice", world = r.world, name = r.name, time = 0, plates = 4, recipes = { r.id },
+    tip = "practice", every = 9,
+    layout = {
+      "##############",
+      "#" .. back .. "#",
+      "#............#",
+      "#.1......2...W",
+      "#............#",
+      "#.3......4...#",
+      "#............#",
+      front,
+    },
+  }
+end
+
+screens.practice = {
+  update = function()
+    list_nav(practice)
+    if btnp(BA) then
+      local r = Data.RECIPES[practice.sel]
+      if can_practice(r) then Snd.ui_ok(); Scr.go("practice_go", r.id) else Snd.nope() end
+    elseif btnp(BB) then
+      Snd.ui_back()
+      Scr.go("menu")
+    end
+  end,
+  draw = function()
+    recipe_list(practice.sel, practice.top, can_practice, "PRACTICE",
+                "A: cook it   up/down: dish   left/right: page   B: back",
+                function(r) return fmt("opens with world %d", r.world) end)
+  end,
+}
+
+screens.practice_go = {
+  enter = function(id)
+    local r = Data.RECIPE[id]
+    local run = Scr.new_run(Scr.practice_stage(r), { practice = true })
+    run.practice = id
+    run.no_patience = true
+    run.max_orders = 2
+    run.order_every = 7
+    G.recipe_seen(id)
+    G.run = run
+    Scr.go("play")
+  end,
+}
+
+---------------------------------------------------------------- options
+
+local STAT_NAMES = {
+  { "served", "dishes served" }, { "lost", "orders lost" }, { "wrong", "wrong dishes" },
+  { "chopped", "things chopped" }, { "burnt", "things burnt" }, { "thrown", "throws" },
+  { "caught", "catches" }, { "washed", "plates washed" }, { "falls", "falls in the water" },
+  { "stolen", "stolen by rats" }, { "eaten", "eaten by ducks" }, { "disasters", "disasters" },
+  { "stages", "kitchens played" }, { "endless", "endless runs" }, { "upgrades", "upgrades bought" },
+  { "wasted", "food binned" },
+}
+local opt = { sel = 1 }
+local OPTS = { "MUSIC", "SOUND", "ALL KITCHENS", "BACK" }
 
 screens.options = {
-  update = function() if btnp(BB) or btnp(BA) then Scr.go("menu") end end,
-  draw = function() cls(0x201C2C); text_c("OPTIONS", W / 2, 40, 0xFFD040, 2) end,
-}
-screens.book = {
-  update = function() if btnp(BB) or btnp(BA) then Scr.go("menu") end end,
-  draw = function() cls(0x201C2C); text_c("RECIPE BOOK", W / 2, 40, 0xFFD040, 2) end,
-}
-screens.practice = {
-  enter = function() Scr.go("map") end,
+  enter = function() opt.sel = 1 end,
+  update = function()
+    local d = Pad.nav(nil, "y")
+    if d ~= 0 then opt.sel = (opt.sel - 1 + d) % #OPTS + 1; Snd.ui_move() end
+    local m = OPTS[opt.sel]
+    local flip = btnp(BA) or Pad.nav(nil, "x") ~= 0
+    local sd = Save.data
+    if flip and m == "MUSIC" then
+      sd.music = not (sd.music ~= false)
+      Snd.music_on = sd.music
+      if not sd.music then Snd.stop_song() end
+      Snd.ui_ok()
+    elseif flip and m == "SOUND" then
+      sd.sound = not (sd.sound ~= false)
+      Snd.on = sd.sound
+      if not sd.sound then Snd.stop_song() end
+      Snd.ui_ok()
+    elseif flip and m == "ALL KITCHENS" then
+      G.all_open = not G.all_open
+      Snd.ui_ok()
+    elseif (btnp(BA) and m == "BACK") or btnp(BB) then
+      Save.write()
+      Snd.ui_back()
+      Scr.go("menu")
+    end
+  end,
+  draw = function()
+    cls(0x201C2C)
+    text_cs("OPTIONS", W / 2, 6, 0xFFD040, 2, 0x000000)
+    local sd = Save.data
+    local vals = { sd.music ~= false and "ON" or "OFF", sd.sound ~= false and "ON" or "OFF",
+                   G.all_open and "OPEN" or "NORMAL", "" }
+    for i, m in ipairs(OPTS) do
+      local y = 44 + (i - 1) * 26
+      local on = i == opt.sel
+      panel(W / 2 - 150, y, 300, 22, on and 0xFFD040 or 0x302A3A, 0x000000)
+      print(m, W / 2 - 140, y + 3, on and 0x301808 or 0xFFFFFF)
+      print(vals[i], W / 2 + 140 - #vals[i] * 8, y + 3, on and 0x604020 or 0xA0E0A0)
+    end
+    -- statistics
+    panel(30, 156, W - 60, 190, 0x2A2436, 0x806040)
+    text_c(fmt("STATISTICS   stars %d   recipes met %d/%d", Save.total_stars(),
+               (function() local n = 0 for _ in pairs(sd.seen) do n = n + 1 end return n end)(), #Data.RECIPES),
+           W / 2, 162, 0xFFD040)
+    local st = sd.stats or {}
+    for i, e in ipairs(STAT_NAMES) do
+      local col, row = (i - 1) % 2, (i - 1) // 2
+      local x, y = 50 + col * 290, 182 + row * 17
+      print(e[2], x, y, 0xC0C0D0)
+      local v = tostring(st[e[1]] or 0)
+      print(v, x + 260 - #v * 8, y, 0xFFFFFF)
+    end
+    local e = sd.endless
+    text_c(fmt("endless best: %s, %d coins, %d dishes", fmt_time(e.time or 0), e.money or 0, e.served or 0),
+           W / 2, 326, 0xFFE060)
+  end,
 }
 
 ---------------------------------------------------------------- dispatch

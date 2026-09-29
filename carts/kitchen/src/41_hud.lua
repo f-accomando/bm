@@ -100,7 +100,7 @@ end
 
 function Hud.orders(run)
   local x = 6
-  local right = run.endless and W - 126 or W - 76
+  local right = run.practice and W - 180 or (run.endless and W - 126 or W - 76)
   for i, o in ipairs(run.orders) do
     local r = o.rec
     local h = Hud.card_height(r)
@@ -228,6 +228,10 @@ end
 ---------------------------------------------------------------- corners
 
 function Hud.status(run)
+  if run.practice then
+    panel(W - 176, 4, 172, 26, 0x302A3A, 0x000000)
+    print(fmt("PRACTICE  %d served", run.served), W - 168, 9, 0xA0E0A0)
+  end
   -- clock, top right
   local tl = run.time_left
   if tl then

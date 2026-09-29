@@ -84,11 +84,14 @@ local BOX = { boil = "pot", fry = "pan", bake = "oven", blend = "blender" }
 local produce
 
 -- steps that put what a process needs into a free station of its kind (and
--- leave it cooking); returns the station
-local function start_cooking(run, c, key, steps)
+-- leave it cooking); returns the station. `apart`: it cooks alongside other
+-- parts of this plan, so not in a station the plan already holds.
+local function start_cooking(run, c, key, steps, apart)
   local k = Food.parse(key)
-  local s = free_station(run, BOX[k.proc], c, function(st) return #st.box.items == 0 end)
-  if not s then return nil end
+  local s = free_station(run, BOX[k.proc], c, function(st)
+    return #st.box.items == 0 and not (apart and st.res == c)
+  end)
+  if not s then return false end         -- (false: no station free; nil: no way)
   s.res = c
   for _, kid in ipairs(k.kids) do
     if not produce(run, c, kid, steps) then return nil end
@@ -175,11 +178,14 @@ local function plan_order(run, c, o)
     local k = Food.parse(part)
     return k.proc and (k.proc == "fry" and "fry" or "slow") or "plain"
   end
+  -- (one pot for two soups: the second one after the first)
+  local later = {}
   for _, part in ipairs(todo) do
     if kind(part) == "slow" then
-      local s = start_cooking(run, c, part, steps)
-      if not s then return fail(part) end
-      cooking[#cooking + 1] = s
+      local s = start_cooking(run, c, part, steps, true)
+      if s == false and #cooking > 0 then later[#later + 1] = part
+      elseif not s then return fail(part)
+      else cooking[#cooking + 1] = s end
     end
   end
   for _, part in ipairs(todo) do
@@ -197,6 +203,10 @@ local function plan_order(run, c, o)
   for _, s in ipairs(cooking) do
     steps[#steps + 1] = { op = "wait", st = s, until_done = true }
     steps[#steps + 1] = { op = "use", st = s, want = "hold", release = s }
+    steps[#steps + 1] = { op = "use", st = counter, want = "empty" }
+  end
+  for _, part in ipairs(later) do
+    if not produce(run, c, part, steps) then return fail(part) end
     steps[#steps + 1] = { op = "use", st = counter, want = "empty" }
   end
   steps[#steps + 1] = { op = "use", st = counter, want = "hold", release = counter }

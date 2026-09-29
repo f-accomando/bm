@@ -412,7 +412,7 @@ local function whole(run, first_new)
 end
 
 K.G.players = {}
-K.Scr.go("menu")
+K.Scr.go("menu", 1)
 run_frames(10)
 press(1, 3)                    -- down: ENDLESS
 press(1, 4)
@@ -495,6 +495,60 @@ run_frames(90)
 assert(saved_table.endless.served > 0 and saved_table.endless.time > 0, "endless records not saved")
 press(1, 5)
 assert(K.G.screen == "menu", "expected the menu, got " .. K.G.screen)
+
+-- practice: every dish gets a kitchen that has what it needs, and the
+-- computer chefs can cook it there
+K.G.players = {}
+K.Scr.go("menu", 1)
+run_frames(10)
+press(1, 3) press(1, 3)        -- PRACTICE
+press(1, 4)
+run_frames(5)
+press(1, 4) press(1, 4)        -- join, ready
+run_frames(60)
+assert(K.G.screen == "practice", "expected the practice list, got " .. K.G.screen)
+press(1, 4)                    -- the first dish
+assert(K.G.screen == "play" and K.G.run.practice, "expected a practice run, got " .. K.G.screen)
+run_frames(60 * 3)
+assert(not K.G.run.time_left, "practice has no clock")
+press(1, 8)                    -- Start: pause
+assert(K.G.screen == "pause", "expected pause, got " .. K.G.screen)
+press(1, 3) press(1, 3)        -- QUIT
+press(1, 4)
+assert(K.G.screen == "practice", "expected the practice list again, got " .. K.G.screen)
+for _, r in ipairs(K.Data.RECIPES) do
+  local st = K.Scr.practice_stage(r)
+  for i, row in ipairs(st.layout) do assert(#row == 14, r.id .. ": practice row " .. i .. " is " .. #row .. " wide") end
+  local pl = {}
+  for i = 1, 3 do pl[i] = { pad = i, chef = i, bot = true } end
+  K.G.players = pl
+  K.Scr.go("practice_go", r.id)
+  local run = K.G.run
+  local ok, why = whole(run, 1e9)
+  assert(ok, r.id .. " practice: " .. tostring(why))
+  run.no_burn = true
+  label = "practice " .. r.id
+  local f = 0
+  while run.served == 0 and f < 60 * 240 do frame() f = f + 1 end
+  assert(run.served > 0, r.id .. ": the computer chefs could not cook it in practice")
+  io.write(string.format("practice %-13s served after %3d s\n", r.id, f // 60))
+end
+held = { 0, 0, 0, 0 }
+
+-- the recipe book and the options
+K.G.players = { { pad = 1, chef = 1 } }
+K.Scr.go("book")
+for _ = 1, 30 do press(1, 3) end
+press(1, 1)
+run_frames(10)
+press(1, 5)
+assert(K.G.screen == "menu", "expected the menu after the book, got " .. K.G.screen)
+K.Scr.go("options")
+press(1, 4)                    -- music off
+assert(saved_table.music == false or K.Save.data.music == false, "music did not turn off")
+press(1, 4)                    -- and on
+press(1, 5)
+assert(K.G.screen == "menu", "expected the menu after the options, got " .. K.G.screen)
 
 -- let one stage run to the end: results, save
 K.G.players = { { pad = 1, chef = 2 } }

@@ -393,17 +393,53 @@ Piano iniziale:
 - **Fatto quando:** due DS4 collegati insieme giocano Pong uno contro l'altro (Pong con
   modalità 2 giocatori).
 
-## M17 — Gioco cooperativo in stile Overcooked (L)
-- Cartuccia `.b33` per **1–4 giocatori** in cooperativa locale (M16): una cucina vista
-  dall'alto, gli ordini arrivano a tempo e vanno preparati insieme: prendere gli
-  ingredienti, tagliarli, cuocerli (con il rischio di bruciarli), comporre il piatto,
-  servirlo, lavare i piatti.
-- Più livelli con cucine che cambiano (piani che si muovono, ostacoli, fuoco da
-  spegnere), punteggio a stelle per livello salvato sulla SD.
-- Comandi: movimento in 8 direzioni, A prendi/posa, B usa (taglia, lava), X scatto.
-- Con un solo giocatore: si passa da un cuoco all'altro con Y.
-- Grafica e suoni con gli strumenti già fatti (sprite da script, luci, sintetizzatore).
-- **Fatto quando:** 2+ giocatori completano un livello sul Pi senza cali di frame rate.
+## M17 — Gioco cooperativo in stile Overcooked (L) — 🛠 fatto, da provare sul Pi
+Decisione 2026-09-28: il gioco è **Chaos Kitchen** (`carts/kitchen`), opera originale
+(personaggi, ricette, cucine, musica e interfaccia nostri), in 3D. Comandi scelti
+dall'utente: **A** prendi/posa/usa, **X** taglia/lava/usa (tenuto premuto), **B** scatto,
+**Y** lancia; Start pausa. **Differenza dal piano iniziale:** niente cambio di cuoco con Y
+per il giocatore solo (Y lancia): chi gioca da solo guida un cuoco, e le cucine sono
+tarate sul numero di giocatori.
+
+Fatto (host: `make test-kitchen`; QEMU: `test_kitchen`):
+- **3D** con il renderer software: cucina come poche mesh grandi (pavimento senza
+  z-buffer, facce nascoste tolte), quattro cuochi articolati con animazioni proprie,
+  23 ingredienti (crudi e tagliati) e i piatti composti fatti in codice; una sola
+  telecamera che inquadra tutti e si allontana quando i cuochi si separano.
+- **Quattro cuochi diversi**: Basil (standard), Bun (lento, taglia più forte, niente
+  scatto: saltella), Noodle (veloce), Pepper (piccolo, taglia bene, non lancia).
+- **Cibo**: 23 ingredienti con stati (crudo, tagliato, cotto, bruciato), pentola,
+  padella, forno, frullatore, piatti che si compongono, lavello e piatti sporchi.
+  **51 ricette** in 4 livelli di difficoltà (ingredienti, passi, valore e pazienza).
+- **Lanci** lungo un arco visibile, e prese al volo (anche in una pentola o su un
+  bancone).
+- **Campagna**: 31 cucine in 6 mondi, ognuno con una meccanica nuova (nastri, carretti,
+  piattaforme sull'acqua, ghiaccio, vapore, porte, buio...), 3 stelle a cucina.
+- **Disastri** comici e sempre risolvibili: topi, anatre, tubo che perde, fantasmi (luci
+  spente), utensili posseduti, poltergeist, cibo che scappa, tornado.
+- **Ordini** con pazienza, combo da x1 a x4 sulle mance.
+- **Infinita**: la cucina parte piccola e cresce; la **cassa** è nella cucina e mostra 3
+  offerte senza fermare il gioco; ciò che si compra cade in cucina da solo, vicino alle
+  stazioni simili, mai dove chiuderebbe un passaggio (test: 40 acquisti di fila);
+  fasce di prezzo, 7 categorie, difficoltà che sale, 5 cuori.
+- **Pratica**: una ricetta, una cucina fatta apposta, niente orologio né pazienza.
+- **Ricettario** (piatto in 3D che gira), **opzioni** (musica, suoni) e **statistiche**.
+- **Salvataggi** sulla SD: stelle, record, ricette viste, record dell'infinita,
+  statistiche.
+- Effetti: particelle, vapore, fumo, sfrigolio, monete che volano, scosse dello schermo;
+  la musica accelera quando gli ordini si accumulano.
+- Il simulatore host (`tests/kitchen/sim.lua`) fa giocare cuochi del computer in ogni
+  cucina e in ogni ricetta (tutte cucinabili), controlla che ogni stazione sia
+  raggiungibile e misura istruzioni Lua e triangoli per frame.
+- Misure in QEMU (circa 2× più lento del Pi nel 3D): 1-1 con un cuoco ~15–17 ms per
+  frame, ~800 triangoli; l'infinita ~15 ms.
+
+Da provare sul Pi: **Select** mostra in basso a destra ms per frame, fps e triangoli;
+2+ giocatori con i DS4 in una cucina con piattaforme (mondo 3) e nella cucina più piena
+(mondo 6) senza cali sotto i 60 fps. Codice per aprire tutte le cucine: sul titolo
+su, su, giù, giù (o dalle opzioni).
+
+Dopo: modelli 3D importati da file (OBJ), variazioni di lancio per cuoco.
 
 ## M18 — WiFi e console di rete (L/XL)
 Decisione 2026-09-28: versioni "leggere", in coda dopo M17.

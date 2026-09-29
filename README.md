@@ -45,7 +45,7 @@ Stress test di rendering (soglie 60/30 fps): [docs/STRESS.md](docs/STRESS.md) �
 | M14 | Grafica 2.0: DMA, modo 32 bit, 3D con texture, menu con anteprime | |
 | M15 | Editor sulla console: codice, sprite, mappa, prova e torna | 🛠 fatto, da provare sul Pi |
 | **M16** | Multiplayer locale: fino a 4 controller Bluetooth, `btn(i, giocatore)`, Pong a 2 | 🛠 fatto, da provare sul Pi |
-| M17 | Gioco cooperativo in stile Overcooked (1–4 giocatori) | |
+| **M17** | **Chaos Kitchen**: cucina cooperativa in 3D per 1–4 giocatori (campagna, infinita, pratica) | 🛠 fatto, da provare sul Pi |
 | M18 | WiFi, console di rete con password, invio di kernel e cartucce dal PC | |
 | M19 | HTTPS: aggiornamenti da GitHub, "git leggero" (archivi e API con token) | |
 
@@ -142,8 +142,8 @@ viene scelta l'interfaccia tastiera, anche se il dispositivo usa i report con ID
 **SD.** All'avvio il kernel legge la prima partizione **FAT32** (o FAT16) della SD
 (quella da cui si avvia il Pi) e cerca i file **`.b33`** e **`.cart`** nella
 cartella `carts/` e nella radice. Nomi lunghi supportati. `make sdcard` mette in
-`dist/carts/` i giochi e le demo (`pong.b33`, `snake.b33`, `shooter.b33`, `astrowing.b33`, `demo.b33`,
-`stress.b33`, `demo.cart`); `make image` li mette nell'immagine SD.
+`dist/carts/` i giochi e le demo (`pong.b33`, `snake.b33`, `shooter.b33`, `astrowing.b33`, `hunt.b33`,
+`kitchen.b33`, `demo.b33`, `stress.b33`, `demo.cart`); `make image` li mette nell'immagine SD.
 
 **Menu delle cartucce.** Mostra titolo e autore letti dalle cartucce (ordinate per
 titolo) e sotto il nome del file scelto. Su/giù per scegliere, Invio (o A) per giocare,
@@ -278,7 +278,9 @@ La cartuccia definisce `_init()`, `_update()` e `_draw()` (60 volte al secondo) 
 un'API in stile PICO-8: forme, sprite e mappa, testo, input (`btn`/`btnp`), tempo,
 3D software. **Riferimento completo e guida alla prima cartuccia: [docs/API.md](docs/API.md).**
 Giochi di esempio: `carts/pong`, `carts/snake`, `carts/shooter`, `carts/astrowing` (3D), `carts/hunt` (mappa 2048×2048, luci; grafica e mappa da `mkassets.py`) (solo Lua, sprite
-disegnati nel codice con `sset`), `carts/demo` (sprite sheet PNG e mappa CSV).
+disegnati nel codice con `sset`), `carts/demo` (sprite sheet PNG e mappa CSV),
+`carts/kitchen` (Chaos Kitchen: gioco grande in più file Lua uniti da `build.py`, 3D,
+fino a 4 giocatori, simulatore host in `tests/kitchen/`).
 
 Sandbox: niente `io`, `os`, `load`, `dofile`, `require`. Un errore o un ciclo infinito
 (oltre 20 milioni di istruzioni in un frame) ferma la cartuccia e mostra l'errore
@@ -402,6 +404,8 @@ src/b33/                 cartucce native: formato, grafica RGB565 (gfx16), 3D so
                          runtime Lua, stress test
 carts/demo/              cartuccia nativa demo: main.lua, sheet.png, map.csv
 carts/pong|snake|shooter|astrowing|hunt giochi demo (solo Lua)
+carts/kitchen/           Chaos Kitchen (M17): src/*.lua, build.py, mkassets.py
+tests/kitchen/           simulatore host di Chaos Kitchen (luahost + sim.lua)
 docs/API.md              API delle cartucce .b33 e guida alla prima cartuccia
 scripts/mkb33.py         packer .b33 (PNG e CSV, solo libreria standard Python)
 scripts/mksd.py          immagine SD (MBR + FAT32): make image e test in QEMU

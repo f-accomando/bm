@@ -145,6 +145,12 @@ function Food.update(run, dt)
       local def = st.def
       if not b.done then
         b.t = b.t + dt * cook_k
+        -- steam from pots and ovens, a sizzle from pans
+        if def.box == "fry" then
+          if random() < dt * 5 then Fx.sizzle(st.x, st.z) end
+        elseif def.box ~= "blend" and random() < dt * (1 + 3 * b.t / def.cook) then
+          Fx.steam(st.x, Kit.TOP + 0.3, st.z)
+        end
         if b.t >= def.cook then
           b.done = true
           b.t2 = 0
@@ -155,6 +161,11 @@ function Food.update(run, dt)
       elseif def.burn and not run.no_burn then
         b.t2 = b.t2 + dt / burn_k
         local left = def.burn - b.t2
+        -- done: a little steam, then smoke that thickens as it burns
+        if random() < dt * 1.5 then Fx.steam(st.x, Kit.TOP + 0.35, st.z) end
+        if left < def.burn * 0.55 and random() < dt * 8 * (1 - left / def.burn) then
+          Fx.puff(st.x, Kit.TOP + 0.4, st.z, left < def.burn * 0.25 and 0x383838 or 0x787878, 1)
+        end
         if left < def.burn * 0.55 then
           b.warn = b.warn + dt
           if b.warn > (left < def.burn * 0.25 and 0.25 or 0.5) then

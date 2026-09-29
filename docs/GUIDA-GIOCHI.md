@@ -282,3 +282,4 @@ disegnate da `scripts/mkcovers.py`. Senza copertina il menu stampa il titolo.
 | `carts/astrowing` | 3D: modelli, nebbia, camera che si inclina, orizzonte |
 | `carts/hunt` | 320×180, mappa 2048×2048 generata, luci, combattimento, boss |
 | `carts/demo` | sprite sheet PNG e mappa CSV veri e propri |
+| `carts/kitchen` | gioco grande: sorgenti in più file uniti da `build.py`, 3D con mesh costruite in codice, 1–4 giocatori (`btn(i, p)`, `players()`), salvataggi, e un simulatore host (`tests/kitchen/sim.lua`) che gioca da solo per trovare errori e misurare il costo di ogni frame |
