@@ -6,6 +6,7 @@
 #include "usb/hid.h"
 #include "usb/usb.h"
 #include "bt/bt.h"
+#include "net/net.h"
 
 #include <math.h>
 
@@ -24,6 +25,7 @@ int input_key(void)
         return (unsigned char)uart_getc();
     usb_poll();
     bt_poll();
+    net_poll();
     return hid_getc();
 }
 
@@ -46,6 +48,7 @@ uint32_t input_buttons(int *quit)
 {
     usb_poll();
     bt_poll();
+    net_poll();
     if (hid_quit_pressed())
         *quit = 1;
     return hid_buttons();
@@ -55,6 +58,7 @@ uint32_t input_pad_buttons(int *quit)
 {
     usb_poll();
     bt_poll();
+    net_poll();
     if (hid_quit_pressed())
         *quit = 1;
     return hid_pad_buttons();
@@ -64,6 +68,7 @@ void input_flush(void)
 {
     usb_poll();
     bt_poll();
+    net_poll();
     while (hid_getc() >= 0)
         ;
     hid_quit_pressed();
@@ -82,6 +87,7 @@ uint32_t input_players(uint32_t out[INPUT_PLAYERS], int text, int *quit, int *lo
 {
     usb_poll();
     bt_poll();
+    net_poll();
     if (hid_quit_pressed())
         *quit = 1;
     *local = input_local_player();

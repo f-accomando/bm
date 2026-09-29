@@ -369,6 +369,50 @@ static int read_frame(void)
     return (int)len;
 }
 
+/* ---------------------------------------------------------------- data */
+
+/* Ethernet frames received on the data channel (2), queued until the
+ * network stack (net.c) takes them: frames also arrive while an ioctl or a
+ * join waits for its answer, and lwIP must not be entered from there. */
+#define RXQ_SLOTS 8
+#define RXQ_SIZE  1536
+static uint8_t rxq[RXQ_SLOTS][RXQ_SIZE];
+static uint16_t rxq_len[RXQ_SLOTS];
+static unsigned rxq_head, rxq_tail;
+static int joined;
+static char joined_ssid[33];
+
+static int parse_event(int n, uint32_t *status, const uint8_t **data, uint32_t *dlen);
+
+/* A frame that is not the answer being waited for: data is queued, a lost
+ * link is noted. */
+static void dispatch(int n)
+{
+    unsigned chan = frame[5] & 0xF;
+    uint32_t off = frame[7];
+    if (chan == 2) {
+        if (off + 4 > (uint32_t)n)
+            return;
+        uint32_t d = off + 4 + frame[off + 3] * 4u;         /* BDC header */
+        if (d + 14 > (uint32_t)n || (uint32_t)n - d > RXQ_SIZE)
+            return;
+        if (rxq_head - rxq_tail >= RXQ_SLOTS)
+            return;                             /* full: dropped */
+        unsigned k = rxq_head++ % RXQ_SLOTS;
+        rxq_len[k] = (uint16_t)(n - d);
+        memcpy(rxq[k], frame + d, (uint32_t)n - d);
+    } else if (chan == 1 && joined) {
+        uint32_t status, dlen;
+        const uint8_t *data;
+        int type = parse_event(n, &status, &data, &dlen);
+        const uint8_t *ev = data - 48;
+        if ((type == 16 && !(ev[3] & 1)) || type == 5 || type == 6 || type == 11 || type == 12) {
+            joined = 0;
+            kprintf("\x1b[91mwifi: link to \"%s\" lost (event %d)\x1b[0m\n", joined_ssid, type);
+        }
+    }
+}
+
 /* Sends an ioctl on the control channel and waits for its answer; out gets
  * up to out_len bytes of the answer's data. */
 static int ioctl_(uint32_t cmd, int set, const uint8_t *data, uint32_t len,
@@ -401,8 +445,10 @@ static int ioctl_(uint32_t cmd, int set, const uint8_t *data, uint32_t len,
             timer_delay_us(200);
             continue;
         }
-        if ((frame[5] & 0xF) != 0)
-            continue;                           /* events and data: later */
+        if ((frame[5] & 0xF) != 0) {
+            dispatch(n);                        /* events and data */
+            continue;
+        }
         uint32_t off = frame[7];
         if (off + 16 > (uint32_t)n)
             continue;
@@ -831,8 +877,10 @@ int wifi_scan(void)
             timer_delay_us(500);
             continue;
         }
-        if ((frame[5] & 0xF) != 1)
+        if ((frame[5] & 0xF) != 1) {
+            dispatch(n);
             continue;
+        }
         uint32_t status, dlen;
         const uint8_t *d;
         int type = parse_event(n, &status, &d, &dlen);
@@ -863,9 +911,6 @@ int wifi_scan(void)
 }
 
 /* ---------------------------------------------------------------- join */
-
-static int joined;
-static char joined_ssid[33];
 
 /* Joins `ssid`: open, or WPA/WPA2 with `psk` (8-63 characters); the
  * firmware does the 4-way handshake ("sup_wpa"). Waits for the events. */
@@ -968,7 +1013,7 @@ static int join(const char *ssid, const char *psk, const char *security)
         if (assoc && keyed && link) {
             joined = 1;
             snprintf(joined_ssid, sizeof joined_ssid, "%s", ssid);
-            kprintf("\x1b[92mwifi: connected to \"%s\"\x1b[0m (next: IP address)\n", ssid);
+            kprintf("\x1b[92mwifi: connected to \"%s\"\x1b[0m \n", ssid);
             return 0;
         }
     }
@@ -1039,4 +1084,67 @@ int wifi_connect(void)
     config_save();
     kprintf("wifi: saved in bm33/config.txt (W reconnects by itself)\n");
     return 0;
+}
+
+/* ---------------------------------------------------------------- data API */
+
+int wifi_linked(void)
+{
+    return w.up && joined;
+}
+
+const unsigned char *wifi_mac(void)
+{
+    return w.mac;
+}
+
+void wifi_poll(void)
+{
+    if (!w.up)
+        return;
+    for (int k = 0; k < 8; k++) {
+        int n = read_frame();
+        if (n <= 0)
+            return;
+        dispatch(n);
+    }
+}
+
+int wifi_recv(void *buf, int max)
+{
+    if (rxq_tail == rxq_head)
+        return 0;
+    unsigned k = rxq_tail++ % RXQ_SLOTS;
+    int n = rxq_len[k] < max ? rxq_len[k] : max;
+    memcpy(buf, rxq[k], (size_t)n);
+    return n;
+}
+
+int wifi_send(const void *eth, int len)
+{
+    static uint8_t tx[12 + 4 + RXQ_SIZE + 4];
+    if (!wifi_linked() || len < 14 || len > RXQ_SIZE)
+        return -1;
+    /* flow control: the firmware grants sequence numbers up to `credit`
+     * (brcmfmac data_ok); a frame read refreshes it */
+    uint32_t t0 = timer_ticks();
+    while ((uint8_t)(w.credit - w.txseq) == 0 || ((uint8_t)(w.credit - w.txseq) & 0x80)) {
+        if (timer_ticks() - t0 > 20000u)
+            return -1;
+        int n = read_frame();
+        if (n > 0)
+            dispatch(n);
+        else
+            timer_delay_us(100);
+    }
+    uint32_t total = 12 + 4 + (uint32_t)len;
+    memset(tx, 0, 16);
+    tx[0] = (uint8_t)total; tx[1] = (uint8_t)(total >> 8);
+    tx[2] = (uint8_t)~total; tx[3] = (uint8_t)(~total >> 8);
+    tx[4] = w.txseq++;
+    tx[5] = 2;                                  /* channel 2: data */
+    tx[7] = 12;                                 /* data offset */
+    tx[12] = 0x20;                              /* BDC version 2, priority 0 */
+    memcpy(tx + 16, eth, (size_t)len);
+    return f2_rw(1, tx, (total + 3) & ~3u);
 }

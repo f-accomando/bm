@@ -22,4 +22,15 @@ int wifi_scan(void);
  * saves them. WPA2-PSK, WPA-PSK or open; the firmware does the handshake. */
 int wifi_connect(void);
 
+/* The data path, for the network stack (src/net). */
+int  wifi_linked(void);                 /* joined, link up */
+const unsigned char *wifi_mac(void);
+/* Reads the frames waiting in the chip: data frames are queued, a lost
+ * link is noted. Cheap enough for the input loops. */
+void wifi_poll(void);
+/* The next queued Ethernet frame into buf; its length, 0 if none. */
+int  wifi_recv(void *buf, int max);
+/* Sends one Ethernet frame (14-byte header included); 0 or -1. */
+int  wifi_send(const void *eth, int len);
+
 #endif

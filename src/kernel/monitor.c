@@ -21,6 +21,7 @@
 #include "config.h"
 #include "bt/bt.h"
 #include "wifi/wifi.h"
+#include "net/net.h"
 #include "pager.h"
 #include "audio/audio.h"
 #include "dmatest.h"
@@ -165,7 +166,10 @@ void monitor_run(void)
         case 'y': usb_init(); usb_print(); break;
         case 'Y': usb_live_test(5); input_live_test(10); break;
         case 'T': bt_scan(8); break;
-        case 'W': if (wifi_start() == 0 && wifi_scan() > 0) wifi_connect(); break;
+        case 'W':
+            if (wifi_start() == 0 && wifi_scan() > 0 && wifi_connect() == 0 && net_start() == 0)
+                net_wait_ip(15000);
+            break;
         case 'o': pager_show(klog_text()); break;
         case 'P': {
             kprintf("forget all Bluetooth pads (keys removed from bm33/config.txt)? y = yes\n");

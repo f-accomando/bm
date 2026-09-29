@@ -31,7 +31,8 @@ COMMON  := $(ARCH) -std=c11 -O2 -Wall -Wextra -g -Isrc \
            -ffunction-sections -fdata-sections \
            -DUART_BAUD=$(BAUD) $(BOOT_DEFS)
 # Kernel: hosted C on top of newlib (libc, libm), see src/lib/syscalls.c.
-CFLAGS  = $(COMMON) -D_DEFAULT_SOURCE -Ithird_party/lua $(WARN)
+CFLAGS  = $(COMMON) -D_DEFAULT_SOURCE -Ithird_party/lua \
+          -Ithird_party/lwip/src/include -Isrc/net $(WARN)
 # Chainloader: freestanding, no libc.
 LCFLAGS := $(COMMON) -Os -ffreestanding -fno-builtin -fno-tree-loop-distribute-patterns
 ASFLAGS := $(ARCH) -g -Isrc -Isrc/kernel -Wa,-I$(BUILD)
@@ -40,7 +41,9 @@ LDLIBS  := -Wl,--start-group -lc -lm -lgcc -Wl,--end-group
 LLDLIBS := -nostdlib -lgcc
 
 LUA_SRCS    := $(wildcard third_party/lua/*.c)
-KERNEL_SRCS := $(shell find src -name '*.c' -o -name '*.S') $(LUA_SRCS)
+LWIP_SRCS   := $(wildcard third_party/lwip/src/core/*.c third_party/lwip/src/core/ipv4/*.c) \
+               third_party/lwip/src/netif/ethernet.c
+KERNEL_SRCS := $(shell find src -name '*.c' -o -name '*.S') $(LUA_SRCS) $(LWIP_SRCS)
 LOADER_SRCS := $(wildcard chainloader/*.S chainloader/*.c) \
                src/drivers/uart.c src/drivers/gpio.c src/drivers/mbox.c \
                src/drivers/prop.c src/drivers/timer.c src/drivers/led.c \
@@ -49,6 +52,7 @@ LOADER_SRCS := $(wildcard chainloader/*.S chainloader/*.c) \
 KERNEL_OBJS := $(patsubst %,$(BUILD)/k/%.o,$(KERNEL_SRCS))
 LOADER_OBJS := $(patsubst %,$(BUILD)/l/%.o,$(LOADER_SRCS))
 LUA_OBJS    := $(patsubst %,$(BUILD)/k/%.o,$(LUA_SRCS))
+LWIP_OBJS   := $(patsubst %,$(BUILD)/k/%.o,$(LWIP_SRCS))
 
 # The version string lives in one object, rebuilt when `git describe` changes.
 VERSION_STAMP := $(BUILD)/version.txt
@@ -60,7 +64,7 @@ $(BUILD)/k/src/kernel/version.c.o: CFLAGS += -DBM33_VERSION=\"$(VERSION)\"
 FORCE:
 
 # Third-party code: its own warning policy, not ours.
-$(LUA_OBJS): WARN := -w
+$(LUA_OBJS) $(LWIP_OBJS): WARN := -w
 # Lua scripts embedded with .incbin
 $(BUILD)/k/src/script/embed.S.o: $(wildcard src/script/*.lua) spec/s32/conformance/demo.cart \
                                  $(BUILD)/demo.b33 $(BUILD)/stress.b33 $(BUILD)/editor.b33

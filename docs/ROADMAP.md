@@ -550,14 +550,22 @@ Decisione 2026-09-28: versioni "leggere", in coda dopo M17.
    arrivano come eventi sul canale 1; l'elenco è ordinato per segnale, con canale,
    sicurezza (WPA2/WPA/WEP/aperta, dagli IE) e nome.
    Elenco numerato.
-5. 🛠 (da provare sul Pi) **Connessione**:
+5. ✅ (Pi: "connesso") **Connessione**:
    - dopo l'elenco, `W` chiede il numero della rete e la password (asterischi);
    - la rete salvata (`wifi_ssid` / `wifi_psk` in `bm33/config.txt`, in chiaro) si
      ricollega da sola;
    - WPA2-PSK (AES), WPA-PSK o aperta, con il 4-way handshake fatto dal firmware
      (`sup_wpa`, `WSEC_PMK`);
    - esito dagli eventi SET_SSID, PSK_SUP, LINK, DEAUTH.
-6. Poi: IP con DHCP (lwIP), console di rete, invio di cartucce e kernel dal PC.
+6. 🛠 (da provare sul Pi) **Indirizzo IP**: lwIP 2.2.0 (`third_party/lwip`, BSD), senza
+   sistema operativo e interrogato dai cicli di input (`net_poll`, al più una volta al ms):
+   - interfaccia Ethernet `wl` sul canale dati SDPCM (2) con intestazione BDC; i frame
+     ricevuti durante ioctl e join vanno in una coda di 8, controllo di flusso con i
+     crediti del firmware;
+   - dopo la connessione `W` chiede l'indirizzo con DHCP (nome `bm33`) e stampa
+     `net: IP ...`; la rete resta attiva nel monitor, nel menu e nei giochi;
+   - verifica: `ping <IP>` dal PC.
+7. Poi: console di rete, invio di cartucce e kernel dal PC.
 
 
 ## M19 — HTTPS: aggiornamenti e "git leggero" (L)
