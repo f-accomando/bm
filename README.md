@@ -404,7 +404,8 @@ src/b33/                 cartucce native: formato, grafica RGB565 (gfx16), 3D so
                          runtime Lua, stress test
 carts/demo/              cartuccia nativa demo: main.lua, sheet.png, map.csv
 carts/pong|snake|shooter|astrowing|hunt giochi demo (solo Lua)
-carts/kitchen/           Chaos Kitchen (M17): src/*.lua, build.py, mkassets.py
+carts/kitchen/           Chaos Kitchen (M17): src/*.lua, build.py, mkassets.py,
+                         models/*.glb e import_chefs.py (modelli 3D degli chef)
 tests/kitchen/           simulatore host di Chaos Kitchen (luahost + sim.lua)
 docs/API.md              API delle cartucce .b33 e guida alla prima cartuccia
 scripts/mkb33.py         packer .b33 (PNG e CSV, solo libreria standard Python)

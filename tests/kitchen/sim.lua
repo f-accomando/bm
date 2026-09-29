@@ -204,8 +204,10 @@ call("_init")
 if os.getenv("KITCHEN_COUNTS") then
   -- triangles of each model, to keep the frame within budget
   for i, r in ipairs(K.Mesh.chef) do
-    io.write(string.format("chef %d: body %d leg %d arm %d = %d\n", i, r.body.nf, r.leg.nf, r.arm.nf,
-                           r.body.nf + 2 * r.leg.nf + 2 * r.arm.nf))
+    local legs = (r.legL or r.leg).nf + (r.legR or r.leg).nf
+    local arms = (r.armL or r.arm).nf + (r.armR or r.arm).nf
+    io.write(string.format("chef %d: body %d legs %d arms %d = %d\n", i, r.body.nf, legs, arms,
+                           r.body.nf + legs + arms))
   end
   local items = {}
   for _, g in ipairs(K.Data.ING_LIST) do

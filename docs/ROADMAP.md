@@ -439,7 +439,16 @@ Da provare sul Pi: **Select** mostra in basso a destra ms per frame, fps e trian
 (mondo 6) senza cali sotto i 60 fps. Codice per aprire tutte le cucine: sul titolo
 su, su, giù, giù (o dalle opzioni).
 
-Dopo: modelli 3D importati da file (OBJ), variazioni di lancio per cuoco.
+Modelli degli chef dell'utente (2026-09-29): `carts/kitchen/models/chef1-4.glb` (low poly,
+una texture ciascuno) importati da `carts/kitchen/import_chefs.py`: toglie ciò che hanno in
+mano (mestolo, tagliere e coltello, insalata, padella) e gli occhi incavati (pezzi
+sporgenti o schegge in orbite vuote) con occhi nuovi sul viso, divide ogni modello in
+corpo, gambe e braccia con i perni alle articolazioni, abbassa le braccia alzate
+(raddrizzando il gomito dove serve), ricuoce le texture in quattro atlanti 128×128 nello
+sheet (y = 128) e scrive `src/16_chef_models.lua`. Nelle opzioni si torna agli chef
+"classici" fatti di scatole.
+
+Dopo: variazioni di lancio per cuoco.
 
 ## M18 — WiFi e console di rete (L/XL)
 Decisione 2026-09-28: versioni "leggere", in coda dopo M17.

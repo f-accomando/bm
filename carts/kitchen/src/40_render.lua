@@ -218,15 +218,26 @@ function Ren.chef(c, x, y, z, yaw)
   local ox = p.sx * CS
   local bx, bz = x + ox * cy, z - ox * sy
   draw3d(rig.body, bx, by, bz, p.lean, yaw, p.roll, CS)
-  local hw = rig.hipw * CS
-  draw3d(rig.leg, bx - hw * cy, by, bz + hw * sy, p.legL, yaw, p.roll, CS)
-  draw3d(rig.leg, bx + hw * cy, by, bz - hw * sy, p.legR, yaw, p.roll, CS)
-  -- the shoulders follow the body's lean
-  local sw, shy = rig.shw * CS, by + rig.sh * CS * cos(p.lean)
-  local lean_z = sin(p.lean) * rig.sh * CS
-  local ax, az = bx + lean_z * sy, bz + lean_z * cy
-  draw3d(rig.arm, ax - sw * cy, shy, az + sw * sy, p.armL, yaw, p.roll + p.armLz, CS)
-  draw3d(rig.arm, ax + sw * cy, shy, az - sw * sy, p.armR, yaw, p.roll + p.armRz, CS)
+  -- a joint (x, y, z above the hips' centre), turned with the body; the
+  -- shoulders also follow its lean
+  local cl, sl = cos(p.lean), sin(p.lean)
+  local function joint(j, jx, jy, jz, lean)
+    if j then jx, jy, jz = j[1], j[2], j[3] end
+    jx, jy, jz = jx * CS, jy * CS, jz * CS
+    if lean then jy, jz = jy * cl - jz * sl, jy * sl + jz * cl end
+    return bx + jx * cy + jz * sy, by + jy, bz - jx * sy + jz * cy
+  end
+  local hw, sw, sh = rig.hipw, rig.shw, rig.sh
+  local lx, ly, lz = joint(rig.jLegL, -hw, 0, 0)
+  draw3d(rig.legL or rig.leg, lx, ly, lz, p.legL, yaw, p.roll, CS)
+  lx, ly, lz = joint(rig.jLegR, hw, 0, 0)
+  draw3d(rig.legR or rig.leg, lx, ly, lz, p.legR, yaw, p.roll, CS)
+  lx, ly, lz = joint(rig.jArmL, -sw, sh, 0, true)
+  draw3d(rig.armL or rig.arm, lx, ly, lz, p.armL, yaw, p.roll + p.armLz, CS)
+  lx, ly, lz = joint(rig.jArmR, sw, sh, 0, true)
+  draw3d(rig.armR or rig.arm, lx, ly, lz, p.armR, yaw, p.roll + p.armRz, CS)
+  local shy = by + sh * CS * cl
+  local ax, az = bx + sl * sh * CS * sy, bz + sl * sh * CS * cy
   -- what the chef holds
   if c.hold and c.act ~= "throw" then
     local fwd = (rig.width + 0.2) * CS
