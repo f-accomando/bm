@@ -670,7 +670,7 @@ def test_make_image(b, opts):
     q = Qemu(b("kernel.img"), ["-drive", f"if=sd,format=raw,file={img}"])
     try:
         out = q.expect(MENU, timeout=30).decode(errors="replace")
-        assert "FAT32, 63 MiB, label BM33; 9 cartridges" in out, out
+        assert "FAT32, 63 MiB, label BM33; 10 cartridges" in out, out
         time.sleep(0.5)
         _, text = settled_screen(q, lambda i, t: any("Star Shooter" in l for l in t))
         screen = "\n".join(text)
@@ -1347,6 +1347,67 @@ def test_kitchen(b, opts):
         out = q.expect("kitchen endless x1:", timeout=20).decode(errors="replace")
         assert "stopped with an error" not in out, out
         shot("endless")
+        q.send("q")
+        out = q.expect("update+draw", timeout=10).decode(errors="replace")
+        assert "stopped with an error" not in out, out
+        time.sleep(0.5)
+        q.send("q")
+        q.expect(PROMPT)
+    finally:
+        q.close()
+
+
+def test_titan(b, opts):
+    """M20: Titan Clash boots (its sheet is SHEET8), goes from the title
+    through the mode and the hangar (both options changed) into a fight
+    against the computer, plays with serial keys and logs its frame times;
+    no Lua error."""
+    q = Qemu(b("kernel.img"))
+
+    def keys(seq, gap=0.35):
+        for k in seq:
+            q.send(k)
+            time.sleep(gap)
+
+    def shot(name):
+        # a screendump can catch a frame half drawn: keep the most colourful
+        if opts.shots:
+            best, bn = None, -1
+            for _ in range(5):
+                img = q.screendump()
+                w, h, px = img
+                n = len({px[(y * w + x) * 3:(y * w + x) * 3 + 3] for y in range(0, h, 12) for x in range(0, w, 12)})
+                if n > bn:
+                    best, bn = img, n
+            _save_png(best, os.path.join(opts.shots, f"titan-{name}.png"))
+
+    try:
+        q.expect(MENU, timeout=30)
+        time.sleep(0.5)
+        with open(b("carts/titan.b33"), "rb") as f:
+            assert _upload(q, f.read())
+        time.sleep(3.0)
+        shot("title")
+        keys("\r")                             # the mode
+        keys(" ")                              # 1 PLAYER VS CPU
+        time.sleep(1.0)
+        shot("hangar")
+        keys("d")                              # the other armour
+        keys("sd")                             # the other weapon
+        time.sleep(1.0)
+        shot("hangar2")
+        keys("s ")                             # READY
+        time.sleep(2.4)
+        shot("round")
+        time.sleep(1.2)
+        for k in "ddddddlilliikkxxdsdcdsdvddaaaawwdd" * 3:
+            q.send(k)
+            time.sleep(0.08)
+        shot("fight")
+        out = q.expect("titan fight:", timeout=30).decode(errors="replace")
+        assert "stopped with an error" not in out, out
+        print("    titan fight:" + q.expect("effects", timeout=5).decode(errors="replace"))
+        shot("fight2")
         q.send("q")
         out = q.expect("update+draw", timeout=10).decode(errors="replace")
         assert "stopped with an error" not in out, out

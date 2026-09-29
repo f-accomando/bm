@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Chaos Kitchen: draws the sprite sheet (sheet.png, 512x128) and the menu
+"""Chaos Kitchen: draws the sprite sheet (sheet.png, 512x256) and the menu
 cover (cover.png, 128x80) in code, reproducibly. Standard library only.
 
     python3 carts/kitchen/mkassets.py
@@ -9,6 +9,8 @@ Sheet layout (the numbers used by src/41_hud.lua):
   the same chopped 32-54, symbols from 64 (see SYMBOLS below)
   8x8 badges at y = 64: chop boil fry bake blend tick cross fire
   32x32 chef portraits at y = 80: Basil, Bun, Noodle, Pepper
+  128x128 texture of each chef's 3D model at y = 128, side by side: copied
+  from models/chefs.png (made by import_chefs.py)
 The ingredient colours are read from src/10_ingredients.lua.
 """
 import math
@@ -19,7 +21,7 @@ import zlib
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 ROOT = os.path.join(HERE, "..", "..")
-SW, SH = 512, 128
+SW, SH = 512, 256
 
 
 def rgb(c, a=255):
@@ -635,6 +637,17 @@ def main():
     for i in range(4):
         portrait(i)
     S.cell(0, 0, 0, 0)
+    # the chefs' model textures
+    tex = os.path.join(HERE, "models", "chefs.png")
+    if os.path.exists(tex):
+        import sys
+        sys.path.insert(0, os.path.join(ROOT, "scripts"))
+        from mkb33 import read_png
+        w, h, rgba = read_png(tex)
+        for y in range(min(h, SH - 128)):
+            for x in range(min(w, SW)):
+                i = (y * w + x) * 4
+                S.px[(128 + y) * SW + x] = tuple(rgba[i:i + 4])
     write_png(os.path.join(HERE, "sheet.png"), SW, SH, S.px)
     cover()
 

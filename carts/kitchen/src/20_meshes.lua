@@ -302,6 +302,28 @@ local function make_pepper()
            hip = 0.26, hipw = 0.11, sh = 0.3, shw = 0.26, hand = 0.28, top = 0.95, width = 0.24 }
 end
 
+-- The chefs' imported models (16_chef_models.lua, from import_chefs.py):
+-- the same rig, but each limb has its own mesh and its pivot where the
+-- model has the joint (legL/legR/armL/armR: x, y, z above the hips' centre).
+local function make_model(i)
+  local d = Data.CHEF_MODEL and Data.CHEF_MODEL[i]
+  if not d then return nil end
+  local function part(p) return p and mesh(p.v, p.f, p.uv) end
+  local r = d.rig
+  return { body = part(d.body), legL = part(d.legL), legR = part(d.legR),
+           armL = part(d.armL), armR = part(d.armR),
+           jLegL = r.legL, jLegR = r.legR, jArmL = r.armL, jArmR = r.armR,
+           hip = r.hip, hipw = r.hipw or 0.1, sh = r.sh or 0.4, shw = r.shw or 0.2,
+           hand = r.hand or 0.3, top = r.top, width = r.width }
+end
+
+-- the models, or the chefs built from boxes and balls (the options choose)
+function Mesh.use_chefs(classic)
+  local m = Mesh.chef_model
+  Mesh.chef = {}
+  for i = 1, 4 do Mesh.chef[i] = (not classic and m[i]) or Mesh.chef_classic[i] end
+end
+
 ---------------------------------------------------------------- food
 
 local function darker(c, k) return shade(c, k) end
@@ -462,7 +484,9 @@ Mesh.item = item_mesh
 ---------------------------------------------------------------- everything else
 
 function Mesh.init()
-  Mesh.chef = { make_basil(), make_bun(), make_noodle(), make_pepper() }
+  Mesh.chef_classic = { make_basil(), make_bun(), make_noodle(), make_pepper() }
+  Mesh.chef_model = { make_model(1), make_model(2), make_model(3), make_model(4) }
+  Mesh.use_chefs(Save.data and Save.data.classic_chefs)
   local b = builder()
   b.prism(0, 0, 0, 0.035, 0.24, 0.22, 8, 0xF4F4F8, 0xFFFFFF, nil)
   Mesh.plate = b.build()

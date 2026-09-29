@@ -262,10 +262,12 @@ screens.lobby = {
     text_c("each controller: A to join, left/right to pick, A when ready", W / 2, 44, 0xC0C0D0)
     -- the four chefs on a little stage
     zclear()
-    camera3d(0, 1.3, -5.2, 0, -0.12, 38)
+    -- far enough for the tallest chef to stand above its card
+    camera3d(0, 1.77, -13, 0, -0.08, 38)
     light3d(-0.4, 0.8, -0.6, 0.5)
+    lamp3d()
     for ci = 1, 4 do
-      local x = (ci - 2.5) * 1.35
+      local x = (ci - 2.5) * 2.18
       local owner
       for p, s in pairs(lobby.slots) do if s.chef == ci then owner = p end end
       local fake = { ci = ci, def = Data.CHEFS[ci], walk = G.t * (owner and 2.2 or 0), speed = owner and 2.4 or 0,
@@ -908,7 +910,7 @@ local STAT_NAMES = {
   { "wasted", "food binned" },
 }
 local opt = { sel = 1 }
-local OPTS = { "MUSIC", "SOUND", "ALL KITCHENS", "BACK" }
+local OPTS = { "MUSIC", "SOUND", "CHEFS", "ALL KITCHENS", "BACK" }
 
 screens.options = {
   enter = function() opt.sel = 1 end,
@@ -928,6 +930,10 @@ screens.options = {
       Snd.on = sd.sound
       if not sd.sound then Snd.stop_song() end
       Snd.ui_ok()
+    elseif flip and m == "CHEFS" then
+      sd.classic_chefs = not sd.classic_chefs
+      Mesh.use_chefs(sd.classic_chefs)
+      Snd.ui_ok()
     elseif flip and m == "ALL KITCHENS" then
       G.all_open = not G.all_open
       Snd.ui_ok()
@@ -942,30 +948,30 @@ screens.options = {
     text_cs("OPTIONS", W / 2, 6, 0xFFD040, 2, 0x000000)
     local sd = Save.data
     local vals = { sd.music ~= false and "ON" or "OFF", sd.sound ~= false and "ON" or "OFF",
-                   G.all_open and "OPEN" or "NORMAL", "" }
+                   sd.classic_chefs and "CLASSIC" or "MODELS", G.all_open and "OPEN" or "NORMAL", "" }
     for i, m in ipairs(OPTS) do
-      local y = 44 + (i - 1) * 26
+      local y = 40 + (i - 1) * 26
       local on = i == opt.sel
       panel(W / 2 - 150, y, 300, 22, on and 0xFFD040 or 0x302A3A, 0x000000)
       print(m, W / 2 - 140, y + 3, on and 0x301808 or 0xFFFFFF)
       print(vals[i], W / 2 + 140 - #vals[i] * 8, y + 3, on and 0x604020 or 0xA0E0A0)
     end
     -- statistics
-    panel(30, 156, W - 60, 190, 0x2A2436, 0x806040)
+    panel(30, 176, W - 60, 180, 0x2A2436, 0x806040)
     text_c(fmt("STATISTICS   stars %d   recipes met %d/%d", Save.total_stars(),
                (function() local n = 0 for _ in pairs(sd.seen) do n = n + 1 end return n end)(), #Data.RECIPES),
-           W / 2, 162, 0xFFD040)
+           W / 2, 180, 0xFFD040)
     local st = sd.stats or {}
     for i, e in ipairs(STAT_NAMES) do
       local col, row = (i - 1) % 2, (i - 1) // 2
-      local x, y = 50 + col * 290, 182 + row * 17
+      local x, y = 50 + col * 290, 198 + row * 16
       print(e[2], x, y, 0xC0C0D0)
       local v = tostring(st[e[1]] or 0)
       print(v, x + 260 - #v * 8, y, 0xFFFFFF)
     end
     local e = sd.endless
     text_c(fmt("endless best: %s, %d coins, %d dishes", fmt_time(e.time or 0), e.money or 0, e.served or 0),
-           W / 2, 326, 0xFFE060)
+           W / 2, 336, 0xFFE060)
   end,
 }
 
