@@ -98,8 +98,37 @@ def transfer(args, op, path, name, password):
           + ANSWERS.get(a, "no answer"))
     sock.close()
     if a == b"OK" and op == b"K":
-        print("the Pi restarts with the new kernel")
+        return wait_reboot(args.host)
     return 0 if a == b"OK" else 1
+
+
+def console_version(host):
+    """The version in the console's greeting, or None if it does not answer."""
+    try:
+        with socket.create_connection((host, PORT), timeout=2) as s:
+            g = read_until(s, [b"password: "], timeout=3).decode(errors="replace")
+    except OSError:
+        return None
+    m = re.search(r"bm33 (\S+) network console", g)
+    return m.group(1) if m else None
+
+
+def wait_reboot(host, limit=120):
+    """After --kernel: the Pi goes away, then comes back; prints the version."""
+    print("waiting for the Pi to restart...", end="", flush=True)
+    t0 = time.time()
+    went_down = False
+    while time.time() - t0 < limit:
+        v = console_version(host)
+        if v is None:
+            went_down = True
+        elif went_down:
+            print(f"\rback after {time.time() - t0:.0f} s, running bm33 {v}      ")
+            return 0
+        time.sleep(2)
+    print("\rthe Pi " + ("did not come back" if went_down else "did not restart")
+          + f" within {limit} s: look at its screen")
+    return 1
 
 
 def main():
