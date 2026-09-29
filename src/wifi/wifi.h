@@ -13,4 +13,8 @@ int wifi_probe(void);
  * firmware version and the MAC address. 0 once the firmware answers. */
 int wifi_start(void);
 
+/* Scans every channel and lists the networks (signal, channel, security,
+ * name). Returns how many, -1 if WiFi is not started. */
+int wifi_scan(void);
+
 #endif

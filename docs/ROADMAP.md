@@ -535,7 +535,7 @@ Decisione 2026-09-28: versioni "leggere", in coda dopo M17.
    - identificativo del chip (atteso 43430).
    
    In QEMU (senza chip) si ferma a CMD5 senza bloccarsi.
-3. 🛠 (da provare sul Pi) **Firmware**: `make firmware` scarica `brcmfmac43430-sdio.bin`,
+3. ✅ (Pi, `26d66b8`: firmware `7.45.98`, MAC, CLM caricato) **Firmware**: `make firmware` scarica `brcmfmac43430-sdio.bin`,
    `.txt` (impostazioni della scheda Zero W) e `.clm_blob` da RPi-Distro/firmware-nonfree
    (seguendo i collegamenti simbolici del repository), `make sdcard` li copia in `bm33/`.
    `W` poi, un passo per riga:
@@ -545,7 +545,11 @@ Decisione 2026-09-28: versioni "leggere", in coda dopo M17.
    - avvio del processore ARM del chip, clock veloce (HT), funzione 2;
    - sul canale di controllo (SDPCM + BCDC): `ver` (versione del firmware),
      `cur_etheraddr` (MAC) e `clmload` (dati regolatori).
-4. Scansione delle reti (lista a schermo), associazione WPA2 fatta dal firmware.
+4. 🛠 (da provare sul Pi) **Scansione delle reti**: dopo il firmware `W` accende la radio
+   (`WLC_UP`, niente risparmio energetico, eventi abilitati) e fa una `escan`. I risultati
+   arrivano come eventi sul canale 1; l'elenco è ordinato per segnale, con canale,
+   sicurezza (WPA2/WPA/WEP/aperta, dagli IE) e nome.
+   Poi: associazione WPA2 fatta dal firmware, con `wifi_ssid` / `wifi_psk` in `config.txt`.
 5. lwIP con DHCP; console di rete; invio di cartucce e kernel dal PC.
 
 ## M19 — HTTPS: aggiornamenti e "git leggero" (L)

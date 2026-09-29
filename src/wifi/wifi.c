@@ -70,6 +70,8 @@
 #define SOCRAM_BANKPDA  0x44
 
 /* ioctls */
+#define WLC_UP          2
+#define WLC_SET_PM      86
 #define WLC_GET_VAR     262
 #define WLC_SET_VAR     263
 
@@ -433,6 +435,18 @@ static int set_var(const char *name, const uint8_t *val, uint32_t val_len)
     return ioctl_(WLC_SET_VAR, 1, buf, (n + val_len + 3) & ~3u, NULL, 0, 1000);
 }
 
+static int set_int_var(const char *name, int32_t v)
+{
+    uint8_t b[4] = { (uint8_t)v, (uint8_t)(v >> 8), (uint8_t)(v >> 16), (uint8_t)(v >> 24) };
+    return set_var(name, b, 4);
+}
+
+static int ioctl_int(uint32_t cmd, int32_t v)
+{
+    uint8_t b[4] = { (uint8_t)v, (uint8_t)(v >> 8), (uint8_t)(v >> 16), (uint8_t)(v >> 24) };
+    return ioctl_(cmd, 1, b, 4, NULL, 0, 1000);
+}
+
 /* The regulatory data (CLM blob), in chunks of 1400 bytes ("clmload"). */
 static int clm_load(const uint8_t *blob, size_t len)
 {
@@ -669,7 +683,174 @@ int wifi_start(void)
     } else {
         kprintf("wifi: no %s (optional with older firmware)\n", CLM_FILE);
     }
+    /* radio on, no power saving (the chip answers at once) */
+    set_int_var("bus:txglom", 0);
+    set_int_var("bus:rxglom", 0);               /* one frame per transfer */
+    set_int_var("mpc", 0);
+    ioctl_int(WLC_SET_PM, 0);
+    uint8_t mask[16];
+    memset(mask, 0, sizeof mask);
+    static const int events[] = { 0, 3, 5, 6, 11, 12, 16, 46, 69 };
+    for (unsigned i = 0; i < sizeof events / sizeof *events; i++)
+        mask[events[i] / 8] |= (uint8_t)(1u << (events[i] % 8));
+    set_var("event_msgs", mask, sizeof mask);
+    r = ioctl_int(WLC_UP, 0);
+    if (r) {
+        say("radio did not come up (WLC_UP)", 0, (uint32_t)-r);
+        return -1;
+    }
     w.up = 1;
-    kprintf("wifi: ready (next: scan for networks)\n");
+    kprintf("wifi: radio up\n");
     return 0;
+}
+
+/* ---------------------------------------------------------------- scan */
+
+typedef struct {
+    char ssid[33];
+    uint8_t bssid[6];
+    int rssi, channel;
+    const char *security;
+} net_t;
+
+#define MAX_NETS 32
+static net_t nets[MAX_NETS];
+static int nnets;
+
+static uint32_t be32(const uint8_t *p) { return (uint32_t)p[0] << 24 | (uint32_t)p[1] << 16 | (uint32_t)p[2] << 8 | p[3]; }
+static uint32_t le32(const uint8_t *p) { return p[0] | (uint32_t)p[1] << 8 | (uint32_t)p[2] << 16 | (uint32_t)p[3] << 24; }
+static uint16_t le16(const uint8_t *p) { return (uint16_t)(p[0] | p[1] << 8); }
+
+/* WPA2 / WPA / WEP / open, from the capability bits and the IEs */
+static const char *security_of(const uint8_t *bss, uint32_t len)
+{
+    uint16_t cap = le16(bss + 16);
+    uint32_t ie_off = le16(bss + 116), ie_len = le32(bss + 120);
+    int wpa = 0, rsn = 0;
+    if (ie_off + ie_len <= len) {
+        const uint8_t *ie = bss + ie_off, *end = ie + ie_len;
+        while (ie + 2 <= end && ie + 2 + ie[1] <= end) {
+            if (ie[0] == 48)
+                rsn = 1;
+            else if (ie[0] == 221 && ie[1] >= 4 && ie[2] == 0x00 && ie[3] == 0x50 &&
+                     ie[4] == 0xF2 && ie[5] == 0x01)
+                wpa = 1;
+            ie += 2 + ie[1];
+        }
+    }
+    return rsn ? "WPA2" : wpa ? "WPA" : (cap & 0x10) ? "WEP" : "open";
+}
+
+static void add_bss(const uint8_t *bss, uint32_t len)
+{
+    if (len < 128)
+        return;
+    net_t n;
+    memset(&n, 0, sizeof n);
+    uint8_t sl = bss[18] > 32 ? 32 : bss[18];
+    memcpy(n.ssid, bss + 19, sl);
+    for (int i = 0; i < sl; i++)
+        if ((uint8_t)n.ssid[i] < 32 || (uint8_t)n.ssid[i] > 126) n.ssid[i] = '?';
+    memcpy(n.bssid, bss + 8, 6);
+    n.rssi = (int16_t)le16(bss + 78);
+    n.channel = bss[88] ? bss[88] : (le16(bss + 72) & 0xFF);
+    n.security = security_of(bss, len);
+    for (int i = 0; i < nnets; i++)
+        if (memcmp(nets[i].bssid, n.bssid, 6) == 0) {
+            if (n.rssi > nets[i].rssi) nets[i].rssi = n.rssi;
+            return;
+        }
+    if (nnets < MAX_NETS)
+        nets[nnets++] = n;
+}
+
+/* An event frame (channel 1): BDC header, Ethernet header, Broadcom
+ * event header (big endian), then the data. Returns the event type and
+ * status, the data in *data / *dlen; -1 if it is not an event. */
+static int parse_event(int n, uint32_t *status, const uint8_t **data, uint32_t *dlen)
+{
+    uint32_t off = frame[7];
+    if (off + 4 > (uint32_t)n)
+        return -1;
+    const uint8_t *p = frame + off;
+    const uint8_t *eth = p + 4 + p[3] * 4u;
+    if (eth + 14 + 10 + 48 > frame + n || eth[12] != 0x88 || eth[13] != 0x6C)
+        return -1;
+    const uint8_t *ev = eth + 14 + 10;
+    *status = be32(ev + 8);
+    *dlen = be32(ev + 20);                     /* version, flags, type, status, reason, auth, datalen */
+    *data = ev + 48;
+    if (*data + *dlen > frame + n)
+        *dlen = (uint32_t)(frame + n - *data);
+    return (int)be32(ev + 4);
+}
+
+static int cmp_rssi(const void *a, const void *b)
+{
+    return ((const net_t *)b)->rssi - ((const net_t *)a)->rssi;
+}
+
+int wifi_scan(void)
+{
+    if (!w.up) {
+        kprintf("wifi: not started (W first)\n");
+        return -1;
+    }
+    /* escan: version 1, action start, sync id, then the scan parameters:
+     * any SSID, broadcast BSSID, any BSS type, active, defaults */
+    static uint8_t p[8 + 64];
+    memset(p, 0, sizeof p);
+    p[0] = 1;                                   /* version */
+    p[4] = 1;                                   /* action: start */
+    p[6] = 0x34; p[7] = 0x12;                   /* sync id */
+    uint8_t *sp = p + 8;
+    memset(sp + 36, 0xFF, 6);                   /* BSSID: any */
+    sp[42] = 2;                                 /* BSS type: any */
+    sp[43] = 0;                                 /* active scan */
+    for (int i = 0; i < 4; i++)                 /* probes, times: firmware defaults */
+        memset(sp + 44 + i * 4, 0xFF, 4);
+    nnets = 0;
+    int r = set_var("escan", p, sizeof p);
+    if (r) {
+        say("scan refused", 0, (uint32_t)-r);
+        return -1;
+    }
+    kprintf("wifi: scanning...\n");
+    uint32_t t0 = timer_ticks();
+    int done = 0;
+    while (!done && timer_ticks() - t0 < 8000000u) {
+        int n = read_frame();
+        if (n <= 0) {
+            timer_delay_us(500);
+            continue;
+        }
+        if ((frame[5] & 0xF) != 1)
+            continue;
+        uint32_t status, dlen;
+        const uint8_t *d;
+        int type = parse_event(n, &status, &d, &dlen);
+        if (type != 69)                         /* E_ESCAN_RESULT */
+            continue;
+        if (status == 8 && dlen >= 12 + 128) {  /* partial: one or more BSS */
+            uint16_t count = le16(d + 10);
+            const uint8_t *bss = d + 12, *end = d + dlen;
+            for (int i = 0; i < count && bss + 8 <= end; i++) {
+                uint32_t len = le32(bss + 4);
+                if (len < 128 || bss + len > end)
+                    break;
+                add_bss(bss, len);
+                bss += len;
+            }
+        } else if (status != 8) {
+            done = 1;                           /* 0: finished; others: aborted */
+            if (status != 0)
+                kprintf("wifi: scan ended with status %lu\n", status);
+        }
+    }
+    qsort(nets, (size_t)nnets, sizeof *nets, cmp_rssi);
+    kprintf("wifi: %d network%s%s\n", nnets, nnets == 1 ? "" : "s", done ? "" : " (scan timed out)");
+    for (int i = 0; i < nnets; i++)
+        kprintf("  %4d dBm  ch %2d  %-4s  %s\n", nets[i].rssi, nets[i].channel, nets[i].security,
+                nets[i].ssid[0] ? nets[i].ssid : "(hidden)");
+    return nnets;
 }
