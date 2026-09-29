@@ -1,6 +1,6 @@
 /*
- * SD card on the BCM2835 EMMC controller (Arasan SDHCI), polled PIO.
- * Blocks are 512 bytes.
+ * SD card, polled PIO: SDHOST controller, or the Arasan EMMC one as a
+ * fallback (see sd.c). Blocks are 512 bytes.
  */
 #ifndef SD_H
 #define SD_H
@@ -22,5 +22,8 @@ int      sd_is_hc(void);
 
 /* Human-readable reason of the last failure. */
 const char *sd_error(void);
+
+/* "sdhost" or "emmc": the controller in use. */
+const char *sd_controller(void);
 
 #endif

@@ -204,8 +204,8 @@ void carts_init(void)
     }
     rescan();
     if (sd_ok)
-        kprintf("sd: %s card, %s; %d cartridges\n", sd_is_hc() ? "SDHC" : "SD",
-                fat_describe(), nsd);
+        kprintf("sd: %s card (%s), %s; %d cartridges\n", sd_is_hc() ? "SDHC" : "SD",
+                sd_controller(), fat_describe(), nsd);
 }
 
 int carts_count(void)

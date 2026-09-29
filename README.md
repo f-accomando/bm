@@ -47,7 +47,7 @@ Prestazioni e scelte tecniche (limiti del Pi, atteso contro misurato): [docs/PRE
 | **M15** | Editor sulla console: codice, sprite, mappa, prova e torna | ✅ verificato sul Pi |
 | **M16** | Multiplayer locale: fino a 4 controller Bluetooth, `btn(i, giocatore)`, Pong a 2 | 🛠 fatto, da provare sul Pi |
 | **M17** | **Chaos Kitchen**: cucina cooperativa in 3D per 1–4 giocatori (campagna, infinita, pratica) | 🛠 fatto, da provare sul Pi |
-| M18 | WiFi, console di rete con password, invio di kernel e cartucce dal PC | |
+| M18 | WiFi, console di rete con password, invio di kernel e cartucce dal PC | 🛠 avviata: SD su SDHOST, chip WiFi (`W`) |
 | M19 | HTTPS: aggiornamenti da GitHub, "git leggero" (archivi e API con token) | |
 | **M20** | **Titan Clash**: picchiaduro 2D a robot giganti; prima base giocabile (1 robot, armatura leggera/pesante, spada o cannoni, hangar, contro CPU o in 2) | 🛠 base fatta, da provare sul Pi |
 
@@ -399,7 +399,8 @@ src/kernel/tick.c        tick di sistema (system timer compare 1)
 src/kernel/demo.c        demo animata a 60 fps
 src/gfx/draw.c           primitive: clear, rect, sprite 16×16, testo
 src/usb/                 host USB DWC2 (DMA, polling), enumerazione, HID tastiera/gamepad/Xbox 360
-src/drivers/sd.c         SD sul controller EMMC (Arasan SDHCI), PIO, sola lettura
+src/drivers/sd.c         SD: controller SDHOST (sdhost.c), ripiego sull'EMMC/Arasan (sd_emmc.c); PIO, lettura e scrittura
+src/wifi/                WiFi (M18): SDIO sul controller Arasan (GPIO34-39), comando W del monitor
 src/fs/fat.c             FAT16/FAT32 in sola lettura, nomi lunghi
 src/kernel/carts.c       elenco delle cartucce (incorporate + SD) e menu
 src/kernel/input.c       input unificato: seriale + tastiera/gamepad USB

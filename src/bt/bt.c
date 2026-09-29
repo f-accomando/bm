@@ -331,7 +331,8 @@ static int slot_connected(int s)
 
 /* ---------------------------------------------------------------- chip */
 
-static const char *lpo_clock(void)
+/* The 32.768 kHz sleep clock of the BCM43438, shared by Bluetooth and WiFi. */
+const char *bcm43438_lpo_clock(void)
 {
     gpio_set_function(LPO_GPIO, GPIO_ALT0);
     if (mmio_read(CM_GP2CTL) & CM_ENAB)
@@ -412,7 +413,7 @@ int bt_start(void)
         return 0;
     kprintf("bt: the serial console moves to the mini UART (same pins, same speed)\n");
     uart_use_mini();
-    kprintf("bt: 32 kHz clock %s\n", lpo_clock());
+    kprintf("bt: 32 kHz clock %s\n", bcm43438_lpo_clock());
     btuart_init(115200);
 
     int r = reset();

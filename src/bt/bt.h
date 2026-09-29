@@ -32,4 +32,8 @@ unsigned bt_pads(void);
 /* Address of player slot+1's pad ("" if none); 1 if it is connected. */
 int bt_pad_addr(int slot, char out[18]);
 
+/* Starts the chip's 32.768 kHz sleep clock (GPCLK2 on GPIO43), needed by
+ * both its Bluetooth and its WiFi half. */
+const char *bcm43438_lpo_clock(void);
+
 #endif

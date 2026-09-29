@@ -520,6 +520,26 @@ Decisione 2026-09-28: versioni "leggere", in coda dopo M17.
 - **Fatto quando:** il Pi prende un IP dalla rete di casa, dal PC si apre la console e si
   manda una cartuccia che parte subito.
 
+**Passi** (2026-09-29, avviata):
+1. ✅ (QEMU) **SD su SDHOST**: la scheda passa al controller SDHOST (`src/drivers/sdhost.c`,
+   come Linux), così l'Arasan resta al WiFi. Se SDHOST non porta su la scheda, o fallisce
+   un trasferimento due volte, si torna all'Arasan (`sd_emmc.c`) e il WiFi non parte.
+   All'avvio la console scrive quale controller usa: `sd: SDHC card (sdhost), ...`.
+2. 🛠 (da provare sul Pi) **Chip WiFi**: comando `W` del monitor, un passo per riga:
+   - clock a 32 kHz;
+   - accensione (WL_REG_ON = GPIO41);
+   - Arasan sui GPIO34-39 a 400 kHz;
+   - CMD5 (condizioni SDIO), CMD3 (indirizzo), CMD7 (selezione);
+   - CCCR, bus a 4 bit, 25 MHz;
+   - funzione 1 e clock ALP;
+   - identificativo del chip (atteso 43430).
+   
+   In QEMU (senza chip) si ferma a CMD5 senza bloccarsi.
+3. Firmware (`brcmfmac43430-sdio.bin`, `.txt`, `.clm_blob` sulla SD) caricato nella RAM
+   del chip, avvio del core ARM del chip, protocollo di controllo (BCDC).
+4. Scansione delle reti (lista a schermo), associazione WPA2 fatta dal firmware.
+5. lwIP con DHCP; console di rete; invio di cartucce e kernel dal PC.
+
 ## M19 — HTTPS: aggiornamenti e "git leggero" (L)
 - **TLS**: mbedTLS (licenza Apache 2.0) sopra lwIP; certificati radice essenziali sulla
   SD.

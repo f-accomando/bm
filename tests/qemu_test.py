@@ -612,6 +612,28 @@ def test_usb_keyboard(b, opts):
         q.close()
 
 
+def test_wifi_probe(b, opts):
+    """M18: the SD card is on SDHOST, so the Arasan controller goes to the
+    WiFi pins. QEMU has no WiFi chip: 'W' must stop at CMD5 with a clear
+    message, without hanging, and the SD card must still work afterwards."""
+    tmp = tempfile.mkdtemp(prefix="bm33-wifi-")
+    img = os.path.join(tmp, "sd.img")
+    mksd.build(img, [(b("demo.b33"), "carts/demo.b33")])
+    q = Qemu(b("kernel.img"), ["-drive", f"if=sd,format=raw,file={img}"])
+    try:
+        out = q.boot().decode(errors="replace")
+        assert "(sdhost)" in out, out
+        q.send("W")
+        out = q.expect("wifi: CMD5: no answer from the WiFi chip", timeout=10).decode(errors="replace")
+        assert "wifi: power on (WL_REG_ON = GPIO41)" in out and "controller at 400 kHz" in out, out
+        q.expect("> ", timeout=5)
+        q.send("F")                              # the card is still readable
+        q.expect("demo.b33", timeout=10)
+    finally:
+        q.close()
+        shutil.rmtree(tmp, ignore_errors=True)
+
+
 def test_sd_cartridges(b, opts):
     tmp = tempfile.mkdtemp(prefix="bm33-sd-")
     img = os.path.join(tmp, "sd.img")
@@ -622,7 +644,7 @@ def test_sd_cartridges(b, opts):
     q = Qemu(b("kernel.img"), ["-drive", f"if=sd,format=raw,file={img}"])
     try:
         out = q.boot().decode(errors="replace")
-        assert "sd: SD card, FAT32, 127 MiB, label BM33SD; 2 cartridges" in out, out
+        assert "sd: SD card (sdhost), FAT32, 127 MiB, label BM33SD; 2 cartridges" in out, out
         q.send("f")
         out = q.expect("quadrato mobile\"\r\n").decode(errors="replace")
         assert "Il mio gioco lungo.b33" in out and "/carts/demo2.cart" in out, out
@@ -1253,7 +1275,7 @@ def test_sd_sdhc_and_usb_menu(b, opts):
     q = Qemu(b("kernel.img"), ["-drive", f"if=sd,format=raw,file={img}"] + USB_KBD)
     try:
         out = q.expect("cartridge menu", timeout=90).decode(errors="replace")
-        assert "sd: SDHC card, FAT32, 4095 MiB, label BM33SD; 1 cartridges" in out, out
+        assert "sd: SDHC card (sdhost), FAT32, 4095 MiB, label BM33SD; 1 cartridges" in out, out
         time.sleep(1.0)
         sendkeys(q, "ret")
         q.expect("playing game.b33", timeout=10)

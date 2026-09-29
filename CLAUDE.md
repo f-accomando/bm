@@ -25,3 +25,8 @@ Lua 5.4 embedded. Documentazione: `README.md`, `docs/ROADMAP.md`, `docs/HARDWARE
   (con una pull request) e **dire all'utente: "si richiede aggiornamento su
   s32-bm33.md"**. Non cambiare il comportamento di bm33 su punti ancora aperti.
 - Dopo ogni aggiornamento di lua32: `scripts/sync-s32-spec.sh`, poi `make test-s32`.
+
+## Comunicazione con l'utente
+
+- Quando una milestone (o un suo passo importante) è finita, riportare la **lista delle
+  milestone** con una descrizione breve e lo stato di ciascuna.
