@@ -41,7 +41,7 @@ static void help(void)
             "  e  editor: code, sprites and map of a .b33 cartridge\n"
             "  T  Bluetooth: pair a controller as the next player (DS4: Share + PS)\n"
             "  P  Bluetooth: forget all paired pads (asks first)\n"
-            "  W  WiFi: power the chip and identify it (M18, step by step)\n"
+            "  W  WiFi: start the chip and its firmware (M18, step by step)\n"
             "  b  boot diagnostics: benchmarks, s32 and b33 demos, Lua boot script\n"
             "  k  CPU benchmark          p  rendering benchmark 640x360 RGB565\n"
             "  D  DMA test step by step (CPU against DMA timings)\n"
@@ -160,7 +160,7 @@ void monitor_run(void)
         case 'y': usb_init(); usb_print(); break;
         case 'Y': usb_live_test(5); input_live_test(10); break;
         case 'T': bt_scan(8); break;
-        case 'W': wifi_probe(); break;
+        case 'W': wifi_start(); break;
         case 'P': {
             kprintf("forget all Bluetooth pads (keys removed from bm33/config.txt)? y = yes\n");
             if (input_getc() == 'y') {

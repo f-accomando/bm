@@ -525,7 +525,7 @@ Decisione 2026-09-28: versioni "leggere", in coda dopo M17.
    come Linux), così l'Arasan resta al WiFi. Se SDHOST non porta su la scheda, o fallisce
    un trasferimento due volte, si torna all'Arasan (`sd_emmc.c`) e il WiFi non parte.
    All'avvio la console scrive quale controller usa: `sd: SDHC card (sdhost), ...`.
-2. 🛠 (da provare sul Pi) **Chip WiFi**: comando `W` del monitor, un passo per riga:
+2. ✅ (Pi, `ae2c226`: `chip 43430 rev 1`) **Chip WiFi**: comando `W` del monitor, un passo per riga:
    - clock a 32 kHz;
    - accensione (WL_REG_ON = GPIO41);
    - Arasan sui GPIO34-39 a 400 kHz;
@@ -535,8 +535,16 @@ Decisione 2026-09-28: versioni "leggere", in coda dopo M17.
    - identificativo del chip (atteso 43430).
    
    In QEMU (senza chip) si ferma a CMD5 senza bloccarsi.
-3. Firmware (`brcmfmac43430-sdio.bin`, `.txt`, `.clm_blob` sulla SD) caricato nella RAM
-   del chip, avvio del core ARM del chip, protocollo di controllo (BCDC).
+3. 🛠 (da provare sul Pi) **Firmware**: `make firmware` scarica `brcmfmac43430-sdio.bin`,
+   `.txt` (impostazioni della scheda Zero W) e `.clm_blob` da RPi-Distro/firmware-nonfree
+   (seguendo i collegamenti simbolici del repository), `make sdcard` li copia in `bm33/`.
+   `W` poi, un passo per riga:
+   - ricerca dei blocchi del chip nella ROM di enumerazione;
+   - reset dei blocchi, dimensione della RAM del chip;
+   - firmware scritto e riletto (inizio e fine), NVRAM condensata in fondo alla RAM;
+   - avvio del processore ARM del chip, clock veloce (HT), funzione 2;
+   - sul canale di controllo (SDPCM + BCDC): `ver` (versione del firmware),
+     `cur_etheraddr` (MAC) e `clmload` (dati regolatori).
 4. Scansione delle reti (lista a schermo), associazione WPA2 fatta dal firmware.
 5. lwIP con DHCP; console di rete; invio di cartucce e kernel dal PC.
 
