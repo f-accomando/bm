@@ -50,6 +50,8 @@ Prestazioni e scelte tecniche (limiti del Pi, atteso contro misurato): [docs/PRE
 | M18 | WiFi, console di rete con password, invio di kernel e cartucce dal PC | 🛠 avviata: SD su SDHOST, chip WiFi (`W`) |
 | M19 | HTTPS: aggiornamenti da GitHub, "git leggero" (archivi e API con token) | |
 | **M20** | **Titan Clash**: picchiaduro 2D a robot giganti; prima base giocabile (1 robot, armatura leggera/pesante, spada o cannoni, hangar, contro CPU o in 2) | 🛠 base fatta, da provare sul Pi |
+| M21 | Menu "home" a griglia (Games / Dev) e giochi sospesi in memoria | 🛠 griglia fatta, sospensione da fare |
+| M22 | SDK e strumenti dedicati: codice, pixel art, 3D, musica, import/export, 3D→sprite, 3D del 2D | in coda |
 
 ## Cosa fa il kernel
 

@@ -1,0 +1,427 @@
+#include "menu_ui.h"
+#include "b33/b33.h"
+#include "drivers/timer.h"
+#include "gfx/console.h"
+#include "gfx/font.h"
+#include "lib/printf.h"
+
+#include <math.h>
+#include <stdlib.h>
+#include <string.h>
+
+#define SW 640
+#define SH 360
+#define FRAME_US 16667
+
+/* layout: text sits on the 8x16 grid, on solid colours (the QEMU tests
+ * read the screen back) */
+#define BAR_H       48              /* top bar: rows 0-2 */
+#define TITLE_ROW   3               /* name of the selected cartridge */
+#define GRID_TOP    64              /* grid clip */
+#define GRID_BOT    316
+#define GRID_Y0     80              /* first row of covers */
+#define CARD_W      128
+#define CARD_H      80
+#define GAP_X       24
+#define PITCH_Y     100
+#define GRID_X0     ((SW - (MENU_COLS * CARD_W + (MENU_COLS - 1) * GAP_X)) / 2)
+#define FOOT_Y      316             /* bottom bar, text rows 20-21 */
+#define RADIUS      6               /* rounded corners of the covers */
+#define FADE_FRAMES 10
+
+#define C_BAR       0x16161C
+#define C_LINE      0x3A3A46
+#define C_TEXT      0xF0F0F4
+#define C_DIM       0x9A9AA8
+#define C_PILL      0x101016
+#define C_TAB_ON    0xECECF0
+#define C_ACCENT    0x00C8F0        /* selection ring */
+#define C_BRAND     0x55E0FF
+
+static g16_t g;
+static int ready;
+static uint32_t con_w, con_h, t0, deadline;
+static float scroll;                /* first visible row, eased */
+static int first_row;
+static uint16_t *bg_cur, *bg_prev;  /* blurred covers, 640x360 */
+static const g16_sheet_t *bg_key;   /* the cover bg_cur was made from */
+static int bg_valid, fade;
+
+static uint16_t c16(uint32_t rgb) { return g16_rgb24(rgb); }
+
+/* ---------------------------------------------------------------- covers */
+
+int menu_load_cover(g16_sheet_t *s, const uint8_t *rgba, int w, int h)
+{
+    if (w != B33_COVER_W || h != B33_COVER_H || g16_sheet_alloc(s, w, h) != 0)
+        return -1;
+    for (int y = 0; y < h; y++)
+        for (int x = 0; x < w; x++) {
+            const uint8_t *p = rgba + ((size_t)y * w + x) * 4;
+            g16_sheet_set(s, x, y, g16_rgb(p[0], p[1], p[2]), 1);
+        }
+    return 0;
+}
+
+int menu_make_cover(g16_sheet_t *s, const char *title, const char *kind)
+{
+    if (g16_sheet_alloc(s, B33_COVER_W, B33_COVER_H) != 0)
+        return -1;
+    uint32_t h = 2166136261u;
+    for (const char *p = title; *p; p++)
+        h = (h ^ (uint8_t)*p) * 16777619u;
+    g16_t cg;
+    g16_target(&cg, s->px, (uint32_t)s->w, s->w, s->h, &font_console_8x16);
+    uint32_t r = 40 + (h & 63), gg = 40 + (h >> 6 & 63), b = 70 + (h >> 12 & 95);
+    for (int y = 0; y < s->h; y++) {
+        uint32_t k = 100 + (uint32_t)y * 2;
+        g16_rectfill(&cg, 0, y, s->w, 1, g16_rgb(r * k / 160, gg * k / 160, b * k / 160));
+    }
+    /* the title on up to three lines of 14 characters, split at spaces */
+    char lines[3][15] = { "", "", "" };
+    int n = 0;
+    const char *p = title;
+    while (*p && n < 3) {
+        while (*p == ' ') p++;
+        int len = (int)strlen(p);
+        int take = len <= 14 ? len : 14;
+        if (len > 14)
+            for (int i = 14; i > 0; i--)
+                if (p[i] == ' ') { take = i; break; }
+        memcpy(lines[n], p, (size_t)take);
+        lines[n][take] = 0;
+        n++;
+        p += take;
+    }
+    int y0 = (s->h - n * 16) / 2 - 4;
+    for (int i = 0; i < n; i++) {
+        int x = (s->w - (int)strlen(lines[i]) * 8) / 2;
+        g16_text(&cg, x + 1, y0 + i * 16 + 1, lines[i], 0);
+        g16_text(&cg, x, y0 + i * 16, lines[i], g16_rgb(255, 230, 120));
+    }
+    g16_text(&cg, s->w - 30, s->h - 20, kind, g16_rgb(200, 210, 230));
+    memset(s->alpha, 1, (size_t)s->w * s->h);
+    return 0;
+}
+
+/* ---------------------------------------------------------------- background */
+
+static const uint8_t bayer[4][4] = {
+    { 0, 8, 2, 10 }, { 12, 4, 14, 6 }, { 3, 11, 1, 9 }, { 15, 7, 13, 5 },
+};
+
+/* The cover shrunk to 16x10 (8x8 averages: the blur), stretched back to
+ * the whole screen with bilinear filtering, darkened towards the bottom,
+ * dithered to RGB565. Made once per selection. */
+static void make_background(uint16_t *out, const g16_sheet_t *cover)
+{
+    enum { LW = 16, LH = 10 };
+    float lo[LH][LW][3];
+    for (int j = 0; j < LH; j++)
+        for (int i = 0; i < LW; i++) {
+            uint32_t r = 0, gg = 0, b = 0;
+            if (cover && cover->px && cover->w >= 128 && cover->h >= 80) {
+                for (int y = 0; y < 8; y++)
+                    for (int x = 0; x < 8; x++) {
+                        uint32_t c = g16_to_rgb24(cover->px[(j * 8 + y) * cover->w + i * 8 + x]);
+                        r += c >> 16; gg += c >> 8 & 255; b += c & 255;
+                    }
+                r /= 64; gg /= 64; b /= 64;
+            } else {
+                r = 40; gg = 44; b = 70;
+            }
+            lo[j][i][0] = (float)r; lo[j][i][1] = (float)gg; lo[j][i][2] = (float)b;
+        }
+    for (int y = 0; y < SH; y++) {
+        float v = (y + 0.5f) * LH / SH - 0.5f;
+        int j0 = (int)floorf(v);
+        float fy = v - j0;
+        int ja = j0 < 0 ? 0 : j0, jb = j0 + 1 >= LH ? LH - 1 : j0 + 1;
+        /* darker at the bottom, where the grid is */
+        float dark = 0.50f - 0.22f * (float)y / SH;
+        for (int x = 0; x < SW; x++) {
+            float u = (x + 0.5f) * LW / SW - 0.5f;
+            int i0 = (int)floorf(u);
+            float fx = u - i0;
+            int ia = i0 < 0 ? 0 : i0, ib = i0 + 1 >= LW ? LW - 1 : i0 + 1;
+            float edge = 1.0f - 0.25f * fabsf((float)x / SW - 0.5f) * 2.0f;
+            int d = bayer[y & 3][x & 3];
+            uint32_t c[3];
+            for (int k = 0; k < 3; k++) {
+                float top = lo[ja][ia][k] + (lo[ja][ib][k] - lo[ja][ia][k]) * fx;
+                float bot = lo[jb][ia][k] + (lo[jb][ib][k] - lo[jb][ia][k]) * fx;
+                float val = (top + (bot - top) * fy) * dark * edge + 10.0f;
+                int q = (int)val + (k == 1 ? d >> 2 : d >> 1);
+                c[k] = q < 0 ? 0 : q > 255 ? 255 : (uint32_t)q;
+            }
+            out[y * SW + x] = g16_rgb(c[0], c[1], c[2]);
+        }
+    }
+}
+
+/* the background into the frame, cross-fading from the previous one */
+static void put_background(void)
+{
+    if (fade > 0) {
+        uint32_t a = (uint32_t)(FADE_FRAMES - fade) * 32 / FADE_FRAMES;     /* 0..32 of the new */
+        for (int y = 0; y < SH; y++) {
+            const uint16_t *p = bg_prev + y * SW, *q = bg_cur + y * SW;
+            uint16_t *o = g.px + (uint32_t)y * g.stride;
+            for (int x = 0; x < SW; x++) {
+                /* 565 blend in one multiply: green in the high half */
+                uint32_t A = (p[x] | (uint32_t)p[x] << 16) & 0x07E0F81Fu;
+                uint32_t B = (q[x] | (uint32_t)q[x] << 16) & 0x07E0F81Fu;
+                uint32_t m = (A * (32 - a) + B * a) >> 5 & 0x07E0F81Fu;
+                o[x] = (uint16_t)(m | m >> 16);
+            }
+        }
+        fade--;
+        return;
+    }
+    for (int y = 0; y < SH; y++)
+        memcpy(g.px + (uint32_t)y * g.stride, bg_cur + y * SW, SW * 2);
+}
+
+/* ---------------------------------------------------------------- shapes */
+
+/* columns cut off at row `dy` of a rounded corner of radius r (dy from the
+ * edge, 0 = outermost row) */
+static int corner_inset(int r, int dy)
+{
+    if (dy >= r)
+        return 0;
+    float d = (float)r - dy - 0.5f;
+    return r - (int)(sqrtf((float)(r * r) - d * d) + 0.5f);
+}
+
+static void hspan(int x0, int x1, int y, uint16_t c)       /* [x0, x1), clipped */
+{
+    if (y < g.cy0 || y >= g.cy1) return;
+    if (x0 < 0) x0 = 0;
+    if (x1 > SW) x1 = SW;
+    uint16_t *p = g.px + (uint32_t)y * g.stride;
+    for (int x = x0; x < x1; x++)
+        p[x] = c;
+}
+
+static void round_rect(int x, int y, int w, int h, int r, uint16_t c)
+{
+    for (int j = 0; j < h; j++) {
+        int dy = j < h / 2 ? j : h - 1 - j;
+        int in = corner_inset(r, dy);
+        hspan(x + in, x + w - in, y + j, c);
+    }
+}
+
+/* ring between two rounded rectangles: outer (x, y, w, h, r), thickness t */
+static void round_ring(int x, int y, int w, int h, int r, int t, uint16_t c)
+{
+    for (int j = 0; j < h; j++) {
+        int dy = j < h / 2 ? j : h - 1 - j;
+        int in = corner_inset(r, dy);
+        int jy = j - t;
+        if (jy < 0 || jy >= h - 2 * t) {
+            hspan(x + in, x + w - in, y + j, c);
+            continue;
+        }
+        int dyi = jy < (h - 2 * t) / 2 ? jy : h - 2 * t - 1 - jy;
+        int ini = corner_inset(r - t, dyi);
+        hspan(x + in, x + t + ini, y + j, c);
+        hspan(x + w - t - ini, x + w - in, y + j, c);
+    }
+}
+
+/* the cover with rounded corners, clipped to the grid rows */
+static void card(const g16_sheet_t *s, int x, int y)
+{
+    for (int j = 0; j < CARD_H; j++) {
+        int yy = y + j;
+        if (yy < g.cy0 || yy >= g.cy1)
+            continue;
+        int dy = j < CARD_H / 2 ? j : CARD_H - 1 - j;
+        int in = corner_inset(RADIUS, dy);
+        uint16_t *dst = g.px + (uint32_t)yy * g.stride + x + in;
+        if (s && s->px && s->w >= CARD_W && s->h >= CARD_H)
+            memcpy(dst, s->px + j * s->w + in, (size_t)(CARD_W - 2 * in) * 2);
+        else
+            for (int i = 0; i < CARD_W - 2 * in; i++)
+                dst[i] = c16(0x303040);
+    }
+}
+
+/* text on a pill-shaped background, starting at text column `col` */
+static int pill_text(int col, int row, const char *s, uint32_t fg, uint32_t bg)
+{
+    int n = (int)strlen(s);
+    round_rect(col * 8 - 8, row * 16 - 4, (n + 2) * 8, 24, 12, c16(bg));
+    g16_text(&g, col * 8, row * 16, s, c16(fg));
+    return col + n + 2;
+}
+
+/* a round button icon with its letter (A, B, X, Y), then a label */
+static int hint(int col, int row, const char *btn, const char *label)
+{
+    int cx = col * 8 + 4, cy = row * 16 + 8;
+    for (int dy = -7; dy <= 7; dy++) {
+        int w = (int)sqrtf(49.0f - (float)(dy * dy) + 0.5f);
+        hspan(cx - w, cx + w + 1, cy + dy, c16(C_TEXT));
+    }
+    char b[2] = { btn[0], 0 };
+    g16_text(&g, col * 8, row * 16, b, c16(C_BAR));
+    g16_text(&g, (col + 2) * 8, row * 16, label, c16(C_TEXT));
+    return col + 2 + (int)strlen(label) + 3;
+}
+
+/* ---------------------------------------------------------------- screen */
+
+int menu_ui_open(framebuffer_t *fb)
+{
+    if (!bg_cur) {
+        bg_cur = malloc(SW * SH * 2);
+        bg_prev = malloc(SW * SH * 2);
+        if (!bg_cur || !bg_prev) {
+            free(bg_cur); free(bg_prev);
+            bg_cur = bg_prev = NULL;
+            return -1;
+        }
+    }
+    con_w = fb->width;
+    con_h = fb->height;
+    console_suspend(1);
+    if (fb_init_depth(fb, SW, SH, 3, 16) != 0) {
+        fb_init(fb, con_w, con_h, 2);
+        console_suspend(0);
+        return -1;
+    }
+    ready = 1;
+    bg_valid = 0;
+    fade = 0;
+    t0 = timer_ticks();
+    deadline = t0 + FRAME_US;
+    return 0;
+}
+
+void menu_ui_close(framebuffer_t *fb)
+{
+    if (!ready)
+        return;
+    ready = 0;
+    fb_init(fb, con_w, con_h, 2);
+    console_suspend(0);
+}
+
+static uint16_t pulse(float t)
+{
+    /* the selection ring breathes between two blues */
+    float k = 0.5f + 0.5f * sinf(t * 4.0f);
+    uint32_t r = (uint32_t)(0x00 + k * 0x70), gg = (uint32_t)(0xB0 + k * 0x40), b = (uint32_t)(0xE8 + k * 0x17);
+    return g16_rgb(r, gg, b);
+}
+
+void menu_ui_frame(framebuffer_t *fb, const menu_view_t *v)
+{
+    if (!ready)
+        return;
+    g16_target(&g, (uint16_t *)fb->base, fb->pitch / 2, SW, SH, &font_console_8x16);
+    float t = (float)(timer_ticks() - t0) * 1e-6f;
+    const menu_item_t *cur = v->sel >= 0 && v->sel < v->n ? &v->items[v->sel] : NULL;
+
+    /* background: the selected cover, blurred; a cross-fade on change */
+    const g16_sheet_t *key = cur ? cur->cover : NULL;
+    if (!bg_valid || key != bg_key) {
+        if (bg_valid) {
+            uint16_t *s = bg_prev; bg_prev = bg_cur; bg_cur = s;
+            fade = FADE_FRAMES;
+        }
+        make_background(bg_cur, key);
+        bg_key = key;
+        bg_valid = 1;
+    }
+    put_background();
+
+    /* grid: keep the selected row among the two fully visible ones */
+    int sel_row = v->sel / MENU_COLS;
+    if (sel_row < first_row) first_row = sel_row;
+    if (sel_row > first_row + 1) first_row = sel_row - 1;
+    if (first_row < 0) first_row = 0;
+    scroll += ((float)first_row - scroll) * 0.25f;
+    if (fabsf(scroll - (float)first_row) < 0.01f) scroll = (float)first_row;
+
+    g16_clip(&g, 0, GRID_TOP, SW, GRID_BOT - GRID_TOP);
+    for (int i = 0; i < v->n; i++) {
+        int row = i / MENU_COLS, col = i % MENU_COLS;
+        int x = GRID_X0 + col * (CARD_W + GAP_X);
+        int y = GRID_Y0 + (int)lroundf(((float)row - scroll) * PITCH_Y);
+        if (y + CARD_H + 8 < GRID_TOP || y - 8 >= GRID_BOT)
+            continue;
+        if (i == v->sel)            /* ring with a gap, like the home screens */
+            round_ring(x - 6, y - 6, CARD_W + 12, CARD_H + 12, RADIUS + 6, 3,
+                       v->on_tabs ? c16(0x8A8A96) : pulse(t));
+        card(v->items[i].cover, x, y);
+        if (v->items[i].running) {
+            int by = y + CARD_H - 22;
+            if (by >= GRID_TOP && by + 18 <= GRID_BOT) {
+                round_rect(x + 6, by, 64, 18, 9, c16(0x101014));
+                g16_text(&g, x + 14, by + 1, "Playing", c16(C_TEXT));
+            }
+        }
+    }
+    g16_clip(&g, 0, 0, 0, 0);
+
+    /* top bar: brand, tabs, pads */
+    g16_rectfill(&g, 0, 0, SW, BAR_H, c16(C_BAR));
+    g16_text(&g, 2 * 8, 16, "bm33", c16(C_BRAND));
+    int col = 9;
+    for (int i = 0; i < v->ntabs; i++) {
+        int n = (int)strlen(v->tabs[i]);
+        if (i == v->tab) {
+            if (v->on_tabs)
+                round_ring(col * 8 - 12, 16 - 8, (n + 2) * 8 + 8, 32, 16, 2, pulse(t));
+            pill_text(col, 1, v->tabs[i], C_BAR, C_TAB_ON);
+        } else {
+            g16_text(&g, col * 8, 16, v->tabs[i], c16(C_DIM));
+        }
+        col += n + 4;
+    }
+    if (v->pads) {
+        int n = (int)strlen(v->pads);
+        g16_text(&g, (78 - n) * 8, 16, v->pads, c16(C_DIM));
+    }
+
+    /* the name of the selected cartridge, on a pill */
+    if (cur && cur->title && cur->title[0]) {
+        char buf[72];
+        ksnprintf(buf, sizeof buf, "%s", cur->title);
+        int n = (int)strlen(buf);
+        round_rect(3 * 8 - 10, TITLE_ROW * 16 - 6, (n + 2) * 8 + 4, 28, 14, c16(C_LINE));
+        pill_text(3, TITLE_ROW, buf, C_TEXT, C_PILL);
+    } else if (v->n == 0) {
+        pill_text(3, TITLE_ROW, "nothing here yet", C_DIM, C_PILL);
+    }
+
+    /* bottom bar: details, last game, buttons */
+    g16_rectfill(&g, 0, FOOT_Y, SW, SH - FOOT_Y, c16(C_BAR));
+    g16_rectfill(&g, 16, FOOT_Y + 1, SW - 32, 1, c16(C_LINE));
+    char buf[96];
+    if (v->details) {
+        ksnprintf(buf, sizeof buf, "%s", v->details);
+        buf[76] = 0;
+        g16_text(&g, 2 * 8, 20 * 16, buf, c16(C_DIM));
+    }
+    if (v->note && v->note[0]) {
+        ksnprintf(buf, sizeof buf, "%s", v->note);
+        buf[30] = 0;
+        g16_text(&g, 2 * 8, 21 * 16, buf, c16(C_DIM));
+    }
+    col = 34;
+    col = hint(col, 21, "A", "Play");
+    g16_text(&g, col * 8, 21 * 16, "Start+Select Monitor", c16(C_TEXT));
+
+    fb_flip(fb);
+    while ((int32_t)(timer_ticks() - deadline) < 0)
+        ;
+    uint32_t now = timer_ticks();
+    deadline += FRAME_US;
+    if ((int32_t)(now - deadline) > 0)
+        deadline = now + FRAME_US;
+}

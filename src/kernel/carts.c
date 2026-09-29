@@ -3,7 +3,7 @@
  */
 #include "carts.h"
 #include "crumbs.h"
-#include "menu3d.h"
+#include "menu_ui.h"
 #include "b33/b33.h"
 #include "input.h"
 #include "upload.h"
@@ -148,11 +148,11 @@ static void load_cover(cart_t *c)
         if (!d && fat_load(&c->fe, &data, &len) == 0)
             d = data;
         if (d && b33_parse(d, len, &bc, err, sizeof err) == 0 && bc.cover_rgba)
-            menu3d_load_cover(&c->cover, bc.cover_rgba, bc.cover_w, bc.cover_h);
+            menu_load_cover(&c->cover, bc.cover_rgba, bc.cover_w, bc.cover_h);
         free(data);
     }
     if (!c->cover.px)
-        menu3d_make_cover(&c->cover, c->title, c->kind == KIND_B33 ? "b33" : "s32");
+        menu_make_cover(&c->cover, c->title, c->kind == KIND_B33 ? "b33" : "s32");
 }
 
 static void rescan(void)
@@ -357,6 +357,22 @@ static void draw(int sel, int top, int rows)
     out("\x1b[93m up/down choose   Enter/A play   Esc or Start+Select: monitor   R rescan SD\x1b[0m");
 }
 
+/* The two tabs of the graphical menu: games, and the development tools
+ * (the editor). `idx` gets the cartridge indices of tab `tab`. */
+static int is_dev(const cart_t *c)
+{
+    return c->builtin == b33_editor_cart;
+}
+
+static int tab_items(int tab, int *idx)
+{
+    int n = 0;
+    for (int i = 0; i < ncarts; i++)
+        if (is_dev(&carts[i]) == (tab == 1))
+            idx[n++] = i;
+    return n;
+}
+
 void carts_menu(framebuffer_t *fb)
 {
     uint32_t cols, rows;
@@ -364,31 +380,46 @@ void carts_menu(framebuffer_t *fb)
     int list_rows = (int)rows - 7;
     if (list_rows < 3)
         list_rows = 3;
+    static const char *const tabs[] = { "Games", "Dev" };
+    int tab = 0, on_tabs = 0, tsel[2] = { 0, 0 };
     int sel = 0, top = 0, redraw = 1, esc = 0;
     uint32_t prev_btn = hid_buttons(), repeat_at = 0;
 
-    kprintf("\ncartridge menu: w/s or arrows, Enter plays, q returns to the monitor\n");
+    kprintf("\ncartridge menu: arrows or wasd, Enter plays, Tab changes tab, q returns to the monitor\n");
     input_flush();
     static menu_item_t items[MAX_CARTS];
-    char header[96], pads[24];
-    int gfx = menu3d_open(fb) == 0;         /* else the text menu */
+    static int idx[MAX_CARTS];
+    char pads[24], details[128];
+    int gfx = menu_ui_open(fb) == 0;         /* else the text menu */
     for (;;) {
-        if (sel < top) top = sel;
-        if (sel >= top + list_rows) top = sel - list_rows + 1;
+        int n = tab_items(tab, idx);
+        if (tsel[tab] >= n) tsel[tab] = n ? n - 1 : 0;
         if (gfx) {
-            for (int i = 0; i < ncarts; i++)
-                items[i] = (menu_item_t){ carts[i].title, carts[i].author, carts[i].path,
-                                          carts[i].kind == KIND_B33 ? "b33" : "s32", carts[i].size,
-                                          carts[i].cover.px ? &carts[i].cover : NULL };
+            for (int i = 0; i < n; i++) {
+                const cart_t *c = &carts[idx[i]];
+                items[i] = (menu_item_t){ c->title, c->author, c->path, c->kind == KIND_B33 ? "b33" : "s32",
+                                          c->size, c->cover.px ? &c->cover : NULL, 0 };
+            }
             input_status(pads, sizeof pads);
-            ksnprintf(header, sizeof header, "   SD: %s   %s", sd_ok ? fat_describe() : sd_error(), pads);
-            menu3d_frame(fb, items, ncarts, sel, header, last_msg);
-        } else if (redraw) {
-            draw(sel, top, list_rows);
-            redraw = 0;
+            details[0] = 0;
+            if (n) {
+                const cart_t *c = &carts[idx[tsel[tab]]];
+                ksnprintf(details, sizeof details, "%s   %s   %lu KiB   %s",
+                          c->author[0] ? c->author : "-", c->kind == KIND_B33 ? "b33" : "s32",
+                          (c->size + 1023) / 1024, c->path);
+            }
+            menu_view_t v = { tabs, 2, tab, on_tabs, items, n, tsel[tab], pads, details, last_msg };
+            menu_ui_frame(fb, &v);
+        } else {
+            if (sel < top) top = sel;
+            if (sel >= top + list_rows) top = sel - list_rows + 1;
+            if (redraw) {
+                draw(sel, top, list_rows);
+                redraw = 0;
+            }
         }
 
-        int move = 0, action = 0, quit = 0;
+        int dx = 0, dy = 0, action = 0, quit = 0, switch_tab = 0;
 
         /* serial */
         while (uart_rx_ready()) {
@@ -396,14 +427,21 @@ void carts_menu(framebuffer_t *fb)
             if (esc == 1) { esc = c == '[' ? 2 : 0; continue; }
             if (esc == 2) {
                 esc = 0;
-                if (c == 'A') move--;
-                if (c == 'B') move++;
+                if (c == 'A') dy--;
+                if (c == 'B') dy++;
+                if (c == 'C') dx++;
+                if (c == 'D') dx--;
                 continue;
             }
             switch (c) {
             case 0x1B: esc = 1; break;
-            case 'w': case 'W': case 'k': move--; break;
-            case 's': case 'S': case 'j': move++; break;
+            case 'w': case 'W': case 'k': dy--; break;
+            case 's': case 'S': case 'j': dy++; break;
+            case 'a': case 'A': case 'h': dx--; break;
+            case 'd': case 'D': case 'l': dx++; break;
+            case '\t': switch_tab = 1; break;
+            case '1': switch_tab = tab == 0 ? 0 : 1; break;
+            case '2': switch_tab = tab == 1 ? 0 : 1; break;
             case '\r': case '\n': case ' ': action = 1; break;
             case 'q': case 'Q': quit = 1; break;
             case 'r': case 'R': action = 2; break;
@@ -411,52 +449,89 @@ void carts_menu(framebuffer_t *fb)
             }
         }
 
-        /* USB keyboard / gamepad: edges plus auto repeat on up/down */
+        /* USB keyboard / gamepads: edges plus auto repeat */
+        const uint32_t DIRS = HID_UP | HID_DOWN | HID_LEFT | HID_RIGHT;
         uint32_t b = input_buttons(&quit);
         uint32_t pressed = b & ~prev_btn;
         uint32_t now = timer_ticks();
-        if (pressed & HID_UP) { move = -1; repeat_at = now + 400000; }
-        if (pressed & HID_DOWN) { move = 1; repeat_at = now + 400000; }
-        if ((b & (HID_UP | HID_DOWN)) && !(pressed & (HID_UP | HID_DOWN)) &&
-            (int32_t)(now - repeat_at) >= 0) {
-            move = (b & HID_UP) ? -1 : 1;
-            repeat_at = now + 90000;
+        uint32_t dirs = 0;
+        if (pressed & DIRS) {
+            dirs = pressed & DIRS;
+            repeat_at = now + 400000;
+        } else if ((b & DIRS) && (int32_t)(now - repeat_at) >= 0) {
+            dirs = b & DIRS;
+            repeat_at = now + 110000;
         }
+        if (dirs & HID_UP) dy--;
+        if (dirs & HID_DOWN) dy++;
+        if (dirs & HID_LEFT) dx--;
+        if (dirs & HID_RIGHT) dx++;
         if ((pressed & (HID_A | HID_START)) && !(b & HID_SELECT))
             action = 1;
         prev_btn = b;
-        for (int k; (k = hid_getc()) >= 0;)     /* text keys from the USB keyboard */
+        for (int k; (k = hid_getc()) >= 0;) {  /* text keys from the USB keyboard */
             if (k == 'r' || k == 'R')
                 action = 2;
+            if (k == '\t')
+                switch_tab = 1;
+        }
 
         if (quit)
             break;
-        if (move) {
-            sel = ((sel + move) % ncarts + ncarts) % ncarts;
+        if (gfx) {
+            if (switch_tab) {
+                tab ^= 1;
+            } else if (on_tabs) {
+                /* left/right change tab, down goes back to the covers */
+                if (dx) tab ^= 1;
+                if (dy > 0) on_tabs = 0;
+            } else if (n) {
+                int s_ = tsel[tab];
+                int row = s_ / MENU_COLS;
+                if (dy < 0 && row == 0) {
+                    on_tabs = 1;                /* up from the first row: the tabs */
+                } else if (dy) {
+                    int to = s_ + dy * MENU_COLS;
+                    if (to >= n && dy > 0)      /* the last row may be shorter */
+                        to = (to / MENU_COLS) * MENU_COLS < n ? n - 1 : s_;
+                    if (to >= 0 && to < n) s_ = to;
+                }
+                /* left/right along the covers, wrapping to the next row */
+                if (dx && s_ + dx >= 0 && s_ + dx < n)
+                    s_ += dx;
+                tsel[tab] = s_;
+            } else if (dy < 0) {
+                on_tabs = 1;
+            }
+        } else if (dx || dy) {
+            sel = ((sel + dx + dy) % ncarts + ncarts) % ncarts;
             redraw = 1;
         }
         if (action == 2) {
             carts_init();
             if (sel >= ncarts) sel = 0;
             redraw = 1;
-        } else if (action == 3 || action == 1) {
+        } else if (action == 3 || (action == 1 && (!gfx || tab_items(tab, idx) > 0))) {
+            /* A plays the highlighted cartridge, also from the tab bar */
+            const cart_t *c = gfx ? &carts[idx[tsel[tab]]] : &carts[sel];
             if (gfx)
-                menu3d_close(fb);
+                menu_ui_close(fb);
             if (action == 3)
                 upload_and_play(fb);
             else
-                play(fb, &carts[sel]);
+                play(fb, c);
             input_flush();
             prev_btn = hid_buttons();
             redraw = 1;
+            on_tabs = 0;
             if (gfx)
-                gfx = menu3d_open(fb) == 0;
+                gfx = menu_ui_open(fb) == 0;
         }
         if (!gfx)
             timer_delay_us(2000);
     }
     if (gfx)
-        menu3d_close(fb);
+        menu_ui_close(fb);
     console_clear();
     kprintf("back to the monitor\n");
 }

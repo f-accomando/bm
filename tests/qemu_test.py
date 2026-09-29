@@ -219,15 +219,16 @@ def test_console_ansi_and_status(b, opts):
     q = Qemu(b("kernel.img"))
     try:
         q.expect(MENU, timeout=30)
-        # the menu footer is bright yellow (ESC[93m)
-        _, text = settled_screen(q, lambda i, t: any("up/down choose" in l for l in t))
+        # the menu: tabs at the top, button hints at the bottom (near white)
+        _, text = settled_screen(q, lambda i, t: any("Start+Select Monitor" in l for l in t))
         img = q.screendump()
         text = screen_text(img)
-        sel = next(i for i, l in enumerate(text) if "up/down choose" in l)
-        colours = {pixel(img, x, sel * 16 + y) for x in range(8, 64) for y in range(16)}
-        # the graphical menu is RGB565: bright yellow comes out as ~(255, 255, 82)
-        assert any(r > 240 and g > 240 and b < 100 for r, g, b in colours), \
-            f"bright yellow not rendered {colours}"
+        assert "Games" in text[1] and "Dev" in text[1], text[1]
+        sel = next(i for i, l in enumerate(text) if "Start+Select Monitor" in l)
+        col = text[sel].index("Start+Select")
+        colours = {pixel(img, x, sel * 16 + y) for x in range(col * 8, col * 8 + 96) for y in range(16)}
+        assert any(r > 230 and g > 230 and b > 230 for r, g, b in colours), \
+            f"hint text not rendered {colours}"
         q.send("q")
         q.expect(PROMPT)
         q.expect("> ")
@@ -652,18 +653,22 @@ def test_sd_cartridges(b, opts):
         q.send("M")
         q.expect("cartridge menu")
         time.sleep(0.5)
-        _, text = settled_screen(q, lambda i, t: any("cartridges" in l for l in t))
+        _, text = settled_screen(q, lambda i, t: any("bm33 native demo" in l for l in t))
         screen = "\n".join(text)
-        for s_ in ("bm33 - cartridges", "bm33 native demo", "Demo - quadrato mobile",
-                   "/Il mio gioco lungo.b33"):
+        for s_ in ("Games", "bm33 native demo", "/Il mio gioco lungo.b33"):
             assert s_ in screen, screen
+        q.send("d")                           # the next cover: its title and file
+        _, text = settled_screen(q, lambda i, t: any("Demo - quadrato mobile" in l for l in t))
+        screen = "\n".join(text)
+        assert "Demo - quadrato mobile" in screen and "/carts/demo2.cart" in screen, screen
+        q.send("a")
         q.send("\r")                          # SD cartridges come first, by title
         q.expect("playing Il mio gioco lungo.b33", timeout=10)
         time.sleep(1.0)
         q.send("q")
         out = q.expect("update+draw", timeout=15).decode(errors="replace")
         assert '"bm33 native demo"' in out, out
-        q.send("s\r")                         # next: /carts/demo2.cart (s32)
+        q.send("d\r")                         # next: /carts/demo2.cart (s32)
         q.expect("playing demo2.cart", timeout=10)
         time.sleep(1.0)
         q.send("q")
@@ -694,8 +699,13 @@ def test_make_image(b, opts):
         out = q.expect(MENU, timeout=30).decode(errors="replace")
         assert "FAT32, 63 MiB, label BM33; 10 cartridges" in out, out
         time.sleep(0.5)
-        _, text = settled_screen(q, lambda i, t: any("Star Shooter" in l for l in t))
-        screen = "\n".join(text)
+        seen = set()
+        for _ in range(10):                    # right along the grid: each title in turn
+            _, text = settled_screen(q, lambda i, t: len(t) > 3 and t[3].strip() != "")
+            seen.add(text[3])
+            q.send("d")
+            time.sleep(0.3)
+        screen = "\n".join(seen)
         for title in ("Pong", "Snake", "Star Shooter", "Chaos Kitchen", "bm33 native demo", "Demo - quadrato mobile"):
             assert title in screen, screen
         q.send("q")
@@ -1299,8 +1309,9 @@ def test_usb_hid_gamepad(b, opts):
         out = q.expect("cartridge menu", timeout=90).decode(errors="replace")
         assert "usb: gamepad 0627:0001 'QEMU USB Tablet'" in out, out
         q.monitor("mouse_move 16384 16384")    # centre: stick released
-        q.send("s")                            # one down: the tablet's button report also
-        time.sleep(0.5)                        # moves the selection up once
+        # the tablet's button report also moves up once: from the first row
+        # that is the tab bar, where A still plays the highlighted cover
+        time.sleep(0.5)
         q.monitor("mouse_button 1")
         q.monitor("mouse_button 0")
         q.expect("playing demo.b33", timeout=10)

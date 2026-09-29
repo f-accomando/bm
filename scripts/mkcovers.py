@@ -239,7 +239,7 @@ def editor():
         c.rect(74, 32 + k * 7, w, 3, col)
     c.tri((96, 70), (118, 48), (122, 52), 0xFFC050)       # a pencil
     c.tri((96, 70), (100, 66), (104, 70), 0xE0C8A0)
-    c.ctext("EDITOR", 4, 0xFFC050, scale=2, outline=0x000000)
+    c.ctext("SDK", 4, 0xFFC050, scale=2, outline=0x000000)
     return c
 
 

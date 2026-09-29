@@ -616,6 +616,88 @@ cartuccia **Titan Clash** (`carts/titan`).
   2 giocatori, demo; costo dei frame) e `test_titan` in QEMU. Select mostra il tempo
   di frame sul Pi.
 
+## M21 — Menu "home" e giochi sospesi (M)
+Decisione 2026-09-29: menu più pulito in stile console moderna (Nintendo Switch), per ora
+solo per la scelta dei giochi.
+1. ✅ (QEMU) **Griglia di copertine** (`src/kernel/menu_ui.c`, sostituisce il carosello 3D):
+   - due schede in alto, **Games** e **Dev** (strumenti di sviluppo: l'SDK);
+   - copertine 128×80 con angoli arrotondati, 4 per riga, scorrimento verso il basso;
+   - movimento ortogonale con le frecce (sinistra/destra passano anche alla riga
+     successiva; su dalla prima riga porta alle schede, dove
+     sinistra/destra le cambiano; anche Tab, 1 e 2);
+   - sfondo con la copertina scelta sfocata e scurita, dissolvenza al cambio;
+   - anello azzurro "che respira" sulla copertina scelta, nome in una pillola sopra la
+     griglia, dettagli e pulsanti in basso;
+   - A (anche dalle schede) avvia la copertina evidenziata.
+   
+   L'editor ora si chiama **bm33 SDK**.
+2. **Giochi sospesi**:
+   - Esc, o PS sul controller, esce dal gioco ma lo lascia congelato in memoria (stato
+     Lua, sheet, mappa, 3D; audio muto);
+   - nel menu la copertina ha il badge **Playing** (già disegnato da `menu_ui`);
+   - A sulla stessa copertina riprende dal punto esatto;
+   - avviare un'altra applicazione chiede conferma, chiude quella sospesa e libera la
+     memoria.
+   
+   Serve dividere `b33_play` in avvio / riprendi / chiudi; una sola applicazione sospesa
+   alla volta, come sulle console.
+- **Fatto quando:** sul Pi il menu è fluido a 60 fps con tutte le cartucce e un gioco
+  sospeso riprende dal punto in cui era.
+
+## M22 — SDK e strumenti dedicati (XL)
+Decisione 2026-09-29: l'editor attuale diventa l'**SDK** (generico: progetto, prova,
+salvataggio); intorno a lui strumenti specializzati, ognuno una cartuccia nella scheda
+**Dev**, tutti con gli stessi formati.
+
+Sotto-milestone:
+- **22.0 Base comune**:
+  - formato del progetto;
+  - libreria di interfaccia condivisa in Lua (finestre, liste, dialogo dei file, aiuto
+    su F12, puntatore);
+  - l'SDK come hub che apre gli strumenti sul progetto corrente.
+- **22.1 Codice**:
+  - più file per progetto (come `carts/kitchen/src/`);
+  - colori della sintassi, cerca e sostituisci;
+  - salto all'errore;
+  - aiuto sulle API (F1 sulla parola), completamento dei nomi delle API.
+- **22.2 Pixel art**:
+  - sprite, tavolozze, animazioni (fotogrammi, onion skin, anteprima);
+  - strumenti (linea, rettangolo, riempimento, selezione, specchio);
+  - tile e **mappe** (proposta: la mappa sta qui, tile e mappe sono legati).
+- **22.3 Render 3D**: mesh low-poly (vertici, estrusione, colori e UV sullo sheet),
+  luci, camera, anteprima con Gouraud e texture, esportazione nella sezione MESH.
+- **22.4 Musica ed effetti**:
+  - tracker sul sintetizzatore a 8 voci;
+  - effetti con forma d'onda, ADSR, inviluppi di tono;
+  - sezioni SFX/MUSIC e API `sfx(n)`, `music(n)`.
+- **22.5 Import/export**:
+  - PNG ↔ sheet (con riduzione a ≤256 colori), OBJ/GLB → MESH, file Lua ↔ progetto,
+    WAV/MIDI dove ha senso;
+  - dalla SD, e con M18 dal PC via WiFi.
+- **22.6 Da 3D a sprite**: come `carts/titan/mkrobot.py` ma sul Pi. Si parte da un
+  modello con scheletro e pose, si scelgono viste e dimensione; poi cel shading, contorni,
+  riduzione della tavolozza, fotogrammi nello sheet con hitbox e hurtbox.
+- **22.7 Simulazioni 3D del 2D**: significato da definire con l'autore (vedi le
+  proposte nella conversazione del 2026-09-29).
+
+Considerazioni:
+- **Contenitore unico: il `.b33` stesso** (come le cartucce PICO-8): codice, sheet,
+  mappa, copertina e le nuove sezioni (MESH, SFX, MUSIC, più file Lua). Ogni strumento
+  legge e riscrive solo le sue sezioni. PNG, OBJ, GLB e WAV servono solo per scambiare
+  con il PC (22.5).
+- **Interfaccia comune** in una libreria Lua inclusa nel kernel (`require "ui"`), non
+  copiata in ogni strumento.
+- **Puntatore**: la USB regge un solo dispositivo (la tastiera). Per disegnare si usa il
+  **touchpad del DS4** come mouse: il report completo via Bluetooth contiene già le
+  coordinate del tocco.
+- **Unioni proposte**:
+  - 22.3 e 22.6 condividono caricatore e renderer (sono due modalità di uno "studio
+    3D"), anche se restano due voci del menu;
+  - la mappa sta nella pixel art;
+  - l'SDK perde le sue pagine codice/sprite quando arrivano 22.1 e 22.2, e resta hub e
+    impostazioni del progetto.
+- Ordine proposto: 22.0 → 22.1 → 22.2 → 22.4 → 22.5 → 22.3 → 22.6 → 22.7.
+
 ## Rischi principali
 | Rischio | Mitigazione |
 |---------|-------------|

@@ -69,7 +69,7 @@ $(BUILD)/k/src/script/embed.S.o: $(wildcard src/script/*.lua) spec/s32/conforman
 $(BUILD)/editor.b33: carts/editor/main.lua carts/editor/cover.png scripts/mkb33.py
 	@mkdir -p $(dir $@)
 	$(PYTHON) scripts/mkb33.py -o $@ --lua $< --cover carts/editor/cover.png \
-	    --title "bm33 editor" --author bm33
+	    --title "bm33 SDK" --author bm33
 
 $(BUILD)/stress.b33: carts/stress/main.lua scripts/mkb33.py
 	@mkdir -p $(dir $@)
