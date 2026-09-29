@@ -478,6 +478,44 @@ Decisione 2026-09-28: versioni "leggere", in coda dopo M17.
 - **Fatto quando:** un aggiornamento pubblicato come release arriva sul Pi dal menu, e
   l'editor carica un gioco su un repository.
 
+## M20 — Picchiaduro a robot giganti (XL)
+Decisione 2026-09-28: in coda dopo M19. Concept completo dell'autore:
+[`docs/giochi/mecha-fighter-concept.md`](giochi/mecha-fighter-concept.md).
+Picchiaduro 2D a incontri tra robot modulari alti come grattacieli: struttura e feeling
+di Street Fighter II Turbo (SNES), con dash, air combo, juggle e tag team come in Marvel
+Super Heroes vs. Street Fighter. Stile 16-bit ricco, **non** minimalista: robot grandi
+quanto i personaggi di SF2 (metà schermo o più), molte animazioni, fondali in
+parallasse. Hangar animato dove si costruisce il robot; peso dell'equipaggiamento che
+cambia davvero la mobilità; risorse vita, armatura, energia, calore, tag; armatura
+localizzata che si rompe sullo sprite insieme alla barra.
+
+Si procede per incrementi, sempre con una build giocabile:
+1. **Progettazione** (`docs/giochi/mecha-fighter-design.md`): i 15 punti del concept
+   (conflitti tra meccaniche, loop, risorse, movimento, combo, tag, danni,
+   equipaggiamento, statistiche, arene, HUD, hangar, vertical slice), approvata
+   dall'autore prima di scrivere codice.
+2. **Kernel, se serve**: sprite sheet grandi o più sheet per cartuccia (i robot non
+   stanno in 256×256), disegno di sprite scalati/specchiati veloce in C, eventuale
+   modalità a 32 bit (M14.3) per palette più ricche; misure di frame rate sul Pi.
+3. **Vertical slice 1v1**: 2 robot, movimento, salto, dash, pugni e calci, parata,
+   combo, un'arma con calore, energia, barre vita e armatura, un pezzo di armatura
+   distruttibile, una piccola arena, robot grandi. Contro la CPU o con due
+   controller (M16).
+4. **Personalizzazione e hangar**: robot composti da parti (telaio, armatura, braccia,
+   armi, booster, scudo) disegnate a strati sullo stesso scheletro di animazione, così
+   ogni pezzo cambia l'aspetto e le statistiche; hangar animato.
+5. **Tag team e 2v2** (4 controller con M16), scudi olografici, danni localizzati
+   completi.
+6. **Contenuti**: arcade/campagna con boss, altre arene e armi.
+- Prime idee tecniche (da confermare nella progettazione): robot "a strati" (parti
+  separate su uno scheletro con pose chiave) per avere molti frame e tutte le
+  combinazioni di equipaggiamento senza disegnare ogni robot intero; danno per zona che
+  sostituisce lo sprite della singola piastra (integra → danneggiata → staccata, con
+  il pezzo che cade come detrito); logica del gioco a 60 Hz fissi con hitbox e
+  hurtbox per frame.
+- **Fatto quando:** il vertical slice è giocabile sul Pi a 60 fps con robot grandi e
+  l'autore conferma il feeling; poi ogni passo successivo ha il suo criterio.
+
 ## Rischi principali
 | Rischio | Mitigazione |
 |---------|-------------|

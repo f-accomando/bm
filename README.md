@@ -43,11 +43,12 @@ Stress test di rendering (soglie 60/30 fps): [docs/STRESS.md](docs/STRESS.md) �
 | **M12** | Controller **Bluetooth** (DualShock 4) | ✅ verificato sul Pi |
 | M13 | Altri tipi di cartuccia: s32 Lua (con lua32), codice ARM nativo | |
 | M14 | Grafica 2.0: DMA, modo 32 bit, 3D con texture, menu con anteprime | |
-| M15 | Editor sulla console: codice, sprite, mappa, prova e torna | 🛠 fatto, da provare sul Pi |
+| **M15** | Editor sulla console: codice, sprite, mappa, prova e torna | ✅ verificato sul Pi |
 | **M16** | Multiplayer locale: fino a 4 controller Bluetooth, `btn(i, giocatore)`, Pong a 2 | 🛠 fatto, da provare sul Pi |
 | **M17** | **Chaos Kitchen**: cucina cooperativa in 3D per 1–4 giocatori (campagna, infinita, pratica) | 🛠 fatto, da provare sul Pi |
 | M18 | WiFi, console di rete con password, invio di kernel e cartucce dal PC | |
 | M19 | HTTPS: aggiornamenti da GitHub, "git leggero" (archivi e API con token) | |
+| M20 | Picchiaduro 2D a robot giganti modulari (SF2 Turbo × MSH vs SF), hangar, tag team | |
 
 ## Cosa fa il kernel
 
