@@ -218,7 +218,7 @@ void monitor_run(void)
             else kprintf("cancelled\n");
             break;
         }
-        case '\r': case '\n': break;
+        case '\r': case '\n': case 0x1B: break;    /* Esc: already at the monitor */
         case INPUT_NET_PLAY: {                  /* bm33_net.py --play */
             uint8_t *buf;
             size_t len;

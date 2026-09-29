@@ -582,7 +582,7 @@ Decisione 2026-09-28: versioni "leggere", in coda dopo M17.
    - `--play gioco.b33` → giocata subito (dal menu o dal monitor), senza salvarla;
    - ✅ (Pi: 1.3 MB in 7,7 s, 170 KiB/s) `--kernel build/kernel.img` → scritto come `kernel.img` (prima i dati, poi la
      voce della directory: un'interruzione lascia il vecchio o il nuovo) e riavvio;
-   - all'avvio la rete salvata si ricollega da sola, senza scansione
+   - ✅ (Pi, `ddca333`) all'avvio la rete salvata si ricollega da sola, senza scansione
      (`wifi_boot=0` in `bm33/config.txt` la spegne); l'IP compare nella barra di stato;
    - test sul PC: `make test-net` (salvataggio, password, crc, play, kernel);
    - i tasti del terminale di rete arrivano anche a menu, giochi, pager e demo, come

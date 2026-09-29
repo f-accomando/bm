@@ -147,8 +147,8 @@ static err_t on_recv(void *arg, struct tcp_pcb *pcb, struct pbuf *p, err_t err)
     if (!p) {
         if (st == DATA)
             kprintf("\x1b[91mnet: transfer cut short (%lu of %lu bytes)\x1b[0m\n", got, size);
-        if (st != DONE)
-            reset();
+        if (st == HEADER || st == DATA)
+            reset();                    /* after DONE / REPLIED: the answer (and a reboot) still due */
         drop_peer();
         return ERR_OK;
     }
@@ -164,7 +164,7 @@ static void on_err(void *arg, err_t err)
 {
     (void)arg; (void)err;
     peer = NULL;
-    if (st != DONE)
+    if (st == HEADER || st == DATA)
         reset();
 }
 

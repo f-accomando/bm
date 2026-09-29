@@ -250,10 +250,20 @@ int main(void)
                 tcp_output(x.pcb);
                 spin(5);
             }
-        spin(600);                      /* the answer, then the server closes */
-        if (strcmp(x.got, cases[t].answer) != 0 || !x.closed)
-            printf("  got \"%s\" closed %d connected %d\n", x.got, x.closed, x.connected);
-        check(strcmp(x.got, cases[t].answer) == 0 && x.closed, cases[t].what);
+        /* like bm33_net.py: close as soon as the whole answer is in (the
+         * kernel case must still reboot) */
+        for (int i = 0; i < 600 && x.len < strlen(cases[t].answer) && !x.closed; i++)
+            spin(1);
+        if (x.pcb && !x.closed) {
+            tcp_recv(x.pcb, NULL);      /* x goes out of scope: no more callbacks */
+            tcp_err(x.pcb, NULL);
+            tcp_arg(x.pcb, NULL);
+            tcp_close(x.pcb);
+        }
+        spin(600);
+        if (strcmp(x.got, cases[t].answer) != 0)
+            printf("  got \"%s\"\n", x.got);
+        check(strcmp(x.got, cases[t].answer) == 0, cases[t].what);
         if (t == 0)
             check(strcmp(w_dir, "/carts") == 0 && strcmp(w_name, "pong.b33") == 0 &&
                   w_len == sizeof file && memcmp(w_data, file, w_len) == 0 && netxfer_saves() == 1,
