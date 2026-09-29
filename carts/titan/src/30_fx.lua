@@ -203,7 +203,8 @@ local function step(p, fighters)
     p.r = p.r + 0.2
     return p.t < p.life
   elseif k == "trail" then
-    return p.t < p.life
+    -- a robot hit in the middle of the cut loses it
+    return p.t < p.life and p.f.state == "attack"
   elseif k == "plate" then
     if p.vh ~= 0 or p.h + p.low > 0 then
       p.x, p.h = p.x + p.vx, p.h + p.vh
