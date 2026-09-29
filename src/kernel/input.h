@@ -15,6 +15,10 @@ int input_remote_getc(void);
 int input_remote_ready(void);
 /* After a remote Esc: does more follow within 30 ms (an arrow key)? */
 int input_remote_follows(void);
+/* After an Esc from input_getc: if a terminal sequence follows (an arrow,
+ * PgUp: ESC [ ... final letter or ~), reads it all; returns 1. A lone Esc
+ * (the USB keyboard's): 0, nothing read. */
+int input_skip_sequence(void);
 /* What input_key returns once when a cartridge sent over the network
  * (bm33_net.py --play) waits to be played: the monitor plays it. */
 #define INPUT_NET_PLAY 0x10

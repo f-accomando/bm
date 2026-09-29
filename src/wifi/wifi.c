@@ -1033,6 +1033,8 @@ static int read_line(char *buf, int max, int secret)
             return n;
         }
         if (c == 0x1B) {
+            if (input_skip_sequence())
+                continue;               /* an arrow key, not Esc */
             kprintf("  (cancelled)\n");
             return -1;
         }

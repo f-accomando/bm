@@ -13,7 +13,7 @@ Standard library only (Linux / macOS / WSL).
 
 The password is the one shown on the Pi's screen after 'W' (net_password in
 bm33/config.txt). In the console keys go to the Pi one by one, as on its
-keyboard; Ctrl-] quits. Plain text: use it on the home network only.
+keyboard; Ctrl-Q (or Ctrl-], or Enter ~ . as in ssh) quits. Plain text: use it on the home network only.
 Files on the SD card need 8.3 names (PONG.B33, not chaos_kitchen.b33):
 --name sets another one.
 """
@@ -33,7 +33,7 @@ XFER_PORT = 3334
 ANSWERS = {b"OK": "ok", b"PW": "wrong password", b"SZ": "file too big (or no memory)",
            b"BH": "bad request", b"CE": "damaged in transit (crc)",
            b"WE": "could not write on the SD card"}
-QUIT_KEY = b"\x1d"  # Ctrl-]
+QUIT_KEYS = (b"\x11", b"\x1d")  # Ctrl-Q, Ctrl-]
 
 
 def read_until(sock, markers, timeout=5.0):
@@ -167,6 +167,8 @@ def main():
     fd = sys.stdin.fileno()
     old = termios.tcgetattr(fd)
     tty.setraw(fd)
+    print("(Ctrl-Q or Enter ~ . to leave)\r")
+    last_enter, tilde = True, False
     try:
         while True:
             r, _, _ = select.select([sock, fd], [], [])
@@ -177,8 +179,18 @@ def main():
                 os.write(sys.stdout.fileno(), data)
             if fd in r:
                 key = os.read(fd, 64)
-                if QUIT_KEY in key:
+                if any(q in key for q in QUIT_KEYS):
                     break
+                # Enter ~ . (as in ssh): the '~' after Enter is held back
+                if tilde:
+                    tilde = False
+                    if key.startswith(b"."):
+                        break
+                    key = b"~" + key
+                if key == b"~" and last_enter:
+                    tilde = True
+                    continue
+                last_enter = key[-1:] in (b"\r", b"\n")
                 sock.sendall(key)
     finally:
         termios.tcsetattr(fd, termios.TCSADRAIN, old)

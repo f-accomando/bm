@@ -274,6 +274,16 @@ def test_pager(b, opts):
         q.expect("> ", timeout=5)
         _, text = settled_screen(q, lambda i, t: any(l.startswith(">") for l in t))
         assert text[0].startswith(" bm33 "), text[0]
+        # a terminal's arrow and PgDn keys at the prompt are not commands
+        q.send("\x1b[B")
+        time.sleep(0.3)
+        q.send("\x1b[6~")
+        time.sleep(0.3)
+        q.send("\x1b")                       # Esc alone: ignored too
+        time.sleep(0.3)
+        q.send("m")
+        out = q.expect("heap", timeout=5).decode(errors="replace")
+        assert "unknown command" not in out, out[-300:]
     finally:
         q.close()
 

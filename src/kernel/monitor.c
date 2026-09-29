@@ -105,6 +105,12 @@ void monitor_run(void)
         kprintf("> ");
         crumb("monitor, waiting for a key", NULL);
         char c = input_getc();
+        if (c == 0x1B) {                /* a terminal's arrow key: not a command */
+            if (input_skip_sequence()) {
+                kprintf("\r");
+                continue;
+            }
+        }
         if (c >= ' ' && c < 127)
             kprintf("%c", c);
         kprintf("\n");
@@ -218,7 +224,8 @@ void monitor_run(void)
             else kprintf("cancelled\n");
             break;
         }
-        case '\r': case '\n': case 0x1B: break;    /* Esc: already at the monitor */
+        case '\r': case '\n': break;
+        case 0x1B: break;               /* Esc alone: already at the monitor */
         case INPUT_NET_PLAY: {                  /* bm33_net.py --play */
             uint8_t *buf;
             size_t len;

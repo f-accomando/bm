@@ -61,6 +61,22 @@ int input_remote_follows(void)
     return 0;
 }
 
+int input_skip_sequence(void)
+{
+    if (!input_remote_follows())
+        return 0;
+    int c = input_remote_getc();
+    if (c != '[' && c != 'O')
+        return 1;                       /* Esc + one key (Alt-key): both dropped */
+    uint32_t t0 = timer_ticks();
+    while (timer_ticks() - t0 < 50000) {        /* parameters, then the final byte */
+        c = input_remote_getc();
+        if (c >= 0x40 && c <= 0x7E)
+            break;
+    }
+    return 1;
+}
+
 char input_getc(void)
 {
     uint32_t last = timer_ticks();

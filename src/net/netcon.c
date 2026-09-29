@@ -83,7 +83,7 @@ static void got_byte(char c)
             if (strcmp(line, password) == 0) {
                 kprintf("\nnet: console opened from %s\n> ", ipaddr_ntoa(&client->remote_ip));
                 state = OPEN;                   /* from here kprintf goes to the client too */
-                out_str("\r\nok - bm33 monitor, 'h' for help, Ctrl-] to leave\r\n> ");
+                out_str("\r\nok - bm33 monitor, 'h' for help, Ctrl-Q to leave\r\n> ");
             } else if (++tries >= MAX_TRIES) {
                 out_str("\r\nwrong password, bye\r\n");
                 kprintf("\n\x1b[91mnet: console: wrong password from %s\x1b[0m\n",
