@@ -374,10 +374,13 @@ e va rifatto anche il chainloader sulla SD).
 Dalla cartella del progetto, con la SD montata (in WSL: `sudo mount -t drvfs D: /mnt/d`):
 
 ```sh
-make sdcard
-cp dist/kernel.img dist/config.txt /mnt/d/
-mkdir -p /mnt/d/carts && cp dist/carts/* /mnt/d/carts/     # cartucce
+make install            # = make sdcard, poi copia tutto sulla SD in /mnt/d
+make install SD=/mnt/e  # se la SD è montata altrove
 ```
+
+`make install` copia kernel, file di avvio, `config.txt`, cartucce e il firmware del chip
+in `bm33/` (Bluetooth e WiFi); non tocca mai impostazioni e salvataggi
+(`bm33/CONFIG.TXT`, `bm33/SAVE`). Alla fine elenca cosa c'è in `bm33/` sulla SD.
 
 ## Scheda SD senza chainloader
 

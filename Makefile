@@ -139,7 +139,7 @@ test-titan: $(BUILD)/host/luahost $(BUILD)/titan/main.lua
 	$< tests/titan/sim.lua $(BUILD)/titan/main.lua $(BUILD)/titan/main.map
 
 .DEFAULT_GOAL := all
-.PHONY: FORCE all clean firmware image sdcard sdcard-chainloader sdcard-stress qemu qemu-screenshot \
+.PHONY: FORCE all clean firmware image sdcard install sdcard-chainloader sdcard-stress qemu qemu-screenshot \
         run-serial test test-s32 test-s32-arm test-b33 test-usb test-audio test-fat test-kitchen test-titan disasm
 
 all: $(BUILD)/kernel.img $(BUILD)/chainloader.img $(GAME_CARTS)
@@ -205,6 +205,21 @@ image: $(BUILD)/kernel.img $(SD_CARTS)
 	    $(foreach c,$(SD_CARTS),$(c)=carts/$(notdir $(c))) \
 	    $(if $(wildcard $(FW_DIR)/BCM43430A1.hcd),$(FW_DIR)/BCM43430A1.hcd=bm33/BCM43430A1.hcd) \
 	    $(foreach f,$(wildcard $(FW_DIR)/brcmfmac43430-sdio.*),$(f)=bm33/$(notdir $(f)))
+
+# Copies what make sdcard prepared onto a mounted SD card (SD=/mnt/d by
+# default): kernel, boot files, config.txt, cartridges and the chip
+# firmware in bm33/. Settings and saves (bm33/CONFIG.TXT, bm33/SAVE) are
+# never touched. Uses sudo when the card is not writable (WSL).
+SD ?= /mnt/d
+install: sdcard
+	@test -d $(SD) || { echo "$(SD) is not mounted (sudo mount -t drvfs D: $(SD))"; exit 1; }
+	@S=; [ -w $(SD) ] || S=sudo; \
+	$$S mkdir -p $(SD)/carts $(SD)/bm33 && \
+	$$S cp $(DIST)/bootcode.bin $(DIST)/start.elf $(DIST)/fixup.dat $(DIST)/config.txt $(DIST)/kernel.img $(SD)/ && \
+	$$S cp $(DIST)/carts/* $(SD)/carts/ && \
+	if [ -d $(DIST)/bm33 ]; then $$S cp $(DIST)/bm33/* $(SD)/bm33/; fi && \
+	sync && echo "installed on $(SD): kernel $$(git describe --always --dirty), carts, bm33/ firmware" && \
+	ls $(SD)/bm33
 
 sdcard-chainloader:
 	$(MAKE) sdcard KERNEL=chainloader
