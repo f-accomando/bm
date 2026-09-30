@@ -90,7 +90,7 @@ $(BUILD)/demo.b33: $(DEMO_B33_SRC) scripts/mkb33.py
 	    --map carts/demo/map.csv --title "bm33 native demo" --author bm33
 
 # Demo games (Lua only, sprites drawn in code): build/carts/<name>.b33
-GAMES := pong snake shooter astrowing hunt kitchen titan
+GAMES := pong snake shooter astrowing hunt kitchen titan texroom
 GAME_CARTS := $(patsubst %,$(BUILD)/carts/%.b33,$(GAMES))
 title_pong    := Pong
 title_snake   := Snake
@@ -100,6 +100,8 @@ title_hunt := Hunter's Night
 res_hunt := 320x180
 title_kitchen := Chaos Kitchen
 title_titan := Titan Clash
+title_texroom := Texture Room
+res_texroom := 320x180
 # Optional per game: carts/<game>/cover.png (printed on the cartridge in the
 # menu, scripts/mkcovers.py), sheet.png and map.csv, res_<game> := 320x180.
 .SECONDEXPANSION:

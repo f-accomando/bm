@@ -14,7 +14,7 @@ balenaEtcher o `dd`; collega HDMI e una **tastiera o un gamepad USB** (adattator
 sulla porta micro-USB centrale) e accendi. Il Pi si avvia in un paio di secondi sul
 **menu delle cartucce** (in 3D: ogni gioco è una piccola scheda a forma di Memory
 Stick Duo con la copertina stampata sopra e i contatti in rame sul retro): Pong,
-Snake, Star Shooter, Astro Wing (3D), Hunter's Night (gotico, 320×180 con luci) e le demo. Frecce per scegliere,
+Snake, Star Shooter, Astro Wing (3D), Hunter's Night (gotico, 320×180 con luci), Texture Room (3D con texture) e le demo. Frecce per scegliere,
 Nel menu le copertine stanno in una griglia (schede **Games** e **Dev**); frecce per
 muoversi, Invio (o A) per giocare. **Esc** (o Start+Select, o PS) torna al menu e lascia
 il gioco **sospeso**: la copertina mostra "Playing" e A lo riprende dal punto in cui era.
@@ -294,7 +294,7 @@ python3 scripts/mkb33.py -o gioco.b33 --lua main.lua --sheet sheet.png --map map
 La cartuccia definisce `_init()`, `_update()` e `_draw()` (60 volte al secondo) e usa
 un'API in stile PICO-8: forme, sprite e mappa, testo, input (`btn`/`btnp`), tempo,
 3D software. **Riferimento completo e guida alla prima cartuccia: [docs/API.md](docs/API.md).**
-Giochi di esempio: `carts/pong`, `carts/snake`, `carts/shooter`, `carts/astrowing` (3D), `carts/hunt` (mappa 2048×2048, luci; grafica e mappa da `mkassets.py`) (solo Lua, sprite
+Giochi di esempio: `carts/pong`, `carts/snake`, `carts/shooter`, `carts/astrowing` (3D), `carts/hunt` (mappa 2048×2048, luci; grafica e mappa da `mkassets.py`), `carts/texroom` (stanza 3D con texture a 320×180, ms e fps sullo schermo; texture da `mkassets.py`) (solo Lua, sprite
 disegnati nel codice con `sset`), `carts/demo` (sprite sheet PNG e mappa CSV),
 `carts/kitchen` (Chaos Kitchen: gioco grande in più file Lua uniti da `build.py`, 3D,
 fino a 4 giocatori, simulatore host in `tests/kitchen/`), `carts/titan` (Titan Clash:
@@ -426,7 +426,7 @@ src/s32/                 macchina s32: CPU, PPU, loader .cart, player 320×224
 src/b33/                 cartucce native: formato, grafica RGB565 (gfx16), 3D software (r3d),
                          runtime Lua, stress test
 carts/demo/              cartuccia nativa demo: main.lua, sheet.png, map.csv
-carts/pong|snake|shooter|astrowing|hunt giochi demo (solo Lua)
+carts/pong|snake|shooter|astrowing|hunt|texroom giochi demo (solo Lua)
 carts/kitchen/           Chaos Kitchen (M17): src/*.lua, build.py, mkassets.py,
                          models/*.glb e import_chefs.py (modelli 3D degli chef)
 tests/kitchen/           simulatore host di Chaos Kitchen (luahost + sim.lua)

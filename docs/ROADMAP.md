@@ -348,6 +348,14 @@ Fatto finora (da verificare sul Pi):
   saturazioni per pixel (i colori vengono limitati sui vertici), la matrice della camera
   in cache tra un `draw3d` e l'altro e nessun seno/coseno per le mesh non ruotate. Le
   facce piatte danno gli stessi identici pixel di prima (test host).
+- **Texture Room** (`carts/texroom`, 2026-09-30): la demo del criterio di chiusura. Una
+  stanza in prima persona a 320×180 tutta con texture (pavimento di pietra e muschio,
+  pareti di mattoni e assi, pilastri di metallo, casse di legno che ruotano; texture
+  32×32 disegnate da `mkassets.py`), giro automatico della camera. In alto: ms di CPU
+  del fotogramma, fps, triangoli e pixel con texture (circa 460 triangoli e 61 000
+  pixel); B cambia il numero di casse (4, 8, 16, 32) per trovare il limite, X toglie la
+  luce dal pavimento. Test QEMU `test_texroom` (le texture sullo schermo, nessun
+  errore). Da misurare sul Pi.
 - Decisione 2026-09-29: il **modo 32 bit** è rimandato (fuori da M14): raddoppia la
   banda di memoria, che è il limite del Pi Zero, e le sfumature ora le copre il
   dithering.

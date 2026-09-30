@@ -793,7 +793,7 @@ def test_make_image(b, opts):
     q = Qemu(b("kernel.img"), ["-drive", f"if=sd,format=raw,file={img}"])
     try:
         out = q.expect(MENU, timeout=30).decode(errors="replace")
-        assert "FAT32, 63 MiB, label BM33; 10 cartridges" in out, out
+        assert "FAT32, 63 MiB, label BM33; 11 cartridges" in out, out
         time.sleep(0.5)
         seen = set()
         for _ in range(10):                    # right along the grid: each title in turn
@@ -1504,6 +1504,49 @@ def test_games(b, opts):
             time.sleep(0.5)                    # back in the menu
         q.send("q")
         q.expect(PROMPT)
+    finally:
+        q.close()
+
+
+def test_texroom(b, opts):
+    """Texture Room (M14): a textured 3D room at 320x180. The textures show
+    (brick red, crate wood, stone grey all on screen), the crate count
+    changes with B, no Lua error, and it quits with its frame statistics."""
+    q = Qemu(b("kernel.img"))
+    try:
+        q.expect(MENU, timeout=30)
+        time.sleep(0.5)
+        with open(b("carts/texroom.b33"), "rb") as f:
+            assert _upload(q, f.read())
+        time.sleep(3)
+
+        def near(c, ref, tol=40):
+            return all(abs(c[i] - ref[i]) < tol for i in range(3))
+        for _ in range(10):                     # a whole frame (not one being drawn)
+            img = q.screendump()
+            w, h, px = img
+            cols = [tuple(px[(y * w + x) * 3:(y * w + x) * 3 + 3])
+                    for y in range(0, h, 4) for x in range(0, w, 4)]
+            # by hue: the lights change the brightness
+            brick = sum(r > 60 and r > 2 * g and r > 2 * b for r, g, b in cols)
+            wood = sum(r > 50 and r > g + 10 and g > b + 15 and r < 2 * g for r, g, b in cols)
+            stone = sum(r > 50 and abs(r - g) < 12 and abs(g - b) < 16 for r, g, b in cols)
+            hud = sum(near(c, (255, 224, 96), 30) for c in cols[:w // 4 * 4])
+            if brick > 40 and wood > 40 and stone > 300 and hud:
+                break
+            time.sleep(0.5)
+        if opts.shots:
+            _save_png(img, os.path.join(opts.shots, "texroom.png"))
+        print(f"     texroom colours: brick {brick}, wood {wood}, stone {stone}, hud {hud}, "
+              f"{len(set(cols))} distinct")
+        assert brick > 40 and wood > 40 and stone > 300 and hud, (brick, wood, stone, hud)
+        assert len(set(cols)) > 100, len(set(cols))     # textures, not flat faces
+        q.send("x")                             # B: more crates
+        time.sleep(1)
+        q.send("q")
+        out = q.expect("update+draw", timeout=10).decode(errors="replace")
+        assert "stopped with an error" not in out, out
+        assert '"Texture Room"' in out, out[-300:]
     finally:
         q.close()
 
