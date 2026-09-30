@@ -590,143 +590,112 @@ def portrait(i):
 
 # ---------------------------------------------------------------- kitchen textures
 
-# 32x32 each, drawn with light from the top left; noise from a fixed seed
-import random
-_rnd = random.Random(17)
+# 32x32 each, in the game's cartoon style: flat colours, no noise, a dark
+# outline around every shape and one light edge on top
+INK = 0x3A2418                          # outlines (warm dark brown)
 
 
-def grain(c, k=0.08):
-    return shade(c, 1 + (_rnd.random() - 0.5) * 2 * k)
+def box_ink(x, y, w, h, fill, light=None, ink=INK):
+    """a flat rectangle with a 1-pixel outline and a light top edge"""
+    S.rect(x, y, w, h, ink)
+    S.rect(x + 1, y + 1, w - 2, h - 2, fill)
+    if light is not None:
+        S.rect(x + 1, y + 1, w - 2, 1, light)
 
 
 def tex_wood_top():
-    """butcher block: wide strips of light wood, soft joints, fine grain"""
-    cols = [0xE2BC84, 0xD8B07A, 0xE6C28C, 0xDCB47E]
-    for y in range(32):
-        strip = y // 8
-        for x in range(32):
-            c = cols[strip % 4]
-            if y % 8 == 7:
-                c = shade(c, 0.9)                       # the joint between strips
-            elif (x * 3 + y * 7 + strip * 5) % 23 == 0:
-                c = shade(c, 0.94)                      # grain
-            S.set(x, y, grain(c, 0.025))
-    S.rect(0, 0, 32, 1, 0xF4DCB0)                       # the front edge catches light
+    """butcher block: three wide planks, flat, outlined only at the edge"""
+    S.rect(0, 0, 32, 32, INK)
+    cols = [0xF2C478, 0xE8B468, 0xF2C478]
+    for i, y in enumerate((1, 11, 21)):
+        S.rect(1, y, 30, 10 if i < 2 else 10, cols[i])
+        S.rect(1, y, 30, 1, 0xFFE0A8)                   # light edge of each plank
+        if i:
+            S.rect(1, y - 1, 30, 1, 0xC88A48)           # soft joint
+    S.rect(8, 5, 6, 1, 0xD89C50)                        # two knots, simple dashes
+    S.rect(19, 26, 5, 1, 0xD89C50)
 
 
 def tex_cabinet():
-    """the front of a counter: a door with a panel and a steel handle"""
-    S.rect(0, 0, 32, 32, 0xB08A62)
-    S.rect(0, 0, 32, 3, 0x8A6A48)                       # the shadow under the top
-    S.rect(2, 5, 28, 25, 0xC49C70)                      # the door
-    S.rect(2, 5, 28, 1, 0xDCB888)
-    S.rect(2, 29, 28, 1, 0x8A6A48)
-    S.rect(6, 9, 20, 17, 0xB89064)                      # the sunk panel
-    S.rect(6, 9, 20, 1, 0x9A7450)
-    S.rect(6, 25, 20, 1, 0xD8B080)
-    S.rect(12, 7, 8, 2, 0xD8DCE0)                       # the handle
-    S.rect(12, 8, 8, 1, 0x8A9098)
-    for y in range(32):
-        for x in range(32):
-            S.set(x, y, grain(rgb_int(S.get(x, y)), 0.04))
-
-
-def rgb_int(p):
-    return p[0] << 16 | p[1] << 8 | p[2]
+    """the front of a counter: a door with a round-cornered panel and a knob"""
+    S.rect(0, 0, 32, 32, 0xC8925A)
+    S.rect(0, 0, 32, 3, INK)                            # the shadow under the top
+    box_ink(2, 4, 28, 27, 0xE0AA6C, 0xF6CC90)          # the door
+    box_ink(7, 10, 18, 15, 0xD49A5C)                    # the panel
+    S.circle(16, 7, 2, INK)                             # the knob
+    S.circle(16, 7, 1.2, 0xF8E8C8)
 
 
 def tex_stove_top():
-    """dark steel with a burner: a ring and a cast-iron grate"""
-    for y in range(32):
-        for x in range(32):
-            S.set(x, y, grain(0x3A3E46 if (x + y) % 2 else 0x363A42, 0.04))
-    S.ellipse(16, 16, 12, 12, 0x24262C)
-    S.ellipse(16, 16, 10, 10, 0x2E3036)
-    S.ellipse(16, 16, 4, 4, 0x1C1C20)
+    """a cartoon cooker: grey plate, a black ring burner, a blue flame hint"""
+    box_ink(0, 0, 32, 32, 0x707A88, 0x98A4B4)
+    S.circle(16, 16, 12, INK)
+    S.circle(16, 16, 11, 0x2A2C34)
+    S.circle(16, 16, 7, 0x4A4E5A)
+    S.circle(16, 16, 4, INK)
+    S.circle(16, 16, 3, 0x48A0F0)                       # the pilot light
     for a in range(4):                                  # the grate's arms
         ang = a * math.pi / 2 + math.pi / 4
-        S.line(16 + math.cos(ang) * 4, 16 + math.sin(ang) * 4,
-               16 + math.cos(ang) * 13, 16 + math.sin(ang) * 13, 0x101014, 2)
-    S.rect(0, 0, 32, 1, 0x5A5E66)
+        S.line(16 + math.cos(ang) * 5, 16 + math.sin(ang) * 5,
+               16 + math.cos(ang) * 12, 16 + math.sin(ang) * 12, INK, 2)
 
 
 def tex_stove_front():
-    """the front under the burner: two knobs and a vent"""
-    S.rect(0, 0, 32, 32, 0x4A4E58)
-    S.rect(0, 0, 32, 3, 0x30343A)
+    """the cooker's front: two big round knobs"""
+    box_ink(0, 0, 32, 32, 0x5A6272, 0x7A8494)
     for kx in (9, 23):
-        S.circle(kx, 11, 4, 0x1E2026)
-        S.circle(kx, 10.5, 3, 0x9098A4)
-        S.line(kx, 8, kx, 11, 0x1E2026)
-    for i in range(4):                                  # the vent slots
-        S.rect(6, 19 + i * 3, 20, 1, 0x30343A)
-    S.rect(0, 31, 32, 1, 0x30343A)
+        S.circle(kx, 12, 5, INK)
+        S.circle(kx, 12, 4, 0xF0F0F0)
+        S.rect(kx - 1, 8, 2, 4, INK)                   # the pointer
+    box_ink(5, 21, 22, 6, 0x3A404C)                     # a vent
 
 
 def tex_oven():
-    """a brick-red oven door with a glowing window and a handle"""
-    S.rect(0, 0, 32, 32, 0x8A4A3A)
-    S.rect(0, 0, 32, 3, 0x6A3628)
-    S.rect(3, 5, 26, 25, 0x9A5444)
-    S.rect(5, 7, 22, 2, 0xC8CCD2)                       # the handle
-    S.rect(5, 8, 22, 1, 0x7A8088)
-    S.rect(6, 12, 20, 14, 0x2A1E1A)                     # the window
-    for y in range(13, 25):
-        for x in range(7, 25):
-            t = 1 - abs(y - 21) / 10
-            S.set(x, y, mix(0x3A2418, 0xF08830, max(0, t) * 0.9))
-    S.rect(7, 13, 18, 1, 0x5A4034)
-    for i in range(3):                                  # the dials above
-        S.circle(9 + i * 7, 2, 1, 0xE0C080)
+    """a red oven door with a round glowing window and a white handle"""
+    box_ink(0, 0, 32, 32, 0xD8503C, 0xF07860)
+    box_ink(4, 5, 24, 4, 0xF8F4EC)                      # the handle
+    S.ellipse(16, 19, 11, 9, INK)                        # the window
+    S.ellipse(16, 19, 10, 8, 0xFFA030)
+    S.ellipse(16, 21, 7, 5, 0xFFD060)                   # the warm glow
+    S.rect(10, 14, 5, 1, 0xFFF0C0)                      # a shine on the glass
 
 
 def tex_crate():
-    """a crate's side: slats with nails"""
-    for y in range(32):
-        for x in range(32):
-            c = 0xB07A44 if (y // 8) % 2 else 0xA06A3A
-            if y % 8 == 7:
-                c = 0x5A3A1E
-            S.set(x, y, grain(c, 0.08))
-    for y in (3, 11, 19, 27):
-        S.set(3, y, 0x3A2A1E)
-        S.set(28, y, 0x3A2A1E)
-    S.rect(0, 0, 2, 32, 0x6A4424)
-    S.rect(30, 0, 2, 32, 0x6A4424)
+    """a crate: two flat slats and a cross brace, thick outlines"""
+    S.rect(0, 0, 32, 32, INK)
+    S.rect(1, 1, 30, 30, 0xE09A50)
+    box_ink(0, 0, 32, 5, 0xC87C38, 0xF0B070)            # top rail
+    box_ink(0, 27, 32, 5, 0xC87C38, 0xF0B070)           # bottom rail
+    S.line(3, 24, 28, 7, INK, 3)                        # the brace
+    S.line(3, 24, 28, 7, 0xC87C38, 1)
+    for x, y in ((3, 2), (28, 2), (3, 29), (28, 29)):  # nail heads
+        S.set(x, y, INK)
 
 
 def tex_sink():
-    """a steel counter with a basin and the drain"""
-    for y in range(32):
-        for x in range(32):
-            S.set(x, y, grain(0xB8C4D0, 0.03))
-    S.rect(4, 5, 24, 22, 0x6A7A8C)                      # the basin's walls
-    S.rect(6, 7, 20, 18, 0x8698AC)                      # its floor
-    S.rect(6, 7, 20, 2, 0x5A6A7C)
-    S.circle(16, 17, 2, 0x3A4450)                       # the drain
-    S.rect(4, 5, 24, 1, 0x4A5A6A)
-    S.rect(0, 0, 32, 1, 0xE0E8F0)
+    """a light steel top with a rounded blue basin"""
+    box_ink(0, 0, 32, 32, 0xC8D4E0, 0xF0F6FC)
+    S.rect(5, 6, 22, 21, INK)                           # the basin
+    S.rect(6, 7, 20, 19, 0x6AB0E8)                      # water-blue floor
+    S.rect(6, 7, 20, 3, 0x4A88C8)                       # its back wall in shade
+    S.circle(16, 19, 2, INK)                            # the drain
+    S.rect(8, 12, 4, 1, 0xC8E8FF)                       # a shine
 
 
 def tex_steel():
-    """brushed steel: long faint lines"""
-    for y in range(32):
-        for x in range(32):
-            c = 0xC8D0D8 if (y * 7 + x // 11) % 5 else 0xB8C0C8
-            S.set(x, y, grain(c, 0.02))
-    S.rect(0, 0, 32, 1, 0xF0F4F8)
+    """the pass: plain light steel with two shine stripes"""
+    box_ink(0, 0, 32, 32, 0xD0D8E4, 0xF8FCFF)
+    S.line(6, 26, 14, 6, 0xF8FCFF, 2)
+    S.line(12, 28, 18, 14, 0xF8FCFF, 1)
 
 
 def tex_belt():
-    """a conveyor from above: rubber belt over rollers (runs along y)"""
-    for y in range(32):
-        for x in range(32):
-            c = 0x3A3E44
-            if y % 8 in (0, 1):
-                c = 0x2A2C30                           # the rubber's ribs
-            if x < 3 or x > 28:
-                c = 0x8A929C                            # the side rails
-            S.set(x, y, grain(c, 0.05))
+    """a conveyor from above: dark belt with bold ribs, yellow side rails"""
+    S.rect(0, 0, 32, 32, 0x3A3E48)
+    for y in range(0, 32, 8):                           # the ribs (it runs along y)
+        S.rect(3, y, 26, 3, INK)
+    for x0 in (0, 29):
+        box_ink(x0, 0, 3, 32, 0xF0C030)
 
 
 KITCHEN_TEX = [tex_wood_top, tex_cabinet, tex_stove_top, tex_stove_front, tex_oven,

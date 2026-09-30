@@ -512,7 +512,9 @@ Dopo: variazioni di lancio per cuoco.
 - **Restyling con texture mirate** (2026-09-30, dopo M14): piani dei banconi in legno,
   ante sui fronti, fornelli in acciaio con griglia e manopole, sportello del forno con
   la finestra accesa, casse a doghe, lavello con vasca, passe in acciaio, nastro a
-  rulli (9 texture 32×32 nel foglio in (128, 80), `mkassets.py`); pavimento e pareti
+  rulli (9 texture 32×32 nel foglio in (128, 80), `mkassets.py`), in **stile cartoon**
+  come il resto del gioco: tinte piatte, contorni scuri, un riflesso chiaro, niente
+  grana; pavimento e pareti
   restano a tinta unita (costano meno) con uno zoccolo scuro alla base dei muri.
   Opzione **KITCHEN: TEXTURED / FLAT** per tornare ai colori pieni se sul Pi non
   bastano i 60 fps. Da misurare sul Pi.
