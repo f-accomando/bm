@@ -505,6 +505,11 @@ sheet (y = 128) e scrive `src/16_chef_models.lua`. Nelle opzioni si torna agli c
 
 Dopo: variazioni di lancio per cuoco.
 
+- Decisione 2026-09-30: gli chef 3D hanno di nuovo le **dimensioni dei modelli
+  originali** (tutti alti circa 1 casella: Basil 0,92, Bun 1,00, Noodle 1,00, Pepper
+  0,88), invece delle altezze dei vecchi chef a blocchi (1,35 / 1,05 / 1,65 / 0,92)
+  imposte dall'import; texture e forme invariate (`import_chefs.py`).
+
 ## M18 — WiFi e console di rete (L/XL)
 Decisione 2026-09-28: versioni "leggere", in coda dopo M17.
 - **WiFi**: il BCM43438 (lo stesso chip del Bluetooth) è sul bus SDIO. Driver SDIO sul
