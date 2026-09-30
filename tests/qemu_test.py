@@ -1222,6 +1222,8 @@ class FakeDs4Chip(FakeBtChip):
         self.cmd(0x1009, ret=self.ADDR)                                # check at the new speed
         for op in (0x0C01, 0x0C56, 0x0C13, 0x0C24, 0x0C1A):
             self.cmd(op)
+        self.cmd(0x2001)                                               # LE event mask
+        self.cmd(0x2002, ret=bytes([27, 0, 8]))                        # LE buffers: 8 of 27 bytes
 
     # L2CAP from the pad's side
     def l2(self, cid, data, handle=None):
@@ -1462,6 +1464,423 @@ def test_bt_pair_and_reconnect(b, opts):
             q.close()
     finally:
         shutil.rmtree(tmp, ignore_errors=True)
+
+
+class FakeMxKeys(FakeDs4Chip):
+    """The chip plus a Bluetooth LE keyboard behind it (like a Logitech MX
+    Keys S): advertising, LE connection, SMP pairing as responder (LE Secure
+    Connections, Passkey Entry: it "types" the code bm33 shows), its identity
+    key, a HID-over-GATT server, key reports as notifications; later it
+    comes back from a resolvable private address."""
+
+    ADDR_LE = bytes([0x21, 0x43, 0x65, 0x87, 0xA9, 0xCB | 0xC0])      # static random
+    IDENTITY = bytes([0x56, 0x34, 0x12, 0x9E, 0x6D, 0x00])            # 00:6d:9e:12:34:56 public
+    IRK = bytes(range(0x30, 0x40))
+    LE_HANDLE = 0x0040
+    REPORT_MAP = bytes([
+        0x05, 0x01, 0x09, 0x06, 0xA1, 0x01, 0x85, 0x01, 0x05, 0x07, 0x19, 0xE0, 0x29, 0xE7,
+        0x15, 0x00, 0x25, 0x01, 0x75, 0x01, 0x95, 0x08, 0x81, 0x02, 0x95, 0x01, 0x75, 0x08,
+        0x81, 0x01, 0x95, 0x05, 0x75, 0x01, 0x05, 0x08, 0x19, 0x01, 0x29, 0x05, 0x91, 0x02,
+        0x95, 0x01, 0x75, 0x03, 0x91, 0x01, 0x95, 0x06, 0x75, 0x08, 0x15, 0x00, 0x26, 0xFF,
+        0x00, 0x05, 0x07, 0x19, 0x00, 0x2A, 0xFF, 0x00, 0x81, 0x00, 0xC0,
+        0x05, 0x0C, 0x09, 0x01, 0xA1, 0x01, 0x85, 0x03, 0x75, 0x10, 0x95, 0x02, 0x15, 0x01,
+        0x26, 0xFF, 0x02, 0x19, 0x01, 0x2A, 0xFF, 0x02, 0x81, 0x00, 0xC0])
+
+    def __init__(self, port):
+        super().__init__(port)
+        self.frames, self.rx = [], b""
+        # the GATT database: handle -> (type, value)
+        db = {0x10: (0x2800, (0x1812).to_bytes(2, "little"))}
+        chars = [(0x11, 0x02, 0x2A4A, bytes([0x11, 0x01, 0x00, 0x03])),
+                 (0x13, 0x02, 0x2A4B, self.REPORT_MAP),
+                 (0x15, 0x1A, 0x2A4D, bytes(8)), (0x19, 0x0E, 0x2A4D, bytes(1)),
+                 (0x1C, 0x12, 0x2A4D, bytes(4)), (0x20, 0x04, 0x2A4C, bytes(1)),
+                 (0x22, 0x06, 0x2A4E, bytes([1]))]
+        for h, props, uuid, value in chars:
+            db[h] = (0x2803, bytes([props]) + (h + 1).to_bytes(2, "little") + uuid.to_bytes(2, "little"))
+            db[h + 1] = (uuid, value)
+        db.update({0x17: (0x2902, bytes(2)), 0x18: (0x2908, bytes([1, 1])), 0x1B: (0x2908, bytes([1, 2])),
+                   0x1E: (0x2902, bytes(2)), 0x1F: (0x2908, bytes([3, 1]))})
+        self.db, self.svc_end = db, 0x23
+
+    # ---- transport
+    def _next(self, want_cmd=None, want_cid=None, timeout=60):
+        """Answers commands and collects L2CAP frames until the command
+        `want_cmd` or a frame on `want_cid` comes; returns its parameters."""
+        deadline = time.time() + timeout
+        while time.time() < deadline:
+            for i, (cid, data) in enumerate(self.frames):
+                if cid == want_cid:
+                    del self.frames[i]
+                    return data
+            kind, a, payload = self.packet_any()
+            if kind == "cmd":
+                self.log.append((a, payload))
+                if a in (0x200D, 0x2019, 0x0406):
+                    self.status(a)
+                else:
+                    self._complete(a)
+                if a == want_cmd:
+                    return payload
+            else:
+                pb, data = a, payload
+                self.rx = data if pb != 1 else self.rx + data
+                if len(self.rx) >= 4 and len(self.rx) >= 4 + int.from_bytes(self.rx[:2], "little"):
+                    n = int.from_bytes(self.rx[:2], "little")
+                    self.frames.append((int.from_bytes(self.rx[2:4], "little"), self.rx[4:4 + n]))
+                    self.rx = b""
+        raise AssertionError(f"fake keyboard: timeout waiting for {want_cmd or want_cid:#x}")
+
+    def packet_any(self):
+        t = self._read(1, timeout=60)[0]
+        if t == 0x01:
+            op = int.from_bytes(self._read(2), "little")
+            return "cmd", op, self._read(self._read(1)[0])
+        assert t == 0x02, f"fake chip: packet type {t:#x}"
+        hdr = self._read(4)
+        h = int.from_bytes(hdr[:2], "little")
+        assert h & 0x0FFF == self.LE_HANDLE, f"ACL on handle {h & 0xFFF:#x}"
+        data = self._read(int.from_bytes(hdr[2:4], "little"))
+        assert len(data) <= 27, f"host sent {len(data)} bytes in one packet (buffers are 27)"
+        return "acl", (h >> 12) & 3, data
+
+    def send_l2(self, cid, data, piece=None):
+        frame = len(data).to_bytes(2, "little") + cid.to_bytes(2, "little") + data
+        piece = piece or len(frame)
+        for off in range(0, len(frame), piece):
+            flag = 0x2000 if off == 0 else 0x1000
+            chunk = frame[off:off + piece]
+            self.port.write(bytes([0x02]) + (self.LE_HANDLE | flag).to_bytes(2, "little")
+                            + len(chunk).to_bytes(2, "little") + chunk)
+
+    def le_meta(self, sub, params):
+        self._event(0x3E, bytes([sub]) + params)
+
+    def advertise(self, addr, addr_type, data):
+        self.le_meta(0x02, bytes([1, 0x00, addr_type]) + addr + bytes([len(data)]) + data + bytes([0xC8]))
+
+    def connect(self, addr, addr_type):
+        p = self._next(want_cmd=0x200D)
+        assert p[5] == addr_type and p[6:12] == addr, p.hex()
+        self.le_meta(0x01, bytes([0]) + self.LE_HANDLE.to_bytes(2, "little") + bytes([0, addr_type]) + addr
+                     + bytes([0x0C, 0, 0, 0, 0xC8, 0, 0]))
+
+    # ---- crypto (spec order: protocol bytes are least significant first)
+    @staticmethod
+    def _cmac(k, m):
+        from Crypto.Hash import CMAC
+        from Crypto.Cipher import AES
+        c = CMAC.new(bytes(reversed(k)), ciphermod=AES)
+        c.update(bytes(reversed(m)))
+        return bytes(reversed(c.digest()))
+
+    def f4(self, u, v, x, z):
+        return self._cmac(x, bytes([z]) + v + u)
+
+    def f5(self, w, n1, n2, a1, a2):
+        salt = bytes.fromhex("6c888391aaf5a53860370bdb5a6083be")[::-1]
+        t = self._cmac(salt, w)
+        m = bytes([0, 1]) + a2 + a1 + n2 + n1 + bytes([0x65, 0x6C, 0x74, 0x62])
+        return self._cmac(t, m + bytes([0])), self._cmac(t, m + bytes([1]))
+
+    def f6(self, w, n1, n2, r, io, a1, a2):
+        return self._cmac(w, a2 + a1 + io + r + n2 + n1)
+
+    @staticmethod
+    def ah(irk, prand):
+        from Crypto.Cipher import AES
+        r = bytes(reversed(prand + bytes(13)))
+        return bytes(reversed(AES.new(bytes(reversed(irk)), AES.MODE_ECB).encrypt(r)))[:3]
+
+    # ---- the keyboard's side
+    def pair(self, host_addr, get_passkey):
+        """Advertises in pairing mode, is connected, pairs (SC passkey)."""
+        from Crypto.PublicKey import ECC
+        # scan: parameters and enable, then the keyboard is seen
+        self._next(want_cmd=0x200B)
+        self._next(want_cmd=0x200C)
+        adv = bytes([2, 0x01, 0x05, 3, 0x19, 0xC1, 0x03, 3, 0x03, 0x12, 0x18, 10, 0x09]) + b"MX Keys S"
+        self.advertise(self.ADDR_LE, 1, adv)
+        self.connect(self.ADDR_LE, 1)
+        preq = self._next(want_cid=6)
+        assert preq[0] == 0x01 and preq[1] == 0x00 and preq[3] & 0x0D == 0x0D, preq.hex()
+        pres = bytes([0x02, 0x02, 0x00, 0x0D, 16, 0x00, 0x02])       # KeyboardOnly, SC; we give our IRK
+        self.send_l2(6, pres)
+        pk = self._next(want_cid=6)
+        assert pk[0] == 0x0C and len(pk) == 65, pk.hex()
+        pkax = pk[1:33]
+        host_pub = ECC.construct(curve="P-256", point_x=int.from_bytes(pk[1:33], "little"),
+                                 point_y=int.from_bytes(pk[33:65], "little"))
+        key = ECC.generate(curve="P-256")
+        pkbx = int(key.pointQ.x).to_bytes(32, "little")
+        pkby = int(key.pointQ.y).to_bytes(32, "little")
+        self.send_l2(6, bytes([0x0C]) + pkbx + pkby, piece=27)      # in pieces, like the chip
+        dh = int((host_pub.pointQ * key.d).x).to_bytes(32, "little")
+        passkey = get_passkey()
+        for i in range(20):
+            z = 0x80 | ((passkey >> i) & 1)
+            ca = self._next(want_cid=6)
+            assert ca[0] == 0x03, ca.hex()
+            nb = os.urandom(16)
+            self.send_l2(6, bytes([0x03]) + self.f4(pkbx, pkax, nb, z))
+            na = self._next(want_cid=6)
+            assert na[0] == 0x04, na.hex()
+            assert self.f4(pkax, pkbx, na[1:], z) == ca[1:], f"round {i}: host confirm is wrong"
+            self.send_l2(6, bytes([0x04]) + nb)
+        a = host_addr + bytes([0])
+        b_ = self.ADDR_LE + bytes([1])
+        mackey, ltk = self.f5(dh, na[1:], nb, a, b_)
+        r = passkey.to_bytes(16, "little")
+        ea = self._next(want_cid=6)
+        assert ea[0] == 0x0D and ea[1:] == self.f6(mackey, na[1:], nb, r, preq[1:4], a, b_), "bad Ea"
+        self.send_l2(6, bytes([0x0D]) + self.f6(mackey, nb, na[1:], r, pres[1:4], b_, a))
+        enc = self._next(want_cmd=0x2019)
+        assert enc[12:28] == ltk and enc[2:12] == bytes(10), "host encrypts with another key"
+        self._event(0x08, bytes([0]) + self.LE_HANDLE.to_bytes(2, "little") + bytes([1]))
+        self.send_l2(6, bytes([0x08]) + self.IRK)
+        self.send_l2(6, bytes([0x09, 0]) + self.IDENTITY)
+        self.ltk = ltk
+
+    @staticmethod
+    def e(k, r):
+        from Crypto.Cipher import AES
+        return bytes(reversed(AES.new(bytes(reversed(k)), AES.MODE_ECB).encrypt(bytes(reversed(r)))))
+
+    def c1(self, k, r, preq, pres, iat, ia, rat, ra):
+        p1 = bytes([iat, rat]) + preq + pres
+        p2 = ra + ia + bytes(4)
+        t = self.e(k, bytes(a ^ b for a, b in zip(r, p1)))
+        return self.e(k, bytes(a ^ b for a, b in zip(t, p2)))
+
+    def pair_legacy(self, host_addr, get_passkey):
+        """The same keyboard without Secure Connections: LE legacy pairing,
+        passkey, STK, then its LTK/EDIV/Rand and identity."""
+        self._next(want_cmd=0x200B)
+        self._next(want_cmd=0x200C)
+        adv = bytes([2, 0x01, 0x05, 3, 0x19, 0xC1, 0x03, 3, 0x03, 0x12, 0x18, 10, 0x09]) + b"MX Keys S"
+        self.advertise(self.ADDR_LE, 1, adv)
+        self.connect(self.ADDR_LE, 1)
+        preq = self._next(want_cid=6)
+        assert preq[0] == 0x01, preq.hex()
+        pres = bytes([0x02, 0x02, 0x00, 0x05, 16, 0x00, 0x03])       # no SC; LTK and IRK
+        self.send_l2(6, pres)
+        tk = get_passkey().to_bytes(16, "little")
+        mconfirm = self._next(want_cid=6)
+        assert mconfirm[0] == 0x03, mconfirm.hex()
+        srand = os.urandom(16)
+        self.send_l2(6, bytes([0x03]) + self.c1(tk, srand, preq, pres, 0, host_addr, 1, self.ADDR_LE))
+        mrand = self._next(want_cid=6)
+        assert mrand[0] == 0x04
+        assert self.c1(tk, mrand[1:], preq, pres, 0, host_addr, 1, self.ADDR_LE) == mconfirm[1:], "bad Mconfirm"
+        self.send_l2(6, bytes([0x04]) + srand)
+        stk = self.e(tk, mrand[1:9] + srand[:8])
+        enc = self._next(want_cmd=0x2019)
+        assert enc[12:28] == stk and enc[2:12] == bytes(10), "host encrypts with another STK"
+        self._event(0x08, bytes([0]) + self.LE_HANDLE.to_bytes(2, "little") + bytes([1]))
+        self.ltk, self.ediv, self.rand = os.urandom(16), 0x1234, bytes(range(1, 9))
+        self.send_l2(6, bytes([0x06]) + self.ltk)
+        self.send_l2(6, bytes([0x07]) + self.ediv.to_bytes(2, "little") + self.rand)
+        self.send_l2(6, bytes([0x08]) + self.IRK)
+        self.send_l2(6, bytes([0x09, 0]) + self.IDENTITY)
+
+    def serve_gatt(self):
+        """Answers the host's GATT client until it turns notifications on."""
+        while True:
+            req = self._next(want_cid=4)
+            op = req[0]
+            if op == 0x06:                                           # find by type value
+                assert req[5:9] == bytes([0x00, 0x28, 0x12, 0x18]), req.hex()
+                self.send_l2(4, bytes([0x07, 0x10, 0x00, self.svc_end, 0x00]))
+            elif op == 0x08:                                         # read by type (chars)
+                start, end = int.from_bytes(req[1:3], "little"), int.from_bytes(req[3:5], "little")
+                hs = [h for h in sorted(self.db) if start <= h <= end and self.db[h][0] == 0x2803][:3]
+                if not hs:
+                    self.send_l2(4, bytes([0x01, 0x08]) + req[1:3] + bytes([0x0A]))
+                else:
+                    self.send_l2(4, bytes([0x09, 7]) + b"".join(h.to_bytes(2, "little") + self.db[h][1] for h in hs))
+            elif op == 0x04:                                         # find information
+                start, end = int.from_bytes(req[1:3], "little"), int.from_bytes(req[3:5], "little")
+                hs = [h for h in sorted(self.db) if start <= h <= end][:5]
+                if not hs:
+                    self.send_l2(4, bytes([0x01, 0x04]) + req[1:3] + bytes([0x0A]))
+                else:
+                    self.send_l2(4, bytes([0x05, 1]) + b"".join(
+                        h.to_bytes(2, "little") + self.db[h][0].to_bytes(2, "little") for h in hs))
+            elif op in (0x0A, 0x0C):                                 # read, read blob
+                h = int.from_bytes(req[1:3], "little")
+                off = int.from_bytes(req[3:5], "little") if op == 0x0C else 0
+                value = self.db[h][1]
+                if off > len(value):
+                    self.send_l2(4, bytes([0x01, op]) + req[1:3] + bytes([0x07]))
+                else:
+                    self.send_l2(4, bytes([op + 1]) + value[off:off + 22])
+            elif op == 0x12:                                         # write request
+                h = int.from_bytes(req[1:3], "little")
+                assert h == 0x17 and req[3:5] == bytes([1, 0]), f"notifications on {h:#x}"
+                self.send_l2(4, bytes([0x13]))
+                return
+            else:
+                raise AssertionError(f"unexpected ATT request {req.hex()}")
+
+    def keys(self, *usages, mods=0):
+        """A keyboard report (report ID 1: mods, reserved, 6 keys)."""
+        rep = bytes([mods, 0]) + bytes(usages) + bytes(6 - len(usages))
+        self.send_l2(4, bytes([0x1B, 0x16, 0x00]) + rep)
+
+    def come_back(self):
+        """Disconnects, then advertises from a new resolvable private address."""
+        self._event(0x05, bytes([0]) + self.LE_HANDLE.to_bytes(2, "little") + bytes([0x08]))
+        self._next(want_cmd=0x200B)
+        self._next(want_cmd=0x200C)
+        prand = bytes([0x11, 0x22, 0x40 | 0x33])
+        rpa = self.ah(self.IRK, prand) + prand
+        self.advertise(bytes([9, 9, 9, 9, 9, 0x49]), 1, bytes([2, 0x01, 0x04]))    # someone else
+        self.advertise(rpa, 1, bytes([2, 0x01, 0x04]))
+        self.connect(rpa, 1)
+        enc = self._next(want_cmd=0x2019)
+        assert enc[12:28] == self.ltk and enc[2:12] == bytes(10), "saved key not used"
+        self._event(0x08, bytes([0]) + self.LE_HANDLE.to_bytes(2, "little") + bytes([1]))
+
+
+def test_bt_keyboard(b, opts):
+    """M16 LE keyboard with a simulated MX Keys: 'K' pairs it (LE Secure
+    Connections, the code shown on screen typed on the keyboard, its IRK),
+    GATT finds the keyboard report in the report map, keys type in the
+    monitor (keypad too); it comes back from a private address and is
+    recognised by its IRK; the keys are in bm33/config.txt."""
+    try:
+        import Crypto  # noqa: F401  (pycryptodome, for the simulated keyboard)
+    except ImportError:
+        print("    skipped: pip install pycryptodome")
+        return
+    tmp = tempfile.mkdtemp(prefix="bm33-bt-")
+    img = os.path.join(tmp, "sd.img")
+    hcd = os.path.join(tmp, "BCM43430A1.hcd")
+    with open(hcd, "wb") as f:
+        f.write(bytes([0x4C, 0xFC, 4, 1, 2, 3, 4, 0x4E, 0xFC, 4, 0xFF, 0xFF, 0xFF, 0xFF]))
+    mksd.build(img, [(hcd, "bm33/BCM43430A1.hcd")])
+    drive = ["-drive", f"if=sd,format=raw,file={img}"]
+    q = Qemu(b("kernel.img"), drive, mini_uart=True)
+    q.mini_buf = b""
+    try:
+        q.boot()
+        q.send("K")
+        q.expect("(same pins, same speed)\r\n")
+        chip = FakeMxKeys(q.port)
+        chip.buf, q.buf = q.buf, b""
+        chip.init(reset_silent=False)
+
+        early = []
+
+        def passkey():
+            early.append(_mini_expect(q, "then Enter:"))
+            text = ""
+            deadline = time.time() + 10
+            import re
+            while not re.search(r"\b\d{6}\b", text) and time.time() < deadline:
+                q.mini_buf += q.mini.read(0.05)
+                text = q.mini_buf.decode(errors="replace")
+            m = re.search(r"\b(\d{6})\b", text)
+            assert m, text
+            return int(m.group(1))
+        try:
+            chip.pair(FakeBtChip.ADDR, passkey)
+            chip.serve_gatt()
+        except AssertionError:
+            q.mini_buf += q.mini.read(0.5)
+            print(q.mini_buf.decode(errors="replace")[-3000:])
+            raise
+        out = "".join(early) + _mini_expect(q, "ready to type")
+        for s_ in ("found keyboard cb:a9:87:65:43:21 MX Keys S (random address)",
+                   "pairing, LE Secure Connections, the keyboard types a code",
+                   "keyboard 00:6d:9e:12:34:56 paired (Secure Connections, private address)",
+                   "keyboard MX Keys S connected"):
+            assert s_ in out, out
+        # typing: 'i' (info) in the monitor
+        time.sleep(0.3)
+        chip.keys(0x0C)
+        chip.keys()
+        _mini_expect(q, "uptime")
+        # back from a private address: found by its IRK, the saved LTK
+        chip.come_back()
+        chip.serve_gatt()
+        _mini_expect(q, "ready to type")
+        time.sleep(0.3)
+        chip.keys(0x0C)
+        chip.keys()
+        _mini_expect(q, "uptime")
+    finally:
+        q.close()
+    part = os.path.join(tmp, "part.img")
+    with open(img, "rb") as f, open(part, "wb") as o:
+        f.seek(2048 * 512)
+        o.write(f.read())
+    env = dict(os.environ, MTOOLS_SKIP_CHECK="1")
+    cfg = subprocess.run(["mtype", "-i", part, "::/BM33/CONFIG.TXT"], capture_output=True,
+                         text=True, env=env).stdout
+    shutil.rmtree(tmp, ignore_errors=True)
+    assert "bt_kbd=00:6d:9e:12:34:56 0 " + FakeMxKeys.IRK.hex() in cfg, cfg
+    assert "bt_kbd_key=" + chip.ltk.hex() + " 0000 0000000000000000" in cfg, cfg
+
+
+
+def test_bt_keyboard_legacy(b, opts):
+    """The keyboard without LE Secure Connections: legacy pairing (c1, s1)
+    with the code, its LTK/EDIV/Rand saved, the keypad types."""
+    try:
+        import Crypto  # noqa: F401
+    except ImportError:
+        print("    skipped: pip install pycryptodome")
+        return
+    import re
+    tmp = tempfile.mkdtemp(prefix="bm33-bt-")
+    img = os.path.join(tmp, "sd.img")
+    hcd = os.path.join(tmp, "BCM43430A1.hcd")
+    with open(hcd, "wb") as f:
+        f.write(bytes([0x4C, 0xFC, 4, 1, 2, 3, 4, 0x4E, 0xFC, 4, 0xFF, 0xFF, 0xFF, 0xFF]))
+    mksd.build(img, [(hcd, "bm33/BCM43430A1.hcd")])
+    q = Qemu(b("kernel.img"), ["-drive", f"if=sd,format=raw,file={img}"], mini_uart=True)
+    q.mini_buf = b""
+    try:
+        q.boot()
+        q.send("K")
+        q.expect("(same pins, same speed)\r\n")
+        chip = FakeMxKeys(q.port)
+        chip.buf, q.buf = q.buf, b""
+        chip.init(reset_silent=False)
+        early = []
+
+        def passkey():
+            early.append(_mini_expect(q, "then Enter:"))
+            text, deadline = "", time.time() + 10
+            while not re.search(r"\b\d{6}\b", text) and time.time() < deadline:
+                q.mini_buf += q.mini.read(0.05)
+                text = q.mini_buf.decode(errors="replace")
+            return int(re.search(r"\b(\d{6})\b", text).group(1))
+        chip.pair_legacy(FakeBtChip.ADDR, passkey)
+        chip.serve_gatt()
+        out = "".join(early) + _mini_expect(q, "ready to type")
+        assert "pairing, LE legacy, the keyboard types a code" in out and \
+            "keyboard 00:6d:9e:12:34:56 paired (legacy, private address)" in out, out
+        # the Lua prompt: 7 * 6 on the keypad, keypad Enter -> 42
+        time.sleep(0.3)
+        chip.keys(0x0F)                                   # 'l': Lua
+        chip.keys()
+        _mini_expect(q, "lua>", timeout=10)
+        for u in (0x5F, 0x55, 0x5E, 0x58):
+            chip.keys(u)
+            chip.keys()
+        _mini_expect(q, "42")
+    finally:
+        q.close()
+    part = os.path.join(tmp, "part.img")
+    with open(img, "rb") as f, open(part, "wb") as o:
+        f.seek(2048 * 512)
+        o.write(f.read())
+    cfg = subprocess.run(["mtype", "-i", part, "::/BM33/CONFIG.TXT"], capture_output=True, text=True,
+                         env=dict(os.environ, MTOOLS_SKIP_CHECK="1")).stdout
+    shutil.rmtree(tmp, ignore_errors=True)
+    assert f"bt_kbd_key={chip.ltk.hex()} 1234 {chip.rand.hex()}" in cfg, cfg
 
 
 PLAYERS_CART = r"""

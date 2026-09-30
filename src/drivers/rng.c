@@ -8,14 +8,14 @@
 #define RNG_CTRL    (RNG_BASE + 0x0)
 #define RNG_STATUS  (RNG_BASE + 0x4)        /* bits 31..24: words ready */
 #define RNG_DATA    (RNG_BASE + 0x8)
-#define RNG_INT_MASK (RNG_BASE + 0x10)
 
 static int started;
 
 static void start(void)
 {
+    /* polled: its interrupt stays off in the interrupt controller, so the
+     * mask register (0x10, missing in QEMU) is left alone */
     mmio_write(RNG_STATUS, 0x40000);        /* discard the first numbers (warm-up) */
-    mmio_write(RNG_INT_MASK, mmio_read(RNG_INT_MASK) | 1);
     mmio_write(RNG_CTRL, 1);
     started = 1;
 }

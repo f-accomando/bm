@@ -19,6 +19,7 @@
  * No SDP: the report format of the supported pad is known.
  */
 #include "bt.h"
+#include "ble.h"
 #include "btuart.h"
 #include "hci.h"
 #include "drivers/gpio.h"
@@ -477,6 +478,7 @@ int bt_start(void)
     addr_str(as, a);
     kprintf("bt: ready, address %s, HCI %u, LMP subversion %04x, %lu baud\n", as, v[0],
             v[6] | v[7] << 8, fast);
+    ble_init(a);                                            /* LE: keyboards */
     bt.started = 1;
     for (int i = 0; i < BT_PADS; i++)
         bt.link[i].used = 0;
@@ -519,6 +521,7 @@ int bt_forget_all(void)
         n++;
     config_unset("bt_pad");
     bt.legacy_key = 0;
+    n += ble_forget();
     config_save();
     return n;
 }
@@ -531,7 +534,19 @@ int bt_paired(void)
         if (config_get(name))
             return 1;
     }
-    return config_get("bt_pad") != NULL;
+    return config_get("bt_pad") != NULL || ble_paired();
+}
+
+void bt_pair_keyboard(unsigned seconds)
+{
+    if (!bt.started && bt_start() != 0)
+        return;
+    ble_pair(seconds);
+}
+
+int bt_keyboard(void)
+{
+    return bt.started && ble_connected();
 }
 
 /* ---------------------------------------------------------------- L2CAP */
@@ -916,10 +931,22 @@ static void handle_event(const hci_pkt_t *p)
 
 static void dispatch(const hci_pkt_t *p)
 {
-    if (p->type == HCI_EVENT)
-        handle_event(p);
-    else if (p->type == HCI_ACL)
-        handle_acl(p);
+    if (p->type == HCI_EVENT) {
+        if (!ble_event(p))
+            handle_event(p);
+    } else if (p->type == HCI_ACL) {
+        if (!ble_acl(p))
+            handle_acl(p);
+    }
+}
+
+int bt_pump(uint32_t timeout_us)
+{
+    static hci_pkt_t p;
+    if (hci_recv(&p, timeout_us) != 0)
+        return -1;
+    dispatch(&p);
+    return 0;
 }
 
 /* A paired pad that connected by itself but opened no HID channel: we
@@ -986,6 +1013,7 @@ void bt_poll(void)
             break;
         dispatch(&p);
     }
+    ble_poll();
 }
 
 /* Runs the stack until *flag is set or timeout_ms passes; 0 if set. -1 also

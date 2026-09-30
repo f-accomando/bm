@@ -1006,6 +1006,41 @@ Da provare sul Pi:
   cambiare layout, riavviare); il menu resta a 60 fps; ogni funzione ha un test in
   QEMU.
 
+## M28 — Tastiera Bluetooth LE (M) — 🛠 da provare sul Pi
+Richiesta 2026-09-30: una Logitech **MX Keys S** (con tastierino). È Bluetooth **Low
+Energy** (HID over GATT), non Bluetooth classico come il DS4: serve una parte nuova
+dello stack.
+
+Fatto (QEMU, `test_bt_keyboard` con una MX Keys simulata; `make test-smp`):
+- `src/bt/ble.c`: scansione LE, connessione come central, frammentazione e ricomposizione
+  L2CAP sui buffer LE del chip (27 byte), segnalazione LE (aggiornamento dei parametri
+  di connessione accettato), server ATT vuoto che risponde "non trovato".
+- **Pairing SMP** come iniziatore, con codice: bm33 mostra 6 cifre, si digitano sulla
+  tastiera seguite da Invio (Passkey Entry). **LE Secure Connections** (P-256 con
+  mbedTLS, f4/f5/f6 su AES-CMAC) se la tastiera lo supporta, altrimenti LE legacy
+  (c1/s1); Just Works se la tastiera non può digitare. `src/bt/smp_crypto.c`, provato con
+  i dati d'esempio della specifica (Vol 3 Part H, appendice D) e RFC 4493.
+- Legame salvato in `bm33/config.txt`: `bt_kbd` (indirizzo d'identità, tipo, IRK) e
+  `bt_kbd_key` (LTK, EDIV, Rand). **Riconnessione**: finché la tastiera manca, scansione
+  passiva; quando si fa vedere (basta un tasto), anche da un indirizzo privato risolto
+  con l'IRK, bm33 si collega e cifra con la LTK salvata.
+- **GATT/HOGP**: servizio HID, caratteristiche e descrittori, Report Reference, report
+  map letta a pezzi (MTU 23); dalla report map si ricava dove sono modificatori e tasti
+  del report tastiera (array o bitmap), notifiche attivate solo su quello; se manca, il
+  report di boot (Protocol Mode = boot).
+- I tasti vanno nello stesso livello della tastiera USB (layout italiano/US, ripetizione,
+  Esc, tasti come pulsanti nei giochi). Tastierino: cifre, `/ * - + .`, Invio; 8/4/6/2
+  come frecce nei giochi.
+- Monitor: `K` abbina la tastiera (15 s di ricerca); `P` dimentica pad **e** tastiera.
+- Driver RNG: tolto l'accesso al registro di maschera (0x10), inutile col polling e
+  assente in QEMU.
+
+Da provare sul Pi: abbinamento della MX Keys S (tenere premuto un tasto Easy-Switch 3 s
+finché la luce lampeggia veloce, poi `K` dalla console di rete), digitazione, ritorno
+dopo lo spegnimento o il cambio di canale, insieme a un DS4.
+
+**Fatto quando:** la MX Keys S scrive nel monitor e nell'editor e si ricollega da sola.
+
 ## Rischi principali
 | Rischio | Mitigazione |
 |---------|-------------|

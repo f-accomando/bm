@@ -66,6 +66,7 @@ Risoluzioni di menu, console e giochi, e quanto costano: [docs/RISOLUZIONI.md](d
 | M25 | Store su GitHub: catalogo, download verificati, pubblicazione dall'SDK | in coda |
 | M26 | Market a pagamento (servizio web, account, licenze) | in coda |
 | M27 | **BareMetal UI**: sottomenu, opzioni delle cartucce, strumenti nella scheda Dev, impostazioni | 🛠 task 1–4 fatti (QEMU) |
+| M28 | Tastiera Bluetooth LE (MX Keys S): pairing con codice, HID over GATT, riconnessione | 🛠 da provare sul Pi |
 
 ## Cosa fa il kernel
 

@@ -148,7 +148,7 @@ test-titan: $(BUILD)/host/luahost $(BUILD)/titan/main.lua
 	$< tests/titan/sim.lua $(BUILD)/titan/main.lua $(BUILD)/titan/main.map
 
 .DEFAULT_GOAL := all
-.PHONY: FORCE all clean firmware image sdcard install sdcard-chainloader sdcard-stress qemu qemu-screenshot \
+.PHONY: FORCE test-smp all clean firmware image sdcard install sdcard-chainloader sdcard-stress qemu qemu-screenshot \
         run-serial test test-s32 test-s32-arm test-b33 test-usb test-audio test-fat test-kitchen test-titan test-net test-http test-https disasm
 
 all: $(BUILD)/kernel.img $(BUILD)/chainloader.img $(GAME_CARTS)
@@ -255,7 +255,8 @@ qemu: $(BUILD)/kernel.img
 qemu-screenshot: $(BUILD)/kernel.img
 	./scripts/qemu-screenshot.sh $< $(BUILD)/screen.png
 
-test: all test-s32 test-b33 test-usb test-fat test-audio test-kitchen test-titan test-net test-http test-https
+test: all test-s32 test-b33 test-usb test-fat test-audio test-kitchen test-titan test-net test-http test-https \
+      test-smp
 	$(PYTHON) tests/qemu_test.py --build $(BUILD)
 
 $(BUILD)/host/test_b33: tests/b33/test_b33.c src/b33/gfx16.c src/b33/r3d.c src/b33/format.c src/lib/crc32.c src/b33/*.h
@@ -290,6 +291,15 @@ $(BUILD)/host/test_https: tests/net/test_https.c tests/net/stream_posix.c src/ne
 		-DMBEDTLS_CONFIG_FILE='"bm33_mbedtls.h"' -DHTTP_USER_AGENT='"test"' -o $@ \
 		tests/net/test_https.c tests/net/stream_posix.c src/net/tls.c src/net/http.c \
 		src/net/http_kernel.c $(MBEDTLS_SRCS)
+
+# Bluetooth LE pairing cryptography (SMP), against the spec's sample data
+test-smp: $(BUILD)/host/test_smp
+	$(BUILD)/host/test_smp
+
+$(BUILD)/host/test_smp: tests/bt/smp_test.c src/bt/smp_crypto.c src/bt/smp_crypto.h $(MBEDTLS_SRCS)
+	@mkdir -p $(dir $@)
+	$(HOSTCC) -O1 -w -Isrc -Isrc/net -Ithird_party/mbedtls/include \
+		-DMBEDTLS_CONFIG_FILE='"bm33_mbedtls.h"' -o $@ tests/bt/smp_test.c src/bt/smp_crypto.c $(MBEDTLS_SRCS)
 
 # HTTP client over POSIX sockets, against a local Python server
 test-http: $(BUILD)/host/test_http

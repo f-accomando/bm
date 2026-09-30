@@ -46,7 +46,8 @@ static const char help_text[] =
             "  a  audio: HDMI sound status and a test tune\n"
             "  e  editor: code, sprites and map of a .bm cartridge\n"
             "  T  Bluetooth: pair a controller as the next player (DS4: Share + PS)\n"
-            "  P  Bluetooth: forget all paired pads (asks first)\n"
+            "  K  Bluetooth: pair a keyboard (LE, e.g. MX Keys: hold an Easy-Switch key)\n"
+            "  P  Bluetooth: forget all paired pads and the keyboard (asks first)\n"
             "  W  WiFi: start, list the networks, join one (M18; saved in bm33/config.txt)\n"
             "     from the PC: tools/bm33_net.py IP (console, --send/--play a cart, --kernel)\n"
             "  G  get a web address (http or https): status, size, speed, start\n"
@@ -217,19 +218,20 @@ void monitor_run(void)
         case 'y': usb_init(); usb_print(); break;
         case 'Y': usb_live_test(5); input_live_test(10); break;
         case 'T': bt_scan(8); break;
+        case 'K': bt_pair_keyboard(15); break;
         case 'W':
             if (wifi_start() == 0 && wifi_scan() > 0 && wifi_connect() == 0 && net_start() == 0)
                 net_wait_ip(15000);
             break;
         case 'o': pager_show(klog_text()); break;
         case 'P': {
-            kprintf("forget all Bluetooth pads (keys removed from bm33/config.txt)? y = yes\n");
+            kprintf("forget all Bluetooth pads and the keyboard (keys removed from bm33/config.txt)? y = yes\n");
             input_flush();                      /* only a key pressed after the question */
             char k = input_getc();
             if (k == 'y' || k == 'Y') {
                 int n = bt_forget_all();
-                kprintf("bt: %d pad%s forgotten; pair again with T (DS4: Share + PS)\n",
-                        n, n == 1 ? "" : "s");
+                kprintf("bt: %d device%s forgotten; pair again with T (DS4: Share + PS)\n"
+                        "    or K (keyboard)\n", n, n == 1 ? "" : "s");
             }
             else
                 kprintf("cancelled\n");

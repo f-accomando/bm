@@ -48,6 +48,22 @@ uint32_t hid_players(uint32_t out[HID_PLAYERS], int text, int local);
  * analog stick (else xy is 0). */
 int hid_stick(int slot, int8_t xy[2]);
 
+/* A Bluetooth LE keyboard (HID over GATT). Its keyboard input report, as
+ * found in the report map: report ID, bit offsets of the modifier byte and
+ * of the keys (an array of nkeys usages, or a bitmap of bitmap_n usages
+ * from bitmap_min); -1 when absent. */
+typedef struct {
+    uint8_t id, nkeys, bitmap_min;
+    uint16_t bitmap_n;
+    int16_t mods_bit, keys_bit, bitmap_bit;
+} hid_kbd_layout_t;
+/* 1 if the report map has a keyboard with keys we can read. */
+int  hid_kbd_layout(const uint8_t *map, uint32_t len, hid_kbd_layout_t *k);
+/* A report of that keyboard (without the report ID): works like the USB
+ * keyboard (text, keys as buttons, Esc). Clear: all keys released. */
+void hid_ble_keyboard(const hid_kbd_layout_t *k, const uint8_t *r, uint32_t len);
+void hid_ble_keyboard_clear(void);
+
 /* Text input from the keyboard (layout applied): next byte or -1. */
 int      hid_getc(void);
 /* Buttons held now, from keyboard or gamepad. */

@@ -57,6 +57,10 @@ int hci_pending(void);
 /* Sends ACL data (one L2CAP frame, start of packet). */
 void hci_acl_send(uint16_t handle, const void *data, uint16_t len);
 
+/* ACL data with this packet boundary flag: LE links send a frame as a
+ * first piece (0) and continuations (1), each at most the chip's size. */
+void hci_acl_send_pb(uint16_t handle, int pb, const void *data, uint16_t len);
+
 /* Drops the queue (after a reset). */
 void hci_flush(void);
 

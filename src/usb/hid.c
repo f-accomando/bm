@@ -113,6 +113,13 @@ static uint8_t translate(uint8_t u, uint8_t mods)
     case 0x2B: return '\t';
     }
     if (u >= 0x59 && u <= 0x62) return (uint8_t)("1234567890"[u - 0x59]);   /* keypad */
+    switch (u) {                                /* keypad operators */
+    case 0x54: return '/';
+    case 0x55: return '*';
+    case 0x56: return '-';
+    case 0x57: return '+';
+    case 0x63: return '.';
+    }
     if (u < sizeof layout_it / sizeof *layout_it) {
         const keydef_t *k = &layout[u];
         return altgr ? k->a : shift ? k->s : k->n;
@@ -123,10 +130,10 @@ static uint8_t translate(uint8_t u, uint8_t mods)
 static uint32_t key_button(uint8_t u)
 {
     switch (u) {
-    case 0x50: case 0x04: return HID_LEFT;      /* left arrow, A */
-    case 0x4F: case 0x07: return HID_RIGHT;     /* right arrow, D */
-    case 0x52: case 0x1A: return HID_UP;        /* up arrow, W */
-    case 0x51: case 0x16: return HID_DOWN;      /* down arrow, S */
+    case 0x50: case 0x04: case 0x5C: return HID_LEFT;   /* left arrow, A, keypad 4 */
+    case 0x4F: case 0x07: case 0x5E: return HID_RIGHT;  /* right arrow, D, keypad 6 */
+    case 0x52: case 0x1A: case 0x60: return HID_UP;     /* up arrow, W, keypad 8 */
+    case 0x51: case 0x16: case 0x5A: return HID_DOWN;   /* down arrow, S, keypad 2 */
     case 0x2C: case 0x1D: case 0x0D: return HID_A;  /* space, Z, J */
     case 0x1B: case 0x0E: return HID_B;         /* X, K */
     case 0x06: case 0x0F: return HID_X;         /* C, L */
@@ -189,6 +196,8 @@ int hid_is_keyboard(const uint8_t *d, uint32_t len, uint8_t *report_id)
     return found;
 }
 
+static void keyboard_boot(const uint8_t *r);
+
 static void keyboard_report(const uint8_t *r, uint32_t len)
 {
     /* A keyboard that ignored SET_PROTOCOL(boot) sends report protocol:
@@ -200,7 +209,14 @@ static void keyboard_report(const uint8_t *r, uint32_t len)
         r++;
         len--;
     }
-    if (len < 8 || r[2] == 1)                   /* roll-over error: ignore */
+    if (len >= 8)
+        keyboard_boot(r);
+}
+
+/* A boot-format report: modifiers, reserved, six key usages. */
+static void keyboard_boot(const uint8_t *r)
+{
+    if (r[2] == 1)                              /* roll-over error: ignore */
         return;
     uint8_t mods = r[0];
     uint32_t buttons = 0;
@@ -233,6 +249,131 @@ static void keyboard_report(const uint8_t *r, uint32_t len)
     kbd_buttons = buttons;
     latched_kbd |= buttons;
     memcpy(prev_keys, r, 8);
+}
+
+/* ---------------------------------------------------------------- LE keyboard */
+
+/* The keyboard input report of a Bluetooth LE keyboard, from its report
+ * map: where the modifier byte and the key usages (an array of bytes, or a
+ * bitmap) are. Offsets count per report ID, over the Input items only. */
+int hid_kbd_layout(const uint8_t *d, uint32_t len, hid_kbd_layout_t *k)
+{
+    static uint16_t off[256];
+    uint32_t page = 0, size = 0, count = 0, id = 0, umin = 0, umax = 0, usage = 0;
+    int depth = 0, in_kbd = 0, found = 0;
+    memset(off, 0, sizeof off);
+    memset(k, 0, sizeof *k);
+    k->mods_bit = k->keys_bit = k->bitmap_bit = -1;
+    for (uint32_t i = 0; i < len;) {
+        uint8_t prefix = d[i];
+        if (prefix == 0xFE) {                   /* long item */
+            if (i + 1 >= len) break;
+            i += 3u + d[i + 1];
+            continue;
+        }
+        uint32_t sz = prefix & 3;
+        if (sz == 3) sz = 4;
+        if (i + 1 + sz > len) break;
+        uint32_t v = 0;
+        for (uint32_t b = 0; b < sz; b++) v |= (uint32_t)d[i + 1 + b] << (8 * b);
+        i += 1 + sz;
+        switch (prefix & 0xFC) {
+        case 0x04: page = v; break;             /* Usage Page */
+        case 0x74: size = v; break;             /* Report Size */
+        case 0x94: count = v; break;            /* Report Count */
+        case 0x84: id = v & 0xFF; break;        /* Report ID */
+        case 0x08: usage = v & 0xFFFF; break;   /* Usage */
+        case 0x18: umin = v & 0xFFFF; break;    /* Usage Minimum */
+        case 0x28: umax = v & 0xFFFF; break;    /* Usage Maximum */
+        case 0xA0:                              /* Collection */
+            depth++;
+            if (depth == 1 && v == 1 && page == 0x01 && usage == 0x06 && !found) {
+                in_kbd = 1;
+                found = 1;
+            }
+            break;
+        case 0xC0:                              /* End Collection */
+            if (depth > 0 && --depth == 0)
+                in_kbd = 0;
+            break;
+        case 0x80: {                            /* Input */
+            uint32_t bits = size * count;
+            if (in_kbd && !(v & 1) && page == 0x07) {
+                if (!k->id)
+                    k->id = (uint8_t)id;
+                if (id == k->id) {
+                    if ((v & 2) && umin == 0xE0 && size == 1 && k->mods_bit < 0) {
+                        k->mods_bit = (int16_t)off[id];
+                    } else if ((v & 2) && size == 1 && k->bitmap_bit < 0) {
+                        k->bitmap_bit = (int16_t)off[id];
+                        k->bitmap_min = (uint8_t)umin;
+                        k->bitmap_n = (uint16_t)count;
+                    } else if (!(v & 2) && size == 8 && k->keys_bit < 0) {
+                        k->keys_bit = (int16_t)off[id];
+                        k->nkeys = (uint8_t)(count > 32 ? 32 : count);
+                    }
+                }
+            }
+            off[id] = (uint16_t)(off[id] + bits);
+            break;
+        }
+        }
+        if ((prefix & 0x0C) == 0x00) {          /* main item: clears the local ones */
+            usage = 0;
+            if ((prefix & 0xFC) != 0xA0)
+                umin = umax = 0;
+        }
+    }
+    (void)umax;
+    return found && (k->keys_bit >= 0 || k->bitmap_bit >= 0);
+}
+
+static int bit_at(const uint8_t *r, uint32_t len, uint32_t bit)
+{
+    return bit / 8 < len && (r[bit / 8] >> (bit % 8)) & 1;
+}
+
+static uint8_t byte_at(const uint8_t *r, uint32_t len, uint32_t bit)
+{
+    uint8_t v = 0;
+    for (int b = 0; b < 8; b++)
+        v |= (uint8_t)(bit_at(r, len, bit + (uint32_t)b) << b);
+    return v;
+}
+
+void hid_ble_keyboard(const hid_kbd_layout_t *k, const uint8_t *r, uint32_t len)
+{
+    uint8_t boot[8] = { 0 };
+    int n = 0;
+    if (k->mods_bit >= 0)
+        boot[0] = byte_at(r, len, (uint32_t)k->mods_bit);
+    if (k->keys_bit >= 0)
+        for (int i = 0; i < k->nkeys && n < 6; i++) {
+            uint8_t u = byte_at(r, len, (uint32_t)k->keys_bit + 8u * (uint32_t)i);
+            if (u == 1) {                       /* roll-over error */
+                boot[2] = 1;
+                break;
+            }
+            if (u >= 4)
+                boot[2 + n++] = u;
+        }
+    if (k->bitmap_bit >= 0)
+        for (int i = 0; i < k->bitmap_n && n < 6; i++) {
+            unsigned u = k->bitmap_min + (unsigned)i;
+            if (!bit_at(r, len, (uint32_t)k->bitmap_bit + (uint32_t)i))
+                continue;
+            if (u >= 0xE0 && u <= 0xE7)         /* modifiers inside the bitmap */
+                boot[0] |= (uint8_t)(1u << (u - 0xE0));
+            else if (u >= 4)
+                boot[2 + n++] = (uint8_t)u;
+        }
+    keyboard_boot(boot);
+}
+
+void hid_ble_keyboard_clear(void)
+{
+    static const uint8_t none[8];
+    keyboard_boot(none);
 }
 
 int hid_getc(void)
