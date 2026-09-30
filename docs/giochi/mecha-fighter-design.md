@@ -24,8 +24,8 @@ Codice: `carts/titan/` (cartuccia *Titan Clash*). Test: `make test-titan` (host)
 ## 2. Struttura tecnica
 
 - **Arte** (Python, in git anche i risultati, `make` non li rigenera):
-  `mkrobot.py` (modello del robot VANGUARD: solidi su uno scheletro di 16 ossa, 62 pose
-  in 23 animazioni, render ortografico in vista 3/4, hurtbox e hitbox per frame dalle
+  `mkrobot.py` (modello del robot VANGUARD: solidi su uno scheletro di 16 ossa, 63 pose
+  in 24 animazioni, render ortografico in vista 3/4, hurtbox e hitbox per frame dalle
   ossa), `art.py` (città in 4 piani di parallasse, hangar, effetti, testi),
   `mkassets.py` (impacchetta tutto in `sheet.png` e scrive `src/05_sprites.lua`).
   Gli strati sparsi sono spezzati in blocchi 8×8 e i pezzi uguali condivisi.
@@ -137,7 +137,8 @@ di tre quarti in profondità, stile diorama Gunpla (riferimento dell'autore, 202
 la foto non è nel repository per i diritti di terzi, se ne ricavano solo inquadratura
 e stile): struttura nera/antracite, tralicci, ponte gru e braccio di servizio gialli,
 strisce di pericolo giallo-nere sui bordi della piazzola e della passerella, luci basse
-sulla parete di fondo. Il robot è in primo piano sul lato esterno, sulla piazzola;
+sulla parete di fondo. Il robot è in primo piano sul lato esterno, sulla piazzola, fermo in piedi con le braccia a riposo (posa
+`stand`) e agganciato alla schiena dai due ponti della torre di attracco;
 sul fondo la **gabbia di manutenzione** con due ponti a grata, dove andrà il compagno
 del tag team (per ora vuota, con operai sui ponti). Ogni metà ha la sua gru che va sul
 robot modificato (che vibra tra le scintille) e un saldatore ai suoi piedi; tra le metà

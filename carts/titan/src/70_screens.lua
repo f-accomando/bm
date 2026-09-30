@@ -187,13 +187,21 @@ local HALF = W // 2
 -- a point of player 1's bay mirrored into side i
 local function bay_x(i, x) return i == 1 and x or W - x end
 
+-- the robot parked in its bay: upright, arms down, held by the docking
+-- tower's clamps on its back
+local function parked(i)
+  local f = Fighter.new(i, "cpu", setup.cfg[i], ROBOT_X[i], i == 1 and 1 or -1)
+  f.anim, f.fi = "stand", 1
+  return f
+end
+
 function H.enter()
   for i = 1, 2 do
     local p = pad_of(i)
     if p == "cpu" then setup.cfg[i] = random_cfg() end
     H.side[i] = { row = 1, ready = false, pad = p, cpu_t = 50 + random(40) + (i - 1) * 30, fit = 0,
                   crane = bay_x(i, 250), crane_to = bay_x(i, 250) }
-    H.side[i].f = Fighter.new(i, "cpu", setup.cfg[i], ROBOT_X[i], i == 1 and 1 or -1)
+    H.side[i].f = parked(i)
   end
   -- x in player 1's bay; the lo/hi limits keep them on their floor
   local list = {
@@ -215,7 +223,7 @@ end
 -- change the robot: the crane comes, sparks fly
 local function refit(i)
   local s = H.side[i]
-  s.f = Fighter.new(i, "cpu", setup.cfg[i], ROBOT_X[i], i == 1 and 1 or -1)
+  s.f = parked(i)
   s.fit = 24
   s.crane_to = ROBOT_X[i]
   Snd.clank()
@@ -265,10 +273,7 @@ function H.update()
     side_update(i)
     if Scr.name ~= "hangar" then return end
     local s = H.side[i]
-    local f = s.f
     s.fit = max(0, s.fit - 1)
-    f.ft = f.ft - 1
-    if f.ft <= 0 then f.fi, f.ft = f.fi % #ANIM.idle + 1, 9 end
     -- the crane goes where the work is, then drifts along its bridge
     s.crane = approach(s.crane, s.crane_to, 3)
     if s.crane == s.crane_to and (Scr.t + i * 120) % 240 == 0 then s.crane_to = bay_x(i, random(40, 290)) end

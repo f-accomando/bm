@@ -700,8 +700,8 @@ cartuccia **Titan Clash** (`carts/titan`).
   caricamento) e sheet fino a 4096 pixel di lato; `mkb33.py --sheet8`; test host in
   `tests/b33`.
 - Arte pre-renderizzata (`mkrobot.py`): il robot VANGUARD è un modello 3D procedurale
-  su uno scheletro, reso in vista 3/4 con cel shading a 6 toni e contorni, 62 frame in
-  23 animazioni, **a strati** (armatura pesante, spallaccio integro/crepato, cannoni,
+  su uno scheletro, reso in vista 3/4 con cel shading a 6 toni e contorni, 63 frame in
+  24 animazioni, **a strati** (armatura pesante, spallaccio integro/crepato, cannoni,
   spada sulla schiena o in mano) e in due livree (P1 acciaio e arancio, P2 cremisi e
   oro); hurtbox e hitbox per frame dalle ossa. `art.py`: città al tramonto in 4 piani
   di parallasse, hangar, effetti, scritte. Tutto in `sheet.png` (2048×3376, 166 colori).

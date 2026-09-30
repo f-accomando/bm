@@ -412,6 +412,32 @@ def bay():
         d.line([(x, 34), (x + 6, 34)], fill=HAZ[1])
     for x in range(30, 320, 70):          # lamps under the bridge
         d.rectangle([x, 34, x + 20, 37], fill=LIGHT[0])
+    # the docking tower behind the robot: two decks whose clamps hold its back
+    # (the robot, drawn over it, hides the clamps' ends)
+    tx0, tx1, top = 24, 48, 108
+    d.rectangle([tx0 - 4, 306, tx1 + 4, 316], fill=HANG[3])
+    for x in (tx0, tx1):
+        d.rectangle([x - 2, top, x + 2, 312], fill=YEL[1])
+        d.line([(x - 2, top), (x - 2, 312)], fill=YEL[0])
+        d.line([(x + 2, top), (x + 2, 312)], fill=YEL[3])
+    for y in range(top + 8, 306, 16):
+        d.line([(tx0, y), (tx1, y + 16)], fill=YEL[2], width=2)
+        d.line([(tx0, y), (tx1, y)], fill=YEL[2])
+    for y, reach_x in ((158, 84), (230, 78)):
+        # the deck with its railing, the arm and the clamp pad on the back
+        d.rectangle([12, y, reach_x - 10, y + 6], fill=YEL[1])
+        d.line([(12, y), (reach_x - 10, y)], fill=YEL[0])
+        hazard(d, (12, y + 8), (reach_x - 10, y + 8), 4, 8)
+        d.line([(12, y - 12), (reach_x - 14, y - 12)], fill=YEL[1], width=2)
+        for x in range(14, reach_x - 12, 12):
+            d.line([(x, y - 12), (x, y)], fill=YEL[2])
+        d.rectangle([reach_x - 14, y - 8, reach_x + 4, y + 10], fill=HANG[4])
+        d.rectangle([reach_x - 14, y - 8, reach_x + 4, y - 6], fill=HANG[6])
+        d.rectangle([reach_x - 2, y - 14, reach_x + 10, y + 16], fill=YEL[2])
+        d.line([(reach_x - 2, y - 14), (reach_x - 2, y + 16)], fill=YEL[0])
+        d.rectangle([reach_x + 1, y - 2, reach_x + 5, y + 2], fill=LIGHT[0])
+        # a hose down to the tower
+        d.line([(reach_x - 8, y + 10), (reach_x - 16, y + 30), (tx1 + 2, y + 34)], fill=HAZ[1], width=2)
     # the column in front on the left
     truss(d, (7, 0), (7, 360), 14, 24)
     d.rectangle([0, 346, 16, 360], fill=HAZ[1])

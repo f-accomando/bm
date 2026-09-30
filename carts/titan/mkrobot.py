@@ -833,6 +833,10 @@ def animations():
                     arm_f=(93, 8), fore_f=6, hand_f=0, thigh_n=28, shin_n=-24, thigh_f=-24, shin_f=-14), None),
                  (P(GUARD, pelvis=(-6, 0, 2), chest=(-4, -10, -2), head=0, arm_n=(99, -8), fore_n=9, hand_n=0,
                     arm_f=(97, 8), fore_f=9, hand_f=0, thigh_n=28, shin_n=-24, thigh_f=-24, shin_f=-14), None)]
+    # the hangar (2026-09-30): parked upright, arms down at rest, legs straight
+    A["stand"] = [(flat_feet(P(GUARD, pelvis=(0, 0, 0), waist=0, chest=(0, 0, -6), head=0,
+                               arm_n=(6, -8), fore_n=12, hand_n=0, arm_f=(6, 8), fore_f=12, hand_f=0,
+                               thigh_n=2, shin_n=-2, thigh_f=-2, shin_f=-2)), None)]
     return A
 
 
