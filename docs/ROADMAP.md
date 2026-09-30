@@ -75,7 +75,7 @@ M0 ─ M1 ─ M2 ─ M3 ─ M4 ─ M5 ─ M6 (s32) ─┬─ M7 ─┬─ M9 (MV
 **Decisione 2026-09-30 (utente): l'interprete s32 è tolto.** bm non esegue più le cartucce
 `.cart`: nessun codice lo chiama più (il linker lo scarta), via `make test-s32` e
 `test-s32-arm`, la `demo.cart` incorporata e quella sulla SD, il comando `g` del monitor,
-la demo s32 nella diagnostica. Da cancellare dal repository: `src/s32`, `spec/s32`,
+la demo s32 nella diagnostica. Cancellati dal repository: `src/s32`, `spec/s32`,
 `tests/s32`, `scripts/sync-s32-spec.sh`, `docs/m6-s32-demo.png`. Il menu elenca solo i `.bm`; una cartuccia s32 inviata
 dalla seriale o dalla rete viene rifiutata (`test_upload_refused_and_corrupt`). Il kernel
 passa da 1,57 a 0,98 MB. Resta la disposizione dei registri dell'audio (`apu()`). Le note
