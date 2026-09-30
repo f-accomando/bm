@@ -526,7 +526,7 @@ Dopo: variazioni di lancio per cuoco.
   Opzione **KITCHEN: TEXTURED / FLAT** per tornare ai colori pieni se sul Pi non
   bastano i 60 fps. Da misurare sul Pi.
 
-## M18 — WiFi e console di rete (L/XL)
+## M18 — WiFi e console di rete (L/XL) — ✅ chiusa (2026-09-30)
 Decisione 2026-09-28: versioni "leggere", in coda dopo M17.
 - **WiFi**: il BCM43438 (lo stesso chip del Bluetooth) è sul bus SDIO. Driver SDIO sul
   secondo controller (la SD resta sul suo, o si scambiano come fa Linux), caricamento
@@ -604,7 +604,7 @@ Decisione 2026-09-28: versioni "leggere", in coda dopo M17.
    - dal PC: `tools/bm_net.py IP` (terminale raw, Ctrl-] esce);
    - in chiaro: solo per la rete di casa (TLS con M19);
    - test sul PC: `make test-net` (lwIP con interfaccia di loopback).
-8. 🛠 (da provare sul Pi) **File dal PC e WiFi all'avvio**:
+8. ✅ (Pi; confermato il 2026-09-30 con `--kernel` e `--send` dopo il cambio di nome) **File dal PC e WiFi all'avvio**:
    - porta TCP 3334, stessa password della console (`src/net/netxfer.c`);
      richiesta `BM3X`, operazione, password, percorso, dimensione, crc32, dati;
    - ✅ (Pi, `ddca333`) `bm_net.py IP --send gioco.bm` → salvata in `/carts` (nomi 8.3, `--name`,
@@ -1032,21 +1032,18 @@ Task:
     quanto le due righe visibili e segue lo scorrimento (`test_menu_scroll`; nessuna
     barra con una riga sola in `test_home_ui`).
 
-Da provare sul Pi:
-- il menu resta a 60 fps anche con un pannello aperto;
-- col solo DS4: X su una copertina, cancellare un salvataggio, Settings > Controllers >
-  Pair a new controller con un secondo DS4;
-- scheda Dev: System, Log (col pad), Test pattern, Audio test;
-- Settings > System > Restart;
-- le icone della barra: tastiera e DS4 con il numero giusto, WiFi grigia e poi bianca;
-- la barra di scorrimento a destra della griglia, scendendo fino a Titan Clash.
+✅ Verificato sul Pi (2026-09-30, `d143ce1`): 60 fps anche con un pannello aperto; col solo
+DS4 le opzioni della cartuccia, i salvataggi, l'abbinamento di un secondo DS4; gli strumenti
+della scheda Dev; Settings > System > Restart; le icone della barra (DS4 blu, tastiera USB
+bianca, tastiera Bluetooth blu, WiFi); la barra di scorrimento; L1 / R1 e Settings che si
+apre da sola; PS nel menu e nel monitor. Restano i task 5–9.
 
 - **Fatto quando:** sul Pi, con il solo DS4, dal menu si raggiungono tutti i giochi,
   gli strumenti e le impostazioni (abbinare un secondo controller, collegare il WiFi,
   cambiare layout, riavviare); il menu resta a 60 fps; ogni funzione ha un test in
   QEMU.
 
-## M28 — Tastiera Bluetooth LE (M) — 🛠 da provare sul Pi
+## M28 — Tastiera Bluetooth LE (M) — ✅ verificata sul Pi (2026-09-30)
 Richiesta 2026-09-30: una Logitech **MX Keys S** (con tastierino). È Bluetooth **Low
 Energy** (HID over GATT), non Bluetooth classico come il DS4: serve una parte nuova
 dello stack.
@@ -1083,13 +1080,14 @@ Fatto (QEMU, `test_bt_keyboard` con una MX Keys simulata; `make test-smp`):
   `players()`. Settings > Controllers dice cosa gioca lì ("Bluetooth keyboard", "USB
   keyboard", "USB + Bluetooth keyboard", "USB gamepad"). Test: `test_bt_keyboard`.
 
-Da provare sul Pi: abbinamento della MX Keys S (tenere premuto un tasto Easy-Switch 3 s
-finché la luce lampeggia veloce, poi Settings > Controllers > Pair a keyboard), digitazione, ritorno
-dopo lo spegnimento o il cambio di canale, insieme a un DS4.
+✅ Verificato sul Pi (2026-09-30): abbinamento della MX Keys S (un tasto Easy-Switch tenuto
+premuto 3 s, poi Settings > Controllers > Pair a keyboard), digitazione, ritorno dopo lo
+spegnimento o il cambio di canale, insieme a un DS4 e a una tastiera USB; l'icona blu
+nella barra.
 
 **Fatto quando:** la MX Keys S scrive nel monitor e nell'editor e si ricollega da sola.
 
-## M29 — Pi 1 B: hub USB ed Ethernet (L/XL) — 🛠 fatto, da provare sul Pi
+## M29 — Pi 1 B: hub USB ed Ethernet (L/XL) — ✅ verificata sul Pi 1 B (2026-09-30)
 Nata come "M25" sul ramo `claude/charming-heisenberg-7e1xjh`; rinumerata M29 all'unione
 con il ramo principale, dove M25 era già lo Store su GitHub (seguito da M26–M28).
 Decisione 2026-09-30: **un solo `kernel.img`** per tutte le schede BCM2835 (Pi Zero / Zero W,
@@ -1119,27 +1117,27 @@ Zero W, `make image-pi1` senza il firmware del chip WiFi/Bluetooth). Il firmware
    enumerato (indirizzi 2, 3, ...). Righe `usb: hub ...`, `usb: port N: ...`; il
    dispositivo in uso dice `(hub port N)`. Test: `test_usb_hub` (tastiera e tablet dietro
    un hub).
-3. 🛠 (da provare sul Pi) **Split transactions** (`src/usb/dwc2.c`): un pacchetto alla
+3. ✅ (Pi 1 B) **Split transactions** (`src/usb/dwc2.c`): un pacchetto alla
    volta, start split e complete split; per gli endpoint interrupt si seguono i
    microframe (start split mai nel 6, complete split da Y+2, come USPi e Circle). La riga
    dice `(hub port N, split)`. QEMU non ha un hub high speed: si prova sul Pi 1 B, oppure
    sul Zero W con un hub USB 2.0 tra l'adattatore OTG e la tastiera.
    Anche: un trasferimento interrotto a metà (NYET, errore) riprende dal pacchetto dove
    si era fermato invece di ricominciare.
-4. 🛠 (test sul PC, da provare sul Pi) **Ethernet** (`src/usb/smsc95xx.c`, come il driver
+4. ✅ (Pi 1 B; test sul PC) **Ethernet** (`src/usb/smsc95xx.c`, come il driver
    smsc95xx di Linux): reset, indirizzo MAC dal firmware (`b8:27:eb:...`, la scheda non ha
    EEPROM), un frame per trasferimento, lettura senza attese (con niente da ricevere il
    chip risponde con un pacchetto vuoto), PHY in autonegoziazione, duplex del MAC come
    quello del link. Monitor `E`: link, contatori, registri del chip.
    Test: `make test-usb` (chip simulato: registri, PHY, frame).
-5. 🛠 (test sul PC, da provare sul Pi) **Rete sull'Ethernet**: `src/net/net.c` usa un
+5. ✅ (Pi 1 B; test sul PC) **Rete sull'Ethernet**: `src/net/net.c` usa un
    "percorso dati" (WiFi `wl` o Ethernet `en`). Se all'avvio c'è il LAN951x la rete
    parte da sola; DHCP aspetta il link del cavo; togliendo e rimettendo il cavo l'indirizzo
    resta. Console di rete, invio di file e kernel, HTTP (M18, M19) sono gli stessi.
    Test: `make test-net` (lwIP + driver + chip simulato + un router finto: DHCP, ARP, ping).
 6. ✅ **Immagine SD per il Pi 1**: `make firmware && make image-pi1` → `dist/bm-pi1.img`.
 
-Da verificare sul Pi 1 B (tutto sullo schermo): riga `usb: port 1: Ethernet 0424:ec00 ...`
+✅ Verificato sul Pi 1 B (2026-09-30), tutto sullo schermo: riga `usb: port 1: Ethernet 0424:ec00 ...`
 con il MAC; `eth: link up, 100 Mbit/s full duplex` dopo qualche secondo col cavo;
 `net: IP ...`; `ping` dal PC; `tools/bm_net.py IP`; una tastiera su una porta USB
 (`usb: keyboard ... (hub port 2, split)`) che scrive nel menu e nei giochi.

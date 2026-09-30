@@ -63,7 +63,7 @@ Risoluzioni di menu, console e giochi, e quanto costano: [docs/RISOLUZIONI.md](d
 | **M15** | Editor sulla console: codice, sprite, mappa, prova e torna | ✅ verificato sul Pi |
 | **M16** | Multiplayer locale: fino a 4 controller Bluetooth, `btn(i, giocatore)`, Pong a 2 | ✅ |
 | **M17** | **Chaos Kitchen**: cucina cooperativa in 3D per 1–4 giocatori (campagna, infinita, pratica) | ✅ |
-| M18 | WiFi, console di rete con password, invio di kernel e cartucce dal PC | 🛠 WPA2, DHCP, ping e console di rete verificati sul Pi; invio di file e WiFi all'avvio da provare |
+| **M18** | WiFi, console di rete con password, invio di kernel e cartucce dal PC | ✅ verificato sul Pi |
 | M19 | HTTPS: aggiornamenti da GitHub, "git leggero" (archivi e API con token) | |
 | **M20** | **Titan Clash**: picchiaduro 2D a robot giganti; prima base giocabile (1 robot, armatura leggera/pesante, spada o cannoni, hangar, contro CPU o in 2) | ✅ base giocabile |
 | **M21** | Menu "home" a griglia (Games / Dev) e giochi sospesi in memoria | ✅ |
@@ -72,9 +72,9 @@ Risoluzioni di menu, console e giochi, e quanto costano: [docs/RISOLUZIONI.md](d
 | M24 | Scambio in rete locale tra console (P2P) | in coda |
 | M25 | Store su GitHub: catalogo, download verificati, pubblicazione dall'SDK | in coda |
 | M26 | Market a pagamento (servizio web, account, licenze) | in coda |
-| M27 | **BareMetal UI**: sottomenu, opzioni delle cartucce, strumenti nella scheda Dev, impostazioni | 🛠 task 1–4 fatti (QEMU) |
-| M28 | Tastiera Bluetooth LE (MX Keys S): pairing con codice, HID over GATT, riconnessione | 🛠 da provare sul Pi |
-| M29 | **Pi 1 B**: stesso kernel, hub USB (split transactions), Ethernet LAN9512, immagine `bm-pi1.img` | 🛠 fatto (QEMU e test sul PC), da provare sul Pi |
+| M27 | **BareMetal UI**: sottomenu, opzioni delle cartucce, strumenti nella scheda Dev, impostazioni | 🛠 task 1–4 verificati sul Pi; 5–9 da fare |
+| **M28** | Tastiera Bluetooth LE (MX Keys S): pairing con codice, HID over GATT, riconnessione | ✅ verificato sul Pi |
+| **M29** | **Pi 1 B**: stesso kernel, hub USB (split transactions), Ethernet LAN9512, immagine `bm-pi1.img` | ✅ verificato sul Pi 1 B |
 
 ## Cosa fa il kernel
 
