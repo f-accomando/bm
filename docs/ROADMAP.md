@@ -1012,9 +1012,10 @@ Task:
     non porta più alla barra, che non prende più il "fuoco";
   - Settings è l'ultima scheda: arrivandoci il suo pannello si apre da solo e Dev si
     spegne; B fuori dal pannello torna alla scheda di prima;
-  - accanto alle schede due pillole, `L1` e `R1`; sulla tastiera USB Q / E e
-    PagSu / PagGiù (bit `HID_L1`, `HID_R1`: DS4, LB/RB dell'Xbox 360, tasti 5 e 6 dei
-    gamepad generici); dalla seriale `[` `]`, Tab e `1` `2` `3`;
+  - sulla tastiera USB Q / E e PagSu / PagGiù (bit `HID_L1`, `HID_R1`: DS4, LB/RB
+    dell'Xbox 360, tasti 5 e 6 dei gamepad generici); dalla seriale `[` `]`, Tab e
+    `1` `2` `3`. Le pillole `L1` e `R1` accanto alle schede sono state tolte dopo la
+    prova sul Pi (la barra resta come prima);
   - PS (e Guide dell'Xbox) nel menu non porta più al monitor: torna a Games e chiude
     pannelli e domande. Nel monitor apre il menu. Nei giochi e negli strumenti fa
     uscire come prima. `hid_quit_pressed()` distingue `HID_QUIT_KEY` (Esc,

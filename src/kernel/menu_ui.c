@@ -455,15 +455,6 @@ static int pill_text(int col, int row, const char *s, uint32_t fg, uint32_t bg)
     return col + n + 2;
 }
 
-/* a shoulder button (L1, R1) beside the tabs: its name on a small dark
- * pill; returns the column after it */
-static int shoulder(int col, const char *name)
-{
-    round_rect(col * 8 - 4, 16 - 2, 2 * 8 + 8, 20, 6, c16(C_LINE));
-    g16_text(&g, col * 8, 16, name, c16(C_DIM));
-    return col + 3;
-}
-
 /* a round button icon with its letter (A, B, X, Y), then a label */
 static int hint(int col, int row, const char *btn, const char *label)
 {
@@ -704,10 +695,10 @@ void menu_ui_frame(framebuffer_t *fb, const menu_view_t *v)
     if (v->n > 2 * MENU_COLS)
         scroll_bar((v->n + MENU_COLS - 1) / MENU_COLS, scroll);
 
-    /* top bar: L1, the tabs and Settings (the last tab: its panel), R1,
-     * then the players and the network */
+    /* top bar: the tabs and Settings (the last tab: its panel; L1 / R1 move
+     * between them), then the players and the network */
     g16_rectfill(&g, 0, 0, SW, BAR_H, c16(C_BAR));
-    int col = shoulder(2, "L1") + 2;
+    int col = 3;
     for (int i = 0; i < v->ntabs; i++) {
         int n = (int)strlen(v->tabs[i]);
         if (i == v->tab && !v->on_gear)
@@ -720,7 +711,6 @@ void menu_ui_frame(framebuffer_t *fb, const menu_view_t *v)
         pill_text(col, 1, "Settings", C_BAR, C_TAB_ON);
     else
         g16_text(&g, col * 8, 16, "Settings", c16(C_DIM));
-    shoulder(col + 8 + 3, "R1");
     status_icons(v);
 
     /* the name of the selected cartridge, on a pill */

@@ -562,7 +562,7 @@ def scroll_thumb(img):
 def tabs_lit(img):
     """Which tabs of the menu bar are on their light pill (M27): Games, Dev,
     Settings, from a pixel of the pill left of each name."""
-    return [name for name, x in (("Games", 52), ("Dev", 124), ("Settings", 180))
+    return [name for name, x in (("Games", 20), ("Dev", 92), ("Settings", 148))
             if sum(pixel(img, x, 24)) > 600]
 
 
