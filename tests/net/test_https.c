@@ -115,7 +115,8 @@ int main(int argc, char **argv)
 
     snprintf(url, sizeof url, "https://localhost:%d/hello", p_other);
     st = http_get_buffer(url, NULL, 1 << 20, &d, &n, &info);
-    check(st == -1 && strstr(info.error, "not trusted"), "certificate from another CA: refused");
+    check(st == -1 && strstr(info.error, "not trusted") && strstr(info.error, "CN=some other CA"),
+          "certificate from another CA: refused, naming the missing root");
     printf("     (%s)\n", info.error);
     free(d);
 

@@ -668,7 +668,8 @@ Passi (2026-09-29):
    (SNTP di lwIP) stampata come `net: time ...`. Monitor `G`: scarica un indirizzo e
    mostra stato, dimensione, velocità e l'inizio. Test sul PC: `make test-http` (client
    HTTP contro un server Python locale) e `make test-net` (stream su lwIP).
-2. 🛠 (da provare sul Pi) **HTTPS**: mbedTLS 3.6.2 LTS (Apache 2.0, `third_party/mbedtls`,
+2. ✅ (Pi, 2026-09-30: github.com 200, 576 220 byte in 2977 ms, 189 KiB/s; api.github.com 200,
+   2396 byte in 432 ms) **HTTPS**: mbedTLS 3.6.2 LTS (Apache 2.0, `third_party/mbedtls`,
    41 sorgenti) sotto lo stesso trasporto (`src/net/tls.c`); configurazione
    `src/net/bm_mbedtls.h`: client TLS 1.2, ECDHE (P-256, P-384, X25519), AES-GCM e
    ChaCha20-Poly1305, certificati RSA ed ECDSA; entropia dal generatore hardware del
@@ -677,6 +678,9 @@ Passi (2026-09-29):
    DigiCert); verifica di catena, nome e date (aspetta l'ora SNTP). Kernel +150 KB.
    Test sul PC: `make test-https` (certificati ECDSA e RSA, 1 MiB, chunked, redirect;
    rifiuti per nome sbagliato, certificato scaduto, CA sconosciuta).
+   - Sul Pi `https://example.com/` è rifiutato ("not correctly signed by the trusted CA"): la
+     sua catena porta a una radice che non è tra le 19. L'errore ora dice quale manca
+     ("no root in bm/ca.pem for ..."), da aggiungere a `scripts/make-ca.sh`.
 3. **Release**: GitHub Actions costruisce `kernel.img` e le cartucce a ogni tag `v*`, le
    allega alla release con un manifesto (versione, SHA-256, firma ECDSA P-256 con una
    chiave nei secret del repository; la chiave pubblica è nel kernel).

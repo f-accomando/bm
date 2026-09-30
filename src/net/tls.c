@@ -48,6 +48,8 @@ struct tls {
     stream_t *s;
     mbedtls_ssl_context ssl;
     uint32_t timeout;
+    int top_depth;              /* the top of the chain the server sent */
+    char top_issuer[96];        /* who signed it: the root to look for */
 };
 
 static mbedtls_x509_crt roots;
@@ -139,6 +141,20 @@ static int bio_recv(void *ctx, unsigned char *buf, size_t len)
     return n;                   /* 0: the peer closed */
 }
 
+/* Called for each certificate of the chain, the top one first: its
+ * issuer is the root that bm/ca.pem needs when the chain is not trusted. */
+static int note_chain(void *ctx, mbedtls_x509_crt *crt, int depth, uint32_t *flags)
+{
+    tls_t *t = ctx;
+    (void)flags;
+    if (depth > t->top_depth) {
+        t->top_depth = depth;
+        if (mbedtls_x509_dn_gets(t->top_issuer, sizeof t->top_issuer, &crt->issuer) < 0)
+            t->top_issuer[0] = 0;
+    }
+    return 0;
+}
+
 static void describe(int r, const char *what, char *err, size_t err_len)
 {
     char m[80];
@@ -169,6 +185,7 @@ tls_t *tls_open(const char *host, uint16_t port, char *err, size_t err_len)
         return NULL;
     }
     t->timeout = 15000;
+    t->top_depth = -1;
     t->s = stream_open(host, port, 10000, err, err_len);
     if (!t->s) {
         free(t);
@@ -185,11 +202,16 @@ tls_t *tls_open(const char *host, uint16_t port, char *err, size_t err_len)
     }
     mbedtls_ssl_conf_ca_chain(&conf, &roots, NULL);
     mbedtls_ssl_set_bio(&t->ssl, t, bio_send, bio_recv, NULL);
+    mbedtls_ssl_set_verify(&t->ssl, note_chain, t);
     while ((r = mbedtls_ssl_handshake(&t->ssl)) != 0) {
         if (r == MBEDTLS_ERR_SSL_WANT_READ || r == MBEDTLS_ERR_SSL_WANT_WRITE)
             continue;
         uint32_t flags = mbedtls_ssl_get_verify_result(&t->ssl);
-        if (r == MBEDTLS_ERR_X509_CERT_VERIFY_FAILED && flags) {
+        if (r == MBEDTLS_ERR_X509_CERT_VERIFY_FAILED &&
+            (flags & MBEDTLS_X509_BADCERT_NOT_TRUSTED) && t->top_issuer[0]) {
+            snprintf(err, err_len, "%s: certificate not trusted: no root in bm/ca.pem for %s",
+                     host, t->top_issuer);
+        } else if (r == MBEDTLS_ERR_X509_CERT_VERIFY_FAILED && flags) {
             char why[120];
             mbedtls_x509_crt_verify_info(why, sizeof why, "", flags);
             why[strcspn(why, "\n")] = 0;
