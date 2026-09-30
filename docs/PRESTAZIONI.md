@@ -6,7 +6,8 @@ dentro, numeri attesi contro numeri misurati.
 **Fonti**
 - *(M)* misurato sul Pi reale; *(Q)* misurato in QEMU; *(H)* benchmark sull'host x86,
   indicativo solo in proporzione; *(D)* datasheet o documentazione.
-- Dettagli: stress test in `docs/STRESS.md`; risorse in `docs/HARDWARE.md`; storia in
+- Dettagli: stress test in `docs/STRESS.md`; risorse in `docs/HARDWARE.md`; risoluzioni
+  in `docs/RISOLUZIONI.md`; storia in
   `docs/ROADMAP.md`.
 
 ---
