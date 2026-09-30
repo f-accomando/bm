@@ -740,6 +740,10 @@ cartuccia **Titan Clash** (`carts/titan`).
   niente camminata, parata o salti in diagonale. Il robot girato a sinistra (di solito
   P2) funzionava per caso, e il gioco contro la CPU aveva lo stesso difetto per P1.
   `make test-titan` ora prova le 8 direzioni su entrambi i pad e la camminata in avanti.
+- Sigla della versione (2026-09-30): sul Pi sinistra e destra di P1 continuavano a non
+  andare, cioè girava una `titan.bm` vecchia. `build.py` aggiunge `TITAN_BUILD`, le prime
+  7 cifre dello SHA-1 dei sorgenti: si vede in basso nel titolo, nel pannello di Select
+  (con `face` di ogni robot) e nel registro (`titan build ...`).
 
 ## M21 — Menu "home" e giochi sospesi (M) — ✅ chiusa (2026-09-30)
 Decisione 2026-09-29: menu più pulito in stile console moderna (Nintendo Switch), per ora

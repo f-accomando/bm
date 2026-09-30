@@ -13,6 +13,7 @@ of an error message ("main.lua:1234").
 """
 import argparse
 import glob
+import hashlib
 import os
 
 HERE = os.path.dirname(os.path.abspath(__file__))
@@ -53,6 +54,11 @@ def main():
     ap.add_argument("--map")
     a = ap.parse_args()
     text, spans = build()
+    # which build this is, on the screen (title, Select panel) and in the
+    # log: the first 7 hex digits of the sources' SHA-1, so the same game
+    # always has the same tag and any change gives a new one
+    tag = hashlib.sha1(text.encode("utf-8")).hexdigest()[:7]
+    text += f'TITAN_BUILD = "{tag}"\n'
     os.makedirs(os.path.dirname(os.path.abspath(a.out)), exist_ok=True)
     with open(a.out, "w", encoding="utf-8") as f:
         f.write(text)

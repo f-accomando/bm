@@ -371,6 +371,6 @@ io.write(string.format("worst frame: %d Lua instructions (%s), %d pixels of spri
                        worst.instr, worst.iwhere, worst.px, worst.pwhere, worst.calls))
 -- the frame times the cartridge logs are zero here; anything else is news
 for _, l in ipairs(logs) do
-  if not l:find("^titan fight:") then io.write("log: " .. l .. "\n") end
+  if not l:find("^titan fight:") and not l:find("^titan build ") then io.write("log: " .. l .. "\n") end
 end
 io.write("titan: ok\n")

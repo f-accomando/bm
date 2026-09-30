@@ -1,6 +1,7 @@
 -- The cartridge's entry points.
 
 function _init()
+  log("titan build " .. tostring(TITAN_BUILD))
   math.randomseed(stat(3) + floor(time() * 1000))
   Snd.init()
   Scr.go("title")
@@ -39,12 +40,12 @@ function _draw()
     end
     local sx, sy = stick()
     local n, mask = players()
-    rectfill(4, H - 76, 300, 56, 0x000000)
+    rectfill(4, H - 76, 360, 58, 0x000000)
     print(fmt("any %s  p1 %s  p2 %s  stick %+.1f %+.1f", dirs(), dirs(1), dirs(2), sx, sy), 6, H - 76, 0xFFE060)
-    print(fmt("players %d (mask %d)", n, mask), 6, H - 62, 0xFFE060)
+    print(fmt("players %d (mask %d)  build %s", n, mask, tostring(TITAN_BUILD)), 6, H - 62, 0xFFE060)
     for i, f in ipairs(G.fighters or {}) do
-      print(fmt("F%d pad %s dir %d %s x %d", i, tostring(f.pad), f.inp.dir or 5, f.state, floor(f.x)),
-            6, H - 62 + i * 14, 0xFFE060)
+      print(fmt("F%d pad %s dir %d face %+d %s x %d", i, tostring(f.pad), f.inp.dir or 5, f.face, f.state,
+                floor(f.x)), 6, H - 62 + i * 14, 0xFFE060)
     end
   end
 end
