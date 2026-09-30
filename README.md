@@ -21,14 +21,16 @@ sulla porta micro-USB centrale) e accendi. Il Pi si avvia in un paio di secondi 
 Stick Duo con la copertina stampata sopra e i contatti in rame sul retro): Pong,
 Snake, Star Shooter, Astro Wing (3D), Hunter's Night (gotico, 320×180 con luci), Texture Room (3D con texture) e le demo. Frecce per scegliere,
 Nel menu le copertine stanno in una griglia (schede **Games** e **Dev**); frecce per
-muoversi, Invio (o A) per giocare. **Esc** (o Start+Select, o PS) torna al menu e lascia
+muoversi, Invio (o A) per giocare, **L1 / R1** (Q / E sulla tastiera) per cambiare scheda.
+**Esc** (o Start+Select, o PS) torna al menu e lascia
 il gioco **sospeso**: la copertina mostra "Playing" e A lo riprende dal punto in cui era.
 Avviare un altro gioco chiede prima di chiudere quello sospeso.
 **X** su una copertina apre le sue opzioni (riprendi, chiudi, apri nell'SDK, informazioni,
 cancella il salvataggio, elimina dalla SD); la scheda **Dev** ha l'SDK e gli strumenti del
-monitor (Lua, sistema, registro, test, benchmark); **Settings**, a destra delle schede,
-ha controller, WiFi, layout della tastiera, disegno dei giochi e sistema (M27,
-BareMetal UI). Tutto si usa col solo controller.
+monitor (Lua, sistema, registro, test, benchmark); **Settings**, l'ultima scheda, apre
+subito il suo pannello: controller, WiFi, layout della tastiera, disegno dei giochi e
+sistema (M27, BareMetal UI). Tutto si usa col solo controller. Nel menu **PS** torna a
+Games e chiude i pannelli; nel monitor apre il menu.
 Per scrivere un gioco: [docs/GUIDA-GIOCHI.md](docs/GUIDA-GIOCHI.md) (guida pratica) e
 [docs/API.md](docs/API.md) (riferimento).
 
@@ -91,7 +93,8 @@ All'avvio (circa 2 secondi):
 6. **USB**: riconosce il dispositivo collegato (righe `usb: ...`), poi legge la **SD**
    e cerca le cartucce (riga `sd: SDHC card, FAT32, ...; N cartridges`)
 7. apre il **menu delle cartucce**; Esc (o Start+Select, o `q` dalla seriale) porta
-   al **monitor** a tasto singolo (dalla seriale o dalla tastiera USB)
+   al **monitor** a tasto singolo (dalla seriale o dalla tastiera USB); il PS di un
+   controller, dal monitor, riporta al menu
 
 La sequenza di avvio delle versioni precedenti (benchmark CPU, self-test di newlib,
 demo s32 in modalità *attract*, benchmark e demo `.bm`, sonda del vsync, script
@@ -178,8 +181,9 @@ cartella `carts/` e nella radice. Nomi lunghi supportati. `make sdcard` mette in
 **Menu delle cartucce.** Mostra titolo e autore letti dalle cartucce (ordinate per
 titolo) e sotto il nome del file scelto. Su/giù per scegliere, Invio (o A) per giocare,
 Esc (o Start+Select) per tornare al menu dal gioco e dal menu al monitor; `R` rilegge la SD.
+L1 / R1 (Q / E o PagSu / PagGiù sulla tastiera USB, Tab) cambiano scheda.
 X (tasto C sulla tastiera USB) apre le opzioni della cartuccia, B (tasto X) torna indietro
-nei pannelli. Dalla seriale: w/a/s/d, Invio, `x` opzioni, `3` impostazioni, q. Per
+nei pannelli. Dalla seriale: w/a/s/d, Invio, `x` opzioni, `[` `]` o `1` `2` `3` schede, q. Per
 aggiungere un gioco basta copiarlo in `carts/` sulla SD dal PC.
 
 **Scrittura (M11).** bm scrive solo nella cartella `bm/` della SD:

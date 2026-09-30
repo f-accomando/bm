@@ -14,6 +14,8 @@
 #define HID_SELECT  (1u << 7)
 #define HID_X       (1u << 8)       /* third and fourth face buttons: .bm btn(6), btn(7) */
 #define HID_Y       (1u << 9)
+#define HID_L1      (1u << 10)      /* shoulder buttons: the menu's tabs (not in games) */
+#define HID_R1      (1u << 11)
 
 /* report_id: the keyboard's report ID if the device may send report
  * protocol reports (first byte = ID), else 0. */
@@ -85,7 +87,10 @@ int hid_usage_held(uint8_t usage);
 #define HID_KEY_PGDN    0xF7
 #define HID_KEY_DEL     0xF8
 #define HID_KEY_F1      0xF9            /* .. F5 = 0xFD */
-/* 1 once per press of Esc (keyboard) or Start+Select (gamepad). */
+/* Once per press, then cleared: HID_QUIT_KEY for Esc or Start+Select,
+ * HID_QUIT_PS for the PS / Xbox Guide button (home: never the monitor). */
+#define HID_QUIT_KEY 1
+#define HID_QUIT_PS  2
 int      hid_quit_pressed(void);
 
 /* "it" (default) or "us" */

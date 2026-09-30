@@ -567,11 +567,13 @@ void carts_menu(framebuffer_t *fb)
     if (list_rows < 3)
         list_rows = 3;
     static const char *const tabs[] = { "Games", "Dev" };
-    int tab = 0, on_tabs = 0, on_gear = 0, tsel[2] = { 0, 0 };
+    /* the tabs: Games (0), Dev (1) and Settings (2), whose panel opens
+     * when it is the tab (on_gear); L1 / R1 move between them */
+    int tab = 0, on_gear = 0, tsel[2] = { 0, 0 };
     int sel = 0, top = 0, redraw = 1, esc = 0;
     uint32_t prev_btn = hid_buttons(), repeat_at = 0;
 
-    kprintf("\ncartridge menu: arrows or wasd, Enter plays, x options, 3 settings, Tab changes tab, q returns to the monitor\n");
+    kprintf("\ncartridge menu: arrows or wasd, Enter plays, x options, [ ] or Tab or 1 2 3 change tab, q returns to the monitor\n");
     input_flush();
     static menu_item_t items[MAX_CARTS + 16];
     static int idx[MAX_CARTS + 16];
@@ -630,8 +632,8 @@ void carts_menu(framebuffer_t *fb)
                           (c->size + 1023) / 1024, c->path);
             }
             menu_view_t v = {
-                .tabs = tabs, .ntabs = 2, .tab = tab, .on_tabs = on_tabs && !on_gear,
-                .on_gear = on_tabs && on_gear, .items = items, .n = n, .sel = tsel[tab],
+                .tabs = tabs, .ntabs = 2, .tab = tab, .on_gear = on_gear,
+                .items = items, .n = n, .sel = tsel[tab],
                 .details = details, .note = last_msg,
                 .panel = depth ? &mp : NULL,
             };
@@ -666,7 +668,8 @@ void carts_menu(framebuffer_t *fb)
             }
         }
 
-        int dx = 0, dy = 0, action = 0, quit = 0, switch_tab = 0, back = 0, opts = 0, settings = 0;
+        int dx = 0, dy = 0, action = 0, quit = 0, back = 0, opts = 0;
+        int cur = on_gear ? 2 : tab, tabto = -1;    /* the tab to go to */
 
         /* serial */
         for (int k; (k = input_remote_getc()) >= 0; ) {
@@ -688,10 +691,12 @@ void carts_menu(framebuffer_t *fb)
             case 's': case 'S': case 'j': dy++; break;
             case 'a': case 'A': case 'h': dx--; break;
             case 'd': case 'D': case 'l': dx++; break;
-            case '\t': switch_tab = 1; break;
-            case '1': switch_tab = tab == 0 ? 0 : 1; break;
-            case '2': switch_tab = tab == 1 ? 0 : 1; break;
-            case '3': settings = 1; break;
+            case '\t': tabto = (cur + 1) % 3; break;
+            case '1': tabto = 0; break;
+            case '2': tabto = 1; break;
+            case '3': tabto = 2; break;
+            case '[': tabto = cur > 0 ? cur - 1 : -1; break;       /* L1 */
+            case ']': tabto = cur < 2 ? cur + 1 : -1; break;       /* R1 */
             case 'x': case 'X': opts = 1; break;
             case 0x7F: case 0x08: back = 1; break;
             case '\r': case '\n': case ' ': action = 1; break;
@@ -724,25 +729,54 @@ void carts_menu(framebuffer_t *fb)
             back = 1;
         if (pressed & HID_X)
             opts = 1;
+        if ((pressed & HID_L1) && cur > 0)
+            tabto = cur - 1;
+        if ((pressed & HID_R1) && cur < 2)
+            tabto = cur + 1;
         prev_btn = b;
         for (int k; (k = hid_getc()) >= 0;) {  /* text keys from the USB keyboard */
             if (k == 'r' || k == 'R')
                 action = 2;
             if (k == '\t')
-                switch_tab = 1;
+                tabto = (cur + 1) % 3;
         }
+        /* PS is home: Games, with every panel and question closed (never
+         * the monitor: that is Esc or Start+Select) */
+        int ps = quit & HID_QUIT_PS;
+        quit &= ~HID_QUIT_PS;
+        if (ps)
+            tabto = 0;
 
         int go = GO_NONE, go_cart = -1, go_wait = 0, leave = 0;
         void (*go_text)(framebuffer_t *) = NULL;
         home_do_t d;
         d.what = -1;
 
+        /* another tab: whatever panel is open closes (a question waits for
+         * its answer, except for PS); Settings opens its panel */
+        if (gfx && tabto >= 0 && (ask == ASK_NONE || ps)) {
+            ask = ASK_NONE;
+            depth = 0;
+            built = -1;
+            on_gear = tabto == 2;
+            if (on_gear) {
+                stack[0].id = HOME_SETTINGS;
+                stack[0].sel = stack[0].top = 0;
+                depth = 1;
+            } else {
+                tab = tabto;
+            }
+            dx = dy = back = opts = 0;
+            if (action == 1)
+                action = 0;
+        }
+
         if (ask != ASK_NONE) {
             /* A (Enter) says yes, B / q / Esc cancel */
             int yes = action == 1, no = quit || back;
-            quit = back = opts = settings = 0;
+            quit = back = opts = 0;
             action = 0;
-            dx = dy = switch_tab = 0;
+            dx = dy = 0;
             if (no) {
                 ask = ASK_NONE;
             } else if (yes && ask == ASK_SWITCH) {
@@ -791,7 +825,7 @@ void carts_menu(framebuffer_t *fb)
             }
             quit = 0;
             action = action >= 3 ? action : 0;
-            dx = dy = switch_tab = opts = settings = 0;
+            dx = dy = opts = 0;
         }
 
         /* what a row asked for */
@@ -832,50 +866,26 @@ void carts_menu(framebuffer_t *fb)
             }
         }
 
+        /* Settings is the tab only while its panel is open: B out of it
+         * goes back to the tab before */
+        if (on_gear && (!depth || stack[0].id != HOME_SETTINGS))
+            on_gear = 0;
         if (quit || leave)
             break;
         if (gfx && !depth && ask == ASK_NONE) {
-            if (settings) {
-                stack[0].id = HOME_SETTINGS;
-                stack[0].sel = stack[0].top = 0;
-                depth = 1;
-                built = -1;
-            } else if (switch_tab) {
-                tab ^= 1;
-                on_gear = 0;
-            } else if (on_tabs) {
-                /* left/right: the tabs, then the settings button; down goes
-                 * back to the covers */
-                int f = on_gear ? 2 : tab;
-                f += dx;
-                f = f < 0 ? 0 : f > 2 ? 2 : f;
-                on_gear = f == 2;
-                if (!on_gear) tab = f;
-                if (dy > 0) on_tabs = on_gear = 0;
-                if (on_gear && action == 1) {
-                    action = 0;
-                    stack[0].id = HOME_SETTINGS;
-                    stack[0].sel = stack[0].top = 0;
-                    depth = 1;
-                    built = -1;
-                }
-            } else if (n) {
+            if (n) {
+                /* up and down along the rows (not into the tab bar: L1 / R1
+                 * change the tab), left/right along the covers, wrapping */
                 int s_ = tsel[tab];
-                int row = s_ / MENU_COLS;
-                if (dy < 0 && row == 0) {
-                    on_tabs = 1;                /* up from the first row: the tabs */
-                } else if (dy) {
+                if (dy) {
                     int to = s_ + dy * MENU_COLS;
                     if (to >= n && dy > 0)      /* the last row may be shorter */
                         to = (to / MENU_COLS) * MENU_COLS < n ? n - 1 : s_;
                     if (to >= 0 && to < n) s_ = to;
                 }
-                /* left/right along the covers, wrapping to the next row */
                 if (dx && s_ + dx >= 0 && s_ + dx < n)
                     s_ += dx;
                 tsel[tab] = s_;
-            } else if (dy < 0) {
-                on_tabs = 1;
             }
             /* X: the options of the highlighted cartridge */
             if (opts && !on_gear && n && idx[tsel[tab]] >= 0) {
@@ -971,7 +981,6 @@ void carts_menu(framebuffer_t *fb)
             input_flush();
             prev_btn = hid_buttons();
             redraw = 1;
-            on_tabs = on_gear = 0;
             built = -1;
             if (gfx)
                 gfx = menu_ui_open(fb) == 0;

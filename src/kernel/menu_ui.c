@@ -455,6 +455,15 @@ static int pill_text(int col, int row, const char *s, uint32_t fg, uint32_t bg)
     return col + n + 2;
 }
 
+/* a shoulder button (L1, R1) beside the tabs: its name on a small dark
+ * pill; returns the column after it */
+static int shoulder(int col, const char *name)
+{
+    round_rect(col * 8 - 4, 16 - 2, 2 * 8 + 8, 20, 6, c16(C_LINE));
+    g16_text(&g, col * 8, 16, name, c16(C_DIM));
+    return col + 3;
+}
+
 /* a round button icon with its letter (A, B, X, Y), then a label */
 static int hint(int col, int row, const char *btn, const char *label)
 {
@@ -674,7 +683,7 @@ void menu_ui_frame(framebuffer_t *fb, const menu_view_t *v)
             continue;
         if (i == v->sel)            /* ring with a gap, like the home screens */
             round_ring(x - 6, y - 6, CARD_W + 12, CARD_H + 12, RADIUS + 6, 3,
-                       dim ? c16(0x45454B) : v->on_tabs || v->on_gear ? c16(0x8A8A96) : pulse(t));
+                       dim ? c16(0x45454B) : pulse(t));
         card(v->items[i].cover, x, y);
         if (v->items[i].running) {
             /* on the 8x16 text grid, in the lower part of the cover */
@@ -689,27 +698,23 @@ void menu_ui_frame(framebuffer_t *fb, const menu_view_t *v)
     if (v->n > 2 * MENU_COLS)
         scroll_bar((v->n + MENU_COLS - 1) / MENU_COLS, scroll);
 
-    /* top bar: tabs, settings, then the players and the network */
+    /* top bar: L1, the tabs and Settings (the last tab: its panel), R1,
+     * then the players and the network */
     g16_rectfill(&g, 0, 0, SW, BAR_H, c16(C_BAR));
-    int col = 3;
+    int col = shoulder(2, "L1") + 2;
     for (int i = 0; i < v->ntabs; i++) {
         int n = (int)strlen(v->tabs[i]);
-        if (i == v->tab) {
-            if (v->on_tabs)
-                round_ring(col * 8 - 12, 16 - 8, (n + 2) * 8 + 8, 32, 16, 2, pulse(t));
+        if (i == v->tab && !v->on_gear)
             pill_text(col, 1, v->tabs[i], C_BAR, C_TAB_ON);
-        } else {
+        else
             g16_text(&g, col * 8, 16, v->tabs[i], c16(C_DIM));
-        }
         col += n + 4;
     }
-    /* Settings after the tabs, written like them: it opens a panel */
-    if (v->on_gear) {
-        round_ring(col * 8 - 12, 16 - 8, (8 + 2) * 8 + 8, 32, 16, 2, pulse(t));
+    if (v->on_gear)
         pill_text(col, 1, "Settings", C_BAR, C_TAB_ON);
-    } else {
+    else
         g16_text(&g, col * 8, 16, "Settings", c16(C_DIM));
-    }
+    shoulder(col + 8 + 3, "R1");
     status_icons(v);
 
     /* the name of the selected cartridge, on a pill */

@@ -119,13 +119,29 @@ char input_getc(void)
     return (char)c;
 }
 
+int input_getc_home(void)
+{
+    uint32_t last = timer_ticks();
+    int c;
+
+    update_uptime();
+    while ((c = input_key()) < 0) {
+        if (hid_quit_pressed() & HID_QUIT_PS)
+            return INPUT_HOME;
+        if (timer_ticks() - last >= 1000000) {
+            last += 1000000;
+            update_uptime();
+        }
+    }
+    return c;
+}
+
 uint32_t input_buttons(int *quit)
 {
     usb_poll();
     bt_poll();
     net_poll();
-    if (hid_quit_pressed())
-        *quit = 1;
+    *quit |= hid_quit_pressed();
     return hid_buttons();
 }
 
@@ -134,8 +150,7 @@ uint32_t input_pad_buttons(int *quit)
     usb_poll();
     bt_poll();
     net_poll();
-    if (hid_quit_pressed())
-        *quit = 1;
+    *quit |= hid_quit_pressed();
     return hid_pad_buttons();
 }
 
@@ -163,8 +178,7 @@ uint32_t input_players(uint32_t out[INPUT_PLAYERS], int text, int *quit, int *lo
     usb_poll();
     bt_poll();
     net_poll();
-    if (hid_quit_pressed())
-        *quit = 1;
+    *quit |= hid_quit_pressed();
     *local = input_local_player();
     return hid_players(out, text, *local);
 }
@@ -246,7 +260,7 @@ void input_status(char *buf, unsigned size)
 
 void input_live_test(uint32_t seconds)
 {
-    static const char *const names[] = { "<", ">", "^", "v", "A", "B", "St", "Se", "X", "Y" };
+    static const char *const names[] = { "<", ">", "^", "v", "A", "B", "St", "Se", "X", "Y", "L1", "R1" };
     kprintf("input test for %lu s: players and the buttons they hold\n", seconds);
     for (int p = 0; p < INPUT_PLAYERS; p++) {
         char a[18];
@@ -276,7 +290,7 @@ void input_live_test(uint32_t seconds)
                 continue;
             }
             int any = 0;
-            for (int b = 0; b < 10; b++)
+            for (int b = 0; b < (int)(sizeof names / sizeof names[0]); b++)
                 if (seen[p] >> b & 1) {
                     n += ksnprintf(line + n, sizeof line - (unsigned)n, "%s", names[b]);
                     any = 1;

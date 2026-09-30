@@ -36,7 +36,7 @@
 
 static const char help_text[] =
             "commands (games: arrows/wasd, space = A; q or Esc quits):\n"
-            "  M  cartridge menu (SD card: / and /carts; built-in demos if none)\n"
+            "  M  cartridge menu, or PS on a pad (SD: / and /carts; else built-in demos)\n"
             "  f  list cartridges        F  re-read the SD card\n"
             "  g  built-in s32 demo.cart n  built-in native demo.bm\n"
             "  l  Lua REPL (Esc, Ctrl-D or exit() returns here)\n"
@@ -149,7 +149,7 @@ void monitor_run(void)
     for (;;) {
         kprintf("> ");
         crumb("monitor, waiting for a key", NULL);
-        char c = input_getc();
+        int c = input_getc_home();              /* PS on a controller: INPUT_HOME */
         if (c == 0x1B) {                /* a terminal's arrow key: not a command */
             if (input_skip_sequence()) {
                 kprintf("\r");
@@ -214,7 +214,7 @@ void monitor_run(void)
         }
         case 't': show_test_pattern(); break;
         case 'B': case 'b': diagnostics_run(); break;
-        case 'M': carts_menu(console_framebuffer()); break;
+        case 'M': case INPUT_HOME: carts_menu(console_framebuffer()); break;
         case 'f': carts_list(); break;
         case 'F': carts_init(); carts_list(); break;
         case 'y': usb_init(); usb_print(); break;

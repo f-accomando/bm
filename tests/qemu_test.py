@@ -559,6 +559,13 @@ def scroll_thumb(img):
     return (ys[0], ys[-1] + 1) if ys else None
 
 
+def tabs_lit(img):
+    """Which tabs of the menu bar are on their light pill (M27): Games, Dev,
+    Settings, from a pixel of the pill left of each name."""
+    return [name for name, x in (("Games", 52), ("Dev", 124), ("Settings", 180))
+            if sum(pixel(img, x, 24)) > 600]
+
+
 def settled_screen(q, ok, tries=8):
     """QEMU shows page 0 even while it is being drawn (it ignores the
     virtual offset), so a screendump can catch a frame half drawn: retry
@@ -1013,9 +1020,7 @@ def test_home_ui(b, opts):
         time.sleep(0.5)
 
         # the Dev tab: a tool on the text console, then A goes back
-        keys("w")
         keys("2")
-        keys("s")
         screen(["bm SDK", "editor (built-in)"])
         keys("d")                               # the covers' names are on pictures: the pill
         screen(["Monitor", "the text console with every command"])
@@ -1500,9 +1505,10 @@ class FakeDs4Chip(FakeBtChip):
             self.configure(pad_cid, host_cid, handle)
         self.expect_light(pad_cids[1], player, handle)
 
-    def report(self, buttons=0x08, ps=0, handle=None, lx=128, ly=128):
-        """DS4 reduced input report 0x01 on the host's interrupt channel."""
-        self.l2(0x0041, bytes([0xA1, 0x01, lx, ly, 128, 128, buttons, 0, ps, 0, 0]), handle)
+    def report(self, buttons=0x08, ps=0, handle=None, lx=128, ly=128, shoulders=0):
+        """DS4 reduced input report 0x01 on the host's interrupt channel;
+        shoulders: 1 = L1, 2 = R1."""
+        self.l2(0x0041, bytes([0xA1, 0x01, lx, ly, 128, 128, buttons, shoulders, ps, 0, 0]), handle)
 
 
 def _mini_expect(q, needle, timeout=20):
@@ -2083,6 +2089,100 @@ def test_bt_forget(b, opts):
         shutil.rmtree(tmp, ignore_errors=True)
 
 
+def test_menu_tabs(b, opts):
+    """The tabs with a DS4 (M27): R1 and L1 move between Games, Dev and
+    Settings; on Settings its panel opens by itself and Dev is off; B out of
+    it goes back to Dev. Up on the first row stays on the covers. PS in the
+    menu goes home (Games, panels closed), never to the monitor; PS in the
+    monitor opens the games menu."""
+    tmp = tempfile.mkdtemp(prefix="bm-tabs-")
+    img = os.path.join(tmp, "sd.img")
+    hcd = os.path.join(tmp, "BCM43430A1.hcd")
+    with open(hcd, "wb") as f:
+        f.write(bytes([0x4C, 0xFC, 4, 1, 2, 3, 4, 0x4E, 0xFC, 4, 0xFF, 0xFF, 0xFF, 0xFF]))
+    pad, key = FakeDs4Chip.DS4, FakeDs4Chip.KEY
+    cfg = os.path.join(tmp, "config.txt")
+    with open(cfg, "w") as f:
+        f.write(f"layout=it\nbt_pad=1c:66:6d:01:02:03 {key.hex()}\n")
+    mksd.build(img, [(hcd, "bm/BCM43430A1.hcd"), (cfg, "bm/config.txt"),
+                     (b("demo.bm"), "carts/game.bm")])
+    q = Qemu(b("kernel.img"), ["-drive", f"if=sd,format=raw,file={img}"], mini_uart=True)
+    q.mini_buf = b""
+
+    def press(buttons=0x08, **kw):          # a press and its release
+        chip.report(buttons, **kw)
+        time.sleep(0.15)
+        chip.report(0x08)
+        time.sleep(0.4)
+
+    def state(want_tabs, want_text=(), gone=()):
+        img_, text = settled_screen(
+            q, lambda i, t: tabs_lit(i) == want_tabs and all(any(w in l for l in t) for w in want_text)
+            and not any(g in l for l in t for g in gone))
+        joined = "\n".join(text)
+        assert tabs_lit(img_) == want_tabs, (tabs_lit(img_), joined)
+        for w in want_text:
+            assert w in joined, f"{w!r} not on the screen:\n{joined}"
+        for g in gone:
+            assert g not in joined, f"{g!r} still on the screen:\n{joined}"
+
+    try:
+        q.expect("(same pins, same speed)\r\n", timeout=30)
+        chip = FakeDs4Chip(q.port)
+        chip.buf, q.buf = q.buf, b""
+        chip.init(reset_silent=False)
+        _mini_expect(q, "cartridge menu")
+        chip.reconnect(pad, key, 0x0B, (0x50, 0x51), 1)
+        _mini_expect(q, "bt: controller 1c:66:6d:01:02:03 connected (player 1)")
+        time.sleep(0.5)
+        state(["Games"], ["bm native demo"])
+
+        press(shoulders=2)                  # R1: Dev
+        state(["Dev"], ["bm SDK"])
+        press(shoulders=2)                  # R1: Settings, its panel open, Dev off
+        state(["Settings"], ["Controllers", "WiFi and network"])
+        if opts.shots:
+            _save_png(q.screendump(), os.path.join(opts.shots, "home-tabs-settings.png"))
+        press(shoulders=2)                  # R1 on the last tab: nothing
+        state(["Settings"], ["Controllers"])
+        press(buttons=0x08 | 0x40)          # B (circle): out of Settings, back to Dev
+        state(["Dev"], ["bm SDK"], gone=["Controllers"])
+        press(shoulders=1)                  # L1: Games
+        state(["Games"], ["bm native demo"])
+        press(shoulders=1)                  # L1 on the first tab: nothing
+        state(["Games"], ["bm native demo"])
+
+        # up on the first row stays on the covers: R1 still goes to Dev
+        chip.report(0x00)                   # hat up
+        time.sleep(0.15)
+        chip.report(0x08)
+        time.sleep(0.4)
+        state(["Games"], ["bm native demo"])
+
+        # PS in the menu: home, not the monitor
+        press(shoulders=2)
+        press(shoulders=2)
+        state(["Settings"], ["Controllers"])
+        press(ps=1)
+        state(["Games"], ["bm native demo"], gone=["Controllers"])
+        time.sleep(0.5)
+        assert b"back to the monitor" not in q.mini_buf + q.mini.read(0.2), "PS left the menu"
+
+        # PS in the monitor: the games menu
+        q.mini.write(b"q")
+        _mini_expect(q, "back to the monitor")
+        _mini_expect(q, "> ")
+        press(ps=1)
+        _mini_expect(q, "cartridge menu")
+        time.sleep(0.5)
+        state(["Games"], ["bm native demo"])
+        q.mini.write(b"q")
+        _mini_expect(q, "back to the monitor")
+    finally:
+        q.close()
+        shutil.rmtree(tmp, ignore_errors=True)
+
+
 def test_bt_two_pads(b, opts):
     """M16: two DS4 paired earlier (the first by an older kernel, as
     'bt_pad') come back together and light up in their players' colours; a
@@ -2195,6 +2295,12 @@ def test_sd_sdhc_and_usb_menu(b, opts):
         runs = bar_icons(shot_)
         assert len(runs) == 1 and 20 <= runs[0][1] - runs[0][0] <= 27, runs
         assert not blue_number(shot_, runs[0]), "USB: a white number"
+        sendkeys(q, "e")                      # E is R1: the Dev tab
+        img_, text = settled_screen(q, lambda i, t: tabs_lit(i) == ["Dev"])
+        assert tabs_lit(img_) == ["Dev"], "\n".join(text)
+        sendkeys(q, "q")                      # Q is L1: back to Games
+        img_, text = settled_screen(q, lambda i, t: tabs_lit(i) == ["Games"])
+        assert tabs_lit(img_) == ["Games"], "\n".join(text)
         sendkeys(q, "c")                      # C is the X button: the options (M27)
         _, text = settled_screen(q, lambda i, t: any("Author" in l for l in t))
         assert any("Author" in l for l in text) and any("Play" in l for l in text), "\n".join(text)
@@ -2264,8 +2370,8 @@ def test_usb_hid_gamepad(b, opts):
         out = q.expect("cartridge menu", timeout=90).decode(errors="replace")
         assert "usb: gamepad 0627:0001 'QEMU USB Tablet'" in out, out
         q.monitor("mouse_move 16384 16384")    # centre: stick released
-        # the tablet's button report also moves up once: from the first row
-        # that is the tab bar, where A still plays the highlighted cover
+        # the tablet's button report also moves up once: on the first row
+        # that does nothing (the tabs are L1 / R1), A plays the cover
         time.sleep(0.5)
         q.monitor("mouse_button 1")
         q.monitor("mouse_button 0")

@@ -55,8 +55,7 @@ enum { MENU_NET_NONE, MENU_NET_WIFI, MENU_NET_ETHERNET };
 typedef struct {
     const char *const *tabs;    /* tab names */
     int ntabs, tab;             /* current tab */
-    int on_tabs;                /* the focus is on the tab bar... */
-    int on_gear;                /* ...on Settings, after the tabs */
+    int on_gear;                /* Settings is the tab (its panel is open): Games and Dev off */
     const menu_item_t *items;   /* of the current tab */
     int n, sel;
     int dev[4];                 /* players 1-4: MENU_DEV_*, an icon with the number */

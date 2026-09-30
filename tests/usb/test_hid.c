@@ -63,9 +63,16 @@ int main(void)
     CHECK(hid_getc() == -1);
     const uint8_t esc[10] = { 1, 0, 0, 0x29 };          /* longer report, Esc */
     hid_report(USB_KEYBOARD, esc, 10);
-    CHECK(hid_quit_pressed() == 1);
+    CHECK(hid_quit_pressed() == HID_QUIT_KEY);
     drain();
     hid_report(USB_KEYBOARD, rel, 9);
+    const uint8_t kq[9] = { 1, 0, 0, 0x14 };           /* Q = L1: the menu's tabs */
+    hid_buttons();                                      /* the earlier presses */
+    hid_report(USB_KEYBOARD, kq, 9);
+    CHECK(hid_buttons() == HID_L1);
+    hid_report(USB_KEYBOARD, rel, 9);
+    drain();
+    hid_buttons();
     const uint8_t arrow[9] = { 1, 0, 0, 0x4F };         /* right arrow = game button */
     hid_report(USB_KEYBOARD, arrow, 9);
     CHECK(hid_buttons() & HID_RIGHT);
@@ -98,13 +105,19 @@ int main(void)
     usb[5] = 0x40 | 8; usb[2] = 10;                            /* circle + stick up */
     hid_report(USB_GAMEPAD, usb, 64);
     CHECK(hid_buttons() == (HID_B | HID_UP));
-    usb[2] = 128; usb[5] = 8; usb[6] = 0x20 | 0x10;            /* options + share */
+    usb[2] = 128; usb[5] = 8; usb[6] = 0x01;                   /* L1, then R1 */
+    hid_report(USB_GAMEPAD, usb, 64);
+    CHECK(hid_buttons() == HID_L1);
+    usb[6] = 0x02;
+    hid_report(USB_GAMEPAD, usb, 64);
+    CHECK(hid_buttons() == HID_R1);
+    usb[6] = 0x20 | 0x10;                                      /* options + share */
     hid_report(USB_GAMEPAD, usb, 64);
     CHECK(hid_buttons() == (HID_START | HID_SELECT));
-    CHECK(hid_quit_pressed() == 1);                            /* Start+Select */
-    usb[6] = 0; usb[7] = 1;                                    /* PS button */
+    CHECK(hid_quit_pressed() == HID_QUIT_KEY);                 /* Start+Select */
+    usb[6] = 0; usb[7] = 1;                                    /* PS button: home */
     hid_report(USB_GAMEPAD, usb, 64);
-    CHECK(hid_quit_pressed() == 1);
+    CHECK(hid_quit_pressed() == HID_QUIT_PS);
     hid_report(USB_GAMEPAD, usb, 64);                          /* held: once only */
     CHECK(hid_quit_pressed() == 0);
     uint8_t bt[78] = { 0x11, 0xC0, 0x00, 128, 128, 128, 128, 0x10 | 6 };  /* square + left */
@@ -148,7 +161,19 @@ int main(void)
     CHECK(hid_players(pl, 0, -1) == 0 && pl[2] == 0);
     p1[5] = 0x08; p1[7] = 1;                                   /* PS on a Bluetooth pad quits */
     hid_bt_report(0, p1, sizeof p1);
-    CHECK(hid_quit_pressed() == 1);
+    CHECK(hid_quit_pressed() == HID_QUIT_PS);
+
+    /* Xbox 360: LB / RB are L1 / R1, Guide is like PS (once per press) */
+    hid_xbox360_attach();
+    uint8_t xb[20] = { 0x00, 0x14 };
+    xb[3] = 0x01 | 0x02;
+    hid_report(USB_XBOX360, xb, sizeof xb);
+    CHECK(hid_buttons() == (HID_L1 | HID_R1));
+    xb[3] = 0x04;
+    hid_report(USB_XBOX360, xb, sizeof xb);
+    CHECK(hid_quit_pressed() == HID_QUIT_PS);
+    hid_report(USB_XBOX360, xb, sizeof xb);
+    CHECK(hid_quit_pressed() == 0);
 
     printf("hid: %d/%d checks passed\n", checks - fails, checks);
     return fails != 0;

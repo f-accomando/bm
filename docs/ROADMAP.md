@@ -976,7 +976,7 @@ Task:
   va mai riletta. Impostazioni e strumenti in `src/kernel/home.c`, opzioni della
   cartuccia in `src/kernel/carts.c`.
 - Comandi: X (tasto C sulla tastiera USB, `x` dalla seriale) apre le opzioni; B (tasto X,
-  Esc, `q`) torna indietro di un livello; `3` dalla seriale apre le impostazioni.
+  Esc, `q`) torna indietro di un livello; L1 / R1 cambiano scheda (vedi "Schede e PS").
 - `fat_delete`: prima la voce della directory (anche i pezzi del nome lungo), poi i
   cluster. Test sul PC: 50 file e un nome lungo cancellati, `fsck.vfat` pulito; una
   versione che lascia il nome lungo viene scoperta dal test.
@@ -1006,6 +1006,20 @@ Task:
   - Test: `bar_icons` conta le icone (3 pad col numero blu in `test_bt_two_pads`, la
     tastiera col numero bianco in `test_sd_sdhc_and_usb_menu`, nessuna in
     `test_home_ui`).
+- **Schede e PS** (decisione 2026-09-30, dopo le prove sul Pi):
+  - L1 / R1 scorrono Games, Dev e Settings (non girano in tondo); su dalla prima riga
+    non porta più alla barra, che non prende più il "fuoco";
+  - Settings è l'ultima scheda: arrivandoci il suo pannello si apre da solo e Dev si
+    spegne; B fuori dal pannello torna alla scheda di prima;
+  - accanto alle schede due pillole, `L1` e `R1`; sulla tastiera USB Q / E e
+    PagSu / PagGiù (bit `HID_L1`, `HID_R1`: DS4, LB/RB dell'Xbox 360, tasti 5 e 6 dei
+    gamepad generici); dalla seriale `[` `]`, Tab e `1` `2` `3`;
+  - PS (e Guide dell'Xbox) nel menu non porta più al monitor: torna a Games e chiude
+    pannelli e domande. Nel monitor apre il menu. Nei giochi e negli strumenti fa
+    uscire come prima. `hid_quit_pressed()` distingue `HID_QUIT_KEY` (Esc,
+    Start+Select) da `HID_QUIT_PS`.
+  - Test: `test_menu_tabs` (DS4 simulato: R1, L1, B, su, PS nel menu e nel monitor),
+    Q / E dalla tastiera in `test_sd_sdhc_and_usb_menu`.
 - **Griglia** (decisione 2026-09-30): 16 pixel tra le copertine (erano 24 in orizzontale
   e 20 in verticale) e più in basso: due righe intere, poi la riga successiva che
   spunta per 12 pixel (due volte il raggio degli angoli) a dire che la lista continua.

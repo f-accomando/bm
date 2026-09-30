@@ -31,9 +31,14 @@ int input_read_line(char *buf, int max, int secret);
 /* What input_key returns once when a cartridge sent over the network
  * (bm_net.py --play) waits to be played: the monitor plays it. */
 #define INPUT_NET_PLAY 0x10
+/* The monitor's wait for a command: like input_getc, but the PS button of
+ * a controller (home) ends it with INPUT_HOME: back to the games menu. */
+#define INPUT_HOME 0x11
+int input_getc_home(void);
 
 /* Polls USB and returns the game buttons held on the USB keyboard or
- * gamepad (HID_* bits); *quit is set once per Esc / Start+Select. */
+ * gamepad (HID_* bits); *quit gets HID_QUIT_KEY once per Esc /
+ * Start+Select, HID_QUIT_PS once per PS button (callers set it to 0). */
 uint32_t input_buttons(int *quit);
 
 /* The same, gamepads only (the keyboard types text). */

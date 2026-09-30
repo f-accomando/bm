@@ -140,6 +140,8 @@ static uint32_t key_button(uint8_t u)
     case 0x19: case 0x0C: return HID_Y;         /* V, I */
     case 0x28: return HID_START;                /* Enter */
     case 0x2B: return HID_SELECT;               /* Tab */
+    case 0x14: case 0x4B: return HID_L1;        /* Q, PgUp */
+    case 0x08: case 0x4E: return HID_R1;        /* E, PgDn */
     }
     return 0;
 }
@@ -229,7 +231,7 @@ static void keyboard_boot(const uint8_t *r)
         if (was) continue;
         /* new key */
         if (u == 0x29) {                                            /* Esc */
-            if (!text_mode) quit_edge = 1;
+            if (!text_mode) quit_edge |= HID_QUIT_KEY;
             push(0x1B);
             continue;
         }
@@ -476,10 +478,11 @@ void hid_bt_report(int slot, const uint8_t *r, uint32_t len)
         return;
     int ps = 0;
     uint32_t b = hid_ds4_buttons(r + off, len - (uint32_t)off, &ps);
-    if ((ps && !bt_ps_held[slot]) ||
-        ((b & (HID_START | HID_SELECT)) == (HID_START | HID_SELECT) &&
-         (bt_buttons[slot] & (HID_START | HID_SELECT)) != (HID_START | HID_SELECT)))
-        quit_edge = 1;
+    if (ps && !bt_ps_held[slot])
+        quit_edge |= HID_QUIT_PS;
+    if ((b & (HID_START | HID_SELECT)) == (HID_START | HID_SELECT) &&
+        (bt_buttons[slot] & (HID_START | HID_SELECT)) != (HID_START | HID_SELECT))
+        quit_edge |= HID_QUIT_KEY;
     bt_ps_held[slot] = ps;
     bt_buttons[slot] = b;
     bt_latched[slot] |= b;
@@ -647,6 +650,8 @@ uint32_t hid_ds4_buttons(const uint8_t *d, uint32_t len, int *ps)
     if (d[4] & 0x80) b |= HID_Y;                /* triangle */
     if (d[5] & 0x20) b |= HID_START;            /* options */
     if (d[5] & 0x10) b |= HID_SELECT;           /* share */
+    if (d[5] & 0x01) b |= HID_L1;
+    if (d[5] & 0x02) b |= HID_R1;
     *ps = d[6] & 1;
     return b;
 }
@@ -681,7 +686,7 @@ static void gamepad_report(const uint8_t *r, uint32_t len)
         pad_axis[0] = ds4_axis(r[off]);
         pad_axis[1] = ds4_axis(r[off + 1]);
         if (ps && !pad.ps_held)
-            quit_edge = 1;                      /* the PS button leaves the game */
+            quit_edge |= HID_QUIT_PS;           /* the PS button leaves the game */
         pad.ps_held = ps;
     } else if (pad.xbox) {
         if (len < 10 || r[0] != 0x00) return;
@@ -696,6 +701,11 @@ static void gamepad_report(const uint8_t *r, uint32_t len)
         if (k & 0x20) b |= HID_B;
         if (k & 0x40) b |= HID_X;
         if (k & 0x80) b |= HID_Y;
+        if (k & 0x01) b |= HID_L1;              /* LB */
+        if (k & 0x02) b |= HID_R1;              /* RB */
+        if ((k & 0x04) && !pad.ps_held)
+            quit_edge |= HID_QUIT_PS;           /* Guide: like PS */
+        pad.ps_held = k & 0x04;
         int16_t lx = (int16_t)(r[6] | r[7] << 8), ly = (int16_t)(r[8] | r[9] << 8);
         pad_axis[0] = (int8_t)(lx / 258);
         pad_axis[1] = (int8_t)(-(ly / 258));
@@ -714,9 +724,11 @@ static void gamepad_report(const uint8_t *r, uint32_t len)
             case 1: b |= HID_B; break;
             case 2: b |= HID_X; break;
             case 3: b |= HID_Y; break;
+            case 4: b |= HID_L1; break;
+            case 5: b |= HID_R1; break;
             case 8: b |= HID_SELECT; break;
             case 9: b |= HID_START; break;
-            default: if (i >= 4 && i < 8) b |= (i & 1) ? HID_B : HID_A;
+            default: if (i >= 6 && i < 8) b |= (i & 1) ? HID_B : HID_A;
             }
         }
         if (pad.have_x) {
@@ -740,7 +752,7 @@ static void gamepad_report(const uint8_t *r, uint32_t len)
     }
     if ((b & (HID_START | HID_SELECT)) == (HID_START | HID_SELECT) &&
         (pad_buttons & (HID_START | HID_SELECT)) != (HID_START | HID_SELECT))
-        quit_edge = 1;
+        quit_edge |= HID_QUIT_KEY;
     pad_buttons = b;
     latched_pad |= b;
 }
