@@ -15,24 +15,24 @@ s32_demo_cart:
     .incbin "spec/s32/conformance/demo.cart"
 s32_demo_cart_end:
 
-/* native bm33 demo cartridge, packed by scripts/mkb33.py (see Makefile) */
+/* native bm demo cartridge, packed by scripts/mkbm.py (see Makefile) */
     .section .rodata
     .balign 4
-    .globl b33_demo_cart, b33_demo_cart_end
-b33_demo_cart:
+    .globl bm_demo_cart, bm_demo_cart_end
+bm_demo_cart:
     .incbin "demo.bm"          /* found through -Wa,-I$(BUILD) */
-b33_demo_cart_end:
+bm_demo_cart_end:
 
     .section .rodata
     .balign 4
-    .globl b33_editor_cart, b33_editor_cart_end
-b33_editor_cart:
+    .globl bm_editor_cart, bm_editor_cart_end
+bm_editor_cart:
     .incbin "editor.bm"
-b33_editor_cart_end:
+bm_editor_cart_end:
 
     .section .rodata
     .balign 4
-    .globl b33_stress_cart, b33_stress_cart_end
-b33_stress_cart:
+    .globl bm_stress_cart, bm_stress_cart_end
+bm_stress_cart:
     .incbin "stress.bm"
-b33_stress_cart_end:
+bm_stress_cart_end:

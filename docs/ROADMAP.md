@@ -1,4 +1,10 @@
-# Roadmap bm33
+# Roadmap bm
+
+**Nome (2026-09-30):** il progetto si chiama **bm**, BareMetal (prima bm33). Cartucce
+`.bm` con intestazione `BMCART`, cartella `bm/` sulla SD, strumenti `tools/bm_net.py`,
+`tools/bm_load.py`, `scripts/mkbm.py`, runtime in `src/bm/`. Compatibilità: il kernel
+legge ancora la cartella e le cartucce di prima (`make install` sposta la cartella) e
+`bm_net.py` parla anche coi kernel precedenti.
 
 Obiettivo MVP: una *fantasy console* bare metal su Raspberry Pi Zero W che avvia
 da SD, mostra un menu, carica giochi scritti in Lua ("cart") e li esegue a 60 fps
@@ -66,7 +72,7 @@ M0 ─ M1 ─ M2 ─ M3 ─ M4 ─ M5 ─ M6 (s32) ─┬─ M7 ─┬─ M9 (MV
   a 60 fps, un budget simile a quello di PICO-8. Interi a 64 bit mantenuti.
 
 ## M6 — Core s32 (compatibilità con lua32) ✅ verificato su Pi Zero W (M)
-Decisione: bm33 è compatibile con le cartucce `.cart` della console **s32**
+Decisione: bm è compatibile con le cartucce `.cart` della console **s32**
 (`f-accomando/lua32`): stessa macchina (risoluzioni, palette, tile, VRAM 552 KiB, OAM,
 CGRAM, APU, porte), implementata in C nativo, non un'emulazione del motore di lua32.
 - Specifica comune `spec/s32/s32-spec.md` (fonte: lua32, `docs/spec`), sincronizzata con
@@ -84,12 +90,12 @@ CGRAM, APU, porte), implementata in C nativo, non un'emulazione del motore di lu
 ## Tipi di cartuccia (decisione 2026-09-26)
 | Tipo | Formato | Gira su | Priorità |
 |---|---|---|---|
-| s32 codice macchina | `.cart`, `code_type` 0 | bm33 + lua32 | ✅ fatto |
-| **bm33 nativa Lua** | **`.bm`** (formato separato, non tocca la spec s32) | solo bm33, sfrutta tutto il Pi | **prossima** |
-| s32 Lua | `.cart`, `code_type` 1 | bm33 + lua32 | quando lua32 è pronto |
-| bm33 nativa ARM (C) | `.bm` | solo bm33, user mode + MMU | dopo l'MVP |
+| s32 codice macchina | `.cart`, `code_type` 0 | bm + lua32 | ✅ fatto |
+| **bm nativa Lua** | **`.bm`** (formato separato, non tocca la spec s32) | solo bm, sfrutta tutto il Pi | **prossima** |
+| s32 Lua | `.cart`, `code_type` 1 | bm + lua32 | quando lua32 è pronto |
+| bm nativa ARM (C) | `.bm` | solo bm, user mode + MMU | dopo l'MVP |
 
-Priorità attuale: sviluppo della console bm33; la parte s32 avanza al ritmo di lua32.
+Priorità attuale: sviluppo della console bm; la parte s32 avanza al ritmo di lua32.
 
 ### Cartucce native `.bm`: video (decisione 2026-09-26)
 - **640×360**, 16:9, scala intera ×2 su 720p e ×3 su 1080p; è la risoluzione della
@@ -106,8 +112,8 @@ Priorità attuale: sviluppo della console bm33; la parte s32 avanza al ritmo di 
 
 ## M7 — Cartucce native `.bm` ✅ verificato su Pi Zero W (M)
 - Formato `.bm` (header 128 byte + sezioni Lua / sheet RGBA / mappa, CRC), packer
-  `scripts/mkb33.py` con PNG e CSV.
-- Grafica C in RGB565 (`src/b33/gfx16.c`): forme, sprite con flip e trasparenza,
+  `scripts/mkbm.py` con PNG e CSV.
+- Grafica C in RGB565 (`src/bm/gfx16.c`): forme, sprite con flip e trasparenza,
   scorciatoia per celle opache, mappa, testo, camera, clip.
 - Runtime: stato Lua isolato per cartuccia, `_init/_update/_draw` a 60 fps, input
   seriale, limite di istruzioni per frame, errori mostrati sulla console, GC
@@ -148,7 +154,7 @@ Priorità attuale: sviluppo della console bm33; la parte s32 avanza al ritmo di 
   Esc / Start+Select: dal gioco al menu, dal menu al monitor.
 - 3 giochi demo in Lua: **Pong** (contro la console), **Snake**, **Star Shooter**
   (ondate, boss, esplosioni, sprite disegnati con `sset`).
-- `make image` → `dist/bm33.img` (64 MiB, MBR + FAT32) pronto per Raspberry Pi Imager /
+- `make image` → `dist/bm.img` (64 MiB, MBR + FAT32) pronto per Raspberry Pi Imager /
   balenaEtcher / `dd`.
 - Guida all'API e alla prima cartuccia: `docs/API.md`.
 - Prestazioni sul Pi: l'ARM1176 legge la SDRAM circa 4 volte più lentamente di
@@ -206,11 +212,11 @@ M9 (MVP) ─┬─ M10 audio
 - Driver SD: scrittura a blocchi (CMD24/25) e FAT32 in scrittura (creare e riscrivere
   un file, allocare cluster, aggiornare le due FAT e la directory), con attenzione a
   non corrompere la scheda (ordine delle scritture, verifica in QEMU con `fsck.vfat`).
-- File `/bm33/config.txt` (layout tastiera, modo di disegno, volume, dispositivi
-  Bluetooth abbinati) e `/bm33/save/<cart>.sav`.
+- File `/bm/config.txt` (layout tastiera, modo di disegno, volume, dispositivi
+  Bluetooth abbinati) e `/bm/save/<cart>.sav`.
 - API `.bm`: `save(tabella)` / `saved()` per record e progressi; punteggi migliori nei
   giochi demo.
-- File di salvataggio: `/bm33/save/<CRC-32 di titolo e autore>.SAV` (nomi 8.3: bm33 non
+- File di salvataggio: `/bm/save/<CRC-32 di titolo e autore>.SAV` (nomi 8.3: bm non
   scrive nomi lunghi); contenuto: tabella Lua come testo, riletta in un ambiente vuoto.
 - **Fatto quando:** un record di Snake sopravvive allo spegnimento; `fsck.vfat` pulito
   dopo 1000 salvataggi (test sul PC `make test-fat`: 1000 riscritture, 200 file, fsck e
@@ -223,14 +229,14 @@ M9 (MVP) ─┬─ M10 audio
 Stato:
 1. ✅ (QEMU) console sulla mini UART, UART0 al chip (GPIO30–33, RTS/CTS), clock 32 kHz
    (GPCLK2 su GPIO43), BT_ON su GPIO45 con power-cycle se il chip non risponde, patch
-   firmware da `bm33/BCM43430A1.hcd`, indirizzo e versione, ricerca dispositivi
+   firmware da `bm/BCM43430A1.hcd`, indirizzo e versione, ricerca dispositivi
    (monitor `T`). Test in QEMU con un **chip simulato** in Python sulla UART0
    (`test_bt_start_and_scan`): è la base per provare anche i passi successivi.
    Sul Pi (kernel `7c36bb3`): chip e firmware ok (121 record), indirizzo
    b8:27:eb:62:7c:08, DS4 trovato (00:1f:e2:bf:d7:dd, classe 002508).
 2. ✅ (QEMU) connessione ACL, abbinamento SSP "Just Works" (IO NoInputNoOutput,
    bonding generale), cifratura, canali L2CAP 0x11/0x13, report HID del DS4 nel layer
-   di input (menu e giochi); chiave in `bm33/config.txt`; all'avvio page scan e
+   di input (menu e giochi); chiave in `bm/config.txt`; all'avvio page scan e
    riconnessione avviata dal DS4 (tasto PS) con la chiave salvata. SDP non serve (report
    noto). Test `test_bt_pair_and_reconnect` con un DS4 simulato. Sul Pi (kernel
    `73d199c`): abbinamento del DS4 riuscito e input funzionante, ma con oltre 1 s di
@@ -277,7 +283,7 @@ Decisione 2026-09-30: chiusa dall'autore; il piano resta qui se servirà.
 - **ARM nativo**: sezione di codice ARM in `.bm` (per giochi in C), caricata in una
   zona di memoria dedicata con API tramite tabella di funzioni; senza protezione
   della memoria (solo cartucce fidate).
-- **Fatto quando:** una cart Lua di lua32 gira uguale su lua32 e bm33; un gioco demo
+- **Fatto quando:** una cart Lua di lua32 gira uguale su lua32 e bm; un gioco demo
   in C gira come `.bm` nativa.
 
 ## M14 — Grafica 2.0 (M) — in corso
@@ -292,7 +298,7 @@ Fatto finora (da verificare sul Pi):
 - **texture** sui triangoli (prospettiva corretta, anche dopo il clipping; `mesh(v, f, uv)`
   in Lua con lo sprite sheet);
 - **menu grafico**: ogni cartuccia è una scheda 3D a forma di Memory Stick Duo con la
-  copertina stampata (sezione `COVER` 128×80 nel `.bm`, `mkb33.py --cover`, copertine
+  copertina stampata (sezione `COVER` 128×80 nel `.bm`, `mkbm.py --cover`, copertine
   dei giochi demo da `scripts/mkcovers.py`, etichetta col titolo per le altre) e i
   contatti in rame sul retro; la scheda scelta ondeggia e ogni 7 s si gira.
 - **luce** per le `.bm` (`light_begin`/`light`/`light_end`, griglia 4×4 in C) e i
@@ -318,7 +324,7 @@ Fatto finora (da verificare sul Pi):
   le facce con texture e dopo il clipping. `tri(..., c, c1, c2)` fa triangoli 2D
   sfumati. Le texture fanno la divisione prospettica ogni 16 pixel (lineari in mezzo)
   invece che a ogni pixel. Il nucleo del boss di Astro Wing è liscio. Test host
-  (`tests/b33`) e due righe nuove nello stress test `s`: "3D smooth (Gouraud)" e
+  (`tests/bm`) e due righe nuove nello stress test `s`: "3D smooth (Gouraud)" e
   "3D textured" (le stesse sfere), da misurare sul Pi.
 
 - Misure sul Pi (kernel `8298b15`, 2026-09-29), stress test `s` con un DS4 collegato:
@@ -374,7 +380,7 @@ Previsto:
 
 ## M15 — Editor sulla console (L) ✅ verificato sul Pi Zero W
 Decisione 2026-09-28: editor **sulla console** (come PICO-8), prima del multiplayer.
-- **`bm33 editor`**, sempre ultimo nel menu delle cartucce (freccia su dal primo; e `e` dal monitor): una
+- **`bm editor`**, sempre ultimo nel menu delle cartucce (freccia su dal primo; e `e` dal monitor): una
   cartuccia `.bm` incorporata nel kernel (`carts/editor/main.lua`).
 - **Codice** (F1): colori della sintassi Lua, numeri di riga, scorrimento, rientro
   automatico, Ctrl+Z annulla, Ctrl+K taglia riga, Ctrl+D duplica riga.
@@ -424,7 +430,7 @@ Da provare sul Pi: due DS4 insieme (ritardo d'input come in M12), la luce, Pong 
 
 Sul Pi (2026-09-29, `8298b15`): con un pad collegato, un secondo DS4 già abbinato si
 connetteva, apriva il canale **SDP** (PSM 1) prima di quelli HID e, al rifiuto, chiudeva
-(motivo 0x13), in ciclo. Ora bm33 ha un piccolo server SDP che risponde "nessun record"
+(motivo 0x13), in ciclo. Ora bm ha un piccolo server SDP che risponde "nessun record"
 e, se un pad abbinato non apre i canali HID entro 1 s, li apre la console (come
 nell'abbinamento). Test QEMU: in `test_bt_two_pads` il secondo pad fa proprio così.
 
@@ -526,13 +532,13 @@ Decisione 2026-09-28: versioni "leggere", in coda dopo M17.
   del firmware WiFi (`brcmfmac43430-sdio.bin`, `.txt`, `.clm_blob` da
   RPi-Distro/firmware-nonfree, come `BCM43430A1.hcd`), protocollo di controllo del chip
   (FullMAC: associazione e WPA2 li fa il firmware). Rete e password in
-  `/bm33/config.txt` (`wifi_ssid`, `wifi_psk`), comando del monitor per scegliere la
+  `/bm/config.txt` (`wifi_ssid`, `wifi_psk`), comando del monitor per scegliere la
   rete.
 - **TCP/IP**: lwIP (licenza BSD) con DHCP; IP e stato mostrati sullo schermo.
 - **Console di rete** ("pseudo-SSH" leggero): una connessione TCP in chiaro, con
   password, che dà lo stesso monitor e la stessa REPL Lua della seriale (`nc` o uno
   script dal PC); si attiva dalle impostazioni, pensata per la rete di casa.
-- **Invio dal PC via WiFi**: `bm33_load.py` anche su TCP per `kernel.img` e cartucce
+- **Invio dal PC via WiFi**: `bm_load.py` anche su TCP per `kernel.img` e cartucce
   (scritti sulla SD, poi riavvio o gioco) — fine delle copie a mano sulla SD.
   Aggiornamento del kernel sicuro: file nuovo verificato (CRC + firma), scambio con il
   vecchio, copia di riserva e ritorno al kernel precedente se il nuovo non parte
@@ -560,7 +566,7 @@ Decisione 2026-09-28: versioni "leggere", in coda dopo M17.
    In QEMU (senza chip) si ferma a CMD5 senza bloccarsi.
 3. ✅ (Pi, `26d66b8`: firmware `7.45.98`, MAC, CLM caricato) **Firmware**: `make firmware` scarica `brcmfmac43430-sdio.bin`,
    `.txt` (impostazioni della scheda Zero W) e `.clm_blob` da RPi-Distro/firmware-nonfree
-   (seguendo i collegamenti simbolici del repository), `make sdcard` li copia in `bm33/`.
+   (seguendo i collegamenti simbolici del repository), `make sdcard` li copia in `bm/`.
    `W` poi, un passo per riga:
    - ricerca dei blocchi del chip nella ROM di enumerazione;
    - reset dei blocchi, dimensione della RAM del chip;
@@ -575,7 +581,7 @@ Decisione 2026-09-28: versioni "leggere", in coda dopo M17.
    Elenco numerato.
 5. ✅ (Pi: "connesso") **Connessione**:
    - dopo l'elenco, `W` chiede il numero della rete e la password (asterischi);
-   - la rete salvata (`wifi_ssid` / `wifi_psk` in `bm33/config.txt`, in chiaro) si
+   - la rete salvata (`wifi_ssid` / `wifi_psk` in `bm/config.txt`, in chiaro) si
      ricollega da sola;
    - WPA2-PSK (AES), WPA-PSK o aperta, con il 4-way handshake fatto dal firmware
      (`sup_wpa`, `WSEC_PMK`);
@@ -585,28 +591,28 @@ Decisione 2026-09-28: versioni "leggere", in coda dopo M17.
    - interfaccia Ethernet `wl` sul canale dati SDPCM (2) con intestazione BDC; i frame
      ricevuti durante ioctl e join vanno in una coda di 8, controllo di flusso con i
      crediti del firmware;
-   - dopo la connessione `W` chiede l'indirizzo con DHCP (nome `bm33`) e stampa
+   - dopo la connessione `W` chiede l'indirizzo con DHCP (nome `bm`) e stampa
      `net: IP ...`; la rete resta attiva nel monitor, nel menu e nei giochi;
    - verifica: `ping <IP>` dal PC.
 7. ✅ (Pi, `455e4ff`: login, `h`, `i`, REPL Lua dal PC) **Console di rete**: il monitor su TCP, porta 3333
    (`src/net/netcon.c`), un client alla volta:
-   - password `net_password` in `bm33/config.txt`; se manca, un PIN di 6 cifre creato,
+   - password `net_password` in `bm/config.txt`; se manca, un PIN di 6 cifre creato,
      salvato e mostrato sullo schermo dopo l'IP; 3 tentativi, poi la connessione si chiude;
    - tutto ciò che il kernel stampa va anche al client (anello di 32 KiB svuotato da
      `net_poll`, mai dentro lwIP); i tasti del client arrivano come quelli della tastiera;
-   - dal PC: `tools/bm33_net.py IP` (terminale raw, Ctrl-] esce);
+   - dal PC: `tools/bm_net.py IP` (terminale raw, Ctrl-] esce);
    - in chiaro: solo per la rete di casa (TLS con M19);
    - test sul PC: `make test-net` (lwIP con interfaccia di loopback).
 8. 🛠 (da provare sul Pi) **File dal PC e WiFi all'avvio**:
    - porta TCP 3334, stessa password della console (`src/net/netxfer.c`);
      richiesta `BM3X`, operazione, password, percorso, dimensione, crc32, dati;
-   - ✅ (Pi, `ddca333`) `bm33_net.py IP --send gioco.bm` → salvata in `/carts` (nomi 8.3, `--name`,
+   - ✅ (Pi, `ddca333`) `bm_net.py IP --send gioco.bm` → salvata in `/carts` (nomi 8.3, `--name`,
      `--to`); il menu rilegge la SD da solo;
    - ✅ (Pi: Pong a 59,9 fps) `--play gioco.bm` → giocata subito (dal menu o dal monitor), senza salvarla;
    - ✅ (Pi: 1.3 MB in 7,7 s, 170 KiB/s) `--kernel build/kernel.img` → scritto come `kernel.img` (prima i dati, poi la
      voce della directory: un'interruzione lascia il vecchio o il nuovo) e riavvio;
    - ✅ (Pi, `ddca333`) all'avvio la rete salvata si ricollega da sola, senza scansione
-     (`wifi_boot=0` in `bm33/config.txt` la spegne); l'IP compare nella barra di stato;
+     (`wifi_boot=0` in `bm/config.txt` la spegne); l'IP compare nella barra di stato;
    - test sul PC: `make test-net` (salvataggio, password, crc, play, kernel);
    - i tasti del terminale di rete arrivano anche a menu, giochi, pager e demo, come
      quelli della seriale (`input_remote_getc`); Esc da solo esce dal menu.
@@ -636,9 +642,9 @@ Passi (2026-09-29):
    HTTP contro un server Python locale) e `make test-net` (stream su lwIP).
 2. 🛠 (da provare sul Pi) **HTTPS**: mbedTLS 3.6.2 LTS (Apache 2.0, `third_party/mbedtls`,
    41 sorgenti) sotto lo stesso trasporto (`src/net/tls.c`); configurazione
-   `src/net/bm33_mbedtls.h`: client TLS 1.2, ECDHE (P-256, P-384, X25519), AES-GCM e
+   `src/net/bm_mbedtls.h`: client TLS 1.2, ECDHE (P-256, P-384, X25519), AES-GCM e
    ChaCha20-Poly1305, certificati RSA ed ECDSA; entropia dal generatore hardware del
-   BCM2835 (`src/drivers/rng.c`); 19 certificati radice in `bm33/ca.pem`
+   BCM2835 (`src/drivers/rng.c`); 19 certificati radice in `bm/ca.pem`
    (`scripts/make-ca.sh`, dalla lista Mozilla: GitHub, Let's Encrypt, Google, Amazon,
    DigiCert); verifica di catena, nome e date (aspetta l'ora SNTP). Kernel +150 KB.
    Test sul PC: `make test-https` (certificati ECDSA e RSA, 1 MiB, chunked, redirect;
@@ -652,7 +658,7 @@ Passi (2026-09-29):
 5. **Git leggero in lettura**: cartucce da un repository (API "contents" di GitHub,
    file per file, senza archivi da decomprimere).
 6. **Git leggero in scrittura**: l'editor carica un `.bm` su un repository con un
-   token personale (`github_token` in `bm33/config.txt`, API "contents", PUT).
+   token personale (`github_token` in `bm/config.txt`, API "contents", PUT).
 
 ## M20 — Picchiaduro a robot giganti (XL) — ✅ chiusa (2026-09-30: base giocabile)
 Decisione 2026-09-28: in coda dopo M19. Concept completo dell'autore:
@@ -697,8 +703,8 @@ dell'autore si è partiti subito da un MVP (passi 1–3 insieme, con un solo rob
 progettazione in [`docs/giochi/mecha-fighter-design.md`](giochi/mecha-fighter-design.md),
 cartuccia **Titan Clash** (`carts/titan`).
 - Kernel: sezione **SHEET8** del `.bm` (palette di ≤256 colori + RLE, decodificata al
-  caricamento) e sheet fino a 4096 pixel di lato; `mkb33.py --sheet8`; test host in
-  `tests/b33`.
+  caricamento) e sheet fino a 4096 pixel di lato; `mkbm.py --sheet8`; test host in
+  `tests/bm`.
 - Arte pre-renderizzata (`mkrobot.py`): il robot VANGUARD è un modello 3D procedurale
   su uno scheletro, reso in vista 3/4 con cel shading a 6 toni e contorni, 63 frame in
   24 animazioni, **a strati** (armatura pesante, spallaccio integro/crepato, cannoni,
@@ -741,7 +747,7 @@ solo per la scelta dei giochi.
      griglia, dettagli e pulsanti in basso;
    - A (anche dalle schede) avvia la copertina evidenziata.
    
-   L'editor ora si chiama **bm33 SDK**.
+   L'editor ora si chiama **bm SDK**.
 2. ✅ (QEMU, `test_suspend_resume`) **Giochi sospesi**:
    - Esc, o PS sul controller, esce dal gioco ma lo lascia congelato in memoria (stato
      Lua, sheet, mappa, 3D; audio muto);
@@ -750,7 +756,7 @@ solo per la scelta dei giochi.
    - avviare un'altra applicazione chiede conferma, chiude quella sospesa e libera la
      memoria.
    
-   Fatto: `b33_run` (con `suspendable`), `b33_resume`, `b33_close_suspended`.
+   Fatto: `bm_run` (con `suspendable`), `bm_resume`, `bm_close_suspended`.
    - Alla ripresa tornano:
      - la stessa area di disegno (clip e camera);
      - il disegno via RAM, se il gioco usa le luci;
@@ -833,7 +839,7 @@ Considerazioni:
 - Ordine proposto: 22.0 → 22.1 → 22.2 → 22.4 → 22.5 → 22.3 → 22.6 → 22.7.
 
 ## M23 — Emulatore di cartucce `.p8` / `.p8.png` (stile PICO-8) (L/XL)
-Decisione 2026-09-29: in coda. Scritto da zero in C sul runtime di bm33 (non il port di
+Decisione 2026-09-29: in coda. Scritto da zero in C sul runtime di bm (non il port di
 fake-08, in C++). Nessun nome, logo o font di PICO-8 (prodotto di Lexaloffle): nome e
 font nostri; le cartucce del forum sono per lo più CC BY-NC-SA (uso non commerciale).
 1. **Caricatore**:
@@ -882,7 +888,7 @@ GitHub, M26 market a pagamento). Considerazioni iniziali del 2026-09-29.
     hash verificati prima di installare;
   - le cartucce Lua girano già in un ambiente chiuso; il codice ARM nativo (M13) no:
     senza isolamento della memoria, solo da autori fidati o mai dallo store.
-- **Licenze**: il campo licenza è obbligatorio. La BM33 Community License vale per bm33,
+- **Licenze**: il campo licenza è obbligatorio. La BM Community License vale per bm,
   non per i contenuti degli utenti; attenzione a CC BY-NC-SA (uso non commerciale) e ai
   contenuti di terzi.
 - **Passi proposti**:
@@ -936,14 +942,14 @@ Task:
    - disegno dei giochi `.bm` (diretto / via RAM), layout della tastiera (italiano / US);
    - Sistema: versione, memoria, SD, tempo di accensione; riavvia; monitor.
 5. **Barra di stato e notifiche**:
-   - ✅ (QEMU) icone al posto di `pads: 1 2 - -` e della scritta bm33 (vedi sotto);
+   - ✅ (QEMU) icone al posto di `pads: 1 2 - -` e della scritta bm (vedi sotto);
    - ora (SNTP, fuso orario nelle impostazioni);
    - notifiche che compaiono e spariscono ("Controller 2 connected", "Cartridge
      received", "Save data deleted").
 6. **Suoni e animazioni del menu**: clic di navigazione, suono di avvio, copertina che
    si ingrandisce; volume generale e suoni del menu nelle impostazioni.
 7. **Ordine e preferiti**: giocati di recente per primi, preferiti fissati in alto,
-   ordine per titolo o autore; salvati in `/bm33/menu.txt`.
+   ordine per titolo o autore; salvati in `/bm/menu.txt`.
 8. **Tastiera sullo schermo** (col pad), per password WiFi, nomi dei file e PIN. Poi WiFi
    e abbinamento del tutto grafici (elenco delle reti con il segnale, avanzamento
    dell'abbinamento), senza passare dalla console testuale.
@@ -968,7 +974,7 @@ Task:
   pattern si chiude con qualsiasi tasto; dopo gli strumenti "A: torna al menu".
 - Restano sulla console testuale: abbinamento (`T`), connessione WiFi (`W`, la password
   si scrive con la tastiera USB), Lua. Diventano grafici con il task 8.
-- **Barra** (decisione 2026-09-30): niente scritta bm33 né `pads: 1 2 - -`; Settings è
+- **Barra** (decisione 2026-09-30): niente scritta bm né `pads: 1 2 - -`; Settings è
   scritta come le schede, senza l'icona dell'ingranaggio.
   - A destra, un'icona bianca per ogni giocatore collegato: tastiera (tastiera USB)
     o controller in stile DS4 (pad Bluetooth o USB).
@@ -982,7 +988,7 @@ Task:
     l'indirizzo), o quella Ethernet.
   - Tutte nello stesso riquadro di 27×18 pixel (`src/kernel/icons.c`): forme disegnate
     all'avvio con antialiasing (4×4 campioni per pixel), bordi sui pixel interi.
-  - bm33 non ha ancora un'interfaccia Ethernet (il Pi Zero W non ha la porta, un
+  - bm non ha ancora un'interfaccia Ethernet (il Pi Zero W non ha la porta, un
     adattatore USB richiede il suo driver): `net_link()` è pronta a dirlo quando ci
     sarà.
   - Test: `bar_icons` conta le icone (3 pad col numero blu in `test_bt_two_pads`, la
@@ -1015,15 +1021,15 @@ Fatto (QEMU, `test_bt_keyboard` con una MX Keys simulata; `make test-smp`):
 - `src/bt/ble.c`: scansione LE, connessione come central, frammentazione e ricomposizione
   L2CAP sui buffer LE del chip (27 byte), segnalazione LE (aggiornamento dei parametri
   di connessione accettato), server ATT vuoto che risponde "non trovato".
-- **Pairing SMP** come iniziatore, con codice: bm33 mostra 6 cifre, si digitano sulla
+- **Pairing SMP** come iniziatore, con codice: bm mostra 6 cifre, si digitano sulla
   tastiera seguite da Invio (Passkey Entry). **LE Secure Connections** (P-256 con
   mbedTLS, f4/f5/f6 su AES-CMAC) se la tastiera lo supporta, altrimenti LE legacy
   (c1/s1); Just Works se la tastiera non può digitare. `src/bt/smp_crypto.c`, provato con
   i dati d'esempio della specifica (Vol 3 Part H, appendice D) e RFC 4493.
-- Legame salvato in `bm33/config.txt`: `bt_kbd` (indirizzo d'identità, tipo, IRK) e
+- Legame salvato in `bm/config.txt`: `bt_kbd` (indirizzo d'identità, tipo, IRK) e
   `bt_kbd_key` (LTK, EDIV, Rand). **Riconnessione**: finché la tastiera manca, scansione
   passiva; quando si fa vedere (basta un tasto), anche da un indirizzo privato risolto
-  con l'IRK, bm33 si collega e cifra con la LTK salvata.
+  con l'IRK, bm si collega e cifra con la LTK salvata.
 - **GATT/HOGP**: servizio HID, caratteristiche e descrittori, Report Reference, report
   map letta a pezzi (MTU 23); dalla report map si ricava dove sono modificatori e tasti
   del report tastiera (array o bitmap), notifiche attivate solo su quello; se manca, il
@@ -1051,7 +1057,7 @@ dopo lo spegnimento o il cambio di canale, insieme a un DS4.
 | Firmware closed-source che cambia comportamento | Fissare la versione con `FW_REF` |
 | Test solo su hardware | QEMU raspi0 in CI + chainloader via seriale |
 | Bluetooth (M12) senza emulatore | un solo controller di riferimento, tracce HCI registrate sul Pi per i test |
-| Scrittura su SD (M11) che corrompe la scheda | test in QEMU con `fsck.vfat`, file di bm33 in una cartella dedicata |
+| Scrittura su SD (M11) che corrompe la scheda | test in QEMU con `fsck.vfat`, file di bm in una cartella dedicata |
 
 ## Hardware consigliato per lo sviluppo
 - Adattatore USB-seriale 3.3 V (**non 5 V**) su GPIO14/15 + GND

@@ -3,7 +3,7 @@
  * console's password: a cartridge saved on the SD card, a cartridge
  * played at once, or a new kernel.img followed by a reboot.
  *
- * Request: "BM3X", op ('S' save, 'P' play, 'K' kernel), u8 length +
+ * Request: "BMXF", op ('S' save, 'P' play, 'K' kernel), u8 length +
  * password, u8 length + path ("carts/pong.bm"; 8.3 names), u32 size,
  * u32 crc32 (little endian), the data. Answers, two letters each: after
  * the header OK, or PW (password), SZ (size), BH (bad header); after the

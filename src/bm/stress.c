@@ -210,7 +210,7 @@ static void machine_line(const char *when)
             temp[1] / 1000, temp[1] / 100 % 10, th, loop / 1000, loop / 10 % 100);
 }
 
-void b33_stress_run(framebuffer_t *fb)
+void bm_stress_run(framebuffer_t *fb)
 {
     const uint32_t con_w = fb->width, con_h = fb->height;
     static sample_t samples[64];
@@ -219,8 +219,8 @@ void b33_stress_run(framebuffer_t *fb)
 
     kprintf("stress test: 640x360 RGB565, %d frames per step, draw + copy to screen\n", FRAMES_PER_STEP);
     machine_line("before");
-    if (b33_video_enter(fb, W, H, &g) != 0) {
-        b33_video_leave(fb, con_w, con_h);
+    if (bm_video_enter(fb, W, H, &g) != 0) {
+        bm_video_leave(fb, con_w, con_h);
         kprintf("stress: cannot set the video mode\n");
         return;
     }
@@ -239,7 +239,7 @@ void b33_stress_run(framebuffer_t *fb)
                 T->frame(n, f);
                 uint32_t draw = timer_ticks() - t0;
                 overlay(T->name, n, (total + draw) / 1000.0f / (f + 1));
-                total += draw + b33_video_present(fb, &g);  /* the copy is part of the frame */
+                total += draw + bm_video_present(fb, &g);  /* the copy is part of the frame */
             }
             float ms = total / 1000.0f / FRAMES_PER_STEP;
             samples[count++] = (sample_t){ n, ms, (float)tris_last };
@@ -262,7 +262,7 @@ void b33_stress_run(framebuffer_t *fb)
         per_item[t] = count > 1 ? (samples[count - 1].ms - samples[0].ms) * 1000.0f /
                                   (samples[count - 1].n - samples[0].n) : 0;
     }
-    b33_video_leave(fb, con_w, con_h);
+    bm_video_leave(fb, con_w, con_h);
     machine_line("after C part");
 
     kprintf("\x1b[1m%-24s%16s%16s%12s\x1b[0m\n", "test (max per frame)", "60 fps", "30 fps", "us/item");

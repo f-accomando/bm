@@ -1,5 +1,5 @@
 -- Host tests of Chaos Kitchen (carts/kitchen): the cartridge runs in a fake
--- bm33 (the same API, checks like the C code, no pixels) with scripted and
+-- bm (the same API, checks like the C code, no pixels) with scripted and
 -- random input. It walks through the menus, plays every stage with 1 and 4
 -- chefs, and reports the heaviest frames: Lua instructions and 3D triangles,
 -- the two costs that matter on the Pi.
@@ -25,7 +25,7 @@ local function where(msg)
   end))
 end
 
----------------------------------------------------------------- fake bm33
+---------------------------------------------------------------- fake bm
 
 local env = {}
 local frame_tris, frame_calls, frame_meshes = 0, 0, 0

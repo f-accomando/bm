@@ -1,6 +1,6 @@
-# Stress test di rendering — bm33 su Raspberry Pi Zero W
+# Stress test di rendering — bm su Raspberry Pi Zero W
 
-Obiettivo: capire **quanti oggetti per frame** può disegnare bm33 prima di scendere sotto
+Obiettivo: capire **quanti oggetti per frame** può disegnare bm prima di scendere sotto
 **60 fps** (16,7 ms per frame) e sotto **30 fps** (33,3 ms per frame), per sprite e
 per poligoni 2D/3D, sia dal C sia attraverso l'API delle cartucce Lua (`.bm`).
 
@@ -41,7 +41,7 @@ effettivamente disegnati** per frame.
 ## Pipeline 3D (software)
 
 La GPU 3D del Pi (VideoCore IV) **non** è usata: il 3D è un rasterizzatore software
-sull'ARM (`src/b33/r3d.c`).
+sull'ARM (`src/bm/r3d.c`).
 - trasformazione per vertice in virgola mobile (VFP), camera con yaw/pitch e FOV;
 - eliminazione delle facce posteriori e degli oggetti dietro la camera (senza
   clipping sul piano vicino: un triangolo che lo attraversa viene scartato);
@@ -59,7 +59,7 @@ API per le cartucce: `mesh`, `mesh_sphere`, `mesh_cube`, `draw3d`, `camera3d`,
 ## Risultati
 
 **Versione del kernel:** la sigla in alto a sinistra sullo schermo (barra azzurra,
-es. `bm33 1b31924`) è il commit git con cui è stato compilato il kernel. Lo stress
+es. `bm 1b31924`) è il commit git con cui è stato compilato il kernel. Lo stress
 test esiste dalla versione `1b31924`: con una sigla diversa (es. `7044581`, che è M5)
 sulla SD c'è un kernel più vecchio. Se compare `-dirty`, il kernel è stato compilato
 con modifiche locali non committate.
@@ -123,7 +123,7 @@ sola CPU prima e dopo la parte C, per capire la differenza alla prossima misura.
 ## Come eseguirlo sul Pi
 
 ```sh
-cd ~/bm33 && git pull
+cd ~/bm && git pull
 make sdcard-stress               # kernel dedicato: esegue lo stress test all'avvio
 sudo umount /mnt/d 2>/dev/null; sudo mount -t drvfs D: /mnt/d
 cp dist/kernel.img /mnt/d/ && sync && cmp dist/kernel.img /mnt/d/kernel.img && echo "COPIA OK"

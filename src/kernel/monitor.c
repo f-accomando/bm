@@ -2,9 +2,9 @@
 #include "bench.h"
 #include "demo.h"
 #include "s32/player.h"
-#include "b33/runtime.h"
+#include "bm/runtime.h"
 #include "upload.h"
-#include "b33/stress.h"
+#include "bm/stress.h"
 #include "input.h"
 #include "script/repl.h"
 #include "sysinfo.h"
@@ -48,10 +48,10 @@ static const char help_text[] =
             "  T  Bluetooth: pair a controller as the next player (DS4: Share + PS)\n"
             "  K  Bluetooth: pair a keyboard (LE, e.g. MX Keys: hold an Easy-Switch key)\n"
             "  P  Bluetooth: forget all paired pads and the keyboard (asks first)\n"
-            "  W  WiFi: start, list the networks, join one (M18; saved in bm33/config.txt)\n"
-            "     from the PC: tools/bm33_net.py IP (console, --send/--play a cart, --kernel)\n"
+            "  W  WiFi: start, list the networks, join one (M18; saved in bm/config.txt)\n"
+            "     from the PC: tools/bm_net.py IP (console, --send/--play a cart, --kernel)\n"
             "  G  get a web address (http or https): status, size, speed, start\n"
-            "  b  boot diagnostics: benchmarks, s32 and b33 demos, Lua boot script\n"
+            "  b  boot diagnostics: benchmarks, s32 and bm demos, Lua boot script\n"
             "  k  CPU benchmark          p  rendering benchmark 640x360 RGB565\n"
             "  D  DMA test step by step (CPU against DMA timings)\n"
             "  V  .bm drawing: direct on screen / via RAM (compare with p)\n"
@@ -175,27 +175,27 @@ void monitor_run(void)
             break;
         }
         case 'n': {
-            extern const uint8_t b33_demo_cart[], b33_demo_cart_end[];
-            b33_stats_t bs;
-            b33_play(console_framebuffer(), b33_demo_cart,
-                     (size_t)(b33_demo_cart_end - b33_demo_cart), 3600, &bs);
-            b33_print_stats(&bs);
+            extern const uint8_t bm_demo_cart[], bm_demo_cart_end[];
+            bm_stats_t bs;
+            bm_play(console_framebuffer(), bm_demo_cart,
+                     (size_t)(bm_demo_cart_end - bm_demo_cart), 3600, &bs);
+            bm_print_stats(&bs);
             break;
         }
         case 'U': upload_and_play(console_framebuffer()); break;
         case 'S': case 's': {
-            extern const uint8_t b33_stress_cart[], b33_stress_cart_end[];
-            b33_stress_run(console_framebuffer());
+            extern const uint8_t bm_stress_cart[], bm_stress_cart_end[];
+            bm_stress_run(console_framebuffer());
             kprintf("Lua part (cartridge API):\n");
-            b33_stats_t bs;
-            b33_play(console_framebuffer(), b33_stress_cart,
-                     (size_t)(b33_stress_cart_end - b33_stress_cart), 600, &bs);
+            bm_stats_t bs;
+            bm_play(console_framebuffer(), bm_stress_cart,
+                     (size_t)(bm_stress_cart_end - bm_stress_cart), 600, &bs);
             break;
         }
-        case 'p': b33_bench_report(console_framebuffer(), 120); break;
+        case 'p': bm_bench_report(console_framebuffer(), 120); break;
         case 'V':
-            b33_set_via_ram(!b33_via_ram());
-            kprintf(".bm carts draw %s\n", b33_via_ram() ? "via a RAM buffer" : "directly on screen");
+            bm_set_via_ram(!bm_via_ram());
+            kprintf(".bm carts draw %s\n", bm_via_ram() ? "via a RAM buffer" : "directly on screen");
             config_save();
             break;
         case 'd': {
@@ -225,7 +225,7 @@ void monitor_run(void)
             break;
         case 'o': pager_show(klog_text()); break;
         case 'P': {
-            kprintf("forget all Bluetooth pads and the keyboard (keys removed from bm33/config.txt)? y = yes\n");
+            kprintf("forget all Bluetooth pads and the keyboard (keys removed from bm/config.txt)? y = yes\n");
             input_flush();                      /* only a key pressed after the question */
             char k = input_getc();
             if (k == 'y' || k == 'Y') {
@@ -271,7 +271,7 @@ void monitor_run(void)
         case '\r': case '\n': break;
         case 0x1B: break;               /* Esc alone: already at the monitor */
         case 'G': net_get_test(); break;
-        case INPUT_NET_PLAY: {                  /* bm33_net.py --play */
+        case INPUT_NET_PLAY: {                  /* bm_net.py --play */
             uint8_t *buf;
             size_t len;
             if (netxfer_take_play(&buf, &len)) {

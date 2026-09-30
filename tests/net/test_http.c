@@ -91,7 +91,7 @@ int main(int argc, char **argv)
 
     snprintf(url, sizeof url, "%s/hello", base);
     int st = http_get_buffer(url, NULL, 1 << 20, &d, &n, &info);
-    check(st == 200 && n == 12 && !memcmp(d, "hello, bm33\n", 12) && info.length == 12 &&
+    check(st == 200 && n == 10 && !memcmp(d, "hello, bm\n", 10) && info.length == 10 &&
           !strcmp(info.type, "text/plain"), "GET with Content-Length");
     free(d);
 
@@ -102,12 +102,12 @@ int main(int argc, char **argv)
 
     snprintf(url, sizeof url, "%s/redirect", base);
     st = http_get_buffer(url, NULL, 1 << 20, &d, &n, &info);
-    check(st == 200 && n == 12 && strstr(info.url, "/hello"), "redirect (relative Location)");
+    check(st == 200 && n == 10 && strstr(info.url, "/hello"), "redirect (relative Location)");
     free(d);
 
     snprintf(url, sizeof url, "%s/redirect-abs", base);
     st = http_get_buffer(url, NULL, 1 << 20, &d, &n, &info);
-    check(st == 200 && n == 12, "redirect (absolute Location)");
+    check(st == 200 && n == 10, "redirect (absolute Location)");
     free(d);
 
     snprintf(url, sizeof url, "%s/missing", base);

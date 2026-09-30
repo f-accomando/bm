@@ -24,7 +24,7 @@
 #include <time.h>
 
 /* ---- the kernel functions netcon.c uses */
-const char bm33_version[] = "test";
+const char bm_version[] = "test";
 static const char *cfg_pw = "secret";
 static char saved_pw[40];
 const char *config_get(const char *key) { return strcmp(key, "net_password") ? NULL : cfg_pw; }
@@ -165,7 +165,7 @@ int main(void)
     client_t a;
     connect_client(&a);
     check(a.connected, "client connected");
-    check(strstr(a.got, "bm33 test network console") && strstr(a.got, "password: "), "greeting");
+    check(strstr(a.got, "bm test network console") && strstr(a.got, "password: "), "greeting");
 
     kprintf("before login\n");
     spin(20);
@@ -271,7 +271,7 @@ int main(void)
         connect_port(&x, NETXFER_PORT);
         uint8_t h[200];
         unsigned n = 0;
-        memcpy(h, "BM3X", 4); n = 4;
+        memcpy(h, "BMXF", 4); n = 4;
         h[n++] = (uint8_t)cases[t].op;
         h[n++] = (uint8_t)strlen(cases[t].pw);
         memcpy(h + n, cases[t].pw, strlen(cases[t].pw)); n += strlen(cases[t].pw);
@@ -292,7 +292,7 @@ int main(void)
                 tcp_output(x.pcb);
                 spin(5);
             }
-        /* like bm33_net.py: close as soon as the whole answer is in (the
+        /* like bm_net.py: close as soon as the whole answer is in (the
          * kernel case must still reboot) */
         for (int i = 0; i < 600 && x.len < strlen(cases[t].answer) && !x.closed; i++)
             spin(1);

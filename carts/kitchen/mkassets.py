@@ -761,7 +761,7 @@ def main():
     if os.path.exists(tex):
         import sys
         sys.path.insert(0, os.path.join(ROOT, "scripts"))
-        from mkb33 import read_png
+        from mkbm import read_png
         w, h, rgba = read_png(tex)
         for y in range(min(h, SH - 128)):
             for x in range(min(w, SW)):

@@ -1,12 +1,12 @@
 /*
- * mbedTLS for bm33 (M19): a TLS 1.2 client, enough for GitHub and most of
+ * mbedTLS for bm (M19): a TLS 1.2 client, enough for GitHub and most of
  * the web. ECDHE key exchange (P-256, P-384, X25519), AES-GCM and
  * ChaCha20-Poly1305, RSA and ECDSA certificates, SHA-256/384/512 (SHA-1
  * for old chains). Entropy from the BCM2835 hardware generator
  * (mbedtls_hardware_poll in tls.c); no file system, no threads.
  */
-#ifndef BM33_MBEDTLS_CONFIG_H
-#define BM33_MBEDTLS_CONFIG_H
+#ifndef BM_MBEDTLS_CONFIG_H
+#define BM_MBEDTLS_CONFIG_H
 
 /* platform */
 #define MBEDTLS_HAVE_ASM

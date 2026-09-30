@@ -1,4 +1,4 @@
-/* lwIP port for bm33 (ARM1176, newlib, little endian). */
+/* lwIP port for bm (ARM1176, newlib, little endian). */
 #ifndef ARCH_CC_H
 #define ARCH_CC_H
 

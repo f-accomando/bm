@@ -1,7 +1,7 @@
 /*
  * lwIP on the WiFi chip: one Ethernet interface ("wl") whose frames go
  * through wifi_send / wifi_recv, NO_SYS and polled (net_poll from the
- * input loops). DHCP gives the address; the hostname is "bm33".
+ * input loops). DHCP gives the address; the hostname is "bm".
  */
 #include "net.h"
 #include "netcon.h"
@@ -61,7 +61,7 @@ static err_t wl_init(struct netif *n)
     n->flags = NETIF_FLAG_BROADCAST | NETIF_FLAG_ETHARP | NETIF_FLAG_ETHERNET;
     n->output = etharp_output;
     n->linkoutput = link_output;
-    netif_set_hostname(n, "bm33");
+    netif_set_hostname(n, "bm");
     return ERR_OK;
 }
 
@@ -79,7 +79,7 @@ static void show_ip(void)
     ip4addr_ntoa_r(netif_ip4_addr(&nif), ip_text, sizeof ip_text);
     char gw[16];
     ip4addr_ntoa_r(netif_ip4_gw(&nif), gw, sizeof gw);
-    kprintf("\x1b[92mnet: IP %s\x1b[0m (gateway %s, name bm33)\n", ip_text, gw);
+    kprintf("\x1b[92mnet: IP %s\x1b[0m (gateway %s, name bm)\n", ip_text, gw);
     if (!sntp_enabled()) {
         sntp_setoperatingmode(SNTP_OPMODE_POLL);
         sntp_init();
@@ -87,7 +87,7 @@ static void show_ip(void)
     if (netcon_start() == 0) {
         netxfer_start();
         kprintf("net: console on port %d, password %s\n"
-                "     from the PC: python3 tools/bm33_net.py %s\n",
+                "     from the PC: python3 tools/bm_net.py %s\n",
                 NETCON_PORT, netcon_password(), ip_text);
     }
 }

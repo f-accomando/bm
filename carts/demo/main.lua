@@ -1,4 +1,4 @@
--- bm33 native demo (.bm): scrolling tile map over a 1280x720 world,
+-- bm native demo (.bm): scrolling tile map over a 1280x720 world,
 -- 256 bouncing 16x16 sprites, a player, a HUD with timings.
 -- It is also the rendering benchmark: full-screen map + 256 sprites + text.
 
@@ -56,7 +56,7 @@ end
 
 local function hud()
   rectfill(0, 0, W, 16, 0x000000)
-  print(string.format("bm33 native .bm  %2d fps  cpu %4.1f ms  %2d%%",
+  print(string.format("bm native .bm  %2d fps  cpu %4.1f ms  %2d%%",
         stat(2), stat(1), math.floor(stat(1) / 16.667 * 100)), 0, 0, 0xFFFFFF)
   -- colour check: red, green, blue, white (verifies RGB565 channel order)
   local colours = { 0xFF0000, 0x00FF00, 0x0000FF, 0xFFFFFF }

@@ -82,9 +82,9 @@
 #define WLC_GET_VAR     262
 #define WLC_SET_VAR     263
 
-#define FW_FILE   "/bm33/brcmfmac43430-sdio.bin"
-#define NVRAM_FILE "/bm33/brcmfmac43430-sdio.txt"
-#define CLM_FILE  "/bm33/brcmfmac43430-sdio.clm_blob"
+#define FW_FILE   "brcmfmac43430-sdio.bin"        /* in /bm on the SD card */
+#define NVRAM_FILE "brcmfmac43430-sdio.txt"
+#define CLM_FILE  "brcmfmac43430-sdio.clm_blob"
 
 static struct {
     uint32_t window;
@@ -277,16 +277,16 @@ static int ram_scan(void)
 
 /* ---------------------------------------------------------------- files */
 
-/* What the SD card has in /bm33 (when a firmware file is missing). */
-static void list_bm33(void)
+/* What the SD card has in /bm (when a firmware file is missing). */
+static void list_bm(void)
 {
     fat_dir_t d;
     fat_entry_t e;
-    if (fat_opendir(&d, "/bm33") != 0) {
-        kprintf("wifi: there is no /bm33 folder on the SD card\n");
+    if (fat_opendir(&d, "/bm") != 0) {
+        kprintf("wifi: there is no /bm folder on the SD card\n");
         return;
     }
-    kprintf("wifi: /bm33 on the SD card has:");
+    kprintf("wifi: /bm on the SD card has:");
     int n = 0;
     while (fat_readdir(&d, &e) == 1) {
         kprintf("%s %s", n % 3 ? "," : "\n     ", e.name);
@@ -295,11 +295,11 @@ static void list_bm33(void)
     kprintf("%s\n", n ? "" : " nothing");
 }
 
-static uint8_t *load_file(const char *path, size_t *len)
+static uint8_t *load_file(const char *name, size_t *len)
 {
     fat_entry_t e;
     uint8_t *data = NULL;
-    if (fat_find(path, &e) != 0 || fat_load(&e, &data, len) != 0)
+    if (config_find_file(name, &e) != 0 || fat_load(&e, &data, len) != 0)
         return NULL;
     return data;
 }
@@ -622,15 +622,15 @@ int wifi_start(void)
     size_t fw_len = 0, nv_len = 0;
     uint8_t *fw = load_file(FW_FILE, &fw_len);
     if (!fw) {
-        kprintf("\x1b[91mwifi: %s not on the SD card (make firmware; make sdcard)\x1b[0m\n", FW_FILE);
-        list_bm33();
+        kprintf("\x1b[91mwifi: bm/%s not on the SD card (make firmware; make sdcard)\x1b[0m\n", FW_FILE);
+        list_bm();
         return -1;
     }
     uint8_t *nv = load_file(NVRAM_FILE, &nv_len);
     if (!nv) {
         free(fw);
-        kprintf("\x1b[91mwifi: %s not on the SD card (make firmware; make sdcard)\x1b[0m\n", NVRAM_FILE);
-        list_bm33();
+        kprintf("\x1b[91mwifi: bm/%s not on the SD card (make firmware; make sdcard)\x1b[0m\n", NVRAM_FILE);
+        list_bm();
         return -1;
     }
     uint8_t *nvram = malloc(nv_len + 8);
@@ -734,7 +734,7 @@ int wifi_start(void)
         else
             kprintf("wifi: regulatory data (CLM) %lu bytes loaded\n", (uint32_t)clm_len);
     } else {
-        kprintf("wifi: no %s (optional with older firmware)\n", CLM_FILE);
+        kprintf("wifi: no bm/%s (optional with older firmware)\n", CLM_FILE);
     }
     /* radio on, no power saving (the chip answers at once) */
     set_int_var("bus:txglom", 0);
@@ -1064,7 +1064,7 @@ int wifi_connect(void)
     config_set("wifi_psk", line);
     config_set("wifi_security", nt->security);
     config_save();
-    kprintf("wifi: saved in bm33/config.txt (W reconnects by itself)\n");
+    kprintf("wifi: saved in bm/config.txt (W reconnects by itself)\n");
     return 0;
 }
 

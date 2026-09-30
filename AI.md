@@ -1,4 +1,4 @@
-# B33 — AI / ML Development Milestones
+# BM — AI / ML Development Milestones
 
 **Target iniziale:** Raspberry Pi Zero W 1.1 — ARMv6, 512 MB RAM, bare-metal
 
@@ -14,16 +14,16 @@
 
 ## AI-02 — Embedded AI Runtime
 
-* B33 AI Engine
+* BM AI Engine
 * AI task/thread dedicato
 * Memory-efficient inference
 * CPU-budgeted inference
 * Modelli caricabili dinamicamente
-* API AI nativa B33
+* API AI nativa BM
 
-## AI-03 — B33 AI Model Format
+## AI-03 — BM AI Model Format
 
-* Formato .b33ai
+* Formato .bmai
 * Model metadata
 * Network architecture
 * Weights
@@ -95,7 +95,7 @@ Higher Resolution
 
 ## AI-08 — AI + Graphics Engine
 
-Integrazione dell'AI con il renderer B33:
+Integrazione dell'AI con il renderer BM:
 
 * AI-assisted rendering
 * Adaptive rendering
@@ -106,12 +106,12 @@ Integrazione dell'AI con il renderer B33:
 
 ## AI-09 — AI Model Ecosystem
 
-* .b33ai model library
+* .bmai model library
 * Reusable AI components
 * AI model compatibility/versioning
 * Model metadata
 * Model sharing
-* AI assets per applicazioni B33
+* AI assets per applicazioni BM
 
 ## AI-10 — Hardware-Aware AI
 
@@ -139,9 +139,9 @@ Con supporto a capacità differenti:
 
 ## AI-11 — AI Developer Tools
 
-Ecosistema per sviluppatori B33:
+Ecosistema per sviluppatori BM:
 
-* B33 AI model compiler
+* BM AI model compiler
 * Model converter
 * Quantization tools
 * Model validator
@@ -168,6 +168,6 @@ Sviluppi successivi:
 
 Per il Pi Zero W 1.1, il nucleo tecnologico prioritario sarebbe:
 
-**Tiny MLP → INT8 inference → .b33ai → B33 AI Engine → Tiny CNN → Neural Graphics → Neural/Perceptual Scaling**
+**Tiny MLP → INT8 inference → .bmai → BM AI Engine → Tiny CNN → Neural Graphics → Neural/Perceptual Scaling**
 
 Il tutto concepito come AI locale, senza dipendenza da cloud o PC durante l'esecuzione.

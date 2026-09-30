@@ -31,7 +31,7 @@ Codice: `carts/titan/` (cartuccia *Titan Clash*). Test: `make test-titan` (host)
   Gli strati sparsi sono spezzati in blocchi 8×8 e i pezzi uguali condivisi.
   P2 ha una **seconda livrea** (cremisi e oro, visore verde), ricolorando le rampe.
 - **Kernel**: sezione `SHEET8` del formato `.bm` (palette ≤256 colori + RLE,
-  decodificata al caricamento), `B33_SHEET_MAX` 4096; `mkb33.py --sheet8`.
+  decodificata al caricamento), `BM_SHEET_MAX` 4096; `mkbm.py --sheet8`.
 - **Gioco** (Lua, file in `src/` uniti da `build.py`): `20_fighter` (controlli, stati,
   colpi), `30_fx` (particelle e proiettili), `40_stage` (arena), `50_hud`, `60_cpu`,
   `70_screens` (titolo, modalità, hangar, incontro, pausa), `80_audio`.

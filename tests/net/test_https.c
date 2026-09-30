@@ -82,7 +82,7 @@ int main(int argc, char **argv)
     free(pem);
 
     int st = http_get_buffer(url, NULL, 1 << 20, &d, &n, &info);
-    check(st == 200 && n == 12 && !memcmp(d, "hello, bm33\n", 12), "https GET, ECDSA certificate");
+    check(st == 200 && n == 10 && !memcmp(d, "hello, bm\n", 10), "https GET, ECDSA certificate");
     if (st != 200) printf("     %s\n", info.error);
     free(d);
 
@@ -121,7 +121,7 @@ int main(int argc, char **argv)
 
     snprintf(url, sizeof url, "https://localhost:%d/redirect-plain", p_ec);
     st = http_get_buffer(url, NULL, 1 << 20, &d, &n, &info);
-    check(st == 200 && n == 12 && strstr(info.url, "https://localhost"), "redirect between https servers");
+    check(st == 200 && n == 10 && strstr(info.url, "https://localhost"), "redirect between https servers");
     free(d);
 
     printf(fails ? "\n%d FAILED\n" : "\nhttps: all passed\n", fails);

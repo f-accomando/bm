@@ -1,15 +1,15 @@
 #!/usr/bin/env python3
 """
-mkb33.py - packs a native bm33 cartridge (.bm). Standard library only.
+mkbm.py - packs a native bm cartridge (.bm). Standard library only.
 
-  mkb33.py -o game.bm --lua main.lua [--sheet sheet.png [--sheet8]] [--map map.csv]
+  mkbm.py -o game.bm --lua main.lua [--sheet sheet.png [--sheet8]] [--map map.csv]
            [--title "My game"] [--author me] [--res 640x360|320x180]
 
 sheet.png: 8-bit RGB or RGBA PNG (non-interlaced); size multiple of 8 recommended.
 --sheet8:  store the sheet with a palette and runs (at most 256 colours): big
            sheets of sprites become a fraction of the size.
 map.csv:   one row of comma-separated sprite indices per line (0 = empty).
-Format: see src/b33/b33.h.
+Format: see src/bm/bm.h.
 """
 import argparse
 import struct
@@ -101,7 +101,7 @@ def make_cover(img):
 
 
 def sheet8(w, h, rgba):
-    """a SHEET8 section body: palette and runs (see src/b33/b33.h)"""
+    """a SHEET8 section body: palette and runs (see src/bm/bm.h)"""
     pal, index = [], {}
     idx = bytearray(w * h)
     for i in range(w * h):
@@ -166,7 +166,7 @@ def pack(lua, sheet=None, map_=None, title="", author="", res=(640, 360), cover=
     after = table + bodies
 
     header = bytearray(128)
-    header[0:8] = b"BM33CART"
+    header[0:8] = b"BMCART\x00\x00"
     struct.pack_into("<HHHHBBHI", header, 8, 1, 128, res[0], res[1], 1, len(sections), 0, crc32(after))
     header[24:24 + 47] = title.encode()[:47].ljust(47, b"\0")
     header[72:72 + 31] = author.encode()[:31].ljust(31, b"\0")

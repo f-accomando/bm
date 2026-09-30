@@ -43,10 +43,10 @@ int fat_read_head(const fat_entry_t *e, uint8_t buf[512]);
 /* Reads a whole file into a malloc'd buffer (caller frees). */
 int fat_load(const fat_entry_t *e, uint8_t **data, size_t *len);
 
-/* Finds a file or directory by path ("/bm33/config.txt"). Returns 0. */
+/* Finds a file or directory by path ("/bm/config.txt"). Returns 0. */
 int fat_find(const char *path, fat_entry_t *e);
 
-/* Creates the directories of `path` that are missing ("/bm33/save"). Names
+/* Creates the directories of `path` that are missing ("/bm/save"). Names
  * must be valid 8.3 names. Returns 0. */
 int fat_mkdirs(const char *path);
 

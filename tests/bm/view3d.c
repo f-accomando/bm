@@ -1,7 +1,7 @@
 /* Host helper: renders a test 3D scene to a PPM so the rasterizer can be
  * inspected by eye. Usage: view3d out.ppm */
 #include <stdio.h>
-#include "b33/r3d.h"
+#include "bm/r3d.h"
 
 static uint8_t glyphs[256 * 16];
 static const font_t font = { 8, 16, glyphs };

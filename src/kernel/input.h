@@ -16,7 +16,7 @@ int input_key(void);
 #define INPUT_PAD_NAV 2
 void input_pad_keys(int mode);
 /* Keys typed on a remote terminal: the serial port or the network
- * console (bm33_net.py); -1 if none. Menus and games read them as text. */
+ * console (bm_net.py); -1 if none. Menus and games read them as text. */
 int input_remote_getc(void);
 int input_remote_ready(void);
 /* After a remote Esc: does more follow within 30 ms (an arrow key)? */
@@ -29,7 +29,7 @@ int input_skip_sequence(void);
  * echoed (as '*' if secret); Enter ends it. Its length, -1 on Esc. */
 int input_read_line(char *buf, int max, int secret);
 /* What input_key returns once when a cartridge sent over the network
- * (bm33_net.py --play) waits to be played: the monitor plays it. */
+ * (bm_net.py --play) waits to be played: the monitor plays it. */
 #define INPUT_NET_PLAY 0x10
 
 /* Polls USB and returns the game buttons held on the USB keyboard or

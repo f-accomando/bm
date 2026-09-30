@@ -1,15 +1,18 @@
-# bm33 — bare metal console per Raspberry Pi Zero W
+# bm — BareMetal
 
-MVP di una console bare metal (Assembly / C / Lua embedded) per
-**Raspberry Pi Zero W v1.1** (SoC BCM2835, CPU ARM1176JZF-S, ARMv6).
+**bm** (BareMetal) è una console bare metal (Assembly / C / Lua embedded) per
+**Raspberry Pi Zero W v1.1** (SoC BCM2835, CPU ARM1176JZF-S, ARMv6): nessun sistema
+operativo, il kernel parte direttamente dalla SD. Le sue cartucce native hanno
+l'estensione **`.bm`**; impostazioni, salvataggi e firmware stanno nella cartella
+**`bm/`** della SD.
 
 ## In breve: giocare
 
 ```sh
-make firmware && make image      # dist/bm33.img (64 MiB): firmware, kernel e giochi
+make firmware && make image      # dist/bm.img (64 MiB): firmware, kernel e giochi
 ```
 
-Scrivi `dist/bm33.img` sulla microSD con **Raspberry Pi Imager** ("Use custom"),
+Scrivi `dist/bm.img` sulla microSD con **Raspberry Pi Imager** ("Use custom"),
 balenaEtcher o `dd`; collega HDMI e una **tastiera o un gamepad USB** (adattatore OTG
 sulla porta micro-USB centrale) e accendi. Il Pi si avvia in un paio di secondi sul
 **menu delle cartucce** (in 3D: ogni gioco è una piccola scheda a forma di Memory
@@ -30,7 +33,7 @@ Per scrivere un gioco: [docs/GUIDA-GIOCHI.md](docs/GUIDA-GIOCHI.md) (guida prati
 ## Roadmap
 
 Dettagli, criteri di completamento e rischi in [docs/ROADMAP.md](docs/ROADMAP.md).
-Risorse del Pi Zero W e quanto ne usano bm33/s32: [docs/HARDWARE.md](docs/HARDWARE.md).
+Risorse del Pi Zero W e quanto ne usano bm/s32: [docs/HARDWARE.md](docs/HARDWARE.md).
 Stress test di rendering (soglie 60/30 fps): [docs/STRESS.md](docs/STRESS.md) — `make sdcard-stress`.
 Prestazioni e scelte tecniche (limiti del Pi, atteso contro misurato): [docs/PRESTAZIONI.md](docs/PRESTAZIONI.md).
 Risoluzioni di menu, console e giochi, e quanto costano: [docs/RISOLUZIONI.md](docs/RISOLUZIONI.md).
@@ -94,7 +97,7 @@ Lua `boot.lua`) si esegue dal monitor con **`b`**.
 | Tasto | Azione |
 |-------|--------|
 | `h` | aiuto, a pagine: frecce su/giù, PagSu/PagGiù, spazio (dalla seriale `w`/`s`); `q` o Esc esce |
-| `b` / `B` | diagnostica: la vecchia sequenza di avvio (benchmark, demo s32 e b33, `boot.lua`) |
+| `b` / `B` | diagnostica: la vecchia sequenza di avvio (benchmark, demo s32 e bm, `boot.lua`) |
 | `l` | **REPL Lua** (Esc su riga vuota, Ctrl-D o `exit()` per tornare al monitor) |
 | `i` | info di sistema |
 | `c` | pulisce lo schermo |
@@ -112,12 +115,12 @@ Lua `boot.lua`) si esegue dal monitor con **`b`**.
 | `e` | **editor** dei giochi `.bm` (codice, sprite, mappa; è anche l'ultimo elemento del menu) |
 | `a` | audio: stato dell'uscita HDMI (clock, canale DMA, costo della sintesi) e una melodia di prova con le quattro forme d'onda |
 | `T` | Bluetooth: cerca per 8 s e **abbina il primo controller** trovato come **prossimo giocatore** (fino a 4; DS4: Share + PS finché lampeggia); la console seriale passa alla mini UART (stessi pin) |
-| `P` | Bluetooth: **dimentica tutti i pad** abbinati (chiede conferma con `y`): chiavi tolte da `bm33/config.txt`, pad scollegati; poi si riabbinano con `T` |
+| `P` | Bluetooth: **dimentica tutti i pad** abbinati (chiede conferma con `y`): chiavi tolte da `bm/config.txt`, pad scollegati; poi si riabbinano con `T` |
 | `o` | **log dell'avvio**: tutto quello che il kernel ha scritto dall'accensione (primi 64 KiB), a pagine |
 | `W` | WiFi (M18): accende il chip e lo identifica, un passo per riga |
 | `p` | benchmark di rendering 640×360 RGB565, disegnando direttamente sullo schermo e via RAM |
 | `V` | cartucce `.bm`: disegno diretto sullo schermo (default) o via buffer in RAM |
-| `U` | riceve una cartuccia dalla seriale (`bm33_load.py PORTA --cart file.bm`) e la esegue |
+| `U` | riceve una cartuccia dalla seriale (`bm_load.py PORTA --cart file.bm`) e la esegue |
 | `s` / `S` | stress test di rendering (sprite, triangoli, 3D; C e Lua): vedi [docs/STRESS.md](docs/STRESS.md) |
 | `t` | test pattern HDMI (un tasto qualsiasi torna alla console) |
 | `r` | reboot via watchdog (con il chainloader, ricarica il kernel) |
@@ -150,7 +153,7 @@ viene scelta l'interfaccia tastiera, anche se il dispositivo usa i report con ID
   A/X = A, B/Y = B, **Start+Select (Back) = esci**.
 - **DualShock 4 (PS4) via Bluetooth** (M12, M16): dal monitor `T` con il controller in
   abbinamento (Share + PS finché la luce lampeggia). Fino a **4 controller**, uno per
-  giocatore: ogni `T` abbina il prossimo, la chiave va in `bm33/config.txt`
+  giocatore: ogni `T` abbina il prossimo, la chiave va in `bm/config.txt`
   (`bt_pad1=` … `bt_pad4=`; il vecchio `bt_pad=` diventa il giocatore 1). Dalle accensioni
   successive il Bluetooth parte da solo (circa 3 s in più all'avvio per il firmware del
   chip) e basta premere **PS**: la luce del pad prende il colore del giocatore (1 blu,
@@ -175,9 +178,9 @@ X (tasto C sulla tastiera USB) apre le opzioni della cartuccia, B (tasto X) torn
 nei pannelli. Dalla seriale: w/a/s/d, Invio, `x` opzioni, `3` impostazioni, q. Per
 aggiungere un gioco basta copiarlo in `carts/` sulla SD dal PC.
 
-**Scrittura (M11).** bm33 scrive solo nella cartella `bm33/` della SD:
-`bm33/config.txt` (layout della tastiera, modo di disegno; si può modificare anche dal
-PC) e `bm33/save/*.SAV` (salvataggi e record delle cartucce: `save()`/`saved()`).
+**Scrittura (M11).** bm scrive solo nella cartella `bm/` della SD:
+`bm/config.txt` (layout della tastiera, modo di disegno; si può modificare anche dal
+PC) e `bm/save/*.SAV` (salvataggi e record delle cartucce: `save()`/`saved()`).
 
 Limiti attuali: un solo dispositivo USB, senza hub; niente
 Bluetooth (il chip BCM43438 usa la stessa UART della console seriale e richiede
@@ -232,7 +235,7 @@ Test pattern (comando `t`):
 
 ## Che versione ho sulla SD?
 
-La sigla nella barra azzurra in alto a sinistra (es. `bm33 1b31924`) è il commit git
+La sigla nella barra azzurra in alto a sinistra (es. `bm 1b31924`) è il commit git
 del kernel. `git log --oneline` mostra a quale milestone corrisponde; se compare
 `-dirty` il kernel contiene modifiche locali non committate.
 
@@ -269,7 +272,7 @@ con i glifi del font, quindi verificano anche ciò che appare sull'HDMI.
 
 ## s32
 
-bm33 esegue le cartucce `.cart` della console **s32** del progetto
+bm esegue le cartucce `.cart` della console **s32** del progetto
 [lua32](https://github.com/f-accomando/lua32): stessa macchina (320×224, tile 8–64 px,
 8 palette × 256 colori RGB888, VRAM 552 KiB, 512 sprite, APU a 8 canali), implementata
 in C nativo. Il contratto comune è `spec/s32/s32-spec.md`; i vettori di conformità
@@ -291,13 +294,13 @@ PPU in C); i numeri reali vanno misurati sul Pi (riga `s32:` all'avvio).
 
 ## Cartucce native `.bm`
 
-Cartucce solo per bm33 che sfruttano il Pi Zero: **640×360, colore diretto a 16 bit
+Cartucce solo per bm che sfruttano il Pi Zero: **640×360, colore diretto a 16 bit
 (RGB565), 60 fps**, logica in Lua 5.4, tutto il disegno in C. Formato in
-`src/b33/b33.h` (header + sezioni: copertina, codice Lua, sprite sheet RGBA, mappa); la grafica
+`src/bm/bm.h` (header + sezioni: copertina, codice Lua, sprite sheet RGBA, mappa); la grafica
 è salvata in un formato indipendente dallo schermo, pronta per un futuro 32 bit.
 
 ```sh
-python3 scripts/mkb33.py -o gioco.bm --lua main.lua --sheet sheet.png --map map.csv \
+python3 scripts/mkbm.py -o gioco.bm --lua main.lua --sheet sheet.png --map map.csv \
         --title "Il mio gioco" --cover copertina.png
 ```
 
@@ -317,7 +320,7 @@ sulla console, senza bloccare il kernel. Il disegno va direttamente nella pagina
 nascosta del framebuffer (in alternativa, comando `V`, in un buffer in RAM copiato
 una volta per frame: `p` confronta i due modi).
 
-![demo b33](docs/m7-b33-demo.png)
+![demo bm](docs/m7-bm-demo.png)
 
 ## Lua
 
@@ -331,18 +334,18 @@ Prestazioni misurate su Pi Zero W (1 GHz, MMU e cache attive): `fib(25)` 83 ms,
 20k `tostring` + `table.concat` 104 ms. In un frame a 60 fps (16,7 ms, di cui
 ~2,7 ms per disegnare) restano circa 150k operazioni Lua semplici.
 
-Modulo `bm33`:
+Modulo `bm`:
 
 | Funzione | Descrizione |
 |----------|-------------|
-| `bm33.micros()` | contatore a 1 MHz (intero) |
-| `bm33.millis()` | millisecondi dal tick di sistema |
-| `bm33.sleep(ms)` | attesa |
-| `bm33.mem()` | byte usati da Lua, picco, byte in uso nell'heap C |
-| `bm33.color(fg [, bg])` | colori della console 0–15 (ordine ANSI) |
-| `bm33.cls()` | pulisce lo schermo |
-| `bm33.reboot()` | riavvio (watchdog) |
-| `bm33.version` | versione del kernel |
+| `bm.micros()` | contatore a 1 MHz (intero) |
+| `bm.millis()` | millisecondi dal tick di sistema |
+| `bm.sleep(ms)` | attesa |
+| `bm.mem()` | byte usati da Lua, picco, byte in uso nell'heap C |
+| `bm.color(fg [, bg])` | colori della console 0–15 (ordine ANSI) |
+| `bm.cls()` | pulisce lo schermo |
+| `bm.reboot()` | riavvio (watchdog) |
+| `bm.version` | versione del kernel |
 
 Senza seriale non puoi scrivere nel REPL; per ora lo script eseguito all'avvio
 è `src/script/boot.lua` (modificalo e ricompila). Da M8 le cart Lua si
@@ -378,7 +381,7 @@ Ciclo di sviluppo: modifica il codice, `make` in un altro terminale, premi `r`
 nel terminale seriale → il Pi si riavvia e riceve il nuovo `build/kernel.img`.
 
 Protocollo (vedi `chainloader/main.c`): il loader invia `\x03\x03\x03` ogni
-secondo; il PC risponde `BM33` + dimensione + CRC-32; il loader verifica, copia il
+secondo; il PC risponde `BM` + dimensione + CRC-32; il loader verifica, copia il
 kernel a `0x8000` e ci salta. Il chainloader si ricopia prima a `0x02000000`, quindi
 il kernel può essere grande fino a ~31 MiB. A 115200 baud la velocità è ~11 KB/s:
 con Lua il kernel è ~340 KB, cioè ~30 s per caricarlo. Conviene `BAUD=921600` (deve essere uguale per build e `run-serial`,
@@ -394,13 +397,13 @@ make install SD=/mnt/e  # se la SD è montata altrove
 ```
 
 `make install` copia kernel, file di avvio, `config.txt`, cartucce e il firmware del chip
-in `bm33/` (Bluetooth e WiFi); non tocca mai impostazioni e salvataggi
-(`bm33/CONFIG.TXT`, `bm33/SAVE`). Alla fine elenca cosa c'è in `bm33/` sulla SD.
+in `bm/` (Bluetooth e WiFi); non tocca mai impostazioni e salvataggi
+(`bm/CONFIG.TXT`, `bm/SAVE`). Alla fine elenca cosa c'è in `bm/` sulla SD.
 
 ## Scheda SD senza chainloader
 
 Il modo più semplice è l'immagine completa: `make firmware && make image`, poi scrivi
-`dist/bm33.img` con Raspberry Pi Imager ("Use custom"), balenaEtcher o `dd`
+`dist/bm.img` con Raspberry Pi Imager ("Use custom"), balenaEtcher o `dd`
 (serve `sudo apt install dosfstools mtools`). In alternativa, a mano:
 
 1. Formatta la SD con una partizione **FAT32** (tabella MBR).
@@ -435,7 +438,7 @@ src/kernel/menu_ui.c     BareMetal UI: griglia, schede, pannelli, copertine degl
 src/kernel/home.c        strumenti della scheda Dev e pannelli delle impostazioni
 src/kernel/input.c       input unificato: seriale + tastiera/gamepad USB
 src/s32/                 macchina s32: CPU, PPU, loader .cart, player 320×224
-src/b33/                 cartucce native: formato, grafica RGB565 (gfx16), 3D software (r3d),
+src/bm/                 cartucce native: formato, grafica RGB565 (gfx16), 3D software (r3d),
                          runtime Lua, stress test
 carts/demo/              cartuccia nativa demo: main.lua, sheet.png, map.csv
 carts/pong|snake|shooter|astrowing|hunt|texroom giochi demo (solo Lua)
@@ -446,14 +449,14 @@ carts/titan/             Titan Clash (M20): src/*.lua, build.py; mkrobot.py (il 
                          pre-renderizzato), art.py e mkassets.py (sheet.png)
 tests/titan/             simulatore host di Titan Clash (sim.lua)
 docs/API.md              API delle cartucce .bm e guida alla prima cartuccia
-scripts/mkb33.py         packer .bm (PNG e CSV, solo libreria standard Python)
+scripts/mkbm.py         packer .bm (PNG e CSV, solo libreria standard Python)
 scripts/mksd.py          immagine SD (MBR + FAT32): make image e test in QEMU
-tests/b33/               test host della grafica e del formato
+tests/bm/               test host della grafica e del formato
 spec/s32/                specifica comune e vettori di conformità (da lua32)
 tests/s32/               runner di conformità (host e ARM in qemu-arm)
 src/script/luavm.c       stato Lua, allocatore con limite (64 MiB), esecuzione protetta
 src/script/repl.c        REPL: espressioni, righe di continuazione, traceback
-src/script/lib_bm33.c    modulo Lua `bm33`
+src/script/lib_bm.c    modulo Lua `bm`
 src/script/boot.lua      script di avvio (incluso nell'immagine con .incbin)
 third_party/lua/         Lua 5.4.7 non modificato (licenza MIT)
 third_party/lwip/        lwIP 2.2.0, sottoinsieme non modificato (licenza BSD)
@@ -467,8 +470,8 @@ src/drivers/             mmio, mailbox, prop tags, framebuffer, gpio, uart (PL01
                          timer, LED, watchdog
 src/lib/                 kprintf, crc32, syscalls newlib (_sbrk, _write, ...)
 chainloader/             bootloader seriale (si riloca a 0x02000000)
-tools/bm33_load.py       invio del kernel + terminale seriale (solo stdlib Python)
-tools/bm33_net.py        via WiFi: console (monitor), invio di cartucce e kernel (solo stdlib Python)
+tools/bm_load.py       invio del kernel + terminale seriale (solo stdlib Python)
+tools/bm_net.py        via WiFi: console (monitor), invio di cartucce e kernel (solo stdlib Python)
 tests/qemu_test.py       test end-to-end in QEMU (anche tastiera USB, gamepad HID, SD)
 tests/mksd.py            crea un'immagine SD (MBR + FAT32) per i test in QEMU
 scripts/                 download firmware, screenshot QEMU, conversione font (psf2c.py)
@@ -507,9 +510,9 @@ scripts/                 download firmware, screenshot QEMU, conversione font (p
 
 ## Licenza
 
-BM33 is a project by F. Accomando.
+BM is a project by F. Accomando.
 
-bm33 è distribuito con la **BM33 Community License 1.0** (file [`LICENSE`](LICENSE)):
+bm è distribuito con la **BM Community License 1.0** (file [`LICENSE`](LICENSE)):
 uso, modifica e redistribuzione libera per le persone fisiche (anche commerciale,
 se in proprio), con obbligo di attribuzione e di pubblicare il sorgente delle
 versioni modificate sotto la stessa licenza. Le organizzazioni hanno bisogno di

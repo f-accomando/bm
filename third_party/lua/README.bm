@@ -1,4 +1,4 @@
 Lua 5.4.7, unmodified sources from https://github.com/lua/lua (tag v5.4.7).
 Only the library files are included: the standalone interpreter (lua.c),
 compiler (luac.c) and test files are not used. License: MIT (see LICENSE).
-bm33 builds it with newlib; the integration lives in src/script/.
+bm builds it with newlib; the integration lives in src/script/.

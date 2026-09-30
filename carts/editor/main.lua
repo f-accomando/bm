@@ -1,4 +1,4 @@
--- bm33 editor: code, sprites and map of a .bm cartridge, on the console.
+-- bm editor: code, sprites and map of a .bm cartridge, on the console.
 -- F1 code, F2 sprites, F3 map, Esc menu; Ctrl+S save, Ctrl+R (or F5) try it.
 -- Hold F12 for the list of keys. On a gamepad: Y + left/right changes page,
 -- Y + B opens the menu.
@@ -621,7 +621,7 @@ end
 local function draw_menu()
   rectfill(0, 16, W, ROWS * 16, C_BG)
   build_menu()
-  print("bm33 editor", 32, 32, C_ACC)
+  print("bm editor", 32, 32, C_ACC)
   print((proj.save or "(not saved yet)") .. (dirty and "  *modified*" or ""), 176, 32, C_DIM)
   for i, it in ipairs(items) do
     local y = 64 + (i - 1) * 16

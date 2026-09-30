@@ -1,9 +1,9 @@
 /*
- * bm33 serial chainloader.
+ * bm serial chainloader.
  *
- * Protocol (all integers little endian), see tools/bm33_load.py:
+ * Protocol (all integers little endian), see tools/bm_load.py:
  *   loader -> host : "\x03\x03\x03"          every second while idle
- *   host -> loader : "BM33" size:u32 crc32:u32
+ *   host -> loader : "BMLD" size:u32 crc32:u32
  *   loader -> host : "OK" | "SE" (bad size)
  *   host -> loader : <size bytes of kernel.img>
  *   loader -> host : "OK" and jump to 0x8000 | "CE" (crc mismatch) | "TO" (timeout)
@@ -21,7 +21,7 @@
 
 void boot_kernel(uint32_t r0, uint32_t r1, uint32_t r2) __attribute__((noreturn));
 
-static const char magic[4] = { 'B', 'M', '3', '3' };
+static const char magic[4] = { 'B', 'M', 'L', 'D' };
 
 static void wait_for_magic(void)
 {
@@ -65,7 +65,7 @@ void loader_main(uint32_t r0, uint32_t r1, uint32_t r2)
 
     led_init();
     uart_init();
-    uart_puts("\nbm33 chainloader: waiting for kernel\n");
+    uart_puts("\nbm chainloader: waiting for kernel\n");
 
     for (;;) {
         uint32_t size, crc;

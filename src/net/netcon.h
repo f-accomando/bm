@@ -10,7 +10,7 @@
 #define NETCON_PORT 3333
 
 /* Listens (once lwIP is up). The password is net_password in
- * bm33/config.txt; without one a 6-digit PIN is made and saved. */
+ * bm/config.txt; without one a 6-digit PIN is made and saved. */
 int  netcon_start(void);
 /* Sends what was printed; from net_poll, outside lwIP's callbacks. */
 void netcon_poll(void);

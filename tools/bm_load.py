@@ -1,11 +1,11 @@
 #!/usr/bin/env python3
 """
-bm33 serial loader: sends kernel.img to a Pi running the bm33 chainloader,
+bm serial loader: sends kernel.img to a Pi running the bm chainloader,
 then acts as a serial terminal. Standard library only (Linux / macOS).
 
-  bm33_load.py /dev/ttyUSB0 build/kernel.img          upload + terminal
-  bm33_load.py tcp:127.0.0.1:4444 build/kernel.img    QEMU serial socket
-  bm33_load.py /dev/ttyUSB0 --cart game.bm           send a cartridge to a
+  bm_load.py /dev/ttyUSB0 build/kernel.img          upload + terminal
+  bm_load.py tcp:127.0.0.1:4444 build/kernel.img    QEMU serial socket
+  bm_load.py /dev/ttyUSB0 --cart game.bm           send a cartridge to a
                                                       running kernel (monitor)
 
 In the terminal, Ctrl-] quits. Whenever the chainloader announces itself
@@ -24,12 +24,12 @@ import time
 import zlib
 
 READY = b"\x03\x03\x03"
-MAGIC = b"BM33"
+MAGIC = b"BMLD"
 QUIT_KEY = b"\x1d"  # Ctrl-]
 
 
 def log(msg):
-    sys.stderr.write(f"\r[bm33-load] {msg}\r\n")
+    sys.stderr.write(f"\r[bm-load] {msg}\r\n")
     sys.stderr.flush()
 
 

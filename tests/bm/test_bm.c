@@ -3,9 +3,9 @@
 #include <stdlib.h>
 #include <string.h>
 
-#include "b33/b33.h"
-#include "b33/gfx16.h"
-#include "b33/r3d.h"
+#include "bm/bm.h"
+#include "bm/gfx16.h"
+#include "bm/r3d.h"
 #include "lib/crc32.h"
 
 static int fails, checks;
@@ -323,21 +323,21 @@ static void test_format(const char *path)
     uint8_t *d = read_file(path, &n);
     CHECK(d != NULL, "read %s", path);
     if (!d) return;
-    b33_cart_t c;
+    bm_cart_t c;
     char err[64] = "";
-    CHECK(b33_parse(d, n, &c, err, sizeof err) == 0, "parse demo: %s", err);
-    CHECK(strcmp(c.title, "bm33 native demo") == 0, "title '%s'", c.title);
+    CHECK(bm_parse(d, n, &c, err, sizeof err) == 0, "parse demo: %s", err);
+    CHECK(strcmp(c.title, "bm native demo") == 0, "title '%s'", c.title);
     CHECK(c.width == 640 && c.height == 360 && c.pixel_format == 1, "video mode");
     CHECK(c.lua && c.lua_size > 100 && memcmp(c.lua, "--", 2) == 0, "lua section");
     CHECK(c.sheet_w == 128 && c.sheet_h == 128 && c.sheet_rgba, "sheet");
     CHECK(c.map_w == 160 && c.map_h == 90 && c.map_cells, "map");
 
     d[n - 1] ^= 1;
-    CHECK(b33_parse(d, n, &c, err, sizeof err) != 0 && strstr(err, "CRC"), "corruption detected");
+    CHECK(bm_parse(d, n, &c, err, sizeof err) != 0 && strstr(err, "CRC"), "corruption detected");
     d[n - 1] ^= 1;
-    memcpy(d, "BM33CARX", 8);
-    CHECK(b33_parse(d, n, &c, err, sizeof err) != 0, "bad magic rejected");
-    CHECK(b33_parse(d, 10, &c, err, sizeof err) != 0, "short file rejected");
+    memcpy(d, "BMCARXXX", 8);
+    CHECK(bm_parse(d, n, &c, err, sizeof err) != 0, "bad magic rejected");
+    CHECK(bm_parse(d, 10, &c, err, sizeof err) != 0, "short file rejected");
     free(d);
 }
 
@@ -367,33 +367,33 @@ static void test_sheet8(void)
     sec[n++] = 2; sec[n++] = 1; sec[n++] = 2; sec[n++] = 1;
     sec[n++] = 9 + 126; sec[n++] = 2;
 
-    uint8_t cart[B33_HEADER_SIZE + 32 + 16 + 64] = { 0 };
-    size_t off = B33_HEADER_SIZE + 32;
-    memcpy(cart, "BM33CART", 8);
-    put16(cart + 8, 1); put16(cart + 10, B33_HEADER_SIZE); put16(cart + 12, 640); put16(cart + 14, 360);
-    cart[16] = B33_FMT_RGB565; cart[17] = 2;
-    uint8_t *t = cart + B33_HEADER_SIZE;
-    put32(t, B33_SEC_LUA); put32(t + 4, (uint32_t)off); put32(t + 8, sizeof lua - 1);
+    uint8_t cart[BM_HEADER_SIZE + 32 + 16 + 64] = { 0 };
+    size_t off = BM_HEADER_SIZE + 32;
+    memcpy(cart, "BMCART\0\0", 8);
+    put16(cart + 8, 1); put16(cart + 10, BM_HEADER_SIZE); put16(cart + 12, 640); put16(cart + 14, 360);
+    cart[16] = BM_FMT_RGB565; cart[17] = 2;
+    uint8_t *t = cart + BM_HEADER_SIZE;
+    put32(t, BM_SEC_LUA); put32(t + 4, (uint32_t)off); put32(t + 8, sizeof lua - 1);
     memcpy(cart + off, lua, sizeof lua - 1);
     size_t off2 = off + 16;
-    put32(t + 16, B33_SEC_SHEET8); put32(t + 20, (uint32_t)off2); put32(t + 24, (uint32_t)n);
+    put32(t + 16, BM_SEC_SHEET8); put32(t + 20, (uint32_t)off2); put32(t + 24, (uint32_t)n);
     memcpy(cart + off2, sec, n);
     size_t len = off2 + n;
-    put32(cart + 20, crc32(cart + B33_HEADER_SIZE, (uint32_t)(len - B33_HEADER_SIZE)));
+    put32(cart + 20, crc32(cart + BM_HEADER_SIZE, (uint32_t)(len - BM_HEADER_SIZE)));
 
-    b33_cart_t c;
+    bm_cart_t c;
     char err[64] = "";
-    CHECK(b33_parse(cart, len, &c, err, sizeof err) == 0, "sheet8 parse: %s", err);
+    CHECK(bm_parse(cart, len, &c, err, sizeof err) == 0, "sheet8 parse: %s", err);
     CHECK(c.sheet8 && c.sheet_w == 8 && c.sheet_h == 4 && !c.sheet_rgba, "sheet8 size");
-    CHECK(b33_sheet8_unpack(&c, set8, NULL) == 0, "sheet8 unpack");
+    CHECK(bm_sheet8_unpack(&c, set8, NULL) == 0, "sheet8 unpack");
     CHECK(px8[0][0][3] == 0 && px8[2][3][3] == 0, "transparent run");
     CHECK(px8[2][4][0] == 255 && px8[2][5][2] == 255 && px8[2][6][0] == 255, "literal run");
     CHECK(px8[2][7][2] == 255 && px8[3][7][2] == 255 && px8[3][7][3] == 255, "repeated run");
 
     /* a run past the end is refused */
     cart[off2 + 20] = 30 + 126;
-    put32(cart + 20, crc32(cart + B33_HEADER_SIZE, (uint32_t)(len - B33_HEADER_SIZE)));
-    CHECK(b33_parse(cart, len, &c, err, sizeof err) != 0 && strstr(err, "sheet"), "broken runs refused");
+    put32(cart + 20, crc32(cart + BM_HEADER_SIZE, (uint32_t)(len - BM_HEADER_SIZE)));
+    CHECK(bm_parse(cart, len, &c, err, sizeof err) != 0 && strstr(err, "sheet"), "broken runs refused");
 }
 
 int main(int argc, char **argv)
@@ -405,6 +405,6 @@ int main(int argc, char **argv)
     test_3d();
     test_format(argc > 1 ? argv[1] : "build/demo.bm");
     test_sheet8();
-    printf("b33: %d/%d checks passed\n", checks - fails, checks);
+    printf("bm: %d/%d checks passed\n", checks - fails, checks);
     return fails != 0;
 }

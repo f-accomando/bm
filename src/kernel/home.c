@@ -11,8 +11,8 @@
 #include "testpattern.h"
 #include "version.h"
 #include "audio/audio.h"
-#include "b33/runtime.h"
-#include "b33/stress.h"
+#include "bm/runtime.h"
+#include "bm/stress.h"
 #include "bt/bt.h"
 #include "drivers/prop.h"
 #include "drivers/timer.h"
@@ -71,7 +71,7 @@ void home_wait_back(void)
 static void heading(const char *what)
 {
     console_clear();
-    kprintf("\x1b[1;96mbm33\x1b[0m \x1b[90m>\x1b[0m %s\n\n", what);
+    kprintf("\x1b[1;96mbm\x1b[0m \x1b[90m>\x1b[0m %s\n\n", what);
 }
 
 /* ---------------------------------------------------------------- tools */
@@ -89,7 +89,7 @@ static void t_system(framebuffer_t *fb)
 {
     (void)fb;
     heading("System");
-    kprintf("bm33 %s\n", bm33_version);
+    kprintf("bm %s\n", bm_version);
     sysinfo_print();
     kprintf("SD card        : %s\n", fat_describe());
     kprintf("audio          : %s\n", audio_status());
@@ -137,17 +137,17 @@ static void t_cpu(framebuffer_t *fb)
 static void t_render(framebuffer_t *fb)
 {
     heading("Rendering benchmark, 640x360 RGB565");
-    b33_bench_report(fb, 120);
+    bm_bench_report(fb, 120);
 }
 
 static void t_stress(framebuffer_t *fb)
 {
     heading("Stress test: sprites, triangles, 3D");
-    extern const uint8_t b33_stress_cart[], b33_stress_cart_end[];
-    b33_stress_run(fb);
+    extern const uint8_t bm_stress_cart[], bm_stress_cart_end[];
+    bm_stress_run(fb);
     kprintf("Lua part (cartridge API):\n");
-    b33_stats_t bs;
-    b33_play(fb, b33_stress_cart, (size_t)(b33_stress_cart_end - b33_stress_cart), 600, &bs);
+    bm_stats_t bs;
+    bm_play(fb, bm_stress_cart, (size_t)(bm_stress_cart_end - bm_stress_cart), 600, &bs);
 }
 
 static void t_dma(framebuffer_t *fb)
@@ -180,7 +180,7 @@ static void t_pattern(framebuffer_t *fb)
 static void t_diag(framebuffer_t *fb)
 {
     (void)fb;
-    heading("Boot diagnostics: benchmarks, s32 and b33 demos, Lua boot script");
+    heading("Boot diagnostics: benchmarks, s32 and bm demos, Lua boot script");
     diagnostics_run();
 }
 
@@ -277,9 +277,9 @@ void home_panel(int id, home_panel_t *p)
                  hid_layout()[0] == 'i' ? "Italian" : "US");
         home_row(p, MENU_ROW_CHOICE, R_DRAW, "Game drawing (.bm)",
                  "Direct on screen, or via RAM (compare: Render bench)", "%s",
-                 b33_via_ram() ? "Via RAM" : "Direct");
+                 bm_via_ram() ? "Via RAM" : "Direct");
         home_row(p, MENU_ROW_SUB, R_SYSTEM, "System",
-                 "Version, memory, SD card, restart", "%s", bm33_version);
+                 "Version, memory, SD card, restart", "%s", bm_version);
         break;
     }
     case HOME_CONTROLLERS: {
@@ -315,16 +315,16 @@ void home_panel(int id, home_panel_t *p)
     case HOME_WIFI: {
         ksnprintf(p->title, sizeof p->title, "Settings > WiFi and network");
         const char *ssid = config_get("wifi_ssid"), *pw = config_get("net_password");
-        home_row(p, MENU_ROW_INFO, R_NETWORK, "Network", "The saved network (bm33/config.txt)",
+        home_row(p, MENU_ROW_INFO, R_NETWORK, "Network", "The saved network (bm/config.txt)",
                  "%s", ssid && ssid[0] ? ssid : "none saved");
         home_row(p, MENU_ROW_INFO, R_STATE, "State", "The link to the access point",
                  "%s", wifi_linked() ? "connected" : "not connected");
         home_row(p, MENU_ROW_INFO, R_IP, "Address", "From the router (DHCP)", "%s", net_ip_text());
         home_row(p, MENU_ROW_INFO, R_TIME, "Time", "From the network (SNTP)", "%s", net_time_text());
         home_row(p, MENU_ROW_INFO, R_CONSOLE, "Network console",
-                 "From the PC: tools/bm33_net.py ADDRESS", "port 3333");
+                 "From the PC: tools/bm_net.py ADDRESS", "port 3333");
         home_row(p, MENU_ROW_INFO, R_PASSWORD, "Console password",
-                 "net_password in bm33/config.txt", "%s", pw && pw[0] ? pw : "made when WiFi starts");
+                 "net_password in bm/config.txt", "%s", pw && pw[0] ? pw : "made when WiFi starts");
         home_row(p, MENU_ROW_ACTION, R_CONNECT, "Connect to a network",
                  "Lists the networks; the USB keyboard types the password", NULL);
         home_row(p, MENU_ROW_CHOICE, R_BOOT, "Connect at boot",
@@ -338,7 +338,7 @@ void home_panel(int id, home_panel_t *p)
         struct mallinfo mi = mallinfo();
         uint32_t temp[2] = { 0, 0 };
         prop_query(PROP_GET_TEMPERATURE, temp, 2);
-        home_row(p, MENU_ROW_INFO, R_VERSION, "Version", "The kernel build (git describe)", "%s", bm33_version);
+        home_row(p, MENU_ROW_INFO, R_VERSION, "Version", "The kernel build (git describe)", "%s", bm_version);
         home_row(p, MENU_ROW_INFO, R_UPTIME, "Uptime", "Since the console was turned on",
                  "%02lu:%02lu:%02lu", s / 3600, s / 60 % 60, s % 60);
         home_row(p, MENU_ROW_INFO, R_MEMORY, "Memory in use", "The heap of the kernel and games",
@@ -408,9 +408,9 @@ void home_act(int id, int row, int how, home_do_t *d)
         ksnprintf(d->note, sizeof d->note, "keyboard layout: %s", hid_layout());
         break;
     case R_DRAW:
-        b33_set_via_ram(!b33_via_ram());
+        bm_set_via_ram(!bm_via_ram());
         config_save();
-        ksnprintf(d->note, sizeof d->note, ".bm games draw %s", b33_via_ram() ? "via RAM" : "directly");
+        ksnprintf(d->note, sizeof d->note, ".bm games draw %s", bm_via_ram() ? "via RAM" : "directly");
         break;
     case R_BOOT:
         config_set("wifi_boot", wifi_at_boot() ? "0" : "1");

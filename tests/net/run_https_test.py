@@ -82,7 +82,7 @@ class H(http.server.BaseHTTPRequestHandler):
 
     def do_GET(self):
         if self.path == "/hello":
-            self.send(200, b"hello, bm33\n")
+            self.send(200, b"hello, bm\n")
         elif self.path == "/big":
             self.send(200, BIG)
         elif self.path == "/chunked":
@@ -116,7 +116,7 @@ def serve(tag, tmp):
 
 
 with tempfile.TemporaryDirectory() as tmp:
-    make_ca(tmp, "ca", "bm33 test CA")
+    make_ca(tmp, "ca", "bm test CA")
     make_ca(tmp, "other_ca", "some other CA")
     make_leaf(tmp, "ca", "ec", "ec", NOW - DAY, NOW + 10 * DAY)
     make_leaf(tmp, "ca", "rsa", "rsa", NOW - DAY, NOW + 10 * DAY)

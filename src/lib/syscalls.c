@@ -1,5 +1,5 @@
 /*
- * newlib system call layer for the bm33 kernel.
+ * newlib system call layer for the bm kernel.
  *   stdout/stderr -> kernel log (UART + screen console)
  *   stdin         -> UART (blocking)
  *   heap          -> from the end of the kernel image up to heap_init()'s limit

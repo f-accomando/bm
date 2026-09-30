@@ -6,7 +6,7 @@ of 32x32) and the cover (cover.png, 128x80) in code, reproducibly.
 
 Textures, numbered by rows (the numbers main.lua uses):
   0 stone floor   1 brick wall     2 wooden crate   3 metal panel
-  4 moss floor    5 checker        6 dark planks    7 bm33 tile
+  4 moss floor    5 checker        6 dark planks    7 bm tile
 """
 import math
 import os
@@ -101,7 +101,7 @@ def planks(x, y):
     return shade(0x5C3C24, noise(0.1) * (0.9 + 0.1 * math.sin(y * 0.7 + x)))
 
 
-# 7: a bm33 tile: blue with a light border and "33"
+# 7: a bm tile: blue with a light border and "33"
 DIGITS = ["111", "001", "011", "001", "111"]
 
 

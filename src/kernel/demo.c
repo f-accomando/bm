@@ -118,7 +118,7 @@ void demo_run(framebuffer_t *fb, uint32_t seconds, demo_stats_t *st)
 
         gfx_rect(fb, 0, 0, w, 16, bar_bg);
         ksnprintf(text, sizeof text,
-                  " bm33 M4 demo  %2lu fps  draw %lu.%lu ms  %s  %lus  (key: exit)",
+                  " bm M4 demo  %2lu fps  draw %lu.%lu ms  %s  %lus  (key: exit)",
                   fps, last_draw / 1000, last_draw / 100 % 10,
                   st->vsync ? "vsync" : "timer", (timer_ticks() - start) / 1000000);
         gfx_text(fb, &font_console_8x16, 0, 0, text, black, bar_bg);

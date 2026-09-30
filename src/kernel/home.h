@@ -9,7 +9,7 @@
 
 #include "menu_ui.h"
 #include "drivers/fb.h"
-#include "b33/gfx16.h"
+#include "bm/gfx16.h"
 
 #define HOME_ROWS_MAX 16
 

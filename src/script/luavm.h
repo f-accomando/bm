@@ -6,7 +6,7 @@
 
 typedef struct lua_State lua_State;
 
-/* Creates the global Lua state with the standard libraries and `bm33`. */
+/* Creates the global Lua state with the standard libraries and `bm`. */
 lua_State *luavm_init(void);
 lua_State *luavm_state(void);
 
@@ -23,7 +23,7 @@ int luavm_run(const char *code, size_t len, const char *chunkname);
 size_t luavm_mem(void);
 size_t luavm_mem_peak(void);
 
-/* Registers the `bm33` module (script/lib_bm33.c). */
-int luaopen_bm33(lua_State *L);
+/* Registers the `bm` module (script/lib_bm.c). */
+int luaopen_bm(lua_State *L);
 
 #endif

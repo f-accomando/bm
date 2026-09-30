@@ -2,7 +2,7 @@
 """
 FAT write test: builds an SD image (scripts/mksd.py), runs the host test
 binary on it, then checks the result with independent tools: fsck.vfat
-(filesystem consistency) and mtools (reads back what bm33 wrote).
+(filesystem consistency) and mtools (reads back what bm wrote).
 
   tests/fs/run.py BUILD/host/test_fat
 """
@@ -38,19 +38,19 @@ def main():
         if fsck.returncode != 0:
             print("FAIL fsck.vfat:\n" + fsck.stdout + fsck.stderr)
             return 1
-        got = subprocess.run(["mtype", "-i", part, "::/BM33/SAVE/SNAKE.SAV"],
+        got = subprocess.run(["mtype", "-i", part, "::/BM/SAVE/SNAKE.SAV"],
                              capture_output=True, env=env).stdout
         with open(os.path.join(tmp, "snake.expected"), "rb") as f:
             want = f.read()
         if got != want:
             print(f"FAIL mtools reads {len(got)} bytes of SNAKE.SAV, expected {len(want)}")
             return 1
-        cfg = subprocess.run(["mtype", "-i", part, "::/BM33/CONFIG.TXT"],
+        cfg = subprocess.run(["mtype", "-i", part, "::/BM/CONFIG.TXT"],
                              capture_output=True, env=env).stdout
         if cfg != b"layout=it\ndraw=direct\n":
             print(f"FAIL mtools reads CONFIG.TXT as {cfg!r}")
             return 1
-        listing = subprocess.run(["mdir", "-i", part, "::/BM33/SAVE"],
+        listing = subprocess.run(["mdir", "-i", part, "::/BM/SAVE"],
                                  capture_output=True, text=True, env=env).stdout
         if "164 files" not in listing:          # 202 - 50 deleted + 10, "." and ".."
             print("FAIL mdir:\n" + listing)

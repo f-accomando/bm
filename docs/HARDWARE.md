@@ -1,4 +1,4 @@
-# Raspberry Pi Zero W v1.1: risorse hardware e utilizzo di bm33 / s32
+# Raspberry Pi Zero W v1.1: risorse hardware e utilizzo di bm / s32
 
 Scopo: vedere **quanto dell'hardware usiamo** e **quanto margine resta**.
 Alcune righe (DMA, USB, Bluetooth, audio) sono della fase MVP: lo stato attuale e le
@@ -7,7 +7,7 @@ Colonne:
 
 - **Pi Zero W** — capacità dell'hardware (datasheet o misurate sul nostro Pi);
 - **s32 (spec)** — cosa prevede la macchina s32 (vedi `docs/spec` in lua32);
-- **bm33 oggi** — cosa usa l'implementazione attuale;
+- **bm oggi** — cosa usa l'implementazione attuale;
 - **Uso** — quota della risorsa totale.
 
 Legenda fonti: *(M)* misurato su Pi Zero W reale, *(Q)* misurato in QEMU,
@@ -15,7 +15,7 @@ Legenda fonti: *(M)* misurato su Pi Zero W reale, *(Q)* misurato in QEMU,
 
 ## 1. Processore
 
-| Risorsa | Pi Zero W | s32 (spec) | bm33 oggi | Uso / margine |
+| Risorsa | Pi Zero W | s32 (spec) | bm oggi | Uso / margine |
 |---|---|---|---|---|
 | CPU | ARM1176JZF-S (ARMv6), 1 core, 700 MHz all'avvio → **1000 MHz** *(M)* | CPU virtuale 16 bit, 83 opcode | 1 core a 1000 MHz, MMU + cache I/D + branch prediction attive *(M)*; CPU s32 interpretata in C | 1 core su 1 (100% disponibile per noi, nessun OS) |
 | FPU | VFPv2, double in hardware *(D)* | — (solo interi 16 bit) | usata da Lua (double) e dal C | — |
@@ -26,7 +26,7 @@ Legenda fonti: *(M)* misurato su Pi Zero W reale, *(Q)* misurato in QEMU,
 
 ## 2. Memoria
 
-| Risorsa | Pi Zero W | s32 (spec) | bm33 oggi | Uso |
+| Risorsa | Pi Zero W | s32 (spec) | bm oggi | Uso |
 |---|---|---|---|---|
 | RAM totale | **512 MiB** LPDDR2, condivisa CPU/GPU *(D)* | — | — | — |
 | RAM dell'ARM | 448 MiB (con `gpu_mem=64`) *(M)* | spazio di indirizzi 16 MiB | kernel ~340 KiB + stack 1,1 MiB + heap ~447 MiB *(M)* | tutto disponibile |
@@ -46,7 +46,7 @@ riempimento ~430 MB/s *(M)*).
 
 ## 3. Video
 
-| Risorsa | Pi Zero W | s32 (spec) | bm33 oggi | Uso |
+| Risorsa | Pi Zero W | s32 (spec) | bm oggi | Uso |
 |---|---|---|---|---|
 | Uscita | mini-HDMI fino a 1920×1080 a 60 Hz; composito (pad TV) *(D)* | — | HDMI *(M)* | — |
 | GPU | VideoCore IV, core 250 MHz *(M)*, OpenGL ES 2.0, scaler hardware (HVS) *(D)* | — | solo lo scaler (framebuffer ingrandito dalla GPU); il 3D delle cartucce è software sull'ARM | GPU 3D inutilizzata (vedi docs/STRESS.md) |
@@ -59,14 +59,14 @@ riempimento ~430 MB/s *(M)*).
 
 ## 4. Audio
 
-| Risorsa | Pi Zero W | s32 (spec) | bm33 oggi | Uso |
+| Risorsa | Pi Zero W | s32 (spec) | bm oggi | Uso |
 |---|---|---|---|---|
 | Uscite | **HDMI** audio; nessun jack; 2 canali PWM su GPIO (serve filtro RC) *(D)* | — | nessuna (M10) | — |
 | Sintesi | software (CPU) + DMA per l'uscita | **8 canali**: quadra/triangolo/dente di sega/rumore con ADSR *(S)* | — | — |
 
 ## 5. Input e periferiche
 
-| Risorsa | Pi Zero W | s32 (spec) | bm33 oggi | Uso |
+| Risorsa | Pi Zero W | s32 (spec) | bm oggi | Uso |
 |---|---|---|---|---|
 | USB | 1 × micro-USB OTG (USB 2.0, controller DWC) *(D)* | — | host DWC2: **1 dispositivo HID** (tastiera o gamepad), senza hub *(M7b)* | 1 porta |
 | GPIO | header a 40 pin (28 GPIO, da saldare sul Zero W) *(D)* | — | GPIO14/15 UART, GPIO47 LED | 2 su 28 |

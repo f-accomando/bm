@@ -1,18 +1,18 @@
 #!/usr/bin/env python3
 """
-bm33 network console: the monitor of a Pi running bm33, over WiFi (M18.7).
+bm network console: the monitor of a Pi running bm, over WiFi (M18.7).
 Standard library only (Linux / macOS / WSL).
 
-  bm33_net.py 192.168.1.108             asks for the password
-  bm33_net.py 192.168.1.108 -p 123456   (or BM33_PASSWORD=123456)
+  bm_net.py 192.168.1.108             asks for the password
+  bm_net.py 192.168.1.108 -p 123456   (or BM_PASSWORD=123456)
 
-  bm33_net.py IP --send build/carts/pong.bm   saved on the SD card in /carts
-  bm33_net.py IP --send x.bm --to /bm33   (another folder)
-  bm33_net.py IP --play game.bm           played at once, not saved
-  bm33_net.py IP --kernel build/kernel.img written as kernel.img, then reboot
+  bm_net.py IP --send build/carts/pong.bm   saved on the SD card in /carts
+  bm_net.py IP --send x.bm --to /bm   (another folder)
+  bm_net.py IP --play game.bm           played at once, not saved
+  bm_net.py IP --kernel build/kernel.img written as kernel.img, then reboot
 
 The password is the one shown on the Pi's screen after 'W' (net_password in
-bm33/config.txt). In the console keys go to the Pi one by one, as on its
+bm/config.txt). In the console keys go to the Pi one by one, as on its
 keyboard; Ctrl-Q (or Ctrl-], or Enter ~ . as in ssh) quits. Plain text: use it on the home network only.
 Files on the SD card need 8.3 names (PONG.BM, not chaos_kitchen.bm):
 --name sets another one.
@@ -78,11 +78,17 @@ def transfer(args, op, path, name, password):
         return 1
     dest = (args.to.strip("/") + "/" if args.to.strip("/") else "") + name if op == b"S" else name
     pw = password.encode()
-    req = (b"BM3X" + op + bytes([len(pw)]) + pw + bytes([len(dest)]) + dest.encode()
-           + struct.pack("<II", len(data), zlib.crc32(data) & 0xFFFFFFFF))
-    sock = socket.create_connection((args.host, XFER_PORT), timeout=5)
-    sock.sendall(req)
-    a = recv_answer(sock, 10)
+    rest = (op + bytes([len(pw)]) + pw + bytes([len(dest)]) + dest.encode()
+            + struct.pack("<II", len(data), zlib.crc32(data) & 0xFFFFFFFF))
+    # a kernel from before the rename (M28) only knows the old request tag:
+    # it answers "bad request", and the same request goes again with that
+    for tag in (b"BMXF", b"BM3X"):
+        sock = socket.create_connection((args.host, XFER_PORT), timeout=5)
+        sock.sendall(tag + rest)
+        a = recv_answer(sock, 10)
+        if a != b"BH":
+            break
+        sock.close()
     if a != b"OK":
         print("refused:", ANSWERS.get(a, a or "no answer"))
         return 1
@@ -109,7 +115,7 @@ def console_version(host):
             g = read_until(s, [b"password: "], timeout=3).decode(errors="replace")
     except OSError:
         return None
-    m = re.search(r"bm33 (\S+) network console", g)
+    m = re.search(r"bm (\S+) network console", g)
     return m.group(1) if m else None
 
 
@@ -123,7 +129,7 @@ def wait_reboot(host, limit=120):
         if v is None:
             went_down = True
         elif went_down:
-            print(f"\rback after {time.time() - t0:.0f} s, running bm33 {v}      ")
+            print(f"\rback after {time.time() - t0:.0f} s, running bm {v}      ")
             return 0
         time.sleep(2)
     print("\rthe Pi " + ("did not come back" if went_down else "did not restart")
@@ -135,7 +141,7 @@ def main():
     ap = argparse.ArgumentParser(description=__doc__.split("\n")[1])
     ap.add_argument("host")
     ap.add_argument("-P", "--port", type=int, default=PORT)
-    ap.add_argument("-p", "--password", default=os.environ.get("BM33_PASSWORD"))
+    ap.add_argument("-p", "--password", default=os.environ.get("BM_PASSWORD"))
     ap.add_argument("--send", metavar="FILE", help="save FILE on the SD card (folder --to)")
     ap.add_argument("--to", default="/carts", help="folder for --send (default /carts)")
     ap.add_argument("--name", help="8.3 name on the SD card (default: the file's)")
@@ -195,7 +201,7 @@ def main():
     finally:
         termios.tcsetattr(fd, termios.TCSADRAIN, old)
         sock.close()
-    print("\n[bm33_net] disconnected")
+    print("\n[bm_net] disconnected")
     return 0
 
 

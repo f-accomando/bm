@@ -1,5 +1,5 @@
 -- Host tests of Titan Clash (carts/titan): the cartridge runs in a fake
--- bm33 (the same API, checks like the C code, no pixels) with scripted and
+-- bm (the same API, checks like the C code, no pixels) with scripted and
 -- random input. It goes through the menus and the hangar, plays against
 -- the computer, pauses, runs out the clock, lets the computer fight itself
 -- with every pair of configurations (a rough check of the balance) and at
@@ -28,7 +28,7 @@ local function where(msg)
   end))
 end
 
----------------------------------------------------------------- fake bm33
+---------------------------------------------------------------- fake bm
 
 local env = {}
 local frame_calls, frame_px = 0, 0

@@ -1,5 +1,5 @@
 #!/bin/sh
-# Builds boot/ca.pem: the root certificates bm33 trusts for https (M19),
+# Builds boot/ca.pem: the root certificates bm trusts for https (M19),
 # taken from the Mozilla list shipped by Debian/Ubuntu (ca-certificates).
 # A short list on purpose: the roots behind GitHub (github.com, api,
 # release downloads), Let's Encrypt, Google, Amazon, Cloudflare/DigiCert.

@@ -24,7 +24,7 @@ void ble_poll(void);
  * code to type on it is shown). 0 when it works. */
 int ble_pair(unsigned seconds);
 
-/* Forgets the keyboard (key removed from bm33/config.txt): 1 if there was one. */
+/* Forgets the keyboard (key removed from bm/config.txt): 1 if there was one. */
 int ble_forget(void);
 
 /* 1 once a keyboard has been paired / while it is connected and typing. */

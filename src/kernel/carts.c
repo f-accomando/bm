@@ -5,12 +5,12 @@
 #include "crumbs.h"
 #include "home.h"
 #include "menu_ui.h"
-#include "b33/b33.h"
+#include "bm/bm.h"
 #include "input.h"
 #include "upload.h"
 #include "net/net.h"
 #include "net/netxfer.h"
-#include "b33/runtime.h"
+#include "bm/runtime.h"
 #include "drivers/sd.h"
 #include "drivers/timer.h"
 #include "drivers/uart.h"
@@ -29,10 +29,10 @@
 #define PLAY_SECS   (24u * 3600u)
 
 extern const uint8_t s32_demo_cart[], s32_demo_cart_end[];
-extern const uint8_t b33_demo_cart[], b33_demo_cart_end[];
-extern const uint8_t b33_editor_cart[], b33_editor_cart_end[];
+extern const uint8_t bm_demo_cart[], bm_demo_cart_end[];
+extern const uint8_t bm_editor_cart[], bm_editor_cart_end[];
 
-enum { KIND_S32, KIND_B33 };
+enum { KIND_S32, KIND_BM };
 
 typedef struct {
     char title[49];             /* from the header; the file name if none */
@@ -72,7 +72,7 @@ static int ends_with(const char *s, const char *ext)
 static void read_header(cart_t *c, const uint8_t *h, uint32_t len)
 {
     size_t toff = 0, tlen = 0, aoff = 0, alen = 0;
-    if (len >= 128 && memcmp(h, "BM33CART", 8) == 0) {
+    if (len >= 128 && bm_is_cart(h)) {
         toff = 24; tlen = 48; aoff = 72; alen = 32;
     } else if (len >= 124 && memcmp(h, "S32CART1", 8) == 0) {
         toff = 28; tlen = 64; aoff = 92; alen = 32;
@@ -84,7 +84,7 @@ static void read_header(cart_t *c, const uint8_t *h, uint32_t len)
         memcpy(c->author, h + aoff, alen < sizeof c->author - 1 ? alen : sizeof c->author - 1);
         c->author[sizeof c->author - 1] = 0;
         if (toff == 24)                         /* as the runtime names it */
-            b33_save_path(c->title, c->author, c->save, sizeof c->save);
+            bm_save_path(c->title, c->author, c->save, sizeof c->save);
     }
     for (char *p = c->title; *p; p++)           /* the console font is CP437 */
         if ((unsigned char)*p < 32) *p = ' ';
@@ -114,7 +114,7 @@ static void scan_dir(const char *path)
     while (ncarts < MAX_CARTS && fat_readdir(&d, &e)) {
         if (e.is_dir || e.name[0] == '.')
             continue;
-        int kind = ends_with(e.name, ".bm") ? KIND_B33 : ends_with(e.name, ".cart") ? KIND_S32 : -1;
+        int kind = ends_with(e.name, ".bm") ? KIND_BM : ends_with(e.name, ".cart") ? KIND_S32 : -1;
         if (kind < 0)
             continue;
         cart_t *c = &carts[ncarts++];
@@ -146,20 +146,20 @@ static int title_cmp(const void *a, const void *b)
 /* The cover from the .bm COVER section, or a label with the title. */
 static void load_cover(cart_t *c)
 {
-    b33_cart_t bc;
+    bm_cart_t bc;
     char err[8];
-    if (c->kind == KIND_B33) {
+    if (c->kind == KIND_BM) {
         uint8_t *data = NULL;
         size_t len = c->size;
         const uint8_t *d = c->builtin;
         if (!d && fat_load(&c->fe, &data, &len) == 0)
             d = data;
-        if (d && b33_parse(d, len, &bc, err, sizeof err) == 0 && bc.cover_rgba)
+        if (d && bm_parse(d, len, &bc, err, sizeof err) == 0 && bc.cover_rgba)
             menu_load_cover(&c->cover, bc.cover_rgba, bc.cover_w, bc.cover_h);
         free(data);
     }
     if (!c->cover.px)
-        menu_make_cover(&c->cover, c->title, c->kind == KIND_B33 ? "bm" : "s32");
+        menu_make_cover(&c->cover, c->title, c->kind == KIND_BM ? "bm" : "s32");
 }
 
 static void rescan(void)
@@ -175,7 +175,7 @@ static void rescan(void)
     }
     nsd = ncarts;
     if (!nsd) {
-        add_builtin("demo.bm (built-in)", KIND_B33, b33_demo_cart, b33_demo_cart_end);
+        add_builtin("demo.bm (built-in)", KIND_BM, bm_demo_cart, bm_demo_cart_end);
         add_builtin("demo.cart (built-in)", KIND_S32, s32_demo_cart, s32_demo_cart_end);
     }
     /* the editor always comes last (up from the first cartridge) */
@@ -183,10 +183,10 @@ static void rescan(void)
         cart_t *c = &carts[ncarts++];
         memset(c, 0, sizeof *c);
         strcpy(c->name, "editor (built-in)");
-        c->kind = KIND_B33;
-        c->builtin = b33_editor_cart;
-        c->size = (uint32_t)(b33_editor_cart_end - b33_editor_cart);
-        read_header(c, b33_editor_cart, c->size);
+        c->kind = KIND_BM;
+        c->builtin = bm_editor_cart;
+        c->size = (uint32_t)(bm_editor_cart_end - bm_editor_cart);
+        read_header(c, bm_editor_cart, c->size);
     }
     for (int i = 0; i < ncarts; i++) {
         cart_t *c = &carts[i];
@@ -223,12 +223,12 @@ int carts_count(void)
 void carts_list(void)
 {
     for (int i = 0; i < ncarts; i++)
-        kprintf("  %2d  %-4s %7lu  %s%s%s  \"%s\"\n", i + 1, carts[i].kind == KIND_B33 ? "bm" : "s32",
+        kprintf("  %2d  %-4s %7lu  %s%s%s  \"%s\"\n", i + 1, carts[i].kind == KIND_BM ? "bm" : "s32",
                 carts[i].size, carts[i].dir, carts[i].dir[0] && strcmp(carts[i].dir, "/") ? "/" : "",
                 carts[i].name, carts[i].title);
 }
 
-static void perf_line(const b33_stats_t *st)
+static void perf_line(const bm_stats_t *st)
 {
     perf_msg[0] = 0;
     if (st->frames) {
@@ -242,27 +242,27 @@ static void perf_line(const b33_stats_t *st)
 }
 
 /* A cartridge from the menu: .bm ones can be left suspended. Returns
- * B33_SUSPENDED if it was. */
+ * BM_SUSPENDED if it was. */
 static int run_buffer(framebuffer_t *fb, const uint8_t *data, size_t len, int suspendable)
 {
-    if (len >= 8 && memcmp(data, "BM33CART", 8) == 0) {
-        b33_stats_t st;
-        int r = b33_run(fb, data, len, PLAY_SECS, &st, suspendable);
-        b33_print_stats(&st);
+    if (len >= 8 && bm_is_cart(data)) {
+        bm_stats_t st;
+        int r = bm_run(fb, data, len, PLAY_SECS, &st, suspendable);
+        bm_print_stats(&st);
         perf_line(&st);
         return r;
     }
-    b33_close_suspended();
+    bm_close_suspended();
     carts_play_buffer(fb, data, len);
-    return B33_ENDED;
+    return BM_ENDED;
 }
 
 void carts_play_buffer(framebuffer_t *fb, const uint8_t *data, size_t len)
 {
-    if (len >= 8 && memcmp(data, "BM33CART", 8) == 0) {
-        b33_stats_t st;
-        b33_play(fb, data, len, PLAY_SECS, &st);
-        b33_print_stats(&st);
+    if (len >= 8 && bm_is_cart(data)) {
+        bm_stats_t st;
+        bm_play(fb, data, len, PLAY_SECS, &st);
+        bm_print_stats(&st);
         perf_msg[0] = 0;
         if (st.frames) {
             uint32_t ms = st.elapsed_us / 1000, fps10 = ms ? st.frames * 10000u / ms : 0;
@@ -293,12 +293,12 @@ static void editor_session(framebuffer_t *fb, const char *open)
         ksnprintf(path, sizeof path, "%s", open);
     for (;;) {
         crumb("editor", NULL);
-        b33_set_arg(path[0] ? path : NULL, err[0] ? err : NULL);
-        b33_set_arg_back(back);
-        b33_stats_t st;
-        b33_play(fb, b33_editor_cart, (size_t)(b33_editor_cart_end - b33_editor_cart), PLAY_SECS, &st);
-        b33_set_arg(NULL, NULL);
-        if (!b33_take_run(path, sizeof path))
+        bm_set_arg(path[0] ? path : NULL, err[0] ? err : NULL);
+        bm_set_arg_back(back);
+        bm_stats_t st;
+        bm_play(fb, bm_editor_cart, (size_t)(bm_editor_cart_end - bm_editor_cart), PLAY_SECS, &st);
+        bm_set_arg(NULL, NULL);
+        if (!bm_take_run(path, sizeof path))
             break;
         back = 1;
         err[0] = 0;
@@ -310,10 +310,10 @@ static void editor_session(framebuffer_t *fb, const char *open)
             continue;
         }
         crumb("editor: trying", path);
-        b33_play(fb, data, len, PLAY_SECS, &st);
-        b33_print_stats(&st);
+        bm_play(fb, data, len, PLAY_SECS, &st);
+        bm_print_stats(&st);
         free(data);
-        ksnprintf(err, sizeof err, "%s", b33_last_error());
+        ksnprintf(err, sizeof err, "%s", bm_last_error());
     }
 }
 
@@ -324,22 +324,22 @@ void carts_editor(framebuffer_t *fb)
 
 static void play(framebuffer_t *fb, const cart_t *c)
 {
-    if (susp_path[0] && strcmp(susp_path, c->path) == 0 && b33_suspended(NULL, 0)) {
+    if (susp_path[0] && strcmp(susp_path, c->path) == 0 && bm_suspended(NULL, 0)) {
         kprintf("\nresuming %s\n", c->name);
         crumb("playing", c->title[0] ? c->title : c->name);
-        b33_stats_t st;
-        int r = b33_resume(fb, PLAY_SECS, &st);
-        b33_print_stats(&st);
+        bm_stats_t st;
+        int r = bm_resume(fb, PLAY_SECS, &st);
+        bm_print_stats(&st);
         perf_line(&st);
-        if (r != B33_SUSPENDED)
+        if (r != BM_SUSPENDED)
             susp_path[0] = 0;
         ksnprintf(last_msg, sizeof last_msg, "last: %s%s", c->name, perf_msg);
         crumb("cartridge menu", NULL);
         return;
     }
-    b33_close_suspended();              /* the menu asked first */
+    bm_close_suspended();              /* the menu asked first */
     susp_path[0] = 0;
-    if (c->builtin == b33_editor_cart) {
+    if (c->builtin == bm_editor_cart) {
         carts_editor(fb);
         ksnprintf(last_msg, sizeof last_msg, "last: editor");
         crumb("cartridge menu", NULL);
@@ -349,7 +349,7 @@ static void play(framebuffer_t *fb, const cart_t *c)
     perf_msg[0] = 0;
     crumb("playing", c->title[0] ? c->title : c->name);
     if (c->builtin) {
-        if (run_buffer(fb, c->builtin, c->size, 1) == B33_SUSPENDED)
+        if (run_buffer(fb, c->builtin, c->size, 1) == BM_SUSPENDED)
             ksnprintf(susp_path, sizeof susp_path, "%s", c->path);
         ksnprintf(last_msg, sizeof last_msg, "last: %s%s", c->name, perf_msg);
         crumb("cartridge menu", NULL);
@@ -362,7 +362,7 @@ static void play(framebuffer_t *fb, const cart_t *c)
         ksnprintf(last_msg, sizeof last_msg, "cannot read %s: %s", c->name, fat_error());
         return;
     }
-    if (run_buffer(fb, data, len, 1) == B33_SUSPENDED)
+    if (run_buffer(fb, data, len, 1) == BM_SUSPENDED)
         ksnprintf(susp_path, sizeof susp_path, "%s", c->path);
     free(data);
     ksnprintf(last_msg, sizeof last_msg, "last: %s%s", c->name, perf_msg);
@@ -390,7 +390,7 @@ static void outf(const char *fmt, ...)
 static void draw(int sel, int top, int rows)
 {
     out("\x1b[2J\x1b[H");
-    out("\x1b[1;96m bm33 - cartridges\x1b[0m");
+    out("\x1b[1;96m bm - cartridges\x1b[0m");
     if (sd_ok)
         outf("\x1b[90m   SD: %s\x1b[0m", fat_describe());
     else
@@ -406,7 +406,7 @@ static void draw(int sel, int top, int rows)
         outf("%s %c %-38s %s%-18s%s %-3s %5lu KiB \x1b[0m\n",
              i == sel ? "\x1b[7m" : "", i == sel ? '>' : ' ', title,
              i == sel ? "" : "\x1b[90m", author, i == sel ? "" : "\x1b[0m",
-             c->kind == KIND_B33 ? "bm" : "s32", (c->size + 1023) / 1024);
+             c->kind == KIND_BM ? "bm" : "s32", (c->size + 1023) / 1024);
     }
     for (int i = ncarts - top; i < rows; i++)
         out("\n");
@@ -428,7 +428,7 @@ static void draw(int sel, int top, int rows)
  * cartridge index, or -1 - n for tool n. */
 static int is_dev(const cart_t *c)
 {
-    return c->builtin == b33_editor_cart;
+    return c->builtin == bm_editor_cart;
 }
 
 static int tab_items(int tab, int *idx)
@@ -445,7 +445,7 @@ static int tab_items(int tab, int *idx)
 
 static int is_suspended(const cart_t *c)
 {
-    return susp_path[0] && strcmp(susp_path, c->path) == 0 && b33_suspended(NULL, 0);
+    return susp_path[0] && strcmp(susp_path, c->path) == 0 && bm_suspended(NULL, 0);
 }
 
 /* The options of a cartridge (X on its cover): a panel like the settings. */
@@ -474,7 +474,7 @@ static void cart_panel(home_panel_t *p)
     if (susp)
         home_row(p, MENU_ROW_ACTION, C_CLOSE, "Close the game",
                  "Ends the suspended game: what was not saved is lost", NULL);
-    if (c->kind == KIND_B33 && !c->builtin)
+    if (c->kind == KIND_BM && !c->builtin)
         home_row(p, MENU_ROW_ACTION, C_SDK, "Open in the SDK",
                  "Code, sprites and map of this cartridge", NULL);
     home_row(p, MENU_ROW_INFO, C_AUTHOR, "Author", "From the cartridge header",
@@ -483,9 +483,9 @@ static void cart_panel(home_panel_t *p)
              "%s", c->path);
     home_row(p, MENU_ROW_INFO, C_SIZE, "Size", "The whole cartridge",
              "%lu KiB", (c->size + 1023) / 1024);
-    home_row(p, MENU_ROW_INFO, C_TYPE, "Type", c->kind == KIND_B33 ? "Lua 5.4 on bm33" : "The s32 machine of lua32",
-             "%s", c->kind == KIND_B33 ? "bm (native)" : "s32 cart");
-    if (c->kind == KIND_B33) {
+    home_row(p, MENU_ROW_INFO, C_TYPE, "Type", c->kind == KIND_BM ? "Lua 5.4 on bm" : "The s32 machine of lua32",
+             "%s", c->kind == KIND_BM ? "bm (native)" : "s32 cart");
+    if (c->kind == KIND_BM) {
         char v[24];
         if (opt_save >= 0)
             ksnprintf(v, sizeof v, "%ld bytes", opt_save);
@@ -510,7 +510,7 @@ static void cart_act(int row, int how, home_do_t *d)
     d->what = HOME_STAY;
     switch (row) {
     case C_CLOSE:
-        b33_close_suspended();
+        bm_close_suspended();
         susp_path[0] = 0;
         ksnprintf(d->note, sizeof d->note, "closed %s", c->name);
         break;
@@ -537,7 +537,7 @@ static void cart_act(int row, int how, home_do_t *d)
             ksnprintf(d->ask_yes, sizeof d->ask_yes, "Delete");
         } else if (how == HOME_YES) {
             if (is_suspended(c)) {
-                b33_close_suspended();
+                bm_close_suspended();
                 susp_path[0] = 0;
             }
             char path[sizeof c->path];
@@ -617,7 +617,7 @@ void carts_menu(framebuffer_t *fb)
                     continue;
                 }
                 const cart_t *c = &carts[idx[i]];
-                items[i] = (menu_item_t){ c->title, c->author, c->path, c->kind == KIND_B33 ? "bm" : "s32",
+                items[i] = (menu_item_t){ c->title, c->author, c->path, c->kind == KIND_BM ? "bm" : "s32",
                                           c->size, c->cover.px ? &c->cover : NULL, is_suspended(c) };
             }
             details[0] = 0;
@@ -626,7 +626,7 @@ void carts_menu(framebuffer_t *fb)
             } else if (n) {
                 const cart_t *c = &carts[idx[tsel[tab]]];
                 ksnprintf(details, sizeof details, "%s   %s   %lu KiB   %s",
-                          c->author[0] ? c->author : "-", c->kind == KIND_B33 ? "bm" : "s32",
+                          c->author[0] ? c->author : "-", c->kind == KIND_BM ? "bm" : "s32",
                           (c->size + 1023) / 1024, c->path);
             }
             menu_view_t v = {
@@ -646,7 +646,7 @@ void carts_menu(framebuffer_t *fb)
             v.net = link == NET_LINK_ETHERNET ? MENU_NET_ETHERNET
                   : link == NET_LINK_WIFI ? (net_ip() ? MENU_NET_WIFI : MENU_NET_WIFI_WAIT)
                   : MENU_NET_NONE;
-            if (ask == ASK_SWITCH && b33_suspended(susp_title, sizeof susp_title)) {
+            if (ask == ASK_SWITCH && bm_suspended(susp_title, sizeof susp_title)) {
                 ksnprintf(ask_q, sizeof ask_q, "Close %s?", susp_title);
                 v.ask = ask_q;
                 v.ask_detail = "It is suspended: what was not saved is lost.";
@@ -697,7 +697,7 @@ void carts_menu(framebuffer_t *fb)
             case '\r': case '\n': case ' ': action = 1; break;
             case 'q': case 'Q': quit = 1; break;
             case 'r': case 'R': action = 2; break;
-            case 'U': action = 3; break;         /* bm33_load.py --cart */
+            case 'U': action = 3; break;         /* bm_load.py --cart */
             }
         }
 
@@ -747,7 +747,7 @@ void carts_menu(framebuffer_t *fb)
                 ask = ASK_NONE;
             } else if (yes && ask == ASK_SWITCH) {
                 ask = ASK_NONE;
-                b33_close_suspended();
+                bm_close_suspended();
                 susp_path[0] = 0;
                 go = ask_go;
                 go_cart = ask_cart;
@@ -773,7 +773,7 @@ void carts_menu(framebuffer_t *fb)
             } else if (r && id == HOME_CART && action == 1 && (row == C_PLAY || row == C_SDK)) {
                 const cart_t *c = &carts[opt_cart];
                 int g = row == C_PLAY ? GO_PLAY : GO_SDK;
-                if (b33_suspended(NULL, 0) && !(g == GO_PLAY && is_suspended(c))) {
+                if (bm_suspended(NULL, 0) && !(g == GO_PLAY && is_suspended(c))) {
                     ask = ASK_SWITCH;           /* another game is frozen: ask first */
                     ask_go = g;
                     ask_cart = opt_cart;
@@ -890,7 +890,7 @@ void carts_menu(framebuffer_t *fb)
             sel = ((sel + dx + dy) % ncarts + ncarts) % ncarts;
             redraw = 1;
         }
-        /* from the network (bm33_net.py): a file saved on the SD card
+        /* from the network (bm_net.py): a file saved on the SD card
          * shows up in the list, a cartridge sent to play starts */
         static unsigned seen_saves;
         uint8_t *net_buf = NULL;
@@ -924,7 +924,7 @@ void carts_menu(framebuffer_t *fb)
                 go = GO_TEXT;
                 go_text = d.text;
                 go_wait = d.wait;
-            } else if (gfx && b33_suspended(NULL, 0) && !is_suspended(&carts[i])) {
+            } else if (gfx && bm_suspended(NULL, 0) && !is_suspended(&carts[i])) {
                 ask = ASK_SWITCH;
                 ask_go = GO_PLAY;
                 ask_cart = i;
@@ -944,7 +944,7 @@ void carts_menu(framebuffer_t *fb)
                 depth = 0;
                 break;
             case GO_SDK:
-                b33_close_suspended();
+                bm_close_suspended();
                 susp_path[0] = 0;
                 editor_session(fb, carts[go_cart].path);
                 ksnprintf(last_msg, sizeof last_msg, "last: SDK on %s", carts[go_cart].name);

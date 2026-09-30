@@ -4,7 +4,7 @@
 
 #include <string.h>
 
-#define MAGIC 0xB33C0DE5u
+#define MAGIC 0xBA5EC0DEu
 
 typedef struct {
     uint32_t magic;

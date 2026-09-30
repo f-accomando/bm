@@ -5,7 +5,7 @@ suono e salvataggi. Il riferimento completo di ogni funzione è in [API.md](API.
 
 ## 0. Sulla console: l'editor
 
-Senza PC: nel menu delle cartucce l'ultimo elemento è **bm33 editor** (freccia su dal primo; anche `e` dal
+Senza PC: nel menu delle cartucce l'ultimo elemento è **bm editor** (freccia su dal primo; anche `e` dal
 monitor). Con una tastiera USB (e se vuoi un gamepad Bluetooth per disegnare):
 
 | Tasto | Pagina |
@@ -32,7 +32,7 @@ Una cartuccia `.bm` è un unico file che contiene:
 | mappa a tile (CSV) | `--map` | no |
 | copertina per il menu (PNG) | `--cover` | no |
 
-La crea `scripts/mkb33.py` (solo libreria standard di Python, nessuna dipendenza).
+La crea `scripts/mkbm.py` (solo libreria standard di Python, nessuna dipendenza).
 Risoluzione: **640×360** (predefinita) oppure **320×180** con `--res 320x180` (pixel più
 grossi, stile 16 bit, e più tempo per fotogramma). Colori: `0xRRGGBB`, lo schermo è a
 16 bit (RGB565).
@@ -94,8 +94,8 @@ un giocatore. La tastiera USB è il primo giocatore che non ha un pad.
 ## 3. Impacchettare e provare
 
 ```sh
-cd ~/bm33
-python3 scripts/mkb33.py -o palla.bm --lua carts/palla/main.lua --title "Palla" --author "io"
+cd ~/bm
+python3 scripts/mkbm.py -o palla.bm --lua carts/palla/main.lua --title "Palla" --author "io"
 ```
 
 Opzioni: `--sheet sprite.png`, `--map mappa.csv`, `--cover copertina.png`,
@@ -253,7 +253,7 @@ end
 save({ record = record })
 ```
 
-Numeri, stringhe, booleani e tabelle, fino a 32 KiB, in `/bm33/save/` sulla SD.
+Numeri, stringhe, booleani e tabelle, fino a 32 KiB, in `/bm/save/` sulla SD.
 
 ## 10. Copertina
 

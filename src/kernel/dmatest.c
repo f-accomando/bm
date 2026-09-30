@@ -126,7 +126,7 @@ out:
     } else {
         /* measured on the Pi: a whole 640x360 frame "via RAM" takes 14.06 ms
          * with the DMA copy against 11.85 ms with the CPU, so frames stay on
-         * the CPU (b33_set_dma_frames exists for further experiments) */
+         * the CPU (bm_set_dma_frames exists for further experiments) */
         kprintf("DMA test passed\n");
     }
 }

@@ -27,7 +27,7 @@ class H(http.server.BaseHTTPRequestHandler):
     def do_GET(self):
         p = self.path
         if p == "/hello":
-            self.send(200, b"hello, bm33\n")
+            self.send(200, b"hello, bm\n")
         elif p == "/chunked":
             self.send_response(200)
             self.send_header("Transfer-Encoding", "chunked")

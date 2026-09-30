@@ -3,7 +3,7 @@
 > Guida pratica passo per passo (sprite, mappe, modelli 3D, suono, luci, salvataggi):
 > [GUIDA-GIOCHI.md](GUIDA-GIOCHI.md).
 
-Una cartuccia `.bm` è un gioco per bm33 scritto in **Lua 5.4**. Il kernel disegna in C
+Una cartuccia `.bm` è un gioco per bm scritto in **Lua 5.4**. Il kernel disegna in C
 (640×360, colore a 16 bit RGB565, 60 fotogrammi al secondo); Lua si occupa solo della
 logica. Esempi completi in `carts/`: `pong/`, `snake/`, `shooter/` (solo codice) e
 `demo/` (con sprite sheet PNG e mappa CSV).
@@ -28,14 +28,14 @@ logica. Esempi completi in `carts/`: `pong/`, `snake/`, `shooter/` (solo codice)
    function _draw()                 -- 60 volte al secondo: disegno
      cls(0x102040)                  -- sfondo blu scuro
      circfill(x, y, 20, 0xFFD050)   -- una palla gialla
-     print("ciao da bm33!", 8, 8, 0xFFFFFF)
+     print("ciao da bm!", 8, 8, 0xFFFFFF)
    end
    ```
 
 2. Impacchettala:
 
    ```sh
-   python3 scripts/mkb33.py -o ciao.bm --lua carts/ciao/main.lua --title "Ciao" --author "io"
+   python3 scripts/mkbm.py -o ciao.bm --lua carts/ciao/main.lua --title "Ciao" --author "io"
    ```
 
    Per aggiungerla alla build, metti il nome in `GAMES` nel `Makefile` e il titolo in
@@ -53,12 +53,12 @@ logica. Esempi completi in `carts/`: `pong/`, `snake/`, `shooter/` (solo codice)
 
      ```sh
      qemu-system-arm -M raspi0 -bios build/kernel.img -serial tcp:127.0.0.1:4444,server=on,wait=off -serial null &
-     python3 tools/bm33_load.py tcp:127.0.0.1:4444 --cart ciao.bm
+     python3 tools/bm_load.py tcp:127.0.0.1:4444 --cart ciao.bm
      ```
 
      (dal menu o dal monitor: il loader manda `U`, poi la cartuccia);
    - **dalla seriale** (Pi con adattatore USB-seriale):
-     `python3 tools/bm33_load.py /dev/ttyUSB0 --cart ciao.bm`.
+     `python3 tools/bm_load.py /dev/ttyUSB0 --cart ciao.bm`.
 
 Esc (tastiera) o Start+Select (gamepad) chiudono la cartuccia e tornano al menu.
 Se c'è un errore Lua, la cartuccia si ferma e l'errore, con la riga, appare sulla console.
@@ -177,7 +177,7 @@ generatore quando il giocatore preme un tasto: `math.randomseed(stat(3))`.
 | `save(t)` | salva la tabella `t` sulla SD; `true`, oppure `false` e il motivo (niente SD, scheda piena...) |
 | `saved()` | la tabella salvata l'ultima volta, oppure `nil` |
 
-Ogni cartuccia ha **un** salvataggio, in `/bm33/save/XXXXXXXX.SAV` sulla SD (il nome
+Ogni cartuccia ha **un** salvataggio, in `/bm/save/XXXXXXXX.SAV` sulla SD (il nome
 dipende da titolo e autore: cambiandoli si riparte da zero). La tabella può contenere
 numeri, stringhe, booleani e altre tabelle (niente funzioni, al massimo 32 KiB).
 Scrivere sulla SD richiede qualche millisecondo: chiama `save()` in momenti come la fine

@@ -1,6 +1,6 @@
 #include "upload.h"
 #include "carts.h"
-#include "b33/runtime.h"
+#include "bm/runtime.h"
 #include "drivers/uart.h"
 #include "lib/crc32.h"
 #include "lib/printf.h"
@@ -28,12 +28,12 @@ static int get_u32(uint32_t *v)
 
 void upload_and_play(framebuffer_t *fb)
 {
-    static const char magic[4] = { 'B', 'M', '3', '3' };
+    static const char magic[4] = { 'B', 'M', 'L', 'D' };
     unsigned matched = 0;
     uint32_t size, crc;
     char c;
 
-    kprintf("send a .bm or .cart now (bm33_load.py --cart FILE), 15 s timeout\n");
+    kprintf("send a .bm or .cart now (bm_load.py --cart FILE), 15 s timeout\n");
     while (matched < 4) {
         if (!uart_getc_timeout(WAIT_US, &c)) {
             kprintf("upload: timeout\n");

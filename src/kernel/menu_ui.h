@@ -11,7 +11,7 @@
 #include <stdint.h>
 
 #include "drivers/fb.h"
-#include "b33/gfx16.h"
+#include "bm/gfx16.h"
 
 typedef struct {
     const char *title;

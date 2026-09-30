@@ -1,5 +1,5 @@
-#ifndef B33_STRESS_H
-#define B33_STRESS_H
+#ifndef BM_STRESS_H
+#define BM_STRESS_H
 
 #include "drivers/fb.h"
 
@@ -10,6 +10,6 @@
  * (30 fps) are interpolated. Summary on the console, per-step details on
  * the serial port. The Lua part runs the embedded stress.bm cartridge.
  */
-void b33_stress_run(framebuffer_t *fb);
+void bm_stress_run(framebuffer_t *fb);
 
 #endif

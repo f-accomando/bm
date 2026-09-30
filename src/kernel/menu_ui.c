@@ -1,6 +1,6 @@
 #include "menu_ui.h"
 #include "icons.h"
-#include "b33/b33.h"
+#include "bm/bm.h"
 #include "drivers/timer.h"
 #include "gfx/console.h"
 #include "gfx/font.h"
@@ -61,7 +61,7 @@ static uint16_t c16(uint32_t rgb) { return g16_rgb24(rgb); }
 
 int menu_load_cover(g16_sheet_t *s, const uint8_t *rgba, int w, int h)
 {
-    if (w != B33_COVER_W || h != B33_COVER_H || g16_sheet_alloc(s, w, h) != 0)
+    if (w != BM_COVER_W || h != BM_COVER_H || g16_sheet_alloc(s, w, h) != 0)
         return -1;
     for (int y = 0; y < h; y++)
         for (int x = 0; x < w; x++) {
@@ -73,7 +73,7 @@ int menu_load_cover(g16_sheet_t *s, const uint8_t *rgba, int w, int h)
 
 int menu_make_cover(g16_sheet_t *s, const char *title, const char *kind)
 {
-    if (g16_sheet_alloc(s, B33_COVER_W, B33_COVER_H) != 0)
+    if (g16_sheet_alloc(s, BM_COVER_W, BM_COVER_H) != 0)
         return -1;
     uint32_t h = 2166136261u;
     for (const char *p = title; *p; p++)
@@ -246,7 +246,7 @@ static void draw_icon(g16_t *cg, int icon, int cx, int cy, uint16_t ink, uint16_
 
 int menu_make_tool_cover(g16_sheet_t *s, const char *title, int icon, uint32_t rgb)
 {
-    if (g16_sheet_alloc(s, B33_COVER_W, B33_COVER_H) != 0)
+    if (g16_sheet_alloc(s, BM_COVER_W, BM_COVER_H) != 0)
         return -1;
     g16_t cg;
     g16_target(&cg, s->px, (uint32_t)s->w, s->w, s->h, &font_console_8x16);

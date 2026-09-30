@@ -64,7 +64,7 @@ lua_State *luavm_init(void)
         return NULL;
     lua_atpanic(L, panic_handler);
     luaL_openlibs(L);
-    luaL_requiref(L, "bm33", luaopen_bm33, 1);
+    luaL_requiref(L, "bm", luaopen_bm, 1);
     lua_pop(L, 1);
     return L;
 }

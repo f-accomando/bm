@@ -96,21 +96,21 @@ int main(int argc, char **argv)
     CHECK(read_back(argv[3], orig, orig_len));
 
     /* directories */
-    CHECK(fat_mkdirs("/bm33/save") == 0);
-    CHECK(fat_mkdirs("/bm33/save") == 0);         /* already there: fine */
+    CHECK(fat_mkdirs("/bm/save") == 0);
+    CHECK(fat_mkdirs("/bm/save") == 0);         /* already there: fine */
     fat_dir_t d;
-    CHECK(fat_opendir(&d, "/BM33/SAVE") == 0);
+    CHECK(fat_opendir(&d, "/BM/SAVE") == 0);
     CHECK(fat_mkdirs("/not an 8.3 name") != 0);
 
     /* a file, then replaced with every interesting size */
     static const char cfg[] = "layout=it\ndraw=direct\n";
-    CHECK(fat_write_file("/bm33", "config.txt", cfg, sizeof cfg - 1) == 0);
-    CHECK(read_back("/bm33/config.txt", (const uint8_t *)cfg, sizeof cfg - 1));
+    CHECK(fat_write_file("/bm", "config.txt", cfg, sizeof cfg - 1) == 0);
+    CHECK(read_back("/bm/config.txt", (const uint8_t *)cfg, sizeof cfg - 1));
     static const size_t sizes[] = { 0, 1, 511, 512, 513, 5000, 70000, 3, 0, 1024 };
     for (size_t i = 0; i < sizeof sizes / sizeof *sizes; i++) {
         uint8_t *p = pattern(sizes[i], (uint32_t)i);
-        CHECK(fat_write_file("/bm33/save", "SIZES.SAV", p, sizes[i]) == 0);
-        CHECK(read_back("/bm33/save/sizes.sav", p, sizes[i]));
+        CHECK(fat_write_file("/bm/save", "SIZES.SAV", p, sizes[i]) == 0);
+        CHECK(read_back("/bm/save/sizes.sav", p, sizes[i]));
         free(p);
     }
 
@@ -119,12 +119,12 @@ int main(int argc, char **argv)
         char name[16];
         snprintf(name, sizeof name, "F%07d.SAV", i);
         uint8_t *p = pattern((size_t)(i * 37 % 900), (uint32_t)i + 100);
-        CHECK(fat_write_file("/bm33/save", name, p, (size_t)(i * 37 % 900)) == 0);
+        CHECK(fat_write_file("/bm/save", name, p, (size_t)(i * 37 % 900)) == 0);
         free(p);
     }
     for (int i = 0; i < 200; i += 7) {
         char path[40];
-        snprintf(path, sizeof path, "/bm33/save/f%07d.sav", i);
+        snprintf(path, sizeof path, "/bm/save/f%07d.sav", i);
         uint8_t *p = pattern((size_t)(i * 37 % 900), (uint32_t)i + 100);
         CHECK(read_back(path, p, (size_t)(i * 37 % 900)));
         free(p);
@@ -137,18 +137,18 @@ int main(int argc, char **argv)
         free(last);
         last_len = (size_t)((i * 7919) % 3000);
         last = pattern(last_len, (uint32_t)i + 5000);
-        if (fat_write_file("/bm33/save", "SNAKE.SAV", last, last_len) != 0) {
+        if (fat_write_file("/bm/save", "SNAKE.SAV", last, last_len) != 0) {
             CHECK(!"rewrite");
             break;
         }
     }
-    CHECK(read_back("/bm33/save/snake.sav", last, last_len));
+    CHECK(read_back("/bm/save/snake.sav", last, last_len));
 
     /* the rest of the card is untouched, and it reads the same after a remount */
     CHECK(read_back(argv[3], orig, orig_len));
     CHECK(fat_mount() == 0);
-    CHECK(read_back("/bm33/save/snake.sav", last, last_len));
-    CHECK(read_back("/bm33/config.txt", (const uint8_t *)cfg, sizeof cfg - 1));
+    CHECK(read_back("/bm/save/snake.sav", last, last_len));
+    CHECK(read_back("/bm/config.txt", (const uint8_t *)cfg, sizeof cfg - 1));
     CHECK(fat_write_file("/", "bad.name.txt", "x", 1) != 0);
     CHECK(fat_write_file("/nodir", "A.TXT", "x", 1) != 0);
 
@@ -156,24 +156,24 @@ int main(int argc, char **argv)
     fat_entry_t fe;
     for (int i = 0; i < 200; i += 4) {
         char path[40];
-        snprintf(path, sizeof path, "/bm33/save/F%07d.SAV", i);
+        snprintf(path, sizeof path, "/bm/save/F%07d.SAV", i);
         CHECK(fat_delete(path) == 0);
         CHECK(fat_find(path, &fe) != 0);
     }
     uint8_t *p1 = pattern(37, 101);
-    CHECK(read_back("/bm33/save/f0000001.sav", p1, 37));
+    CHECK(read_back("/bm/save/f0000001.sav", p1, 37));
     free(p1);
     CHECK(fat_find("/carts/Un gioco da cancellare.bm", &fe) == 0);
     CHECK(fat_delete("/carts/un gioco da CANCELLARE.bm") == 0);
     CHECK(fat_find("/carts/Un gioco da cancellare.bm", &fe) != 0);
     CHECK(read_back(argv[3], orig, orig_len));
     CHECK(fat_delete("/carts/Un gioco da cancellare.bm") != 0);    /* gone already */
-    CHECK(fat_delete("/bm33/save") != 0);                           /* a directory */
+    CHECK(fat_delete("/bm/save") != 0);                           /* a directory */
     for (int i = 0; i < 10; i++) {
         char name[16];
         snprintf(name, sizeof name, "N%07d.SAV", i);
         uint8_t *p = pattern(5000, (uint32_t)i + 9000);
-        CHECK(fat_write_file("/bm33/save", name, p, 5000) == 0);
+        CHECK(fat_write_file("/bm/save", name, p, 5000) == 0);
         free(p);
     }
 

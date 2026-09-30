@@ -14,7 +14,7 @@ dentro, numeri attesi contro numeri misurati.
 
 ## 1. Limiti dell'hardware
 
-| Risorsa | Valore | Conseguenza per bm33 |
+| Risorsa | Valore | Conseguenza per bm |
 |---|---|---|
 | CPU | ARM1176JZF-S, 1 core, 700 MHz all'avvio → **1000 MHz** chiesti al firmware *(M)* | Tutto (gioco, grafica, audio, input) gira su un solo core in un solo ciclo |
 | Cache | L1 16 KiB istruzioni + 16 KiB dati *(D)* | Uno sprite sheet grande o lo z-buffer non ci stanno: conta l'ordine degli accessi |

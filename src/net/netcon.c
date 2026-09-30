@@ -83,7 +83,7 @@ static void got_byte(char c)
             if (strcmp(line, password) == 0) {
                 kprintf("\nnet: console opened from %s\n> ", ipaddr_ntoa(&client->remote_ip));
                 state = OPEN;                   /* from here kprintf goes to the client too */
-                out_str("\r\nok - bm33 monitor, 'h' for help, Ctrl-Q to leave\r\n> ");
+                out_str("\r\nok - bm monitor, 'h' for help, Ctrl-Q to leave\r\n> ");
             } else if (++tries >= MAX_TRIES) {
                 out_str("\r\nwrong password, bye\r\n");
                 kprintf("\n\x1b[91mnet: console: wrong password from %s\x1b[0m\n",
@@ -150,8 +150,8 @@ static err_t on_accept(void *arg, struct tcp_pcb *pcb, err_t err)
     tcp_nagle_disable(pcb);
     tcp_recv(pcb, on_recv);
     tcp_err(pcb, on_err);
-    out_str("bm33 ");
-    out_str(bm33_version);
+    out_str("bm ");
+    out_str(bm_version);
     out_str(" network console\r\npassword: ");
     return ERR_OK;
 }

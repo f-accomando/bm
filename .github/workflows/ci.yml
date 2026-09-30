@@ -36,7 +36,7 @@ jobs:
       - uses: actions/upload-artifact@v4
         if: always()
         with:
-          name: bm33-images
+          name: bm-images
           path: |
             build/kernel.img
             build/chainloader.img

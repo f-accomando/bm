@@ -6,7 +6,7 @@
  *   chip up      power, 32 kHz clock, firmware patch, event mask, SSP on
  *   pairing      inquiry, Create Connection, SSP "Just Works" (no MITM),
  *                encryption, L2CAP channels 0x11 (control) 0x13 (interrupt);
- *                the link key goes to bm33/config.txt as bt_pad<player>
+ *                the link key goes to bm/config.txt as bt_pad<player>
  *   reconnect    page scan on: a pad connects to us (PS button), we answer
  *                the Link Key Request with its saved key, it opens the
  *                L2CAP channels
@@ -368,16 +368,14 @@ static int reset(void)
 /* The .hcd file is a list of HCI commands: opcode (2), length (1), data. */
 static int load_patch(void)
 {
-    static const char *const paths[] = { "/bm33/BCM43430A1.hcd", "/BCM43430A1.hcd" };
     fat_entry_t e;
     uint8_t *data = NULL;
     size_t len = 0;
-    for (unsigned i = 0; i < 2 && !data; i++)
-        if (fat_find(paths[i], &e) == 0)
-            fat_load(&e, &data, &len);
+    if (config_find_file("BCM43430A1.hcd", &e) == 0 || fat_find("/BCM43430A1.hcd", &e) == 0)
+        fat_load(&e, &data, &len);
     if (!data) {
         kprintf("bt: BCM43430A1.hcd not on the SD card (make firmware; make sdcard puts it\n"
-                "    in bm33/): the chip runs its ROM firmware\n");
+                "    in bm/): the chip runs its ROM firmware\n");
         return -1;
     }
     if (hci_cmd(HCI_BCM_DOWNLOAD_MINI, NULL, 0, NULL, 0, 1000000) != 0) {
@@ -467,7 +465,7 @@ int bt_start(void)
     hci_cmd(HCI_WRITE_SSP_MODE, &one, 1, NULL, 0, 500000);
     static uint8_t name[248];
     memset(name, 0, sizeof name);
-    memcpy(name, "bm33", 4);
+    memcpy(name, "bm", 2);
     hci_cmd(HCI_WRITE_LOCAL_NAME, name, sizeof name, NULL, 0, 500000);
     static const uint8_t cod[3] = { 0x14, 0x09, 0x00 };     /* toy / game */
     hci_cmd(HCI_WRITE_CLASS, cod, 3, NULL, 0, 500000);
@@ -492,7 +490,7 @@ int bt_start(void)
 }
 
 /* Forgets every paired pad: the links are dropped and the keys removed
- * from bm33/config.txt; each pad must be paired again with T. */
+ * from bm/config.txt; each pad must be paired again with T. */
 int bt_forget_all(void)
 {
     int n = 0;

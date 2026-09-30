@@ -1,4 +1,4 @@
-/* The `bm33` Lua module: access to the machine from scripts. */
+/* The `bm` Lua module: access to the machine from scripts. */
 #include "luavm.h"
 #include "drivers/timer.h"
 #include "drivers/watchdog.h"
@@ -15,21 +15,21 @@
 
 #include "kernel/version.h"
 
-/* bm33.micros() -> free-running microsecond counter (wraps every ~71 min) */
+/* bm.micros() -> free-running microsecond counter (wraps every ~71 min) */
 static int l_micros(lua_State *L)
 {
     lua_pushinteger(L, (lua_Integer)timer_ticks());
     return 1;
 }
 
-/* bm33.millis() -> milliseconds since the tick started */
+/* bm.millis() -> milliseconds since the tick started */
 static int l_millis(lua_State *L)
 {
     lua_pushinteger(L, (lua_Integer)tick_ms());
     return 1;
 }
 
-/* bm33.sleep(ms) */
+/* bm.sleep(ms) */
 static int l_sleep(lua_State *L)
 {
     lua_Integer ms = luaL_checkinteger(L, 1);
@@ -38,7 +38,7 @@ static int l_sleep(lua_State *L)
     return 0;
 }
 
-/* bm33.mem() -> bytes used by Lua, peak, bytes in use in the C heap */
+/* bm.mem() -> bytes used by Lua, peak, bytes in use in the C heap */
 static int l_mem(lua_State *L)
 {
     struct mallinfo mi = mallinfo();
@@ -48,7 +48,7 @@ static int l_mem(lua_State *L)
     return 3;
 }
 
-/* bm33.color(fg [, bg]) -> console colours 0-15 (ANSI order) */
+/* bm.color(fg [, bg]) -> console colours 0-15 (ANSI order) */
 static int l_color(lua_State *L)
 {
     int fg = (int)luaL_checkinteger(L, 1);
@@ -60,7 +60,7 @@ static int l_color(lua_State *L)
     return 0;
 }
 
-/* bm33.cls() */
+/* bm.cls() */
 static int l_cls(lua_State *L)
 {
     (void)L;
@@ -89,10 +89,10 @@ static const luaL_Reg funcs[] = {
     { NULL, NULL },
 };
 
-int luaopen_bm33(lua_State *L)
+int luaopen_bm(lua_State *L)
 {
     luaL_newlib(L, funcs);
-    lua_pushstring(L, bm33_version);
+    lua_pushstring(L, bm_version);
     lua_setfield(L, -2, "version");
     return 1;
 }

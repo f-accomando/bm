@@ -76,7 +76,7 @@ static int parse_header(void)
     unsigned n = 6;
     if (hdr_len < n)
         return 1;
-    if (memcmp(hdr, "BM3X", 4) != 0 || (hdr[4] != 'S' && hdr[4] != 'P' && hdr[4] != 'K'))
+    if (memcmp(hdr, "BMXF", 4) != 0 || (hdr[4] != 'S' && hdr[4] != 'P' && hdr[4] != 'K'))
         return -1;
     unsigned pl = hdr[5];
     n += pl + 1;

@@ -3,12 +3,13 @@
  * loop. Lua only runs game logic; every pixel is drawn by C.
  */
 #include "runtime.h"
-#include "b33.h"
+#include "bm.h"
 #include "gfx16.h"
 #include "r3d.h"
 #include "drivers/timer.h"
 #include "drivers/uart.h"
 #include "fs/fat.h"
+#include "kernel/config.h"
 #include "lib/crc32.h"
 #include "kernel/input.h"
 #include "usb/hid.h"
@@ -66,7 +67,7 @@ static struct {
     char save_name[13];         /* "1A2B3C4D.SAV": CRC-32 of title and author */
 } rt;
 
-#define MESH_MT "b33.mesh"
+#define MESH_MT "bm.mesh"
 
 /* ---------------------------------------------------------------- helpers */
 
@@ -501,13 +502,13 @@ static int l_log(lua_State *L)
     return 0;
 }
 
-/* ---- save() / saved(): one table per cartridge in /bm33/save, as Lua
+/* ---- save() / saved(): one table per cartridge in /bm/save, as Lua
  * source ("return {...}") read back in an empty environment: data only. */
 
-#define SAVE_DIR   "/bm33/save"
+#define SAVE_DIR   "/bm/save"
 #define SAVE_MAX   (32 * 1024)
 
-void b33_save_path(const char *title, const char *author, char *out, size_t n)
+void bm_save_path(const char *title, const char *author, char *out, size_t n)
 {
     char id[96];
     int len = ksnprintf(id, sizeof id, "%s\n%s", title, author);
@@ -618,8 +619,8 @@ static int l_saved(lua_State *L)
     fat_entry_t e;
     uint8_t *data;
     size_t len;
-    ksnprintf(path, sizeof path, "%s/%s", SAVE_DIR, rt.save_name);
-    if (fat_find(path, &e) != 0 || e.size > SAVE_MAX || fat_load(&e, &data, &len) != 0) {
+    ksnprintf(path, sizeof path, "save/%s", rt.save_name);
+    if (config_find_file(path, &e) != 0 || e.size > SAVE_MAX || fat_load(&e, &data, &len) != 0) {
         lua_pushnil(L);
         return 1;
     }
@@ -843,7 +844,7 @@ static void hook(lua_State *L, lua_Debug *ar)
                    FRAME_BUDGET * HOOK_EVERY / 1000000);
 }
 
-static lua_State *new_cart_state(const b33_cart_t *c)
+static lua_State *new_cart_state(const bm_cart_t *c)
 {
     lua_State *L = luavm_newstate();
     if (!L)
@@ -1052,7 +1053,7 @@ static void sheet8_set(void *ctx, int x, int y, const uint8_t rgba[4])
     g16_sheet_set(&rt.sheet, x, y, g16_rgb(rgba[0], rgba[1], rgba[2]), rgba[3] >= 128);
 }
 
-static int load_assets(const b33_cart_t *c)
+static int load_assets(const bm_cart_t *c)
 {
     int has = c->sheet_rgba || c->sheet8;
     int sw = has ? c->sheet_w : 256, sh = has ? c->sheet_h : 256;
@@ -1064,7 +1065,7 @@ static int load_assets(const b33_cart_t *c)
         return -1;
     if (has) {
         if (c->sheet8) {
-            if (b33_sheet8_unpack(c, sheet8_set, NULL) != 0)
+            if (bm_sheet8_unpack(c, sheet8_set, NULL) != 0)
                 return -1;
         } else {
             for (int y = 0; y < c->sheet_h; y++)
@@ -1111,18 +1112,18 @@ static char run_request[64];
 static char arg_path[64], arg_error[512], last_error[512];
 static int arg_back = 1;
 
-void b33_set_arg(const char *path, const char *error)
+void bm_set_arg(const char *path, const char *error)
 {
     ksnprintf(arg_path, sizeof arg_path, "%s", path ? path : "");
     ksnprintf(arg_error, sizeof arg_error, "%s", error ? error : "");
 }
 
-void b33_set_arg_back(int back)
+void bm_set_arg_back(int back)
 {
     arg_back = back;
 }
 
-int b33_take_run(char *path, size_t n)
+int bm_take_run(char *path, size_t n)
 {
     if (!run_request[0])
         return 0;
@@ -1131,7 +1132,7 @@ int b33_take_run(char *path, size_t n)
     return 1;
 }
 
-const char *b33_last_error(void)
+const char *bm_last_error(void)
 {
     return last_error;
 }
@@ -1191,14 +1192,14 @@ static int l_cart_load(lua_State *L)
     fat_entry_t e;
     uint8_t *data;
     size_t len;
-    b33_cart_t c;
+    bm_cart_t c;
     char err[64];
     if (fat_find(path, &e) != 0 || fat_load(&e, &data, &len) != 0) {
         lua_pushnil(L);
         lua_pushstring(L, fat_error());
         return 2;
     }
-    if (b33_parse(data, len, &c, err, sizeof err) != 0) {
+    if (bm_parse(data, len, &c, err, sizeof err) != 0) {
         free(data);
         lua_pushnil(L);
         lua_pushstring(L, err);
@@ -1228,7 +1229,7 @@ static int l_cart_load(lua_State *L)
 /* cart_new(): an empty 256x256 sprite sheet and map, no cover */
 static int l_cart_new(lua_State *L)
 {
-    b33_cart_t c;
+    bm_cart_t c;
     memset(&c, 0, sizeof c);
     free_assets();
     if (load_assets(&c) != 0)
@@ -1281,14 +1282,14 @@ static int l_cart_save(lua_State *L)
     const uint32_t mw = (uint32_t)rt.map.w, mh = (uint32_t)rt.map.h;
     uint32_t sizes[4] = { proj_cover ? 4u + (uint32_t)proj_cover_w * proj_cover_h * 4 : 0, (uint32_t)lua_len,
                           4 + sw * sh * 4, 4 + mw * mh * 2 };
-    static const uint32_t types[4] = { B33_SEC_COVER, B33_SEC_LUA, B33_SEC_SHEET, B33_SEC_MAP };
-    uint32_t count = 0, total = B33_HEADER_SIZE;
+    static const uint32_t types[4] = { BM_SEC_COVER, BM_SEC_LUA, BM_SEC_SHEET, BM_SEC_MAP };
+    uint32_t count = 0, total = BM_HEADER_SIZE;
     for (int i = 0; i < 4; i++)
         if (sizes[i]) { count++; total += 16 + ((sizes[i] + 3) & ~3u); }
     uint8_t *buf = calloc(total, 1);
     if (!buf)
         return luaL_error(L, "not enough memory to save");
-    uint8_t *tab = buf + B33_HEADER_SIZE, *p = tab + count * 16;
+    uint8_t *tab = buf + BM_HEADER_SIZE, *p = tab + count * 16;
     for (int i = 0; i < 4; i++) {
         if (!sizes[i]) continue;
         put32(tab, types[i]);
@@ -1316,16 +1317,16 @@ static int l_cart_save(lua_State *L)
         }
         p += (sizes[i] + 3) & ~3u;
     }
-    memcpy(buf, "BM33CART", 8);
+    memcpy(buf, "BMCART\0\0", 8);
     put16(buf + 8, 1);
-    put16(buf + 10, B33_HEADER_SIZE);
+    put16(buf + 10, BM_HEADER_SIZE);
     put16(buf + 12, (uint32_t)w);
     put16(buf + 14, (uint32_t)h);
-    buf[16] = B33_FMT_RGB565;
+    buf[16] = BM_FMT_RGB565;
     buf[17] = (uint8_t)count;
     strncpy((char *)buf + 24, title, 47);
     strncpy((char *)buf + 72, author, 31);
-    put32(buf + 20, crc32(buf + B33_HEADER_SIZE, total - B33_HEADER_SIZE));
+    put32(buf + 20, crc32(buf + BM_HEADER_SIZE, total - BM_HEADER_SIZE));
     int ok = fat_mkdirs(dir) == 0 && fat_write_file(dir, name, buf, total) == 0;
     free(buf);
     lua_pushboolean(L, ok);
@@ -1370,12 +1371,12 @@ static int l_cart_arg(lua_State *L)
  * - via RAM: into a cached buffer ("shadow") copied to the back page once
  *   per frame. On the ARM1176 the copy has to read the buffer back from
  *   SDRAM (16 KB data cache, reads ~4x slower than writes), so it is not
- *   obviously a win: b33_bench() measures both. Default: direct. */
+ *   obviously a win: bm_bench() measures both. Default: direct. */
 static int via_ram;
 static int dma_frames;          /* copy by DMA: off until the DMA test passes on the Pi */
 static uint16_t *shadow;
 
-void b33_set_via_ram(int on) { via_ram = on; }
+void bm_set_via_ram(int on) { via_ram = on; }
 
 /* Switches a running cartridge to the RAM buffer (keeps clip and camera). */
 static int video_to_ram(g16_t *g)
@@ -1392,10 +1393,10 @@ static int video_to_ram(g16_t *g)
     g->cam_x = keep.cam_x; g->cam_y = keep.cam_y;
     return 0;
 }
-int b33_via_ram(void) { return via_ram; }
-int b33_video_uses_ram(void) { return shadow != NULL; }
+int bm_via_ram(void) { return via_ram; }
+int bm_video_uses_ram(void) { return shadow != NULL; }
 
-int b33_video_enter(framebuffer_t *fb, int w, int h, g16_t *g)
+int bm_video_enter(framebuffer_t *fb, int w, int h, g16_t *g)
 {
     console_suspend(1);
     free(shadow);
@@ -1414,7 +1415,7 @@ int b33_video_enter(framebuffer_t *fb, int w, int h, g16_t *g)
     return 0;
 }
 
-uint32_t b33_video_present(framebuffer_t *fb, g16_t *g)
+uint32_t bm_video_present(framebuffer_t *fb, g16_t *g)
 {
     if (!shadow) {
         fb_flip(fb);
@@ -1439,7 +1440,7 @@ uint32_t b33_video_present(framebuffer_t *fb, g16_t *g)
     return us;
 }
 
-void b33_video_leave(framebuffer_t *fb, uint32_t w, uint32_t h)
+void bm_video_leave(framebuffer_t *fb, uint32_t w, uint32_t h)
 {
     free(shadow);
     shadow = NULL;
@@ -1449,18 +1450,18 @@ void b33_video_leave(framebuffer_t *fb, uint32_t w, uint32_t h)
 
 static int enter_mode(framebuffer_t *fb, int w, int h)
 {
-    return b33_video_enter(fb, w, h, &rt.g);
+    return bm_video_enter(fb, w, h, &rt.g);
 }
 
 static void leave_mode(framebuffer_t *fb, uint32_t w, uint32_t h)
 {
-    b33_video_leave(fb, w, h);
+    bm_video_leave(fb, w, h);
     input_flush();              /* keys typed in the game stay in the game */
 }
 
 static void present(framebuffer_t *fb, uint32_t *deadline, uint32_t *prev, uint32_t *dropped)
 {
-    rt.present_us = b33_video_present(fb, &rt.g);
+    rt.present_us = bm_video_present(fb, &rt.g);
     while ((int32_t)(timer_ticks() - *deadline) < 0)
         ;
     uint32_t now = timer_ticks();
@@ -1474,7 +1475,7 @@ static void present(framebuffer_t *fb, uint32_t *deadline, uint32_t *prev, uint3
 
 /* A cartridge left with Esc / PS / Start+Select (when the caller allows
  * it) stays in memory, frozen: its Lua state, sheet, map, 3D and lights
- * stay as they are; b33_resume() continues from the same frame. */
+ * stay as they are; bm_resume() continues from the same frame. */
 static struct {
     lua_State *L;
     int active;
@@ -1498,7 +1499,7 @@ static void release(lua_State *L)
 
 /* The frame loop, then either suspend or close. */
 static int run_frames(framebuffer_t *fb, lua_State *L, const char *title, int w, int h,
-                      uint32_t con_w, uint32_t con_h, uint32_t seconds, b33_stats_t *st,
+                      uint32_t con_w, uint32_t con_h, uint32_t seconds, bm_stats_t *st,
                       const char *error, int suspendable)
 {
     uint32_t start = timer_ticks(), deadline = start + FRAME_US, prev = start;
@@ -1543,45 +1544,45 @@ static int run_frames(framebuffer_t *fb, lua_State *L, const char *title, int w,
         susp.w = w;
         susp.h = h;
         susp.g = rt.g;
-        susp.used_ram = b33_video_uses_ram();
+        susp.used_ram = bm_video_uses_ram();
         susp.since = timer_ticks();
         ksnprintf(susp.title, sizeof susp.title, "%s", title);
         leave_mode(fb, con_w, con_h);
         hid_text_mode(0);
         last_error[0] = 0;
-        kprintf("b33: \"%s\" suspended (A on its cover resumes it)\n", title);
-        return B33_SUSPENDED;
+        kprintf("bm: \"%s\" suspended (A on its cover resumes it)\n", title);
+        return BM_SUSPENDED;
     }
 
     leave_mode(fb, con_w, con_h);
     ksnprintf(last_error, sizeof last_error, "%s", error ? error : "");
     hid_text_mode(0);
     if (error)
-        kprintf("\x1b[91mb33: \"%s\" stopped with an error:\n%s\x1b[0m\n", title, error);
+        kprintf("\x1b[91mbm: \"%s\" stopped with an error:\n%s\x1b[0m\n", title, error);
     release(L);
-    return B33_ENDED;
+    return BM_ENDED;
 }
 
-int b33_run(framebuffer_t *fb, const uint8_t *data, size_t len,
-            uint32_t seconds, b33_stats_t *st, int suspendable)
+int bm_run(framebuffer_t *fb, const uint8_t *data, size_t len,
+            uint32_t seconds, bm_stats_t *st, int suspendable)
 {
-    b33_cart_t cart;
+    bm_cart_t cart;
     char err[64];
     const char *error = NULL;
     lua_State *L = NULL;
 
-    b33_close_suspended();              /* one cartridge in memory at a time */
+    bm_close_suspended();              /* one cartridge in memory at a time */
     memset(st, 0, sizeof *st);
     memset(&rt, 0, sizeof rt);
-    if (b33_parse(data, len, &cart, err, sizeof err) != 0) {
-        kprintf("\x1b[91mb33: %s\x1b[0m\n", err);
-        return B33_ENDED;
+    if (bm_parse(data, len, &cart, err, sizeof err) != 0) {
+        kprintf("\x1b[91mbm: %s\x1b[0m\n", err);
+        return BM_ENDED;
     }
     memcpy(st->title, cart.title, sizeof st->title);
     if (load_assets(&cart) != 0 || !(L = new_cart_state(&cart))) {
         free_assets();
-        kprintf("\x1b[91mb33: out of memory\x1b[0m\n");
-        return B33_ENDED;
+        kprintf("\x1b[91mbm: out of memory\x1b[0m\n");
+        return BM_ENDED;
     }
 
     const uint32_t con_w = fb->width, con_h = fb->height;
@@ -1589,13 +1590,13 @@ int b33_run(framebuffer_t *fb, const uint8_t *data, size_t len,
         leave_mode(fb, con_w, con_h);
         lua_close(L);
         free_assets();
-        kprintf("\x1b[91mb33: cannot set %ux%u RGB565\x1b[0m\n", cart.width, cart.height);
-        return B33_ENDED;
+        kprintf("\x1b[91mbm: cannot set %ux%u RGB565\x1b[0m\n", cart.width, cart.height);
+        return BM_ENDED;
     }
 
     {
         char path[40];
-        b33_save_path(cart.title, cart.author, path, sizeof path);
+        bm_save_path(cart.title, cart.author, path, sizeof path);
         ksnprintf(rt.save_name, sizeof rt.save_name, "%s", path + sizeof SAVE_DIR);
     }
     audio_reset();
@@ -1609,16 +1610,16 @@ int b33_run(framebuffer_t *fb, const uint8_t *data, size_t len,
                       error, suspendable);
 }
 
-void b33_play(framebuffer_t *fb, const uint8_t *data, size_t len,
-              uint32_t seconds, b33_stats_t *st)
+void bm_play(framebuffer_t *fb, const uint8_t *data, size_t len,
+              uint32_t seconds, bm_stats_t *st)
 {
-    b33_run(fb, data, len, seconds, st, 0);
+    bm_run(fb, data, len, seconds, st, 0);
 }
 
-int b33_resume(framebuffer_t *fb, uint32_t seconds, b33_stats_t *st)
+int bm_resume(framebuffer_t *fb, uint32_t seconds, bm_stats_t *st)
 {
     if (!susp.active)
-        return B33_ENDED;
+        return BM_ENDED;
     memset(st, 0, sizeof *st);
     memcpy(st->title, susp.title, sizeof st->title);
     lua_State *L = susp.L;
@@ -1628,8 +1629,8 @@ int b33_resume(framebuffer_t *fb, uint32_t seconds, b33_stats_t *st)
     if (enter_mode(fb, susp.w, susp.h) != 0) {
         leave_mode(fb, con_w, con_h);
         release(L);
-        kprintf("\x1b[91mb33: cannot set %ux%u RGB565\x1b[0m\n", susp.w, susp.h);
-        return B33_ENDED;
+        kprintf("\x1b[91mbm: cannot set %ux%u RGB565\x1b[0m\n", susp.w, susp.h);
+        return BM_ENDED;
     }
     /* the same clip, camera and draw target as when it stopped */
     rt.g.cx0 = susp.g.cx0; rt.g.cy0 = susp.g.cy0; rt.g.cx1 = susp.g.cx1; rt.g.cy1 = susp.g.cy1;
@@ -1646,34 +1647,34 @@ int b33_resume(framebuffer_t *fb, uint32_t seconds, b33_stats_t *st)
     for (int p = 0; p < INPUT_PLAYERS; p++)
         rt.pnow[p] = rt.pprev[p] = rt.now;
     hid_text_mode(rt.text_mode);
-    kprintf("b33: \"%s\" resumed\n", susp.title);
+    kprintf("bm: \"%s\" resumed\n", susp.title);
     return run_frames(fb, L, susp.title, susp.w, susp.h, con_w, con_h, seconds, st, NULL, 1);
 }
 
-int b33_suspended(char *title, size_t n)
+int bm_suspended(char *title, size_t n)
 {
     if (title && n)
         ksnprintf(title, n, "%s", susp.active ? susp.title : "");
     return susp.active;
 }
 
-void b33_close_suspended(void)
+void bm_close_suspended(void)
 {
     if (!susp.active)
         return;
     susp.active = 0;
-    kprintf("b33: \"%s\" closed, memory freed\n", susp.title);
+    kprintf("bm: \"%s\" closed, memory freed\n", susp.title);
     release(susp.L);
     susp.L = NULL;
 }
 
-void b33_print_stats(const b33_stats_t *st)
+void bm_print_stats(const bm_stats_t *st)
 {
     if (!st->frames)
         return;
     uint32_t ms = st->elapsed_us / 1000, fps10 = ms ? st->frames * 10000u / ms : 0;
     uint32_t avg = st->cpu_us_total / st->frames;
-    kprintf("b33: \"%s\" %lu frames, %lu.%lu fps, %lu dropped\n",
+    kprintf("bm: \"%s\" %lu frames, %lu.%lu fps, %lu dropped\n",
             st->title, st->frames, fps10 / 10, fps10 % 10, st->dropped);
     uint32_t copy = st->copy_us_total / st->frames;
     kprintf("     update+draw avg %lu.%02lu ms (%lu%% of frame), max %lu.%02lu ms, Lua %lu KiB\n",
@@ -1685,10 +1686,10 @@ void b33_print_stats(const b33_stats_t *st)
 
 /* ---------------------------------------------------------------- C bench */
 
-uint32_t b33_bench(framebuffer_t *fb, uint32_t frames)
+uint32_t bm_bench(framebuffer_t *fb, uint32_t frames)
 {
     const uint32_t con_w = fb->width, con_h = fb->height;
-    b33_close_suspended();
+    bm_close_suspended();
     memset(&rt, 0, sizeof rt);
     if (g16_sheet_alloc(&rt.sheet, 128, 128) != 0)
         return 0;
@@ -1724,7 +1725,7 @@ uint32_t b33_bench(framebuffer_t *fb, uint32_t frames)
             g16_spr(&rt.g, &rt.sheet, (i * 2) % 224, x, y, 2, 2, i & 1, i & 2);
         }
         g16_rectfill(&rt.g, 0, 0, 640, 16, 0);
-        g16_text(&rt.g, 0, 0, "b33 C benchmark: full map + 256 sprites 16x16", 0xFFFF);
+        g16_text(&rt.g, 0, 0, "bm C benchmark: full map + 256 sprites 16x16", 0xFFFF);
         total += timer_ticks() - t0;
         present(fb, &deadline, &prev, NULL);
         total += rt.present_us;             /* the frame is on screen only after the copy */
@@ -1737,23 +1738,23 @@ uint32_t b33_bench(framebuffer_t *fb, uint32_t frames)
 }
 
 /* The benchmark both ways (direct and via RAM), one line; the faster one
- * is not chosen automatically: see b33_set_via_ram. */
+ * is not chosen automatically: see bm_set_via_ram. */
 static void ms2(const char *label, uint32_t us)
 {
     kprintf("%s %lu.%02lu ms", label, us / 1000, us % 1000 / 10);
 }
 
-void b33_set_dma_frames(int on) { dma_frames = on; }
+void bm_set_dma_frames(int on) { dma_frames = on; }
 
-void b33_bench_report(framebuffer_t *fb, uint32_t frames)
+void bm_bench_report(framebuffer_t *fb, uint32_t frames)
 {
     int saved = via_ram;
     via_ram = 0;
-    uint32_t direct = b33_bench(fb, frames);
+    uint32_t direct = bm_bench(fb, frames);
     via_ram = 1;
-    uint32_t ram = b33_bench(fb, frames);
+    uint32_t ram = bm_bench(fb, frames);
     via_ram = saved;
-    kprintf("b33 bench (map + 256 sprites):");
+    kprintf("bm bench (map + 256 sprites):");
     ms2(" direct", direct);
     ms2(", via RAM", ram);
     kprintf("\n");

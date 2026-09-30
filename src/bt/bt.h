@@ -13,12 +13,12 @@
 int bt_start(void);
 
 /* Searches for `seconds`; pairs the first game controller found as the
- * next free player (bt_pad1..bt_pad4 in bm33/config.txt). */
+ * next free player (bt_pad1..bt_pad4 in bm/config.txt). */
 void bt_scan(unsigned seconds);
 
 /* Looks for a Bluetooth LE keyboard in pairing mode for `seconds` and
  * pairs it: a code is shown, to type on the keyboard (bt_kbd and
- * bt_kbd_key in bm33/config.txt). Afterwards it comes back by itself. */
+ * bt_kbd_key in bm/config.txt). Afterwards it comes back by itself. */
 void bt_pair_keyboard(unsigned seconds);
 
 /* 1 while the Bluetooth keyboard is connected; 1 once one is paired. */
@@ -30,11 +30,11 @@ int bt_keyboard_paired(void);
 void bt_poll(void);
 
 /* Forgets all pads and the keyboard (links dropped, keys removed from
- * bm33/config.txt). Returns how many keys there were. */
+ * bm/config.txt). Returns how many keys there were. */
 int bt_forget_all(void);
 
 /* 1 once a pad or a keyboard has been paired (bt_pad, bt_kbd keys in
- * bm33/config.txt). */
+ * bm/config.txt). */
 int bt_paired(void);
 
 /* 1 while at least one pad has its HID channels open. */

@@ -1,5 +1,5 @@
 /*
- * bm33 kernel entry.
+ * bm kernel entry.
  *
  * ACT LED protocol:
  *   solid on               -> init in progress (stuck here = early hang)
@@ -28,8 +28,8 @@
 #include "lib/printf.h"
 #include "script/luavm.h"
 #include "s32/player.h"
-#include "b33/runtime.h"
-#include "b33/stress.h"
+#include "bm/runtime.h"
+#include "bm/stress.h"
 #include "usb/usb.h"
 #include "carts.h"
 #include "config.h"
@@ -62,7 +62,7 @@ static void print_palette(void)
 
 #define TICK_HZ     1000
 #define S32_ATTRACT_SECS 10
-#define B33_DEMO_SECS    15
+#define BM_DEMO_SECS    15
 
 static void heartbeat(uint32_t tick)
 {
@@ -87,18 +87,18 @@ static void report_irq(void)
 
 extern const char boot_lua[], boot_lua_end[];
 extern const uint8_t s32_demo_cart[], s32_demo_cart_end[];
-extern const uint8_t b33_demo_cart[], b33_demo_cart_end[];
-extern const uint8_t b33_stress_cart[], b33_stress_cart_end[];
+extern const uint8_t bm_demo_cart[], bm_demo_cart_end[];
+extern const uint8_t bm_stress_cart[], bm_stress_cart_end[];
 
-#ifdef BM33_BOOT_STRESS
+#ifdef BM_BOOT_STRESS
 /* Stress-test boot (make BOOT=stress): C and Lua rendering stress tests,
  * results left on the console for a photo. */
 static void run_stress(void)
 {
-    b33_stress_run(&fb);
+    bm_stress_run(&fb);
     kprintf("Lua part (cartridge API):\n");
-    b33_stats_t bs;
-    b33_play(&fb, b33_stress_cart, (size_t)(b33_stress_cart_end - b33_stress_cart), 600, &bs);
+    bm_stats_t bs;
+    bm_play(&fb, bm_stress_cart, (size_t)(bm_stress_cart_end - bm_stress_cart), 600, &bs);
 }
 #endif
 
@@ -121,7 +121,7 @@ static uint32_t arm_memory_end(void)
 }
 
 /* Everything the boot used to show before M9: palette, CPU benchmark,
- * libc self-test, the s32 attract demo, the b33 benchmark and demo, the
+ * libc self-test, the s32 attract demo, the bm benchmark and demo, the
  * vsync probe and the Lua boot script. Monitor command 'B'. */
 void diagnostics_run(void)
 {
@@ -142,11 +142,11 @@ void diagnostics_run(void)
              S32_ATTRACT_SECS, 1, &ps);
     s32_play_print(&ps);
 
-    kprintf("b33: C benchmark and native demo cart ('q' or Esc skips)...\n");
-    b33_bench_report(&fb, 120);
-    b33_stats_t bs;
-    b33_play(&fb, b33_demo_cart, (size_t)(b33_demo_cart_end - b33_demo_cart), B33_DEMO_SECS, &bs);
-    b33_print_stats(&bs);
+    kprintf("bm: C benchmark and native demo cart ('q' or Esc skips)...\n");
+    bm_bench_report(&fb, 120);
+    bm_stats_t bs;
+    bm_play(&fb, bm_demo_cart, (size_t)(bm_demo_cart_end - bm_demo_cart), BM_DEMO_SECS, &bs);
+    bm_print_stats(&bs);
 
     uint32_t vs[5];
     if (fb_vsync_probe(vs, 5) == 0)
@@ -160,14 +160,14 @@ void diagnostics_run(void)
 
 
 /* The saved WiFi network is joined at boot (wifi_boot=0 in
- * bm33/config.txt turns it off); the address comes later, in the
+ * bm/config.txt turns it off); the address comes later, in the
  * background, and shows in the status line. */
 static void wifi_boot(void)
 {
     const char *ssid = config_get("wifi_ssid"), *on = config_get("wifi_boot");
     if (!ssid || !ssid[0] || (on && strcmp(on, "0") == 0))
         return;
-    kprintf("wifi: joining the saved network (wifi_boot=0 in bm33/config.txt: off)\n");
+    kprintf("wifi: joining the saved network (wifi_boot=0 in bm/config.txt: off)\n");
     if (wifi_start() == 0 && wifi_connect_saved() == 0)
         net_start();
 }
@@ -183,12 +183,12 @@ void kernel_main(uint32_t atags)
         exceptions_set_panic_fb(&fb);
         console_init(&fb, &font_console_8x16);
         char title[40];
-        ksnprintf(title, sizeof title, "bm33 %s", bm33_version);
+        ksnprintf(title, sizeof title, "bm %s", bm_version);
         console_set_status(title, 0);
         kprintf_set_sink(console_putc);
     }
 
-    kprintf("\n\x1b[1;36mbm33\x1b[0m kernel %s - Raspberry Pi Zero (BCM2835)\n", bm33_version);
+    kprintf("\n\x1b[1;36mbm\x1b[0m kernel %s - Raspberry Pi Zero (BCM2835)\n", bm_version);
     (void)atags;
     if (err)
         panic("framebuffer init failed (%d)", err);
@@ -228,7 +228,7 @@ void kernel_main(uint32_t atags)
         bt_start();             /* a paired pad can come back with its PS button */
     wifi_boot();
 
-#ifdef BM33_BOOT_STRESS
+#ifdef BM_BOOT_STRESS
     run_stress();
     monitor_run();
 #endif

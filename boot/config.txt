@@ -1,4 +1,4 @@
-# bm33 - Raspberry Pi Zero / Zero W boot configuration
+# bm - Raspberry Pi Zero / Zero W boot configuration
 
 kernel=kernel.img
 arm_64bit=0

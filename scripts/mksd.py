@@ -1,11 +1,11 @@
 #!/usr/bin/env python3
 """
 Builds an SD card image: MBR + one FAT32 partition (type 0x0C) starting at
-1 MiB, filled with the given files. Used by `make image` (bm33.img, ready
+1 MiB, filled with the given files. Used by `make image` (bm.img, ready
 for Raspberry Pi Imager / balenaEtcher / dd) and by the QEMU tests.
 Needs mkfs.vfat (dosfstools) and mtools.
 
-  scripts/mksd.py OUT.img [--size-mib 128] [--label BM33SD] [SRC=DEST ...]
+  scripts/mksd.py OUT.img [--size-mib 128] [--label BMSD] [SRC=DEST ...]
 """
 import argparse
 import os
@@ -14,7 +14,7 @@ import subprocess
 import tempfile
 
 
-def build(out, files, size_mib=128, label="BM33SD"):
+def build(out, files, size_mib=128, label="BMSD"):
     start = 2048                                    # sectors
     total = size_mib * 2048                         # QEMU wants a power of 2
     part_sectors = total - start
@@ -57,7 +57,7 @@ def main():
     ap.add_argument("out")
     ap.add_argument("files", nargs="*", help="SRC=DEST")
     ap.add_argument("--size-mib", type=int, default=128)
-    ap.add_argument("--label", default="BM33SD")
+    ap.add_argument("--label", default="BMSD")
     a = ap.parse_intermixed_args()
     build(a.out, [tuple(f.split("=", 1)) for f in a.files], a.size_mib, a.label)
     print(f"{a.out}: {a.size_mib} MiB, {len(a.files)} files")

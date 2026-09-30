@@ -122,7 +122,7 @@ function S.title.draw()
   sprite("t_clash", 320, 166 + floor(sin(Scr.t / 40 + 1) * 2))
   text_c("GIANT ROBOTS, ONE ON ONE", 320, 222, 0xE0E6F0)
   if Scr.t % 60 < 40 then text_c("PRESS START", 320, 262, 0xFFD040, 2) end
-  text_c("BM33  M20 PROTOTYPE", 320, 338, 0x8A96B0)
+  text_c("BM  M20 PROTOTYPE", 320, 338, 0x8A96B0)
 end
 
 ---------------------------------------------------------------- mode

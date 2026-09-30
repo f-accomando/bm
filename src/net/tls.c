@@ -1,6 +1,6 @@
 /*
  * mbedTLS on a stream: blocking send/receive callbacks, the handshake,
- * certificate checks (chain to a root in bm33/ca.pem, host name, dates:
+ * certificate checks (chain to a root in bm/ca.pem, host name, dates:
  * the clock comes from SNTP), then plain reads and writes.
  */
 #include "tls.h"
@@ -17,10 +17,11 @@
 #include <stdlib.h>
 #include <string.h>
 
-#ifndef BM33_HOST_TEST
+#ifndef BM_HOST_TEST
 #include "drivers/rng.h"
 #include "drivers/timer.h"
 #include "fs/fat.h"
+#include "kernel/config.h"
 #include "lib/printf.h"
 #include "net.h"
 
@@ -77,7 +78,7 @@ int tls_set_roots(const char *pem, size_t len)
     return n ? n : -1;
 }
 
-#ifdef BM33_HOST_TEST
+#ifdef BM_HOST_TEST
 #define tls_load_roots_if_kernel() (-1)
 #else
 #define tls_load_roots_if_kernel() tls_load_roots()
@@ -87,8 +88,8 @@ int tls_load_roots(void)
     fat_entry_t e;
     uint8_t *data;
     size_t len;
-    if (fat_find("/bm33/ca.pem", &e) || fat_load(&e, &data, &len)) {
-        kprintf("\x1b[91mtls: bm33/ca.pem not on the SD card (make install copies it)\x1b[0m\n");
+    if (config_find_file("ca.pem", &e) || fat_load(&e, &data, &len)) {
+        kprintf("\x1b[91mtls: bm/ca.pem not on the SD card (make install copies it)\x1b[0m\n");
         return -1;
     }
     int n = tls_set_roots((const char *)data, len);
@@ -104,7 +105,7 @@ static int setup(char *err, size_t err_len)
         return 0;
     mbedtls_entropy_init(&entropy);
     mbedtls_ctr_drbg_init(&drbg);
-    static const unsigned char pers[] = "bm33 tls";
+    static const unsigned char pers[] = "bm tls";
     int r = mbedtls_ctr_drbg_seed(&drbg, mbedtls_entropy_func, &entropy, pers, sizeof pers - 1);
     if (r) {
         snprintf(err, err_len, "no random numbers (%d)", r);
@@ -148,12 +149,12 @@ static void describe(int r, const char *what, char *err, size_t err_len)
 tls_t *tls_open(const char *host, uint16_t port, char *err, size_t err_len)
 {
     if (nroots <= 0 && tls_load_roots_if_kernel() <= 0) {
-        snprintf(err, err_len, "no root certificates (bm33/ca.pem)");
+        snprintf(err, err_len, "no root certificates (bm/ca.pem)");
         return NULL;
     }
     if (setup(err, err_len))
         return NULL;
-#ifndef BM33_HOST_TEST
+#ifndef BM_HOST_TEST
     /* certificates have dates: wait a little for the network time */
     for (uint32_t t0 = timer_ticks(); !net_time() && timer_ticks() - t0 < 8000000u; )
         net_wait_step();

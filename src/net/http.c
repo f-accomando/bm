@@ -14,7 +14,7 @@
 
 #ifndef HTTP_USER_AGENT
 #include "kernel/version.h"
-#define HTTP_USER_AGENT bm33_version
+#define HTTP_USER_AGENT bm_version
 #endif
 
 typedef struct {
@@ -167,7 +167,7 @@ int http_request(const char *url, const http_req_t *req, http_sink_t sink, void 
         const char *method = req->method ? req->method : "GET";
         static char head[1536];
         int hl = snprintf(head, sizeof head,
-                          "%s %s HTTP/1.1\r\nHost: %s\r\nUser-Agent: bm33/%s\r\n"
+                          "%s %s HTTP/1.1\r\nHost: %s\r\nUser-Agent: bm/%s\r\n"
                           "Accept: */*\r\nConnection: close\r\n%s",
                           method, u.path, u.host, HTTP_USER_AGENT, req->headers ? req->headers : "");
         if (req->body)

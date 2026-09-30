@@ -1,4 +1,4 @@
-/* lwIP configuration for bm33: no operating system (NO_SYS), polled from
+/* lwIP configuration for bm: no operating system (NO_SYS), polled from
  * the main loop, IPv4 only, one network interface (the WiFi chip). */
 #ifndef LWIPOPTS_H
 #define LWIPOPTS_H
@@ -52,7 +52,7 @@
 void net_time_set(unsigned long sec);
 #define DNS_MAX_SERVERS         2
 
-#ifdef BM33_HOST_TEST   /* tests/net: a loopback interface instead of the chip */
+#ifdef BM_HOST_TEST   /* tests/net: a loopback interface instead of the chip */
 #define LWIP_HAVE_LOOPIF        1
 #define LWIP_NETIF_LOOPBACK     1
 #endif

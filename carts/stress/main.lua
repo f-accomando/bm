@@ -1,5 +1,5 @@
 -- Rendering stress test through the cartridge API (Lua 5.4 + C drawing).
--- Same method as the C part (src/b33/stress.c): raise the load step by
+-- Same method as the C part (src/bm/stress.c): raise the load step by
 -- step, measure update+draw time per frame, interpolate the loads that
 -- fit in 16.7 ms (60 fps) and 33.3 ms (30 fps). Results go to log().
 

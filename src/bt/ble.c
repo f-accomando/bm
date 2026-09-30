@@ -7,7 +7,7 @@
  *               Entry): LE Secure Connections (P-256, f4/f5/f6) when the
  *               keyboard supports it, else LE legacy pairing (c1/s1).
  *               Its LTK (and its IRK, if it hides its address) go to
- *               bm33/config.txt as bt_kbd and bt_kbd_key.
+ *               bm/config.txt as bt_kbd and bt_kbd_key.
  *   reconnect   while the keyboard is away we scan (passively); when it
  *               advertises (any key pressed), its address or one that its
  *               IRK resolves, we connect and encrypt with the saved LTK

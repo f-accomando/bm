@@ -1,6 +1,6 @@
 # Risoluzioni dello schermo — menu, console e giochi
 
-Quali risoluzioni può usare bm33, come arrivano al televisore e quanto costano.
+Quali risoluzioni può usare bm, come arrivano al televisore e quanto costano.
 Scritto per scegliere la risoluzione del menu (M27, BareMetal UI).
 
 **Fonti**
@@ -11,7 +11,7 @@ Scritto per scegliere la risoluzione del menu (M27, BareMetal UI).
 
 ## 1. Come arriva l'immagine sullo schermo
 
-- bm33 chiede al firmware (mailbox) un framebuffer della risoluzione che vuole, con 2
+- bm chiede al firmware (mailbox) un framebuffer della risoluzione che vuole, con 2
   o 3 pagine per disegnare senza sfarfallio.
 - La GPU ingrandisce quel framebuffer fino al modo dell'uscita HDMI, senza costi per
   l'ARM.
@@ -31,9 +31,9 @@ Scritto per scegliere la risoluzione del menu (M27, BareMetal UI).
 | Giochi `.bm` | 640×360 oppure 320×180 | 16 bit (RGB565) | 3 | 3× oppure 6× |
 | Giochi s32 (`.cart`) | 320×224 | 32 bit | 3 | non intero, non 16:9 |
 
-- Le due risoluzioni dei giochi `.bm` sono fissate dal formato (`src/b33/format.c`):
+- Le due risoluzioni dei giochi `.bm` sono fissate dal formato (`src/bm/format.c`):
   "resolution must be 640x360 or 320x180".
-- Le copertine dei giochi nel `.bm` sono 128×80 (`B33_COVER_W`, `B33_COVER_H`).
+- Le copertine dei giochi nel `.bm` sono 128×80 (`BM_COVER_W`, `BM_COVER_H`).
 - Il modo 16:9 delle cartucce s32 è deciso in `s32-bm33.md` ma non ancora fatto (M13).
 
 ## 3. Risoluzioni possibili per il menu

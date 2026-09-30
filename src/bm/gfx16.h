@@ -1,5 +1,5 @@
 /*
- * RGB565 drawing library for native bm33 cartridges (.bm).
+ * RGB565 drawing library for native bm cartridges (.bm).
  * All drawing is clipped to the clip rectangle and offset by the camera.
  * Colours are 16-bit RGB565 values (see g16_rgb).
  */

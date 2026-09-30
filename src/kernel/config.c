@@ -1,5 +1,5 @@
 #include "config.h"
-#include "b33/runtime.h"
+#include "bm/runtime.h"
 #include "fs/fat.h"
 #include "lib/printf.h"
 #include "usb/hid.h"
@@ -7,7 +7,9 @@
 #include <stdlib.h>
 #include <string.h>
 
-#define DIR   "/bm33"
+#define DIR   "/bm"
+/* the folder's name before the project was renamed bm: still read */
+#define OLD_DIR "/bm33"
 #define FILE_ "CONFIG.TXT"
 #define MAX_KEYS 32
 
@@ -71,13 +73,23 @@ static void parse(const char *text, size_t len)
     }
 }
 
+int config_find_file(const char *name, fat_entry_t *e)
+{
+    char path[96];
+    ksnprintf(path, sizeof path, "%s/%s", DIR, name);
+    if (fat_find(path, e) == 0)
+        return 0;
+    ksnprintf(path, sizeof path, "%s/%s", OLD_DIR, name);
+    return fat_find(path, e);
+}
+
 void config_load(void)
 {
     fat_entry_t e;
     uint8_t *data;
     size_t len;
     nkv = 0;
-    if (fat_find(DIR "/" FILE_, &e) != 0 || fat_load(&e, &data, &len) != 0)
+    if (config_find_file(FILE_, &e) != 0 || fat_load(&e, &data, &len) != 0)
         return;                                 /* no file: defaults */
     parse((const char *)data, len);
     free(data);
@@ -86,20 +98,20 @@ void config_load(void)
     if ((v = config_get("layout")))
         hid_set_layout(v);
     if ((v = config_get("draw")))
-        b33_set_via_ram(strcmp(v, "ram") == 0);
+        bm_set_via_ram(strcmp(v, "ram") == 0);
     kprintf("config: %s/%s, layout %s, .bm drawing %s\n", DIR, "config.txt", hid_layout(),
-            b33_via_ram() ? "via RAM" : "direct");
+            bm_via_ram() ? "via RAM" : "direct");
 }
 
 void config_save(void)
 {
     config_set("layout", hid_layout());
-    config_set("draw", b33_via_ram() ? "ram" : "direct");
+    config_set("draw", bm_via_ram() ? "ram" : "direct");
 
     char *buf = malloc(MAX_KEYS * 100 + 64);
     if (!buf)
         return;
-    int n = ksnprintf(buf, 64, "# bm33 settings (key=value)\n");
+    int n = ksnprintf(buf, 64, "# bm settings (key=value)\n");
     for (int i = 0; i < nkv; i++)
         n += ksnprintf(buf + n, 100, "%s=%s\n", kv[i].key, kv[i].value);
     if (fat_mkdirs(DIR) != 0 || fat_write_file(DIR, FILE_, buf, (size_t)n) != 0)
