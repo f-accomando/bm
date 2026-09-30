@@ -56,7 +56,9 @@ Prestazioni e scelte tecniche (limiti del Pi, atteso contro misurato): [docs/PRE
 | M21 | Menu "home" a griglia (Games / Dev) e giochi sospesi in memoria | 🛠 fatto, da provare sul Pi |
 | M22 | SDK e strumenti dedicati: codice, pixel art, 3D, musica, import/export, 3D→sprite, sprite stacking | in coda |
 | M23 | Emulatore di cartucce `.p8` / `.p8.png` (stile PICO-8) | in coda |
-| M24 | Scambio di giochi e risorse: store su GitHub, P2P in rete locale | in coda |
+| M24 | Scambio in rete locale tra console (P2P) | in coda |
+| M25 | Store su GitHub: catalogo, download verificati, pubblicazione dall'SDK | in coda |
+| M26 | Market a pagamento (servizio web, account, licenze) | in coda |
 
 ## Cosa fa il kernel
 

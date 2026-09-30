@@ -821,40 +821,51 @@ font nostri; le cartucce del forum sono per lo più CC BY-NC-SA (uso non commerc
 - **Fatto quando:** un gioco senza suono gira dalla SD (primo traguardo), poi con audio
   e numeri 16.16.
 
-## M24 — Scambio di giochi e risorse: store e P2P (L, dopo M18/M19)
-Decisione 2026-09-29: in coda, da definire meglio; considerazioni iniziali.
-- **Cosa si scambia**:
+## M24 — Scambio in rete locale tra console (M, dopo M18)
+Decisione 2026-09-30: M24 originale diviso in tre (M24 rete locale, M25 store su
+GitHub, M26 market a pagamento). Considerazioni iniziali del 2026-09-29.
+- **Cosa si scambia** (vale anche per M25 e M26):
   - cartucce `.b33` (già un contenitore unico) e pacchetti di risorse (sprite, mesh,
     suoni: un `.b33` senza codice);
   - ogni pacchetto con un manifesto: nome, autore, versione, licenza, hash SHA-256.
-- **Catalogo su un repository GitHub** (consigliato come "store"):
-  - hosting gratuito, versioni e cronologia, moderazione con le pull request;
-  - il Pi legge un indice firmato via HTTPS (M19) e scarica;
-  - dall'SDK si pubblica con il token personale (M19, "git leggero").
-- **P2P in rete locale** (dopo M18, economico):
-  - le console si trovano con un annuncio UDP in broadcast;
-  - si passano cartucce e risorse via TCP, per esempio tra amici sulla stessa rete.
+- **Scoperta**: le console si trovano con un annuncio UDP in broadcast sulla rete di casa.
+- **Trasferimento**: cartucce e risorse via TCP (come `netxfer` di M18), per esempio
+  tra amici sulla stessa rete; conferma sullo schermo di chi riceve.
 - **P2P via internet** tra console: **sconsigliato** sul Pi Zero bare metal.
   - Servono traversamento del NAT, server di appoggio (relay) comunque, TLS e una DHT:
     molto codice, e senza un server centrale il valore aggiunto è poco.
   - Alternativa: file indirizzati per hash, scaricabili da qualunque fonte (repository o
     console vicina), con la stessa verifica.
+- **Fatto quando:** due console sulla stessa rete si vedono nel menu e una manda una
+  cartuccia all'altra.
+
+## M25 — Store su GitHub (L, dopo M19 e M24)
+- **Catalogo su un repository GitHub**:
+  - hosting gratuito, versioni e cronologia, moderazione con le pull request;
+  - il Pi legge un indice firmato via HTTPS (M19) e scarica;
+  - dall'SDK si pubblica con il token personale (M19, "git leggero").
 - **Sicurezza**:
   - pacchetti firmati dagli autori (Ed25519, codice piccolo: monocypher/TweetNaCl) e
     hash verificati prima di installare;
   - le cartucce Lua girano già in un ambiente chiuso; il codice ARM nativo (M13) no:
     senza isolamento della memoria, solo da autori fidati o mai dallo store.
-- **Market a pagamento**: account, pagamenti e licenze vanno su un servizio web, non sul
-  Pi; il Pi scarica solo ciò che l'account ha sbloccato. È un progetto a sé.
 - **Licenze**: il campo licenza è obbligatorio. La BM33 Community License vale per bm33,
   non per i contenuti degli utenti; attenzione a CC BY-NC-SA (uso non commerciale) e ai
   contenuti di terzi.
 - **Passi proposti**:
-  1. scambio in rete locale;
-  2. catalogo in lettura da GitHub;
-  3. pubblicazione dall'SDK;
-  4. firme e scheda "Store" nel menu;
-  5. (eventuale) market web.
+  1. catalogo in lettura da GitHub;
+  2. pubblicazione dall'SDK;
+  3. firme e scheda "Store" nel menu.
+- **Fatto quando:** dalla scheda "Store" del menu si sceglie un gioco del catalogo, si
+  scarica, si verifica e si gioca; l'SDK pubblica un gioco nel catalogo.
+
+## M26 — Market a pagamento (XL, dopo M25; progetto a sé)
+- Account, pagamenti e licenze vanno su un servizio web, non sul Pi: il Pi scarica solo
+  ciò che l'account ha sbloccato.
+- Da definire: servizio (proprio o di terzi), commissioni, rimborsi, obblighi fiscali,
+  protezione dei contenuti.
+- **Fatto quando:** un gioco a pagamento si compra sul web e compare sulla console
+  dell'account.
 
 ## Rischi principali
 | Rischio | Mitigazione |
