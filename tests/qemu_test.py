@@ -541,6 +541,13 @@ def bar_icons(img):
     return runs
 
 
+def blue_number(img, span):
+    """The number disc of a status icon is blue (a Bluetooth controller)."""
+    return any(b > 200 and r < 80 and 90 < g < 160
+               for x in range(*span) for y in range(8, 40)
+               for r, g, b in [pixel(img, x, y)])
+
+
 def settled_screen(q, ok, tries=8):
     """QEMU shows page 0 even while it is being drawn (it ignores the
     virtual offset), so a screendump can catch a frame half drawn: retry
@@ -898,7 +905,9 @@ def test_home_ui(b, opts):
         screen(["Settings", "Controllers", "WiFi and network", "Keyboard layout", "System"])
         shot("settings")
         keys("ss")
-        before = "Italian" if "< Italian >" in screen(["< "]) else "US"
+        _, text = settled_screen(q, lambda i, t: any("< Italian >" in l or "< US >" in l for l in t))
+        before = "Italian" if any("< Italian >" in l for l in text) else "US"
+        assert before == "Italian" or any("< US >" in l for l in text), "\n".join(text)
         keys("d")
         after = "US" if before == "Italian" else "Italian"
         screen([f"< {after} >", "keyboard layout: "])
@@ -1573,6 +1582,7 @@ def test_bt_two_pads(b, opts):
             _save_png(screen_img, os.path.join(opts.shots, "home-pads.png"))
         runs = bar_icons(screen_img)
         assert len(runs) == 3 and all(20 <= x1 - x0 <= 27 for x0, x1 in runs), runs
+        assert all(blue_number(screen_img, r) for r in runs), "Bluetooth: blue numbers"
 
         # in a game each pad is its own player
         time.sleep(0.3)
@@ -1625,8 +1635,10 @@ def test_sd_sdhc_and_usb_menu(b, opts):
         out = q.expect("cartridge menu", timeout=90).decode(errors="replace")
         assert "sd: SDHC card (sdhost), FAT32, 4095 MiB, label BM33SD; 1 cartridges" in out, out
         time.sleep(1.0)
-        runs = bar_icons(q.screendump())      # the bar: the keyboard icon (M27)
+        shot_ = q.screendump()                # the bar: the keyboard icon (M27)
+        runs = bar_icons(shot_)
         assert len(runs) == 1 and 20 <= runs[0][1] - runs[0][0] <= 27, runs
+        assert not blue_number(shot_, runs[0]), "USB: a white number"
         sendkeys(q, "c")                      # C is the X button: the options (M27)
         _, text = settled_screen(q, lambda i, t: any("Author" in l for l in t))
         assert any("Author" in l for l in text) and any("Play" in l for l in text), "\n".join(text)

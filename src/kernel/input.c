@@ -178,7 +178,7 @@ static int usb_input(void)
 int input_device(int p)
 {
     if (bt_pads() >> p & 1)
-        return INPUT_DEV_PAD;
+        return INPUT_DEV_PAD | INPUT_DEV_BLUETOOTH;
     if (p != input_local_player())
         return INPUT_DEV_NONE;
     int k = usb_info()->kind;

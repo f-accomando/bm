@@ -60,6 +60,7 @@ typedef struct {
     const menu_item_t *items;   /* of the current tab */
     int n, sel;
     int dev[4];                 /* players 1-4: MENU_DEV_*, an icon with the number */
+    unsigned bt;                /* bit p: player p+1 is on Bluetooth (a blue number) */
     int net;                    /* MENU_NET_*: WiFi without an address yet is dimmed */
     const char *details;        /* line under the grid (path, size) */
     const char *note;           /* last game, errors */

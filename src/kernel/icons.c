@@ -102,7 +102,7 @@ static const uint8_t digits[4][7] = {           /* 5x7, bit 4 = left column */
 #define DISC_R   5.6f
 #define GAP_R    7.3f               /* cut around it */
 
-static uint8_t masks[ICON_COUNT][5][ICON_W * ICON_BH];
+static icon_mask_t masks[ICON_COUNT][5];
 static int made[ICON_COUNT][5];
 
 static float coverage(float (*f)(float, float), int x, int y)
@@ -117,31 +117,30 @@ static float coverage(float (*f)(float, float), int x, int y)
 static float disc_r;
 static float disc(float x, float y) { return circle(x, y, CX, DISC_Y, disc_r); }
 
-const uint8_t *icon_mask(int icon, int num)
+const icon_mask_t *icon_mask(int icon, int num)
 {
     if (icon < 0 || icon >= ICON_COUNT || num < 0 || num > 4)
         return NULL;
-    uint8_t *m = masks[icon][num];
+    icon_mask_t *m = &masks[icon][num];
     if (made[icon][num])
         return m;
     float (*f)(float, float) = icon == ICON_KEYBOARD ? keyboard : icon == ICON_PAD ? pad
                              : icon == ICON_WIFI ? wifi : ethernet;
-    memset(m, 0, ICON_W * ICON_BH);
+    memset(m, 0, sizeof *m);
     for (int y = 0; y < ICON_BH; y++)
         for (int x = 0; x < ICON_W; x++) {
+            int i = y * ICON_W + x;
             float a = y < ICON_H ? coverage(f, x, y) : 0.0f;
             if (num) {
                 disc_r = GAP_R;
                 a *= 1.0f - coverage(disc, x, y);
                 disc_r = DISC_R;
-                float b = coverage(disc, x, y);
-                /* the digit is a hole in the disc, on whole pixels */
-                int dx = x - 11, dy = y - 13;
-                if (dx >= 0 && dx < 5 && dy >= 0 && dy < 7 && (digits[num - 1][dy] >> (4 - dx) & 1))
-                    b = 0.0f;
-                a = a > b ? a : b;
+                m->disc[i] = (uint8_t)(coverage(disc, x, y) * 255.0f + 0.5f);
+                int dx = x - 11, dy = y - 13;             /* the digit, on whole pixels */
+                m->digit[i] = dx >= 0 && dx < 5 && dy >= 0 && dy < 7 &&
+                              (digits[num - 1][dy] >> (4 - dx) & 1);
             }
-            m[y * ICON_W + x] = (uint8_t)(a * 255.0f + 0.5f);
+            m->icon[i] = (uint8_t)(a * 255.0f + 0.5f);
         }
     made[icon][num] = 1;
     return m;

@@ -973,6 +973,10 @@ Task:
     o controller in stile DS4 (pad Bluetooth o USB).
   - Sopra il centro in basso di ogni icona, il numero del giocatore (1–4, l'ordine di
     abbinamento) in un cerchio, con uno stacco intorno che lascia leggibile l'icona.
+    Tastiera e controller possono avere qualsiasi numero da 1 a 4 (la tastiera è il
+    primo giocatore senza pad).
+  - Cerchio bianco con il numero scuro per USB (tastiera, gamepad), blu con il numero
+    bianco per Bluetooth (DS4).
   - Poi l'icona WiFi, se la console è collegata (grigia finché il router non dà
     l'indirizzo), o quella Ethernet.
   - Tutte nello stesso riquadro di 27×18 pixel (`src/kernel/icons.c`): forme disegnate
@@ -980,8 +984,13 @@ Task:
   - bm33 non ha ancora un'interfaccia Ethernet (il Pi Zero W non ha la porta, un
     adattatore USB richiede il suo driver): `net_link()` è pronta a dirlo quando ci
     sarà.
-  - Test: `bar_icons` conta le icone (3 pad in `test_bt_two_pads`, la tastiera in
-    `test_sd_sdhc_and_usb_menu`, nessuna in `test_home_ui`).
+  - Test: `bar_icons` conta le icone (3 pad col numero blu in `test_bt_two_pads`, la
+    tastiera col numero bianco in `test_sd_sdhc_and_usb_menu`, nessuna in
+    `test_home_ui`).
+- **Griglia** (decisione 2026-09-30): 16 pixel tra le copertine (erano 24 in orizzontale
+  e 20 in verticale) e più in basso: due righe intere, poi la riga successiva che
+  spunta per 12 pixel (due volte il raggio degli angoli) a dire che la lista continua.
+  Il nome della copertina scelta scende di una riga, a metà tra la barra e la griglia.
 
 Da provare sul Pi:
 - il menu resta a 60 fps anche con un pannello aperto;

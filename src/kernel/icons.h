@@ -3,7 +3,8 @@
  * style), WiFi, Ethernet, all in the same box. Drawn once from shapes with
  * anti-aliasing (4x4 samples per pixel) into coverage masks; the player
  * number goes on a small disc over the bottom middle, with a gap cut
- * around it so the icon stays readable. Plain C, no kernel dependencies
+ * around it so the icon stays readable (white for USB, blue for
+ * Bluetooth in the menu). Plain C, no kernel dependencies
  * (a host program can preview them).
  */
 #ifndef ICONS_H
@@ -17,8 +18,17 @@
 
 enum { ICON_KEYBOARD, ICON_PAD, ICON_WIFI, ICON_ETHERNET, ICON_COUNT };
 
-/* Coverage (0..255) of `icon` with the number `num` (1..4, 0: none) over
- * the background: ICON_W x ICON_BH, row after row. Made on first use. */
-const uint8_t *icon_mask(int icon, int num);
+/* `icon` with the number `num` (1..4, 0: none): three planes of ICON_W x
+ * ICON_BH, row after row. The icon's coverage (0..255) with the gap around
+ * the disc already cut, the disc's coverage, and the digit (1 on its
+ * pixels, all inside the disc). The caller picks the colours: a white or
+ * a blue disc. Made on first use. */
+typedef struct {
+    uint8_t icon[ICON_W * ICON_BH];
+    uint8_t disc[ICON_W * ICON_BH];
+    uint8_t digit[ICON_W * ICON_BH];
+} icon_mask_t;
+
+const icon_mask_t *icon_mask(int icon, int num);
 
 #endif

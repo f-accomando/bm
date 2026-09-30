@@ -636,9 +636,11 @@ void carts_menu(framebuffer_t *fb)
                 .panel = depth ? &mp : NULL,
             };
             for (int p = 0; p < 4; p++) {
-                int d_ = input_device(p);
-                v.dev[p] = d_ == INPUT_DEV_KEYBOARD ? MENU_DEV_KEYBOARD
-                         : d_ == INPUT_DEV_PAD ? MENU_DEV_PAD : MENU_DEV_NONE;
+                int d_ = input_device(p), kind = d_ & ~INPUT_DEV_BLUETOOTH;
+                v.dev[p] = kind == INPUT_DEV_KEYBOARD ? MENU_DEV_KEYBOARD
+                         : kind == INPUT_DEV_PAD ? MENU_DEV_PAD : MENU_DEV_NONE;
+                if (d_ & INPUT_DEV_BLUETOOTH)
+                    v.bt |= 1u << p;
             }
             int link = net_link();
             v.net = link == NET_LINK_ETHERNET ? MENU_NET_ETHERNET

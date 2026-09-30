@@ -17,17 +17,20 @@
 /* layout: text sits on the 8x16 grid, on solid colours (the QEMU tests
  * read the screen back) */
 #define BAR_H       48              /* top bar: rows 0-2 */
-#define TITLE_ROW   3               /* name of the selected cartridge */
-#define GRID_TOP    64              /* grid clip */
-#define GRID_BOT    316
-#define GRID_Y0     80              /* first row of covers */
+#define TITLE_ROW   4               /* name of the selected cartridge */
 #define CARD_W      128
 #define CARD_H      80
-#define GAP_X       24
-#define PITCH_Y     100
+#define RADIUS      6               /* rounded corners of the covers */
+#define GAP_X       16
+#define PITCH_Y     (CARD_H + GAP_X)
 #define GRID_X0     ((SW - (MENU_COLS * CARD_W + (MENU_COLS - 1) * GAP_X)) / 2)
 #define FOOT_Y      316             /* bottom bar, text rows 20-21 */
-#define RADIUS      6               /* rounded corners of the covers */
+#define GRID_BOT    FOOT_Y          /* grid clip */
+/* two whole rows, and the top of the next one showing as much as two
+ * corner radii: there is more below */
+#define PEEK        (2 * RADIUS)
+#define GRID_Y0     (GRID_BOT - PEEK - 2 * PITCH_Y)     /* first row of covers */
+#define GRID_TOP    (GRID_Y0 - 8)   /* the selection ring is 6 px out */
 #define FADE_FRAMES 10
 
 #define C_BAR       0x16161C
@@ -37,6 +40,7 @@
 #define C_PILL      0x101016
 #define C_TAB_ON    0xECECF0
 #define C_ACCENT    0x00C8F0        /* selection ring */
+#define C_BT        0x1E7BF2        /* the number of a Bluetooth controller */
 
 static g16_t g;
 static int ready;
@@ -518,18 +522,29 @@ static void draw_panel(const menu_panel_t *p, int faded)
     }
 }
 
-/* an icon mask of icons.c over the bar, in colour `ink`; only written */
-static void put_icon(const uint8_t *m, int x0, int y0, uint32_t ink)
+/* colour c over b by a (0..255), 0xRRGGBB */
+static uint32_t over(uint32_t b, uint32_t c, int a)
 {
-    uint32_t br = C_BAR >> 16, bg = C_BAR >> 8 & 255, bb = C_BAR & 255;
-    uint32_t ir = ink >> 16, ig = ink >> 8 & 255, ib = ink & 255;
+    uint32_t out = 0;
+    for (int sh = 0; sh <= 16; sh += 8) {
+        int x = (int)(b >> sh & 255), y = (int)(c >> sh & 255);
+        out |= (uint32_t)(x + (y - x) * a / 255) << sh;
+    }
+    return out;
+}
+
+/* an icon of icons.c over the bar: the icon in `ink`, the number's disc in
+ * `disc` with the digit in `digit`; only written */
+static void put_icon(const icon_mask_t *m, int x0, int y0, uint32_t ink, uint32_t disc, uint32_t digit)
+{
     for (int y = 0; y < ICON_BH; y++) {
         uint16_t *p = g.px + (uint32_t)(y0 + y) * g.stride + x0;
         for (int x = 0; x < ICON_W; x++) {
-            uint32_t a = m[y * ICON_W + x];
-            if (a)
-                p[x] = g16_rgb(br + (ir - br) * a / 255, bg + (ig - bg) * a / 255,
-                               bb + (ib - bb) * a / 255);
+            int i = y * ICON_W + x;
+            if (!m->icon[i] && !m->disc[i])
+                continue;
+            uint32_t c = m->digit[i] ? digit : over(over(C_BAR, ink, m->icon[i]), disc, m->disc[i]);
+            p[x] = c16(c);
         }
     }
 }
@@ -538,24 +553,27 @@ static void put_icon(const uint8_t *m, int x0, int y0, uint32_t ink)
  * player, then WiFi or Ethernet when the console is on a network */
 static void status_icons(const menu_view_t *v)
 {
-    int icon[5], num[5], n = 0;
+    int icon[5], num[5], bt[5], n = 0;
     for (int p = 0; p < 4; p++)
         if (v->dev[p] != MENU_DEV_NONE) {
             icon[n] = v->dev[p] == MENU_DEV_KEYBOARD ? ICON_KEYBOARD : ICON_PAD;
+            bt[n] = v->bt >> p & 1;
             num[n++] = p + 1;
         }
     int players = n;
     if (v->net != MENU_NET_NONE) {
         icon[n] = v->net == MENU_NET_ETHERNET ? ICON_ETHERNET : ICON_WIFI;
+        bt[n] = 0;
         num[n++] = 0;
     }
     const int gap = 8, net_gap = 16, y0 = 12;
     int w = n * ICON_W + (n > 1 ? (n - 1) * gap : 0) + (players && players < n ? net_gap - gap : 0);
     int x = SW - 16 - w;
     for (int i = 0; i < n; i++) {
-        const uint8_t *m = icon_mask(icon[i], num[i]);
-        if (m)
-            put_icon(m, x, y0, i >= players && v->net == MENU_NET_WIFI_WAIT ? C_DIM : C_TEXT);
+        const icon_mask_t *m = icon_mask(icon[i], num[i]);
+        if (m)                      /* white number for USB, blue for Bluetooth */
+            put_icon(m, x, y0, i >= players && v->net == MENU_NET_WIFI_WAIT ? C_DIM : C_TEXT,
+                     bt[i] ? C_BT : C_TEXT, bt[i] ? C_TEXT : C_BAR);
         x += ICON_W + (i + 1 == players ? net_gap : gap);
     }
 }
