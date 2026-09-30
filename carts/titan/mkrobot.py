@@ -636,10 +636,11 @@ def balance(pose):
     return flat_feet(best)
 
 
-def reach(pose, side="n"):
+def reach(pose, side="n", turn=0):
     """a punch that lands: the arm, the chest's turn and a little lunge of
     the hips that put the fist as far forward on the screen as it goes, at
-    the shoulder's height"""
+    the shoulder's height. `turn`: then the chest turns that much more (the
+    punching shoulder forward, the other back) and the arm is found again"""
     best, bs = pose, -1e9
     arm, fore, hand = "arm_" + side, "fore_" + side, "hand_" + side
     cz, cx, cy = pose.get("chest", (0, 0, 0))
@@ -656,7 +657,21 @@ def reach(pose, side="n"):
                     score = fist[0] - 0.6 * abs(fist[1] - sh[1])
                     if score > bs:
                         best, bs = q, score
-    return best
+    if not turn:
+        return best
+    cz, cx, cy = best["chest"]
+    base = P(best, chest=(cz, cx, cy + turn))
+    sh = (pose_bones(base)[arm][1] @ VIEW.T)
+    out, bs = base, -1e9
+    for rz in range(60, 131, 2):
+        for rx in range(-60, 61, 4):
+            q = P(base, **{arm: (rz, rx), fore: 0, hand: 0})
+            R, t = pose_bones(q)[hand]
+            fist = (t + R @ np.array([0.0, -0.45, 0.0])) @ VIEW.T
+            score = fist[0] - 0.6 * abs(fist[1] - sh[1])
+            if score > bs:
+                out, bs = q, score
+    return out
 
 
 GUARD = {
@@ -718,7 +733,9 @@ def animations():
     A["cblock"] = [(P(CROUCH, chest=(-6, 0, -6), head=-10, arm_n=(78, -30), fore_n=122, arm_f=(88, 25),
                       fore_f=118), None)]
     # punches and kicks
-    jab = reach(P(GUARD, arm_f=(45, 6), fore_f=110))
+    # (2026-09-30: the torso turns 14 degrees more on the jab: the punching
+    # shoulder forward, the other back, a longer reach)
+    jab = reach(P(GUARD, arm_f=(45, 6), fore_f=110), turn=14)
     A["lp"] = [(P(GUARD, arm_n=(40, -10), fore_n=110), None),
                (jab, "hand_n"),
                (P(GUARD, arm_n=(55, -10), fore_n=90), None)]
@@ -749,7 +766,7 @@ def animations():
     A["hk"] = [(flat_feet(p, ("n",)), a) for p, a in A["hk"]]
     # crouching attacks
     A["clp"] = [(P(CROUCH, arm_n=(40, -10), fore_n=110), None),
-                (reach(P(CROUCH, arm_f=(45, 6), fore_f=110)), "hand_n")]
+                (reach(P(CROUCH, arm_f=(45, 6), fore_f=110), turn=14), "hand_n")]
     A["chp"] = [(P(CROUCH, arm_f=(10, 10), fore_f=130, chest=(-4, 10, -24)), None),
                 (P(CROUCH, thigh_n=45, shin_n=-70, thigh_f=5, shin_f=-60, foot_f=50, chest=(-4, -20, 2),
                    arm_f=(150, 5), fore_f=40, hand_f=0, head=10), "hand_f"),
