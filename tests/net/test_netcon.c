@@ -2,7 +2,8 @@
  * Host test of the network console (src/net/netcon.c) on lwIP with its
  * loopback interface: a client connects to 127.0.0.1:3333, gets the
  * greeting, fails and passes the password, sees what kprintf prints, and
- * its keys come out of netcon_getc; a second client is turned away.
+ * its keys come out of netcon_getc; a second client takes over (a lost
+ * connection must not lock the console).
  * Then the transfers (src/net/netxfer.c): a file saved on the "SD card",
  * a wrong password, a damaged file, a cartridge to play, a kernel.
  */
@@ -201,10 +202,13 @@ int main(void)
 
     client_t b;
     connect_client(&b);
-    check(b.closed && !strstr(b.got, "password"), "second client turned away");
-    check(netcon_active(), "first client still logged in");
+    spin(50);
+    check(!b.closed && strstr(b.got, "password") != NULL, "a second client takes over");
+    check(a.closed && !netcon_active(), "the first one is dropped");
 
-    tcp_close(a.pcb);
+    tcp_recv(b.pcb, NULL);
+    tcp_err(b.pcb, NULL);
+    tcp_close(b.pcb);
     spin(50);
     check(!netcon_active(), "client left");
 

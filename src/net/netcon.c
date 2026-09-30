@@ -139,9 +139,12 @@ static err_t on_accept(void *arg, struct tcp_pcb *pcb, err_t err)
     (void)arg;
     if (err != ERR_OK || !pcb)
         return ERR_VAL;
-    if (client) {                       /* one at a time */
-        tcp_abort(pcb);
-        return ERR_ABRT;
+    if (client) {
+        /* one at a time, the newest: a connection the PC lost (Ctrl-C, a
+         * dropped WiFi packet) must not lock the console until a reboot */
+        if (state == OPEN)
+            kprintf("\nnet: a new console connection takes over\n");
+        drop_client(1);
     }
     client = pcb;
     state = AUTH;

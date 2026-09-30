@@ -25,6 +25,7 @@ static char op, path[65];
 static uint8_t *buf;
 static uint32_t size, crc, got;
 static uint32_t close_at;
+static uint32_t last_rx;                /* timer_ticks() of the last bytes received */
 static int reboot_after;
 static uint8_t *play_buf;
 static size_t play_len;
@@ -152,9 +153,11 @@ static err_t on_recv(void *arg, struct tcp_pcb *pcb, struct pbuf *p, err_t err)
         drop_peer();
         return ERR_OK;
     }
-    if (err == ERR_OK && pcb == peer)
+    if (err == ERR_OK && pcb == peer) {
+        last_rx = timer_ticks();
         for (struct pbuf *q = p; q; q = q->next)
             feed(q->payload, q->len);
+    }
     tcp_recved(pcb, p->tot_len);
     pbuf_free(p);
     return ERR_OK;
@@ -180,6 +183,7 @@ static err_t on_accept(void *arg, struct tcp_pcb *pcb, err_t err)
     peer = pcb;
     st = HEADER;
     hdr_len = 0;
+    last_rx = timer_ticks();
     tcp_recv(pcb, on_recv);
     tcp_err(pcb, on_err);
     return ERR_OK;
@@ -221,6 +225,13 @@ static int save(const char *p, const uint8_t *data, uint32_t len)
 
 void netxfer_poll(void)
 {
+    /* a PC that went away in the middle (no FIN reached us): after 10 s of
+     * silence the transfer is given up, so the next one is not turned away */
+    if ((st == HEADER || st == DATA) && timer_ticks() - last_rx > 10000000u) {
+        kprintf("\x1b[91mnet: transfer stalled (%lu of %lu bytes), given up\x1b[0m\n", got, size);
+        drop_peer();
+        reset();
+    }
     if (st == DONE) {
         if (crc32(buf, size) != crc) {
             reply("CE");
