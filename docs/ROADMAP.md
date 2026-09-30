@@ -684,7 +684,7 @@ Passi (2026-09-29):
      "AAA Certificate Services" (Comodo), che non è più nella lista Mozilla. example.com ha un
      certificato SSL.com (Cloudflare) e la catena finisce con il cross-certificato di "SSL.com
      TLS ... Root CA 2022" firmato da AAA: aggiunte le due radici SSL.com 2022, mbedTLS si ferma
-     lì. Da riprovare sul Pi.
+     lì. ✅ Sul Pi (`9cda3c7`, 21 radici): example.com 200, 713 byte in 453 ms.
    - `scripts/make-ca.sh` con la lista Mozilla di giugno 2026 si ferma: `DigiCert_Global_Root_CA`
      non c'è più. Le radici SSL.com sono state aggiunte in coda al file, senza rigenerare le 19
      già provate sul Pi.
