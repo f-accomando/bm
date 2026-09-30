@@ -70,28 +70,28 @@ FORCE:
 $(LUA_OBJS) $(LWIP_OBJS) $(MBEDTLS_OBJS): WARN := -w
 # Lua scripts embedded with .incbin
 $(BUILD)/k/src/script/embed.S.o: $(wildcard src/script/*.lua) spec/s32/conformance/demo.cart \
-                                 $(BUILD)/demo.b33 $(BUILD)/stress.b33 $(BUILD)/editor.b33
+                                 $(BUILD)/demo.bm $(BUILD)/stress.bm $(BUILD)/editor.bm
 
 # The editor (M15), built into the kernel
-$(BUILD)/editor.b33: carts/editor/main.lua carts/editor/cover.png scripts/mkb33.py
+$(BUILD)/editor.bm: carts/editor/main.lua carts/editor/cover.png scripts/mkb33.py
 	@mkdir -p $(dir $@)
 	$(PYTHON) scripts/mkb33.py -o $@ --lua $< --cover carts/editor/cover.png \
 	    --title "bm33 SDK" --author bm33
 
-$(BUILD)/stress.b33: carts/stress/main.lua scripts/mkb33.py
+$(BUILD)/stress.bm: carts/stress/main.lua scripts/mkb33.py
 	@mkdir -p $(dir $@)
 	$(PYTHON) scripts/mkb33.py -o $@ --lua $< --title "bm33 stress test" --author bm33
 
-# Native demo cartridge (.b33): Lua + sprite sheet + map
+# Native demo cartridge (.bm): Lua + sprite sheet + map
 DEMO_B33_SRC := carts/demo/main.lua carts/demo/sheet.png carts/demo/map.csv
-$(BUILD)/demo.b33: $(DEMO_B33_SRC) scripts/mkb33.py
+$(BUILD)/demo.bm: $(DEMO_B33_SRC) scripts/mkb33.py
 	@mkdir -p $(dir $@)
 	$(PYTHON) scripts/mkb33.py -o $@ --lua carts/demo/main.lua --sheet carts/demo/sheet.png \
 	    --map carts/demo/map.csv --title "bm33 native demo" --author bm33
 
-# Demo games (Lua only, sprites drawn in code): build/carts/<name>.b33
+# Demo games (Lua only, sprites drawn in code): build/carts/<name>.bm
 GAMES := pong snake shooter astrowing hunt kitchen titan texroom
-GAME_CARTS := $(patsubst %,$(BUILD)/carts/%.b33,$(GAMES))
+GAME_CARTS := $(patsubst %,$(BUILD)/carts/%.bm,$(GAMES))
 title_pong    := Pong
 title_snake   := Snake
 title_shooter := Star Shooter
@@ -105,7 +105,7 @@ res_texroom := 320x180
 # Optional per game: carts/<game>/cover.png (printed on the cartridge in the
 # menu, scripts/mkcovers.py), sheet.png and map.csv, res_<game> := 320x180.
 .SECONDEXPANSION:
-$(BUILD)/carts/%.b33: carts/%/main.lua scripts/mkb33.py \
+$(BUILD)/carts/%.bm: carts/%/main.lua scripts/mkb33.py \
                       $$(wildcard carts/$$*/cover.png carts/$$*/sheet.png carts/$$*/map.csv)
 	@mkdir -p $(dir $@)
 	$(PYTHON) scripts/mkb33.py -o $@ --lua $< --title "$(title_$*)" --author bm33 \
@@ -119,7 +119,7 @@ KITCHEN_SRC := $(sort $(wildcard carts/kitchen/src/*.lua))
 $(BUILD)/kitchen/main.lua: $(KITCHEN_SRC) carts/kitchen/build.py
 	$(PYTHON) carts/kitchen/build.py $@ --map $(BUILD)/kitchen/main.map
 
-$(BUILD)/carts/kitchen.b33: $(BUILD)/kitchen/main.lua carts/kitchen/sheet.png carts/kitchen/cover.png scripts/mkb33.py
+$(BUILD)/carts/kitchen.bm: $(BUILD)/kitchen/main.lua carts/kitchen/sheet.png carts/kitchen/cover.png scripts/mkb33.py
 	@mkdir -p $(dir $@)
 	$(PYTHON) scripts/mkb33.py -o $@ --lua $< --title "$(title_kitchen)" --author bm33 \
 	    --sheet carts/kitchen/sheet.png --cover carts/kitchen/cover.png
@@ -130,7 +130,7 @@ TITAN_SRC := $(sort $(wildcard carts/titan/src/*.lua))
 $(BUILD)/titan/main.lua: $(TITAN_SRC) carts/titan/build.py
 	$(PYTHON) carts/titan/build.py $@ --map $(BUILD)/titan/main.map
 
-$(BUILD)/carts/titan.b33: $(BUILD)/titan/main.lua carts/titan/sheet.png carts/titan/cover.png scripts/mkb33.py
+$(BUILD)/carts/titan.bm: $(BUILD)/titan/main.lua carts/titan/sheet.png carts/titan/cover.png scripts/mkb33.py
 	@mkdir -p $(dir $@)
 	$(PYTHON) scripts/mkb33.py -o $@ --lua $< --title "$(title_titan)" --author bm33 \
 	    --sheet carts/titan/sheet.png --sheet8 --cover carts/titan/cover.png
@@ -186,13 +186,14 @@ firmware:
 # the card instead of the kernel (flash it once, then use `make run-serial`).
 # Cartridges go to carts/ (the menu also looks in the root directory).
 KERNEL ?= kernel
-SD_CARTS := $(GAME_CARTS) $(BUILD)/demo.b33 $(BUILD)/stress.b33 spec/s32/conformance/demo.cart
+SD_CARTS := $(GAME_CARTS) $(BUILD)/demo.bm $(BUILD)/stress.bm spec/s32/conformance/demo.cart
 sdcard: $(BUILD)/$(KERNEL).img $(SD_CARTS)
 	@test -f $(FW_DIR)/start.elf || { echo "Run 'make firmware' first"; exit 1; }
 	@mkdir -p $(DIST)/carts
 	cp $(FW_DIR)/bootcode.bin $(FW_DIR)/start.elf $(FW_DIR)/fixup.dat $(DIST)/
 	cp boot/config.txt $(DIST)/
 	cp $(BUILD)/$(KERNEL).img $(DIST)/kernel.img
+	rm -f $(DIST)/carts/*.b33       # the old extension (now .bm)
 	cp $(SD_CARTS) $(DIST)/carts/
 	mkdir -p $(DIST)/bm33 && cp boot/ca.pem $(DIST)/bm33/ca.pem
 	@if [ -f $(FW_DIR)/BCM43430A1.hcd ]; then mkdir -p $(DIST)/bm33 && \
@@ -227,6 +228,7 @@ install: sdcard
 	@S=; [ -w $(SD) ] || S=sudo; \
 	$$S mkdir -p $(SD)/carts $(SD)/bm33 && \
 	$$S cp $(DIST)/bootcode.bin $(DIST)/start.elf $(DIST)/fixup.dat $(DIST)/config.txt $(DIST)/kernel.img $(SD)/ && \
+	for f in $(DIST)/carts/*.bm; do $$S rm -f $(SD)/carts/$$(basename $$f .bm).b33 $(SD)/carts/$$(basename $$f .bm | tr a-z A-Z).B33; done && \
 	$$S cp $(DIST)/carts/* $(SD)/carts/ && \
 	if [ -d $(DIST)/bm33 ]; then $$S cp $(DIST)/bm33/* $(SD)/bm33/; fi && \
 	sync && echo "installed on $(SD): kernel $$(git describe --always --dirty), carts, bm33/ firmware" && \
@@ -311,8 +313,8 @@ $(BUILD)/host/test_hid: tests/usb/test_hid.c src/usb/hid.c src/usb/hid.h src/usb
 	@mkdir -p $(dir $@)
 	$(HOSTCC) -O2 -Wall -Wextra -Isrc -o $@ tests/usb/test_hid.c src/usb/hid.c
 
-test-b33: $(BUILD)/host/test_b33 $(BUILD)/demo.b33
-	$< $(BUILD)/demo.b33
+test-b33: $(BUILD)/host/test_b33 $(BUILD)/demo.bm
+	$< $(BUILD)/demo.bm
 
 # s32 conformance (spec/s32): the C core must reproduce lua32's vectors.
 S32_CORE := src/s32/cpu.c src/s32/ppu.c src/s32/cart.c src/lib/crc32.c

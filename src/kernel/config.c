@@ -87,7 +87,7 @@ void config_load(void)
         hid_set_layout(v);
     if ((v = config_get("draw")))
         b33_set_via_ram(strcmp(v, "ram") == 0);
-    kprintf("config: %s/%s, layout %s, .b33 drawing %s\n", DIR, "config.txt", hid_layout(),
+    kprintf("config: %s/%s, layout %s, .bm drawing %s\n", DIR, "config.txt", hid_layout(),
             b33_via_ram() ? "via RAM" : "direct");
 }
 

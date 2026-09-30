@@ -1,5 +1,5 @@
 /*
- * Cartridges: the built-in ones plus .b33 / .cart files found on the SD
+ * Cartridges: the built-in ones plus .bm / .cart files found on the SD
  * card (root directory and /carts), and the on-screen menu to pick one.
  */
 #ifndef CARTS_H

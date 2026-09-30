@@ -549,7 +549,7 @@ def test_b33_boot_demo(b, opts):
         time.sleep(3.0)
         img, text = settled_screen(q, lambda i, t: t[0].startswith("bm33 native") and "sprites" in t[-1])
         assert img[:2] == (640, 360), img[:2]
-        assert text[0].startswith("bm33 native .b33") and "fps" in text[0], text[0]
+        assert text[0].startswith("bm33 native .bm") and "fps" in text[0], text[0]
         assert "sprites" in text[-1] and "attract" in text[-1], text[-1]
         got = [pixel(img, 640 - 80 + i * 20 + 8, 8) for i in range(4)]
         assert got == B33_COLOURS, f"RGB565 colour check {got}"
@@ -654,7 +654,7 @@ def test_wifi_probe(b, opts):
     message, without hanging, and the SD card must still work afterwards."""
     tmp = tempfile.mkdtemp(prefix="bm33-wifi-")
     img = os.path.join(tmp, "sd.img")
-    mksd.build(img, [(b("demo.b33"), "carts/demo.b33")])
+    mksd.build(img, [(b("demo.bm"), "carts/demo.bm")])
     q = Qemu(b("kernel.img"), ["-drive", f"if=sd,format=raw,file={img}"])
     try:
         out = q.boot().decode(errors="replace")
@@ -664,7 +664,7 @@ def test_wifi_probe(b, opts):
         assert "wifi: power on (WL_REG_ON = GPIO41)" in out and "controller at 400 kHz" in out, out
         q.expect("> ", timeout=5)
         q.send("F")                              # the card is still readable
-        q.expect("demo.b33", timeout=10)
+        q.expect("demo.bm", timeout=10)
     finally:
         q.close()
         shutil.rmtree(tmp, ignore_errors=True)
@@ -673,7 +673,7 @@ def test_wifi_probe(b, opts):
 def test_sd_cartridges(b, opts):
     tmp = tempfile.mkdtemp(prefix="bm33-sd-")
     img = os.path.join(tmp, "sd.img")
-    mksd.build(img, [(b("demo.b33"), "Il mio gioco lungo.b33"),
+    mksd.build(img, [(b("demo.bm"), "Il mio gioco lungo.bm"),
                      (os.path.join(HERE, "..", "spec", "s32", "conformance", "demo.cart"),
                       "carts/demo2.cart"),
                      (os.path.join(HERE, "..", "README.md"), "README.md")])
@@ -683,14 +683,14 @@ def test_sd_cartridges(b, opts):
         assert "sd: SD card (sdhost), FAT32, 127 MiB, label BM33SD; 2 cartridges" in out, out
         q.send("f")
         out = q.expect("quadrato mobile\"\r\n").decode(errors="replace")
-        assert "Il mio gioco lungo.b33" in out and "/carts/demo2.cart" in out, out
+        assert "Il mio gioco lungo.bm" in out and "/carts/demo2.cart" in out, out
         q.expect("> ")
         q.send("M")
         q.expect("cartridge menu")
         time.sleep(0.5)
         _, text = settled_screen(q, lambda i, t: any("bm33 native demo" in l for l in t))
         screen = "\n".join(text)
-        for s_ in ("Games", "bm33 native demo", "/Il mio gioco lungo.b33"):
+        for s_ in ("Games", "bm33 native demo", "/Il mio gioco lungo.bm"):
             assert s_ in screen, screen
         q.send("d")                           # the next cover: its title and file
         _, text = settled_screen(q, lambda i, t: any("Demo - quadrato mobile" in l for l in t))
@@ -698,7 +698,7 @@ def test_sd_cartridges(b, opts):
         assert "Demo - quadrato mobile" in screen and "/carts/demo2.cart" in screen, screen
         q.send("a")
         q.send("\r")                          # SD cartridges come first, by title
-        q.expect("playing Il mio gioco lungo.b33", timeout=10)
+        q.expect("playing Il mio gioco lungo.bm", timeout=10)
         time.sleep(1.0)
         q.send("q")
         out = q.expect("update+draw", timeout=15).decode(errors="replace")
@@ -735,10 +735,10 @@ def test_suspend_resume(b, opts):
     cartridge asks first (B keeps it, A closes it and frees the memory)."""
     tmp = tempfile.mkdtemp(prefix="bm33-susp-")
     img = os.path.join(tmp, "sd.img")
-    cart = os.path.join(tmp, "counter.b33")
+    cart = os.path.join(tmp, "counter.bm")
     with open(cart, "wb") as f:
         f.write(mkb33.pack(COUNTER_CART.encode(), title="AAA counter"))
-    mksd.build(img, [(cart, "carts/counter.b33"), (b("demo.b33"), "carts/zdemo.b33")])
+    mksd.build(img, [(cart, "carts/counter.bm"), (b("demo.bm"), "carts/zdemo.bm")])
     q = Qemu(b("kernel.img"), ["-drive", f"if=sd,format=raw,file={img}"])
     try:
         q.expect(MENU, timeout=30)
@@ -769,7 +769,7 @@ def test_suspend_resume(b, opts):
         _, text = settled_screen(q, lambda i, t: any("Close AAA counter?" in l for l in t))
         assert any("Close AAA counter?" in l for l in text), "\n".join(text)
         q.send("\r")                          # yes: closed, the demo starts
-        out = q.expect("playing zdemo.b33", timeout=10).decode(errors="replace")
+        out = q.expect("playing zdemo.bm", timeout=10).decode(errors="replace")
         assert '"AAA counter" closed, memory freed' in out, out
     finally:
         q.close()
@@ -809,7 +809,7 @@ def test_make_image(b, opts):
         q.expect("> ")
         q.send("f")
         out = q.expect('Star Shooter"\r\n').decode(errors="replace")
-        assert "/carts/pong.b33" in out and "/carts/shooter.b33" in out, out
+        assert "/carts/pong.bm" in out and "/carts/shooter.bm" in out, out
     finally:
         q.close()
         shutil.rmtree(tmp, ignore_errors=True)
@@ -832,7 +832,7 @@ def test_sd_save_and_config(b, opts):
     card is still a clean FAT32 volume afterwards (fsck.vfat, mtools)."""
     tmp = tempfile.mkdtemp(prefix="bm33-save-")
     img = os.path.join(tmp, "sd.img")
-    mksd.build(img, [(b("carts/snake.b33"), "carts/snake.b33")])
+    mksd.build(img, [(b("carts/snake.bm"), "carts/snake.bm")])
     cart = mkb33.pack(SAVE_CART.encode(), title="save test")
     drive = ["-drive", f"if=sd,format=raw,file={img}"]
     try:
@@ -841,7 +841,7 @@ def test_sd_save_and_config(b, opts):
             try:
                 out = q.boot().decode(errors="replace")
                 if run == 2:
-                    assert "config: /bm33/config.txt, layout us, .b33 drawing direct" in out, out
+                    assert "config: /bm33/config.txt, layout us, .bm drawing direct" in out, out
                 assert _upload(q, cart)
                 out = q.expect(f"runs\t{run}\t", timeout=15).decode(errors="replace")
                 line = q.expect("\n").decode(errors="replace")
@@ -1191,7 +1191,7 @@ def test_bt_pair_and_reconnect(b, opts):
     hcd = os.path.join(tmp, "BCM43430A1.hcd")
     with open(hcd, "wb") as f:
         f.write(bytes([0x4C, 0xFC, 4, 1, 2, 3, 4, 0x4E, 0xFC, 4, 0xFF, 0xFF, 0xFF, 0xFF]))
-    mksd.build(img, [(hcd, "bm33/BCM43430A1.hcd"), (b("carts/snake.b33"), "carts/snake.b33")])
+    mksd.build(img, [(hcd, "bm33/BCM43430A1.hcd"), (b("carts/snake.bm"), "carts/snake.bm")])
     drive = ["-drive", f"if=sd,format=raw,file={img}"]
     pad = FakeDs4Chip.DS4
     try:
@@ -1222,7 +1222,7 @@ def test_bt_pair_and_reconnect(b, opts):
             chip.report(0x08 | 0x20)
             time.sleep(0.05)
             chip.report(0x08)
-            _mini_expect(q, "playing snake.b33", timeout=60)
+            _mini_expect(q, "playing snake.bm", timeout=60)
             lag = time.time() - t_press
             print(f"    lag after burst: {lag:.2f} s")
             assert lag < 0.5, f"input lag {lag:.2f} s after a burst of reports"
@@ -1260,7 +1260,7 @@ def test_bt_pair_and_reconnect(b, opts):
             chip.report(0x08 | 0x20)
             time.sleep(0.2)
             chip.report(0x08)
-            _mini_expect(q, "playing snake.b33")
+            _mini_expect(q, "playing snake.bm")
         finally:
             q.close()
     finally:
@@ -1348,11 +1348,11 @@ def test_bt_two_pads(b, opts):
     with open(cfg, "w") as f:
         f.write(f"layout=it\nbt_pad=1c:66:6d:01:02:03 {key_a.hex()}\n"
                 f"bt_pad2=1c:66:6d:09:0a:0b {key_b.hex()}\n")
-    cart = os.path.join(tmp, "players.b33")
+    cart = os.path.join(tmp, "players.bm")
     with open(cart, "wb") as f:
         f.write(mkb33.pack(PLAYERS_CART.encode(), title="AAA players"))
     mksd.build(img, [(hcd, "bm33/BCM43430A1.hcd"), (cfg, "bm33/config.txt"),
-                     (cart, "carts/players.b33")])
+                     (cart, "carts/players.bm")])
     q = Qemu(b("kernel.img"), ["-drive", f"if=sd,format=raw,file={img}"], mini_uart=True)
     q.mini_buf = b""
     try:
@@ -1383,7 +1383,7 @@ def test_bt_two_pads(b, opts):
         chip.report(0x08 | 0x20, handle=0x0D)                      # pad 3: cross plays
         time.sleep(0.1)
         chip.report(0x08, handle=0x0D)
-        _mini_expect(q, "playing players.b33")
+        _mini_expect(q, "playing players.bm")
         _mini_expect(q, "player 4 [ 0.0,0.0]")                    # first frame: all idle
         _mini_expect(q, "players 3 mask 7")
         chip.report(0x08 | 0x10, handle=0x0C)                      # pad 2: square = X
@@ -1423,14 +1423,14 @@ def test_sd_sdhc_and_usb_menu(b, opts):
     """4 GiB card (SDHC addressing); with a USB keyboard boot ends in the menu."""
     tmp = tempfile.mkdtemp(prefix="bm33-sd-")
     img = os.path.join(tmp, "sd.img")
-    mksd.build(img, [(b("demo.b33"), "carts/game.b33")], 4096)
+    mksd.build(img, [(b("demo.bm"), "carts/game.bm")], 4096)
     q = Qemu(b("kernel.img"), ["-drive", f"if=sd,format=raw,file={img}"] + USB_KBD)
     try:
         out = q.expect("cartridge menu", timeout=90).decode(errors="replace")
         assert "sd: SDHC card (sdhost), FAT32, 4095 MiB, label BM33SD; 1 cartridges" in out, out
         time.sleep(1.0)
         sendkeys(q, "ret")
-        q.expect("playing game.b33", timeout=10)
+        q.expect("playing game.bm", timeout=10)
         time.sleep(1.5)
         sendkeys(q, "esc")
         q.expect("update+draw", timeout=15)
@@ -1456,7 +1456,7 @@ def test_usb_hid_gamepad(b, opts):
         time.sleep(0.5)
         q.monitor("mouse_button 1")
         q.monitor("mouse_button 0")
-        q.expect("playing demo.b33", timeout=10)
+        q.expect("playing demo.bm", timeout=10)
         time.sleep(1.0)
         q.send("q")
         q.expect("update+draw", timeout=15)
@@ -1483,7 +1483,7 @@ def test_games(b, opts):
         q.expect(MENU, timeout=30)             # uploads work from the menu too
         time.sleep(0.5)
         for name, title in GAMES.items():
-            with open(b(f"carts/{name}.b33"), "rb") as f:
+            with open(b(f"carts/{name}.bm"), "rb") as f:
                 assert _upload(q, f.read()), name
             time.sleep(1.0)
             _, text = settled_screen(q, lambda i, t: any(title in l for l in t))
@@ -1516,7 +1516,7 @@ def test_texroom(b, opts):
     try:
         q.expect(MENU, timeout=30)
         time.sleep(0.5)
-        with open(b("carts/texroom.b33"), "rb") as f:
+        with open(b("carts/texroom.bm"), "rb") as f:
             assert _upload(q, f.read())
         time.sleep(3)
 
@@ -1578,7 +1578,7 @@ def test_kitchen(b, opts):
     try:
         q.expect(MENU, timeout=30)
         time.sleep(0.5)
-        with open(b("carts/kitchen.b33"), "rb") as f:
+        with open(b("carts/kitchen.bm"), "rb") as f:
             assert _upload(q, f.read())
         time.sleep(4.0)                        # title, with computer chefs cooking
         shot("title")
@@ -1642,7 +1642,7 @@ def test_titan(b, opts):
     try:
         q.expect(MENU, timeout=30)
         time.sleep(0.5)
-        with open(b("carts/titan.b33"), "rb") as f:
+        with open(b("carts/titan.bm"), "rb") as f:
             assert _upload(q, f.read())
         time.sleep(3.0)
         shot("title")
@@ -1720,7 +1720,7 @@ end
 
 def test_audio(b, opts):
     """M10: without HDMI audio (QEMU) the console says why and stays silent;
-    the .b33 sound API writes the APU-layout registers."""
+    the .bm sound API writes the APU-layout registers."""
     q = Qemu(b("kernel.img"))
     try:
         out = q.boot().decode(errors="replace")
@@ -1795,7 +1795,7 @@ def test_editor(b, opts):
     line; the card is still a clean FAT32 volume."""
     tmp = tempfile.mkdtemp(prefix="bm33-ed-")
     img = os.path.join(tmp, "sd.img")
-    mksd.build(img, [(b("carts/pong.b33"), "carts/pong.b33")])
+    mksd.build(img, [(b("carts/pong.bm"), "carts/pong.bm")])
     q = Qemu(b("kernel.img"), ["-drive", f"if=sd,format=raw,file={img}"])
 
     def k(s, gap=0.15):
@@ -1821,12 +1821,12 @@ def test_editor(b, opts):
             k("\x1b[B", 0.25)                               # down to "Save as..."
         k("\r")
         see("file name")
-        k("\r")                                             # MYGAME.B33
-        see("saved /carts/MYGAME.B33")
+        k("\r")                                             # MYGAME.BM
+        see("saved /carts/MYGAME.BM")
         k("\x12", 1)                                        # Ctrl+R: try it
         for _ in range(40):                                 # the game is on (slow hosts)
             _, text = settled_screen(q, lambda i, t: True, tries=1)
-            if not any("saved /carts/MYGAME.B33" in l or "line 1/" in l for l in text):
+            if not any("saved /carts/MYGAME.BM" in l or "line 1/" in l for l in text):
                 break
             time.sleep(0.25)
         time.sleep(1)
@@ -1857,7 +1857,7 @@ def test_editor(b, opts):
         fsck = subprocess.run(["fsck.vfat", "-n", part], capture_output=True, text=True)
         assert fsck.returncode == 0, fsck.stdout + fsck.stderr
         env = dict(os.environ, MTOOLS_SKIP_CHECK="1")
-        saved = subprocess.run(["mtype", "-i", part, "::/CARTS/MYGAME.B33"], capture_output=True,
+        saved = subprocess.run(["mtype", "-i", part, "::/CARTS/MYGAME.BM"], capture_output=True,
                                env=env).stdout
         assert saved[:8] == b"BM33CART" and b"error('boom')" in saved, saved[:200]
     finally:

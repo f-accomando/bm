@@ -48,7 +48,7 @@ typedef struct {
 static cart_t carts[MAX_CARTS];
 static int ncarts, nsd, sd_ok;
 static char last_msg[96];
-static char perf_msg[80];          /* speed of the last .b33 game */
+static char perf_msg[80];          /* speed of the last .bm game */
 static char susp_path[FAT_NAME_MAX + 10];   /* the cartridge frozen in memory, "" if none */
 
 static int ends_with(const char *s, const char *ext)
@@ -65,7 +65,7 @@ static int ends_with(const char *s, const char *ext)
     return 1;
 }
 
-/* Title and author from the first bytes of the image (.b33 or .cart). */
+/* Title and author from the first bytes of the image (.bm or .cart). */
 static void read_header(cart_t *c, const uint8_t *h, uint32_t len)
 {
     size_t toff = 0, tlen = 0, aoff = 0, alen = 0;
@@ -109,7 +109,7 @@ static void scan_dir(const char *path)
     while (ncarts < MAX_CARTS && fat_readdir(&d, &e)) {
         if (e.is_dir || e.name[0] == '.')
             continue;
-        int kind = ends_with(e.name, ".b33") ? KIND_B33 : ends_with(e.name, ".cart") ? KIND_S32 : -1;
+        int kind = ends_with(e.name, ".bm") ? KIND_B33 : ends_with(e.name, ".cart") ? KIND_S32 : -1;
         if (kind < 0)
             continue;
         cart_t *c = &carts[ncarts++];
@@ -138,7 +138,7 @@ static int title_cmp(const void *a, const void *b)
     }
 }
 
-/* The cover from the .b33 COVER section, or a label with the title. */
+/* The cover from the .bm COVER section, or a label with the title. */
 static void load_cover(cart_t *c)
 {
     b33_cart_t bc;
@@ -154,7 +154,7 @@ static void load_cover(cart_t *c)
         free(data);
     }
     if (!c->cover.px)
-        menu_make_cover(&c->cover, c->title, c->kind == KIND_B33 ? "b33" : "s32");
+        menu_make_cover(&c->cover, c->title, c->kind == KIND_B33 ? "bm" : "s32");
 }
 
 static void rescan(void)
@@ -170,7 +170,7 @@ static void rescan(void)
     }
     nsd = ncarts;
     if (!nsd) {
-        add_builtin("demo.b33 (built-in)", KIND_B33, b33_demo_cart, b33_demo_cart_end);
+        add_builtin("demo.bm (built-in)", KIND_B33, b33_demo_cart, b33_demo_cart_end);
         add_builtin("demo.cart (built-in)", KIND_S32, s32_demo_cart, s32_demo_cart_end);
     }
     /* the editor always comes last (up from the first cartridge) */
@@ -218,7 +218,7 @@ int carts_count(void)
 void carts_list(void)
 {
     for (int i = 0; i < ncarts; i++)
-        kprintf("  %2d  %-4s %7lu  %s%s%s  \"%s\"\n", i + 1, carts[i].kind == KIND_B33 ? "b33" : "s32",
+        kprintf("  %2d  %-4s %7lu  %s%s%s  \"%s\"\n", i + 1, carts[i].kind == KIND_B33 ? "bm" : "s32",
                 carts[i].size, carts[i].dir, carts[i].dir[0] && strcmp(carts[i].dir, "/") ? "/" : "",
                 carts[i].name, carts[i].title);
 }
@@ -236,7 +236,7 @@ static void perf_line(const b33_stats_t *st)
     }
 }
 
-/* A cartridge from the menu: .b33 ones can be left suspended. Returns
+/* A cartridge from the menu: .bm ones can be left suspended. Returns
  * B33_SUSPENDED if it was. */
 static int run_buffer(framebuffer_t *fb, const uint8_t *data, size_t len, int suspendable)
 {
@@ -390,7 +390,7 @@ static void draw(int sel, int top, int rows)
         outf("%s %c %-38s %s%-18s%s %-3s %5lu KiB \x1b[0m\n",
              i == sel ? "\x1b[7m" : "", i == sel ? '>' : ' ', title,
              i == sel ? "" : "\x1b[90m", author, i == sel ? "" : "\x1b[0m",
-             c->kind == KIND_B33 ? "b33" : "s32", (c->size + 1023) / 1024);
+             c->kind == KIND_B33 ? "bm" : "s32", (c->size + 1023) / 1024);
     }
     for (int i = ncarts - top; i < rows; i++)
         out("\n");
@@ -446,7 +446,7 @@ void carts_menu(framebuffer_t *fb)
         if (gfx) {
             for (int i = 0; i < n; i++) {
                 const cart_t *c = &carts[idx[i]];
-                items[i] = (menu_item_t){ c->title, c->author, c->path, c->kind == KIND_B33 ? "b33" : "s32",
+                items[i] = (menu_item_t){ c->title, c->author, c->path, c->kind == KIND_B33 ? "bm" : "s32",
                                           c->size, c->cover.px ? &c->cover : NULL,
                                           susp_path[0] && strcmp(susp_path, c->path) == 0 };
             }
@@ -455,7 +455,7 @@ void carts_menu(framebuffer_t *fb)
             if (n) {
                 const cart_t *c = &carts[idx[tsel[tab]]];
                 ksnprintf(details, sizeof details, "%s   %s   %lu KiB   %s",
-                          c->author[0] ? c->author : "-", c->kind == KIND_B33 ? "b33" : "s32",
+                          c->author[0] ? c->author : "-", c->kind == KIND_B33 ? "bm" : "s32",
                           (c->size + 1023) / 1024, c->path);
             }
             menu_view_t v = { tabs, 2, tab, on_tabs, items, n, tsel[tab], pads, details, last_msg,

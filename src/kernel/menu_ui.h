@@ -16,7 +16,7 @@ typedef struct {
     const char *title;
     const char *author;
     const char *path;           /* file on the SD card, or the built-in name */
-    const char *kind;           /* "b33" or "s32" */
+    const char *kind;           /* "bm" or "s32" */
     uint32_t size;              /* bytes */
     const g16_sheet_t *cover;   /* 128x80, or NULL for a plain card */
     int running;                /* suspended in memory: a "Playing" badge */
@@ -47,7 +47,7 @@ void menu_ui_close(framebuffer_t *fb);
 
 /* A cover for cartridges without one: the title on a coloured label. */
 int  menu_make_cover(g16_sheet_t *s, const char *title, const char *kind);
-/* A cover from RGBA8888 pixels (the .b33 COVER section). */
+/* A cover from RGBA8888 pixels (the .bm COVER section). */
 int  menu_load_cover(g16_sheet_t *s, const uint8_t *rgba, int w, int h);
 
 #endif

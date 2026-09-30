@@ -1,4 +1,4 @@
-/* Host tests for the .b33 parser and the RGB565 drawing library. */
+/* Host tests for the .bm parser and the RGB565 drawing library. */
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -403,7 +403,7 @@ int main(int argc, char **argv)
     test_text();
     test_light();
     test_3d();
-    test_format(argc > 1 ? argv[1] : "build/demo.b33");
+    test_format(argc > 1 ? argv[1] : "build/demo.bm");
     test_sheet8();
     printf("b33: %d/%d checks passed\n", checks - fails, checks);
     return fails != 0;

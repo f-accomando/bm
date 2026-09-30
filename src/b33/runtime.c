@@ -1,5 +1,5 @@
 /*
- * .b33 runtime: sandboxed Lua 5.4 state + drawing API in C (gfx16) + frame
+ * .bm runtime: sandboxed Lua 5.4 state + drawing API in C (gfx16) + frame
  * loop. Lua only runs game logic; every pixel is drawn by C.
  */
 #include "runtime.h"
@@ -1238,7 +1238,7 @@ static const char *field(lua_State *L, int t, const char *k, const char *def)
 
 /* cart_save(path, {title=, author=, res=, lua=}) -> true, or false and a
  * message. Sprite sheet and map are the running cartridge's; the file
- * name must be 8.3 (e.g. "/carts/MYGAME.B33"). */
+ * name must be 8.3 (e.g. "/carts/MYGAME.BM"). */
 static int l_cart_save(lua_State *L)
 {
     const char *path = luaL_checkstring(L, 1);

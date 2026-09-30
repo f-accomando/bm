@@ -1,6 +1,6 @@
 /*
  * Settings kept on the SD card in /bm33/config.txt ("key=value" lines):
- * keyboard layout, .b33 drawing mode. Unknown keys are kept as they are.
+ * keyboard layout, .bm drawing mode. Unknown keys are kept as they are.
  */
 #ifndef CONFIG_H
 #define CONFIG_H

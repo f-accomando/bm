@@ -259,10 +259,10 @@ int main(void)
         file[i] = (uint8_t)(i * 7 + (i >> 8));
 
     struct { char op; const char *pw, *path; uint32_t crc_xor; const char *answer, *what; } cases[] = {
-        { 'S', "secret", "carts/pong.b33", 0, "OKOK", "file saved on the SD card" },
-        { 'S', "nope", "carts/pong.b33", 0, "PW", "wrong password refused" },
-        { 'S', "secret", "carts/bad.b33", 1, "OKCE", "damaged file refused" },
-        { 'P', "secret", "x.b33", 0, "OKOK", "cartridge to play received" },
+        { 'S', "secret", "carts/pong.bm", 0, "OKOK", "file saved on the SD card" },
+        { 'S', "nope", "carts/pong.bm", 0, "PW", "wrong password refused" },
+        { 'S', "secret", "carts/bad.bm", 1, "OKCE", "damaged file refused" },
+        { 'P', "secret", "x.bm", 0, "OKOK", "cartridge to play received" },
         { 'K', "secret", "kernel.img", 0, "OKOK", "kernel received" },
     };
     for (unsigned t = 0; t < sizeof cases / sizeof cases[0]; t++) {
@@ -307,9 +307,9 @@ int main(void)
             printf("  got \"%s\"\n", x.got);
         check(strcmp(x.got, cases[t].answer) == 0, cases[t].what);
         if (t == 0)
-            check(strcmp(w_dir, "/carts") == 0 && strcmp(w_name, "pong.b33") == 0 &&
+            check(strcmp(w_dir, "/carts") == 0 && strcmp(w_name, "pong.bm") == 0 &&
                   w_len == sizeof file && memcmp(w_data, file, w_len) == 0 && netxfer_saves() == 1,
-                  "  in /carts/pong.b33, same bytes");
+                  "  in /carts/pong.bm, same bytes");
         if (t == 1 || t == 2)
             check(w_name[0] == 0, "  nothing written");
         if (t == 3) {

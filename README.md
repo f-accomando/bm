@@ -38,7 +38,7 @@ Prestazioni e scelte tecniche (limiti del Pi, atteso contro misurato): [docs/PRE
 | **M4** | Interrupt, timer, double buffering 60 fps | ✅ |
 | **M5** | Lua 5.4 embedded + REPL | ✅ |
 | **M6** | Core **s32** in C: cartucce `.cart` compatibili con lua32 | ✅ |
-| **M7** | Cartucce native **`.b33`**: Lua 5.4 + grafica C a 640×360 RGB565 | ✅ |
+| **M7** | Cartucce native **`.bm`**: Lua 5.4 + grafica C a 640×360 RGB565 | ✅ |
 | **M7b** | Input: tastiera e gamepad **USB** (HID) | ✅ tastiera verificata sul Pi (gamepad solo QEMU) |
 | **M8** | **SD** + FAT32, menu delle cartucce | ✅ verificato sul Pi |
 | **M9** | **MVP**: avvio sul menu, giochi demo, immagine SD, guida API | ✅ verificato sul Pi |
@@ -80,7 +80,7 @@ All'avvio (circa 2 secondi):
    al **monitor** a tasto singolo (dalla seriale o dalla tastiera USB)
 
 La sequenza di avvio delle versioni precedenti (benchmark CPU, self-test di newlib,
-demo s32 in modalità *attract*, benchmark e demo `.b33`, sonda del vsync, script
+demo s32 in modalità *attract*, benchmark e demo `.bm`, sonda del vsync, script
 Lua `boot.lua`) si esegue dal monitor con **`b`**.
 
 | Tasto | Azione |
@@ -94,22 +94,22 @@ Lua `boot.lua`) si esegue dal monitor con **`b`**.
 | `k` | esegue di nuovo il benchmark |
 | `d` | demo animata in C (60 fps, doppio buffer; un tasto la interrompe) |
 | `g` | gioca `demo.cart` (s32): w/a/s/d o frecce, spazio = azione, q o Esc = esci |
-| `n` | gioca `demo.b33` (nativa): frecce/wasd, spazio = A, k/x = B, q o Esc = esci |
+| `n` | gioca `demo.bm` (nativa): frecce/wasd, spazio = A, k/x = B, q o Esc = esci |
 | `M` | **menu delle cartucce** (SD; le demo incorporate se la SD non ne ha) |
 | `f` / `F` | elenca le cartucce / rilegge la SD |
 | `y` | USB: cerca di nuovo il dispositivo (dopo averlo collegato) |
 | `Y` | input: test USB dal vivo (contatori ok/nak/err e ultimo report), poi per 10 s i tasti tenuti da ogni giocatore (P1–P4; `*` = tastiera/seriale) |
 | `L` | layout tastiera: italiano ↔ US |
 | `D` | test del DMA passo per passo (copie e riempimenti, tempi CPU contro DMA) |
-| `e` | **editor** dei giochi `.b33` (codice, sprite, mappa; è anche l'ultimo elemento del menu) |
+| `e` | **editor** dei giochi `.bm` (codice, sprite, mappa; è anche l'ultimo elemento del menu) |
 | `a` | audio: stato dell'uscita HDMI (clock, canale DMA, costo della sintesi) e una melodia di prova con le quattro forme d'onda |
 | `T` | Bluetooth: cerca per 8 s e **abbina il primo controller** trovato come **prossimo giocatore** (fino a 4; DS4: Share + PS finché lampeggia); la console seriale passa alla mini UART (stessi pin) |
 | `P` | Bluetooth: **dimentica tutti i pad** abbinati (chiede conferma con `y`): chiavi tolte da `bm33/config.txt`, pad scollegati; poi si riabbinano con `T` |
 | `o` | **log dell'avvio**: tutto quello che il kernel ha scritto dall'accensione (primi 64 KiB), a pagine |
 | `W` | WiFi (M18): accende il chip e lo identifica, un passo per riga |
 | `p` | benchmark di rendering 640×360 RGB565, disegnando direttamente sullo schermo e via RAM |
-| `V` | cartucce `.b33`: disegno diretto sullo schermo (default) o via buffer in RAM |
-| `U` | riceve una cartuccia dalla seriale (`bm33_load.py PORTA --cart file.b33`) e la esegue |
+| `V` | cartucce `.bm`: disegno diretto sullo schermo (default) o via buffer in RAM |
+| `U` | riceve una cartuccia dalla seriale (`bm33_load.py PORTA --cart file.bm`) e la esegue |
 | `s` / `S` | stress test di rendering (sprite, triangoli, 3D; C e Lua): vedi [docs/STRESS.md](docs/STRESS.md) |
 | `t` | test pattern HDMI (un tasto qualsiasi torna alla console) |
 | `r` | reboot via watchdog (con il chainloader, ricarica il kernel) |
@@ -154,10 +154,10 @@ viene scelta l'interfaccia tastiera, anche se il dispositivo usa i report con ID
   Bluetooth (M12).
 
 **SD.** All'avvio il kernel legge la prima partizione **FAT32** (o FAT16) della SD
-(quella da cui si avvia il Pi) e cerca i file **`.b33`** e **`.cart`** nella
+(quella da cui si avvia il Pi) e cerca i file **`.bm`** e **`.cart`** nella
 cartella `carts/` e nella radice. Nomi lunghi supportati. `make sdcard` mette in
-`dist/carts/` i giochi e le demo (`pong.b33`, `snake.b33`, `shooter.b33`, `astrowing.b33`, `hunt.b33`,
-`kitchen.b33`, `titan.b33`, `demo.b33`, `stress.b33`, `demo.cart`); `make image` li mette nell'immagine SD.
+`dist/carts/` i giochi e le demo (`pong.bm`, `snake.bm`, `shooter.bm`, `astrowing.bm`, `hunt.bm`,
+`kitchen.bm`, `titan.bm`, `demo.bm`, `stress.bm`, `demo.cart`); `make image` li mette nell'immagine SD.
 
 **Menu delle cartucce.** Mostra titolo e autore letti dalle cartucce (ordinate per
 titolo) e sotto il nome del file scelto. Su/giù per scegliere, Invio (o A) per giocare,
@@ -230,7 +230,7 @@ del kernel. `git log --oneline` mostra a quale milestone corrisponde; se compare
 |---|---|
 | `7044581` | M5: Lua embedded |
 | `ab9af30` | M6: core s32 (demo.cart all'avvio) |
-| `c7ec2c3` | M7: cartucce native .b33 (demo nativa all'avvio) |
+| `c7ec2c3` | M7: cartucce native .bm (demo nativa all'avvio) |
 | `1b31924` | stress test di rendering e 3D software (`make sdcard-stress`) |
 | `a2a8b6f` | M7b + M8: tastiera/gamepad USB, SD e menu delle cartucce |
 | `25f5dbc` | tastiere USB composite (Apple Magic Keyboard) |
@@ -279,7 +279,7 @@ PPU in C); i numeri reali vanno misurati sul Pi (riga `s32:` all'avvio).
 
 ![s32 demo](docs/m6-s32-demo.png)
 
-## Cartucce native `.b33`
+## Cartucce native `.bm`
 
 Cartucce solo per bm33 che sfruttano il Pi Zero: **640×360, colore diretto a 16 bit
 (RGB565), 60 fps**, logica in Lua 5.4, tutto il disegno in C. Formato in
@@ -287,7 +287,7 @@ Cartucce solo per bm33 che sfruttano il Pi Zero: **640×360, colore diretto a 16
 è salvata in un formato indipendente dallo schermo, pronta per un futuro 32 bit.
 
 ```sh
-python3 scripts/mkb33.py -o gioco.b33 --lua main.lua --sheet sheet.png --map map.csv \
+python3 scripts/mkb33.py -o gioco.bm --lua main.lua --sheet sheet.png --map map.csv \
         --title "Il mio gioco" --cover copertina.png
 ```
 
@@ -433,8 +433,8 @@ tests/kitchen/           simulatore host di Chaos Kitchen (luahost + sim.lua)
 carts/titan/             Titan Clash (M20): src/*.lua, build.py; mkrobot.py (il robot
                          pre-renderizzato), art.py e mkassets.py (sheet.png)
 tests/titan/             simulatore host di Titan Clash (sim.lua)
-docs/API.md              API delle cartucce .b33 e guida alla prima cartuccia
-scripts/mkb33.py         packer .b33 (PNG e CSV, solo libreria standard Python)
+docs/API.md              API delle cartucce .bm e guida alla prima cartuccia
+scripts/mkb33.py         packer .bm (PNG e CSV, solo libreria standard Python)
 scripts/mksd.py          immagine SD (MBR + FAT32): make image e test in QEMU
 tests/b33/               test host della grafica e del formato
 spec/s32/                specifica comune e vettori di conformità (da lua32)

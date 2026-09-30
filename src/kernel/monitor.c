@@ -37,14 +37,14 @@ static const char help_text[] =
             "commands (games: arrows/wasd, space = A; q or Esc quits):\n"
             "  M  cartridge menu (SD card: / and /carts; built-in demos if none)\n"
             "  f  list cartridges        F  re-read the SD card\n"
-            "  g  built-in s32 demo.cart n  built-in native demo.b33\n"
+            "  g  built-in s32 demo.cart n  built-in native demo.bm\n"
             "  l  Lua REPL (Esc, Ctrl-D or exit() returns here)\n"
             "  U  receive a cartridge over serial and play it\n"
             "  i  system info            m  heap usage          c  clear screen\n"
             "  y  USB: scan the port     Y  input test: USB, then each player (10 s)\n"
             "  L  keyboard layout Italian / US\n"
             "  a  audio: HDMI sound status and a test tune\n"
-            "  e  editor: code, sprites and map of a .b33 cartridge\n"
+            "  e  editor: code, sprites and map of a .bm cartridge\n"
             "  T  Bluetooth: pair a controller as the next player (DS4: Share + PS)\n"
             "  P  Bluetooth: forget all paired pads (asks first)\n"
             "  W  WiFi: start, list the networks, join one (M18; saved in bm33/config.txt)\n"
@@ -53,7 +53,7 @@ static const char help_text[] =
             "  b  boot diagnostics: benchmarks, s32 and b33 demos, Lua boot script\n"
             "  k  CPU benchmark          p  rendering benchmark 640x360 RGB565\n"
             "  D  DMA test step by step (CPU against DMA timings)\n"
-            "  V  .b33 drawing: direct on screen / via RAM (compare with p)\n"
+            "  V  .bm drawing: direct on screen / via RAM (compare with p)\n"
             "  s  rendering stress test (sprites, triangles, 3D; C and Lua)\n"
             "  d  animation demo (60 fps; any key stops it)\n"
             "  t  HDMI test pattern (any key returns)\n"
@@ -194,7 +194,7 @@ void monitor_run(void)
         case 'p': b33_bench_report(console_framebuffer(), 120); break;
         case 'V':
             b33_set_via_ram(!b33_via_ram());
-            kprintf(".b33 carts draw %s\n", b33_via_ram() ? "via a RAM buffer" : "directly on screen");
+            kprintf(".bm carts draw %s\n", b33_via_ram() ? "via a RAM buffer" : "directly on screen");
             config_save();
             break;
         case 'd': {

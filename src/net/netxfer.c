@@ -202,7 +202,7 @@ int netxfer_start(void)
     return 0;
 }
 
-/* "carts/pong.b33" -> "/carts", "pong.b33" */
+/* "carts/pong.bm" -> "/carts", "pong.bm" */
 static int save(const char *p, const uint8_t *data, uint32_t len)
 {
     char dir[66] = "/";

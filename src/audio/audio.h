@@ -5,7 +5,7 @@
  * sound never waits for a game's main loop.
  *
  * Voices are driven by 128 bytes of registers laid out like the s32 APU
- * (spec §8). By default they are the module's own registers (for .b33
+ * (spec §8). By default they are the module's own registers (for .bm
  * games, the monitor); the s32 player points the synthesizer at the
  * machine's APU memory instead.
  */
