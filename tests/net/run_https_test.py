@@ -35,6 +35,9 @@ commonName = supplied
 [ leaf ]
 subjectAltName = DNS:localhost
 basicConstraints = CA:false
+[ cacert ]
+basicConstraints = critical,CA:true
+keyUsage = critical,keyCertSign,cRLSign
 """
 
 
@@ -61,6 +64,28 @@ def make_leaf(tmp, ca, tag, keytype, before, after):
     sh("openssl", "ca", "-batch", "-config", ca + ".cnf", "-cert", ca + ".crt", "-keyfile", ca + ".key",
        "-in", tag + ".csr", "-out", tag + ".crt", "-extensions", "leaf",
        "-startdate", stamp(before), "-enddate", stamp(after), "-notext", cwd=tmp)
+
+
+def make_cross(tmp):
+    """A chain as Cloudflare's SSL.com ones (example.com): leaf <- an
+    intermediate of the test CA <- the test CA again, cross-signed by a CA
+    the client does not know ("AAA"). The client must stop at its own root."""
+    make_ca(tmp, "aaa", "AAA test services")
+    sh("openssl", "req", "-new", "-key", "ca.key", "-subj", "/CN=bm test CA", "-out", "cross.csr", cwd=tmp)
+    sh("openssl", "ca", "-batch", "-config", "aaa.cnf", "-cert", "aaa.crt", "-keyfile", "aaa.key",
+       "-in", "cross.csr", "-out", "cross_ca.crt", "-extensions", "cacert", "-days", "20", "-notext", cwd=tmp)
+    sh("openssl", "req", "-newkey", "ec", "-pkeyopt", "ec_paramgen_curve:P-256", "-nodes",
+       "-keyout", "inter.key", "-out", "inter.csr", "-subj", "/CN=bm test intermediate", cwd=tmp)
+    sh("openssl", "ca", "-batch", "-config", "ca.cnf", "-cert", "ca.crt", "-keyfile", "ca.key",
+       "-in", "inter.csr", "-out", "inter.crt", "-extensions", "cacert", "-days", "20", "-notext", cwd=tmp)
+    open(os.path.join(tmp, "inter.db"), "w").close()
+    open(os.path.join(tmp, "inter.srl"), "w").write("01\n")
+    open(os.path.join(tmp, "inter.cnf"), "w").write(CA_CONF % {"tag": "inter"})
+    make_leaf(tmp, "inter", "xleaf", "ec", NOW - DAY, NOW + 10 * DAY)
+    with open(os.path.join(tmp, "cross.crt"), "w") as out:      # what the server sends
+        for f in ("xleaf.crt", "inter.crt", "cross_ca.crt"):
+            out.write(open(os.path.join(tmp, f)).read())
+    os.rename(os.path.join(tmp, "xleaf.key"), os.path.join(tmp, "cross.key"))
 
 
 BIG = bytes((i * 7) & 0xFF for i in range(1 << 20))
@@ -122,8 +147,9 @@ with tempfile.TemporaryDirectory() as tmp:
     make_leaf(tmp, "ca", "rsa", "rsa", NOW - DAY, NOW + 10 * DAY)
     make_leaf(tmp, "ca", "old", "ec", NOW - 20 * DAY, NOW - 10 * DAY)
     make_leaf(tmp, "other_ca", "other", "ec", NOW - DAY, NOW + 10 * DAY)
-    for t in ("ec", "rsa", "old", "other"):
+    make_cross(tmp)
+    for t in ("ec", "rsa", "old", "other", "cross"):
         serve(t, tmp)
     r = subprocess.run([sys.argv[1], os.path.join(tmp, "ca.crt")]
-                       + [str(PORTS[t]) for t in ("ec", "rsa", "old", "other")])
+                       + [str(PORTS[t]) for t in ("ec", "rsa", "old", "other", "cross")])
     sys.exit(r.returncode)

@@ -1,8 +1,9 @@
 /*
  * Host test of HTTPS: http.c + tls.c (mbedTLS, the kernel's configuration)
  * over POSIX sockets, against tests/net/run_https_test.py: a test CA and
- * servers with an ECDSA certificate, an RSA one, an expired one and one
- * signed by another CA.
+ * servers with an ECDSA certificate, an RSA one, an expired one, one
+ * signed by another CA and one whose chain goes on past the test CA with a
+ * cross-certificate from an unknown CA (as example.com's, via Cloudflare).
  */
 #include "net/http.h"
 #include "net/tls.h"
@@ -57,10 +58,11 @@ static char *slurp(const char *path, size_t *len)
 
 int main(int argc, char **argv)
 {
-    if (argc < 6)
+    if (argc < 7)
         return 2;
     const char *ca = argv[1];
     int p_ec = atoi(argv[2]), p_rsa = atoi(argv[3]), p_old = atoi(argv[4]), p_other = atoi(argv[5]);
+    int p_cross = atoi(argv[6]);
     char url[160];
     uint8_t *d;
     size_t n;
@@ -74,7 +76,7 @@ int main(int argc, char **argv)
     size_t pl;
     char *pem = slurp("boot/ca.pem", &pl);
     int nb = pem ? tls_set_roots(pem, pl) : -1;
-    check(nb == 19, "boot/ca.pem: all 19 roots readable by mbedTLS");
+    check(nb == 21, "boot/ca.pem: all 21 roots readable by mbedTLS");
     free(pem);
 
     pem = slurp(ca, &pl);
@@ -118,6 +120,12 @@ int main(int argc, char **argv)
     check(st == -1 && strstr(info.error, "not trusted") && strstr(info.error, "CN=some other CA"),
           "certificate from another CA: refused, naming the missing root");
     printf("     (%s)\n", info.error);
+    free(d);
+
+    snprintf(url, sizeof url, "https://localhost:%d/hello", p_cross);
+    st = http_get_buffer(url, NULL, 1 << 20, &d, &n, &info);
+    check(st == 200, "chain with a cross-certificate from an unknown CA: stops at the known root");
+    if (st != 200) printf("     %s\n", info.error);
     free(d);
 
     snprintf(url, sizeof url, "https://localhost:%d/redirect-plain", p_ec);

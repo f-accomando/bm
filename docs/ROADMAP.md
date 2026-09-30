@@ -673,14 +673,21 @@ Passi (2026-09-29):
    41 sorgenti) sotto lo stesso trasporto (`src/net/tls.c`); configurazione
    `src/net/bm_mbedtls.h`: client TLS 1.2, ECDHE (P-256, P-384, X25519), AES-GCM e
    ChaCha20-Poly1305, certificati RSA ed ECDSA; entropia dal generatore hardware del
-   BCM2835 (`src/drivers/rng.c`); 19 certificati radice in `bm/ca.pem`
+   BCM2835 (`src/drivers/rng.c`); 21 certificati radice in `bm/ca.pem`
    (`scripts/make-ca.sh`, dalla lista Mozilla: GitHub, Let's Encrypt, Google, Amazon,
-   DigiCert); verifica di catena, nome e date (aspetta l'ora SNTP). Kernel +150 KB.
+   DigiCert, SSL.com); verifica di catena, nome e date (aspetta l'ora SNTP). Kernel +150 KB.
    Test sul PC: `make test-https` (certificati ECDSA e RSA, 1 MiB, chunked, redirect;
-   rifiuti per nome sbagliato, certificato scaduto, CA sconosciuta).
-   - Sul Pi `https://example.com/` è rifiutato ("not correctly signed by the trusted CA"): la
-     sua catena porta a una radice che non è tra le 19. L'errore ora dice quale manca
-     ("no root in bm/ca.pem for ..."), da aggiungere a `scripts/make-ca.sh`.
+   rifiuti per nome sbagliato, certificato scaduto, CA sconosciuta; una catena che prosegue
+   oltre la radice nota con un cross-certificato di una CA sconosciuta).
+   - Sul Pi `https://example.com/` è rifiutato ("not correctly signed by the trusted CA").
+     L'errore ora dice quale radice manca ("no root in bm/ca.pem for ..."): sul Pi (`2a62ce0`)
+     "AAA Certificate Services" (Comodo), che non è più nella lista Mozilla. example.com ha un
+     certificato SSL.com (Cloudflare) e la catena finisce con il cross-certificato di "SSL.com
+     TLS ... Root CA 2022" firmato da AAA: aggiunte le due radici SSL.com 2022, mbedTLS si ferma
+     lì. Da riprovare sul Pi.
+   - `scripts/make-ca.sh` con la lista Mozilla di giugno 2026 si ferma: `DigiCert_Global_Root_CA`
+     non c'è più. Le radici SSL.com sono state aggiunte in coda al file, senza rigenerare le 19
+     già provate sul Pi.
    - Dopo un riavvio (kernel `14600e6`) `G` ha dato "no random numbers (-52)": il generatore
      hardware, acceso solo alla prima richiesta, scarta i primi numeri (riscaldamento) e ci
      metteva più dei 200 ms concessi; prima lo accendeva il Bluetooth LE. Ora parte all'avvio
