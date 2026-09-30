@@ -152,7 +152,8 @@ viene scelta l'interfaccia tastiera, anche se il dispositivo usa i report con ID
   (`bt_pad1=` … `bt_pad4=`; il vecchio `bt_pad=` diventa il giocatore 1). Dalle accensioni
   successive il Bluetooth parte da solo (circa 3 s in più all'avvio per il firmware del
   chip) e basta premere **PS**: la luce del pad prende il colore del giocatore (1 blu,
-  2 rosso, 3 verde, 4 rosa). Il menu mostra in alto i giocatori collegati (`pads: 1 2 - -`; `k` è il giocatore che usa la tastiera).
+  2 rosso, 3 verde, 4 rosa). Il menu mostra in alto a destra un'icona per ogni giocatore collegato (controller o tastiera,
+  con il numero del giocatore in un cerchio) e l'icona WiFi quando la console è in rete.
   Stessi tasti del cavo USB; tastiera e gamepad USB sono il primo giocatore senza pad.
 - **DualShock 4 (PS4)** via cavo USB: croce direzionale o levetta sinistra,
   croce/quadrato = A, cerchio/triangolo = B, Options = Start, Share = Select,

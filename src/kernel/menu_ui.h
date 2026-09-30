@@ -48,6 +48,10 @@ typedef struct {
     const char *help;           /* under the rows: about the selected one */
 } menu_panel_t;
 
+/* What each player plays with, and the network, for the icons of the bar */
+enum { MENU_DEV_NONE, MENU_DEV_KEYBOARD, MENU_DEV_PAD };
+enum { MENU_NET_NONE, MENU_NET_WIFI_WAIT, MENU_NET_WIFI, MENU_NET_ETHERNET };
+
 typedef struct {
     const char *const *tabs;    /* tab names */
     int ntabs, tab;             /* current tab */
@@ -55,7 +59,8 @@ typedef struct {
     int on_gear;                /* ...on the settings button at its right */
     const menu_item_t *items;   /* of the current tab */
     int n, sel;
-    const char *pads;           /* "pads: 1 - - -" */
+    int dev[4];                 /* players 1-4: MENU_DEV_*, an icon with the number */
+    int net;                    /* MENU_NET_*: WiFi without an address yet is dimmed */
     const char *details;        /* line under the grid (path, size) */
     const char *note;           /* last game, errors */
     const menu_panel_t *panel;  /* a submenu over the grid, or NULL */

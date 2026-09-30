@@ -525,6 +525,22 @@ def test_s32_keys(b, opts):
 B33_COLOURS = [(248, 0, 0), (0, 252, 0), (0, 0, 248), (248, 252, 248)]
 
 
+def bar_icons(img):
+    """The status icons at the right of the menu bar (M27): the column
+    spans [x0, x1) with light pixels in rows 8-39, right of the tabs."""
+    runs, start = [], None
+    for x in range(330, 640):
+        lit = any(sum(pixel(img, x, y)) > 450 for y in range(8, 40))
+        if lit and start is None:
+            start = x
+        elif not lit and start is not None:
+            runs.append((start, x))
+            start = None
+    if start is not None:
+        runs.append((start, 640))
+    return runs
+
+
 def settled_screen(q, ok, tries=8):
     """QEMU shows page 0 even while it is being drawn (it ignores the
     virtual offset), so a screendump can catch a frame half drawn: retry
@@ -819,7 +835,9 @@ def test_home_ui(b, opts):
     try:
         q.expect(MENU, timeout=30)
         time.sleep(0.5)
-        screen(["Games", "Dev", "Settings", "AAA saver"])
+        text = screen(["Games", "Dev", "Settings", "AAA saver"])
+        assert "bm33" not in text.splitlines()[1] and "pads" not in text, text
+        assert bar_icons(q.screendump()) == [], "no keyboard, pad or network: no icons"
         shot("games")
         keys("\r")                              # play: it saves, then Esc suspends it
         q.expect("saver start", timeout=10)
@@ -1546,9 +1564,17 @@ def test_bt_two_pads(b, opts):
         out = _mini_expect(q, "next time just press PS")
         assert "connected (player 3)" in out and "paired as player 3" in out, out
 
-        # in a game each pad is its own player
+        # the menu bar: a controller icon for each player (M27)
         q.mini.write(b"M")
         _mini_expect(q, "cartridge menu")
+        time.sleep(1.0)
+        screen_img = q.screendump()
+        if opts.shots:
+            _save_png(screen_img, os.path.join(opts.shots, "home-pads.png"))
+        runs = bar_icons(screen_img)
+        assert len(runs) == 3 and all(20 <= x1 - x0 <= 27 for x0, x1 in runs), runs
+
+        # in a game each pad is its own player
         time.sleep(0.3)
         chip.report(0x08 | 0x20, handle=0x0D)                      # pad 3: cross plays
         time.sleep(0.1)
@@ -1599,6 +1625,8 @@ def test_sd_sdhc_and_usb_menu(b, opts):
         out = q.expect("cartridge menu", timeout=90).decode(errors="replace")
         assert "sd: SDHC card (sdhost), FAT32, 4095 MiB, label BM33SD; 1 cartridges" in out, out
         time.sleep(1.0)
+        runs = bar_icons(q.screendump())      # the bar: the keyboard icon (M27)
+        assert len(runs) == 1 and 20 <= runs[0][1] - runs[0][0] <= 27, runs
         sendkeys(q, "c")                      # C is the X button: the options (M27)
         _, text = settled_screen(q, lambda i, t: any("Author" in l for l in t))
         assert any("Author" in l for l in text) and any("Play" in l for l in text), "\n".join(text)

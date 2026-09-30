@@ -211,3 +211,8 @@ const char *net_ip_text(void)
 {
     return ip_text;
 }
+
+int net_link(void)
+{
+    return wifi_linked() ? NET_LINK_WIFI : NET_LINK_NONE;
+}

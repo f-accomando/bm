@@ -936,7 +936,8 @@ Task:
    - disegno dei giochi `.bm` (diretto / via RAM), layout della tastiera (italiano / US);
    - Sistema: versione, memoria, SD, tempo di accensione; riavvia; monitor.
 5. **Barra di stato e notifiche**:
-   - ora (SNTP, fuso orario nelle impostazioni), WiFi, pad nel colore del giocatore;
+   - ✅ (QEMU) icone al posto di `pads: 1 2 - -` e della scritta bm33 (vedi sotto);
+   - ora (SNTP, fuso orario nelle impostazioni);
    - notifiche che compaiono e spariscono ("Controller 2 connected", "Cartridge
      received", "Save data deleted").
 6. **Suoni e animazioni del menu**: clic di navigazione, suono di avvio, copertina che
@@ -967,13 +968,28 @@ Task:
   pattern si chiude con qualsiasi tasto; dopo gli strumenti "A: torna al menu".
 - Restano sulla console testuale: abbinamento (`T`), connessione WiFi (`W`, la password
   si scrive con la tastiera USB), Lua. Diventano grafici con il task 8.
+- **Barra** (decisione 2026-09-30): niente scritta bm33 né `pads: 1 2 - -`.
+  - A destra, un'icona bianca per ogni giocatore collegato: tastiera (tastiera USB)
+    o controller in stile DS4 (pad Bluetooth o USB).
+  - Sopra il centro in basso di ogni icona, il numero del giocatore (1–4, l'ordine di
+    abbinamento) in un cerchio, con uno stacco intorno che lascia leggibile l'icona.
+  - Poi l'icona WiFi, se la console è collegata (grigia finché il router non dà
+    l'indirizzo), o quella Ethernet.
+  - Tutte nello stesso riquadro di 27×18 pixel (`src/kernel/icons.c`): forme disegnate
+    all'avvio con antialiasing (4×4 campioni per pixel), bordi sui pixel interi.
+  - bm33 non ha ancora un'interfaccia Ethernet (il Pi Zero W non ha la porta, un
+    adattatore USB richiede il suo driver): `net_link()` è pronta a dirlo quando ci
+    sarà.
+  - Test: `bar_icons` conta le icone (3 pad in `test_bt_two_pads`, la tastiera in
+    `test_sd_sdhc_and_usb_menu`, nessuna in `test_home_ui`).
 
 Da provare sul Pi:
 - il menu resta a 60 fps anche con un pannello aperto;
 - col solo DS4: X su una copertina, cancellare un salvataggio, Settings > Controllers >
   Pair a new controller con un secondo DS4;
 - scheda Dev: System, Log (col pad), Test pattern, Audio test;
-- Settings > System > Restart.
+- Settings > System > Restart;
+- le icone della barra: tastiera e DS4 con il numero giusto, WiFi grigia e poi bianca.
 
 - **Fatto quando:** sul Pi, con il solo DS4, dal menu si raggiungono tutti i giochi,
   gli strumenti e le impostazioni (abbinare un secondo controller, collegare il WiFi,

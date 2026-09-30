@@ -8,6 +8,7 @@
 #include "b33/b33.h"
 #include "input.h"
 #include "upload.h"
+#include "net/net.h"
 #include "net/netxfer.h"
 #include "b33/runtime.h"
 #include "drivers/sd.h"
@@ -577,7 +578,7 @@ void carts_menu(framebuffer_t *fb)
     static home_panel_t pb;
     struct { int id, sel, top; } stack[DEPTH_MAX];
     int depth = 0, built = -1, frame = 0;
-    char pads[48], details[128], susp_title[49];
+    char details[128], susp_title[49];
     int ask = ASK_NONE, ask_cart = -1, ask_go = GO_NONE, ask_row = 0;
     char ask_q[64] = "", ask_d[64] = "", ask_y[16] = "";
     int gfx = menu_ui_open(fb) == 0;         /* else the text menu */
@@ -619,7 +620,6 @@ void carts_menu(framebuffer_t *fb)
                 items[i] = (menu_item_t){ c->title, c->author, c->path, c->kind == KIND_B33 ? "bm" : "s32",
                                           c->size, c->cover.px ? &c->cover : NULL, is_suspended(c) };
             }
-            input_status(pads, sizeof pads);
             details[0] = 0;
             if (n && idx[tsel[tab]] < 0) {
                 ksnprintf(details, sizeof details, "%s", home_tool_about(-1 - idx[tsel[tab]]));
@@ -632,9 +632,18 @@ void carts_menu(framebuffer_t *fb)
             menu_view_t v = {
                 .tabs = tabs, .ntabs = 2, .tab = tab, .on_tabs = on_tabs && !on_gear,
                 .on_gear = on_tabs && on_gear, .items = items, .n = n, .sel = tsel[tab],
-                .pads = pads, .details = details, .note = last_msg,
+                .details = details, .note = last_msg,
                 .panel = depth ? &mp : NULL,
             };
+            for (int p = 0; p < 4; p++) {
+                int d_ = input_device(p);
+                v.dev[p] = d_ == INPUT_DEV_KEYBOARD ? MENU_DEV_KEYBOARD
+                         : d_ == INPUT_DEV_PAD ? MENU_DEV_PAD : MENU_DEV_NONE;
+            }
+            int link = net_link();
+            v.net = link == NET_LINK_ETHERNET ? MENU_NET_ETHERNET
+                  : link == NET_LINK_WIFI ? (net_ip() ? MENU_NET_WIFI : MENU_NET_WIFI_WAIT)
+                  : MENU_NET_NONE;
             if (ask == ASK_SWITCH && b33_suspended(susp_title, sizeof susp_title)) {
                 ksnprintf(ask_q, sizeof ask_q, "Close %s?", susp_title);
                 v.ask = ask_q;

@@ -1,4 +1,5 @@
 #include "menu_ui.h"
+#include "icons.h"
 #include "b33/b33.h"
 #include "drivers/timer.h"
 #include "gfx/console.h"
@@ -36,7 +37,6 @@
 #define C_PILL      0x101016
 #define C_TAB_ON    0xECECF0
 #define C_ACCENT    0x00C8F0        /* selection ring */
-#define C_BRAND     0x55E0FF
 
 static g16_t g;
 static int ready;
@@ -518,6 +518,48 @@ static void draw_panel(const menu_panel_t *p, int faded)
     }
 }
 
+/* an icon mask of icons.c over the bar, in colour `ink`; only written */
+static void put_icon(const uint8_t *m, int x0, int y0, uint32_t ink)
+{
+    uint32_t br = C_BAR >> 16, bg = C_BAR >> 8 & 255, bb = C_BAR & 255;
+    uint32_t ir = ink >> 16, ig = ink >> 8 & 255, ib = ink & 255;
+    for (int y = 0; y < ICON_BH; y++) {
+        uint16_t *p = g.px + (uint32_t)(y0 + y) * g.stride + x0;
+        for (int x = 0; x < ICON_W; x++) {
+            uint32_t a = m[y * ICON_W + x];
+            if (a)
+                p[x] = g16_rgb(br + (ir - br) * a / 255, bg + (ig - bg) * a / 255,
+                               bb + (ib - bb) * a / 255);
+        }
+    }
+}
+
+/* right-aligned: a keyboard or a controller with its number for each
+ * player, then WiFi or Ethernet when the console is on a network */
+static void status_icons(const menu_view_t *v)
+{
+    int icon[5], num[5], n = 0;
+    for (int p = 0; p < 4; p++)
+        if (v->dev[p] != MENU_DEV_NONE) {
+            icon[n] = v->dev[p] == MENU_DEV_KEYBOARD ? ICON_KEYBOARD : ICON_PAD;
+            num[n++] = p + 1;
+        }
+    int players = n;
+    if (v->net != MENU_NET_NONE) {
+        icon[n] = v->net == MENU_NET_ETHERNET ? ICON_ETHERNET : ICON_WIFI;
+        num[n++] = 0;
+    }
+    const int gap = 8, net_gap = 16, y0 = 12;
+    int w = n * ICON_W + (n > 1 ? (n - 1) * gap : 0) + (players && players < n ? net_gap - gap : 0);
+    int x = SW - 16 - w;
+    for (int i = 0; i < n; i++) {
+        const uint8_t *m = icon_mask(icon[i], num[i]);
+        if (m)
+            put_icon(m, x, y0, i >= players && v->net == MENU_NET_WIFI_WAIT ? C_DIM : C_TEXT);
+        x += ICON_W + (i + 1 == players ? net_gap : gap);
+    }
+}
+
 /* ---------------------------------------------------------------- screen */
 
 int menu_ui_open(framebuffer_t *fb)
@@ -616,10 +658,9 @@ void menu_ui_frame(framebuffer_t *fb, const menu_view_t *v)
     }
     g16_clip(&g, 0, 0, 0, 0);
 
-    /* top bar: brand, tabs, pads */
+    /* top bar: tabs, settings, then the players and the network */
     g16_rectfill(&g, 0, 0, SW, BAR_H, c16(C_BAR));
-    g16_text(&g, 2 * 8, 16, "bm33", c16(C_BRAND));
-    int col = 9;
+    int col = 3;
     for (int i = 0; i < v->ntabs; i++) {
         int n = (int)strlen(v->tabs[i]);
         if (i == v->tab) {
@@ -639,10 +680,7 @@ void menu_ui_frame(framebuffer_t *fb, const menu_view_t *v)
         round_rect(col * 8 - 8, 16 - 4, 13 * 8, 24, 12, c16(C_TAB_ON));
     gear(col * 8 + 7, 16 + 8, v->on_gear ? c16(C_BAR) : c16(C_DIM), v->on_gear ? c16(C_TAB_ON) : c16(C_BAR));
     g16_text(&g, (col + 3) * 8, 16, "Settings", v->on_gear ? c16(C_BAR) : c16(C_DIM));
-    if (v->pads) {
-        int n = (int)strlen(v->pads);
-        g16_text(&g, (78 - n) * 8, 16, v->pads, c16(C_DIM));
-    }
+    status_icons(v);
 
     /* the name of the selected cartridge, on a pill */
     if (v->panel) {

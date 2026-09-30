@@ -59,6 +59,12 @@ unsigned input_connected(void);
  * direction buttons for keyboards and pads without a stick. */
 void input_stick(int p, uint32_t buttons, float *x, float *y);
 
+/* What player p (0-based) plays with: a Bluetooth pad or a USB gamepad,
+ * a USB keyboard, or nothing (the serial console does not count). */
+#define INPUT_DEV_NONE     0
+#define INPUT_DEV_KEYBOARD 1
+#define INPUT_DEV_PAD      2
+int input_device(int p);
 /* "pads: 1 2 - -" for status lines. */
 void input_status(char *buf, unsigned size);
 

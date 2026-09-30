@@ -175,6 +175,17 @@ static int usb_input(void)
     return k == USB_KEYBOARD || k == USB_GAMEPAD || k == USB_XBOX360;
 }
 
+int input_device(int p)
+{
+    if (bt_pads() >> p & 1)
+        return INPUT_DEV_PAD;
+    if (p != input_local_player())
+        return INPUT_DEV_NONE;
+    int k = usb_info()->kind;
+    return k == USB_KEYBOARD ? INPUT_DEV_KEYBOARD
+         : k == USB_GAMEPAD || k == USB_XBOX360 ? INPUT_DEV_PAD : INPUT_DEV_NONE;
+}
+
 unsigned input_connected(void)
 {
     unsigned m = bt_pads();

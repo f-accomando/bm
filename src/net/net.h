@@ -25,5 +25,12 @@ const char *net_time_text(void);
 uint32_t net_ip(void);
 /* "192.168.1.23", or "-" */
 const char *net_ip_text(void);
+/* The link the console is on. bm33 has no Ethernet interface yet (the Pi
+ * Zero W has no port; a USB adapter would need its driver): Ethernet is
+ * here for when it has one. */
+#define NET_LINK_NONE     0
+#define NET_LINK_WIFI     1
+#define NET_LINK_ETHERNET 2
+int net_link(void);
 
 #endif
