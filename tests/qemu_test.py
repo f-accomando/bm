@@ -716,7 +716,7 @@ def test_pi1_board(b, opts):
     q = Qemu(b("kernel.img"), USB_KBD, machine="raspi1ap")
     try:
         out = q.boot()
-        assert b"kernel" in out and b"- Raspberry Pi 1 A+ (BCM2835)" in out, out
+        assert b"kernel" in out and b"- Raspberry Pi 1 A+ (BCM2835, revision 900021)" in out, out
         assert b"usb: keyboard 0627:0001" in out, out
         q.send("W")
         q.expect("wifi: no WiFi on the Pi 1 A+", timeout=10)

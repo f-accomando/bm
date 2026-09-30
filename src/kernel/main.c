@@ -198,8 +198,8 @@ void kernel_main(uint32_t atags)
         kprintf_set_sink(console_putc);
     }
 
-    kprintf("\n\x1b[1;36mbm\x1b[0m kernel %s - Raspberry %s (BCM2835)\n", bm_version,
-            board()->name);
+    kprintf("\n\x1b[1;36mbm\x1b[0m kernel %s - Raspberry %s (BCM2835, revision %06lx)\n", bm_version,
+            board()->name, board()->revision);
     (void)atags;
     if (err)
         panic("framebuffer init failed (%d)", err);

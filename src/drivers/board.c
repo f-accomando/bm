@@ -101,8 +101,19 @@ const board_t *board(void)
     static board_t b;
     static int ready;
     if (!ready) {
-        uint32_t v[1] = { 0 };
-        board_decode(prop_query(PROP_GET_BOARD_REVISION, v, 1) == 0 ? v[0] : 0, &b);
+        /* the first thing the kernel asks the firmware: the answer counts
+         * only when two reads in a row agree (a Zero W once came out as a
+         * board without radio: no WiFi, the LED on the wrong pin) */
+        uint32_t rev = 0, prev = 0;
+        int same = 0;
+        for (int i = 0; i < 8 && !same; i++) {
+            uint32_t v[1] = { 0 };
+            if (prop_query(PROP_GET_BOARD_REVISION, v, 1) != 0)
+                continue;
+            same = i > 0 && v[0] == prev;
+            prev = rev = v[0];
+        }
+        board_decode(same ? rev : 0, &b);
         ready = 1;
     }
     return &b;
