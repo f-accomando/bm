@@ -31,6 +31,21 @@ function _draw()
   if G.debug then
     rectfill(W - 190, H - 20, 186, 16, 0x000000)
     print(fmt("%4.1fms %2dfps %3dfx", stat(1), stat(2), Fx.count()), W - 188, H - 20, 0x80FF80)
+    -- the controls as the game reads them: any controller, then each pad,
+    -- then each fighter (its pad, numpad direction, state, position)
+    local function dirs(p)
+      return (btn(BL, p) and "L" or ".") .. (btn(BR, p) and "R" or ".") ..
+             (btn(BU, p) and "U" or ".") .. (btn(BD, p) and "D" or ".")
+    end
+    local sx, sy = stick()
+    local n, mask = players()
+    rectfill(4, H - 76, 300, 56, 0x000000)
+    print(fmt("any %s  p1 %s  p2 %s  stick %+.1f %+.1f", dirs(), dirs(1), dirs(2), sx, sy), 6, H - 76, 0xFFE060)
+    print(fmt("players %d (mask %d)", n, mask), 6, H - 62, 0xFFE060)
+    for i, f in ipairs(G.fighters or {}) do
+      print(fmt("F%d pad %s dir %d %s x %d", i, tostring(f.pad), f.inp.dir or 5, f.state, floor(f.x)),
+            6, H - 62 + i * 14, 0xFFE060)
+    end
   end
 end
 

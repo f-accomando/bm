@@ -383,6 +383,7 @@ local function new_round()
   local a = Fighter.new(1, pad_of(1), setup.cfg[1], ARENA_W / 2 - 150, 1)
   local b = Fighter.new(2, pad_of(2), setup.cfg[2], ARENA_W / 2 + 150, -1)
   F.f[1], F.f[2] = a, b
+  G.fighters = F.f                      -- for the debug panel (Select)
   m.clock, m.tick = 99, 0
   m.phase, m.t = "intro", 0
   m.final = m.wins[1] == 1 and m.wins[2] == 1

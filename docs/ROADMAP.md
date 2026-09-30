@@ -717,6 +717,16 @@ cartuccia **Titan Clash** (`carts/titan`).
   2 giocatori, demo; costo dei frame) e `test_titan` in QEMU. Select mostra il tempo
   di frame sul Pi.
 
+- Correzioni 2026-09-30 (dopo le prove sul Pi): la **guardia** sta in equilibrio (bacino
+  sopra il punto medio dei piedi, piante parallele al suolo: `balance` e `flat_feet`
+  in `mkrobot.py`), e così camminata, accovacciata e piede d'appoggio dei calci; il
+  **diretto** del braccio in primo piano (in piedi e accovacciato) si stende oltre il
+  torace verso l'avversario (`reach`: braccio, rotazione del busto e piccolo affondo
+  che portano il pugno più avanti possibile), quindi colpisce anche più lontano. Il
+  pannello di debug (Select) mostra come il gioco legge i controlli (qualsiasi
+  controller, pad 1 e 2, levetta, e per ogni robot pad, direzione e stato), per
+  capire il problema della croce del controller segnalato sul Pi.
+
 ## M21 — Menu "home" e giochi sospesi (M) — ✅ chiusa (2026-09-30)
 Decisione 2026-09-29: menu più pulito in stile console moderna (Nintendo Switch), per ora
 solo per la scelta dei giochi.
