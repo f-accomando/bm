@@ -175,8 +175,10 @@ viene scelta l'interfaccia tastiera, anche se il dispositivo usa i report con ID
 **SD.** All'avvio il kernel legge la prima partizione **FAT32** (o FAT16) della SD
 (quella da cui si avvia il Pi) e cerca i file **`.bm`** nella
 cartella `carts/` e nella radice. Nomi lunghi supportati. `make sdcard` mette in
-`dist/carts/` i giochi e le demo (`pong.bm`, `snake.bm`, `shooter.bm`, `astrowing.bm`, `hunt.bm`,
-`kitchen.bm`, `titan.bm`, `demo.bm`, `stress.bm`); `make image` li mette nell'immagine SD.
+`dist/carts/` i giochi (`pong.bm`, `snake.bm`, `shooter.bm`, `astrowing.bm`, `hunt.bm`,
+`kitchen.bm`, `titan.bm`, `texroom.bm`); `make image` li mette nell'immagine SD. La demo
+nativa e lo stress test non sono giochi: restano nel kernel (comando `n` del monitor,
+Stress test nella scheda Dev) e `make install` li toglie dalla SD.
 
 **Menu delle cartucce.** Mostra titolo e autore letti dalle cartucce (ordinate per
 titolo) e sotto il nome del file scelto. Su/giù per scegliere, Invio (o A) per giocare,

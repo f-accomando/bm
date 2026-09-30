@@ -991,7 +991,7 @@ def test_make_image(b, opts):
     q = Qemu(b("kernel.img"), ["-drive", f"if=sd,format=raw,file={img}"])
     try:
         out = q.expect(MENU, timeout=30).decode(errors="replace")
-        assert "FAT32, 63 MiB, label BM; 10 cartridges" in out, out
+        assert "FAT32, 63 MiB, label BM; 8 cartridges" in out, out
         time.sleep(0.5)
         seen = set()
         for _ in range(10):                    # right along the grid: each title in turn
@@ -1000,8 +1000,10 @@ def test_make_image(b, opts):
             q.send("d")
             time.sleep(0.3)
         screen = "\n".join(seen)
-        for title in ("Pong", "Snake", "Star Shooter", "Chaos Kitchen", "bm native demo"):
+        for title in ("Pong", "Snake", "Star Shooter", "Chaos Kitchen", "Texture Room"):
             assert title in screen, screen
+        for title in ("bm native demo", "bm stress test"):   # not games: in the kernel
+            assert title not in screen, screen
         q.send("q")
         q.expect(PROMPT)
         q.expect("> ")
@@ -1026,7 +1028,7 @@ def test_make_image(b, opts):
         q = Qemu(b("kernel.img"), ["-drive", f"if=sd,format=raw,file={os.path.join(tmp, 'bm-pi1.img')}"],
                  machine="raspi1ap")
         out = q.expect(MENU, timeout=30).decode(errors="replace")
-        assert "Raspberry Pi 1 A+" in out and "; 10 cartridges" in out, out
+        assert "Raspberry Pi 1 A+" in out and "; 8 cartridges" in out, out
     finally:
         q.close()
         shutil.rmtree(tmp, ignore_errors=True)
@@ -2321,7 +2323,11 @@ def test_menu_scroll(b, opts):
 def test_usb_hid_gamepad(b, opts):
     """Generic HID parser: QEMU's usb-tablet (report descriptor with 3
     buttons and absolute X/Y) is taken as a gamepad; button 1 = A."""
-    q = Qemu(b("kernel.img"), ["-device", "usb-tablet,port=1"])
+    tmp = tempfile.mkdtemp(prefix="bm-tablet-")
+    img = os.path.join(tmp, "sd.img")
+    mksd.build(img, [(b("demo.bm"), "carts/demo.bm")])
+    q = Qemu(b("kernel.img"), ["-drive", f"if=sd,format=raw,file={img}",
+                               "-device", "usb-tablet,port=1"])
     try:
         out = q.expect("cartridge menu", timeout=90).decode(errors="replace")
         assert "usb: gamepad 0627:0001 'QEMU USB Tablet'" in out, out
@@ -2339,6 +2345,7 @@ def test_usb_hid_gamepad(b, opts):
         q.expect("back to the monitor", timeout=10)
     finally:
         q.close()
+        shutil.rmtree(tmp, ignore_errors=True)
 
 
 GAMES = {                                  # cart -> text on its title screen

@@ -28,7 +28,6 @@
 #define MAX_CARTS   64
 #define PLAY_SECS   (24u * 3600u)
 
-extern const uint8_t bm_demo_cart[], bm_demo_cart_end[];
 extern const uint8_t bm_editor_cart[], bm_editor_cart_end[];
 
 typedef struct {
@@ -152,7 +151,8 @@ static void load_cover(cart_t *c)
 
 static void rescan(void)
 {
-    /* SD cartridges by title; the built-in ones only when the SD has none */
+    /* SD cartridges by title, then the SDK. The native demo built into
+     * the kernel is not a game of the menu (monitor `n`). */
     for (int i = 0; i < ncarts; i++)
         g16_sheet_free(&carts[i].cover);
     ncarts = 0;
@@ -162,17 +162,9 @@ static void rescan(void)
         qsort(carts, (size_t)ncarts, sizeof *carts, title_cmp);
     }
     nsd = ncarts;
-    if (!nsd)
-        add_builtin("demo.bm (built-in)", bm_demo_cart, bm_demo_cart_end);
     /* the editor always comes last (up from the first cartridge) */
-    if (ncarts < MAX_CARTS) {
-        cart_t *c = &carts[ncarts++];
-        memset(c, 0, sizeof *c);
-        strcpy(c->name, "editor (built-in)");
-        c->builtin = bm_editor_cart;
-        c->size = (uint32_t)(bm_editor_cart_end - bm_editor_cart);
-        read_header(c, bm_editor_cart, c->size);
-    }
+    if (ncarts < MAX_CARTS)
+        add_builtin("editor (built-in)", bm_editor_cart, bm_editor_cart_end);
     for (int i = 0; i < ncarts; i++) {
         cart_t *c = &carts[i];
         if (c->builtin)

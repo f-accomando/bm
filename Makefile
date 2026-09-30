@@ -186,8 +186,10 @@ firmware:
 # FAT32 boot partition contents. KERNEL=chainloader puts the serial loader on
 # the card instead of the kernel (flash it once, then use `make run-serial`).
 # Cartridges go to carts/ (the menu also looks in the root directory).
+# Only the games: the native demo and the stress test live in the kernel
+# (monitor `n`, the Stress test of the Dev tab), not in the Games tab.
 KERNEL ?= kernel
-SD_CARTS := $(GAME_CARTS) $(BUILD)/demo.bm $(BUILD)/stress.bm
+SD_CARTS := $(GAME_CARTS)
 sdcard: $(BUILD)/$(KERNEL).img $(SD_CARTS)
 	@test -f $(FW_DIR)/start.elf || { echo "Run 'make firmware' first"; exit 1; }
 	@mkdir -p $(DIST)/carts
@@ -242,7 +244,7 @@ install: sdcard
 	if [ -d $(SD)/$(OLD_DIR) ]; then $$S cp -rn $(SD)/$(OLD_DIR)/. $(SD)/bm/ && $$S rm -rf $(SD)/$(OLD_DIR) && \
 	    echo "moved $(OLD_DIR)/ (settings, saves, firmware) to bm/"; fi && \
 	$$S cp $(DIST)/bootcode.bin $(DIST)/start.elf $(DIST)/fixup.dat $(DIST)/config.txt $(DIST)/kernel.img $(SD)/ && \
-	$$S rm -f $(SD)/carts/demo.cart && \
+	$$S rm -f $(SD)/carts/demo.cart $(SD)/carts/demo.bm $(SD)/carts/stress.bm && \
 	$$S cp $(DIST)/carts/* $(SD)/carts/ && \
 	if [ -d $(DIST)/bm ]; then $$S cp $(DIST)/bm/* $(SD)/bm/; fi && \
 	sync && echo "installed on $(SD): kernel $$(git describe --always --dirty), carts, bm/ firmware" && \

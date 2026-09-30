@@ -1056,6 +1056,12 @@ della scheda Dev; Settings > System > Restart; le icone della barra (DS4 blu, ta
 bianca, tastiera Bluetooth blu, WiFi); la barra di scorrimento; L1 / R1 e Settings che si
 apre da sola; PS nel menu e nel monitor. I task 5–9 non sono stati fatti (milestone chiusa).
 
+Dopo la chiusura (decisione 2026-09-30): **bm native demo** e **bm stress test** non sono più
+nella scheda Games. Non vanno più sulla SD (`make sdcard` e `make image` mettono solo i giochi;
+`make install` toglie `carts/demo.bm` e `carts/stress.bm` dalla scheda) e il menu non mostra più
+la demo incorporata quando la SD non ha giochi (la scheda dice "nothing here yet"). Restano nel
+kernel: lo stress test nella scheda Dev, la demo col comando `n` del monitor.
+
 - **Fatto quando:** sul Pi, con il solo DS4, dal menu si raggiungono tutti i giochi,
   gli strumenti e le impostazioni (abbinare un secondo controller, collegare il WiFi,
   cambiare layout, riavviare); il menu resta a 60 fps; ogni funzione ha un test in
