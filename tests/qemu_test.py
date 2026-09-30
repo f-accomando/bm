@@ -1780,7 +1780,13 @@ def test_editor(b, opts):
         see("file name")
         k("\r")                                             # MYGAME.B33
         see("saved /carts/MYGAME.B33")
-        k("\x12", 3)                                        # Ctrl+R: try it
+        k("\x12", 1)                                        # Ctrl+R: try it
+        for _ in range(40):                                 # the game is on (slow hosts)
+            _, text = settled_screen(q, lambda i, t: True, tries=1)
+            if not any("saved /carts/MYGAME.B33" in l or "line 1/" in l for l in text):
+                break
+            time.sleep(0.25)
+        time.sleep(1)
         k("q")                                              # and back to the editor
         out = q.expect('b33: "New game"', timeout=20).decode(errors="replace")
         assert "stopped with an error" not in out, out

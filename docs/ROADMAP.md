@@ -611,10 +611,15 @@ Passi (2026-09-29):
    (SNTP di lwIP) stampata come `net: time ...`. Monitor `G`: scarica un indirizzo e
    mostra stato, dimensione, velocità e l'inizio. Test sul PC: `make test-http` (client
    HTTP contro un server Python locale) e `make test-net` (stream su lwIP).
-2. **HTTPS**: mbedTLS 3.6 LTS (Apache 2.0) sotto lo stesso trasporto; entropia dal
-   generatore hardware del BCM2835; certificati radice in `bm33/ca.pem` (quelli che
-   servono a GitHub e poco altro); verifica di nome e date (per questo l'ora). Test
-   sul PC contro un server TLS locale con una CA di prova.
+2. 🛠 (da provare sul Pi) **HTTPS**: mbedTLS 3.6.2 LTS (Apache 2.0, `third_party/mbedtls`,
+   41 sorgenti) sotto lo stesso trasporto (`src/net/tls.c`); configurazione
+   `src/net/bm33_mbedtls.h`: client TLS 1.2, ECDHE (P-256, P-384, X25519), AES-GCM e
+   ChaCha20-Poly1305, certificati RSA ed ECDSA; entropia dal generatore hardware del
+   BCM2835 (`src/drivers/rng.c`); 19 certificati radice in `bm33/ca.pem`
+   (`scripts/make-ca.sh`, dalla lista Mozilla: GitHub, Let's Encrypt, Google, Amazon,
+   DigiCert); verifica di catena, nome e date (aspetta l'ora SNTP). Kernel +150 KB.
+   Test sul PC: `make test-https` (certificati ECDSA e RSA, 1 MiB, chunked, redirect;
+   rifiuti per nome sbagliato, certificato scaduto, CA sconosciuta).
 3. **Release**: GitHub Actions costruisce `kernel.img` e le cartucce a ogni tag `v*`, le
    allega alla release con un manifesto (versione, SHA-256, firma ECDSA P-256 con una
    chiave nei secret del repository; la chiave pubblica è nel kernel).

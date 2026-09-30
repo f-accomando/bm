@@ -134,11 +134,15 @@ void _exit(int status)
     panic("exit(%d) called", status);
 }
 
+/* the date from the network (net.c, SNTP) when known: certificates need it */
+extern unsigned long net_time(void) __attribute__((weak));
+
 int _gettimeofday(struct timeval *tv, void *tz)
 {
     (void)tz;
     uint32_t us = timer_ticks();
-    tv->tv_sec = us / 1000000;
+    unsigned long wall = net_time ? net_time() : 0;
+    tv->tv_sec = wall ? (time_t)wall : (time_t)(us / 1000000);
     tv->tv_usec = us % 1000000;
     return 0;
 }

@@ -49,7 +49,7 @@ static const char help_text[] =
             "  P  Bluetooth: forget all paired pads (asks first)\n"
             "  W  WiFi: start, list the networks, join one (M18; saved in bm33/config.txt)\n"
             "     from the PC: tools/bm33_net.py IP (console, --send/--play a cart, --kernel)\n"
-            "  G  get a web address (http; https with M19.2): status, size, speed, start\n"
+            "  G  get a web address (http or https): status, size, speed, start\n"
             "  b  boot diagnostics: benchmarks, s32 and b33 demos, Lua boot script\n"
             "  k  CPU benchmark          p  rendering benchmark 640x360 RGB565\n"
             "  D  DMA test step by step (CPU against DMA timings)\n"
@@ -104,14 +104,14 @@ static void show_test_pattern(void)
 /* 'G': a GET, to try the network from the monitor (M19) */
 static void net_get_test(void)
 {
-    static char url[256] = "http://example.com/";
+    static char url[256] = "https://example.com/";
     kprintf("address (Enter: %s): ", url);
     char line[240];
     int n = input_read_line(line, sizeof line, 0);
     if (n < 0)
         return;
     if (n > 0)
-        snprintf(url, sizeof url, "%s%s", strstr(line, "://") ? "" : "http://", line);
+        snprintf(url, sizeof url, "%s%s", strstr(line, "://") ? "" : "https://", line);
     uint32_t t0 = timer_ticks();
     uint8_t *data;
     size_t len;

@@ -32,7 +32,8 @@ COMMON  := $(ARCH) -std=c11 -O2 -Wall -Wextra -g -Isrc \
            -DUART_BAUD=$(BAUD) $(BOOT_DEFS)
 # Kernel: hosted C on top of newlib (libc, libm), see src/lib/syscalls.c.
 CFLAGS  = $(COMMON) -D_DEFAULT_SOURCE -Ithird_party/lua \
-          -Ithird_party/lwip/src/include -Isrc/net $(WARN)
+          -Ithird_party/lwip/src/include -Isrc/net \
+          -Ithird_party/mbedtls/include -DMBEDTLS_CONFIG_FILE='"bm33_mbedtls.h"' $(WARN)
 # Chainloader: freestanding, no libc.
 LCFLAGS := $(COMMON) -Os -ffreestanding -fno-builtin -fno-tree-loop-distribute-patterns
 ASFLAGS := $(ARCH) -g -Isrc -Isrc/kernel -Wa,-I$(BUILD)
@@ -41,9 +42,10 @@ LDLIBS  := -Wl,--start-group -lc -lm -lgcc -Wl,--end-group
 LLDLIBS := -nostdlib -lgcc
 
 LUA_SRCS    := $(wildcard third_party/lua/*.c)
+MBEDTLS_SRCS := $(wildcard third_party/mbedtls/library/*.c)
 LWIP_SRCS   := $(wildcard third_party/lwip/src/core/*.c third_party/lwip/src/core/ipv4/*.c) \
                third_party/lwip/src/netif/ethernet.c third_party/lwip/src/apps/sntp/sntp.c
-KERNEL_SRCS := $(shell find src -name '*.c' -o -name '*.S') $(LUA_SRCS) $(LWIP_SRCS)
+KERNEL_SRCS := $(shell find src -name '*.c' -o -name '*.S') $(LUA_SRCS) $(LWIP_SRCS) $(MBEDTLS_SRCS)
 LOADER_SRCS := $(wildcard chainloader/*.S chainloader/*.c) \
                src/drivers/uart.c src/drivers/gpio.c src/drivers/mbox.c \
                src/drivers/prop.c src/drivers/timer.c src/drivers/led.c \
@@ -53,6 +55,7 @@ KERNEL_OBJS := $(patsubst %,$(BUILD)/k/%.o,$(KERNEL_SRCS))
 LOADER_OBJS := $(patsubst %,$(BUILD)/l/%.o,$(LOADER_SRCS))
 LUA_OBJS    := $(patsubst %,$(BUILD)/k/%.o,$(LUA_SRCS))
 LWIP_OBJS   := $(patsubst %,$(BUILD)/k/%.o,$(LWIP_SRCS))
+MBEDTLS_OBJS := $(patsubst %,$(BUILD)/k/%.o,$(MBEDTLS_SRCS))
 
 # The version string lives in one object, rebuilt when `git describe` changes.
 VERSION_STAMP := $(BUILD)/version.txt
@@ -64,7 +67,7 @@ $(BUILD)/k/src/kernel/version.c.o: CFLAGS += -DBM33_VERSION=\"$(VERSION)\"
 FORCE:
 
 # Third-party code: its own warning policy, not ours.
-$(LUA_OBJS) $(LWIP_OBJS): WARN := -w
+$(LUA_OBJS) $(LWIP_OBJS) $(MBEDTLS_OBJS): WARN := -w
 # Lua scripts embedded with .incbin
 $(BUILD)/k/src/script/embed.S.o: $(wildcard src/script/*.lua) spec/s32/conformance/demo.cart \
                                  $(BUILD)/demo.b33 $(BUILD)/stress.b33 $(BUILD)/editor.b33
@@ -144,7 +147,7 @@ test-titan: $(BUILD)/host/luahost $(BUILD)/titan/main.lua
 
 .DEFAULT_GOAL := all
 .PHONY: FORCE all clean firmware image sdcard install sdcard-chainloader sdcard-stress qemu qemu-screenshot \
-        run-serial test test-s32 test-s32-arm test-b33 test-usb test-audio test-fat test-kitchen test-titan test-net test-http disasm
+        run-serial test test-s32 test-s32-arm test-b33 test-usb test-audio test-fat test-kitchen test-titan test-net test-http test-https disasm
 
 all: $(BUILD)/kernel.img $(BUILD)/chainloader.img $(GAME_CARTS)
 
@@ -189,6 +192,7 @@ sdcard: $(BUILD)/$(KERNEL).img $(SD_CARTS)
 	cp boot/config.txt $(DIST)/
 	cp $(BUILD)/$(KERNEL).img $(DIST)/kernel.img
 	cp $(SD_CARTS) $(DIST)/carts/
+	mkdir -p $(DIST)/bm33 && cp boot/ca.pem $(DIST)/bm33/ca.pem
 	@if [ -f $(FW_DIR)/BCM43430A1.hcd ]; then mkdir -p $(DIST)/bm33 && \
 	    cp $(FW_DIR)/BCM43430A1.hcd $(DIST)/bm33/ && echo "cp BCM43430A1.hcd -> $(DIST)/bm33/"; fi
 	@for f in brcmfmac43430-sdio.bin brcmfmac43430-sdio.txt brcmfmac43430-sdio.clm_blob; do \
@@ -207,6 +211,7 @@ image: $(BUILD)/kernel.img $(SD_CARTS)
 	    $(FW_DIR)/fixup.dat=fixup.dat boot/config.txt=config.txt \
 	    $(BUILD)/kernel.img=kernel.img \
 	    $(foreach c,$(SD_CARTS),$(c)=carts/$(notdir $(c))) \
+	    boot/ca.pem=bm33/ca.pem \
 	    $(if $(wildcard $(FW_DIR)/BCM43430A1.hcd),$(FW_DIR)/BCM43430A1.hcd=bm33/BCM43430A1.hcd) \
 	    $(foreach f,$(wildcard $(FW_DIR)/brcmfmac43430-sdio.*),$(f)=bm33/$(notdir $(f)))
 
@@ -246,7 +251,7 @@ qemu: $(BUILD)/kernel.img
 qemu-screenshot: $(BUILD)/kernel.img
 	./scripts/qemu-screenshot.sh $< $(BUILD)/screen.png
 
-test: all test-s32 test-b33 test-usb test-fat test-audio test-kitchen test-titan test-net test-http
+test: all test-s32 test-b33 test-usb test-fat test-audio test-kitchen test-titan test-net test-http test-https
 	$(PYTHON) tests/qemu_test.py --build $(BUILD)
 
 $(BUILD)/host/test_b33: tests/b33/test_b33.c src/b33/gfx16.c src/b33/r3d.c src/b33/format.c src/lib/crc32.c src/b33/*.h
@@ -268,6 +273,19 @@ $(BUILD)/host/test_netcon: tests/net/test_netcon.c src/net/netcon.c src/net/netx
 	@mkdir -p $(dir $@)
 	$(HOSTCC) -O1 -w -DBM33_HOST_TEST -Isrc -Isrc/net -Ithird_party/lwip/src/include -o $@ \
 		tests/net/test_netcon.c src/net/netcon.c src/net/netxfer.c src/net/stream.c src/lib/crc32.c $(LWIP_SRCS)
+
+# HTTPS: http.c + tls.c + mbedTLS (the kernel's configuration) over POSIX
+# sockets, against local TLS servers with a test CA made by openssl
+test-https: $(BUILD)/host/test_https
+	$(PYTHON) tests/net/run_https_test.py $(BUILD)/host/test_https
+
+$(BUILD)/host/test_https: tests/net/test_https.c tests/net/stream_posix.c src/net/tls.c src/net/http.c \
+                          src/net/http_kernel.c src/net/*.h $(MBEDTLS_SRCS) boot/ca.pem
+	@mkdir -p $(dir $@)
+	$(HOSTCC) -O1 -w -DBM33_HOST_TEST -Isrc -Isrc/net -Ithird_party/mbedtls/include \
+		-DMBEDTLS_CONFIG_FILE='"bm33_mbedtls.h"' -DHTTP_USER_AGENT='"test"' -o $@ \
+		tests/net/test_https.c tests/net/stream_posix.c src/net/tls.c src/net/http.c \
+		src/net/http_kernel.c $(MBEDTLS_SRCS)
 
 # HTTP client over POSIX sockets, against a local Python server
 test-http: $(BUILD)/host/test_http

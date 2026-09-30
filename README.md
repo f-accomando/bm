@@ -267,6 +267,7 @@ generati da lua32 devono passare **byte per byte**:
 make test-s32        # core s32 compilato per il PC
 make test-net        # console di rete e stream su lwIP (interfaccia di loopback, sul PC)
 make test-http       # client HTTP contro un server Python locale
+make test-https      # HTTPS (mbedTLS) contro server TLS locali con una CA di prova
 make test-s32-arm    # stesso codice compilato per ARM1176, in qemu-arm
 scripts/sync-s32-spec.sh ../lua32   # aggiorna spec e vettori da lua32
 ```
@@ -442,6 +443,7 @@ src/script/lib_bm33.c    modulo Lua `bm33`
 src/script/boot.lua      script di avvio (incluso nell'immagine con .incbin)
 third_party/lua/         Lua 5.4.7 non modificato (licenza MIT)
 third_party/lwip/        lwIP 2.2.0, sottoinsieme non modificato (licenza BSD)
+third_party/mbedtls/     mbedTLS 3.6.2, sottoinsieme non modificato (licenza Apache 2.0)
 src/kernel/selftest.c    self-test di newlib
 src/arch/mmu.c           tabella delle sezioni da 1 MiB, attivazione MMU e cache
 src/arch/cache.c         clean/invalidate della D-cache per range (mailbox)
@@ -503,6 +505,8 @@ Componenti di terze parti, con la loro licenza (sezione 7 della licenza):
 
 - `third_party/lua/` — Lua 5.4.7, licenza MIT (`third_party/lua/LICENSE`);
 - `third_party/lwip/` — lwIP 2.2.0, licenza BSD a 3 clausole (`third_party/lwip/COPYING`);
+- `third_party/mbedtls/` — mbedTLS 3.6.2, licenza Apache 2.0 (`third_party/mbedtls/LICENSE`);
+- `boot/ca.pem` — certificati radice dalla lista Mozilla (`scripts/make-ca.sh`);
 - `src/gfx/font8x16.c` — font derivato da Terminus, SIL OFL (`docs/LICENSE.font`);
 - `spec/s32/` — specifica e vettori di conformità copiati dal progetto lua32;
 - firmware del Raspberry Pi (scaricato da `scripts/`, non incluso nel repository),
