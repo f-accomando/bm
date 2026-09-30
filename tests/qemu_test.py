@@ -997,8 +997,8 @@ def test_make_image(b, opts):
         time.sleep(0.5)
         seen = set()
         for _ in range(10):                    # right along the grid: each title in turn
-            _, text = settled_screen(q, lambda i, t: len(t) > 3 and t[3].strip() != "")
-            seen.add(text[3])
+            _, text = settled_screen(q, lambda i, t: len(t) > 4 and t[4].strip() != "")
+            seen.add(text[4])                  # the name of the chosen cover (row 4)
             q.send("d")
             time.sleep(0.3)
         screen = "\n".join(seen)
