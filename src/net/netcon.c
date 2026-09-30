@@ -83,6 +83,9 @@ static void got_byte(char c)
             if (strcmp(line, password) == 0) {
                 kprintf("\nnet: console opened from %s\n> ", ipaddr_ntoa(&client->remote_ip));
                 state = OPEN;                   /* from here kprintf goes to the client too */
+                /* the \n of the password's \r\n is no key: in the menu it
+                 * was an Enter and started the first game */
+                last_cr = c == '\r';
                 out_str("\r\nok - bm monitor, 'h' for help, Ctrl-Q to leave\r\n> ");
             } else if (++tries >= MAX_TRIES) {
                 out_str("\r\nwrong password, bye\r\n");

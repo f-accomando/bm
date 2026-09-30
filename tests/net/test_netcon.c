@@ -177,9 +177,10 @@ int main(void)
     check(!netcon_active(), "not logged in");
 
     a.len = 0; a.got[0] = 0;
-    send_str(&a, "secret\n");
+    send_str(&a, "secret\r\n");                     /* as bm_net.py sends it */
     check(strstr(a.got, "ok - ") != NULL, "right password accepted");
     check(netcon_active(), "logged in");
+    check(netcon_getc() < 0, "the \\n after the password is no key (it played a game in the menu)");
 
     kprintf("hello\nworld\n");
     spin(20);
