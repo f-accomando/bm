@@ -137,6 +137,18 @@ def read_glb(data):
     return js, bin_
 
 
+def glb_image(data):
+    """the PNG of the first image of a .glb (bm Studio: the sprite sheet), or None"""
+    js, bin_ = read_glb(data)
+    for img in js.get("images", []):
+        if "bufferView" in img:
+            bv = js["bufferViews"][img["bufferView"]]
+            png = bin_[bv.get("byteOffset", 0):bv.get("byteOffset", 0) + bv["byteLength"]]
+            if png[:8] == b"\x89PNG\r\n\x1a\n":
+                return png
+    return None
+
+
 def _accessor(js, bin_, i):
     a = js["accessors"][i]
     comps = {"SCALAR": 1, "VEC2": 2, "VEC3": 3, "VEC4": 4}[a["type"]]

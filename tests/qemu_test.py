@@ -2434,6 +2434,43 @@ def test_texroom(b, opts):
         q.close()
 
 
+def test_village(b, opts):
+    """Studio Village: the 3D models made with bm Studio (carts/village/
+    models.glb, packed by make with their sprite sheet) are drawn by the
+    console: grass, roof tiles and sky on screen, no Lua error."""
+    q = Qemu(b("kernel.img"))
+    try:
+        q.expect(MENU, timeout=30)
+        time.sleep(0.5)
+        with open(b("carts/village.bm"), "rb") as f:
+            assert _upload(q, f.read())
+        time.sleep(3)
+        for _ in range(10):
+            img = q.screendump()
+            w, h, px = img
+            cols = [tuple(px[(y * w + x) * 3:(y * w + x) * 3 + 3])
+                    for y in range(0, h, 4) for x in range(0, w, 4)]
+            grass = sum(g > 60 and g > r + 20 and g > b + 20 for r, g, b in cols)
+            roof = sum(r > 70 and r > 2 * g and r > 2 * b for r, g, b in cols)
+            sky = sum(b > 150 and b > r + 40 for r, g, b in cols)
+            if grass > 300 and roof > 20 and sky > 300:
+                break
+            time.sleep(0.5)
+        if opts.shots:
+            _save_png(img, os.path.join(opts.shots, "village.png"))
+        print(f"     village colours: grass {grass}, roof {roof}, sky {sky}, {len(set(cols))} distinct")
+        assert grass > 300 and roof > 20 and sky > 300, (grass, roof, sky)
+        assert len(set(cols)) > 100, len(set(cols))     # textures, not flat faces
+        q.send("x")                             # B: night
+        time.sleep(1)
+        q.send("q")
+        out = q.expect("update+draw", timeout=10).decode(errors="replace")
+        assert "stopped with an error" not in out, out
+        assert '"Studio Village"' in out, out[-300:]
+    finally:
+        q.close()
+
+
 def test_kitchen(b, opts):
     """M17: Chaos Kitchen boots, goes from the title through the lobby into a
     campaign kitchen and into the endless kitchen, plays with serial keys

@@ -11,7 +11,8 @@ sheet.png: 8-bit RGB or RGBA PNG (non-interlaced); size multiple of 8 recommende
            sheets of sprites become a fraction of the size.
 map.csv:   one row of comma-separated sprite indices per line (0 = empty).
 --models:  3D models for model(): a .glb exported by bm Studio (sdk/studio;
-           its texture is the sprite sheet) or the models of another .bm.
+           its texture is the sprite sheet, used as the sheet when there is
+           no --sheet) or the models of another .bm.
 Format: see src/bm/bm.h.
 """
 import argparse
@@ -24,8 +25,9 @@ import bmmesh
 SEC_LUA, SEC_SHEET, SEC_MAP, SEC_COVER, SEC_SHEET8, SEC_MESH = 1, 2, 3, 4, 5, 6
 
 
-def read_png(path):
-    data = open(path, "rb").read()
+def read_png(path, data=None):
+    if data is None:
+        data = open(path, "rb").read()
     if data[:8] != b"\x89PNG\r\n\x1a\n":
         raise SystemExit(f"{path}: not a PNG")
     pos, idat, w = 8, b"", None
@@ -202,6 +204,13 @@ def main():
     cover = make_cover(read_png(a.cover)) if a.cover else None
     mesh = None
     if a.models:
+        if not sheet and a.models.endswith(".glb"):
+            png = bmmesh.glb_image(open(a.models, "rb").read())
+            if png:
+                sheet = read_png(a.models, png)
+                w, h, rgba = sheet
+                colours = {bytes(rgba[i:i + 4]) if rgba[i + 3] >= 128 else b"" for i in range(0, len(rgba), 4)}
+                a.sheet8 = a.sheet8 or len(colours) <= 256     # smaller, as bm Studio saves it
         models, inset = bmmesh.models_from_file(a.models)
         inset = a.uv_inset if a.uv_inset is not None else (inset if inset is not None else 0.25)
         mesh = bmmesh.encode(models, inset)

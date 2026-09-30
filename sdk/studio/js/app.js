@@ -1275,6 +1275,7 @@ end</pre>
 
     updateStatus() {
       const m = this.model(), st = BM.modelStats(m);
+      $('#empty').classList.toggle('on', !m.faces.length && this.S.ws === '3d');
       let cls = '', note = '';
       if (st.verts > BM.LIMITS.verts) { cls = 'bad'; note = ` · too many corners: bm draws at most ${BM.LIMITS.verts}`; }
       else if (st.tris > BM.LIMITS.tris60) { cls = 'warn'; note = ' · heavy for 60 fps on the Pi'; }
