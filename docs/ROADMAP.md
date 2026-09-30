@@ -319,6 +319,12 @@ Fatto finora (da verificare sul Pi):
   0,87 ms / DMA 0,26 ms (3,4×: la CPU paga la lettura della SDRAM). `p` (prima di `D`,
   copia con la CPU): diretto 8,58 ms, via RAM 11,85 ms. Astro Wing: 59,9 fps,
   update+draw 6,34 ms di media (max 12,57), nessun blocco dopo RunFast.
+- Misure sul Pi (kernel `d143ce1`, 2026-09-30, WiFi collegato): `D` passa tutti i passi.
+  450 KiB RAM → RAM: CPU 3,78 ms, DMA 2,99 ms; riempimento RAM: CPU 1,01 ms, DMA 0,85 ms;
+  fascia di schermo: riempimento CPU 0,29 / DMA 0,23 ms, copia RAM → schermo CPU 1,15 ms /
+  DMA 0,245 ms (4,7×). Il DMA dà gli stessi tempi di `af8942d`; la copia verso lo schermo
+  fatta dalla CPU è più lenta (0,87 → 1,15 ms), da capire (clock, throttling o la rete
+  attiva: lo stress test `s` stampa clock e throttling).
 - **Gouraud** (2026-09-29): `draw3d(..., flag 4)` calcola la luce (direzionale e
   lampade) sui vertici, con le normali medie delle facce che li condividono, e la sfuma
   sulla faccia con un dithering ordinato 4×4 (niente bande del RGB565); vale anche per
