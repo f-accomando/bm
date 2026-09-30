@@ -269,7 +269,11 @@ def test_pager(b, opts):
         q.expect("> ", timeout=5)
         q.send("o")
         out = q.expect("-- lines 1-", timeout=5).decode(errors="replace")
-        assert "bm kernel" in out and "\x1b" not in out.split("bm kernel")[1][:40], out[-300:]
+        # the log has no colours: the banner's line is plain up to the reset
+        # the pager puts at the end of every line (not a fixed 40 characters:
+        # that depended on the length of the version)
+        line = out.split("bm kernel")[1].split("\r\n")[0] if "bm kernel" in out else "\x1b"
+        assert "\x1b" not in line.removesuffix("\x1b[0m"), out[-300:]
         q.send("\x1b")                       # Esc alone returns
         q.expect("> ", timeout=5)
         _, text = settled_screen(q, lambda i, t: any(l.startswith(">") for l in t))
