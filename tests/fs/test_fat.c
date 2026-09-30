@@ -152,6 +152,31 @@ int main(int argc, char **argv)
     CHECK(fat_write_file("/", "bad.name.txt", "x", 1) != 0);
     CHECK(fat_write_file("/nodir", "A.TXT", "x", 1) != 0);
 
+    /* deleting: every fourth save file, a long name, then files reuse the space */
+    fat_entry_t fe;
+    for (int i = 0; i < 200; i += 4) {
+        char path[40];
+        snprintf(path, sizeof path, "/bm33/save/F%07d.SAV", i);
+        CHECK(fat_delete(path) == 0);
+        CHECK(fat_find(path, &fe) != 0);
+    }
+    uint8_t *p1 = pattern(37, 101);
+    CHECK(read_back("/bm33/save/f0000001.sav", p1, 37));
+    free(p1);
+    CHECK(fat_find("/carts/Un gioco da cancellare.bm", &fe) == 0);
+    CHECK(fat_delete("/carts/un gioco da CANCELLARE.bm") == 0);
+    CHECK(fat_find("/carts/Un gioco da cancellare.bm", &fe) != 0);
+    CHECK(read_back(argv[3], orig, orig_len));
+    CHECK(fat_delete("/carts/Un gioco da cancellare.bm") != 0);    /* gone already */
+    CHECK(fat_delete("/bm33/save") != 0);                           /* a directory */
+    for (int i = 0; i < 10; i++) {
+        char name[16];
+        snprintf(name, sizeof name, "N%07d.SAV", i);
+        uint8_t *p = pattern(5000, (uint32_t)i + 9000);
+        CHECK(fat_write_file("/bm33/save", name, p, 5000) == 0);
+        free(p);
+    }
+
     /* for run.py: the last save file and the config, to compare with mtools */
     FILE *f = fopen("snake.expected", "wb");
     fwrite(last, 1, last_len, f);

@@ -19,6 +19,11 @@ Nel menu le copertine stanno in una griglia (schede **Games** e **Dev**); frecce
 muoversi, Invio (o A) per giocare. **Esc** (o Start+Select, o PS) torna al menu e lascia
 il gioco **sospeso**: la copertina mostra "Playing" e A lo riprende dal punto in cui era.
 Avviare un altro gioco chiede prima di chiudere quello sospeso.
+**X** su una copertina apre le sue opzioni (riprendi, chiudi, apri nell'SDK, informazioni,
+cancella il salvataggio, elimina dalla SD); la scheda **Dev** ha l'SDK e gli strumenti del
+monitor (Lua, sistema, registro, test, benchmark); **Settings**, a destra delle schede,
+ha controller, WiFi, layout della tastiera, disegno dei giochi e sistema (M27,
+BareMetal UI). Tutto si usa col solo controller.
 Per scrivere un gioco: [docs/GUIDA-GIOCHI.md](docs/GUIDA-GIOCHI.md) (guida pratica) e
 [docs/API.md](docs/API.md) (riferimento).
 
@@ -59,6 +64,7 @@ Prestazioni e scelte tecniche (limiti del Pi, atteso contro misurato): [docs/PRE
 | M24 | Scambio in rete locale tra console (P2P) | in coda |
 | M25 | Store su GitHub: catalogo, download verificati, pubblicazione dall'SDK | in coda |
 | M26 | Market a pagamento (servizio web, account, licenze) | in coda |
+| M27 | **BareMetal UI**: sottomenu, opzioni delle cartucce, strumenti nella scheda Dev, impostazioni | 🛠 task 1–4 fatti (QEMU) |
 
 ## Cosa fa il kernel
 
@@ -162,8 +168,9 @@ cartella `carts/` e nella radice. Nomi lunghi supportati. `make sdcard` mette in
 **Menu delle cartucce.** Mostra titolo e autore letti dalle cartucce (ordinate per
 titolo) e sotto il nome del file scelto. Su/giù per scegliere, Invio (o A) per giocare,
 Esc (o Start+Select) per tornare al menu dal gioco e dal menu al monitor; `R` rilegge la SD.
-Dalla seriale: w/s, Invio, q. Per aggiungere un gioco basta copiarlo in `carts/`
-sulla SD dal PC.
+X (tasto C sulla tastiera USB) apre le opzioni della cartuccia, B (tasto X) torna indietro
+nei pannelli. Dalla seriale: w/a/s/d, Invio, `x` opzioni, `3` impostazioni, q. Per
+aggiungere un gioco basta copiarlo in `carts/` sulla SD dal PC.
 
 **Scrittura (M11).** bm33 scrive solo nella cartella `bm33/` della SD:
 `bm33/config.txt` (layout della tastiera, modo di disegno; si può modificare anche dal
@@ -419,8 +426,10 @@ src/gfx/draw.c           primitive: clear, rect, sprite 16×16, testo
 src/usb/                 host USB DWC2 (DMA, polling), enumerazione, HID tastiera/gamepad/Xbox 360
 src/drivers/sd.c         SD: controller SDHOST (sdhost.c), ripiego sull'EMMC/Arasan (sd_emmc.c); PIO, lettura e scrittura
 src/wifi/                WiFi (M18): SDIO sul controller Arasan (GPIO34-39), comando W del monitor
-src/fs/fat.c             FAT16/FAT32 in sola lettura, nomi lunghi
-src/kernel/carts.c       elenco delle cartucce (incorporate + SD) e menu
+src/fs/fat.c             FAT16/FAT32: lettura con nomi lunghi, scrittura 8.3, cancellazione
+src/kernel/carts.c       elenco delle cartucce (incorporate + SD), menu e opzioni delle cartucce
+src/kernel/menu_ui.c     BareMetal UI: griglia, schede, pannelli, copertine degli strumenti
+src/kernel/home.c        strumenti della scheda Dev e pannelli delle impostazioni
 src/kernel/input.c       input unificato: seriale + tastiera/gamepad USB
 src/s32/                 macchina s32: CPU, PPU, loader .cart, player 320×224
 src/b33/                 cartucce native: formato, grafica RGB565 (gfx16), 3D software (r3d),

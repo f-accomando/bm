@@ -1,8 +1,9 @@
 /*
- * The graphical cartridge menu, in the style of a console home screen:
- * tabs at the top (Games, Dev), the covers in a grid that scrolls down,
- * moved through with the four directions; the background is the blurred
- * cover of the selected cartridge. 640x360 RGB565.
+ * BareMetal UI, the graphical home menu in the style of a console home
+ * screen: tabs at the top (Games, Dev) and a settings button, the covers
+ * in a grid that scrolls down, moved through with the four directions;
+ * the background is the blurred cover of the selected cartridge. Panels
+ * (submenus) open over the grid. 640x360 RGB565.
  */
 #ifndef MENU_UI_H
 #define MENU_UI_H
@@ -24,17 +25,43 @@ typedef struct {
 
 #define MENU_COLS 4             /* covers per row */
 
+/* A row of a panel (a submenu over the grid). */
+enum {
+    MENU_ROW_ACTION,            /* A does something */
+    MENU_ROW_SUB,               /* A opens another panel: "label  value >" */
+    MENU_ROW_CHOICE,            /* left/right (or A) change the value: "< value >" */
+    MENU_ROW_INFO,              /* only shows a value */
+};
+
+typedef struct {
+    const char *label;
+    const char *value;          /* on the right, or NULL */
+    int kind;
+} menu_row_t;
+
+#define MENU_PANEL_ROWS 6       /* rows visible at once; the list scrolls */
+
+typedef struct {
+    const char *title;          /* "Settings > Controllers" */
+    const menu_row_t *rows;
+    int n, sel, top;            /* top: first visible row */
+    const char *help;           /* under the rows: about the selected one */
+} menu_panel_t;
+
 typedef struct {
     const char *const *tabs;    /* tab names */
     int ntabs, tab;             /* current tab */
-    int on_tabs;                /* the focus is on the tab bar */
+    int on_tabs;                /* the focus is on the tab bar... */
+    int on_gear;                /* ...on the settings button at its right */
     const menu_item_t *items;   /* of the current tab */
     int n, sel;
     const char *pads;           /* "pads: 1 - - -" */
     const char *details;        /* line under the grid (path, size) */
     const char *note;           /* last game, errors */
-    const char *ask;            /* a question over the menu (A yes, B no), or NULL */
+    const menu_panel_t *panel;  /* a submenu over the grid, or NULL */
+    const char *ask;            /* a question over everything (A yes, B no), or NULL */
     const char *ask_detail;
+    const char *ask_yes;        /* the label of A ("Close it", "Delete") */
 } menu_view_t;
 
 /* Switches the screen to the menu mode; -1 if it cannot (the caller keeps
@@ -49,5 +76,14 @@ void menu_ui_close(framebuffer_t *fb);
 int  menu_make_cover(g16_sheet_t *s, const char *title, const char *kind);
 /* A cover from RGBA8888 pixels (the .bm COVER section). */
 int  menu_load_cover(g16_sheet_t *s, const uint8_t *rgba, int w, int h);
+
+/* The cover of a development tool: an icon drawn over a colour, the name
+ * under it. */
+enum {
+    MENU_ICON_TERMINAL, MENU_ICON_LUA, MENU_ICON_CHIP, MENU_ICON_LOG, MENU_ICON_PAD,
+    MENU_ICON_SOUND, MENU_ICON_GAUGE, MENU_ICON_TRIANGLES, MENU_ICON_FLAME,
+    MENU_ICON_ARROWS, MENU_ICON_PLAY, MENU_ICON_BARS, MENU_ICON_CHECK,
+};
+int  menu_make_tool_cover(g16_sheet_t *s, const char *title, int icon, uint32_t rgb);
 
 #endif

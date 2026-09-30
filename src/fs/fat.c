@@ -743,3 +743,55 @@ out:
     free(list);
     return rc;
 }
+
+int fat_delete(const char *path)
+{
+    if (!vol.mounted) {
+        err = "not mounted";
+        return -1;
+    }
+    const char *name = strrchr(path, '/');
+    char dir[FAT_NAME_MAX];
+    size_t dl = name ? (size_t)(name - path) : 0;
+    name = name ? name + 1 : path;
+    if (dl >= sizeof dir || !*name) {
+        err = "not a file path";
+        return -1;
+    }
+    memcpy(dir, path, dl);
+    dir[dl] = 0;
+    fat_dir_t d;
+    fat_entry_t e;
+    if (fat_opendir(&d, dl ? dir : "/"))
+        return -1;
+    for (;;) {
+        uint32_t start = d.index;
+        if (!fat_readdir(&d, &e)) {
+            err = "file not found";
+            return -1;
+        }
+        if (!name_eq(name, e.name, strlen(name)))
+            continue;
+        if (e.is_dir) {
+            err = "a directory";
+            return -1;
+        }
+        /* 1. the short entry, then the long name pieces right before it */
+        static const uint8_t gone = 0xE5;
+        if (fsinfo_unknown() || patch_sector(e.dir_lba, e.dir_off, &gone, 1))
+            return -1;
+        for (uint32_t i = d.index - 1; i-- > start;) {
+            uint32_t lba = dir_entry_lba(&d, i);
+            const uint8_t *s = lba ? sector(lba) : NULL;
+            if (!s)
+                return -1;
+            uint32_t off = (i % 16) * 32;
+            if (s[off + 11] != 0x0F || s[off] == 0xE5)
+                break;
+            if (patch_sector(lba, off, &gone, 1))
+                return -1;
+        }
+        /* 2. the data is released last: a power cut leaves lost clusters */
+        return e.cluster ? free_chain(e.cluster) : 0;
+    }
+}

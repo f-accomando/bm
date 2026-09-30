@@ -3,6 +3,7 @@
  */
 #include "carts.h"
 #include "crumbs.h"
+#include "home.h"
 #include "menu_ui.h"
 #include "b33/b33.h"
 #include "input.h"
@@ -43,6 +44,7 @@ typedef struct {
     fat_entry_t fe;
     g16_sheet_t cover;          /* printed on the card in the menu (px NULL: none) */
     char path[FAT_NAME_MAX + 10];
+    char save[32];              /* its save file (.bm), "" if none */
 } cart_t;
 
 static cart_t carts[MAX_CARTS];
@@ -80,6 +82,8 @@ static void read_header(cart_t *c, const uint8_t *h, uint32_t len)
         c->title[n] = 0;
         memcpy(c->author, h + aoff, alen < sizeof c->author - 1 ? alen : sizeof c->author - 1);
         c->author[sizeof c->author - 1] = 0;
+        if (toff == 24)                         /* as the runtime names it */
+            b33_save_path(c->title, c->author, c->save, sizeof c->save);
     }
     for (char *p = c->title; *p; p++)           /* the console font is CP437 */
         if ((unsigned char)*p < 32) *p = ' ';
@@ -278,18 +282,24 @@ void carts_play_buffer(framebuffer_t *fb, const uint8_t *data, size_t len)
 
 /* The editor, and the games it tries: when the editor asks to play a
  * file (cart_run), play it, then open the editor again on that file with
- * the error the game stopped with, if any. */
-void carts_editor(framebuffer_t *fb)
+ * the error the game stopped with, if any. `open`: a file to start on
+ * (the menu's "Open in the SDK"), or NULL. */
+static void editor_session(framebuffer_t *fb, const char *open)
 {
     char path[64] = "", err[512] = "";
+    int back = 0;
+    if (open)
+        ksnprintf(path, sizeof path, "%s", open);
     for (;;) {
         crumb("editor", NULL);
         b33_set_arg(path[0] ? path : NULL, err[0] ? err : NULL);
+        b33_set_arg_back(back);
         b33_stats_t st;
         b33_play(fb, b33_editor_cart, (size_t)(b33_editor_cart_end - b33_editor_cart), PLAY_SECS, &st);
         b33_set_arg(NULL, NULL);
         if (!b33_take_run(path, sizeof path))
             break;
+        back = 1;
         err[0] = 0;
         fat_entry_t e;
         uint8_t *data;
@@ -304,6 +314,11 @@ void carts_editor(framebuffer_t *fb)
         free(data);
         ksnprintf(err, sizeof err, "%s", b33_last_error());
     }
+}
+
+void carts_editor(framebuffer_t *fb)
+{
+    editor_session(fb, NULL);
 }
 
 static void play(framebuffer_t *fb, const cart_t *c)
@@ -405,8 +420,11 @@ static void draw(int sel, int top, int rows)
     out("\x1b[93m up/down choose   Enter/A play   Esc or Start+Select: monitor   R rescan SD\x1b[0m");
 }
 
+/* ---------------------------------------------------------------- BareMetal UI */
+
 /* The two tabs of the graphical menu: games, and the development tools
- * (the editor). `idx` gets the cartridge indices of tab `tab`. */
+ * (the SDK, then the tools of home.c). `idx` gets what tab `tab` shows: a
+ * cartridge index, or -1 - n for tool n. */
 static int is_dev(const cart_t *c)
 {
     return c->builtin == b33_editor_cart;
@@ -418,8 +436,127 @@ static int tab_items(int tab, int *idx)
     for (int i = 0; i < ncarts; i++)
         if (is_dev(&carts[i]) == (tab == 1))
             idx[n++] = i;
+    if (tab == 1)
+        for (int t = 0; t < home_tools() && n < MAX_CARTS + 16; t++)
+            idx[n++] = -1 - t;
     return n;
 }
+
+static int is_suspended(const cart_t *c)
+{
+    return susp_path[0] && strcmp(susp_path, c->path) == 0 && b33_suspended(NULL, 0);
+}
+
+/* The options of a cartridge (X on its cover): a panel like the settings. */
+enum { C_PLAY = 100, C_CLOSE, C_SDK, C_AUTHOR, C_FILE, C_SIZE, C_TYPE, C_SAVE,
+       C_DEL_SAVE, C_DELETE };
+
+static int opt_cart;            /* the cartridge of the HOME_CART panel */
+static long opt_save;           /* its save file: bytes, -1 if none */
+
+static long save_size(const cart_t *c)
+{
+    fat_entry_t e;
+    if (!sd_ok || !c->save[0] || fat_find(c->save, &e) != 0)
+        return -1;
+    return (long)e.size;
+}
+
+static void cart_panel(home_panel_t *p)
+{
+    const cart_t *c = &carts[opt_cart];
+    memset(p, 0, sizeof *p);
+    ksnprintf(p->title, sizeof p->title, "%s", c->title);
+    int susp = is_suspended(c);
+    home_row(p, MENU_ROW_ACTION, C_PLAY, susp ? "Resume" : "Play",
+             susp ? "Back to the point where the game was left" : "Start the game", NULL);
+    if (susp)
+        home_row(p, MENU_ROW_ACTION, C_CLOSE, "Close the game",
+                 "Ends the suspended game: what was not saved is lost", NULL);
+    if (c->kind == KIND_B33 && !c->builtin)
+        home_row(p, MENU_ROW_ACTION, C_SDK, "Open in the SDK",
+                 "Code, sprites and map of this cartridge", NULL);
+    home_row(p, MENU_ROW_INFO, C_AUTHOR, "Author", "From the cartridge header",
+             "%s", c->author[0] ? c->author : "-");
+    home_row(p, MENU_ROW_INFO, C_FILE, "File", c->builtin ? "Built into the kernel" : "On the SD card",
+             "%s", c->path);
+    home_row(p, MENU_ROW_INFO, C_SIZE, "Size", "The whole cartridge",
+             "%lu KiB", (c->size + 1023) / 1024);
+    home_row(p, MENU_ROW_INFO, C_TYPE, "Type", c->kind == KIND_B33 ? "Lua 5.4 on bm33" : "The s32 machine of lua32",
+             "%s", c->kind == KIND_B33 ? "bm (native)" : "s32 cart");
+    if (c->kind == KIND_B33) {
+        char v[24];
+        if (opt_save >= 0)
+            ksnprintf(v, sizeof v, "%ld bytes", opt_save);
+        else
+            ksnprintf(v, sizeof v, "none");
+        home_row(p, MENU_ROW_INFO, C_SAVE, "Save data", c->save[0] ? c->save : "-", "%s", v);
+    }
+    if (opt_save >= 0)
+        home_row(p, MENU_ROW_ACTION, C_DEL_SAVE, "Delete the save data",
+                 "Records and progress start again", NULL);
+    if (!c->builtin)
+        home_row(p, MENU_ROW_ACTION, C_DELETE, "Delete from the SD card",
+                 "Removes the file: it cannot be undone", NULL);
+}
+
+/* The rows of the options that stay in the menu (play and the SDK are
+ * started by the menu itself). */
+static void cart_act(int row, int how, home_do_t *d)
+{
+    cart_t *c = &carts[opt_cart];
+    memset(d, 0, sizeof *d);
+    d->what = HOME_STAY;
+    switch (row) {
+    case C_CLOSE:
+        b33_close_suspended();
+        susp_path[0] = 0;
+        ksnprintf(d->note, sizeof d->note, "closed %s", c->name);
+        break;
+    case C_DEL_SAVE:
+        if (how == 0) {
+            d->what = HOME_ASK;
+            ksnprintf(d->ask, sizeof d->ask, "Delete the save data?");
+            ksnprintf(d->ask_detail, sizeof d->ask_detail, "Records and progress start again.");
+            ksnprintf(d->ask_yes, sizeof d->ask_yes, "Delete");
+        } else if (how == HOME_YES) {
+            if (fat_delete(c->save) == 0)
+                ksnprintf(d->note, sizeof d->note, "save data deleted");
+            else
+                ksnprintf(d->note, sizeof d->note, "cannot delete %s: %s", c->save, fat_error());
+            kprintf("menu: %s\n", d->note);
+            opt_save = save_size(c);
+        }
+        break;
+    case C_DELETE:
+        if (how == 0) {
+            d->what = HOME_ASK;
+            ksnprintf(d->ask, sizeof d->ask, "Delete %s?", c->title);
+            ksnprintf(d->ask_detail, sizeof d->ask_detail, "The file leaves the SD card for good.");
+            ksnprintf(d->ask_yes, sizeof d->ask_yes, "Delete");
+        } else if (how == HOME_YES) {
+            if (is_suspended(c)) {
+                b33_close_suspended();
+                susp_path[0] = 0;
+            }
+            char path[sizeof c->path];
+            ksnprintf(path, sizeof path, "%s", c->path);
+            if (fat_delete(path) == 0) {
+                ksnprintf(d->note, sizeof d->note, "deleted %s", path);
+                d->what = HOME_BACK;
+            } else {
+                ksnprintf(d->note, sizeof d->note, "cannot delete %s: %s", path, fat_error());
+            }
+            kprintf("menu: %s\n", d->note);
+        }
+        break;
+    }
+}
+
+enum { ASK_NONE, ASK_SWITCH, ASK_PANEL };
+enum { GO_NONE, GO_PLAY, GO_SDK, GO_TEXT, GO_UPLOAD, GO_NETPLAY };
+
+#define DEPTH_MAX 4
 
 void carts_menu(framebuffer_t *fb)
 {
@@ -429,41 +566,84 @@ void carts_menu(framebuffer_t *fb)
     if (list_rows < 3)
         list_rows = 3;
     static const char *const tabs[] = { "Games", "Dev" };
-    int tab = 0, on_tabs = 0, tsel[2] = { 0, 0 };
+    int tab = 0, on_tabs = 0, on_gear = 0, tsel[2] = { 0, 0 };
     int sel = 0, top = 0, redraw = 1, esc = 0;
     uint32_t prev_btn = hid_buttons(), repeat_at = 0;
 
-    kprintf("\ncartridge menu: arrows or wasd, Enter plays, Tab changes tab, q returns to the monitor\n");
+    kprintf("\ncartridge menu: arrows or wasd, Enter plays, x options, 3 settings, Tab changes tab, q returns to the monitor\n");
     input_flush();
-    static menu_item_t items[MAX_CARTS];
-    static int idx[MAX_CARTS];
-    char pads[48], details[128], ask[64], susp_title[49];
-    int confirm = -1;                        /* cartridge waiting for "close the suspended one?" */
+    static menu_item_t items[MAX_CARTS + 16];
+    static int idx[MAX_CARTS + 16];
+    static home_panel_t pb;
+    struct { int id, sel, top; } stack[DEPTH_MAX];
+    int depth = 0, built = -1, frame = 0;
+    char pads[48], details[128], susp_title[49];
+    int ask = ASK_NONE, ask_cart = -1, ask_go = GO_NONE, ask_row = 0;
+    char ask_q[64] = "", ask_d[64] = "", ask_y[16] = "";
     int gfx = menu_ui_open(fb) == 0;         /* else the text menu */
+    if (gfx)
+        home_init();
     for (;;) {
         int n = tab_items(tab, idx);
         if (tsel[tab] >= n) tsel[tab] = n ? n - 1 : 0;
+        frame++;
+
+        /* the panel on top: rebuilt when it changes, and twice a second
+         * for the values that move (pads, uptime) */
+        menu_panel_t mp;
+        if (depth) {
+            int id = stack[depth - 1].id;
+            if (built != id || frame % 30 == 0) {
+                if (id == HOME_CART)
+                    cart_panel(&pb);
+                else
+                    home_panel(id, &pb);
+                built = id;
+            }
+            int *ps = &stack[depth - 1].sel, *pt = &stack[depth - 1].top;
+            if (*ps >= pb.n) *ps = pb.n ? pb.n - 1 : 0;
+            if (*ps < *pt) *pt = *ps;
+            if (*ps >= *pt + MENU_PANEL_ROWS) *pt = *ps - MENU_PANEL_ROWS + 1;
+            mp = (menu_panel_t){ pb.title, pb.rows, pb.n, *ps, *pt, pb.n ? pb.help[*ps] : NULL };
+        }
+
         if (gfx) {
             for (int i = 0; i < n; i++) {
+                if (idx[i] < 0) {
+                    int t = -1 - idx[i];
+                    items[i] = (menu_item_t){ home_tool_title(t), "", "", "tool", 0,
+                                              home_tool_cover(t), 0 };
+                    continue;
+                }
                 const cart_t *c = &carts[idx[i]];
                 items[i] = (menu_item_t){ c->title, c->author, c->path, c->kind == KIND_B33 ? "bm" : "s32",
-                                          c->size, c->cover.px ? &c->cover : NULL,
-                                          susp_path[0] && strcmp(susp_path, c->path) == 0 };
+                                          c->size, c->cover.px ? &c->cover : NULL, is_suspended(c) };
             }
             input_status(pads, sizeof pads);
             details[0] = 0;
-            if (n) {
+            if (n && idx[tsel[tab]] < 0) {
+                ksnprintf(details, sizeof details, "%s", home_tool_about(-1 - idx[tsel[tab]]));
+            } else if (n) {
                 const cart_t *c = &carts[idx[tsel[tab]]];
                 ksnprintf(details, sizeof details, "%s   %s   %lu KiB   %s",
                           c->author[0] ? c->author : "-", c->kind == KIND_B33 ? "bm" : "s32",
                           (c->size + 1023) / 1024, c->path);
             }
-            menu_view_t v = { tabs, 2, tab, on_tabs, items, n, tsel[tab], pads, details, last_msg,
-                              NULL, NULL };
-            if (confirm >= 0 && b33_suspended(susp_title, sizeof susp_title)) {
-                ksnprintf(ask, sizeof ask, "Close %s?", susp_title);
-                v.ask = ask;
+            menu_view_t v = {
+                .tabs = tabs, .ntabs = 2, .tab = tab, .on_tabs = on_tabs && !on_gear,
+                .on_gear = on_tabs && on_gear, .items = items, .n = n, .sel = tsel[tab],
+                .pads = pads, .details = details, .note = last_msg,
+                .panel = depth ? &mp : NULL,
+            };
+            if (ask == ASK_SWITCH && b33_suspended(susp_title, sizeof susp_title)) {
+                ksnprintf(ask_q, sizeof ask_q, "Close %s?", susp_title);
+                v.ask = ask_q;
                 v.ask_detail = "It is suspended: what was not saved is lost.";
+                v.ask_yes = "Close it";
+            } else if (ask == ASK_PANEL) {
+                v.ask = ask_q;
+                v.ask_detail = ask_d;
+                v.ask_yes = ask_y;
             }
             menu_ui_frame(fb, &v);
         } else {
@@ -475,7 +655,7 @@ void carts_menu(framebuffer_t *fb)
             }
         }
 
-        int dx = 0, dy = 0, action = 0, quit = 0, switch_tab = 0;
+        int dx = 0, dy = 0, action = 0, quit = 0, switch_tab = 0, back = 0, opts = 0, settings = 0;
 
         /* serial */
         for (int k; (k = input_remote_getc()) >= 0; ) {
@@ -500,6 +680,9 @@ void carts_menu(framebuffer_t *fb)
             case '\t': switch_tab = 1; break;
             case '1': switch_tab = tab == 0 ? 0 : 1; break;
             case '2': switch_tab = tab == 1 ? 0 : 1; break;
+            case '3': settings = 1; break;
+            case 'x': case 'X': opts = 1; break;
+            case 0x7F: case 0x08: back = 1; break;
             case '\r': case '\n': case ' ': action = 1; break;
             case 'q': case 'Q': quit = 1; break;
             case 'r': case 'R': action = 2; break;
@@ -526,6 +709,10 @@ void carts_menu(framebuffer_t *fb)
         if (dirs & HID_RIGHT) dx++;
         if ((pressed & (HID_A | HID_START)) && !(b & HID_SELECT))
             action = 1;
+        if (pressed & HID_B)
+            back = 1;
+        if (pressed & HID_X)
+            opts = 1;
         prev_btn = b;
         for (int k; (k = hid_getc()) >= 0;) {  /* text keys from the USB keyboard */
             if (k == 'r' || k == 'R')
@@ -534,37 +721,133 @@ void carts_menu(framebuffer_t *fb)
                 switch_tab = 1;
         }
 
-        if (confirm >= 0) {
-            /* A (Enter) closes the suspended game and starts the new one,
-             * B / q / Esc cancel */
-            int yes = action == 1, no = quit || (pressed & HID_B);
-            quit = 0;
+        int go = GO_NONE, go_cart = -1, go_wait = 0, leave = 0;
+        void (*go_text)(framebuffer_t *) = NULL;
+        home_do_t d;
+        d.what = -1;
+
+        if (ask != ASK_NONE) {
+            /* A (Enter) says yes, B / q / Esc cancel */
+            int yes = action == 1, no = quit || back;
+            quit = back = opts = settings = 0;
             action = 0;
             dx = dy = switch_tab = 0;
             if (no) {
-                confirm = -1;
-            } else if (yes) {
-                int target = confirm;
-                confirm = -1;
+                ask = ASK_NONE;
+            } else if (yes && ask == ASK_SWITCH) {
+                ask = ASK_NONE;
                 b33_close_suspended();
                 susp_path[0] = 0;
-                menu_ui_close(fb);
-                play(fb, &carts[target]);
-                input_flush();
-                prev_btn = hid_buttons();
-                on_tabs = 0;
-                gfx = menu_ui_open(fb) == 0;
+                go = ask_go;
+                go_cart = ask_cart;
+            } else if (yes && ask == ASK_PANEL) {
+                ask = ASK_NONE;
+                int id = stack[depth - 1].id;
+                if (id == HOME_CART)
+                    cart_act(ask_row, HOME_YES, &d);
+                else
+                    home_act(id, ask_row, HOME_YES, &d);
+            }
+        } else if (depth && gfx) {
+            /* a panel: up/down choose, A does, left/right change a value,
+             * B / Esc / q go back one level */
+            int *ps = &stack[depth - 1].sel, id = stack[depth - 1].id;
+            if (dy && pb.n)
+                *ps = (*ps + dy + pb.n) % pb.n;
+            const menu_row_t *r = pb.n ? &pb.rows[*ps] : NULL;
+            int row = pb.n ? pb.ids[*ps] : 0;
+            if (quit || back) {
+                depth--;
+                built = -1;
+            } else if (r && id == HOME_CART && action == 1 && (row == C_PLAY || row == C_SDK)) {
+                const cart_t *c = &carts[opt_cart];
+                int g = row == C_PLAY ? GO_PLAY : GO_SDK;
+                if (b33_suspended(NULL, 0) && !(g == GO_PLAY && is_suspended(c))) {
+                    ask = ASK_SWITCH;           /* another game is frozen: ask first */
+                    ask_go = g;
+                    ask_cart = opt_cart;
+                } else {
+                    go = g;
+                    go_cart = opt_cart;
+                }
+            } else if (r && ((action == 1 && r->kind != MENU_ROW_INFO) ||
+                             (dx && r->kind == MENU_ROW_CHOICE))) {
+                if (id == HOME_CART)
+                    cart_act(row, action == 1 ? 0 : dx, &d);
+                else
+                    home_act(id, row, action == 1 ? 0 : dx, &d);
+                ask_row = row;
+            }
+            quit = 0;
+            action = action >= 3 ? action : 0;
+            dx = dy = switch_tab = opts = settings = 0;
+        }
+
+        /* what a row asked for */
+        if (d.what >= 0) {
+            if (d.note[0])
+                ksnprintf(last_msg, sizeof last_msg, "%s", d.note);
+            built = -1;
+            switch (d.what) {
+            case HOME_OPEN:
+                if (depth < DEPTH_MAX) {
+                    stack[depth].id = d.panel;
+                    stack[depth].sel = stack[depth].top = 0;
+                    depth++;
+                }
+                break;
+            case HOME_BACK:
+                if (depth && stack[depth - 1].id == HOME_CART) {
+                    depth = 0;                  /* the cartridge is gone */
+                    rescan();
+                } else if (depth) {
+                    depth--;
+                }
+                break;
+            case HOME_ASK:
+                ask = ASK_PANEL;
+                ksnprintf(ask_q, sizeof ask_q, "%s", d.ask);
+                ksnprintf(ask_d, sizeof ask_d, "%s", d.ask_detail);
+                ksnprintf(ask_y, sizeof ask_y, "%s", d.ask_yes);
+                break;
+            case HOME_TEXT:
+                go = GO_TEXT;
+                go_text = d.text;
+                go_wait = d.wait;
+                break;
+            case HOME_MONITOR:
+                leave = 1;
+                break;
             }
         }
-        if (quit)
+
+        if (quit || leave)
             break;
-        if (gfx) {
-            if (switch_tab) {
+        if (gfx && !depth && ask == ASK_NONE) {
+            if (settings) {
+                stack[0].id = HOME_SETTINGS;
+                stack[0].sel = stack[0].top = 0;
+                depth = 1;
+                built = -1;
+            } else if (switch_tab) {
                 tab ^= 1;
+                on_gear = 0;
             } else if (on_tabs) {
-                /* left/right change tab, down goes back to the covers */
-                if (dx) tab ^= 1;
-                if (dy > 0) on_tabs = 0;
+                /* left/right: the tabs, then the settings button; down goes
+                 * back to the covers */
+                int f = on_gear ? 2 : tab;
+                f += dx;
+                f = f < 0 ? 0 : f > 2 ? 2 : f;
+                on_gear = f == 2;
+                if (!on_gear) tab = f;
+                if (dy > 0) on_tabs = on_gear = 0;
+                if (on_gear && action == 1) {
+                    action = 0;
+                    stack[0].id = HOME_SETTINGS;
+                    stack[0].sel = stack[0].top = 0;
+                    depth = 1;
+                    built = -1;
+                }
             } else if (n) {
                 int s_ = tsel[tab];
                 int row = s_ / MENU_COLS;
@@ -583,7 +866,16 @@ void carts_menu(framebuffer_t *fb)
             } else if (dy < 0) {
                 on_tabs = 1;
             }
-        } else if (dx || dy) {
+            /* X: the options of the highlighted cartridge */
+            if (opts && !on_gear && n && idx[tsel[tab]] >= 0) {
+                opt_cart = idx[tsel[tab]];
+                opt_save = save_size(&carts[opt_cart]);
+                stack[0].id = HOME_CART;
+                stack[0].sel = stack[0].top = 0;
+                depth = 1;
+                built = -1;
+            }
+        } else if (!gfx && (dx || dy)) {
             sel = ((sel + dx + dy) % ncarts + ncarts) % ncarts;
             redraw = 1;
         }
@@ -603,29 +895,73 @@ void carts_menu(framebuffer_t *fb)
         if (action == 2) {
             carts_init();
             if (sel >= ncarts) sel = 0;
+            depth = 0;                          /* indices changed */
+            ask = ASK_NONE;
             redraw = 1;
-        } else if (action >= 3 || (action == 1 && (!gfx || tab_items(tab, idx) > 0))) {
-            /* A plays the highlighted cartridge, also from the tab bar; if
-             * another one is suspended, ask first */
-            const cart_t *c = gfx ? &carts[idx[tsel[tab]]] : &carts[sel];
-            if (gfx && action == 1 && b33_suspended(NULL, 0) && strcmp(susp_path, c->path) != 0) {
-                confirm = (int)(c - carts);
-                continue;
+        } else if (action == 3) {
+            go = GO_UPLOAD;
+        } else if (action == 4) {
+            go = GO_NETPLAY;
+        } else if (action == 1 && !on_gear && (!gfx || n > 0)) {
+            /* A plays the highlighted cover, also from the tab bar; if
+             * another game is suspended, ask first */
+            int i = gfx ? idx[tsel[tab]] : sel;
+            if (i < 0) {
+                home_tool_start(-1 - i, &d);
+                if (d.what == HOME_MONITOR)
+                    break;
+                go = GO_TEXT;
+                go_text = d.text;
+                go_wait = d.wait;
+            } else if (gfx && b33_suspended(NULL, 0) && !is_suspended(&carts[i])) {
+                ask = ASK_SWITCH;
+                ask_go = GO_PLAY;
+                ask_cart = i;
+            } else {
+                go = GO_PLAY;
+                go_cart = i;
             }
+        }
+
+        if (go != GO_NONE) {
+            ask = ASK_NONE;
             if (gfx)
                 menu_ui_close(fb);
-            if (action == 3) {
+            switch (go) {
+            case GO_PLAY:
+                play(fb, &carts[go_cart]);
+                depth = 0;
+                break;
+            case GO_SDK:
+                b33_close_suspended();
+                susp_path[0] = 0;
+                editor_session(fb, carts[go_cart].path);
+                ksnprintf(last_msg, sizeof last_msg, "last: SDK on %s", carts[go_cart].name);
+                crumb("cartridge menu", NULL);
+                depth = 0;
+                rescan();                       /* it may have saved new files */
+                break;
+            case GO_TEXT:
+                go_text(fb);
+                if (go_wait)
+                    home_wait_back();
+                crumb("cartridge menu", NULL);
+                break;
+            case GO_UPLOAD:
                 upload_and_play(fb);
-            } else if (action == 4) {
+                depth = 0;
+                break;
+            case GO_NETPLAY:
                 carts_play_buffer(fb, net_buf, net_len);
                 free(net_buf);
-            } else {
-                play(fb, c);
+                depth = 0;
+                break;
             }
             input_flush();
             prev_btn = hid_buttons();
             redraw = 1;
-            on_tabs = 0;
+            on_tabs = on_gear = 0;
+            built = -1;
             if (gfx)
                 gfx = menu_ui_open(fb) == 0;
         }

@@ -73,5 +73,12 @@ void b33_set_dma_frames(int on);
 void b33_set_arg(const char *path, const char *error);
 int  b33_take_run(char *path, size_t n);
 const char *b33_last_error(void);
+/* cart_arg().back: the editor comes back from trying a game (1), or opens
+ * the file it was given from the menu (0). */
+void b33_set_arg_back(int back);
+
+/* The save file of a cartridge ("/bm33/save/1A2B3C4D.SAV", CRC-32 of its
+ * title and author as in the header). */
+void b33_save_path(const char *title, const char *author, char *out, size_t n);
 
 #endif

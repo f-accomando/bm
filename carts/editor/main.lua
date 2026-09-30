@@ -660,6 +660,8 @@ function _init()
       err_line = tonumber(a.error:match("main%.lua:(%d+):"))
       if err_line then cy, cx = math.min(err_line, #lines), 0; clamp_cursor() end
       say("the game stopped: see the line in red (Ctrl+G jumps there)", C_ERR, 400)
+    elseif a.back == false then
+      say("opened " .. a.path, C_ACC)
     else
       say("back from the game", C_ACC)
     end

@@ -9,6 +9,12 @@ char input_getc(void);
 
 /* Non-blocking: next key from serial or USB keyboard, or -1. */
 int input_key(void);
+/* For the tools opened from the menu, input_key also turns controller
+ * buttons into keys: B or Start is Esc; with INPUT_PAD_NAV (the pager) also
+ * up/down arrows, left/right PgUp/PgDn, A Enter. 0 turns it off. */
+#define INPUT_PAD_ESC 1
+#define INPUT_PAD_NAV 2
+void input_pad_keys(int mode);
 /* Keys typed on a remote terminal: the serial port or the network
  * console (bm33_net.py); -1 if none. Menus and games read them as text. */
 int input_remote_getc(void);

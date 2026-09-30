@@ -776,6 +776,176 @@ def test_suspend_resume(b, opts):
         shutil.rmtree(tmp, ignore_errors=True)
 
 
+SAVER_CART = r"""
+local n = 0
+function _init() save({ n = 1 }) log("saver start") end
+function _update() n = n + 1 end
+function _draw() cls(0x203040) print("frame " .. n, 8, 8, 0xFFFFFF) end
+"""
+
+
+def test_home_ui(b, opts):
+    """M27 (BareMetal UI): the options of a cartridge (X), with the save data
+    and the file deleted from the SD card (fsck clean); the settings (3)
+    and their submenus; the tools of the Dev tab on the text console and
+    back to the menu; the monitor as a tool."""
+    tmp = tempfile.mkdtemp(prefix="bm33-home-")
+    img = os.path.join(tmp, "sd.img")
+    saver = os.path.join(tmp, "saver.bm")
+    with open(saver, "wb") as f:
+        f.write(mkb33.pack(SAVER_CART.encode(), title="AAA saver", author="tests"))
+    victim = os.path.join(tmp, "victim.bm")
+    with open(victim, "wb") as f:
+        f.write(mkb33.pack(COUNTER_CART.encode(), title="BBB delete me"))
+    mksd.build(img, [(saver, "carts/saver.bm"), (victim, "carts/Un gioco da cancellare.bm")])
+    q = Qemu(b("kernel.img"), ["-drive", f"if=sd,format=raw,file={img}"])
+
+    def keys(k):
+        for c in k:
+            q.send(c)
+            time.sleep(0.25)
+
+    def screen(want):
+        _, text = settled_screen(q, lambda i, t: all(any(w in l for l in t) for w in want))
+        joined = "\n".join(text)
+        for w in want:
+            assert w in joined, f"{w!r} not on the screen:\n{joined}"
+        return joined
+
+    def shot(name):
+        if opts.shots:
+            _save_png(q.screendump(), os.path.join(opts.shots, f"home-{name}.png"))
+
+    try:
+        q.expect(MENU, timeout=30)
+        time.sleep(0.5)
+        screen(["Games", "Dev", "Settings", "AAA saver"])
+        shot("games")
+        keys("\r")                              # play: it saves, then Esc suspends it
+        q.expect("saver start", timeout=10)
+        time.sleep(0.5)
+        q.send("q")
+        q.expect('"AAA saver" suspended', timeout=10)
+        time.sleep(0.5)
+
+        # the options of the suspended game
+        keys("x")
+        screen(["AAA saver", "Resume", "Close the game", "Open in the SDK", "Author", "tests"])
+        shot("options")
+        keys("ww")                              # up from the first row: the last ones
+        screen(["Delete the save data", "Records and progress start again"])
+        keys("\r")
+        screen(["Delete the save data?", "Delete", "Cancel"])
+        shot("ask")
+        keys("\r")
+        q.expect("menu: save data deleted", timeout=10)
+        text = screen(["Save data", "none"])
+        assert "Delete the save data" not in text, text
+        keys("s")                               # back to the top, then Close the game
+        keys("s")
+        keys("\r")
+        q.expect('"AAA saver" closed, memory freed', timeout=10)
+
+        # Open in the SDK (now the second row): the editor opens that file
+        screen(["Play", "Open in the SDK"])
+        keys("\r")
+        screen(["opened /carts/saver.bm"])
+        shot("sdk")
+        q.send("\x1b")                          # code -> the editor's menu
+        screen(["Exit editor"])
+        q.send("\x1b[A")                        # up: Exit editor (one sequence)
+        time.sleep(0.3)
+        keys("\r")
+        screen(["Games", "AAA saver", "last: SDK on saver.bm"])
+
+        # the other cartridge leaves the SD card
+        keys("d")
+        keys("x")
+        screen(["BBB delete me", "Play", "/carts/Un gioco da cancellare.bm"])
+        keys("w")
+        screen(["Delete from the SD card"])
+        keys("\r")
+        screen(["Delete BBB delete me?", "leaves the SD card"])
+        keys("q")                               # no: nothing happens
+        time.sleep(0.5)
+        keys("\r")
+        screen(["Delete BBB delete me?"])
+        keys("\r")
+        q.expect("menu: deleted /carts/Un gioco da cancellare.bm", timeout=10)
+        text = screen(["AAA saver"])
+        assert "BBB" not in text, text
+
+        # settings: the keyboard layout changes and is saved; the submenus
+        keys("3")
+        screen(["Settings", "Controllers", "WiFi and network", "Keyboard layout", "System"])
+        shot("settings")
+        keys("ss")
+        before = "Italian" if "< Italian >" in screen(["< "]) else "US"
+        keys("d")
+        after = "US" if before == "Italian" else "Italian"
+        screen([f"< {after} >", "keyboard layout: "])
+        keys("\r")                              # A changes it too: back as it was
+        screen([f"< {before} >"])
+        keys("s")
+        keys("s")
+        keys("\r")
+        screen(["Settings > System", "Version", "SD card", "FAT32", "Restart"])
+        shot("system")
+        keys("q")
+        keys("wwww")                            # System -> Controllers
+        keys("\r")
+        screen(["Settings > Controllers", "Player 1", "keyboard / USB", "Pair a new controller"])
+        keys("q")
+        keys("s")
+        keys("\r")
+        screen(["Settings > WiFi and network", "Network", "none saved", "port 3333"])
+        keys("w")                               # the list scrolls to its last row
+        screen(["Connect to a network", "Connect at boot", "< On >"])
+        keys("q")
+        keys("q")
+        time.sleep(0.5)
+
+        # the Dev tab: a tool on the text console, then A goes back
+        keys("w")
+        keys("2")
+        keys("s")
+        screen(["bm33 SDK", "editor (built-in)"])
+        keys("d")                               # the covers' names are on pictures: the pill
+        screen(["Monitor", "the text console with every command"])
+        shot("dev")
+        keys("dd")
+        screen(["System", "board, clocks, memory"])
+        keys("\r")
+        q.expect("ARM clock", timeout=10)
+        q.expect("back to the menu", timeout=10)
+        time.sleep(0.5)
+        keys("\r")
+        screen(["Dev", "System", "board, clocks, memory"])
+        keys("aa")                              # the monitor, as a tool
+        keys("\r")
+        q.expect("back to the monitor", timeout=10)
+        q.expect("> ")
+    finally:
+        q.close()
+    try:
+        # the deleted file and the save data are gone, the card is clean
+        part = os.path.join(tmp, "part.img")
+        with open(img, "rb") as f, open(part, "wb") as o:
+            f.seek(2048 * 512)
+            o.write(f.read())
+        fsck = subprocess.run(["fsck.vfat", "-n", part], capture_output=True, text=True)
+        assert fsck.returncode == 0, fsck.stdout + fsck.stderr
+        env = dict(os.environ, MTOOLS_SKIP_CHECK="1")
+        carts = subprocess.run(["mdir", "-i", part, "::/CARTS"], capture_output=True,
+                               text=True, env=env).stdout
+        assert "saver" in carts.lower() and "cancellare" not in carts, carts
+        saves = subprocess.run(["mdir", "-i", part, "::/BM33/SAVE"], capture_output=True,
+                               text=True, env=env).stdout
+        assert not re.search(r"^[0-9A-F]{8}\s+SAV", saves, re.M), saves
+    finally:
+        shutil.rmtree(tmp, ignore_errors=True)
+
+
 def test_make_image(b, opts):
     """`make image` (with placeholder firmware files): the SD image boots to
     a menu with the demo games, and one of them runs from the card."""
@@ -1429,6 +1599,12 @@ def test_sd_sdhc_and_usb_menu(b, opts):
         out = q.expect("cartridge menu", timeout=90).decode(errors="replace")
         assert "sd: SDHC card (sdhost), FAT32, 4095 MiB, label BM33SD; 1 cartridges" in out, out
         time.sleep(1.0)
+        sendkeys(q, "c")                      # C is the X button: the options (M27)
+        _, text = settled_screen(q, lambda i, t: any("Author" in l for l in t))
+        assert any("Author" in l for l in text) and any("Play" in l for l in text), "\n".join(text)
+        sendkeys(q, "x")                      # X is the B button: back
+        _, text = settled_screen(q, lambda i, t: not any("Author" in l for l in t))
+        assert not any("Author" in l for l in text), "\n".join(text)
         sendkeys(q, "ret")
         q.expect("playing game.bm", timeout=10)
         time.sleep(1.5)

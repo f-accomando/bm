@@ -234,7 +234,7 @@ Pong, Snake e Star Shooter in `carts/` usano effetti e piccole melodie (una funz
 | `cart_load(percorso)` | apre un `.bm`: il suo sprite sheet e la sua mappa sostituiscono quelli della cartuccia che chiama; restituisce `{title, author, res, lua, sheet_w, sheet_h, map_w, map_h}` |
 | `cart_new()` | sprite sheet e mappa vuoti (256×256) |
 | `cart_save(percorso, {title, author, res, lua})` | scrive un `.bm` con il codice dato e lo sprite sheet, la mappa (e la copertina) correnti; nome 8.3, es. `"/carts/GIOCO.BM"` |
-| `cart_run(percorso)` | esce, gioca quel file e poi riapre la cartuccia che l'ha chiesto, con `cart_arg()` = `{path=, error=}` |
+| `cart_run(percorso)` | esce, gioca quel file e poi riapre la cartuccia che l'ha chiesto, con `cart_arg()` = `{path=, error=, back=true}` (dal menu, "Open in the SDK": `back=false`) |
 
 ### Luce
 

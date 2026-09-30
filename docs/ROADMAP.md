@@ -900,6 +900,86 @@ GitHub, M26 market a pagamento). Considerazioni iniziali del 2026-09-29.
 - **Fatto quando:** un gioco a pagamento si compra sul web e compare sulla console
   dell'account.
 
+## M27 — BareMetal UI (menu giochi/dev) (L) — in corso
+Decisione 2026-09-30: il menu home di M21 diventa **BareMetal UI**, l'interfaccia di
+sistema della console. Oltre alla scelta dei giochi ha sottomenu per le opzioni di ogni
+cartuccia, per gli strumenti di sviluppo e per le impostazioni. Tutto si raggiunge
+**col solo controller**, senza tastiera né seriale.
+
+Task:
+1. **Pannelli (sottomenu)**: la base comune.
+   - Un pannello sopra la griglia, con lo sfondo scurito.
+   - In alto il titolo con il percorso (`Settings > Controllers`).
+   - Righe con etichetta e valore, di quattro tipi: azione, sottomenu (`>`), scelta
+     (`< valore >`), informazione.
+   - La riga scelta è evidenziata, la lista scorre; in basso la spiegazione della riga.
+   - Una pila di sottomenu: B torna indietro di un livello.
+   - Comandi uguali da pad, tastiera USB, seriale e console di rete: su/giù, A o Invio,
+     B o Esc, sinistra/destra per cambiare un valore.
+   - Domande di conferma con il pulsante giusto ("Delete", "Restart").
+2. **Opzioni della cartuccia** (X sul pad, `x` dalla tastiera):
+   - gioca o riprendi, chiudi il gioco sospeso;
+   - informazioni: autore, file, dimensione, tipo, salvataggio;
+   - apri nell'SDK;
+   - cancella il salvataggio, elimina la cartuccia dalla SD, con conferma (FAT:
+     `fat_delete`, provato con `fsck.vfat`).
+3. **Scheda Dev piena**: oltre all'SDK, gli strumenti del monitor come copertine, con
+   icone disegnate in C: Monitor, Lua, Sistema, Registro, Test input, Test audio,
+   benchmark, stress test, test DMA, demo, test pattern, diagnostica.
+   - Si aprono in modalità testo; alla fine "A: torna al menu", anche dal pad.
+   - Registro e test pattern si usano anche col pad.
+4. **Impostazioni** (ingranaggio a destra delle schede):
+   - Controller: i 4 giocatori con indirizzo e stato, abbina un nuovo controller, prova
+     i tasti, dimentica tutti;
+   - WiFi: rete, IP, ora, console di rete (porta e PIN), connetti, connessione
+     all'avvio sì/no;
+   - disegno dei giochi `.bm` (diretto / via RAM), layout della tastiera (italiano / US);
+   - Sistema: versione, memoria, SD, tempo di accensione; riavvia; monitor.
+5. **Barra di stato e notifiche**:
+   - ora (SNTP, fuso orario nelle impostazioni), WiFi, pad nel colore del giocatore;
+   - notifiche che compaiono e spariscono ("Controller 2 connected", "Cartridge
+     received", "Save data deleted").
+6. **Suoni e animazioni del menu**: clic di navigazione, suono di avvio, copertina che
+   si ingrandisce; volume generale e suoni del menu nelle impostazioni.
+7. **Ordine e preferiti**: giocati di recente per primi, preferiti fissati in alto,
+   ordine per titolo o autore; salvati in `/bm33/menu.txt`.
+8. **Tastiera sullo schermo** (col pad), per password WiFi, nomi dei file e PIN. Poi WiFi
+   e abbinamento del tutto grafici (elenco delle reti con il segnale, avanzamento
+   dell'abbinamento), senza passare dalla console testuale.
+9. **Menu rapido nel gioco** (PS tenuto premuto), sopra il gioco congelato: riprendi,
+   torna alla home, chiudi il gioco, volume, controller.
+- Ordine: 1 → 2 → 3 → 4, poi 5–9.
+
+**Stato (2026-09-30): task 1–4 fatti in QEMU** (`test_home_ui`, `test_sd_sdhc_and_usb_menu`,
+`make test-fat`), da provare sul Pi.
+- Pannelli in `src/kernel/menu_ui.c`: sotto un pannello sfondo e copertine sono disegnati a
+  metà luminosità mentre si copiano dalla RAM, perché la memoria video (senza cache) non
+  va mai riletta. Impostazioni e strumenti in `src/kernel/home.c`, opzioni della
+  cartuccia in `src/kernel/carts.c`.
+- Comandi: X (tasto C sulla tastiera USB, `x` dalla seriale) apre le opzioni; B (tasto X,
+  Esc, `q`) torna indietro di un livello; `3` dalla seriale apre le impostazioni.
+- `fat_delete`: prima la voce della directory (anche i pezzi del nome lungo), poi i
+  cluster. Test sul PC: 50 file e un nome lungo cancellati, `fsck.vfat` pulito; una
+  versione che lascia il nome lungo viene scoperta dal test.
+- L'SDK aperto dal menu dice "opened /carts/...": `cart_arg().back` distingue il file
+  aperto dal ritorno da una prova.
+- Col pad: il registro scorre con su/giù (sinistra/destra: pagina) e B esce; il test
+  pattern si chiude con qualsiasi tasto; dopo gli strumenti "A: torna al menu".
+- Restano sulla console testuale: abbinamento (`T`), connessione WiFi (`W`, la password
+  si scrive con la tastiera USB), Lua. Diventano grafici con il task 8.
+
+Da provare sul Pi:
+- il menu resta a 60 fps anche con un pannello aperto;
+- col solo DS4: X su una copertina, cancellare un salvataggio, Settings > Controllers >
+  Pair a new controller con un secondo DS4;
+- scheda Dev: System, Log (col pad), Test pattern, Audio test;
+- Settings > System > Restart.
+
+- **Fatto quando:** sul Pi, con il solo DS4, dal menu si raggiungono tutti i giochi,
+  gli strumenti e le impostazioni (abbinare un secondo controller, collegare il WiFi,
+  cambiare layout, riavviare); il menu resta a 60 fps; ogni funzione ha un test in
+  QEMU.
+
 ## Rischi principali
 | Rischio | Mitigazione |
 |---------|-------------|
