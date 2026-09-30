@@ -560,7 +560,7 @@ static void status_icons(const menu_view_t *v)
     for (int i = 0; i < n; i++) {
         const icon_mask_t *m = icon_mask(icon[i], num[i]);
         if (m)                      /* white number for USB, blue for Bluetooth */
-            put_icon(m, x, y0, i >= players && v->net == MENU_NET_WIFI_WAIT ? C_DIM : C_TEXT,
+            put_icon(m, x, y0, i >= players && v->net_wait ? C_DIM : C_TEXT,
                      bt[i] ? C_BT : C_TEXT, bt[i] ? C_TEXT : C_BAR);
         x += ICON_W + (i + 1 == players ? net_gap : gap);
     }

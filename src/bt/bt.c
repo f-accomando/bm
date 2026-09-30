@@ -22,6 +22,7 @@
 #include "ble.h"
 #include "btuart.h"
 #include "hci.h"
+#include "drivers/board.h"
 #include "drivers/gpio.h"
 #include "drivers/mmio.h"
 #include "drivers/timer.h"
@@ -410,6 +411,11 @@ int bt_start(void)
 {
     if (bt.started)
         return 0;
+    if (!board()->wireless) {
+        /* moving the console UART would take the serial pins away */
+        kprintf("bt: no Bluetooth on the %s\n", board()->name);
+        return -1;
+    }
     kprintf("bt: the serial console moves to the mini UART (same pins, same speed)\n");
     uart_use_mini();
     kprintf("bt: 32 kHz clock %s\n", bcm43438_lpo_clock());

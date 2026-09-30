@@ -16,8 +16,8 @@ Lua 5.4 embedded. Documentazione: `README.md`, `docs/ROADMAP.md`, `docs/HARDWARE
 - Il progetto si chiama **bm** (BareMetal); cartucce `.bm`, cartella `bm/` sulla SD.
   Il vecchio nome sopravvive solo dove serve alla compatibilità (la cartella della SD e
   l'intestazione delle cartucce di prima, lette ancora; il tag di rete per i kernel
-  vecchi in `tools/bm_net.py`), nel nome del repository GitHub e nel file di canale
-  di lua32 (`s32-bm33.md`), che appartiene a lua32.
+  vecchi in `tools/bm_net.py`) e nel file di canale di lua32 (`s32-bm33.md`), che
+  appartiene a lua32. Il repository GitHub è `f-accomando/bm`.
 
 ## Compatibilità con s32 (lua32)
 

@@ -22,6 +22,7 @@
 #include "gfx/console.h"
 #include "lib/heap.h"
 #include "lib/printf.h"
+#include "drivers/board.h"
 #include "net/net.h"
 #include "script/repl.h"
 #include "usb/hid.h"
@@ -242,7 +243,7 @@ enum {
     R_CONTROLLERS = 1, R_WIFI, R_LAYOUT, R_DRAW, R_SYSTEM,
     R_PAD1, R_PAD2, R_PAD3, R_PAD4, R_KEYBOARD, R_PAIR, R_PAIR_KBD, R_TEST, R_FORGET,
     R_NETWORK, R_STATE, R_IP, R_TIME, R_CONSOLE, R_PASSWORD, R_CONNECT, R_BOOT,
-    R_VERSION, R_UPTIME, R_MEMORY, R_CLOCKS, R_SD, R_RESTART, R_MONITOR,
+    R_VERSION, R_BOARD, R_UPTIME, R_MEMORY, R_CLOCKS, R_SD, R_RESTART, R_MONITOR,
 };
 
 static int popcount(unsigned v)
@@ -269,9 +270,9 @@ void home_panel(int id, home_panel_t *p)
         home_row(p, MENU_ROW_SUB, R_CONTROLLERS, "Controllers",
                  "Pair Bluetooth controllers, test the buttons",
                  pads ? "%d connected" : "none connected", pads);
-        home_row(p, MENU_ROW_SUB, R_WIFI, "WiFi and network",
-                 "Network, address, network console",
-                 "%s", net_ip() ? net_ip_text() : wifi_linked() ? "connected" : "off");
+        home_row(p, MENU_ROW_SUB, R_WIFI, board()->wireless ? "WiFi and network" : "Network",
+                 "Link, address, network console", "%s",
+                 net_ip() ? net_ip_text() : net_link_kind() != NET_LINK_NONE ? "connected" : "off");
         home_row(p, MENU_ROW_CHOICE, R_LAYOUT, "Keyboard layout",
                  "Layout of the USB keyboard", "%s",
                  hid_layout()[0] == 'i' ? "Italian" : "US");
@@ -313,23 +314,33 @@ void home_panel(int id, home_panel_t *p)
         break;
     }
     case HOME_WIFI: {
-        ksnprintf(p->title, sizeof p->title, "Settings > WiFi and network");
+        /* the Pi Zero W has WiFi, the Pi 1 B / B+ an Ethernet port */
+        int wl = board()->wireless;
+        ksnprintf(p->title, sizeof p->title, "Settings > %s", wl ? "WiFi and network" : "Network");
         const char *ssid = config_get("wifi_ssid"), *pw = config_get("net_password");
-        home_row(p, MENU_ROW_INFO, R_NETWORK, "Network", "The saved network (bm/config.txt)",
-                 "%s", ssid && ssid[0] ? ssid : "none saved");
-        home_row(p, MENU_ROW_INFO, R_STATE, "State", "The link to the access point",
-                 "%s", wifi_linked() ? "connected" : "not connected");
+        if (wl) {
+            home_row(p, MENU_ROW_INFO, R_NETWORK, "Network", "The saved network (bm/config.txt)",
+                     "%s", ssid && ssid[0] ? ssid : "none saved");
+            home_row(p, MENU_ROW_INFO, R_STATE, "State", "The link to the access point",
+                     "%s", net_link_kind() == NET_LINK_WIFI ? "connected" : "not connected");
+        } else {
+            home_row(p, MENU_ROW_INFO, R_STATE, "Ethernet", "The cable to the router",
+                     "%s", net_link_kind() == NET_LINK_ETHERNET ? "connected" :
+                     board()->ethernet ? "no cable" : "none on this board");
+        }
         home_row(p, MENU_ROW_INFO, R_IP, "Address", "From the router (DHCP)", "%s", net_ip_text());
         home_row(p, MENU_ROW_INFO, R_TIME, "Time", "From the network (SNTP)", "%s", net_time_text());
         home_row(p, MENU_ROW_INFO, R_CONSOLE, "Network console",
                  "From the PC: tools/bm_net.py ADDRESS", "port 3333");
         home_row(p, MENU_ROW_INFO, R_PASSWORD, "Console password",
-                 "net_password in bm/config.txt", "%s", pw && pw[0] ? pw : "made when WiFi starts");
-        home_row(p, MENU_ROW_ACTION, R_CONNECT, "Connect to a network",
-                 "Lists the networks; the USB keyboard types the password", NULL);
-        home_row(p, MENU_ROW_CHOICE, R_BOOT, "Connect at boot",
-                 "Join the saved network when the console starts", "%s",
-                 wifi_at_boot() ? "On" : "Off");
+                 "net_password in bm/config.txt", "%s", pw && pw[0] ? pw : "made when the network starts");
+        if (wl) {
+            home_row(p, MENU_ROW_ACTION, R_CONNECT, "Connect to a network",
+                     "Lists the networks; the USB keyboard types the password", NULL);
+            home_row(p, MENU_ROW_CHOICE, R_BOOT, "Connect at boot",
+                     "Join the saved network when the console starts", "%s",
+                     wifi_at_boot() ? "On" : "Off");
+        }
         break;
     }
     case HOME_SYSTEM: {
@@ -339,6 +350,8 @@ void home_panel(int id, home_panel_t *p)
         uint32_t temp[2] = { 0, 0 };
         prop_query(PROP_GET_TEMPERATURE, temp, 2);
         home_row(p, MENU_ROW_INFO, R_VERSION, "Version", "The kernel build (git describe)", "%s", bm_version);
+        home_row(p, MENU_ROW_INFO, R_BOARD, "Board", "From the firmware's revision code",
+                 "Raspberry %s", board()->name);
         home_row(p, MENU_ROW_INFO, R_UPTIME, "Uptime", "Since the console was turned on",
                  "%02lu:%02lu:%02lu", s / 3600, s / 60 % 60, s % 60);
         home_row(p, MENU_ROW_INFO, R_MEMORY, "Memory in use", "The heap of the kernel and games",
@@ -388,7 +401,7 @@ static void x_connect(framebuffer_t *fb)
     (void)fb;
     heading("Connect to a network (B cancels)");
     input_pad_keys(INPUT_PAD_ESC);
-    if (wifi_start() == 0 && wifi_scan() > 0 && wifi_connect() == 0 && net_start() == 0)
+    if (wifi_start() == 0 && wifi_scan() > 0 && wifi_connect() == 0 && net_start(&net_wifi) == 0)
         net_wait_ip(15000);
     input_pad_keys(0);
 }

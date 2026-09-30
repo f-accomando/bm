@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 """
-bm network console: the monitor of a Pi running bm, over WiFi (M18.7).
+bm network console: the monitor of a Pi running bm, over WiFi (M18.7) or
+the Ethernet of a Pi 1 B / B+ (M29).
 Standard library only (Linux / macOS / WSL).
 
   bm_net.py 192.168.1.108             asks for the password

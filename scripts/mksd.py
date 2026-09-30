@@ -9,9 +9,20 @@ Needs mkfs.vfat (dosfstools) and mtools.
 """
 import argparse
 import os
+import shutil
 import struct
 import subprocess
+import sys
 import tempfile
+
+
+def tool(name):
+    # mkfs.vfat lives in /usr/sbin, which is not on every user's PATH
+    path = shutil.which(name) or shutil.which(name, path="/usr/sbin:/sbin")
+    if not path:
+        pkg = "dosfstools" if name.startswith("mkfs") else "mtools"
+        sys.exit(f"mksd.py: {name} not found: sudo apt install dosfstools mtools ({pkg})")
+    return path
 
 
 def build(out, files, size_mib=128, label="BMSD"):
@@ -23,7 +34,7 @@ def build(out, files, size_mib=128, label="BMSD"):
         with open(part, "wb") as f:
             f.truncate(part_sectors * 512)
         small = ["-s", "1"] if size_mib <= 256 else []   # FAT32 needs >= 65525 clusters
-        subprocess.run(["mkfs.vfat", "-F", "32", *small, "-n", label, part],
+        subprocess.run([tool("mkfs.vfat"), "-F", "32", *small, "-n", label, part],
                        check=True, stdout=subprocess.DEVNULL)
         env = dict(os.environ, MTOOLS_SKIP_CHECK="1")
         dirs = set()
@@ -33,9 +44,9 @@ def build(out, files, size_mib=128, label="BMSD"):
             for i in range(len(parts)):
                 sub = "/".join(parts[:i + 1])
                 if sub not in dirs:
-                    subprocess.run(["mmd", "-i", part, "::/" + sub], check=True, env=env)
+                    subprocess.run([tool("mmd"), "-i", part, "::/" + sub], check=True, env=env)
                     dirs.add(sub)
-            subprocess.run(["mcopy", "-i", part, src, "::/" + dest.strip("/")], check=True, env=env)
+            subprocess.run([tool("mcopy"), "-i", part, src, "::/" + dest.strip("/")], check=True, env=env)
         mbr = bytearray(512)
         entry = struct.pack("<B3sB3sII", 0x00, b"\xfe\xff\xff", 0x0C, b"\xfe\xff\xff",
                             start, part_sectors)

@@ -130,7 +130,8 @@ Priorità attuale: sviluppo della console bm; la parte s32 avanza al ritmo di lu
 - **Tastiera** HID (protocollo boot): layout italiano/US, ripetizione; monitor e REPL
   leggono da seriale o tastiera. **Gamepad HID** generici (analisi del descrittore) e
   **Xbox 360** cablati. Mappatura su `btn()` delle `.bm` e sui bit 0–4 di s32.
-- Esc o Start+Select escono dal gioco. Niente hub (decisione: un dispositivo alla volta),
+- Esc o Start+Select escono dal gioco. Niente hub (decisione: un dispositivo alla volta;
+  M29 aggiunge l'hub per il Pi 1 B, sempre con un solo dispositivo HID in uso),
   niente Bluetooth (BCM43438 condivide la UART della console; firmware + HCI: troppo costoso).
 - Pad su GPIO (fase A) non necessario per ora.
 - **Fatto quando:** una tastiera USB scrive nel REPL e un gamepad muove il giocatore
@@ -984,13 +985,13 @@ Task:
     primo giocatore senza pad).
   - Cerchio bianco con il numero scuro per USB (tastiera, gamepad), blu con il numero
     bianco per Bluetooth (DS4).
-  - Poi l'icona WiFi, se la console è collegata (grigia finché il router non dà
-    l'indirizzo), o quella Ethernet.
+  - Poi l'icona WiFi (Pi Zero W) o quella Ethernet (Pi 1 B / B+ col cavo, M29), se la
+    console è collegata; grigia finché il router non dà l'indirizzo.
   - Tutte nello stesso riquadro di 27×18 pixel (`src/kernel/icons.c`): forme disegnate
     all'avvio con antialiasing (4×4 campioni per pixel), bordi sui pixel interi.
-  - bm non ha ancora un'interfaccia Ethernet (il Pi Zero W non ha la porta, un
-    adattatore USB richiede il suo driver): `net_link()` è pronta a dirlo quando ci
-    sarà.
+  - `net_link_kind()` dice quale collegamento è attivo (unione con M29: l'Ethernet del
+    LAN9512); sul Pi 1 B il pannello Settings > Network mostra il cavo invece della rete
+    WiFi, e Settings > System la scheda.
   - Test: `bar_icons` conta le icone (3 pad col numero blu in `test_bt_two_pads`, la
     tastiera col numero bianco in `test_sd_sdhc_and_usb_menu`, nessuna in
     `test_home_ui`).
@@ -1049,6 +1050,61 @@ dopo lo spegnimento o il cambio di canale, insieme a un DS4.
 
 **Fatto quando:** la MX Keys S scrive nel monitor e nell'editor e si ricollega da sola.
 
+## M29 — Pi 1 B: hub USB ed Ethernet (L/XL) — 🛠 fatto, da provare sul Pi
+Nata come "M25" sul ramo `claude/charming-heisenberg-7e1xjh`; rinumerata M29 all'unione
+con il ramo principale, dove M25 era già lo Store su GitHub (seguito da M26–M28).
+Decisione 2026-09-30: **un solo `kernel.img`** per tutte le schede BCM2835 (Pi Zero / Zero W,
+Pi 1 A, B, A+, B+), che riconosce la scheda all'avvio; due immagini SD (`make image` per il
+Zero W, `make image-pi1` senza il firmware del chip WiFi/Bluetooth). Il firmware di avvio
+(`bootcode.bin`, `start.elf`, `fixup.dat`) è lo stesso per tutte; gli aggiornamenti di bm
+(M18 `--kernel`, M19 da GitHub) restano un solo file per entrambe le schede.
+- Sul Pi 1 B le due porte USB e l'Ethernet stanno dietro il **LAN9512** (hub USB 2.0
+  high speed + Ethernet 10/100; B+: LAN9514 con 4 porte): servono l'hub, le *split
+  transactions* (tastiere e pad low/full speed dietro un hub high speed) e un driver
+  Ethernet. Rispetto a M7b cambia solo che l'hub è supportato (anche sul Zero, con un hub
+  OTG); resta **un solo dispositivo HID** in uso (la tastiera se c'è, altrimenti un pad).
+- Il Pi 1 ha un ARM a 700 MHz (il Zero a 1 GHz): i giochi più pesanti possono scendere
+  sotto i 60 fps.
+- **Fatto quando:** sul Pi 1 B con il cavo di rete il Pi prende un IP dal router, dal PC
+  si apre la console di rete e si manda una cartuccia; una tastiera USB funziona nel menu.
+
+**Passi** (2026-09-30):
+1. ✅ (QEMU `raspi1ap`, test sul PC) **Scheda**: `src/drivers/board.c` decodifica il codice
+   di revisione (vecchio e nuovo formato). LED ACT: GPIO 16 attivo basso sul Pi 1 A/B,
+   GPIO 47 attivo alto su A+/B+, GPIO 47 attivo basso sul Zero. Sul Pi 1 WiFi e Bluetooth
+   non partono (`W` e `T` lo dicono; il Bluetooth sposterebbe la console seriale).
+   Il banner mostra la scheda: `bm kernel ... - Raspberry Pi 1 B rev 2.0 (BCM2835)`.
+   Test: `make test-usb` (codici di revisione), `test_pi1_board` in QEMU.
+2. ✅ (QEMU, hub full speed) **Hub USB** (`src/usb/usb.c`): se sulla porta radice c'è un
+   hub, si accendono le sue porte e ogni dispositivo collegato viene resettato ed
+   enumerato (indirizzi 2, 3, ...). Righe `usb: hub ...`, `usb: port N: ...`; il
+   dispositivo in uso dice `(hub port N)`. Test: `test_usb_hub` (tastiera e tablet dietro
+   un hub).
+3. 🛠 (da provare sul Pi) **Split transactions** (`src/usb/dwc2.c`): un pacchetto alla
+   volta, start split e complete split; per gli endpoint interrupt si seguono i
+   microframe (start split mai nel 6, complete split da Y+2, come USPi e Circle). La riga
+   dice `(hub port N, split)`. QEMU non ha un hub high speed: si prova sul Pi 1 B, oppure
+   sul Zero W con un hub USB 2.0 tra l'adattatore OTG e la tastiera.
+   Anche: un trasferimento interrotto a metà (NYET, errore) riprende dal pacchetto dove
+   si era fermato invece di ricominciare.
+4. 🛠 (test sul PC, da provare sul Pi) **Ethernet** (`src/usb/smsc95xx.c`, come il driver
+   smsc95xx di Linux): reset, indirizzo MAC dal firmware (`b8:27:eb:...`, la scheda non ha
+   EEPROM), un frame per trasferimento, lettura senza attese (con niente da ricevere il
+   chip risponde con un pacchetto vuoto), PHY in autonegoziazione, duplex del MAC come
+   quello del link. Monitor `E`: link, contatori, registri del chip.
+   Test: `make test-usb` (chip simulato: registri, PHY, frame).
+5. 🛠 (test sul PC, da provare sul Pi) **Rete sull'Ethernet**: `src/net/net.c` usa un
+   "percorso dati" (WiFi `wl` o Ethernet `en`). Se all'avvio c'è il LAN951x la rete
+   parte da sola; DHCP aspetta il link del cavo; togliendo e rimettendo il cavo l'indirizzo
+   resta. Console di rete, invio di file e kernel, HTTP (M18, M19) sono gli stessi.
+   Test: `make test-net` (lwIP + driver + chip simulato + un router finto: DHCP, ARP, ping).
+6. ✅ **Immagine SD per il Pi 1**: `make firmware && make image-pi1` → `dist/bm-pi1.img`.
+
+Da verificare sul Pi 1 B (tutto sullo schermo): riga `usb: port 1: Ethernet 0424:ec00 ...`
+con il MAC; `eth: link up, 100 Mbit/s full duplex` dopo qualche secondo col cavo;
+`net: IP ...`; `ping` dal PC; `tools/bm_net.py IP`; una tastiera su una porta USB
+(`usb: keyboard ... (hub port 2, split)`) che scrive nel menu e nei giochi.
+
 ## Rischi principali
 | Rischio | Mitigazione |
 |---------|-------------|
@@ -1058,6 +1114,7 @@ dopo lo spegnimento o il cambio di canale, insieme a un DS4.
 | Test solo su hardware | QEMU raspi0 in CI + chainloader via seriale |
 | Bluetooth (M12) senza emulatore | un solo controller di riferimento, tracce HCI registrate sul Pi per i test |
 | Scrittura su SD (M11) che corrompe la scheda | test in QEMU con `fsck.vfat`, file di bm in una cartella dedicata |
+| Split transactions e LAN951x (M29) senza emulatore | schema di USPi/Circle (provati sul Pi 1), chip simulato nei test sul PC, diagnostica a schermo (`y`, `E`) |
 
 ## Hardware consigliato per lo sviluppo
 - Adattatore USB-seriale 3.3 V (**non 5 V**) su GPIO14/15 + GND

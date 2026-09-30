@@ -50,7 +50,7 @@ typedef struct {
 
 /* What each player plays with, and the network, for the icons of the bar */
 enum { MENU_DEV_NONE, MENU_DEV_KEYBOARD, MENU_DEV_PAD };
-enum { MENU_NET_NONE, MENU_NET_WIFI_WAIT, MENU_NET_WIFI, MENU_NET_ETHERNET };
+enum { MENU_NET_NONE, MENU_NET_WIFI, MENU_NET_ETHERNET };
 
 typedef struct {
     const char *const *tabs;    /* tab names */
@@ -61,7 +61,8 @@ typedef struct {
     int n, sel;
     int dev[4];                 /* players 1-4: MENU_DEV_*, an icon with the number */
     unsigned bt;                /* bit p: player p+1 is on Bluetooth (a blue number) */
-    int net;                    /* MENU_NET_*: WiFi without an address yet is dimmed */
+    int net;                    /* MENU_NET_*: the link's icon... */
+    int net_wait;               /* ...dimmed while there is no address yet */
     const char *details;        /* line under the grid (path, size) */
     const char *note;           /* last game, errors */
     const menu_panel_t *panel;  /* a submenu over the grid, or NULL */

@@ -642,10 +642,10 @@ void carts_menu(framebuffer_t *fb)
                 if (d_ & INPUT_DEV_BLUETOOTH)
                     v.bt |= 1u << p;
             }
-            int link = net_link();
+            int link = net_link_kind();
             v.net = link == NET_LINK_ETHERNET ? MENU_NET_ETHERNET
-                  : link == NET_LINK_WIFI ? (net_ip() ? MENU_NET_WIFI : MENU_NET_WIFI_WAIT)
-                  : MENU_NET_NONE;
+                  : link == NET_LINK_WIFI ? MENU_NET_WIFI : MENU_NET_NONE;
+            v.net_wait = !net_ip();
             if (ask == ASK_SWITCH && bm_suspended(susp_title, sizeof susp_title)) {
                 ksnprintf(ask_q, sizeof ask_q, "Close %s?", susp_title);
                 v.ask = ask_q;

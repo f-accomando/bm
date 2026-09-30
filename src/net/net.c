@@ -1,12 +1,14 @@
 /*
- * lwIP on the WiFi chip: one Ethernet interface ("wl") whose frames go
- * through wifi_send / wifi_recv, NO_SYS and polled (net_poll from the
- * input loops). DHCP gives the address; the hostname is "bm".
+ * lwIP on one data path: an Ethernet interface whose frames go through
+ * the WiFi chip ("wl") or the Pi 1 B's LAN951x ("en"), NO_SYS and polled
+ * (net_poll from the input loops). DHCP gives the address; the hostname
+ * is "bm".
  */
 #include "net.h"
 #include "netcon.h"
 #include "netxfer.h"
 #include "wifi/wifi.h"
+#include "usb/smsc95xx.h"
 #include "drivers/timer.h"
 #include "lib/printf.h"
 
@@ -22,7 +24,11 @@
 #include <string.h>
 #include <time.h>
 
+const net_link_t net_wifi = { "wl", wifi_mac, wifi_linked, wifi_poll, wifi_recv, wifi_send, 0 };
+const net_link_t net_eth = { "en", eth_mac, eth_linked, eth_poll, eth_recv, eth_send, 1 };
+
 static struct netif nif;
+static const net_link_t *dp;           /* the data path in use */
 static int started;
 static uint32_t last_poll, shown_ip;
 static char ip_text[16] = "-";
@@ -48,15 +54,15 @@ static err_t link_output(struct netif *n, struct pbuf *p)
     if (p->tot_len > sizeof buf)
         return ERR_BUF;
     pbuf_copy_partial(p, buf, p->tot_len, 0);
-    return wifi_send(buf, p->tot_len) == 0 ? ERR_OK : ERR_IF;
+    return dp->send(buf, p->tot_len) == 0 ? ERR_OK : ERR_IF;
 }
 
-static err_t wl_init(struct netif *n)
+static err_t if_init(struct netif *n)
 {
-    n->name[0] = 'w';
-    n->name[1] = 'l';
+    n->name[0] = dp->name[0];
+    n->name[1] = dp->name[1];
     n->hwaddr_len = 6;
-    memcpy(n->hwaddr, wifi_mac(), 6);
+    memcpy(n->hwaddr, dp->mac(), 6);
     n->mtu = 1500;
     n->flags = NETIF_FLAG_BROADCAST | NETIF_FLAG_ETHARP | NETIF_FLAG_ETHERNET;
     n->output = etharp_output;
@@ -92,14 +98,19 @@ static void show_ip(void)
     }
 }
 
-int net_start(void)
+int net_start(const net_link_t *l)
 {
-    if (!wifi_linked())
+    if (started && l != dp) {
+        kprintf("net: already on the %s interface\n", dp->name);
         return -1;
+    }
+    if (!l->keeps_dhcp && !l->linked())
+        return -1;
+    dp = l;
     if (!started) {
         now_last = timer_ticks();
         lwip_init();
-        if (!netif_add(&nif, NULL, NULL, NULL, NULL, wl_init, ethernet_input)) {
+        if (!netif_add(&nif, NULL, NULL, NULL, NULL, if_init, ethernet_input)) {
             kprintf("\x1b[91mnet: interface not added\x1b[0m\n");
             return -1;
         }
@@ -109,17 +120,24 @@ int net_start(void)
         dhcp_release_and_stop(&nif);
     }
     netif_set_up(&nif);
-    netif_set_link_up(&nif);
-    kprintf("net: asking for an address (DHCP)...\n");
+    if (l->linked()) {
+        netif_set_link_up(&nif);
+        kprintf("net: asking for an address (DHCP)...\n");
+    } else {
+        netif_set_link_down(&nif);              /* DHCP starts with the link */
+        kprintf("net: asking for an address (DHCP) once the cable has a link...\n");
+    }
     return dhcp_start(&nif) == ERR_OK ? 0 : -1;
 }
 
 static void poll_now(void)
 {
     static uint8_t buf[1536];
-    wifi_poll();
+    dp->poll();
     int n;
-    while ((n = wifi_recv(buf, sizeof buf)) > 0) {
+    /* bounded: a busy network must not hold up a game's frame (the
+     * Ethernet takes every frame on the wire, lwIP picks ours) */
+    for (int i = 0; i < 32 && (n = dp->recv(buf, sizeof buf)) > 0; i++) {
         struct pbuf *p = pbuf_alloc(PBUF_RAW, (u16_t)n, PBUF_POOL);
         if (!p)
             break;
@@ -127,7 +145,14 @@ static void poll_now(void)
         if (nif.input(p, &nif) != ERR_OK)
             pbuf_free(p);
     }
-    if (!wifi_linked() && netif_is_link_up(&nif)) {
+    int up = dp->linked();
+    if (dp->keeps_dhcp) {
+        /* a cable: the lease stays, DHCP checks it when the link is back */
+        if (up && !netif_is_link_up(&nif))
+            netif_set_link_up(&nif);
+        else if (!up && netif_is_link_up(&nif))
+            netif_set_link_down(&nif);
+    } else if (!up && netif_is_link_up(&nif)) {
         dhcp_release_and_stop(&nif);
         netif_set_link_down(&nif);
         netif_set_down(&nif);
@@ -212,7 +237,9 @@ const char *net_ip_text(void)
     return ip_text;
 }
 
-int net_link(void)
+int net_link_kind(void)
 {
-    return wifi_linked() ? NET_LINK_WIFI : NET_LINK_NONE;
+    if (!started || !dp || !dp->linked())
+        return NET_LINK_NONE;
+    return dp == &net_eth ? NET_LINK_ETHERNET : NET_LINK_WIFI;
 }

@@ -39,15 +39,15 @@ def free_port():
 
 
 class Qemu:
-    def __init__(self, image, extra=(), mini_uart=False):
+    def __init__(self, image, extra=(), mini_uart=False, machine="raspi0"):
         """mini_uart: the second serial port (the mini UART, where the
         console goes when the PL011 is given to Bluetooth) on a socket too,
-        as self.mini."""
+        as self.mini. machine: raspi1ap is a Pi 1 A+ (same SoC)."""
         self.tmp = tempfile.mkdtemp(prefix="bm-")
         self.mon_path = os.path.join(self.tmp, "mon.sock")
         tcp, tcp2 = free_port(), free_port()
         self.proc = subprocess.Popen(
-            [QEMU, "-M", "raspi0", "-bios", image, "-display", "none",
+            [QEMU, "-M", machine, "-bios", image, "-display", "none",
              "-serial", f"tcp:127.0.0.1:{tcp},server=on,wait=on",
              "-serial", f"tcp:127.0.0.1:{tcp2},server=on,wait=on" if mini_uart else "null",
              "-monitor", f"unix:{self.mon_path},server=on,wait=off", *extra],
@@ -671,6 +671,68 @@ def test_usb_keyboard(b, opts):
         q.close()
 
 
+def test_usb_hub(b, opts):
+    """Devices behind a hub (the Pi 1 B's USB ports are all behind its
+    LAN951x): each port reset and enumerated; the keyboard wins over the
+    tablet (a gamepad) and types. QEMU's hub is full speed, so no split
+    transactions here: those need a high-speed hub (the LAN951x)."""
+    hub = ["-device", "usb-hub,port=1", "-device", "usb-kbd,port=1.2",
+           "-device", "usb-tablet,port=1.4"]
+    q = Qemu(b("kernel.img"), hub)
+    try:
+        out = q.expect(MENU, timeout=40)
+        assert b"usb: port 2: if0 class 03/01/01" in out, out
+        assert b"usb: port 4: if0 class 03/00/00" in out, out
+        assert b"usb: hub 0409:55aa, 8 ports, full speed" in out, out
+        assert (b"usb: keyboard 0627:0001 'QEMU USB Keyboard', full speed, layout it "
+                b"(hub port 2)") in out, out
+        time.sleep(0.5)
+        sendkeys(q, "esc")
+        q.expect(PROMPT, timeout=10)
+        q.expect("> ")
+        sendkeys(q, "l")
+        q.expect("lua> ", timeout=10)
+        sendkeys(q, "p r i n t shift-8 3 shift-bracket_right 4 shift-9 ret")
+        q.expect("\n12\r\n", timeout=10)
+        sendkeys(q, "esc")
+        q.expect("> ", timeout=10)
+        q.send("y")                             # scan again: same result
+        out = q.expect("(hub port 2)", timeout=20)
+        assert b"usb: hub 0409:55aa" in out, out
+    finally:
+        q.close()
+    # only the tablet behind the hub: it is the gamepad
+    q = Qemu(b("kernel.img"), ["-device", "usb-hub,port=1", "-device", "usb-tablet,port=1.3"])
+    try:
+        out = q.expect(MENU, timeout=40)
+        assert b"usb: gamepad 0627:0001 'QEMU USB Tablet', full speed (hub port 3)" in out, out
+    finally:
+        q.close()
+
+
+def test_pi1_board(b, opts):
+    """The same kernel on a Pi 1 (QEMU's raspi1ap, a Pi 1 A+): the board is
+    named, and WiFi, Bluetooth and Ethernet say they are not there."""
+    q = Qemu(b("kernel.img"), USB_KBD, machine="raspi1ap")
+    try:
+        out = q.boot()
+        assert b"kernel" in out and b"- Raspberry Pi 1 A+ (BCM2835)" in out, out
+        assert b"usb: keyboard 0627:0001" in out, out
+        q.send("W")
+        q.expect("wifi: no WiFi on the Pi 1 A+", timeout=10)
+        q.expect("> ")
+        q.send("T")
+        q.expect("bt: no Bluetooth on the Pi 1 A+", timeout=10)
+        q.expect("> ")
+        q.send("E")
+        q.expect("eth: no Ethernet controller", timeout=10)
+        q.expect("> ")
+        q.send("i")
+        q.expect("board revision : 00900021 (Raspberry Pi 1 A+)", timeout=10)
+    finally:
+        q.close()
+
+
 def test_wifi_probe(b, opts):
     """M18: the SD card is on SDHOST, so the Arasan controller goes to the
     WiFi pins. QEMU has no WiFi chip: 'W' must stop at CMD5 with a clear
@@ -916,8 +978,10 @@ def test_home_ui(b, opts):
         keys("s")
         keys("s")
         keys("\r")
-        screen(["Settings > System", "Version", "SD card", "FAT32", "Restart"])
+        screen(["Settings > System", "Version", "Board", "SD card", "FAT32"])
         shot("system")
+        keys("w")                               # the list scrolls to its last rows
+        screen(["Restart", "Open the monitor"])
         keys("q")
         keys("wwww")                            # System -> Controllers
         keys("\r")
@@ -1010,6 +1074,25 @@ def test_make_image(b, opts):
         q.send("f")
         out = q.expect('Star Shooter"\r\n').decode(errors="replace")
         assert "/carts/pong.bm" in out and "/carts/shooter.bm" in out, out
+        q.close()
+
+        # the Pi 1 image: same kernel and games, no WiFi/Bluetooth firmware
+        with open(os.path.join(fw, "BCM43430A1.hcd"), "wb") as f:
+            f.write(b"placeholder")
+        subprocess.run(["make", "-s", "-C", root, "image", "image-pi1", f"FW_DIR={fw}",
+                        f"DIST={tmp}", f"BUILD={os.path.abspath(b('.'))}"],
+                       check=True, stdout=subprocess.DEVNULL)
+        env = dict(os.environ, MTOOLS_SKIP_CHECK="1")
+        def ls(name):
+            return subprocess.run(["mdir", "-i", f"{os.path.join(tmp, name)}@@1M", "-b", "-/", "::"],
+                                  env=env, capture_output=True, text=True).stdout
+        assert "::/BM/BCM43430A1.HCD" in ls("bm.img").upper(), ls("bm.img")
+        pi1 = ls("bm-pi1.img")
+        assert "::/KERNEL.IMG" in pi1.upper() and "BCM43430A1" not in pi1.upper(), pi1
+        q = Qemu(b("kernel.img"), ["-drive", f"if=sd,format=raw,file={os.path.join(tmp, 'bm-pi1.img')}"],
+                 machine="raspi1ap")
+        out = q.expect(MENU, timeout=30).decode(errors="replace")
+        assert "Raspberry Pi 1 A+" in out and "; 11 cartridges" in out, out
     finally:
         q.close()
         shutil.rmtree(tmp, ignore_errors=True)

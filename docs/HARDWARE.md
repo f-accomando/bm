@@ -68,7 +68,7 @@ riempimento ~430 MB/s *(M)*).
 
 | Risorsa | Pi Zero W | s32 (spec) | bm oggi | Uso |
 |---|---|---|---|---|
-| USB | 1 × micro-USB OTG (USB 2.0, controller DWC) *(D)* | — | host DWC2: **1 dispositivo HID** (tastiera o gamepad), senza hub *(M7b)* | 1 porta |
+| USB | 1 × micro-USB OTG (USB 2.0, controller DWC) *(D)* | — | host DWC2: **1 dispositivo HID** (tastiera o gamepad) in uso, anche dietro un hub *(M7b, M29)* | 1 porta |
 | GPIO | header a 40 pin (28 GPIO, da saldare sul Zero W) *(D)* | — | GPIO14/15 UART, GPIO47 LED | 2 su 28 |
 | UART | PL011 + mini UART *(D)* | — | PL011 a 115200 baud, clock 48 MHz *(M)* | — |
 | Giocatori | limitati da USB/GPIO | **8** porte di input (5 bit usati: frecce + azione) *(S)* | — | — |
@@ -88,5 +88,20 @@ riempimento ~430 MB/s *(M)*).
   ottimizzabile).
 - **Non usati**: GPU 3D, DMA, USB, Wi-Fi/BT, fotocamera: tutto potenziale per il futuro
   (input USB in M7, DMA per l'audio in M10).
+
+## 7. Raspberry Pi 1 B / B+ (M29)
+
+Stesso SoC (BCM2835), stesso kernel; le differenze che contano per bm *(D)*:
+
+| Risorsa | Pi 1 B (rev 2.0) / B+ | Pi Zero W | bm |
+|---|---|---|---|
+| CPU | ARM1176 a **700 MHz** | 1 GHz | clock al massimo che il firmware consente |
+| RAM | 512 MiB (B rev 1.0: 256) | 512 MiB | letta dal firmware |
+| USB | 2 porte (B+: 4) dietro l'hub del **LAN9512** (B+: LAN9514), high speed | 1 OTG | hub + split transactions, 1 dispositivo HID in uso |
+| Rete | **Ethernet 10/100** (LAN951x, USB 0424:ec00, porta 1 dell'hub) | WiFi (BCM43438) | driver `smsc95xx.c`, lwIP come col WiFi |
+| Wi-Fi / Bluetooth | assenti | BCM43438 | `W` e `T` dicono che non ci sono |
+| LED ACT | GPIO 16 attivo basso (B+: GPIO 47 attivo alto) | GPIO 47 attivo basso | scelto dal codice di revisione |
+| Video | HDMI a grandezza piena (+ composito) | mini-HDMI | uguale |
+| SD | SD (B) / microSD (B+) | microSD | uguale (SDHOST) |
 
 Aggiornare questo documento quando cambiano le misure o l'implementazione.

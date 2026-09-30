@@ -5,6 +5,8 @@
 operativo, il kernel parte direttamente dalla SD. Le sue cartucce native hanno
 l'estensione **`.bm`**; impostazioni, salvataggi e firmware stanno nella cartella
 **`bm/`** della SD.
+Lo stesso kernel gira sul **Raspberry Pi 1** (A, B, A+, B+: stesso SoC), con l'Ethernet
+del Pi 1 B / B+ al posto del WiFi (M29, vedi [Raspberry Pi 1](#raspberry-pi-1-b-e-b-m29)).
 
 ## In breve: giocare
 
@@ -70,6 +72,7 @@ Risoluzioni di menu, console e giochi, e quanto costano: [docs/RISOLUZIONI.md](d
 | M26 | Market a pagamento (servizio web, account, licenze) | in coda |
 | M27 | **BareMetal UI**: sottomenu, opzioni delle cartucce, strumenti nella scheda Dev, impostazioni | 🛠 task 1–4 fatti (QEMU) |
 | M28 | Tastiera Bluetooth LE (MX Keys S): pairing con codice, HID over GATT, riconnessione | 🛠 da provare sul Pi |
+| M29 | **Pi 1 B**: stesso kernel, hub USB (split transactions), Ethernet LAN9512, immagine `bm-pi1.img` | 🛠 fatto (QEMU e test sul PC), da provare sul Pi |
 
 ## Cosa fa il kernel
 
@@ -108,7 +111,7 @@ Lua `boot.lua`) si esegue dal monitor con **`b`**.
 | `n` | gioca `demo.bm` (nativa): frecce/wasd, spazio = A, k/x = B, q o Esc = esci |
 | `M` | **menu delle cartucce** (SD; le demo incorporate se la SD non ne ha) |
 | `f` / `F` | elenca le cartucce / rilegge la SD |
-| `y` | USB: cerca di nuovo il dispositivo (dopo averlo collegato) |
+| `y` | USB: cerca di nuovo il dispositivo (dopo averlo collegato), anche dietro un hub |
 | `Y` | input: test USB dal vivo (contatori ok/nak/err e ultimo report), poi per 10 s i tasti tenuti da ogni giocatore (P1–P4; `*` = tastiera/seriale) |
 | `L` | layout tastiera: italiano ↔ US |
 | `D` | test del DMA passo per passo (copie e riempimenti, tempi CPU contro DMA) |
@@ -118,6 +121,7 @@ Lua `boot.lua`) si esegue dal monitor con **`b`**.
 | `P` | Bluetooth: **dimentica tutti i pad** abbinati (chiede conferma con `y`): chiavi tolte da `bm/config.txt`, pad scollegati; poi si riabbinano con `T` |
 | `o` | **log dell'avvio**: tutto quello che il kernel ha scritto dall'accensione (primi 64 KiB), a pagine |
 | `W` | WiFi (M18): accende il chip e lo identifica, un passo per riga |
+| `E` | Ethernet (Pi 1 B / B+, M29): link, contatori dei frame, registri del chip, indirizzo IP |
 | `p` | benchmark di rendering 640×360 RGB565, disegnando direttamente sullo schermo e via RAM |
 | `V` | cartucce `.bm`: disegno diretto sullo schermo (default) o via buffer in RAM |
 | `U` | riceve una cartuccia dalla seriale (`bm_load.py PORTA --cart file.bm`) e la esegue |
@@ -158,7 +162,7 @@ viene scelta l'interfaccia tastiera, anche se il dispositivo usa i report con ID
   successive il Bluetooth parte da solo (circa 3 s in più all'avvio per il firmware del
   chip) e basta premere **PS**: la luce del pad prende il colore del giocatore (1 blu,
   2 rosso, 3 verde, 4 rosa). Il menu mostra in alto a destra un'icona per ogni giocatore collegato (controller o tastiera,
-  con il numero del giocatore in un cerchio) e l'icona WiFi quando la console è in rete.
+  con il numero del giocatore in un cerchio) e l'icona WiFi o Ethernet quando la console è in rete.
   Stessi tasti del cavo USB; tastiera e gamepad USB sono il primo giocatore senza pad.
 - **DualShock 4 (PS4)** via cavo USB: croce direzionale o levetta sinistra,
   croce/quadrato = A, cerchio/triangolo = B, Options = Start, Share = Select,
@@ -412,6 +416,29 @@ Il modo più semplice è l'immagine completa: `make firmware && make image`, poi
    `bootcode.bin  start.elf  fixup.dat  config.txt  kernel.img  carts/`
 4. Collega l'HDMI (mini-HDMI) *prima* di alimentare il Pi.
 
+## Raspberry Pi 1 (B e B+, M29)
+
+Stesso kernel del Zero W: all'avvio riconosce la scheda (il banner dice per esempio
+`Raspberry Pi 1 B rev 2.0`). L'immagine per il Pi 1 è la stessa senza il firmware del
+chip WiFi/Bluetooth, che il Pi 1 non ha:
+
+```sh
+make firmware && make image-pi1   # dist/bm-pi1.img: scrivila sulla SD come bm.img
+```
+
+- **Rete**: col cavo Ethernet la rete parte da sola (DHCP appena il cavo ha il link);
+  l'IP compare sullo schermo e nella barra di stato, poi console di rete e invio di file
+  e kernel funzionano come col WiFi (`tools/bm_net.py IP`). `E` nel monitor mostra link,
+  contatori e registri del chip.
+- **USB**: le porte del Pi 1 B stanno dietro l'hub del LAN9512; tastiera o gamepad
+  vanno su una porta qualsiasi (uno alla volta in uso, la tastiera ha la precedenza).
+- **Non ci sono**: WiFi e Bluetooth (`W` e `T` lo dicono).
+- **LED**: sul Pi 1 B il LED ACT ("OK") è il GPIO 16; il kernel lo sceglie da solo.
+- **Prestazioni**: ARM a 700 MHz invece di 1 GHz; i giochi più pesanti possono scendere
+  sotto i 60 fps.
+- Il firmware di avvio (`make firmware`) e gli aggiornamenti di bm (`--kernel`, M19)
+  sono gli stessi per Zero W e Pi 1.
+
 ## Struttura
 
 ```
@@ -429,7 +456,8 @@ src/kernel/irq.c         controller IRQ BCM2835, registrazione e dispatch
 src/kernel/tick.c        tick di sistema (system timer compare 1)
 src/kernel/demo.c        demo animata a 60 fps
 src/gfx/draw.c           primitive: clear, rect, sprite 16×16, testo
-src/usb/                 host USB DWC2 (DMA, polling), enumerazione, HID tastiera/gamepad/Xbox 360
+src/usb/                 host USB DWC2 (DMA, polling, split transactions), enumerazione anche
+                         dietro un hub, HID tastiera/gamepad/Xbox 360, Ethernet LAN951x (smsc95xx.c)
 src/drivers/sd.c         SD: controller SDHOST (sdhost.c), ripiego sull'EMMC/Arasan (sd_emmc.c); PIO, lettura e scrittura
 src/wifi/                WiFi (M18): SDIO sul controller Arasan (GPIO34-39), comando W del monitor
 src/fs/fat.c             FAT16/FAT32: lettura con nomi lunghi, scrittura 8.3, cancellazione
@@ -467,12 +495,13 @@ src/arch/cache.c         clean/invalidate della D-cache per range (mailbox)
 src/gfx/console.c        console testuale: celle, scroll, cursore, ANSI, barra di stato
 src/gfx/font8x16.c       font 8×16 CP437 (derivato da Terminus, OFL: docs/LICENSE.font)
 src/drivers/             mmio, mailbox, prop tags, framebuffer, gpio, uart (PL011),
-                         timer, LED, watchdog
+                         timer, LED, watchdog, scheda (board.c: Zero, Zero W, Pi 1)
 src/lib/                 kprintf, crc32, syscalls newlib (_sbrk, _write, ...)
 chainloader/             bootloader seriale (si riloca a 0x02000000)
 tools/bm_load.py       invio del kernel + terminale seriale (solo stdlib Python)
-tools/bm_net.py        via WiFi: console (monitor), invio di cartucce e kernel (solo stdlib Python)
-tests/qemu_test.py       test end-to-end in QEMU (anche tastiera USB, gamepad HID, SD)
+tools/bm_net.py        via rete (WiFi o Ethernet): console (monitor), invio di cartucce e kernel (solo stdlib Python)
+tests/qemu_test.py       test end-to-end in QEMU (anche tastiera USB, hub, gamepad HID, SD, Pi 1 A+)
+tests/usb/, tests/net/   test sul PC: HID, scheda, Ethernet su un LAN9512 simulato, lwIP con DHCP
 tests/mksd.py            crea un'immagine SD (MBR + FAT32) per i test in QEMU
 scripts/                 download firmware, screenshot QEMU, conversione font (psf2c.py)
 ```
