@@ -978,8 +978,10 @@ def test_home_ui(b, opts):
         keys("s")
         keys("s")
         keys("\r")
-        screen(["Settings > System", "Version", "SD card", "FAT32", "Restart"])
+        screen(["Settings > System", "Version", "Board", "SD card", "FAT32"])
         shot("system")
+        keys("w")                               # the list scrolls to its last rows
+        screen(["Restart", "Open the monitor"])
         keys("q")
         keys("wwww")                            # System -> Controllers
         keys("\r")
@@ -1056,8 +1058,8 @@ def test_make_image(b, opts):
         time.sleep(0.5)
         seen = set()
         for _ in range(10):                    # right along the grid: each title in turn
-            _, text = settled_screen(q, lambda i, t: len(t) > 3 and t[3].strip() != "")
-            seen.add(text[3])
+            _, text = settled_screen(q, lambda i, t: len(t) > 4 and t[4].strip() != "")
+            seen.add(text[4])                  # the name of the chosen cover (row 4)
             q.send("d")
             time.sleep(0.3)
         screen = "\n".join(seen)
@@ -2011,7 +2013,7 @@ def test_bt_forget(b, opts):
         q.mini.write(b"P")
         _mini_expect(q, "y = yes")
         q.mini.write(b"y")
-        _mini_expect(q, "bt: 2 pads forgotten")
+        _mini_expect(q, "bt: 2 devices forgotten")
     finally:
         q.close()
     try:
