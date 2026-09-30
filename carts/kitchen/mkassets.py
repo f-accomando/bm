@@ -9,6 +9,8 @@ Sheet layout (the numbers used by src/41_hud.lua):
   the same chopped 32-54, symbols from 64 (see SYMBOLS below)
   8x8 badges at y = 64: chop boil fry bake blend tick cross fire
   32x32 chef portraits at y = 80: Basil, Bun, Noodle, Pepper
+  32x32 kitchen textures at x = 128 + 32 * i, y = 80 (i: KITCHEN_TEX below,
+  the order of Mesh.TEX in src/21_kitchen_mesh.lua)
   128x128 texture of each chef's 3D model at y = 128, side by side: copied
   from models/chefs.png (made by import_chefs.py)
 The ingredient colours are read from src/10_ingredients.lua.
@@ -586,6 +588,151 @@ def portrait(i):
     S.outline(0x1A1418)
 
 
+# ---------------------------------------------------------------- kitchen textures
+
+# 32x32 each, drawn with light from the top left; noise from a fixed seed
+import random
+_rnd = random.Random(17)
+
+
+def grain(c, k=0.08):
+    return shade(c, 1 + (_rnd.random() - 0.5) * 2 * k)
+
+
+def tex_wood_top():
+    """butcher block: wide strips of light wood, soft joints, fine grain"""
+    cols = [0xE2BC84, 0xD8B07A, 0xE6C28C, 0xDCB47E]
+    for y in range(32):
+        strip = y // 8
+        for x in range(32):
+            c = cols[strip % 4]
+            if y % 8 == 7:
+                c = shade(c, 0.9)                       # the joint between strips
+            elif (x * 3 + y * 7 + strip * 5) % 23 == 0:
+                c = shade(c, 0.94)                      # grain
+            S.set(x, y, grain(c, 0.025))
+    S.rect(0, 0, 32, 1, 0xF4DCB0)                       # the front edge catches light
+
+
+def tex_cabinet():
+    """the front of a counter: a door with a panel and a steel handle"""
+    S.rect(0, 0, 32, 32, 0xB08A62)
+    S.rect(0, 0, 32, 3, 0x8A6A48)                       # the shadow under the top
+    S.rect(2, 5, 28, 25, 0xC49C70)                      # the door
+    S.rect(2, 5, 28, 1, 0xDCB888)
+    S.rect(2, 29, 28, 1, 0x8A6A48)
+    S.rect(6, 9, 20, 17, 0xB89064)                      # the sunk panel
+    S.rect(6, 9, 20, 1, 0x9A7450)
+    S.rect(6, 25, 20, 1, 0xD8B080)
+    S.rect(12, 7, 8, 2, 0xD8DCE0)                       # the handle
+    S.rect(12, 8, 8, 1, 0x8A9098)
+    for y in range(32):
+        for x in range(32):
+            S.set(x, y, grain(rgb_int(S.get(x, y)), 0.04))
+
+
+def rgb_int(p):
+    return p[0] << 16 | p[1] << 8 | p[2]
+
+
+def tex_stove_top():
+    """dark steel with a burner: a ring and a cast-iron grate"""
+    for y in range(32):
+        for x in range(32):
+            S.set(x, y, grain(0x3A3E46 if (x + y) % 2 else 0x363A42, 0.04))
+    S.ellipse(16, 16, 12, 12, 0x24262C)
+    S.ellipse(16, 16, 10, 10, 0x2E3036)
+    S.ellipse(16, 16, 4, 4, 0x1C1C20)
+    for a in range(4):                                  # the grate's arms
+        ang = a * math.pi / 2 + math.pi / 4
+        S.line(16 + math.cos(ang) * 4, 16 + math.sin(ang) * 4,
+               16 + math.cos(ang) * 13, 16 + math.sin(ang) * 13, 0x101014, 2)
+    S.rect(0, 0, 32, 1, 0x5A5E66)
+
+
+def tex_stove_front():
+    """the front under the burner: two knobs and a vent"""
+    S.rect(0, 0, 32, 32, 0x4A4E58)
+    S.rect(0, 0, 32, 3, 0x30343A)
+    for kx in (9, 23):
+        S.circle(kx, 11, 4, 0x1E2026)
+        S.circle(kx, 10.5, 3, 0x9098A4)
+        S.line(kx, 8, kx, 11, 0x1E2026)
+    for i in range(4):                                  # the vent slots
+        S.rect(6, 19 + i * 3, 20, 1, 0x30343A)
+    S.rect(0, 31, 32, 1, 0x30343A)
+
+
+def tex_oven():
+    """a brick-red oven door with a glowing window and a handle"""
+    S.rect(0, 0, 32, 32, 0x8A4A3A)
+    S.rect(0, 0, 32, 3, 0x6A3628)
+    S.rect(3, 5, 26, 25, 0x9A5444)
+    S.rect(5, 7, 22, 2, 0xC8CCD2)                       # the handle
+    S.rect(5, 8, 22, 1, 0x7A8088)
+    S.rect(6, 12, 20, 14, 0x2A1E1A)                     # the window
+    for y in range(13, 25):
+        for x in range(7, 25):
+            t = 1 - abs(y - 21) / 10
+            S.set(x, y, mix(0x3A2418, 0xF08830, max(0, t) * 0.9))
+    S.rect(7, 13, 18, 1, 0x5A4034)
+    for i in range(3):                                  # the dials above
+        S.circle(9 + i * 7, 2, 1, 0xE0C080)
+
+
+def tex_crate():
+    """a crate's side: slats with nails"""
+    for y in range(32):
+        for x in range(32):
+            c = 0xB07A44 if (y // 8) % 2 else 0xA06A3A
+            if y % 8 == 7:
+                c = 0x5A3A1E
+            S.set(x, y, grain(c, 0.08))
+    for y in (3, 11, 19, 27):
+        S.set(3, y, 0x3A2A1E)
+        S.set(28, y, 0x3A2A1E)
+    S.rect(0, 0, 2, 32, 0x6A4424)
+    S.rect(30, 0, 2, 32, 0x6A4424)
+
+
+def tex_sink():
+    """a steel counter with a basin and the drain"""
+    for y in range(32):
+        for x in range(32):
+            S.set(x, y, grain(0xB8C4D0, 0.03))
+    S.rect(4, 5, 24, 22, 0x6A7A8C)                      # the basin's walls
+    S.rect(6, 7, 20, 18, 0x8698AC)                      # its floor
+    S.rect(6, 7, 20, 2, 0x5A6A7C)
+    S.circle(16, 17, 2, 0x3A4450)                       # the drain
+    S.rect(4, 5, 24, 1, 0x4A5A6A)
+    S.rect(0, 0, 32, 1, 0xE0E8F0)
+
+
+def tex_steel():
+    """brushed steel: long faint lines"""
+    for y in range(32):
+        for x in range(32):
+            c = 0xC8D0D8 if (y * 7 + x // 11) % 5 else 0xB8C0C8
+            S.set(x, y, grain(c, 0.02))
+    S.rect(0, 0, 32, 1, 0xF0F4F8)
+
+
+def tex_belt():
+    """a conveyor from above: rubber belt over rollers (runs along y)"""
+    for y in range(32):
+        for x in range(32):
+            c = 0x3A3E44
+            if y % 8 in (0, 1):
+                c = 0x2A2C30                           # the rubber's ribs
+            if x < 3 or x > 28:
+                c = 0x8A929C                            # the side rails
+            S.set(x, y, grain(c, 0.05))
+
+
+KITCHEN_TEX = [tex_wood_top, tex_cabinet, tex_stove_top, tex_stove_front, tex_oven,
+               tex_crate, tex_sink, tex_steel, tex_belt]
+
+
 # ---------------------------------------------------------------- cover
 
 def cover():
@@ -636,6 +783,9 @@ def main():
         mini(i, name)
     for i in range(4):
         portrait(i)
+    for i, fn in enumerate(KITCHEN_TEX):
+        S.cell(128 + 32 * i, 80, 32, 32)
+        fn()
     S.cell(0, 0, 0, 0)
     # the chefs' model textures
     tex = os.path.join(HERE, "models", "chefs.png")

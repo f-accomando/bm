@@ -509,6 +509,13 @@ Dopo: variazioni di lancio per cuoco.
   originali** (tutti alti circa 1 casella: Basil 0,92, Bun 1,00, Noodle 1,00, Pepper
   0,88), invece delle altezze dei vecchi chef a blocchi (1,35 / 1,05 / 1,65 / 0,92)
   imposte dall'import; texture e forme invariate (`import_chefs.py`).
+- **Restyling con texture mirate** (2026-09-30, dopo M14): piani dei banconi in legno,
+  ante sui fronti, fornelli in acciaio con griglia e manopole, sportello del forno con
+  la finestra accesa, casse a doghe, lavello con vasca, passe in acciaio, nastro a
+  rulli (9 texture 32×32 nel foglio in (128, 80), `mkassets.py`); pavimento e pareti
+  restano a tinta unita (costano meno) con uno zoccolo scuro alla base dei muri.
+  Opzione **KITCHEN: TEXTURED / FLAT** per tornare ai colori pieni se sul Pi non
+  bastano i 60 fps. Da misurare sul Pi.
 
 ## M18 — WiFi e console di rete (L/XL)
 Decisione 2026-09-28: versioni "leggere", in coda dopo M17.

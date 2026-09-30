@@ -907,7 +907,7 @@ local STAT_NAMES = {
   { "wasted", "food binned" },
 }
 local opt = { sel = 1 }
-local OPTS = { "MUSIC", "SOUND", "CHEFS", "ALL KITCHENS", "BACK" }
+local OPTS = { "MUSIC", "SOUND", "CHEFS", "KITCHEN", "ALL KITCHENS", "BACK" }
 
 screens.options = {
   enter = function() opt.sel = 1 end,
@@ -931,6 +931,10 @@ screens.options = {
       sd.classic_chefs = not sd.classic_chefs
       Mesh.use_chefs(sd.classic_chefs)
       Snd.ui_ok()
+    elseif flip and m == "KITCHEN" then
+      -- textures on counters and cookers, or plain colours (faster)
+      sd.flat_kitchen = not sd.flat_kitchen
+      Snd.ui_ok()
     elseif flip and m == "ALL KITCHENS" then
       G.all_open = not G.all_open
       Snd.ui_ok()
@@ -945,9 +949,10 @@ screens.options = {
     text_cs("OPTIONS", W / 2, 6, 0xFFD040, 2, 0x000000)
     local sd = Save.data
     local vals = { sd.music ~= false and "ON" or "OFF", sd.sound ~= false and "ON" or "OFF",
-                   sd.classic_chefs and "CLASSIC" or "MODELS", G.all_open and "OPEN" or "NORMAL", "" }
+                   sd.classic_chefs and "CLASSIC" or "MODELS", sd.flat_kitchen and "FLAT" or "TEXTURED",
+                   G.all_open and "OPEN" or "NORMAL", "" }
     for i, m in ipairs(OPTS) do
-      local y = 40 + (i - 1) * 26
+      local y = 38 + (i - 1) * 23
       local on = i == opt.sel
       panel(W / 2 - 150, y, 300, 22, on and 0xFFD040 or 0x302A3A, 0x000000)
       print(m, W / 2 - 140, y + 3, on and 0x301808 or 0xFFFFFF)
