@@ -322,6 +322,34 @@ press(2, 1); press(2, 3); press(2, 3); press(2, 4)
 run_frames(80)
 expect("fight")
 label = "2p fight"
+-- every direction, on each pad, as a numpad seen from its robot (6 =
+-- forwards): P1 faces right, P2 left
+local FF = T.Scr.screens.fight
+for _ = 1, 400 do if FF.m.phase == "fight" then break end frame() end
+assert(FF.m.phase == "fight", "2p: the fight starts")
+local L_, R_, U_, D_ = 1, 2, 4, 8
+local WANT = {
+  [1] = { [R_] = 6, [L_] = 4, [D_] = 2, [U_] = 8, [D_ | R_] = 3, [D_ | L_] = 1, [U_ | R_] = 9, [U_ | L_] = 7 },
+  [2] = { [R_] = 4, [L_] = 6, [D_] = 2, [U_] = 8, [D_ | R_] = 1, [D_ | L_] = 3, [U_ | R_] = 7, [U_ | L_] = 9 },
+}
+for p = 1, 2 do
+  for bits_, want in pairs(WANT[p]) do
+    held[p] = bits_
+    frame()
+    held[p] = 0
+    assert(FF.f[p].inp.dir == want, string.format("pad %d, buttons %d: direction %d, expected %d",
+                                                  p, bits_, FF.f[p].inp.dir, want))
+    run_frames(90)                          -- down from a jump
+  end
+  -- forwards walks towards the other robot
+  local f, o = FF.f[p], FF.f[3 - p]
+  local gap = math.abs(f.x - o.x)
+  held[p] = p == 1 and R_ or L_
+  run_frames(20)
+  held[p] = 0
+  assert(math.abs(f.x - o.x) < gap - 20, "pad " .. p .. ": forwards walks")
+  run_frames(30)
+end
 local m2 = fight_to_end({ 1, 2 })
 assert(m2.phase == "result", "the 2-player match ends")
 io.write(string.format("2P random: %d-%d\n", m2.wins[1], m2.wins[2]))

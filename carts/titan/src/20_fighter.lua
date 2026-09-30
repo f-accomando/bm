@@ -26,7 +26,9 @@ end
 
 -- the direction as on a numpad, seen from the fighter (6 = forwards)
 local function numpad(f, l, r, u, d)
-  local fwd, back = f.face > 0 and r or l, f.face > 0 and l or r
+  -- not `f.face > 0 and r or l`: with r false that gives l
+  local fwd, back = r, l
+  if f.face < 0 then fwd, back = l, r end
   if fwd and back then fwd, back = false, false end
   if d then return back and 1 or (fwd and 3 or 2) end
   if u then return back and 7 or (fwd and 9 or 8) end
