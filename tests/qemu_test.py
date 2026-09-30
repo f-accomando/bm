@@ -525,6 +525,29 @@ def test_s32_keys(b, opts):
 B33_COLOURS = [(248, 0, 0), (0, 252, 0), (0, 0, 248), (248, 252, 248)]
 
 
+def bar_icons(img):
+    """The status icons at the right of the menu bar (M27): the column
+    spans [x0, x1) with light pixels in rows 8-39, right of the tabs."""
+    runs, start = [], None
+    for x in range(330, 640):
+        lit = any(sum(pixel(img, x, y)) > 450 for y in range(8, 40))
+        if lit and start is None:
+            start = x
+        elif not lit and start is not None:
+            runs.append((start, x))
+            start = None
+    if start is not None:
+        runs.append((start, 640))
+    return runs
+
+
+def blue_number(img, span):
+    """The number disc of a status icon is blue (a Bluetooth controller)."""
+    return any(b > 200 and r < 80 and 90 < g < 160
+               for x in range(*span) for y in range(8, 40)
+               for r, g, b in [pixel(img, x, y)])
+
+
 def settled_screen(q, ok, tries=8):
     """QEMU shows page 0 even while it is being drawn (it ignores the
     virtual offset), so a screendump can catch a frame half drawn: retry
@@ -549,7 +572,7 @@ def test_b33_boot_demo(b, opts):
         time.sleep(3.0)
         img, text = settled_screen(q, lambda i, t: t[0].startswith("bm33 native") and "sprites" in t[-1])
         assert img[:2] == (640, 360), img[:2]
-        assert text[0].startswith("bm33 native .b33") and "fps" in text[0], text[0]
+        assert text[0].startswith("bm33 native .bm") and "fps" in text[0], text[0]
         assert "sprites" in text[-1] and "attract" in text[-1], text[-1]
         got = [pixel(img, 640 - 80 + i * 20 + 8, 8) for i in range(4)]
         assert got == B33_COLOURS, f"RGB565 colour check {got}"
@@ -716,7 +739,7 @@ def test_wifi_probe(b, opts):
     message, without hanging, and the SD card must still work afterwards."""
     tmp = tempfile.mkdtemp(prefix="bm33-wifi-")
     img = os.path.join(tmp, "sd.img")
-    mksd.build(img, [(b("demo.b33"), "carts/demo.b33")])
+    mksd.build(img, [(b("demo.bm"), "carts/demo.bm")])
     q = Qemu(b("kernel.img"), ["-drive", f"if=sd,format=raw,file={img}"])
     try:
         out = q.boot().decode(errors="replace")
@@ -726,7 +749,7 @@ def test_wifi_probe(b, opts):
         assert "wifi: power on (WL_REG_ON = GPIO41)" in out and "controller at 400 kHz" in out, out
         q.expect("> ", timeout=5)
         q.send("F")                              # the card is still readable
-        q.expect("demo.b33", timeout=10)
+        q.expect("demo.bm", timeout=10)
     finally:
         q.close()
         shutil.rmtree(tmp, ignore_errors=True)
@@ -735,7 +758,7 @@ def test_wifi_probe(b, opts):
 def test_sd_cartridges(b, opts):
     tmp = tempfile.mkdtemp(prefix="bm33-sd-")
     img = os.path.join(tmp, "sd.img")
-    mksd.build(img, [(b("demo.b33"), "Il mio gioco lungo.b33"),
+    mksd.build(img, [(b("demo.bm"), "Il mio gioco lungo.bm"),
                      (os.path.join(HERE, "..", "spec", "s32", "conformance", "demo.cart"),
                       "carts/demo2.cart"),
                      (os.path.join(HERE, "..", "README.md"), "README.md")])
@@ -745,14 +768,14 @@ def test_sd_cartridges(b, opts):
         assert "sd: SD card (sdhost), FAT32, 127 MiB, label BM33SD; 2 cartridges" in out, out
         q.send("f")
         out = q.expect("quadrato mobile\"\r\n").decode(errors="replace")
-        assert "Il mio gioco lungo.b33" in out and "/carts/demo2.cart" in out, out
+        assert "Il mio gioco lungo.bm" in out and "/carts/demo2.cart" in out, out
         q.expect("> ")
         q.send("M")
         q.expect("cartridge menu")
         time.sleep(0.5)
         _, text = settled_screen(q, lambda i, t: any("bm33 native demo" in l for l in t))
         screen = "\n".join(text)
-        for s_ in ("Games", "bm33 native demo", "/Il mio gioco lungo.b33"):
+        for s_ in ("Games", "bm33 native demo", "/Il mio gioco lungo.bm"):
             assert s_ in screen, screen
         q.send("d")                           # the next cover: its title and file
         _, text = settled_screen(q, lambda i, t: any("Demo - quadrato mobile" in l for l in t))
@@ -760,7 +783,7 @@ def test_sd_cartridges(b, opts):
         assert "Demo - quadrato mobile" in screen and "/carts/demo2.cart" in screen, screen
         q.send("a")
         q.send("\r")                          # SD cartridges come first, by title
-        q.expect("playing Il mio gioco lungo.b33", timeout=10)
+        q.expect("playing Il mio gioco lungo.bm", timeout=10)
         time.sleep(1.0)
         q.send("q")
         out = q.expect("update+draw", timeout=15).decode(errors="replace")
@@ -797,10 +820,10 @@ def test_suspend_resume(b, opts):
     cartridge asks first (B keeps it, A closes it and frees the memory)."""
     tmp = tempfile.mkdtemp(prefix="bm33-susp-")
     img = os.path.join(tmp, "sd.img")
-    cart = os.path.join(tmp, "counter.b33")
+    cart = os.path.join(tmp, "counter.bm")
     with open(cart, "wb") as f:
         f.write(mkb33.pack(COUNTER_CART.encode(), title="AAA counter"))
-    mksd.build(img, [(cart, "carts/counter.b33"), (b("demo.b33"), "carts/zdemo.b33")])
+    mksd.build(img, [(cart, "carts/counter.bm"), (b("demo.bm"), "carts/zdemo.bm")])
     q = Qemu(b("kernel.img"), ["-drive", f"if=sd,format=raw,file={img}"])
     try:
         q.expect(MENU, timeout=30)
@@ -831,10 +854,184 @@ def test_suspend_resume(b, opts):
         _, text = settled_screen(q, lambda i, t: any("Close AAA counter?" in l for l in t))
         assert any("Close AAA counter?" in l for l in text), "\n".join(text)
         q.send("\r")                          # yes: closed, the demo starts
-        out = q.expect("playing zdemo.b33", timeout=10).decode(errors="replace")
+        out = q.expect("playing zdemo.bm", timeout=10).decode(errors="replace")
         assert '"AAA counter" closed, memory freed' in out, out
     finally:
         q.close()
+        shutil.rmtree(tmp, ignore_errors=True)
+
+
+SAVER_CART = r"""
+local n = 0
+function _init() save({ n = 1 }) log("saver start") end
+function _update() n = n + 1 end
+function _draw() cls(0x203040) print("frame " .. n, 8, 8, 0xFFFFFF) end
+"""
+
+
+def test_home_ui(b, opts):
+    """M27 (BareMetal UI): the options of a cartridge (X), with the save data
+    and the file deleted from the SD card (fsck clean); the settings (3)
+    and their submenus; the tools of the Dev tab on the text console and
+    back to the menu; the monitor as a tool."""
+    tmp = tempfile.mkdtemp(prefix="bm33-home-")
+    img = os.path.join(tmp, "sd.img")
+    saver = os.path.join(tmp, "saver.bm")
+    with open(saver, "wb") as f:
+        f.write(mkb33.pack(SAVER_CART.encode(), title="AAA saver", author="tests"))
+    victim = os.path.join(tmp, "victim.bm")
+    with open(victim, "wb") as f:
+        f.write(mkb33.pack(COUNTER_CART.encode(), title="BBB delete me"))
+    mksd.build(img, [(saver, "carts/saver.bm"), (victim, "carts/Un gioco da cancellare.bm")])
+    q = Qemu(b("kernel.img"), ["-drive", f"if=sd,format=raw,file={img}"])
+
+    def keys(k):
+        for c in k:
+            q.send(c)
+            time.sleep(0.25)
+
+    def screen(want):
+        _, text = settled_screen(q, lambda i, t: all(any(w in l for l in t) for w in want))
+        joined = "\n".join(text)
+        for w in want:
+            assert w in joined, f"{w!r} not on the screen:\n{joined}"
+        return joined
+
+    def shot(name):
+        if opts.shots:
+            _save_png(q.screendump(), os.path.join(opts.shots, f"home-{name}.png"))
+
+    try:
+        q.expect(MENU, timeout=30)
+        time.sleep(0.5)
+        text = screen(["Games", "Dev", "Settings", "AAA saver"])
+        assert "bm33" not in text.splitlines()[1] and "pads" not in text, text
+        assert bar_icons(q.screendump()) == [], "no keyboard, pad or network: no icons"
+        shot("games")
+        keys("\r")                              # play: it saves, then Esc suspends it
+        q.expect("saver start", timeout=10)
+        time.sleep(0.5)
+        q.send("q")
+        q.expect('"AAA saver" suspended', timeout=10)
+        time.sleep(0.5)
+
+        # the options of the suspended game
+        keys("x")
+        screen(["AAA saver", "Resume", "Close the game", "Open in the SDK", "Author", "tests"])
+        shot("options")
+        keys("ww")                              # up from the first row: the last ones
+        screen(["Delete the save data", "Records and progress start again"])
+        keys("\r")
+        screen(["Delete the save data?", "Delete", "Cancel"])
+        shot("ask")
+        keys("\r")
+        q.expect("menu: save data deleted", timeout=10)
+        text = screen(["Save data", "none"])
+        assert "Delete the save data" not in text, text
+        keys("s")                               # back to the top, then Close the game
+        keys("s")
+        keys("\r")
+        q.expect('"AAA saver" closed, memory freed', timeout=10)
+
+        # Open in the SDK (now the second row): the editor opens that file
+        screen(["Play", "Open in the SDK"])
+        keys("\r")
+        screen(["opened /carts/saver.bm"])
+        shot("sdk")
+        q.send("\x1b")                          # code -> the editor's menu
+        screen(["Exit editor"])
+        q.send("\x1b[A")                        # up: Exit editor (one sequence)
+        time.sleep(0.3)
+        keys("\r")
+        screen(["Games", "AAA saver", "last: SDK on saver.bm"])
+
+        # the other cartridge leaves the SD card
+        keys("d")
+        keys("x")
+        screen(["BBB delete me", "Play", "/carts/Un gioco da cancellare.bm"])
+        keys("w")
+        screen(["Delete from the SD card"])
+        keys("\r")
+        screen(["Delete BBB delete me?", "leaves the SD card"])
+        keys("q")                               # no: nothing happens
+        time.sleep(0.5)
+        keys("\r")
+        screen(["Delete BBB delete me?"])
+        keys("\r")
+        q.expect("menu: deleted /carts/Un gioco da cancellare.bm", timeout=10)
+        text = screen(["AAA saver"])
+        assert "BBB" not in text, text
+
+        # settings: the keyboard layout changes and is saved; the submenus
+        keys("3")
+        screen(["Settings", "Controllers", "WiFi and network", "Keyboard layout", "System"])
+        shot("settings")
+        keys("ss")
+        _, text = settled_screen(q, lambda i, t: any("< Italian >" in l or "< US >" in l for l in t))
+        before = "Italian" if any("< Italian >" in l for l in text) else "US"
+        assert before == "Italian" or any("< US >" in l for l in text), "\n".join(text)
+        keys("d")
+        after = "US" if before == "Italian" else "Italian"
+        screen([f"< {after} >", "keyboard layout: "])
+        keys("\r")                              # A changes it too: back as it was
+        screen([f"< {before} >"])
+        keys("s")
+        keys("s")
+        keys("\r")
+        screen(["Settings > System", "Version", "SD card", "FAT32", "Restart"])
+        shot("system")
+        keys("q")
+        keys("wwww")                            # System -> Controllers
+        keys("\r")
+        screen(["Settings > Controllers", "Player 1", "keyboard / USB", "Pair a new controller"])
+        keys("q")
+        keys("s")
+        keys("\r")
+        screen(["Settings > WiFi and network", "Network", "none saved", "port 3333"])
+        keys("w")                               # the list scrolls to its last row
+        screen(["Connect to a network", "Connect at boot", "< On >"])
+        keys("q")
+        keys("q")
+        time.sleep(0.5)
+
+        # the Dev tab: a tool on the text console, then A goes back
+        keys("w")
+        keys("2")
+        keys("s")
+        screen(["bm33 SDK", "editor (built-in)"])
+        keys("d")                               # the covers' names are on pictures: the pill
+        screen(["Monitor", "the text console with every command"])
+        shot("dev")
+        keys("dd")
+        screen(["System", "board, clocks, memory"])
+        keys("\r")
+        q.expect("ARM clock", timeout=10)
+        q.expect("back to the menu", timeout=10)
+        time.sleep(0.5)
+        keys("\r")
+        screen(["Dev", "System", "board, clocks, memory"])
+        keys("aa")                              # the monitor, as a tool
+        keys("\r")
+        q.expect("back to the monitor", timeout=10)
+        q.expect("> ")
+    finally:
+        q.close()
+    try:
+        # the deleted file and the save data are gone, the card is clean
+        part = os.path.join(tmp, "part.img")
+        with open(img, "rb") as f, open(part, "wb") as o:
+            f.seek(2048 * 512)
+            o.write(f.read())
+        fsck = subprocess.run(["fsck.vfat", "-n", part], capture_output=True, text=True)
+        assert fsck.returncode == 0, fsck.stdout + fsck.stderr
+        env = dict(os.environ, MTOOLS_SKIP_CHECK="1")
+        carts = subprocess.run(["mdir", "-i", part, "::/CARTS"], capture_output=True,
+                               text=True, env=env).stdout
+        assert "saver" in carts.lower() and "cancellare" not in carts, carts
+        saves = subprocess.run(["mdir", "-i", part, "::/BM33/SAVE"], capture_output=True,
+                               text=True, env=env).stdout
+        assert not re.search(r"^[0-9A-F]{8}\s+SAV", saves, re.M), saves
+    finally:
         shutil.rmtree(tmp, ignore_errors=True)
 
 
@@ -855,7 +1052,7 @@ def test_make_image(b, opts):
     q = Qemu(b("kernel.img"), ["-drive", f"if=sd,format=raw,file={img}"])
     try:
         out = q.expect(MENU, timeout=30).decode(errors="replace")
-        assert "FAT32, 63 MiB, label BM33; 10 cartridges" in out, out
+        assert "FAT32, 63 MiB, label BM33; 11 cartridges" in out, out
         time.sleep(0.5)
         seen = set()
         for _ in range(10):                    # right along the grid: each title in turn
@@ -871,7 +1068,7 @@ def test_make_image(b, opts):
         q.expect("> ")
         q.send("f")
         out = q.expect('Star Shooter"\r\n').decode(errors="replace")
-        assert "/carts/pong.b33" in out and "/carts/shooter.b33" in out, out
+        assert "/carts/pong.bm" in out and "/carts/shooter.bm" in out, out
         q.close()
 
         # the Pi 1 image: same kernel and games, no WiFi/Bluetooth firmware
@@ -890,7 +1087,7 @@ def test_make_image(b, opts):
         q = Qemu(b("kernel.img"), ["-drive", f"if=sd,format=raw,file={os.path.join(tmp, 'bm33-pi1.img')}"],
                  machine="raspi1ap")
         out = q.expect(MENU, timeout=30).decode(errors="replace")
-        assert "Raspberry Pi 1 A+" in out and "; 10 cartridges" in out, out
+        assert "Raspberry Pi 1 A+" in out and "; 11 cartridges" in out, out
     finally:
         q.close()
         shutil.rmtree(tmp, ignore_errors=True)
@@ -913,7 +1110,7 @@ def test_sd_save_and_config(b, opts):
     card is still a clean FAT32 volume afterwards (fsck.vfat, mtools)."""
     tmp = tempfile.mkdtemp(prefix="bm33-save-")
     img = os.path.join(tmp, "sd.img")
-    mksd.build(img, [(b("carts/snake.b33"), "carts/snake.b33")])
+    mksd.build(img, [(b("carts/snake.bm"), "carts/snake.bm")])
     cart = mkb33.pack(SAVE_CART.encode(), title="save test")
     drive = ["-drive", f"if=sd,format=raw,file={img}"]
     try:
@@ -922,7 +1119,7 @@ def test_sd_save_and_config(b, opts):
             try:
                 out = q.boot().decode(errors="replace")
                 if run == 2:
-                    assert "config: /bm33/config.txt, layout us, .b33 drawing direct" in out, out
+                    assert "config: /bm33/config.txt, layout us, .bm drawing direct" in out, out
                 assert _upload(q, cart)
                 out = q.expect(f"runs\t{run}\t", timeout=15).decode(errors="replace")
                 line = q.expect("\n").decode(errors="replace")
@@ -1106,6 +1303,8 @@ class FakeDs4Chip(FakeBtChip):
         self.cmd(0x1009, ret=self.ADDR)                                # check at the new speed
         for op in (0x0C01, 0x0C56, 0x0C13, 0x0C24, 0x0C1A):
             self.cmd(op)
+        self.cmd(0x2001)                                               # LE event mask
+        self.cmd(0x2002, ret=bytes([27, 0, 8]))                        # LE buffers: 8 of 27 bytes
 
     # L2CAP from the pad's side
     def l2(self, cid, data, handle=None):
@@ -1272,7 +1471,7 @@ def test_bt_pair_and_reconnect(b, opts):
     hcd = os.path.join(tmp, "BCM43430A1.hcd")
     with open(hcd, "wb") as f:
         f.write(bytes([0x4C, 0xFC, 4, 1, 2, 3, 4, 0x4E, 0xFC, 4, 0xFF, 0xFF, 0xFF, 0xFF]))
-    mksd.build(img, [(hcd, "bm33/BCM43430A1.hcd"), (b("carts/snake.b33"), "carts/snake.b33")])
+    mksd.build(img, [(hcd, "bm33/BCM43430A1.hcd"), (b("carts/snake.bm"), "carts/snake.bm")])
     drive = ["-drive", f"if=sd,format=raw,file={img}"]
     pad = FakeDs4Chip.DS4
     try:
@@ -1303,7 +1502,7 @@ def test_bt_pair_and_reconnect(b, opts):
             chip.report(0x08 | 0x20)
             time.sleep(0.05)
             chip.report(0x08)
-            _mini_expect(q, "playing snake.b33", timeout=60)
+            _mini_expect(q, "playing snake.bm", timeout=60)
             lag = time.time() - t_press
             print(f"    lag after burst: {lag:.2f} s")
             assert lag < 0.5, f"input lag {lag:.2f} s after a burst of reports"
@@ -1341,11 +1540,428 @@ def test_bt_pair_and_reconnect(b, opts):
             chip.report(0x08 | 0x20)
             time.sleep(0.2)
             chip.report(0x08)
-            _mini_expect(q, "playing snake.b33")
+            _mini_expect(q, "playing snake.bm")
         finally:
             q.close()
     finally:
         shutil.rmtree(tmp, ignore_errors=True)
+
+
+class FakeMxKeys(FakeDs4Chip):
+    """The chip plus a Bluetooth LE keyboard behind it (like a Logitech MX
+    Keys S): advertising, LE connection, SMP pairing as responder (LE Secure
+    Connections, Passkey Entry: it "types" the code bm33 shows), its identity
+    key, a HID-over-GATT server, key reports as notifications; later it
+    comes back from a resolvable private address."""
+
+    ADDR_LE = bytes([0x21, 0x43, 0x65, 0x87, 0xA9, 0xCB | 0xC0])      # static random
+    IDENTITY = bytes([0x56, 0x34, 0x12, 0x9E, 0x6D, 0x00])            # 00:6d:9e:12:34:56 public
+    IRK = bytes(range(0x30, 0x40))
+    LE_HANDLE = 0x0040
+    REPORT_MAP = bytes([
+        0x05, 0x01, 0x09, 0x06, 0xA1, 0x01, 0x85, 0x01, 0x05, 0x07, 0x19, 0xE0, 0x29, 0xE7,
+        0x15, 0x00, 0x25, 0x01, 0x75, 0x01, 0x95, 0x08, 0x81, 0x02, 0x95, 0x01, 0x75, 0x08,
+        0x81, 0x01, 0x95, 0x05, 0x75, 0x01, 0x05, 0x08, 0x19, 0x01, 0x29, 0x05, 0x91, 0x02,
+        0x95, 0x01, 0x75, 0x03, 0x91, 0x01, 0x95, 0x06, 0x75, 0x08, 0x15, 0x00, 0x26, 0xFF,
+        0x00, 0x05, 0x07, 0x19, 0x00, 0x2A, 0xFF, 0x00, 0x81, 0x00, 0xC0,
+        0x05, 0x0C, 0x09, 0x01, 0xA1, 0x01, 0x85, 0x03, 0x75, 0x10, 0x95, 0x02, 0x15, 0x01,
+        0x26, 0xFF, 0x02, 0x19, 0x01, 0x2A, 0xFF, 0x02, 0x81, 0x00, 0xC0])
+
+    def __init__(self, port):
+        super().__init__(port)
+        self.frames, self.rx = [], b""
+        # the GATT database: handle -> (type, value)
+        db = {0x10: (0x2800, (0x1812).to_bytes(2, "little"))}
+        chars = [(0x11, 0x02, 0x2A4A, bytes([0x11, 0x01, 0x00, 0x03])),
+                 (0x13, 0x02, 0x2A4B, self.REPORT_MAP),
+                 (0x15, 0x1A, 0x2A4D, bytes(8)), (0x19, 0x0E, 0x2A4D, bytes(1)),
+                 (0x1C, 0x12, 0x2A4D, bytes(4)), (0x20, 0x04, 0x2A4C, bytes(1)),
+                 (0x22, 0x06, 0x2A4E, bytes([1]))]
+        for h, props, uuid, value in chars:
+            db[h] = (0x2803, bytes([props]) + (h + 1).to_bytes(2, "little") + uuid.to_bytes(2, "little"))
+            db[h + 1] = (uuid, value)
+        db.update({0x17: (0x2902, bytes(2)), 0x18: (0x2908, bytes([1, 1])), 0x1B: (0x2908, bytes([1, 2])),
+                   0x1E: (0x2902, bytes(2)), 0x1F: (0x2908, bytes([3, 1]))})
+        self.db, self.svc_end = db, 0x23
+
+    # ---- transport
+    def _next(self, want_cmd=None, want_cid=None, timeout=60):
+        """Answers commands and collects L2CAP frames until the command
+        `want_cmd` or a frame on `want_cid` comes; returns its parameters."""
+        deadline = time.time() + timeout
+        while time.time() < deadline:
+            for i, (cid, data) in enumerate(self.frames):
+                if cid == want_cid:
+                    del self.frames[i]
+                    return data
+            kind, a, payload = self.packet_any()
+            if kind == "cmd":
+                self.log.append((a, payload))
+                if a in (0x200D, 0x2019, 0x0406):
+                    self.status(a)
+                else:
+                    self._complete(a)
+                if a == want_cmd:
+                    return payload
+            else:
+                pb, data = a, payload
+                self.rx = data if pb != 1 else self.rx + data
+                if len(self.rx) >= 4 and len(self.rx) >= 4 + int.from_bytes(self.rx[:2], "little"):
+                    n = int.from_bytes(self.rx[:2], "little")
+                    self.frames.append((int.from_bytes(self.rx[2:4], "little"), self.rx[4:4 + n]))
+                    self.rx = b""
+        raise AssertionError(f"fake keyboard: timeout waiting for {want_cmd or want_cid:#x}")
+
+    def packet_any(self):
+        t = self._read(1, timeout=60)[0]
+        if t == 0x01:
+            op = int.from_bytes(self._read(2), "little")
+            return "cmd", op, self._read(self._read(1)[0])
+        assert t == 0x02, f"fake chip: packet type {t:#x}"
+        hdr = self._read(4)
+        h = int.from_bytes(hdr[:2], "little")
+        assert h & 0x0FFF == self.LE_HANDLE, f"ACL on handle {h & 0xFFF:#x}"
+        data = self._read(int.from_bytes(hdr[2:4], "little"))
+        assert len(data) <= 27, f"host sent {len(data)} bytes in one packet (buffers are 27)"
+        return "acl", (h >> 12) & 3, data
+
+    def send_l2(self, cid, data, piece=None):
+        frame = len(data).to_bytes(2, "little") + cid.to_bytes(2, "little") + data
+        piece = piece or len(frame)
+        for off in range(0, len(frame), piece):
+            flag = 0x2000 if off == 0 else 0x1000
+            chunk = frame[off:off + piece]
+            self.port.write(bytes([0x02]) + (self.LE_HANDLE | flag).to_bytes(2, "little")
+                            + len(chunk).to_bytes(2, "little") + chunk)
+
+    def le_meta(self, sub, params):
+        self._event(0x3E, bytes([sub]) + params)
+
+    def advertise(self, addr, addr_type, data):
+        self.le_meta(0x02, bytes([1, 0x00, addr_type]) + addr + bytes([len(data)]) + data + bytes([0xC8]))
+
+    def connect(self, addr, addr_type):
+        p = self._next(want_cmd=0x200D)
+        assert p[5] == addr_type and p[6:12] == addr, p.hex()
+        self.le_meta(0x01, bytes([0]) + self.LE_HANDLE.to_bytes(2, "little") + bytes([0, addr_type]) + addr
+                     + bytes([0x0C, 0, 0, 0, 0xC8, 0, 0]))
+
+    # ---- crypto (spec order: protocol bytes are least significant first)
+    @staticmethod
+    def _cmac(k, m):
+        from Crypto.Hash import CMAC
+        from Crypto.Cipher import AES
+        c = CMAC.new(bytes(reversed(k)), ciphermod=AES)
+        c.update(bytes(reversed(m)))
+        return bytes(reversed(c.digest()))
+
+    def f4(self, u, v, x, z):
+        return self._cmac(x, bytes([z]) + v + u)
+
+    def f5(self, w, n1, n2, a1, a2):
+        salt = bytes.fromhex("6c888391aaf5a53860370bdb5a6083be")[::-1]
+        t = self._cmac(salt, w)
+        m = bytes([0, 1]) + a2 + a1 + n2 + n1 + bytes([0x65, 0x6C, 0x74, 0x62])
+        return self._cmac(t, m + bytes([0])), self._cmac(t, m + bytes([1]))
+
+    def f6(self, w, n1, n2, r, io, a1, a2):
+        return self._cmac(w, a2 + a1 + io + r + n2 + n1)
+
+    @staticmethod
+    def ah(irk, prand):
+        from Crypto.Cipher import AES
+        r = bytes(reversed(prand + bytes(13)))
+        return bytes(reversed(AES.new(bytes(reversed(irk)), AES.MODE_ECB).encrypt(r)))[:3]
+
+    # ---- the keyboard's side
+    def pair(self, host_addr, get_passkey):
+        """Advertises in pairing mode, is connected, pairs (SC passkey)."""
+        from Crypto.PublicKey import ECC
+        # scan: parameters and enable, then the keyboard is seen
+        self._next(want_cmd=0x200B)
+        self._next(want_cmd=0x200C)
+        adv = bytes([2, 0x01, 0x05, 3, 0x19, 0xC1, 0x03, 3, 0x03, 0x12, 0x18, 10, 0x09]) + b"MX Keys S"
+        self.advertise(self.ADDR_LE, 1, adv)
+        self.connect(self.ADDR_LE, 1)
+        preq = self._next(want_cid=6)
+        assert preq[0] == 0x01 and preq[1] == 0x00 and preq[3] & 0x0D == 0x0D, preq.hex()
+        pres = bytes([0x02, 0x02, 0x00, 0x0D, 16, 0x00, 0x02])       # KeyboardOnly, SC; we give our IRK
+        self.send_l2(6, pres)
+        pk = self._next(want_cid=6)
+        assert pk[0] == 0x0C and len(pk) == 65, pk.hex()
+        pkax = pk[1:33]
+        host_pub = ECC.construct(curve="P-256", point_x=int.from_bytes(pk[1:33], "little"),
+                                 point_y=int.from_bytes(pk[33:65], "little"))
+        key = ECC.generate(curve="P-256")
+        pkbx = int(key.pointQ.x).to_bytes(32, "little")
+        pkby = int(key.pointQ.y).to_bytes(32, "little")
+        self.send_l2(6, bytes([0x0C]) + pkbx + pkby, piece=27)      # in pieces, like the chip
+        dh = int((host_pub.pointQ * key.d).x).to_bytes(32, "little")
+        passkey = get_passkey()
+        for i in range(20):
+            z = 0x80 | ((passkey >> i) & 1)
+            ca = self._next(want_cid=6)
+            assert ca[0] == 0x03, ca.hex()
+            nb = os.urandom(16)
+            self.send_l2(6, bytes([0x03]) + self.f4(pkbx, pkax, nb, z))
+            na = self._next(want_cid=6)
+            assert na[0] == 0x04, na.hex()
+            assert self.f4(pkax, pkbx, na[1:], z) == ca[1:], f"round {i}: host confirm is wrong"
+            self.send_l2(6, bytes([0x04]) + nb)
+        a = host_addr + bytes([0])
+        b_ = self.ADDR_LE + bytes([1])
+        mackey, ltk = self.f5(dh, na[1:], nb, a, b_)
+        r = passkey.to_bytes(16, "little")
+        ea = self._next(want_cid=6)
+        assert ea[0] == 0x0D and ea[1:] == self.f6(mackey, na[1:], nb, r, preq[1:4], a, b_), "bad Ea"
+        self.send_l2(6, bytes([0x0D]) + self.f6(mackey, nb, na[1:], r, pres[1:4], b_, a))
+        enc = self._next(want_cmd=0x2019)
+        assert enc[12:28] == ltk and enc[2:12] == bytes(10), "host encrypts with another key"
+        self._event(0x08, bytes([0]) + self.LE_HANDLE.to_bytes(2, "little") + bytes([1]))
+        self.send_l2(6, bytes([0x08]) + self.IRK)
+        self.send_l2(6, bytes([0x09, 0]) + self.IDENTITY)
+        self.ltk = ltk
+
+    @staticmethod
+    def e(k, r):
+        from Crypto.Cipher import AES
+        return bytes(reversed(AES.new(bytes(reversed(k)), AES.MODE_ECB).encrypt(bytes(reversed(r)))))
+
+    def c1(self, k, r, preq, pres, iat, ia, rat, ra):
+        p1 = bytes([iat, rat]) + preq + pres
+        p2 = ra + ia + bytes(4)
+        t = self.e(k, bytes(a ^ b for a, b in zip(r, p1)))
+        return self.e(k, bytes(a ^ b for a, b in zip(t, p2)))
+
+    def pair_legacy(self, host_addr, get_passkey):
+        """The same keyboard without Secure Connections: LE legacy pairing,
+        passkey, STK, then its LTK/EDIV/Rand and identity."""
+        self._next(want_cmd=0x200B)
+        self._next(want_cmd=0x200C)
+        adv = bytes([2, 0x01, 0x05, 3, 0x19, 0xC1, 0x03, 3, 0x03, 0x12, 0x18, 10, 0x09]) + b"MX Keys S"
+        self.advertise(self.ADDR_LE, 1, adv)
+        self.connect(self.ADDR_LE, 1)
+        preq = self._next(want_cid=6)
+        assert preq[0] == 0x01, preq.hex()
+        pres = bytes([0x02, 0x02, 0x00, 0x05, 16, 0x00, 0x03])       # no SC; LTK and IRK
+        self.send_l2(6, pres)
+        tk = get_passkey().to_bytes(16, "little")
+        mconfirm = self._next(want_cid=6)
+        assert mconfirm[0] == 0x03, mconfirm.hex()
+        srand = os.urandom(16)
+        self.send_l2(6, bytes([0x03]) + self.c1(tk, srand, preq, pres, 0, host_addr, 1, self.ADDR_LE))
+        mrand = self._next(want_cid=6)
+        assert mrand[0] == 0x04
+        assert self.c1(tk, mrand[1:], preq, pres, 0, host_addr, 1, self.ADDR_LE) == mconfirm[1:], "bad Mconfirm"
+        self.send_l2(6, bytes([0x04]) + srand)
+        stk = self.e(tk, mrand[1:9] + srand[:8])
+        enc = self._next(want_cmd=0x2019)
+        assert enc[12:28] == stk and enc[2:12] == bytes(10), "host encrypts with another STK"
+        self._event(0x08, bytes([0]) + self.LE_HANDLE.to_bytes(2, "little") + bytes([1]))
+        self.ltk, self.ediv, self.rand = os.urandom(16), 0x1234, bytes(range(1, 9))
+        self.send_l2(6, bytes([0x06]) + self.ltk)
+        self.send_l2(6, bytes([0x07]) + self.ediv.to_bytes(2, "little") + self.rand)
+        self.send_l2(6, bytes([0x08]) + self.IRK)
+        self.send_l2(6, bytes([0x09, 0]) + self.IDENTITY)
+
+    def serve_gatt(self):
+        """Answers the host's GATT client until it turns notifications on."""
+        while True:
+            req = self._next(want_cid=4)
+            op = req[0]
+            if op == 0x06:                                           # find by type value
+                assert req[5:9] == bytes([0x00, 0x28, 0x12, 0x18]), req.hex()
+                self.send_l2(4, bytes([0x07, 0x10, 0x00, self.svc_end, 0x00]))
+            elif op == 0x08:                                         # read by type (chars)
+                start, end = int.from_bytes(req[1:3], "little"), int.from_bytes(req[3:5], "little")
+                hs = [h for h in sorted(self.db) if start <= h <= end and self.db[h][0] == 0x2803][:3]
+                if not hs:
+                    self.send_l2(4, bytes([0x01, 0x08]) + req[1:3] + bytes([0x0A]))
+                else:
+                    self.send_l2(4, bytes([0x09, 7]) + b"".join(h.to_bytes(2, "little") + self.db[h][1] for h in hs))
+            elif op == 0x04:                                         # find information
+                start, end = int.from_bytes(req[1:3], "little"), int.from_bytes(req[3:5], "little")
+                hs = [h for h in sorted(self.db) if start <= h <= end][:5]
+                if not hs:
+                    self.send_l2(4, bytes([0x01, 0x04]) + req[1:3] + bytes([0x0A]))
+                else:
+                    self.send_l2(4, bytes([0x05, 1]) + b"".join(
+                        h.to_bytes(2, "little") + self.db[h][0].to_bytes(2, "little") for h in hs))
+            elif op in (0x0A, 0x0C):                                 # read, read blob
+                h = int.from_bytes(req[1:3], "little")
+                off = int.from_bytes(req[3:5], "little") if op == 0x0C else 0
+                value = self.db[h][1]
+                if off > len(value):
+                    self.send_l2(4, bytes([0x01, op]) + req[1:3] + bytes([0x07]))
+                else:
+                    self.send_l2(4, bytes([op + 1]) + value[off:off + 22])
+            elif op == 0x12:                                         # write request
+                h = int.from_bytes(req[1:3], "little")
+                assert h == 0x17 and req[3:5] == bytes([1, 0]), f"notifications on {h:#x}"
+                self.send_l2(4, bytes([0x13]))
+                return
+            else:
+                raise AssertionError(f"unexpected ATT request {req.hex()}")
+
+    def keys(self, *usages, mods=0):
+        """A keyboard report (report ID 1: mods, reserved, 6 keys)."""
+        rep = bytes([mods, 0]) + bytes(usages) + bytes(6 - len(usages))
+        self.send_l2(4, bytes([0x1B, 0x16, 0x00]) + rep)
+
+    def come_back(self):
+        """Disconnects, then advertises from a new resolvable private address."""
+        self._event(0x05, bytes([0]) + self.LE_HANDLE.to_bytes(2, "little") + bytes([0x08]))
+        self._next(want_cmd=0x200B)
+        self._next(want_cmd=0x200C)
+        prand = bytes([0x11, 0x22, 0x40 | 0x33])
+        rpa = self.ah(self.IRK, prand) + prand
+        self.advertise(bytes([9, 9, 9, 9, 9, 0x49]), 1, bytes([2, 0x01, 0x04]))    # someone else
+        self.advertise(rpa, 1, bytes([2, 0x01, 0x04]))
+        self.connect(rpa, 1)
+        enc = self._next(want_cmd=0x2019)
+        assert enc[12:28] == self.ltk and enc[2:12] == bytes(10), "saved key not used"
+        self._event(0x08, bytes([0]) + self.LE_HANDLE.to_bytes(2, "little") + bytes([1]))
+
+
+def test_bt_keyboard(b, opts):
+    """M16 LE keyboard with a simulated MX Keys: 'K' pairs it (LE Secure
+    Connections, the code shown on screen typed on the keyboard, its IRK),
+    GATT finds the keyboard report in the report map, keys type in the
+    monitor (keypad too); it comes back from a private address and is
+    recognised by its IRK; the keys are in bm33/config.txt."""
+    try:
+        import Crypto  # noqa: F401  (pycryptodome, for the simulated keyboard)
+    except ImportError:
+        print("    skipped: pip install pycryptodome")
+        return
+    tmp = tempfile.mkdtemp(prefix="bm33-bt-")
+    img = os.path.join(tmp, "sd.img")
+    hcd = os.path.join(tmp, "BCM43430A1.hcd")
+    with open(hcd, "wb") as f:
+        f.write(bytes([0x4C, 0xFC, 4, 1, 2, 3, 4, 0x4E, 0xFC, 4, 0xFF, 0xFF, 0xFF, 0xFF]))
+    mksd.build(img, [(hcd, "bm33/BCM43430A1.hcd")])
+    drive = ["-drive", f"if=sd,format=raw,file={img}"]
+    q = Qemu(b("kernel.img"), drive, mini_uart=True)
+    q.mini_buf = b""
+    try:
+        q.boot()
+        q.send("K")
+        q.expect("(same pins, same speed)\r\n")
+        chip = FakeMxKeys(q.port)
+        chip.buf, q.buf = q.buf, b""
+        chip.init(reset_silent=False)
+
+        early = []
+
+        def passkey():
+            early.append(_mini_expect(q, "then Enter:"))
+            text = ""
+            deadline = time.time() + 10
+            import re
+            while not re.search(r"\b\d{6}\b", text) and time.time() < deadline:
+                q.mini_buf += q.mini.read(0.05)
+                text = q.mini_buf.decode(errors="replace")
+            m = re.search(r"\b(\d{6})\b", text)
+            assert m, text
+            return int(m.group(1))
+        try:
+            chip.pair(FakeBtChip.ADDR, passkey)
+            chip.serve_gatt()
+        except AssertionError:
+            q.mini_buf += q.mini.read(0.5)
+            print(q.mini_buf.decode(errors="replace")[-3000:])
+            raise
+        out = "".join(early) + _mini_expect(q, "ready to type")
+        for s_ in ("found keyboard cb:a9:87:65:43:21 MX Keys S (random address)",
+                   "pairing, LE Secure Connections, the keyboard types a code",
+                   "keyboard 00:6d:9e:12:34:56 paired (Secure Connections, private address)",
+                   "keyboard MX Keys S connected"):
+            assert s_ in out, out
+        # typing: 'i' (info) in the monitor
+        time.sleep(0.3)
+        chip.keys(0x0C)
+        chip.keys()
+        _mini_expect(q, "uptime")
+        # back from a private address: found by its IRK, the saved LTK
+        chip.come_back()
+        chip.serve_gatt()
+        _mini_expect(q, "ready to type")
+        time.sleep(0.3)
+        chip.keys(0x0C)
+        chip.keys()
+        _mini_expect(q, "uptime")
+    finally:
+        q.close()
+    part = os.path.join(tmp, "part.img")
+    with open(img, "rb") as f, open(part, "wb") as o:
+        f.seek(2048 * 512)
+        o.write(f.read())
+    env = dict(os.environ, MTOOLS_SKIP_CHECK="1")
+    cfg = subprocess.run(["mtype", "-i", part, "::/BM33/CONFIG.TXT"], capture_output=True,
+                         text=True, env=env).stdout
+    shutil.rmtree(tmp, ignore_errors=True)
+    assert "bt_kbd=00:6d:9e:12:34:56 0 " + FakeMxKeys.IRK.hex() in cfg, cfg
+    assert "bt_kbd_key=" + chip.ltk.hex() + " 0000 0000000000000000" in cfg, cfg
+
+
+
+def test_bt_keyboard_legacy(b, opts):
+    """The keyboard without LE Secure Connections: legacy pairing (c1, s1)
+    with the code, its LTK/EDIV/Rand saved, the keypad types."""
+    try:
+        import Crypto  # noqa: F401
+    except ImportError:
+        print("    skipped: pip install pycryptodome")
+        return
+    import re
+    tmp = tempfile.mkdtemp(prefix="bm33-bt-")
+    img = os.path.join(tmp, "sd.img")
+    hcd = os.path.join(tmp, "BCM43430A1.hcd")
+    with open(hcd, "wb") as f:
+        f.write(bytes([0x4C, 0xFC, 4, 1, 2, 3, 4, 0x4E, 0xFC, 4, 0xFF, 0xFF, 0xFF, 0xFF]))
+    mksd.build(img, [(hcd, "bm33/BCM43430A1.hcd")])
+    q = Qemu(b("kernel.img"), ["-drive", f"if=sd,format=raw,file={img}"], mini_uart=True)
+    q.mini_buf = b""
+    try:
+        q.boot()
+        q.send("K")
+        q.expect("(same pins, same speed)\r\n")
+        chip = FakeMxKeys(q.port)
+        chip.buf, q.buf = q.buf, b""
+        chip.init(reset_silent=False)
+        early = []
+
+        def passkey():
+            early.append(_mini_expect(q, "then Enter:"))
+            text, deadline = "", time.time() + 10
+            while not re.search(r"\b\d{6}\b", text) and time.time() < deadline:
+                q.mini_buf += q.mini.read(0.05)
+                text = q.mini_buf.decode(errors="replace")
+            return int(re.search(r"\b(\d{6})\b", text).group(1))
+        chip.pair_legacy(FakeBtChip.ADDR, passkey)
+        chip.serve_gatt()
+        out = "".join(early) + _mini_expect(q, "ready to type")
+        assert "pairing, LE legacy, the keyboard types a code" in out and \
+            "keyboard 00:6d:9e:12:34:56 paired (legacy, private address)" in out, out
+        # the Lua prompt: 7 * 6 on the keypad, keypad Enter -> 42
+        time.sleep(0.3)
+        chip.keys(0x0F)                                   # 'l': Lua
+        chip.keys()
+        _mini_expect(q, "lua>", timeout=10)
+        for u in (0x5F, 0x55, 0x5E, 0x58):
+            chip.keys(u)
+            chip.keys()
+        _mini_expect(q, "42")
+    finally:
+        q.close()
+    part = os.path.join(tmp, "part.img")
+    with open(img, "rb") as f, open(part, "wb") as o:
+        f.seek(2048 * 512)
+        o.write(f.read())
+    cfg = subprocess.run(["mtype", "-i", part, "::/BM33/CONFIG.TXT"], capture_output=True, text=True,
+                         env=dict(os.environ, MTOOLS_SKIP_CHECK="1")).stdout
+    shutil.rmtree(tmp, ignore_errors=True)
+    assert f"bt_kbd_key={chip.ltk.hex()} 1234 {chip.rand.hex()}" in cfg, cfg
 
 
 PLAYERS_CART = r"""
@@ -1429,11 +2045,11 @@ def test_bt_two_pads(b, opts):
     with open(cfg, "w") as f:
         f.write(f"layout=it\nbt_pad=1c:66:6d:01:02:03 {key_a.hex()}\n"
                 f"bt_pad2=1c:66:6d:09:0a:0b {key_b.hex()}\n")
-    cart = os.path.join(tmp, "players.b33")
+    cart = os.path.join(tmp, "players.bm")
     with open(cart, "wb") as f:
         f.write(mkb33.pack(PLAYERS_CART.encode(), title="AAA players"))
     mksd.build(img, [(hcd, "bm33/BCM43430A1.hcd"), (cfg, "bm33/config.txt"),
-                     (cart, "carts/players.b33")])
+                     (cart, "carts/players.bm")])
     q = Qemu(b("kernel.img"), ["-drive", f"if=sd,format=raw,file={img}"], mini_uart=True)
     q.mini_buf = b""
     try:
@@ -1457,14 +2073,23 @@ def test_bt_two_pads(b, opts):
         out = _mini_expect(q, "next time just press PS")
         assert "connected (player 3)" in out and "paired as player 3" in out, out
 
-        # in a game each pad is its own player
+        # the menu bar: a controller icon for each player (M27)
         q.mini.write(b"M")
         _mini_expect(q, "cartridge menu")
+        time.sleep(1.0)
+        screen_img = q.screendump()
+        if opts.shots:
+            _save_png(screen_img, os.path.join(opts.shots, "home-pads.png"))
+        runs = bar_icons(screen_img)
+        assert len(runs) == 3 and all(20 <= x1 - x0 <= 27 for x0, x1 in runs), runs
+        assert all(blue_number(screen_img, r) for r in runs), "Bluetooth: blue numbers"
+
+        # in a game each pad is its own player
         time.sleep(0.3)
         chip.report(0x08 | 0x20, handle=0x0D)                      # pad 3: cross plays
         time.sleep(0.1)
         chip.report(0x08, handle=0x0D)
-        _mini_expect(q, "playing players.b33")
+        _mini_expect(q, "playing players.bm")
         _mini_expect(q, "player 4 [ 0.0,0.0]")                    # first frame: all idle
         _mini_expect(q, "players 3 mask 7")
         chip.report(0x08 | 0x10, handle=0x0C)                      # pad 2: square = X
@@ -1504,14 +2129,24 @@ def test_sd_sdhc_and_usb_menu(b, opts):
     """4 GiB card (SDHC addressing); with a USB keyboard boot ends in the menu."""
     tmp = tempfile.mkdtemp(prefix="bm33-sd-")
     img = os.path.join(tmp, "sd.img")
-    mksd.build(img, [(b("demo.b33"), "carts/game.b33")], 4096)
+    mksd.build(img, [(b("demo.bm"), "carts/game.bm")], 4096)
     q = Qemu(b("kernel.img"), ["-drive", f"if=sd,format=raw,file={img}"] + USB_KBD)
     try:
         out = q.expect("cartridge menu", timeout=90).decode(errors="replace")
         assert "sd: SDHC card (sdhost), FAT32, 4095 MiB, label BM33SD; 1 cartridges" in out, out
         time.sleep(1.0)
+        shot_ = q.screendump()                # the bar: the keyboard icon (M27)
+        runs = bar_icons(shot_)
+        assert len(runs) == 1 and 20 <= runs[0][1] - runs[0][0] <= 27, runs
+        assert not blue_number(shot_, runs[0]), "USB: a white number"
+        sendkeys(q, "c")                      # C is the X button: the options (M27)
+        _, text = settled_screen(q, lambda i, t: any("Author" in l for l in t))
+        assert any("Author" in l for l in text) and any("Play" in l for l in text), "\n".join(text)
+        sendkeys(q, "x")                      # X is the B button: back
+        _, text = settled_screen(q, lambda i, t: not any("Author" in l for l in t))
+        assert not any("Author" in l for l in text), "\n".join(text)
         sendkeys(q, "ret")
-        q.expect("playing game.b33", timeout=10)
+        q.expect("playing game.bm", timeout=10)
         time.sleep(1.5)
         sendkeys(q, "esc")
         q.expect("update+draw", timeout=15)
@@ -1537,7 +2172,7 @@ def test_usb_hid_gamepad(b, opts):
         time.sleep(0.5)
         q.monitor("mouse_button 1")
         q.monitor("mouse_button 0")
-        q.expect("playing demo.b33", timeout=10)
+        q.expect("playing demo.bm", timeout=10)
         time.sleep(1.0)
         q.send("q")
         q.expect("update+draw", timeout=15)
@@ -1564,7 +2199,7 @@ def test_games(b, opts):
         q.expect(MENU, timeout=30)             # uploads work from the menu too
         time.sleep(0.5)
         for name, title in GAMES.items():
-            with open(b(f"carts/{name}.b33"), "rb") as f:
+            with open(b(f"carts/{name}.bm"), "rb") as f:
                 assert _upload(q, f.read()), name
             time.sleep(1.0)
             _, text = settled_screen(q, lambda i, t: any(title in l for l in t))
@@ -1585,6 +2220,49 @@ def test_games(b, opts):
             time.sleep(0.5)                    # back in the menu
         q.send("q")
         q.expect(PROMPT)
+    finally:
+        q.close()
+
+
+def test_texroom(b, opts):
+    """Texture Room (M14): a textured 3D room at 320x180. The textures show
+    (brick red, crate wood, stone grey all on screen), the crate count
+    changes with B, no Lua error, and it quits with its frame statistics."""
+    q = Qemu(b("kernel.img"))
+    try:
+        q.expect(MENU, timeout=30)
+        time.sleep(0.5)
+        with open(b("carts/texroom.bm"), "rb") as f:
+            assert _upload(q, f.read())
+        time.sleep(3)
+
+        def near(c, ref, tol=40):
+            return all(abs(c[i] - ref[i]) < tol for i in range(3))
+        for _ in range(10):                     # a whole frame (not one being drawn)
+            img = q.screendump()
+            w, h, px = img
+            cols = [tuple(px[(y * w + x) * 3:(y * w + x) * 3 + 3])
+                    for y in range(0, h, 4) for x in range(0, w, 4)]
+            # by hue: the lights change the brightness
+            brick = sum(r > 60 and r > 2 * g and r > 2 * b for r, g, b in cols)
+            wood = sum(r > 50 and r > g + 10 and g > b + 15 and r < 2 * g for r, g, b in cols)
+            stone = sum(r > 50 and abs(r - g) < 12 and abs(g - b) < 16 for r, g, b in cols)
+            hud = sum(near(c, (255, 224, 96), 30) for c in cols[:w // 4 * 4])
+            if brick > 40 and wood > 40 and stone > 300 and hud:
+                break
+            time.sleep(0.5)
+        if opts.shots:
+            _save_png(img, os.path.join(opts.shots, "texroom.png"))
+        print(f"     texroom colours: brick {brick}, wood {wood}, stone {stone}, hud {hud}, "
+              f"{len(set(cols))} distinct")
+        assert brick > 40 and wood > 40 and stone > 300 and hud, (brick, wood, stone, hud)
+        assert len(set(cols)) > 100, len(set(cols))     # textures, not flat faces
+        q.send("x")                             # B: more crates
+        time.sleep(1)
+        q.send("q")
+        out = q.expect("update+draw", timeout=10).decode(errors="replace")
+        assert "stopped with an error" not in out, out
+        assert '"Texture Room"' in out, out[-300:]
     finally:
         q.close()
 
@@ -1616,7 +2294,7 @@ def test_kitchen(b, opts):
     try:
         q.expect(MENU, timeout=30)
         time.sleep(0.5)
-        with open(b("carts/kitchen.b33"), "rb") as f:
+        with open(b("carts/kitchen.bm"), "rb") as f:
             assert _upload(q, f.read())
         time.sleep(4.0)                        # title, with computer chefs cooking
         shot("title")
@@ -1680,7 +2358,7 @@ def test_titan(b, opts):
     try:
         q.expect(MENU, timeout=30)
         time.sleep(0.5)
-        with open(b("carts/titan.b33"), "rb") as f:
+        with open(b("carts/titan.bm"), "rb") as f:
             assert _upload(q, f.read())
         time.sleep(3.0)
         shot("title")
@@ -1758,7 +2436,7 @@ end
 
 def test_audio(b, opts):
     """M10: without HDMI audio (QEMU) the console says why and stays silent;
-    the .b33 sound API writes the APU-layout registers."""
+    the .bm sound API writes the APU-layout registers."""
     q = Qemu(b("kernel.img"))
     try:
         out = q.boot().decode(errors="replace")
@@ -1833,7 +2511,7 @@ def test_editor(b, opts):
     line; the card is still a clean FAT32 volume."""
     tmp = tempfile.mkdtemp(prefix="bm33-ed-")
     img = os.path.join(tmp, "sd.img")
-    mksd.build(img, [(b("carts/pong.b33"), "carts/pong.b33")])
+    mksd.build(img, [(b("carts/pong.bm"), "carts/pong.bm")])
     q = Qemu(b("kernel.img"), ["-drive", f"if=sd,format=raw,file={img}"])
 
     def k(s, gap=0.15):
@@ -1859,9 +2537,15 @@ def test_editor(b, opts):
             k("\x1b[B", 0.25)                               # down to "Save as..."
         k("\r")
         see("file name")
-        k("\r")                                             # MYGAME.B33
-        see("saved /carts/MYGAME.B33")
-        k("\x12", 3)                                        # Ctrl+R: try it
+        k("\r")                                             # MYGAME.BM
+        see("saved /carts/MYGAME.BM")
+        k("\x12", 1)                                        # Ctrl+R: try it
+        for _ in range(40):                                 # the game is on (slow hosts)
+            _, text = settled_screen(q, lambda i, t: True, tries=1)
+            if not any("saved /carts/MYGAME.BM" in l or "line 1/" in l for l in text):
+                break
+            time.sleep(0.25)
+        time.sleep(1)
         k("q")                                              # and back to the editor
         out = q.expect('b33: "New game"', timeout=20).decode(errors="replace")
         assert "stopped with an error" not in out, out
@@ -1889,7 +2573,7 @@ def test_editor(b, opts):
         fsck = subprocess.run(["fsck.vfat", "-n", part], capture_output=True, text=True)
         assert fsck.returncode == 0, fsck.stdout + fsck.stderr
         env = dict(os.environ, MTOOLS_SKIP_CHECK="1")
-        saved = subprocess.run(["mtype", "-i", part, "::/CARTS/MYGAME.B33"], capture_output=True,
+        saved = subprocess.run(["mtype", "-i", part, "::/CARTS/MYGAME.BM"], capture_output=True,
                                env=env).stdout
         assert saved[:8] == b"BM33CART" and b"error('boom')" in saved, saved[:200]
     finally:

@@ -85,27 +85,27 @@ CGRAM, APU, porte), implementata in C nativo, non un'emulazione del motore di lu
 | Tipo | Formato | Gira su | Priorità |
 |---|---|---|---|
 | s32 codice macchina | `.cart`, `code_type` 0 | bm33 + lua32 | ✅ fatto |
-| **bm33 nativa Lua** | **`.b33`** (formato separato, non tocca la spec s32) | solo bm33, sfrutta tutto il Pi | **prossima** |
+| **bm33 nativa Lua** | **`.bm`** (formato separato, non tocca la spec s32) | solo bm33, sfrutta tutto il Pi | **prossima** |
 | s32 Lua | `.cart`, `code_type` 1 | bm33 + lua32 | quando lua32 è pronto |
-| bm33 nativa ARM (C) | `.b33` | solo bm33, user mode + MMU | dopo l'MVP |
+| bm33 nativa ARM (C) | `.bm` | solo bm33, user mode + MMU | dopo l'MVP |
 
 Priorità attuale: sviluppo della console bm33; la parte s32 avanza al ritmo di lua32.
 
-### Cartucce native `.b33`: video (decisione 2026-09-26)
+### Cartucce native `.bm`: video (decisione 2026-09-26)
 - **640×360**, 16:9, scala intera ×2 su 720p e ×3 su 1080p; è la risoluzione della
   console, quindi nessun cambio di modo. 320×180 facoltativa (header).
 - **16 bit RGB565** (65 536 colori, colore diretto): metà banda del 32 bit
   (fill stimato ~1,1 ms contro 2,2 ms misurati).
 - **Espandibile a 32 bit** in seguito: l'API riceve i colori come RGB888 e la
   grafica delle cartucce è salvata in un formato indipendente dal framebuffer;
-  il formato di pixel è un campo dell'header `.b33` e il disegno in C è
+  il formato di pixel è un campo dell'header `.bm` e il disegno in C è
   parametrizzato sulla profondità. Il 24 bit "impacchettato" (3 byte per pixel,
   non allineato) si evita: l'espansione utile è il 32 bit.
 - **Budget**: disegno completo (mappa piena + 256 sprite) sotto il 25% del frame,
   verificato da un benchmark a schermo; tutto il disegno in C, Lua solo logica.
 
-## M7 — Cartucce native `.b33` ✅ verificato su Pi Zero W (M)
-- Formato `.b33` (header 128 byte + sezioni Lua / sheet RGBA / mappa, CRC), packer
+## M7 — Cartucce native `.bm` ✅ verificato su Pi Zero W (M)
+- Formato `.bm` (header 128 byte + sezioni Lua / sheet RGBA / mappa, CRC), packer
   `scripts/mkb33.py` con PNG e CSV.
 - Grafica C in RGB565 (`src/b33/gfx16.c`): forme, sprite con flip e trasparenza,
   scorciatoia per celle opache, mappa, testo, camera, clip.
@@ -123,9 +123,9 @@ Priorità attuale: sviluppo della console bm33; la parte s32 avanza al ritmo di 
   polling dal ciclo principale; enumerazione di un dispositivo sulla porta radice.
 - **Tastiera** HID (protocollo boot): layout italiano/US, ripetizione; monitor e REPL
   leggono da seriale o tastiera. **Gamepad HID** generici (analisi del descrittore) e
-  **Xbox 360** cablati. Mappatura su `btn()` delle `.b33` e sui bit 0–4 di s32.
+  **Xbox 360** cablati. Mappatura su `btn()` delle `.bm` e sui bit 0–4 di s32.
 - Esc o Start+Select escono dal gioco. Niente hub (decisione: un dispositivo alla volta;
-  M25 aggiunge l'hub per il Pi 1 B, sempre con un solo dispositivo HID in uso),
+  M29 aggiunge l'hub per il Pi 1 B, sempre con un solo dispositivo HID in uso),
   niente Bluetooth (BCM43438 condivide la UART della console; firmware + HCI: troppo costoso).
 - Pad su GPIO (fase A) non necessario per ora.
 - **Fatto quando:** una tastiera USB scrive nel REPL e un gamepad muove il giocatore
@@ -136,7 +136,7 @@ Priorità attuale: sviluppo della console bm33; la parte s32 avanza al ritmo di 
 ## M8 — Storage e caricamento delle cart ✅ verificato sul Pi Zero W (M)
 - Driver SD sul controller EMMC (Arasan SDHCI) in PIO, bus a 4 bit a 25 MHz, SDSC e SDHC;
   FAT16/FAT32 con nomi lunghi, in sola lettura (scritto da zero, non FatFs).
-- Menu delle cartucce: incorporate + `.b33`/`.cart` in `/carts` e nella radice; si apre
+- Menu delle cartucce: incorporate + `.bm`/`.cart` in `/carts` e nella radice; si apre
   all'avvio se c'è un dispositivo USB di input.
 - Da fare: scrittura (salvataggi, config), anteprime.
 - **Fatto quando:** copiando una nuova cart sulla SD da PC, questa compare nel menu
@@ -156,7 +156,7 @@ Priorità attuale: sviluppo della console bm33; la parte s32 avanza al ritmo di 
   quanto ci scrive (`memcpy` 10,3 ms/MiB contro `memset` 2,4 ms/MiB, cache dati 16 KB),
   e la memoria video non ha cache. s32 ora disegna a strisce di 8 righe che restano in
   cache e le scrive una volta sullo schermo, senza riletture (`render` era 7997 µs/tick,
-  poi 5577 con il primo tentativo). Per `.b33` il benchmark misura sia il disegno diretto
+  poi 5577 con il primo tentativo). Per `.bm` il benchmark misura sia il disegno diretto
   sia quello via RAM (`p`, `V`): sul Pi (kernel `89452b3`) mappa piena + 256 sprite
   costano **8,50 ms diretti** contro 12,65 ms via RAM (la copia rilegge la SDRAM), quindi
   il default resta il disegno diretto.
@@ -192,7 +192,7 @@ M9 (MVP) ─┬─ M10 audio
   somma senza normalizzazione con saturazione). Test su host: `make test-audio`.
 - **APU di s32**: durante una `.cart` il sintetizzatore legge direttamente i registri a
   `0x0AC900` della macchina.
-- API `.b33`: `note`, `noteoff`, `freq`, `envelope`, `duty`, `playing`, `apu`
+- API `.bm`: `note`, `noteoff`, `freq`, `envelope`, `duty`, `playing`, `apu`
   (docs/API.md); effetti e melodie nei tre giochi demo.
 - Monitor: `a` stato dell'audio (clock, canale DMA, blocchi suonati, costo della sintesi)
   e una melodia di prova con tutte le forme d'onda. All'avvio, se l'audio funziona, due
@@ -209,7 +209,7 @@ M9 (MVP) ─┬─ M10 audio
   non corrompere la scheda (ordine delle scritture, verifica in QEMU con `fsck.vfat`).
 - File `/bm33/config.txt` (layout tastiera, modo di disegno, volume, dispositivi
   Bluetooth abbinati) e `/bm33/save/<cart>.sav`.
-- API `.b33`: `save(tabella)` / `saved()` per record e progressi; punteggi migliori nei
+- API `.bm`: `save(tabella)` / `saved()` per record e progressi; punteggi migliori nei
   giochi demo.
 - File di salvataggio: `/bm33/save/<CRC-32 di titolo e autore>.SAV` (nomi 8.3: bm33 non
   scrive nomi lunghi); contenuto: tabella Lua come testo, riletta in un ambiente vuoto.
@@ -267,18 +267,19 @@ emulatore del chip, quindi niente test in QEMU se non su tracce HCI registrate.
 - **Fatto quando:** il controller di riferimento si abbina dal menu, si riconnette da
   solo alla riaccensione e i giochi demo si giocano senza fili.
 
-## M13 — Altri tipi di cartuccia (M)
+## M13 — Altri tipi di cartuccia (M) — chiusa senza implementazione
+Decisione 2026-09-30: chiusa dall'autore; il piano resta qui se servirà.
 - **s32 Lua** (`code_type` 1): **sbloccato** — le regole sono decise in `s32-bm33.md`
   (sincronizzato da lua32 `dbaa650`) e implementate in lua32: API `peek/poke`,
   `peek16/poke16`, `btn`, funzioni di comodo (`spr`, `mset`, `pal`, `camera`...),
   costanti nominate, sandbox, budget di istruzioni anche su `_init()`, sul codice di
   primo livello e su ogni coroutine.
 - Modo s32 16:9 (`screen_mode`, già deciso in `s32-bm33.md`).
-- **ARM nativo**: sezione di codice ARM in `.b33` (per giochi in C), caricata in una
+- **ARM nativo**: sezione di codice ARM in `.bm` (per giochi in C), caricata in una
   zona di memoria dedicata con API tramite tabella di funzioni; senza protezione
   della memoria (solo cartucce fidate).
 - **Fatto quando:** una cart Lua di lua32 gira uguale su lua32 e bm33; un gioco demo
-  in C gira come `.b33` nativa.
+  in C gira come `.bm` nativa.
 
 ## M14 — Grafica 2.0 (M) — in corso
 Fatto finora (da verificare sul Pi):
@@ -286,16 +287,16 @@ Fatto finora (da verificare sul Pi):
   prima versione (burst da 8, priorità alta, `WAIT_RESP`) dentro `p` ha bloccato il
   sistema: ora usa le impostazioni di Circle e si prova con il comando `D`, passo per
   passo, con ogni passo scritto sullo schermo prima di eseguirlo; solo se il test
-  passa il disegno `.b33` "via RAM" copia i fotogrammi con il DMA;
+  passa il disegno `.bm` "via RAM" copia i fotogrammi con il DMA;
 - 3D: clipping sul piano vicino, nebbia (`fog3d`), rollio della camera, `project3d`;
 - gioco di prova **Astro Wing** (`carts/astrowing`, in stile Star Fox).
 - **texture** sui triangoli (prospettiva corretta, anche dopo il clipping; `mesh(v, f, uv)`
   in Lua con lo sprite sheet);
 - **menu grafico**: ogni cartuccia è una scheda 3D a forma di Memory Stick Duo con la
-  copertina stampata (sezione `COVER` 128×80 nel `.b33`, `mkb33.py --cover`, copertine
+  copertina stampata (sezione `COVER` 128×80 nel `.bm`, `mkb33.py --cover`, copertine
   dei giochi demo da `scripts/mkcovers.py`, etichetta col titolo per le altre) e i
   contatti in rame sul retro; la scheda scelta ondeggia e ogni 7 s si gira.
-- **luce** per le `.b33` (`light_begin`/`light`/`light_end`, griglia 4×4 in C) e i
+- **luce** per le `.bm` (`light_begin`/`light`/`light_end`, griglia 4×4 in C) e i
   pulsanti **X/Y** (`btn(6)`, `btn(7)`); gioco **Hunter's Night** (`carts/hunt`, 320×180,
   città gotica 2048×2048 illuminata solo da lampade e candele, mannaia a sega, pistola
   che stordisce, schivata, fiale di sangue, lampade-checkpoint, boss nella cattedrale).
@@ -348,6 +349,14 @@ Fatto finora (da verificare sul Pi):
   saturazioni per pixel (i colori vengono limitati sui vertici), la matrice della camera
   in cache tra un `draw3d` e l'altro e nessun seno/coseno per le mesh non ruotate. Le
   facce piatte danno gli stessi identici pixel di prima (test host).
+- **Texture Room** (`carts/texroom`, 2026-09-30): la demo del criterio di chiusura. Una
+  stanza in prima persona a 320×180 tutta con texture (pavimento di pietra e muschio,
+  pareti di mattoni e assi, pilastri di metallo, casse di legno che ruotano; texture
+  32×32 disegnate da `mkassets.py`), giro automatico della camera. In alto: ms di CPU
+  del fotogramma, fps, triangoli e pixel con texture (circa 460 triangoli e 61 000
+  pixel); B cambia il numero di casse (4, 8, 16, 32) per trovare il limite, X toglie la
+  luce dal pavimento. Test QEMU `test_texroom` (le texture sullo schermo, nessun
+  errore). Da misurare sul Pi.
 - Decisione 2026-09-29: il **modo 32 bit** è rimandato (fuori da M14): raddoppia la
   banda di memoria, che è il limite del Pi Zero, e le sfumature ora le copre il
   dithering.
@@ -356,9 +365,9 @@ Previsto:
 - **DMA** del BCM2835 per riempimenti e copie (liberano la CPU: `cls`, mappe, copia
   dei frame) e misura sul Pi di cosa conviene (la lettura della SDRAM è il collo di
   bottiglia: vedi M9).
-- ~~Modo **32 bit** (XRGB8888) per le `.b33`~~: rimandato (vedi sopra).
+- ~~Modo **32 bit** (XRGB8888) per le `.bm`~~: rimandato (vedi sopra).
 - 3D: texture sui triangoli e Gouraud (fatti); rimisurare `docs/STRESS.md` sul Pi.
-- Menu grafico con anteprime delle cartucce (immagine nell'header `.b33`).
+- Menu grafico con anteprime delle cartucce (immagine nell'header `.bm`).
 - **Fatto quando:** lo stress test mostra il guadagno del DMA e una demo 3D con
   texture gira a 60 fps.
 
@@ -367,7 +376,7 @@ Previsto:
 ## M15 — Editor sulla console (L) ✅ verificato sul Pi Zero W
 Decisione 2026-09-28: editor **sulla console** (come PICO-8), prima del multiplayer.
 - **`bm33 editor`**, sempre ultimo nel menu delle cartucce (freccia su dal primo; e `e` dal monitor): una
-  cartuccia `.b33` incorporata nel kernel (`carts/editor/main.lua`).
+  cartuccia `.bm` incorporata nel kernel (`carts/editor/main.lua`).
 - **Codice** (F1): colori della sintassi Lua, numeri di riga, scorrimento, rientro
   automatico, Ctrl+Z annulla, Ctrl+K taglia riga, Ctrl+D duplica riga.
 - **Sprite** (F2): pixel ingranditi (8×8 o 16×16), foglio intero a fianco, tavolozza di
@@ -375,7 +384,7 @@ Decisione 2026-09-28: editor **sulla console** (come PICO-8), prima del multipla
   annulla.
 - **Mappa** (F3): la mappa a grandezza reale, piazza/preleva tile, riempimento, scelta
   della tile dal foglio, annulla.
-- **Menu** (Esc): nuovo, apri (i `.b33` della SD), salva, salva come (nome 8.3 in
+- **Menu** (Esc): nuovo, apri (i `.bm` della SD), salva, salva come (nome 8.3 in
   `/carts`), titolo, autore, risoluzione, **prova** (Ctrl+R/F5): salva, gioca, poi
   torna all'editor; se il gioco si ferma con un errore l'editor apre la riga in rosso.
 - Tastiera USB per scrivere; col gamepad (Bluetooth) si disegna: A disegna, B preleva,
@@ -389,7 +398,7 @@ Decisione 2026-09-28: editor **sulla console** (come PICO-8), prima del multipla
 - Dopo: editor di suoni ed effetti, colori della tavolozza modificabili, copertina
   disegnata nell'editor, cerca nel codice, sprite sheet più grande di 256×256 a zoom.
 
-## M16 — Multiplayer locale con controller Bluetooth (L) — 🛠 fatto, da provare sul Pi
+## M16 — Multiplayer locale con controller Bluetooth (L) — ✅ chiusa (2026-09-30)
 Decisione 2026-09-28: solo **Bluetooth**; USB e hub restano con un solo dispositivo.
 
 Fatto (QEMU, `test_bt_pair_and_reconnect`, `test_bt_two_pads`):
@@ -403,7 +412,7 @@ Fatto (QEMU, `test_bt_pair_and_reconnect`, `test_bt_two_pads`):
   completo a 125 Hz (8 ms: quattro pad stanno nei 921600 baud della UART).
 - Input per giocatore (`hid_players`, `input_players`): tasti e levetta di ogni pad; la
   tastiera/USB e la seriale sono il primo giocatore senza pad.
-- API `.b33`: `btn(i, [p])`, `btnp(i, [p])`, `players()` (quanti e quali), `stick([p])`
+- API `.bm`: `btn(i, [p])`, `btnp(i, [p])`, `players()` (quanti e quali), `stick([p])`
   (levetta analogica, o la croce). **Differenza dalla decisione iniziale:** senza `p`,
   `btn(i)` risponde a *qualsiasi* controller invece che al solo giocatore 1: così i
   giochi a un giocatore non cambiano davvero (con "default 1" la tastiera smetterebbe di
@@ -430,7 +439,7 @@ Piano iniziale:
 - Pulsanti **per giocatore**: il controller n è il giocatore n; la tastiera USB (e la
   seriale) è un giocatore a parte (il primo libero). Il LED dei DS4 prende il colore
   del giocatore (report di output).
-- API `.b33`: `btn(i, [p])`, `btnp(i, [p])` con `p` = 1..4 (default 1: i giochi attuali
+- API `.bm`: `btn(i, [p])`, `btnp(i, [p])` con `p` = 1..4 (default 1: i giochi attuali
   non cambiano), `players()` = quanti giocatori sono collegati; l'uscita dal gioco
   (Start+Select, PS) resta per ogni controller.
 - s32: il player riempie anche `INPUT2`–`INPUT8`.
@@ -440,7 +449,7 @@ Piano iniziale:
 - **Fatto quando:** due DS4 collegati insieme giocano Pong uno contro l'altro (Pong con
   modalità 2 giocatori).
 
-## M17 — Gioco cooperativo in stile Overcooked (L) — 🛠 fatto, da provare sul Pi
+## M17 — Gioco cooperativo in stile Overcooked (L) — ✅ chiusa (2026-09-30)
 Decisione 2026-09-28: il gioco è **Chaos Kitchen** (`carts/kitchen`), opera originale
 (personaggi, ricette, cucine, musica e interfaccia nostri), in 3D. Comandi scelti
 dall'utente: **A** prendi/posa/usa, **X** taglia/lava/usa (tenuto premuto), **B** scatto,
@@ -496,6 +505,20 @@ sheet (y = 128) e scrive `src/16_chef_models.lua`. Nelle opzioni si torna agli c
 "classici" fatti di scatole.
 
 Dopo: variazioni di lancio per cuoco.
+
+- Decisione 2026-09-30: gli chef 3D hanno di nuovo le **dimensioni dei modelli
+  originali** (tutti alti circa 1 casella: Basil 0,92, Bun 1,00, Noodle 1,00, Pepper
+  0,88), invece delle altezze dei vecchi chef a blocchi (1,35 / 1,05 / 1,65 / 0,92)
+  imposte dall'import; texture e forme invariate (`import_chefs.py`).
+- **Restyling con texture mirate** (2026-09-30, dopo M14): piani dei banconi in legno,
+  ante sui fronti, fornelli in acciaio con griglia e manopole, sportello del forno con
+  la finestra accesa, casse a doghe, lavello con vasca, passe in acciaio, nastro a
+  rulli (9 texture 32×32 nel foglio in (128, 80), `mkassets.py`), in **stile cartoon**
+  come il resto del gioco: tinte piatte, contorni scuri, un riflesso chiaro, niente
+  grana; pavimento e pareti
+  restano a tinta unita (costano meno) con uno zoccolo scuro alla base dei muri.
+  Opzione **KITCHEN: TEXTURED / FLAT** per tornare ai colori pieni se sul Pi non
+  bastano i 60 fps. Da misurare sul Pi.
 
 ## M18 — WiFi e console di rete (L/XL)
 Decisione 2026-09-28: versioni "leggere", in coda dopo M17.
@@ -578,9 +601,9 @@ Decisione 2026-09-28: versioni "leggere", in coda dopo M17.
 8. 🛠 (da provare sul Pi) **File dal PC e WiFi all'avvio**:
    - porta TCP 3334, stessa password della console (`src/net/netxfer.c`);
      richiesta `BM3X`, operazione, password, percorso, dimensione, crc32, dati;
-   - ✅ (Pi, `ddca333`) `bm33_net.py IP --send gioco.b33` → salvata in `/carts` (nomi 8.3, `--name`,
+   - ✅ (Pi, `ddca333`) `bm33_net.py IP --send gioco.bm` → salvata in `/carts` (nomi 8.3, `--name`,
      `--to`); il menu rilegge la SD da solo;
-   - ✅ (Pi: Pong a 59,9 fps) `--play gioco.b33` → giocata subito (dal menu o dal monitor), senza salvarla;
+   - ✅ (Pi: Pong a 59,9 fps) `--play gioco.bm` → giocata subito (dal menu o dal monitor), senza salvarla;
    - ✅ (Pi: 1.3 MB in 7,7 s, 170 KiB/s) `--kernel build/kernel.img` → scritto come `kernel.img` (prima i dati, poi la
      voce della directory: un'interruzione lascia il vecchio o il nuovo) e riavvio;
    - ✅ (Pi, `ddca333`) all'avvio la rete salvata si ricollega da sola, senza scansione
@@ -598,7 +621,7 @@ Decisione 2026-09-28: versioni "leggere", in coda dopo M17.
   scarica `kernel.img` e cartucce, verifica la firma e installa come in M18.
 - **"git leggero"** invece di git completo: in lettura, l'archivio di un ramo o di una
   release di un repository (es. cartucce da un repository di giochi); in scrittura,
-  le API di GitHub con un token personale per caricare un file (es. un `.b33` salvato
+  le API di GitHub con un token personale per caricare un file (es. un `.bm` salvato
   dall'editor). Token in `config.txt`.
 - Più avanti, solo se serve davvero: SSH vero, git completo (clone/push).
 - **Fatto quando:** un aggiornamento pubblicato come release arriva sul Pi dal menu, e
@@ -612,10 +635,15 @@ Passi (2026-09-29):
    (SNTP di lwIP) stampata come `net: time ...`. Monitor `G`: scarica un indirizzo e
    mostra stato, dimensione, velocità e l'inizio. Test sul PC: `make test-http` (client
    HTTP contro un server Python locale) e `make test-net` (stream su lwIP).
-2. **HTTPS**: mbedTLS 3.6 LTS (Apache 2.0) sotto lo stesso trasporto; entropia dal
-   generatore hardware del BCM2835; certificati radice in `bm33/ca.pem` (quelli che
-   servono a GitHub e poco altro); verifica di nome e date (per questo l'ora). Test
-   sul PC contro un server TLS locale con una CA di prova.
+2. 🛠 (da provare sul Pi) **HTTPS**: mbedTLS 3.6.2 LTS (Apache 2.0, `third_party/mbedtls`,
+   41 sorgenti) sotto lo stesso trasporto (`src/net/tls.c`); configurazione
+   `src/net/bm33_mbedtls.h`: client TLS 1.2, ECDHE (P-256, P-384, X25519), AES-GCM e
+   ChaCha20-Poly1305, certificati RSA ed ECDSA; entropia dal generatore hardware del
+   BCM2835 (`src/drivers/rng.c`); 19 certificati radice in `bm33/ca.pem`
+   (`scripts/make-ca.sh`, dalla lista Mozilla: GitHub, Let's Encrypt, Google, Amazon,
+   DigiCert); verifica di catena, nome e date (aspetta l'ora SNTP). Kernel +150 KB.
+   Test sul PC: `make test-https` (certificati ECDSA e RSA, 1 MiB, chunked, redirect;
+   rifiuti per nome sbagliato, certificato scaduto, CA sconosciuta).
 3. **Release**: GitHub Actions costruisce `kernel.img` e le cartucce a ogni tag `v*`, le
    allega alla release con un manifesto (versione, SHA-256, firma ECDSA P-256 con una
    chiave nei secret del repository; la chiave pubblica è nel kernel).
@@ -624,10 +652,10 @@ Passi (2026-09-29):
    `--kernel` e riavvia; le cartucce nuove vanno in `/carts`.
 5. **Git leggero in lettura**: cartucce da un repository (API "contents" di GitHub,
    file per file, senza archivi da decomprimere).
-6. **Git leggero in scrittura**: l'editor carica un `.b33` su un repository con un
+6. **Git leggero in scrittura**: l'editor carica un `.bm` su un repository con un
    token personale (`github_token` in `bm33/config.txt`, API "contents", PUT).
 
-## M20 — Picchiaduro a robot giganti (XL)
+## M20 — Picchiaduro a robot giganti (XL) — ✅ chiusa (2026-09-30: base giocabile)
 Decisione 2026-09-28: in coda dopo M19. Concept completo dell'autore:
 [`docs/giochi/mecha-fighter-concept.md`](giochi/mecha-fighter-concept.md).
 Picchiaduro 2D a incontri tra robot modulari alti come grattacieli: struttura e feeling
@@ -669,12 +697,12 @@ Si procede per incrementi, sempre con una build giocabile:
 dell'autore si è partiti subito da un MVP (passi 1–3 insieme, con un solo robot):
 progettazione in [`docs/giochi/mecha-fighter-design.md`](giochi/mecha-fighter-design.md),
 cartuccia **Titan Clash** (`carts/titan`).
-- Kernel: sezione **SHEET8** del `.b33` (palette di ≤256 colori + RLE, decodificata al
+- Kernel: sezione **SHEET8** del `.bm` (palette di ≤256 colori + RLE, decodificata al
   caricamento) e sheet fino a 4096 pixel di lato; `mkb33.py --sheet8`; test host in
   `tests/b33`.
 - Arte pre-renderizzata (`mkrobot.py`): il robot VANGUARD è un modello 3D procedurale
-  su uno scheletro, reso in vista 3/4 con cel shading a 6 toni e contorni, 62 frame in
-  23 animazioni, **a strati** (armatura pesante, spallaccio integro/crepato, cannoni,
+  su uno scheletro, reso in vista 3/4 con cel shading a 6 toni e contorni, 63 frame in
+  24 animazioni, **a strati** (armatura pesante, spallaccio integro/crepato, cannoni,
   spada sulla schiena o in mano) e in due livree (P1 acciaio e arancio, P2 cremisi e
   oro); hurtbox e hitbox per frame dalle ossa. `art.py`: città al tramonto in 4 piani
   di parallasse, hangar, effetti, scritte. Tutto in `sheet.png` (2048×3376, 166 colori).
@@ -690,7 +718,17 @@ cartuccia **Titan Clash** (`carts/titan`).
   2 giocatori, demo; costo dei frame) e `test_titan` in QEMU. Select mostra il tempo
   di frame sul Pi.
 
-## M21 — Menu "home" e giochi sospesi (M)
+- Correzioni 2026-09-30 (dopo le prove sul Pi): la **guardia** sta in equilibrio (bacino
+  sopra il punto medio dei piedi, piante parallele al suolo: `balance` e `flat_feet`
+  in `mkrobot.py`), e così camminata, accovacciata e piede d'appoggio dei calci; il
+  **diretto** del braccio in primo piano (in piedi e accovacciato) si stende oltre il
+  torace verso l'avversario (`reach`: braccio, rotazione del busto e piccolo affondo
+  che portano il pugno più avanti possibile), quindi colpisce anche più lontano. Il
+  pannello di debug (Select) mostra come il gioco legge i controlli (qualsiasi
+  controller, pad 1 e 2, levetta, e per ogni robot pad, direzione e stato), per
+  capire il problema della croce del controller segnalato sul Pi.
+
+## M21 — Menu "home" e giochi sospesi (M) — ✅ chiusa (2026-09-30)
 Decisione 2026-09-29: menu più pulito in stile console moderna (Nintendo Switch), per ora
 solo per la scelta dei giochi.
 1. ✅ (QEMU) **Griglia di copertine** (`src/kernel/menu_ui.c`, sostituisce il carosello 3D):
@@ -778,7 +816,7 @@ Sotto-milestone:
   - un volume può diventare MESH (22.3) o fotogrammi pre-renderizzati con 22.6.
 
 Considerazioni:
-- **Contenitore unico: il `.b33` stesso** (come le cartucce PICO-8): codice, sheet,
+- **Contenitore unico: il `.bm` stesso** (come le cartucce PICO-8): codice, sheet,
   mappa, copertina e le nuove sezioni (MESH, SFX, MUSIC, più file Lua). Ogni strumento
   legge e riscrive solo le sue sezioni. PNG, OBJ, GLB e WAV servono solo per scambiare
   con il PC (22.5).
@@ -817,42 +855,196 @@ font nostri; le cartucce del forum sono per lo più CC BY-NC-SA (uso non commerc
 - **Fatto quando:** un gioco senza suono gira dalla SD (primo traguardo), poi con audio
   e numeri 16.16.
 
-## M24 — Scambio di giochi e risorse: store e P2P (L, dopo M18/M19)
-Decisione 2026-09-29: in coda, da definire meglio; considerazioni iniziali.
-- **Cosa si scambia**:
-  - cartucce `.b33` (già un contenitore unico) e pacchetti di risorse (sprite, mesh,
-    suoni: un `.b33` senza codice);
+## M24 — Scambio in rete locale tra console (M, dopo M18)
+Decisione 2026-09-30: M24 originale diviso in tre (M24 rete locale, M25 store su
+GitHub, M26 market a pagamento). Considerazioni iniziali del 2026-09-29.
+- **Cosa si scambia** (vale anche per M25 e M26):
+  - cartucce `.bm` (già un contenitore unico) e pacchetti di risorse (sprite, mesh,
+    suoni: un `.bm` senza codice);
   - ogni pacchetto con un manifesto: nome, autore, versione, licenza, hash SHA-256.
-- **Catalogo su un repository GitHub** (consigliato come "store"):
-  - hosting gratuito, versioni e cronologia, moderazione con le pull request;
-  - il Pi legge un indice firmato via HTTPS (M19) e scarica;
-  - dall'SDK si pubblica con il token personale (M19, "git leggero").
-- **P2P in rete locale** (dopo M18, economico):
-  - le console si trovano con un annuncio UDP in broadcast;
-  - si passano cartucce e risorse via TCP, per esempio tra amici sulla stessa rete.
+- **Scoperta**: le console si trovano con un annuncio UDP in broadcast sulla rete di casa.
+- **Trasferimento**: cartucce e risorse via TCP (come `netxfer` di M18), per esempio
+  tra amici sulla stessa rete; conferma sullo schermo di chi riceve.
 - **P2P via internet** tra console: **sconsigliato** sul Pi Zero bare metal.
   - Servono traversamento del NAT, server di appoggio (relay) comunque, TLS e una DHT:
     molto codice, e senza un server centrale il valore aggiunto è poco.
   - Alternativa: file indirizzati per hash, scaricabili da qualunque fonte (repository o
     console vicina), con la stessa verifica.
+- **Fatto quando:** due console sulla stessa rete si vedono nel menu e una manda una
+  cartuccia all'altra.
+
+## M25 — Store su GitHub (L, dopo M19 e M24)
+- **Catalogo su un repository GitHub**:
+  - hosting gratuito, versioni e cronologia, moderazione con le pull request;
+  - il Pi legge un indice firmato via HTTPS (M19) e scarica;
+  - dall'SDK si pubblica con il token personale (M19, "git leggero").
 - **Sicurezza**:
   - pacchetti firmati dagli autori (Ed25519, codice piccolo: monocypher/TweetNaCl) e
     hash verificati prima di installare;
   - le cartucce Lua girano già in un ambiente chiuso; il codice ARM nativo (M13) no:
     senza isolamento della memoria, solo da autori fidati o mai dallo store.
-- **Market a pagamento**: account, pagamenti e licenze vanno su un servizio web, non sul
-  Pi; il Pi scarica solo ciò che l'account ha sbloccato. È un progetto a sé.
 - **Licenze**: il campo licenza è obbligatorio. La BM33 Community License vale per bm33,
   non per i contenuti degli utenti; attenzione a CC BY-NC-SA (uso non commerciale) e ai
   contenuti di terzi.
 - **Passi proposti**:
-  1. scambio in rete locale;
-  2. catalogo in lettura da GitHub;
-  3. pubblicazione dall'SDK;
-  4. firme e scheda "Store" nel menu;
-  5. (eventuale) market web.
+  1. catalogo in lettura da GitHub;
+  2. pubblicazione dall'SDK;
+  3. firme e scheda "Store" nel menu.
+- **Fatto quando:** dalla scheda "Store" del menu si sceglie un gioco del catalogo, si
+  scarica, si verifica e si gioca; l'SDK pubblica un gioco nel catalogo.
 
-## M25 — Pi 1 B: hub USB ed Ethernet (L/XL) — 🛠 fatto, da provare sul Pi
+## M26 — Market a pagamento (XL, dopo M25; progetto a sé)
+- Account, pagamenti e licenze vanno su un servizio web, non sul Pi: il Pi scarica solo
+  ciò che l'account ha sbloccato.
+- Da definire: servizio (proprio o di terzi), commissioni, rimborsi, obblighi fiscali,
+  protezione dei contenuti.
+- **Fatto quando:** un gioco a pagamento si compra sul web e compare sulla console
+  dell'account.
+
+## M27 — BareMetal UI (menu giochi/dev) (L) — in corso
+Decisione 2026-09-30: il menu home di M21 diventa **BareMetal UI**, l'interfaccia di
+sistema della console. Oltre alla scelta dei giochi ha sottomenu per le opzioni di ogni
+cartuccia, per gli strumenti di sviluppo e per le impostazioni. Tutto si raggiunge
+**col solo controller**, senza tastiera né seriale.
+
+Task:
+1. **Pannelli (sottomenu)**: la base comune.
+   - Un pannello sopra la griglia, con lo sfondo scurito.
+   - In alto il titolo con il percorso (`Settings > Controllers`).
+   - Righe con etichetta e valore, di quattro tipi: azione, sottomenu (`>`), scelta
+     (`< valore >`), informazione.
+   - La riga scelta è evidenziata, la lista scorre; in basso la spiegazione della riga.
+   - Una pila di sottomenu: B torna indietro di un livello.
+   - Comandi uguali da pad, tastiera USB, seriale e console di rete: su/giù, A o Invio,
+     B o Esc, sinistra/destra per cambiare un valore.
+   - Domande di conferma con il pulsante giusto ("Delete", "Restart").
+2. **Opzioni della cartuccia** (X sul pad, `x` dalla tastiera):
+   - gioca o riprendi, chiudi il gioco sospeso;
+   - informazioni: autore, file, dimensione, tipo, salvataggio;
+   - apri nell'SDK;
+   - cancella il salvataggio, elimina la cartuccia dalla SD, con conferma (FAT:
+     `fat_delete`, provato con `fsck.vfat`).
+3. **Scheda Dev piena**: oltre all'SDK, gli strumenti del monitor come copertine, con
+   icone disegnate in C: Monitor, Lua, Sistema, Registro, Test input, Test audio,
+   benchmark, stress test, test DMA, demo, test pattern, diagnostica.
+   - Si aprono in modalità testo; alla fine "A: torna al menu", anche dal pad.
+   - Registro e test pattern si usano anche col pad.
+4. **Impostazioni** (voce **Settings** dopo le schede, scritta come loro):
+   - Controller: i 4 giocatori con indirizzo e stato, abbina un nuovo controller, prova
+     i tasti, dimentica tutti;
+   - WiFi: rete, IP, ora, console di rete (porta e PIN), connetti, connessione
+     all'avvio sì/no;
+   - disegno dei giochi `.bm` (diretto / via RAM), layout della tastiera (italiano / US);
+   - Sistema: versione, memoria, SD, tempo di accensione; riavvia; monitor.
+5. **Barra di stato e notifiche**:
+   - ✅ (QEMU) icone al posto di `pads: 1 2 - -` e della scritta bm33 (vedi sotto);
+   - ora (SNTP, fuso orario nelle impostazioni);
+   - notifiche che compaiono e spariscono ("Controller 2 connected", "Cartridge
+     received", "Save data deleted").
+6. **Suoni e animazioni del menu**: clic di navigazione, suono di avvio, copertina che
+   si ingrandisce; volume generale e suoni del menu nelle impostazioni.
+7. **Ordine e preferiti**: giocati di recente per primi, preferiti fissati in alto,
+   ordine per titolo o autore; salvati in `/bm33/menu.txt`.
+8. **Tastiera sullo schermo** (col pad), per password WiFi, nomi dei file e PIN. Poi WiFi
+   e abbinamento del tutto grafici (elenco delle reti con il segnale, avanzamento
+   dell'abbinamento), senza passare dalla console testuale.
+9. **Menu rapido nel gioco** (PS tenuto premuto), sopra il gioco congelato: riprendi,
+   torna alla home, chiudi il gioco, volume, controller.
+- Ordine: 1 → 2 → 3 → 4, poi 5–9.
+
+**Stato (2026-09-30): task 1–4 fatti in QEMU** (`test_home_ui`, `test_sd_sdhc_and_usb_menu`,
+`make test-fat`), da provare sul Pi.
+- Pannelli in `src/kernel/menu_ui.c`: sotto un pannello sfondo e copertine sono disegnati a
+  metà luminosità mentre si copiano dalla RAM, perché la memoria video (senza cache) non
+  va mai riletta. Impostazioni e strumenti in `src/kernel/home.c`, opzioni della
+  cartuccia in `src/kernel/carts.c`.
+- Comandi: X (tasto C sulla tastiera USB, `x` dalla seriale) apre le opzioni; B (tasto X,
+  Esc, `q`) torna indietro di un livello; `3` dalla seriale apre le impostazioni.
+- `fat_delete`: prima la voce della directory (anche i pezzi del nome lungo), poi i
+  cluster. Test sul PC: 50 file e un nome lungo cancellati, `fsck.vfat` pulito; una
+  versione che lascia il nome lungo viene scoperta dal test.
+- L'SDK aperto dal menu dice "opened /carts/...": `cart_arg().back` distingue il file
+  aperto dal ritorno da una prova.
+- Col pad: il registro scorre con su/giù (sinistra/destra: pagina) e B esce; il test
+  pattern si chiude con qualsiasi tasto; dopo gli strumenti "A: torna al menu".
+- Restano sulla console testuale: abbinamento (`T`), connessione WiFi (`W`, la password
+  si scrive con la tastiera USB), Lua. Diventano grafici con il task 8.
+- **Barra** (decisione 2026-09-30): niente scritta bm33 né `pads: 1 2 - -`; Settings è
+  scritta come le schede, senza l'icona dell'ingranaggio.
+  - A destra, un'icona bianca per ogni giocatore collegato: tastiera (tastiera USB)
+    o controller in stile DS4 (pad Bluetooth o USB).
+  - Sopra il centro in basso di ogni icona, il numero del giocatore (1–4, l'ordine di
+    abbinamento) in un cerchio, con uno stacco intorno che lascia leggibile l'icona.
+    Tastiera e controller possono avere qualsiasi numero da 1 a 4 (la tastiera è il
+    primo giocatore senza pad).
+  - Cerchio bianco con il numero scuro per USB (tastiera, gamepad), blu con il numero
+    bianco per Bluetooth (DS4).
+  - Poi l'icona WiFi (Pi Zero W) o quella Ethernet (Pi 1 B / B+ col cavo, M29), se la
+    console è collegata; grigia finché il router non dà l'indirizzo.
+  - Tutte nello stesso riquadro di 27×18 pixel (`src/kernel/icons.c`): forme disegnate
+    all'avvio con antialiasing (4×4 campioni per pixel), bordi sui pixel interi.
+  - `net_link_kind()` dice quale collegamento è attivo (unione con M29: l'Ethernet del
+    LAN9512); sul Pi 1 B il pannello Settings > Network mostra il cavo invece della rete
+    WiFi, e Settings > System la scheda.
+  - Test: `bar_icons` conta le icone (3 pad col numero blu in `test_bt_two_pads`, la
+    tastiera col numero bianco in `test_sd_sdhc_and_usb_menu`, nessuna in
+    `test_home_ui`).
+- **Griglia** (decisione 2026-09-30): 16 pixel tra le copertine (erano 24 in orizzontale
+  e 20 in verticale) e più in basso: due righe intere, poi la riga successiva che
+  spunta per 12 pixel (due volte il raggio degli angoli) a dire che la lista continua.
+  Il nome della copertina scelta scende di una riga, a metà tra la barra e la griglia.
+
+Da provare sul Pi:
+- il menu resta a 60 fps anche con un pannello aperto;
+- col solo DS4: X su una copertina, cancellare un salvataggio, Settings > Controllers >
+  Pair a new controller con un secondo DS4;
+- scheda Dev: System, Log (col pad), Test pattern, Audio test;
+- Settings > System > Restart;
+- le icone della barra: tastiera e DS4 con il numero giusto, WiFi grigia e poi bianca.
+
+- **Fatto quando:** sul Pi, con il solo DS4, dal menu si raggiungono tutti i giochi,
+  gli strumenti e le impostazioni (abbinare un secondo controller, collegare il WiFi,
+  cambiare layout, riavviare); il menu resta a 60 fps; ogni funzione ha un test in
+  QEMU.
+
+## M28 — Tastiera Bluetooth LE (M) — 🛠 da provare sul Pi
+Richiesta 2026-09-30: una Logitech **MX Keys S** (con tastierino). È Bluetooth **Low
+Energy** (HID over GATT), non Bluetooth classico come il DS4: serve una parte nuova
+dello stack.
+
+Fatto (QEMU, `test_bt_keyboard` con una MX Keys simulata; `make test-smp`):
+- `src/bt/ble.c`: scansione LE, connessione come central, frammentazione e ricomposizione
+  L2CAP sui buffer LE del chip (27 byte), segnalazione LE (aggiornamento dei parametri
+  di connessione accettato), server ATT vuoto che risponde "non trovato".
+- **Pairing SMP** come iniziatore, con codice: bm33 mostra 6 cifre, si digitano sulla
+  tastiera seguite da Invio (Passkey Entry). **LE Secure Connections** (P-256 con
+  mbedTLS, f4/f5/f6 su AES-CMAC) se la tastiera lo supporta, altrimenti LE legacy
+  (c1/s1); Just Works se la tastiera non può digitare. `src/bt/smp_crypto.c`, provato con
+  i dati d'esempio della specifica (Vol 3 Part H, appendice D) e RFC 4493.
+- Legame salvato in `bm33/config.txt`: `bt_kbd` (indirizzo d'identità, tipo, IRK) e
+  `bt_kbd_key` (LTK, EDIV, Rand). **Riconnessione**: finché la tastiera manca, scansione
+  passiva; quando si fa vedere (basta un tasto), anche da un indirizzo privato risolto
+  con l'IRK, bm33 si collega e cifra con la LTK salvata.
+- **GATT/HOGP**: servizio HID, caratteristiche e descrittori, Report Reference, report
+  map letta a pezzi (MTU 23); dalla report map si ricava dove sono modificatori e tasti
+  del report tastiera (array o bitmap), notifiche attivate solo su quello; se manca, il
+  report di boot (Protocol Mode = boot).
+- I tasti vanno nello stesso livello della tastiera USB (layout italiano/US, ripetizione,
+  Esc, tasti come pulsanti nei giochi). Tastierino: cifre, `/ * - + .`, Invio; 8/4/6/2
+  come frecce nei giochi.
+- Monitor: `K` abbina la tastiera (15 s di ricerca); `P` dimentica pad **e** tastiera.
+- Driver RNG: tolto l'accesso al registro di maschera (0x10), inutile col polling e
+  assente in QEMU.
+
+Da provare sul Pi: abbinamento della MX Keys S (tenere premuto un tasto Easy-Switch 3 s
+finché la luce lampeggia veloce, poi `K` dalla console di rete), digitazione, ritorno
+dopo lo spegnimento o il cambio di canale, insieme a un DS4.
+
+**Fatto quando:** la MX Keys S scrive nel monitor e nell'editor e si ricollega da sola.
+
+## M29 — Pi 1 B: hub USB ed Ethernet (L/XL) — 🛠 fatto, da provare sul Pi
+Nata come "M25" sul ramo `claude/charming-heisenberg-7e1xjh`; rinumerata M29 all'unione
+con il ramo principale, dove M25 era già lo Store su GitHub (seguito da M26–M28).
 Decisione 2026-09-30: **un solo `kernel.img`** per tutte le schede BCM2835 (Pi Zero / Zero W,
 Pi 1 A, B, A+, B+), che riconosce la scheda all'avvio; due immagini SD (`make image` per il
 Zero W, `make image-pi1` senza il firmware del chip WiFi/Bluetooth). Il firmware di avvio
@@ -914,7 +1106,7 @@ con il MAC; `eth: link up, 100 Mbit/s full duplex` dopo qualche secondo col cavo
 | Test solo su hardware | QEMU raspi0 in CI + chainloader via seriale |
 | Bluetooth (M12) senza emulatore | un solo controller di riferimento, tracce HCI registrate sul Pi per i test |
 | Scrittura su SD (M11) che corrompe la scheda | test in QEMU con `fsck.vfat`, file di bm33 in una cartella dedicata |
-| Split transactions e LAN951x (M25) senza emulatore | schema di USPi/Circle (provati sul Pi 1), chip simulato nei test sul PC, diagnostica a schermo (`y`, `E`) |
+| Split transactions e LAN951x (M29) senza emulatore | schema di USPi/Circle (provati sul Pi 1), chip simulato nei test sul PC, diagnostica a schermo (`y`, `E`) |
 
 ## Hardware consigliato per lo sviluppo
 - Adattatore USB-seriale 3.3 V (**non 5 V**) su GPIO14/15 + GND

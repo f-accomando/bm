@@ -24,7 +24,8 @@ def main():
     env = dict(os.environ, MTOOLS_SKIP_CHECK="1")
     with tempfile.TemporaryDirectory() as tmp:
         img = os.path.join(tmp, "sd.img")
-        mksd.build(img, [(readme, "carts/README.TXT")], 64)
+        mksd.build(img, [(readme, "carts/README.TXT"),
+                         (readme, "carts/Un gioco da cancellare.bm")], 64)
         r = subprocess.run([binary, img, readme, "/carts/README.TXT"], cwd=tmp)
         if r.returncode:
             return 1
@@ -51,8 +52,13 @@ def main():
             return 1
         listing = subprocess.run(["mdir", "-i", part, "::/BM33/SAVE"],
                                  capture_output=True, text=True, env=env).stdout
-        if "204 files" not in listing:          # 202 + "." and ".."
+        if "164 files" not in listing:          # 202 - 50 deleted + 10, "." and ".."
             print("FAIL mdir:\n" + listing)
+            return 1
+        carts = subprocess.run(["mdir", "-i", part, "::/CARTS"],
+                               capture_output=True, text=True, env=env).stdout
+        if "cancellare" in carts or "README" not in carts:
+            print("FAIL mdir /carts after the delete:\n" + carts)
             return 1
     print("fat: fsck.vfat clean, mtools reads the files back")
     return 0

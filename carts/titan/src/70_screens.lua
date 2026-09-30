@@ -176,22 +176,45 @@ end
 
 ---------------------------------------------------------------- hangar
 
--- each side: its row (1 armour, 2 weapon, 3 ready), ready or not
-local H = { side = {}, workers = {}, sparks = {}, crane = 320, crane_to = 320 }
+-- the screen is split: each player in its own bay (P2's is P1's mirrored),
+-- the robot in front on the outer side, the maintenance cage at the back.
+-- Each side: its row (1 armour, 2 weapon, 3 ready), ready or not, its crane
+local H = { side = {}, workers = {}, sparks = {} }
 S.hangar = H
-local ROBOT_X = { 222, 418 }
+local ROBOT_X = { 92, 548 }
+local HALF = W // 2
+
+-- a point of player 1's bay mirrored into side i
+local function bay_x(i, x) return i == 1 and x or W - x end
+
+-- the robot parked in its bay: upright, arms down, held by the docking
+-- tower's clamps on its back
+local function parked(i)
+  local f = Fighter.new(i, "cpu", setup.cfg[i], ROBOT_X[i], i == 1 and 1 or -1)
+  f.anim, f.fi = "stand", 1
+  return f
+end
 
 function H.enter()
   for i = 1, 2 do
     local p = pad_of(i)
     if p == "cpu" then setup.cfg[i] = random_cfg() end
-    H.side[i] = { row = 1, ready = false, pad = p, cpu_t = 50 + random(40) + (i - 1) * 30, fit = 0 }
-    H.side[i].f = Fighter.new(i, "cpu", setup.cfg[i], ROBOT_X[i], i == 1 and 1 or -1)
+    H.side[i] = { row = 1, ready = false, pad = p, cpu_t = 50 + random(40) + (i - 1) * 30, fit = 0,
+                  crane = bay_x(i, 250), crane_to = bay_x(i, 250) }
+    H.side[i].f = parked(i)
   end
-  H.workers = {
-    { x = 40, y = 303, v = 0.35 }, { x = 600, y = 303, v = -0.3 }, { x = 20, y = 200, v = 0.25 },
-    { x = 610, y = 200, v = -0.2 }, { x = 206, y = 322, weld = true }, { x = 434, y = 322, weld = true },
+  -- x in player 1's bay; the lo/hi limits keep them on their floor
+  local list = {
+    { x = 130, y = 262, v = 0.3, lo = 112, hi = 176 }, { x = 200, y = 178, v = 0.2, lo = 180, hi = 300 },
+    { x = 250, y = 220, v = -0.25, lo = 180, hi = 300 }, { x = 150, y = 324, weld = true },
   }
+  H.workers = {}
+  for i = 1, 2 do
+    for _, w in ipairs(list) do
+      H.workers[#H.workers + 1] = { side = i, x = w.x + (i - 1) * 9, y = w.y, v = w.v, lo = w.lo, hi = w.hi,
+                                    weld = w.weld }
+    end
+  end
   H.sparks = {}
   G.camx = 0
   Snd.play_song("hangar")
@@ -200,9 +223,9 @@ end
 -- change the robot: the crane comes, sparks fly
 local function refit(i)
   local s = H.side[i]
-  s.f = Fighter.new(i, "cpu", setup.cfg[i], ROBOT_X[i], i == 1 and 1 or -1)
+  s.f = parked(i)
   s.fit = 24
-  H.crane_to = ROBOT_X[i]
+  s.crane_to = ROBOT_X[i]
   Snd.clank()
   for _ = 1, 16 do
     H.sparks[#H.sparks + 1] = { x = ROBOT_X[i] + random(-30, 30), y = 170 + random(-20, 40),
@@ -250,24 +273,22 @@ function H.update()
     side_update(i)
     if Scr.name ~= "hangar" then return end
     local s = H.side[i]
-    local f = s.f
     s.fit = max(0, s.fit - 1)
-    f.ft = f.ft - 1
-    if f.ft <= 0 then f.fi, f.ft = f.fi % #ANIM.idle + 1, 9 end
+    -- the crane goes where the work is, then drifts along its bridge
+    s.crane = approach(s.crane, s.crane_to, 3)
+    if s.crane == s.crane_to and (Scr.t + i * 120) % 240 == 0 then s.crane_to = bay_x(i, random(40, 290)) end
   end
-  -- the crane goes where the work is, then drifts back
-  H.crane = approach(H.crane, H.crane_to, 3)
-  if H.crane == H.crane_to and Scr.t % 240 == 0 then H.crane_to = random(120, 520) end
   -- people at work
   for _, w in ipairs(H.workers) do
     if w.weld then
       if random(12) == 1 then
-        H.sparks[#H.sparks + 1] = { x = w.x + 3, y = w.y - 6, vx = (random() - 0.5) * 3, vy = -random() * 2.5, t = 0 }
+        local x = bay_x(w.side, w.x)
+        H.sparks[#H.sparks + 1] = { x = x + 3, y = w.y - 6, vx = (random() - 0.5) * 3, vy = -random() * 2.5, t = 0 }
         if random(4) == 1 then Snd.weld() end
       end
     else
       w.x = w.x + w.v
-      if w.x < 10 or w.x > 630 then w.v = -w.v end
+      if w.x < w.lo or w.x > w.hi then w.v = -w.v end
     end
   end
   local j = 0
@@ -289,28 +310,30 @@ function H.update()
 end
 
 local STAT_NAMES = { "SPEED", "JUMP", "ARMOR", "POWER", "RANGE" }
+local PANEL_W = 132
 
+-- the settings, compact, in the top corner towards the middle
 local function side_panel(i)
   local s = H.side[i]
   local cfg = setup.cfg[i]
   local A, Wp = Data.ARMOR[cfg.armor], Data.WEAPON[cfg.weapon]
-  local x = i == 1 and 8 or W - 8 - 180
-  panel(x, 58, 180, 250, 0x0C0E16, Hud.P_COL[i])
+  local x = i == 1 and HALF - 8 - PANEL_W or HALF + 8
+  panel(x, 8, PANEL_W, 138, 0x0C0E16, Hud.P_COL[i])
   local who = s.pad == "cpu" and "CPU" or ("P" .. i)
-  text(who, x + 10, 66, Hud.P_COL[i], 2)
-  text("VANGUARD", x + 10 + #who * 16 + 8, 74, 0xE0E6F0)
+  text(who, x + 6, 13, Hud.P_COL[i], 2)
+  text("VANGUARD", x + 6 + #who * 16 + 6, 21, 0xE0E6F0)
   local rows = { { "ARMOR", A.name }, { "WEAPON", Wp.name }, { "READY", nil } }
   for k, r in ipairs(rows) do
-    local y = 104 + (k - 1) * 30
+    local y = 38 + (k - 1) * 15
     local on = s.row == k and not s.ready and s.pad ~= "cpu"
-    if on then rectfill(x + 4, y - 4, 172, 24, 0x2A3A5A) end
+    if on then rectfill(x + 2, y - 3, PANEL_W - 4, 14, 0x2A3A5A) end
     if r[2] then
-      text(r[1], x + 10, y, 0x9AA4B8)
-      local v = (on and "< " or "") .. r[2] .. (on and " >" or "")
-      text(v, x + 170 - #v * 8, y, on and 0xFFFFFF or 0xE0E6F0)
+      text(r[1], x + 6, y, 0x9AA4B8)
+      local v = (on and "<" or "") .. r[2] .. (on and ">" or "")
+      text(v, x + PANEL_W - 6 - #v * 8, y, on and 0xFFFFFF or 0xE0E6F0)
     else
       local lit = s.ready and G.frame % 30 < 20
-      text_c(s.ready and "READY!" or "READY?", x + 90, y, s.ready and (lit and 0xFFD040 or 0xB08A20) or
+      text_c(s.ready and "READY!" or "READY?", x + PANEL_W // 2, y, s.ready and (lit and 0xFFD040 or 0xB08A20) or
              (on and 0xFFFFFF or 0x9AA4B8))
     end
   end
@@ -318,58 +341,60 @@ local function side_panel(i)
   local st = { A.stats.speed, A.stats.jump, A.stats.armor,
                min(5, Wp.power + (cfg.armor == "heavy" and 1 or 0)), Wp.reach }
   for k, n in ipairs(STAT_NAMES) do
-    local y = 196 + (k - 1) * 16
-    text(n, x + 10, y, 0x8A96B0)
+    local y = 86 + (k - 1) * 11
+    text(n, x + 6, y, 0x8A96B0)
     for pip = 1, 5 do
-      rectfill(x + 82 + (pip - 1) * 18, y + 4, 15, 8, pip <= st[k] and Hud.P_COL[i] or 0x2A2E3A)
+      rectfill(x + 60 + (pip - 1) * 13, y + 1, 11, 6, pip <= st[k] and Hud.P_COL[i] or 0x2A2E3A)
     end
   end
-  text(A.desc, x + 10, 278, 0xC8D0E0)
-  text(Wp.desc, x + 10, 292, 0xC8D0E0)
+end
+
+-- one half: the bay, its people, the robot, the crane; clipped to the half
+local function draw_side(i)
+  local s = H.side[i]
+  clip((i - 1) * HALF, 0, HALF, 360)
+  if i == 1 then sprite("bay", 0, 0) else sprite("bay", W, 0, true) end
+  -- the beacon on the cage
+  if (G.frame + i * 25) % 50 < 25 then circfill(bay_x(i, 239), 132, 3, 0xFF3A28) end
+  for _, w in ipairs(H.workers) do
+    if w.side == i and not w.weld then
+      local k = floor(w.x / 4) % 2
+      local flip = w.v < 0
+      if i == 2 then flip = not flip end
+      sprite(k == 0 and "worker0" or "worker1", floor(bay_x(i, w.x)), w.y, flip)
+    end
+  end
+  local f = s.f
+  local cx = G.camx
+  G.camx = 0
+  -- a fitted robot shakes a little
+  f.x = ROBOT_X[i] + (s.fit > 0 and (s.fit % 4 < 2 and 1 or -1) or 0)
+  Fighter.draw(f)
+  G.camx = cx
+  for _, w in ipairs(H.workers) do
+    if w.side == i and w.weld then sprite("worker2", floor(bay_x(i, w.x)), w.y, i == 2) end
+  end
+  sprite("crane", floor(s.crane), 20)
+  clip()
 end
 
 function H.draw()
-  sprite("hangar", 0, 0)
-  -- a beacon on each tower
-  if G.frame % 50 < 25 then
-    circfill(194, 108, 3, 0xFF3A28)
-    circfill(444, 108, 3, 0xFF3A28)
-  end
-  -- people on the catwalks and the floor behind the robots
-  for _, w in ipairs(H.workers) do
-    if not w.weld then
-      local k = floor(w.x / 4) % 2
-      sprite(k == 0 and "worker0" or "worker1", floor(w.x), w.y, w.v < 0)
-    end
-  end
-  for i = 1, 2 do
-    local s = H.side[i]
-    local f = s.f
-    local cx = G.camx
-    G.camx = 0
-    f.x = ROBOT_X[i]
-    -- a fitted robot shakes a little
-    local shake = s.fit > 0 and (s.fit % 4 < 2 and 1 or -1) or 0
-    f.x = f.x + shake
-    Fighter.draw(f)
-    G.camx = cx
-  end
-  -- the welders in front of the robots' feet, the sparks
-  for _, w in ipairs(H.workers) do
-    if w.weld then sprite("worker2", w.x, w.y) end
-  end
+  draw_side(1)
+  draw_side(2)
   for _, p in ipairs(H.sparks) do
     rectfill(floor(p.x), floor(p.y), 2, 2, p.t < 8 and 0xFFFFFF or (p.t < 16 and 0xFFE070 or 0xFF7A1E))
   end
-  sprite("crane", floor(H.crane), 41)
+  -- the split: a dark bar with hazard marks
+  rectfill(HALF - 3, 0, 6, 360, 0x08090C)
+  for y = 0, 360, 16 do rectfill(HALF - 1, y, 2, 8, 0xD6AE2E) end
   side_panel(1)
   side_panel(2)
-  text_c("HANGAR", 320, 6, 0xFFD040, 2)
   if H.go then
-    text_c("LAUNCH!", 320, 44, 0xFFFFFF, 2)
+    text_c("LAUNCH!", HALF, 160, 0xFFFFFF, 2)
   else
-    text_c("UP/DOWN: CHOOSE  LEFT/RIGHT: CHANGE", 320, 330, 0x9AA4B8)
-    text_c("A: READY   B: BACK", 320, 344, 0x9AA4B8)
+    rectfill(HALF - 150, 327, 300, 28, 0x08090C)
+    text_c("UP/DOWN: CHOOSE  LEFT/RIGHT: CHANGE", HALF, 330, 0x9AA4B8)
+    text_c("A: READY   B: BACK", HALF, 343, 0x9AA4B8)
   end
 end
 
@@ -383,6 +408,7 @@ local function new_round()
   local a = Fighter.new(1, pad_of(1), setup.cfg[1], ARENA_W / 2 - 150, 1)
   local b = Fighter.new(2, pad_of(2), setup.cfg[2], ARENA_W / 2 + 150, -1)
   F.f[1], F.f[2] = a, b
+  G.fighters = F.f                      -- for the debug panel (Select)
   m.clock, m.tick = 99, 0
   m.phase, m.t = "intro", 0
   m.final = m.wins[1] == 1 and m.wins[2] == 1

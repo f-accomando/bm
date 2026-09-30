@@ -37,15 +37,42 @@ local function icon_uv(icon)
 end
 Mesh.icon_uv = icon_uv
 
+-- Kitchen textures, 32x32 in the sheet at (128 + 32 i, 80) (mkassets.py,
+-- KITCHEN_TEX). Mesh.flat (the option KITCHEN: FLAT) builds plain colours.
+local TX = { wood = 0, cabinet = 1, stove = 2, stove_front = 3, oven = 4, crate = 5,
+             sink = 6, steel = 7, belt = 8 }
+Mesh.TEX = TX
+Mesh.flat = false
+
+-- texture coordinates of a quad's corners (bottom left, bottom right, top
+-- right, top left as the camera sees them); turned a quarter with `turn`
+local function tex_uv(i, turn)
+  if Mesh.flat then return nil end
+  local u0, v0 = 128 + i * 32 + 0.5, 80.5
+  local u1, v1 = u0 + 31, v0 + 31
+  local c = { { u0, v1 }, { u1, v1 }, { u1, v0 }, { u0, v0 } }
+  if turn then c = { c[2], c[3], c[4], c[1] } end
+  return c
+end
+
 -- The camera always looks along +z from above: the +z face and the bottom
 -- of a block never show, nor a side against another block. `cover(dx, dz)`
--- says if the neighbouring cell hides that side.
-local function block(b, x0, y0, z0, x1, y1, z1, col, top, cover)
-  local faces = "t"
-  if not cover or not cover(0, -1) then faces = faces .. "s" end
+-- says if the neighbouring cell hides that side. top_uv / front_uv: a
+-- texture on the top and on the -z face (the one facing the camera).
+local function block(b, x0, y0, z0, x1, y1, z1, col, top, cover, top_uv, front_uv)
+  local faces = ""
+  if not top_uv then faces = "t" end
+  local front = not cover or not cover(0, -1)
+  if front and not front_uv then faces = faces .. "s" end
   if not cover or not cover(-1, 0) then faces = faces .. "w" end
   if not cover or not cover(1, 0) then faces = faces .. "e" end
-  b.boxf(x0, y0, z0, x1, y1, z1, col, faces, top)
+  if faces ~= "" then b.boxf(x0, y0, z0, x1, y1, z1, col, faces, top) end
+  if top_uv then
+    b.quad({ x0, y1, z0 }, { x1, y1, z0 }, { x1, y1, z1 }, { x0, y1, z1 }, -1, 0, 1, 0, top_uv)
+  end
+  if front and front_uv then
+    b.quad({ x0, y0, z0 }, { x1, y0, z0 }, { x1, y1, z0 }, { x0, y1, z0 }, -1, 0, 0, -1, front_uv)
+  end
 end
 
 -- one station at cell origin (x, z) (the platform's own origin for riders)
@@ -56,11 +83,14 @@ local function station_model(mb, st, x, z, world, cover)
   local x0, z0, x1, z1 = x + 0.03, z + 0.03, x + 0.97, z + 0.97
   local cx, cz = x + 0.5, z + 0.5
   if k == "oven" then
-    block(b, x0, 0, z0, x1, TOP + 0.12, z1, def.col, def.top)
-    b.quad({ x + 0.18, 0.14, z0 - 0.005 }, { x + 0.82, 0.14, z0 - 0.005 }, { x + 0.82, 0.62, z0 - 0.005 },
-           { x + 0.18, 0.62, z0 - 0.005 }, 0x2A2420, 0, 0, -1)
-    b.quad({ x + 0.3, 0.3, z0 - 0.01 }, { x + 0.7, 0.3, z0 - 0.01 }, { x + 0.7, 0.52, z0 - 0.01 },
-           { x + 0.3, 0.52, z0 - 0.01 }, 0xF08030, 0, 0, -1)
+    local door = tex_uv(TX.oven)
+    block(b, x0, 0, z0, x1, TOP + 0.12, z1, def.col, def.top, nil, nil, door)
+    if not door then
+      b.quad({ x + 0.18, 0.14, z0 - 0.005 }, { x + 0.82, 0.14, z0 - 0.005 }, { x + 0.82, 0.62, z0 - 0.005 },
+             { x + 0.18, 0.62, z0 - 0.005 }, 0x2A2420, 0, 0, -1)
+      b.quad({ x + 0.3, 0.3, z0 - 0.01 }, { x + 0.7, 0.3, z0 - 0.01 }, { x + 0.7, 0.52, z0 - 0.01 },
+             { x + 0.3, 0.52, z0 - 0.01 }, 0xF08030, 0, 0, -1)
+    end
     b.block(x + 0.62, TOP + 0.12, z + 0.62, x + 0.82, TOP + 0.5, z + 0.82, 0x6A3A2A, 0x3A2A20)
     return
   end
@@ -69,12 +99,24 @@ local function station_model(mb, st, x, z, world, cover)
     b.prism(cx, cz, TOP - 0.1, TOP - 0.02, 0.42, 0.42, 8, 0x6A786A, 0x6A786A)
     return
   end
-  -- everything else stands on a counter-like block
-  block(b, x0, 0, z0, x1, TOP, z1, def.col, def.top, cover)
+  -- everything else stands on a counter-like block: wooden top and cabinet
+  -- doors, steel for the cookers, the sink and the pass, rubber for belts
+  local top_t, front_t, turn = TX.wood, TX.cabinet, false
+  if k == "pot" or k == "pan" then top_t, front_t = TX.stove, TX.stove_front
+  elseif k == "crate" then top_t, front_t = TX.crate, TX.crate
+  elseif k == "sink" then top_t = TX.sink
+  elseif k == "serve" then top_t, front_t = TX.steel, nil
+  elseif k == "belt" then top_t, front_t, turn = TX.belt, TX.stove_front, st.dir[1] ~= 0
+  elseif k == "valve" then top_t, front_t = TX.steel, TX.stove_front
+  end
+  local top_uv = tex_uv(top_t, turn)
+  block(b, x0, 0, z0, x1, TOP, z1, def.col, def.top, cover, top_uv, front_t and tex_uv(front_t))
   if k == "crate" then
-    for _, yy in ipairs({ 0.1, 0.4 }) do
-      b.quad({ x0 + 0.05, yy, z0 - 0.004 }, { x1 - 0.05, yy, z0 - 0.004 }, { x1 - 0.05, yy + 0.06, z0 - 0.004 },
-             { x0 + 0.05, yy + 0.06, z0 - 0.004 }, shade(def.col, 0.7), 0, 0, -1)
+    if not top_uv then
+      for _, yy in ipairs({ 0.1, 0.4 }) do
+        b.quad({ x0 + 0.05, yy, z0 - 0.004 }, { x1 - 0.05, yy, z0 - 0.004 }, { x1 - 0.05, yy + 0.06, z0 - 0.004 },
+               { x0 + 0.05, yy + 0.06, z0 - 0.004 }, shade(def.col, 0.7), 0, 0, -1)
+      end
     end
     local g = Data.ING[st.ing]
     local y = TOP + 0.004
@@ -90,20 +132,20 @@ local function station_model(mb, st, x, z, world, cover)
     b.block(x + 0.14, TOP, z + 0.2, x + 0.86, TOP + 0.04, z + 0.8, 0xC89060, 0xDCA878)
     b.block(x + 0.66, TOP + 0.04, z + 0.72, x + 0.9, TOP + 0.06, z + 0.78, 0xB8C0C8, 0xD8E0E8)
   elseif k == "pot" then
-    b.disc(cx, TOP + 0.005, cz, 0.36, 8, 0x1A1A1E)
+    if not top_uv then b.disc(cx, TOP + 0.005, cz, 0.36, 8, 0x1A1A1E) end
     b.prism(cx, cz, TOP, TOP + 0.3, 0.27, 0.29, 8, 0xA0A8B0, false)
     b.disc(cx, TOP + 0.16, cz, 0.26, 8, 0x3A3E44)
     b.block(cx - 0.4, TOP + 0.2, cz - 0.04, cx - 0.28, TOP + 0.25, cz + 0.04, 0x505860)
     b.block(cx + 0.28, TOP + 0.2, cz - 0.04, cx + 0.4, TOP + 0.25, cz + 0.04, 0x505860)
   elseif k == "pan" then
-    b.disc(cx, TOP + 0.005, cz, 0.36, 8, 0x1A1A1E)
+    if not top_uv then b.disc(cx, TOP + 0.005, cz, 0.36, 8, 0x1A1A1E) end
     b.prism(cx, cz, TOP, TOP + 0.07, 0.28, 0.31, 8, 0x3A3A40, 0x26262A)
     b.block(cx + 0.28, TOP + 0.04, cz + 0.12, cx + 0.62, TOP + 0.08, cz + 0.2, 0x5A3A2A)
   elseif k == "blender" then
     b.block(cx - 0.18, TOP, cz - 0.18, cx + 0.18, TOP + 0.14, cz + 0.18, 0xD04050, 0xE05060)
     b.prism(cx, cz, TOP + 0.14, TOP + 0.5, 0.14, 0.19, 6, 0xB8E0F0, 0x90C0D8)
   elseif k == "sink" then
-    b.block(x + 0.12, TOP - 0.02, z + 0.12, x + 0.88, TOP + 0.005, z + 0.88, 0x5A7A98, 0x4A7AB8)
+    if not top_uv then b.block(x + 0.12, TOP - 0.02, z + 0.12, x + 0.88, TOP + 0.005, z + 0.88, 0x5A7A98, 0x4A7AB8) end
     b.block(cx - 0.05, TOP, z + 0.1, cx + 0.05, TOP + 0.3, z + 0.18, 0xC8D0D8, 0xE0E8F0)
   elseif k == "ret" then
     b.quad({ x + 0.15, TOP * 0.3, z0 - 0.004 }, { x + 0.85, TOP * 0.3, z0 - 0.004 },
@@ -119,7 +161,7 @@ local function station_model(mb, st, x, z, world, cover)
     b.quad({ x + 0.28, TOP + 0.14, z + 0.245 }, { x + 0.72, TOP + 0.14, z + 0.245 },
            { x + 0.72, TOP + 0.26, z + 0.245 }, { x + 0.28, TOP + 0.26, z + 0.245 }, 0x30C060, 0, 0, -1)
     b.block(x + 0.3, TOP + 0.3, z + 0.45, x + 0.7, TOP + 0.36, z + 0.75, 0xB08020, 0xE0B040)
-  elseif k == "belt" then
+  elseif k == "belt" and not top_uv then
     local d = st.dir
     for i = 0, 2 do
       local t = 0.2 + i * 0.28
@@ -147,6 +189,22 @@ local function wall_model(mb, cx, cz, world, run)
     return c.kind == "wall" and (cz + dz >= run.h - 1) == (cz >= run.h - 1)
   end
   block(b, cx, 0, cz, cx + 1, hgt, cz + 1, world.wall, world.wall2, wall_at)
+  -- a dark skirting board where the wall meets the floor
+  local skirt, sh = shade(world.wall, 0.55), 0.09
+  local function open_floor(dx, dz)
+    if cz + dz < 0 then return false end
+    local c = Kit.cell(run, cx + dx, cz + dz)
+    return c.kind ~= "wall" and c.kind ~= "void" and not c.st
+  end
+  if open_floor(0, -1) then
+    b.quad({ cx, 0, cz - 0.003 }, { cx + 1, 0, cz - 0.003 }, { cx + 1, sh, cz - 0.003 }, { cx, sh, cz - 0.003 }, skirt, 0, 0, -1)
+  end
+  if open_floor(-1, 0) then
+    b.quad({ cx - 0.003, 0, cz }, { cx - 0.003, sh, cz }, { cx - 0.003, sh, cz + 1 }, { cx - 0.003, 0, cz + 1 }, skirt, -1, 0, 0)
+  end
+  if open_floor(1, 0) then
+    b.quad({ cx + 1.003, 0, cz }, { cx + 1.003, sh, cz }, { cx + 1.003, sh, cz + 1 }, { cx + 1.003, 0, cz + 1 }, skirt, 1, 0, 0)
+  end
 end
 
 local function floor_quad(b, x, z, color)
@@ -222,6 +280,7 @@ end
 
 -- One station around its own centre (endless mode: drawn while it drops in).
 function Mesh.station_single(run, st)
+  Mesh.flat = Save.data ~= nil and Save.data.flat_kitchen == true
   local mb = multi(true)
   station_model(mb, st, -0.5, -0.5, run.world)
   return mb.build()
@@ -230,6 +289,7 @@ end
 -- The meshes of a run: .water, .floor, .static (lists), and per platform
 -- .pfloor[i], .pstatic[i] (drawn at the platform's offset).
 function Mesh.kitchen(run)
+  Mesh.flat = Save.data ~= nil and Save.data.flat_kitchen == true
   local world = run.world
   local out = { pfloor = {}, pstatic = {} }
   local w, h = run.w, run.h

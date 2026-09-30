@@ -5,8 +5,9 @@ texture each) into the game.
 For each chef it drops what the model holds in its hands and the pieces that
 make the eyes look hollow, puts clean eyes on the face instead, splits the
 model into body, two legs and two arms (the game animates them around the
-hips and the shoulders), lowers raised arms, scales it to the chef's height
-and re-bakes its texture into a 128x128 atlas.
+hips and the shoulders), lowers raised arms, keeps the model's own size
+(one model unit = one tile, as the author made them: all about 1 tall) and
+re-bakes its texture into a 128x128 atlas.
 
 Writes src/16_chef_models.lua (geometry, texture coordinates in the sheet,
 the rig) and models/chefs.png (the four atlases side by side, pasted into
@@ -53,11 +54,12 @@ def bend(sel, pivot, axis, degrees, towards=None, blend=0.03):
 EYE = 0xF8F4EC
 PUPIL = 0x1C1418
 
-# Which model is which chef (Data.CHEFS order: Basil, Bun, Noodle, Pepper);
-# height: top of the head or hat, in tiles (as Data.CHEFS).
+# Which model is which chef (Data.CHEFS order: Basil, Bun, Noodle, Pepper).
+# The size is the model's own (decision 2026-09-30: the heights of the old
+# box chefs, 1.35 / 1.05 / 1.65 / 0.92, are no longer imposed).
 SLAB = box(-0.3, 0.3, -0.31, 0.0, 0.08, 0.4)          # chef 2: in front of the belly
 CHEFS = [
-    dict(src="chef1.glb", height=1.35,
+    dict(src="chef1.glb",
          drop=[piece(-0.10, -0.36, 0.20),              # the wooden spoon
                piece(-0.04, 0.42, -0.04)],             # a spike on the hat
          eyes=[piece(-0.06, 0.01, 0.17), piece(0.08, 0.01, 0.17)],   # eyes that stick out
@@ -66,7 +68,7 @@ CHEFS = [
          arms=[piece(-0.13, -0.27, 0.02),
                piece_box(piece(0.05, -0.26, 0.05), box(0.11, 1, -1, -0.08, -1, 1))],
          pose=[]),
-    dict(src="chef2.glb", height=1.05,
+    dict(src="chef2.glb",
          drop=[piece(-0.04, -0.11, 0.26),              # the knife's blade
                colour((145, 85, 65), 45, SLAB),        # the cutting board
                colour((125, 110, 120), 40, SLAB),      # the knife
@@ -76,7 +78,7 @@ CHEFS = [
          arms=[box(0.12, 1, -0.24, -0.03, -1, 1), box(-1, -0.12, -0.24, -0.03, -1, 1)],
          pose=[bend(part("arm", box(0, 1, -1, 1, -1, 1)), (0.2, -0.13, 0.08), (1, 0, 0), 80),
                bend(part("arm", box(-1, 0, -1, 1, -1, 1)), (-0.2, -0.13, 0.08), (1, 0, 0), 80)]),
-    dict(src="chef3.glb", height=1.65,
+    dict(src="chef3.glb",
          drop=[piece(-0.16, -0.31, 0.15), piece(-0.19, -0.31, 0.16)],   # the lettuce
          eyes=[piece(0.07, 0.07, 0.16), piece(-0.08, 0.06, 0.17)],     # slivers in hollow eyes
          eye=(0.075, 0.08), pupil=(0.032, 0.042),
@@ -84,7 +86,7 @@ CHEFS = [
          arms=[piece(0.20, -0.16, 0.16), piece(-0.16, -0.22, 0.07)],
          pose=[bend(part("arm", box(0, 1, -1, 1, -1, 1)), (0.07, -0.13, 0.13), (0, 0, 1), -70, (1, 0, 0)),
                bend(part("arm", box(-1, 0, -1, 1, -1, 1)), (-0.05, -0.18, 0.07), (0, 0, 1), 45, (-1, 0, 0))]),
-    dict(src="chef4.glb", height=0.92,
+    dict(src="chef4.glb",
          drop=[piece(0.2, 0.25, -0.15), piece(-0.2, 0.08, 0.05)],   # the pan and its handle
          eyes=[], eye=None, pupil=None,
          legs=[box(-1, 1, -1, -0.33, -1, 1)],
@@ -323,9 +325,9 @@ def build(spec, raw=False):
     m.P = m.P[:, [0, 2, 1], :]
     m.UV = m.UV[:, [0, 2, 1], :]
     eye_at = [np.array([-e[0], e[1], e[2]]) for e in eye_at]
-    # 4. feet on the floor, the given height, centred on the legs
+    # 4. feet on the floor, centred on the legs, at the model's own size
     lo, hi = m.P[:, :, 1].min(), m.P[:, :, 1].max()
-    k = spec["height"] / (hi - lo)
+    k = 1.0
     legs = np.array([p == "leg" for p in m.part])
     cx = m.P[legs][:, :, 0].mean() if legs.any() else 0.0
     cz = m.P[legs][:, :, 2].mean() if legs.any() else 0.0

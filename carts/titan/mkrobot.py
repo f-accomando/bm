@@ -603,6 +603,77 @@ def P(base, **kw):
     return p
 
 
+def flat_feet(pose, sides=("n", "f")):
+    """the foot angles that keep the soles parallel to the floor (the feet
+    that stand on it; a kicking foot is left as it is)"""
+    p = dict(pose)
+    up = np.array([0.0, 1.0, 0.0])
+    for s in sides:
+        name = "foot_" + s
+        best, be = p.get(name, 0), 1e9
+        for a in np.arange(-150.0, 150.1, 0.5):
+            p[name] = float(a)
+            R, _ = pose_bones(p)[name]
+            e = 1 - (R @ up)[1]
+            if e < be:
+                be, best = e, float(a)
+        p[name] = best
+    return p
+
+
+def balance(pose):
+    """both thighs turned together until the hips stand over the middle of
+    the feet (on the screen), then the soles flat again"""
+    best, be = pose, 1e9
+    for d in np.arange(-40.0, 40.1, 1.0):
+        q = P(pose, thigh_n=pose.get("thigh_n", 0) + d, thigh_f=pose.get("thigh_f", 0) + d)
+        b = pose_bones(q)
+        hip = (b["pelvis"][1] @ VIEW.T)[0]
+        feet = ((b["foot_n"][1] + b["foot_f"][1]) / 2 @ VIEW.T)[0]
+        e = abs(hip - feet)
+        if e < be:
+            best, be = q, e
+    return flat_feet(best)
+
+
+def reach(pose, side="n", turn=0):
+    """a punch that lands: the arm, the chest's turn and a little lunge of
+    the hips that put the fist as far forward on the screen as it goes, at
+    the shoulder's height. `turn`: then the chest turns that much more (the
+    punching shoulder forward, the other back) and the arm is found again"""
+    best, bs = pose, -1e9
+    arm, fore, hand = "arm_" + side, "fore_" + side, "hand_" + side
+    cz, cx, cy = pose.get("chest", (0, 0, 0))
+    pz, px, py = pose.get("pelvis", (0, 0, 0))
+    for chy in range(cy - 40, cy + 41, 5):
+        for pyy in range(py - 20, py + 21, 10):
+            base = P(pose, chest=(cz, cx, chy), pelvis=(pz, px, pyy))
+            sh = (pose_bones(base)[arm][1] @ VIEW.T)
+            for rz in range(70, 121, 5):
+                for rx in range(-50, 51, 10):
+                    q = P(base, **{arm: (rz, rx), fore: 0, hand: 0})
+                    R, t = pose_bones(q)[hand]
+                    fist = (t + R @ np.array([0.0, -0.45, 0.0])) @ VIEW.T
+                    score = fist[0] - 0.6 * abs(fist[1] - sh[1])
+                    if score > bs:
+                        best, bs = q, score
+    if not turn:
+        return best
+    cz, cx, cy = best["chest"]
+    base = P(best, chest=(cz, cx, cy + turn))
+    sh = (pose_bones(base)[arm][1] @ VIEW.T)
+    out, bs = base, -1e9
+    for rz in range(60, 131, 2):
+        for rx in range(-60, 61, 4):
+            q = P(base, **{arm: (rz, rx), fore: 0, hand: 0})
+            R, t = pose_bones(q)[hand]
+            fist = (t + R @ np.array([0.0, -0.45, 0.0])) @ VIEW.T
+            score = fist[0] - 0.6 * abs(fist[1] - sh[1])
+            if score > bs:
+                out, bs = q, score
+    return out
+
+
 GUARD = {
     "root": (0.0, 0.0),
     "pelvis": (-6, 0, 14),
@@ -618,19 +689,28 @@ CROUCH = P(GUARD, pelvis=(-8, 0, 18), chest=(-10, 0, -16), head=-4,
 
 
 def walk(i):
+    """a step around the guard stance (whose thighs set the middle), soles flat"""
     ph = i / 6 * 2 * math.pi
-    tn = 6 + 26 * math.sin(ph)
-    tf = 6 + 26 * math.sin(ph + math.pi)
+    mid = (GUARD["thigh_n"] + GUARD["thigh_f"]) / 2
+    tn = mid + 26 * math.sin(ph)
+    tf = mid + 26 * math.sin(ph + math.pi)
     sn = -12 - 34 * max(0.0, math.sin(ph + math.pi / 2))
     sf = -12 - 34 * max(0.0, math.sin(ph + 3 * math.pi / 2))
-    return P(GUARD, pelvis=(-4, 0, 8 + 3 * math.sin(2 * ph)), thigh_n=tn, shin_n=sn, foot_n=-(tn + sn) * 0.8,
-             thigh_f=tf, shin_f=sf, foot_f=-(tf + sf) * 0.8,
-             arm_n=(58 - 8 * math.sin(ph), -10), arm_f=(66 + 8 * math.sin(ph), 6))
+    return flat_feet(P(GUARD, pelvis=(-4, 0, 8 + 3 * math.sin(2 * ph)), thigh_n=tn, shin_n=sn,
+                       thigh_f=tf, shin_f=sf,
+                       arm_n=(58 - 8 * math.sin(ph), -10), arm_f=(66 + 8 * math.sin(ph), 6)))
 
 
 # Animations: name -> list of (pose, active part or None). The active part is
 # what hits (a fist, a foot, the blade): its box is the frame's hitbox.
 def animations():
+    global GUARD, CROUCH
+    # decision 2026-09-30: the guard stands balanced (hips over the middle of
+    # the feet, soles flat), the crouch too; the jabs reach past the chest
+    if not GUARD.get("_balanced"):
+        GUARD = balance(GUARD)
+        GUARD["_balanced"] = True
+        CROUCH = flat_feet(CROUCH)
     A = {}
     A["idle"] = [(P(GUARD, root=(0, -0.06 * k), chest=(-4, 0, -18 + 2 * k), arm_n=(62 - 2 * k, -10),
                     arm_f=(70 - 2 * k, 6)), None) for k in (0, 1, 2, 1)]
@@ -653,8 +733,11 @@ def animations():
     A["cblock"] = [(P(CROUCH, chest=(-6, 0, -6), head=-10, arm_n=(78, -30), fore_n=122, arm_f=(88, 25),
                       fore_f=118), None)]
     # punches and kicks
+    # (2026-09-30: the torso turns 14 degrees more on the jab: the punching
+    # shoulder forward, the other back, a longer reach)
+    jab = reach(P(GUARD, arm_f=(45, 6), fore_f=110), turn=14)
     A["lp"] = [(P(GUARD, arm_n=(40, -10), fore_n=110), None),
-               (P(GUARD, chest=(-4, -4, -24), arm_n=(92, -4), fore_n=4, hand_n=0), "hand_n"),
+               (jab, "hand_n"),
                (P(GUARD, arm_n=(55, -10), fore_n=90), None)]
     A["hp"] = [(P(GUARD, chest=(-4, 18, -12), arm_f=(15, 10), fore_f=125), None),
                (P(GUARD, pelvis=(-6, -10, 8), chest=(-4, -30, -26), head=0, arm_f=(92, 2), fore_f=2, hand_f=0,
@@ -678,9 +761,12 @@ def animations():
                   thigh_n=-12, shin_n=-10, foot_n=22, arm_n=(40, -30), fore_n=80, arm_f=(20, 20), fore_f=90),
                 "foot_f"),
                (P(GUARD, pelvis=(-6, 10, 18), thigh_f=60, shin_f=-100, foot_f=30, thigh_n=15, shin_n=-25), None)]
+    # the foot a kick stands on stays flat on the floor
+    A["lk"] = [(flat_feet(p, ("f",)), a) for p, a in A["lk"]]
+    A["hk"] = [(flat_feet(p, ("n",)), a) for p, a in A["hk"]]
     # crouching attacks
     A["clp"] = [(P(CROUCH, arm_n=(40, -10), fore_n=110), None),
-                (P(CROUCH, chest=(-4, -4, -22), arm_n=(92, -4), fore_n=4, hand_n=0), "hand_n")]
+                (reach(P(CROUCH, arm_f=(45, 6), fore_f=110), turn=14), "hand_n")]
     A["chp"] = [(P(CROUCH, arm_f=(10, 10), fore_f=130, chest=(-4, 10, -24)), None),
                 (P(CROUCH, thigh_n=45, shin_n=-70, thigh_f=5, shin_f=-60, foot_f=50, chest=(-4, -20, 2),
                    arm_f=(150, 5), fore_f=40, hand_f=0, head=10), "hand_f"),
@@ -747,6 +833,10 @@ def animations():
                     arm_f=(93, 8), fore_f=6, hand_f=0, thigh_n=28, shin_n=-24, thigh_f=-24, shin_f=-14), None),
                  (P(GUARD, pelvis=(-6, 0, 2), chest=(-4, -10, -2), head=0, arm_n=(99, -8), fore_n=9, hand_n=0,
                     arm_f=(97, 8), fore_f=9, hand_f=0, thigh_n=28, shin_n=-24, thigh_f=-24, shin_f=-14), None)]
+    # the hangar (2026-09-30): parked upright, arms down at rest, legs straight
+    A["stand"] = [(flat_feet(P(GUARD, pelvis=(0, 0, 0), waist=0, chest=(0, 0, -6), head=0,
+                               arm_n=(6, -8), fore_n=12, hand_n=0, arm_f=(6, 8), fore_f=12, hand_f=0,
+                               thigh_n=2, shin_n=-2, thigh_f=-2, shin_f=-2)), None)]
     return A
 
 

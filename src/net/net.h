@@ -40,5 +40,12 @@ const char *net_time_text(void);
 uint32_t net_ip(void);
 /* "192.168.1.23", or "-" */
 const char *net_ip_text(void);
+/* The kind of link the console is on, for the menu's icon: the WiFi of the
+ * Pi Zero W or the Ethernet cable of the Pi 1 B / B+, with its link up;
+ * NET_LINK_NONE when the network is not started or the link is down. */
+#define NET_LINK_NONE     0
+#define NET_LINK_WIFI     1
+#define NET_LINK_ETHERNET 2
+int net_link_kind(void);
 
 #endif

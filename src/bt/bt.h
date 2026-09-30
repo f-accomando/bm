@@ -16,15 +16,24 @@ int bt_start(void);
  * next free player (bt_pad1..bt_pad4 in bm33/config.txt). */
 void bt_scan(unsigned seconds);
 
+/* Looks for a Bluetooth LE keyboard in pairing mode for `seconds` and
+ * pairs it: a code is shown, to type on the keyboard (bt_kbd and
+ * bt_kbd_key in bm33/config.txt). Afterwards it comes back by itself. */
+void bt_pair_keyboard(unsigned seconds);
+
+/* 1 while the Bluetooth keyboard is connected. */
+int bt_keyboard(void);
+
 /* Processes what the chip sent (connections, HID reports). Call often;
  * does nothing until bt_start. */
 void bt_poll(void);
 
-/* Forgets all pads (links dropped, keys removed from bm33/config.txt).
- * Returns how many keys there were. */
+/* Forgets all pads and the keyboard (links dropped, keys removed from
+ * bm33/config.txt). Returns how many keys there were. */
 int bt_forget_all(void);
 
-/* 1 once a pad has been paired (a bt_pad key in bm33/config.txt). */
+/* 1 once a pad or a keyboard has been paired (bt_pad, bt_kbd keys in
+ * bm33/config.txt). */
 int bt_paired(void);
 
 /* 1 while at least one pad has its HID channels open. */

@@ -3,7 +3,7 @@
 
 #include <stdint.h>
 
-/* Game buttons, same order as the .b33 btn() numbers */
+/* Game buttons, same order as the .bm btn() numbers */
 #define HID_LEFT    (1u << 0)
 #define HID_RIGHT   (1u << 1)
 #define HID_UP      (1u << 2)
@@ -12,7 +12,7 @@
 #define HID_B       (1u << 5)
 #define HID_START   (1u << 6)
 #define HID_SELECT  (1u << 7)
-#define HID_X       (1u << 8)       /* third and fourth face buttons: .b33 btn(6), btn(7) */
+#define HID_X       (1u << 8)       /* third and fourth face buttons: .bm btn(6), btn(7) */
 #define HID_Y       (1u << 9)
 
 /* report_id: the keyboard's report ID if the device may send report
@@ -47,6 +47,22 @@ uint32_t hid_players(uint32_t out[HID_PLAYERS], int text, int local);
  * slot, or of the USB gamepad with slot -1. Returns 1 if the pad has an
  * analog stick (else xy is 0). */
 int hid_stick(int slot, int8_t xy[2]);
+
+/* A Bluetooth LE keyboard (HID over GATT). Its keyboard input report, as
+ * found in the report map: report ID, bit offsets of the modifier byte and
+ * of the keys (an array of nkeys usages, or a bitmap of bitmap_n usages
+ * from bitmap_min); -1 when absent. */
+typedef struct {
+    uint8_t id, nkeys, bitmap_min;
+    uint16_t bitmap_n;
+    int16_t mods_bit, keys_bit, bitmap_bit;
+} hid_kbd_layout_t;
+/* 1 if the report map has a keyboard with keys we can read. */
+int  hid_kbd_layout(const uint8_t *map, uint32_t len, hid_kbd_layout_t *k);
+/* A report of that keyboard (without the report ID): works like the USB
+ * keyboard (text, keys as buttons, Esc). Clear: all keys released. */
+void hid_ble_keyboard(const hid_kbd_layout_t *k, const uint8_t *r, uint32_t len);
+void hid_ble_keyboard_clear(void);
 
 /* Text input from the keyboard (layout applied): next byte or -1. */
 int      hid_getc(void);

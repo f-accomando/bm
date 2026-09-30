@@ -20,19 +20,19 @@ s32_demo_cart_end:
     .balign 4
     .globl b33_demo_cart, b33_demo_cart_end
 b33_demo_cart:
-    .incbin "demo.b33"          /* found through -Wa,-I$(BUILD) */
+    .incbin "demo.bm"          /* found through -Wa,-I$(BUILD) */
 b33_demo_cart_end:
 
     .section .rodata
     .balign 4
     .globl b33_editor_cart, b33_editor_cart_end
 b33_editor_cart:
-    .incbin "editor.b33"
+    .incbin "editor.bm"
 b33_editor_cart_end:
 
     .section .rodata
     .balign 4
     .globl b33_stress_cart, b33_stress_cart_end
 b33_stress_cart:
-    .incbin "stress.b33"
+    .incbin "stress.bm"
 b33_stress_cart_end:

@@ -38,24 +38,25 @@ static const char help_text[] =
             "commands (games: arrows/wasd, space = A; q or Esc quits):\n"
             "  M  cartridge menu (SD card: / and /carts; built-in demos if none)\n"
             "  f  list cartridges        F  re-read the SD card\n"
-            "  g  built-in s32 demo.cart n  built-in native demo.b33\n"
+            "  g  built-in s32 demo.cart n  built-in native demo.bm\n"
             "  l  Lua REPL (Esc, Ctrl-D or exit() returns here)\n"
             "  U  receive a cartridge over serial and play it\n"
             "  i  system info            m  heap usage          c  clear screen\n"
             "  y  USB: scan port and hub Y  input test: USB, then each player (10 s)\n"
             "  L  keyboard layout Italian / US\n"
             "  a  audio: HDMI sound status and a test tune\n"
-            "  e  editor: code, sprites and map of a .b33 cartridge\n"
+            "  e  editor: code, sprites and map of a .bm cartridge\n"
             "  T  Bluetooth: pair a controller as the next player (DS4: Share + PS)\n"
-            "  P  Bluetooth: forget all paired pads (asks first)\n"
+            "  K  Bluetooth: pair a keyboard (LE, e.g. MX Keys: hold an Easy-Switch key)\n"
+            "  P  Bluetooth: forget all paired pads and the keyboard (asks first)\n"
             "  W  WiFi: start, list the networks, join one (M18; saved in bm33/config.txt)\n"
             "  E  Ethernet (Pi 1 B / B+): link, counters, chip registers\n"
             "     from the PC: tools/bm33_net.py IP (console, --send/--play a cart, --kernel)\n"
-            "  G  get a web address (http; https with M19.2): status, size, speed, start\n"
+            "  G  get a web address (http or https): status, size, speed, start\n"
             "  b  boot diagnostics: benchmarks, s32 and b33 demos, Lua boot script\n"
             "  k  CPU benchmark          p  rendering benchmark 640x360 RGB565\n"
             "  D  DMA test step by step (CPU against DMA timings)\n"
-            "  V  .b33 drawing: direct on screen / via RAM (compare with p)\n"
+            "  V  .bm drawing: direct on screen / via RAM (compare with p)\n"
             "  s  rendering stress test (sprites, triangles, 3D; C and Lua)\n"
             "  d  animation demo (60 fps; any key stops it)\n"
             "  t  HDMI test pattern (any key returns)\n"
@@ -106,14 +107,14 @@ static void show_test_pattern(void)
 /* 'G': a GET, to try the network from the monitor (M19) */
 static void net_get_test(void)
 {
-    static char url[256] = "http://example.com/";
+    static char url[256] = "https://example.com/";
     kprintf("address (Enter: %s): ", url);
     char line[240];
     int n = input_read_line(line, sizeof line, 0);
     if (n < 0)
         return;
     if (n > 0)
-        snprintf(url, sizeof url, "%s%s", strstr(line, "://") ? "" : "http://", line);
+        snprintf(url, sizeof url, "%s%s", strstr(line, "://") ? "" : "https://", line);
     uint32_t t0 = timer_ticks();
     uint8_t *data;
     size_t len;
@@ -196,7 +197,7 @@ void monitor_run(void)
         case 'p': b33_bench_report(console_framebuffer(), 120); break;
         case 'V':
             b33_set_via_ram(!b33_via_ram());
-            kprintf(".b33 carts draw %s\n", b33_via_ram() ? "via a RAM buffer" : "directly on screen");
+            kprintf(".bm carts draw %s\n", b33_via_ram() ? "via a RAM buffer" : "directly on screen");
             config_save();
             break;
         case 'd': {
@@ -219,6 +220,7 @@ void monitor_run(void)
         case 'y': usb_init(); usb_print(); break;
         case 'Y': usb_live_test(5); input_live_test(10); break;
         case 'T': bt_scan(8); break;
+        case 'K': bt_pair_keyboard(15); break;
         case 'W':
             if (wifi_start() == 0 && wifi_scan() > 0 && wifi_connect() == 0 &&
                 net_start(&net_wifi) == 0)
@@ -231,13 +233,13 @@ void monitor_run(void)
             break;
         case 'o': pager_show(klog_text()); break;
         case 'P': {
-            kprintf("forget all Bluetooth pads (keys removed from bm33/config.txt)? y = yes\n");
+            kprintf("forget all Bluetooth pads and the keyboard (keys removed from bm33/config.txt)? y = yes\n");
             input_flush();                      /* only a key pressed after the question */
             char k = input_getc();
             if (k == 'y' || k == 'Y') {
                 int n = bt_forget_all();
-                kprintf("bt: %d pad%s forgotten; pair again with T (DS4: Share + PS)\n",
-                        n, n == 1 ? "" : "s");
+                kprintf("bt: %d device%s forgotten; pair again with T (DS4: Share + PS)\n"
+                        "    or K (keyboard)\n", n, n == 1 ? "" : "s");
             }
             else
                 kprintf("cancelled\n");

@@ -1,5 +1,5 @@
 /*
- * .b33 runtime: sandboxed Lua 5.4 state + drawing API in C (gfx16) + frame
+ * .bm runtime: sandboxed Lua 5.4 state + drawing API in C (gfx16) + frame
  * loop. Lua only runs game logic; every pixel is drawn by C.
  */
 #include "runtime.h"
@@ -506,6 +506,13 @@ static int l_log(lua_State *L)
 
 #define SAVE_DIR   "/bm33/save"
 #define SAVE_MAX   (32 * 1024)
+
+void b33_save_path(const char *title, const char *author, char *out, size_t n)
+{
+    char id[96];
+    int len = ksnprintf(id, sizeof id, "%s\n%s", title, author);
+    ksnprintf(out, n, "%s/%08lX.SAV", SAVE_DIR, crc32(id, (uint32_t)len));
+}
 
 static void ser(lua_State *L, luaL_Buffer *b, int idx, int depth);
 
@@ -1102,11 +1109,17 @@ static uint8_t *proj_cover;
 static uint16_t proj_cover_w, proj_cover_h;
 static char run_request[64];
 static char arg_path[64], arg_error[512], last_error[512];
+static int arg_back = 1;
 
 void b33_set_arg(const char *path, const char *error)
 {
     ksnprintf(arg_path, sizeof arg_path, "%s", path ? path : "");
     ksnprintf(arg_error, sizeof arg_error, "%s", error ? error : "");
+}
+
+void b33_set_arg_back(int back)
+{
+    arg_back = back;
 }
 
 int b33_take_run(char *path, size_t n)
@@ -1238,7 +1251,7 @@ static const char *field(lua_State *L, int t, const char *k, const char *def)
 
 /* cart_save(path, {title=, author=, res=, lua=}) -> true, or false and a
  * message. Sprite sheet and map are the running cartridge's; the file
- * name must be 8.3 (e.g. "/carts/MYGAME.B33"). */
+ * name must be 8.3 (e.g. "/carts/MYGAME.BM"). */
 static int l_cart_save(lua_State *L)
 {
     const char *path = luaL_checkstring(L, 1);
@@ -1340,6 +1353,8 @@ static int l_cart_arg(lua_State *L)
     lua_newtable(L);
     lua_pushstring(L, arg_path);
     lua_setfield(L, -2, "path");
+    lua_pushboolean(L, arg_back);
+    lua_setfield(L, -2, "back");
     if (arg_error[0]) {
         lua_pushstring(L, arg_error);
         lua_setfield(L, -2, "error");
@@ -1579,9 +1594,9 @@ int b33_run(framebuffer_t *fb, const uint8_t *data, size_t len,
     }
 
     {
-        char id[96];
-        int n = ksnprintf(id, sizeof id, "%s\n%s", cart.title, cart.author);
-        ksnprintf(rt.save_name, sizeof rt.save_name, "%08lX.SAV", crc32(id, (uint32_t)n));
+        char path[40];
+        b33_save_path(cart.title, cart.author, path, sizeof path);
+        ksnprintf(rt.save_name, sizeof rt.save_name, "%s", path + sizeof SAVE_DIR);
     }
     audio_reset();
     rt.start_us = timer_ticks();

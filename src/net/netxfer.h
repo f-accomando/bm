@@ -4,7 +4,7 @@
  * played at once, or a new kernel.img followed by a reboot.
  *
  * Request: "BM3X", op ('S' save, 'P' play, 'K' kernel), u8 length +
- * password, u8 length + path ("carts/pong.b33"; 8.3 names), u32 size,
+ * password, u8 length + path ("carts/pong.bm"; 8.3 names), u32 size,
  * u32 crc32 (little endian), the data. Answers, two letters each: after
  * the header OK, or PW (password), SZ (size), BH (bad header); after the
  * data OK, CE (crc), WE (SD write error).

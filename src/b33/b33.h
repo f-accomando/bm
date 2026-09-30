@@ -1,5 +1,5 @@
 /*
- * Native bm33 cartridge format (.b33), version 1. Little endian.
+ * Native bm33 cartridge format (.bm), version 1. Little endian.
  *
  *   0   char[8]  magic "BM33CART"
  *   8   u16      version (1)

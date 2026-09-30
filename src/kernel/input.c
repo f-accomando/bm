@@ -21,6 +21,30 @@ static void update_uptime(void)
     console_set_status(0, buf);
 }
 
+static int pad_keys;
+static uint32_t pad_prev;
+
+void input_pad_keys(int mode)
+{
+    pad_keys = mode;
+    pad_prev = hid_pad_buttons();
+}
+
+/* with input_pad_keys: a button just pressed on a controller, as a key */
+static int pad_key(void)
+{
+    uint32_t b = hid_pad_buttons(), p = b & ~pad_prev;
+    pad_prev = b;
+    if (p & (HID_B | HID_START)) return 0x1B;
+    if (pad_keys != INPUT_PAD_NAV) return -1;
+    if (p & HID_UP) return HID_KEY_UP;
+    if (p & HID_DOWN) return HID_KEY_DOWN;
+    if (p & HID_LEFT) return HID_KEY_PGUP;
+    if (p & HID_RIGHT) return HID_KEY_PGDN;
+    if (p & HID_A) return '\r';
+    return -1;
+}
+
 int input_key(void)
 {
     if (uart_rx_ready())
@@ -33,7 +57,10 @@ int input_key(void)
         return c;
     if (netxfer_play_announce())
         return INPUT_NET_PLAY;
-    return hid_getc();
+    c = hid_getc();
+    if (c < 0 && pad_keys)
+        c = pad_key();
+    return c;
 }
 
 int input_remote_ready(void)
@@ -146,6 +173,17 @@ static int usb_input(void)
 {
     int k = usb_info()->kind;
     return k == USB_KEYBOARD || k == USB_GAMEPAD || k == USB_XBOX360;
+}
+
+int input_device(int p)
+{
+    if (bt_pads() >> p & 1)
+        return INPUT_DEV_PAD | INPUT_DEV_BLUETOOTH;
+    if (p != input_local_player())
+        return INPUT_DEV_NONE;
+    int k = usb_info()->kind;
+    return k == USB_KEYBOARD ? INPUT_DEV_KEYBOARD
+         : k == USB_GAMEPAD || k == USB_XBOX360 ? INPUT_DEV_PAD : INPUT_DEV_NONE;
 }
 
 unsigned input_connected(void)

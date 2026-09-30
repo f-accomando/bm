@@ -1,9 +1,9 @@
-# Cartucce native `.b33`: API e prima cartuccia
+# Cartucce native `.bm`: API e prima cartuccia
 
 > Guida pratica passo per passo (sprite, mappe, modelli 3D, suono, luci, salvataggi):
 > [GUIDA-GIOCHI.md](GUIDA-GIOCHI.md).
 
-Una cartuccia `.b33` è un gioco per bm33 scritto in **Lua 5.4**. Il kernel disegna in C
+Una cartuccia `.bm` è un gioco per bm33 scritto in **Lua 5.4**. Il kernel disegna in C
 (640×360, colore a 16 bit RGB565, 60 fotogrammi al secondo); Lua si occupa solo della
 logica. Esempi completi in `carts/`: `pong/`, `snake/`, `shooter/` (solo codice) e
 `demo/` (con sprite sheet PNG e mappa CSV).
@@ -35,11 +35,11 @@ logica. Esempi completi in `carts/`: `pong/`, `snake/`, `shooter/` (solo codice)
 2. Impacchettala:
 
    ```sh
-   python3 scripts/mkb33.py -o ciao.b33 --lua carts/ciao/main.lua --title "Ciao" --author "io"
+   python3 scripts/mkb33.py -o ciao.bm --lua carts/ciao/main.lua --title "Ciao" --author "io"
    ```
 
    Per aggiungerla alla build, metti il nome in `GAMES` nel `Makefile` e il titolo in
-   una riga `title_ciao := Ciao`: `make` la crea in `build/carts/ciao.b33`.
+   una riga `title_ciao := Ciao`: `make` la crea in `build/carts/ciao.bm`.
 
    **Copertina** (facoltativa): `--cover copertina.png`, un PNG di qualsiasi misura
    (viene ritagliato a 16:10 e ridotto a 128×80) che il menu stampa sulla scheda. Nella
@@ -47,18 +47,18 @@ logica. Esempi completi in `carts/`: `pong/`, `snake/`, `shooter/` (solo codice)
    `scripts/mkcovers.py`. Senza copertina il menu stampa il titolo.
 
 3. Provala:
-   - **sul Pi**: copia `ciao.b33` nella cartella `carts/` della SD, riaccendi (o premi
+   - **sul Pi**: copia `ciao.bm` nella cartella `carts/` della SD, riaccendi (o premi
      `R` nel menu): compare nel menu con titolo e autore;
    - **in QEMU** (senza Pi):
 
      ```sh
      qemu-system-arm -M raspi0 -bios build/kernel.img -serial tcp:127.0.0.1:4444,server=on,wait=off -serial null &
-     python3 tools/bm33_load.py tcp:127.0.0.1:4444 --cart ciao.b33
+     python3 tools/bm33_load.py tcp:127.0.0.1:4444 --cart ciao.bm
      ```
 
      (dal menu o dal monitor: il loader manda `U`, poi la cartuccia);
    - **dalla seriale** (Pi con adattatore USB-seriale):
-     `python3 tools/bm33_load.py /dev/ttyUSB0 --cart ciao.b33`.
+     `python3 tools/bm33_load.py /dev/ttyUSB0 --cart ciao.bm`.
 
 Esc (tastiera) o Start+Select (gamepad) chiudono la cartuccia e tornano al menu.
 Se c'è un errore Lua, la cartuccia si ferma e l'errore, con la riga, appare sulla console.
@@ -231,10 +231,10 @@ Pong, Snake e Star Shooter in `carts/` usano effetti e piccole melodie (una funz
 |---|---|
 | `keyp()` | il prossimo tasto scritto: un carattere (`"a"`, `"\n"` Invio, `"\b"` Backspace, `"\t"`), un nome (`"up"`, `"down"`, `"left"`, `"right"`, `"home"`, `"end"`, `"pgup"`, `"pgdn"`, `"del"`, `"esc"`, `"f1"`…`"f5"`) o `"^s"` per Ctrl+S; `nil` se nessuno. Dalla prima chiamata la tastiera scrive e non fa più da gamepad per `btn()`, ed Esc non chiude la cartuccia (Start+Select e PS sì) |
 | `ls([cartella])` | i file della SD: `{ {name=, size=, dir=}, … }` |
-| `cart_load(percorso)` | apre un `.b33`: il suo sprite sheet e la sua mappa sostituiscono quelli della cartuccia che chiama; restituisce `{title, author, res, lua, sheet_w, sheet_h, map_w, map_h}` |
+| `cart_load(percorso)` | apre un `.bm`: il suo sprite sheet e la sua mappa sostituiscono quelli della cartuccia che chiama; restituisce `{title, author, res, lua, sheet_w, sheet_h, map_w, map_h}` |
 | `cart_new()` | sprite sheet e mappa vuoti (256×256) |
-| `cart_save(percorso, {title, author, res, lua})` | scrive un `.b33` con il codice dato e lo sprite sheet, la mappa (e la copertina) correnti; nome 8.3, es. `"/carts/GIOCO.B33"` |
-| `cart_run(percorso)` | esce, gioca quel file e poi riapre la cartuccia che l'ha chiesto, con `cart_arg()` = `{path=, error=}` |
+| `cart_save(percorso, {title, author, res, lua})` | scrive un `.bm` con il codice dato e lo sprite sheet, la mappa (e la copertina) correnti; nome 8.3, es. `"/carts/GIOCO.BM"` |
+| `cart_run(percorso)` | esce, gioca quel file e poi riapre la cartuccia che l'ha chiesto, con `cart_arg()` = `{path=, error=, back=true}` (dal menu, "Open in the SDK": `back=false`) |
 
 ### Luce
 

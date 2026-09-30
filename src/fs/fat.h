@@ -57,4 +57,9 @@ int fat_mkdirs(const char *path);
  * either the old or the new file (plus, at worst, lost clusters). */
 int fat_write_file(const char *dir, const char *name, const void *data, size_t len);
 
+/* Deletes a file ("/carts/Il mio gioco.bm", long names too; not a
+ * directory). The directory entry goes first, then the clusters are
+ * released: a power cut in between only leaves lost clusters. */
+int fat_delete(const char *path);
+
 #endif

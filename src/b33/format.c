@@ -56,9 +56,9 @@ int b33_parse(const uint8_t *d, size_t len, b33_cart_t *c, char *err, size_t err
 {
     memset(c, 0, sizeof *c);
     if (len < B33_HEADER_SIZE || memcmp(d, "BM33CART", 8) != 0)
-        return fail(err, errlen, "not a .b33 cartridge");
+        return fail(err, errlen, "not a .bm cartridge");
     if (rd16(d + 8) != 1 || rd16(d + 10) != B33_HEADER_SIZE)
-        return fail(err, errlen, "unsupported .b33 version");
+        return fail(err, errlen, "unsupported .bm version");
     if (crc32(d + B33_HEADER_SIZE, (uint32_t)(len - B33_HEADER_SIZE)) != rd32(d + 20))
         return fail(err, errlen, "CRC mismatch");
 

@@ -28,5 +28,7 @@ Lua 5.4 embedded. Documentazione: `README.md`, `docs/ROADMAP.md`, `docs/HARDWARE
 
 ## Comunicazione con l'utente
 
-- Quando una milestone (o un suo passo importante) è finita, riportare la **lista delle
-  milestone** con una descrizione breve e lo stato di ciascuna.
+- Riportare la **lista delle milestone** solo quando una milestone è completata per
+  intero (non per i singoli passi): una lista puntata (niente tabelle, niente icone),
+  una descrizione breve e lo stato di ciascuna; le milestone completate barrate
+  (`~~M12 — ...~~`).

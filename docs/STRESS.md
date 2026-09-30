@@ -2,7 +2,7 @@
 
 Obiettivo: capire **quanti oggetti per frame** può disegnare bm33 prima di scendere sotto
 **60 fps** (16,7 ms per frame) e sotto **30 fps** (33,3 ms per frame), per sprite e
-per poligoni 2D/3D, sia dal C sia attraverso l'API delle cartucce Lua (`.b33`).
+per poligoni 2D/3D, sia dal C sia attraverso l'API delle cartucce Lua (`.bm`).
 
 > **Stato:** misurato sul Pi Zero W reale (kernel `792787f`, 2026-09-26). I valori
 > QEMU sono riportati solo come controllo: QEMU non emula cache, bus di memoria né
@@ -108,7 +108,7 @@ Ripetibilità: una seconda esecuzione sullo stesso Pi ha dato gli stessi valori 
   z-buffer). Da Lua il costo è quasi identico (+4%), perché tutto il lavoro 3D è in C.
   È un budget da console di fine anni '90 in software: scene low-poly a 60 fps,
   scene più ricche a 30 fps.
-- **Confronto con il budget dichiarato per `.b33`** (mappa piena + 256 sprite sotto il
+- **Confronto con il budget dichiarato per `.bm`** (mappa piena + 256 sprite sotto il
   25% del frame): 256 sprite 16×16 costano ~0,9 ms, ampiamente dentro.
 
 Dati di riferimento già misurati sul Pi reale (M3–M7): riempimento 640×360 a 32 bit

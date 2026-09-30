@@ -1,21 +1,21 @@
 #!/usr/bin/env python3
 """
 bm33 network console: the monitor of a Pi running bm33, over WiFi (M18.7) or
-the Ethernet of a Pi 1 B / B+ (M25).
+the Ethernet of a Pi 1 B / B+ (M29).
 Standard library only (Linux / macOS / WSL).
 
   bm33_net.py 192.168.1.108             asks for the password
   bm33_net.py 192.168.1.108 -p 123456   (or BM33_PASSWORD=123456)
 
-  bm33_net.py IP --send build/carts/pong.b33   saved on the SD card in /carts
-  bm33_net.py IP --send x.b33 --to /bm33   (another folder)
-  bm33_net.py IP --play game.b33           played at once, not saved
+  bm33_net.py IP --send build/carts/pong.bm   saved on the SD card in /carts
+  bm33_net.py IP --send x.bm --to /bm33   (another folder)
+  bm33_net.py IP --play game.bm           played at once, not saved
   bm33_net.py IP --kernel build/kernel.img written as kernel.img, then reboot
 
 The password is the one shown on the Pi's screen after 'W' (net_password in
 bm33/config.txt). In the console keys go to the Pi one by one, as on its
 keyboard; Ctrl-Q (or Ctrl-], or Enter ~ . as in ssh) quits. Plain text: use it on the home network only.
-Files on the SD card need 8.3 names (PONG.B33, not chaos_kitchen.b33):
+Files on the SD card need 8.3 names (PONG.BM, not chaos_kitchen.bm):
 --name sets another one.
 """
 import argparse
@@ -72,7 +72,7 @@ def transfer(args, op, path, name, password):
         with open(path, "rb") as f:
             data = f.read()
     except OSError as e:
-        print(f"{path}: {e.strerror} (the games are in build/carts/, e.g. build/carts/pong.b33)")
+        print(f"{path}: {e.strerror} (the games are in build/carts/, e.g. build/carts/pong.bm)")
         return 1
     if op == b"S" and not re.fullmatch(r"[A-Za-z0-9_~$!#%&'()@^{}-]{1,8}(\.[A-Za-z0-9_~$!#%&'()@^{}-]{1,3})?", name):
         print(f"'{name}' is not an 8.3 name (at most 8 letters, dot, 3): use --name")
@@ -140,7 +140,7 @@ def main():
     ap.add_argument("--send", metavar="FILE", help="save FILE on the SD card (folder --to)")
     ap.add_argument("--to", default="/carts", help="folder for --send (default /carts)")
     ap.add_argument("--name", help="8.3 name on the SD card (default: the file's)")
-    ap.add_argument("--play", metavar="FILE", help="play a .b33 / .cart at once")
+    ap.add_argument("--play", metavar="FILE", help="play a .bm / .cart at once")
     ap.add_argument("--kernel", metavar="FILE", help="write kernel.img and reboot the Pi")
     args = ap.parse_args()
 

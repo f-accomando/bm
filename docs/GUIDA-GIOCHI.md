@@ -1,4 +1,4 @@
-# Creare un gioco `.b33`
+# Creare un gioco `.bm`
 
 Guida pratica: dal primo file Lua alla cartuccia sulla SD, con sprite, mappe, modelli 3D,
 suono e salvataggi. Il riferimento completo di ogni funzione è in [API.md](API.md).
@@ -18,12 +18,12 @@ monitor). Con una tastiera USB (e se vuoi un gamepad Bluetooth per disegnare):
 | **Ctrl+S** / **Ctrl+R** (F5) | salva / prova il gioco (poi si torna all'editor) |
 
 Se il gioco si ferma con un errore, l'editor torna sulla riga in rosso (Ctrl+G la
-ritrova). I giochi si salvano in `/carts` con un nome 8.3 (es. `MIOGIOCO.B33`) e
+ritrova). I giochi si salvano in `/carts` con un nome 8.3 (es. `MIOGIOCO.BM`) e
 compaiono nel menu. Tutto il resto di questa guida vale anche per l'editor.
 
 ## 1. Com'è fatta una cartuccia
 
-Una cartuccia `.b33` è un unico file che contiene:
+Una cartuccia `.bm` è un unico file che contiene:
 
 | Parte | Da dove arriva | Obbligatoria |
 |---|---|---|
@@ -95,7 +95,7 @@ un giocatore. La tastiera USB è il primo giocatore che non ha un pad.
 
 ```sh
 cd ~/bm33
-python3 scripts/mkb33.py -o palla.b33 --lua carts/palla/main.lua --title "Palla" --author "io"
+python3 scripts/mkb33.py -o palla.bm --lua carts/palla/main.lua --title "Palla" --author "io"
 ```
 
 Opzioni: `--sheet sprite.png`, `--map mappa.csv`, `--cover copertina.png`,
@@ -105,7 +105,7 @@ Opzioni: `--sheet sprite.png`, `--map mappa.csv`, `--cover copertina.png`,
 
 ```sh
 sudo mount -t drvfs D: /mnt/d
-sudo cp palla.b33 /mnt/d/carts/
+sudo cp palla.bm /mnt/d/carts/
 sync && sudo umount /mnt/d
 ```
 
@@ -115,7 +115,7 @@ budget è **16,7 ms** per fotogramma.
 
 **Nella build del repository:** metti il gioco in `carts/<nome>/main.lua`, aggiungi
 `<nome>` a `GAMES` nel `Makefile` e una riga `title_<nome> := Titolo` (più
-`res_<nome> := 320x180` se serve). `make` la crea in `build/carts/<nome>.b33` e
+`res_<nome> := 320x180` se serve). `make` la crea in `build/carts/<nome>.bm` e
 `make sdcard` la copia in `dist/carts/`. Nella stessa cartella vengono presi da soli
 `sheet.png`, `map.csv` e `cover.png`, se ci sono.
 

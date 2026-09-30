@@ -1,8 +1,8 @@
 #!/usr/bin/env python3
 """
-mkb33.py - packs a native bm33 cartridge (.b33). Standard library only.
+mkb33.py - packs a native bm33 cartridge (.bm). Standard library only.
 
-  mkb33.py -o game.b33 --lua main.lua [--sheet sheet.png [--sheet8]] [--map map.csv]
+  mkb33.py -o game.bm --lua main.lua [--sheet sheet.png [--sheet8]] [--map map.csv]
            [--title "My game"] [--author me] [--res 640x360|320x180]
 
 sheet.png: 8-bit RGB or RGBA PNG (non-interlaced); size multiple of 8 recommended.

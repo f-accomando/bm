@@ -126,3 +126,11 @@ void hci_acl_send(uint16_t handle, const void *data, uint16_t len)
     btuart_write(hdr, 5);
     btuart_write(data, len);
 }
+
+void hci_acl_send_pb(uint16_t handle, int pb, const void *data, uint16_t len)
+{
+    uint8_t hdr[5] = { HCI_ACL, (uint8_t)handle, (uint8_t)((handle >> 8) | (pb & 3) << 4),
+                       (uint8_t)len, (uint8_t)(len >> 8) };
+    btuart_write(hdr, 5);
+    btuart_write(data, len);
+}

@@ -6,7 +6,8 @@ dentro, numeri attesi contro numeri misurati.
 **Fonti**
 - *(M)* misurato sul Pi reale; *(Q)* misurato in QEMU; *(H)* benchmark sull'host x86,
   indicativo solo in proporzione; *(D)* datasheet o documentazione.
-- Dettagli: stress test in `docs/STRESS.md`; risorse in `docs/HARDWARE.md`; storia in
+- Dettagli: stress test in `docs/STRESS.md`; risorse in `docs/HARDWARE.md`; risoluzioni
+  in `docs/RISOLUZIONI.md`; storia in
   `docs/ROADMAP.md`.
 
 ---
@@ -47,7 +48,7 @@ dentro, numeri attesi contro numeri misurati.
 
 | Scelta | Alternativa scartata | Perché | Numeri |
 |---|---|---|---|
-| **RGB565** (16 bit) per le `.b33` | XRGB8888 (32 bit) | Metà banda per ogni pixel scritto o letto | 32 bit = copia di un frame da ~6,5 a ~13 ms con la CPU (stima dalle misure) |
+| **RGB565** (16 bit) per le `.bm` | XRGB8888 (32 bit) | Metà banda per ogni pixel scritto o letto | 32 bit = copia di un frame da ~6,5 a ~13 ms con la CPU (stima dalle misure) |
 | **Modo 32 bit rimandato** (2026-09-29) | farlo in M14 | Tutta la libreria da duplicare, beneficio solo nelle sfumature | Sfumature coperte dal dithering 4×4 |
 | Disegno **diretto** nella memoria video | sempre in RAM e poi copia | La copia rilegge la SDRAM (lenta) | 8,58 ms diretto contro 11,85 ms via RAM *(M)* |
 | Via RAM **solo** quando serve (luci) | mai | Le luci leggono i pixel: dallo schermo sarebbe peggio | Scatta al primo `light_begin` |

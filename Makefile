@@ -33,7 +33,8 @@ COMMON  := $(ARCH) -std=c11 -O2 -Wall -Wextra -g -Isrc \
            -DUART_BAUD=$(BAUD) $(BOOT_DEFS)
 # Kernel: hosted C on top of newlib (libc, libm), see src/lib/syscalls.c.
 CFLAGS  = $(COMMON) -D_DEFAULT_SOURCE -Ithird_party/lua \
-          -Ithird_party/lwip/src/include -Isrc/net $(WARN)
+          -Ithird_party/lwip/src/include -Isrc/net \
+          -Ithird_party/mbedtls/include -DMBEDTLS_CONFIG_FILE='"bm33_mbedtls.h"' $(WARN)
 # Chainloader: freestanding, no libc.
 LCFLAGS := $(COMMON) -Os -ffreestanding -fno-builtin -fno-tree-loop-distribute-patterns
 ASFLAGS := $(ARCH) -g -Isrc -Isrc/kernel -Wa,-I$(BUILD)
@@ -42,9 +43,10 @@ LDLIBS  := -Wl,--start-group -lc -lm -lgcc -Wl,--end-group
 LLDLIBS := -nostdlib -lgcc
 
 LUA_SRCS    := $(wildcard third_party/lua/*.c)
+MBEDTLS_SRCS := $(wildcard third_party/mbedtls/library/*.c)
 LWIP_SRCS   := $(wildcard third_party/lwip/src/core/*.c third_party/lwip/src/core/ipv4/*.c) \
                third_party/lwip/src/netif/ethernet.c third_party/lwip/src/apps/sntp/sntp.c
-KERNEL_SRCS := $(shell find src -name '*.c' -o -name '*.S') $(LUA_SRCS) $(LWIP_SRCS)
+KERNEL_SRCS := $(shell find src -name '*.c' -o -name '*.S') $(LUA_SRCS) $(LWIP_SRCS) $(MBEDTLS_SRCS)
 LOADER_SRCS := $(wildcard chainloader/*.S chainloader/*.c) \
                src/drivers/uart.c src/drivers/gpio.c src/drivers/mbox.c \
                src/drivers/prop.c src/drivers/timer.c src/drivers/led.c src/drivers/board.c \
@@ -54,6 +56,7 @@ KERNEL_OBJS := $(patsubst %,$(BUILD)/k/%.o,$(KERNEL_SRCS))
 LOADER_OBJS := $(patsubst %,$(BUILD)/l/%.o,$(LOADER_SRCS))
 LUA_OBJS    := $(patsubst %,$(BUILD)/k/%.o,$(LUA_SRCS))
 LWIP_OBJS   := $(patsubst %,$(BUILD)/k/%.o,$(LWIP_SRCS))
+MBEDTLS_OBJS := $(patsubst %,$(BUILD)/k/%.o,$(MBEDTLS_SRCS))
 
 # The version string lives in one object, rebuilt when `git describe` changes.
 VERSION_STAMP := $(BUILD)/version.txt
@@ -65,31 +68,31 @@ $(BUILD)/k/src/kernel/version.c.o: CFLAGS += -DBM33_VERSION=\"$(VERSION)\"
 FORCE:
 
 # Third-party code: its own warning policy, not ours.
-$(LUA_OBJS) $(LWIP_OBJS): WARN := -w
+$(LUA_OBJS) $(LWIP_OBJS) $(MBEDTLS_OBJS): WARN := -w
 # Lua scripts embedded with .incbin
 $(BUILD)/k/src/script/embed.S.o: $(wildcard src/script/*.lua) spec/s32/conformance/demo.cart \
-                                 $(BUILD)/demo.b33 $(BUILD)/stress.b33 $(BUILD)/editor.b33
+                                 $(BUILD)/demo.bm $(BUILD)/stress.bm $(BUILD)/editor.bm
 
 # The editor (M15), built into the kernel
-$(BUILD)/editor.b33: carts/editor/main.lua carts/editor/cover.png scripts/mkb33.py
+$(BUILD)/editor.bm: carts/editor/main.lua carts/editor/cover.png scripts/mkb33.py
 	@mkdir -p $(dir $@)
 	$(PYTHON) scripts/mkb33.py -o $@ --lua $< --cover carts/editor/cover.png \
 	    --title "bm33 SDK" --author bm33
 
-$(BUILD)/stress.b33: carts/stress/main.lua scripts/mkb33.py
+$(BUILD)/stress.bm: carts/stress/main.lua scripts/mkb33.py
 	@mkdir -p $(dir $@)
 	$(PYTHON) scripts/mkb33.py -o $@ --lua $< --title "bm33 stress test" --author bm33
 
-# Native demo cartridge (.b33): Lua + sprite sheet + map
+# Native demo cartridge (.bm): Lua + sprite sheet + map
 DEMO_B33_SRC := carts/demo/main.lua carts/demo/sheet.png carts/demo/map.csv
-$(BUILD)/demo.b33: $(DEMO_B33_SRC) scripts/mkb33.py
+$(BUILD)/demo.bm: $(DEMO_B33_SRC) scripts/mkb33.py
 	@mkdir -p $(dir $@)
 	$(PYTHON) scripts/mkb33.py -o $@ --lua carts/demo/main.lua --sheet carts/demo/sheet.png \
 	    --map carts/demo/map.csv --title "bm33 native demo" --author bm33
 
-# Demo games (Lua only, sprites drawn in code): build/carts/<name>.b33
-GAMES := pong snake shooter astrowing hunt kitchen titan
-GAME_CARTS := $(patsubst %,$(BUILD)/carts/%.b33,$(GAMES))
+# Demo games (Lua only, sprites drawn in code): build/carts/<name>.bm
+GAMES := pong snake shooter astrowing hunt kitchen titan texroom
+GAME_CARTS := $(patsubst %,$(BUILD)/carts/%.bm,$(GAMES))
 title_pong    := Pong
 title_snake   := Snake
 title_shooter := Star Shooter
@@ -98,10 +101,12 @@ title_hunt := Hunter's Night
 res_hunt := 320x180
 title_kitchen := Chaos Kitchen
 title_titan := Titan Clash
+title_texroom := Texture Room
+res_texroom := 320x180
 # Optional per game: carts/<game>/cover.png (printed on the cartridge in the
 # menu, scripts/mkcovers.py), sheet.png and map.csv, res_<game> := 320x180.
 .SECONDEXPANSION:
-$(BUILD)/carts/%.b33: carts/%/main.lua scripts/mkb33.py \
+$(BUILD)/carts/%.bm: carts/%/main.lua scripts/mkb33.py \
                       $$(wildcard carts/$$*/cover.png carts/$$*/sheet.png carts/$$*/map.csv)
 	@mkdir -p $(dir $@)
 	$(PYTHON) scripts/mkb33.py -o $@ --lua $< --title "$(title_$*)" --author bm33 \
@@ -115,7 +120,7 @@ KITCHEN_SRC := $(sort $(wildcard carts/kitchen/src/*.lua))
 $(BUILD)/kitchen/main.lua: $(KITCHEN_SRC) carts/kitchen/build.py
 	$(PYTHON) carts/kitchen/build.py $@ --map $(BUILD)/kitchen/main.map
 
-$(BUILD)/carts/kitchen.b33: $(BUILD)/kitchen/main.lua carts/kitchen/sheet.png carts/kitchen/cover.png scripts/mkb33.py
+$(BUILD)/carts/kitchen.bm: $(BUILD)/kitchen/main.lua carts/kitchen/sheet.png carts/kitchen/cover.png scripts/mkb33.py
 	@mkdir -p $(dir $@)
 	$(PYTHON) scripts/mkb33.py -o $@ --lua $< --title "$(title_kitchen)" --author bm33 \
 	    --sheet carts/kitchen/sheet.png --cover carts/kitchen/cover.png
@@ -126,7 +131,7 @@ TITAN_SRC := $(sort $(wildcard carts/titan/src/*.lua))
 $(BUILD)/titan/main.lua: $(TITAN_SRC) carts/titan/build.py
 	$(PYTHON) carts/titan/build.py $@ --map $(BUILD)/titan/main.map
 
-$(BUILD)/carts/titan.b33: $(BUILD)/titan/main.lua carts/titan/sheet.png carts/titan/cover.png scripts/mkb33.py
+$(BUILD)/carts/titan.bm: $(BUILD)/titan/main.lua carts/titan/sheet.png carts/titan/cover.png scripts/mkb33.py
 	@mkdir -p $(dir $@)
 	$(PYTHON) scripts/mkb33.py -o $@ --lua $< --title "$(title_titan)" --author bm33 \
 	    --sheet carts/titan/sheet.png --sheet8 --cover carts/titan/cover.png
@@ -144,8 +149,8 @@ test-titan: $(BUILD)/host/luahost $(BUILD)/titan/main.lua
 	$< tests/titan/sim.lua $(BUILD)/titan/main.lua $(BUILD)/titan/main.map
 
 .DEFAULT_GOAL := all
-.PHONY: FORCE all clean firmware image image-pi1 sdcard install sdcard-chainloader sdcard-stress qemu qemu-screenshot \
-        run-serial test test-s32 test-s32-arm test-b33 test-usb test-audio test-fat test-kitchen test-titan test-net test-http disasm
+.PHONY: FORCE test-smp all clean firmware image image-pi1 sdcard install sdcard-chainloader sdcard-stress qemu qemu-screenshot \
+        run-serial test test-s32 test-s32-arm test-b33 test-usb test-audio test-fat test-kitchen test-titan test-net test-http test-https disasm
 
 all: $(BUILD)/kernel.img $(BUILD)/chainloader.img $(GAME_CARTS)
 
@@ -182,14 +187,16 @@ firmware:
 # the card instead of the kernel (flash it once, then use `make run-serial`).
 # Cartridges go to carts/ (the menu also looks in the root directory).
 KERNEL ?= kernel
-SD_CARTS := $(GAME_CARTS) $(BUILD)/demo.b33 $(BUILD)/stress.b33 spec/s32/conformance/demo.cart
+SD_CARTS := $(GAME_CARTS) $(BUILD)/demo.bm $(BUILD)/stress.bm spec/s32/conformance/demo.cart
 sdcard: $(BUILD)/$(KERNEL).img $(SD_CARTS)
 	@test -f $(FW_DIR)/start.elf || { echo "Run 'make firmware' first"; exit 1; }
 	@mkdir -p $(DIST)/carts
 	cp $(FW_DIR)/bootcode.bin $(FW_DIR)/start.elf $(FW_DIR)/fixup.dat $(DIST)/
 	cp boot/config.txt $(DIST)/
 	cp $(BUILD)/$(KERNEL).img $(DIST)/kernel.img
+	rm -f $(DIST)/carts/*.b33       # the old extension (now .bm)
 	cp $(SD_CARTS) $(DIST)/carts/
+	mkdir -p $(DIST)/bm33 && cp boot/ca.pem $(DIST)/bm33/ca.pem
 	@if [ -f $(FW_DIR)/BCM43430A1.hcd ]; then mkdir -p $(DIST)/bm33 && \
 	    cp $(FW_DIR)/BCM43430A1.hcd $(DIST)/bm33/ && echo "cp BCM43430A1.hcd -> $(DIST)/bm33/"; fi
 	@for f in brcmfmac43430-sdio.bin brcmfmac43430-sdio.txt brcmfmac43430-sdio.clm_blob; do \
@@ -205,7 +212,8 @@ sdcard: $(BUILD)/$(KERNEL).img $(SD_CARTS)
 IMAGE_FILES = $(FW_DIR)/bootcode.bin=bootcode.bin $(FW_DIR)/start.elf=start.elf \
               $(FW_DIR)/fixup.dat=fixup.dat boot/config.txt=config.txt \
               $(BUILD)/kernel.img=kernel.img \
-              $(foreach c,$(SD_CARTS),$(c)=carts/$(notdir $(c)))
+              $(foreach c,$(SD_CARTS),$(c)=carts/$(notdir $(c))) \
+              boot/ca.pem=bm33/ca.pem
 image: $(BUILD)/kernel.img $(SD_CARTS)
 	@test -f $(FW_DIR)/start.elf || { echo "Run 'make firmware' first"; exit 1; }
 	@mkdir -p $(DIST)
@@ -228,6 +236,7 @@ install: sdcard
 	@S=; [ -w $(SD) ] || S=sudo; \
 	$$S mkdir -p $(SD)/carts $(SD)/bm33 && \
 	$$S cp $(DIST)/bootcode.bin $(DIST)/start.elf $(DIST)/fixup.dat $(DIST)/config.txt $(DIST)/kernel.img $(SD)/ && \
+	for f in $(DIST)/carts/*.bm; do $$S rm -f $(SD)/carts/$$(basename $$f .bm).b33 $(SD)/carts/$$(basename $$f .bm | tr a-z A-Z).B33; done && \
 	$$S cp $(DIST)/carts/* $(SD)/carts/ && \
 	if [ -d $(DIST)/bm33 ]; then $$S cp $(DIST)/bm33/* $(SD)/bm33/; fi && \
 	sync && echo "installed on $(SD): kernel $$(git describe --always --dirty), carts, bm33/ firmware" && \
@@ -254,7 +263,8 @@ qemu: $(BUILD)/kernel.img
 qemu-screenshot: $(BUILD)/kernel.img
 	./scripts/qemu-screenshot.sh $< $(BUILD)/screen.png
 
-test: all test-s32 test-b33 test-usb test-fat test-audio test-kitchen test-titan test-net test-http
+test: all test-s32 test-b33 test-usb test-fat test-audio test-kitchen test-titan test-net test-http test-https \
+      test-smp
 	$(PYTHON) tests/qemu_test.py --build $(BUILD)
 
 $(BUILD)/host/test_b33: tests/b33/test_b33.c src/b33/gfx16.c src/b33/r3d.c src/b33/format.c src/lib/crc32.c src/b33/*.h
@@ -284,6 +294,28 @@ $(BUILD)/host/test_netcon: tests/net/test_netcon.c src/net/netcon.c src/net/netx
 	@mkdir -p $(dir $@)
 	$(HOSTCC) -O1 -w -DBM33_HOST_TEST -Isrc -Isrc/net -Ithird_party/lwip/src/include -o $@ \
 		tests/net/test_netcon.c src/net/netcon.c src/net/netxfer.c src/net/stream.c src/lib/crc32.c $(LWIP_SRCS)
+
+# HTTPS: http.c + tls.c + mbedTLS (the kernel's configuration) over POSIX
+# sockets, against local TLS servers with a test CA made by openssl
+test-https: $(BUILD)/host/test_https
+	$(PYTHON) tests/net/run_https_test.py $(BUILD)/host/test_https
+
+$(BUILD)/host/test_https: tests/net/test_https.c tests/net/stream_posix.c src/net/tls.c src/net/http.c \
+                          src/net/http_kernel.c src/net/*.h $(MBEDTLS_SRCS) boot/ca.pem
+	@mkdir -p $(dir $@)
+	$(HOSTCC) -O1 -w -DBM33_HOST_TEST -Isrc -Isrc/net -Ithird_party/mbedtls/include \
+		-DMBEDTLS_CONFIG_FILE='"bm33_mbedtls.h"' -DHTTP_USER_AGENT='"test"' -o $@ \
+		tests/net/test_https.c tests/net/stream_posix.c src/net/tls.c src/net/http.c \
+		src/net/http_kernel.c $(MBEDTLS_SRCS)
+
+# Bluetooth LE pairing cryptography (SMP), against the spec's sample data
+test-smp: $(BUILD)/host/test_smp
+	$(BUILD)/host/test_smp
+
+$(BUILD)/host/test_smp: tests/bt/smp_test.c src/bt/smp_crypto.c src/bt/smp_crypto.h $(MBEDTLS_SRCS)
+	@mkdir -p $(dir $@)
+	$(HOSTCC) -O1 -w -Isrc -Isrc/net -Ithird_party/mbedtls/include \
+		-DMBEDTLS_CONFIG_FILE='"bm33_mbedtls.h"' -o $@ tests/bt/smp_test.c src/bt/smp_crypto.c $(MBEDTLS_SRCS)
 
 # HTTP client over POSIX sockets, against a local Python server
 test-http: $(BUILD)/host/test_http
@@ -319,8 +351,8 @@ $(BUILD)/host/test_board: tests/usb/test_board.c src/drivers/board.c src/drivers
 	@mkdir -p $(dir $@)
 	$(HOSTCC) -O2 -Wall -Wextra -Isrc -o $@ tests/usb/test_board.c src/drivers/board.c
 
-test-b33: $(BUILD)/host/test_b33 $(BUILD)/demo.b33
-	$< $(BUILD)/demo.b33
+test-b33: $(BUILD)/host/test_b33 $(BUILD)/demo.bm
+	$< $(BUILD)/demo.bm
 
 # s32 conformance (spec/s32): the C core must reproduce lua32's vectors.
 S32_CORE := src/s32/cpu.c src/s32/ppu.c src/s32/cart.c src/lib/crc32.c

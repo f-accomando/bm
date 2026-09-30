@@ -236,3 +236,10 @@ const char *net_ip_text(void)
 {
     return ip_text;
 }
+
+int net_link_kind(void)
+{
+    if (!started || !dp || !dp->linked())
+        return NET_LINK_NONE;
+    return dp == &net_eth ? NET_LINK_ETHERNET : NET_LINK_WIFI;
+}

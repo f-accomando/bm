@@ -68,7 +68,7 @@ riempimento ~430 MB/s *(M)*).
 
 | Risorsa | Pi Zero W | s32 (spec) | bm33 oggi | Uso |
 |---|---|---|---|---|
-| USB | 1 × micro-USB OTG (USB 2.0, controller DWC) *(D)* | — | host DWC2: **1 dispositivo HID** (tastiera o gamepad) in uso, anche dietro un hub *(M7b, M25)* | 1 porta |
+| USB | 1 × micro-USB OTG (USB 2.0, controller DWC) *(D)* | — | host DWC2: **1 dispositivo HID** (tastiera o gamepad) in uso, anche dietro un hub *(M7b, M29)* | 1 porta |
 | GPIO | header a 40 pin (28 GPIO, da saldare sul Zero W) *(D)* | — | GPIO14/15 UART, GPIO47 LED | 2 su 28 |
 | UART | PL011 + mini UART *(D)* | — | PL011 a 115200 baud, clock 48 MHz *(M)* | — |
 | Giocatori | limitati da USB/GPIO | **8** porte di input (5 bit usati: frecce + azione) *(S)* | — | — |
@@ -89,7 +89,7 @@ riempimento ~430 MB/s *(M)*).
 - **Non usati**: GPU 3D, DMA, USB, Wi-Fi/BT, fotocamera: tutto potenziale per il futuro
   (input USB in M7, DMA per l'audio in M10).
 
-## 7. Raspberry Pi 1 B / B+ (M25)
+## 7. Raspberry Pi 1 B / B+ (M29)
 
 Stesso SoC (BCM2835), stesso kernel; le differenze che contano per bm33 *(D)*:
 

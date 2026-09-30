@@ -15,7 +15,7 @@ typedef struct {
     uint32_t received;          /* body bytes */
     char type[64];              /* Content-Type */
     char url[512];              /* after redirects */
-    char error[96];             /* when the request itself failed */
+    char error[192];            /* when the request itself failed */
 } http_info_t;
 
 /* The body in pieces; a non-zero return stops the transfer. */

@@ -3,7 +3,7 @@
 MVP di una console bare metal (Assembly / C / Lua embedded) per
 **Raspberry Pi Zero W v1.1** (SoC BCM2835, CPU ARM1176JZF-S, ARMv6).
 Lo stesso kernel gira sul **Raspberry Pi 1** (A, B, A+, B+: stesso SoC), con l'Ethernet
-del Pi 1 B / B+ al posto del WiFi (M25, vedi [Raspberry Pi 1](#raspberry-pi-1-b-e-b-m25)).
+del Pi 1 B / B+ al posto del WiFi (M29, vedi [Raspberry Pi 1](#raspberry-pi-1-b-e-b-m29)).
 
 ## In breve: giocare
 
@@ -16,11 +16,16 @@ balenaEtcher o `dd`; collega HDMI e una **tastiera o un gamepad USB** (adattator
 sulla porta micro-USB centrale) e accendi. Il Pi si avvia in un paio di secondi sul
 **menu delle cartucce** (in 3D: ogni gioco è una piccola scheda a forma di Memory
 Stick Duo con la copertina stampata sopra e i contatti in rame sul retro): Pong,
-Snake, Star Shooter, Astro Wing (3D), Hunter's Night (gotico, 320×180 con luci) e le demo. Frecce per scegliere,
+Snake, Star Shooter, Astro Wing (3D), Hunter's Night (gotico, 320×180 con luci), Texture Room (3D con texture) e le demo. Frecce per scegliere,
 Nel menu le copertine stanno in una griglia (schede **Games** e **Dev**); frecce per
 muoversi, Invio (o A) per giocare. **Esc** (o Start+Select, o PS) torna al menu e lascia
 il gioco **sospeso**: la copertina mostra "Playing" e A lo riprende dal punto in cui era.
 Avviare un altro gioco chiede prima di chiudere quello sospeso.
+**X** su una copertina apre le sue opzioni (riprendi, chiudi, apri nell'SDK, informazioni,
+cancella il salvataggio, elimina dalla SD); la scheda **Dev** ha l'SDK e gli strumenti del
+monitor (Lua, sistema, registro, test, benchmark); **Settings**, a destra delle schede,
+ha controller, WiFi, layout della tastiera, disegno dei giochi e sistema (M27,
+BareMetal UI). Tutto si usa col solo controller.
 Per scrivere un gioco: [docs/GUIDA-GIOCHI.md](docs/GUIDA-GIOCHI.md) (guida pratica) e
 [docs/API.md](docs/API.md) (riferimento).
 
@@ -30,6 +35,7 @@ Dettagli, criteri di completamento e rischi in [docs/ROADMAP.md](docs/ROADMAP.md
 Risorse del Pi Zero W e quanto ne usano bm33/s32: [docs/HARDWARE.md](docs/HARDWARE.md).
 Stress test di rendering (soglie 60/30 fps): [docs/STRESS.md](docs/STRESS.md) — `make sdcard-stress`.
 Prestazioni e scelte tecniche (limiti del Pi, atteso contro misurato): [docs/PRESTAZIONI.md](docs/PRESTAZIONI.md).
+Risoluzioni di menu, console e giochi, e quanto costano: [docs/RISOLUZIONI.md](docs/RISOLUZIONI.md).
 
 | # | Obiettivo | Stato |
 |---|-----------|-------|
@@ -40,26 +46,30 @@ Prestazioni e scelte tecniche (limiti del Pi, atteso contro misurato): [docs/PRE
 | **M4** | Interrupt, timer, double buffering 60 fps | ✅ |
 | **M5** | Lua 5.4 embedded + REPL | ✅ |
 | **M6** | Core **s32** in C: cartucce `.cart` compatibili con lua32 | ✅ |
-| **M7** | Cartucce native **`.b33`**: Lua 5.4 + grafica C a 640×360 RGB565 | ✅ |
+| **M7** | Cartucce native **`.bm`**: Lua 5.4 + grafica C a 640×360 RGB565 | ✅ |
 | **M7b** | Input: tastiera e gamepad **USB** (HID) | ✅ tastiera verificata sul Pi (gamepad solo QEMU) |
 | **M8** | **SD** + FAT32, menu delle cartucce | ✅ verificato sul Pi |
 | **M9** | **MVP**: avvio sul menu, giochi demo, immagine SD, guida API | ✅ verificato sul Pi |
 | M10 | Audio: HDMI, APU s32, suoni nei giochi | ✅ verificato sul Pi |
 | **M11** | SD in scrittura: salvataggi, record, impostazioni | ✅ verificato sul Pi |
 | **M12** | Controller **Bluetooth** (DualShock 4) | ✅ verificato sul Pi |
-| M13 | Altri tipi di cartuccia: s32 Lua (con lua32), codice ARM nativo | |
+| M13 | Altri tipi di cartuccia: s32 Lua (con lua32), codice ARM nativo | chiusa senza implementazione |
 | M14 | Grafica 2.0: DMA, 3D con texture e Gouraud, menu con anteprime (32 bit rimandato) | 🛠 in corso |
 | **M15** | Editor sulla console: codice, sprite, mappa, prova e torna | ✅ verificato sul Pi |
-| **M16** | Multiplayer locale: fino a 4 controller Bluetooth, `btn(i, giocatore)`, Pong a 2 | 🛠 fatto, da provare sul Pi |
-| **M17** | **Chaos Kitchen**: cucina cooperativa in 3D per 1–4 giocatori (campagna, infinita, pratica) | 🛠 fatto, da provare sul Pi |
+| **M16** | Multiplayer locale: fino a 4 controller Bluetooth, `btn(i, giocatore)`, Pong a 2 | ✅ |
+| **M17** | **Chaos Kitchen**: cucina cooperativa in 3D per 1–4 giocatori (campagna, infinita, pratica) | ✅ |
 | M18 | WiFi, console di rete con password, invio di kernel e cartucce dal PC | 🛠 WPA2, DHCP, ping e console di rete verificati sul Pi; invio di file e WiFi all'avvio da provare |
 | M19 | HTTPS: aggiornamenti da GitHub, "git leggero" (archivi e API con token) | |
-| **M20** | **Titan Clash**: picchiaduro 2D a robot giganti; prima base giocabile (1 robot, armatura leggera/pesante, spada o cannoni, hangar, contro CPU o in 2) | 🛠 base fatta, da provare sul Pi |
-| M21 | Menu "home" a griglia (Games / Dev) e giochi sospesi in memoria | 🛠 fatto, da provare sul Pi |
+| **M20** | **Titan Clash**: picchiaduro 2D a robot giganti; prima base giocabile (1 robot, armatura leggera/pesante, spada o cannoni, hangar, contro CPU o in 2) | ✅ base giocabile |
+| **M21** | Menu "home" a griglia (Games / Dev) e giochi sospesi in memoria | ✅ |
 | M22 | SDK e strumenti dedicati: codice, pixel art, 3D, musica, import/export, 3D→sprite, sprite stacking | in coda |
 | M23 | Emulatore di cartucce `.p8` / `.p8.png` (stile PICO-8) | in coda |
-| M24 | Scambio di giochi e risorse: store su GitHub, P2P in rete locale | in coda |
-| M25 | **Pi 1 B**: stesso kernel, hub USB (split transactions), Ethernet LAN9512, immagine `bm33-pi1.img` | 🛠 fatto (QEMU e test sul PC), da provare sul Pi |
+| M24 | Scambio in rete locale tra console (P2P) | in coda |
+| M25 | Store su GitHub: catalogo, download verificati, pubblicazione dall'SDK | in coda |
+| M26 | Market a pagamento (servizio web, account, licenze) | in coda |
+| M27 | **BareMetal UI**: sottomenu, opzioni delle cartucce, strumenti nella scheda Dev, impostazioni | 🛠 task 1–4 fatti (QEMU) |
+| M28 | Tastiera Bluetooth LE (MX Keys S): pairing con codice, HID over GATT, riconnessione | 🛠 da provare sul Pi |
+| M29 | **Pi 1 B**: stesso kernel, hub USB (split transactions), Ethernet LAN9512, immagine `bm33-pi1.img` | 🛠 fatto (QEMU e test sul PC), da provare sul Pi |
 
 ## Cosa fa il kernel
 
@@ -81,7 +91,7 @@ All'avvio (circa 2 secondi):
    al **monitor** a tasto singolo (dalla seriale o dalla tastiera USB)
 
 La sequenza di avvio delle versioni precedenti (benchmark CPU, self-test di newlib,
-demo s32 in modalità *attract*, benchmark e demo `.b33`, sonda del vsync, script
+demo s32 in modalità *attract*, benchmark e demo `.bm`, sonda del vsync, script
 Lua `boot.lua`) si esegue dal monitor con **`b`**.
 
 | Tasto | Azione |
@@ -95,23 +105,23 @@ Lua `boot.lua`) si esegue dal monitor con **`b`**.
 | `k` | esegue di nuovo il benchmark |
 | `d` | demo animata in C (60 fps, doppio buffer; un tasto la interrompe) |
 | `g` | gioca `demo.cart` (s32): w/a/s/d o frecce, spazio = azione, q o Esc = esci |
-| `n` | gioca `demo.b33` (nativa): frecce/wasd, spazio = A, k/x = B, q o Esc = esci |
+| `n` | gioca `demo.bm` (nativa): frecce/wasd, spazio = A, k/x = B, q o Esc = esci |
 | `M` | **menu delle cartucce** (SD; le demo incorporate se la SD non ne ha) |
 | `f` / `F` | elenca le cartucce / rilegge la SD |
 | `y` | USB: cerca di nuovo il dispositivo (dopo averlo collegato), anche dietro un hub |
 | `Y` | input: test USB dal vivo (contatori ok/nak/err e ultimo report), poi per 10 s i tasti tenuti da ogni giocatore (P1–P4; `*` = tastiera/seriale) |
 | `L` | layout tastiera: italiano ↔ US |
 | `D` | test del DMA passo per passo (copie e riempimenti, tempi CPU contro DMA) |
-| `e` | **editor** dei giochi `.b33` (codice, sprite, mappa; è anche l'ultimo elemento del menu) |
+| `e` | **editor** dei giochi `.bm` (codice, sprite, mappa; è anche l'ultimo elemento del menu) |
 | `a` | audio: stato dell'uscita HDMI (clock, canale DMA, costo della sintesi) e una melodia di prova con le quattro forme d'onda |
 | `T` | Bluetooth: cerca per 8 s e **abbina il primo controller** trovato come **prossimo giocatore** (fino a 4; DS4: Share + PS finché lampeggia); la console seriale passa alla mini UART (stessi pin) |
 | `P` | Bluetooth: **dimentica tutti i pad** abbinati (chiede conferma con `y`): chiavi tolte da `bm33/config.txt`, pad scollegati; poi si riabbinano con `T` |
 | `o` | **log dell'avvio**: tutto quello che il kernel ha scritto dall'accensione (primi 64 KiB), a pagine |
 | `W` | WiFi (M18): accende il chip e lo identifica, un passo per riga |
-| `E` | Ethernet (Pi 1 B / B+, M25): link, contatori dei frame, registri del chip, indirizzo IP |
+| `E` | Ethernet (Pi 1 B / B+, M29): link, contatori dei frame, registri del chip, indirizzo IP |
 | `p` | benchmark di rendering 640×360 RGB565, disegnando direttamente sullo schermo e via RAM |
-| `V` | cartucce `.b33`: disegno diretto sullo schermo (default) o via buffer in RAM |
-| `U` | riceve una cartuccia dalla seriale (`bm33_load.py PORTA --cart file.b33`) e la esegue |
+| `V` | cartucce `.bm`: disegno diretto sullo schermo (default) o via buffer in RAM |
+| `U` | riceve una cartuccia dalla seriale (`bm33_load.py PORTA --cart file.bm`) e la esegue |
 | `s` / `S` | stress test di rendering (sprite, triangoli, 3D; C e Lua): vedi [docs/STRESS.md](docs/STRESS.md) |
 | `t` | test pattern HDMI (un tasto qualsiasi torna alla console) |
 | `r` | reboot via watchdog (con il chainloader, ricarica il kernel) |
@@ -148,7 +158,8 @@ viene scelta l'interfaccia tastiera, anche se il dispositivo usa i report con ID
   (`bt_pad1=` … `bt_pad4=`; il vecchio `bt_pad=` diventa il giocatore 1). Dalle accensioni
   successive il Bluetooth parte da solo (circa 3 s in più all'avvio per il firmware del
   chip) e basta premere **PS**: la luce del pad prende il colore del giocatore (1 blu,
-  2 rosso, 3 verde, 4 rosa). Il menu mostra in alto i giocatori collegati (`pads: 1 2 - -`; `k` è il giocatore che usa la tastiera).
+  2 rosso, 3 verde, 4 rosa). Il menu mostra in alto a destra un'icona per ogni giocatore collegato (controller o tastiera,
+  con il numero del giocatore in un cerchio) e l'icona WiFi o Ethernet quando la console è in rete.
   Stessi tasti del cavo USB; tastiera e gamepad USB sono il primo giocatore senza pad.
 - **DualShock 4 (PS4)** via cavo USB: croce direzionale o levetta sinistra,
   croce/quadrato = A, cerchio/triangolo = B, Options = Start, Share = Select,
@@ -156,16 +167,17 @@ viene scelta l'interfaccia tastiera, anche se il dispositivo usa i report con ID
   Bluetooth (M12).
 
 **SD.** All'avvio il kernel legge la prima partizione **FAT32** (o FAT16) della SD
-(quella da cui si avvia il Pi) e cerca i file **`.b33`** e **`.cart`** nella
+(quella da cui si avvia il Pi) e cerca i file **`.bm`** e **`.cart`** nella
 cartella `carts/` e nella radice. Nomi lunghi supportati. `make sdcard` mette in
-`dist/carts/` i giochi e le demo (`pong.b33`, `snake.b33`, `shooter.b33`, `astrowing.b33`, `hunt.b33`,
-`kitchen.b33`, `titan.b33`, `demo.b33`, `stress.b33`, `demo.cart`); `make image` li mette nell'immagine SD.
+`dist/carts/` i giochi e le demo (`pong.bm`, `snake.bm`, `shooter.bm`, `astrowing.bm`, `hunt.bm`,
+`kitchen.bm`, `titan.bm`, `demo.bm`, `stress.bm`, `demo.cart`); `make image` li mette nell'immagine SD.
 
 **Menu delle cartucce.** Mostra titolo e autore letti dalle cartucce (ordinate per
 titolo) e sotto il nome del file scelto. Su/giù per scegliere, Invio (o A) per giocare,
 Esc (o Start+Select) per tornare al menu dal gioco e dal menu al monitor; `R` rilegge la SD.
-Dalla seriale: w/s, Invio, q. Per aggiungere un gioco basta copiarlo in `carts/`
-sulla SD dal PC.
+X (tasto C sulla tastiera USB) apre le opzioni della cartuccia, B (tasto X) torna indietro
+nei pannelli. Dalla seriale: w/a/s/d, Invio, `x` opzioni, `3` impostazioni, q. Per
+aggiungere un gioco basta copiarlo in `carts/` sulla SD dal PC.
 
 **Scrittura (M11).** bm33 scrive solo nella cartella `bm33/` della SD:
 `bm33/config.txt` (layout della tastiera, modo di disegno; si può modificare anche dal
@@ -232,7 +244,7 @@ del kernel. `git log --oneline` mostra a quale milestone corrisponde; se compare
 |---|---|
 | `7044581` | M5: Lua embedded |
 | `ab9af30` | M6: core s32 (demo.cart all'avvio) |
-| `c7ec2c3` | M7: cartucce native .b33 (demo nativa all'avvio) |
+| `c7ec2c3` | M7: cartucce native .bm (demo nativa all'avvio) |
 | `1b31924` | stress test di rendering e 3D software (`make sdcard-stress`) |
 | `a2a8b6f` | M7b + M8: tastiera/gamepad USB, SD e menu delle cartucce |
 | `25f5dbc` | tastiere USB composite (Apple Magic Keyboard) |
@@ -271,6 +283,7 @@ generati da lua32 devono passare **byte per byte**:
 make test-s32        # core s32 compilato per il PC
 make test-net        # console di rete e stream su lwIP (interfaccia di loopback, sul PC)
 make test-http       # client HTTP contro un server Python locale
+make test-https      # HTTPS (mbedTLS) contro server TLS locali con una CA di prova
 make test-s32-arm    # stesso codice compilato per ARM1176, in qemu-arm
 scripts/sync-s32-spec.sh ../lua32   # aggiorna spec e vettori da lua32
 ```
@@ -280,7 +293,7 @@ PPU in C); i numeri reali vanno misurati sul Pi (riga `s32:` all'avvio).
 
 ![s32 demo](docs/m6-s32-demo.png)
 
-## Cartucce native `.b33`
+## Cartucce native `.bm`
 
 Cartucce solo per bm33 che sfruttano il Pi Zero: **640×360, colore diretto a 16 bit
 (RGB565), 60 fps**, logica in Lua 5.4, tutto il disegno in C. Formato in
@@ -288,14 +301,14 @@ Cartucce solo per bm33 che sfruttano il Pi Zero: **640×360, colore diretto a 16
 è salvata in un formato indipendente dallo schermo, pronta per un futuro 32 bit.
 
 ```sh
-python3 scripts/mkb33.py -o gioco.b33 --lua main.lua --sheet sheet.png --map map.csv \
+python3 scripts/mkb33.py -o gioco.bm --lua main.lua --sheet sheet.png --map map.csv \
         --title "Il mio gioco" --cover copertina.png
 ```
 
 La cartuccia definisce `_init()`, `_update()` e `_draw()` (60 volte al secondo) e usa
 un'API in stile PICO-8: forme, sprite e mappa, testo, input (`btn`/`btnp`), tempo,
 3D software. **Riferimento completo e guida alla prima cartuccia: [docs/API.md](docs/API.md).**
-Giochi di esempio: `carts/pong`, `carts/snake`, `carts/shooter`, `carts/astrowing` (3D), `carts/hunt` (mappa 2048×2048, luci; grafica e mappa da `mkassets.py`) (solo Lua, sprite
+Giochi di esempio: `carts/pong`, `carts/snake`, `carts/shooter`, `carts/astrowing` (3D), `carts/hunt` (mappa 2048×2048, luci; grafica e mappa da `mkassets.py`), `carts/texroom` (stanza 3D con texture a 320×180, ms e fps sullo schermo; texture da `mkassets.py`) (solo Lua, sprite
 disegnati nel codice con `sset`), `carts/demo` (sprite sheet PNG e mappa CSV),
 `carts/kitchen` (Chaos Kitchen: gioco grande in più file Lua uniti da `build.py`, 3D,
 fino a 4 giocatori, simulatore host in `tests/kitchen/`), `carts/titan` (Titan Clash:
@@ -400,7 +413,7 @@ Il modo più semplice è l'immagine completa: `make firmware && make image`, poi
    `bootcode.bin  start.elf  fixup.dat  config.txt  kernel.img  carts/`
 4. Collega l'HDMI (mini-HDMI) *prima* di alimentare il Pi.
 
-## Raspberry Pi 1 (B e B+, M25)
+## Raspberry Pi 1 (B e B+, M29)
 
 Stesso kernel del Zero W: all'avvio riconosce la scheda (il banner dice per esempio
 `Raspberry Pi 1 B rev 2.0`). L'immagine per il Pi 1 è la stessa senza il firmware del
@@ -444,22 +457,24 @@ src/usb/                 host USB DWC2 (DMA, polling, split transactions), enume
                          dietro un hub, HID tastiera/gamepad/Xbox 360, Ethernet LAN951x (smsc95xx.c)
 src/drivers/sd.c         SD: controller SDHOST (sdhost.c), ripiego sull'EMMC/Arasan (sd_emmc.c); PIO, lettura e scrittura
 src/wifi/                WiFi (M18): SDIO sul controller Arasan (GPIO34-39), comando W del monitor
-src/fs/fat.c             FAT16/FAT32 in sola lettura, nomi lunghi
-src/kernel/carts.c       elenco delle cartucce (incorporate + SD) e menu
+src/fs/fat.c             FAT16/FAT32: lettura con nomi lunghi, scrittura 8.3, cancellazione
+src/kernel/carts.c       elenco delle cartucce (incorporate + SD), menu e opzioni delle cartucce
+src/kernel/menu_ui.c     BareMetal UI: griglia, schede, pannelli, copertine degli strumenti
+src/kernel/home.c        strumenti della scheda Dev e pannelli delle impostazioni
 src/kernel/input.c       input unificato: seriale + tastiera/gamepad USB
 src/s32/                 macchina s32: CPU, PPU, loader .cart, player 320×224
 src/b33/                 cartucce native: formato, grafica RGB565 (gfx16), 3D software (r3d),
                          runtime Lua, stress test
 carts/demo/              cartuccia nativa demo: main.lua, sheet.png, map.csv
-carts/pong|snake|shooter|astrowing|hunt giochi demo (solo Lua)
+carts/pong|snake|shooter|astrowing|hunt|texroom giochi demo (solo Lua)
 carts/kitchen/           Chaos Kitchen (M17): src/*.lua, build.py, mkassets.py,
                          models/*.glb e import_chefs.py (modelli 3D degli chef)
 tests/kitchen/           simulatore host di Chaos Kitchen (luahost + sim.lua)
 carts/titan/             Titan Clash (M20): src/*.lua, build.py; mkrobot.py (il robot
                          pre-renderizzato), art.py e mkassets.py (sheet.png)
 tests/titan/             simulatore host di Titan Clash (sim.lua)
-docs/API.md              API delle cartucce .b33 e guida alla prima cartuccia
-scripts/mkb33.py         packer .b33 (PNG e CSV, solo libreria standard Python)
+docs/API.md              API delle cartucce .bm e guida alla prima cartuccia
+scripts/mkb33.py         packer .bm (PNG e CSV, solo libreria standard Python)
 scripts/mksd.py          immagine SD (MBR + FAT32): make image e test in QEMU
 tests/b33/               test host della grafica e del formato
 spec/s32/                specifica comune e vettori di conformità (da lua32)
@@ -470,6 +485,7 @@ src/script/lib_bm33.c    modulo Lua `bm33`
 src/script/boot.lua      script di avvio (incluso nell'immagine con .incbin)
 third_party/lua/         Lua 5.4.7 non modificato (licenza MIT)
 third_party/lwip/        lwIP 2.2.0, sottoinsieme non modificato (licenza BSD)
+third_party/mbedtls/     mbedTLS 3.6.2, sottoinsieme non modificato (licenza Apache 2.0)
 src/kernel/selftest.c    self-test di newlib
 src/arch/mmu.c           tabella delle sezioni da 1 MiB, attivazione MMU e cache
 src/arch/cache.c         clean/invalidate della D-cache per range (mailbox)
@@ -532,6 +548,8 @@ Componenti di terze parti, con la loro licenza (sezione 7 della licenza):
 
 - `third_party/lua/` — Lua 5.4.7, licenza MIT (`third_party/lua/LICENSE`);
 - `third_party/lwip/` — lwIP 2.2.0, licenza BSD a 3 clausole (`third_party/lwip/COPYING`);
+- `third_party/mbedtls/` — mbedTLS 3.6.2, licenza Apache 2.0 (`third_party/mbedtls/LICENSE`);
+- `boot/ca.pem` — certificati radice dalla lista Mozilla (`scripts/make-ca.sh`);
 - `src/gfx/font8x16.c` — font derivato da Terminus, SIL OFL (`docs/LICENSE.font`);
 - `spec/s32/` — specifica e vettori di conformità copiati dal progetto lua32;
 - firmware del Raspberry Pi (scaricato da `scripts/`, non incluso nel repository),

@@ -9,6 +9,8 @@ Sheet layout (the numbers used by src/41_hud.lua):
   the same chopped 32-54, symbols from 64 (see SYMBOLS below)
   8x8 badges at y = 64: chop boil fry bake blend tick cross fire
   32x32 chef portraits at y = 80: Basil, Bun, Noodle, Pepper
+  32x32 kitchen textures at x = 128 + 32 * i, y = 80 (i: KITCHEN_TEX below,
+  the order of Mesh.TEX in src/21_kitchen_mesh.lua)
   128x128 texture of each chef's 3D model at y = 128, side by side: copied
   from models/chefs.png (made by import_chefs.py)
 The ingredient colours are read from src/10_ingredients.lua.
@@ -586,6 +588,120 @@ def portrait(i):
     S.outline(0x1A1418)
 
 
+# ---------------------------------------------------------------- kitchen textures
+
+# 32x32 each, in the game's cartoon style: flat colours, no noise, a dark
+# outline around every shape and one light edge on top
+INK = 0x3A2418                          # outlines (warm dark brown)
+
+
+def box_ink(x, y, w, h, fill, light=None, ink=INK):
+    """a flat rectangle with a 1-pixel outline and a light top edge"""
+    S.rect(x, y, w, h, ink)
+    S.rect(x + 1, y + 1, w - 2, h - 2, fill)
+    if light is not None:
+        S.rect(x + 1, y + 1, w - 2, 1, light)
+
+
+def tex_wood_top():
+    """butcher block: three wide planks, flat, outlined only at the edge"""
+    S.rect(0, 0, 32, 32, INK)
+    cols = [0xF2C478, 0xE8B468, 0xF2C478]
+    for i, y in enumerate((1, 11, 21)):
+        S.rect(1, y, 30, 10 if i < 2 else 10, cols[i])
+        S.rect(1, y, 30, 1, 0xFFE0A8)                   # light edge of each plank
+        if i:
+            S.rect(1, y - 1, 30, 1, 0xC88A48)           # soft joint
+    S.rect(8, 5, 6, 1, 0xD89C50)                        # two knots, simple dashes
+    S.rect(19, 26, 5, 1, 0xD89C50)
+
+
+def tex_cabinet():
+    """the front of a counter: a door with a round-cornered panel and a knob"""
+    S.rect(0, 0, 32, 32, 0xC8925A)
+    S.rect(0, 0, 32, 3, INK)                            # the shadow under the top
+    box_ink(2, 4, 28, 27, 0xE0AA6C, 0xF6CC90)          # the door
+    box_ink(7, 10, 18, 15, 0xD49A5C)                    # the panel
+    S.circle(16, 7, 2, INK)                             # the knob
+    S.circle(16, 7, 1.2, 0xF8E8C8)
+
+
+def tex_stove_top():
+    """a cartoon cooker: grey plate, a black ring burner, a blue flame hint"""
+    box_ink(0, 0, 32, 32, 0x707A88, 0x98A4B4)
+    S.circle(16, 16, 12, INK)
+    S.circle(16, 16, 11, 0x2A2C34)
+    S.circle(16, 16, 7, 0x4A4E5A)
+    S.circle(16, 16, 4, INK)
+    S.circle(16, 16, 3, 0x48A0F0)                       # the pilot light
+    for a in range(4):                                  # the grate's arms
+        ang = a * math.pi / 2 + math.pi / 4
+        S.line(16 + math.cos(ang) * 5, 16 + math.sin(ang) * 5,
+               16 + math.cos(ang) * 12, 16 + math.sin(ang) * 12, INK, 2)
+
+
+def tex_stove_front():
+    """the cooker's front: two big round knobs"""
+    box_ink(0, 0, 32, 32, 0x5A6272, 0x7A8494)
+    for kx in (9, 23):
+        S.circle(kx, 12, 5, INK)
+        S.circle(kx, 12, 4, 0xF0F0F0)
+        S.rect(kx - 1, 8, 2, 4, INK)                   # the pointer
+    box_ink(5, 21, 22, 6, 0x3A404C)                     # a vent
+
+
+def tex_oven():
+    """a red oven door with a round glowing window and a white handle"""
+    box_ink(0, 0, 32, 32, 0xD8503C, 0xF07860)
+    box_ink(4, 5, 24, 4, 0xF8F4EC)                      # the handle
+    S.ellipse(16, 19, 11, 9, INK)                        # the window
+    S.ellipse(16, 19, 10, 8, 0xFFA030)
+    S.ellipse(16, 21, 7, 5, 0xFFD060)                   # the warm glow
+    S.rect(10, 14, 5, 1, 0xFFF0C0)                      # a shine on the glass
+
+
+def tex_crate():
+    """a crate: two flat slats and a cross brace, thick outlines"""
+    S.rect(0, 0, 32, 32, INK)
+    S.rect(1, 1, 30, 30, 0xE09A50)
+    box_ink(0, 0, 32, 5, 0xC87C38, 0xF0B070)            # top rail
+    box_ink(0, 27, 32, 5, 0xC87C38, 0xF0B070)           # bottom rail
+    S.line(3, 24, 28, 7, INK, 3)                        # the brace
+    S.line(3, 24, 28, 7, 0xC87C38, 1)
+    for x, y in ((3, 2), (28, 2), (3, 29), (28, 29)):  # nail heads
+        S.set(x, y, INK)
+
+
+def tex_sink():
+    """a light steel top with a rounded blue basin"""
+    box_ink(0, 0, 32, 32, 0xC8D4E0, 0xF0F6FC)
+    S.rect(5, 6, 22, 21, INK)                           # the basin
+    S.rect(6, 7, 20, 19, 0x6AB0E8)                      # water-blue floor
+    S.rect(6, 7, 20, 3, 0x4A88C8)                       # its back wall in shade
+    S.circle(16, 19, 2, INK)                            # the drain
+    S.rect(8, 12, 4, 1, 0xC8E8FF)                       # a shine
+
+
+def tex_steel():
+    """the pass: plain light steel with two shine stripes"""
+    box_ink(0, 0, 32, 32, 0xD0D8E4, 0xF8FCFF)
+    S.line(6, 26, 14, 6, 0xF8FCFF, 2)
+    S.line(12, 28, 18, 14, 0xF8FCFF, 1)
+
+
+def tex_belt():
+    """a conveyor from above: dark belt with bold ribs, yellow side rails"""
+    S.rect(0, 0, 32, 32, 0x3A3E48)
+    for y in range(0, 32, 8):                           # the ribs (it runs along y)
+        S.rect(3, y, 26, 3, INK)
+    for x0 in (0, 29):
+        box_ink(x0, 0, 3, 32, 0xF0C030)
+
+
+KITCHEN_TEX = [tex_wood_top, tex_cabinet, tex_stove_top, tex_stove_front, tex_oven,
+               tex_crate, tex_sink, tex_steel, tex_belt]
+
+
 # ---------------------------------------------------------------- cover
 
 def cover():
@@ -636,6 +752,9 @@ def main():
         mini(i, name)
     for i in range(4):
         portrait(i)
+    for i, fn in enumerate(KITCHEN_TEX):
+        S.cell(128 + 32 * i, 80, 32, 32)
+        fn()
     S.cell(0, 0, 0, 0)
     # the chefs' model textures
     tex = os.path.join(HERE, "models", "chefs.png")

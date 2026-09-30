@@ -1,4 +1,4 @@
--- bm33 editor: code, sprites and map of a .b33 cartridge, on the console.
+-- bm33 editor: code, sprites and map of a .bm cartridge, on the console.
 -- F1 code, F2 sprites, F3 map, Esc menu; Ctrl+S save, Ctrl+R (or F5) try it.
 -- Hold F12 for the list of keys. On a gamepad: Y + left/right changes page,
 -- Y + B opens the menu.
@@ -54,14 +54,14 @@ local function split_lines(s)
   return out
 end
 
--- "/carts/pong.b33" -> "/carts/PONG.B33"; longer names are cut to 8 characters
+-- "/carts/pong.bm" -> "/carts/PONG.BM"; longer names are cut to 8 characters
 local function short_path(path)
   local dir, base = path:match("^(.*)/([^/]+)$")
   dir = dir or "/carts"
   if dir == "" then dir = "/" end
   local stem = (base or path):gsub("%.[^.]*$", ""):upper():gsub("[^%w_]", "")
   if stem == "" then stem = "GAME" end
-  return (dir == "/" and "" or dir) .. "/" .. stem:sub(1, 8) .. ".B33"
+  return (dir == "/" and "" or dir) .. "/" .. stem:sub(1, 8) .. ".BM"
 end
 
 ----------------------------------------------------------------- pad
@@ -551,7 +551,7 @@ local function list_files()
   local out = {}
   for _, dir in ipairs({ "/carts", "/" }) do
     for _, f in ipairs(ls(dir)) do
-      if not f.dir and f.name:lower():match("%.b33$") then
+      if not f.dir and f.name:lower():match("%.bm$") then
         out[#out + 1] = (dir == "/" and "" or dir) .. "/" .. f.name
       end
     end
@@ -567,13 +567,13 @@ local function build_menu()
     { "Open...", function()
         if needs_confirm("open") then return end
         files, fsel, choosing = list_files(), 1, true
-        if #files == 0 then choosing = false; say("no .b33 files on the SD card", C_ERR) end
+        if #files == 0 then choosing = false; say("no .bm files on the SD card", C_ERR) end
       end },
     { "Save   (Ctrl+S)", function() if not proj.save then say("no name yet: use Save as", C_ERR) else save_project() end end },
     { "Save as...", function()
-        input = { label = "file name (8.3, in /carts)", text = proj.save and proj.save:match("([^/]+)$") or "MYGAME.B33",
+        input = { label = "file name (8.3, in /carts)", text = proj.save and proj.save:match("([^/]+)$") or "MYGAME.BM",
                   done = function(t)
-                    if not t:upper():match("%.B33$") then t = t .. ".B33" end
+                    if not t:upper():match("%.BM$") then t = t .. ".BM" end
                     proj.save = short_path("/carts/" .. t)
                     save_project()
                   end }
@@ -660,6 +660,8 @@ function _init()
       err_line = tonumber(a.error:match("main%.lua:(%d+):"))
       if err_line then cy, cx = math.min(err_line, #lines), 0; clamp_cursor() end
       say("the game stopped: see the line in red (Ctrl+G jumps there)", C_ERR, 400)
+    elseif a.back == false then
+      say("opened " .. a.path, C_ACC)
     else
       say("back from the game", C_ACC)
     end

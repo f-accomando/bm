@@ -24,13 +24,13 @@ Codice: `carts/titan/` (cartuccia *Titan Clash*). Test: `make test-titan` (host)
 ## 2. Struttura tecnica
 
 - **Arte** (Python, in git anche i risultati, `make` non li rigenera):
-  `mkrobot.py` (modello del robot VANGUARD: solidi su uno scheletro di 16 ossa, 62 pose
-  in 23 animazioni, render ortografico in vista 3/4, hurtbox e hitbox per frame dalle
+  `mkrobot.py` (modello del robot VANGUARD: solidi su uno scheletro di 16 ossa, 63 pose
+  in 24 animazioni, render ortografico in vista 3/4, hurtbox e hitbox per frame dalle
   ossa), `art.py` (città in 4 piani di parallasse, hangar, effetti, testi),
   `mkassets.py` (impacchetta tutto in `sheet.png` e scrive `src/05_sprites.lua`).
   Gli strati sparsi sono spezzati in blocchi 8×8 e i pezzi uguali condivisi.
   P2 ha una **seconda livrea** (cremisi e oro, visore verde), ricolorando le rampe.
-- **Kernel**: sezione `SHEET8` del formato `.b33` (palette ≤256 colori + RLE,
+- **Kernel**: sezione `SHEET8` del formato `.bm` (palette ≤256 colori + RLE,
   decodificata al caricamento), `B33_SHEET_MAX` 4096; `mkb33.py --sheet8`.
 - **Gioco** (Lua, file in `src/` uniti da `build.py`): `20_fighter` (controlli, stati,
   colpi), `30_fx` (particelle e proiettili), `40_stage` (arena), `50_hud`, `60_cpu`,
@@ -131,10 +131,20 @@ surriscaldato). Etichetta P1/P2/CPU sopra la testa. Select mostra il tempo di fr
 
 ## 14. Hangar
 
-Sala industriale con portellone sulla notte, impalcature, passerelle, luci, container;
-i due robot sulla piattaforma, operai minuscoli che camminano e saldano (scintille),
-gru che corre sulla rotaia fino al robot modificato (che vibra tra le scintille), luci
-d'allarme. Pannelli laterali: armatura, arma, READY, 5 statistiche a tacche, descrizione.
+Schermo diviso: metà sinistra il giocatore 1 nel suo box, metà destra il giocatore 2
+o la CPU nel suo (per ora lo stesso box specchiato; in futuro un luogo diverso). Vista
+di tre quarti in profondità, stile diorama Gunpla (riferimento dell'autore, 2026-09-30;
+la foto non è nel repository per i diritti di terzi, se ne ricavano solo inquadratura
+e stile): struttura nera/antracite, tralicci, ponte gru e braccio di servizio gialli,
+strisce di pericolo giallo-nere sui bordi della piazzola e della passerella, luci basse
+sulla parete di fondo. Il robot è in primo piano sul lato esterno, sulla piazzola, fermo in piedi con le braccia a riposo (posa
+`stand`) e agganciato alla schiena dai due ponti della torre di attracco;
+sul fondo la **gabbia di manutenzione** con due ponti a grata, dove andrà il compagno
+del tag team (per ora vuota, con operai sui ponti). Ogni metà ha la sua gru che va sul
+robot modificato (che vibra tra le scintille) e un saldatore ai suoi piedi; tra le metà
+una barra scura con tacche gialle. In alto, verso il centro, un pannello compatto per
+lato: armatura, arma, READY e le 5 statistiche a tacche. Nessun titolo sullo schermo.
+Arte: `bay()` in `art.py` (320×360, la metà del giocatore 1).
 
 ## 15. Vertical slice (questa base) e passi successivi
 

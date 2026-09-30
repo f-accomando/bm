@@ -9,8 +9,8 @@ one is.
   arena     a ruined city at dusk in parallax layers (far skyline, the
             buildings the robots are as tall as, the street, the rubble in
             front), fires
-  hangar    the hall where the robot is fitted: walls, gantries, catwalks,
-            tiny workers, a crane
+  bay       a player's half of the hangar, seen three quarters deep: gantries,
+            the pad, the maintenance cage, tiny workers, a crane
   fx        sparks, muzzle flashes, booster flames, explosions, dust (the
             sword's trail and the bullets are drawn by the game)
   text      FIGHT!, K.O., the rounds, the logo, big digits
