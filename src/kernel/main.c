@@ -198,8 +198,6 @@ void kernel_main(uint32_t atags)
         kprintf_set_sink(console_putc);
     }
 
-    kprintf("\n\x1b[1;36mbm\x1b[0m kernel %s - Raspberry %s (BCM2835, revision %06lx)\n", bm_version,
-            board()->name, board()->revision);
     (void)atags;
     if (err)
         panic("framebuffer init failed (%d)", err);
@@ -208,6 +206,12 @@ void kernel_main(uint32_t atags)
     heap_init(mem_end);
     prop_clock_set_max(CLOCK_ARM);
     mmu_init(mem_end);
+
+    /* the board is asked only now: at the very start a real Zero W gave
+     * a revision that is not its own (no WiFi, the LED on another pin) */
+    kprintf("\n\x1b[1;36mbm\x1b[0m kernel %s - Raspberry %s (BCM2835, revision %06lx)\n", bm_version,
+            board()->name, board()->revision);
+    led_init_board();
 
     irq_init();
     tick_init(TICK_HZ);

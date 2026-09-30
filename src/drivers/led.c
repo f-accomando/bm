@@ -7,14 +7,37 @@
 
 static uint8_t led_pin, led_high;
 
-void led_init(void)
+/* At the very start: GPIO 47 active low (Pi Zero / Zero W), without asking
+ * the firmware (its first answers are not the board's revision on a real
+ * Zero W). led_init_board() then moves it where the board has it. */
+static int led_ready;
+
+static void led_use(uint8_t pin, uint8_t high)
 {
-    const board_t *b = board();
-    led_pin = b->led_pin;
-    led_high = b->led_active_high;
+    led_pin = pin;
+    led_high = high;
     if (led_pin)
         gpio_set_function(led_pin, GPIO_OUTPUT);
+}
+
+void led_init(void)
+{
+    if (!led_ready)
+        led_use(47, 0);
     led_set(0);
+}
+
+void led_init_board(void)
+{
+    const board_t *b = board();
+    int on = led_pin ? (gpio_read(led_pin) ? led_high : !led_high) : 0;
+    if (b->led_pin != led_pin || b->led_active_high != led_high) {
+        if (led_pin)
+            gpio_write(led_pin, !led_high);         /* the old pin off */
+        led_use(b->led_pin, b->led_active_high);
+    }
+    led_ready = 1;
+    led_set(on);
 }
 
 void led_set(int on)
