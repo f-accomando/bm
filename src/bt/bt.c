@@ -549,6 +549,11 @@ int bt_keyboard(void)
     return bt.started && ble_connected();
 }
 
+int bt_keyboard_paired(void)
+{
+    return ble_paired();
+}
+
 /* ---------------------------------------------------------------- L2CAP */
 
 static void l2cap_send(link_t *l, uint16_t cid, const uint8_t *data, uint16_t len)

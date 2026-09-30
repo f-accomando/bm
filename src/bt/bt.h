@@ -21,8 +21,9 @@ void bt_scan(unsigned seconds);
  * bt_kbd_key in bm33/config.txt). Afterwards it comes back by itself. */
 void bt_pair_keyboard(unsigned seconds);
 
-/* 1 while the Bluetooth keyboard is connected. */
+/* 1 while the Bluetooth keyboard is connected; 1 once one is paired. */
 int bt_keyboard(void);
+int bt_keyboard_paired(void);
 
 /* Processes what the chip sent (connections, HID reports). Call often;
  * does nothing until bt_start. */

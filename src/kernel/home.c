@@ -240,7 +240,7 @@ void home_tool_start(int i, home_do_t *d)
 
 enum {
     R_CONTROLLERS = 1, R_WIFI, R_LAYOUT, R_DRAW, R_SYSTEM,
-    R_PAD1, R_PAD2, R_PAD3, R_PAD4, R_KEYBOARD, R_PAIR, R_TEST, R_FORGET,
+    R_PAD1, R_PAD2, R_PAD3, R_PAD4, R_KEYBOARD, R_PAIR, R_PAIR_KBD, R_TEST, R_FORGET,
     R_NETWORK, R_STATE, R_IP, R_TIME, R_CONSOLE, R_PASSWORD, R_CONNECT, R_BOOT,
     R_VERSION, R_UPTIME, R_MEMORY, R_CLOCKS, R_SD, R_RESTART, R_MONITOR,
 };
@@ -298,8 +298,14 @@ void home_panel(int id, home_panel_t *p)
                          s == local ? "The USB keyboard or gamepad plays here" : "Free: pair a controller",
                          "%s", s == local ? "keyboard / USB" : "-");
         }
+        home_row(p, MENU_ROW_INFO, R_KEYBOARD, "Bluetooth keyboard",
+                 bt_keyboard() ? "Connected: it types like a USB keyboard" :
+                 bt_keyboard_paired() ? "Paired: press a key on it to connect" : "None paired",
+                 "%s", bt_keyboard() ? "on" : bt_keyboard_paired() ? "off" : "-");
         home_row(p, MENU_ROW_ACTION, R_PAIR, "Pair a new controller",
                  "DS4: hold Share + PS until the light flashes", NULL);
+        home_row(p, MENU_ROW_ACTION, R_PAIR_KBD, "Pair a keyboard",
+                 "Bluetooth LE (MX Keys: hold an Easy-Switch key 3 s)", NULL);
         home_row(p, MENU_ROW_ACTION, R_TEST, "Test the buttons",
                  "The buttons each player holds, for 10 s", NULL);
         home_row(p, MENU_ROW_ACTION, R_FORGET, "Forget all controllers",
@@ -361,6 +367,15 @@ static void x_pair(framebuffer_t *fb)
     bt_scan(8);
 }
 
+static void x_pair_kbd(framebuffer_t *fb)
+{
+    (void)fb;
+    heading("Pair a keyboard");
+    kprintf("MX Keys: hold an Easy-Switch key for 3 s, until its light blinks fast.\n"
+            "Then type the code shown here on the keyboard, and Enter.\n\n");
+    bt_pair_keyboard(15);
+}
+
 static void x_test(framebuffer_t *fb)
 {
     (void)fb;
@@ -405,6 +420,9 @@ void home_act(int id, int row, int how, home_do_t *d)
     case R_PAIR:
         if (how == 0) { d->what = HOME_TEXT; d->text = x_pair; d->wait = 1; }
         break;
+    case R_PAIR_KBD:
+        if (how == 0) { d->what = HOME_TEXT; d->text = x_pair_kbd; d->wait = 1; }
+        break;
     case R_TEST:
         if (how == 0) { d->what = HOME_TEXT; d->text = x_test; d->wait = 1; }
         break;
@@ -418,7 +436,7 @@ void home_act(int id, int row, int how, home_do_t *d)
         } else if (how == 0) {
             d->what = HOME_ASK;
             ksnprintf(d->ask, sizeof d->ask, "Forget all controllers?");
-            ksnprintf(d->ask_detail, sizeof d->ask_detail, "They must be paired again to play.");
+            ksnprintf(d->ask_detail, sizeof d->ask_detail, "Pads and keyboard must be paired again.");
             ksnprintf(d->ask_yes, sizeof d->ask_yes, "Forget");
         }
         break;

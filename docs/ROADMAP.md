@@ -1031,12 +1031,14 @@ Fatto (QEMU, `test_bt_keyboard` con una MX Keys simulata; `make test-smp`):
 - I tasti vanno nello stesso livello della tastiera USB (layout italiano/US, ripetizione,
   Esc, tasti come pulsanti nei giochi). Tastierino: cifre, `/ * - + .`, Invio; 8/4/6/2
   come frecce nei giochi.
-- Monitor: `K` abbina la tastiera (15 s di ricerca); `P` dimentica pad **e** tastiera.
+- Menu: Settings > Controllers mostra la tastiera Bluetooth e ha **Pair a keyboard** (si
+  abbina col solo DS4); monitor: `K` fa lo stesso; `P` / Forget dimenticano pad **e**
+  tastiera.
 - Driver RNG: tolto l'accesso al registro di maschera (0x10), inutile col polling e
   assente in QEMU.
 
 Da provare sul Pi: abbinamento della MX Keys S (tenere premuto un tasto Easy-Switch 3 s
-finché la luce lampeggia veloce, poi `K` dalla console di rete), digitazione, ritorno
+finché la luce lampeggia veloce, poi Settings > Controllers > Pair a keyboard), digitazione, ritorno
 dopo lo spegnimento o il cambio di canale, insieme a un DS4.
 
 **Fatto quando:** la MX Keys S scrive nel monitor e nell'editor e si ricollega da sola.

@@ -921,7 +921,10 @@ def test_home_ui(b, opts):
         keys("q")
         keys("wwww")                            # System -> Controllers
         keys("\r")
-        screen(["Settings > Controllers", "Player 1", "keyboard / USB", "Pair a new controller"])
+        screen(["Settings > Controllers", "Player 1", "keyboard / USB", "Bluetooth keyboard",
+                "Pair a new controller"])
+        keys("w")                               # the list scrolls to its last row
+        screen(["Pair a keyboard", "Forget all controllers"])
         keys("q")
         keys("s")
         keys("\r")
@@ -1930,7 +1933,7 @@ def test_bt_forget(b, opts):
         q.mini.write(b"P")
         _mini_expect(q, "y = yes")
         q.mini.write(b"y")
-        _mini_expect(q, "bt: 2 pads forgotten")
+        _mini_expect(q, "bt: 2 devices forgotten")
     finally:
         q.close()
     try:
