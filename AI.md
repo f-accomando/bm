@@ -1,173 +1,92 @@
-# BM — AI / ML Development Milestones
+# bm — AI sul Pi Zero W: cosa si può fare e cosa no
 
-**Target iniziale:** Raspberry Pi Zero W 1.1 — ARMv6, 512 MB RAM, bare-metal
+Considerazioni del 2026-09-30. Sostituiscono le vecchie milestone AI-01…AI-12, che **non**
+sono una roadmap: qui c'è solo cosa ha senso per bm, in ordine di utilità.
+Numeri di riferimento: [docs/HARDWARE.md](docs/HARDWARE.md), [docs/PRESTAZIONI.md](docs/PRESTAZIONI.md).
 
-## AI-01 — Tiny ML Core
+## Più sensate e utili per bm
 
-* Tiny Neural Networks
-* MLP / Fully Connected Networks
-* Modelli estremamente lightweight
-* Inferenza locale CPU
-* Modelli INT8 / quantizzati
-* Fixed-point inference
-* Tensor operations minimali
+**Nei giochi: è qui che l'AI serve davvero.** Avversario CPU di Titan Clash, riconoscimento di
+combo e gesti dal gamepad, riconoscimento dei disegni nell'editor, piccoli generatori di sprite o
+livelli. Costano pochissimo per frame e sono il caso d'uso più concreto.
 
-## AI-02 — Embedded AI Runtime
+**Motore di inferenza in C, con funzioni Lua: sì.** Poche centinaia di righe (dense, conv2d,
+depthwise, ReLU, pooling, softmax) più `ai.load` / `ai.run` per le cartucce. In Lua puro no:
+~100 ns per operazione, ~140 000 operazioni per frame.
 
-* BM AI Engine
-* AI task/thread dedicato
-* Memory-efficient inference
-* CPU-budgeted inference
-* Modelli caricabili dinamicamente
-* API AI nativa BM
+**Tiny ML (MLP, INT8, fixed point): sì, è il punto forte.** Niente NEON, ma l'ARMv6 ha le SIMD
+(SMLAD: 2 moltiplicazioni-accumulo a 16 bit per istruzione): un MLP da ~10 000 parametri gira in
+decine di µs. Il limite vero è la banda RAM (~100–200 MB/s): pesi INT8 e reti piccole.
 
-## AI-03 — BM AI Model Format
+**Addestrare sul PC, eseguire sul Pi: sì.** Si addestra e quantizza sul PC (PyTorch), uno script
+in `tools/` esporta, il Pi fa solo inferenza, senza PC né cloud mentre gira.
 
-* Formato .bmai
-* Model metadata
-* Network architecture
-* Weights
-* Biases
-* Quantization parameters
-* Input/output definitions
-* Model versioning
+**Formato del modello: sì, semplice.** Intestazione + strati + pesi INT8 + scale, CRC come le
+`.bm`; meglio come sezione dentro la cartuccia `.bm` (il gioco porta il suo modello). Niente
+versioning o metadati elaborati finché c'è un solo consumatore.
 
-## AI-04 — Tiny AI Models
+**Nessun task AI separato: non serve.** bm non ha scheduler (un core, loop a 60 fps, interrupt).
+Si spezza l'inferenza in passi con un budget per frame (es. 2 ms), nel tempo che il gioco lascia
+libero; si misura e si mostra sullo schermo.
 
-Supporto a modelli specializzati estremamente piccoli:
+**Strumenti: pochi, sul PC.** Script (addestra → quantizza → esporta) e un test che confronta
+bit per bit le uscite del motore con il modello di riferimento dentro `make test`. Emulatore
+inutile: il C gira già sul PC e in QEMU; il profiler è una voce del monitor.
 
-* Classificazione
-* Pattern recognition
-* Prediction
-* Regression
-* Anomaly detection
-* Decision models
-* Sensor-data analysis
-* Signal processing
+**Approccio ibrido: sì, da preferire.** Algoritmo classico che fa il grosso + rete minuscola che
+sceglie i parametri (quanto affilare, quale palette) invece di calcolare ogni pixel: l'unico modo
+di usarla nella grafica senza uscire dal budget del frame.
 
-## AI-05 — Tiny CNN
+## Possibili, ma dopo
 
-* Convolutional Neural Networks
-* Image classification
-* Feature extraction
-* Lightweight image processing
-* Embedded computer vision
+**Apprendimento durante il gioco: in piccolo.** Tabelle Q o un MLP minuscolo che si adatta al
+giocatore nella partita; l'addestramento vero resta sul PC.
 
-## AI-06 — Neural Graphics
+**Downscaling "1080p → ~244p": solo come import degli asset.** Sul Pi non c'è una sorgente a
+1080p e bm usa 640×360 e 320×180. Utile per foto/render → sprite (il "3D→sprite" di M22), sul
+PC o sul Pi in qualche secondo; prima va verificato contro media + nitidezza + dithering classici.
 
-* Neural image processing
-* Edge enhancement
-* Denoising
-* Texture processing
-* Perceptual image processing
-* Neural image compression
+**Super-resolution: solo su immagini ferme.** In tempo reale no, e non serve: la GPU scala già
+gratis 640×360 → 1080p. Su copertine e sprite sì, anche come SR-LUT (la rete addestrata diventa
+una tabella), ma in secondi, non per frame.
 
-## AI-07 — Neural Resolution / Scaling
+**Tiny CNN: la rete sì, la sorgente manca.** Una MobileNet ridotta a 96×96 in grigi gira in
+qualche decina di ms (pochi fps). Immagini solo da SD o dalla rete (vedi fotocamera sotto).
 
-Tecnologie sperimentali:
+**GPU VideoCore IV (QPU): progetto a sé.** Unica accelerazione disponibile (~24 GFLOPS teorici),
+avviabile senza Linux con la mailbox del firmware, come GPU_FFT; richiede assembly QPU. È ciò che
+renderebbe fattibile la grafica neurale, non un primo passo.
 
-* Neural downscaling
-* Perceptual downsampling
-* Adaptive resolution
-* Content-aware scaling
-* Tiny super-resolution
-* Hybrid classical + neural scaling
+**Modello linguistico minuscolo: solo demo.** ~15M parametri (stile llama2.c "stories") farebbero,
+a stima, qualche token al secondo: favolette in inglese, non un assistente.
 
-**Particolare interesse:**
+**Libreria e condivisione dei modelli: quando servirà.** Solo quando due o tre giochi usano davvero
+un modello; allora passa dallo store su GitHub (M25), non da un canale a parte.
 
-```
-1080p
-  ↓
-Perceptual / Neural Downscaling
-  ↓
-244p
-```
+## Da scartare o fuori portata
 
-e, separatamente:
+**Grafica neurale in tempo reale (denoising, bordi, texture): no.** Una passata a schermo intero
+legge e riscrive 0,46 MB, ~5 ms prima di calcolare; il rasterizzatore di bm non produce rumore da
+togliere. Solo offline, sugli asset.
 
-```
-Low Resolution
-      ↓
-Tiny Super Resolution
-      ↓
-Higher Resolution
-```
+**Compressione neurale delle immagini: no.** RAM (448 MiB) e SD non sono un limite, e decodificare
+con una rete costa molto più di RLE o PNG.
 
-## AI-08 — AI + Graphics Engine
+**Sensori, segnali, anomalie: oggi no.** bm non ha I2C/SPI, microfono né ingressi analogici; i dati
+disponibili sono controller, tastiera, rete e temperatura della CPU.
 
-Integrazione dell'AI con il renderer BM:
+**Fotocamera: no.** La CSI senza Linux dipende dallo stack chiuso della GPU; una webcam USB
+occuperebbe l'unica porta del Zero (un dispositivo alla volta, niente hub).
 
-* AI-assisted rendering
-* Adaptive rendering
-* AI-based image filtering
-* AI-based texture processing
-* Dynamic resolution
-* Content-aware rendering
+**Voce: no.** Niente microfono (servirebbe un microfono I2S sui GPIO e il suo driver); sintesi
+vocale solo a formanti col synth esistente, non neurale.
 
-## AI-09 — AI Model Ecosystem
+**Altri Pi e acceleratori (Zero 2 W, Pi 3/4/5, NPU): fuori portata.** bm gira solo sul BCM2835
+(Zero W, Pi 1); un ARMv8 multicore è un kernel nuovo, l'AI del Pi 5 è una scheda PCIe esterna.
+Basta tenere il formato portabile (INT8 + scale).
 
-* .bmai model library
-* Reusable AI components
-* AI model compatibility/versioning
-* Model metadata
-* Model sharing
-* AI assets per applicazioni BM
+## Primo passo sensato
 
-## AI-10 — Hardware-Aware AI
-
-Ottimizzazione specifica per diverse generazioni Raspberry Pi:
-
-```
-Pi Zero W 1.1
-ARMv6
-   ↓
-Pi Zero 2 W
-ARMv8
-   ↓
-Pi 3/4/5
-ARMv8
-   ↓
-Hardware accelerators
-```
-
-Con supporto a capacità differenti:
-
-* CPU-only AI
-* SIMD/vector acceleration
-* GPU acceleration dove disponibile
-* NPU/AI accelerator dove disponibile
-
-## AI-11 — AI Developer Tools
-
-Ecosistema per sviluppatori BM:
-
-* BM AI model compiler
-* Model converter
-* Quantization tools
-* Model validator
-* AI profiler
-* Model viewer
-* AI emulator
-
-## AI-12 — Advanced Embedded AI
-
-Sviluppi successivi:
-
-* Tiny Reinforcement Learning
-* Adaptive agents
-* Online learning
-* Continual learning
-* Tiny generative models
-* Embedded language models
-* Local voice/speech models
-* Tiny multimodal models
-
----
-
-## Focus iniziale
-
-Per il Pi Zero W 1.1, il nucleo tecnologico prioritario sarebbe:
-
-**Tiny MLP → INT8 inference → .bmai → BM AI Engine → Tiny CNN → Neural Graphics → Neural/Perceptual Scaling**
-
-Il tutto concepito come AI locale, senza dipendenza da cloud o PC durante l'esecuzione.
+Motore INT8 in C + funzioni Lua + script di esportazione, provati su un caso vero (l'avversario
+CPU di Titan Clash) con il tempo misurato mostrato sullo schermo. Visione, scaling e grafica
+neurale vengono dopo, e solo se si affronta la GPU.
