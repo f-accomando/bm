@@ -60,8 +60,6 @@ typedef struct {
     int n, sel;
     int dev[4];                 /* players 1-4: MENU_DEV_*, an icon with the number */
     unsigned bt;                /* bit p: player p+1 is on Bluetooth (a blue number) */
-    int kbd_bt;                 /* a Bluetooth keyboard types for player kbd_bt (1-4),
-                                   0: none; its own icon, a blue number */
     int net;                    /* MENU_NET_*: the link's icon... */
     int net_wait;               /* ...dimmed while there is no address yet */
     const char *details;        /* line under the grid (path, size) */

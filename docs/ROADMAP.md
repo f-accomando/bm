@@ -1094,6 +1094,16 @@ Fatto (QEMU, `test_bt_keyboard` con una MX Keys simulata; `make test-smp`):
   senza pad, come la tastiera USB, che resta accanto col numero bianco); conta anche per
   `players()`. Settings > Controllers dice cosa gioca lì ("Bluetooth keyboard", "USB
   keyboard", "USB + Bluetooth keyboard", "USB gamepad"). Test: `test_bt_keyboard`.
+- **Un giocatore a sé** (decisione 2026-09-30, utente): la tastiera USB (o il gamepad USB)
+  resta il primo giocatore senza pad, la tastiera Bluetooth prende il successivo senza pad
+  (il primo, se su USB non c'è niente); con tutti i posti presi gioca con la USB. Senza pad:
+  USB 1, MX 2; con un DS4: DS4 1, USB 2, MX 3. In `hid.c` le due tastiere hanno ognuna i
+  propri tasti (`hid_players(..., local, ble)`); il testo lo scrivono entrambe, come prima.
+  `input_ble_player()` decide il posto; icona, Settings > Controllers ("Bluetooth
+  keyboard" sulla sua riga) e `players()` lo seguono. Test: `make test-usb` (i tasti
+  della tastiera LE al suo giocatore), `test_bt_keyboard` (USB 1 bianca, MX 2 blu; in
+  un gioco ognuna muove il proprio giocatore), `test_bt_keyboard_legacy` (la MX da sola
+  è il giocatore 1).
 
 ✅ Verificato sul Pi (2026-09-30): abbinamento della MX Keys S (un tasto Easy-Switch tenuto
 premuto 3 s, poi Settings > Controllers > Pair a keyboard), digitazione, ritorno dopo lo

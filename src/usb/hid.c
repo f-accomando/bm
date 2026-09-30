@@ -45,15 +45,17 @@ static const keydef_t layout_us[0x65] = {
 
 static const keydef_t *layout = layout_it;
 
-static uint8_t prev_keys[8];
+/* the keyboards: [KBD_USB] and [KBD_BLE] (Bluetooth LE), each its own player */
+enum { KBD_USB, KBD_BLE, KBDS };
+static uint8_t prev_keys[KBDS][8];
 static uint8_t queue[64];
 static unsigned q_head, q_tail;
-static uint32_t kbd_buttons, pad_buttons;
+static uint32_t kbd_buttons[KBDS], pad_buttons;
 static uint32_t bt_buttons[HID_PLAYERS];        /* Bluetooth pads, by player */
 /* Buttons seen pressed since the last read: a press and release that both
  * arrive between two frames (a quick tap, or a backlog of reports processed
  * at once) still count for one frame. */
-static uint32_t latched_kbd, latched_pad, bt_latched[HID_PLAYERS];
+static uint32_t latched_kbd[KBDS], latched_pad, bt_latched[HID_PLAYERS];
 static int text_mode;                   /* editors: navigation keys as codes, Esc stays */
 static int bt_ps_held[HID_PLAYERS];
 static int8_t bt_axis[HID_PLAYERS][2], pad_axis[2];     /* left stick, -127..127 */
@@ -150,8 +152,8 @@ static uint8_t kbd_report_id;
 
 void hid_keyboard_attach(uint8_t report_id)
 {
-    memset(prev_keys, 0, sizeof prev_keys);
-    kbd_buttons = 0;
+    memset(prev_keys[KBD_USB], 0, sizeof prev_keys[KBD_USB]);
+    kbd_buttons[KBD_USB] = 0;
     kbd_report_id = report_id;
 }
 
@@ -198,7 +200,7 @@ int hid_is_keyboard(const uint8_t *d, uint32_t len, uint8_t *report_id)
     return found;
 }
 
-static void keyboard_boot(const uint8_t *r);
+static void keyboard_boot(int k, const uint8_t *r);
 
 static void keyboard_report(const uint8_t *r, uint32_t len)
 {
@@ -212,11 +214,12 @@ static void keyboard_report(const uint8_t *r, uint32_t len)
         len--;
     }
     if (len >= 8)
-        keyboard_boot(r);
+        keyboard_boot(KBD_USB, r);
 }
 
-/* A boot-format report: modifiers, reserved, six key usages. */
-static void keyboard_boot(const uint8_t *r)
+/* A boot-format report of keyboard k: modifiers, reserved, six key usages.
+ * Both keyboards type the same text; their game buttons stay apart. */
+static void keyboard_boot(int k, const uint8_t *r)
 {
     if (r[2] == 1)                              /* roll-over error: ignore */
         return;
@@ -227,7 +230,7 @@ static void keyboard_boot(const uint8_t *r)
         if (!u) continue;
         buttons |= key_button(u);
         int was = 0;
-        for (int j = 2; j < 8; j++) was |= prev_keys[j] == u;
+        for (int j = 2; j < 8; j++) was |= prev_keys[k][j] == u;
         if (was) continue;
         /* new key */
         if (u == 0x29) {                                            /* Esc */
@@ -248,9 +251,9 @@ static void keyboard_boot(const uint8_t *r)
     int held = 0;
     for (int i = 2; i < 8; i++) held |= r[i] == rep_usage;
     if (!held) rep_usage = 0;
-    kbd_buttons = buttons;
-    latched_kbd |= buttons;
-    memcpy(prev_keys, r, 8);
+    kbd_buttons[k] = buttons;
+    latched_kbd[k] |= buttons;
+    memcpy(prev_keys[k], r, 8);
 }
 
 /* ---------------------------------------------------------------- LE keyboard */
@@ -369,13 +372,13 @@ void hid_ble_keyboard(const hid_kbd_layout_t *k, const uint8_t *r, uint32_t len)
             else if (u >= 4)
                 boot[2 + n++] = (uint8_t)u;
         }
-    keyboard_boot(boot);
+    keyboard_boot(KBD_BLE, boot);
 }
 
 void hid_ble_keyboard_clear(void)
 {
     static const uint8_t none[8];
-    keyboard_boot(none);
+    keyboard_boot(KBD_BLE, none);
 }
 
 int hid_getc(void)
@@ -402,30 +405,37 @@ static uint32_t bt_all(void)
 
 static void clear_latches(void)
 {
-    latched_kbd = latched_pad = 0;
+    latched_kbd[KBD_USB] = latched_kbd[KBD_BLE] = latched_pad = 0;
     for (int s = 0; s < HID_PLAYERS; s++)
         bt_latched[s] = 0;
 }
 
 uint32_t hid_buttons(void)
 {
-    uint32_t b = kbd_buttons | pad_buttons | latched_kbd | latched_pad | bt_all();
+    uint32_t b = kbd_buttons[KBD_USB] | kbd_buttons[KBD_BLE] | latched_kbd[KBD_USB] |
+                 latched_kbd[KBD_BLE] | pad_buttons | latched_pad | bt_all();
     clear_latches();
     return b;
 }
 
-uint32_t hid_players(uint32_t out[HID_PLAYERS], int text, int local)
+uint32_t hid_players(uint32_t out[HID_PLAYERS], int text, int local, int ble)
 {
-    uint32_t mine = pad_buttons | latched_pad, any;
-    if (!text)
-        mine |= kbd_buttons | latched_kbd;
-    any = mine;
+    uint32_t mine = pad_buttons | latched_pad, le = 0, any;
+    if (!text) {
+        mine |= kbd_buttons[KBD_USB] | latched_kbd[KBD_USB];
+        le = kbd_buttons[KBD_BLE] | latched_kbd[KBD_BLE];
+    }
+    any = mine | le;
     for (int s = 0; s < HID_PLAYERS; s++) {
         out[s] = bt_buttons[s] | bt_latched[s];
         any |= out[s];
     }
+    if (ble < 0 || ble >= HID_PLAYERS)          /* no player of its own: with the USB one */
+        ble = local;
     if (local >= 0 && local < HID_PLAYERS)
         out[local] |= mine;
+    if (ble >= 0 && ble < HID_PLAYERS)
+        out[ble] |= le;
     clear_latches();
     return any;
 }
@@ -447,7 +457,7 @@ int hid_stick(int slot, int8_t xy[2])
 int hid_usage_held(uint8_t u)
 {
     for (int i = 2; i < 8; i++)
-        if (prev_keys[i] == u)
+        if (prev_keys[KBD_USB][i] == u || prev_keys[KBD_BLE][i] == u)
             return 1;
     return 0;
 }

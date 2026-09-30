@@ -173,6 +173,26 @@ int input_local_player(void)
     return -1;
 }
 
+static int usb_input(void)
+{
+    int k = usb_info()->kind;
+    return k == USB_KEYBOARD || k == USB_GAMEPAD || k == USB_XBOX360;
+}
+
+int input_ble_player(void)
+{
+    int local = input_local_player();
+    if (!bt_keyboard() || local < 0)
+        return -1;
+    if (!usb_input())
+        return local;                           /* nothing on USB: the first free player */
+    unsigned pads = bt_pads();
+    for (int p = local + 1; p < INPUT_PLAYERS; p++)
+        if (!(pads >> p & 1))
+            return p;
+    return -1;                                  /* no free player: it types with the USB one */
+}
+
 uint32_t input_players(uint32_t out[INPUT_PLAYERS], int text, int *quit, int *local)
 {
     usb_poll();
@@ -180,19 +200,15 @@ uint32_t input_players(uint32_t out[INPUT_PLAYERS], int text, int *quit, int *lo
     net_poll();
     *quit |= hid_quit_pressed();
     *local = input_local_player();
-    return hid_players(out, text, *local);
-}
-
-static int usb_input(void)
-{
-    int k = usb_info()->kind;
-    return k == USB_KEYBOARD || k == USB_GAMEPAD || k == USB_XBOX360;
+    return hid_players(out, text, *local, input_ble_player());
 }
 
 int input_device(int p)
 {
     if (bt_pads() >> p & 1)
         return INPUT_DEV_PAD | INPUT_DEV_BLUETOOTH;
+    if (p == input_ble_player())                /* never the USB player's own */
+        return INPUT_DEV_KEYBOARD | INPUT_DEV_BLUETOOTH;
     if (p != input_local_player())
         return INPUT_DEV_NONE;
     int k = usb_info()->kind;
@@ -203,9 +219,11 @@ int input_device(int p)
 unsigned input_connected(void)
 {
     unsigned m = bt_pads();
-    int local = input_local_player();
-    if (local >= 0 && (usb_input() || bt_keyboard() || !m))
+    int local = input_local_player(), ble = input_ble_player();
+    if (local >= 0 && (usb_input() || !m))
         m |= 1u << local;
+    if (ble >= 0)
+        m |= 1u << ble;
     return m;
 }
 

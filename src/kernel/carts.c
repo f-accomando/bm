@@ -622,8 +622,6 @@ void carts_menu(framebuffer_t *fb)
                 if (d_ & INPUT_DEV_BLUETOOTH)
                     v.bt |= 1u << p;
             }
-            if (bt_keyboard() && input_local_player() >= 0)
-                v.kbd_bt = input_local_player() + 1;    /* it types like the USB one */
             int link = net_link_kind();
             v.net = link == NET_LINK_ETHERNET ? MENU_NET_ETHERNET
                   : link == NET_LINK_WIFI ? MENU_NET_WIFI : MENU_NET_NONE;

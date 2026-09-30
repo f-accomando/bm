@@ -255,13 +255,11 @@ static int popcount(unsigned v)
     return n;
 }
 
-/* what plays as the first player without a pad */
+/* what plays as the first player without a pad (the USB one) */
 static const char *local_devices(void)
 {
-    int k = usb_info()->kind, kbd = k == USB_KEYBOARD, bt = bt_keyboard();
-    if (kbd && bt) return "USB + Bluetooth keyboard";
-    if (bt) return "Bluetooth keyboard";
-    if (kbd) return "USB keyboard";
+    int k = usb_info()->kind;
+    if (k == USB_KEYBOARD) return "USB keyboard";
     if (k == USB_GAMEPAD || k == USB_XBOX360) return "USB gamepad";
     return "keyboard / USB";
 }
@@ -297,23 +295,28 @@ void home_panel(int id, home_panel_t *p)
     }
     case HOME_CONTROLLERS: {
         ksnprintf(p->title, sizeof p->title, "Settings > Controllers");
-        int local = input_local_player();
+        int local = input_local_player(), ble = input_ble_player();
         for (int s = 0; s < BT_PADS; s++) {
             char addr[18], label[16];
             int on = bt_pad_addr(s, addr);
             ksnprintf(label, sizeof label, "Player %d", s + 1);
-            if (addr[0])
-                home_row(p, MENU_ROW_INFO, R_PAD1 + s, label,
-                         on ? "A Bluetooth pad, connected" : "Paired: press its PS button to connect",
-                         "%s %s", addr, on ? "on" : "off");
+            if (addr[0] && on)
+                home_row(p, MENU_ROW_INFO, R_PAD1 + s, label, "A Bluetooth pad, connected",
+                         "%s on", addr);
+            else if (s == ble)
+                home_row(p, MENU_ROW_INFO, R_PAD1 + s, label, "The Bluetooth keyboard plays here",
+                         "Bluetooth keyboard");
+            else if (s == local)
+                home_row(p, MENU_ROW_INFO, R_PAD1 + s, label, "The USB keyboard or gamepad plays here",
+                         "%s", local_devices());
+            else if (addr[0])
+                home_row(p, MENU_ROW_INFO, R_PAD1 + s, label, "Paired: press its PS button to connect",
+                         "%s off", addr);
             else
-                home_row(p, MENU_ROW_INFO, R_PAD1 + s, label,
-                         s == local ? "The keyboards and the USB gamepad play here"
-                                    : "Free: pair a controller",
-                         "%s", s == local ? local_devices() : "-");
+                home_row(p, MENU_ROW_INFO, R_PAD1 + s, label, "Free: pair a controller", "-");
         }
         home_row(p, MENU_ROW_INFO, R_KEYBOARD, "Bluetooth keyboard",
-                 bt_keyboard() ? "Connected: it types like a USB keyboard" :
+                 bt_keyboard() ? "Connected: it types, and plays as its own player" :
                  bt_keyboard_paired() ? "Paired: press a key on it to connect" : "None paired",
                  "%s", bt_keyboard() ? "on" : bt_keyboard_paired() ? "off" : "-");
         home_row(p, MENU_ROW_ACTION, R_PAIR, "Pair a new controller",

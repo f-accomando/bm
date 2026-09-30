@@ -135,7 +135,9 @@ della mappa; ogni numero è una cella dello sheet).
 **Più giocatori (M16).** Il controller Bluetooth *n* è il giocatore *n* (abbinati dal monitor
 con `T`, uno alla volta: ognuno prende il primo posto libero e la sua luce il colore del
 giocatore: 1 blu, 2 rosso, 3 verde, 4 rosa). La tastiera o il gamepad USB e la seriale sono
-il primo giocatore senza pad (senza pad Bluetooth: il giocatore 1). I giochi a un giocatore
+il primo giocatore senza pad (senza pad Bluetooth: il giocatore 1); la tastiera Bluetooth
+(M28) è un giocatore a sé, il successivo senza pad (il primo, se non c'è niente di USB).
+I giochi a un giocatore
 usano `btn(i)` senza `p` e funzionano con qualsiasi controller; un gioco a più giocatori
 chiede `btn(i, p)` per ciascuno (esempio: `carts/pong`, modalità 2 giocatori).
 

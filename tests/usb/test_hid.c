@@ -144,7 +144,7 @@ int main(void)
     hid_bt_report(2, p3, sizeof p3);
     tap[5] = 0x08 | 0x40;                                      /* USB pad: circle */
     hid_report(USB_GAMEPAD, tap, 64);
-    uint32_t any = hid_players(pl, 0, 1);                      /* USB = player 2 */
+    uint32_t any = hid_players(pl, 0, 1, -1);                      /* USB = player 2 */
     CHECK(pl[0] == HID_A && pl[1] == HID_B && pl[2] == (HID_LEFT | HID_DOWN) && pl[3] == 0);
     CHECK(any == (HID_A | HID_B | HID_LEFT | HID_DOWN));
     int8_t xy[2];
@@ -153,15 +153,30 @@ int main(void)
     p1[5] = 0x08;                                              /* released before the read: */
     hid_bt_report(0, p1, sizeof p1);
     hid_bt_report(0, p1, sizeof p1);
-    CHECK(hid_players(pl, 0, 1) != 0 && pl[0] == 0);           /* the earlier read took it */
+    CHECK(hid_players(pl, 0, 1, -1) != 0 && pl[0] == 0);           /* the earlier read took it */
     hid_bt_clear(2);
     tap[5] = 0x08;
     hid_report(USB_GAMEPAD, tap, 64);
-    hid_players(pl, 0, 1);
-    CHECK(hid_players(pl, 0, -1) == 0 && pl[2] == 0);
+    hid_players(pl, 0, 1, -1);
+    CHECK(hid_players(pl, 0, -1, -1) == 0 && pl[2] == 0);
     p1[5] = 0x08; p1[7] = 1;                                   /* PS on a Bluetooth pad quits */
     hid_bt_report(0, p1, sizeof p1);
     CHECK(hid_quit_pressed() == HID_QUIT_PS);
+
+    /* the Bluetooth LE keyboard is a player of its own; with ble < 0 it
+     * plays with the USB one; in text mode both keyboards only type */
+    hid_kbd_layout_t kl = { .id = 1, .nkeys = 6, .mods_bit = 0, .keys_bit = 16, .bitmap_bit = -1 };
+    uint8_t lr[8] = { 0, 0, 0x07 };                            /* D: right */
+    hid_players(pl, 0, 0, 1);
+    hid_ble_keyboard(&kl, lr, sizeof lr);
+    CHECK(hid_players(pl, 0, 0, 1) == HID_RIGHT && pl[1] == HID_RIGHT && pl[0] == 0);
+    CHECK(hid_players(pl, 0, 0, -1) == HID_RIGHT && pl[0] == HID_RIGHT && pl[1] == 0);
+    CHECK(hid_players(pl, 1, 0, 1) == 0);                      /* it types instead */
+    memset(lr, 0, sizeof lr);
+    hid_ble_keyboard(&kl, lr, sizeof lr);
+    hid_players(pl, 0, 0, 1);
+    CHECK(hid_players(pl, 0, 0, 1) == 0);
+    drain();
 
     /* Xbox 360: LB / RB are L1 / R1, Guide is like PS (once per press) */
     hid_xbox360_attach();

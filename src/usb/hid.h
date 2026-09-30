@@ -42,9 +42,10 @@ void hid_bt_clear(int slot);
 
 /* Buttons of each player (out[0] = player 1) and their OR: the Bluetooth
  * pads by player, the USB keyboard/gamepad as player local+1 (none if
- * local < 0; with text != 0 the keyboard types and is left out). Clears the
- * short presses, like hid_buttons(). */
-uint32_t hid_players(uint32_t out[HID_PLAYERS], int text, int local);
+ * local < 0), the Bluetooth LE keyboard as player ble+1 (with the USB one
+ * if ble < 0); with text != 0 the keyboards type and are left out. Clears
+ * the short presses, like hid_buttons(). */
+uint32_t hid_players(uint32_t out[HID_PLAYERS], int text, int local, int ble);
 /* Left stick, -127..127 each (x right, y down), of the Bluetooth pad in
  * slot, or of the USB gamepad with slot -1. Returns 1 if the pad has an
  * analog stick (else xy is 0). */

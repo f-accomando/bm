@@ -165,7 +165,8 @@ viene scelta l'interfaccia tastiera, anche se il dispositivo usa i report con ID
   chip) e basta premere **PS**: la luce del pad prende il colore del giocatore (1 blu,
   2 rosso, 3 verde, 4 rosa). Il menu mostra in alto a destra un'icona per ogni giocatore collegato (controller o tastiera,
   con il numero del giocatore in un cerchio) e l'icona WiFi o Ethernet quando la console è in rete.
-  Stessi tasti del cavo USB; tastiera e gamepad USB sono il primo giocatore senza pad.
+  Stessi tasti del cavo USB; tastiera e gamepad USB sono il primo giocatore senza pad,
+  la tastiera Bluetooth il successivo (ognuna col suo personaggio nei giochi).
 - **DualShock 4 (PS4)** via cavo USB: croce direzionale o levetta sinistra,
   croce/quadrato = A, cerchio/triangolo = B, Options = Start, Share = Select,
   **tasto PS (o Share+Options) = esci**. Lo stesso decodificatore servirà per il

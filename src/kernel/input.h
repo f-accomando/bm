@@ -50,14 +50,19 @@ uint32_t input_pad_buttons(int *quit);
  * gamepad and the serial console play as the first player without a pad
  * (0-based here), or -1 when all four players have one. */
 int input_local_player(void);
+/* The Bluetooth LE keyboard is a player of its own: the next one without a
+ * pad after the USB player, or that one when nothing is on USB; -1 when it
+ * is not connected (or no player is free: then it plays with the USB one). */
+int input_ble_player(void);
 
 /* Like input_buttons, per player: out[0] = player 1. Returns the OR of all;
  * *local = input_local_player(). text: the keyboard types (left out). */
 uint32_t input_players(uint32_t out[INPUT_PLAYERS], int text, int *quit, int *local);
 
 /* Players with a controller: bit n = player n+1. The local player counts
- * when a USB keyboard or gamepad or a Bluetooth keyboard is attached, or
- * when no pad is connected (then it is the serial console, or nobody yet). */
+ * when a USB keyboard or gamepad is attached, or when no pad is connected
+ * (then it is the serial console, or nobody yet); the Bluetooth keyboard's
+ * player counts while it is connected. */
 unsigned input_connected(void);
 
 /* Left stick of player p (0-based), -1..1 each (x right, y down); from the
@@ -65,8 +70,8 @@ unsigned input_connected(void);
 void input_stick(int p, uint32_t buttons, float *x, float *y);
 
 /* What player p (0-based) plays with: a Bluetooth pad or a USB gamepad,
- * a USB keyboard, or nothing (the serial console does not count);
- * INPUT_DEV_BLUETOOTH is added when it comes over Bluetooth. */
+ * a USB or Bluetooth keyboard, or nothing (the serial console does not
+ * count); INPUT_DEV_BLUETOOTH is added when it comes over Bluetooth. */
 #define INPUT_DEV_NONE      0
 #define INPUT_DEV_KEYBOARD  1
 #define INPUT_DEV_PAD       2

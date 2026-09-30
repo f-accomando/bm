@@ -1806,7 +1806,9 @@ def test_bt_keyboard(b, opts):
     Connections, the code shown on screen typed on the keyboard, its IRK),
     GATT finds the keyboard report in the report map, keys type in the
     monitor (keypad too); it comes back from a private address and is
-    recognised by its IRK; the keys are in bm/config.txt."""
+    recognised by its IRK; the keys are in bm/config.txt. With a USB
+    keyboard too, each is a player of its own: USB 1 (white number), the
+    LE keyboard 2 (blue), in the bar and in a game."""
     try:
         import Crypto  # noqa: F401  (pycryptodome, for the simulated keyboard)
     except ImportError:
@@ -1817,9 +1819,12 @@ def test_bt_keyboard(b, opts):
     hcd = os.path.join(tmp, "BCM43430A1.hcd")
     with open(hcd, "wb") as f:
         f.write(bytes([0x4C, 0xFC, 4, 1, 2, 3, 4, 0x4E, 0xFC, 4, 0xFF, 0xFF, 0xFF, 0xFF]))
-    mksd.build(img, [(hcd, "bm/BCM43430A1.hcd")])
+    cart = os.path.join(tmp, "players.bm")
+    with open(cart, "wb") as f:
+        f.write(mkbm.pack(PLAYERS_CART.encode(), title="AAA players"))
+    mksd.build(img, [(hcd, "bm/BCM43430A1.hcd"), (cart, "carts/players.bm")])
     drive = ["-drive", f"if=sd,format=raw,file={img}"]
-    q = Qemu(b("kernel.img"), drive, mini_uart=True)
+    q = Qemu(b("kernel.img"), drive + USB_KBD, mini_uart=True)
     q.mini_buf = b""
     try:
         q.boot()
@@ -1860,14 +1865,28 @@ def test_bt_keyboard(b, opts):
         chip.keys(0x0C)
         chip.keys()
         _mini_expect(q, "uptime")
-        # the menu bar: its own keyboard icon, with a blue number (Bluetooth)
+        # the menu bar: the USB keyboard is player 1 (white number), the LE
+        # keyboard player 2 (blue)
         q.mini.write(b"M")
         _mini_expect(q, "cartridge menu")
         time.sleep(1.0)
         shot_ = q.screendump()
         runs = bar_icons(shot_)
-        assert len(runs) == 1 and 20 <= runs[0][1] - runs[0][0] <= 27, runs
-        assert blue_number(shot_, runs[0]), "a Bluetooth keyboard: a blue number"
+        assert len(runs) == 2 and all(20 <= x1 - x0 <= 27 for x0, x1 in runs), runs
+        assert not blue_number(shot_, runs[0]) and blue_number(shot_, runs[1]), runs
+        # in a game each keyboard moves its own player
+        q.mini.write(b"\r")
+        _mini_expect(q, "playing players.bm")
+        _mini_expect(q, "players 2 mask 3")
+        chip.keys(0x07)                                   # D on the LE keyboard: right
+        _mini_expect(q, "player 2 [1 1.0,0.0]")
+        chip.keys()
+        _mini_expect(q, "player 2 [ 0.0,0.0]")
+        sendkeys(q, "a")                                  # A on the USB keyboard: left
+        _mini_expect(q, "player 1 [0 -1.0,0.0]")
+        q.mini.write(b"q")
+        _mini_expect(q, "update+draw")
+        time.sleep(0.5)
         q.mini.write(b"q")
         _mini_expect(q, "back to the monitor")
         # back from a private address: found by its IRK, the saved LTK
@@ -1940,6 +1959,17 @@ def test_bt_keyboard_legacy(b, opts):
             chip.keys(u)
             chip.keys()
         _mini_expect(q, "42")
+        _mini_expect(q, "lua> ")
+        # alone, the LE keyboard is player 1: one icon, a blue number
+        chip.keys(0x29)                                   # Esc: out of Lua
+        chip.keys()
+        _mini_expect(q, "\n> ")
+        q.mini.write(b"M")
+        _mini_expect(q, "cartridge menu")
+        time.sleep(1.0)
+        shot_ = q.screendump()
+        runs = bar_icons(shot_)
+        assert len(runs) == 1 and blue_number(shot_, runs[0]), runs
     finally:
         q.close()
     part = os.path.join(tmp, "part.img")
