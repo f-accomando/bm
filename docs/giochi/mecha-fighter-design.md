@@ -136,6 +136,25 @@ i due robot sulla piattaforma, operai minuscoli che camminano e saldano (scintil
 gru che corre sulla rotaia fino al robot modificato (che vibra tra le scintille), luci
 d'allarme. Pannelli laterali: armatura, arma, READY, 5 statistiche a tacche, descrizione.
 
+**Revisione richiesta (2026-09-30, da fare più avanti).** Riferimento dell'autore: una
+foto di un diorama hangar in stile Gunpla (robot in piedi in primo piano davanti a una
+gabbia di manutenzione, un secondo robot più indietro dentro la gabbia; struttura
+nera industriale, tralicci e bracci meccanici gialli, strisce di pericolo giallo-nere
+sul pavimento e sui bordi, grate, pannelli numerati, luci basse e contrasto forte). La
+foto non è nel repository (diritti di terzi): se ne ricavano solo inquadratura e stile.
+- **Prospettiva**: non più la sala vista di fronte con i due robot sulla stessa
+  piattaforma, ma una vista di tre quarti dentro l'hangar, profonda, con il robot del
+  giocatore in primo piano a sinistra, a figura intera, e i bracci gialli di servizio
+  attorno.
+- **Alleato in fondo**: nella gabbia sul fondo il robot del compagno di squadra (per
+  il tag team: per ora vuota o con un robot spento).
+- **Schermo diviso solo nell'hangar**: metà sinistra il giocatore 1 nel suo hangar,
+  metà destra il giocatore 2 o la CPU in un luogo diverso (un altro hangar o altro
+  ambiente) mentre si prepara. Per ora la metà destra è lo stesso hangar specchiato.
+- **Stile**: nero/antracite con giallo di sicurezza come colore dominante degli
+  attrezzi, strisce di pericolo, luce dal basso e dai pannelli; resta la pixel art a
+  tinte piatte con contorni del gioco.
+
 ## 15. Vertical slice (questa base) e passi successivi
 
 Fatto: 1v1 contro CPU (3 livelli) o 2 giocatori, lo stesso robot con 2×2
