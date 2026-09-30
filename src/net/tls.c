@@ -110,7 +110,9 @@ static int setup(char *err, size_t err_len)
     static const unsigned char pers[] = "bm tls";
     int r = mbedtls_ctr_drbg_seed(&drbg, mbedtls_entropy_func, &entropy, pers, sizeof pers - 1);
     if (r) {
-        snprintf(err, err_len, "no random numbers (%d)", r);
+        snprintf(err, err_len, "no random numbers from the hardware generator (%d)", r);
+        mbedtls_ctr_drbg_free(&drbg);       /* the next try starts clean */
+        mbedtls_entropy_free(&entropy);
         return -1;
     }
     mbedtls_ssl_config_init(&conf);

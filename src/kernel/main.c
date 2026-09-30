@@ -20,6 +20,7 @@
 #include "drivers/fb.h"
 #include "drivers/led.h"
 #include "drivers/prop.h"
+#include "drivers/rng.h"
 #include "drivers/timer.h"
 #include "drivers/uart.h"
 #include "gfx/console.h"
@@ -207,6 +208,7 @@ void kernel_main(uint32_t atags)
     tick_init(TICK_HZ);
     tick_set_hook(heartbeat);
     irq_cpu_enable();
+    rng_start();                /* warms up while the rest boots (TLS, BLE keys) */
 
     sysinfo_print_short();
     crumbs_boot();

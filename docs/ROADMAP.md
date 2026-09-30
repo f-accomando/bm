@@ -681,6 +681,10 @@ Passi (2026-09-29):
    - Sul Pi `https://example.com/` è rifiutato ("not correctly signed by the trusted CA"): la
      sua catena porta a una radice che non è tra le 19. L'errore ora dice quale manca
      ("no root in bm/ca.pem for ..."), da aggiungere a `scripts/make-ca.sh`.
+   - Dopo un riavvio (kernel `14600e6`) `G` ha dato "no random numbers (-52)": il generatore
+     hardware, acceso solo alla prima richiesta, scarta i primi numeri (riscaldamento) e ci
+     metteva più dei 200 ms concessi; prima lo accendeva il Bluetooth LE. Ora parte all'avvio
+     del kernel e la prima lettura aspetta fino a 3 s.
 3. **Release**: GitHub Actions costruisce `kernel.img` e le cartucce a ogni tag `v*`, le
    allega alla release con un manifesto (versione, SHA-256, firma ECDSA P-256 con una
    chiave nei secret del repository; la chiave pubblica è nel kernel).
