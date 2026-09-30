@@ -14,6 +14,7 @@
 #include "wifi.h"
 #include "sdio.h"
 #include "bt/bt.h"
+#include "drivers/board.h"
 #include "drivers/sd.h"
 #include "drivers/timer.h"
 #include "fs/fat.h"
@@ -568,6 +569,11 @@ int wifi_probe(void)
 {
     memset(&w, 0, sizeof w);
     w.window = 0xFFFFFFFFu;
+    if (!board()->wireless) {
+        kprintf("wifi: no WiFi on the %s%s\n", board()->name,
+                board()->ethernet ? " (Ethernet: plug the cable)" : "");
+        return -1;
+    }
     if (strcmp(sd_controller(), "emmc") == 0) {
         kprintf("\x1b[91mwifi: the SD card is on the Arasan controller (SDHOST failed): "
                 "no controller left for WiFi\x1b[0m\n");

@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 """
-bm33 network console: the monitor of a Pi running bm33, over WiFi (M18.7).
+bm33 network console: the monitor of a Pi running bm33, over WiFi (M18.7) or
+the Ethernet of a Pi 1 B / B+ (M25).
 Standard library only (Linux / macOS / WSL).
 
   bm33_net.py 192.168.1.108             asks for the password

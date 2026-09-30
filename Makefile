@@ -1,4 +1,5 @@
-# bm33 - bare metal console for Raspberry Pi Zero / Zero W (BCM2835)
+# bm33 - bare metal console for Raspberry Pi Zero / Zero W (BCM2835);
+# the same kernel runs on the Pi 1 (A, B, A+, B+)
 
 CROSS   ?= arm-none-eabi-
 CC      := $(CROSS)gcc
@@ -46,7 +47,7 @@ LWIP_SRCS   := $(wildcard third_party/lwip/src/core/*.c third_party/lwip/src/cor
 KERNEL_SRCS := $(shell find src -name '*.c' -o -name '*.S') $(LUA_SRCS) $(LWIP_SRCS)
 LOADER_SRCS := $(wildcard chainloader/*.S chainloader/*.c) \
                src/drivers/uart.c src/drivers/gpio.c src/drivers/mbox.c \
-               src/drivers/prop.c src/drivers/timer.c src/drivers/led.c \
+               src/drivers/prop.c src/drivers/timer.c src/drivers/led.c src/drivers/board.c \
                src/arch/cache.c src/lib/crc32.c
 
 KERNEL_OBJS := $(patsubst %,$(BUILD)/k/%.o,$(KERNEL_SRCS))
@@ -143,7 +144,7 @@ test-titan: $(BUILD)/host/luahost $(BUILD)/titan/main.lua
 	$< tests/titan/sim.lua $(BUILD)/titan/main.lua $(BUILD)/titan/main.map
 
 .DEFAULT_GOAL := all
-.PHONY: FORCE all clean firmware image sdcard install sdcard-chainloader sdcard-stress qemu qemu-screenshot \
+.PHONY: FORCE all clean firmware image image-pi1 sdcard install sdcard-chainloader sdcard-stress qemu qemu-screenshot \
         run-serial test test-s32 test-s32-arm test-b33 test-usb test-audio test-fat test-kitchen test-titan test-net test-http disasm
 
 all: $(BUILD)/kernel.img $(BUILD)/chainloader.img $(GAME_CARTS)
@@ -198,17 +199,24 @@ sdcard: $(BUILD)/$(KERNEL).img $(SD_CARTS)
 
 # Whole SD card image (MBR + FAT32): firmware, config, kernel and the
 # cartridges. Write it with Raspberry Pi Imager ("Use custom"), balenaEtcher
-# or dd. Needs dosfstools and mtools.
+# or dd. Needs dosfstools and mtools. The kernel is the same for every
+# BCM2835 board; image-pi1 leaves out the WiFi/Bluetooth chip's firmware
+# (the Pi 1 has no radio; on the B / B+ the network is the Ethernet).
+IMAGE_FILES = $(FW_DIR)/bootcode.bin=bootcode.bin $(FW_DIR)/start.elf=start.elf \
+              $(FW_DIR)/fixup.dat=fixup.dat boot/config.txt=config.txt \
+              $(BUILD)/kernel.img=kernel.img \
+              $(foreach c,$(SD_CARTS),$(c)=carts/$(notdir $(c)))
 image: $(BUILD)/kernel.img $(SD_CARTS)
 	@test -f $(FW_DIR)/start.elf || { echo "Run 'make firmware' first"; exit 1; }
 	@mkdir -p $(DIST)
-	$(PYTHON) scripts/mksd.py $(DIST)/bm33.img --size-mib 64 --label BM33 \
-	    $(FW_DIR)/bootcode.bin=bootcode.bin $(FW_DIR)/start.elf=start.elf \
-	    $(FW_DIR)/fixup.dat=fixup.dat boot/config.txt=config.txt \
-	    $(BUILD)/kernel.img=kernel.img \
-	    $(foreach c,$(SD_CARTS),$(c)=carts/$(notdir $(c))) \
+	$(PYTHON) scripts/mksd.py $(DIST)/bm33.img --size-mib 64 --label BM33 $(IMAGE_FILES) \
 	    $(if $(wildcard $(FW_DIR)/BCM43430A1.hcd),$(FW_DIR)/BCM43430A1.hcd=bm33/BCM43430A1.hcd) \
 	    $(foreach f,$(wildcard $(FW_DIR)/brcmfmac43430-sdio.*),$(f)=bm33/$(notdir $(f)))
+
+image-pi1: $(BUILD)/kernel.img $(SD_CARTS)
+	@test -f $(FW_DIR)/start.elf || { echo "Run 'make firmware' first"; exit 1; }
+	@mkdir -p $(DIST)
+	$(PYTHON) scripts/mksd.py $(DIST)/bm33-pi1.img --size-mib 64 --label BM33 $(IMAGE_FILES)
 
 # Copies what make sdcard prepared onto a mounted SD card (SD=/mnt/d by
 # default): kernel, boot files, config.txt, cartridges and the chip
@@ -260,9 +268,17 @@ $(BUILD)/host/test_fat: tests/fs/test_fat.c src/fs/fat.c src/fs/fat.h src/driver
 	@mkdir -p $(dir $@)
 	$(HOSTCC) -O2 -Wall -Wextra -Isrc -o $@ tests/fs/test_fat.c src/fs/fat.c
 
-# Network console on lwIP's loopback interface (the WiFi chip is not in QEMU)
-test-net: $(BUILD)/host/test_netcon
+# Network console on lwIP's loopback interface (the WiFi chip is not in QEMU),
+# then lwIP on the Pi 1 B's Ethernet with a simulated LAN9512 and a DHCP peer
+test-net: $(BUILD)/host/test_netcon $(BUILD)/host/test_ethnet
 	$(BUILD)/host/test_netcon
+	$(BUILD)/host/test_ethnet
+
+$(BUILD)/host/test_ethnet: tests/net/test_ethnet.c src/net/net.c src/net/net.h src/usb/smsc95xx.c src/usb/smsc95xx.h \
+                           tests/usb/lan9512_sim.c tests/usb/lan9512_sim.h $(LWIP_SRCS)
+	@mkdir -p $(dir $@)
+	$(HOSTCC) -O1 -w -DBM33_HOST_TEST -Isrc -Isrc/net -Ithird_party/lwip/src/include -o $@ \
+		tests/net/test_ethnet.c src/net/net.c src/usb/smsc95xx.c tests/usb/lan9512_sim.c $(LWIP_SRCS)
 
 $(BUILD)/host/test_netcon: tests/net/test_netcon.c src/net/netcon.c src/net/netxfer.c src/net/stream.c src/net/*.h src/lib/crc32.c $(LWIP_SRCS)
 	@mkdir -p $(dir $@)
@@ -284,12 +300,24 @@ $(BUILD)/host/test_audio: tests/audio/test_audio.c src/audio/synth.c src/audio/i
 	@mkdir -p $(dir $@)
 	$(HOSTCC) -O2 -Wall -Wextra -Isrc -o $@ tests/audio/test_audio.c src/audio/synth.c src/audio/iec958.c
 
-test-usb: $(BUILD)/host/test_hid
-	$<
+test-usb: $(BUILD)/host/test_hid $(BUILD)/host/test_eth $(BUILD)/host/test_board
+	$(BUILD)/host/test_hid
+	$(BUILD)/host/test_eth
+	$(BUILD)/host/test_board
 
 $(BUILD)/host/test_hid: tests/usb/test_hid.c src/usb/hid.c src/usb/hid.h src/usb/usb.h
 	@mkdir -p $(dir $@)
 	$(HOSTCC) -O2 -Wall -Wextra -Isrc -o $@ tests/usb/test_hid.c src/usb/hid.c
+
+# Ethernet of the Pi 1 B (LAN951x) against a simulated chip
+$(BUILD)/host/test_eth: tests/usb/test_eth.c tests/usb/lan9512_sim.c tests/usb/lan9512_sim.h \
+                        src/usb/smsc95xx.c src/usb/smsc95xx.h src/usb/usb.h src/usb/dwc2.h
+	@mkdir -p $(dir $@)
+	$(HOSTCC) -O2 -Wall -Wextra -Wno-format -Isrc -o $@ tests/usb/test_eth.c tests/usb/lan9512_sim.c src/usb/smsc95xx.c
+
+$(BUILD)/host/test_board: tests/usb/test_board.c src/drivers/board.c src/drivers/board.h
+	@mkdir -p $(dir $@)
+	$(HOSTCC) -O2 -Wall -Wextra -Isrc -o $@ tests/usb/test_board.c src/drivers/board.c
 
 test-b33: $(BUILD)/host/test_b33 $(BUILD)/demo.b33
 	$< $(BUILD)/demo.b33

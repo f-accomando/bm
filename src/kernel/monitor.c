@@ -17,6 +17,7 @@
 #include "lib/printf.h"
 #include "usb/hid.h"
 #include "usb/usb.h"
+#include "usb/smsc95xx.h"
 #include "carts.h"
 #include "config.h"
 #include "bt/bt.h"
@@ -41,13 +42,14 @@ static const char help_text[] =
             "  l  Lua REPL (Esc, Ctrl-D or exit() returns here)\n"
             "  U  receive a cartridge over serial and play it\n"
             "  i  system info            m  heap usage          c  clear screen\n"
-            "  y  USB: scan the port     Y  input test: USB, then each player (10 s)\n"
+            "  y  USB: scan port and hub Y  input test: USB, then each player (10 s)\n"
             "  L  keyboard layout Italian / US\n"
             "  a  audio: HDMI sound status and a test tune\n"
             "  e  editor: code, sprites and map of a .b33 cartridge\n"
             "  T  Bluetooth: pair a controller as the next player (DS4: Share + PS)\n"
             "  P  Bluetooth: forget all paired pads (asks first)\n"
             "  W  WiFi: start, list the networks, join one (M18; saved in bm33/config.txt)\n"
+            "  E  Ethernet (Pi 1 B / B+): link, counters, chip registers\n"
             "     from the PC: tools/bm33_net.py IP (console, --send/--play a cart, --kernel)\n"
             "  G  get a web address (http; https with M19.2): status, size, speed, start\n"
             "  b  boot diagnostics: benchmarks, s32 and b33 demos, Lua boot script\n"
@@ -218,8 +220,14 @@ void monitor_run(void)
         case 'Y': usb_live_test(5); input_live_test(10); break;
         case 'T': bt_scan(8); break;
         case 'W':
-            if (wifi_start() == 0 && wifi_scan() > 0 && wifi_connect() == 0 && net_start() == 0)
+            if (wifi_start() == 0 && wifi_scan() > 0 && wifi_connect() == 0 &&
+                net_start(&net_wifi) == 0)
                 net_wait_ip(15000);
+            break;
+        case 'E':
+            eth_diag();
+            if (eth_present())
+                kprintf("net: IP %s, time %s\n", net_ip_text(), net_time_text());
             break;
         case 'o': pager_show(klog_text()); break;
         case 'P': {

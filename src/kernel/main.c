@@ -41,6 +41,8 @@
 #include "version.h"
 #include "net/net.h"
 #include "wifi/wifi.h"
+#include "usb/smsc95xx.h"
+#include "drivers/board.h"
 
 #include <string.h>
 
@@ -165,11 +167,19 @@ void diagnostics_run(void)
 static void wifi_boot(void)
 {
     const char *ssid = config_get("wifi_ssid"), *on = config_get("wifi_boot");
-    if (!ssid || !ssid[0] || (on && strcmp(on, "0") == 0))
+    if (!board()->wireless || !ssid || !ssid[0] || (on && strcmp(on, "0") == 0))
         return;
     kprintf("wifi: joining the saved network (wifi_boot=0 in bm33/config.txt: off)\n");
     if (wifi_start() == 0 && wifi_connect_saved() == 0)
-        net_start();
+        net_start(&net_wifi);
+}
+
+/* The Ethernet of the Pi 1 B / B+ (found on the USB hub) starts at boot;
+ * DHCP waits for the cable's link. */
+static void eth_boot(void)
+{
+    if (eth_present())
+        net_start(&net_eth);
 }
 
 void kernel_main(uint32_t atags)
@@ -188,7 +198,8 @@ void kernel_main(uint32_t atags)
         kprintf_set_sink(console_putc);
     }
 
-    kprintf("\n\x1b[1;36mbm33\x1b[0m kernel %s - Raspberry Pi Zero (BCM2835)\n", bm33_version);
+    kprintf("\n\x1b[1;36mbm33\x1b[0m kernel %s - Raspberry %s (BCM2835)\n", bm33_version,
+            board()->name);
     (void)atags;
     if (err)
         panic("framebuffer init failed (%d)", err);
@@ -224,9 +235,10 @@ void kernel_main(uint32_t atags)
     usb_print();
     carts_init();
     config_load();
-    if (bt_paired())
+    if (bt_paired() && board()->wireless)
         bt_start();             /* a paired pad can come back with its PS button */
     wifi_boot();
+    eth_boot();
 
 #ifdef BM33_BOOT_STRESS
     run_stress();

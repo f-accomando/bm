@@ -1,5 +1,6 @@
 #include "sysinfo.h"
 #include "arch/mmu.h"
+#include "drivers/board.h"
 #include "drivers/prop.h"
 #include "lib/heap.h"
 #include "drivers/timer.h"
@@ -16,7 +17,7 @@ void sysinfo_print(void)
 
     v[0] = 0;
     if (prop_query(PROP_GET_BOARD_REVISION, v, 1) == 0)
-        kprintf("board revision : %08lx\n", v[0]);
+        kprintf("board revision : %08lx (Raspberry %s)\n", v[0], board()->name);
 
     v[0] = v[1] = 0;
     if (prop_query(PROP_GET_ARM_MEMORY, v, 2) == 0)
