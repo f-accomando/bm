@@ -62,7 +62,7 @@ def recv_answer(sock, timeout):
             if not chunk:
                 break
             data += chunk
-    except socket.timeout:
+    except (socket.timeout, ConnectionResetError):
         pass
     return data
 
@@ -81,15 +81,20 @@ def transfer(args, op, path, name, password):
     pw = password.encode()
     rest = (op + bytes([len(pw)]) + pw + bytes([len(dest)]) + dest.encode()
             + struct.pack("<II", len(data), zlib.crc32(data) & 0xFFFFFFFF))
-    # a kernel from before the rename (M28) only knows the old request tag:
-    # it answers "bad request", and the same request goes again with that
+    # a kernel from before the rename only knows the old request tag: it
+    # answers "bad request" or drops the connection (the rest of the
+    # request arrives after it gave up), and the request goes again with that
     for tag in (b"BMXF", b"BM3X"):
         sock = socket.create_connection((args.host, XFER_PORT), timeout=5)
-        sock.sendall(tag + rest)
+        try:
+            sock.sendall(tag + rest)
+        except (ConnectionResetError, BrokenPipeError):
+            pass
         a = recv_answer(sock, 10)
-        if a != b"BH":
+        if a not in (b"BH", b""):
             break
         sock.close()
+        time.sleep(0.3)
     if a != b"OK":
         print("refused:", ANSWERS.get(a, a or "no answer"))
         return 1
