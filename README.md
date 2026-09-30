@@ -59,7 +59,7 @@ Risoluzioni di menu, console e giochi, e quanto costano: [docs/RISOLUZIONI.md](d
 | **M11** | SD in scrittura: salvataggi, record, impostazioni | ✅ verificato sul Pi |
 | **M12** | Controller **Bluetooth** (DualShock 4) | ✅ verificato sul Pi |
 | M13 | Altri tipi di cartuccia: s32 Lua (con lua32), codice ARM nativo | chiusa senza implementazione |
-| M14 | Grafica 2.0: DMA, 3D con texture e Gouraud, menu con anteprime (32 bit rimandato) | 🛠 in corso |
+| **M14** | Grafica 2.0: DMA, 3D con texture e Gouraud, menu con anteprime (32 bit rimandato) | ✅ verificato sul Pi |
 | **M15** | Editor sulla console: codice, sprite, mappa, prova e torna | ✅ verificato sul Pi |
 | **M16** | Multiplayer locale: fino a 4 controller Bluetooth, `btn(i, giocatore)`, Pong a 2 | ✅ |
 | **M17** | **Chaos Kitchen**: cucina cooperativa in 3D per 1–4 giocatori (campagna, infinita, pratica) | ✅ |

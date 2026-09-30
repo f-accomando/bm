@@ -296,7 +296,7 @@ Decisione 2026-09-30: chiusa dall'autore; il piano resta qui se servirà.
 - **Fatto quando:** una cart Lua di lua32 gira uguale su lua32 e bm; un gioco demo
   in C gira come `.bm` nativa.
 
-## M14 — Grafica 2.0 (M) — in corso
+## M14 — Grafica 2.0 (M) — ✅ verificata sul Pi (2026-09-30)
 Fatto finora (da verificare sul Pi):
 - driver DMA (`src/drivers/dma.c`, canali assegnati insieme all'audio). Sul Pi la
   prima versione (burst da 8, priorità alta, `WAIT_RESP`) dentro `p` ha bloccato il
@@ -377,7 +377,14 @@ Fatto finora (da verificare sul Pi):
   del fotogramma, fps, triangoli e pixel con texture (circa 460 triangoli e 61 000
   pixel); B cambia il numero di casse (4, 8, 16, 32) per trovare il limite, X toglie la
   luce dal pavimento. Test QEMU `test_texroom` (le texture sullo schermo, nessun
-  errore). Da misurare sul Pi.
+  errore).
+- **Texture Room sul Pi** (2026-09-30), giro automatico:
+  - 8 casse (la partenza): 11,6 ms di CPU, **60 fps**, 456 triangoli, 60 516 pixel con
+    texture (circa uno schermo 320×180 intero, 57 600 pixel);
+  - 32 casse: 18,0 ms, 54 fps, 586 triangoli, 96 992 pixel (1,7 volte lo schermo: le
+    casse coprono pavimento e pareti già disegnati).
+  - Dalla differenza, circa 0,18 µs per pixel con texture in più: a 60 fps ci stanno
+    intorno ai 90 000 pixel con texture per fotogramma.
 - Decisione 2026-09-29: il **modo 32 bit** è rimandato (fuori da M14): raddoppia la
   banda di memoria, che è il limite del Pi Zero, e le sfumature ora le copre il
   dithering.
@@ -391,6 +398,11 @@ Previsto:
 - Menu grafico con anteprime delle cartucce (immagine nell'header `.bm`).
 - **Fatto quando:** lo stress test mostra il guadagno del DMA e una demo 3D con
   texture gira a 60 fps.
+
+✅ Verificato sul Pi (2026-09-30): il test DMA (`D`) mostra il guadagno (copia RAM → schermo
+4,7 volte più veloce della CPU, vedi le misure sopra) e Texture Room gira a 60 fps con 8
+casse. Restano aperti, fuori da M14: la parte C dello stress test più lenta di `792787f`
+(causa non chiara) e il modo 32 bit (rimandato).
 
 ---
 
