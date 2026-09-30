@@ -744,6 +744,7 @@ cartuccia **Titan Clash** (`carts/titan`).
   andare, cioè girava una `titan.bm` vecchia. `build.py` aggiunge `TITAN_BUILD`, le prime
   7 cifre dello SHA-1 dei sorgenti: si vede in basso nel titolo, nel pannello di Select
   (con `face` di ogni robot) e nel registro (`titan build ...`).
+  ✅ Verificato sul Pi con la build `e34f7e8`: P1 cammina, para e salta in diagonale.
 
 ## M21 — Menu "home" e giochi sospesi (M) — ✅ chiusa (2026-09-30)
 Decisione 2026-09-29: menu più pulito in stile console moderna (Nintendo Switch), per ora
