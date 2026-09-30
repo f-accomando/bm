@@ -928,7 +928,7 @@ Task:
    benchmark, stress test, test DMA, demo, test pattern, diagnostica.
    - Si aprono in modalità testo; alla fine "A: torna al menu", anche dal pad.
    - Registro e test pattern si usano anche col pad.
-4. **Impostazioni** (ingranaggio a destra delle schede):
+4. **Impostazioni** (voce **Settings** dopo le schede, scritta come loro):
    - Controller: i 4 giocatori con indirizzo e stato, abbina un nuovo controller, prova
      i tasti, dimentica tutti;
    - WiFi: rete, IP, ora, console di rete (porta e PIN), connetti, connessione
@@ -968,7 +968,8 @@ Task:
   pattern si chiude con qualsiasi tasto; dopo gli strumenti "A: torna al menu".
 - Restano sulla console testuale: abbinamento (`T`), connessione WiFi (`W`, la password
   si scrive con la tastiera USB), Lua. Diventano grafici con il task 8.
-- **Barra** (decisione 2026-09-30): niente scritta bm33 né `pads: 1 2 - -`.
+- **Barra** (decisione 2026-09-30): niente scritta bm33 né `pads: 1 2 - -`; Settings è
+  scritta come le schede, senza l'icona dell'ingranaggio.
   - A destra, un'icona bianca per ogni giocatore collegato: tastiera (tastiera USB)
     o controller in stile DS4 (pad Bluetooth o USB).
   - Sopra il centro in basso di ogni icona, il numero del giocatore (1–4, l'ordine di

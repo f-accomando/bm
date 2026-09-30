@@ -446,18 +446,6 @@ static int hint(int col, int row, const char *btn, const char *label)
     return col + 2 + (int)strlen(label) + 3;
 }
 
-/* a gear of radius ~7 around (cx, cy), with a hole the colour of `bg` */
-static void gear(int cx, int cy, uint16_t c, uint16_t bg)
-{
-    g16_circfill(&g, cx, cy, 5, c);
-    for (int k = 0; k < 8; k++) {
-        float a = (float)k * 3.14159265f / 4.0f;
-        int x = cx + (int)lroundf(cosf(a) * 6.0f), y = cy + (int)lroundf(sinf(a) * 6.0f);
-        g16_rectfill(&g, x - 1, y - 1, 3, 3, c);
-    }
-    g16_circfill(&g, cx, cy, 2, bg);
-}
-
 /* a small triangle pointing up (dir -1) or down (+1), for the scroll marks */
 static void scroll_mark(int cx, int cy, int dir, uint16_t c)
 {
@@ -690,14 +678,13 @@ void menu_ui_frame(framebuffer_t *fb, const menu_view_t *v)
         }
         col += n + 4;
     }
-    /* the settings button, after the tabs */
-    col += 1;
-    if (v->on_gear)
-        round_ring(col * 8 - 12, 16 - 8, 13 * 8 + 8, 32, 16, 2, pulse(t));
-    if (v->on_gear)
-        round_rect(col * 8 - 8, 16 - 4, 13 * 8, 24, 12, c16(C_TAB_ON));
-    gear(col * 8 + 7, 16 + 8, v->on_gear ? c16(C_BAR) : c16(C_DIM), v->on_gear ? c16(C_TAB_ON) : c16(C_BAR));
-    g16_text(&g, (col + 3) * 8, 16, "Settings", v->on_gear ? c16(C_BAR) : c16(C_DIM));
+    /* Settings after the tabs, written like them: it opens a panel */
+    if (v->on_gear) {
+        round_ring(col * 8 - 12, 16 - 8, (8 + 2) * 8 + 8, 32, 16, 2, pulse(t));
+        pill_text(col, 1, "Settings", C_BAR, C_TAB_ON);
+    } else {
+        g16_text(&g, col * 8, 16, "Settings", c16(C_DIM));
+    }
     status_icons(v);
 
     /* the name of the selected cartridge, on a pill */

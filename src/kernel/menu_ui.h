@@ -1,6 +1,6 @@
 /*
  * BareMetal UI, the graphical home menu in the style of a console home
- * screen: tabs at the top (Games, Dev) and a settings button, the covers
+ * screen: tabs at the top (Games, Dev) and Settings after them, the covers
  * in a grid that scrolls down, moved through with the four directions;
  * the background is the blurred cover of the selected cartridge. Panels
  * (submenus) open over the grid. 640x360 RGB565.
@@ -56,7 +56,7 @@ typedef struct {
     const char *const *tabs;    /* tab names */
     int ntabs, tab;             /* current tab */
     int on_tabs;                /* the focus is on the tab bar... */
-    int on_gear;                /* ...on the settings button at its right */
+    int on_gear;                /* ...on Settings, after the tabs */
     const menu_item_t *items;   /* of the current tab */
     int n, sel;
     int dev[4];                 /* players 1-4: MENU_DEV_*, an icon with the number */
