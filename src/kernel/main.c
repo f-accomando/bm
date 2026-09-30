@@ -27,7 +27,6 @@
 #include "lib/heap.h"
 #include "lib/printf.h"
 #include "script/luavm.h"
-#include "s32/player.h"
 #include "bm/runtime.h"
 #include "bm/stress.h"
 #include "usb/usb.h"
@@ -63,7 +62,6 @@ static void print_palette(void)
 }
 
 #define TICK_HZ     1000
-#define S32_ATTRACT_SECS 10
 #define BM_DEMO_SECS    15
 
 static void heartbeat(uint32_t tick)
@@ -88,7 +86,6 @@ static void report_irq(void)
 }
 
 extern const char boot_lua[], boot_lua_end[];
-extern const uint8_t s32_demo_cart[], s32_demo_cart_end[];
 extern const uint8_t bm_demo_cart[], bm_demo_cart_end[];
 extern const uint8_t bm_stress_cart[], bm_stress_cart_end[];
 
@@ -123,7 +120,7 @@ static uint32_t arm_memory_end(void)
 }
 
 /* Everything the boot used to show before M9: palette, CPU benchmark,
- * libc self-test, the s32 attract demo, the bm benchmark and demo, the
+ * libc self-test, the bm benchmark and demo, the
  * vsync probe and the Lua boot script. Monitor command 'B'. */
 void diagnostics_run(void)
 {
@@ -136,13 +133,6 @@ void diagnostics_run(void)
     bench_run(&bench, &fb, "max + cache");
     bench_print(&bench, 1);
     libc_selftest();
-
-    kprintf("s32: playing the built-in demo.cart for %u s ('q' or Esc skips it)...\n",
-            S32_ATTRACT_SECS);
-    s32_play_stats_t ps;
-    s32_play(&fb, s32_demo_cart, (size_t)(s32_demo_cart_end - s32_demo_cart),
-             S32_ATTRACT_SECS, 1, &ps);
-    s32_play_print(&ps);
 
     kprintf("bm: C benchmark and native demo cart ('q' or Esc skips)...\n");
     bm_bench_report(&fb, 120);

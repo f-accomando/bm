@@ -29,12 +29,10 @@ Scritto per scegliere la risoluzione del menu (M27, BareMetal UI).
 | Console di testo e monitor | 640×360 (80×22 caratteri 8×16) | 32 bit | 2 | 3× |
 | Menu (BareMetal UI) | 640×360 | 16 bit (RGB565) | 3 | 3× |
 | Giochi `.bm` | 640×360 oppure 320×180 | 16 bit (RGB565) | 3 | 3× oppure 6× |
-| Giochi s32 (`.cart`) | 320×224 | 32 bit | 3 | non intero, non 16:9 |
 
 - Le due risoluzioni dei giochi `.bm` sono fissate dal formato (`src/bm/format.c`):
   "resolution must be 640x360 or 320x180".
 - Le copertine dei giochi nel `.bm` sono 128×80 (`BM_COVER_W`, `BM_COVER_H`).
-- Il modo 16:9 delle cartucce s32 è deciso in `s32-bm33.md` ma non ancora fatto (M13).
 
 ## 3. Risoluzioni possibili per il menu
 

@@ -182,7 +182,7 @@ static void t_pattern(framebuffer_t *fb)
 static void t_diag(framebuffer_t *fb)
 {
     (void)fb;
-    heading("Boot diagnostics: benchmarks, s32 and bm demos, Lua boot script");
+    heading("Boot diagnostics: benchmarks, the bm demo, Lua boot script");
     diagnostics_run();
 }
 

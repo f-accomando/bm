@@ -1,5 +1,8 @@
 # Raspberry Pi Zero W v1.1: risorse hardware e utilizzo di bm / s32
 
+> **Nota (2026-09-30):** l'interprete s32 è stato tolto da bm, che non esegue più le
+> cartucce `.cart`. Le colonne e le righe s32 qui sotto restano come riferimento storico.
+
 Scopo: vedere **quanto dell'hardware usiamo** e **quanto margine resta**.
 Alcune righe (DMA, USB, Bluetooth, audio) sono della fase MVP: lo stato attuale e le
 scelte tecniche con le misure sono in [`PRESTAZIONI.md`](PRESTAZIONI.md).

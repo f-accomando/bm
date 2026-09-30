@@ -27,7 +27,6 @@ import mksd  # noqa: E402
 QEMU = os.environ.get("QEMU", "qemu-system-arm")
 REF_DIR = os.path.join(HERE, "ref")
 PROMPT = b"type 'h' for help"
-DEMO = b"s32: playing"
 BM_DEMO = b"native demo cart"
 MENU = b"cartridge menu"
 
@@ -88,10 +87,7 @@ class Qemu:
     def diagnostics(self, skip_demo=True):
         """Monitor 'B': the old boot sequence (benchmarks, demos, boot.lua)."""
         self.send("b")             # lower or upper case
-        out = self.expect(DEMO, timeout=20)
-        if skip_demo:
-            self.send("q")
-        out += self.expect(BM_DEMO, timeout=20)
+        out = self.expect(BM_DEMO, timeout=20)
         if skip_demo:
             self.send("q")
         out += self.expect("Lua memory:", timeout=40)
@@ -199,7 +195,7 @@ def test_boot_banner(b, opts):
         plain = re.sub(rb"\x1b\[[0-9;]*m", b"", out).decode(errors="replace")
         for s in ("MMU+caches on", "console 80x21", "benchmark (us)",
                   "libc selftest: ok", "printf 3.142, sqrt(2) 1.414213562",
-                  "IRQ on: timer 1000 Hz", "s32: playing the built-in demo.cart", "vsync probe"):
+                  "IRQ on: timer 1000 Hz", "vsync probe"):
             assert s in plain, f"missing {s!r} in boot log"
         text = "\n".join(screen_text(q.screendump()))
         for s in ("Lua 5.4 on bm", "2^10=1024.0 7//2=3 sqrt(2)=1.414214 THE QUICK BROWN FOX co:1,4,9",
@@ -463,69 +459,6 @@ def test_lua_out_of_memory(b, opts):
         q.close()
 
 
-def yellow_square(img):
-    pts = [(x, y) for y in range(0, 224) for x in range(0, 320) if pixel(img, x, y) == (230, 200, 40)]
-    return (min(pts), max(pts)) if pts else None
-
-
-def test_s32_boot_attract(b, opts):
-    q = Qemu(b("kernel.img"))
-    try:
-        q.boot()
-        q.send("B")
-        q.expect(DEMO, timeout=25)
-        time.sleep(1.5)
-        img, _ = settled_screen(q, lambda i, t: pixel(i, 5, 5) == (20, 30, 60))
-        assert img[:2] == (320, 224), img[:2]
-        assert pixel(img, 5, 5) == (20, 30, 60), "demo.cart background colour"
-        sq1 = yellow_square(img)
-        assert sq1 and sq1[1][0] - sq1[0][0] == 15, f"16x16 sprite: {sq1}"
-        time.sleep(1.0)
-        img2, _ = settled_screen(q, lambda i, t: pixel(i, 5, 5) == (20, 30, 60) and yellow_square(i))
-        sq2 = yellow_square(img2)
-        assert sq2 and sq2 != sq1, "attract mode should move the sprite"
-        out = q.expect(BM_DEMO, timeout=30).decode(errors="replace")
-        q.send("q")
-        q.expect("Lua memory:", timeout=30)
-        m = re.search(r'"Demo - quadrato mobile" (\d+) ticks, ([\d.]+) fps \(attract\), (\d+) dropped', out)
-        assert m, out
-        assert 570 <= int(m[1]) <= 620 and 55 <= float(m[2]) <= 62, m.group(0)
-        q.expect("> ")
-        img = q.screendump()
-        assert img[:2] == (640, 360), "console resolution restored"
-        assert any("s32:" in l for l in screen_text(img)), "stats on the console"
-    finally:
-        q.close()
-
-
-def test_s32_keys(b, opts):
-    q = Qemu(b("kernel.img"))
-    try:
-        q.boot()
-        q.send("g")
-        time.sleep(1.0)
-        start = yellow_square(q.screendump())
-        assert start and start[0] == (150, 100), f"initial position {start}"
-        for _ in range(25):                    # right: 'd' (held ~10 ticks each)
-            q.send("d")
-            time.sleep(0.05)
-        time.sleep(0.5)
-        right = yellow_square(q.screendump())
-        assert right[0][0] > start[0][0] + 40 and right[0][1] == 100, f"{start} -> {right}"
-        for _ in range(10):
-            q.send("\x1b[A")                   # arrow up
-            time.sleep(0.05)
-        time.sleep(0.5)
-        up = yellow_square(q.screendump())
-        assert up[0][1] < 100, f"{right} -> {up}"
-        q.send("q")
-        out = q.expect("render", timeout=10).decode(errors="replace")
-        assert "(attract)" not in out, out
-        q.expect("> ")
-    finally:
-        q.close()
-
-
 BM_COLOURS = [(248, 0, 0), (0, 252, 0), (0, 0, 248), (248, 252, 248)]
 
 
@@ -583,9 +516,7 @@ def test_bm_boot_demo(b, opts):
     try:
         q.boot()
         q.send("B")
-        q.expect(DEMO, timeout=25)
-        q.send("q")
-        q.expect(BM_DEMO, timeout=20)
+        q.expect(BM_DEMO, timeout=25)
         out = q.expect("bm bench (", timeout=20)
         time.sleep(3.0)
         img, text = settled_screen(q, lambda i, t: t[0].startswith("bm native") and "sprites" in t[-1])
@@ -656,20 +587,6 @@ def test_usb_keyboard(b, opts):
         out = q.expect("update+draw", timeout=10).decode(errors="replace")
         m = re.search(r'demo" (\d+) frames', out)
         assert m and int(m[1]) < 300, out
-        q.expect("> ")
-
-        # s32: held arrow keys move the square
-        sendkeys(q, "g")
-        time.sleep(1.0)
-        start = yellow_square(q.screendump())
-        assert start and start[0] == (150, 100), f"initial position {start}"
-        q.monitor("sendkey right 800")
-        time.sleep(1.2)
-        right = yellow_square(q.screendump())
-        assert right[0][0] > start[0][0] + 40 and right[0][1] == 100, f"{start} -> {right}"
-        sendkeys(q, "esc")
-        out = q.expect("render", timeout=10).decode(errors="replace")
-        assert "(attract)" not in out, out
         q.expect("> ")
 
         # monitor command and Lua REPL typed on the Italian layout:
@@ -777,16 +694,15 @@ def test_sd_cartridges(b, opts):
     tmp = tempfile.mkdtemp(prefix="bm-sd-")
     img = os.path.join(tmp, "sd.img")
     mksd.build(img, [(b("demo.bm"), "Il mio gioco lungo.bm"),
-                     (os.path.join(HERE, "..", "spec", "s32", "conformance", "demo.cart"),
-                      "carts/demo2.cart"),
+                     (b("carts/pong.bm"), "carts/demo2.bm"),
                      (os.path.join(HERE, "..", "README.md"), "README.md")])
     q = Qemu(b("kernel.img"), ["-drive", f"if=sd,format=raw,file={img}"])
     try:
         out = q.boot().decode(errors="replace")
         assert "sd: SD card (sdhost), FAT32, 127 MiB, label BMSD; 2 cartridges" in out, out
         q.send("f")
-        out = q.expect("quadrato mobile\"\r\n").decode(errors="replace")
-        assert "Il mio gioco lungo.bm" in out and "/carts/demo2.cart" in out, out
+        out = q.expect("\"Pong\"\r\n").decode(errors="replace")
+        assert "Il mio gioco lungo.bm" in out and "/carts/demo2.bm" in out, out
         q.expect("> ")
         q.send("M")
         q.expect("cartridge menu")
@@ -796,9 +712,9 @@ def test_sd_cartridges(b, opts):
         for s_ in ("Games", "bm native demo", "/Il mio gioco lungo.bm"):
             assert s_ in screen, screen
         q.send("d")                           # the next cover: its title and file
-        _, text = settled_screen(q, lambda i, t: any("Demo - quadrato mobile" in l for l in t))
+        _, text = settled_screen(q, lambda i, t: any("Pong" in l for l in t))
         screen = "\n".join(text)
-        assert "Demo - quadrato mobile" in screen and "/carts/demo2.cart" in screen, screen
+        assert "Pong" in screen and "/carts/demo2.bm" in screen, screen
         q.send("a")
         q.send("\r")                          # SD cartridges come first, by title
         q.expect("playing Il mio gioco lungo.bm", timeout=10)
@@ -806,14 +722,14 @@ def test_sd_cartridges(b, opts):
         q.send("q")
         out = q.expect("update+draw", timeout=15).decode(errors="replace")
         assert '"bm native demo"' in out, out
-        q.send("d\r")                         # next: /carts/demo2.cart (s32)
+        q.send("d\r")                         # next: /carts/demo2.bm
         _, text = settled_screen(q, lambda i, t: any("Close bm native demo?" in l for l in t))
         assert any("Close bm native demo?" in l for l in text), "\n".join(text)
         q.send("\r")                          # the demo was suspended: close it
-        q.expect("playing demo2.cart", timeout=10)
+        q.expect("playing demo2.bm", timeout=10)
         time.sleep(1.0)
         q.send("q")
-        q.expect("render", timeout=15)
+        q.expect("update+draw", timeout=15)
         q.send("q")
         q.expect("back to the monitor", timeout=10)
         q.expect("> ")
@@ -1075,7 +991,7 @@ def test_make_image(b, opts):
     q = Qemu(b("kernel.img"), ["-drive", f"if=sd,format=raw,file={img}"])
     try:
         out = q.expect(MENU, timeout=30).decode(errors="replace")
-        assert "FAT32, 63 MiB, label BM; 11 cartridges" in out, out
+        assert "FAT32, 63 MiB, label BM; 10 cartridges" in out, out
         time.sleep(0.5)
         seen = set()
         for _ in range(10):                    # right along the grid: each title in turn
@@ -1084,7 +1000,7 @@ def test_make_image(b, opts):
             q.send("d")
             time.sleep(0.3)
         screen = "\n".join(seen)
-        for title in ("Pong", "Snake", "Star Shooter", "Chaos Kitchen", "bm native demo", "Demo - quadrato mobile"):
+        for title in ("Pong", "Snake", "Star Shooter", "Chaos Kitchen", "bm native demo"):
             assert title in screen, screen
         q.send("q")
         q.expect(PROMPT)
@@ -1110,7 +1026,7 @@ def test_make_image(b, opts):
         q = Qemu(b("kernel.img"), ["-drive", f"if=sd,format=raw,file={os.path.join(tmp, 'bm-pi1.img')}"],
                  machine="raspi1ap")
         out = q.expect(MENU, timeout=30).decode(errors="replace")
-        assert "Raspberry Pi 1 A+" in out and "; 11 cartridges" in out, out
+        assert "Raspberry Pi 1 A+" in out and "; 10 cartridges" in out, out
     finally:
         q.close()
         shutil.rmtree(tmp, ignore_errors=True)
@@ -2825,17 +2741,13 @@ def test_bm_upload_errors(b, opts):
         q.close()
 
 
-def test_upload_s32_and_corrupt(b, opts):
+def test_upload_refused_and_corrupt(b, opts):
     q = Qemu(b("kernel.img"))
     try:
         q.boot()
-        with open(os.path.join(HERE, "..", "spec", "s32", "conformance", "demo.cart"), "rb") as f:
-            cart = f.read()
-        assert _upload(q, cart)
-        time.sleep(1.0)
-        assert q.screendump()[:2] == (320, 224), "s32 cart via upload"
-        q.send("q")
-        q.expect("render", timeout=10)
+        # s32 cartridges are no longer played (the interpreter is gone)
+        assert _upload(q, b"S32CART1" + bytes(200))
+        q.expect("unknown cartridge format", timeout=10)
         q.expect("> ")
         # CRC failure is reported, the monitor carries on
         q.send("U")

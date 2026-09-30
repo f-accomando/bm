@@ -71,7 +71,16 @@ M0 ─ M1 ─ M2 ─ M3 ─ M4 ─ M5 ─ M6 (s32) ─┬─ M7 ─┬─ M9 (MV
   Circa 100 ns per operazione semplice della VM: ~150k operazioni Lua per frame
   a 60 fps, un budget simile a quello di PICO-8. Interi a 64 bit mantenuti.
 
-## M6 — Core s32 (compatibilità con lua32) ✅ verificato su Pi Zero W (M)
+## M6 — Core s32 (compatibilità con lua32) ✅ verificato su Pi Zero W (M) — rimosso il 2026-09-30
+**Decisione 2026-09-30 (utente): l'interprete s32 è tolto.** bm non esegue più le cartucce
+`.cart`: nessun codice lo chiama più (il linker lo scarta), via `make test-s32` e
+`test-s32-arm`, la `demo.cart` incorporata e quella sulla SD, il comando `g` del monitor,
+la demo s32 nella diagnostica. Da cancellare dal repository: `src/s32`, `spec/s32`,
+`tests/s32`, `scripts/sync-s32-spec.sh`, `docs/m6-s32-demo.png`. Il menu elenca solo i `.bm`; una cartuccia s32 inviata
+dalla seriale o dalla rete viene rifiutata (`test_upload_refused_and_corrupt`). Il kernel
+passa da 1,57 a 0,98 MB. Resta la disposizione dei registri dell'audio (`apu()`). Le note
+qui sotto sono la storia di M6.
+
 Decisione: bm è compatibile con le cartucce `.cart` della console **s32**
 (`f-accomando/lua32`): stessa macchina (risoluzioni, palette, tile, VRAM 552 KiB, OAM,
 CGRAM, APU, porte), implementata in C nativo, non un'emulazione del motore di lua32.
@@ -90,7 +99,7 @@ CGRAM, APU, porte), implementata in C nativo, non un'emulazione del motore di lu
 ## Tipi di cartuccia (decisione 2026-09-26)
 | Tipo | Formato | Gira su | Priorità |
 |---|---|---|---|
-| s32 codice macchina | `.cart`, `code_type` 0 | bm + lua32 | ✅ fatto |
+| s32 codice macchina | `.cart`, `code_type` 0 | lua32 (tolto da bm il 2026-09-30) | rimosso |
 | **bm nativa Lua** | **`.bm`** (formato separato, non tocca la spec s32) | solo bm, sfrutta tutto il Pi | **prossima** |
 | s32 Lua | `.cart`, `code_type` 1 | bm + lua32 | quando lua32 è pronto |
 | bm nativa ARM (C) | `.bm` | solo bm, user mode + MMU | dopo l'MVP |

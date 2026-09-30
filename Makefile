@@ -70,7 +70,7 @@ FORCE:
 # Third-party code: its own warning policy, not ours.
 $(LUA_OBJS) $(LWIP_OBJS) $(MBEDTLS_OBJS): WARN := -w
 # Lua scripts embedded with .incbin
-$(BUILD)/k/src/script/embed.S.o: $(wildcard src/script/*.lua) spec/s32/conformance/demo.cart \
+$(BUILD)/k/src/script/embed.S.o: $(wildcard src/script/*.lua) \
                                  $(BUILD)/demo.bm $(BUILD)/stress.bm $(BUILD)/editor.bm
 
 # The editor (M15), built into the kernel
@@ -150,7 +150,7 @@ test-titan: $(BUILD)/host/luahost $(BUILD)/titan/main.lua
 
 .DEFAULT_GOAL := all
 .PHONY: FORCE test-smp all clean firmware image image-pi1 sdcard install sdcard-chainloader sdcard-stress qemu qemu-screenshot \
-        run-serial test test-s32 test-s32-arm test-bm test-usb test-audio test-fat test-kitchen test-titan test-net test-http test-https disasm
+        run-serial test test-bm test-usb test-audio test-fat test-kitchen test-titan test-net test-http test-https disasm
 
 all: $(BUILD)/kernel.img $(BUILD)/chainloader.img $(GAME_CARTS)
 
@@ -187,7 +187,7 @@ firmware:
 # the card instead of the kernel (flash it once, then use `make run-serial`).
 # Cartridges go to carts/ (the menu also looks in the root directory).
 KERNEL ?= kernel
-SD_CARTS := $(GAME_CARTS) $(BUILD)/demo.bm $(BUILD)/stress.bm spec/s32/conformance/demo.cart
+SD_CARTS := $(GAME_CARTS) $(BUILD)/demo.bm $(BUILD)/stress.bm
 sdcard: $(BUILD)/$(KERNEL).img $(SD_CARTS)
 	@test -f $(FW_DIR)/start.elf || { echo "Run 'make firmware' first"; exit 1; }
 	@mkdir -p $(DIST)/carts
@@ -195,6 +195,7 @@ sdcard: $(BUILD)/$(KERNEL).img $(SD_CARTS)
 	cp boot/config.txt $(DIST)/
 	cp $(BUILD)/$(KERNEL).img $(DIST)/kernel.img
 	rm -f $(DIST)/carts/*.bm       # the old extension (now .bm)
+	rm -f $(DIST)/carts/*.cart     # s32 cartridges: bm no longer plays them
 	cp $(SD_CARTS) $(DIST)/carts/
 	mkdir -p $(DIST)/bm && cp boot/ca.pem $(DIST)/bm/ca.pem
 	@if [ -f $(FW_DIR)/BCM43430A1.hcd ]; then mkdir -p $(DIST)/bm && \
@@ -241,6 +242,7 @@ install: sdcard
 	if [ -d $(SD)/$(OLD_DIR) ]; then $$S cp -rn $(SD)/$(OLD_DIR)/. $(SD)/bm/ && $$S rm -rf $(SD)/$(OLD_DIR) && \
 	    echo "moved $(OLD_DIR)/ (settings, saves, firmware) to bm/"; fi && \
 	$$S cp $(DIST)/bootcode.bin $(DIST)/start.elf $(DIST)/fixup.dat $(DIST)/config.txt $(DIST)/kernel.img $(SD)/ && \
+	$$S rm -f $(SD)/carts/demo.cart && \
 	$$S cp $(DIST)/carts/* $(SD)/carts/ && \
 	if [ -d $(DIST)/bm ]; then $$S cp $(DIST)/bm/* $(SD)/bm/; fi && \
 	sync && echo "installed on $(SD): kernel $$(git describe --always --dirty), carts, bm/ firmware" && \
@@ -267,7 +269,7 @@ qemu: $(BUILD)/kernel.img
 qemu-screenshot: $(BUILD)/kernel.img
 	./scripts/qemu-screenshot.sh $< $(BUILD)/screen.png
 
-test: all test-s32 test-bm test-usb test-fat test-audio test-kitchen test-titan test-net test-http test-https \
+test: all test-bm test-usb test-fat test-audio test-kitchen test-titan test-net test-http test-https \
       test-smp
 	$(PYTHON) tests/qemu_test.py --build $(BUILD)
 
@@ -358,25 +360,7 @@ $(BUILD)/host/test_board: tests/usb/test_board.c src/drivers/board.c src/drivers
 test-bm: $(BUILD)/host/test_bm $(BUILD)/demo.bm
 	$< $(BUILD)/demo.bm
 
-# s32 conformance (spec/s32): the C core must reproduce lua32's vectors.
-S32_CORE := src/s32/cpu.c src/s32/ppu.c src/s32/cart.c src/lib/crc32.c
-HOSTCC   ?= cc
-
-$(BUILD)/host/s32_conformance: tests/s32/conformance.c $(S32_CORE) src/s32/s32.h
-	@mkdir -p $(dir $@)
-	$(HOSTCC) -O2 -Wall -Wextra -Isrc -o $@ tests/s32/conformance.c $(S32_CORE)
-
-# Same code built for the ARM1176 with the kernel's compiler, run in qemu-arm
-# (semihosting): catches target-specific differences.
-$(BUILD)/host/s32_conformance_arm: tests/s32/conformance.c $(S32_CORE) src/s32/s32.h
-	@mkdir -p $(dir $@)
-	$(CC) $(ARCH) -O2 -Isrc --specs=rdimon.specs -o $@ tests/s32/conformance.c $(S32_CORE)
-
-test-s32: $(BUILD)/host/s32_conformance
-	$< spec/s32/conformance
-
-test-s32-arm: $(BUILD)/host/s32_conformance_arm
-	qemu-arm -cpu arm1176 $< spec/s32/conformance
+HOSTCC ?= cc
 
 clean:
 	rm -rf build build-stress $(DIST)

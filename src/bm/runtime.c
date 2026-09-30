@@ -700,7 +700,7 @@ static int l_playing(lua_State *L)
     return 1;
 }
 
-/* apu(ch, reg, [value]): raw register byte, the s32 APU layout (§8) */
+/* apu(ch, reg, [value]): raw register byte, the synthesizer's layout (synth.h) */
 static int l_apu(lua_State *L)
 {
     unsigned ch = voice_arg(L);

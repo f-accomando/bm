@@ -194,7 +194,7 @@ if score > best then best = score; save({ best = best }) end
 
 ### Suono
 
-Otto voci (0–7) di sintesi, le stesse dell'APU di s32: forme d'onda `SQUARE`,
+Otto voci (0–7) di sintesi (nate dall'APU della s32 di lua32): forme d'onda `SQUARE`,
 `TRIANGLE`, `SAW`, `NOISE`, inviluppo ADSR, uscita HDMI a 48 kHz (dagli altoparlanti
 del monitor). Il suono è generato in un interrupt: non costa nulla al tuo `_update`.
 
@@ -206,7 +206,7 @@ del monitor). Il suono è generato in un interrupt: non costa nulla al tuo `_upd
 | `envelope(v, a, d, s, r)` | inviluppo della voce: attack, decay e release sono tempi 0–255 (0 = istantaneo, 255 = 2 s), sustain è un livello 0–255. Predefinito `1, 0, 255, 10` |
 | `duty(v, d)` | larghezza dell'onda quadra, 0–255 (128 = 50%; 32–64 suona più "nasale") |
 | `playing(v)` | `true` finché la voce suona (release compreso) |
-| `apu(v, reg, [valore])` | legge o scrive un registro grezzo della voce, formato APU di s32 (spec §8) |
+| `apu(v, reg, [valore])` | legge o scrive un registro grezzo della voce (16 byte per voce: `src/audio/synth.h`) |
 
 Forma e volume restano quelli dell'ultima nota della voce, quindi basta darli una volta.
 All'avvio e all'uscita della cartuccia le voci si spengono e tornano ai valori

@@ -1,7 +1,6 @@
 #include "monitor.h"
 #include "bench.h"
 #include "demo.h"
-#include "s32/player.h"
 #include "bm/runtime.h"
 #include "upload.h"
 #include "bm/stress.h"
@@ -38,7 +37,7 @@ static const char help_text[] =
             "commands (games: arrows/wasd, space = A; q or Esc quits):\n"
             "  M  cartridge menu, or PS on a pad (SD: / and /carts; else built-in demos)\n"
             "  f  list cartridges        F  re-read the SD card\n"
-            "  g  built-in s32 demo.cart n  built-in native demo.bm\n"
+            "  n  built-in native demo.bm\n"
             "  l  Lua REPL (Esc, Ctrl-D or exit() returns here)\n"
             "  U  receive a cartridge over serial and play it\n"
             "  i  system info            m  heap usage          c  clear screen\n"
@@ -53,7 +52,7 @@ static const char help_text[] =
             "  E  Ethernet (Pi 1 B / B+): link, counters, chip registers\n"
             "     from the PC: tools/bm_net.py IP (console, --send/--play a cart, --kernel)\n"
             "  G  get a web address (http or https): status, size, speed, start\n"
-            "  b  boot diagnostics: benchmarks, s32 and bm demos, Lua boot script\n"
+            "  b  boot diagnostics: benchmarks, the bm demo, Lua boot script\n"
             "  k  CPU benchmark          p  rendering benchmark 640x360 RGB565\n"
             "  D  DMA test step by step (CPU against DMA timings)\n"
             "  V  .bm drawing: direct on screen / via RAM (compare with p)\n"
@@ -168,14 +167,6 @@ void monitor_run(void)
         case 'l': repl_run(); break;
         case 'c': console_clear(); break;
         case 'm': sysinfo_print_heap(); break;
-        case 'g': {
-            extern const uint8_t s32_demo_cart[], s32_demo_cart_end[];
-            s32_play_stats_t ps;
-            s32_play(console_framebuffer(), s32_demo_cart,
-                     (size_t)(s32_demo_cart_end - s32_demo_cart), 3600, 0, &ps);
-            s32_play_print(&ps);
-            break;
-        }
         case 'n': {
             extern const uint8_t bm_demo_cart[], bm_demo_cart_end[];
             bm_stats_t bs;

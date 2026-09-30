@@ -37,7 +37,7 @@ Per scrivere un gioco: [docs/GUIDA-GIOCHI.md](docs/GUIDA-GIOCHI.md) (guida prati
 ## Roadmap
 
 Dettagli, criteri di completamento e rischi in [docs/ROADMAP.md](docs/ROADMAP.md).
-Risorse del Pi Zero W e quanto ne usano bm/s32: [docs/HARDWARE.md](docs/HARDWARE.md).
+Risorse del Pi Zero W e quanto ne usa bm: [docs/HARDWARE.md](docs/HARDWARE.md).
 Stress test di rendering (soglie 60/30 fps): [docs/STRESS.md](docs/STRESS.md) — `make sdcard-stress`.
 Prestazioni e scelte tecniche (limiti del Pi, atteso contro misurato): [docs/PRESTAZIONI.md](docs/PRESTAZIONI.md).
 Risoluzioni di menu, console e giochi, e quanto costano: [docs/RISOLUZIONI.md](docs/RISOLUZIONI.md).
@@ -50,7 +50,7 @@ Risoluzioni di menu, console e giochi, e quanto costano: [docs/RISOLUZIONI.md](d
 | **M3** | MMU, cache, heap, newlib | ✅ |
 | **M4** | Interrupt, timer, double buffering 60 fps | ✅ |
 | **M5** | Lua 5.4 embedded + REPL | ✅ |
-| **M6** | Core **s32** in C: cartucce `.cart` compatibili con lua32 | ✅ |
+| M6 | Core **s32** in C: cartucce `.cart` compatibili con lua32 | ✅, poi rimosso (2026-09-30) |
 | **M7** | Cartucce native **`.bm`**: Lua 5.4 + grafica C a 640×360 RGB565 | ✅ |
 | **M7b** | Input: tastiera e gamepad **USB** (HID) | ✅ tastiera verificata sul Pi (gamepad solo QEMU) |
 | **M8** | **SD** + FAT32, menu delle cartucce | ✅ verificato sul Pi |
@@ -97,20 +97,19 @@ All'avvio (circa 2 secondi):
    controller, dal monitor, riporta al menu
 
 La sequenza di avvio delle versioni precedenti (benchmark CPU, self-test di newlib,
-demo s32 in modalità *attract*, benchmark e demo `.bm`, sonda del vsync, script
-Lua `boot.lua`) si esegue dal monitor con **`b`**.
+benchmark e demo `.bm`, sonda del vsync, script Lua `boot.lua`) si esegue dal monitor
+con **`b`**.
 
 | Tasto | Azione |
 |-------|--------|
 | `h` | aiuto, a pagine: frecce su/giù, PagSu/PagGiù, spazio (dalla seriale `w`/`s`); `q` o Esc esce |
-| `b` / `B` | diagnostica: la vecchia sequenza di avvio (benchmark, demo s32 e bm, `boot.lua`) |
+| `b` / `B` | diagnostica: la vecchia sequenza di avvio (benchmark, demo bm, `boot.lua`) |
 | `l` | **REPL Lua** (Esc su riga vuota, Ctrl-D o `exit()` per tornare al monitor) |
 | `i` | info di sistema |
 | `c` | pulisce lo schermo |
 | `m` | uso dell'heap |
 | `k` | esegue di nuovo il benchmark |
 | `d` | demo animata in C (60 fps, doppio buffer; un tasto la interrompe) |
-| `g` | gioca `demo.cart` (s32): w/a/s/d o frecce, spazio = azione, q o Esc = esci |
 | `n` | gioca `demo.bm` (nativa): frecce/wasd, spazio = A, k/x = B, q o Esc = esci |
 | `M` | **menu delle cartucce** (SD; le demo incorporate se la SD non ne ha) |
 | `f` / `F` | elenca le cartucce / rilegge la SD |
@@ -173,10 +172,10 @@ viene scelta l'interfaccia tastiera, anche se il dispositivo usa i report con ID
   Bluetooth (M12).
 
 **SD.** All'avvio il kernel legge la prima partizione **FAT32** (o FAT16) della SD
-(quella da cui si avvia il Pi) e cerca i file **`.bm`** e **`.cart`** nella
+(quella da cui si avvia il Pi) e cerca i file **`.bm`** nella
 cartella `carts/` e nella radice. Nomi lunghi supportati. `make sdcard` mette in
 `dist/carts/` i giochi e le demo (`pong.bm`, `snake.bm`, `shooter.bm`, `astrowing.bm`, `hunt.bm`,
-`kitchen.bm`, `titan.bm`, `demo.bm`, `stress.bm`, `demo.cart`); `make image` li mette nell'immagine SD.
+`kitchen.bm`, `titan.bm`, `demo.bm`, `stress.bm`); `make image` li mette nell'immagine SD.
 
 **Menu delle cartucce.** Mostra titolo e autore letti dalle cartucce (ordinate per
 titolo) e sotto il nome del file scelto. Su/giù per scegliere, Invio (o A) per giocare,
@@ -278,27 +277,22 @@ Se modifichi di proposito il test pattern: `python3 tests/qemu_test.py --update-
 I test leggono il testo mostrato sullo schermo confrontando ogni cella 8×16
 con i glifi del font, quindi verificano anche ciò che appare sull'HDMI.
 
-## s32
-
-bm esegue le cartucce `.cart` della console **s32** del progetto
-[lua32](https://github.com/f-accomando/lua32): stessa macchina (320×224, tile 8–64 px,
-8 palette × 256 colori RGB888, VRAM 552 KiB, 512 sprite, APU a 8 canali), implementata
-in C nativo. Il contratto comune è `spec/s32/s32-spec.md`; i vettori di conformità
-generati da lua32 devono passare **byte per byte**:
+Test della rete, sul PC:
 
 ```sh
-make test-s32        # core s32 compilato per il PC
 make test-net        # console di rete e stream su lwIP (interfaccia di loopback, sul PC)
 make test-http       # client HTTP contro un server Python locale
 make test-https      # HTTPS (mbedTLS) contro server TLS locali con una CA di prova
-make test-s32-arm    # stesso codice compilato per ARM1176, in qemu-arm
-scripts/sync-s32-spec.sh ../lua32   # aggiorna spec e vettori da lua32
 ```
 
-Sul Pi Zero il core s32 esegue la demo a circa 26 µs per tick in QEMU (CPU s32 +
-PPU in C); i numeri reali vanno misurati sul Pi (riga `s32:` all'avvio).
+## s32 (rimosso)
 
-![s32 demo](docs/m6-s32-demo.png)
+Fino al 2026-09-30 bm eseguiva anche le cartucce `.cart` della console **s32** del
+progetto [lua32](https://github.com/f-accomando/lua32), con un interprete in C (M6).
+L'interprete è stato tolto: le build non contengono più cartucce s32, il menu non
+elenca più i file `.cart` e una cartuccia s32 inviata dalla seriale o dalla rete viene
+rifiutata ("unknown cartridge format"). Della s32 resta solo la disposizione dei
+registri dell'audio, usata da `apu()` nei giochi `.bm`.
 
 ## Cartucce native `.bm`
 
@@ -469,7 +463,6 @@ src/kernel/carts.c       elenco delle cartucce (incorporate + SD), menu e opzion
 src/kernel/menu_ui.c     BareMetal UI: griglia, schede, pannelli, copertine degli strumenti
 src/kernel/home.c        strumenti della scheda Dev e pannelli delle impostazioni
 src/kernel/input.c       input unificato: seriale + tastiera/gamepad USB
-src/s32/                 macchina s32: CPU, PPU, loader .cart, player 320×224
 src/bm/                 cartucce native: formato, grafica RGB565 (gfx16), 3D software (r3d),
                          runtime Lua, stress test
 carts/demo/              cartuccia nativa demo: main.lua, sheet.png, map.csv
@@ -484,8 +477,6 @@ docs/API.md              API delle cartucce .bm e guida alla prima cartuccia
 scripts/mkbm.py         packer .bm (PNG e CSV, solo libreria standard Python)
 scripts/mksd.py          immagine SD (MBR + FAT32): make image e test in QEMU
 tests/bm/               test host della grafica e del formato
-spec/s32/                specifica comune e vettori di conformità (da lua32)
-tests/s32/               runner di conformità (host e ARM in qemu-arm)
 src/script/luavm.c       stato Lua, allocatore con limite (64 MiB), esecuzione protetta
 src/script/repl.c        REPL: espressioni, righe di continuazione, traceback
 src/script/lib_bm.c    modulo Lua `bm`
@@ -558,6 +549,5 @@ Componenti di terze parti, con la loro licenza (sezione 7 della licenza):
 - `third_party/mbedtls/` — mbedTLS 3.6.2, licenza Apache 2.0 (`third_party/mbedtls/LICENSE`);
 - `boot/ca.pem` — certificati radice dalla lista Mozilla (`scripts/make-ca.sh`);
 - `src/gfx/font8x16.c` — font derivato da Terminus, SIL OFL (`docs/LICENSE.font`);
-- `spec/s32/` — specifica e vettori di conformità copiati dal progetto lua32;
 - firmware del Raspberry Pi (scaricato da `scripts/`, non incluso nel repository),
   con la licenza di Raspberry Pi Ltd.

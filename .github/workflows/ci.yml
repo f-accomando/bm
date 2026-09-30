@@ -23,9 +23,6 @@ jobs:
       - name: Build
         run: make -j"$(nproc)" && make -j"$(nproc)" BOOT=stress
 
-      - name: s32 conformance (host and ARM1176 in qemu-arm)
-        run: make test-s32 test-s32-arm
-
       - name: QEMU tests
         run: make test
 

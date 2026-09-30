@@ -1,6 +1,6 @@
 /*
- * 8-voice synthesizer with the semantics of the s32 APU (spec §8, reference
- * lua32 apu.lua): square / triangle / saw / noise oscillators, a linear
+ * 8-voice synthesizer with the semantics of the APU of lua32's s32 machine
+ * (its apu.lua): square / triangle / saw / noise oscillators, a linear
  * ADSR envelope, direct sum of the voices clamped to 16 bits. Portable C,
  * no hardware: the host tests build it as it is.
  */
@@ -13,7 +13,7 @@
 #define SYNTH_VOICE_BYTES   16
 #define SYNTH_REG_BYTES     (SYNTH_VOICES * SYNTH_VOICE_BYTES)
 
-/* Register offsets inside a voice (the same as the s32 APU at 0x0AC900). */
+/* Register offsets inside a voice (the same as lua32's s32 APU). */
 #define SYNTH_FREQ_LO   0
 #define SYNTH_FREQ_HI   1
 #define SYNTH_WAVEFORM  2

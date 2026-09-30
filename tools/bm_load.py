@@ -204,7 +204,7 @@ def main():
                                  formatter_class=argparse.RawDescriptionHelpFormatter)
     ap.add_argument("port", help="serial device or tcp:HOST:PORT")
     ap.add_argument("kernel", nargs="?", help="kernel.img to upload")
-    ap.add_argument("--cart", help="send this .bm/.cart to a running kernel and play it")
+    ap.add_argument("--cart", help="send this .bm to a running kernel and play it")
     ap.add_argument("--baud", type=int, default=115200)
     ap.add_argument("--no-term", action="store_true", help="exit after upload")
     ap.add_argument("--timeout", type=float, default=None,

@@ -151,7 +151,7 @@ def main():
     ap.add_argument("--send", metavar="FILE", help="save FILE on the SD card (folder --to)")
     ap.add_argument("--to", default="/carts", help="folder for --send (default /carts)")
     ap.add_argument("--name", help="8.3 name on the SD card (default: the file's)")
-    ap.add_argument("--play", metavar="FILE", help="play a .bm / .cart at once")
+    ap.add_argument("--play", metavar="FILE", help="play a .bm at once")
     ap.add_argument("--kernel", metavar="FILE", help="write kernel.img and reboot the Pi")
     args = ap.parse_args()
 

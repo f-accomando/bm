@@ -4,10 +4,10 @@
  * the DMA interrupt, one chunk of 256 samples (5.3 ms) at a time, so the
  * sound never waits for a game's main loop.
  *
- * Voices are driven by 128 bytes of registers laid out like the s32 APU
- * (spec §8). By default they are the module's own registers (for .bm
- * games, the monitor); the s32 player points the synthesizer at the
- * machine's APU memory instead.
+ * Voices are driven by 128 bytes of registers laid out like the APU of
+ * lua32's s32 machine, where the layout comes from (bm no longer plays s32
+ * cartridges). They are the module's own registers (.bm games' apu(), the
+ * monitor); audio_use_regs() can point the synthesizer at other memory.
  */
 #ifndef AUDIO_H
 #define AUDIO_H

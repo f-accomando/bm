@@ -4,7 +4,6 @@
 #include "drivers/uart.h"
 #include "lib/crc32.h"
 #include "lib/printf.h"
-#include "s32/player.h"
 
 #include <stdlib.h>
 #include <string.h>
@@ -33,7 +32,7 @@ void upload_and_play(framebuffer_t *fb)
     uint32_t size, crc;
     char c;
 
-    kprintf("send a .bm or .cart now (bm_load.py --cart FILE), 15 s timeout\n");
+    kprintf("send a .bm now (bm_load.py --cart FILE), 15 s timeout\n");
     while (matched < 4) {
         if (!uart_getc_timeout(WAIT_US, &c)) {
             kprintf("upload: timeout\n");

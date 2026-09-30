@@ -18,7 +18,6 @@
 #include "fs/fat.h"
 #include "gfx/console.h"
 #include "lib/printf.h"
-#include "s32/player.h"
 #include "usb/hid.h"
 
 #include <stdarg.h>
@@ -29,18 +28,14 @@
 #define MAX_CARTS   64
 #define PLAY_SECS   (24u * 3600u)
 
-extern const uint8_t s32_demo_cart[], s32_demo_cart_end[];
 extern const uint8_t bm_demo_cart[], bm_demo_cart_end[];
 extern const uint8_t bm_editor_cart[], bm_editor_cart_end[];
-
-enum { KIND_S32, KIND_BM };
 
 typedef struct {
     char title[49];             /* from the header; the file name if none */
     char author[33];
     char name[FAT_NAME_MAX];
     char dir[8];                /* "" for built-in, "/" or "/carts" */
-    int kind;
     const uint8_t *builtin;     /* NULL: file on SD */
     uint32_t size;
     fat_entry_t fe;
@@ -69,14 +64,12 @@ static int ends_with(const char *s, const char *ext)
     return 1;
 }
 
-/* Title and author from the first bytes of the image (.bm or .cart). */
+/* Title and author from the first bytes of the .bm image. */
 static void read_header(cart_t *c, const uint8_t *h, uint32_t len)
 {
     size_t toff = 0, tlen = 0, aoff = 0, alen = 0;
     if (len >= 128 && bm_is_cart(h)) {
         toff = 24; tlen = 48; aoff = 72; alen = 32;
-    } else if (len >= 124 && memcmp(h, "S32CART1", 8) == 0) {
-        toff = 28; tlen = 64; aoff = 92; alen = 32;
     }
     if (tlen) {
         size_t n = tlen < sizeof c->title - 1 ? tlen : sizeof c->title - 1;
@@ -84,8 +77,7 @@ static void read_header(cart_t *c, const uint8_t *h, uint32_t len)
         c->title[n] = 0;
         memcpy(c->author, h + aoff, alen < sizeof c->author - 1 ? alen : sizeof c->author - 1);
         c->author[sizeof c->author - 1] = 0;
-        if (toff == 24)                         /* as the runtime names it */
-            bm_save_path(c->title, c->author, c->save, sizeof c->save);
+        bm_save_path(c->title, c->author, c->save, sizeof c->save);   /* as the runtime names it */
     }
     for (char *p = c->title; *p; p++)           /* the console font is CP437 */
         if ((unsigned char)*p < 32) *p = ' ';
@@ -95,12 +87,11 @@ static void read_header(cart_t *c, const uint8_t *h, uint32_t len)
         ksnprintf(c->title, sizeof c->title, "%s", c->name);
 }
 
-static void add_builtin(const char *name, int kind, const uint8_t *start, const uint8_t *end)
+static void add_builtin(const char *name, const uint8_t *start, const uint8_t *end)
 {
     cart_t *c = &carts[ncarts++];
     memset(c, 0, sizeof *c);
     strcpy(c->name, name);
-    c->kind = kind;
     c->builtin = start;
     c->size = (uint32_t)(end - start);
     read_header(c, start, c->size);
@@ -115,14 +106,12 @@ static void scan_dir(const char *path)
     while (ncarts < MAX_CARTS && fat_readdir(&d, &e)) {
         if (e.is_dir || e.name[0] == '.')
             continue;
-        int kind = ends_with(e.name, ".bm") ? KIND_BM : ends_with(e.name, ".cart") ? KIND_S32 : -1;
-        if (kind < 0)
+        if (!ends_with(e.name, ".bm"))
             continue;
         cart_t *c = &carts[ncarts++];
         memset(c, 0, sizeof *c);
         memcpy(c->name, e.name, sizeof c->name);
         strcpy(c->dir, path);
-        c->kind = kind;
         c->size = e.size;
         c->fe = e;
         static uint8_t head[512] __attribute__((aligned(4)));
@@ -149,18 +138,16 @@ static void load_cover(cart_t *c)
 {
     bm_cart_t bc;
     char err[8];
-    if (c->kind == KIND_BM) {
-        uint8_t *data = NULL;
-        size_t len = c->size;
-        const uint8_t *d = c->builtin;
-        if (!d && fat_load(&c->fe, &data, &len) == 0)
-            d = data;
-        if (d && bm_parse(d, len, &bc, err, sizeof err) == 0 && bc.cover_rgba)
-            menu_load_cover(&c->cover, bc.cover_rgba, bc.cover_w, bc.cover_h);
-        free(data);
-    }
+    uint8_t *data = NULL;
+    size_t len = c->size;
+    const uint8_t *d = c->builtin;
+    if (!d && fat_load(&c->fe, &data, &len) == 0)
+        d = data;
+    if (d && bm_parse(d, len, &bc, err, sizeof err) == 0 && bc.cover_rgba)
+        menu_load_cover(&c->cover, bc.cover_rgba, bc.cover_w, bc.cover_h);
+    free(data);
     if (!c->cover.px)
-        menu_make_cover(&c->cover, c->title, c->kind == KIND_BM ? "bm" : "s32");
+        menu_make_cover(&c->cover, c->title, "bm");
 }
 
 static void rescan(void)
@@ -175,16 +162,13 @@ static void rescan(void)
         qsort(carts, (size_t)ncarts, sizeof *carts, title_cmp);
     }
     nsd = ncarts;
-    if (!nsd) {
-        add_builtin("demo.bm (built-in)", KIND_BM, bm_demo_cart, bm_demo_cart_end);
-        add_builtin("demo.cart (built-in)", KIND_S32, s32_demo_cart, s32_demo_cart_end);
-    }
+    if (!nsd)
+        add_builtin("demo.bm (built-in)", bm_demo_cart, bm_demo_cart_end);
     /* the editor always comes last (up from the first cartridge) */
     if (ncarts < MAX_CARTS) {
         cart_t *c = &carts[ncarts++];
         memset(c, 0, sizeof *c);
         strcpy(c->name, "editor (built-in)");
-        c->kind = KIND_BM;
         c->builtin = bm_editor_cart;
         c->size = (uint32_t)(bm_editor_cart_end - bm_editor_cart);
         read_header(c, bm_editor_cart, c->size);
@@ -224,7 +208,7 @@ int carts_count(void)
 void carts_list(void)
 {
     for (int i = 0; i < ncarts; i++)
-        kprintf("  %2d  %-4s %7lu  %s%s%s  \"%s\"\n", i + 1, carts[i].kind == KIND_BM ? "bm" : "s32",
+        kprintf("  %2d  %-4s %7lu  %s%s%s  \"%s\"\n", i + 1, "bm",
                 carts[i].size, carts[i].dir, carts[i].dir[0] && strcmp(carts[i].dir, "/") ? "/" : "",
                 carts[i].name, carts[i].title);
 }
@@ -273,10 +257,6 @@ void carts_play_buffer(framebuffer_t *fb, const uint8_t *data, size_t len)
                       fps10 / 10, fps10 % 10, avg / 1000, avg % 1000 / 10,
                       st.cpu_us_max / 1000, st.cpu_us_max % 1000 / 10);
         }
-    } else if (len >= 8 && memcmp(data, "S32CART1", 8) == 0) {
-        s32_play_stats_t st;
-        s32_play(fb, data, len, PLAY_SECS, 0, &st);
-        s32_play_print(&st);
     } else {
         kprintf("unknown cartridge format\n");
     }
@@ -407,7 +387,7 @@ static void draw(int sel, int top, int rows)
         outf("%s %c %-38s %s%-18s%s %-3s %5lu KiB \x1b[0m\n",
              i == sel ? "\x1b[7m" : "", i == sel ? '>' : ' ', title,
              i == sel ? "" : "\x1b[90m", author, i == sel ? "" : "\x1b[0m",
-             c->kind == KIND_BM ? "bm" : "s32", (c->size + 1023) / 1024);
+             "bm", (c->size + 1023) / 1024);
     }
     for (int i = ncarts - top; i < rows; i++)
         out("\n");
@@ -475,7 +455,7 @@ static void cart_panel(home_panel_t *p)
     if (susp)
         home_row(p, MENU_ROW_ACTION, C_CLOSE, "Close the game",
                  "Ends the suspended game: what was not saved is lost", NULL);
-    if (c->kind == KIND_BM && !c->builtin)
+    if (!c->builtin)
         home_row(p, MENU_ROW_ACTION, C_SDK, "Open in the SDK",
                  "Code, sprites and map of this cartridge", NULL);
     home_row(p, MENU_ROW_INFO, C_AUTHOR, "Author", "From the cartridge header",
@@ -484,16 +464,13 @@ static void cart_panel(home_panel_t *p)
              "%s", c->path);
     home_row(p, MENU_ROW_INFO, C_SIZE, "Size", "The whole cartridge",
              "%lu KiB", (c->size + 1023) / 1024);
-    home_row(p, MENU_ROW_INFO, C_TYPE, "Type", c->kind == KIND_BM ? "Lua 5.4 on bm" : "The s32 machine of lua32",
-             "%s", c->kind == KIND_BM ? "bm (native)" : "s32 cart");
-    if (c->kind == KIND_BM) {
-        char v[24];
-        if (opt_save >= 0)
-            ksnprintf(v, sizeof v, "%ld bytes", opt_save);
-        else
-            ksnprintf(v, sizeof v, "none");
-        home_row(p, MENU_ROW_INFO, C_SAVE, "Save data", c->save[0] ? c->save : "-", "%s", v);
-    }
+    home_row(p, MENU_ROW_INFO, C_TYPE, "Type", "Lua 5.4 on bm", "%s", "bm (native)");
+    char v[24];
+    if (opt_save >= 0)
+        ksnprintf(v, sizeof v, "%ld bytes", opt_save);
+    else
+        ksnprintf(v, sizeof v, "none");
+    home_row(p, MENU_ROW_INFO, C_SAVE, "Save data", c->save[0] ? c->save : "-", "%s", v);
     if (opt_save >= 0)
         home_row(p, MENU_ROW_ACTION, C_DEL_SAVE, "Delete the save data",
                  "Records and progress start again", NULL);
@@ -620,7 +597,7 @@ void carts_menu(framebuffer_t *fb)
                     continue;
                 }
                 const cart_t *c = &carts[idx[i]];
-                items[i] = (menu_item_t){ c->title, c->author, c->path, c->kind == KIND_BM ? "bm" : "s32",
+                items[i] = (menu_item_t){ c->title, c->author, c->path, "bm",
                                           c->size, c->cover.px ? &c->cover : NULL, is_suspended(c) };
             }
             details[0] = 0;
@@ -629,7 +606,7 @@ void carts_menu(framebuffer_t *fb)
             } else if (n) {
                 const cart_t *c = &carts[idx[tsel[tab]]];
                 ksnprintf(details, sizeof details, "%s   %s   %lu KiB   %s",
-                          c->author[0] ? c->author : "-", c->kind == KIND_BM ? "bm" : "s32",
+                          c->author[0] ? c->author : "-", "bm",
                           (c->size + 1023) / 1024, c->path);
             }
             menu_view_t v = {

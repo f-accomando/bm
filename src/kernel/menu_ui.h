@@ -17,7 +17,7 @@ typedef struct {
     const char *title;
     const char *author;
     const char *path;           /* file on the SD card, or the built-in name */
-    const char *kind;           /* "bm" or "s32" */
+    const char *kind;           /* "bm", or "tool" in the Dev tab */
     uint32_t size;              /* bytes */
     const g16_sheet_t *cover;   /* 128x80, or NULL for a plain card */
     int running;                /* suspended in memory: a "Playing" badge */

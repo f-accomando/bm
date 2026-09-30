@@ -1,5 +1,5 @@
 /*
- * Cartridges: the built-in ones plus .bm / .cart files found on the SD
+ * Cartridges: the built-in ones plus the .bm files found on the SD
  * card (root directory and /carts), and the on-screen menu to pick one.
  */
 #ifndef CARTS_H
@@ -21,7 +21,7 @@ void carts_list(void);
 /* Menu on the screen; returns when the user quits it (Esc / q). */
 void carts_menu(framebuffer_t *fb);
 
-/* Plays a cartridge image by its magic (BMCART or S32CART1). */
+/* Plays a cartridge image (a .bm, by its magic; anything else is refused). */
 void carts_play_buffer(framebuffer_t *fb, const uint8_t *data, size_t len);
 
 /* The built-in editor (menu, monitor 'e'). */
