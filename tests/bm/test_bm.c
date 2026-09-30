@@ -396,6 +396,103 @@ static void test_sheet8(void)
     CHECK(bm_parse(cart, len, &c, err, sizeof err) != 0 && strstr(err, "sheet"), "broken runs refused");
 }
 
+/* A MESH section built by hand: two models, textured and coloured faces. */
+static size_t put_f32(uint8_t *p, float f) { uint32_t u; memcpy(&u, &f, 4); put32(p, u); return 4; }
+
+static size_t mesh_model(uint8_t *p, const char *name, int nv, const float *v, int nf, const uint16_t *f,
+                         const uint32_t *col, const uint16_t *uv8)
+{
+    size_t n = 0;
+    memset(p, 0, 16);
+    memcpy(p, name, strlen(name));
+    n = 16;
+    put16(p + n, (unsigned)nv); put16(p + n + 2, (unsigned)nf); put32(p + n + 4, 0);
+    n += 8;
+    for (int i = 0; i < nv * 3; i++) n += put_f32(p + n, v[i]);
+    for (int i = 0; i < nf; i++) {
+        put16(p + n, f[i * 3]); put16(p + n + 2, f[i * 3 + 1]); put16(p + n + 4, f[i * 3 + 2]); put16(p + n + 6, 0);
+        put32(p + n + 8, col[i]);
+        for (int k = 0; k < 6; k++) put16(p + n + 12 + k * 2, uv8[i * 6 + k]);
+        n += BM_MESH_FACE;
+    }
+    return n;
+}
+
+static size_t cart_with(uint8_t *cart, const uint8_t *sec, size_t n, uint32_t type)
+{
+    static const char lua[] = "-- mesh\n";
+    size_t off = BM_HEADER_SIZE + 32;
+    memset(cart, 0, off + 16);
+    memcpy(cart, "BMCART\0\0", 8);
+    put16(cart + 8, 1); put16(cart + 10, BM_HEADER_SIZE); put16(cart + 12, 640); put16(cart + 14, 360);
+    cart[16] = BM_FMT_RGB565; cart[17] = 2;
+    uint8_t *t = cart + BM_HEADER_SIZE;
+    put32(t, BM_SEC_LUA); put32(t + 4, (uint32_t)off); put32(t + 8, sizeof lua - 1); put32(t + 12, 0);
+    memcpy(cart + off, lua, sizeof lua - 1);
+    size_t off2 = off + 16;
+    put32(t + 16, type); put32(t + 20, (uint32_t)off2); put32(t + 24, (uint32_t)n); put32(t + 28, 0);
+    memcpy(cart + off2, sec, n);
+    size_t len = off2 + n;
+    put32(cart + 20, crc32(cart + BM_HEADER_SIZE, (uint32_t)(len - BM_HEADER_SIZE)));
+    return len;
+}
+
+static void test_mesh(void)
+{
+    static uint8_t sec[1024], cart[2048];
+    static const float quad_v[] = { 0, 0, 0,  0, 1, 0,  1, 1, 0,  1, 0, 0 };
+    static const uint16_t quad_f[] = { 0, 1, 2,  0, 2, 3 };
+    static const uint32_t quad_c[] = { 0x80000000u, 0x80000000u };
+    static const uint16_t quad_uv[] = { 0, 128, 0, 0, 128, 0,   0, 128, 128, 0, 128, 128 };
+    static const float tri_v[] = { -1, 0, 0,  0, 2, 0.5f,  1, 0, 0 };
+    static const uint16_t tri_f[] = { 0, 1, 2 };
+    static const uint32_t tri_c[] = { 0x33CC66 };
+    static const uint16_t tri_uv[6] = { 0 };
+    size_t n = 8;
+    put16(sec, 2); put16(sec + 2, 64); put32(sec + 4, 0);
+    n += mesh_model(sec + n, "wall", 4, quad_v, 2, quad_f, quad_c, quad_uv);
+    n += mesh_model(sec + n, "roof", 3, tri_v, 1, tri_f, tri_c, tri_uv);
+    size_t len = cart_with(cart, sec, n, BM_SEC_MESH);
+
+    bm_cart_t c;
+    char err[64] = "";
+    CHECK(bm_parse(cart, len, &c, err, sizeof err) == 0, "mesh parse: %s", err);
+    CHECK(c.mesh && c.models == 2 && c.mesh_size == n, "mesh section found (%d models)", c.models);
+    CHECK(bm_mesh_inset(c.mesh) == 0.25f, "mesh inset");
+    bm_model_t m;
+    CHECK(bm_mesh_model(c.mesh, c.mesh_size, 0, &m) == 0 && strcmp(m.name, "wall") == 0 &&
+          m.nverts == 4 && m.nfaces == 2, "first model");
+    uint16_t idx[3];
+    uint32_t col;
+    float uv[6], xyz[3];
+    bm_model_face(&m, 1, idx, &col, uv);
+    CHECK(idx[0] == 0 && idx[1] == 2 && idx[2] == 3 && col == 0x80000000u, "face indices and colour");
+    CHECK(uv[0] == 0 && uv[1] == 16 && uv[2] == 16 && uv[3] == 0 && uv[4] == 16 && uv[5] == 16, "face uv in pixels");
+    CHECK(bm_mesh_model(c.mesh, c.mesh_size, 1, &m) == 0 && strcmp(m.name, "roof") == 0, "second model");
+    bm_model_vertex(&m, 1, xyz);
+    CHECK(xyz[0] == 0 && xyz[1] == 2 && xyz[2] == 0.5f, "vertex");
+    bm_model_face(&m, 0, idx, &col, uv);
+    CHECK(col == 0x33CC66, "plain colour");
+    CHECK(bm_mesh_model(c.mesh, c.mesh_size, 2, &m) != 0, "no third model");
+
+    /* a vertex index out of range, a short section, a wrong count */
+    size_t f0 = 8 + 24 + 4 * 12;            /* first face of "wall" */
+    uint8_t save = sec[f0 + 2];
+    sec[f0 + 2] = 4;
+    len = cart_with(cart, sec, n, BM_SEC_MESH);
+    CHECK(bm_parse(cart, len, &c, err, sizeof err) != 0 && strstr(err, "MESH"), "bad index refused");
+    sec[f0 + 2] = save;
+    len = cart_with(cart, sec, n - 4, BM_SEC_MESH);
+    CHECK(bm_parse(cart, len, &c, err, sizeof err) != 0, "short section refused");
+    put16(sec, 3);
+    len = cart_with(cart, sec, n, BM_SEC_MESH);
+    CHECK(bm_parse(cart, len, &c, err, sizeof err) != 0, "wrong model count refused");
+    put16(sec, 2);
+    /* a section of a type this kernel does not know is ignored */
+    len = cart_with(cart, sec, n, 99);
+    CHECK(bm_parse(cart, len, &c, err, sizeof err) == 0 && !c.mesh, "unknown section ignored");
+}
+
 int main(int argc, char **argv)
 {
     test_primitives();
@@ -405,6 +502,7 @@ int main(int argc, char **argv)
     test_3d();
     test_format(argc > 1 ? argv[1] : "build/demo.bm");
     test_sheet8();
+    test_mesh();
     printf("bm: %d/%d checks passed\n", checks - fails, checks);
     return fails != 0;
 }

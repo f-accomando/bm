@@ -21,6 +21,7 @@ HERE = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, os.path.join(HERE, "..", "tools"))
 sys.path.insert(0, os.path.join(HERE, "..", "scripts"))
 import bm_load  # noqa: E402
+import bmmesh  # noqa: E402
 import mkbm  # noqa: E402
 import mksd  # noqa: E402
 
@@ -2669,6 +2670,108 @@ def test_textured_mesh(b, opts):
         q.expect("> ", timeout=10)
     finally:
         q.close()
+
+
+MODEL_CART = r"""
+local tile, gem
+function _init()
+  for y = 0, 15 do for x = 0, 15 do sset(x, y, x < 8 and 0xFF0000 or 0x0000FF) end end
+  local names = models()
+  log("models", #names, names[1], names[2], tostring(model("nope")), tostring(model(3)))
+  tile, gem = model("tile"), model(2)
+  log("bounds", bounds3d(gem))
+end
+local n = 0
+function _update() n = n + 1 end
+function _draw()
+  cls(0)
+  zclear()
+  camera3d(0, 0, -3)
+  light3d(0, 0, -1, 1)
+  if n < 4 then
+    draw3d(tile, 0, 0, 0)
+    if n == 3 then log("drawn tile", string.format("%06x %06x", pget(280, 180), pget(360, 180)), stat(4)) end
+  else
+    draw3d(gem, 0, 0, 0)
+    log("drawn gem", string.format("%06x %06x", pget(320, 170), pget(40, 30)), stat(4))
+    quit()
+  end
+end
+"""
+
+
+def test_models(b, opts):
+    """bm Studio: model() builds meshes from the MESH section of the
+    cartridge, textured with the sprite sheet or in plain colours."""
+    T = bmmesh.TEXTURED
+    mesh = bmmesh.encode([
+        {"name": "tile", "verts": [(-1, -1, 0), (1, -1, 0), (1, 1, 0), (-1, 1, 0)],
+         "faces": [(0, 2, 1, T, (0, 16, 16, 0, 16, 16)), (0, 3, 2, T, (0, 16, 0, 0, 16, 0))]},
+        {"name": "gem", "verts": [(-1, -1, 0), (0, 1, 0), (1, -1, 0)],
+         "faces": [(0, 1, 2, 0x00FF00, None)]},
+    ])
+    q = Qemu(b("kernel.img"))
+    try:
+        q.boot()
+        assert _upload(q, mkbm.pack(MODEL_CART.encode(), title="models test", mesh=mesh))
+        out = q.expect("drawn gem\t", timeout=15).decode(errors="replace")
+        out += q.expect("\n").decode(errors="replace")
+        assert "models\t2\ttile\tgem\tnil\tnil" in out, out
+        assert "drawn tile\tff0000 0000ff\t2" in out, out
+        assert "bounds\t-1.0\t-1.0\t0.0\t1.0\t1.0\t0.0" in out, out
+        assert "drawn gem\t00ff00 000000\t1" in out, out
+        q.expect("> ", timeout=10)
+    finally:
+        q.close()
+
+
+KEEP_CART = r"""
+function _init()
+  log("before", #models())
+  local p = assert(cart_load("/carts/MODELS.BM"))
+  log("loaded", #models(), models()[1], p.title)
+  p.title = "copy"
+  log("saved", tostring(cart_save("/carts/COPY.BM", p)))
+  quit()
+end
+"""
+
+
+def test_sdk_keeps_models(b, opts):
+    """The SDK on the console (cart_load / cart_save) writes back the
+    sections it does not edit: the 3D models made with bm Studio stay."""
+    T = bmmesh.TEXTURED
+    mesh = bmmesh.encode([{"name": "crate", "verts": [(0, 0, 0), (0, 1, 0), (1, 1, 0), (1, 0, 0)],
+                           "faces": [(0, 1, 2, T, (0, 16, 0, 0, 16, 0)), (0, 2, 3, 0x123456, None)]}])
+    tmp = tempfile.mkdtemp(prefix="bm-keep-")
+    img = os.path.join(tmp, "sd.img")
+    src = os.path.join(tmp, "models.bm")
+    with open(src, "wb") as f:
+        f.write(mkbm.pack(b"function _draw() cls(0) end", title="with models", mesh=mesh))
+    mksd.build(img, [(src, "carts/models.bm")])
+    q = Qemu(b("kernel.img"), ["-drive", f"if=sd,format=raw,file={img}"])
+    try:
+        q.boot()
+        assert _upload(q, mkbm.pack(KEEP_CART.encode(), title="keep test"))
+        out = q.expect("saved\t", timeout=20).decode(errors="replace")
+        out += q.expect("\n").decode(errors="replace")
+        assert "before\t0" in out and "loaded\t1\tcrate\twith models" in out, out
+        assert "saved\ttrue" in out, out
+        q.expect("> ", timeout=10)
+    finally:
+        q.close()
+    try:
+        part = os.path.join(tmp, "part.img")
+        with open(img, "rb") as f, open(part, "wb") as o:
+            f.seek(2048 * 512)
+            o.write(f.read())
+        env = dict(os.environ, MTOOLS_SKIP_CHECK="1")
+        saved = subprocess.run(["mtype", "-i", part, "::/CARTS/COPY.BM"], capture_output=True, env=env).stdout
+        secs = dict(bmmesh.cart_sections(saved))
+        assert secs.get(bmmesh.SEC_MESH) == mesh, sorted(secs)
+        assert saved[24:28] == b"copy"
+    finally:
+        shutil.rmtree(tmp, ignore_errors=True)
 
 
 def test_editor(b, opts):

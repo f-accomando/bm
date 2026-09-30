@@ -65,6 +65,8 @@ static struct {
     uint8_t tq[256];            /* typed keys for keyp() */
     uint8_t tq_head, tq_tail;
     char save_name[13];         /* "1A2B3C4D.SAV": CRC-32 of title and author */
+    uint8_t *mesh;              /* copy of the cartridge's MESH section, or NULL */
+    uint32_t mesh_size;
 } rt;
 
 #define MESH_MT "bm.mesh"
@@ -388,6 +390,117 @@ static int l_mesh(lua_State *L)
     }
     r3d_mesh_normals(m);
     return 1;
+}
+
+/* models() -> { "name", ... }: the 3D models of the cartridge (MESH
+ * section, made with bm Studio), in order */
+static int l_models(lua_State *L)
+{
+    lua_newtable(L);
+    bm_model_t m;
+    for (int i = 0; rt.mesh && bm_mesh_model(rt.mesh, rt.mesh_size, i, &m) == 0; i++) {
+        lua_pushstring(L, m.name);
+        lua_rawseti(L, -2, i + 1);
+    }
+    return 1;
+}
+
+/* Moves the texture corners of a face `inset` pixels towards its middle, on
+ * each axis (not past it), so the next tile of the sheet never shows. */
+static void uv_inset(float *uv, float inset)
+{
+    for (int axis = 0; axis < 2; axis++) {
+        float lo = uv[axis], hi = uv[axis];
+        for (int k = 1; k < 3; k++) {
+            float t = uv[k * 2 + axis];
+            if (t < lo) lo = t;
+            if (t > hi) hi = t;
+        }
+        if (hi - lo <= 2 * inset)
+            continue;
+        float mid = (lo + hi) * 0.5f;
+        for (int k = 0; k < 3; k++) {
+            float *t = &uv[k * 2 + axis];
+            if (*t < mid - inset) *t += inset;
+            else if (*t > mid + inset) *t -= inset;
+        }
+    }
+}
+
+/* model(name or number) -> a mesh built from the cartridge's MESH section
+ * (textured faces use the sprite sheet), or nil if there is no such model */
+static int l_model(lua_State *L)
+{
+    bm_model_t md;
+    int found = -1;
+    if (rt.mesh) {
+        if (lua_type(L, 1) == LUA_TNUMBER) {
+            int i = (int)luaL_checkinteger(L, 1) - 1;
+            if (bm_mesh_model(rt.mesh, rt.mesh_size, i, &md) == 0)
+                found = i;
+        } else {
+            const char *name = luaL_checkstring(L, 1);
+            for (int i = 0; bm_mesh_model(rt.mesh, rt.mesh_size, i, &md) == 0; i++)
+                if (strcmp(md.name, name) == 0) {
+                    found = i;
+                    break;
+                }
+        }
+    } else if (lua_type(L, 1) != LUA_TNUMBER) {
+        luaL_checkstring(L, 1);
+    }
+    if (found < 0) {
+        lua_pushnil(L);
+        return 1;
+    }
+    r3d_mesh_t *m = new_mesh(L);
+    if (r3d_mesh_alloc(m, md.nverts, md.nfaces) != 0)
+        return luaL_error(L, "not enough memory for the model");
+    for (int i = 0; i < md.nverts; i++) {
+        float xyz[3];
+        bm_model_vertex(&md, i, xyz);
+        m->verts[i] = (v3_t){ xyz[0], xyz[1], xyz[2] };
+    }
+    const float inset = bm_mesh_inset(rt.mesh);
+    for (int f = 0; f < md.nfaces; f++) {
+        uint32_t colour;
+        float uv[6];
+        bm_model_face(&md, f, m->faces + f * 3, &colour, uv);
+        if (colour & R3D_TEXTURED) {
+            colour = R3D_TEXTURED;
+            if (!m->uv) {
+                if (r3d_mesh_alloc_uv(m) != 0)
+                    return luaL_error(L, "not enough memory for the model");
+                m->tex = &rt.sheet;     /* live, as for mesh() */
+            }
+            uv_inset(uv, inset);
+            memcpy(m->uv + f * 6, uv, sizeof uv);
+        }
+        m->colors[f] = colour;
+    }
+    r3d_mesh_normals(m);
+    return 1;
+}
+
+/* bounds3d(mesh) -> x0, y0, z0, x1, y1, z1: the box around its vertices, in
+ * its own coordinates (before draw3d moves, turns and scales it) */
+static int l_bounds3d(lua_State *L)
+{
+    const r3d_mesh_t *m = luaL_checkudata(L, 1, MESH_MT);
+    v3_t lo = m->verts[0], hi = m->verts[0];
+    for (int i = 1; i < m->nverts; i++) {
+        v3_t p = m->verts[i];
+        if (p.x < lo.x) lo.x = p.x;
+        if (p.y < lo.y) lo.y = p.y;
+        if (p.z < lo.z) lo.z = p.z;
+        if (p.x > hi.x) hi.x = p.x;
+        if (p.y > hi.y) hi.y = p.y;
+        if (p.z > hi.z) hi.z = p.z;
+    }
+    const float v[6] = { lo.x, lo.y, lo.z, hi.x, hi.y, hi.z };
+    for (int i = 0; i < 6; i++)
+        lua_pushnumber(L, v[i]);
+    return 6;
 }
 
 static int l_mesh_sphere(lua_State *L)
@@ -822,6 +935,7 @@ static const luaL_Reg api[] = {
     { "players", l_players }, { "stick", l_stick },
     { "time", l_time }, { "stat", l_stat }, { "tri", l_tri },
     { "mesh", l_mesh }, { "mesh_sphere", l_mesh_sphere }, { "mesh_cube", l_mesh_cube },
+    { "model", l_model }, { "models", l_models }, { "bounds3d", l_bounds3d },
     { "draw3d", l_draw3d }, { "camera3d", l_camera3d }, { "light3d", l_light3d },
     { "fog3d", l_fog3d }, { "project3d", l_project3d }, { "lamp3d", l_lamp3d },
     { "zclear", l_zclear }, { "log", l_log }, { "quit", l_quit },
@@ -1080,6 +1194,14 @@ static int load_assets(const bm_cart_t *c)
         sheet_commit();
     }
 
+    if (c->mesh) {
+        rt.mesh = malloc(c->mesh_size);
+        if (!rt.mesh)
+            return -1;
+        memcpy(rt.mesh, c->mesh, c->mesh_size);
+        rt.mesh_size = c->mesh_size;
+    }
+
     rt.map.w = c->map_cells ? c->map_w : 256;
     rt.map.h = c->map_cells ? c->map_h : 256;
     rt.map.cells = calloc((size_t)rt.map.w * rt.map.h, 2);
@@ -1096,8 +1218,11 @@ static void free_assets(void)
     g16_sheet_free(&rt.sheet);
     free(rt.cell_dirty);
     free(rt.map.cells);
+    free(rt.mesh);
     rt.cell_dirty = NULL;
     rt.map.cells = NULL;
+    rt.mesh = NULL;
+    rt.mesh_size = 0;
 }
 
 /* ---------------------------------------------------------------- editor */
@@ -1108,6 +1233,43 @@ static void free_assets(void)
  * and the error it stopped with). */
 static uint8_t *proj_cover;
 static uint16_t proj_cover_w, proj_cover_h;
+/* the project's other sections (3D models from bm Studio, and any type
+ * this kernel does not know), written back as they came by cart_save */
+#define PROJ_EXTRA_MAX 16
+static struct { uint32_t type, size; uint8_t *data; } proj_extra[PROJ_EXTRA_MAX];
+static int proj_extras;
+
+static void extras_free(void)
+{
+    for (int i = 0; i < proj_extras; i++)
+        free(proj_extra[i].data);
+    proj_extras = 0;
+}
+
+static uint32_t rd32le(const uint8_t *p) { return p[0] | p[1] << 8 | p[2] << 16 | (uint32_t)p[3] << 24; }
+
+/* After bm_parse (the section table is known to be in bounds). */
+static int extras_keep(const uint8_t *d)
+{
+    extras_free();
+    for (unsigned i = 0; i < d[17]; i++) {
+        const uint8_t *e = d + BM_HEADER_SIZE + i * 16;
+        uint32_t type = rd32le(e), off = rd32le(e + 4), size = rd32le(e + 8);
+        if (type == BM_SEC_LUA || type == BM_SEC_SHEET || type == BM_SEC_SHEET8 ||
+            type == BM_SEC_MAP || type == BM_SEC_COVER || !size)
+            continue;
+        if (proj_extras == PROJ_EXTRA_MAX)
+            return -1;
+        uint8_t *copy = malloc(size);
+        if (!copy)
+            return -1;
+        memcpy(copy, d + off, size);
+        proj_extra[proj_extras].type = type;
+        proj_extra[proj_extras].size = size;
+        proj_extra[proj_extras++].data = copy;
+    }
+    return 0;
+}
 static char run_request[64];
 static char arg_path[64], arg_error[512], last_error[512];
 static int arg_back = 1;
@@ -1206,7 +1368,7 @@ static int l_cart_load(lua_State *L)
         return 2;
     }
     free_assets();
-    if (load_assets(&c) != 0) {
+    if (load_assets(&c) != 0 || extras_keep(data) != 0) {
         free(data);
         return luaL_error(L, "not enough memory for the cartridge");
     }
@@ -1236,6 +1398,7 @@ static int l_cart_new(lua_State *L)
         return luaL_error(L, "not enough memory for the cartridge");
     free(proj_cover);
     proj_cover = NULL;
+    extras_free();
     return 0;
 }
 
@@ -1280,17 +1443,24 @@ static int l_cart_save(lua_State *L)
 
     const uint32_t sw = (uint32_t)rt.sheet.w, sh = (uint32_t)rt.sheet.h;
     const uint32_t mw = (uint32_t)rt.map.w, mh = (uint32_t)rt.map.h;
-    uint32_t sizes[4] = { proj_cover ? 4u + (uint32_t)proj_cover_w * proj_cover_h * 4 : 0, (uint32_t)lua_len,
-                          4 + sw * sh * 4, 4 + mw * mh * 2 };
-    static const uint32_t types[4] = { BM_SEC_COVER, BM_SEC_LUA, BM_SEC_SHEET, BM_SEC_MAP };
+    /* cover (first: the menu reads only the start), code, sheet, map, then
+     * the sections kept from the file as they came (3D models...) */
+    const int nsec = 4 + proj_extras;
+    uint32_t sizes[4 + PROJ_EXTRA_MAX] = { proj_cover ? 4u + (uint32_t)proj_cover_w * proj_cover_h * 4 : 0,
+                                           (uint32_t)lua_len, 4 + sw * sh * 4, 4 + mw * mh * 2 };
+    uint32_t types[4 + PROJ_EXTRA_MAX] = { BM_SEC_COVER, BM_SEC_LUA, BM_SEC_SHEET, BM_SEC_MAP };
+    for (int i = 0; i < proj_extras; i++) {
+        types[4 + i] = proj_extra[i].type;
+        sizes[4 + i] = proj_extra[i].size;
+    }
     uint32_t count = 0, total = BM_HEADER_SIZE;
-    for (int i = 0; i < 4; i++)
+    for (int i = 0; i < nsec; i++)
         if (sizes[i]) { count++; total += 16 + ((sizes[i] + 3) & ~3u); }
     uint8_t *buf = calloc(total, 1);
     if (!buf)
         return luaL_error(L, "not enough memory to save");
     uint8_t *tab = buf + BM_HEADER_SIZE, *p = tab + count * 16;
-    for (int i = 0; i < 4; i++) {
+    for (int i = 0; i < nsec; i++) {
         if (!sizes[i]) continue;
         put32(tab, types[i]);
         put32(tab + 4, (uint32_t)(p - buf));
@@ -1310,10 +1480,12 @@ static int l_cart_save(lua_State *L)
                 q[0] = (uint8_t)(rgb >> 16); q[1] = (uint8_t)(rgb >> 8); q[2] = (uint8_t)rgb;
                 q[3] = rt.sheet.alpha[k] ? 255 : 0;
             }
-        } else {
+        } else if (i == 3) {
             put16(p, mw); put16(p + 2, mh);
             for (uint32_t k = 0; k < mw * mh; k++)
                 put16(p + 4 + k * 2, rt.map.cells[k]);
+        } else {
+            memcpy(p, proj_extra[i - 4].data, sizes[i]);
         }
         p += (sizes[i] + 3) & ~3u;
     }

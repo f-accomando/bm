@@ -57,6 +57,96 @@ int bm_sheet8_unpack(const bm_cart_t *c, void (*set)(void *ctx, int x, int y, co
     return sheet8_walk(c->sheet8, c->sheet8_size, set, ctx);
 }
 
+/* ---------------------------------------------------------------- MESH */
+
+static float rdf32(const uint8_t *p)
+{
+    uint32_t u = rd32(p);
+    float f;
+    memcpy(&f, &u, sizeof f);
+    return f;
+}
+
+#define MESH_HEAD   8u              /* u16 models, u16 inset, u32 reserved */
+#define MODEL_HEAD  (BM_MODEL_NAME + 8u)
+
+int bm_mesh_check(const uint8_t *p, uint32_t size)
+{
+    if (size < MESH_HEAD)
+        return -1;
+    unsigned count = rd16(p);
+    if (!count || count > BM_MODELS_MAX)
+        return -1;
+    uint32_t off = MESH_HEAD;
+    for (unsigned i = 0; i < count; i++) {
+        if (off + MODEL_HEAD > size)
+            return -1;
+        const uint8_t *h = p + off;
+        unsigned nv = rd16(h + BM_MODEL_NAME), nf = rd16(h + BM_MODEL_NAME + 2);
+        if (!h[0] || !nv || nv > BM_MODEL_VERTS || !nf || nf > BM_MODEL_FACES)
+            return -1;
+        uint32_t need = MODEL_HEAD + nv * 12u + nf * (uint32_t)BM_MESH_FACE;
+        if (need > size - off)
+            return -1;
+        const uint8_t *v = h + MODEL_HEAD;
+        for (unsigned k = 0; k < nv * 3; k++) {
+            float f = rdf32(v + k * 4);
+            if (!(f > -1e6f && f < 1e6f))          /* also NaN */
+                return -1;
+        }
+        const uint8_t *fc = v + nv * 12u;
+        for (unsigned k = 0; k < nf; k++, fc += BM_MESH_FACE)
+            if (rd16(fc) >= nv || rd16(fc + 2) >= nv || rd16(fc + 4) >= nv)
+                return -1;
+        off += need;
+    }
+    return off == size ? (int)count : -1;
+}
+
+int bm_mesh_model(const uint8_t *p, uint32_t size, int i, bm_model_t *m)
+{
+    if (!p || size < MESH_HEAD || i < 0 || i >= rd16(p))
+        return -1;
+    uint32_t off = MESH_HEAD;
+    for (int k = 0;; k++) {
+        const uint8_t *h = p + off;
+        unsigned nv = rd16(h + BM_MODEL_NAME), nf = rd16(h + BM_MODEL_NAME + 2);
+        if (k == i) {
+            memcpy(m->name, h, BM_MODEL_NAME);
+            m->name[BM_MODEL_NAME] = 0;
+            m->nverts = (uint16_t)nv;
+            m->nfaces = (uint16_t)nf;
+            m->verts = h + MODEL_HEAD;
+            m->faces = m->verts + nv * 12u;
+            return 0;
+        }
+        off += MODEL_HEAD + nv * 12u + nf * (uint32_t)BM_MESH_FACE;
+    }
+}
+
+float bm_mesh_inset(const uint8_t *p)
+{
+    return rd16(p + 2) / 256.0f;
+}
+
+void bm_model_vertex(const bm_model_t *m, int i, float xyz[3])
+{
+    for (int k = 0; k < 3; k++)
+        xyz[k] = rdf32(m->verts + i * 12 + k * 4);
+}
+
+void bm_model_face(const bm_model_t *m, int f, uint16_t idx[3], uint32_t *colour, float uv[6])
+{
+    const uint8_t *p = m->faces + f * BM_MESH_FACE;
+    for (int k = 0; k < 3; k++)
+        idx[k] = rd16(p + k * 2);
+    *colour = rd32(p + 8);
+    for (int k = 0; k < 6; k++)
+        uv[k] = rd16(p + 12 + k * 2) / 8.0f;
+}
+
+/* ---------------------------------------------------------------- parse */
+
 int bm_parse(const uint8_t *d, size_t len, bm_cart_t *c, char *err, size_t errlen)
 {
     memset(c, 0, sizeof *c);
@@ -131,6 +221,15 @@ int bm_parse(const uint8_t *d, size_t len, bm_cart_t *c, char *err, size_t errle
                 return fail(err, errlen, "bad cover size");
             c->cover_rgba = p + 4;
             break;
+        case BM_SEC_MESH: {
+            int n = bm_mesh_check(p, size);
+            if (n < 0)
+                return fail(err, errlen, "bad 3D models (MESH)");
+            c->mesh = p;
+            c->mesh_size = size;
+            c->models = (uint16_t)n;
+            break;
+        }
         default:
             break;      /* unknown sections are ignored (forward compatible) */
         }
