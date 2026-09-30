@@ -115,7 +115,8 @@ stream_t *stream_open(const char *host, uint16_t port, uint32_t timeout_ms,
     while (!s->connected && !s->failed && !expired(t0, timeout_ms))
         net_wait_step();
     if (!s->connected) {
-        snprintf(err, err_len, "%s:%u: %s", host, port, s->failed ? "connection refused" : "no answer");
+        snprintf(err, err_len, "%s (%s) port %u: %s", host, ipaddr_ntoa(&dns_addr), port,
+                 s->failed ? "connection refused" : "no answer in 10 s");
         stream_close(s);
         return NULL;
     }

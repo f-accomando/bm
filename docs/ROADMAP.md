@@ -604,7 +604,7 @@ Decisione 2026-09-28: versioni "leggere", in coda dopo M17.
   l'editor carica un gioco su un repository.
 
 Passi (2026-09-29):
-1. 🛠 (da provare sul Pi) **HTTP e ora di rete**: `src/net/stream.c` (connessione TCP usata
+1. ✅ (Pi, `3e1bedb`: example.com 200 in 114 ms, ora da SNTP) **HTTP e ora di rete**: `src/net/stream.c` (connessione TCP usata
    come un socket bloccante: DNS, scrittura, lettura con timeout, attese che fanno girare
    `net_poll`), `src/net/http.c` (HTTP/1.1: GET/PUT, redirect, corpo a lunghezza, a
    blocchi o fino alla chiusura, trasporto intercambiabile), ora da `pool.ntp.org`
