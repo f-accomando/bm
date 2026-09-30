@@ -2825,6 +2825,12 @@ def test_stress_monitor(b, opts):
         # QEMU is slow at floating point: the new 3D rows may start below 1
         assert re.search(r"3D smooth \(Gouraud\)\s+(<1|\d+ \(\d+ tri\))", plain), plain
         assert re.search(r"3D textured\s+(<1|\d+ \(\d+ tri\))", plain), plain
+        # the quad rows give the cost of one pixel
+        for name in ("quad 320x180 flat", "quad 320x180 no z", "quad 320x180 Gouraud",
+                     "quad 320x180 texture"):
+            assert re.search(re.escape(name) + r"\s+\S+\s+\S+\s+[\d.]+ q\s+\d+ ns/px", plain), \
+                f"{name} missing:\n{plain}"
+        assert re.search(r"irq \d+\.\d% \(\d+/s", plain), plain
         text = "\n".join(screen_text(q.screendump()))
         assert "sprites 16x16 (C)" in text and "3D spheres 96 (Lua)" in text, text
     finally:

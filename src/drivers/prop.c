@@ -33,6 +33,12 @@ uint32_t prop_clock_rate(uint32_t clock_id)
     return prop_query(PROP_GET_CLOCK_RATE, v, 2) == 0 ? v[1] : 0;
 }
 
+uint32_t prop_clock_max(uint32_t clock_id)
+{
+    uint32_t v[2] = { clock_id, 0 };
+    return prop_query(PROP_GET_MAX_CLOCK_RATE, v, 2) == 0 ? v[1] : 0;
+}
+
 uint32_t prop_clock_set_max(uint32_t clock_id)
 {
     uint32_t v[3] = { clock_id, 0, 0 };

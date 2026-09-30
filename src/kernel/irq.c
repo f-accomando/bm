@@ -1,6 +1,7 @@
 #include "irq.h"
 #include "exceptions.h"
 #include "drivers/mmio.h"
+#include "drivers/timer.h"
 #include "crumbs.h"
 
 #define IRQ_BASE        (PERIPHERAL_BASE + 0xB200)
@@ -22,6 +23,7 @@ static struct {
 } handlers[NUM_IRQS];
 
 static volatile uint32_t count;
+static volatile uint32_t busy_us[NUM_IRQS];     /* time spent in each handler */
 
 void irq_init(void)
 {
@@ -62,6 +64,16 @@ uint32_t irq_count(void)
     return count;
 }
 
+uint32_t irq_busy_us(int irq)
+{
+    if (irq >= 0)
+        return irq < NUM_IRQS ? busy_us[irq] : 0;
+    uint32_t total = 0;
+    for (int i = 0; i < NUM_IRQS; i++)
+        total += busy_us[i];
+    return total;
+}
+
 /* Called from irq_entry (vectors.S) with IRQs masked. */
 void irq_handler(void)
 {
@@ -76,9 +88,13 @@ void irq_handler(void)
             unsigned irq = bank * 32 + bit;
             p &= p - 1;
             if (handlers[irq].fn) {
+                uint32_t t0 = timer_ticks();
+                dmb();
                 crumb_irq((int)irq);
                 handlers[irq].fn(handlers[irq].arg);
                 crumb_irq(-1);
+                dmb();
+                busy_us[irq] += timer_ticks() - t0;
             } else {
                 irq_disable(irq);
                 panic("unhandled IRQ %u", irq);

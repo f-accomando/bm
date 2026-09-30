@@ -1203,6 +1203,35 @@ con il MAC; `eth: link up, 100 Mbit/s full duplex` dopo qualche secondo col cavo
 `net: IP ...`; `ping` dal PC; `tools/bm_net.py IP`; una tastiera su una porta USB
 (`usb: keyboard ... (hub port 2, split)`) che scrive nel menu e nei giochi.
 
+## M30 — GPU e 3D più veloce (L/XL)
+Decisione 2026-09-30, dopo l'analisi delle prestazioni 3D: il rasterizzatore software ha
+ancora un margine (circa 2× sui pixel con texture), ma il salto vero è la **GPU 3D del
+VideoCore IV** (V3D: 12 QPU, texture filtrate, z-buffer nel chip), finora mai usata.
+Niente OpenGL: né quello del firmware (VCHIQ, userland Broadcom, thread) né Mesa (Linux
+DRM). Un **driver V3D nostro, piccolo e a funzioni fisse**, sotto l'API che le cartucce
+usano già (`mesh`, `draw3d`, `camera3d`, `light3d`, `fog3d`, `lamp3d`): le cartucce non
+cambiano, vanno più veloci. Il rasterizzatore software resta per QEMU (che non emula la
+V3D), per i test sul PC e come riserva.
+- **Fatto quando:** Texture Room gira a 60 fps a 640×360 con la GPU, e lo stress test
+  mostra le righe GPU accanto a quelle software.
+
+**Passi:**
+1. **Misure** (stress test `s`): la parte C parte dopo che l'avvio si è calmato (WiFi,
+   Bluetooth); righe con un quad a tutto schermo (piatto, Gouraud, texture) per separare
+   il costo per pixel da quello per triangolo; clock del core (fissato a 250 MHz da
+   `enable_uart=1`: regola la L2 e il bus della memoria).
+2. **Rasterizzatore più veloce** (software): divisione per l'area una volta per
+   triangolo, mesh fuori dallo schermo scartate prima di trasformarle, ciclo delle
+   texture più corto, Gouraud a rampa quando la luce è bianca, z-buffer pulito dal DMA.
+3. **Modo 480×270** per le cartucce (4× esatto su 1080p): la risoluzione naturale per il
+   3D in software.
+4. **Prova della V3D** (monitor `G`, passo per passo sullo schermo come `D`): accensione,
+   identificativo, pulizia dello schermo con la sola lista di rendering, un triangolo
+   Gouraud, molti triangoli con i tempi.
+5. **Backend V3D per `draw3d`**: piatto, Gouraud, z-buffer; righe GPU nello stress test.
+6. **Texture, nebbia, trasparenze, MSAA 4×**; poi, se servono: vertex shader sulle QPU,
+   luce per pixel, sprite 2D sulla GPU.
+
 ## Rischi principali
 | Rischio | Mitigazione |
 |---------|-------------|
@@ -1213,6 +1242,7 @@ con il MAC; `eth: link up, 100 Mbit/s full duplex` dopo qualche secondo col cavo
 | Bluetooth (M12) senza emulatore | un solo controller di riferimento, tracce HCI registrate sul Pi per i test |
 | Scrittura su SD (M11) che corrompe la scheda | test in QEMU con `fsck.vfat`, file di bm in una cartella dedicata |
 | Split transactions e LAN951x (M29) senza emulatore | schema di USPi/Circle (provati sul Pi 1), chip simulato nei test sul PC, diagnostica a schermo (`y`, `E`) |
+| GPU V3D (M30) senza emulatore e senza seriale | prova passo per passo sullo schermo (`G`), timeout su ogni attesa, rasterizzatore software come riserva |
 
 ## Hardware consigliato per lo sviluppo
 - Adattatore USB-seriale 3.3 V (**non 5 V**) su GPIO14/15 + GND

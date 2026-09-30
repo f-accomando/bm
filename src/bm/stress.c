@@ -2,6 +2,8 @@
 #include "gfx16.h"
 #include "r3d.h"
 #include "runtime.h"
+#include "kernel/irq.h"
+#include "kernel/tick.h"
 #include "drivers/prop.h"
 #include "drivers/timer.h"
 #include "drivers/uart.h"
@@ -139,6 +141,70 @@ static void tex_sphere_teardown(void)
     sheet_teardown();
 }
 
+/* Quads of 320x180 pixels (a quarter of the screen, a whole 320x180
+ * screen of pixels), one per quadrant in turn, each nearer than the one
+ * before: every pixel passes the depth test and is written. The slope of
+ * these rows is the cost of one pixel, without the per-triangle work of
+ * the spheres. The texture is 256x256, about one texel every 1.25 pixels
+ * across the quad, larger than the data cache like a real scene's. */
+#define QUAD_PX (320 * 180)
+
+static r3d_mesh_t quad;
+static unsigned quad_flags;
+
+static void quad_mesh(int textured)
+{
+    r3d_init(&r3d, &g);
+    r3d_mesh_alloc(&quad, 4, 2);
+    quad.verts[0] = (v3_t){ -1, -0.5625f, 0 }; quad.verts[1] = (v3_t){ 1, -0.5625f, 0 };
+    quad.verts[2] = (v3_t){ 1, 0.5625f, 0 };   quad.verts[3] = (v3_t){ -1, 0.5625f, 0 };
+    static const uint16_t f[6] = { 0, 2, 1, 0, 3, 2 };
+    memcpy(quad.faces, f, sizeof f);
+    quad.colors[0] = quad.colors[1] = 0x80C0FF;
+    if (textured) {
+        g16_sheet_alloc(&sheet, 256, 256);
+        for (int y = 0; y < 256; y++)
+            for (int x = 0; x < 256; x++)
+                g16_sheet_set(&sheet, x, y, g16_rgb((uint32_t)(x ^ y), (uint32_t)(x * 3 + y) & 255,
+                                                     (uint32_t)(y * 5) & 255), 1);
+        r3d_mesh_alloc_uv(&quad);
+        static const float uv[12] = { 0, 256, 256, 0, 256, 256,   0, 256, 0, 0, 256, 0 };
+        memcpy(quad.uv, uv, sizeof uv);
+        quad.colors[0] = quad.colors[1] = R3D_TEXTURED;
+        quad.tex = &sheet;
+    }
+    r3d_mesh_normals(&quad);
+}
+
+static void quad_flat(void)     { quad_flags = 0; quad_mesh(0); }
+static void quad_noz(void)      { quad_flags = R3D_NOZ; quad_mesh(0); }
+static void quad_smooth(void)   { quad_flags = R3D_SMOOTH; quad_mesh(0); }
+static void quad_tex(void)      { quad_flags = 0; quad_mesh(1); }
+
+static void quad_teardown(void)
+{
+    if (quad.tex)
+        g16_sheet_free(&sheet);
+    r3d_mesh_free(&quad);
+    r3d_free(&r3d);
+}
+
+static void quads(int n, int f)
+{
+    (void)f;
+    g16_cls(&g, g16_rgb(10, 10, 30));
+    r3d_zclear(&r3d);
+    r3d_camera(&r3d, 0, 0, 0, 0, 0, 60);
+    r3d_light(&r3d, 0.3f, 0.4f, -1, 0.3f);
+    const float k = 160.0f / r3d.focal;             /* half a quadrant per unit of depth */
+    float d = 40;
+    for (int i = 0; i < n; i++, d *= 0.985f) {
+        float x = (i & 1) ? k * d : -k * d, y = (i & 2) ? -0.5625f * k * d : 0.5625f * k * d;
+        r3d_draw_flags(&r3d, &quad, (v3_t){ x, y, d }, 0, 0, 0, k * d, quad_flags);
+    }
+    tris_last = r3d.tris_drawn;
+}
+
 static const test_t tests[] = {
     { "sprites 16x16 (C)", "spr",  16, 60000, sheet_setup,  spr16,     sheet_teardown },
     { "sprites 32x32 (C)", "spr",  16, 30000, sheet_setup,  spr32,     sheet_teardown },
@@ -146,6 +212,10 @@ static const test_t tests[] = {
     { "3D spheres 96 (C)", "obj",   1,  4000, sphere_setup, spheres3d, sphere_teardown },
     { "3D smooth (Gouraud)", "obj", 1,  4000, sphere_setup, spheres3d_smooth, sphere_teardown },
     { "3D textured", "obj",         1,  4000, tex_sphere_setup, spheres3d, tex_sphere_teardown },
+    { "quad 320x180 flat", "q",     1,   400, quad_flat,    quads,     quad_teardown },
+    { "quad 320x180 no z", "q",     1,   400, quad_noz,     quads,     quad_teardown },
+    { "quad 320x180 Gouraud", "q",  1,   400, quad_smooth,  quads,     quad_teardown },
+    { "quad 320x180 texture", "q",  1,   400, quad_tex,     quads,     quad_teardown },
 };
 #define NTESTS (int)(sizeof tests / sizeof *tests)
 
@@ -189,9 +259,22 @@ static void overlay(const char *name, int n, float ms)
     g16_text(&g, 0, 0, line, 0xFFFF);
 }
 
-/* One line about the machine: clocks, temperature, the firmware's
- * throttling flags (under-voltage, capped frequency...) and the time of a
- * fixed CPU-only loop (it grows if interrupts take time away). */
+static const char *irq_name(int irq)
+{
+    switch (irq) {
+    case IRQ_TIMER1: return "timer";
+    case IRQ_USB:    return "USB";
+    case IRQ_AUX:    return "mini UART";
+    case IRQ_UART:   return "BT UART";
+    default:         return irq >= 16 && irq < 29 ? "DMA" : "?";
+    }
+}
+
+/* Lines about the machine: clocks (the core clock drives the L2 cache and
+ * the memory bus), temperature, the firmware's throttling flags
+ * (under-voltage, capped frequency...), the time of a fixed CPU-only loop
+ * and the share of time spent in interrupt handlers, with the two busiest
+ * ones: what the drawing does not get. */
 static void machine_line(const char *when)
 {
     uint32_t temp[2] = { 0, 0 }, thr[1] = { 0xFFFF };
@@ -205,9 +288,55 @@ static void machine_line(const char *when)
     char th[16];
     if (have_thr) ksnprintf(th, sizeof th, "%05lx", thr[0]);
     else ksnprintf(th, sizeof th, "n/a");
-    kprintf("%s: ARM %lu MHz, core %lu MHz, %lu.%lu C, throttled %s, cpu loop %lu.%02lu ms\n",
+    kprintf("%s: ARM %lu MHz, core %lu (max %lu), V3D %lu, SDRAM %lu MHz, %lu.%lu C\n",
             when, prop_clock_rate(CLOCK_ARM) / 1000000, prop_clock_rate(CLOCK_CORE) / 1000000,
-            temp[1] / 1000, temp[1] / 100 % 10, th, loop / 1000, loop / 10 % 100);
+            prop_clock_max(CLOCK_CORE) / 1000000, prop_clock_rate(CLOCK_V3D) / 1000000,
+            prop_clock_rate(CLOCK_SDRAM) / 1000000, temp[1] / 1000, temp[1] / 100 % 10);
+
+    /* interrupts over half a second */
+    static uint32_t before[64];
+    for (int i = 0; i < 64; i++)
+        before[i] = irq_busy_us(i);
+    uint32_t n0 = irq_count();
+    t0 = timer_ticks();
+    timer_delay_ms(500);
+    uint32_t span = timer_ticks() - t0, n = irq_count() - n0, busy = 0;
+    int top[2] = { -1, -1 };
+    uint32_t top_us[2] = { 0, 0 };
+    for (int i = 0; i < 64; i++) {
+        uint32_t d = irq_busy_us(i) - before[i];
+        busy += d;
+        if (d > top_us[0]) {
+            top[1] = top[0]; top_us[1] = top_us[0];
+            top[0] = i; top_us[0] = d;
+        } else if (d > top_us[1]) {
+            top[1] = i; top_us[1] = d;
+        }
+    }
+    uint32_t pm = (uint32_t)((uint64_t)busy * 1000 / (span ? span : 1));   /* per mille */
+    kprintf("  throttled %s, loop %lu.%02lu ms, irq %lu.%lu%% (%lu/s", th,
+            loop / 1000, loop / 10 % 100, pm / 10, pm % 10, n * 2);
+    for (int k = 0; k < 2; k++)
+        if (top[k] >= 0) {
+            uint32_t tp = (uint32_t)((uint64_t)top_us[k] * 1000 / (span ? span : 1));
+            kprintf("%s %s %lu.%lu%%", k ? "," : ";", irq_name(top[k]), tp / 10, tp % 10);
+        }
+    kprintf(")\n");
+}
+
+void bm_stress_settle(uint32_t ms)
+{
+    uint32_t shown = 0;
+    while (tick_ms() < ms) {
+        uint32_t left = (ms - tick_ms() + 999) / 1000;
+        if (left != shown) {
+            kprintf("\rstress: waiting %2lu s for the boot to settle (WiFi, Bluetooth)", left);
+            shown = left;
+        }
+        timer_delay_ms(20);
+    }
+    if (shown)
+        kprintf("\n");
 }
 
 void bm_stress_run(framebuffer_t *fb)
@@ -271,6 +400,9 @@ void bm_stress_run(framebuffer_t *fb)
         print_threshold(results[t][0], &tests[t]);
         print_threshold(results[t][1], &tests[t]);
         int us100 = (int)(per_item[t] * 100);
-        kprintf("%7d.%02d %s\n", us100 / 100, us100 % 100, tests[t].unit);
+        kprintf("%7d.%02d %s", us100 / 100, us100 % 100, tests[t].unit);
+        if (tests[t].unit[0] == 'q')        /* one quad = QUAD_PX pixels */
+            kprintf(" %3d ns/px", (int)(per_item[t] * 1000.0f / QUAD_PX + 0.5f));
+        kprintf("\n");
     }
 }

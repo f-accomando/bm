@@ -34,6 +34,7 @@ per poligoni 2D/3D, sia dal C sia attraverso l'API delle cartucce Lua (`.bm`).
 | 3D textured | le stesse sfere con una texture a scacchi 16×32 dello sheet (prospettiva corretta) | dal kernel con Gouraud (M14), da misurare sul Pi |
 | sprites 16×16 (Lua) | come il test C, ma ogni sprite è una chiamata `spr()` da Lua con il calcolo della posizione in Lua | costo reale per una cartuccia |
 | 3D spheres 96 (Lua) | come il test C, con `draw3d()` chiamato da Lua | trasformazioni e raster in C |
+| quad 320×180 flat / no z / Gouraud / texture | N quad di 320×180 pixel (un quarto dello schermo, cioè uno schermo 320×180 intero), uno per quadrante a turno, ciascuno più vicino del precedente: ogni pixel passa lo z-buffer e viene scritto | la pendenza è il **costo di un pixel** (colonna `ns/px`), senza il lavoro per triangolo delle sfere; texture 256×256, più grande della cache dati (M30) |
 
 Per il 3D la tabella riporta il numero di sfere e, tra parentesi, i **triangoli
 effettivamente disegnati** per frame.
@@ -135,6 +136,23 @@ e alla fine resta sullo schermo la tabella dei risultati: basta una foto.
 Per tornare al kernel normale: `make sdcard` e ricopiare `dist/kernel.img`.
 Con il cavo seriale lo stesso test si avvia dal monitor con il tasto `S`.
 
+## Le righe della macchina (M30)
+
+Prima e dopo la parte C lo stress test scrive due righe:
+
+- `ARM ... MHz, core ... (max ...), V3D ..., SDRAM ... MHz, ... C`: i clock. Il **core**
+  regola la cache L2 e il bus della memoria; `enable_uart=1` in `config.txt` lo fissa a
+  250 MHz (con `force_turbo=1` il firmware lo fissa invece alla frequenza turbo, 400 MHz
+  sul Zero: da provare, confrontando le righe `quad`).
+- `throttled ..., loop ... ms, irq ...% (N/s; ... )`: i flag di throttling del firmware
+  (0 = niente), il tempo di un ciclo di sola CPU e la parte del tempo passata negli
+  interrupt (audio, Bluetooth, timer...), con i due più pesanti: è il tempo che il
+  disegno non ha.
+
+Il kernel `make sdcard-stress` aspetta che il kernel giri da 20 s prima di partire: subito
+dopo l'avvio il WiFi si collega e il pad abbinato si riconnette, e i primi test lo
+pagavano (con `8298b15` la sfera 3D da Lua andava quasi il doppio di quella in C).
+
 ## Come leggere i risultati
 
 - **C vs Lua:** la differenza tra le due righe "sprites 16×16" è il costo della logica
@@ -144,6 +162,9 @@ Con il cavo seriale lo stesso test si avvia dal monitor con il tasto `S`.
 - **3D:** il limite è il numero di triangoli disegnati e la loro area. Le sfere del
   test sono piccole (poche centinaia di pixel per triangolo al massimo); triangoli
   grandi costano di più.
+- **Quad:** `ns/px` è il costo di un pixel scritto per ciascun modo; per esempio con
+  100 ns/px le texture riempiono in 16,7 ms circa 167 000 pixel (meno il resto del
+  frame).
 
 ## Possibili ottimizzazioni (dopo le misure)
 
