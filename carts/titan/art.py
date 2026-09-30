@@ -44,8 +44,6 @@ HANG = [hexc(c) for c in ("#0b0e14", "#121720", "#1a202c", "#232b3a", "#2e384a",
 HAZ = [hexc("#d6ae2e"), hexc("#14161a")]
 LIGHT = [hexc("#e2ecff"), hexc("#8ea6cc")]
 FLOOR = [hexc(c) for c in ("#262a32", "#2e333c", "#373d47", "#434a55")]
-PAINT = hexc("#8a2e24")
-SKYOUT = [hexc("#0c1628"), hexc("#16284a"), hexc("#c8d8ff")]
 WORK = [hexc("#f0a020"), hexc("#e8e0c8"), hexc("#2a4a78"), hexc("#f4d8b0")]
 
 SPARK = [hexc(c) for c in ("#ffffff", "#fff2a0", "#ffc03c", "#ff7a1e")]
@@ -255,91 +253,168 @@ def fire(k):
 # ---------------------------------------------------------------- hangar
 
 
-def hangar():
-    """the hall, 640x360: the robot stands on the turntable in the middle"""
+YEL = [hexc("#f2d24a"), hexc("#d6ae2e"), hexc("#9a7a1c"), hexc("#4e3e10")]
+VP = (215, 200)             # the bay's vanishing point
+BACK = (100, 120, 262)      # the back wall: left edge, top, floor line
+
+
+def to_vp(xb, yb, y):
+    """the x at row y of the floor (or ceiling) line through (xb, yb) and VP"""
+    return VP[0] + (xb - VP[0]) * (y - VP[1]) / (yb - VP[1])
+
+
+def hazard(d, p0, p1, w=5, step=9):
+    """a yellow band from p0 to p1 with black slanted stripes"""
+    d.line([p0, p1], fill=YEL[1], width=w)
+    dx, dy = p1[0] - p0[0], p1[1] - p0[1]
+    L = math.hypot(dx, dy)
+    tx, ty = dx / L, dy / L
+    nx, ny = -ty, tx
+    h = (w - 1) / 2
+    for s in np.arange(step / 2, L - step / 2, step):
+        cx, cy = p0[0] + tx * s, p0[1] + ty * s
+        d.line([(cx - nx * h - tx * h, cy - ny * h - ty * h), (cx + nx * h + tx * h, cy + ny * h + ty * h)],
+               fill=HAZ[1], width=2)
+
+
+def truss(d, p0, p1, w, n):
+    """a yellow lattice beam from p0 to p1, w thick, n bays"""
+    dx, dy = p1[0] - p0[0], p1[1] - p0[1]
+    L = math.hypot(dx, dy)
+    nx, ny = -dy / L * w / 2, dx / L * w / 2
+    a0, a1 = (p0[0] + nx, p0[1] + ny), (p1[0] + nx, p1[1] + ny)
+    b0, b1 = (p0[0] - nx, p0[1] - ny), (p1[0] - nx, p1[1] - ny)
+    for k in range(n):
+        t0, t1 = k / n, (k + 1) / n
+        pa = (a0[0] + (a1[0] - a0[0]) * t0, a0[1] + (a1[1] - a0[1]) * t0)
+        pb = (b0[0] + (b1[0] - b0[0]) * t1, b0[1] + (b1[1] - b0[1]) * t1)
+        pc = (b0[0] + (b1[0] - b0[0]) * t0, b0[1] + (b1[1] - b0[1]) * t0)
+        d.line([pa, pb], fill=YEL[2], width=2)
+        d.line([pc, pa], fill=YEL[2], width=1)
+    d.line([a0, a1], fill=YEL[0], width=2)
+    d.line([b0, b1], fill=YEL[1], width=2)
+
+
+def bay():
+    """player 1's bay, 320x360, seen three quarters deep: the robot stands
+    on the pad in front on the left, the maintenance cage (the partner's
+    place in a tag team) at the back; player 2's half is this, mirrored"""
     rng = random.Random(9)
-    im, d = canvas(640, 360)
-    # back wall in bands
-    for i, y in enumerate(range(0, 300, 60)):
-        d.rectangle([0, y, 640, y + 60], fill=HANG[1 + (i % 2)])
-    # the bay door, half open: night outside
-    d.rectangle([210, 58, 430, 296], fill=SKYOUT[0])
-    for y in range(58, 180, 8):
-        d.line([(210, y), (430, y)], fill=SKYOUT[1])
-    for _ in range(26):
-        d.point((rng.randint(212, 428), rng.randint(60, 170)), fill=SKYOUT[2])
-    d.rectangle([210, 176, 430, 296], fill=HANG[2])            # the door's lower half, closed
-    for x in range(214, 430, 10):
-        d.line([(x, 178), (x, 294)], fill=HANG[3])
-    d.rectangle([204, 52, 436, 58], fill=HANG[4])
-    d.rectangle([204, 52, 210, 300], fill=HANG[4])
-    d.rectangle([430, 52, 436, 300], fill=HANG[4])
-    # columns and braces
-    for x in (0, 96, 176, 456, 536, 620):
-        d.rectangle([x, 30, x + 18, 300], fill=HANG[3])
-        d.rectangle([x, 30, x + 3, 300], fill=HANG[5])
-        d.rectangle([x + 15, 30, x + 18, 300], fill=HANG[2])
-        for y in range(40, 300, 16):
-            d.point((x + 9, y), fill=HANG[6])
-    for x0, x1 in ((18, 96), (114, 176), (474, 536), (554, 620)):
-        d.line([(x0, 60), (x1, 140)], fill=HANG[3], width=2)
-        d.line([(x1, 60), (x0, 140)], fill=HANG[3], width=2)
-        d.line([(x0, 150), (x1, 230)], fill=HANG[3], width=2)
-        d.line([(x1, 150), (x0, 230)], fill=HANG[3], width=2)
-    # ceiling truss and lights
-    d.rectangle([0, 0, 640, 30], fill=HANG[0])
-    for x in range(0, 640, 20):
-        d.line([(x, 4), (x + 10, 26), (x + 20, 4)], fill=HANG[3])
-    d.line([(0, 4), (640, 4)], fill=HANG[4])
-    d.line([(0, 26), (640, 26)], fill=HANG[4])
-    for x in range(40, 640, 110):
-        d.rectangle([x, 28, x + 30, 32], fill=LIGHT[0])
-        d.line([(x + 2, 33), (x + 28, 33)], fill=LIGHT[1])
-    # the crane rail
-    d.rectangle([0, 40, 640, 46], fill=HANG[4])
-    d.rectangle([0, 40, 640, 41], fill=HANG[6])
-    # painted numbers and a warning band on the wall
-    from mkassets import text_mask
-    m = text_mask("VG-01", 4)
-    ys, xs = np.nonzero(m)
-    for y, x in zip(ys, xs):
-        d.point((460 + x, 250 + y), fill=PAINT)
-    for x in range(0, 640, 16):
-        d.polygon([(x, 290), (x + 8, 290), (x + 4, 300), (x - 4, 300)], fill=HAZ[0])
-    d.rectangle([0, 288, 640, 289], fill=HAZ[1])
-    # catwalks with railings and ladders
-    for x0, x1 in ((0, 170), (470, 640)):
-        d.rectangle([x0, 200, x1, 206], fill=HANG[5])
-        d.line([(x0, 200), (x1, 200)], fill=HANG[6])
-        d.line([(x0, 188), (x1, 188)], fill=HANG[5])
-        for x in range(x0 + 4, x1, 14):
-            d.line([(x, 188), (x, 200)], fill=HANG[5])
-        lx = x1 - 20 if x0 == 0 else x0 + 12
-        d.line([(lx, 206), (lx, 300)], fill=HANG[5])
-        d.line([(lx + 8, 206), (lx + 8, 300)], fill=HANG[5])
-        for y in range(210, 300, 7):
-            d.line([(lx, y), (lx + 8, y)], fill=HANG[5])
-    # scaffolding towers beside the robot
-    for x in (186, 436):
-        for dx in (0, 16):
-            d.line([(x + dx, 110), (x + dx, 300)], fill=HANG[5])
-        for y in range(110, 300, 22):
-            d.line([(x, y), (x + 16, y)], fill=HANG[5])
-            d.line([(x, y), (x + 16, y + 22)], fill=HANG[4])
-        d.rectangle([x - 6, 150, x + 22, 154], fill=HANG[6])
-        d.rectangle([x - 6, 230, x + 22, 234], fill=HANG[6])
-    # the floor, the turntable, containers and a tool cart
-    for i, y in enumerate(range(300, 360, 6)):
-        d.rectangle([0, y, 640, y + 6], fill=FLOOR[min(3, i // 3)])
-    for x in range(-200, 840, 60):
-        d.line([(320 + (x - 320) * 0.6, 300), (x, 360)], fill=FLOOR[0])
-    d.ellipse([196, 306, 444, 336], fill=FLOOR[3])
-    d.ellipse([196, 306, 444, 336], outline=HAZ[0])
-    d.ellipse([210, 309, 430, 333], outline=HAZ[1])
-    for x, w, h, c in ((24, 60, 34, CARS[1]), (70, 44, 24, CARS[0]), (560, 64, 38, CARS[2]), (520, 36, 20, CARS[1])):
-        d.rectangle([x, 300 - h + 10, x + w, 310], fill=c)
-        d.rectangle([x, 300 - h + 10, x + w, 300 - h + 12], fill=HANG[6])
-        d.line([(x + 4, 300 - h + 16), (x + w - 4, 300 - h + 16)], fill=HANG[1])
+    im, d = canvas(320, 360)
+    xl, yt, yf = BACK
+    # where the left wall meets the screen's edge
+    ylt = yt + (0 - xl) * (yt - VP[1]) / (xl - VP[0])
+    ylb = yf + (0 - xl) * (yf - VP[1]) / (xl - VP[0])
+    # ceiling, dark
+    d.rectangle([0, 0, 320, yt], fill=HANG[0])
+    for x in range(-400, 900, 40):
+        d.line([(x, 0), (to_vp(x, 0, yt), yt)], fill=HANG[1])
+    # the back wall: big dark panels, lit strips low down
+    d.rectangle([xl, yt, 320, yf], fill=HANG[1])
+    for i, x in enumerate(range(xl, 320, 36)):
+        for j, y in enumerate(range(yt, yf, 36)):
+            c = HANG[2] if (i + j) % 2 else HANG[1]
+            d.rectangle([x + 1, y + 1, x + 35, y + 35], fill=c)
+            d.line([(x + 1, y + 1), (x + 35, y + 1)], fill=HANG[3])
+            if rng.random() < 0.3:        # a small numbered plate
+                d.rectangle([x + 4, y + 4, x + 12, y + 8], fill=YEL[2])
+    for x in range(xl + 6, 320, 22):
+        d.rectangle([x, yf - 8, x + 12, yf - 6], fill=LIGHT[0])
+        d.line([(x - 2, yf - 5), (x + 14, yf - 5)], fill=LIGHT[1])
+    # the left wall in perspective: ribs and a catwalk
+    d.polygon([(0, ylt), (xl, yt), (xl, yf), (0, ylb)], fill=HANG[2])
+    for x in (16, 40, 62, 82):
+        t0 = yt + (x - xl) * (yt - VP[1]) / (xl - VP[0])
+        t1 = yf + (x - xl) * (yf - VP[1]) / (xl - VP[0])
+        d.line([(x, t0), (x, t1)], fill=HANG[3], width=3)
+        d.line([(x + 2, t0), (x + 2, t1)], fill=HANG[1])
+    d.line([(0, ylt), (xl, yt)], fill=HANG[4], width=2)
+    d.line([(0, ylb), (xl, yf)], fill=HANG[0], width=2)
+    for f in (0.35, 0.62):
+        y0 = ylt + (ylb - ylt) * f
+        y1 = yt + (yf - yt) * f
+        d.line([(0, y0), (xl, y1)], fill=YEL[2], width=2)
+        d.line([(0, y0 - 9), (xl, y1 - 6)], fill=YEL[3])
+    # the floor: plates in perspective
+    d.polygon([(0, ylb), (xl, yf), (320, yf), (320, 360), (0, 360)], fill=FLOOR[1])
+    rows = [yf, 268, 276, 287, 301, 320, 344, 372]
+    for k in range(len(rows) - 1):
+        for xb in range(-300, 900, 24):
+            q = [(to_vp(xb, yf, rows[k]), rows[k]), (to_vp(xb + 24, yf, rows[k]), rows[k]),
+                 (to_vp(xb + 24, yf, rows[k + 1]), rows[k + 1]), (to_vp(xb, yf, rows[k + 1]), rows[k + 1])]
+            d.polygon(q, fill=FLOOR[(k + xb // 24) % 2 + (1 if k > 3 else 0)])
+        d.line([(0, rows[k]), (320, rows[k])], fill=FLOOR[0])
+    for xb in range(-300, 900, 24):
+        d.line([(to_vp(xb, yf, yf), yf), (to_vp(xb, yf, 372), 372)], fill=FLOOR[0])
+    d.polygon([(0, ylt), (xl, yt), (xl, yf), (0, ylb)], outline=HANG[0])
+    # the hazard band where the floor meets the back wall
+    hazard(d, (xl, yf + 2), (320, yf + 2), 5, 10)
+    # the walkway from the cage to the front, with hazard edges
+    for xb in (192, 290):
+        hazard(d, (xb, yf + 5), (to_vp(xb, yf, 362), 362), 5, 11)
+    # the pad the robot stands on
+    p = [(to_vp(118, yf, 290), 290), (to_vp(186, yf, 290), 290), (to_vp(186, yf, 346), 346), (to_vp(118, yf, 346), 346)]
+    d.polygon(p, fill=FLOOR[3])
+    inner = [(to_vp(126, yf, 296), 296), (to_vp(178, yf, 296), 296), (to_vp(178, yf, 338), 338), (to_vp(126, yf, 338), 338)]
+    d.polygon(inner, fill=FLOOR[2])
+    for a, b in ((0, 1), (1, 2), (2, 3), (3, 0)):
+        hazard(d, p[a], p[b], 6, 10)
+    # the maintenance cage at the back: yellow posts, grated decks, braces
+    fx0, fx1, fy0, fy1 = 172, 306, 136, 272      # the front face
+    bx0, bx1, by0, by1 = 184, 296, 146, 262      # on the wall
+    d.rectangle([bx0, by0, bx1, by1], fill=HANG[0])
+    for x in range(bx0 + 6, bx1, 12):
+        d.line([(x, by0), (x, by1)], fill=HANG[1])
+    for yy, bb in ((178, 180), (220, 220)):       # decks: front row yy, back row bb
+        d.polygon([(fx0, yy), (fx1, yy), (bx1, bb - 6), (bx0, bb - 6)], fill=HANG[3])
+        for x in range(fx0 + 4, fx1, 5):
+            d.point((x, yy - 2), fill=HANG[5])
+        d.rectangle([fx0, yy, fx1, yy + 3], fill=YEL[1])
+        d.line([(fx0, yy), (fx1, yy)], fill=YEL[0])
+        d.line([(fx0, yy - 12), (fx1, yy - 12)], fill=YEL[1])     # railing
+        for x in range(fx0, fx1, 16):
+            d.line([(x, yy - 12), (x, yy)], fill=YEL[2])
+    d.polygon([(fx0, fy1), (fx1, fy1), (bx1, by1), (bx0, by1)], fill=FLOOR[3])
+    for x in (fx0, (fx0 + fx1) // 2, fx1 - 5):
+        d.rectangle([x, fy0, x + 5, fy1], fill=YEL[1])
+        d.line([(x, fy0), (x, fy1)], fill=YEL[0])
+        d.line([(x + 5, fy0), (x + 5, fy1)], fill=YEL[3])
+    d.line([(fx0, fy0), (bx0, by0)], fill=YEL[2], width=2)
+    d.line([(fx1, fy0), (bx1, by0)], fill=YEL[2], width=2)
+    truss(d, (fx0, fy0 + 2), (fx1, fy0 + 2), 8, 12)
+    d.line([(fx0 + 5, fy0 + 8), (fx0 + 60, 176)], fill=YEL[2], width=2)
+    d.line([(fx1 - 5, fy0 + 8), (fx1 - 60, 176)], fill=YEL[2], width=2)
+    # a tool cart and a rack of parts by the cage
+    d.rectangle([122, 238, 150, 256], fill=YEL[1])
+    d.rectangle([122, 238, 150, 240], fill=YEL[0])
+    d.rectangle([125, 244, 147, 246], fill=HAZ[1])
+    d.rectangle([124, 256, 128, 260], fill=HANG[0])
+    d.rectangle([144, 256, 148, 260], fill=HANG[0])
+    for y in (208, 222, 236):
+        d.line([(106, y), (120, y - 2)], fill=HANG[5], width=2)
+    d.line([(107, 200), (107, 258)], fill=HANG[5])
+    d.line([(119, 198), (119, 256)], fill=HANG[5])
+    # the service arm on the left wall, reaching over the robot's head
+    d.rectangle([2, 70, 14, 90], fill=YEL[2])
+    d.line([(8, 78), (54, 58)], fill=YEL[1], width=8)
+    d.line([(8, 75), (54, 55)], fill=YEL[0], width=2)
+    d.ellipse([48, 52, 62, 66], fill=YEL[2])
+    d.line([(55, 59), (92, 96)], fill=YEL[1], width=6)
+    d.line([(56, 57), (93, 94)], fill=YEL[0], width=1)
+    d.rectangle([86, 94, 100, 104], fill=HAZ[1])
+    d.line([(90, 104), (90, 110)], fill=HANG[6])
+    d.line([(96, 104), (96, 110)], fill=HANG[6])
+    # the ceiling gantry: the crane's bridge across the front, runways into the depth
+    for xb in (40, 250):
+        truss(d, (xb, 0), (to_vp(xb, 0, yt), yt), 8, 7)
+    truss(d, (0, 26), (320, 26), 14, 20)
+    for x in range(0, 320, 12):
+        d.line([(x, 34), (x + 6, 34)], fill=HAZ[1])
+    for x in range(30, 320, 70):          # lamps under the bridge
+        d.rectangle([x, 34, x + 20, 37], fill=LIGHT[0])
+    # the column in front on the left
+    truss(d, (7, 0), (7, 360), 14, 24)
+    d.rectangle([0, 346, 16, 360], fill=HAZ[1])
     return arr(im)
 
 
@@ -445,7 +520,7 @@ def dust(k):
 def everything():
     """(name, image, dx, dy) for the sheet"""
     out = [("far", far_layer(), 0, 0), ("mid", mid_layer(), 0, 0), ("ground", ground_layer(), 0, 0),
-           ("fg", fg_layer(), 0, 0), ("hangar", hangar(), 0, 0), ("crane", crane(), -20, 0)]
+           ("fg", fg_layer(), 0, 0), ("bay", bay(), 0, 0), ("crane", crane(), -20, 0)]
     for k in range(3):
         out.append((f"fire{k}", fire(k), -7, -21))
         out.append((f"worker{k}", worker(k), -3, -11))
@@ -543,5 +618,5 @@ def preview(sheet, lua, outdir):
     im.alpha_composite(t, (320 + dx, 140 + dy))
     im.save(outdir + "/fight.png")
     im.resize((1280, 720), Image.NEAREST).save(outdir + "/fight2.png")
-    h, _, _ = get("hangar")
-    h.save(outdir + "/hangar.png")
+    h, _, _ = get("bay")
+    h.save(outdir + "/bay.png")
