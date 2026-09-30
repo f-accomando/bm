@@ -135,7 +135,9 @@ static void poll_now(void)
     static uint8_t buf[1536];
     dp->poll();
     int n;
-    while ((n = dp->recv(buf, sizeof buf)) > 0) {
+    /* bounded: a busy network must not hold up a game's frame (the
+     * Ethernet takes every frame on the wire, lwIP picks ours) */
+    for (int i = 0; i < 32 && (n = dp->recv(buf, sizeof buf)) > 0; i++) {
         struct pbuf *p = pbuf_alloc(PBUF_RAW, (u16_t)n, PBUF_POOL);
         if (!p)
             break;

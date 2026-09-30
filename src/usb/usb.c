@@ -195,11 +195,11 @@ static usb_dev_t *enumerate(uint8_t speed, const usb_dev_t *parent, uint8_t port
     }
     timer_delay_ms(10);
     d->addr = addr;
+    ndevs++;                                    /* the address is taken, whatever comes next */
     if (get_descriptor(d, DESC_DEVICE, 0, 0, dd, 18) < 18) {
         kprintf("usb: %sdevice descriptor failed\n", where);
         return NULL;
     }
-    ndevs++;
     d->cls = dd[4];
     d->vid = (uint16_t)(dd[8] | dd[9] << 8);
     d->pid = (uint16_t)(dd[10] | dd[11] << 8);
