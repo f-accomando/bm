@@ -890,7 +890,7 @@ font nostri; le cartucce del forum sono per lo più CC BY-NC-SA (uso non commerc
 
 ## M24 — Scambio in rete locale tra console (M, dopo M18)
 Decisione 2026-09-30: M24 originale diviso in tre (M24 rete locale, M25 store su
-GitHub, M26 market a pagamento). Considerazioni iniziali del 2026-09-29.
+GitHub, M26 market gratuito, legato allo store). Considerazioni iniziali del 2026-09-29.
 - **Cosa si scambia** (vale anche per M25 e M26):
   - cartucce `.bm` (già un contenitore unico) e pacchetti di risorse (sprite, mesh,
     suoni: un `.bm` senza codice);
@@ -926,15 +926,18 @@ GitHub, M26 market a pagamento). Considerazioni iniziali del 2026-09-29.
 - **Fatto quando:** dalla scheda "Store" del menu si sceglie un gioco del catalogo, si
   scarica, si verifica e si gioca; l'SDK pubblica un gioco nel catalogo.
 
-## M26 — Market a pagamento (XL, dopo M25; progetto a sé)
-- Account, pagamenti e licenze vanno su un servizio web, non sul Pi: il Pi scarica solo
-  ciò che l'account ha sbloccato.
-- Da definire: servizio (proprio o di terzi), commissioni, rimborsi, obblighi fiscali,
-  protezione dei contenuti.
-- **Fatto quando:** un gioco a pagamento si compra sul web e compare sulla console
-  dell'account.
+## M26 — Market (gratuito, legato allo store di M25)
+Correzione 2026-09-30: il market **non è a pagamento** ed è legato allo **store di M25**.
+- Tutto è gratuito: niente account, pagamenti, commissioni né licenze da sbloccare.
+- Si appoggia allo store di M25: catalogo su GitHub, download verificati, pubblicazione
+  dall'SDK.
+- Da definire insieme a M25: cosa aggiunge il market allo store e il criterio di
+  completamento.
 
-## M27 — BareMetal UI (menu giochi/dev) (L) — in corso
+## M27 — BareMetal UI (menu giochi/dev) (L) — ✅ chiusa (2026-09-30: task 1–4)
+Chiusa dall'autore il 2026-09-30 con i task 1–4 verificati sul Pi e le icone della barra
+(parte del task 5); il resto dei task 5–9 non è stato fatto e resta qui come piano.
+
 Decisione 2026-09-30: il menu home di M21 diventa **BareMetal UI**, l'interfaccia di
 sistema della console. Oltre alla scelta dei giochi ha sottomenu per le opzioni di ogni
 cartuccia, per gli strumenti di sviluppo e per le impostazioni. Tutto si raggiunge
@@ -1051,7 +1054,7 @@ Task:
 DS4 le opzioni della cartuccia, i salvataggi, l'abbinamento di un secondo DS4; gli strumenti
 della scheda Dev; Settings > System > Restart; le icone della barra (DS4 blu, tastiera USB
 bianca, tastiera Bluetooth blu, WiFi); la barra di scorrimento; L1 / R1 e Settings che si
-apre da sola; PS nel menu e nel monitor. Restano i task 5–9.
+apre da sola; PS nel menu e nel monitor. I task 5–9 non sono stati fatti (milestone chiusa).
 
 - **Fatto quando:** sul Pi, con il solo DS4, dal menu si raggiungono tutti i giochi,
   gli strumenti e le impostazioni (abbinare un secondo controller, collegare il WiFi,
