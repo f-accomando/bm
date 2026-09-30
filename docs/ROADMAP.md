@@ -692,9 +692,23 @@ Passi (2026-09-29):
      hardware, acceso solo alla prima richiesta, scarta i primi numeri (riscaldamento) e ci
      metteva più dei 200 ms concessi; prima lo accendeva il Bluetooth LE. Ora parte all'avvio
      del kernel e la prima lettura aspetta fino a 3 s.
-3. **Release**: GitHub Actions costruisce `kernel.img` e le cartucce a ogni tag `v*`, le
-   allega alla release con un manifesto (versione, SHA-256, firma ECDSA P-256 con una
-   chiave nei secret del repository; la chiave pubblica è nel kernel).
+3. 🛠 (manca la chiave: `scripts/release-key.sh`) **Release**: GitHub Actions costruisce
+   `kernel.img` e le cartucce a ogni tag `v*`, le allega alla release con un manifesto
+   (versione, SHA-256, firma ECDSA P-256 con una chiave nei secret del repository; la chiave
+   pubblica è nel kernel).
+   - Job `release` in `.github/workflows/ci.yml`: solo sui tag `v*` e dopo i test; `make
+     release VERSION=<tag>` (il kernel dice il tag come versione) e `gh release create`.
+   - `scripts/mkrelease.py`: `manifest.txt` di testo (`bm release`, `version`, `commit`, una
+     riga `file <nome> <percorso sulla SD> <byte> <sha256>` per file) e `manifest.sig` (DER),
+     firmato con `openssl` e controllato con `keys/release-pub.pem`: un secret che non è la
+     coppia della chiave nel kernel ferma il CI, non il Pi.
+   - Nel kernel `src/net/release.c`: chiave da `keys/release-pub.pem` (incorporata con
+     `embed.S`; finché è il segnaposto niente aggiornamenti), firma, righe (percorsi senza `..`,
+     nomi sicuri per gli indirizzi), SHA-256 dei file. Test sul PC: `make test-release`.
+   - Nella release: `kernel.img`, gli 8 giochi, `ca.pem` (va in `/bm`), `manifest.txt`,
+     `manifest.sig`. Il Pi potrà leggere l'ultima da
+     `https://github.com/f-accomando/bm/releases/latest/download/manifest.txt` (repository
+     pubblico, niente JSON).
 4. **Aggiornamento dal Pi**: comando nel monitor e voce nel menu Dev: controlla l'ultima
    release, confronta la versione, scarica, verifica SHA-256 e firma, installa come
    `--kernel` e riavvia; le cartucce nuove vanno in `/carts`.

@@ -70,7 +70,7 @@ FORCE:
 # Third-party code: its own warning policy, not ours.
 $(LUA_OBJS) $(LWIP_OBJS) $(MBEDTLS_OBJS): WARN := -w
 # Lua scripts embedded with .incbin
-$(BUILD)/k/src/script/embed.S.o: $(wildcard src/script/*.lua) \
+$(BUILD)/k/src/script/embed.S.o: $(wildcard src/script/*.lua) keys/release-pub.pem \
                                  $(BUILD)/demo.bm $(BUILD)/stress.bm $(BUILD)/editor.bm
 
 # The editor (M15), built into the kernel
@@ -150,7 +150,8 @@ test-titan: $(BUILD)/host/luahost $(BUILD)/titan/main.lua
 
 .DEFAULT_GOAL := all
 .PHONY: FORCE test-smp all clean firmware image image-pi1 sdcard install sdcard-chainloader sdcard-stress qemu qemu-screenshot \
-        run-serial test test-bm test-usb test-audio test-fat test-kitchen test-titan test-net test-http test-https disasm
+        run-serial test test-bm test-usb test-audio test-fat test-kitchen test-titan test-net test-http test-https \
+        test-release release disasm
 
 all: $(BUILD)/kernel.img $(BUILD)/chainloader.img $(GAME_CARTS)
 
@@ -229,6 +230,21 @@ image-pi1: $(BUILD)/kernel.img $(SD_CARTS)
 	@mkdir -p $(DIST)
 	$(PYTHON) scripts/mksd.py $(DIST)/bm-pi1.img --size-mib 64 --label BM $(IMAGE_FILES)
 
+# The files of a release (M19), in $(DIST)/release: kernel.img, the games,
+# bm/ca.pem and manifest.txt with where each goes, its size and SHA-256,
+# signed (manifest.sig) with the key in BM_RELEASE_KEY (the environment;
+# on GitHub the repository's secret). CI on a tag v*:
+#   make release VERSION=v0.1.0 RELEASE_FLAGS=--require-key
+# The signature must match keys/release-pub.pem, the key in the kernel.
+RELEASE_DIR := $(DIST)/release
+RELEASE_PUB ?= keys/release-pub.pem
+release: $(BUILD)/kernel.img $(GAME_CARTS)
+	rm -rf $(RELEASE_DIR)
+	$(PYTHON) scripts/mkrelease.py $(RELEASE_DIR) --version $(VERSION) --commit $$(git rev-parse HEAD) \
+	    --file $(BUILD)/kernel.img:/kernel.img \
+	    $(foreach c,$(GAME_CARTS),--file $(c):/carts/$(notdir $(c))) \
+	    --file boot/ca.pem:/bm/ca.pem --pub $(RELEASE_PUB) $(RELEASE_FLAGS)
+
 # Copies what make sdcard prepared onto a mounted SD card (SD=/mnt/d by
 # default): kernel, boot files, config.txt, cartridges and the chip
 # firmware in bm/. Settings and saves (bm/CONFIG.TXT, bm/SAVE) are
@@ -272,7 +288,7 @@ qemu-screenshot: $(BUILD)/kernel.img
 	./scripts/qemu-screenshot.sh $< $(BUILD)/screen.png
 
 test: all test-bm test-usb test-fat test-audio test-kitchen test-titan test-net test-http test-https \
-      test-smp
+      test-release test-smp
 	$(PYTHON) tests/qemu_test.py --build $(BUILD)
 
 $(BUILD)/host/test_bm: tests/bm/test_bm.c src/bm/gfx16.c src/bm/r3d.c src/bm/format.c src/lib/crc32.c src/bm/*.h
@@ -315,6 +331,16 @@ $(BUILD)/host/test_https: tests/net/test_https.c tests/net/stream_posix.c src/ne
 		-DMBEDTLS_CONFIG_FILE='"bm_mbedtls.h"' -DHTTP_USER_AGENT='"test"' -o $@ \
 		tests/net/test_https.c tests/net/stream_posix.c src/net/tls.c src/net/http.c \
 		src/net/http_kernel.c $(MBEDTLS_SRCS)
+
+# Release manifests (M19): scripts/mkrelease.py signs with a test key made
+# by openssl, src/net/release.c checks signature, lines and files
+test-release: $(BUILD)/host/test_release
+	$(PYTHON) tests/net/run_release_test.py $(BUILD)/host/test_release
+
+$(BUILD)/host/test_release: tests/net/test_release.c src/net/release.c src/net/release.h $(MBEDTLS_SRCS)
+	@mkdir -p $(dir $@)
+	$(HOSTCC) -O1 -w -DBM_HOST_TEST -Isrc -Isrc/net -Ithird_party/mbedtls/include \
+		-DMBEDTLS_CONFIG_FILE='"bm_mbedtls.h"' -o $@ tests/net/test_release.c src/net/release.c $(MBEDTLS_SRCS)
 
 # Bluetooth LE pairing cryptography (SMP), against the spec's sample data
 test-smp: $(BUILD)/host/test_smp

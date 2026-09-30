@@ -28,3 +28,12 @@ bm_editor_cart_end:
 bm_stress_cart:
     .incbin "stress.bm"
 bm_stress_cart_end:
+
+/* the public key that checks the releases (M19, src/net/release.c): PEM
+ * text, NUL-terminated; a placeholder until scripts/release-key.sh */
+    .section .rodata
+    .balign 4
+    .globl bm_release_key
+bm_release_key:
+    .incbin "keys/release-pub.pem"
+    .byte 0

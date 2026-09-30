@@ -405,6 +405,27 @@ make install SD=/mnt/e  # se la SD è montata altrove
 in `bm/` (Bluetooth e WiFi); non tocca mai impostazioni e salvataggi
 (`bm/CONFIG.TXT`, `bm/SAVE`). Alla fine elenca cosa c'è in `bm/` sulla SD.
 
+## Release (M19)
+
+A ogni tag `v*` il CI (`.github/workflows/ci.yml`), dopo i test, costruisce il kernel (con il
+tag come versione: `bm v0.1.0` nella barra) e i giochi e li pubblica in una release di GitHub
+con `bm/ca.pem` e `manifest.txt`: per ogni file il nome nella release, dove va sulla SD, la
+dimensione e lo SHA-256. `manifest.sig` è la firma del manifesto (ECDSA P-256), fatta con la
+chiave privata nel secret `BM_RELEASE_KEY` del repository; la chiave pubblica
+(`keys/release-pub.pem`) è dentro il kernel, che controlla firma e SHA-256 prima di installare
+(`src/net/release.c`; l'aggiornamento dal Pi è il passo 4 di M19).
+
+La prima volta, dal PC (la chiave privata resta lì, in `~/.bm/release-key.pem`: tienine una copia):
+
+```sh
+scripts/release-key.sh                          # la coppia di chiavi
+gh secret set BM_RELEASE_KEY < ~/.bm/release-key.pem   # o dal sito: Settings > Secrets and variables > Actions
+git add keys/release-pub.pem && git commit -m "Release key" && git push
+```
+
+Poi una release: `git tag v0.1.0 && git push origin v0.1.0`. In locale, per provare:
+`BM_RELEASE_KEY="$(cat ~/.bm/release-key.pem)" make release VERSION=v0.1.0` (file in `dist/release/`).
+
 ## Scheda SD senza chainloader
 
 Il modo più semplice è l'immagine completa: `make firmware && make image`, poi scrivi
@@ -479,6 +500,9 @@ tests/titan/             simulatore host di Titan Clash (sim.lua)
 docs/API.md              API delle cartucce .bm e guida alla prima cartuccia
 scripts/mkbm.py         packer .bm (PNG e CSV, solo libreria standard Python)
 scripts/mksd.py          immagine SD (MBR + FAT32): make image e test in QEMU
+scripts/mkrelease.py     file di una release e manifest.txt firmato (make release, CI sui tag v*)
+scripts/release-key.sh   coppia di chiavi delle release; la pubblica in keys/release-pub.pem
+src/net/release.c        verifica delle release: firma del manifesto, righe, SHA-256 dei file
 tests/bm/               test host della grafica e del formato
 src/script/luavm.c       stato Lua, allocatore con limite (64 MiB), esecuzione protetta
 src/script/repl.c        REPL: espressioni, righe di continuazione, traceback
