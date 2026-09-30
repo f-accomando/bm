@@ -266,7 +266,8 @@ emulatore del chip, quindi niente test in QEMU se non su tracce HCI registrate.
 - **Fatto quando:** il controller di riferimento si abbina dal menu, si riconnette da
   solo alla riaccensione e i giochi demo si giocano senza fili.
 
-## M13 — Altri tipi di cartuccia (M)
+## M13 — Altri tipi di cartuccia (M) — chiusa senza implementazione
+Decisione 2026-09-30: chiusa dall'autore; il piano resta qui se servirà.
 - **s32 Lua** (`code_type` 1): **sbloccato** — le regole sono decise in `s32-bm33.md`
   (sincronizzato da lua32 `dbaa650`) e implementate in lua32: API `peek/poke`,
   `peek16/poke16`, `btn`, funzioni di comodo (`spr`, `mset`, `pal`, `camera`...),
@@ -388,7 +389,7 @@ Decisione 2026-09-28: editor **sulla console** (come PICO-8), prima del multipla
 - Dopo: editor di suoni ed effetti, colori della tavolozza modificabili, copertina
   disegnata nell'editor, cerca nel codice, sprite sheet più grande di 256×256 a zoom.
 
-## M16 — Multiplayer locale con controller Bluetooth (L) — 🛠 fatto, da provare sul Pi
+## M16 — Multiplayer locale con controller Bluetooth (L) — ✅ chiusa (2026-09-30)
 Decisione 2026-09-28: solo **Bluetooth**; USB e hub restano con un solo dispositivo.
 
 Fatto (QEMU, `test_bt_pair_and_reconnect`, `test_bt_two_pads`):
@@ -439,7 +440,7 @@ Piano iniziale:
 - **Fatto quando:** due DS4 collegati insieme giocano Pong uno contro l'altro (Pong con
   modalità 2 giocatori).
 
-## M17 — Gioco cooperativo in stile Overcooked (L) — 🛠 fatto, da provare sul Pi
+## M17 — Gioco cooperativo in stile Overcooked (L) — ✅ chiusa (2026-09-30)
 Decisione 2026-09-28: il gioco è **Chaos Kitchen** (`carts/kitchen`), opera originale
 (personaggi, ricette, cucine, musica e interfaccia nostri), in 3D. Comandi scelti
 dall'utente: **A** prendi/posa/usa, **X** taglia/lava/usa (tenuto premuto), **B** scatto,
@@ -631,7 +632,7 @@ Passi (2026-09-29):
 6. **Git leggero in scrittura**: l'editor carica un `.b33` su un repository con un
    token personale (`github_token` in `bm33/config.txt`, API "contents", PUT).
 
-## M20 — Picchiaduro a robot giganti (XL)
+## M20 — Picchiaduro a robot giganti (XL) — ✅ chiusa (2026-09-30: base giocabile)
 Decisione 2026-09-28: in coda dopo M19. Concept completo dell'autore:
 [`docs/giochi/mecha-fighter-concept.md`](giochi/mecha-fighter-concept.md).
 Picchiaduro 2D a incontri tra robot modulari alti come grattacieli: struttura e feeling
@@ -694,7 +695,7 @@ cartuccia **Titan Clash** (`carts/titan`).
   2 giocatori, demo; costo dei frame) e `test_titan` in QEMU. Select mostra il tempo
   di frame sul Pi.
 
-## M21 — Menu "home" e giochi sospesi (M)
+## M21 — Menu "home" e giochi sospesi (M) — ✅ chiusa (2026-09-30)
 Decisione 2026-09-29: menu più pulito in stile console moderna (Nintendo Switch), per ora
 solo per la scelta dei giochi.
 1. ✅ (QEMU) **Griglia di copertine** (`src/kernel/menu_ui.c`, sostituisce il carosello 3D):
