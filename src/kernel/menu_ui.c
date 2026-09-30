@@ -31,6 +31,10 @@
 #define PEEK        (2 * RADIUS)
 #define GRID_Y0     (GRID_BOT - PEEK - 2 * PITCH_Y)     /* first row of covers */
 #define GRID_TOP    (GRID_Y0 - 8)   /* the selection ring is 6 px out */
+/* scroll bar in the right margin, along the two whole rows */
+#define SBAR_W      4
+#define SBAR_X      (SW - GRID_X0 / 2 - SBAR_W / 2)
+#define SBAR_H      (2 * PITCH_Y - GAP_X)
 #define FADE_FRAMES 10
 
 #define C_BAR       0x16161C
@@ -382,6 +386,25 @@ static void round_rect(int x, int y, int w, int h, int r, uint16_t c)
     }
 }
 
+/* More than two rows: the bar says where the two on screen are, so the
+ * rows scrolled out at the top are not taken for gone. */
+static void scroll_bar(int rows, float first)
+{
+    int th = SBAR_H * 2 / rows;
+    if (th < 24)
+        th = 24;
+    float k = first / (float)(rows - 2);
+    k = k < 0 ? 0 : k > 1 ? 1 : k;
+    int ty = GRID_Y0 + (int)lroundf(k * (float)(SBAR_H - th));
+    uint16_t track = c16(C_LINE), thumb = c16(C_TEXT);
+    if (dim) {
+        track = half(track);
+        thumb = half(thumb);
+    }
+    round_rect(SBAR_X, GRID_Y0, SBAR_W, SBAR_H, SBAR_W / 2, track);
+    round_rect(SBAR_X, ty, SBAR_W, th, SBAR_W / 2, thumb);
+}
+
 /* ring between two rounded rectangles: outer (x, y, w, h, r), thickness t */
 static void round_ring(int x, int y, int w, int h, int r, int t, uint16_t c)
 {
@@ -663,6 +686,8 @@ void menu_ui_frame(framebuffer_t *fb, const menu_view_t *v)
         }
     }
     g16_clip(&g, 0, 0, 0, 0);
+    if (v->n > 2 * MENU_COLS)
+        scroll_bar((v->n + MENU_COLS - 1) / MENU_COLS, scroll);
 
     /* top bar: tabs, settings, then the players and the network */
     g16_rectfill(&g, 0, 0, SW, BAR_H, c16(C_BAR));

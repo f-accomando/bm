@@ -733,6 +733,13 @@ cartuccia **Titan Clash** (`carts/titan`).
   pannello di debug (Select) mostra come il gioco legge i controlli (qualsiasi
   controller, pad 1 e 2, levetta, e per ogni robot pad, direzione e stato), per
   capire il problema della croce del controller segnalato sul Pi.
+- Correzione 2026-09-30 (dalla foto del pannello di debug: `p1 .R..` ma `F1 ... dir 5
+  stand`): il robot girato a destra non leggeva avanti e indietro. `numpad` scriveva
+  `f.face > 0 and r or l`, che con `r` falso vale `l`: con una sola freccia premuta
+  risultavano avanti e indietro insieme, cioè fermo; restavano solo su e giù, quindi
+  niente camminata, parata o salti in diagonale. Il robot girato a sinistra (di solito
+  P2) funzionava per caso, e il gioco contro la CPU aveva lo stesso difetto per P1.
+  `make test-titan` ora prova le 8 direzioni su entrambi i pad e la camminata in avanti.
 
 ## M21 — Menu "home" e giochi sospesi (M) — ✅ chiusa (2026-09-30)
 Decisione 2026-09-29: menu più pulito in stile console moderna (Nintendo Switch), per ora
@@ -999,6 +1006,11 @@ Task:
   e 20 in verticale) e più in basso: due righe intere, poi la riga successiva che
   spunta per 12 pixel (due volte il raggio degli angoli) a dire che la lista continua.
   Il nome della copertina scelta scende di una riga, a metà tra la barra e la griglia.
+  - Sul Pi, dopo essere scesi fino a Titan Clash, la prima riga (Astro Wing, Chaos
+    Kitchen...) usciva dall'alto senza alcun segno e sembrava sparita. Con più di due
+    righe, nel margine destro c'è ora una **barra di scorrimento**: il cursore è lungo
+    quanto le due righe visibili e segue lo scorrimento (`test_menu_scroll`; nessuna
+    barra con una riga sola in `test_home_ui`).
 
 Da provare sul Pi:
 - il menu resta a 60 fps anche con un pannello aperto;
@@ -1006,7 +1018,8 @@ Da provare sul Pi:
   Pair a new controller con un secondo DS4;
 - scheda Dev: System, Log (col pad), Test pattern, Audio test;
 - Settings > System > Restart;
-- le icone della barra: tastiera e DS4 con il numero giusto, WiFi grigia e poi bianca.
+- le icone della barra: tastiera e DS4 con il numero giusto, WiFi grigia e poi bianca;
+- la barra di scorrimento a destra della griglia, scendendo fino a Titan Clash.
 
 - **Fatto quando:** sul Pi, con il solo DS4, dal menu si raggiungono tutti i giochi,
   gli strumenti e le impostazioni (abbinare un secondo controller, collegare il WiFi,

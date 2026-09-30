@@ -548,6 +548,13 @@ def blue_number(img, span):
                for r, g, b in [pixel(img, x, y)])
 
 
+def scroll_thumb(img):
+    """The thumb of the menu's scroll bar (more than two rows of covers):
+    (top, bottom) of its light pixels at x 619, y 112-288, or None."""
+    ys = [y for y in range(112, 288) if sum(pixel(img, 619, y)) > 600]
+    return (ys[0], ys[-1] + 1) if ys else None
+
+
 def settled_screen(q, ok, tries=8):
     """QEMU shows page 0 even while it is being drawn (it ignores the
     virtual offset), so a screendump can catch a frame half drawn: retry
@@ -906,7 +913,9 @@ def test_home_ui(b, opts):
         time.sleep(0.5)
         text = screen(["Games", "Dev", "Settings", "AAA saver"])
         assert "bm" not in text.splitlines()[1] and "pads" not in text, text
-        assert bar_icons(q.screendump()) == [], "no keyboard, pad or network: no icons"
+        shot_ = q.screendump()
+        assert bar_icons(shot_) == [], "no keyboard, pad or network: no icons"
+        assert scroll_thumb(shot_) is None, "one row of covers: no scroll bar"
         shot("games")
         keys("\r")                              # play: it saves, then Esc suspends it
         q.expect("saver start", timeout=10)
@@ -2200,6 +2209,47 @@ def test_sd_sdhc_and_usb_menu(b, opts):
     finally:
         q.close()
         os.remove(img)
+
+
+def test_menu_scroll(b, opts):
+    """Three rows of covers and two on screen: the scroll bar at the right
+    says where they are, so the row scrolled out at the top (Astro Wing and
+    Chaos Kitchen on the Pi) is not taken for gone."""
+    tmp = tempfile.mkdtemp(prefix="bm-scroll-")
+    img = os.path.join(tmp, "sd.img")
+    mksd.build(img, [(b("demo.bm"), f"carts/g{i}.bm") for i in range(1, 10)])
+    q = Qemu(b("kernel.img"), ["-drive", f"if=sd,format=raw,file={img}"])
+
+    def thumb():
+        time.sleep(1.0)                         # the grid eases to its place
+        t = None
+        for _ in range(8):                      # a whole frame: two reads agree
+            a, b_ = scroll_thumb(q.screendump()), scroll_thumb(q.screendump())
+            if a == b_:
+                t = a
+                break
+        assert t is not None, "no scroll bar"
+        return t
+
+    try:
+        q.expect(MENU, timeout=30)
+        top = thumb()
+        assert top[0] <= 114 and 100 <= top[1] - top[0] <= 130, top    # 2 of 3 rows
+        keys = "ss"                             # the third row: the first scrolls out
+        for k in keys:
+            q.send(k)
+            time.sleep(0.25)
+        low = thumb()
+        assert low[1] >= 286 and low[1] - low[0] == top[1] - top[0], (top, low)
+        for k in "ww":
+            q.send(k)
+            time.sleep(0.25)
+        assert thumb() == top
+        q.send("q")
+        q.expect("back to the monitor", timeout=10)
+    finally:
+        q.close()
+        shutil.rmtree(tmp, ignore_errors=True)
 
 
 def test_usb_hid_gamepad(b, opts):
