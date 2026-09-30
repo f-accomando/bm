@@ -204,7 +204,7 @@ unsigned input_connected(void)
 {
     unsigned m = bt_pads();
     int local = input_local_player();
-    if (local >= 0 && (usb_input() || !m))
+    if (local >= 0 && (usb_input() || bt_keyboard() || !m))
         m |= 1u << local;
     return m;
 }

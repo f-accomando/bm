@@ -26,6 +26,7 @@
 #include "net/net.h"
 #include "script/repl.h"
 #include "usb/hid.h"
+#include "usb/usb.h"
 #include "wifi/wifi.h"
 
 #include <malloc.h>
@@ -254,6 +255,17 @@ static int popcount(unsigned v)
     return n;
 }
 
+/* what plays as the first player without a pad */
+static const char *local_devices(void)
+{
+    int k = usb_info()->kind, kbd = k == USB_KEYBOARD, bt = bt_keyboard();
+    if (kbd && bt) return "USB + Bluetooth keyboard";
+    if (bt) return "Bluetooth keyboard";
+    if (kbd) return "USB keyboard";
+    if (k == USB_GAMEPAD || k == USB_XBOX360) return "USB gamepad";
+    return "keyboard / USB";
+}
+
 static int wifi_at_boot(void)
 {
     const char *on = config_get("wifi_boot");
@@ -296,8 +308,9 @@ void home_panel(int id, home_panel_t *p)
                          "%s %s", addr, on ? "on" : "off");
             else
                 home_row(p, MENU_ROW_INFO, R_PAD1 + s, label,
-                         s == local ? "The USB keyboard or gamepad plays here" : "Free: pair a controller",
-                         "%s", s == local ? "keyboard / USB" : "-");
+                         s == local ? "The keyboards and the USB gamepad play here"
+                                    : "Free: pair a controller",
+                         "%s", s == local ? local_devices() : "-");
         }
         home_row(p, MENU_ROW_INFO, R_KEYBOARD, "Bluetooth keyboard",
                  bt_keyboard() ? "Connected: it types like a USB keyboard" :

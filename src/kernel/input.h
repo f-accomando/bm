@@ -56,8 +56,8 @@ int input_local_player(void);
 uint32_t input_players(uint32_t out[INPUT_PLAYERS], int text, int *quit, int *local);
 
 /* Players with a controller: bit n = player n+1. The local player counts
- * when a USB keyboard or gamepad is attached, or when no pad is connected
- * (then it is the serial console, or nobody yet). */
+ * when a USB keyboard or gamepad or a Bluetooth keyboard is attached, or
+ * when no pad is connected (then it is the serial console, or nobody yet). */
 unsigned input_connected(void);
 
 /* Left stick of player p (0-based), -1..1 each (x right, y down); from the

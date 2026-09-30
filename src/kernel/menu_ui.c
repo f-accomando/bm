@@ -573,13 +573,19 @@ static void put_icon(const icon_mask_t *m, int x0, int y0, uint32_t ink, uint32_
  * player, then WiFi or Ethernet when the console is on a network */
 static void status_icons(const menu_view_t *v)
 {
-    int icon[5], num[5], bt[5], n = 0;
-    for (int p = 0; p < 4; p++)
+    int icon[6], num[6], bt[6], n = 0;
+    for (int p = 0; p < 4; p++) {
         if (v->dev[p] != MENU_DEV_NONE) {
             icon[n] = v->dev[p] == MENU_DEV_KEYBOARD ? ICON_KEYBOARD : ICON_PAD;
             bt[n] = v->bt >> p & 1;
             num[n++] = p + 1;
         }
+        if (v->kbd_bt == p + 1) {       /* next to the USB keyboard of the same player */
+            icon[n] = ICON_KEYBOARD;
+            bt[n] = 1;
+            num[n++] = p + 1;
+        }
+    }
     int players = n;
     if (v->net != MENU_NET_NONE) {
         icon[n] = v->net == MENU_NET_ETHERNET ? ICON_ETHERNET : ICON_WIFI;

@@ -1944,6 +1944,16 @@ def test_bt_keyboard(b, opts):
         chip.keys(0x0C)
         chip.keys()
         _mini_expect(q, "uptime")
+        # the menu bar: its own keyboard icon, with a blue number (Bluetooth)
+        q.mini.write(b"M")
+        _mini_expect(q, "cartridge menu")
+        time.sleep(1.0)
+        shot_ = q.screendump()
+        runs = bar_icons(shot_)
+        assert len(runs) == 1 and 20 <= runs[0][1] - runs[0][0] <= 27, runs
+        assert blue_number(shot_, runs[0]), "a Bluetooth keyboard: a blue number"
+        q.mini.write(b"q")
+        _mini_expect(q, "back to the monitor")
         # back from a private address: found by its IRK, the saved LTK
         chip.come_back()
         chip.serve_gatt()

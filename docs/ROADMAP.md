@@ -1074,6 +1074,12 @@ Fatto (QEMU, `test_bt_keyboard` con una MX Keys simulata; `make test-smp`):
   tastiera.
 - Driver RNG: tolto l'accesso al registro di maschera (0x10), inutile col polling e
   assente in QEMU.
+- Barra del menu (2026-09-30, dalla prova sul Pi con DS4 e MX): la tastiera Bluetooth non
+  aveva un'icona; quella che si vedeva, "2" bianco, era la tastiera USB. Ora la tastiera
+  Bluetooth ha la sua icona col numero **blu**, sul giocatore per cui scrive (il primo
+  senza pad, come la tastiera USB, che resta accanto col numero bianco); conta anche per
+  `players()`. Settings > Controllers dice cosa gioca lì ("Bluetooth keyboard", "USB
+  keyboard", "USB + Bluetooth keyboard", "USB gamepad"). Test: `test_bt_keyboard`.
 
 Da provare sul Pi: abbinamento della MX Keys S (tenere premuto un tasto Easy-Switch 3 s
 finché la luce lampeggia veloce, poi Settings > Controllers > Pair a keyboard), digitazione, ritorno
