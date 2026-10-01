@@ -381,9 +381,10 @@ test-studio: $(BUILD)/host/test_bm $(BUILD)/demo.bm
 	else echo "test-studio: node not found, skipped"; fi
 
 # The same in a browser (Playwright + Chromium, not needed by `make test`):
-# the 3D view, the tools with the mouse, saving; screenshots in build/studio/
+# bm Studio and bm Animator with the mouse, saving; screenshots in build/studio/
 test-studio-ui:
 	node tests/studio/test_ui.js $(BUILD)/studio
+	node tests/studio/test_animator_ui.js $(BUILD)/studio
 
 # bm Studio and bm Animator on http://localhost:8765 (they also open from
 # the files, sdk/studio/index.html and sdk/animator/index.html, in Chrome or Edge)

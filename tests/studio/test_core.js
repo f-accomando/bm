@@ -13,7 +13,7 @@ const path = require('path');
 const zlib = require('zlib');
 
 const JS = path.join(__dirname, '..', '..', 'sdk', 'studio', 'js');
-for (const f of ['core.js', 'tiles.js', 'edit.js', 'rig.js']) require(path.join(JS, f));
+for (const f of ['core.js', 'tiles.js', 'edit.js', 'rig.js', 'sprites.js', 'examples.js', 'gltfskin.js']) require(path.join(JS, f));
 const BM = globalThis.BM, E = BM.edit, v3 = BM.v3;
 
 let checks = 0, fails = 0;
@@ -272,12 +272,93 @@ function testAnimFile(out) {
   fs.writeFileSync(out.replace(/\.bm$/, '-anim.bm'), bytes);
 }
 
+function testSprites() {
+  const v = BM.examples.villager(), sheet = BM.starterSheet(), walk = v.rig.clips.find(c => c.name === 'walk');
+  check(!BM.checkProject({ ...sampleProject(), models: [v] }).length, 'the villager is a valid model');
+  const o = { frames: 6, dirs: 4, w: 32, h: 40, bands: 3, colours: 12, outline: 0x101018 };
+  const r = BM.sprites.render(v, sheet, walk, o), r2 = BM.sprites.render(v, sheet, walk, o);
+  check(r.img.w === 6 * 32 && r.img.h === 4 * 40 && r.cols === 6 && r.rows === 4, `grid ${r.img.w}x${r.img.h}`);
+  check(Buffer.compare(Buffer.from(r.img.px), Buffer.from(r2.img.px)) === 0, 'the same input gives the same pixels');
+  check(near(r.times[1], 0.8 / 6) && near(r.times[5], 5 * 0.8 / 6), 'a loop: frames over its length, no repeated first frame');
+  const frame = (d, i) => { const out = []; for (let y = 0; y < 40; y++) out.push(...r.img.px.subarray(((d * 40 + y) * r.img.w + i * 32) * 4, ((d * 40 + y) * r.img.w + (i + 1) * 32) * 4)); return out; };
+  check(frame(0, 0).join() !== frame(0, 3).join(), 'the frames move');
+  check(frame(0, 0).join() !== frame(1, 0).join(), 'the directions differ');
+  const colours = new Set();
+  let outline = 0, solid = 0;
+  for (let i = 0; i < r.img.px.length; i += 4) {
+    if (r.img.px[i + 3] < 128) continue;
+    solid++;
+    const c = (r.img.px[i] << 16) | (r.img.px[i + 1] << 8) | r.img.px[i + 2];
+    if (c === 0x101018) outline++; else colours.add(c);
+  }
+  check(colours.size <= 12 && outline > 100 && solid > 1000, `${colours.size} colours (at most 12), ${outline} outline pixels`);
+  // the anchor: the model's origin (its feet) at the same pixel in every frame
+  check(r.anchor[0] === 16 && r.anchor[1] > 30 && r.anchor[1] < 40, 'anchor ' + r.anchor);
+  const lowest = d => { for (let y = 39; y >= 0; y--) for (let x = 0; x < 32; x++) if (frame(d, 0)[(y * 32 + x) * 4 + 3] >= 128) return y; return -1; };
+  check(Math.abs(lowest(0) - r.anchor[1]) <= 2, `the feet at the anchor (${lowest(0)} / ${r.anchor[1]})`);
+  // still models: one frame
+  const still = BM.sprites.render({ name: 'x', faces: sampleProject().models[0].faces }, sheet, null, { dirs: 2, w: 16, h: 16 });
+  check(still.cols === 1 && still.rows === 2, 'a model without animation: one frame per direction');
+  // into the sheet: where there is room, the sheet grows only when it must and never loses rows
+  const placed = BM.placeInSheet(sheet, r.img);
+  check(placed && placed.sheet.w === 256 && placed.at[1] >= 48, 'the sprites fit in the starter sheet at ' + (placed && placed.at));
+  const wide = BM.placeInSheet(sheet, BM.sprites.render(v, sheet, walk, { ...o, frames: 12 }).img);
+  check(wide.sheet.w === 384 && wide.sheet.h >= 256, `a wider grid widens the sheet: ${wide.sheet.w}x${wide.sheet.h}`);
+  const lua = BM.sprites.snippet('villager walk', r, placed.at, 12);
+  check(lua.includes('local VILLAGER_WALK = { x = ' + placed.at[0]) && lua.includes('sspr('), 'Lua for the sprites');
+}
+
+/* the .glb with a skeleton, played by a small glTF evaluator, puts every
+ * corner where bm's own skinning does */
+async function testGltfSkin() {
+  const v = BM.examples.villager(), R = BM.rig;
+  const glb = await BM.exportAnimatedGLB({ sheet: BM.starterSheet(), uvInset: 0.25, title: 'v' }, v);
+  const { js, bin } = BM.glbParse(glb);
+  check(js.skins.length === 1 && js.skins[0].joints.length === 7 && js.animations.length === 3, 'skin and animations');
+  const acc = i => {
+    const a = js.accessors[i], bv = js.bufferViews[a.bufferView], n = { SCALAR: 1, VEC2: 2, VEC3: 3, VEC4: 4, MAT4: 16 }[a.type];
+    const dv = new DataView(bin.buffer, bin.byteOffset + (bv.byteOffset || 0)), out = [];
+    for (let k = 0; k < a.count; k++) {
+      const t = [];
+      for (let c = 0; c < n; c++) t.push(a.componentType === 5121 ? dv.getUint8(k * n + c) : dv.getFloat32((k * n + c) * 4, true));
+      out.push(t);
+    }
+    return out;
+  };
+  for (const [name, T] of [['walk', 0.2], ['wave', 0.3]]) {
+    const anim = js.animations.find(a => a.name === name), local = {};
+    for (const ch of anim.channels) {
+      const sm = anim.samplers[ch.sampler], ins = acc(sm.input).map(x => x[0]), k = ins.findIndex(t => Math.abs(t - T) < 1e-5);
+      (local[ch.target.node] = local[ch.target.node] || {})[ch.target.path] = acc(sm.output)[k];
+    }
+    const joints = js.skins[0].joints, parent = {};
+    js.nodes.forEach((n, i) => (n.children || []).forEach(c => { parent[c] = i; }));
+    const G = {}, glob = i => {
+      if (G[i]) return G[i];
+      const r = R.Q.mat(local[i].rotation), t = local[i].translation, l = [r[0], r[1], r[2], t[0], r[3], r[4], r[5], t[1], r[6], r[7], r[8], t[2]];
+      return (G[i] = joints.includes(parent[i]) ? R.M.mul(glob(parent[i]), l) : l);
+    };
+    const ibm = acc(js.skins[0].inverseBindMatrices);
+    const skin = joints.map((j, k) => { const b = ibm[k]; return R.M.mul(glob(j), [b[0], b[4], b[8], b[12], b[1], b[5], b[9], b[13], b[2], b[6], b[10], b[14]]); });
+    const theirs = new Set(), ours = new Set();
+    for (const pr of js.meshes[0].primitives) {
+      const pos = acc(pr.attributes.POSITION), jn = acc(pr.attributes.JOINTS_0);
+      pos.forEach((p, i) => { const q = R.M.apply(skin[jn[i][0]], p); theirs.add([q[0], q[1], -q[2]].map(x => Math.round(x * 1000)).join()); });
+    }
+    const pose = R.samplePose(v.rig, v.rig.clips.find(c => c.name === name), T);
+    for (const f of R.posedFaces(v, pose)) for (const p of f.p) ours.add(p.map(x => Math.round(x * 1000)).join());
+    check([...ours].every(k => theirs.has(k)) && ours.size === theirs.size, `glTF ${name} at ${T} s: the same pose (${ours.size} corners)`);
+  }
+}
+
 (async () => {
   const out = process.argv[2] || path.join('build', 'studio-test.bm');
   fs.mkdirSync(path.dirname(path.resolve(out)), { recursive: true });
   testGeometry();
   testRig();
   testAnimFile(out);
+  testSprites();
+  await testGltfSkin();
   await testFiles(out);
   console.log(`studio: ${checks - fails}/${checks} checks passed`);
   process.exit(fails ? 1 : 0);

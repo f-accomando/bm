@@ -1362,7 +1362,7 @@ end</pre>
       const el = $('#boneProps'), rig = this.rig(), i = this.bone;
       if (!rig || i < 0 || !rig.bones[i]) { el.innerHTML = '<span class="dim small">' + (rig ? 'Choose a bone.' : '') + '</span>'; return; }
       const b = rig.bones[i], f3 = v => +v.toFixed(3);
-      const xyz = (id, v, step) => `<span class="xyz">${[0, 1, 2].map(k => `<input type="number" step="${step}" data-v="${id}" data-k="${k}" value="${f3(v[k])}">`).join('')}</span>`;
+      const xyz = (id, v, step, f = f3) => `<span class="xyz">${[0, 1, 2].map(k => `<input type="number" step="${step}" data-v="${id}" data-k="${k}" value="${f(v[k])}">`).join('')}</span>`;
       if (this.S.mode === 'rig') {
         const parents = ['<option value="-1">(none)</option>'].concat(rig.bones.slice(0, i).map((p, k) =>
           `<option value="${k}" ${k === b.parent ? 'selected' : ''}>${esc(p.name)}</option>`));
@@ -1377,7 +1377,7 @@ end</pre>
         $('#bpParent').onchange = e => this.edit('parent', () => { b.parent = +e.target.value; });
       } else {
         const p = this.currentPose()[i] || { q: [0, 0, 0, 1], t: [0, 0, 0] };
-        el.innerHTML = `<span>turn °</span>${xyz('rot', Q.toEuler(p.q), 5)}<span>move</span>${xyz('move', p.t, 0.03125)}`;
+        el.innerHTML = `<span>turn °</span>${xyz('rot', Q.toEuler(p.q), 5, v => +v.toFixed(1))}<span>move</span>${xyz('move', p.t, 0.03125)}`;
       }
       el.querySelectorAll('input[data-v]').forEach(inp => inp.onchange = () => this.boneField(inp.dataset.v, +inp.dataset.k, +inp.value));
     }
