@@ -49,6 +49,7 @@ local function game_rect()
   if Cfg.data.scale == "fill" then return 140, 0, 360, 360 end
   return 192, 52, 256, 256
 end
+Ui.game_rect = game_rect
 
 function Ui.go(mode)
   Ui.mode = mode

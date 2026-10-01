@@ -40,17 +40,21 @@ static int ndevs;
 static usb_dev_t *hub;              /* the hub on the root port, if any */
 static int hub_ports;
 static usb_dev_t *hid_dev;          /* the HID device in use */
+static usb_dev_t *mouse_dev;        /* the mouse (M31), maybe the same device */
 static usb_info_t info;
 static int ds4;
 
-/* interrupt IN endpoint of the HID interface */
-static struct {
+/* interrupt IN endpoint of a HID interface */
+typedef struct {
     uint8_t ep, iface, interval;
     uint16_t mps;
     uint8_t toggle;
     uint32_t last_us;
     int active;
-} hid_ep;
+} intr_ep_t;
+
+static intr_ep_t hid_ep, mouse_ep;
+static hid_mouse_layout_t mouse_layout;
 
 static struct { uint32_t ok, nak, err, tmo; uint8_t last[8]; uint32_t last_len; } st;
 
@@ -133,8 +137,16 @@ void usb_print(void)
                 hub->speed < 3 ? speeds[hub->speed] : "?");
     if (eth_present())
         eth_print();
+    if (info.mouse) {
+        kprintf("usb: %s %04x:%04x '%s'", info.mouse == 2 ? "tablet (mouse)" : "mouse", info.mouse_vid,
+                info.mouse_pid, info.mouse_name[0] ? info.mouse_name : "?");
+        if (mouse_dev && mouse_dev->port)
+            kprintf(" (hub port %u%s)", mouse_dev->port, mouse_dev->hub_addr ? ", split" : "");
+        kprintf("%s\n", mouse_layout.wheel_bit >= 0 ? ", wheel" : "");
+    }
     if (info.kind == USB_NONE) {
-        kprintf(hub ? "usb: no keyboard or gamepad on the hub\n" : "usb: nothing attached\n");
+        if (!info.mouse)
+            kprintf(hub ? "usb: no keyboard or gamepad on the hub\n" : "usb: nothing attached\n");
         return;
     }
     kprintf("usb: %s %04x:%04x '%s', %s speed", kinds[info.kind], info.vid, info.pid,
@@ -229,9 +241,19 @@ typedef struct {
     uint16_t mps, rlen;
 } hid_pick_t;
 
+/* Its mouse interface (M31): found, with the report layout (boot: the
+ * descriptor did not parse, the boot protocol is used). */
+typedef struct {
+    int found, boot;
+    uint8_t iface, ep, interval;
+    uint16_t mps;
+    hid_mouse_layout_t layout;
+} mouse_pick_t;
+
 static uint8_t rd[512];
 
-static void hid_probe(usb_dev_t *d, const uint8_t *c, uint16_t total, hid_pick_t *best)
+static void hid_probe(usb_dev_t *d, const uint8_t *c, uint16_t total, hid_pick_t *best,
+                      mouse_pick_t *mouse)
 {
     /* every interface with an interrupt IN endpoint is a candidate */
     struct cand { uint8_t iface, cls, sub, proto, ep, interval; uint16_t mps, rlen; } cand[8];
@@ -240,6 +262,7 @@ static void hid_probe(usb_dev_t *d, const uint8_t *c, uint16_t total, hid_pick_t
     if (d->port)
         ksnprintf(where, sizeof where, "port %u: ", d->port);
     memset(best, 0, sizeof *best);
+    memset(mouse, 0, sizeof *mouse);
     for (int i = 0; i + 1 < total && c[i]; i += c[i]) {
         if (c[i + 1] == DESC_INTERFACE && i + 8 < total && nc < 8) {
             cand[nc] = (struct cand){ c[i + 2], c[i + 5], c[i + 6], c[i + 7], 0, 0, 0, 0 };
@@ -269,8 +292,24 @@ static void hid_probe(usb_dev_t *d, const uint8_t *c, uint16_t total, hid_pick_t
             rl = usb_control(d, 0x81, 6, DESC_HID_REPORT << 8, k->iface, rd, want);
         }
         int kbd_desc = k->cls == 3 && rl > 0 && hid_is_keyboard(rd, (uint32_t)rl, &id);
-        if (k->cls == 3 && k->sub == 1 && k->proto == 2) {
-            score = 0;                                  /* boot mouse: not used */
+        hid_mouse_layout_t ml;
+        int mouse_desc = k->cls == 3 && rl > 0 && !kbd_desc && hid_mouse_layout(rd, (uint32_t)rl, &ml);
+        int is_mouse = 0;
+        if (mouse_desc || (k->cls == 3 && k->sub == 1 && k->proto == 2)) {
+            score = 0;                                  /* a mouse: the pointer, not a player */
+            is_mouse = mouse_desc && ml.absolute ? 2 : 1;
+            if (!mouse->found) {
+                mouse->found = is_mouse;
+                mouse->boot = !mouse_desc;
+                mouse->iface = k->iface;
+                mouse->ep = k->ep;
+                mouse->interval = k->interval;
+                mouse->mps = k->mps;
+                if (mouse_desc)
+                    mouse->layout = ml;
+                else
+                    hid_mouse_boot_layout(&mouse->layout, 0);
+            }
         } else if (k->cls == 3 && ((k->sub == 1 && k->proto == 1) || kbd_desc)) {
             score = 4;
         } else if (k->cls == 0xFF && k->sub == 0x5D && k->proto == 0x01) {
@@ -284,7 +323,7 @@ static void hid_probe(usb_dev_t *d, const uint8_t *c, uint16_t total, hid_pick_t
                 where, k->iface, k->cls, k->sub, k->proto, k->ep | 0x80,
                 k->mps, k->interval, d->speed == USB_SPEED_HIGH ? "uf" : "ms", rl,
                 score == 4 ? (id ? " keyboard (report id)" : " keyboard") : score == 3 ? " xbox" :
-                score == 2 ? " gamepad" : "");
+                score == 2 ? " gamepad" : is_mouse == 2 ? " tablet" : is_mouse ? " mouse" : "");
         if (score > best->score) {
             best->score = score;
             best->iface = k->iface;
@@ -336,9 +375,11 @@ static int hid_attach(usb_dev_t *d, const hid_pick_t *k)
 }
 
 /* What a device is for: the Ethernet of the LAN951x, else a HID candidate
- * (the best one so far is kept in *best / *best_dev). */
+ * (the best one so far is kept in *best / *best_dev) and maybe a mouse
+ * (the first one is kept in *mouse / *mdev). */
 static void probe(usb_dev_t *d, const uint8_t *cfg, uint16_t cfg_len,
-                  hid_pick_t *best, usb_dev_t **best_dev, usb_dev_t **other)
+                  hid_pick_t *best, usb_dev_t **best_dev, usb_dev_t **other,
+                  mouse_pick_t *mouse, usb_dev_t **mdev)
 {
     if (eth_match(d->vid, d->pid)) {
         eth_attach(d, cfg, cfg_len);
@@ -348,16 +389,24 @@ static void probe(usb_dev_t *d, const uint8_t *cfg, uint16_t cfg_len,
         kprintf("usb: port %u: a hub behind the hub, not used\n", d->port);
         return;
     }
-    if (!*other)
-        *other = d;
-    if (!cfg_len)
+    if (!cfg_len) {
+        if (!*other)
+            *other = d;
         return;
+    }
     hid_pick_t k;
-    hid_probe(d, cfg, cfg_len, &k);
+    mouse_pick_t m;
+    hid_probe(d, cfg, cfg_len, &k, &m);
     if (k.score > best->score) {
         *best = k;
         *best_dev = d;
     }
+    if (m.found && !*mdev) {
+        *mouse = m;
+        *mdev = d;
+    }
+    if (!*other && !m.found)
+        *other = d;                             /* a mouse alone is not "not used" */
 }
 
 static int port_status(usb_dev_t *h, uint8_t port, uint32_t *s)
@@ -389,7 +438,8 @@ static int port_reset(usb_dev_t *h, uint8_t port, uint32_t *s)
 /* Powers every port of the hub on the root port, then enumerates what is
  * attached, one port at a time (each device starts at address 0). */
 static void hub_scan(usb_dev_t *h, uint8_t *cfg, uint16_t cfg_size,
-                     hid_pick_t *best, usb_dev_t **best_dev, usb_dev_t **other)
+                     hid_pick_t *best, usb_dev_t **best_dev, usb_dev_t **other,
+                     mouse_pick_t *mouse, usb_dev_t **mdev)
 {
     uint8_t hd[16];
     int r = usb_control(h, 0xA0, 6, DESC_HUB << 8, 0, hd, sizeof hd);
@@ -416,8 +466,30 @@ static void hub_scan(usb_dev_t *h, uint8_t *cfg, uint16_t cfg_size,
         uint16_t len;
         usb_dev_t *d = enumerate(sp, h, (uint8_t)p, cfg, cfg_size, &len);
         if (d)
-            probe(d, cfg, len, best, best_dev, other);
+            probe(d, cfg, len, best, best_dev, other, mouse, mdev);
     }
+}
+
+/* Sets up the mouse interface: report protocol with the parsed layout, or
+ * the boot protocol. */
+static void mouse_attach(usb_dev_t *d, const mouse_pick_t *m)
+{
+    mouse_dev = d;
+    mouse_ep.ep = m->ep;
+    mouse_ep.mps = m->mps > sizeof report ? sizeof report : m->mps;
+    mouse_ep.interval = m->interval;
+    mouse_ep.iface = m->iface;
+    mouse_ep.toggle = PID_DATA0;
+    mouse_ep.active = 1;
+    mouse_layout = m->layout;
+    if (m->boot)
+        usb_control(d, 0x21, 0x0B, 0, m->iface, NULL, 0);      /* SET_PROTOCOL boot */
+    usb_control(d, 0x21, 0x0A, 0, m->iface, NULL, 0);          /* SET_IDLE 0 */
+    hid_mouse_clear(HID_MOUSE_USB);
+    info.mouse = m->found;
+    info.mouse_vid = d->vid;
+    info.mouse_pid = d->pid;
+    memcpy(info.mouse_name, d->name, sizeof info.mouse_name);
 }
 
 int usb_init(void)
@@ -426,11 +498,14 @@ int usb_init(void)
     memset(&info, 0, sizeof info);
     ds4 = 0;
     memset(&hid_ep, 0, sizeof hid_ep);
+    memset(&mouse_ep, 0, sizeof mouse_ep);
     memset(&st, 0, sizeof st);
     ndevs = 0;
     hub = NULL;
     hub_ports = 0;
     hid_dev = NULL;
+    mouse_dev = NULL;
+    hid_mouse_clear(HID_MOUSE_USB);
     eth_detach();
     if (dwc2_init() != 0)
         return USB_NONE;
@@ -450,13 +525,16 @@ int usb_init(void)
         return USB_NONE;
 
     hid_pick_t best = { 0 };
-    usb_dev_t *best_dev = NULL, *other = NULL;
+    mouse_pick_t mouse = { 0 };
+    usb_dev_t *best_dev = NULL, *other = NULL, *mdev = NULL;
     if (root->cls == CLASS_HUB) {
         hub = root;
-        hub_scan(root, cfg, sizeof cfg, &best, &best_dev, &other);
+        hub_scan(root, cfg, sizeof cfg, &best, &best_dev, &other, &mouse, &mdev);
     } else {
-        probe(root, cfg, len, &best, &best_dev, &other);
+        probe(root, cfg, len, &best, &best_dev, &other, &mouse, &mdev);
     }
+    if (mdev)
+        mouse_attach(mdev, &mouse);
 
     int kind = USB_NONE;
     usb_dev_t *d = best_dev ? best_dev : other;
@@ -479,38 +557,49 @@ int usb_init(void)
     return kind;
 }
 
-void usb_poll(void)
+/* One interrupt IN transfer on e when its interval has passed: the bytes
+ * received (0 for none, NAK or an error). */
+static uint32_t poll_ep(usb_dev_t *d, intr_ep_t *e)
 {
-    if (!hid_ep.active || !hid_dev)
-        return;
     uint32_t now = timer_ticks();
     /* bInterval: milliseconds (low/full speed) or 2^(n-1) x 125 us (high speed) */
-    uint32_t iv = hid_ep.interval ? hid_ep.interval : 1;
-    uint32_t period = hid_dev->speed == USB_SPEED_HIGH
+    uint32_t iv = e->interval ? e->interval : 1;
+    uint32_t period = d->speed == USB_SPEED_HIGH
         ? (1u << ((iv > 16 ? 16 : iv) - 1)) * 125u
         : iv * 1000u;
     if (period < 4000) period = 4000;       /* polled from the main loop anyway */
-    if (now - hid_ep.last_us < period)
-        return;
-    hid_ep.last_us = now;
+    if (now - e->last_us < period)
+        return 0;
+    e->last_us = now;
 
-    dwc2_pipe_t p = { hid_dev->addr, hid_ep.ep, 1, EP_INTERRUPT, hid_ep.mps, hid_dev->speed,
-                      &hid_ep.toggle, hid_dev->hub_addr, hid_dev->hub_port };
+    dwc2_pipe_t p = { d->addr, e->ep, 1, EP_INTERRUPT, e->mps, d->speed,
+                      &e->toggle, d->hub_addr, d->hub_port };
     uint32_t got = 0;
-    int r = dwc2_transfer(CH_INTR, &p, hid_ep.toggle, report, hid_ep.mps, &got, 20);
+    int r = dwc2_transfer(CH_INTR, &p, e->toggle, report, e->mps, &got, 20);
     if (r == XFER_OK) {
         st.ok++;
         if (got) {
             st.last_len = got;
             memcpy(st.last, report, got < 8 ? got : 8);
-            hid_report(info.kind, report, got);
         }
-    } else if (r == XFER_NAK) {
+        return got;
+    }
+    if (r == XFER_NAK) {
         st.nak++;
     } else {
         if (r == XFER_TIMEOUT) st.tmo++; else st.err++;
-        hid_ep.toggle = PID_DATA0;
+        e->toggle = PID_DATA0;
     }
+    return 0;
+}
+
+void usb_poll(void)
+{
+    uint32_t got;
+    if (hid_ep.active && hid_dev && (got = poll_ep(hid_dev, &hid_ep)) != 0)
+        hid_report(info.kind, report, got);
+    if (mouse_ep.active && mouse_dev && (got = poll_ep(mouse_dev, &mouse_ep)) != 0)
+        hid_mouse_report(HID_MOUSE_USB, &mouse_layout, report, got);
 }
 
 void usb_diag(char *buf, unsigned size)
@@ -524,7 +613,7 @@ void usb_diag(char *buf, unsigned size)
 void usb_live_test(uint32_t seconds)
 {
     char line[96];
-    if (!hid_ep.active)
+    if (!hid_ep.active && !mouse_ep.active)
         return;
     kprintf("usb test for %lu s: press some keys / buttons\n", seconds);
     uint32_t t0 = timer_ticks(), shown = 0;

@@ -3,8 +3,8 @@
  * the device on each hub port (the Pi 1 B always has a hub: the LAN951x,
  * with the Ethernet controller on port 1). Enumerated and configured at
  * boot; one HID device is used (keyboards with the boot protocol, generic
- * HID gamepads, Xbox 360 wired controllers), the Ethernet goes to
- * smsc95xx.c. Polled from the main loop (usb_poll).
+ * HID gamepads, Xbox 360 wired controllers) and one mouse next to it, the
+ * Ethernet goes to smsc95xx.c. Polled from the main loop (usb_poll).
  */
 #ifndef USB_H
 #define USB_H
@@ -18,6 +18,11 @@ typedef struct {
     uint16_t vid, pid;
     uint8_t speed;
     char name[48];
+    /* a mouse (M31), used next to the keyboard or gamepad: on the same
+     * device (a receiver with both) or on another port of the hub */
+    int mouse;                      /* 0 none, 1 mouse, 2 tablet (absolute) */
+    uint16_t mouse_vid, mouse_pid;
+    char mouse_name[48];
 } usb_info_t;
 
 /* An enumerated device (address set, configuration selected). */
@@ -43,7 +48,7 @@ void usb_diag(char *buf, unsigned size);
 /* Polls for `seconds` showing usb_diag live on the console. */
 void usb_live_test(uint32_t seconds);
 
-/* Polls the HID endpoint (rate-limited to its bInterval). Call often. */
+/* Polls the HID endpoints (rate-limited to their bInterval). Call often. */
 void usb_poll(void);
 
 /* For device drivers. A control request with a data stage of len bytes

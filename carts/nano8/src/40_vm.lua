@@ -65,6 +65,10 @@ function Vm.start(path, param)
   Vm.cartid, Vm.saved_data, Vm.request, Vm.want_pause = nil, nil, nil, false
   Vm.menu = {}
   Vm.mouse.x, Vm.mouse.y, Vm.mouse.b = 64, 64, 0
+  if Vm.mouse_on then
+    Vm.mouse_on = nil
+    mouse(false)
+  end
   Vm.pause_held = true                -- the button that started it is not a pause
   Vm.co = coroutine.create(function()
     local ok, e = xpcall(function()
@@ -223,11 +227,25 @@ function Vm.tick()
   end
 end
 
--- The mouse of the carts (poke(0x5f2d, 1)): bm has none, so the
--- cursor follows the left stick, the cross or the arrows (faster the
--- longer they are held), and O / X are its left and right buttons.
+-- The mouse of the carts (poke(0x5f2d, 1)): bm's pointer (M31) once it
+-- shows (a mouse, or the right stick moved), over the picture of the cart,
+-- which draws its own cursor; else the cursor follows the left stick, the
+-- cross or the arrows (faster the longer they are held). O / X are also
+-- its left and right buttons.
 function Vm.mouse_move(bits)
   local m = Vm.mouse
+  if not Vm.mouse_on then
+    Vm.mouse_on = true
+    mouse(true, false)
+  end
+  local px, py, pb, _, shown = mouse()
+  if px and shown then
+    local gx, gy, gw, gh = Ui.game_rect()
+    m.x = clamp((px - gx) * 128 / gw, 0, 127)
+    m.y = clamp((py - gy) * 128 / gh, 0, 127)
+    m.b = pb | (bits & 16 ~= 0 and 1 or 0) | (bits & 32 ~= 0 and 2 or 0)
+    return
+  end
   local sx, sy = stick(1)
   local dx = (bits & 2 ~= 0 and 1 or 0) - (bits & 1 ~= 0 and 1 or 0)
   local dy = (bits & 8 ~= 0 and 1 or 0) - (bits & 4 ~= 0 and 1 or 0)

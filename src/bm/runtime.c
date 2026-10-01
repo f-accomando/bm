@@ -12,6 +12,7 @@
 #include "kernel/config.h"
 #include "lib/crc32.h"
 #include "kernel/input.h"
+#include "kernel/pointer.h"
 #include "usb/hid.h"
 #include "gfx/console.h"
 #include "gfx/font.h"
@@ -79,6 +80,8 @@ static struct {
     uint32_t mesh_size;
     uint8_t *anim;              /* copy of its ANIM section (skeletons), or NULL */
     uint32_t anim_size;
+    int mouse, mouse_arrow;     /* mouse(true [, arrow]): the pointer is the cartridge's */
+    pointer_t ptr;              /* the pointer this frame */
 } rt;
 
 #define MESH_MT "bm.mesh"
@@ -1469,6 +1472,43 @@ static int l_keys(lua_State *L)
 /* pad([p]) -> the controller buttons player p (1-4) holds, as bits: 1 left,
  * 2 right, 4 up, 8 down, 16 A, 32 B, 64 Start, 128 Select, 256 X, 512 Y,
  * 1024 L1, 2048 R1; without p, any player */
+/* mouse(on [, arrow]): the cartridge wants the pointer (M31; without it
+ * there is none in a cartridge), with the system's arrow drawn over the
+ * frame unless arrow is false; returns false when the console has it off
+ * (mouse=off in bm/config.txt). mouse() -> x, y, buttons (1 left, 2 right,
+ * 4 middle), wheel steps this frame (up positive), shown; nil when the
+ * cartridge did not ask or nothing can move it (no mouse, no right stick). */
+static int l_mouse(lua_State *L)
+{
+    if (lua_gettop(L) >= 1) {
+        rt.mouse = lua_toboolean(L, 1);
+        rt.mouse_arrow = lua_isnoneornil(L, 2) || lua_toboolean(L, 2);
+        pointer_env(rt.mouse, rt.g.w, rt.g.h);
+        rt.ptr = *pointer_get();
+        lua_pushboolean(L, pointer_enabled());
+        return 1;
+    }
+    if (!rt.mouse || !pointer_enabled() || !rt.ptr.available) {
+        lua_pushnil(L);
+        return 1;
+    }
+    lua_pushinteger(L, rt.ptr.x);
+    lua_pushinteger(L, rt.ptr.y);
+    lua_pushinteger(L, rt.ptr.buttons);
+    lua_pushinteger(L, rt.ptr.wheel);
+    lua_pushboolean(L, rt.ptr.shown);
+    return 5;
+}
+
+/* mousep([i]): the button i (0 left, 1 right, 2 middle; default 0) was
+ * pressed this frame, with the pointer shown */
+static int l_mousep(lua_State *L)
+{
+    lua_Integer i = luaL_optinteger(L, 1, 0);
+    lua_pushboolean(L, rt.mouse && i >= 0 && i < 3 && (rt.ptr.pressed >> i & 1));
+    return 1;
+}
+
 static int l_pad(lua_State *L)
 {
     uint32_t b = 0;
@@ -1569,7 +1609,7 @@ static const luaL_Reg api[] = {
     { "zclear", l_zclear }, { "log", l_log }, { "quit", l_quit },
     { "save", l_save }, { "saved", l_saved },
     { "keyp", l_keyp }, { "keyheld", l_keyheld }, { "rawkeys", l_rawkeys }, { "keydown", l_keydown },
-    { "keys", l_keys }, { "pad", l_pad }, { "timeslice", l_timeslice }, { "ls", l_ls }, { "cart_load", l_cart_load }, { "cart_new", l_cart_new },
+    { "keys", l_keys }, { "pad", l_pad }, { "mouse", l_mouse }, { "mousep", l_mousep }, { "timeslice", l_timeslice }, { "ls", l_ls }, { "cart_load", l_cart_load }, { "cart_new", l_cart_new },
     { "cart_save", l_cart_save }, { "cart_run", l_cart_run }, { "cart_arg", l_cart_arg },
     { "cart_data", l_cart_data },
     { "cart_read", l_cart_read }, { "cart_write", l_cart_write }, { "cart_meshes", l_cart_meshes },
@@ -1818,6 +1858,7 @@ static int poll_keys(void)
                       b == BTN_SELECT ? HID_SELECT : 1u << b;
             rt.hold[b]--;
         }
+    rt.ptr = *pointer_update();             /* also when unused: the motion is dropped */
     rt.prev = rt.now;
     rt.now = hid_to_btn(pad | serial);
     for (int p = 0; p < INPUT_PLAYERS; p++) {
@@ -2760,6 +2801,8 @@ int bm_video_enter(framebuffer_t *fb, int w, int h, g16_t *g)
 uint32_t bm_video_present(framebuffer_t *fb, g16_t *g)
 {
     if (!shadow) {
+        if (rt.mouse && rt.mouse_arrow)         /* on the page about to be shown */
+            pointer_draw((uint16_t *)fb->base, fb->pitch / 2, g->w, g->h);
         fb_flip(fb);
         g->px = (uint16_t *)fb->base;
         return 0;
@@ -2778,6 +2821,8 @@ uint32_t bm_video_present(framebuffer_t *fb, g16_t *g)
             memcpy(fb->base + (uint32_t)y * fb->pitch, g->px + (uint32_t)y * g->stride, row);
     }
     uint32_t us = timer_ticks() - t0;
+    if (rt.mouse && rt.mouse_arrow)             /* over the copy: never in the cartridge's buffer */
+        pointer_draw((uint16_t *)fb->base, fb->pitch / 2, g->w, g->h);
     fb_flip(fb);
     return us;
 }
@@ -2797,6 +2842,7 @@ static int enter_mode(framebuffer_t *fb, int w, int h)
 
 static void leave_mode(framebuffer_t *fb, uint32_t w, uint32_t h)
 {
+    pointer_env(0, 0, 0);
     bm_video_leave(fb, w, h);
     input_flush();              /* keys typed in the game stay in the game */
 }
@@ -3001,6 +3047,7 @@ int bm_resume(framebuffer_t *fb, uint32_t seconds, bm_stats_t *st)
     rt.g.font = susp.g.font;
     if (susp.used_ram)
         video_to_ram(&rt.g);
+    pointer_env(rt.mouse, susp.w, susp.h);      /* the pointer, if it had asked for it */
     /* the time spent in the menu does not count for time() */
     rt.start_us += timer_ticks() - susp.since;
     rt.esc = 0;

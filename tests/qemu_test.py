@@ -46,12 +46,14 @@ class Qemu:
         as self.mini. machine: raspi1ap is a Pi 1 A+ (same SoC)."""
         self.tmp = tempfile.mkdtemp(prefix="bm-")
         self.mon_path = os.path.join(self.tmp, "mon.sock")
+        self.qmp_path = os.path.join(self.tmp, "qmp.sock")
         tcp, tcp2 = free_port(), free_port()
         self.proc = subprocess.Popen(
             [QEMU, "-M", machine, "-bios", image, "-display", "none",
              "-serial", f"tcp:127.0.0.1:{tcp},server=on,wait=on",
              "-serial", f"tcp:127.0.0.1:{tcp2},server=on,wait=on" if mini_uart else "null",
-             "-monitor", f"unix:{self.mon_path},server=on,wait=off", *extra],
+             "-monitor", f"unix:{self.mon_path},server=on,wait=off",
+             "-qmp", f"unix:{self.qmp_path},server=on,wait=off", *extra],
             stdout=subprocess.DEVNULL, stderr=subprocess.PIPE)
         self.port = bm_load.Port(f"tcp:127.0.0.1:{tcp}", 115200)
         self.mini = bm_load.Port(f"tcp:127.0.0.1:{tcp2}", 115200) if mini_uart else None
@@ -104,6 +106,35 @@ class Qemu:
             s.connect(self.mon_path)
             s.sendall(cmd.encode() + b"\n")
             time.sleep(0.5)
+
+    def input_events(self, events):
+        """QMP input-send-event: the monitor's mouse_move is relative only,
+        an absolute position (usb-tablet) needs this."""
+        import json
+        with socket.socket(socket.AF_UNIX) as s:
+            s.connect(self.qmp_path)
+            f = s.makefile("rw")
+            f.readline()
+            for cmd in ({"execute": "qmp_capabilities"},
+                        {"execute": "input-send-event", "arguments": {"events": events}}):
+                f.write(json.dumps(cmd) + "\n")
+                f.flush()
+                reply = f.readline()
+                assert '"return"' in reply, reply
+        time.sleep(0.1)
+
+    def pointer(self, x, y, w=640, h=360):
+        """The tablet to pixel (x, y) of a w x h screen (the pointer's
+        position is a fraction of the screen)."""
+        self.input_events([{"type": "abs", "data": {"axis": "x", "value": int((x + 0.5) * 32767 / w)}},
+                           {"type": "abs", "data": {"axis": "y", "value": int((y + 0.5) * 32767 / h)}}])
+
+    def click(self, button="left"):
+        """A press and a release of a mouse button (left, right, middle,
+        wheel-up, wheel-down)."""
+        for down in (True, False):
+            self.input_events([{"type": "btn", "data": {"down": down, "button": button}}])
+            time.sleep(0.1)
 
     def screendump(self):
         path = os.path.join(self.tmp, "screen.ppm")
@@ -616,8 +647,8 @@ def test_usb_keyboard(b, opts):
 
 def test_usb_hub(b, opts):
     """Devices behind a hub (the Pi 1 B's USB ports are all behind its
-    LAN951x): each port reset and enumerated; the keyboard wins over the
-    tablet (a gamepad) and types. QEMU's hub is full speed, so no split
+    LAN951x): each port reset and enumerated; the keyboard types, the
+    tablet is the mouse (M31). QEMU's hub is full speed, so no split
     transactions here: those need a high-speed hub (the LAN951x)."""
     hub = ["-device", "usb-hub,port=1", "-device", "usb-kbd,port=1.2",
            "-device", "usb-tablet,port=1.4"]
@@ -644,11 +675,12 @@ def test_usb_hub(b, opts):
         assert b"usb: hub 0409:55aa" in out, out
     finally:
         q.close()
-    # only the tablet behind the hub: it is the gamepad
+    # only the tablet behind the hub: the mouse, no keyboard or gamepad
     q = Qemu(b("kernel.img"), ["-device", "usb-hub,port=1", "-device", "usb-tablet,port=1.3"])
     try:
         out = q.expect(MENU, timeout=40)
-        assert b"usb: gamepad 0627:0001 'QEMU USB Tablet', full speed (hub port 3)" in out, out
+        assert b"usb: tablet (mouse) 0627:0001 'QEMU USB Tablet' (hub port 3), wheel" in out, out
+        assert b"usb: no keyboard or gamepad" not in out, out
     finally:
         q.close()
 
@@ -2363,29 +2395,183 @@ def test_menu_scroll(b, opts):
         shutil.rmtree(tmp, ignore_errors=True)
 
 
-def test_usb_hid_gamepad(b, opts):
-    """Generic HID parser: QEMU's usb-tablet (report descriptor with 3
-    buttons and absolute X/Y) is taken as a gamepad; button 1 = A."""
-    tmp = tempfile.mkdtemp(prefix="bm-tablet-")
+def arrow_at(img, x, y):
+    """The pointer's arrow (M31) with its tip at (x, y): on its sixth row a
+    black outline pixel, then four white ones (both sizes of the arrow)."""
+    def white(p): return min(p) > 230
+    def black(p): return max(p) < 24
+    return black(pixel(img, x, y + 5)) and all(white(pixel(img, x + i, y + 5)) for i in (1, 2, 3, 4))
+
+
+MOUSE_CARTS = ["astrowing", "hunt", "pong", "snake", "shooter"]
+# their titles, in the order of the menu
+MOUSE_TITLES = ["Astro Wing", "Hunter's Night", "Pong", "Snake", "Star Shooter"]
+
+
+def cover_xy(i):
+    """The middle of cover i of the grid (first two rows on screen)."""
+    return 40 + (i % 4) * 144 + 64, 112 + (i // 4) * 96 + 40
+
+
+def test_usb_mouse(b, opts):
+    """M31: a USB mouse next to the USB keyboard (both behind a hub; QEMU's
+    usb-tablet, moved to absolute positions over QMP). The bar shows the
+    keyboard and a white mouse without a number; the arrow is drawn where
+    the pointer is; moving over a cover selects it, the wheel moves by rows,
+    the keys hide the arrow; a click on a tab changes it, the right button
+    opens a cover's options, a click outside the panel closes it, a click
+    on a cover plays it."""
+    tmp = tempfile.mkdtemp(prefix="bm-mouse-")
     img = os.path.join(tmp, "sd.img")
-    mksd.build(img, [(b("demo.bm"), "carts/demo.bm")])
+    mksd.build(img, [(b(f"carts/{n}.bm"), f"carts/{n}.bm") for n in MOUSE_CARTS])
     q = Qemu(b("kernel.img"), ["-drive", f"if=sd,format=raw,file={img}",
-                               "-device", "usb-tablet,port=1"])
+                               "-device", "usb-hub,port=1", "-device", "usb-kbd,port=1.2",
+                               "-device", "usb-tablet,port=1.3"])
     try:
         out = q.expect("cartridge menu", timeout=90).decode(errors="replace")
-        assert "usb: gamepad 0627:0001 'QEMU USB Tablet'" in out, out
-        q.monitor("mouse_move 16384 16384")    # centre: stick released
-        # the tablet's button report also moves up once: on the first row
-        # that does nothing (the tabs are L1 / R1), A plays the cover
+        assert "usb: port 3: if0 class 03/00/00 ep 81 mps 8" in out and " tablet" in out, out
+        assert "usb: tablet (mouse) 0627:0001 'QEMU USB Tablet' (hub port 3), wheel" in out, out
+        assert "usb: keyboard 0627:0001 'QEMU USB Keyboard'" in out, out
+        time.sleep(1.0)
+        shot_ = q.screendump()
+        runs = bar_icons(shot_)
+        assert len(runs) == 2 and not blue_number(shot_, runs[0]) and not blue_number(shot_, runs[1]), runs
+        assert runs[1][1] - runs[1][0] <= 13, runs          # the mouse: narrow, no number
+        assert arrow_at(shot_, 320, 180), "no arrow in the middle"
+        # over a cover: it is selected, its title shown
+        x, y = cover_xy(2)
+        q.pointer(x, y)
+        time.sleep(0.4)
+        shot_ = q.screendump()
+        assert arrow_at(shot_, x, y), "the arrow did not follow"
+        assert MOUSE_TITLES[2] in screen_text(shot_)[4], screen_text(shot_)[4]
+        # the wheel: a row down (the last cover of the shorter row)
+        q.click("wheel-down")
+        time.sleep(0.4)
+        assert MOUSE_TITLES[4] in screen_text(q.screendump())[4]
+        # the keys move the selection: the arrow goes away until it moves
+        sendkeys(q, "left")
+        time.sleep(0.4)
+        shot_ = q.screendump()
+        assert not arrow_at(shot_, x, y), "the arrow stayed with the keys"
+        assert MOUSE_TITLES[3] in screen_text(shot_)[4], screen_text(shot_)[4]
+        # a click on Dev changes the tab, on Games back
+        q.pointer(108, 24)
+        time.sleep(0.3)
+        q.click()
         time.sleep(0.5)
-        q.monitor("mouse_button 1")
-        q.monitor("mouse_button 0")
-        q.expect("playing demo.bm", timeout=10)
+        assert "bm SDK" in screen_text(q.screendump())[4]
+        q.pointer(44, 24)
+        time.sleep(0.3)
+        q.click()
+        time.sleep(0.5)
+        # the right button on a cover: its options; a click outside closes them
+        x, y = cover_xy(1)
+        q.pointer(x, y)
+        time.sleep(0.3)
+        q.click("right")
+        time.sleep(0.5)
+        text = "\n".join(screen_text(q.screendump()))
+        assert "Play" in text and "Open in the SDK" in text, text
+        q.pointer(30, 200)
+        time.sleep(0.3)
+        q.click()
+        time.sleep(0.5)
+        text = "\n".join(screen_text(q.screendump()))
+        assert "Open in the SDK" not in text and MOUSE_TITLES[1] in text, text
+        # a click on a cover plays it
+        x, y = cover_xy(0)
+        q.pointer(x, y)
+        time.sleep(0.3)
+        q.click()
+        q.expect("playing astrowing.bm", timeout=10)
         time.sleep(1.0)
         q.send("q")
         q.expect("update+draw", timeout=15)
+    finally:
+        q.close()
+        shutil.rmtree(tmp, ignore_errors=True)
+
+
+MOUSE_CART = r"""
+local last
+function _init()
+  log("before " .. tostring(mouse()))
+  log("enabled " .. tostring(mouse(true)))
+end
+function _update()
+  local x, y, b, w, shown = mouse()
+  local s = x and string.format("%d,%d b%d w%d %s", x, y, b, w, tostring(shown)) or "nil"
+  if mousep(0) then s = s .. " click" end
+  if mousep(1) then s = s .. " right" end
+  if s ~= last then last = s; log("mouse " .. s) end
+end
+function _draw() cls(1) end
+"""
+
+
+def test_mouse_cart(b, opts):
+    """M31: a cartridge has the pointer only when it asks (mouse(true)):
+    mouse() gives its position in the cartridge's pixels (320x180 here),
+    the buttons, the wheel; mousep() the clicks; the small arrow is drawn
+    over the frame. With mouse=off in bm/config.txt there is no pointer
+    anywhere: no icon, mouse(true) is false, mouse() nil."""
+    tmp = tempfile.mkdtemp(prefix="bm-mousecart-")
+    cart = os.path.join(tmp, "mouse.bm")
+    with open(cart, "wb") as f:
+        f.write(mkbm.pack(MOUSE_CART.encode(), title="Mouse test", res=(320, 180)))
+    img = os.path.join(tmp, "sd.img")
+    mksd.build(img, [(cart, "carts/mouse.bm")])
+    tablet = ["-drive", f"if=sd,format=raw,file={img}", "-device", "usb-tablet,port=1"]
+    q = Qemu(b("kernel.img"), tablet)
+    try:
+        q.expect("cartridge menu", timeout=90)
+        time.sleep(1.0)
+        x, y = cover_xy(0)
+        q.pointer(x, y)
+        time.sleep(0.3)
+        q.click()
+        q.expect("playing mouse.bm", timeout=10)
+        out = q.expect("enabled true", timeout=10).decode(errors="replace")
+        assert "before nil" in out, out
+        q.pointer(160, 45, 320, 180)
+        q.expect("mouse 160,45 b0 w0 true", timeout=10)
+        shot_ = q.screendump()
+        assert shot_[:2] == (320, 180) and arrow_at(shot_, 160, 45), shot_[:2]
+        q.click()
+        q.expect("mouse 160,45 b1 w0 true click", timeout=10)
+        q.click("right")
+        q.expect(" right", timeout=10)
+        q.click("wheel-up")
+        q.expect("w1 true", timeout=10)
         q.send("q")
-        q.expect("back to the monitor", timeout=10)
+        q.expect("update+draw", timeout=15)
+    finally:
+        q.close()
+    # the whole console without the pointer
+    with open(os.path.join(tmp, "config.txt"), "w") as f:
+        f.write("mouse=off\n")
+    mksd.build(img, [(cart, "carts/mouse.bm"), (os.path.join(tmp, "config.txt"), "bm/config.txt")])
+    q = Qemu(b("kernel.img"), tablet)
+    try:
+        out = q.expect("cartridge menu", timeout=90).decode(errors="replace")
+        assert ", mouse off" in out, out
+        time.sleep(1.0)
+        shot_ = q.screendump()
+        assert bar_icons(shot_) == [] and not arrow_at(shot_, 320, 180), bar_icons(shot_)
+        q.pointer(*cover_xy(0))
+        time.sleep(0.3)
+        q.click()
+        time.sleep(1.0)
+        assert b"playing" not in q.buf, "the click played"
+        q.send("\r")
+        q.expect("playing mouse.bm", timeout=10)
+        q.expect("enabled false", timeout=10)
+        q.pointer(100, 100, 320, 180)
+        time.sleep(0.5)
+        q.send("q")
+        out = q.expect("update+draw", timeout=15).decode(errors="replace")
+        assert "mouse 100" not in out and "mouse nil" in out, out
     finally:
         q.close()
         shutil.rmtree(tmp, ignore_errors=True)

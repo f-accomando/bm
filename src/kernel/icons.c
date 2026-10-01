@@ -89,6 +89,14 @@ static float ethernet(float x, float y)
     return d;
 }
 
+static float mouse(float x, float y)
+{
+    float d = rrect(x, y, CX, 9.0f, 5.5f, 8.5f, 5.0f);         /* body, upright */
+    d = cut(d, rrect(x, y, CX, 6.5f, 6.0f, 0.5f, 0.0f));       /* under the buttons */
+    d = cut(d, rrect(x, y, CX, 3.0f, 0.5f, 3.5f, 0.0f));       /* between them */
+    return d;
+}
+
 /* ---------------------------------------------------------------- masks */
 
 static const uint8_t digits[4][7] = {           /* 5x7, bit 4 = left column */
@@ -101,9 +109,13 @@ static const uint8_t digits[4][7] = {           /* 5x7, bit 4 = left column */
 #define DISC_Y   16.5f              /* the number disc, centred at (CX, DISC_Y) */
 #define DISC_R   5.6f
 #define GAP_R    7.3f               /* cut around it */
+#define DOT_X    21.0f              /* the dot (ICON_DOT): smaller, low on the right */
+#define DOT_Y    14.0f
+#define DOT_R    3.2f
+#define DOT_GAP  4.7f
 
-static icon_mask_t masks[ICON_COUNT][5];
-static int made[ICON_COUNT][5];
+static icon_mask_t masks[ICON_COUNT][ICON_DOT + 1];
+static int made[ICON_COUNT][ICON_DOT + 1];
 
 static float coverage(float (*f)(float, float), int x, int y)
 {
@@ -114,30 +126,33 @@ static float coverage(float (*f)(float, float), int x, int y)
     return (float)n / 16.0f;
 }
 
-static float disc_r;
-static float disc(float x, float y) { return circle(x, y, CX, DISC_Y, disc_r); }
+static float disc_r, disc_x = CX, disc_y = DISC_Y;
+static float disc(float x, float y) { return circle(x, y, disc_x, disc_y, disc_r); }
 
 const icon_mask_t *icon_mask(int icon, int num)
 {
-    if (icon < 0 || icon >= ICON_COUNT || num < 0 || num > 4)
+    if (icon < 0 || icon >= ICON_COUNT || num < 0 || num > ICON_DOT)
         return NULL;
     icon_mask_t *m = &masks[icon][num];
     if (made[icon][num])
         return m;
     float (*f)(float, float) = icon == ICON_KEYBOARD ? keyboard : icon == ICON_PAD ? pad
-                             : icon == ICON_WIFI ? wifi : ethernet;
+                             : icon == ICON_WIFI ? wifi : icon == ICON_MOUSE ? mouse : ethernet;
+    int dot = num == ICON_DOT;
+    disc_x = dot ? DOT_X : CX;
+    disc_y = dot ? DOT_Y : DISC_Y;
     memset(m, 0, sizeof *m);
     for (int y = 0; y < ICON_BH; y++)
         for (int x = 0; x < ICON_W; x++) {
             int i = y * ICON_W + x;
             float a = y < ICON_H ? coverage(f, x, y) : 0.0f;
             if (num) {
-                disc_r = GAP_R;
+                disc_r = dot ? DOT_GAP : GAP_R;
                 a *= 1.0f - coverage(disc, x, y);
-                disc_r = DISC_R;
+                disc_r = dot ? DOT_R : DISC_R;
                 m->disc[i] = (uint8_t)(coverage(disc, x, y) * 255.0f + 0.5f);
                 int dx = x - 11, dy = y - 13;             /* the digit, on whole pixels */
-                m->digit[i] = dx >= 0 && dx < 5 && dy >= 0 && dy < 7 &&
+                m->digit[i] = !dot && dx >= 0 && dx < 5 && dy >= 0 && dy < 7 &&
                               (digits[num - 1][dy] >> (4 - dx) & 1);
             }
             m->icon[i] = (uint8_t)(a * 255.0f + 0.5f);
