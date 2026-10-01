@@ -366,7 +366,6 @@ void rtw_set_tx_power(unsigned ch)
 int rtw_h2c_box(const uint8_t cmd[8])
 {
     unsigned box = h2c_box;
-    h2c_box = (h2c_box + 1) & 3;
     for (int i = 0; i < 30; i++) {
         if (!((rtw_r8(0x1cc) >> box) & 1))
             goto free;
@@ -376,6 +375,7 @@ int rtw_h2c_box(const uint8_t cmd[8])
 free:
     rtw_w32(0x1f0 + 4 * box, cmd[4] | cmd[5] << 8 | cmd[6] << 16 | (uint32_t)cmd[7] << 24);
     rtw_w32(0x1d0 + 4 * box, cmd[0] | cmd[1] << 8 | cmd[2] << 16 | (uint32_t)cmd[3] << 24);
+    h2c_box = (h2c_box + 1) & 3;
     return 0;
 }
 
@@ -440,8 +440,90 @@ int rtw_init_radio(char *err, unsigned errlen)
     for (int i = 0; i < 6; i++)
         rtw_w8(0x610 + i, rtw.mac[i]);
     rtw_rx_all_bss(1);
-    rtw_w8(0xc50, 0x1c);                            /* IGI for scanning */
+    rtw_set_igi(0x1c);                              /* for scanning: most coverage */
     rtw_set_channel(1);
     return 0;
+}
+
+/* --- the link (port 0, MACID 0) --- */
+
+void rtw_set_igi(uint8_t igi)
+{
+    rtw_w32_mask(0xc50, 0x7f, igi);
+}
+
+void rtw_set_bssid(const uint8_t bssid[6])
+{
+    for (int i = 0; i < 6; i++)
+        rtw_w8(0x618 + i, bssid[i]);
+}
+
+void rtw_set_link(unsigned net_type, unsigned aid)
+{
+    rtw_w32_mask(REG_CR, 0x30000u, net_type);
+    rtw_w32_mask(0x6a8, 0x7ffu, aid);
+}
+
+/* CAM entry idx: 8 dwords through 0x674 / 0x670, word 0 (valid) last */
+void rtw_cam_write(unsigned idx, unsigned keyid, unsigned type, int group, const uint8_t mac[6],
+                   const uint8_t key[16])
+{
+    for (int i = 7; i >= 0; i--) {
+        uint32_t v;
+        if (i == 0)
+            v = (keyid & 3) | (type & 7) << 2 | (uint32_t)(group ? 1 : 0) << 6 | 1u << 15 |
+                (uint32_t)mac[0] << 16 | (uint32_t)mac[1] << 24;
+        else if (i == 1)
+            v = mac[2] | mac[3] << 8 | mac[4] << 16 | (uint32_t)mac[5] << 24;
+        else if (i >= 6)
+            v = 0;
+        else {
+            const uint8_t *k = key + (i - 2) * 4;
+            v = k[0] | k[1] << 8 | k[2] << 16 | (uint32_t)k[3] << 24;
+        }
+        rtw_w32(0x674, v);
+        rtw_w32(0x670, 1u << 31 | 1u << 16 | ((idx << 3) + (unsigned)i));
+    }
+}
+
+void rtw_cam_clear(unsigned idx)
+{
+    rtw_w32(0x674, 0);
+    rtw_w32(0x670, 1u << 31 | 1u << 16 | idx << 3);
+}
+
+int rtw_media_status(int connect)
+{
+    uint8_t c[8] = { 0x01, (uint8_t)(connect ? 1 : 0), 0 /* MACID */, 0, 0, 0, 0, 0 };
+    return rtw_h2c_box(c);
+}
+
+int rtw_ra_info(unsigned rate_id, uint32_t mask)
+{
+    /* MACID 0, init level 1, 20 MHz, no SGI/LDPC/VHT, mask update, dis_pt */
+    uint32_t w0 = 0x40 | (rate_id & 0x1f) << 16 | 1u << 21 | 1u << 30;
+    uint8_t c[8] = { (uint8_t)w0, (uint8_t)(w0 >> 8), (uint8_t)(w0 >> 16), (uint8_t)(w0 >> 24),
+                     (uint8_t)mask, (uint8_t)(mask >> 8), (uint8_t)(mask >> 16), (uint8_t)(mask >> 24) };
+    return rtw_h2c_box(c);
+}
+
+int rtw_iqk(unsigned *ms, uint32_t *fail_mask)
+{
+    uint8_t p[1] = { 0 };                           /* not clear, not segmented */
+    if (rtw_h2c_pkt(0x0e, p, 1) != 0)
+        return -1;
+    unsigned n = 0;
+    int done = 0;
+    for (; n < 300; n++) {
+        if (rtw_read_rf(0x08, RFREG_MASK) == 0xabcde) {
+            done = 1;
+            break;
+        }
+        timer_delay_ms(20);
+    }
+    rtw_write_rf(0x08, RFREG_MASK, 0);
+    *ms = n * 20;
+    *fail_mask = rtw_r32(0x1bf0) & 0xff;
+    return done ? 0 : -1;
 }
 #endif

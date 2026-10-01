@@ -23,6 +23,7 @@
 #include "script/luavm.h"
 #include "bt/bt.h"
 #include "wifi/wifi.h"
+#include "net/net.h"
 
 #include <stdarg.h>
 #include <string.h>
@@ -347,8 +348,15 @@ static void page_wifi(void)
         wifi_on = wifi_start() == 0;
     }
     for (;;) {
-        kprintf(wifi_on ? "\n\x1b[96mA\x1b[0m scan  \x1b[96mX\x1b[0m join the saved network  \x1b[96mB\x1b[0m back\n"
-                        : "\nWiFi is off (see above). \x1b[96mA\x1b[0m try again  \x1b[96mB\x1b[0m back\n");
+        const char *ssid = config_get("wifi_ssid");
+        if (wifi_on && wifi_linked())
+            kprintf("\nconnected to \"%s\", IP %s\n", ssid ? ssid : "?", net_ip_text());
+        if (wifi_on)
+            kprintf("\n\x1b[96mA\x1b[0m scan  \x1b[96mX\x1b[0m join %s%s%s  \x1b[96mB\x1b[0m back\n",
+                    ssid && ssid[0] ? "\"" : "", ssid && ssid[0] ? ssid : "(none: bm/config.txt)",
+                    ssid && ssid[0] ? "\"" : "");
+        else
+            kprintf("\nWiFi is off (see above). \x1b[96mA\x1b[0m try again  \x1b[96mB\x1b[0m back\n");
         uint32_t p;
         while (!(p = pad_pressed()))
             timer_delay_ms(10);
@@ -360,7 +368,9 @@ static void page_wifi(void)
         } else if (p & PAD_A) {
             wifi_scan();
         } else if (p & PAD_X) {
-            wifi_connect();
+            /* the address comes from DHCP, then the network console */
+            if (wifi_connect() == 0 && net_start(&net_wifi) == 0)
+                net_wait_ip(15000);
         }
     }
     console_suspend(1);

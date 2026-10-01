@@ -3,6 +3,8 @@
 #include "drivers/timer.h"
 #include "bt/bt.h"
 #include "usb/hid.h"
+#include "net/net.h"
+#include "net/netcon.h"
 
 /* Bluetooth pads and keyboards (usb/hid.h buttons) on the same bits */
 static uint32_t from_hid(uint32_t h)
@@ -59,32 +61,39 @@ static void hold(uint32_t button, uint32_t now)
             serial_held[i] = now ? now : 1;
 }
 
+/* one character from the serial port or the network console */
+static void key_in(int c, uint32_t now)
+{
+    if (esc_state == 1) {
+        esc_state = c == '[' ? 2 : 0;
+        if (!esc_state)
+            hold(PAD_B, now);           /* a lone Esc: B */
+        return;
+    }
+    if (esc_state == 2) {
+        esc_state = 0;
+        hold(c == 'A' ? PAD_UP : c == 'B' ? PAD_DOWN : c == 'C' ? PAD_RIGHT :
+             c == 'D' ? PAD_LEFT : 0, now);
+        return;
+    }
+    if (c == 27) {
+        esc_state = 1;
+        return;
+    }
+    uint32_t b = key_button(c);
+    if (b)
+        hold(b, now);
+    else
+        other_char = c;
+}
+
 static void serial_poll(uint32_t now)
 {
     int c;
-    while ((c = plat_uart_getc()) >= 0) {
-        if (esc_state == 1) {
-            esc_state = c == '[' ? 2 : 0;
-            if (!esc_state)
-                hold(PAD_B, now);           /* a lone Esc: B */
-            continue;
-        }
-        if (esc_state == 2) {
-            esc_state = 0;
-            hold(c == 'A' ? PAD_UP : c == 'B' ? PAD_DOWN : c == 'C' ? PAD_RIGHT :
-                 c == 'D' ? PAD_LEFT : 0, now);
-            continue;
-        }
-        if (c == 27) {
-            esc_state = 1;
-            continue;
-        }
-        uint32_t b = key_button(c);
-        if (b)
-            hold(b, now);
-        else
-            other_char = c;
-    }
+    while ((c = plat_uart_getc()) >= 0)
+        key_in(c, now);
+    while ((c = netcon_getc()) >= 0)
+        key_in(c, now);
 }
 
 uint32_t pad_state(void)
@@ -100,6 +109,7 @@ uint32_t pad_state(void)
                 serial_held[i] = 0;
         }
     bt_poll();
+    net_poll();
     return held | plat_buttons() | from_hid(hid_buttons());
 }
 

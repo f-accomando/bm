@@ -114,10 +114,32 @@ prima di accendere lo schermo e il registro si scrive tre volte (prima dello sch
   (`src/bt/rtlbt.c`), poi lo stesso stack del Pi (controller e tastiere). H5 e firmware **provati
   sul PC** contro un chip simulato (`make TARGET=rgb30 test-bt`); **da provare sulla console.**
 - WiFi (RTL8821CS su SDIO, port di rtw88): accensione, firmware, MAC dall'efuse, tabelle MAC/BB/RF,
-  canali e potenza, ricezione e **scansione** (probe request e ascolto sui canali 1-13; a schermo
-  i pacchetti per canale e le risposte al nostro MAC, che provano la trasmissione). Lettura dei
-  pacchetti e dei beacon **provata sul PC** (`make TARGET=rgb30 test-wifi`). Da fare: collegamento
-  (autenticazione, associazione, WPA2 in software, chiavi nel chip), dati, rete (lwIP).
+  canali e potenza, calibrazione IQK; **scansione** (probe request e ascolto sui canali 1-13; a
+  schermo i pacchetti per canale e le risposte al nostro MAC, che provano la trasmissione);
+  **collegamento** a reti aperte e WPA2-PSK (autenticazione, associazione, handshake a 4 vie e
+  rinnovo della chiave di gruppo in software, `src/rgb30/wpa.c`; le chiavi nella CAM del chip, che
+  cifra e decifra in CCMP); dati 802.11 ↔ Ethernet per **lwIP** (DHCP, console di rete, invio di
+  file: le stesse di M18); il collegamento è controllato dai beacon (8 s senza: perso) e dai
+  deauth. 2,4 GHz, fino a 54 Mbit/s (niente 802.11n per ora). **Provato sul PC** con un chip e due
+  access point simulati, DHCP e ping compresi (`make TARGET=rgb30 test-wifi`); **da provare sulla
+  console.**
+
+## WiFi: come si usa
+
+In `bm/config.txt` sulla SD (dal PC):
+
+```
+wifi_ssid=NomeDellaRete
+wifi_psk=password
+wifi_boot=1
+```
+
+Nel menu, *WiFi*: **A** cerca le reti (elenco con segnale, canale, sicurezza), **X** entra nella
+rete di `wifi_ssid`; poi DHCP e l'indirizzo IP sullo schermo, con la password della console di
+rete (`python3 tools/bm_net.py <ip>`: i tasti w/a/s/d, Invio, Esc arrivano al menu come dalla
+seriale). Con `wifi_boot=1` la console entra nella rete da sola all'avvio (senza, solo dal menu:
+finché il WiFi dell'RGB30 è nuovo, all'avvio è spento). Reti supportate: aperte e WPA2-PSK (anche
+WPA2/WPA3 miste); non WPA3 sola, WPA1, WEP, enterprise.
 
 ## File
 
@@ -129,12 +151,15 @@ prima di accendere lo schermo e il registro si scrive tre volte (prima dello sch
   (LED), `rk_display.c` (VOP2), `rk_dsi.c` (DSI, D-PHY, pannello), `rk_mmc.c` (DesignWare MSHC),
   `rk_sd.c`, `rk_pmic.c`; Bluetooth: `rk_wlbt.c` (alimentazione del modulo), `rk_btuart.c`,
   `rk_bt.c`; WiFi: `rk_sdio.c`, `rtw_io.c`, `rtw_mac.c` (accensione, firmware, efuse),
-  `rtw_init.c` + `rtw8821c_table.c` (MAC e radio), `rtw_frame.c` (pacchetti, 802.11),
-  `rtw_sta.c` (le funzioni di `wifi/wifi.h`).
+  `rtw_init.c` + `rtw8821c_table.c` (MAC e radio, CAM, comandi al firmware), `rtw_frame.c`
+  (pacchetti, 802.11), `wpa.c` (WPA2), `rtw_sta.c` (le funzioni di `wifi/wifi.h`).
 - Codice in comune con il Pi: `gfx/`, `lib/printf.c`, `script/luavm.c` e `lib_bm.c`, `fs/fat.c`,
   `kernel/config.c`, `crumbs.c`, `version.c`, Lua.
 - `tests/rgb30/qemu_test.py` — test in QEMU (avvio, EL2 e spostamento, schermo letto dai pixel,
   Lua, menu, `.bm` nascosti, input test, bootlog sulla SD).
+- `tests/rgb30/rtw_frame_test.c`, `wpa_test.c` (vettori pubblicati e un handshake calcolato a
+  parte da `wpa_vectors.py`), `wifi_sim_test.c` (tutta la stazione su un RTL8821C e due access
+  point simulati): `make TARGET=rgb30 test-wifi`.
 - `boot/rgb30/` — `extlinux.conf` e `LEGGIMI.txt` della scheda.
 - `scripts/fetch-rgb30.sh` — bootloader e firmware; `scripts/mksd.py --start-mib --raw --active`.
 
@@ -156,5 +181,7 @@ prima di accendere lo schermo e il registro si scrive tre volte (prima dello sch
   rkbin di Rockchip (ridistribuzione permessa, niente reverse engineering).
 - Firmware Realtek: `LICENCE.rtlwifi_firmware.txt` (ridistribuibile senza modifiche), copiata
   in `bm/` sulla scheda.
+- Il driver WiFi (`src/rgb30/rtw*.c`, tabelle in `rtw8821c_table.c`) è un port di rtw88 di Linux,
+  GPL-2.0 OR BSD-3-Clause, usato con la licenza BSD-3-Clause (Copyright Realtek Corporation).
 
 Nessuno di questi file è nel repository: li scarica `make TARGET=rgb30 firmware`.

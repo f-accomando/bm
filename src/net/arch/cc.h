@@ -13,4 +13,10 @@
 #define LWIP_RAND()             ((uint32_t)rand())
 #define LWIP_NO_UNISTD_H        1
 
+#ifdef BM_RGB30     /* picolibc has ssize_t (long) but no SSIZE_MAX: lwIP would make its own */
+#include <limits.h>
+#include <sys/types.h>
+#define SSIZE_MAX               LONG_MAX
+#endif
+
 #endif

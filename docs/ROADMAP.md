@@ -1510,7 +1510,9 @@ Task:
    HCI) e firmware Realtek (`rtl8821cs_fw.bin` + config), controller e tastiere con lo stack di
    M12/M28.
 6. **WiFi**: RTL8821CS su SDIO (sdmmc2): driver come rtw88 (GPL-2.0 OR BSD-3-Clause), 4-way
-   handshake WPA2 nell'host, lo stack di rete di M18.
+   handshake WPA2 nell'host, lo stack di rete di M18 (scritti: scansione, reti aperte e WPA2-PSK,
+   chiavi nella CAM, lwIP; provati sul PC su un chip e access point simulati; sulla console da
+   provare).
 - **Fatto quando:** sulla RGB30 il menu appare, i tasti e le levette rispondono, un controller
   Bluetooth si accoppia e la console entra nella rete WiFi salvata in `bm/config.txt`.
 

@@ -57,6 +57,10 @@ Lua 5.4 embedded. Documentazione: `README.md`, `docs/ROADMAP.md`, `docs/HARDWARE
   multipli di 8×16, 2x a multipli di 16).
 - L'utente prova senza seriale: LED (rosso = avvio, verde a 1 Hz = vivo) e `bm/bootlog.txt`
   scritto sulla SD a ogni avvio.
+- WiFi: port di rtw88 (`src/rgb30/rtw*.c`, BSD-3-Clause), WPA2 in software (`wpa.c`), lwIP di
+  M18. `make TARGET=rgb30 test-wifi`: frame, WPA2 contro `tests/rgb30/wpa_vectors.h` (scritto da
+  `wpa_vectors.py`, Python + `cryptography`) e tutta la stazione su un chip e access point simulati
+  (`wifi_sim_test.c`, `-v` mostra la console).
 
 ## Cartucce `.cart`: rimosse
 

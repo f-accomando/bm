@@ -15,5 +15,8 @@ bm/bootlog.txt dal PC); rosso che lampeggia N volte = errore N.
 Se si blocca accendendo lo schermo, i LED fermi dicono dove: rosso e verde =
 clock, solo verde = controller video, nessuno = DSI/pannello.
 
+WiFi: scrivi in bm/config.txt le righe wifi_ssid=NomeRete e wifi_psk=password
+(e wifi_boot=1 per collegarti a ogni avvio); nel menu, WiFi: A cerca, X entra.
+
 Non formattare e non ripartizionare la scheda: il bootloader sta fuori dalla
 partizione. Per rifarla: make TARGET=rgb30 image e riscrivi l'immagine.

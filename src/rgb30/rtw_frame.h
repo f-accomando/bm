@@ -18,6 +18,7 @@ typedef struct {
     uint8_t c2h;                /* a message from the firmware, not a frame */
     uint8_t crc_err, icv_err;
     uint8_t decrypted;          /* by the chip (security CAM) */
+    uint8_t enc;                /* RX_DESC_ENC: 0 none, 2/3 TKIP, 4 AES (CCMP) */
     uint8_t macid;              /* the CAM entry that matched */
 } rtw_rxpkt_t;
 
@@ -63,5 +64,45 @@ int wl_parse_bss(const uint8_t *f, uint32_t len, int rssi, wl_bss_t *b);
 /* A probe request from mac, for every network (ssid NULL or "") or one
  * (hidden networks); out holds 128 bytes. Returns the frame's length. */
 unsigned wl_probe_req(uint8_t *out, const uint8_t mac[6], const char *ssid);
+
+/* --- joining (open system authentication, association) --- */
+/* our RSN IE: PSK, CCMP pairwise, the AP's group cipher (4 CCMP, 2 TKIP);
+ * 22 bytes, sent in the association request and in EAPOL message 2 */
+unsigned wl_rsn_ie(uint8_t *out, uint8_t group);
+/* what joining needs that the AP may refuse: 0 if it can be joined with
+ * this driver, else why not */
+const char *wl_unsupported(const wl_bss_t *b);
+unsigned wl_auth_req(uint8_t *out, const uint8_t bssid[6], const uint8_t mac[6]);
+/* an authentication frame from bssid to mac, transaction 2: 0 and its
+ * status; -1 if it is not one */
+int wl_auth_resp(const uint8_t *f, uint32_t len, const uint8_t bssid[6], const uint8_t mac[6],
+                 uint16_t *status);
+/* association request (legacy rates, no HT, no WMM); out holds 256 bytes */
+unsigned wl_assoc_req(uint8_t *out, const wl_bss_t *b, const uint8_t mac[6],
+                      const uint8_t *rsn, unsigned rsn_len);
+/* an association response from bssid to mac: 0 with status and AID */
+int wl_assoc_resp(const uint8_t *f, uint32_t len, const uint8_t bssid[6], const uint8_t mac[6],
+                  uint16_t *status, uint16_t *aid);
+/* deauthentication / disassociation from bssid to us (or to all): 0 and
+ * the reason code */
+int wl_deauth(const uint8_t *f, uint32_t len, const uint8_t bssid[6], const uint8_t mac[6],
+              uint16_t *reason);
+/* the AP's rates as the firmware's rate mask (bit 0 1M ... bit 11 54M) */
+uint32_t wl_rate_mask(const wl_bss_t *b);
+
+/* --- data --- */
+#define WL_CCMP_HDR 8
+/* An Ethernet frame (dst, src, type, payload) as a data frame to the AP
+ * (ToDS); protected: the CCMP header with pn and keyid after the 802.11
+ * header (the chip encrypts and adds the MIC). out: len + 40 bytes. */
+unsigned wl_from_eth(uint8_t *out, const uint8_t *eth, unsigned len, const uint8_t bssid[6],
+                     uint16_t seq, int protect, uint64_t pn, uint8_t keyid);
+/* A data frame from the AP (FromDS, A2 = bssid) into an Ethernet frame:
+ * head bytes (the CCMP or TKIP header) skipped after the 802.11 header and
+ * tail bytes (MIC, ICV) dropped at the end. Returns its length, 0 for a
+ * frame without data (null data), -1 if it is not ours (other BSS, our own
+ * broadcast reflected, not LLC/SNAP). */
+int wl_to_eth(const uint8_t *f, uint32_t len, const uint8_t bssid[6], const uint8_t mac[6],
+              unsigned head, unsigned tail, uint8_t *out, unsigned max);
 
 #endif

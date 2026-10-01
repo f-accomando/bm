@@ -158,6 +158,173 @@ static void test_probe_req(void)
     CHECK(n == 24 + 10 + 10 + 6 && f[25] == 8 && memcmp(f + 26, "Nascosta", 8) == 0);
 }
 
+/* --- joining, data --- */
+
+static void test_join(void)
+{
+    uint8_t ies[128], f[512], out[512];
+    wl_bss_t b;
+    unsigned n = 0;
+    n += ie(ies + n, 0, "CasaRossi", 9);
+    n += ie(ies + n, 1, rates, sizeof rates);
+    n += ie(ies + n, 3, "\x06", 1);
+    n += ie(ies + n, 48, rsn_psk_ccmp, sizeof rsn_psk_ccmp);
+    n += ie(ies + n, 50, xrates, sizeof xrates);
+    unsigned len = mgmt(f, WL_FC_BEACON, NULL, bssid_a, 0x0431, ies, n);
+    CHECK(wl_parse_bss(f, len, -50, &b) == 0 && wl_unsupported(&b) == NULL);
+    CHECK(wl_rate_mask(&b) == 0xfff);
+
+    /* authentication */
+    unsigned m = wl_auth_req(out, b.bssid, our_mac);
+    CHECK(m == 30 && out[0] == 0xb0 && !memcmp(out + 4, bssid_a, 6) && !memcmp(out + 10, our_mac, 6) &&
+          !memcmp(out + 16, bssid_a, 6) && out[24] == 0 && out[26] == 1 && out[28] == 0);
+    uint8_t resp[64];
+    memset(resp, 0, sizeof resp);
+    resp[0] = 0xb0;
+    memcpy(resp + 4, our_mac, 6);
+    memcpy(resp + 10, bssid_a, 6);
+    memcpy(resp + 16, bssid_a, 6);
+    resp[26] = 2;
+    uint16_t status = 99, aid = 0;
+    CHECK(wl_auth_resp(resp, 30, bssid_a, our_mac, &status) == 0 && status == 0);
+    resp[28] = 17;                                  /* refused: AP full */
+    CHECK(wl_auth_resp(resp, 30, bssid_a, our_mac, &status) == 0 && status == 17);
+    resp[26] = 1;                                   /* our own request: not an answer */
+    CHECK(wl_auth_resp(resp, 30, bssid_a, our_mac, &status) == -1);
+    resp[26] = 2;
+    resp[10] ^= 1;                                  /* another AP */
+    CHECK(wl_auth_resp(resp, 30, bssid_a, our_mac, &status) == -1);
+    resp[10] ^= 1;
+
+    /* association request: rates echoed, our RSN IE */
+    uint8_t rsn[22];
+    CHECK(wl_rsn_ie(rsn, b.rsn_group) == 22 && rsn[0] == 48 && rsn[1] == 20 && rsn[7] == 4 &&
+          rsn[13] == 4 && rsn[19] == 2);
+    m = wl_assoc_req(out, &b, our_mac, rsn, sizeof rsn);
+    CHECK(out[0] == 0x00 && out[24] == 0x31 && out[25] == 0x04 && out[26] == 10);
+    CHECK(out[28] == 0 && out[29] == 9 && !memcmp(out + 30, "CasaRossi", 9));
+    CHECK(out[39] == 1 && out[40] == 8 && !memcmp(out + 41, rates, 8));
+    CHECK(out[49] == 50 && out[50] == 4 && !memcmp(out + 51, xrates, 4));
+    CHECK(m == 55 + 22 && !memcmp(out + 55, rsn, 22));
+    /* an open network: no RSN IE, no privacy bit */
+    b.capab = 0x0001;
+    m = wl_assoc_req(out, &b, our_mac, NULL, 0);
+    CHECK(m == 55 && out[24] == 0x01 && out[25] == 0);
+
+    /* association response */
+    resp[0] = 0x10;
+    resp[24] = 0x31; resp[25] = 0x04;               /* capabilities */
+    resp[26] = 0; resp[27] = 0;                     /* status */
+    resp[28] = 0x05; resp[29] = 0xc0;               /* AID 5 with the two top bits */
+    CHECK(wl_assoc_resp(resp, 30, bssid_a, our_mac, &status, &aid) == 0 && status == 0 && aid == 5);
+    resp[0] = 0x30;                                 /* reassociation response */
+    CHECK(wl_assoc_resp(resp, 30, bssid_a, our_mac, &status, &aid) == 0);
+    resp[0] = 0xb0;
+    CHECK(wl_assoc_resp(resp, 30, bssid_a, our_mac, &status, &aid) == -1);
+
+    /* deauthentication, to us or to everyone */
+    uint16_t reason = 0;
+    resp[0] = 0xc0;
+    resp[24] = 15; resp[25] = 0;
+    CHECK(wl_deauth(resp, 26, bssid_a, our_mac, &reason) == 0 && reason == 15);
+    memset(resp + 4, 0xff, 6);
+    resp[0] = 0xa0;
+    CHECK(wl_deauth(resp, 26, bssid_a, our_mac, &reason) == 0);
+    resp[4] = 0x02;                                 /* to another station */
+    CHECK(wl_deauth(resp, 26, bssid_a, our_mac, &reason) == -1);
+
+    /* what cannot be joined */
+    wl_bss_t t = b;
+    t.rates[t.nrates++] = 0xff;
+    CHECK(wl_unsupported(&t) != NULL);
+    t = b;
+    t.security = "WPA3";
+    CHECK(wl_unsupported(&t) != NULL);
+    t = b;
+    t.rsn_ccmp = 0;
+    CHECK(wl_unsupported(&t) != NULL);
+    t = b;
+    t.rsn_group = 2;                                /* TKIP group: joined, CCMP pairwise */
+    CHECK(wl_unsupported(&t) == NULL);
+}
+
+static void test_data(void)
+{
+    static const uint8_t ap_mac[6] = { 0x02, 0x11, 0x22, 0x33, 0x44, 0x55 };
+    static const uint8_t pc[6] = { 0x3c, 0x22, 0xfb, 0x01, 0x02, 0x03 };
+    uint8_t eth[64], f[128], back[128];
+    memcpy(eth, pc, 6);
+    memcpy(eth + 6, our_mac, 6);
+    eth[12] = 0x08; eth[13] = 0x00;                 /* IPv4 */
+    for (int i = 14; i < 60; i++)
+        eth[i] = (uint8_t)i;
+
+    /* to the AP, plain */
+    unsigned n = wl_from_eth(f, eth, 60, ap_mac, 0x123, 0, 0, 0);
+    CHECK(n == 24 + 6 + 2 + 46);
+    CHECK(f[0] == 0x08 && f[1] == 0x01 && !memcmp(f + 4, ap_mac, 6) && !memcmp(f + 10, our_mac, 6) &&
+          !memcmp(f + 16, pc, 6) && f[22] == 0x30 && f[23] == 0x12);
+    CHECK(f[24] == 0xaa && f[25] == 0xaa && f[26] == 3 && f[30] == 0x08 && f[31] == 0x00 &&
+          !memcmp(f + 32, eth + 14, 46));
+    /* protected: CCMP header with the packet number and key id 0 */
+    n = wl_from_eth(f, eth, 60, ap_mac, 7, 1, 0x0000a1b2c3d4e5f6ull, 0);
+    CHECK(n == 24 + 8 + 6 + 2 + 46 && f[1] == 0x41);
+    CHECK(f[24] == 0xf6 && f[25] == 0xe5 && f[26] == 0 && f[27] == 0x20 && f[28] == 0xd4 &&
+          f[29] == 0xc3 && f[30] == 0xb2 && f[31] == 0xa1 && f[32] == 0xaa);
+
+    /* from the AP: FromDS, A1 = us, A2 = BSSID, A3 = the sender */
+    uint8_t in[160];
+    memset(in, 0, 24);
+    in[0] = 0x08; in[1] = 0x42;                     /* data, FromDS, protected */
+    memcpy(in + 4, our_mac, 6);
+    memcpy(in + 10, ap_mac, 6);
+    memcpy(in + 16, pc, 6);
+    memset(in + 24, 0x77, 8);                       /* CCMP header */
+    memcpy(in + 32, "\xaa\xaa\x03\x00\x00\x00\x08\x06", 8);   /* ARP */
+    for (int i = 0; i < 28; i++)
+        in[40 + i] = (uint8_t)(0x80 + i);
+    memset(in + 68, 0x55, 8);                       /* MIC */
+    int r = wl_to_eth(in, 76, ap_mac, our_mac, 8, 8, back, sizeof back);
+    CHECK(r == 14 + 28 && !memcmp(back, our_mac, 6) && !memcmp(back + 6, pc, 6) &&
+          back[12] == 0x08 && back[13] == 0x06 && back[14] == 0x80 && back[41] == 0x80 + 27);
+    /* QoS data: 2 more header bytes */
+    uint8_t q[160];
+    memcpy(q, in, 24);
+    q[0] = 0x88;
+    q[24] = 0; q[25] = 0;
+    memcpy(q + 26, in + 24, 52);
+    CHECK(wl_to_eth(q, 78, ap_mac, our_mac, 8, 8, back, sizeof back) == 14 + 28 && back[14] == 0x80);
+    /* null data, another BSS, our own broadcast reflected, ToDS, no LLC */
+    in[0] = 0x48;
+    CHECK(wl_to_eth(in, 24, ap_mac, our_mac, 0, 0, back, sizeof back) == 0);
+    in[0] = 0x08;
+    in[11] ^= 1;
+    CHECK(wl_to_eth(in, 76, ap_mac, our_mac, 8, 8, back, sizeof back) == -1);
+    in[11] ^= 1;
+    memcpy(in + 16, our_mac, 6);
+    CHECK(wl_to_eth(in, 76, ap_mac, our_mac, 8, 8, back, sizeof back) == -1);
+    memcpy(in + 16, pc, 6);
+    in[1] = 0x41;
+    CHECK(wl_to_eth(in, 76, ap_mac, our_mac, 8, 8, back, sizeof back) == -1);
+    in[1] = 0x42;
+    in[32] = 0x42;
+    CHECK(wl_to_eth(in, 76, ap_mac, our_mac, 8, 8, back, sizeof back) == -1);
+    in[32] = 0xaa;
+    /* too long for the caller's buffer, too short for its header */
+    CHECK(wl_to_eth(in, 76, ap_mac, our_mac, 8, 8, back, 20) == -1);
+    CHECK(wl_to_eth(in, 40, ap_mac, our_mac, 8, 8, back, sizeof back) == -1);
+    /* round trip, plain: what we send, as the AP relays it back to us */
+    n = wl_from_eth(f, eth, 60, ap_mac, 1, 0, 0, 0);
+    memcpy(in, f, n);
+    in[1] = 0x02;
+    memcpy(in + 4, our_mac, 6);
+    memcpy(in + 10, ap_mac, 6);
+    memcpy(in + 16, pc, 6);
+    eth[0] = our_mac[0];
+    r = wl_to_eth(in, n, ap_mac, our_mac, 0, 0, back, sizeof back);
+    CHECK(r == 60 && !memcmp(back + 12, eth + 12, 48));
+}
+
 /* --- RX buffer --- */
 
 typedef struct {
@@ -274,6 +441,8 @@ int main(void)
 {
     test_bss();
     test_probe_req();
+    test_join();
+    test_data();
     test_rx();
     if (fails) {
         printf("rtw_frame_test: %d failures\n", fails);

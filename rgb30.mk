@@ -37,7 +37,8 @@ COMMON  := $(ARCH) --specs=picolibc.specs -std=c11 -O2 -Wall -Wextra -g -Isrc -I
            -ffunction-sections -fdata-sections $(PLAT_DEF) -DBM_RGB30 \
            -Wno-format
 CFLAGS   = $(COMMON) -D_DEFAULT_SOURCE -Ithird_party/lua \
-           -Ithird_party/mbedtls/include -Isrc/net -DMBEDTLS_CONFIG_FILE='"bm_mbedtls.h"' $(WARN)
+           -Ithird_party/mbedtls/include -Ithird_party/lwip/src/include -Isrc/net \
+           -DMBEDTLS_CONFIG_FILE='"bm_mbedtls.h"' $(WARN)
 ASFLAGS := $(ARCH) $(PLAT_DEF) -g -Isrc -Isrc/rgb30
 LDFLAGS := $(ARCH) --specs=picolibc.specs -nostartfiles -static -no-pie -Wl,--gc-sections \
            -Wl,--defsym=KERNEL_BASE=$(KERNEL_BASE)
@@ -50,18 +51,25 @@ SHARED_SRCS := src/gfx/console.c src/gfx/draw.c src/gfx/font8x16.c src/gfx/font8
                src/script/luavm.c src/script/lib_bm.c \
                src/kernel/version.c src/kernel/crumbs.c src/kernel/config.c src/fs/fat.c
 # Bluetooth: the Pi's stack (HCI, L2CAP, HID, BLE + SMP) over H5 to the
-# Realtek chip; SMP's elliptic curves come from mbedTLS
+# Realtek chip; SMP's elliptic curves come from mbedTLS, and WPA2's SHA-1
+# and AES (src/rgb30/wpa.c)
 BT_SRCS := src/bt/bt.c src/bt/ble.c src/bt/hci.c src/bt/h5.c src/bt/rtlbt.c src/bt/smp_crypto.c \
            src/usb/hid.c
 MBEDTLS_SRCS := $(addprefix third_party/mbedtls/library/,aes.c bignum.c bignum_core.c ecp.c \
-                ecp_curves.c ecdh.c constant_time.c platform_util.c platform.c)
-SHARED_SRCS += $(BT_SRCS) $(MBEDTLS_SRCS)
+                ecp_curves.c ecdh.c constant_time.c platform_util.c platform.c sha1.c)
+# the network: lwIP and the Pi's glue (DHCP, the network console, file
+# transfer) over the WiFi (src/rgb30/rtw_sta.c)
+LWIP_SRCS := $(wildcard third_party/lwip/src/core/*.c third_party/lwip/src/core/ipv4/*.c) \
+             third_party/lwip/src/netif/ethernet.c third_party/lwip/src/apps/sntp/sntp.c
+NET_SRCS := src/net/net.c src/net/netcon.c src/net/netxfer.c
+SHARED_SRCS += $(BT_SRCS) $(MBEDTLS_SRCS) $(LWIP_SRCS) $(NET_SRCS)
 RGB30_SRCS := $(wildcard src/rgb30/*.c src/rgb30/*.S)
 KERNEL_SRCS := $(RGB30_SRCS) $(SHARED_SRCS) $(LUA_SRCS)
 KERNEL_OBJS := $(patsubst %,$(BUILD)/k/%.o,$(KERNEL_SRCS))
 LUA_OBJS    := $(patsubst %,$(BUILD)/k/%.o,$(LUA_SRCS))
 MBEDTLS_OBJS := $(patsubst %,$(BUILD)/k/%.o,$(MBEDTLS_SRCS))
-$(LUA_OBJS) $(MBEDTLS_OBJS): WARN := -w
+LWIP_OBJS   := $(patsubst %,$(BUILD)/k/%.o,$(LWIP_SRCS))
+$(LUA_OBJS) $(MBEDTLS_OBJS) $(LWIP_OBJS): WARN := -w
 
 VERSION_STAMP := $(BUILD)/version.txt
 $(VERSION_STAMP): FORCE
@@ -153,8 +161,28 @@ build/rgb30-host/rtw_frame_test: tests/rgb30/rtw_frame_test.c src/rgb30/rtw_fram
 	@mkdir -p $(dir $@)
 	$(HOSTCC) -O1 -Wall -Wextra -fsanitize=address,undefined -Isrc -o $@ tests/rgb30/rtw_frame_test.c src/rgb30/rtw_frame.c
 
-test-wifi: build/rgb30-host/rtw_frame_test
-	$<
+# WPA2 against published vectors and a handshake computed apart
+# (tests/rgb30/wpa_vectors.py writes wpa_vectors.h)
+WPA_HOST_SRCS := src/rgb30/wpa.c $(addprefix third_party/mbedtls/library/,sha1.c aes.c platform_util.c)
+build/rgb30-host/wpa_test: tests/rgb30/wpa_test.c tests/rgb30/wpa_vectors.h src/rgb30/wpa.h $(WPA_HOST_SRCS)
+	@mkdir -p $(dir $@)
+	$(HOSTCC) -O1 -Wall -Wextra -fsanitize=address,undefined -Isrc -Itests/rgb30 -Ithird_party/mbedtls/include \
+	    -Isrc/net -DMBEDTLS_CONFIG_FILE='"bm_mbedtls.h"' -o $@ tests/rgb30/wpa_test.c $(WPA_HOST_SRCS)
+
+# the whole station (scan, WPA2, keys, lwIP's DHCP and a ping) on a
+# simulated chip and access points
+WIFI_SIM_SRCS := $(addprefix src/rgb30/,rtw_sta.c rtw_init.c rtw_io.c rtw_frame.c rtw8821c_table.c) \
+                 src/lib/printf.c src/net/net.c $(WPA_HOST_SRCS) $(LWIP_SRCS)
+build/rgb30-host/wifi_sim_test: tests/rgb30/wifi_sim_test.c $(WIFI_SIM_SRCS) src/rgb30/*.h
+	@mkdir -p $(dir $@)
+	$(HOSTCC) -O1 -g -w -fsanitize=address,undefined -DPLAT_RK3566 -DBM_HOST_TEST -Isrc -Isrc/rgb30 \
+	    -Isrc/net -Ithird_party/lwip/src/include -Ithird_party/mbedtls/include \
+	    -DMBEDTLS_CONFIG_FILE='"bm_mbedtls.h"' -o $@ tests/rgb30/wifi_sim_test.c $(WIFI_SIM_SRCS)
+
+test-wifi: build/rgb30-host/rtw_frame_test build/rgb30-host/wpa_test build/rgb30-host/wifi_sim_test
+	build/rgb30-host/rtw_frame_test
+	build/rgb30-host/wpa_test
+	build/rgb30-host/wifi_sim_test
 
 clean:
 	rm -rf build/rgb30 build/rgb30-virt build/rgb30-host

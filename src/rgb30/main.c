@@ -30,6 +30,8 @@
 #include "drivers/sd.h"
 #include "fs/fat.h"
 #include "kernel/config.h"
+#include "wifi/wifi.h"
+#include "net/net.h"
 #include "ui.h"
 
 #include "lua.h"
@@ -156,6 +158,19 @@ static void save_bootlog(int say)
     }
 }
 
+/* The saved WiFi network at boot: only with wifi_boot=1 in bm/config.txt
+ * while the RGB30's WiFi is new (the menu's WiFi page joins by hand);
+ * the address comes later, in the background. */
+static void wifi_boot(void)
+{
+    const char *on = config_get("wifi_boot"), *ssid = config_get("wifi_ssid");
+    if (!on || strcmp(on, "1") != 0 || !ssid || !ssid[0])
+        return;
+    kprintf("wifi: joining \"%s\" (wifi_boot=1 in bm/config.txt)\n", ssid);
+    if (wifi_start() == 0 && wifi_connect_saved() == 0)
+        net_start(&net_wifi);
+}
+
 void kernel_main(uintptr_t dtb)
 {
     mmu_init(0);                /* first: library code needs normal memory */
@@ -202,6 +217,7 @@ void kernel_main(uintptr_t dtb)
         plat_led(-1, 1);                    /* red stays on: see bm/bootlog.txt */
     kprintf("ready\n");
     save_bootlog(1);
+    wifi_boot();
     if (err == 0)
         ui_home(&fb);
     ui_serial_repl();               /* no screen: the serial port only */

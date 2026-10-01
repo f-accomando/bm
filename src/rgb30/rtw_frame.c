@@ -53,7 +53,8 @@ int rtw_rx_walk(const uint8_t *buf, uint32_t len, unsigned rfe, rtw_rx_cb cb, vo
         p.c2h = (w2 >> 28) & 1;
         p.crc_err = (w0 >> 14) & 1;
         p.icv_err = (w0 >> 15) & 1;
-        p.decrypted = !((w0 >> 27) & 1) && ((w0 >> 20) & 7) != 0;
+        p.enc = (uint8_t)((w0 >> 20) & 7);
+        p.decrypted = !((w0 >> 27) & 1) && p.enc != 0;
         p.macid = (uint8_t)(w1 & 0x7f);
         p.rssi = -127;
         uint32_t off = RX_DESC + drv_info + shift;
@@ -199,4 +200,213 @@ unsigned wl_probe_req(uint8_t *out, const uint8_t mac[6], const char *ssid)
     n += sl;
     memcpy(out + n, rates, sizeof rates);
     return n + sizeof rates;
+}
+
+/* --- joining --- */
+
+static void put16(uint8_t *p, unsigned v)
+{
+    p[0] = (uint8_t)v;
+    p[1] = (uint8_t)(v >> 8);
+}
+
+/* a management frame's header: kind, A1 = A3 = bssid, A2 = mac */
+static unsigned mgmt_hdr(uint8_t *out, uint16_t kind, const uint8_t bssid[6], const uint8_t mac[6])
+{
+    memset(out, 0, 24);
+    out[0] = (uint8_t)kind;
+    memcpy(out + 4, bssid, 6);
+    memcpy(out + 10, mac, 6);
+    memcpy(out + 16, bssid, 6);
+    return 24;
+}
+
+/* from bssid (A2, A3) to mac or to everyone (A1) */
+static int from_ap(const uint8_t *f, uint32_t len, uint16_t kind, const uint8_t bssid[6],
+                   const uint8_t mac[6], uint32_t min)
+{
+    if (len < min || wl_kind(f) != kind || memcmp(f + 10, bssid, 6) != 0)
+        return 0;
+    return memcmp(f + 4, mac, 6) == 0 || memcmp(f + 4, bcast, 6) == 0;
+}
+
+unsigned wl_rsn_ie(uint8_t *out, uint8_t group)
+{
+    static const uint8_t ie[22] = {
+        48, 20, 1, 0,
+        0x00, 0x0f, 0xac, 4,                        /* group (patched) */
+        1, 0, 0x00, 0x0f, 0xac, 4,                  /* pairwise: CCMP */
+        1, 0, 0x00, 0x0f, 0xac, 2,                  /* AKM: PSK */
+        0, 0,                                       /* capabilities: no MFP */
+    };
+    memcpy(out, ie, sizeof ie);
+    out[7] = group;
+    return sizeof ie;
+}
+
+const char *wl_unsupported(const wl_bss_t *b)
+{
+    for (unsigned i = 0; i < b->nrates; i++)
+        if (b->rates[i] == 0xff || b->rates[i] == 0xfe)
+            return "the network requires HT or VHT (802.11n/ac only)";
+    if (!strcmp(b->security, "WPA3"))
+        return "WPA3 only (SAE) is not supported";
+    if (!strcmp(b->security, "EAP"))
+        return "enterprise networks (802.1X) are not supported";
+    if (!strcmp(b->security, "WPA"))
+        return "WPA1 (TKIP) is not supported";
+    if (!strcmp(b->security, "WEP"))
+        return "WEP is not supported";
+    if (b->rsn && !b->rsn_ccmp)
+        return "the network has no CCMP (AES) for its stations";
+    if (b->rsn && b->rsn_group != 4 && b->rsn_group != 2)
+        return "the network's group cipher is not CCMP or TKIP";
+    return 0;
+}
+
+unsigned wl_auth_req(uint8_t *out, const uint8_t bssid[6], const uint8_t mac[6])
+{
+    unsigned n = mgmt_hdr(out, WL_FC_AUTH, bssid, mac);
+    put16(out + n, 0);                              /* open system */
+    put16(out + n + 2, 1);                          /* transaction 1 */
+    put16(out + n + 4, 0);
+    return n + 6;
+}
+
+int wl_auth_resp(const uint8_t *f, uint32_t len, const uint8_t bssid[6], const uint8_t mac[6],
+                 uint16_t *status)
+{
+    if (!from_ap(f, len, WL_FC_AUTH, bssid, mac, 30) || le16(f + 24) != 0 || le16(f + 26) != 2)
+        return -1;
+    *status = le16(f + 28);
+    return 0;
+}
+
+unsigned wl_assoc_req(uint8_t *out, const wl_bss_t *b, const uint8_t mac[6],
+                      const uint8_t *rsn, unsigned rsn_len)
+{
+    unsigned n = mgmt_hdr(out, WL_FC_ASSOC_REQ, b->bssid, mac);
+    unsigned cap = 0x0001 | (b->capab & (0x0010 | 0x0020 | 0x0400));    /* ESS, privacy, short preamble, slot */
+    put16(out + n, cap);
+    put16(out + n + 2, 10);                         /* listen interval */
+    n += 4;
+    out[n++] = 0;
+    out[n++] = b->ssid_len;
+    memcpy(out + n, b->ssid_raw, b->ssid_len);
+    n += b->ssid_len;
+    uint8_t r[16];
+    unsigned nr = 0;
+    for (unsigned i = 0; i < b->nrates; i++)
+        if (b->rates[i] != 0xff && b->rates[i] != 0xfe)
+            r[nr++] = b->rates[i];
+    unsigned first = nr > 8 ? 8 : nr;
+    out[n++] = 1;
+    out[n++] = (uint8_t)first;
+    memcpy(out + n, r, first);
+    n += first;
+    if (nr > first) {
+        out[n++] = 50;
+        out[n++] = (uint8_t)(nr - first);
+        memcpy(out + n, r + first, nr - first);
+        n += nr - first;
+    }
+    if (rsn_len) {
+        memcpy(out + n, rsn, rsn_len);
+        n += rsn_len;
+    }
+    return n;
+}
+
+int wl_assoc_resp(const uint8_t *f, uint32_t len, const uint8_t bssid[6], const uint8_t mac[6],
+                  uint16_t *status, uint16_t *aid)
+{
+    if (!from_ap(f, len, WL_FC_ASSOC_RESP, bssid, mac, 30) &&
+        !from_ap(f, len, 0x0030, bssid, mac, 30))   /* reassociation response */
+        return -1;
+    *status = le16(f + 26);
+    *aid = le16(f + 28) & 0x3fff;
+    return 0;
+}
+
+int wl_deauth(const uint8_t *f, uint32_t len, const uint8_t bssid[6], const uint8_t mac[6],
+              uint16_t *reason)
+{
+    if (!from_ap(f, len, WL_FC_DEAUTH, bssid, mac, 26) &&
+        !from_ap(f, len, WL_FC_DISASSOC, bssid, mac, 26))
+        return -1;
+    *reason = le16(f + 24);
+    return 0;
+}
+
+uint32_t wl_rate_mask(const wl_bss_t *b)
+{
+    static const uint8_t units[12] = { 2, 4, 11, 22, 12, 18, 24, 36, 48, 72, 96, 108 };
+    uint32_t m = 0;
+    for (unsigned i = 0; i < b->nrates; i++)
+        for (unsigned k = 0; k < 12; k++)
+            if ((b->rates[i] & 0x7f) == units[k])
+                m |= 1u << k;
+    return m;
+}
+
+/* --- data --- */
+
+static const uint8_t llc[6] = { 0xaa, 0xaa, 0x03, 0x00, 0x00, 0x00 };
+
+unsigned wl_from_eth(uint8_t *out, const uint8_t *eth, unsigned len, const uint8_t bssid[6],
+                     uint16_t seq, int protect, uint64_t pn, uint8_t keyid)
+{
+    if (len < 14)
+        return 0;
+    memset(out, 0, 24);
+    out[0] = 0x08;                                  /* data */
+    out[1] = protect ? 0x41 : 0x01;                 /* ToDS, protected */
+    memcpy(out + 4, bssid, 6);
+    memcpy(out + 10, eth + 6, 6);                   /* SA: us */
+    memcpy(out + 16, eth, 6);                       /* DA */
+    put16(out + 22, (unsigned)(seq & 0xfff) << 4);
+    unsigned n = 24;
+    if (protect) {
+        out[n++] = (uint8_t)pn;
+        out[n++] = (uint8_t)(pn >> 8);
+        out[n++] = 0;
+        out[n++] = (uint8_t)(0x20 | (keyid & 3) << 6);   /* ExtIV */
+        for (int i = 2; i < 6; i++)
+            out[n++] = (uint8_t)(pn >> (8 * i));
+    }
+    memcpy(out + n, llc, 6);
+    n += 6;
+    memcpy(out + n, eth + 12, len - 12);            /* type, payload */
+    return n + len - 12;
+}
+
+int wl_to_eth(const uint8_t *f, uint32_t len, const uint8_t bssid[6], const uint8_t mac[6],
+              unsigned head, unsigned tail, uint8_t *out, unsigned max)
+{
+    if (len < 24 || (f[0] & 0x0c) != 0x08 || (f[1] & 3) != 2 || memcmp(f + 10, bssid, 6) != 0)
+        return -1;
+    unsigned hdr = 24;
+    if (f[0] & 0x80) {                              /* QoS data: QoS control, HT control */
+        hdr += 2;
+        if (f[1] & 0x80)
+            hdr += 4;
+    }
+    if (f[0] & 0x40)                                /* null data: nothing inside */
+        return 0;
+    const uint8_t *sa = f + 16;
+    if (!memcmp(sa, mac, 6))                        /* our broadcast, sent back */
+        return -1;
+    unsigned at = hdr + head;
+    if (len < at + 8 + tail)
+        return -1;
+    const uint8_t *p = f + at;
+    if (memcmp(p, llc, 5) != 0 || (p[5] != 0x00 && p[5] != 0xf8))
+        return -1;
+    unsigned n = 12 + (len - at - 6 - tail);
+    if (n > max)
+        return -1;
+    memcpy(out, f + 4, 6);                          /* DA */
+    memcpy(out + 6, sa, 6);
+    memcpy(out + 12, p + 6, n - 12);                /* type, payload */
+    return (int)n;
 }
