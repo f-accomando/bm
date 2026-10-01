@@ -36,7 +36,8 @@ ARCH    := -mcpu=cortex-a55 -mno-outline-atomics -mbranch-protection=none \
 COMMON  := $(ARCH) --specs=picolibc.specs -std=c11 -O2 -Wall -Wextra -g -Isrc -Isrc/rgb30 \
            -ffunction-sections -fdata-sections $(PLAT_DEF) -DBM_RGB30 \
            -Wno-format
-CFLAGS   = $(COMMON) -D_DEFAULT_SOURCE -Ithird_party/lua $(WARN)
+CFLAGS   = $(COMMON) -D_DEFAULT_SOURCE -Ithird_party/lua \
+           -Ithird_party/mbedtls/include -Isrc/net -DMBEDTLS_CONFIG_FILE='"bm_mbedtls.h"' $(WARN)
 ASFLAGS := $(ARCH) $(PLAT_DEF) -g -Isrc -Isrc/rgb30
 LDFLAGS := $(ARCH) --specs=picolibc.specs -nostartfiles -static -no-pie -Wl,--gc-sections \
            -Wl,--defsym=KERNEL_BASE=$(KERNEL_BASE)
@@ -48,11 +49,19 @@ SHARED_SRCS := src/gfx/console.c src/gfx/draw.c src/gfx/font8x16.c src/gfx/font8
                src/gfx/font6x12.c src/lib/printf.c src/lib/crc32.c \
                src/script/luavm.c src/script/lib_bm.c \
                src/kernel/version.c src/kernel/crumbs.c src/kernel/config.c src/fs/fat.c
+# Bluetooth: the Pi's stack (HCI, L2CAP, HID, BLE + SMP) over H5 to the
+# Realtek chip; SMP's elliptic curves come from mbedTLS
+BT_SRCS := src/bt/bt.c src/bt/ble.c src/bt/hci.c src/bt/h5.c src/bt/rtlbt.c src/bt/smp_crypto.c \
+           src/usb/hid.c
+MBEDTLS_SRCS := $(addprefix third_party/mbedtls/library/,aes.c bignum.c bignum_core.c ecp.c \
+                ecp_curves.c ecdh.c constant_time.c platform_util.c platform.c)
+SHARED_SRCS += $(BT_SRCS) $(MBEDTLS_SRCS)
 RGB30_SRCS := $(wildcard src/rgb30/*.c src/rgb30/*.S)
 KERNEL_SRCS := $(RGB30_SRCS) $(SHARED_SRCS) $(LUA_SRCS)
 KERNEL_OBJS := $(patsubst %,$(BUILD)/k/%.o,$(KERNEL_SRCS))
 LUA_OBJS    := $(patsubst %,$(BUILD)/k/%.o,$(LUA_SRCS))
-$(LUA_OBJS): WARN := -w
+MBEDTLS_OBJS := $(patsubst %,$(BUILD)/k/%.o,$(MBEDTLS_SRCS))
+$(LUA_OBJS) $(MBEDTLS_OBJS): WARN := -w
 
 VERSION_STAMP := $(BUILD)/version.txt
 $(VERSION_STAMP): FORCE
@@ -63,7 +72,7 @@ $(BUILD)/k/src/kernel/version.c.o: CFLAGS += -DBM_VERSION=\"$(VERSION)\"
 FORCE:
 
 .DEFAULT_GOAL := all
-.PHONY: all test qemu clean firmware image sdcard FORCE
+.PHONY: all test test-bt qemu clean firmware image sdcard FORCE
 
 all: $(BUILD)/kernel8.img
 ifeq ($(PLAT),rk3566)
@@ -124,11 +133,21 @@ qemu:
 	$(QEMU64) -M virt,gic-version=3 -cpu cortex-a55 -m 512M -device ramfb -nic none \
 	    -kernel build/rgb30-virt/kernel.elf -serial stdio -display none
 
-test:
+test: test-bt
 	$(MAKE) -f rgb30.mk PLAT=virt
 	$(PYTHON) tests/rgb30/qemu_test.py --build build/rgb30-virt
 
+# H5 and the Realtek firmware set-up on the PC, against a simulated chip
+# (with the real firmware when `make TARGET=rgb30 firmware` fetched it)
+HOSTCC ?= gcc
+build/rgb30-host/h5_test: tests/bt/h5_test.c src/bt/h5.c src/bt/hci.c src/bt/rtlbt.c src/bt/*.h
+	@mkdir -p $(dir $@)
+	$(HOSTCC) -O1 -Wall -Wextra -Isrc -o $@ tests/bt/h5_test.c src/bt/h5.c src/bt/hci.c src/bt/rtlbt.c
+
+test-bt: build/rgb30-host/h5_test
+	$< $(wildcard $(FW64)/rtl8821cs_fw.bin $(FW64)/rtl8821cs_config.bin)
+
 clean:
-	rm -rf build/rgb30 build/rgb30-virt
+	rm -rf build/rgb30 build/rgb30-virt build/rgb30-host
 
 -include $(KERNEL_OBJS:.o=.d)

@@ -183,3 +183,25 @@ void plat_poweroff(void)
         __asm__ volatile("wfe");
 }
 #endif
+
+#ifdef PLAT_VIRT
+#include "lib/printf.h"
+/* no Bluetooth chip in QEMU's virt machine (its H5 and Realtek code are
+ * tested on the PC against a simulated chip: tests/bt/h5_test.c) */
+#include "bt/btuart.h"
+void btuart_init(uint32_t baud)                 { (void)baud; }
+void btuart_set_baud(uint32_t baud)             { (void)baud; }
+void btuart_set_flow(int on)                    { (void)on; }
+void btuart_write(const void *buf, uint32_t n)  { (void)buf; (void)n; }
+int  btuart_read(uint32_t timeout_us)           { (void)timeout_us; return -1; }
+int  btuart_ready(void)                         { return 0; }
+void btuart_drain(void)                         { }
+unsigned btuart_overruns(void)                  { return 0; }
+
+int rk_bt_bringup(uint32_t *baud_out)
+{
+    (void)baud_out;
+    kprintf("bt: no Bluetooth controller in QEMU\n");
+    return -1;
+}
+#endif

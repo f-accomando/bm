@@ -1,6 +1,24 @@
 #include "pad.h"
 #include "plat.h"
 #include "drivers/timer.h"
+#include "bt/bt.h"
+#include "usb/hid.h"
+
+/* Bluetooth pads and keyboards (usb/hid.h buttons) on the same bits */
+static uint32_t from_hid(uint32_t h)
+{
+    static const struct { uint32_t hid, pad; } map[] = {
+        { HID_LEFT, PAD_LEFT }, { HID_RIGHT, PAD_RIGHT }, { HID_UP, PAD_UP },
+        { HID_DOWN, PAD_DOWN }, { HID_A, PAD_A }, { HID_B, PAD_B },
+        { HID_START, PAD_START }, { HID_SELECT, PAD_SELECT }, { HID_X, PAD_X },
+        { HID_Y, PAD_Y }, { HID_L1, PAD_L1 }, { HID_R1, PAD_R1 },
+    };
+    uint32_t p = 0;
+    for (unsigned i = 0; i < sizeof map / sizeof map[0]; i++)
+        if (h & map[i].hid)
+            p |= map[i].pad;
+    return p;
+}
 
 const char *const pad_names[PAD_COUNT] = {
     "Up", "Down", "Left", "Right", "A", "B", "X", "Y",
@@ -81,7 +99,8 @@ uint32_t pad_state(void)
             else
                 serial_held[i] = 0;
         }
-    return held | plat_buttons();
+    bt_poll();
+    return held | plat_buttons() | from_hid(hid_buttons());
 }
 
 uint32_t pad_pressed(void)

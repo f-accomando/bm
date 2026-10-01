@@ -21,6 +21,7 @@
 #include "lib/heap.h"
 #include "lib/printf.h"
 #include "script/luavm.h"
+#include "bt/bt.h"
 
 #include <stdarg.h>
 #include <string.h>
@@ -292,6 +293,47 @@ static void serial_lua(void)
     ui_serial_repl();
 }
 
+/* Bluetooth, in the console (the stack reports what it does with kprintf):
+ * started on the first visit; then pairing a pad or a keyboard */
+static int bt_on;
+
+static void page_bt(void)
+{
+    fb_show(fb, 0);
+    console_suspend(0);
+    if (!bt_on) {
+        kprintf("\n\x1b[1mBluetooth\x1b[0m: starting the RTL8821CS...\n");
+        bt_on = bt_start() == 0;
+    }
+    for (;;) {
+        if (bt_on)
+            kprintf("\n\x1b[96mA\x1b[0m pair a controller (10 s)  \x1b[96mX\x1b[0m pair a keyboard (20 s)\n"
+                    "\x1b[96mY\x1b[0m forget all  \x1b[96mB\x1b[0m back   pads: %u, %s\n",
+                    bt_pads(), bt_keyboard() ? "keyboard connected" : "no keyboard");
+        else
+            kprintf("\nBluetooth is off (see above). \x1b[96mA\x1b[0m try again  \x1b[96mB\x1b[0m back\n");
+        uint32_t p;
+        while (!(p = pad_pressed()))
+            timer_delay_ms(10);
+        if (p & PAD_B)
+            break;
+        if (!bt_on) {
+            if (p & PAD_A)
+                bt_on = bt_start() == 0;
+            continue;
+        }
+        if (p & PAD_A) {
+            kprintf("put the controller in pairing mode (DS4: Share + PS)\n");
+            bt_scan(10);
+        } else if (p & PAD_X) {
+            bt_pair_keyboard(20);
+        } else if (p & PAD_Y) {
+            bt_forget_all();
+        }
+    }
+    console_suspend(1);
+}
+
 enum { T_INPUT, T_SYSTEM, T_BT, T_WIFI, T_LOG, T_LUA, T_REBOOT, T_OFF, T_COUNT };
 static const char *const tool_names[T_COUNT] = {
     "Input test", "System", "Bluetooth", "WiFi", "Boot log", "Lua (serial)", "Reboot", "Power off",
@@ -312,11 +354,7 @@ static void run_tool(int t)
     switch (t) {
     case T_INPUT: page_input(); break;
     case T_SYSTEM: page_system(); break;
-    case T_BT: {
-        const char *l[] = { "Bluetooth: coming next (RTL8821CS on UART1).", "" };
-        page_message("Bluetooth", l, 1);
-        break;
-    }
+    case T_BT: page_bt(); break;
     case T_WIFI: {
         const char *l[] = { "WiFi: coming next (RTL8821CS on SDIO).", "" };
         page_message("WiFi", l, 1);

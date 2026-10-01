@@ -254,6 +254,28 @@ def test_bootlog_on_sd(b, opts):
     assert "racer.s16" in files.lower(), files
 
 
+def test_bluetooth_page_without_chip(b, opts):
+    """The Bluetooth page starts the stack; QEMU has no chip: it says so and
+    B goes back to the menu."""
+    q = Qemu(os.path.join(b, "kernel.elf"))
+    try:
+        boot(q)
+        for k in "ss":                          # Input test, System, Bluetooth
+            q.send(k)
+            time.sleep(0.25)
+        q.send("\r")
+        q.expect("no Bluetooth controller in QEMU", timeout=10)
+        time.sleep(0.5)
+        text = "\n".join(screen_text(q.screendump()))
+        assert "Bluetooth is off" in text, text
+        q.send("\x7f")                          # B
+        time.sleep(0.6)
+        text = screen_all(q.screendump())
+        assert "Up/Down: choose" in text, text
+    finally:
+        q.close()
+
+
 def test_menu_input_page(b, opts):
     """Down to the input test, A opens it, the serial port presses buttons."""
     q = Qemu(os.path.join(b, "kernel.elf"))
