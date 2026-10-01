@@ -57,6 +57,8 @@ env.sget = function() return nil end
 env.rgb = function(r, g, b) return (r & 255) << 16 | (g & 255) << 8 | (b & 255) end
 env.playing = function() return false end
 env.apu = function() return 0 end
+local vol = 10
+env.volume = function(v) if v then vol = math.max(0, math.min(10, v)) end return vol end
 env.log = function(...) local t = { ... } for i = 1, #t do t[i] = tostring(t[i]) end logs[#logs + 1] = table.concat(t, "\t") end
 env.time = function() return now end
 env.stat = function(n) if n == 3 then return math.floor(now * 60) elseif n == 4 then return frame_tris end return 0 end
@@ -515,6 +517,9 @@ run_frames(60 * 3)
 assert(not K.G.run.time_left, "practice has no clock")
 press(1, 8)                    -- Start: pause
 assert(K.G.screen == "pause", "expected pause, got " .. K.G.screen)
+press(1, 3)                    -- VOLUME: right lowers nothing, left turns it down
+press(1, 0)
+assert(K.G.screen == "pause", "the volume row stays in the pause, got " .. K.G.screen)
 press(1, 3) press(1, 3)        -- QUIT
 press(1, 4)
 assert(K.G.screen == "practice", "expected the practice list again, got " .. K.G.screen)

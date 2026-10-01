@@ -440,7 +440,7 @@ local function leave(to)
   Scr.go(to)
 end
 
-local PAUSE_ROWS = { "RESUME", "MOVES", "HANGAR", "TITLE" }
+local PAUSE_ROWS = { "RESUME", "MOVES", "VOLUME", "HANGAR", "TITLE" }
 local RESULT_ROWS = { "REMATCH", "HANGAR", "TITLE" }
 
 local function pause_update()
@@ -450,6 +450,13 @@ local function pause_update()
   end
   F.psel = menu_move(F.psel, #PAUSE_ROWS)
   if hit(BSTART) or hit(BB) then F.paused = false; Snd.ui_back(); return end
+  if PAUSE_ROWS[F.psel] == "VOLUME" then
+    -- left/right (or A, going round): the console keeps it for every game
+    local dx = (hit(BR) and 1 or 0) - (hit(BL) and 1 or 0)
+    if hit(BA) then dx = volume() >= 10 and -10 or 1 end
+    if dx ~= 0 then volume(volume() + dx); Snd.ui_move() end
+    return
+  end
   if hit(BA) then
     local r = PAUSE_ROWS[F.psel]
     Snd.ui_ok()
@@ -631,7 +638,9 @@ function F.draw()
       Scr.moves_panel(70)
     else
       text_c("PAUSE", 320, 96, 0xFFD040, 2)
-      menu_draw(PAUSE_ROWS, F.psel, 230, 136, 180)
+      local rows = {}
+      for k, r in ipairs(PAUSE_ROWS) do rows[k] = r == "VOLUME" and ("VOLUME  < " .. volume() .. " >") or r end
+      menu_draw(rows, F.psel, 230, 136, 180)
     end
   end
 end

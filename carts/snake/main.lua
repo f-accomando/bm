@@ -155,3 +155,56 @@ function _draw()
     center("press A to play again", 204, TEXT, 0x000000)
   end
 end
+
+---------------------------------------------------------------- pause
+
+-- START while playing: the game stops, with RESUME, VOLUME (left/right;
+-- the console keeps it for every game) and QUIT to the title.
+local paused, psel = false, 1
+local PAUSE_ROWS = { "RESUME", "VOLUME", "QUIT" }
+local PLAYING = { play = true }
+local game_update, game_draw = _update, _draw
+
+function _update()
+  if not paused then
+    if PLAYING[state] and btnp(8) then paused, psel = true, 1 return end
+    return game_update()
+  end
+  if btnp(8) or btnp(5) then paused = false return end
+  if btnp(2) then psel = (psel + #PAUSE_ROWS - 2) % #PAUSE_ROWS + 1 end
+  if btnp(3) then psel = psel % #PAUSE_ROWS + 1 end
+  local row = PAUSE_ROWS[psel]
+  if row == "VOLUME" and (btnp(0) or btnp(1) or btnp(4)) then
+    local v = volume() + (btnp(0) and -1 or 1)
+    if btnp(4) and v > 10 then v = 0 end
+    volume(v)
+    note(1, 660, 60, SQUARE, 110)               -- how loud it is now
+  elseif btnp(4) then
+    paused = false
+    if row == "QUIT" then state = "title" end
+  end
+end
+
+function _draw()
+  game_draw()
+  if not paused then return end
+  local s = W >= 640 and 2 or 1
+  local bw, bh = s == 2 and 208 or 140, 76 * s
+  local x, y = (W - bw) // 2, (H - bh) // 2
+  rectfill(x - 2, y - 2, bw + 4, bh + 4, 0xFFD050)
+  rectfill(x, y, bw, bh, 0x101418)
+  print("PAUSED", x + (bw - 48 * s) // 2, y + 4 * s, 0xFFD050, s)
+  for i, r in ipairs(PAUSE_ROWS) do
+    local ry = y + (14 + i * 14) * s
+    local sel = i == psel
+    if sel then rectfill(x + 4 * s, ry - s, bw - 8 * s, 10 * s, 0x2A3442) end
+    print((sel and "> " or "  ") .. r, x + 6 * s, ry - (s == 2 and 0 or 3), sel and 0xFFFFFF or 0x9098A8)
+    if r == "VOLUME" then
+      print(tostring(volume()), x + (bw - 18 * s), ry - (s == 2 and 0 or 3), sel and 0xFFFFFF or 0x9098A8)
+      for k = 1, 10 do
+        rectfill(x + bw + (k * 3 - 54) * s, ry + (6 - math.min(k, 8) // 2) * s, 2 * s, (math.min(k, 8) // 2 + 2) * s,
+                 k <= volume() and 0xFFD050 or 0x303844)
+      end
+    end
+  end
+end

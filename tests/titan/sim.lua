@@ -81,6 +81,8 @@ env.sget = function() return nil end
 env.rgb = function(r, g, b) return (r & 255) << 16 | (g & 255) << 8 | (b & 255) end
 env.playing = function() return false end
 env.apu = function() return 0 end
+local vol = 10
+env.volume = function(v) if v then vol = math.max(0, math.min(10, v)) end return vol end
 env.log = function(...) local t = { ... } for i = 1, #t do t[i] = tostring(t[i]) end logs[#logs + 1] = table.concat(t, "\t") end
 env.time = function() return now end
 env.stat = function(n) if n == 3 then return math.floor(now * 60) end return 0 end

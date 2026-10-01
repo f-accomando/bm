@@ -500,7 +500,7 @@ screens.play = {
 ---------------------------------------------------------------- pause
 
 local pause_sel = 1
-local PAUSE = { "RESUME", "RESTART", "QUIT" }
+local PAUSE = { "RESUME", "VOLUME", "RESTART", "QUIT" }
 
 screens.pause = {
   enter = function() pause_sel = 1 end,
@@ -508,6 +508,13 @@ screens.pause = {
     local d = Pad.nav(nil, "y")
     if d ~= 0 then pause_sel = (pause_sel - 1 + d) % #PAUSE + 1; Snd.ui_move() end
     if btnp(BSTART) or btnp(BB) then G.screen = "play" return end
+    if PAUSE[pause_sel] == "VOLUME" then
+      -- left/right (or A, going round): the console keeps it for every game
+      local dx = Pad.nav(nil, "x")
+      if btnp(BA) then dx = volume() >= 10 and -10 or 1 end
+      if dx ~= 0 then volume(volume() + dx); Snd.ui_move() end
+      return
+    end
     if btnp(BA) then
       local m = PAUSE[pause_sel]
       Snd.ui_ok()
@@ -528,7 +535,13 @@ screens.pause = {
     text_c("PAUSED", W / 2, 118, 0xFFD040, 2)
     for i, m in ipairs(PAUSE) do
       local sel = i == pause_sel
-      text_c((sel and "> " or "  ") .. m .. (sel and " <" or "  "), W / 2, 160 + (i - 1) * 28, sel and 0xFFFFFF or 0x9090A0)
+      local label = m == "VOLUME" and ("VOLUME " .. volume()) or m
+      text_c((sel and "> " or "  ") .. label .. (sel and " <" or "  "), W / 2, 154 + (i - 1) * 24, sel and 0xFFFFFF or 0x9090A0)
+      if m == "VOLUME" and sel then
+        for k = 1, 10 do
+          rectfill(W / 2 - 60 + k * 10, 154 + (i - 1) * 24 + 18, 8, 3, k <= volume() and 0xFFD040 or 0x404050)
+        end
+      end
     end
   end,
 }
