@@ -936,9 +936,8 @@ shp = { zoom = 1, vx = 0, vy = 0 }
 local VIEW_X, VIEW_Y, VIEW_W, VIEW_H = 8, 32, 624, 272
 
 function sheet_reset()
-  shp.zoom = 1
+  shp.zoom = ZOOMS[1]                                -- a big sheet: as far as it goes
   for _, z in ipairs(ZOOMS) do if sw * z <= VIEW_W and sh * z <= VIEW_H then shp.zoom = z end end
-  if sw * shp.zoom > VIEW_W or sh * shp.zoom > VIEW_H then shp.zoom = max(0.25, shp.zoom) end
 end
 
 local function follow()
@@ -1043,7 +1042,7 @@ function draw_sheet()
   follow()
   local z = shp.zoom
   local vw, vh = min(sw - shp.vx, floor(VIEW_W / z)), min(sh - shp.vy, floor(VIEW_H / z))
-  checker(VIEW_X, VIEW_Y, floor(vw * z), floor(vh * z), 8)
+  checker(VIEW_X, VIEW_Y, floor(vw * z), floor(vh * z), 16)
   sspr(shp.vx, shp.vy, vw, vh, VIEW_X, VIEW_Y, false, false, z)
   -- the sprite chosen
   local x, y = VIEW_X + (rx - shp.vx) * z, VIEW_Y + (ry - shp.vy) * z
@@ -1090,7 +1089,7 @@ end
 -- the colours the sheet uses (at most 256; a big sheet is sampled)
 local function from_sheet()
   local count, order = {}, {}
-  local step = max(1, floor(sqrt(sw * sh / 1048576)))
+  local step = max(1, floor(sqrt(sw * sh / 262144)))       -- at most 512x512 looked at
   for y = 0, sh - 1, step do
     for x = 0, sw - 1, step do
       local c = sget(x, y)
@@ -1112,6 +1111,10 @@ end
 local function replace(all)
   local from, to = colour(), pal()[pp.sel]
   if not to then return end
+  if all and sw * sh > 512 * 512 then              -- a frame has room for about that much Lua
+    say("the sheet is too big for that (over 512x512): x does it in the sprite", C_ERR)
+    return
+  end
   local fv = from and q565(from) or nil
   local x0, y0, x1, y1 = rx, ry, rx + rs - 1, ry + rs - 1
   if all then x0, y0, x1, y1 = 0, 0, sw - 1, sh - 1 end
