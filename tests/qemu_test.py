@@ -2341,9 +2341,10 @@ def test_sd_sdhc_and_usb_menu(b, opts):
         runs = bar_icons(shot_)
         assert len(runs) == 1 and 20 <= runs[0][1] - runs[0][0] <= 27, runs
         assert not blue_number(shot_, runs[0]), "USB: a white number"
-        # the hints: player 1's keyboard, Enter Play, C Options, Esc Monitor
+        # the hints: player 1's keyboard, Enter Play, C Options, Ctrl+Esc Monitor
         widths = [x1 - x0 for x0, x1 in prompt_spans(shot_, 21)]
-        assert len(widths) == 3 and widths[0] >= 34 and widths[1] <= 16 and 20 <= widths[2] <= 28, widths
+        assert len(widths) == 4 and widths[0] >= 34 and widths[1] <= 16 and widths[2] >= 28 and \
+            20 <= widths[3] <= 28, widths
         sendkeys(q, "e")                      # E is R1: the Dev tab
         img_, text = settled_screen(q, lambda i, t: tabs_lit(i) == ["Dev"])
         assert tabs_lit(img_) == ["Dev"], "\n".join(text)

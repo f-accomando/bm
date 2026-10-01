@@ -1379,7 +1379,7 @@ DS4, dei pad generici e della tastiera, nello stile delle icone della barra.
   (`hid_last_source()`), prima di allora la tastiera del giocatore 1 o il DS4.
   - DS4: croce Play, quadrato Options, SHARE+OPTIONS Monitor; nei pannelli croce
     Select, croce direzionale Change, cerchio Back.
-  - Tastiera: Enter, C, Esc; nei pannelli le frecce ← →.
+  - Tastiera: Enter, C, Ctrl+Esc (Esc da solo torna indietro); nei pannelli le frecce ← →.
   - Pad generici: A, X, SELECT+START.
   - Settings > Controllers > **Button icons**: White / Colour (`prompts=` in
     `config.txt`).
@@ -1387,7 +1387,8 @@ DS4, dei pad generici e della tastiera, nello stile delle icone della barra.
   TV, in `build/prompts/prompts.png`; `test_hid` controlla `hid_last_source()`; in QEMU
   `prompt_spans` trova le icone dei suggerimenti dal loro bordino grigio.
 - **Da provare sul Pi:** i suggerimenti col DS4 (bianchi e, da Settings > Controllers >
-  Button icons, a colori), poi con la tastiera USB (Enter / C / Esc) premendone un tasto.
+  Button icons, a colori), poi con la tastiera USB (Enter / C / Ctrl+Esc) premendone un
+  tasto.
 
 **Secondo set: le app di sviluppo** (2026-10-01). Prima ogni app scriveva i tasti a modo
 suo: solo il Sound editor li disegnava (chip con gli angoli tagliati, colori Xbox, solo i

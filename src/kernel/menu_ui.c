@@ -522,7 +522,11 @@ static int button_prompts(const menu_view_t *v, int b, const prompt_t *p[2], con
             p[0] = prompt_get(PROMPT_KEY_LEFT, 0);
             p[1] = prompt_get(PROMPT_KEY_RIGHT, 0);
             return 2;
-        default: p[0] = prompt_get(PROMPT_KEY_ESC, 0); return 1;
+        default:                                /* the monitor: Ctrl+Esc (Esc alone: back) */
+            p[0] = prompt_get(PROMPT_KEY_CTRL, 0);
+            p[1] = prompt_get(PROMPT_KEY_ESC, 0);
+            *join = "+";
+            return 2;
         }
     }
     int ds = v->prompts != MENU_PROMPTS_PAD;

@@ -297,6 +297,8 @@ static void draw_sheet(void)
         } else if (r == 1) {
             x = hint(x, y, prompt_get(PROMPT_KEY_ENTER, 0), "Play");
             x = hint(x, y, prompt_key('C'), "Options");
+            x = put(prompt_get(PROMPT_KEY_CTRL, 0), x, y) + 2;
+            x = text(x, y, "+", C_TEXT, &font_console_8x16) + 2;
             hint(x, y, prompt_get(PROMPT_KEY_ESC, 0), "Monitor");
         } else {
             x = hint(x, y, prompt_get(PROMPT_CROSS, 1), "Select");
