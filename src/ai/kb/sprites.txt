@@ -1,0 +1,274 @@
+# Sprite recipes (src/ai/sprite.c): what to ask for to get the base of a
+# sprite. The colours ("rosso", "blue"...), the size ("8x8", "16x16",
+# "32x32", "piccolo", "grande") and "senza contorno" come from the words of
+# the request, not from these entries.
+
+== sprite.ship
+kind: sprite
+gen: ship
+title: Astronave vista dall'alto
+ask: crea uno sprite di un'astronave | disegna una navicella spaziale | spaceship sprite
+ask: nave spaziale per uno shooter | caccia spaziale | astronave del giocatore | jet
+ask: aereo da combattimento visto dall'alto | space ship for a shoot'em up
+text: Fusoliera, ali, cabina e motori, simmetrica, con la punta in alto.
+
+== sprite.alien
+kind: sprite
+gen: alien
+title: Alieno in stile space invaders
+ask: crea un alieno | invasore spaziale | space invader | alien sprite
+ask: nemico alieno a quadretti | mostriciattolo pixelato | marziano | ufo nemico
+text: Celle a caso rese simmetriche, con gli occhi: ogni variante è diversa.
+
+== sprite.monster
+kind: sprite
+gen: monster
+title: Mostro con corna e denti
+ask: disegna un mostro | crea una creatura | monster sprite | nemico mostruoso
+ask: mostriciattolo con le corna | demone | orco | goblin | creatura con la bocca
+text: Corpo tondo, a volte corna, braccia e piedi, bocca con i denti, uno o due occhi.
+
+== sprite.robot
+kind: sprite
+gen: robot
+title: Robot
+ask: crea un robot | disegna un androide | robot sprite | automa | mech | cyborg
+text: Testa con antenna e visore, corpo, braccia e gambe di metallo.
+
+== sprite.hero
+kind: sprite
+gen: hero
+title: Personaggio (omino di fronte)
+ask: crea il personaggio del giocatore | disegna un omino | player character sprite
+ask: eroe | ragazzo | ragazza | persona | protagonista | avventuriero | npc | abitante
+ask: cavaliere | un bambino | sprite di una persona | the hero
+text: Capelli, viso, maglia, pantaloni e scarpe; colori di pelle, capelli e
+vestiti diversi a ogni variante. Il colore chiesto è quello della maglia.
+
+== sprite.slime
+kind: sprite
+gen: slime
+title: Slime (gelatina)
+ask: crea uno slime | disegna una gelatina | slime sprite | blob | melma
+ask: nemico gelatinoso | goccia con gli occhi | budino che salta
+text: Una cupola lucida con gli occhi: il nemico più semplice dei giochi di ruolo.
+
+== sprite.ghost
+kind: sprite
+gen: ghost
+title: Fantasma
+ask: crea un fantasma | disegna uno spettro | ghost sprite | fantasmino | spirito
+text: Testa tonda, orlo ondulato, occhi e bocca a "oh".
+
+== sprite.bat
+kind: sprite
+gen: bat
+title: Pipistrello
+ask: crea un pipistrello | disegna un pipistrello | bat sprite | vampiro volante
+text: Ali spiegate, orecchie, occhi rossi. Le varianti alzano e abbassano le ali:
+due varianti fanno un'animazione.
+
+== sprite.skull
+kind: sprite
+gen: skull
+title: Teschio
+ask: crea un teschio | disegna un cranio | skull sprite | scheletro | pericolo morte
+text: Cranio, orbite, naso e denti.
+
+== sprite.coin
+kind: sprite
+gen: coin
+title: Moneta
+ask: crea una moneta | disegna una moneta d'oro | coin sprite | gettone | denaro
+ask: soldi da raccogliere | moneta che gira | gold coin | punti da prendere
+text: Oro o argento con il bordo e un riflesso. Alcune varianti sono strette
+(la moneta di taglio): insieme fanno la moneta che gira.
+
+== sprite.gem
+kind: sprite
+gen: gem
+title: Gemma
+ask: crea una gemma | disegna un diamante | gem sprite | cristallo | rubino | smeraldo
+ask: pietra preziosa | gioiello | diamond | crystal
+text: Taglio a diamante con le facce chiare e scure.
+
+== sprite.heart
+kind: sprite
+gen: heart
+title: Cuore (vita)
+ask: crea un cuore | disegna un cuore | heart sprite | icona della vita | vite del giocatore
+ask: salute | health | cuoricino
+text: Il cuore delle vite, con un riflesso.
+
+== sprite.star
+kind: sprite
+gen: star
+title: Stella
+ask: crea una stella | disegna una stella | star sprite | stellina | bonus stella
+text: Stella a cinque punte.
+
+== sprite.key
+kind: sprite
+gen: key
+title: Chiave
+ask: crea una chiave | disegna una chiave | key sprite | chiave della porta | oggetto chiave
+text: Chiave d'oro o d'argento in diagonale.
+
+== sprite.sword
+kind: sprite
+gen: sword
+title: Spada
+ask: crea una spada | disegna una spada | sword sprite | arma | lama | coltello | pugnale
+text: Lama, guardia, impugnatura e pomolo, in diagonale.
+
+== sprite.potion
+kind: sprite
+gen: potion
+title: Pozione
+ask: crea una pozione | disegna una pozione | potion sprite | ampolla | boccetta | elisir
+ask: bottiglia magica | flask
+text: Ampolla di vetro col tappo; il liquido è del colore chiesto.
+
+== sprite.chest
+kind: sprite
+gen: chest
+title: Forziere del tesoro
+ask: crea un forziere | disegna uno scrigno | treasure chest sprite | baule | tesoro
+text: Legno con bande di metallo e serratura.
+
+== sprite.crate
+kind: sprite
+gen: crate
+title: Cassa di legno
+ask: crea una cassa | disegna una cassa di legno | crate sprite | scatola | box di legno
+ask: cassa da spingere | wooden box
+text: Cornice chiara, rinforzo in diagonale, assi.
+
+== sprite.tree
+kind: sprite
+gen: tree
+title: Albero
+ask: crea un albero | disegna un albero | tree sprite | pino | abete | quercia | foresta
+text: Chioma tonda (a volte un pino, a volte con i frutti) e tronco.
+
+== sprite.flower
+kind: sprite
+gen: flower
+title: Fiore
+ask: crea un fiore | disegna un fiore | flower sprite | margherita | pianta fiorita
+text: Petali intorno al centro giallo, stelo e foglie.
+
+== sprite.mushroom
+kind: sprite
+gen: mushroom
+title: Fungo
+ask: crea un fungo | disegna un fungo | mushroom sprite | funghetto | power up fungo
+text: Cappello a pois e gambo.
+
+== sprite.rock
+kind: sprite
+gen: rock
+title: Roccia
+ask: crea una roccia | disegna un sasso | rock sprite | pietra | masso | ostacolo di pietra
+text: Un sasso irregolare con una crepa.
+
+== sprite.bomb
+kind: sprite
+gen: bomb
+title: Bomba
+ask: crea una bomba | disegna una bomba | bomb sprite | esplosivo | dinamite
+text: Bomba nera con la miccia accesa.
+
+== sprite.fire
+kind: sprite
+gen: fire
+title: Fiamma
+ask: crea una fiamma | disegna il fuoco | fire sprite | fiammella | falo' | torcia | flame
+text: Fiamma a goccia, rossa fuori e chiara al centro.
+
+== sprite.bullet
+kind: sprite
+gen: bullet
+title: Proiettile
+ask: crea un proiettile | disegna un colpo | bullet sprite | laser | sparo | missile
+ask: palla di energia | projectile
+text: Un colpo tondo o un raggio laser luminoso.
+
+== sprite.explosion
+kind: sprite
+gen: explosion
+title: Esplosione
+ask: crea un'esplosione | disegna uno scoppio | explosion sprite | boom | botto
+text: Una stella di fuoco con i detriti; più varianti fanno un'animazione.
+
+== sprite.apple
+kind: sprite
+gen: apple
+title: Mela
+ask: crea una mela | disegna una mela | apple sprite | frutto | frutta da raccogliere
+text: Mela rossa o verde con picciolo e foglia.
+
+== sprite.cloud
+kind: sprite
+gen: cloud
+title: Nuvola
+ask: crea una nuvola | disegna una nuvola | cloud sprite | nuvoletta | cielo
+text: Nuvola bianca per lo sfondo.
+
+== sprite.grass
+kind: sprite
+gen: grass
+title: Tile di erba
+ask: crea una tile di erba | disegna l'erba | grass tile | prato | terreno erboso
+text: Si ripete senza bordi: per riempire la mappa.
+
+== sprite.brick
+kind: sprite
+gen: brick
+title: Tile di mattoni
+ask: crea un muro di mattoni | disegna dei mattoni | brick tile | parete | muro
+text: Mattoni sfalsati con la malta; si ripete senza bordi.
+
+== sprite.stone
+kind: sprite
+gen: stone
+title: Tile di pietra
+ask: crea un pavimento di pietra | disegna un selciato | stone tile | lastricato | ciottoli
+ask: muro di pietra | dungeon floor
+text: Pietre irregolari; si ripete senza bordi.
+
+== sprite.water
+kind: sprite
+gen: water
+title: Tile d'acqua
+ask: crea una tile d'acqua | disegna l'acqua | water tile | mare | lago | fiume | onde
+text: Acqua con le creste delle onde; si ripete senza bordi.
+
+== sprite.wood
+kind: sprite
+gen: wood
+title: Tile di legno (assi)
+ask: crea un pavimento di legno | disegna delle assi | wood tile | parquet | tavole
+text: Assi con le venature; si ripete senza bordi.
+
+== sprite.sand
+kind: sprite
+gen: sand
+title: Tile di sabbia o terra
+ask: crea una tile di sabbia | disegna la terra | sand tile | deserto | spiaggia | sterrato
+text: Granelli sparsi; si ripete senza bordi.
+
+== sprite.lava
+kind: sprite
+gen: lava
+title: Tile di lava
+ask: crea una tile di lava | disegna la lava | lava tile | magma | vulcano
+text: Lava con le chiazze incandescenti; si ripete senza bordi.
+
+== sprite.ground
+kind: sprite
+gen: ground
+title: Tile di terreno con l'erba (piattaforma)
+ask: crea il terreno di un platform | disegna una piattaforma | ground tile | suolo
+ask: terra con l'erba sopra | pavimento del livello | neve sul terreno
+text: Erba (o neve) sopra e terra sotto: si ripete da sinistra a destra.

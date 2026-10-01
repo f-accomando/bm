@@ -21,6 +21,8 @@
 #include "drivers/dma.h"
 #include "arch/cache.h"
 #include "kernel/crumbs.h"
+#include "ai/lua_ai.h"
+#include "require.h"
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -719,7 +721,7 @@ static int l_apu(lua_State *L)
 
 /* keyp(): the next key typed, as text ("a", "\n", "\b", "\t"), a name
  * ("up", "down", "left", "right", "home", "end", "pgup", "pgdn", "del",
- * "esc", "f1".."f5") or "^s" for Ctrl+S; nil if none. The first call
+ * "esc", "f1".."f12") or "^s" for Ctrl+S; nil if none. The first call
  * turns on typing: the keyboard stops being a gamepad for btn(), Esc no
  * longer leaves the cartridge (Start+Select and PS still do). */
 static int l_keyp(lua_State *L)
@@ -737,6 +739,7 @@ static int l_keyp(lua_State *L)
                                        "del", "f1", "f2", "f3", "f4", "f5" };
     char buf[4];
     if (c >= HID_KEY_UP && c <= HID_KEY_F1 + 4) lua_pushstring(L, nav[c - HID_KEY_UP]);
+    else if (c >= HID_KEY_F6 && c <= HID_KEY_F6 + 6) lua_pushfstring(L, "f%d", c - HID_KEY_F6 + 6);
     else if (c == 0x1B) lua_pushstring(L, "esc");
     else if (c == '\r') lua_pushstring(L, "\n");
     else if (c == 0x7F) lua_pushstring(L, "\b");
@@ -872,6 +875,8 @@ static lua_State *new_cart_state(const bm_cart_t *c)
     lua_pushglobaltable(L);
     luaL_setfuncs(L, api, 0);
     lua_pop(L, 1);
+    ai_lua_open(L);             /* the assistant (M30): idle until asked */
+    bm_require_open(L);         /* require "assist": libraries in the kernel */
     static const char *const waves[] = { "SQUARE", "TRIANGLE", "SAW", "NOISE" };
     for (int w = 0; w < 4; w++) {
         lua_pushinteger(L, w);
@@ -922,7 +927,8 @@ static void text_push(uint8_t c)
 }
 
 /* serial terminal: ESC [ A..D arrows, ESC [ H / F home and end,
- * ESC O P..S F1..F4, ESC [ n ~ (3 delete, 5/6 page up/down, 15 F5) */
+ * ESC O P..S F1..F4, ESC [ n ~ (3 delete, 5/6 page up/down, 15 F5,
+ * 17-21 F6-F10, 23-24 F11-F12) */
 static void serial_text(char c)
 {
     if (rt.esc == 1) {
@@ -947,6 +953,9 @@ static void serial_text(char c)
         case 5: text_push(HID_KEY_PGUP); break;
         case 6: text_push(HID_KEY_PGDN); break;
         case 15: text_push(HID_KEY_F1 + 4); break;
+        case 17: case 18: case 19: case 20: case 21:
+            text_push((uint8_t)(HID_KEY_F6 + rt.esc_num - 17)); break;
+        case 23: case 24: text_push((uint8_t)(HID_KEY_F6 + rt.esc_num - 18)); break;
         case 1: text_push(HID_KEY_HOME); break;
         case 4: text_push(HID_KEY_END); break;
         }
@@ -967,6 +976,8 @@ static void serial_text(char c)
     if (c == 0x1B) { rt.esc = 1; return; }
     if (c == '\n') return;                  /* terminals send \r or \r\n */
     if (c == 0x08) c = 0x7F;
+    if ((uint8_t)c >= HID_KEY_F6 && (uint8_t)c <= HID_KEY_F6 + 6)
+        return;                             /* a UTF-8 byte, not a function key */
     text_push((uint8_t)c);
 }
 

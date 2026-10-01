@@ -1,0 +1,40 @@
+# Knowledge base of the development assistant (M30): the drawing API.
+# Format: docs in src/ai/kb/README.md.
+
+== cls
+kind: api
+name: cls
+title: cls([c]) - cancella lo schermo
+ask: come cancello lo schermo | pulire lo schermo | sfondo di un colore | clear the screen
+ask: riempire lo schermo di un colore | background color
+text:
+Riempie tutto lo schermo con il colore c (nero se manca). Di solito è
+la prima riga di _draw(): lo schermo non si cancella da solo.
+code:
+function _draw()
+  cls(0x102040)        -- sfondo blu scuro
+end
+
+== spr
+kind: api
+name: spr
+title: spr(n, x, y, [w, h, flip_x, flip_y]) - disegna uno sprite
+ask: come disegno uno sprite | disegnare uno sprite sullo schermo | draw a sprite
+ask: mostrare un'immagine dello sprite sheet | sprite 16x16 | sprite specchiato
+text:
+Disegna la cella n dello sprite sheet (celle 8x8) in x, y. w e h dicono
+quante celle (2, 2 = uno sprite 16x16); flip_x e flip_y lo specchiano.
+code:
+spr(1, x, y)                 -- la cella 1, 8x8
+spr(4, x, y, 2, 2)           -- 16x16 dalla cella 4
+spr(4, x, y, 2, 2, true)     -- specchiato: guarda a sinistra
+
+== circfill
+kind: api
+name: circfill
+title: circfill(x, y, r, c) - cerchio pieno
+ask: disegnare un cerchio pieno | come faccio una palla | draw a filled circle
+text:
+Cerchio pieno di centro x, y e raggio r. circ() disegna solo il bordo.
+code:
+circfill(x, y, 20, 0xFFD050)     -- una palla gialla

@@ -939,6 +939,8 @@ def test_home_ui(b, opts):
         keys("2")
         screen(["bm SDK", "editor (built-in)"])
         keys("d")                               # the covers' names are on pictures: the pill
+        screen(["Assistant", "help with code and sprites"])
+        keys("d")
         screen(["Monitor", "the text console with every command"])
         shot("dev")
         keys("dd")
@@ -2667,6 +2669,63 @@ def test_textured_mesh(b, opts):
         out += q.expect("\n").decode(errors="replace")
         assert "ff0000 0000ff\t2" in out, out
         q.expect("> ", timeout=10)
+    finally:
+        q.close()
+
+
+def test_assistant(b, opts):
+    """M30: the development assistant (monitor A, the Dev tab's Assistant):
+    a question typed on the serial line, answered while typing, Enter
+    inserts the code; F7 and a request draw a sprite into the sheet; F8
+    times the network on this CPU; Esc leaves. The tools open the same
+    panel (require "assist") with F6."""
+    q = Qemu(b("kernel.img"))
+
+    def k(s, gap=0.05):
+        for c in s:
+            q.send(c)
+            time.sleep(gap)
+
+    def see(words, tries=40):
+        for _ in range(tries):
+            _, text = settled_screen(q, lambda i, t: all(any(w in l for l in t) for w in words), tries=2)
+            if all(any(w in l for l in text) for w in words):
+                return text
+            time.sleep(0.25)
+        raise AssertionError(f"not on screen: {words}\n" + "\n".join(text))
+
+    def shot(name):
+        if opts.shots:
+            _save_png(q.screendump(), os.path.join(opts.shots, f"assistant-{name}.png"))
+    try:
+        q.boot()
+        k("A")
+        out = q.expect("sprite recipes", timeout=20).decode(errors="replace")
+        assert re.search(r"assistant: ready, \d+ entries, \d+ sprite recipes", out), out
+        see(["Assistant", "type a question"])
+        k("come muovo il personaggio con le frecce")
+        see(["Muovere un personaggio con le frecce"])
+        shot("question")
+        k("\r")
+        q.expect("assistant: inserted", timeout=10)
+        see(["btn(0)", "code inserted"])
+        k("\x1b[18~")                                       # F7: a sprite
+        see(["Assistant", "sprite"])
+        k("slime rosso")
+        see(["Slime"])
+        shot("sprite")
+        k("\r")
+        out = q.expect("x16", timeout=10).decode(errors="replace")
+        assert "assistant: sprite slime 16x16" in out, out
+        see(["in the sheet at 0,0"])
+        k("\x1b[19~")                                       # F8: the speed test
+        out = q.expect("ms each", timeout=60).decode(errors="replace")
+        assert "assistant: speed 100 questions" in out, out
+        time.sleep(0.5)
+        shot("tool")
+        k("\x1b", 0.5)                                     # Esc: back to the monitor
+        out = q.expect("> ", timeout=10).decode(errors="replace")
+        assert "error" not in out, out
     finally:
         q.close()
 

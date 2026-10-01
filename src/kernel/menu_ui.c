@@ -245,6 +245,17 @@ static void draw_icon(g16_t *cg, int icon, int cx, int cy, uint16_t ink, uint16_
         thick_line(cg, cx - 10, cy, cx - 3, cy + 8, ink);
         thick_line(cg, cx - 3, cy + 8, cx + 11, cy - 9, ink);
         break;
+    case MENU_ICON_ASSIST:                      /* a speech bubble with a question */
+        g16_rectfill(cg, cx - 24, cy - 12, 48, 24, ink);
+        g16_rectfill(cg, cx - 18, cy - 18, 36, 36, ink);
+        g16_circfill(cg, cx - 18, cy - 12, 6, ink);
+        g16_circfill(cg, cx + 17, cy - 12, 6, ink);
+        g16_circfill(cg, cx - 18, cy + 11, 6, ink);
+        g16_circfill(cg, cx + 17, cy + 11, 6, ink);
+        for (int i = 0; i < 8; i++)             /* the tail */
+            g16_rectfill(cg, cx - 14 - i, cy + 17 + i, 9 - i, 1, ink);
+        g16_text_scaled(cg, cx - 7, cy - 16, "?", dark, 2);
+        break;
     }
 }
 

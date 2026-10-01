@@ -1,0 +1,24 @@
+== move_arrows
+kind: howto
+title: Muovere un personaggio con le frecce
+ask: come muovo il personaggio con le frecce | muovere uno sprite con i tasti
+ask: spostare il giocatore | move the player with the arrow keys | movimento del personaggio
+keys: muovere, frecce, move
+see: spr
+text:
+btn(0..3) sono sinistra, destra, su, giù (frecce, WASD o la croce del
+pad): finché il tasto è premuto si cambia la posizione.
+code:
+local x, y, speed = 320, 180, 2
+
+function _update()
+  if btn(0) then x = x - speed end   -- sinistra
+  if btn(1) then x = x + speed end   -- destra
+  if btn(2) then y = y - speed end   -- su
+  if btn(3) then y = y + speed end   -- giu
+end
+
+function _draw()
+  cls(0)
+  spr(1, x, y)
+end

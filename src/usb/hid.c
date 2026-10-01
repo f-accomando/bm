@@ -108,6 +108,8 @@ static uint8_t translate(uint8_t u, uint8_t mods)
         case 0x4C: return HID_KEY_DEL;
         case 0x3A: case 0x3B: case 0x3C: case 0x3D: case 0x3E:
             return (uint8_t)(HID_KEY_F1 + (u - 0x3A));
+        case 0x3F: case 0x40: case 0x41: case 0x42: case 0x43: case 0x44: case 0x45:
+            return (uint8_t)(HID_KEY_F6 + (u - 0x3F));
         }
     switch (u) {
     case 0x28: case 0x58: return '\r';          /* Enter, keypad Enter */

@@ -29,6 +29,29 @@ bm_stress_cart:
     .incbin "stress.bm"
 bm_stress_cart_end:
 
+/* the development assistant (M30): knowledge base and network, built by
+ * scripts/mkassist.py; its panel, a Lua library (require "assist") */
+    .section .rodata
+    .balign 4
+    .globl bm_assist_bin, bm_assist_bin_end
+bm_assist_bin:
+    .incbin "assist.bin"
+bm_assist_bin_end:
+
+    .section .rodata
+    .balign 4
+    .globl bm_lib_assist, bm_lib_assist_end
+bm_lib_assist:
+    .incbin "src/ai/assist.lua"
+bm_lib_assist_end:
+
+    .section .rodata
+    .balign 4
+    .globl bm_assistant_cart, bm_assistant_cart_end
+bm_assistant_cart:
+    .incbin "assistant.bm"
+bm_assistant_cart_end:
+
 /* the public key that checks the releases (M19, src/net/release.c): PEM
  * text, NUL-terminated; a placeholder until scripts/release-key.sh */
     .section .rodata

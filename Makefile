@@ -71,7 +71,24 @@ FORCE:
 $(LUA_OBJS) $(LWIP_OBJS) $(MBEDTLS_OBJS): WARN := -w
 # Lua scripts embedded with .incbin
 $(BUILD)/k/src/script/embed.S.o: $(wildcard src/script/*.lua) keys/release-pub.pem \
-                                 $(BUILD)/demo.bm $(BUILD)/stress.bm $(BUILD)/editor.bm
+                                 $(BUILD)/demo.bm $(BUILD)/stress.bm $(BUILD)/editor.bm \
+                                 $(BUILD)/assist.bin src/ai/assist.lua $(BUILD)/assistant.bm
+
+# The development assistant (M30): knowledge base + trained network, built
+# into the kernel. The network is trained on the PC (numpy) by `make
+# ai-model` and committed, so `make` needs only Python's standard library.
+AI_KB := $(wildcard src/ai/kb/*.txt)
+$(BUILD)/assist.bin: $(AI_KB) src/ai/assist.weights scripts/mkassist.py scripts/assistlib.py
+	@mkdir -p $(dir $@) $(BUILD)/ai
+	$(PYTHON) scripts/mkassist.py -o $@ --ref $(BUILD)/ai/ref.txt
+
+ai-model:
+	$(PYTHON) scripts/trainassist.py
+
+# The assistant on its own, in the Dev tab
+$(BUILD)/assistant.bm: carts/assistant/main.lua scripts/mkbm.py
+	@mkdir -p $(dir $@)
+	$(PYTHON) scripts/mkbm.py -o $@ --lua $< --title "bm assistant" --author bm
 
 # The editor (M15), built into the kernel
 $(BUILD)/editor.bm: carts/editor/main.lua carts/editor/cover.png scripts/mkbm.py
@@ -150,7 +167,7 @@ test-titan: $(BUILD)/host/luahost $(BUILD)/titan/main.lua
 
 .DEFAULT_GOAL := all
 .PHONY: FORCE test-smp all clean firmware image image-pi1 sdcard install sdcard-chainloader sdcard-stress qemu qemu-screenshot \
-        run-serial test test-bm test-usb test-audio test-fat test-kitchen test-titan test-net test-http test-https \
+        run-serial test test-bm test-ai ai-model test-usb test-audio test-fat test-kitchen test-titan test-net test-http test-https \
         test-release release disasm
 
 all: $(BUILD)/kernel.img $(BUILD)/chainloader.img $(GAME_CARTS)
@@ -288,7 +305,7 @@ qemu-screenshot: $(BUILD)/kernel.img
 	./scripts/qemu-screenshot.sh $< $(BUILD)/screen.png
 
 test: all test-bm test-usb test-fat test-audio test-kitchen test-titan test-net test-http test-https \
-      test-release test-smp
+      test-release test-smp test-ai
 	$(PYTHON) tests/qemu_test.py --build $(BUILD)
 
 $(BUILD)/host/test_bm: tests/bm/test_bm.c src/bm/gfx16.c src/bm/r3d.c src/bm/format.c src/lib/crc32.c src/bm/*.h
@@ -387,6 +404,16 @@ $(BUILD)/host/test_board: tests/usb/test_board.c src/drivers/board.c src/drivers
 
 test-bm: $(BUILD)/host/test_bm $(BUILD)/demo.bm
 	$< $(BUILD)/demo.bm
+
+# The assistant (M30): C features and network against the Python reference,
+# answers to the held-out questions, sprite generator
+AI_SRCS := src/ai/assist.c src/ai/nn.c src/ai/text.c src/ai/sprite.c
+$(BUILD)/host/test_ai: tests/ai/test_ai.c $(AI_SRCS) src/ai/*.h src/lib/crc32.c
+	@mkdir -p $(dir $@)
+	$(HOSTCC) -O2 -Wall -Wextra -Isrc -o $@ tests/ai/test_ai.c $(AI_SRCS) src/lib/crc32.c -lm
+
+test-ai: $(BUILD)/host/test_ai $(BUILD)/assist.bin
+	$< $(BUILD)/assist.bin $(BUILD)/ai/ref.txt
 
 HOSTCC ?= cc
 

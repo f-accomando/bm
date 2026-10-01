@@ -71,4 +71,7 @@ void home_tool_start(int i, home_do_t *d);
  * controller, the keyboard or the serial port. */
 void home_wait_back(void);
 
+/* the development assistant (M30), the Dev tab's Assistant */
+void home_assistant(framebuffer_t *fb);
+
 #endif

@@ -1,0 +1,7 @@
+# Held-out questions (never trained on): question => the right entries
+pulisci lo schermo => cls
+disegna il mio sprite => spr
+voglio muovere l'omino con le freccette => move_arrows
+voglio uno slime verde => sprite.slime
+disegnami una navetta per lo spazio => sprite.ship
+mattoncini per il muro del castello => sprite.brick

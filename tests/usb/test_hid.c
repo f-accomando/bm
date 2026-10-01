@@ -94,6 +94,24 @@ int main(void)
     hid_report(USB_KEYBOARD, up, 8);
     CHECK(hid_getc() == '@');
 
+    /* text mode (editors): F5, F6 and F12 as key codes (M30: F6 opens the
+     * assistant); out of text mode they type nothing */
+    hid_text_mode(1);
+    const uint8_t f5[8] = { 0, 0, 0x3E }, f6[8] = { 0, 0, 0x3F }, f12[8] = { 0, 0, 0x45 };
+    hid_report(USB_KEYBOARD, f5, 8);
+    hid_report(USB_KEYBOARD, up, 8);
+    hid_report(USB_KEYBOARD, f6, 8);
+    hid_report(USB_KEYBOARD, up, 8);
+    hid_report(USB_KEYBOARD, f12, 8);
+    hid_report(USB_KEYBOARD, up, 8);
+    CHECK(hid_getc() == HID_KEY_F1 + 4);
+    CHECK(hid_getc() == HID_KEY_F6);
+    CHECK(hid_getc() == HID_KEY_F6 + 6);
+    hid_text_mode(0);
+    hid_report(USB_KEYBOARD, f6, 8);
+    hid_report(USB_KEYBOARD, up, 8);
+    CHECK(hid_getc() == -1);
+
     /* DualShock 4: USB report 0x01, Bluetooth report 0x11 (2 more bytes) */
     hid_ds4_attach();
     uint8_t usb[64] = { 0x01, 128, 128, 128, 128, 0x08 };     /* centred, hat none */

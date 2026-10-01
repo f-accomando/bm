@@ -179,6 +179,15 @@ static void t_pattern(framebuffer_t *fb)
     kprintf("HDMI test pattern shown\n");
 }
 
+/* the development assistant (M30) on its own: ask, see the code and the
+ * sprites it would give an editor (also the monitor's A) */
+void home_assistant(framebuffer_t *fb)
+{
+    extern const uint8_t bm_assistant_cart[], bm_assistant_cart_end[];
+    bm_stats_t bs;
+    bm_play(fb, bm_assistant_cart, (size_t)(bm_assistant_cart_end - bm_assistant_cart), 24u * 3600u, &bs);
+}
+
 static void t_diag(framebuffer_t *fb)
 {
     (void)fb;
@@ -196,6 +205,7 @@ typedef struct {
 } tool_t;
 
 static tool_t tools[] = {
+    { "Assistant", "help with code and sprites; F6 in the tools", MENU_ICON_ASSIST, 0x2A6A9A, home_assistant, 0, { 0 } },
     { "Monitor", "the text console with every command (h: help)", MENU_ICON_TERMINAL, 0x2A3A4A, NULL, 0, { 0 } },
     { "Lua", "Lua 5.4 prompt (USB keyboard); Esc or Ctrl-D returns", MENU_ICON_LUA, 0x2A3A9A, t_lua, 0, { 0 } },
     { "System", "board, clocks, memory, SD card, network", MENU_ICON_CHIP, 0x2A7A5A, t_system, 1, { 0 } },

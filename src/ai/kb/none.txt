@@ -1,0 +1,7 @@
+# Off-topic questions: the network learns that they are about nothing it
+# knows (never shown as answers).
+
+== none.chat
+kind: none
+ask: ciao come stai | che tempo fa oggi | raccontami una barzelletta | chi sei
+ask: what is the weather | tell me a joke | who are you | buongiorno
