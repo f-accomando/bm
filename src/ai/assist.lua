@@ -288,6 +288,13 @@ end
 
 -- ---------------------------------------------------------------- drawing
 
+-- keys and pad buttons as chips (prompt()), then the label; the x after it
+local function chips(keys, label, x, y, small)
+  for _, k in ipairs(keys) do x = prompt(k, x, y, small) + 1 end
+  local fw = font()
+  return print(label, (x + 2 + fw - 1) // fw * fw, y, C_DIM) + 2 * fw   -- text on its columns
+end
+
 local function code_line(s, x, y, maxc, fw)
   s = s:sub(1, maxc)
   local i, n = 1, #s
@@ -424,20 +431,31 @@ function M.draw()
       else print(l.t, tx, ry, l.dim and C_DIM or C_TEXT) end
     end
     if #st.lines > st.detail_rows then
-      local more = st.scroll + st.detail_rows < #st.lines and "PgDn: more" or "PgUp: back"
-      print(more, x + w - fw - #more * fw, dy + (st.detail_rows - 1) * fh, C_DIM)
+      local down = st.scroll + st.detail_rows < #st.lines
+      local label, key = down and "more" or "back", down and "pgdn" or "pgup"
+      local lx = x + w - fw - #label * fw          -- the label on its columns, its key before
+      prompt(key, lx - 3 - prompt(key, fh < 16), dy + (st.detail_rows - 1) * fh, fh < 16)
+      print(label, lx, dy + (st.detail_rows - 1) * fh, C_DIM)
     end
   end
-  -- keys
+  -- keys, as chips: the keyboard's, or the pad's buttons after a pad
   local fy = y + h - fh
   rectfill(x, fy, w, fh, C_BAR)
-  local keys
+  local li = lastinput()
+  local pad = li == "ds4" or li == "pad"
+  local list
   if e and e.kind == "sprite" then
-    keys = "Enter/A: use  </>: variant  Up/Dn: choose  Tab/X: mode  Esc/B: close"
+    list = { { "enter", "A", "use" }, { { "<", ">" }, "LEFTRIGHT", "variant" },
+             { { "up", "down" }, "UPDOWN", "choose" }, { "tab", "X", "mode" }, { "esc", "B", "close" } }
   else
-    keys = "Enter/A: insert  Up/Dn: choose  PgDn: more  Tab/X: mode  Esc/B: close"
+    list = { { "enter", "A", "insert" }, { { "up", "down" }, "UPDOWN", "choose" }, { "pgdn", nil, "more" },
+             { "tab", "X", "mode" }, { "esc", "B", "close" } }
   end
-  print(keys:sub(1, st.cols), tx, fy, C_DIM)
+  local kx = tx
+  for _, k in ipairs(list) do
+    local keys = pad and k[2] or k[1]
+    if keys then kx = chips(type(keys) == "table" and keys or { keys }, k[3], kx, fy, fh < 16) end
+  end
   if fw ~= tw or fh ~= th then font(tw == 6 and "6x12" or th == 14 and "8x14" or "8x16") end
 end
 

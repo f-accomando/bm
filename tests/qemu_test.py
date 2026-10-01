@@ -218,16 +218,20 @@ def test_console_ansi_and_status(b, opts):
     q = Qemu(b("kernel.img"))
     try:
         q.expect(MENU, timeout=30)
-        # the menu: tabs at the top, button hints at the bottom (near white)
-        _, text = settled_screen(q, lambda i, t: any("Start+Select Monitor" in l for l in t))
+        # the menu: tabs at the top, button hints at the bottom (near white);
+        # nothing pressed yet: the DS4's buttons, Share + Options for the monitor
+        _, text = settled_screen(q, lambda i, t: "Monitor" in t[21])
         img = q.screendump()
         text = screen_text(img)
         assert "Games" in text[1] and "Dev" in text[1], text[1]
-        sel = next(i for i, l in enumerate(text) if "Start+Select Monitor" in l)
-        col = text[sel].index("Start+Select")
-        colours = {pixel(img, x, sel * 16 + y) for x in range(col * 8, col * 8 + 96) for y in range(16)}
+        col = text[21].index("Monitor")
+        colours = {pixel(img, x, 21 * 16 + y) for x in range(col * 8, col * 8 + 56) for y in range(16)}
         assert any(r > 230 and g > 230 and b > 230 for r, g, b in colours), \
             f"hint text not rendered {colours}"
+        spans = prompt_spans(img, 21)
+        assert len(spans) == 3 and spans[-1][1] - spans[-1][0] >= 44, spans   # cross, Share, Options
+        if opts.shots:
+            _save_png(img, os.path.join(opts.shots, "menu-hints.png"))
         q.send("q")
         q.expect(PROMPT)
         q.expect("> ")
@@ -474,6 +478,24 @@ def bar_icons(img):
         if lit and start is None:
             start = x
         elif not lit and start is not None:
+            runs.append((start, x))
+            start = None
+    if start is not None:
+        runs.append((start, 640))
+    return runs
+
+
+def prompt_spans(img, row):
+    """The button prompts on a text row of the menu's hints (prompts.c):
+    spans [x0, x1) of their grey lip, the second-last pixel row of the cell
+    (the labels' white text never has that colour)."""
+    runs, start, y = [], None, row * 16 + 14
+    for x in range(640):
+        r, g, b = pixel(img, x, y)
+        lip = 120 <= r <= 160 and abs(r - g) < 8 and 8 <= b - r <= 24
+        if lip and start is None:
+            start = x
+        elif not lip and start is not None:
             runs.append((start, x))
             start = None
     if start is not None:
@@ -2144,6 +2166,29 @@ def test_menu_tabs(b, opts):
         state(["Settings"], ["Controllers", "WiFi and network"])
         if opts.shots:
             _save_png(q.screendump(), os.path.join(opts.shots, "home-tabs-settings.png"))
+
+        # Settings > Controllers > Button icons: the DS4's face buttons of the
+        # hints in their colours (the circle of Back red), then white again
+        def red_hint():
+            img_ = q.screendump()
+            return any(r > 220 and g < 140 and b_ < 140 for x in range(640)
+                       for y in range(21 * 16, 22 * 16) for r, g, b_ in [pixel(img_, x, y)])
+        press(buttons=0x08 | 0x20)          # A (cross): Controllers
+        state(["Settings"], ["Settings > Controllers"])
+        press(buttons=0x00)                 # up twice: round to Button icons
+        press(buttons=0x00)
+        state(["Settings"], ["Button icons", "< White >"])
+        assert not red_hint(), "white button icons drawn red"
+        press(buttons=0x02)                 # right: Colour
+        state(["Settings"], ["< Colour >", "button icons: colour"])
+        assert red_hint(), "no red circle for Back"
+        if opts.shots:
+            _save_png(q.screendump(), os.path.join(opts.shots, "home-button-icons.png"))
+        press(buttons=0x06)                 # left: White
+        state(["Settings"], ["< White >", "button icons: white"])
+        assert not red_hint(), "the circle stayed red"
+        press(buttons=0x08 | 0x40)          # B: back to Settings
+        state(["Settings"], ["Controllers", "WiFi and network"], gone=["Button icons"])
         press(shoulders=2)                  # R1 on the last tab: nothing
         state(["Settings"], ["Controllers"])
         press(buttons=0x08 | 0x40)          # B (circle): out of Settings, back to Dev
@@ -2296,6 +2341,9 @@ def test_sd_sdhc_and_usb_menu(b, opts):
         runs = bar_icons(shot_)
         assert len(runs) == 1 and 20 <= runs[0][1] - runs[0][0] <= 27, runs
         assert not blue_number(shot_, runs[0]), "USB: a white number"
+        # the hints: player 1's keyboard, Enter Play, C Options, Esc Monitor
+        widths = [x1 - x0 for x0, x1 in prompt_spans(shot_, 21)]
+        assert len(widths) == 3 and widths[0] >= 34 and widths[1] <= 16 and 20 <= widths[2] <= 28, widths
         sendkeys(q, "e")                      # E is R1: the Dev tab
         img_, text = settled_screen(q, lambda i, t: tabs_lit(i) == ["Dev"])
         assert tabs_lit(img_) == ["Dev"], "\n".join(text)
@@ -2595,7 +2643,7 @@ def test_studio3d(b, opts):
         keys("x")
         screen(["Open in the SDK", "Open in bm Code", "Open in the Sound editor", "Open in the 3D studio"])
         keys("s", "s", "s", "s", "\r")
-        text = screen(["F1 play", "MODELS", "ground", "villager", "169 vertices, 288 triangles"])
+        text = screen(["play", "animate", "MODELS", "ground", "villager", "169 vertices, 288 triangles"])
         assert "opened /carts/village.bm" in text, text
         for _ in range(7):
             keys(DOWN)
@@ -2712,7 +2760,7 @@ def test_mesh(b, opts):
         keys("x")
         screen(["Open in the 3D studio", "Open in bm Mesh"])
         keys("s", "s", "s", "s", "s", "\r")
-        text = screen(["F1 list", "MESHES 13", "ship", "30 vertices, 32 triangles", "built by the game's code"])
+        text = screen(["list", "edit", "MESHES 13", "ship", "30 vertices, 32 triangles", "built by the game's code"])
         assert "0 models, 0 code meshes, 13 from the game's code" in text, text
         assert "core_hot" in text and "turret" in text, text
         shot("list")
@@ -2836,7 +2884,7 @@ def test_pixel(b, opts):
             keys("s")                           # Play, SDK, Code, Sound, 3D studio, Mesh, Pixel
         screen(["Open in bm Pixel"])
         keys("\r", gap=1.0)
-        text = screen(["F1 draw", "COLOURS", "sprite 0  (0,0)  16x16", "spr(0, x, y, 2, 2)"])
+        text = screen(["draw", "sheet", "palette", "COLOURS", "sprite 0  (0,0)  16x16", "spr(0, x, y, 2, 2)"])
         assert "(the file's palette)" in text, text
         shot("draw")
         keys("1", "b", " ", "l", " ", RIGHT, RIGHT, RIGHT, " ")
@@ -2845,7 +2893,7 @@ def test_pixel(b, opts):
         screen(["sheet 256x256", "sprite 0 at (0,0)"])
         shot("sheet")
         keys(F3, gap=0.5)
-        screen(["PALETTE", "e edit"])
+        screen(["PALETTE", "edit", "add", "remove"])
         shot("palette")
         keys("\r", SAVE, gap=0.6)
         screen(["saved /carts/village.bm"])
@@ -3546,7 +3594,7 @@ def test_assistant(b, opts):
         see(["line 12: did you mean spr?", "attempt to call a nil value"])
         shot("error")
         k("\x1b", 0.5)                                     # Esc closes the panel
-        see(["F9 error"])
+        see(["bm assistant", "sprite", "speed"])          # its bar: the keys as chips
         k("\x1b", 0.5)                                     # Esc: back to the monitor
         out = q.expect("> ", timeout=10).decode(errors="replace")
         assert "error" not in out, out
@@ -3596,7 +3644,7 @@ def test_code_editor(b, opts):
         q.boot()
         k("C")
         expect("code: ready")
-        see(["F1 keys"])
+        see(["keys"])                                       # the F1 chip, then "keys"
         k("\x0f", 0.5)                                      # Ctrl+O: the files
         see(["Open a cartridge", "/carts/Il mio demo.bm", "/carts/pong.bm"])
         shot("open")

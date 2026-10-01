@@ -1355,6 +1355,64 @@ kernel: lo stress test nella scheda Dev, la demo col comando `n` del monitor.
   cambiare layout, riavviare); il menu resta a 60 fps; ogni funzione ha un test in
   QEMU.
 
+**Icone dei tasti** (branch `bm-ui`, 2026-10-01): un set di icone piatte per i tasti del
+DS4, dei pad generici e della tastiera, nello stile delle icone della barra.
+- Stile scelto dall'utente fra quattro varianti (pieno, contorno, rilievo, scuro a colori):
+  **rilievo**. Faccia bianca alta 14 pixel su un bordino grigio di 2 pixel, simbolo o
+  scritta ritagliati nella faccia. I quattro tasti frontali del DS4 hanno anche la
+  versione a colori: faccia scura con bordo e bordino grigi, simbolo nel suo colore
+  (croce blu, cerchio rosso, quadrato rosa, triangolo verde).
+- `src/kernel/prompts.c` (C semplice, come `icons.c`): forme con antialiasing (8×8
+  campioni ai bordi), fatte al primo uso e tenute. Tutte alte 16 pixel, come una riga di
+  testo.
+  - DS4: croce, cerchio, quadrato, triangolo; croce direzionale (tutta o una direzione
+    in bianco, le altre grigie); L1 R1, L2 R2 (più tondi in alto), L3 R3, levette L e R;
+    OPTIONS, SHARE, PS, touchpad.
+  - Pad generici: A B X Y, START, SELECT.
+  - Tastiera: frecce, Enter, Esc, Space, Tab, Backspace, Shift, Ctrl, Alt, Del, Home,
+    End, PgUp, PgDn, F1–F12 e un tasto per ogni carattere (`prompt_key`). Una lettera è
+    nel font 8×16 in grassetto, le parole nel 6×12.
+- **Menu**: i suggerimenti in basso mostrano i tasti dell'ultimo dispositivo premuto
+  (`hid_last_source()`), prima di allora la tastiera del giocatore 1 o il DS4.
+  - DS4: croce Play, quadrato Options, SHARE+OPTIONS Monitor; nei pannelli croce
+    Select, croce direzionale Change, cerchio Back.
+  - Tastiera: Enter, C, Esc; nei pannelli le frecce ← →.
+  - Pad generici: A, X, SELECT+START.
+  - Settings > Controllers > **Button icons**: White / Colour (`prompts=` in
+    `config.txt`).
+- Test: `make test-prompts` controlla ogni icona e disegna il set intero, 3x come sulla
+  TV, in `build/prompts/prompts.png`; `test_hid` controlla `hid_last_source()`; in QEMU
+  `prompt_spans` trova le icone dei suggerimenti dal loro bordino grigio.
+- **Da provare sul Pi:** i suggerimenti col DS4 (bianchi e, da Settings > Controllers >
+  Button icons, a colori), poi con la tastiera USB (Enter / C / Esc) premendone un tasto.
+
+**Secondo set: le app di sviluppo** (2026-10-01). Prima ogni app scriveva i tasti a modo
+suo: solo il Sound editor li disegnava (chip con gli angoli tagliati, colori Xbox, solo i
+nomi del pad), SDK, 3D studio, bm Code e assistente li scrivevano come testo ("F1 code",
+"Enter/A: insert"). Fra quattro varianti l'utente ha scelto i **chip colorati**.
+- Chip piatti pieni di colore, scritta ritagliata: i tasti della tastiera nell'ambra delle
+  app, i quattro tasti frontali del DS4 nei loro colori, A B X Y dei pad generici nei loro
+  (verde, rosso, blu, giallo), gli altri pulsanti del pad grigio chiaro, la croce
+  direzionale con le direzioni giuste chiare. Alti 16 pixel accanto al testo 8×16, 12
+  accanto al 6×12 di bm Code (`prompt_chip`, `prompt_chip_key` in `prompts.c`; il set del
+  menu resta identico, pixel per pixel).
+- API Lua: `prompt(nome, x, y, [piccolo])` (maiuscolo i pulsanti del pad, come sul pad
+  usato per ultimo; minuscolo i tasti, coi nomi di `keyp()`), `prompt(nome)` misura,
+  `lastinput()` dice se l'ultimo tasto era della tastiera, di un DS4 o di un altro pad
+  (`docs/API.md`).
+- Nelle app (non in nano8, che è un emulatore): le schede di SDK e 3D studio (F1…F4,
+  Esc), le barre in basso ("hold F12 keys"), la riga dei suggerimenti del 3D studio, il
+  Sound editor (coi tasti della tastiera se è quella l'ultima usata: Enter, - =, [ ],
+  Backspace, Space…), il menu di bm Code con le scorciatoie e i suoi dialoghi, il pannello
+  dell'assistente e la sua barra. Le scritte dopo i chip restano sulle colonne del font (i
+  test in QEMU leggono lo schermo). Le liste dei tasti di F12 restano testo.
+- Test: `make test-prompts` controlla anche i chip e disegna `build/prompts/chips.png`; i
+  simulatori sul PC (Sound, 3D studio, pannello) hanno `prompt` e `lastinput`, e il
+  pannello prova tastiera e pad.
+- **Da provare sul Pi:** le schede, le barre e i suggerimenti di SDK, 3D studio, Sound
+  editor, bm Code e assistente, con la tastiera e poi col DS4 (Sound, i menu e il pannello
+  passano ai pulsanti del pad).
+
 ## M28 — Tastiera Bluetooth LE (M) — ✅ verificata sul Pi (2026-09-30)
 Richiesta 2026-09-30: una Logitech **MX Keys S** (con tastierino). È Bluetooth **Low
 Energy** (HID over GATT), non Bluetooth classico come il DS4: serve una parte nuova

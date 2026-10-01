@@ -121,6 +121,15 @@ E.SCREEN_W, E.SCREEN_H = 640, 360
 local function nop() end
 for _, n in ipairs({ "cls", "rect", "rectfill", "line", "circ", "circfill", "pset", "clip", "camera" }) do E[n] = nop end
 E.print = function(s, x, y) texts[#texts + 1] = { tostring(s), x or 0, y or 0 }; return (x or 0) + #tostring(s) * 8 end
+-- the keys as chips: written as "[name]"; prompt(name) alone measures
+local function chip_w(n) return #n == 1 and 16 or math.max(16, #n * 6 + 10) end
+E.prompt = function(n, x, y)
+  assert(type(n) == "string", "prompt: a name")
+  if type(x) ~= "number" then return chip_w(n), 16 end
+  texts[#texts + 1] = { "[" .. n .. "]", x, y }
+  return x + chip_w(n)
+end
+E.lastinput = function() return nil end
 E.time = function() return frame / 60 end
 E.stat = function() return 0 end
 E.log = function(...) io.write(table.concat({ ... }, "\t"), "\n") end
@@ -354,7 +363,7 @@ check(sees("open a cartridge") and sees("/carts/village.bm"), "at the start: the
 key("down", "\n")
 check(status():find("village.bm: sheet", 1, true) and status():find("(the file's palette)", 1, true),
       "the village: its sheet and the palette of its SHEET8: " .. status())
-check(sees("F1 draw") and sees("COLOURS"), "the draw page")
+check(sees("[f1]") and sees("draw") and sees("COLOURS"), "the draw page, its tab with the F1 chip")
 local npal0 = tonumber(screen():match("COLOURS (%d+)"))
 
 -- an empty sprite to draw on: down the sheet until the sprite is empty
@@ -436,7 +445,7 @@ key("m", "home")
 for _ = 1, 8 do key("left") end
 for _ = 1, 8 do key("up") end            -- (0,0)
 key(" ", "right", "right", "right", " ") -- (0,0)-(3,0)
-check(sees("Ctrl+C copy"), "a selection")
+check(sees("[ctrl]") and sees("lift"), "a selection: its keys on the hint row")
 key("^c", "esc", "home", "^v")           -- pasted at (8,8)
 key("down", "down", "down", "down", "down", "down", "down", "\n")      -- at (8,15)
 check(S(8, 15) == c1 and S(11, 15) == c1, "paste: the row of 4 at (8,15)")
@@ -473,7 +482,7 @@ key("^z")
 
 -- the palette page: a new colour, edited, drawn with
 key("f3")
-check(sees("PALETTE") and sees("e edit"), "F3: the palette")
+check(sees("PALETTE") and sees("[e]") and sees("edit"), "F3: the palette")
 key("a")
 for _ = 1, 4 do key("right") end         -- R + 32
 key("\n", "\n")
@@ -492,7 +501,7 @@ key("^c", erx + 16 < E.cart_sheet() and "right" or "left", "^v")
 local rx2, ry2 = sprite_at()
 check(rx2 ~= erx and E.sget(rx2, ry2) == newc, "copied to the sprite beside")
 key(rx2 > erx and "left" or "right", "\n")
-check(sees("F1 draw"), "Enter: draw it")
+check(sees("COLOURS"), "Enter: draw it")
 key("f2", "R")
 check(sees("sheet size"), "R: the size")
 local w0, h0 = E.cart_sheet()

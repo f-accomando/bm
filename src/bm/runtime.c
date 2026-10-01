@@ -23,6 +23,7 @@
 #include "drivers/dma.h"
 #include "arch/cache.h"
 #include "kernel/crumbs.h"
+#include "kernel/prompts.h"
 #include "n8lua.h"
 #include "ai/lua_ai.h"
 #include "require.h"
@@ -228,6 +229,117 @@ static int l_font(lua_State *L)
     lua_pushinteger(L, rt.g.font->width);
     lua_pushinteger(L, rt.g.font->height);
     return 2;
+}
+
+/* ---------------------------------------------------------------- prompts */
+
+/* the pad's buttons, upper case: as on a DS4, or on a lettered pad */
+static const struct { const char *name; uint8_t ds4, pad; } pad_prompts[] = {
+    { "A", PROMPT_CROSS, PROMPT_PAD_A }, { "B", PROMPT_CIRCLE, PROMPT_PAD_B },
+    { "X", PROMPT_SQUARE, PROMPT_PAD_X }, { "Y", PROMPT_TRIANGLE, PROMPT_PAD_Y },
+    { "START", PROMPT_OPTIONS, PROMPT_PAD_START }, { "SELECT", PROMPT_SHARE, PROMPT_PAD_SELECT },
+    { "L1", PROMPT_L1, PROMPT_L1 }, { "R1", PROMPT_R1, PROMPT_R1 },
+    { "L2", PROMPT_L2, PROMPT_L2 }, { "R2", PROMPT_R2, PROMPT_R2 },
+    { "L3", PROMPT_L3, PROMPT_L3 }, { "R3", PROMPT_R3, PROMPT_R3 },
+    { "LSTICK", PROMPT_LSTICK, PROMPT_LSTICK }, { "RSTICK", PROMPT_RSTICK, PROMPT_RSTICK },
+    { "DPAD", PROMPT_DPAD, PROMPT_DPAD }, { "UP", PROMPT_DPAD_UP, PROMPT_DPAD_UP },
+    { "DOWN", PROMPT_DPAD_DOWN, PROMPT_DPAD_DOWN }, { "LEFT", PROMPT_DPAD_LEFT, PROMPT_DPAD_LEFT },
+    { "RIGHT", PROMPT_DPAD_RIGHT, PROMPT_DPAD_RIGHT }, { "UPDOWN", PROMPT_DPAD_UPDOWN, PROMPT_DPAD_UPDOWN },
+    { "LEFTRIGHT", PROMPT_DPAD_LEFTRIGHT, PROMPT_DPAD_LEFTRIGHT },
+    { "PS", PROMPT_PS, PROMPT_PS }, { "TOUCHPAD", PROMPT_TOUCHPAD, PROMPT_TOUCHPAD },
+    { "CROSS", PROMPT_CROSS, PROMPT_CROSS }, { "CIRCLE", PROMPT_CIRCLE, PROMPT_CIRCLE },
+    { "SQUARE", PROMPT_SQUARE, PROMPT_SQUARE }, { "TRIANGLE", PROMPT_TRIANGLE, PROMPT_TRIANGLE },
+    { "OPTIONS", PROMPT_OPTIONS, PROMPT_OPTIONS }, { "SHARE", PROMPT_SHARE, PROMPT_SHARE },
+};
+
+/* the keyboard's keys with a name, lower case (the names of keyp()) */
+static const struct { const char *name; uint8_t id; } key_prompts[] = {
+    { "up", PROMPT_KEY_UP }, { "down", PROMPT_KEY_DOWN }, { "left", PROMPT_KEY_LEFT },
+    { "right", PROMPT_KEY_RIGHT }, { "enter", PROMPT_KEY_ENTER }, { "esc", PROMPT_KEY_ESC },
+    { "space", PROMPT_KEY_SPACE }, { "tab", PROMPT_KEY_TAB }, { "backspace", PROMPT_KEY_BACKSPACE },
+    { "shift", PROMPT_KEY_SHIFT }, { "ctrl", PROMPT_KEY_CTRL }, { "alt", PROMPT_KEY_ALT },
+    { "del", PROMPT_KEY_DEL }, { "home", PROMPT_KEY_HOME }, { "end", PROMPT_KEY_END },
+    { "pgup", PROMPT_KEY_PGUP }, { "pgdn", PROMPT_KEY_PGDN },
+};
+
+/* the pad the prompts show: the one pressed last, a DS4 until then */
+static int prompt_lettered;
+
+static const prompt_t *find_prompt(const char *n, int small)
+{
+    int src = hid_last_source();
+    if (src == HID_SOURCE_DS4 || src == HID_SOURCE_PAD)
+        prompt_lettered = src == HID_SOURCE_PAD;
+    for (size_t i = 0; i < sizeof pad_prompts / sizeof *pad_prompts; i++)
+        if (!strcmp(n, pad_prompts[i].name))
+            return prompt_chip(prompt_lettered ? pad_prompts[i].pad : pad_prompts[i].ds4, small);
+    for (size_t i = 0; i < sizeof key_prompts / sizeof *key_prompts; i++)
+        if (!strcmp(n, key_prompts[i].name))
+            return prompt_chip(key_prompts[i].id, small);
+    if (n[0] == 'f' && n[1] >= '1' && n[1] <= '9') {
+        int k = atoi(n + 1);
+        if (k >= 1 && k <= 12 && (n[2] == 0 || (k >= 10 && n[3] == 0)))
+            return prompt_chip(PROMPT_KEY_F1 + k - 1, small);
+    }
+    if (n[0] && !n[1] && !(n[0] >= 'A' && n[0] <= 'Z'))
+        return prompt_chip_key((unsigned char)n[0], small);
+    return NULL;
+}
+
+/* prompt(name, x, y [, small]): a button or a key as a chip of the apps'
+ * set (prompts.c), its top left at (x, y), 16 px high for 8x16 text, 12
+ * with small (by default when the font is 6x12); returns the x after it.
+ * prompt(name [, small]) only measures: the width and height.
+ * Upper case the pad's buttons ("A", "B", "X", "Y", "START", "L1",
+ * "UPDOWN"...), shown as on the pad pressed last: a DS4 (cross, circle...)
+ * until another pad is used. Lower case the keyboard's keys, with the
+ * names of keyp() ("enter", "esc", "f1", "up") or one character ("s"). */
+static int l_prompt(lua_State *L)
+{
+    const char *n = luaL_checkstring(L, 1);
+    int measure = !lua_isnumber(L, 2), at = measure ? 2 : 4;
+    int small = lua_isnoneornil(L, at) ? rt.g.font->height <= 12 : lua_toboolean(L, at);
+    const prompt_t *p = find_prompt(n, small);
+    if (!p)
+        return luaL_argerror(L, 1, "not a button or a key");
+    if (measure) {
+        lua_pushinteger(L, p->w);
+        lua_pushinteger(L, p->h);
+        return 2;
+    }
+    int x = ival(L, 2), y = ival(L, 3);
+    for (int j = 0; j < p->h; j++)
+        for (int i = 0; i < p->w; i++) {
+            uint32_t c = p->px[j * p->w + i], a = c >> 24;
+            if (!a)
+                continue;
+            if (a < 255) {                      /* the edges: over what is there */
+                int b = g16_pget(&rt.g, x + i, y + j);
+                if (b < 0)
+                    continue;
+                uint32_t under = g16_to_rgb24((uint16_t)b), out = 0;
+                for (int sh = 0; sh <= 16; sh += 8) {
+                    int u = (int)(under >> sh & 255), v = (int)(c >> sh & 255);
+                    out |= (uint32_t)(u + (v - u) * (int)a / 255) << sh;
+                }
+                c = out;
+            }
+            g16_pset(&rt.g, x + i, y + j, g16_rgb24(c & 0xFFFFFF));
+        }
+    lua_pushinteger(L, x + p->w);
+    return 1;
+}
+
+/* lastinput(): what pressed something last, "keyboard", "ds4" or "pad"
+ * (another controller); nil before anything is pressed */
+static int l_lastinput(lua_State *L)
+{
+    int s = hid_last_source();
+    if (s == HID_SOURCE_NONE)
+        lua_pushnil(L);
+    else
+        lua_pushstring(L, s == HID_SOURCE_KEYBOARD ? "keyboard" : s == HID_SOURCE_DS4 ? "ds4" : "pad");
+    return 1;
 }
 
 static int l_camera(lua_State *L) { g16_camera(&rt.g, oval(L, 1, 0), oval(L, 2, 0)); return 0; }
@@ -1566,6 +1678,7 @@ static const luaL_Reg api[] = {
     { "rect", l_rect }, { "rectfill", l_rectfill }, { "circ", l_circ }, { "circfill", l_circfill },
     { "spr", l_spr }, { "sspr", l_sspr }, { "map", l_map }, { "mget", l_mget }, { "mset", l_mset },
     { "sget", l_sget }, { "sset", l_sset }, { "print", l_print }, { "font", l_font }, { "camera", l_camera },
+    { "prompt", l_prompt }, { "lastinput", l_lastinput },
     { "clip", l_clip }, { "rgb", l_rgb }, { "btn", l_btn }, { "btnp", l_btnp },
     { "players", l_players }, { "stick", l_stick },
     { "time", l_time }, { "stat", l_stat }, { "tri", l_tri },

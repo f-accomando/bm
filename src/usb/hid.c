@@ -61,6 +61,7 @@ static int bt_ps_held[HID_PLAYERS];
 static int8_t bt_axis[HID_PLAYERS][2], pad_axis[2];     /* left stick, -127..127 */
 static int bt_analog[HID_PLAYERS], pad_analog;
 static int quit_edge;
+static int last_source;                 /* HID_SOURCE_*: what pressed something last */
 static int caps;
 
 /* key repeat for text */
@@ -235,6 +236,7 @@ static void keyboard_boot(int k, const uint8_t *r)
         for (int j = 2; j < 8; j++) was |= prev_keys[k][j] == u;
         if (was) continue;
         /* new key */
+        last_source = HID_SOURCE_KEYBOARD;
         if (u == 0x29) {                                            /* Esc */
             if (!text_mode)                     /* with Ctrl: the monitor, from the menu */
                 quit_edge |= HID_QUIT_KEY | (mods & 0x11 ? HID_QUIT_MONITOR : 0);
@@ -517,6 +519,8 @@ void hid_bt_report(int slot, const uint8_t *r, uint32_t len)
     if ((b & (HID_START | HID_SELECT)) == (HID_START | HID_SELECT) &&
         (bt_buttons[slot] & (HID_START | HID_SELECT)) != (HID_START | HID_SELECT))
         quit_edge |= HID_QUIT_KEY | HID_QUIT_MONITOR;
+    if ((b & ~bt_buttons[slot]) || (ps && !bt_ps_held[slot]))
+        last_source = HID_SOURCE_DS4;
     bt_ps_held[slot] = ps;
     bt_buttons[slot] = b;
     bt_latched[slot] |= b;
@@ -533,6 +537,11 @@ void hid_bt_clear(int slot)
     bt_ps_held[slot] = 0;
     bt_axis[slot][0] = bt_axis[slot][1] = 0;
     bt_analog[slot] = 0;
+}
+
+int hid_last_source(void)
+{
+    return last_source;
 }
 
 int hid_quit_pressed(void)
@@ -719,8 +728,10 @@ static void gamepad_report(const uint8_t *r, uint32_t len)
         b = hid_ds4_buttons(r + off, len - (uint32_t)off, &ps);
         pad_axis[0] = ds4_axis(r[off]);
         pad_axis[1] = ds4_axis(r[off + 1]);
-        if (ps && !pad.ps_held)
+        if (ps && !pad.ps_held) {
             quit_edge |= HID_QUIT_PS;           /* the PS button leaves the game */
+            last_source = HID_SOURCE_DS4;
+        }
         pad.ps_held = ps;
     } else if (pad.xbox) {
         if (len < 10 || r[0] != 0x00) return;
@@ -787,6 +798,8 @@ static void gamepad_report(const uint8_t *r, uint32_t len)
     if ((b & (HID_START | HID_SELECT)) == (HID_START | HID_SELECT) &&
         (pad_buttons & (HID_START | HID_SELECT)) != (HID_START | HID_SELECT))
         quit_edge |= HID_QUIT_KEY | HID_QUIT_MONITOR;
+    if (b & ~pad_buttons)
+        last_source = pad.ds4 ? HID_SOURCE_DS4 : HID_SOURCE_PAD;
     pad_buttons = b;
     latched_pad |= b;
 }

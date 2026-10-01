@@ -137,6 +137,15 @@ E.rectfill = function(x, y, w, h, c) if c == 0x3050A0 then sel_rows[#sel_rows + 
 for _, n in ipairs({ "cls", "rect", "line", "circ", "circfill", "tri", "clip", "sspr", "spr", "camera", "zclear",
                      "light3d", "fog3d", "lamp3d", "pset", "draw3d" }) do E[n] = nop end
 E.print = function(s, x, y) texts[#texts + 1] = { tostring(s), x or 0, y or 0 }; return (x or 0) + #tostring(s) * 8 end
+-- the keys as chips: written as "[name]"; prompt(name) alone measures
+local function chip_w(n) return #n == 1 and 16 or math.max(16, #n * 6 + 10) end
+E.prompt = function(n, x, y)
+  assert(type(n) == "string", "prompt: a name")
+  if type(x) ~= "number" then return chip_w(n), 16 end
+  texts[#texts + 1] = { "[" .. n .. "]", x, y }
+  return x + chip_w(n)
+end
+E.lastinput = function() return nil end
 E.time = function() return frame / 60 end
 E.stat = function() return 0 end
 E.log = function(...) io.write(table.concat({ ... }, "\t"), "\n") end

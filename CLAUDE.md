@@ -75,6 +75,18 @@ Lua 5.4 embedded. Documentazione: `README.md`, `docs/ROADMAP.md`, `docs/HARDWARE
   e il suo interprete non entrano nelle build, nel kernel o nell'immagine SD; non
   reintrodurli senza una richiesta esplicita.
 
+## Icone dei tasti (bm-ui)
+
+- `src/kernel/prompts.c`: tasti di DS4, pad generici e tastiera come icone, due set scelti
+  dall'utente. Menu: in rilievo (faccia bianca su bordino grigio, simbolo ritagliato; solo
+  i 4 tasti frontali del DS4 anche a colori), nei suggerimenti secondo `hid_last_source()`.
+  App di sviluppo (SDK, 3D studio, bm Mesh, bm Pixel, Sound, bm Code, assistente; non
+  nano8): chip colorati da 16 o 12 px, dal Lua con `prompt()` / `lastinput()`; le scritte
+  accanto restano sulle colonne del font (in bm Mesh e bm Pixel `hint()` e `chip_hint()`).
+  Nei test sul PC `prompt` scrive `"[nome]"`. bm Code ha un suo `prompt()` locale (il
+  dialogo): lì si chiama `key_chip`. `make test-prompts` disegna i due set in
+  `build/prompts/`: guardarli dopo ogni modifica.
+
 ## Audio
 
 - Sintetizzatore `src/audio/synth.c`; player dei banchi di suoni `src/audio/player.c`

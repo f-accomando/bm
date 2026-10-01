@@ -271,6 +271,30 @@ local function read_pad()
   end
 end
 
+-- the keys as chips (prompt(), the look of all the Dev apps): the labels
+-- stay on the font's 8 px columns
+local function snap(x) return (x + 7) // 8 * 8 end
+
+-- the keys of the page on the hint row: { { {keys...}, label }, ... }, as many as fit
+local function hint(list)
+  local x = 0
+  for _, h in ipairs(list) do
+    local kx = x
+    for _, k in ipairs(h[1]) do kx = kx + prompt(k) + 1 end
+    if snap(kx + 2) + #h[2] * 8 > W then break end
+    for _, k in ipairs(h[1]) do x = prompt(k, x, HINT_Y) + 1 end
+    x = print(h[2], snap(x + 2), HINT_Y, C_DIM) + 12
+  end
+end
+
+-- a key as a chip, or the pad's button when a pad was used last and the
+-- action has one; then its label. Returns the x after it.
+local function chip_hint(key, pad, label, x, y, c)
+  local li = lastinput()
+  x = prompt(pad and (li == "ds4" or li == "pad") and pad or key, x, y)
+  return print(label, snap(x + 3), y, c or C_DIM) + 12
+end
+
 local function choose(title, rows, sel) pick = { title = title, rows = rows, sel = sel or 1 } end
 local function ask(label, text, done) input = { label = label, text = text, done = done } end
 
@@ -308,7 +332,8 @@ local function draw_pick()
   local y0 = max(32, (H - h) // 32 * 16)
   rectfill(40, y0, 560, h, C_PANEL)
   rect(40, y0, 560, h, C_ACC)
-  print(p.title, 56, y0, C_ACC)
+  local tx = print(p.title, 56, y0, C_ACC) + 16
+  chip_hint("esc", "B", "back", chip_hint("enter", "A", "choose", tx, y0), y0)
   local first = clamp(p.sel - rows // 2, 1, max(1, #p.rows - rows + 1))
   for i = first, min(#p.rows, first + rows - 1) do
     local y = y0 + 16 + (i - first) * 16
@@ -323,6 +348,7 @@ local function draw_input()
   rect(80, 144, 480, 64, C_ACC)
   print(input.label, 96, 160, C_DIM)
   print(input.text .. ((frame // 20) % 2 == 0 and "_" or ""), 96, 176, C_TEXT)
+  chip_hint("esc", nil, "cancel", chip_hint("enter", nil, "ok", 336, 144), 144)
 end
 
 -- a checkerboard under the transparent pixels
@@ -340,7 +366,6 @@ local function swatch(x, y, s, c)
   if c then rectfill(x, y, s, s, c) else checker(x, y, s, s, s // 2) end
 end
 
-local function hint(s) print(s:sub(1, 79), 0, HINT_Y, C_DIM) end
 
 -- the pages: what each one gives the others
 local dp, draw_reset, draw_key, draw_pad, draw_update, draw_actions, draw_draw
@@ -922,10 +947,15 @@ function draw_draw()
   print("anim " .. (k + 1) .. "/" .. anim.frames, ax, 160, C_DIM)
   print(string.format("%d fps%s%s%s", anim.fps, anim.play and "" or " ||", anim.onion and "  onion" or "",
                       mirror and "  mirror" or ""), x, 304, C_DIM)
-  if dp.float then hint("arrows move  space or Enter put it down  Esc drop it")
-  elseif dp.sel then hint("Ctrl+C copy  Ctrl+X cut  Enter lift  h v flip  r turn  Del clear  Esc")
-  elseif dp.anchor then hint("arrows: the other corner  space: done  Esc: cancel")
-  else hint("arrows point  space draw  b e g i l u o m tools  , . colour  z size  Tab more") end
+  if dp.float then hint({ { { "up", "down", "left", "right" }, "move" }, { { "space" }, "put it down" }, { { "esc" }, "drop it" } })
+  elseif dp.sel then
+    hint({ { { "ctrl", "c" }, "copy" }, { { "ctrl", "x" }, "cut" }, { { "enter" }, "lift" }, { { "h", "v" }, "flip" },
+           { { "r" }, "turn" }, { { "del" }, "clear" }, { { "esc" }, "none" } })
+  elseif dp.anchor then hint({ { { "up", "down", "left", "right" }, "the other corner" }, { { "space" }, "done" }, { { "esc" }, "cancel" } })
+  else
+    hint({ { { "up", "down", "left", "right" }, "point" }, { { "space" }, "draw" }, { { "b", "e", "g", "l", "u", "o", "m" }, "tools" },
+           { { ",", "." }, "colour" }, { { "z" }, "size" }, { { "tab" }, "more" } })
+  end
 end
 end
 
@@ -1062,7 +1092,8 @@ function draw_sheet()
   rectfill(0, 304, W, 16, C_BG)
   print(string.format("view (%d,%d)  %d frames from here  spr(%d, x, y, %d, %d)", shp.vx, shp.vy, anim.frames,
                       sprite_index(), rs // 8, rs // 8), 8, 304, C_DIM)
-  hint("arrows sprite  Enter draw it  z size  + - zoom  Ctrl+C/V copy, paste  R size")
+  hint({ { { "up", "down", "left", "right" }, "sprite" }, { { "enter" }, "draw it" }, { { "z" }, "size" }, { { "+", "-" }, "zoom" },
+         { { "ctrl", "c" }, "copy" }, { { "ctrl", "v" }, "paste" }, { { "shift", "r" }, "sheet size" } })
 end
 end
 
@@ -1235,12 +1266,17 @@ function draw_palette()
     end
   end
   print("drawing with " .. ci .. " " .. colour_name(colour()), x, 192, C_TEXT)
-  print("e edit  a add  Del remove  [ ] move", x, 224, C_DIM)
-  print("s sort  f from the sheet  1 SDK  2 Studio", x, 240, C_DIM)
-  print("x / X: the drawing colour becomes", x, 256, C_DIM)
-  print("this one in the sprite / sheet", x, 272, C_DIM)
-  if pp.edit then hint("up/down R G B  left/right 8  < > 1  Enter done")
-  else hint("arrows choose  Enter draw with it  e edit  a add  Del remove  s sort  f sheet") end
+  chip_hint("[", nil, "move", chip_hint("del", nil, "remove", chip_hint("a", nil, "add", chip_hint("e", nil, "edit", x, 224), 224), 224), 224)
+  chip_hint("f", nil, "from the sheet", chip_hint("s", nil, "sort", x, 240), 240)
+  chip_hint("2", nil, "Studio palette", chip_hint("1", nil, "SDK palette", x, 256), 256)
+  chip_hint("x", nil, "drawing colour -> this: sprite", x, 272)
+  print("drawing colour -> this: sheet", snap(prompt("x", prompt("shift", x, 288) + 1, 288) + 3), 288, C_DIM)
+  if pp.edit then
+    hint({ { { "up", "down" }, "R G B" }, { { "left", "right" }, "8" }, { { "<", ">" }, "1" }, { { "enter" }, "done" } })
+  else
+    hint({ { { "up", "down", "left", "right" }, "choose" }, { { "enter" }, "draw with it" }, { { "e" }, "edit" }, { { "a" }, "add" },
+           { { "del" }, "remove" }, { { "s" }, "sort" }, { { "f" }, "from the sheet" } })
+  end
 end
 end
 
@@ -1270,7 +1306,7 @@ local function open_chooser()
     rows[i] = { f, function() if open_file(f) then go(files_seen[f] and files_seen[f].page or "draw") end end }
     if f == proj.path then sel = i end
   end
-  choose("open a cartridge (Enter), Esc back", rows, sel)
+  choose("open a cartridge", rows, sel)
 end
 
 local function save_as()
@@ -1324,13 +1360,15 @@ local function draw_menu()
   print(proj.title ~= "" and proj.title:sub(1, 38) or "", x, 64, C_TEXT)
   print("sheet " .. sw .. "x" .. sh .. ", " .. #pal() .. " colours", x, 96, C_TEXT)
   print("sprite " .. sprite_index() .. ", " .. rs .. "x" .. rs, x, 112, C_TEXT)
-  print("F1 draw  F2 sheet  F3 palette", x, 144, C_DIM)
-  print("F5 try the game", x, 160, C_DIM)
-  print("F12 (held) or ? : keys", x, 176, C_DIM)
+  chip_hint("f3", nil, "palette", chip_hint("f2", nil, "sheet", chip_hint("f1", nil, "draw", x, 144), 144), 144)
+  chip_hint("f5", nil, "try the game", x, 160)
+  local kx = snap(prompt("f12", x, 176) + 3)
+  kx = print("(held) or", kx, 176, C_DIM) + 4
+  chip_hint("?", nil, "keys", kx, 176)
   print("the sheet as the SDK, bm Studio, the", x, 208, C_DIM)
   print("3D studio and the games read it; the", x, 224, C_DIM)
   print("palette is saved with it (SHEET8)", x, 240, C_DIM)
-  hint("up/down choose  Enter select  Esc back")
+  hint({ { { "up", "down" }, "choose" }, { { "enter" }, "select" }, { { "esc" }, "back" } })
 end
 
 ----------------------------------------------------------------- keys help
@@ -1481,16 +1519,19 @@ function _draw()
   elseif page == "palette" then draw_palette()
   else draw_menu() end
 
-  rectfill(0, 0, W, 16, C_BAR)
-  local tabs = { { "draw", "F1 draw" }, { "sheet", "F2 sheet" }, { "palette", "F3 palette" }, { "menu", "Esc menu" } }
-  local x = 0
+  rectfill(0, 0, W, 16, C_BAR)               -- the tabs: each page with its key
+  local tabs = { { "draw", "f1", "draw" }, { "sheet", "f2", "sheet" }, { "palette", "f3", "palette" },
+                 { "menu", "esc", "menu" } }
+  local x = 4
   for _, t in ipairs(tabs) do
-    local s = " " .. t[2] .. " "
-    if t[1] == page then rectfill(x, 0, #s * 8, 16, C_SEL) end
-    print(s, x, 0, t[1] == page and 0xFFFFFF or C_DIM)
-    x = x + #s * 8 + 8
+    local lx = snap(x + prompt(t[2]) + 3)
+    local w = lx + #t[3] * 8 - x
+    if t[1] == page then rectfill(x - 4, 0, w + 8, 16, C_SEL) end
+    prompt(t[2], x, 0)
+    print(t[3], lx, 0, t[1] == page and 0xFFFFFF or C_DIM)
+    x = x + w + 20
   end
-  print("bm Pixel", x + 8, 0, C_ACC)
+  print("bm Pixel", snap(x + 4), 0, C_ACC)
   local name = (proj.path or "new sheet") .. (dirty and "*" or "")
   print(name, W - #name * 8 - 8, 0, dirty and C_ACC or C_DIM)
 
@@ -1499,8 +1540,11 @@ function _draw()
   if msg_t > 0 and msg then status = msg
   elseif page == "menu" then status = "up/down choose, Enter select"
   else status = string.format("sprite %d  %s  colour %s", sprite_index(), tool, colour_name(colour())) end
-  if #status <= 62 then status = status .. string.rep(" ", 65 - #status) .. "F12 or ?: keys" end
   print(status:sub(1, 79), 0, STATUS_Y, (msg_t > 0 and msg_c) or C_TEXT)
+  if #status <= 62 then                  -- room on the right: F12 or ? for the keys
+    local kx = print("or", snap(prompt("f12", 524, STATUS_Y) + 3), STATUS_Y, C_DIM) + 4
+    chip_hint("?", nil, "keys", kx, STATUS_Y)
+  end
   if pick then draw_pick() end
   if input then draw_input() end
   if keyheld("f12") or help then draw_keys() end
