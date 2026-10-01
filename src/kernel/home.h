@@ -30,9 +30,10 @@ void home_row(home_panel_t *p, int kind, int id, const char *label, const char *
               const char *fmt, ...) __attribute__((format(printf, 6, 7)));
 
 /* The panels. HOME_CART (a cartridge's options) is built by carts.c,
- * HOME_MARKET (a game of the Market) by market.c, HOME_PUBLISH (sending a
- * game to the Market) by publish.c. */
-enum { HOME_SETTINGS = 1, HOME_CONTROLLERS, HOME_WIFI, HOME_SYSTEM, HOME_CART, HOME_MARKET, HOME_PUBLISH };
+ * HOME_MARKET (a game of the Market) and HOME_SEND (to a nearby console)
+ * by market.c, HOME_PUBLISH (sending a game to the Market) by publish.c. */
+enum { HOME_SETTINGS = 1, HOME_CONTROLLERS, HOME_WIFI, HOME_SYSTEM, HOME_CART, HOME_MARKET, HOME_PUBLISH,
+       HOME_SEND };
 
 /* What a row asks of the menu. */
 enum {

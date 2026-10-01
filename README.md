@@ -570,6 +570,13 @@ giochi gratuiti da scaricare, dal repository pubblico
   market; chiunque altro un fork. L'esito (e l'indirizzo della pull request) compare sulla
   console di testo (`src/net/github.c`, `src/kernel/publish.c`; test: `make test-github`
   contro un finto server delle API, `test_publish` in QEMU).
+- **Tra console sulla rete di casa** (M24): con la scheda Market aperta una console si
+  annuncia (UDP, porta 3335) e ascolta (TCP 3336). Da un'altra: X su un gioco della SD,
+  *Send to a nearby console*, si sceglie la console; chi riceve vede una domanda ("bm-108
+  sends Snake", con "the Market's own: checked" se quei byte sono un gioco del catalogo,
+  altrimenti "from friends only") e il gioco va in `/carts` solo se ha lo SHA-256
+  annunciato. Il nome della console è `name=` in `bm/config.txt` (se no `bm-` e l'ultimo
+  numero dell'IP). Niente P2P via internet. Test: `make test-lan` (sul PC, lwIP in loopback).
 - **I giochi del progetto** sono tutti nel market (e per ora anche nell'immagine della SD):
   `make market-seed MARKET=../bm-market` li costruisce e aggiorna le loro cartelle.
 

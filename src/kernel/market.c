@@ -2,13 +2,18 @@
 #include "carts.h"
 #include "config.h"
 #include "fiber.h"
+#include "bm/bm.h"
 #include "bm/n8cart.h"
 #include "drivers/timer.h"
 #include "fs/fat.h"
 #include "lib/printf.h"
 #include "net/catalog.h"
+#include "net/github.h"
 #include "net/http.h"
+#include "net/lan.h"
 #include "net/net.h"
+
+#include "lwip/ip4_addr.h"
 
 #include <stdarg.h>
 #include <stdio.h>
@@ -740,6 +745,12 @@ const char *market_banner(void)
 const char *market_status(void)
 {
     static char line[48];
+    long rx = lan_receiving();
+    lan_offer_t o;
+    if (rx >= 0 && lan_offer(&o) == 0) {
+        ksnprintf(line, sizeof line, "receiving: %ld KiB", rx / 1024);
+        return line;
+    }
     if (note[0] && timer_ticks() - note_at < NOTE_US)
         return note;
     if (!have)
@@ -937,6 +948,196 @@ int market_lookup(const char *title, const char *author, char *id, size_t idn, c
         }
     }
     return -1;
+}
+
+/* ---------------------------------------------------------------- nearby consoles (M24) */
+
+static void lan_name(char *name, size_t n)
+{
+    const char *c = config_get("name");
+    if (c && c[0])
+        ksnprintf(name, n, "%s", c);
+    else                                /* the last number of the address: bm-108 */
+        ksnprintf(name, n, "bm-%lu", (unsigned long)(net_ip() >> 24));
+}
+
+/* the catalog's game with these bytes, or -1 */
+static int find_sha(const uint8_t *sha)
+{
+    for (int i = 0; have && i < cat.n; i++)
+        if (memcmp(cat.games[i].file.sha256, sha, 32) == 0)
+            return i;
+    return -1;
+}
+
+/* a game from a nearby console, its bytes already checked against what the
+ * sender announced: the Market's own goes where the Market would put it;
+ * another replaces the game with its title and author, or gets a new name */
+static void keep_received(uint8_t *d, size_t len, const lan_offer_t *o)
+{
+    char path[PATH_MAX_], name[16], id[24];
+    int ok = 0, g = find_sha(o->sha256);
+    if (len < 128 || !bm_is_cart(d)) {
+        say("%s from %s: not a cartridge", o->title, o->from);
+        free(d);
+        return;
+    }
+    const char *same = g >= 0 && slots[g].path[0] ? slots[g].path : carts_find_title(o->title, o->author);
+    if (same) {
+        ksnprintf(path, sizeof path, "%s", same);
+        ok = fat_replace(path, d, len) == 0;
+    } else {
+        if (g >= 0)
+            ksnprintf(id, sizeof id, "%s", cat.games[g].id);
+        else if (github_id_from_name(o->title, id, sizeof id) != 0)
+            ksnprintf(id, sizeof id, "game");
+        if (new_path(id, name, sizeof name) == 0) {
+            ksnprintf(path, sizeof path, "/carts/%s", name);
+            ok = fat_mkdirs("/carts") == 0 && fat_write_file("/carts", name, d, len) == 0;
+        }
+    }
+    free(d);
+    if (!ok) {
+        say("cannot write %s: %s", o->title, fat_error());
+        return;
+    }
+    if (g >= 0) {                       /* the Market's game: as if downloaded */
+        owned_set(cat.games[g].id, o->sha256, path);
+        if (owned_save() != 0)
+            kprintf("market: cannot save the list of games: %s\n", fat_error());
+        ksnprintf(slots[g].path, sizeof slots[g].path, "%s", path);
+        slots[g].update = 0;
+    }
+    changed = 1;
+    kprintf("market: %s from %s -> %s\n", o->title, o->from, path);
+    say("%s received from %s", o->title, o->from);
+}
+
+void market_lan(int on)
+{
+    if (on && !lan_running() && net_ip()) {
+        char name[24];
+        lan_name(name, sizeof name);
+        if (lan_start(name) == 0)
+            kprintf("market: nearby consoles: listening as %s\n", name);
+        else
+            kprintf("market: cannot listen for nearby consoles\n");
+    } else if (!on && lan_running()) {
+        lan_stop();
+    }
+    if (!lan_running())
+        return;
+    lan_poll();
+    uint8_t *d;
+    size_t len;
+    lan_offer_t o;
+    if (lan_take(&d, &len, &o))
+        keep_received(d, len, &o);
+}
+
+int market_offer(char *q, size_t qn, char *detail, size_t dn)
+{
+    lan_offer_t o;
+    if (!lan_offer(&o))
+        return 0;
+    ksnprintf(q, qn, "%s sends %s", o.from, o.title);
+    unsigned long kib = (o.size + 1023) / 1024;
+    if (find_sha(o.sha256) >= 0)
+        ksnprintf(detail, dn, "%lu KiB, the Market's own: checked.", kib);
+    else
+        ksnprintf(detail, dn, "%lu KiB, not in the Market: from friends only.", kib);
+    return 1;
+}
+
+void market_offer_answer(int yes)
+{
+    lan_offer_t o;
+    if (lan_offer(&o))
+        say("%s %s", yes ? "receiving" : "refused", o.title);
+    lan_answer(yes);
+}
+
+static struct {
+    char path[PATH_MAX_], title[49], author[33];
+    lan_peer_t peers[LAN_MAX_PEERS], to;
+    int npeers;
+} snd;
+
+void market_send_setup(const char *path, const char *title, const char *author)
+{
+    memset(&snd, 0, sizeof snd);
+    ksnprintf(snd.path, sizeof snd.path, "%s", path);
+    ksnprintf(snd.title, sizeof snd.title, "%s", title);
+    ksnprintf(snd.author, sizeof snd.author, "%s", author);
+}
+
+void market_send_panel(home_panel_t *p)
+{
+    memset(p, 0, sizeof *p);
+    ksnprintf(p->title, sizeof p->title, "Send > %s", snd.title);
+    char name[24];
+    lan_name(name, sizeof name);
+    home_row(p, MENU_ROW_INFO, S_THIS, "This console", "Its name for the others (name= in bm/config.txt)",
+             "%s", net_ip() ? name : "no network");
+    snd.npeers = lan_peers(snd.peers, LAN_MAX_PEERS);
+    for (int i = 0; i < snd.npeers && p->n < HOME_ROWS_MAX; i++) {
+        ip4_addr_t a;
+        ip4_addr_set_u32(&a, snd.peers[i].ip);
+        home_row(p, MENU_ROW_ACTION, S_PEER + i, snd.peers[i].name, "Its player is asked first",
+                 "%s", ip4addr_ntoa(&a));
+    }
+    if (!snd.npeers)
+        home_row(p, MENU_ROW_INFO, S_NONE, "No console nearby yet",
+                 net_ip() ? "The other one: the Market tab open, on this network"
+                          : "Connect in Settings > WiFi and network", NULL);
+}
+
+static void send_step(const char *s)
+{
+    kprintf("  %s\n", s);
+}
+
+static void send_run(framebuffer_t *fb)
+{
+    (void)fb;
+    ip4_addr_t a;
+    ip4_addr_set_u32(&a, snd.to.ip);
+    kprintf("\n\x1b[1;96mSending %s to %s (%s)\x1b[0m\n", snd.title, snd.to.name, ip4addr_ntoa(&a));
+    fat_entry_t e;
+    uint8_t *d;
+    size_t len;
+    if (fat_find(snd.path, &e) != 0 || fat_load(&e, &d, &len) != 0) {
+        kprintf("\x1b[91mcannot read %s: %s\x1b[0m\n", snd.path, fat_error());
+        return;
+    }
+    char me[24], err[128];
+    lan_name(me, sizeof me);
+    int r = lan_send(snd.to.ip, me, snd.title, snd.author, d, len, send_step, err, sizeof err);
+    free(d);
+    if (r == 0)
+        kprintf("\x1b[92m%s has it now.\x1b[0m\n", snd.to.name);
+    else
+        kprintf("\x1b[91mnot sent: %s\x1b[0m\n", err);
+}
+
+void market_send_act(int row, int how, home_do_t *d)
+{
+    memset(d, 0, sizeof *d);
+    d->what = HOME_STAY;
+    int i = row - S_PEER;
+    if (i < 0 || i >= snd.npeers)
+        return;
+    if (how == 0) {
+        snd.to = snd.peers[i];
+        d->what = HOME_ASK;
+        ksnprintf(d->ask, sizeof d->ask, "Send %s to %s?", snd.title, snd.to.name);
+        ksnprintf(d->ask_detail, sizeof d->ask_detail, "Its player is asked first.");
+        ksnprintf(d->ask_yes, sizeof d->ask_yes, "Send");
+    } else if (how == HOME_YES) {
+        d->what = HOME_TEXT;
+        d->text = send_run;
+        d->wait = 1;
+    }
 }
 
 int market_take_changed(void)

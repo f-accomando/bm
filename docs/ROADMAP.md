@@ -1104,7 +1104,7 @@ Stato (2026-10-01): tutto nel PC e in QEMU, **da provare sul Pi**.
 - **Fatto quando:** un gioco senza suono gira dalla SD (primo traguardo), poi con audio
   e numeri 16.16.
 
-## M24 — Scambio in rete locale tra console (M) — parte del Market (M25)
+## M24 — Scambio in rete locale tra console (M) — parte del Market (M25) — fatto in M25.7 (2026-10-01), da verificare sul Pi
 Decisione 2026-09-30: M24 originale diviso in tre (M24 rete locale, M25 store su
 GitHub, M26 market gratuito); il 2026-10-01 M25 e M26 sono diventati una sola milestone,
 il **Market** (M25), e questa ne è la parte P2P. Considerazioni iniziali del 2026-09-29.
@@ -1198,7 +1198,15 @@ Passi:
    gli altri, `.bm` e `info.txt` (un aggiornamento tiene il nome del `.bm` già presente),
    pull request; l'esito sulla console di testo.
    - **Da verificare sul Pi**: una pull request vera verso bm-market con un token.
-7. **Scambio in rete locale** (M24).
+7. ✅ (PC, `make test-lan`; QEMU, il pannello) **Scambio in rete locale** (M24,
+   `src/net/lan.c`): con la scheda Market (o il pannello di invio) aperta la console si
+   annuncia in UDP ogni 2 s (porta 3335) e ascolta in TCP (3336); X su un gioco, *Send to a
+   nearby console*, la console scelta chiede al suo giocatore (60 s, poi no) e tiene il
+   gioco solo con lo SHA-256 annunciato; se i byte sono un gioco del catalogo vale come
+   scaricato dal market ("checked"), se no "from friends only". Una console occupata
+   risponde "busy"; uscire dalla scheda chiude tutto.
+   - **Da verificare sul Pi**: due console sulla stessa rete (Pi Zero W e Pi 1 B) si
+     vedono e si mandano un gioco.
 
 - **Fatto quando:** dalla scheda Market del Pi si sceglie un gioco del catalogo, si
   scarica senza che il menu si fermi, si verifica, si installa e si gioca; un gioco

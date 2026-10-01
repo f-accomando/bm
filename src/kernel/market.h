@@ -64,6 +64,21 @@ void market_act(int i, int row, int how, home_do_t *d);
 int  market_lookup(const char *title, const char *author, char *id, size_t idn, char *version,
                    size_t vn, char *license, size_t ln, char *about, size_t an);
 
+/* Games between consoles on the home network (M24, net/lan.c): on while
+ * the Market tab or the "Send to a nearby console" panel is shown, called
+ * every frame (it also keeps a game that arrived). */
+void market_lan(int on);
+/* A nearby console offers a game: 1, the question and its detail (whether
+ * the Market's catalog has these very bytes). */
+int  market_offer(char *q, size_t qn, char *detail, size_t dn);
+void market_offer_answer(int yes);
+
+/* The Send panel of a game of the SD card: the consoles heard nearby. */
+enum { S_THIS = 500, S_NONE, S_PEER };          /* S_PEER + i: the i-th console */
+void market_send_setup(const char *path, const char *title, const char *author);
+void market_send_panel(home_panel_t *p);
+void market_send_act(int row, int how, home_do_t *d);
+
 /* 1 once after a game was installed or deleted: the menu reads the SD card
  * again (then market_carts_changed). */
 int  market_take_changed(void);

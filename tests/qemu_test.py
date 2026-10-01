@@ -2428,7 +2428,8 @@ def test_publish(b, opts):
     folder from the file name, today's version, the license chosen with
     left/right, the token from bm/config.txt; sending asks first, then runs
     on the text console (here without a network: it says so) and A goes
-    back to the menu."""
+    back to the menu. Then "Send to a nearby console" (M24): without a
+    network, nobody to send to."""
     tmp = tempfile.mkdtemp(prefix="bm-publish-")
     try:
         img = os.path.join(tmp, "sd.img")
@@ -2484,6 +2485,16 @@ def test_publish(b, opts):
             q.expect("back to the menu", timeout=5)
             keys("\r")
             screen(["Publish > My Game"])           # back on the panel
+
+            # M24: send to a nearby console (here no network: nobody)
+            keys("q")
+            screen(["My Game", "Publish to the Market"], gone=["Publish > My Game"])
+            keys("s")
+            screen(["Send to a nearby console", "To a console on this network with the Market tab open"])
+            keys("\r")
+            screen(["Send > My Game", "This console", "no network", "No console nearby yet"])
+            keys("s")
+            screen(["Connect in Settings > WiFi and network"])
         finally:
             q.close()
     finally:
@@ -2609,11 +2620,11 @@ def test_sd_sdhc_and_usb_menu(b, opts):
         img_, text = settled_screen(q, lambda i, t: tabs_lit(i) == ["Games"])
         assert tabs_lit(img_) == ["Games"], "\n".join(text)
         sendkeys(q, "c")                      # C is the X button: the options (M27)
-        _, text = settled_screen(q, lambda i, t: any("Author" in l for l in t))
-        assert any("Author" in l for l in text) and any("Play" in l for l in text), "\n".join(text)
+        _, text = settled_screen(q, lambda i, t: any("Open in the SDK" in l for l in t))
+        assert any("Open in the SDK" in l for l in text) and any("Play" in l for l in text), "\n".join(text)
         sendkeys(q, "x")                      # X is the B button: back
-        _, text = settled_screen(q, lambda i, t: not any("Author" in l for l in t))
-        assert not any("Author" in l for l in text), "\n".join(text)
+        _, text = settled_screen(q, lambda i, t: not any("Open in the SDK" in l for l in t))
+        assert not any("Open in the SDK" in l for l in text), "\n".join(text)
         sendkeys(q, "ret")
         q.expect("playing game.bm", timeout=10)
         time.sleep(1.5)

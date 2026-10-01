@@ -509,7 +509,7 @@ static int is_suspended(const cart_t *c)
 
 /* The options of a cartridge (X on its cover): a panel like the settings. */
 enum { C_PLAY = 100, C_CLOSE, C_SDK, C_SOUND, C_STUDIO3D, C_AUTHOR, C_FILE, C_SIZE, C_TYPE, C_SAVE,
-       C_DEL_SAVE, C_DELETE, C_CODE, C_PUBLISH };
+       C_DEL_SAVE, C_DELETE, C_CODE, C_PUBLISH, C_SEND };
 
 static int opt_cart;            /* the cartridge of the HOME_CART panel */
 static int opt_market;          /* the game of the HOME_MARKET panel */
@@ -545,6 +545,8 @@ static void cart_panel(home_panel_t *p)
                  "Its 3D models and animations: play, build, rig, animate", NULL);
         home_row(p, MENU_ROW_ACTION, C_PUBLISH, "Publish to the Market",
                  "A pull request with your GitHub token: everyone can get it", NULL);
+        home_row(p, MENU_ROW_ACTION, C_SEND, "Send to a nearby console",
+                 "To a console on this network with the Market tab open", NULL);
     }
     home_row(p, MENU_ROW_INFO, C_AUTHOR, "Author", "From the cartridge header",
              "%s", c->author[0] ? c->author : "-");
@@ -584,6 +586,11 @@ static void cart_act(int row, int how, home_do_t *d)
         publish_setup(c->path, c->title, c->author);
         d->what = HOME_OPEN;
         d->panel = HOME_PUBLISH;
+        break;
+    case C_SEND:
+        market_send_setup(c->path, c->title, c->author);
+        d->what = HOME_OPEN;
+        d->panel = HOME_SEND;
         break;
     case C_DEL_SAVE:
         if (how == 0) {
@@ -625,7 +632,7 @@ static void cart_act(int row, int how, home_do_t *d)
     }
 }
 
-enum { ASK_NONE, ASK_SWITCH, ASK_PANEL, ASK_MARKET };
+enum { ASK_NONE, ASK_SWITCH, ASK_PANEL, ASK_MARKET, ASK_OFFER };
 enum { GO_NONE, GO_PLAY, GO_SDK, GO_SOUND, GO_CODE, GO_STUDIO3D, GO_TEXT, GO_UPLOAD, GO_NETPLAY };
 
 #define DEPTH_MAX 4
@@ -661,6 +668,17 @@ void carts_menu(framebuffer_t *fb)
         /* the Market works only while its tab is shown */
         int on_market = gfx && tab == TAB_MARKET && !on_gear;
         market_set_active(on_market);
+        /* nearby consoles: with the Market, or while choosing one to send to;
+         * a game they offer is a question */
+        market_lan(on_market || (gfx && depth && stack[depth - 1].id == HOME_SEND));
+        if (ask == ASK_NONE && market_offer(ask_q, sizeof ask_q, ask_d, sizeof ask_d)) {
+            ksnprintf(ask_y, sizeof ask_y, "Accept");
+            ask = ASK_OFFER;
+        } else if (ask == ASK_OFFER) {
+            char q_[64], d_[64];
+            if (!market_offer(q_, sizeof q_, d_, sizeof d_))
+                ask = ASK_NONE;                 /* the sender gave up */
+        }
         int n = tab == TAB_MARKET ? (gfx ? market_items(items, (int)(sizeof items / sizeof *items)) : 0)
                                   : tab_items(tab, idx);
         if (tsel[tab] >= n) tsel[tab] = n ? n - 1 : 0;
@@ -680,6 +698,8 @@ void carts_menu(framebuffer_t *fb)
                     market_panel(opt_market, &pb);
                 else if (id == HOME_PUBLISH)
                     publish_panel(&pb);
+                else if (id == HOME_SEND)
+                    market_send_panel(&pb);
                 else
                     home_panel(id, &pb);
                 built = id;
@@ -745,7 +765,7 @@ void carts_menu(framebuffer_t *fb)
                 v.ask = ask_q;
                 v.ask_detail = "It is suspended: what was not saved is lost.";
                 v.ask_yes = "Close it";
-            } else if (ask == ASK_PANEL || ask == ASK_MARKET) {
+            } else if (ask == ASK_PANEL || ask == ASK_MARKET || ask == ASK_OFFER) {
                 v.ask = ask_q;
                 v.ask_detail = ask_d;
                 v.ask_yes = ask_y;
@@ -875,7 +895,12 @@ void carts_menu(framebuffer_t *fb)
             action = 0;
             dx = dy = 0;
             if (no) {
+                if (ask == ASK_OFFER)
+                    market_offer_answer(0);
                 ask = ASK_NONE;
+            } else if (yes && ask == ASK_OFFER) {
+                ask = ASK_NONE;
+                market_offer_answer(1);
             } else if (yes && ask == ASK_SWITCH) {
                 ask = ASK_NONE;
                 bm_close_suspended();
@@ -899,6 +924,8 @@ void carts_menu(framebuffer_t *fb)
                     market_act(opt_market, ask_row, HOME_YES, &d);
                 } else if (id == HOME_PUBLISH) {
                     publish_act(ask_row, HOME_YES, &d);
+                } else if (id == HOME_SEND) {
+                    market_send_act(ask_row, HOME_YES, &d);
                 } else {
                     home_act(id, ask_row, HOME_YES, &d);
                 }
@@ -947,6 +974,8 @@ void carts_menu(framebuffer_t *fb)
                     market_act(opt_market, row, action == 1 ? 0 : dx, &d);
                 else if (id == HOME_PUBLISH)
                     publish_act(row, action == 1 ? 0 : dx, &d);
+                else if (id == HOME_SEND)
+                    market_send_act(row, action == 1 ? 0 : dx, &d);
                 else
                     home_act(id, row, action == 1 ? 0 : dx, &d);
                 ask_row = row;
@@ -1112,6 +1141,7 @@ void carts_menu(framebuffer_t *fb)
         if (go != GO_NONE) {
             ask = ASK_NONE;
             market_set_active(0);               /* nothing loads behind a game */
+            market_lan(0);
             if (gfx)
                 menu_ui_close(fb);
             switch (go) {
@@ -1178,6 +1208,7 @@ void carts_menu(framebuffer_t *fb)
             timer_delay_us(2000);
     }
     market_set_active(0);
+    market_lan(0);
     if (gfx)
         menu_ui_close(fb);
     console_clear();
