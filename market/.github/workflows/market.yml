@@ -60,17 +60,31 @@ jobs:
           sparse-checkout: |
             scripts
             keys
-      - name: Build and sign the catalog
+      # until the key is set up (README.md, "Setting it up") the games are
+      # checked but nothing is published: a warning, not a failure
+      - name: The key
+        id: key
         env:
           BM_MARKET_KEY: ${{ secrets.BM_MARKET_KEY }}
         run: |
           if [ -z "$BM_MARKET_KEY" ]; then
-            echo "::error::no secret BM_MARKET_KEY: run scripts/market-key.sh in bm (see README.md)"
-            exit 1
+            echo "::warning::no secret BM_MARKET_KEY yet: the catalog is not published (README.md, Setting it up)"
+            echo "ok=false" >> "$GITHUB_OUTPUT"
+          elif ! grep -q "BEGIN PUBLIC KEY" bm/keys/market-pub.pem; then
+            echo "::warning::bm ($BM_REF) has no keys/market-pub.pem yet: the catalog is not published"
+            echo "ok=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "ok=true" >> "$GITHUB_OUTPUT"
           fi
-          python3 bm/scripts/mkmarket.py games -o site --require-key --pub bm/keys/market-pub.pem
+      - name: Build and sign the catalog
+        if: steps.key.outputs.ok == 'true'
+        env:
+          BM_MARKET_KEY: ${{ secrets.BM_MARKET_KEY }}
+        run: python3 bm/scripts/mkmarket.py games -o site --require-key --pub bm/keys/market-pub.pem
       - uses: actions/upload-pages-artifact@v3
+        if: steps.key.outputs.ok == 'true'
         with:
           path: site
       - id: deploy
+        if: steps.key.outputs.ok == 'true'
         uses: actions/deploy-pages@v4
