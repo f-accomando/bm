@@ -1019,16 +1019,27 @@ def test_make_image(b, opts):
         out = q.expect(MENU, timeout=30).decode(errors="replace")
         assert "FAT32, 63 MiB, label BM; 10 cartridges" in out, out
         time.sleep(0.5)
-        seen = set()
-        for _ in range(10):                    # right along the grid: each title in turn
-            _, text = settled_screen(q, lambda i, t: len(t) > 4 and t[4].strip() != "")
-            seen.add(text[4])                  # the name of the chosen cover (row 4)
+        want = ("Pong", "Snake", "Star Shooter", "Chaos Kitchen", "Texture Room", "Studio Village", "nano8")
+        titles = want + ("Astro Wing", "Titan Clash", "Hunter's Night")
+
+        def chosen(t):                         # the name of the chosen cover (row 4)
+            return next((n for n in titles if len(t) > 4 and n in t[4]), None)
+
+        seen, rows, prev = set(), [], None
+        for _ in range(20):                    # right along the grid (it wraps): each title in turn
+            # a screendump can catch a frame half drawn (row 4 without its
+            # title) or the cover before: wait for the next title
+            _, text = settled_screen(q, lambda i, t: chosen(t) not in (None, prev), tries=20)
+            rows.append(text[4] if len(text) > 4 else "")
+            prev = chosen(text) or prev
+            seen.add(prev)
+            if all(w in seen for w in want):
+                break
             q.send("d")
             time.sleep(0.3)
-        screen = "\n".join(seen)
-        for title in ("Pong", "Snake", "Star Shooter", "Chaos Kitchen", "Texture Room", "Studio Village",
-                      "nano8"):
-            assert title in screen, screen
+        screen = "\n".join(rows)
+        for title in want:
+            assert title in seen, screen
         for title in ("bm native demo", "bm stress test"):   # not games: in the kernel
             assert title not in screen, screen
         q.send("q")
