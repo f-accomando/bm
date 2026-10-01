@@ -1,0 +1,204 @@
+# How-to: moving things.
+
+== move_arrows
+kind: howto
+title: Muovere un personaggio con le frecce
+ask: come muovo il personaggio con le frecce | muovere uno sprite con i tasti
+ask: spostare il giocatore | move the player with the arrow keys | movimento del personaggio
+ask: controllare il personaggio | far camminare l'omino | walk with the keyboard
+keys: muovere, frecce, move
+see: spr, move_8dir, clamp_screen
+text:
+btn(0..3) sono sinistra, destra, su, giù (frecce, WASD o la croce del
+pad): finché il tasto è premuto si cambia la posizione.
+code:
+local x, y, speed = 320, 180, 2
+
+function _update()
+  if btn(0) then x = x - speed end   -- sinistra
+  if btn(1) then x = x + speed end   -- destra
+  if btn(2) then y = y - speed end   -- su
+  if btn(3) then y = y + speed end   -- giu
+end
+
+function _draw()
+  cls(0)
+  spr(1, x, y)
+end
+
+== move_8dir
+kind: howto
+title: Movimento in 8 direzioni alla stessa velocità
+ask: in diagonale va più veloce | movimento diagonale | 8 directions movement
+ask: normalizzare la velocità | camminare in diagonale | top down movement
+ask: troppo veloce in diagonale | corre di più in diagonale
+keys: diagonale, normalizzare
+see: move_arrows
+text:
+In diagonale si sommano due spostamenti: dividi per la radice di 2 (0.707)
+così la velocità resta la stessa.
+code:
+local dx, dy = 0, 0
+if btn(0) then dx = dx - 1 end
+if btn(1) then dx = dx + 1 end
+if btn(2) then dy = dy - 1 end
+if btn(3) then dy = dy + 1 end
+if dx ~= 0 and dy ~= 0 then dx, dy = dx * 0.707, dy * 0.707 end
+x, y = x + dx * speed, y + dy * speed
+
+== move_stick
+kind: howto
+title: Muoversi con la levetta analogica
+ask: muovere con la levetta | movimento analogico | analog movement | joystick
+ask: velocità in base alla levetta | camminare piano con la levetta
+keys: levetta, analogico
+see: stick
+text:
+stick() dà x, y tra -1 e 1: spingere poco fa andare piano. Con la tastiera
+vale la croce.
+code:
+local sx, sy = stick()
+x = x + sx * 3
+y = y + sy * 3
+
+== accel_friction
+kind: howto
+title: Accelerazione e attrito (movimento morbido)
+ask: movimento morbido | accelerazione | attrito | inerzia | smooth movement
+ask: il personaggio scivola | velocità che cresce piano | friction | momentum
+keys: accelerazione, attrito, inerzia
+see: move_arrows
+text:
+Una velocità che cresce finché tieni il tasto e si riduce un po' a ogni
+fotogramma (attrito).
+code:
+vx = vx or 0
+if btn(0) then vx = vx - 0.4 end
+if btn(1) then vx = vx + 0.4 end
+vx = vx * 0.85                        -- attrito
+vx = math.max(-4, math.min(4, vx))    -- velocita' massima
+x = x + vx
+
+== clamp_screen
+kind: howto
+title: Non uscire dallo schermo
+ask: il personaggio esce dallo schermo | tenere dentro lo schermo | limiti dello schermo
+ask: fermarsi al bordo | clamp position | stay inside the screen | bordi
+keys: bordo, limiti, uscire
+see: wrap_screen
+text:
+Taglia la posizione tra 0 e la larghezza meno quella dello sprite.
+code:
+x = math.max(0, math.min(SCREEN_W - 16, x))
+y = math.max(0, math.min(SCREEN_H - 16, y))
+
+== wrap_screen
+kind: howto
+title: Uscire da un lato e rientrare dall'altro
+ask: uscire da destra e rientrare da sinistra | schermo che si ripete | wrap around
+ask: effetto pac man | asteroids bordo | teleport ai bordi
+keys: rientrare, wrap
+see: clamp_screen
+text:
+Con il resto della divisione (%) la posizione gira intorno.
+code:
+x = x % SCREEN_W
+y = y % SCREEN_H
+
+== chase
+kind: howto
+title: Un nemico che insegue il giocatore
+ask: nemico che insegue il giocatore | seguire il giocatore | chase the player
+ask: inseguimento | andare verso un punto | follow target | homing
+ask: nemico che mi insegue | mi viene addosso | inseguitore
+keys: inseguire, seguire, inseguimento
+see: enemies_list, distance
+text:
+Calcola la direzione verso il giocatore, normalizzala e fai un passo.
+code:
+local dx, dy = px - e.x, py - e.y
+local d = math.sqrt(dx * dx + dy * dy)
+if d > 1 then
+  e.x = e.x + dx / d * e.speed
+  e.y = e.y + dy / d * e.speed
+end
+
+== move_angle
+kind: howto
+title: Ruotare e avanzare (come Asteroids)
+ask: ruotare la navicella e andare avanti | movimento con angolo | rotate and thrust
+ask: asteroids | direzione con seno e coseno | sterzare | car steering
+keys: angolo, ruotare, asteroids
+see: wrap_screen
+text:
+Un angolo in radianti: sinistra e destra lo cambiano, su spinge nella
+direzione dell'angolo (coseno per x, seno per y).
+code:
+if btn(0) then a = a - 0.08 end
+if btn(1) then a = a + 0.08 end
+if btn(2) then
+  vx = vx + math.cos(a) * 0.15
+  vy = vy + math.sin(a) * 0.15
+end
+x, y = (x + vx) % SCREEN_W, (y + vy) % SCREEN_H
+line(x, y, x + math.cos(a) * 12, y + math.sin(a) * 12, 0xFFFFFF)
+
+== grid_move
+kind: howto
+title: Muoversi a caselle (griglia)
+ask: muoversi a caselle | movimento a griglia | grid movement | una casella alla volta
+ask: gioco a turni sulla griglia | snake | scacchiera | tile based movement
+keys: caselle, griglia
+see: btnp, collide_map
+text:
+Una casella per pressione (btnp) e posizione in caselle: si disegna
+moltiplicando per la dimensione della casella.
+code:
+if btnp(0) then gx = gx - 1 end
+if btnp(1) then gx = gx + 1 end
+if btnp(2) then gy = gy - 1 end
+if btnp(3) then gy = gy + 1 end
+spr(1, gx * 16, gy * 16, 2, 2)
+
+== patrol
+kind: howto
+title: Un nemico che va avanti e indietro
+ask: nemico che va avanti e indietro | pattuglia | patrol | rimbalzare tra due punti
+ask: nemico che cammina sulla piattaforma | goomba
+keys: pattuglia, avanti, indietro
+see: enemies_list
+text:
+Una direzione che si inverte ai due estremi.
+code:
+e.x = e.x + e.dir
+if e.x < e.left or e.x > e.right then e.dir = -e.dir end
+spr(10, e.x, e.y, 2, 2, e.dir < 0)
+
+== distance
+kind: howto
+title: La distanza tra due punti
+ask: distanza tra due punti | quanto è lontano | distance between two points
+ask: raggio di azione | vicino al giocatore | pitagora
+keys: distanza, lontano
+see: collide_circle
+text:
+Il teorema di Pitagora. Per confrontare con un raggio, confronta i
+quadrati: niente radice, più veloce.
+code:
+local dx, dy = ex - px, ey - py
+local d = math.sqrt(dx * dx + dy * dy)
+if dx * dx + dy * dy < 50 * 50 then log("vicino") end
+
+== angle_to
+kind: howto
+title: L'angolo verso un punto
+ask: angolo verso il giocatore | in che direzione è | angle between two points | atan2
+ask: girarsi verso il bersaglio | mirare
+keys: angolo, direzione, mirare
+see: enemy_aim
+text:
+math.atan(dy, dx) dà l'angolo in radianti (Lua 5.4: atan con due
+argomenti).
+code:
+local a = math.atan(py - ey, px - ex)
+local vx, vy = math.cos(a) * 2, math.sin(a) * 2

@@ -71,7 +71,31 @@ FORCE:
 $(LUA_OBJS) $(LWIP_OBJS) $(MBEDTLS_OBJS): WARN := -w
 # Lua scripts embedded with .incbin
 $(BUILD)/k/src/script/embed.S.o: $(wildcard src/script/*.lua) keys/release-pub.pem \
-                                 $(BUILD)/demo.bm $(BUILD)/stress.bm $(BUILD)/editor.bm $(BUILD)/sound.bm
+                                 $(BUILD)/demo.bm $(BUILD)/stress.bm $(BUILD)/editor.bm $(BUILD)/sound.bm \
+                                 $(BUILD)/studio3d.bm \
+                                 $(BUILD)/assist.bin src/ai/assist.lua $(BUILD)/assistant.bm \
+                                 $(BUILD)/code.bm
+
+# The development assistant (M30): knowledge base + trained network, built
+# into the kernel. The network is trained on the PC (numpy) by `make
+# ai-model` and committed, so `make` needs only Python's standard library.
+AI_KB := $(wildcard src/ai/kb/*.txt)
+$(BUILD)/assist.bin: $(AI_KB) src/ai/assist.weights scripts/mkassist.py scripts/assistlib.py
+	@mkdir -p $(dir $@) $(BUILD)/ai
+	$(PYTHON) scripts/mkassist.py -o $@ --ref $(BUILD)/ai/ref.txt --snippets $(BUILD)/ai/snippets.txt
+
+ai-model:
+	$(PYTHON) scripts/trainassist.py
+
+# bm Code, the code editor (Dev tab, monitor C)
+$(BUILD)/code.bm: carts/code/main.lua scripts/mkbm.py
+	@mkdir -p $(dir $@)
+	$(PYTHON) scripts/mkbm.py -o $@ --lua $< --title "bm Code" --author bm
+
+# The assistant on its own, in the Dev tab
+$(BUILD)/assistant.bm: carts/assistant/main.lua scripts/mkbm.py
+	@mkdir -p $(dir $@)
+	$(PYTHON) scripts/mkbm.py -o $@ --lua $< --title "bm assistant" --author bm
 
 # The editor (M15), built into the kernel
 $(BUILD)/editor.bm: carts/editor/main.lua carts/editor/cover.png scripts/mkbm.py
@@ -85,6 +109,13 @@ $(BUILD)/sound.bm: carts/sound/main.lua carts/sound/cover.png carts/sound/demo.j
 	$(PYTHON) scripts/mkbm.py -o $@ --lua $< --cover carts/sound/cover.png \
 	    --audio carts/sound/demo.json --title "bm Sound" --author bm
 
+# The 3D studio (M22): models and animations of a .bm, on the console. Its
+# sheet holds the starter tiles of bm Studio (carts/studio3d/mkassets.js).
+$(BUILD)/studio3d.bm: carts/studio3d/main.lua carts/studio3d/cover.png carts/studio3d/sheet.png scripts/mkbm.py
+	@mkdir -p $(dir $@)
+	$(PYTHON) scripts/mkbm.py -o $@ --lua $< --cover carts/studio3d/cover.png \
+	    --sheet carts/studio3d/sheet.png --sheet8 --title "bm 3D studio" --author bm
+
 $(BUILD)/stress.bm: carts/stress/main.lua scripts/mkbm.py
 	@mkdir -p $(dir $@)
 	$(PYTHON) scripts/mkbm.py -o $@ --lua $< --title "bm stress test" --author bm
@@ -97,7 +128,7 @@ $(BUILD)/demo.bm: $(DEMO_BM_SRC) scripts/mkbm.py
 	    --map carts/demo/map.csv --title "bm native demo" --author bm
 
 # Demo games (Lua only, sprites drawn in code): build/carts/<name>.bm
-GAMES := pong snake shooter astrowing hunt kitchen titan texroom nano8
+GAMES := pong snake shooter astrowing hunt kitchen titan texroom village nano8
 GAME_CARTS := $(patsubst %,$(BUILD)/carts/%.bm,$(GAMES))
 title_pong    := Pong
 title_snake   := Snake
@@ -110,17 +141,24 @@ title_titan := Titan Clash
 title_texroom := Texture Room
 title_nano8 := nano8
 res_texroom := 320x180
+title_village := Studio Village
+res_village := 320x180
 # Optional per game: carts/<game>/cover.png (printed on the cartridge in the
-# menu, scripts/mkcovers.py), sheet.png and map.csv, res_<game> := 320x180.
+# menu, scripts/mkcovers.py), sheet.png, map.csv, models.bm or models.glb (3D
+# models from bm Studio / bm Animator, sdk/: with their skeletons and
+# animations from a .bm; their sprite sheet too when there is no sheet.png),
+# res_<game> := 320x180.
 .SECONDEXPANSION:
-$(BUILD)/carts/%.bm: carts/%/main.lua scripts/mkbm.py \
-                      $$(wildcard carts/$$*/cover.png carts/$$*/sheet.png carts/$$*/map.csv)
+$(BUILD)/carts/%.bm: carts/%/main.lua scripts/mkbm.py scripts/bmmesh.py \
+                      $$(wildcard carts/$$*/cover.png carts/$$*/sheet.png carts/$$*/map.csv carts/$$*/models.glb \
+                                  carts/$$*/models.bm)
 	@mkdir -p $(dir $@)
 	$(PYTHON) scripts/mkbm.py -o $@ --lua $< --title "$(title_$*)" --author bm \
 	    --res $(or $(res_$*),640x360) \
 	    $(if $(wildcard carts/$*/cover.png),--cover carts/$*/cover.png) \
 	    $(if $(wildcard carts/$*/sheet.png),--sheet carts/$*/sheet.png) \
-	    $(if $(wildcard carts/$*/map.csv),--map carts/$*/map.csv)
+	    $(if $(wildcard carts/$*/map.csv),--map carts/$*/map.csv) \
+	    $(if $(wildcard carts/$*/models.bm),--models carts/$*/models.bm,$(if $(wildcard carts/$*/models.glb),--models carts/$*/models.glb))
 
 # Chaos Kitchen (M17) is written in several Lua files, joined by its build.py
 KITCHEN_SRC := $(sort $(wildcard carts/kitchen/src/*.lua))
@@ -194,8 +232,8 @@ test-nano8: $(BUILD)/host/n8host $(BUILD)/host/n8cartinfo $(BUILD)/host/luahost 
 
 .DEFAULT_GOAL := all
 .PHONY: FORCE test-smp all clean firmware image image-pi1 sdcard install sdcard-chainloader sdcard-stress qemu qemu-screenshot \
-        run-serial test test-bm test-usb test-audio test-fat test-kitchen test-titan test-sound test-nano8 test-net test-http test-https \
-        test-release release disasm wav
+        run-serial test test-bm test-ai ai-model test-usb test-audio test-fat test-kitchen test-titan test-sound test-nano8 \
+        test-net test-http test-https test-release release disasm wav test-studio test-studio-ui studio
 
 all: $(BUILD)/kernel.img $(BUILD)/chainloader.img $(GAME_CARTS)
 
@@ -334,7 +372,7 @@ qemu-screenshot: $(BUILD)/kernel.img
 	./scripts/qemu-screenshot.sh $< $(BUILD)/screen.png
 
 test: all test-bm test-usb test-fat test-audio test-kitchen test-titan test-sound test-nano8 test-net test-http test-https \
-      test-release test-smp
+      test-release test-smp test-ai test-studio
 	$(PYTHON) tests/qemu_test.py --build $(BUILD)
 
 $(BUILD)/host/test_bm: tests/bm/test_bm.c src/bm/gfx16.c src/bm/r3d.c src/bm/format.c src/lib/crc32.c src/bm/*.h
@@ -445,6 +483,53 @@ $(BUILD)/host/test_board: tests/usb/test_board.c src/drivers/board.c src/drivers
 
 test-bm: $(BUILD)/host/test_bm $(BUILD)/demo.bm
 	$< $(BUILD)/demo.bm
+
+# The assistant (M30): C features and network against the Python reference,
+# answers to the held-out questions, sprite generator
+AI_SRCS := src/ai/assist.c src/ai/nn.c src/ai/text.c src/ai/sprite.c
+$(BUILD)/host/test_ai: tests/ai/test_ai.c $(AI_SRCS) src/ai/*.h src/lib/crc32.c
+	@mkdir -p $(dir $@)
+	$(HOSTCC) -O2 -Wall -Wextra -Isrc -o $@ tests/ai/test_ai.c $(AI_SRCS) src/lib/crc32.c -lm
+
+# Lua for the PC with the `ai` table: the panel's tests
+$(BUILD)/host/luaai: tests/ai/luaai.c src/ai/lua_ai.c $(AI_SRCS) src/ai/*.h src/lib/crc32.c $(LUA_SRCS)
+	@mkdir -p $(dir $@)
+	$(HOSTCC) -O2 -w -DBM_HOST_TEST -Isrc -Ithird_party/lua -o $@ tests/ai/luaai.c src/ai/lua_ai.c \
+		$(AI_SRCS) src/lib/crc32.c $(LUA_SRCS) -lm
+
+test-ai: $(BUILD)/host/test_ai $(BUILD)/assist.bin $(BUILD)/host/luahost $(BUILD)/host/luaai
+	$< $(BUILD)/assist.bin $(BUILD)/ai/ref.txt
+	$(BUILD)/host/luahost tests/ai/check_snippets.lua $(BUILD)/ai/snippets.txt
+	$(BUILD)/host/luaai $(BUILD)/assist.bin tests/ai/panel_test.lua
+	$(BUILD)/host/luaai $(BUILD)/assist.bin tests/ai/act_test.lua
+
+# bm Studio (sdk/studio): its core in Node (the .bm, PNG and glTF it writes,
+# the editing geometry), then the same files read by the Python of the build
+# and by the kernel's parser. Skipped without Node.
+test-studio: $(BUILD)/host/test_bm $(BUILD)/demo.bm $(BUILD)/host/luahost $(BUILD)/carts/village.bm
+	rm -rf $(BUILD)/studio3d-sd && mkdir -p $(BUILD)/studio3d-sd/carts
+	cp $(BUILD)/carts/village.bm $(BUILD)/studio3d-sd/carts/
+	$(BUILD)/host/luahost tests/studio/studio3d_host.lua . $(BUILD)/studio3d-sd
+	@if command -v node >/dev/null 2>&1; then \
+	    node tests/studio/test_core.js $(BUILD)/studio-test.bm && \
+	    $(PYTHON) tests/studio/check_cart.py $(BUILD)/studio-test.bm && \
+	    node tests/studio/check_studio3d.js $(BUILD)/studio3d-sd $(BUILD)/carts/village.bm && \
+	    $(BUILD)/host/test_bm $(BUILD)/demo.bm $(BUILD)/studio-test.bm $(BUILD)/studio-test-anim.bm \
+	        $(BUILD)/studio3d-sd/carts/blocks.bm; \
+	else echo "test-studio: node not found, skipped"; fi
+
+# The same in a browser (Playwright + Chromium, not needed by `make test`):
+# bm Studio and bm Animator with the mouse, saving; screenshots in build/studio/
+test-studio-ui:
+	node tests/studio/test_ui.js $(BUILD)/studio
+	node tests/studio/test_animator_ui.js $(BUILD)/studio
+
+# bm Studio and bm Animator on http://localhost:8765 (they also open from
+# the files, sdk/studio/index.html and sdk/animator/index.html, in Chrome or Edge)
+studio:
+	@echo "bm Studio:   http://localhost:8765/studio/"
+	@echo "bm Animator: http://localhost:8765/animator/   (Ctrl+C to stop)"
+	$(PYTHON) -m http.server 8765 --bind 127.0.0.1 --directory sdk
 
 HOSTCC ?= cc
 

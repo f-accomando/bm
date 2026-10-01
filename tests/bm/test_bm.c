@@ -125,6 +125,17 @@ static void test_text(void)
     int end = g16_text(&g, 2, 1, "AA", 0xFFFF);
     CHECK(end == 18, "text advance");
     CHECK(at(2, 4) == 0xFFFF && at(9, 4) == 0xFFFF && at(3, 4) == 0 && at(10, 4) == 0xFFFF, "glyph pixels");
+    /* a font 6 pixels wide (font("6x12")): characters 6 apart */
+    static const font_t narrow = { 6, 16, glyphs };
+    glyphs['A' * 16 + 3] = 0x84;             /* columns 0 and 5 */
+    g16_target(&g, fb, W, W, H, &narrow);
+    g16_cls(&g, 0);
+    end = g16_text(&g, 2, 1, "AA", 0xFFFF);
+    CHECK(end == 14, "6-wide advance: %d", end);
+    CHECK(at(2, 4) == 0xFFFF && at(7, 4) == 0xFFFF && at(8, 4) == 0xFFFF && at(13, 4) == 0xFFFF &&
+          at(9, 4) == 0, "6-wide glyph pixels");
+    end = g16_text_scaled(&g, 0, 20, "AA", 0xFFFF, 2);
+    CHECK(end == 24, "6-wide scaled advance: %d", end);
 }
 
 static void test_light(void)
@@ -317,6 +328,9 @@ static uint8_t *read_file(const char *p, size_t *n)
     return b;
 }
 
+static void put16(uint8_t *p, unsigned v) { p[0] = (uint8_t)v; p[1] = (uint8_t)(v >> 8); }
+static void put32(uint8_t *p, uint32_t v) { put16(p, v & 0xFFFF); put16(p + 2, v >> 16); }
+
 static void test_format(const char *path)
 {
     size_t n;
@@ -331,6 +345,55 @@ static void test_format(const char *path)
     CHECK(c.lua && c.lua_size > 100 && memcmp(c.lua, "--", 2) == 0, "lua section");
     CHECK(c.sheet_w == 128 && c.sheet_h == 128 && c.sheet_rgba, "sheet");
     CHECK(c.map_w == 160 && c.map_h == 90 && c.map_cells, "map");
+
+    /* new code, the rest kept: sheet, map, an unknown section (appended) */
+    {
+        const char code[] = "function _draw() cls(1) end";
+        size_t n2;
+        uint8_t *r = bm_rewrite(d, n, code, sizeof code - 1, "Renamed", "me", 320, &n2);
+        bm_cart_t c2;
+        CHECK(r && bm_parse(r, n2, &c2, err, sizeof err) == 0, "rewrite parses: %s", err);
+        CHECK(!strcmp(c2.title, "Renamed") && !strcmp(c2.author, "me") && c2.width == 320, "rewrite header");
+        CHECK(c2.lua_size == sizeof code - 1 && !memcmp(c2.lua, code, c2.lua_size), "rewrite code");
+        CHECK(c2.sheet_w == c.sheet_w && !memcmp(c2.sheet_rgba, c.sheet_rgba, (size_t)c.sheet_w * c.sheet_h * 4),
+              "rewrite keeps the sheet");
+        CHECK(c2.map_w == c.map_w && !memcmp(c2.map_cells, c.map_cells, (size_t)c.map_w * c.map_h * 2),
+              "rewrite keeps the map");
+        /* a section this kernel does not know (99) survives a rewrite */
+        size_t n3 = n2 + 16 + 8;
+        uint8_t *u = calloc(n3, 1);
+        memcpy(u, r, BM_HEADER_SIZE + r[17] * 16);
+        unsigned cnt = r[17];
+        size_t data0 = BM_HEADER_SIZE + cnt * 16;
+        memcpy(u + data0 + 16, r + data0, n2 - data0);
+        for (unsigned i = 0; i < cnt; i++) {          /* offsets move by one entry */
+            uint8_t *e = u + BM_HEADER_SIZE + i * 16;
+            uint32_t off = (uint32_t)e[4] | e[5] << 8 | e[6] << 16 | (uint32_t)e[7] << 24;
+            put32(e + 4, off + 16);
+        }
+        uint8_t *e = u + BM_HEADER_SIZE + cnt * 16;
+        put32(e, 99);
+        put32(e + 4, (uint32_t)(n3 - 8));
+        put32(e + 8, 8);
+        memcpy(u + n3 - 8, "MESHDATA", 8);
+        u[17] = (uint8_t)(cnt + 1);
+        put32(u + 20, crc32(u + BM_HEADER_SIZE, (uint32_t)(n3 - BM_HEADER_SIZE)));
+        CHECK(bm_parse(u, n3, &c2, err, sizeof err) == 0, "with section 99: %s", err);
+        size_t n4;
+        uint8_t *r2 = bm_rewrite(u, n3, "x=1", 3, "T", "A", 640, &n4);
+        int found = 0;
+        for (unsigned i = 0; r2 && i < r2[17]; i++) {
+            const uint8_t *t = r2 + BM_HEADER_SIZE + i * 16;
+            uint32_t off = (uint32_t)t[4] | t[5] << 8 | t[6] << 16 | (uint32_t)t[7] << 24;
+            if (t[0] == 99 && !memcmp(r2 + off, "MESHDATA", 8)) found = 1;
+        }
+        CHECK(found && bm_parse(r2, n4, &c2, err, sizeof err) == 0 && c2.lua_size == 3, "unknown section kept");
+        /* a new cartridge: only the code */
+        uint8_t *nw = bm_rewrite(NULL, 0, "x=2", 3, "New", "", 640, &n4);
+        CHECK(nw && bm_parse(nw, n4, &c2, err, sizeof err) == 0 && c2.lua_size == 3 && !c2.sheet_rgba &&
+              nw[17] == 1, "new cartridge");
+        free(r); free(u); free(r2); free(nw);
+    }
 
     d[n - 1] ^= 1;
     CHECK(bm_parse(d, n, &c, err, sizeof err) != 0 && strstr(err, "CRC"), "corruption detected");
@@ -350,8 +413,6 @@ static void set8(void *ctx, int x, int y, const uint8_t rgba[4])
     memcpy(px8[y][x], rgba, 4);
 }
 
-static void put16(uint8_t *p, unsigned v) { p[0] = (uint8_t)v; p[1] = (uint8_t)(v >> 8); }
-static void put32(uint8_t *p, uint32_t v) { put16(p, v & 0xFFFF); put16(p + 2, v >> 16); }
 
 static void test_sheet8(void)
 {
@@ -396,6 +457,202 @@ static void test_sheet8(void)
     CHECK(bm_parse(cart, len, &c, err, sizeof err) != 0 && strstr(err, "sheet"), "broken runs refused");
 }
 
+/* A MESH section built by hand: two models, textured and coloured faces. */
+static size_t put_f32(uint8_t *p, float f) { uint32_t u; memcpy(&u, &f, 4); put32(p, u); return 4; }
+
+static size_t mesh_model(uint8_t *p, const char *name, int nv, const float *v, int nf, const uint16_t *f,
+                         const uint32_t *col, const uint16_t *uv8)
+{
+    size_t n = 0;
+    memset(p, 0, 16);
+    memcpy(p, name, strlen(name));
+    n = 16;
+    put16(p + n, (unsigned)nv); put16(p + n + 2, (unsigned)nf); put32(p + n + 4, 0);
+    n += 8;
+    for (int i = 0; i < nv * 3; i++) n += put_f32(p + n, v[i]);
+    for (int i = 0; i < nf; i++) {
+        put16(p + n, f[i * 3]); put16(p + n + 2, f[i * 3 + 1]); put16(p + n + 4, f[i * 3 + 2]); put16(p + n + 6, 0);
+        put32(p + n + 8, col[i]);
+        for (int k = 0; k < 6; k++) put16(p + n + 12 + k * 2, uv8[i * 6 + k]);
+        n += BM_MESH_FACE;
+    }
+    return n;
+}
+
+static size_t cart_with(uint8_t *cart, const uint8_t *sec, size_t n, uint32_t type)
+{
+    static const char lua[] = "-- mesh\n";
+    size_t off = BM_HEADER_SIZE + 32;
+    memset(cart, 0, off + 16);
+    memcpy(cart, "BMCART\0\0", 8);
+    put16(cart + 8, 1); put16(cart + 10, BM_HEADER_SIZE); put16(cart + 12, 640); put16(cart + 14, 360);
+    cart[16] = BM_FMT_RGB565; cart[17] = 2;
+    uint8_t *t = cart + BM_HEADER_SIZE;
+    put32(t, BM_SEC_LUA); put32(t + 4, (uint32_t)off); put32(t + 8, sizeof lua - 1); put32(t + 12, 0);
+    memcpy(cart + off, lua, sizeof lua - 1);
+    size_t off2 = off + 16;
+    put32(t + 16, type); put32(t + 20, (uint32_t)off2); put32(t + 24, (uint32_t)n); put32(t + 28, 0);
+    memcpy(cart + off2, sec, n);
+    size_t len = off2 + n;
+    put32(cart + 20, crc32(cart + BM_HEADER_SIZE, (uint32_t)(len - BM_HEADER_SIZE)));
+    return len;
+}
+
+static void test_mesh(void)
+{
+    static uint8_t sec[1024], cart[2048];
+    static const float quad_v[] = { 0, 0, 0,  0, 1, 0,  1, 1, 0,  1, 0, 0 };
+    static const uint16_t quad_f[] = { 0, 1, 2,  0, 2, 3 };
+    static const uint32_t quad_c[] = { 0x80000000u, 0x80000000u };
+    static const uint16_t quad_uv[] = { 0, 128, 0, 0, 128, 0,   0, 128, 128, 0, 128, 128 };
+    static const float tri_v[] = { -1, 0, 0,  0, 2, 0.5f,  1, 0, 0 };
+    static const uint16_t tri_f[] = { 0, 1, 2 };
+    static const uint32_t tri_c[] = { 0x33CC66 };
+    static const uint16_t tri_uv[6] = { 0 };
+    size_t n = 8;
+    put16(sec, 2); put16(sec + 2, 64); put32(sec + 4, 0);
+    n += mesh_model(sec + n, "wall", 4, quad_v, 2, quad_f, quad_c, quad_uv);
+    n += mesh_model(sec + n, "roof", 3, tri_v, 1, tri_f, tri_c, tri_uv);
+    size_t len = cart_with(cart, sec, n, BM_SEC_MESH);
+
+    bm_cart_t c;
+    char err[64] = "";
+    CHECK(bm_parse(cart, len, &c, err, sizeof err) == 0, "mesh parse: %s", err);
+    CHECK(c.mesh && c.models == 2 && c.mesh_size == n, "mesh section found (%d models)", c.models);
+    CHECK(bm_mesh_inset(c.mesh) == 0.25f, "mesh inset");
+    bm_model_t m;
+    CHECK(bm_mesh_model(c.mesh, c.mesh_size, 0, &m) == 0 && strcmp(m.name, "wall") == 0 &&
+          m.nverts == 4 && m.nfaces == 2, "first model");
+    uint16_t idx[3];
+    uint32_t col;
+    float uv[6], xyz[3];
+    bm_model_face(&m, 1, idx, &col, uv);
+    CHECK(idx[0] == 0 && idx[1] == 2 && idx[2] == 3 && col == 0x80000000u, "face indices and colour");
+    CHECK(uv[0] == 0 && uv[1] == 16 && uv[2] == 16 && uv[3] == 0 && uv[4] == 16 && uv[5] == 16, "face uv in pixels");
+    CHECK(bm_mesh_model(c.mesh, c.mesh_size, 1, &m) == 0 && strcmp(m.name, "roof") == 0, "second model");
+    bm_model_vertex(&m, 1, xyz);
+    CHECK(xyz[0] == 0 && xyz[1] == 2 && xyz[2] == 0.5f, "vertex");
+    bm_model_face(&m, 0, idx, &col, uv);
+    CHECK(col == 0x33CC66, "plain colour");
+    CHECK(bm_mesh_model(c.mesh, c.mesh_size, 2, &m) != 0, "no third model");
+
+    /* a vertex index out of range, a short section, a wrong count */
+    size_t f0 = 8 + 24 + 4 * 12;            /* first face of "wall" */
+    uint8_t save = sec[f0 + 2];
+    sec[f0 + 2] = 4;
+    len = cart_with(cart, sec, n, BM_SEC_MESH);
+    CHECK(bm_parse(cart, len, &c, err, sizeof err) != 0 && strstr(err, "MESH"), "bad index refused");
+    sec[f0 + 2] = save;
+    len = cart_with(cart, sec, n - 4, BM_SEC_MESH);
+    CHECK(bm_parse(cart, len, &c, err, sizeof err) != 0, "short section refused");
+    put16(sec, 3);
+    len = cart_with(cart, sec, n, BM_SEC_MESH);
+    CHECK(bm_parse(cart, len, &c, err, sizeof err) != 0, "wrong model count refused");
+    put16(sec, 2);
+    /* a section of a type this kernel does not know is ignored */
+    len = cart_with(cart, sec, n, 99);
+    CHECK(bm_parse(cart, len, &c, err, sizeof err) == 0 && !c.mesh, "unknown section ignored");
+    /* the first bm Studio files had MESH as type 6, now the sound bank:
+     * one that is not a bank ("BMAU") is still read as MESH */
+    len = cart_with(cart, sec, n, BM_SEC_AUDIO);
+    CHECK(bm_parse(cart, len, &c, err, sizeof err) == 0 && c.mesh && c.models == 2 && !c.audio,
+          "a MESH of type 6 (old files) is read as MESH: %s", err);
+}
+
+/* A cartridge written by bm Studio (tests/studio/test_core.js): the
+ * kernel's parser takes its models. */
+static void test_studio_cart(const char *path)
+{
+    size_t n;
+    uint8_t *d = read_file(path, &n);
+    CHECK(d != NULL, "read %s", path);
+    if (!d) return;
+    bm_cart_t c;
+    char err[64] = "";
+    CHECK(bm_parse(d, n, &c, err, sizeof err) == 0, "parse the bm Studio cartridge: %s", err);
+    CHECK(c.width == 320 && c.sheet8 && c.sheet_w == 256 && c.cover_rgba && c.map_cells, "its sections");
+    CHECK(c.models == 2 && bm_mesh_inset(c.mesh) == 0.5f, "its models (%d)", c.models);
+    bm_model_t m;
+    CHECK(bm_mesh_model(c.mesh, c.mesh_size, 0, &m) == 0 && strcmp(m.name, "house") == 0 && m.nfaces == 21,
+          "house: %u triangles", m.nfaces);
+    int textured = 0;
+    for (int f = 0; f < m.nfaces; f++) {
+        uint16_t idx[3];
+        uint32_t col;
+        float uv[6];
+        bm_model_face(&m, f, idx, &col, uv);
+        textured += (col & 0x80000000u) != 0;
+    }
+    CHECK(textured == 20, "textured faces: %d", textured);
+    free(d);
+}
+
+/* A cartridge with a skeleton written by bm Studio's core (test_core.js):
+ * the kernel reads the rig, its clips and keys; broken rigs are refused. */
+static void test_anim_cart(const char *path)
+{
+    size_t n;
+    uint8_t *d = read_file(path, &n);
+    CHECK(d != NULL, "read %s", path);
+    if (!d) return;
+    bm_cart_t c;
+    char err[64] = "";
+    CHECK(bm_parse(d, n, &c, err, sizeof err) == 0, "parse the cartridge with a skeleton: %s", err);
+    bm_rig_t r;
+    CHECK(c.anim && bm_anim_rig(c.anim, c.anim_size, "figure", &r) == 0, "the rig of \"figure\"");
+    CHECK(bm_anim_rig(c.anim, c.anim_size, "nobody", &r) != 0, "no rig for another model");
+    bm_anim_rig(c.anim, c.anim_size, "figure", &r);
+    bm_model_t m;
+    bm_mesh_model(c.mesh, c.mesh_size, 0, &m);
+    CHECK(r.nbones == 2 && r.nclips == 2 && r.nverts == m.nverts, "bones %u clips %u vertices %u/%u", r.nbones, r.nclips,
+          r.nverts, m.nverts);
+    char name[BM_MODEL_NAME + 1];
+    int parent;
+    float head[3], tail[3];
+    bm_rig_bone(&r, 1, name, &parent, head, tail);
+    CHECK(strcmp(name, "arm.R") == 0 && parent == 0 && head[0] == 1 && head[1] == 1 && tail[0] == 2, "bone 1");
+    bm_clip_t cl;
+    CHECK(bm_rig_clip(&r, 0, &cl) == 0 && strcmp(cl.name, "wave") == 0 && cl.nkeys == 2 && cl.mode == 1 && cl.loop &&
+          cl.length == 1.0f, "clip wave");
+    float q[2][4], t[2][3];
+    float time = bm_clip_key(&cl, 2, 1, q, t);
+    CHECK(time == 0.5f && t[1][1] == 0.25f && q[1][2] > 0.7f && q[0][3] == 1, "key 1 of wave: %g", time);
+    CHECK(bm_rig_clip(&r, 1, &cl) == 0 && strcmp(cl.name, "still") == 0 && cl.mode == 2 && !cl.loop, "clip still");
+    CHECK(bm_rig_clip(&r, 2, &cl) != 0, "no third clip");
+    int arm = 0;
+    for (int i = 0; i < r.nverts; i++) arm += r.vbones[i] == 1;
+    CHECK(arm == 8, "8 vertices follow the arm (%d)", arm);
+    /* a bone whose parent comes after it is refused */
+    uint8_t *b1 = (uint8_t *)r.bones + BM_BONE_SIZE;
+    b1[16] = 5;
+    put32(d + 20, crc32(d + BM_HEADER_SIZE, (uint32_t)(n - BM_HEADER_SIZE)));
+    CHECK(bm_parse(d, n, &c, err, sizeof err) != 0 && strstr(err, "ANIM"), "bad parent refused");
+    free(d);
+}
+
+/* A cartridge saved by the 3D studio of the console (its host test,
+ * tests/studio/studio3d_host.lua): the kernel reads what it wrote. */
+static void test_console_cart(const char *path)
+{
+    size_t n;
+    uint8_t *d = read_file(path, &n);
+    CHECK(d != NULL, "read %s", path);
+    if (!d) return;
+    bm_cart_t c;
+    char err[64] = "";
+    CHECK(bm_parse(d, n, &c, err, sizeof err) == 0, "parse the cartridge of the 3D studio: %s", err);
+    bm_model_t m;
+    CHECK(c.models == 1 && bm_mesh_model(c.mesh, c.mesh_size, 0, &m) == 0 && strcmp(m.name, "model") == 0 &&
+          m.nfaces == 16, "its model: 16 triangles");
+    bm_rig_t r;
+    CHECK(c.anim && bm_anim_rig(c.anim, c.anim_size, "model", &r) == 0 && r.nbones == 2 && r.nclips == 1 &&
+          r.nverts == m.nverts, "its skeleton: 2 bones, 1 animation, the model's vertices");
+    bm_clip_t cl;
+    CHECK(bm_rig_clip(&r, 0, &cl) == 0 && strcmp(cl.name, "anim1") == 0 && cl.nkeys == 2 && !cl.loop,
+          "the animation anim1: 2 keyframes");
+    free(d);
+}
+
 int main(int argc, char **argv)
 {
     test_primitives();
@@ -405,6 +662,13 @@ int main(int argc, char **argv)
     test_3d();
     test_format(argc > 1 ? argv[1] : "build/demo.bm");
     test_sheet8();
+    test_mesh();
+    if (argc > 2)
+        test_studio_cart(argv[2]);
+    if (argc > 3)
+        test_anim_cart(argv[3]);
+    if (argc > 4)
+        test_console_cart(argv[4]);
     printf("bm: %d/%d checks passed\n", checks - fails, checks);
     return fails != 0;
 }

@@ -806,6 +806,96 @@ Decisione 2026-09-29: l'editor attuale diventa l'**SDK** (generico: progetto, pr
 salvataggio); intorno a lui strumenti specializzati, ognuno una cartuccia nella scheda
 **Dev**, tutti con gli stessi formati.
 
+**Stato (2026-10-01, sviluppato sul branch `sviluppo-sdk`, ora in `claude/bare-metal-mvp`):
+bm Studio, sul PC.** Su richiesta
+dell'utente, 22.3 (3D), parte di 22.2 (pixel art dello sheet) e di 22.5 (import/export)
+arrivano prima come applicazione per il PC, in stile Crocotile 3D (`sdk/studio`,
+[sdk/README.md](../sdk/README.md)); i formati sono quelli previsti qui sotto, quindi gli
+strumenti sulla console potranno leggerli e scriverli.
+- **Formato**: sezione **MESH** del `.bm` (tipo 8, `src/bm/bm.h`; era 6 nei primi file,
+  ancora letti, prima che 6 andasse al banco di suoni): modelli con nome,
+  vertici in float, facce con colore o texture dello sprite sheet (angoli in 1/8 di
+  pixel), margine delle texture applicato al caricamento. Il kernel la controlla in
+  `bm_parse`; API `model(nome)`, `models()`, `bounds3d(m)`.
+- **bm Studio**: pagina web senza dipendenze (doppio clic su `index.html`, o
+  `make studio`). Tessere dello sheet posate su una griglia (piano automatico o fisso,
+  sulle facce esistenti), blocchi (le pareti tra blocchi vicini spariscono), selezione e
+  spostamento, angoli (tetti, rampe, unione), pittura sul modello; editor dei pixel
+  dello sheet; copertina dalla vista 3D; codice `main.lua`. Apre e salva il `.bm` al suo
+  posto (File System Access di Chrome/Edge; altrove scarica). Scambia `.glb` (con lo
+  sheet come texture; i `.glb` altrui portano le texture nello sheet) e `.png`.
+- L'**SDK sulla console** tiene le sezioni che non modifica (i modelli) quando salva.
+- **Build**: `mkbm.py --models file.glb` (o un `.bm`); `carts/<gioco>/models.glb` entra
+  nella cartuccia da solo, con lo sheet se il gioco non ha `sheet.png`.
+- **Esempio**: *Studio Village* (`carts/village`, 320×180), modelli costruiti con gli
+  strumenti dello Studio (`mkmodels.js` → `models.glb`).
+- **Test**: `make test-studio` (Node; gli stessi file letti da `bmmesh.py` e dal parser
+  del kernel), `make test-studio-ui` (Playwright), QEMU `test_models`,
+  `test_sdk_keeps_models`, `test_village`, `test_studio_cart`.
+- Corretta la documentazione dell'ordine dei vertici: una faccia si vede dal lato da
+  cui appare in senso **orario** (API e guida dicevano antiorario; l'esempio della
+  piramide nella guida mostrava l'interno).
+- **Da verificare sul Pi**: Studio Village (scheda Games); un `.bm` salvato da bm Studio
+  copiato in `carts/` (il visualizzatore dei modelli di un progetto nuovo).
+
+**bm Animator (2026-10-01, stesso branch): rigging, keyframe, animazione scheletrica,
+3D→sprite (22.6).** Terza applicazione per il PC (`sdk/animator`), con le stesse regole
+delle altre due (lavora sul `.bm`, porta il progetto da e verso bm Studio).
+- **Formato**: sezione **ANIM** del `.bm` (tipo 9, `src/bm/bm.h`; era 7): per ogni modello le
+  ossa (testa, coda, padre), l'osso di ogni vertice, le animazioni (keyframe di posa
+  intera, linear / smooth / step, ciclo). Un osso gira intorno alla testa:
+  M = M_padre · T(testa + t) · R(q) · T(−testa); ogni vertice segue un osso solo (parti
+  rigide come sulla PS1, o stirate alle giunture se gli angoli condivisi sono di ossa
+  diverse). Il kernel la controlla in `bm_parse`.
+- **API**: `model()` porta lo scheletro, `animate(m, anim, t, [anim2, t2, k])` (anche il
+  misto di due animazioni), `clips(m)`, `bone3d(m, osso)`; gli stessi conti in C
+  (`runtime.c`) e in JavaScript (`sdk/studio/js/rig.js`).
+- **bm Animator**: Rig (ossa trascinate per le giunture, specchio sinistra/destra, pelle
+  per faccia o per angolo, a mano o all'osso più vicino), Animate (anelli per girare,
+  coda per puntare, testa per spostare; linea del tempo con keyframe automatici, ciclo,
+  riproduzione, onion skin, specchio e copia della posa, annulla), Sprites (fotogrammi da
+  1–8 direzioni, camera piatta o in prospettiva, luce a bande, contorno, riduzione dei
+  colori, nello sheet con il codice Lua per `sspr()`). Esporta `.glb` con giunture, pelle e
+  animazioni. Si apre con un esempio: il paesano (idle, walk, wave).
+- **22.6 (3D→sprite)**: fatto sul PC con un rasterizzatore software in JavaScript (gli
+  stessi pixel nel browser e in Node). Restano da fare hitbox e hurtbox per fotogramma.
+- **Esempio**: in Studio Village il paesano cammina sul sentiero, saluta alle estremità
+  (due animazioni mescolate), porta una luce di notte (`bone3d`); nell'angolo la sua
+  camminata pre-renderizzata a sprite. `carts/village/models.bm` (da `mkmodels.js`).
+- **Build**: `mkbm.py --models file.bm` porta modelli, scheletri e sheet;
+  `carts/<gioco>/models.bm` entra nella cartuccia da solo.
+- **Test**: `make test-studio` (rig, ANIM, sprite, glTF animato verificato con un
+  valutatore glTF; il parser del kernel sullo stesso file), `make test-studio-ui`
+  (Playwright, anche l'Animator), QEMU `test_animation`.
+- **Da verificare sul Pi**: Studio Village (il paesano che cammina e lo sprite nell'angolo).
+
+**Studio 3D sulla console (2026-10-01, stesso branch): il player e la versione
+semplificata.** Su richiesta dell'utente gli strumenti del PC restano quelli principali e
+sulla console arriva una loro versione `.bm`: una cartuccia incorporata nel kernel
+(`carts/studio3d`), nella scheda **Dev** e nelle opzioni di ogni gioco (*Open in the 3D
+studio*; monitor `3`), sugli stessi file ([sdk/README.md](../sdk/README.md#sulla-console-lo-studio-3d)).
+- **Play** (il player): modelli, vertici, triangoli, ossa; camera che gira, animazioni
+  (fotogramma per fotogramma, velocità), scheletro sovrapposto, misto di due animazioni.
+- **Build**: cursore a celle, blocchi (senza pareti tra blocchi vicini), tessere su un
+  lato della cella, pittura, tessere e colori dallo sheet del progetto, annulla; le facce
+  sono identiche a quelle di bm Studio con gli stessi attrezzi.
+- **Rig** e **Animate**: ossa aggiunte, spostate e cancellate, pelle all'osso più vicino;
+  animazioni a keyframe (giri di 15° o 5° intorno a x/y/z, spostamenti, copia della posa,
+  ciclo, ease, durata).
+- **Menu**: apri, nuovo progetto (con le tessere iniziali di bm Studio), salva, prova il
+  gioco e torna, modelli nuovi/rinominati/duplicati/cancellati.
+- **Kernel**: `cart_data(tipo, [byte])` legge e sostituisce le sezioni MESH e ANIM del
+  progetto (controllate prima; `model()`/`animate()` le usano subito, `cart_save` le
+  scrive); `bone3d()` restituisce anche la coda dell'osso; il progetto aperto si azzera
+  all'avvio di ogni cartuccia.
+- **Input**: tastiera e gamepad; il puntatore arriverà con il mouse Bluetooth.
+- **Test**: lo studio sul PC con le API sostituite (`tests/studio/studio3d_host.lua`, 70
+  controlli, in `make test-studio`), i suoi file riletti da bm Studio, `bmmesh.py` e dal
+  parser del kernel; QEMU `test_studio3d`.
+- **Da verificare sul Pi**: scheda Dev → *3D studio*; aprire Studio Village, guardare il
+  paesano (k: scheletro, b: misto), costruire qualche blocco in un progetto nuovo,
+  salvarlo e provarlo (F5); fluidità del player e della costruzione sul Pi Zero.
+
 Sotto-milestone:
 - **22.0 Base comune**:
   - formato del progetto;
@@ -817,6 +907,40 @@ Sotto-milestone:
   - colori della sintassi, cerca e sostituisci;
   - salto all'errore;
   - aiuto sulle API (F1 sulla parola), completamento dei nomi delle API.
+
+  **bm Code** (2026-10-01, fatto in QEMU): l'editor del codice nella scheda Dev (anche `C`
+  dal monitor e "Open in bm Code" nelle opzioni di una cartuccia), `carts/code/main.lua`.
+  - Più cartucce aperte in **tab** (F2/F3), **due pagine affiancate** (F4, F7 passa
+    all'altra: due file, o due punti dello stesso file per la revisione).
+  - **Font** 6x12 (106 colonne, 28 righe di codice), 8x14 o 8x16 (F10), da Terminus come
+    quello della console: niente caratteri enormi.
+  - Legge e scrive le cartucce **al loro posto**: `cart_read` / `cart_write` cambiano solo
+    il codice, sprite, mappa, copertina e sezioni sconosciute restano; i nomi lunghi pure.
+    Ctrl+N crea una cartuccia nuova, "Save as" una copia.
+  - Colori della sintassi, numeri di riga, rientro automatico (e `end` che torna a posto),
+    annulla/ripeti, selezione (Ctrl+B), copia/taglia/incolla, cerca e sostituisci, vai
+    alla riga, F5 prova il gioco e torna sulla riga dell'errore.
+  - L'assistente: F6 (la parola sotto il cursore), F9 spiega l'errore, righe
+    `#entry: ... #` (M30).
+  - Le tab e le modifiche non salvate restano per la volta dopo (sessione in `save()`).
+  - Col pad: croce, Y+croce per pagine e tab, X l'assistente, Start il menu.
+  - Restano per 22.1: più file per progetto, completamento dei nomi delle API.
+  - Test: `test_code_editor` in QEMU (un `.bm` con nome lungo e sprite, due tab, due
+    pagine, il salvataggio che tiene sheet e mappa, prova con errore e ritorno, F9,
+    `#entry:` e annulla, cartuccia nuova, `fsck.vfat`); `make test-bm` (`bm_rewrite`, font
+    largo 6), `make test-fat` (riscrittura di un file con nome lungo).
+  - Corretto per strada: `save()` con tabelle oltre ~1 KiB rompeva lo stack di Lua
+    ("cannot store a thread"); ora il testo si costruisce in un buffer fisso.
+
+  **Da provare sul Pi** (Dev > Code, tastiera USB):
+  - il font 6x12 sul monitor: si legge bene? (F10: 8x14 e 8x16);
+  - Ctrl+O, un gioco della SD, una modifica, Ctrl+S: il gioco parte ancora con i suoi
+    sprite e la sua mappa;
+  - F4 due pagine (F7 passa dall'una all'altra, F2/F3 cambiano tab), fluido anche così;
+  - F5 prova il gioco; con un errore torna sulla riga rossa, F9 lo spiega;
+  - una riga `#entry: aggiungi operatore ternario #` dentro una funzione con un if/else,
+    Invio, poi Ctrl+Z;
+  - Esc > Exit con modifiche non salvate: "Keep for later" e alla riapertura ci sono.
 - **22.2 Pixel art**:
   - sprite, tavolozze, animazioni (fotogrammi, onion skin, anteprima);
   - strumenti (linea, rettangolo, riempimento, selezione, specchio);
@@ -921,7 +1045,7 @@ font nostri; le cartucce del forum sono per lo più CC BY-NC-SA (uso non commerc
 Decisione 2026-10-01: l'emulatore si chiama **nano8** ed è una cartuccia `.bm` della
 scheda Games (`carts/nano8`, Lua), con la macchina in C nel kernel (`src/bm/n8*.c`, la
 tabella `n8` di ogni cartuccia) e il suono nell'interrupt audio (`src/audio/n8snd.c`).
-I tasti si mappano su tastiera e controller. Branch `nano-emulator`.
+I tasti si mappano su tastiera e controller.
 
 Stato (2026-10-01): tutto nel PC e in QEMU, **da provare sul Pi**.
 1. **Caricatore** ✅ (`src/bm/n8cart.c`):
@@ -1268,6 +1392,99 @@ Zero W, `make image-pi1` senza il firmware del chip WiFi/Bluetooth). Il firmware
 con il MAC; `eth: link up, 100 Mbit/s full duplex` dopo qualche secondo col cavo;
 `net: IP ...`; `ping` dal PC; `tools/bm_net.py IP`; una tastiera su una porta USB
 (`usb: keyboard ... (hub port 2, split)`) che scrive nel menu e nei giochi.
+
+## M30 — Assistente AI per lo sviluppo (L) — base fatta in QEMU (2026-10-01), integrazione quando le app sono pronte
+Decisione 2026-10-01 (dopo [AI.md](../AI.md)): la prima AI di bm è un **assistente per
+gli strumenti di sviluppo**, non per i giochi: mentre si scrive un gioco si richiama con
+un tasto per chiedere come si scrive qualcosa, o per avere la base di uno sprite. Si
+richiama solo direttamente, non è invasivo e non pesa sul sistema: nessun processo in
+background, niente RAM finché non si chiede, una risposta in meno di un millisecondo.
+
+Cosa è, e cosa no: sul Pi Zero un modello linguistico che scrive codice libero darebbe
+pochi token al secondo e testo inaffidabile. L'assistente è una **rete INT8 minuscola**
+che capisce la domanda (italiano o inglese, errori di battitura, sinonimi) e sceglie tra
+le voci di una base di conoscenza di bm; gli sprite vengono da **ricette procedurali**
+guidate dalle parole. È l'approccio ibrido di AI.md: la rete sceglie, l'algoritmo
+classico fa il grosso.
+
+Task:
+1. ✅ **Motore INT8** (`src/ai/nn.c`): parole e tris di lettere (hash FNV-1a in 4096
+   caratteristiche) → 64 neuroni (ReLU) → un'uscita per voce. Somme intere a 32 bit,
+   SIMD dell'ARMv6 (SXTB16, SADD16, SMLAD). Bit per bit uguale al riferimento in Python
+   (`scripts/assistlib.py`).
+2. ✅ **Testo** (`src/ai/text.c`): lettere accentate di CP437 (tastiera) e UTF-8 piegate,
+   parole funzione tolte, parole, coppie di parole e tris di lettere.
+3. ✅ **Base di conoscenza** (`src/ai/kb/*.txt`, formato in `src/ai/kb/README.md`): 235
+   voci. Ogni funzione delle API (anche il banco di suoni del Sound editor: `sfx`,
+   `music`, `tempo`, `slide`, `arp`...), 79 esempi con il codice (movimento, salti,
+   collisioni, spari, nemici, mappe, menu, suono, salvataggi, 3D, luci, Lua), 23 errori di
+   Lua con la correzione, consigli, le azioni sul codice, le ricette degli sprite. Testo
+   in italiano, codice ASCII che compila con Lua 5.4 (controllato).
+4. ✅ **Addestramento sul PC** (`make ai-model`, numpy, ~40 s): esempi dalle domande `ask:`
+   delle voci con varianti (parola tolta, errore di battitura, sinonimo), poi
+   quantizzazione a 8 bit. Il risultato (`src/ai/assist.weights`) è nel repository: `make`
+   non ha bisogno di numpy. `scripts/mkassist.py` impacchetta voci e rete nel file BMAI
+   incluso nel kernel.
+5. ✅ **Ricette di sprite** (`src/ai/sprite.c`): 38 (astronave, alieno, mostro, robot,
+   personaggio di fronte e di profilo, automobile, slime, fantasma, pipistrello, teschio, moneta, gemma, cuore, stella,
+   chiave, spada, pozione, forziere, cassa, albero, fiore, fungo, roccia, bomba, fiamma,
+   proiettile, esplosione, mela, nuvola; tile di erba, mattoni, pietra, acqua, legno,
+   sabbia, lava, terreno). 8x8, 16x16 o 32x32; forme, simmetria, cinque toni per colore
+   con la luce dall'alto a sinistra, contorno; colori e misura dalle parole ("slime rosso
+   32x32"); ogni seme una variante (alcune fanno animazioni: moneta che gira, ali,
+   fiamma, passi del personaggio di profilo).
+6. ✅ **Lua**: `ai.ask`, `ai.entry`, `ai.list`, `ai.near`, `ai.sprite`, `ai.recipes`
+   (docs/API.md) e `require "assist"`, il **pannello** che ogni strumento apre con un tasto:
+   risponde mentre scrivi, Invio inserisce il codice o lo sprite, modalità errore (riga,
+   nome scritto male, cosa vuol dire), voci collegate, "non sono sicuro"; col pad si
+   sfoglia tutto. `keyp()` conosce F6–F12.
+7. ✅ **Assistant** nella scheda Dev (e `I` dal monitor): il pannello da solo, il codice
+   inserito e gli sprite nello sheet su due riquadri, F8 misura la velocità sullo schermo.
+8. **Integrazione**: ✅ in **bm Code** (22.1): F6 con la parola sotto il cursore e il codice
+   inserito al cursore, F9 sulla riga dell'errore, e le righe `#entry: ... #` (sotto).
+   Restano, quando le app saranno pronte (l'editor di M15, poi gli strumenti di M22):
+   - editor del codice: F6 apre il pannello con la parola sotto il cursore, Invio inserisce
+     il codice al cursore; la riga rossa dell'errore apre il pannello in modalità errore;
+   - editor degli sprite: F6 (modo sprite) mette la base nella cella scelta, nella misura
+     della pagina (8x8 o 16x16) e con la tavolozza dell'editor;
+   - una combinazione per il pad (proposta: Y+X), e l'aiuto F12 che la ricorda.
+9. ✅ **Azioni sul codice** (API di prova, `assist.act`): una riga `#entry: richiesta #` in bm
+   Code, Invio, e l'assistente lo fa sulla funzione intorno o sotto: operatore ternario,
+   commento, log, togli i log, controllo dei nil, rendi locale, indentazione, rinomina,
+   commenta/scommenta, ottimizza (API come locali), spiega; oppure inserisce un esempio
+   ("crea uno snippet per un effetto di particelle") o uno sprite scritto come codice
+   ("crea uno sprite slime rosso"). Non cambia niente se non è sicura; Ctrl+Z annulla.
+10. Dopo: numeri e nomi della domanda dentro il codice proposto ("muovi a velocità 3"),
+   completamento dei nomi delle API, le domande senza risposta giusta che diventano voci
+   nuove, ricette di sprite animate (più fotogrammi nello sheet).
+
+Numeri: in QEMU 0,45 ms per domanda (sul PC 0,03 ms) e 1 ms per uno sprite 16x16; il
+kernel cresce di ~410 KB (rete 270 KB, voci e testi 80 KB). RAM: niente finché non si
+chiede (rete e voci restano nel kernel), poi le tabelle Lua della risposta. Con 2048 o 1024
+caratteristiche invece di 4096 la rete sarebbe più piccola di 130-200 KB ma, su tre
+addestramenti, perde in media 2 domande di prova su 133: restano 4096.
+
+Test: `make test-ai` (rete C contro Python bit per bit; 154 domande mai viste in
+addestramento: la risposta giusta prima per 141, nelle prime tre per 149; i 176 esempi
+che compilano; 23 controlli del pannello sul PC: domanda, Invio, varianti, errore, pad,
+320x180; 24 delle azioni `#entry:`; le 38 ricette in tre misure), `test_assistant` in QEMU (la rete sull'ARM,
+con le SIMD, dà gli stessi interi di Python: checksum di `ai.checksum`; domanda scritta,
+codice inserito, sprite nello sheet, test di velocità, F9), `make ai-model` per riaddestrare.
+
+**Da provare sul Pi** (Dev > Assistant, o `I` dal monitor):
+- con la tastiera USB: una domanda ("come salto", "collisione tra rettangoli",
+  "attempt to call a nil value"); la risposta e il tempo in ms in alto a destra; Invio
+  inserisce il codice nel riquadro "code";
+- F7, "slime rosso" (o "astronave blu 32x32"), destra/sinistra per le varianti, Invio:
+  lo sprite nel riquadro "sprites";
+- F8: domande al secondo e tempo di uno sprite sul Pi vero;
+- F9: un errore d'esempio ("attempt to call a nil value (global 'sprr')"): la riga, "did
+  you mean spr?" e la spiegazione, come farà l'editor con la riga rossa;
+- col solo DS4: A apre, su/giù sfogliano, A inserisce, X cambia modo, B chiude.
+
+- **Fatto quando:** sul Pi l'editor del codice e quello degli sprite aprono l'assistente
+  con F6 (e col pad), il codice entra al cursore e lo sprite nella cella; il menu e
+  l'editor restano a 60 fps; i test in QEMU coprono l'integrazione.
 
 ## Rischi principali
 | Rischio | Mitigazione |

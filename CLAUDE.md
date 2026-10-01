@@ -11,6 +11,30 @@ Lua 5.4 embedded. Documentazione: `README.md`, `docs/ROADMAP.md`, `docs/HARDWARE
 - L'utente prova sul Pi reale copiando `dist/kernel.img` sulla SD (WSL, `/mnt/d`),
   senza cavo seriale: tutto ciò che deve verificare va mostrato sullo schermo.
 
+## bm Studio (sdk/studio)
+
+- Applicazione per il PC (pagina web, niente build né dipendenze) per i modelli 3D a
+  tessere (stile Crocotile 3D) e la pixel art dello sheet; legge e scrive il `.bm`
+  (sezione MESH, tipo 8, `src/bm/bm.h`). Guida: `sdk/README.md`.
+- Numeri delle sezioni: 6 è AUDIO (banco di suoni), 8 MESH, 9 ANIM. I primi file di bm
+  Studio avevano MESH 6 e ANIM 7: kernel (`format.c`), `core.js` e `bmmesh.py` li leggono
+  ancora (un 6 senza la firma `BMAU` è MESH); si scrivono sempre 8 e 9.
+- `sdk/studio/js/core.js`, `tiles.js`, `edit.js` girano anche in Node (`make test-studio`);
+  l'interfaccia si prova con Playwright (`make test-studio-ui`, screenshot in
+  `build/studio/`). In questo ambiente: `/opt/node22/lib/node_modules/playwright`.
+- Convenzione dei vertici: una faccia si vede dal lato da cui appare in senso orario
+  (`r3d.c`); verso glTF la z cambia segno e l'ordine dei vertici si inverte.
+- **bm Animator** (`sdk/animator`, usa i file di `sdk/studio/js`): scheletri e animazioni
+  nella sezione ANIM (tipo 9); `rig.js` e `animate()` in `runtime.c` fanno gli stessi
+  conti (cambiarli insieme). `sprites.js` (3D→sprite) è un rasterizzatore software.
+- **Studio 3D della console** (`carts/studio3d/main.lua`, cartuccia incorporata come
+  l'editor, scheda Dev, monitor `3`): player + versione semplificata di Studio/Animator.
+  Codifica MESH/ANIM in Lua (`string.pack`) e le passa al kernel con `cart_data()`;
+  `tile_face`/`place_faces` sono il port di `edit.js` (le facce devono restare identiche,
+  `check_studio3d.js`). Al livello principale del file ci sono meno di 200 locali: ogni
+  pagina sta in un blocco `do ... end`. Prova sul PC: `tests/studio/studio3d_host.lua`
+  (in `make test-studio`).
+
 ## Nome
 
 - Il progetto si chiama **bm** (BareMetal); cartucce `.bm`, cartella `bm/` sulla SD.
@@ -44,6 +68,17 @@ Lua 5.4 embedded. Documentazione: `README.md`, `docs/ROADMAP.md`, `docs/HARDWARE
 - Non è PICO-8: nome, logo e font sono nostri (`src/bm/n8font.c`), mai quelli di Lexaloffle.
 - In `carts/nano8/roms` solo cartucce con una licenza che ne permette la ridistribuzione,
   elencate in `CREDITS.md` con il testo della licenza in `licenses/`.
+
+## Assistente AI (M30)
+
+- `src/ai/`: rete INT8 che sceglie tra le voci di `src/ai/kb/*.txt` (formato in
+  `src/ai/kb/README.md`) e ricette di sprite; pannello Lua `require "assist"`.
+- Dopo aver cambiato la base di conoscenza: `make ai-model` (numpy) e commit di
+  `src/ai/assist.weights`; `make test-ai` controlla C contro Python, domande di prova,
+  esempi di codice e pannello.
+- bm Code (`carts/code/main.lua`, scheda Dev): l'editor del codice; usa `cart_read` /
+  `cart_write` (solo il codice), `font("6x12")` e `assist.act` per le righe `#entry:`.
+  Test: `test_code_editor` in QEMU (lo schermo si legge anche col font 6x12).
 
 ## Comunicazione con l'utente
 

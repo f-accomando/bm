@@ -92,6 +92,7 @@ int hid_keys_held(uint8_t *out, int max);
 #define HID_KEY_PGDN    0xF7
 #define HID_KEY_DEL     0xF8
 #define HID_KEY_F1      0xF9            /* .. F5 = 0xFD */
+#define HID_KEY_F6      0xE6            /* .. F12 = 0xEC (code page 437 Greek: never typed) */
 /* Once per press, then cleared: HID_QUIT_KEY for Esc or Start+Select,
  * HID_QUIT_PS for the PS / Xbox Guide button (home: never the monitor). */
 #define HID_QUIT_KEY 1

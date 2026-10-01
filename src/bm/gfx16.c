@@ -249,9 +249,10 @@ int g16_text(g16_t *g, int x, int y, const char *str, uint16_t c)
 {
     const font_t *f = g->font;
     int sx = x - g->cam_x, sy = y - g->cam_y;
-    for (; *str; str++, sx += 8, x += 8) {
-        if (*str == '\n') { sy += f->height; sx = x = x - 8; continue; }
-        if (sx >= g->cx1 || sx + 8 <= g->cx0 || sy >= g->cy1 || sy + f->height <= g->cy0)
+    const int cw = f->width;
+    for (; *str; str++, sx += cw, x += cw) {
+        if (*str == '\n') { sy += f->height; sx = x = x - cw; continue; }
+        if (sx >= g->cx1 || sx + cw <= g->cx0 || sy >= g->cy1 || sy + f->height <= g->cy0)
             continue;
         const uint8_t *gl = f->glyphs + (uint8_t)*str * f->height;
         for (int r = 0; r < f->height; r++) {
@@ -268,7 +269,7 @@ int g16_text_scaled(g16_t *g, int x, int y, const char *str, uint16_t c, int sca
     if (scale <= 1)
         return g16_text(g, x, y, str, c);
     const font_t *f = g->font;
-    const int cw = 8 * scale, ch = f->height * scale;
+    const int cw = f->width * scale, ch = f->height * scale;
     int x0 = x;
     for (; *str; str++, x += cw) {
         if (*str == '\n') { y += ch; x = x0 - cw; continue; }

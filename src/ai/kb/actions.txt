@@ -1,0 +1,111 @@
+# Actions on the code: what a line "#entry: request #" in bm Code asks the
+# assistant to do on the function around the line, or right below it
+# (src/ai/assist.lua, assist.act). gen: the action.
+
+== act.ternary
+kind: action
+gen: ternary
+title: Operatore ternario (if/else -> cond and a or b)
+ask: aggiungi operatore ternario su questa funzione | usa l'operatore ternario
+ask: trasforma gli if in ternario | ternario | ternary operator | use the ternary operator
+ask: semplifica if else in una riga | if else su una riga sola | convert if else to and or
+ask: rendi più compatti gli if | accorcia gli if else
+text: Un if/else che assegna la stessa variabile (o restituisce un valore)
+diventa "x = cond and a or b". Attenzione: a non deve mai essere nil o false.
+
+== act.comment
+kind: action
+gen: comment
+title: Commenta la funzione (cosa usa, cosa restituisce)
+ask: commenta questa funzione | aggiungi un commento alla funzione | documenta la funzione
+ask: scrivi la documentazione | add a comment to this function | document this function
+ask: metti un commento sopra | descrivi la funzione con un commento
+text: Sopra la funzione: nome e parametri, le funzioni di bm che usa e cosa
+restituisce.
+
+== act.log
+kind: action
+gen: log
+title: Aggiungi un log di debug all'inizio della funzione
+ask: aggiungi un log di debug | stampa i parametri della funzione | debug this function
+ask: voglio vedere quando viene chiamata | traccia la funzione | add logging
+ask: log dei valori in ingresso | metti un log
+text: Una riga log() con i parametri all'inizio della funzione (Dev > Log).
+
+== act.remove_log
+kind: action
+gen: remove_log
+title: Togli i log di debug dalla funzione
+ask: togli i log | rimuovi le righe di debug | remove the logs | cancella i log
+ask: pulisci i log di debug | elimina i print di debug | niente più log | basta log
+ask: senza log | delete all logs
+text: Le righe log(...) della funzione vengono tolte.
+
+== act.nil_check
+kind: action
+gen: nil_check
+title: Controlla che i parametri non siano nil
+ask: controlla i parametri | aggiungi un controllo nil | check the parameters for nil
+ask: proteggi la funzione dai valori nil | se manca un parametro esci | guard nil
+text: All'inizio della funzione: se un parametro è nil, esce subito.
+
+== act.make_local
+kind: action
+gen: make_local
+title: Rendi locale la funzione
+ask: rendi locale questa funzione | funzione locale | make this function local
+ask: trasforma in local function | non globale
+text: "function nome(" diventa "local function nome(": più veloce, visibile solo
+nel file dalla riga dopo.
+
+== act.indent
+kind: action
+gen: indent
+title: Sistema il rientro (indentazione)
+ask: sistema l'indentazione | indenta il codice | formatta questa funzione | fix the indentation
+ask: rientri sbagliati | allinea il codice | reindent | format the code
+ask: indenta tutto il file
+text: Due spazi per ogni blocco (function, if, for, while, repeat, tabelle).
+"tutto il file" lo fa su tutto.
+
+== act.comment_out
+kind: action
+gen: comment_out
+title: Commenta tutta la funzione (disattivala)
+ask: commenta tutta la funzione | disattiva questa funzione | comment out this function
+ask: metti la funzione tra commenti | escludi la funzione
+text: Ogni riga della funzione comincia con "-- ".
+
+== act.uncomment
+kind: action
+gen: uncomment
+title: Togli i commenti (riattiva il codice)
+ask: togli i commenti | riattiva il codice commentato | uncomment | decommenta
+text: Le righe commentate intorno alla riga #entry tornano codice.
+
+== act.optimize
+kind: action
+gen: optimize
+title: Ottimizza: funzioni di bm come variabili locali
+ask: ottimizza questa funzione | rendi più veloce la funzione | optimize this function
+ask: velocizza il ciclo | funzioni api locali | speed up
+text: Sopra la funzione "local spr, btn = spr, btn": le variabili locali sono più
+veloci delle globali nei cicli di ogni fotogramma.
+
+== act.rename
+kind: action
+gen: rename
+title: Rinomina una variabile (rinomina vecchio in nuovo)
+ask: rinomina x in posizione | cambia nome alla variabile | rename x to pos
+ask: rinomina la variabile in tutto il file | sostituisci il nome
+text: "rinomina vecchio in nuovo": le parole intere nella funzione ("ovunque" o
+"tutto il file": dappertutto).
+
+== act.explain
+kind: action
+gen: explain
+title: Spiega questa funzione
+ask: spiega questa funzione | cosa fa questa funzione | explain this function
+ask: descrivimi il codice | come funziona questo codice | what does this do
+text: Le funzioni di bm che usa, le variabili globali che cambia, le altre
+funzioni che chiama, cosa restituisce.

@@ -1,0 +1,240 @@
+# Sound: 8 voices of synthesis, HDMI output; the sound bank of the
+# cartridge (Sound editor) and the notes played from the code.
+
+== sfx
+kind: api
+name: sfx
+title: sfx(n, [v, semitoni, vol]) - un effetto sonoro del banco
+ask: suonare un effetto sonoro del banco | effetto fatto con il sound editor
+ask: play a sound effect | suono del salto dal banco | sfx del banco di suoni
+ask: suonare l'effetto numero 3 | effetto un'ottava sopra | fermare gli effetti
+keys: sfx, banco, effetto
+see: music, sfx_examples, note
+text:
+Suona l'effetto sonoro n del banco della cartuccia (fatto con il Sound
+editor della scheda Dev). Senza v sceglie una voce libera; semitoni lo
+traspone, vol 0-1. sfx(-1) ferma gli effetti. Restituisce la voce, o nil
+se la cartuccia non ha un banco.
+code:
+if btnp(4) then sfx(1) end         -- salto
+sfx(0, nil, 12)                    -- la moneta, un'ottava sopra
+sfx(-1)                            -- ferma tutti gli effetti
+
+== music
+kind: api
+name: music
+title: music(n, [fade_ms, pos]) - un brano del banco
+ask: far partire la musica del banco | suonare il brano fatto con il sound editor
+ask: play music | fermare la musica | musica che sfuma | cambiare brano
+ask: music del banco di suoni | musica del livello | stop music
+keys: music, brano, banco
+see: sfx, tempo, music_loop
+text:
+Suona il brano n del banco (in loop se così è nell'editor), con una
+dissolvenza di fade_ms. music(-1, ms) la ferma sfumando; music() mentre
+suona dice brano, posizione, passo e pattern.
+code:
+function _init()
+  music(0)                         -- il brano 0
+end
+-- alla fine del livello:
+music(-1, 500)                     -- sfuma in mezzo secondo
+
+== tempo
+kind: api
+name: tempo
+title: tempo(x) e mute(traccia, [on]) - velocità e strati della musica
+ask: musica più veloce quando il gioco si fa difficile | accelerare la musica
+ask: spegnere una traccia della musica | strati della musica | music speed
+ask: mute di una traccia | musica dinamica
+keys: mute, traccia, accelerare
+see: music
+text:
+tempo(x): la musica del banco va x volte più veloce (1 = come scritta).
+mute(t) spegne la traccia t della musica, mute(t, false) la riaccende:
+strati che entrano e escono.
+code:
+if boss then tempo(1.2) else tempo(1) end
+mute(3)                            -- via la batteria
+mute(3, false)                     -- torna
+
+== volume
+kind: api
+name: volume
+title: volume([livello]) - il volume generale 0-10
+ask: alzare il volume | abbassare il volume | volume generale | master volume
+ask: cambiare il volume del gioco | audio più forte
+keys: volume
+see: music, note
+text:
+Il volume generale della console, 0-10; senza argomento lo legge. Vale per
+tutti i giochi e resta in bm/config.txt.
+code:
+local v = volume()
+if btnp(9) and v < 10 then volume(v + 1) end
+
+== slide
+kind: api
+name: slide
+title: slide(v, hz, [ms]) - la nota scivola a un'altra altezza
+ask: glissando | sirena | suono che sale | effetto laser che scende | pitch bend
+ask: nota che scivola | slide | portamento
+keys: slide, glissando, sirena
+see: note, freq, vibrato
+text:
+La nota della voce v scivola fino a hz in ms millisecondi (100): laser,
+sirene, cadute. hz anche come nome di nota ("C5").
+code:
+note(1, 1300, 300, SQUARE, 70)     -- laser: parte alto...
+slide(1, 300, 250)                 -- ...e scende
+
+== vibrato
+kind: api
+name: vibrato
+title: vibrato(v, [semitoni, hz]) - vibrato sulla voce
+ask: vibrato | nota che trema | tremolo della nota | wobble
+ask: rendere la nota più espressiva | oscillare l'altezza
+keys: vibrato
+see: slide, note
+text:
+Vibrato largo semitoni (0.3) a hz oscillazioni al secondo (6);
+vibrato(v) lo toglie.
+code:
+note(5, "A4", 800, SINE, 100)
+vibrato(5, 0.3, 6)
+
+== arp
+kind: api
+name: arp
+title: arp(v, accordo, [ms]) - arpeggio
+ask: arpeggio | accordo arpeggiato | suonare un accordo | chord
+ask: accordo maggiore | arpeggio come le console a 8 bit | arp
+keys: arpeggio, accordo, arp
+see: note, hz
+text:
+La nota della voce v percorre un accordo, ms per nota (50): "major",
+"minor", "maj7", "min7", "7", "sus2", "sus4", "dim", "aug", "power",
+"octave" o una tabella di semitoni. arp(v) lo toglie.
+code:
+note(3, "C4", 600, SQUARE, 90)
+arp(3, "major", 40)
+arp(3, {0, 3, 7, 12}, 60)          -- i semitoni a mano
+
+== hz
+kind: api
+name: hz
+title: hz(nota) - la frequenza di una nota
+ask: frequenza di una nota | nome della nota in hertz | do centrale | la 440
+ask: convertire nota midi in frequenza | note name to frequency
+keys: hz, midi
+see: note
+text:
+La frequenza di una nota: un numero MIDI (60 = do centrale, 69 = la 440)
+o un nome ("A4"). note accetta anche direttamente i nomi: note(0, "C4").
+code:
+local f = hz("A4")                 -- 440
+note(0, hz(60 + 7), 200, TRIANGLE)  -- sol sopra il do centrale
+
+== note
+kind: api
+name: note
+title: note(v, hz, [ms], [forma], [vol]) - suona una nota
+ask: suonare una nota | fare un suono | play a sound | emettere un beep
+ask: effetto sonoro | suono quando salto | play a note | blip | audio
+ask: frequenza in hertz | onda quadra | volume del suono
+see: noteoff, envelope, sfx, sfx_examples
+text:
+Suona sulla voce v (0-7) una nota di hz Hertz (o un nome: "C4", "F#3");
+con ms si spegne da sola. Forme: SQUARE, TRIANGLE, SAW, NOISE, SINE, METAL.
+vol 0-255 (128). Una voce per tipo di suono, così un effetto non
+interrompe l'altro. Gli effetti fatti con il Sound editor: sfx(n).
+code:
+note(0, 880, 60, SQUARE, 100)      -- blip
+note(0, "C5", 60, SQUARE, 100)     -- lo stesso, con il nome
+note(1, 220, 200, TRIANGLE, 120)   -- nota bassa e morbida
+note(2, 2500, 300, NOISE, 130)     -- rumore: esplosione
+
+== noteoff
+kind: api
+name: noteoff
+title: noteoff(v) - rilascia la nota
+ask: fermare un suono | spegnere una nota | stop a sound | silenzio | nota che non finisce
+see: note, playing
+text:
+Rilascia la nota della voce v (parte la fase di release dell'inviluppo).
+Una nota senza ms resta accesa finché non la spegni.
+code:
+note(3, 440, nil, SAW, 90)    -- resta accesa
+-- piu' tardi:
+noteoff(3)
+
+== freq
+kind: api
+name: freq
+title: freq(v, hz) - cambia l'altezza senza ripartire
+ask: cambiare la nota mentre suona | cambiare altezza senza ripartire
+ask: frequenza che segue il gioco | change frequency | motore che sale di giri
+see: note, slide
+text:
+Cambia l'altezza della voce v senza ripartire l'inviluppo, un passo per
+fotogramma in _update: suoni che seguono il gioco. Per un glissando
+semplice c'è slide.
+code:
+note(1, 1300, 100, SQUARE, 70)
+laser = 6
+-- in _update:
+if laser > 0 then laser = laser - 1; freq(1, 400 + laser * 150) end
+
+== envelope
+kind: api
+name: envelope
+title: envelope(v, a, d, s, r) - inviluppo ADSR della voce
+ask: inviluppo adsr | attacco e rilascio del suono | sound envelope | suono che sfuma
+ask: suono che si smorza | decay | fade out del suono
+see: note
+text:
+Attack, decay e release sono tempi 0-255 (0 istantaneo, 255 = 2 s),
+sustain un livello 0-255. Predefinito 1, 0, 255, 10.
+code:
+envelope(2, 0, 60, 0, 30)          -- colpo che si smorza
+note(2, 2500, 300, NOISE, 130)     -- esplosione
+
+== duty
+kind: api
+name: duty
+title: duty(v, d) - timbro dell'onda quadra
+ask: cambiare il timbro dell'onda quadra | suono nasale | pulse width | duty cycle
+see: note
+text:
+La larghezza dell'onda quadra della voce v, 0-255 (128 = 50%; 32-64 più
+nasale, come le console a 8 bit).
+code:
+duty(0, 48)
+note(0, 660, 100, SQUARE, 100)
+
+== playing
+kind: api
+name: playing
+title: playing(v) - la voce sta suonando?
+ask: sapere se un suono è finito | la voce suona ancora | is the sound playing
+ask: aspettare la fine della nota
+see: note
+text:
+true finché la voce suona (release compreso): per suonare la nota
+successiva di una melodia quando la precedente finisce.
+code:
+if not playing(3) then
+  note(3, 523, 150, TRIANGLE, 100)
+end
+
+== apu
+kind: api
+name: apu
+title: apu(v, reg, [valore]) - registri grezzi del sintetizzatore
+ask: registri del sintetizzatore | accesso diretto all'audio | raw audio registers
+see: note
+text:
+Legge o scrive un registro grezzo (16 byte per voce: src/audio/synth.h).
+Di solito bastano note, slide, envelope e duty.
+code:
+local vol = apu(0, 5)

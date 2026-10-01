@@ -36,6 +36,37 @@ bm_stress_cart:
     .incbin "stress.bm"
 bm_stress_cart_end:
 
+/* the development assistant (M30): knowledge base and network, built by
+ * scripts/mkassist.py; its panel, a Lua library (require "assist") */
+    .section .rodata
+    .balign 4
+    .globl bm_assist_bin, bm_assist_bin_end
+bm_assist_bin:
+    .incbin "assist.bin"
+bm_assist_bin_end:
+
+    .section .rodata
+    .balign 4
+    .globl bm_lib_assist, bm_lib_assist_end
+bm_lib_assist:
+    .incbin "src/ai/assist.lua"
+bm_lib_assist_end:
+
+    .section .rodata
+    .balign 4
+    .globl bm_assistant_cart, bm_assistant_cart_end
+bm_assistant_cart:
+    .incbin "assistant.bm"
+bm_assistant_cart_end:
+
+/* bm Code, the code editor (Dev tab) */
+    .section .rodata
+    .balign 4
+    .globl bm_code_cart, bm_code_cart_end
+bm_code_cart:
+    .incbin "code.bm"
+bm_code_cart_end:
+
 /* the public key that checks the releases (M19, src/net/release.c): PEM
  * text, NUL-terminated; a placeholder until scripts/release-key.sh */
     .section .rodata
@@ -44,3 +75,10 @@ bm_stress_cart_end:
 bm_release_key:
     .incbin "keys/release-pub.pem"
     .byte 0
+
+    .section .rodata
+    .balign 4
+    .globl bm_studio3d_cart, bm_studio3d_cart_end
+bm_studio3d_cart:
+    .incbin "studio3d.bm"
+bm_studio3d_cart_end:

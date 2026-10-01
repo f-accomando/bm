@@ -1,0 +1,342 @@
+# Lua errors: what the message means and how to fix it. The panel opened on
+# an error (mode "error") asks with the message itself, without the
+# "main.lua:12:" in front, and adds the line and a mistyped name.
+
+== err_call_nil
+kind: error
+title: attempt to call a nil value - funzione che non esiste
+ask: attempt to call a nil value (global 'foo') | attempt to call a nil value
+ask: attempt to call a nil value (method 'update') | attempt to call a nil value (field 'draw')
+ask: la funzione non esiste | errore chiamando una funzione | funzione nil
+keys: call, nil
+see: err_index_nil, lua_functions
+text:
+Chiami una funzione che non c'è: il nome è scritto male (spr ->
+"sprr"), oppure la funzione è definita più in basso come local e chi la
+chiama sta sopra, oppure la tabella non ha quel metodo. Il nome è tra gli
+apici nel messaggio.
+code:
+-- sbagliato: la local e' definita dopo chi la usa
+-- local function a() b() end
+-- local function b() end
+-- giusto: dichiara prima
+local b
+local function a() b() end
+function b() log("ok") end
+
+== err_index_nil
+kind: error
+title: attempt to index a nil value - tabella che non esiste
+ask: attempt to index a nil value (global 'player') | attempt to index a nil value
+ask: attempt to index a nil value (field 'pos') | attempt to index a nil value (local 'e')
+ask: errore con il punto | la tabella è nil | variabile nil con il punto
+keys: index, nil
+see: err_call_nil, lua_local
+text:
+Usi t.x o t[i] ma t è nil: la tabella non è stata creata (manca t = {}),
+il nome è scritto male, o l'elemento della lista non esiste (indice oltre
+la fine). Crea la tabella prima o controlla che non sia nil.
+code:
+player = { x = 0, y = 0 }      -- crea prima di usarla
+local e = enemies[i]
+if e then e.x = e.x + 1 end    -- controlla prima
+
+== err_arith_nil
+kind: error
+title: attempt to perform arithmetic on a nil value - conto con nil
+ask: attempt to perform arithmetic on a nil value (global 'score')
+ask: attempt to perform arithmetic on a nil value | attempt to perform arithmetic on a nil value (field 'x')
+ask: errore sommando | variabile nil nel calcolo | arithmetic on nil
+keys: arithmetic, nil
+see: err_index_nil, lua_local
+text:
+Una variabile del calcolo è nil: non le hai dato un valore iniziale (in
+_init o in cima al file) oppure il nome è scritto diverso.
+code:
+score = 0                       -- in _init: il valore iniziale
+score = score + 10
+t = (t or 0) + 1                -- oppure: 0 se ancora nil
+
+== err_compare_nil
+kind: error
+title: attempt to compare number with nil - confronto con nil
+ask: attempt to compare number with nil | attempt to compare nil with number
+ask: attempt to compare two nil values | errore nel confronto | if con nil
+keys: compare, nil
+see: err_arith_nil
+text:
+In un <, >, <= o >= uno dei due valori è nil: la variabile non ha ancora
+un valore. == e ~= invece funzionano anche con nil.
+code:
+hp = hp or 3                    -- un valore prima del confronto
+if hp < 1 then state = "over" end
+
+== err_concat_nil
+kind: error
+title: attempt to concatenate a nil value - testo con nil
+ask: attempt to concatenate a nil value (global 'name') | attempt to concatenate a nil value
+ask: attempt to concatenate a table value | errore unendo le stringhe | print con nil
+keys: concatenate, nil
+see: lua_strings
+text:
+In "a" .. b, b è nil (o una tabella). tostring() trasforma qualsiasi
+valore in testo.
+code:
+print("nome: " .. tostring(name), 8, 8)
+print("punti: " .. (score or 0), 8, 24)
+
+== err_len_nil
+kind: error
+title: attempt to get length of a nil value - # di nil
+ask: attempt to get length of a nil value | attempt to get length of a nil value (global 'list')
+ask: lunghezza di una lista nil
+keys: length, nil
+see: lua_tables
+text:
+#t con t nil: la lista non è stata creata.
+code:
+enemies = enemies or {}
+log(#enemies)
+
+== err_end_expected
+kind: error
+title: 'end' expected - manca un end
+ask: 'end' expected (to close 'function' at line 3) near <eof> | 'end' expected
+ask: 'end' expected (to close 'if' at line 10) near 'function' | manca un end
+keys: end, expected
+see: err_eof_expected
+text:
+Ogni function, if, for e while si chiude con end. Il messaggio dice quale
+blocco è aperto e a che riga comincia: conta gli end da lì. Il rientro del
+codice aiuta a vedere dove manca.
+code:
+function _update()
+  if btn(0) then
+    x = x - 1
+  end            -- chiude l'if
+end              -- chiude la function
+
+== err_eof_expected
+kind: error
+title: <eof> expected near 'end' - un end di troppo
+ask: <eof> expected near 'end' | '<eof>' expected near 'end' | un end di troppo
+keys: eof, end
+see: err_end_expected
+text:
+C'è un end in più: Lua ha chiuso tutti i blocchi e ne trova un altro.
+Spesso è un if su una riga sola (if ... then ... end) seguito da un end.
+code:
+if btn(0) then x = x - 1 end   -- l'if su una riga ha gia' il suo end
+
+== err_then_expected
+kind: error
+title: 'then' expected - manca il then dell'if
+ask: 'then' expected near 'x' | 'then' expected | manca then | errore nell'if
+ask: 'do' expected near | manca do nel for
+keys: then, do, expected
+see: lua_if
+text:
+Dopo la condizione di un if serve then (e dopo for e while serve do).
+Attenzione anche a = invece di == nella condizione.
+code:
+if x == 10 then      -- == per confrontare, poi then
+  x = 0
+end
+for i = 1, 3 do log(i) end
+
+== err_equals_expected
+kind: error
+title: '=' expected - istruzione incompleta
+ask: '=' expected near 'x' | '=' expected | syntax error near | errore di sintassi
+keys: expected, sintassi
+see: err_unexpected_symbol
+text:
+Lua ha letto un nome e si aspettava un'assegnazione: spesso è una parola
+scritta male all'inizio della riga (Locale invece di local), uno spazio
+dentro un nome o una chiamata senza parentesi.
+code:
+local speed = 2       -- non "Local speed = 2"
+player_x = 10         -- non "player x = 10"
+cls()                 -- non "cls"
+
+== err_unexpected_symbol
+kind: error
+title: unexpected symbol - carattere al posto sbagliato
+ask: unexpected symbol near | unexpected symbol near '}' | unexpected symbol near ')'
+ask: simbolo inatteso | parentesi in più | virgola sbagliata
+keys: unexpected, symbol
+see: err_equals_expected
+text:
+Un carattere che lì non ha senso: una parentesi in più o in meno, una
+virgola dopo l'ultimo argomento, += (in Lua non esiste: x = x + 1),
+!= invece di ~=.
+code:
+x = x + 1             -- non x += 1
+if a ~= b then end    -- non a != b
+
+== err_unfinished_string
+kind: error
+title: unfinished string - manca la virgoletta di chiusura
+ask: unfinished string near | stringa non chiusa | manca una virgoletta
+keys: unfinished, string
+see: lua_strings
+text:
+Una stringa aperta con " o ' non è chiusa sulla stessa riga. Per un
+apostrofo dentro una stringa usa le virgolette doppie.
+code:
+print("l'ultima vita", 8, 8)
+print('dice "ciao"', 8, 24)
+
+== err_timeout
+kind: error
+title: cart timeout - ciclo infinito
+ask: cart timeout: more than 20 million instructions in one frame | cart timeout
+ask: il gioco si blocca | ciclo infinito | infinite loop | il gioco si ferma senza motivo
+keys: timeout, infinito, blocca
+see: lua_loops, perf_tips
+text:
+Un fotogramma ha eseguito più di 20 milioni di istruzioni: quasi sempre un
+while che non finisce mai (la condizione non cambia dentro il ciclo).
+code:
+local i = 1
+while i <= #list do
+  -- ...
+  i = i + 1        -- senza questa riga il while non finisce
+end
+
+== err_memory
+kind: error
+title: not enough memory - memoria finita
+ask: not enough memory | memoria esaurita | out of memory | il gioco usa troppa memoria
+keys: memory, memoria
+see: perf_tips, stat
+text:
+Le tabelle crescono senza fine: per esempio proiettili o particelle che
+non vengono mai tolti dalla lista. stat(0) mostra i KiB usati.
+code:
+for i = #bullets, 1, -1 do
+  if bullets[i].y < 0 then table.remove(bullets, i) end
+end
+print(stat(0) .. " KiB", 8, 8)
+
+== err_bad_argument
+kind: error
+title: bad argument - argomento sbagliato a una funzione
+ask: bad argument #1 to 'spr' (number expected, got nil) | bad argument
+ask: bad argument #2 to 'print' (number expected, got no value) | number expected, got nil
+keys: argument, expected
+see: err_arith_nil
+text:
+Il numero dopo # è la posizione dell'argomento sbagliato, poi la funzione.
+"got nil" o "got no value": una variabile non ha valore o mancano
+argomenti (print vuole testo, x e y).
+code:
+print("ciao", 8, 8)            -- print(testo, x, y)
+spr(n or 0, x, y)
+
+== err_stack_overflow
+kind: error
+title: stack overflow - funzione che chiama sé stessa all'infinito
+ask: stack overflow | ricorsione infinita | infinite recursion | la funzione chiama se stessa
+keys: stack, overflow, ricorsione
+see: lua_functions
+text:
+Una funzione chiama sé stessa (o due funzioni si chiamano a vicenda) senza
+mai fermarsi. Serve una condizione di uscita.
+code:
+local function fill(x, y)
+  if x < 0 or y < 0 or x > 79 or y > 44 then return end
+  if mget(x, y) ~= 0 then return end
+  mset(x, y, 1)
+  fill(x + 1, y); fill(x - 1, y); fill(x, y + 1); fill(x, y - 1)
+end
+
+== err_call_value
+kind: error
+title: attempt to call a number value - chiamato qualcosa che non è una funzione
+ask: attempt to call a number value | attempt to call a table value | attempt to call a string value
+ask: attempt to call a number value (global 'score') | una variabile ha lo stesso nome di una funzione
+keys: call, value
+see: err_call_nil
+text:
+Hai usato le parentesi dopo una variabile che non è una funzione, spesso
+perché una variabile ha preso il nome di una funzione (per esempio
+print = 3, oppure time = 0 copre time()).
+code:
+local t = time()      -- non "time = 0": time() non funzionerebbe piu'
+
+== err_index_number
+kind: error
+title: attempt to index a number value - punto su un numero
+ask: attempt to index a number value | attempt to index a number value (local 'e')
+ask: attempt to index a string value | attempt to index a boolean value
+keys: index, number
+see: err_index_nil
+text:
+Usi v.x ma v è un numero (o testo): per esempio in un for su una lista
+hai usato l'indice invece dell'elemento.
+code:
+for i, e in ipairs(enemies) do
+  e.x = e.x + 1        -- e, non i
+end
+
+== err_for_number
+kind: error
+title: 'for' initial value must be a number
+ask: 'for' initial value must be a number | 'for' limit must be a number | for con nil
+keys: for, number
+see: lua_loops
+text:
+Nel for numerico l'inizio, la fine e il passo devono essere numeri: una
+variabile è nil. Per scorrere una lista usa ipairs.
+code:
+for i = 1, #list do log(list[i]) end
+for i, v in ipairs(list) do log(v) end
+
+== err_div_zero
+kind: error
+title: attempt to perform 'n//0' - divisione intera per zero
+ask: attempt to perform 'n//0' | attempt to perform 'n%%0' | divisione per zero
+keys: divisione, zero
+see: lua_math
+text:
+// e % tra interi non possono dividere per zero. Controlla il divisore (/
+con i decimali invece dà inf).
+code:
+local per = (count > 0) and total // count or 0
+
+== err_table_index_nil
+kind: error
+title: table index is nil - chiave nil in una tabella
+ask: table index is nil | index is nil | chiave nil
+keys: table, index
+see: lua_tables
+text:
+t[k] = v con k nil: la variabile usata come chiave non ha valore.
+code:
+if key ~= nil then t[key] = true end
+
+== err_no_integer
+kind: error
+title: number has no integer representation
+ask: number has no integer representation | numero con la virgola dove serve un intero
+keys: integer, number
+see: lua_math
+text:
+Una funzione o un operatore vuole un intero (per esempio string.format
+con %d, o un bit) ma riceve un numero con la virgola: arrotondalo.
+code:
+print(string.format("%d", math.floor(x)), 8, 8)
+
+== err_light
+kind: error
+title: light() before light_begin()
+ask: light() before light_begin() | errore delle luci | not enough memory for lighting
+keys: light
+see: light_begin
+text:
+light() va tra light_begin() e light_end(), nello stesso _draw.
+code:
+light_begin(0x101020)
+light(px, py, 40, 0xFFC888)
+light_end()

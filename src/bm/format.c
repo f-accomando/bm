@@ -1,5 +1,6 @@
 #include "bm.h"
 
+#include <stdlib.h>
 #include <string.h>
 
 #include "lib/crc32.h"
@@ -56,6 +57,251 @@ int bm_sheet8_unpack(const bm_cart_t *c, void (*set)(void *ctx, int x, int y, co
         return -1;
     return sheet8_walk(c->sheet8, c->sheet8_size, set, ctx);
 }
+
+/* ---------------------------------------------------------------- MESH */
+
+static float rdf32(const uint8_t *p)
+{
+    uint32_t u = rd32(p);
+    float f;
+    memcpy(&f, &u, sizeof f);
+    return f;
+}
+
+#define MESH_HEAD   8u              /* u16 models, u16 inset, u32 reserved */
+#define MODEL_HEAD  (BM_MODEL_NAME + 8u)
+
+int bm_mesh_check(const uint8_t *p, uint32_t size)
+{
+    if (size < MESH_HEAD)
+        return -1;
+    unsigned count = rd16(p);
+    if (!count || count > BM_MODELS_MAX)
+        return -1;
+    uint32_t off = MESH_HEAD;
+    for (unsigned i = 0; i < count; i++) {
+        if (off + MODEL_HEAD > size)
+            return -1;
+        const uint8_t *h = p + off;
+        unsigned nv = rd16(h + BM_MODEL_NAME), nf = rd16(h + BM_MODEL_NAME + 2);
+        if (!h[0] || !nv || nv > BM_MODEL_VERTS || !nf || nf > BM_MODEL_FACES)
+            return -1;
+        uint32_t need = MODEL_HEAD + nv * 12u + nf * (uint32_t)BM_MESH_FACE;
+        if (need > size - off)
+            return -1;
+        const uint8_t *v = h + MODEL_HEAD;
+        for (unsigned k = 0; k < nv * 3; k++) {
+            float f = rdf32(v + k * 4);
+            if (!(f > -1e6f && f < 1e6f))          /* also NaN */
+                return -1;
+        }
+        const uint8_t *fc = v + nv * 12u;
+        for (unsigned k = 0; k < nf; k++, fc += BM_MESH_FACE)
+            if (rd16(fc) >= nv || rd16(fc + 2) >= nv || rd16(fc + 4) >= nv)
+                return -1;
+        off += need;
+    }
+    return off == size ? (int)count : -1;
+}
+
+int bm_mesh_model(const uint8_t *p, uint32_t size, int i, bm_model_t *m)
+{
+    if (!p || size < MESH_HEAD || i < 0 || i >= rd16(p))
+        return -1;
+    uint32_t off = MESH_HEAD;
+    for (int k = 0;; k++) {
+        const uint8_t *h = p + off;
+        unsigned nv = rd16(h + BM_MODEL_NAME), nf = rd16(h + BM_MODEL_NAME + 2);
+        if (k == i) {
+            memcpy(m->name, h, BM_MODEL_NAME);
+            m->name[BM_MODEL_NAME] = 0;
+            m->nverts = (uint16_t)nv;
+            m->nfaces = (uint16_t)nf;
+            m->verts = h + MODEL_HEAD;
+            m->faces = m->verts + nv * 12u;
+            return 0;
+        }
+        off += MODEL_HEAD + nv * 12u + nf * (uint32_t)BM_MESH_FACE;
+    }
+}
+
+float bm_mesh_inset(const uint8_t *p)
+{
+    return rd16(p + 2) / 256.0f;
+}
+
+void bm_model_vertex(const bm_model_t *m, int i, float xyz[3])
+{
+    for (int k = 0; k < 3; k++)
+        xyz[k] = rdf32(m->verts + i * 12 + k * 4);
+}
+
+void bm_model_face(const bm_model_t *m, int f, uint16_t idx[3], uint32_t *colour, float uv[6])
+{
+    const uint8_t *p = m->faces + f * BM_MESH_FACE;
+    for (int k = 0; k < 3; k++)
+        idx[k] = rd16(p + k * 2);
+    *colour = rd32(p + 8);
+    for (int k = 0; k < 6; k++)
+        uv[k] = rd16(p + 12 + k * 2) / 8.0f;
+}
+
+/* ---------------------------------------------------------------- ANIM */
+
+#define ANIM_HEAD   8u
+#define RIG_HEAD    (BM_MODEL_NAME + 8u)
+#define CLIP_HEAD   (BM_MODEL_NAME + 8u)
+
+static int fin32(float f) { return f > -1e9f && f < 1e9f; }
+
+/* Checks one rig at p (at most `room` bytes): its size, or 0 if broken. */
+static uint32_t rig_check(const uint8_t *p, uint32_t room)
+{
+    if (room < RIG_HEAD || !p[0])
+        return 0;
+    unsigned nb = rd16(p + BM_MODEL_NAME), nc = rd16(p + BM_MODEL_NAME + 2), nv = rd16(p + BM_MODEL_NAME + 4);
+    if (!nb || nb > BM_BONES_MAX || nc > BM_CLIPS_MAX || !nv || nv > BM_MODEL_VERTS)
+        return 0;
+    uint32_t off = RIG_HEAD;
+    if (off + nb * BM_BONE_SIZE + ((nv + 3) & ~3u) > room)
+        return 0;
+    for (unsigned i = 0; i < nb; i++, off += BM_BONE_SIZE) {
+        const uint8_t *b = p + off;
+        int parent = (int16_t)rd16(b + BM_MODEL_NAME);
+        if (parent >= (int)i || parent < -1)
+            return 0;
+        for (int k = 0; k < 6; k++)
+            if (!fin32(rdf32(b + 20 + k * 4)))
+                return 0;
+    }
+    for (unsigned i = 0; i < nv; i++)
+        if (p[off + i] >= nb)
+            return 0;
+    off += (nv + 3) & ~3u;
+    const uint32_t keysize = 4 + nb * BM_POSE_SIZE;
+    for (unsigned c = 0; c < nc; c++) {
+        if (off + CLIP_HEAD > room)
+            return 0;
+        const uint8_t *h = p + off;
+        unsigned nk = rd16(h + BM_MODEL_NAME), mode = h[BM_MODEL_NAME + 2];
+        float length = rdf32(h + BM_MODEL_NAME + 4);
+        if (!nk || nk > BM_KEYS_MAX || mode > 2 || !(length > 0 && length < 1e6f))
+            return 0;
+        off += CLIP_HEAD;
+        if ((uint64_t)off + (uint64_t)nk * keysize > room)
+            return 0;
+        float prev = 0;
+        for (unsigned k = 0; k < nk; k++, off += keysize) {
+            float t = rdf32(p + off);
+            if (!(t >= prev && t <= length + 1e-4f))
+                return 0;
+            prev = t;
+            for (unsigned i = 0; i < nb * 7; i++)
+                if (!fin32(rdf32(p + off + 4 + i * 4)))
+                    return 0;
+        }
+    }
+    return off;
+}
+
+int bm_anim_check(const uint8_t *p, uint32_t size)
+{
+    if (size < ANIM_HEAD)
+        return -1;
+    unsigned count = rd16(p);
+    uint32_t off = ANIM_HEAD;
+    for (unsigned i = 0; i < count; i++) {
+        uint32_t n = rig_check(p + off, size - off);
+        if (!n)
+            return -1;
+        off += n;
+    }
+    return off == size ? (int)count : -1;
+}
+
+int bm_rig_read(const uint8_t *p, uint32_t size, bm_rig_t *r)
+{
+    uint32_t n = rig_check(p, size);
+    if (!n)
+        return -1;
+    memcpy(r->model, p, BM_MODEL_NAME);
+    r->model[BM_MODEL_NAME] = 0;
+    r->nbones = rd16(p + BM_MODEL_NAME);
+    r->nclips = rd16(p + BM_MODEL_NAME + 2);
+    r->nverts = rd16(p + BM_MODEL_NAME + 4);
+    r->bones = p + RIG_HEAD;
+    r->vbones = r->bones + r->nbones * BM_BONE_SIZE;
+    r->clips = r->vbones + ((r->nverts + 3) & ~3u);
+    r->size = n;
+    return 0;
+}
+
+int bm_anim_rig(const uint8_t *p, uint32_t size, const char *model, bm_rig_t *r)
+{
+    if (!p || size < ANIM_HEAD)
+        return -1;
+    uint32_t off = ANIM_HEAD;
+    for (unsigned i = 0; i < rd16(p); i++) {
+        if (bm_rig_read(p + off, size - off, r) != 0)
+            return -1;
+        if (strcmp(r->model, model) == 0)
+            return 0;
+        off += r->size;
+    }
+    return -1;
+}
+
+void bm_rig_bone(const bm_rig_t *r, int i, char name[BM_MODEL_NAME + 1], int *parent, float head[3],
+                 float tail[3])
+{
+    const uint8_t *b = r->bones + i * BM_BONE_SIZE;
+    if (name) {
+        memcpy(name, b, BM_MODEL_NAME);
+        name[BM_MODEL_NAME] = 0;
+    }
+    if (parent)
+        *parent = (int16_t)rd16(b + BM_MODEL_NAME);
+    for (int k = 0; k < 3; k++) {
+        if (head) head[k] = rdf32(b + 20 + k * 4);
+        if (tail) tail[k] = rdf32(b + 32 + k * 4);
+    }
+}
+
+int bm_rig_clip(const bm_rig_t *r, int i, bm_clip_t *c)
+{
+    if (i < 0 || i >= r->nclips)
+        return -1;
+    const uint8_t *p = r->clips;
+    const uint32_t keysize = 4 + r->nbones * BM_POSE_SIZE;
+    for (int k = 0;; k++) {
+        unsigned nk = rd16(p + BM_MODEL_NAME);
+        if (k == i) {
+            memcpy(c->name, p, BM_MODEL_NAME);
+            c->name[BM_MODEL_NAME] = 0;
+            c->nkeys = (uint16_t)nk;
+            c->mode = p[BM_MODEL_NAME + 2];
+            c->loop = p[BM_MODEL_NAME + 3] & 1;
+            c->length = rdf32(p + BM_MODEL_NAME + 4);
+            c->keys = p + CLIP_HEAD;
+            return 0;
+        }
+        p += CLIP_HEAD + nk * keysize;
+    }
+}
+
+float bm_clip_key(const bm_clip_t *c, int nbones, int k, float (*q)[4], float (*t)[3])
+{
+    const uint8_t *p = c->keys + (uint32_t)k * (4 + nbones * BM_POSE_SIZE);
+    for (int i = 0; q && i < nbones; i++)
+        for (int j = 0; j < 4; j++)
+            q[i][j] = rdf32(p + 4 + i * BM_POSE_SIZE + j * 4);
+    for (int i = 0; t && i < nbones; i++)
+        for (int j = 0; j < 3; j++)
+            t[i][j] = rdf32(p + 4 + i * BM_POSE_SIZE + 16 + j * 4);
+    return rdf32(p);
+}
+
+/* ---------------------------------------------------------------- parse */
 
 int bm_parse(const uint8_t *d, size_t len, bm_cart_t *c, char *err, size_t errlen)
 {
@@ -132,9 +378,29 @@ int bm_parse(const uint8_t *d, size_t len, bm_cart_t *c, char *err, size_t errle
             c->cover_rgba = p + 4;
             break;
         case BM_SEC_AUDIO:
-            if (size < 16 || memcmp(p, "BMAU", 4) != 0) return fail(err, errlen, "bad sound bank");
-            c->audio = p;
-            c->audio_size = size;
+            if (size >= 16 && memcmp(p, "BMAU", 4) == 0) {
+                c->audio = p;
+                c->audio_size = size;
+                break;
+            }
+            if (bm_mesh_check(p, size) < 0)         /* MESH of the first bm Studio files? */
+                return fail(err, errlen, "bad sound bank");
+            /* fall through */
+        case BM_SEC_MESH: {
+            int n = bm_mesh_check(p, size);
+            if (n < 0)
+                return fail(err, errlen, "bad 3D models (MESH)");
+            c->mesh = p;
+            c->mesh_size = size;
+            c->models = (uint16_t)n;
+            break;
+        }
+        case BM_SEC_OLD_ANIM:
+        case BM_SEC_ANIM:
+            if (bm_anim_check(p, size) < 0)
+                return fail(err, errlen, "bad skeletons (ANIM)");
+            c->anim = p;
+            c->anim_size = size;
             break;
         default:
             break;      /* unknown sections are ignored (forward compatible) */
@@ -145,4 +411,62 @@ int bm_parse(const uint8_t *d, size_t len, bm_cart_t *c, char *err, size_t errle
     if (c->sheet_rgba && c->sheet8)
         return fail(err, errlen, "two sheets");
     return 0;
+}
+
+static void wr16(uint8_t *p, uint32_t v) { p[0] = (uint8_t)v; p[1] = (uint8_t)(v >> 8); }
+static void wr32(uint8_t *p, uint32_t v) { wr16(p, v); wr16(p + 2, v >> 16); }
+
+uint8_t *bm_rewrite(const uint8_t *old, size_t oldlen, const char *lua, size_t lua_len,
+                    const char *title, const char *author, int width, size_t *outlen)
+{
+    (void)oldlen;
+    enum { MAXSEC = 32 };
+    uint32_t type[MAXSEC], size[MAXSEC];
+    const uint8_t *src[MAXSEC];
+    unsigned n = 0, have_lua = 0, count = old ? old[17] : 0;
+    for (unsigned i = 0; i < count && n < MAXSEC; i++) {
+        const uint8_t *e = old + BM_HEADER_SIZE + i * 16;
+        type[n] = rd32(e);
+        if (type[n] == BM_SEC_LUA) {
+            if (have_lua++) continue;           /* one code section */
+            src[n] = (const uint8_t *)lua;
+            size[n] = (uint32_t)lua_len;
+        } else {
+            src[n] = old + rd32(e + 4);
+            size[n] = rd32(e + 8);
+        }
+        n++;
+    }
+    if (!have_lua && n < MAXSEC) {
+        type[n] = BM_SEC_LUA;
+        src[n] = (const uint8_t *)lua;
+        size[n] = (uint32_t)lua_len;
+        n++;
+    }
+    size_t total = BM_HEADER_SIZE + (size_t)n * 16;
+    for (unsigned i = 0; i < n; i++)
+        total += (size[i] + 3) & ~3u;
+    uint8_t *buf = calloc(total, 1);
+    if (!buf)
+        return NULL;
+    uint8_t *tab = buf + BM_HEADER_SIZE, *p = tab + n * 16;
+    for (unsigned i = 0; i < n; i++, tab += 16) {
+        wr32(tab, type[i]);
+        wr32(tab + 4, (uint32_t)(p - buf));
+        wr32(tab + 8, size[i]);
+        memcpy(p, src[i], size[i]);
+        p += (size[i] + 3) & ~3u;
+    }
+    memcpy(buf, "BMCART\0\0", 8);
+    wr16(buf + 8, 1);
+    wr16(buf + 10, BM_HEADER_SIZE);
+    wr16(buf + 12, width == 320 ? 320 : 640);
+    wr16(buf + 14, width == 320 ? 180 : 360);
+    buf[16] = BM_FMT_RGB565;
+    buf[17] = (uint8_t)n;
+    strncpy((char *)buf + 24, title ? title : "", 47);
+    strncpy((char *)buf + 72, author ? author : "", 31);
+    wr32(buf + 20, crc32(buf + BM_HEADER_SIZE, (uint32_t)(total - BM_HEADER_SIZE)));
+    *outlen = total;
+    return buf;
 }

@@ -24,9 +24,12 @@
 #include "arch/cache.h"
 #include "kernel/crumbs.h"
 #include "n8lua.h"
+#include "ai/lua_ai.h"
+#include "require.h"
 
 #include <stdio.h>
 #include <stdlib.h>
+#include <math.h>
 #include <string.h>
 
 #include "lauxlib.h"
@@ -71,6 +74,10 @@ static struct {
     uint8_t tq[256];            /* typed keys for keyp() */
     uint8_t tq_head, tq_tail;
     char save_name[13];         /* "1A2B3C4D.SAV": CRC-32 of title and author */
+    uint8_t *mesh;              /* copy of the cartridge's MESH section, or NULL */
+    uint32_t mesh_size;
+    uint8_t *anim;              /* copy of its ANIM section (skeletons), or NULL */
+    uint32_t anim_size;
 } rt;
 
 #define MESH_MT "bm.mesh"
@@ -196,6 +203,23 @@ static int l_print(lua_State *L)
     const char *s = luaL_tolstring(L, 1, NULL);
     lua_pushinteger(L, g16_text_scaled(&rt.g, x, y, s, c, scale));
     return 1;
+}
+
+/* font([name]): the font of print() from now on, "8x16" (the default),
+ * "8x14" or "6x12" (also "large", "medium", "small"); returns the width
+ * and height of a character of the current font */
+static int l_font(lua_State *L)
+{
+    if (!lua_isnoneornil(L, 1)) {
+        const char *n = luaL_checkstring(L, 1);
+        if (!strcmp(n, "6x12") || !strcmp(n, "small")) rt.g.font = &font_console_6x12;
+        else if (!strcmp(n, "8x14") || !strcmp(n, "medium")) rt.g.font = &font_console_8x14;
+        else if (!strcmp(n, "8x16") || !strcmp(n, "large")) rt.g.font = &font_console_8x16;
+        else return luaL_argerror(L, 1, "\"6x12\", \"8x14\" or \"8x16\"");
+    }
+    lua_pushinteger(L, rt.g.font->width);
+    lua_pushinteger(L, rt.g.font->height);
+    return 2;
 }
 
 static int l_camera(lua_State *L) { g16_camera(&rt.g, oval(L, 1, 0), oval(L, 2, 0)); return 0; }
@@ -335,22 +359,50 @@ static r3d_t *r3d(lua_State *L)
     return &rt.r3d;
 }
 
+/* What animate() needs for a model with a skeleton (bm Animator): its own
+ * copy of the rig, the vertices at rest, the bone matrices of the pose. */
+typedef struct {
+    uint8_t *data;
+    bm_rig_t r;
+    v3_t *rest;
+    float (*mat)[12];
+} skel_t;
+
+/* A mesh of Lua: r3d_mesh_t first, so every function can see just that. */
+typedef struct {
+    r3d_mesh_t m;
+    skel_t *skel;
+} lmesh_t;
+
+static void skel_free(skel_t *s)
+{
+    if (!s)
+        return;
+    free(s->data);
+    free(s->rest);
+    free(s->mat);
+    free(s);
+}
+
 static r3d_mesh_t *new_mesh(lua_State *L)
 {
-    r3d_mesh_t *m = lua_newuserdatauv(L, sizeof *m, 0);
-    memset(m, 0, sizeof *m);
+    lmesh_t *lm = lua_newuserdatauv(L, sizeof *lm, 0);
+    memset(lm, 0, sizeof *lm);
     luaL_setmetatable(L, MESH_MT);
-    return m;
+    return &lm->m;
 }
 
 static int l_mesh_gc(lua_State *L)
 {
-    r3d_mesh_free(luaL_checkudata(L, 1, MESH_MT));
+    lmesh_t *lm = luaL_checkudata(L, 1, MESH_MT);
+    r3d_mesh_free(&lm->m);
+    skel_free(lm->skel);
+    lm->skel = NULL;
     return 0;
 }
 
 /* mesh({x,y,z, x,y,z, ...}, {a,b,c,colour, ...} [, {u0,v0,u1,v1,u2,v2, ...}])
- * - 1-based vertex indices, faces counter-clockwise seen from outside. With
+ * - 1-based vertex indices, faces clockwise seen from outside (on screen). With
  * the third table (6 numbers per face, sprite-sheet pixels), faces whose
  * colour is -1 are textured with the sprite sheet. */
 static int l_mesh(lua_State *L)
@@ -394,6 +446,367 @@ static int l_mesh(lua_State *L)
     }
     r3d_mesh_normals(m);
     return 1;
+}
+
+/* models() -> { "name", ... }: the 3D models of the cartridge (MESH
+ * section, made with bm Studio), in order */
+static int l_models(lua_State *L)
+{
+    lua_newtable(L);
+    bm_model_t m;
+    for (int i = 0; rt.mesh && bm_mesh_model(rt.mesh, rt.mesh_size, i, &m) == 0; i++) {
+        lua_pushstring(L, m.name);
+        lua_rawseti(L, -2, i + 1);
+    }
+    return 1;
+}
+
+/* Moves the texture corners of a face `inset` pixels towards its middle, on
+ * each axis (not past it), so the next tile of the sheet never shows. */
+static void uv_inset(float *uv, float inset)
+{
+    for (int axis = 0; axis < 2; axis++) {
+        float lo = uv[axis], hi = uv[axis];
+        for (int k = 1; k < 3; k++) {
+            float t = uv[k * 2 + axis];
+            if (t < lo) lo = t;
+            if (t > hi) hi = t;
+        }
+        if (hi - lo <= 2 * inset)
+            continue;
+        float mid = (lo + hi) * 0.5f;
+        for (int k = 0; k < 3; k++) {
+            float *t = &uv[k * 2 + axis];
+            if (*t < mid - inset) *t += inset;
+            else if (*t > mid + inset) *t -= inset;
+        }
+    }
+}
+
+/* model(name or number) -> a mesh built from the cartridge's MESH section
+ * (textured faces use the sprite sheet), or nil if there is no such model */
+static int l_model(lua_State *L)
+{
+    bm_model_t md;
+    int found = -1;
+    if (rt.mesh) {
+        if (lua_type(L, 1) == LUA_TNUMBER) {
+            int i = (int)luaL_checkinteger(L, 1) - 1;
+            if (bm_mesh_model(rt.mesh, rt.mesh_size, i, &md) == 0)
+                found = i;
+        } else {
+            const char *name = luaL_checkstring(L, 1);
+            for (int i = 0; bm_mesh_model(rt.mesh, rt.mesh_size, i, &md) == 0; i++)
+                if (strcmp(md.name, name) == 0) {
+                    found = i;
+                    break;
+                }
+        }
+    } else if (lua_type(L, 1) != LUA_TNUMBER) {
+        luaL_checkstring(L, 1);
+    }
+    if (found < 0) {
+        lua_pushnil(L);
+        return 1;
+    }
+    r3d_mesh_t *m = new_mesh(L);
+    if (r3d_mesh_alloc(m, md.nverts, md.nfaces) != 0)
+        return luaL_error(L, "not enough memory for the model");
+    for (int i = 0; i < md.nverts; i++) {
+        float xyz[3];
+        bm_model_vertex(&md, i, xyz);
+        m->verts[i] = (v3_t){ xyz[0], xyz[1], xyz[2] };
+    }
+    const float inset = bm_mesh_inset(rt.mesh);
+    for (int f = 0; f < md.nfaces; f++) {
+        uint32_t colour;
+        float uv[6];
+        bm_model_face(&md, f, m->faces + f * 3, &colour, uv);
+        if (colour & R3D_TEXTURED) {
+            colour = R3D_TEXTURED;
+            if (!m->uv) {
+                if (r3d_mesh_alloc_uv(m) != 0)
+                    return luaL_error(L, "not enough memory for the model");
+                m->tex = &rt.sheet;     /* live, as for mesh() */
+            }
+            uv_inset(uv, inset);
+            memcpy(m->uv + f * 6, uv, sizeof uv);
+        }
+        m->colors[f] = colour;
+    }
+    r3d_mesh_normals(m);
+    /* a skeleton made for this model (the same vertices) comes with it */
+    bm_rig_t r;
+    if (rt.anim && bm_anim_rig(rt.anim, rt.anim_size, md.name, &r) == 0 && r.nverts == md.nverts) {
+        skel_t *sk = calloc(1, sizeof *sk);
+        const uint8_t *start = r.bones - (BM_MODEL_NAME + 8);
+        if (!sk || !(sk->data = malloc(r.size)) || !(sk->rest = malloc(md.nverts * sizeof(v3_t))) ||
+            !(sk->mat = malloc(r.nbones * sizeof *sk->mat))) {
+            skel_free(sk);
+            return luaL_error(L, "not enough memory for the model");
+        }
+        memcpy(sk->data, start, r.size);
+        bm_rig_read(sk->data, r.size, &sk->r);
+        memcpy(sk->rest, m->verts, md.nverts * sizeof(v3_t));
+        for (int i = 0; i < r.nbones; i++) {
+            static const float id[12] = { 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0 };
+            memcpy(sk->mat[i], id, sizeof id);
+        }
+        ((lmesh_t *)m)->skel = sk;
+    }
+    return 1;
+}
+
+/* ---- skeletal animation (bm Animator): the same arithmetic as
+ * sdk/studio/js/rig.js */
+
+static void quat_norm(float q[4])
+{
+    float l = sqrtf(q[0] * q[0] + q[1] * q[1] + q[2] * q[2] + q[3] * q[3]);
+    if (l < 1e-12f) { q[0] = q[1] = q[2] = 0; q[3] = 1; return; }
+    for (int k = 0; k < 4; k++) q[k] /= l;
+}
+
+/* the shorter way from a to b */
+static void quat_slerp(float out[4], const float a[4], const float b[4], float u)
+{
+    float d = a[0] * b[0] + a[1] * b[1] + a[2] * b[2] + a[3] * b[3], s = 1, k0, k1;
+    if (d < 0) { d = -d; s = -1; }
+    if (d > 0.9995f) {
+        k0 = 1 - u;
+        k1 = u;
+    } else {
+        float th = acosf(d), sn = sinf(th);
+        k0 = sinf((1 - u) * th) / sn;
+        k1 = sinf(u * th) / sn;
+    }
+    for (int k = 0; k < 4; k++) out[k] = a[k] * k0 + s * b[k] * k1;
+    quat_norm(out);
+}
+
+static float pose_q[BM_BONES_MAX][4], pose_t[BM_BONES_MAX][3];
+static float pose_q2[BM_BONES_MAX][4], pose_t2[BM_BONES_MAX][3];
+static float key_q[BM_BONES_MAX][4], key_t[BM_BONES_MAX][3];
+
+/* the pose of clip c at time t into q, tr */
+static void pose_at(int nb, const bm_clip_t *c, float t, float (*q)[4], float (*tr)[3])
+{
+    const float L = c->length > 0 ? c->length : 1;
+    if (c->loop) {
+        t = fmodf(t, L);
+        if (t < 0) t += L;
+    } else {
+        t = t < 0 ? 0 : t > L ? L : t;
+    }
+    int n = c->nkeys, ka, kb;
+    float first = bm_clip_key(c, nb, 0, NULL, NULL), last = bm_clip_key(c, nb, n - 1, NULL, NULL), ta, tb;
+    if (n == 1 || (!c->loop && t < first)) {
+        bm_clip_key(c, nb, 0, q, tr);
+        return;
+    }
+    if (t < first || t >= last) {
+        if (!c->loop) {
+            bm_clip_key(c, nb, n - 1, q, tr);
+            return;
+        }
+        ka = n - 1; kb = 0;
+        ta = t < first ? last - L : last;
+        tb = t < first ? first : first + L;
+    } else {
+        ka = 0;
+        while (ka + 1 < n && bm_clip_key(c, nb, ka + 1, NULL, NULL) <= t)
+            ka++;
+        kb = ka + 1;
+        ta = bm_clip_key(c, nb, ka, NULL, NULL);
+        tb = bm_clip_key(c, nb, kb, NULL, NULL);
+    }
+    float u = tb > ta ? (t - ta) / (tb - ta) : 0;
+    if (c->mode == 2) u = 0;                         /* step */
+    else if (c->mode == 1) u = u * u * (3 - 2 * u);  /* smooth */
+    bm_clip_key(c, nb, ka, q, tr);
+    bm_clip_key(c, nb, kb, key_q, key_t);
+    for (int i = 0; i < nb; i++) {
+        float a[4] = { q[i][0], q[i][1], q[i][2], q[i][3] };
+        quat_slerp(q[i], a, key_q[i], u);
+        for (int k = 0; k < 3; k++) tr[i][k] += (key_t[i][k] - tr[i][k]) * u;
+    }
+}
+
+/* M[i] = M[parent] * T(head + t) * R(q) * T(-head); every vertex follows its bone */
+static void skin(lmesh_t *lm, float (*q)[4], float (*tr)[3])
+{
+    skel_t *s = lm->skel;
+    const int nb = s->r.nbones;
+    for (int i = 0; i < nb; i++) {
+        int parent;
+        float h[3], tail[3], r[9];
+        bm_rig_bone(&s->r, i, NULL, &parent, h, tail);
+        quat_norm(q[i]);
+        float x = q[i][0], y = q[i][1], z = q[i][2], w = q[i][3];
+        r[0] = 1 - 2 * (y * y + z * z); r[1] = 2 * (x * y - z * w); r[2] = 2 * (x * z + y * w);
+        r[3] = 2 * (x * y + z * w); r[4] = 1 - 2 * (x * x + z * z); r[5] = 2 * (y * z - x * w);
+        r[6] = 2 * (x * z - y * w); r[7] = 2 * (y * z + x * w); r[8] = 1 - 2 * (x * x + y * y);
+        float local[12];
+        for (int row = 0; row < 3; row++) {
+            local[row * 4] = r[row * 3];
+            local[row * 4 + 1] = r[row * 3 + 1];
+            local[row * 4 + 2] = r[row * 3 + 2];
+            local[row * 4 + 3] = h[row] + tr[i][row] - (r[row * 3] * h[0] + r[row * 3 + 1] * h[1] + r[row * 3 + 2] * h[2]);
+        }
+        float *m = s->mat[i];
+        if (parent < 0) {
+            memcpy(m, local, sizeof local);
+            continue;
+        }
+        const float *a = s->mat[parent];
+        for (int row = 0; row < 3; row++) {
+            for (int col = 0; col < 3; col++)
+                m[row * 4 + col] = a[row * 4] * local[col] + a[row * 4 + 1] * local[4 + col] + a[row * 4 + 2] * local[8 + col];
+            m[row * 4 + 3] = a[row * 4] * local[3] + a[row * 4 + 1] * local[7] + a[row * 4 + 2] * local[11] + a[row * 4 + 3];
+        }
+    }
+    r3d_mesh_t *mesh = &lm->m;
+    for (int v = 0; v < mesh->nverts; v++) {
+        const float *m = s->mat[s->r.vbones[v]];
+        v3_t p = s->rest[v];
+        mesh->verts[v] = (v3_t){ m[0] * p.x + m[1] * p.y + m[2] * p.z + m[3], m[4] * p.x + m[5] * p.y + m[6] * p.z + m[7],
+                                 m[8] * p.x + m[9] * p.y + m[10] * p.z + m[11] };
+    }
+    r3d_mesh_normals(mesh);
+}
+
+static lmesh_t *skel_mesh(lua_State *L, int idx)
+{
+    lmesh_t *lm = luaL_checkudata(L, idx, MESH_MT);
+    if (!lm->skel)
+        luaL_error(L, "this mesh has no skeleton (make one with bm Animator)");
+    return lm;
+}
+
+/* the clip named (or numbered, from 1) by argument idx */
+static void find_clip(lua_State *L, const skel_t *s, int idx, bm_clip_t *c)
+{
+    if (lua_type(L, idx) == LUA_TNUMBER) {
+        if (bm_rig_clip(&s->r, (int)luaL_checkinteger(L, idx) - 1, c) == 0)
+            return;
+        luaL_error(L, "no animation number %d", (int)lua_tointeger(L, idx));
+    }
+    const char *name = luaL_checkstring(L, idx);
+    for (int i = 0; bm_rig_clip(&s->r, i, c) == 0; i++)
+        if (strcmp(c->name, name) == 0)
+            return;
+    luaL_error(L, "no animation \"%s\"", name);
+}
+
+/* animate(mesh, [clip, time, [clip2, time2, k]]) -> the clip's length: the
+ * mesh (from model()) takes the pose of the clip at that time, in seconds
+ * (a looping clip goes round); with a second clip, a mix of the two (k = 0
+ * the first, 1 the second); with no clip, the rest pose */
+static int l_animate(lua_State *L)
+{
+    lmesh_t *lm = skel_mesh(L, 1);
+    const int nb = lm->skel->r.nbones;
+    float len = 0;
+    if (lua_isnoneornil(L, 2)) {
+        for (int i = 0; i < nb; i++) {
+            pose_q[i][0] = pose_q[i][1] = pose_q[i][2] = 0;
+            pose_q[i][3] = 1;
+            pose_t[i][0] = pose_t[i][1] = pose_t[i][2] = 0;
+        }
+    } else {
+        bm_clip_t c;
+        find_clip(L, lm->skel, 2, &c);
+        pose_at(nb, &c, (float)luaL_optnumber(L, 3, 0), pose_q, pose_t);
+        len = c.length;
+        if (!lua_isnoneornil(L, 4)) {
+            bm_clip_t c2;
+            find_clip(L, lm->skel, 4, &c2);
+            pose_at(nb, &c2, (float)luaL_optnumber(L, 5, 0), pose_q2, pose_t2);
+            float k = (float)luaL_optnumber(L, 6, 0.5);
+            k = k < 0 ? 0 : k > 1 ? 1 : k;
+            for (int i = 0; i < nb; i++) {
+                float a[4] = { pose_q[i][0], pose_q[i][1], pose_q[i][2], pose_q[i][3] };
+                quat_slerp(pose_q[i], a, pose_q2[i], k);
+                for (int j = 0; j < 3; j++) pose_t[i][j] += (pose_t2[i][j] - pose_t[i][j]) * k;
+            }
+        }
+    }
+    skin(lm, pose_q, pose_t);
+    lua_pushnumber(L, len);
+    return 1;
+}
+
+/* clips(mesh) -> { {name =, length =, loop =}, ... }: its animations */
+static int l_clips(lua_State *L)
+{
+    lmesh_t *lm = luaL_checkudata(L, 1, MESH_MT);
+    lua_newtable(L);
+    bm_clip_t c;
+    for (int i = 0; lm->skel && bm_rig_clip(&lm->skel->r, i, &c) == 0; i++) {
+        lua_createtable(L, 0, 3);
+        lua_pushstring(L, c.name);
+        lua_setfield(L, -2, "name");
+        lua_pushnumber(L, c.length);
+        lua_setfield(L, -2, "length");
+        lua_pushboolean(L, c.loop);
+        lua_setfield(L, -2, "loop");
+        lua_rawseti(L, -2, i + 1);
+    }
+    return 1;
+}
+
+/* bone3d(mesh, name or number) -> x, y, z, tx, ty, tz: where the head and
+ * the tail of the bone are in the mesh's last pose (its own coordinates, as
+ * bounds3d), or nil */
+static int l_bone3d(lua_State *L)
+{
+    lmesh_t *lm = skel_mesh(L, 1);
+    const bm_rig_t *r = &lm->skel->r;
+    int found = -1;
+    if (lua_type(L, 2) == LUA_TNUMBER) {
+        int i = (int)luaL_checkinteger(L, 2) - 1;
+        if (i >= 0 && i < r->nbones) found = i;
+    } else {
+        const char *name = luaL_checkstring(L, 2);
+        char bn[BM_MODEL_NAME + 1];
+        for (int i = 0; i < r->nbones && found < 0; i++) {
+            bm_rig_bone(r, i, bn, NULL, NULL, NULL);
+            if (strcmp(bn, name) == 0) found = i;
+        }
+    }
+    if (found < 0) {
+        lua_pushnil(L);
+        return 1;
+    }
+    float h[3], t[3];
+    bm_rig_bone(r, found, NULL, NULL, h, t);
+    const float *m = lm->skel->mat[found];
+    for (int k = 0; k < 3; k++)
+        lua_pushnumber(L, m[k * 4] * h[0] + m[k * 4 + 1] * h[1] + m[k * 4 + 2] * h[2] + m[k * 4 + 3]);
+    for (int k = 0; k < 3; k++)
+        lua_pushnumber(L, m[k * 4] * t[0] + m[k * 4 + 1] * t[1] + m[k * 4 + 2] * t[2] + m[k * 4 + 3]);
+    return 6;
+}
+
+/* bounds3d(mesh) -> x0, y0, z0, x1, y1, z1: the box around its vertices, in
+ * its own coordinates (before draw3d moves, turns and scales it) */
+static int l_bounds3d(lua_State *L)
+{
+    const r3d_mesh_t *m = luaL_checkudata(L, 1, MESH_MT);
+    v3_t lo = m->verts[0], hi = m->verts[0];
+    for (int i = 1; i < m->nverts; i++) {
+        v3_t p = m->verts[i];
+        if (p.x < lo.x) lo.x = p.x;
+        if (p.y < lo.y) lo.y = p.y;
+        if (p.z < lo.z) lo.z = p.z;
+        if (p.x > hi.x) hi.x = p.x;
+        if (p.y > hi.y) hi.y = p.y;
+        if (p.z > hi.z) hi.z = p.z;
+    }
+    const float v[6] = { lo.x, lo.y, lo.z, hi.x, hi.y, hi.z };
+    for (int i = 0; i < 6; i++)
+        lua_pushnumber(L, v[i]);
+    return 6;
 }
 
 static int l_mesh_sphere(lua_State *L)
@@ -521,33 +934,52 @@ void bm_save_path(const char *title, const char *author, char *out, size_t n)
     ksnprintf(out, n, "%s/%08lX.SAV", SAVE_DIR, crc32(id, (uint32_t)len));
 }
 
-static void ser(lua_State *L, luaL_Buffer *b, int idx, int depth);
+/* The text is built in a fixed buffer: a luaL_Buffer cannot be used here,
+ * it may sit on the Lua stack while the serializer walks the tables with
+ * lua_next (a save of more than about 1 KiB then broke the stack). */
+static struct {
+    char p[SAVE_MAX + 64];
+    size_t n;
+} sb;
 
-static void ser_string(luaL_Buffer *b, const char *str, size_t len)
+static void sb_add(lua_State *L, const char *s, size_t len)
 {
-    luaL_addchar(b, '"');
+    if (sb.n + len > SAVE_MAX)
+        luaL_error(L, "save: more than %d bytes", SAVE_MAX);
+    memcpy(sb.p + sb.n, s, len);
+    sb.n += len;
+}
+
+static void sb_str(lua_State *L, const char *s) { sb_add(L, s, strlen(s)); }
+static void sb_chr(lua_State *L, char c) { sb_add(L, &c, 1); }
+
+static void ser(lua_State *L, int idx, int depth);
+
+static void ser_string(lua_State *L, const char *str, size_t len)
+{
+    sb_chr(L, '"');
     for (size_t i = 0; i < len; i++) {
         unsigned char c = (unsigned char)str[i];
         if (c == '"' || c == '\\') {
-            luaL_addchar(b, '\\');
-            luaL_addchar(b, (char)c);
+            sb_chr(L, '\\');
+            sb_chr(L, (char)c);
         } else if (c < 32 || c == 127) {
             char esc[8];
             snprintf(esc, sizeof esc, "\\%03u", c);
-            luaL_addstring(b, esc);
+            sb_str(L, esc);
         } else {
-            luaL_addchar(b, (char)c);
+            sb_chr(L, (char)c);
         }
     }
-    luaL_addchar(b, '"');
+    sb_chr(L, '"');
 }
 
-static void ser_value(lua_State *L, luaL_Buffer *b, int idx, int depth)
+static void ser_value(lua_State *L, int idx, int depth)
 {
     char num[40];
     switch (lua_type(L, idx)) {
     case LUA_TBOOLEAN:
-        luaL_addstring(b, lua_toboolean(L, idx) ? "true" : "false");
+        sb_str(L, lua_toboolean(L, idx) ? "true" : "false");
         break;
     case LUA_TNUMBER:
         if (lua_isinteger(L, idx)) {
@@ -560,40 +992,39 @@ static void ser_value(lua_State *L, luaL_Buffer *b, int idx, int depth)
             if (!strpbrk(num, ".eEn"))
                 strcat(num, ".0");              /* stays a float when read back */
         }
-        luaL_addstring(b, num);
+        sb_str(L, num);
         break;
     case LUA_TSTRING: {
         size_t len;
         const char *str = lua_tolstring(L, idx, &len);
-        ser_string(b, str, len);
+        ser_string(L, str, len);
         break;
     }
     case LUA_TTABLE:
-        ser(L, b, idx, depth + 1);
+        ser(L, idx, depth + 1);
         break;
     default:
         luaL_error(L, "save: cannot store a %s", luaL_typename(L, idx));
     }
 }
 
-static void ser(lua_State *L, luaL_Buffer *b, int idx, int depth)
+static void ser(lua_State *L, int idx, int depth)
 {
     if (depth > 16)
         luaL_error(L, "save: tables nested too deep (or a cycle)");
     idx = lua_absindex(L, idx);
-    luaL_addchar(b, '{');
+    luaL_checkstack(L, 4, "save");
+    sb_chr(L, '{');
     lua_pushnil(L);
     while (lua_next(L, idx)) {
-        luaL_addchar(b, '[');
-        ser_value(L, b, -2, depth);
-        luaL_addstring(b, "]=");
-        ser_value(L, b, -1, depth);
-        luaL_addchar(b, ',');
+        sb_chr(L, '[');
+        ser_value(L, -2, depth);
+        sb_str(L, "]=");
+        ser_value(L, -1, depth);
+        sb_chr(L, ',');
         lua_pop(L, 1);
-        if (luaL_bufflen(b) > SAVE_MAX)
-            luaL_error(L, "save: more than %d bytes", SAVE_MAX);
     }
-    luaL_addchar(b, '}');
+    sb_chr(L, '}');
 }
 
 /* save(t): true, or false and a message (no SD card, card full...) */
@@ -601,14 +1032,10 @@ static int l_save(lua_State *L)
 {
     luaL_checktype(L, 1, LUA_TTABLE);
     lua_settop(L, 1);
-    luaL_Buffer b;
-    luaL_buffinit(L, &b);
-    luaL_addstring(&b, "return ");
-    ser(L, &b, 1, 0);
-    luaL_pushresult(&b);
-    size_t len;
-    const char *text = lua_tolstring(L, -1, &len);
-    if (fat_mkdirs(SAVE_DIR) != 0 || fat_write_file(SAVE_DIR, rt.save_name, text, len) != 0) {
+    sb.n = 0;
+    sb_str(L, "return ");
+    ser(L, 1, 0);
+    if (fat_mkdirs(SAVE_DIR) != 0 || fat_write_file(SAVE_DIR, rt.save_name, sb.p, sb.n) != 0) {
         lua_pushboolean(L, 0);
         lua_pushstring(L, fat_error());
         return 2;
@@ -961,7 +1388,7 @@ static int l_audio_play(lua_State *L)
 
 /* keyp(): the next key typed, as text ("a", "\n", "\b", "\t"), a name
  * ("up", "down", "left", "right", "home", "end", "pgup", "pgdn", "del",
- * "esc", "f1".."f5") or "^s" for Ctrl+S; nil if none. The first call
+ * "esc", "f1".."f12") or "^s" for Ctrl+S; nil if none. The first call
  * turns on typing: the keyboard stops being a gamepad for btn(), Esc no
  * longer leaves the cartridge (Start+Select and PS still do). */
 static int l_keyp(lua_State *L)
@@ -979,6 +1406,7 @@ static int l_keyp(lua_State *L)
                                        "del", "f1", "f2", "f3", "f4", "f5" };
     char buf[4];
     if (c >= HID_KEY_UP && c <= HID_KEY_F1 + 4) lua_pushstring(L, nav[c - HID_KEY_UP]);
+    else if (c >= HID_KEY_F6 && c <= HID_KEY_F6 + 6) lua_pushfstring(L, "f%d", c - HID_KEY_F6 + 6);
     else if (c == 0x1B) lua_pushstring(L, "esc");
     else if (c == '\r') lua_pushstring(L, "\n");
     else if (c == 0x7F) lua_pushstring(L, "\b");
@@ -1077,6 +1505,9 @@ static int l_cart_run(lua_State *L);
 static int l_cart_arg(lua_State *L);
 static int l_cart_audio(lua_State *L);
 static int l_cart_put_audio(lua_State *L);
+static int l_cart_data(lua_State *L);
+static int l_cart_read(lua_State *L);
+static int l_cart_write(lua_State *L);
 
 /* ---------------------------------------------------------------- light */
 
@@ -1124,11 +1555,13 @@ static const luaL_Reg api[] = {
     { "cls", l_cls }, { "pset", l_pset }, { "pget", l_pget }, { "line", l_line },
     { "rect", l_rect }, { "rectfill", l_rectfill }, { "circ", l_circ }, { "circfill", l_circfill },
     { "spr", l_spr }, { "sspr", l_sspr }, { "map", l_map }, { "mget", l_mget }, { "mset", l_mset },
-    { "sget", l_sget }, { "sset", l_sset }, { "print", l_print }, { "camera", l_camera },
+    { "sget", l_sget }, { "sset", l_sset }, { "print", l_print }, { "font", l_font }, { "camera", l_camera },
     { "clip", l_clip }, { "rgb", l_rgb }, { "btn", l_btn }, { "btnp", l_btnp },
     { "players", l_players }, { "stick", l_stick },
     { "time", l_time }, { "stat", l_stat }, { "tri", l_tri },
     { "mesh", l_mesh }, { "mesh_sphere", l_mesh_sphere }, { "mesh_cube", l_mesh_cube },
+    { "model", l_model }, { "models", l_models }, { "bounds3d", l_bounds3d },
+    { "animate", l_animate }, { "clips", l_clips }, { "bone3d", l_bone3d },
     { "draw3d", l_draw3d }, { "camera3d", l_camera3d }, { "light3d", l_light3d },
     { "fog3d", l_fog3d }, { "project3d", l_project3d }, { "lamp3d", l_lamp3d },
     { "zclear", l_zclear }, { "log", l_log }, { "quit", l_quit },
@@ -1136,6 +1569,8 @@ static const luaL_Reg api[] = {
     { "keyp", l_keyp }, { "keyheld", l_keyheld }, { "rawkeys", l_rawkeys }, { "keydown", l_keydown },
     { "keys", l_keys }, { "pad", l_pad }, { "timeslice", l_timeslice }, { "ls", l_ls }, { "cart_load", l_cart_load }, { "cart_new", l_cart_new },
     { "cart_save", l_cart_save }, { "cart_run", l_cart_run }, { "cart_arg", l_cart_arg },
+    { "cart_data", l_cart_data },
+    { "cart_read", l_cart_read }, { "cart_write", l_cart_write },
     { "light_begin", l_light_begin }, { "light", l_light }, { "light_end", l_light_end },
     { "note", l_note }, { "noteoff", l_noteoff }, { "freq", l_freq },
     { "envelope", l_envelope }, { "duty", l_duty }, { "playing", l_playing }, { "apu", l_apu },
@@ -1211,6 +1646,8 @@ static lua_State *new_cart_state(const bm_cart_t *c)
     lua_pop(L, 1);
     luaL_requiref(L, "n8", luaopen_n8, 1);      /* the nano8 machine (carts/nano8) */
     lua_pop(L, 1);
+    ai_lua_open(L);             /* the assistant (M30): idle until asked */
+    bm_require_open(L);         /* require "assist": libraries in the kernel */
     static const char *const waves[SYNTH_WAVES] = { "SQUARE", "TRIANGLE", "SAW", "NOISE", "SINE", "METAL" };
     for (int w = 0; w < SYNTH_WAVES; w++) {
         lua_pushinteger(L, w);
@@ -1262,7 +1699,8 @@ static void text_push(uint8_t c)
 }
 
 /* serial terminal: ESC [ A..D arrows, ESC [ H / F home and end,
- * ESC O P..S F1..F4, ESC [ n ~ (3 delete, 5/6 page up/down, 15 F5) */
+ * ESC O P..S F1..F4, ESC [ n ~ (3 delete, 5/6 page up/down, 15 F5,
+ * 17-21 F6-F10, 23-24 F11-F12) */
 static void serial_text(char c)
 {
     if (rt.esc == 1) {
@@ -1287,6 +1725,9 @@ static void serial_text(char c)
         case 5: text_push(HID_KEY_PGUP); break;
         case 6: text_push(HID_KEY_PGDN); break;
         case 15: text_push(HID_KEY_F1 + 4); break;
+        case 17: case 18: case 19: case 20: case 21:
+            text_push((uint8_t)(HID_KEY_F6 + rt.esc_num - 17)); break;
+        case 23: case 24: text_push((uint8_t)(HID_KEY_F6 + rt.esc_num - 18)); break;
         case 1: text_push(HID_KEY_HOME); break;
         case 4: text_push(HID_KEY_END); break;
         }
@@ -1307,6 +1748,8 @@ static void serial_text(char c)
     if (c == 0x1B) { rt.esc = 1; return; }
     if (c == '\n') return;                  /* terminals send \r or \r\n */
     if (c == 0x08) c = 0x7F;
+    if ((uint8_t)c >= HID_KEY_F6 && (uint8_t)c <= HID_KEY_F6 + 6)
+        return;                             /* a UTF-8 byte, not a function key */
     text_push((uint8_t)c);
 }
 
@@ -1420,6 +1863,21 @@ static int load_assets(const bm_cart_t *c)
         sheet_commit();
     }
 
+    if (c->mesh) {
+        rt.mesh = malloc(c->mesh_size);
+        if (!rt.mesh)
+            return -1;
+        memcpy(rt.mesh, c->mesh, c->mesh_size);
+        rt.mesh_size = c->mesh_size;
+    }
+    if (c->anim) {
+        rt.anim = malloc(c->anim_size);
+        if (!rt.anim)
+            return -1;
+        memcpy(rt.anim, c->anim, c->anim_size);
+        rt.anim_size = c->anim_size;
+    }
+
     rt.map.w = c->map_cells ? c->map_w : 256;
     rt.map.h = c->map_cells ? c->map_h : 256;
     rt.map.cells = calloc((size_t)rt.map.w * rt.map.h, 2);
@@ -1436,8 +1894,14 @@ static void free_assets(void)
     g16_sheet_free(&rt.sheet);
     free(rt.cell_dirty);
     free(rt.map.cells);
+    free(rt.mesh);
     rt.cell_dirty = NULL;
     rt.map.cells = NULL;
+    rt.mesh = NULL;
+    rt.mesh_size = 0;
+    free(rt.anim);
+    rt.anim = NULL;
+    rt.anim_size = 0;
 }
 
 /* ---------------------------------------------------------------- editor */
@@ -1462,6 +1926,51 @@ static void set_copy(uint8_t **dst, uint32_t *dlen, const void *src, uint32_t le
         memcpy(*dst, src, len);
         *dlen = len;
     }
+}
+
+/* the project's other sections (3D models and skeletons, and any type this
+ * kernel does not know), written back by cart_save */
+#define PROJ_EXTRA_MAX 16
+static struct { uint32_t type, size; uint8_t *data; } proj_extra[PROJ_EXTRA_MAX];
+static int proj_extras;
+
+static void extras_free(void)
+{
+    for (int i = 0; i < proj_extras; i++)
+        free(proj_extra[i].data);
+    proj_extras = 0;
+}
+
+static uint32_t rd32le(const uint8_t *p) { return p[0] | p[1] << 8 | p[2] << 16 | (uint32_t)p[3] << 24; }
+
+/* After bm_parse (the section table is known to be in bounds). */
+static int extras_keep(const uint8_t *d)
+{
+    extras_free();
+    for (unsigned i = 0; i < d[17]; i++) {
+        const uint8_t *e = d + BM_HEADER_SIZE + i * 16;
+        uint32_t type = rd32le(e), off = rd32le(e + 4), size = rd32le(e + 8);
+        if (type == BM_SEC_LUA || type == BM_SEC_SHEET || type == BM_SEC_SHEET8 ||
+            type == BM_SEC_MAP || type == BM_SEC_COVER || !size)
+            continue;
+        if (type == BM_SEC_AUDIO) {
+            if (size >= 4 && memcmp(d + off, "BMAU", 4) == 0)
+                continue;                   /* the sound bank: proj_audio */
+            type = BM_SEC_MESH;             /* MESH of the first bm Studio files */
+        } else if (type == BM_SEC_OLD_ANIM) {
+            type = BM_SEC_ANIM;
+        }
+        if (proj_extras == PROJ_EXTRA_MAX)
+            return -1;
+        uint8_t *copy = malloc(size);
+        if (!copy)
+            return -1;
+        memcpy(copy, d + off, size);
+        proj_extra[proj_extras].type = type;
+        proj_extra[proj_extras].size = size;
+        proj_extra[proj_extras++].data = copy;
+    }
+    return 0;
 }
 static char run_request[64];
 static char arg_path[64], arg_error[512], last_error[512];
@@ -1561,7 +2070,7 @@ static int l_cart_load(lua_State *L)
         return 2;
     }
     free_assets();
-    if (load_assets(&c) != 0) {
+    if (load_assets(&c) != 0 || extras_keep(data) != 0) {
         free(data);
         return luaL_error(L, "not enough memory for the cartridge");
     }
@@ -1593,6 +2102,7 @@ static int l_cart_new(lua_State *L)
     free(proj_cover);
     proj_cover = NULL;
     set_copy(&proj_audio, &proj_audio_len, NULL, 0);
+    extras_free();
     return 0;
 }
 
@@ -1644,17 +2154,24 @@ static int l_cart_save(lua_State *L)
 
     const uint32_t sw = (uint32_t)rt.sheet.w, sh = (uint32_t)rt.sheet.h;
     const uint32_t mw = (uint32_t)rt.map.w, mh = (uint32_t)rt.map.h;
-    uint32_t sizes[5] = { proj_cover ? 4u + (uint32_t)proj_cover_w * proj_cover_h * 4 : 0, (uint32_t)lua_len,
-                          4 + sw * sh * 4, 4 + mw * mh * 2, proj_audio_len };
-    static const uint32_t types[5] = { BM_SEC_COVER, BM_SEC_LUA, BM_SEC_SHEET, BM_SEC_MAP, BM_SEC_AUDIO };
+    /* cover (first: the menu reads only the start), code, sheet, map, the
+     * sound bank, then the sections kept from the file (3D models...) */
+    const int nsec = 5 + proj_extras;
+    uint32_t sizes[5 + PROJ_EXTRA_MAX] = { proj_cover ? 4u + (uint32_t)proj_cover_w * proj_cover_h * 4 : 0,
+                                           (uint32_t)lua_len, 4 + sw * sh * 4, 4 + mw * mh * 2, proj_audio_len };
+    uint32_t types[5 + PROJ_EXTRA_MAX] = { BM_SEC_COVER, BM_SEC_LUA, BM_SEC_SHEET, BM_SEC_MAP, BM_SEC_AUDIO };
+    for (int i = 0; i < proj_extras; i++) {
+        types[5 + i] = proj_extra[i].type;
+        sizes[5 + i] = proj_extra[i].size;
+    }
     uint32_t count = 0, total = BM_HEADER_SIZE;
-    for (int i = 0; i < 5; i++)
+    for (int i = 0; i < nsec; i++)
         if (sizes[i]) { count++; total += 16 + ((sizes[i] + 3) & ~3u); }
     uint8_t *buf = calloc(total, 1);
     if (!buf)
         return luaL_error(L, "not enough memory to save");
     uint8_t *tab = buf + BM_HEADER_SIZE, *p = tab + count * 16;
-    for (int i = 0; i < 5; i++) {
+    for (int i = 0; i < nsec; i++) {
         if (!sizes[i]) continue;
         put32(tab, types[i]);
         put32(tab + 4, (uint32_t)(p - buf));
@@ -1678,8 +2195,10 @@ static int l_cart_save(lua_State *L)
             put16(p, mw); put16(p + 2, mh);
             for (uint32_t k = 0; k < mw * mh; k++)
                 put16(p + 4 + k * 2, rt.map.cells[k]);
-        } else {
+        } else if (i == 4) {
             memcpy(p, proj_audio, proj_audio_len);
+        } else {
+            memcpy(p, proj_extra[i - 5].data, sizes[i]);
         }
         p += (sizes[i] + 3) & ~3u;
     }
@@ -1695,6 +2214,112 @@ static int l_cart_save(lua_State *L)
     put32(buf + 20, crc32(buf + BM_HEADER_SIZE, total - BM_HEADER_SIZE));
     int ok = fat_mkdirs(dir) == 0 && fat_write_file(dir, name, buf, total) == 0;
     free(buf);
+    lua_pushboolean(L, ok);
+    if (ok)
+        return 1;
+    lua_pushstring(L, fat_error());
+    return 2;
+}
+
+/* cart_read(path) -> {title, author, res, lua, size}, or nil and a message.
+ * Only reads: the running cartridge's sheet and map stay as they are (code
+ * editors with several files open). */
+static int l_cart_read(lua_State *L)
+{
+    const char *path = luaL_checkstring(L, 1);
+    fat_entry_t e;
+    uint8_t *data;
+    size_t len;
+    bm_cart_t c;
+    char err[64];
+    memset(&e, 0, sizeof e);
+    if (fat_find(path, &e) != 0 || e.is_dir || fat_load(&e, &data, &len) != 0) {
+        lua_pushnil(L);
+        lua_pushstring(L, e.is_dir ? "a directory" : fat_error());
+        return 2;
+    }
+    if (bm_parse(data, len, &c, err, sizeof err) != 0) {
+        free(data);
+        lua_pushnil(L);
+        lua_pushstring(L, err);
+        return 2;
+    }
+    char title[49], author[33];
+    memcpy(title, c.title, sizeof title);
+    memcpy(author, c.author, sizeof author);
+    title[48] = author[32] = 0;
+    lua_newtable(L);
+    lua_pushstring(L, title);
+    lua_setfield(L, -2, "title");
+    lua_pushstring(L, author);
+    lua_setfield(L, -2, "author");
+    lua_pushstring(L, c.width == 320 ? "320x180" : "640x360");
+    lua_setfield(L, -2, "res");
+    lua_pushlstring(L, c.lua, c.lua_size);
+    lua_setfield(L, -2, "lua");
+    lua_pushinteger(L, (lua_Integer)len);
+    lua_setfield(L, -2, "size");
+    free(data);
+    return 1;
+}
+
+/* cart_write(path, {lua=, [title=, author=, res=, from=]}) -> true, or
+ * false and a message. Changes only the code (and the fields given) of the
+ * cartridge: its sheet, map, cover and any other section stay as they are.
+ * from: take those sections from another file ("save as"). A file that does
+ * not exist yet becomes a new cartridge with only the code (its name must
+ * then be 8.3; an existing file keeps its long name). */
+static int l_cart_write(lua_State *L)
+{
+    const char *path = luaL_checkstring(L, 1);
+    luaL_checktype(L, 2, LUA_TTABLE);
+    lua_getfield(L, 2, "lua");
+    size_t lua_len;
+    const char *lua = luaL_checklstring(L, -1, &lua_len);
+    const char *base = field(L, 2, "from", path);
+    char dir[64], name[FAT_NAME_MAX];
+    split_path(path, dir, sizeof dir, name, sizeof name);
+
+    fat_entry_t e;
+    uint8_t *old = NULL;
+    size_t old_len = 0;
+    bm_cart_t c;
+    memset(&c, 0, sizeof c);
+    char err[64];
+    if (fat_find(base, &e) == 0 && !e.is_dir) {
+        if (fat_load(&e, &old, &old_len) != 0) {
+            lua_pushboolean(L, 0);
+            lua_pushstring(L, fat_error());
+            return 2;
+        }
+        if (bm_parse(old, old_len, &c, err, sizeof err) != 0) {
+            free(old);
+            lua_pushboolean(L, 0);
+            lua_pushfstring(L, "%s: %s", name, err);
+            return 2;
+        }
+    }
+    char title[49], author[33];
+    memcpy(title, c.title, sizeof title);
+    memcpy(author, c.author, sizeof author);
+    title[48] = author[32] = 0;
+    const char *t = field(L, 2, "title", old ? title : name);
+    const char *a = field(L, 2, "author", author);
+    const char *res = field(L, 2, "res", c.width == 320 ? "320x180" : "640x360");
+    size_t out_len;
+    uint8_t *out = bm_rewrite(old, old_len, lua, lua_len, t, a, strcmp(res, "320x180") ? 640 : 320,
+                              &out_len);
+    free(old);
+    if (!out)
+        return luaL_error(L, "not enough memory to save");
+    /* an existing file keeps its entry (and its long name); a new one is 8.3 */
+    fat_entry_t te;
+    int ok;
+    if (fat_find(path, &te) == 0 && !te.is_dir)
+        ok = fat_replace(path, out, out_len) == 0;
+    else
+        ok = fat_mkdirs(dir) == 0 && fat_write_file(dir, name, out, out_len) == 0;
+    free(out);
     lua_pushboolean(L, ok);
     if (ok)
         return 1;
@@ -1805,6 +2430,12 @@ static uint8_t *new_pack(const char *title, const char *lua, size_t lua_len, con
     return buf;
 }
 
+/* entry t of the section table of a parsed .bm: the sound bank? */
+static int is_bank(const uint8_t *data, const uint8_t *t)
+{
+    return get32(t) == BM_SEC_AUDIO && get32(t + 8) >= 4 && memcmp(data + get32(t + 4), "BMAU", 4) == 0;
+}
+
 /* cart_put_audio(path, bank, [title, lua]): puts the sound bank (a string;
  * nil removes it) into a .bm file, everything else as it was. If the file
  * does not exist, it is made (8.3 name) with that title and Lua source.
@@ -1860,12 +2491,14 @@ static int l_cart_put_audio(lua_State *L)
             lua_pushstring(L, err);
             return 2;
         }
-        /* the same sections in the same order, the bank last */
+        /* the same sections in the same order, the bank last (a type 6
+         * section that is not a bank is the MESH of the first bm Studio
+         * files: it stays, as MESH; their ANIM of type 7 becomes ANIM) */
         unsigned n = data[17], count = 0;
         total = BM_HEADER_SIZE;
         for (unsigned i = 0; i < n; i++) {
             const uint8_t *t = data + BM_HEADER_SIZE + i * 16;
-            if (get32(t) != BM_SEC_AUDIO) {
+            if (!is_bank(data, t)) {
                 count++;
                 total += 16 + ((get32(t + 8) + 3) & ~3u);
             }
@@ -1882,10 +2515,14 @@ static int l_cart_put_audio(lua_State *L)
         uint8_t *tab = buf + BM_HEADER_SIZE, *p = tab + count * 16;
         for (unsigned i = 0; i < n; i++) {
             const uint8_t *t = data + BM_HEADER_SIZE + i * 16;
-            uint32_t size = get32(t + 8);
-            if (get32(t) == BM_SEC_AUDIO)
+            uint32_t size = get32(t + 8), type = get32(t);
+            if (is_bank(data, t))
                 continue;
             memcpy(tab, t, 16);
+            if (type == BM_SEC_AUDIO)
+                put32(tab, BM_SEC_MESH);
+            else if (type == BM_SEC_OLD_ANIM)
+                put32(tab, BM_SEC_ANIM);
             put32(tab + 4, (uint32_t)(p - buf));
             memcpy(p, data + get32(t + 4), size);
             tab += 16;
@@ -1909,6 +2546,73 @@ static int l_cart_put_audio(lua_State *L)
         return 1;
     lua_pushstring(L, fat_error());
     return 2;
+}
+
+/* cart_data(type) -> the bytes of the project's MESH (8) or ANIM (9)
+ * section, or nil; cart_data(type, bytes) replaces it (nil or "" takes it
+ * away) -> true, or false and a message. The bytes are checked first;
+ * model() and animate() see the new ones at once, cart_save writes them.
+ * The 3D studio edits models and skeletons this way. */
+static int l_cart_data(lua_State *L)
+{
+    int type = (int)luaL_checkinteger(L, 1);
+    luaL_argcheck(L, type == BM_SEC_MESH || type == BM_SEC_ANIM, 1, "8 (MESH) or 9 (ANIM)");
+    uint8_t **cur = type == BM_SEC_MESH ? &rt.mesh : &rt.anim;
+    uint32_t *cur_size = type == BM_SEC_MESH ? &rt.mesh_size : &rt.anim_size;
+    if (lua_gettop(L) < 2) {
+        if (*cur)
+            lua_pushlstring(L, (const char *)*cur, *cur_size);
+        else
+            lua_pushnil(L);
+        return 1;
+    }
+    size_t n = 0;
+    const uint8_t *s = lua_isnil(L, 2) ? NULL : (const uint8_t *)luaL_checklstring(L, 2, &n);
+    if (s && !n)
+        s = NULL;
+    if (s && (n > 0x1000000 || (type == BM_SEC_MESH ? bm_mesh_check(s, (uint32_t)n)
+                                                      : bm_anim_check(s, (uint32_t)n)) < 0)) {
+        lua_pushboolean(L, 0);
+        lua_pushstring(L, type == BM_SEC_MESH ? "broken MESH section" : "broken ANIM section");
+        return 2;
+    }
+    int k = 0;
+    while (k < proj_extras && proj_extra[k].type != (uint32_t)type)
+        k++;
+    if (s && k == proj_extras && proj_extras == PROJ_EXTRA_MAX) {
+        lua_pushboolean(L, 0);
+        lua_pushstring(L, "too many sections");
+        return 2;
+    }
+    uint8_t *copy = NULL, *keep = NULL;
+    if (s && (!(copy = malloc(n)) || !(keep = malloc(n)))) {
+        free(copy);
+        return luaL_error(L, "not enough memory for the section");
+    }
+    free(*cur);
+    *cur = copy;
+    *cur_size = (uint32_t)n;
+    if (s) {
+        memcpy(copy, s, n);
+        memcpy(keep, s, n);
+    }
+    if (k < proj_extras) {
+        free(proj_extra[k].data);
+        if (s) {
+            proj_extra[k].data = keep;
+            proj_extra[k].size = (uint32_t)n;
+        } else {
+            for (int i = k; i + 1 < proj_extras; i++)
+                proj_extra[i] = proj_extra[i + 1];
+            proj_extras--;
+        }
+    } else if (s) {
+        proj_extra[proj_extras].type = (uint32_t)type;
+        proj_extra[proj_extras].size = (uint32_t)n;
+        proj_extra[proj_extras++].data = keep;
+    }
+    lua_pushboolean(L, 1);
+    return 1;
 }
 
 /* ---------------------------------------------------------------- player */
@@ -2132,6 +2836,10 @@ int bm_run(framebuffer_t *fb, const uint8_t *data, size_t len,
     bm_close_suspended();              /* one cartridge in memory at a time */
     memset(st, 0, sizeof *st);
     memset(&rt, 0, sizeof rt);
+    free(proj_cover);                  /* no project open yet (cart_load) */
+    proj_cover = NULL;
+    extras_free();
+    set_copy(&proj_audio, &proj_audio_len, NULL, 0);
     if (bm_parse(data, len, &cart, err, sizeof err) != 0) {
         kprintf("\x1b[91mbm: %s\x1b[0m\n", err);
         return BM_ENDED;
@@ -2200,6 +2908,7 @@ int bm_resume(framebuffer_t *fb, uint32_t seconds, bm_stats_t *st)
     /* the same clip, camera and draw target as when it stopped */
     rt.g.cx0 = susp.g.cx0; rt.g.cy0 = susp.g.cy0; rt.g.cx1 = susp.g.cx1; rt.g.cy1 = susp.g.cy1;
     rt.g.cam_x = susp.g.cam_x; rt.g.cam_y = susp.g.cam_y;
+    rt.g.font = susp.g.font;
     if (susp.used_ram)
         video_to_ram(&rt.g);
     /* the time spent in the menu does not count for time() */
