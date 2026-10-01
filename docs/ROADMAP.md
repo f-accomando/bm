@@ -1213,7 +1213,8 @@ usano già (`mesh`, `draw3d`, `camera3d`, `light3d`, `fog3d`, `lamp3d`): le cart
 cambiano, vanno più veloci. Il rasterizzatore software resta per QEMU (che non emula la
 V3D), per i test sul PC e come riserva.
 - **Fatto quando:** Texture Room gira a 60 fps a 640×360 con la GPU (la cartuccia
-  *Texture Room HD*), e lo stress test mostra le righe GPU accanto a quelle software.
+  *Texture Room HD*, poi il benchmark Texture Room della scheda Dev), e lo stress test
+  mostra le righe GPU accanto a quelle software.
 
 **Passi:**
 1. **Misure** (stress test `s`): la parte C parte dopo che l'avvio si è calmato (WiFi,
@@ -1312,7 +1313,15 @@ Kitchen con la GPU 6,8 ms, 60 fps, 758 triangoli (prima di M30: 14,1 ms, 54 fps)
 stress test ha le righe GPU accanto a quelle software. Il criterio di chiusura è
 raggiunto, e da qui **la GPU è il default** per il 3D dei giochi (`gpu3d=0` o
 *Impostazioni > 3D of the games: ARM* per l'ARM; in QEMU e se la V3D non risponde si
-torna all'ARM da soli). Report prima/dopo: `docs/M30-PRIMA-DOPO.md`. Restano fuori da
+torna all'ARM da soli). Report prima/dopo: `docs/M30-PRIMA-DOPO.md`.
+
+Dopo la chiusura (2026-10-01): Texture Room e Texture Room HD diventano **un benchmark
+nella scheda Dev** (comando `R` del monitor), non più giochi. Il kernel porta la
+cartuccia al suo interno e la rilancia passo per passo (`bm_next_run`: risoluzione,
+renderer e numero di casse, che la cartuccia legge in `BENCH`): casse raddoppiate da 8
+finché tiene 30 fps, a 320×180 e poi a 640×360, con l'ARM e poi con la GPU. Ogni passo
+dura 2 s e scrive casse, triangoli, ms e fps; alla fine un riepilogo con le casse
+massime a 60 e a 30 fps per ogni caso (`src/bm/roombench.c`). Restano fuori da
 M30, per dopo: MSAA 4×, texture in T-format per la TMU (oggi 9 ns per pixel con
 texture contro 1), il costo per triangolo dell'ARM (~2 µs, ora il limite), filtro
 bilineare, sprite 2D sulla GPU.

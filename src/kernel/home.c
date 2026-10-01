@@ -12,6 +12,7 @@
 #include "testpattern.h"
 #include "version.h"
 #include "audio/audio.h"
+#include "bm/roombench.h"
 #include "bm/runtime.h"
 #include "bm/stress.h"
 #include "bt/bt.h"
@@ -167,6 +168,12 @@ static void t_gpu(framebuffer_t *fb)
     gpu_test(fb);
 }
 
+static void t_room(framebuffer_t *fb)
+{
+    heading("Texture Room: 3D benchmark");
+    bm_room_bench(fb);
+}
+
 static void t_demo(framebuffer_t *fb)
 {
     heading("Animation demo (10 s)");
@@ -216,6 +223,7 @@ static tool_t tools[] = {
     { "Stress test", "sprites, triangles and 3D, in C and in Lua", MENU_ICON_FLAME, 0xA03A3A, t_stress, 1, { 0 } },
     { "DMA test", "copies by the CPU against the DMA, step by step", MENU_ICON_ARROWS, 0x2A7A8A, t_dma, 1, { 0 } },
     { "GPU test", "the 3D unit (V3D) step by step; ARM against GPU", MENU_ICON_TRIANGLES, 0x8A5A2A, t_gpu, 1, { 0 } },
+    { "Texture Room", "3D bench: crates doubled to 30 fps, ARM and GPU", MENU_ICON_GAUGE, 0x9A6A2A, t_room, 1, { 0 } },
     { "Demo", "the 60 fps animation demo, 10 s", MENU_ICON_PLAY, 0x3A8A3A, t_demo, 1, { 0 } },
     { "Test pattern", "HDMI colour bars; any button returns", MENU_ICON_BARS, 0x404050, t_pattern, 0, { 0 } },
     { "Diagnostics", "the old boot sequence: benchmarks and demos", MENU_ICON_CHECK, 0x7A6A2A, t_diag, 1, { 0 } },

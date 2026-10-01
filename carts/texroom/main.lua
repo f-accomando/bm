@@ -1,10 +1,11 @@
 -- Texture Room (M14): a room in 3D with textures everywhere, at 320x180,
--- to see what the textured rasterizer does at 60 fps. The same file makes
--- Texture Room HD at 640x360 (M30), for the 3D drawn by the GPU.
+-- to see what the textured rasterizer does at 60 fps.
 -- Arrows: walk and turn. A: automatic tour on/off. B: more or fewer crates.
 -- X: light on the floor on/off. Y: hide the numbers.
 -- Top left: ms of CPU per frame (16.7 is the limit for 60 fps), fps,
--- triangles and textured pixels drawn.
+-- triangles and textured pixels drawn, or GPU when the GPU draws the 3D.
+-- M30: the kernel's Texture Room benchmark (Dev tab, monitor R) runs it at
+-- 320x180 and 640x360 with BENCH crates, doubled while it keeps 30 fps.
 
 local W, H = SCREEN_W, SCREEN_H
 local T = 32                             -- texture size in the sheet (4x4 of 32x32)
@@ -93,12 +94,28 @@ local count_i = 2
 
 local function place_crates()
   crates = {}
-  local n = CRATE_COUNTS[count_i]
-  for k = 1, n do
-    local a = k / n * 6.2832
-    local r = 4 + (k % 3) * 2.2
-    crates[k] = { x = math.cos(a) * r, z = math.sin(a) * r, spin = (k % 2 == 0) and 0.6 or -0.4,
-                  bob = k * 0.7, size = 0.55 + (k % 3) * 0.15 }
+  local n = BENCH or CRATE_COUNTS[count_i]
+  if n <= 32 then
+    for k = 1, n do
+      local a = k / n * 6.2832
+      local r = 4 + (k % 3) * 2.2
+      crates[k] = { x = math.cos(a) * r, z = math.sin(a) * r, spin = (k % 2 == 0) and 0.6 or -0.4,
+                    bob = k * 0.7, size = 0.55 + (k % 3) * 0.15 }
+    end
+    return
+  end
+  -- many (the benchmark): a grid over the room, the tour's circle left free
+  local side = math.ceil(math.sqrt(n * 1.5))
+  local step = 2 * (ROOM - 1.5) / side
+  local k = 0
+  for i = 0, side * side - 1 do
+    local x, z = -ROOM + 1.5 + step * (i % side + 0.5), -ROOM + 1.5 + step * (i // side + 0.5)
+    local r = math.sqrt(x * x + z * z)
+    if k < n and math.abs(r - 8.5) > 1.2 then
+      k = k + 1
+      crates[k] = { x = x, z = z, spin = (k % 2 == 0) and 0.6 or -0.4, bob = k * 0.7,
+                    size = math.min(0.7, step * 0.4) }
+    end
   end
 end
 
@@ -114,10 +131,12 @@ end
 
 function _update()
   t = t + 1 / 60
-  if btnp(4) then tour = not tour end
-  if btnp(5) then count_i = count_i % #CRATE_COUNTS + 1; place_crates() end
-  if btnp(6) then lit_floor = not lit_floor end
-  if btnp(7) then show_hud = not show_hud end
+  if not BENCH then                     -- the benchmark: always the tour
+    if btnp(4) then tour = not tour end
+    if btnp(5) then count_i = count_i % #CRATE_COUNTS + 1; place_crates() end
+    if btnp(6) then lit_floor = not lit_floor end
+    if btnp(7) then show_hud = not show_hud end
+  end
   if tour then
     cam.yaw = t * 0.25
     local r = 8.5
@@ -154,9 +173,13 @@ function _draw()
     local px = stat(6) == 1 and "  GPU" or string.format("%5dpx", stat(5))
     print(string.format("%4.1f ms %2d fps %4d tri %s", stat(1), stat(2), stat(4), px), 2, 1, 0xFFE060)
     if W >= 640 then rectfill(0, H - 18, W, 18, 0x000000) end   -- HD: the hints readable
-    print(string.format("A tour %s  B crates %d", tour and "on" or "off", #crates), 2, H - 17, 0xC0C0C0)
-    if W >= 640 and stat(6) ~= 1 then
-      print("drawn by the ARM: Settings > 3D of the games > GPU", W - 8 * 51, H - 17, 0xA0A0A0)
+    if BENCH then
+      print(string.format("benchmark %dx%d, %d crates", W, H, #crates), 2, H - 17, 0xC0C0C0)
+    else
+      print(string.format("A tour %s  B crates %d", tour and "on" or "off", #crates), 2, H - 17, 0xC0C0C0)
+      if W >= 640 and stat(6) ~= 1 then
+        print("drawn by the ARM: Settings > 3D of the games > GPU", W - 8 * 51, H - 17, 0xA0A0A0)
+      end
     end
   end
 end

@@ -993,7 +993,7 @@ def test_make_image(b, opts):
     q = Qemu(b("kernel.img"), ["-drive", f"if=sd,format=raw,file={img}"])
     try:
         out = q.expect(MENU, timeout=30).decode(errors="replace")
-        assert "FAT32, 63 MiB, label BM; 9 cartridges" in out, out
+        assert "FAT32, 63 MiB, label BM; 7 cartridges" in out, out
         time.sleep(0.5)
         seen = set()
         for _ in range(10):                    # right along the grid: each title in turn
@@ -1002,7 +1002,7 @@ def test_make_image(b, opts):
             q.send("d")
             time.sleep(0.3)
         screen = "\n".join(seen)
-        for title in ("Pong", "Snake", "Star Shooter", "Chaos Kitchen", "Texture Room"):
+        for title in ("Pong", "Snake", "Star Shooter", "Chaos Kitchen", "Astro Wing"):
             assert title in screen, screen
         for title in ("bm native demo", "bm stress test"):   # not games: in the kernel
             assert title not in screen, screen
@@ -1030,7 +1030,7 @@ def test_make_image(b, opts):
         q = Qemu(b("kernel.img"), ["-drive", f"if=sd,format=raw,file={os.path.join(tmp, 'bm-pi1.img')}"],
                  machine="raspi1ap")
         out = q.expect(MENU, timeout=30).decode(errors="replace")
-        assert "Raspberry Pi 1 A+" in out and "; 9 cartridges" in out, out
+        assert "Raspberry Pi 1 A+" in out and "; 7 cartridges" in out, out
     finally:
         q.close()
         shutil.rmtree(tmp, ignore_errors=True)
@@ -2400,7 +2400,7 @@ def test_texroom(b, opts):
     try:
         q.expect(MENU, timeout=30)
         time.sleep(0.5)
-        with open(b("carts/texroom.bm"), "rb") as f:
+        with open(b("texroom.bm"), "rb") as f:
             assert _upload(q, f.read())
         time.sleep(3)
 
@@ -2623,27 +2623,35 @@ def test_audio(b, opts):
         q.close()
 
 
-def test_texroom_hd(b, opts):
-    """M30: Texture Room HD, the same room at 640x360 (for the GPU): the
-    textures and the HUD show at that size, drawn by the ARM in QEMU."""
+def test_room_bench(b, opts):
+    """M30: the Texture Room benchmark (monitor R, Dev tab): the room at
+    320x180 and then at 640x360 (the HUD on screen at both sizes), crates
+    doubled until under 30 fps, a line per step and the summary; QEMU has
+    no V3D, so only the ARM's cases and a line saying why."""
     q = Qemu(b("kernel.img"))
     try:
-        q.expect(MENU, timeout=30)
-        time.sleep(0.5)
-        with open(b("carts/texroom_hd.bm"), "rb") as f:
-            assert _upload(q, f.read())
-        for _ in range(30):
-            time.sleep(0.5)
+        q.boot()
+        q.send("R")
+        q.expect("Texture Room: crates doubled", timeout=10)
+        seen = set()
+        t0 = time.time()
+        while len(seen) < 2 and time.time() - t0 < 120:
             w, h, px = q.screendump()
-            cols = [tuple(px[(y * w + x) * 3:(y * w + x) * 3 + 3]) for y in range(0, h, 4) for x in range(0, w, 4)]
-            hud = sum(all(abs(c[i] - (255, 224, 96)[i]) < 30 for i in range(3)) for c in cols[:w // 4 * 4])
-            if w == 640 and len(set(cols)) > 100 and hud:
-                break
-        assert (w, h) == (640, 360), (w, h)
-        assert len(set(cols)) > 100 and hud, (len(set(cols)), hud)
-        q.send("q")
-        out = q.expect("update+draw", timeout=20).decode(errors="replace")
-        assert "stopped with an error" not in out and '"Texture Room HD"' in out, out[-300:]
+            hud = sum(all(abs(px[(y * w + x) * 3 + i] - (255, 224, 96)[i]) < 30 for i in range(3))
+                      for y in range(0, 16, 2) for x in range(0, w, 2))
+            if hud and (w, h) in ((320, 180), (640, 360)):
+                seen.add((w, h))
+            time.sleep(0.3)
+        assert seen == {(320, 180), (640, 360)}, seen
+        out = q.expect("Texture Room benchmark done", timeout=300).decode(errors="replace")
+        plain = re.sub(r"\x1b\[[0-9;]*m", "", out)
+        for case in ("ARM 320x180", "ARM 640x360"):
+            m = re.search(re.escape(case) + r"\s+(\d+)\s+(\d+)\s+[\d.]+ ms\s+[\d.]+ fps", plain)
+            assert m and int(m[1]) >= 8 and int(m[2]) > 100, f"{case}:\n{plain}"
+        assert "GPU: none (no V3D answers" in plain, plain
+        assert re.search(r"ARM 320x180\s+(<8|\d+ \(\d+\))\s+(<8|\d+ \(\d+\))", plain), plain
+        assert "GPU 320x180" not in plain and "error" not in plain, plain
+        q.expect("> ", timeout=10)
     finally:
         q.close()
 
@@ -2678,7 +2686,7 @@ def test_gpu3d_fallback(b, opts):
     try:
         q.expect(MENU, timeout=30)
         time.sleep(0.5)
-        with open(b("carts/texroom.bm"), "rb") as f:
+        with open(b("texroom.bm"), "rb") as f:
             assert _upload(q, f.read())
         out = q.expect("bm: the 3D is drawn by the ARM: ", timeout=20).decode(errors="replace")
         q.expect("no V3D answers", timeout=5)

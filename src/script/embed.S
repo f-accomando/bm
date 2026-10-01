@@ -28,3 +28,10 @@ bm_editor_cart_end:
 bm_stress_cart:
     .incbin "stress.bm"
 bm_stress_cart_end:
+
+    .section .rodata
+    .balign 4
+    .globl bm_texroom_cart, bm_texroom_cart_end
+bm_texroom_cart:
+    .incbin "texroom.bm"
+bm_texroom_cart_end:

@@ -71,7 +71,8 @@ FORCE:
 $(LUA_OBJS) $(LWIP_OBJS) $(MBEDTLS_OBJS): WARN := -w
 # Lua scripts embedded with .incbin
 $(BUILD)/k/src/script/embed.S.o: $(wildcard src/script/*.lua) \
-                                 $(BUILD)/demo.bm $(BUILD)/stress.bm $(BUILD)/editor.bm
+                                 $(BUILD)/demo.bm $(BUILD)/stress.bm $(BUILD)/editor.bm \
+                                 $(BUILD)/texroom.bm
 
 # The editor (M15), built into the kernel
 $(BUILD)/editor.bm: carts/editor/main.lua carts/editor/cover.png scripts/mkbm.py
@@ -83,6 +84,13 @@ $(BUILD)/stress.bm: carts/stress/main.lua scripts/mkbm.py
 	@mkdir -p $(dir $@)
 	$(PYTHON) scripts/mkbm.py -o $@ --lua $< --title "bm stress test" --author bm
 
+# Texture Room (M14, M30): the 3D benchmark of the Dev tab, built into the
+# kernel; the benchmark runs it at 320x180 and 640x360 (bm_next_run)
+$(BUILD)/texroom.bm: carts/texroom/main.lua carts/texroom/sheet.png carts/texroom/cover.png scripts/mkbm.py
+	@mkdir -p $(dir $@)
+	$(PYTHON) scripts/mkbm.py -o $@ --lua $< --title "Texture Room" --author bm --res 320x180 \
+	    --cover carts/texroom/cover.png --sheet carts/texroom/sheet.png
+
 # Native demo cartridge (.bm): Lua + sprite sheet + map
 DEMO_BM_SRC := carts/demo/main.lua carts/demo/sheet.png carts/demo/map.csv
 $(BUILD)/demo.bm: $(DEMO_BM_SRC) scripts/mkbm.py
@@ -91,8 +99,8 @@ $(BUILD)/demo.bm: $(DEMO_BM_SRC) scripts/mkbm.py
 	    --map carts/demo/map.csv --title "bm native demo" --author bm
 
 # Demo games (Lua only, sprites drawn in code): build/carts/<name>.bm
-GAMES := pong snake shooter astrowing hunt kitchen titan texroom
-GAME_CARTS := $(patsubst %,$(BUILD)/carts/%.bm,$(GAMES)) $(BUILD)/carts/texroom_hd.bm
+GAMES := pong snake shooter astrowing hunt kitchen titan
+GAME_CARTS := $(patsubst %,$(BUILD)/carts/%.bm,$(GAMES))
 title_pong    := Pong
 title_snake   := Snake
 title_shooter := Star Shooter
@@ -101,8 +109,6 @@ title_hunt := Hunter's Night
 res_hunt := 320x180
 title_kitchen := Chaos Kitchen
 title_titan := Titan Clash
-title_texroom := Texture Room
-res_texroom := 320x180
 # Optional per game: carts/<game>/cover.png (printed on the cartridge in the
 # menu, scripts/mkcovers.py), sheet.png and map.csv, res_<game> := 320x180.
 .SECONDEXPANSION:
@@ -114,12 +120,6 @@ $(BUILD)/carts/%.bm: carts/%/main.lua scripts/mkbm.py \
 	    $(if $(wildcard carts/$*/cover.png),--cover carts/$*/cover.png) \
 	    $(if $(wildcard carts/$*/sheet.png),--sheet carts/$*/sheet.png) \
 	    $(if $(wildcard carts/$*/map.csv),--map carts/$*/map.csv)
-
-# Texture Room HD (M30): the same room at 640x360, for the 3D drawn by the GPU
-$(BUILD)/carts/texroom_hd.bm: carts/texroom/main.lua carts/texroom/sheet.png carts/texroom/cover.png scripts/mkbm.py
-	@mkdir -p $(dir $@)
-	$(PYTHON) scripts/mkbm.py -o $@ --lua $< --title "Texture Room HD" --author bm --res 640x360 \
-	    --cover carts/texroom/cover.png --sheet carts/texroom/sheet.png
 
 # Chaos Kitchen (M17) is written in several Lua files, joined by its build.py
 KITCHEN_SRC := $(sort $(wildcard carts/kitchen/src/*.lua))
@@ -250,7 +250,8 @@ install: sdcard
 	if [ -d $(SD)/$(OLD_DIR) ]; then $$S cp -rn $(SD)/$(OLD_DIR)/. $(SD)/bm/ && $$S rm -rf $(SD)/$(OLD_DIR) && \
 	    echo "moved $(OLD_DIR)/ (settings, saves, firmware) to bm/"; fi && \
 	$$S cp $(DIST)/bootcode.bin $(DIST)/start.elf $(DIST)/fixup.dat $(DIST)/config.txt $(DIST)/kernel.img $(SD)/ && \
-	$$S rm -f $(SD)/carts/demo.cart $(SD)/carts/demo.bm $(SD)/carts/stress.bm && \
+	$$S rm -f $(SD)/carts/demo.cart $(SD)/carts/demo.bm $(SD)/carts/stress.bm \
+	    $(SD)/carts/texroom.bm $(SD)/carts/texroom_hd.bm && \
 	$$S cp $(DIST)/carts/* $(SD)/carts/ && \
 	if [ -d $(DIST)/bm ]; then $$S cp $(DIST)/bm/* $(SD)/bm/; fi && \
 	sync && echo "installed on $(SD): kernel $$(git describe --always --dirty), carts, bm/ firmware" && \

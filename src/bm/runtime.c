@@ -346,19 +346,31 @@ static int l_tri(lua_State *L)
 
 /* ---- 3D (software rasterizer, see r3d.h) */
 
+/* bm_next_run: options of the next run only */
+static struct { int w, h, gpu3d, bench; } next = { 0, 0, -1, 0 }, cur = { 0, 0, -1, 0 };
+
+void bm_next_run(int w, int h, int gpu3d, int bench)
+{
+    next.w = w;
+    next.h = h;
+    next.gpu3d = gpu3d;
+    next.bench = bench;
+}
+
 /* The V3D draws the 3D of the cartridges (M30) if it starts and passes its
  * probe; gpu3d=0 in bm/config.txt (Settings > 3D of the games: ARM) keeps
  * the ARM's rasterizer */
 static void gpu3d_maybe(void)
 {
     const char *v = config_get("gpu3d");
-    if (v && strcmp(v, "0") == 0)
+    if (cur.gpu3d == 0 || (cur.gpu3d < 0 && v && strcmp(v, "0") == 0))
         return;
     if (gpu3d_init() == 0) {
         gpu3d_stats_t st;
         gpu3d_take_stats(&st);          /* this game's from here */
         rt.r3d.backend = gpu3d_backend();
-        kprintf("bm: the 3D is drawn by the GPU (%s)\n", gpu3d_status());
+        if (!cur.bench)                 /* a benchmark has its own report */
+            kprintf("bm: the 3D is drawn by the GPU (%s)\n", gpu3d_status());
     } else {
         kprintf("bm: the 3D is drawn by the ARM: %s\n", gpu3d_status());
     }
@@ -977,6 +989,10 @@ static lua_State *new_cart_state(const bm_cart_t *c)
     lua_setglobal(L, "SCREEN_W");
     lua_pushinteger(L, c->height);
     lua_setglobal(L, "SCREEN_H");
+    if (cur.bench) {                    /* a kernel benchmark (bm_next_run) */
+        lua_pushinteger(L, cur.bench);
+        lua_setglobal(L, "BENCH");
+    }
     lua_gc(L, LUA_GCGEN, 0, 0);         /* generational GC: short pauses */
     lua_sethook(L, hook, LUA_MASKCOUNT, HOOK_EVERY);
     return L;
@@ -1629,6 +1645,7 @@ static int run_frames(framebuffer_t *fb, lua_State *L, const char *title, int w,
         if (rt.last_cpu_us > st->cpu_us_max)
             st->cpu_us_max = rt.last_cpu_us;
         rt.frame++;
+        st->tris3d = rt.r3d_ready ? rt.r3d.tris_drawn : 0;
         crumb_frame(rt.frame);
         present(fb, &deadline, &prev, &st->dropped);
         st->copy_us_total += rt.present_us;
@@ -1643,6 +1660,7 @@ static int run_frames(framebuffer_t *fb, lua_State *L, const char *title, int w,
     st->frames = (uint32_t)rt.frame;
     st->elapsed_us = timer_ticks() - start;
     st->lua_kb = (uint32_t)(luavm_mem() / 1024);
+    st->gpu3d = rt.r3d_ready && rt.r3d.backend != NULL;
     st->ok = error == NULL;
 
     if (!error && left && suspendable) {
@@ -1681,9 +1699,15 @@ int bm_run(framebuffer_t *fb, const uint8_t *data, size_t len,
     bm_close_suspended();              /* one cartridge in memory at a time */
     memset(st, 0, sizeof *st);
     memset(&rt, 0, sizeof rt);
+    cur = next;                         /* the options of this run, then none */
+    bm_next_run(0, 0, -1, 0);
     if (bm_parse(data, len, &cart, err, sizeof err) != 0) {
         kprintf("\x1b[91mbm: %s\x1b[0m\n", err);
         return BM_ENDED;
+    }
+    if (cur.w > 0 && cur.h > 0) {
+        cart.width = cur.w;
+        cart.height = cur.h;
     }
     memcpy(st->title, cart.title, sizeof st->title);
     if (load_assets(&cart) != 0 || !(L = new_cart_state(&cart))) {
@@ -1714,7 +1738,7 @@ int bm_run(framebuffer_t *fb, const uint8_t *data, size_t len,
         call(L, "_init") != 0)
         error = lua_tostring(L, -1);
     return run_frames(fb, L, cart.title, cart.width, cart.height, con_w, con_h, seconds, st,
-                      error, suspendable);
+                      error, suspendable && !cur.bench);
 }
 
 void bm_play(framebuffer_t *fb, const uint8_t *data, size_t len,

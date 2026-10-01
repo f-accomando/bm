@@ -186,6 +186,11 @@ Texture Room HD con quattro volte i pixel di Texture Room e quattro volte le cas
 la metà del tempo che Texture Room costava prima di M30. Il criterio di chiusura (60 fps
 a 640×360 con la GPU, righe GPU nello stress test) è raggiunto.
 
+**Per rifare queste misure:** Texture Room e Texture Room HD ora sono un solo benchmark
+nella scheda Dev (comando `R` del monitor). Raddoppia le casse da 8 finché la stanza
+tiene 30 fps, a 320×180 e poi a 640×360, con l'ARM e poi con la GPU, e chiude con le
+casse massime a 60 e a 30 fps per ciascun caso.
+
 ## 5. Differenze rimaste tra ARM e GPU
 
 - Gouraud senza dithering sulla GPU: le sfumature sono più lisce.
