@@ -22,6 +22,7 @@
 #include "lib/printf.h"
 #include "script/luavm.h"
 #include "bt/bt.h"
+#include "wifi/wifi.h"
 
 #include <stdarg.h>
 #include <string.h>
@@ -334,6 +335,37 @@ static void page_bt(void)
     console_suspend(1);
 }
 
+/* WiFi, in the console too: the chip started on the first visit */
+static int wifi_on;
+
+static void page_wifi(void)
+{
+    fb_show(fb, 0);
+    console_suspend(0);
+    if (!wifi_on) {
+        kprintf("\n\x1b[1mWiFi\x1b[0m: starting the RTL8821CS...\n");
+        wifi_on = wifi_start() == 0;
+    }
+    for (;;) {
+        kprintf(wifi_on ? "\n\x1b[96mA\x1b[0m scan  \x1b[96mX\x1b[0m join the saved network  \x1b[96mB\x1b[0m back\n"
+                        : "\nWiFi is off (see above). \x1b[96mA\x1b[0m try again  \x1b[96mB\x1b[0m back\n");
+        uint32_t p;
+        while (!(p = pad_pressed()))
+            timer_delay_ms(10);
+        if (p & PAD_B)
+            break;
+        if (!wifi_on) {
+            if (p & PAD_A)
+                wifi_on = wifi_start() == 0;
+        } else if (p & PAD_A) {
+            wifi_scan();
+        } else if (p & PAD_X) {
+            wifi_connect();
+        }
+    }
+    console_suspend(1);
+}
+
 enum { T_INPUT, T_SYSTEM, T_BT, T_WIFI, T_LOG, T_LUA, T_REBOOT, T_OFF, T_COUNT };
 static const char *const tool_names[T_COUNT] = {
     "Input test", "System", "Bluetooth", "WiFi", "Boot log", "Lua (serial)", "Reboot", "Power off",
@@ -355,11 +387,7 @@ static void run_tool(int t)
     case T_INPUT: page_input(); break;
     case T_SYSTEM: page_system(); break;
     case T_BT: page_bt(); break;
-    case T_WIFI: {
-        const char *l[] = { "WiFi: coming next (RTL8821CS on SDIO).", "" };
-        page_message("WiFi", l, 1);
-        break;
-    }
+    case T_WIFI: page_wifi(); break;
     case T_LOG: page_log(); break;
     case T_LUA: serial_lua(); break;
     case T_REBOOT: kprintf("rebooting...\n"); plat_reset();

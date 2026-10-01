@@ -205,3 +205,23 @@ int rk_bt_bringup(uint32_t *baud_out)
     return -1;
 }
 #endif
+
+#ifdef PLAT_VIRT
+/* no WiFi chip in QEMU's virt machine */
+#include "wifi/wifi.h"
+static const unsigned char no_mac[6];
+int wifi_probe(void)
+{
+    kprintf("wifi: no WiFi chip in QEMU\n");
+    return -1;
+}
+int wifi_start(void)                        { return wifi_probe(); }
+int wifi_scan(void)                         { return -1; }
+int wifi_connect(void)                      { return -1; }
+int wifi_connect_saved(void)                { return -1; }
+int wifi_linked(void)                       { return 0; }
+const unsigned char *wifi_mac(void)         { return no_mac; }
+void wifi_poll(void)                        { }
+int wifi_recv(void *buf, int max)           { (void)buf; (void)max; return 0; }
+int wifi_send(const void *eth, int len)     { (void)eth; (void)len; return -1; }
+#endif

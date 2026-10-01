@@ -9,7 +9,7 @@
 #ifdef PLAT_RK3566
 #include "rk_bt.h"
 #include "rk_gpio.h"
-#include "rk_pmic.h"
+#include "rk_wlbt.h"
 #include "bt/btuart.h"
 #include "bt/h5.h"
 #include "bt/hci.h"
@@ -23,8 +23,6 @@
 
 #define BT_ENABLE   rk_pin(4, 'A', 3)
 #define BT_WAKE     rk_pin(4, 'A', 4)
-#define WL_RESET    rk_pin(4, 'A', 2)       /* WiFi side out of reset (as Linux leaves it) */
-#define VCC_WIFI    rk_pin(0, 'A', 0)       /* the module's 3.3 V switch */
 
 static void power_cycle(void)
 {
@@ -47,14 +45,7 @@ static int load(const char *name, uint8_t **data, size_t *len)
 
 int rk_bt_bringup(uint32_t *baud_out)
 {
-    static int module_on;
-    if (!module_on) {
-        rk_gpio_output(VCC_WIFI, 1);
-        rk817_clk32k_wifi(1);
-        rk_gpio_output(WL_RESET, 1);
-        timer_delay_ms(200);
-        module_on = 1;
-    }
+    wlbt_power_on();                    /* supply, 32 kHz, WiFi out of reset (as Linux) */
     hci_set_transport(&h5_transport);
     int r = -1;
     for (int attempt = 0; attempt < 2 && r != 0; attempt++) {

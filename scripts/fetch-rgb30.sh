@@ -40,6 +40,9 @@ fetch_fw rtl_bt/rtl8821cs_fw.bin rtl8821cs_fw.bin \
     3baa2eeaa43c959054687a67771e7435e73b2ff3e79dfb765121d8b7dc719391
 fetch_fw rtl_bt/rtl8821cs_config.bin rtl8821cs_config.bin \
     6ddeb15f23588053e00cb08d25588bd7cf98d60fa93d9478efcef4ae8064a7ac
+FW_REF=${WIFI_FW_REF:-07338f9d3308}
+fetch_fw rtw88/rtw8821c_fw.bin rtw8821c_fw.bin \
+    2ef409bc418549fcf294061dd0cae1fc22fd9da79b60524950b25de18732f3f0
 curl -fL --retry 3 -o "$DEST/LICENCE.rtlwifi_firmware.txt" \
     "$FW_URL/main/LICENSES/LICENCE.rtlwifi_firmware.txt" || echo "warning: licence text not fetched"
 echo "done: $(ls "$DEST" | tr '\n' ' ')"

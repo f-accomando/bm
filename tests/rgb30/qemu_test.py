@@ -276,6 +276,26 @@ def test_bluetooth_page_without_chip(b, opts):
         q.close()
 
 
+def test_wifi_page_without_chip(b, opts):
+    """The WiFi page starts the chip; QEMU has none: it says so, B goes back."""
+    q = Qemu(os.path.join(b, "kernel.elf"))
+    try:
+        boot(q)
+        for k in "sss":                         # Input test, System, Bluetooth, WiFi
+            q.send(k)
+            time.sleep(0.25)
+        q.send("\r")
+        q.expect("no WiFi chip in QEMU", timeout=10)
+        time.sleep(0.5)
+        text = "\n".join(screen_text(q.screendump()))
+        assert "WiFi is off" in text, text
+        q.send("\x7f")
+        time.sleep(0.6)
+        assert "Up/Down: choose" in screen_all(q.screendump())
+    finally:
+        q.close()
+
+
 def test_menu_input_page(b, opts):
     """Down to the input test, A opens it, the serial port presses buttons."""
     q = Qemu(os.path.join(b, "kernel.elf"))

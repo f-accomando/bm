@@ -93,6 +93,7 @@ firmware:
 SD_FILES64 = $(BUILD)/kernel8.img=kernel8.img boot/rgb30/extlinux.conf=extlinux/extlinux.conf \
              boot/rgb30/LEGGIMI.txt=LEGGIMI.txt \
              $(FW64)/rtl8821cs_fw.bin=bm/rtl8821cs_fw.bin $(FW64)/rtl8821cs_config.bin=bm/rtl8821cs_config.bin \
+             $(FW64)/rtw8821c_fw.bin=bm/rtw8821c_fw.bin \
              $(wildcard $(FW64)/LICENCE.rtlwifi_firmware.txt)$(if $(wildcard $(FW64)/LICENCE.rtlwifi_firmware.txt),=bm/LICENCE.rtlwifi_firmware.txt)
 image: $(BUILD)/kernel8.img
 	@test -f $(FW64)/u-boot.itb || { echo "Run 'make TARGET=rgb30 firmware' first"; exit 1; }
@@ -108,7 +109,7 @@ sdcard: $(BUILD)/kernel8.img
 	cp $(BUILD)/kernel8.img $(DIST)/sd/kernel8.img
 	cp boot/rgb30/extlinux.conf $(DIST)/sd/extlinux/
 	cp boot/rgb30/LEGGIMI.txt $(DIST)/sd/
-	@if [ -f $(FW64)/rtl8821cs_fw.bin ]; then cp $(FW64)/rtl8821cs_*.bin $(DIST)/sd/bm/; fi
+	@if [ -f $(FW64)/rtl8821cs_fw.bin ]; then cp $(FW64)/rtl8821cs_*.bin $(FW64)/rtw8821c_fw.bin $(DIST)/sd/bm/; fi
 	@echo "Copy the contents of $(DIST)/sd/ to the BM drive of the card."
 
 $(BUILD)/k/%.S.o: %.S
