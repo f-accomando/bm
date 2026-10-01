@@ -4,6 +4,7 @@
 #include "crumbs.h"
 #include "demo.h"
 #include "dmatest.h"
+#include "gputest.h"
 #include "input.h"
 #include "monitor.h"
 #include "pager.h"
@@ -158,6 +159,12 @@ static void t_dma(framebuffer_t *fb)
     dma_test(fb);
 }
 
+static void t_gpu(framebuffer_t *fb)
+{
+    heading("GPU test");
+    gpu_test(fb);
+}
+
 static void t_demo(framebuffer_t *fb)
 {
     heading("Animation demo (10 s)");
@@ -206,6 +213,7 @@ static tool_t tools[] = {
     { "Render bench", "drawing benchmark, 640x360 RGB565", MENU_ICON_TRIANGLES, 0x5A3AA0, t_render, 1, { 0 } },
     { "Stress test", "sprites, triangles and 3D, in C and in Lua", MENU_ICON_FLAME, 0xA03A3A, t_stress, 1, { 0 } },
     { "DMA test", "copies by the CPU against the DMA, step by step", MENU_ICON_ARROWS, 0x2A7A8A, t_dma, 1, { 0 } },
+    { "GPU test", "the 3D unit (V3D) step by step: speed and a picture", MENU_ICON_TRIANGLES, 0x8A5A2A, t_gpu, 1, { 0 } },
     { "Demo", "the 60 fps animation demo, 10 s", MENU_ICON_PLAY, 0x3A8A3A, t_demo, 1, { 0 } },
     { "Test pattern", "HDMI colour bars; any button returns", MENU_ICON_BARS, 0x404050, t_pattern, 0, { 0 } },
     { "Diagnostics", "the old boot sequence: benchmarks and demos", MENU_ICON_CHECK, 0x7A6A2A, t_diag, 1, { 0 } },

@@ -80,6 +80,7 @@ int fb_init_depth(framebuffer_t *fb, uint32_t width, uint32_t height,
     fb->shown  = 0;
     fb->vsync  = -1;
     fb->depth  = msg[depth_idx];
+    fb->bus    = msg[alloc];
     dma_map_region((uint32_t)fb->mem, fb->size, msg[alloc]);
     if (fb->depth != depth)
         return -3;

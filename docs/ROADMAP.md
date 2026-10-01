@@ -1244,6 +1244,17 @@ Fatto (2026-10-01, da misurare sul Pi):
   identici a prima; istruzioni ARM per pixel in `docs/PRESTAZIONI.md` (texture con luce
   70 → 46, Texture Room 85 → 58). Strumenti: `make bench3d` (checksum delle scene) e
   `make count-insns` (istruzioni contate con `qemu-arm`).
+- Passo 4 (da provare sul Pi): **prova della V3D**, monitor `g` o "GPU test" nella
+  scheda Dev. Driver minimo `src/gpu/v3d.c` (accensione col mailbox, identità, cache
+  della V3D, liste di controllo con timeout e registri sullo schermo in caso d'errore),
+  shader QPU assemblati da `tools/qpuasm.py` (che riproduce bit per bit gli shader di
+  due esempi bare metal già provati su un Pi Zero W). Passi, ognuno scritto prima di
+  partire: 1 accensione, 2 identità (slice, QPU, TMU), 3 pulizia dello schermo con la
+  sola lista di rendering (e l'ordine dei colori in RGB565), 4 un triangolo Gouraud,
+  5 z-buffer (il triangolo più vicino vince in entrambi gli ordini), 6 velocità con
+  20 000 triangoli piccoli, 7 velocità con 20 schermi interi, 8 un'immagine disegnata
+  dalla GPU direttamente nella pagina della console (resta 10 s o fino a un tasto).
+  In QEMU (che non ha la V3D) si ferma al passo 1 e lo dice (`test_gpu_absent`).
 - Passo 3: modo **480×270** per le cartucce (`mkbm.py --res 480x270`, `SCREEN_W` 480,
   l'editor lo propone tra 640×360 e 320×180); test QEMU `test_res_480` (modo video, 3D
   con texture, z-buffer pulito dal DMA).

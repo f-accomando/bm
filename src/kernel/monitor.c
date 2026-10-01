@@ -27,6 +27,7 @@
 #include "pager.h"
 #include "audio/audio.h"
 #include "dmatest.h"
+#include "gputest.h"
 #include "crumbs.h"
 #include "drivers/watchdog.h"
 #include <stdio.h>
@@ -55,6 +56,7 @@ static const char help_text[] =
             "  b  boot diagnostics: benchmarks, the bm demo, Lua boot script\n"
             "  k  CPU benchmark          p  rendering benchmark 640x360 RGB565\n"
             "  D  DMA test step by step (CPU against DMA timings)\n"
+            "  g  GPU test step by step: the 3D unit (V3D), speed, a picture\n"
             "  V  .bm drawing: direct on screen / via RAM (compare with p)\n"
             "  s  rendering stress test (sprites, triangles, 3D; C and Lua)\n"
             "  d  animation demo (60 fps; any key stops it)\n"
@@ -239,6 +241,7 @@ void monitor_run(void)
         case 'a': audio_test(); break;
         case 'e': carts_editor(console_framebuffer()); break;
         case 'D': dma_test(console_framebuffer()); break;
+        case 'g': gpu_test(console_framebuffer()); break;
         case 'L':
             hid_set_layout(hid_layout()[0] == 'i' ? "us" : "it");
             kprintf("keyboard layout: %s\n", hid_layout());

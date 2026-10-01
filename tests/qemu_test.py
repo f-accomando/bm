@@ -2621,6 +2621,23 @@ def test_audio(b, opts):
         q.close()
 
 
+def test_gpu_absent(b, opts):
+    """M30: QEMU has no V3D: the GPU test stops at its first step and says
+    why, and the monitor goes on."""
+    q = Qemu(b("kernel.img"))
+    try:
+        q.boot()
+        q.send("g")
+        out = q.expect("GPU test \x1b[91mfailed", timeout=20).decode(errors="replace")
+        assert "1 power on the 3D unit" in out, out
+        assert "no V3D answers" in out, out
+        q.expect("> ", timeout=10)
+        q.send("i")
+        q.expect("> ", timeout=10)
+    finally:
+        q.close()
+
+
 def test_dma(b, opts):
     """M14: the DMA test copies and fills RAM and the screen correctly."""
     q = Qemu(b("kernel.img"))

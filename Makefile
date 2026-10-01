@@ -149,7 +149,7 @@ test-titan: $(BUILD)/host/luahost $(BUILD)/titan/main.lua
 	$< tests/titan/sim.lua $(BUILD)/titan/main.lua $(BUILD)/titan/main.map
 
 .DEFAULT_GOAL := all
-.PHONY: FORCE test-smp bench3d count-insns all clean firmware image image-pi1 sdcard install sdcard-chainloader sdcard-stress qemu qemu-screenshot \
+.PHONY: FORCE test-smp test-qpu bench3d count-insns all clean firmware image image-pi1 sdcard install sdcard-chainloader sdcard-stress qemu qemu-screenshot \
         run-serial test test-bm test-usb test-audio test-fat test-kitchen test-titan test-net test-http test-https disasm
 
 all: $(BUILD)/kernel.img $(BUILD)/chainloader.img $(GAME_CARTS)
@@ -272,7 +272,7 @@ qemu-screenshot: $(BUILD)/kernel.img
 	./scripts/qemu-screenshot.sh $< $(BUILD)/screen.png
 
 test: all test-bm test-usb test-fat test-audio test-kitchen test-titan test-net test-http test-https \
-      test-smp
+      test-smp test-qpu
 	$(PYTHON) tests/qemu_test.py --build $(BUILD)
 
 $(BUILD)/host/test_bm: tests/bm/test_bm.c src/bm/gfx16.c src/bm/r3d.c src/bm/format.c src/lib/crc32.c src/bm/*.h
@@ -375,6 +375,12 @@ bench3d: $(BUILD)/host/bench3d
 
 count-insns:
 	$(PYTHON) tests/bm/count_insns.py
+
+# QPU shaders (M30): the assembler against shaders run on a Pi, and
+# src/gpu/shaders.h up to date with the sources in tools/qpuasm.py
+test-qpu:
+	$(PYTHON) tools/qpuasm.py -o $(BUILD)/shaders.h
+	cmp $(BUILD)/shaders.h src/gpu/shaders.h
 
 HOSTCC ?= cc
 
