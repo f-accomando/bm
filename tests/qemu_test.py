@@ -2985,10 +2985,10 @@ def test_animation(b, opts):
         out += q.expect("\n").decode(errors="replace")
         lines = {l.split("\t")[0]: l.split("\t")[1:] for l in out.splitlines() if "\t" in l}
         assert lines["clips"] == ["2", "wave", "1.0", "true", "still", "false"], out
-        assert [float(v) for v in lines["rest"]] == [1, 1, 0.5], out
+        assert [float(v) for v in lines["rest"]] == [1, 1, 0.5, 2, 1, 0.5], out     # head, then tail
         assert lines["len"] == ["1.0"], out
-        up = [float(v) for v in lines["up"]]
-        assert abs(up[0] - 1) < 1e-4 and abs(up[1] - 1.25) < 1e-4 and abs(up[2] - 0.5) < 1e-4, out
+        up = [float(v) for v in lines["up"]]                # the arm turned up: the tail above the head
+        assert all(abs(a - b) < 1e-4 for a, b in zip(up, [1, 1.25, 0.5, 1, 2.25, 0.5])) and len(up) == 6, out
         assert "no animation \"dance\"" in lines["bad"][0] and lines["bad"][1] == "nil", out
 
         def orange(h):

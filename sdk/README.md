@@ -195,8 +195,9 @@ end
 - `animate(m, "walk", t, "wave", t, k)` mescola due animazioni (`k` da 0 a 1: per passare
   dall'una all'altra); `animate(m)` è la posa di riposo; restituisce la durata.
 - `clips(m)`: le animazioni, `{ {name=, length=, loop=}, ... }`.
-- `bone3d(m, "arm.L")`: dove si trova la testa di un osso nella posa (coordinate del
-  modello): per attaccarci una spada, una lanterna...
+- `bone3d(m, "arm.L")`: dove si trovano la testa e la coda di un osso nella posa
+  (coordinate del modello; prima i tre numeri della testa, poi quelli della coda): per
+  attaccarci una spada, una lanterna...
 - Esempio: *Studio Village* (`carts/village`): il paesano cammina sul sentiero, saluta
   alle estremità (due animazioni mescolate), di notte porta una luce (`bone3d`), e nell'angolo
   c'è la sua versione a sprite pre-renderizzata.
