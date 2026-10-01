@@ -76,6 +76,12 @@ const char *bm_last_error(void);
 /* cart_arg().back: the editor comes back from trying a game (1), or opens
  * the file it was given from the menu (0). */
 void bm_set_arg_back(int back);
+/* The next cartridges are development tools built into the kernel (the SDK,
+ * bm Code, the Sound editor, the 3D studio): cart_save, cart_write and
+ * cart_put_audio write where they are told. Off (the default), as for every
+ * cartridge from the SD card or the Market, they write only .bm files in
+ * /carts. */
+void bm_set_tool(int on);
 
 /* The save file of a cartridge ("/bm/save/1A2B3C4D.SAV", CRC-32 of its
  * title and author as in the header). */

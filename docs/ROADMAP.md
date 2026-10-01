@@ -1104,51 +1104,86 @@ Stato (2026-10-01): tutto nel PC e in QEMU, **da provare sul Pi**.
 - **Fatto quando:** un gioco senza suono gira dalla SD (primo traguardo), poi con audio
   e numeri 16.16.
 
-## M24 — Scambio in rete locale tra console (M, dopo M18)
+## M24 — Scambio in rete locale tra console (M) — parte del Market (M25)
 Decisione 2026-09-30: M24 originale diviso in tre (M24 rete locale, M25 store su
-GitHub, M26 market gratuito, legato allo store). Considerazioni iniziali del 2026-09-29.
-- **Cosa si scambia** (vale anche per M25 e M26):
-  - cartucce `.bm` (già un contenitore unico) e pacchetti di risorse (sprite, mesh,
-    suoni: un `.bm` senza codice);
-  - ogni pacchetto con un manifesto: nome, autore, versione, licenza, hash SHA-256.
+GitHub, M26 market gratuito); il 2026-10-01 M25 e M26 sono diventati una sola milestone,
+il **Market** (M25), e questa ne è la parte P2P. Considerazioni iniziali del 2026-09-29.
+- **Cosa si scambia**: cartucce `.bm` (già un contenitore unico) e pacchetti di risorse
+  (sprite, mesh, suoni: un `.bm` senza codice).
 - **Scoperta**: le console si trovano con un annuncio UDP in broadcast sulla rete di casa.
-- **Trasferimento**: cartucce e risorse via TCP (come `netxfer` di M18), per esempio
-  tra amici sulla stessa rete; conferma sullo schermo di chi riceve.
-- **P2P via internet** tra console: **sconsigliato** sul Pi Zero bare metal.
-  - Servono traversamento del NAT, server di appoggio (relay) comunque, TLS e una DHT:
-    molto codice, e senza un server centrale il valore aggiunto è poco.
-  - Alternativa: file indirizzati per hash, scaricabili da qualunque fonte (repository o
-    console vicina), con la stessa verifica.
-- **Fatto quando:** due console sulla stessa rete si vedono nel menu e una manda una
-  cartuccia all'altra.
+- **Trasferimento**: via TCP (come `netxfer` di M18), tra amici sulla stessa rete;
+  conferma sullo schermo di chi riceve.
+- **Verifica per hash** (2026-10-01): il catalogo firmato del Market elenca lo SHA-256 di
+  ogni gioco, quindi la provenienza dei byte non conta più: un gioco del catalogo
+  ricevuto da una console vicina vale come scaricato da GitHub. Un gioco fuori catalogo
+  (fatto da un amico) si accetta solo con conferma e resta "non verificato".
+- **P2P via internet** tra console: **no** (decisione 2026-10-01). Servono traversamento
+  del NAT, un server di appoggio comunque, TLS e una DHT: molto codice su un core solo che
+  deve tenere i 60 fps, e l'IP di casa esposto.
+- **Fatto quando:** due console sulla stessa rete si vedono nel Market e una manda un
+  gioco all'altra, che lo verifica con il catalogo.
 
-## M25 — Store su GitHub (L, dopo M19 e M24)
-- **Catalogo su un repository GitHub**:
-  - hosting gratuito, versioni e cronologia, moderazione con le pull request;
-  - il Pi legge un indice firmato via HTTPS (M19) e scarica;
-  - dall'SDK si pubblica con il token personale (M19, "git leggero").
+## M25 — Market: giochi da GitHub (L, dopo M19) — avviata il 2026-10-01 (branch `bm-store`)
+Decisioni 2026-10-01 (prima in M25 "store" e M26 "market", ora una cosa sola):
+- **Tutto gratuito**: niente account, pagamenti, commissioni né licenze da sbloccare.
+- **Scheda Market**, la prima del menu: **Market | Games | Dev | Settings**. All'avvio il
+  menu apre **Games**.
+- **Repository dedicato e pubblico**, `f-accomando/bm-market`. Deve essere pubblico: il Pi
+  scarica senza autenticarsi (un repository privato vorrebbe un token su ogni console,
+  in chiaro nel `config.txt`) e le pull request degli autori arrivano dai fork.
+  - una cartella per gioco: `games/<id>/` con il `.bm` e `info.txt` (versione, licenza
+    obbligatoria, descrizione);
+  - il CI del market controlla le pull request (`scripts/mkmarket.py --check`) e, a ogni
+    merge, costruisce il catalogo, lo firma e lo pubblica con GitHub Pages
+    (`https://f-accomando.github.io/bm-market/`);
+  - moderazione: le pull request le approva il proprietario del repository.
+- **Tutti i giochi del progetto sono scaricabili** dal Market. Per ora restano anche
+  nell'immagine della SD (sviluppo); più avanti, forse, immagini diverse (leggera,
+  sviluppo con gli strumenti, giochi).
+- **Caricamento a pezzi e solo con la scheda attiva**: la scheda si apre subito con dei
+  segnaposto (copertine grigie con il titolo) e le risorse arrivano una alla volta
+  (catalogo, poi le copertine visibili, poi le altre); con un'altra scheda, un pannello o
+  un gioco aperti il Market non scarica niente (il lavoro in corso si interrompe e
+  riprende quando si torna).
+- **Pubblicazione**: pull request al repository del market, dal PC e, più avanti,
+  dall'SDK del Pi con un token personale (`github_token` in `bm/config.txt`).
 - **Sicurezza**:
-  - pacchetti firmati dagli autori (Ed25519, codice piccolo: monocypher/TweetNaCl) e
-    hash verificati prima di installare;
-  - le cartucce Lua girano già in un ambiente chiuso; il codice ARM nativo (M13) no:
-    senza isolamento della memoria, solo da autori fidati o mai dallo store.
-- **Licenze**: il campo licenza è obbligatorio. La BM Community License vale per bm,
-  non per i contenuti degli utenti; attenzione a CC BY-NC-SA (uso non commerciale) e ai
-  contenuti di terzi.
-- **Passi proposti**:
-  1. catalogo in lettura da GitHub;
-  2. pubblicazione dall'SDK;
-  3. firme e scheda "Store" nel menu.
-- **Fatto quando:** dalla scheda "Store" del menu si sceglie un gioco del catalogo, si
-  scarica, si verifica e si gioca; l'SDK pubblica un gioco nel catalogo.
+  - catalogo firmato (ECDSA P-256, come le release di M19) con una **chiave sua**
+    (`keys/market-pub.pem`, `scripts/market-key.sh`), diversa da quella del kernel: chi
+    avesse la chiave del market non potrebbe installare un `kernel.img`;
+  - ogni file scaricato si controlla con lo SHA-256 del catalogo prima di scriverlo;
+  - il Market scrive solo in `/carts` (i giochi) e in `/bm/market` (la cache);
+  - le cartucce della SD scrivono solo file `.bm` in `/carts` e i loro salvataggi: prima
+    `cart_save` e `cart_write` accettavano qualunque percorso (anche `/kernel.img`);
+  - le cartucce Lua non hanno funzioni di rete né `io`/`os`; il codice ARM nativo (M13)
+    non ci sarà mai nel Market.
+- **Licenze**: il campo licenza è obbligatorio. La BM Community License vale per bm e per
+  i giochi del progetto, non per i contenuti degli utenti; attenzione a CC BY-NC-SA (uso
+  non commerciale) e ai contenuti di terzi (in `carts/nano8/roms` solo cartucce
+  ridistribuibili, come già oggi).
 
-## M26 — Market (gratuito, legato allo store di M25)
-Correzione 2026-09-30: il market **non è a pagamento** ed è legato allo **store di M25**.
-- Tutto è gratuito: niente account, pagamenti, commissioni né licenze da sbloccare.
-- Si appoggia allo store di M25: catalogo su GitHub, download verificati, pubblicazione
-  dall'SDK.
-- Da definire insieme a M25: cosa aggiunge il market allo store e il criterio di
-  completamento.
+Passi:
+1. **Scritture delle cartucce limitate** (sicurezza, prima di tutto il resto).
+2. **Catalogo**: formato, `scripts/mkmarket.py` (controllo, firma, copertine PNG, pagina
+   web), chiave del market, lettura e verifica nel kernel; test sul PC.
+3. **Rete senza bloccare il menu**: i download girano su uno stack proprio (una "fibra"
+   cooperativa) che cede il controllo al menu a ogni attesa di rete; il menu le dà il
+   tempo che avanza in ogni frame.
+4. **Scheda Market**: griglia con segnaposto, copertine che arrivano, dettagli (autore,
+   dimensione, licenza, versione), conferma, barra di avanzamento, installazione in
+   `/carts`, poi "Play"; giochi installati e aggiornamenti (badge).
+5. **Repository del market**: modello (README, regole, workflow), i giochi del progetto
+   come primi contenuti.
+6. **Pubblicazione dal Pi**: l'SDK apre una pull request con il token (fork, ramo, file,
+   pull request con le API di GitHub).
+7. **Scambio in rete locale** (M24).
+
+- **Fatto quando:** dalla scheda Market del Pi si sceglie un gioco del catalogo, si
+  scarica senza che il menu si fermi, si verifica, si installa e si gioca; un gioco
+  pubblicato con una pull request compare nel Market dopo il merge.
+
+## M26 — unita a M25 (2026-10-01)
+Il "market gratuito legato allo store" e lo store su GitHub sono la stessa cosa: vedi M25.
 
 ## M27 — BareMetal UI (menu giochi/dev) (L) — ✅ chiusa (2026-09-30: task 1–4)
 Chiusa dall'autore il 2026-09-30 con i task 1–4 verificati sul Pi e le icone della barra

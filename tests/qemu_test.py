@@ -1157,6 +1157,69 @@ def test_sd_save_and_config(b, opts):
         shutil.rmtree(tmp, ignore_errors=True)
 
 
+WRITER_CART = r"""
+function _init()
+  local code = { lua = "function _draw() cls(0) end", title = "written" }
+  for _, p in ipairs({ "/kernel.img", "/bm/config.txt", "/carts/../kernel.bm", "/carts/sub/x.bm",
+                       "/carts/.x.bm", "notes.txt", "/carts/ok.bm", "ok2.bm" }) do
+    local ok, err = cart_save(p, code)
+    log("save", p, ok, err)
+  end
+  local ok, err = cart_write("/kernel.img", { lua = "x" , from = "/carts/ok.bm" })
+  log("write", ok, err)
+  ok, err = cart_put_audio("/bm/config.txt", nil)
+  log("audio", ok, err)
+  quit()
+end
+"""
+
+
+def test_cart_write_limits(b, opts):
+    """M25 (Market): a cartridge from the SD card or the Market writes only
+    .bm files in /carts; the kernel, the settings and other folders are
+    refused (the tools built into the kernel still save anywhere)."""
+    tmp = tempfile.mkdtemp(prefix="bm-wlim-")
+    img = os.path.join(tmp, "sd.img")
+    cfg = os.path.join(tmp, "config.txt")
+    with open(cfg, "w") as f:
+        f.write("layout=us\nwifi_boot=0\n")
+    mksd.build(img, [(cfg, "bm/config.txt")])
+    q = Qemu(b("kernel.img"), ["-drive", f"if=sd,format=raw,file={img}"])
+    try:
+        q.boot()
+        assert _upload(q, mkbm.pack(WRITER_CART.encode(), title="writer"))
+        out = q.expect("audio\t", timeout=20)
+        out += q.expect("\n")
+        text = out.decode(errors="replace").replace("\r", "")
+        for p in ("/kernel.img", "/bm/config.txt", "/carts/../kernel.bm", "/carts/sub/x.bm",
+                  "/carts/.x.bm", "notes.txt"):
+            assert f"save\t{p}\tfalse\t{p}: a cartridge writes only .bm files in /carts" in text, text
+        assert "save\t/carts/ok.bm\ttrue" in text, text
+        assert "save\tok2.bm\ttrue" in text, text
+        assert "write\tfalse\t/kernel.img: a cartridge writes only" in text, text
+        assert "audio\tfalse\t/bm/config.txt: a cartridge writes only" in text, text
+        q.expect("> ", timeout=10)
+    finally:
+        q.close()
+    try:
+        part = os.path.join(tmp, "part.img")
+        with open(img, "rb") as f, open(part, "wb") as o:
+            f.seek(2048 * 512)
+            o.write(f.read())
+        env = dict(os.environ, MTOOLS_SKIP_CHECK="1")
+        root = subprocess.run(["mdir", "-b", "-i", part, "::/"], capture_output=True,
+                              text=True, env=env).stdout
+        assert "KERNEL.IMG" not in root.upper() and "NOTES.TXT" not in root.upper(), root
+        cart_dir = subprocess.run(["mdir", "-b", "-i", part, "::/CARTS"], capture_output=True,
+                                  text=True, env=env).stdout.upper()
+        assert "OK.BM" in cart_dir and "OK2.BM" in cart_dir, cart_dir
+        cfg_txt = subprocess.run(["mtype", "-i", part, "::/BM/CONFIG.TXT"], capture_output=True,
+                                 text=True, env=env).stdout
+        assert "wifi_boot=0" in cfg_txt, cfg_txt
+    finally:
+        shutil.rmtree(tmp, ignore_errors=True)
+
+
 class FakeBtChip:
     """Plays the BCM43438 on the PL011 socket: answers HCI commands (H4)
     like the real chip, ignoring the first reset to exercise the power

@@ -277,7 +277,9 @@ void carts_tool_session(framebuffer_t *fb, const uint8_t *cart, size_t cart_len,
         bm_set_arg(path[0] ? path : NULL, err[0] ? err : NULL);
         bm_set_arg_back(back);
         bm_stats_t st;
+        bm_set_tool(1);                 /* the tool saves where it is told */
         bm_play(fb, cart, cart_len, PLAY_SECS, &st);
+        bm_set_tool(0);                 /* the games it tries do not */
         bm_set_arg(NULL, NULL);
         if (!bm_take_run(path, sizeof path))
             break;

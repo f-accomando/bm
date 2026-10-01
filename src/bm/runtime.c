@@ -1987,6 +1987,34 @@ void bm_set_arg_back(int back)
     arg_back = back;
 }
 
+static int tool_mode;
+
+void bm_set_tool(int on)
+{
+    tool_mode = on;
+}
+
+/* Where a cartridge may write a cartridge file: anywhere for the tools
+ * built into the kernel; for the others (SD card, Market) only .bm files in
+ * /carts, never the kernel, the settings or another folder. Returns 0, or
+ * -1 with a message on the Lua stack (false, message). */
+static int write_refused(lua_State *L, const char *path)
+{
+    if (tool_mode)
+        return 0;
+    const char *name = path;
+    if (strncmp(path, "/carts/", 7) == 0)
+        name = path + 7;
+    size_t n = strlen(name);
+    int ok = name[0] && name[0] != '.' && !strchr(name, '/') && !strchr(name, '\\') &&
+             n > 3 && (name[n - 3] == '.') && (name[n - 2] | 32) == 'b' && (name[n - 1] | 32) == 'm';
+    if (ok)
+        return 0;
+    lua_pushboolean(L, 0);
+    lua_pushfstring(L, "%s: a cartridge writes only .bm files in /carts", path);
+    return -1;
+}
+
 int bm_take_run(char *path, size_t n)
 {
     if (!run_request[0])
@@ -2142,6 +2170,8 @@ static int l_cart_save(lua_State *L)
 {
     const char *path = luaL_checkstring(L, 1);
     luaL_checktype(L, 2, LUA_TTABLE);
+    if (write_refused(L, path))
+        return 2;
     const char *title = field(L, 2, "title", ""), *author = field(L, 2, "author", "");
     const char *res = field(L, 2, "res", "640x360");
     lua_getfield(L, 2, "lua");
@@ -2273,6 +2303,8 @@ static int l_cart_write(lua_State *L)
 {
     const char *path = luaL_checkstring(L, 1);
     luaL_checktype(L, 2, LUA_TTABLE);
+    if (write_refused(L, path))
+        return 2;
     lua_getfield(L, 2, "lua");
     size_t lua_len;
     const char *lua = luaL_checklstring(L, -1, &lua_len);
@@ -2443,6 +2475,8 @@ static int is_bank(const uint8_t *data, const uint8_t *t)
 static int l_cart_put_audio(lua_State *L)
 {
     const char *path = luaL_checkstring(L, 1);
+    if (write_refused(L, path))
+        return 2;
     size_t alen = 0;
     const char *audio = lua_isnoneornil(L, 2) ? NULL : luaL_checklstring(L, 2, &alen);
     char err[64];
