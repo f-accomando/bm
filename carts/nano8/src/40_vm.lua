@@ -80,6 +80,7 @@ function Vm.start(path, param)
   end)
   Vm.state = "run"
   collectgarbage()
+  log("nano8: playing " .. path)
   return true
 end
 

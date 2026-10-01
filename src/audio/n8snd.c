@@ -132,9 +132,18 @@ static void bounds(int sfx, int *ls, int *le, int *end)
     *end = (*le == 0 && *ls > 0) ? *ls : 32;      /* end 0: start is the length */
 }
 
+/* Hz of the pitches -64..191 (an instrument transposes its notes) */
+static float hz_table[256];
+
 static float pitch_hz(float p)
 {
-    return 440.0f * powf(2.0f, (p - 33.0f) / 12.0f);
+    int i = (int)p + 64;
+    if (i < 0) i = 0;
+    if (i > 255) i = 255;
+    if (!hz_table[0])
+        for (int k = 0; k < 256; k++)
+            hz_table[k] = 440.0f * powf(2.0f, (k - 64 - 33.0f) / 12.0f);
+    return hz_table[i];
 }
 
 static float tri(float t)
@@ -220,7 +229,7 @@ static float play_note(voice_t *v, int sfx, note_t nt, int index, double frac, i
         break;
     case 2: {                               /* vibrato */
         double ts = v->t / (double)rate;
-        f *= powf(2.0f, 0.25f * tri((float)fmod(ts * 7.0, 1.0)) / 12.0f);
+        f *= 1.0f + 0.0144f * tri((float)(ts * 7.0 - floor(ts * 7.0)));    /* a quarter tone */
         break;
     }
     case 3:                                 /* drop */

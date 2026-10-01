@@ -314,8 +314,25 @@ local function primaryexp()
   err(fmt("unexpected symbol near '%s'", near()))
 end
 
+-- the console's functions and the symbol constants: reachable whatever
+-- _ENV is (carts call rectfill() inside "function(_ENV) ... end" with an
+-- object as _ENV); Env fills these
+Xl.builtins = {}
+Xl.constants = {}
+
 local function suffixedexp()
+  local n = K[P] == NAME and mapname(V[P])
   local s = primaryexp()
+  if n then
+    local nk, nv = K[P], V[P]
+    local mark, bare = s:match("^(\1%d+\2)(.*)$")
+    mark, bare = mark or "", bare or s
+    if Xl.builtins[n] and (nk == STR or (nk == OP and (nv == "(" or nv == "{"))) then
+      s = mark .. "(" .. bare .. " or __API." .. n .. ")"
+    elseif Xl.constants[n] and not (nk == OP and (nv == "=" or nv == "." or nv == "[" or nv == ":")) then
+      s = mark .. "(" .. bare .. " or " .. Xl.constants[n] .. ")"
+    end
+  end
   while true do
     if K[P] == OP then
       local v = V[P]
@@ -600,6 +617,8 @@ local function exprstat()
     local r = expr()
     return e .. " = " .. binop(e, op, "(" .. r .. ")", nil, m)
   end
+  -- a call that starts with "(" must not continue the statement before
+  if find(e, "^%(") or find(e, "^\1%d+\2%(") then e = ";" .. e end
   return e
 end
 
@@ -706,7 +725,7 @@ function Xl.translate(src)
   end)
   K, V, LN, M = nil, nil, nil, nil
   if not ok then return nil, res end
-  return assemble(res)
+  return "local __API = __n8api " .. assemble(res)
 end
 
 -- the names of the symbols, as the translation writes them (Env defines

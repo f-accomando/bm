@@ -17,6 +17,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <sys/stat.h>
+#include <time.h>
 
 #include "bm/gfx16.h"
 #include "bm/n8lua.h"
@@ -40,6 +41,14 @@ static uint8_t keys_held[16];
 static int nkeys;
 static int volume_level = 8;
 static int quiet;
+static long long instr;                 /* Lua instructions, in thousands (--perf) */
+
+static void count_hook(lua_State *L, lua_Debug *ar)
+{
+    (void)L;
+    (void)ar;
+    instr++;
+}
 
 /* ------------------------------------------------------------ files */
 
@@ -260,7 +269,7 @@ static int run_lua(lua_State *L, const char *code)
 int main(int argc, char **argv)
 {
     static event_t ev[256];
-    int nev = 0, frames = 120;
+    int nev = 0, frames = 120, perf = 0;
     const char *script = NULL, *wav = NULL;
     const char *execs[32];
     int nexec = 0;
@@ -271,6 +280,7 @@ int main(int argc, char **argv)
         else if (!strcmp(a, "--exec") && i + 1 < argc && nexec < 32) execs[nexec++] = argv[++i];
         else if (!strcmp(a, "--wav") && i + 1 < argc) wav = argv[++i];
         else if (!strcmp(a, "--quiet")) quiet = 1;
+        else if (!strcmp(a, "--perf")) perf = 1;
         else if ((!strcmp(a, "--at") || !strcmp(a, "--shot")) && i + 1 < argc && nev < 256) {
             const char *s = argv[++i], *colon = strchr(s, ':');
             if (!colon) continue;
@@ -312,6 +322,8 @@ int main(int argc, char **argv)
         return 1;
     }
     lua_pop(L, 1);
+    if (perf)                           /* before the cart's coroutine: it inherits the hook */
+        lua_sethook(L, count_hook, LUA_MASKCOUNT, 1000);
     if (call(L, "_init") != 0)
         return 1;
     for (int i = 0; i < nexec; i++)
@@ -327,7 +339,12 @@ int main(int argc, char **argv)
     }
     uint32_t samples = 0;
     int status = 0;
+    long long peak = 0, start_at = 0;
+    double busy = 0, busy_peak = 0;
     for (frame = 0; frame < frames; frame++) {
+        long long before = instr;
+        struct timespec t0, t1;
+        clock_gettime(CLOCK_MONOTONIC, &t0);
         for (int e = 0; e < nev; e++) {
             if (ev[e].frame != frame || !strcmp(ev[e].what, "shot"))
                 continue;
@@ -347,6 +364,16 @@ int main(int argc, char **argv)
             status = 1;
             break;
         }
+        clock_gettime(CLOCK_MONOTONIC, &t1);
+        double us = (t1.tv_sec - t0.tv_sec) * 1e6 + (t1.tv_nsec - t0.tv_nsec) / 1e3;
+        if (frame > 60) {
+            busy += us;
+            if (us > busy_peak) busy_peak = us;
+        }
+        if (frame == 60)
+            start_at = instr;           /* past the start (translation, _init) */
+        if (frame > 60 && instr - before > peak)
+            peak = instr - before;
         int16_t pcm[RATE / 60];
         memset(pcm, 0, sizeof pcm);
         n8snd_mix(pcm, RATE / 60, volume_level / 10.0f);
@@ -365,6 +392,10 @@ int main(int argc, char **argv)
         put32le(wf, samples * 2);
         fclose(wf);
     }
+    if (perf && frames > 61)
+        printf("perf: %lld k Lua instructions per frame (60 Hz) on average, %lld k at most; start %lld k; "
+               "%.0f us per frame on this PC, %.0f at most\n",
+               (instr - start_at) / (frames - 61), peak, start_at, busy / (frames - 61), busy_peak);
     /* report where it ended */
     run_lua(L, "local m = NANO8.Ui.mode local v = NANO8.Vm "
                "io.write('mode=', m, ' state=', tostring(v.state), ' frames=', tostring(v.frames), '\\n') "

@@ -246,6 +246,7 @@ end
 local function leave_game()
   Vm.close()
   Ui.go("browser")
+  log("nano8: back to the list")
 end
 Ui.leave_game = leave_game
 
@@ -292,6 +293,7 @@ function Ui.toggle_scale()
 end
 
 function Ui.open_pause()
+  log("nano8: paused")
   n8.pause(true)
   Vm.save_now()
   P.sel = 1

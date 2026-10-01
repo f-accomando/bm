@@ -3022,6 +3022,57 @@ def test_stress_monitor(b, opts):
         q.close()
 
 
+def test_nano8(b, opts):
+    """M23: nano8, from the Games tab, lists the .p8 / .p8.png carts on the
+    SD card, plays the API test cart (all its checks pass on the console's
+    kernel) and shows its screen, pauses with Start, goes back to the list
+    and plays a .p8.png cart; Esc (q) leaves nano8 suspended."""
+    tmp = tempfile.mkdtemp(prefix="bm-n8-")
+    img = os.path.join(tmp, "sd.img")
+    api = os.path.join(HERE, "nano8", "carts", "api.p8")
+    png = os.path.join(HERE, "..", "carts", "nano8", "roms", "sixlets2.p8.png")
+    mksd.build(img, [(b("carts/nano8.bm"), "carts/nano8.bm"), (api, "carts/nano8/api.p8"),
+                     (png, "carts/nano8/sixlets2.p8.png")])
+    q = Qemu(b("kernel.img"), ["-drive", f"if=sd,format=raw,file={img}"])
+    try:
+        q.expect(MENU, timeout=30)
+        time.sleep(0.5)
+        q.send("\r")                           # the only game: nano8
+        q.expect("playing nano8.bm", timeout=10)
+        time.sleep(2.0)
+        q.send(" ")                            # A: the first cart, api.p8
+        q.expect("nano8: playing /carts/nano8/api.p8", timeout=20)
+        out = q.expect("checks, ", timeout=60) + q.expect("\n", timeout=5)
+        out += q.expect("api: all tests passed", timeout=5)
+        assert b"fail " not in out, out
+        time.sleep(1.0)
+        # its screen: colour 3 (dark green) in the 2x area at (192, 52)
+        w, h, px = q.screendump()
+        i = ((52 + 200) * w + 192 + 200) * 3
+        r, g, bl = px[i], px[i + 1], px[i + 2]
+        assert g > 100 and r < 40 and bl < 120, (r, g, bl)
+        q.send("\r")                           # Start: the pause menu
+        q.expect("nano8: paused", timeout=10)
+        time.sleep(0.5)
+        for _ in range(5):                     # down to "Back to the list"
+            q.send("s")
+            time.sleep(0.4)
+        q.send(" ")
+        q.expect("nano8: back to the list", timeout=10)
+        time.sleep(1.0)
+        q.send("d")
+        time.sleep(0.4)
+        q.send(" ")                            # the next cart: a .p8.png
+        q.expect("nano8: playing /carts/nano8/sixlets2.p8.png", timeout=20)
+        time.sleep(4.0)
+        assert b"nano8: Runtime error" not in q.buf, q.buf
+        q.send("q")
+        q.expect('"nano8" suspended', timeout=10)
+    finally:
+        q.close()
+        shutil.rmtree(tmp, ignore_errors=True)
+
+
 def test_chainloader(b, opts):
     q = Qemu(b("chainloader.img"))
     try:

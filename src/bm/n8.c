@@ -123,7 +123,7 @@ int n8_tonum(const char *s, size_t len, int flags, double *out)
 {
     size_t i = 0;
     int neg = 0, base = 10;
-    while (i < len && (s[i] == ' ' || s[i] == '\t'))
+    while (i < len && (s[i] == ' ' || s[i] == '\t' || s[i] == '\n' || s[i] == '\r'))
         i++;
     if (i < len && s[i] == '-') { neg = 1; i++; }
     if (flags & 1)
@@ -150,7 +150,7 @@ int n8_tonum(const char *s, size_t len, int flags, double *out)
             i = j;
         }
     }
-    while (i < len && (s[i] == ' ' || s[i] == '\t'))
+    while (i < len && (s[i] == ' ' || s[i] == '\t' || s[i] == '\n' || s[i] == '\r'))
         i++;
     if (!any || i != len)
         return 0;
@@ -1092,72 +1092,112 @@ static uint16_t rgb565(uint32_t c)
     return (uint16_t)((c >> 19 & 0x1F) << 11 | (c >> 10 & 0x3F) << 5 | (c >> 3 & 0x1F));
 }
 
+/* The 128 pixels of display row y, through the screen modes */
+static void display_row(const n8_t *m, int y, int mode, const uint16_t *pl, uint16_t *o)
+{
+    const uint8_t *scr = m->ram + N8_SCREEN;
+    for (int x = 0; x < 128; x++) {
+        int sx = x, sy = y;
+        switch (mode) {
+        case 1: sx = x / 2; break;
+        case 2: sy = y / 2; break;
+        case 3: sx = x / 2; sy = y / 2; break;
+        case 5: sx = x < 64 ? x : 127 - x; break;
+        case 6: sy = y < 64 ? y : 127 - y; break;
+        case 7: sx = x < 64 ? x : 127 - x; sy = y < 64 ? y : 127 - y; break;
+        case 129: sx = 127 - x; break;
+        case 130: sy = 127 - y; break;
+        case 131: sx = 127 - x; sy = 127 - y; break;
+        case 133: sx = y; sy = 127 - x; break;
+        case 134: sx = 127 - x; sy = 127 - y; break;
+        case 135: sx = 127 - y; sy = x; break;
+        }
+        o[x] = pl[rd(scr, sx, sy)];
+    }
+}
+
+/* one destination row from 32-bit words: the framebuffer is uncached, so
+ * only writes, as wide as they go */
+static void put_row(uint16_t *o, const uint32_t *words, int dw)
+{
+    int x = 0;
+    if ((uintptr_t)o & 2) {                 /* odd start: shift by one pixel */
+        const uint16_t *l = (const uint16_t *)words;
+        o[0] = l[0];
+        for (x = 1; x + 1 < dw; x += 2)
+            *(uint32_t *)(o + x) = (uint32_t)l[x] | (uint32_t)l[x + 1] << 16;
+        if (x < dw)
+            o[x] = l[x];
+        return;
+    }
+    uint32_t *w = (uint32_t *)o;
+    int n = dw >> 1;
+    for (; x + 4 <= n; x += 4) {
+        w[x] = words[x]; w[x + 1] = words[x + 1]; w[x + 2] = words[x + 2]; w[x + 3] = words[x + 3];
+    }
+    for (; x < n; x++)
+        w[x] = words[x];
+    if (dw & 1)
+        o[dw - 1] = ((const uint16_t *)words)[dw - 1];
+}
+
 void n8_blit(const n8_t *m, uint16_t *dst, uint32_t stride, int dw, int dh)
 {
-    static uint16_t disp[128 * 128];
-    static uint16_t line[1024];
-    static uint8_t xmap[1024];
+    static uint32_t line32[512];            /* a destination row, 1024 pixels at most */
+    static uint16_t row[128];
+    static uint16_t xmap[1024];
+    uint16_t *line = (uint16_t *)line32;
     uint16_t pal[2][16];
     for (int i = 0; i < 16; i++) {
         pal[0][i] = rgb565(n8_rgb(m->ram[N8_PAL_SCREEN + i]));
         pal[1][i] = rgb565(n8_rgb(m->ram[0x5f60 + i]));
     }
+    if (dw > 1024) dw = 1024;
+    if (dw <= 0 || dh <= 0)
+        return;
     const uint8_t *scr = m->ram + N8_SCREEN;
     int scan = m->ram[0x5f5f] == 0x10;
     int mode = m->ram[N8_SCREEN_MODE];
-    for (int y = 0; y < 128; y++) {
-        const uint16_t *pl = pal[scan && (m->ram[0x5f70 + (y >> 3)] >> (y & 7) & 1)];
-        uint16_t *o = disp + y * 128;
-        if (!mode) {
-            const uint8_t *r = scr + y * 64;
-            for (int x = 0; x < 64; x++) {
-                o[2 * x] = pl[r[x] & 15];
-                o[2 * x + 1] = pl[r[x] >> 4];
-            }
-            continue;
-        }
-        for (int x = 0; x < 128; x++) {
-            int sx = x, sy = y;
-            switch (mode) {
-            case 1: sx = x / 2; break;
-            case 2: sy = y / 2; break;
-            case 3: sx = x / 2; sy = y / 2; break;
-            case 5: sx = x < 64 ? x : 127 - x; break;
-            case 6: sy = y < 64 ? y : 127 - y; break;
-            case 7: sx = x < 64 ? x : 127 - x; sy = y < 64 ? y : 127 - y; break;
-            case 129: sx = 127 - x; break;
-            case 130: sy = 127 - y; break;
-            case 131: sx = 127 - x; sy = 127 - y; break;
-            case 133: sx = y; sy = 127 - x; break;
-            case 134: sx = 127 - x; sy = 127 - y; break;
-            case 135: sx = 127 - y; sy = x; break;
-            }
-            o[x] = pl[rd(scr, sx, sy)];
-        }
-    }
-    if (dw > 1024) dw = 1024;
-    for (int x = 0; x < dw; x++)
-        xmap[x] = (uint8_t)(x * 128 / dw);
+    int k = dw / 128;
+    int whole = !mode && dw == 128 * k && dh == 128 * k && k >= 1 && k <= 4;
+    if (!whole)
+        for (int x = 0; x < dw; x++)
+            xmap[x] = (uint16_t)(x * 128 / dw);
     int prev = -1;
     for (int y = 0; y < dh; y++) {
         int sy = y * 128 / dh;
         if (sy != prev) {
-            const uint16_t *src = disp + sy * 128;
-            for (int x = 0; x < dw; x++)
-                line[x] = src[xmap[x]];
+            const uint16_t *pl = pal[scan && (m->ram[0x5f70 + (sy >> 3)] >> (sy & 7) & 1)];
+            if (whole && k == 2) {
+                /* sharp 2x: each pixel a 32-bit word, straight from the bytes */
+                const uint8_t *r = scr + sy * 64;
+                for (int x = 0; x < 64; x++) {
+                    line32[2 * x] = pl[r[x] & 15] * 0x10001u;
+                    line32[2 * x + 1] = pl[r[x] >> 4] * 0x10001u;
+                }
+            } else if (whole) {
+                const uint8_t *r = scr + sy * 64;
+                uint16_t *o = line;
+                for (int x = 0; x < 64; x++) {
+                    uint16_t a = pl[r[x] & 15], b = pl[r[x] >> 4];
+                    for (int i = 0; i < k; i++) *o++ = a;
+                    for (int i = 0; i < k; i++) *o++ = b;
+                }
+            } else {
+                if (!mode) {
+                    const uint8_t *r = scr + sy * 64;
+                    for (int x = 0; x < 64; x++) {
+                        row[2 * x] = pl[r[x] & 15];
+                        row[2 * x + 1] = pl[r[x] >> 4];
+                    }
+                } else {
+                    display_row(m, sy, mode, pl, row);
+                }
+                for (int x = 0; x < dw; x++)
+                    line[x] = row[xmap[x]];
+            }
             prev = sy;
         }
-        uint16_t *o = dst + (uint32_t)y * stride;
-        /* writes only, 32 bits at a time where aligned: the framebuffer is
-         * uncached */
-        int x = 0;
-        if (((uintptr_t)o & 2) && dw) {
-            o[0] = line[0];
-            x = 1;
-        }
-        for (; x + 1 < dw; x += 2)
-            *(uint32_t *)(o + x) = (uint32_t)line[x] | (uint32_t)line[x + 1] << 16;
-        if (x < dw)
-            o[x] = line[x];
+        put_row(dst + (uint32_t)y * stride, line32, dw);
     }
 }

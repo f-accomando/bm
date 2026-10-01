@@ -145,5 +145,19 @@ function Env.make()
       G[Xl.glyph_name(code)] = code == 128 and 0 or f + 0.5
     end
   end
+  -- what the translation reaches whatever _ENV is (see Xl.builtins)
+  local api = {}
+  for k, v in pairs(G) do
+    if type(v) == "function" then
+      api[k] = v
+      Xl.builtins[k] = true
+    elseif type(v) == "number" and k:sub(1, 3) == "__g" then
+      Xl.constants[k] = fmt("%.17g", v)
+    end
+  end
+  G.__n8api = api
   return G
 end
+
+-- the names, before the first translation
+Env.make()
