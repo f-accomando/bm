@@ -258,6 +258,7 @@ Si prova da **Dev > Assistant** (o `A` dal monitor).
 | `ai.near(parola)` | il nome delle API più vicino a una parola scritta male (`"sprr"` → `"spr"`, 1), o `nil` |
 | `ai.sprite(richiesta, [{gen=, size=16, seed=1, outline=true, palette={…}}])` | la base di uno sprite: `{w, h, gen, name, seed, px = {0xRRGGBB o -1 (trasparente), …}}` riga per riga. La ricetta viene dalle parole (`"slime"`, `"astronave"`, `"moneta"`, `"erba"`…) o da `gen`; i colori (`"rosso"`, `"blue"`…) e la misura (`"8x8"`, `"32x32"`, `"piccolo"`, `"grande"`) dalle parole; un altro `seed` è una variante; con `palette` ogni pixel diventa il colore più vicino della tavolozza |
 | `ai.recipes()` | le ricette degli sprite `{id, name}` |
+| `ai.checksum(domanda)` | il CRC-32 delle uscite della rete per una domanda: per i test (uguale a quello del riferimento in Python) |
 
 **Il pannello** (`require "assist"`): quello che gli strumenti aprono con un tasto
 (F6 nell'Assistant). Risponde mentre scrivi; Invio (A) passa il codice o lo sprite allo

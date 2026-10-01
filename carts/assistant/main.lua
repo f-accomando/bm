@@ -74,6 +74,8 @@ end
 
 function _init()
   log("assistant: ready, " .. #ai.list() .. " entries, " .. #ai.recipes() .. " sprite recipes")
+  -- the network on this CPU, bit for bit (tests/qemu_test.py checks it)
+  log(string.format("assistant: checksum %08x", ai.checksum("come muovo il personaggio con le frecce")))
   open("any")
 end
 

@@ -1282,8 +1282,9 @@ addestramenti, perde in media 2 domande di prova su 133: restano 4096.
 Test: `make test-ai` (rete C contro Python bit per bit; 135 domande mai viste in
 addestramento: la risposta giusta prima per 124, nelle prime tre per 131; i 164 esempi
 che compilano; 21 controlli del pannello sul PC: domanda, Invio, varianti, errore, pad,
-320x180; le 38 ricette in tre misure), `test_assistant` in QEMU (domanda scritta,
-codice inserito, sprite nello sheet, test di velocità), `make ai-model` per riaddestrare.
+320x180; le 38 ricette in tre misure), `test_assistant` in QEMU (la rete sull'ARM,
+con le SIMD, dà gli stessi interi di Python: checksum di `ai.checksum`; domanda scritta,
+codice inserito, sprite nello sheet, test di velocità, F9), `make ai-model` per riaddestrare.
 
 **Da provare sul Pi** (Dev > Assistant, o `A` dal monitor):
 - con la tastiera USB: una domanda ("come salto", "collisione tra rettangoli",

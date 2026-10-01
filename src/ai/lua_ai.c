@@ -12,11 +12,13 @@
  *                               (the words of the request choose the recipe,
  *                               unless gen; their colours and size win) 
  *   list = ai.recipes()         {id, name} of every sprite recipe
+ *   crc = ai.checksum(question) CRC-32 of the network's outputs (tests)
  */
 #include "lua_ai.h"
 #include "assist.h"
 #include "sprite.h"
 #include "drivers/timer.h"
+#include "lib/crc32.h"
 
 #include <string.h>
 
@@ -239,6 +241,18 @@ static int l_sprite(lua_State *L)
     return 1;
 }
 
+/* ai.checksum(question): CRC-32 of the network's outputs (int32, little
+ * endian) for a question: the tests compare it with the Python reference */
+static int l_checksum(lua_State *L)
+{
+    const char *q = luaL_checkstring(L, 1);
+    ready(L);
+    static int32_t out[1024];
+    int n = ai_logits(q, out, 1024);
+    lua_pushinteger(L, (lua_Integer)crc32(out, (uint32_t)n * 4u));
+    return 1;
+}
+
 static int l_recipes(lua_State *L)
 {
     lua_createtable(L, spr_recipes(), 0);
@@ -253,7 +267,7 @@ static int l_recipes(lua_State *L)
 
 static const luaL_Reg fns[] = {
     { "ask", l_ask }, { "entry", l_entry }, { "list", l_list }, { "near", l_near },
-    { "sprite", l_sprite }, { "recipes", l_recipes }, { NULL, NULL },
+    { "sprite", l_sprite }, { "recipes", l_recipes }, { "checksum", l_checksum }, { NULL, NULL },
 };
 
 void ai_lua_open(lua_State *L)

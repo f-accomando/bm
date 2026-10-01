@@ -2673,6 +2673,19 @@ def test_textured_mesh(b, opts):
         q.close()
 
 
+def _assist_checksum(question):
+    """CRC-32 of the assistant's network outputs, as scripts/assistlib.py
+    computes them (the ARM must give the same: ai.checksum)"""
+    import struct
+    import zlib
+    sys.path.insert(0, os.path.join(HERE, "..", "scripts"))
+    import assistlib as al
+    entries = al.parse_kb(al.kb_paths(os.path.join(HERE, "..", "src", "ai", "kb")))
+    classes, net = al.load_weights(os.path.join(HERE, "..", "src", "ai", "assist.weights"))
+    out = al.logits(al.entry_net(entries, classes, net), al.features(question))
+    return "%08x" % (zlib.crc32(struct.pack("<%di" % len(out), *out)) & 0xFFFFFFFF)
+
+
 def test_assistant(b, opts):
     """M30: the development assistant (monitor A, the Dev tab's Assistant):
     a question typed on the serial line, answered while typing, Enter
@@ -2702,6 +2715,11 @@ def test_assistant(b, opts):
         k("A")
         out = q.expect("sprite recipes", timeout=20).decode(errors="replace")
         assert re.search(r"assistant: ready, \d+ entries, \d+ sprite recipes", out), out
+        # the network on the ARM (SIMD) gives the integers of the Python reference
+        out = q.expect("assistant: checksum ", timeout=10).decode(errors="replace")
+        got = q.expect("\n", timeout=5).decode().strip()
+        assert got == _assist_checksum("come muovo il personaggio con le frecce"), \
+            f"ARM checksum {got}, Python {_assist_checksum('come muovo il personaggio con le frecce')}"
         see(["Assistant", "type a question"])
         k("come muovo il personaggio con le frecce")
         see(["Muovere un personaggio con le frecce"])

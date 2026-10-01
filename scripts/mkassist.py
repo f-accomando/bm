@@ -56,20 +56,7 @@ def main():
                     f.write('== %s\n%s\n' % (e.id, e.code))
 
     if a.ref:
-        # the network as the kernel has it: rows in the order of the entries
-        row = {c: i for i, c in enumerate(classes)}
-        full = None
-        if net:
-            w2, b2 = [], []
-            for e in entries:
-                if e.id in row:
-                    r = row[e.id]
-                    w2 += net['w2'][r * hidden:(r + 1) * hidden]
-                    b2.append(net['b2'][r])
-                else:
-                    w2 += [0] * hidden
-                    b2.append(al.NO_CLASS)
-            full = dict(net, w2=w2, b2=b2)
+        full = al.entry_net(entries, classes, net) if net else None
         tests = al.parse_tests(os.path.join(a.kb, 'tests.txt'))
         os.makedirs(os.path.dirname(os.path.abspath(a.ref)), exist_ok=True)
         with open(a.ref, 'w') as f:

@@ -292,6 +292,9 @@ def load_weights(path):
 
 # ---------------------------------------------------------------- integer network
 
+NO_CLASS = -(1 << 30)       # the bias of an entry the network was not trained on
+
+
 def embed(q1, hid, feats, qb1, pool):
     acc = [0] * hid
     for f in feats:
@@ -323,12 +326,29 @@ def logits(net, feats):
     return dense(net['w2'], net['b2'], y, len(net['b2']))
 
 
+def entry_net(entries, classes, net):
+    """the network as the kernel has it: one output row per entry, in the
+    order of the entries (an entry the network was not trained on: a zero
+    row and a bias that never wins)"""
+    hid = len(net['b1'])
+    row = {c: i for i, c in enumerate(classes)}
+    w2, b2 = [], []
+    for e in entries:
+        if e.id in row:
+            r = row[e.id]
+            w2 += net['w2'][r * hid:(r + 1) * hid]
+            b2.append(net['b2'][r])
+        else:
+            w2 += [0] * hid
+            b2.append(NO_CLASS)
+    return dict(net, w2=w2, b2=b2)
+
+
 # ---------------------------------------------------------------- BMAI file
 
 BMAI_VERSION = 1
 # entry string fields, in the order of the ENTR records
 ENTRY_FIELDS = ('id', 'kind', 'title', 'name', 'text', 'code', 'gen', 'see', 'keys')
-NO_CLASS = -(1 << 30)       # the bias of an entry the network was not trained on
 
 
 def build_bmai(entries, net, hidden, classes):
