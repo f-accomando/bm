@@ -1252,8 +1252,10 @@ Fatto (2026-10-01, da misurare sul Pi):
   partire: 1 accensione, 2 identità (slice, QPU, TMU), 3 pulizia dello schermo con la
   sola lista di rendering (e l'ordine dei colori in RGB565), 4 un triangolo Gouraud,
   5 z-buffer (il triangolo più vicino vince in entrambi gli ordini), 6 velocità con
-  20 000 triangoli piccoli, 7 velocità con 20 schermi interi, 8 un'immagine disegnata
-  dalla GPU direttamente nella pagina della console (resta 10 s o fino a un tasto).
+  20 000 triangoli piccoli, 7 velocità con 20 schermi interi, 8 un quadrato con texture
+  letta dalla TMU (texture RGBA a 32 bit in ordine di riga, come nell'esempio per il Pi
+  Zero W), 9 un'immagine disegnata dalla GPU direttamente nella pagina della console
+  (resta 10 s o fino a un tasto).
   In QEMU (che non ha la V3D) si ferma al passo 1 e lo dice (`test_gpu_absent`).
 - Passo 3: modo **480×270** per le cartucce (`mkbm.py --res 480x270`, `SCREEN_W` 480,
   l'editor lo propone tra 640×360 e 320×180); test QEMU `test_res_480` (modo video, 3D

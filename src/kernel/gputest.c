@@ -36,11 +36,13 @@ typedef struct {
 #define BCL_SIZE      4096
 #define RCL_SIZE      8192
 #define REC_SIZE      64
-#define CODE_SIZE     1024
+#define CODE_SIZE     1024          /* fs_colour, then fs_texture at +512 */
+#define TEX_SIZE      (64 * 64 * 4) /* RGBA32R texture, and its parameters after it */
+#define TEX_PARAMS    16
 #define VERTS_SIZE    ((MAX_VERTS * sizeof(nv_vert_t) + 4095) & ~4095u)
 #define TARGET_SIZE   (W * H * 2)
 #define BLOCK_SIZE    (TSDA_SIZE + ALLOC_SIZE + OVERFLOW_SIZE + BCL_SIZE + RCL_SIZE + REC_SIZE + \
-                       CODE_SIZE + VERTS_SIZE + TARGET_SIZE)
+                       CODE_SIZE + VERTS_SIZE + TARGET_SIZE + TEX_SIZE + 4096)
 
 static struct {
     uint8_t *block;
@@ -48,6 +50,7 @@ static struct {
     uint32_t *code;
     nv_vert_t *verts;
     uint16_t *target;               /* 640x360 RGB565, in RAM */
+    uint32_t *tex;                  /* 64x64 RGBA32R, 4 KiB aligned; its P0 P1 after it */
     uint32_t bcl_end, rcl_end;      /* bus addresses of the lists' ends */
     int nverts;
     int red_a;                      /* byte a of the tile buffer lands on red in BGR565 */
@@ -108,8 +111,10 @@ static int mem_init(void)
     m.code = (uint32_t *)(m.rec + REC_SIZE);
     m.verts = (nv_vert_t *)((uint8_t *)m.code + CODE_SIZE);
     m.target = (uint16_t *)((uint8_t *)m.verts + VERTS_SIZE);
+    m.tex = (uint32_t *)(((uintptr_t)m.target + TARGET_SIZE + 4095) & ~(uintptr_t)4095);
     memset(m.tsda, 0, TSDA_SIZE);
     memcpy(m.code, fs_colour, sizeof fs_colour);
+    memcpy(m.code + 128, fs_texture, sizeof fs_texture);
     v3d_set_overflow(v3d_bus(m.overflow), OVERFLOW_SIZE);
     return 0;
 }
@@ -157,8 +162,10 @@ static void rcl_build(int with_bin, uint32_t fb, int w, int h, uint16_t format, 
 }
 
 /* Binning list: the vertices m.verts[0, nverts) as triangles, coloured by
- * fs_colour (3 varyings); cfg = CONFIGURATION_BITS (first byte, rest). */
-static void bcl_build(int w, int h, uint8_t cfg8, uint16_t cfg16)
+ * fs_colour (3 varyings) or, with tex, textured by fs_texture (s and t in
+ * the first two of the 3 varyings, the texture parameters as uniforms);
+ * cfg = CONFIGURATION_BITS (first byte, rest). */
+static void bcl_build_shader(int w, int h, uint8_t cfg8, uint16_t cfg16, int tex)
 {
     const int tx = (w + V3D_TILE - 1) / V3D_TILE, ty = (h + V3D_TILE - 1) / V3D_TILE;
     /* shader record (NV): flags, vertex stride, uniforms, varyings, code,
@@ -166,11 +173,11 @@ static void bcl_build(int w, int h, uint8_t cfg8, uint16_t cfg16)
     uint8_t *r = m.rec;
     r[0] = 0;
     r[1] = sizeof(nv_vert_t);
-    r[2] = 0;
-    r[3] = 3;
-    uint32_t a = v3d_bus(m.code);
+    r[2] = tex ? 2 : 0;
+    r[3] = tex ? 2 : 3;
+    uint32_t a = v3d_bus(tex ? m.code + 128 : m.code);
     memcpy(r + 4, &a, 4);
-    a = 0;
+    a = tex ? v3d_bus(m.tex + 64 * 64) : 0;
     memcpy(r + 8, &a, 4);
     a = v3d_bus(m.verts);
     memcpy(r + 12, &a, 4);
@@ -210,6 +217,11 @@ static void bcl_build(int w, int h, uint8_t cfg8, uint16_t cfg16)
     /* a stale tile state could be taken by the binner (Linux clears it
      * before every job too) */
     memset(m.tsda, 0, TSDA_SIZE);
+}
+
+static void bcl_build(int w, int h, uint8_t cfg8, uint16_t cfg16)
+{
+    bcl_build_shader(w, h, cfg8, cfg16, 0);
 }
 
 /* a vertex at screen (x, y), depth z, colour 0xRRGGBB */
@@ -426,10 +438,60 @@ static int step_speed_fill(void)
     return 0;
 }
 
+/* A quad textured by the TMU: a 64x64 RGBA32R texture (raster order, 32
+ * bits a texel, as kumaashi's demo on the Pi Zero W), left half 0xFF0000FF
+ * and right half 0xFFFF0000 as words; on screen they must give red and
+ * blue (which is which says the byte order of the TMU). */
+static int step_texture(void)
+{
+    step("8 texture (TMU), nearest texel");
+    for (int y = 0; y < 64; y++)
+        for (int x = 0; x < 64; x++)
+            m.tex[y * 64 + x] = x < 32 ? 0xFF0000FFu : 0xFFFF0000u;
+    /* P0: base (4 KiB units), type RGBA32R = 16: low 4 bits 0, bit 4 in P1;
+     * P1: type bit 4, height, width, nearest magnification and
+     * minification, clamp to edge (1) in s and t */
+    uint32_t *p = m.tex + 64 * 64;
+    p[0] = v3d_bus(m.tex) & ~0xFFFu;
+    p[1] = 1u << 31 | 64u << 20 | 64u << 8 | 1u << 7 | 1u << 4 | 1u << 2 | 1u;
+    m.nverts = 0;
+    /* the colour slots carry s and t (the shader reads 2 of the 3) */
+    static const float q[6][4] = { { 120, 60, 0, 0 }, { 520, 60, 1, 0 }, { 120, 300, 0, 1 },
+                                   { 520, 60, 1, 0 }, { 520, 300, 1, 1 }, { 120, 300, 0, 1 } };
+    for (int i = 0; i < 6; i++) {
+        nv_vert_t *v = &m.verts[m.nverts++];
+        v->x = (int16_t)(q[i][0] * 16);
+        v->y = (int16_t)(q[i][1] * 16);
+        v->z = 0.5f;
+        v->inv_w = 1.0f;
+        v->c[0] = q[i][2];
+        v->c[1] = q[i][3];
+        v->c[2] = 0;
+    }
+    bcl_build_shader(W, H, V3D_CFG_FRONT | V3D_CFG_BACK, V3D_CFG_DEPTH(7), 1);
+    rcl_build(1, v3d_bus(m.target), W, H, V3D_RENDER_BGR565, 0xFF000000u);
+    uint32_t rus;
+    if (run(1, NULL, &rus) != 0) {
+        fail_dump("the job did not end");
+        return -1;
+    }
+    uint32_t left = px(200, 180), right = px(440, 180), out = px(20, 20);
+    int same = mostly(left, m.red_a ? 16 : 0) && mostly(right, m.red_a ? 0 : 16);
+    int swapped = mostly(left, m.red_a ? 0 : 16) && mostly(right, m.red_a ? 16 : 0);
+    if (!(same || swapped) || !near(out, 0, 8)) {
+        char why[100];
+        ksnprintf(why, sizeof why, "left %06lx, right %06lx, outside %06lx", left, right, out);
+        fail(why);
+        return -1;
+    }
+    kprintf("ok  render %lu us, texel bytes %s the tile buffer's\n", rus, same ? "as" : "swapped against");
+    return 0;
+}
+
 /* a picture drawn by the GPU straight into the console's page */
 static int step_screen(framebuffer_t *fb)
 {
-    step("8 on the screen (RGBA8888)");
+    step("9 on the screen (RGBA8888)");
     if (fb->depth != 32 || fb->width != W || fb->height != H || fb->pitch != W * 4) {
         kprintf("skipped (console %lux%lu, %lu bpp)\n", fb->width, fb->height, fb->depth);
         return 0;
@@ -490,7 +552,7 @@ void gpu_test(framebuffer_t *fb)
         return;
     }
     if (step_clear() == 0 && step_triangle() == 0 && step_depth() == 0 && step_speed_small() == 0 &&
-        step_speed_fill() == 0)
+        step_speed_fill() == 0 && step_texture() == 0)
         step_screen(fb);
     free(m.block);
     m.block = NULL;

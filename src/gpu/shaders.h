@@ -24,4 +24,24 @@ static const uint32_t fs_colour[34] __attribute__((aligned(8))) = {
     0x009e7000, 0x500009e7,     /* nop                 ; nop           ; sbdone */
 };
 
+static const uint32_t fs_texture[34] __attribute__((aligned(8))) = {
+    0x009e7000, 0x100009e7,     /* nop                 ; nop */
+    0x009e7000, 0x100009e7,     /* nop                 ; nop */
+    0x153e7d80, 0x100208e7,     /* mov r3, ra15        ; nop */
+    0x158e7d80, 0x10020827,     /* mov r0, vary        ; nop */
+    0x209e7003, 0x100049e0,     /* fmul r0, r0, r3     ; nop */
+    0x019e7140, 0x10020827,     /* fadd r0, r0, r5     ; nop */
+    0x158e7d80, 0x10020867,     /* mov r1, vary        ; nop */
+    0x209e700b, 0x100049e1,     /* fmul r1, r1, r3     ; nop */
+    0x019e7340, 0x10020867,     /* fadd r1, r1, r5     ; nop */
+    0x159e7240, 0x10020e67,     /* mov t0t, r1         ; nop */
+    0x159e7000, 0x10020e27,     /* mov t0s, r0         ; nop */
+    0x009e7000, 0x400009e7,     /* nop                 ; nop           ; sbwait */
+    0x159cffc0, 0x10020b27,     /* mov tlb_z, rb15     ; nop */
+    0x009e7000, 0xa00009e7,     /* nop                 ; nop           ; ldtmu0 */
+    0x159e7900, 0x30020ba7,     /* mov tlbc, r4        ; nop           ; thrend */
+    0x009e7000, 0x100009e7,     /* nop                 ; nop */
+    0x009e7000, 0x500009e7,     /* nop                 ; nop           ; sbdone */
+};
+
 #endif

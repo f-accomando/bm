@@ -231,6 +231,27 @@ SHADERS = {
         nop                 ; nop
         nop                 ; nop           ; sbdone
     """,
+    # texture 0 at (s, t) (2 varyings, the texture parameters P0 P1 as
+    # uniforms, read by the TMU when s is written), with depth
+    "fs_texture": """
+        nop                 ; nop
+        nop                 ; nop
+        mov r3, ra15        ; nop                       # W
+        mov r0, vary        ; nop                       # s
+        fmul r0, r0, r3     ; nop
+        fadd r0, r0, r5     ; nop
+        mov r1, vary        ; nop                       # t
+        fmul r1, r1, r3     ; nop
+        fadd r1, r1, r5     ; nop
+        mov t0t, r1         ; nop
+        mov t0s, r0         ; nop                       # starts the lookup
+        nop                 ; nop           ; sbwait
+        mov tlb_z, rb15     ; nop
+        nop                 ; nop           ; ldtmu0   # r4 = texel
+        mov tlbc, r4        ; nop           ; thrend
+        nop                 ; nop
+        nop                 ; nop           ; sbdone
+    """,
 }
 
 # shaders run on a Pi (Zero W) by others, as the reference of the encoding
