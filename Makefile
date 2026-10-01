@@ -149,7 +149,7 @@ test-titan: $(BUILD)/host/luahost $(BUILD)/titan/main.lua
 	$< tests/titan/sim.lua $(BUILD)/titan/main.lua $(BUILD)/titan/main.map
 
 .DEFAULT_GOAL := all
-.PHONY: FORCE test-smp all clean firmware image image-pi1 sdcard install sdcard-chainloader sdcard-stress qemu qemu-screenshot \
+.PHONY: FORCE test-smp bench3d count-insns all clean firmware image image-pi1 sdcard install sdcard-chainloader sdcard-stress qemu qemu-screenshot \
         run-serial test test-bm test-usb test-audio test-fat test-kitchen test-titan test-net test-http test-https disasm
 
 all: $(BUILD)/kernel.img $(BUILD)/chainloader.img $(GAME_CARTS)
@@ -361,6 +361,20 @@ $(BUILD)/host/test_board: tests/usb/test_board.c src/drivers/board.c src/drivers
 
 test-bm: $(BUILD)/host/test_bm $(BUILD)/demo.bm
 	$< $(BUILD)/demo.bm
+
+# Rasterizer bench (M30): checksums of fixed 3D scenes (a change to r3d.c
+# that should not change the picture must keep them), and with
+# count-insns the ARM instructions per pixel and per triangle (needs
+# gcc-arm-linux-gnueabihf and qemu-user).
+$(BUILD)/host/bench3d: tests/bm/bench3d.c src/bm/gfx16.c src/bm/r3d.c src/bm/*.h
+	@mkdir -p $(dir $@)
+	$(HOSTCC) -O2 -Wall -Wextra -Isrc -o $@ tests/bm/bench3d.c src/bm/gfx16.c src/bm/r3d.c -lm
+
+bench3d: $(BUILD)/host/bench3d
+	$<
+
+count-insns:
+	$(PYTHON) tests/bm/count_insns.py
 
 HOSTCC ?= cc
 

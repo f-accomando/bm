@@ -1232,6 +1232,19 @@ V3D), per i test sul PC e come riserva.
 6. **Texture, nebbia, trasparenze, MSAA 4×**; poi, se servono: vertex shader sulle QPU,
    luce per pixel, sprite 2D sulla GPU.
 
+Fatto (2026-10-01, da misurare sul Pi):
+- Passo 1: lo stress test aspetta 20 s dopo l'avvio, scrive clock (core e massimo, V3D,
+  SDRAM), throttling e tempo negli interrupt (con i due più pesanti), e ha quattro righe
+  `quad 320x180` (piatto, senza z, Gouraud, texture) con il costo di un pixel in ns.
+- Passo 2: bordi dei triangoli in virgola fissa 32.32 (niente confronti in virgola mobile
+  per riga), cicli delle texture specializzati (clamp controllato per segmento,
+  trasparenza per cella dello sheet, luce con 2 moltiplicazioni), dither del Gouraud in un
+  registro che ruota, mesh fuori dalla vista scartate prima di trasformarle, z-buffer
+  pulito dal DMA a fine frame (`dma_zclear=0` in `bm/config.txt` lo spegne). Pixel
+  identici a prima; istruzioni ARM per pixel in `docs/PRESTAZIONI.md` (texture con luce
+  70 → 46, Texture Room 85 → 58). Strumenti: `make bench3d` (checksum delle scene) e
+  `make count-insns` (istruzioni contate con `qemu-arm`).
+
 ## Rischi principali
 | Rischio | Mitigazione |
 |---------|-------------|

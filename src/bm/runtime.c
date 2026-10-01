@@ -58,6 +58,9 @@ static struct {
     int quit;
     r3d_t r3d;
     int r3d_ready;
+    int zclear_seen;            /* zclear() called in this frame */
+    int zclear_dma;             /* the z-buffer is being (or has been) cleared by the DMA
+                                 * for the next frame, and nothing has drawn on it since */
     g16_light_t light;          /* light_begin() .. light_end() */
     int text_mode;              /* keyp() was called: the keyboard types */
     int esc_wait;               /* frames since a serial Esc */
@@ -329,6 +332,46 @@ static r3d_t *r3d(lua_State *L)
     return &rt.r3d;
 }
 
+/* The DMA clear started at the end of the frame, if any, is waited for
+ * (it ran during _update). claim = the buffer is about to be drawn on:
+ * a later zclear() in the same frame clears it again. */
+static void zclear_dma_wait(int claim)
+{
+    if (!rt.zclear_dma)
+        return;
+    dma_wait();
+    if (claim)
+        rt.zclear_dma = 0;
+}
+
+/* After a frame that cleared the z-buffer, the next clear starts at once
+ * on the DMA, while the cartridge runs _update (zclear() then only waits
+ * for it): about 1 ms saved per frame at 640x360. dma_zclear=0 in
+ * bm/config.txt turns it off. */
+static void zclear_dma_start(void)
+{
+    const int seen = rt.zclear_seen;
+    rt.zclear_seen = 0;
+    if (!seen || !rt.r3d_ready || rt.zclear_dma || !dma_ready())
+        return;
+    static int off = -1;
+    if (off < 0) {
+        const char *v = config_get("dma_zclear");
+        off = v && strcmp(v, "0") == 0;
+    }
+    if (off)
+        return;
+    const uint32_t bytes = (uint32_t)rt.r3d.g->w * (uint32_t)rt.r3d.g->h * 2;
+    if (bytes & 15)
+        return;
+    /* no dirty line of the z-buffer may be written back over the DMA's
+     * zeros, and none may stay cached: the whole data cache is cleaned and
+     * dropped (16 KiB, cheaper than the 460 KiB range) */
+    dcache_clean_invalidate_all();
+    dma_fill(rt.r3d.zbuf, 0, bytes);
+    rt.zclear_dma = 1;
+}
+
 static r3d_mesh_t *new_mesh(lua_State *L)
 {
     r3d_mesh_t *m = lua_newuserdatauv(L, sizeof *m, 0);
@@ -419,6 +462,7 @@ static int l_draw3d(lua_State *L)
 {
     r3d_mesh_t *m = luaL_checkudata(L, 1, MESH_MT);
     v3_t p = { fnum(L, 2, 0), fnum(L, 3, 0), fnum(L, 4, 0) };
+    zclear_dma_wait(1);
     r3d_draw_flags(r3d(L), m, p, fnum(L, 5, 0), fnum(L, 6, 0), fnum(L, 7, 0), fnum(L, 8, 1),
                    (unsigned)luaL_optinteger(L, 9, 0));
     return 0;
@@ -486,7 +530,14 @@ static int l_lamp3d(lua_State *L)
 
 static int l_zclear(lua_State *L)
 {
-    r3d_zclear(r3d(L));
+    r3d_t *r = r3d(L);
+    rt.zclear_seen = 1;
+    if (rt.zclear_dma) {
+        zclear_dma_wait(1);
+        r->tris_in = r->tris_drawn = r->pixels = 0;
+        return 0;
+    }
+    r3d_zclear(r);
     return 0;
 }
 
@@ -1462,6 +1513,7 @@ static void leave_mode(framebuffer_t *fb, uint32_t w, uint32_t h)
 static void present(framebuffer_t *fb, uint32_t *deadline, uint32_t *prev, uint32_t *dropped)
 {
     rt.present_us = bm_video_present(fb, &rt.g);
+    zclear_dma_start();
     while ((int32_t)(timer_ticks() - *deadline) < 0)
         ;
     uint32_t now = timer_ticks();
@@ -1491,6 +1543,8 @@ static void release(lua_State *L)
 {
     lua_close(L);               /* frees meshes (__gc) before the z-buffer */
     g16_light_free(&rt.light);
+    zclear_dma_wait(1);         /* the DMA may still be clearing it */
+    rt.zclear_seen = 0;
     if (rt.r3d_ready)
         r3d_free(&rt.r3d);
     rt.r3d_ready = 0;

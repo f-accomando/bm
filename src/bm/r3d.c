@@ -12,17 +12,21 @@ typedef struct { float x, y, z; } sv_t;     /* screen x, y; z = 1/depth */
 
 /*
  * Triangle setup shared by the rasterizers. Pixel centres are sampled at
- * (x + 0.5, y + 0.5) so shared edges are drawn once. The vertices are
- * sorted by y; the edges are walked with slopes computed once, and every
- * attribute (depth, colour, texture) is linear in screen space, so it has
- * constant gradients d/dx and d/dy: no division per scanline.
+ * (x + 0.5, y + 0.5): a pixel is drawn when its centre is in [left edge,
+ * right edge) and its row centre in [top, bottom), so shared edges are
+ * drawn once. The vertices are sorted by y; the edges are walked in 32.32
+ * fixed point (one 64-bit addition per row, no floating point compare),
+ * and every attribute (depth, colour, texture) is linear in screen space,
+ * with constant gradients d/dx and d/dy: no division per row.
  */
 typedef struct {
     float ax, ay, bx, by;       /* top and middle vertex */
     float s_ac, s_ab, s_bc;     /* dx/dy of the long edge and the two short ones */
     float area;                 /* twice the signed area (for the gradients) */
+    float inv_area;
     float e1x, e1y, e2x, e2y;   /* b - a, c - a */
-    int y0, y1;                 /* scanlines [y0, y1), clipped */
+    int y0, ymid, y1;           /* rows [y0, ymid) above b, [ymid, y1) below; clipped */
+    int long_left;              /* the long edge a-c is on the left */
 } tri_t;
 
 /* ceil() for the pixel rules; exact for the values a screen can hold */
@@ -42,38 +46,79 @@ static int tri_setup(tri_t *t, const g16_t *g, float ax, float ay, float bx, flo
     t->area = t->e1x * t->e2y - t->e2x * t->e1y;
     if (t->area > -1e-6f && t->area < 1e-6f)
         return 0;
+    t->inv_area = 1.0f / t->area;
+    t->long_left = t->area > 0;
     t->s_ac = (cx - ax) / (cy - ay);
     t->s_ab = by - ay > 1e-6f ? (bx - ax) / (by - ay) : 0.0f;
     t->s_bc = cy - by > 1e-6f ? (cx - bx) / (cy - by) : 0.0f;
     t->y0 = iceil(ay - 0.5f);
+    t->ymid = iceil(by - 0.5f);
     t->y1 = iceil(cy - 0.5f);
     if (t->y0 < g->cy0) t->y0 = g->cy0;
     if (t->y1 > g->cy1) t->y1 = g->cy1;
+    if (t->ymid < t->y0) t->ymid = t->y0;
+    if (t->ymid > t->y1) t->ymid = t->y1;
     return t->y0 < t->y1;
 }
 
 /* Gradients of an attribute with values va, vb, vc at the vertices. */
 static inline void tri_grad(const tri_t *t, float va, float vb, float vc, float *ddx, float *ddy)
 {
-    float d1 = vb - va, d2 = vc - va, inv = 1.0f / t->area;
+    float d1 = vb - va, d2 = vc - va, inv = t->inv_area;
     *ddx = (d1 * t->e2y - d2 * t->e1y) * inv;
     *ddy = (d2 * t->e1x - d1 * t->e2x) * inv;
 }
 
-/* Pixels [x0, x1) of scanline y, clipped; 0 if none. */
-static inline int tri_span(const tri_t *t, const g16_t *g, int y, int *x0, int *x1)
+/* f in 32.32 fixed point (limited to +-2^30) */
+static inline int64_t fx32(float f)
 {
-    float py = y + 0.5f;
-    float xl = t->ax + (py - t->ay) * t->s_ac;
-    float xr = py < t->by ? t->ax + (py - t->ay) * t->s_ab : t->bx + (py - t->by) * t->s_bc;
-    if (xl > xr) { float s = xl; xl = xr; xr = s; }
-    int a = iceil(xl - 0.5f), b = iceil(xr - 0.5f);
-    if (a < g->cx0) a = g->cx0;
-    if (b > g->cx1) b = g->cx1;
-    *x0 = a;
-    *x1 = b;
-    return a < b;
+    double d = (double)f;
+    if (d > 1073741824.0) d = 1073741824.0;
+    if (d < -1073741824.0) d = -1073741824.0;
+    d += 2147483648.0;                  /* positive: the conversion is a floor */
+    uint32_t hi = (uint32_t)d;
+    uint32_t lo = (uint32_t)((d - (double)hi) * 4294967296.0);
+    return (int64_t)(((uint64_t)(hi - 0x80000000u) << 32) | lo);
 }
+
+/* first pixel whose centre is at or right of x (32.32): ceil(x - 0.5) */
+#define PIX(X) ((int)(((X) + 0x7FFFFFFFLL) >> 32))
+
+/*
+ * The rows of a set-up triangle: the body runs for every row y with pixels
+ * [x0, x1) (clipped, not empty). The left and right edges change at the
+ * middle vertex; the long edge goes on.
+ */
+#define SCAN(t, g, ...) do {                                                                 \
+    const tri_t *T_ = (t);                                                                 \
+    int64_t lng_ = fx32(T_->ax + ((float)T_->y0 + 0.5f - T_->ay) * T_->s_ac), slng_ = fx32(T_->s_ac); \
+    int64_t sht_ = 0, ssht_ = 0;                                                           \
+    if (T_->y0 < T_->ymid) {                                                               \
+        sht_ = fx32(T_->ax + ((float)T_->y0 + 0.5f - T_->ay) * T_->s_ab);                    \
+        ssht_ = fx32(T_->s_ab);                                                            \
+    }                                                                                      \
+    int y = T_->y0;                                                                        \
+    for (int half_ = 0; half_ < 2; half_++) {                                              \
+        const int yend_ = half_ ? T_->y1 : T_->ymid;                                       \
+        if (y >= yend_)                                                                    \
+            continue;                                                                      \
+        if (half_) {                                                                       \
+            sht_ = fx32(T_->bx + ((float)y + 0.5f - T_->by) * T_->s_bc);                     \
+            ssht_ = fx32(T_->s_bc);                                                        \
+        }                                                                                  \
+        int64_t l_ = T_->long_left ? lng_ : sht_, sl_ = T_->long_left ? slng_ : ssht_;     \
+        int64_t r_ = T_->long_left ? sht_ : lng_, sr_ = T_->long_left ? ssht_ : slng_;     \
+        for (; y < yend_; y++, l_ += sl_, r_ += sr_) {                                     \
+            int x0 = PIX(l_), x1 = PIX(r_);                                                \
+            if (x0 < (g)->cx0) x0 = (g)->cx0;                                              \
+            if (x1 > (g)->cx1) x1 = (g)->cx1;                                              \
+            if (x0 >= x1)                                                                  \
+                continue;                                                                  \
+            __VA_ARGS__                                                                    \
+        }                                                                                  \
+        lng_ = T_->long_left ? l_ : r_;                                                    \
+    }                                                                                      \
+} while (0)
 
 /* value of an attribute at the centre of pixel (x, y) */
 #define ATTR(t, va, ddx, ddy, x, y) ((va) + ((x) + 0.5f - (t)->ax) * (ddx) + ((y) + 0.5f - (t)->ay) * (ddy))
@@ -85,6 +130,39 @@ static inline int tri_span(const tri_t *t, const g16_t *g, int y, int *x0, int *
 
 /* z = 1/depth, 16-bit z-buffer: bigger = nearer; stepped in 24.8 */
 #define ZSCALE (65535.0f * 256.0f)
+
+/* (zf >> 8) limited to 0..65535 (a negative depth never passes the test) */
+static inline uint32_t zsat(int32_t zf)
+{
+#if defined(__arm__)
+    uint32_t r;
+    __asm__("usat %0, #16, %1, asr #8" : "=r"(r) : "r"(zf));
+    return r;
+#else
+    int32_t z = zf >> 8;
+    return z < 0 ? 0 : z > 65535 ? 65535 : (uint32_t)z;
+#endif
+}
+
+typedef uint32_t __attribute__((may_alias)) u32a_t;
+
+/* n pixels of colour c, two at a time */
+static inline void span_fill(uint16_t *p, int n, uint16_t c)
+{
+    if (((uintptr_t)p & 2) && n > 0) {
+        *p++ = c;
+        n--;
+    }
+    const uint32_t c2 = c | (uint32_t)c << 16;
+    u32a_t *q = (u32a_t *)p;
+    for (; n >= 8; n -= 8, q += 4) {
+        q[0] = c2; q[1] = c2; q[2] = c2; q[3] = c2;
+    }
+    for (; n >= 2; n -= 2)
+        *q++ = c2;
+    if (n)
+        *(uint16_t *)q = c;
+}
 
 /*
  * Flat triangle. With zbuf == NULL it is a plain 2D fill.
@@ -101,46 +179,35 @@ static uint32_t raster(g16_t *g, uint16_t *zbuf, sv_t a, sv_t b, sv_t c, uint16_
     const int32_t dzf = (int32_t)(dzx * ZSCALE);
     uint32_t count = 0;
 
-    for (int y = t.y0; y < t.y1; y++) {
-        int x0, x1;
-        if (!tri_span(&t, g, y, &x0, &x1))
-            continue;
-        uint16_t *row = g->px + (uint32_t)y * g->stride;
+    SCAN(&t, g, {
+        uint16_t *p = g->px + (uint32_t)y * g->stride + x0;
+        int n = x1 - x0;
         if (!zbuf) {
-            for (int x = x0; x < x1; x++)
-                row[x] = color;
-            count += (uint32_t)(x1 - x0);
+            span_fill(p, n, color);
+            count += (uint32_t)n;
             continue;
         }
         int32_t zf = (int32_t)(ATTR(&t, a.z, dzx, dzy, x0, y) * ZSCALE);
-        uint16_t *zrow = zbuf + (uint32_t)y * g->w;
-        for (int x = x0; x < x1; x++, zf += dzf) {
-            int32_t zz = zf >> 8;
-            if (zz > 65535) zz = 65535;
-            if (zz > zrow[x]) {
-                zrow[x] = (uint16_t)zz;
-                row[x] = color;
+        uint16_t *zp = zbuf + (uint32_t)y * g->w + x0;
+        do {
+            uint32_t zz = zsat(zf);
+            zf += dzf;
+            if (zz > *zp) {
+                *zp = (uint16_t)zz;
+                *p = color;
                 count++;
             }
-        }
-    }
+            zp++;
+            p++;
+        } while (--n);
+    });
     return count;
 }
 
-/* 4x4 ordered dither, 0..15: the colour steps of RGB565 (8 levels of red
- * and blue, 4 of green) become a fine pattern instead of bands. Per pixel
- * the offsets are (d >> 1, d >> 2, d >> 1), packed here. */
-static const uint8_t bayer4[4][4] = {
-    { 0, 8, 2, 10 }, { 12, 4, 14, 6 }, { 3, 11, 1, 9 }, { 15, 7, 13, 5 },
-};
-
-/* r, g, b: 0..248 / 0..252 / 0..248 (the vertex colours are limited so that
- * the dither never overflows: 248 + 7 still rounds to the top level) */
-static inline uint16_t dither565(uint32_t r, uint32_t g, uint32_t b, uint32_t d)
-{
-    r += d >> 1; g += d >> 2; b += d >> 1;
-    return (uint16_t)((r >> 3) << 11 | (g >> 2) << 5 | (b >> 3));
-}
+/* 4x4 ordered dither, 0..15 ({ 0, 8, 2, 10 }, { 12, 4, 14, 6 }, { 3, 11, 1,
+ * 9 }, { 15, 7, 13, 5 }): the colour steps of RGB565 (8 levels of red and
+ * blue, 4 of green) become a fine pattern instead of bands. Per pixel the
+ * offsets are (d >> 1, d >> 2, d >> 1). */
 
 /* Gouraud triangle: the colour (r, g, b in 0..255) is interpolated across
  * the face, in screen space, and dithered. With zbuf == NULL, a 2D fill. */
@@ -149,6 +216,29 @@ typedef struct { float x, y, z, r, g, b; } gv_t;
 static inline float climit(float v, float hi)
 {
     return v < 0.5f ? 0.5f : v > hi ? hi : v;
+}
+
+/* the dither offsets of the four columns of a row of bayer4, one byte per
+ * column: d >> 1 (red and blue) in bits 0-2, d >> 2 (green) in bits 3-4 */
+#define DBYTE(d) ((uint32_t)((d) >> 1 | ((d) >> 2) << 3))
+#define DROW(a, b, c, d) (DBYTE(a) | DBYTE(b) << 8 | DBYTE(c) << 16 | DBYTE(d) << 24)
+static const uint32_t dither_row[4] = {
+    DROW(0, 8, 2, 10), DROW(12, 4, 14, 6), DROW(3, 11, 1, 9), DROW(15, 7, 13, 5),
+};
+
+static inline uint32_t ror8(uint32_t v, unsigned n)
+{
+    return n ? v >> n | v << (32 - n) : v;
+}
+
+/* A dithered RGB565 pixel from 16.16 colours whose integer parts are at
+ * most 248 / 252 / 248 (the vertex colours are limited so that the dither
+ * never overflows: 248 + 7 still rounds to the top level); d is the
+ * dither byte of the pixel's column (low byte of the rotating pattern). */
+static inline uint16_t dither565(uint32_t cr, uint32_t cg, uint32_t cb, uint32_t d)
+{
+    const uint32_t rb = (d & 7) << 16, gd = (d & 0x18) << 13;
+    return (uint16_t)(((cr + rb) >> 8 & 0xF800) | ((cg + gd) >> 13 & 0x07E0) | (cb + rb) >> 19);
 }
 
 static uint32_t raster_gouraud(g16_t *g, uint16_t *zbuf, gv_t a, gv_t b, gv_t c)
@@ -171,34 +261,40 @@ static uint32_t raster_gouraud(g16_t *g, uint16_t *zbuf, gv_t a, gv_t b, gv_t c)
                   ib = (int32_t)(dbx * 65536.0f), dzf = (int32_t)(dzx * ZSCALE);
     uint32_t count = 0;
 
-    for (int y = t.y0; y < t.y1; y++) {
-        int x0, x1;
-        if (!tri_span(&t, g, y, &x0, &x1))
-            continue;
+    SCAN(&t, g, {
         /* the edge rounding can step a hair outside the vertex range */
-        int32_t cr = (int32_t)(climit(ATTR(&t, a.r, drx, dry, x0, y), 248.4f) * 65536.0f);
-        int32_t cg = (int32_t)(climit(ATTR(&t, a.g, dgx, dgy, x0, y), 252.4f) * 65536.0f);
-        int32_t cb = (int32_t)(climit(ATTR(&t, a.b, dbx, dby, x0, y), 248.4f) * 65536.0f);
-        const uint8_t *dith = bayer4[y & 3];
-        uint16_t *row = g->px + (uint32_t)y * g->stride;
+        uint32_t cr = (uint32_t)(int32_t)(climit(ATTR(&t, a.r, drx, dry, x0, y), 248.4f) * 65536.0f);
+        uint32_t cg = (uint32_t)(int32_t)(climit(ATTR(&t, a.g, dgx, dgy, x0, y), 252.4f) * 65536.0f);
+        uint32_t cb = (uint32_t)(int32_t)(climit(ATTR(&t, a.b, dbx, dby, x0, y), 248.4f) * 65536.0f);
+        /* the dither bytes from column x0 on, one per pixel */
+        uint32_t pat = ror8(dither_row[y & 3], 8u * (unsigned)(x0 & 3));
+        uint16_t *p = g->px + (uint32_t)y * g->stride + x0;
+        int n = x1 - x0;
         if (!zbuf) {
-            for (int x = x0; x < x1; x++, cr += ir, cg += ig, cb += ib)
-                row[x] = dither565((uint32_t)cr >> 16, (uint32_t)cg >> 16, (uint32_t)cb >> 16, dith[x & 3]);
-            count += (uint32_t)(x1 - x0);
+            count += (uint32_t)n;
+            do {
+                *p++ = dither565(cr, cg, cb, pat);
+                pat = ror8(pat, 8);
+                cr += (uint32_t)ir; cg += (uint32_t)ig; cb += (uint32_t)ib;
+            } while (--n);
             continue;
         }
         int32_t zf = (int32_t)(ATTR(&t, a.z, dzx, dzy, x0, y) * ZSCALE);
-        uint16_t *zrow = zbuf + (uint32_t)y * g->w;
-        for (int x = x0; x < x1; x++, zf += dzf, cr += ir, cg += ig, cb += ib) {
-            int32_t zz = zf >> 8;
-            if (zz > 65535) zz = 65535;
-            if (zz > zrow[x]) {
-                zrow[x] = (uint16_t)zz;
-                row[x] = dither565((uint32_t)cr >> 16, (uint32_t)cg >> 16, (uint32_t)cb >> 16, dith[x & 3]);
+        uint16_t *zp = zbuf + (uint32_t)y * g->w + x0;
+        do {
+            uint32_t zz = zsat(zf);
+            zf += dzf;
+            if (zz > *zp) {
+                *zp = (uint16_t)zz;
+                *p = dither565(cr, cg, cb, pat);
                 count++;
             }
-        }
-    }
+            pat = ror8(pat, 8);
+            cr += (uint32_t)ir; cg += (uint32_t)ig; cb += (uint32_t)ib;
+            p++;
+            zp++;
+        } while (--n);
+    });
     return count;
 }
 
@@ -210,6 +306,200 @@ static uint32_t raster_gouraud(g16_t *g, uint16_t *zbuf, gv_t a, gv_t b, gv_t c)
 #define TEX_RUN 16                  /* pixels between exact perspective divisions */
 
 typedef struct { float x, y, z, u, v, k; } tv_t;    /* z = 1/depth; u, v premultiplied by z */
+
+/* texel p times the light k (0..256), as ((c * k) >> 8) for each of R, G
+ * and B: red and blue share one multiplication */
+static inline uint32_t mod565(uint32_t p, uint32_t k)
+{
+    uint32_t rb = (((p & 0xF800) << 5) | (p & 0x1F)) * k;
+    uint32_t gg = ((p & 0x07E0) * k) >> 8 & 0x07E0;
+    return (rb >> 13 & 0xF800) | (rb >> 8 & 0x1F) | gg;
+}
+
+/* the light of a texel: none (k >= 1 everywhere), the same for the
+ * whole face, or interpolated */
+enum { TL_NONE, TL_FLAT, TL_SMOOTH };
+
+/*
+ * n pixels of a texture run whose texels are all inside the texture (no
+ * clamp). ZT: depth test; ALPHA: skip transparent texels; LIGHT: TL_*.
+ * The constant arguments are folded where the function is inlined.
+ */
+static inline __attribute__((always_inline))
+uint32_t tex_run(uint16_t *p, uint16_t *zp, int n, int32_t zf, int32_t dzf, int32_t uf, int32_t duf,
+                 int32_t vf, int32_t dvf, int32_t kf, int32_t dkf, const uint16_t *px,
+                 const uint8_t *alpha, uint32_t tw, const int ZT, const int ALPHA, const int LIGHT)
+{
+    uint32_t count = 0;
+    const uint32_t kc = LIGHT == TL_FLAT ? (uint32_t)(kf <= 0 ? 0 : kf >> 8) : 0;
+    do {
+        uint32_t zz = 0;
+        if (ZT) {
+            zz = zsat(zf);
+            zf += dzf;
+        }
+        if (!ZT || zz > *zp) {
+            uint32_t i = (uint32_t)(vf >> 16) * tw + (uint32_t)(uf >> 16);
+            if (!ALPHA || alpha[i]) {
+                uint32_t c = px[i];
+                if (LIGHT == TL_FLAT) {
+                    c = mod565(c, kc);
+                } else if (LIGHT == TL_SMOOTH) {
+                    int32_t k = kf >> 8;
+                    c = mod565(c, k <= 0 ? 0 : k > 256 ? 256 : (uint32_t)k);
+                }
+                if (ZT)
+                    *zp = (uint16_t)zz;
+                *p = (uint16_t)c;
+                count++;
+            }
+        }
+        uf += duf;
+        vf += dvf;
+        if (LIGHT == TL_SMOOTH)
+            kf += dkf;
+        p++;
+        if (ZT)
+            zp++;
+    } while (--n);
+    return count;
+}
+
+/* the same with clamped texel coordinates, for the runs that reach out of
+ * the texture (the general case, as before M30) */
+static uint32_t tex_run_clamp(uint16_t *p, uint16_t *zp, int n, int32_t zf, int32_t dzf, int32_t uf,
+                              int32_t duf, int32_t vf, int32_t dvf, int32_t kf, int32_t dkf,
+                              const g16_sheet_t *tex)
+{
+    const int tw = tex->w, th = tex->h;
+    uint32_t count = 0;
+    for (; n > 0; n--, p++, zf += dzf, uf += duf, vf += dvf, kf += dkf) {
+        uint32_t zz = zsat(zf);
+        if (zp) {
+            if (zz <= *zp) {
+                zp++;
+                continue;
+            }
+        }
+        int tx = uf >> 16, ty = vf >> 16;
+        if ((unsigned)tx >= (unsigned)tw) tx = tx < 0 ? 0 : tw - 1;
+        if ((unsigned)ty >= (unsigned)th) ty = ty < 0 ? 0 : th - 1;
+        uint32_t i = (uint32_t)ty * (uint32_t)tw + (uint32_t)tx;
+        if (tex->alpha[i]) {
+            int32_t k = kf >> 8;
+            if (zp)
+                *zp = (uint16_t)zz;
+            *p = (uint16_t)mod565(tex->px[i], k <= 0 ? 0 : k > 256 ? 256 : (uint32_t)k);
+            count++;
+        }
+        if (zp)
+            zp++;
+    }
+    return count;
+}
+
+/* Whether every texel between two texel coordinates (16.16, inside the
+ * sheet) is opaque: the 8x8 cells of the sheet are flagged when all their
+ * pixels are. Long runs across many cells are not checked. */
+static inline int run_opaque(const g16_sheet_t *s, int32_t ua, int32_t ub, int32_t va, int32_t vb)
+{
+    int cx0 = ua >> 19, cx1 = ub >> 19, cy0 = va >> 19, cy1 = vb >> 19;
+    if (cx0 > cx1) { int t = cx0; cx0 = cx1; cx1 = t; }
+    if (cy0 > cy1) { int t = cy0; cy0 = cy1; cy1 = t; }
+    if (cx1 - cx0 > 3 || cy1 - cy0 > 3)
+        return 0;
+    const int cw = s->w / G16_CELL;
+    for (int cy = cy0; cy <= cy1; cy++)
+        for (int cx = cx0; cx <= cx1; cx++)
+            if (!s->cell_opaque[cy * cw + cx])
+                return 0;
+    return 1;
+}
+
+/* gradients of a textured face along x, and its light */
+typedef struct {
+    float dzx, dux, dvx;
+    int32_t dzf, dkf;
+    int light;                  /* TL_* */
+} texgrad_t;
+
+#define TEX_RUN_CASE(ZT, ALPHA, LIGHT) \
+    tex_run(p, zp, n, zf, gr->dzf, uf, duf, vf, dvf, kf, gr->dkf, px, alpha, tw, ZT, ALPHA, LIGHT)
+
+/* 1.0f / n for the short runs (the same values as the division) */
+static const float recip[TEX_RUN] = {
+    0, 1.0f / 1, 1.0f / 2, 1.0f / 3, 1.0f / 4, 1.0f / 5, 1.0f / 6, 1.0f / 7, 1.0f / 8,
+    1.0f / 9, 1.0f / 10, 1.0f / 11, 1.0f / 12, 1.0f / 13, 1.0f / 14, 1.0f / 15,
+};
+
+/* One row of a textured face: pixels [0, len) from p (and zp, or NULL
+ * without the z-buffer); z, u, v and kf at the first pixel. */
+static uint32_t tex_span(uint16_t *p, uint16_t *zp, int len, float z, float u, float v, int32_t kf,
+                         const texgrad_t *gr, const g16_sheet_t *tex)
+{
+    const uint32_t tw = (uint32_t)tex->w, th = (uint32_t)tex->h;
+    const uint16_t *px = tex->px;
+    const uint8_t *alpha = tex->alpha;
+    const int light = gr->light;
+    uint32_t count = 0;
+    int32_t zf = (int32_t)(z * ZSCALE);
+    /* texel coordinates (16.16) exact every TEX_RUN pixels, linear in between */
+    float iz = 1.0f / (z > 1e-9f ? z : 1e-9f);
+    int32_t uf = (int32_t)(u * iz * 65536.0f), vf = (int32_t)(v * iz * 65536.0f);
+    for (int x = 0; x < len;) {
+        int n = len - x < TEX_RUN ? len - x : TEX_RUN;
+        z += gr->dzx * n; u += gr->dux * n; v += gr->dvx * n;
+        float iz2 = 1.0f / (z > 1e-9f ? z : 1e-9f);
+        int32_t uf2 = (int32_t)(u * iz2 * 65536.0f), vf2 = (int32_t)(v * iz2 * 65536.0f);
+        int32_t duf, dvf;
+        if (n == TEX_RUN) {
+            duf = (uf2 - uf) / TEX_RUN; dvf = (vf2 - vf) / TEX_RUN;
+        } else {
+            const float in = recip[n];
+            duf = (int32_t)((float)(uf2 - uf) * in); dvf = (int32_t)((float)(vf2 - vf) * in);
+        }
+        /* u and v are linear along the run: if its first and last texels
+         * are inside the texture, all of them are */
+        const int32_t ue = uf + (n - 1) * duf, ve = vf + (n - 1) * dvf;
+        if ((uint32_t)(uf >> 16) < tw && (uint32_t)(ue >> 16) < tw &&
+            (uint32_t)(vf >> 16) < th && (uint32_t)(ve >> 16) < th) {
+            const int opaque = run_opaque(tex, uf, ue, vf, ve);
+            if (zp) {
+                if (opaque) {
+                    if (light == TL_NONE) count += TEX_RUN_CASE(1, 0, TL_NONE);
+                    else if (light == TL_FLAT) count += TEX_RUN_CASE(1, 0, TL_FLAT);
+                    else count += TEX_RUN_CASE(1, 0, TL_SMOOTH);
+                } else {
+                    if (light == TL_NONE) count += TEX_RUN_CASE(1, 1, TL_NONE);
+                    else if (light == TL_FLAT) count += TEX_RUN_CASE(1, 1, TL_FLAT);
+                    else count += TEX_RUN_CASE(1, 1, TL_SMOOTH);
+                }
+            } else {
+                if (opaque) {
+                    if (light == TL_NONE) count += TEX_RUN_CASE(0, 0, TL_NONE);
+                    else if (light == TL_FLAT) count += TEX_RUN_CASE(0, 0, TL_FLAT);
+                    else count += TEX_RUN_CASE(0, 0, TL_SMOOTH);
+                } else {
+                    if (light == TL_NONE) count += TEX_RUN_CASE(0, 1, TL_NONE);
+                    else if (light == TL_FLAT) count += TEX_RUN_CASE(0, 1, TL_FLAT);
+                    else count += TEX_RUN_CASE(0, 1, TL_SMOOTH);
+                }
+            }
+        } else {
+            count += tex_run_clamp(p, zp, n, zf, gr->dzf, uf, duf, vf, dvf, kf, gr->dkf, tex);
+        }
+        x += n;
+        p += n;
+        if (zp)
+            zp += n;
+        zf += gr->dzf * n;
+        kf += gr->dkf * n;
+        uf = uf2; vf = vf2;
+    }
+    return count;
+}
+
+#undef TEX_RUN_CASE
 
 static uint32_t raster_tex(g16_t *g, uint16_t *zbuf, tv_t a, tv_t b, tv_t c,
                            const g16_sheet_t *tex)
@@ -225,60 +515,18 @@ static uint32_t raster_tex(g16_t *g, uint16_t *zbuf, tv_t a, tv_t b, tv_t c,
     tri_grad(&t, a.k, b.k, c.k, &dkx, &dky);
     const int flat_k = a.k == b.k && b.k == c.k;
     /* light in 8.8 fixed point of 0..256 */
-    const int32_t dkf = flat_k ? 0 : (int32_t)(dkx * 65536.0f), dzf = (int32_t)(dzx * ZSCALE);
-    const int tw = tex->w, th = tex->h;
+    texgrad_t gr = { dzx, dux, dvx, (int32_t)(dzx * ZSCALE), flat_k ? 0 : (int32_t)(dkx * 65536.0f),
+                     flat_k ? ((int32_t)(a.k * 65536.0f) >> 8 >= 256 ? TL_NONE : TL_FLAT) : TL_SMOOTH };
     uint32_t count = 0;
 
-    for (int y = t.y0; y < t.y1; y++) {
-        int x0, x1;
-        if (!tri_span(&t, g, y, &x0, &x1))
-            continue;
+    SCAN(&t, g, {
         float z = ATTR(&t, a.z, dzx, dzy, x0, y), u = ATTR(&t, a.u, dux, duy, x0, y),
               v = ATTR(&t, a.v, dvx, dvy, x0, y);
         int32_t kf = (int32_t)((flat_k ? a.k : ATTR(&t, a.k, dkx, dky, x0, y)) * 65536.0f);
-        int32_t zf = (int32_t)(z * ZSCALE);
-        uint16_t *row = g->px + (uint32_t)y * g->stride;
-        uint16_t *zrow = zbuf ? zbuf + (uint32_t)y * g->w : NULL;
-        /* texel coordinates (16.16) exact every TEX_RUN pixels, linear in between */
-        float iz = 1.0f / (z > 1e-9f ? z : 1e-9f);
-        int32_t uf = (int32_t)(u * iz * 65536.0f), vf = (int32_t)(v * iz * 65536.0f);
-        for (int x = x0; x < x1;) {
-            int n = x1 - x < TEX_RUN ? x1 - x : TEX_RUN;
-            z += dzx * n; u += dux * n; v += dvx * n;
-            float iz2 = 1.0f / (z > 1e-9f ? z : 1e-9f);
-            int32_t uf2 = (int32_t)(u * iz2 * 65536.0f), vf2 = (int32_t)(v * iz2 * 65536.0f);
-            int32_t duf, dvf;
-            if (n == TEX_RUN) {
-                duf = (uf2 - uf) / TEX_RUN; dvf = (vf2 - vf) / TEX_RUN;
-            } else {
-                float in = 1.0f / n;
-                duf = (int32_t)((float)(uf2 - uf) * in); dvf = (int32_t)((float)(vf2 - vf) * in);
-            }
-            for (int e = x + n; x < e; x++, zf += dzf, uf += duf, vf += dvf, kf += dkf) {
-                int32_t zz = zf >> 8;
-                if (zz > 65535) zz = 65535;
-                if (zrow && zz <= zrow[x])
-                    continue;
-                int tx = uf >> 16, ty = vf >> 16;
-                if ((unsigned)tx >= (unsigned)tw) tx = tx < 0 ? 0 : tw - 1;
-                if ((unsigned)ty >= (unsigned)th) ty = ty < 0 ? 0 : th - 1;
-                uint32_t i = (uint32_t)ty * (uint32_t)tw + (uint32_t)tx;
-                if (!tex->alpha[i])
-                    continue;
-                uint32_t p = tex->px[i];
-                uint32_t k = kf <= 0 ? 0 : (uint32_t)(kf >> 8);
-                if (k < 256) {
-                    uint32_t rr = (p >> 11) * k >> 8, gg = (p >> 5 & 63) * k >> 8, bb = (p & 31) * k >> 8;
-                    p = rr << 11 | gg << 5 | bb;
-                }
-                if (zrow)
-                    zrow[x] = (uint16_t)zz;
-                row[x] = (uint16_t)p;
-                count++;
-            }
-            uf = uf2; vf = vf2;
-        }
-    }
+        uint16_t *p = g->px + (uint32_t)y * g->stride + x0;
+        uint16_t *zp = zbuf ? zbuf + (uint32_t)y * g->w + x0 : NULL;
+        count += tex_span(p, zp, x1 - x0, z, u, v, kf, &gr, tex);
+    });
     return count;
 }
 
@@ -397,6 +645,7 @@ static uint16_t shade(uint32_t rgb, float k, uint32_t fog, float f)
 typedef struct {
     float c[9];                 /* world -> camera rotation (yaw, pitch, roll) */
     float hw, hh, f;
+    float side, top;            /* |(f, hw)| and |(f, hh)|: the screen edges as planes */
 } view_t;
 
 static void view_setup(const r3d_t *r, view_t *v)
@@ -423,6 +672,8 @@ static void view_setup(const r3d_t *r, view_t *v)
     v->hw = r->g->w * 0.5f;
     v->hh = r->g->h * 0.5f;
     v->f = r->focal;
+    v->side = sqrtf(v->f * v->f + v->hw * v->hw);
+    v->top = sqrtf(v->f * v->f + v->hh * v->hh);
     cache.yaw = r->cam_yaw; cache.pitch = r->cam_pitch; cache.roll = r->cam_roll;
     cache.focal = r->focal; cache.w = r->g->w; cache.h = r->g->h;
     cache.v = *v;
@@ -527,11 +778,24 @@ void r3d_draw_flags(r3d_t *r, const r3d_mesh_t *m, v3_t p, float rx, float ry, f
     if (m->nverts > MAX_VERTS)
         return;
 
-    float R[9];
-    rot_matrix(R, rx, ry, rz);
     view_t v;
     view_setup(r, &v);
     const float *C = v.c;
+    if (m->radius >= 0) {
+        /* the mesh's bounding sphere, in camera space, against the near
+         * plane and the four planes through the eye and the screen edges */
+        const float rad = m->radius * fabsf(scale);
+        const float wx = p.x - r->cam_pos.x, wy = p.y - r->cam_pos.y, wz = p.z - r->cam_pos.z;
+        const float cx = C[0] * wx + C[1] * wy + C[2] * wz, cy = C[3] * wx + C[4] * wy + C[5] * wz,
+                    cz = C[6] * wx + C[7] * wy + C[8] * wz;
+        if (cz + rad < NEAR || v.f * fabsf(cx) - v.hw * cz > rad * v.side ||
+            v.f * fabsf(cy) - v.hh * cz > rad * v.top) {
+            r->tris_in += (uint32_t)m->nfaces;
+            return;
+        }
+    }
+    float R[9];
+    rot_matrix(R, rx, ry, rz);
     const int unlit = (flags & R3D_UNLIT) != 0;
     const int smooth = (flags & R3D_SMOOTH) && m->vnormals;
     const int fog = r->fog_far > r->fog_near;
@@ -571,17 +835,17 @@ void r3d_draw_flags(r3d_t *r, const r3d_mesh_t *m, v3_t p, float rx, float ry, f
     for (int t = 0; t < m->nfaces; t++) {
         const uint16_t *fc = m->faces + t * 3;
         r->tris_in++;
-        cv_t tri[3] = { cv[fc[0]], cv[fc[1]], cv[fc[2]] };
-        int nin = (tri[0].z >= NEAR) + (tri[1].z >= NEAR) + (tri[2].z >= NEAR);
+        int nin = (cv[fc[0]].z >= NEAR) + (cv[fc[1]].z >= NEAR) + (cv[fc[2]].z >= NEAR);
         if (nin == 0)
             continue;
         /* back faces first, on the vertices in front of the camera (the
          * clipped polygon has the same winding) */
         if (nin == 3) {
-            sv_t a = sv[fc[0]], b = sv[fc[1]], c = sv[fc[2]];
-            if ((b.x - a.x) * (c.y - a.y) - (b.y - a.y) * (c.x - a.x) <= 0)
+            const sv_t *a = &sv[fc[0]], *b = &sv[fc[1]], *c = &sv[fc[2]];
+            if ((b->x - a->x) * (c->y - a->y) - (b->y - a->y) * (c->x - a->x) <= 0)
                 continue;                   /* y points down on screen */
         }
+        cv_t tri[3] = { cv[fc[0]], cv[fc[1]], cv[fc[2]] };
         const uint32_t rgb = m->colors[t];
         const int textured = (rgb & R3D_TEXTURED) && m->uv && m->tex;
         if (textured)
@@ -699,6 +963,7 @@ int r3d_mesh_alloc(r3d_mesh_t *m, int nverts, int nfaces)
     }
     m->nverts = nverts;
     m->nfaces = nfaces;
+    m->radius = -1;
     return 0;
 }
 
@@ -717,6 +982,13 @@ void r3d_mesh_free(r3d_mesh_t *m)
 
 void r3d_mesh_normals(r3d_mesh_t *m)
 {
+    float r2 = 0;
+    for (int i = 0; i < m->nverts; i++) {
+        v3_t v = m->verts[i];
+        float d = v.x * v.x + v.y * v.y + v.z * v.z;
+        if (d > r2) r2 = d;
+    }
+    m->radius = sqrtf(r2) * 1.0001f + 1e-6f;
     for (int t = 0; t < m->nfaces; t++) {
         v3_t a = m->verts[m->faces[t * 3]], b = m->verts[m->faces[t * 3 + 1]], c = m->verts[m->faces[t * 3 + 2]];
         v3_t u = { b.x - a.x, b.y - a.y, b.z - a.z }, v = { c.x - a.x, c.y - a.y, c.z - a.z };

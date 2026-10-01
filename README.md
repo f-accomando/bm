@@ -191,6 +191,8 @@ aggiungere un gioco basta copiarlo in `carts/` sulla SD dal PC.
 **Scrittura (M11).** bm scrive solo nella cartella `bm/` della SD:
 `bm/config.txt` (layout della tastiera, modo di disegno; si può modificare anche dal
 PC) e `bm/save/*.SAV` (salvataggi e record delle cartucce: `save()`/`saved()`).
+In `bm/config.txt`, `dma_zclear=0` fa pulire lo z-buffer dalla CPU invece che dal DMA
+(M30; da usare solo se un gioco 3D si blocca).
 
 Limiti attuali: un solo dispositivo USB, senza hub; niente
 Bluetooth (il chip BCM43438 usa la stessa UART della console seriale e richiede

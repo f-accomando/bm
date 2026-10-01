@@ -82,6 +82,11 @@ dentro, numeri attesi contro numeri misurati.
 | Cicli interni in **virgola fissa** (16.16, 24.8) | float per pixel | Somme intere più veloci, niente conversioni | — |
 | **Nebbia** per faccia | per pixel | Stesso costo del piatto | Astro Wing |
 | **Lampade** puntiformi per faccia o vertice (max 4) | luce per pixel | Costo per faccia | — |
+| Bordi dei triangoli in **virgola fissa 32.32** (M30) | `ceilf` e confronti in virgola mobile a ogni riga | Ogni confronto VFP ferma la pipeline (`vmrs`): 5 per riga | ~80 → ~60 istruzioni per riga; stessi pixel |
+| Cicli delle texture **specializzati** (M30): con/senza z, trasparenza, luce | un ciclo unico con i controlli dentro | Il clamp delle coordinate si controlla una volta per segmento di 16 pixel, la trasparenza per cella 8×8 dello sheet | 70 → 46 istruzioni per pixel con luce, 55 → 30 senza; stessi pixel |
+| Luce sulle texture con **2 moltiplicazioni** (rosso e blu insieme) | 3 | Stesso risultato | — |
+| Mesh **fuori dalla vista scartate** prima di trasformarle (M30) | trasformare tutti i vertici | Sfera d'ingombro contro i quattro bordi dello schermo e il piano vicino | Chaos Kitchen: centinaia di `draw3d` per frame |
+| **z-buffer pulito dal DMA** a fine frame (M30) | `memset` in `zclear()` | Il DMA lavora mentre gira `_update`; `zclear()` aspetta solo la fine | ~1 ms a 640×360; `dma_zclear=0` lo spegne |
 
 ## 5. Costo per pixel: piatto, Gouraud, texture
 
@@ -94,6 +99,22 @@ dentro, numeri attesi contro numeri misurati.
 **Regola pratica**
 - Gouraud e texture vanno bene su oggetti **piccoli o medi**, non a tutto schermo.
 - Pavimenti e sfondi grandi: piatti e senza z-buffer.
+
+**Istruzioni ARM per pixel (M30, `make count-insns`)**, contate con `qemu-arm` sulle scene
+di `tests/bm/bench3d.c` (cache e bus esclusi: è il lavoro della CPU, non il tempo):
+
+| Scena | Prima | Dopo |
+|---|---:|---:|
+| Quad piatti con z | 12,5 | 10,4 |
+| Quad piatti senza z | 3,4 | 1,2 |
+| Quad Gouraud | 35,8 | 32,7 |
+| Quad con texture e luce | 70,0 | 45,8 |
+| Quad con texture, senza luce | 55,0 | 30,2 |
+| Sfere piatte (triangoli piccoli) | 24,5 | 21,6 |
+| Sfere con texture | 94,8 | 79,9 |
+| Texture Room (8 casse) | 84,7 | 57,7 |
+
+I pixel restano identici (stessi checksum di `make bench3d`).
 
 ## 6. Atteso (simulazioni) e trovato (Pi)
 
@@ -133,6 +154,10 @@ dentro, numeri attesi contro numeri misurati.
 | Il secondo DS4 non si connette | Il pad chiedeva SDP prima dell'HID; il rifiuto lo faceva chiudere | Server SDP minimo; la console apre i canali HID dopo 1 s |
 
 ## 9. Da misurare alla prossima prova
+
+- M30: stress `s` con le righe `quad 320x180` (ns per pixel) e le due righe della
+  macchina (clock del core, interrupt); Texture Room con 8 e 32 casse dopo il
+  rasterizzatore nuovo.
 
 - Stress `s` con la riscrittura del rasterizzatore: righe 3D piatto, Gouraud e texture.
 - Righe "before" e "after C part": clock, throttling e ciclo di sola CPU.

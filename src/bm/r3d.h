@@ -24,6 +24,9 @@ typedef struct {
     v3_t *vnormals;             /* per vertex (average of its faces), for Gouraud */
     float *uv;                  /* NULL, or 6 per face: u0 v0 u1 v1 u2 v2 in texels */
     const g16_sheet_t *tex;     /* texture of the R3D_TEXTURED faces */
+    float radius;               /* of a sphere around (0,0,0) holding every vertex, set by
+                                 * r3d_mesh_normals (< 0: unknown): meshes out of view are
+                                 * skipped before their vertices are transformed */
 } r3d_mesh_t;
 
 #define R3D_TEXTURED 0x80000000u
