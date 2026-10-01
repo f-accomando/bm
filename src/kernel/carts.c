@@ -435,7 +435,7 @@ static void draw(int sel, int top, int rows)
             outf("\x1b[90m %s%s%s\x1b[0m\n", c->dir, strcmp(c->dir, "/") ? "/" : "", c->name);
     }
     outf("\x1b[90m %s\x1b[0m\n", last_msg[0] ? last_msg : "");
-    out("\x1b[93m up/down choose   Enter/A play   Esc or Start+Select: monitor   R rescan SD\x1b[0m");
+    out("\x1b[93m up/down choose   Enter/A play   Ctrl+Esc/Start+Select: monitor   R rescan SD\x1b[0m");
 }
 
 /* ---------------------------------------------------------------- BareMetal UI */
@@ -706,7 +706,7 @@ void carts_menu(framebuffer_t *fb)
             }
             switch (c) {
             case 0x1B:                          /* an arrow key, or Esc alone: back */
-                if (input_remote_follows()) esc = 1; else quit = 1;
+                if (input_remote_follows()) esc = 1; else back = 1;
                 break;
             case 'w': case 'W': case 'k': dy--; break;
             case 's': case 'S': case 'j': dy++; break;
@@ -721,7 +721,7 @@ void carts_menu(framebuffer_t *fb)
             case 'x': case 'X': opts = 1; break;
             case 0x7F: case 0x08: back = 1; break;
             case '\r': case '\n': case ' ': action = 1; break;
-            case 'q': case 'Q': quit = 1; break;
+            case 'q': case 'Q': quit = HID_QUIT_MONITOR; break;
             case 'r': case 'R': action = 2; break;
             case 'U': action = 3; break;         /* bm_load.py --cart */
             }
@@ -762,9 +762,13 @@ void carts_menu(framebuffer_t *fb)
                 tabto = (cur + 1) % 3;
         }
         /* PS is home: Games, with every panel and question closed (never
-         * the monitor: that is Esc or Start+Select) */
+         * the monitor). Esc alone goes back like B; Ctrl+Esc, Start+Select
+         * and q from the serial port go back a level too, and from the
+         * grid to the monitor (Esc alone did that until 2026-10-01). */
         int ps = quit & HID_QUIT_PS;
-        quit &= ~HID_QUIT_PS;
+        if ((quit & HID_QUIT_KEY) && !(quit & HID_QUIT_MONITOR))
+            back = 1;
+        quit = (quit & HID_QUIT_MONITOR) != 0;
         if (ps)
             tabto = 0;
 

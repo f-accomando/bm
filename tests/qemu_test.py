@@ -579,7 +579,12 @@ def test_usb_keyboard(b, opts):
         out = q.expect(MENU, timeout=30)
         assert b"usb: keyboard 0627:0001 'QEMU USB Keyboard', high speed, layout it" in out, out
         time.sleep(0.5)
-        sendkeys(q, "esc")                     # Esc: from the menu to the monitor
+        sendkeys(q, "esc")                     # Esc alone: back, still the menu
+        time.sleep(1.0)
+        q.buf += q.port.read(0.3)
+        assert b"back to the monitor" not in q.buf, q.buf.decode(errors="replace")
+        sendkeys(q, "ctrl-esc")                # Ctrl+Esc: from the menu to the monitor
+        q.expect("back to the monitor", timeout=10)
         q.expect(PROMPT, timeout=10)
         q.expect("> ")
 
@@ -2294,7 +2299,7 @@ def test_sd_sdhc_and_usb_menu(b, opts):
         sendkeys(q, "esc")
         q.expect("update+draw", timeout=15)
         time.sleep(0.5)
-        sendkeys(q, "esc")
+        sendkeys(q, "ctrl-esc")               # the menu: Ctrl+Esc to the monitor
         q.expect("back to the monitor", timeout=10)
         q.expect("> ")
     finally:

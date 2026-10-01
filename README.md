@@ -121,9 +121,9 @@ All'avvio (circa 2 secondi):
    lampeggiare il LED; misura la frequenza reale e la mostra
 6. **USB**: riconosce il dispositivo collegato (righe `usb: ...`), poi legge la **SD**
    e cerca le cartucce (riga `sd: SDHC card, FAT32, ...; N cartridges`)
-7. apre il **menu delle cartucce**; Esc (o Start+Select, o `q` dalla seriale) porta
-   al **monitor** a tasto singolo (dalla seriale o dalla tastiera USB); il PS di un
-   controller, dal monitor, riporta al menu
+7. apre il **menu delle cartucce**; **Ctrl+Esc** (o Start+Select, o `q` dalla seriale) porta
+   al **monitor** a tasto singolo (dalla seriale o dalla tastiera USB); Esc da solo torna
+   indietro come B; il PS di un controller, dal monitor, riporta al menu
 
 La sequenza di avvio delle versioni precedenti (benchmark CPU, self-test di newlib,
 benchmark e demo `.bm`, sonda del vsync, script Lua `boot.lua`) si esegue dal monitor
@@ -215,7 +215,8 @@ Stress test nella scheda Dev) e `make install` li toglie dalla SD.
 
 **Menu delle cartucce.** Mostra titolo e autore letti dalle cartucce (ordinate per
 titolo) e sotto il nome del file scelto. Su/giù per scegliere, Invio (o A) per giocare,
-Esc (o Start+Select) per tornare al menu dal gioco e dal menu al monitor; `R` rilegge la SD.
+Esc (o Start+Select) per tornare al menu dal gioco; dal menu al monitor **Ctrl+Esc** (o
+Start+Select, `q` dalla seriale): Esc da solo torna indietro come B; `R` rilegge la SD.
 L1 / R1 (Q / E o PagSu / PagGiù sulla tastiera USB, Tab) cambiano scheda.
 X (tasto C sulla tastiera USB) apre le opzioni della cartuccia, B (tasto X) torna indietro
 nei pannelli. Dalla seriale: w/a/s/d, Invio, `x` opzioni, `[` `]` o `1` `2` `3` schede, q. Per
