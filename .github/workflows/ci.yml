@@ -40,6 +40,28 @@ jobs:
             build-stress/kernel.img
             build/screen.png
 
+  rgb30:
+    # bm for the PowKiddy RGB30 (RK3566, AArch64): the console's kernel, and
+    # the same kernel for QEMU's virt machine with its tests (rgb30.mk)
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Install toolchain and QEMU
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends \
+            gcc-aarch64-linux-gnu binutils-aarch64-linux-gnu picolibc-aarch64-linux-gnu \
+            qemu-system-arm make python3 dosfstools mtools
+
+      - name: Build
+        run: make TARGET=rgb30 -j"$(nproc)"
+
+      - name: QEMU tests
+        run: make TARGET=rgb30 test
+
   release:
     # A tag v* whose tests passed (M19): the kernel, the games and bm/ca.pem
     # on a GitHub release, with manifest.txt signed by the secret

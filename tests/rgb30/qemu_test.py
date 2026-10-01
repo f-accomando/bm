@@ -19,14 +19,22 @@ sys.path.insert(0, os.path.join(HERE, ".."))
 sys.path.insert(0, os.path.join(HERE, "..", "..", "tools"))
 from qemu_test import read_ppm, screen_text, pixel, free_port  # noqa: E402
 import bm_load  # noqa: E402
+sys.path.insert(0, os.path.join(HERE, "..", "..", "scripts"))
+import mksd  # noqa: E402
 
 QEMU = os.environ.get("QEMU64", "qemu-system-aarch64")
 SCREEN = 512
 
 
+RAMDISK = 0x50000000    # src/rgb30/sd_virt.c
+
+
 class Qemu:
-    def __init__(self, image, machine="virt,gic-version=3", extra=()):
+    def __init__(self, image, machine="virt,gic-version=3", extra=(), sd=None):
+        """sd: an SD card image (scripts/mksd.py), loaded as a RAM disk."""
         self.tmp = tempfile.mkdtemp(prefix="bm64-")
+        if sd:
+            extra = (*extra, "-device", f"loader,file={sd},addr={RAMDISK:#x},force-raw=on")
         self.mon_path = os.path.join(self.tmp, "mon.sock")
         tcp = free_port()
         self.proc = subprocess.Popen(
@@ -78,10 +86,49 @@ class Qemu:
         self.proc.wait()
 
 
+def screen_text_2x(img):
+    """The menu's double-size text (16x32 cells at multiples of 16): each
+    cell halved and read with the 8x16 font; both vertical phases."""
+    w, h, px = img
+    lines = []
+    for yoff in (0, 16):
+        rows = (h - yoff) // 32
+        half = bytearray()
+        for y in range(rows * 16):
+            for x in range(w // 2):
+                i = ((yoff + y * 2) * w + x * 2) * 3
+                half += px[i:i + 3]
+        lines += screen_text((w // 2, rows * 16, bytes(half)))
+    return lines
+
+
+def screen_all(img):
+    return "\n".join(screen_text(img) + screen_text_2x(img))
+
+
 def boot(q):
+    """Boot ends in the menu."""
     out = q.expect("ready", timeout=30)
-    q.expect("> ")
+    out += q.expect(" games", timeout=10)
     return out.decode(errors="replace")
+
+
+def lua_prompt(q):
+    q.send("`")
+    q.expect("\n> ", timeout=5)
+
+
+def make_sd(tmp, files):
+    """files: {"bm/name": bytes}; returns the image path."""
+    src = []
+    for i, (dest, data) in enumerate(files.items()):
+        path = os.path.join(tmp, f"f{i}")
+        with open(path, "wb") as f:
+            f.write(data)
+        src.append((path, dest))
+    out = os.path.join(tmp, "sd.img")
+    mksd.build(out, src, size_mib=64)
+    return out
 
 
 def test_boot_banner(b, opts):
@@ -102,10 +149,11 @@ def test_screen_console(b, opts):
     q = Qemu(os.path.join(b, "kernel.elf"))
     try:
         boot(q)
+        time.sleep(0.5)
         img = q.screendump()
         assert img[0] == SCREEN and img[1] == SCREEN, f"screen {img[0]}x{img[1]}"
-        text = "\n".join(screen_text(img))
-        for needle in ("bm kernel", "Lua 5.4, 2^10 = 1024.0", "ready"):
+        text = screen_all(img)
+        for needle in ("home", "Input test", "System", "Boot log"):
             assert needle in text, f"{needle!r} not on screen:\n{text}"
     finally:
         q.close()
@@ -128,6 +176,7 @@ def test_lua_repl(b, opts):
     q = Qemu(os.path.join(b, "kernel.elf"))
     try:
         boot(q)
+        lua_prompt(q)
         q.send("print(6*7, math.pi > 3, ('x'):rep(3))\r")
         out = q.expect("\n> ", timeout=5).decode(errors="replace")
         assert "42\ttrue\txxx" in out, out
@@ -137,6 +186,60 @@ def test_lua_repl(b, opts):
         q.send("print(collectgarbage('count') > 0)\r")
         out = q.expect("\n> ", timeout=5).decode(errors="replace")
         assert "true" in out, out
+        q.send("exit()\r")
+        q.expect("back to the menu", timeout=5)
+    finally:
+        q.close()
+
+
+def test_menu_games_and_hidden_bm(b, opts):
+    """.s16 files in bm/ are the games; .bm cartridges stay hidden unless
+    show_bm=1 in bm/config.txt."""
+    tmp = tempfile.mkdtemp(prefix="bm64sd-")
+    sd = make_sd(tmp, {"bm/racer.s16": b"S16" + bytes(100), "bm/pong.bm": b"BMCART" + bytes(64),
+                       "bm/notes.txt": b"hello"})
+    q = Qemu(os.path.join(b, "kernel.elf"), sd=sd)
+    try:
+        out = boot(q)
+        assert "SD: FAT32" in out and "ramdisk" in out, out
+        assert "cartridge menu: 1 games" in out, out
+        time.sleep(0.5)
+        text = screen_all(q.screendump())
+        assert "racer.s16" in text.lower(), text
+        assert "pong" not in text.lower(), text
+        assert "Input test" in text and "Bluetooth" in text and "WiFi" in text, text
+    finally:
+        q.close()
+    sd = make_sd(tmp, {"bm/racer.s16": b"S16" + bytes(100), "bm/pong.bm": b"BMCART" + bytes(64),
+                       "bm/config.txt": b"show_bm=1\n"})
+    q = Qemu(os.path.join(b, "kernel.elf"), sd=sd)
+    try:
+        out = boot(q)
+        assert "cartridge menu: 2 games" in out, out
+        time.sleep(0.5)
+        text = screen_all(q.screendump())
+        assert "pong.bm" in text.lower(), text
+    finally:
+        q.close()
+
+
+def test_menu_input_page(b, opts):
+    """Down to the input test, A opens it, the serial port presses buttons."""
+    q = Qemu(os.path.join(b, "kernel.elf"))
+    try:
+        boot(q)
+        q.send("\r")                           # A on the first entry: Input test
+        time.sleep(0.4)
+        q.send("x")                            # X held for a moment
+        time.sleep(0.05)
+        img = q.screendump()
+        text = screen_all(img)
+        assert "Input test" in text, text
+        assert "held: 00000040" in text, text  # PAD_X
+        q.send("\t ")                          # Select + Start: back
+        time.sleep(0.6)
+        text = screen_all(q.screendump())
+        assert "Up/Down: choose" in text, text
     finally:
         q.close()
 

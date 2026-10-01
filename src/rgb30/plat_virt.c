@@ -45,6 +45,17 @@ void plat_led(int green, int red)
     (void)green; (void)red;
 }
 
+/* no buttons: the tests press them through the serial port (pad.c) */
+uint32_t plat_buttons(void)
+{
+    return 0;
+}
+
+void plat_sticks(int16_t axes[4])
+{
+    axes[0] = axes[1] = axes[2] = axes[3] = 0;
+}
+
 /* --- fw_cfg / ramfb --- */
 
 static void fwcfg_select(uint16_t key)

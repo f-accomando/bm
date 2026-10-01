@@ -47,7 +47,7 @@ LUA_SRCS := $(wildcard third_party/lua/*.c)
 SHARED_SRCS := src/gfx/console.c src/gfx/draw.c src/gfx/font8x16.c src/gfx/font8x14.c \
                src/gfx/font6x12.c src/lib/printf.c src/lib/crc32.c \
                src/script/luavm.c src/script/lib_bm.c \
-               src/kernel/version.c src/kernel/crumbs.c
+               src/kernel/version.c src/kernel/crumbs.c src/kernel/config.c src/fs/fat.c
 RGB30_SRCS := $(wildcard src/rgb30/*.c src/rgb30/*.S)
 KERNEL_SRCS := $(RGB30_SRCS) $(SHARED_SRCS) $(LUA_SRCS)
 KERNEL_OBJS := $(patsubst %,$(BUILD)/k/%.o,$(KERNEL_SRCS))

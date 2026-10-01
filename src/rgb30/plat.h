@@ -17,6 +17,7 @@
 #define PLAT_GICD       0xfd400000u
 #define PLAT_GICR       0xfd460000u
 #define PLAT_FB_START   0x3e000000u     /* framebuffers: top 32 MiB, uncached */
+#define PLAT_HEAP_END   PLAT_FB_START
 #elif defined(PLAT_VIRT)
 #define PLAT_NAME       "QEMU virt"
 #define PLAT_RAM_START  0x40000000u
@@ -26,6 +27,7 @@
 #define PLAT_GICD       0x08000000u
 #define PLAT_GICR       0x080a0000u
 #define PLAT_FB_START   0x5e000000u
+#define PLAT_HEAP_END   0x50000000u     /* above: the SD image (sd_virt.c) */
 #else
 #error "PLAT_RK3566 or PLAT_VIRT"
 #endif
@@ -52,6 +54,11 @@ void plat_display_show(uintptr_t addr);
 int  plat_display_wait_vsync(void);
 /* diagnostics: a few lines on what the display driver did */
 const char *plat_display_info(void);
+
+/* buttons held now (PAD_* bits, rgb30/pad.h) and the analog sticks
+ * (-32768..32767: left x, left y, right x, right y) */
+uint32_t plat_buttons(void);
+void plat_sticks(int16_t axes[4]);
 
 /* PSCI through TF-A (SMC) on the RGB30, QEMU's PSCI (HVC) in the tests */
 void plat_reset(void) __attribute__((noreturn));

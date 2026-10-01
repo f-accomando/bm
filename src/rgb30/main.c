@@ -27,8 +27,13 @@
 #include "lib/heap.h"
 #include "lib/printf.h"
 #include "script/luavm.h"
+#include "drivers/sd.h"
+#include "fs/fat.h"
+#include "kernel/config.h"
+#include "ui.h"
 
 #include "lua.h"
+#include "lauxlib.h"
 
 /* The menu and the console: 512x512, centred on the 720x720 panel */
 #define SCREEN_W 512
@@ -77,21 +82,39 @@ static void lua_selftest(void)
     luavm_run(code, sizeof code - 1, "=selftest");
 }
 
-/* Lua lines from the serial port (the tests use it) */
-static void serial_repl(void)
+/* Lua lines from the serial port, until exit() or Ctrl-D */
+static int repl_done;
+
+static int l_exit(lua_State *L)
+{
+    (void)L;
+    repl_done = 1;
+    return 0;
+}
+
+void ui_serial_repl(void)
 {
     char line[256];
     size_t n = 0;
-    kprintf("> ");
-    for (;;) {
+    lua_State *L = luavm_state();
+    if (L) {
+        lua_pushcfunction(L, l_exit);
+        lua_setglobal(L, "exit");
+    }
+    repl_done = 0;
+    kprintf("Lua %s - exit() or Ctrl-D: back to the menu\n> ", LUA_RELEASE + 4);
+    while (!repl_done) {
         char c = uart_getc();
+        if (c == 4)
+            break;
         if (c == '\r' || c == '\n') {
             kprintf("\n");
             if (n) {
                 luavm_run(line, n, "=serial");
                 n = 0;
             }
-            kprintf("> ");
+            if (!repl_done)
+                kprintf("> ");
         } else if ((c == 8 || c == 127) && n) {
             n--;
             kprintf("\b \b");
@@ -100,6 +123,21 @@ static void serial_repl(void)
             klog_putc(c);
         }
     }
+    kprintf("back to the menu\n");
+}
+
+static void sd_boot(void)
+{
+    if (sd_init() != 0) {
+        kprintf("SD: %s\n", sd_error());
+        return;
+    }
+    if (fat_mount() != 0) {
+        kprintf("SD: %lu MiB (%s), %s\n", sd_blocks() / 2048, sd_controller(), fat_error());
+        return;
+    }
+    kprintf("SD: %s (%s)\n", fat_describe(), sd_controller());
+    config_load();
 }
 
 void kernel_main(uintptr_t dtb)
@@ -108,7 +146,7 @@ void kernel_main(uintptr_t dtb)
     a64_dtb = dtb;
     uart_init();
     plat_led(0, 1);
-    heap_init(PLAT_FB_START);
+    heap_init(PLAT_HEAP_END);
 
     int err = fb_init(&fb, SCREEN_W, SCREEN_H, 2);
     if (err == 0) {
@@ -137,6 +175,11 @@ void kernel_main(uintptr_t dtb)
     plat_led(-1, 0);
 
     lua_selftest();
+    sd_boot();
     kprintf("ready\n");
-    serial_repl();
+    if (err == 0)
+        ui_home(&fb);
+    ui_serial_repl();               /* no screen: the serial port only */
+    for (;;)
+        ui_serial_repl();
 }
