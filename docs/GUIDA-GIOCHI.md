@@ -21,6 +21,14 @@ Se il gioco si ferma con un errore, l'editor torna sulla riga in rosso (Ctrl+G l
 ritrova). I giochi si salvano in `/carts` con un nome 8.3 (es. `MIOGIOCO.BM`) e
 compaiono nel menu. Tutto il resto di questa guida vale anche per l'editor.
 
+**Sul PC**, per i modelli 3D e la pixel art: **bm Studio**; per scheletri, animazioni e
+sprite pre-renderizzati: **bm Animator** ([sdk/README.md](../sdk/README.md)). Sono pagine
+web che aprono e salvano i `.bm` (anche direttamente sulla SD). L'editor della console,
+quando salva, tiene i modelli e le animazioni. **Sulla console**, nella scheda Dev, lo
+**studio 3D** ne è la versione semplificata: guarda i modelli e le animazioni di un gioco
+(X sulla copertina, *Open in the 3D studio*), costruisce a blocchi e tessere, fa lo
+scheletro e le animazioni, salva e prova il gioco, con la tastiera o il gamepad.
+
 ## 1. Com'è fatta una cartuccia
 
 Una cartuccia `.bm` è un unico file che contiene:
@@ -184,8 +192,8 @@ texture. Budget indicativo: circa 1200 triangoli disegnati a 60 fps.
 ```lua
 local piramide = mesh(
   { 0,1,0,  -1,-1,-1,  1,-1,-1,  1,-1,1,  -1,-1,1 },           -- x,y,z di ogni vertice
-  { 1,2,3,0xE04040,  1,3,4,0xC03030,  1,4,5,0xE04040,           -- a,b,c,colore (indici da 1)
-    1,5,2,0xC03030,  2,4,3,0x802020,  2,5,4,0x802020 })
+  { 1,3,2,0xE04040,  1,4,3,0xC03030,  1,5,4,0xE04040,           -- a,b,c,colore (indici da 1)
+    1,2,5,0xC03030,  2,3,4,0x802020,  2,4,5,0x802020 })
 
 function _draw()
   cls(0)
@@ -196,8 +204,9 @@ function _draw()
 end
 ```
 
-- Le facce vanno date in senso **antiorario viste da fuori** (quelle girate dall'altra
-  parte non vengono disegnate). Astro Wing (`carts/astrowing/main.lua`) usa una piccola
+- Le facce vanno date in senso **orario viste da fuori**, cioè come appaiono sullo
+  schermo dal lato che si vede (quelle girate dall'altra parte non vengono disegnate).
+  bm Studio le fa già così. Astro Wing (`carts/astrowing/main.lua`) usa una piccola
   funzione che costruisce modelli da pezzi convessi e gira le facce da sola: si può
   copiare.
 - **Texture:** con la terza tabella `uv` (6 numeri per faccia: u,v dei tre vertici, in
@@ -209,8 +218,47 @@ end
 - 2D e 3D si mescolano: sfondo con `rectfill`/`map`, modelli con `draw3d`, HUD con
   `print` alla fine.
 
-**Da Blender:** per ora i modelli si scrivono (o si generano) come tabelle Lua; un
-convertitore da `.obj` è una delle prossime cose che si possono aggiungere.
+**Con bm Studio** ([sdk/README.md](../sdk/README.md)): i modelli si fanno sul PC posando
+le tessere dello sprite sheet su una griglia (in stile Crocotile 3D) e stanno nel `.bm`
+stesso; nel gioco `model("nome")` li dà come mesh:
+
+```lua
+local casa
+function _init() casa = model("house") end            -- in _init: costruisce la mesh
+function _draw()
+  cls(0) zclear()
+  camera3d(0, 4, -8, 0, -0.4)
+  draw3d(casa, 0, 0, 0, 0, time() * 0.5)
+end
+```
+
+`models()` dà i nomi, `bounds3d(m)` il box intorno al modello.
+
+**Animati con bm Animator**: lo scheletro e le animazioni (fatti sul PC, nel `.bm`) vengono
+con il modello; `animate(m, "walk", t)` mette il modello nella posa di "walk" al tempo `t`
+(in secondi), prima di `draw3d`:
+
+```lua
+local man, t = nil, 0
+function _init() man = model("villager") end
+function _update() t = t + 1 / 60 end
+function _draw()
+  cls(0) zclear()
+  camera3d(0, 2, -6, 0, -0.25)
+  animate(man, "walk", t)                     -- oppure animate(man, "walk", t, "idle", t, k): un misto
+  draw3d(man, 0, 0, 0)
+end
+```
+
+`clips(m)` dice quali animazioni ci sono, `bone3d(m, "arm.L")` dove si trova un osso (la
+testa, poi la coda: per attaccargli una spada o una luce). bm Animator fa anche gli **sprite pre-renderizzati**:
+l'animazione disegnata da 1 a 8 direzioni nello sprite sheet, da usare con `sspr()` in un
+gioco 2D (il codice Lua per disegnarli lo prepara lui).
+
+**Da Blender** (o da altri
+programmi): un `.glb` si importa in bm Studio (le texture finiscono nello sprite sheet) e
+da lì nel `.bm`; per un gioco del repository basta mettere `models.glb` nella sua cartella
+(vedi `carts/village`).
 
 ## 7. Suono
 
@@ -314,4 +362,5 @@ disegnate da `scripts/mkcovers.py`. Senza copertina il menu stampa il titolo.
 | `carts/hunt` | 320×180, mappa 2048×2048 generata, luci, combattimento, boss |
 | `carts/demo` | sprite sheet PNG e mappa CSV veri e propri |
 | `carts/kitchen` | gioco grande: sorgenti in più file uniti da `build.py`, 3D con mesh costruite in codice, 1–4 giocatori (`btn(i, p)`, `players()`), salvataggi, e un simulatore host (`tests/kitchen/sim.lua`) che gioca da solo per trovare errori e misurare il costo di ogni frame |
+| `carts/village` | modelli 3D fatti con bm Studio e un paesano animato con bm Animator (`models.bm`): `model()`, `animate()` con due animazioni mescolate, `bone3d()`, terreno senza z-buffer, notte con `lamp3d` e nebbia, sprite pre-renderizzati |
 | `carts/titan` | sprite grandi pre-renderizzati (un modello 3D fatto in Python diventa pixel art a strati: un frame, tante combinazioni di equipaggiamento), sheet grande con palette (`--sheet8`), parallasse, stati di un picchiaduro con hitbox per frame, CPU avversaria |

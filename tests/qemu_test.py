@@ -11,6 +11,7 @@ import re
 import os
 import shutil
 import socket
+import struct
 import subprocess
 import sys
 import tempfile
@@ -21,6 +22,7 @@ HERE = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, os.path.join(HERE, "..", "tools"))
 sys.path.insert(0, os.path.join(HERE, "..", "scripts"))
 import bm_load  # noqa: E402
+import bmmesh  # noqa: E402
 import mkbm  # noqa: E402
 import mksd  # noqa: E402
 
@@ -947,6 +949,8 @@ def test_home_ui(b, opts):
         keys("d")                               # the covers' names are on pictures: the pill
         screen(["bm Sound", "sound (built-in)"])
         keys("d")
+        screen(["bm 3D studio", "3D studio (built-in)"])
+        keys("d")
         screen(["Monitor", "the text console with every command"])
         shot("dev")
         keys("dd")
@@ -999,7 +1003,7 @@ def test_make_image(b, opts):
     q = Qemu(b("kernel.img"), ["-drive", f"if=sd,format=raw,file={img}"])
     try:
         out = q.expect(MENU, timeout=30).decode(errors="replace")
-        assert "FAT32, 63 MiB, label BM; 8 cartridges" in out, out
+        assert "FAT32, 63 MiB, label BM; 9 cartridges" in out, out
         time.sleep(0.5)
         seen = set()
         for _ in range(10):                    # right along the grid: each title in turn
@@ -1008,7 +1012,7 @@ def test_make_image(b, opts):
             q.send("d")
             time.sleep(0.3)
         screen = "\n".join(seen)
-        for title in ("Pong", "Snake", "Star Shooter", "Chaos Kitchen", "Texture Room"):
+        for title in ("Pong", "Snake", "Star Shooter", "Chaos Kitchen", "Texture Room", "Studio Village"):
             assert title in screen, screen
         for title in ("bm native demo", "bm stress test"):   # not games: in the kernel
             assert title not in screen, screen
@@ -1036,7 +1040,7 @@ def test_make_image(b, opts):
         q = Qemu(b("kernel.img"), ["-drive", f"if=sd,format=raw,file={os.path.join(tmp, 'bm-pi1.img')}"],
                  machine="raspi1ap")
         out = q.expect(MENU, timeout=30).decode(errors="replace")
-        assert "Raspberry Pi 1 A+" in out and "; 8 cartridges" in out, out
+        assert "Raspberry Pi 1 A+" in out and "; 9 cartridges" in out, out
     finally:
         q.close()
         shutil.rmtree(tmp, ignore_errors=True)
@@ -2441,6 +2445,202 @@ def test_texroom(b, opts):
         q.close()
 
 
+def test_village(b, opts):
+    """Studio Village: the 3D models made with bm Studio (carts/village/
+    models.glb, packed by make with their sprite sheet) are drawn by the
+    console: grass, roof tiles and sky on screen, no Lua error."""
+    q = Qemu(b("kernel.img"))
+    try:
+        q.expect(MENU, timeout=30)
+        time.sleep(0.5)
+        with open(b("carts/village.bm"), "rb") as f:
+            assert _upload(q, f.read())
+        time.sleep(3)
+        for _ in range(10):
+            img = q.screendump()
+            w, h, px = img
+            cols = [tuple(px[(y * w + x) * 3:(y * w + x) * 3 + 3])
+                    for y in range(0, h, 4) for x in range(0, w, 4)]
+            grass = sum(g > 60 and g > r + 20 and g > b + 20 for r, g, b in cols)
+            roof = sum(r > 70 and r > 2 * g and r > 2 * b for r, g, b in cols)
+            sky = sum(b > 150 and b > r + 40 for r, g, b in cols)
+            if grass > 300 and roof > 20 and sky > 300:
+                break
+            time.sleep(0.5)
+        if opts.shots:
+            _save_png(img, os.path.join(opts.shots, "village.png"))
+        print(f"     village colours: grass {grass}, roof {roof}, sky {sky}, {len(set(cols))} distinct")
+        assert grass > 300 and roof > 20 and sky > 300, (grass, roof, sky)
+        assert len(set(cols)) > 100, len(set(cols))     # textures, not flat faces
+        q.send("x")                             # B: night
+        time.sleep(1)
+        q.send("q")
+        out = q.expect("update+draw", timeout=10).decode(errors="replace")
+        assert "stopped with an error" not in out, out
+        assert '"Studio Village"' in out, out[-300:]
+    finally:
+        q.close()
+
+
+def test_studio_cart(b, opts):
+    """A cartridge written by bm Studio (make test-studio: tests/studio/
+    test_core.js) plays on the console: the model viewer that a new project
+    gets as its code shows the models (bounds3d, model, models), with the
+    sections the kernel does not know left alone."""
+    path = b("studio-test.bm")
+    if not os.path.exists(path):
+        print("     skipped: no build/studio-test.bm (make test-studio needs Node)")
+        return
+    q = Qemu(b("kernel.img"))
+    try:
+        q.expect(MENU, timeout=30)
+        time.sleep(0.5)
+        # first the one with a skeleton: the viewer plays its animations (X: the next one)
+        with open(b("studio-test-anim.bm"), "rb") as f:
+            assert _upload(q, f.read())
+        time.sleep(1.5)
+        q.send("c")
+        time.sleep(0.5)
+        q.send("q")
+        out = q.expect("update+draw", timeout=10).decode(errors="replace")
+        assert "stopped with an error" not in out, out
+        time.sleep(0.5)
+        with open(path, "rb") as f:
+            assert _upload(q, f.read())
+        time.sleep(2.5)
+        for _ in range(10):
+            w, h, px = q.screendump()
+            cols = [tuple(px[(y * w + x) * 3:(y * w + x) * 3 + 3]) for y in range(0, h, 2) for x in range(0, w, 2)]
+            bg = sum(abs(r - 0x1C) < 12 and abs(g - 0x20) < 12 and abs(b_ - 0x30) < 12 for r, g, b_ in cols)
+            grass = sum(g > 70 and g > r + 15 and g > b_ + 15 for r, g, b_ in cols)
+            if grass > 50 and bg > len(cols) // 3:
+                break
+            time.sleep(0.5)
+        print(f"     studio cart: background {bg}, grass {grass} of {len(cols)}")
+        assert grass > 50 and bg > len(cols) // 3, (grass, bg)
+        q.send("d")                             # the next model
+        time.sleep(0.5)
+        q.send("q")
+        out = q.expect("update+draw", timeout=10).decode(errors="replace")
+        assert "stopped with an error" not in out, out
+    finally:
+        q.close()
+
+
+def test_studio3d(b, opts):
+    """The 3D studio on the console (Dev tab; a game's options, "Open in the
+    3D studio"): the player shows the models and animations of the village;
+    a new project gets a block, is saved, tried (its viewer plays) and the
+    studio comes back to it; the file holds the model the kernel reads."""
+    tmp = tempfile.mkdtemp(prefix="bm-s3d-")
+    img = os.path.join(tmp, "sd.img")
+    mksd.build(img, [(b("carts/village.bm"), "carts/village.bm")])
+    q = Qemu(b("kernel.img"), ["-drive", f"if=sd,format=raw,file={img}"])
+
+    def keys(*ks, gap=0.3):
+        for k in ks:
+            q.send(k)
+            time.sleep(gap)
+
+    def screen(want, tries=40):
+        for _ in range(tries):
+            _, text = settled_screen(q, lambda i, t: all(any(w in l for l in t) for w in want), tries=2)
+            if all(any(w in l for l in text) for w in want):
+                return "\n".join(text)
+            time.sleep(0.25)
+        raise AssertionError(f"not on the screen: {want}\n" + "\n".join(text))
+
+    def shot(name):
+        if opts.shots:
+            _save_png(q.screendump(), os.path.join(opts.shots, f"studio3d-{name}.png"))
+
+    F2, F3, F4, UP, DOWN, ESC = "\x1bOQ", "\x1bOR", "\x1bOS", "\x1b[A", "\x1b[B", "\x1b"
+    try:
+        q.expect(MENU, timeout=30)
+        time.sleep(0.5)
+        screen(["Games", "Studio Village"])
+        keys("x")
+        screen(["Open in the SDK", "Open in the Sound editor", "Open in the 3D studio"])
+        keys("s", "s", "s", "\r")
+        text = screen(["F1 play", "MODELS", "ground", "villager", "169 vertices, 288 triangles"])
+        assert "opened /carts/village.bm" in text, text
+        for _ in range(7):
+            keys(DOWN)
+        screen(["ANIMATIONS", "idle", "walk", "wave", "112 vertices, 168 triangles, 7 bones"])
+        keys("k")
+        shot("player")
+        keys(F3)
+        screen(["BONES", "hips", "spine", "arm.L", "leg.R", "tail of hips"])
+        shot("rig")
+        keys(F4)
+        screen(["BONES", "idle  1/3  smooth  loop  2.00 s"])
+        shot("animate")
+
+        # a new project: a block, saved as CUBE.BM
+        keys(ESC, gap=0.6)
+        screen(["bm 3D studio", "New project", "Exit 3D studio"])
+        keys(DOWN, DOWN, "\r", gap=0.4)         # Continue, Open..., New project
+        screen(["BLOCK", "cell 0,0,0", "model: 0 faces"])
+        keys(" ")
+        screen(["model: 6 faces"])
+        shot("build")
+        # a skeleton (root and a child) and an animation with a turn at 0.25 s:
+        # the kernel checks each new ANIM section (cart_data) before drawing it
+        keys(F3, "n", "n", gap=0.5)
+        screen(["BONES", "root", "bone2", "tail of bone2"])
+        keys(F4, "n", gap=0.5)
+        screen(["anim1  1/1  smooth  loop  1.00 s"])
+        keys("\x1b[C", "\x1b[C", "\x1b[C", "w", gap=0.4)
+        screen(["TURN root   0.25 s  frame 3  key"])
+        shot("keyframe")
+        keys(ESC, gap=0.6)
+        for _ in range(4):
+            keys(DOWN)                          # down to "Save as..."
+        keys("\r")
+        screen(["file name"])
+        for _ in range(8):
+            keys("\x7f", gap=0.1)
+        for ch in "CUBE\r":
+            keys(ch, gap=0.1)
+        screen(["saved /carts/CUBE.BM"])
+
+        # try it: the viewer of a new project plays it, then the studio comes back
+        keys("\x1b[15~", gap=1)                 # F5
+        time.sleep(3)
+        keys("q")                               # the game ends (its keys are a gamepad's)
+        out = q.expect('bm: "New 3D project"', timeout=20).decode(errors="replace")
+        assert "stopped with an error" not in out, out
+        screen(["back from the game", "anim1  1/1"])     # the page it was on
+
+        # out of the studio: back to the menu
+        keys(ESC, gap=0.6)
+        keys(UP, "\r")                          # up from Continue: Exit 3D studio
+        screen(["Games", "last: 3D studio on village.bm"])
+    finally:
+        q.close()
+    try:
+        part = os.path.join(tmp, "part.img")
+        with open(img, "rb") as f, open(part, "wb") as o:
+            f.seek(2048 * 512)
+            o.write(f.read())
+        fsck = subprocess.run(["fsck.vfat", "-n", part], capture_output=True, text=True)
+        assert fsck.returncode == 0, fsck.stdout + fsck.stderr
+        env = dict(os.environ, MTOOLS_SKIP_CHECK="1")
+        saved = subprocess.run(["mtype", "-i", part, "::/CARTS/CUBE.BM"], capture_output=True, env=env).stdout
+        secs = dict(bmmesh.cart_sections(saved))
+        models, _ = bmmesh.decode(secs[bmmesh.SEC_MESH])
+        assert [m["name"] for m in models] == ["model"] and len(models[0]["faces"]) == 12, models
+        assert len(models[0]["verts"]) == 8, models[0]["verts"]
+        anim = secs[bmmesh.SEC_ANIM]            # ANIM: one rig, 2 bones, 1 clip of 2 keys
+        nb, nc, nv = struct.unpack_from("<HHH", anim, 8 + 16)
+        clip = 8 + 24 + nb * 44 + ((nv + 3) & ~3)
+        assert struct.unpack_from("<H", anim)[0] == 1 and (nb, nc, nv) == (2, 1, 8), (nb, nc, nv)
+        assert anim[clip:clip + 5] == b"anim1" and struct.unpack_from("<H", anim, clip + 16)[0] == 2
+        assert saved[24:38] == b"New 3D project", saved[24:48]
+    finally:
+        shutil.rmtree(tmp, ignore_errors=True)
+
+
 def test_kitchen(b, opts):
     """M17: Chaos Kitchen boots, goes from the title through the lobby into a
     campaign kitchen and into the endless kitchen, plays with serial keys
@@ -2860,6 +3060,175 @@ def test_textured_mesh(b, opts):
         q.expect("> ", timeout=10)
     finally:
         q.close()
+
+
+MODEL_CART = r"""
+local tile, gem
+function _init()
+  for y = 0, 15 do for x = 0, 15 do sset(x, y, x < 8 and 0xFF0000 or 0x0000FF) end end
+  local names = models()
+  log("models", #names, names[1], names[2], tostring(model("nope")), tostring(model(3)))
+  tile, gem = model("tile"), model(2)
+  log("bounds", bounds3d(gem))
+end
+local n = 0
+function _update() n = n + 1 end
+function _draw()
+  cls(0)
+  zclear()
+  camera3d(0, 0, -3)
+  light3d(0, 0, -1, 1)
+  if n < 4 then
+    draw3d(tile, 0, 0, 0)
+    if n == 3 then log("drawn tile", string.format("%06x %06x", pget(280, 180), pget(360, 180)), stat(4)) end
+  else
+    draw3d(gem, 0, 0, 0)
+    log("drawn gem", string.format("%06x %06x", pget(320, 170), pget(40, 30)), stat(4))
+    quit()
+  end
+end
+"""
+
+
+def test_models(b, opts):
+    """bm Studio: model() builds meshes from the MESH section of the
+    cartridge, textured with the sprite sheet or in plain colours."""
+    T = bmmesh.TEXTURED
+    mesh = bmmesh.encode([
+        {"name": "tile", "verts": [(-1, -1, 0), (1, -1, 0), (1, 1, 0), (-1, 1, 0)],
+         "faces": [(0, 2, 1, T, (0, 16, 16, 0, 16, 16)), (0, 3, 2, T, (0, 16, 0, 0, 16, 0))]},
+        {"name": "gem", "verts": [(-1, -1, 0), (0, 1, 0), (1, -1, 0)],
+         "faces": [(0, 1, 2, 0x00FF00, None)]},
+    ])
+    q = Qemu(b("kernel.img"))
+    try:
+        q.boot()
+        assert _upload(q, mkbm.pack(MODEL_CART.encode(), title="models test", mesh=mesh))
+        out = q.expect("drawn gem\t", timeout=15).decode(errors="replace")
+        out += q.expect("\n").decode(errors="replace")
+        assert "models\t2\ttile\tgem\tnil\tnil" in out, out
+        assert "drawn tile\tff0000 0000ff\t2" in out, out
+        assert "bounds\t-1.0\t-1.0\t0.0\t1.0\t1.0\t0.0" in out, out
+        assert "drawn gem\t00ff00 000000\t1" in out, out
+        q.expect("> ", timeout=10)
+    finally:
+        q.close()
+
+
+KEEP_CART = r"""
+function _init()
+  log("before", #models())
+  local p = assert(cart_load("/carts/MODELS.BM"))
+  log("loaded", #models(), models()[1], p.title)
+  p.title = "copy"
+  log("saved", tostring(cart_save("/carts/COPY.BM", p)))
+  quit()
+end
+"""
+
+
+ANIM_CART = r"""
+local m
+local function hex(x, y) return string.format("%06x", pget(x, y) or 0) end
+function _init()
+  m = model("figure")
+  local c = clips(m)
+  log("clips", #c, c[1].name, c[1].length, tostring(c[1].loop), c[2].name, tostring(c[2].loop))
+  log("rest", bone3d(m, "arm.R"))
+  log("len", animate(m, "wave", 0.5))
+  log("up", bone3d(m, 2))
+  log("bad", select(2, pcall(animate, m, "dance", 0)), tostring(bone3d(m, "tail")))
+end
+local n = 0
+function _update() n = n + 1 end
+function _draw()
+  cls(0)
+  zclear()
+  camera3d(0.5, 1, -6, 0, 0, 60)
+  light3d(0, 0, -1, 1)
+  if n == 2 then animate(m) end                       -- rest
+  if n == 4 then animate(m, "wave", 0.5) end          -- the arm up
+  if n == 6 then animate(m, "wave", 0.25, "still", 0, 1) end   -- all of "still": rest
+  draw3d(m, 0, 0, 0)
+  if n == 3 then log("drawn rest", hex(435, 203), hex(366, 88)) end
+  if n == 5 then log("drawn up", hex(435, 203), hex(366, 88)) end
+  if n == 7 then log("drawn mix", hex(435, 203), hex(366, 88)) quit() end
+end
+"""
+
+
+def test_animation(b, opts):
+    """bm Animator: a model with a skeleton (ANIM, written by the Studio's
+    core in make test-studio) moves on the console: animate() poses it
+    (an arm turns up around its shoulder), clips() lists the animations,
+    bone3d() follows a bone, two clips mix."""
+    path = b("studio-test-anim.bm")
+    if not os.path.exists(path):
+        print("     skipped: no build/studio-test-anim.bm (make test-studio needs Node)")
+        return
+    secs = dict(bmmesh.cart_sections(open(path, "rb").read()))
+    cart = mkbm.pack(ANIM_CART.encode(), title="anim test", mesh=secs[bmmesh.SEC_MESH], extra=[(bmmesh.SEC_ANIM, secs[bmmesh.SEC_ANIM])])
+    q = Qemu(b("kernel.img"))
+    try:
+        q.boot()
+        assert _upload(q, cart)
+        out = q.expect("drawn mix\t", timeout=15).decode(errors="replace")
+        out += q.expect("\n").decode(errors="replace")
+        lines = {l.split("\t")[0]: l.split("\t")[1:] for l in out.splitlines() if "\t" in l}
+        assert lines["clips"] == ["2", "wave", "1.0", "true", "still", "false"], out
+        assert [float(v) for v in lines["rest"]] == [1, 1, 0.5, 2, 1, 0.5], out     # head, then tail
+        assert lines["len"] == ["1.0"], out
+        up = [float(v) for v in lines["up"]]                # the arm turned up: the tail above the head
+        assert all(abs(a - b) < 1e-4 for a, b in zip(up, [1, 1.25, 0.5, 1, 2.25, 0.5])) and len(up) == 6, out
+        assert "no animation \"dance\"" in lines["bad"][0] and lines["bad"][1] == "nil", out
+
+        def orange(h):
+            c = int(h, 16)
+            return (c >> 16) > 150 and (c & 255) < 100
+        rest, upp, mix = lines["drawn rest"], lines["drawn up"], lines["drawn mix"]
+        assert orange(rest[0]) and rest[1] == "000000", out      # the arm out to the side
+        assert upp[0] == "000000" and orange(upp[1]), out        # the arm up
+        assert mix == rest, out
+        q.expect("> ", timeout=10)
+    finally:
+        q.close()
+
+
+def test_sdk_keeps_models(b, opts):
+    """The SDK on the console (cart_load / cart_save) writes back the
+    sections it does not edit: the 3D models made with bm Studio stay."""
+    T = bmmesh.TEXTURED
+    mesh = bmmesh.encode([{"name": "crate", "verts": [(0, 0, 0), (0, 1, 0), (1, 1, 0), (1, 0, 0)],
+                           "faces": [(0, 1, 2, T, (0, 16, 0, 0, 16, 0)), (0, 2, 3, 0x123456, None)]}])
+    tmp = tempfile.mkdtemp(prefix="bm-keep-")
+    img = os.path.join(tmp, "sd.img")
+    src = os.path.join(tmp, "models.bm")
+    with open(src, "wb") as f:
+        f.write(mkbm.pack(b"function _draw() cls(0) end", title="with models", mesh=mesh))
+    mksd.build(img, [(src, "carts/models.bm")])
+    q = Qemu(b("kernel.img"), ["-drive", f"if=sd,format=raw,file={img}"])
+    try:
+        q.boot()
+        assert _upload(q, mkbm.pack(KEEP_CART.encode(), title="keep test"))
+        out = q.expect("saved\t", timeout=20).decode(errors="replace")
+        out += q.expect("\n").decode(errors="replace")
+        assert "before\t0" in out and "loaded\t1\tcrate\twith models" in out, out
+        assert "saved\ttrue" in out, out
+        q.expect("> ", timeout=10)
+    finally:
+        q.close()
+    try:
+        part = os.path.join(tmp, "part.img")
+        with open(img, "rb") as f, open(part, "wb") as o:
+            f.seek(2048 * 512)
+            o.write(f.read())
+        env = dict(os.environ, MTOOLS_SKIP_CHECK="1")
+        saved = subprocess.run(["mtype", "-i", part, "::/CARTS/COPY.BM"], capture_output=True, env=env).stdout
+        secs = dict(bmmesh.cart_sections(saved))
+        assert secs.get(bmmesh.SEC_MESH) == mesh, sorted(secs)
+        assert saved[24:28] == b"copy"
+    finally:
+        shutil.rmtree(tmp, ignore_errors=True)
 
 
 def test_editor(b, opts):

@@ -25,16 +25,41 @@ muoversi, Invio (o A) per giocare, **L1 / R1** (Q / E sulla tastiera) per cambia
 **Esc** (o Start+Select, o PS) torna al menu e lascia
 il gioco **sospeso**: la copertina mostra "Playing" e A lo riprende dal punto in cui era.
 Avviare un altro gioco chiede prima di chiudere quello sospeso.
-**X** su una copertina apre le sue opzioni (riprendi, chiudi, apri nell'SDK o nel Sound
-editor, informazioni, cancella il salvataggio, elimina dalla SD); la scheda **Dev** ha
-l'SDK, il **Sound editor** (suoni, effetti sonori e musica dei giochi) e gli strumenti del
-monitor (Lua, sistema, registro, test, benchmark); **Settings**, l'ultima scheda, apre
+**X** su una copertina apre le sue opzioni (riprendi, chiudi, apri nell'SDK, nel Sound
+editor o nello studio 3D, informazioni, cancella il salvataggio, elimina dalla SD); la
+scheda **Dev** ha l'SDK, il **Sound editor** (suoni, effetti sonori e musica dei giochi),
+lo **studio 3D** (modelli e animazioni) e gli strumenti del monitor (Lua, sistema,
+registro, test, benchmark); **Settings**, l'ultima scheda, apre
 subito il suo pannello: controller, WiFi, layout della tastiera, disegno dei giochi,
 **volume** e sistema (M27, BareMetal UI). Nei giochi **START** mette in pausa: lì si
 regola anche il volume. Tutto si usa col solo controller. Nel menu **PS** torna a
 Games e chiude i pannelli; nel monitor apre il menu.
 Per scrivere un gioco: [docs/GUIDA-GIOCHI.md](docs/GUIDA-GIOCHI.md) (guida pratica) e
 [docs/API.md](docs/API.md) (riferimento).
+
+## bm Studio e bm Animator: le risorse sul PC
+
+Due applicazioni per il PC ([sdk/README.md](sdk/README.md)) fanno le risorse delle
+cartucce. Lavorano direttamente sul `.bm` (lo aprono e lo salvano al suo posto, anche
+sulla SD) e scambiano `.glb` e `.png` con gli altri programmi. Sono pagine web senza
+dipendenze: doppio clic su `sdk/studio/index.html` o `sdk/animator/index.html` (Chrome o
+Edge), oppure `make studio`.
+
+- **bm Studio**, in stile Crocotile 3D: **modelli 3D a tessere** (si posano le tessere
+  dello sprite sheet su una griglia, si impilano blocchi, si spostano gli angoli per tetti e
+  rampe, si dipinge sul modello) e la **pixel art dello sprite sheet**. Nel gioco:
+  `m = model("casa")`, poi `draw3d(m, x, y, z)`.
+- **bm Animator**: **scheletro** (ossa e pelle), **animazioni a keyframe** sulla linea del
+  tempo, riprodotte dalla console con `animate(m, "walk", t)` (**animazione scheletrica**),
+  e le animazioni **pre-renderizzate in sprite** (da 1 a 8 direzioni) nello sprite sheet.
+
+Esempio: *Studio Village* (`carts/village`): i modelli dello Studio e un paesano animato.
+
+Sulla console, nella scheda **Dev**, lo **studio 3D** ne è la versione semplificata, sugli
+stessi file: un **player** dei modelli e delle animazioni (con lo scheletro e il misto di
+due animazioni) e gli attrezzi essenziali per **costruire** a blocchi e tessere, fare lo
+**scheletro** e **animare** a keyframe, con la tastiera o il gamepad
+([sdk/README.md](sdk/README.md#sulla-console-lo-studio-3d)).
 
 ## Roadmap
 
@@ -69,7 +94,7 @@ Risoluzioni di menu, console e giochi, e quanto costano: [docs/RISOLUZIONI.md](d
 | M19 | HTTPS: aggiornamenti da GitHub, "git leggero" (archivi e API con token) | |
 | **M20** | **Titan Clash**: picchiaduro 2D a robot giganti; prima base giocabile (1 robot, armatura leggera/pesante, spada o cannoni, hangar, contro CPU o in 2) | ✅ base giocabile |
 | **M21** | Menu "home" a griglia (Games / Dev) e giochi sospesi in memoria | ✅ |
-| M22 | SDK e strumenti dedicati: codice, pixel art, 3D, musica, import/export, 3D→sprite, sprite stacking | 22.4 musica ed effetti (Sound editor) ✅ in QEMU; il resto in coda |
+| M22 | SDK e strumenti dedicati: codice, pixel art, 3D, musica, import/export, 3D→sprite, sprite stacking | 22.4 musica ed effetti (Sound editor) ✅ in QEMU; **bm Studio** e **bm Animator** sul PC (3D, pixel art, import/export, animazione, 3D→sprite); sulla console lo **studio 3D** (player e versione semplificata); il resto in coda |
 | M23 | Emulatore di cartucce `.p8` / `.p8.png` (stile PICO-8) | in coda |
 | M24 | Scambio in rete locale tra console (P2P) | in coda |
 | M25 | Store su GitHub: catalogo, download verificati, pubblicazione dall'SDK | in coda |
@@ -121,6 +146,7 @@ con **`b`**.
 | `D` | test del DMA passo per passo (copie e riempimenti, tempi CPU contro DMA) |
 | `e` | **editor** dei giochi `.bm` (codice, sprite, mappa; è anche nella scheda Dev del menu) |
 | `A` | **Sound editor**: suoni, effetti sonori e musica dei giochi `.bm` (anche nella scheda Dev) |
+| `3` | **studio 3D**: modelli e animazioni di un `.bm` (player, blocchi e tessere, ossa, keyframe; anche nella scheda Dev) |
 | `a` | audio: stato dell'uscita HDMI (clock, canale DMA, costo della sintesi, volume) e una prova: le sei forme d'onda, un accordo, glide, vibrato e arpeggio |
 | `T` | Bluetooth: cerca per 8 s e **abbina il primo controller** trovato come **prossimo giocatore** (fino a 4; DS4: Share + PS finché lampeggia); la console seriale passa alla mini UART (stessi pin) |
 | `P` | Bluetooth: **dimentica tutti i pad** abbinati (chiede conferma con `y`): chiavi tolte da `bm/config.txt`, pad scollegati; poi si riabbinano con `T` |
@@ -179,7 +205,7 @@ viene scelta l'interfaccia tastiera, anche se il dispositivo usa i report con ID
 (quella da cui si avvia il Pi) e cerca i file **`.bm`** nella
 cartella `carts/` e nella radice. Nomi lunghi supportati. `make sdcard` mette in
 `dist/carts/` i giochi (`pong.bm`, `snake.bm`, `shooter.bm`, `astrowing.bm`, `hunt.bm`,
-`kitchen.bm`, `titan.bm`, `texroom.bm`); `make image` li mette nell'immagine SD. La demo
+`kitchen.bm`, `titan.bm`, `texroom.bm`, `village.bm`); `make image` li mette nell'immagine SD. La demo
 nativa e lo stress test non sono giochi: restano nel kernel (comando `n` del monitor,
 Stress test nella scheda Dev) e `make install` li toglie dalla SD.
 
@@ -276,7 +302,13 @@ make                  # build/kernel.img + build/chainloader.img
 make test             # test end-to-end in QEMU: boot, console, schermo, eccezioni, chainloader
 make qemu             # esegue in QEMU (-M raspi0), seriale sul terminale
 make qemu-screenshot  # esecuzione headless, salva build/screen.png
+make studio           # bm Studio e bm Animator su http://localhost:8765 (sdk/README.md)
 ```
+
+`make test` comprende anche `make test-studio` (bm Studio e bm Animator in Node: i file
+che scrivono, letti anche dal Python della build e dal parser del kernel; saltato senza
+Node). `make test-studio-ui` prova le due applicazioni in un browser vero (Playwright +
+Chromium).
 
 La CI GitHub Actions (`.github/workflows/ci.yml`) esegue build e `make test` a ogni push.
 Se modifichi di proposito il test pattern: `python3 tests/qemu_test.py --update-ref`.
@@ -322,8 +354,11 @@ lo mette in una cartuccia, `make wav BANK=carts/sound/demo.json SONG=0` lo suona
 
 Cartucce solo per bm che sfruttano il Pi Zero: **640×360, colore diretto a 16 bit
 (RGB565), 60 fps**, logica in Lua 5.4, tutto il disegno in C. Formato in
-`src/bm/bm.h` (header + sezioni: copertina, codice Lua, sprite sheet RGBA, mappa, suoni); la grafica
-è salvata in un formato indipendente dallo schermo, pronta per un futuro 32 bit.
+`src/bm/bm.h` (header + sezioni: copertina, codice Lua, sprite sheet RGBA, mappa, suoni,
+modelli 3D e scheletri di bm Studio e bm Animator); la grafica è salvata in un formato
+indipendente dallo schermo, pronta per un futuro 32 bit. I modelli 3D
+(`--models modelli.glb`, o un `.bm` fatto con [bm Studio](sdk/README.md)) si caricano con
+`model("nome")`; con uno scheletro di bm Animator, `animate()` li muove.
 
 ```sh
 python3 scripts/mkbm.py -o gioco.bm --lua main.lua --sheet sheet.png --map map.csv \
@@ -333,7 +368,7 @@ python3 scripts/mkbm.py -o gioco.bm --lua main.lua --sheet sheet.png --map map.c
 La cartuccia definisce `_init()`, `_update()` e `_draw()` (60 volte al secondo) e usa
 un'API in stile PICO-8: forme, sprite e mappa, testo, input (`btn`/`btnp`), tempo,
 3D software. **Riferimento completo e guida alla prima cartuccia: [docs/API.md](docs/API.md).**
-Giochi di esempio: `carts/pong`, `carts/snake`, `carts/shooter`, `carts/astrowing` (3D), `carts/hunt` (mappa 2048×2048, luci; grafica e mappa da `mkassets.py`), `carts/texroom` (stanza 3D con texture a 320×180, ms e fps sullo schermo; texture da `mkassets.py`) (solo Lua, sprite
+Giochi di esempio: `carts/pong`, `carts/snake`, `carts/shooter`, `carts/astrowing` (3D), `carts/hunt` (mappa 2048×2048, luci; grafica e mappa da `mkassets.py`), `carts/texroom` (stanza 3D con texture a 320×180, ms e fps sullo schermo; texture da `mkassets.py`), `carts/village` (Studio Village: modelli 3D fatti con bm Studio e un paesano animato con bm Animator, in `models.bm`) (solo Lua, sprite
 disegnati nel codice con `sset`), `carts/demo` (sprite sheet PNG e mappa CSV),
 `carts/kitchen` (Chaos Kitchen: gioco grande in più file Lua uniti da `build.py`, 3D,
 fino a 4 giocatori, simulatore host in `tests/kitchen/`), `carts/titan` (Titan Clash:
@@ -512,6 +547,12 @@ src/bm/                 cartucce native: formato, grafica RGB565 (gfx16), 3D sof
                          runtime Lua, stress test
 carts/demo/              cartuccia nativa demo: main.lua, sheet.png, map.csv
 carts/pong|snake|shooter|astrowing|hunt|texroom giochi demo (solo Lua)
+carts/village/           Studio Village: main.lua, models.bm (modelli, scheletro e sheet),
+                         mkmodels.js (li costruisce con gli strumenti di Studio e Animator)
+sdk/studio/              bm Studio: modelli 3D e pixel art per i .bm, sul PC (sdk/README.md)
+sdk/animator/            bm Animator: scheletri, animazioni, sprite pre-renderizzati
+carts/studio3d/          lo studio 3D della console (scheda Dev): player, blocchi, ossa, keyframe
+tests/studio/            test di bm Studio, bm Animator e dello studio 3D: Node, Playwright, Lua sul PC
 carts/kitchen/           Chaos Kitchen (M17): src/*.lua, build.py, mkassets.py,
                          models/*.glb e import_chefs.py (modelli 3D degli chef)
 tests/kitchen/           simulatore host di Chaos Kitchen (luahost + sim.lua)
@@ -520,6 +561,8 @@ carts/titan/             Titan Clash (M20): src/*.lua, build.py; mkrobot.py (il 
 tests/titan/             simulatore host di Titan Clash (sim.lua)
 docs/API.md              API delle cartucce .bm e guida alla prima cartuccia
 scripts/mkbm.py         packer .bm (PNG e CSV, solo libreria standard Python)
+scripts/bmmesh.py        sezione MESH (modelli 3D) e file .glb di bm Studio, per mkbm.py --models
+                         (con un .bm: modelli, scheletri e sheet)
 scripts/mksd.py          immagine SD (MBR + FAT32): make image e test in QEMU
 scripts/mkrelease.py     file di una release e manifest.txt firmato (make release, CI sui tag v*)
 scripts/release-key.sh   coppia di chiavi delle release; la pubblica in keys/release-pub.pem

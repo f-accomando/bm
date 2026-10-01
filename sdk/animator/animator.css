@@ -1,0 +1,45 @@
+/* bm Animator - on top of ../studio/studio.css */
+.logo.anim { background: var(--ok); }
+.applink { color: var(--dim); text-decoration: none; border: 1px solid var(--line); border-radius: 4px; padding: 2px 8px; }
+.applink:hover { color: var(--text); background: var(--bar); }
+.wstabs button { min-width: 78px; }
+
+.viewcol { flex: 1; min-width: 0; display: flex; flex-direction: column; }
+.viewcol #viewport { flex: 1; min-height: 0; }
+
+#timeline { flex: none; background: var(--panel); border-top: 1px solid var(--line); display: flex; flex-direction: column; }
+#timeline[hidden] { display: none; }
+.tlbar { display: flex; gap: 6px; align-items: center; padding: 5px 8px; flex-wrap: wrap; }
+.tlbar .sep { width: 1px; align-self: stretch; background: var(--line); }
+.tlbar input[type=number] { width: 64px; }
+#tlTime { min-width: 64px; }
+#tlc { display: block; width: 100%; height: 64px; touch-action: none; cursor: pointer; }
+
+#side .sect { padding: 8px; border-bottom: 1px solid var(--line); display: flex; flex-direction: column; gap: 6px; }
+#side .sect.grow { flex: 1; min-height: 0; overflow: auto; }
+#side h4 { margin: 0; }
+ul.tree, ul.list { list-style: none; margin: 0; padding: 0; border: 1px solid var(--line); border-radius: 4px; min-height: 60px; max-height: 260px; overflow: auto; }
+ul.tree li, ul.list li { display: flex; gap: 6px; align-items: center; padding: 4px 8px; cursor: pointer; border-bottom: 1px solid #262b3e; }
+ul.tree li:hover, ul.list li:hover { background: #262b3e; }
+ul.tree li.on, ul.list li.on { background: var(--sel); }
+ul.tree li .sw { width: 10px; height: 10px; border-radius: 2px; flex: none; }
+ul.tree li .n, ul.list li .n { flex: 1; }
+ul.list li .i, ul.tree li .i { color: var(--dim); font-size: 12px; }
+.props { display: grid; grid-template-columns: auto 1fr; gap: 4px 8px; align-items: center; }
+.props .xyz { display: flex; gap: 4px; }
+.props .xyz input { width: 64px; }
+.props input:not([type=number]), .props select { width: 100%; min-width: 0; }
+
+#ws-sprites { flex: 1; }
+.sprview { flex: 1; min-width: 0; display: flex; flex-direction: column; background: #0e1016; }
+.sprtop { display: flex; justify-content: center; padding: 12px; }
+.sprbig { display: flex; flex-direction: column; align-items: center; gap: 6px; }
+#sprAnim { image-rendering: pixelated; background: #2a2d3a; border: 1px solid var(--line); border-radius: 4px; }
+.sprgrid { flex: 1; min-height: 0; overflow: auto; padding: 12px; display: flex; align-items: flex-start; justify-content: center; }
+#sprGrid { image-rendering: pixelated; background-image: linear-gradient(45deg, #2a2d3a 25%, transparent 25%), linear-gradient(-45deg, #2a2d3a 25%, transparent 25%),
+  linear-gradient(45deg, transparent 75%, #2a2d3a 75%), linear-gradient(-45deg, transparent 75%, #2a2d3a 75%);
+  background-size: 16px 16px; background-position: 0 0, 0 8px, 8px -8px, -8px 0; background-color: #343848; }
+#sprside { width: 330px; flex: none; background: var(--panel); border-left: 1px solid var(--line); padding: 8px; display: flex; flex-direction: column; gap: 6px; overflow: auto; }
+#sprside input[type=number] { width: 58px; }
+#sprside .primary { background: var(--sel); border-color: #5070c0; }
+#empty.on { display: block; }

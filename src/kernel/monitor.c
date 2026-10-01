@@ -46,6 +46,7 @@ static const char help_text[] =
             "  a  audio: HDMI sound status and a test tune\n"
             "  e  editor: code, sprites and map of a .bm cartridge\n"
             "  A  sound editor: sounds, sound effects and music of a .bm cartridge\n"
+            "  3  3D studio: models and animations of a .bm cartridge\n"
             "  T  Bluetooth: pair a controller as the next player (DS4: Share + PS)\n"
             "  K  Bluetooth: pair a keyboard (LE, e.g. MX Keys: hold an Easy-Switch key)\n"
             "  P  Bluetooth: forget all paired pads and the keyboard (asks first)\n"
@@ -240,6 +241,7 @@ void monitor_run(void)
         case 'a': audio_test(); break;
         case 'e': carts_editor(console_framebuffer()); break;
         case 'A': carts_sound_editor(console_framebuffer()); break;
+        case '3': carts_studio3d(console_framebuffer()); break;
         case 'D': dma_test(console_framebuffer()); break;
         case 'L':
             hid_set_layout(hid_layout()[0] == 'i' ? "us" : "it");

@@ -44,3 +44,10 @@ bm_stress_cart_end:
 bm_release_key:
     .incbin "keys/release-pub.pem"
     .byte 0
+
+    .section .rodata
+    .balign 4
+    .globl bm_studio3d_cart, bm_studio3d_cart_end
+bm_studio3d_cart:
+    .incbin "studio3d.bm"
+bm_studio3d_cart_end:

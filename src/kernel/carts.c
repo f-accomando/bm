@@ -30,6 +30,7 @@
 
 extern const uint8_t bm_editor_cart[], bm_editor_cart_end[];
 extern const uint8_t bm_sound_cart[], bm_sound_cart_end[];
+extern const uint8_t bm_studio3d_cart[], bm_studio3d_cart_end[];
 
 typedef struct {
     char title[49];             /* from the header; the file name if none */
@@ -163,11 +164,13 @@ static void rescan(void)
         qsort(carts, (size_t)ncarts, sizeof *carts, title_cmp);
     }
     nsd = ncarts;
-    /* the editors always come last (up from the first cartridge) */
+    /* the tools always come last (up from the first cartridge) */
     if (ncarts < MAX_CARTS)
         add_builtin("editor (built-in)", bm_editor_cart, bm_editor_cart_end);
     if (ncarts < MAX_CARTS)
         add_builtin("sound (built-in)", bm_sound_cart, bm_sound_cart_end);
+    if (ncarts < MAX_CARTS)
+        add_builtin("3D studio (built-in)", bm_studio3d_cart, bm_studio3d_cart_end);
     for (int i = 0; i < ncarts; i++) {
         cart_t *c = &carts[i];
         if (c->builtin)
@@ -257,22 +260,24 @@ void carts_play_buffer(framebuffer_t *fb, const uint8_t *data, size_t len)
     }
 }
 
-/* An editor (the SDK, the Sound editor), and the games it tries: when
- * the editor asks to play a file (cart_run), play it, then open the editor
- * again on that file with the error the game stopped with, if any. `open`:
- * a file to start on (the menu's "Open in the SDK"), or NULL. */
-static void editor_session(framebuffer_t *fb, const char *open, const uint8_t *cart, const uint8_t *end)
+/* A tool built into the kernel (the SDK, the Sound editor, the 3D studio),
+ * and the games it tries: when the tool asks to play a file (cart_run),
+ * play it, then open the tool again on that file with the error the game
+ * stopped with, if any. `open`: a file to start on (the menu's "Open in the
+ * SDK", "... Sound editor", "... 3D studio"), or NULL. */
+static void tool_session(framebuffer_t *fb, const uint8_t *tool, const uint8_t *tool_end, const char *name,
+                         const char *open)
 {
     char path[64] = "", err[512] = "";
     int back = 0;
     if (open)
         ksnprintf(path, sizeof path, "%s", open);
     for (;;) {
-        crumb("editor", NULL);
+        crumb(name, NULL);
         bm_set_arg(path[0] ? path : NULL, err[0] ? err : NULL);
         bm_set_arg_back(back);
         bm_stats_t st;
-        bm_play(fb, cart, (size_t)(end - cart), PLAY_SECS, &st);
+        bm_play(fb, tool, (size_t)(tool_end - tool), PLAY_SECS, &st);
         bm_set_arg(NULL, NULL);
         if (!bm_take_run(path, sizeof path))
             break;
@@ -285,12 +290,22 @@ static void editor_session(framebuffer_t *fb, const char *open, const uint8_t *c
             ksnprintf(err, sizeof err, "cannot read %s: %s", path, fat_error());
             continue;
         }
-        crumb("editor: trying", path);
+        crumb("tool: trying", path);
         bm_play(fb, data, len, PLAY_SECS, &st);
         bm_print_stats(&st);
         free(data);
         ksnprintf(err, sizeof err, "%s", bm_last_error());
     }
+}
+
+static void editor_session(framebuffer_t *fb, const char *open, const uint8_t *cart, const uint8_t *end)
+{
+    tool_session(fb, cart, end, cart == bm_sound_cart ? "sound editor" : "editor", open);
+}
+
+static void studio3d_session(framebuffer_t *fb, const char *open)
+{
+    tool_session(fb, bm_studio3d_cart, bm_studio3d_cart_end, "3D studio", open);
 }
 
 void carts_editor(framebuffer_t *fb)
@@ -301,6 +316,11 @@ void carts_editor(framebuffer_t *fb)
 void carts_sound_editor(framebuffer_t *fb)
 {
     editor_session(fb, NULL, bm_sound_cart, bm_sound_cart_end);
+}
+
+void carts_studio3d(framebuffer_t *fb)
+{
+    studio3d_session(fb, NULL);
 }
 
 static void play(framebuffer_t *fb, const cart_t *c)
@@ -320,12 +340,15 @@ static void play(framebuffer_t *fb, const cart_t *c)
     }
     bm_close_suspended();              /* the menu asked first */
     susp_path[0] = 0;
-    if (c->builtin == bm_editor_cart || c->builtin == bm_sound_cart) {
+    if (c->builtin == bm_editor_cart || c->builtin == bm_sound_cart || c->builtin == bm_studio3d_cart) {
         if (c->builtin == bm_editor_cart)
             carts_editor(fb);
-        else
+        else if (c->builtin == bm_sound_cart)
             carts_sound_editor(fb);
-        ksnprintf(last_msg, sizeof last_msg, "last: %s", c->builtin == bm_editor_cart ? "editor" : "sound editor");
+        else
+            carts_studio3d(fb);
+        ksnprintf(last_msg, sizeof last_msg, "last: %s", c->builtin == bm_editor_cart ? "editor" :
+                  c->builtin == bm_sound_cart ? "sound editor" : "3D studio");
         crumb("cartridge menu", NULL);
         rescan();                       /* it may have saved new files */
         return;
@@ -413,7 +436,7 @@ static void draw(int sel, int top, int rows)
  * cartridge index, or -1 - n for tool n. */
 static int is_dev(const cart_t *c)
 {
-    return c->builtin == bm_editor_cart || c->builtin == bm_sound_cart;
+    return c->builtin == bm_editor_cart || c->builtin == bm_sound_cart || c->builtin == bm_studio3d_cart;
 }
 
 static int tab_items(int tab, int *idx)
@@ -434,7 +457,7 @@ static int is_suspended(const cart_t *c)
 }
 
 /* The options of a cartridge (X on its cover): a panel like the settings. */
-enum { C_PLAY = 100, C_CLOSE, C_SDK, C_SOUND, C_AUTHOR, C_FILE, C_SIZE, C_TYPE, C_SAVE,
+enum { C_PLAY = 100, C_CLOSE, C_SDK, C_SOUND, C_STUDIO3D, C_AUTHOR, C_FILE, C_SIZE, C_TYPE, C_SAVE,
        C_DEL_SAVE, C_DELETE };
 
 static int opt_cart;            /* the cartridge of the HOME_CART panel */
@@ -464,6 +487,8 @@ static void cart_panel(home_panel_t *p)
                  "Code, sprites and map of this cartridge", NULL);
         home_row(p, MENU_ROW_ACTION, C_SOUND, "Open in the Sound editor",
                  "Sounds, sound effects and music of this cartridge", NULL);
+        home_row(p, MENU_ROW_ACTION, C_STUDIO3D, "Open in the 3D studio",
+                 "Its 3D models and animations: play, build, rig, animate", NULL);
     }
     home_row(p, MENU_ROW_INFO, C_AUTHOR, "Author", "From the cartridge header",
              "%s", c->author[0] ? c->author : "-");
@@ -540,7 +565,7 @@ static void cart_act(int row, int how, home_do_t *d)
 }
 
 enum { ASK_NONE, ASK_SWITCH, ASK_PANEL };
-enum { GO_NONE, GO_PLAY, GO_SDK, GO_SOUND, GO_TEXT, GO_UPLOAD, GO_NETPLAY };
+enum { GO_NONE, GO_PLAY, GO_SDK, GO_SOUND, GO_STUDIO3D, GO_TEXT, GO_UPLOAD, GO_NETPLAY };
 
 #define DEPTH_MAX 4
 
@@ -789,9 +814,10 @@ void carts_menu(framebuffer_t *fb)
             if (quit || back) {
                 depth--;
                 built = -1;
-            } else if (r && id == HOME_CART && action == 1 && (row == C_PLAY || row == C_SDK || row == C_SOUND)) {
+            } else if (r && id == HOME_CART && action == 1 &&
+                       (row == C_PLAY || row == C_SDK || row == C_SOUND || row == C_STUDIO3D)) {
                 const cart_t *c = &carts[opt_cart];
-                int g = row == C_PLAY ? GO_PLAY : row == C_SDK ? GO_SDK : GO_SOUND;
+                int g = row == C_PLAY ? GO_PLAY : row == C_SDK ? GO_SDK : row == C_SOUND ? GO_SOUND : GO_STUDIO3D;
                 if (bm_suspended(NULL, 0) && !(g == GO_PLAY && is_suspended(c))) {
                     ask = ASK_SWITCH;           /* another game is frozen: ask first */
                     ask_go = g;
@@ -951,6 +977,15 @@ void carts_menu(framebuffer_t *fb)
                 crumb("cartridge menu", NULL);
                 depth = 0;
                 rescan();                       /* it may have saved new files */
+                break;
+            case GO_STUDIO3D:
+                bm_close_suspended();
+                susp_path[0] = 0;
+                studio3d_session(fb, carts[go_cart].path);
+                ksnprintf(last_msg, sizeof last_msg, "last: 3D studio on %s", carts[go_cart].name);
+                crumb("cartridge menu", NULL);
+                depth = 0;
+                rescan();
                 break;
             case GO_TEXT:
                 go_text(fb);

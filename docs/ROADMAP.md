@@ -806,6 +806,96 @@ Decisione 2026-09-29: l'editor attuale diventa l'**SDK** (generico: progetto, pr
 salvataggio); intorno a lui strumenti specializzati, ognuno una cartuccia nella scheda
 **Dev**, tutti con gli stessi formati.
 
+**Stato (2026-10-01, sviluppato sul branch `sviluppo-sdk`, ora in `claude/bare-metal-mvp`):
+bm Studio, sul PC.** Su richiesta
+dell'utente, 22.3 (3D), parte di 22.2 (pixel art dello sheet) e di 22.5 (import/export)
+arrivano prima come applicazione per il PC, in stile Crocotile 3D (`sdk/studio`,
+[sdk/README.md](../sdk/README.md)); i formati sono quelli previsti qui sotto, quindi gli
+strumenti sulla console potranno leggerli e scriverli.
+- **Formato**: sezione **MESH** del `.bm` (tipo 8, `src/bm/bm.h`; era 6 nei primi file,
+  ancora letti, prima che 6 andasse al banco di suoni): modelli con nome,
+  vertici in float, facce con colore o texture dello sprite sheet (angoli in 1/8 di
+  pixel), margine delle texture applicato al caricamento. Il kernel la controlla in
+  `bm_parse`; API `model(nome)`, `models()`, `bounds3d(m)`.
+- **bm Studio**: pagina web senza dipendenze (doppio clic su `index.html`, o
+  `make studio`). Tessere dello sheet posate su una griglia (piano automatico o fisso,
+  sulle facce esistenti), blocchi (le pareti tra blocchi vicini spariscono), selezione e
+  spostamento, angoli (tetti, rampe, unione), pittura sul modello; editor dei pixel
+  dello sheet; copertina dalla vista 3D; codice `main.lua`. Apre e salva il `.bm` al suo
+  posto (File System Access di Chrome/Edge; altrove scarica). Scambia `.glb` (con lo
+  sheet come texture; i `.glb` altrui portano le texture nello sheet) e `.png`.
+- L'**SDK sulla console** tiene le sezioni che non modifica (i modelli) quando salva.
+- **Build**: `mkbm.py --models file.glb` (o un `.bm`); `carts/<gioco>/models.glb` entra
+  nella cartuccia da solo, con lo sheet se il gioco non ha `sheet.png`.
+- **Esempio**: *Studio Village* (`carts/village`, 320×180), modelli costruiti con gli
+  strumenti dello Studio (`mkmodels.js` → `models.glb`).
+- **Test**: `make test-studio` (Node; gli stessi file letti da `bmmesh.py` e dal parser
+  del kernel), `make test-studio-ui` (Playwright), QEMU `test_models`,
+  `test_sdk_keeps_models`, `test_village`, `test_studio_cart`.
+- Corretta la documentazione dell'ordine dei vertici: una faccia si vede dal lato da
+  cui appare in senso **orario** (API e guida dicevano antiorario; l'esempio della
+  piramide nella guida mostrava l'interno).
+- **Da verificare sul Pi**: Studio Village (scheda Games); un `.bm` salvato da bm Studio
+  copiato in `carts/` (il visualizzatore dei modelli di un progetto nuovo).
+
+**bm Animator (2026-10-01, stesso branch): rigging, keyframe, animazione scheletrica,
+3D→sprite (22.6).** Terza applicazione per il PC (`sdk/animator`), con le stesse regole
+delle altre due (lavora sul `.bm`, porta il progetto da e verso bm Studio).
+- **Formato**: sezione **ANIM** del `.bm` (tipo 9, `src/bm/bm.h`; era 7): per ogni modello le
+  ossa (testa, coda, padre), l'osso di ogni vertice, le animazioni (keyframe di posa
+  intera, linear / smooth / step, ciclo). Un osso gira intorno alla testa:
+  M = M_padre · T(testa + t) · R(q) · T(−testa); ogni vertice segue un osso solo (parti
+  rigide come sulla PS1, o stirate alle giunture se gli angoli condivisi sono di ossa
+  diverse). Il kernel la controlla in `bm_parse`.
+- **API**: `model()` porta lo scheletro, `animate(m, anim, t, [anim2, t2, k])` (anche il
+  misto di due animazioni), `clips(m)`, `bone3d(m, osso)`; gli stessi conti in C
+  (`runtime.c`) e in JavaScript (`sdk/studio/js/rig.js`).
+- **bm Animator**: Rig (ossa trascinate per le giunture, specchio sinistra/destra, pelle
+  per faccia o per angolo, a mano o all'osso più vicino), Animate (anelli per girare,
+  coda per puntare, testa per spostare; linea del tempo con keyframe automatici, ciclo,
+  riproduzione, onion skin, specchio e copia della posa, annulla), Sprites (fotogrammi da
+  1–8 direzioni, camera piatta o in prospettiva, luce a bande, contorno, riduzione dei
+  colori, nello sheet con il codice Lua per `sspr()`). Esporta `.glb` con giunture, pelle e
+  animazioni. Si apre con un esempio: il paesano (idle, walk, wave).
+- **22.6 (3D→sprite)**: fatto sul PC con un rasterizzatore software in JavaScript (gli
+  stessi pixel nel browser e in Node). Restano da fare hitbox e hurtbox per fotogramma.
+- **Esempio**: in Studio Village il paesano cammina sul sentiero, saluta alle estremità
+  (due animazioni mescolate), porta una luce di notte (`bone3d`); nell'angolo la sua
+  camminata pre-renderizzata a sprite. `carts/village/models.bm` (da `mkmodels.js`).
+- **Build**: `mkbm.py --models file.bm` porta modelli, scheletri e sheet;
+  `carts/<gioco>/models.bm` entra nella cartuccia da solo.
+- **Test**: `make test-studio` (rig, ANIM, sprite, glTF animato verificato con un
+  valutatore glTF; il parser del kernel sullo stesso file), `make test-studio-ui`
+  (Playwright, anche l'Animator), QEMU `test_animation`.
+- **Da verificare sul Pi**: Studio Village (il paesano che cammina e lo sprite nell'angolo).
+
+**Studio 3D sulla console (2026-10-01, stesso branch): il player e la versione
+semplificata.** Su richiesta dell'utente gli strumenti del PC restano quelli principali e
+sulla console arriva una loro versione `.bm`: una cartuccia incorporata nel kernel
+(`carts/studio3d`), nella scheda **Dev** e nelle opzioni di ogni gioco (*Open in the 3D
+studio*; monitor `3`), sugli stessi file ([sdk/README.md](../sdk/README.md#sulla-console-lo-studio-3d)).
+- **Play** (il player): modelli, vertici, triangoli, ossa; camera che gira, animazioni
+  (fotogramma per fotogramma, velocità), scheletro sovrapposto, misto di due animazioni.
+- **Build**: cursore a celle, blocchi (senza pareti tra blocchi vicini), tessere su un
+  lato della cella, pittura, tessere e colori dallo sheet del progetto, annulla; le facce
+  sono identiche a quelle di bm Studio con gli stessi attrezzi.
+- **Rig** e **Animate**: ossa aggiunte, spostate e cancellate, pelle all'osso più vicino;
+  animazioni a keyframe (giri di 15° o 5° intorno a x/y/z, spostamenti, copia della posa,
+  ciclo, ease, durata).
+- **Menu**: apri, nuovo progetto (con le tessere iniziali di bm Studio), salva, prova il
+  gioco e torna, modelli nuovi/rinominati/duplicati/cancellati.
+- **Kernel**: `cart_data(tipo, [byte])` legge e sostituisce le sezioni MESH e ANIM del
+  progetto (controllate prima; `model()`/`animate()` le usano subito, `cart_save` le
+  scrive); `bone3d()` restituisce anche la coda dell'osso; il progetto aperto si azzera
+  all'avvio di ogni cartuccia.
+- **Input**: tastiera e gamepad; il puntatore arriverà con il mouse Bluetooth.
+- **Test**: lo studio sul PC con le API sostituite (`tests/studio/studio3d_host.lua`, 70
+  controlli, in `make test-studio`), i suoi file riletti da bm Studio, `bmmesh.py` e dal
+  parser del kernel; QEMU `test_studio3d`.
+- **Da verificare sul Pi**: scheda Dev → *3D studio*; aprire Studio Village, guardare il
+  paesano (k: scheletro, b: misto), costruire qualche blocco in un progetto nuovo,
+  salvarlo e provarlo (F5); fluidità del player e della costruzione sul Pi Zero.
+
 Sotto-milestone:
 - **22.0 Base comune**:
   - formato del progetto;
