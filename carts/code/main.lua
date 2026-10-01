@@ -148,6 +148,14 @@ local function open_file(path)
   local c, err = cart_read(path)
   if not c then say("cannot open " .. path .. ": " .. tostring(err), C_ERR); return false end
   i = new_tab(path, c.lua, c)
+  -- the first empty tab, untouched, gives its place
+  local first = tabs[1]
+  if #tabs == 2 and not first.path and not first.dirty and #first.undo == 0 and
+     text_of(first) == TEMPLATE then
+    table.remove(tabs, 1)
+    panes[1].tab, panes[2].tab = 1, 1
+    i = 1
+  end
   show_tab(i)
   say("opened " .. path .. " (" .. #tabs[i].lines .. " lines)", C_OK)
   log("code: opened " .. path)
@@ -353,17 +361,17 @@ end
 local function run_entry(t, v)
   local req = entry_request(t.lines[v.cy])
   if not req then return false end
-  if not assist.act then say("the assistant cannot act yet", C_ERR); return true end
   local r = assist.act(req, t.lines, v.cy)
-  if not r then say("#entry: nothing to do for \"" .. req .. "\"", C_ERR); return true end
-  snapshot(t, v)
-  if r.lines then
+  if not r then say("#entry: nothing I know for \"" .. req .. "\"", C_ERR); return true end
+  if r.ok then
+    snapshot(t, v)
     t.lines = r.lines
     v.cy = math.max(1, math.min(#t.lines, r.cursor or v.cy))
-    v.cx = 0
+    v.cx, v.mark = 0, nil
   end
-  say(r.message or "done", r.ok == false and C_ERR or C_OK, 400)
-  log("code: #entry " .. req .. " -> " .. (r.message or "done"))
+  if r.explain then overlay = { kind = "text", title = r.message, lines = r.explain } end
+  say("#entry: " .. (r.message or "done") .. (r.ok and "  (Ctrl+Z undoes)" or ""), r.ok and C_OK or C_ERR, 600)
+  log("code: #entry " .. req .. " -> " .. (r.ok and "" or "not done: ") .. (r.message or "done"))
   return true
 end
 
@@ -697,7 +705,7 @@ end
 
 local function overlay_key(k)
   local o = overlay
-  if o.kind == "help" then overlay = nil
+  if o.kind == "help" or o.kind == "text" then overlay = nil
   elseif o.kind == "prompt" then
     if k == "esc" then overlay = nil
     elseif k == "\n" then overlay = nil; o.done(o.text)
@@ -945,6 +953,9 @@ local function draw_status(t, v)
   local left = (t.path or "untitled") .. (t.dirty and " *" or "")
   print(left, 0, y, C_TEXT)
   print(right, (COLS - #right) * CW, y, C_DIM)
+  if status_t == 0 and entry_request(t.lines[v.cy]) then
+    status, status_c, status_t = "Enter: the assistant does it", C_ACC, 1
+  end
   if status ~= "" and status_t > 0 then
     local room = COLS - #left - #right - 4
     if room > 8 then print(status:sub(1, room), (#left + 2) * CW, y, status_c) end
@@ -973,7 +984,17 @@ end
 
 local function draw_overlay()
   local o = overlay
-  if o.kind == "help" then
+  if o.kind == "text" then
+    local cols = math.min(COLS - 4, 80)
+    local rows = math.min(ROWS - 4, #o.lines + 3)
+    local c0, r0 = (COLS - cols) // 2, 2
+    draw_box(c0, r0, cols, rows, o.title .. " (any key closes)")
+    for i = 1, rows - 2 do
+      local l = o.lines[i]
+      if not l then break end
+      print(l:sub(1, cols - 2), (c0 + 1) * CW, (r0 + i) * CH, i == 1 and C_ACC or C_TEXT)
+    end
+  elseif o.kind == "help" then
     local half = (#HELP + 1) // 2
     local cols, rows = math.min(COLS - 4, 80), math.min(ROWS - 2, half + 2)
     local c0, r0 = (COLS - cols) // 2, 1

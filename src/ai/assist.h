@@ -15,7 +15,8 @@
 #define AI_KIND_ERROR   4
 #define AI_KIND_SPRITE  8
 #define AI_KIND_TIP     16
-#define AI_KIND_ALL     31
+#define AI_KIND_ACTION  32      /* something to do on the code (#entry: lines) */
+#define AI_KIND_ALL     63
 
 typedef struct {
     const char *id, *kind, *title, *name, *text, *code, *gen, *see, *keys;

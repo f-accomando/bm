@@ -132,11 +132,11 @@ def read_ppm(path):
     return w, h, data[pos + 1:]
 
 
-def load_font():
-    """Glyph bitmaps from src/gfx/font8x16.c, keyed by row bytes."""
+def load_font(cw=8, ch=16):
+    """Glyph bitmaps from src/gfx/font<cw>x<ch>.c, keyed by row bytes."""
     import re
-    src = open(os.path.join(HERE, "..", "src", "gfx", "font8x16.c")).read()
-    rows = re.findall(r"\{ (0x[0-9a-f]{2}(?:, 0x[0-9a-f]{2}){15}) \}", src)
+    src = open(os.path.join(HERE, "..", "src", "gfx", "font%dx%d.c" % (cw, ch))).read()
+    rows = re.findall(r"\{ (0x[0-9a-f]{2}(?:, 0x[0-9a-f]{2}){%d}) \}" % (ch - 1), src)
     table = {}
     for code, r in enumerate(rows):
         key = bytes(int(b, 16) for b in r.split(", "))
@@ -144,15 +144,16 @@ def load_font():
     return table
 
 
-FONT = None
+FONTS = {}
 
 
 def screen_text(img, cw=8, ch=16):
-    """Reads the console back from a screendump: one string per text row.
-    Unknown cells become '?'."""
-    global FONT
-    if FONT is None:
-        FONT = load_font()
+    """Reads the console back from a screendump: one string per text row,
+    with the font of that cell size (8x16, or 6x12 for bm Code). Unknown
+    cells become '?'."""
+    if (cw, ch) not in FONTS:
+        FONTS[(cw, ch)] = load_font(cw, ch)
+    font = FONTS[(cw, ch)]
     w, h, px = img
     lines = []
     for row in range(h // ch):
@@ -169,7 +170,7 @@ def screen_text(img, cw=8, ch=16):
             if not any(bits):
                 line.append(" ")
             else:
-                line.append(FONT.get(bits, "?"))
+                line.append(font.get(bits, "?"))
         lines.append("".join(line).rstrip())
     return lines
 
@@ -2754,6 +2755,142 @@ def test_assistant(b, opts):
         assert "error" not in out, out
     finally:
         q.close()
+
+
+def test_code_editor(b, opts):
+    """bm Code (Dev tab, monitor C): opens a cartridge with a long name and
+    sprites from the SD and a second one in another tab, two pages side by
+    side, edits and saves only the code (sheet and map stay as they were,
+    the long name too), runs a game that stops with an error and comes back
+    on the line, F9 explains it, an "#entry:" line done by the assistant
+    and undone; on leaving, the unsaved tab is kept for later. The card is
+    still a clean FAT32 volume."""
+    tmp = tempfile.mkdtemp(prefix="bm-code-")
+    img = os.path.join(tmp, "sd.img")
+    mksd.build(img, [(b("demo.bm"), "carts/Il mio demo.bm"), (b("carts/pong.bm"), "carts/pong.bm")])
+    q = Qemu(b("kernel.img"), ["-drive", f"if=sd,format=raw,file={img}"])
+    log = []
+
+    def k(s, gap=0.04):
+        # an escape sequence goes in one piece: a lone Esc is one after 6 frames
+        for c in re.findall(r"\x1b\[[0-9]*[~A-Z]|\x1bO[A-Z]|.", s, re.S):
+            q.send(c)
+            time.sleep(gap)
+
+    def expect(needle, timeout=15):
+        out = q.expect(needle, timeout=timeout).decode(errors="replace")
+        log.append(out)
+        return out
+
+    def see(words, tries=40):
+        text = []
+        for _ in range(tries):
+            img_ = q.screendump()
+            text = screen_text(img_, 6, 12)
+            if all(any(w in l for l in text) for w in words):
+                return text
+            time.sleep(0.25)
+        raise AssertionError(f"not on screen: {words}\n" + "\n".join(text))
+
+    def shot(name):
+        if opts.shots:
+            _save_png(q.screendump(), os.path.join(opts.shots, f"code-{name}.png"))
+    try:
+        q.boot()
+        k("C")
+        expect("code: ready")
+        see(["F1 keys"])
+        k("\x0f", 0.5)                                      # Ctrl+O: the files
+        see(["Open a cartridge", "/carts/Il mio demo.bm", "/carts/pong.bm"])
+        shot("open")
+        k("\r")
+        expect("code: opened /carts/Il mio demo.bm")
+        k("\x0f", 0.5)
+        k("\x1b[B", 0.3)
+        k("\r")
+        expect("code: opened /carts/pong.bm")
+        k("\x1bOS", 0.5)                                    # F4: two pages
+        text = see(["Il mio demo.bm", "pong.bm 1", "two pages"])
+        assert "untitled" not in text[0], "the untouched first tab gave its place: " + text[0]
+        shot("split")
+        k("\x1bOS", 0.5)                                    # one page again
+
+        # pong: a line on top, saved (only the code changes)
+        k("\x0c")                                           # Ctrl+L: go to line
+        k("1\r", 0.1)
+        k("-- edited by bm Code\r")
+        k("\x13")                                           # Ctrl+S
+        expect("code: saved /carts/pong.bm")
+
+        # the demo (long name, sprites): an error on line 1, then F5
+        k("\x1bOQ", 0.3)                                    # F2: the other tab
+        k("\x0c")
+        k("1\r", 0.1)
+        k('error("boom")\r')
+        k("\x1b[15~")                                       # F5: save and run
+        expect("code: saved /carts/Il mio demo.bm")
+        expect("main.lua:1: boom", timeout=30)
+        expect("code: ready", timeout=30)
+        see(["the game stopped"])
+        shot("error")
+        k("\x1b[20~", 0.5)                                  # F9: explained
+        see(["Assistant", "error"])
+        k("\x1b", 0.6)                                     # the panel closes
+
+        # a new tab, a function, an "#entry:" line above its if
+        k("\x14", 0.3)                                      # Ctrl+T
+        k("function f(v)\rif v > 0 then\rr = 1\relse\rr = 2\rend\rend")
+        k("\x0c")
+        k("1\r", 0.1)
+        k("\x1b[F", 0.1)                                    # End
+        k("\r#entry: usa il ternario #\r")
+        expect("code: #entry usa il ternario")
+        out = expect("\n")
+        assert "if/else" in out and "not done" not in out, out
+        see(["r = v > 0 and 1 or 2"])
+        shot("entry")
+        k("\x1a", 0.3)                                      # Ctrl+Z
+        see(["if v > 0 then"])
+
+        # leave: the untitled tab has changes; kept for later
+        k("\x1b", 0.6)                                     # Esc: the menu
+        see(["New cartridge", "Exit"])
+        k("\x1b[A", 0.3)                                   # up from the first: Exit
+        k("\r", 0.5)
+        see(["not saved"])
+        k("k", 0.3)                                        # Keep for later
+        expect("> ", timeout=10)
+    finally:
+        q.close()
+    try:
+        part = os.path.join(tmp, "part.img")
+        with open(img, "rb") as f, open(part, "wb") as o:
+            f.seek(2048 * 512)
+            o.write(f.read())
+        fsck = subprocess.run(["fsck.vfat", "-n", part], capture_output=True, text=True)
+        assert fsck.returncode == 0, fsck.stdout + fsck.stderr
+        env = dict(os.environ, MTOOLS_SKIP_CHECK="1")
+        out = os.path.join(tmp, "demo.bm")
+        subprocess.run(["mcopy", "-i", part, "::/CARTS/Il mio demo.bm", out], check=True, env=env)
+        sys.path.insert(0, os.path.join(HERE, "..", "scripts"))
+        new = open(out, "rb").read()
+        old = open(b("demo.bm"), "rb").read()
+        def sections(d):
+            import struct
+            n = d[17]
+            res = {}
+            for i in range(n):
+                t, off, size, _ = struct.unpack_from("<IIII", d, 128 + 16 * i)
+                res[t] = d[off:off + size]
+            return res
+        ns, os_ = sections(new), sections(old)
+        assert ns[1].startswith(b'error("boom")'), ns[1][:40]
+        assert ns[2] == os_[2] and ns[3] == os_[3], "the sheet and the map changed"
+        subprocess.run(["mcopy", "-i", part, "-o", "::/CARTS/PONG.BM", os.path.join(tmp, "pong.bm")],
+                       check=True, env=env)
+        assert open(os.path.join(tmp, "pong.bm"), "rb").read().find(b"-- edited by bm Code") > 0
+    finally:
+        shutil.rmtree(tmp, ignore_errors=True)
 
 
 def test_editor(b, opts):

@@ -160,3 +160,14 @@ il fuoco di un falò => sprite.fire
 un albero di natale => sprite.tree
 un omino che cammina di lato per il mio platform => sprite.hero_side
 la macchinina per il gioco di corse => sprite.car
+
+# actions (#entry: lines in bm Code)
+metti il ternario in questa funzione => act.ternary
+scrivi un commento che spieghi la funzione => act.comment, act.explain
+voglio un log quando entra nella funzione => act.log
+via tutti i log => act.remove_log
+sistema i rientri => act.indent
+rinomina speed in velocita => act.rename
+cosa fa questa funzione? => act.explain
+rendila locale => act.make_local
+crea uno snippet per uno sprite particle effect => particles

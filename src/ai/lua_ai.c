@@ -4,6 +4,7 @@
  * base and the network stay in the kernel image (read-only).
  *
  *   hits, us = ai.ask(question, [{n=5, ctx=word, kinds="api,howto"}])
+ *                               (kinds: api, howto, error, tip, sprite, action)
  *   e = ai.entry(id)            {id, kind, title, name, text, code, gen, see={...}}
  *   list = ai.list([kinds])     every entry {id, title, kind}
  *   name, dist = ai.near(word)  the API name closest to a typo

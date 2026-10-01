@@ -428,6 +428,7 @@ test-ai: $(BUILD)/host/test_ai $(BUILD)/assist.bin $(BUILD)/host/luahost $(BUILD
 	$< $(BUILD)/assist.bin $(BUILD)/ai/ref.txt
 	$(BUILD)/host/luahost tests/ai/check_snippets.lua $(BUILD)/ai/snippets.txt
 	$(BUILD)/host/luaai $(BUILD)/assist.bin tests/ai/panel_test.lua
+	$(BUILD)/host/luaai $(BUILD)/assist.bin tests/ai/act_test.lua
 
 HOSTCC ?= cc
 

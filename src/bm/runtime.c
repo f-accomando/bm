@@ -534,33 +534,52 @@ void bm_save_path(const char *title, const char *author, char *out, size_t n)
     ksnprintf(out, n, "%s/%08lX.SAV", SAVE_DIR, crc32(id, (uint32_t)len));
 }
 
-static void ser(lua_State *L, luaL_Buffer *b, int idx, int depth);
+/* The text is built in a fixed buffer: a luaL_Buffer cannot be used here,
+ * it may sit on the Lua stack while the serializer walks the tables with
+ * lua_next (a save of more than about 1 KiB then broke the stack). */
+static struct {
+    char p[SAVE_MAX + 64];
+    size_t n;
+} sb;
 
-static void ser_string(luaL_Buffer *b, const char *str, size_t len)
+static void sb_add(lua_State *L, const char *s, size_t len)
 {
-    luaL_addchar(b, '"');
+    if (sb.n + len > SAVE_MAX)
+        luaL_error(L, "save: more than %d bytes", SAVE_MAX);
+    memcpy(sb.p + sb.n, s, len);
+    sb.n += len;
+}
+
+static void sb_str(lua_State *L, const char *s) { sb_add(L, s, strlen(s)); }
+static void sb_chr(lua_State *L, char c) { sb_add(L, &c, 1); }
+
+static void ser(lua_State *L, int idx, int depth);
+
+static void ser_string(lua_State *L, const char *str, size_t len)
+{
+    sb_chr(L, '"');
     for (size_t i = 0; i < len; i++) {
         unsigned char c = (unsigned char)str[i];
         if (c == '"' || c == '\\') {
-            luaL_addchar(b, '\\');
-            luaL_addchar(b, (char)c);
+            sb_chr(L, '\\');
+            sb_chr(L, (char)c);
         } else if (c < 32 || c == 127) {
             char esc[8];
             snprintf(esc, sizeof esc, "\\%03u", c);
-            luaL_addstring(b, esc);
+            sb_str(L, esc);
         } else {
-            luaL_addchar(b, (char)c);
+            sb_chr(L, (char)c);
         }
     }
-    luaL_addchar(b, '"');
+    sb_chr(L, '"');
 }
 
-static void ser_value(lua_State *L, luaL_Buffer *b, int idx, int depth)
+static void ser_value(lua_State *L, int idx, int depth)
 {
     char num[40];
     switch (lua_type(L, idx)) {
     case LUA_TBOOLEAN:
-        luaL_addstring(b, lua_toboolean(L, idx) ? "true" : "false");
+        sb_str(L, lua_toboolean(L, idx) ? "true" : "false");
         break;
     case LUA_TNUMBER:
         if (lua_isinteger(L, idx)) {
@@ -573,40 +592,39 @@ static void ser_value(lua_State *L, luaL_Buffer *b, int idx, int depth)
             if (!strpbrk(num, ".eEn"))
                 strcat(num, ".0");              /* stays a float when read back */
         }
-        luaL_addstring(b, num);
+        sb_str(L, num);
         break;
     case LUA_TSTRING: {
         size_t len;
         const char *str = lua_tolstring(L, idx, &len);
-        ser_string(b, str, len);
+        ser_string(L, str, len);
         break;
     }
     case LUA_TTABLE:
-        ser(L, b, idx, depth + 1);
+        ser(L, idx, depth + 1);
         break;
     default:
         luaL_error(L, "save: cannot store a %s", luaL_typename(L, idx));
     }
 }
 
-static void ser(lua_State *L, luaL_Buffer *b, int idx, int depth)
+static void ser(lua_State *L, int idx, int depth)
 {
     if (depth > 16)
         luaL_error(L, "save: tables nested too deep (or a cycle)");
     idx = lua_absindex(L, idx);
-    luaL_addchar(b, '{');
+    luaL_checkstack(L, 4, "save");
+    sb_chr(L, '{');
     lua_pushnil(L);
     while (lua_next(L, idx)) {
-        luaL_addchar(b, '[');
-        ser_value(L, b, -2, depth);
-        luaL_addstring(b, "]=");
-        ser_value(L, b, -1, depth);
-        luaL_addchar(b, ',');
+        sb_chr(L, '[');
+        ser_value(L, -2, depth);
+        sb_str(L, "]=");
+        ser_value(L, -1, depth);
+        sb_chr(L, ',');
         lua_pop(L, 1);
-        if (luaL_bufflen(b) > SAVE_MAX)
-            luaL_error(L, "save: more than %d bytes", SAVE_MAX);
     }
-    luaL_addchar(b, '}');
+    sb_chr(L, '}');
 }
 
 /* save(t): true, or false and a message (no SD card, card full...) */
@@ -614,14 +632,10 @@ static int l_save(lua_State *L)
 {
     luaL_checktype(L, 1, LUA_TTABLE);
     lua_settop(L, 1);
-    luaL_Buffer b;
-    luaL_buffinit(L, &b);
-    luaL_addstring(&b, "return ");
-    ser(L, &b, 1, 0);
-    luaL_pushresult(&b);
-    size_t len;
-    const char *text = lua_tolstring(L, -1, &len);
-    if (fat_mkdirs(SAVE_DIR) != 0 || fat_write_file(SAVE_DIR, rt.save_name, text, len) != 0) {
+    sb.n = 0;
+    sb_str(L, "return ");
+    ser(L, 1, 0);
+    if (fat_mkdirs(SAVE_DIR) != 0 || fat_write_file(SAVE_DIR, rt.save_name, sb.p, sb.n) != 0) {
         lua_pushboolean(L, 0);
         lua_pushstring(L, fat_error());
         return 2;
