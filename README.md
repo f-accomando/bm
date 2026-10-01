@@ -135,8 +135,8 @@ Everything a cartridge contains is made with bm's own tools. They read and write
   <img src="docs/img/assistant.png" width="49%" alt="The AI assistant on the console">
   <img src="docs/img/sound.png" width="49%" alt="The Sound editor on the console">
   <img src="docs/img/studio3d.png" width="49%" alt="The 3D studio on the console: the villager's walk">
-  <img src="docs/img/mesh.png" width="49%" alt="bm Mesh: the vertices of Astro Wing's ship">
-  <img src="docs/img/menu-dev.png" width="49%" alt="The Dev tab of the menu">
+  <img src="docs/img/mesh.png" width="49%" alt="bm Mesh: the meshes Astro Wing's code builds">
+  <img src="docs/img/pixel.png" width="49%" alt="bm Pixel: Titan Clash's 2048×3448 sprite sheet">
 </p>
 
 ## 4. What you can make
