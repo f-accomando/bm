@@ -1622,6 +1622,7 @@ static int l_cart_load(lua_State *L);
 static int l_cart_new(lua_State *L);
 static int l_cart_save(lua_State *L);
 static int l_cart_run(lua_State *L);
+static int l_cart_tool(lua_State *L);
 static int l_cart_arg(lua_State *L);
 static int l_cart_audio(lua_State *L);
 static int l_cart_put_audio(lua_State *L);
@@ -1691,7 +1692,7 @@ static const luaL_Reg api[] = {
     { "save", l_save }, { "saved", l_saved },
     { "keyp", l_keyp }, { "keyheld", l_keyheld }, { "rawkeys", l_rawkeys }, { "keydown", l_keydown },
     { "keys", l_keys }, { "pad", l_pad }, { "timeslice", l_timeslice }, { "ls", l_ls }, { "cart_load", l_cart_load }, { "cart_new", l_cart_new },
-    { "cart_save", l_cart_save }, { "cart_run", l_cart_run }, { "cart_arg", l_cart_arg },
+    { "cart_save", l_cart_save }, { "cart_run", l_cart_run }, { "cart_tool", l_cart_tool }, { "cart_arg", l_cart_arg },
     { "cart_data", l_cart_data },
     { "cart_read", l_cart_read }, { "cart_write", l_cart_write }, { "cart_meshes", l_cart_meshes },
     { "cart_sheet", l_cart_sheet },
@@ -2096,7 +2097,7 @@ static int extras_keep(const uint8_t *d)
     }
     return 0;
 }
-static char run_request[64];
+static char run_request[64], tool_request[16];
 static char arg_path[64], arg_error[512], last_error[512];
 static int arg_back = 1;
 
@@ -2109,6 +2110,15 @@ void bm_set_arg(const char *path, const char *error)
 void bm_set_arg_back(int back)
 {
     arg_back = back;
+}
+
+int bm_take_tool(char *name, size_t n)
+{
+    if (!tool_request[0])
+        return 0;
+    ksnprintf(name, n, "%s", tool_request);
+    tool_request[0] = 0;
+    return 1;
 }
 
 int bm_take_run(char *path, size_t n)
@@ -2677,7 +2687,8 @@ static int l_cart_meshes(lua_State *L)
  * sprite sheet (cart_load, sset, cart_sheet) takes the place of the file's,
  * as SHEET8 with `palette` ({0xRRGGBB, ...}) first in its palette when it
  * has at most 256 colours (sheet_section; bm Pixel). from: take the
- * sections from another file ("save as"). A file that does not exist yet
+ * sections from another file ("save as"); from = false: a new cartridge,
+ * whatever the file holds now (bm Studio's new project). A file that does not exist yet
  * becomes a new cartridge with the code (its name must then be 8.3; an
  * existing file keeps its long name). */
 static int l_cart_write(lua_State *L)
@@ -2719,7 +2730,10 @@ static int l_cart_write(lua_State *L)
         }
     }
     lua_pop(L, 1);
-    const char *base = field(L, 2, "from", path);
+    lua_getfield(L, 2, "from");
+    int fresh = lua_isboolean(L, -1) && !lua_toboolean(L, -1);    /* from = false: a new cartridge */
+    lua_pop(L, 1);
+    const char *base = fresh ? NULL : field(L, 2, "from", path);
     char dir[64], name[FAT_NAME_MAX];
     split_path(path, dir, sizeof dir, name, sizeof name);
 
@@ -2729,7 +2743,7 @@ static int l_cart_write(lua_State *L)
     bm_cart_t c;
     memset(&c, 0, sizeof c);
     char err[64];
-    if (fat_find(base, &e) == 0 && !e.is_dir) {
+    if (base && fat_find(base, &e) == 0 && !e.is_dir) {
         if (fat_load(&e, &old, &old_len) != 0) {
             lua_pushboolean(L, 0);
             lua_pushstring(L, fat_error());
@@ -2796,6 +2810,17 @@ static int l_cart_write(lua_State *L)
 static int l_cart_run(lua_State *L)
 {
     ksnprintf(run_request, sizeof run_request, "%s", luaL_checkstring(L, 1));
+    rt.quit = 1;
+    return 0;
+}
+
+/* cart_tool(name, [path]): leaves this tool for another of the console's
+ * ("studio", "animator", "mesh", "pixel", "code", "sdk", "sound") on the
+ * file (bm Studio's "Open in bm Animator") */
+static int l_cart_tool(lua_State *L)
+{
+    ksnprintf(tool_request, sizeof tool_request, "%s", luaL_checkstring(L, 1));
+    ksnprintf(run_request, sizeof run_request, "%s", luaL_optstring(L, 2, ""));
     rt.quit = 1;
     return 0;
 }
@@ -3016,7 +3041,7 @@ static int l_cart_put_audio(lua_State *L)
  * section, or nil; cart_data(type, bytes) replaces it (nil or "" takes it
  * away) -> true, or false and a message. The bytes are checked first;
  * model() and animate() see the new ones at once, cart_save writes them.
- * The 3D studio edits models and skeletons this way. */
+ * bm Studio and bm Animator of the console edit models and skeletons this way. */
 static int l_cart_data(lua_State *L)
 {
     int type = (int)luaL_checkinteger(L, 1);

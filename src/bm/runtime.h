@@ -72,6 +72,8 @@ void bm_set_dma_frames(int on);
  * error the last cartridge stopped with ("" if none). */
 void bm_set_arg(const char *path, const char *error);
 int  bm_take_run(char *path, size_t n);
+/* the tool a tool asked for with cart_tool(name, path) (the path: bm_take_run) */
+int  bm_take_tool(char *name, size_t n);
 const char *bm_last_error(void);
 /* cart_arg().back: the editor comes back from trying a game (1), or opens
  * the file it was given from the menu (0). */

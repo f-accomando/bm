@@ -29,13 +29,20 @@ screenshot in `docs/img/`), `README_OLD.md` (il README completo, in italiano),
 - **bm Animator** (`sdk/animator`, usa i file di `sdk/studio/js`): scheletri e animazioni
   nella sezione ANIM (tipo 9); `rig.js` e `animate()` in `runtime.c` fanno gli stessi
   conti (cambiarli insieme). `sprites.js` (3D→sprite) è un rasterizzatore software.
-- **Studio 3D della console** (`carts/studio3d/main.lua`, cartuccia incorporata come
-  l'editor, scheda Dev, monitor `3`): player + versione semplificata di Studio/Animator.
-  Codifica MESH/ANIM in Lua (`string.pack`) e le passa al kernel con `cart_data()`;
-  `tile_face`/`place_faces` sono il port di `edit.js` (le facce devono restare identiche,
-  `check_studio3d.js`). Al livello principale del file ci sono meno di 200 locali: ogni
-  pagina sta in un blocco `do ... end`. Prova sul PC: `tests/studio/studio3d_host.lua`
-  (in `make test-studio`).
+- **bm Studio e bm Animator della console** (decisione dell'utente: gli stessi nomi dei
+  programmi per il PC). `carts/studio/main.lua` (monitor `3`: build con block, tile,
+  select, vertex, paint; pagina models) e `carts/animator/main.lua` (monitor `6`: play,
+  rig, animate, sprites), incorporate, scheda Dev, opzioni "Open in bm Studio" / "Open in
+  bm Animator"; si passano lo stesso file con `cart_tool(nome, path)`. Il codice comune
+  (MESH/ANIM con `string.pack`, progetto, annulla, menu, dialoghi, schede, `nav()` per il
+  puntatore della tastiera) è la libreria del kernel `src/script/bm3d.lua`
+  (`require "bm3d"`); salvano con `cart_write` (`sections`, `sheet` solo se dipinto,
+  `from = false` per un progetto nuovo). `tile_face`/`place_faces` sono il port di
+  `edit.js` (le facce devono restare identiche, `check_studio3d.js`). Una pagina è un
+  blocco `do ... end` (meno di 200 locali). Il mouse (branch `claude/mouse`) verrà dopo:
+  per ora tastiera e pad. Scritte sulle righe di 16 pixel (i test in QEMU leggono lo
+  schermo). Prova sul PC: `tests/studio/tools3d_host.lua` (in `make test-studio`), QEMU
+  `test_studio_animator`.
 - **bm Mesh** (`carts/mesh/main.lua`, incorporata, scheda Dev, monitor `4`, opzioni "Open in
   bm Mesh"): vertici e facce dei modelli (MESH), delle mesh scritte da lui nel codice
   (funzioni `mesh_<nome>()` tra `-- [bm Mesh begin]` e `-- [bm Mesh end]` in fondo a
@@ -82,9 +89,11 @@ screenshot in `docs/img/`), `README_OLD.md` (il README completo, in italiano),
 - `src/kernel/prompts.c`: tasti di DS4, pad generici e tastiera come icone, due set scelti
   dall'utente. Menu: in rilievo (faccia bianca su bordino grigio, simbolo ritagliato; solo
   i 4 tasti frontali del DS4 anche a colori), nei suggerimenti secondo `hid_last_source()`.
-  App di sviluppo (SDK, 3D studio, bm Mesh, bm Pixel, Sound, bm Code, assistente; non
-  nano8): chip colorati da 16 o 12 px, dal Lua con `prompt()` / `lastinput()`; le scritte
-  accanto restano sulle colonne del font (in bm Mesh e bm Pixel `hint()` e `chip_hint()`).
+  App di sviluppo (SDK, bm Studio, bm Animator, bm Mesh, bm Pixel, Sound, bm Code,
+  assistente; non nano8): chip colorati da 16 o 12 px, dal Lua con `prompt()` /
+  `lastinput()`; le scritte accanto restano sulle colonne del font (`hint()` e
+  `chip_hint()` in bm Mesh, bm Pixel e bm3d). In `prompt()` le maiuscole sono pulsanti
+  del pad: un tasto con Shift si scrive `"shift"` + la lettera.
   Nei test sul PC `prompt` scrive `"[nome]"`. bm Code ha un suo `prompt()` locale (il
   dialogo): lì si chiama `key_chip`. `make test-prompts` disegna i due set in
   `build/prompts/`: guardarli dopo ogni modifica.

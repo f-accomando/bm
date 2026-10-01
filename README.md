@@ -123,8 +123,11 @@ Everything a cartridge contains is made with bm's own tools. They read and write
   in Italian for now.
 - **Sound editor**: an 8-voice synthesizer, sound effects and music patterns for the
   cartridge's sound bank.
-- **3D studio**: a model and animation player, plus a simpler bm Studio and bm Animator:
-  build, rig and animate.
+- **bm Studio** and **bm Animator**: the PC programs' twins, on the same files. bm Studio
+  builds models with blocks and tiles, chooses, moves, turns and copies faces, moves
+  corners and paints the tiles right on the model. bm Animator plays the models, makes
+  their skeletons and skin, animates them on a timeline and draws an animation into the
+  sprite sheet.
 - **bm Mesh**: the vertices and faces of every mesh, including the ones the game's code
   builds.
 - **bm Pixel**: the sprite sheet's pixel art. It has drawing tools, a palette of up to 256
@@ -134,7 +137,8 @@ Everything a cartridge contains is made with bm's own tools. They read and write
   <img src="docs/img/code.png" width="49%" alt="bm Code on the console">
   <img src="docs/img/assistant.png" width="49%" alt="The AI assistant on the console">
   <img src="docs/img/sound.png" width="49%" alt="The Sound editor on the console">
-  <img src="docs/img/studio3d.png" width="49%" alt="The 3D studio on the console: the villager's walk">
+  <img src="docs/img/studio-console.png" width="49%" alt="bm Studio on the console: faces chosen on the village's ground">
+  <img src="docs/img/animator-console.png" width="49%" alt="bm Animator on the console: the villager's bones">
   <img src="docs/img/mesh.png" width="49%" alt="bm Mesh: the meshes Astro Wing's code builds">
   <img src="docs/img/pixel.png" width="49%" alt="bm Pixel: Titan Clash's 2048×3448 sprite sheet">
 </p>

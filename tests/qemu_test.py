@@ -897,9 +897,9 @@ def test_home_ui(b, opts):
 
         # the options of the suspended game
         keys("x")
-        # (with five tools, Open in bm Mesh and the info rows are below: the panel scrolls)
+        # (with the tools, bm Mesh, bm Pixel and the info rows are below: the panel scrolls)
         screen(["AAA saver", "Resume", "Close the game", "Open in the SDK", "Open in bm Code",
-                "Open in the Sound editor", "Open in the 3D studio"])
+                "Open in the Sound editor", "Open in bm Studio"])
         shot("options")
         keys("ww")                              # up from the first row: the last ones
         screen(["Delete the save data", "Records and progress start again"])
@@ -930,7 +930,7 @@ def test_home_ui(b, opts):
         # the other cartridge leaves the SD card
         keys("d")
         keys("x")
-        screen(["BBB delete me", "Play", "Open in the 3D studio"])
+        screen(["BBB delete me", "Play", "Open in bm Studio"])
         keys("w")                               # up from the first: the last rows, the file too
         screen(["Delete from the SD card", "/carts/Un gioco da cancellare.bm"])
         keys("\r")
@@ -993,7 +993,9 @@ def test_home_ui(b, opts):
         keys("d")                               # the covers' names are on pictures: the pill
         screen(["bm Sound", "sound (built-in)"])
         keys("d")
-        screen(["bm 3D studio", "3D studio (built-in)"])
+        screen(["bm Studio", "studio (built-in)"])
+        keys("d")
+        screen(["bm Animator", "animator (built-in)"])
         keys("d")
         screen(["bm Mesh", "mesh (built-in)"])
         keys("d")
@@ -2364,8 +2366,8 @@ def test_sd_sdhc_and_usb_menu(b, opts):
         img_, text = settled_screen(q, lambda i, t: tabs_lit(i) == ["Games"])
         assert tabs_lit(img_) == ["Games"], "\n".join(text)
         sendkeys(q, "c")                      # C is the X button: the options (M27)
-        # (with five tools the info rows, Author..., are below: the panel scrolls)
-        opts_row = "Open in bm Mesh"
+        # (with the tools the info rows, Author..., are below: the panel scrolls)
+        opts_row = "Open in bm Studio"
         _, text = settled_screen(q, lambda i, t: any(opts_row in l for l in t))
         assert any(opts_row in l for l in text) and any("Play" in l for l in text), "\n".join(text)
         sendkeys(q, "x")                      # X is the B button: back
@@ -2623,11 +2625,14 @@ def test_studio_cart(b, opts):
         q.close()
 
 
-def test_studio3d(b, opts):
-    """The 3D studio on the console (Dev tab; a game's options, "Open in the
-    3D studio"): the player shows the models and animations of the village;
-    a new project gets a block, is saved, tried (its viewer plays) and the
-    studio comes back to it; the file holds the model the kernel reads."""
+def test_studio_animator(b, opts):
+    """bm Studio and bm Animator on the console (a game's options, "Open in
+    bm Studio"; the menu's "Open in bm Animator"): bm Studio shows the
+    village's models with its tools (select, vertex, paint, tiles, models);
+    a new project gets a block, is saved, tried (its viewer plays) and comes
+    back; bm Animator opens it (cart_tool) and gives it a skeleton and an
+    animation; then the village's villager plays, its bones, its sprites go
+    into the sheet. The file holds what the kernel reads."""
     tmp = tempfile.mkdtemp(prefix="bm-s3d-")
     img = os.path.join(tmp, "sd.img")
     mksd.build(img, [(b("carts/village.bm"), "carts/village.bm")])
@@ -2647,48 +2652,46 @@ def test_studio3d(b, opts):
         raise AssertionError(f"not on the screen: {want}\n" + "\n".join(text))
 
     def shot(name):
+        # a whole frame: the tab bar and the status bar are drawn last
         if opts.shots:
-            _save_png(q.screendump(), os.path.join(opts.shots, f"studio3d-{name}.png"))
+            img_, _ = settled_screen(q, lambda i, t: "menu" in t[0] and t[21].strip() != "", tries=20)
+            _save_png(img_, os.path.join(opts.shots, f"{name}.png"))
 
-    F2, F3, F4, UP, DOWN, ESC = "\x1bOQ", "\x1bOR", "\x1bOS", "\x1b[A", "\x1b[B", "\x1b"
+    F1, F2, F3, F4 = "\x1bOP", "\x1bOQ", "\x1bOR", "\x1bOS"
+    UP, DOWN, RIGHT, ESC, TAB = "\x1b[A", "\x1b[B", "\x1b[C", "\x1b", "\t"
     try:
         q.expect(MENU, timeout=30)
         time.sleep(0.5)
         screen(["Games", "Studio Village"])
         keys("x")
-        screen(["Open in the SDK", "Open in bm Code", "Open in the Sound editor", "Open in the 3D studio"])
-        keys("s", "s", "s", "s", "\r")
-        text = screen(["play", "animate", "MODELS", "ground", "villager", "169 vertices, 288 triangles"])
-        assert "opened /carts/village.bm" in text, text
-        for _ in range(7):
-            keys(DOWN)
-        screen(["ANIMATIONS", "idle", "walk", "wave", "112 vertices, 168 triangles, 7 bones"])
-        keys("k")
-        shot("player")
-        keys(F3)
-        screen(["BONES", "hips", "spine", "arm.L", "leg.R", "tail of hips"])
-        shot("rig")
-        keys(F4)
-        screen(["BONES", "idle  1/3  smooth  loop  2.00 s"])
-        shot("animate")
+        screen(["Open in the SDK", "Open in bm Code", "Open in the Sound editor", "Open in bm Studio"])
+        keys("s", "s", "s", "s", "\r")         # Play, SDK, Code, Sound, Studio
+        screen(["build", "models", "BRUSH", "MODEL", "model 1/8: ground"])
+        shot("studio-build")
+        keys("3", "a")
+        screen(["SELECT", "faces chosen"])
+        shot("studio-select")
+        keys("4")
+        screen(["VERTEX", "faces)"])
+        shot("studio-vertex")
+        keys("5", "\r", gap=0.5)
+        screen(["PAINT", " at "])
+        shot("studio-paint")
+        keys(ESC, "1", TAB, "d")
+        screen(["TILES OF THE SHEET", "2 x 1 tiles"])
+        shot("studio-tiles")
+        keys(TAB, F2)
+        screen(["MODELS 8", "villager"])
+        shot("studio-models")
 
         # a new project: a block, saved as CUBE.BM
         keys(ESC, gap=0.6)
-        screen(["bm 3D studio", "New project", "Exit 3D studio"])
+        screen(["bm Studio", "New project", "Exit bm Studio"])
         keys(DOWN, DOWN, "\r", gap=0.4)         # Continue, Open..., New project
-        screen(["BLOCK", "cell 0,0,0", "model: 0 faces"])
+        screen(["BLOCK", "cell 0,0,0"])
         keys(" ")
-        screen(["model: 6 faces"])
-        shot("build")
-        # a skeleton (root and a child) and an animation with a turn at 0.25 s:
-        # the kernel checks each new ANIM section (cart_data) before drawing it
-        keys(F3, "n", "n", gap=0.5)
-        screen(["BONES", "root", "bone2", "tail of bone2"])
-        keys(F4, "n", gap=0.5)
-        screen(["anim1  1/1  smooth  loop  1.00 s"])
-        keys("\x1b[C", "\x1b[C", "\x1b[C", "w", gap=0.4)
-        screen(["TURN root   0.25 s  frame 3  key"])
-        shot("keyframe")
+        screen(["6 faces", "12 tri", "8 vert"])
+        shot("studio-new")
         keys(ESC, gap=0.6)
         for _ in range(4):
             keys(DOWN)                          # down to "Save as..."
@@ -2700,18 +2703,66 @@ def test_studio3d(b, opts):
             keys(ch, gap=0.1)
         screen(["saved /carts/CUBE.BM"])
 
-        # try it: the viewer of a new project plays it, then the studio comes back
+        # try it: the viewer of a new project plays it, then bm Studio comes back
         keys("\x1b[15~", gap=1)                 # F5
         time.sleep(3)
         keys("q")                               # the game ends (its keys are a gamepad's)
         out = q.expect('bm: "New 3D project"', timeout=20).decode(errors="replace")
         assert "stopped with an error" not in out, out
-        screen(["back from the game", "anim1  1/1"])     # the page it was on
+        screen(["back from the game", "BLOCK"])  # the page it was on
 
-        # out of the studio: back to the menu
+        # bm Animator on the same file (cart_tool)
         keys(ESC, gap=0.6)
-        keys(UP, "\r")                          # up from Continue: Exit 3D studio
-        screen(["Games", "last: 3D studio on village.bm"])
+        screen(["Open in bm Animator"])
+        for _ in range(8):
+            keys(DOWN)                          # Continue ... Author, Open in bm Animator
+        keys("\r", gap=1.0)
+        screen(["play", "sprites", "MODELS", "no skeleton yet"])
+        # a skeleton (root and a child) and an animation with a turn at 0.25 s:
+        # the kernel checks each new ANIM section (cart_data) before drawing it
+        keys(F2, "n", "n", gap=0.5)
+        screen(["BONES 2", "root", "bone2", "tail of bone2"])
+        keys(F3, "n", gap=0.5)
+        screen(["anim1  1/1  smooth  loop  1.00 s"])
+        keys(RIGHT, RIGHT, RIGHT, "w", gap=0.4)
+        screen(["TURN root   0.25 s  frame 3  key"])
+        shot("animator-keyframe")
+        keys("\x13", gap=0.6)                   # Ctrl+S
+        screen(["saved /carts/CUBE.BM"])
+
+        # the village: the villager, its bones, its animations, its sprites
+        keys(ESC, gap=0.6)
+        keys(DOWN, "\r")                        # Open...
+        screen(["open a cartridge", "/carts/village.bm"])
+        keys(DOWN, "\r", gap=1.0)               # CUBE.BM, then village.bm
+        screen(["opened /carts/village.bm", "MODELS"])
+        for _ in range(7):
+            keys(DOWN)
+        screen(["ANIMATIONS", "idle", "walk", "wave", "112 vertices, 168 triangles, 7 bones"])
+        keys("k")
+        shot("animator-player")
+        keys(F2)
+        screen(["BONES 7", "hips", "spine", "arm.L", "leg.R", "tail of hips"])
+        shot("animator-rig")
+        keys("v")
+        screen(["SKIN", "faces chosen"])
+        shot("animator-skin")
+        keys("v", F3, "o")
+        screen(["ANIMATIONS", "BONES", "idle  1/3  smooth  loop  2.00 s  onion"])
+        shot("animator-animate")
+        keys(F4)
+        screen(["SPRITES", "villager", "idle", "384x192 pixels in the sheet"])
+        shot("animator-sprites")
+        keys("\r")
+        screen(["32 sprites put in the sheet", "sspr("], tries=80)
+        shot("animator-sprites-put")
+
+        # out (not saved: asked twice)
+        keys(ESC, gap=0.6)
+        keys(UP, "\r", gap=0.6)                 # up from Continue: Exit bm Animator
+        screen(["unsaved changes"])
+        keys("\r")
+        screen(["Games", "last: bm Animator on village"])
     finally:
         q.close()
     try:
@@ -2733,6 +2784,10 @@ def test_studio3d(b, opts):
         assert struct.unpack_from("<H", anim)[0] == 1 and (nb, nc, nv) == (2, 1, 8), (nb, nc, nv)
         assert anim[clip:clip + 5] == b"anim1" and struct.unpack_from("<H", anim, clip + 16)[0] == 2
         assert saved[24:38] == b"New 3D project", saved[24:48]
+        assert 5 in secs or 2 in secs, sorted(secs)     # the sheet of the new project (starter tiles)
+        village = subprocess.run(["mtype", "-i", part, "::/CARTS/VILLAGE.BM"], capture_output=True, env=env).stdout
+        with open(b("carts/village.bm"), "rb") as f:
+            assert village == f.read(), "the village was not saved: it stays as it was"
     finally:
         shutil.rmtree(tmp, ignore_errors=True)
 
@@ -2773,8 +2828,10 @@ def test_mesh(b, opts):
         time.sleep(0.5)
         screen(["Games", "Astro Wing"])
         keys("x")
-        screen(["Open in the 3D studio", "Open in bm Mesh"])
-        keys("s", "s", "s", "s", "s", "\r")
+        screen(["Open in bm Studio"])
+        keys("s", "s", "s", "s", "s", "s")      # Play, SDK, Code, Sound, Studio, Animator, Mesh
+        screen(["Open in bm Mesh"])
+        keys("\r")
         text = screen(["list", "edit", "MESHES 13", "ship", "30 vertices, 32 triangles", "built by the game's code"])
         assert "0 models, 0 code meshes, 13 from the game's code" in text, text
         assert "core_hot" in text and "turret" in text, text
@@ -2894,9 +2951,9 @@ def test_pixel(b, opts):
         time.sleep(0.5)
         screen(["Games", "Studio Village"])
         keys("x")
-        screen(["Open in bm Mesh"])
-        for _ in range(6):
-            keys("s")                           # Play, SDK, Code, Sound, 3D studio, Mesh, Pixel
+        screen(["Open in bm Studio"])
+        for _ in range(7):
+            keys("s")                           # Play, SDK, Code, Sound, Studio, Animator, Mesh, Pixel
         screen(["Open in bm Pixel"])
         keys("\r", gap=1.0)
         text = screen(["draw", "sheet", "palette", "COLOURS", "sprite 0  (0,0)  16x16", "spr(0, x, y, 2, 2)"])
@@ -2981,8 +3038,8 @@ def test_pixel_big(b, opts):
         time.sleep(0.5)
         screen(["Games", "Titan Clash"])
         keys("x")
-        screen(["Open in bm Mesh"])
-        for _ in range(6):
+        screen(["Open in bm Studio"])
+        for _ in range(7):
             keys("s")                           # down to Open in bm Pixel
         screen(["Open in bm Pixel"])
         keys("\r", gap=1.0)

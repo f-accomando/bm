@@ -8,7 +8,7 @@
 -- The sheet is the project's (cart_load, sset, cart_sheet) and is saved
 -- with cart_write(path, {sheet = true, palette = ...}): only the sheet
 -- changes in the file, as SHEET8 with this palette first when it has at
--- most 256 colours; the SDK, bm Studio and the 3D studio read it as theirs.
+-- most 256 colours; the SDK, bm Studio and bm Animator read it as theirs.
 
 local W, H = SCREEN_W, SCREEN_H
 local C_BG, C_PANEL, C_BAR = 0x14161E, 0x1C2030, 0x2A3048
@@ -1370,8 +1370,8 @@ local function draw_menu()
   local kx = snap(prompt("f12", x, 176) + 3)
   kx = print("(held) or", kx, 176, C_DIM) + 4
   chip_hint("?", nil, "keys", kx, 176)
-  print("the sheet as the SDK, bm Studio, the", x, 208, C_DIM)
-  print("3D studio and the games read it; the", x, 224, C_DIM)
+  print("the sheet as the SDK, bm Studio, bm", x, 208, C_DIM)
+  print("Animator and the games read it; the", x, 224, C_DIM)
   print("palette is saved with it (SHEET8)", x, 240, C_DIM)
   hint({ { { "up", "down" }, "choose" }, { { "enter" }, "select" }, { { "esc" }, "back" } })
 end

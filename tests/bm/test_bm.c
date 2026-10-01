@@ -754,8 +754,8 @@ static void test_anim_cart(const char *path)
     free(d);
 }
 
-/* A cartridge saved by the 3D studio of the console (its host test,
- * tests/studio/studio3d_host.lua): the kernel reads what it wrote. */
+/* A cartridge saved by bm Studio and bm Animator of the console (their host
+ * test, tests/studio/tools3d_host.lua): the kernel reads what they wrote. */
 static void test_console_cart(const char *path)
 {
     size_t n;
@@ -764,7 +764,7 @@ static void test_console_cart(const char *path)
     if (!d) return;
     bm_cart_t c;
     char err[64] = "";
-    CHECK(bm_parse(d, n, &c, err, sizeof err) == 0, "parse the cartridge of the 3D studio: %s", err);
+    CHECK(bm_parse(d, n, &c, err, sizeof err) == 0, "parse the cartridge of bm Studio and bm Animator: %s", err);
     bm_model_t m;
     CHECK(c.models == 1 && bm_mesh_model(c.mesh, c.mesh_size, 0, &m) == 0 && strcmp(m.name, "model") == 0 &&
           m.nfaces == 16, "its model: 16 triangles");

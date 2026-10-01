@@ -1,5 +1,5 @@
 -- bm Mesh: the 3D meshes of a .bm, on the console.
--- Reads the models of the MESH section (bm Studio, the 3D studio) and the
+-- Reads the models of the MESH section (bm Studio, on the PC and the console) and the
 -- meshes the game builds in its own code (mesh(), mesh_sphere(),
 -- mesh_cube(): cart_meshes() runs the code apart and keeps them), edits
 -- their vertices and faces and writes them back into the .bm:
@@ -2027,8 +2027,8 @@ local function draw_menu()
   local kx = snap(prompt("f12", x, 176) + 3)
   kx = print("(held) or", kx, 176, C_DIM) + 4
   chip_hint("?", nil, "keys", kx, 176)
-  print("the models: as bm Studio, the 3D studio", x, 208, C_DIM)
-  print("and bm Animator (skeletons kept); the", x, 224, C_DIM)
+  print("the models: as bm Studio and bm", x, 208, C_DIM)
+  print("Animator (skeletons kept); the", x, 224, C_DIM)
   print("code: as bm Studio's Lua, for bm Code", x, 240, C_DIM)
   hint({ { { "up", "down" }, "choose" }, { { "enter" }, "select" }, { { "esc" }, "back" } })
 end

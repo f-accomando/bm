@@ -72,7 +72,7 @@ $(LUA_OBJS) $(LWIP_OBJS) $(MBEDTLS_OBJS): WARN := -w
 # Lua scripts embedded with .incbin
 $(BUILD)/k/src/script/embed.S.o: $(wildcard src/script/*.lua) keys/release-pub.pem \
                                  $(BUILD)/demo.bm $(BUILD)/stress.bm $(BUILD)/editor.bm $(BUILD)/sound.bm \
-                                 $(BUILD)/studio3d.bm $(BUILD)/mesh.bm $(BUILD)/pixel.bm \
+                                 $(BUILD)/studio.bm $(BUILD)/animator.bm $(BUILD)/mesh.bm $(BUILD)/pixel.bm \
                                  $(BUILD)/assist.bin src/ai/assist.lua $(BUILD)/assistant.bm \
                                  $(BUILD)/code.bm
 
@@ -109,12 +109,18 @@ $(BUILD)/sound.bm: carts/sound/main.lua carts/sound/cover.png carts/sound/demo.j
 	$(PYTHON) scripts/mkbm.py -o $@ --lua $< --cover carts/sound/cover.png \
 	    --audio carts/sound/demo.json --title "bm Sound" --author bm
 
-# The 3D studio (M22): models and animations of a .bm, on the console. Its
-# sheet holds the starter tiles of bm Studio (carts/studio3d/mkassets.js).
-$(BUILD)/studio3d.bm: carts/studio3d/main.lua carts/studio3d/cover.png carts/studio3d/sheet.png scripts/mkbm.py
+# bm Studio and bm Animator on the console (M22): the models, then their
+# skeletons and animations; their shared code is src/script/bm3d.lua. bm
+# Studio's sheet holds the starter tiles of bm Studio on the PC; the covers
+# and the sheet: carts/studio/mkassets.js.
+$(BUILD)/studio.bm: carts/studio/main.lua carts/studio/cover.png carts/studio/sheet.png scripts/mkbm.py
 	@mkdir -p $(dir $@)
-	$(PYTHON) scripts/mkbm.py -o $@ --lua $< --cover carts/studio3d/cover.png \
-	    --sheet carts/studio3d/sheet.png --sheet8 --title "bm 3D studio" --author bm
+	$(PYTHON) scripts/mkbm.py -o $@ --lua $< --cover carts/studio/cover.png \
+	    --sheet carts/studio/sheet.png --sheet8 --title "bm Studio" --author bm
+
+$(BUILD)/animator.bm: carts/animator/main.lua carts/animator/cover.png scripts/mkbm.py
+	@mkdir -p $(dir $@)
+	$(PYTHON) scripts/mkbm.py -o $@ --lua $< --cover carts/animator/cover.png --title "bm Animator" --author bm
 
 # bm Mesh: the meshes of a .bm (its models and those its code builds), on
 # the console. Its cover: carts/mesh/mkcover.js.
@@ -550,7 +556,7 @@ test-studio: $(BUILD)/host/test_bm $(BUILD)/demo.bm $(BUILD)/host/luahost $(BUIL
              $(BUILD)/carts/astrowing.bm $(BUILD)/host/test_meshcap
 	rm -rf $(BUILD)/studio3d-sd && mkdir -p $(BUILD)/studio3d-sd/carts
 	cp $(BUILD)/carts/village.bm $(BUILD)/studio3d-sd/carts/
-	$(BUILD)/host/luahost tests/studio/studio3d_host.lua . $(BUILD)/studio3d-sd
+	$(BUILD)/host/luahost tests/studio/tools3d_host.lua . $(BUILD)/studio3d-sd
 	rm -rf $(BUILD)/mesh-sd && mkdir -p $(BUILD)/mesh-sd/carts
 	cp $(BUILD)/carts/village.bm $(BUILD)/carts/astrowing.bm $(BUILD)/mesh-sd/carts/
 	$(BUILD)/host/luahost tests/studio/mesh_host.lua . $(BUILD)/mesh-sd

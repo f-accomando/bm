@@ -12,12 +12,14 @@
 #include "lua.h"
 
 extern const uint8_t bm_lib_assist[], bm_lib_assist_end[];
+extern const uint8_t bm_lib_bm3d[], bm_lib_bm3d_end[];
 
 static const struct {
     const char *name;
     const uint8_t *src, *end;
 } libs[] = {
     { "assist", bm_lib_assist, bm_lib_assist_end },
+    { "bm3d", bm_lib_bm3d, bm_lib_bm3d_end },        /* bm Studio and bm Animator */
 };
 
 #define LOADED "bm.loaded"
@@ -47,7 +49,7 @@ static int l_require(lua_State *L)
         lua_setfield(L, -3, name);
         return 1;
     }
-    return luaL_error(L, "module '%s' not found (built in: assist)", name);
+    return luaL_error(L, "module '%s' not found (built in: assist, bm3d)", name);
 }
 
 void bm_require_open(lua_State *L)

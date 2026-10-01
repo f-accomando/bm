@@ -873,7 +873,7 @@ delle altre due (lavora sul `.bm`, porta il progetto da e verso bm Studio).
 semplificata.** Su richiesta dell'utente gli strumenti del PC restano quelli principali e
 sulla console arriva una loro versione `.bm`: una cartuccia incorporata nel kernel
 (`carts/studio3d`), nella scheda **Dev** e nelle opzioni di ogni gioco (*Open in the 3D
-studio*; monitor `3`), sugli stessi file ([sdk/README.md](../sdk/README.md#sulla-console-lo-studio-3d)).
+studio*; monitor `3`), sugli stessi file. Poi diviso in bm Studio e bm Animator (sotto).
 - **Play** (il player): modelli, vertici, triangoli, ossa; camera che gira, animazioni
   (fotogramma per fotogramma, velocità), scheletro sovrapposto, misto di due animazioni.
 - **Build**: cursore a celle, blocchi (senza pareti tra blocchi vicini), tessere su un
@@ -895,6 +895,39 @@ studio*; monitor `3`), sugli stessi file ([sdk/README.md](../sdk/README.md#sulla
 - **Da verificare sul Pi**: scheda Dev → *3D studio*; aprire Studio Village, guardare il
   paesano (k: scheletro, b: misto), costruire qualche blocco in un progetto nuovo,
   salvarlo e provarlo (F5); fluidità del player e della costruzione sul Pi Zero.
+
+**bm Studio e bm Animator sulla console (2026-10-01, branch `sdk-dev`).** Su richiesta
+dell'utente lo studio 3D della console arriva al livello dei programmi per il PC e si
+divide in due, con gli stessi nomi: **bm Studio** (`carts/studio`, monitor `3`) e **bm
+Animator** (`carts/animator`, monitor `6`), nella scheda Dev e nelle opzioni di ogni gioco;
+dal menu dell'uno si passa all'altro sullo stesso file
+([sdk/README.md](../sdk/README.md#sulla-console-bm-studio-e-bm-animator)). Per ora tastiera
+e gamepad; il mouse (branch `claude/mouse`) in un secondo momento.
+- **bm Studio**: attrezzi block, tile (anche più tessere insieme), select (puntatore della
+  tastiera sulle facce: scegli, tutte, unite; sposta, gira, capovolgi, specchia, altro
+  lato, nuova tessera, gira la texture, scala, copia, cancella, in un modello nuovo),
+  vertex (sposta e unisci gli angoli), paint (i pixel della tessera di una faccia, sul
+  modello); viste luce / colori / fil di ferro e facce posteriori; conteggi con avvisi;
+  pagina models (nuovo, rinomina, duplica, cancella, ordine, margine delle texture);
+  titolo e autore.
+- **bm Animator**: play; rig con specchio delle ossa (`.L` / `.R`), nome, padre, giunture
+  che si muovono insieme, pelle rigida o liscia, facce assegnate a un osso; animate con
+  keyframe prima/dopo e spostabili, posa specchiata, onion skin, lista delle animazioni
+  (nuova, duplica, rinomina, cancella); **sprites**: un'animazione disegnata dal motore 3D
+  della console nello sprite sheet (fotogrammi, misura, direzioni, camera, luce, contorno,
+  colori) con il codice `sspr()`.
+- **Kernel**: la libreria `require "bm3d"` (`src/script/bm3d.lua`, il codice comune),
+  `cart_tool(nome, percorso)` (un altro strumento sullo stesso file), `cart_write` con
+  `from = false` (cartuccia nuova). I due salvano con `cart_write`: nel file cambiano solo
+  MESH, ANIM e lo sheet se dipinto (prima `cart_save` riscriveva tutto e lo sheet SHEET8
+  diventava SHEET).
+- **Test**: `tests/studio/tools3d_host.lua` (112 controlli, in `make test-studio`), i file
+  riletti da bm Studio (`check_studio3d.js`), `bmmesh.py` e dal kernel; QEMU
+  `test_studio_animator` (con le schermate).
+- **Da verificare sul Pi**: Studio Village → X → *Open in bm Studio*: attrezzi 1-5,
+  Tab (le tessere), F2 (i modelli); un progetto nuovo, *Save as*, F5; menu → *Open in bm
+  Animator*: F2 rig (n, m, v), F3 animate (n, frecce, w, o), F4 sprites (Invio); la
+  fluidità della selezione e della pittura con molti triangoli (il terreno del villaggio).
 
 **bm Mesh (2026-10-01, stesso branch): le mesh di un `.bm`, anche quelle del codice.**
 Su richiesta dell'utente: un editor `.bm` che legge le mesh, le modifica e le scrive nel
