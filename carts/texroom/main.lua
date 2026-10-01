@@ -1,5 +1,6 @@
 -- Texture Room (M14): a room in 3D with textures everywhere, at 320x180,
--- to see what the textured rasterizer does at 60 fps.
+-- to see what the textured rasterizer does at 60 fps. The same file makes
+-- Texture Room HD at 640x360 (M30), for the 3D drawn by the GPU.
 -- Arrows: walk and turn. A: automatic tour on/off. B: more or fewer crates.
 -- X: light on the floor on/off. Y: hide the numbers.
 -- Top left: ms of CPU per frame (16.7 is the limit for 60 fps), fps,
@@ -153,5 +154,8 @@ function _draw()
     local px = stat(6) == 1 and "  GPU" or string.format("%5dpx", stat(5))
     print(string.format("%4.1f ms %2d fps %4d tri %s", stat(1), stat(2), stat(4), px), 2, 1, 0xFFE060)
     print(string.format("A tour %s  B crates %d", tour and "on" or "off", #crates), 2, H - 17, 0xC0C0C0)
+    if W >= 640 and stat(6) ~= 1 then
+      print("drawn by the ARM: Settings > 3D of the games > GPU", W - 8 * 51, H - 17, 0x808080)
+    end
   end
 end

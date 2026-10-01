@@ -7,6 +7,7 @@
 #include "drivers/prop.h"
 #include "drivers/timer.h"
 #include "drivers/uart.h"
+#include "gpu/gpu3d.h"
 #include "lib/printf.h"
 
 #include <math.h>
@@ -28,6 +29,7 @@ typedef struct {
     void (*setup)(void);
     void (*frame)(int n, int f);    /* draws one frame with n items */
     void (*teardown)(void);
+    int gpu;                        /* the 3D drawn by the GPU (gpu3d), not the ARM */
 } test_t;
 
 static g16_t g;
@@ -197,8 +199,11 @@ static void quads(int n, int f)
     r3d_camera(&r3d, 0, 0, 0, 0, 0, 60);
     r3d_light(&r3d, 0.3f, 0.4f, -1, 0.3f);
     const float k = 160.0f / r3d.focal;             /* half a quadrant per unit of depth */
+    /* each nearer than the last by more than a step of the depth buffer:
+     * 16 bits for the ARM (400 quads), 24 for the GPU (2000) */
+    const float step = r3d.backend ? 0.9985f : 0.985f;
     float d = 40;
-    for (int i = 0; i < n; i++, d *= 0.985f) {
+    for (int i = 0; i < n; i++, d *= step) {
         float x = (i & 1) ? k * d : -k * d, y = (i & 2) ? -0.5625f * k * d : 0.5625f * k * d;
         r3d_draw_flags(&r3d, &quad, (v3_t){ x, y, d }, 0, 0, 0, k * d, quad_flags);
     }
@@ -206,16 +211,24 @@ static void quads(int n, int f)
 }
 
 static const test_t tests[] = {
-    { "sprites 16x16 (C)", "spr",  16, 60000, sheet_setup,  spr16,     sheet_teardown },
-    { "sprites 32x32 (C)", "spr",  16, 30000, sheet_setup,  spr32,     sheet_teardown },
-    { "triangles 2D ~170px", "tri", 16, 60000, NULL,        tris2d,    NULL },
-    { "3D spheres 96 (C)", "obj",   1,  4000, sphere_setup, spheres3d, sphere_teardown },
-    { "3D smooth (Gouraud)", "obj", 1,  4000, sphere_setup, spheres3d_smooth, sphere_teardown },
-    { "3D textured", "obj",         1,  4000, tex_sphere_setup, spheres3d, tex_sphere_teardown },
-    { "quad 320x180 flat", "q",     1,   400, quad_flat,    quads,     quad_teardown },
-    { "quad 320x180 no z", "q",     1,   400, quad_noz,     quads,     quad_teardown },
-    { "quad 320x180 Gouraud", "q",  1,   400, quad_smooth,  quads,     quad_teardown },
-    { "quad 320x180 texture", "q",  1,   400, quad_tex,     quads,     quad_teardown },
+    { "sprites 16x16 (C)", "spr",  16, 60000, sheet_setup,  spr16,     sheet_teardown, 0 },
+    { "sprites 32x32 (C)", "spr",  16, 30000, sheet_setup,  spr32,     sheet_teardown, 0 },
+    { "triangles 2D ~170px", "tri", 16, 60000, NULL,        tris2d,    NULL, 0 },
+    { "3D spheres 96 (C)", "obj",   1,  4000, sphere_setup, spheres3d, sphere_teardown, 0 },
+    { "3D smooth (Gouraud)", "obj", 1,  4000, sphere_setup, spheres3d_smooth, sphere_teardown, 0 },
+    { "3D textured", "obj",         1,  4000, tex_sphere_setup, spheres3d, tex_sphere_teardown, 0 },
+    { "quad 320x180 flat", "q",     1,   400, quad_flat,    quads,     quad_teardown, 0 },
+    { "quad 320x180 no z", "q",     1,   400, quad_noz,     quads,     quad_teardown, 0 },
+    { "quad 320x180 Gouraud", "q",  1,   400, quad_smooth,  quads,     quad_teardown, 0 },
+    { "quad 320x180 texture", "q",  1,   400, quad_tex,     quads,     quad_teardown, 0 },
+    /* the same scenes with the GPU (M30): the ARM still transforms, lights
+     * and clips; the time includes the GPU's job */
+    { "GPU spheres 96", "obj",      1,  8000, sphere_setup, spheres3d, sphere_teardown, 1 },
+    { "GPU smooth (Gouraud)", "obj", 1, 8000, sphere_setup, spheres3d_smooth, sphere_teardown, 1 },
+    { "GPU textured", "obj",        1,  8000, tex_sphere_setup, spheres3d, tex_sphere_teardown, 1 },
+    { "GPU quad flat", "q",         1,  2000, quad_flat,    quads,     quad_teardown, 1 },
+    { "GPU quad Gouraud", "q",      1,  2000, quad_smooth,  quads,     quad_teardown, 1 },
+    { "GPU quad texture", "q",      1,  2000, quad_tex,     quads,     quad_teardown, 1 },
 };
 #define NTESTS (int)(sizeof tests / sizeof *tests)
 
@@ -346,6 +359,9 @@ void bm_stress_run(framebuffer_t *fb)
     thr_t results[NTESTS][2];
     float per_item[NTESTS];
 
+    int skip[NTESTS];
+    memset(skip, 0, sizeof skip);
+
     kprintf("stress test: 640x360 RGB565, %d frames per step, draw + copy to screen\n", FRAMES_PER_STEP);
     machine_line("before");
     if (bm_video_enter(fb, W, H, &g) != 0) {
@@ -353,11 +369,18 @@ void bm_stress_run(framebuffer_t *fb)
         kprintf("stress: cannot set the video mode\n");
         return;
     }
+    const int gpu = gpu3d_init() == 0;      /* after the video mode: its pages are known */
 
     for (size_t t = 0; t < sizeof tests / sizeof *tests; t++) {
         const test_t *T = &tests[t];
         int count = 0;
+        if (T->gpu && !gpu3d_ready()) {
+            skip[t] = 1;
+            continue;
+        }
         if (T->setup) T->setup();
+        if (T->gpu)
+            r3d.backend = gpu3d_backend();
         uart_puts("\n");
         uart_puts(T->name);
         uart_puts(":\n");
@@ -366,6 +389,8 @@ void bm_stress_run(framebuffer_t *fb)
             for (int f = 0; f < FRAMES_PER_STEP; f++) {
                 uint32_t t0 = timer_ticks();
                 T->frame(n, f);
+                if (T->gpu)
+                    gpu3d_flush(&g, 0);
                 uint32_t draw = timer_ticks() - t0;
                 overlay(T->name, n, (total + draw) / 1000.0f / (f + 1));
                 total += draw + bm_video_present(fb, &g);  /* the copy is part of the frame */
@@ -380,9 +405,11 @@ void bm_stress_run(framebuffer_t *fb)
                 ksnprintf(line, sizeof line, "           %lu triangles drawn\n", tris_last);
                 uart_puts(line);
             }
-            if (ms > LIMIT_MS)
+            if (ms > LIMIT_MS || (T->gpu && !gpu3d_ready()))
                 break;
         }
+        if (T->gpu && !gpu3d_ready())
+            skip[t] = 2;                    /* failed during the test */
         if (T->teardown) T->teardown();
         tris_last = 0;
         results[t][0] = threshold(samples, count, MS60);
@@ -396,7 +423,13 @@ void bm_stress_run(framebuffer_t *fb)
 
     kprintf("\x1b[1m%-24s%16s%16s%12s\x1b[0m\n", "test (max per frame)", "60 fps", "30 fps", "us/item");
     for (size_t t = 0; t < sizeof tests / sizeof *tests; t++) {
+        if (skip[t] == 1)
+            continue;
         kprintf("%-24s", tests[t].name);
+        if (skip[t] == 2) {
+            kprintf("  the GPU failed: %s\n", gpu3d_status());
+            continue;
+        }
         print_threshold(results[t][0], &tests[t]);
         print_threshold(results[t][1], &tests[t]);
         int us100 = (int)(per_item[t] * 100);
@@ -405,4 +438,6 @@ void bm_stress_run(framebuffer_t *fb)
             kprintf(" %3d ns/px", (int)(per_item[t] * 1000.0f / QUAD_PX + 0.5f));
         kprintf("\n");
     }
+    if (!gpu)
+        kprintf("GPU rows: none (%s)\n", gpu3d_status());
 }

@@ -113,7 +113,7 @@ static void flush(r3d_t *r, g16_t *g, int gpu)
 {
     (void)r;
     if (gpu)
-        CHECK(gpu3d_flush(g) == 0, "flush: %s (%s)", gpu3d_status(), emu_error);
+        CHECK(gpu3d_flush(g, 0) == 0, "flush: %s (%s)", gpu3d_status(), emu_error);
 }
 
 static void s_spheres(r3d_t *r, g16_t *g, int gpu)
@@ -187,13 +187,35 @@ static void s_sheets(r3d_t *r, g16_t *g, int gpu)
 }
 static void s_full(r3d_t *r, g16_t *g, int gpu) { many(r, g, gpu, 700); }
 
+/* 3D, 2D over it, then 3D partly behind the first: the first part's depth
+ * must hide the second. Two frames: the first teaches the backend that
+ * this cartridge needs its depth kept between jobs. */
+static void s_split(r3d_t *r, g16_t *g, int gpu)
+{
+    for (int frame = 0; frame < 2; frame++) {
+        g16_cls(g, g16_rgb(30, 20, 50));
+        g16_rectfill(g, 0, 0, g->w, 12, g16_rgb(200, 200, 0));
+        r3d_zclear(r);
+        r3d_camera(r, 0, 0, -6, 0, 0, 60);
+        r3d_light(r, -0.4f, 0.7f, -0.6f, 0.3f);
+        r3d_draw_flags(r, &sphere, (v3_t){ 0, 0, 0 }, 0, 0, 0, 1.5f, R3D_SMOOTH);
+        if (gpu)
+            CHECK(gpu3d_flush(g, 1) == 0, "split: %s (%s)", gpu3d_status(), emu_error);
+        g16_rectfill(g, 60, 220, 200, 40, g16_rgb(20, 200, 90));
+        r3d_draw_flags(r, &cube, (v3_t){ 0.9f, 0.2f, 1.5f }, 0.3f, 0.5f, 0, 1.3f, 0);
+        r3d_draw_flags(r, &floor_m, (v3_t){ -1.2f, -0.6f, 1.0f }, 0, 0.4f, 0, 0.8f, 0);
+        flush(r, g, gpu);
+    }
+}
+
 static const struct { const char *name; scene_fn fn; int w, h; float limit; } scenes[] = {
     { "spheres", s_spheres, 640, 360, 0.02f },
     { "textures", s_textures, 640, 360, 0.04f },
     { "noz_zclear", s_noz_zclear, 480, 270, 0.02f },
     { "many", s_many, 640, 360, 0.05f },
     { "3 sheets", s_sheets, 640, 360, 0.02f },
-    { "full job", s_full, 640, 360, 0.08f },
+    { "full job", s_full, 640, 360, 0.02f },
+    { "3D 2D 3D", s_split, 640, 360, 0.02f },
 };
 
 /* ---------------------------------------------------------------- compare */
@@ -230,7 +252,8 @@ static void run_scene(int s)
         r3d_init(&r, &g);
         r.backend = pass ? gpu3d_backend() : NULL;
         r3d_zclear(&r);
-        uint32_t prims = emu_stats.prims, batches = emu_stats.batches, jobs = emu_stats.jobs;
+        uint32_t prims = emu_stats.prims, batches = emu_stats.batches, jobs = emu_stats.jobs,
+                 zstores = emu_stats.zstores;
         scenes[s].fn(&r, &g, pass);
         if (pass) {
             CHECK(emu_stats.prims > prims, "%s: the GPU drew nothing", scenes[s].name);
@@ -240,8 +263,12 @@ static void run_scene(int s)
                 CHECK(emu_stats.batches - batches >= 2, "many: one batch");
             if (s == 4)
                 CHECK(emu_stats.jobs - jobs >= 2, "3 sheets: one job");
-            if (s == 5)
+            if (s == 5) {
                 CHECK(emu_stats.jobs - jobs >= 2, "full job: one job");
+                CHECK(emu_stats.zstores > zstores, "full job: the depth was not kept between jobs");
+            }
+            if (s == 6)
+                CHECK(emu_stats.zstores > zstores, "3D 2D 3D: the depth was not kept");
         }
         r3d_free(&r);
     }

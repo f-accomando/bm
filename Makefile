@@ -92,7 +92,7 @@ $(BUILD)/demo.bm: $(DEMO_BM_SRC) scripts/mkbm.py
 
 # Demo games (Lua only, sprites drawn in code): build/carts/<name>.bm
 GAMES := pong snake shooter astrowing hunt kitchen titan texroom
-GAME_CARTS := $(patsubst %,$(BUILD)/carts/%.bm,$(GAMES))
+GAME_CARTS := $(patsubst %,$(BUILD)/carts/%.bm,$(GAMES)) $(BUILD)/carts/texroom_hd.bm
 title_pong    := Pong
 title_snake   := Snake
 title_shooter := Star Shooter
@@ -114,6 +114,12 @@ $(BUILD)/carts/%.bm: carts/%/main.lua scripts/mkbm.py \
 	    $(if $(wildcard carts/$*/cover.png),--cover carts/$*/cover.png) \
 	    $(if $(wildcard carts/$*/sheet.png),--sheet carts/$*/sheet.png) \
 	    $(if $(wildcard carts/$*/map.csv),--map carts/$*/map.csv)
+
+# Texture Room HD (M30): the same room at 640x360, for the 3D drawn by the GPU
+$(BUILD)/carts/texroom_hd.bm: carts/texroom/main.lua carts/texroom/sheet.png carts/texroom/cover.png scripts/mkbm.py
+	@mkdir -p $(dir $@)
+	$(PYTHON) scripts/mkbm.py -o $@ --lua $< --title "Texture Room HD" --author bm --res 640x360 \
+	    --cover carts/texroom/cover.png --sheet carts/texroom/sheet.png
 
 # Chaos Kitchen (M17) is written in several Lua files, joined by its build.py
 KITCHEN_SRC := $(sort $(wildcard carts/kitchen/src/*.lua))

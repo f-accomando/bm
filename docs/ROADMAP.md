@@ -1212,8 +1212,8 @@ DRM). Un **driver V3D nostro, piccolo e a funzioni fisse**, sotto l'API che le c
 usano già (`mesh`, `draw3d`, `camera3d`, `light3d`, `fog3d`, `lamp3d`): le cartucce non
 cambiano, vanno più veloci. Il rasterizzatore software resta per QEMU (che non emula la
 V3D), per i test sul PC e come riserva.
-- **Fatto quando:** Texture Room gira a 60 fps a 640×360 con la GPU, e lo stress test
-  mostra le righe GPU accanto a quelle software.
+- **Fatto quando:** Texture Room gira a 60 fps a 640×360 con la GPU (la cartuccia
+  *Texture Room HD*), e lo stress test mostra le righe GPU accanto a quelle software.
 
 **Passi:**
 1. **Misure** (stress test `s`): la parte C parte dopo che l'avvio si è calmato (WiFi,
@@ -1279,8 +1279,23 @@ Fatto (2026-10-01, da misurare sul Pi):
   le due immagini affiancate). Sul PC: emulatore della V3D (`tests/gpu/v3d_emu.c`:
   liste di controllo, binning per tile, shader eseguiti per tipo) e `make test-gpu3d`
   (scene confrontate col rasterizzatore software, nei quattro ordini di byte possibili).
-  Manca: lo z-buffer tra un lavoro e l'altro (dopo un disegno 2D il 3D riparte da z
-  vuoto), MSAA, filtro bilineare, righe GPU nello stress test.
+  Poi: **righe GPU nello stress test** (sfere piatte, Gouraud, con texture e i quad a
+  tutto schermo disegnati dal backend, fino a 2000 quad con lo z a 24 bit; in QEMU la
+  riga `GPU rows: none (...)` dice perché mancano) e **z-buffer conservato tra un
+  lavoro e l'altro**: quando un lavoro si chiude a metà fotogramma (lavoro pieno,
+  texture da rifare, oppure 2D seguito da altro 3D) la V3D salva lo Z in memoria in
+  formato T e il lavoro dopo lo ricarica, come fa il driver vc4 di Linux (un load per
+  volta, uno store vuoto in mezzo). Per il 2D lo fa solo per le cartucce che ne hanno
+  bisogno (lo impara al primo fotogramma), per non pagare 1 MB a fotogramma per ogni
+  HUD. Prova sul Pi: passo 11 di `g` (3D, 2D, 3D confrontato con l'ARM).
+  Infine **Texture Room HD**: lo stesso `main.lua` di Texture Room costruito a 640×360
+  (`build/carts/texroom_hd.bm`), la cartuccia del criterio di chiusura; con il 3D
+  sull'ARM scrive in basso come accendere la GPU.
+  Report prima/dopo (istruzioni, funzioni, correttezza della GPU sull'emulatore, cosa
+  misurare sul Pi): `docs/M30-PRIMA-DOPO.md`.
+  Rinviati: MSAA 4× (caricare la pagina in un tile multicampione non è un percorso
+  di Mesa né del driver di Linux: non verificabile senza il Pi) e il filtro
+  bilineare (cambia l'aspetto delle texture rispetto all'ARM).
 
 ## Rischi principali
 | Rischio | Mitigazione |

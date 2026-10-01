@@ -293,6 +293,13 @@ static void draw_tile(int tx, int ty, int fw, int fh)
         int x0 = tx * 64, y0 = ty * 64, x1 = x0 + 64, y1 = y0 + 64;
         if (x1 > fw) x1 = fw;
         if (y1 > fh) y1 = fh;
+        /* only the pixels of the triangle's bounding box (centres at +0.5) */
+        float bx0 = fminf(v[0].x, fminf(v[1].x, v[2].x)), bx1 = fmaxf(v[0].x, fmaxf(v[1].x, v[2].x));
+        float by0 = fminf(v[0].y, fminf(v[1].y, v[2].y)), by1 = fmaxf(v[0].y, fmaxf(v[1].y, v[2].y));
+        if ((float)x0 < bx0 - 1) x0 = (int)floorf(bx0 - 1);
+        if ((float)y0 < by0 - 1) y0 = (int)floorf(by0 - 1);
+        if ((float)x1 > bx1 + 1) x1 = (int)ceilf(bx1 + 1);
+        if ((float)y1 > by1 + 1) y1 = (int)ceilf(by1 + 1);
         if (x0 < pr->clip[0]) x0 = pr->clip[0];
         if (y0 < pr->clip[1]) y0 = pr->clip[1];
         if (x1 > pr->clip[0] + pr->clip[2]) x1 = pr->clip[0] + pr->clip[2];
@@ -328,14 +335,32 @@ static void draw_tile(int tx, int ty, int fw, int fh)
     }
 }
 
+/* a depth buffer in T-format as the emulator lays it out: 4 KiB tiles of
+ * 32x32 pixels, a row of tiles after the other (the real order inside
+ * differs, the size is the same); NULL if it leaves memory */
+static uint32_t toff(int x, int y, int fw)
+{
+    const int tw = (fw + 31) / 32;
+    return (uint32_t)(((y / 32) * tw + x / 32) * 1024 + (y % 32) * 32 + x % 32);
+}
+
+static uint32_t *zbuf_at(uint32_t a, int fw, int fh)
+{
+    const uint32_t size = (uint32_t)((fw + 31) / 32) * (uint32_t)((fh + 31) / 32) * 4096u;
+    if ((a & 0xFFF) || !ptr(a) || !ptr(a + size - 1))
+        return NULL;
+    return ptr(a);
+}
+
 static int render(uint32_t start, uint32_t end, int have_bin)
 {
     const uint8_t *p = ptr(start), *e = ptr(end);
     if (!p || !e || e < p)
         return err("rendering list %08x..%08x outside memory", start, end);
     uint16_t *fb = NULL;
-    int fw = 0, fh = 0, tx = -1, ty = -1, load = 0, eof = 0, have_cfg = 0, tiles = 0;
-    uint32_t load_addr = 0;
+    int fw = 0, fh = 0, tx = -1, ty = -1, load = 0, zload = 0, eof = 0, have_cfg = 0, tiles = 0;
+    int loaded = 0;                     /* a load took place: a store before the next load */
+    uint32_t load_addr = 0, zload_addr = 0;
     while (p < e) {
         uint8_t id = *p++;
         if (eof && id != 1)
@@ -355,9 +380,15 @@ static int render(uint32_t start, uint32_t end, int have_bin)
             p += 10;
             break;
         case 29:                                                /* LOAD_TILE_BUFFER_GENERAL */
-            if (rd16(p) != 0x0201)
-                return err("load %04x: colour, raster, BGR565 expected", rd16(p), 0);
-            load = 1; load_addr = rd32(p + 2);
+            if (load || zload || loaded)
+                return err("load %04x: a load is pending (tile coordinates and a store first)", rd16(p), 0);
+            if (rd16(p) == 0x0201) {
+                load = 1; load_addr = rd32(p + 2);
+            } else if (rd16(p) == 0x0012) {
+                zload = 1; zload_addr = rd32(p + 2);
+            } else {
+                return err("load %04x: colour (raster BGR565) or depth (T-format) expected", rd16(p), 0);
+            }
             p += 6;
             break;
         case 115:                                               /* TILE_COORDINATES */
@@ -374,14 +405,52 @@ static int render(uint32_t start, uint32_t end, int have_bin)
                             from565(src[Y * fw + X], tcol[y * 64 + x]);
                     }
                 load = 0;
+                loaded = 1;
+            }
+            if (zload) {
+                const uint32_t *src = zbuf_at(zload_addr, fw, fh);
+                if (!src)
+                    return err("depth load from %08x", zload_addr, 0);
+                for (int y = 0; y < 64; y++)
+                    for (int x = 0; x < 64; x++) {
+                        int X = tx * 64 + x, Y = ty * 64 + y;
+                        if (X < fw && Y < fh)
+                            tz[y * 64 + x] = src[toff(X, Y, fw)] >> 8;
+                    }
+                zload = 0;
+                loaded = 1;
             }
             break;
-        case 28:                                                /* STORE_TILE_BUFFER_GENERAL */
-            if (rd16(p) != 0 || rd32(p + 2) != 0)
-                return err("general store %04x %08x: only the empty one", rd16(p), rd32(p + 2));
-            tile_clear();
+        case 28: {                                              /* STORE_TILE_BUFFER_GENERAL */
+            uint16_t bits = rd16(p);
+            uint32_t a = rd32(p + 2);
+            if (load || zload)
+                return err("general store %04x with a load pending", bits, 0);
+            if ((bits & 0x1FFF) == 0 && a == 0) {               /* a store of nothing */
+            } else if ((bits & 0x1FFF) == 0x0012 && !(a & 15)) {   /* depth, T-format */
+                uint32_t *dst = zbuf_at(a, fw, fh);
+                if (!dst || tx < 0)
+                    return err("depth store to %08x", a, 0);
+                for (int y = 0; y < 64; y++)
+                    for (int x = 0; x < 64; x++) {
+                        int X = tx * 64 + x, Y = ty * 64 + y;
+                        if (X < fw && Y < fh)
+                            dst[toff(X, Y, fw)] = tz[y * 64 + x] << 8;
+                    }
+                emu_stats.zstores++;
+            } else {
+                return err("general store %04x %08x: nothing, or the depth in T-format", bits, a);
+            }
+            for (int i = 0; i < 64 * 64; i++) {             /* the clears not turned off */
+                if (!(bits & 1u << 13))
+                    memcpy(tcol[i], &clear_col, 4);
+                if (!(bits & 1u << 14))
+                    tz[i] = clear_z;
+            }
+            loaded = 0;
             p += 6;
             break;
+        }
         case 17: {                                              /* BRANCH_TO_SUB_LIST */
             uint32_t a = rd32(p);
             if (!have_bin || a != bin_alloc + (uint32_t)(ty * bin_tx + tx) * 32)
@@ -401,6 +470,7 @@ static int render(uint32_t start, uint32_t end, int have_bin)
                 }
             tile_clear();
             tiles++;
+            loaded = 0;
             eof = id == 25;
             break;
         default:

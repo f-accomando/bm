@@ -11,6 +11,7 @@
 #define JOB_TSDA     4096           /* 48 bytes per tile: 10 x 6 tiles at most */
 #define JOB_ALLOC    (4u << 20)     /* tile lists */
 #define JOB_OVERFLOW (2u << 20)
+#define JOB_ZBUF     (1u << 20)     /* depth kept between jobs: 640x384, 32 bits */
 #define JOB_BCL      (256u << 10)
 #define JOB_RCL      (16u << 10)
 #define JOB_RECS     (16u << 10)    /* NV shader records, 16 bytes each */
@@ -20,7 +21,7 @@
 #define PROBE_H      64
 #define JOB_PROBE    (PROBE_W * PROBE_H * 2)
 #define PROBE_TEX    (PROBE_W * PROBE_H * 4 + 4096)
-#define JOB_BLOCK    (JOB_TSDA + JOB_ALLOC + JOB_OVERFLOW + JOB_BCL + JOB_RCL + JOB_RECS + JOB_CODE + \
+#define JOB_BLOCK    (JOB_TSDA + JOB_ALLOC + JOB_OVERFLOW + JOB_ZBUF + JOB_BCL + JOB_RCL + JOB_RECS + JOB_CODE + \
                       JOB_VERTS + JOB_PROBE + PROBE_TEX)
 
 #define TIMEOUT_US   200000
@@ -54,6 +55,7 @@ typedef struct {
     uint32_t *texels;
     uint32_t *params;
     size_t size;
+    float inv_w, inv_h;             /* texel coordinates to 0..1 */
 } tex_t;
 
 #define NTEX 2
@@ -63,7 +65,7 @@ static struct {
     const char *status;
     char why[128];
     uint8_t *block;
-    uint8_t *tsda, *alloc, *overflow, *bcl, *rcl, *recs, *code;
+    uint8_t *tsda, *alloc, *overflow, *zbuf, *bcl, *rcl, *recs, *code;
     uint16_t *probe;
     uint32_t *probe_tex;
     gvert_t *verts;
@@ -72,6 +74,9 @@ static struct {
     uint8_t *rec_next;
     int open;                       /* the job has its binning header */
     int w, h;                       /* its target size */
+    int z_saved, z_w, z_h;          /* zbuf holds the depth so far (of a w x h frame) */
+    int split;                      /* 3D of this frame drawn before some 2D */
+    int z_wanted;                   /* this cartridge draws 3D after 2D in a frame */
     /* the batch being filled */
     int b_open, b_shader, b_nodepth, b_first;
     const tex_t *b_tex;
@@ -79,6 +84,7 @@ static struct {
     int clip[4];                    /* clip window written last (x0 y0 x1 y1) */
     int cfg;                        /* configuration written last, -1: none */
     int red_a, tex_swap;            /* colour byte order, found by the probe */
+    int ia;                         /* varying of the colour's first value: 0, or 2 (red_a 0) */
     const uint8_t *fb_mem;          /* the framebuffer and its bus address */
     uint32_t fb_size, fb_bus;
     tex_t tex[NTEX];
@@ -87,6 +93,8 @@ static struct {
     gpu3d_stats_t st;
     r3d_backend_t backend;
 } G;
+
+static int flush_job(const g16_t *g, int store);
 
 static void disable(const char *why)
 {
@@ -132,7 +140,7 @@ static const tex_t *tex_get(const g16_t *g, const g16_sheet_t *s)
         slot = G.tex_next;
         G.tex_next = (G.tex_next + 1) % NTEX;
     }
-    if (G.tex_used[slot] && gpu3d_pending() && gpu3d_flush(g) != 0)
+    if (G.tex_used[slot] && gpu3d_pending() && flush_job(g, 1) != 0)
         return NULL;
     tex_t *t = &G.tex[slot];
     size_t size = (size_t)s->w * (size_t)s->h * 4 + 16;
@@ -167,6 +175,8 @@ static const tex_t *tex_get(const g16_t *g, const g16_sheet_t *s)
     t->version = s->version;
     t->w = s->w;
     t->h = s->h;
+    t->inv_w = 1.0f / (float)s->w;
+    t->inv_h = 1.0f / (float)s->h;
     return t;
 }
 
@@ -329,26 +339,34 @@ static int clip_line(const cvert_t *in, int n, cvert_t *out, int axis_y, float s
     return m;
 }
 
-static void put(const cvert_t *c, int kind, const tex_t *t)
+/* a corner as the shader wants it: x and y rounded to 12.4 (within the
+ * guard band, so x * 16 + 32768 is positive and the cast floors), z from
+ * 1/w, the attributes (as r3d gives them) scaled to 0..1 */
+static inline void put_corner(gvert_t *o, float x, float y, float iw, float a, float b, float c, int kind,
+                              const tex_t *t)
 {
-    gvert_t *o = &G.verts[G.nverts++];
-    float x = c->x * 16.0f, y = c->y * 16.0f;
-    o->x = (int16_t)(x < 0 ? x - 0.5f : x + 0.5f);
-    o->y = (int16_t)(y < 0 ? y - 0.5f : y + 0.5f);
-    float z = 1.0f - R3D_NEAR * c->iw;   /* 0 at the near plane, towards 1 far away */
+    o->x = (int16_t)((int32_t)(x * 16.0f + 32768.5f) - 32768);
+    o->y = (int16_t)((int32_t)(y * 16.0f + 32768.5f) - 32768);
+    float z = 1.0f - R3D_NEAR * iw;     /* 0 at the near plane, towards 1 far away */
     o->z = z < 0 ? 0 : z;
-    o->inv_w = c->iw;
-    const float w = 1.0f / c->iw, a = c->a * w, b = c->b * w, cc = c->c * w;
+    o->inv_w = iw;
     if (kind == R3D_KIND_COLOUR) {
         const float k = 1.0f / 255.0f;
-        o->v[0] = (G.red_a ? a : cc) * k;
+        o->v[G.ia] = a * k;             /* red or blue in byte a, as the probe found */
         o->v[1] = b * k;
-        o->v[2] = (G.red_a ? cc : a) * k;
+        o->v[2 - G.ia] = c * k;
     } else {
-        o->v[0] = a / (float)t->w;
-        o->v[1] = b / (float)t->h;
-        o->v[2] = cc < 0 ? 0 : cc > 1 ? 1 : cc;
+        o->v[0] = a * t->inv_w;
+        o->v[1] = b * t->inv_h;
+        o->v[2] = c < 0 ? 0 : c > 1 ? 1 : c;
     }
+}
+
+/* a corner made while clipping (attributes times 1/w) */
+static void put(const cvert_t *c, int kind, const tex_t *t)
+{
+    const float w = 1.0f / c->iw;
+    put_corner(&G.verts[G.nverts++], c->x, c->y, c->iw, c->a * w, c->b * w, c->c * w, kind, t);
 }
 
 /* a triangle into the job (clipped to the guard band if it reaches out of
@@ -360,11 +378,18 @@ static void add_tri(const g16_t *g, const r3d_corner_t v[3], int kind, const tex
     if (G.open && (g->w != G.w || g->h != G.h)) {
         batch_close();                  /* another screen size: the old job is dropped */
         G.open = 0;
+        G.z_saved = 0;
     }
-    if (!G.open)
+    if (!G.open) {
+        if (G.split && !G.z_saved && !G.z_wanted) {
+            /* 3D after 2D in a frame, without its depth: kept from now on */
+            G.z_wanted = 1;
+            kprintf("gpu3d: 3D drawn after 2D in a frame: its depth is kept from the next frame\n");
+        }
         job_begin(g->w, g->h);
+    }
     if (G.nverts + 21 > MAX_VERTS) {    /* a clipped triangle is up to 7 of them */
-        gpu3d_flush(g);
+        flush_job(g, 1);                /* the next job goes on with this depth */
         if (G.failed)
             return;
         job_begin(g->w, g->h);
@@ -374,22 +399,30 @@ static void add_tri(const g16_t *g, const r3d_corner_t v[3], int kind, const tex
         G.nverts - G.b_first + 21 > BATCH_MAX) {
         batch_close();
         if (batch_open(g, shader, nodepth, t) != 0) {
-            gpu3d_flush(g);
+            flush_job(g, 1);
             if (G.failed)
                 return;
             job_begin(g->w, g->h);
             batch_open(g, shader, nodepth, t);
         }
     }
+    const float x0 = -GUARD, y0 = -GUARD, x1 = g->w + GUARD, y1 = g->h + GUARD;
+    int out = 0;
+    for (int i = 0; i < 3; i++)
+        out |= v[i].x < x0 || v[i].x > x1 || v[i].y < y0 || v[i].y > y1;
+    if (!out) {                         /* nearly every triangle: straight in */
+        gvert_t *o = &G.verts[G.nverts];
+        for (int i = 0; i < 3; i++)
+            put_corner(&o[i], v[i].x, v[i].y, v[i].z, v[i].a, v[i].b, v[i].c, kind, t);
+        G.nverts += 3;
+        G.st.tris++;
+        return;
+    }
     cvert_t p[16], q[16];
     int n = 3;
     for (int i = 0; i < 3; i++)
         p[i] = cvert(&v[i]);
-    const float x0 = -GUARD, y0 = -GUARD, x1 = g->w + GUARD, y1 = g->h + GUARD;
-    int out = 0;
-    for (int i = 0; i < 3; i++)
-        out |= p[i].x < x0 || p[i].x > x1 || p[i].y < y0 || p[i].y > y1;
-    if (out) {
+    {
         n = clip_line(p, n, q, 0, -1, -x0);
         n = clip_line(q, n, p, 0, 1, x1);
         n = clip_line(p, n, q, 1, -1, -y0);
@@ -432,17 +465,22 @@ static void cb_zclear(void *ctx, const g16_t *g)
      * that goes to the screen now, and the next job starts with a clear
      * depth buffer */
     if (G.open && G.nverts)
-        gpu3d_flush(g);
+        gpu3d_flush(g, 0);
+    G.z_saved = G.split = 0;
 }
 
 /* ---------------------------------------------------------------- run */
 
 /* Rendering list for a frame at bus address fb (w x h, BGR565): every
  * tile loaded from the frame (load), drawn from its tile list (bin) and
- * stored back; the depth starts cleared. */
-static uint32_t rcl_build(uint32_t fb, int w, int h, int bin, int load, uint32_t clear)
+ * stored back. The depth starts cleared, or loaded from zbuf (zload);
+ * zstore keeps it there for the next job. Two loads of a tile take place
+ * one at a time (tile coordinates, then a store of nothing that clears
+ * nothing), and so do two stores, as Linux's vc4 does. */
+static uint32_t rcl_build(uint32_t fb, int w, int h, int bin, int load, uint32_t clear, int zload, int zstore)
 {
     const int tx = (w + V3D_TILE - 1) / V3D_TILE, ty = (h + V3D_TILE - 1) / V3D_TILE;
+    const uint32_t zb = v3d_bus(G.zbuf);
     v3d_cl_t cl;
     v3d_cl_init(&cl, G.rcl, JOB_RCL);
     v3d_cl_u8(&cl, V3D_CLEAR_COLORS);
@@ -468,12 +506,34 @@ static uint32_t rcl_build(uint32_t fb, int w, int h, int bin, int load, uint32_t
                 v3d_cl_u16(&cl, V3D_LOAD_COLOUR_BGR565);
                 v3d_cl_u32(&cl, fb);
             }
+            if (zload) {
+                if (load) {
+                    v3d_cl_u8(&cl, V3D_TILE_COORDINATES);
+                    v3d_cl_u8(&cl, (uint8_t)x);
+                    v3d_cl_u8(&cl, (uint8_t)y);
+                    v3d_cl_u8(&cl, V3D_STORE_TILE_BUFFER_GENERAL);
+                    v3d_cl_u16(&cl, V3D_LOADSTORE_NONE | V3D_STORE_NO_COLOUR_CLEAR | V3D_STORE_NO_ZS_CLEAR |
+                                    V3D_STORE_NO_VG_CLEAR);
+                    v3d_cl_u32(&cl, 0);
+                }
+                v3d_cl_u8(&cl, V3D_LOAD_TILE_BUFFER_GENERAL);
+                v3d_cl_u16(&cl, V3D_LOADSTORE_ZS_TFORMAT);
+                v3d_cl_u32(&cl, zb);
+            }
             v3d_cl_u8(&cl, V3D_TILE_COORDINATES);
             v3d_cl_u8(&cl, (uint8_t)x);
             v3d_cl_u8(&cl, (uint8_t)y);
             if (bin) {
                 v3d_cl_u8(&cl, V3D_BRANCH_TO_SUB_LIST);
                 v3d_cl_u32(&cl, v3d_bus(G.alloc) + (uint32_t)(y * tx + x) * 32);
+            }
+            if (zstore) {                   /* the colour stays for the store below */
+                v3d_cl_u8(&cl, V3D_STORE_TILE_BUFFER_GENERAL);
+                v3d_cl_u16(&cl, V3D_LOADSTORE_ZS_TFORMAT | V3D_STORE_NO_COLOUR_CLEAR);
+                v3d_cl_u32(&cl, zb);
+                v3d_cl_u8(&cl, V3D_TILE_COORDINATES);
+                v3d_cl_u8(&cl, (uint8_t)x);
+                v3d_cl_u8(&cl, (uint8_t)y);
             }
             v3d_cl_u8(&cl, x == tx - 1 && y == ty - 1 ? V3D_STORE_MS_TILE_BUFFER_EOF
                                                      : V3D_STORE_MS_TILE_BUFFER);
@@ -509,9 +569,17 @@ void gpu3d_drop(void)
 {
     batch_close();
     G.open = 0;
+    G.z_saved = G.split = G.z_wanted = 0;
 }
 
-int gpu3d_flush(const g16_t *g)
+/* the depth of a w x h frame fits in zbuf (T-format: sides rounded up to 32) */
+static int zbuf_fits(int w, int h)
+{
+    return (uint32_t)((w + 31) & ~31) * (uint32_t)((h + 31) & ~31) * 4u <= JOB_ZBUF;
+}
+
+/* runs the job; store: its depth goes to zbuf for the next one */
+static int flush_job(const g16_t *g, int store)
 {
     if (!G.open)
         return G.failed ? -1 : 0;
@@ -531,13 +599,35 @@ int gpu3d_flush(const g16_t *g)
         disable("binning list overflow");
         return -1;
     }
+    const int zload = G.z_saved && G.z_w == g->w && G.z_h == g->h;
+    const int zstore = store && zbuf_fits(g->w, g->h);
     uint32_t fb = bus_of(g->px);
-    uint32_t end = rcl_build(fb, g->w, g->h, 1, 1, 0);
+    uint32_t end = rcl_build(fb, g->w, g->h, 1, 1, 0, zload, zstore);
     if (run(1, end) != 0) {
         disable("the GPU did not finish a frame (registers in the log)");
         return -1;
     }
+    G.z_saved = zstore;
+    G.z_w = g->w;
+    G.z_h = g->h;
+    if (zload || zstore)
+        G.st.zjobs++;
     return 0;
+}
+
+int gpu3d_flush(const g16_t *g, int keep)
+{
+    const int had = G.open && G.nverts;
+    /* the depth is stored only for cartridges that need it: most draw all
+     * their 3D, then the HUD, and a store is 1 MiB of memory traffic */
+    int r = flush_job(g, keep && G.z_wanted);
+    if (!keep) {
+        G.z_saved = 0;                  /* the next job starts from a clear depth */
+        G.split = 0;
+    } else if (had) {
+        G.split = 1;
+    }
+    return r;
 }
 
 void gpu3d_take_stats(gpu3d_stats_t *s)
@@ -578,7 +668,7 @@ static int probe(void)
     pg.cy1 = PROBE_H;
 
     memset(G.probe, 0x55, JOB_PROBE);
-    if (run(0, rcl_build(v3d_bus(G.probe), PROBE_W, PROBE_H, 0, 0, 0x000000FFu)) != 0) {
+    if (run(0, rcl_build(v3d_bus(G.probe), PROBE_W, PROBE_H, 0, 0, 0x000000FFu, 0, 0)) != 0) {
         disable("probe: a clear did not finish");
         return -1;
     }
@@ -592,6 +682,7 @@ static int probe(void)
         disable(G.why);
         return -1;
     }
+    G.ia = G.red_a ? 0 : 2;
 
     /* a quad over the whole buffer, textured by texels with byte a full */
     static tex_t pt;
@@ -599,6 +690,8 @@ static int probe(void)
     pt.w = PROBE_W;
     pt.h = PROBE_H;
     pt.params = G.probe_tex + PROBE_W * PROBE_H;
+    pt.inv_w = 1.0f / PROBE_W;
+    pt.inv_h = 1.0f / PROBE_H;
     for (int i = 0; i < PROBE_W * PROBE_H; i++)
         pt.texels[i] = 0xFF0000FFu;
     pt.params[0] = v3d_bus(pt.texels) & ~0xFFFu;
@@ -612,7 +705,7 @@ static int probe(void)
     const r3d_corner_t t1[3] = { v[0], v[1], v[2] }, t2[3] = { v[0], v[2], v[3] };
     add_tri(&pg, t1, R3D_KIND_TEXTURE, &pt, 0, SH_TEX);
     add_tri(&pg, t2, R3D_KIND_TEXTURE, &pt, 0, SH_TEX);
-    if (gpu3d_flush(&pg) != 0)
+    if (gpu3d_flush(&pg, 0) != 0)
         return -1;
     c = G.probe[PROBE_W * 10 + 10];
     uint16_t same = G.red_a ? 0xF800 : 0x001F, other = G.red_a ? 0x001F : 0xF800;
@@ -625,7 +718,7 @@ static int probe(void)
         disable(G.why);
         return -1;
     }
-    G.st.jobs = G.st.tris = G.st.bin_us = G.st.render_us = G.st.max_us = 0;
+    memset(&G.st, 0, sizeof G.st);
     return 0;
 }
 
@@ -647,7 +740,8 @@ int gpu3d_init(void)
     G.tsda = b;
     G.alloc = G.tsda + JOB_TSDA;
     G.overflow = G.alloc + JOB_ALLOC;
-    G.bcl = G.overflow + JOB_OVERFLOW;
+    G.zbuf = G.overflow + JOB_OVERFLOW;
+    G.bcl = G.zbuf + JOB_ZBUF;
     G.rcl = G.bcl + JOB_BCL;
     G.recs = G.rcl + JOB_RCL;
     G.code = G.recs + JOB_RECS;

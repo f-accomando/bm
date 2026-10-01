@@ -286,10 +286,12 @@ dell'ARM; le stesse funzioni, nessun cambiamento nelle cartucce. L'ARM continua 
 trasformare, illuminare e tagliare; la GPU riempie i pixel con uno z-buffer a 24 bit,
 sfumature senza dithering e texture con il texel più vicino. Il 3D in attesa viene
 disegnato prima di ogni disegno 2D che lo segue, di `pget`, di `sset` e a fine
-fotogramma: lo z-buffer della GPU riparte da zero dopo ogni disegno 2D (il 3D
-disegnato dopo non si nasconde dietro quello di prima), quindi conviene disegnare
-prima tutto il 3D e poi l'HUD. `stat(6)` vale 1 quando il 3D lo fa la GPU. Se la
-GPU non risponde, il kernel torna all'ARM da solo e lo scrive nel log.
+fotogramma. Se una cartuccia disegna altro 3D dopo il 2D nello stesso fotogramma,
+dal fotogramma successivo la GPU conserva lo z-buffer tra le due parti (circa 1 MB
+di memoria scritta e riletta per fotogramma; il primo fotogramma no): conviene
+comunque disegnare prima tutto il 3D e poi l'HUD. Lo z-buffer della GPU riparte da
+zero a ogni fotogramma, anche senza `zclear()`. `stat(6)` vale 1 quando il 3D lo fa
+la GPU. Se la GPU non risponde, il kernel torna all'ARM da solo e lo scrive nel log.
 Esempio completo: `carts/astrowing` (volo in stile Star Fox: modelli costruiti in
 codice, orizzonte con `project3d`, nebbia, esplosioni, boss).
 

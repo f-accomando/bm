@@ -993,7 +993,7 @@ def test_make_image(b, opts):
     q = Qemu(b("kernel.img"), ["-drive", f"if=sd,format=raw,file={img}"])
     try:
         out = q.expect(MENU, timeout=30).decode(errors="replace")
-        assert "FAT32, 63 MiB, label BM; 8 cartridges" in out, out
+        assert "FAT32, 63 MiB, label BM; 9 cartridges" in out, out
         time.sleep(0.5)
         seen = set()
         for _ in range(10):                    # right along the grid: each title in turn
@@ -1030,7 +1030,7 @@ def test_make_image(b, opts):
         q = Qemu(b("kernel.img"), ["-drive", f"if=sd,format=raw,file={os.path.join(tmp, 'bm-pi1.img')}"],
                  machine="raspi1ap")
         out = q.expect(MENU, timeout=30).decode(errors="replace")
-        assert "Raspberry Pi 1 A+" in out and "; 8 cartridges" in out, out
+        assert "Raspberry Pi 1 A+" in out and "; 9 cartridges" in out, out
     finally:
         q.close()
         shutil.rmtree(tmp, ignore_errors=True)
@@ -2623,6 +2623,31 @@ def test_audio(b, opts):
         q.close()
 
 
+def test_texroom_hd(b, opts):
+    """M30: Texture Room HD, the same room at 640x360 (for the GPU): the
+    textures and the HUD show at that size, drawn by the ARM in QEMU."""
+    q = Qemu(b("kernel.img"))
+    try:
+        q.expect(MENU, timeout=30)
+        time.sleep(0.5)
+        with open(b("carts/texroom_hd.bm"), "rb") as f:
+            assert _upload(q, f.read())
+        for _ in range(30):
+            time.sleep(0.5)
+            w, h, px = q.screendump()
+            cols = [tuple(px[(y * w + x) * 3:(y * w + x) * 3 + 3]) for y in range(0, h, 4) for x in range(0, w, 4)]
+            hud = sum(all(abs(c[i] - (255, 224, 96)[i]) < 30 for i in range(3)) for c in cols[:w // 4 * 4])
+            if w == 640 and len(set(cols)) > 100 and hud:
+                break
+        assert (w, h) == (640, 360), (w, h)
+        assert len(set(cols)) > 100 and hud, (len(set(cols)), hud)
+        q.send("q")
+        out = q.expect("update+draw", timeout=20).decode(errors="replace")
+        assert "stopped with an error" not in out and '"Texture Room HD"' in out, out[-300:]
+    finally:
+        q.close()
+
+
 def test_gpu_absent(b, opts):
     """M30: QEMU has no V3D: the GPU test stops at its first step and says
     why, and the monitor goes on."""
@@ -2924,6 +2949,8 @@ def test_stress_monitor(b, opts):
             assert re.search(re.escape(name) + r"\s+\S+\s+\S+\s+[\d.]+ q\s+\d+ ns/px", plain), \
                 f"{name} missing:\n{plain}"
         assert re.search(r"irq \d+\.\d% \(\d+/s", plain), plain
+        # QEMU has no V3D: no GPU rows, and the line says why
+        assert "GPU rows: none (no V3D answers" in plain and "GPU spheres" not in plain, plain
         text = "\n".join(screen_text(q.screendump()))
         assert "sprites 16x16 (C)" in text and "3D spheres 96 (Lua)" in text, text
     finally:

@@ -7,9 +7,10 @@
  * a texture) and the vertices in the NV format. gpu3d_flush() runs the job
  * on the page being drawn: every tile is loaded from the page (what the
  * ARM drew stays under the 3D), gets its triangles with a 24-bit depth
- * buffer cleared at the start, and is stored back. The runtime flushes
- * before any 2D drawing that follows 3D, before reading pixels, and at the
- * end of the frame; zclear() starts a new job.
+ * buffer cleared at the start (or loaded, when 2D drawing split the 3D of
+ * a frame), and is stored back. The runtime flushes before any 2D drawing
+ * that follows 3D, before reading pixels, and at the end of the frame;
+ * zclear() starts a new job.
  *
  * Off by default: gpu3d=1 in bm/config.txt, or Settings > 3D drawing.
  */
@@ -36,14 +37,18 @@ const r3d_backend_t *gpu3d_backend(void);
 void gpu3d_set_fb(const void *mem, uint32_t size, uint32_t bus);
 
 int gpu3d_pending(void);            /* triangles waiting for a flush */
-void gpu3d_drop(void);              /* forgets them (the cartridge ended) */
+void gpu3d_drop(void);              /* forgets them and the depth (the cartridge ended) */
 
-/* Draws the waiting triangles into g's page. 0, or -1 if the GPU failed
- * (it stays off: gpu3d_ready() is 0 and gpu3d_status() says why). */
-int gpu3d_flush(const g16_t *g);
+/* Draws the waiting triangles into g's page. keep: the 3D goes on in this
+ * frame after some 2D, so the depth is kept for the next job (stored and
+ * loaded again unless zclear() comes first); 0 at the end of a frame (the
+ * next frame starts from a clear depth). 0, or -1 if the GPU failed (it
+ * stays off: gpu3d_ready() is 0 and gpu3d_status() says why). */
+int gpu3d_flush(const g16_t *g, int keep);
 
 typedef struct {
     uint32_t jobs, tris, bin_us, render_us, max_us;
+    uint32_t zjobs;                 /* jobs that loaded or stored the depth */
 } gpu3d_stats_t;
 
 /* totals since the last call, then zeroed */

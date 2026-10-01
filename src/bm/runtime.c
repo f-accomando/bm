@@ -107,14 +107,17 @@ static void sheet_commit(void)
 
 /* The 3D drawn by the GPU waits in a job until something else touches the
  * page: then the job goes first (2D drawn after the 3D lands on it, pget
- * reads the 3D). */
-static void sync3d(void)
+ * reads the 3D). keep: in the middle of a frame, the depth stays for the
+ * 3D drawn after; 0 at the end of the frame. */
+static void flush3d(int keep)
 {
     if (!rt.r3d.backend)
         return;
-    if ((gpu3d_pending() && gpu3d_flush(&rt.g) != 0) || gpu3d_failed())
+    if (((gpu3d_pending() || !keep) && gpu3d_flush(&rt.g, keep) != 0) || gpu3d_failed())
         rt.r3d.backend = NULL;          /* the GPU failed: the ARM draws the 3D again */
 }
+
+static void sync3d(void) { flush3d(1); }
 
 static int l_cls(lua_State *L)      { sync3d(); g16_cls(&rt.g, col(L, 1, 0)); return 0; }
 static int l_pset(lua_State *L)     { sync3d(); g16_pset(&rt.g, ival(L, 1), ival(L, 2), col(L, 3, 0xFFFFFF)); return 0; }
@@ -1556,7 +1559,7 @@ static void leave_mode(framebuffer_t *fb, uint32_t w, uint32_t h)
 
 static void present(framebuffer_t *fb, uint32_t *deadline, uint32_t *prev, uint32_t *dropped)
 {
-    sync3d();
+    flush3d(0);
     rt.present_us = bm_video_present(fb, &rt.g);
     zclear_dma_start();
     while ((int32_t)(timer_ticks() - *deadline) < 0)
@@ -1619,7 +1622,7 @@ static int run_frames(framebuffer_t *fb, lua_State *L, const char *title, int w,
             error = lua_tostring(L, -1);
             break;
         }
-        sync3d();                           /* the GPU's 3D counts in the frame's time */
+        flush3d(0);                         /* the GPU's 3D counts in the frame's time */
         rt.last_cpu_us = timer_ticks() - t0;
         st->cpu_us_total += rt.last_cpu_us;
         if (rt.last_cpu_us > st->cpu_us_max)

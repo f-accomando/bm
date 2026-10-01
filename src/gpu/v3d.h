@@ -89,6 +89,16 @@ void v3d_cl_f32(v3d_cl_t *cl, float v);
 /* LOAD_TILE_BUFFER_GENERAL: the colour buffer, raster order, BGR565 */
 #define V3D_LOAD_COLOUR_BGR565          (1u | 0u << 4 | 2u << 8)
 
+/* LOAD / STORE_TILE_BUFFER_GENERAL: depth and stencil (32 bits a pixel) in
+ * T-format (4 KiB tiles of 32x32 pixels; width and height of the frame
+ * rounded up to 32), as Mesa keeps depth buffers; a store clears the
+ * buffers it stored unless told not to */
+#define V3D_LOADSTORE_ZS_TFORMAT        (2u | 1u << 4)
+#define V3D_LOADSTORE_NONE              0u
+#define V3D_STORE_NO_COLOUR_CLEAR       (1u << 13)
+#define V3D_STORE_NO_ZS_CLEAR           (1u << 14)
+#define V3D_STORE_NO_VG_CLEAR           (1u << 15)
+
 /* CONFIGURATION_BITS: first byte, then the 16-bit rest */
 #define V3D_CFG_FRONT                   0x01    /* draw front-facing triangles */
 #define V3D_CFG_BACK                    0x02    /* draw back-facing triangles */

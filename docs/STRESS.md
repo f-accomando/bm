@@ -35,6 +35,7 @@ per poligoni 2D/3D, sia dal C sia attraverso l'API delle cartucce Lua (`.bm`).
 | sprites 16×16 (Lua) | come il test C, ma ogni sprite è una chiamata `spr()` da Lua con il calcolo della posizione in Lua | costo reale per una cartuccia |
 | 3D spheres 96 (Lua) | come il test C, con `draw3d()` chiamato da Lua | trasformazioni e raster in C |
 | quad 320×180 flat / no z / Gouraud / texture | N quad di 320×180 pixel (un quarto dello schermo, cioè uno schermo 320×180 intero), uno per quadrante a turno, ciascuno più vicino del precedente: ogni pixel passa lo z-buffer e viene scritto | la pendenza è il **costo di un pixel** (colonna `ns/px`), senza il lavoro per triangolo delle sfere; texture 256×256, più grande della cache dati (M30) |
+| GPU spheres 96 / smooth / textured, GPU quad flat / Gouraud / texture | le stesse scene con il 3D disegnato dalla GPU (backend `gpu3d`, M30): l'ARM trasforma, illumina e taglia, la V3D riempie i pixel; il tempo comprende il lavoro della GPU | solo sul Pi (in QEMU la riga `GPU rows: none (...)` dice perché mancano); i quad GPU arrivano a 2000, ognuno più vicino del precedente di un passo dello z a 24 bit |
 
 Per il 3D la tabella riporta il numero di sfere e, tra parentesi, i **triangoli
 effettivamente disegnati** per frame.

@@ -587,7 +587,7 @@ static void scene_free(void)
 
 /* a textured floor without depth, 24 spheres (flat and smooth), a cube,
  * a quad with transparent squares; 2D drawn before the 3D must stay */
-static void scene_draw(g16_t *g, r3d_t *r)
+static void scene_draw(g16_t *g, r3d_t *r, int gpu)
 {
     g16_cls(g, g16_rgb(30, 20, 50));
     g16_rectfill(g, 0, 0, W, 12, g16_rgb(200, 200, 0));
@@ -601,6 +601,27 @@ static void scene_draw(g16_t *g, r3d_t *r)
                        i & 1 ? R3D_SMOOTH : 0);
     r3d_draw_flags(r, &sc_cube, (v3_t){ 0.3f, 0.2f, -1.5f }, 0.2f, 0.4f, 0, 0.6f, 0);
     r3d_draw_flags(r, &sc_quad, (v3_t){ -1.2f, 0.4f, -2.5f }, 0, 0.3f, 0, 0.8f, 0);
+    if (gpu)
+        gpu3d_flush(g, 0);
+}
+
+/* 3D, 2D over it, then 3D partly behind the first: the depth of the first
+ * part, stored by the GPU and loaded again, must hide the second */
+static void scene_split(g16_t *g, r3d_t *r, int gpu)
+{
+    g16_cls(g, g16_rgb(30, 20, 50));
+    g16_rectfill(g, 0, 0, W, 12, g16_rgb(200, 200, 0));
+    r3d_zclear(r);
+    r3d_camera(r, 0, 0, -6, 0, 0, 60);
+    r3d_light(r, -0.4f, 0.7f, -0.6f, 0.3f);
+    r3d_draw_flags(r, &sc_sphere, (v3_t){ 0, 0, 0 }, 0, 0, 0, 1.6f, R3D_SMOOTH);
+    if (gpu)
+        gpu3d_flush(g, 1);                  /* as the runtime before 2D */
+    g16_rectfill(g, 80, 250, 260, 50, g16_rgb(20, 200, 90));
+    r3d_draw_flags(r, &sc_cube, (v3_t){ 1.0f, 0.3f, 1.5f }, 0.3f, 0.5f, 0, 1.4f, 0);
+    r3d_draw_flags(r, &sc_quad, (v3_t){ -1.3f, -0.5f, 1.0f }, 0, 0.4f, 0, 0.9f, 0);
+    if (gpu)
+        gpu3d_flush(g, 0);
 }
 
 static int differs(uint16_t a, uint16_t b)
@@ -614,9 +635,13 @@ static int differs(uint16_t a, uint16_t b)
     return 0;
 }
 
-static int step_games(framebuffer_t *fb)
+/* A scene drawn by the ARM's rasterizer and by the GPU backend into two
+ * 640x360 RGB565 pages (twice: the second time textures are made, caches
+ * warm, and the backend knows what the scene needs), timed, compared, and
+ * shown side by side (half size) until a key or 10 s. */
+static int step_compare(framebuffer_t *fb, const char *what, void (*scene)(g16_t *, r3d_t *, int))
 {
-    step("10 the 3D of the games on the GPU");
+    step(what);
     if (gpu3d_init() != 0) {
         fail(gpu3d_status());
         return -1;
@@ -635,10 +660,10 @@ static int step_games(framebuffer_t *fb)
             break;
         }
         r.backend = pass ? gpu3d_backend() : NULL;
-        for (int k = 0; k < 2; k++) {       /* the second time: textures made, caches warm */
+        for (int k = 0; k < 2; k++) {
             uint32_t t0 = timer_ticks();
-            scene_draw(&g, &r);
-            if (pass && gpu3d_flush(&g) != 0)
+            scene(&g, &r, pass);
+            if (pass && gpu3d_failed())
                 err = 2;
             us[pass] = timer_ticks() - t0;
             if (pass && k == 0)
@@ -662,8 +687,9 @@ static int step_games(framebuffer_t *fb)
                       kept ? "" : ", the 2D under the 3D is gone");
             fail(why);
         } else {
-            kprintf("ok  ARM %lu us, GPU %lu us (%lu triangles; bin %lu, render %lu), %d.%d%% differ\n",
-                    us[0], us[1], st.tris, st.bin_us, st.render_us, permille / 10, permille % 10);
+            kprintf("ok  ARM %lu us, GPU %lu us (%lu triangles in %lu jobs%s; bin %lu, render %lu), "
+                    "%d.%d%% differ\n", us[0], us[1], st.tris, st.jobs, st.zjobs ? ", depth kept" : "",
+                    st.bin_us, st.render_us, permille / 10, permille % 10);
         }
         /* the two pictures, ARM left and GPU right, until a key or 10 s */
         if (fb->depth == 32 && fb->width >= W && fb->height >= H) {
@@ -717,7 +743,9 @@ void gpu_test(framebuffer_t *fb)
              step_speed_fill() == 0 && step_texture() == 0 && step_screen(fb) == 0;
     free(m.block);
     m.block = NULL;
-    if (ok)
-        step_games(fb);
+    if (ok && step_compare(fb, "10 the 3D of the games on the GPU", scene_draw) == 0)
+        step_compare(fb, "11 depth kept across 2D (3D, 2D, 3D)", scene_split);
+    if (gpu3d_ready())
+        gpu3d_drop();                       /* the games start from a clean state */
     kprintf(failed ? "GPU test \x1b[91mfailed\x1b[0m: a photo of these lines helps\n" : "GPU test passed\n");
 }
