@@ -267,8 +267,38 @@ def sound():
     return c
 
 
+def nano8():
+    c = Canvas()
+    c.vgradient(0, H, 0x101420, 0x241a38)
+    # a little 128x128 screen, its 16 colours in a band, a sprite on a hill
+    pal = (0x000000, 0x1D2B53, 0x7E2553, 0x008751, 0xAB5236, 0x5F574F, 0xC2C3C7, 0xFFF1E8,
+           0xFF004D, 0xFFA300, 0xFFEC27, 0x00E436, 0x29ADFF, 0x83769C, 0xFF77A8, 0xFFCCAA)
+    c.rect(36, 26, 56, 52, 0x39425C)
+    c.rect(38, 28, 52, 48, 0x1D2B53)
+    for i in range(16):
+        c.rect(38 + (i % 8) * 6.5, 28 + (i // 8) * 4, 6.5, 4, pal[i])
+    for y in range(60, 76):                 # the hill, inside the screen
+        for x in range(38, 90):
+            d = (x - 64) ** 2 + (y - 92) ** 2
+            if d <= 27 * 27:
+                c.set(x, y, 0x00E436)
+            elif d <= 28 * 28:
+                c.set(x, y, 0x008751)
+    hero = ["..88..", ".8888.", "877778", ".7117.", ".7777.", ".8..8."]
+    c.art(hero, {"8": 0xFF004D, "7": 0xFFCCAA, "1": 0x000000}, 58, 54, 1)
+    for x, y in ((44, 40), (82, 44), (70, 38)):
+        c.set(x, y, 0xFFF1E8)
+    c.text("nano", 8, 2, 0xE8ECF4, scale=2, outline=0x000000)
+    c.text("8", 8 + 4 * 16, 2, 0xFF4F78, scale=2, outline=0x000000)
+    c.rect(100, 34, 18, 26, 0x39425C)       # a cart beside the screen
+    c.rect(102, 36, 14, 12, 0xFF77A8)
+    c.rect(102, 50, 14, 2, 0x1C2233)
+    c.rect(102, 54, 14, 2, 0x1C2233)
+    return c
+
+
 COVERS = (("pong", pong), ("snake", snake), ("shooter", shooter), ("astrowing", astrowing),
-          ("hunt", hunt), ("editor", editor), ("sound", sound))
+          ("hunt", hunt), ("editor", editor), ("sound", sound), ("nano8", nano8))
 
 
 def main():

@@ -450,7 +450,8 @@ int bm_mesh_capture(lua_State *L, const char *lua, size_t len, int width, int he
         { "rgb", cap_rgb }, { "time", cap_zero }, { "stat", cap_zero }, { "print", cap_zero },
         { "mget", cap_zero }, { "pget", cap_zero }, { "sget", cap_zero },
         { "project3d", cap_project }, { "animate", cap_zero }, { "clips", cap_table },
-        { "ls", cap_table }, { "players", cap_two }, { "stick", cap_stick }, { "bone3d", cap_bone },
+        { "ls", cap_table }, { "keys", cap_table }, { "pad", cap_zero }, { "players", cap_two },
+        { "stick", cap_stick }, { "bone3d", cap_bone },
         { "require", cap_require },
         { NULL, NULL },
     };

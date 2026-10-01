@@ -19,7 +19,8 @@ balenaEtcher o `dd`; collega HDMI e una **tastiera o un gamepad USB** (adattator
 sulla porta micro-USB centrale) e accendi. Il Pi si avvia in un paio di secondi sul
 **menu delle cartucce** (in 3D: ogni gioco è una piccola scheda a forma di Memory
 Stick Duo con la copertina stampata sopra e i contatti in rame sul retro): Pong,
-Snake, Star Shooter, Astro Wing (3D), Hunter's Night (gotico, 320×180 con luci), Texture Room (3D con texture) e le demo. Frecce per scegliere,
+Snake, Star Shooter, Astro Wing (3D), Hunter's Night (gotico, 320×180 con luci), Texture Room (3D con texture),
+**nano8** (le cartucce `.p8` / `.p8.png`, vedi [nano8](#nano8-cartucce-p8-e-p8png-m23)) e le demo. Frecce per scegliere,
 Nel menu le copertine stanno in una griglia (schede **Games** e **Dev**); frecce per
 muoversi, Invio (o A) per giocare, **L1 / R1** (Q / E sulla tastiera) per cambiare scheda.
 **Esc** (o Start+Select, o PS) torna al menu e lascia
@@ -100,7 +101,7 @@ Risoluzioni di menu, console e giochi, e quanto costano: [docs/RISOLUZIONI.md](d
 | **M20** | **Titan Clash**: picchiaduro 2D a robot giganti; prima base giocabile (1 robot, armatura leggera/pesante, spada o cannoni, hangar, contro CPU o in 2) | ✅ base giocabile |
 | **M21** | Menu "home" a griglia (Games / Dev) e giochi sospesi in memoria | ✅ |
 | M22 | SDK e strumenti dedicati: codice, pixel art, 3D, musica, import/export, 3D→sprite, sprite stacking | 22.1 codice (**bm Code**: tab, due pagine, font 6x12) e 22.4 musica ed effetti (Sound editor) ✅ in QEMU; **bm Studio** e **bm Animator** sul PC (3D, pixel art, import/export, animazione, 3D→sprite); sulla console lo **studio 3D** (player e versione semplificata) e **bm Mesh** (vertici e facce, mesh ↔ modello); il resto in coda |
-| M23 | Emulatore di cartucce `.p8` / `.p8.png` (stile PICO-8) | in coda |
+| M23 | Emulatore di cartucce `.p8` / `.p8.png` (stile PICO-8): **nano8** | tutto tranne i numeri 16.16, provato nel PC e in QEMU, da provare sul Pi |
 | M24 | Scambio in rete locale tra console (P2P) | in coda |
 | M25 | Store su GitHub: catalogo, download verificati, pubblicazione dall'SDK | in coda |
 | M26 | Market gratuito, legato allo store di M25 | in coda |
@@ -338,6 +339,45 @@ Assistente (M30), sul PC:
 make test-ai         # rete C contro Python, domande di prova, esempi di codice, pannello
 make ai-model        # riaddestra la rete dopo aver cambiato src/ai/kb/ (serve numpy)
 ```
+
+## nano8: cartucce `.p8` e `.p8.png` (M23)
+
+**nano8**, nella scheda Games, gioca le cartucce nei formati di PICO-8: `.p8` (testo) e
+`.p8.png` (l'immagine della cartuccia). Non è PICO-8: nome e font sono nostri; la macchina
+(memoria, grafica, testo, suono) è scritta da zero in C nel kernel (`src/bm/n8*.c`,
+`src/audio/n8snd.c`), il resto è una cartuccia `.bm` in Lua (`carts/nano8`): traduce il
+dialetto Lua delle cartucce in Lua 5.4, mostra la lista e i menu.
+
+- **Le cartucce** vanno nella cartella `carts/nano8/` della SD (si leggono anche `nano8/`,
+  `carts/` e la radice). `make sdcard` / `make image` / `make install` ci mettono quelle
+  incluse: sette giochi di altri autori con licenza libera e la demo **Comet Catcher**
+  (`carts/nano8/roms`, crediti e licenze in `CREDITS.md`). Per le altre basta copiare i file
+  dal PC: i `.p8.png` scaricati dal forum funzionano così come sono.
+- **Lista**: le etichette delle cartucce in una griglia; frecce o croce per scegliere, A /
+  Invio / spazio per giocare, X / Tab per i **controlli**.
+- **Durante il gioco**: Start (o Invio / P) apre la **pausa**: continua, le voci della
+  cartuccia (`menuitem`), ricomincia, controlli, schermo (nitido 2× o a tutta altezza),
+  volume, torna alla lista. Esc (o Start+Select, o PS) torna al menu di bm lasciando il
+  gioco sospeso, come gli altri giochi.
+- **Controlli** (mappabili): per ognuno dei 7 tasti delle cartucce (⬅️ ➡️ ⬆️ ⬇️ 🅾️ ❎ e
+  pausa) i tasti della tastiera del giocatore 1, del giocatore 2 e i pulsanti del
+  controller. A cambia il tasto (premi quello nuovo), X / Tab ne aggiunge un altro, "Reset to
+  defaults" torna a quelli iniziali: giocatore 1 frecce, Z C N (🅾️), X V M (❎), Invio P
+  (pausa); giocatore 2 S F E D, Shift Tab, A Q; controller croce, A / X (🅾️), B / Y (❎),
+  Start. I controller Bluetooth sono i giocatori 1–4 delle cartucce.
+- **Salvataggi**: i dati che le cartucce tengono (`cartdata`, record e progressi) e la
+  mappatura stanno in `bm/save` sulla SD.
+- **Mouse e tastiera delle cartucce**: per le cartucce che usano il mouse il cursore si muove
+  con la levetta, la croce o le frecce, e 🅾️ / ❎ sono i tasti del mouse; quelle che leggono la
+  tastiera come testo la ricevono così com'è.
+- **Limiti**: i `.p8` con `#include` vanno esportati prima (in `.p8.png` o in un `.p8` unico);
+  le cartucce più pesanti possono andare sotto i 60 fps (rallentano, non si fermano). Dettagli in
+  [ROADMAP M23](docs/ROADMAP.md#m23--emulatore-di-cartucce-p8--p8png-stile-pico-8-lxl).
+
+Sul PC, `make test-nano8` prova caricatore, traduttore, una cartuccia di 151 controlli
+(`tests/nano8/carts/api.p8`) e le cartucce incluse; `build/host/n8host build/nano8/main.lua
+--root CARTELLA --exec "NANO8.Ui.play(1)" --shot 120:out.ppm` gioca nano8 sul PC (screenshot,
+`--wav`, `--perf`).
 
 ## Suoni e musica
 
@@ -584,6 +624,12 @@ tests/kitchen/           simulatore host di Chaos Kitchen (luahost + sim.lua)
 carts/titan/             Titan Clash (M20): src/*.lua, build.py; mkrobot.py (il robot
                          pre-renderizzato), art.py e mkassets.py (sheet.png)
 tests/titan/             simulatore host di Titan Clash (sim.lua)
+carts/nano8/             nano8 (M23): src/*.lua (traduttore, API, input, ui), build.py,
+                         roms/ (le cartucce .p8 incluse, CREDITS.md), mkdemo.py (Comet Catcher)
+src/bm/n8*.c             la macchina di nano8: memoria e disegno (n8.c), font (n8font.c),
+                         cartucce .p8 / .p8.png (n8cart.c), la libreria Lua n8 (n8lua.c)
+src/audio/n8snd.c        il suono di nano8: 4 canali, effetti e musica delle cartucce
+tests/nano8/             prove di nano8 sul PC: n8host (nano8 senza Pi), api.p8, run.py
 docs/API.md              API delle cartucce .bm e guida alla prima cartuccia
 scripts/mkbm.py         packer .bm (PNG e CSV, solo libreria standard Python)
 scripts/bmmesh.py        sezione MESH (modelli 3D) e file .glb di bm Studio, per mkbm.py --models
@@ -666,5 +712,7 @@ Componenti di terze parti, con la loro licenza (sezione 7 della licenza):
 - `third_party/mbedtls/` — mbedTLS 3.6.2, licenza Apache 2.0 (`third_party/mbedtls/LICENSE`);
 - `boot/ca.pem` — certificati radice dalla lista Mozilla (`scripts/make-ca.sh`);
 - `src/gfx/font8x16.c` — font derivato da Terminus, SIL OFL (`docs/LICENSE.font`);
+- `carts/nano8/roms/` — cartucce di altri autori (CC0 e MIT), con la loro licenza
+  (`carts/nano8/roms/CREDITS.md` e `licenses/`);
 - firmware del Raspberry Pi (scaricato da `scripts/`, non incluso nel repository),
   con la licenza di Raspberry Pi Ltd.

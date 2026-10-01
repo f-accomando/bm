@@ -458,10 +458,31 @@ int hid_stick(int slot, int8_t xy[2])
 
 int hid_usage_held(uint8_t u)
 {
+    if (u >= 0xE0 && u <= 0xE7)                 /* modifiers: a bit of the first byte */
+        return ((prev_keys[KBD_USB][0] | prev_keys[KBD_BLE][0]) >> (u - 0xE0)) & 1;
     for (int i = 2; i < 8; i++)
         if (prev_keys[KBD_USB][i] == u || prev_keys[KBD_BLE][i] == u)
             return 1;
     return 0;
+}
+
+int hid_keys_held(uint8_t *out, int max)
+{
+    int n = 0;
+    uint8_t mods = prev_keys[KBD_USB][0] | prev_keys[KBD_BLE][0];
+    for (int b = 0; b < 8 && n < max; b++)
+        if (mods >> b & 1)
+            out[n++] = (uint8_t)(0xE0 + b);
+    for (int k = 0; k < KBDS; k++)
+        for (int i = 2; i < 8 && n < max; i++) {
+            uint8_t u = prev_keys[k][i];
+            int dup = u < 4;                    /* 0 none, 1-3 errors */
+            for (int j = 0; j < n && !dup; j++)
+                dup = out[j] == u;
+            if (!dup)
+                out[n++] = u;
+        }
+    return n;
 }
 
 uint32_t hid_pad_buttons(void)

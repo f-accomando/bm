@@ -7,6 +7,7 @@
  * channel paced by the HDMI DREQ plays two buffers in a ring.
  */
 #include "audio.h"
+#include "n8snd.h"
 #include "synth.h"
 #include "player.h"
 #include "iec958.h"
@@ -179,6 +180,7 @@ static void render(int16_t *out, unsigned n)
         unsigned m = n - k < BLOCK ? n - k : BLOCK;
         player_advance(&player, m);
         synth_render(&synth, own_regs, out + k, m);
+        n8snd_mix(out + k, m, synth.gain);
     }
 }
 
@@ -553,6 +555,7 @@ void audio_play(int ch, int sound, int note, int vol, int fx, uint32_t ms)
 
 void audio_pause(int on)
 {
+    n8snd_pause(on);
     uint32_t s = irq_save();
     player_music_pause(&player, on);
     if (on) {

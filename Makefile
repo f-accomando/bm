@@ -134,7 +134,7 @@ $(BUILD)/demo.bm: $(DEMO_BM_SRC) scripts/mkbm.py
 	    --map carts/demo/map.csv --title "bm native demo" --author bm
 
 # Demo games (Lua only, sprites drawn in code): build/carts/<name>.bm
-GAMES := pong snake shooter astrowing hunt kitchen titan texroom village
+GAMES := pong snake shooter astrowing hunt kitchen titan texroom village nano8
 GAME_CARTS := $(patsubst %,$(BUILD)/carts/%.bm,$(GAMES))
 title_pong    := Pong
 title_snake   := Snake
@@ -145,6 +145,7 @@ res_hunt := 320x180
 title_kitchen := Chaos Kitchen
 title_titan := Titan Clash
 title_texroom := Texture Room
+title_nano8 := nano8
 res_texroom := 320x180
 title_village := Studio Village
 res_village := 320x180
@@ -186,6 +187,19 @@ $(BUILD)/carts/titan.bm: $(BUILD)/titan/main.lua carts/titan/sheet.png carts/tit
 	$(PYTHON) scripts/mkbm.py -o $@ --lua $< --title "$(title_titan)" --author bm \
 	    --sheet carts/titan/sheet.png --sheet8 --cover carts/titan/cover.png
 
+# nano8: plays .p8 / .p8.png carts (machine in src/bm/n8*.c); several Lua
+# files too. The carts it ships with (carts/nano8/roms, licenses in
+# CREDITS.md) go to carts/nano8/ on the SD card.
+NANO8_SRC := $(sort $(wildcard carts/nano8/src/*.lua))
+NANO8_ROMS := $(sort $(wildcard carts/nano8/roms/*.p8 carts/nano8/roms/*.p8.png))
+$(BUILD)/nano8/main.lua: $(NANO8_SRC) carts/nano8/build.py
+	$(PYTHON) carts/nano8/build.py $@ --map $(BUILD)/nano8/main.map
+
+$(BUILD)/carts/nano8.bm: $(BUILD)/nano8/main.lua carts/nano8/cover.png scripts/mkbm.py
+	@mkdir -p $(dir $@)
+	$(PYTHON) scripts/mkbm.py -o $@ --lua $< --title "$(title_nano8)" --author bm \
+	    --cover carts/nano8/cover.png
+
 # A Lua interpreter for the PC (the same Lua 5.4 as the console): host tests
 # of the Lua cartridges.
 $(BUILD)/host/luahost: tests/kitchen/luahost.c $(LUA_SRCS)
@@ -206,10 +220,26 @@ $(BUILD)/demo.bmau: carts/sound/demo.json scripts/bmaudio.py
 test-sound: $(BUILD)/host/luahost $(BUILD)/demo.bmau carts/sound/main.lua
 	$< tests/sound/sim.lua carts/sound/main.lua $(BUILD)/demo.bmau
 
+# nano8 on the PC: the loader on every cart, the translator, the API test
+# cart, then each shipped cart played for a while (tests/nano8/run.py)
+N8_HOST_SRC := src/bm/n8.c src/bm/n8font.c src/bm/n8cart.c src/bm/n8lua.c src/audio/n8snd.c \
+               src/bm/gfx16.c src/gfx/font8x16.c
+$(BUILD)/host/n8host: tests/nano8/n8host.c $(N8_HOST_SRC) src/bm/n8*.h src/audio/n8snd.h $(LUA_SRCS)
+	@mkdir -p $(dir $@)
+	$(HOSTCC) -O2 -w -Isrc -Ithird_party/lua -o $@ tests/nano8/n8host.c $(N8_HOST_SRC) \
+	    $(filter-out third_party/lua/lua.c third_party/lua/luac.c,$(LUA_SRCS)) -lm
+
+$(BUILD)/host/n8cartinfo: tests/nano8/cartinfo.c src/bm/n8.c src/bm/n8font.c src/bm/n8cart.c src/bm/n8*.h
+	@mkdir -p $(dir $@)
+	$(HOSTCC) -O2 -Wall -Wextra -Isrc -o $@ tests/nano8/cartinfo.c src/bm/n8.c src/bm/n8font.c src/bm/n8cart.c -lm
+
+test-nano8: $(BUILD)/host/n8host $(BUILD)/host/n8cartinfo $(BUILD)/host/luahost $(BUILD)/nano8/main.lua
+	$(PYTHON) tests/nano8/run.py --build $(BUILD) $(NANO8_ROMS)
+
 .DEFAULT_GOAL := all
 .PHONY: FORCE test-smp all clean firmware image image-pi1 sdcard install sdcard-chainloader sdcard-stress qemu qemu-screenshot \
-        run-serial test test-bm test-ai ai-model test-usb test-audio test-fat test-kitchen test-titan test-sound test-net \
-        test-http test-https test-release release disasm wav test-studio test-studio-ui studio
+        run-serial test test-bm test-ai ai-model test-usb test-audio test-fat test-kitchen test-titan test-sound test-nano8 \
+        test-net test-http test-https test-release release disasm wav test-studio test-studio-ui studio
 
 all: $(BUILD)/kernel.img $(BUILD)/chainloader.img $(GAME_CARTS)
 
@@ -258,6 +288,7 @@ sdcard: $(BUILD)/$(KERNEL).img $(SD_CARTS)
 	rm -f $(DIST)/carts/*.bm       # the old extension (now .bm)
 	rm -f $(DIST)/carts/*.cart     # the old .cart format: bm no longer plays it
 	cp $(SD_CARTS) $(DIST)/carts/
+	mkdir -p $(DIST)/carts/nano8 && cp $(NANO8_ROMS) $(DIST)/carts/nano8/
 	mkdir -p $(DIST)/bm && cp boot/ca.pem $(DIST)/bm/ca.pem
 	@if [ -f $(FW_DIR)/BCM43430A1.hcd ]; then mkdir -p $(DIST)/bm && \
 	    cp $(FW_DIR)/BCM43430A1.hcd $(DIST)/bm/ && echo "cp BCM43430A1.hcd -> $(DIST)/bm/"; fi
@@ -275,6 +306,7 @@ IMAGE_FILES = $(FW_DIR)/bootcode.bin=bootcode.bin $(FW_DIR)/start.elf=start.elf 
               $(FW_DIR)/fixup.dat=fixup.dat boot/config.txt=config.txt \
               $(BUILD)/kernel.img=kernel.img \
               $(foreach c,$(SD_CARTS),$(c)=carts/$(notdir $(c))) \
+              $(foreach r,$(NANO8_ROMS),$(r)=carts/nano8/$(notdir $(r))) \
               boot/ca.pem=bm/ca.pem
 image: $(BUILD)/kernel.img $(SD_CARTS)
 	@test -f $(FW_DIR)/start.elf || { echo "Run 'make firmware' first"; exit 1; }
@@ -319,7 +351,7 @@ install: sdcard
 	    echo "moved $(OLD_DIR)/ (settings, saves, firmware) to bm/"; fi && \
 	$$S cp $(DIST)/bootcode.bin $(DIST)/start.elf $(DIST)/fixup.dat $(DIST)/config.txt $(DIST)/kernel.img $(SD)/ && \
 	$$S rm -f $(SD)/carts/demo.cart $(SD)/carts/demo.bm $(SD)/carts/stress.bm && \
-	$$S cp $(DIST)/carts/* $(SD)/carts/ && \
+	$$S cp -r $(DIST)/carts/* $(SD)/carts/ && \
 	if [ -d $(DIST)/bm ]; then $$S cp $(DIST)/bm/* $(SD)/bm/; fi && \
 	sync && echo "installed on $(SD): kernel $$(git describe --always --dirty), carts, bm/ firmware" && \
 	ls $(SD)/bm
@@ -345,7 +377,7 @@ qemu: $(BUILD)/kernel.img
 qemu-screenshot: $(BUILD)/kernel.img
 	./scripts/qemu-screenshot.sh $< $(BUILD)/screen.png
 
-test: all test-bm test-usb test-fat test-audio test-kitchen test-titan test-sound test-net test-http test-https \
+test: all test-bm test-usb test-fat test-audio test-kitchen test-titan test-sound test-nano8 test-net test-http test-https \
       test-release test-smp test-ai test-studio
 	$(PYTHON) tests/qemu_test.py --build $(BUILD)
 
