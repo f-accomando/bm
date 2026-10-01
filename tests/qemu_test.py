@@ -2812,7 +2812,9 @@ def test_village(b, opts):
             grass = sum(g > 60 and g > r + 20 and g > b + 20 for r, g, b in cols)
             roof = sum(r > 70 and r > 2 * g and r > 2 * b for r, g, b in cols)
             sky = sum(b > 150 and b > r + 40 for r, g, b in cols)
-            if grass > 300 and roof > 20 and sky > 300:
+            # the colours too: the camera turns, and a screendump can catch a
+            # frame half drawn (QEMU shows the page while it is drawn)
+            if grass > 300 and roof > 20 and sky > 300 and len(set(cols)) > 100:
                 break
             time.sleep(0.5)
         if opts.shots:
