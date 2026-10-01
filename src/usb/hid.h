@@ -76,8 +76,12 @@ uint32_t hid_pad_buttons(void);
 /* Text mode (editors): hid_getc() also returns the navigation keys as the
  * codes below, and Esc no longer counts as "quit". */
 void hid_text_mode(int on);
-/* 1 while the key with this HID usage is held on the USB keyboard. */
+/* 1 while the key with this HID usage is held on a keyboard (USB or
+ * Bluetooth); the modifiers are 0xE0-0xE7 (left Ctrl, Shift, Alt, GUI,
+ * then the right ones). */
 int hid_usage_held(uint8_t usage);
+/* The usages held now on the keyboards (modifiers first); returns how many. */
+int hid_keys_held(uint8_t *out, int max);
 #define HID_KEY_UP      0xF0
 #define HID_KEY_DOWN    0xF1
 #define HID_KEY_LEFT    0xF2

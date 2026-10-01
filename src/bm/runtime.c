@@ -23,6 +23,7 @@
 #include "drivers/dma.h"
 #include "arch/cache.h"
 #include "kernel/crumbs.h"
+#include "n8lua.h"
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -62,6 +63,7 @@ static struct {
     int r3d_ready;
     g16_light_t light;          /* light_begin() .. light_end() */
     int text_mode;              /* keyp() was called: the keyboard types */
+    int raw_keys;               /* rawkeys(true): the keyboard is read with keydown() */
     int esc_wait;               /* frames since a serial Esc */
     int esc_num;                /* ESC [ n ~ */
     uint8_t tq[256];            /* typed keys for keyp() */
@@ -1001,6 +1003,56 @@ static int l_keyheld(lua_State *L)
     return 1;
 }
 
+/* rawkeys(on): the keyboards stop being controllers for btn() and pad()
+ * (the cartridge reads them with keydown(), to map them as it likes); Esc
+ * still leaves the cartridge */
+static int l_rawkeys(lua_State *L)
+{
+    rt.raw_keys = lua_toboolean(L, 1);
+    return 0;
+}
+
+/* keydown(usage): true while the key with this USB HID usage is held on a
+ * keyboard (0x04 = A ... 0x1D = Z, 0x28 Enter, 0x4F-0x52 arrows, 0xE0-0xE7
+ * Ctrl, Shift, Alt, GUI left then right) */
+static int l_keydown(lua_State *L)
+{
+    lua_Integer u = luaL_checkinteger(L, 1);
+    lua_pushboolean(L, u > 0 && u < 256 && hid_usage_held((uint8_t)u));
+    return 1;
+}
+
+/* keys() -> { usage, ... }: the keys held now */
+static int l_keys(lua_State *L)
+{
+    uint8_t u[16];
+    int n = hid_keys_held(u, 16);
+    lua_createtable(L, n, 0);
+    for (int i = 0; i < n; i++) {
+        lua_pushinteger(L, u[i]);
+        lua_rawseti(L, -2, i + 1);
+    }
+    return 1;
+}
+
+/* pad([p]) -> the controller buttons player p (1-4) holds, as bits: 1 left,
+ * 2 right, 4 up, 8 down, 16 A, 32 B, 64 Start, 128 Select, 256 X, 512 Y,
+ * 1024 L1, 2048 R1; without p, any player */
+static int l_pad(lua_State *L)
+{
+    uint32_t b = 0;
+    if (lua_isnoneornil(L, 1)) {
+        for (int p = 0; p < INPUT_PLAYERS; p++)
+            b |= rt.praw[p];
+    } else {
+        lua_Integer p = luaL_checkinteger(L, 1);
+        if (p >= 1 && p <= INPUT_PLAYERS)
+            b = rt.praw[p - 1];
+    }
+    lua_pushinteger(L, b);
+    return 1;
+}
+
 /* cartridge files, for the editor (defined after the asset loader) */
 static int l_ls(lua_State *L);
 static int l_cart_load(lua_State *L);
@@ -1066,7 +1118,8 @@ static const luaL_Reg api[] = {
     { "fog3d", l_fog3d }, { "project3d", l_project3d }, { "lamp3d", l_lamp3d },
     { "zclear", l_zclear }, { "log", l_log }, { "quit", l_quit },
     { "save", l_save }, { "saved", l_saved },
-    { "keyp", l_keyp }, { "keyheld", l_keyheld }, { "ls", l_ls }, { "cart_load", l_cart_load }, { "cart_new", l_cart_new },
+    { "keyp", l_keyp }, { "keyheld", l_keyheld }, { "rawkeys", l_rawkeys }, { "keydown", l_keydown },
+    { "keys", l_keys }, { "pad", l_pad }, { "ls", l_ls }, { "cart_load", l_cart_load }, { "cart_new", l_cart_new },
     { "cart_save", l_cart_save }, { "cart_run", l_cart_run }, { "cart_arg", l_cart_arg },
     { "light_begin", l_light_begin }, { "light", l_light }, { "light_end", l_light_end },
     { "note", l_note }, { "noteoff", l_noteoff }, { "freq", l_freq },
@@ -1089,8 +1142,24 @@ static void hook(lua_State *L, lua_Debug *ar)
                    FRAME_BUDGET * HOOK_EVERY / 1000000);
 }
 
+/* nano8 reads its carts from the SD card and draws into the frame */
+static int n8_file(const char *path, uint8_t **data, size_t *len)
+{
+    fat_entry_t e;
+    if (fat_find(path, &e) != 0 || e.is_dir || e.size > 4u * 1024 * 1024)
+        return -1;
+    return fat_load(&e, data, len);
+}
+
+static g16_t *n8_target(void)
+{
+    return &rt.g;
+}
+
 static lua_State *new_cart_state(const bm_cart_t *c)
 {
+    static const n8lua_io_t n8io = { n8_file, n8_target };
+    n8lua_set_io(&n8io);
     lua_State *L = luavm_newstate();
     if (!L)
         return NULL;
@@ -1116,6 +1185,8 @@ static lua_State *new_cart_state(const bm_cart_t *c)
     lua_pop(L, 1);
     lua_pushglobaltable(L);
     luaL_setfuncs(L, api, 0);
+    lua_pop(L, 1);
+    luaL_requiref(L, "n8", luaopen_n8, 1);      /* the nano8 machine (carts/nano8) */
     lua_pop(L, 1);
     static const char *const waves[SYNTH_WAVES] = { "SQUARE", "TRIANGLE", "SAW", "NOISE", "SINE", "METAL" };
     for (int w = 0; w < SYNTH_WAVES; w++) {
@@ -1267,7 +1338,7 @@ static int poll_keys(void)
         rt.esc_wait = 0;
     int quit = 0;
     uint32_t per[INPUT_PLAYERS];
-    uint32_t pad = input_players(per, rt.text_mode, &quit, &rt.local);
+    uint32_t pad = input_players(per, rt.text_mode || rt.raw_keys, &quit, &rt.local);
     if (rt.text_mode)
         for (int k; (k = hid_getc()) >= 0;)
             text_push((uint8_t)k);
@@ -1946,6 +2017,7 @@ static void release(lua_State *L)
     audio_bank(NULL, 0, NULL, 0);
     set_copy(&own_audio, &own_audio_len, NULL, 0);
     lua_close(L);               /* frees meshes (__gc) before the z-buffer */
+    n8lua_close();
     g16_light_free(&rt.light);
     if (rt.r3d_ready)
         r3d_free(&rt.r3d);
