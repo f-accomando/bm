@@ -113,6 +113,15 @@ int main(int argc, char **argv)
     check(catalog_set_key(other) == 0 &&
           catalog_verify((uint8_t *)idx, il, (uint8_t *)sig, sl, err, sizeof err) == -1 &&
           strstr(err, "not signed"), "signature by another key: refused");
+    check(catalog_set_key("# no key\n") == -1 && catalog_add_key(pub) == 0 && catalog_has_key() &&
+          catalog_verify((uint8_t *)idx, il, (uint8_t *)sig, sl, err, sizeof err) == 0,
+          "placeholder built in, the key from the SD card: good");
+    check(catalog_set_key(other) == 0 &&
+          catalog_verify((uint8_t *)idx, il, (uint8_t *)sig, sl, err, sizeof err) == 0,
+          "another key built in, the key from the SD card: good");
+    check(catalog_add_key("# none\n") == -1 &&
+          catalog_verify((uint8_t *)idx, il, (uint8_t *)sig, sl, err, sizeof err) == -1,
+          "neither key: refused");
     catalog_set_key(pub);
 
     catalog_t c;

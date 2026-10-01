@@ -126,7 +126,7 @@ static void spin(int rounds)
 
 /* stream.c's needs (net.c) */
 uint32_t net_ip(void) { return 1; }
-void net_wait_step(void) { spin(1); }
+int net_wait_step(void) { spin(1); return 0; }
 void net_time_set(unsigned long sec) { (void)sec; }
 
 static void connect_port(client_t *c, u16_t port)

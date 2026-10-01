@@ -58,10 +58,14 @@ static err_t on_connected(void *arg, struct tcp_pcb *pcb, err_t err)
 
 static ip_addr_t dns_addr;
 static int dns_state;           /* 0 waiting, 1 found, -1 not found */
+static uintptr_t dns_query;     /* the lookup waited for: a late answer to a
+                                 * cancelled one does not count */
 
 static void on_dns(const char *name, const ip_addr_t *addr, void *arg)
 {
-    (void)name; (void)arg;
+    (void)name;
+    if ((uintptr_t)arg != dns_query)
+        return;
     if (addr) {
         dns_addr = *addr;
         dns_state = 1;
@@ -84,15 +88,20 @@ stream_t *stream_open(const char *host, uint16_t port, uint32_t timeout_ms,
     }
     uint32_t t0 = timer_ticks();
     dns_state = 0;
-    err_t e = dns_gethostbyname(host, &dns_addr, on_dns, NULL);
+    err_t e = dns_gethostbyname(host, &dns_addr, on_dns, (void *)++dns_query);
     if (e == ERR_OK) {
         dns_state = 1;
     } else if (e != ERR_INPROGRESS) {
         snprintf(err, err_len, "bad host name %s", host);
         return NULL;
     }
-    while (dns_state == 0 && !expired(t0, timeout_ms))
-        net_wait_step();
+    int cancelled = 0;
+    while (dns_state == 0 && !expired(t0, timeout_ms) && !cancelled)
+        cancelled = net_wait_step() < 0;
+    if (cancelled) {
+        snprintf(err, err_len, "cancelled");
+        return NULL;
+    }
     if (dns_state != 1) {
         snprintf(err, err_len, "%s: %s", host, dns_state ? "unknown name (DNS)" : "no DNS answer");
         return NULL;
@@ -112,8 +121,13 @@ stream_t *stream_open(const char *host, uint16_t port, uint32_t timeout_ms,
         snprintf(err, err_len, "cannot connect");
         return NULL;
     }
-    while (!s->connected && !s->failed && !expired(t0, timeout_ms))
-        net_wait_step();
+    while (!s->connected && !s->failed && !expired(t0, timeout_ms) && !cancelled)
+        cancelled = net_wait_step() < 0;
+    if (cancelled) {
+        snprintf(err, err_len, "cancelled");
+        stream_close(s);
+        return NULL;
+    }
     if (!s->connected) {
         snprintf(err, err_len, "%s (%s) port %u: %s", host, ipaddr_ntoa(&dns_addr), port,
                  s->failed ? "connection refused" : "no answer in 10 s");
@@ -133,9 +147,8 @@ int stream_write(stream_t *s, const void *data, size_t len)
         size_t room = tcp_sndbuf(s->pcb);
         if (room == 0) {
             tcp_output(s->pcb);
-            if (expired(t0, 30000))
+            if (expired(t0, 30000) || net_wait_step() < 0)
                 return -1;
-            net_wait_step();
             continue;
         }
         size_t n = len < room ? len : room;
@@ -143,7 +156,8 @@ int stream_write(stream_t *s, const void *data, size_t len)
             n = 0xFFFF;
         if (tcp_write(s->pcb, p, (u16_t)n, TCP_WRITE_FLAG_COPY) != ERR_OK) {
             tcp_output(s->pcb);
-            net_wait_step();
+            if (net_wait_step() < 0)
+                return -1;
             continue;
         }
         p += n;
@@ -160,9 +174,8 @@ int stream_read(stream_t *s, void *buf, size_t len, uint32_t timeout_ms)
     while (!s->rx) {
         if (s->closed)
             return 0;
-        if (s->failed || expired(t0, timeout_ms))
+        if (s->failed || expired(t0, timeout_ms) || net_wait_step() < 0)
             return -1;
-        net_wait_step();
     }
     size_t got = 0;
     while (s->rx && got < len) {

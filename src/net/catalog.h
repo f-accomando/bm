@@ -42,7 +42,10 @@ typedef struct {
 /* The public key, PEM. The kernel has its own; the tests set theirs.
  * Returns 0, or -1 if it is not an EC P-256 public key (the placeholder). */
 int catalog_set_key(const char *pem);
-/* 1 if this kernel can check the catalog. */
+/* A second key, besides the built-in one (bm/market.pem on the SD card: a
+ * market of one's own). Returns 0, or -1 if it is not a P-256 key. */
+int catalog_add_key(const char *pem);
+/* 1 if this kernel can check the catalog (either key). */
 int catalog_has_key(void);
 
 /* 0 if sig (DER) is the key's signature of index's bytes. */

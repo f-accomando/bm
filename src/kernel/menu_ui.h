@@ -1,6 +1,6 @@
 /*
  * BareMetal UI, the graphical home menu in the style of a console home
- * screen: tabs at the top (Games, Dev) and Settings after them, the covers
+ * screen: tabs at the top (Market, Games, Dev) and Settings after them, the covers
  * in a grid that scrolls down, moved through with the four directions;
  * the background is the blurred cover of the selected cartridge. Panels
  * (submenus) open over the grid. 640x360 RGB565.
@@ -21,6 +21,9 @@ typedef struct {
     uint32_t size;              /* bytes */
     const g16_sheet_t *cover;   /* 128x80, or NULL for a plain card */
     int running;                /* suspended in memory: a "Playing" badge */
+    int loading;                /* no cover yet (the Market): a placeholder with the title */
+    const char *badge;          /* a pill on the cover ("Installed"), or NULL */
+    int busy, percent;          /* downloading: a bar on the cover */
 } menu_item_t;
 
 #define MENU_COLS 4             /* covers per row */
@@ -68,6 +71,11 @@ typedef struct {
     const char *ask;            /* a question over everything (A yes, B no), or NULL */
     const char *ask_detail;
     const char *ask_yes;        /* the label of A ("Close it", "Delete") */
+    const char *banner;         /* instead of the selected title ("Loading..."), or NULL */
+    const char *a_label;        /* A in the footer, instead of Play / Open; "" hides it */
+    /* called while the frame waits for its time, until timer_ticks() is
+     * `until` (the Market's downloads), or NULL */
+    void (*idle)(uint32_t until);
 } menu_view_t;
 
 /* Switches the screen to the menu mode; -1 if it cannot (the caller keeps

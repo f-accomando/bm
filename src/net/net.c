@@ -10,6 +10,7 @@
 #include "wifi/wifi.h"
 #include "usb/smsc95xx.h"
 #include "drivers/timer.h"
+#include "kernel/fiber.h"
 #include "lib/printf.h"
 
 #include "lwip/init.h"
@@ -163,12 +164,17 @@ static void poll_now(void)
     netxfer_poll();
 }
 
-void net_wait_step(void)
+int net_wait_step(void)
 {
-    if (!started)
-        return;
-    poll_now();
-    timer_delay_us(200);
+    if (started)
+        poll_now();
+    if (fiber_current()) {              /* the menu goes on meanwhile */
+        fiber_yield();
+        return fiber_cancelled() ? -1 : 0;
+    }
+    if (started)
+        timer_delay_us(200);
+    return 0;
 }
 
 static unsigned long time_base;         /* seconds at time_ms */

@@ -496,9 +496,10 @@ def scroll_thumb(img):
 
 
 def tabs_lit(img):
-    """Which tabs of the menu bar are on their light pill (M27): Games, Dev,
-    Settings, from a pixel of the pill left of each name."""
-    return [name for name, x in (("Games", 20), ("Dev", 92), ("Settings", 148))
+    """Which tabs of the menu bar are on their light pill (M27, Market since
+    M25): Market, Games, Dev, Settings, from a pixel of the pill left of
+    each name."""
+    return [name for name, x in (("Market", 20), ("Games", 100), ("Dev", 172), ("Settings", 228))
             if sum(pixel(img, x, 24)) > 600]
 
 
@@ -814,7 +815,7 @@ function _draw() cls(0x203040) print("frame " .. n, 8, 8, 0xFFFFFF) end
 def test_home_ui(b, opts):
     """M27 (BareMetal UI): the options of a cartridge (X), with the save data
     and the file deleted from the SD card (fsck clean); the settings (3)
-    and their submenus; the tools of the Dev tab on the text console and
+    and their submenus; the tools of the Dev tab (3) on the text console and
     back to the menu; the monitor as a tool."""
     tmp = tempfile.mkdtemp(prefix="bm-home-")
     img = os.path.join(tmp, "sd.img")
@@ -909,7 +910,7 @@ def test_home_ui(b, opts):
         assert "BBB" not in text, text
 
         # settings: the keyboard layout changes and is saved; the submenus
-        keys("3")
+        keys("4")
         screen(["Settings", "Controllers", "WiFi and network", "Keyboard layout", "System"])
         shot("settings")
         keys("ss")
@@ -952,7 +953,7 @@ def test_home_ui(b, opts):
         time.sleep(0.5)
 
         # the Dev tab: a tool on the text console, then A goes back
-        keys("2")
+        keys("3")
         screen(["bm SDK", "editor (built-in)"])
         keys("d")                               # the covers' names are on pictures: the pill
         screen(["bm Sound", "sound (built-in)"])
@@ -2139,9 +2140,9 @@ def test_bt_forget(b, opts):
 
 
 def test_menu_tabs(b, opts):
-    """The tabs with a DS4 (M27): R1 and L1 move between Games, Dev and
-    Settings; on Settings its panel opens by itself and Dev is off; B out of
-    it goes back to Dev. Up on the first row stays on the covers. PS in the
+    """The tabs with a DS4 (M27): R1 and L1 move between Market, Games, Dev
+    and Settings (the menu opens on Games); on Settings its panel opens by
+    itself and Dev is off; B out of it goes back to Dev. Up on the first row stays on the covers. PS in the
     menu goes home (Games, panels closed), never to the monitor; PS in the
     monitor opens the games menu."""
     tmp = tempfile.mkdtemp(prefix="bm-tabs-")
@@ -2198,7 +2199,11 @@ def test_menu_tabs(b, opts):
         state(["Dev"], ["bm SDK"], gone=["Controllers"])
         press(shoulders=1)                  # L1: Games
         state(["Games"], ["bm native demo"])
+        press(shoulders=1)                  # L1: the Market, first (M25): no key in this kernel
+        state(["Market"], ["The Market needs a key"])
         press(shoulders=1)                  # L1 on the first tab: nothing
+        state(["Market"], ["The Market needs a key"])
+        press(shoulders=2)                  # R1: back to Games
         state(["Games"], ["bm native demo"])
 
         # up on the first row stays on the covers: R1 still goes to Dev
@@ -2229,6 +2234,192 @@ def test_menu_tabs(b, opts):
         _mini_expect(q, "back to the monitor")
     finally:
         q.close()
+        shutil.rmtree(tmp, ignore_errors=True)
+
+
+MARKET_GAME = r"""
+function _init() log("market game runs") quit() end
+"""
+
+
+def _market_site(tmp, b, key):
+    """A market on the SD card (market_url=sd:/market/): four games signed
+    with a test key, one of them (Broken) changed after signing."""
+    games = os.path.join(tmp, "games")
+    cover = (128, 80, bytes([200, 60, 40, 255]) * (128 * 80))       # one red
+    carts = [("mtest", "mtest.bm", mkbm.pack(MARKET_GAME.encode(), title="Market Test", author="tests",
+                                             cover=cover)),
+             ("pong", "pong.bm", open(b("carts/pong.bm"), "rb").read()),
+             ("snake", "snake.bm", open(b("carts/snake.bm"), "rb").read()),
+             ("zbroken", "broken.bm", mkbm.pack(MARKET_GAME.encode(), title="Broken", author="tests"))]
+    for gid, name, data in carts:
+        d = os.path.join(games, gid)
+        os.makedirs(d)
+        with open(os.path.join(d, name), "wb") as f:
+            f.write(data)
+        with open(os.path.join(d, "info.txt"), "w") as f:
+            f.write("version: 1.0\nlicense: MIT\nabout: A game for the test.\n")
+    site = os.path.join(tmp, "site")
+    r = subprocess.run([sys.executable, os.path.join(HERE, "..", "scripts", "mkmarket.py"), games, "-o", site,
+                        "--key", key, "--serial", "20261001120000"], capture_output=True, text=True)
+    assert r.returncode == 0, r.stdout + r.stderr
+    broken = os.path.join(site, "games", "zbroken", "broken.bm")
+    data = bytearray(open(broken, "rb").read())
+    data[-1] ^= 1                                       # not the file of the catalog any more
+    with open(broken, "wb") as f:
+        f.write(data)
+    files = []
+    for dp, _, fs in os.walk(site):
+        for f in fs:
+            src = os.path.join(dp, f)
+            files.append((src, "market/" + os.path.relpath(src, site).replace(os.sep, "/")))
+    return files
+
+
+def test_market(b, opts):
+    """M25: the Market tab, first in the menu, with a catalog in a folder of
+    the SD card (slowed down by market_delay, as a network would be): the
+    tab shows placeholders at once, the catalog and the covers arrive while
+    the menu runs, nothing loads while another tab is shown, a game
+    downloads with its progress on the cover, is checked, installed in
+    /carts and plays; a game already on the card shows as installed; a file
+    that is not the catalog's is refused; leaving the tab interrupts a
+    download."""
+    tmp = tempfile.mkdtemp(prefix="bm-market-")
+    try:
+        key = os.path.join(tmp, "key.pem")
+        pub = os.path.join(tmp, "market.pem")
+        subprocess.run(["openssl", "genpkey", "-algorithm", "EC", "-pkeyopt", "ec_paramgen_curve:P-256",
+                        "-out", key], check=True, capture_output=True)
+        subprocess.run(["openssl", "pkey", "-in", key, "-pubout", "-out", pub], check=True, capture_output=True)
+        cfg = os.path.join(tmp, "config.txt")
+        with open(cfg, "w") as f:
+            f.write("layout=us\nwifi_boot=0\nmarket_url=sd:/market/\nmarket_delay=250\n")
+        img = os.path.join(tmp, "sd.img")
+        mksd.build(img, [(cfg, "bm/config.txt"), (pub, "bm/market.pem"), (b("carts/pong.bm"), "carts/pong.bm")]
+                   + _market_site(tmp, b, key))
+        q = Qemu(b("kernel.img"), ["-drive", f"if=sd,format=raw,file={img}"])
+
+        def keys(k):
+            for c in k:
+                q.send(c)
+                time.sleep(0.25)
+
+        def screen(want, gone=(), tries=30):
+            for _ in range(tries):
+                _, text = settled_screen(q, lambda i, t: True, tries=1)
+                joined = "\n".join(text)
+                if all(w in joined for w in want) and not any(g in joined for g in gone):
+                    return joined
+                time.sleep(0.2)
+            raise AssertionError(f"want {want}, not {gone}, on the screen:\n{joined}")
+
+        def shot(name):
+            if opts.shots:
+                _save_png(q.screendump(), os.path.join(opts.shots, f"market-{name}.png"))
+
+        def is_red(img, x, y):
+            r, g_, bl = pixel(img, x, y)
+            return r > 150 and g_ < 100 and bl < 80
+
+        try:
+            q.expect(MENU, timeout=30)
+            time.sleep(0.5)
+            img_, _ = settled_screen(q, lambda i, t: tabs_lit(i) == ["Games"])
+            assert tabs_lit(img_) == ["Games"], "the menu opens on Games"
+            time.sleep(1.0)
+            assert b"market:" not in q.buf, "nothing loads before the tab is shown"
+
+            keys("1")                                   # the Market tab: placeholders first
+            screen(["Loading the Market..."])
+            img_ = q.screendump()
+            assert tabs_lit(img_) == ["Market"], tabs_lit(img_)
+            shot("loading")
+            q.expect("market: sd:/market/, no catalog saved", timeout=10)
+            q.expect("market: catalog 20261001120000, 4 games", timeout=15)
+            # the title on a placeholder while the covers come one at a time,
+            # nearest the selection first (Snake's is the third)
+            screen(["Snake"], tries=10)
+            shot("placeholders")
+            screen(["4 games, 2026-10-01"])
+            q.expect("market: cover of mtest", timeout=10)
+
+            # another tab: nothing loads; back on the Market, the covers go on
+            keys("2")
+            time.sleep(0.3)
+            q.buf = b""
+            time.sleep(2.5)
+            assert b"market: cover" not in q.buf, q.buf.decode(errors="replace")
+            keys("1")
+            q.expect("market: cover of", timeout=10)
+            # the first cover (red, 128x80 at the top left of the grid) arrives
+            for _ in range(50):
+                img_ = q.screendump()
+                if is_red(img_, 104, 150):
+                    break
+                time.sleep(0.2)
+            assert is_red(img_, 104, 150), "the cover of Market Test"
+            text = screen(["Installed"])            # Pong: on the card already
+            shot("covers")
+
+            # A on Market Test: a question, then the download with its progress
+            screen(["Market Test", "Get", "Details"])
+            keys("\r")
+            screen(["Download Market Test?", "free, license MIT", "Download", "Cancel"])
+            shot("ask")
+            keys("\r")
+            screen(["%"])                            # the badge with the percent
+            shot("download")
+            q.expect("market: games/mtest/mtest.bm -> /carts/MTEST.BM", timeout=20)
+            q.expect("market: Market Test installed", timeout=5)
+            screen(["Installed", "Play"])
+            keys("\r")                                  # A plays it
+            q.expect("market game runs", timeout=15)
+            time.sleep(1.0)
+
+            # X: the details of Pong (installed another way)
+            keys("d")
+            keys("x")
+            screen(["Market > Pong", "Play", "Download again", "Author", "Version", "1.0", "License", "MIT"])
+            shot("details")
+            keys("q")
+
+            # Broken: its file is not the catalog's
+            keys("ddd")
+            screen(["Broken"])
+            keys("\r\r")
+            q.expect("market: Broken: not the file of the catalog", timeout=20)
+            screen(["Retry"])
+
+            # Snake: leaving the tab interrupts the download
+            keys("a")
+            screen(["Snake", "Get"])
+            keys("\r\r")
+            q.expect("market: downloading games/snake/snake.bm", timeout=10)
+            keys("2")
+            q.expect("market: download of Snake interrupted", timeout=10)
+            text = screen(["Market Test"])             # the Games tab has the new game
+            assert "Snake" not in text, text
+        finally:
+            q.close()
+
+        part = os.path.join(tmp, "part.img")
+        with open(img, "rb") as f, open(part, "wb") as o:
+            f.seek(2048 * 512)
+            o.write(f.read())
+        fsck = subprocess.run(["fsck.vfat", "-n", part], capture_output=True, text=True)
+        assert fsck.returncode == 0, fsck.stdout + fsck.stderr
+        env = dict(os.environ, MTOOLS_SKIP_CHECK="1")
+        carts = subprocess.run(["mdir", "-b", "-i", part, "::/CARTS"], capture_output=True, text=True,
+                               env=env).stdout.upper()
+        assert "MTEST.BM" in carts and "SNAKE" not in carts and "BROKEN" not in carts, carts
+        cache = subprocess.run(["mdir", "-b", "-i", part, "::/BM/MARKET"], capture_output=True, text=True,
+                               env=env).stdout.upper()
+        assert "INDEX.TXT" in cache and "INDEX.SIG" in cache and "GAMES.TXT" in cache and ".PNG" in cache, cache
+        owned = subprocess.run(["mtype", "-i", part, "::/BM/MARKET/GAMES.TXT"], capture_output=True, text=True,
+                               env=env).stdout
+        assert owned.startswith("mtest ") and owned.rstrip().endswith(" /carts/MTEST.BM"), owned
+    finally:
         shutil.rmtree(tmp, ignore_errors=True)
 
 
