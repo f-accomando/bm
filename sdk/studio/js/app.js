@@ -815,6 +815,7 @@
       if (!p.models.length) p.models.push({ name: 'model', faces: [] });
       this.handle = handle;
       this.fileName = name;
+      this.pngFile = null;
       this.undoStack = [];
       this.redoStack = [];
       this.S.region = null; this.S.floating = null;
@@ -861,6 +862,9 @@
         p.sheet = img;
         p.title = name.replace(/\.[^.]+$/, '').slice(0, 47);
         this.loadProject(p, null, null);
+        // a picture opened alone: Ctrl+S writes the picture back (Save as… makes a .bm)
+        this.pngFile = { name, handle };
+        this.refreshDoc();
         this.setWorkspace('pixel');
         return;
       }
@@ -873,6 +877,7 @@
 
     async save(as) {
       this.syncCart();
+      if (!as && this.pngFile) { await this.savePng(); return; }
       const problems = BM.checkProject(this.project);
       if (problems.length) { await this.alert('The cartridge cannot be saved like this', problems.map(esc).join('<br>')); return; }
       const bytes = BM.buildCart(this.project);
@@ -905,7 +910,28 @@
       this.saved(suggested, bytes);
     }
 
+    async savePng() {
+      const f = this.pngFile, bytes = await BM.encodePNG(this.project.sheet);
+      if (f.handle && f.handle.createWritable) {
+        try {
+          const w = await f.handle.createWritable();
+          await w.write(bytes);
+          await w.close();
+          this.markDirty(false);
+          this.status(`saved ${f.name}`, 'good');
+          return;
+        } catch (e) {
+          if (e.name === 'AbortError') return;
+          this.status('cannot write the picture there: ' + e.message, 'bad');
+        }
+      }
+      this.download(bytes, f.name);
+      this.markDirty(false);
+      this.status(`saved ${f.name}`, 'good');
+    }
+
     saved(name, bytes) {
+      this.pngFile = null;
       this.fileName = name;
       this.markDirty(false);
       this.refreshDoc();
@@ -1210,6 +1236,11 @@ end</pre>
     }
 
     refreshDoc() {
+      if (this.pngFile) {
+        $('#docName').textContent = this.pngFile.name;
+        document.title = this.pngFile.name + ' — bm Studio';
+        return;
+      }
       $('#docName').textContent = this.fileName || (this.project.title ? slug(this.project.title) + '.bm' : 'new project');
       document.title = (this.fileName || this.project.title || 'new project') + ' — bm Studio';
     }

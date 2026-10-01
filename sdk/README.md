@@ -55,6 +55,8 @@ riempimento (`G`), contagocce (`I`, o clic destro), linea (`L`), rettangolo (`U`
 selezione (`M`: si trascina per spostarla, con Alt una copia; Ctrl+C / Ctrl+X / Ctrl+V;
 `H`, `V`, `R` specchiano e girano), zoom con la rotellina. Le modifiche si vedono subito
 sui modelli. "Size…" cambia le dimensioni dello sheet (fino a 4096×4096).
+Si può usare anche da solo, come editor di PNG: aprendo un `.png` (File → Open), Ctrl+S
+risalva quel `.png` (al suo posto con Chrome/Edge); *Save as…* ne fa invece un `.bm`.
 
 **Pannello Cartridge**: titolo, autore, risoluzione, **copertina** (dalla vista 3D così
 com'è, o da un'immagine), il margine delle texture e il codice `main.lua`.
@@ -127,7 +129,8 @@ make test-studio-ui   # nel browser con Playwright: mouse, strumenti, salvataggi
 ```
 
 `make test` comprende `test-studio` (saltato senza Node) e, in QEMU, `test_models`,
-`test_sdk_keeps_models` e `test_village`.
+`test_sdk_keeps_models`, `test_village` e `test_studio_cart` (il `.bm` scritto dallo
+Studio, con il suo visualizzatore, sulla console emulata).
 
 ## Struttura
 

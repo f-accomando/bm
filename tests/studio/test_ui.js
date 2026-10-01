@@ -149,6 +149,26 @@ function check(ok, msg) { checks++; if (!ok) { fails++; console.log('FAIL ' + ms
   check(!back.warnings.length && back.models[0] === (await state()).faces, 'saved and read back');
   check(!back.dirty, 'saved: nothing left to save');
 
+  // a picture alone: open it, draw, Ctrl+S writes the picture back
+  {
+    const [fc] = await Promise.all([page.waitForEvent('filechooser'), page.evaluate(() => app.cmd('open'))]);
+    await fc.setFiles(path.join(ROOT, 'carts', 'village', 'cover.png'));
+    await page.waitForFunction(() => app.project.sheet.w === 128 && app.S.ws === 'pixel');
+    check((await page.locator('#docName').textContent()) === 'cover.png', 'the picture is the document');
+    await page.evaluate(() => { app.beginStroke(); app.paintPixel(3, 4, 0xABCDEF); app.endStroke('test'); });
+    const [dlp] = await Promise.all([page.waitForEvent('download'), page.keyboard.press('Control+s')]);
+    check(dlp.suggestedFilename() === 'cover.png', 'Ctrl+S saves the picture: ' + dlp.suggestedFilename());
+    const png = path.join(OUT, 'cover-edited.png');
+    await dlp.saveAs(png);
+    const px = await page.evaluate(async b64 => {
+      const img = await BM.decodePNG(Uint8Array.from(atob(b64), c => c.charCodeAt(0)));
+      const i = (4 * img.w + 3) * 4;
+      return [img.w, img.h, img.px[i], img.px[i + 1], img.px[i + 2]];
+    }, fs.readFileSync(png).toString('base64'));
+    check(px.join(',') === '128,80,171,205,239', 'the pixel drawn is in the picture: ' + px);
+    await page.keyboard.press('Tab');
+  }
+
   // open a game of the repository, add a .glb from Chaos Kitchen
   const cart = path.join(ROOT, 'build', 'carts', 'village.bm');
   if (fs.existsSync(cart)) {

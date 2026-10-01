@@ -50,7 +50,9 @@
     fit() {
       const s = this.sheet(), w = this.canvas.width / this.dpr - 16, h = this.canvas.height / this.dpr - 16;
       let z = ZOOMS[0];
-      for (const k of ZOOMS) if (s.w * k <= Math.max(w, s.w) && (this.full ? s.h * k <= Math.max(h, s.h) : true)) z = k;
+      // the pixel editor keeps whole pixels (an integer zoom); the tile picker fills its width
+      for (const k of ZOOMS)
+        if (s.w * k <= Math.max(w, s.w) && (!this.full || (k % 1 === 0 && s.h * k <= Math.max(h, s.h)))) z = k;
       this.zoom = z;
       this.px = 8; this.py = 8;
       if (this.full) {

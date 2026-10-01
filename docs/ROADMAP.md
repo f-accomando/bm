@@ -851,7 +851,7 @@ strumenti sulla console potranno leggerli e scriverli.
   strumenti dello Studio (`mkmodels.js` → `models.glb`).
 - **Test**: `make test-studio` (Node; gli stessi file letti da `bmmesh.py` e dal parser
   del kernel), `make test-studio-ui` (Playwright), QEMU `test_models`,
-  `test_sdk_keeps_models`, `test_village`.
+  `test_sdk_keeps_models`, `test_village`, `test_studio_cart`.
 - Corretta la documentazione dell'ordine dei vertici: una faccia si vede dal lato da
   cui appare in senso **orario** (API e guida dicevano antiorario; l'esempio della
   piramide nella guida mostrava l'interno).

@@ -992,7 +992,7 @@ def test_make_image(b, opts):
     q = Qemu(b("kernel.img"), ["-drive", f"if=sd,format=raw,file={img}"])
     try:
         out = q.expect(MENU, timeout=30).decode(errors="replace")
-        assert "FAT32, 63 MiB, label BM; 8 cartridges" in out, out
+        assert "FAT32, 63 MiB, label BM; 9 cartridges" in out, out
         time.sleep(0.5)
         seen = set()
         for _ in range(10):                    # right along the grid: each title in turn
@@ -1001,7 +1001,7 @@ def test_make_image(b, opts):
             q.send("d")
             time.sleep(0.3)
         screen = "\n".join(seen)
-        for title in ("Pong", "Snake", "Star Shooter", "Chaos Kitchen", "Texture Room"):
+        for title in ("Pong", "Snake", "Star Shooter", "Chaos Kitchen", "Texture Room", "Studio Village"):
             assert title in screen, screen
         for title in ("bm native demo", "bm stress test"):   # not games: in the kernel
             assert title not in screen, screen
@@ -1029,7 +1029,7 @@ def test_make_image(b, opts):
         q = Qemu(b("kernel.img"), ["-drive", f"if=sd,format=raw,file={os.path.join(tmp, 'bm-pi1.img')}"],
                  machine="raspi1ap")
         out = q.expect(MENU, timeout=30).decode(errors="replace")
-        assert "Raspberry Pi 1 A+" in out and "; 8 cartridges" in out, out
+        assert "Raspberry Pi 1 A+" in out and "; 9 cartridges" in out, out
     finally:
         q.close()
         shutil.rmtree(tmp, ignore_errors=True)
@@ -2467,6 +2467,41 @@ def test_village(b, opts):
         out = q.expect("update+draw", timeout=10).decode(errors="replace")
         assert "stopped with an error" not in out, out
         assert '"Studio Village"' in out, out[-300:]
+    finally:
+        q.close()
+
+
+def test_studio_cart(b, opts):
+    """A cartridge written by bm Studio (make test-studio: tests/studio/
+    test_core.js) plays on the console: the model viewer that a new project
+    gets as its code shows the models (bounds3d, model, models), with the
+    sections the kernel does not know left alone."""
+    path = b("studio-test.bm")
+    if not os.path.exists(path):
+        print("     skipped: no build/studio-test.bm (make test-studio needs Node)")
+        return
+    q = Qemu(b("kernel.img"))
+    try:
+        q.expect(MENU, timeout=30)
+        time.sleep(0.5)
+        with open(path, "rb") as f:
+            assert _upload(q, f.read())
+        time.sleep(2.5)
+        for _ in range(10):
+            w, h, px = q.screendump()
+            cols = [tuple(px[(y * w + x) * 3:(y * w + x) * 3 + 3]) for y in range(0, h, 2) for x in range(0, w, 2)]
+            bg = sum(abs(r - 0x1C) < 12 and abs(g - 0x20) < 12 and abs(b_ - 0x30) < 12 for r, g, b_ in cols)
+            grass = sum(g > 70 and g > r + 15 and g > b_ + 15 for r, g, b_ in cols)
+            if grass > 50 and bg > len(cols) // 3:
+                break
+            time.sleep(0.5)
+        print(f"     studio cart: background {bg}, grass {grass} of {len(cols)}")
+        assert grass > 50 and bg > len(cols) // 3, (grass, bg)
+        q.send("d")                             # the next model
+        time.sleep(0.5)
+        q.send("q")
+        out = q.expect("update+draw", timeout=10).decode(errors="replace")
+        assert "stopped with an error" not in out, out
     finally:
         q.close()
 
