@@ -3,6 +3,12 @@
 
 #include <stdint.h>
 
+#ifdef __aarch64__
+#define CACHE_LINE 64   /* Cortex-A55 (RGB30 build, src/rgb30/cache.c) */
+
+static inline void arm_dsb(void) { __asm__ volatile("dsb sy" ::: "memory"); }
+static inline void arm_isb(void) { __asm__ volatile("isb" ::: "memory"); }
+#else
 #define CACHE_LINE 32   /* ARM1176 L1 line size */
 
 /* ARM1176 (ARMv6) CP15 barriers. */
@@ -15,6 +21,7 @@ static inline void arm_isb(void)
 {
     __asm__ volatile("mcr p15, 0, %0, c7, c5, 4" : : "r"(0) : "memory");
 }
+#endif
 
 /* Write dirty lines of [addr, addr+len) back to memory (before a device
  * such as the GPU reads it). */

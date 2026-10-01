@@ -1,5 +1,10 @@
 # bm - bare metal console for Raspberry Pi Zero / Zero W (BCM2835);
 # the same kernel runs on the Pi 1 (A, B, A+, B+)
+#
+# make TARGET=rgb30: the PowKiddy RGB30 (RK3566, AArch64), see rgb30.mk
+ifeq ($(TARGET),rgb30)
+include rgb30.mk
+else
 
 CROSS   ?= arm-none-eabi-
 CC      := $(CROSS)gcc
@@ -46,7 +51,7 @@ LUA_SRCS    := $(wildcard third_party/lua/*.c)
 MBEDTLS_SRCS := $(wildcard third_party/mbedtls/library/*.c)
 LWIP_SRCS   := $(wildcard third_party/lwip/src/core/*.c third_party/lwip/src/core/ipv4/*.c) \
                third_party/lwip/src/netif/ethernet.c third_party/lwip/src/apps/sntp/sntp.c
-KERNEL_SRCS := $(shell find src -name '*.c' -o -name '*.S') $(LUA_SRCS) $(LWIP_SRCS) $(MBEDTLS_SRCS)
+KERNEL_SRCS := $(shell find src -path src/rgb30 -prune -o \( -name '*.c' -o -name '*.S' \) -print) $(LUA_SRCS) $(LWIP_SRCS) $(MBEDTLS_SRCS)
 LOADER_SRCS := $(wildcard chainloader/*.S chainloader/*.c) \
                src/drivers/uart.c src/drivers/gpio.c src/drivers/mbox.c \
                src/drivers/prop.c src/drivers/timer.c src/drivers/led.c src/drivers/board.c \
@@ -537,3 +542,5 @@ clean:
 	rm -rf build build-stress $(DIST)
 
 -include $(KERNEL_OBJS:.o=.d) $(LOADER_OBJS:.o=.d)
+
+endif   # TARGET

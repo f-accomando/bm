@@ -80,7 +80,7 @@ int kvprintf(putc_fn out, void *ctx, const char *fmt, va_list ap)
             break;
         case 'p':
             buf[0] = '0'; buf[1] = 'x';
-            len = 2 + fmt_uint(buf + 2, (uint32_t)va_arg(ap, void *), 16, 0);
+            len = 2 + fmt_uint(buf + 2, (uint32_t)(uintptr_t)va_arg(ap, void *), 16, 0);
             break;
         case 'c':
             buf[0] = (char)va_arg(ap, int);
