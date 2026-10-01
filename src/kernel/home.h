@@ -53,6 +53,10 @@ typedef struct {
     char note[96];              /* a line for the menu's footer, if not empty */
 } home_do_t;
 
+/* Settings > Controllers > Button icons: the DS4's face buttons in the
+ * hints white (0) or in their colours (1); kept in config.txt. */
+int  home_prompts_colour(void);
+
 /* Builds settings panel `id`. */
 void home_panel(int id, home_panel_t *p);
 /* Row `row_id` of panel `id` was chosen: how = 0 (A), -1 / +1 (left, right

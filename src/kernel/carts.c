@@ -665,6 +665,14 @@ void carts_menu(framebuffer_t *fb)
                 if (d_ & INPUT_DEV_BLUETOOTH)
                     v.bt |= 1u << p;
             }
+            /* the hints show the buttons of what was pressed last; before
+             * that, player 1's keyboard or the DS4 */
+            int src = hid_last_source();
+            v.prompts = src == HID_SOURCE_KEYBOARD ? MENU_PROMPTS_KEYBOARD
+                      : src == HID_SOURCE_PAD ? MENU_PROMPTS_PAD
+                      : src == HID_SOURCE_NONE && v.dev[0] == MENU_DEV_KEYBOARD ? MENU_PROMPTS_KEYBOARD
+                      : MENU_PROMPTS_DS4;
+            v.prompts_colour = home_prompts_colour();
             int link = net_link_kind();
             v.net = link == NET_LINK_ETHERNET ? MENU_NET_ETHERNET
                   : link == NET_LINK_WIFI ? MENU_NET_WIFI : MENU_NET_NONE;

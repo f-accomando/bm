@@ -1284,6 +1284,37 @@ kernel: lo stress test nella scheda Dev, la demo col comando `n` del monitor.
   cambiare layout, riavviare); il menu resta a 60 fps; ogni funzione ha un test in
   QEMU.
 
+**Icone dei tasti** (branch `bm-ui`, 2026-10-01): un set di icone piatte per i tasti del
+DS4, dei pad generici e della tastiera, nello stile delle icone della barra.
+- Stile scelto dall'utente fra quattro varianti (pieno, contorno, rilievo, scuro a colori):
+  **rilievo**. Faccia bianca alta 14 pixel su un bordino grigio di 2 pixel, simbolo o
+  scritta ritagliati nella faccia. I quattro tasti frontali del DS4 hanno anche la
+  versione a colori: faccia scura con bordo e bordino grigi, simbolo nel suo colore
+  (croce blu, cerchio rosso, quadrato rosa, triangolo verde).
+- `src/kernel/prompts.c` (C semplice, come `icons.c`): forme con antialiasing (8×8
+  campioni ai bordi), fatte al primo uso e tenute. Tutte alte 16 pixel, come una riga di
+  testo.
+  - DS4: croce, cerchio, quadrato, triangolo; croce direzionale (tutta o una direzione
+    in bianco, le altre grigie); L1 R1, L2 R2 (più tondi in alto), L3 R3, levette L e R;
+    OPTIONS, SHARE, PS, touchpad.
+  - Pad generici: A B X Y, START, SELECT.
+  - Tastiera: frecce, Enter, Esc, Space, Tab, Backspace, Shift, Ctrl, Alt, Del, Home,
+    End, PgUp, PgDn, F1–F12 e un tasto per ogni carattere (`prompt_key`). Una lettera è
+    nel font 8×16 in grassetto, le parole nel 6×12.
+- **Menu**: i suggerimenti in basso mostrano i tasti dell'ultimo dispositivo premuto
+  (`hid_last_source()`), prima di allora la tastiera del giocatore 1 o il DS4.
+  - DS4: croce Play, quadrato Options, SHARE+OPTIONS Monitor; nei pannelli croce
+    Select, croce direzionale Change, cerchio Back.
+  - Tastiera: Enter, C, Esc; nei pannelli le frecce ← →.
+  - Pad generici: A, X, SELECT+START.
+  - Settings > Controllers > **Button icons**: White / Colour (`prompts=` in
+    `config.txt`).
+- Test: `make test-prompts` controlla ogni icona e disegna il set intero, 3x come sulla
+  TV, in `build/prompts/prompts.png`; `test_hid` controlla `hid_last_source()`; in QEMU
+  `prompt_spans` trova le icone dei suggerimenti dal loro bordino grigio.
+- **Da provare sul Pi:** i suggerimenti col DS4 (bianchi e, da Settings > Controllers >
+  Button icons, a colori), poi con la tastiera USB (Enter / C / Esc) premendone un tasto.
+
 ## M28 — Tastiera Bluetooth LE (M) — ✅ verificata sul Pi (2026-09-30)
 Richiesta 2026-09-30: una Logitech **MX Keys S** (con tastierino). È Bluetooth **Low
 Energy** (HID over GATT), non Bluetooth classico come il DS4: serve una parte nuova

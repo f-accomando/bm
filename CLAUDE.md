@@ -50,6 +50,14 @@ Lua 5.4 embedded. Documentazione: `README.md`, `docs/ROADMAP.md`, `docs/HARDWARE
   e il suo interprete non entrano nelle build, nel kernel o nell'immagine SD; non
   reintrodurli senza una richiesta esplicita.
 
+## Icone dei tasti (bm-ui)
+
+- `src/kernel/prompts.c`: tasti di DS4, pad generici e tastiera come icone piatte in
+  rilievo (faccia bianca su bordino grigio, simbolo ritagliato), stile scelto dall'utente;
+  solo i 4 tasti frontali del DS4 hanno anche la versione a colori. Il menu le usa nei
+  suggerimenti secondo `hid_last_source()`. `make test-prompts` disegna il set in
+  `build/prompts/prompts.png`: guardarlo dopo ogni modifica.
+
 ## Audio
 
 - Sintetizzatore `src/audio/synth.c`; player dei banchi di suoni `src/audio/player.c`
