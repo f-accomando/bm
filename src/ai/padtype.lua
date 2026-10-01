@@ -375,6 +375,11 @@ end
 
 ------------------------------------------------------------------ editing
 
+local function caps_first(host, before)
+  if st.caps ~= nil then return st.caps end
+  return host.prose and sentence_start(before)
+end
+
 -- the suggestions where the host is writing: host.lang is the dictionary
 -- (or a mix, see candidates; "none": no suggestions), host.name its name
 -- for the panel, host.words and host.words_weight the names of the code
@@ -383,8 +388,9 @@ local function refresh(host)
   local lang = host.lang or "it"
   st.lang = host.name or (type(lang) == "string" and lang) or "mix"
   st.code = lang == "lua"
-  if lang == "none" then return end
   local before = host.before()
+  st.upnext = caps_first(host, before)   -- for the preview of the next chord
+  if lang == "none" then return end
   local prefix, prev = word_at(before, lang)
   if not prefix then return end
   st.prefix, st.prev = prefix, prev
@@ -392,11 +398,6 @@ local function refresh(host)
   if ok then st.cands = list end
 end
 P.refresh = refresh
-
-local function caps_first(host, before)
-  if st.caps ~= nil then return st.caps end
-  return host.prose and sentence_start(before)
-end
 
 local function insert(host, s, auto)
   host.insert(s)
@@ -471,7 +472,9 @@ end
 local function preview(a)
   if not a then return nil end
   if a.kind == "text" or a.kind == "punct" or a.kind == "sym" then
-    return a.s .. (a.space and "_" or "")
+    local s = a.s
+    if a.kind == "text" and st.upnext then s = s:sub(1, 1):upper() .. s:sub(2) end
+    return s .. (a.space and "_" or "")
   elseif a.kind == "space" then return "_"
   elseif a.kind == "erase" then return "<-"
   elseif a.kind == "pick" then return st.cands[a.n] or "-"
@@ -631,7 +634,9 @@ function P.draw(x, y, hint)
   local hdir = hint & DIRS
   local function hl(bit, c) return (hint ~= 0 and (bit == hdir or (bit & FACE ~= 0 and hint & bit ~= 0))) and P.C_PEND or c end
   if hint & BANKS ~= 0 then                    -- the bank of the hint: its letters
-    for dir, row in pairs(ONSET) do dl[dir] = row[bank_of(hint)] end
+    for dir, row in pairs(ONSET) do
+      dl[dir] = (bits_count(dir) == 1 or st.mode == "steno") and row[bank_of(hint)] or nil
+    end
   end
   local function at(t, col, row, c, left)
     if t and t ~= "" then
@@ -844,11 +849,11 @@ function P.practice_draw()
   local typed = pr.host.text
   local target = pr.t.text
   local same = pr.same or 0
-  -- the text to write: green as far as it is written
+  -- the text to write: bright as far as it is written
   local y, left = y0 + 2 * ch, same
   for _, l in ipairs(wrap(target, cols - 2)) do
     local a = math.max(0, math.min(#l, left))
-    print(l:sub(1, a), x0 + cw, y, C_OK)
+    print(l:sub(1, a), x0 + cw, y, C_TEXT)
     print(l:sub(a + 1), x0 + cw + a * cw, y, C_DIM)
     left = left - #l - 1
     y = y + ch
@@ -858,6 +863,16 @@ function P.practice_draw()
   local lines = wrap(typed, cols - 2)
   for i, l in ipairs(lines) do
     print(l, x0 + cw, y, (pr.next or pr.done) and C_TEXT or C_ERR)
+    local fl, off = P.flash()
+    if i == #lines and fl then                -- what the suggestion has just written
+      local start = #typed - #l + 1
+      local a = #typed - off - fl + 1
+      if a >= start then
+        local x = x0 + cw + (a - start) * cw
+        rectfill(x, y, fl * cw, ch, C_BG)
+        print(typed:sub(a, a + fl - 1), x, y, P.C_PRED)
+      end
+    end
     if i == #lines then
       local gx = x0 + cw + #l * cw
       local g = P.ghost()
