@@ -2301,7 +2301,7 @@ function _draw()
   if msg_t > 0 and msg then status = msg
   elseif page == "menu" then status = "up/down choose, Enter select"
   else status = (M() and ("model " .. cur .. "/" .. #models .. ": " .. M().name) or "") end
-  if #status < 58 then status = status .. string.rep(" ", 58 - #status) .. "F12 or ?: keys" end
+  if #status <= 62 then status = status .. string.rep(" ", 65 - #status) .. "F12 or ?: keys" end
   print(status:sub(1, 79), 0, STATUS_Y, (msg_t > 0 and msg_c) or C_TEXT)
   if keyheld("f12") or help then draw_keys() end
 end
