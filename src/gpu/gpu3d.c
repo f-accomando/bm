@@ -56,6 +56,8 @@ typedef struct {
     uint32_t *params;
     size_t size;
     float inv_w, inv_h;             /* texel coordinates to 0..1 */
+    int cw, ch;                     /* the sheet's cells */
+    uint32_t *holes;                /* (cw+1) x (ch+1): cells not opaque above and left of each corner */
 } tex_t;
 
 #define NTEX 2
@@ -81,6 +83,7 @@ static struct {
     int z_wanted;                   /* this cartridge draws 3D after 2D in a frame */
     /* the batch being filled */
     int b_open, b_shader, b_nodepth, b_first;
+    int b_room;                     /* vertices it can still start a triangle at (7 corners clipped) */
     const tex_t *b_tex;
     uint8_t *b_start, *b_len;       /* its first packet, its vertex count */
     int clip[4];                    /* clip window written last (x0 y0 x1 y1) */
@@ -107,6 +110,7 @@ static int flush_job(const g16_t *g, int store);
 static void disable(const char *why)
 {
     G.failed = 1;
+    G.b_open = 0;                       /* no triangle goes the fast way into a dead job */
     ksnprintf(G.why, sizeof G.why, "%s", why);
     G.status = G.why;
     kprintf("gpu3d: %s; the 3D is drawn by the ARM again\n", why);
@@ -174,7 +178,8 @@ static const tex_t *tex_get(const g16_t *g, const g16_sheet_t *s)
     if (G.tex_used[slot] && gpu3d_pending() && flush_job(g, 1) != 0)
         return NULL;
     tex_t *t = &G.tex[slot];
-    size_t size = (size_t)s->w * (size_t)s->h * 4 + 16;
+    const int cw = s->w / G16_CELL, ch = s->h / G16_CELL;
+    size_t size = (size_t)s->w * (size_t)s->h * 4 + 16 + (size_t)(cw + 1) * (size_t)(ch + 1) * 4;
     if (!t->texels || t->size < size) {
         free(t->texels);
         t->texels = aligned_alloc(4096, (size + 4095) & ~(size_t)4095);
@@ -201,6 +206,21 @@ static const tex_t *tex_get(const g16_t *g, const g16_sheet_t *s)
      * (2048 is 0), nearest texel when magnified and minified, clamp in s
      * and t */
     t->params = t->texels + n;
+    /* the cells that are not opaque, summed over areas: any box of cells
+     * is checked in four reads (tex_opaque) */
+    t->cw = cw;
+    t->ch = ch;
+    t->holes = t->params + 4;
+    for (int x = 0; x <= cw; x++)
+        t->holes[x] = 0;
+    for (int y = 0; y < ch; y++) {
+        uint32_t *above = t->holes + y * (cw + 1), *row = above + cw + 1, run = 0;
+        row[0] = 0;
+        for (int x = 0; x < cw; x++) {
+            run += !s->cell_opaque[y * cw + x];
+            row[x + 1] = above[x + 1] + run;
+        }
+    }
     t->params[0] = v3d_bus(t->texels) & ~0xFFFu;
     t->params[1] = (tiled ? 0 : 1u << 31) | (uint32_t)(s->h & 2047) << 20 | (uint32_t)(s->w & 2047) << 8 |
                    1u << 7 | 1u << 4 | 1u << 2 | 1u;
@@ -214,8 +234,8 @@ static const tex_t *tex_get(const g16_t *g, const g16_sheet_t *s)
 }
 
 /* the cells of the sheet a face can sample, one texel larger on each side,
- * are all opaque (big boxes are not checked: the alpha shader then) */
-static int tex_opaque(const g16_sheet_t *s, const r3d_corner_t v[3])
+ * are all opaque */
+static int tex_opaque(const tex_t *t, const r3d_corner_t v[3])
 {
     float u0 = v[0].a, u1 = u0, v0 = v[0].b, v1 = v0;
     for (int i = 1; i < 3; i++) {
@@ -224,18 +244,15 @@ static int tex_opaque(const g16_sheet_t *s, const r3d_corner_t v[3])
         if (v[i].b < v0) v0 = v[i].b;
         if (v[i].b > v1) v1 = v[i].b;
     }
-    const int cw = s->w / G16_CELL, ch = s->h / G16_CELL;
+    const int cw = t->cw, ch = t->ch;
     int cx0 = u0 < 1 ? 0 : (int)((u0 - 1) / G16_CELL), cx1 = u1 + 1 < 0 ? 0 : (int)((u1 + 1) / G16_CELL);
     int cy0 = v0 < 1 ? 0 : (int)((v0 - 1) / G16_CELL), cy1 = v1 + 1 < 0 ? 0 : (int)((v1 + 1) / G16_CELL);
     if (cx1 >= cw) cx1 = cw - 1;
     if (cy1 >= ch) cy1 = ch - 1;
-    if (cx0 > cx1 || cy0 > cy1 || (cx1 - cx0 + 1) * (cy1 - cy0 + 1) > 256)
+    if (cx0 > cx1 || cy0 > cy1)
         return 0;
-    for (int cy = cy0; cy <= cy1; cy++)
-        for (int cx = cx0; cx <= cx1; cx++)
-            if (!s->cell_opaque[cy * cw + cx])
-                return 0;
-    return 1;
+    const uint32_t *top = t->holes + cy0 * (cw + 1), *bottom = t->holes + (cy1 + 1) * (cw + 1);
+    return bottom[cx1 + 1] - bottom[cx0] - top[cx1 + 1] + top[cx0] == 0;
 }
 
 /* ---------------------------------------------------------------- the job */
@@ -341,6 +358,7 @@ static int batch_open(const g16_t *g, int shader, int nodepth, const tex_t *t)
     G.b_nodepth = nodepth;
     G.b_tex = t;
     G.b_first = G.nverts;
+    G.b_room = (MAX_VERTS < G.nverts + BATCH_MAX ? MAX_VERTS : G.nverts + BATCH_MAX) - 21;
     if (t >= G.tex && t < G.tex + NTEX)
         G.tex_used[t - G.tex] = 1;
     return 0;
@@ -379,7 +397,7 @@ static int clip_line(const cvert_t *in, int n, cvert_t *out, int axis_y, float s
 
 /* a corner as the shader wants it: x and y rounded to 12.4 (within the
  * guard band, so x * 16 + 32768 is positive and the cast floors), z from
- * 1/w, the attributes (as r3d gives them) scaled to 0..1 */
+ * 1/w, the colour as r3d gives it (0..1), texel coordinates scaled to 0..1 */
 static inline void put_corner(gvert_t *o, float x, float y, float iw, float a, float b, float c, int kind,
                               const tex_t *t)
 {
@@ -389,10 +407,9 @@ static inline void put_corner(gvert_t *o, float x, float y, float iw, float a, f
     o->z = z < 0 ? 0 : z;
     o->inv_w = iw;
     if (kind == R3D_KIND_COLOUR) {
-        const float k = 1.0f / 255.0f;
-        o->v[G.ia] = a * k;             /* red or blue in byte a, as the probe found */
-        o->v[1] = b * k;
-        o->v[2 - G.ia] = c * k;
+        o->v[G.ia] = a;                 /* red or blue in byte a, as the probe found */
+        o->v[1] = b;
+        o->v[2 - G.ia] = c;
     } else {
         o->v[0] = a * t->inv_w;
         o->v[1] = b * t->inv_h;
@@ -407,12 +424,21 @@ static void put(const cvert_t *c, int kind, const tex_t *t)
     put_corner(&G.verts[G.nverts++], c->x, c->y, c->iw, c->a * w, c->b * w, c->c * w, kind, t);
 }
 
-/* a triangle into the job (clipped to the guard band if it reaches out of
- * the range of the 12.4 coordinates) */
-static void add_tri(const g16_t *g, const r3d_corner_t v[3], int kind, const tex_t *t, int nodepth, int shader)
+/* the batch being filled takes a triangle of this state (same screen,
+ * clip window, shader, depth and texture, and room for 7 corners) */
+static inline int batch_takes(const g16_t *g, int shader, int nodepth, const tex_t *t)
+{
+    return G.b_open && G.nverts <= G.b_room && G.b_shader == shader && G.b_tex == t && G.b_nodepth == nodepth &&
+           G.w == g->w && G.h == g->h && G.clip[0] == g->cx0 && G.clip[1] == g->cy0 && G.clip[2] == g->cx1 &&
+           G.clip[3] == g->cy1;
+}
+
+/* a job and a batch open for this state, with room: 0, or -1 if the GPU
+ * failed */
+static int batch_for(const g16_t *g, int shader, int nodepth, const tex_t *t)
 {
     if (G.failed)
-        return;
+        return -1;
     if (G.open && (g->w != G.w || g->h != G.h)) {
         batch_close();                  /* another screen size: the old job is dropped */
         G.open = 0;
@@ -430,45 +456,35 @@ static void add_tri(const g16_t *g, const r3d_corner_t v[3], int kind, const tex
     if (G.nverts + 21 > MAX_VERTS) {    /* a clipped triangle is up to 7 of them */
         flush_job(g, 1);                /* the next job goes on with this depth */
         if (G.failed)
-            return;
+            return -1;
         job_begin(g->w, g->h);
     }
-    if (!G.b_open || G.b_shader != shader || G.b_nodepth != nodepth || G.b_tex != t ||
-        G.clip[0] != g->cx0 || G.clip[1] != g->cy0 || G.clip[2] != g->cx1 || G.clip[3] != g->cy1 ||
-        G.nverts - G.b_first + 21 > BATCH_MAX) {
+    if (!batch_takes(g, shader, nodepth, t)) {
         batch_close();
         if (batch_open(g, shader, nodepth, t) != 0) {
             flush_job(g, 1);
             if (G.failed)
-                return;
+                return -1;
             job_begin(g->w, g->h);
             batch_open(g, shader, nodepth, t);
         }
     }
-    const float x0 = -GUARD, y0 = -GUARD, x1 = g->w + GUARD, y1 = g->h + GUARD;
-    int out = 0;
-    for (int i = 0; i < 3; i++)
-        out |= v[i].x < x0 || v[i].x > x1 || v[i].y < y0 || v[i].y > y1;
-    if (!out) {                         /* nearly every triangle: straight in */
-        gvert_t *o = &G.verts[G.nverts];
-        for (int i = 0; i < 3; i++)
-            put_corner(&o[i], v[i].x, v[i].y, v[i].z, v[i].a, v[i].b, v[i].c, kind, t);
-        G.nverts += 3;
-        G.st.tris++;
-        return;
-    }
+    return 0;
+}
+
+/* a triangle that reaches out of the guard band, clipped to it */
+static void add_clipped(const r3d_corner_t v[3], int kind, const tex_t *t, float x1, float y1)
+{
     cvert_t p[16], q[16];
     int n = 3;
     for (int i = 0; i < 3; i++)
         p[i] = cvert(&v[i]);
-    {
-        n = clip_line(p, n, q, 0, -1, -x0);
-        n = clip_line(q, n, p, 0, 1, x1);
-        n = clip_line(p, n, q, 1, -1, -y0);
-        n = clip_line(q, n, p, 1, 1, y1);
-        if (n < 3)
-            return;
-    }
+    n = clip_line(p, n, q, 0, -1, GUARD);
+    n = clip_line(q, n, p, 0, 1, x1);
+    n = clip_line(p, n, q, 1, -1, GUARD);
+    n = clip_line(q, n, p, 1, 1, y1);
+    if (n < 3)
+        return;
     for (int i = 1; i + 1 < n; i++) {   /* a fan */
         put(&p[0], kind, t);
         put(&p[i], kind, t);
@@ -477,24 +493,50 @@ static void add_tri(const g16_t *g, const r3d_corner_t v[3], int kind, const tex
     G.st.tris += (uint32_t)(n - 2);
 }
 
+/* a triangle into the job (clipped to the guard band if it reaches out of
+ * the range of the 12.4 coordinates; inside: r3d found it cannot) */
+static inline void add_tri(const g16_t *g, const r3d_corner_t v[3], int kind, const tex_t *t, int nodepth,
+                           int shader, int inside)
+{
+    if (!batch_takes(g, shader, nodepth, t) && batch_for(g, shader, nodepth, t) != 0)
+        return;
+    if (!inside) {
+        const float x0 = -GUARD, y0 = -GUARD, x1 = g->w + GUARD, y1 = g->h + GUARD;
+        int out = 0;
+        for (int i = 0; i < 3; i++)
+            out |= v[i].x < x0 || v[i].x > x1 || v[i].y < y0 || v[i].y > y1;
+        if (out) {
+            add_clipped(v, kind, t, x1, y1);
+            return;
+        }
+    }
+    gvert_t *o = &G.verts[G.nverts];    /* nearly every triangle: straight in */
+    for (int i = 0; i < 3; i++)
+        put_corner(&o[i], v[i].x, v[i].y, v[i].z, v[i].a, v[i].b, v[i].c, kind, t);
+    G.nverts += 3;
+    G.st.tris++;
+}
+
 static void cb_tri(void *ctx, const g16_t *g, const r3d_corner_t v[3], int kind, const g16_sheet_t *tex,
                    int nodepth)
 {
     (void)ctx;
-    if (kind == R3D_KIND_TEXTURE) {
+    const int inside = kind & R3D_INSIDE;
+    if ((kind & ~R3D_INSIDE) == R3D_KIND_TEXTURE) {
         const tex_t *t = tex ? tex_get(g, tex) : NULL;
         if (t) {
-            add_tri(g, v, kind, t, nodepth, tex_opaque(tex, v) ? SH_TEX : SH_TEX_ALPHA);
+            add_tri(g, v, R3D_KIND_TEXTURE, t, nodepth, tex_opaque(t, v) ? SH_TEX : SH_TEX_ALPHA, inside);
             return;
         }
         /* no texture on the GPU (too large): grey times the light */
         r3d_corner_t c[3];
         for (int i = 0; i < 3; i++)
-            c[i] = (r3d_corner_t){ v[i].x, v[i].y, v[i].z, 200 * v[i].c, 200 * v[i].c, 200 * v[i].c };
-        add_tri(g, c, R3D_KIND_COLOUR, NULL, nodepth, SH_COLOUR);
+            c[i] = (r3d_corner_t){ v[i].x, v[i].y, v[i].z, 200 * v[i].c * (1.0f / 255.0f),
+                                   200 * v[i].c * (1.0f / 255.0f), 200 * v[i].c * (1.0f / 255.0f) };
+        add_tri(g, c, R3D_KIND_COLOUR, NULL, nodepth, SH_COLOUR, inside);
         return;
     }
-    add_tri(g, v, kind, NULL, nodepth, SH_COLOUR);
+    add_tri(g, v, R3D_KIND_COLOUR, NULL, nodepth, SH_COLOUR, inside);
 }
 
 static void cb_zclear(void *ctx, const g16_t *g)
@@ -852,8 +894,8 @@ static int probe(void)
     for (int i = 0; i < 4; i++)
         v[i] = (r3d_corner_t){ q[i][0], q[i][1], 1.0f, q[i][0], q[i][1], 1.0f };
     const r3d_corner_t t1[3] = { v[0], v[1], v[2] }, t2[3] = { v[0], v[2], v[3] };
-    add_tri(&pg, t1, R3D_KIND_TEXTURE, &pt, 0, SH_TEX);
-    add_tri(&pg, t2, R3D_KIND_TEXTURE, &pt, 0, SH_TEX);
+    add_tri(&pg, t1, R3D_KIND_TEXTURE, &pt, 0, SH_TEX, 0);
+    add_tri(&pg, t2, R3D_KIND_TEXTURE, &pt, 0, SH_TEX, 0);
     if (gpu3d_flush(&pg, 0) != 0)
         return -1;
     c = G.probe[PROBE_W * 10 + 10];
@@ -878,8 +920,8 @@ static int probe(void)
         pt.texels[i] = texel_of((uint16_t)i, 1);
     pt.params[1] &= ~(1u << 31);        /* type RGBA8888 */
     memset(G.probe, 0, JOB_PROBE);
-    add_tri(&pg, t1, R3D_KIND_TEXTURE, &pt, 0, SH_TEX);
-    add_tri(&pg, t2, R3D_KIND_TEXTURE, &pt, 0, SH_TEX);
+    add_tri(&pg, t1, R3D_KIND_TEXTURE, &pt, 0, SH_TEX, 0);
+    add_tri(&pg, t2, R3D_KIND_TEXTURE, &pt, 0, SH_TEX, 0);
     if (gpu3d_flush(&pg, 0) != 0)
         return -1;
     G.tformat = tformat_learn();
@@ -918,6 +960,7 @@ int gpu3d_init(void)
         memcpy(G.code + 1024 * i, shaders[i].code, shaders[i].size);
     G.backend.tri = cb_tri;
     G.backend.zclear = cb_zclear;
+    G.backend.guard = GUARD * 0.9f;     /* r3d's bound, with room for its rounding */
     if (probe() != 0)
         return -1;
     static const char *const ms[3] = { "no", "on cleared pages", "on any page" };

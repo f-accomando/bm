@@ -38,12 +38,15 @@ typedef struct {
  * A drawing backend other than the software rasterizer (M30: the GPU).
  * r3d still transforms, lights, culls the back faces and clips on the near
  * plane; the backend gets screen triangles. A corner: screen x, y, z =
- * 1/depth, and either a colour (r, g, b in 0..255, light and fog applied)
+ * 1/depth, and either a colour (r, g, b in 0..1, light and fog applied)
  * or texture coordinates (u, v in texels of tex) and the light k (0..1).
  */
 typedef struct { float x, y, z, a, b, c; } r3d_corner_t;
 
-enum { R3D_KIND_COLOUR, R3D_KIND_TEXTURE };
+/* R3D_INSIDE, added to the kind: the mesh's bounding sphere is in front of
+ * the near plane and its corners are no farther than the backend's guard
+ * from the screen (rounding aside), so the backend need not check them */
+enum { R3D_KIND_COLOUR, R3D_KIND_TEXTURE, R3D_INSIDE = 4 };
 
 typedef struct {
     /* nodepth: no depth test and no depth write (R3D_NOZ) */
@@ -51,6 +54,7 @@ typedef struct {
                 const g16_sheet_t *tex, int nodepth);
     void (*zclear)(void *ctx, const g16_t *g);      /* what follows ignores what was drawn */
     void *ctx;
+    float guard;                /* pixels around the screen for R3D_INSIDE; 0: never */
 } r3d_backend_t;
 
 typedef struct {

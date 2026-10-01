@@ -28,6 +28,7 @@
 int emu_red_a = 1, emu_tex_swap = 0;
 int emu_tformat = 0;                    /* the order of the 1 KiB subtiles of a T-format tile */
 int emu_ms_load_one = 0;                /* MSAA: a colour load fills sample 0 only (else all 4) */
+int emu_skip = 0;                       /* jobs only counted, not run (ARM instruction counts) */
 emu_stats_t emu_stats;
 char emu_error[256];
 
@@ -285,8 +286,10 @@ static void shade(const eprim_t *pr, const float *va, uint8_t *out, int *discard
         t = (t & 0xFF00FF00u) | (t >> 16 & 0xFF) | (t & 0xFF) << 16;
     uint8_t c[4] = { (uint8_t)t, (uint8_t)(t >> 8), (uint8_t)(t >> 16), (uint8_t)(t >> 24) };
     uint32_t k = unit8(va[2]);
-    for (int i = 0; i < 4; i++)
-        out[i] = (uint8_t)((c[i] * k + 127) / 255);              /* v8muld */
+    for (int i = 0; i < 4; i++) {
+        const uint32_t x = c[i] * k + 127;
+        out[i] = (uint8_t)((x + 1 + (x >> 8)) >> 8);              /* v8muld: x / 255 */
+    }
     if (pr->shader == SH_TEX_ALPHA && c[3] == 0)
         *discard = 1;
 }
@@ -534,13 +537,14 @@ static int render(uint32_t start, uint32_t end, int have_bin)
                     int X = tx * TS + x, Y = ty * TS + y;
                     if (X >= fw || Y >= fh)
                         continue;
-                    uint8_t c[4];
-                    for (int k = 0; k < 4; k++) {       /* the samples' mean */
-                        unsigned sum = 0;
-                        for (int s = 0; s < NS; s++)
-                            sum += tcol[(y * TS + x) * NS + s][k];
-                        c[k] = (uint8_t)((sum + (unsigned)NS / 2) / (unsigned)NS);
+                    const uint8_t (*t)[4] = &tcol[(y * TS + x) * NS];
+                    if (NS == 1) {
+                        fb[Y * fw + X] = to565(t[0]);
+                        continue;
                     }
+                    uint8_t c[4];
+                    for (int k = 0; k < 4; k++)         /* the samples' mean */
+                        c[k] = (uint8_t)((t[0][k] + t[1][k] + t[2][k] + t[3][k] + 2) >> 2);
                     fb[Y * fw + X] = to565(c);
                 }
             tile_clear();
@@ -566,6 +570,8 @@ int v3d_run(uint32_t bin_start, uint32_t bin_end, uint32_t rnd, uint32_t rnd_end
     if (bin_us) *bin_us = 1;
     if (rnd_us) *rnd_us = 1;
     emu_stats.jobs++;
+    if (emu_skip)
+        return 0;
     int have_bin = bin_end != bin_start;
     if (have_bin && bin(bin_start, bin_end) != 0)
         return -1;

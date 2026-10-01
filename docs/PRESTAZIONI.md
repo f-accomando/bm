@@ -120,6 +120,24 @@ non disegna più pixel: Texture Room 0,62 milioni di istruzioni a fotogramma inv
 (`make count-insns` con le scene `+gpu`); il confronto completo prima/dopo è in
 `docs/M30-PRIMA-DOPO.md`.
 
+**Istruzioni ARM per triangolo con la GPU (M31, passo 4)**, stesse scene con il suffisso
+`+gpu` (r3d e backend; i pixel restano identici, sull'ARM e sulla GPU):
+
+| Scena | Prima | Dopo |
+|---|---:|---:|
+| Sfere piatte | 936 | 706 (−25%) |
+| Sfere Gouraud | 1030 | 830 (−19%) |
+| Sfere con texture | 1131 | 888 (−21%) |
+| Texture Room (8 casse) | 1386 | 1109 (−20%) |
+| Stanza con 2D in mezzo | 1432 | 1130 (−21%) |
+
+Da dove: il piano vicino provato una volta per vertice (e per niente se la mesh è tutta
+davanti), niente colore RGB565 né copia della faccia quando disegna la GPU, il centro
+della faccia solo con le lampade, la banda di guardia provata una volta per mesh dalla
+sua sfera (`R3D_INSIDE`) invece che per vertice, le celle opache della texture provate
+con una tabella delle somme (4 letture invece di una per cella), il percorso del
+triangolo senza chiamate in mezzo e il colore in 0..1 calcolato una volta per faccia.
+
 ## 6. Atteso (simulazioni) e trovato (Pi)
 
 | Misura | Atteso | Trovato sul Pi | Nota |

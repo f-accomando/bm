@@ -360,6 +360,9 @@ int main(int argc, char **argv)
             fprintf(stderr, "gpu3d: %s\n", gpu3d_status());
             return 1;
         }
+        /* count_insns traces the ARM only: the emulator's work after the
+         * probe (the picture) is not needed there */
+        emu_skip = getenv("BENCH_EMU_SKIP") != NULL;
 #else
         fprintf(stderr, "built without BENCH_GPU\n");
         return 1;

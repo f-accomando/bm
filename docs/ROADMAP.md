@@ -1372,6 +1372,12 @@ Fatto (2026-10-01, da verificare sul Pi):
   ritaglio ingrandito 2× delle due immagini affiancate) e le righe `GPU spheres AA 4x`
   e `GPU quad AA 4x` dello stress test. Sul PC l'emulatore fa l'MSAA (campioni, media)
   anche nella variante in cui il load riempie un solo campione.
+- Passo 4: **meno istruzioni ARM per triangolo** con la GPU, pixel identici (stessi
+  checksum di `make bench3d`, sull'ARM e sulla GPU emulata): sfere 936 → 706 (−25%),
+  con texture 1131 → 888, Texture Room 1386 → 1109 (`make count-insns`, scene `+gpu`;
+  dettagli in `docs/PRESTAZIONI.md`). `count-insns` non traccia più l'emulatore della
+  V3D (da 10 minuti a 80 secondi per scena). Prova sul Pi: righe GPU dello stress test
+  (µs per sfera, prima 80) e benchmark Texture Room.
 
 ## Rischi principali
 | Rischio | Mitigazione |

@@ -94,8 +94,11 @@ def symbols(exe):
 
 
 def trace(exe, hist, scene, frames):
-    t = subprocess.Popen(["qemu-arm", "-one-insn-per-tb", "-d", "exec,nochain", "-D", "/dev/stdout",
-                          exe, scene, str(frames)], stdout=subprocess.PIPE, stderr=subprocess.DEVNULL)
+    # the emulator of the V3D only counts the jobs (BENCH_EMU_SKIP): it is not
+    # counted, and tracing it took minutes a scene
+    t = subprocess.Popen(["qemu-arm", "-E", "BENCH_EMU_SKIP=1", "-one-insn-per-tb", "-d", "exec,nochain",
+                          "-D", "/dev/stdout", exe, scene, str(frames)],
+                         stdout=subprocess.PIPE, stderr=subprocess.DEVNULL)
     counted = subprocess.run([hist], stdin=t.stdout, capture_output=True, text=True, check=True)
     t.wait()
     pcs = {}
