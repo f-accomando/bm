@@ -114,7 +114,10 @@ di `tests/bm/bench3d.c` (cache e bus esclusi: è il lavoro della CPU, non il tem
 | Sfere con texture | 94,8 | 79,9 |
 | Texture Room (8 casse) | 84,7 | 57,7 |
 
-I pixel restano identici (stessi checksum di `make bench3d`).
+I pixel restano identici (stessi checksum di `make bench3d`). Con il 3D sulla GPU l'ARM
+non disegna più pixel: Texture Room 0,62 milioni di istruzioni a fotogramma invece di 3,86
+(`make count-insns` con le scene `+gpu`); il confronto completo prima/dopo è in
+`docs/M30-PRIMA-DOPO.md`.
 
 ## 6. Atteso (simulazioni) e trovato (Pi)
 

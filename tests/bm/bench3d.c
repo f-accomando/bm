@@ -8,6 +8,10 @@
  *                           build under qemu-arm)
  *   bench3d -ppm DIR        also writes DIR/SCENE.ppm
  *
+ * Built with -DBENCH_GPU (and tests/gpu/v3d_emu.c, src/gpu/gpu3d.c), a
+ * scene named SCENE+gpu is drawn by the GPU backend on the V3D emulator:
+ * the ARM's share of the 3D with the GPU (M30).
+ *
  * The checksums tell whether a change to the rasterizer changes the
  * picture; the ARM instruction counts tell what it costs, per pixel and
  * per triangle, without the Pi (cache and bus not included).
@@ -18,10 +22,34 @@
 #include <string.h>
 
 #include "bm/r3d.h"
+#ifdef BENCH_GPU
+#include <stdarg.h>
+#include "gpu/gpu3d.h"
+#include "v3d_emu.h"
+
+int kprintf(const char *fmt, ...)
+{
+    va_list ap;
+    va_start(ap, fmt);
+    int n = vprintf(fmt, ap);
+    va_end(ap);
+    return n;
+}
+
+int ksnprintf(char *buf, size_t size, const char *fmt, ...)
+{
+    va_list ap;
+    va_start(ap, fmt);
+    int n = vsnprintf(buf, size, fmt, ap);
+    va_end(ap);
+    return n;
+}
+#endif
 
 static uint8_t glyphs[256 * 16];
 static const font_t font = { 8, 16, glyphs };
-static uint16_t fb[640 * 360];
+static uint16_t fb_ram[640 * 360];
+static uint16_t *fb = fb_ram;           /* with the GPU: memory the emulated V3D reaches */
 static g16_t g;
 static r3d_t r;
 static g16_sheet_t sheet128, sheet256;
@@ -315,14 +343,34 @@ static void write_ppm(const char *dir, const char *name)
 int main(int argc, char **argv)
 {
     const char *ppm = NULL, *only = NULL;
-    int frames = 1;
+    int frames = 1, gpu = 0;
     for (int i = 1; i < argc; i++) {
         if (!strcmp(argv[i], "-ppm") && i + 1 < argc) ppm = argv[++i];
         else if (!only) only = argv[i];
         else frames = atoi(argv[i]);
     }
+    char name[32];
+    if (only && strlen(only) > 4 && !strcmp(only + strlen(only) - 4, "+gpu")) {
+#ifdef BENCH_GPU
+        snprintf(name, sizeof name, "%.*s", (int)(strlen(only) - 4), only);
+        only = name;
+        gpu = 1;
+        fb = test_aligned_alloc(64, sizeof fb_ram);
+        if (gpu3d_init() != 0) {
+            fprintf(stderr, "gpu3d: %s\n", gpu3d_status());
+            return 1;
+        }
+#else
+        fprintf(stderr, "built without BENCH_GPU\n");
+        return 1;
+#endif
+    }
     g16_target(&g, fb, 640, 640, 360, &font);
     r3d_init(&r, &g);
+#ifdef BENCH_GPU
+    if (gpu)
+        r.backend = gpu3d_backend();
+#endif
     make_sheets();
     make_room();
     make_quads();
@@ -331,8 +379,15 @@ int main(int argc, char **argv)
         if (only && strcmp(only, scenes[i].name))
             continue;
         found = 1;
-        for (int f = 0; f < frames; f++)
+        for (int f = 0; f < frames; f++) {
             scenes[i].fn();
+#ifdef BENCH_GPU
+            if (gpu && gpu3d_flush(&g, 0) != 0) {
+                fprintf(stderr, "gpu3d: %s (%s)\n", gpu3d_status(), emu_error);
+                return 1;
+            }
+#endif
+        }
         printf("%-15s %08x %7u px %5u tri\n", scenes[i].name, checksum(), r.pixels, r.tris_drawn);
         if (ppm)
             write_ppm(ppm, scenes[i].name);
