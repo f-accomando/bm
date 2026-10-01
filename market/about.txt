@@ -1,0 +1,13 @@
+# The games of the bm project in the Market: id: license | about (one line,
+# at most 120 characters). make market-seed puts them in the market's
+# repository with scripts/mkmarket.py --add.
+pong: BM Community License 1.0 | You against the console, or two players with two controllers. First to 7 wins.
+snake: BM Community License 1.0 | Eat the apples, do not bite yourself or the walls. The snake speeds up as it grows.
+shooter: BM Community License 1.0 | Waves of alien ships and three lives. Hold A for auto fire, B for a burst of speed.
+astrowing: BM Community License 1.0 | A polygon space fighter in the style of the SNES classics: fly through the gold rings.
+hunt: BM Community License 1.0 | A gothic top-down hunt through a town of beasts; the great beast waits in the cathedral.
+kitchen: BM Community License 1.0 | Chaos Kitchen: cook together with up to four players, 31 kitchens in 6 worlds.
+titan: BM Community License 1.0 | Titan Clash: giant robots fight in 3D at 60 fps.
+texroom: BM Community License 1.0 | A room in 3D with textures everywhere: what the textured rasterizer does at 60 fps.
+village: BM Community License 1.0 | A little village made with bm Studio, and a villager animated with bm Animator.
+nano8: BM Community License 1.0, games MIT/CC0 | Plays .p8 cartridges; inside: Piconian (CC0), Bon Planto, Boo is missing!, Pico8Platformer (MIT).

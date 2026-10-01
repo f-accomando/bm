@@ -1,0 +1,76 @@
+# The bm Market: checks the games of a pull request; on main, builds the
+# catalog, signs it and publishes it with GitHub Pages
+# (https://f-accomando.github.io/bm-market/). The tools are bm's
+# (scripts/mkmarket.py), the public key too (keys/market-pub.pem): the
+# signature is checked against it before anything is published.
+name: market
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: market-${{ github.ref }}
+  cancel-in-progress: false
+
+env:
+  # the branch of bm with scripts/mkmarket.py (claude/bare-metal-mvp once
+  # bm-store is merged): the repository variable BM_REF, if set
+  BM_REF: ${{ vars.BM_REF || 'bm-store' }}
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/checkout@v4
+        with:
+          repository: f-accomando/bm
+          ref: ${{ env.BM_REF }}
+          path: bm
+          sparse-checkout: |
+            scripts
+            keys
+      - name: Check the games
+        run: python3 bm/scripts/mkmarket.py games --check
+
+  publish:
+    needs: check
+    if: github.event_name != 'pull_request'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      pages: write
+      id-token: write
+    environment:
+      name: github-pages
+      url: ${{ steps.deploy.outputs.page_url }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/checkout@v4
+        with:
+          repository: f-accomando/bm
+          ref: ${{ env.BM_REF }}
+          path: bm
+          sparse-checkout: |
+            scripts
+            keys
+      - name: Build and sign the catalog
+        env:
+          BM_MARKET_KEY: ${{ secrets.BM_MARKET_KEY }}
+        run: |
+          if [ -z "$BM_MARKET_KEY" ]; then
+            echo "::error::no secret BM_MARKET_KEY: run scripts/market-key.sh in bm (see README.md)"
+            exit 1
+          fi
+          python3 bm/scripts/mkmarket.py games -o site --require-key --pub bm/keys/market-pub.pem
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: site
+      - id: deploy
+        uses: actions/deploy-pages@v4

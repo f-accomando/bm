@@ -231,7 +231,7 @@ test-nano8: $(BUILD)/host/n8host $(BUILD)/host/n8cartinfo $(BUILD)/host/luahost 
 	$(PYTHON) tests/nano8/run.py --build $(BUILD) $(NANO8_ROMS)
 
 .DEFAULT_GOAL := all
-.PHONY: FORCE test-smp test-catalog all clean firmware image image-pi1 sdcard install sdcard-chainloader sdcard-stress qemu qemu-screenshot \
+.PHONY: FORCE test-smp test-catalog market-seed all clean firmware image image-pi1 sdcard install sdcard-chainloader sdcard-stress qemu qemu-screenshot \
         run-serial test test-bm test-ai ai-model test-usb test-audio test-fat test-kitchen test-titan test-sound test-nano8 \
         test-net test-http test-https test-release release disasm wav test-studio test-studio-ui studio
 
@@ -438,6 +438,22 @@ $(BUILD)/host/test_catalog: tests/net/test_catalog.c src/net/catalog.c src/net/c
 	$(HOSTCC) -O1 -w -DBM_HOST_TEST -Isrc -Isrc/net -Ithird_party/mbedtls/include \
 		-DMBEDTLS_CONFIG_FILE='"bm_mbedtls.h"' -o $@ tests/net/test_catalog.c src/net/catalog.c \
 		src/bm/n8cart.c src/bm/n8.c src/bm/n8font.c $(MBEDTLS_SRCS) -lm
+
+# The market's repository (M25): its template (market/) and the games of
+# the project, built here, into MARKET (a clone of f-accomando/bm-market).
+# A game's version is the day its bytes changed.
+MARKET ?= ../bm-market
+MARKET_VERSION := $(shell date -u +%Y.%m.%d)
+market-seed: $(GAME_CARTS)
+	@test -d $(MARKET) || { echo "MARKET=$(MARKET): clone f-accomando/bm-market there first"; exit 1; }
+	mkdir -p $(MARKET)/.github/workflows
+	cp market/README.md market/.gitignore $(MARKET)/
+	cp market/.github/workflows/market.yml $(MARKET)/.github/workflows/
+	for g in $(GAMES); do \
+		$(PYTHON) scripts/mkmarket.py $(MARKET)/games --add $(BUILD)/carts/$$g.bm --id $$g \
+			--version $(MARKET_VERSION) --about-file market/about.txt || exit 1; \
+	done
+	$(PYTHON) scripts/mkmarket.py $(MARKET)/games --check
 
 # Bluetooth LE pairing cryptography (SMP), against the spec's sample data
 test-smp: $(BUILD)/host/test_smp

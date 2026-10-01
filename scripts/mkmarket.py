@@ -9,8 +9,11 @@ half, keys/market-pub.pem, is built into the kernel).
               [--require-key] [--serial N]
   mkmarket.py GAMES --check            only the checks (pull requests)
   mkmarket.py GAMES --add game.bm --version 1.2 [--license L] [--about TEXT] [--id ID]
+              [--about-file market/about.txt]
                                        puts a cartridge in GAMES (a new folder, or
-                                       the same game updated)
+                                       the same game updated); --about-file has
+                                       "id: license | about" lines (the project's
+                                       games, make market-seed)
 
 GAMES has one folder per game, named by its id (a-z, 0-9 and '-', at most
 23 characters), with exactly one cartridge and info.txt:
@@ -347,12 +350,21 @@ def main():
     ap.add_argument("--version")
     ap.add_argument("--license")
     ap.add_argument("--about")
+    ap.add_argument("--about-file")
     a = ap.parse_args()
 
     if a.add:
         if not a.version or not VERSION_RE.match(a.version):
             die("--add needs --version (1-15 of A-Z, a-z, 0-9, '.', '_', '-')")
-        add(a.games, a.add, a.id, a.version, a.license, a.about)
+        lic, about = a.license, a.about
+        if a.about_file:
+            gid = a.id or os.path.splitext(os.path.basename(a.add))[0].lower()
+            for line in open(a.about_file, encoding="utf-8"):
+                key, sep, rest = line.partition(":")
+                if sep and not line.startswith("#") and key.strip() == gid:
+                    l_, _, ab = rest.partition("|")
+                    lic, about = lic or l_.strip(), about or ab.strip()
+        add(a.games, a.add, a.id, a.version, lic, about)
         return
     games = read_games(a.games)
     if a.check:
