@@ -98,6 +98,19 @@ Lua 5.4 embedded. Documentazione: `README.md`, `docs/ROADMAP.md`, `docs/HARDWARE
   `cart_write` (solo il codice), `font("6x12")` e `assist.act` per le righe `#entry:`.
   Test: `test_code_editor` in QEMU (lo schermo si legge anche col font 6x12).
 
+## Mouse e puntatore (M31)
+
+- `src/kernel/pointer.c`: il puntatore di sistema (mouse USB/Bluetooth, levetta destra dei
+  pad). Decisioni dell'utente: si spegne per tutto il sistema solo con `mouse=off` in
+  `bm/config.txt` (nessuna voce nel menu); c'è nel menu di bm e nelle app solo se lo
+  chiedono (`mouse(true)`); nascosto se niente lo muove; icona bianca senza numero, pallino
+  blu per il Bluetooth.
+- `ble.c` tiene tastiera e mouse LE insieme: `le` punta al dispositivo in lavorazione, le
+  funzioni chiamate da `bt.c` lo scelgono (per handle) e lo rimettono com'era.
+- Test: `make test-usb`, QEMU `test_usb_mouse`, `test_mouse_cart`, `test_bt_mouse`,
+  `test_bt_mouse_classic`, `test_stick_pointer` (il tablet di QEMU si muove via QMP:
+  `Qemu.pointer()`, `Qemu.click()`).
+
 ## Comunicazione con l'utente
 
 - Riportare la **lista delle milestone** solo quando una milestone è completata per

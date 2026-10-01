@@ -110,6 +110,19 @@ local x, y = stick(1)                     -- levetta del giocatore 1, da -1 a 1
 `btn(i)` senza giocatore risponde a tutti i controller: va bene per i menu e i giochi a
 un giocatore. La tastiera USB è il primo giocatore che non ha un pad.
 
+**Mouse.** Un gioco ha il puntatore solo se lo chiede (lo muovono un mouse o la levetta
+destra di un pad):
+
+```lua
+function _init() mouse(true) end           -- la console disegna la freccia
+function _update()
+  local mx, my = mouse()                   -- nil se non c'è niente che lo muova
+  if mx and mousep() then                  -- clic sinistro
+    tx, ty = mx, my
+  end
+end
+```
+
 ## 3. Impacchettare e provare
 
 ```sh

@@ -450,7 +450,7 @@ static void x_pair_mouse(framebuffer_t *fb)
     heading("Pair a mouse");
     kprintf("Put the mouse in pairing mode (MX mice: hold the Easy-Switch button 3 s,\n"
             "until its light blinks fast). No code is needed.\n\n");
-    bt_pair_mouse(15);
+    bt_pair_mouse(10);
 }
 
 static void x_test(framebuffer_t *fb)

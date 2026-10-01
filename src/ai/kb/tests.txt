@@ -181,3 +181,7 @@ voglio un font più piccolo per scrivere tante righe => font
 salvare il codice senza perdere la mappa => cart_write
 come apro due file uno accanto all'altro => bm_code
 come chiedo all'assistente di modificare la funzione => entry_lines
+
+# mouse (M31)
+come leggo dove è il mouse => mouse
+how do i know the player clicked => mousep, mouse

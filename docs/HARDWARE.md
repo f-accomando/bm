@@ -60,8 +60,8 @@ la RAM (memcpy ~100 MB/s, riempimento ~430 MB/s *(M)*).
 
 | Risorsa | Pi Zero W | bm oggi | Uso |
 |---|---|---|---|
-| USB | 1 × micro-USB OTG (USB 2.0, controller DWC) *(D)* | host DWC2: **1 dispositivo HID** (tastiera o gamepad) in uso, anche dietro un hub *(M7b, M29)* | 1 porta |
-| Bluetooth | BT 4.1 / BLE (BCM43438) *(D)* | fino a **4 DualShock 4** (M12, M16) e una tastiera BLE (M28) *(M)* | — |
+| USB | 1 × micro-USB OTG (USB 2.0, controller DWC) *(D)* | host DWC2: **1 dispositivo HID** (tastiera o gamepad) in uso più un **mouse** (M31), anche dietro un hub *(M7b, M29)* | 1 porta |
+| Bluetooth | BT 4.1 / BLE (BCM43438) *(D)* | fino a **4 DualShock 4** (M12, M16), una tastiera BLE (M28) e un mouse BLE o classico (M31) *(M)* | — |
 | Wi-Fi | 802.11 b/g/n 2,4 GHz (BCM43438) *(D)* | WiFi, console di rete, invio di kernel e cartucce, HTTPS (M18, M19) *(M)* | — |
 | GPIO | header a 40 pin (28 GPIO, da saldare sul Zero W) *(D)* | GPIO14/15 UART, GPIO47 LED | 2 su 28 |
 | UART | PL011 + mini UART *(D)* | console sulla seriale (sul mini UART quando il PL011 va al Bluetooth) | — |

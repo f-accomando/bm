@@ -1496,10 +1496,10 @@ class FakeDs4Chip(FakeBtChip):
             self.configure(pad_cid, host_cid, handle)
         self.expect_light(pad_cids[1], player, handle)
 
-    def report(self, buttons=0x08, ps=0, handle=None, lx=128, ly=128, shoulders=0):
+    def report(self, buttons=0x08, ps=0, handle=None, lx=128, ly=128, shoulders=0, rx=128, ry=128):
         """DS4 reduced input report 0x01 on the host's interrupt channel;
-        shoulders: 1 = L1, 2 = R1."""
-        self.l2(0x0041, bytes([0xA1, 0x01, lx, ly, 128, 128, buttons, shoulders, ps, 0, 0]), handle)
+        shoulders: 1 = L1, 2 = R1, 4 = L2, 8 = R2."""
+        self.l2(0x0041, bytes([0xA1, 0x01, lx, ly, rx, ry, buttons, shoulders, ps, 0, 0]), handle)
 
 
 def _mini_expect(q, needle, timeout=20):
@@ -1622,7 +1622,8 @@ class FakeMxKeys(FakeDs4Chip):
 
     def __init__(self, port):
         super().__init__(port)
-        self.frames, self.rx = [], b""
+        self.frames, self.rx = [], {}                       # by LE handle
+        self.handles = {self.LE_HANDLE}
         # the GATT database: handle -> (type, value)
         db = {0x10: (0x2800, (0x1812).to_bytes(2, "little"))}
         chars = [(0x11, 0x02, 0x2A4A, bytes([0x11, 0x01, 0x00, 0x03])),
@@ -1638,13 +1639,15 @@ class FakeMxKeys(FakeDs4Chip):
         self.db, self.svc_end = db, 0x23
 
     # ---- transport
-    def _next(self, want_cmd=None, want_cid=None, timeout=60):
+    def _next(self, want_cmd=None, want_cid=None, timeout=60, handle=None):
         """Answers commands and collects L2CAP frames until the command
-        `want_cmd` or a frame on `want_cid` comes; returns its parameters."""
+        `want_cmd` or a frame on `want_cid` (of the link `handle`) comes;
+        returns its parameters."""
+        handle = handle or self.LE_HANDLE
         deadline = time.time() + timeout
         while time.time() < deadline:
-            for i, (cid, data) in enumerate(self.frames):
-                if cid == want_cid:
+            for i, (h, cid, data) in enumerate(self.frames):
+                if cid == want_cid and h == handle:
                     del self.frames[i]
                     return data
             kind, a, payload = self.packet_any()
@@ -1657,12 +1660,13 @@ class FakeMxKeys(FakeDs4Chip):
                 if a == want_cmd:
                     return payload
             else:
-                pb, data = a, payload
-                self.rx = data if pb != 1 else self.rx + data
-                if len(self.rx) >= 4 and len(self.rx) >= 4 + int.from_bytes(self.rx[:2], "little"):
-                    n = int.from_bytes(self.rx[:2], "little")
-                    self.frames.append((int.from_bytes(self.rx[2:4], "little"), self.rx[4:4 + n]))
-                    self.rx = b""
+                (h, pb), data = a, payload
+                rx = data if pb != 1 else self.rx.get(h, b"") + data
+                self.rx[h] = rx
+                if len(rx) >= 4 and len(rx) >= 4 + int.from_bytes(rx[:2], "little"):
+                    n = int.from_bytes(rx[:2], "little")
+                    self.frames.append((h, int.from_bytes(rx[2:4], "little"), rx[4:4 + n]))
+                    self.rx[h] = b""
         raise AssertionError(f"fake keyboard: timeout waiting for {want_cmd or want_cid:#x}")
 
     def packet_any(self):
@@ -1673,18 +1677,18 @@ class FakeMxKeys(FakeDs4Chip):
         assert t == 0x02, f"fake chip: packet type {t:#x}"
         hdr = self._read(4)
         h = int.from_bytes(hdr[:2], "little")
-        assert h & 0x0FFF == self.LE_HANDLE, f"ACL on handle {h & 0xFFF:#x}"
+        assert h & 0x0FFF in self.handles, f"ACL on handle {h & 0xFFF:#x}"
         data = self._read(int.from_bytes(hdr[2:4], "little"))
         assert len(data) <= 27, f"host sent {len(data)} bytes in one packet (buffers are 27)"
-        return "acl", (h >> 12) & 3, data
+        return "acl", (h & 0x0FFF, (h >> 12) & 3), data
 
-    def send_l2(self, cid, data, piece=None):
+    def send_l2(self, cid, data, piece=None, handle=None):
         frame = len(data).to_bytes(2, "little") + cid.to_bytes(2, "little") + data
         piece = piece or len(frame)
         for off in range(0, len(frame), piece):
             flag = 0x2000 if off == 0 else 0x1000
             chunk = frame[off:off + piece]
-            self.port.write(bytes([0x02]) + (self.LE_HANDLE | flag).to_bytes(2, "little")
+            self.port.write(bytes([0x02]) + ((handle or self.LE_HANDLE) | flag).to_bytes(2, "little")
                             + len(chunk).to_bytes(2, "little") + chunk)
 
     def le_meta(self, sub, params):
@@ -1693,11 +1697,11 @@ class FakeMxKeys(FakeDs4Chip):
     def advertise(self, addr, addr_type, data):
         self.le_meta(0x02, bytes([1, 0x00, addr_type]) + addr + bytes([len(data)]) + data + bytes([0xC8]))
 
-    def connect(self, addr, addr_type):
+    def connect(self, addr, addr_type, handle=None):
         p = self._next(want_cmd=0x200D)
         assert p[5] == addr_type and p[6:12] == addr, p.hex()
-        self.le_meta(0x01, bytes([0]) + self.LE_HANDLE.to_bytes(2, "little") + bytes([0, addr_type]) + addr
-                     + bytes([0x0C, 0, 0, 0, 0xC8, 0, 0]))
+        self.le_meta(0x01, bytes([0]) + (handle or self.LE_HANDLE).to_bytes(2, "little") + bytes([0, addr_type])
+                     + addr + bytes([0x0C, 0, 0, 0, 0xC8, 0, 0]))
 
     # ---- crypto (spec order: protocol bytes are least significant first)
     @staticmethod
@@ -1817,41 +1821,47 @@ class FakeMxKeys(FakeDs4Chip):
         self.send_l2(6, bytes([0x08]) + self.IRK)
         self.send_l2(6, bytes([0x09, 0]) + self.IDENTITY)
 
-    def serve_gatt(self):
-        """Answers the host's GATT client until it turns notifications on."""
+    def serve_gatt(self, db=None, svc=(0x10, None), cccd=0x17, handle=None):
+        """Answers the host's GATT client until it turns notifications on
+        (on `cccd`); db: the attributes of the HID service svc (start, end)."""
+        db = db or self.db
+        start_, end_ = svc[0], svc[1] or self.svc_end
+
+        def send(data):
+            self.send_l2(4, data, handle=handle)
         while True:
-            req = self._next(want_cid=4)
+            req = self._next(want_cid=4, handle=handle)
             op = req[0]
             if op == 0x06:                                           # find by type value
                 assert req[5:9] == bytes([0x00, 0x28, 0x12, 0x18]), req.hex()
-                self.send_l2(4, bytes([0x07, 0x10, 0x00, self.svc_end, 0x00]))
+                send(bytes([0x07]) + start_.to_bytes(2, "little") + end_.to_bytes(2, "little"))
             elif op == 0x08:                                         # read by type (chars)
                 start, end = int.from_bytes(req[1:3], "little"), int.from_bytes(req[3:5], "little")
-                hs = [h for h in sorted(self.db) if start <= h <= end and self.db[h][0] == 0x2803][:3]
+                hs = [h for h in sorted(db) if start <= h <= end and db[h][0] == 0x2803][:3]
                 if not hs:
-                    self.send_l2(4, bytes([0x01, 0x08]) + req[1:3] + bytes([0x0A]))
+                    send(bytes([0x01, 0x08]) + req[1:3] + bytes([0x0A]))
                 else:
-                    self.send_l2(4, bytes([0x09, 7]) + b"".join(h.to_bytes(2, "little") + self.db[h][1] for h in hs))
+                    send(bytes([0x09, 7]) + b"".join(h.to_bytes(2, "little") + db[h][1] for h in hs))
             elif op == 0x04:                                         # find information
                 start, end = int.from_bytes(req[1:3], "little"), int.from_bytes(req[3:5], "little")
-                hs = [h for h in sorted(self.db) if start <= h <= end][:5]
+                hs = [h for h in sorted(db) if start <= h <= end][:5]
                 if not hs:
-                    self.send_l2(4, bytes([0x01, 0x04]) + req[1:3] + bytes([0x0A]))
+                    send(bytes([0x01, 0x04]) + req[1:3] + bytes([0x0A]))
                 else:
-                    self.send_l2(4, bytes([0x05, 1]) + b"".join(
-                        h.to_bytes(2, "little") + self.db[h][0].to_bytes(2, "little") for h in hs))
+                    send(bytes([0x05, 1]) + b"".join(
+                        h.to_bytes(2, "little") + db[h][0].to_bytes(2, "little") for h in hs))
             elif op in (0x0A, 0x0C):                                 # read, read blob
                 h = int.from_bytes(req[1:3], "little")
                 off = int.from_bytes(req[3:5], "little") if op == 0x0C else 0
-                value = self.db[h][1]
+                value = db[h][1]
                 if off > len(value):
-                    self.send_l2(4, bytes([0x01, op]) + req[1:3] + bytes([0x07]))
+                    send(bytes([0x01, op]) + req[1:3] + bytes([0x07]))
                 else:
-                    self.send_l2(4, bytes([op + 1]) + value[off:off + 22])
+                    send(bytes([op + 1]) + value[off:off + 22])
             elif op == 0x12:                                         # write request
                 h = int.from_bytes(req[1:3], "little")
-                assert h == 0x17 and req[3:5] == bytes([1, 0]), f"notifications on {h:#x}"
-                self.send_l2(4, bytes([0x13]))
+                assert h == cccd and req[3:5] == bytes([1, 0]), f"notifications on {h:#x}"
+                send(bytes([0x13]))
                 return
             else:
                 raise AssertionError(f"unexpected ATT request {req.hex()}")
@@ -1874,6 +1884,408 @@ class FakeMxKeys(FakeDs4Chip):
         enc = self._next(want_cmd=0x2019)
         assert enc[12:28] == self.ltk and enc[2:12] == bytes(10), "saved key not used"
         self._event(0x08, bytes([0]) + self.LE_HANDLE.to_bytes(2, "little") + bytes([1]))
+
+
+class FakeMxMouse(FakeMxKeys):
+    """The keyboard of FakeMxKeys and an LE mouse beside it (like a Logitech
+    MX Master): it cannot type, so the pairing is Just Works (LE Secure
+    Connections), its identity key; a HID service with the mouse in report
+    ID 2 (16 buttons, X and Y of 12 bits, wheel, AC Pan) and the boot mouse
+    report; motion as notifications. Both links at the same time."""
+
+    MOUSE_LE = bytes([0x65, 0x43, 0x21, 0x0F, 0xED, 0xDC | 0xC0])     # static random
+    MOUSE_ID = bytes([0x11, 0x22, 0x33, 0x9E, 0x6D, 0x00])            # 00:6d:9e:33:22:11 public
+    MOUSE_IRK = bytes(range(0x50, 0x60))
+    MOUSE_HANDLE = 0x0041
+    MOUSE_MAP = bytes([
+        0x05, 0x01, 0x09, 0x02, 0xA1, 0x01, 0x85, 0x02, 0x09, 0x01, 0xA1, 0x00,
+        0x05, 0x09, 0x19, 0x01, 0x29, 0x10, 0x15, 0x00, 0x25, 0x01, 0x95, 0x10, 0x75, 0x01, 0x81, 0x02,
+        0x05, 0x01, 0x16, 0x01, 0xF8, 0x26, 0xFF, 0x07, 0x75, 0x0C, 0x95, 0x02, 0x09, 0x30, 0x09, 0x31,
+        0x81, 0x06, 0x15, 0x81, 0x25, 0x7F, 0x75, 0x08, 0x95, 0x01, 0x09, 0x38, 0x81, 0x06,
+        0x05, 0x0C, 0x0A, 0x38, 0x02, 0x95, 0x01, 0x81, 0x06, 0xC0, 0xC0,
+        0x06, 0x00, 0xFF, 0x09, 0x01, 0xA1, 0x01, 0x85, 0x10, 0x75, 0x08, 0x95, 0x06, 0x15, 0x00,
+        0x26, 0xFF, 0x00, 0x09, 0x01, 0x81, 0x00, 0x09, 0x01, 0x91, 0x00, 0xC0])  # vendor (HID++)
+
+    def __init__(self, port):
+        super().__init__(port)
+        self.handles.add(self.MOUSE_HANDLE)
+        db = {0x30: (0x2800, (0x1812).to_bytes(2, "little"))}
+        chars = [(0x31, 0x02, 0x2A4A, bytes([0x11, 0x01, 0x00, 0x02])),
+                 (0x33, 0x02, 0x2A4B, self.MOUSE_MAP),
+                 (0x35, 0x12, 0x2A4D, bytes(7)), (0x39, 0x12, 0x2A33, bytes(3)),
+                 (0x3C, 0x04, 0x2A4C, bytes(1)), (0x3E, 0x06, 0x2A4E, bytes([1]))]
+        for h, props, uuid, value in chars:
+            db[h] = (0x2803, bytes([props]) + (h + 1).to_bytes(2, "little") + uuid.to_bytes(2, "little"))
+            db[h + 1] = (uuid, value)
+        db.update({0x37: (0x2902, bytes(2)), 0x38: (0x2908, bytes([2, 1])), 0x3B: (0x2902, bytes(2))})
+        self.mouse_db = db
+
+    def pair_mouse(self, host_addr):
+        """Advertises as a mouse in pairing mode, is connected, pairs with
+        Just Works (SC), gives its IRK and identity address."""
+        from Crypto.PublicKey import ECC
+        h = self.MOUSE_HANDLE
+        self._next(want_cmd=0x200B)
+        self._next(want_cmd=0x200C)
+        adv = bytes([2, 0x01, 0x05, 3, 0x19, 0xC2, 0x03, 3, 0x03, 0x12, 0x18, 13, 0x09]) + b"MX Master 3S"
+        self.advertise(self.MOUSE_LE, 1, adv)
+        self.connect(self.MOUSE_LE, 1, handle=h)
+        preq = self._next(want_cid=6, handle=h)
+        assert preq[0] == 0x01, preq.hex()
+        pres = bytes([0x02, 0x03, 0x00, 0x09, 16, 0x00, 0x02])       # NoInputNoOutput, SC, bonding
+        self.send_l2(6, pres, handle=h)
+        pk = self._next(want_cid=6, handle=h)
+        assert pk[0] == 0x0C and len(pk) == 65, pk.hex()
+        pkax = pk[1:33]
+        host_pub = ECC.construct(curve="P-256", point_x=int.from_bytes(pk[1:33], "little"),
+                                 point_y=int.from_bytes(pk[33:65], "little"))
+        key = ECC.generate(curve="P-256")
+        pkbx = int(key.pointQ.x).to_bytes(32, "little")
+        pkby = int(key.pointQ.y).to_bytes(32, "little")
+        self.send_l2(6, bytes([0x0C]) + pkbx + pkby, piece=27, handle=h)
+        dh = int((host_pub.pointQ * key.d).x).to_bytes(32, "little")
+        nb = os.urandom(16)                                     # Just Works: we confirm first
+        self.send_l2(6, bytes([0x03]) + self.f4(pkbx, pkax, nb, 0), handle=h)
+        na = self._next(want_cid=6, handle=h)
+        assert na[0] == 0x04, na.hex()
+        self.send_l2(6, bytes([0x04]) + nb, handle=h)
+        a = host_addr + bytes([0])
+        b_ = self.MOUSE_LE + bytes([1])
+        mackey, ltk = self.f5(dh, na[1:], nb, a, b_)
+        ea = self._next(want_cid=6, handle=h)
+        assert ea[0] == 0x0D and ea[1:] == self.f6(mackey, na[1:], nb, bytes(16), preq[1:4], a, b_), "bad Ea"
+        self.send_l2(6, bytes([0x0D]) + self.f6(mackey, nb, na[1:], bytes(16), pres[1:4], b_, a), handle=h)
+        enc = self._next(want_cmd=0x2019)
+        assert enc[:2] == h.to_bytes(2, "little") and enc[12:28] == ltk, "host encrypts with another key"
+        self._event(0x08, bytes([0]) + h.to_bytes(2, "little") + bytes([1]))
+        self.send_l2(6, bytes([0x08]) + self.MOUSE_IRK, handle=h)
+        self.send_l2(6, bytes([0x09, 0]) + self.MOUSE_ID, handle=h)
+        self.mouse_ltk = ltk
+
+    def serve_mouse(self):
+        self.serve_gatt(self.mouse_db, (0x30, 0x3F), 0x37, self.MOUSE_HANDLE)
+
+    def move(self, dx=0, dy=0, buttons=0, wheel=0):
+        """A mouse report (ID 2): 16 buttons, X and Y of 12 bits, wheel, pan."""
+        xy = (dx & 0xFFF) | (dy & 0xFFF) << 12
+        rep = buttons.to_bytes(2, "little") + xy.to_bytes(3, "little") + bytes([wheel & 0xFF, 0])
+        self.send_l2(4, bytes([0x1B, 0x36, 0x00]) + rep, handle=self.MOUSE_HANDLE)
+
+    def mouse_come_back(self):
+        """The mouse drops its link, then advertises from a resolvable private
+        address: the host connects and encrypts with the saved key."""
+        h = self.MOUSE_HANDLE
+        self._event(0x05, bytes([0]) + h.to_bytes(2, "little") + bytes([0x08]))
+        self._next(want_cmd=0x200B)
+        self._next(want_cmd=0x200C)
+        prand = bytes([0x44, 0x55, 0x40 | 0x26])
+        rpa = self.ah(self.MOUSE_IRK, prand) + prand
+        self.advertise(rpa, 1, bytes([2, 0x01, 0x04]))
+        self.connect(rpa, 1, handle=h)
+        enc = self._next(want_cmd=0x2019)
+        assert enc[12:28] == self.mouse_ltk and enc[2:12] == bytes(10), "saved key not used"
+        self._event(0x08, bytes([0]) + h.to_bytes(2, "little") + bytes([1]))
+
+
+def test_bt_mouse(b, opts):
+    """M31 with a simulated MX Keys and MX Master: the keyboard is paired
+    ('K'), then the mouse ('O': Just Works, no code) while the keyboard
+    stays connected; the bar shows the keyboard (blue 1) and a mouse with a
+    blue dot; the mouse moves the pointer over the covers and plays one with
+    a click; Settings > Controllers says so; the keyboard still types. The
+    mouse comes back from a private address (its IRK) and moves the pointer
+    again; both bonds are in bm/config.txt."""
+    try:
+        import Crypto  # noqa: F401
+    except ImportError:
+        print("    skipped: pip install pycryptodome")
+        return
+    import re
+    tmp = tempfile.mkdtemp(prefix="bm-btmouse-")
+    img = os.path.join(tmp, "sd.img")
+    hcd = os.path.join(tmp, "BCM43430A1.hcd")
+    with open(hcd, "wb") as f:
+        f.write(bytes([0x4C, 0xFC, 4, 1, 2, 3, 4, 0x4E, 0xFC, 4, 0xFF, 0xFF, 0xFF, 0xFF]))
+    mksd.build(img, [(hcd, "bm/BCM43430A1.hcd"), (b("carts/pong.bm"), "carts/pong.bm"),
+                     (b("carts/snake.bm"), "carts/snake.bm")])
+    q = Qemu(b("kernel.img"), ["-drive", f"if=sd,format=raw,file={img}"], mini_uart=True)
+    q.mini_buf = b""
+    try:
+        q.boot()
+        q.send("K")
+        q.expect("(same pins, same speed)\r\n")
+        chip = FakeMxMouse(q.port)
+        chip.buf, q.buf = q.buf, b""
+        chip.init(reset_silent=False)
+
+        def passkey():
+            _mini_expect(q, "then Enter:")
+            text, deadline = "", time.time() + 10
+            while not re.search(r"\b\d{6}\b", text) and time.time() < deadline:
+                q.mini_buf += q.mini.read(0.05)
+                text = q.mini_buf.decode(errors="replace")
+            return int(re.search(r"\b(\d{6})\b", text).group(1))
+        chip.pair(FakeBtChip.ADDR, passkey)
+        chip.serve_gatt()
+        _mini_expect(q, "ready to type")
+        # the mouse, while the keyboard stays connected
+        time.sleep(0.3)
+        q.mini.write(b"O")
+        try:
+            chip.pair_mouse(FakeBtChip.ADDR)
+            chip.serve_mouse()
+        except AssertionError:
+            q.mini_buf += q.mini.read(0.5)
+            print(q.mini_buf.decode(errors="replace")[-3000:])
+            raise
+        out = _mini_expect(q, "it moves the pointer")
+        for s_ in ("found mouse dc:ed:0f:21:43:65 MX Master 3S (random address)",
+                   "pairing, LE Secure Connections, no code (Just Works)",
+                   "mouse 00:6d:9e:33:22:11 paired (Secure Connections, private address)",
+                   f"report map {len(FakeMxMouse.MOUSE_MAP)} bytes: mouse found, report ID 2",
+                   "mouse MX Master 3S connected"):
+            assert s_ in out, out
+        # the keyboard still types: 'i' (info)
+        time.sleep(0.3)
+        chip.keys(0x0C)
+        chip.keys()
+        _mini_expect(q, "uptime")
+        # the menu: keyboard (blue 1) and the mouse (blue dot) in the bar
+        q.mini.write(b"M")
+        _mini_expect(q, "cartridge menu")
+        time.sleep(1.0)
+        shot_ = q.screendump()
+        runs = bar_icons(shot_)
+        assert len(runs) == 2 and blue_number(shot_, runs[0]) and blue_number(shot_, runs[1]), runs
+        assert arrow_at(shot_, 320, 180), "no arrow"
+        # to the top left corner, then over the covers: 1.2 pixels per count
+        # when moving fast
+        chip.move(-2000, -2000)
+        time.sleep(0.3)
+        chip.move(100, 100)                              # (120, 120): Pong
+        time.sleep(0.4)
+        shot_ = q.screendump()
+        assert arrow_at(shot_, 120, 120) and "Pong" in screen_text(shot_)[4], screen_text(shot_)[4]
+        chip.move(120, 0)                                # (264, 120): Snake
+        time.sleep(0.4)
+        assert "Snake" in screen_text(q.screendump())[4]
+        # Settings > Controllers: the mouse is there
+        q.mini.write(b"3")
+        time.sleep(0.5)
+        q.mini.write(b"\r")
+        time.sleep(0.8)
+        text = "\n".join(screen_text(q.screendump()))
+        assert re.search(r"Mouse +Bluetooth on", text), text
+        q.mini.write(b"\x1b")                             # back to Settings, to Games
+        time.sleep(0.5)
+        q.mini.write(b"1")
+        time.sleep(0.5)
+        chip.move(0, 0, buttons=1)                      # a click on Snake
+        time.sleep(0.1)
+        chip.move(0, 0, buttons=0)
+        _mini_expect(q, "playing snake.bm")
+        time.sleep(0.5)
+        q.mini.write(b"q")
+        _mini_expect(q, "update+draw")
+        time.sleep(0.5)
+        # it comes back: found by its IRK, the saved key; it moves again
+        chip.mouse_come_back()
+        chip.serve_mouse()
+        _mini_expect(q, "mouse MX Master 3S connected")
+        time.sleep(0.5)
+        chip.move(-2000, -2000)
+        time.sleep(0.3)
+        chip.move(100, 100)
+        time.sleep(0.4)
+        shot_ = q.screendump()
+        assert arrow_at(shot_, 120, 120) and "Pong" in screen_text(shot_)[4], screen_text(shot_)[4]
+    finally:
+        q.close()
+    part = os.path.join(tmp, "part.img")
+    with open(img, "rb") as f, open(part, "wb") as o:
+        f.seek(2048 * 512)
+        o.write(f.read())
+    cfg = subprocess.run(["mtype", "-i", part, "::/BM/CONFIG.TXT"], capture_output=True, text=True,
+                         env=dict(os.environ, MTOOLS_SKIP_CHECK="1")).stdout
+    shutil.rmtree(tmp, ignore_errors=True)
+    assert "bt_mouse=00:6d:9e:33:22:11 0 " + FakeMxMouse.MOUSE_IRK.hex() in cfg, cfg
+    assert "bt_mouse_key=" + chip.mouse_ltk.hex() + " 0000 0000000000000000" in cfg, cfg
+    assert "bt_kbd=00:6d:9e:12:34:56 0 " in cfg, cfg
+
+
+class FakeClassicMouse(FakeDs4Chip):
+    """The chip plus a classic Bluetooth mouse (class 002580): bm looks for
+    an LE mouse first (nothing), then for a classic one: the inquiry finds
+    it, SSP Just Works, encryption, the HID channels; bm switches it to the
+    boot protocol (SET_PROTOCOL on the control channel), its reports are
+    A1 02 buttons X Y wheel."""
+
+    MOUSE = bytes([0x0C, 0x0B, 0x0A, 0x6D, 0x66, 0x1C])         # 1c:66:6d:0a:0b:0c
+
+    def pair_mouse(self, key, handle, cids, clock=(0x21, 0x43)):
+        while True:                                         # the LE scan: nobody
+            deadline = time.time() + 30                     # up to 11.5 s of nothing
+            while not self.buf and time.time() < deadline:
+                self.buf += self.port.read(0.05)
+            kind, op, params = self.packet()
+            assert kind == "cmd", kind
+            if op == 0x0401:
+                break
+            self._complete(op)
+        self.status(0x0401)
+        self._event(0x22, bytes([1]) + self.MOUSE + bytes([1, 0, 0x80, 0x25, 0x00, *clock, 0xC4]))
+        self._event(0x01, bytes([0]))
+        p = self.cmd(0x0405, reply="status")
+        assert p[:6] == self.MOUSE, p.hex()
+        hb = handle.to_bytes(2, "little")
+        self._event(0x03, bytes([0]) + hb + self.MOUSE + bytes([1, 0]))
+        self.cmd(0x0411, reply="status")
+        self._event(0x17, self.MOUSE)
+        self.cmd(0x040C)
+        self._event(0x31, self.MOUSE)
+        io = self.cmd(0x042B)
+        assert io == self.MOUSE + bytes([0x03, 0x00, 0x04]), io.hex()
+        self._event(0x33, self.MOUSE + (654321).to_bytes(4, "little"))
+        self.cmd(0x042C)
+        self._event(0x36, bytes([0]) + self.MOUSE)
+        self._event(0x18, self.MOUSE + key + bytes([4]))
+        self._event(0x06, bytes([0]) + hb)
+        self.cmd(0x0413, reply="status")
+        self._event(0x08, bytes([0]) + hb + bytes([1]))
+        for psm, host_cid, dev_cid in ((0x11, 0x40, cids[0]), (0x13, 0x41, cids[1])):
+            code, ident, data = self.host_sig(handle)
+            assert code == 0x02 and data == psm.to_bytes(2, "little") + host_cid.to_bytes(2, "little")
+            self.sig(0x03, ident, dev_cid.to_bytes(2, "little") + host_cid.to_bytes(2, "little") + bytes(4),
+                     handle)
+            self.configure(dev_cid, host_cid, handle)
+        kind, h, payload = self.packet()                    # SET_PROTOCOL (boot)
+        assert kind == "acl" and h == handle and int.from_bytes(payload[2:4], "little") == cids[0] \
+            and payload[4:] == bytes([0x70]), payload.hex()
+        self.l2(0x0040, bytes([0x00]), handle)              # HANDSHAKE: successful
+
+    def move(self, dx=0, dy=0, buttons=0, wheel=0):
+        self.l2(0x0041, bytes([0xA1, 0x02, buttons, dx & 0xFF, dy & 0xFF, wheel & 0xFF]))
+
+
+def test_bt_mouse_classic(b, opts):
+    """M31: a classic Bluetooth mouse ('O' finds no LE mouse, then pairs a
+    classic one: boot protocol). Alone in the bar: the mouse with a blue
+    dot; it moves the pointer and plays a cover with a click; its key is
+    bt_mouse_classic in bm/config.txt."""
+    tmp = tempfile.mkdtemp(prefix="bm-btmouse2-")
+    img = os.path.join(tmp, "sd.img")
+    hcd = os.path.join(tmp, "BCM43430A1.hcd")
+    with open(hcd, "wb") as f:
+        f.write(bytes([0x4C, 0xFC, 4, 1, 2, 3, 4, 0x4E, 0xFC, 4, 0xFF, 0xFF, 0xFF, 0xFF]))
+    mksd.build(img, [(hcd, "bm/BCM43430A1.hcd"), (b("carts/pong.bm"), "carts/pong.bm"),
+                     (b("carts/snake.bm"), "carts/snake.bm")])
+    key = bytes(range(0xC0, 0xD0))
+    q = Qemu(b("kernel.img"), ["-drive", f"if=sd,format=raw,file={img}"], mini_uart=True)
+    q.mini_buf = b""
+    try:
+        q.boot()
+        q.send("O")
+        q.expect("(same pins, same speed)\r\n")
+        chip = FakeClassicMouse(q.port)
+        chip.buf, q.buf = q.buf, b""
+        chip.init(reset_silent=False)
+        chip.pair_mouse(key, chip.HANDLE, (0x60, 0x61))
+        out = _mini_expect(q, "mouse paired; next time click it to connect", timeout=40)
+        for s_ in ("bt: no mouse in pairing mode found",
+                   "bt: found 1c:66:6d:0a:0b:0c class 002580",
+                   "bt: mouse 1c:66:6d:0a:0b:0c connected, it moves the pointer"):
+            assert s_ in out, out
+        q.mini.write(b"M")
+        _mini_expect(q, "cartridge menu")
+        time.sleep(1.0)
+        shot_ = q.screendump()
+        runs = bar_icons(shot_)
+        assert len(runs) == 1 and blue_number(shot_, runs[0]) and arrow_at(shot_, 320, 180), runs
+        for _ in range(3):                              # to the corner (8-bit motion)
+            chip.move(-127, -127)
+            time.sleep(0.2)
+        chip.move(100, 100)                             # (120, 120): Pong
+        time.sleep(0.4)
+        shot_ = q.screendump()
+        assert arrow_at(shot_, 120, 120) and "Pong" in screen_text(shot_)[4], screen_text(shot_)[4]
+        chip.move(buttons=1)
+        time.sleep(0.1)
+        chip.move()
+        _mini_expect(q, "playing pong.bm")
+    finally:
+        q.close()
+    part = os.path.join(tmp, "part.img")
+    with open(img, "rb") as f, open(part, "wb") as o:
+        f.seek(2048 * 512)
+        o.write(f.read())
+    cfg = subprocess.run(["mtype", "-i", part, "::/BM/CONFIG.TXT"], capture_output=True, text=True,
+                         env=dict(os.environ, MTOOLS_SKIP_CHECK="1")).stdout
+    shutil.rmtree(tmp, ignore_errors=True)
+    assert "bt_mouse_classic=1c:66:6d:0a:0b:0c " + key.hex() in cfg, cfg
+
+
+def test_stick_pointer(b, opts):
+    """M31: without a mouse the right stick of a pad moves the pointer: in
+    the menu the arrow shows only once the stick moves; in a cartridge
+    that asks for the pointer, R2 is its left button and L2 the right one."""
+    tmp = tempfile.mkdtemp(prefix="bm-stick-")
+    img = os.path.join(tmp, "sd.img")
+    hcd = os.path.join(tmp, "BCM43430A1.hcd")
+    with open(hcd, "wb") as f:
+        f.write(bytes([0x4C, 0xFC, 4, 1, 2, 3, 4, 0x4E, 0xFC, 4, 0xFF, 0xFF, 0xFF, 0xFF]))
+    cart = os.path.join(tmp, "mouse.bm")
+    with open(cart, "wb") as f:
+        f.write(mkbm.pack(MOUSE_CART.encode(), title="Mouse test", res=(320, 180)))
+    mksd.build(img, [(hcd, "bm/BCM43430A1.hcd"), (cart, "carts/mouse.bm")])
+    q = Qemu(b("kernel.img"), ["-drive", f"if=sd,format=raw,file={img}"], mini_uart=True)
+    q.mini_buf = b""
+    try:
+        q.boot()
+        q.send("T")
+        q.expect("(same pins, same speed)\r\n")
+        chip = FakeDs4Chip(q.port)
+        chip.buf, q.buf = q.buf, b""
+        chip.init(reset_silent=False)
+        chip.pair(FakeDs4Chip.DS4, chip.KEY, chip.HANDLE, (0x70, 0x71), 1)
+        _mini_expect(q, "next time just press PS")
+        q.mini.write(b"M")
+        _mini_expect(q, "cartridge menu")
+        time.sleep(1.0)
+        assert not arrow_at(q.screendump(), 320, 180), "an arrow before the stick moved"
+        chip.report(rx=255)                             # right, for a moment
+        time.sleep(0.3)
+        chip.report()
+        time.sleep(0.3)
+        shot_ = q.screendump()
+        xs = [x for x in range(321, 636) if arrow_at(shot_, x, 180)]
+        assert xs, "the arrow did not show up to the right"
+        chip.report(0x08 | 0x20)                        # cross: plays the cover
+        time.sleep(0.1)
+        chip.report()
+        _mini_expect(q, "playing mouse.bm")
+        out = _mini_expect(q, "w0 true")
+        x0 = int(re.search(r"mouse (\d+),", out).group(1))
+        chip.report(rx=0)                               # left
+        time.sleep(0.3)
+        chip.report()
+        out = _mini_expect(q, "w0 true")
+        time.sleep(0.3)
+        out += q.mini.read(0.2).decode(errors="replace")
+        xs = [int(v) for v in re.findall(r"mouse (\d+),", out)]
+        assert xs and min(xs) < x0, (x0, out)
+        chip.report(shoulders=0x08)                     # R2: the left button
+        time.sleep(0.1)
+        chip.report()
+        _mini_expect(q, " click")
+        chip.report(shoulders=0x04)                     # L2: the right one
+        time.sleep(0.1)
+        chip.report()
+        _mini_expect(q, " right")
+        chip.report(0x08, ps=1)
+        _mini_expect(q, "update+draw")
+    finally:
+        q.close()
+        shutil.rmtree(tmp, ignore_errors=True)
 
 
 def test_bt_keyboard(b, opts):

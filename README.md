@@ -109,6 +109,7 @@ Risoluzioni di menu, console e giochi, e quanto costano: [docs/RISOLUZIONI.md](d
 | **M28** | Tastiera Bluetooth LE (MX Keys S): pairing con codice, HID over GATT, riconnessione | ✅ verificato sul Pi |
 | **M29** | **Pi 1 B**: stesso kernel, hub USB (split transactions), Ethernet LAN9512, immagine `bm-pi1.img` | ✅ verificato sul Pi 1 B |
 | M30 | **Assistente AI** per lo sviluppo: domande su API e codice, errori, base degli sprite; rete INT8 sulla console | base fatta (QEMU), integrazione negli editor dopo |
+| M31 | **Mouse** USB e Bluetooth (LE e classico) e puntatore: nel menu, nelle cartucce che lo chiedono (`mouse()`), anche con la levetta destra dei pad | fatto in QEMU, da provare sul Pi |
 
 ## Cosa fa il kernel
 
@@ -159,7 +160,8 @@ con **`b`**.
 | `I` | **Assistant** (M30): come si scrive il codice, basi di sprite (F6 negli strumenti; anche nella scheda Dev) |
 | `a` | audio: stato dell'uscita HDMI (clock, canale DMA, costo della sintesi, volume) e una prova: le sei forme d'onda, un accordo, glide, vibrato e arpeggio |
 | `T` | Bluetooth: cerca per 8 s e **abbina il primo controller** trovato come **prossimo giocatore** (fino a 4; DS4: Share + PS finché lampeggia); la console seriale passa alla mini UART (stessi pin) |
-| `P` | Bluetooth: **dimentica tutti i pad** abbinati (chiede conferma con `y`): chiavi tolte da `bm/config.txt`, pad scollegati; poi si riabbinano con `T` |
+| `O` | Bluetooth: **abbina un mouse** (M31) in modalità abbinamento: prima cerca per 10 s un mouse Bluetooth LE, poi per 8 s uno classico; nessun codice da digitare |
+| `P` | Bluetooth: **dimentica tutti i pad**, la tastiera e il mouse abbinati (chiede conferma con `y`): chiavi tolte da `bm/config.txt`, dispositivi scollegati; poi si riabbinano con `T`, `K`, `O` |
 | `o` | **log dell'avvio**: tutto quello che il kernel ha scritto dall'accensione (primi 64 KiB), a pagine |
 | `W` | WiFi (M18): accende il chip e lo identifica, un passo per riga |
 | `E` | Ethernet (Pi 1 B / B+, M29): link, contatori dei frame, registri del chip, indirizzo IP |
@@ -211,6 +213,11 @@ viene scelta l'interfaccia tastiera, anche se il dispositivo usa i report con ID
   **tasto PS (o Share+Options) = esci**. Lo stesso decodificatore servirà per il
   Bluetooth (M12).
 
+**Mouse (M31).** Un mouse USB (anche con la tastiera, sullo stesso ricevitore o dietro un
+hub) o Bluetooth (LE, come i Logitech MX, o classico: Settings > Controllers > *Pair a
+mouse*, o `O` dal monitor) muove il **puntatore**; senza mouse lo muove la **levetta
+destra** di un pad (R2 o R3 = tasto sinistro, L2 = destro). Vedi sotto.
+
 **SD.** All'avvio il kernel legge la prima partizione **FAT32** (o FAT16) della SD
 (quella da cui si avvia il Pi) e cerca i file **`.bm`** nella
 cartella `carts/` e nella radice. Nomi lunghi supportati. `make sdcard` mette in
@@ -232,9 +239,7 @@ aggiungere un gioco basta copiarlo in `carts/` sulla SD dal PC.
 `bm/config.txt` (layout della tastiera, modo di disegno; si può modificare anche dal
 PC) e `bm/save/*.SAV` (salvataggi e record delle cartucce: `save()`/`saved()`).
 
-Limiti attuali: un solo dispositivo USB, senza hub; niente
-Bluetooth (il chip BCM43438 usa la stessa UART della console seriale e richiede
-firmware e stack HCI/L2CAP/HID: troppo per ora).
+Limiti attuali: un solo dispositivo USB (più un mouse), collegato prima dell'accensione.
 
 Stato del LED ACT:
 - **acceso fisso**: inizializzazione in corso (se resta così, blocco prima degli interrupt)
@@ -282,6 +287,28 @@ Console ed eccezione (M2):
 Test pattern (comando `t`):
 
 ![test pattern](docs/m0-test-pattern.png)
+
+## Mouse e puntatore (M31)
+
+- **Dove c'è**: nel menu di bm sempre; nelle app (giochi, strumenti) solo se l'app lo chiede
+  con `mouse(true)` (vedi [docs/API.md](docs/API.md)); nella console testuale no.
+- **Quando si vede**: quando qualcosa lo muove. Con un mouse collegato compare subito; con
+  la sola levetta destra appena la si muove. Nel menu i tasti e la croce lo nascondono
+  (la selezione si sposta) finché non si muove di nuovo.
+- **Nel menu**: passando sopra una copertina (o una riga di un pannello) la si sceglie; il
+  tasto sinistro fa quello che farebbe A lì (gioca, apre, cambia scheda, i pulsanti in
+  basso), il destro apre le opzioni della copertina o torna indietro; un clic fuori da un
+  pannello o da una domanda li chiude; la rotellina scorre le righe.
+- **Barra in alto**: un mouse bianco, senza numero (non è un giocatore); con un **pallino
+  blu** se è Bluetooth.
+- **Spegnerlo per tutto il sistema**: `mouse=off` in `bm/config.txt` (dal PC); non c'è una
+  voce nel menu. Di base è acceso.
+- **Bluetooth**: i mouse LE (HID over GATT, abbinamento senza codice) e quelli classici
+  (protocollo boot). Chiavi in `bm/config.txt`: `bt_mouse` e `bt_mouse_key` (LE) o
+  `bt_mouse_classic`. Il mouse si ricollega da solo quando lo si muove o si clicca; la
+  tastiera Bluetooth e il mouse restano collegati insieme.
+- **nano8**: le cartucce `.p8` che usano il mouse (`poke(0x5f2d, 1)`) seguono il puntatore
+  appena compare; prima, come sempre, la levetta sinistra, la croce o le frecce.
 
 ## Che versione ho sulla SD?
 

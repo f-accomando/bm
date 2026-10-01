@@ -219,7 +219,7 @@ void monitor_run(void)
         case 'Y': usb_live_test(5); input_live_test(10); break;
         case 'T': bt_scan(8); break;
         case 'K': bt_pair_keyboard(15); break;
-        case 'O': bt_pair_mouse(15); break;
+        case 'O': bt_pair_mouse(10); break;
         case 'W':
             if (wifi_start() == 0 && wifi_scan() > 0 && wifi_connect() == 0 &&
                 net_start(&net_wifi) == 0)

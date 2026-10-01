@@ -1527,6 +1527,82 @@ codice inserito, sprite nello sheet, test di velocità, F9), `make ai-model` per
   con F6 (e col pad), il codice entra al cursore e lo sprite nella cella; il menu e
   l'editor restano a 60 fps; i test in QEMU coprono l'integrazione.
 
+## M31 — Mouse USB e Bluetooth, puntatore di sistema (M) — fatto in QEMU (2026-10-01), da provare sul Pi
+Richiesta 2026-10-01 (utente): supporto mouse **USB e Bluetooth**, anche con le **levette
+analogiche** dei pad. Decisioni:
+- il mouse si può spegnere **per tutto il sistema** ma non dall'utente: `mouse=off` in
+  `bm/config.txt`, nessuna voce nel menu; di base è acceso;
+- è attivo a seconda dell'**ambiente**: nel menu di bm sì, nelle app no, a meno che l'app
+  lo chieda (`mouse(true)`);
+- è **nascosto** se l'ambiente non lo supporta o se non c'è niente che lo muova;
+- nella barra un'**icona del mouse bianca**, senza numero (non è un giocatore), con un
+  **pallino blu** se è Bluetooth.
+
+Fatto (QEMU, test sul PC):
+- `src/usb/hid.c`: dove sono tasti, X, Y, rotellina e AC Pan nel report di un mouse, dal
+  descrittore USB o dalla mappa dei report LE (ID, campi da 12 o 16 bit), oppure il report
+  del protocollo boot; posizioni assolute (tavolette, l'`usb-tablet` di QEMU); la **levetta
+  destra** e L2 R2 L3 R3 di DS4, Xbox 360 e gamepad HID (Rx/Ry o Z/Rz). `pad()` vede i
+  nuovi bit (4096 L2 ... 32768 R3; nano8 li sa mappare).
+- `src/usb/usb.c`: un'interfaccia mouse **oltre** alla tastiera o al gamepad, sullo stesso
+  dispositivo (ricevitore con tastiera e mouse) o su un'altra porta dell'hub, col suo
+  endpoint. La decisione di M7b/M29 ("un solo dispositivo HID") diventa "uno più il
+  mouse". L'`usb-tablet` di QEMU, prima un gamepad, ora è un mouse.
+- `src/bt/ble.c`: **tastiera e mouse LE insieme** (lo stato è per dispositivo; una sola
+  scansione passiva per quelli lontani, una connessione alla volta). Il mouse si abbina
+  senza codice (Just Works, LE Secure Connections o legacy); dalla mappa dei report si
+  prende il report del mouse, altrimenti il Boot Mouse Input Report. Chiavi `bt_mouse` e
+  `bt_mouse_key`; si ricollega da solo (anche da un indirizzo privato, con l'IRK).
+- `src/bt/bt.c`: **mouse Bluetooth classico** in protocollo boot (SET_PROTOCOL sul canale
+  di controllo, report `A1 02`), un collegamento e una chiave suoi (`bt_mouse_classic`).
+  `O` dal monitor o Settings > Controllers > *Pair a mouse*: prima 10 s di ricerca LE, poi
+  8 s di ricerca classica.
+- `src/kernel/pointer.c`: il **puntatore di sistema**. La posizione è una frazione dello
+  schermo (passando dal menu 640x360 a un gioco 320x180 resta allo stesso punto); il
+  movimento è scalato come su 640x360, con accelerazione (lento preciso, veloce lontano);
+  la levetta destra con zona morta e curva (560 pixel/s al massimo); con la levetta, R2 o
+  R3 è il tasto sinistro e L2 il destro. Si vede quando c'è chi lo muove ed è "attivo":
+  un mouse appena collegato, o un movimento; nel menu i tasti e la croce lo nascondono.
+  Un clic col puntatore nascosto lo mostra soltanto. Freccia bianca bordata di nero,
+  12x20, o 8x12 sugli schermi alti meno di 288 pixel.
+- **Menu**: passando sopra una copertina intera o una riga di un pannello la si sceglie;
+  tasto sinistro = A su quello che c'è sotto (copertina, scheda, Settings, riga, i
+  pulsanti A / B / X in basso; una copertina tagliata dal bordo si sceglie soltanto),
+  destro = opzioni della copertina o indietro; un clic fuori da un pannello o da una
+  domanda li chiude; la rotellina scorre le righe. `menu_ui_hit()` dice cosa c'è sotto un
+  punto dell'ultimo fotogramma (zone registrate mentre si disegna).
+- **Barra**: icona `ICON_MOUSE` in `icons.c`, con il pallino `ICON_DOT` (blu) per il
+  Bluetooth; una per il mouse USB e una per quello Bluetooth se ci sono entrambi.
+- **Cartucce**: `mouse(on, [freccia])`, `mouse()` → `x, y, tasti, rotellina, visibile`,
+  `mousep([i])` (docs/API.md). La freccia si disegna sulla pagina mostrata, mai nel buffer
+  della cartuccia (anche disegnando via RAM). nano8: le cartucce con `poke(0x5f2d, 1)`
+  seguono il puntatore appena compare (sopra l'immagine 128x128, senza freccia: la
+  disegnano loro). L'assistente (M30) conosce `mouse` e `mousep`.
+- Settings > Controllers: la riga **Mouse** ("USB", "Bluetooth on/off", "off" con
+  `mouse=off`) e **Pair a mouse**; *Forget all controllers* e `P` dimenticano anche il mouse.
+- Test: `make test-usb` (descrittori del mouse e del tablet di QEMU, una mappa stile
+  Logitech, il protocollo boot, levetta destra e grilletti); in QEMU `test_usb_mouse`
+  (tastiera e tablet dietro un hub: icone, freccia, passaggio sopra, rotellina, tasti che
+  la nascondono, schede, tasto destro, clic fuori, clic che gioca), `test_mouse_cart`
+  (API in un gioco 320x180 e `mouse=off`), `test_bt_mouse` (MX Keys e MX Master simulati
+  insieme: abbinamento Just Works, icone blu, puntatore, Settings, riconnessione con
+  l'IRK, chiavi), `test_bt_mouse_classic`, `test_stick_pointer` (levetta destra, R2, L2).
+  La simulazione dei dispositivi LE (`FakeMxKeys`) ora regge più collegamenti.
+
+**Da provare sul Pi** (senza seriale, tutto sullo schermo):
+- il mouse Bluetooth LE: mouse in modalità abbinamento, poi Settings > Controllers > *Pair
+  a mouse* (col DS4 o la tastiera); la schermata dice "found mouse ...", "no code (Just
+  Works)", "mouse ... connected"; nel menu l'icona del mouse col pallino blu e la freccia;
+- il puntatore nel menu: passare sulle copertine, clic per giocare, tasto destro per le
+  opzioni, rotellina; la **velocità** (da regolare se è troppo lenta o veloce);
+- spegnere e riaccendere il mouse (o muoverlo dopo un po'): si ricollega da solo, anche con
+  la MX Keys collegata;
+- la levetta destra del DS4: la freccia compare muovendola; R2 clicca;
+- `mouse=off` in `bm/config.txt`: niente freccia né icona.
+
+- **Fatto quando:** sul Pi il mouse Bluetooth LE si abbina dal menu, muove il puntatore a
+  60 fps insieme alla MX Keys e si ricollega da solo; la levetta destra fa lo stesso.
+
 ## Rischi principali
 | Rischio | Mitigazione |
 |---------|-------------|
