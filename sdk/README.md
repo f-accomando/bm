@@ -270,6 +270,67 @@ Più semplice dei programmi per il PC: niente angoli spostati a mano, selezioni,
 dello sheet (si fa nell'SDK, pagina sprite), import/export `.glb` e sprite
 pre-renderizzati; un osso per faccia (la pelle a parti rigide); keyframe di posa intera.
 
+## Sulla console: bm Mesh
+
+**bm Mesh** è l'editor delle mesh, incorporato nel kernel (`carts/mesh/main.lua`): scheda
+**Dev**, oppure **X** sulla copertina di un gioco → **Open in bm Mesh** (dal monitor, il
+tasto `4`). Legge tre tipi di mesh di un `.bm`, segnati nella lista con una lettera:
+
+- **M**, i **modelli** della sezione MESH (quelli di bm Studio e dello studio 3D, con lo
+  scheletro di bm Animator se ce l'hanno): nel gioco `model("nome")`;
+- **C**, le mesh **nel codice** scritte da bm Mesh: funzioni `mesh_nome()` alla fine di
+  `main.lua`, tra le righe `-- [bm Mesh begin]` e `-- [bm Mesh end]`; nel gioco
+  `local m = mesh_nome()` (in `_init` o dopo) e poi `draw3d(m, ...)`;
+- **G**, le mesh che il **codice del gioco** costruisce con `mesh()`, `mesh_sphere()` e
+  `mesh_cube()`, come le navi e gli anelli di Astro Wing. Il kernel le trova eseguendo il
+  codice a parte (`cart_meshes()`: niente file, schermo o suono, un limite di istruzioni)
+  e dà a ciascuna il nome della variabile che la tiene (`M.ship` → `ship`).
+
+Due pagine (F1 lista, F2 modifica; sul gamepad Y + sinistra/destra) e il menu con Esc;
+tenendo premuto **F12**, o con **?**, compaiono i tasti.
+
+- **F1, la lista**: su/giù sceglie la mesh, che gira in anteprima con vertici, triangoli e
+  scheletro. **m** la copia come **modello** (da mesh a modello), **c** come **codice** (da
+  modello a mesh: `mesh_nome()`), **r** rinomina, **d** duplica (un modello con lo
+  scheletro), **Del** due volte cancella, **n** fa un modello nuovo (un cubo; con F3 anche
+  piano e sfera). Le mesh del gioco non si rinominano né si cancellano: è il suo codice
+  che le fa (bm Code lo modifica).
+- **F2, la modifica**: un **puntatore** (frecce, più veloce tenendo premuto; sul gamepad la
+  croce) indica il vertice o la faccia sotto di sé (**Tab** cambia tra vertici e facce;
+  **n** e **b** lo portano sul successivo o sul precedente, anche dietro). **Spazio**
+  aggiunge o toglie dalla scelta, **Invio** sceglie solo quello, **a** tutto o niente,
+  **l** tutto quello che è collegato. Poi:
+  - **g** sposta, **r** ruota, **t** scala: le frecce e PgUp/PgDn cambiano il valore
+    (sinistra/destra e PgUp/PgDn sui due assi della vista, su/giù in altezza; **x y z**
+    solo su quell'asse, **n** lungo la normale), `,` e `.` il passo (0,01–1; 1–90°;
+    ×1,01–2), **Invio** conferma, **Esc** annulla;
+  - **x** estrude le facce scelte (poi si spostano lungo la normale), **d** le duplica,
+    **m** specchia la scelta (sinistra-destra sullo schermo), **M** la copia dall'altra
+    parte dello 0 (per i modelli simmetrici: i vertici sullo 0 restano in comune);
+  - **j** fa una faccia sui 3 o 4 vertici scelti (nell'ordine, verso la camera), **k**
+    unisce i vertici scelti in uno, **K** salda quelli nello stesso punto (con il flag 4
+    di `draw3d` le facce intorno sembrano lisce), **u** divide ogni faccia in 4, **i** le
+    gira, **Del** cancella;
+  - **p** colora le facce, **o** prende il colore dalla faccia, **c** la tavolozza;
+  - la vista: q e girano, w s inclinano, + − zoom, **f** inquadra la scelta, 1 3 7 0 le
+    viste dritte; sul gamepad X + croce. Ctrl+Z e Ctrl+Y annullano e rifanno.
+
+  Modificare una mesh **G** ne fa prima una copia come modello (il codice del gioco non si
+  riscrive): il gioco la usa con `model("nome")`.
+
+Il **menu** apre un altro `.bm`, salva (Ctrl+S) o salva come (nome 8.3 in `/carts`) e
+**prova il gioco** (F5: si torna nella stessa pagina). Il salvataggio usa
+`cart_write(path, {sections = {[8] = MESH, [9] = ANIM}, lua = ...})`: cambiano solo i
+modelli e il blocco di bm Mesh nel codice; sprite sheet, mappa, copertina, banco di suoni
+e il resto del codice restano byte per byte. Un modello con lo scheletro lo tiene: l'osso
+di ogni vertice segue i vertici aggiunti (quello del vertice da cui vengono) e tolti, e
+ossa e animazioni restano quelle di bm Animator.
+
+Compatibile con le altre app: i modelli sono quelli che leggono e scrivono bm Studio, bm
+Animator, lo studio 3D, `mkbm.py --models` e il kernel; le mesh nel codice hanno il formato
+di "Copy as Lua" di bm Studio (vertici, poi `a, b, c, colore` con `-1` per la texture, poi
+le coordinate dello sheet) e si aprono in bm Code come il resto del codice.
+
 ## Test
 
 ```sh
@@ -290,6 +351,18 @@ I file che scrive sono riletti da bm Studio (`check_studio3d.js`: le facce sono
 **identiche** a quelle dello Studio con gli stessi attrezzi), da `bmmesh.py` e dal parser
 del kernel (`test_bm`). In QEMU, `test_studio3d` apre il villaggio dalle opzioni del gioco,
 costruisce, anima, salva, prova il gioco e torna.
+
+bm Mesh ha il suo banco di prova sul PC (`tests/studio/mesh_host.lua`, in `make
+test-studio`): `cart_meshes()` sostituito da un `load` del codice del gioco con le stesse
+regole del kernel, e il percorso intero (le 13 mesh di Astro Wing, mesh → modello uguale a
+quello che il codice dà a `mesh()`, mesh → codice che rieseguito dà le stesse mesh,
+spostamenti, annulla, suddivisione, specchio, facce nuove, unione, colore, estrusione,
+duplicazione, il paesano con lo scheletro dopo vertici spostati e cancellati, salva come).
+I file che scrive sono riletti da bm Studio (`check_mesh.js`), da `bmmesh.py` e dal kernel
+(`test_meshcap`: ogni scheletro corrisponde al suo modello). `test_meshcap` prova anche la
+cattura vera (`src/bm/meshcap.c`) su Astro Wing, Texture Room e Chaos Kitchen. In QEMU,
+`test_mesh` apre Astro Wing dalle opzioni, copia la nave come modello, ne sposta i vertici,
+la copia come codice e salva.
 
 ## Struttura
 
@@ -315,4 +388,10 @@ carts/studio3d/main.lua      lo studio 3D della console (incorporato nel kernel,
 carts/studio3d/mkassets.js   il suo sheet (le tessere iniziali) e la copertina
 tests/studio/studio3d_host.lua    lo studio 3D sul PC, con le API di bm sostituite
 tests/studio/check_studio3d.js    i suoi file riletti da bm Studio
+carts/mesh/main.lua          bm Mesh, l'editor delle mesh (incorporato nel kernel, scheda Dev)
+carts/mesh/mkcover.js        la sua copertina
+src/bm/meshcap.c             cart_meshes(): le mesh che il codice di un .bm costruisce
+tests/bm/test_meshcap.c      la cattura sulle cartucce vere
+tests/studio/mesh_host.lua   bm Mesh sul PC, con le API di bm sostituite
+tests/studio/check_mesh.js   i suoi file riletti da bm Studio
 ```

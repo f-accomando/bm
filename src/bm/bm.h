@@ -191,4 +191,20 @@ int bm_is_cart(const void *head8);
 uint8_t *bm_rewrite(const uint8_t *old, size_t oldlen, const char *lua, size_t lua_len,
                     const char *title, const char *author, int width, size_t *outlen);
 
+/* A section for bm_rewrite_with: data NULL takes the sections of that type
+ * away. */
+typedef struct {
+    uint32_t type;
+    const uint8_t *data;
+    uint32_t size;
+} bm_put_t;
+
+/* bm_rewrite, with the sections of `put` in place of those of their type
+ * (or at the end, if the file has none); lua NULL keeps the code as it is.
+ * Putting MESH or ANIM also takes away those of the first bm Studio files
+ * (a type 6 that is not a sound bank, a type 7). */
+uint8_t *bm_rewrite_with(const uint8_t *old, size_t oldlen, const char *lua, size_t lua_len,
+                         const char *title, const char *author, int width, const bm_put_t *put, int nput,
+                         size_t *outlen);
+
 #endif

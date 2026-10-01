@@ -72,7 +72,7 @@ $(LUA_OBJS) $(LWIP_OBJS) $(MBEDTLS_OBJS): WARN := -w
 # Lua scripts embedded with .incbin
 $(BUILD)/k/src/script/embed.S.o: $(wildcard src/script/*.lua) keys/release-pub.pem \
                                  $(BUILD)/demo.bm $(BUILD)/stress.bm $(BUILD)/editor.bm $(BUILD)/sound.bm \
-                                 $(BUILD)/studio3d.bm \
+                                 $(BUILD)/studio3d.bm $(BUILD)/mesh.bm \
                                  $(BUILD)/assist.bin src/ai/assist.lua $(BUILD)/assistant.bm \
                                  $(BUILD)/code.bm
 
@@ -115,6 +115,12 @@ $(BUILD)/studio3d.bm: carts/studio3d/main.lua carts/studio3d/cover.png carts/stu
 	@mkdir -p $(dir $@)
 	$(PYTHON) scripts/mkbm.py -o $@ --lua $< --cover carts/studio3d/cover.png \
 	    --sheet carts/studio3d/sheet.png --sheet8 --title "bm 3D studio" --author bm
+
+# bm Mesh: the meshes of a .bm (its models and those its code builds), on
+# the console. Its cover: carts/mesh/mkcover.js.
+$(BUILD)/mesh.bm: carts/mesh/main.lua carts/mesh/cover.png scripts/mkbm.py
+	@mkdir -p $(dir $@)
+	$(PYTHON) scripts/mkbm.py -o $@ --lua $< --cover carts/mesh/cover.png --title "bm Mesh" --author bm
 
 $(BUILD)/stress.bm: carts/stress/main.lua scripts/mkbm.py
 	@mkdir -p $(dir $@)
@@ -449,8 +455,23 @@ $(BUILD)/host/test_board: tests/usb/test_board.c src/drivers/board.c src/drivers
 	@mkdir -p $(dir $@)
 	$(HOSTCC) -O2 -Wall -Wextra -Isrc -o $@ tests/usb/test_board.c src/drivers/board.c
 
-test-bm: $(BUILD)/host/test_bm $(BUILD)/demo.bm
+# the meshes a cartridge builds in its code (cart_meshes(), bm Mesh)
+MESHCAP_SRCS := tests/bm/test_meshcap.c src/bm/meshcap.c src/bm/format.c src/bm/r3d.c src/lib/crc32.c
+$(BUILD)/host/test_meshcap: $(MESHCAP_SRCS) src/bm/*.h $(LUA_SRCS)
+	@mkdir -p $(dir $@)
+	$(HOSTCC) -O2 -Wall -Wextra -Isrc/bm -Isrc -Ithird_party/lua -o $@ $(MESHCAP_SRCS) $(LUA_SRCS) -lm
+
+$(BUILD)/meshcap-test.bm: tests/bm/meshcap_cart.lua scripts/mkbm.py
+	$(PYTHON) scripts/mkbm.py -o $@ --lua $< --title "meshcap test" --author tests
+
+test-bm: $(BUILD)/host/test_bm $(BUILD)/demo.bm $(BUILD)/host/test_meshcap $(BUILD)/carts/astrowing.bm \
+         $(BUILD)/carts/texroom.bm $(BUILD)/carts/kitchen.bm $(BUILD)/meshcap-test.bm
 	$< $(BUILD)/demo.bm
+	$(BUILD)/host/test_meshcap src/bm/runtime.c \
+	    $(BUILD)/meshcap-test.bm '!stop here,wheel:1,cars1_body:1,gem:2' \
+	    $(BUILD)/carts/astrowing.bm ship:32,dart,tower,gate,ring:120,laser,bolt,debris,debris2,mark,core,core_hot,turret \
+	    $(BUILD)/carts/texroom.bm floor_mesh,walls_mesh,crate_mesh,pillar_mesh \
+	    $(BUILD)/carts/kitchen.bm chef_classic1_body,chef_model1_body,plate,dplate
 
 # The assistant (M30): C features and network against the Python reference,
 # answers to the held-out questions, sprite generator
@@ -474,14 +495,22 @@ test-ai: $(BUILD)/host/test_ai $(BUILD)/assist.bin $(BUILD)/host/luahost $(BUILD
 # bm Studio (sdk/studio): its core in Node (the .bm, PNG and glTF it writes,
 # the editing geometry), then the same files read by the Python of the build
 # and by the kernel's parser. Skipped without Node.
-test-studio: $(BUILD)/host/test_bm $(BUILD)/demo.bm $(BUILD)/host/luahost $(BUILD)/carts/village.bm
+test-studio: $(BUILD)/host/test_bm $(BUILD)/demo.bm $(BUILD)/host/luahost $(BUILD)/carts/village.bm \
+             $(BUILD)/carts/astrowing.bm $(BUILD)/host/test_meshcap
 	rm -rf $(BUILD)/studio3d-sd && mkdir -p $(BUILD)/studio3d-sd/carts
 	cp $(BUILD)/carts/village.bm $(BUILD)/studio3d-sd/carts/
 	$(BUILD)/host/luahost tests/studio/studio3d_host.lua . $(BUILD)/studio3d-sd
+	rm -rf $(BUILD)/mesh-sd && mkdir -p $(BUILD)/mesh-sd/carts
+	cp $(BUILD)/carts/village.bm $(BUILD)/carts/astrowing.bm $(BUILD)/mesh-sd/carts/
+	$(BUILD)/host/luahost tests/studio/mesh_host.lua . $(BUILD)/mesh-sd
+	$(BUILD)/host/test_meshcap src/bm/runtime.c $(BUILD)/mesh-sd/carts/astrowing.bm ship \
+	    $(BUILD)/mesh-sd/carts/village.bm "" $(BUILD)/mesh-sd/carts/meshcopy.bm ""
+	$(PYTHON) scripts/bmmesh.py $(BUILD)/mesh-sd/carts/astrowing.bm $(BUILD)/mesh-sd/carts/village.bm >/dev/null
 	@if command -v node >/dev/null 2>&1; then \
 	    node tests/studio/test_core.js $(BUILD)/studio-test.bm && \
 	    $(PYTHON) tests/studio/check_cart.py $(BUILD)/studio-test.bm && \
 	    node tests/studio/check_studio3d.js $(BUILD)/studio3d-sd $(BUILD)/carts/village.bm && \
+	    node tests/studio/check_mesh.js $(BUILD)/mesh-sd $(BUILD)/carts/village.bm && \
 	    $(BUILD)/host/test_bm $(BUILD)/demo.bm $(BUILD)/studio-test.bm $(BUILD)/studio-test-anim.bm \
 	        $(BUILD)/studio3d-sd/carts/blocks.bm; \
 	else echo "test-studio: node not found, skipped"; fi

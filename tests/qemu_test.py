@@ -856,7 +856,7 @@ def test_home_ui(b, opts):
 
         # the options of the suspended game
         keys("x")
-        # (with four tools the info rows, Author..., are below: the panel scrolls)
+        # (with five tools, Open in bm Mesh and the info rows are below: the panel scrolls)
         screen(["AAA saver", "Resume", "Close the game", "Open in the SDK", "Open in bm Code",
                 "Open in the Sound editor", "Open in the 3D studio"])
         shot("options")
@@ -953,6 +953,8 @@ def test_home_ui(b, opts):
         screen(["bm Sound", "sound (built-in)"])
         keys("d")
         screen(["bm 3D studio", "3D studio (built-in)"])
+        keys("d")
+        screen(["bm Mesh", "mesh (built-in)"])
         keys("d")
         screen(["Code", "code editor: tabs, two pages"])
         keys("d")
@@ -2644,6 +2646,99 @@ def test_studio3d(b, opts):
         assert struct.unpack_from("<H", anim)[0] == 1 and (nb, nc, nv) == (2, 1, 8), (nb, nc, nv)
         assert anim[clip:clip + 5] == b"anim1" and struct.unpack_from("<H", anim, clip + 16)[0] == 2
         assert saved[24:38] == b"New 3D project", saved[24:48]
+    finally:
+        shutil.rmtree(tmp, ignore_errors=True)
+
+
+def test_mesh(b, opts):
+    """bm Mesh on the console (a game's options, "Open in bm Mesh"): it lists
+    the meshes Astro Wing builds in its code (cart_meshes runs the code
+    apart), copies the ship as a model and moves its vertices, copies it as
+    code (mesh_ship() at the end of main.lua) and saves: the file holds the
+    model and the code the kernel and the build read."""
+    tmp = tempfile.mkdtemp(prefix="bm-mesh-")
+    img = os.path.join(tmp, "sd.img")
+    mksd.build(img, [(b("carts/astrowing.bm"), "carts/astrowing.bm")])
+    with open(b("carts/astrowing.bm"), "rb") as f:
+        lua0 = dict(bmmesh.cart_sections(f.read()))[1]
+    q = Qemu(b("kernel.img"), ["-drive", f"if=sd,format=raw,file={img}"])
+
+    def keys(*ks, gap=0.3):
+        for k in ks:
+            q.send(k)
+            time.sleep(gap)
+
+    def screen(want, tries=40):
+        for _ in range(tries):
+            _, text = settled_screen(q, lambda i, t: all(any(w in l for l in t) for w in want), tries=2)
+            if all(any(w in l for l in text) for w in want):
+                return "\n".join(text)
+            time.sleep(0.25)
+        raise AssertionError(f"not on the screen: {want}\n" + "\n".join(text))
+
+    def shot(name):
+        if opts.shots:
+            _save_png(q.screendump(), os.path.join(opts.shots, f"mesh-{name}.png"))
+
+    F1, F2, UP, DOWN, ESC, SAVE = "\x1bOP", "\x1bOQ", "\x1b[A", "\x1b[B", "\x1b", "\x13"
+    try:
+        q.expect(MENU, timeout=30)
+        time.sleep(0.5)
+        screen(["Games", "Astro Wing"])
+        keys("x")
+        screen(["Open in the 3D studio", "Open in bm Mesh"])
+        keys("s", "s", "s", "s", "s", "\r")
+        text = screen(["F1 list", "MESHES 13", "ship", "30 vertices, 32 triangles", "built by the game's code"])
+        assert "0 models, 0 code meshes, 13 from the game's code" in text, text
+        assert "core_hot" in text and "turret" in text, text
+        shot("list")
+
+        # mesh -> model, then its vertices 0.2 up
+        keys("m", gap=0.5)
+        screen(["copied as the model ship"])
+        keys(F2, gap=0.5)
+        screen(["VERTICES: 0 chosen", "model (MESH section)"])
+        keys("a", "g", UP, UP)
+        screen(["VERTICES: 30 chosen", "MOVE", "y 0.2"])
+        shot("edit")
+        keys("\r", SAVE, gap=0.6)
+        screen(["saved /carts/astrowing.bm"])
+
+        # mesh -> code
+        keys(F1, DOWN, gap=0.5)
+        screen(["built by the game's code", "read only"])
+        keys("c", gap=0.5)
+        screen(["copied as code: mesh_ship()"])
+        keys(SAVE, gap=0.6)
+        screen(["saved /carts/astrowing.bm"])
+        shot("code")
+
+        # out of bm Mesh: back to the menu
+        keys(ESC, gap=0.6)
+        screen(["bm Mesh", "Exit bm Mesh"])
+        keys(UP, "\r")                          # up from Continue: Exit bm Mesh
+        screen(["Games", "last: bm Mesh on astrowing.bm"])
+    finally:
+        q.close()
+    try:
+        part = os.path.join(tmp, "part.img")
+        with open(img, "rb") as f, open(part, "wb") as o:
+            f.seek(2048 * 512)
+            o.write(f.read())
+        fsck = subprocess.run(["fsck.vfat", "-n", part], capture_output=True, text=True)
+        assert fsck.returncode == 0, fsck.stdout + fsck.stderr
+        env = dict(os.environ, MTOOLS_SKIP_CHECK="1")
+        saved = subprocess.run(["mtype", "-i", part, "::/CARTS/ASTROWING.BM"], capture_output=True, env=env).stdout
+        secs = dict(bmmesh.cart_sections(saved))
+        models, _ = bmmesh.decode(secs[bmmesh.SEC_MESH])
+        assert [m["name"] for m in models] == ["ship"], models
+        ship = models[0]
+        assert len(ship["verts"]) == 30 and len(ship["faces"]) == 32, (len(ship["verts"]), len(ship["faces"]))
+        # the nose of the fighter, (0, 0, 2.2) in the game's code, is 0.2 higher
+        assert any(abs(v[0]) < 1e-6 and abs(v[1] - 0.2) < 1e-5 and abs(v[2] - 2.2) < 1e-5 for v in ship["verts"]), ship
+        lua = secs[1]
+        assert lua.startswith(lua0) and b"function mesh_ship()" in lua and b"-- [bm Mesh end]" in lua, lua[-400:]
+        assert bmmesh.SEC_ANIM not in secs
     finally:
         shutil.rmtree(tmp, ignore_errors=True)
 

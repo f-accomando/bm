@@ -25,6 +25,7 @@
 #include "kernel/crumbs.h"
 #include "ai/lua_ai.h"
 #include "require.h"
+#include "meshcap.h"
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -1441,6 +1442,7 @@ static int l_cart_put_audio(lua_State *L);
 static int l_cart_data(lua_State *L);
 static int l_cart_read(lua_State *L);
 static int l_cart_write(lua_State *L);
+static int l_cart_meshes(lua_State *L);
 
 /* ---------------------------------------------------------------- light */
 
@@ -1502,7 +1504,7 @@ static const luaL_Reg api[] = {
     { "keyp", l_keyp }, { "keyheld", l_keyheld }, { "ls", l_ls }, { "cart_load", l_cart_load }, { "cart_new", l_cart_new },
     { "cart_save", l_cart_save }, { "cart_run", l_cart_run }, { "cart_arg", l_cart_arg },
     { "cart_data", l_cart_data },
-    { "cart_read", l_cart_read }, { "cart_write", l_cart_write },
+    { "cart_read", l_cart_read }, { "cart_write", l_cart_write }, { "cart_meshes", l_cart_meshes },
     { "light_begin", l_light_begin }, { "light", l_light }, { "light_end", l_light_end },
     { "note", l_note }, { "noteoff", l_noteoff }, { "freq", l_freq },
     { "envelope", l_envelope }, { "duty", l_duty }, { "playing", l_playing }, { "apu", l_apu },
@@ -2168,19 +2170,102 @@ static int l_cart_read(lua_State *L)
     return 1;
 }
 
-/* cart_write(path, {lua=, [title=, author=, res=, from=]}) -> true, or
- * false and a message. Changes only the code (and the fields given) of the
- * cartridge: its sheet, map, cover and any other section stay as they are.
- * from: take those sections from another file ("save as"). A file that does
- * not exist yet becomes a new cartridge with only the code (its name must
- * then be 8.3; an existing file keeps its long name). */
+lua_State *bm_meshcap_newstate(void)
+{
+    return luavm_newstate();
+}
+
+static int capture_call(lua_State *L)
+{
+    const bm_cart_t *c = lua_touserdata(L, 1);
+    return bm_mesh_capture(L, c->lua, c->lua_size, c->width, c->height, api, c->mesh, c->mesh_size);
+}
+
+/* cart_meshes(path) -> { {name=, kind=, verts=, faces=, [uv=]}, ... }, and
+ * nil or the first error of the cartridge's code; or nil and a message.
+ * The 3D meshes the cartridge builds in its code (mesh(), mesh_sphere(),
+ * mesh_cube()), found by running it apart with every other function of bm
+ * doing nothing (meshcap.c); the fields are the arguments of mesh(). For
+ * bm Mesh. */
+static int l_cart_meshes(lua_State *L)
+{
+    const char *path = luaL_checkstring(L, 1);
+    fat_entry_t e;
+    uint8_t *data;
+    size_t len;
+    bm_cart_t c;
+    char err[64];
+    memset(&e, 0, sizeof e);
+    if (fat_find(path, &e) != 0 || e.is_dir || fat_load(&e, &data, &len) != 0) {
+        lua_pushnil(L);
+        lua_pushstring(L, e.is_dir ? "a directory" : fat_error());
+        return 2;
+    }
+    if (bm_parse(data, len, &c, err, sizeof err) != 0) {
+        free(data);
+        lua_pushnil(L);
+        lua_pushstring(L, err);
+        return 2;
+    }
+    lua_pushcfunction(L, capture_call);       /* protected: `data` is freed whatever happens */
+    lua_pushlightuserdata(L, &c);
+    int status = lua_pcall(L, 1, 2, 0);
+    free(data);
+    if (status != LUA_OK) {
+        lua_pushnil(L);
+        lua_insert(L, -2);
+    }
+    return 2;
+}
+
+/* cart_write(path, {[lua=], [title=, author=, res=, from=, sections=]}) ->
+ * true, or false and a message. Changes only the code (and the fields
+ * given) of the cartridge: its sheet, map, cover, sound bank and any other
+ * section stay as they are. lua absent: the code stays too. sections:
+ * {[8] = MESH bytes, [9] = ANIM bytes} (false takes them away), checked
+ * first (bm Mesh, the 3D tools). from: take the sections from another file
+ * ("save as"). A file that does not exist yet becomes a new cartridge with
+ * the code (its name must then be 8.3; an existing file keeps its long
+ * name). */
 static int l_cart_write(lua_State *L)
 {
     const char *path = luaL_checkstring(L, 1);
     luaL_checktype(L, 2, LUA_TTABLE);
     lua_getfield(L, 2, "lua");
-    size_t lua_len;
-    const char *lua = luaL_checklstring(L, -1, &lua_len);
+    size_t lua_len = 0;
+    const char *lua = lua_isnil(L, -1) ? NULL : luaL_checklstring(L, -1, &lua_len);
+    bm_put_t put[2];
+    int nput = 0;
+    lua_getfield(L, 2, "sections");
+    if (!lua_isnil(L, -1)) {
+        luaL_checktype(L, -1, LUA_TTABLE);
+        static const uint32_t kinds[2] = { BM_SEC_MESH, BM_SEC_ANIM };
+        lua_pushnil(L);
+        while (lua_next(L, -2)) {
+            lua_Integer t = lua_isinteger(L, -2) ? lua_tointeger(L, -2) : -1;
+            if (t != BM_SEC_MESH && t != BM_SEC_ANIM)
+                return luaL_error(L, "sections: only 8 (MESH) and 9 (ANIM)");
+            lua_pop(L, 1);
+        }
+        for (int k = 0; k < 2; k++) {
+            lua_rawgeti(L, -1, kinds[k]);
+            if (lua_isnil(L, -1)) {
+                lua_pop(L, 1);
+                continue;
+            }
+            size_t n = 0;
+            const uint8_t *s = lua_toboolean(L, -1) ? (const uint8_t *)luaL_checklstring(L, -1, &n) : NULL;
+            if (s && (n > 0x1000000 || (kinds[k] == BM_SEC_MESH ? bm_mesh_check(s, (uint32_t)n)
+                                                                 : bm_anim_check(s, (uint32_t)n)) < 0)) {
+                lua_pushboolean(L, 0);
+                lua_pushstring(L, kinds[k] == BM_SEC_MESH ? "broken MESH section" : "broken ANIM section");
+                return 2;
+            }
+            put[nput++] = (bm_put_t){ kinds[k], s, (uint32_t)n };
+            lua_pop(L, 1);          /* the string stays alive in the table */
+        }
+    }
+    lua_pop(L, 1);
     const char *base = field(L, 2, "from", path);
     char dir[64], name[FAT_NAME_MAX];
     split_path(path, dir, sizeof dir, name, sizeof name);
@@ -2211,9 +2296,14 @@ static int l_cart_write(lua_State *L)
     const char *t = field(L, 2, "title", old ? title : name);
     const char *a = field(L, 2, "author", author);
     const char *res = field(L, 2, "res", c.width == 320 ? "320x180" : "640x360");
+    if (!old && !lua) {
+        lua_pushboolean(L, 0);
+        lua_pushstring(L, "a new cartridge needs its code (lua)");
+        return 2;
+    }
     size_t out_len;
-    uint8_t *out = bm_rewrite(old, old_len, lua, lua_len, t, a, strcmp(res, "320x180") ? 640 : 320,
-                              &out_len);
+    uint8_t *out = bm_rewrite_with(old, old_len, lua, lua_len, t, a, strcmp(res, "320x180") ? 640 : 320, put, nput,
+                                   &out_len);
     free(old);
     if (!out)
         return luaL_error(L, "not enough memory to save");

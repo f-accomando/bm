@@ -419,25 +419,61 @@ static void wr32(uint8_t *p, uint32_t v) { wr16(p, v); wr16(p + 2, v >> 16); }
 uint8_t *bm_rewrite(const uint8_t *old, size_t oldlen, const char *lua, size_t lua_len,
                     const char *title, const char *author, int width, size_t *outlen)
 {
+    return bm_rewrite_with(old, oldlen, lua, lua_len, title, author, width, NULL, 0, outlen);
+}
+
+uint8_t *bm_rewrite_with(const uint8_t *old, size_t oldlen, const char *lua, size_t lua_len,
+                         const char *title, const char *author, int width, const bm_put_t *put, int nput,
+                         size_t *outlen)
+{
     (void)oldlen;
-    enum { MAXSEC = 32 };
+    enum { MAXSEC = 32, MAXPUT = 8 };
     uint32_t type[MAXSEC], size[MAXSEC];
     const uint8_t *src[MAXSEC];
+    int used[MAXPUT] = { 0 }, put_mesh = 0, put_anim = 0;
+    if (nput > MAXPUT)
+        nput = MAXPUT;
+    for (int k = 0; k < nput; k++) {
+        put_mesh |= put[k].type == BM_SEC_MESH;
+        put_anim |= put[k].type == BM_SEC_ANIM;
+    }
     unsigned n = 0, have_lua = 0, count = old ? old[17] : 0;
     for (unsigned i = 0; i < count && n < MAXSEC; i++) {
         const uint8_t *e = old + BM_HEADER_SIZE + i * 16;
         type[n] = rd32(e);
+        src[n] = old + rd32(e + 4);
+        size[n] = rd32(e + 8);
         if (type[n] == BM_SEC_LUA) {
             if (have_lua++) continue;           /* one code section */
-            src[n] = (const uint8_t *)lua;
-            size[n] = (uint32_t)lua_len;
+            if (lua) {
+                src[n] = (const uint8_t *)lua;
+                size[n] = (uint32_t)lua_len;
+            }
+        } else if ((put_mesh && type[n] == BM_SEC_AUDIO && (size[n] < 4 || memcmp(src[n], "BMAU", 4) != 0)) ||
+                   (put_anim && type[n] == BM_SEC_OLD_ANIM)) {
+            continue;                           /* the first bm Studio files: replaced */
         } else {
-            src[n] = old + rd32(e + 4);
-            size[n] = rd32(e + 8);
+            int k = 0;
+            while (k < nput && put[k].type != type[n])
+                k++;
+            if (k < nput) {
+                if (used[k]++ || !put[k].data)
+                    continue;                   /* taken away, or put once */
+                src[n] = put[k].data;
+                size[n] = put[k].size;
+            }
         }
         n++;
     }
-    if (!have_lua && n < MAXSEC) {
+    for (int k = 0; k < nput && n < MAXSEC; k++) {
+        if (used[k] || !put[k].data)
+            continue;
+        type[n] = put[k].type;
+        src[n] = put[k].data;
+        size[n] = put[k].size;
+        n++;
+    }
+    if (!have_lua && lua && n < MAXSEC) {
         type[n] = BM_SEC_LUA;
         src[n] = (const uint8_t *)lua;
         size[n] = (uint32_t)lua_len;

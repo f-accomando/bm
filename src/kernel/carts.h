@@ -32,6 +32,10 @@ void carts_sound_editor(framebuffer_t *fb);
 /* The built-in 3D studio: models and animations of a .bm (menu, monitor '3'). */
 void carts_studio3d(framebuffer_t *fb);
 
+/* bm Mesh: the meshes of a .bm, its models and those its code builds
+ * (menu, monitor '4'). */
+void carts_mesh(framebuffer_t *fb);
+
 /* bm Code, the code editor (Dev tab, monitor 'C'); `open`: a file, or NULL */
 void carts_code(framebuffer_t *fb, const char *open);
 

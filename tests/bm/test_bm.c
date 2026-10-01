@@ -557,6 +557,32 @@ static void test_mesh(void)
     len = cart_with(cart, sec, n, BM_SEC_AUDIO);
     CHECK(bm_parse(cart, len, &c, err, sizeof err) == 0 && c.mesh && c.models == 2 && !c.audio,
           "a MESH of type 6 (old files) is read as MESH: %s", err);
+
+    /* bm_rewrite_with (cart_write with sections): new models in place of the
+     * old ones (here those of type 6), the code as it was */
+    {
+        uint8_t one[256];
+        size_t m = 8;
+        put16(one, 1); put16(one + 2, 64); put32(one + 4, 0);
+        m += mesh_model(one + m, "gem", 3, tri_v, 1, tri_f, tri_c, tri_uv);
+        bm_put_t put = { BM_SEC_MESH, one, (uint32_t)m };
+        size_t n2;
+        uint8_t *r = bm_rewrite_with(cart, len, NULL, 0, "T", "A", 640, &put, 1, &n2);
+        bm_cart_t c2;
+        CHECK(r && bm_parse(r, n2, &c2, err, sizeof err) == 0 && c2.models == 1 && c2.lua_size == c.lua_size &&
+              !memcmp(c2.lua, c.lua, c.lua_size), "rewrite with MESH: one model, the same code: %s", err);
+        int old = 0;
+        for (unsigned i = 0; r && i < r[17]; i++)
+            old += r[BM_HEADER_SIZE + i * 16] == BM_SEC_AUDIO;
+        CHECK(old == 0, "the old MESH of type 6 is gone");
+        bm_put_t gone = { BM_SEC_MESH, NULL, 0 };
+        size_t n3;
+        uint8_t *r2 = bm_rewrite_with(r, n2, "x=1", 3, "T", "A", 640, &gone, 1, &n3);
+        CHECK(r2 && bm_parse(r2, n3, &c2, err, sizeof err) == 0 && !c2.mesh && c2.lua_size == 3,
+              "rewrite taking MESH away, new code");
+        free(r);
+        free(r2);
+    }
 }
 
 /* A cartridge written by bm Studio (tests/studio/test_core.js): the

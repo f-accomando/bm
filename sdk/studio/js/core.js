@@ -1052,6 +1052,16 @@ end
   };
 
   /* a model as Lua code for mesh() (for games that build meshes in code) */
+  // bm Mesh (the console's mesh editor) keeps its meshes as functions at the
+  // end of main.lua, between these two lines: { code without them, block }
+  const MESH_BEGIN = '-- [bm Mesh begin]', MESH_END = '-- [bm Mesh end]';
+  function meshBlock(lua) {
+    const s = lua.indexOf(MESH_BEGIN), e = s < 0 ? -1 : lua.indexOf(MESH_END, s);
+    if (e < 0) return { code: lua, block: '' };
+    const nl = lua.indexOf('\n', e), end = nl < 0 ? lua.length : nl + 1;
+    return { code: lua.slice(0, s).replace(/\n+$/, '\n') + lua.slice(end), block: lua.slice(s, end) };
+  }
+
   function modelToLua(model, varName) {
     const mesh = modelToMesh(model), name = varName || model.name.replace(/[^A-Za-z0-9_]/g, '_');
     const lines = [`-- ${model.name}: ${mesh.verts.length} vertices, ${mesh.faces.length} triangles (bm Studio)`];
@@ -1077,7 +1087,7 @@ end
     sheet8Encode, sheet8Decode, v3, faceNormal, faceCenter, cloneFace, cloneRig, modelBounds, posKey, MODES,
     modelToMesh, meshToFaces, modelStats, meshEncode, meshDecode, animEncode, animDecode, parseCart, buildCart,
     checkProject, checkRig,
-    srgbToLinear, linearToSrgb, exportGLB, importGLB, glbParse, VIEWER_MARK, viewerLua, modelToLua,
+    srgbToLinear, linearToSrgb, exportGLB, importGLB, glbParse, VIEWER_MARK, viewerLua, modelToLua, meshBlock,
   });
   if (typeof module !== 'undefined' && module.exports) module.exports = BM;
 })(typeof window !== 'undefined' ? window : globalThis);

@@ -896,6 +896,43 @@ studio*; monitor `3`), sugli stessi file ([sdk/README.md](../sdk/README.md#sulla
   paesano (k: scheletro, b: misto), costruire qualche blocco in un progetto nuovo,
   salvarlo e provarlo (F5); fluidità del player e della costruzione sul Pi Zero.
 
+**bm Mesh (2026-10-01, stesso branch): le mesh di un `.bm`, anche quelle del codice.**
+Su richiesta dell'utente: un editor `.bm` che legge le mesh, le modifica e le scrive nel
+`.bm`, con il passaggio da mesh a modello e da modello a mesh, compatibile con le altre
+app. Cartuccia incorporata (`carts/mesh`), nella scheda **Dev** e nelle opzioni di ogni
+gioco (*Open in bm Mesh*; monitor `4`) ([sdk/README.md](../sdk/README.md#sulla-console-bm-mesh)).
+- **Lettura**: i modelli della sezione MESH (bm Studio, studio 3D; con lo scheletro di bm
+  Animator), le mesh scritte da bm Mesh nel codice e quelle che il **codice del gioco**
+  costruisce con `mesh()`, `mesh_sphere()`, `mesh_cube()` (Astro Wing: 13, con i nomi
+  delle variabili: ship, dart, ring, ...).
+- **Modifica**: puntatore (frecce o croce), vertici e facce scelti uno per uno, tutti o
+  collegati; sposta, ruota, scala (passi, assi x y z o la normale), estrudi, duplica,
+  specchia e copia specchiata, faccia nuova su 3-4 vertici, unisci e salda i vertici,
+  suddividi, gira le facce, colora, cancella; annulla e rifai; primitive (cubo, piano,
+  sfera).
+- **Mesh → modello** (`m`): una copia nella sezione MESH, `model("nome")` nel gioco;
+  **modello → mesh** (`c`): una funzione `mesh_nome()` alla fine di `main.lua`, tra
+  `-- [bm Mesh begin]` e `-- [bm Mesh end]` (lo stesso testo di "Copy as Lua" di bm Studio;
+  bm Mesh riscrive solo quelle righe). Modificare una mesh del gioco ne fa una copia come
+  modello (il codice del gioco non si riscrive).
+- **Compatibilità**: le sezioni MESH (8) e ANIM (9) come le scrivono bm Studio, bm Animator
+  e lo studio 3D; un modello con scheletro lo tiene (l'osso di ogni vertice segue i
+  vertici aggiunti e tolti); il resto del file (sheet, mappa, copertina, suoni, codice
+  fuori dal blocco) resta byte per byte; il codice si apre in bm Code.
+- **Kernel**: `cart_meshes(percorso)` esegue il codice di un `.bm` in uno stato Lua a parte
+  (`src/bm/meshcap.c`: `mesh()` e le primitive tengono una copia, le altre funzioni di bm
+  non fanno niente, limite di istruzioni) e dà le mesh con il nome della variabile;
+  `cart_write` accetta `sections` (MESH e ANIM, controllate) e il codice è facoltativo
+  (`bm_rewrite_with` in `format.c`).
+- **Test**: `test_meshcap` (la cattura sulle cartucce vere: Astro Wing, Texture Room,
+  Chaos Kitchen), bm Mesh sul PC con le API sostituite (`tests/studio/mesh_host.lua`, 65
+  controlli), i suoi file riletti da bm Studio (`check_mesh.js`), `bmmesh.py` e dal kernel;
+  `test_bm` per `bm_rewrite_with`; QEMU `test_mesh` (Astro Wing: la nave come modello
+  spostato e come codice, salvata).
+- **Da verificare sul Pi**: scheda Dev → *bm Mesh*, oppure Astro Wing → X → *Open in bm
+  Mesh*: la lista delle 13 mesh, la nave copiata come modello (m), vertici spostati (F2,
+  a, g, frecce, Invio), Ctrl+S; tempi di lettura del codice e fluidità dell'editor.
+
 Sotto-milestone:
 - **22.0 Base comune**:
   - formato del progetto;

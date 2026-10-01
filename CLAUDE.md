@@ -34,6 +34,14 @@ Lua 5.4 embedded. Documentazione: `README.md`, `docs/ROADMAP.md`, `docs/HARDWARE
   `check_studio3d.js`). Al livello principale del file ci sono meno di 200 locali: ogni
   pagina sta in un blocco `do ... end`. Prova sul PC: `tests/studio/studio3d_host.lua`
   (in `make test-studio`).
+- **bm Mesh** (`carts/mesh/main.lua`, incorporata, scheda Dev, monitor `4`, opzioni "Open in
+  bm Mesh"): vertici e facce dei modelli (MESH), delle mesh scritte da lui nel codice
+  (funzioni `mesh_<nome>()` tra `-- [bm Mesh begin]` e `-- [bm Mesh end]` in fondo a
+  `main.lua`, le sole righe che riscrive) e di quelle che costruisce il codice del gioco
+  (`cart_meshes()`, `src/bm/meshcap.c`: il codice gira in uno stato Lua a parte con le API
+  sostituite; i nomi dalle variabili). Salva con `cart_write(path, {sections=, lua=})`;
+  lo scheletro di un modello segue i vertici (`vb`). Prove: `tests/studio/mesh_host.lua`,
+  `check_mesh.js`, `test_meshcap` (in `make test-bm`/`test-studio`), QEMU `test_mesh`.
 
 ## Nome
 

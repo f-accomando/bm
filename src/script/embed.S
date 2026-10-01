@@ -82,3 +82,10 @@ bm_release_key:
 bm_studio3d_cart:
     .incbin "studio3d.bm"
 bm_studio3d_cart_end:
+
+    .section .rodata
+    .balign 4
+    .globl bm_mesh_cart, bm_mesh_cart_end
+bm_mesh_cart:
+    .incbin "mesh.bm"
+bm_mesh_cart_end:
