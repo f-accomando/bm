@@ -8,6 +8,15 @@ local C_BG, C_PANEL, C_BAR = 0x14161E, 0x1C2030, 0x2A3048
 local C_TEXT, C_DIM, C_ACC, C_ERR, C_SEL = 0xE0E4F0, 0x707890, 0xFFC050, 0xFF6060, 0x3050A0
 local ROWS = 20                          -- text rows between the tab bar and the status bar
 
+-- a key as a chip (prompt()), or the pad's button when a pad was used
+-- last and the action has one; then its label. Returns the x after it.
+local function snap(x) return (x + 7) // 8 * 8 end   -- text stays on its 8 px columns
+local function chip_hint(key, pad, label, x, y, c)
+  local li = lastinput()
+  x = prompt(pad and (li == "ds4" or li == "pad") and pad or key, x, y)
+  return print(label, snap(x + 3), y, c or C_DIM) + 12
+end
+
 local TEMPLATE = [[
 -- my game
 local x, y = 320, 180
@@ -628,11 +637,13 @@ local function draw_menu()
     if i == msel and not choosing and not input then rectfill(24, y, 300, 16, C_SEL) end
     print(it[1], 32, y, C_TEXT)
   end
-  print("hold F12 to see the keys", 344, 64, C_DIM)
+  local hx = print("hold", 344, 64, C_DIM) + 4
+  print("to see the keys", snap(prompt("f12", hx, 64) + 3), 64, C_DIM)
   if choosing then
     rectfill(40, 40, 560, 280, C_PANEL)
     rect(40, 40, 560, 280, C_ACC)
-    print("open a cartridge (Enter), Esc back", 56, 48, C_ACC)
+    local x = print("open a cartridge", 56, 48, C_ACC) + 16
+    chip_hint("esc", "B", "back", chip_hint("enter", "A", "open", x, 48), 48)
     local first = math.max(1, math.min(fsel - 7, #files - 13))
     for i = first, math.min(#files, first + 13) do
       local y = 80 + (i - first) * 16
@@ -787,15 +798,17 @@ function _draw()
   elseif page == "map" then draw_map()
   else draw_menu() end
 
-  -- tab bar
+  -- tab bar: each page with its key
   rectfill(0, 0, W, 16, C_BAR)
-  local tabs = { { "code", "F1 code" }, { "sprite", "F2 sprites" }, { "map", "F3 map" }, { "menu", "Esc menu" } }
-  local x = 0
+  local tabs = { { "code", "f1", "code" }, { "sprite", "f2", "sprites" }, { "map", "f3", "map" }, { "menu", "esc", "menu" } }
+  local x = 4
   for _, t in ipairs(tabs) do
-    local s = " " .. t[2] .. " "
-    if t[1] == page then rectfill(x, 0, #s * 8, 16, C_SEL) end
-    print(s, x, 0, t[1] == page and 0xFFFFFF or C_DIM)
-    x = x + #s * 8 + 8
+    local lx = snap(x + prompt(t[2]) + 3)            -- the label on its column
+    local w = lx + #t[3] * 8 - x
+    if t[1] == page then rectfill(x - 4, 0, w + 8, 16, C_SEL) end
+    prompt(t[2], x, 0)
+    print(t[3], lx, 0, t[1] == page and 0xFFFFFF or C_DIM)
+    x = x + w + 20
   end
   local name = (proj.save or "untitled") .. (dirty and "*" or "")
   print(name, W - #name * 8 - 8, 0, dirty and C_ACC or C_DIM)
@@ -810,7 +823,12 @@ function _draw()
   elseif page == "map" then status = picking and "choosing a tile" or
     string.format("(%d,%d) = %d   tile %d", mx, my, mget(mx, my), tile)
   else status = "up/down choose, Enter select" end
-  if #status < 58 then status = status .. string.rep(" ", 58 - #status) .. "hold F12: keys" end
   if keyheld("f12") then draw_keys() end
-  print(status:sub(1, 79), 0, 16 + ROWS * 16, (msg_t > 0 and msg_c) or (err_text and page == "code" and C_ERR) or C_TEXT)
+  local sy = 16 + ROWS * 16
+  print(status:sub(1, #status < 58 and 57 or 79), 0, sy,
+        (msg_t > 0 and msg_c) or (err_text and page == "code" and C_ERR) or C_TEXT)
+  if #status < 58 then                   -- room on the right: hold F12 for the keys
+    local hx = print("hold", 464, sy, C_DIM) + 4
+    print("keys", snap(prompt("f12", hx, sy) + 3), sy, C_DIM)
+  end
 end

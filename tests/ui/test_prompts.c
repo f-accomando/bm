@@ -1,7 +1,8 @@
 /*
- * The button prompts (src/kernel/prompts.c) on the PC: checks every one,
- * then draws the whole set on the menu bar's colour, 3x as on a TV, into
- * a PNG (default build/prompts/prompts.png).
+ * The button prompts (src/kernel/prompts.c) on the PC: checks every one of
+ * both sets, then draws each set 3x as on a TV into a PNG: the menu's on
+ * the menu bar's colour (prompts.png), the apps' chips on the apps' blue
+ * (chips.png), in the directory given (default build/prompts).
  */
 #include "kernel/prompts.h"
 #include "gfx/font.h"
@@ -54,9 +55,47 @@ static void check_shape(const prompt_t *p, const char *name)
     CHECK(lip >= 4, "%s: no lip (%d)", name, lip);
 }
 
+static const uint32_t colours[4] = { 0x7EA6FF, 0xFF6B6B, 0xF28AE0, 0x3DDBB0 };
+
+/* the apps' chips: the colour each one is filled with */
+static uint32_t chip_colour(int id)
+{
+    static const uint32_t letters[4] = { 0x5BD47E, 0xFF6B6B, 0x5FA8FF, 0xFFD54A };
+    if (id <= PROMPT_TRIANGLE) return colours[id];
+    if (id >= PROMPT_DPAD && id <= PROMPT_DPAD_LEFTRIGHT) return 0xE0E4F0;
+    if (id >= PROMPT_PAD_A && id <= PROMPT_PAD_Y) return letters[id - PROMPT_PAD_A];
+    if (id == PROMPT_LSTICK || id == PROMPT_RSTICK) return 0x949CB4;    /* the hollow top */
+    return id >= PROMPT_KEY_UP ? 0xFFC050 : 0xC8CEDE;
+}
+
+/* a chip: its size, clear corners, its colour, something cut out of it */
+static void check_chip(const prompt_t *p, int small, uint32_t rgb, const char *name)
+{
+    int h = small ? PROMPT_SMALL_H : PROMPT_H;
+    CHECK(p, "%s: no chip", name);
+    if (!p)
+        return;
+    CHECK(p->h == h && p->w >= h && p->w <= PROMPT_MAX_W, "%s: %dx%d", name, p->w, p->h);
+    CHECK((at(p, 0, 0) >> 24) < 128 && (at(p, p->w - 1, p->h - 1) >> 24) < 128, "%s: corners not clear", name);
+    int fill = 0, cut = 0;
+    for (int y = 0; y < p->h; y++)
+        for (int x = 0; x < p->w; x++) {
+            uint32_t c = at(p, x, y);
+            fill += c == (0xFF000000u | rgb);
+            /* a hole: clear, with the face to its left and right */
+            if ((c >> 24) == 0 && x > 0 && x < p->w - 1 && (at(p, x - 1, y) >> 24) + (at(p, x + 1, y) >> 24) > 0) {
+                int l = 0, r = 0;
+                for (int i = 0; i < x; i++) l |= (at(p, i, y) >> 24) == 255;
+                for (int i = x + 1; i < p->w; i++) r |= (at(p, i, y) >> 24) == 255;
+                cut += l && r;
+            }
+        }
+    CHECK(fill >= (small ? 6 : 10), "%s: %d pixels of %06X", name, fill, (unsigned)rgb);
+    CHECK(cut >= 1, "%s: nothing cut out", name);
+}
+
 static void checks(void)
 {
-    static const uint32_t colours[4] = { 0x7EA6FF, 0xFF6B6B, 0xF28AE0, 0x3DDBB0 };
     for (int id = 0; id < PROMPT_COUNT; id++) {
         const prompt_t *p = prompt_get(id, 0);
         check_shape(p, names[id]);
@@ -104,12 +143,33 @@ static void checks(void)
     CHECK(prompt_key('x') == prompt_key('X'), "keys: lower case is not the upper case key");
     CHECK(!prompt_key(' ') && !prompt_key(127) && !prompt_key(0), "keys: a key for no character");
     CHECK(!prompt_get(-1, 0) && !prompt_get(PROMPT_COUNT, 0), "prompt_get out of range");
+
+    /* the apps' chips, 16 and 12 px */
+    for (int small = 0; small < 2; small++) {
+        char name[32];
+        for (int id = 0; id < PROMPT_COUNT; id++) {
+            snprintf(name, sizeof name, "chip %s%s", names[id], small ? " (12)" : "");
+            const prompt_t *p = prompt_chip(id, small);
+            check_chip(p, small, id == PROMPT_DPAD_UP || id == PROMPT_DPAD_DOWN || id == PROMPT_DPAD_LEFT ||
+                       id == PROMPT_DPAD_RIGHT || id == PROMPT_DPAD_UPDOWN || id == PROMPT_DPAD_LEFTRIGHT
+                       ? 0x5A6380 : chip_colour(id), name);
+            CHECK(prompt_chip(id, small) == p && p != prompt_get(id, 0), "%s: made twice", name);
+        }
+        for (int ch = 33; ch < 127; ch++) {
+            snprintf(name, sizeof name, "chip key %c%s", ch, small ? " (12)" : "");
+            const prompt_t *p = prompt_chip_key(ch, small);
+            check_chip(p, small, 0xFFC050, name);
+            CHECK(p && p->w == (small ? 12 : 16), "%s: width", name);
+        }
+        CHECK(prompt_chip_key('q', small) == prompt_chip_key('Q', small), "chip keys: lower case");
+        CHECK(!prompt_chip_key(' ', small) && !prompt_chip(PROMPT_COUNT, small), "chips: out of range");
+    }
 }
 
 /* ---------------------------------------------------------------- the sheet */
 
 #define SW 400                      /* at 1x */
-#define SH 380
+#define SH 560
 #define K  3
 
 static uint32_t sheet[SH][SW];
@@ -128,7 +188,7 @@ static int put(const prompt_t *p, int x, int y)
 {
     if (!p)
         return x;
-    for (int j = 0; j < PROMPT_H; j++)
+    for (int j = 0; j < p->h; j++)
         for (int i = 0; i < p->w; i++)
             if (x + i < SW && y + j < SH)
                 sheet[y + j][x + i] = blend(sheet[y + j][x + i], at(p, i, j));
@@ -148,10 +208,22 @@ static int text(int x, int y, const char *s, uint32_t c, const font_t *f)
 /* a row of prompts that wraps */
 static int cx, cy;
 
+static uint32_t bg = C_BAR, dim = C_DIM;
+static int row_h = 22;
+
+static void clear(uint32_t c)
+{
+    for (int y = 0; y < SH; y++)
+        for (int x = 0; x < SW; x++)
+            sheet[y][x] = c;
+    bg = c;
+    cx = 8, cy = 2;
+}
+
 static void heading(const char *s)
 {
-    cy += cx > 8 ? 26 : 6;
-    text(8, cy, s, C_DIM, &font_console_6x12);
+    cy += cx > 8 ? row_h + 4 : 6;
+    text(8, cy, s, dim, &font_console_6x12);
     cy += 16;
     cx = 8;
 }
@@ -162,7 +234,7 @@ static void item(const prompt_t *p)
         return;
     if (cx + p->w > SW - 8) {
         cx = 8;
-        cy += 22;
+        cy += row_h;
     }
     cx = put(p, cx, cy) + 6;
 }
@@ -178,10 +250,9 @@ static int hint(int x, int y, const prompt_t *p, const char *label)
 
 static void draw_sheet(void)
 {
-    for (int y = 0; y < SH; y++)
-        for (int x = 0; x < SW; x++)
-            sheet[y][x] = C_BAR;
-    cx = 8, cy = 2;
+    clear(C_BAR);
+    dim = C_DIM;
+    row_h = 22;
     heading("DualShock 4");
     for (int i = PROMPT_CROSS; i <= PROMPT_TRIANGLE; i++) item(prompt_get(i, 0));
     gap();
@@ -234,6 +305,92 @@ static void draw_sheet(void)
         }
     }
     cy = y;
+}
+
+/* the apps' colours */
+#define A_BG    0x14161E
+#define A_PANEL 0x1C2030
+#define A_BAR   0x2A3048
+#define A_TEXT  0xE0E4F0
+#define A_DIM   0x8088A0
+#define A_SEL   0x3050A0
+#define S_DARK  0x0B0C0F            /* the Sound editor's bars */
+
+static void band(int y, int h, uint32_t c)
+{
+    for (int j = y; j < y + h && j < SH; j++)
+        for (int x = 0; x < SW; x++)
+            sheet[j][x] = c;
+}
+
+/* a hint of the apps: chips, the label after them */
+static int chip_hint(int x, int y, const prompt_t *a, const prompt_t *b, const char *label, int small, uint32_t c)
+{
+    x = put(a, x, y) + (b ? 1 : 0);
+    if (b)
+        x = put(b, x, y);
+    x += small ? 3 : 4;
+    return text(x, y, label, c, small ? &font_console_6x12 : &font_console_8x16) + (small ? 10 : 14);
+}
+
+static void draw_chips(void)
+{
+    clear(A_PANEL);
+    dim = A_DIM;
+    for (int small = 0; small < 2; small++) {
+        row_h = small ? 16 : 22;
+        const char *size = small ? " (12 px, 6x12)" : " (16 px, 8x16)";
+        char h[48];
+        snprintf(h, sizeof h, "DualShock 4%s", size);
+        heading(h);
+        for (int i = PROMPT_CROSS; i <= PROMPT_DPAD_LEFTRIGHT; i++) item(prompt_chip(i, small));
+        gap();
+        for (int i = PROMPT_L1; i <= PROMPT_TOUCHPAD; i++) item(prompt_chip(i, small));
+        snprintf(h, sizeof h, "Other pads, keyboard%s", size);
+        heading(h);
+        for (int i = PROMPT_PAD_A; i <= PROMPT_PAD_SELECT; i++) item(prompt_chip(i, small));
+        gap();
+        for (int i = PROMPT_KEY_UP; i <= PROMPT_KEY_PGDN; i++) item(prompt_chip(i, small));
+        gap();
+        for (int i = 0; i < 12; i++) item(prompt_chip(PROMPT_KEY_F1 + i, small));
+        gap();
+        for (int c = 'A'; c <= 'Z'; c++) item(prompt_chip_key(c, small));
+        gap();
+        for (int c = '0'; c <= '9'; c++) item(prompt_chip_key(c, small));
+        gap();
+        for (const char *s = "+-*/=.,;:!?#$%&@<>()[]"; *s; s++) item(prompt_chip_key(*s, small));
+    }
+
+    /* in the apps: the SDK's tabs, the Sound editor's bottom line, a
+     * footer of bm Code */
+    heading("In the apps");
+    int y = cy + 2;
+    band(y - 2, 20, A_BAR);
+    int x = 8;
+    static const char *const tabs[] = { "code", "sprites", "map" };
+    for (int i = 0; i < 3; i++) {
+        if (i == 0)
+            for (int j = y - 2; j < y + 18; j++)
+                for (int k = x - 4; k < x + 16 + 4 + 32 + 4; k++)
+                    sheet[j][k] = A_SEL;
+        x = chip_hint(x, y, prompt_chip(PROMPT_KEY_F1 + i, 0), NULL, tabs[i], 0, i ? A_DIM : A_TEXT);
+    }
+    chip_hint(x, y, prompt_chip(PROMPT_KEY_ESC, 0), NULL, "menu", 0, A_DIM);
+    y += 26;
+    band(y - 2, 20, S_DARK);
+    x = 8;
+    x = chip_hint(x, y, prompt_chip(PROMPT_CROSS, 0), prompt_chip(PROMPT_DPAD_UPDOWN, 0), "+-1", 0, A_DIM);
+    x = chip_hint(x, y, prompt_chip(PROMPT_TRIANGLE, 0), NULL, "play C4", 0, A_DIM);
+    x = chip_hint(x, y, prompt_chip(PROMPT_OPTIONS, 0), NULL, "chord", 0, A_DIM);
+    y += 26;
+    band(y - 1, 14, A_BAR);
+    x = 8;
+    x = chip_hint(x, y, prompt_chip(PROMPT_KEY_ENTER, 1), NULL, "insert", 1, A_DIM);
+    x = chip_hint(x, y, prompt_chip(PROMPT_KEY_UP, 1), prompt_chip(PROMPT_KEY_DOWN, 1), "choose", 1, A_DIM);
+    x = chip_hint(x, y, prompt_chip(PROMPT_KEY_TAB, 1), NULL, "mode", 1, A_DIM);
+    x = chip_hint(x, y, prompt_chip(PROMPT_KEY_CTRL, 1), prompt_chip_key('S', 1), "save", 1, A_DIM);
+    chip_hint(x, y, prompt_chip(PROMPT_KEY_ESC, 1), NULL, "close", 1, A_DIM);
+    cy = y + 18;
 }
 
 /* ---------------------------------------------------------------- PNG */
@@ -305,16 +462,25 @@ static uint32_t scaled(int x, int y) { return sheet[y / K][x / K]; }
 int main(int argc, char **argv)
 {
     checks();
+    const char *dir = argc > 1 ? argv[1] : "build/prompts";
+    char path[256];
     draw_sheet();
-    const char *out = argc > 1 ? argv[1] : "build/prompts/prompts.png";
-    if (write_png(out, SW * K, cy * K, scaled) != 0) {
-        printf("FAIL: cannot write %s\n", out);
+    snprintf(path, sizeof path, "%s/prompts.png", dir);
+    if (write_png(path, SW * K, cy * K, scaled) != 0) {
+        printf("FAIL: cannot write %s\n", path);
+        return 1;
+    }
+    draw_chips();
+    snprintf(path, sizeof path, "%s/chips.png", dir);
+    if (write_png(path, SW * K, cy * K, scaled) != 0) {
+        printf("FAIL: cannot write %s\n", path);
         return 1;
     }
     if (fails) {
         printf("prompts: %d failures\n", fails);
         return 1;
     }
-    printf("prompts: %d prompts, 4 in colour, %d keys ok; sheet %s\n", PROMPT_COUNT, 126 - 33 + 1, out);
+    printf("prompts: %d prompts, 4 in colour, %d keys; the apps' chips, 16 and 12 px: ok; sheets in %s\n",
+           PROMPT_COUNT, 126 - 33 + 1, dir);
     return 0;
 }

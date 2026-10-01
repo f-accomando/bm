@@ -484,8 +484,8 @@ $(BUILD)/host/test_board: tests/usb/test_board.c src/drivers/board.c src/drivers
 test-bm: $(BUILD)/host/test_bm $(BUILD)/demo.bm
 	$< $(BUILD)/demo.bm
 
-# The button prompts (bm-ui): every one checked, and the whole set drawn
-# 3x as on a TV into build/prompts/prompts.png
+# The button prompts (bm-ui): every one checked, and both sets drawn 3x as
+# on a TV into build/prompts/prompts.png (the menu) and chips.png (the apps)
 $(BUILD)/host/test_prompts: tests/ui/test_prompts.c src/kernel/prompts.c src/kernel/prompts.h \
                             src/gfx/font8x16.c src/gfx/font6x12.c src/lib/crc32.c
 	@mkdir -p $(dir $@)
@@ -494,7 +494,7 @@ $(BUILD)/host/test_prompts: tests/ui/test_prompts.c src/kernel/prompts.c src/ker
 
 test-prompts: $(BUILD)/host/test_prompts
 	@mkdir -p $(BUILD)/prompts
-	$< $(BUILD)/prompts/prompts.png
+	$< $(BUILD)/prompts
 
 # The assistant (M30): C features and network against the Python reference,
 # answers to the held-out questions, sprite generator

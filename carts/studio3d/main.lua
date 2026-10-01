@@ -762,8 +762,26 @@ local function info_strip(lines)
   rectfill(PANEL_W, 16, W - PANEL_W, 16 + lines * 16, C_BG)
 end
 
-local function hint(s)
-  print(s:sub(1, 79), 0, HINT_Y, C_DIM)
+-- the keys of the page on the hint row, as chips (prompt()): a list of
+-- { { keys... }, label }, as many as fit
+local function snap(x) return (x + 7) // 8 * 8 end   -- text stays on its 8 px columns
+local function hint(list)
+  local x = 0
+  for _, h in ipairs(list) do
+    local kx = x
+    for _, k in ipairs(h[1]) do kx = kx + prompt(k) + 1 end
+    if snap(kx + 2) + #h[2] * 8 > W then break end
+    for _, k in ipairs(h[1]) do x = prompt(k, x, HINT_Y) + 1 end
+    x = print(h[2], snap(x + 2), HINT_Y, C_DIM) + 12
+  end
+end
+
+-- a key as a chip, or the pad's button when a pad was used last and the
+-- action has one; then its label. Returns the x after it.
+local function chip_hint(key, pad, label, x, y, c)
+  local li = lastinput()
+  x = prompt(pad and (li == "ds4" or li == "pad") and pad or key, x, y)
+  return print(label, snap(x + 3), y, c or C_DIM) + 12
 end
 
 -- the pages: what each one gives the others (the rest stays inside its block)
@@ -903,7 +921,8 @@ function draw_play()
     end
   end
   print(string.format("%d fps  %.1f ms", stat(2), stat(1)), W - 128, 32, C_DIM)
-  hint("up/down model  left/right anim  space play  a d w s view  + - zoom  k bones")
+  hint({ { { "up", "down" }, "model" }, { { "left", "right" }, "anim" }, { { "space" }, "play" },
+        { { "a", "d", "w", "s" }, "view" }, { { "+", "-" }, "zoom" }, { { "k" }, "bones" } })
 end
 end
 
@@ -1385,7 +1404,8 @@ function draw_build()
   print(s, 8, 16, C_TEXT)
   draw_brush(W - 58, 42, 48)
   print((brush.rot > 0 and (brush.rot * 90 .. "\248") or "") .. (brush.flip and " mirror" or ""), W - 58, 94, C_DIM)
-  hint("arrows PgUp PgDn move  space put  Bksp remove  1 2 3 tool  f side  Tab tiles")
+  hint({ { { "up", "down", "left", "right" }, "move" }, { { "space" }, "put" }, { { "backspace" }, "remove" },
+        { { "1", "2", "3" }, "tool" }, { { "tab" }, "tiles" }, { { "pgup", "pgdn" }, "level" }, { { "f" }, "side" } })
 end
 end
 
@@ -1636,7 +1656,7 @@ function draw_rig()
     print("n: make one", 16, 64, C_TEXT)
     print("(one bone, then", 16, 96, C_DIM)
     print(" n adds more)", 16, 112, C_DIM)
-    hint("n new skeleton  q/e turn  +/- zoom")
+    hint({ { { "n" }, "new skeleton" }, { { "q", "e" }, "turn" }, { { "+", "-" }, "zoom" } })
     return
   end
   for i, b in ipairs(r.bones) do
@@ -1655,7 +1675,8 @@ function draw_rig()
   print(string.format("%s of %s: %.3f, %.3f, %.3f", rg.tail and "tail" or "head", b.name, e[1], e[2], e[3]),
         INFO_X, 32, C_ACC)
   print(rg.skin and "colours: the bone of each face (v)" or "", INFO_X, 48, C_DIM)
-  hint("up/down bone  w a s d r f move  Tab head/tail  n new  x delete  k auto skin")
+  hint({ { { "up", "down" }, "bone" }, { { "w", "a", "s", "d", "r", "f" }, "move" }, { { "tab" }, "head/tail" },
+        { { "n" }, "new" }, { { "x" }, "delete" }, { { "k" }, "auto skin" } })
 end
 end
 
@@ -1923,7 +1944,7 @@ function draw_anim()
   if not r then
     print("NO SKELETON", 16, 32, C_DIM)
     print("make one in F3", 16, 64, C_TEXT)
-    hint("F3 rig: bones and skin first")
+    hint({ { { "f3" }, "rig: bones and skin first" } })
     return
   end
   for i = 1, #r.bones do
@@ -1939,7 +1960,8 @@ function draw_anim()
   info_strip(c and 2 or 1)
   if not c then
     print("no animations yet: n makes one", x, 32, C_ACC)
-    hint("n new animation  up/down bone  , . turn the view  +/- zoom")
+    hint({ { { "n" }, "new animation" }, { { "up", "down" }, "bone" }, { { ",", "." }, "turn the view" },
+        { { "+", "-" }, "zoom" } })
     return
   end
   print(string.format("%s  %d/%d  %s%s  %.2f s", c.name, an.clip, #r.clips, MODES[c.mode], c.loop and "  loop" or "",
@@ -1947,7 +1969,8 @@ function draw_anim()
   local tt = draw_timeline(c)
   print(string.format("%s %s   %.2f s  frame %d%s", an.move and "MOVE" or "TURN", r.bones[an.bone].name, tt,
                       round(tt * FPS), key_at(c, tt) and "  key" or ""), x, 48, key_at(c, tt) and C_ACC or C_TEXT)
-  hint("left/right time  space play  w/s a/d q/e turn  g move  k key  x del key  n new")
+  hint({ { { "left", "right" }, "time" }, { { "space" }, "play" }, { { "w", "s", "a", "d", "q", "e" }, "turn" },
+        { { "g" }, "move" }, { { "k" }, "key" }, { { "x" }, "del key" }, { { "n" }, "new" } })
 end
 end
 
@@ -2102,15 +2125,18 @@ local function draw_menu()
   local nr = 0
   for _, m in ipairs(models) do if m.rig then nr = nr + 1 end end
   print(nr .. " with a skeleton", x, 112, C_TEXT)
-  print("F1 play   F2 build", x, 144, C_DIM)
-  print("F3 rig    F4 animate", x, 160, C_DIM)
-  print("F12 (held) or ? : keys", x, 176, C_DIM)
+  chip_hint("f2", nil, "build", chip_hint("f1", nil, "play", x, 144), 144)
+  chip_hint("f4", nil, "animate", chip_hint("f3", nil, "rig", x, 160), 160)
+  local kx = snap(prompt("f12", x, 176) + 3)
+  kx = print("(held) or", kx, 176, C_DIM) + 4
+  chip_hint("?", nil, "keys", kx, 176)
   print("the same files as bm Studio", x, 208, C_DIM)
   print("and bm Animator on the PC", x, 224, C_DIM)
   if choosing then
     rectfill(40, 40, 560, 272, C_PANEL)
     rect(40, 40, 560, 272, C_ACC)
-    print("open a cartridge (Enter), Esc back", 56, 48, C_ACC)
+    local ox = print("open a cartridge", 56, 48, C_ACC) + 16
+    chip_hint("esc", "B", "back", chip_hint("enter", "A", "open", ox, 48), 48)
     local first = max(1, min(fsel - 7, #files - 13))
     for i = first, min(#files, first + 13) do
       local y = 80 + (i - first) * 16
@@ -2282,16 +2308,18 @@ function _draw()
   elseif page == "anim" then draw_anim()
   else draw_menu() end
 
-  -- tab bar
+  -- tab bar: each page with its key
   rectfill(0, 0, W, 16, C_BAR)
-  local tabs = { { "play", "F1 play" }, { "build", "F2 build" }, { "rig", "F3 rig" }, { "anim", "F4 animate" },
-                 { "menu", "Esc menu" } }
-  local x = 0
+  local tabs = { { "play", "f1", "play" }, { "build", "f2", "build" }, { "rig", "f3", "rig" },
+                 { "anim", "f4", "animate" }, { "menu", "esc", "menu" } }
+  local x = 4
   for _, t in ipairs(tabs) do
-    local s = " " .. t[2] .. " "
-    if t[1] == page then rectfill(x, 0, #s * 8, 16, C_SEL) end
-    print(s, x, 0, t[1] == page and 0xFFFFFF or C_DIM)
-    x = x + #s * 8 + 4
+    local lx = snap(x + prompt(t[2]) + 3)            -- the label on its column
+    local w = lx + #t[3] * 8 - x
+    if t[1] == page then rectfill(x - 4, 0, w + 8, 16, C_SEL) end
+    prompt(t[2], x, 0)
+    print(t[3], lx, 0, t[1] == page and 0xFFFFFF or C_DIM)
+    x = x + w + 20
   end
   local name = (proj.save or "untitled") .. (dirty and "*" or "")
   print(name, W - #name * 8 - 8, 0, dirty and C_ACC or C_DIM)
@@ -2302,7 +2330,10 @@ function _draw()
   if msg_t > 0 and msg then status = msg
   elseif page == "menu" then status = "up/down choose, Enter select"
   else status = (M() and ("model " .. cur .. "/" .. #models .. ": " .. M().name) or "") end
-  if #status <= 62 then status = status .. string.rep(" ", 65 - #status) .. "F12 or ?: keys" end
   print(status:sub(1, 79), 0, STATUS_Y, (msg_t > 0 and msg_c) or C_TEXT)
+  if #status <= 62 then                  -- room on the right: F12 or ? for the keys
+    local kx = print("or", snap(prompt("f12", 524, STATUS_Y) + 3), STATUS_Y, C_DIM) + 4
+    chip_hint("?", nil, "keys", kx, STATUS_Y)
+  end
   if keyheld("f12") or help then draw_keys() end
 end

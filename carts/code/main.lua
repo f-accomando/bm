@@ -7,6 +7,7 @@
 local assist = require "assist"
 
 local W, H = SCREEN_W, SCREEN_H
+local key_chip = prompt                  -- the kernel's prompt(): prompt() here is the text dialog
 local FONTS = { "6x12", "8x14", "8x16" }
 local C_BG, C_PANE, C_BAR, C_LINE = 0x0E1016, 0x14161E, 0x22273A, 0x343B54
 local C_TEXT, C_DIM, C_ACC, C_ERR, C_OK = 0xE0E4F0, 0x6A7290, 0xFFC050, 0xFF6464, 0x70E090
@@ -925,6 +926,29 @@ local function draw_pane(p, c0, ncols, r0, nrows)
   return t, v
 end
 
+-- keys and pad buttons as chips (prompt()), as high as a text row (12 px
+-- up to the 8x14 font, 16 with 8x16), then the label; returns the x after
+local function chips(keys, label, x, y, c)
+  for _, k in ipairs(keys) do x = key_chip(k, x, y, CH < 16) + 1 end
+  return print(label, (x + 2 + CW - 1) // CW * CW, y, c or C_DIM) + 2 * CW   -- text on its columns
+end
+local function chips_w(keys)
+  local w = 0
+  for _, k in ipairs(keys) do w = w + key_chip(k, CH < 16) + 1 end
+  return w
+end
+-- the key, or the pad's button when a pad was used last
+local function key_or_pad(key, pad)
+  local li = lastinput()
+  return { (li == "ds4" or li == "pad") and pad or key }
+end
+-- a shortcut of the menu ("Ctrl+N", "F5") as its keys, or nil
+local function shortcut_keys(s)
+  local c = s:match("^Ctrl%+(.)$")
+  if c then return { "ctrl", c:lower() } end
+  if s:match("^F%d+$") then return { s:lower() } end
+end
+
 local function draw_tabs()
   rectfill(0, 0, W, CH, C_BAR)
   local x = 0
@@ -934,7 +958,7 @@ local function draw_tabs()
       if panes[1].tab == i then label = label .. "1 " end
       if panes[2].tab == i then label = label .. "2 " end
     end
-    if x + #label > COLS - 6 then
+    if x + #label > COLS - 10 then
       print("...", x * CW, 0, C_DIM)
       break
     end
@@ -943,7 +967,9 @@ local function draw_tabs()
     print(label, x * CW, 0, on and 0xFFFFFF or C_DIM)
     x = x + #label + 1
   end
-  print("F1 keys", (COLS - 7) * CW, 0, C_DIM)
+  local lx = (COLS - 5) * CW                         -- "keys" on the last columns, its key before
+  key_chip("f1", lx - 3 - key_chip("f1", CH < 16), 0, CH < 16)
+  print("keys", lx, 0, C_DIM)
 end
 
 local function draw_status(t, v)
@@ -1014,7 +1040,7 @@ local function draw_overlay()
     draw_box(c0, r0, cols, 3, o.label)
     local cur = (frame // 30) % 2 == 0 and "_" or " "
     print(o.text:sub(-(cols - 4)) .. cur, (c0 + 1) * CW, (r0 + 1) * CH, C_TEXT)
-    print("Enter: OK   Esc: cancel", (c0 + 1) * CW, (r0 + 2) * CH, C_DIM)
+    chips({ "esc" }, "cancel", chips({ "enter" }, "OK", (c0 + 1) * CW, (r0 + 2) * CH), (r0 + 2) * CH)
   elseif o.kind == "confirm" then
     local cols = math.min(COLS - 4, math.max(#o.question + 4, 50))
     local c0, r0 = (COLS - cols) // 2, ROWS // 2 - 2
@@ -1027,7 +1053,8 @@ local function draw_overlay()
       print(" " .. c .. " ", x * CW, (r0 + 2) * CH, on and 0xFFFFFF or C_TEXT)
       x = x + #c + 4
     end
-    print("Enter or the first letter; Esc: cancel", (c0 + 1) * CW, (r0 + 3) * CH, C_DIM)
+    local x = chips({ "enter" }, "or the first letter", (c0 + 1) * CW, (r0 + 3) * CH)
+    chips({ "esc" }, "cancel", x, (r0 + 3) * CH)
   else
     local menu = o.kind == "menu"
     local n = menu and #MENU or #o.items
@@ -1051,10 +1078,17 @@ local function draw_overlay()
         right = it.size and string.format("%d KB", (it.size + 1023) // 1024) or ""
       end
       print(label:sub(1, cols - 12), (c0 + 2) * CW, y, i == o.sel and 0xFFFFFF or C_TEXT)
-      print(right, (c0 + cols - 1 - #right) * CW, y, C_DIM)
+      local keys = menu and shortcut_keys(right)
+      if keys then                       -- the shortcut's keys, on the right
+        local kx = (c0 + cols - 1) * CW - chips_w(keys)
+        for _, k in ipairs(keys) do kx = key_chip(k, kx, y, CH < 16) + 1 end
+      else
+        print(right, (c0 + cols - 1 - #right) * CW, y, C_DIM)
+      end
     end
-    print(menu and "Enter/A choose  Esc/B back" or "Enter/A open  Esc/B back",
-          (c0 + 1) * CW, (r0 + rows - 1) * CH, C_DIM)
+    local fy = (r0 + rows - 1) * CH
+    local x = chips(key_or_pad("enter", "A"), menu and "choose" or "open", (c0 + 1) * CW, fy)
+    chips(key_or_pad("esc", "B"), "back", x, fy)
   end
 end
 

@@ -109,8 +109,17 @@ function _draw()
   cls(C_BG)
   rectfill(0, 0, W, 16, C_BAR)
   print("bm assistant", 8, 0, C_ACC)
-  local keys = "F6 ask F7 sprite F8 speed F9 error Esc"
-  print(keys, W - 8 - #keys * 8, 0, C_DIM)
+  -- the keys, as chips on the right
+  local keys = { { "f6", "ask" }, { "f7", "sprite" }, { "f8", "speed" }, { "f9", "error" }, { "esc", "exit" } }
+  local x = W - 8                        -- right to left: each label on its column, its key before
+  for i = #keys, 1, -1 do
+    local k = keys[i]
+    local lx = x - #k[2] * 8
+    local kx = lx - 3 - prompt(k[1])
+    print(k[2], lx, 0, C_DIM)
+    prompt(k[1], kx, 0)
+    x = kx // 8 * 8 - 8
+  end
   -- text on the 8x16 cells (x a multiple of 8, y of 16)
   -- the code the panel inserted
   local cw = W * 3 // 5 // 8 * 8

@@ -4,12 +4,19 @@
  * menu's status icons (icons.c): shapes with anti-aliasing, whole-pixel
  * edges wherever possible.
  *
- * Every prompt is a raised button: a white face 14 px high on a grey lip
- * 2 px deep, the symbol or the label cut out of the face (what is behind
- * shows through). The four face buttons of the DS4 also come in colour: a
- * dark face with a grey rim and lip, the symbol in its colour (cross blue,
- * circle red, square pink, triangle green). Labels use the console fonts:
- * 8x16 bold for one character, 6x12 for words.
+ * Two sets of the same buttons:
+ * - the menu's: raised buttons, a white face 14 px high on a grey lip 2 px
+ *   deep, the symbol or the label cut out of the face (what is behind
+ *   shows through). The four face buttons of the DS4 also come in colour:
+ *   a dark face with a grey rim and lip, the symbol in its colour (cross
+ *   blue, circle red, square pink, triangle green).
+ * - the apps' (the Dev tools): flat chips filled with a colour, the label
+ *   cut out; 16 px high for text rows of 8x16, 12 for 6x12. The DS4's face
+ *   buttons in their colours, the lettered pads' A B X Y in theirs (green,
+ *   red, blue, yellow), the pad's other buttons light grey, the keyboard's
+ *   keys amber (the apps' accent).
+ * Labels use the console fonts: one character 8x16 bold (6x12 bold at 12
+ * px), words 6x12.
  *
  * Plain C, no kernel dependencies (a host program can preview them).
  */
@@ -18,8 +25,9 @@
 
 #include <stdint.h>
 
-#define PROMPT_H      16            /* the face 14 px, the lip 2 px under it */
-#define PROMPT_MAX_W  56
+#define PROMPT_H       16           /* the face 14 px, the lip 2 px under it */
+#define PROMPT_SMALL_H 12           /* the apps' small chips: a face 10 px high */
+#define PROMPT_MAX_W   56
 
 enum {
     /* DualShock 4 */
@@ -43,10 +51,10 @@ enum {
     PROMPT_COUNT = PROMPT_KEY_F1 + 12
 };
 
-/* A prompt: w x PROMPT_H pixels, 0xAARRGGBB, not premultiplied (the
- * caller blends them over its background). */
+/* A prompt: w x h pixels, 0xAARRGGBB, not premultiplied (the caller
+ * blends them over its background). */
 typedef struct {
-    int w;
+    int w, h;
     const uint32_t *px;
 } prompt_t;
 
@@ -58,5 +66,10 @@ const prompt_t *prompt_get(int id, int colour);
 /* A keyboard key with the character c (33..126; letters in upper case),
  * 16 px wide. NULL for other characters. */
 const prompt_t *prompt_key(int c);
+
+/* The apps' chips: the same prompts and keys, 16 px high, or 12 with
+ * small != 0. */
+const prompt_t *prompt_chip(int id, int small);
+const prompt_t *prompt_chip_key(int c, int small);
 
 #endif

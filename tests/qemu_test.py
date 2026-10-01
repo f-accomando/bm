@@ -2621,7 +2621,7 @@ def test_studio3d(b, opts):
         keys("x")
         screen(["Open in the SDK", "Open in bm Code", "Open in the Sound editor", "Open in the 3D studio"])
         keys("s", "s", "s", "s", "\r")
-        text = screen(["F1 play", "MODELS", "ground", "villager", "169 vertices, 288 triangles"])
+        text = screen(["play", "animate", "MODELS", "ground", "villager", "169 vertices, 288 triangles"])
         assert "opened /carts/village.bm" in text, text
         for _ in range(7):
             keys(DOWN)
@@ -3363,7 +3363,7 @@ def test_assistant(b, opts):
         see(["line 12: did you mean spr?", "attempt to call a nil value"])
         shot("error")
         k("\x1b", 0.5)                                     # Esc closes the panel
-        see(["F9 error"])
+        see(["bm assistant", "sprite", "speed"])          # its bar: the keys as chips
         k("\x1b", 0.5)                                     # Esc: back to the monitor
         out = q.expect("> ", timeout=10).decode(errors="replace")
         assert "error" not in out, out
@@ -3413,7 +3413,7 @@ def test_code_editor(b, opts):
         q.boot()
         k("C")
         expect("code: ready")
-        see(["F1 keys"])
+        see(["keys"])                                       # the F1 chip, then "keys"
         k("\x0f", 0.5)                                      # Ctrl+O: the files
         see(["Open a cartridge", "/carts/Il mio demo.bm", "/carts/pong.bm"])
         shot("open")
