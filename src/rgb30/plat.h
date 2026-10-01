@@ -52,13 +52,19 @@ int  plat_display_init(uint32_t w, uint32_t h, uint32_t depth, uintptr_t addr);
 void plat_display_show(uintptr_t addr);
 /* waits for the start of the next frame (vertical blank); 0 if it cannot */
 int  plat_display_wait_vsync(void);
-/* diagnostics: a few lines on what the display driver did */
+/* diagnostics: a few lines on what the display driver did, and whether
+ * something went wrong on the way (the red LED stays on) */
 const char *plat_display_info(void);
+int plat_display_problem(void);
 
 /* buttons held now (PAD_* bits, rgb30/pad.h) and the analog sticks
  * (-32768..32767: left x, left y, right x, right y) */
 uint32_t plat_buttons(void);
 void plat_sticks(int16_t axes[4]);
+
+/* battery voltage in mV (-1: unknown) and charger state (-1 unknown,
+ * 0 not charging, 1 charging, 2 full) */
+int plat_battery(int *mv, int *charge);
 
 /* PSCI through TF-A (SMC) on the RGB30, QEMU's PSCI (HVC) in the tests */
 void plat_reset(void) __attribute__((noreturn));

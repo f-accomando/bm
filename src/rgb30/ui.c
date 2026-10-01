@@ -255,11 +255,15 @@ static void page_system(void)
     ksnprintf(l[5], sizeof l[5], "SD (%s): %lu MiB, %s", sd_controller(),
               sd_blocks() / 2048, sd_blocks() ? fat_describe() : sd_error());
     ksnprintf(l[6], sizeof l[6], "games: %d in %s", n_games, sd_state);
-    const char *disp = plat_display_info();
-    strncpy(l[7], disp, sizeof l[7] - 1);
-    l[7][sizeof l[7] - 1] = 0;
+    int mv, charge;
+    if (plat_battery(&mv, &charge) == 0)
+        ksnprintf(l[7], sizeof l[7], "battery %d.%02d V%s", mv / 1000, (mv % 1000) / 10,
+                  charge == 2 ? ", full" : charge == 1 ? ", charging" : "");
+    else
+        ksnprintf(l[7], sizeof l[7], "battery: unknown");
+    ksnprintf(l[8], sizeof l[8], "%s", plat_display_info());
     frame_begin("System");
-    for (int i = 0; i < 8; i++)
+    for (int i = 0; i < 9; i++)
         text(16, LIST_Y + i * 32, l[i], i == 0 ? C_TEXT : C_DIM, C_BG);
     footer("A/B back");
     frame_end();

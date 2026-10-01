@@ -3,6 +3,8 @@
  * (T0SZ = 32: four level-1 entries of 1 GiB, each pointing to a level-2
  * table of 2 MiB blocks).
  *   RAM          normal memory, write-back read/write-allocate, inner shareable
+ *   framebuffers normal memory, non-cacheable: what the CPU draws reaches the
+ *                display controller without cache maintenance
  *   peripherals  Device-nGnRE, never executed
  *   the rest     unmapped (translation fault)
  * Then the MMU, the data and instruction caches go on. Runs first thing in
@@ -46,7 +48,8 @@ static void map_range(uint64_t start, uint64_t end, uint64_t flags)
 void mmu_init(uint32_t unused)
 {
     (void)unused;
-    map_range(PLAT_RAM_START, PLAT_RAM_END, D_ATTR(ATTR_NORMAL) | D_SH_INNER);
+    map_range(PLAT_RAM_START, PLAT_FB_START, D_ATTR(ATTR_NORMAL) | D_SH_INNER);
+    map_range(PLAT_FB_START, PLAT_FB_END, D_ATTR(ATTR_NC) | D_SH_INNER);
     map_range(PLAT_DEV_START, PLAT_DEV_END, D_ATTR(ATTR_DEVICE) | D_PXN | D_UXN);
 
     write_sysreg(mair_el1, MAIR_VALUE);
@@ -74,12 +77,4 @@ void mmu_init(uint32_t unused)
 int mmu_enabled(void)
 {
     return mmu_on;
-}
-
-/* Marks [start, end) non-cacheable (2 MiB granularity), e.g. for buffers
- * a device writes; the TLB is flushed. */
-void mmu_set_uncached(uintptr_t start, uintptr_t end)
-{
-    map_range(start, end, D_ATTR(ATTR_NC) | D_SH_INNER);
-    __asm__ volatile("dsb ishst\n tlbi vmalle1\n dsb ish\n isb" ::: "memory");
 }

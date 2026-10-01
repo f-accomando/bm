@@ -1,0 +1,17 @@
+bm per PowKiddy RGB30
+=====================
+
+Questa scheda avvia bm sull'RGB30: va nello slot TF1 (quello da cui si avvia
+ROCKNIX). Accendi con il tasto di accensione (non collegando il caricatore).
+
+  kernel8.img       il kernel di bm: per aggiornarlo sostituisci questo file
+  extlinux/         le istruzioni per U-Boot (non toccare)
+  bm/               giochi .s16, impostazioni (config.txt), firmware Bluetooth,
+                    bootlog.txt (cosa e' successo all'ultimo avvio)
+
+LED: rosso acceso = avvio in corso; verde che lampeggia = bm funziona;
+rosso fisso con il verde che lampeggia = problema allo schermo (leggi
+bm/bootlog.txt dal PC); rosso che lampeggia N volte = errore N.
+
+Non formattare e non ripartizionare la scheda: il bootloader sta fuori dalla
+partizione. Per rifarla: make TARGET=rgb30 image e riscrivi l'immagine.

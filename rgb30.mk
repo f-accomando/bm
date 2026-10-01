@@ -63,9 +63,44 @@ $(BUILD)/k/src/kernel/version.c.o: CFLAGS += -DBM_VERSION=\"$(VERSION)\"
 FORCE:
 
 .DEFAULT_GOAL := all
-.PHONY: all test qemu clean FORCE
+.PHONY: all test qemu clean firmware image sdcard FORCE
 
 all: $(BUILD)/kernel8.img
+ifeq ($(PLAT),rk3566)
+	@mkdir -p $(DIST)
+	cp $(BUILD)/kernel8.img $(DIST)/kernel8.img
+endif
+
+# Boot loader (from ROCKNIX's image) and the Realtek firmware: not stored in
+# the repository, downloaded and checked once (scripts/fetch-rgb30.sh)
+FW64 := firmware/rgb30
+firmware:
+	./scripts/fetch-rgb30.sh $(FW64)
+
+# Whole SD card image: the boot loader at the sectors the RK3566 boot ROM
+# and U-Boot's SPL read (64, 16384), then one FAT32 partition "BM" from
+# 16 MiB with extlinux.conf, kernel8.img and bm/. Write it with balenaEtcher,
+# Raspberry Pi Imager or Rufus; updates: copy kernel8.img onto the card.
+SD_FILES64 = $(BUILD)/kernel8.img=kernel8.img boot/rgb30/extlinux.conf=extlinux/extlinux.conf \
+             boot/rgb30/LEGGIMI.txt=LEGGIMI.txt \
+             $(FW64)/rtl8821cs_fw.bin=bm/rtl8821cs_fw.bin $(FW64)/rtl8821cs_config.bin=bm/rtl8821cs_config.bin \
+             $(wildcard $(FW64)/LICENCE.rtlwifi_firmware.txt)$(if $(wildcard $(FW64)/LICENCE.rtlwifi_firmware.txt),=bm/LICENCE.rtlwifi_firmware.txt)
+image: $(BUILD)/kernel8.img
+	@test -f $(FW64)/u-boot.itb || { echo "Run 'make TARGET=rgb30 firmware' first"; exit 1; }
+	@mkdir -p $(DIST)
+	$(PYTHON) scripts/mksd.py $(DIST)/bm-rgb30.img --size-mib 256 --start-mib 16 --label BM --active \
+	    --raw $(FW64)/idbloader.img@64 --raw $(FW64)/u-boot.itb@16384 $(SD_FILES64)
+	gzip -9 -k -f $(DIST)/bm-rgb30.img
+	@echo "Write $(DIST)/bm-rgb30.img (or .img.gz) to a microSD card, slot TF1."
+
+# The files of the BM partition, to copy by hand onto a card made with `image`
+sdcard: $(BUILD)/kernel8.img
+	@mkdir -p $(DIST)/sd/extlinux $(DIST)/sd/bm
+	cp $(BUILD)/kernel8.img $(DIST)/sd/kernel8.img
+	cp boot/rgb30/extlinux.conf $(DIST)/sd/extlinux/
+	cp boot/rgb30/LEGGIMI.txt $(DIST)/sd/
+	@if [ -f $(FW64)/rtl8821cs_fw.bin ]; then cp $(FW64)/rtl8821cs_*.bin $(DIST)/sd/bm/; fi
+	@echo "Copy the contents of $(DIST)/sd/ to the BM drive of the card."
 
 $(BUILD)/k/%.S.o: %.S
 	@mkdir -p $(dir $@)

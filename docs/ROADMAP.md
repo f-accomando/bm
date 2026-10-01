@@ -1486,6 +1486,34 @@ codice inserito, sprite nello sheet, test di velocità, F9), `make ai-model` per
   con F6 (e col pad), il codice entra al cursore e lo sprite nella cella; il menu e
   l'editor restano a 60 fps; i test in QEMU coprono l'integrazione.
 
+## M31 — bm per PowKiddy RGB30 (XL) — in corso (branch `rgb30-powkiddy`)
+Decisione 2026-10-01 (utente): una versione **bare metal** di bm per la PowKiddy RGB30
+(Rockchip RK3566, 4 × Cortex-A55 a 64 bit, 1 GiB, schermo 720×720 MIPI-DSI, RTL8821CS).
+Menu **512×512** al centro dello schermo (formato 1:1, da riadattare in seguito); giochi e app
+in un formato nuovo, **`.s16`**, da definire; le cartucce `.bm` del Pi nascoste (`show_bm=1` in
+`bm/config.txt` le elenca soltanto). Tutto in [RGB30.md](RGB30.md).
+
+Task:
+1. ✅ **Base a 64 bit** (`make TARGET=rgb30`, `rgb30.mk`, `src/rgb30/`): avvio come Image
+   arm64 da U-Boot (EL2 → EL1, si sposta a 0x10000000), MMU, cache, GICv3, timer generico,
+   eccezioni, picolibc, Lua; la stessa base gira nella macchina virt di QEMU, con i test
+   (`make TARGET=rgb30 test`).
+2. ✅ **Scheda SD** (`make TARGET=rgb30 firmware image`): bootloader di ROCKNIX (U-Boot 2026.01,
+   scaricato e controllato), FAT32 "BM" con extlinux e `kernel8.img`; avvio verificato in QEMU
+   attraverso lo stesso U-Boot.
+3. **Schermo**: VOP2 → DSI0 → D-PHY → pannello ST7703 + retroilluminazione PWM4 (scritto, da
+   provare sulla console); LED come segnale; `bm/bootlog.txt` scritto sulla SD a ogni avvio.
+4. **Comandi, SD, menu**: tasti GPIO, levette (SARADC + commutatore), SDMMC0 in PIO, PMIC RK817
+   (spegnimento, batteria), menu 512×512 con `.s16` e strumenti (scritti; in QEMU il menu e la FAT
+   sono provati, sulla console da provare).
+5. **Bluetooth**: RTL8821CS su UART1 con H5 (trasporto in `src/bt/h5.c`, già sotto lo stack
+   HCI) e firmware Realtek (`rtl8821cs_fw.bin` + config), controller e tastiere con lo stack di
+   M12/M28.
+6. **WiFi**: RTL8821CS su SDIO (sdmmc2): driver come rtw88 (GPL-2.0 OR BSD-3-Clause), 4-way
+   handshake WPA2 nell'host, lo stack di rete di M18.
+- **Fatto quando:** sulla RGB30 il menu appare, i tasti e le levette rispondono, un controller
+  Bluetooth si accoppia e la console entra nella rete WiFi salvata in `bm/config.txt`.
+
 ## Rischi principali
 | Rischio | Mitigazione |
 |---------|-------------|

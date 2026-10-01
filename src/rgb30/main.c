@@ -140,6 +140,19 @@ static void sd_boot(void)
     config_load();
 }
 
+/* Everything printed so far goes to bm/bootlog.txt: if the screen stays
+ * dark, the SD card read on a PC says how far the boot went. */
+static void save_bootlog(void)
+{
+    if (!sd_blocks())
+        return;
+    const char *log = klog_text();
+    if (fat_mkdirs("/bm") == 0 && fat_write_file("/bm", "BOOTLOG.TXT", log, strlen(log)) == 0)
+        kprintf("boot log saved to bm/bootlog.txt\n");
+    else
+        kprintf("boot log: cannot write bm/bootlog.txt (%s)\n", fat_error());
+}
+
 void kernel_main(uintptr_t dtb)
 {
     mmu_init(0);                /* first: library code needs normal memory */
@@ -173,10 +186,12 @@ void kernel_main(uintptr_t dtb)
     kprintf("IRQ on: timer %lu Hz (measured %lu Hz)\n", tick_hz(),
             (uint32_t)((uint64_t)(tick_count() - n0) * 1000000u / (timer_ticks() - t0)));
     plat_led(-1, 0);
-
     lua_selftest();
     sd_boot();
+    if (plat_display_problem())
+        plat_led(-1, 1);                    /* red stays on: see bm/bootlog.txt */
     kprintf("ready\n");
+    save_bootlog();
     if (err == 0)
         ui_home(&fb);
     ui_serial_repl();               /* no screen: the serial port only */

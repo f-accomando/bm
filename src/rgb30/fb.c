@@ -1,17 +1,12 @@
 /*
  * drivers/fb.h on the AArch64 build: framebuffers in a fixed region at the
- * top of RAM (plat.h), mapped non-cacheable like the Pi's GPU memory, so
- * whatever is drawn reaches the display controller without cache flushes.
+ * top of RAM (plat.h), mapped non-cacheable by mmu.c like the Pi's GPU
+ * memory, so whatever is drawn reaches the display controller as it is.
  * Pages are allocated one after the other; fb_init frees and starts over.
  */
 #include "drivers/fb.h"
 #include "drivers/timer.h"
 #include "plat.h"
-#include "arch/mmu.h"
-
-void mmu_set_uncached(uintptr_t start, uintptr_t end);
-
-static int region_ready;
 
 int fb_init(framebuffer_t *fb, uint32_t width, uint32_t height, uint32_t buffers)
 {
@@ -21,10 +16,6 @@ int fb_init(framebuffer_t *fb, uint32_t width, uint32_t height, uint32_t buffers
 int fb_init_depth(framebuffer_t *fb, uint32_t width, uint32_t height,
                   uint32_t buffers, uint32_t depth)
 {
-    if (!region_ready) {
-        mmu_set_uncached(PLAT_FB_START, PLAT_FB_END);
-        region_ready = 1;
-    }
     if (buffers < 1 || buffers > 3)
         buffers = 1;
     if (depth != 16)

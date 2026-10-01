@@ -149,6 +149,18 @@ const char *plat_display_info(void)
     return info;
 }
 
+int plat_display_problem(void)
+{
+    return 0;
+}
+
+int plat_battery(int *mv, int *charge)
+{
+    *mv = -1;
+    *charge = -1;
+    return -1;
+}
+
 /* --- PSCI --- */
 
 static void psci(uint32_t fn)

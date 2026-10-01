@@ -64,11 +64,16 @@ class Qemu:
     def send(self, data):
         self.port.write(data.encode() if isinstance(data, str) else data)
 
-    def monitor(self, cmd):
+    def monitor(self, cmd, until=None, timeout=10):
+        """until: a function; the connection stays open until it returns
+        true (the monitor may drop a command whose connection closed)."""
         with socket.socket(socket.AF_UNIX) as s:
             s.connect(self.mon_path)
             s.sendall(cmd.encode() + b"\n")
+            deadline = time.time() + timeout
             time.sleep(0.5)
+            while until and not until() and time.time() < deadline:
+                time.sleep(0.1)
 
     def screendump(self):
         path = os.path.join(self.tmp, "screen.ppm")
@@ -221,6 +226,32 @@ def test_menu_games_and_hidden_bm(b, opts):
         assert "pong.bm" in text.lower(), text
     finally:
         q.close()
+
+
+def test_bootlog_on_sd(b, opts):
+    """The boot log goes to bm/bootlog.txt on the SD card (read back from
+    the RAM disk with mtools: the FAT stays valid)."""
+    tmp = tempfile.mkdtemp(prefix="bm64sd-")
+    sd = make_sd(tmp, {"bm/racer.s16": b"S16" + bytes(100)})
+    size = os.path.getsize(sd)
+    q = Qemu(os.path.join(b, "kernel.elf"), sd=sd)
+    try:
+        out = boot(q)
+        assert "boot log saved to bm/bootlog.txt" in out, out
+        dump = os.path.join(tmp, "after.img")
+        q.monitor(f'pmemsave {RAMDISK:#x} {size} "{dump}"',
+                  until=lambda: os.path.exists(dump) and os.path.getsize(dump) == size)
+        time.sleep(0.3)
+    finally:
+        q.close()
+    env = dict(os.environ, MTOOLS_SKIP_CHECK="1")
+    part = f"{dump}@@{1024 * 1024}"
+    log = subprocess.run(["mtype", "-i", part, "::/bm/bootlog.txt"], capture_output=True,
+                         env=env, check=True).stdout.decode(errors="replace")
+    assert "QEMU virt (AArch64)" in log and "2^10 = 1024.0" in log, log
+    files = subprocess.run(["mdir", "-i", part, "-b", "::/bm"], capture_output=True,
+                           env=env, check=True).stdout.decode()
+    assert "racer.s16" in files.lower(), files
 
 
 def test_menu_input_page(b, opts):

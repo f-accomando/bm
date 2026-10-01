@@ -44,6 +44,20 @@ Lua 5.4 embedded. Documentazione: `README.md`, `docs/ROADMAP.md`, `docs/HARDWARE
 - Il branch principale è `claude/bare-metal-mvp`: quando l'utente dice "main" intende
   quello (un branch `main` non esiste).
 
+## RGB30 (branch `rgb30-powkiddy`, M31)
+
+- bm per PowKiddy RGB30 (RK3566, AArch64): `make TARGET=rgb30` (incluso da `rgb30.mk`; la build
+  del Pi non cambia), `make TARGET=rgb30 test` (QEMU `-M virt`), `make TARGET=rgb30 firmware
+  image` (SD). Guida: `docs/RGB30.md`.
+- Compilatore `aarch64-linux-gnu-gcc` + **picolibc** (non newlib); codice specifico in
+  `src/rgb30/` (`plat_virt.c`/`sd_virt.c` per QEMU, `rk_*.c` per la console). Gli header in comune
+  con l'ARMv6 (`kernel/irq.h`, `arch/cache.h`) hanno un ramo `__aarch64__`.
+- Menu 512×512 (`ui.c`), giochi `.s16` (formato da definire), `.bm` nascosti salvo `show_bm=1`.
+  Nei test lo schermo si legge dai pixel: il testo del menu sta sulla griglia del font (1x a
+  multipli di 8×16, 2x a multipli di 16).
+- L'utente prova senza seriale: LED (rosso = avvio, verde a 1 Hz = vivo) e `bm/bootlog.txt`
+  scritto sulla SD a ogni avvio.
+
 ## Cartucce `.cart`: rimosse
 
 - Decisione dell'utente (2026-09-30): bm esegue solo i `.bm`. Il vecchio formato `.cart`

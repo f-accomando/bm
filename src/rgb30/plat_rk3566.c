@@ -6,6 +6,7 @@
 #ifdef PLAT_RK3566
 #include "plat.h"
 #include "io.h"
+#include "rk_pmic.h"
 
 #define UART2           0xfe660000u
 #define UART_THR        0x00
@@ -33,6 +34,14 @@ int plat_uart_getc(void)
     return (int)(readl(UART2 + UART_RBR) & 0xff);
 }
 
+int plat_battery(int *mv, int *charge)
+{
+    *mv = rk817_battery_mv();
+    int st = rk817_charge_state();
+    *charge = st < 0 ? -1 : st == 4 ? 2 : (st >= 1 && st <= 3) ? 1 : 0;
+    return *mv < 0 ? -1 : 0;
+}
+
 static void psci(uint32_t fn)
 {
     register uint64_t x0 __asm__("x0") = fn;
@@ -48,7 +57,8 @@ void plat_reset(void)
 
 void plat_poweroff(void)
 {
-    psci(0x84000008u);          /* SYSTEM_OFF */
+    rk817_power_off();          /* the PMIC cuts the power */
+    psci(0x84000008u);          /* SYSTEM_OFF, if it did not */
     for (;;)
         __asm__ volatile("wfe");
 }

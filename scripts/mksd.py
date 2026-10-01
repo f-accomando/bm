@@ -6,6 +6,9 @@ for Raspberry Pi Imager / balenaEtcher / dd) and by the QEMU tests.
 Needs mkfs.vfat (dosfstools) and mtools.
 
   scripts/mksd.py OUT.img [--size-mib 128] [--label BMSD] [SRC=DEST ...]
+
+For the RGB30 (Rockchip boot ROM): --start-mib 16 leaves room before the
+partition and --raw FILE@SECTOR writes a bootloader there.
 """
 import argparse
 import os
@@ -25,8 +28,10 @@ def tool(name):
     return path
 
 
-def build(out, files, size_mib=128, label="BMSD"):
-    start = 2048                                    # sectors
+def build(out, files, size_mib=128, label="BMSD", start_mib=1, raw=(), active=False):
+    """raw: (file, sector) pairs written before the partition; active: the
+    partition's boot flag (U-Boot's bootflow scan looks at it)."""
+    start = start_mib * 2048                        # sectors
     total = size_mib * 2048                         # QEMU wants a power of 2
     part_sectors = total - start
     with tempfile.TemporaryDirectory() as tmp:
@@ -34,7 +39,8 @@ def build(out, files, size_mib=128, label="BMSD"):
         with open(part, "wb") as f:
             f.truncate(part_sectors * 512)
         small = ["-s", "1"] if size_mib <= 256 else []   # FAT32 needs >= 65525 clusters
-        subprocess.run([tool("mkfs.vfat"), "-F", "32", *small, "-n", label, part],
+        hidden = ["-h", str(start)] if start_mib != 1 else []
+        subprocess.run([tool("mkfs.vfat"), "-F", "32", *small, *hidden, "-n", label, part],
                        check=True, stdout=subprocess.DEVNULL)
         env = dict(os.environ, MTOOLS_SKIP_CHECK="1")
         dirs = set()
@@ -48,13 +54,20 @@ def build(out, files, size_mib=128, label="BMSD"):
                     dirs.add(sub)
             subprocess.run([tool("mcopy"), "-i", part, src, "::/" + dest.strip("/")], check=True, env=env)
         mbr = bytearray(512)
-        entry = struct.pack("<B3sB3sII", 0x00, b"\xfe\xff\xff", 0x0C, b"\xfe\xff\xff",
+        entry = struct.pack("<B3sB3sII", 0x80 if active else 0x00, b"\xfe\xff\xff", 0x0C, b"\xfe\xff\xff",
                             start, part_sectors)
         mbr[446:462] = entry
         mbr[510:512] = b"\x55\xaa"
+        gap = bytearray(start * 512)
+        gap[0:512] = mbr
+        for path, sector in raw:
+            with open(path, "rb") as r:
+                blob = r.read()
+            if sector < 1 or sector * 512 + len(blob) > start * 512:
+                sys.exit(f"mksd.py: {path} at sector {sector} does not fit before the partition")
+            gap[sector * 512:sector * 512 + len(blob)] = blob
         with open(out, "wb") as f:
-            f.write(mbr)
-            f.write(b"\0" * (start * 512 - 512))
+            f.write(gap)
             with open(part, "rb") as p:
                 while True:
                     chunk = p.read(1 << 20)
@@ -69,8 +82,14 @@ def main():
     ap.add_argument("files", nargs="*", help="SRC=DEST")
     ap.add_argument("--size-mib", type=int, default=128)
     ap.add_argument("--label", default="BMSD")
+    ap.add_argument("--start-mib", type=int, default=1, help="where the partition starts")
+    ap.add_argument("--raw", action="append", default=[], metavar="FILE@SECTOR",
+                    help="raw data before the partition (a bootloader)")
+    ap.add_argument("--active", action="store_true", help="mark the partition bootable")
     a = ap.parse_intermixed_args()
-    build(a.out, [tuple(f.split("=", 1)) for f in a.files], a.size_mib, a.label)
+    raw = [(r.rsplit("@", 1)[0], int(r.rsplit("@", 1)[1], 0)) for r in a.raw]
+    build(a.out, [tuple(f.split("=", 1)) for f in a.files], a.size_mib, a.label,
+          a.start_mib, raw, a.active)
     print(f"{a.out}: {a.size_mib} MiB, {len(a.files)} files")
 
 
