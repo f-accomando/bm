@@ -564,6 +564,29 @@ static void test_anim_cart(const char *path)
     free(d);
 }
 
+/* A cartridge saved by the 3D studio of the console (its host test,
+ * tests/studio/studio3d_host.lua): the kernel reads what it wrote. */
+static void test_console_cart(const char *path)
+{
+    size_t n;
+    uint8_t *d = read_file(path, &n);
+    CHECK(d != NULL, "read %s", path);
+    if (!d) return;
+    bm_cart_t c;
+    char err[64] = "";
+    CHECK(bm_parse(d, n, &c, err, sizeof err) == 0, "parse the cartridge of the 3D studio: %s", err);
+    bm_model_t m;
+    CHECK(c.models == 1 && bm_mesh_model(c.mesh, c.mesh_size, 0, &m) == 0 && strcmp(m.name, "model") == 0 &&
+          m.nfaces == 16, "its model: 16 triangles");
+    bm_rig_t r;
+    CHECK(c.anim && bm_anim_rig(c.anim, c.anim_size, "model", &r) == 0 && r.nbones == 2 && r.nclips == 1 &&
+          r.nverts == m.nverts, "its skeleton: 2 bones, 1 animation, the model's vertices");
+    bm_clip_t cl;
+    CHECK(bm_rig_clip(&r, 0, &cl) == 0 && strcmp(cl.name, "anim1") == 0 && cl.nkeys == 2 && !cl.loop,
+          "the animation anim1: 2 keyframes");
+    free(d);
+}
+
 int main(int argc, char **argv)
 {
     test_primitives();
@@ -578,6 +601,8 @@ int main(int argc, char **argv)
         test_studio_cart(argv[2]);
     if (argc > 3)
         test_anim_cart(argv[3]);
+    if (argc > 4)
+        test_console_cart(argv[4]);
     printf("bm: %d/%d checks passed\n", checks - fails, checks);
     return fails != 0;
 }

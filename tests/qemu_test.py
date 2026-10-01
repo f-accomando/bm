@@ -11,6 +11,7 @@ import re
 import os
 import shutil
 import socket
+import struct
 import subprocess
 import sys
 import tempfile
@@ -939,6 +940,8 @@ def test_home_ui(b, opts):
         # the Dev tab: a tool on the text console, then A goes back
         keys("2")
         screen(["bm SDK", "editor (built-in)"])
+        keys("d")
+        screen(["bm 3D studio", "3D studio (built-in)"])
         keys("d")                               # the covers' names are on pictures: the pill
         screen(["Monitor", "the text console with every command"])
         shot("dev")
@@ -2514,6 +2517,120 @@ def test_studio_cart(b, opts):
         assert "stopped with an error" not in out, out
     finally:
         q.close()
+
+
+def test_studio3d(b, opts):
+    """The 3D studio on the console (Dev tab; a game's options, "Open in the
+    3D studio"): the player shows the models and animations of the village;
+    a new project gets a block, is saved, tried (its viewer plays) and the
+    studio comes back to it; the file holds the model the kernel reads."""
+    tmp = tempfile.mkdtemp(prefix="bm-s3d-")
+    img = os.path.join(tmp, "sd.img")
+    mksd.build(img, [(b("carts/village.bm"), "carts/village.bm")])
+    q = Qemu(b("kernel.img"), ["-drive", f"if=sd,format=raw,file={img}"])
+
+    def keys(*ks, gap=0.3):
+        for k in ks:
+            q.send(k)
+            time.sleep(gap)
+
+    def screen(want, tries=40):
+        for _ in range(tries):
+            _, text = settled_screen(q, lambda i, t: all(any(w in l for l in t) for w in want), tries=2)
+            if all(any(w in l for l in text) for w in want):
+                return "\n".join(text)
+            time.sleep(0.25)
+        raise AssertionError(f"not on the screen: {want}\n" + "\n".join(text))
+
+    def shot(name):
+        if opts.shots:
+            _save_png(q.screendump(), os.path.join(opts.shots, f"studio3d-{name}.png"))
+
+    F2, F3, F4, UP, DOWN, ESC = "\x1bOQ", "\x1bOR", "\x1bOS", "\x1b[A", "\x1b[B", "\x1b"
+    try:
+        q.expect(MENU, timeout=30)
+        time.sleep(0.5)
+        screen(["Games", "Studio Village"])
+        keys("x")
+        screen(["Open in the SDK", "Open in the 3D studio"])
+        keys("s", "s", "\r")
+        text = screen(["F1 play", "MODELS", "ground", "villager", "169 vertices, 288 triangles"])
+        assert "opened /carts/village.bm" in text, text
+        for _ in range(7):
+            keys(DOWN)
+        screen(["ANIMATIONS", "idle", "walk", "wave", "112 vertices, 168 triangles, 7 bones"])
+        keys("k")
+        shot("player")
+        keys(F3)
+        screen(["BONES", "hips", "spine", "arm.L", "leg.R", "tail of hips"])
+        shot("rig")
+        keys(F4)
+        screen(["BONES", "idle  1/3  smooth  loop  2.00 s"])
+        shot("animate")
+
+        # a new project: a block, saved as CUBE.BM
+        keys(ESC, gap=0.6)
+        screen(["bm 3D studio", "New project", "Exit 3D studio"])
+        keys(DOWN, DOWN, "\r", gap=0.4)         # Continue, Open..., New project
+        screen(["BLOCK", "cell 0,0,0", "model: 0 faces"])
+        keys(" ")
+        screen(["model: 6 faces"])
+        shot("build")
+        # a skeleton (root and a child) and an animation with a turn at 0.25 s:
+        # the kernel checks each new ANIM section (cart_data) before drawing it
+        keys(F3, "n", "n", gap=0.5)
+        screen(["BONES", "root", "bone2", "tail of bone2"])
+        keys(F4, "n", gap=0.5)
+        screen(["anim1  1/1  smooth  loop  1.00 s"])
+        keys("\x1b[C", "\x1b[C", "\x1b[C", "w", gap=0.4)
+        screen(["TURN root   0.25 s  frame 3  key"])
+        shot("keyframe")
+        keys(ESC, gap=0.6)
+        for _ in range(4):
+            keys(DOWN)                          # down to "Save as..."
+        keys("\r")
+        screen(["file name"])
+        for _ in range(8):
+            keys("\x7f", gap=0.1)
+        for ch in "CUBE\r":
+            keys(ch, gap=0.1)
+        screen(["saved /carts/CUBE.BM"])
+
+        # try it: the viewer of a new project plays it, then the studio comes back
+        keys("\x1b[15~", gap=1)                 # F5
+        time.sleep(3)
+        keys("q")                               # the game ends (its keys are a gamepad's)
+        out = q.expect('bm: "New 3D project"', timeout=20).decode(errors="replace")
+        assert "stopped with an error" not in out, out
+        screen(["back from the game", "anim1  1/1"])     # the page it was on
+
+        # out of the studio: back to the menu
+        keys(ESC, gap=0.6)
+        keys(UP, "\r")                          # up from Continue: Exit 3D studio
+        screen(["Games", "last: 3D studio on village.bm"])
+    finally:
+        q.close()
+    try:
+        part = os.path.join(tmp, "part.img")
+        with open(img, "rb") as f, open(part, "wb") as o:
+            f.seek(2048 * 512)
+            o.write(f.read())
+        fsck = subprocess.run(["fsck.vfat", "-n", part], capture_output=True, text=True)
+        assert fsck.returncode == 0, fsck.stdout + fsck.stderr
+        env = dict(os.environ, MTOOLS_SKIP_CHECK="1")
+        saved = subprocess.run(["mtype", "-i", part, "::/CARTS/CUBE.BM"], capture_output=True, env=env).stdout
+        secs = dict(bmmesh.cart_sections(saved))
+        models, _ = bmmesh.decode(secs[bmmesh.SEC_MESH])
+        assert [m["name"] for m in models] == ["model"] and len(models[0]["faces"]) == 12, models
+        assert len(models[0]["verts"]) == 8, models[0]["verts"]
+        anim = secs[7]                          # ANIM: one rig, 2 bones, 1 clip of 2 keys
+        nb, nc, nv = struct.unpack_from("<HHH", anim, 8 + 16)
+        clip = 8 + 24 + nb * 44 + ((nv + 3) & ~3)
+        assert struct.unpack_from("<H", anim)[0] == 1 and (nb, nc, nv) == (2, 1, 8), (nb, nc, nv)
+        assert anim[clip:clip + 5] == b"anim1" and struct.unpack_from("<H", anim, clip + 16)[0] == 2
+        assert saved[24:38] == b"New 3D project", saved[24:48]
+    finally:
+        shutil.rmtree(tmp, ignore_errors=True)
 
 
 def test_kitchen(b, opts):
