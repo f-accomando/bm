@@ -856,7 +856,9 @@ def test_home_ui(b, opts):
 
         # the options of the suspended game
         keys("x")
-        screen(["AAA saver", "Resume", "Close the game", "Open in the SDK", "Open in bm Code", "Author", "tests"])
+        # (with four tools the info rows, Author..., are below: the panel scrolls)
+        screen(["AAA saver", "Resume", "Close the game", "Open in the SDK", "Open in bm Code",
+                "Open in the Sound editor", "Open in the 3D studio"])
         shot("options")
         keys("ww")                              # up from the first row: the last ones
         screen(["Delete the save data", "Records and progress start again"])
@@ -887,9 +889,9 @@ def test_home_ui(b, opts):
         # the other cartridge leaves the SD card
         keys("d")
         keys("x")
-        screen(["BBB delete me", "Play", "/carts/Un gioco da cancellare.bm"])
-        keys("w")
-        screen(["Delete from the SD card"])
+        screen(["BBB delete me", "Play", "Open in the 3D studio"])
+        keys("w")                               # up from the first: the last rows, the file too
+        screen(["Delete from the SD card", "/carts/Un gioco da cancellare.bm"])
         keys("\r")
         screen(["Delete BBB delete me?", "leaves the SD card"])
         keys("q")                               # no: nothing happens
