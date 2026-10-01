@@ -631,7 +631,7 @@ def test_usb_hub(b, opts):
         assert (b"usb: keyboard 0627:0001 'QEMU USB Keyboard', full speed, layout it "
                 b"(hub port 2)") in out, out
         time.sleep(0.5)
-        sendkeys(q, "esc")
+        sendkeys(q, "ctrl-esc")                 # Esc alone only goes back (0a2cdc3)
         q.expect(PROMPT, timeout=10)
         q.expect("> ")
         sendkeys(q, "l")
