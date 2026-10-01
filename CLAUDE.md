@@ -27,6 +27,14 @@ Lua 5.4 embedded. Documentazione: `README.md`, `docs/ROADMAP.md`, `docs/HARDWARE
 - Resta solo la disposizione dei registri dell'audio (il sintetizzatore e `apu()` dei
   giochi `.bm`), nata dall'APU della s32.
 
+## Assistente AI (M30)
+
+- `src/ai/`: rete INT8 che sceglie tra le voci di `src/ai/kb/*.txt` (formato in
+  `src/ai/kb/README.md`) e ricette di sprite; pannello Lua `require "assist"`.
+- Dopo aver cambiato la base di conoscenza: `make ai-model` (numpy) e commit di
+  `src/ai/assist.weights`; `make test-ai` controlla C contro Python, domande di prova,
+  esempi di codice e pannello.
+
 ## Comunicazione con l'utente
 
 - Riportare la **lista delle milestone** solo quando una milestone è completata per

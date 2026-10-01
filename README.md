@@ -75,6 +75,7 @@ Risoluzioni di menu, console e giochi, e quanto costano: [docs/RISOLUZIONI.md](d
 | **M27** | **BareMetal UI**: sottomenu, opzioni delle cartucce, strumenti nella scheda Dev, impostazioni | ✅ chiusa: task 1–4 verificati sul Pi |
 | **M28** | Tastiera Bluetooth LE (MX Keys S): pairing con codice, HID over GATT, riconnessione | ✅ verificato sul Pi |
 | **M29** | **Pi 1 B**: stesso kernel, hub USB (split transactions), Ethernet LAN9512, immagine `bm-pi1.img` | ✅ verificato sul Pi 1 B |
+| M30 | **Assistente AI** per lo sviluppo: domande su API e codice, errori, base degli sprite; rete INT8 sulla console | base fatta (QEMU), integrazione negli editor dopo |
 
 ## Cosa fa il kernel
 
@@ -288,6 +289,13 @@ make test-http       # client HTTP contro un server Python locale
 make test-https      # HTTPS (mbedTLS) contro server TLS locali con una CA di prova
 ```
 
+Assistente (M30), sul PC:
+
+```sh
+make test-ai         # rete C contro Python, domande di prova, esempi di codice, pannello
+make ai-model        # riaddestra la rete dopo aver cambiato src/ai/kb/ (serve numpy)
+```
+
 ## s32 (rimosso)
 
 Fino al 2026-09-30 bm eseguiva anche le cartucce `.cart` della console **s32** del
@@ -489,6 +497,13 @@ src/kernel/home.c        strumenti della scheda Dev e pannelli delle impostazion
 src/kernel/input.c       input unificato: seriale + tastiera/gamepad USB
 src/bm/                 cartucce native: formato, grafica RGB565 (gfx16), 3D software (r3d),
                          runtime Lua, stress test
+src/ai/                  assistente (M30): rete INT8 (nn.c), testo (text.c), domande (assist.c),
+                         ricette di sprite (sprite.c), tabella Lua ai (lua_ai.c), pannello
+                         (assist.lua, require "assist"); base di conoscenza in src/ai/kb/
+carts/assistant/         lo strumento Assistant della scheda Dev
+scripts/mkassist.py      base di conoscenza + rete -> build/assist.bin (nel kernel)
+scripts/trainassist.py   addestramento della rete (make ai-model, numpy)
+tests/ai/                test dell'assistente (C, Lua, esempi di codice)
 carts/demo/              cartuccia nativa demo: main.lua, sheet.png, map.csv
 carts/pong|snake|shooter|astrowing|hunt|texroom giochi demo (solo Lua)
 carts/kitchen/           Chaos Kitchen (M17): src/*.lua, build.py, mkassets.py,

@@ -1217,6 +1217,84 @@ con il MAC; `eth: link up, 100 Mbit/s full duplex` dopo qualche secondo col cavo
 `net: IP ...`; `ping` dal PC; `tools/bm_net.py IP`; una tastiera su una porta USB
 (`usb: keyboard ... (hub port 2, split)`) che scrive nel menu e nei giochi.
 
+## M30 — Assistente AI per lo sviluppo (L) — base fatta in QEMU (2026-10-01), integrazione quando le app sono pronte
+Decisione 2026-10-01 (dopo [AI.md](../AI.md)): la prima AI di bm è un **assistente per
+gli strumenti di sviluppo**, non per i giochi: mentre si scrive un gioco si richiama con
+un tasto per chiedere come si scrive qualcosa, o per avere la base di uno sprite. Si
+richiama solo direttamente, non è invasivo e non pesa sul sistema: nessun processo in
+background, niente RAM finché non si chiede, una risposta in meno di un millisecondo.
+
+Cosa è, e cosa no: sul Pi Zero un modello linguistico che scrive codice libero darebbe
+pochi token al secondo e testo inaffidabile. L'assistente è una **rete INT8 minuscola**
+che capisce la domanda (italiano o inglese, errori di battitura, sinonimi) e sceglie tra
+le voci di una base di conoscenza di bm; gli sprite vengono da **ricette procedurali**
+guidate dalle parole. È l'approccio ibrido di AI.md: la rete sceglie, l'algoritmo
+classico fa il grosso.
+
+Task:
+1. ✅ **Motore INT8** (`src/ai/nn.c`): parole e tris di lettere (hash FNV-1a in 4096
+   caratteristiche) → 64 neuroni (ReLU) → un'uscita per voce. Somme intere a 32 bit,
+   SIMD dell'ARMv6 (SXTB16, SADD16, SMLAD). Bit per bit uguale al riferimento in Python
+   (`scripts/assistlib.py`).
+2. ✅ **Testo** (`src/ai/text.c`): lettere accentate di CP437 (tastiera) e UTF-8 piegate,
+   parole funzione tolte, parole, coppie di parole e tris di lettere.
+3. ✅ **Base di conoscenza** (`src/ai/kb/*.txt`, formato in `src/ai/kb/README.md`): 208
+   voci. Ogni funzione delle API, 79 esempi con il codice (movimento, salti, collisioni,
+   spari, nemici, mappe, menu, suono, salvataggi, 3D, luci, Lua), 23 errori di Lua con la
+   correzione, consigli, le ricette degli sprite. Testo in italiano, codice ASCII che
+   compila con Lua 5.4 (controllato).
+4. ✅ **Addestramento sul PC** (`make ai-model`, numpy, ~40 s): esempi dalle domande `ask:`
+   delle voci con varianti (parola tolta, errore di battitura, sinonimo), poi
+   quantizzazione a 8 bit. Il risultato (`src/ai/assist.weights`) è nel repository: `make`
+   non ha bisogno di numpy. `scripts/mkassist.py` impacchetta voci e rete nel file BMAI
+   incluso nel kernel.
+5. ✅ **Ricette di sprite** (`src/ai/sprite.c`): 36 (astronave, alieno, mostro, robot,
+   personaggio, slime, fantasma, pipistrello, teschio, moneta, gemma, cuore, stella,
+   chiave, spada, pozione, forziere, cassa, albero, fiore, fungo, roccia, bomba, fiamma,
+   proiettile, esplosione, mela, nuvola; tile di erba, mattoni, pietra, acqua, legno,
+   sabbia, lava, terreno). 8x8, 16x16 o 32x32; forme, simmetria, cinque toni per colore
+   con la luce dall'alto a sinistra, contorno; colori e misura dalle parole ("slime rosso
+   32x32"); ogni seme una variante (alcune fanno animazioni: moneta che gira, ali).
+6. ✅ **Lua**: `ai.ask`, `ai.entry`, `ai.list`, `ai.near`, `ai.sprite`, `ai.recipes`
+   (docs/API.md) e `require "assist"`, il **pannello** che ogni strumento apre con un tasto:
+   risponde mentre scrivi, Invio inserisce il codice o lo sprite, modalità errore (riga,
+   nome scritto male, cosa vuol dire), voci collegate, "non sono sicuro"; col pad si
+   sfoglia tutto. `keyp()` conosce F6–F12.
+7. ✅ **Assistant** nella scheda Dev (e `A` dal monitor): il pannello da solo, il codice
+   inserito e gli sprite nello sheet su due riquadri, F8 misura la velocità sullo schermo.
+8. **Integrazione**, quando le app sono pronte (l'editor di M15, poi gli strumenti di M22):
+   - editor del codice: F6 apre il pannello con la parola sotto il cursore, Invio inserisce
+     il codice al cursore; la riga rossa dell'errore apre il pannello in modalità errore;
+   - editor degli sprite: F6 (modo sprite) mette la base nella cella scelta, nella misura
+     della pagina (8x8 o 16x16) e con la tavolozza dell'editor;
+   - una combinazione per il pad (proposta: Y+X), e l'aiuto F12 che la ricorda.
+9. Dopo: numeri e nomi della domanda dentro il codice proposto ("muovi a velocità 3"),
+   completamento dei nomi delle API, le domande senza risposta giusta che diventano voci
+   nuove, ricette di sprite animate (più fotogrammi nello sheet).
+
+Numeri: in QEMU 0,45 ms per domanda (sul PC 0,03 ms) e 1 ms per uno sprite 16x16; il
+kernel cresce di ~410 KB (rete 270 KB, voci e testi 80 KB). RAM: niente finché non si
+chiede (rete e voci restano nel kernel), poi le tabelle Lua della risposta.
+
+Test: `make test-ai` (rete C contro Python bit per bit; 133 domande mai viste in
+addestramento: la risposta giusta prima per 121, nelle prime tre per 129; i 164 esempi
+che compilano; 21 controlli del pannello sul PC: domanda, Invio, varianti, errore, pad,
+320x180; le 36 ricette in tre misure), `test_assistant` in QEMU (domanda scritta,
+codice inserito, sprite nello sheet, test di velocità), `make ai-model` per riaddestrare.
+
+**Da provare sul Pi** (Dev > Assistant, o `A` dal monitor):
+- con la tastiera USB: una domanda ("come salto", "collisione tra rettangoli",
+  "attempt to call a nil value"); la risposta e il tempo in ms in alto a destra; Invio
+  inserisce il codice nel riquadro "code";
+- F7, "slime rosso" (o "astronave blu 32x32"), destra/sinistra per le varianti, Invio:
+  lo sprite nel riquadro "sprites";
+- F8: domande al secondo e tempo di uno sprite sul Pi vero;
+- col solo DS4: A apre, su/giù sfogliano, A inserisce, X cambia modo, B chiude.
+
+- **Fatto quando:** sul Pi l'editor del codice e quello degli sprite aprono l'assistente
+  con F6 (e col pad), il codice entra al cursore e lo sprite nella cella; il menu e
+  l'editor restano a 60 fps; i test in QEMU coprono l'integrazione.
+
 ## Rischi principali
 | Rischio | Mitigazione |
 |---------|-------------|

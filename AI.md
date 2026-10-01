@@ -4,6 +4,18 @@ Considerazioni del 2026-09-30. Sostituiscono le vecchie milestone AI-01…AI-12,
 sono una roadmap: qui c'è solo cosa ha senso per bm, in ordine di utilità.
 Numeri di riferimento: [docs/HARDWARE.md](docs/HARDWARE.md), [docs/PRESTAZIONI.md](docs/PRESTAZIONI.md).
 
+## Decisione 2026-10-01: il primo passo è l'assistente per lo sviluppo (M30)
+
+La prima AI di bm aiuta a **fare** i giochi: un assistente che gli strumenti di sviluppo
+aprono con un tasto (come si scrive uno snippet, cosa vuol dire un errore, la base di uno
+sprite). Si richiama solo direttamente, non lavora in background e non occupa RAM finché
+non si chiede. È fatto con i pezzi qui sotto: motore INT8 in C con le SIMD dell'ARMv6,
+addestramento sul PC e solo inferenza sul Pi, test bit per bit dentro `make test`, e
+l'approccio ibrido (la rete sceglie tra le voci di una base di conoscenza e tra le
+ricette di sprite, il codice classico fa il resto). Dettagli, numeri e cosa provare sul
+Pi: [docs/ROADMAP.md](docs/ROADMAP.md), M30; API in [docs/API.md](docs/API.md). Lo stesso
+motore servirà poi ai giochi (l'avversario CPU di Titan Clash, sotto).
+
 ## Più sensate e utili per bm
 
 **Nei giochi: è qui che l'AI serve davvero.** Avversario CPU di Titan Clash, riconoscimento di

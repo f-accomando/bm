@@ -76,7 +76,9 @@ Lo schermo **non** viene cancellato da solo: di solito `_draw` comincia con `cls
 
 Limiti: un errore o un ciclo infinito (oltre **20 milioni di istruzioni** Lua in un
 fotogramma) ferma la cartuccia senza bloccare la console. Sandbox: niente `io`, `os`,
-`load`, `dofile`, `require`; ci sono `string`, `table`, `math`, `utf8`, `coroutine`.
+`load`, `dofile`; `require` carica solo le librerie incluse nel kernel (per ora
+`"assist"`, il pannello dell'assistente); ci sono `string`, `table`, `math`, `utf8`,
+`coroutine`.
 
 ## Colori
 
@@ -231,12 +233,63 @@ Pong, Snake e Star Shooter in `carts/` usano effetti e piccole melodie (una funz
 
 | Funzione | Descrizione |
 |---|---|
-| `keyp()` | il prossimo tasto scritto: un carattere (`"a"`, `"\n"` Invio, `"\b"` Backspace, `"\t"`), un nome (`"up"`, `"down"`, `"left"`, `"right"`, `"home"`, `"end"`, `"pgup"`, `"pgdn"`, `"del"`, `"esc"`, `"f1"`…`"f5"`) o `"^s"` per Ctrl+S; `nil` se nessuno. Dalla prima chiamata la tastiera scrive e non fa più da gamepad per `btn()`, ed Esc non chiude la cartuccia (Start+Select e PS sì) |
+| `keyp()` | il prossimo tasto scritto: un carattere (`"a"`, `"\n"` Invio, `"\b"` Backspace, `"\t"`), un nome (`"up"`, `"down"`, `"left"`, `"right"`, `"home"`, `"end"`, `"pgup"`, `"pgdn"`, `"del"`, `"esc"`, `"f1"`…`"f12"`) o `"^s"` per Ctrl+S; `nil` se nessuno. Dalla prima chiamata la tastiera scrive e non fa più da gamepad per `btn()`, ed Esc non chiude la cartuccia (Start+Select e PS sì) |
 | `ls([cartella])` | i file della SD: `{ {name=, size=, dir=}, … }` |
 | `cart_load(percorso)` | apre un `.bm`: il suo sprite sheet e la sua mappa sostituiscono quelli della cartuccia che chiama; restituisce `{title, author, res, lua, sheet_w, sheet_h, map_w, map_h}` |
 | `cart_new()` | sprite sheet e mappa vuoti (256×256) |
 | `cart_save(percorso, {title, author, res, lua})` | scrive un `.bm` con il codice dato e lo sprite sheet, la mappa (e la copertina) correnti; nome 8.3, es. `"/carts/GIOCO.BM"` |
 | `cart_run(percorso)` | esce, gioca quel file e poi riapre la cartuccia che l'ha chiesto, con `cart_arg()` = `{path=, error=, back=true}` (dal menu, "Open in the SDK": `back=false`) |
+
+### Assistente (M30, per gli strumenti di sviluppo)
+
+Una piccola AI che gira sulla console: capisce una domanda (italiano o inglese,
+anche con errori di battitura) e risponde con le voci della sua base di conoscenza
+(ogni funzione delle API, esempi di codice per i giochi, errori di Lua, consigli) o
+disegna la base di uno sprite. Non è un chatbot: una rete INT8 minuscola sceglie tra
+le voci che conosce, in meno di un millisecondo. Non fa niente finché non la chiami
+(nessun processo in background; base di conoscenza e rete stanno nel kernel).
+Si prova da **Dev > Assistant** (o `A` dal monitor).
+
+| Funzione | Descrizione |
+|---|---|
+| `ai.ask(domanda, [{n=5, ctx=parola, kinds="api,howto"}])` | le voci migliori, la prima è la più probabile: `{ {id=, title=, kind=, score=}, … }`, e come secondo valore i microsecondi impiegati. `ctx`: la parola sotto il cursore (se è una funzione delle API, la sua voce va in cima). `kinds`: `api`, `howto`, `error`, `tip`, `sprite` |
+| `ai.entry(id)` | una voce: `{id, kind, title, name, text, code, gen, see = {id, …}}` |
+| `ai.list([kinds])` | tutte le voci `{id, title, kind}` (per sfogliarle col pad) |
+| `ai.near(parola)` | il nome delle API più vicino a una parola scritta male (`"sprr"` → `"spr"`, 1), o `nil` |
+| `ai.sprite(richiesta, [{gen=, size=16, seed=1, outline=true, palette={…}}])` | la base di uno sprite: `{w, h, gen, name, seed, px = {0xRRGGBB o -1 (trasparente), …}}` riga per riga. La ricetta viene dalle parole (`"slime"`, `"astronave"`, `"moneta"`, `"erba"`…) o da `gen`; i colori (`"rosso"`, `"blue"`…) e la misura (`"8x8"`, `"32x32"`, `"piccolo"`, `"grande"`) dalle parole; un altro `seed` è una variante; con `palette` ogni pixel diventa il colore più vicino della tavolozza |
+| `ai.recipes()` | le ricette degli sprite `{id, name}` |
+
+**Il pannello** (`require "assist"`): quello che gli strumenti aprono con un tasto
+(F6 nell'Assistant). Risponde mentre scrivi; Invio (A) passa il codice o lo sprite allo
+strumento, Esc (B) chiude, Tab (X) cambia modo; senza domanda si sfoglia tutto col pad.
+
+```lua
+local assist = require "assist"
+
+function _update()
+  if assist.update() then return end          -- aperto: i tasti sono suoi
+  local k = keyp()
+  if k == "f6" then
+    assist.open{ mode = "code", ctx = word_under_cursor,
+                 on_insert = function(code) insert_lines(code) end }
+  end
+end
+
+function _draw()
+  draw_tool()
+  assist.draw()                                -- sopra, se aperto
+end
+```
+
+`assist.open{...}`: `mode` = `"code"` (API, esempi, errori), `"sprite"`, `"error"`
+o `"any"`; `query` (domanda già scritta), `ctx`, `error` (un messaggio d'errore: il
+pannello mostra la riga, il nome scritto male e cosa vuol dire), `size` e `palette`
+per gli sprite, `on_insert(codice)`, `on_sprite(sprite)`, `on_close()`, `x, y, w, h`
+(predefinito: quasi tutto lo schermo). Poi `assist.update()` e `assist.draw()` a ogni
+fotogramma, `assist.is_open()`, `assist.close()`.
+
+La base di conoscenza è in `src/ai/kb/` (formato e come riaddestrare:
+`src/ai/kb/README.md`).
 
 ### Luce
 
