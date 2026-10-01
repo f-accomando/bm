@@ -1,7 +1,9 @@
 # bm (BareMetal) — note per chi lavora su questo repository
 
 Kernel bare metal per Raspberry Pi Zero W (BCM2835, ARM1176JZF-S): C + assembly +
-Lua 5.4 embedded. Documentazione: `README.md`, `docs/ROADMAP.md`, `docs/HARDWARE.md`.
+Lua 5.4 embedded. Documentazione: `README.md` (presentazione in inglese, con showreel e
+screenshot in `docs/img/`), `README_OLD.md` (il README completo, in italiano),
+`docs/ROADMAP.md`, `docs/HARDWARE.md`.
 
 ## Build e test
 

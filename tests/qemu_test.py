@@ -3064,6 +3064,9 @@ def test_sound_editor(b, opts):
         for _ in range(5):
             k("\x1b[B")                                     # track 6: empty in pattern 0
         k("q")                                              # C5
+        if opts.shots:
+            time.sleep(0.5)
+            _save_png(q.screendump(), os.path.join(opts.shots, "sound-pattern.png"))
         k("\x13", 1)                                        # Ctrl+S: a new pack, named
         k("\r")                                             # "DEMO"
         q.expect("sound: saved /bm/sounds/DEMO.BM", timeout=20)
@@ -3806,6 +3809,8 @@ def test_nano8(b, opts):
         q.expect("nano8: playing /carts/nano8/sixlets2.p8.png", timeout=20)
         time.sleep(4.0)
         assert b"nano8: Runtime error" not in q.buf, q.buf
+        if opts.shots:
+            _save_png(q.screendump(), os.path.join(opts.shots, "nano8-sixlets2.png"))
         q.send("q")
         q.expect('"nano8" suspended', timeout=10)
     finally:
