@@ -176,14 +176,14 @@ function check(ok, msg) { checks++; if (!ok) { fails++; console.log('FAIL ' + ms
     await fc.setFiles(cart);
     await page.waitForFunction(() => app.project.title === 'Studio Village');
     s = await state();
-    check(s.models === 7 && s.name === 'ground', `Studio Village: ${s.models} models`);
+    check(s.models === 8 && s.name === 'ground', `Studio Village: ${s.models} models, opened on ${s.name}`);
     await page.evaluate(() => { app.cur = 1; app.S.view.lit = true; app.modelChanged(true); app.refreshModels(); app.view.frame(); });
     await shot('5-village');
     const [fc2] = await Promise.all([page.waitForEvent('filechooser'), page.evaluate(() => app.cmd('importGlb'))]);
     await fc2.setFiles(path.join(ROOT, 'carts', 'kitchen', 'models', 'chef1.glb'));
     await page.waitForSelector('#modal:not([hidden])');
     await page.keyboard.press('Enter');                     // textures: at most 256
-    await page.waitForFunction(() => app.project.models.length === 8);
+    await page.waitForFunction(() => app.project.models.length === 9);
     const chef = await page.evaluate(() => {
       const faces = app.model().faces, b = BM.modelBounds(faces);
       // it faces the camera of bm (towards -z): more of it shows from the front than from the back
