@@ -59,6 +59,17 @@ Lua 5.4 embedded. Documentazione: `README.md`, `docs/ROADMAP.md`, `docs/HARDWARE
   (`scripts/bmaudio.py`). Se cambia, cambiarlo in tutti e tre: `make test-sound`
   controlla che il banco demo torni identico byte per byte.
 
+## Assistente AI (M30)
+
+- `src/ai/`: rete INT8 che sceglie tra le voci di `src/ai/kb/*.txt` (formato in
+  `src/ai/kb/README.md`) e ricette di sprite; pannello Lua `require "assist"`.
+- Dopo aver cambiato la base di conoscenza: `make ai-model` (numpy) e commit di
+  `src/ai/assist.weights`; `make test-ai` controlla C contro Python, domande di prova,
+  esempi di codice e pannello.
+- bm Code (`carts/code/main.lua`, scheda Dev): l'editor del codice; usa `cart_read` /
+  `cart_write` (solo il codice), `font("6x12")` e `assist.act` per le righe `#entry:`.
+  Test: `test_code_editor` in QEMU (lo schermo si legge anche col font 6x12).
+
 ## Comunicazione con l'utente
 
 - Riportare la **lista delle milestone** solo quando una milestone è completata per

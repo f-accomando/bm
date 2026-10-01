@@ -32,4 +32,12 @@ void carts_sound_editor(framebuffer_t *fb);
 /* The built-in 3D studio: models and animations of a .bm (menu, monitor '3'). */
 void carts_studio3d(framebuffer_t *fb);
 
+/* bm Code, the code editor (Dev tab, monitor 'C'); `open`: a file, or NULL */
+void carts_code(framebuffer_t *fb, const char *open);
+
+/* A development tool built into the kernel and the games it tries with
+ * cart_run(): the tool comes back after each game, with cart_arg(). */
+void carts_tool_session(framebuffer_t *fb, const uint8_t *cart, size_t cart_len, const char *what,
+                        const char *open);
+
 #endif

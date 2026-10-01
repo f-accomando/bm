@@ -1,0 +1,133 @@
+# How-to: text, HUD, menus.
+
+== hud
+kind: howto
+title: Punteggio e vite sullo schermo (HUD)
+ask: mostrare punteggio e vite | hud | interfaccia di gioco | show score and lives
+ask: scrivere i punti in alto | contatore delle vite | punteggio a schermo
+keys: punteggio, vite, hud
+see: print, health_bar
+text:
+Disegnalo per ultimo, con camera() azzerata, così non scorre con il mondo.
+code:
+camera()
+print("PUNTI " .. score, 8, 8, 0xFFFFFF)
+for i = 1, lives do
+  spr(48, SCREEN_W - 12 * i - 4, 8)    -- un cuore per vita
+end
+
+== center_text
+kind: howto
+title: Scrivere un testo centrato
+ask: centrare un testo | scritta al centro dello schermo | center text
+ask: allineare il testo al centro | titolo centrato
+ask: scritta in mezzo allo schermo | testo nel mezzo
+keys: centrare, centrato
+see: print
+text:
+Ogni carattere è largo 8 pixel (per la scala): la x è metà schermo meno
+metà della larghezza del testo.
+code:
+local function center(s, y, c, scale)
+  scale = scale or 1
+  print(s, (SCREEN_W - #s * 8 * scale) // 2, y, c, scale)
+end
+center("GAME OVER", 160, 0xFF4040, 2)
+
+== title_menu
+kind: howto
+title: Menu con le voci da scegliere
+ask: menu del titolo | scegliere una voce con le frecce | menu with options
+ask: menu iniziale con gioca e opzioni | cursore nel menu | select menu item
+keys: menu, voci, scegliere
+see: game_states, btnp
+text:
+Un indice della voce scelta: su e giù lo cambiano, A conferma.
+code:
+local items, sel = { "Gioca", "Opzioni", "Esci" }, 1
+
+function menu_update()
+  if btnp(2) then sel = (sel - 2) % #items + 1 end
+  if btnp(3) then sel = sel % #items + 1 end
+  if btnp(4) then return items[sel] end
+end
+
+function menu_draw()
+  for i, s in ipairs(items) do
+    print((i == sel and "> " or "  ") .. s, 256, 144 + i * 16,
+          i == sel and 0xFFD050 or 0xFFFFFF)
+  end
+end
+
+== game_over_screen
+kind: howto
+title: Schermata di game over con il punteggio
+ask: schermata di game over | fine partita | game over screen | hai perso
+ask: mostrare il punteggio finale | premi per ricominciare
+keys: gameover, fine, perso
+see: game_states, high_score, restart
+text:
+Scritta grande, punteggio e record, e un tasto per ricominciare.
+code:
+function draw_game_over()
+  cls(0)
+  print("GAME OVER", 248, 120, 0xFF4040, 2)
+  print("punti  " .. score, 264, 176, 0xFFFFFF)
+  print("record " .. best, 264, 192, 0xFFD050)
+  if (stat(3) // 30) % 2 == 0 then print("A: ancora", 280, 240) end
+end
+
+== dialog_box
+kind: howto
+title: Finestra di dialogo con il testo che appare a poco a poco
+ask: finestra di dialogo | il personaggio parla | dialog box | testo che appare lettera per lettera
+ask: fumetto con il testo | typewriter text | dialoghi rpg
+keys: dialogo, parla, fumetto
+see: print
+text:
+Un riquadro in basso e una parte del testo che cresce a ogni fotogramma.
+code:
+local msg, shown = "Ciao, viaggiatore! La grotta e' a nord.", 0
+
+function dialog_draw()
+  shown = math.min(#msg, shown + 0.5)
+  rectfill(16, 272, 608, 72, 0x101020)
+  rect(16, 272, 608, 72, 0xFFFFFF)
+  print(msg:sub(1, math.floor(shown)), 32, 288, 0xFFFFFF)
+end
+
+== name_input
+kind: howto
+title: Scrivere il nome del giocatore
+ask: inserire il nome | campo di testo | scrivere il nome per la classifica | text input
+ask: tastiera per il nome | entry of initials
+keys: nome, scrivere, testo
+see: keyp
+text:
+keyp() dà i tasti scritti; Backspace cancella, Invio conferma.
+code:
+name = name or ""
+local k = keyp()
+while k do
+  if k == "\b" then name = name:sub(1, -2)
+  elseif k == "\n" then done = true
+  elseif #k == 1 and #name < 10 then name = name .. k end
+  k = keyp()
+end
+print("nome: " .. name .. "_", 200, 160)
+
+== fade
+kind: howto
+title: Dissolvenza tra due schermate
+ask: dissolvenza | fade out | schermo che diventa nero | transizione tra livelli
+ask: fade in | sfumare al nero
+keys: dissolvenza, fade, transizione
+see: game_states
+text:
+Lo schermo è a 16 bit e non c'è trasparenza: una tendina nera che si
+chiude a righe fa da transizione.
+code:
+-- fade da 0 a 1
+local h = math.floor(SCREEN_H / 2 * fade)
+rectfill(0, 0, SCREEN_W, h, 0)
+rectfill(0, SCREEN_H - h, SCREEN_W, h, 0)

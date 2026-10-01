@@ -1,0 +1,214 @@
+# How-to: shooting, enemies, effects.
+
+== bullets
+kind: howto
+title: Sparare dei proiettili
+ask: come sparo | sparare proiettili | shoot bullets | il giocatore spara
+ask: lista di proiettili | colpi che si muovono | fire bullets | sparare con A
+ask: proiettili che spariscono fuori dallo schermo
+ask: sparare premendo un tasto | il personaggio spara
+keys: sparare, proiettili, colpi, shoot
+see: cooldown, enemies_list, collide_rect
+text:
+Una tabella di proiettili: si aggiungono quando spari, si muovono a ogni
+fotogramma, si tolgono quando escono (scorrendo la lista all'indietro,
+così table.remove non salta nessuno).
+code:
+bullets = {}
+
+function _update()
+  if btnp(4) then
+    bullets[#bullets + 1] = { x = px + 4, y = py, vy = -6 }
+  end
+  for i = #bullets, 1, -1 do
+    local b = bullets[i]
+    b.y = b.y + b.vy
+    if b.y < -8 then table.remove(bullets, i) end
+  end
+end
+
+function _draw()
+  for _, b in ipairs(bullets) do rectfill(b.x, b.y, 2, 6, 0xFFE060) end
+end
+
+== cooldown
+kind: howto
+title: Fuoco continuo con una cadenza
+ask: tenere premuto per sparare | cadenza di fuoco | fire rate | rateo
+ask: sparare ogni tot fotogrammi | ricarica dell'arma | cooldown | mitragliatrice
+keys: cadenza, ricarica, cooldown
+see: bullets, timer
+text:
+btn (tenuto) con un contatore: un colpo, poi aspetta qualche fotogramma.
+code:
+cool = math.max(0, (cool or 0) - 1)
+if btn(4) and cool == 0 then
+  bullets[#bullets + 1] = { x = px + 4, y = py, vy = -6 }
+  cool = 8                              -- 7 colpi al secondo
+  note(1, 1200, 40, SQUARE, 60)
+end
+
+== enemies_list
+kind: howto
+title: Tanti nemici in una lista
+ask: tanti nemici | lista di nemici | gestire più nemici | multiple enemies
+ask: aggiungere e togliere nemici | ciclo sui nemici | enemy table | orde
+keys: nemici, lista, enemies
+see: bullets_hit, chase, spawn_waves
+text:
+Ogni nemico è una tabella; tutti in una lista. Per toglierli mentre la
+scorri, scorrila all'indietro.
+code:
+enemies = {}
+
+function spawn(x, y)
+  enemies[#enemies + 1] = { x = x, y = y, hp = 3 }
+end
+
+function update_enemies()
+  for i = #enemies, 1, -1 do
+    local e = enemies[i]
+    e.y = e.y + 1
+    if e.hp <= 0 or e.y > SCREEN_H then table.remove(enemies, i) end
+  end
+end
+
+== bullets_hit
+kind: howto
+title: I proiettili colpiscono i nemici
+ask: proiettili che colpiscono i nemici | uccidere i nemici | bullet enemy collision
+ask: il colpo distrugge il nemico | punti quando colpisco | hit detection
+keys: colpire, distruggere, uccidere
+see: bullets, enemies_list, collide_rect
+text:
+Per ogni proiettile, prova ogni nemico; al primo colpito il proiettile
+sparisce.
+code:
+for i = #bullets, 1, -1 do
+  local b = bullets[i]
+  for _, e in ipairs(enemies) do
+    if b.x > e.x and b.x < e.x + 16 and
+       b.y > e.y and b.y < e.y + 16 then
+      e.hp = e.hp - 1
+      score = score + 10
+      table.remove(bullets, i)
+      break
+    end
+  end
+end
+
+== enemy_aim
+kind: howto
+title: Un nemico che spara verso il giocatore
+ask: nemico che spara al giocatore | mirare al giocatore | enemy shoots at player
+ask: proiettile diretto verso il personaggio | aimed shot
+keys: mirare, nemico, spara
+see: angle_to, bullets
+text:
+La direzione dal nemico al giocatore, divisa per la distanza, per la
+velocità del colpo.
+code:
+local dx, dy = px - e.x, py - e.y
+local d = math.max(1, math.sqrt(dx * dx + dy * dy))
+ebullets[#ebullets + 1] = { x = e.x, y = e.y,
+                            vx = dx / d * 3, vy = dy / d * 3 }
+
+== spawn_waves
+kind: howto
+title: Ondate di nemici
+ask: ondate di nemici | livelli sempre più difficili | waves of enemies | difficoltà crescente
+ask: nuova ondata quando finiscono i nemici
+keys: ondate, difficolta, waves
+see: enemies_list, timer
+text:
+Quando la lista è vuota parte l'ondata successiva, con più nemici.
+code:
+if #enemies == 0 then
+  wave = wave + 1
+  for i = 1, 3 + wave * 2 do
+    spawn(math.random(16, SCREEN_W - 32), -20 * i)
+  end
+end
+
+== particles
+kind: howto
+title: Particelle (esplosioni, scintille, fumo)
+ask: particelle | esplosione di particelle | scintille | particles effect | fumo
+ask: effetto quando un nemico muore | detriti | sangue | coriandoli
+keys: particelle, scintille, esplosione
+see: screen_shake, sfx_examples
+text:
+Tanti puntini con velocità a caso che vivono pochi fotogrammi.
+code:
+parts = {}
+
+function boom(x, y)
+  for i = 1, 20 do
+    local a, s = math.random() * 6.28, math.random() * 3
+    parts[#parts + 1] = { x = x, y = y, vx = math.cos(a) * s,
+                          vy = math.sin(a) * s, t = 30 }
+  end
+end
+
+function draw_parts()
+  for i = #parts, 1, -1 do
+    local p = parts[i]
+    p.x, p.y, p.t = p.x + p.vx, p.y + p.vy, p.t - 1
+    pset(p.x, p.y, p.t > 15 and 0xFFE060 or 0xFF6020)
+    if p.t <= 0 then table.remove(parts, i) end
+  end
+end
+
+== screen_shake
+kind: howto
+title: Far tremare lo schermo
+ask: far tremare lo schermo | scossa | screen shake | terremoto | impatto forte
+ask: l'esplosione fa tremare tutto | vibrazione dello schermo
+keys: tremare, scossa, shake
+see: camera, particles
+text:
+Per qualche fotogramma sposta la camera a caso, sempre meno.
+code:
+shake = 10                            -- quando c'e' un'esplosione
+-- in _draw:
+if shake > 0 then
+  local s = shake // 2
+  camera(math.random(-s, s), math.random(-s, s))
+  shake = shake - 1
+else
+  camera()
+end
+
+== invincible
+kind: howto
+title: Invincibilità dopo un colpo (lampeggia)
+ask: invincibile dopo essere colpito | il giocatore lampeggia | invincibility frames
+ask: perdere una vita sola alla volta | i frame | danno una volta sola
+keys: invincibile, lampeggia, danno
+see: blink, collide_rect
+text:
+Dopo un colpo, per un po' i nemici non fanno male; intanto lo sprite si
+disegna un fotogramma sì e uno no.
+code:
+if hurt_t > 0 then hurt_t = hurt_t - 1 end
+if hit(player, enemy) and hurt_t == 0 then
+  lives = lives - 1
+  hurt_t = 90                        -- 1,5 secondi
+end
+-- in _draw:
+if hurt_t == 0 or hurt_t % 4 < 2 then spr(1, px, py) end
+
+== health_bar
+kind: howto
+title: Barra dell'energia
+ask: barra della vita | barra dell'energia | health bar | punti vita sullo schermo
+ask: barra del boss | hp bar | indicatore di salute
+keys: barra, energia, vita
+see: hud
+text:
+Un rettangolo pieno lungo in proporzione alla vita, sopra uno scuro.
+code:
+local w = 100
+rectfill(8, 8, w, 8, 0x402020)
+rectfill(8, 8, w * hp // max_hp, 8, 0x40E040)
+rect(7, 7, w + 2, 10, 0xFFFFFF)

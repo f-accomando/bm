@@ -1,0 +1,233 @@
+# Knowledge base of the development assistant (M30): the drawing API.
+# Format: src/ai/kb/README.md. Text in Italian (code page 437 on the
+# console: accented letters are fine), code in ASCII.
+
+== cls
+kind: api
+name: cls
+title: cls([c]) - cancella lo schermo
+ask: come cancello lo schermo | pulire lo schermo | colore dello sfondo | clear the screen
+ask: riempire lo schermo di un colore | background color | schermo nero | sfondo blu
+ask: lo schermo resta sporco | le immagini lasciano la scia | trails on the screen
+see: rgb, rectfill
+text:
+Riempie tutto lo schermo con il colore c (nero se manca). Lo schermo non si
+cancella da solo: di solito _draw() comincia con cls(), altrimenti quello
+che si muove lascia la scia.
+code:
+function _draw()
+  cls(0x102040)          -- sfondo blu scuro
+  circfill(320, 180, 20, 0xFFD050)
+end
+
+== pset
+kind: api
+name: pset
+title: pset(x, y, c) - accende un pixel
+ask: disegnare un pixel | colorare un punto | set a pixel | draw a single pixel
+ask: puntino sullo schermo | stelle sullo sfondo | plot a point
+see: pget, line
+text:
+Colora il pixel in x, y. Per tanti punti (un cielo stellato) va bene: il
+costo è la chiamata da Lua, qualche microsecondo l'una.
+code:
+for i = 1, 100 do
+  local x = math.random(0, SCREEN_W - 1)
+  local y = math.random(0, SCREEN_H - 1)
+  pset(x, y, 0xFFFFFF)
+end
+
+== pget
+kind: api
+name: pget
+title: pget(x, y) - legge il colore di un pixel
+ask: leggere il colore di un pixel | che colore c'è in un punto | get pixel color
+ask: colore sotto il personaggio | read a pixel from the screen
+see: pset, sget, mget
+text:
+Restituisce il colore 0xRRGGBB del pixel in x, y, o nil fuori dallo
+schermo. Per le collisioni con la mappa è meglio mget(): non dipende da
+cosa è già stato disegnato.
+code:
+local c = pget(x, y)
+if c == 0xFF0000 then log("pixel rosso") end
+
+== line
+kind: api
+name: line
+title: line(x0, y0, x1, y1, c) - linea
+ask: disegnare una linea | tracciare una retta | draw a line | segmento tra due punti
+ask: linea colorata | collegare due punti | laser come linea
+see: rect, tri
+text:
+Una linea da (x0, y0) a (x1, y1) con il colore c.
+code:
+line(0, 0, SCREEN_W - 1, SCREEN_H - 1, 0xFFFFFF)    -- diagonale
+line(px, py, px + 20, py, 0xFF4040)       -- un raggio a destra
+
+== rect
+kind: api
+name: rect
+title: rect(x, y, w, h, c) - rettangolo vuoto (solo il bordo)
+ask: disegnare il bordo di un rettangolo | rettangolo vuoto | cornice | draw a rectangle outline
+ask: riquadro | box con il bordo | contorno di un quadrato | rectangle border
+see: rectfill
+text:
+Il bordo di un rettangolo largo w e alto h, con l'angolo in alto a
+sinistra in x, y. Pieno: rectfill().
+code:
+rect(10, 10, 100, 40, 0xFFFFFF)      -- cornice bianca
+rectfill(12, 12, 96, 36, 0x203050)   -- dentro, pieno
+
+== rectfill
+kind: api
+name: rectfill
+title: rectfill(x, y, w, h, c) - rettangolo pieno
+ask: disegnare un rettangolo pieno | quadrato colorato | draw a filled rectangle
+ask: barra colorata | sfondo di un pannello | riempire un'area | filled box
+ask: disegnare un quadrato pieno | rettangolo colorato
+see: rect, cls
+text:
+Un rettangolo pieno: x, y è l'angolo in alto a sinistra, w e h larghezza
+e altezza. È il modo più veloce per riempire un'area.
+code:
+rectfill(0, SCREEN_H - 40, SCREEN_W, 40, 0x205020)  -- il prato
+rectfill(px, py, 16, 16, 0xFFD050)                   -- un blocco 16x16
+
+== circ
+kind: api
+name: circ
+title: circ(x, y, r, c) - cerchio vuoto (solo il bordo)
+ask: disegnare un cerchio vuoto | circonferenza | anello | draw a circle outline
+ask: bordo di un cerchio | onda che si allarga | ring
+see: circfill
+text:
+Il bordo di un cerchio di centro x, y e raggio r. Pieno: circfill().
+code:
+circ(x, y, r, 0x80C0FF)
+r = r + 1                -- un'onda che si allarga a ogni fotogramma
+
+== circfill
+kind: api
+name: circfill
+title: circfill(x, y, r, c) - cerchio pieno
+ask: disegnare un cerchio pieno | come faccio una palla | draw a filled circle
+ask: pallina colorata | disco | sole | ball | cerchio colorato
+see: circ
+text:
+Cerchio pieno di centro x, y e raggio r. circ() disegna solo il bordo.
+code:
+circfill(x, y, 20, 0xFFD050)     -- una palla gialla
+
+== tri
+kind: api
+name: tri
+title: tri(x0, y0, x1, y1, x2, y2, c, [c1, c2]) - triangolo pieno
+ask: disegnare un triangolo | triangolo pieno | draw a triangle | freccia a triangolo
+ask: triangolo sfumato | gradient triangle | poligono | montagna
+see: line, mesh
+text:
+Triangolo pieno. Con tre colori (c, c1, c2: uno per vertice) il colore
+sfuma da un angolo all'altro (Gouraud, con dithering).
+code:
+tri(320, 100, 270, 200, 370, 200, 0x40A0FF)
+tri(320, 100, 270, 200, 370, 200, 0xFF0000, 0x00FF00, 0x0000FF)
+
+== print
+kind: api
+name: print
+title: print(testo, x, y, [c, scala]) - scrive sullo schermo
+ask: scrivere un testo sullo schermo | stampare una scritta | draw text | show text
+ask: mostrare il punteggio | scritta grande | testo ingrandito | write a number on screen
+ask: font | carattere | dimensione del testo | big text
+see: rgb, log
+text:
+Scrive con il font 8x16 (bianco se c manca); scala da 1 a 8 lo ingrandisce
+(2 = caratteri 16x32). Restituisce la x dopo l'ultimo carattere. Per
+scritte ben allineate usa x multipli di 8 e y multipli di 16.
+code:
+print("punti: " .. score, 8, 8, 0xFFFFFF)
+print("GAME OVER", 248, 160, 0xFF4040, 2)       -- doppio
+local fine = print("vite ", 8, 24)              -- continua dopo
+print(lives, fine, 24, 0xFFD050)
+
+== camera
+kind: api
+name: camera
+title: camera([x, y]) - sposta la visuale (scorrimento)
+ask: spostare la visuale | scorrimento dello schermo | scrolling | move the camera
+ask: la telecamera segue il giocatore | mondo più grande dello schermo | offset del disegno
+see: map, clip
+text:
+Da qui in poi tutto il disegno è spostato di (-x, -y): si disegna in
+coordinate del mondo e camera() decide quale parte si vede. camera()
+senza argomenti la azzera (per l'HUD, che sta fermo).
+code:
+camera(px - SCREEN_W // 2, py - SCREEN_H // 2)  -- giocatore al centro
+map(0, 0)
+spr(1, px, py)
+camera()                                         -- l'HUD non scorre
+print("punti " .. score, 8, 8)
+
+== clip
+kind: api
+name: clip
+title: clip([x, y, w, h]) - limita il disegno a un rettangolo
+ask: disegnare solo in una parte dello schermo | ritagliare il disegno | clip rectangle
+ask: finestra di disegno | schermo diviso | split screen | maschera rettangolare
+see: camera
+text:
+Da qui in poi si disegna solo dentro il rettangolo; clip() senza
+argomenti torna a tutto lo schermo. Utile per lo schermo diviso in due.
+code:
+clip(0, 0, SCREEN_W // 2, SCREEN_H)       -- meta' sinistra: giocatore 1
+camera(p1.x - 160, p1.y - 180)
+map(0, 0)
+clip(SCREEN_W // 2, 0, SCREEN_W // 2, SCREEN_H)
+camera(p2.x - 480, p2.y - 180)
+map(0, 0)
+clip()
+camera()
+
+== rgb
+kind: api
+name: rgb
+title: rgb(r, g, b) - un colore dai tre canali
+ask: come si scrive un colore | colori in esadecimale | rgb color | colore casuale
+ask: mescolare rosso verde e blu | 0xRRGGBB | che formato hanno i colori | random color
+see: cls
+text:
+I colori sono interi 0xRRGGBB (0xFF8000 è arancione) oppure rgb(r, g, b)
+con valori 0-255. Lo schermo li riduce a 16 bit (RGB565).
+code:
+local arancio = 0xFF8000
+local c = rgb(math.random(255), math.random(255), math.random(255))
+circfill(x, y, 10, c)
+
+== screen_size
+kind: api
+name: SCREEN_W
+title: SCREEN_W, SCREEN_H - le dimensioni dello schermo
+ask: quanto è grande lo schermo | larghezza dello schermo | screen width and height
+ask: risoluzione | centro dello schermo | 640x360 | 320x180 | screen resolution
+see: print
+text:
+640 e 360 (o 320 e 180 per le cartucce a bassa risoluzione, --res 320x180
+o "risoluzione" nel menu dell'editor). (0, 0) è l'angolo in alto a sinistra.
+code:
+local cx, cy = SCREEN_W // 2, SCREEN_H // 2    -- il centro
+circfill(cx, cy, 4, 0xFFFFFF)
+
+== font
+kind: api
+name: font
+title: font([nome]) - il font di print: 6x12, 8x14 o 8x16
+ask: cambiare il font | testo più piccolo | font piccolo | change the font size
+ask: scritte più piccole per avere più righe | dimensione dei caratteri | small text
+text: Da qui in poi print usa quel font: "6x12" (106 colonne per 30 righe a
+640x360), "8x14" o "8x16" (quello normale). Restituisce larghezza e altezza di un
+carattere del font corrente.
+code:
+local cw, ch = font("6x12")
+print("tante righe con il font piccolo", 0, 0)
+font("8x16")

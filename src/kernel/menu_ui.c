@@ -245,6 +245,27 @@ static void draw_icon(g16_t *cg, int icon, int cx, int cy, uint16_t ink, uint16_
         thick_line(cg, cx - 10, cy, cx - 3, cy + 8, ink);
         thick_line(cg, cx - 3, cy + 8, cx + 11, cy - 9, ink);
         break;
+    case MENU_ICON_ASSIST:                      /* a speech bubble with a question */
+        g16_rectfill(cg, cx - 24, cy - 12, 48, 24, ink);
+        g16_rectfill(cg, cx - 18, cy - 18, 36, 36, ink);
+        g16_circfill(cg, cx - 18, cy - 12, 6, ink);
+        g16_circfill(cg, cx + 17, cy - 12, 6, ink);
+        g16_circfill(cg, cx - 18, cy + 11, 6, ink);
+        g16_circfill(cg, cx + 17, cy + 11, 6, ink);
+        for (int i = 0; i < 8; i++)             /* the tail */
+            g16_rectfill(cg, cx - 14 - i, cy + 17 + i, 9 - i, 1, ink);
+        g16_text_scaled(cg, cx - 7, cy - 16, "?", dark, 2);
+        break;
+    case MENU_ICON_CODE:                        /* a page of code */
+        g16_rectfill(cg, cx - 22, cy - 19, 44, 38, ink);
+        g16_rectfill(cg, cx - 19, cy - 13, 38, 29, dark);
+        for (int i = 0; i < 4; i++) {
+            int indent = (i == 1 || i == 2) ? 8 : 0;
+            g16_rectfill(cg, cx - 15 + indent, cy - 9 + i * 6, i == 2 ? 12 : 20 - indent, 2,
+                         i == 1 ? g16_rgb(255, 122, 176) : i == 2 ? g16_rgb(112, 208, 255)
+                                                                 : g16_rgb(200, 205, 220));
+        }
+        break;
     }
 }
 

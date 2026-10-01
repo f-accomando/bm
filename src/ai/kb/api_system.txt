@@ -1,0 +1,260 @@
+# Structure of a cartridge, time, system, saves, files.
+
+== callbacks
+kind: api
+name: _update
+title: _init, _update, _draw - la struttura di un gioco
+ask: come è fatto un gioco | struttura di una cartuccia | game loop | ciclo del gioco
+ask: dove metto la logica | dove disegno | funzioni principali | main loop
+ask: quante volte al secondo | 60 fps | skeleton of a game | scheletro del gioco
+see: game_skeleton
+text:
+_init() una volta all'avvio; poi 60 volte al secondo _update() (la logica:
+input, movimento, collisioni) e _draw() (il disegno). Lua fa la logica, il
+disegno è in C. Budget: 16,7 ms per fotogramma in tutto.
+code:
+function _init()
+  x, y = 320, 180
+end
+
+function _update()
+  if btn(1) then x = x + 2 end
+end
+
+function _draw()
+  cls(0)
+  circfill(x, y, 8, 0xFFD050)
+end
+
+== time
+kind: api
+name: time
+title: time() - secondi dall'avvio del gioco
+ask: quanto tempo è passato | secondi dall'inizio | elapsed time | orologio del gioco
+ask: misurare il tempo | cronometro | time since start | durata della partita
+see: timer, stat
+text:
+I secondi (con i decimali) da quando è partita la cartuccia. Per contare il
+tempo di una partita salva time() all'inizio e fai la differenza.
+code:
+local start = time()
+-- piu' tardi:
+local s = time() - start
+print(string.format("tempo %.1f s", s), 8, 8)
+
+== stat
+kind: api
+name: stat
+title: stat(n) - memoria, fps e tempi
+ask: quanti fps fa il gioco | quanta memoria uso | frame rate | performance counters
+ask: millisecondi per fotogramma | numero del fotogramma | memory used | cpu time
+see: perf_measure, time
+text:
+0 KiB usati da Lua, 1 ms di CPU dell'ultimo fotogramma, 2 fps, 3 numero
+del fotogramma, 4 triangoli 3D, 5 pixel 3D.
+code:
+print(stat(2) .. " fps  " .. stat(1) .. " ms", 8, 8, 0x80FF80)
+print(stat(0) .. " KiB", 8, 24, 0x80FF80)
+
+== log
+kind: api
+name: log
+title: log(...) - scrive nel registro (debug)
+ask: stampare un messaggio di debug | scrivere nella console | debug print
+ask: vedere il valore di una variabile | registro del kernel | print to the log
+ask: come faccio il debug | trace
+see: print, stat
+text:
+Scrive nel registro del kernel (seriale, console di rete, Dev > Log), non
+sullo schermo del gioco: per seguire valori senza sporcare il disegno.
+code:
+log("x=", x, "y=", y)
+log(string.format("vita %d", hp))
+
+== quit
+kind: api
+name: quit
+title: quit() - chiude il gioco
+ask: uscire dal gioco | chiudere la cartuccia | exit the game | tornare al menu
+ask: terminare il programma | quit
+see: callbacks
+text:
+Chiude la cartuccia alla fine del fotogramma. Esc, Start+Select o PS
+invece la sospendono (resta in memoria e si riprende dal menu).
+code:
+if btnp(8) and game_over then quit() end    -- Start
+
+== save
+kind: api
+name: save
+title: save(t) - salva una tabella sulla SD
+ask: salvare sulla sd | salvare i dati | save data | salvare il record
+ask: memorizzare il punteggio | salvare le impostazioni | persist | savegame
+see: saved, high_score
+text:
+Salva la tabella t (numeri, stringhe, booleani, tabelle; fino a 32 KiB):
+true, oppure false e il motivo. Un salvataggio per cartuccia. Scrivere sulla
+SD richiede qualche ms: salva a fine partita, non a ogni fotogramma.
+code:
+local ok, why = save({ best = best, level = level })
+if not ok then log("salvataggio fallito: " .. why) end
+
+== saved
+kind: api
+name: saved
+title: saved() - la tabella salvata l'ultima volta
+ask: caricare il salvataggio | leggere i dati salvati | load saved data
+ask: recuperare il record | load game | caricare la partita
+see: save, high_score
+text:
+La tabella salvata l'ultima volta con save(), oppure nil se non c'è.
+code:
+function _init()
+  local d = saved()
+  best = d and d.best or 0
+end
+
+== random
+kind: api
+name: math.random
+title: math.random - numeri casuali
+ask: numero casuale | numero a caso | random number | tirare un dado
+ask: posizione casuale | scegliere a caso | random seed | casualità diversa ogni partita
+see: rgb
+text:
+math.random() da 0 a 1, math.random(n) da 1 a n, math.random(a, b) da a a
+b. Per partite diverse inizializza il generatore quando il giocatore preme
+un tasto (il fotogramma cambia ogni volta).
+code:
+local dado = math.random(6)
+local x = math.random(0, SCREEN_W - 16)
+if btnp(4) then math.randomseed(stat(3)) end   -- al primo tasto
+
+== ls
+kind: api
+name: ls
+title: ls([cartella]) - i file della SD
+ask: elencare i file della sd | leggere una cartella | list files | directory
+ask: quali file ci sono sulla scheda | file browser
+see: cart_load
+text:
+{ {name=, size=, dir=}, ... }: i file della cartella (la radice se manca).
+Per strumenti come l'editor.
+code:
+for _, f in ipairs(ls("/carts")) do
+  log(f.name, f.size)
+end
+
+== cart_load
+kind: api
+name: cart_load
+title: cart_load(percorso) - apre un .bm (per gli strumenti)
+ask: aprire una cartuccia dal codice | caricare un file bm | load a cartridge file
+ask: leggere il codice di un altro gioco | editor apre un file
+see: cart_save, cart_new, ls
+text:
+Apre un .bm: il suo sprite sheet e la sua mappa sostituiscono quelli della
+cartuccia che chiama. Restituisce {title, author, res, lua, sheet_w,
+sheet_h, map_w, map_h}.
+code:
+local c = cart_load("/carts/PONG.BM")
+log(c.title, #c.lua .. " byte di codice")
+
+== cart_new
+kind: api
+name: cart_new
+title: cart_new() - sprite sheet e mappa vuoti
+ask: nuovo progetto | svuotare lo sheet e la mappa | new empty cartridge
+see: cart_load, cart_save
+text:
+Sprite sheet e mappa vuoti (256x256), per un progetto nuovo.
+code:
+cart_new()
+
+== cart_save
+kind: api
+name: cart_save
+title: cart_save(percorso, {title, author, res, lua}) - scrive un .bm
+ask: salvare una cartuccia | scrivere un file bm | save a cartridge | esportare il gioco
+see: cart_load, cart_run
+text:
+Scrive un .bm con il codice dato e lo sprite sheet, la mappa e la
+copertina correnti. Nome 8.3, per esempio "/carts/GIOCO.BM".
+code:
+cart_save("/carts/GIOCO.BM", { title = "Gioco", author = "io",
+  res = "640x360", lua = code })
+
+== cart_run
+kind: api
+name: cart_run
+title: cart_run(percorso) e cart_arg() - prova un gioco e torna
+ask: provare il gioco dall'editor | lanciare una cartuccia | run a cartridge
+ask: tornare all'editor dopo la prova | errore del gioco provato
+see: cart_save
+text:
+cart_run esce, gioca quel file e poi riapre la cartuccia che l'ha chiesto,
+con cart_arg() = {path=, error=, back=true}: così l'editor sa se il gioco
+si è fermato con un errore e su che riga.
+code:
+local a = cart_arg()
+if a and a.error then
+  log("errore: " .. a.error)
+end
+
+== require
+kind: api
+name: require
+title: require(nome) - le librerie incluse nel kernel
+ask: usare una libreria | require | importare un modulo | include a library
+ask: come uso l'assistente nel mio strumento | assist library
+see: ai_ask
+text:
+Le librerie Lua incluse nel kernel, per ora "assist" (il pannello
+dell'assistente). Niente file esterni: la sandbox non carica codice.
+code:
+local assist = require "assist"
+assist.open{ mode = "code", on_insert = function(c) log(c) end }
+
+== ai_ask
+kind: api
+name: ai.ask
+title: ai.ask, ai.sprite - l'assistente dal codice
+ask: usare l'assistente dal codice | chiedere all'assistente | ai ask | ai sprite
+ask: generare uno sprite dal codice | intelligenza artificiale | assistant api
+see: require
+text:
+ai.ask(domanda, {n=5, ctx=, kinds="api,howto"}) le voci migliori e il tempo
+in microsecondi; ai.entry(id) testo e codice; ai.sprite("slime rosso",
+{size=16, seed=1}) uno sprite {w, h, px}. Lavora solo quando lo chiami.
+code:
+local hits, us = ai.ask("come salto")
+log(hits[1].title, us .. " us")
+local s = ai.sprite("moneta", { size = 16 })
+
+== cart_read
+kind: api
+name: cart_read
+title: cart_read(percorso) - legge il codice di un .bm (senza toccare altro)
+ask: leggere il codice di un altro gioco | cart_read | read a cartridge's code
+ask: aprire un bm senza cambiare lo sprite sheet
+see: cart_write, cart_load
+text: {title, author, res, lua, size} di un .bm, senza cambiare lo sheet e la
+mappa di chi chiama (al contrario di cart_load). Per editor con più file aperti.
+code:
+local c = cart_read("/carts/PONG.BM")
+if c then log(c.title, #c.lua) end
+
+== cart_write
+kind: api
+name: cart_write
+title: cart_write(percorso, {lua, title, author, res, from}) - scrive solo il codice
+ask: salvare solo il codice di un bm | cart_write | write the code of a cartridge
+ask: cambiare il codice senza perdere gli sprite | salvare con un altro nome
+see: cart_read, cart_save
+text: Cambia il codice (e titolo, autore, risoluzione se ci sono) di un .bm:
+sprite sheet, mappa, copertina e ogni altra sezione restano com'erano. Un file
+nuovo diventa una cartuccia con solo il codice (nome 8.3). from: le altre
+sezioni vengono da un altro file ("salva come").
+code:
+local ok, err = cart_write("/carts/PONG.BM", { lua = code })
+if not ok then log("non salvato: " .. err) end
