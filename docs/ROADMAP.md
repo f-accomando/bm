@@ -828,6 +828,36 @@ Decisione 2026-09-29: l'editor attuale diventa l'**SDK** (generico: progetto, pr
 salvataggio); intorno a lui strumenti specializzati, ognuno una cartuccia nella scheda
 **Dev**, tutti con gli stessi formati.
 
+**Stato (2026-10-01, branch `sviluppo-sdk`): bm Studio, sul PC.** Su richiesta
+dell'utente, 22.3 (3D), parte di 22.2 (pixel art dello sheet) e di 22.5 (import/export)
+arrivano prima come applicazione per il PC, in stile Crocotile 3D (`sdk/studio`,
+[sdk/README.md](../sdk/README.md)); i formati sono quelli previsti qui sotto, quindi gli
+strumenti sulla console potranno leggerli e scriverli.
+- **Formato**: sezione **MESH** del `.bm` (tipo 6, `src/bm/bm.h`): modelli con nome,
+  vertici in float, facce con colore o texture dello sprite sheet (angoli in 1/8 di
+  pixel), margine delle texture applicato al caricamento. Il kernel la controlla in
+  `bm_parse`; API `model(nome)`, `models()`, `bounds3d(m)`.
+- **bm Studio**: pagina web senza dipendenze (doppio clic su `index.html`, o
+  `make studio`). Tessere dello sheet posate su una griglia (piano automatico o fisso,
+  sulle facce esistenti), blocchi (le pareti tra blocchi vicini spariscono), selezione e
+  spostamento, angoli (tetti, rampe, unione), pittura sul modello; editor dei pixel
+  dello sheet; copertina dalla vista 3D; codice `main.lua`. Apre e salva il `.bm` al suo
+  posto (File System Access di Chrome/Edge; altrove scarica). Scambia `.glb` (con lo
+  sheet come texture; i `.glb` altrui portano le texture nello sheet) e `.png`.
+- L'**SDK sulla console** tiene le sezioni che non modifica (i modelli) quando salva.
+- **Build**: `mkbm.py --models file.glb` (o un `.bm`); `carts/<gioco>/models.glb` entra
+  nella cartuccia da solo, con lo sheet se il gioco non ha `sheet.png`.
+- **Esempio**: *Studio Village* (`carts/village`, 320×180), modelli costruiti con gli
+  strumenti dello Studio (`mkmodels.js` → `models.glb`).
+- **Test**: `make test-studio` (Node; gli stessi file letti da `bmmesh.py` e dal parser
+  del kernel), `make test-studio-ui` (Playwright), QEMU `test_models`,
+  `test_sdk_keeps_models`, `test_village`.
+- Corretta la documentazione dell'ordine dei vertici: una faccia si vede dal lato da
+  cui appare in senso **orario** (API e guida dicevano antiorario; l'esempio della
+  piramide nella guida mostrava l'interno).
+- **Da verificare sul Pi**: Studio Village (scheda Games); un `.bm` salvato da bm Studio
+  copiato in `carts/` (il visualizzatore dei modelli di un progetto nuovo).
+
 Sotto-milestone:
 - **22.0 Base comune**:
   - formato del progetto;

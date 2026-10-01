@@ -11,6 +11,17 @@ Lua 5.4 embedded. Documentazione: `README.md`, `docs/ROADMAP.md`, `docs/HARDWARE
 - L'utente prova sul Pi reale copiando `dist/kernel.img` sulla SD (WSL, `/mnt/d`),
   senza cavo seriale: tutto ciò che deve verificare va mostrato sullo schermo.
 
+## bm Studio (sdk/studio)
+
+- Applicazione per il PC (pagina web, niente build né dipendenze) per i modelli 3D a
+  tessere (stile Crocotile 3D) e la pixel art dello sheet; legge e scrive il `.bm`
+  (sezione MESH, tipo 6, `src/bm/bm.h`). Guida: `sdk/README.md`.
+- `sdk/studio/js/core.js`, `tiles.js`, `edit.js` girano anche in Node (`make test-studio`);
+  l'interfaccia si prova con Playwright (`make test-studio-ui`, screenshot in
+  `build/studio/`). In questo ambiente: `/opt/node22/lib/node_modules/playwright`.
+- Convenzione dei vertici: una faccia si vede dal lato da cui appare in senso orario
+  (`r3d.c`); verso glTF la z cambia segno e l'ordine dei vertici si inverte.
+
 ## Nome
 
 - Il progetto si chiama **bm** (BareMetal); cartucce `.bm`, cartella `bm/` sulla SD.

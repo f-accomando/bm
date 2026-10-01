@@ -622,7 +622,6 @@
       js.accessors.push(a);
       return js.accessors.length - 1;
     };
-    let usesTexture = false;
     for (const m of models) {
       const prims = [];
       for (const textured of [true, false]) {
@@ -654,7 +653,7 @@
           POSITION: accessor(new Float32Array(pos), 'VEC3', 5126, 34962, true),
           NORMAL: accessor(new Float32Array(nrm), 'VEC3', 5126, 34962),
         };
-        if (textured) { attributes.TEXCOORD_0 = accessor(new Float32Array(uv), 'VEC2', 5126, 34962); usesTexture = true; }
+        if (textured) attributes.TEXCOORD_0 = accessor(new Float32Array(uv), 'VEC2', 5126, 34962);
         else attributes.COLOR_0 = accessor(new Float32Array(col), 'VEC3', 5126, 34962);
         const big = pos.length / 3 > 65535;
         prims.push({ attributes, indices: accessor(big ? new Uint32Array(idx) : new Uint16Array(idx), 'SCALAR', big ? 5125 : 5123, 34963), material: textured ? 0 : 1 });
@@ -666,7 +665,6 @@
     }
     const png = await encodePNG(project.sheet);
     js.images.push({ name: 'sheet', mimeType: 'image/png', bufferView: view(png) });
-    if (!usesTexture && !models.length) js.textures = js.textures;
     bin.pad4();
     js.buffers.push({ byteLength: bin.n });
     let json = utf8(JSON.stringify(js));

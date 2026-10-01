@@ -957,7 +957,6 @@
     async importGlb(b, asProject) {
       const g = BM.importGLB(b);
       if (!g.models.length) throw new Error('no triangles in this .glb');
-      const T = this.S.tileSize;
       let placed = new Map();
       if (g.bm && g.images[0]) {
         const img = await this.decodeImage(g.images[0].bytes, g.images[0].mime);
@@ -1384,18 +1383,16 @@ end</pre>
         document.body.classList.remove('dropping');
         const file = e.dataTransfer.files[0];
         if (!file) return;
+        // the handle (to save the .bm where it is) only while the event lasts
+        const item = e.dataTransfer.items && e.dataTransfer.items[0];
+        const handleP = item && item.getAsFileSystemHandle ? item.getAsFileSystemHandle().catch(() => null) : Promise.resolve(null);
         const b = new Uint8Array(await file.arrayBuffer()), ext = (file.name.match(/\.[^.]+$/) || [''])[0].toLowerCase();
         try {
           if (ext === '.glb') {
             if (await this.confirmNewOrAdd()) await this.openBytes(b, file.name, null);
             else await this.importGlb(b);
           } else if (ext === '.png') await this.importPngDialog(b, file.name);
-          else {
-            let handle = null;
-            const item = e.dataTransfer.items && e.dataTransfer.items[0];
-            if (item && item.getAsFileSystemHandle) { try { handle = await item.getAsFileSystemHandle(); } catch (err) { handle = null; } }
-            await this.openBytes(b, file.name, handle);
-          }
+          else await this.openBytes(b, file.name, await handleP);
         } catch (err) { this.error(err); }
       });
     }

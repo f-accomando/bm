@@ -346,7 +346,7 @@ static int l_mesh_gc(lua_State *L)
 }
 
 /* mesh({x,y,z, x,y,z, ...}, {a,b,c,colour, ...} [, {u0,v0,u1,v1,u2,v2, ...}])
- * - 1-based vertex indices, faces counter-clockwise seen from outside. With
+ * - 1-based vertex indices, faces clockwise seen from outside (on screen). With
  * the third table (6 numbers per face, sprite-sheet pixels), faces whose
  * colour is -1 are textured with the sprite sheet. */
 static int l_mesh(lua_State *L)

@@ -266,8 +266,11 @@ Esempio completo: `carts/hunt` (Hunter's Night).
 
 | Funzione | Descrizione |
 |---|---|
-| `mesh(v, f, [uv])` | mesh da tabelle: `v` = {x,y,z, x,y,z, …}, `f` = {a,b,c,colore, …} (indici da 1). Con `uv` (6 numeri per faccia: u,v dei tre vertici in pixel dello sprite sheet) le facce con colore `-1` hanno la **texture** dello sprite sheet (prospettiva corretta, i pixel trasparenti restano vuoti) |
+| `mesh(v, f, [uv])` | mesh da tabelle: `v` = {x,y,z, x,y,z, …}, `f` = {a,b,c,colore, …} (indici da 1; una faccia si vede dal lato da cui i suoi vertici appaiono in senso **orario**). Con `uv` (6 numeri per faccia: u,v dei tre vertici in pixel dello sprite sheet) le facce con colore `-1` hanno la **texture** dello sprite sheet (prospettiva corretta, i pixel trasparenti restano vuoti) |
 | `mesh_sphere([r, segmenti, c1, c2])`, `mesh_cube([c])` | mesh pronte |
+| `model(nome)` / `model(n)` | un **modello 3D della cartuccia** (fatto con [bm Studio](../sdk/README.md), sezione MESH) come mesh, con la texture dello sprite sheet; `n` conta dall'1; `nil` se non c'è. Ogni chiamata costruisce una mesh nuova: va fatta in `_init` |
+| `models()` | i nomi dei modelli della cartuccia, in ordine (`{}` se non ne ha) |
+| `bounds3d(m)` | `x0, y0, z0, x1, y1, z1`: il box intorno ai vertici di una mesh, nelle sue coordinate (prima di spostarla, girarla e scalarla con `draw3d`): per centrarla, per le collisioni |
 | `draw3d(m, x, y, z, [rx, ry, rz, scala, flag])` | disegna una mesh con z-buffer e luce per faccia. `flag`: 1 = senza z-buffer (né prova né scrittura: pavimenti e sfondi disegnati per primi, più veloci), 2 = senza luce (colori pieni), 4 = **liscia** (Gouraud: luce calcolata sui vertici e sfumata sulla faccia, con dithering; le facce che condividono gli stessi indici di vertice sembrano una superficie curva, per gli spigoli vivi usare vertici separati); si sommano |
 | `camera3d(x, y, z, [yaw, pitch, fov, roll])` | camera (default a z = −5, fov 60°); `roll` inclina l'inquadratura (radianti) |
 | `light3d(x, y, z, [ambiente])` | direzione della luce e luce ambiente (0–1) |
@@ -279,7 +282,9 @@ Esempio completo: `carts/hunt` (Hunter's Night).
 I triangoli che attraversano il piano vicino alla camera vengono tagliati, non scartati:
 pavimenti e oggetti grandi restano interi anche quando passano accanto alla camera.
 Esempio completo: `carts/astrowing` (volo in stile Star Fox: modelli costruiti in
-codice, orizzonte con `project3d`, nebbia, esplosioni, boss).
+codice, orizzonte con `project3d`, nebbia, esplosioni, boss). Con i modelli di bm Studio:
+`carts/village` (`model()` per ogni modello, terreno disegnato senza z-buffer, notte con
+`lamp3d` e `fog3d`).
 
 ## Budget e consigli
 
