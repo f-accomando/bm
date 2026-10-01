@@ -194,6 +194,23 @@ static int l_print(lua_State *L)
     return 1;
 }
 
+/* font([name]): the font of print() from now on, "8x16" (the default),
+ * "8x14" or "6x12" (also "large", "medium", "small"); returns the width
+ * and height of a character of the current font */
+static int l_font(lua_State *L)
+{
+    if (!lua_isnoneornil(L, 1)) {
+        const char *n = luaL_checkstring(L, 1);
+        if (!strcmp(n, "6x12") || !strcmp(n, "small")) rt.g.font = &font_console_6x12;
+        else if (!strcmp(n, "8x14") || !strcmp(n, "medium")) rt.g.font = &font_console_8x14;
+        else if (!strcmp(n, "8x16") || !strcmp(n, "large")) rt.g.font = &font_console_8x16;
+        else return luaL_argerror(L, 1, "\"6x12\", \"8x14\" or \"8x16\"");
+    }
+    lua_pushinteger(L, rt.g.font->width);
+    lua_pushinteger(L, rt.g.font->height);
+    return 2;
+}
+
 static int l_camera(lua_State *L) { g16_camera(&rt.g, oval(L, 1, 0), oval(L, 2, 0)); return 0; }
 static int l_clip(lua_State *L)   { g16_clip(&rt.g, oval(L, 1, 0), oval(L, 2, 0), oval(L, 3, 0), oval(L, 4, 0)); return 0; }
 
@@ -773,6 +790,8 @@ static int l_cart_new(lua_State *L);
 static int l_cart_save(lua_State *L);
 static int l_cart_run(lua_State *L);
 static int l_cart_arg(lua_State *L);
+static int l_cart_read(lua_State *L);
+static int l_cart_write(lua_State *L);
 
 /* ---------------------------------------------------------------- light */
 
@@ -820,7 +839,7 @@ static const luaL_Reg api[] = {
     { "cls", l_cls }, { "pset", l_pset }, { "pget", l_pget }, { "line", l_line },
     { "rect", l_rect }, { "rectfill", l_rectfill }, { "circ", l_circ }, { "circfill", l_circfill },
     { "spr", l_spr }, { "sspr", l_sspr }, { "map", l_map }, { "mget", l_mget }, { "mset", l_mset },
-    { "sget", l_sget }, { "sset", l_sset }, { "print", l_print }, { "camera", l_camera },
+    { "sget", l_sget }, { "sset", l_sset }, { "print", l_print }, { "font", l_font }, { "camera", l_camera },
     { "clip", l_clip }, { "rgb", l_rgb }, { "btn", l_btn }, { "btnp", l_btnp },
     { "players", l_players }, { "stick", l_stick },
     { "time", l_time }, { "stat", l_stat }, { "tri", l_tri },
@@ -831,6 +850,7 @@ static const luaL_Reg api[] = {
     { "save", l_save }, { "saved", l_saved },
     { "keyp", l_keyp }, { "keyheld", l_keyheld }, { "ls", l_ls }, { "cart_load", l_cart_load }, { "cart_new", l_cart_new },
     { "cart_save", l_cart_save }, { "cart_run", l_cart_run }, { "cart_arg", l_cart_arg },
+    { "cart_read", l_cart_read }, { "cart_write", l_cart_write },
     { "light_begin", l_light_begin }, { "light", l_light }, { "light_end", l_light_end },
     { "note", l_note }, { "noteoff", l_noteoff }, { "freq", l_freq },
     { "envelope", l_envelope }, { "duty", l_duty }, { "playing", l_playing }, { "apu", l_apu },
@@ -1347,6 +1367,123 @@ static int l_cart_save(lua_State *L)
     return 2;
 }
 
+/* the directory and the name of a path ("/carts/GAME.BM"; "GAME.BM" is in /carts) */
+static void split_path(const char *path, char *dir, size_t dn, char *name, size_t nn)
+{
+    const char *slash = strrchr(path, '/');
+    if (slash) {
+        size_t n = (size_t)(slash - path);
+        if (n >= dn) n = dn - 1;
+        memcpy(dir, path, n);
+        dir[n] = 0;
+        if (!dir[0]) strcpy(dir, "/");
+        ksnprintf(name, nn, "%s", slash + 1);
+    } else {
+        ksnprintf(dir, dn, "/carts");
+        ksnprintf(name, nn, "%s", path);
+    }
+}
+
+/* cart_read(path) -> {title, author, res, lua, size}, or nil and a message.
+ * Only reads: the running cartridge's sheet and map stay as they are (code
+ * editors with several files open). */
+static int l_cart_read(lua_State *L)
+{
+    const char *path = luaL_checkstring(L, 1);
+    fat_entry_t e;
+    uint8_t *data;
+    size_t len;
+    bm_cart_t c;
+    char err[64];
+    memset(&e, 0, sizeof e);
+    if (fat_find(path, &e) != 0 || e.is_dir || fat_load(&e, &data, &len) != 0) {
+        lua_pushnil(L);
+        lua_pushstring(L, e.is_dir ? "a directory" : fat_error());
+        return 2;
+    }
+    if (bm_parse(data, len, &c, err, sizeof err) != 0) {
+        free(data);
+        lua_pushnil(L);
+        lua_pushstring(L, err);
+        return 2;
+    }
+    char title[49], author[33];
+    memcpy(title, c.title, sizeof title);
+    memcpy(author, c.author, sizeof author);
+    title[48] = author[32] = 0;
+    lua_newtable(L);
+    lua_pushstring(L, title);
+    lua_setfield(L, -2, "title");
+    lua_pushstring(L, author);
+    lua_setfield(L, -2, "author");
+    lua_pushstring(L, c.width == 320 ? "320x180" : "640x360");
+    lua_setfield(L, -2, "res");
+    lua_pushlstring(L, c.lua, c.lua_size);
+    lua_setfield(L, -2, "lua");
+    lua_pushinteger(L, (lua_Integer)len);
+    lua_setfield(L, -2, "size");
+    free(data);
+    return 1;
+}
+
+/* cart_write(path, {lua=, [title=, author=, res=, from=]}) -> true, or
+ * false and a message. Changes only the code (and the fields given) of the
+ * cartridge: its sheet, map, cover and any other section stay as they are.
+ * from: take those sections from another file ("save as"). A file that does
+ * not exist yet becomes a new cartridge with only the code (its name must
+ * then be 8.3; an existing file keeps its long name). */
+static int l_cart_write(lua_State *L)
+{
+    const char *path = luaL_checkstring(L, 1);
+    luaL_checktype(L, 2, LUA_TTABLE);
+    lua_getfield(L, 2, "lua");
+    size_t lua_len;
+    const char *lua = luaL_checklstring(L, -1, &lua_len);
+    const char *base = field(L, 2, "from", path);
+    char dir[64], name[FAT_NAME_MAX];
+    split_path(path, dir, sizeof dir, name, sizeof name);
+
+    fat_entry_t e;
+    uint8_t *old = NULL;
+    size_t old_len = 0;
+    bm_cart_t c;
+    memset(&c, 0, sizeof c);
+    char err[64];
+    if (fat_find(base, &e) == 0 && !e.is_dir) {
+        if (fat_load(&e, &old, &old_len) != 0) {
+            lua_pushboolean(L, 0);
+            lua_pushstring(L, fat_error());
+            return 2;
+        }
+        if (bm_parse(old, old_len, &c, err, sizeof err) != 0) {
+            free(old);
+            lua_pushboolean(L, 0);
+            lua_pushfstring(L, "%s: %s", name, err);
+            return 2;
+        }
+    }
+    char title[49], author[33];
+    memcpy(title, c.title, sizeof title);
+    memcpy(author, c.author, sizeof author);
+    title[48] = author[32] = 0;
+    const char *t = field(L, 2, "title", old ? title : name);
+    const char *a = field(L, 2, "author", author);
+    const char *res = field(L, 2, "res", c.width == 320 ? "320x180" : "640x360");
+    size_t out_len;
+    uint8_t *out = bm_rewrite(old, old_len, lua, lua_len, t, a, strcmp(res, "320x180") ? 640 : 320,
+                              &out_len);
+    free(old);
+    if (!out)
+        return luaL_error(L, "not enough memory to save");
+    int ok = fat_mkdirs(dir) == 0 && fat_write_file(dir, name, out, out_len) == 0;
+    free(out);
+    lua_pushboolean(L, ok);
+    if (ok)
+        return 1;
+    lua_pushstring(L, fat_error());
+    return 2;
+}
+
 /* cart_run(path): leaves the editor, plays the cartridge, then comes back
  * to the editor with cart_arg() = { path =, error = } */
 static int l_cart_run(lua_State *L)
@@ -1646,6 +1783,7 @@ int bm_resume(framebuffer_t *fb, uint32_t seconds, bm_stats_t *st)
     /* the same clip, camera and draw target as when it stopped */
     rt.g.cx0 = susp.g.cx0; rt.g.cy0 = susp.g.cy0; rt.g.cx1 = susp.g.cx1; rt.g.cy1 = susp.g.cy1;
     rt.g.cam_x = susp.g.cam_x; rt.g.cam_y = susp.g.cam_y;
+    rt.g.font = susp.g.font;
     if (susp.used_ram)
         video_to_ram(&rt.g);
     /* the time spent in the menu does not count for time() */

@@ -256,6 +256,16 @@ static void draw_icon(g16_t *cg, int icon, int cx, int cy, uint16_t ink, uint16_
             g16_rectfill(cg, cx - 14 - i, cy + 17 + i, 9 - i, 1, ink);
         g16_text_scaled(cg, cx - 7, cy - 16, "?", dark, 2);
         break;
+    case MENU_ICON_CODE:                        /* a page of code */
+        g16_rectfill(cg, cx - 22, cy - 19, 44, 38, ink);
+        g16_rectfill(cg, cx - 19, cy - 13, 38, 29, dark);
+        for (int i = 0; i < 4; i++) {
+            int indent = (i == 1 || i == 2) ? 8 : 0;
+            g16_rectfill(cg, cx - 15 + indent, cy - 9 + i * 6, i == 2 ? 12 : 20 - indent, 2,
+                         i == 1 ? g16_rgb(255, 122, 176) : i == 2 ? g16_rgb(112, 208, 255)
+                                                                 : g16_rgb(200, 205, 220));
+        }
+        break;
     }
 }
 

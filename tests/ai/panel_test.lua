@@ -20,6 +20,12 @@ function print(s, x, y, c) screen[#screen + 1] = tostring(s); return x + #tostri
 function rectfill() end
 function rect() end
 function line() end
+local FONT = { ["6x12"] = { 6, 12 }, ["8x14"] = { 8, 14 }, ["8x16"] = { 8, 16 } }
+local cur_font = FONT["8x16"]
+function font(n)
+  if n then cur_font = assert(FONT[n], n) end
+  return cur_font[1], cur_font[2]
+end
 local keys, held, pressed = {}, {}, {}
 function keyp() return table.remove(keys, 1) end
 function btn(i) return held[i] == true end
@@ -139,6 +145,17 @@ assist.open{ mode = "code" }
 type_("collisione tra rettangoli")
 check(on_screen("Collisione tra due"), "320x180: answer")
 assist.close()
+
+-- in a tool with the small font: the panel uses it, and gives it back
+SCREEN_W, SCREEN_H = 640, 360
+font("6x12")
+assist.open{ mode = "code" }
+type_("come salto")
+check(on_screen("Saltare con la gravit"), "6x12: answer")
+local fw = font()
+check(fw == 6, "6x12: the tool's font is back after drawing")
+assist.close()
+font("8x16")
 
 say(string.format("panel: %d checks, %d failed", checks, fails))
 os.exit(fails == 0 and 0 or 1)

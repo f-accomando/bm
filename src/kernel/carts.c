@@ -254,22 +254,24 @@ void carts_play_buffer(framebuffer_t *fb, const uint8_t *data, size_t len)
     }
 }
 
-/* The editor, and the games it tries: when the editor asks to play a
- * file (cart_run), play it, then open the editor again on that file with
- * the error the game stopped with, if any. `open`: a file to start on
- * (the menu's "Open in the SDK"), or NULL. */
-static void editor_session(framebuffer_t *fb, const char *open)
+/* A development tool built into the kernel (the editor, bm Code), and the
+ * games it tries: when the tool asks to play a file (cart_run), play it,
+ * then open the tool again on that file with the error the game stopped
+ * with, if any. `open`: a file to start on (the menu's "Open in the SDK"),
+ * or NULL. */
+void carts_tool_session(framebuffer_t *fb, const uint8_t *cart, size_t cart_len, const char *what,
+                        const char *open)
 {
     char path[64] = "", err[512] = "";
     int back = 0;
     if (open)
         ksnprintf(path, sizeof path, "%s", open);
     for (;;) {
-        crumb("editor", NULL);
+        crumb(what, NULL);
         bm_set_arg(path[0] ? path : NULL, err[0] ? err : NULL);
         bm_set_arg_back(back);
         bm_stats_t st;
-        bm_play(fb, bm_editor_cart, (size_t)(bm_editor_cart_end - bm_editor_cart), PLAY_SECS, &st);
+        bm_play(fb, cart, cart_len, PLAY_SECS, &st);
         bm_set_arg(NULL, NULL);
         if (!bm_take_run(path, sizeof path))
             break;
@@ -282,12 +284,23 @@ static void editor_session(framebuffer_t *fb, const char *open)
             ksnprintf(err, sizeof err, "cannot read %s: %s", path, fat_error());
             continue;
         }
-        crumb("editor: trying", path);
+        crumb("trying", path);
         bm_play(fb, data, len, PLAY_SECS, &st);
         bm_print_stats(&st);
         free(data);
         ksnprintf(err, sizeof err, "%s", bm_last_error());
     }
+}
+
+static void editor_session(framebuffer_t *fb, const char *open)
+{
+    carts_tool_session(fb, bm_editor_cart, (size_t)(bm_editor_cart_end - bm_editor_cart), "editor", open);
+}
+
+void carts_code(framebuffer_t *fb, const char *open)
+{
+    extern const uint8_t bm_code_cart[], bm_code_cart_end[];
+    carts_tool_session(fb, bm_code_cart, (size_t)(bm_code_cart_end - bm_code_cart), "code", open);
 }
 
 void carts_editor(framebuffer_t *fb)

@@ -46,6 +46,7 @@ static const char help_text[] =
             "  L  keyboard layout Italian / US\n"
             "  a  audio: HDMI sound status and a test tune\n"
             "  e  editor: code, sprites and map of a .bm cartridge\n"
+            "  C  bm Code: the code editor (tabs, two pages, small font)\n"
             "  A  assistant: how to write code, sprite bases (M30; F6 in the tools)\n"
             "  T  Bluetooth: pair a controller as the next player (DS4: Share + PS)\n"
             "  K  Bluetooth: pair a keyboard (LE, e.g. MX Keys: hold an Easy-Switch key)\n"
@@ -241,6 +242,7 @@ void monitor_run(void)
         case 'a': audio_test(); break;
         case 'e': carts_editor(console_framebuffer()); break;
         case 'A': home_assistant(console_framebuffer()); break;
+        case 'C': carts_code(console_framebuffer(), NULL); break;
         case 'D': dma_test(console_framebuffer()); break;
         case 'L':
             hid_set_layout(hid_layout()[0] == 'i' ? "us" : "it");

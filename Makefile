@@ -72,7 +72,8 @@ $(LUA_OBJS) $(LWIP_OBJS) $(MBEDTLS_OBJS): WARN := -w
 # Lua scripts embedded with .incbin
 $(BUILD)/k/src/script/embed.S.o: $(wildcard src/script/*.lua) keys/release-pub.pem \
                                  $(BUILD)/demo.bm $(BUILD)/stress.bm $(BUILD)/editor.bm \
-                                 $(BUILD)/assist.bin src/ai/assist.lua $(BUILD)/assistant.bm
+                                 $(BUILD)/assist.bin src/ai/assist.lua $(BUILD)/assistant.bm \
+                                 $(BUILD)/code.bm
 
 # The development assistant (M30): knowledge base + trained network, built
 # into the kernel. The network is trained on the PC (numpy) by `make
@@ -84,6 +85,11 @@ $(BUILD)/assist.bin: $(AI_KB) src/ai/assist.weights scripts/mkassist.py scripts/
 
 ai-model:
 	$(PYTHON) scripts/trainassist.py
+
+# bm Code, the code editor (Dev tab, monitor C)
+$(BUILD)/code.bm: carts/code/main.lua scripts/mkbm.py
+	@mkdir -p $(dir $@)
+	$(PYTHON) scripts/mkbm.py -o $@ --lua $< --title "bm Code" --author bm
 
 # The assistant on its own, in the Dev tab
 $(BUILD)/assistant.bm: carts/assistant/main.lua scripts/mkbm.py

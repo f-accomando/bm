@@ -78,4 +78,12 @@ int bm_sheet8_unpack(const bm_cart_t *c, void (*set)(void *ctx, int x, int y, co
 /* 1 if these first 8 bytes are the magic of a .bm cartridge. */
 int bm_is_cart(const void *head8);
 
+/* A cartridge with new code, title, author and resolution, and every other
+ * section of `old` copied as it is (sheet, map, cover, and the sections this
+ * kernel does not know, in their order). old == NULL: a new cartridge with
+ * only the code. `old` must have passed bm_parse. Returns a malloc'd file
+ * (*outlen bytes; the caller frees it), or NULL without memory. */
+uint8_t *bm_rewrite(const uint8_t *old, size_t oldlen, const char *lua, size_t lua_len,
+                    const char *title, const char *author, int width, size_t *outlen);
+
 #endif

@@ -939,6 +939,8 @@ def test_home_ui(b, opts):
         keys("2")
         screen(["bm SDK", "editor (built-in)"])
         keys("d")                               # the covers' names are on pictures: the pill
+        screen(["Code", "code editor: tabs, two pages"])
+        keys("d")
         screen(["Assistant", "help with code and sprites"])
         keys("d")
         screen(["Monitor", "the text console with every command"])

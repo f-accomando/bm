@@ -52,6 +52,14 @@ bm_assistant_cart:
     .incbin "assistant.bm"
 bm_assistant_cart_end:
 
+/* bm Code, the code editor (Dev tab) */
+    .section .rodata
+    .balign 4
+    .globl bm_code_cart, bm_code_cart_end
+bm_code_cart:
+    .incbin "code.bm"
+bm_code_cart_end:
+
 /* the public key that checks the releases (M19, src/net/release.c): PEM
  * text, NUL-terminated; a placeholder until scripts/release-key.sh */
     .section .rodata

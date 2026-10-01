@@ -164,6 +164,12 @@ int main(int argc, char **argv)
     CHECK(read_back("/bm/save/f0000001.sav", p1, 37));
     free(p1);
     CHECK(fat_find("/carts/Un gioco da cancellare.bm", &fe) == 0);
+    /* an existing file with a long name is rewritten in place, name kept */
+    uint8_t *lp = pattern(9000, 4242);
+    CHECK(fat_write_file("/carts", "Un gioco da cancellare.bm", lp, 9000) == 0);
+    CHECK(read_back("/carts/Un gioco da cancellare.bm", lp, 9000));
+    CHECK(fat_write_file("/carts", "Un altro gioco.bm", lp, 10) != 0);   /* new: 8.3 only */
+    free(lp);
     CHECK(fat_delete("/carts/un gioco da CANCELLARE.bm") == 0);
     CHECK(fat_find("/carts/Un gioco da cancellare.bm", &fe) != 0);
     CHECK(read_back(argv[3], orig, orig_len));

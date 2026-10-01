@@ -68,7 +68,8 @@ void g16_sspr(g16_t *g, const g16_sheet_t *s, int sx, int sy, int sw, int sh,
 /* Map cells [mx, mx+mw) x [my, my+mh) drawn at (x, y); cell 0 is skipped. */
 void g16_map(g16_t *g, const g16_sheet_t *s, const g16_map_t *m,
              int mx, int my, int x, int y, int mw, int mh);
-/* Text with the console font, transparent background. Returns the end x. */
+/* Text with the target's font (g->font), transparent background. Returns
+ * the end x. */
 int  g16_text(g16_t *g, int x, int y, const char *str, uint16_t c);
 /* The same, every font pixel drawn as a scale x scale square. */
 int  g16_text_scaled(g16_t *g, int x, int y, const char *str, uint16_t c, int scale);

@@ -87,13 +87,16 @@ end
 
 local function layout()
   local W, H = SCREEN_W, SCREEN_H
-  -- text on the 8x16 cells: x a multiple of 8, y of 16
-  st.x = st.x or (W >= 640 and 24 or 0)
-  st.y = st.y or (W >= 640 and 16 or 0)
+  -- the font of the tool (font()): text on its cells, x a multiple of the
+  -- width, y of the height
+  st.fw, st.fh = font()
+  local fw, fh = st.fw, st.fh
+  st.x = st.x or (W >= 640 and 3 * fw or 0)
+  st.y = st.y or (W >= 640 and fh or 0)
   st.w = st.w or (W - 2 * st.x)
   st.h = st.h or (H - 2 * st.y)
-  st.cols = st.w // 8 - 2
-  st.rows = st.h // 16
+  st.cols = st.w // fw - 2
+  st.rows = st.h // fh
   st.list_rows = math.max(2, math.min(6, (st.rows - 6) // 3))
   st.detail_rows = st.rows - 5 - st.list_rows
 end
@@ -119,7 +122,7 @@ local function choose(i)
     end
     -- beside the picture: narrower
     local z = st.size >= 32 and 3 or st.size >= 16 and 5 or 8
-    wrap(e.text or "", st.cols - (st.size * z + 16) // 8, st.lines)
+    wrap(e.text or "", st.cols - (st.size * z + 2 * st.fw) // st.fw, st.lines)
     return
   end
   if e.text ~= "" then wrap(e.text, st.cols, st.lines) end
@@ -285,7 +288,7 @@ end
 
 -- ---------------------------------------------------------------- drawing
 
-local function code_line(s, x, y, maxc)
+local function code_line(s, x, y, maxc, fw)
   s = s:sub(1, maxc)
   local i, n = 1, #s
   while i <= n do
@@ -308,7 +311,7 @@ local function code_line(s, x, y, maxc)
       if j < i then j = i end
       col = C_TEXT
     end
-    print(s:sub(i, j), x + (i - 1) * 8, y, col)
+    print(s:sub(i, j), x + (i - 1) * fw, y, col)
     i = j + 1
   end
 end
@@ -337,23 +340,27 @@ end
 
 function M.draw()
   if not st then return end
+  -- in the font the panel was laid out with, then the tool's again
+  local tw, th = font()
+  local fw, fh = st.fw, st.fh
+  if fw ~= tw or fh ~= th then font(fw == 6 and "6x12" or fh == 14 and "8x14" or "8x16") end
   local x, y, w, h = st.x, st.y, st.w, st.h
-  local tx = x + 8
+  local tx = x + fw
   rectfill(x, y, w, h, C_PANEL)
   rect(x, y, w, h, C_LINE)
   -- title
-  rectfill(x, y, w, 16, C_BAR)
+  rectfill(x, y, w, fh, C_BAR)
   print("Assistant", tx, y, C_ACC)
   local right = st.mode
   if st.us then right = string.format("%s  %.1f ms", st.mode, st.us / 1000) end
-  print(right, x + w - 8 - #right * 8, y, C_DIM)
+  print(right, x + w - fw - #right * fw, y, C_DIM)
   -- question
-  local qy = y + 16
+  local qy = y + fh
   local cursor = (st.frame // 30) % 2 == 0 and "_" or " "
   print("?", tx, qy, C_ACC)
-  print(st.q .. cursor, tx + 16, qy, C_TEXT)
-  if st.q == "" and st.ctx then print("(" .. st.ctx .. ")", tx + 32, qy, C_DIM) end
-  local ly = qy + 16
+  print(st.q .. cursor, tx + 2 * fw, qy, C_TEXT)
+  if st.q == "" and st.ctx then print("(" .. st.ctx .. ")", tx + 4 * fw, qy, C_DIM) end
+  local ly = qy + fh
   if st.hint or st.msg then
     print((st.msg or st.hint):sub(1, st.cols), tx, ly, st.msg and C_ERR or C_ACC)
   elseif st.unsure and #st.hits > 0 and st.us then
@@ -362,7 +369,7 @@ function M.draw()
     print(("type a question, or choose (" .. #st.hits .. " topics)"):sub(1, st.cols), tx, ly, C_DIM)
   end
   -- answers
-  ly = ly + 16
+  ly = ly + fh
   if #st.hits == 0 then
     print("no answer: try other words (sprite, map, sound, jump...)", tx, ly, C_DIM)
   end
@@ -370,30 +377,30 @@ function M.draw()
     local i = st.top + r
     local hit = st.hits[i]
     if not hit then break end
-    local ry = ly + r * 16
-    if i == st.sel then rectfill(x + 4, ry, w - 8, 16, C_SEL) end
+    local ry = ly + r * fh
+    if i == st.sel then rectfill(x + 4, ry, w - 8, fh, C_SEL) end
     local tag = (hit.related and "see " or "") .. (TAG[hit.kind] or hit.kind)
     print(hit.title:sub(1, st.cols - 12), tx, ry, i == st.sel and 0xFFFFFF or hit.related and C_DIM or C_TEXT)
-    print(tag, x + w - 8 - #tag * 8, ry, C_DIM)
+    print(tag, x + w - fw - #tag * fw, ry, C_DIM)
   end
   if #st.hits > st.list_rows then
-    local bh = st.list_rows * 16
-    local th = math.max(4, bh * st.list_rows // #st.hits)
-    local ty = ly + (bh - th) * (st.top - 1) // math.max(1, #st.hits - st.list_rows)
-    rectfill(x + w - 3, ty, 2, th, C_LINE)
+    local bh = st.list_rows * fh
+    local thumb = math.max(4, bh * st.list_rows // #st.hits)
+    local ty = ly + (bh - thumb) * (st.top - 1) // math.max(1, #st.hits - st.list_rows)
+    rectfill(x + w - 3, ty, 2, thumb, C_LINE)
   end
   -- details
-  local dy = ly + st.list_rows * 16
+  local dy = ly + st.list_rows * fh
   line(x + 4, dy - 1, x + w - 5, dy - 1, C_LINE)
   local e = st.entry
   if e and e.kind == "sprite" then
     local z = st.size >= 32 and 3 or st.size >= 16 and 5 or 8
     local box = st.size * z
-    local avail = st.detail_rows * 16 - 16
+    local avail = st.detail_rows * fh - fh
     while box > avail and z > 1 do z = z - 1; box = st.size * z end
     checker(tx, dy + 4, box, box, z * 2)
     draw_sprite(st.sprite, tx, dy + 4, z)
-    local vx = tx + box + 16
+    local vx = tx + box + 2 * fw
     local vz = math.max(1, z // 2)
     for k = 1, 3 do
       local v = st.variants[k]
@@ -403,27 +410,27 @@ function M.draw()
         vx = vx + v.w * vz + 8
       end
     end
-    local iy = dy + (st.size * vz + 4 + 15) // 16 * 16
-    print((st.sprite and st.sprite.name or e.title) .. "  #" .. st.seed, tx + box + 16, iy, C_TEXT)
-    for k = 1, math.min(#st.lines, (dy + st.detail_rows * 16 - iy) // 16 - 1) do
-      print(st.lines[k].t, tx + box + 16, iy + k * 16, C_DIM)
+    local iy = dy + (st.size * vz + 4 + fh - 1) // fh * fh
+    print((st.sprite and st.sprite.name or e.title) .. "  #" .. st.seed, tx + box + 2 * fw, iy, C_TEXT)
+    for k = 1, math.min(#st.lines, (dy + st.detail_rows * fh - iy) // fh - 1) do
+      print(st.lines[k].t, tx + box + 2 * fw, iy + k * fh, C_DIM)
     end
   else
     for r = 1, st.detail_rows do
       local l = st.lines[st.scroll + r]
       if not l then break end
-      local ry = dy + (r - 1) * 16
-      if l.code then code_line(l.t, tx, ry, st.cols)
+      local ry = dy + (r - 1) * fh
+      if l.code then code_line(l.t, tx, ry, st.cols, fw)
       else print(l.t, tx, ry, l.dim and C_DIM or C_TEXT) end
     end
     if #st.lines > st.detail_rows then
       local more = st.scroll + st.detail_rows < #st.lines and "PgDn: more" or "PgUp: back"
-      print(more, x + w - 8 - #more * 8, dy + (st.detail_rows - 1) * 16, C_DIM)
+      print(more, x + w - fw - #more * fw, dy + (st.detail_rows - 1) * fh, C_DIM)
     end
   end
   -- keys
-  local fy = y + h - 16
-  rectfill(x, fy, w, 16, C_BAR)
+  local fy = y + h - fh
+  rectfill(x, fy, w, fh, C_BAR)
   local keys
   if e and e.kind == "sprite" then
     keys = "Enter/A: use  </>: variant  Up/Dn: choose  Tab/X: mode  Esc/B: close"
@@ -431,6 +438,7 @@ function M.draw()
     keys = "Enter/A: insert  Up/Dn: choose  PgDn: more  Tab/X: mode  Esc/B: close"
   end
   print(keys:sub(1, st.cols), tx, fy, C_DIM)
+  if fw ~= tw or fh ~= th then font(tw == 6 and "6x12" or th == 14 and "8x14" or "8x16") end
 end
 
 return M

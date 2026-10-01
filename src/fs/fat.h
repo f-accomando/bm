@@ -51,8 +51,9 @@ int fat_find(const char *path, fat_entry_t *e);
 int fat_mkdirs(const char *path);
 
 /* Writes a whole file in directory `dir` (which must exist), creating it or
- * replacing its content. `name` must be a valid 8.3 name ("CONFIG.TXT";
- * lower case is stored upper case). The new data is written to free
+ * replacing its content. A new file needs a valid 8.3 name ("CONFIG.TXT";
+ * lower case is stored upper case); an existing one is found by its long
+ * name too, and keeps it. The new data is written to free
  * clusters before the directory entry points at it, so a power cut leaves
  * either the old or the new file (plus, at worst, lost clusters). */
 int fat_write_file(const char *dir, const char *name, const void *data, size_t len);

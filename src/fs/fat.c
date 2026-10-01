@@ -668,15 +668,11 @@ int fat_write_file(const char *dir, const char *name, const void *data, size_t l
         err = "not mounted";
         return -1;
     }
-    if (to_83(name, n83)) {
-        err = "not an 8.3 name";
-        return -1;
-    }
     uint32_t dc;
     if (dir_cluster(dir, &dc))
         return -1;
 
-    /* existing file? */
+    /* existing file? (by its long name too: then it keeps that name) */
     fat_dir_t d;
     fat_entry_t e;
     int exists = 0;
@@ -686,6 +682,10 @@ int fat_write_file(const char *dir, const char *name, const void *data, size_t l
             exists = 1;
             break;
         }
+    if (!exists && to_83(name, n83)) {
+        err = "not an 8.3 name";
+        return -1;
+    }
 
     uint32_t csize = vol.spc * 512;
     uint32_t n = (uint32_t)((len + csize - 1) / csize);

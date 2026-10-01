@@ -1,4 +1,5 @@
 #include "home.h"
+#include "carts.h"
 #include "bench.h"
 #include "config.h"
 #include "crumbs.h"
@@ -204,7 +205,14 @@ typedef struct {
     g16_sheet_t cover;
 } tool_t;
 
+/* bm Code, the code editor */
+static void t_code(framebuffer_t *fb)
+{
+    carts_code(fb, NULL);
+}
+
 static tool_t tools[] = {
+    { "Code", "code editor: tabs, two pages, small font", MENU_ICON_CODE, 0x3A4A8A, t_code, 0, { 0 } },
     { "Assistant", "help with code and sprites; F6 in the tools", MENU_ICON_ASSIST, 0x2A6A9A, home_assistant, 0, { 0 } },
     { "Monitor", "the text console with every command (h: help)", MENU_ICON_TERMINAL, 0x2A3A4A, NULL, 0, { 0 } },
     { "Lua", "Lua 5.4 prompt (USB keyboard); Esc or Ctrl-D returns", MENU_ICON_LUA, 0x2A3A9A, t_lua, 0, { 0 } },
