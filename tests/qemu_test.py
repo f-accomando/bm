@@ -481,6 +481,20 @@ def bar_icons(img):
     return runs
 
 
+def wait_bar_icons(q, ok, tries=16):
+    """The menu bar once its icons are what ok(runs, img) wants: QEMU shows
+    page 0 even while it is drawn, and a USB device can be announced a
+    moment after the menu, so one screendump can miss them. Returns
+    (img, runs), the last ones if they never get there."""
+    for _ in range(tries):
+        img = q.screendump()
+        runs = bar_icons(img)
+        if ok(runs, img):
+            break
+        time.sleep(0.5)
+    return img, runs
+
+
 def blue_number(img, span):
     """The number disc of a status icon is blue (a Bluetooth controller)."""
     return any(b > 200 and r < 80 and 90 < g < 160
@@ -1913,8 +1927,8 @@ def test_bt_keyboard(b, opts):
         q.mini.write(b"M")
         _mini_expect(q, "cartridge menu")
         time.sleep(1.0)
-        shot_ = q.screendump()
-        runs = bar_icons(shot_)
+        shot_, runs = wait_bar_icons(
+            q, lambda r, i: len(r) == 2 and blue_number(i, r[1]))
         assert len(runs) == 2 and all(20 <= x1 - x0 <= 27 for x0, x1 in runs), runs
         assert not blue_number(shot_, runs[0]) and blue_number(shot_, runs[1]), runs
         # in a game each keyboard moves its own player
@@ -2010,8 +2024,7 @@ def test_bt_keyboard_legacy(b, opts):
         q.mini.write(b"M")
         _mini_expect(q, "cartridge menu")
         time.sleep(1.0)
-        shot_ = q.screendump()
-        runs = bar_icons(shot_)
+        shot_, runs = wait_bar_icons(q, lambda r, i: len(r) == 1 and blue_number(i, r[0]))
         assert len(runs) == 1 and blue_number(shot_, runs[0]), runs
     finally:
         q.close()
@@ -2232,10 +2245,10 @@ def test_bt_two_pads(b, opts):
         q.mini.write(b"M")
         _mini_expect(q, "cartridge menu")
         time.sleep(1.0)
-        screen_img = q.screendump()
+        screen_img, runs = wait_bar_icons(
+            q, lambda r, i: len(r) == 3 and all(blue_number(i, x) for x in r))
         if opts.shots:
             _save_png(screen_img, os.path.join(opts.shots, "home-pads.png"))
-        runs = bar_icons(screen_img)
         assert len(runs) == 3 and all(20 <= x1 - x0 <= 27 for x0, x1 in runs), runs
         assert all(blue_number(screen_img, r) for r in runs), "Bluetooth: blue numbers"
 
@@ -2289,9 +2302,8 @@ def test_sd_sdhc_and_usb_menu(b, opts):
     try:
         out = q.expect("cartridge menu", timeout=90).decode(errors="replace")
         assert "sd: SDHC card (sdhost), FAT32, 4095 MiB, label BMSD; 1 cartridges" in out, out
-        time.sleep(1.0)
-        shot_ = q.screendump()                # the bar: the keyboard icon (M27)
-        runs = bar_icons(shot_)
+        time.sleep(1.0)                       # the bar: the keyboard icon (M27)
+        shot_, runs = wait_bar_icons(q, lambda r, i: len(r) == 1)
         assert len(runs) == 1 and 20 <= runs[0][1] - runs[0][0] <= 27, runs
         assert not blue_number(shot_, runs[0]), "USB: a white number"
         sendkeys(q, "e")                      # E is R1: the Dev tab
