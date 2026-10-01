@@ -661,7 +661,8 @@ static void music_line(uint8_t *rom, int idx, const char *l, size_t n)
 {
     if (idx >= 64 || n < 11)
         return;
-    int flags = hexv(l[0]) << 4 | hexv(l[1]);
+    int f1 = hexv(l[0]), f2 = hexv(l[1]);
+    int flags = f1 < 0 || f2 < 0 ? 0 : f1 << 4 | f2;
     uint8_t *p = rom + N8_MUSIC + idx * 4;
     for (int k = 0; k < 4; k++) {
         int a = hexv(l[3 + 2 * k]), b = hexv(l[4 + 2 * k]);

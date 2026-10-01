@@ -434,16 +434,17 @@ void n8_sset(n8_t *m, int x, int y, int c)
 static void walk(int x0, int y0, int x1, int y1, void (*f)(void *, int, int, int), void *ctx)
 {
     int dx = x1 - x0, dy = y1 - y0, adx = dx < 0 ? -dx : dx, ady = dy < 0 ? -dy : dy;
+    /* 16.16 in 64 bits: the ends can be far off screen (camera) */
     if (adx >= ady) {
         int sx = dx < 0 ? -1 : 1;
-        int32_t y = y0 * 65536 + 32768, step = adx ? (int32_t)(((int64_t)dy << 16) / adx) : 0;
+        int64_t y = (int64_t)y0 * 65536 + 32768, step = adx ? (int64_t)dy * 65536 / adx : 0;
         for (int i = 0; i <= adx; i++, y += step)
-            f(ctx, x0 + i * sx, y >> 16, i);
+            f(ctx, x0 + i * sx, (int)(y >> 16), i);
     } else {
         int sy = dy < 0 ? -1 : 1;
-        int32_t x = x0 * 65536 + 32768, step = (int32_t)(((int64_t)dx << 16) / ady);
+        int64_t x = (int64_t)x0 * 65536 + 32768, step = (int64_t)dx * 65536 / ady;
         for (int i = 0; i <= ady; i++, x += step)
-            f(ctx, x >> 16, y0 + i * sy, i);
+            f(ctx, (int)(x >> 16), y0 + i * sy, i);
     }
 }
 
@@ -736,7 +737,9 @@ typedef struct {
 static void tline_dot(void *ctx, int x, int y, int i)
 {
     tline_t *t = ctx;
-    int32_t mx = t->mx + t->mdx * i, my = t->my + t->mdy * i;
+    /* wrapping at 32 bits, as the carts' 16.16 numbers do */
+    int32_t mx = (int32_t)(uint32_t)((int64_t)t->mx + (int64_t)t->mdx * i);
+    int32_t my = (int32_t)(uint32_t)((int64_t)t->my + (int64_t)t->mdy * i);
     if (x < t->d->x0 || x >= t->d->x1 || y < t->d->y0 || y >= t->d->y1)
         return;
     int tx = mx >> 16, ty = my >> 16;
@@ -971,8 +974,10 @@ int n8_print(n8_t *m, const uint8_t *s, size_t len, int x, int y, int c, int at_
                 break;
             case ':': {                 /* one-off glyph: 16 hex digits */
                 uint8_t g[8] = { 0 };
-                for (int k = 0; k < 8 && i + 2 + 2 * k < len; k++)
-                    g[k] = (uint8_t)(digit(s[i + 1 + 2 * k], 16) << 4 | digit(s[i + 2 + 2 * k], 16));
+                for (int k = 0; k < 8 && i + 2 + 2 * k < len; k++) {
+                    int hi = digit(s[i + 1 + 2 * k], 16), lo = digit(s[i + 2 + 2 * k], 16);
+                    g[k] = (uint8_t)((hi < 0 ? 0 : hi) << 4 | (lo < 0 ? 0 : lo));
+                }
                 cx += draw_char(&p, 0, cx - camx, cy - camy, g);
                 if (cx > maxx) maxx = cx;
                 i += 16;

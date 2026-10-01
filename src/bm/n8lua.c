@@ -816,7 +816,8 @@ static int l_rnd(lua_State *L)
         lua_Integer n = (lua_Integer)lua_rawlen(L, 1);
         if (!n)
             return 0;
-        lua_rawgeti(L, 1, 1 + n8_rnd(m, (int32_t)n << 16) / 65536);
+        int32_t lim = n > 32767 ? 0x7FFFFFFF : (int32_t)(n * 65536);
+        lua_rawgeti(L, 1, 1 + n8_rnd(m, lim) / 65536);
         return 1;
     }
     pushfix(L, n8_rnd(m, n8_fix(num(L, 1, 1))));
