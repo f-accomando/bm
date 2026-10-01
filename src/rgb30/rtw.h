@@ -102,6 +102,8 @@ int rtw_free_pages(uint32_t fifo);
 /* RX: the bytes waiting (0 if none), and reading them */
 uint32_t rtw_rx_len(void);
 int rtw_read_port(uint8_t *buf, uint32_t len);
+/* RX: drops len waiting bytes (more than the caller's buffer) */
+int rtw_rx_discard(uint32_t len);
 
 /* --- chip (rtw_mac.c) --- */
 typedef struct {

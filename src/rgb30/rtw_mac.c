@@ -368,8 +368,10 @@ static int read_efuse(char *err, unsigned errlen)
         uint8_t m[6] = { 0x02, 0xbb, 0x30, (uint8_t)(t >> 16), (uint8_t)(t >> 8), (uint8_t)t };
         memcpy(rtw.mac, m, 6);
     }
-    if (rtw.xtal == 0xff)
-        rtw.xtal = 0x3f;
+    if (rtw.xtal == 0xff)                           /* as rtw88 */
+        rtw.xtal = 0;
+    if (rtw.swing_2g == 0xff)
+        rtw.swing_2g = 0;
     return 0;
 }
 

@@ -180,4 +180,18 @@ int rtw_read_port(uint8_t *buf, uint32_t len)
         xfer = (xfer + 511) & ~511u;
     return sdio_cmd53(0, FIFO_EXTRA | (rx_seq++ & 3), buf, xfer) == 0 ? 0 : -1;
 }
+
+int rtw_rx_discard(uint32_t len)
+{
+    static uint8_t sink[4096] __attribute__((aligned(64)));
+    uint32_t addr = FIFO_EXTRA | (rx_seq++ & 3);
+    uint32_t left = (len + 511) & ~511u;
+    while (left) {
+        uint32_t n = left > sizeof sink ? sizeof sink : left;
+        if (sdio_cmd53(0, addr, sink, n) != 0)
+            return -1;
+        left -= n;
+    }
+    return 0;
+}
 #endif

@@ -72,7 +72,7 @@ $(BUILD)/k/src/kernel/version.c.o: CFLAGS += -DBM_VERSION=\"$(VERSION)\"
 FORCE:
 
 .DEFAULT_GOAL := all
-.PHONY: all test test-bt qemu clean firmware image sdcard FORCE
+.PHONY: all test test-bt test-wifi qemu clean firmware image sdcard FORCE
 
 all: $(BUILD)/kernel8.img
 ifeq ($(PLAT),rk3566)
@@ -134,7 +134,7 @@ qemu:
 	$(QEMU64) -M virt,gic-version=3 -cpu cortex-a55 -m 512M -device ramfb -nic none \
 	    -kernel build/rgb30-virt/kernel.elf -serial stdio -display none
 
-test: test-bt
+test: test-bt test-wifi
 	$(MAKE) -f rgb30.mk PLAT=virt
 	$(PYTHON) tests/rgb30/qemu_test.py --build build/rgb30-virt
 
@@ -147,6 +147,14 @@ build/rgb30-host/h5_test: tests/bt/h5_test.c src/bt/h5.c src/bt/hci.c src/bt/rtl
 
 test-bt: build/rgb30-host/h5_test
 	$< $(wildcard $(FW64)/rtl8821cs_fw.bin $(FW64)/rtl8821cs_config.bin)
+
+# the WiFi's RX buffers and 802.11 frames on the PC
+build/rgb30-host/rtw_frame_test: tests/rgb30/rtw_frame_test.c src/rgb30/rtw_frame.c src/rgb30/rtw_frame.h
+	@mkdir -p $(dir $@)
+	$(HOSTCC) -O1 -Wall -Wextra -fsanitize=address,undefined -Isrc -o $@ tests/rgb30/rtw_frame_test.c src/rgb30/rtw_frame.c
+
+test-wifi: build/rgb30-host/rtw_frame_test
+	$<
 
 clean:
 	rm -rf build/rgb30 build/rgb30-virt build/rgb30-host
