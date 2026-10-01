@@ -1458,7 +1458,21 @@ Task:
    commenta/scommenta, ottimizza (API come locali), spiega; oppure inserisce un esempio
    ("crea uno snippet per un effetto di particelle") o uno sprite scritto come codice
    ("crea uno sprite slime rosso"). Non cambia niente se non è sicura; Ctrl+Z annulla.
-10. Dopo: numeri e nomi della domanda dentro il codice proposto ("muovi a velocità 3"),
+10. ✅ **Scrittura col pad** (2026-10-01, guida e numeri in [PADTYPE.md](PADTYPE.md)):
+   come il T9 ma per sillabe. In bm Code **Share** la accende: un accordo della croce
+   (16 consonanti, con L2 / R2 per il banco) e dei quattro tasti (le vocali) scrive una
+   sillaba (giù + △ = "ca"), L1 raddoppia, R1 mette lo spazio; la predizione (n-gramma su
+   testi scritti per bm, nel codice le API dell'assistente e i nomi della scheda) mostra
+   il resto della parola in blu-grigio, R2 / L2 / L2+R2 scrivono il 1°, 2°, 3°
+   suggerimento, e quel che ha scritto resta verde. Modalità **steno** (come la
+   stenotipia): gruppi di consonanti sulle diagonali e dittonghi. **Esercizio** con guida
+   dal menu. Il kernel legge **L2/R2** (`pad()` 4096, 8192). Su 100 caratteri italiani:
+   tastiera 100 pressioni, tastiera a schermo 416, multitap 163, sillabe 50, sillabe +
+   predizione 41, steno + predizione 39; in Lua 71 → 46 con la predizione. Test:
+   `make test-pad` (95 controlli: i testi riscritti dalle pressioni minime nel motore
+   vero), `test_code_pad_typing` in QEMU (DS4 simulato), `make pad-bench`, `make pad-stats`.
+   **Da provare sul Pi**: PADTYPE.md, sezione 7.
+11. Dopo: numeri e nomi della domanda dentro il codice proposto ("muovi a velocità 3"),
    completamento dei nomi delle API, le domande senza risposta giusta che diventano voci
    nuove, ricette di sprite animate (più fotogrammi nello sheet).
 

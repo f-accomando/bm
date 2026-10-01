@@ -76,9 +76,9 @@ Lo schermo **non** viene cancellato da solo: di solito `_draw` comincia con `cls
 
 Limiti: un errore o un ciclo infinito (oltre **20 milioni di istruzioni** Lua in un
 fotogramma) ferma la cartuccia senza bloccare la console. Sandbox: niente `io`, `os`,
-`load`, `dofile`; `require` carica solo le librerie incluse nel kernel (per ora
-`"assist"`, il pannello dell'assistente); ci sono `string`, `table`, `math`, `utf8`,
-`coroutine`.
+`load`, `dofile`; `require` carica solo le librerie incluse nel kernel (`"assist"`, il
+pannello dell'assistente; `"padtype"`, la scrittura col pad, e i suoi dizionari
+`"padwords"`); ci sono `string`, `table`, `math`, `utf8`, `coroutine`.
 
 ## Colori
 
@@ -171,7 +171,7 @@ nano8) legge la tastiera tasto per tasto e i controller pulsante per pulsante:
 | `rawkeys(on)` | con `true` le tastiere smettono di fare da controller per `btn()` e `pad()`: si leggono con `keydown()`. Esc chiude comunque la cartuccia |
 | `keydown(u)` | `true` finché è premuto il tasto con l'usage USB HID `u` (USB o Bluetooth): `0x04`…`0x1D` le lettere A–Z, `0x1E`…`0x27` le cifre, `0x28` Invio, `0x2C` spazio, `0x4F`…`0x52` le frecce (destra, sinistra, giù, su), `0xE0`…`0xE7` Ctrl, Shift, Alt, GUI di sinistra e poi di destra |
 | `keys()` | gli usage dei tasti premuti adesso (`{0x1D, 0xE1}`): per "premi un tasto" |
-| `pad([p])` | i pulsanti che il giocatore `p` (1–4) tiene premuti, in bit: 1 sinistra, 2 destra, 4 su, 8 giù, 16 A, 32 B, 64 Start, 128 Select, 256 X, 512 Y, 1024 L1, 2048 R1; senza `p` quelli di tutti. I tasti della seriale contano come il controller del primo giocatore |
+| `pad([p])` | i pulsanti che il giocatore `p` (1–4) tiene premuti, in bit: 1 sinistra, 2 destra, 4 su, 8 giù, 16 A, 32 B, 64 Start, 128 Select, 256 X, 512 Y, 1024 L1, 2048 R1, 4096 L2, 8192 R2; senza `p` quelli di tutti. I tasti della seriale contano come il controller del primo giocatore |
 
 ### Tempo e sistema
 
@@ -376,6 +376,33 @@ Invio su quelle righe.
 
 La base di conoscenza è in `src/ai/kb/` (formato e come riaddestrare:
 `src/ai/kb/README.md`).
+
+**Scrittura col pad** (`require "padtype"`, guida e tabelle in
+[PADTYPE.md](PADTYPE.md)): un accordo della croce e dei tasti scrive una sillaba, i
+grilletti (L2, R2: `pad()` 4096, 8192) scelgono il banco, il dizionario finisce la parola.
+
+```lua
+local pt = require "padtype"
+local host = { lang = "it", prose = true }       -- "it", "en" o "lua"
+function host.before() return testo end          -- il testo prima del cursore, sulla sua riga
+function host.insert(s) testo = testo .. s end
+function host.erase(n) testo = testo:sub(1, #testo - n) end
+function host.newline() end
+pt.on(true)                                      -- Share lo spegne (host.exit, se c'è)
+function _update() pt.update(host) end           -- legge pad(), scrive tramite host
+function _draw()
+  print(testo, 8, 8)
+  print(pt.ghost() or "", 8 + #testo * 8, 8, pt.C_GHOST)   -- il resto del suggerimento
+  local w, h = pt.size()
+  pt.draw(SCREEN_W - w, SCREEN_H - h)            -- il pannello degli accordi
+end
+```
+
+Altro: `host.move(dir)`, `host.undo()` (Start + croce, Start + L1), `host.words` (codice:
+`pt.count_words(righe)`, i nomi della scheda); `pt.set{mode = "steno"}`, `pt.suggestions()`,
+`pt.flash()` (quanto ha appena scritto la predizione), `pt.encode(testo, {mode, lang,
+predict})` (le pressioni minime), `pt.practice_open(i)` / `practice_update()` /
+`practice_draw()` (l'esercizio sui testi `pt.TEXTS`).
 
 ### nano8 (la libreria `n8`)
 

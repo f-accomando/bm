@@ -74,7 +74,7 @@ $(BUILD)/k/src/script/embed.S.o: $(wildcard src/script/*.lua) keys/release-pub.p
                                  $(BUILD)/demo.bm $(BUILD)/stress.bm $(BUILD)/editor.bm $(BUILD)/sound.bm \
                                  $(BUILD)/studio3d.bm \
                                  $(BUILD)/assist.bin src/ai/assist.lua $(BUILD)/assistant.bm \
-                                 $(BUILD)/code.bm
+                                 $(BUILD)/code.bm src/ai/padtype.lua $(BUILD)/padwords.lua
 
 # The development assistant (M30): knowledge base + trained network, built
 # into the kernel. The network is trained on the PC (numpy) by `make
@@ -86,6 +86,14 @@ $(BUILD)/assist.bin: $(AI_KB) src/ai/assist.weights scripts/mkassist.py scripts/
 
 ai-model:
 	$(PYTHON) scripts/trainassist.py
+
+# The pad typing (M30): its dictionaries, from the texts of src/ai/words,
+# the Lua of the games and the API of the knowledge base
+PAD_WORDS_SRC := $(wildcard src/ai/words/*.txt) $(wildcard carts/*/main.lua carts/kitchen/src/*.lua carts/titan/src/*.lua) \
+                 $(wildcard src/ai/kb/*.txt) scripts/mkpadwords.py
+$(BUILD)/padwords.lua: $(PAD_WORDS_SRC)
+	@mkdir -p $(dir $@)
+	$(PYTHON) scripts/mkpadwords.py -o $@
 
 # bm Code, the code editor (Dev tab, monitor C)
 $(BUILD)/code.bm: carts/code/main.lua scripts/mkbm.py
@@ -232,7 +240,7 @@ test-nano8: $(BUILD)/host/n8host $(BUILD)/host/n8cartinfo $(BUILD)/host/luahost 
 
 .DEFAULT_GOAL := all
 .PHONY: FORCE test-smp all clean firmware image image-pi1 sdcard install sdcard-chainloader sdcard-stress qemu qemu-screenshot \
-        run-serial test test-bm test-ai ai-model test-usb test-audio test-fat test-kitchen test-titan test-sound test-nano8 \
+        run-serial test test-bm test-ai ai-model test-pad pad-bench pad-stats test-usb test-audio test-fat test-kitchen test-titan test-sound test-nano8 \
         test-net test-http test-https test-release release disasm wav test-studio test-studio-ui studio
 
 all: $(BUILD)/kernel.img $(BUILD)/chainloader.img $(GAME_CARTS)
@@ -372,7 +380,7 @@ qemu-screenshot: $(BUILD)/kernel.img
 	./scripts/qemu-screenshot.sh $< $(BUILD)/screen.png
 
 test: all test-bm test-usb test-fat test-audio test-kitchen test-titan test-sound test-nano8 test-net test-http test-https \
-      test-release test-smp test-ai test-studio
+      test-release test-smp test-ai test-pad test-studio
 	$(PYTHON) tests/qemu_test.py --build $(BUILD)
 
 $(BUILD)/host/test_bm: tests/bm/test_bm.c src/bm/gfx16.c src/bm/r3d.c src/bm/format.c src/lib/crc32.c src/bm/*.h
@@ -496,6 +504,23 @@ $(BUILD)/host/luaai: tests/ai/luaai.c src/ai/lua_ai.c $(AI_SRCS) src/ai/*.h src/
 	@mkdir -p $(dir $@)
 	$(HOSTCC) -O2 -w -DBM_HOST_TEST -Isrc -Ithird_party/lua -o $@ tests/ai/luaai.c src/ai/lua_ai.c \
 		$(AI_SRCS) src/lib/crc32.c $(LUA_SRCS) -lm
+
+# The pad typing on the PC: chords, editing, suggestions, panel, and the
+# benchmark texts written again by the presses the encoder finds
+test-pad: $(BUILD)/host/luahost $(BUILD)/padwords.lua
+	$(BUILD)/host/luahost tests/pad/pad_test.lua $(BUILD)
+
+# The syllables of Italian, counted on the same texts (docs/PADTYPE.md)
+pad-stats:
+	$(PYTHON) scripts/padsyll.py
+
+# Its benchmark (docs/PADTYPE.md): the texts of tests/pad/texts.lua, then the
+# corpus with each group left out of the dictionary in turn
+PAD_FOLDS := giochi informativi lettere narrativa quotidiano tecnica
+pad-bench: $(BUILD)/host/luahost $(BUILD)/padwords.lua
+	@mkdir -p $(BUILD)/pad
+	for g in $(PAD_FOLDS); do $(PYTHON) scripts/mkpadwords.py --skip it_$$g -o $(BUILD)/pad/fold_$$g.lua || exit 1; done
+	$(BUILD)/host/luahost tests/pad/bench.lua $(BUILD) --folds
 
 test-ai: $(BUILD)/host/test_ai $(BUILD)/assist.bin $(BUILD)/host/luahost $(BUILD)/host/luaai
 	$< $(BUILD)/assist.bin $(BUILD)/ai/ref.txt

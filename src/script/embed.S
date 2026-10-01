@@ -52,6 +52,22 @@ bm_lib_assist:
     .incbin "src/ai/assist.lua"
 bm_lib_assist_end:
 
+/* the pad typing (M30): its Lua library (require "padtype") and its
+ * dictionaries, built by scripts/mkpadwords.py (require "padwords") */
+    .section .rodata
+    .balign 4
+    .globl bm_lib_padtype, bm_lib_padtype_end
+bm_lib_padtype:
+    .incbin "src/ai/padtype.lua"
+bm_lib_padtype_end:
+
+    .section .rodata
+    .balign 4
+    .globl bm_lib_padwords, bm_lib_padwords_end
+bm_lib_padwords:
+    .incbin "padwords.lua"
+bm_lib_padwords_end:
+
     .section .rodata
     .balign 4
     .globl bm_assistant_cart, bm_assistant_cart_end

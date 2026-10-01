@@ -3475,6 +3475,119 @@ def test_code_editor(b, opts):
         shutil.rmtree(tmp, ignore_errors=True)
 
 
+def test_code_pad_typing(b, opts):
+    """Typing with the pad in bm Code (M30), with a DS4: Share turns it on
+    and the panel of the chords comes up; a chord of the cross and a button
+    writes a syllable (down + triangle = "ca"), R2 takes the suggestion, L1 +
+    L2 puts the accent, in a comment the words are Italian, in the code
+    Lua's; Share turns it off. The practice from the menu counts the
+    presses and shows the next one."""
+    tmp = tempfile.mkdtemp(prefix="bm-pad-")
+    img = os.path.join(tmp, "sd.img")
+    hcd = os.path.join(tmp, "BCM43430A1.hcd")
+    with open(hcd, "wb") as f:
+        f.write(bytes([0x4C, 0xFC, 4, 1, 2, 3, 4, 0x4E, 0xFC, 4, 0xFF, 0xFF, 0xFF, 0xFF]))
+    pad, key = FakeDs4Chip.DS4, FakeDs4Chip.KEY
+    cfg = os.path.join(tmp, "config.txt")
+    with open(cfg, "w") as f:
+        f.write(f"layout=it\nbt_pad=1c:66:6d:01:02:03 {key.hex()}\n")
+    mksd.build(img, [(hcd, "bm/BCM43430A1.hcd"), (cfg, "bm/config.txt"), (b("demo.bm"), "carts/game.bm")])
+    q = Qemu(b("kernel.img"), ["-drive", f"if=sd,format=raw,file={img}"], mini_uart=True)
+    q.mini_buf = b""
+    HAT = {None: 8, "up": 0, "right": 2, "down": 4, "left": 6}
+    TRI, SQU, CRO, CIR = 0x80, 0x10, 0x20, 0x40
+    L1, R1, L2, R2, SHARE, START = 0x01, 0x02, 0x04, 0x08, 0x10, 0x20
+
+    def chord(hat=None, face=0, sh=0):           # all down, then all up
+        chip.report(HAT[hat] | face, shoulders=sh)
+        time.sleep(0.15)
+        chip.report(0x08)
+        time.sleep(0.3)
+
+    def see(words, gone=(), tries=40):
+        text = []
+        for _ in range(tries):
+            text = screen_text(q.screendump(), 6, 12)
+            if all(any(w in l for l in text) for w in words) and not any(g in l for l in text for g in gone):
+                return text
+            time.sleep(0.25)
+        shot("fail")
+        raise AssertionError(f"not on screen: {words} (or still: {gone})\n" + "\n".join(text))
+
+    def shot(name):
+        if opts.shots:
+            _save_png(q.screendump(), os.path.join(opts.shots, f"pad-{name}.png"))
+    try:
+        q.expect("(same pins, same speed)\r\n", timeout=30)
+        chip = FakeDs4Chip(q.port)
+        chip.buf, q.buf = q.buf, b""
+        chip.init(reset_silent=False)
+        _mini_expect(q, "cartridge menu")
+        chip.reconnect(pad, key, 0x0B, (0x50, 0x51), 1)
+        _mini_expect(q, "bt: controller 1c:66:6d:01:02:03 connected (player 1)")
+        q.mini.write(b"q")
+        _mini_expect(q, "> ")
+        q.mini.write(b"C")
+        _mini_expect(q, "code: ready")
+        see(["F1 keys"])
+        q.mini.write(b"\x14")                       # Ctrl+T: an empty tab
+        time.sleep(0.5)
+
+        chord(sh=SHARE)                              # Share: the chords write
+        see(["PAD sillabe", "Share: off", "L1 del"])
+        # a comment: "-- " then Italian words
+        chord(face=CRO, sh=R2)
+        chord(face=CRO, sh=R2 | R1)
+        chord("down", CRO)                           # ci
+        chord(None, TRI)                             # a
+        chord(None, CIR, sh=R1)                      # o + space
+        see(["-- ciao"])
+        chord("up", CIR, sh=L2)                      # do
+        text = see(["R2 "])
+        word = next(l for l in text if "R2 " in l).split("R2 ")[1].split()[0]
+        assert word.startswith("do"), text
+        chord(sh=R2)                                 # the suggestion
+        see(["-- ciao " + word])
+        shot("comment")
+        chord(None, SQU)                             # e, then its accent
+        chord(sh=L1 | L2)
+        see(["-- ciao " + word + " \u00e8"])            # è
+        # Start: a new line, in the code; c l -> cls(
+        chord(sh=START)
+        chord("down")                                # c
+        chord("right", sh=L2)                        # l
+        text = see(["cls"])
+        keyof = {"R2": R2, "L2": L2, "LR": L2 | R2}
+        found = [re.search(r"\b(R2|L2|LR) cls(?![\w.])", l) for l in text]
+        found = [m.group(1) for m in found if m]
+        assert found, text
+        chord(sh=keyof[found[0]])
+        see(["cls("])
+        shot("code")
+        chord(sh=SHARE)                              # off
+        see(["F1 keys"], gone=["PAD sillabe"])
+
+        # the practice, from the menu: Start, up three times (from the
+        # first item to "Pad practice..."), cross; "italiano"
+        chord(sh=START)
+        see(["Pad practice..."])
+        for _ in range(3):
+            chord("up")
+        chord(None, CRO)
+        see(["Write a text of 100 characters"])
+        chord(None, CRO)
+        see(["Pad practice: italiano", "next:", "best "])
+        chord("down", CRO)                           # Ci
+        chord(sh=L2 | R2)                            # ao: the third suggestion
+        see(["Ciao ", "presses 2"])
+        shot("practice")
+        chord(sh=SHARE)
+        see(["F1 keys"], gone=["Pad practice"])
+    finally:
+        q.close()
+        shutil.rmtree(tmp, ignore_errors=True)
+
+
 def test_editor(b, opts):
     """M15: the editor makes a new game, saves it on the SD card, tries it,
     comes back; a game that stops with an error brings the editor to the

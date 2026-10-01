@@ -2,9 +2,11 @@
 -- pages side by side, a small sharp font (6x12: 106 columns, 28 lines of
 -- code), the cartridges read and written in place: only their code changes,
 -- sprites, map and cover stay as they are. The assistant on F6, and lines
--- "#entry: what you want #" that it carries out. F1: every key.
+-- "#entry: what you want #" that it carries out. F1: every key. With the
+-- pad, Share turns on the writing with chords (src/ai/padtype.lua).
 
 local assist = require "assist"
+local padtype = require "padtype"
 
 local W, H = SCREEN_W, SCREEN_H
 local FONTS = { "6x12", "8x14", "8x16" }
@@ -12,6 +14,7 @@ local C_BG, C_PANE, C_BAR, C_LINE = 0x0E1016, 0x14161E, 0x22273A, 0x343B54
 local C_TEXT, C_DIM, C_ACC, C_ERR, C_OK = 0xE0E4F0, 0x6A7290, 0xFFC050, 0xFF6464, 0x70E090
 local C_SEL, C_CUR, C_ERRBG, C_GUT, C_GUTCUR = 0x2E4A8A, 0x1C2131, 0x4A1C24, 0x485068, 0xA8B0C8
 local C_KW, C_API, C_STR, C_NUM, C_COM = 0xFF7AB0, 0x70D0FF, 0x90E070, 0xFFB060, 0x6A7690
+local PAD_LANGS = { "it", "en" }
 
 local TEMPLATE = [[
 -- my game
@@ -47,6 +50,7 @@ local overlay                 -- menu, files, prompt, help, confirm
 local frame = 0
 local find_text
 local held, rep = {}, {}
+local pad_lang = 1            -- the words of comments and strings: PAD_LANGS
 
 local function say(s, c, t)
   status, status_c, status_t = s, c or C_TEXT, t or 240
@@ -177,7 +181,8 @@ end
 -- the session (tabs, cursors, split, font): kept across a game tried with
 -- cart_run, and from one time to the next
 local function save_session()
-  local s = { font = font_i, split = split, focus = focus, tabs = {}, panes = {} }
+  local s = { font = font_i, split = split, focus = focus, tabs = {}, panes = {},
+              pad = { mode = padtype.mode(), lang = pad_lang } }
   local budget = 16000
   for i, t in ipairs(tabs) do
     local e = { path = t.path, title = t.title, author = t.author, res = t.res }
@@ -210,6 +215,10 @@ local function load_session()
       local c = cart_read(e.path)
       if c then new_tab(e.path, c.lua, c) end
     end
+  end
+  if s.pad then
+    padtype.set{ mode = s.pad.mode }
+    pad_lang = s.pad.lang or 1
   end
   if #tabs == 0 then return false end
   split, focus = s.split or false, s.focus or 1
@@ -375,6 +384,91 @@ local function run_entry(t, v)
   return true
 end
 
+------------------------------------------------------------------ pad typing
+
+-- Share turns on the writing with the pad (src/ai/padtype.lua, guide in
+-- docs/PADTYPE.md): a chord of the cross and the buttons writes a syllable,
+-- the dictionary finishes the word. In the code its words are Lua's, the
+-- API's and the tab's; in comments and strings Italian (or English).
+local pad_words = { tab = nil, at = -1 }
+
+-- the cursor is in a comment or a string: words, not code
+local function in_prose(l, cx)
+  local q, i = nil, 1
+  while i <= cx do
+    local c = l:sub(i, i)
+    if q then
+      if c == "\\" then i = i + 1 elseif c == q then q = nil end
+    elseif c == '"' or c == "'" then q = c
+    elseif l:sub(i, i + 1) == "--" then return true end
+    i = i + 1
+  end
+  return q ~= nil
+end
+
+local edit_key
+
+local pad_host = {}
+function pad_host.before()
+  local t, v = current()
+  return t.lines[v.cy]:sub(1, v.cx)
+end
+function pad_host.insert(s)
+  for c in s:gmatch(".") do edit_key(c) end
+end
+function pad_host.erase(n)                -- n characters, not a whole indent step
+  local t, v = current()
+  snapshot(t, v, "bs")
+  for _ = 1, n do
+    local l = t.lines[v.cy]
+    if v.cx > 0 then
+      t.lines[v.cy] = l:sub(1, v.cx - 1) .. l:sub(v.cx + 1)
+      v.cx = v.cx - 1
+    elseif v.cy > 1 then
+      v.cx = #t.lines[v.cy - 1]
+      t.lines[v.cy - 1] = t.lines[v.cy - 1] .. l
+      table.remove(t.lines, v.cy)
+      v.cy = v.cy - 1
+    end
+  end
+end
+function pad_host.newline() edit_key("\n") end
+function pad_host.move(d) edit_key(d) end
+function pad_host.undo() edit_key("^z") end
+function pad_host.exit() say("pad typing off (Share turns it on again)") end
+
+-- the language where the cursor is, the words of the tab
+local function pad_context()
+  local t, v = current()
+  local prose = in_prose(t.lines[v.cy], v.cx)
+  pad_host.lang = prose and PAD_LANGS[pad_lang] or "lua"
+  pad_host.prose = prose
+  if pad_words.tab ~= t or padtype.presses() - pad_words.at >= 30 or padtype.presses() < pad_words.at then
+    pad_words.tab, pad_words.at, pad_words.words = t, padtype.presses(), padtype.count_words(t.lines)
+  end
+  pad_host.words = pad_words.words
+end
+
+-- the prompt of a find, a file name...: one line of text, Start is Enter
+local prompt_host = { lang = "lua", prose = false }
+function prompt_host.before() return overlay.text end
+function prompt_host.insert(s) overlay.text = overlay.text .. s end
+function prompt_host.erase(n) overlay.text = overlay.text:sub(1, #overlay.text - n) end
+function prompt_host.newline() local o = overlay; overlay = nil; o.done(o.text) end
+function prompt_host.exit() say("pad typing off") end
+
+local function pad_typing(on)
+  padtype.on(on)
+  if on then
+    pad_context()
+    padtype.refresh(pad_host)
+    say("pad typing: chords write, Share stops (" .. padtype.mode() .. ", " .. PAD_LANGS[pad_lang] ..
+        " in comments)", C_ACC, 600)
+  else
+    say("pad typing off")
+  end
+end
+
 ------------------------------------------------------------------ actions
 
 local function run_game()
@@ -508,7 +602,8 @@ local MENU = {
   { "Save as...", "" }, { "Close tab", "Ctrl+W" }, { "Run the game", "F5" },
   { "Split screen", "F4" }, { "Font size", "F10" }, { "Find", "Ctrl+F" },
   { "Replace", "Ctrl+H" }, { "Go to line", "Ctrl+L" }, { "Assistant", "F6" },
-  { "Explain the error", "F9" }, { "Keys", "F1" }, { "Exit", "" },
+  { "Explain the error", "F9" }, { "Pad typing", "Share" }, { "Pad: syllables / steno", "" },
+  { "Pad: comments it / en", "" }, { "Pad practice...", "" }, { "Keys", "F1" }, { "Exit", "" },
 }
 
 local function open_menu()
@@ -533,6 +628,21 @@ local function menu_choose(name)
   elseif name == "Go to line" then do_command("^l")
   elseif name == "Assistant" then open_assistant(t, v)
   elseif name == "Explain the error" then explain_error(t, v)
+  elseif name == "Pad typing" then pad_typing(not padtype.is_on())
+  elseif name == "Pad: syllables / steno" then
+    padtype.set{ mode = padtype.mode() == "steno" and "sillabe" or "steno" }
+    say("pad: " .. padtype.mode() .. (padtype.mode() == "steno" and " (groups on the diagonals, ia io ie)" or ""), C_ACC)
+  elseif name == "Pad: comments it / en" then
+    pad_lang = pad_lang % #PAD_LANGS + 1
+    say("pad: words in comments and strings: " .. PAD_LANGS[pad_lang], C_ACC)
+  elseif name == "Pad practice..." then
+    local names = {}
+    for _, tx in ipairs(padtype.TEXTS) do names[#names + 1] = tx.name end
+    confirm("Write a text of 100 characters with the pad (" .. padtype.mode() .. "):", names, function(c)
+      for i, tx in ipairs(padtype.TEXTS) do
+        if tx.name == c then padtype.practice_open(i) end
+      end
+    end)
   elseif name == "Keys" then overlay = { kind = "help" }
   elseif name == "Exit" then quit_editor() end
 end
@@ -589,7 +699,7 @@ do_command = function(k)
   return true
 end
 
-local function edit_key(k)
+edit_key = function(k)
   local t, v = current()
   local l = t.lines[v.cy]
   local moved = true
@@ -753,6 +863,25 @@ end
 
 local function pad()
   local dirs = { [0] = "left", "right", "up", "down" }
+  if padtype.practice_is_open() then
+    if not padtype.practice_update() then say("practice closed") end
+    return
+  end
+  if padtype.is_on() then
+    if not overlay then
+      pad_context()
+      padtype.update(pad_host)
+      return
+    elseif overlay.kind == "prompt" then
+      padtype.update(prompt_host)
+      return
+    end
+    padtype.wait()                       -- a menu: its keys, then the chords again
+  end
+  if btnp(9) and (not overlay or overlay.kind == "prompt") then
+    pad_typing(true)
+    return
+  end
   if overlay then
     if overlay.kind == "prompt" then
       if btnp(5) then overlay = nil end
@@ -900,6 +1029,8 @@ local function draw_pane(p, c0, ncols, r0, nrows)
     end
     local num = tostring(i)
     print(string.rep(" ", digits - #num) .. num, x0, y, i == v.cy and C_GUTCUR or C_GUT)
+    local ghost = i == v.cy and p == focus and not overlay and padtype.is_on() and padtype.ghost()
+    if ghost and ghost ~= "" then l = l:sub(1, v.cx) .. ghost .. l:sub(v.cx + 1) end
     if entry_request(l) then
       print(l:sub(v.left + 1, v.left + tcols), tx, y, C_ACC)
     else
@@ -914,6 +1045,21 @@ local function draw_pane(p, c0, ncols, r0, nrows)
       end
     end
     if #l > v.left + tcols then print(">", tx + tcols * CW, y, C_DIM) end
+    -- the pad's suggestion, then what it has just written, in their colours
+    local function paint(a, txt, col)
+      for k = 1, #txt do
+        local cx = a + k - 1
+        if cx >= v.left and cx < v.left + tcols then
+          rectfill(tx + (cx - v.left) * CW, y, CW, CH, C_CUR)
+          print(txt:sub(k, k), tx + (cx - v.left) * CW, y, col)
+        end
+      end
+    end
+    if ghost and ghost ~= "" then paint(v.cx, ghost, padtype.C_GHOST) end
+    local fl, off = padtype.flash()
+    if i == v.cy and p == focus and fl and padtype.is_on() then
+      paint(v.cx - off - fl, l:sub(v.cx - off - fl + 1, v.cx - off), padtype.C_PRED)
+    end
   end
   -- the cursor: a bar that blinks
   if active and (frame // 30) % 2 == 0 then
@@ -951,6 +1097,7 @@ local function draw_status(t, v)
   rectfill(0, y, W, H - y, C_BAR)
   local right = string.format("ln %d/%d col %d  %s", v.cy, #t.lines, v.cx + 1, FONTS[font_i])
   local left = (t.path or "untitled") .. (t.dirty and " *" or "")
+  if padtype.is_on() then left = "PAD " .. padtype.mode() .. " " .. (pad_host.lang or "lua") .. "  " .. left end
   print(left, 0, y, C_TEXT)
   print(right, (COLS - #right) * CW, y, C_DIM)
   if status_t == 0 and entry_request(t.lines[v.cy]) then
@@ -973,6 +1120,8 @@ local HELP = {
   "Assistant", "F6 ask (the word under the cursor)", "F9 explain the game's error",
   "#entry: what to do #  then Enter:", "  the assistant does it here", "",
   "Pad", "cross moves, Y+cross pages/tabs", "X assistant, Start menu",
+  "Share: writing with chords on/off", "  cross + buttons = a syllable",
+  "  R2 / L2 / L2+R2 the suggestions", "  Start+cross moves, Start Enter",
 }
 
 local function draw_box(c0, r0, cols, rows, title)
@@ -1078,5 +1227,16 @@ function _draw()
   local t, v = current()
   draw_status(t, v)
   if overlay then draw_overlay() end
+  if padtype.practice_is_open() then
+    padtype.practice_draw()
+    local pw, ph = padtype.size()
+    padtype.draw((COLS - pw // CW - 1) * CW, (ROWS - ph // CH - 2) * CH, padtype.practice_hint())
+  elseif padtype.is_on() and (not overlay or overlay.kind == "prompt") then
+    -- the panel of the chords, away from the cursor
+    local pw, ph = padtype.size()
+    local rows = ph // CH
+    local row = (v.cy - v.top + 1) > ROWS - rows - 4 and 2 or ROWS - rows - 2
+    padtype.draw((COLS - pw // CW - 1) * CW, row * CH)
+  end
   assist.draw()
 end

@@ -90,6 +90,18 @@ Lua 5.4 embedded. Documentazione: `README.md`, `docs/ROADMAP.md`, `docs/HARDWARE
   `cart_write` (solo il codice), `font("6x12")` e `assist.act` per le righe `#entry:`.
   Test: `test_code_editor` in QEMU (lo schermo si legge anche col font 6x12).
 
+## Scrittura col pad (M30)
+
+- `src/ai/padtype.lua` (`require "padtype"`): accordi croce + tasti = sillabe, banchi con
+  L2/R2, predizione, pannello, esercizio, `encode` (pressioni minime: benchmark e guida).
+  Le tabelle sono solo lì (motore, pannello ed `encode` le condividono); la guida
+  `docs/PADTYPE.md` le riporta: cambiarle insieme. In bm Code: Share la accende.
+- Dizionari: `scripts/mkpadwords.py` → `build/padwords.lua` (`require "padwords"`, nel
+  kernel) dai testi di `src/ai/words` (scritti per bm, niente testi con licenze altrui),
+  dal Lua dei giochi e dalle API della base di conoscenza.
+- `make test-pad` (in `make test`), `make pad-bench`, `make pad-stats`; in QEMU
+  `test_code_pad_typing` (DS4 simulato). `pad()` dà L2/R2 (4096, 8192).
+
 ## Comunicazione con l'utente
 
 - Riportare la **lista delle milestone** solo quando una milestone è completata per

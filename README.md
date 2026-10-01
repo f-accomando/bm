@@ -103,7 +103,7 @@ Risoluzioni di menu, console e giochi, e quanto costano: [docs/RISOLUZIONI.md](d
 | **M27** | **BareMetal UI**: sottomenu, opzioni delle cartucce, strumenti nella scheda Dev, impostazioni | ✅ chiusa: task 1–4 verificati sul Pi |
 | **M28** | Tastiera Bluetooth LE (MX Keys S): pairing con codice, HID over GATT, riconnessione | ✅ verificato sul Pi |
 | **M29** | **Pi 1 B**: stesso kernel, hub USB (split transactions), Ethernet LAN9512, immagine `bm-pi1.img` | ✅ verificato sul Pi 1 B |
-| M30 | **Assistente AI** per lo sviluppo: domande su API e codice, errori, base degli sprite; rete INT8 sulla console | base fatta (QEMU), integrazione negli editor dopo |
+| M30 | **Assistente AI** per lo sviluppo: domande su API e codice, errori, base degli sprite; rete INT8 sulla console; **scrittura col pad** (sillabe con un accordo, predizione) | base fatta (QEMU), in bm Code con la scrittura col pad ([PADTYPE.md](docs/PADTYPE.md)); gli altri editor dopo |
 
 ## Cosa fa il kernel
 
@@ -149,7 +149,7 @@ con **`b`**.
 | `e` | **editor** dei giochi `.bm` (codice, sprite, mappa; è anche nella scheda Dev del menu) |
 | `A` | **Sound editor**: suoni, effetti sonori e musica dei giochi `.bm` (anche nella scheda Dev) |
 | `3` | **studio 3D**: modelli e animazioni di un `.bm` (player, blocchi e tessere, ossa, keyframe; anche nella scheda Dev) |
-| `C` | **bm Code**: l'editor del codice (tab, due pagine affiancate, font 6x12; anche nella scheda Dev) |
+| `C` | **bm Code**: l'editor del codice (tab, due pagine affiancate, font 6x12; anche nella scheda Dev); col pad, Share accende la **scrittura col pad** ([PADTYPE.md](docs/PADTYPE.md)) |
 | `I` | **Assistant** (M30): come si scrive il codice, basi di sprite (F6 negli strumenti; anche nella scheda Dev) |
 | `a` | audio: stato dell'uscita HDMI (clock, canale DMA, costo della sintesi, volume) e una prova: le sei forme d'onda, un accordo, glide, vibrato e arpeggio |
 | `T` | Bluetooth: cerca per 8 s e **abbina il primo controller** trovato come **prossimo giocatore** (fino a 4; DS4: Share + PS finché lampeggia); la console seriale passa alla mini UART (stessi pin) |
@@ -333,6 +333,9 @@ Assistente (M30), sul PC:
 ```sh
 make test-ai         # rete C contro Python, domande di prova, esempi di codice, pannello
 make ai-model        # riaddestra la rete dopo aver cambiato src/ai/kb/ (serve numpy)
+make test-pad        # scrittura col pad: accordi, predizione, testi riscritti, esercizio
+make pad-bench       # pressioni per 100 caratteri: tastiera, tastiera a schermo, sillabe, steno
+make pad-stats       # quante sillabe ha l'italiano (sui testi di src/ai/words)
 ```
 
 ## nano8: cartucce `.p8` e `.p8.png` (M23)
@@ -598,11 +601,15 @@ src/bm/                 cartucce native: formato, grafica RGB565 (gfx16), 3D sof
                          runtime Lua, stress test
 src/ai/                  assistente (M30): rete INT8 (nn.c), testo (text.c), domande (assist.c),
                          ricette di sprite (sprite.c), tabella Lua ai (lua_ai.c), pannello
-                         (assist.lua, require "assist"); base di conoscenza in src/ai/kb/
+                         (assist.lua, require "assist"); base di conoscenza in src/ai/kb/;
+                         scrittura col pad (padtype.lua, require "padtype"), i suoi testi
+                         in src/ai/words/
 carts/assistant/         lo strumento Assistant della scheda Dev
 carts/code/              bm Code, l'editor del codice (tab, due pagine, font 6x12, #entry:)
 scripts/mkassist.py      base di conoscenza + rete -> build/assist.bin (nel kernel)
 scripts/trainassist.py   addestramento della rete (make ai-model, numpy)
+scripts/mkpadwords.py    dizionari della scrittura col pad -> build/padwords.lua (nel kernel)
+scripts/padsyll.py       il conteggio delle sillabe italiane (make pad-stats)
 tests/ai/                test dell'assistente (C, Lua, esempi di codice)
 carts/demo/              cartuccia nativa demo: main.lua, sheet.png, map.csv
 carts/pong|snake|shooter|astrowing|hunt|texroom giochi demo (solo Lua)
