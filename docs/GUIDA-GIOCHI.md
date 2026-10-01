@@ -17,6 +17,17 @@ monitor). Con una tastiera USB (e se vuoi un gamepad Bluetooth per disegnare):
 | **Esc** | menu: nuovo, apri, salva, salva come, titolo, autore, risoluzione, esci |
 | **Ctrl+S** / **Ctrl+R** (F5) | salva / prova il gioco (poi si torna all'editor) |
 
+**bm Code**: nella scheda Dev c'è anche **Code**, l'editor solo del codice: più cartucce
+in tab, due pagine affiancate (F4), un font piccolo e nitido (6x12: tante righe), F5 prova
+il gioco e torna sulla riga dell'errore, F1 mostra tutti i tasti. Salva solo il codice:
+sprite e mappa della cartuccia restano come sono. Una riga `#entry: commenta questa
+funzione #` seguita da Invio chiede all'assistente di farlo.
+
+**Assistente** (M30): nella scheda Dev, **Assistant** risponde a domande come "come
+faccio saltare il personaggio" o "attempt to call a nil value" con la spiegazione e il
+codice pronto, e disegna la base di uno sprite ("slime rosso", "moneta", "tile di
+erba"). Per ora si usa da solo; poi si aprirà con F6 dentro l'editor.
+
 Se il gioco si ferma con un errore, l'editor torna sulla riga in rosso (Ctrl+G la
 ritrova). I giochi si salvano in `/carts` con un nome 8.3 (es. `MIOGIOCO.BM`) e
 compaiono nel menu. Tutto il resto di questa guida vale anche per l'editor.

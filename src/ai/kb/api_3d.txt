@@ -1,0 +1,168 @@
+# Lights (2D) and the software 3D.
+
+== light_begin
+kind: api
+name: light_begin
+title: light_begin([ambiente]) - inizia le luci (scene al buio)
+ask: scena al buio con le luci | notte | illuminazione 2d | dark scene with lights
+ask: torcia nel buio | lampione | luce ambiente | lighting
+see: light, light_end, night_scene
+text:
+Inizia le luci del fotogramma: ambiente è il colore della luce di fondo
+(0x000000 buio pesto, 0xFFFFFF nessun effetto). Dopo vengono light() e
+light_end().
+code:
+cls(0); map(0, 0); spr(1, px, py)
+light_begin(0x0A0A16)                 -- notte blu
+light(px + 4, py + 4, 40, 0xFFC888)   -- la lanterna
+light_end()
+
+== light
+kind: api
+name: light
+title: light(x, y, raggio, colore, [intensità]) - una luce morbida
+ask: aggiungere una luce | luce che tremola | candela | fiamma | point light 2d
+see: light_begin, light_end
+text:
+Una luce morbida in coordinate del mondo (vale camera). Più luci si
+sommano. Una fiamma che tremola: raggio per 0.95 + math.random() * 0.1.
+code:
+light(lx, ly, 50 * (0.95 + math.random() * 0.1), 0xFFB060)
+
+== light_end
+kind: api
+name: light_end
+title: light_end() - applica le luci
+ask: applicare le luci | finire le luci | apply lights | hud sopra le luci
+see: light_begin
+text:
+Applica le luci a tutto ciò che è stato disegnato; quello che disegni dopo
+(HUD, testi) resta a piena luce.
+code:
+light_end()
+print("vita " .. hp, 8, 8)          -- l'HUD non viene oscurato
+
+== mesh
+kind: api
+name: mesh
+title: mesh(v, f, [uv]) - un modello 3D da tabelle
+ask: creare un modello 3d | mesh da vertici e facce | make a 3d model | poligoni
+ask: piramide 3d | oggetto tridimensionale | 3d model from tables | texture 3d
+see: draw3d, mesh_cube, cube_3d
+text:
+v = {x,y,z, x,y,z, ...}, f = {a,b,c,colore, ...} con indici da 1. Le facce
+vanno date in senso antiorario viste da fuori. Con uv (6 numeri per faccia,
+in pixel dello sheet) le facce con colore -1 hanno la texture.
+code:
+piramide = mesh(
+  { 0,1,0,  -1,-1,-1,  1,-1,-1,  1,-1,1,  -1,-1,1 },
+  { 1,2,3,0xE04040,  1,3,4,0xC03030,  1,4,5,0xE04040,
+    1,5,2,0xC03030,  2,4,3,0x802020,  2,5,4,0x802020 })
+
+== mesh_cube
+kind: api
+name: mesh_cube
+title: mesh_cube([c]), mesh_sphere([r, seg, c1, c2]) - forme pronte
+ask: cubo 3d pronto | sfera 3d | palla 3d | ready made cube | 3d sphere
+see: mesh, draw3d
+text:
+Un cubo di lato 2 (da -1 a 1) e una sfera; da disegnare con draw3d.
+code:
+cubo = mesh_cube(0x40A0FF)
+palla = mesh_sphere(1, 12, 0xFFD050, 0xC09030)
+
+== draw3d
+kind: api
+name: draw3d
+title: draw3d(m, x, y, z, [rx, ry, rz, scala, flag]) - disegna un modello 3D
+ask: disegnare un modello 3d | ruotare un oggetto 3d | draw a 3d mesh | render 3d
+ask: oggetto che gira | posizione e rotazione 3d | scala del modello
+see: camera3d, zclear, mesh
+text:
+Disegna la mesh m in (x, y, z) ruotata di rx, ry, rz (radianti) e scalata.
+flag: 1 senza z-buffer (pavimenti disegnati per primi), 2 senza luce, 4
+liscia (Gouraud); si sommano. Prima, a ogni fotogramma, zclear().
+code:
+function _draw()
+  cls(0)
+  zclear()
+  camera3d(0, 1, -5)
+  draw3d(cubo, 0, 0, 0, 0, time(), 0, 1)
+end
+
+== camera3d
+kind: api
+name: camera3d
+title: camera3d(x, y, z, [yaw, pitch, fov, roll]) - la telecamera 3D
+ask: telecamera 3d | punto di vista 3d | 3d camera | prima persona | first person
+ask: ruotare la visuale 3d | field of view
+see: draw3d, fps_camera
+text:
+Posizione e direzione della camera (predefinita a z = -5, fov 60 gradi);
+yaw gira a destra e sinistra, pitch su e giù, roll inclina.
+code:
+camera3d(px, 1.6, pz, yaw, 0, 70)
+
+== light3d
+kind: api
+name: light3d
+title: light3d(x, y, z, [ambiente]) - direzione della luce 3D
+ask: luce nella scena 3d | direzione del sole 3d | 3d lighting | ombreggiatura
+see: lamp3d, draw3d
+text:
+La direzione della luce e la luce ambiente (0-1).
+code:
+light3d(-0.4, 0.8, -0.5, 0.3)
+
+== lamp3d
+kind: api
+name: lamp3d
+title: lamp3d(i, x, y, z, raggio, [k]) - luci puntiformi 3D
+ask: lanterna 3d | luce puntiforme 3d | point light 3d | torcia in 3d
+see: light3d
+text:
+Luce puntiforme i (1-4): le facce vicine diventano più chiare. lamp3d(i)
+la spegne, lamp3d() le spegne tutte.
+code:
+light3d(0, 1, 0, 0.1)            -- quasi buio
+lamp3d(1, px, 2, pz, 6, 1.2)     -- la lanterna del giocatore
+
+== zclear
+kind: api
+name: zclear
+title: zclear() - pulisce lo z-buffer
+ask: pulire lo z buffer | modelli 3d che si sovrappongono male | depth buffer
+see: draw3d
+text:
+A ogni fotogramma, prima di draw3d: altrimenti restano le profondità del
+fotogramma prima e i modelli spariscono a pezzi.
+code:
+cls(0)
+zclear()
+
+== fog3d
+kind: api
+name: fog3d
+title: fog3d(colore, vicino, lontano) - nebbia
+ask: nebbia 3d | oggetti lontani che sfumano | fog | foschia | distanza visibile
+see: draw3d
+text:
+Le facce sfumano nel colore tra le due distanze; fog3d() la toglie. Usa lo
+stesso colore di cls() per un orizzonte pulito.
+code:
+cls(0x203040)
+fog3d(0x203040, 10, 40)
+
+== project3d
+kind: api
+name: project3d
+title: project3d(x, y, z) - da punto 3D a punto sullo schermo
+ask: posizione sullo schermo di un punto 3d | mirino in 3d | etichetta sopra un oggetto 3d
+ask: project 3d point to screen | da 3d a 2d
+see: draw3d
+text:
+sx, sy, profondità sullo schermo (nil se è dietro la camera): per disegnare
+in 2D cose allineate al 3D (nomi, mirini, orizzonte).
+code:
+local sx, sy = project3d(ex, ey + 1.5, ez)
+if sx then print("nemico", sx - 24, sy) end

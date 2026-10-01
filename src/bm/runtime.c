@@ -23,6 +23,8 @@
 #include "drivers/dma.h"
 #include "arch/cache.h"
 #include "kernel/crumbs.h"
+#include "ai/lua_ai.h"
+#include "require.h"
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -192,6 +194,23 @@ static int l_print(lua_State *L)
     const char *s = luaL_tolstring(L, 1, NULL);
     lua_pushinteger(L, g16_text_scaled(&rt.g, x, y, s, c, scale));
     return 1;
+}
+
+/* font([name]): the font of print() from now on, "8x16" (the default),
+ * "8x14" or "6x12" (also "large", "medium", "small"); returns the width
+ * and height of a character of the current font */
+static int l_font(lua_State *L)
+{
+    if (!lua_isnoneornil(L, 1)) {
+        const char *n = luaL_checkstring(L, 1);
+        if (!strcmp(n, "6x12") || !strcmp(n, "small")) rt.g.font = &font_console_6x12;
+        else if (!strcmp(n, "8x14") || !strcmp(n, "medium")) rt.g.font = &font_console_8x14;
+        else if (!strcmp(n, "8x16") || !strcmp(n, "large")) rt.g.font = &font_console_8x16;
+        else return luaL_argerror(L, 1, "\"6x12\", \"8x14\" or \"8x16\"");
+    }
+    lua_pushinteger(L, rt.g.font->width);
+    lua_pushinteger(L, rt.g.font->height);
+    return 2;
 }
 
 static int l_camera(lua_State *L) { g16_camera(&rt.g, oval(L, 1, 0), oval(L, 2, 0)); return 0; }
@@ -517,33 +536,52 @@ void bm_save_path(const char *title, const char *author, char *out, size_t n)
     ksnprintf(out, n, "%s/%08lX.SAV", SAVE_DIR, crc32(id, (uint32_t)len));
 }
 
-static void ser(lua_State *L, luaL_Buffer *b, int idx, int depth);
+/* The text is built in a fixed buffer: a luaL_Buffer cannot be used here,
+ * it may sit on the Lua stack while the serializer walks the tables with
+ * lua_next (a save of more than about 1 KiB then broke the stack). */
+static struct {
+    char p[SAVE_MAX + 64];
+    size_t n;
+} sb;
 
-static void ser_string(luaL_Buffer *b, const char *str, size_t len)
+static void sb_add(lua_State *L, const char *s, size_t len)
 {
-    luaL_addchar(b, '"');
+    if (sb.n + len > SAVE_MAX)
+        luaL_error(L, "save: more than %d bytes", SAVE_MAX);
+    memcpy(sb.p + sb.n, s, len);
+    sb.n += len;
+}
+
+static void sb_str(lua_State *L, const char *s) { sb_add(L, s, strlen(s)); }
+static void sb_chr(lua_State *L, char c) { sb_add(L, &c, 1); }
+
+static void ser(lua_State *L, int idx, int depth);
+
+static void ser_string(lua_State *L, const char *str, size_t len)
+{
+    sb_chr(L, '"');
     for (size_t i = 0; i < len; i++) {
         unsigned char c = (unsigned char)str[i];
         if (c == '"' || c == '\\') {
-            luaL_addchar(b, '\\');
-            luaL_addchar(b, (char)c);
+            sb_chr(L, '\\');
+            sb_chr(L, (char)c);
         } else if (c < 32 || c == 127) {
             char esc[8];
             snprintf(esc, sizeof esc, "\\%03u", c);
-            luaL_addstring(b, esc);
+            sb_str(L, esc);
         } else {
-            luaL_addchar(b, (char)c);
+            sb_chr(L, (char)c);
         }
     }
-    luaL_addchar(b, '"');
+    sb_chr(L, '"');
 }
 
-static void ser_value(lua_State *L, luaL_Buffer *b, int idx, int depth)
+static void ser_value(lua_State *L, int idx, int depth)
 {
     char num[40];
     switch (lua_type(L, idx)) {
     case LUA_TBOOLEAN:
-        luaL_addstring(b, lua_toboolean(L, idx) ? "true" : "false");
+        sb_str(L, lua_toboolean(L, idx) ? "true" : "false");
         break;
     case LUA_TNUMBER:
         if (lua_isinteger(L, idx)) {
@@ -556,40 +594,39 @@ static void ser_value(lua_State *L, luaL_Buffer *b, int idx, int depth)
             if (!strpbrk(num, ".eEn"))
                 strcat(num, ".0");              /* stays a float when read back */
         }
-        luaL_addstring(b, num);
+        sb_str(L, num);
         break;
     case LUA_TSTRING: {
         size_t len;
         const char *str = lua_tolstring(L, idx, &len);
-        ser_string(b, str, len);
+        ser_string(L, str, len);
         break;
     }
     case LUA_TTABLE:
-        ser(L, b, idx, depth + 1);
+        ser(L, idx, depth + 1);
         break;
     default:
         luaL_error(L, "save: cannot store a %s", luaL_typename(L, idx));
     }
 }
 
-static void ser(lua_State *L, luaL_Buffer *b, int idx, int depth)
+static void ser(lua_State *L, int idx, int depth)
 {
     if (depth > 16)
         luaL_error(L, "save: tables nested too deep (or a cycle)");
     idx = lua_absindex(L, idx);
-    luaL_addchar(b, '{');
+    luaL_checkstack(L, 4, "save");
+    sb_chr(L, '{');
     lua_pushnil(L);
     while (lua_next(L, idx)) {
-        luaL_addchar(b, '[');
-        ser_value(L, b, -2, depth);
-        luaL_addstring(b, "]=");
-        ser_value(L, b, -1, depth);
-        luaL_addchar(b, ',');
+        sb_chr(L, '[');
+        ser_value(L, -2, depth);
+        sb_str(L, "]=");
+        ser_value(L, -1, depth);
+        sb_chr(L, ',');
         lua_pop(L, 1);
-        if (luaL_bufflen(b) > SAVE_MAX)
-            luaL_error(L, "save: more than %d bytes", SAVE_MAX);
     }
-    luaL_addchar(b, '}');
+    sb_chr(L, '}');
 }
 
 /* save(t): true, or false and a message (no SD card, card full...) */
@@ -597,14 +634,10 @@ static int l_save(lua_State *L)
 {
     luaL_checktype(L, 1, LUA_TTABLE);
     lua_settop(L, 1);
-    luaL_Buffer b;
-    luaL_buffinit(L, &b);
-    luaL_addstring(&b, "return ");
-    ser(L, &b, 1, 0);
-    luaL_pushresult(&b);
-    size_t len;
-    const char *text = lua_tolstring(L, -1, &len);
-    if (fat_mkdirs(SAVE_DIR) != 0 || fat_write_file(SAVE_DIR, rt.save_name, text, len) != 0) {
+    sb.n = 0;
+    sb_str(L, "return ");
+    ser(L, 1, 0);
+    if (fat_mkdirs(SAVE_DIR) != 0 || fat_write_file(SAVE_DIR, rt.save_name, sb.p, sb.n) != 0) {
         lua_pushboolean(L, 0);
         lua_pushstring(L, fat_error());
         return 2;
@@ -957,7 +990,7 @@ static int l_audio_play(lua_State *L)
 
 /* keyp(): the next key typed, as text ("a", "\n", "\b", "\t"), a name
  * ("up", "down", "left", "right", "home", "end", "pgup", "pgdn", "del",
- * "esc", "f1".."f5") or "^s" for Ctrl+S; nil if none. The first call
+ * "esc", "f1".."f12") or "^s" for Ctrl+S; nil if none. The first call
  * turns on typing: the keyboard stops being a gamepad for btn(), Esc no
  * longer leaves the cartridge (Start+Select and PS still do). */
 static int l_keyp(lua_State *L)
@@ -975,6 +1008,7 @@ static int l_keyp(lua_State *L)
                                        "del", "f1", "f2", "f3", "f4", "f5" };
     char buf[4];
     if (c >= HID_KEY_UP && c <= HID_KEY_F1 + 4) lua_pushstring(L, nav[c - HID_KEY_UP]);
+    else if (c >= HID_KEY_F6 && c <= HID_KEY_F6 + 6) lua_pushfstring(L, "f%d", c - HID_KEY_F6 + 6);
     else if (c == 0x1B) lua_pushstring(L, "esc");
     else if (c == '\r') lua_pushstring(L, "\n");
     else if (c == 0x7F) lua_pushstring(L, "\b");
@@ -1010,6 +1044,8 @@ static int l_cart_run(lua_State *L);
 static int l_cart_arg(lua_State *L);
 static int l_cart_audio(lua_State *L);
 static int l_cart_put_audio(lua_State *L);
+static int l_cart_read(lua_State *L);
+static int l_cart_write(lua_State *L);
 
 /* ---------------------------------------------------------------- light */
 
@@ -1057,7 +1093,7 @@ static const luaL_Reg api[] = {
     { "cls", l_cls }, { "pset", l_pset }, { "pget", l_pget }, { "line", l_line },
     { "rect", l_rect }, { "rectfill", l_rectfill }, { "circ", l_circ }, { "circfill", l_circfill },
     { "spr", l_spr }, { "sspr", l_sspr }, { "map", l_map }, { "mget", l_mget }, { "mset", l_mset },
-    { "sget", l_sget }, { "sset", l_sset }, { "print", l_print }, { "camera", l_camera },
+    { "sget", l_sget }, { "sset", l_sset }, { "print", l_print }, { "font", l_font }, { "camera", l_camera },
     { "clip", l_clip }, { "rgb", l_rgb }, { "btn", l_btn }, { "btnp", l_btnp },
     { "players", l_players }, { "stick", l_stick },
     { "time", l_time }, { "stat", l_stat }, { "tri", l_tri },
@@ -1068,6 +1104,7 @@ static const luaL_Reg api[] = {
     { "save", l_save }, { "saved", l_saved },
     { "keyp", l_keyp }, { "keyheld", l_keyheld }, { "ls", l_ls }, { "cart_load", l_cart_load }, { "cart_new", l_cart_new },
     { "cart_save", l_cart_save }, { "cart_run", l_cart_run }, { "cart_arg", l_cart_arg },
+    { "cart_read", l_cart_read }, { "cart_write", l_cart_write },
     { "light_begin", l_light_begin }, { "light", l_light }, { "light_end", l_light_end },
     { "note", l_note }, { "noteoff", l_noteoff }, { "freq", l_freq },
     { "envelope", l_envelope }, { "duty", l_duty }, { "playing", l_playing }, { "apu", l_apu },
@@ -1117,6 +1154,8 @@ static lua_State *new_cart_state(const bm_cart_t *c)
     lua_pushglobaltable(L);
     luaL_setfuncs(L, api, 0);
     lua_pop(L, 1);
+    ai_lua_open(L);             /* the assistant (M30): idle until asked */
+    bm_require_open(L);         /* require "assist": libraries in the kernel */
     static const char *const waves[SYNTH_WAVES] = { "SQUARE", "TRIANGLE", "SAW", "NOISE", "SINE", "METAL" };
     for (int w = 0; w < SYNTH_WAVES; w++) {
         lua_pushinteger(L, w);
@@ -1167,7 +1206,8 @@ static void text_push(uint8_t c)
 }
 
 /* serial terminal: ESC [ A..D arrows, ESC [ H / F home and end,
- * ESC O P..S F1..F4, ESC [ n ~ (3 delete, 5/6 page up/down, 15 F5) */
+ * ESC O P..S F1..F4, ESC [ n ~ (3 delete, 5/6 page up/down, 15 F5,
+ * 17-21 F6-F10, 23-24 F11-F12) */
 static void serial_text(char c)
 {
     if (rt.esc == 1) {
@@ -1192,6 +1232,9 @@ static void serial_text(char c)
         case 5: text_push(HID_KEY_PGUP); break;
         case 6: text_push(HID_KEY_PGDN); break;
         case 15: text_push(HID_KEY_F1 + 4); break;
+        case 17: case 18: case 19: case 20: case 21:
+            text_push((uint8_t)(HID_KEY_F6 + rt.esc_num - 17)); break;
+        case 23: case 24: text_push((uint8_t)(HID_KEY_F6 + rt.esc_num - 18)); break;
         case 1: text_push(HID_KEY_HOME); break;
         case 4: text_push(HID_KEY_END); break;
         }
@@ -1212,6 +1255,8 @@ static void serial_text(char c)
     if (c == 0x1B) { rt.esc = 1; return; }
     if (c == '\n') return;                  /* terminals send \r or \r\n */
     if (c == 0x08) c = 0x7F;
+    if ((uint8_t)c >= HID_KEY_F6 && (uint8_t)c <= HID_KEY_F6 + 6)
+        return;                             /* a UTF-8 byte, not a function key */
     text_push((uint8_t)c);
 }
 
@@ -1600,6 +1645,112 @@ static int l_cart_save(lua_State *L)
     put32(buf + 20, crc32(buf + BM_HEADER_SIZE, total - BM_HEADER_SIZE));
     int ok = fat_mkdirs(dir) == 0 && fat_write_file(dir, name, buf, total) == 0;
     free(buf);
+    lua_pushboolean(L, ok);
+    if (ok)
+        return 1;
+    lua_pushstring(L, fat_error());
+    return 2;
+}
+
+/* cart_read(path) -> {title, author, res, lua, size}, or nil and a message.
+ * Only reads: the running cartridge's sheet and map stay as they are (code
+ * editors with several files open). */
+static int l_cart_read(lua_State *L)
+{
+    const char *path = luaL_checkstring(L, 1);
+    fat_entry_t e;
+    uint8_t *data;
+    size_t len;
+    bm_cart_t c;
+    char err[64];
+    memset(&e, 0, sizeof e);
+    if (fat_find(path, &e) != 0 || e.is_dir || fat_load(&e, &data, &len) != 0) {
+        lua_pushnil(L);
+        lua_pushstring(L, e.is_dir ? "a directory" : fat_error());
+        return 2;
+    }
+    if (bm_parse(data, len, &c, err, sizeof err) != 0) {
+        free(data);
+        lua_pushnil(L);
+        lua_pushstring(L, err);
+        return 2;
+    }
+    char title[49], author[33];
+    memcpy(title, c.title, sizeof title);
+    memcpy(author, c.author, sizeof author);
+    title[48] = author[32] = 0;
+    lua_newtable(L);
+    lua_pushstring(L, title);
+    lua_setfield(L, -2, "title");
+    lua_pushstring(L, author);
+    lua_setfield(L, -2, "author");
+    lua_pushstring(L, c.width == 320 ? "320x180" : "640x360");
+    lua_setfield(L, -2, "res");
+    lua_pushlstring(L, c.lua, c.lua_size);
+    lua_setfield(L, -2, "lua");
+    lua_pushinteger(L, (lua_Integer)len);
+    lua_setfield(L, -2, "size");
+    free(data);
+    return 1;
+}
+
+/* cart_write(path, {lua=, [title=, author=, res=, from=]}) -> true, or
+ * false and a message. Changes only the code (and the fields given) of the
+ * cartridge: its sheet, map, cover and any other section stay as they are.
+ * from: take those sections from another file ("save as"). A file that does
+ * not exist yet becomes a new cartridge with only the code (its name must
+ * then be 8.3; an existing file keeps its long name). */
+static int l_cart_write(lua_State *L)
+{
+    const char *path = luaL_checkstring(L, 1);
+    luaL_checktype(L, 2, LUA_TTABLE);
+    lua_getfield(L, 2, "lua");
+    size_t lua_len;
+    const char *lua = luaL_checklstring(L, -1, &lua_len);
+    const char *base = field(L, 2, "from", path);
+    char dir[64], name[FAT_NAME_MAX];
+    split_path(path, dir, sizeof dir, name, sizeof name);
+
+    fat_entry_t e;
+    uint8_t *old = NULL;
+    size_t old_len = 0;
+    bm_cart_t c;
+    memset(&c, 0, sizeof c);
+    char err[64];
+    if (fat_find(base, &e) == 0 && !e.is_dir) {
+        if (fat_load(&e, &old, &old_len) != 0) {
+            lua_pushboolean(L, 0);
+            lua_pushstring(L, fat_error());
+            return 2;
+        }
+        if (bm_parse(old, old_len, &c, err, sizeof err) != 0) {
+            free(old);
+            lua_pushboolean(L, 0);
+            lua_pushfstring(L, "%s: %s", name, err);
+            return 2;
+        }
+    }
+    char title[49], author[33];
+    memcpy(title, c.title, sizeof title);
+    memcpy(author, c.author, sizeof author);
+    title[48] = author[32] = 0;
+    const char *t = field(L, 2, "title", old ? title : name);
+    const char *a = field(L, 2, "author", author);
+    const char *res = field(L, 2, "res", c.width == 320 ? "320x180" : "640x360");
+    size_t out_len;
+    uint8_t *out = bm_rewrite(old, old_len, lua, lua_len, t, a, strcmp(res, "320x180") ? 640 : 320,
+                              &out_len);
+    free(old);
+    if (!out)
+        return luaL_error(L, "not enough memory to save");
+    /* an existing file keeps its entry (and its long name); a new one is 8.3 */
+    fat_entry_t te;
+    int ok;
+    if (fat_find(path, &te) == 0 && !te.is_dir)
+        ok = fat_replace(path, out, out_len) == 0;
+    else
+        ok = fat_mkdirs(dir) == 0 && fat_write_file(dir, name, out, out_len) == 0;
+    free(out);
     lua_pushboolean(L, ok);
     if (ok)
         return 1;
@@ -2104,6 +2255,7 @@ int bm_resume(framebuffer_t *fb, uint32_t seconds, bm_stats_t *st)
     /* the same clip, camera and draw target as when it stopped */
     rt.g.cx0 = susp.g.cx0; rt.g.cy0 = susp.g.cy0; rt.g.cx1 = susp.g.cx1; rt.g.cy1 = susp.g.cy1;
     rt.g.cam_x = susp.g.cam_x; rt.g.cam_y = susp.g.cam_y;
+    rt.g.font = susp.g.font;
     if (susp.used_ram)
         video_to_ram(&rt.g);
     /* the time spent in the menu does not count for time() */

@@ -69,7 +69,7 @@ Risoluzioni di menu, console e giochi, e quanto costano: [docs/RISOLUZIONI.md](d
 | M19 | HTTPS: aggiornamenti da GitHub, "git leggero" (archivi e API con token) | |
 | **M20** | **Titan Clash**: picchiaduro 2D a robot giganti; prima base giocabile (1 robot, armatura leggera/pesante, spada o cannoni, hangar, contro CPU o in 2) | ✅ base giocabile |
 | **M21** | Menu "home" a griglia (Games / Dev) e giochi sospesi in memoria | ✅ |
-| M22 | SDK e strumenti dedicati: codice, pixel art, 3D, musica, import/export, 3D→sprite, sprite stacking | 22.4 musica ed effetti (Sound editor) ✅ in QEMU; il resto in coda |
+| M22 | SDK e strumenti dedicati: codice, pixel art, 3D, musica, import/export, 3D→sprite, sprite stacking | 22.1 codice (**bm Code**: tab, due pagine, font 6x12) e 22.4 musica ed effetti (Sound editor) ✅ in QEMU; il resto in coda |
 | M23 | Emulatore di cartucce `.p8` / `.p8.png` (stile PICO-8) | in coda |
 | M24 | Scambio in rete locale tra console (P2P) | in coda |
 | M25 | Store su GitHub: catalogo, download verificati, pubblicazione dall'SDK | in coda |
@@ -77,6 +77,7 @@ Risoluzioni di menu, console e giochi, e quanto costano: [docs/RISOLUZIONI.md](d
 | **M27** | **BareMetal UI**: sottomenu, opzioni delle cartucce, strumenti nella scheda Dev, impostazioni | ✅ chiusa: task 1–4 verificati sul Pi |
 | **M28** | Tastiera Bluetooth LE (MX Keys S): pairing con codice, HID over GATT, riconnessione | ✅ verificato sul Pi |
 | **M29** | **Pi 1 B**: stesso kernel, hub USB (split transactions), Ethernet LAN9512, immagine `bm-pi1.img` | ✅ verificato sul Pi 1 B |
+| M30 | **Assistente AI** per lo sviluppo: domande su API e codice, errori, base degli sprite; rete INT8 sulla console | base fatta (QEMU), integrazione negli editor dopo |
 
 ## Cosa fa il kernel
 
@@ -121,6 +122,8 @@ con **`b`**.
 | `D` | test del DMA passo per passo (copie e riempimenti, tempi CPU contro DMA) |
 | `e` | **editor** dei giochi `.bm` (codice, sprite, mappa; è anche nella scheda Dev del menu) |
 | `A` | **Sound editor**: suoni, effetti sonori e musica dei giochi `.bm` (anche nella scheda Dev) |
+| `C` | **bm Code**: l'editor del codice (tab, due pagine affiancate, font 6x12; anche nella scheda Dev) |
+| `I` | **Assistant** (M30): come si scrive il codice, basi di sprite (F6 negli strumenti; anche nella scheda Dev) |
 | `a` | audio: stato dell'uscita HDMI (clock, canale DMA, costo della sintesi, volume) e una prova: le sei forme d'onda, un accordo, glide, vibrato e arpeggio |
 | `T` | Bluetooth: cerca per 8 s e **abbina il primo controller** trovato come **prossimo giocatore** (fino a 4; DS4: Share + PS finché lampeggia); la console seriale passa alla mini UART (stessi pin) |
 | `P` | Bluetooth: **dimentica tutti i pad** abbinati (chiede conferma con `y`): chiavi tolte da `bm/config.txt`, pad scollegati; poi si riabbinano con `T` |
@@ -289,6 +292,13 @@ Test della rete, sul PC:
 make test-net        # console di rete e stream su lwIP (interfaccia di loopback, sul PC)
 make test-http       # client HTTP contro un server Python locale
 make test-https      # HTTPS (mbedTLS) contro server TLS locali con una CA di prova
+```
+
+Assistente (M30), sul PC:
+
+```sh
+make test-ai         # rete C contro Python, domande di prova, esempi di codice, pannello
+make ai-model        # riaddestra la rete dopo aver cambiato src/ai/kb/ (serve numpy)
 ```
 
 ## Suoni e musica
@@ -510,6 +520,14 @@ src/kernel/home.c        strumenti della scheda Dev e pannelli delle impostazion
 src/kernel/input.c       input unificato: seriale + tastiera/gamepad USB
 src/bm/                 cartucce native: formato, grafica RGB565 (gfx16), 3D software (r3d),
                          runtime Lua, stress test
+src/ai/                  assistente (M30): rete INT8 (nn.c), testo (text.c), domande (assist.c),
+                         ricette di sprite (sprite.c), tabella Lua ai (lua_ai.c), pannello
+                         (assist.lua, require "assist"); base di conoscenza in src/ai/kb/
+carts/assistant/         lo strumento Assistant della scheda Dev
+carts/code/              bm Code, l'editor del codice (tab, due pagine, font 6x12, #entry:)
+scripts/mkassist.py      base di conoscenza + rete -> build/assist.bin (nel kernel)
+scripts/trainassist.py   addestramento della rete (make ai-model, numpy)
+tests/ai/                test dell'assistente (C, Lua, esempi di codice)
 carts/demo/              cartuccia nativa demo: main.lua, sheet.png, map.csv
 carts/pong|snake|shooter|astrowing|hunt|texroom giochi demo (solo Lua)
 carts/kitchen/           Chaos Kitchen (M17): src/*.lua, build.py, mkassets.py,
@@ -536,7 +554,8 @@ src/kernel/selftest.c    self-test di newlib
 src/arch/mmu.c           tabella delle sezioni da 1 MiB, attivazione MMU e cache
 src/arch/cache.c         clean/invalidate della D-cache per range (mailbox)
 src/gfx/console.c        console testuale: celle, scroll, cursore, ANSI, barra di stato
-src/gfx/font8x16.c       font 8×16 CP437 (derivato da Terminus, OFL: docs/LICENSE.font)
+src/gfx/font8x16.c       font 8×16 CP437 (derivato da Terminus, OFL: docs/LICENSE.font);
+                         font6x12.c e font8x14.c per font() delle cartucce (bm Code)
 src/drivers/             mmio, mailbox, prop tags, framebuffer, gpio, uart (PL011),
                          timer, LED, watchdog, scheda (board.c: Zero, Zero W, Pi 1)
 src/lib/                 kprintf, crc32, syscalls newlib (_sbrk, _write, ...)

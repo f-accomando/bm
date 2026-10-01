@@ -88,7 +88,8 @@ int  menu_load_cover(g16_sheet_t *s, const uint8_t *rgba, int w, int h);
 enum {
     MENU_ICON_TERMINAL, MENU_ICON_LUA, MENU_ICON_CHIP, MENU_ICON_LOG, MENU_ICON_PAD,
     MENU_ICON_SOUND, MENU_ICON_GAUGE, MENU_ICON_TRIANGLES, MENU_ICON_FLAME,
-    MENU_ICON_ARROWS, MENU_ICON_PLAY, MENU_ICON_BARS, MENU_ICON_CHECK,
+    MENU_ICON_ARROWS, MENU_ICON_PLAY, MENU_ICON_BARS, MENU_ICON_CHECK, MENU_ICON_ASSIST,
+    MENU_ICON_CODE,
 };
 int  menu_make_tool_cover(g16_sheet_t *s, const char *title, int icon, uint32_t rgb);
 

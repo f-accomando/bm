@@ -1,5 +1,6 @@
 #include "bm.h"
 
+#include <stdlib.h>
 #include <string.h>
 
 #include "lib/crc32.h"
@@ -145,4 +146,62 @@ int bm_parse(const uint8_t *d, size_t len, bm_cart_t *c, char *err, size_t errle
     if (c->sheet_rgba && c->sheet8)
         return fail(err, errlen, "two sheets");
     return 0;
+}
+
+static void wr16(uint8_t *p, uint32_t v) { p[0] = (uint8_t)v; p[1] = (uint8_t)(v >> 8); }
+static void wr32(uint8_t *p, uint32_t v) { wr16(p, v); wr16(p + 2, v >> 16); }
+
+uint8_t *bm_rewrite(const uint8_t *old, size_t oldlen, const char *lua, size_t lua_len,
+                    const char *title, const char *author, int width, size_t *outlen)
+{
+    (void)oldlen;
+    enum { MAXSEC = 32 };
+    uint32_t type[MAXSEC], size[MAXSEC];
+    const uint8_t *src[MAXSEC];
+    unsigned n = 0, have_lua = 0, count = old ? old[17] : 0;
+    for (unsigned i = 0; i < count && n < MAXSEC; i++) {
+        const uint8_t *e = old + BM_HEADER_SIZE + i * 16;
+        type[n] = rd32(e);
+        if (type[n] == BM_SEC_LUA) {
+            if (have_lua++) continue;           /* one code section */
+            src[n] = (const uint8_t *)lua;
+            size[n] = (uint32_t)lua_len;
+        } else {
+            src[n] = old + rd32(e + 4);
+            size[n] = rd32(e + 8);
+        }
+        n++;
+    }
+    if (!have_lua && n < MAXSEC) {
+        type[n] = BM_SEC_LUA;
+        src[n] = (const uint8_t *)lua;
+        size[n] = (uint32_t)lua_len;
+        n++;
+    }
+    size_t total = BM_HEADER_SIZE + (size_t)n * 16;
+    for (unsigned i = 0; i < n; i++)
+        total += (size[i] + 3) & ~3u;
+    uint8_t *buf = calloc(total, 1);
+    if (!buf)
+        return NULL;
+    uint8_t *tab = buf + BM_HEADER_SIZE, *p = tab + n * 16;
+    for (unsigned i = 0; i < n; i++, tab += 16) {
+        wr32(tab, type[i]);
+        wr32(tab + 4, (uint32_t)(p - buf));
+        wr32(tab + 8, size[i]);
+        memcpy(p, src[i], size[i]);
+        p += (size[i] + 3) & ~3u;
+    }
+    memcpy(buf, "BMCART\0\0", 8);
+    wr16(buf + 8, 1);
+    wr16(buf + 10, BM_HEADER_SIZE);
+    wr16(buf + 12, width == 320 ? 320 : 640);
+    wr16(buf + 14, width == 320 ? 180 : 360);
+    buf[16] = BM_FMT_RGB565;
+    buf[17] = (uint8_t)n;
+    strncpy((char *)buf + 24, title ? title : "", 47);
+    strncpy((char *)buf + 72, author ? author : "", 31);
+    wr32(buf + 20, crc32(buf + BM_HEADER_SIZE, (uint32_t)(total - BM_HEADER_SIZE)));
+    *outlen = total;
+    return buf;
 }

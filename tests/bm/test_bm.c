@@ -125,6 +125,17 @@ static void test_text(void)
     int end = g16_text(&g, 2, 1, "AA", 0xFFFF);
     CHECK(end == 18, "text advance");
     CHECK(at(2, 4) == 0xFFFF && at(9, 4) == 0xFFFF && at(3, 4) == 0 && at(10, 4) == 0xFFFF, "glyph pixels");
+    /* a font 6 pixels wide (font("6x12")): characters 6 apart */
+    static const font_t narrow = { 6, 16, glyphs };
+    glyphs['A' * 16 + 3] = 0x84;             /* columns 0 and 5 */
+    g16_target(&g, fb, W, W, H, &narrow);
+    g16_cls(&g, 0);
+    end = g16_text(&g, 2, 1, "AA", 0xFFFF);
+    CHECK(end == 14, "6-wide advance: %d", end);
+    CHECK(at(2, 4) == 0xFFFF && at(7, 4) == 0xFFFF && at(8, 4) == 0xFFFF && at(13, 4) == 0xFFFF &&
+          at(9, 4) == 0, "6-wide glyph pixels");
+    end = g16_text_scaled(&g, 0, 20, "AA", 0xFFFF, 2);
+    CHECK(end == 24, "6-wide scaled advance: %d", end);
 }
 
 static void test_light(void)
@@ -317,6 +328,9 @@ static uint8_t *read_file(const char *p, size_t *n)
     return b;
 }
 
+static void put16(uint8_t *p, unsigned v) { p[0] = (uint8_t)v; p[1] = (uint8_t)(v >> 8); }
+static void put32(uint8_t *p, uint32_t v) { put16(p, v & 0xFFFF); put16(p + 2, v >> 16); }
+
 static void test_format(const char *path)
 {
     size_t n;
@@ -331,6 +345,55 @@ static void test_format(const char *path)
     CHECK(c.lua && c.lua_size > 100 && memcmp(c.lua, "--", 2) == 0, "lua section");
     CHECK(c.sheet_w == 128 && c.sheet_h == 128 && c.sheet_rgba, "sheet");
     CHECK(c.map_w == 160 && c.map_h == 90 && c.map_cells, "map");
+
+    /* new code, the rest kept: sheet, map, an unknown section (appended) */
+    {
+        const char code[] = "function _draw() cls(1) end";
+        size_t n2;
+        uint8_t *r = bm_rewrite(d, n, code, sizeof code - 1, "Renamed", "me", 320, &n2);
+        bm_cart_t c2;
+        CHECK(r && bm_parse(r, n2, &c2, err, sizeof err) == 0, "rewrite parses: %s", err);
+        CHECK(!strcmp(c2.title, "Renamed") && !strcmp(c2.author, "me") && c2.width == 320, "rewrite header");
+        CHECK(c2.lua_size == sizeof code - 1 && !memcmp(c2.lua, code, c2.lua_size), "rewrite code");
+        CHECK(c2.sheet_w == c.sheet_w && !memcmp(c2.sheet_rgba, c.sheet_rgba, (size_t)c.sheet_w * c.sheet_h * 4),
+              "rewrite keeps the sheet");
+        CHECK(c2.map_w == c.map_w && !memcmp(c2.map_cells, c.map_cells, (size_t)c.map_w * c.map_h * 2),
+              "rewrite keeps the map");
+        /* a section this kernel does not know (99) survives a rewrite */
+        size_t n3 = n2 + 16 + 8;
+        uint8_t *u = calloc(n3, 1);
+        memcpy(u, r, BM_HEADER_SIZE + r[17] * 16);
+        unsigned cnt = r[17];
+        size_t data0 = BM_HEADER_SIZE + cnt * 16;
+        memcpy(u + data0 + 16, r + data0, n2 - data0);
+        for (unsigned i = 0; i < cnt; i++) {          /* offsets move by one entry */
+            uint8_t *e = u + BM_HEADER_SIZE + i * 16;
+            uint32_t off = (uint32_t)e[4] | e[5] << 8 | e[6] << 16 | (uint32_t)e[7] << 24;
+            put32(e + 4, off + 16);
+        }
+        uint8_t *e = u + BM_HEADER_SIZE + cnt * 16;
+        put32(e, 99);
+        put32(e + 4, (uint32_t)(n3 - 8));
+        put32(e + 8, 8);
+        memcpy(u + n3 - 8, "MESHDATA", 8);
+        u[17] = (uint8_t)(cnt + 1);
+        put32(u + 20, crc32(u + BM_HEADER_SIZE, (uint32_t)(n3 - BM_HEADER_SIZE)));
+        CHECK(bm_parse(u, n3, &c2, err, sizeof err) == 0, "with section 99: %s", err);
+        size_t n4;
+        uint8_t *r2 = bm_rewrite(u, n3, "x=1", 3, "T", "A", 640, &n4);
+        int found = 0;
+        for (unsigned i = 0; r2 && i < r2[17]; i++) {
+            const uint8_t *t = r2 + BM_HEADER_SIZE + i * 16;
+            uint32_t off = (uint32_t)t[4] | t[5] << 8 | t[6] << 16 | (uint32_t)t[7] << 24;
+            if (t[0] == 99 && !memcmp(r2 + off, "MESHDATA", 8)) found = 1;
+        }
+        CHECK(found && bm_parse(r2, n4, &c2, err, sizeof err) == 0 && c2.lua_size == 3, "unknown section kept");
+        /* a new cartridge: only the code */
+        uint8_t *nw = bm_rewrite(NULL, 0, "x=2", 3, "New", "", 640, &n4);
+        CHECK(nw && bm_parse(nw, n4, &c2, err, sizeof err) == 0 && c2.lua_size == 3 && !c2.sheet_rgba &&
+              nw[17] == 1, "new cartridge");
+        free(r); free(u); free(r2); free(nw);
+    }
 
     d[n - 1] ^= 1;
     CHECK(bm_parse(d, n, &c, err, sizeof err) != 0 && strstr(err, "CRC"), "corruption detected");
@@ -350,8 +413,6 @@ static void set8(void *ctx, int x, int y, const uint8_t rgba[4])
     memcpy(px8[y][x], rgba, 4);
 }
 
-static void put16(uint8_t *p, unsigned v) { p[0] = (uint8_t)v; p[1] = (uint8_t)(v >> 8); }
-static void put32(uint8_t *p, uint32_t v) { put16(p, v & 0xFFFF); put16(p + 2, v >> 16); }
 
 static void test_sheet8(void)
 {
