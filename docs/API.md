@@ -166,7 +166,7 @@ i giochi con due tasti funzionano con tutti e quattro.
 | Funzione | Descrizione |
 |---|---|
 | `time()` | secondi dall'avvio della cartuccia (con decimali) |
-| `stat(n)` | 0 KiB usati da Lua, 1 ms di CPU dell'ultimo fotogramma, 2 fps, 3 numero del fotogramma, 4 triangoli 3D, 5 pixel 3D |
+| `stat(n)` | 0 KiB usati da Lua, 1 ms dell'ultimo fotogramma (`_update` + `_draw`, con il 3D della GPU), 2 fps, 3 numero del fotogramma, 4 triangoli 3D, 5 pixel 3D (0 con la GPU), 6 `1` se il 3D lo disegna la GPU |
 | `log(...)` | scrive nel log del kernel (seriale e console), non sullo schermo del gioco |
 | `quit()` | chiude la cartuccia alla fine del fotogramma |
 
@@ -279,6 +279,17 @@ Esempio completo: `carts/hunt` (Hunter's Night).
 
 I triangoli che attraversano il piano vicino alla camera vengono tagliati, non scartati:
 pavimenti e oggetti grandi restano interi anche quando passano accanto alla camera.
+
+**3D sulla GPU (prova, M30).** Con *Impostazioni > 3D of the games* su `GPU`
+(`gpu3d=1` in `bm/config.txt`) i triangoli li disegna la GPU del Pi (V3D) invece
+dell'ARM; le stesse funzioni, nessun cambiamento nelle cartucce. L'ARM continua a
+trasformare, illuminare e tagliare; la GPU riempie i pixel con uno z-buffer a 24 bit,
+sfumature senza dithering e texture con il texel più vicino. Il 3D in attesa viene
+disegnato prima di ogni disegno 2D che lo segue, di `pget`, di `sset` e a fine
+fotogramma: lo z-buffer della GPU riparte da zero dopo ogni disegno 2D (il 3D
+disegnato dopo non si nasconde dietro quello di prima), quindi conviene disegnare
+prima tutto il 3D e poi l'HUD. `stat(6)` vale 1 quando il 3D lo fa la GPU. Se la
+GPU non risponde, il kernel torna all'ARM da solo e lo scrive nel log.
 Esempio completo: `carts/astrowing` (volo in stile Star Fox: modelli costruiti in
 codice, orizzonte con `project3d`, nebbia, esplosioni, boss).
 

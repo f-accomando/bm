@@ -149,7 +149,9 @@ function _draw()
   end
   if show_hud then
     rectfill(0, 0, W, 18, 0x000000)
-    print(string.format("%4.1f ms %2d fps %4d tri %5dpx", stat(1), stat(2), stat(4), stat(5)), 2, 1, 0xFFE060)
+    -- stat(6): the GPU draws the 3D (Settings > 3D of the games); no pixel count then
+    local px = stat(6) == 1 and "  GPU" or string.format("%5dpx", stat(5))
+    print(string.format("%4.1f ms %2d fps %4d tri %s", stat(1), stat(2), stat(4), px), 2, 1, 0xFFE060)
     print(string.format("A tour %s  B crates %d", tour and "on" or "off", #crates), 2, H - 17, 0xC0C0C0)
   end
 end

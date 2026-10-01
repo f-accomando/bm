@@ -21,6 +21,7 @@
 #include "drivers/watchdog.h"
 #include "fs/fat.h"
 #include "gfx/console.h"
+#include "gpu/gpu3d.h"
 #include "lib/heap.h"
 #include "lib/printf.h"
 #include "drivers/board.h"
@@ -213,7 +214,7 @@ static tool_t tools[] = {
     { "Render bench", "drawing benchmark, 640x360 RGB565", MENU_ICON_TRIANGLES, 0x5A3AA0, t_render, 1, { 0 } },
     { "Stress test", "sprites, triangles and 3D, in C and in Lua", MENU_ICON_FLAME, 0xA03A3A, t_stress, 1, { 0 } },
     { "DMA test", "copies by the CPU against the DMA, step by step", MENU_ICON_ARROWS, 0x2A7A8A, t_dma, 1, { 0 } },
-    { "GPU test", "the 3D unit (V3D) step by step: speed and a picture", MENU_ICON_TRIANGLES, 0x8A5A2A, t_gpu, 1, { 0 } },
+    { "GPU test", "the 3D unit (V3D) step by step; ARM against GPU", MENU_ICON_TRIANGLES, 0x8A5A2A, t_gpu, 1, { 0 } },
     { "Demo", "the 60 fps animation demo, 10 s", MENU_ICON_PLAY, 0x3A8A3A, t_demo, 1, { 0 } },
     { "Test pattern", "HDMI colour bars; any button returns", MENU_ICON_BARS, 0x404050, t_pattern, 0, { 0 } },
     { "Diagnostics", "the old boot sequence: benchmarks and demos", MENU_ICON_CHECK, 0x7A6A2A, t_diag, 1, { 0 } },
@@ -249,7 +250,7 @@ void home_tool_start(int i, home_do_t *d)
 /* ---------------------------------------------------------------- settings */
 
 enum {
-    R_CONTROLLERS = 1, R_WIFI, R_LAYOUT, R_DRAW, R_SYSTEM,
+    R_CONTROLLERS = 1, R_WIFI, R_LAYOUT, R_DRAW, R_GPU3D, R_SYSTEM,
     R_PAD1, R_PAD2, R_PAD3, R_PAD4, R_KEYBOARD, R_PAIR, R_PAIR_KBD, R_TEST, R_FORGET,
     R_NETWORK, R_STATE, R_IP, R_TIME, R_CONSOLE, R_PASSWORD, R_CONNECT, R_BOOT,
     R_VERSION, R_BOARD, R_UPTIME, R_MEMORY, R_CLOCKS, R_SD, R_RESTART, R_MONITOR,
@@ -270,6 +271,13 @@ static const char *local_devices(void)
     if (k == USB_KEYBOARD) return "USB keyboard";
     if (k == USB_GAMEPAD || k == USB_XBOX360) return "USB gamepad";
     return "keyboard / USB";
+}
+
+/* gpu3d=1: the V3D draws the 3D of the games (M30, a test for now) */
+static int gpu3d_on(void)
+{
+    const char *on = config_get("gpu3d");
+    return on && strcmp(on, "1") == 0;
 }
 
 static int wifi_at_boot(void)
@@ -297,6 +305,9 @@ void home_panel(int id, home_panel_t *p)
         home_row(p, MENU_ROW_CHOICE, R_DRAW, "Game drawing (.bm)",
                  "Direct on screen, or via RAM (compare: Render bench)", "%s",
                  bm_via_ram() ? "Via RAM" : "Direct");
+        home_row(p, MENU_ROW_CHOICE, R_GPU3D, "3D of the games",
+                 "ARM, or the GPU (a test: try Dev > GPU test first)", "%s",
+                 !gpu3d_on() ? "ARM" : gpu3d_failed() ? "GPU: failed" : "GPU");
         home_row(p, MENU_ROW_SUB, R_SYSTEM, "System",
                  "Version, memory, SD card, restart", "%s", bm_version);
         break;
@@ -448,6 +459,14 @@ void home_act(int id, int row, int how, home_do_t *d)
         bm_set_via_ram(!bm_via_ram());
         config_save();
         ksnprintf(d->note, sizeof d->note, ".bm games draw %s", bm_via_ram() ? "via RAM" : "directly");
+        break;
+    case R_GPU3D:
+        config_set("gpu3d", gpu3d_on() ? "0" : "1");
+        config_save();
+        if (gpu3d_on() && gpu3d_failed())
+            ksnprintf(d->note, sizeof d->note, "GPU: %s", gpu3d_status());
+        else
+            ksnprintf(d->note, sizeof d->note, "the 3D of the next game: %s", gpu3d_on() ? "GPU" : "ARM");
         break;
     case R_BOOT:
         config_set("wifi_boot", wifi_at_boot() ? "0" : "1");

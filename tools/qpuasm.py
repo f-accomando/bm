@@ -37,7 +37,8 @@ WADDR = {"r0": 32, "r1": 33, "r2": 34, "r3": 35, "tmu_noswap": 36, "r5": 37, "ho
          "t1t": 61, "t1r": 62, "t1b": 63}
 RADDR = {"unif": 32, "vary": 35, "elem_num": 38, "nop": 39}     # readable from file A or B
 ACC = {"r0": 0, "r1": 1, "r2": 2, "r3": 3, "r4": 4, "r5": 5}
-COND = {"never": 0, "always": 1, "zs": 2, "zc": 3, "ns": 4, "nc": 5, "cs": 6, "cc": 7}
+COND = {"never": 0, "always": 1, "zs": 2, "zc": 3, "ns": 4, "nc": 5, "cs": 6, "cc": 7,
+        "ifz": 2, "ifnz": 3, "ifn": 4, "ifnn": 5, "ifc": 6, "ifnc": 7}
 PACK_MUL = {"8888": 3, "8a": 4, "8b": 5, "8c": 6, "8d": 7}
 MUX_A, MUX_B = 6, 7
 
@@ -141,12 +142,17 @@ def assemble_line(line, lineno):
         text = text.strip()
         if text == "nop":
             continue
-        m = re.fullmatch(r"(\w+)(?:\.(\w+))?\s+(.*)", text)
+        m = re.fullmatch(r"(\w+)((?:\.\w+)*)\s+(.*)", text)
         if not m:
             raise SyntaxError(f"line {lineno}: {text}")
-        op, cond, args = m[1], m[2] or "always", [a.strip() for a in m[3].split(",")]
-        if cond not in COND:
-            raise SyntaxError(f"line {lineno}: unknown condition {cond}")
+        op, args, cond = m[1], [a.strip() for a in m[3].split(",")], "always"
+        for suffix in m[2].split(".")[1:]:
+            if suffix == "setf":                # flags from this result
+                fields["sf"] = 1
+            elif suffix in COND:
+                cond = suffix
+            else:
+                raise SyntaxError(f"line {lineno}: unknown suffix .{suffix}")
         if op == "mov":
             alu = "add" if slot == 0 else "mul"
             op = "or" if alu == "add" else "v8min"
@@ -249,6 +255,59 @@ SHADERS = {
         mov tlb_z, rb15     ; nop
         nop                 ; nop           ; ldtmu0   # r4 = texel
         mov tlbc, r4        ; nop           ; thrend
+        nop                 ; nop
+        nop                 ; nop           ; sbdone
+    """,
+    # the faces of draw3d: texture 0 at (s, t) times the light k (3
+    # varyings), opaque texels
+    "fs_tex_lit": """
+        nop                 ; nop
+        nop                 ; nop
+        mov r3, ra15        ; nop                       # W
+        mov r0, vary        ; nop                       # s
+        fmul r0, r0, r3     ; nop
+        fadd r0, r0, r5     ; nop
+        mov r1, vary        ; nop                       # t
+        fmul r1, r1, r3     ; nop
+        fadd r1, r1, r5     ; nop
+        mov t0t, r1         ; nop
+        mov t0s, r0         ; nop                       # starts the lookup
+        mov r2, vary        ; nop                       # k
+        fmul r2, r2, r3     ; nop
+        fadd r2, r2, r5     ; nop
+        nop                 ; mov r1.8888, r2           # k in the four bytes
+        nop                 ; nop           ; sbwait
+        mov tlb_z, rb15     ; nop
+        nop                 ; nop           ; ldtmu0   # r4 = texel
+        v8muld r0, r4, r1   ; nop                       # texel * k
+        mov tlbc, r0        ; nop           ; thrend
+        nop                 ; nop
+        nop                 ; nop           ; sbdone
+    """,
+    # the same where the texture has transparent texels: alpha 0 (byte d)
+    # writes neither colour nor depth (the binning list turns early z off)
+    "fs_tex_lit_alpha": """
+        nop                 ; nop
+        nop                 ; nop
+        mov r3, ra15        ; nop                       # W
+        mov r0, vary        ; nop                       # s
+        fmul r0, r0, r3     ; nop
+        fadd r0, r0, r5     ; nop
+        mov r1, vary        ; nop                       # t
+        fmul r1, r1, r3     ; nop
+        fadd r1, r1, r5     ; nop
+        mov t0t, r1         ; nop
+        mov t0s, r0         ; nop                       # starts the lookup
+        mov r2, vary        ; nop                       # k
+        fmul r2, r2, r3     ; nop
+        fadd r2, r2, r5     ; nop
+        nop                 ; mov r1.8888, r2           # k in the four bytes
+        nop                 ; nop           ; sbwait
+        nop                 ; nop           ; ldtmu0   # r4 = texel
+        shr r2, r4, 15      ; v8muld r0, r4, r1         # texel * k
+        shr.setf nop, r2, 9 ; nop                       # Z: alpha is 0
+        mov.ifnz tlb_z, rb15 ; nop
+        mov.ifnz tlbc, r0   ; nop           ; thrend
         nop                 ; nop
         nop                 ; nop           ; sbdone
     """,

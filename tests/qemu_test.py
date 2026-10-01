@@ -913,13 +913,15 @@ def test_home_ui(b, opts):
         screen([f"< {before} >"])
         keys("s")
         keys("s")
+        screen(["< ARM >"])                     # 3D of the games: the ARM unless asked
+        keys("s")
         keys("\r")
         screen(["Settings > System", "Version", "Board", "SD card", "FAT32"])
         shot("system")
         keys("w")                               # the list scrolls to its last rows
         screen(["Restart", "Open the monitor"])
         keys("q")
-        keys("wwww")                            # System -> Controllers
+        keys("wwwww")                           # System -> Controllers
         keys("\r")
         screen(["Settings > Controllers", "Player 1", "keyboard / USB", "Bluetooth keyboard",
                 "Pair a new controller"])
@@ -2636,6 +2638,38 @@ def test_gpu_absent(b, opts):
         q.expect("> ", timeout=10)
     finally:
         q.close()
+
+
+def test_gpu3d_fallback(b, opts):
+    """M30: gpu3d=1 in bm/config.txt on a machine without a V3D (QEMU): the
+    game says why in the log and its 3D is drawn by the ARM as before."""
+    tmp = tempfile.mkdtemp(prefix="bm-gpu3d-")
+    img = os.path.join(tmp, "sd.img")
+    cfg = os.path.join(tmp, "config.txt")
+    with open(cfg, "w") as f:
+        f.write("wifi_boot=0\ngpu3d=1\n")
+    mksd.build(img, [(cfg, "bm/config.txt")])
+    q = Qemu(b("kernel.img"), ["-drive", f"if=sd,format=raw,file={img}"])
+    try:
+        q.expect(MENU, timeout=30)
+        time.sleep(0.5)
+        with open(b("carts/texroom.bm"), "rb") as f:
+            assert _upload(q, f.read())
+        out = q.expect("bm: the 3D is drawn by the ARM: ", timeout=20).decode(errors="replace")
+        q.expect("no V3D answers", timeout=5)
+        for _ in range(20):                     # the room, with its textures (after _init)
+            time.sleep(0.5)
+            w, h, px = q.screendump()
+            cols = [tuple(px[(y * w + x) * 3:(y * w + x) * 3 + 3]) for y in range(0, h, 4) for x in range(0, w, 4)]
+            if len(set(cols)) > 100:
+                break
+        assert len(set(cols)) > 100, len(set(cols))
+        q.send("q")
+        out = q.expect("update+draw", timeout=10).decode(errors="replace")
+        assert "stopped with an error" not in out and "GPU 3D" not in out, out
+    finally:
+        q.close()
+        shutil.rmtree(tmp, ignore_errors=True)
 
 
 def test_dma(b, opts):

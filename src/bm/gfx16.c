@@ -291,9 +291,12 @@ int g16_text_scaled(g16_t *g, int x, int y, const char *str, uint16_t c, int sca
     return x;
 }
 
+static uint32_t sheet_versions;
+
 int g16_sheet_alloc(g16_sheet_t *s, int w, int h)
 {
     memset(s, 0, sizeof *s);
+    s->version = sheet_versions += 0x10000;
     w = (w + G16_CELL - 1) / G16_CELL * G16_CELL;
     h = (h + G16_CELL - 1) / G16_CELL * G16_CELL;
     s->px = calloc((size_t)w * h, 2);
@@ -322,6 +325,7 @@ void g16_sheet_set(g16_sheet_t *s, int x, int y, uint16_t c, int opaque)
     uint32_t i = (uint32_t)y * s->w + x;
     s->px[i] = c;
     s->alpha[i] = opaque ? 1 : 0;
+    s->version++;
     if (!opaque)
         s->cell_opaque[(y / G16_CELL) * (s->w / G16_CELL) + x / G16_CELL] = 0;
 }
@@ -335,6 +339,7 @@ void g16_sheet_update_cell(g16_sheet_t *s, int cx, int cy)
         for (int x = 0; x < G16_CELL; x++)
             if (!s->alpha[(uint32_t)(cy * G16_CELL + y) * s->w + cx * G16_CELL + x]) { all = 0; break; }
     s->cell_opaque[cy * per_row + cx] = (uint8_t)all;
+    s->version++;
 }
 
 /* ---------------------------------------------------------------- light */

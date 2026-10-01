@@ -4,6 +4,9 @@
 #include "drivers/prop.h"
 #include "drivers/timer.h"
 #include "gfx/console.h"
+#include "bm/r3d.h"
+#include "gfx/font.h"
+#include "gpu/gpu3d.h"
 #include "gpu/shaders.h"
 #include "gpu/v3d.h"
 #include "lib/printf.h"
@@ -529,6 +532,165 @@ static int step_screen(framebuffer_t *fb)
     return 0;
 }
 
+/* ---------------------------------------------------------------- step 10 */
+
+/* The 3D of the games on the GPU (gpu3d, the backend of r3d): one scene
+ * drawn by the ARM's rasterizer and by the GPU into two 640x360 RGB565
+ * pages, timed, compared, and shown side by side (half size). */
+static g16_sheet_t sc_sheet;
+static r3d_mesh_t sc_sphere, sc_cube, sc_quad, sc_floor;
+
+/* 128x64: four 32x32 checkers; the second row of squares has its left
+ * column transparent (the alpha shader) */
+static int scene_init(void)
+{
+    static const uint32_t pairs[4][2] = { { 0xE02020, 0xF0E040 }, { 0x2040E0, 0xF0F0F0 },
+                                          { 0x20C040, 0x101010 }, { 0x808080, 0xF08020 } };
+    if (g16_sheet_alloc(&sc_sheet, 128, 64) != 0 || r3d_mesh_sphere(&sc_sphere, 10, 16, 0x4080FF, 0xFFC040) != 0 ||
+        r3d_mesh_cube(&sc_cube, 0x60C060) != 0)
+        return -1;
+    for (int y = 0; y < 64; y++)
+        for (int x = 0; x < 128; x++) {
+            int t = x / 32, lx = x % 32, ly = y % 32;
+            g16_sheet_set(&sc_sheet, x, y, g16_rgb24(pairs[t][((lx / 8) ^ (ly / 8)) & 1]),
+                          !(y >= 32 && lx < 8));
+        }
+    for (int cy = 0; cy < 8; cy++)
+        for (int cx = 0; cx < 16; cx++)
+            g16_sheet_update_cell(&sc_sheet, cx, cy);
+    r3d_mesh_t *q[2] = { &sc_quad, &sc_floor };
+    for (int k = 0; k < 2; k++) {
+        if (r3d_mesh_alloc(q[k], 4, 2) != 0 || r3d_mesh_alloc_uv(q[k]) != 0)
+            return -1;
+        q[k]->verts[0] = (v3_t){ -1, -1, 0 }; q[k]->verts[1] = (v3_t){ 1, -1, 0 };
+        q[k]->verts[2] = (v3_t){ 1, 1, 0 };   q[k]->verts[3] = (v3_t){ -1, 1, 0 };
+        static const uint16_t f[6] = { 0, 2, 1, 0, 3, 2 };
+        memcpy(q[k]->faces, f, sizeof f);
+        const float u0 = k ? 64 : 0, v0 = k ? 0 : 32, e = 31.5f;
+        const float uv[12] = { u0, v0 + e, u0 + e, v0, u0 + e, v0 + e,   u0, v0 + e, u0, v0, u0 + e, v0 };
+        memcpy(q[k]->uv, uv, sizeof uv);
+        q[k]->colors[0] = q[k]->colors[1] = R3D_TEXTURED;
+        q[k]->tex = &sc_sheet;
+        r3d_mesh_normals(q[k]);
+    }
+    return 0;
+}
+
+static void scene_free(void)
+{
+    r3d_mesh_free(&sc_sphere);
+    r3d_mesh_free(&sc_cube);
+    r3d_mesh_free(&sc_quad);
+    r3d_mesh_free(&sc_floor);
+    g16_sheet_free(&sc_sheet);
+}
+
+/* a textured floor without depth, 24 spheres (flat and smooth), a cube,
+ * a quad with transparent squares; 2D drawn before the 3D must stay */
+static void scene_draw(g16_t *g, r3d_t *r)
+{
+    g16_cls(g, g16_rgb(30, 20, 50));
+    g16_rectfill(g, 0, 0, W, 12, g16_rgb(200, 200, 0));
+    r3d_zclear(r);
+    r3d_camera(r, 0, 1.5f, -7, 0, -0.15f, 60);
+    r3d_light(r, -0.4f, 0.7f, -0.6f, 0.3f);
+    r3d_draw_flags(r, &sc_floor, (v3_t){ 0, -1.2f, 4 }, 1.5707963f, 0, 0, 9, R3D_NOZ);
+    for (int i = 0; i < 24; i++)
+        r3d_draw_flags(r, &sc_sphere, (v3_t){ -4.5f + 1.8f * (float)(i % 6), -0.6f + 1.1f * (float)(i / 6) * 0.8f,
+                                              (float)(i / 6) * 1.5f }, 0.3f * (float)i, 0.5f, 0, 0.55f,
+                       i & 1 ? R3D_SMOOTH : 0);
+    r3d_draw_flags(r, &sc_cube, (v3_t){ 0.3f, 0.2f, -1.5f }, 0.2f, 0.4f, 0, 0.6f, 0);
+    r3d_draw_flags(r, &sc_quad, (v3_t){ -1.2f, 0.4f, -2.5f }, 0, 0.3f, 0, 0.8f, 0);
+}
+
+static int differs(uint16_t a, uint16_t b)
+{
+    uint32_t ca = g16_to_rgb24(a), cb = g16_to_rgb24(b);
+    for (int k = 0; k < 24; k += 8) {
+        int d = (int)(ca >> k & 255) - (int)(cb >> k & 255);
+        if (d > 48 || d < -48)
+            return 1;
+    }
+    return 0;
+}
+
+static int step_games(framebuffer_t *fb)
+{
+    step("10 the 3D of the games on the GPU");
+    if (gpu3d_init() != 0) {
+        fail(gpu3d_status());
+        return -1;
+    }
+    uint16_t *pg[2] = { aligned_alloc(64, W * H * 2), aligned_alloc(64, W * H * 2) };
+    r3d_t r;
+    g16_t g;
+    uint32_t us[2] = { 0, 0 };
+    gpu3d_stats_t st;
+    memset(&st, 0, sizeof st);
+    int err = !pg[0] || !pg[1] || scene_init() != 0;
+    for (int pass = 0; pass < 2 && !err; pass++) {
+        g16_target(&g, pg[pass], W, W, H, &font_console_8x16);
+        if (r3d_init(&r, &g) != 0) {
+            err = 1;
+            break;
+        }
+        r.backend = pass ? gpu3d_backend() : NULL;
+        for (int k = 0; k < 2; k++) {       /* the second time: textures made, caches warm */
+            uint32_t t0 = timer_ticks();
+            scene_draw(&g, &r);
+            if (pass && gpu3d_flush(&g) != 0)
+                err = 2;
+            us[pass] = timer_ticks() - t0;
+            if (pass && k == 0)
+                gpu3d_take_stats(&st);
+        }
+        if (pass)
+            gpu3d_take_stats(&st);
+        r3d_free(&r);
+    }
+    if (err) {
+        fail(err == 2 ? gpu3d_status() : "no memory for the scene");
+    } else {
+        int differ = 0;
+        for (int i = 0; i < W * H; i++)
+            differ += differs(pg[0][i], pg[1][i]);
+        const int permille = (int)((int64_t)differ * 1000 / (W * H));
+        const int kept = !differs(pg[1][5 * W + 5], g16_rgb(200, 200, 0));
+        if (permille > 60 || !kept) {
+            char why[100];
+            ksnprintf(why, sizeof why, "%d.%d%% of the pixels differ%s", permille / 10, permille % 10,
+                      kept ? "" : ", the 2D under the 3D is gone");
+            fail(why);
+        } else {
+            kprintf("ok  ARM %lu us, GPU %lu us (%lu triangles; bin %lu, render %lu), %d.%d%% differ\n",
+                    us[0], us[1], st.tris, st.bin_us, st.render_us, permille / 10, permille % 10);
+        }
+        /* the two pictures, ARM left and GPU right, until a key or 10 s */
+        if (fb->depth == 32 && fb->width >= W && fb->height >= H) {
+            kprintf("  the picture: ARM on the left, GPU on the right (a key or 10 s)\n");
+            timer_delay_ms(40);
+            fb_fill_rect(fb, 0, 0, W, H, fb_color(fb, 0, 0, 0));
+            for (int y = 0; y < H / 2; y++)
+                for (int x = 0; x < W; x++) {
+                    const uint16_t *src = pg[x >= W / 2] + (y * 2) * W + (x % (W / 2)) * 2;
+                    uint32_t c = g16_to_rgb24(*src);
+                    fb_putpixel(fb, (uint32_t)x, (uint32_t)(y + H / 4), fb_color(fb, (uint8_t)(c >> 16),
+                                (uint8_t)(c >> 8), (uint8_t)c));
+                }
+            uint32_t t0 = timer_ticks();
+            input_flush();
+            while (timer_ticks() - t0 < 10000000u && input_key() < 0)
+                ;
+            console_suspend(1);
+            console_suspend(0);
+        }
+    }
+    scene_free();
+    free(pg[0]);
+    free(pg[1]);
+    return err ? -1 : 0;
+}
+
 void gpu_test(framebuffer_t *fb)
 {
     failed = 0;
@@ -551,10 +713,11 @@ void gpu_test(framebuffer_t *fb)
         kprintf("GPU test: no memory for the V3D\n");
         return;
     }
-    if (step_clear() == 0 && step_triangle() == 0 && step_depth() == 0 && step_speed_small() == 0 &&
-        step_speed_fill() == 0 && step_texture() == 0)
-        step_screen(fb);
+    int ok = step_clear() == 0 && step_triangle() == 0 && step_depth() == 0 && step_speed_small() == 0 &&
+             step_speed_fill() == 0 && step_texture() == 0 && step_screen(fb) == 0;
     free(m.block);
     m.block = NULL;
+    if (ok)
+        step_games(fb);
     kprintf(failed ? "GPU test \x1b[91mfailed\x1b[0m: a photo of these lines helps\n" : "GPU test passed\n");
 }

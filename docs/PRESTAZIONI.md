@@ -22,7 +22,7 @@ dentro, numeri attesi contro numeri misurati.
 | Lettura SDRAM dall'ARM | circa 4× più lenta della scrittura *(M)* | Leggere lo schermo (luci, copie) costa più che scriverlo |
 | Divisione intera | non in hardware (routine di libgcc) *(D)* | Vietata nei cicli per pixel: shift o reciproci in virgola mobile |
 | VFP (virgola mobile) | VFPv2; FDIVS ~19 cicli *(D)*; numeri denormali → eccezione se non in RunFast *(M)* | Divisioni per triangolo, non per riga né per pixel; RunFast obbligatorio |
-| GPU 3D | VideoCore IV, OpenGL ES 2.0 *(D)* | **Non usata**: driver bare metal (QPU, V3D) troppo grande; 3D in software |
+| GPU 3D | VideoCore IV (V3D: 12 QPU, TMU, z-buffer nei tile) *(D)* | Niente OpenGL: un driver nostro piccolo a funzioni fisse sotto `draw3d` (M30, spento di default, da misurare sul Pi); il 3D in software resta la riserva |
 | Scaler (HVS) | ingrandisce il framebuffer fino a 1080p gratis *(M)* | Si disegna a 640×360 o 320×180 e la GPU scala |
 | Memoria | 448 MiB per l'ARM *(M)* | Non è un vincolo (sheet da 4096 px, cache, tabelle) |
 | UART Bluetooth | 921 600 baud *(M)* | 4 DS4 a 125 report/s ci stanno; oltre no |
@@ -66,7 +66,7 @@ dentro, numeri attesi contro numeri misurati.
 
 | Scelta | Alternativa scartata | Perché | Numeri |
 |---|---|---|---|
-| Rasterizzatore **software** sull'ARM | GPU VideoCore IV | Driver 3D bare metal enorme | ~1200 triangoli a 60 fps *(M, sett.)* |
+| Rasterizzatore **software** sull'ARM (predefinito) | GPU VideoCore IV con OpenGL | OpenGL vuole Linux o il firmware (VCHIQ); il backend V3D nostro (M30) è ancora in prova | ~1200 triangoli a 60 fps *(M, sett.)* |
 | **Z-buffer a 16 bit** di 1/z | z a 32 bit o float | Metà banda; 1/z è lineare sullo schermo | 460 KiB da pulire per frame |
 | Flag **senza z-buffer** per pavimenti e sfondi | tutto con z | Niente lettura né scrittura dello z | Usato da Chaos Kitchen |
 | Eliminazione delle facce posteriori prima di tutto | disegnarle | ~60% dei triangoli di una sfera scartati | Stress: ~40% disegnati |
@@ -133,7 +133,7 @@ I pixel restano identici (stessi checksum di `make bench3d`).
 
 | Cosa | Perché | Stato |
 |---|---|---|
-| GPU 3D (VideoCore IV) | Driver enorme e poco documentato per il bare metal | Non previsto |
+| OpenGL ES sulla GPU | Vuole il firmware con VCHIQ o il driver DRM di Linux; troppo grande | Sostituito da un backend V3D a funzioni fisse (M30, in prova) |
 | Modo 32 bit | 2× banda; beneficio marginale con il dithering | Rimandato |
 | DMA per copiare i frame | Più lento della CPU sul frame intero | Solo test `D` e riempimenti |
 | Luce per pixel | Troppo costosa | Griglia 4×4 |

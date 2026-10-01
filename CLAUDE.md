@@ -27,6 +27,15 @@ Lua 5.4 embedded. Documentazione: `README.md`, `docs/ROADMAP.md`, `docs/HARDWARE
 - Resta solo la disposizione dei registri dell'audio (il sintetizzatore e `apu()` dei
   giochi `.bm`), nata dall'APU della s32.
 
+## GPU (M30)
+
+- Il 3D dei giochi lo fa il rasterizzatore software (`src/bm/r3d.c`); il backend V3D
+  (`src/gpu/gpu3d.c`, sotto r3d) è **spento di default** (`gpu3d=1` in `bm/config.txt`)
+  finché non è provato sul Pi. QEMU non ha la V3D: sul PC si prova con l'emulatore
+  `tests/gpu/v3d_emu.c` (`make test-gpu3d`); sul Pi con il test `g` del monitor.
+- Gli shader QPU si scrivono in `tools/qpuasm.py`, che genera `src/gpu/shaders.h`
+  (`make test-qpu` controlla che sia aggiornato).
+
 ## Comunicazione con l'utente
 
 - Riportare la **lista delle milestone** solo quando una milestone è completata per

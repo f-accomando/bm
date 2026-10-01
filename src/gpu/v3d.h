@@ -70,6 +70,7 @@ void v3d_cl_f32(v3d_cl_t *cl, float v);
 #define V3D_STORE_MS_TILE_BUFFER        24
 #define V3D_STORE_MS_TILE_BUFFER_EOF    25
 #define V3D_STORE_TILE_BUFFER_GENERAL   28
+#define V3D_LOAD_TILE_BUFFER_GENERAL    29
 #define V3D_VERTEX_ARRAY_PRIMITIVES     33
 #define V3D_NV_SHADER_STATE             65
 #define V3D_CONFIGURATION_BITS          96
@@ -84,6 +85,9 @@ void v3d_cl_f32(v3d_cl_t *cl, float v);
 #define V3D_RENDER_BGR565_DITHER        (0u << 2)
 #define V3D_RENDER_RGBA8888             (1u << 2)
 #define V3D_RENDER_BGR565               (2u << 2)
+
+/* LOAD_TILE_BUFFER_GENERAL: the colour buffer, raster order, BGR565 */
+#define V3D_LOAD_COLOUR_BGR565          (1u | 0u << 4 | 2u << 8)
 
 /* CONFIGURATION_BITS: first byte, then the 16-bit rest */
 #define V3D_CFG_FRONT                   0x01    /* draw front-facing triangles */

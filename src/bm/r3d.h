@@ -32,6 +32,26 @@ typedef struct {
 #define R3D_TEXTURED 0x80000000u
 
 #define R3D_LAMPS 4
+#define R3D_NEAR 0.1f               /* near plane: nothing nearer is drawn */
+
+/*
+ * A drawing backend other than the software rasterizer (M30: the GPU).
+ * r3d still transforms, lights, culls the back faces and clips on the near
+ * plane; the backend gets screen triangles. A corner: screen x, y, z =
+ * 1/depth, and either a colour (r, g, b in 0..255, light and fog applied)
+ * or texture coordinates (u, v in texels of tex) and the light k (0..1).
+ */
+typedef struct { float x, y, z, a, b, c; } r3d_corner_t;
+
+enum { R3D_KIND_COLOUR, R3D_KIND_TEXTURE };
+
+typedef struct {
+    /* nodepth: no depth test and no depth write (R3D_NOZ) */
+    void (*tri)(void *ctx, const g16_t *g, const r3d_corner_t v[3], int kind,
+                const g16_sheet_t *tex, int nodepth);
+    void (*zclear)(void *ctx, const g16_t *g);      /* what follows ignores what was drawn */
+    void *ctx;
+} r3d_backend_t;
 
 typedef struct {
     g16_t *g;
@@ -44,8 +64,10 @@ typedef struct {
     struct { v3_t pos; float r2, k; int on; } lamp[R3D_LAMPS];  /* point lights, per face */
     uint32_t fog_rgb;           /* faces fade to this colour ... */
     float fog_near, fog_far;    /* ... between these depths (off if far <= near) */
-    /* statistics of the last frame (reset by r3d_zclear) */
+    /* statistics of the last frame (reset by r3d_zclear); pixels are
+     * counted by the software rasterizer only */
     uint32_t tris_in, tris_drawn, pixels;
+    const r3d_backend_t *backend;   /* NULL: the software rasterizer */
 } r3d_t;
 
 int  r3d_init(r3d_t *r, g16_t *g);

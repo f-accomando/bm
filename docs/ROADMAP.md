@@ -1225,7 +1225,7 @@ V3D), per i test sul PC e come riserva.
    texture più corto, Gouraud a rampa quando la luce è bianca, z-buffer pulito dal DMA.
 3. **Modo 480×270** per le cartucce (4× esatto su 1080p): la risoluzione naturale per il
    3D in software.
-4. **Prova della V3D** (monitor `G`, passo per passo sullo schermo come `D`): accensione,
+4. **Prova della V3D** (monitor `g`, passo per passo sullo schermo come `D`): accensione,
    identificativo, pulizia dello schermo con la sola lista di rendering, un triangolo
    Gouraud, molti triangoli con i tempi.
 5. **Backend V3D per `draw3d`**: piatto, Gouraud, z-buffer; righe GPU nello stress test.
@@ -1260,6 +1260,27 @@ Fatto (2026-10-01, da misurare sul Pi):
 - Passo 3: modo **480×270** per le cartucce (`mkbm.py --res 480x270`, `SCREEN_W` 480,
   l'editor lo propone tra 640×360 e 320×180); test QEMU `test_res_480` (modo video, 3D
   con texture, z-buffer pulito dal DMA).
+- Passi 5 e parte del 6 (da provare sul Pi, **spento di default**): **backend GPU per
+  `draw3d`** (`src/gpu/gpu3d.c`). r3d trasforma, illumina, taglia e scarta come prima e
+  passa i triangoli dello schermo al backend, che li raccoglie in un lavoro per la V3D
+  (gruppi di triangoli con lo stesso shader, z e texture; vertici nel formato NV);
+  la V3D carica ogni tile dalla pagina (il 2D disegnato prima resta sotto), disegna con
+  uno z-buffer a 24 bit e la rimette nella pagina. Tre shader: colore sfumato (piatto e
+  Gouraud, nebbia e luci già nel colore), texture × luce, texture × luce con i texel
+  trasparenti scartati. Triangoli oltre il range delle coordinate tagliati in una banda
+  di guardia; sheet più grandi di 2048 in grigio. All'avvio una prova in un buffer
+  piccolo trova da sola l'ordine dei byte di colori e texel. Il 3D in attesa viene
+  disegnato prima del 2D che lo segue, di `pget`/`sset`/`light_begin` e a fine
+  fotogramma (contato in `stat(1)`); se la GPU non finisce un lavoro il kernel torna
+  all'ARM e scrive i registri nel log. Si accende in *Impostazioni > 3D of the games*
+  (`gpu3d=1`); `stat(6)` lo dice alla cartuccia (Texture Room scrive `GPU` nell'HUD);
+  a fine partita il log ha lavori, triangoli e ms della GPU per fotogramma.
+  Prova sul Pi: passo 10 di `g` (la stessa scena da ARM e GPU, tempi, pixel diversi,
+  le due immagini affiancate). Sul PC: emulatore della V3D (`tests/gpu/v3d_emu.c`:
+  liste di controllo, binning per tile, shader eseguiti per tipo) e `make test-gpu3d`
+  (scene confrontate col rasterizzatore software, nei quattro ordini di byte possibili).
+  Manca: lo z-buffer tra un lavoro e l'altro (dopo un disegno 2D il 3D riparte da z
+  vuoto), MSAA, filtro bilineare, righe GPU nello stress test.
 
 ## Rischi principali
 | Rischio | Mitigazione |
@@ -1271,7 +1292,7 @@ Fatto (2026-10-01, da misurare sul Pi):
 | Bluetooth (M12) senza emulatore | un solo controller di riferimento, tracce HCI registrate sul Pi per i test |
 | Scrittura su SD (M11) che corrompe la scheda | test in QEMU con `fsck.vfat`, file di bm in una cartella dedicata |
 | Split transactions e LAN951x (M29) senza emulatore | schema di USPi/Circle (provati sul Pi 1), chip simulato nei test sul PC, diagnostica a schermo (`y`, `E`) |
-| GPU V3D (M30) senza emulatore e senza seriale | prova passo per passo sullo schermo (`G`), timeout su ogni attesa, rasterizzatore software come riserva |
+| GPU V3D (M30) senza emulatore e senza seriale | prova passo per passo sullo schermo (`g`), timeout su ogni attesa, emulatore della V3D per i test sul PC, rasterizzatore software come riserva (anche automatica) |
 
 ## Hardware consigliato per lo sviluppo
 - Adattatore USB-seriale 3.3 V (**non 5 V**) su GPIO14/15 + GND

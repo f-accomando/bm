@@ -4,7 +4,7 @@
 #include <stdlib.h>
 #include <string.h>
 
-#define NEAR 0.1f
+#define NEAR R3D_NEAR
 
 /* ---------------------------------------------------------------- raster */
 
@@ -570,7 +570,10 @@ void r3d_free(r3d_t *r)
 
 void r3d_zclear(r3d_t *r)
 {
-    memset(r->zbuf, 0, (size_t)r->g->w * r->g->h * 2);
+    if (r->backend)
+        r->backend->zclear(r->backend->ctx, r->g);
+    else
+        memset(r->zbuf, 0, (size_t)r->g->w * r->g->h * 2);
     r->tris_in = r->tris_drawn = r->pixels = 0;
 }
 
@@ -627,6 +630,17 @@ static void rot_matrix(float m[9], float rx, float ry, float rz)
     m[0] = cz * cy; m[1] = cz * sy * sx - sz * cx; m[2] = cz * sy * cx + sz * sx;
     m[3] = sz * cy; m[4] = sz * sy * sx + cz * cx; m[5] = sz * sy * cx - cz * sx;
     m[6] = -sy;     m[7] = cy * sx;                m[8] = cy * cx;
+}
+
+/* the colour of a flat face for a backend: r, g, b in 0..255 */
+static void shade_rgb(uint32_t rgb, float k, uint32_t fog, float f, float out[3])
+{
+    float c[3] = { (rgb >> 16 & 0xFF) * k, (rgb >> 8 & 0xFF) * k, (rgb & 0xFF) * k };
+    for (int i = 0; i < 3; i++) {
+        if (f > 0)
+            c[i] += ((fog >> (16 - 8 * i) & 0xFF) - c[i]) * f;
+        out[i] = c[i] > 255 ? 255 : c[i];
+    }
 }
 
 /* light factor k, then fog: fraction f of the fog colour */
@@ -727,6 +741,16 @@ static int clip_near(const cv_t in[3], cv_t out[4])
 }
 
 #define MAX_VERTS 4096
+
+/* a triangle, or the two of a quad left by the near plane, to the backend */
+static void emit(r3d_t *r, const r3d_corner_t *q, int np, int kind, const g16_sheet_t *tex, int nodepth)
+{
+    r->backend->tri(r->backend->ctx, r->g, q, kind, tex, nodepth);
+    if (np == 4) {
+        const r3d_corner_t q2[3] = { q[0], q[2], q[3] };
+        r->backend->tri(r->backend->ctx, r->g, q2, kind, tex, nodepth);
+    }
+}
 
 void r3d_draw(r3d_t *r, const r3d_mesh_t *m, v3_t p, float rx, float ry, float rz, float scale)
 {
@@ -903,6 +927,16 @@ void r3d_draw_flags(r3d_t *r, const r3d_mesh_t *m, v3_t p, float rx, float ry, f
                     if (area <= 0)
                         continue;
                 }
+                if (r->backend) {
+                    float c[3];
+                    shade_rgb(rgb, k, r->fog_rgb, ff, c);
+                    r3d_corner_t q[4];
+                    for (int i = 0; i < np; i++)
+                        q[i] = (r3d_corner_t){ pts[i].x, pts[i].y, pts[i].z, c[0], c[1], c[2] };
+                    emit(r, q, np, R3D_KIND_COLOUR, NULL, zbuf == NULL);
+                    r->tris_drawn++;
+                    continue;
+                }
                 r->pixels += raster(r->g, zbuf, pts[0], pts[1], pts[2], col);
                 if (np == 4)
                     r->pixels += raster(r->g, zbuf, pts[0], pts[2], pts[3], col);
@@ -928,7 +962,14 @@ void r3d_draw_flags(r3d_t *r, const r3d_mesh_t *m, v3_t p, float rx, float ry, f
             if (area <= 0)
                 continue;
         }
-        if (textured) {
+        if (r->backend) {
+            r3d_corner_t q[4];
+            for (int i = 0; i < np; i++)
+                q[i] = textured ? (r3d_corner_t){ pts[i].x, pts[i].y, pts[i].z, cl[i].u, cl[i].v, cl[i].r }
+                                : (r3d_corner_t){ pts[i].x, pts[i].y, pts[i].z, cl[i].r, cl[i].g, cl[i].b };
+            emit(r, q, np, textured ? R3D_KIND_TEXTURE : R3D_KIND_COLOUR, textured ? m->tex : NULL,
+                 zbuf == NULL);
+        } else if (textured) {
             tv_t tv[4];
             for (int i = 0; i < np; i++)
                 tv[i] = (tv_t){ pts[i].x, pts[i].y, pts[i].z, cl[i].u * pts[i].z, cl[i].v * pts[i].z, cl[i].r };
