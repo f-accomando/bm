@@ -730,8 +730,9 @@ static int l_clips(lua_State *L)
     return 1;
 }
 
-/* bone3d(mesh, name or number) -> x, y, z: where the head of the bone is
- * in the mesh's last pose (its own coordinates, as bounds3d), or nil */
+/* bone3d(mesh, name or number) -> x, y, z, tx, ty, tz: where the head and
+ * the tail of the bone are in the mesh's last pose (its own coordinates, as
+ * bounds3d), or nil */
 static int l_bone3d(lua_State *L)
 {
     lmesh_t *lm = skel_mesh(L, 1);
@@ -752,12 +753,14 @@ static int l_bone3d(lua_State *L)
         lua_pushnil(L);
         return 1;
     }
-    float h[3];
-    bm_rig_bone(r, found, NULL, NULL, h, NULL);
+    float h[3], t[3];
+    bm_rig_bone(r, found, NULL, NULL, h, t);
     const float *m = lm->skel->mat[found];
     for (int k = 0; k < 3; k++)
         lua_pushnumber(L, m[k * 4] * h[0] + m[k * 4 + 1] * h[1] + m[k * 4 + 2] * h[2] + m[k * 4 + 3]);
-    return 3;
+    for (int k = 0; k < 3; k++)
+        lua_pushnumber(L, m[k * 4] * t[0] + m[k * 4 + 1] * t[1] + m[k * 4 + 2] * t[2] + m[k * 4 + 3]);
+    return 6;
 }
 
 /* bounds3d(mesh) -> x0, y0, z0, x1, y1, z1: the box around its vertices, in
@@ -1161,6 +1164,7 @@ static int l_cart_new(lua_State *L);
 static int l_cart_save(lua_State *L);
 static int l_cart_run(lua_State *L);
 static int l_cart_arg(lua_State *L);
+static int l_cart_data(lua_State *L);
 
 /* ---------------------------------------------------------------- light */
 
@@ -1221,6 +1225,7 @@ static const luaL_Reg api[] = {
     { "save", l_save }, { "saved", l_saved },
     { "keyp", l_keyp }, { "keyheld", l_keyheld }, { "ls", l_ls }, { "cart_load", l_cart_load }, { "cart_new", l_cart_new },
     { "cart_save", l_cart_save }, { "cart_run", l_cart_run }, { "cart_arg", l_cart_arg },
+    { "cart_data", l_cart_data },
     { "light_begin", l_light_begin }, { "light", l_light }, { "light_end", l_light_end },
     { "note", l_note }, { "noteoff", l_noteoff }, { "freq", l_freq },
     { "envelope", l_envelope }, { "duty", l_duty }, { "playing", l_playing }, { "apu", l_apu },
@@ -1824,6 +1829,73 @@ static int l_cart_arg(lua_State *L)
     return 1;
 }
 
+/* cart_data(type) -> the bytes of the project's MESH (6) or ANIM (7)
+ * section, or nil; cart_data(type, bytes) replaces it (nil or "" takes it
+ * away) -> true, or false and a message. The bytes are checked first;
+ * model() and animate() see the new ones at once, cart_save writes them.
+ * The 3D studio edits models and skeletons this way. */
+static int l_cart_data(lua_State *L)
+{
+    int type = (int)luaL_checkinteger(L, 1);
+    luaL_argcheck(L, type == BM_SEC_MESH || type == BM_SEC_ANIM, 1, "6 (MESH) or 7 (ANIM)");
+    uint8_t **cur = type == BM_SEC_MESH ? &rt.mesh : &rt.anim;
+    uint32_t *cur_size = type == BM_SEC_MESH ? &rt.mesh_size : &rt.anim_size;
+    if (lua_gettop(L) < 2) {
+        if (*cur)
+            lua_pushlstring(L, (const char *)*cur, *cur_size);
+        else
+            lua_pushnil(L);
+        return 1;
+    }
+    size_t n = 0;
+    const uint8_t *s = lua_isnil(L, 2) ? NULL : (const uint8_t *)luaL_checklstring(L, 2, &n);
+    if (s && !n)
+        s = NULL;
+    if (s && (n > 0x1000000 || (type == BM_SEC_MESH ? bm_mesh_check(s, (uint32_t)n)
+                                                      : bm_anim_check(s, (uint32_t)n)) < 0)) {
+        lua_pushboolean(L, 0);
+        lua_pushstring(L, type == BM_SEC_MESH ? "broken MESH section" : "broken ANIM section");
+        return 2;
+    }
+    int k = 0;
+    while (k < proj_extras && proj_extra[k].type != (uint32_t)type)
+        k++;
+    if (s && k == proj_extras && proj_extras == PROJ_EXTRA_MAX) {
+        lua_pushboolean(L, 0);
+        lua_pushstring(L, "too many sections");
+        return 2;
+    }
+    uint8_t *copy = NULL, *keep = NULL;
+    if (s && (!(copy = malloc(n)) || !(keep = malloc(n)))) {
+        free(copy);
+        return luaL_error(L, "not enough memory for the section");
+    }
+    free(*cur);
+    *cur = copy;
+    *cur_size = (uint32_t)n;
+    if (s) {
+        memcpy(copy, s, n);
+        memcpy(keep, s, n);
+    }
+    if (k < proj_extras) {
+        free(proj_extra[k].data);
+        if (s) {
+            proj_extra[k].data = keep;
+            proj_extra[k].size = (uint32_t)n;
+        } else {
+            for (int i = k; i + 1 < proj_extras; i++)
+                proj_extra[i] = proj_extra[i + 1];
+            proj_extras--;
+        }
+    } else if (s) {
+        proj_extra[proj_extras].type = (uint32_t)type;
+        proj_extra[proj_extras].size = (uint32_t)n;
+        proj_extra[proj_extras++].data = keep;
+    }
+    lua_pushboolean(L, 1);
+    return 1;
+}
+
 /* ---------------------------------------------------------------- player */
 
 /* Two ways to draw a frame:
@@ -2035,6 +2107,9 @@ int bm_run(framebuffer_t *fb, const uint8_t *data, size_t len,
     bm_close_suspended();              /* one cartridge in memory at a time */
     memset(st, 0, sizeof *st);
     memset(&rt, 0, sizeof rt);
+    free(proj_cover);                  /* no project open yet (cart_load) */
+    proj_cover = NULL;
+    extras_free();
     if (bm_parse(data, len, &cart, err, sizeof err) != 0) {
         kprintf("\x1b[91mbm: %s\x1b[0m\n", err);
         return BM_ENDED;
