@@ -131,6 +131,9 @@ non disegna più pixel: Texture Room 0,62 milioni di istruzioni a fotogramma inv
 | Frame via RAM + DMA | DMA più veloce (3,4× sulla fascia) | Frame intero **più lento** (14,06 contro 11,85 ms) | Il guadagno sulla fascia non vale sul frame intero |
 | Stress C, sett. → 29 set. | uguale | sprite **−22%** (circa 3,5 ms fissi in più per frame), 3D **−50%**; parte Lua uguale | Da capire: lo stress ora stampa clock, temperatura, throttling e un ciclo di sola CPU |
 | Input Bluetooth, 600 report in coda | nessun ritardo | < 0,5 s (test), niente ritardo percepito | Si legge solo lo stato più recente, lavoro limitato a 4 ms |
+| Rasterizzatore di M30 sulle sfere (`qemu-arm`) | −9% di istruzioni | **2,3×** più sfere a 60 fps (31 → 70) | Il conteggio non vede le fermate della pipeline per i confronti in virgola mobile (`vmrs`) che la virgola fissa ha tolto |
+| Stress C, 29 set. → 1 ott. | disturbo all'avvio | sprite di nuovo a 4456 (settembre 4482) | Confermato: con 20 s di attesa il calo sparisce |
+| Prima prova della V3D (1 ott.) | il passo 3 passa | "no end of frame" | Errore del driver: il bit "binner senza memoria" di `PCS`, acceso fin dall'avvio, era preso per un errore; corretto e coperto da `make test-v3d` |
 
 ## 7. Evitato o rimandato
 

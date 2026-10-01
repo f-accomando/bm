@@ -155,7 +155,7 @@ test-titan: $(BUILD)/host/luahost $(BUILD)/titan/main.lua
 	$< tests/titan/sim.lua $(BUILD)/titan/main.lua $(BUILD)/titan/main.map
 
 .DEFAULT_GOAL := all
-.PHONY: FORCE test-smp test-qpu test-gpu3d bench3d count-insns all clean firmware image image-pi1 sdcard install sdcard-chainloader sdcard-stress qemu qemu-screenshot \
+.PHONY: FORCE test-smp test-qpu test-gpu3d test-v3d bench3d count-insns all clean firmware image image-pi1 sdcard install sdcard-chainloader sdcard-stress qemu qemu-screenshot \
         run-serial test test-bm test-usb test-audio test-fat test-kitchen test-titan test-net test-http test-https disasm
 
 all: $(BUILD)/kernel.img $(BUILD)/chainloader.img $(GAME_CARTS)
@@ -278,7 +278,7 @@ qemu-screenshot: $(BUILD)/kernel.img
 	./scripts/qemu-screenshot.sh $< $(BUILD)/screen.png
 
 test: all test-bm test-usb test-fat test-audio test-kitchen test-titan test-net test-http test-https \
-      test-smp test-qpu test-gpu3d
+      test-smp test-qpu test-gpu3d test-v3d
 	$(PYTHON) tests/qemu_test.py --build $(BUILD)
 
 $(BUILD)/host/test_bm: tests/bm/test_bm.c src/bm/gfx16.c src/bm/r3d.c src/bm/format.c src/lib/crc32.c src/bm/*.h
@@ -392,6 +392,14 @@ $(BUILD)/host/test_gpu3d: tests/gpu/test_gpu3d.c tests/gpu/v3d_emu.c tests/gpu/v
 	    -c src/gpu/gpu3d.c -o $@-gpu3d.o
 	$(HOSTCC) -O2 -Wall -Wextra -Isrc -Itests/gpu -o $@ tests/gpu/test_gpu3d.c tests/gpu/v3d_emu.c \
 	    src/gpu/v3d_cl.c src/bm/r3d.c src/bm/gfx16.c $@-gpu3d.o -lm
+
+# The V3D driver's job runner against a model of the V3D's registers
+$(BUILD)/host/test_v3d: tests/gpu/test_v3d.c tests/gpu/mock/drivers/mmio.h src/gpu/v3d.c src/gpu/v3d.h
+	@mkdir -p $(dir $@)
+	$(HOSTCC) -O2 -Wall -Wextra -Wno-format -Itests/gpu/mock -Isrc -o $@ tests/gpu/test_v3d.c src/gpu/v3d.c
+
+test-v3d: $(BUILD)/host/test_v3d
+	$<
 
 test-gpu3d: $(BUILD)/host/test_gpu3d
 	$< 1 0

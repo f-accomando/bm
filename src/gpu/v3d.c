@@ -40,7 +40,6 @@
 #define IDENT0_V3D      0x02443356u     /* "V3D" and version 2 */
 #define CT_RESET        (1u << 15)
 #define CT_ERROR        (1u << 3)
-#define PCS_BMOOM       (1u << 8)       /* binner out of memory */
 #define L2C_CLEAR       (1u << 2)
 
 #define PROP_ENABLE_QPU 0x00030012u
@@ -131,13 +130,18 @@ uint32_t v3d_bus(const void *p)
     return ARM_TO_BUS(p);
 }
 
-/* waits until the count register changes from 0; 0, or -1 */
+/* Waits until the count register changes from 0: 0, or -1 after a control
+ * list error or timeout_us. The binner's out-of-memory flag (PCS bit 8) is
+ * no error: it is on from reset until the binner is first given overflow
+ * memory, also during a job without binning (the Pi showed it while a
+ * clear was still storing its tiles). A binner really out of memory
+ * stalls, and the timeout catches it with the registers. */
 static int wait_count(uint32_t reg, uint32_t cs_reg, uint32_t timeout_us, uint32_t *us)
 {
     uint32_t t0 = timer_ticks();
     for (;;) {
         dmb();
-        uint32_t n = rd(reg), cs = rd(cs_reg), pcs = rd(V3D_PCS);
+        uint32_t n = rd(reg), cs = rd(cs_reg);
         dmb();
         if (n & 0xFF) {
             if (us)
@@ -146,7 +150,7 @@ static int wait_count(uint32_t reg, uint32_t cs_reg, uint32_t timeout_us, uint32
             dmb();
             return 0;
         }
-        if ((cs & CT_ERROR) || (pcs & PCS_BMOOM) || timer_ticks() - t0 > timeout_us) {
+        if ((cs & CT_ERROR) || timer_ticks() - t0 > timeout_us) {
             snapshot();
             return -1;
         }

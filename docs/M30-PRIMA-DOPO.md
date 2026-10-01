@@ -2,9 +2,9 @@
 
 Confronto tra **prima** (`9cda3c7`, 2026-09-30, l'ultimo commit prima di M30) e **dopo**
 (il branch `claude/gallant-newton-z2cugw`, 2026-10-01). Il codice di M30 è tutto
-scritto e provato sul PC e in QEMU; la GPU però non è ancora mai stata eseguita sul Pi.
-Per questo il backend GPU è spento di default, e la colonna "dopo, sul Pi" resta da
-riempire con le misure dell'utente (sezione 4).
+scritto e provato sul PC e in QEMU. Sul Pi il 3D dell'ARM è misurato; la GPU si accende,
+ma il suo primo lavoro si è fermato per un errore del driver, ora corretto e da
+riprovare. Per questo il backend GPU resta spento di default (sezione 4).
 
 ## 1. In breve
 
@@ -18,8 +18,10 @@ riempire con le misure dell'utente (sezione 4).
 - **Correttezza della GPU:** su un emulatore della V3D le scene disegnate dalla GPU
   differiscono da quelle dell'ARM per lo 0,01–0,75% dei pixel, nei quattro ordini di
   byte possibili. I pixel diversi stanno sui bordi e sui confini dei texel.
-- **Da misurare sul Pi:** il tempo della GPU, gli fps di Texture Room HD (il criterio
-  di chiusura di M30) e le righe GPU dello stress test.
+- **Sul Pi (2026-10-01):** il 3D sull'ARM è 2,1–2,3× più veloce sui triangoli
+  piccoli e i triangoli 2D quasi 2×. Texture Room HD sull'ARM fa 37–41 fps. La GPU
+  non è partita per un errore nell'attesa del driver, ora corretto: il suo tempo e
+  gli fps di Texture Room HD con la GPU sono ancora da misurare (sezione 4).
 
 ## 2. Cosa c'era e cosa c'è
 
@@ -99,13 +101,47 @@ quattro ordini di byte:
   chiara.
 - Astro Wing 6,34 ms, 59,9 fps; Chaos Kitchen 14,1 ms, 54 fps.
 
-**Dopo (da misurare):**
+**Dopo, 3D sull'ARM (misurato il 2026-10-01, kernel `6c2fdaa`).** Stress test a sistema
+fermo: ARM 1000 MHz, core 250 (massimo 400), V3D 250, SDRAM 400 MHz, 49,7 °C, nessun
+throttling, interrupt allo 0,4%. Massimo per fotogramma a 60 fps (30 fps tra parentesi):
+
+| Test | Settembre (`792787f`) | 29 set. (`8298b15`) | Ora (`6c2fdaa`) | Ora / settembre |
+|---|---:|---:|---:|---:|
+| sprite 16×16 (C) | 4482 | 3500 | 4456 | = |
+| sprite 32×32 (C) | 1513 | 1183 | 1504 | = |
+| triangoli 2D ~170 px | 2594 | 2053 | 5038 | **1,9×** |
+| sfere 3D (C) | 31 (1195 tri) | 15 (556 tri) | 70 (2700 tri) | **2,3×** |
+| sfere 3D Gouraud | — | <1 (45 a 30 fps) | 18 (84 a 30 fps) | — |
+| sfere 3D con texture | — | <1 (<1 a 30 fps) | <1 (51 a 30 fps) | — |
+| sprite 16×16 (Lua) | 1829 | 1854 | 1848 | = |
+| sfere 3D (Lua) | 29 (1115 tri) | 26 (1015 tri) | 61 (2323 tri) | **2,1×** |
+
+Costo di un pixel (righe nuove `quad`): piatto con z 22 ns, senza z 5 ns, Gouraud 49 ns,
+texture 97 ns. Con il codice di prima Texture Room dava 130–180 ns per pixel con texture.
+
+- Il calo del 29 settembre era un disturbo all'avvio: con l'attesa di 20 s gli sprite
+  tornano ai valori di settembre.
+- Sui triangoli piccoli il guadagno vero (2,3×) è molto più grande di quello previsto
+  dalle istruzioni (−9%). Il rasterizzatore di prima fermava la pipeline a ogni riga
+  con i confronti in virgola mobile (`vmrs`), e il conteggio delle istruzioni non lo
+  vede. I triangoli 2D usano lo stesso rasterizzatore e raddoppiano anche loro.
+- **Texture Room HD sull'ARM** (640×360): 8 casse 25,3 ms, 41 fps (450 triangoli,
+  249 288 pixel con texture); 16 casse 26,3 ms, 37 fps (485 triangoli, 287 057 pixel).
+  Sono 4 volte i pixel di Texture Room nel doppio del tempo.
+
+**Dopo, 3D sulla GPU (2026-10-01): non è partita.** Il test `g` passa accensione e
+identità (V3D a 250 MHz, 3 slice × 4 QPU, 2 TMU per slice, VPM 12 KiB). Si ferma però al
+passo 3, la prima pulizia, con "no end of frame"; la prova del backend fallisce allo
+stesso modo, e il 3D torna all'ARM come previsto. Dai registri (`CT1CA = CT1EA`,
+`PCS = 0x104`, `RFC = 0`) si vede che la colpa era dell'attesa nel driver, non della GPU.
+La GPU aveva già letto tutta la lista, ma l'attesa trattava come errore il bit "binner
+senza memoria" di `PCS`, acceso fin dall'avvio anche quando il binner non si usa, e si
+arrendeva prima che i tile fossero scritti. Corretto, con un test sul PC che simula i
+registri come li ha mostrati il Pi (`make test-v3d`). Da riprovare:
 
 | Misura | Dove si legge | Atteso |
 |---|---|---|
-| Texture Room (ARM), ms | HUD in alto a sinistra | sotto gli 11,6 ms di prima (stima: −20/30% sulla parte 3D) |
 | Texture Room HD con la GPU, fps | HUD (`GPU` accanto ai triangoli) | 60 fps: il criterio di chiusura di M30 |
-| Texture Room HD sull'ARM | HUD | lento (4× i pixel): serve per il confronto |
 | GPU che risponde, ordine dei byte | `g`, passi 1–3 | `ok` |
 | Velocità della V3D | `g`, passi 6–7 (triangoli/s, Mpixel/s) | — |
 | Stessa scena ARM e GPU | `g`, passo 10 (tempi e % di pixel diversi) | pochi % di pixel diversi, GPU più veloce |

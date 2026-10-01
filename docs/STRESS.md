@@ -122,6 +122,33 @@ Tabella e analisi in `docs/ROADMAP.md` (M14): parte C più lenta che a settembre
 Lua uguale; da allora lo stress test stampa clock, temperatura, throttling e un ciclo di
 sola CPU prima e dopo la parte C, per capire la differenza alla prossima misura.
 
+### Misura del 2026-10-01 (`6c2fdaa`, M30)
+
+A sistema fermo (la parte C aspetta 20 s dall'avvio): ARM 1000 MHz, core 250 (massimo
+400), V3D 250, SDRAM 400 MHz, 49,7 °C, nessun throttling, interrupt 0,4% (1188/s).
+
+| Test | Pi 60 fps | Pi 30 fps | µs/oggetto |
+|---|---:|---:|---:|
+| sprites 16×16 (C) | 4456 | 9204 | 3,50 |
+| sprites 32×32 (C) | 1504 | 3113 | 10,36 |
+| triangles 2D ~170px | **5038** | 10424 | 3,09 |
+| 3D spheres 96 (C) | **70** (2700 tri) | 226 (8914 tri) | 114,11 |
+| 3D smooth (Gouraud) | 18 (705 tri) | 84 (3276 tri) | 221,84 |
+| 3D textured | <1 | 51 (1987 tri) | 238,64 |
+| quad 320×180 flat | 11 | 24 | 22 ns/px |
+| quad 320×180 no z | 53 | 114 | 5 ns/px |
+| quad 320×180 Gouraud | 5 | 11 | 49 ns/px |
+| quad 320×180 texture | 2 | 5 | 97 ns/px |
+| sprites 16×16 (Lua) | 1848 | 3817 | 8,42 |
+| 3D spheres 96 (Lua) | 61 (2323 tri) | 204 (7994 tri) | 126,70 |
+
+Gli sprite tornano ai valori di settembre, quindi il calo del 29 settembre era un
+disturbo dell'avvio. Il rasterizzatore di M30 (bordi in virgola fissa, cicli delle
+texture specializzati) porta i triangoli 2D a 1,9× e le sfere 3D a 2,3× rispetto a
+settembre. Le righe GPU mancano (`GPU rows: none (probe: a clear did not finish)`):
+era un errore nell'attesa del driver, corretto dopo questa misura (vedi
+`docs/M30-PRIMA-DOPO.md`).
+
 ## Come eseguirlo sul Pi
 
 ```sh

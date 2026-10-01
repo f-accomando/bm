@@ -1293,6 +1293,12 @@ Fatto (2026-10-01, da misurare sul Pi):
   sull'ARM scrive in basso come accendere la GPU.
   Report prima/dopo (istruzioni, funzioni, correttezza della GPU sull'emulatore, cosa
   misurare sul Pi): `docs/M30-PRIMA-DOPO.md`.
+- **Sul Pi (2026-10-01, `6c2fdaa`):** il 3D sull'ARM va 2,3× (sfere 31 → 70 a 60 fps), i
+  triangoli 2D 1,9×, e Texture Room HD sull'ARM fa 37–41 fps. La V3D si accende e
+  risponde (3 slice × 4 QPU, 250 MHz), ma la prima pulizia si è fermata con "no end of
+  frame": l'attesa del driver prendeva per un errore il bit "binner senza memoria",
+  acceso fin dall'avvio. Corretto, con un test sul PC che simula i registri come li ha
+  mostrati il Pi (`make test-v3d`); la GPU è da riprovare.
   Rinviati: MSAA 4× (caricare la pagina in un tile multicampione non è un percorso
   di Mesa né del driver di Linux: non verificabile senza il Pi) e il filtro
   bilineare (cambia l'aspetto delle texture rispetto all'ARM).
