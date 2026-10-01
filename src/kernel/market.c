@@ -831,7 +831,10 @@ void market_panel(int i, home_panel_t *p)
         return;
     const catalog_game_t *g = &cat.games[i];
     const slot_t *s = &slots[i];
-    const char *about = g->about[0] ? g->about : "A free game of the bm Market";
+    /* the panel keeps the help's pointer: a copy, not the catalog's (a new
+     * catalog can replace it while the panel is open) */
+    static char about[sizeof g->about];
+    ksnprintf(about, sizeof about, "%s", g->about[0] ? g->about : "A free game of the bm Market");
     ksnprintf(p->title, sizeof p->title, "Market > %s", g->title);
     switch (market_action(i)) {
     case MARKET_GET:

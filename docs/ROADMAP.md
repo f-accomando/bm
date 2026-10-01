@@ -1163,17 +1163,33 @@ Decisioni 2026-10-01 (prima in M25 "store" e M26 "market", ora una cosa sola):
   ridistribuibili, come già oggi).
 
 Passi:
-1. **Scritture delle cartucce limitate** (sicurezza, prima di tutto il resto).
-2. **Catalogo**: formato, `scripts/mkmarket.py` (controllo, firma, copertine PNG, pagina
-   web), chiave del market, lettura e verifica nel kernel; test sul PC.
-3. **Rete senza bloccare il menu**: i download girano su uno stack proprio (una "fibra"
-   cooperativa) che cede il controllo al menu a ogni attesa di rete; il menu le dà il
-   tempo che avanza in ogni frame.
-4. **Scheda Market**: griglia con segnaposto, copertine che arrivano, dettagli (autore,
-   dimensione, licenza, versione), conferma, barra di avanzamento, installazione in
-   `/carts`, poi "Play"; giochi installati e aggiornamenti (badge).
-5. **Repository del market**: modello (README, regole, workflow), i giochi del progetto
-   come primi contenuti.
+1. ✅ (QEMU, `test_cart_write_limits`) **Scritture delle cartucce limitate**: `cart_save`,
+   `cart_write` e `cart_put_audio` accettano solo file `.bm` in `/carts`, tranne per gli
+   strumenti incorporati (`bm_set_tool` in `carts_tool_session`).
+2. ✅ (PC, `make test-catalog`) **Catalogo**: `scripts/mkmarket.py` (controllo, firma,
+   copertine PNG, `index.html`, `--add`), `scripts/market-key.sh`, `src/net/catalog.c`
+   (firma, record, percorsi solo relativi, SHA-256, serial che cresce); le copertine si
+   leggono con il decoder PNG del kernel.
+3. ✅ (QEMU) **Rete senza bloccare il menu**: `src/kernel/fiber.c` + `src/arch/fiber.S`;
+   `net_wait_step` cede il controllo dentro una fibra e restituisce -1 se annullata (DNS,
+   connessione, lettura, scrittura, attesa dell'ora); il menu dà alla fibra il tempo che
+   avanza in ogni frame (`menu_view_t.idle`).
+4. ✅ (QEMU, `test_market`) **Scheda Market** (`src/kernel/market.c`): segnaposto subito,
+   catalogo e copertine uno alla volta (prima la selezione e le vicine; cache in
+   `/bm/market`), domanda, percentuale sulla copertina, controllo, installazione in
+   `/carts` (`GAMES.TXT`), "Play"; badge Installed / Update / Retry; X per i dettagli
+   (Download again, Delete); uscire dalla scheda interrompe il lavoro. Sorgente:
+   `market_url` (HTTPS) o una cartella della SD (`sd:/market/`, usata dal test in QEMU, dove
+   non c'è rete); `bm/market.pem` aggiunge una chiave.
+   - **Da verificare sul Pi**: catalogo e copertine da GitHub Pages via WiFi (certificati
+     di `f-accomando.github.io`: se manca una radice in `bm/ca.pem` l'errore lo dice), menu
+     a 60 fps durante i download (l'handshake TLS è calcolo puro: forse qualche frame
+     perso), un gioco scaricato che parte.
+5. 🛠 **Repository del market**: modello in `market/` (README con le regole, workflow che
+   controlla le pull request e pubblica il catalogo firmato con GitHub Pages, descrizioni
+   dei giochi), `make market-seed`. Manca: creare `f-accomando/bm-market` (pubblico), la
+   chiave (`scripts/market-key.sh`, secret `BM_MARKET_KEY`) e Pages con sorgente "GitHub
+   Actions".
 6. **Pubblicazione dal Pi**: l'SDK apre una pull request con il token (fork, ramo, file,
    pull request con le API di GitHub).
 7. **Scambio in rete locale** (M24).

@@ -533,6 +533,51 @@ git add keys/release-pub.pem && git commit -m "Release key" && git push
 Poi una release: `git tag v0.1.0 && git push origin v0.1.0`. In locale, per provare:
 `BM_RELEASE_KEY="$(cat ~/.bm/release-key.pem)" make release VERSION=v0.1.0` (file in `dist/release/`).
 
+## Market (M25)
+
+La prima scheda del menu (**Market | Games | Dev | Settings**; il menu si apre su Games):
+giochi gratuiti da scaricare, dal repository pubblico
+[f-accomando/bm-market](https://github.com/f-accomando/bm-market) pubblicato con GitHub Pages.
+
+- **Sul Pi**: scheda Market (L1 da Games, o `1` dalla tastiera). Compaiono subito dei
+  segnaposto, poi il catalogo e le copertine, una alla volta: il menu resta a 60 fps
+  perché il lavoro gira in una "fibra" (`src/kernel/fiber.c`) nel tempo che avanza in ogni
+  frame, e solo mentre la scheda è aperta (un'altra scheda, le impostazioni o un gioco lo
+  interrompono). A su un gioco: domanda (dimensione, licenza), download con la percentuale
+  sulla copertina, controllo, installazione in `/carts`; poi A lo avvia. X: autore,
+  versione, licenza, file, "Download again", cancellazione. Un gioco già sulla SD con lo
+  stesso titolo e autore risulta installato.
+- **Sicurezza**: il catalogo (`index.txt`) è firmato con la chiave del market (ECDSA P-256,
+  `keys/market-pub.pem` nel kernel, non quella delle release); ogni file deve avere la
+  dimensione e lo SHA-256 del catalogo prima di toccare la SD; il market scrive solo in
+  `/carts` e in `/bm/market` (cache del catalogo e delle copertine, `GAMES.TXT` con i giochi
+  installati). Le cartucce della SD scrivono solo file `.bm` in `/carts` e i loro
+  salvataggi (gli strumenti incorporati, SDK, Code, Sound, Studio 3D, dove vogliono).
+- **Impostazioni** in `bm/config.txt`: `market_url=` (predefinito
+  `https://f-accomando.github.io/bm-market/`; anche una cartella della SD con gli stessi
+  file, `market_url=sd:/market/`, per un catalogo senza rete); `bm/market.pem` sulla SD
+  aggiunge una chiave (un market proprio); `market_delay=` (ms) rallenta la sorgente, per i
+  test.
+- **Pubblicare un gioco**: una pull request a bm-market con `games/<id>/` (il `.bm` e
+  `info.txt` con versione, licenza obbligatoria e descrizione); vedi il README del market
+  (il modello è in `market/`). Il CI del market controlla le pull request
+  (`scripts/mkmarket.py --check`) e, dopo il merge, costruisce, firma e pubblica il catalogo.
+- **I giochi del progetto** sono tutti nel market (e per ora anche nell'immagine della SD):
+  `make market-seed MARKET=../bm-market` li costruisce e aggiorna le loro cartelle.
+
+La prima volta, dal PC:
+
+```sh
+scripts/market-key.sh                                   # la coppia di chiavi del market
+gh secret set BM_MARKET_KEY -R f-accomando/bm-market < ~/.bm/market-key.pem
+git add keys/market-pub.pem && git commit -m "Market key" && git push
+```
+
+poi, nel repository del market: Settings > Pages > Source: **GitHub Actions**. Finché la
+chiave non c'è, la scheda Market dice "The Market needs a key". Test: `make test-catalog`
+(catalogo, firma e copertine sul PC) e `test_market` in QEMU (il market da una cartella
+della SD, rallentato).
+
 ## Scheda SD senza chainloader
 
 Il modo più semplice è l'immagine completa: `make firmware && make image`, poi scrivi
@@ -593,6 +638,8 @@ src/fs/fat.c             FAT16/FAT32: lettura con nomi lunghi, scrittura 8.3, ca
 src/kernel/carts.c       elenco delle cartucce (incorporate + SD), menu e opzioni delle cartucce
 src/kernel/menu_ui.c     BareMetal UI: griglia, schede, pannelli, copertine degli strumenti
 src/kernel/home.c        strumenti della scheda Dev e pannelli delle impostazioni
+src/kernel/market.c      scheda Market (M25): catalogo, copertine, download, installazione
+src/kernel/fiber.c       fibre: lavoro su uno stack proprio che cede il controllo al menu
 src/kernel/input.c       input unificato: seriale + tastiera/gamepad USB
 src/bm/                 cartucce native: formato, grafica RGB565 (gfx16), 3D software (r3d),
                          runtime Lua, stress test
@@ -629,9 +676,11 @@ scripts/mkbm.py         packer .bm (PNG e CSV, solo libreria standard Python)
 scripts/bmmesh.py        sezione MESH (modelli 3D) e file .glb di bm Studio, per mkbm.py --models
                          (con un .bm: modelli, scheletri e sheet)
 scripts/mksd.py          immagine SD (MBR + FAT32): make image e test in QEMU
+scripts/mkmarket.py      catalogo del Market: controllo, firma, copertine, --add
 scripts/mkrelease.py     file di una release e manifest.txt firmato (make release, CI sui tag v*)
 scripts/release-key.sh   coppia di chiavi delle release; la pubblica in keys/release-pub.pem
 src/net/release.c        verifica delle release: firma del manifesto, righe, SHA-256 dei file
+src/net/catalog.c        catalogo del Market (M25): firma con la chiave del market, record, SHA-256
 tests/bm/               test host della grafica e del formato
 src/script/luavm.c       stato Lua, allocatore con limite (64 MiB), esecuzione protetta
 src/script/repl.c        REPL: espressioni, righe di continuazione, traceback

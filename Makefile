@@ -392,7 +392,7 @@ test-net: $(BUILD)/host/test_netcon $(BUILD)/host/test_ethnet
 	$(BUILD)/host/test_netcon
 	$(BUILD)/host/test_ethnet
 
-$(BUILD)/host/test_ethnet: tests/net/test_ethnet.c src/net/net.c src/net/net.h src/usb/smsc95xx.c src/usb/smsc95xx.h \
+$(BUILD)/host/test_ethnet: tests/net/test_ethnet.c src/net/net.c src/net/net.h src/kernel/fiber.h src/usb/smsc95xx.c src/usb/smsc95xx.h \
                            tests/usb/lan9512_sim.c tests/usb/lan9512_sim.h $(LWIP_SRCS)
 	@mkdir -p $(dir $@)
 	$(HOSTCC) -O1 -w -DBM_HOST_TEST -Isrc -Isrc/net -Ithird_party/lwip/src/include -o $@ \

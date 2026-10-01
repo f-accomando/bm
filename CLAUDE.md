@@ -80,6 +80,27 @@ Lua 5.4 embedded. Documentazione: `README.md`, `docs/ROADMAP.md`, `docs/HARDWARE
   `cart_write` (solo il codice), `font("6x12")` e `assist.act` per le righe `#entry:`.
   Test: `test_code_editor` in QEMU (lo schermo si legge anche col font 6x12).
 
+## Market (M25, branch `bm-store`)
+
+- Prima scheda del menu: **Market | Games | Dev | Settings** (tasti 1 2 3 4); il menu si
+  apre su Games. Catalogo dal repository pubblico `f-accomando/bm-market` (GitHub Pages),
+  modello in `market/`, `make market-seed MARKET=../bm-market` ci mette i giochi del progetto.
+- Decisioni dell'utente (2026-10-01): repository dedicato; tutti i giochi scaricabili (per
+  ora restano anche nell'immagine della SD); il market **non blocca il menu** e **non carica
+  niente quando la scheda non è attiva** (segnaposto finché le risorse non arrivano);
+  pubblicazione con pull request e, più avanti, token dal Pi; P2P solo in rete locale (M24).
+- `src/net/catalog.c` (portabile, `make test-catalog`): firma ECDSA P-256 con la chiave
+  del market (`keys/market-pub.pem`, `scripts/market-key.sh`; non quella delle release),
+  record, SHA-256 dei file. `scripts/mkmarket.py` fa il catalogo (stesso formato).
+- `src/kernel/market.c`: i lavori (cache, catalogo, copertine, download) girano in una
+  fibra (`src/kernel/fiber.c`, `src/arch/fiber.S`) nel tempo libero del frame
+  (`menu_view_t.idle`); `net_wait_step` cede il controllo dentro una fibra e restituisce -1
+  se è stata annullata: ogni attesa di rete nuova deve controllarlo.
+- Le cartucce non incorporate scrivono solo `.bm` in `/carts` (`write_refused` in
+  `runtime.c`); gli strumenti incorporati passano da `carts_tool_session` (`bm_set_tool`).
+- Test: `test_market` in QEMU con `market_url=sd:/market/` e `market_delay` (in QEMU non c'è
+  rete); `bm/market.pem` sulla SD aggiunge una chiave.
+
 ## Comunicazione con l'utente
 
 - Riportare la **lista delle milestone** solo quando una milestone è completata per
