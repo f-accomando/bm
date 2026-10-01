@@ -141,16 +141,19 @@ static void sd_boot(void)
 }
 
 /* Everything printed so far goes to bm/bootlog.txt: if the screen stays
- * dark, the SD card read on a PC says how far the boot went. */
-static void save_bootlog(void)
+ * dark, the SD card read on a PC says how far the boot went. Written
+ * before the display starts, after it, and at "ready". */
+static void save_bootlog(int say)
 {
     if (!sd_blocks())
         return;
     const char *log = klog_text();
-    if (fat_mkdirs("/bm") == 0 && fat_write_file("/bm", "BOOTLOG.TXT", log, strlen(log)) == 0)
-        kprintf("boot log saved to bm/bootlog.txt\n");
-    else
+    if (fat_mkdirs("/bm") == 0 && fat_write_file("/bm", "BOOTLOG.TXT", log, strlen(log)) == 0) {
+        if (say)
+            kprintf("boot log saved to bm/bootlog.txt\n");
+    } else {
         kprintf("boot log: cannot write bm/bootlog.txt (%s)\n", fat_error());
+    }
 }
 
 void kernel_main(uintptr_t dtb)
@@ -161,6 +164,14 @@ void kernel_main(uintptr_t dtb)
     plat_led(0, 1);
     heap_init(PLAT_HEAP_END);
 
+    kprintf("\n\x1b[1;36mbm\x1b[0m kernel %s - %s (AArch64)\n", bm_version, PLAT_NAME);
+    print_cpu();
+    /* the SD card before the screen: if the display hangs, bm/bootlog.txt
+     * says so (and the LEDs say where, docs/RGB30.md) */
+    sd_boot();
+    kprintf("display: starting\n");
+    save_bootlog(0);
+
     int err = fb_init(&fb, SCREEN_W, SCREEN_H, 2);
     if (err == 0) {
         exceptions_set_panic_fb(&fb);
@@ -168,12 +179,12 @@ void kernel_main(uintptr_t dtb)
         char title[40];
         ksnprintf(title, sizeof title, "bm %s", bm_version);
         console_set_status(title, PLAT_NAME);
+        for (const char *s = klog_text(); *s; s++)
+            console_putc(*s);                   /* what came before, on screen too */
         kprintf_set_sink(console_putc);
     }
-
-    kprintf("\n\x1b[1;36mbm\x1b[0m kernel %s - %s (AArch64)\n", bm_version, PLAT_NAME);
-    print_cpu();
     kprintf("display: %s%s\n", plat_display_info(), err ? " - not available" : "");
+    save_bootlog(0);
 
     irq_init();
     tick_init(TICK_HZ);
@@ -187,11 +198,10 @@ void kernel_main(uintptr_t dtb)
             (uint32_t)((uint64_t)(tick_count() - n0) * 1000000u / (timer_ticks() - t0)));
     plat_led(-1, 0);
     lua_selftest();
-    sd_boot();
     if (plat_display_problem())
         plat_led(-1, 1);                    /* red stays on: see bm/bootlog.txt */
     kprintf("ready\n");
-    save_bootlog();
+    save_bootlog(1);
     if (err == 0)
         ui_home(&fb);
     ui_serial_repl();               /* no screen: the serial port only */

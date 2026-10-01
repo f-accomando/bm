@@ -69,6 +69,7 @@ relocated:
     b.ne    at_el1
     mov     x0, #(1 << 31)          /* HCR_EL2.RW: EL1 runs AArch64 */
     msr     hcr_el2, x0
+    isb                             /* CNTHCTL_EL2's layout depends on HCR_EL2.E2H */
     mov     x0, #3                  /* CNTHCTL_EL2: EL1 may use the physical counter/timer */
     msr     cnthctl_el2, x0
     msr     cntvoff_el2, xzr

@@ -55,6 +55,7 @@ void irq_init(void)
 
     write_sysreg(S3_0_C4_C6_0, 0xf0);       /* ICC_PMR_EL1: let everything above 0xf0 in */
     write_sysreg(S3_0_C12_C12_3, 0);        /* ICC_BPR1_EL1 */
+    write_sysreg(S3_0_C12_C12_4, 0);        /* ICC_CTLR_EL1: EOImode 0 (EOI also deactivates) */
     write_sysreg(S3_0_C12_C12_7, 1);        /* ICC_IGRPEN1_EL1 */
     isb();
 }

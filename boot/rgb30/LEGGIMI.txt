@@ -12,6 +12,8 @@ ROCKNIX). Accendi con il tasto di accensione (non collegando il caricatore).
 LED: rosso acceso = avvio in corso; verde che lampeggia = bm funziona;
 rosso fisso con il verde che lampeggia = problema allo schermo (leggi
 bm/bootlog.txt dal PC); rosso che lampeggia N volte = errore N.
+Se si blocca accendendo lo schermo, i LED fermi dicono dove: rosso e verde =
+clock, solo verde = controller video, nessuno = DSI/pannello.
 
 Non formattare e non ripartizionare la scheda: il bootloader sta fuori dalla
 partizione. Per rifarla: make TARGET=rgb30 image e riscrivi l'immagine.

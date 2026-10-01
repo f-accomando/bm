@@ -40,7 +40,8 @@
 #define INT_RXDR    (1u << 5)
 #define INT_RCRC    (1u << 6)
 #define INT_RTO     (1u << 8)
-#define INT_DATA_ERR ((1u << 7) | (1u << 9) | (1u << 10) | (1u << 11) | (1u << 13) | (1u << 15))
+#define INT_HLE     (1u << 12)
+#define INT_DATA_ERR ((1u << 7) | (1u << 9) | (1u << 10) | (1u << 11) | INT_HLE | (1u << 13) | (1u << 15))
 
 #define C_WAITPRV   (1u << 13)
 #define C_UPDCLK    (1u << 21)
@@ -133,6 +134,10 @@ int dwmmc_cmd(dwmmc_t *h, uint32_t idx, uint32_t arg, uint32_t flags, uint32_t *
         if (timer_ticks() - t0 > 500000)
             return fail(h, "command timeout", idx);
     wr(h, RINTSTS, INT_CDONE | INT_RE | INT_RCRC | INT_RTO);
+    if (st & INT_HLE) {
+        wr(h, RINTSTS, INT_HLE);
+        return fail(h, "hardware locked", idx);
+    }
     if (st & INT_RTO)
         return -2;
     if (st & INT_RE)

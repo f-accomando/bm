@@ -40,6 +40,7 @@ SECTIONS
      * in place (start.S points TPIDR_EL0 at it) */
     .tdata : ALIGN(16) {
         *(.tdata .tdata.*)
+        . = ALIGN(16);      /* the BSS starts here: cleared with 16-byte stores, MMU off */
     }
     __tls_base = ADDR(.tdata);
     __tdata_source = LOADADDR(.tdata);

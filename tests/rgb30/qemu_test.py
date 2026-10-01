@@ -249,6 +249,9 @@ def test_bootlog_on_sd(b, opts):
     log = subprocess.run(["mtype", "-i", part, "::/bm/bootlog.txt"], capture_output=True,
                          env=env, check=True).stdout.decode(errors="replace")
     assert "QEMU virt (AArch64)" in log and "2^10 = 1024.0" in log, log
+    # the SD card is read before the display starts (a display hang still
+    # leaves the log), and the log is rewritten up to "ready"
+    assert log.index("SD: ") < log.index("display: starting") < log.index("ready"), log
     files = subprocess.run(["mdir", "-i", part, "-b", "::/bm"], capture_output=True,
                            env=env, check=True).stdout.decode()
     assert "racer.s16" in files.lower(), files

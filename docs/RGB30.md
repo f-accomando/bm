@@ -77,13 +77,25 @@ suo indirizzo di link (0x10000000), scende a EL1 e chiama `kernel_main`.
 | rosso fisso + verde che lampeggia | lo schermo ha avuto problemi: leggere `bm/bootlog.txt` |
 | rosso che lampeggia N volte, pausa | eccezione fatale N (1 sincrona, 4 SError, 9 panic) |
 
+Se si ferma mentre accende lo schermo (`bm/bootlog.txt` finisce con `display: starting`), i LED
+fermi dicono dove:
+
+| LED fermi | Bloccato in |
+|---|---|
+| rosso e verde | clock del video (VPLL, `clocks_on`) |
+| solo verde | controller video (VOP2, `vop_init`) |
+| nessuno | collegamento DSI, D-PHY o comandi al pannello (`rk_dsi_init`) |
+| solo rosso | dominio di alimentazione del video, oppure finestra e retroilluminazione |
+
 Lo schermo: il bordo intorno al menu 512×512 è il colore di sfondo del controller video (lo stesso
 blu-grigio scuro del menu). Tutto uniforme blu-grigio = pannello acceso ma finestra non
 funzionante; nero = collegamento DSI o pannello; niente del tutto = retroilluminazione.
 
 **`bm/bootlog.txt`**: a ogni avvio il kernel scrive sulla SD tutto quello che ha stampato
-(versione, CPU, cosa ha fatto il driver dello schermo passo per passo, SD, menu). Se lo schermo
-resta nero, si legge dal PC. Lo stesso registro è nel menu, alla voce *Boot log*.
+(versione, CPU, SD, cosa ha fatto il driver dello schermo passo per passo, menu). La SD si legge
+prima di accendere lo schermo e il registro si scrive tre volte (prima dello schermo, dopo, e a
+`ready`): anche se lo schermo blocca tutto, dal PC si vede fin dove è arrivato. Lo stesso registro
+è nel menu, alla voce *Boot log*.
 
 ## Cosa c'è (stato)
 
@@ -98,8 +110,14 @@ resta nero, si legge dal PC. Lo stesso registro è nel menu, alla voce *Boot log
 - PMIC RK817 su I2C0: spegnimento, tensione della batteria, stato di carica.
 - Menu 512×512: giochi `.s16`, strumenti (Input test, System, Bluetooth, WiFi, Boot log, Lua sulla
   seriale, Reboot, Power off).
-- Da fare in questa milestone: **Bluetooth** (RTL8821CS su UART1, protocollo H5 + firmware
-  Realtek; il trasporto H5 è in `src/bt/h5.c`), **WiFi** (RTL8821CS su SDIO).
+- Bluetooth: RTL8821CS su UART1, protocollo H5 (`src/bt/h5.c`) e firmware Realtek
+  (`src/bt/rtlbt.c`), poi lo stesso stack del Pi (controller e tastiere). H5 e firmware **provati
+  sul PC** contro un chip simulato (`make TARGET=rgb30 test-bt`); **da provare sulla console.**
+- WiFi (RTL8821CS su SDIO, port di rtw88): accensione, firmware, MAC dall'efuse, tabelle MAC/BB/RF,
+  canali e potenza, ricezione e **scansione** (probe request e ascolto sui canali 1-13; a schermo
+  i pacchetti per canale e le risposte al nostro MAC, che provano la trasmissione). Lettura dei
+  pacchetti e dei beacon **provata sul PC** (`make TARGET=rgb30 test-wifi`). Da fare: collegamento
+  (autenticazione, associazione, WPA2 in software, chiavi nel chip), dati, rete (lwIP).
 
 ## File
 
@@ -108,7 +126,11 @@ resta nero, si legge dal PC. Lo stesso registro è nel menu, alla voce *Boot log
   `timer.c`, `exc.c`, `syscalls.c` (picolibc), `fb.c`, `glue.c` (le API dei driver del Pi),
   `pad.c` (comandi, anche dalla seriale), `ui.c` (menu), `main.c`;
   `plat_virt.c` + `sd_virt.c` (QEMU); `plat_rk3566.c`, `rk_gpio.c`, `rk_input.c`, `rk_board.c`
-  (LED), `rk_display.c` (VOP2), `rk_dsi.c` (DSI, D-PHY, pannello), `rk_sd.c`, `rk_pmic.c`.
+  (LED), `rk_display.c` (VOP2), `rk_dsi.c` (DSI, D-PHY, pannello), `rk_mmc.c` (DesignWare MSHC),
+  `rk_sd.c`, `rk_pmic.c`; Bluetooth: `rk_wlbt.c` (alimentazione del modulo), `rk_btuart.c`,
+  `rk_bt.c`; WiFi: `rk_sdio.c`, `rtw_io.c`, `rtw_mac.c` (accensione, firmware, efuse),
+  `rtw_init.c` + `rtw8821c_table.c` (MAC e radio), `rtw_frame.c` (pacchetti, 802.11),
+  `rtw_sta.c` (le funzioni di `wifi/wifi.h`).
 - Codice in comune con il Pi: `gfx/`, `lib/printf.c`, `script/luavm.c` e `lib_bm.c`, `fs/fat.c`,
   `kernel/config.c`, `crumbs.c`, `version.c`, Lua.
 - `tests/rgb30/qemu_test.py` — test in QEMU (avvio, EL2 e spostamento, schermo letto dai pixel,

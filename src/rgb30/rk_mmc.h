@@ -20,7 +20,7 @@ typedef struct {
 #define MMC_CRC     (1u << 8)
 #define MMC_DATA    (1u << 9)
 #define MMC_WRITE   (1u << 10)
-#define MMC_AUTOSTOP (1u << 12)
+#define MMC_STOP    (1u << 14)    /* stop/abort command (CMD12) */
 #define MMC_INIT    (1u << 15)
 
 #define MMC_R1      (MMC_RESP | MMC_CRC)

@@ -9,6 +9,7 @@
 #include "drivers/sd.h"
 #include "drivers/timer.h"
 #include "rk_mmc.h"
+#include "rk_gpio.h"
 #include "io.h"
 #include "lib/printf.h"
 
@@ -40,10 +41,10 @@ int sd_init(void)
     /* clocks on, source 24 MHz (CLKSEL_CON30[10:8] = 0) */
     writel(CRU + 0x33c, 0x00030000u);
     writel(CRU + 0x178, 0x07000000u);
-    if (!dwmmc_card_present(&host)) {
-        ksnprintf(err, sizeof err, "no card in the slot");
-        return -1;
-    }
+    /* card detect: GPIO0_A4 as sdmmc0_det (U-Boot leaves it so; made
+     * sure). If it still says empty, the card is asked anyway. */
+    rk_pin_mux(rk_pin(0, 'A', 4), 1);
+    int present = dwmmc_card_present(&host);
     if (dwmmc_reset(&host))
         return failf("reset", -1);
     if (dwmmc_clock(&host, 15))                 /* 400 kHz */
@@ -55,6 +56,10 @@ int sd_init(void)
     uint32_t t0 = timer_ticks();
     do {
         e = app_cmd(41, (v2 ? 0x40000000u : 0) | 0x00ff8000u, MMC_R3, r);
+        if (e && !present && !v2) {
+            ksnprintf(err, sizeof err, "no card in the slot");
+            return -1;
+        }
         if (e)
             return failf("ACMD41", e);
         if (timer_ticks() - t0 > 1500000) {
@@ -80,7 +85,7 @@ int sd_init(void)
         uint32_t read_bl_len = (r[1] >> 16) & 0xf;
         uint32_t c_size = ((r[1] & 0x3ff) << 2) | (r[2] >> 30);
         uint32_t mult = (r[2] >> 15) & 7;
-        blocks = ((c_size + 1) << (mult + 2)) << read_bl_len >> 9;
+        blocks = (uint32_t)((((uint64_t)c_size + 1) << (mult + 2 + read_bl_len)) >> 9);
     }
     if ((e = dwmmc_cmd(&host, 7, rca << 16, MMC_R1, r)))
         return failf("CMD7", e);
@@ -95,16 +100,37 @@ int sd_init(void)
     return 0;
 }
 
+/* multi-block transfers end with a CMD12 sent here, as U-Boot and Linux
+ * do (not the controller's auto-stop), then the card's busy */
+static int stop(void)
+{
+    uint32_t r;
+    int e = dwmmc_cmd(&host, 12, 0, MMC_R1 | MMC_STOP, &r);
+    uint32_t t0 = timer_ticks();
+    while (dwmmc_busy(&host))
+        if (timer_ticks() - t0 > 1000000) {
+            ksnprintf(host.err, sizeof host.err, "card busy after CMD12");
+            return -1;
+        }
+    return e;
+}
+
 static int xfer(int write, uint32_t lba, uint32_t count, uint32_t *buf)
 {
     dwmmc_data_setup(&host, 512, count * 512);
     uint32_t idx = write ? (count > 1 ? 25 : 24) : (count > 1 ? 18 : 17);
-    uint32_t flags = MMC_R1 | MMC_DATA | (write ? MMC_WRITE : 0) | (count > 1 ? MMC_AUTOSTOP : 0);
+    uint32_t flags = MMC_R1 | MMC_DATA | (write ? MMC_WRITE : 0);
     int e = dwmmc_cmd(&host, idx, hc ? lba : lba * 512, flags, 0);
     if (e)
         return failf(write ? "write command" : "read command", e);
-    if (dwmmc_data(&host, write, buf, count * 512))
-        return failf(write ? "write" : "read", -1);
+    if (dwmmc_data(&host, write, buf, count * 512)) {
+        int r = failf(write ? "write" : "read", -1);
+        if (count > 1)
+            stop();
+        return r;
+    }
+    if (count > 1 && (e = stop()) != 0)
+        return failf("stop (CMD12)", e);
     return 0;
 }
 

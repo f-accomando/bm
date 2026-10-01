@@ -113,7 +113,12 @@ static void clocks_on(void)
         LOG("VPLL %s", r ? "NO LOCK" : "set (2nd try)");
     }
     writel(CRU + 0x350, 0x0b470000u);               /* ungate VO and VOP clocks, dclk_vop1 */
-    writel(CRU + 0x198, 0x00df0001u);               /* aclk_vop_pre = CPLL / 2 */
+    /* aclk_vop_pre = CPLL / n, at most 500 MHz (CPLL is 1000 MHz with
+     * mainline U-Boot: n = 2) */
+    uint32_t cpll = pll_khz(0x60, 4), div = cpll ? (cpll + 499999) / 500000 : 2;
+    if (div < 1) div = 1;
+    if (div > 32) div = 32;
+    writel(CRU + 0x198, 0x00df0000u | (div - 1));
     writel(CRU + 0x1a0, 0x0cff0407u);               /* dclk_vop1 = VPLL / 8 */
     LOG(", dclk %lu kHz", pll_khz(0xa0, 12) / 8);
 }
@@ -220,19 +225,26 @@ int plat_display_init(uint32_t w, uint32_t h, uint32_t depth, uintptr_t addr)
         return -1;
     if (!d.up) {
         d.pos = 0;
+        /* the LEDs say which step a hang is in (docs/RGB30.md): both
+         * on in the clocks, green alone in the VOP, none in the DSI
+         * and panel; red alone before or after */
         int r = pd_vo_on();
         if (r) {
             LOG("power domain VO stuck (%d)", r);
             d.failed = 1;
             return -1;
         }
+        plat_led(1, 1);
         clocks_on();
+        plat_led(1, 0);
         vop_init();
+        plat_led(0, 0);
         timer_delay_ms(20);
         LOG("; ");
         char dsi[160];
         r = rk_dsi_init(dsi, sizeof dsi);
         LOG("%s", dsi);
+        plat_led(0, 1);
         d.up = 1;
         window(w, h, depth, addr);
         timer_delay_ms(20);

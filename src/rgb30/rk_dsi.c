@@ -349,7 +349,9 @@ int rk_dsi_init(char *log, unsigned size)
     uint32_t st0 = dsi_r(DSI_INT_ST0), st1 = dsi_r(DSI_INT_ST1);
     if (st0 || st1)
         LOG(", errors %lx %lx", st0, st1);
-    return bad ? -1 : (lock ? -2 : 0);
+    /* the PHY's lock bit is only a hint (Linux polls it as a debug
+     * message, before the PHY is even on): a failed command is the problem */
+    return bad ? -1 : 0;
 #undef LOG
 }
 #endif

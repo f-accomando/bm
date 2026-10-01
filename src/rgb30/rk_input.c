@@ -42,6 +42,7 @@ static void input_init(void)
         rk_pin_pull(pin, RK_PULL_UP);
         rk_gpio_input(pin);
     }
+    writel(0xfdd20368u, 0x01800000u);           /* pclk_saradc, clk_saradc on (CLKGATE_CON26) */
     rk_gpio_output(rk_pin(0, 'B', 5), 0);       /* mux enabled */
     rk_gpio_output(rk_pin(0, 'B', 6), 1);       /* channel 0 (active low) */
     rk_gpio_output(rk_pin(0, 'B', 7), 1);
