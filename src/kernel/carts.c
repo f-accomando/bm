@@ -5,6 +5,7 @@
 #include "crumbs.h"
 #include "home.h"
 #include "market.h"
+#include "publish.h"
 #include "menu_ui.h"
 #include "bm/bm.h"
 #include "input.h"
@@ -508,7 +509,7 @@ static int is_suspended(const cart_t *c)
 
 /* The options of a cartridge (X on its cover): a panel like the settings. */
 enum { C_PLAY = 100, C_CLOSE, C_SDK, C_SOUND, C_STUDIO3D, C_AUTHOR, C_FILE, C_SIZE, C_TYPE, C_SAVE,
-       C_DEL_SAVE, C_DELETE, C_CODE };
+       C_DEL_SAVE, C_DELETE, C_CODE, C_PUBLISH };
 
 static int opt_cart;            /* the cartridge of the HOME_CART panel */
 static int opt_market;          /* the game of the HOME_MARKET panel */
@@ -542,6 +543,8 @@ static void cart_panel(home_panel_t *p)
                  "Sounds, sound effects and music of this cartridge", NULL);
         home_row(p, MENU_ROW_ACTION, C_STUDIO3D, "Open in the 3D studio",
                  "Its 3D models and animations: play, build, rig, animate", NULL);
+        home_row(p, MENU_ROW_ACTION, C_PUBLISH, "Publish to the Market",
+                 "A pull request with your GitHub token: everyone can get it", NULL);
     }
     home_row(p, MENU_ROW_INFO, C_AUTHOR, "Author", "From the cartridge header",
              "%s", c->author[0] ? c->author : "-");
@@ -576,6 +579,11 @@ static void cart_act(int row, int how, home_do_t *d)
         bm_close_suspended();
         susp_path[0] = 0;
         ksnprintf(d->note, sizeof d->note, "closed %s", c->name);
+        break;
+    case C_PUBLISH:
+        publish_setup(c->path, c->title, c->author);
+        d->what = HOME_OPEN;
+        d->panel = HOME_PUBLISH;
         break;
     case C_DEL_SAVE:
         if (how == 0) {
@@ -670,6 +678,8 @@ void carts_menu(framebuffer_t *fb)
                     cart_panel(&pb);
                 else if (id == HOME_MARKET)
                     market_panel(opt_market, &pb);
+                else if (id == HOME_PUBLISH)
+                    publish_panel(&pb);
                 else
                     home_panel(id, &pb);
                 built = id;
@@ -887,6 +897,8 @@ void carts_menu(framebuffer_t *fb)
                         susp_path[0] = 0;
                     }
                     market_act(opt_market, ask_row, HOME_YES, &d);
+                } else if (id == HOME_PUBLISH) {
+                    publish_act(ask_row, HOME_YES, &d);
                 } else {
                     home_act(id, ask_row, HOME_YES, &d);
                 }
@@ -933,6 +945,8 @@ void carts_menu(framebuffer_t *fb)
                     cart_act(row, action == 1 ? 0 : dx, &d);
                 else if (id == HOME_MARKET)
                     market_act(opt_market, row, action == 1 ? 0 : dx, &d);
+                else if (id == HOME_PUBLISH)
+                    publish_act(row, action == 1 ? 0 : dx, &d);
                 else
                     home_act(id, row, action == 1 ? 0 : dx, &d);
                 ask_row = row;

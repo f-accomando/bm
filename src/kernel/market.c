@@ -912,6 +912,33 @@ void market_act(int i, int row, int how, home_do_t *d)
     }
 }
 
+static int same_ci(const char *a, const char *b)
+{
+    for (;; a++, b++) {
+        int x = *a >= 'A' && *a <= 'Z' ? *a + 32 : *a, y = *b >= 'A' && *b <= 'Z' ? *b + 32 : *b;
+        if (x != y)
+            return 0;
+        if (!x)
+            return 1;
+    }
+}
+
+int market_lookup(const char *title, const char *author, char *id, size_t idn, char *version,
+                  size_t vn, char *license, size_t ln, char *about, size_t an)
+{
+    for (int i = 0; have && i < cat.n; i++) {
+        const catalog_game_t *g = &cat.games[i];
+        if (same_ci(g->title, title) && same_ci(g->author, author)) {
+            ksnprintf(id, idn, "%s", g->id);
+            ksnprintf(version, vn, "%s", g->version);
+            ksnprintf(license, ln, "%s", g->license);
+            ksnprintf(about, an, "%s", g->about);
+            return 0;
+        }
+    }
+    return -1;
+}
+
 int market_take_changed(void)
 {
     int c = changed;

@@ -58,6 +58,12 @@ enum { M_GET = 300, M_PLAY, M_UPDATE, M_AUTHOR, M_VERSION, M_LICENSE, M_SIZE, M_
 void market_panel(int i, home_panel_t *p);
 void market_act(int i, int row, int how, home_do_t *d);
 
+/* The catalog's record of the game with this title and author (case
+ * ignored), if the catalog is in memory: its id, version, license and
+ * about (publish.c updates the same folder). 0, or -1. */
+int  market_lookup(const char *title, const char *author, char *id, size_t idn, char *version,
+                   size_t vn, char *license, size_t ln, char *about, size_t an);
+
 /* 1 once after a game was installed or deleted: the menu reads the SD card
  * again (then market_carts_changed). */
 int  market_take_changed(void);

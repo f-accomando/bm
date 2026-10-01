@@ -1190,8 +1190,14 @@ Passi:
    dei giochi), `make market-seed`. Manca: creare `f-accomando/bm-market` (pubblico), la
    chiave (`scripts/market-key.sh`, secret `BM_MARKET_KEY`) e Pages con sorgente "GitHub
    Actions".
-6. **Pubblicazione dal Pi**: l'SDK apre una pull request con il token (fork, ramo, file,
-   pull request con le API di GitHub).
+6. ✅ (PC, `make test-github`; QEMU, `test_publish`) **Pubblicazione dal Pi**: X su un
+   gioco della SD, *Publish to the Market* (`src/kernel/publish.c`): cartella (del catalogo
+   se il gioco c'è già, se no dal nome del file), versione (la data), licenza a scelta,
+   token `github_token` in `bm/config.txt`; poi `src/net/github.c` con le API REST:
+   utente del token, ramo nel market per il proprietario o fork (atteso, poi allineato) per
+   gli altri, `.bm` e `info.txt` (un aggiornamento tiene il nome del `.bm` già presente),
+   pull request; l'esito sulla console di testo.
+   - **Da verificare sul Pi**: una pull request vera verso bm-market con un token.
 7. **Scambio in rete locale** (M24).
 
 - **Fatto quando:** dalla scheda Market del Pi si sceglie un gioco del catalogo, si

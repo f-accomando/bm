@@ -2423,6 +2423,73 @@ def test_market(b, opts):
         shutil.rmtree(tmp, ignore_errors=True)
 
 
+def test_publish(b, opts):
+    """M25 step 6: X on a game of the SD card, "Publish to the Market": the
+    folder from the file name, today's version, the license chosen with
+    left/right, the token from bm/config.txt; sending asks first, then runs
+    on the text console (here without a network: it says so) and A goes
+    back to the menu."""
+    tmp = tempfile.mkdtemp(prefix="bm-publish-")
+    try:
+        img = os.path.join(tmp, "sd.img")
+        cfg = os.path.join(tmp, "config.txt")
+        with open(cfg, "w") as f:
+            f.write("layout=us\nwifi_boot=0\ngithub_token=github_pat_test\n")
+        cart = os.path.join(tmp, "game.bm")
+        with open(cart, "wb") as f:
+            f.write(mkbm.pack(MARKET_GAME.encode(), title="My Game", author="tests"))
+        mksd.build(img, [(cfg, "bm/config.txt"), (cart, "carts/My Game.bm")])
+        q = Qemu(b("kernel.img"), ["-drive", f"if=sd,format=raw,file={img}"])
+
+        def keys(k):
+            for c in k:
+                q.send(c)
+                time.sleep(0.25)
+
+        def screen(want, gone=()):
+            for _ in range(20):
+                _, text = settled_screen(q, lambda i, t: True, tries=1)
+                joined = "\n".join(text)
+                if all(w in joined for w in want) and not any(g in joined for g in gone):
+                    return joined
+                time.sleep(0.2)
+            raise AssertionError(f"want {want}, not {gone}, on the screen:\n{joined}")
+
+        try:
+            q.expect(MENU, timeout=30)
+            time.sleep(0.5)
+            keys("x")                               # the options of My Game
+            screen(["My Game", "Play"])
+            keys("sssss")                           # after the four "Open in"
+            screen(["Publish to the Market", "A pull request with your GitHub token"])
+            keys("\r")
+            screen(["Publish > My Game", "games/my-game", "License", "MIT", "GitHub token", "set",
+                    "f-accomando/bm-market", "Send the pull request"])
+            if opts.shots:
+                _save_png(q.screendump(), os.path.join(opts.shots, "publish.png"))
+            keys("ss")                              # the license: right, right, left
+            keys("d")
+            screen(["< CC-BY-4.0 >"])
+            keys("d")
+            screen(["< CC-BY-SA-4.0 >"])
+            keys("a")
+            screen(["< CC-BY-4.0 >"])
+            keys("sss")                             # Send: a question first
+            keys("\r")
+            screen(["Publish My Game?", "Pull request to the Market, license CC-BY-4.0", "Publish"])
+            keys("\r")
+            q.expect("bm Market: publishing My Game", timeout=10)
+            q.expect("games/my-game, version 1, license CC-BY-4.0, to f-accomando/bm-market", timeout=5)
+            q.expect("no network: connect in Settings > WiFi and network", timeout=5)
+            q.expect("back to the menu", timeout=5)
+            keys("\r")
+            screen(["Publish > My Game"])           # back on the panel
+        finally:
+            q.close()
+    finally:
+        shutil.rmtree(tmp, ignore_errors=True)
+
+
 def test_bt_two_pads(b, opts):
     """M16: two DS4 paired earlier (the first by an older kernel, as
     'bt_pad') come back together and light up in their players' colours; a

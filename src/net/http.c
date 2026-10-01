@@ -225,7 +225,8 @@ int http_request(const char *url, const http_req_t *req, http_sink_t sink, void 
             continue;
         }
         int e = body_to_sink(&r, info->length, chunked,
-                             info->status >= 200 && info->status < 300 ? sink : NULL, ctx, info);
+                             (info->status >= 200 && info->status < 300) || req->any_status ? sink : NULL,
+                             ctx, info);
         http_transport->close(c);
         if (e == -2)
             snprintf(info->error, sizeof info->error, "stopped after %lu bytes (too big?)",

@@ -562,6 +562,14 @@ giochi gratuiti da scaricare, dal repository pubblico
   `info.txt` con versione, licenza obbligatoria e descrizione); vedi il README del market
   (il modello è in `market/`). Il CI del market controlla le pull request
   (`scripts/mkmarket.py --check`) e, dopo il merge, costruisce, firma e pubblica il catalogo.
+- **Pubblicare dal Pi**: X su un gioco della SD, *Publish to the Market*: cartella (quella
+  del catalogo se il gioco c'è già, se no dal nome del file), versione (la data), licenza
+  (sinistra/destra), poi *Send the pull request*. Serve un token personale di GitHub in
+  `bm/config.txt` (`github_token=...`, un token "fine-grained" che può scrivere i
+  repository pubblici del proprio account). Il proprietario del market apre un ramo nel
+  market; chiunque altro un fork. L'esito (e l'indirizzo della pull request) compare sulla
+  console di testo (`src/net/github.c`, `src/kernel/publish.c`; test: `make test-github`
+  contro un finto server delle API, `test_publish` in QEMU).
 - **I giochi del progetto** sono tutti nel market (e per ora anche nell'immagine della SD):
   `make market-seed MARKET=../bm-market` li costruisce e aggiorna le loro cartelle.
 

@@ -100,6 +100,9 @@ Lua 5.4 embedded. Documentazione: `README.md`, `docs/ROADMAP.md`, `docs/HARDWARE
   `runtime.c`); gli strumenti incorporati passano da `carts_tool_session` (`bm_set_tool`).
 - Test: `test_market` in QEMU con `market_url=sd:/market/` e `market_delay` (in QEMU non c'è
   rete); `bm/market.pem` sulla SD aggiunge una chiave.
+- Pubblicazione dal Pi: `src/kernel/publish.c` (pannello nelle opzioni dei giochi) e
+  `src/net/github.c` (API REST di GitHub, portabile: `make test-github` con un finto
+  server); token `github_token`, market `market_repo`, API `github_api` in `bm/config.txt`.
 
 ## Comunicazione con l'utente
 

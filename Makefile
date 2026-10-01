@@ -231,7 +231,7 @@ test-nano8: $(BUILD)/host/n8host $(BUILD)/host/n8cartinfo $(BUILD)/host/luahost 
 	$(PYTHON) tests/nano8/run.py --build $(BUILD) $(NANO8_ROMS)
 
 .DEFAULT_GOAL := all
-.PHONY: FORCE test-smp test-catalog market-seed all clean firmware image image-pi1 sdcard install sdcard-chainloader sdcard-stress qemu qemu-screenshot \
+.PHONY: FORCE test-smp test-catalog test-github market-seed all clean firmware image image-pi1 sdcard install sdcard-chainloader sdcard-stress qemu qemu-screenshot \
         run-serial test test-bm test-ai ai-model test-usb test-audio test-fat test-kitchen test-titan test-sound test-nano8 \
         test-net test-http test-https test-release release disasm wav test-studio test-studio-ui studio
 
@@ -371,7 +371,7 @@ qemu: $(BUILD)/kernel.img
 qemu-screenshot: $(BUILD)/kernel.img
 	./scripts/qemu-screenshot.sh $< $(BUILD)/screen.png
 
-test: all test-bm test-usb test-fat test-audio test-kitchen test-titan test-sound test-nano8 test-net test-http test-https test-catalog \
+test: all test-bm test-usb test-fat test-audio test-kitchen test-titan test-sound test-nano8 test-net test-http test-https test-catalog test-github \
       test-release test-smp test-ai test-studio
 	$(PYTHON) tests/qemu_test.py --build $(BUILD)
 
@@ -438,6 +438,16 @@ $(BUILD)/host/test_catalog: tests/net/test_catalog.c src/net/catalog.c src/net/c
 	$(HOSTCC) -O1 -w -DBM_HOST_TEST -Isrc -Isrc/net -Ithird_party/mbedtls/include \
 		-DMBEDTLS_CONFIG_FILE='"bm_mbedtls.h"' -o $@ tests/net/test_catalog.c src/net/catalog.c \
 		src/bm/n8cart.c src/bm/n8.c src/bm/n8font.c $(MBEDTLS_SRCS) -lm
+
+# Publishing to the Market from the console (M25): src/net/github.c over
+# POSIX sockets against a fake GitHub API (branch or fork, files, pull request)
+test-github: $(BUILD)/host/test_github
+	$(PYTHON) tests/net/run_github_test.py $(BUILD)/host/test_github
+
+$(BUILD)/host/test_github: tests/net/test_github.c src/net/github.c src/net/github.h src/net/http.c src/net/http.h
+	@mkdir -p $(dir $@)
+	$(HOSTCC) -O1 -Wall -Wextra -Isrc -Isrc/net -DHTTP_USER_AGENT='"test"' -o $@ tests/net/test_github.c \
+		src/net/github.c src/net/http.c
 
 # The market's repository (M25): its template (market/) and the games of
 # the project, built here, into MARKET (a clone of f-accomando/bm-market).

@@ -27,6 +27,8 @@ typedef struct {
     const void *body;           /* for PUT / POST */
     size_t body_len;
     uint32_t timeout_ms;        /* per read; 0: 15 s */
+    int any_status;             /* the body of any status goes to the sink (an API's
+                                 * error messages); else only 2xx bodies do */
 } http_req_t;
 
 /* Returns the HTTP status (>= 100), or -1 with info->error set. req may be
