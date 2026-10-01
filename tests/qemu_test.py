@@ -2721,8 +2721,14 @@ def test_assistant(b, opts):
         k("\x1b[19~")                                       # F8: the speed test
         out = q.expect("ms each", timeout=60).decode(errors="replace")
         assert "assistant: speed 100 questions" in out, out
-        time.sleep(0.5)
+        # the answers of the ARM code (SIMD) are the right ones
+        see(["Collisione tra due rettangoli", "Saltare con la gravit", "Muovere un personaggio"])
         shot("tool")
+        k("\x1b[20~")                                       # F9: an error explained
+        see(["line 12: did you mean spr?", "attempt to call a nil value"])
+        shot("error")
+        k("\x1b", 0.5)                                     # Esc closes the panel
+        see(["F9 error"])
         k("\x1b", 0.5)                                     # Esc: back to the monitor
         out = q.expect("> ", timeout=10).decode(errors="replace")
         assert "error" not in out, out

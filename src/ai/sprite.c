@@ -21,6 +21,7 @@ typedef struct {
     uint8_t m[N];               /* material, 0 = empty */
     uint8_t lv[N];              /* forced shade + 1 (0 = from the light) */
     uint32_t rng;
+    uint32_t seed;              /* the variant: some recipes make frames of it */
     uint32_t col[NMAT];
     uint8_t flat[NMAT];         /* one shade: eyes, sparks */
     uint8_t soft[NMAT];         /* no outline next to it: glows, glass */
@@ -415,6 +416,68 @@ static void r_hero(cv_t *c)
     eyes(c, 0.3f, 0.08f, 6);
 }
 
+/* side view, facing right; the seed picks the step: 1 standing, 2 and 3
+ * walking (three variants make a walk cycle) */
+static void r_hero_side(cv_t *c)
+{
+    c->col[1] = pick(c, P_BRIGHT, 8);           /* shirt */
+    c->col[2] = 0x3A4A7A;                       /* trousers */
+    c->col[3] = pick(c, P_SKIN, 5);
+    c->col[4] = pick(c, P_HAIR, 7);
+    c->col[6] = 0x181820; c->flat[6] = 1;
+    c->col[7] = 0x40302A;                       /* shoes */
+    int step = (int)((c->seed - 1) % 3);
+    if (step == 0) {
+        box(c, 0.38f, 0.7f, 0.48f, 0.9f, 2);
+        box(c, 0.5f, 0.7f, 0.6f, 0.9f, 2);
+        box(c, 0.36f, 0.88f, 0.5f, 0.97f, 7);
+        box(c, 0.5f, 0.88f, 0.66f, 0.97f, 7);
+    } else {
+        float d = step == 1 ? 1.0f : -1.0f;
+        seg(c, 0.49f, 0.72f, 0.49f + 0.13f * d, 0.88f, 0.06f, 2);
+        seg(c, 0.49f, 0.72f, 0.49f - 0.13f * d, 0.88f, 0.06f, 2);
+        box(c, 0.43f + 0.13f * d, 0.88f, 0.59f + 0.13f * d, 0.97f, 7);
+        box(c, 0.4f - 0.13f * d, 0.88f, 0.56f - 0.13f * d, 0.97f, 7);
+    }
+    box(c, 0.34f, 0.46f, 0.64f, 0.72f, 1);                              /* body */
+    ell(c, 0.5f, 0.27f, 0.19f, 0.2f, 3);                                /* head */
+    box(c, 0.3f, 0.06f, 0.66f, 0.17f, 4);                               /* hair */
+    box(c, 0.3f, 0.06f, 0.4f, 0.36f, 4);
+    if (rnd(c) < 0.5f)
+        box(c, 0.6f, 0.08f, 0.7f, 0.14f, 4);                            /* fringe */
+    float arm = step == 0 ? 0.0f : step == 1 ? -0.08f : 0.08f;
+    seg(c, 0.5f, 0.5f, 0.5f + arm, 0.66f, 0.05f, 1);                    /* arm */
+    ell(c, 0.5f + arm, 0.69f, 0.05f, 0.04f, 3);                         /* hand */
+    set(c, (int)(0.62f * (float)c->w), (int)(0.26f * (float)c->h), 6);  /* eye */
+    if (c->w >= 32)
+        set(c, (int)(0.62f * (float)c->w), (int)(0.26f * (float)c->h) + 1, 6);
+}
+
+/* a car seen from above, the front up */
+static void r_car(cv_t *c)
+{
+    c->col[1] = pick(c, P_BRIGHT, 8);
+    c->col[2] = 0x80C8E8; c->soft[2] = 1;       /* windows */
+    c->col[4] = 0x282830;                       /* tyres */
+    c->col[5] = 0xFFE890; c->flat[5] = 1;       /* lights */
+    c->col[3] = 0xF0F0F0;                       /* racing stripes */
+    box(c, 0.22f, 0.16f, 0.32f, 0.32f, 4);
+    box(c, 0.22f, 0.66f, 0.32f, 0.82f, 4);
+    box(c, 0.28f, 0.08f, 0.5f, 0.92f, 1);
+    ell(c, 0.36f, 0.14f, 0.08f, 0.08f, 1);
+    ell(c, 0.36f, 0.88f, 0.08f, 0.06f, 1);
+    box(c, 0.32f, 0.3f, 0.5f, 0.42f, 2);                                /* windscreen */
+    box(c, 0.34f, 0.68f, 0.5f, 0.76f, 2);                               /* rear window */
+    set(c, (int)(0.34f * (float)c->w), (int)(0.08f * (float)c->h), 5);
+    if (rnd(c) < 0.5f && c->w >= 16) {
+        box(c, 0.42f, 0.08f, 0.46f, 0.3f, 3);                           /* stripes */
+        box(c, 0.42f, 0.42f, 0.46f, 0.68f, 3);
+        box(c, 0.42f, 0.76f, 0.46f, 0.92f, 3);
+    }
+    mirror(c);
+    shade(c, c->w / 2 - 1, (int)(0.55f * (float)c->h), 3);
+}
+
 static void r_slime(cv_t *c)
 {
     c->col[1] = pick(c, P_BRIGHT, 8);
@@ -704,25 +767,36 @@ static void r_bomb(cv_t *c)
     shade(c, (int)(0.32f * (float)c->w), (int)(0.44f * (float)c->h), 4);
 }
 
+/* a flame: a drop with tongues at the top, in nested layers anchored at
+ * the bottom (red, orange, yellow, white); u centred, v from the top */
+static int flame_in(float u, float v, float lean, float ph)
+{
+    if (v > 0.97f || v < 0.03f)
+        return 0;
+    float a = u - lean * (0.64f - v);
+    if (v >= 0.64f)
+        return a * a + (v - 0.64f) * (v - 0.64f) <= 0.33f * 0.33f;
+    float t = (v - 0.03f) / 0.61f;             /* 0 at the tip, 1 at the widest */
+    float half = 0.33f * powf(t, 0.75f) * (1.0f + 0.4f * sinf(a * 21.0f + ph) * (1.0f - t));
+    return fabsf(a) <= half;
+}
+
 static void r_fire(cv_t *c)
 {
-    c->col[1] = 0xF06020; c->soft[1] = 1;
-    c->col[2] = 0xF8C030; c->soft[2] = 1;
-    c->col[3] = 0xFFF0C0; c->flat[3] = 1; c->soft[3] = 1;
-    float ph = rf(c, 0, 6.28f);
+    static const uint32_t cols[4] = { 0xD8401C, 0xF88A2C, 0xFFD050, 0xFFF8D8 };
+    static const float scale[4] = { 1.0f, 0.76f, 0.52f, 0.3f };
+    for (int k = 0; k < 4; k++) {
+        c->col[k + 1] = cols[k];
+        c->flat[k + 1] = c->soft[k + 1] = 1;
+    }
+    float ph = rf(c, 0, 6.28f), lean = rf(c, -0.12f, 0.12f);
     for (int y = 0; y < c->h; y++)
-        for (int x = 0; x < c->w; x++) {
-            float u = U(c, x) - 0.5f, v = V(c, y);
-            float wob = 0.05f * sinf(v * 14 + ph);
-            /* a teardrop: wide at the bottom, a point at the top */
-            float half = v > 0.6f ? 0.4f * sqrtf(1 - ((v - 0.66f) / 0.32f) * ((v - 0.66f) / 0.32f))
-                                  : 0.4f * (v - 0.04f) / 0.62f;
-            if (v > 0.98f || half <= 0) continue;
-            float a = fabsf(u - wob);
-            if (a < half) c->m[y * c->w + x] = 1;
-            if (a < half * 0.6f && v > 0.3f) c->m[y * c->w + x] = 2;
-            if (a < half * 0.3f && v > 0.55f) c->m[y * c->w + x] = 3;
-        }
+        for (int x = 0; x < c->w; x++)
+            for (int k = 0; k < 4; k++) {
+                float u = (U(c, x) - 0.5f) / scale[k], v = 0.97f - (0.97f - V(c, y)) / scale[k];
+                if (flame_in(u, v, lean, ph + 1.3f * (float)k))
+                    c->m[y * c->w + x] = (uint8_t)(k + 1);
+            }
 }
 
 static void r_bullet(cv_t *c)
@@ -957,7 +1031,8 @@ typedef struct {
 static const recipe_t recipes[] = {
     { "ship", "spaceship", r_ship },        { "alien", "space invader", r_alien },
     { "monster", "monster", r_monster },    { "robot", "robot", r_robot },
-    { "hero", "character", r_hero },        { "slime", "slime", r_slime },
+    { "hero", "character", r_hero },        { "hero_side", "character, side view", r_hero_side },
+    { "car", "car", r_car },                { "slime", "slime", r_slime },
     { "ghost", "ghost", r_ghost },          { "bat", "bat", r_bat },
     { "skull", "skull", r_skull },          { "coin", "coin", r_coin },
     { "gem", "gem", r_gem },                { "heart", "heart", r_heart },
@@ -1021,6 +1096,7 @@ int spr_make(const spr_req_t *r, spr_img_t *out)
     c.rng = (h ^ (r->seed * 2654435761u)) | 1;
     for (int i = 0; i < 4; i++)
         rnd(&c);
+    c.seed = r->seed ? r->seed : 1;
     recipes[k].draw(&c);
     if (r->color[0] != SPR_NO_COLOR) c.col[1] = r->color[0];
     if (r->color[1] != SPR_NO_COLOR) c.col[2] = r->color[1];

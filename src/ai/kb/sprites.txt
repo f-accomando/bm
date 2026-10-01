@@ -274,3 +274,21 @@ title: Tile di terreno con l'erba (piattaforma)
 ask: crea il terreno di un platform | disegna una piattaforma | ground tile | suolo
 ask: terra con l'erba sopra | pavimento del livello | neve sul terreno
 text: Erba (o neve) sopra e terra sotto: si ripete da sinistra a destra.
+
+== sprite.hero_side
+kind: sprite
+gen: hero_side
+title: Personaggio di profilo (platform)
+ask: personaggio di profilo | omino visto di lato | player side view sprite | platform hero
+ask: personaggio per un platform | camminata di lato | eroe che cammina verso destra
+ask: sprite del giocatore di lato | walking animation side
+text: Guarda a destra (spr con flip_x per la sinistra). Le varianti 1, 2 e 3 sono i
+passi: insieme fanno la camminata.
+
+== sprite.car
+kind: sprite
+gen: car
+title: Automobile vista dall'alto
+ask: crea una macchina | disegna un'auto | car sprite | macchina da corsa vista dall'alto
+ask: automobile per un gioco di corse | veicolo | racing car | top down car
+text: Carrozzeria, vetri, ruote e fari, con il muso in alto; a volte le strisce.

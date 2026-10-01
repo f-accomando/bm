@@ -158,3 +158,5 @@ un fantasmino bianco => sprite.ghost
 una chiave d'oro => sprite.key
 il fuoco di un falò => sprite.fire
 un albero di natale => sprite.tree
+un omino che cammina di lato per il mio platform => sprite.hero_side
+la macchinina per il gioco di corse => sprite.car

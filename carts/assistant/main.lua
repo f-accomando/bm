@@ -11,7 +11,7 @@ local C_TEXT, C_DIM, C_ACC = 0xE0E4F0, 0x8088A0, 0xFFC050
 
 local code = {}                          -- the lines inserted so far
 local sprites = {}                       -- the sprites drawn, newest last
-local status = "F6: ask a question   F7: draw a sprite   F8: speed test"
+local status = "F6 ask  F7 sprite  F8 speed test  F9 an error, explained"
 local bench                              -- the speed test, once run
 
 local function on_insert(text)
@@ -84,6 +84,10 @@ function _update()
     if k == "f6" or k == "^a" then open("code")
     elseif k == "f7" then open("sprite")
     elseif k == "f8" then speed_test()
+    elseif k == "f9" then
+      -- what an editor will do with the red line of a game that stopped
+      assist.open{ error = "main.lua:12: attempt to call a nil value (global 'sprr')",
+                   on_insert = on_insert }
     elseif k == "esc" then quit() end
     k = keyp()
   end
@@ -103,7 +107,7 @@ function _draw()
   cls(C_BG)
   rectfill(0, 0, W, 16, C_BAR)
   print("bm assistant", 8, 0, C_ACC)
-  local keys = "F6 ask  F7 sprite  F8 speed  Esc exit"
+  local keys = "F6 ask F7 sprite F8 speed F9 error Esc"
   print(keys, W - 8 - #keys * 8, 0, C_DIM)
   -- text on the 8x16 cells (x a multiple of 8, y of 16)
   -- the code the panel inserted

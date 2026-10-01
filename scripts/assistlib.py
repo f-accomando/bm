@@ -209,7 +209,10 @@ def parse_kb(paths):
             elif line.strip() and not line.startswith('#'):
                 raise ValueError('%s: line outside a field' % where)
     for e in entries:
-        e.text = e.text.strip('\n')
+        # the text is prose: its lines are joined (the panel wraps it to its
+        # width); a blank line starts a new paragraph
+        paras = re.split(r'\n\s*\n', e.text.strip('\n'))
+        e.text = '\n'.join(' '.join(l.strip() for l in p.split('\n')) for p in paras)
         e.code = e.code.strip('\n')
         if e.kind not in KINDS:
             raise ValueError('%s: kind %r (one of %s)' % (e.where, e.kind, ', '.join(KINDS)))

@@ -1238,7 +1238,7 @@ Task:
    (`scripts/assistlib.py`).
 2. ✅ **Testo** (`src/ai/text.c`): lettere accentate di CP437 (tastiera) e UTF-8 piegate,
    parole funzione tolte, parole, coppie di parole e tris di lettere.
-3. ✅ **Base di conoscenza** (`src/ai/kb/*.txt`, formato in `src/ai/kb/README.md`): 208
+3. ✅ **Base di conoscenza** (`src/ai/kb/*.txt`, formato in `src/ai/kb/README.md`): 210
    voci. Ogni funzione delle API, 79 esempi con il codice (movimento, salti, collisioni,
    spari, nemici, mappe, menu, suono, salvataggi, 3D, luci, Lua), 23 errori di Lua con la
    correzione, consigli, le ricette degli sprite. Testo in italiano, codice ASCII che
@@ -1248,13 +1248,14 @@ Task:
    quantizzazione a 8 bit. Il risultato (`src/ai/assist.weights`) è nel repository: `make`
    non ha bisogno di numpy. `scripts/mkassist.py` impacchetta voci e rete nel file BMAI
    incluso nel kernel.
-5. ✅ **Ricette di sprite** (`src/ai/sprite.c`): 36 (astronave, alieno, mostro, robot,
-   personaggio, slime, fantasma, pipistrello, teschio, moneta, gemma, cuore, stella,
+5. ✅ **Ricette di sprite** (`src/ai/sprite.c`): 38 (astronave, alieno, mostro, robot,
+   personaggio di fronte e di profilo, automobile, slime, fantasma, pipistrello, teschio, moneta, gemma, cuore, stella,
    chiave, spada, pozione, forziere, cassa, albero, fiore, fungo, roccia, bomba, fiamma,
    proiettile, esplosione, mela, nuvola; tile di erba, mattoni, pietra, acqua, legno,
    sabbia, lava, terreno). 8x8, 16x16 o 32x32; forme, simmetria, cinque toni per colore
    con la luce dall'alto a sinistra, contorno; colori e misura dalle parole ("slime rosso
-   32x32"); ogni seme una variante (alcune fanno animazioni: moneta che gira, ali).
+   32x32"); ogni seme una variante (alcune fanno animazioni: moneta che gira, ali,
+   fiamma, passi del personaggio di profilo).
 6. ✅ **Lua**: `ai.ask`, `ai.entry`, `ai.list`, `ai.near`, `ai.sprite`, `ai.recipes`
    (docs/API.md) e `require "assist"`, il **pannello** che ogni strumento apre con un tasto:
    risponde mentre scrivi, Invio inserisce il codice o lo sprite, modalità errore (riga,
@@ -1274,12 +1275,14 @@ Task:
 
 Numeri: in QEMU 0,45 ms per domanda (sul PC 0,03 ms) e 1 ms per uno sprite 16x16; il
 kernel cresce di ~410 KB (rete 270 KB, voci e testi 80 KB). RAM: niente finché non si
-chiede (rete e voci restano nel kernel), poi le tabelle Lua della risposta.
+chiede (rete e voci restano nel kernel), poi le tabelle Lua della risposta. Con 2048 o 1024
+caratteristiche invece di 4096 la rete sarebbe più piccola di 130-200 KB ma, su tre
+addestramenti, perde in media 2 domande di prova su 133: restano 4096.
 
-Test: `make test-ai` (rete C contro Python bit per bit; 133 domande mai viste in
-addestramento: la risposta giusta prima per 121, nelle prime tre per 129; i 164 esempi
+Test: `make test-ai` (rete C contro Python bit per bit; 135 domande mai viste in
+addestramento: la risposta giusta prima per 124, nelle prime tre per 131; i 164 esempi
 che compilano; 21 controlli del pannello sul PC: domanda, Invio, varianti, errore, pad,
-320x180; le 36 ricette in tre misure), `test_assistant` in QEMU (domanda scritta,
+320x180; le 38 ricette in tre misure), `test_assistant` in QEMU (domanda scritta,
 codice inserito, sprite nello sheet, test di velocità), `make ai-model` per riaddestrare.
 
 **Da provare sul Pi** (Dev > Assistant, o `A` dal monitor):
@@ -1289,6 +1292,8 @@ codice inserito, sprite nello sheet, test di velocità), `make ai-model` per ria
 - F7, "slime rosso" (o "astronave blu 32x32"), destra/sinistra per le varianti, Invio:
   lo sprite nel riquadro "sprites";
 - F8: domande al secondo e tempo di uno sprite sul Pi vero;
+- F9: un errore d'esempio ("attempt to call a nil value (global 'sprr')"): la riga, "did
+  you mean spr?" e la spiegazione, come farà l'editor con la riga rossa;
 - col solo DS4: A apre, su/giù sfogliano, A inserisce, X cambia modo, B chiude.
 
 - **Fatto quando:** sul Pi l'editor del codice e quello degli sprite aprono l'assistente
