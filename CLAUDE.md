@@ -99,6 +99,9 @@ Lua 5.4 embedded. Documentazione: `README.md`, `docs/ROADMAP.md`, `docs/HARDWARE
 - Dizionari: `scripts/mkpadwords.py` → `build/padwords.lua` (`require "padwords"`, nel
   kernel) dai testi di `src/ai/words` (scritti per bm, niente testi con licenze altrui),
   dal Lua dei giochi e dalle API della base di conoscenza.
+- La predizione segue l'ambiente (`host.lang`: dizionario, miscela come `{it = 1, ask = 2}`
+  o `"none"`): in bm Code `pad_place` sceglie codice / commento / stringa / `#entry:`; il
+  pannello dell'assistente (`assist.lua`) usa le domande della base di conoscenza.
 - `make test-pad` (in `make test`), `make pad-bench`, `make pad-stats`; in QEMU
   `test_code_pad_typing` (DS4 simulato). `pad()` dà L2/R2 (4096, 8192).
 

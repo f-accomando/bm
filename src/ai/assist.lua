@@ -18,7 +18,8 @@
 -- (an error message: what it means, a typo), "any". It answers while you
 -- type; Enter (A) hands the code to on_insert or the sprite to on_sprite
 -- ({w, h, px = {0xRRGGBB or -1, ...}}), Esc (B) closes. Nothing runs while
--- it is closed.
+-- it is closed. With the pad, Share writes the question with chords
+-- (require "padtype"), with the words of the questions to the assistant.
 
 local M = {}
 
@@ -36,6 +37,17 @@ for w in ("and break do else elseif end false for function goto if in local nil 
   KEYWORDS[w] = true
 end
 local API                                -- names of the API, for the colours
+
+-- the writing with the pad (src/ai/padtype.lua), for the question: the
+-- words of Italian and of the questions of the knowledge base
+local padtype
+local function pad_lib()
+  if padtype == nil then
+    local ok, m = pcall(require, "padtype")
+    padtype = ok and m or false
+  end
+  return padtype or nil
+end
 
 -- ---------------------------------------------------------------- helpers
 
@@ -165,6 +177,28 @@ local function refresh()
   choose(1)
 end
 
+-- the question, written with the pad: Start (Enter) hands over the answer,
+-- Start + up / down chooses it
+local act, variant                       -- (below)
+local ask_host = { lang = { it = 1, ask = 2 }, name = "ask", prose = true }
+function ask_host.before() return st and st.q or "" end
+function ask_host.insert(s)
+  if not st then return end
+  st.q = (st.q .. s):sub(1, st.cols - 4)
+  refresh()
+end
+function ask_host.erase(n)
+  if not st then return end
+  st.q = st.q:sub(1, #st.q - n)
+  refresh()
+end
+function ask_host.newline() act() end
+function ask_host.move(d)
+  if d == "up" then choose(st.sel - 1) elseif d == "down" then choose(st.sel + 1)
+  else variant(d == "left" and -1 or 1) end
+end
+function ask_host.undo() end
+
 -- ---------------------------------------------------------------- API
 
 function M.is_open() return st ~= nil end
@@ -186,6 +220,11 @@ function M.open(o)
     st.q = first_line(o.error):gsub("^[^:]*:%d+:%s*", "")
   end
   layout()
+  local pt = pad_lib()
+  if pt and pt.is_on() then               -- the chords go on, in the question
+    pt.wait()
+    pt.refresh(ask_host)
+  end
   if not API then
     API = {}
     for _, e in ipairs(safe(ai.list, "api") or {}) do API[e.id] = true end
@@ -200,7 +239,7 @@ function M.close()
 end
 
 -- Enter / A: the code to the tool, or the sprite
-local function act()
+act = function()
   local e = st.entry
   if not e then return end
   if e.kind == "sprite" then
@@ -220,7 +259,7 @@ local function act()
   end
 end
 
-local function variant(d)
+variant = function(d)
   if st.entry and st.entry.kind == "sprite" then
     st.seed = math.max(1, st.seed + d)
     choose(st.sel)
@@ -276,6 +315,16 @@ function M.update()
     k = st and keyp()
   end
   if not st then return true end
+  local pt = pad_lib()
+  if pt and pt.is_on() then
+    pt.update(ask_host)
+    return true
+  end
+  if pt and btnp(9) then                 -- Share: the chords write the question
+    pt.on(true)
+    pt.refresh(ask_host)
+    return true
+  end
   if pressed(2) then choose(st.sel - 1) end
   if pressed(3) then choose(st.sel + 1) end
   if pressed(0) then variant(-1) end
@@ -359,6 +408,9 @@ function M.draw()
   local cursor = (st.frame // 30) % 2 == 0 and "_" or " "
   print("?", tx, qy, C_ACC)
   print(st.q .. cursor, tx + 2 * fw, qy, C_TEXT)
+  local pt = pad_lib()
+  local ghost = pt and pt.is_on() and pt.ghost()
+  if ghost then print(ghost, tx + (2 + #st.q) * fw, qy, pt.C_GHOST) end
   if st.q == "" and st.ctx then print("(" .. st.ctx .. ")", tx + 4 * fw, qy, C_DIM) end
   local ly = qy + fh
   if st.hint or st.msg then
@@ -436,6 +488,11 @@ function M.draw()
     keys = "Enter/A: use  </>: variant  Up/Dn: choose  Tab/X: mode  Esc/B: close"
   else
     keys = "Enter/A: insert  Up/Dn: choose  PgDn: more  Tab/X: mode  Esc/B: close"
+  end
+  if pt and pt.is_on() then
+    keys = "Share: chords off  Start: insert  Start+Up/Dn: choose"
+    local pw, ph = pt.size()
+    pt.draw(x + w - pw, fy - ph)
   end
   print(keys:sub(1, st.cols), tx, fy, C_DIM)
   if fw ~= tw or fh ~= th then font(tw == 6 and "6x12" or th == 14 and "8x14" or "8x16") end

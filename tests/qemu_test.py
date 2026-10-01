@@ -3564,6 +3564,28 @@ def test_code_pad_typing(b, opts):
         chord(sh=keyof[found[0]])
         see(["cls("])
         shot("code")
+        # a comment after the code: its words are Italian again
+        chord(face=SQU, sh=L2 | R2 | R1)             # ") "
+        chord(face=CRO, sh=R2)
+        chord(face=CRO, sh=R2 | R1)                  # "-- "
+        see(["PAD sillabe it", "cls() -- "])
+        chord(sh=START)                              # a new line: code
+        see(["PAD sillabe lua"])
+        chord(sh=SHARE)                              # off
+        see(["F1 keys"], gone=["PAD sillabe"])
+
+        # the assistant (square), its question with the chords: Start inserts
+        chord(None, SQU)
+        see(["Assistant", "type a question"])
+        chord(sh=SHARE)
+        see(["Share: chords off", "PAD sillabe ask"])
+        chord("up", TRI, sh=R2)                      # sa
+        chord("right", sh=L2)                        # l
+        chord("up", CIR)                             # to
+        see(["Salto", "Saltare con la gravit"])
+        shot("assistant")
+        chord(sh=START)
+        see(["on_ground", "PAD sillabe lua"], gone=["Saltare con la gravit"])
         chord(sh=SHARE)                              # off
         see(["F1 keys"], gone=["PAD sillabe"])
 

@@ -398,8 +398,12 @@ function _draw()
 end
 ```
 
-Altro: `host.move(dir)`, `host.undo()` (Start + croce, Start + L1), `host.words` (codice:
-`pt.count_words(righe)`, i nomi della scheda); `pt.set{mode = "steno"}`, `pt.suggestions()`,
+`host.lang` sceglie le parole: un dizionario (`"it"`, `"en"`, `"lua"`, `"ask"`: le domande
+all'assistente), una miscela con i pesi (`{it = 1, ask = 2}`) o `"none"`; si può cambiare a
+ogni fotogramma (bm Code lo fa tra codice, commenti e stringhe). Il pannello
+dell'assistente (`require "assist"`) lo usa già: Share, e la domanda si scrive con gli
+accordi. Altro: `host.move(dir)`, `host.undo()` (Start + croce, Start + L1), `host.words`
+(codice: `pt.count_words(righe)`, i nomi della scheda, con il peso `host.words_weight`); `pt.set{mode = "steno"}`, `pt.suggestions()`,
 `pt.flash()` (quanto ha appena scritto la predizione), `pt.encode(testo, {mode, lang,
 predict})` (le pressioni minime), `pt.practice_open(i)` / `practice_update()` /
 `practice_draw()` (l'esercizio sui testi `pt.TEXTS`).

@@ -1468,7 +1468,10 @@ Task:
    stenotipia): gruppi di consonanti sulle diagonali e dittonghi. **Esercizio** con guida
    dal menu. Il kernel legge **L2/R2** (`pad()` 4096, 8192). Su 100 caratteri italiani:
    tastiera 100 pressioni, tastiera a schermo 416, multitap 163, sillabe 50, sillabe +
-   predizione 41, steno + predizione 39; in Lua 71 → 46 con la predizione. Test:
+   predizione 41, steno + predizione 39; in Lua 71 → 46 con la predizione. La predizione
+   segue l'ambiente: codice (Lua), commento e stringa (italiano, dal marcatore), riga
+   `#entry:` e pannello dell'assistente (italiano + le domande della base di conoscenza:
+   0,412 pressioni per carattere sulle domande di prova contro 0,497). Test:
    `make test-pad` (95 controlli: i testi riscritti dalle pressioni minime nel motore
    vero), `test_code_pad_typing` in QEMU (DS4 simulato), `make pad-bench`, `make pad-stats`.
    **Da provare sul Pi**: PADTYPE.md, sezione 7.

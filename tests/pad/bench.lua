@@ -98,6 +98,28 @@ for _, t in ipairs(texts.list) do
                     count(t.text, t.lang, "sillabe", true), count(t.text, t.lang, "steno", true)))
 end
 
+-- the questions to the assistant that it was never trained on
+-- (src/ai/kb/tests.txt): Italian words, or Italian and the questions of
+-- its knowledge base (where one talks to it)
+local qs = {}
+for l in io.lines("src/ai/kb/tests.txt") do
+  local q = l:match("^([^#=][^=]-)%s*=>")
+  if q then qs[#qs + 1] = pt.from_utf8(q) end
+end
+local function per_char(lang, predict)
+  local n, c = 0, 0
+  for _, q in ipairs(qs) do
+    local _, k = pt.encode(q, { lang = lang, predict = predict })
+    n, c = n + k, c + #q
+  end
+  return n / c, c
+end
+local none, chars = per_char("it", false)
+out(string.format("\nDomande all'assistente mai viste (%d, %d caratteri), sillabe, pressioni per carattere:\n",
+                  #qs, chars))
+out(string.format("senza predizione %.3f, dizionario italiano %.3f, italiano + domande della base di conoscenza %.3f\n",
+                  none, per_char("it", true), per_char({ it = 1, ask = 2 }, true)))
+
 -- the first ten words, press by press
 local NICE = { L1 = "L1", L2 = "L2", R1 = "R1", R2 = "R2", Share = "Share", Start = "Start",
                up = "\226\134\145", down = "\226\134\147", left = "\226\134\144", right = "\226\134\146",

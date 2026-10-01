@@ -20,6 +20,8 @@ function print(s, x, y, c) screen[#screen + 1] = tostring(s); return x + #tostri
 function rectfill() end
 function rect() end
 function line() end
+function circ() end
+function circfill() end
 local FONT = { ["6x12"] = { 6, 12 }, ["8x14"] = { 8, 14 }, ["8x16"] = { 8, 16 } }
 local cur_font = FONT["8x16"]
 function font(n)
@@ -31,6 +33,9 @@ function keyp() return table.remove(keys, 1) end
 function btn(i) return held[i] == true end
 function btnp(i) return pressed[i] == true end
 
+local PADBITS = 0
+function pad() return PADBITS end
+package.path = "build/?.lua;src/ai/?.lua;" .. package.path
 local assist = dofile("src/ai/assist.lua")
 
 local function frame()                  -- one frame: update and draw
@@ -156,6 +161,38 @@ local fw = font()
 check(fw == 6, "6x12: the tool's font is back after drawing")
 assist.close()
 font("8x16")
+
+-- the question with the pad (src/ai/padtype.lua): Share, chords, Start
+-- inserts; the words are those of the questions to the assistant
+local ok_pt, pt = pcall(require, "padtype")
+check(ok_pt, "padtype loads: " .. tostring(pt))
+if ok_pt then
+  local B = pt.BITS
+  local function chord(bits)
+    PADBITS = bits; frame(); frame()
+    PADBITS = 0; frame()
+  end
+  inserted = nil
+  assist.open{ mode = "code", on_insert = function(c) inserted = c end }
+  frame()
+  pressed = { [9] = true }; PADBITS = B.SELECT
+  frame()
+  PADBITS = 0; frame()
+  check(pt.is_on(), "Share: the chords write the question")
+  check(on_screen("Share: chords off"), "the keys of the chords at the bottom")
+  chord(B.R2 | B.UP | B.Y)                   -- sa
+  chord(B.L2 | B.RIGHT)                      -- l
+  chord(B.UP | B.B)                          -- to
+  check(on_screen("Salto"), "the question written: Salto")
+  check(on_screen("Saltare con la gravit"), "and answered")
+  -- a question that starts: "come" is the first word offered after "co"
+  local list = pt.candidates({ it = 1, ask = 2 }, "co", "^", 3)
+  check(list[1] == "come", "questions: co -> come (" .. tostring(list[1]) .. ")")
+  chord(B.START)                             -- Enter: the answer's code
+  check(not assist.is_open() and inserted and inserted:find("on_ground", 1, true), "Start inserts the code")
+  PADBITS = B.SELECT; frame(); PADBITS = 0
+  pt.on(false)
+end
 
 say(string.format("panel: %d checks, %d failed", checks, fails))
 os.exit(fails == 0 and 0 or 1)

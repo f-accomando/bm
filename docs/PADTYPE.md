@@ -12,9 +12,10 @@ console **416**, **sillabe 50**, **sillabe + predizione 41**, **steno + predizio
 (i numeri completi più sotto).
 
 - **Dove**: in **bm Code** (scheda Dev), **Share** (Select) accende e spegne la scrittura;
-  anche nelle richieste di una riga (Trova, Vai alla riga, Salva come). Nel codice il
-  dizionario è quello di Lua (parole chiave, API, nomi della scheda), nei commenti e nelle
-  stringhe l'italiano (o l'inglese: menu, "Pad: comments it / en").
+  anche nelle richieste di una riga (Trova, Vai alla riga, Salva come) e nella domanda del
+  **pannello dell'assistente**. La predizione segue l'ambiente: nel codice le parole di
+  Lua, dopo `--` e nelle stringhe l'italiano (o l'inglese), quando si parla con
+  l'assistente le parole delle sue domande (sezione 3).
 - **Esercizio**: menu di bm Code (Start), **Pad practice...**: un testo da 100 caratteri
   da ricopiare, le pressioni contate, il migliore possibile, e il **prossimo accordo**
   consigliato, illuminato anche nel pannello.
@@ -140,6 +141,28 @@ che segue più spesso ("La" → console).
   c)`), i nomi dei giochi di bm e quelli della scheda aperta. "f" a
   inizio riga propone `for` e `function` (R2, L2), "if b" propone `btn`.
 
+### Dove scrivi, quali parole
+
+La predizione cambia con l'ambiente, da sola, mentre il cursore si sposta:
+
+| Dove | Parole | Note |
+|---|---|---|
+| codice in bm Code | Lua: parole chiave, API dell'assistente, nomi dei giochi, nomi della scheda | `function `, `cls(`; la firma nel pannello |
+| dopo `--` (commento) | italiano (o inglese, dal menu), qualche nome della scheda | il contesto parte dal `--`: la prima parola non dipende dal codice prima |
+| in una stringa | italiano (o inglese) | maiuscola all'inizio (testi dei giochi) |
+| riga `#entry:` | le domande all'assistente | è una richiesta all'assistente |
+| pannello dell'assistente (F6, □) | italiano + le domande della base di conoscenza | Start inserisce la risposta, Start + su/giù la sceglie |
+| Trova, Sostituisci | Lua e nomi della scheda | |
+| Vai alla riga, nomi dei file | nessuna | |
+
+Le **domande all'assistente** hanno un dizionario loro: le righe `ask:`, i titoli e le
+parole chiave della base di conoscenza (`src/ai/kb`), mescolati con l'italiano (peso 2 a
+1). Sulle 153 domande di prova che l'assistente non ha mai visto (`tests.txt`):
+senza predizione 0,551 pressioni per carattere, con l'italiano 0,497, con italiano +
+domande **0,412** (il 17% in meno). Un modulo che usa `padtype` sceglie l'ambiente con
+`host.lang`: un dizionario (`"it"`, `"en"`, `"lua"`, `"ask"`), una miscela
+(`{it = 1, ask = 2}`) o `"none"`.
+
 Il modello è un **n-gramma**: quante volte ogni parola è scritta e quali parole la seguono,
 contate sui testi di `src/ai/words` (italiano: 23 000 parole + un lessico di 6 500 forme;
 inglese: 4 500 parole) e sul Lua dei giochi di bm (`scripts/mkpadwords.py`, `make` lo
@@ -197,6 +220,10 @@ tabelle e gli stessi suggerimenti della console (un utente esperto; `padtype.enc
 - **Sillabe**: mezza pressione per carattere; **con la predizione** 0,41.
 - **Lua**: la predizione vale di più (71 → 46), perché le parole del codice sono poche e
   si ripetono (function, then, end, btn, x).
+
+Le **domande all'assistente** (153, mai viste): sillabe senza predizione 0,551
+pressioni per carattere, con il dizionario italiano 0,497, con italiano + domande
+della base di conoscenza 0,412.
 
 Sui testi del corpus **che il dizionario non ha visto** (ogni gruppo tolto a turno,
 136 245 caratteri): sillabe **0,518** pressioni per carattere, steno **0,464**, sillabe +
@@ -262,6 +289,11 @@ Con un DS4 (o un altro pad con L2/R2), nella scheda **Dev > bm Code**:
    pressioni fatte contro le 41 del migliore e le 100 della tastiera.
 8. Menu, **Pad: syllables / steno**, e di nuovo l'esercizio: le diagonali con un grilletto
    scrivono tr, ch, sc, pr...
+9. Dopo il codice, `-- `: la barra torna `PAD sillabe it` (il commento è testo); Start, a
+   capo nel codice: `lua`.
+10. Share spento, □: il pannello dell'assistente; Share, e la domanda con gli accordi
+   (sa, l, to: "Salto"): risponde mentre scrivi, con la barra `PAD sillabe ask`; Start
+   inserisce il codice della risposta nell'editor.
 
 Il test `test_code_pad_typing` in QEMU fa gli stessi passi con un DS4 simulato.
 
@@ -281,7 +313,9 @@ Il test `test_code_pad_typing` in QEMU fa gli stessi passi con un DS4 simulato.
   passo.
 - `tests/pad/bench.lua` (`make pad-bench`): la tabella, le prime 10 parole e il corpus
   con i gruppi tolti a turno dal dizionario.
-- `tests/qemu_test.py`, `test_code_pad_typing`: bm Code con un DS4 simulato.
+- `tests/ai/panel_test.lua` (`make test-ai`): la domanda del pannello scritta col pad.
+- `tests/qemu_test.py`, `test_code_pad_typing`: bm Code con un DS4 simulato (commento,
+  codice, pannello dell'assistente, esercizio).
 
 **L2 e R2**: prima il kernel non li leggeva. Ora `pad()` li dà come 4096 e 8192: DS4 (USB
 e Bluetooth), Xbox 360 (grilletti oltre un quarto della corsa), pad generici (pulsanti 7 e

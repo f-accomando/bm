@@ -16,8 +16,9 @@
 --   pt.update(host)     each frame: reads pad() and edits through the host:
 --     host.before()     the text before the cursor, on its line
 --     host.insert(s), host.erase(n), host.newline(), host.move(dir),
---     host.undo(), host.lang ("it", "en", "lua"), host.prose (capitals
---     at the start of a sentence), host.words (code: {name = count})
+--     host.undo(), host.lang ("it", "en", "lua", "ask", a mix like
+--     {it = 1, ask = 1}, or "none"), host.prose (capitals at the start of
+--     a sentence), host.words (code: {name = count}), host.name
 --   pt.ghost()          the rest of the first suggestion (pt.C_GHOST)
 --   pt.flash()          length of the text the last suggestion wrote and
 --                       of what follows it (pt.C_PRED), until the next press
@@ -273,42 +274,56 @@ local function word_at(before, lang)
 end
 P.word_at = word_at
 
--- the suggestions for a prefix after prev: up to n words, best first
-local function candidates(lang, prefix, prev, n, buf)
-  local d = dict(lang)
-  local key = plain(prefix)
+-- the scores of one dictionary for a prefix after prev, added with weight w
+local function score_dict(d, key, same, prev, w, add)
   local bg = d.big[prev]
+  if key == "" then
+    if not bg then return end
+    for i = 1, #bg do
+      local x = bg[i]
+      if bg[x] >= 2 then add(x, w * bg[x] / bg.total) end
+    end
+    return
+  end
+  local keys = d.keys
+  local i = lower_bound(keys, key)
+  while i <= #keys and keys[i]:sub(1, #key) == key do
+    local x = d.words[i]
+    if x ~= same then
+      local c = d.count[i]
+      local sc = 0.4 * (c > 0 and c or 0.5) / d.N
+      if bg and bg[x] then sc = sc + bg[x] / bg.total end
+      add(x, w * sc)
+    end
+    i = i + 1
+  end
+end
+
+-- The suggestions for a prefix after prev: up to n words, best first.
+-- lang: a dictionary ("it", "en", "lua", "ask") or a mix of them with their
+-- weights ({it = 1, ask = 1}: a question to the assistant); buf: the names
+-- of the code being written ({name = count, [1] = total}), with weight bufw.
+local function candidates(lang, prefix, prev, n, buf, bufw)
+  local key = plain(prefix)
   local score, list = {}, {}
-  local function add(w, s)
+  local function add(w, sc)
     if not score[w] then list[#list + 1] = w; score[w] = 0 end
-    score[w] = score[w] + s
+    score[w] = score[w] + sc
   end
   local same = lang == "lua" and prefix or prefix:lower()
-  if key == "" then
-    if not bg then return {} end
-    for i = 1, #bg do
-      local w = bg[i]
-      if bg[w] >= 2 then add(w, bg[w] / bg.total) end
-    end
+  if type(lang) == "table" then
+    local names = {}
+    for name in pairs(lang) do names[#names + 1] = name end
+    table.sort(names)
+    for _, name in ipairs(names) do score_dict(dict(name), key, same, prev, lang[name], add) end
   else
-    local i = lower_bound(d.keys, key)
-    local keys = d.keys
-    while i <= #keys and keys[i]:sub(1, #key) == key do
-      local w = d.words[i]
-      if w ~= same then
-        local c = d.count[i]
-        local s = 0.4 * (c > 0 and c or 0.5) / d.N
-        if bg and bg[w] then s = s + bg[w] / bg.total end
-        add(w, s)
-      end
-      i = i + 1
-    end
-    if buf then
-      local total = buf[1] or 1
-      for w, c in pairs(buf) do
-        if type(w) == "string" and w ~= same and plain(w):sub(1, #key) == key then
-          add(w, 0.6 * c / total)
-        end
+    score_dict(dict(lang), key, same, prev, 1, add)
+  end
+  if buf and key ~= "" then
+    local total = buf[1] or 1
+    for w, c in pairs(buf) do
+      if type(w) == "string" and w ~= same and plain(w):sub(1, #key) == key then
+        add(w, (bufw or 0.6) * c / total)
       end
     end
   end
@@ -360,15 +375,20 @@ end
 
 ------------------------------------------------------------------ editing
 
+-- the suggestions where the host is writing: host.lang is the dictionary
+-- (or a mix, see candidates; "none": no suggestions), host.name its name
+-- for the panel, host.words and host.words_weight the names of the code
 local function refresh(host)
   st.cands, st.prefix = {}, ""
   local lang = host.lang or "it"
-  st.lang = lang
+  st.lang = host.name or (type(lang) == "string" and lang) or "mix"
+  st.code = lang == "lua"
+  if lang == "none" then return end
   local before = host.before()
   local prefix, prev = word_at(before, lang)
   if not prefix then return end
   st.prefix, st.prev = prefix, prev
-  local ok, list = pcall(candidates, lang, prefix, prev, 3, lang == "lua" and host.words or nil)
+  local ok, list = pcall(candidates, lang, prefix, prev, 3, host.words, host.words_weight)
   if ok then st.cands = list end
 end
 P.refresh = refresh
@@ -659,7 +679,7 @@ function P.draw(x, y, hint)
     at("next: " .. P.describe(hint), 11, 5, P.C_PEND, true)
   else
     -- code: the API being written, as the assistant's knowledge base has it
-    local d = st.lang == "lua" and dicts.lua
+    local d = st.code and dicts.lua
     local sig = d and (d.api[st.picked or ""] or d.api[st.cands[1] or ""])
     if sig then at(sig:sub(1, W_COLS - 2), 1, 4, 0x70D0FF, true); return end
     local row = function(bank) return ONSET[UP][bank] .. ONSET[RIGHT][bank] .. ONSET[DOWN][bank] .. ONSET[LEFT][bank] end
@@ -959,11 +979,10 @@ local function word_steps(word, mode, caps_auto, start)
         end
         if acc > 0 then break end                         -- an accent ends it
       end
-      if not first:find(LETTER) then
-        local b = stroke_of(first)
-        if b and cost[p] + 1 < (cost[p + 1] or INF) then
-          cost[p + 1], back[p + 1], info[p + 1] = cost[p] + 1, p, { bits = b, sym = true }
-        end
+      -- anything else (j too): one press of Share or a bank; 0 if none
+      local b = stroke_of(first) or 0
+      if cost[p] + 1 < (cost[p + 1] or INF) and (b ~= 0 or not tr[plain(first)]) then
+        cost[p + 1], back[p + 1], info[p + 1] = cost[p] + 1, p, { bits = b, sym = true }
       end
     end
   end
@@ -1050,7 +1069,7 @@ function P.encode(text, o)
           for k = start, #word - 1 do
             if tcost[k] and tcost[k] + 1 < best then
               local prefix = tw:sub(1, k)
-              for r, w in ipairs(candidates(lang, prefix, prev or "^", 3, o.words)) do
+              for r, w in ipairs(candidates(lang, prefix, prev or "^", 3, o.words, o.words_weight)) do
                 local sw, ending = shaped(w, prefix, lang, caps_auto)
                 if sw == word then
                   local after = ending == "" or (nxt and nxt.s:sub(1, #ending) == ending) or

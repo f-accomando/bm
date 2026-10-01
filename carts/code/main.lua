@@ -388,30 +388,41 @@ end
 
 -- Share turns on the writing with the pad (src/ai/padtype.lua, guide in
 -- docs/PADTYPE.md): a chord of the cross and the buttons writes a syllable,
--- the dictionary finishes the word. In the code its words are Lua's, the
--- API's and the tab's; in comments and strings Italian (or English).
+-- the dictionary finishes the word, with the words of where the cursor is:
+-- in the code Lua's, the API's and the tab's; after "--" and in strings
+-- Italian (or English), from the marker on; after "#entry:" the questions
+-- to the assistant.
 local pad_words = { tab = nil, at = -1 }
+local ASK = { it = 1, ask = 2 }           -- talking to the assistant: docs/PADTYPE.md
 
--- the cursor is in a comment or a string: words, not code
-local function in_prose(l, cx)
-  local q, i = nil, 1
+-- what the cursor is in: "code", "comment", "string" or "ask" (an #entry:
+-- line), and where its text starts
+local function pad_place(l, cx)
+  local e = l:find("#entry:", 1, true)
+  if e and l:sub(1, e - 1):match("^%s*%-*%s*$") and cx >= e + 6 then return "ask", e + 7 end
+  local q, qs, i = nil, nil, 1
   while i <= cx do
     local c = l:sub(i, i)
     if q then
       if c == "\\" then i = i + 1 elseif c == q then q = nil end
-    elseif c == '"' or c == "'" then q = c
-    elseif l:sub(i, i + 1) == "--" then return true end
+    elseif c == '"' or c == "'" then q, qs = c, i
+    elseif l:sub(i, i + 1) == "--" then return "comment", i + 2 end
     i = i + 1
   end
-  return q ~= nil
+  if q then return "string", qs + 1 end
+  return "code"
 end
 
 local edit_key
 
+-- the line before the cursor; in a comment, a string or an #entry: only
+-- from their marker (the first word has no word before it)
 local pad_host = {}
 function pad_host.before()
   local t, v = current()
-  return t.lines[v.cy]:sub(1, v.cx)
+  local l = t.lines[v.cy]:sub(1, v.cx)
+  if pad_host.from then return pad_host.mark .. l:sub(pad_host.from) end
+  return l
 end
 function pad_host.insert(s)
   for c in s:gmatch(".") do edit_key(c) end
@@ -437,25 +448,42 @@ function pad_host.move(d) edit_key(d) end
 function pad_host.undo() edit_key("^z") end
 function pad_host.exit() say("pad typing off (Share turns it on again)") end
 
--- the language where the cursor is, the words of the tab
+-- the words where the cursor is
+local PLACES = {
+  code = { name = "lua", prose = false, weight = 0.6 },
+  comment = { prose = true, mark = "--", weight = 0.15 },    -- names of the code, a few
+  string = { prose = true, mark = '"', weight = 0 },         -- a capital at the start
+  ask = { name = "ask", lang = ASK, prose = true, mark = ":", weight = 0.1 },
+}
 local function pad_context()
   local t, v = current()
-  local prose = in_prose(t.lines[v.cy], v.cx)
-  pad_host.lang = prose and PAD_LANGS[pad_lang] or "lua"
-  pad_host.prose = prose
+  local place, from = pad_place(t.lines[v.cy], v.cx)
+  local p = PLACES[place]
+  local prose_lang = PAD_LANGS[pad_lang]
+  pad_host.place, pad_host.from, pad_host.mark = place, from, p.mark
+  pad_host.lang = p.lang or (p.prose and prose_lang or "lua")
+  pad_host.name = p.name or prose_lang
+  pad_host.prose = p.prose
   if pad_words.tab ~= t or padtype.presses() - pad_words.at >= 30 or padtype.presses() < pad_words.at then
     pad_words.tab, pad_words.at, pad_words.words = t, padtype.presses(), padtype.count_words(t.lines)
   end
-  pad_host.words = pad_words.words
+  pad_host.words = p.weight > 0 and pad_words.words or nil
+  pad_host.words_weight = p.weight
 end
 
--- the prompt of a find, a file name...: one line of text, Start is Enter
-local prompt_host = { lang = "lua", prose = false }
+-- the prompt of a find, a file name...: one line of text, Start is Enter;
+-- its words: the code's for a find, none for a number or a file name
+local prompt_host = { prose = false }
 function prompt_host.before() return overlay.text end
 function prompt_host.insert(s) overlay.text = overlay.text .. s end
 function prompt_host.erase(n) overlay.text = overlay.text:sub(1, #overlay.text - n) end
 function prompt_host.newline() local o = overlay; overlay = nil; o.done(o.text) end
 function prompt_host.exit() say("pad typing off") end
+local function prompt_context()
+  local code = overlay.pad == "code"
+  prompt_host.lang, prompt_host.name = code and "lua" or "none", code and "lua" or "-"
+  prompt_host.words, prompt_host.words_weight = code and pad_words.words or nil, 0.6
+end
 
 local function pad_typing(on)
   padtype.on(on)
@@ -496,8 +524,8 @@ local function explain_error(t, v)
   assist.open{ error = t.err.msg, on_insert = function(code) insert_block(t, v, code) end }
 end
 
-local function prompt(label, text, done)
-  overlay = { kind = "prompt", label = label, text = text or "", done = done }
+local function prompt(label, text, done, pad)
+  overlay = { kind = "prompt", label = label, text = text or "", done = done, pad = pad }
 end
 
 local function confirm(question, choices, done)
@@ -679,13 +707,13 @@ do_command = function(k)
     prompt("Find:", find_text or word_at(t, v) or "", function(s)
       find_text = s
       find_next(t, v, s, true)
-    end)
+    end, "code")
   elseif k == "^g" then find_next(t, v, find_text)
   elseif k == "^h" then
     prompt("Replace:", find_text or word_at(t, v) or "", function(a)
       if a == "" then return end
-      prompt("Replace \"" .. a .. "\" with:", "", function(b) replace_all(t, v, a, b) end)
-    end)
+      prompt("Replace \"" .. a .. "\" with:", "", function(b) replace_all(t, v, a, b) end, "code")
+    end, "code")
   elseif k == "^l" then
     prompt("Go to line (1-" .. #t.lines .. "):", "", function(s)
       local n = tonumber(s)
@@ -873,6 +901,7 @@ local function pad()
       padtype.update(pad_host)
       return
     elseif overlay.kind == "prompt" then
+      prompt_context()
       padtype.update(prompt_host)
       return
     end
@@ -880,6 +909,7 @@ local function pad()
   end
   if btnp(9) and (not overlay or overlay.kind == "prompt") then
     pad_typing(true)
+    if overlay then prompt_context(); padtype.refresh(prompt_host) end
     return
   end
   if overlay then
@@ -932,10 +962,17 @@ function _init()
   log("code: ready, " .. #tabs .. " tab(s), font " .. FONTS[font_i])
 end
 
+local assist_was_open = false
+
 function _update()
   frame = frame + 1
   if status_t > 0 then status_t = status_t - 1 end
-  if assist.update() then return end
+  if assist.update() then assist_was_open = true; return end
+  if assist_was_open and padtype.is_on() then  -- back from the panel: the words here
+    pad_context()
+    padtype.refresh(pad_host)
+  end
+  assist_was_open = false
   local k = keyp()
   while k do
     if overlay then overlay_key(k)
@@ -1097,7 +1134,7 @@ local function draw_status(t, v)
   rectfill(0, y, W, H - y, C_BAR)
   local right = string.format("ln %d/%d col %d  %s", v.cy, #t.lines, v.cx + 1, FONTS[font_i])
   local left = (t.path or "untitled") .. (t.dirty and " *" or "")
-  if padtype.is_on() then left = "PAD " .. padtype.mode() .. " " .. (pad_host.lang or "lua") .. "  " .. left end
+  if padtype.is_on() then left = "PAD " .. padtype.mode() .. " " .. (pad_host.name or "lua") .. "  " .. left end
   print(left, 0, y, C_TEXT)
   print(right, (COLS - #right) * CW, y, C_DIM)
   if status_t == 0 and entry_request(t.lines[v.cy]) then
@@ -1231,7 +1268,7 @@ function _draw()
     padtype.practice_draw()
     local pw, ph = padtype.size()
     padtype.draw((COLS - pw // CW - 1) * CW, (ROWS - ph // CH - 2) * CH, padtype.practice_hint())
-  elseif padtype.is_on() and (not overlay or overlay.kind == "prompt") then
+  elseif padtype.is_on() and (not overlay or overlay.kind == "prompt") and not assist.is_open() then
     -- the panel of the chords, away from the cursor
     local pw, ph = padtype.size()
     local rows = ph // CH

@@ -8,6 +8,9 @@ word is written and which words follow it, for the prediction.
   lua      from the Lua of the games (comments and strings left out), the
            code of the assistant's knowledge base, its API names and their
            signatures (src/ai/kb/api_*.txt)
+  ask      the questions to the assistant: the ask:, title: and keys: lines
+           of its knowledge base (src/ai/kb, not tests.txt), mixed with "it"
+           by the pad where one talks to the assistant
 
 Output: a Lua module (require "padwords") built into the kernel, text in
 code page 437 like the console's:
@@ -127,6 +130,22 @@ def kb_api():
     return api
 
 
+def kb_questions():
+    """The questions of the knowledge base, one per line, as prose."""
+    out = []
+    for f in sorted(glob.glob(os.path.join(ROOT, 'src/ai/kb/*.txt'))):
+        if f.endswith('tests.txt'):
+            continue
+        for line in open(f, encoding='utf-8'):
+            if line.startswith('ask:'):
+                out += [q.strip() for q in line[4:].split('|')]
+            elif line.startswith('title:'):
+                out.append(line[6:].split(' - ')[-1].strip())
+            elif line.startswith('keys:'):
+                out += [k.strip() for k in line[5:].split(',')]
+    return '\n'.join(q for q in out if q) + '\n'
+
+
 def kb_code():
     out, inside = [], False
     for f in sorted(glob.glob(os.path.join(ROOT, 'src/ai/kb/*.txt'))):
@@ -180,7 +199,7 @@ def main():
     parts = ['-- The dictionaries of the pad typing, made by scripts/mkpadwords.py',
              '-- from src/ai/words and the Lua of the games: do not edit.', 'return {']
     for lang, (uni, big, funcs) in (('it', prose_counts(it_texts, lexicon)), ('en', prose_counts(en_texts)),
-                                    ('lua', code_counts(lua))):
+                                    ('lua', code_counts(lua)), ('ask', prose_counts([kb_questions()]))):
         if lang == 'lua':
             for name in api:                # every API name, used or not
                 uni.setdefault(name, 0)

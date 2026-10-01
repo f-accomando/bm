@@ -522,7 +522,7 @@ pad-bench: $(BUILD)/host/luahost $(BUILD)/padwords.lua
 	for g in $(PAD_FOLDS); do $(PYTHON) scripts/mkpadwords.py --skip it_$$g -o $(BUILD)/pad/fold_$$g.lua || exit 1; done
 	$(BUILD)/host/luahost tests/pad/bench.lua $(BUILD) --folds
 
-test-ai: $(BUILD)/host/test_ai $(BUILD)/assist.bin $(BUILD)/host/luahost $(BUILD)/host/luaai
+test-ai: $(BUILD)/host/test_ai $(BUILD)/assist.bin $(BUILD)/host/luahost $(BUILD)/host/luaai $(BUILD)/padwords.lua
 	$< $(BUILD)/assist.bin $(BUILD)/ai/ref.txt
 	$(BUILD)/host/luahost tests/ai/check_snippets.lua $(BUILD)/ai/snippets.txt
 	$(BUILD)/host/luaai $(BUILD)/assist.bin tests/ai/panel_test.lua
