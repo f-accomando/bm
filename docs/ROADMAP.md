@@ -1298,7 +1298,13 @@ Fatto (2026-10-01, da misurare sul Pi):
   risponde (3 slice × 4 QPU, 250 MHz), ma la prima pulizia si è fermata con "no end of
   frame": l'attesa del driver prendeva per un errore il bit "binner senza memoria",
   acceso fin dall'avvio. Corretto, con un test sul PC che simula i registri come li ha
-  mostrati il Pi (`make test-v3d`); la GPU è da riprovare.
+  mostrati il Pi (`make test-v3d`).
+- **GPU sul Pi (2026-10-01, `d0c7fe8`):** il test `g` passa tutti gli 11 passi (stessa
+  scena 3309 triangoli: ARM 28,8 ms, GPU 9,1 ms, 0,1% di pixel diversi; z conservato tra
+  2D e 3D: 0,0%). La V3D riempie 811 Mpixel/s e fa 3 milioni di triangoli/s. Righe GPU
+  dello stress: 182 sfere a 60 fps (7142 triangoli) contro 69 sull'ARM, quad 1 ns per
+  pixel (9 con texture). Il limite ora è l'ARM (~2 µs per triangolo). Per chiudere M30
+  manca Texture Room HD con la GPU.
   Rinviati: MSAA 4× (caricare la pagina in un tile multicampione non è un percorso
   di Mesa né del driver di Linux: non verificabile senza il Pi) e il filtro
   bilineare (cambia l'aspetto delle texture rispetto all'ARM).

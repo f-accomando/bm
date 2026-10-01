@@ -134,6 +134,7 @@ non disegna più pixel: Texture Room 0,62 milioni di istruzioni a fotogramma inv
 | Rasterizzatore di M30 sulle sfere (`qemu-arm`) | −9% di istruzioni | **2,3×** più sfere a 60 fps (31 → 70) | Il conteggio non vede le fermate della pipeline per i confronti in virgola mobile (`vmrs`) che la virgola fissa ha tolto |
 | Stress C, 29 set. → 1 ott. | disturbo all'avvio | sprite di nuovo a 4456 (settembre 4482) | Confermato: con 20 s di attesa il calo sparisce |
 | Prima prova della V3D (1 ott.) | il passo 3 passa | "no end of frame" | Errore del driver: il bit "binner senza memoria" di `PCS`, acceso fin dall'avvio, era preso per un errore; corretto e coperto da `make test-v3d` |
+| V3D dopo la correzione (1 ott., `d0c7fe8`) | "centinaia di Mpixel/s, milioni di triangoli/s" | **811 Mpixel/s**, 3,0 M triangoli/s; 182 sfere a 60 fps contro 69 dell'ARM | Il limite ora è l'ARM che prepara i vertici (~2 µs per triangolo); le texture 256×256 in ordine di riga costano 9 ns/px contro 1 |
 
 ## 7. Evitato o rimandato
 

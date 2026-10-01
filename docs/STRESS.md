@@ -149,6 +149,22 @@ settembre. Le righe GPU mancano (`GPU rows: none (probe: a clear did not finish)
 era un errore nell'attesa del driver, corretto dopo questa misura (vedi
 `docs/M30-PRIMA-DOPO.md`).
 
+Con `d0c7fe8` (stesso giorno, driver corretto) le righe ARM ripetono gli stessi valori
+entro un oggetto, e compaiono le righe GPU:
+
+| Test | Pi 60 fps | Pi 30 fps | µs/oggetto |
+|---|---:|---:|---:|
+| GPU spheres 96 | **182** (7142 tri) | 389 (15346 tri) | 80,10 |
+| GPU smooth (Gouraud) | **170** (6673 tri) | 364 (14360 tri) | 85,58 |
+| GPU textured | **156** (6094 tri) | 333 (13135 tri) | 93,16 |
+| GPU quad flat | **200** | 430 | 1 ns/px |
+| GPU quad Gouraud | **199** | 427 | 1 ns/px |
+| GPU quad texture | **28** | 60 | 9 ns/px |
+
+Con la GPU le sfere sono limitate dall'ARM (trasformazioni e vertici, ~2 µs per
+triangolo), i quad dalla V3D: 1 ns per pixel in tinta unita o Gouraud, 9 con la texture
+256×256 in ordine di riga.
+
 ## Come eseguirlo sul Pi
 
 ```sh
