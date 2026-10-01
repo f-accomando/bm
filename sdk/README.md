@@ -15,6 +15,10 @@ scambiano formati standard con gli altri programmi.
 Sono pagine web senza dipendenze (HTML + JavaScript, niente da installare né compilare).
 Un pulsante in alto passa dall'una all'altra portando il progetto aperto.
 
+Sulla console c'è la loro versione semplificata, lo **studio 3D** (scheda **Dev**): un
+player dei modelli e delle animazioni, e gli strumenti essenziali per costruire, fare lo
+scheletro e animare, sugli stessi file. [Vedi sotto](#sulla-console-lo-studio-3d).
+
 ## Aprirlo
 
 - **Doppio clic su `sdk/studio/index.html`** (o `sdk/animator/index.html`) con Chrome o
@@ -209,6 +213,62 @@ Limiti: ogni angolo segue **un** osso (niente pesi misti); 64 ossa per modello, 
 animazioni, 1024 keyframe per animazione; un keyframe è sempre la posa intera. I `.glb`
 con scheletro di altri programmi non si importano (i modelli fermi sì, in bm Studio).
 
+## Sulla console: lo studio 3D
+
+Lo **studio 3D** è una cartuccia incorporata nel kernel (`carts/studio3d/main.lua`),
+nella scheda **Dev** accanto all'SDK. Si apre anche da un gioco: **X** sulla copertina,
+**Open in the 3D studio** (o, dal monitor, il tasto `3`). Legge e scrive le stesse sezioni
+MESH e ANIM di bm Studio e bm Animator: un `.bm` fatto sul PC si apre sulla console e
+viceversa, e un gioco senza modelli può riceverne. Si usa con la tastiera o con il
+gamepad (Bluetooth o USB); è pronto per un puntatore quando arriverà il mouse Bluetooth.
+
+Quattro pagine (F1–F4, oppure Y + sinistra/destra sul gamepad), il menu con Esc
+(Y + B); tenendo premuto **F12**, o con **?**, compaiono i tasti della pagina.
+
+- **F1 play, il player**: i modelli del `.bm` in una lista, con vertici, triangoli e ossa;
+  la camera gira da sola intorno al modello (a d w s per girarla a mano, + e − per lo
+  zoom; sul gamepad X + croce). Le animazioni si scelgono con sinistra/destra e partono
+  con spazio; `,` e `.` vanno avanti e indietro di un fotogramma, `<` e `>` cambiano la
+  velocità, **k** mostra lo scheletro, **b** mescola l'animazione con la successiva
+  (25, 50, 75 %: la stessa `animate()` dei giochi).
+- **F2 build, i blocchi e le tessere** (Crocotile all'essenziale): un cursore a forma di
+  cella si muove con le frecce sul piano e con PgUp/PgDn in altezza, sempre rispetto alla
+  vista (q e girano la vista di 45°, w s la inclinano). Tre attrezzi:
+  1 **blocco** (spazio lo mette, Backspace lo toglie: due blocchi vicini non hanno parete
+  in mezzo, e togliendone uno ricompare la parete del vicino), 2 **tessera** (su un lato
+  della cella: pavimento, parete in fondo, a destra, davanti, a sinistra, soffitto; **f**
+  cambia lato), 3 **pittura** (ridipinge le facce di quel lato, o di tutti i lati; **x**
+  prende la tessera da una faccia). **Tab** (o Y) apre lo sheet del progetto: si sceglie
+  una tessera da 8, 16 o 32 pixel (**z**) o un colore (**c**); **r** e **h** girano e
+  specchiano la tessera. Le facce sono le stesse che fa bm Studio con gli stessi attrezzi.
+- **F3 rig, le ossa**: **n** fa lo scheletro (un osso, root, dal fondo del modello) e poi
+  aggiunge ossa figlie di quella scelta; su/giù sceglie l'osso, w a s d r f spostano la sua
+  coda (o la testa, con Tab) di 1/8 (maiuscole: 1/32); x lo cancella, **k** dà ogni faccia
+  all'osso più vicino (la pelle a parti rigide), **v** colora le facce con il loro osso.
+- **F4 animate, i keyframe**: **n** fa un'animazione; su/giù sceglie l'osso,
+  sinistra/destra il fotogramma (12 al secondo, come bm Animator). w/s, a/d, q/e girano
+  l'osso di 15° intorno a x, y, z (maiuscole: 5°), con **g** lo spostano: ogni giro è un
+  keyframe in quel punto. k aggiunge un keyframe, x lo toglie, c e v copiano e incollano la
+  posa, r rimette l'osso a riposo; l ciclo sì/no, m linear / smooth / step, `<` `>` la
+  durata; PgUp/PgDn cambiano animazione, Backspace due volte la cancella.
+
+Il **menu** apre i `.bm` della SD, fa un progetto nuovo (con lo sheet di tessere iniziale
+di bm Studio e il codice del visualizzatore dei modelli), salva (Ctrl+S, o *Save as* con
+un nome 8.3 in `/carts`), **prova il gioco** (F5: si gioca il file salvato, poi si torna
+allo studio nella stessa pagina) e crea, rinomina, duplica e cancella i modelli; `[` e `]`
+(o Y + su/giù) cambiano modello. Ctrl+Z e Ctrl+Y (Y + A sul gamepad) annullano e rifanno.
+
+Come lavora: i modelli e gli scheletri sono tabelle Lua; a ogni modifica la cartuccia
+riscrive la parte di quel modello delle sezioni MESH e ANIM (`string.pack`, il formato di
+`src/bm/bm.h`) e le passa al kernel con `cart_data()`, che le controlla: `model()`,
+`animate()` e `bone3d()` disegnano e muovono sempre quello che verrà salvato, e
+`cart_save()` lo scrive. Un `.bm` aperto e salvato senza modifiche tiene le sue sezioni
+byte per byte.
+
+Più semplice dei programmi per il PC: niente angoli spostati a mano, selezioni, pittura
+dello sheet (si fa nell'SDK, pagina sprite), import/export `.glb` e sprite
+pre-renderizzati; un osso per faccia (la pelle a parti rigide); keyframe di posa intera.
+
 ## Test
 
 ```sh
@@ -220,6 +280,15 @@ make test-studio-ui   # nel browser con Playwright: bm Studio e bm Animator col 
 `test_sdk_keeps_models`, `test_village`, `test_animation` (un braccio che si alza sulla
 console emulata) e `test_studio_cart` (i `.bm` scritti dallo Studio, con il loro
 visualizzatore).
+
+Lo studio 3D della console ha un banco di prova sul PC (`tests/studio/studio3d_host.lua`,
+dentro `make test-studio`, con il Lua 5.4 della console): le API di bm sostituite (una
+cartella fa da SD), i tasti e il gamepad simulati, e il percorso intero (il player sul
+villaggio, blocchi, tessere, pittura, annulla, ossa, keyframe, salvataggio e riapertura).
+I file che scrive sono riletti da bm Studio (`check_studio3d.js`: le facce sono
+**identiche** a quelle dello Studio con gli stessi attrezzi), da `bmmesh.py` e dal parser
+del kernel (`test_bm`). In QEMU, `test_studio3d` apre il villaggio dalle opzioni del gioco,
+costruisce, anima, salva, prova il gioco e torna.
 
 ## Struttura
 
@@ -241,4 +310,8 @@ sdk/studio/js/app.js         bm Studio: file, annulla, pannelli, tasti
 sdk/animator/index.html      bm Animator
 sdk/animator/js/animator.js  bm Animator: vista con ossa e anelli, linea del tempo, sprite, file
 scripts/bmmesh.py            MESH e .glb per mkbm.py
+carts/studio3d/main.lua      lo studio 3D della console (incorporato nel kernel, scheda Dev)
+carts/studio3d/mkassets.js   il suo sheet (le tessere iniziali) e la copertina
+tests/studio/studio3d_host.lua    lo studio 3D sul PC, con le API di bm sostituite
+tests/studio/check_studio3d.js    i suoi file riletti da bm Studio
 ```

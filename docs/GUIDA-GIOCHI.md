@@ -24,7 +24,10 @@ compaiono nel menu. Tutto il resto di questa guida vale anche per l'editor.
 **Sul PC**, per i modelli 3D e la pixel art: **bm Studio**; per scheletri, animazioni e
 sprite pre-renderizzati: **bm Animator** ([sdk/README.md](../sdk/README.md)). Sono pagine
 web che aprono e salvano i `.bm` (anche direttamente sulla SD). L'editor della console,
-quando salva, tiene i modelli e le animazioni.
+quando salva, tiene i modelli e le animazioni. **Sulla console**, nella scheda Dev, lo
+**studio 3D** ne è la versione semplificata: guarda i modelli e le animazioni di un gioco
+(X sulla copertina, *Open in the 3D studio*), costruisce a blocchi e tessere, fa lo
+scheletro e le animazioni, salva e prova il gioco, con la tastiera o il gamepad.
 
 ## 1. Com'è fatta una cartuccia
 
@@ -247,8 +250,8 @@ function _draw()
 end
 ```
 
-`clips(m)` dice quali animazioni ci sono, `bone3d(m, "arm.L")` dove si trova un osso (per
-attaccargli una spada o una luce). bm Animator fa anche gli **sprite pre-renderizzati**:
+`clips(m)` dice quali animazioni ci sono, `bone3d(m, "arm.L")` dove si trova un osso (la
+testa, poi la coda: per attaccargli una spada o una luce). bm Animator fa anche gli **sprite pre-renderizzati**:
 l'animazione disegnata da 1 a 8 direzioni nello sprite sheet, da usare con `sspr()` in un
 gioco 2D (il codice Lua per disegnarli lo prepara lui).
 

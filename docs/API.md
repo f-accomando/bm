@@ -233,10 +233,11 @@ Pong, Snake e Star Shooter in `carts/` usano effetti e piccole melodie (una funz
 |---|---|
 | `keyp()` | il prossimo tasto scritto: un carattere (`"a"`, `"\n"` Invio, `"\b"` Backspace, `"\t"`), un nome (`"up"`, `"down"`, `"left"`, `"right"`, `"home"`, `"end"`, `"pgup"`, `"pgdn"`, `"del"`, `"esc"`, `"f1"`…`"f5"`) o `"^s"` per Ctrl+S; `nil` se nessuno. Dalla prima chiamata la tastiera scrive e non fa più da gamepad per `btn()`, ed Esc non chiude la cartuccia (Start+Select e PS sì) |
 | `ls([cartella])` | i file della SD: `{ {name=, size=, dir=}, … }` |
-| `cart_load(percorso)` | apre un `.bm`: il suo sprite sheet e la sua mappa sostituiscono quelli della cartuccia che chiama; restituisce `{title, author, res, lua, sheet_w, sheet_h, map_w, map_h}` |
-| `cart_new()` | sprite sheet e mappa vuoti (256×256) |
-| `cart_save(percorso, {title, author, res, lua})` | scrive un `.bm` con il codice dato e lo sprite sheet, la mappa (e la copertina) correnti; nome 8.3, es. `"/carts/GIOCO.BM"` |
-| `cart_run(percorso)` | esce, gioca quel file e poi riapre la cartuccia che l'ha chiesto, con `cart_arg()` = `{path=, error=, back=true}` (dal menu, "Open in the SDK": `back=false`) |
+| `cart_load(percorso)` | apre un `.bm`: il suo sprite sheet, la sua mappa e i suoi modelli 3D (con gli scheletri) sostituiscono quelli della cartuccia che chiama; restituisce `{title, author, res, lua, sheet_w, sheet_h, map_w, map_h}` |
+| `cart_new()` | sprite sheet e mappa vuoti (256×256), niente modelli |
+| `cart_save(percorso, {title, author, res, lua})` | scrive un `.bm` con il codice dato e lo sprite sheet, la mappa, la copertina, i modelli e gli scheletri correnti (le altre sezioni del file aperto restano come erano); nome 8.3, es. `"/carts/GIOCO.BM"` |
+| `cart_run(percorso)` | esce, gioca quel file e poi riapre la cartuccia che l'ha chiesto, con `cart_arg()` = `{path=, error=, back=true}` (dal menu, "Open in the SDK" o "Open in the 3D studio": `back=false`) |
+| `cart_data(tipo, [byte])` | le sezioni **MESH** (`tipo` 6) e **ANIM** (7) del progetto, come stringhe nel formato di `src/bm/bm.h`: senza `byte` le restituisce (`nil` se non ci sono), con `byte` le sostituisce (`nil` o `""` le toglie) → `true`, oppure `false` e il motivo. Il kernel le controlla prima; `model()`, `animate()` e `bone3d()` usano subito quelle nuove e `cart_save` le scrive. Così lo studio 3D modifica modelli e scheletri (con `string.pack` / `string.unpack`) |
 
 ### Luce
 
@@ -273,7 +274,7 @@ Esempio completo: `carts/hunt` (Hunter's Night).
 | `bounds3d(m)` | `x0, y0, z0, x1, y1, z1`: il box intorno ai vertici di una mesh, nelle sue coordinate (prima di spostarla, girarla e scalarla con `draw3d`): per centrarla, per le collisioni |
 | `animate(m, [anim, t, anim2, t2, k])` | **animazione scheletrica**: un modello con lo scheletro di [bm Animator](../sdk/README.md#bm-animator) prende la posa dell'animazione `anim` (nome o numero) al tempo `t` in secondi (in ciclo, se l'animazione è in ciclo); con `anim2, t2` mescola due animazioni (`k` da 0, solo la prima, a 1, solo la seconda: per passare dall'una all'altra); senza animazione la posa di riposo. Restituisce la durata dell'animazione. Errore se la mesh non ha scheletro o l'animazione non c'è |
 | `clips(m)` | le animazioni di un modello: `{ {name=, length=, loop=}, ... }` (`{}` senza scheletro) |
-| `bone3d(m, osso)` | `x, y, z`: dove si trova la testa di un osso (nome o numero) nell'ultima posa, nelle coordinate del modello (come `bounds3d`); `nil` se l'osso non c'è. Per attaccare oggetti alle mani, luci, effetti |
+| `bone3d(m, osso)` | `x, y, z, cx, cy, cz`: dove si trovano la testa e la coda di un osso (nome o numero) nell'ultima posa, nelle coordinate del modello (come `bounds3d`); `nil` se l'osso non c'è. Per attaccare oggetti alle mani (la testa), la punta di una spada (la coda), luci, effetti |
 | `draw3d(m, x, y, z, [rx, ry, rz, scala, flag])` | disegna una mesh con z-buffer e luce per faccia. `flag`: 1 = senza z-buffer (né prova né scrittura: pavimenti e sfondi disegnati per primi, più veloci), 2 = senza luce (colori pieni), 4 = **liscia** (Gouraud: luce calcolata sui vertici e sfumata sulla faccia, con dithering; le facce che condividono gli stessi indici di vertice sembrano una superficie curva, per gli spigoli vivi usare vertici separati); si sommano |
 | `camera3d(x, y, z, [yaw, pitch, fov, roll])` | camera (default a z = −5, fov 60°); `roll` inclina l'inquadratura (radianti) |
 | `light3d(x, y, z, [ambiente])` | direzione della luce e luce ambiente (0–1) |

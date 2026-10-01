@@ -25,9 +25,9 @@ muoversi, Invio (o A) per giocare, **L1 / R1** (Q / E sulla tastiera) per cambia
 **Esc** (o Start+Select, o PS) torna al menu e lascia
 il gioco **sospeso**: la copertina mostra "Playing" e A lo riprende dal punto in cui era.
 Avviare un altro gioco chiede prima di chiudere quello sospeso.
-**X** su una copertina apre le sue opzioni (riprendi, chiudi, apri nell'SDK, informazioni,
-cancella il salvataggio, elimina dalla SD); la scheda **Dev** ha l'SDK e gli strumenti del
-monitor (Lua, sistema, registro, test, benchmark); **Settings**, l'ultima scheda, apre
+**X** su una copertina apre le sue opzioni (riprendi, chiudi, apri nell'SDK o nello studio
+3D, informazioni, cancella il salvataggio, elimina dalla SD); la scheda **Dev** ha l'SDK,
+lo **studio 3D** e gli strumenti del monitor (Lua, sistema, registro, test, benchmark); **Settings**, l'ultima scheda, apre
 subito il suo pannello: controller, WiFi, layout della tastiera, disegno dei giochi e
 sistema (M27, BareMetal UI). Tutto si usa col solo controller. Nel menu **PS** torna a
 Games e chiude i pannelli; nel monitor apre il menu.
@@ -51,6 +51,12 @@ Edge), oppure `make studio`.
   e le animazioni **pre-renderizzate in sprite** (da 1 a 8 direzioni) nello sprite sheet.
 
 Esempio: *Studio Village* (`carts/village`): i modelli dello Studio e un paesano animato.
+
+Sulla console, nella scheda **Dev**, lo **studio 3D** ne è la versione semplificata, sugli
+stessi file: un **player** dei modelli e delle animazioni (con lo scheletro e il misto di
+due animazioni) e gli attrezzi essenziali per **costruire** a blocchi e tessere, fare lo
+**scheletro** e **animare** a keyframe, con la tastiera o il gamepad
+([sdk/README.md](sdk/README.md#sulla-console-lo-studio-3d)).
 
 ## Roadmap
 
@@ -85,7 +91,7 @@ Risoluzioni di menu, console e giochi, e quanto costano: [docs/RISOLUZIONI.md](d
 | M19 | HTTPS: aggiornamenti da GitHub, "git leggero" (archivi e API con token) | |
 | **M20** | **Titan Clash**: picchiaduro 2D a robot giganti; prima base giocabile (1 robot, armatura leggera/pesante, spada o cannoni, hangar, contro CPU o in 2) | ✅ base giocabile |
 | **M21** | Menu "home" a griglia (Games / Dev) e giochi sospesi in memoria | ✅ |
-| M22 | SDK e strumenti dedicati: codice, pixel art, 3D, musica, import/export, 3D→sprite, sprite stacking | in corso: **bm Studio** e **bm Animator** sul PC (3D, pixel art, import/export, animazione, 3D→sprite) |
+| M22 | SDK e strumenti dedicati: codice, pixel art, 3D, musica, import/export, 3D→sprite, sprite stacking | in corso: **bm Studio** e **bm Animator** sul PC (3D, pixel art, import/export, animazione, 3D→sprite); sulla console lo **studio 3D** (player e versione semplificata) |
 | M23 | Emulatore di cartucce `.p8` / `.p8.png` (stile PICO-8) | in coda |
 | M24 | Scambio in rete locale tra console (P2P) | in coda |
 | M25 | Store su GitHub: catalogo, download verificati, pubblicazione dall'SDK | in coda |
@@ -136,6 +142,7 @@ con **`b`**.
 | `L` | layout tastiera: italiano ↔ US |
 | `D` | test del DMA passo per passo (copie e riempimenti, tempi CPU contro DMA) |
 | `e` | **editor** dei giochi `.bm` (codice, sprite, mappa; è anche l'ultimo elemento del menu) |
+| `3` | **studio 3D**: modelli e animazioni di un `.bm` (player, blocchi e tessere, ossa, keyframe; anche nella scheda Dev) |
 | `a` | audio: stato dell'uscita HDMI (clock, canale DMA, costo della sintesi) e una melodia di prova con le quattro forme d'onda |
 | `T` | Bluetooth: cerca per 8 s e **abbina il primo controller** trovato come **prossimo giocatore** (fino a 4; DS4: Share + PS finché lampeggia); la console seriale passa alla mini UART (stessi pin) |
 | `P` | Bluetooth: **dimentica tutti i pad** abbinati (chiede conferma con `y`): chiavi tolte da `bm/config.txt`, pad scollegati; poi si riabbinano con `T` |
@@ -501,7 +508,8 @@ carts/village/           Studio Village: main.lua, models.bm (modelli, scheletro
                          mkmodels.js (li costruisce con gli strumenti di Studio e Animator)
 sdk/studio/              bm Studio: modelli 3D e pixel art per i .bm, sul PC (sdk/README.md)
 sdk/animator/            bm Animator: scheletri, animazioni, sprite pre-renderizzati
-tests/studio/            test di bm Studio e bm Animator: core in Node, interfaccia con Playwright
+carts/studio3d/          lo studio 3D della console (scheda Dev): player, blocchi, ossa, keyframe
+tests/studio/            test di bm Studio, bm Animator e dello studio 3D: Node, Playwright, Lua sul PC
 carts/kitchen/           Chaos Kitchen (M17): src/*.lua, build.py, mkassets.py,
                          models/*.glb e import_chefs.py (modelli 3D degli chef)
 tests/kitchen/           simulatore host di Chaos Kitchen (luahost + sim.lua)

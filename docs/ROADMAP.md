@@ -889,6 +889,33 @@ delle altre due (lavora sul `.bm`, porta il progetto da e verso bm Studio).
   (Playwright, anche l'Animator), QEMU `test_animation`.
 - **Da verificare sul Pi**: Studio Village (il paesano che cammina e lo sprite nell'angolo).
 
+**Studio 3D sulla console (2026-10-01, stesso branch): il player e la versione
+semplificata.** Su richiesta dell'utente gli strumenti del PC restano quelli principali e
+sulla console arriva una loro versione `.bm`: una cartuccia incorporata nel kernel
+(`carts/studio3d`), nella scheda **Dev** e nelle opzioni di ogni gioco (*Open in the 3D
+studio*; monitor `3`), sugli stessi file ([sdk/README.md](../sdk/README.md#sulla-console-lo-studio-3d)).
+- **Play** (il player): modelli, vertici, triangoli, ossa; camera che gira, animazioni
+  (fotogramma per fotogramma, velocità), scheletro sovrapposto, misto di due animazioni.
+- **Build**: cursore a celle, blocchi (senza pareti tra blocchi vicini), tessere su un
+  lato della cella, pittura, tessere e colori dallo sheet del progetto, annulla; le facce
+  sono identiche a quelle di bm Studio con gli stessi attrezzi.
+- **Rig** e **Animate**: ossa aggiunte, spostate e cancellate, pelle all'osso più vicino;
+  animazioni a keyframe (giri di 15° o 5° intorno a x/y/z, spostamenti, copia della posa,
+  ciclo, ease, durata).
+- **Menu**: apri, nuovo progetto (con le tessere iniziali di bm Studio), salva, prova il
+  gioco e torna, modelli nuovi/rinominati/duplicati/cancellati.
+- **Kernel**: `cart_data(tipo, [byte])` legge e sostituisce le sezioni MESH e ANIM del
+  progetto (controllate prima; `model()`/`animate()` le usano subito, `cart_save` le
+  scrive); `bone3d()` restituisce anche la coda dell'osso; il progetto aperto si azzera
+  all'avvio di ogni cartuccia.
+- **Input**: tastiera e gamepad; il puntatore arriverà con il mouse Bluetooth.
+- **Test**: lo studio sul PC con le API sostituite (`tests/studio/studio3d_host.lua`, 70
+  controlli, in `make test-studio`), i suoi file riletti da bm Studio, `bmmesh.py` e dal
+  parser del kernel; QEMU `test_studio3d`.
+- **Da verificare sul Pi**: scheda Dev → *3D studio*; aprire Studio Village, guardare il
+  paesano (k: scheletro, b: misto), costruire qualche blocco in un progetto nuovo,
+  salvarlo e provarlo (F5); fluidità del player e della costruzione sul Pi Zero.
+
 Sotto-milestone:
 - **22.0 Base comune**:
   - formato del progetto;

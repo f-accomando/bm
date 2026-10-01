@@ -24,6 +24,13 @@ Lua 5.4 embedded. Documentazione: `README.md`, `docs/ROADMAP.md`, `docs/HARDWARE
 - **bm Animator** (`sdk/animator`, usa i file di `sdk/studio/js`): scheletri e animazioni
   nella sezione ANIM (tipo 7); `rig.js` e `animate()` in `runtime.c` fanno gli stessi
   conti (cambiarli insieme). `sprites.js` (3D→sprite) è un rasterizzatore software.
+- **Studio 3D della console** (`carts/studio3d/main.lua`, cartuccia incorporata come
+  l'editor, scheda Dev, monitor `3`): player + versione semplificata di Studio/Animator.
+  Codifica MESH/ANIM in Lua (`string.pack`) e le passa al kernel con `cart_data()`;
+  `tile_face`/`place_faces` sono il port di `edit.js` (le facce devono restare identiche,
+  `check_studio3d.js`). Al livello principale del file ci sono meno di 200 locali: ogni
+  pagina sta in un blocco `do ... end`. Prova sul PC: `tests/studio/studio3d_host.lua`
+  (in `make test-studio`).
 
 ## Nome
 
