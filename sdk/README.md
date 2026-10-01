@@ -229,9 +229,13 @@ Le pagine si scelgono con i tasti F (o Y + sinistra/destra sul gamepad), il menu
 (Y + B); tenendo premuto **F12**, o con **?**, compaiono i tasti della pagina. In tutte le
 viste 3D + e − fanno lo zoom e **Alt + frecce** (sul gamepad X + croce) girano la camera.
 
-**bm Studio**, F1 **build** — a sinistra gli attrezzi, al centro la vista, a destra il
-pennello (la tessera o il colore, con lo sheet intorno), il modello (facce, triangoli,
-vertici: avvisa oltre i 1200 triangoli dei 60 fps) e la vista:
+Hanno l'aspetto delle altre app della console (bm Mesh, bm Pixel): a sinistra un pannello
+con le liste, sopra la vista due righe che dicono cosa c'è e cosa si sta facendo, in basso
+i tasti; le cose scelte in giallo, quella sotto il puntatore in azzurro.
+
+**bm Studio**, F1 **build** — nel pannello a sinistra gli attrezzi, la tessera o il colore
+del pennello (con lo sheet intorno) e il modello (facce, triangoli, vertici: avvisa oltre
+i 1200 triangoli dei 60 fps):
 
 - **1 blocco** e **2 tessera** (Crocotile all'essenziale): un cursore a forma di cella si
   muove con le frecce sul piano e con PgUp/PgDn in altezza, sempre rispetto alla vista

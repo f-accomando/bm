@@ -2666,7 +2666,7 @@ def test_studio_animator(b, opts):
         keys("x")
         screen(["Open in the SDK", "Open in bm Code", "Open in the Sound editor", "Open in bm Studio"])
         keys("s", "s", "s", "s", "\r")         # Play, SDK, Code, Sound, Studio
-        screen(["build", "models", "BRUSH", "MODEL", "model 1/8: ground"])
+        screen(["build", "models", "TOOLS", "MODEL", "model 1/8: ground"])
         shot("studio-build")
         keys("3", "a")
         screen(["SELECT", "faces chosen"])
@@ -2678,7 +2678,7 @@ def test_studio_animator(b, opts):
         screen(["PAINT", " at "])
         shot("studio-paint")
         keys(ESC, "1", TAB, "d")
-        screen(["TILES OF THE SHEET", "2 x 1 tiles"])
+        screen(["tiles: sheet 256x256", "2 x 1 tiles"])
         shot("studio-tiles")
         keys(TAB, F2)
         screen(["MODELS 8", "villager"])
@@ -2733,7 +2733,8 @@ def test_studio_animator(b, opts):
         # the village: the villager, its bones, its animations, its sprites
         keys(ESC, gap=0.6)
         keys(DOWN, "\r")                        # Open...
-        screen(["open a cartridge", "/carts/village.bm"])
+        screen(["/carts/CUBE.BM", "/carts/village.bm"])
+        shot("animator-open")
         keys(DOWN, "\r", gap=1.0)               # CUBE.BM, then village.bm
         screen(["opened /carts/village.bm", "MODELS"])
         for _ in range(7):

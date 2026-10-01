@@ -41,7 +41,11 @@ screenshot in `docs/img/`), `README_OLD.md` (il README completo, in italiano),
   `edit.js` (le facce devono restare identiche, `check_studio3d.js`). Una pagina è un
   blocco `do ... end` (meno di 200 locali). Il mouse (branch `claude/mouse`) verrà dopo:
   per ora tastiera e pad. Scritte sulle righe di 16 pixel (i test in QEMU leggono lo
-  schermo). Prova sul PC: `tests/studio/tools3d_host.lua` (in `make test-studio`), QEMU
+  schermo). Stessa estetica delle altre app (richiesta dell'utente): pannello a sinistra
+  di 168 px con liste a intestazione grigia (niente barre di icone), due righe sopra la
+  vista (nome in arancio), colori di bm Mesh (`C.PT` giallo per le cose scelte, `C.HOT`
+  azzurro per il puntatore, `C.WIRE`), assi in basso a sinistra (`T.gizmo`), menu,
+  dialoghi e scacchiera della trasparenza come bm Mesh e bm Pixel. Prova sul PC: `tests/studio/tools3d_host.lua` (in `make test-studio`), QEMU
   `test_studio_animator`.
 - **bm Mesh** (`carts/mesh/main.lua`, incorporata, scheda Dev, monitor `4`, opzioni "Open in
   bm Mesh"): vertici e facce dei modelli (MESH), delle mesh scritte da lui nel codice

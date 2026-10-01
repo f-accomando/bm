@@ -491,7 +491,7 @@ local function open_file(name)
   local list = {}
   for _, f in ipairs(E.ls("/carts")) do list[#list + 1] = f.name end
   table.sort(list)
-  for _ = 1, 10 do key("up") end
+  key("pgup")                            -- the top of the list (the list goes round)
   for i, n in ipairs(list) do if n == name then for _ = 2, i do key("down") end end end
   key("\n")
 end
@@ -522,10 +522,10 @@ check(sees("/carts/village.bm"), "the village is in the list")
 -- open the village: 8 models; the models page lists them
 open_file("village.bm")
 check(#cur_models() == 8, "the village: 8 models, " .. #cur_models())
-check(sees("[f1]") and sees("build") and sees("BRUSH") and sees("MODEL"), "the build page: " .. status())
+check(sees("[f1]") and sees("build") and sees("TOOLS") and sees("MODEL"), "the build page: " .. status())
 local orig8, orig9 = sec[8], sec[9]
 key("f2")
-check(sees("MODELS 8") and sees("ground") and sees("villager  *"), "F2: the models, the villager with a skeleton")
+check(sees("MODELS 8") and sees("ground") and sees("villager"), "F2: the models")
 key("down")
 check(sees("faces") and sees("tri"), "a model's faces and triangles")
 
@@ -564,9 +564,9 @@ check(m1().nf == 12, "undo: one block")
 
 -- tiles: a red floor and a grass wall in the next cell (the colour first)
 key("right", "2", "\t")
-check(sees("TILES OF THE SHEET"), "Tab: the tiles of the sheet")
+check(sees("tiles: sheet 256x256"), "Tab: the tiles of the sheet")
 key("c")
-check(sees("COLOURS"), "c: the colours")
+check(sees("colours: #"), "c: the colours")
 for _ = 1, 8 do key("right") end                       -- the ninth colour, 0xE84A5A
 key("\n")
 key(" ")
@@ -686,9 +686,9 @@ check(m1().nf == 28, "pad A: a block in front of the model (" .. m1().nf .. ")")
 buttons(5)
 check(m1().nf == 16, "pad B: the block goes")
 buttons(7)
-check(sees("TILES OF THE SHEET"), "pad Y (alone): the tiles")
+check(sees("tiles: sheet"), "pad Y (alone): the tiles")
 buttons(5)
-check(sees("BRUSH"), "pad B: back to the build page")
+check(sees("TOOLS"), "pad B: back to the build page")
 pad[7] = true; frames(2); pad[1] = true; frames(2); pad = {}; frames(3)
 check(sees("MODELS 1"), "pad Y + right: the next page, models")
 pad[7] = true; frames(2); pad[5] = true; frames(2); pad = {}; frames(3)

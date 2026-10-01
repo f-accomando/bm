@@ -14,10 +14,12 @@ local T = {}
 local W, H = SCREEN_W, SCREEN_H
 T.W, T.H = W, H
 
+-- the colours of the editors of the console (bm Mesh, bm Pixel...): in the
+-- 3D views the wires, the chosen things (PT) and the one under the pointer (HOT)
 local C = {
   BG = 0x14161E, PANEL = 0x1C2030, BAR = 0x2A3048, TEXT = 0xE0E4F0, DIM = 0x707890, ACC = 0xFFC050,
   ERR = 0xFF6060, SEL = 0x3050A0, SKY = 0x262C3E, GRID = 0x3A4258, GRID0 = 0x56607C, CUR = 0xFFE070,
-  HOT = 0x60D8FF, PICK = 0xFF70C0, OK = 0x70E090,
+  WIRE = 0x7A88B0, PT = 0xFFE070, HOT = 0x60E0FF, OK = 0x90E090,
 }
 T.C = C
 T.FOCAL = (W / 2) / math.tan(math.rad(30))      -- camera3d with fov 60
@@ -680,7 +682,18 @@ function T.look(cam, dx, dy)
   local a, b = -(dx or 0) * d / T.FOCAL, (dy or 0) * d / T.FOCAL
   camera3d(cam.tx - f[1] * d + r[1] * a + u[1] * b, cam.ty - f[2] * d + u[2] * b,
            cam.tz - f[3] * d + r[3] * a + u[3] * b, cam.yaw, cam.pitch, 60)
-  cam.f, cam.r = f, r
+  cam.f, cam.r, cam.u = f, r, u
+end
+
+-- the three axes as the camera sees them, at (x, y) of the screen (bm Mesh)
+function T.gizmo(cam, x, y)
+  if not cam.r then return end
+  local cols, names = { 0xFF6060, 0x60E060, 0x6090FF }, { "x", "y", "z" }
+  for k = 1, 3 do
+    local dx, dy = cam.r[k], cam.u[k]
+    line(x, y, x + dx * 18, y - dy * 18, cols[k])
+    print(names[k], x + dx * 24 - 3, y - dy * 24 - 6, cols[k])
+  end
 end
 
 function T.scr(p)
@@ -696,10 +709,14 @@ function T.seg(a, b, c)
 end
 local seg = T.seg
 
--- the edges of a face
-function T.outline(f, c)
+-- the edges of a face, and a dot in its middle (as bm Mesh)
+function T.outline(f, c, dot)
   local p = f.p
   for i = 1, #p do seg(p[i], p[i % #p + 1], c) end
+  if dot then
+    local x, y = scr(T.face_center(f))
+    if x then rectfill(x - 1, y - 1, 3, 3, c) end
+  end
 end
 
 -- the world axis nearest to where the camera looks, and the one to its
@@ -867,14 +884,15 @@ function T.chip_hint(key, pad, label, x, y, c)
   return print(label, snap(x + 3), y, c or C.DIM) + 12
 end
 
--- a list with a title: items[i] is a string; `colour_of(i)` a dot before it
-function T.draw_list(title, items, sel, x, y, rows, w, colour_of, active)
+-- a list with a title (as the lists of bm Mesh): items[i] is a string;
+-- `colour_of(i)` a dot before it
+function T.draw_list(title, items, sel, x, y, rows, w, colour_of)
   w = w or 168
-  print(title, x + 16, y, active == false and C.DIM or C.ACC)
+  print(title, x + 16, y, C.DIM)
   local first = clamp(sel - rows // 2, 1, max(1, #items - rows + 1))
   for i = first, min(#items, first + rows - 1) do
     local yy = y + 16 + (i - first) * 16
-    if i == sel then rectfill(x, yy, w, 16, active == false and C.BAR or C.SEL) end
+    if i == sel then rectfill(x, yy, w, 16, C.SEL) end
     if colour_of then rectfill(x + 4, yy + 4, 6, 8, colour_of(i)) end
     print(items[i]:sub(1, (w - 24) // 8), x + 16, yy, i == sel and 0xFFFFFF or C.TEXT)
   end
@@ -942,6 +960,8 @@ local function choose_key(k)
   local c = choosing
   if k == "up" then c.sel = (c.sel - 2) % #c.rows + 1
   elseif k == "down" then c.sel = c.sel % #c.rows + 1
+  elseif k == "pgup" then c.sel = max(1, c.sel - 12)
+  elseif k == "pgdn" then c.sel = min(#c.rows, c.sel + 12)
   elseif k == "esc" or k == "back" then choosing = nil
   elseif k == "\n" or k == " " or k == "ok" then
     choosing = nil
@@ -949,34 +969,36 @@ local function choose_key(k)
   end
 end
 
+-- the dialogs: the same as bm Mesh's and bm Pixel's
 local function draw_input()
-  rectfill(80, 136, 480, 80, C.PANEL)
-  rect(80, 136, 480, 80, C.ACC)
-  print(input.label, 96, 144, C.DIM)
-  print(input.text .. ((S.frame // 20) % 2 == 0 and "_" or ""), 96, 160, C.TEXT)
-  T.chip_hint("esc", "B", "cancel", T.chip_hint("enter", nil, "ok", 336, 192), 192)
+  rectfill(80, 144, 480, 64, C.PANEL)
+  rect(80, 144, 480, 64, C.ACC)
+  print(input.label, 96, 160, C.DIM)
+  print(input.text .. ((S.frame // 20) % 2 == 0 and "_" or ""), 96, 176, C.TEXT)
+  T.chip_hint("esc", nil, "cancel", T.chip_hint("enter", nil, "ok", 336, 144), 144)
 end
 
 local function draw_choose()
-  local c = choosing
-  local n = min(#c.rows, 14)
-  local h = (n + 2) * 16
+  local p = choosing
+  local rows = min(#p.rows, 14)
+  local h = (rows + 2) * 16
   local y0 = max(32, (H - h) // 32 * 16)
-  rectfill(80, y0, 480, h, C.PANEL)
-  rect(80, y0, 480, h, C.ACC)
-  local ox = print(c.title, 96, y0, C.ACC) + 16
-  T.chip_hint("esc", "B", "back", T.chip_hint("enter", "A", "choose", max(ox, 320), y0), y0)
-  local first = clamp(c.sel - n // 2, 1, max(1, #c.rows - n + 1))
-  for i = first, min(#c.rows, first + n - 1) do
+  rectfill(40, y0, 560, h, C.PANEL)
+  rect(40, y0, 560, h, C.ACC)
+  local tx = print(p.title, 56, y0, C.ACC) + 16
+  T.chip_hint("esc", "B", "back", T.chip_hint("enter", "A", "choose", tx, y0), y0)
+  local first = clamp(p.sel - rows // 2, 1, max(1, #p.rows - rows + 1))
+  for i = first, min(#p.rows, first + rows - 1) do
     local y = y0 + 16 + (i - first) * 16
-    if i == c.sel then rectfill(88, y, 464, 16, C.SEL) end
-    print(c.rows[i][1]:sub(1, 56), 96, y, C.TEXT)
+    if i == p.sel then rectfill(48, y, 544, 16, C.SEL) end
+    print(p.rows[i][1]:sub(1, 66), 56, y, i == p.sel and 0xFFFFFF or C.TEXT)
   end
+  if first + rows - 1 < #p.rows then print("v", 576, y0 + rows * 16, C.DIM) end
 end
 
 ----------------------------------------------------------------- the menu
 
-local items, msel, files, fsel, picking = {}, 1, {}, 1, false
+local items, msel = {}, 1
 
 local function go(p)
   if not A.pages[p] and p ~= "menu" then p = A.order[1] end
@@ -1005,11 +1027,17 @@ local function refresh()
 end
 T.refresh = refresh
 
+-- the .bm files of the SD card to open (as bm Mesh's); true if there are some
 function T.open_chooser()
-  files, fsel = T.list_files(), 1
-  for i, f in ipairs(files) do if f == S.proj.path then fsel = i end end
-  picking = #files > 0
-  if not picking then say("no .bm files on the SD card", C.ERR) end
+  local files = T.list_files()
+  if #files == 0 then say("no .bm files on the SD card", C.ERR); return false end
+  local rows, sel = {}, 1
+  for i, f in ipairs(files) do
+    rows[i] = { f, function() if T.load_project(f) then go(A.order[1]) end end }
+    if f == S.proj.path then sel = i end
+  end
+  T.choose("open a cartridge", rows, sel)
+  return true
 end
 
 local function build_menu()
@@ -1028,16 +1056,6 @@ local function build_menu()
 end
 
 local function menu_key(k)
-  if picking then
-    if k == "up" then fsel = max(1, fsel - 1)
-    elseif k == "down" then fsel = min(#files, fsel + 1)
-    elseif k == "esc" or k == "back" then picking = false
-    elseif k == "\n" or k == "ok" then
-      picking = false
-      if T.load_project(files[fsel]) then go(A.order[1]) end
-    end
-    return
-  end
   build_menu()
   if k == "up" then msel = (msel - 2) % #items + 1
   elseif k == "down" then msel = msel % #items + 1
@@ -1045,46 +1063,38 @@ local function menu_key(k)
   elseif (k == "esc" or k == "back") and #S.models > 0 then go(S.last_page or A.order[1]) end
 end
 
+-- the menu page, laid out as bm Mesh's and bm Pixel's
 local function draw_menu()
-  rectfill(0, 16, W, HINT_Y, C.BG)
+  cls(C.BG)
   build_menu()
   print(A.name, 32, 32, C.ACC)
-  print((S.proj.path or "(not saved yet)") .. (S.dirty and "  *modified*" or ""), 176, 32, C.DIM)
+  print((S.proj.path or "(not saved yet)") .. (S.dirty and "  *modified*" or ""), snap(32 + (#A.name + 2) * 8), 32,
+        C.DIM)
   for i, it in ipairs(items) do
     local y = 64 + (i - 1) * 16
-    if i == msel and not picking and not input then rectfill(24, y, 300, 16, C.SEL) end
+    if i == msel and not choosing and not input then rectfill(24, y, 272, 16, C.SEL) end
     print(it[1], 32, y, C.TEXT)
   end
-  local x = 344
-  print("project", x, 64, C.DIM)
-  print(S.proj.title:sub(1, 34), x, 80, C.TEXT)
+  local x = 320
+  print(S.proj.title:sub(1, 38), x, 64, C.TEXT)
   local nr = 0
   for _, m in ipairs(S.models) do if m.rig then nr = nr + 1 end end
   print(#S.models .. " models, " .. nr .. " with a skeleton", x, 96, C.TEXT)
-  local y = 128
-  for i = 1, #A.order, 2 do
-    local a, b = A.pages[A.order[i]], A.pages[A.order[i + 1]]
-    local nx = T.chip_hint(a.fkey, nil, a.label, x, y)
-    if b then T.chip_hint(b.fkey, nil, b.label, nx, y) end
-    y = y + 16
+  -- the keys of the pages, as many a line as fit
+  local y, cx = 128, x
+  local function chip(key, label)
+    local w = prompt(key) + 3 + #label * 8 + 12
+    if cx > x and cx + w > W - 8 then cx, y = x, y + 16 end
+    cx = T.chip_hint(key, nil, label, cx, y)
   end
-  T.chip_hint("f5", nil, "try the game", x, y)
-  local kx = snap(prompt("f12", x, y + 16) + 3)
-  kx = print("(held) or", kx, y + 16, C.DIM) + 4
-  T.chip_hint("?", nil, "keys", kx, y + 16)
-  if A.menu_info then A.menu_info(x, y + 48) end
-  if picking then
-    rectfill(40, 40, 560, 272, C.PANEL)
-    rect(40, 40, 560, 272, C.ACC)
-    local ox = print("open a cartridge", 56, 48, C.ACC) + 16
-    T.chip_hint("esc", "B", "back", T.chip_hint("enter", "A", "open", ox, 48), 48)
-    local first = max(1, min(fsel - 7, #files - 13))
-    for i = first, min(#files, first + 13) do
-      local yy = 80 + (i - first) * 16
-      if i == fsel then rectfill(52, yy, 536, 16, C.SEL) end
-      print(files[i], 56, yy, C.TEXT)
-    end
-  end
+  for _, id in ipairs(A.order) do chip(A.pages[id].fkey, A.pages[id].label) end
+  chip("f5", "try the game")
+  y = y + 16
+  local kx = snap(prompt("f12", x, y) + 3)
+  kx = print("(held) or", kx, y, C.DIM) + 4
+  T.chip_hint("?", nil, "keys", kx, y)
+  if A.menu_info then A.menu_info(x, y + 32) end
+  T.hint({ { { "up", "down" }, "choose" }, { { "enter" }, "select" }, { { "esc" }, "back" } })
 end
 
 ----------------------------------------------------------------- keys help
@@ -1159,8 +1169,7 @@ function T.run(app)
     else
       if A.new_project then A.new_project(true) else S.models = {} end
       go("menu")
-      T.open_chooser()
-      say(A.hello(picking), C.ACC, 400)
+      say(A.hello(T.open_chooser()), C.ACC, 400)
     end
   end
 
@@ -1180,7 +1189,6 @@ function T.run(app)
       elseif input then input_key(k)
       elseif choosing then choose_key(k)
       elseif k == "?" then help = true
-      elseif S.page == "menu" and picking then menu_key(k)
       elseif not global_key(k) then
         local pg = A.pages[S.page]
         if pg then pg.key(k) else menu_key(k) end

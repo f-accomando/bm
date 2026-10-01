@@ -76,11 +76,12 @@ function _draw()
 end
 ]]
 
--- the layout of the build page: the tools on the left, the 3D view, the
--- panel on the right (brush, sheet, model, what the tool does)
-local TOOL_W, SIDE_X = 40, 456
-local SIDE_W = W - SIDE_X
-local VIEW_DX = (TOOL_W + SIDE_X) // 2 - W // 2
+-- the layout, as the other editors of the console (bm Mesh, bm Pixel): the
+-- panel on the left (the tools, the tile, the model), the 3D view with two
+-- lines of text over it
+local PANEL_W = 168
+local CHK1, CHK2 = 0x2A2E3A, 0x343846       -- the checker of the transparent pixels (bm Pixel)
+local VIEW_DX = (PANEL_W + W) // 2 - W // 2
 local starter = nil        -- the tiles of a new project (this cartridge's own sheet)
 local sheet_w, sheet_h = 256, 256
 local function sheet_size() return S.proj.sheet_w or 256, S.proj.sheet_h or 256 end
@@ -110,7 +111,7 @@ local function draw_tile(rect, x, y, size, rot, flip)
 end
 
 local function draw_brush(x, y, size)
-  rectfill(x - 2, y - 2, size + 4, size + 4, C.BG)
+  rectfill(x - 2, y - 2, size + 4, size + 4, CHK1)
   rect(x - 2, y - 2, size + 4, size + 4, C.DIM)
   if brush.c then rectfill(x, y, size, size, brush.c)
   else draw_tile(brush.rect, x, y, size, brush.rot, brush.flip) end
@@ -184,7 +185,7 @@ local function draw_picker()
   local p = picker
   cls(C.BG)
   if p.colours then
-    print("COLOURS", 16, 32, C.ACC)
+    print(string.format("colours: #%06X", T.PALETTE[p.pal]), 0, 16, C.TEXT)
     for i, c in ipairs(T.PALETTE) do
       local x, y = 16 + ((i - 1) % 6) * 40, 56 + ((i - 1) // 6) * 40
       rectfill(x, y, 32, 32, c)
@@ -196,15 +197,15 @@ local function draw_picker()
              { { "tab" }, "back" } })
     return
   end
-  print("TILES OF THE SHEET", 16, 16, C.ACC)
+  print(string.format("tiles: sheet %dx%d  at %d,%d  %dx%d", sheet_w, sheet_h, p.x, p.y, p.size, p.size), 0, 16, C.TEXT)
   local ox, oy = 16, 32
   local vw, vh = min(288, sheet_w - p.left), min(272, sheet_h - p.top)
   clip(ox, oy, 288, 272)
-  rectfill(ox, oy, vw, vh, 0x101218)
-  -- a checker shows the transparent pixels
+  rectfill(ox, oy, vw, vh, CHK1)
+  -- a checker shows the transparent pixels (as bm Pixel's)
   for y = 0, vh - 1, 8 do
     for x = 0, vw - 1, 8 do
-      if (x // 8 + y // 8) % 2 == 0 then rectfill(ox + x, oy + y, 8, 8, 0x1A1C26) end
+      if (x // 8 + y // 8) % 2 == 0 then rectfill(ox + x, oy + y, 8, 8, CHK2) end
     end
   end
   sspr(p.left, p.top, vw, vh, ox, oy)
@@ -213,12 +214,10 @@ local function draw_picker()
   rect(ox + p.x - p.left, oy + p.y - p.top, bw, bh, C.CUR)
   clip()
   local big = 128
-  rectfill(320, 32, big, big, 0x101218)
+  rectfill(320, 32, big, big, CHK1)
   draw_tile({ p.x, p.y, bw, bh }, 320, 32, big, 0, false)
   rect(319, 31, big + 2, big + 2, C.DIM)
-  print(string.format("%d,%d  %dx%d", p.x, p.y, p.size, p.size), 320, 176, C.TEXT)
-  if p.tw > 1 or p.th > 1 then print(string.format("%d x %d tiles: one put", p.tw, p.th), 320, 192, C.ACC) end
-  print("sheet " .. sheet_w .. "x" .. sheet_h, 320, 224, C.DIM)
+  if p.tw > 1 or p.th > 1 then print(string.format("%d x %d tiles: one put", p.tw, p.th), 320, 176, C.ACC) end
   local x = 320
   for _, k in ipairs({ "a", "d", "w", "s" }) do x = prompt(k, x, 256) + 1 end
   print("fewer / more tiles", T.snap(x + 3), 256, C.DIM)
@@ -998,16 +997,16 @@ end
 local function draw_paint_panel(x, y)
   local pp = bd.paint
   local n = max(pp.w, pp.h)
-  local z = max(1, min(160 // n, 10))
-  print("PAINT", x, y, C.ACC)
-  print(string.format("%dx%d at %d,%d", pp.w, pp.h, pp.x, pp.y), x + 56, y, C.DIM)
-  local oy = y + 20
-  rectfill(x, oy, pp.w * z, pp.h * z, 0x101218)
+  local z = max(1, min(136 // n, 8))
+  print("PAINT", x, y, C.DIM)
+  print(string.format("%dx%d at %d,%d", pp.w, pp.h, pp.x, pp.y), x, y + 16, C.TEXT)
+  local oy = y + 36
+  rectfill(x, oy, pp.w * z, pp.h * z, CHK1)
   for j = 0, pp.h - 1 do
     for i = 0, pp.w - 1 do
       local c = sget(pp.x + i, pp.y + j)
       if c then rectfill(x + i * z, oy + j * z, z, z, c)
-      elseif (i + j) % 2 == 0 then rectfill(x + i * z, oy + j * z, z, z, 0x1A1C26) end
+      elseif (i + j) % 2 == 0 then rectfill(x + i * z, oy + j * z, z, z, CHK2) end
     end
   end
   local blink = (S.frame // 15) % 2 == 0 and C.CUR or 0xFFFFFF
@@ -1016,9 +1015,9 @@ local function draw_paint_panel(x, y)
   rectfill(x, ty, 16, 16, paint_c)
   rect(x, ty, 16, 16, C.DIM)
   print(string.format("#%06X", paint_c), x + 24, ty, C.TEXT)
-  print("it paints the sheet:", x, ty + 32, C.DIM)
-  print("each face with this", x, ty + 48, C.DIM)
-  print("tile changes too", x, ty + 64, C.DIM)
+  print("paints the sheet:", x, ty + 32, C.DIM)
+  print("the faces with this", x, ty + 48, C.DIM)
+  print("tile change too", x, ty + 64, C.DIM)
 end
 
 ----------------------------------------------------------------- the view
@@ -1071,77 +1070,48 @@ local function draw_model(m)
   draw3d(S.view, 0, 0, 0, 0, 0, 0, 1, bd.view == 2 and 2 or 0)
 end
 
--- the tools on the left, each with its key
-local function draw_tools()
-  rectfill(0, 16, TOOL_W, HINT_Y - 16, C.PANEL)
-  for i = 1, #TOOLS do
-    local y = 24 + (i - 1) * 44
-    local on = bd.tool == i
-    if on then rectfill(2, y - 2, TOOL_W - 4, 40, C.SEL) end
-    local c = on and 0xFFFFFF or 0x9AA4C0
-    local x0, y0 = 10, y + 4
-    if i == 1 then                                          -- a cube
-      rect(x0, y0 + 6, 14, 14, c); line(x0, y0 + 6, x0 + 6, y0, c); line(x0 + 14, y0 + 6, x0 + 20, y0, c)
-      line(x0 + 6, y0, x0 + 20, y0, c); line(x0 + 20, y0, x0 + 20, y0 + 14, c); line(x0 + 14, y0 + 20, x0 + 20, y0 + 14, c)
-    elseif i == 2 then                                      -- a tile
-      rectfill(x0, y0 + 2, 18, 18, on and C.ACC or 0x6A7088); rect(x0, y0 + 2, 18, 18, c)
-      line(x0 + 9, y0 + 2, x0 + 9, y0 + 19, c); line(x0, y0 + 11, x0 + 17, y0 + 11, c)
-    elseif i == 3 then                                      -- a dashed box
-      for d = 0, 18, 4 do
-        pset(x0 + d, y0 + 2, c); pset(x0 + d + 1, y0 + 2, c); pset(x0 + d, y0 + 20, c); pset(x0 + d + 1, y0 + 20, c)
-        pset(x0, y0 + 2 + d, c); pset(x0, y0 + 3 + d, c); pset(x0 + 18, y0 + 2 + d, c); pset(x0 + 18, y0 + 3 + d, c)
-      end
-      line(x0 + 8, y0 + 8, x0 + 14, y0 + 18, c); line(x0 + 8, y0 + 8, x0 + 16, y0 + 12, c)
-    elseif i == 4 then                                      -- corners
-      line(x0, y0 + 18, x0 + 10, y0 + 2, c); line(x0 + 10, y0 + 2, x0 + 20, y0 + 18, c); line(x0, y0 + 18, x0 + 20, y0 + 18, c)
-      rectfill(x0 + 8, y0, 5, 5, on and C.CUR or c); rectfill(x0 - 2, y0 + 16, 5, 5, c); rectfill(x0 + 18, y0 + 16, 5, 5, c)
-    else                                                    -- a brush
-      line(x0 + 4, y0 + 18, x0 + 16, y0 + 4, c); line(x0 + 5, y0 + 18, x0 + 17, y0 + 4, c)
-      rectfill(x0, y0 + 16, 6, 5, paint_c)
-    end
-    prompt(tostring(i), 24, y + 22, true)
+-- the panel on the left: the tools (a list, as the lists of bm Mesh), the
+-- tile or colour of the brush with the sheet around it, the model
+local TOOL_C = { 0xE0A060, 0x90E090, 0x80C8FF, 0xFFE070, 0xFF8080 }
+local function draw_panel()
+  rectfill(0, 16, PANEL_W, HINT_Y - 16, C.PANEL)
+  if bd.paint then draw_paint_panel(16, 32); return end
+  print("TOOLS", 16, 32, C.DIM)
+  for i, name in ipairs(TOOLS) do
+    local y = 32 + i * 16
+    if i == bd.tool then rectfill(0, y, PANEL_W, 16, C.SEL) end
+    print(tostring(i), 8, y, TOOL_C[i])
+    print(name, 24, y, i == bd.tool and 0xFFFFFF or C.TEXT)
   end
-end
-
--- the panel on the right: the brush, the sheet around it, the model
-local function draw_side()
-  local x = SIDE_X + 8
-  rectfill(SIDE_X, 16, SIDE_W, HINT_Y - 16, C.PANEL)
-  if bd.paint then draw_paint_panel(x, 32); return end
-  do
-    print("BRUSH", x, 32, C.ACC)
-    draw_brush(x, 50, 44)
-    if brush.c then
-      print(string.format("#%06X", brush.c), x + 56, 48, C.TEXT)
-    else
-      print(string.format("%d,%d", brush.rect[1], brush.rect[2]), x + 56, 48, C.TEXT)
-      print(brush.tw * brush.th > 1 and string.format("%dx%d tiles", brush.tw, brush.th) or
-            string.format("%dx%d", brush.size, brush.size), x + 56, 64, C.DIM)
-    end
-    local t = (brush.rot > 0 and (brush.rot * 90 .. "\248 ") or "") .. (brush.flip and "mirror" or "")
-    if t ~= "" then print(t, x + 56, 80, C.DIM) end
-    T.chip_hint("tab", "Y", "tiles", x, 112)
-    -- the sheet around the brush
-    if not brush.c then
-      local vw, vh = SIDE_W - 16, 80
-      local sx = clamp(brush.rect[1] + brush.rect[3] // 2 - vw // 2, 0, max(0, sheet_w - vw))
-      local sy = clamp(brush.rect[2] + brush.rect[4] // 2 - vh // 2, 0, max(0, sheet_h - vh))
-      rectfill(x, 132, vw, vh, 0x101218)
-      clip(x, 132, vw, vh)
-      sspr(sx, sy, vw, vh, x, 132)
-      rect(x + brush.rect[1] - sx, 132 + brush.rect[2] - sy, brush.rect[3], brush.rect[4], C.CUR)
-      clip()
-    end
+  print(brush.c and "COLOUR" or "TILE", 16, 144, C.DIM)
+  draw_brush(18, 162, 28)
+  if brush.c then
+    print(string.format("#%06X", brush.c), 56, 160, C.TEXT)
+  else
+    print(string.format("%d,%d", brush.rect[1], brush.rect[2]), 56, 160, C.TEXT)
+    print(brush.tw * brush.th > 1 and string.format("%dx%d tiles", brush.tw, brush.th) or
+          string.format("%dx%d", brush.size, brush.size), 56, 176, C.DIM)
+  end
+  local t = (brush.rot > 0 and (brush.rot * 90 .. "\248 ") or "") .. (brush.flip and "mirror" or "")
+  if t ~= "" then print(t, 104, 176, C.DIM) end
+  T.chip_hint("tab", "Y", "tiles", 16, 192)
+  -- the sheet around the brush
+  if not brush.c then
+    local vw, vh = PANEL_W - 32, 40
+    local sx = clamp(brush.rect[1] + brush.rect[3] // 2 - vw // 2, 0, max(0, sheet_w - vw))
+    local sy = clamp(brush.rect[2] + brush.rect[4] // 2 - vh // 2, 0, max(0, sheet_h - vh))
+    rectfill(16, 210, vw, vh, CHK1)
+    clip(16, 210, vw, vh)
+    sspr(sx, sy, vw, vh, 16, 210)
+    rect(16 + brush.rect[1] - sx, 210 + brush.rect[2] - sy, brush.rect[3], brush.rect[4], C.CUR)
+    clip()
   end
   local m = M()
-  local y = 224
-  print("MODEL", x, y, C.ACC)
-  print(m and m.name or "-", x + 48, y, C.TEXT)
-  local warn = T.counts(m, x, y + 16, true)
-  print(warn and "heavy for 60 fps" or ("view: " .. VIEWS[bd.view] .. (bd.back and ", back" or "")), x, y + 48,
+  print("MODEL", 16, 256, C.DIM)
+  print((m and m.name or "-"):sub(1, 13), 64, 256, C.TEXT)
+  local warn = T.counts(m, 16, 272, true)
+  print(warn and "heavy for 60 fps" or ("view: " .. VIEWS[bd.view] .. (bd.back and ", back" or "")), 16, 304,
         warn and C.ACC or C.DIM)
-  if bd.tool == 3 then print(count(bd.sel) .. " faces chosen", x, y + 64, count(bd.sel) > 0 and C.PICK or C.DIM)
-  elseif bd.tool == 4 then print(count(bd.psel) .. " corners chosen", x, y + 64, count(bd.psel) > 0 and C.PICK or C.DIM) end
 end
 
 build = {
@@ -1322,7 +1292,7 @@ function build.draw()
   cls(C.SKY)
   zclear()
   -- the camera's own axes, before drawing (the tiles face it)
-  T.look(cam, VIEW_DX, 8)
+  T.look(cam, VIEW_DX, 16)
   if bd.grid then
     T.draw_grid(c[1], c[2], c[3], 6, 1, C.GRID)
     T.seg({ -0.2, 0, 0 }, { 1, 0, 0 }, 0xC04040)
@@ -1330,7 +1300,10 @@ function build.draw()
   end
   if m then draw_model(m) end
   local blink = (S.frame // 15) % 2 == 0 and C.CUR or 0xFFFFFF
-  local info
+  local info, info2_c = nil, C.DIM
+  local info2 = (brush.c and string.format("colour #%06X", brush.c) or
+                 string.format("tile %d,%d  %dx%d", brush.rect[1], brush.rect[2], brush.rect[3], brush.rect[4])) ..
+                "   view: " .. VIEWS[bd.view] .. (bd.back and ", faces from behind" or "")
   if tool <= 2 then
     -- the cursor: the cell, and the side the tile tool works on
     local x0, y0, z0 = c[1], c[2], c[3]
@@ -1357,31 +1330,38 @@ function build.draw()
     info = string.format("%s  cell %d,%d,%d%s", TOOLS[tool]:upper(), c[1], c[2], c[3],
                          tool == 2 and ("  on the " .. SIDES[bd.side]) or "")
   elseif tool == 4 then
+    -- the corners as bm Mesh's vertices: chosen yellow, the pointer's circled
     local pts = points()
     for _, pt in ipairs(pts) do
       local x, y = T.scr(pt.p)
-      if x then rectfill(x - 1, y - 1, 3, 3, bd.psel[pt] and C.PICK or 0x9AA4C0) end
+      if x and not bd.psel[pt] then rectfill(x - 1, y - 1, 2, 2, C.WIRE) end
     end
     for pt in pairs(bd.psel) do
       local x, y = T.scr(pt.p)
-      if x then rect(x - 3, y - 3, 7, 7, C.PICK) end
+      if x then rectfill(x - 2, y - 2, 5, 5, C.PT) end
     end
     local hp = hot_point()
     if hp then
       local x, y = T.scr(hp.p)
-      if x then rect(x - 4, y - 4, 9, 9, blink) end
+      if x then circ(x, y, 5, C.HOT) end
       info = string.format("VERTEX  %.3g, %.3g, %.3g  (%d faces)", hp.p[1], hp.p[2], hp.p[3], #hp.refs)
     else
       info = "VERTEX  no corners yet"
     end
+    info2, info2_c = count(bd.psel) .. " corners chosen", count(bd.psel) > 0 and C.PT or C.DIM
   else
-    if tool == 3 then for f in pairs(bd.sel) do T.outline(f, C.PICK) end end
+    if tool == 3 then
+      for f in pairs(bd.sel) do T.outline(f, C.PT, true) end
+      info2, info2_c = count(bd.sel) .. " faces chosen", count(bd.sel) > 0 and C.PT or C.DIM
+    else
+      info2, info2_c = string.format("paint colour #%06X", paint_c), C.DIM
+    end
     local f = hot_face()
     if f then
-      T.outline(f, blink)
+      T.outline(f, C.HOT, true)
       local p = T.face_center(f)
       local n = T.face_normal(f)
-      T.seg(p, V.add(p, V.scale(n, 0.3)), blink)
+      T.seg(p, V.add(p, V.scale(n, 0.3)), C.HOT)
       if bd.paint and bd.paint.f == f then
         local w = pixel_world(f, bd.paint.x + bd.paint.cx + 0.5, bd.paint.y + bd.paint.cy + 0.5)
         if w then
@@ -1399,10 +1379,14 @@ function build.draw()
     info = string.format("MOVE %d %s  step %g  %.3g, %.3g, %.3g", #bd.move.list, bd.move.what == "faces" and "faces" or "corners",
                          bd.move.step, bd.move.total[1], bd.move.total[2], bd.move.total[3])
   end
-  rectfill(TOOL_W, 16, SIDE_X - TOOL_W, 16, C.BG)
-  print(info:sub(1, (SIDE_X - TOOL_W - 16) // 8), TOOL_W + 8, 16, bd.move and C.ACC or C.TEXT)
-  draw_tools()
-  draw_side()
+  T.gizmo(cam, PANEL_W + 40, HINT_Y - 40)
+  -- what it is: two lines over the view (as bm Mesh)
+  rectfill(PANEL_W, 16, W - PANEL_W, 32, C.BG)
+  local name = info:match("^(%S+)")
+  local nx = print(name, PANEL_W + 8, 16, C.ACC)
+  print(info:sub(#name + 1, (W - PANEL_W - 16) // 8), nx, 16, C.TEXT)
+  print(info2:sub(1, (W - PANEL_W - 16) // 8), PANEL_W + 8, 32, info2_c)
+  draw_panel()
   local hl
   if bd.move then
     hl = { { { "up", "down", "left", "right" }, "move" }, { { "pgup", "pgdn" }, "up/down" }, { { "tab" }, "step" },
@@ -1512,26 +1496,29 @@ function models_page.draw()
   local m = M()
   cls(C.SKY)
   zclear()
-  T.look(mp.cam, 120, 0)
+  T.look(mp.cam, PANEL_W / 2, 28)
   if m and #m.faces > 0 then
     T.draw_grid(round(mp.cam.tx), mp.cam.floor, round(mp.cam.tz), 6, 0.5, C.GRID)
     light3d(-0.4, 0.8, -0.5, 0.4)
     if S.view then draw3d(S.view, 0, 0, 0, 0, 0, 0, 1, 0) end
   end
-  rectfill(0, 16, 240, HINT_Y - 16, C.PANEL)
+  -- the list (as bm Mesh's): a blue dot for a model with a skeleton
+  rectfill(0, 16, PANEL_W, HINT_Y - 16, C.PANEL)
   local names = {}
-  for i, mm in ipairs(S.models) do names[i] = mm.name .. (mm.rig and "  *" or "") end
-  T.draw_list("MODELS " .. #S.models, names, S.cur, 0, 32, 15, 240)
-  print("* with a skeleton", 16, HINT_Y - 16, C.DIM)
-  local x = 256
-  rectfill(240, 16, W - 240, 64, C.BG)
+  for i, mm in ipairs(S.models) do names[i] = mm.name end
+  T.draw_list("MODELS " .. #S.models, names, S.cur, 0, 32, 16, PANEL_W, function(i)
+    return S.models[i].rig and 0x80C8FF or C.GRID0
+  end)
+  -- what it is: three lines over the view
+  local x = PANEL_W + 16
+  rectfill(PANEL_W, 16, W - PANEL_W, 48, C.BG)
   if m then
-    print(m.name, x, 32, C.ACC)
-    local warn = T.counts(m, x, 48)
-    print(warn or (m.rig and (#m.rig.bones .. " bones, " .. #m.rig.clips .. " animations") or "no skeleton"), x, 64,
-          warn and C.ACC or C.DIM)
+    print(m.name, x, 16, C.ACC)
+    local warn = T.counts(m, x, 32)
+    print(warn or (m.rig and (#m.rig.bones .. " bones, " .. #m.rig.clips .. " animations (bm Animator)") or
+          "no skeleton (bm Animator makes one)"), x, 48, warn and C.ACC or C.DIM)
   end
-  print("texture margin " .. S.inset .. " px", W - 192, 32, C.DIM)
+  print("texture margin " .. S.inset .. " px", W - 192, 16, C.DIM)
   T.hint({ { { "up", "down" }, "model" }, { { "enter" }, "build" }, { { "n" }, "new" }, { { "r" }, "rename" },
            { { "d" }, "copy" }, { { "del" }, "delete" }, { { "pgup", "pgdn" }, "order" } })
 end

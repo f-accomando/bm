@@ -626,13 +626,14 @@ function rig_page.draw()
   local b = r.bones[rg.bone]
   T.draw_bone(b.head, b.tail, C.CUR, true)
   local ex, ey = T.scr(rg.tail and b.tail or b.head)
-  if ex and not rg.skin then circ(ex, ey, 6, 0xFFFFFF) end
+  if ex and not rg.skin then circ(ex, ey, 6, C.HOT) end
+  T.gizmo(cam, PANEL_W + 40, HINT_Y - 40)
   T.draw_list("BONES " .. #r.bones, bone_names(r), rg.bone, 0, 32, 16, PANEL_W, T.bone_colour)
   local e = rg.tail and b.tail or b.head
   info_strip(2)
   if rg.skin then
     local f = rg.hot and m.faces[rg.hot]
-    if f then T.outline(f, (S.frame // 15) % 2 == 0 and C.CUR or 0xFFFFFF) end
+    if f then T.outline(f, C.HOT, true) end
     local n = 0
     for _ in pairs(rg.sel) do n = n + 1 end
     print(string.format("SKIN  bone %s  %d faces chosen", b.name, n), INFO_X, 32, C.ACC)
@@ -1024,7 +1025,7 @@ function anim_page.draw()
   local cn = {}
   for i, cc in ipairs(r.clips) do cn[i] = cc.name end
   local rows = clamp(#cn, 1, 4)
-  T.draw_list("ANIMATIONS", cn, an.clip, 0, 32, rows, PANEL_W, nil, false)
+  T.draw_list("ANIMATIONS", cn, an.clip, 0, 32, rows, PANEL_W)
   local by = 32 + (rows + 2) * 16
   T.draw_list("BONES", bone_names(r), an.bone, 0, by, (HINT_Y - by - 16) // 16, PANEL_W, T.bone_colour)
   local x = INFO_X
@@ -1036,6 +1037,7 @@ function anim_page.draw()
   end
   print(string.format("%s  %d/%d  %s%s  %.2f s%s", c.name, an.clip, #r.clips, T.MODES[c.mode], c.loop and "  loop" or "",
                       c.length, an.onion and "  onion" or ""), x, 32, C.ACC)
+  T.gizmo(cam, PANEL_W + 40, HINT_Y - 88)
   local tt = draw_timeline(c)
   print(string.format("%s %s   %.2f s  frame %d%s", an.move and "MOVE" or "TURN", r.bones[an.bone].name, tt,
                       round(tt * FPS), key_at(c, tt) and "  key" or ""), x, 48, key_at(c, tt) and C.ACC or C.TEXT)
@@ -1316,8 +1318,8 @@ function sprites_page.draw()
           (py + (big and s * 2 or s) + 23) // 16 * 16, C.DIM)
   end
   rectfill(0, 16, 320, HINT_Y - 16, C.PANEL)
-  print("SPRITES", 16, 32, C.ACC)
-  print(m and m.name or "-", 96, 32, C.TEXT)
+  print("SPRITES", 16, 32, C.DIM)
+  print(m and m.name or "-", 96, 32, C.ACC)
   for i, row in ipairs(ROWS) do
     local y = 64 + (i - 1) * 16
     if i == sp.row then rectfill(0, y, 320, 16, C.SEL) end
