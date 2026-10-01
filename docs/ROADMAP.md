@@ -15,8 +15,8 @@ possibile, un test automatico in QEMU (`-M raspi0`).
 Dimensione: **S** = pochi giorni, **M** = 1–2 settimane, **L** = più di 2 settimane.
 
 ```
-M0 ─ M1 ─ M2 ─ M3 ─ M4 ─ M5 ─ M6 (s32) ─┬─ M7 ─┬─ M9 (MVP) ─ M10…M14 (vedi "Dopo l'MVP")
-                                  └─ M8 ─┘
+M0 ─ M1 ─ M2 ─ M3 ─ M4 ─ M5 ─ M6 (rimossa) ─┬─ M7 ─┬─ M9 (MVP) ─ M10…M14 (vedi "Dopo l'MVP")
+                                       └─ M8 ─┘
 ```
 
 ---
@@ -71,40 +71,17 @@ M0 ─ M1 ─ M2 ─ M3 ─ M4 ─ M5 ─ M6 (s32) ─┬─ M7 ─┬─ M9 (MV
   Circa 100 ns per operazione semplice della VM: ~150k operazioni Lua per frame
   a 60 fps, un budget simile a quello di PICO-8. Interi a 64 bit mantenuti.
 
-## M6 — Core s32 (compatibilità con lua32) ✅ verificato su Pi Zero W (M) — rimosso il 2026-09-30
-**Decisione 2026-09-30 (utente): l'interprete s32 è tolto.** bm non esegue più le cartucce
-`.cart`: nessun codice lo chiama più (il linker lo scarta), via `make test-s32` e
-`test-s32-arm`, la `demo.cart` incorporata e quella sulla SD, il comando `g` del monitor,
-la demo s32 nella diagnostica. Cancellati dal repository: `src/s32`, `spec/s32`,
-`tests/s32`, `scripts/sync-s32-spec.sh`, `docs/m6-s32-demo.png`. Il menu elenca solo i `.bm`; una cartuccia s32 inviata
-dalla seriale o dalla rete viene rifiutata (`test_upload_refused_and_corrupt`). Il kernel
-passa da 1,57 a 0,98 MB. Resta la disposizione dei registri dell'audio (`apu()`). Le note
-qui sotto sono la storia di M6.
-
-Decisione: bm è compatibile con le cartucce `.cart` della console **s32**
-(`f-accomando/lua32`): stessa macchina (risoluzioni, palette, tile, VRAM 552 KiB, OAM,
-CGRAM, APU, porte), implementata in C nativo, non un'emulazione del motore di lua32.
-- Specifica comune `spec/s32/s32-spec.md` (fonte: lua32, `docs/spec`), sincronizzata con
-  `scripts/sync-s32-spec.sh`.
-- `src/s32/`: CPU (83 opcode), PPU (tilemap 128×128 con celle coperte, tile 8–64, sprite
-  con flip e priorità), loader `.cart` (header 264 byte, CRC), player a 320×224 con doppio
-  buffer, 60 tick/s.
-- Conformità: i vettori generati da lua32 (`spec/s32/conformance`) passano **byte per
-  byte** sia su x86 sia sul codice ARM1176 in `qemu-arm` (`make test-s32 test-s32-arm`).
-- All'avvio: `demo.cart` in modalità attract per 15 s; comando `g` per giocarla dalla seriale.
-- **Fatto quando:** tutti i vettori passano; la demo gira a 60 fps sul Pi.
-- Prossimo lato s32: cartucce Lua (`code_type` 1, spec §11, domande in lua32 PR #2) e APU,
-  quando lua32 sarà più maturo.
+## M6 — Un secondo formato di cartucce ✅ — rimosso il 2026-09-30
+**Decisione 2026-09-30 (utente): tolto.** M6 aveva aggiunto un interprete in C per le
+cartucce di un'altra console (formato `.cart`). Il kernel non lo contiene più: il menu
+elenca solo i `.bm` e un `.cart` inviato dalla seriale o dalla rete viene rifiutato
+(`test_upload_refused_and_corrupt`). Il kernel è passato da 1,57 a 0,98 MB.
 
 ## Tipi di cartuccia (decisione 2026-09-26)
 | Tipo | Formato | Gira su | Priorità |
 |---|---|---|---|
-| s32 codice macchina | `.cart`, `code_type` 0 | lua32 (tolto da bm il 2026-09-30) | rimosso |
-| **bm nativa Lua** | **`.bm`** (formato separato, non tocca la spec s32) | solo bm, sfrutta tutto il Pi | **prossima** |
-| s32 Lua | `.cart`, `code_type` 1 | bm + lua32 | quando lua32 è pronto |
-| bm nativa ARM (C) | `.bm` | solo bm, user mode + MMU | dopo l'MVP |
-
-Priorità attuale: sviluppo della console bm; la parte s32 avanza al ritmo di lua32.
+| **bm nativa Lua** | **`.bm`** | bm, sfrutta tutto il Pi | ✅ (M7) |
+| bm nativa ARM (C) | `.bm` | bm, user mode + MMU | M13, chiusa senza implementazione |
 
 ### Cartucce native `.bm`: video (decisione 2026-09-26)
 - **640×360**, 16:9, scala intera ×2 su 720p e ×3 su 1080p; è la risoluzione della
@@ -129,7 +106,7 @@ Priorità attuale: sviluppo della console bm; la parte s32 avanza al ritmo di lu
   generazionale; caricamento dalla seriale (`U`).
 - Benchmark C e demo nativa all'avvio.
 - **Fatto quando:** mappa piena + 256 sprite sotto il 25% del frame sul Pi reale.
-- Risultato (kernel `a63bfb0`): demo s32 e demo nativa a schermo pieno, controllo colori
+- Risultato (kernel `a63bfb0`): demo nativa a schermo pieno, controllo colori
   RGB565 corretto (rosso, verde, blu, bianco); 256 sprite 16×16 ≈ 0,9 ms
   (vedi docs/STRESS.md).
 
@@ -138,7 +115,7 @@ Priorità attuale: sviluppo della console bm; la parte s32 avanza al ritmo di lu
   polling dal ciclo principale; enumerazione di un dispositivo sulla porta radice.
 - **Tastiera** HID (protocollo boot): layout italiano/US, ripetizione; monitor e REPL
   leggono da seriale o tastiera. **Gamepad HID** generici (analisi del descrittore) e
-  **Xbox 360** cablati. Mappatura su `btn()` delle `.bm` e sui bit 0–4 di s32.
+  **Xbox 360** cablati. Mappatura su `btn()` delle `.bm`.
 - Esc o Start+Select escono dal gioco. Niente hub (decisione: un dispositivo alla volta;
   M29 aggiunge l'hub per il Pi 1 B, sempre con un solo dispositivo HID in uso),
   niente Bluetooth (BCM43438 condivide la UART della console; firmware + HCI: troppo costoso).
@@ -151,7 +128,7 @@ Priorità attuale: sviluppo della console bm; la parte s32 avanza al ritmo di lu
 ## M8 — Storage e caricamento delle cart ✅ verificato sul Pi Zero W (M)
 - Driver SD sul controller EMMC (Arasan SDHCI) in PIO, bus a 4 bit a 25 MHz, SDSC e SDHC;
   FAT16/FAT32 con nomi lunghi, in sola lettura (scritto da zero, non FatFs).
-- Menu delle cartucce: incorporate + `.bm`/`.cart` in `/carts` e nella radice; si apre
+- Menu delle cartucce: incorporate + `.bm` in `/carts` e nella radice; si apre
   all'avvio se c'è un dispositivo USB di input.
 - Da fare: scrittura (salvataggi, config), anteprime.
 - **Fatto quando:** copiando una nuova cart sulla SD da PC, questa compare nel menu
@@ -169,9 +146,7 @@ Priorità attuale: sviluppo della console bm; la parte s32 avanza al ritmo di lu
 - Guida all'API e alla prima cartuccia: `docs/API.md`.
 - Prestazioni sul Pi: l'ARM1176 legge la SDRAM circa 4 volte più lentamente di
   quanto ci scrive (`memcpy` 10,3 ms/MiB contro `memset` 2,4 ms/MiB, cache dati 16 KB),
-  e la memoria video non ha cache. s32 ora disegna a strisce di 8 righe che restano in
-  cache e le scrive una volta sullo schermo, senza riletture (`render` era 7997 µs/tick,
-  poi 5577 con il primo tentativo). Per `.bm` il benchmark misura sia il disegno diretto
+  e la memoria video non ha cache. Per `.bm` il benchmark misura sia il disegno diretto
   sia quello via RAM (`p`, `V`): sul Pi (kernel `89452b3`) mappa piena + 256 sprite
   costano **8,50 ms diretti** contro 12,65 ms via RAM (la copia rilegge la SDRAM), quindi
   il default resta il disegno diretto.
@@ -188,7 +163,7 @@ provato prima via USB (stesso formato dei report che poi arrivano via Bluetooth)
 ```
 M9 (MVP) ─┬─ M10 audio
           ├─ M11 SD in scrittura ─── M12 Bluetooth (controller)
-          ├─ M13 altri tipi di cartuccia (s32 Lua quando lua32 è pronto, ARM nativo)
+          ├─ M13 cartucce con codice ARM nativo
           ├─ M14 grafica 2.0 (DMA, 32 bit, 3D con texture)
           ├─ M15 editor sulla console (codice, sprite, mappa)
           └─ M16 multiplayer locale (più controller Bluetooth) ─┬─ M17 gioco cooperativo
@@ -202,13 +177,12 @@ M9 (MVP) ─┬─ M10 audio
   Circle; campioni IEC 958 a 48 kHz (`iec958.c`) mandati da un canale DMA con DREQ
   HDMI su due buffer ad anello da 256 campioni (5,3 ms). L'interrupt di fine buffer
   genera il blocco successivo: nessun lavoro nel ciclo del gioco.
-- Sintetizzatore `synth.c`: 8 voci con la semantica dell'APU di s32 (`apu.lua` di
-  lua32: quadra con duty, triangolo, dente di sega, rumore LFSR a 15 bit, ADSR lineare,
-  somma senza normalizzazione con saturazione). Test su host: `make test-audio`.
-- **APU di s32**: durante una `.cart` il sintetizzatore legge direttamente i registri a
-  `0x0AC900` della macchina.
+- Sintetizzatore `synth.c`: 8 voci guidate da 16 byte di registri ciascuna (quadra con
+  duty, triangolo, dente di sega, rumore LFSR a 15 bit, ADSR lineare, somma senza
+  normalizzazione). Test su host: `make test-audio`.
 - API `.bm`: `note`, `noteoff`, `freq`, `envelope`, `duty`, `playing`, `apu`
   (docs/API.md); effetti e melodie nei tre giochi demo.
+- Dopo: banche di suoni, sequencer e Sound editor (M22.4, più sotto).
 - Monitor: `a` stato dell'audio (clock, canale DMA, blocchi suonati, costo della sintesi)
   e una melodia di prova con tutte le forme d'onda. All'avvio, se l'audio funziona, due
   note brevi. Senza audio HDMI (QEMU, modo DVI) tutto funziona in silenzio.
@@ -282,19 +256,12 @@ emulatore del chip, quindi niente test in QEMU se non su tracce HCI registrate.
 - **Fatto quando:** il controller di riferimento si abbina dal menu, si riconnette da
   solo alla riaccensione e i giochi demo si giocano senza fili.
 
-## M13 — Altri tipi di cartuccia (M) — chiusa senza implementazione
+## M13 — Cartucce con codice ARM nativo (M) — chiusa senza implementazione
 Decisione 2026-09-30: chiusa dall'autore; il piano resta qui se servirà.
-- **s32 Lua** (`code_type` 1): **sbloccato** — le regole sono decise in `s32-bm33.md`
-  (sincronizzato da lua32 `dbaa650`) e implementate in lua32: API `peek/poke`,
-  `peek16/poke16`, `btn`, funzioni di comodo (`spr`, `mset`, `pal`, `camera`...),
-  costanti nominate, sandbox, budget di istruzioni anche su `_init()`, sul codice di
-  primo livello e su ogni coroutine.
-- Modo s32 16:9 (`screen_mode`, già deciso in `s32-bm33.md`).
 - **ARM nativo**: sezione di codice ARM in `.bm` (per giochi in C), caricata in una
   zona di memoria dedicata con API tramite tabella di funzioni; senza protezione
   della memoria (solo cartucce fidate).
-- **Fatto quando:** una cart Lua di lua32 gira uguale su lua32 e bm; un gioco demo
-  in C gira come `.bm` nativa.
+- **Fatto quando:** un gioco demo in C gira come `.bm` nativa.
 
 ## M14 — Grafica 2.0 (M) — ✅ verificata sul Pi (2026-09-30)
 Fatto finora (da verificare sul Pi):
@@ -450,7 +417,6 @@ Fatto (QEMU, `test_bt_pair_and_reconnect`, `test_bt_two_pads`):
   `btn(i)` risponde a *qualsiasi* controller invece che al solo giocatore 1: così i
   giochi a un giocatore non cambiano davvero (con "default 1" la tastiera smetterebbe di
   funzionare appena si collega un pad, perché diventa il giocatore 2).
-- s32: le porte `INPUT`–`INPUT4` hanno ciascuna il suo giocatore.
 - Menu: `pads: 1 2 - -` nell'intestazione e nella barra di stato; `Y` mostra i tasti di
   ogni giocatore; Pong con la modalità 2 giocatori.
 
@@ -475,7 +441,6 @@ Piano iniziale:
 - API `.bm`: `btn(i, [p])`, `btnp(i, [p])` con `p` = 1..4 (default 1: i giochi attuali
   non cambiano), `players()` = quanti giocatori sono collegati; l'uscita dal gioco
   (Start+Select, PS) resta per ogni controller.
-- s32: il player riempie anche `INPUT2`–`INPUT8`.
 - Menu: la barra di stato mostra i controller collegati; il test `Y` del monitor li
   elenca con i pulsanti premuti.
 - Test in QEMU: il chip simulato (`FakeDs4Chip`) con due pad.
@@ -833,7 +798,6 @@ solo per la scelta dei giochi.
    - I tasti ancora premuti non contano come nuove pressioni.
    - Una sola applicazione sospesa alla volta, come sulle console.
    - `quit()`, un errore e le prove dall'SDK chiudono davvero.
-   - Le cartucce s32 non si sospendono (ancora).
 - **Fatto quando:** sul Pi il menu è fluido a 60 fps con tutte le cartucce e un gioco
   sospeso riprende dal punto in cui era.
 
@@ -859,10 +823,52 @@ Sotto-milestone:
   - tile e **mappe** (proposta: la mappa sta qui, tile e mappe sono legati).
 - **22.3 Render 3D**: mesh low-poly (vertici, estrusione, colori e UV sullo sheet),
   luci, camera, anteprima con Gouraud e texture, esportazione nella sezione MESH.
-- **22.4 Musica ed effetti**:
-  - tracker sul sintetizzatore a 8 voci;
-  - effetti con forma d'onda, ADSR, inviluppi di tono;
-  - sezioni SFX/MUSIC e API `sfx(n)`, `music(n)`.
+- **22.4 Musica ed effetti** — ✅ in QEMU (2026-10-01), da verificare sul Pi:
+  - **Sound editor** (`carts/sound/main.lua`, nel kernel come l'SDK): scheda **Dev**,
+    comando `A` del monitor, "Open in the Sound editor" nelle opzioni di una cartuccia.
+    Quattro pagine:
+    - SOUNDS: gli strumenti (forma d'onda, duty, volume, intonazione fine, ADSR, bend
+      dell'altezza all'attacco, vibrato), con i grafici di onda, inviluppo e altezza;
+    - SFX: effetti per i giochi, fino a 32 passi, velocità in ms, loop;
+    - PATTERN: sequencer a 8 tracce (una per voce), fino a 64 passi, celle a pad in
+      gruppi di 4 come una drum machine;
+    - SONG: l'ordine dei pattern (lo stesso pattern ha lo stesso colore), tempo,
+      swing, punto di loop.
+  - Comandi col solo pad: A aggiunge / toglie e, tenuto, cambia la nota; Y tenuto suono
+    e volume; B tenuto effetto e quantità; X cancella; START suona; SELECT + frecce
+    pagine e elementi, SELECT da solo il menu. Con la tastiera: due file di tasti fanno
+    da pianoforte (Z S X D C... e Q 2 W 3 E...), F1–F4 le pagine, F12 tutti i tasti.
+  - File: apre un gioco e ne modifica direttamente i suoni ("Save" li riscrive nel
+    gioco, il resto del file resta uguale byte per byte); pacchetti di suoni in
+    `bm/sounds/`; importa da un'altra cartuccia un suono, un effetto, un pattern o una
+    canzone (con i pattern e i suoni che usa, rinumerati), o tutto; esporta in un
+    gioco; "Try it in the game" salva, avvia il gioco e torna. Undo, copia e incolla.
+  - Formato: sezione **AUDIO** del `.bm` (tipo 6, descritta in `src/audio/player.h`);
+    `scripts/bmaudio.py` la converte in JSON e ritorno; `mkbm.py --audio`; `make wav`
+    suona un brano sul PC con lo stesso sintetizzatore.
+  - Motore (`src/audio/player.c`): gira nell'interrupt audio ogni 64 campioni
+    (1,3 ms), indipendente dal frame rate del gioco; effetti dei passi: glide, bend
+    su/giù, vibrato, tremolo, accordo (arpeggio veloce), arpeggio a tempo, fade in e
+    out, retrigger, ritardo, taglio; 16 accordi. Gli effetti sonori prendono una voce
+    libera, preferendo quelle che la musica non usa. Senza audio HDMI il player avanza
+    lo stesso, in silenzio.
+  - Sintetizzatore: frazioni di hertz (registro 10), onde SINE e METAL, volume
+    generale, limitatore morbido al posto del taglio, una nuova nota parte dal livello
+    della voce (niente clic).
+  - API: `sfx`, `music`, `sfxpos`, `tempo`, `mute`, `volume`, `hz` e nomi delle note
+    (`"C4"`), `slide`, `vibrato`, `arp` (docs/API.md).
+  - Volume generale nelle impostazioni (Settings > Volume) e nei menu di pausa di tutti
+    i giochi, salvato in `bm/config.txt`.
+  - Test: `make test-audio` (sintesi e player), `make test-sound` (l'editor in un bm
+    finto: il banco demo torna identico byte per byte, input casuale), in QEMU
+    `test_audio_bank`, `test_volume_saved`, `test_sound_editor`.
+  - Da fare: WAV/MIDI (22.5), uscita stereo, editor delle forme d'onda.
+  - **Da verificare sul Pi** (tutto a schermo): Dev → *Audio test* (sei forme d'onda,
+    accordo, glide, vibrato, arpeggio); Dev → *Sound*: parte sulla pagina SONG, START
+    suona il brano DEMO (batteria, basso, arpeggio, melodia) a tempo anche mentre si
+    modifica; SFX → START suona l'effetto; PATTERN → A sulle celle aggiunge note che si
+    sentono; *Save* in un gioco e *Try it in the game*; Settings → Volume (un bip al
+    nuovo livello); START nei giochi → PAUSED → VOLUME.
 - **22.5 Import/export**:
   - PNG ↔ sheet (con riduzione a ≤256 colori), OBJ/GLB → MESH, file Lua ↔ progetto,
     WAV/MIDI dove ha senso;
@@ -1019,7 +1025,8 @@ Task:
    - notifiche che compaiono e spariscono ("Controller 2 connected", "Cartridge
      received", "Save data deleted").
 6. **Suoni e animazioni del menu**: clic di navigazione, suono di avvio, copertina che
-   si ingrandisce; volume generale e suoni del menu nelle impostazioni.
+   si ingrandisce; suoni del menu nelle impostazioni. Il volume generale c'è
+   (Settings > Volume, 2026-10-01).
 7. **Ordine e preferiti**: giocati di recente per primi, preferiti fissati in alto,
    ordine per titolo o autore; salvati in `/bm/menu.txt`.
 8. **Tastiera sullo schermo** (col pad), per password WiFi, nomi dei file e PIN. Poi WiFi

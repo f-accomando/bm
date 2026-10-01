@@ -115,6 +115,8 @@ end
 local mutes = {}
 env.mute = function(t, on) mutes[t] = on end
 
+local api = {}
+for k in pairs(env) do api[k] = true end
 local chunk = assert(load(readfile(SRC), "=main.lua", "t", env))
 chunk()
 
@@ -301,6 +303,13 @@ end
 for b2 = 0, 9 do pad[b2] = false end
 run(5)
 check(last_bank and parse(last_bank), "after random input the bank is still a valid bank")
+
+-- no globals made by mistake
+local stray = {}
+for k in pairs(env) do
+  if not api[k] and k ~= "_init" and k ~= "_update" and k ~= "_draw" then stray[#stray + 1] = k end
+end
+check(#stray == 0, "no stray globals: " .. table.concat(stray, " "))
 
 print(string.format("sound editor: %d/%d checks passed, %d frames, %d banks sent", checks - fails, checks, frames, banks))
 os.exit(fails == 0 and 0 or 1)

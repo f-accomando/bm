@@ -335,13 +335,12 @@ function ui.hint(x, y, btn, dir, label)
   ui.box(x, y, w, 16, BTN_C[btn] or C.line)
   print(btn, x + 3, y, BTN_C[btn] and C.dark or C.text)
   x = x + w + 2
-  if dir then
-    print("+", x, y, C.dim)
-    ui.arrow(x + 8, y, dir, C.text)
-    x = x + (dir == "lr" and 22 or 18)
+  if dir then                          -- held with a direction: the arrow beside the button
+    ui.arrow(x, y, dir, C.text)
+    x = x + (dir == "lr" and 16 or 12)
   end
   print(label, x, y, C.dim)
-  return x + #label * 8 + 12
+  return x + #label * 8 + 8
 end
 
 -- a value bar: label, value text, fill 0..1
@@ -628,7 +627,7 @@ end
 
 local STEP_HINTS = {
   { "A", nil, "add" }, { "A", "ud", "note" }, { "A", "lr", "oct" }, { "Y", "ud", "sound" },
-  { "Y", "lr", "vol" }, { "B", "ud", "fx" }, { "B", "lr", "amount" }, { "X", nil, "clear" },
+  { "Y", "lr", "vol" }, { "B", "ud", "fx" }, { "B", "lr", "amt" }, { "X", nil, "clear" },
 }
 
 ----------------------------------------------------------------- SFX
@@ -1421,12 +1420,14 @@ local function open_file(path)
   if data == false then
     note_log("opened " .. path .. " (no sounds yet)")
     use_bank(B.blank(), path, title, is_game)
+    cur.page = 1
     say(title .. " has no sounds yet: make them, then Save puts them in it", C.yellow, 400)
     return true
   end
   local b, err = B.parse(data)
   if not b then say(err, C.red) return false end
   use_bank(b, path, title, is_game)
+  cur.page = 4
   say("opened " .. (title ~= "" and title or path) .. ": Save writes the sounds back into it", C.green, 300)
   note_log("opened " .. path)
   return true
@@ -1676,6 +1677,7 @@ local HELP = {
   "SELECT + up/dn  the next sound,       PgUp PgDn  next sound, pattern...",
   "                pattern, song...      Ctrl+S save  Ctrl+Z undo  Ctrl+O open",
   "SELECT     this menu                  Ctrl+C Ctrl+V copy, paste  Ctrl+E export",
+  "START + SELECT together leave the editor: save first (SELECT > Save)",
 }
 
 local function play_toggle() P[cur.page].play() end
@@ -1712,7 +1714,7 @@ local function open_menu()
   items[#items + 1] = { label = "The demo project", note = "sounds and songs", act = function()
     local function go()
       local b = B.parse(cart_audio() or "")
-      if b then use_bank(b, nil, "DEMO", false); say("demo project: START plays it, SELECT+left/right pages", C.green, 300) end
+      if b then use_bank(b, nil, "DEMO", false); cur.page = 4; say("the demo: START plays the song", C.green, 300) end
     end
     if proj.dirty then ui.ask("Open the demo?", "The changes not saved are lost.", "Open", go) else go() end
   end }
@@ -1743,6 +1745,7 @@ local function draw_top()
     print(t, x + 20, 8, on and C.dark or C.dim)
     x = x + w + 6
   end
+  print("OCT " .. octave, 412, 8, C.faint)
   -- transport
   local song, order = music()
   local px = 470
@@ -1770,8 +1773,8 @@ local function draw_bottom()
   end
   local x = 8
   for _, h in ipairs(hints) do
-    local w = #h[1] * 8 + 6 + (h[2] and 20 or 2) + #h[3] * 8 + 12
-    if x + w > W - 110 then break end
+    local w = #h[1] * 8 + 8 + (h[2] and (h[2] == "lr" and 16 or 12) or 0) + #h[3] * 8 + 8
+    if x + w > W - 108 then break end
     x = ui.hint(x, y, h[1], h[2], h[3])
   end
   ui.hint(W - 104, y, "SELECT", nil, "menu")
@@ -1876,7 +1879,8 @@ function _init()
     local b = B.parse(cart_audio() or "")
     if b then
       use_bank(b, nil, "DEMO", false)
-      say("demo project: START plays it, SELECT+left/right pages, SELECT alone: menu", C.green, 600)
+      cur.page = 4
+      say("the demo project: START plays the song, SELECT+left/right pages, SELECT menu", C.green, 600)
     end
   end
 end

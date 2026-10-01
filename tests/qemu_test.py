@@ -912,6 +912,12 @@ def test_home_ui(b, opts):
         keys("\r")                              # A changes it too: back as it was
         screen([f"< {before} >"])
         keys("s")
+        keys("s")                               # the volume: left/right, saved
+        screen(["Volume", "< 10 / 10 >"])
+        keys("a")
+        screen(["< 9 / 10 >", "volume: 9 / 10"])
+        keys("d")
+        screen(["< 10 / 10 >"])
         keys("s")
         keys("\r")
         screen(["Settings > System", "Version", "Board", "SD card", "FAT32"])
@@ -919,7 +925,7 @@ def test_home_ui(b, opts):
         keys("w")                               # the list scrolls to its last rows
         screen(["Restart", "Open the monitor"])
         keys("q")
-        keys("wwww")                            # System -> Controllers
+        keys("wwwww")                           # System -> Controllers
         keys("\r")
         screen(["Settings > Controllers", "Player 1", "keyboard / USB", "Bluetooth keyboard",
                 "Pair a new controller"])
@@ -939,6 +945,8 @@ def test_home_ui(b, opts):
         keys("2")
         screen(["bm SDK", "editor (built-in)"])
         keys("d")                               # the covers' names are on pictures: the pill
+        screen(["bm Sound", "sound (built-in)"])
+        keys("d")
         screen(["Monitor", "the text console with every command"])
         shot("dev")
         keys("dd")
@@ -2478,7 +2486,7 @@ def test_kitchen(b, opts):
         assert "stopped with an error" not in out, out
         shot("play")
         keys("\r")                             # pause
-        keys("ss ")                            # QUIT: the map
+        keys("sss ")                           # QUIT (after RESUME, VOLUME, RESTART): the map
         keys("k")                              # the menu
         keys("s ")                             # ENDLESS
         keys(" ")                              # lobby: ready
@@ -2965,7 +2973,7 @@ def test_upload_refused_and_corrupt(b, opts):
     q = Qemu(b("kernel.img"))
     try:
         q.boot()
-        # s32 cartridges are no longer played (the interpreter is gone)
+        # the old .cart format is no longer played (its interpreter is gone)
         assert _upload(q, b"S32CART1" + bytes(200))
         q.expect("unknown cartridge format", timeout=10)
         q.expect("> ")

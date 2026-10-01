@@ -25,11 +25,13 @@ muoversi, Invio (o A) per giocare, **L1 / R1** (Q / E sulla tastiera) per cambia
 **Esc** (o Start+Select, o PS) torna al menu e lascia
 il gioco **sospeso**: la copertina mostra "Playing" e A lo riprende dal punto in cui era.
 Avviare un altro gioco chiede prima di chiudere quello sospeso.
-**X** su una copertina apre le sue opzioni (riprendi, chiudi, apri nell'SDK, informazioni,
-cancella il salvataggio, elimina dalla SD); la scheda **Dev** ha l'SDK e gli strumenti del
+**X** su una copertina apre le sue opzioni (riprendi, chiudi, apri nell'SDK o nel Sound
+editor, informazioni, cancella il salvataggio, elimina dalla SD); la scheda **Dev** ha
+l'SDK, il **Sound editor** (suoni, effetti sonori e musica dei giochi) e gli strumenti del
 monitor (Lua, sistema, registro, test, benchmark); **Settings**, l'ultima scheda, apre
-subito il suo pannello: controller, WiFi, layout della tastiera, disegno dei giochi e
-sistema (M27, BareMetal UI). Tutto si usa col solo controller. Nel menu **PS** torna a
+subito il suo pannello: controller, WiFi, layout della tastiera, disegno dei giochi,
+**volume** e sistema (M27, BareMetal UI). Nei giochi **START** mette in pausa: lì si
+regola anche il volume. Tutto si usa col solo controller. Nel menu **PS** torna a
 Games e chiude i pannelli; nel monitor apre il menu.
 Per scrivere un gioco: [docs/GUIDA-GIOCHI.md](docs/GUIDA-GIOCHI.md) (guida pratica) e
 [docs/API.md](docs/API.md) (riferimento).
@@ -50,15 +52,15 @@ Risoluzioni di menu, console e giochi, e quanto costano: [docs/RISOLUZIONI.md](d
 | **M3** | MMU, cache, heap, newlib | ✅ |
 | **M4** | Interrupt, timer, double buffering 60 fps | ✅ |
 | **M5** | Lua 5.4 embedded + REPL | ✅ |
-| M6 | Core **s32** in C: cartucce `.cart` compatibili con lua32 | ✅, poi rimosso (2026-09-30) |
+| M6 | Un secondo formato di cartucce (`.cart`), interpretato in C | ✅, poi rimosso (2026-09-30) |
 | **M7** | Cartucce native **`.bm`**: Lua 5.4 + grafica C a 640×360 RGB565 | ✅ |
 | **M7b** | Input: tastiera e gamepad **USB** (HID) | ✅ tastiera verificata sul Pi (gamepad solo QEMU) |
 | **M8** | **SD** + FAT32, menu delle cartucce | ✅ verificato sul Pi |
 | **M9** | **MVP**: avvio sul menu, giochi demo, immagine SD, guida API | ✅ verificato sul Pi |
-| M10 | Audio: HDMI, APU s32, suoni nei giochi | ✅ verificato sul Pi |
+| M10 | Audio: HDMI, sintetizzatore a 8 voci, suoni nei giochi | ✅ verificato sul Pi |
 | **M11** | SD in scrittura: salvataggi, record, impostazioni | ✅ verificato sul Pi |
 | **M12** | Controller **Bluetooth** (DualShock 4) | ✅ verificato sul Pi |
-| M13 | Altri tipi di cartuccia: s32 Lua (con lua32), codice ARM nativo | chiusa senza implementazione |
+| M13 | Cartucce con codice ARM nativo | chiusa senza implementazione |
 | **M14** | Grafica 2.0: DMA, 3D con texture e Gouraud, menu con anteprime (32 bit rimandato) | ✅ verificato sul Pi |
 | **M15** | Editor sulla console: codice, sprite, mappa, prova e torna | ✅ verificato sul Pi |
 | **M16** | Multiplayer locale: fino a 4 controller Bluetooth, `btn(i, giocatore)`, Pong a 2 | ✅ |
@@ -67,7 +69,7 @@ Risoluzioni di menu, console e giochi, e quanto costano: [docs/RISOLUZIONI.md](d
 | M19 | HTTPS: aggiornamenti da GitHub, "git leggero" (archivi e API con token) | |
 | **M20** | **Titan Clash**: picchiaduro 2D a robot giganti; prima base giocabile (1 robot, armatura leggera/pesante, spada o cannoni, hangar, contro CPU o in 2) | ✅ base giocabile |
 | **M21** | Menu "home" a griglia (Games / Dev) e giochi sospesi in memoria | ✅ |
-| M22 | SDK e strumenti dedicati: codice, pixel art, 3D, musica, import/export, 3D→sprite, sprite stacking | in coda |
+| M22 | SDK e strumenti dedicati: codice, pixel art, 3D, musica, import/export, 3D→sprite, sprite stacking | 22.4 musica ed effetti (Sound editor) ✅ in QEMU; il resto in coda |
 | M23 | Emulatore di cartucce `.p8` / `.p8.png` (stile PICO-8) | in coda |
 | M24 | Scambio in rete locale tra console (P2P) | in coda |
 | M25 | Store su GitHub: catalogo, download verificati, pubblicazione dall'SDK | in coda |
@@ -117,8 +119,9 @@ con **`b`**.
 | `Y` | input: test USB dal vivo (contatori ok/nak/err e ultimo report), poi per 10 s i tasti tenuti da ogni giocatore (P1–P4; `*` = tastiera/seriale) |
 | `L` | layout tastiera: italiano ↔ US |
 | `D` | test del DMA passo per passo (copie e riempimenti, tempi CPU contro DMA) |
-| `e` | **editor** dei giochi `.bm` (codice, sprite, mappa; è anche l'ultimo elemento del menu) |
-| `a` | audio: stato dell'uscita HDMI (clock, canale DMA, costo della sintesi) e una melodia di prova con le quattro forme d'onda |
+| `e` | **editor** dei giochi `.bm` (codice, sprite, mappa; è anche nella scheda Dev del menu) |
+| `A` | **Sound editor**: suoni, effetti sonori e musica dei giochi `.bm` (anche nella scheda Dev) |
+| `a` | audio: stato dell'uscita HDMI (clock, canale DMA, costo della sintesi, volume) e una prova: le sei forme d'onda, un accordo, glide, vibrato e arpeggio |
 | `T` | Bluetooth: cerca per 8 s e **abbina il primo controller** trovato come **prossimo giocatore** (fino a 4; DS4: Share + PS finché lampeggia); la console seriale passa alla mini UART (stessi pin) |
 | `P` | Bluetooth: **dimentica tutti i pad** abbinati (chiede conferma con `y`): chiavi tolte da `bm/config.txt`, pad scollegati; poi si riabbinano con `T` |
 | `o` | **log dell'avvio**: tutto quello che il kernel ha scritto dall'accensione (primi 64 KiB), a pagine |
@@ -252,7 +255,7 @@ del kernel. `git log --oneline` mostra a quale milestone corrisponde; se compare
 | Commit | Contenuto |
 |---|---|
 | `7044581` | M5: Lua embedded |
-| `ab9af30` | M6: core s32 (demo.cart all'avvio) |
+| `ab9af30` | M6: il secondo formato di cartucce (poi rimosso) |
 | `c7ec2c3` | M7: cartucce native .bm (demo nativa all'avvio) |
 | `1b31924` | stress test di rendering e 3D software (`make sdcard-stress`) |
 | `a2a8b6f` | M7b + M8: tastiera/gamepad USB, SD e menu delle cartucce |
@@ -288,20 +291,38 @@ make test-http       # client HTTP contro un server Python locale
 make test-https      # HTTPS (mbedTLS) contro server TLS locali con una CA di prova
 ```
 
-## s32 (rimosso)
+## Suoni e musica
 
-Fino al 2026-09-30 bm eseguiva anche le cartucce `.cart` della console **s32** del
-progetto [lua32](https://github.com/f-accomando/lua32), con un interprete in C (M6).
-L'interprete è stato tolto: le build non contengono più cartucce s32, il menu non
-elenca più i file `.cart` e una cartuccia s32 inviata dalla seriale o dalla rete viene
-rifiutata ("unknown cartridge format"). Della s32 resta solo la disposizione dei
-registri dell'audio, usata da `apu()` nei giochi `.bm`.
+L'audio esce dall'**HDMI** (gli altoparlanti del monitor) a 48 kHz: un sintetizzatore a
+8 voci (quadra, triangolo, dente di sega, seno, due rumori, ADSR) e un **sequencer** che
+suona il banco di suoni della cartuccia, la sezione **AUDIO** del `.bm`: strumenti,
+effetti sonori, pattern a 8 tracce e brani, con effetti sui passi (glide, bend,
+vibrato, tremolo, accordi, arpeggi, fade, retrigger). Gira nell'interrupt audio, a tempo
+anche se il gioco rallenta. Dai giochi: `sfx(n)`, `music(n)`, `volume()` e le note
+singole (`note`, `slide`, `vibrato`, `arp`), vedi [docs/API.md](docs/API.md#suono).
+
+Il banco si fa con il **Sound editor** (scheda Dev, o `A` nel monitor), col solo pad o
+con la tastiera:
+
+- **SOUNDS**: gli strumenti, con i grafici di forma d'onda, inviluppo e altezza;
+- **SFX**: gli effetti per i giochi (fino a 32 passi);
+- **PATTERN**: un sequencer a 8 tracce, una per voce, a pad come una drum machine;
+- **SONG**: l'ordine dei pattern, tempo, swing e loop.
+
+Apre un gioco della SD e ne modifica i suoni direttamente ("Save" li riscrive nel
+gioco), salva pacchetti di suoni in `bm/sounds/`, importa da un'altra cartuccia un
+suono, un effetto, un pattern o un brano (con i suoni che usa) ed esporta in un gioco.
+Parte da un progetto dimostrativo: START lo suona.
+
+Sul PC: `scripts/bmaudio.py` converte un banco in JSON e ritorno, `mkbm.py --audio`
+lo mette in una cartuccia, `make wav BANK=carts/sound/demo.json SONG=0` lo suona in
+`build/song0.wav` con lo stesso sintetizzatore della console.
 
 ## Cartucce native `.bm`
 
 Cartucce solo per bm che sfruttano il Pi Zero: **640×360, colore diretto a 16 bit
 (RGB565), 60 fps**, logica in Lua 5.4, tutto il disegno in C. Formato in
-`src/bm/bm.h` (header + sezioni: copertina, codice Lua, sprite sheet RGBA, mappa); la grafica
+`src/bm/bm.h` (header + sezioni: copertina, codice Lua, sprite sheet RGBA, mappa, suoni); la grafica
 è salvata in un formato indipendente dallo schermo, pronta per un futuro 32 bit.
 
 ```sh

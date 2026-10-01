@@ -214,19 +214,49 @@ convertitore da `.obj` è una delle prossime cose che si possono aggiungere.
 
 ## 7. Suono
 
-Otto voci di sintesi (0–7) con quattro forme d'onda (`SQUARE`, `TRIANGLE`, `SAW`,
-`NOISE`) e inviluppo ADSR; esce dall'HDMI.
+L'audio esce dall'HDMI: otto voci di sintesi (0–7), sei forme d'onda (`SQUARE`,
+`TRIANGLE`, `SAW`, `NOISE`, `SINE`, `METAL`) con inviluppo ADSR. Due strade, anche
+insieme.
+
+**Effetti e musica fatti con il Sound editor** (scheda **Dev** del menu). È il modo più
+comodo: si compongono col pad o con la tastiera e si salvano dentro il gioco.
+
+1. Nel menu, sul gioco: **X** → *Open in the Sound editor* (oppure Dev → Sound, poi
+   *Open...* dal menu dell'editor, SELECT).
+2. Pagina **SOUNDS**: gli strumenti (prova *KICK*, *BASS*, *LEAD* del progetto demo).
+3. Pagina **SFX**: gli effetti per il gioco, una nota per passo (A aggiunge, A + su/giù
+   cambia la nota, START ascolta).
+4. Pagina **PATTERN**: 8 tracce × 16 passi, come una drum machine; **SONG**: l'ordine
+   dei pattern.
+5. **Save** (SELECT → Save, o Ctrl+S): i suoni finiscono nel `.bm`. *Try it in the
+   game* lo avvia e torna all'editor.
+
+Nel codice bastano due funzioni:
 
 ```lua
-note(0, 880, 60, SQUARE, 100)        -- voce, Hz, durata in ms, forma, volume 0-255
+function _init() music(0) end          -- il brano 0, in loop
+-- ...
+if salto then sfx(1) end               -- l'effetto 1, su una voce libera
+if moneta then sfx(0, nil, combo) end  -- trasposto di `combo` semitoni
+if fine then music(-1, 800) end        -- la musica sfuma in 0,8 s
+```
+
+**Note dal codice**, per suoni che dipendono dal gioco:
+
+```lua
+note(0, 880, 60, SQUARE, 100)        -- voce, Hz (o "A5"), durata in ms, forma, volume 0-255
 envelope(2, 0, 60, 0, 30)            -- attack, decay, sustain, release della voce 2
 note(2, 2500, 300, NOISE, 130)       -- un'esplosione che si smorza
-freq(0, 440)                         -- cambia nota senza ripartire (glissandi)
+note(1, 1300, 300, SQUARE, 70)       -- un laser che parte alto...
+slide(1, 300, 250)                   -- ...e scende
+note(3, "C4", 500, SQUARE, 90)
+arp(3, "minor", 40)                  -- un accordo arpeggiato, stile chip
 ```
 
 Buona abitudine: una voce per tipo di suono (arma, colpi, musica), così un effetto non
-interrompe l'altro. Le piccole melodie dei giochi demo sono una funzione `jingle` di
-dieci righe (in `carts/pong/main.lua`).
+interrompe l'altro; con `sfx(n)` la voce la sceglie la console, lasciando stare la
+musica. Il **volume** è della console: si cambia in Settings o nel menu di pausa del
+gioco (`volume()` lo legge e lo cambia; mettilo anche nella pausa del tuo gioco).
 
 ## 8. Luci (scene al buio)
 

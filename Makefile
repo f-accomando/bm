@@ -212,7 +212,7 @@ sdcard: $(BUILD)/$(KERNEL).img $(SD_CARTS)
 	cp boot/config.txt $(DIST)/
 	cp $(BUILD)/$(KERNEL).img $(DIST)/kernel.img
 	rm -f $(DIST)/carts/*.bm       # the old extension (now .bm)
-	rm -f $(DIST)/carts/*.cart     # s32 cartridges: bm no longer plays them
+	rm -f $(DIST)/carts/*.cart     # the old .cart format: bm no longer plays it
 	cp $(SD_CARTS) $(DIST)/carts/
 	mkdir -p $(DIST)/bm && cp boot/ca.pem $(DIST)/bm/ca.pem
 	@if [ -f $(FW_DIR)/BCM43430A1.hcd ]; then mkdir -p $(DIST)/bm && \

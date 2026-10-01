@@ -196,38 +196,95 @@ if score > best then best = score; save({ best = best }) end
 
 ### Suono
 
-Otto voci (0–7) di sintesi (nate dall'APU della s32 di lua32): forme d'onda `SQUARE`,
-`TRIANGLE`, `SAW`, `NOISE`, inviluppo ADSR, uscita HDMI a 48 kHz (dagli altoparlanti
-del monitor). Il suono è generato in un interrupt: non costa nulla al tuo `_update`.
+L'audio esce dall'HDMI a 48 kHz (dagli altoparlanti del monitor) ed è generato in un
+interrupt: non costa nulla al tuo `_update`. Ci sono due modi di usarlo, anche insieme:
+
+- **il banco di suoni** della cartuccia (effetti sonori e musica fatti con il Sound
+  editor della scheda Dev): `sfx(n)` e `music(n)`;
+- **le note** suonate dal codice, una voce alla volta: `note`, `slide`, `arp`...
+
+Otto voci (0–7). Forme d'onda: `SQUARE` (quadra, con `duty`), `TRIANGLE`, `SAW` (dente
+di sega), `NOISE` (rumore), `SINE` (seno), `METAL` (rumore corto e metallico: piatti,
+campanelli). Ogni voce ha un inviluppo ADSR. Le altezze sono in **Hz** (anche con la
+virgola: `261.63`) oppure un **nome di nota**: `"C4"` (do centrale), `"A4"` (440 Hz),
+`"F#3"`, `"Bb2"`.
+
+#### Effetti sonori e musica (il banco della cartuccia)
 
 | Funzione | Descrizione |
 |---|---|
-| `note(v, hz, [ms], [forma], [vol])` | suona una nota sulla voce `v` (riparte da capo l'inviluppo); con `ms` si spegne da sola, senza resta accesa fino a `noteoff(v)`. `vol` 0–255 (predefinito 128) |
+| `sfx(n, [v], [semitoni], [vol])` | suona l'effetto sonoro `n` del banco; senza `v` sceglie una voce libera, preferendo quelle che la musica lascia vuote. `semitoni` lo traspone (`sfx(0, nil, 12)`: un'ottava sopra), `vol` 0–1. Restituisce la voce, o `nil` (nessun banco, numero che non c'è) |
+| `sfx(-1, [v])` | ferma l'effetto della voce `v`, o tutti |
+| `sfxpos(v)` | l'effetto che suona sulla voce `v` e il suo passo, o `nil` |
+| `music(n, [fade_ms], [pos])` | suona il brano `n` dall'inizio (o dalla posizione `pos` della sua sequenza), con una dissolvenza in entrata di `fade_ms` |
+| `music(-1, [fade_ms])` | ferma la musica, sfumandola |
+| `music()` | mentre suona: brano, posizione, passo, pattern (per andare a tempo); altrimenti `nil` |
+| `tempo(x)` | la musica va `x` volte più veloce (1 = come scritta): accelera quando il gioco si fa difficile |
+| `mute(traccia, [on])` | spegne (`on`, il predefinito) o riaccende una traccia della musica: strati che entrano e escono |
+| `volume([livello])` | il volume generale 0–10 (con `livello` lo cambia). È della console: vale per tutti i giochi e resta in `bm/config.txt` |
+
+La traccia `t` di un pattern suona sulla voce `t`. Mentre un effetto sonoro usa una voce,
+la traccia della musica su quella voce tace. Un banco con un brano che usa le tracce 0–5
+lascia libere per gli effetti le voci 6 e 7.
+
+```lua
+function _init()
+  music(0)                         -- il brano 0, in loop come deciso nell'editor
+end
+function _update()
+  if btnp(4) then sfx(1) end       -- salto
+  if preso_moneta then sfx(0) end
+  if boss then tempo(1.2) end      -- più veloce
+  if btnp(8) then music(-1, 500) end
+end
+```
+
+#### Note dal codice
+
+| Funzione | Descrizione |
+|---|---|
+| `note(v, hz, [ms], [forma], [vol])` | suona una nota sulla voce `v` (riparte l'inviluppo); con `ms` si spegne da sola, senza resta accesa fino a `noteoff(v)`. `hz` in Hz o un nome (`"C4"`). `vol` 0–255 (predefinito 128) |
 | `noteoff(v)` | rilascia la nota (parte la fase di release) |
-| `freq(v, hz)` | cambia l'altezza senza ripartire: glissandi, vibrato, sirene |
+| `freq(v, hz)` | cambia l'altezza senza ripartire |
+| `slide(v, hz, [ms])` | la nota scivola fino a `hz` in `ms` (predefinito 100): glissandi, sirene, laser |
+| `vibrato(v, [semitoni], [hz])` | vibrato largo `semitoni` (per esempio 0.3) a `hz` oscillazioni al secondo (predefinito 6); `vibrato(v)` lo toglie |
+| `arp(v, accordo, [ms])` | la nota percorre un accordo, `ms` per nota (predefinito 50): `"major"`, `"minor"`, `"maj7"`, `"min7"`, `"7"`, `"sus2"`, `"sus4"`, `"dim"`, `"aug"`, `"power"`, `"octave"`, oppure una tabella di semitoni (`{0, 4, 7, 12}`); `arp(v)` lo toglie |
+| `hz(nota)` | la frequenza di una nota: un numero MIDI (60 = do centrale, 69 = la 440) o un nome (`hz("A4")` = 440) |
 | `envelope(v, a, d, s, r)` | inviluppo della voce: attack, decay e release sono tempi 0–255 (0 = istantaneo, 255 = 2 s), sustain è un livello 0–255. Predefinito `1, 0, 255, 10` |
 | `duty(v, d)` | larghezza dell'onda quadra, 0–255 (128 = 50%; 32–64 suona più "nasale") |
-| `playing(v)` | `true` finché la voce suona (release compreso) |
-| `apu(v, reg, [valore])` | legge o scrive un registro grezzo della voce (16 byte per voce: `src/audio/synth.h`) |
+| `playing(v)` | `true` finché la voce suona (release compreso) o un effetto / la musica la tiene |
+| `apu(v, reg, [valore])` | legge o scrive un registro grezzo della voce (16 byte per voce: `src/audio/synth.h`; il registro 10 sono i 1/256 di Hz) |
 
 Forma e volume restano quelli dell'ultima nota della voce, quindi basta darli una volta.
 All'avvio e all'uscita della cartuccia le voci si spengono e tornano ai valori
-predefiniti. Più voci forti insieme si sommano e possono saturare: tieni i volumi
-intorno a 100–130. Esempi:
+predefiniti. Più voci forti insieme si sommano: un limitatore le tiene sotto il massimo,
+ma tieni i volumi intorno a 100–130. Esempi:
 
 ```lua
 note(0, 880, 60, SQUARE, 100)          -- "blip" di 60 ms
+note(0, "C5", 60, SQUARE, 100)         -- lo stesso con il nome della nota
 envelope(2, 0, 60, 0, 30)              -- esplosione che si smorza...
 note(2, 2500, 300, NOISE, 130)         -- ...con il rumore
--- laser: la nota parte alta, poi in _update un passo di freq() per frame
-note(1, 1300, 100, SQUARE, 70); laser = 6
-if laser > 0 then laser = laser - 1; freq(1, 400 + laser * 150) end
+note(1, 1300, 300, SQUARE, 70)         -- laser: parte alto...
+slide(1, 300, 250)                     -- ...e scende
+note(3, "C4", 600, SQUARE, 90)         -- un accordo maggiore arpeggiato
+arp(3, "major", 40)
 ```
 
-Pong, Snake e Star Shooter in `carts/` usano effetti e piccole melodie (una funzione
-`jingle` di 10 righe che suona una nota per volta sulla voce 3).
+Pong, Snake e Star Shooter in `carts/` usano le note (una funzione `jingle` di 10 righe
+per le melodie); il progetto dimostrativo del Sound editor (`carts/sound/demo.json`) ha
+effetti sonori e due brani da ascoltare e copiare.
 
-### Tastiera e file (per strumenti come l'editor)
+#### Il banco: formato e strumenti
+
+Il banco è la sezione **AUDIO** del `.bm` (formato in `src/audio/player.h`): fino a 32
+suoni (strumenti), 64 effetti sonori, 64 pattern e 8 brani. Si crea con il **Sound
+editor** (scheda Dev), che apre un gioco e ne salva i suoni direttamente dentro.
+Sul PC: `scripts/bmaudio.py unpack gioco.bm -o suoni.json` lo estrae in JSON leggibile,
+`mkbm.py --audio suoni.json` lo rimette in una cartuccia, `make wav BANK=suoni.json
+SONG=0` lo ascolta in un WAV.
+
+### Tastiera e file (per strumenti come gli editor)
 
 | Funzione | Descrizione |
 |---|---|
@@ -235,7 +292,11 @@ Pong, Snake e Star Shooter in `carts/` usano effetti e piccole melodie (una funz
 | `ls([cartella])` | i file della SD: `{ {name=, size=, dir=}, … }` |
 | `cart_load(percorso)` | apre un `.bm`: il suo sprite sheet e la sua mappa sostituiscono quelli della cartuccia che chiama; restituisce `{title, author, res, lua, sheet_w, sheet_h, map_w, map_h}` |
 | `cart_new()` | sprite sheet e mappa vuoti (256×256) |
-| `cart_save(percorso, {title, author, res, lua})` | scrive un `.bm` con il codice dato e lo sprite sheet, la mappa (e la copertina) correnti; nome 8.3, es. `"/carts/GIOCO.BM"` |
+| `cart_save(percorso, {title, author, res, lua})` | scrive un `.bm` con il codice dato e lo sprite sheet, la mappa (e la copertina e il banco di suoni) correnti; nome 8.3, es. `"/carts/GIOCO.BM"` |
+| `cart_audio([percorso])` | il banco di suoni di un `.bm` come stringa (`false` se non ne ha) e il suo titolo; senza percorso, il banco della cartuccia che gira |
+| `cart_put_audio(percorso, banco, [titolo, lua])` | mette il banco (stringa; `nil` lo toglie) in un `.bm`, il resto del file come prima; se il file non c'è lo crea con quel titolo e quel codice. `true`, o `false` e un messaggio |
+| `audio_bank(banco)` | da ora suona questo banco (per gli editor: musica ed effetti che suonano vanno avanti); `nil`: nessuno |
+| `audio_pattern(p, bpm, swing)` / `audio_play(v, suono, nota, [vol], [fx], [ms])` | un pattern in loop, un suono del banco su una voce (anteprime degli editor) |
 | `cart_run(percorso)` | esce, gioca quel file e poi riapre la cartuccia che l'ha chiesto, con `cart_arg()` = `{path=, error=, back=true}` (dal menu, "Open in the SDK": `back=false`) |
 
 ### Luce

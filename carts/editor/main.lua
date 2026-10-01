@@ -143,7 +143,7 @@ end
 local KEYWORDS = {}
 for w in ("and break do else elseif end false for function goto if in local nil not or repeat return then true until while"):gmatch("%S+") do KEYWORDS[w] = true end
 local API = {}
-for w in ("cls pset pget line rect rectfill circ circfill spr sspr map mget mset sget sset print camera clip rgb btn btnp time stat tri mesh mesh_sphere mesh_cube draw3d camera3d light3d fog3d project3d zclear log quit save saved note noteoff freq envelope duty playing apu light_begin light light_end keyp SCREEN_W SCREEN_H SQUARE TRIANGLE SAW NOISE math string table ipairs pairs tostring tonumber"):gmatch("%S+") do API[w] = true end
+for w in ("cls pset pget line rect rectfill circ circfill spr sspr map mget mset sget sset print camera clip rgb btn btnp time stat tri mesh mesh_sphere mesh_cube draw3d camera3d light3d fog3d project3d zclear log quit save saved note noteoff freq envelope duty playing apu sfx sfxpos music tempo mute volume hz slide vibrato arp light_begin light light_end keyp SCREEN_W SCREEN_H SQUARE TRIANGLE SAW NOISE SINE METAL math string table ipairs pairs tostring tonumber"):gmatch("%S+") do API[w] = true end
 
 local C_KW, C_API, C_STR, C_NUM, C_COM, C_PUN = 0xFF7AB0, 0x70D0FF, 0x90E070, 0xFFB060, 0x607088, 0xB0B8D0
 local seg_cache, seg_count = {}, 0

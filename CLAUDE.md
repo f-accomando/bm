@@ -18,14 +18,20 @@ Lua 5.4 embedded. Documentazione: `README.md`, `docs/ROADMAP.md`, `docs/HARDWARE
   l'intestazione delle cartucce di prima, lette ancora; il tag di rete per i kernel
   vecchi in `tools/bm_net.py`). Il repository GitHub è `f-accomando/bm`.
 
-## s32 (lua32): rimosso
+## Cartucce `.cart`: rimosse
 
-- Decisione dell'utente (2026-09-30): bm **non esegue più le cartucce s32** di
-  `f-accomando/lua32`. Nessuna cartuccia s32 (`.cart`) né l'interprete entrano nelle
-  build, nel kernel o nell'immagine SD; il menu legge solo i `.bm`. Non reintrodurli
-  senza una richiesta esplicita.
-- Resta solo la disposizione dei registri dell'audio (il sintetizzatore e `apu()` dei
-  giochi `.bm`), nata dall'APU della s32.
+- Decisione dell'utente (2026-09-30): bm esegue solo i `.bm`. Il vecchio formato `.cart`
+  e il suo interprete non entrano nelle build, nel kernel o nell'immagine SD; non
+  reintrodurli senza una richiesta esplicita.
+
+## Audio
+
+- Sintetizzatore `src/audio/synth.c`; player dei banchi di suoni `src/audio/player.c`
+  (sezione AUDIO del `.bm`, formato descritto in `player.h`); Sound editor
+  `carts/sound/main.lua`, incorporato nel kernel come l'SDK.
+- Il formato del banco esiste in tre posti: C (`au_parse`), Lua (l'editor) e Python
+  (`scripts/bmaudio.py`). Se cambia, cambiarlo in tutti e tre: `make test-sound`
+  controlla che il banco demo torni identico byte per byte.
 
 ## Comunicazione con l'utente
 
