@@ -1,6 +1,7 @@
 /*
  * Settings kept on the SD card in /bm/config.txt ("key=value" lines):
- * keyboard layout, .bm drawing mode. Unknown keys are kept as they are.
+ * keyboard layout, .bm drawing mode, volume. Unknown keys are kept as
+ * they are.
  */
 #ifndef CONFIG_H
 #define CONFIG_H

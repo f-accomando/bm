@@ -18,6 +18,8 @@
 #include "lib/printf.h"
 #include "script/luavm.h"
 #include "audio/audio.h"
+#include "audio/player.h"
+#include "audio/synth.h"
 #include "drivers/dma.h"
 #include "arch/cache.h"
 #include "kernel/crumbs.h"
@@ -648,21 +650,71 @@ static unsigned voice_arg(lua_State *L)
     return (unsigned)ch;
 }
 
-static uint32_t hz_arg(lua_State *L, int i)
+/* "C4", "c#4", "Db3", "A-1", "F#-1" -> MIDI note (C4 = 60). 1 if valid. */
+static int note_name(const char *s, float *midi)
 {
+    static const int8_t pc[7] = { 9, 11, 0, 2, 4, 5, 7 };      /* A B C D E F G */
+    char c = (char)(*s >= 'a' ? *s - 32 : *s);
+    if (c < 'A' || c > 'G')
+        return 0;
+    int n = pc[c - 'A'];
+    s++;
+    if (*s == '#' || *s == 's') { n++; s++; }
+    else if (*s == 'b') { n--; s++; }
+    if (*s == '-' && s[1] >= '0' && s[1] <= '9' && s[2])
+        s++;                                    /* tracker style: "C-4" */
+    int neg = 0;
+    if (*s == '-') { neg = 1; s++; }
+    if (*s < '0' || *s > '9')
+        return 0;
+    int oct = 0;
+    while (*s >= '0' && *s <= '9')
+        oct = oct * 10 + (*s++ - '0');
+    if (*s || oct > 9)
+        return 0;
+    *midi = (float)(12 * ((neg ? -oct : oct) + 1) + n);
+    return 1;
+}
+
+/* a pitch: Hz, or a note name ("A4", "C#5", "Bb3") */
+static float hz_arg(lua_State *L, int i)
+{
+    if (lua_type(L, i) == LUA_TSTRING) {
+        float m = 0;
+        if (!note_name(lua_tostring(L, i), &m))
+            luaL_argerror(L, i, "a note name like \"C4\", \"F#3\" or \"Bb2\"");
+        return au_note_hz(m);
+    }
     lua_Number f = luaL_checknumber(L, i);
-    return f <= 0 ? 0 : f >= 65535 ? 65535 : (uint32_t)(f + 0.5);
+    return f <= 0 ? 0.0f : f >= 65535 ? 65535.0f : (float)f;
+}
+
+/* hz(note): a MIDI note number (60 = C4, 69 = A4) or a name -> Hz */
+static int l_hz(lua_State *L)
+{
+    if (lua_type(L, 1) == LUA_TSTRING) {
+        lua_pushnumber(L, hz_arg(L, 1));
+        return 1;
+    }
+    lua_pushnumber(L, au_note_hz((float)luaL_checknumber(L, 1)));
+    return 1;
+}
+
+static int wave_arg(lua_State *L, int i)
+{
+    lua_Integer w = luaL_optinteger(L, i, -1);
+    return w >= 0 && w < SYNTH_WAVES ? (int)w : -1;
 }
 
 /* note(ch, freq, [ms], [wave], [vol]): restarts the envelope; ms > 0
- * releases the note by itself, else it holds until noteoff(ch). */
+ * releases the note by itself, else it holds until noteoff(ch). freq in
+ * Hz or a note name. */
 static int l_note(lua_State *L)
 {
     unsigned ch = voice_arg(L);
-    uint32_t hz = hz_arg(L, 2);
+    float hz = hz_arg(L, 2);
     lua_Integer ms = luaL_optinteger(L, 3, 0);
-    audio_note(ch, hz, ms > 0 ? (uint32_t)ms : 0,
-               (int)luaL_optinteger(L, 4, -1), (int)luaL_optinteger(L, 5, -1));
+    audio_note(ch, hz, ms > 0 ? (uint32_t)ms : 0, wave_arg(L, 4), (int)luaL_optinteger(L, 5, -1));
     return 0;
 }
 
@@ -693,7 +745,8 @@ static int l_duty(lua_State *L)
     return 0;
 }
 
-/* playing(ch): true while the voice sounds (release included) */
+/* playing(ch): true while the voice sounds (release included) or a sound
+ * effect or the music holds it */
 static int l_playing(lua_State *L)
 {
     lua_pushboolean(L, audio_busy(voice_arg(L)));
@@ -713,6 +766,191 @@ static int l_apu(lua_State *L)
     }
     lua_pushinteger(L, *r);
     return 1;
+}
+
+/* slide(ch, freq, ms): the note of the voice glides to freq */
+static int l_slide(lua_State *L)
+{
+    unsigned ch = voice_arg(L);
+    float hz = hz_arg(L, 2);
+    lua_Integer ms = luaL_optinteger(L, 3, 100);
+    audio_slide(ch, hz, ms > 0 ? (uint32_t)ms : 0);
+    return 0;
+}
+
+/* vibrato(ch, [semitones], [rate_hz]): vibrato(ch) turns it off */
+static int l_vibrato(lua_State *L)
+{
+    unsigned ch = voice_arg(L);
+    audio_vibrato(ch, (float)luaL_optnumber(L, 2, 0), (float)luaL_optnumber(L, 3, 6));
+    return 0;
+}
+
+static const char *const chord_names[AU_CHORDS + 1] = {
+    "octave", "major", "minor", "sus2", "sus4", "maj7", "min7", "7", "dim", "aug",
+    "power", "power8", "major8", "minor8", "down", "octaves", NULL
+};
+
+/* arp(ch, chord, [ms]): the note runs through a chord, ms per note
+ * (default 50): a name ("major", "minor", "maj7", "min7", "7", "sus2",
+ * "sus4", "dim", "aug", "power", "octave"...), or a table of semitones
+ * ({0, 4, 7, 12}); arp(ch) turns it off */
+static int l_arp(lua_State *L)
+{
+    unsigned ch = voice_arg(L);
+    int8_t semis[8];
+    int n = 0;
+    if (lua_istable(L, 2)) {
+        n = (int)luaL_len(L, 2);
+        luaL_argcheck(L, n >= 1 && n <= 8, 2, "1 to 8 semitones");
+        for (int i = 0; i < n; i++) {
+            lua_rawgeti(L, 2, i + 1);
+            lua_Integer v = luaL_checkinteger(L, -1);
+            semis[i] = (int8_t)(v < -48 ? -48 : v > 48 ? 48 : v);
+            lua_pop(L, 1);
+        }
+    } else if (!lua_isnoneornil(L, 2)) {
+        int c = lua_type(L, 2) == LUA_TNUMBER ? (int)lua_tointeger(L, 2) : luaL_checkoption(L, 2, NULL, chord_names);
+        luaL_argcheck(L, c >= 0 && c < AU_CHORDS, 2, "chord 0..15");
+        n = au_chord_len[c];
+        memcpy(semis, au_chord[c], (size_t)n);
+    }
+    lua_Integer ms = luaL_optinteger(L, 3, 50);
+    audio_arp(ch, semis, n, ms > 0 ? (uint32_t)ms : 0);
+    return 0;
+}
+
+/* sfx(n, [voice], [transpose], [vol]): sound effect n of the cartridge's
+ * bank on a voice (nil: a free one), transposed by semitones, at volume
+ * 0..1; returns the voice, or nil. sfx(-1, [voice]) stops the effect of a
+ * voice, or all of them. */
+static int l_sfx(lua_State *L)
+{
+    lua_Integer n = luaL_checkinteger(L, 1);
+    int ch = -1;
+    if (!lua_isnoneornil(L, 2)) {
+        lua_Integer v = luaL_checkinteger(L, 2);
+        luaL_argcheck(L, v >= 0 && v < 8, 2, "voice 0..7");
+        ch = (int)v;
+    }
+    if (n < 0) {
+        audio_sfx_stop(ch);
+        return 0;
+    }
+    int v = audio_sfx((int)n, ch, (int)luaL_optinteger(L, 3, 0), (float)luaL_optnumber(L, 4, 1.0));
+    if (v < 0)
+        lua_pushnil(L);
+    else
+        lua_pushinteger(L, v);
+    return 1;
+}
+
+/* sfxpos(voice) -> the effect playing on the voice and its step, or nil */
+static int l_sfxpos(lua_State *L)
+{
+    int step = 0, n = audio_sfx_pos((int)voice_arg(L), &step);
+    if (n < 0) {
+        lua_pushnil(L);
+        return 1;
+    }
+    lua_pushinteger(L, n);
+    lua_pushinteger(L, step);
+    return 2;
+}
+
+/* music(n, [fade_ms], [position]): song n of the bank, from a position
+ * (0 = the first pattern), fading in; music(-1, [fade_ms]) stops it;
+ * music() -> song, position, step, pattern while it plays, else nil */
+static int l_music(lua_State *L)
+{
+    if (lua_isnoneornil(L, 1)) {
+        int song, order, step, pat;
+        if (!audio_music_pos(&song, &order, &step, &pat)) {
+            lua_pushnil(L);
+            return 1;
+        }
+        lua_pushinteger(L, song);
+        lua_pushinteger(L, order);
+        lua_pushinteger(L, step);
+        lua_pushinteger(L, pat);
+        return 4;
+    }
+    lua_Integer n = luaL_checkinteger(L, 1);
+    lua_Integer fade = luaL_optinteger(L, 2, 0);
+    if (n < 0)
+        audio_music_stop((int)fade);
+    else
+        audio_music((int)n, (int)luaL_optinteger(L, 3, 0), (int)fade);
+    return 0;
+}
+
+/* tempo(scale): the music plays scale times faster (1 = as written) */
+static int l_tempo(lua_State *L)
+{
+    audio_tempo((float)luaL_checknumber(L, 1));
+    return 0;
+}
+
+/* mute(track, [on]): a track of the music goes silent (on, the default)
+ * or plays again */
+static int l_mute(lua_State *L)
+{
+    lua_Integer t = luaL_checkinteger(L, 1);
+    luaL_argcheck(L, t >= 0 && t < 8, 1, "track 0..7");
+    audio_mute((int)t, lua_isnoneornil(L, 2) ? 1 : lua_toboolean(L, 2));
+    return 0;
+}
+
+/* volume([level]) -> the master volume 0..10 (set it with level); the
+ * console keeps it in its settings */
+static int l_volume(lua_State *L)
+{
+    if (!lua_isnoneornil(L, 1))
+        audio_set_volume((int)luaL_checkinteger(L, 1));
+    lua_pushinteger(L, audio_volume());
+    return 1;
+}
+
+/* audio_bank(data): plays this bank (a string, as cart_audio() gives it)
+ * from now on; nil: none. true, or nil and a message. For the editor. */
+static int l_audio_bank(lua_State *L)
+{
+    size_t len = 0;
+    const char *d = lua_isnoneornil(L, 1) ? NULL : luaL_checklstring(L, 1, &len);
+    char err[64];
+    if (audio_bank((const uint8_t *)d, len, err, sizeof err) != 0) {
+        lua_pushnil(L);
+        lua_pushstring(L, err);
+        return 2;
+    }
+    lua_pushboolean(L, 1);
+    return 1;
+}
+
+/* audio_pattern(p, bpm, swing, [step]): pattern p of the bank, looping;
+ * audio_pattern(-1) stops. For the editor. */
+static int l_audio_pattern(lua_State *L)
+{
+    lua_Integer p = luaL_checkinteger(L, 1);
+    if (p < 0) {
+        audio_music_stop(0);
+        return 0;
+    }
+    audio_music_pattern((int)p, (int)luaL_optinteger(L, 2, 120), (int)luaL_optinteger(L, 3, 0),
+                        (int)luaL_optinteger(L, 4, 0));
+    return 0;
+}
+
+/* audio_play(voice, sound, note, [vol], [fx], [ms]): sound of the bank on a
+ * voice, as a step plays it (note: MIDI number), released after ms
+ * (default 400). For the editor. */
+static int l_audio_play(lua_State *L)
+{
+    unsigned ch = voice_arg(L);
+    audio_play((int)ch, (int)luaL_checkinteger(L, 2), (int)luaL_checkinteger(L, 3),
+               (int)luaL_optinteger(L, 4, 255), (int)luaL_optinteger(L, 5, 0),
+               (uint32_t)luaL_optinteger(L, 6, 400));
+    return 0;
 }
 
 /* ---------------------------------------------------------------- keys */
@@ -770,6 +1008,8 @@ static int l_cart_new(lua_State *L);
 static int l_cart_save(lua_State *L);
 static int l_cart_run(lua_State *L);
 static int l_cart_arg(lua_State *L);
+static int l_cart_audio(lua_State *L);
+static int l_cart_put_audio(lua_State *L);
 
 /* ---------------------------------------------------------------- light */
 
@@ -831,6 +1071,11 @@ static const luaL_Reg api[] = {
     { "light_begin", l_light_begin }, { "light", l_light }, { "light_end", l_light_end },
     { "note", l_note }, { "noteoff", l_noteoff }, { "freq", l_freq },
     { "envelope", l_envelope }, { "duty", l_duty }, { "playing", l_playing }, { "apu", l_apu },
+    { "hz", l_hz }, { "slide", l_slide }, { "vibrato", l_vibrato }, { "arp", l_arp },
+    { "sfx", l_sfx }, { "sfxpos", l_sfxpos }, { "music", l_music }, { "tempo", l_tempo },
+    { "mute", l_mute }, { "volume", l_volume },
+    { "audio_bank", l_audio_bank }, { "audio_pattern", l_audio_pattern }, { "audio_play", l_audio_play },
+    { "cart_audio", l_cart_audio }, { "cart_put_audio", l_cart_put_audio },
     { NULL, NULL },
 };
 
@@ -872,8 +1117,8 @@ static lua_State *new_cart_state(const bm_cart_t *c)
     lua_pushglobaltable(L);
     luaL_setfuncs(L, api, 0);
     lua_pop(L, 1);
-    static const char *const waves[] = { "SQUARE", "TRIANGLE", "SAW", "NOISE" };
-    for (int w = 0; w < 4; w++) {
+    static const char *const waves[SYNTH_WAVES] = { "SQUARE", "TRIANGLE", "SAW", "NOISE", "SINE", "METAL" };
+    for (int w = 0; w < SYNTH_WAVES; w++) {
         lua_pushinteger(L, w);
         lua_setglobal(L, waves[w]);
     }
@@ -1108,6 +1353,21 @@ static void free_assets(void)
  * and the error it stopped with). */
 static uint8_t *proj_cover;
 static uint16_t proj_cover_w, proj_cover_h;
+/* the sound bank of the project (cart_save keeps it), and of the
+ * cartridge playing (a copy: its bytes are freed while it is suspended) */
+static uint8_t *proj_audio, *own_audio;
+static uint32_t proj_audio_len, own_audio_len;
+
+static void set_copy(uint8_t **dst, uint32_t *dlen, const void *src, uint32_t len)
+{
+    free(*dst);
+    *dst = NULL;
+    *dlen = 0;
+    if (src && len && (*dst = malloc(len)) != NULL) {
+        memcpy(*dst, src, len);
+        *dlen = len;
+    }
+}
 static char run_request[64];
 static char arg_path[64], arg_error[512], last_error[512];
 static int arg_back = 1;
@@ -1217,6 +1477,7 @@ static int l_cart_load(lua_State *L)
         proj_cover_w = c.cover_w;
         proj_cover_h = c.cover_h;
     }
+    set_copy(&proj_audio, &proj_audio_len, c.audio, c.audio_size);
     char title[49], author[33];
     memcpy(title, c.title, sizeof title);
     memcpy(author, c.author, sizeof author);
@@ -1236,11 +1497,30 @@ static int l_cart_new(lua_State *L)
         return luaL_error(L, "not enough memory for the cartridge");
     free(proj_cover);
     proj_cover = NULL;
+    set_copy(&proj_audio, &proj_audio_len, NULL, 0);
     return 0;
 }
 
 static void put16(uint8_t *p, uint32_t v) { p[0] = (uint8_t)v; p[1] = (uint8_t)(v >> 8); }
 static void put32(uint8_t *p, uint32_t v) { put16(p, v); put16(p + 2, v >> 16); }
+static uint32_t get32(const uint8_t *p) { return p[0] | p[1] << 8 | p[2] << 16 | (uint32_t)p[3] << 24; }
+
+/* "/carts/GAME.BM" -> "/carts", "GAME.BM"; a bare name goes to /carts */
+static void split_path(const char *path, char *dir, size_t dn, char *name, size_t nn)
+{
+    const char *slash = strrchr(path, '/');
+    if (slash) {
+        size_t n = (size_t)(slash - path);
+        if (n >= dn) n = dn - 1;
+        memcpy(dir, path, n);
+        dir[n] = 0;
+        if (!dir[0]) ksnprintf(dir, dn, "/");
+        ksnprintf(name, nn, "%s", slash + 1);
+    } else {
+        ksnprintf(dir, dn, "/carts");
+        ksnprintf(name, nn, "%s", path);
+    }
+}
 
 static const char *field(lua_State *L, int t, const char *k, const char *def)
 {
@@ -1265,32 +1545,21 @@ static int l_cart_save(lua_State *L)
     int w = strcmp(res, "320x180") == 0 ? 320 : 640, h = w == 320 ? 180 : 360;
 
     char dir[64], name[16];
-    const char *slash = strrchr(path, '/');
-    if (slash) {
-        size_t n = (size_t)(slash - path);
-        if (n >= sizeof dir) n = sizeof dir - 1;
-        memcpy(dir, path, n);
-        dir[n] = 0;
-        if (!dir[0]) strcpy(dir, "/");
-        ksnprintf(name, sizeof name, "%s", slash + 1);
-    } else {
-        strcpy(dir, "/carts");
-        ksnprintf(name, sizeof name, "%s", path);
-    }
+    split_path(path, dir, sizeof dir, name, sizeof name);
 
     const uint32_t sw = (uint32_t)rt.sheet.w, sh = (uint32_t)rt.sheet.h;
     const uint32_t mw = (uint32_t)rt.map.w, mh = (uint32_t)rt.map.h;
-    uint32_t sizes[4] = { proj_cover ? 4u + (uint32_t)proj_cover_w * proj_cover_h * 4 : 0, (uint32_t)lua_len,
-                          4 + sw * sh * 4, 4 + mw * mh * 2 };
-    static const uint32_t types[4] = { BM_SEC_COVER, BM_SEC_LUA, BM_SEC_SHEET, BM_SEC_MAP };
+    uint32_t sizes[5] = { proj_cover ? 4u + (uint32_t)proj_cover_w * proj_cover_h * 4 : 0, (uint32_t)lua_len,
+                          4 + sw * sh * 4, 4 + mw * mh * 2, proj_audio_len };
+    static const uint32_t types[5] = { BM_SEC_COVER, BM_SEC_LUA, BM_SEC_SHEET, BM_SEC_MAP, BM_SEC_AUDIO };
     uint32_t count = 0, total = BM_HEADER_SIZE;
-    for (int i = 0; i < 4; i++)
+    for (int i = 0; i < 5; i++)
         if (sizes[i]) { count++; total += 16 + ((sizes[i] + 3) & ~3u); }
     uint8_t *buf = calloc(total, 1);
     if (!buf)
         return luaL_error(L, "not enough memory to save");
     uint8_t *tab = buf + BM_HEADER_SIZE, *p = tab + count * 16;
-    for (int i = 0; i < 4; i++) {
+    for (int i = 0; i < 5; i++) {
         if (!sizes[i]) continue;
         put32(tab, types[i]);
         put32(tab + 4, (uint32_t)(p - buf));
@@ -1310,10 +1579,12 @@ static int l_cart_save(lua_State *L)
                 q[0] = (uint8_t)(rgb >> 16); q[1] = (uint8_t)(rgb >> 8); q[2] = (uint8_t)rgb;
                 q[3] = rt.sheet.alpha[k] ? 255 : 0;
             }
-        } else {
+        } else if (i == 3) {
             put16(p, mw); put16(p + 2, mh);
             for (uint32_t k = 0; k < mw * mh; k++)
                 put16(p + 4 + k * 2, rt.map.cells[k]);
+        } else {
+            memcpy(p, proj_audio, proj_audio_len);
         }
         p += (sizes[i] + 3) & ~3u;
     }
@@ -1361,6 +1632,188 @@ static int l_cart_arg(lua_State *L)
         lua_setfield(L, -2, "error");
     }
     return 1;
+}
+
+/* cart_audio([path]) -> the sound bank of a .bm file as a string (false
+ * if it has none) and its title; nil and a message if it cannot be read.
+ * Without a path: the bank of the cartridge playing, or nil. */
+static int l_cart_audio(lua_State *L)
+{
+    if (lua_isnoneornil(L, 1)) {
+        if (own_audio)
+            lua_pushlstring(L, (const char *)own_audio, own_audio_len);
+        else
+            lua_pushnil(L);
+        return 1;
+    }
+    const char *path = luaL_checkstring(L, 1);
+    fat_entry_t e;
+    uint8_t *data;
+    size_t len;
+    bm_cart_t c;
+    char err[64];
+    if (fat_find(path, &e) != 0 || fat_load(&e, &data, &len) != 0) {
+        lua_pushnil(L);
+        lua_pushstring(L, fat_error());
+        return 2;
+    }
+    if (bm_parse(data, len, &c, err, sizeof err) != 0) {
+        free(data);
+        lua_pushnil(L);
+        lua_pushstring(L, err);
+        return 2;
+    }
+    if (c.audio)
+        lua_pushlstring(L, (const char *)c.audio, c.audio_size);
+    else
+        lua_pushboolean(L, 0);
+    char title[49];
+    memcpy(title, c.title, 48);
+    title[48] = 0;
+    lua_pushstring(L, title);
+    free(data);
+    return 2;
+}
+
+/* A new cartridge file: header, the Lua source, the bank. */
+static uint8_t *new_pack(const char *title, const char *lua, size_t lua_len, const char *audio, size_t alen,
+                         uint32_t *total)
+{
+    uint32_t count = alen ? 2 : 1;
+    uint32_t t = BM_HEADER_SIZE + count * 16 + (((uint32_t)lua_len + 3) & ~3u) + (((uint32_t)alen + 3) & ~3u);
+    uint8_t *buf = calloc(t, 1);
+    if (!buf)
+        return NULL;
+    uint8_t *tab = buf + BM_HEADER_SIZE, *p = tab + count * 16;
+    put32(tab, BM_SEC_LUA);
+    put32(tab + 4, (uint32_t)(p - buf));
+    put32(tab + 8, (uint32_t)lua_len);
+    memcpy(p, lua, lua_len);
+    p += ((uint32_t)lua_len + 3) & ~3u;
+    if (alen) {
+        put32(tab + 16, BM_SEC_AUDIO);
+        put32(tab + 20, (uint32_t)(p - buf));
+        put32(tab + 24, (uint32_t)alen);
+        memcpy(p, audio, alen);
+    }
+    memcpy(buf, "BMCART\0\0", 8);
+    put16(buf + 8, 1);
+    put16(buf + 10, BM_HEADER_SIZE);
+    put16(buf + 12, 640);
+    put16(buf + 14, 360);
+    buf[16] = BM_FMT_RGB565;
+    buf[17] = (uint8_t)count;
+    strncpy((char *)buf + 24, title, 47);
+    strncpy((char *)buf + 72, "bm sound", 31);
+    put32(buf + 20, crc32(buf + BM_HEADER_SIZE, t - BM_HEADER_SIZE));
+    *total = t;
+    return buf;
+}
+
+/* cart_put_audio(path, bank, [title, lua]): puts the sound bank (a string;
+ * nil removes it) into a .bm file, everything else as it was. If the file
+ * does not exist, it is made (8.3 name) with that title and Lua source.
+ * true, or false and a message. */
+static int l_cart_put_audio(lua_State *L)
+{
+    const char *path = luaL_checkstring(L, 1);
+    size_t alen = 0;
+    const char *audio = lua_isnoneornil(L, 2) ? NULL : luaL_checklstring(L, 2, &alen);
+    char err[64];
+    if (audio) {
+        au_bank_t *b = malloc(sizeof *b);
+        if (!b)
+            return luaL_error(L, "not enough memory");
+        int bad = au_parse((const uint8_t *)audio, alen, b, err, sizeof err);
+        free(b);
+        if (bad) {
+            lua_pushboolean(L, 0);
+            lua_pushstring(L, err);
+            return 2;
+        }
+    }
+    fat_entry_t e;
+    uint8_t *data, *buf;
+    size_t len;
+    uint32_t total;
+    int ok;
+    if (fat_find(path, &e) != 0) {
+        size_t lua_len;
+        const char *title = luaL_optstring(L, 3, "Sound pack");
+        const char *lua = luaL_optlstring(L, 4, NULL, &lua_len);
+        if (!lua) {
+            lua_pushboolean(L, 0);
+            lua_pushstring(L, fat_error());
+            return 2;
+        }
+        char dir[64], name[16];
+        split_path(path, dir, sizeof dir, name, sizeof name);
+        if (!(buf = new_pack(title, lua, lua_len, audio, alen, &total)))
+            return luaL_error(L, "not enough memory to save");
+        ok = fat_mkdirs(dir) == 0 && fat_write_file(dir, name, buf, total) == 0;
+        free(buf);
+    } else {
+        bm_cart_t c;
+        if (fat_load(&e, &data, &len) != 0) {
+            lua_pushboolean(L, 0);
+            lua_pushstring(L, fat_error());
+            return 2;
+        }
+        if (bm_parse(data, len, &c, err, sizeof err) != 0) {
+            free(data);
+            lua_pushboolean(L, 0);
+            lua_pushstring(L, err);
+            return 2;
+        }
+        /* the same sections in the same order, the bank last */
+        unsigned n = data[17], count = 0;
+        total = BM_HEADER_SIZE;
+        for (unsigned i = 0; i < n; i++) {
+            const uint8_t *t = data + BM_HEADER_SIZE + i * 16;
+            if (get32(t) != BM_SEC_AUDIO) {
+                count++;
+                total += 16 + ((get32(t + 8) + 3) & ~3u);
+            }
+        }
+        if (audio) {
+            count++;
+            total += 16 + (((uint32_t)alen + 3) & ~3u);
+        }
+        if (count > 255 || !(buf = calloc(total, 1))) {
+            free(data);
+            return luaL_error(L, "not enough memory to save");
+        }
+        memcpy(buf, data, BM_HEADER_SIZE);
+        uint8_t *tab = buf + BM_HEADER_SIZE, *p = tab + count * 16;
+        for (unsigned i = 0; i < n; i++) {
+            const uint8_t *t = data + BM_HEADER_SIZE + i * 16;
+            uint32_t size = get32(t + 8);
+            if (get32(t) == BM_SEC_AUDIO)
+                continue;
+            memcpy(tab, t, 16);
+            put32(tab + 4, (uint32_t)(p - buf));
+            memcpy(p, data + get32(t + 4), size);
+            tab += 16;
+            p += (size + 3) & ~3u;
+        }
+        if (audio) {
+            put32(tab, BM_SEC_AUDIO);
+            put32(tab + 4, (uint32_t)(p - buf));
+            put32(tab + 8, (uint32_t)alen);
+            put32(tab + 12, 0);
+            memcpy(p, audio, alen);
+        }
+        buf[17] = (uint8_t)count;
+        put32(buf + 20, crc32(buf + BM_HEADER_SIZE, total - BM_HEADER_SIZE));
+        free(data);
+        ok = fat_replace(path, buf, total) == 0;
+        free(buf);
+    }
+    lua_pushboolean(L, ok);
+    if (ok)
+        return 1;
+    lua_pushstring(L, fat_error());
+    return 2;
 }
 
 /* ---------------------------------------------------------------- player */
@@ -1489,6 +1942,9 @@ static struct {
 /* Frees what a cartridge holds (after leave_mode). */
 static void release(lua_State *L)
 {
+    audio_reset();
+    audio_bank(NULL, 0, NULL, 0);
+    set_copy(&own_audio, &own_audio_len, NULL, 0);
     lua_close(L);               /* frees meshes (__gc) before the z-buffer */
     g16_light_free(&rt.light);
     if (rt.r3d_ready)
@@ -1496,6 +1952,8 @@ static void release(lua_State *L)
     rt.r3d_ready = 0;
     free_assets();
 }
+
+static int vol_start;                   /* the volume when the cartridge started or resumed */
 
 /* The frame loop, then either suspend or close. */
 static int run_frames(framebuffer_t *fb, lua_State *L, const char *title, int w, int h,
@@ -1512,6 +1970,7 @@ static int run_frames(framebuffer_t *fb, lua_State *L, const char *title, int w,
             left = 1;
             break;
         }
+        audio_idle();
         uint32_t t0 = timer_ticks();
         if (call(L, "_update") != 0 || call(L, "_draw") != 0) {
             error = lua_tostring(L, -1);
@@ -1532,13 +1991,15 @@ static int run_frames(framebuffer_t *fb, lua_State *L, const char *title, int w,
         }
     }
 
-    audio_reset();
+    if (audio_volume() != vol_start)
+        config_save();                      /* the volume chosen in the game stays */
     st->frames = (uint32_t)rt.frame;
     st->elapsed_us = timer_ticks() - start;
     st->lua_kb = (uint32_t)(luavm_mem() / 1024);
     st->ok = error == NULL;
 
     if (!error && left && suspendable) {
+        audio_pause(1);                     /* music waits, the bank stays */
         susp.L = L;
         susp.active = 1;
         susp.w = w;
@@ -1554,6 +2015,7 @@ static int run_frames(framebuffer_t *fb, lua_State *L, const char *title, int w,
         return BM_SUSPENDED;
     }
 
+    audio_reset();
     leave_mode(fb, con_w, con_h);
     ksnprintf(last_error, sizeof last_error, "%s", error ? error : "");
     hid_text_mode(0);
@@ -1600,6 +2062,13 @@ int bm_run(framebuffer_t *fb, const uint8_t *data, size_t len,
         ksnprintf(rt.save_name, sizeof rt.save_name, "%s", path + sizeof SAVE_DIR);
     }
     audio_reset();
+    vol_start = audio_volume();
+    {
+        char aerr[64];
+        if (audio_bank(cart.audio, cart.audio_size, aerr, sizeof aerr) != 0)
+            kprintf("\x1b[91mbm: sound bank not loaded: %s\x1b[0m\n", aerr);
+        set_copy(&own_audio, &own_audio_len, cart.audio, cart.audio_size);
+    }
     rt.start_us = timer_ticks();
     rt.hook_count = 0;
     if (luaL_loadbuffer(L, cart.lua, cart.lua_size, "=main.lua") != LUA_OK ||
@@ -1647,6 +2116,8 @@ int bm_resume(framebuffer_t *fb, uint32_t seconds, bm_stats_t *st)
     for (int p = 0; p < INPUT_PLAYERS; p++)
         rt.pnow[p] = rt.pprev[p] = rt.now;
     hid_text_mode(rt.text_mode);
+    audio_pause(0);
+    vol_start = audio_volume();
     kprintf("bm: \"%s\" resumed\n", susp.title);
     return run_frames(fb, L, susp.title, susp.w, susp.h, con_w, con_h, seconds, st, NULL, 1);
 }

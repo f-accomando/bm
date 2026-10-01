@@ -24,7 +24,9 @@ void carts_menu(framebuffer_t *fb);
 /* Plays a cartridge image (a .bm, by its magic; anything else is refused). */
 void carts_play_buffer(framebuffer_t *fb, const uint8_t *data, size_t len);
 
-/* The built-in editor (menu, monitor 'e'). */
+/* The built-in editors: the SDK (menu, monitor 'e') and the Sound editor
+ * (menu, monitor 'A'). */
 void carts_editor(framebuffer_t *fb);
+void carts_sound_editor(framebuffer_t *fb);
 
 #endif

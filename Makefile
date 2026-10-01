@@ -71,13 +71,19 @@ FORCE:
 $(LUA_OBJS) $(LWIP_OBJS) $(MBEDTLS_OBJS): WARN := -w
 # Lua scripts embedded with .incbin
 $(BUILD)/k/src/script/embed.S.o: $(wildcard src/script/*.lua) keys/release-pub.pem \
-                                 $(BUILD)/demo.bm $(BUILD)/stress.bm $(BUILD)/editor.bm
+                                 $(BUILD)/demo.bm $(BUILD)/stress.bm $(BUILD)/editor.bm $(BUILD)/sound.bm
 
 # The editor (M15), built into the kernel
 $(BUILD)/editor.bm: carts/editor/main.lua carts/editor/cover.png scripts/mkbm.py
 	@mkdir -p $(dir $@)
 	$(PYTHON) scripts/mkbm.py -o $@ --lua $< --cover carts/editor/cover.png \
 	    --title "bm SDK" --author bm
+
+# The Sound editor, built into the kernel: its own bank is the demo project
+$(BUILD)/sound.bm: carts/sound/main.lua carts/sound/cover.png carts/sound/demo.json scripts/mkbm.py scripts/bmaudio.py
+	@mkdir -p $(dir $@)
+	$(PYTHON) scripts/mkbm.py -o $@ --lua $< --cover carts/sound/cover.png \
+	    --audio carts/sound/demo.json --title "bm Sound" --author bm
 
 $(BUILD)/stress.bm: carts/stress/main.lua scripts/mkbm.py
 	@mkdir -p $(dir $@)
@@ -148,10 +154,18 @@ test-kitchen: $(BUILD)/host/luahost $(BUILD)/kitchen/main.lua
 test-titan: $(BUILD)/host/luahost $(BUILD)/titan/main.lua
 	$< tests/titan/sim.lua $(BUILD)/titan/main.lua $(BUILD)/titan/main.map
 
+# The Sound editor in a fake bm: its banks are the console's format, byte for byte
+$(BUILD)/demo.bmau: carts/sound/demo.json scripts/bmaudio.py
+	@mkdir -p $(dir $@)
+	$(PYTHON) scripts/bmaudio.py pack $< -o $@
+
+test-sound: $(BUILD)/host/luahost $(BUILD)/demo.bmau carts/sound/main.lua
+	$< tests/sound/sim.lua carts/sound/main.lua $(BUILD)/demo.bmau
+
 .DEFAULT_GOAL := all
 .PHONY: FORCE test-smp all clean firmware image image-pi1 sdcard install sdcard-chainloader sdcard-stress qemu qemu-screenshot \
-        run-serial test test-bm test-usb test-audio test-fat test-kitchen test-titan test-net test-http test-https \
-        test-release release disasm
+        run-serial test test-bm test-usb test-audio test-fat test-kitchen test-titan test-sound test-net test-http test-https \
+        test-release release disasm wav
 
 all: $(BUILD)/kernel.img $(BUILD)/chainloader.img $(GAME_CARTS)
 
@@ -287,7 +301,7 @@ qemu: $(BUILD)/kernel.img
 qemu-screenshot: $(BUILD)/kernel.img
 	./scripts/qemu-screenshot.sh $< $(BUILD)/screen.png
 
-test: all test-bm test-usb test-fat test-audio test-kitchen test-titan test-net test-http test-https \
+test: all test-bm test-usb test-fat test-audio test-kitchen test-titan test-sound test-net test-http test-https \
       test-release test-smp
 	$(PYTHON) tests/qemu_test.py --build $(BUILD)
 
@@ -362,9 +376,21 @@ $(BUILD)/host/test_http: tests/net/test_http.c src/net/http.c src/net/http.h
 test-audio: $(BUILD)/host/test_audio
 	$<
 
-$(BUILD)/host/test_audio: tests/audio/test_audio.c src/audio/synth.c src/audio/iec958.c src/audio/synth.h src/audio/iec958.h
+$(BUILD)/host/test_audio: tests/audio/test_audio.c src/audio/synth.c src/audio/player.c src/audio/iec958.c src/audio/*.h
 	@mkdir -p $(dir $@)
-	$(HOSTCC) -O2 -Wall -Wextra -Isrc -o $@ tests/audio/test_audio.c src/audio/synth.c src/audio/iec958.c
+	$(HOSTCC) -O2 -Wall -Wextra -Isrc -o $@ tests/audio/test_audio.c src/audio/synth.c src/audio/player.c src/audio/iec958.c -lm
+
+# A song (or SFX=n) of a sound bank as a WAV file, made on the PC by the
+# console's synthesizer: make wav BANK=carts/sound/demo.json SONG=0
+BANK ?= carts/sound/demo.json
+SONG ?= 0
+wav: $(BUILD)/host/bmrender
+	$(PYTHON) scripts/bmaudio.py pack $(BANK) -o $(BUILD)/wav.bmau
+	$< $(BUILD)/wav.bmau $(BUILD)/$(if $(SFX),sfx$(SFX),song$(SONG)).wav $(if $(SFX),sfx $(SFX),song $(SONG)) $(SECONDS)
+
+$(BUILD)/host/bmrender: tests/audio/render.c src/audio/synth.c src/audio/player.c src/audio/*.h
+	@mkdir -p $(dir $@)
+	$(HOSTCC) -O2 -Wall -Wextra -Isrc -o $@ tests/audio/render.c src/audio/synth.c src/audio/player.c -lm
 
 test-usb: $(BUILD)/host/test_hid $(BUILD)/host/test_eth $(BUILD)/host/test_board
 	$(BUILD)/host/test_hid

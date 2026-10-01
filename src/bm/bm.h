@@ -29,6 +29,8 @@
  *            the w*h palette indices, row by row, as runs: a byte t < 128 is
  *            followed by t+1 indices; t >= 128 by one index, repeated t-126
  *            times. A cartridge has SHEET or SHEET8, not both.
+ *   6 AUDIO  the sound bank: sounds, sound effects, patterns and songs
+ *            (format in src/audio/player.h), played by sfx() and music()
  * Graphics are stored independently of the screen format and converted when
  * the cartridge is loaded, so the same file works if 32-bit output is added.
  */
@@ -47,6 +49,7 @@
 #define BM_SEC_MAP         3
 #define BM_SEC_COVER       4
 #define BM_SEC_SHEET8      5
+#define BM_SEC_AUDIO       6
 #define BM_SHEET_MAX       4096            /* width and height of a sheet */
 #define BM_COVER_W         128
 #define BM_COVER_H         80
@@ -66,6 +69,8 @@ typedef struct {
     uint16_t map_w, map_h;
     const uint8_t *cover_rgba;      /* NULL if the cartridge has no cover */
     uint16_t cover_w, cover_h;
+    const uint8_t *audio;           /* AUDIO section, or NULL */
+    uint32_t audio_size;
 } bm_cart_t;
 
 int bm_parse(const uint8_t *data, size_t len, bm_cart_t *c, char *err, size_t errlen);

@@ -2595,9 +2595,189 @@ function _init()
   noteoff(2)
   log("off", apu(2, 9), type(playing(0)), TRIANGLE, SAW)
   log("bad", select(2, pcall(note, 8, 440)), select(2, pcall(apu, 0, 16)))
+  log("nobank", sfx(0), music())
   quit()
 end
 """
+
+# a cartridge with the demo bank of the Sound editor (carts/sound/demo.json)
+BANK_CART = r"""
+local n = 0
+function _init()
+  log("hz", hz(69), hz("A4"), math.floor(hz("C4") * 100), hz("Bb3") < hz("B3"))
+  note(1, "C4", 0, SINE, 100)
+  log("frac", apu(1, 0) + apu(1, 1) * 256, apu(1, 10), apu(1, 2), SINE, METAL)
+  log("vol", volume(), volume(4), volume(12), volume(-3))
+  volume(10)
+  local v = sfx(0)                       -- COIN, no music: the highest voice
+  log("sfx", v, sfxpos(v))
+  music(0)
+end
+function _update()
+  n = n + 1
+  if n == 90 then                        -- 1.5 s at 112 BPM: about 11 steps
+    local s, pos, step, pat = music()
+    log("music", s, pos, step, pat)
+    log("free", sfx(3))                  -- a voice the song leaves free: 6 or 7
+    tempo(2)
+    mute(2)
+    arp(1, "major", 40)
+    vibrato(1, 0.5, 6)
+    slide(1, 880, 100)
+    music(-1, 200)
+  end
+  if n == 130 then
+    log("stopped", music() == nil, sfx(99))
+    log("bad", select(2, pcall(sfx, 0, 9)), select(2, pcall(hz, "H2")), select(2, pcall(arp, 0, "jazz")))
+    quit()
+  end
+end
+"""
+
+
+def _bank_bm(src, **kw):
+    sys.path.insert(0, os.path.join(HERE, "..", "scripts"))
+    import bmaudio
+    return mkbm.pack(src.encode(), audio=bmaudio.load(os.path.join(HERE, "..", "carts", "sound", "demo.json")), **kw)
+
+
+def test_audio_bank(b, opts):
+    """Sound banks: a cartridge's AUDIO section is played by sfx() and
+    music() (the player moves even without HDMI audio), note names and
+    fractions of a hertz, the master volume, the helpers."""
+    q = Qemu(b("kernel.img"))
+    try:
+        q.boot()
+        assert _upload(q, _bank_bm(BANK_CART, title="bank test"))
+        out = q.expect("bad\t", timeout=20).decode(errors="replace")
+        out += q.expect("\n").decode(errors="replace")
+        assert "sound bank not loaded" not in out, out
+        assert "hz\t440.0\t440.0\t26162\ttrue" in out, out
+        assert "frac\t261\t160\t4\t4\t5" in out, out
+        assert "vol\t10\t4\t10\t0" in out, out
+        assert "sfx\t7\t0\t0" in out, out
+        m = re.search(r"music\t0\t0\t(\d+)\t0", out)
+        assert m and 5 <= int(m.group(1)) <= 15, out
+        assert re.search(r"free\t[67]\r?\n", out), out
+        assert "stopped\ttrue\tnil" in out, out
+        assert "voice 0..7" in out and "a note name" in out and "invalid option 'jazz'" in out, out
+        q.expect("> ", timeout=10)
+    finally:
+        q.close()
+
+
+VOLUME_CART = r"""
+function _init() log("volume", volume(), volume(3)) quit() end
+"""
+
+
+def test_volume_saved(b, opts):
+    """The volume a game sets (its pause menu) is kept in bm/config.txt and
+    comes back after a reboot."""
+    tmp = tempfile.mkdtemp(prefix="bm-vol-")
+    img = os.path.join(tmp, "sd.img")
+    mksd.build(img, [(b("carts/pong.bm"), "carts/pong.bm")])
+    drive = ["-drive", f"if=sd,format=raw,file={img}"]
+    try:
+        q = Qemu(b("kernel.img"), drive)
+        try:
+            q.boot()
+            assert _upload(q, mkbm.pack(VOLUME_CART.encode(), title="volume test"))
+            out = q.expect("volume\t", timeout=15).decode(errors="replace")
+            out += q.expect("\n").decode(errors="replace")
+            assert out.rstrip().endswith("10\t3"), out
+            q.expect("> ", timeout=10)
+        finally:
+            q.close()
+        q = Qemu(b("kernel.img"), drive)
+        try:
+            out = q.boot().decode(errors="replace")
+            assert "volume 3/10" in out, out
+        finally:
+            q.close()
+    finally:
+        shutil.rmtree(tmp, ignore_errors=True)
+
+
+def _sd_files(img):
+    """the FAT partition of an image, for mtools and fsck"""
+    part = img + ".part"
+    with open(img, "rb") as f, open(part, "wb") as o:
+        f.seek(2048 * 512)
+        o.write(f.read())
+    return part
+
+
+def test_sound_editor(b, opts):
+    """The Sound editor (Dev tab, monitor A): starts on the demo, types a
+    note with the piano keys, saves the demo as a new sound pack, opens a
+    game from the SD card, gives it a pattern and saves it into the game;
+    the game then plays with its new bank, and the card is a clean FAT32
+    volume."""
+    tmp = tempfile.mkdtemp(prefix="bm-snd-")
+    img = os.path.join(tmp, "sd.img")
+    mksd.build(img, [(b("carts/pong.bm"), "carts/pong.bm")])
+    drive = ["-drive", f"if=sd,format=raw,file={img}"]
+    q = Qemu(b("kernel.img"), drive)
+
+    def k(s, gap=0.3):
+        q.send(s)
+        time.sleep(gap)
+    try:
+        q.boot()
+        k("A", 3)                                           # the editor, on the demo
+        k("\x1bOR")                                         # F3: pattern
+        for _ in range(5):
+            k("\x1b[B")                                     # track 6: empty in pattern 0
+        k("q")                                              # C5
+        k("\x13", 1)                                        # Ctrl+S: a new pack, named
+        k("\r")                                             # "DEMO"
+        q.expect("sound: saved /bm/sounds/DEMO.BM", timeout=20)
+        k("\x0f", 1.5)                                      # Ctrl+O: the files
+        k("\r")                                             # /carts/pong.bm
+        q.expect("sound: opened /carts/pong.bm (no sounds yet)", timeout=20)
+        k("\x1bOR")
+        k("z")                                              # C4 on track 1, step 1
+        k("\x13", 1)
+        q.expect("sound: saved /carts/pong.bm", timeout=20)
+        k("\x1b", 0.6)                                      # the menu
+        k("\x1b[6~")
+        k("\x1b[6~")                                        # the last item: Exit
+        k("\r")
+        q.expect("> ", timeout=15)
+    finally:
+        q.close()
+    try:
+        part = _sd_files(img)
+        fsck = subprocess.run(["fsck.vfat", "-n", part], capture_output=True, text=True)
+        assert fsck.returncode == 0, fsck.stdout + fsck.stderr
+        env = dict(os.environ, MTOOLS_SKIP_CHECK="1")
+        sys.path.insert(0, os.path.join(HERE, "..", "scripts"))
+        import bmaudio
+        pong = subprocess.run(["mtype", "-i", part, "::/CARTS/PONG.BM"], capture_output=True, env=env).stdout
+        assert pong[:8] == b"BMCART\x00\x00", pong[:16]
+        import zlib
+        assert zlib.crc32(pong[128:]) & 0xFFFFFFFF == int.from_bytes(pong[20:24], "little"), "pong.bm CRC"
+        bank = bmaudio.unpack(bmaudio.extract(pong))
+        assert bank["patterns"][0]["tracks"]["0"][0].startswith("C4"), bank["patterns"]
+        assert b"function _update" in pong                  # its code is still there
+        pack = subprocess.run(["mtype", "-i", part, "::/BM/SOUNDS/DEMO.BM"], capture_output=True, env=env).stdout
+        demo = bmaudio.unpack(bmaudio.extract(pack))
+        assert demo["patterns"][0]["tracks"]["5"][0].startswith("C5"), demo["patterns"][0]
+        assert len(demo["songs"]) == 2 and demo["songs"][0]["name"] == "DEMO", demo["songs"]
+    finally:
+        shutil.rmtree(tmp, ignore_errors=True)
+    # the game with its bank runs as before
+    q = Qemu(b("kernel.img"))
+    try:
+        q.boot()
+        assert _upload(q, pong)
+        time.sleep(2)
+        q.send("q")
+        out = q.expect("> ", timeout=15).decode(errors="replace")
+        assert "sound bank not loaded" not in out and "stopped with an error" not in out, out
+    finally:
+        q.close()
 
 
 def test_audio(b, opts):
@@ -2616,6 +2796,9 @@ def test_audio(b, opts):
         assert "apu\t440\t0\t64\t1200\t3\t60\t77\t1" in out, out
         assert "off\t0\tboolean\t1\t2" in out, out
         assert "bad\t" in out and "voice 0..7" in out and "register 0..15" in out, out
+        out = q.expect("nobank\t", timeout=5).decode(errors="replace")
+        out += q.expect("\n").decode(errors="replace")
+        assert "nobank\tnil\tnil" in out, out
         q.expect("> ", timeout=10)
     finally:
         q.close()

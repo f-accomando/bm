@@ -3,7 +3,8 @@
 
 The covers are printed on the cartridges in the menu. They are drawn here
 in code (no image editor needed) with the console font; run the script again
-after changing it: `python3 scripts/mkcovers.py`.
+after changing it: `python3 scripts/mkcovers.py` (or with names: only those,
+`python3 scripts/mkcovers.py sound`).
 """
 import os
 import re
@@ -243,9 +244,39 @@ def editor():
     return c
 
 
+def sound():
+    import math
+    c = Canvas()
+    c.vgradient(0, H, 0x15171C, 0x23272F)
+    # pads of a step sequencer, some lit
+    lit = {(0, 0): 0xF2701D, (2, 0): 0xF2701D, (1, 1): 0xF2C230, (3, 1): 0xF2C230, (0, 2): 0x35C46E,
+           (3, 2): 0x35C46E, (1, 3): 0x3C8CE7, (2, 3): 0x3C8CE7, (3, 3): 0xA472F2}
+    for j in range(4):
+        for i in range(4):
+            col = lit.get((i, j), 0x343A46)
+            c.rect(10 + i * 13, 30 + j * 12, 10, 9, col)
+    # a wave going through
+    prev = None
+    for x in range(64, 122):
+        t = (x - 64) / 58
+        y = 54 - math.sin(t * math.pi * 4) * 14 * (1 - t * 0.6)
+        if prev:
+            c.rect(x, min(prev, y), 1, abs(y - prev) + 2, 0xF2701D)
+        prev = y
+    c.ctext("SOUND", 4, 0xF2701D, scale=2, outline=0x000000)
+    return c
+
+
+COVERS = (("pong", pong), ("snake", snake), ("shooter", shooter), ("astrowing", astrowing),
+          ("hunt", hunt), ("editor", editor), ("sound", sound))
+
+
 def main():
-    for name, fn in (("pong", pong), ("snake", snake), ("shooter", shooter), ("astrowing", astrowing),
-                     ("hunt", hunt), ("editor", editor)):
+    import sys
+    only = sys.argv[1:]                     # names: draw only those covers
+    for name, fn in COVERS:
+        if only and name not in only:
+            continue
         path = os.path.join(ROOT, "carts", name, "cover.png")
         fn().save(path)
         print(path)

@@ -661,32 +661,10 @@ int fat_mkdirs(const char *path)
     return 0;
 }
 
-int fat_write_file(const char *dir, const char *name, const void *data, size_t len)
+/* The data into free clusters, then the directory entry: the existing
+ * `old` (its clusters released last), or a new entry `n83` in `dc`. */
+static int store(const fat_entry_t *old, uint32_t dc, const uint8_t n83[11], const void *data, size_t len)
 {
-    uint8_t n83[11];
-    if (!vol.mounted) {
-        err = "not mounted";
-        return -1;
-    }
-    if (to_83(name, n83)) {
-        err = "not an 8.3 name";
-        return -1;
-    }
-    uint32_t dc;
-    if (dir_cluster(dir, &dc))
-        return -1;
-
-    /* existing file? */
-    fat_dir_t d;
-    fat_entry_t e;
-    int exists = 0;
-    fat_opendir(&d, dir);
-    while (fat_readdir(&d, &e))
-        if (!e.is_dir && name_eq(name, e.name, strlen(name))) {
-            exists = 1;
-            break;
-        }
-
     uint32_t csize = vol.spc * 512;
     uint32_t n = (uint32_t)((len + csize - 1) / csize);
     uint32_t *list = n ? malloc(n * sizeof *list) : NULL;
@@ -716,10 +694,10 @@ int fat_write_file(const char *dir, const char *name, const void *data, size_t l
         goto out;
     /* 3. the directory entry points at it */
     uint32_t first = n ? list[0] : 0;
-    if (exists) {
+    if (old) {
         uint8_t fields[4];
         wr16(fields, vol.fat32 ? first >> 16 : 0);
-        if (patch_sector(e.dir_lba, e.dir_off + 20, fields, 2))
+        if (patch_sector(old->dir_lba, old->dir_off + 20, fields, 2))
             goto out;
         wr16(fields, FAT_DATE);
         wr16(fields + 2, first);
@@ -727,10 +705,10 @@ int fat_write_file(const char *dir, const char *name, const void *data, size_t l
         wr16(tail, 0);                          /* write time */
         memcpy(tail + 2, fields, 4);            /* write date, cluster low */
         wr32(tail + 6, (uint32_t)len);
-        if (patch_sector(e.dir_lba, e.dir_off + 22, tail, 10))
+        if (patch_sector(old->dir_lba, old->dir_off + 22, tail, 10))
             goto out;
         /* 4. the old data is released last */
-        if (e.cluster && free_chain(e.cluster))
+        if (old->cluster && free_chain(old->cluster))
             goto out;
     } else {
         uint8_t de[32];
@@ -742,6 +720,50 @@ int fat_write_file(const char *dir, const char *name, const void *data, size_t l
 out:
     free(list);
     return rc;
+}
+
+int fat_write_file(const char *dir, const char *name, const void *data, size_t len)
+{
+    uint8_t n83[11];
+    if (!vol.mounted) {
+        err = "not mounted";
+        return -1;
+    }
+    if (to_83(name, n83)) {
+        err = "not an 8.3 name";
+        return -1;
+    }
+    uint32_t dc;
+    if (dir_cluster(dir, &dc))
+        return -1;
+
+    /* existing file? */
+    fat_dir_t d;
+    fat_entry_t e;
+    int exists = 0;
+    fat_opendir(&d, dir);
+    while (fat_readdir(&d, &e))
+        if (!e.is_dir && name_eq(name, e.name, strlen(name))) {
+            exists = 1;
+            break;
+        }
+    return store(exists ? &e : NULL, dc, n83, data, len);
+}
+
+int fat_replace(const char *path, const void *data, size_t len)
+{
+    fat_entry_t e;
+    if (!vol.mounted) {
+        err = "not mounted";
+        return -1;
+    }
+    if (fat_find(path, &e))
+        return -1;
+    if (e.is_dir) {
+        err = "a directory";
+        return -1;
+    }
+    return store(&e, 0, NULL, data, len);
 }
 
 int fat_delete(const char *path)

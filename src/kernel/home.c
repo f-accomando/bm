@@ -241,7 +241,7 @@ void home_tool_start(int i, home_do_t *d)
 /* ---------------------------------------------------------------- settings */
 
 enum {
-    R_CONTROLLERS = 1, R_WIFI, R_LAYOUT, R_DRAW, R_SYSTEM,
+    R_CONTROLLERS = 1, R_WIFI, R_LAYOUT, R_DRAW, R_VOLUME, R_SYSTEM,
     R_PAD1, R_PAD2, R_PAD3, R_PAD4, R_KEYBOARD, R_PAIR, R_PAIR_KBD, R_TEST, R_FORGET,
     R_NETWORK, R_STATE, R_IP, R_TIME, R_CONSOLE, R_PASSWORD, R_CONNECT, R_BOOT,
     R_VERSION, R_BOARD, R_UPTIME, R_MEMORY, R_CLOCKS, R_SD, R_RESTART, R_MONITOR,
@@ -289,6 +289,9 @@ void home_panel(int id, home_panel_t *p)
         home_row(p, MENU_ROW_CHOICE, R_DRAW, "Game drawing (.bm)",
                  "Direct on screen, or via RAM (compare: Render bench)", "%s",
                  bm_via_ram() ? "Via RAM" : "Direct");
+        home_row(p, MENU_ROW_CHOICE, R_VOLUME, "Volume",
+                 "Sound of the games and tools (games can change it in their pause menu)",
+                 "%d / %d", audio_volume(), AUDIO_VOLUME_MAX);
         home_row(p, MENU_ROW_SUB, R_SYSTEM, "System",
                  "Version, memory, SD card, restart", "%s", bm_version);
         break;
@@ -441,6 +444,16 @@ void home_act(int id, int row, int how, home_do_t *d)
         config_save();
         ksnprintf(d->note, sizeof d->note, ".bm games draw %s", bm_via_ram() ? "via RAM" : "directly");
         break;
+    case R_VOLUME: {
+        int v = audio_volume() + (how ? how : 1);
+        if (how == 0 && v > AUDIO_VOLUME_MAX)
+            v = 0;                              /* A goes round */
+        audio_set_volume(v);
+        config_save();
+        audio_note(0, 880, 70, 4, 140);         /* a beep at the new volume */
+        ksnprintf(d->note, sizeof d->note, "volume: %d / %d", audio_volume(), AUDIO_VOLUME_MAX);
+        break;
+    }
     case R_BOOT:
         config_set("wifi_boot", wifi_at_boot() ? "0" : "1");
         config_save();

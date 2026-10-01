@@ -3,20 +3,27 @@
 mkbm.py - packs a native bm cartridge (.bm). Standard library only.
 
   mkbm.py -o game.bm --lua main.lua [--sheet sheet.png [--sheet8]] [--map map.csv]
-           [--title "My game"] [--author me] [--res 640x360|320x180]
+           [--audio bank.json|bank.bmau] [--title "My game"] [--author me]
+           [--res 640x360|320x180]
 
 sheet.png: 8-bit RGB or RGBA PNG (non-interlaced); size multiple of 8 recommended.
 --sheet8:  store the sheet with a palette and runs (at most 256 colours): big
            sheets of sprites become a fraction of the size.
 map.csv:   one row of comma-separated sprite indices per line (0 = empty).
+--audio:   the sound bank (sounds, sound effects, music): JSON or binary,
+           see scripts/bmaudio.py; sfx() and music() play it.
 Format: see src/bm/bm.h.
 """
 import argparse
+import os
 import struct
 import sys
 import zlib
 
-SEC_LUA, SEC_SHEET, SEC_MAP, SEC_COVER, SEC_SHEET8 = 1, 2, 3, 4, 5
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+import bmaudio  # noqa: E402
+
+SEC_LUA, SEC_SHEET, SEC_MAP, SEC_COVER, SEC_SHEET8, SEC_AUDIO = 1, 2, 3, 4, 5, 6
 
 
 def read_png(path):
@@ -139,7 +146,8 @@ def sheet8(w, h, rgba):
     return bytes(out)
 
 
-def pack(lua, sheet=None, map_=None, title="", author="", res=(640, 360), cover=None, sheet_packed=False):
+def pack(lua, sheet=None, map_=None, title="", author="", res=(640, 360), cover=None, sheet_packed=False,
+         audio=None):
     sections = []
     if cover:                               # first: the menu reads only the start
         w, h, rgba = cover
@@ -154,6 +162,8 @@ def pack(lua, sheet=None, map_=None, title="", author="", res=(640, 360), cover=
     if map_:
         w, h, cells = map_
         sections.append((SEC_MAP, struct.pack("<HH", w, h) + cells))
+    if audio:
+        sections.append((SEC_AUDIO, audio))
 
     table_size = 16 * len(sections)
     offset = 128 + table_size
@@ -180,6 +190,7 @@ def main():
     ap.add_argument("--sheet")
     ap.add_argument("--sheet8", action="store_true", help="store the sheet with a palette and runs")
     ap.add_argument("--map")
+    ap.add_argument("--audio", help="sound bank: .json (scripts/bmaudio.py) or .bmau")
     ap.add_argument("--cover", help="picture for the menu (PNG, any size: cropped to 16:10, 128x80)")
     ap.add_argument("--title", default="")
     ap.add_argument("--author", default="")
@@ -190,7 +201,8 @@ def main():
     map_ = read_map(a.map) if a.map else None
     res = tuple(int(v) for v in a.res.split("x"))
     cover = make_cover(read_png(a.cover)) if a.cover else None
-    data = pack(lua, sheet, map_, a.title, a.author, res, cover, a.sheet8)
+    audio = bmaudio.load(a.audio) if a.audio else None
+    data = pack(lua, sheet, map_, a.title, a.author, res, cover, a.sheet8, audio)
     open(a.output, "wb").write(data)
     print(f"{a.output}: {len(data)} bytes ({a.title or 'untitled'}, {a.res})")
 

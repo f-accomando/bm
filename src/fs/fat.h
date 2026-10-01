@@ -1,7 +1,8 @@
 /*
  * FAT16 / FAT32 with long file names (reading). One volume: the first FAT
  * partition of the SD card (or a card formatted without partitions).
- * Writing: files and directories with 8.3 names, created or replaced.
+ * Writing: files and directories with 8.3 names, created or replaced;
+ * the content of an existing file of any name replaced.
  */
 #ifndef FAT_H
 #define FAT_H
@@ -56,6 +57,10 @@ int fat_mkdirs(const char *path);
  * clusters before the directory entry points at it, so a power cut leaves
  * either the old or the new file (plus, at worst, lost clusters). */
 int fat_write_file(const char *dir, const char *name, const void *data, size_t len);
+
+/* Replaces the content of an existing file ("/carts/astrowing.bm", long
+ * names too), as safely as fat_write_file. */
+int fat_replace(const char *path, const void *data, size_t len);
 
 /* Deletes a file ("/carts/Il mio gioco.bm", long names too; not a
  * directory). The directory entry goes first, then the clusters are

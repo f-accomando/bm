@@ -24,6 +24,13 @@ bm_editor_cart_end:
 
     .section .rodata
     .balign 4
+    .globl bm_sound_cart, bm_sound_cart_end
+bm_sound_cart:
+    .incbin "sound.bm"
+bm_sound_cart_end:
+
+    .section .rodata
+    .balign 4
     .globl bm_stress_cart, bm_stress_cart_end
 bm_stress_cart:
     .incbin "stress.bm"

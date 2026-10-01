@@ -164,6 +164,13 @@ int main(int argc, char **argv)
     CHECK(read_back("/bm/save/f0000001.sav", p1, 37));
     free(p1);
     CHECK(fat_find("/carts/Un gioco da cancellare.bm", &fe) == 0);
+    /* a long name keeps its name when its content is replaced */
+    uint8_t *p2 = pattern(9000, 77);
+    CHECK(fat_replace("/carts/un gioco da cancellare.bm", p2, 9000) == 0);
+    CHECK(read_back("/carts/Un gioco da cancellare.bm", p2, 9000));
+    free(p2);
+    CHECK(fat_replace("/carts/nessuno.bm", "x", 1) != 0);
+    CHECK(fat_replace("/bm/save", "x", 1) != 0);
     CHECK(fat_delete("/carts/un gioco da CANCELLARE.bm") == 0);
     CHECK(fat_find("/carts/Un gioco da cancellare.bm", &fe) != 0);
     CHECK(read_back(argv[3], orig, orig_len));

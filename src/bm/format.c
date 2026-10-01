@@ -131,6 +131,11 @@ int bm_parse(const uint8_t *d, size_t len, bm_cart_t *c, char *err, size_t errle
                 return fail(err, errlen, "bad cover size");
             c->cover_rgba = p + 4;
             break;
+        case BM_SEC_AUDIO:
+            if (size < 16 || memcmp(p, "BMAU", 4) != 0) return fail(err, errlen, "bad sound bank");
+            c->audio = p;
+            c->audio_size = size;
+            break;
         default:
             break;      /* unknown sections are ignored (forward compatible) */
         }
