@@ -521,6 +521,49 @@ static void test_studio_cart(const char *path)
     free(d);
 }
 
+/* A cartridge with a skeleton written by bm Studio's core (test_core.js):
+ * the kernel reads the rig, its clips and keys; broken rigs are refused. */
+static void test_anim_cart(const char *path)
+{
+    size_t n;
+    uint8_t *d = read_file(path, &n);
+    CHECK(d != NULL, "read %s", path);
+    if (!d) return;
+    bm_cart_t c;
+    char err[64] = "";
+    CHECK(bm_parse(d, n, &c, err, sizeof err) == 0, "parse the cartridge with a skeleton: %s", err);
+    bm_rig_t r;
+    CHECK(c.anim && bm_anim_rig(c.anim, c.anim_size, "figure", &r) == 0, "the rig of \"figure\"");
+    CHECK(bm_anim_rig(c.anim, c.anim_size, "nobody", &r) != 0, "no rig for another model");
+    bm_anim_rig(c.anim, c.anim_size, "figure", &r);
+    bm_model_t m;
+    bm_mesh_model(c.mesh, c.mesh_size, 0, &m);
+    CHECK(r.nbones == 2 && r.nclips == 2 && r.nverts == m.nverts, "bones %u clips %u vertices %u/%u", r.nbones, r.nclips,
+          r.nverts, m.nverts);
+    char name[BM_MODEL_NAME + 1];
+    int parent;
+    float head[3], tail[3];
+    bm_rig_bone(&r, 1, name, &parent, head, tail);
+    CHECK(strcmp(name, "arm.R") == 0 && parent == 0 && head[0] == 1 && head[1] == 1 && tail[0] == 2, "bone 1");
+    bm_clip_t cl;
+    CHECK(bm_rig_clip(&r, 0, &cl) == 0 && strcmp(cl.name, "wave") == 0 && cl.nkeys == 2 && cl.mode == 1 && cl.loop &&
+          cl.length == 1.0f, "clip wave");
+    float q[2][4], t[2][3];
+    float time = bm_clip_key(&cl, 2, 1, q, t);
+    CHECK(time == 0.5f && t[1][1] == 0.25f && q[1][2] > 0.7f && q[0][3] == 1, "key 1 of wave: %g", time);
+    CHECK(bm_rig_clip(&r, 1, &cl) == 0 && strcmp(cl.name, "still") == 0 && cl.mode == 2 && !cl.loop, "clip still");
+    CHECK(bm_rig_clip(&r, 2, &cl) != 0, "no third clip");
+    int arm = 0;
+    for (int i = 0; i < r.nverts; i++) arm += r.vbones[i] == 1;
+    CHECK(arm == 8, "8 vertices follow the arm (%d)", arm);
+    /* a bone whose parent comes after it is refused */
+    uint8_t *b1 = (uint8_t *)r.bones + BM_BONE_SIZE;
+    b1[16] = 5;
+    put32(d + 20, crc32(d + BM_HEADER_SIZE, (uint32_t)(n - BM_HEADER_SIZE)));
+    CHECK(bm_parse(d, n, &c, err, sizeof err) != 0 && strstr(err, "ANIM"), "bad parent refused");
+    free(d);
+}
+
 int main(int argc, char **argv)
 {
     test_primitives();
@@ -533,6 +576,8 @@ int main(int argc, char **argv)
     test_mesh();
     if (argc > 2)
         test_studio_cart(argv[2]);
+    if (argc > 3)
+        test_anim_cart(argv[3]);
     printf("bm: %d/%d checks passed\n", checks - fails, checks);
     return fails != 0;
 }

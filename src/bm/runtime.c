@@ -24,6 +24,7 @@
 
 #include <stdio.h>
 #include <stdlib.h>
+#include <math.h>
 #include <string.h>
 
 #include "lauxlib.h"
@@ -67,6 +68,8 @@ static struct {
     char save_name[13];         /* "1A2B3C4D.SAV": CRC-32 of title and author */
     uint8_t *mesh;              /* copy of the cartridge's MESH section, or NULL */
     uint32_t mesh_size;
+    uint8_t *anim;              /* copy of its ANIM section (skeletons), or NULL */
+    uint32_t anim_size;
 } rt;
 
 #define MESH_MT "bm.mesh"
@@ -331,17 +334,45 @@ static r3d_t *r3d(lua_State *L)
     return &rt.r3d;
 }
 
+/* What animate() needs for a model with a skeleton (bm Animator): its own
+ * copy of the rig, the vertices at rest, the bone matrices of the pose. */
+typedef struct {
+    uint8_t *data;
+    bm_rig_t r;
+    v3_t *rest;
+    float (*mat)[12];
+} skel_t;
+
+/* A mesh of Lua: r3d_mesh_t first, so every function can see just that. */
+typedef struct {
+    r3d_mesh_t m;
+    skel_t *skel;
+} lmesh_t;
+
+static void skel_free(skel_t *s)
+{
+    if (!s)
+        return;
+    free(s->data);
+    free(s->rest);
+    free(s->mat);
+    free(s);
+}
+
 static r3d_mesh_t *new_mesh(lua_State *L)
 {
-    r3d_mesh_t *m = lua_newuserdatauv(L, sizeof *m, 0);
-    memset(m, 0, sizeof *m);
+    lmesh_t *lm = lua_newuserdatauv(L, sizeof *lm, 0);
+    memset(lm, 0, sizeof *lm);
     luaL_setmetatable(L, MESH_MT);
-    return m;
+    return &lm->m;
 }
 
 static int l_mesh_gc(lua_State *L)
 {
-    r3d_mesh_free(luaL_checkudata(L, 1, MESH_MT));
+    lmesh_t *lm = luaL_checkudata(L, 1, MESH_MT);
+    r3d_mesh_free(&lm->m);
+    skel_free(lm->skel);
+    lm->skel = NULL;
     return 0;
 }
 
@@ -479,7 +510,254 @@ static int l_model(lua_State *L)
         m->colors[f] = colour;
     }
     r3d_mesh_normals(m);
+    /* a skeleton made for this model (the same vertices) comes with it */
+    bm_rig_t r;
+    if (rt.anim && bm_anim_rig(rt.anim, rt.anim_size, md.name, &r) == 0 && r.nverts == md.nverts) {
+        skel_t *sk = calloc(1, sizeof *sk);
+        const uint8_t *start = r.bones - (BM_MODEL_NAME + 8);
+        if (!sk || !(sk->data = malloc(r.size)) || !(sk->rest = malloc(md.nverts * sizeof(v3_t))) ||
+            !(sk->mat = malloc(r.nbones * sizeof *sk->mat))) {
+            skel_free(sk);
+            return luaL_error(L, "not enough memory for the model");
+        }
+        memcpy(sk->data, start, r.size);
+        bm_rig_read(sk->data, r.size, &sk->r);
+        memcpy(sk->rest, m->verts, md.nverts * sizeof(v3_t));
+        for (int i = 0; i < r.nbones; i++) {
+            static const float id[12] = { 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0 };
+            memcpy(sk->mat[i], id, sizeof id);
+        }
+        ((lmesh_t *)m)->skel = sk;
+    }
     return 1;
+}
+
+/* ---- skeletal animation (bm Animator): the same arithmetic as
+ * sdk/studio/js/rig.js */
+
+static void quat_norm(float q[4])
+{
+    float l = sqrtf(q[0] * q[0] + q[1] * q[1] + q[2] * q[2] + q[3] * q[3]);
+    if (l < 1e-12f) { q[0] = q[1] = q[2] = 0; q[3] = 1; return; }
+    for (int k = 0; k < 4; k++) q[k] /= l;
+}
+
+/* the shorter way from a to b */
+static void quat_slerp(float out[4], const float a[4], const float b[4], float u)
+{
+    float d = a[0] * b[0] + a[1] * b[1] + a[2] * b[2] + a[3] * b[3], s = 1, k0, k1;
+    if (d < 0) { d = -d; s = -1; }
+    if (d > 0.9995f) {
+        k0 = 1 - u;
+        k1 = u;
+    } else {
+        float th = acosf(d), sn = sinf(th);
+        k0 = sinf((1 - u) * th) / sn;
+        k1 = sinf(u * th) / sn;
+    }
+    for (int k = 0; k < 4; k++) out[k] = a[k] * k0 + s * b[k] * k1;
+    quat_norm(out);
+}
+
+static float pose_q[BM_BONES_MAX][4], pose_t[BM_BONES_MAX][3];
+static float pose_q2[BM_BONES_MAX][4], pose_t2[BM_BONES_MAX][3];
+static float key_q[BM_BONES_MAX][4], key_t[BM_BONES_MAX][3];
+
+/* the pose of clip c at time t into q, tr */
+static void pose_at(int nb, const bm_clip_t *c, float t, float (*q)[4], float (*tr)[3])
+{
+    const float L = c->length > 0 ? c->length : 1;
+    if (c->loop) {
+        t = fmodf(t, L);
+        if (t < 0) t += L;
+    } else {
+        t = t < 0 ? 0 : t > L ? L : t;
+    }
+    int n = c->nkeys, ka, kb;
+    float first = bm_clip_key(c, nb, 0, NULL, NULL), last = bm_clip_key(c, nb, n - 1, NULL, NULL), ta, tb;
+    if (n == 1 || (!c->loop && t < first)) {
+        bm_clip_key(c, nb, 0, q, tr);
+        return;
+    }
+    if (t < first || t >= last) {
+        if (!c->loop) {
+            bm_clip_key(c, nb, n - 1, q, tr);
+            return;
+        }
+        ka = n - 1; kb = 0;
+        ta = t < first ? last - L : last;
+        tb = t < first ? first : first + L;
+    } else {
+        ka = 0;
+        while (ka + 1 < n && bm_clip_key(c, nb, ka + 1, NULL, NULL) <= t)
+            ka++;
+        kb = ka + 1;
+        ta = bm_clip_key(c, nb, ka, NULL, NULL);
+        tb = bm_clip_key(c, nb, kb, NULL, NULL);
+    }
+    float u = tb > ta ? (t - ta) / (tb - ta) : 0;
+    if (c->mode == 2) u = 0;                         /* step */
+    else if (c->mode == 1) u = u * u * (3 - 2 * u);  /* smooth */
+    bm_clip_key(c, nb, ka, q, tr);
+    bm_clip_key(c, nb, kb, key_q, key_t);
+    for (int i = 0; i < nb; i++) {
+        float a[4] = { q[i][0], q[i][1], q[i][2], q[i][3] };
+        quat_slerp(q[i], a, key_q[i], u);
+        for (int k = 0; k < 3; k++) tr[i][k] += (key_t[i][k] - tr[i][k]) * u;
+    }
+}
+
+/* M[i] = M[parent] * T(head + t) * R(q) * T(-head); every vertex follows its bone */
+static void skin(lmesh_t *lm, float (*q)[4], float (*tr)[3])
+{
+    skel_t *s = lm->skel;
+    const int nb = s->r.nbones;
+    for (int i = 0; i < nb; i++) {
+        int parent;
+        float h[3], tail[3], r[9];
+        bm_rig_bone(&s->r, i, NULL, &parent, h, tail);
+        quat_norm(q[i]);
+        float x = q[i][0], y = q[i][1], z = q[i][2], w = q[i][3];
+        r[0] = 1 - 2 * (y * y + z * z); r[1] = 2 * (x * y - z * w); r[2] = 2 * (x * z + y * w);
+        r[3] = 2 * (x * y + z * w); r[4] = 1 - 2 * (x * x + z * z); r[5] = 2 * (y * z - x * w);
+        r[6] = 2 * (x * z - y * w); r[7] = 2 * (y * z + x * w); r[8] = 1 - 2 * (x * x + y * y);
+        float local[12];
+        for (int row = 0; row < 3; row++) {
+            local[row * 4] = r[row * 3];
+            local[row * 4 + 1] = r[row * 3 + 1];
+            local[row * 4 + 2] = r[row * 3 + 2];
+            local[row * 4 + 3] = h[row] + tr[i][row] - (r[row * 3] * h[0] + r[row * 3 + 1] * h[1] + r[row * 3 + 2] * h[2]);
+        }
+        float *m = s->mat[i];
+        if (parent < 0) {
+            memcpy(m, local, sizeof local);
+            continue;
+        }
+        const float *a = s->mat[parent];
+        for (int row = 0; row < 3; row++) {
+            for (int col = 0; col < 3; col++)
+                m[row * 4 + col] = a[row * 4] * local[col] + a[row * 4 + 1] * local[4 + col] + a[row * 4 + 2] * local[8 + col];
+            m[row * 4 + 3] = a[row * 4] * local[3] + a[row * 4 + 1] * local[7] + a[row * 4 + 2] * local[11] + a[row * 4 + 3];
+        }
+    }
+    r3d_mesh_t *mesh = &lm->m;
+    for (int v = 0; v < mesh->nverts; v++) {
+        const float *m = s->mat[s->r.vbones[v]];
+        v3_t p = s->rest[v];
+        mesh->verts[v] = (v3_t){ m[0] * p.x + m[1] * p.y + m[2] * p.z + m[3], m[4] * p.x + m[5] * p.y + m[6] * p.z + m[7],
+                                 m[8] * p.x + m[9] * p.y + m[10] * p.z + m[11] };
+    }
+    r3d_mesh_normals(mesh);
+}
+
+static lmesh_t *skel_mesh(lua_State *L, int idx)
+{
+    lmesh_t *lm = luaL_checkudata(L, idx, MESH_MT);
+    if (!lm->skel)
+        luaL_error(L, "this mesh has no skeleton (make one with bm Animator)");
+    return lm;
+}
+
+/* the clip named (or numbered, from 1) by argument idx */
+static void find_clip(lua_State *L, const skel_t *s, int idx, bm_clip_t *c)
+{
+    if (lua_type(L, idx) == LUA_TNUMBER) {
+        if (bm_rig_clip(&s->r, (int)luaL_checkinteger(L, idx) - 1, c) == 0)
+            return;
+        luaL_error(L, "no animation number %d", (int)lua_tointeger(L, idx));
+    }
+    const char *name = luaL_checkstring(L, idx);
+    for (int i = 0; bm_rig_clip(&s->r, i, c) == 0; i++)
+        if (strcmp(c->name, name) == 0)
+            return;
+    luaL_error(L, "no animation \"%s\"", name);
+}
+
+/* animate(mesh, [clip, time, [clip2, time2, k]]) -> the clip's length: the
+ * mesh (from model()) takes the pose of the clip at that time, in seconds
+ * (a looping clip goes round); with a second clip, a mix of the two (k = 0
+ * the first, 1 the second); with no clip, the rest pose */
+static int l_animate(lua_State *L)
+{
+    lmesh_t *lm = skel_mesh(L, 1);
+    const int nb = lm->skel->r.nbones;
+    float len = 0;
+    if (lua_isnoneornil(L, 2)) {
+        for (int i = 0; i < nb; i++) {
+            pose_q[i][0] = pose_q[i][1] = pose_q[i][2] = 0;
+            pose_q[i][3] = 1;
+            pose_t[i][0] = pose_t[i][1] = pose_t[i][2] = 0;
+        }
+    } else {
+        bm_clip_t c;
+        find_clip(L, lm->skel, 2, &c);
+        pose_at(nb, &c, (float)luaL_optnumber(L, 3, 0), pose_q, pose_t);
+        len = c.length;
+        if (!lua_isnoneornil(L, 4)) {
+            bm_clip_t c2;
+            find_clip(L, lm->skel, 4, &c2);
+            pose_at(nb, &c2, (float)luaL_optnumber(L, 5, 0), pose_q2, pose_t2);
+            float k = (float)luaL_optnumber(L, 6, 0.5);
+            k = k < 0 ? 0 : k > 1 ? 1 : k;
+            for (int i = 0; i < nb; i++) {
+                float a[4] = { pose_q[i][0], pose_q[i][1], pose_q[i][2], pose_q[i][3] };
+                quat_slerp(pose_q[i], a, pose_q2[i], k);
+                for (int j = 0; j < 3; j++) pose_t[i][j] += (pose_t2[i][j] - pose_t[i][j]) * k;
+            }
+        }
+    }
+    skin(lm, pose_q, pose_t);
+    lua_pushnumber(L, len);
+    return 1;
+}
+
+/* clips(mesh) -> { {name =, length =, loop =}, ... }: its animations */
+static int l_clips(lua_State *L)
+{
+    lmesh_t *lm = luaL_checkudata(L, 1, MESH_MT);
+    lua_newtable(L);
+    bm_clip_t c;
+    for (int i = 0; lm->skel && bm_rig_clip(&lm->skel->r, i, &c) == 0; i++) {
+        lua_createtable(L, 0, 3);
+        lua_pushstring(L, c.name);
+        lua_setfield(L, -2, "name");
+        lua_pushnumber(L, c.length);
+        lua_setfield(L, -2, "length");
+        lua_pushboolean(L, c.loop);
+        lua_setfield(L, -2, "loop");
+        lua_rawseti(L, -2, i + 1);
+    }
+    return 1;
+}
+
+/* bone3d(mesh, name or number) -> x, y, z: where the head of the bone is
+ * in the mesh's last pose (its own coordinates, as bounds3d), or nil */
+static int l_bone3d(lua_State *L)
+{
+    lmesh_t *lm = skel_mesh(L, 1);
+    const bm_rig_t *r = &lm->skel->r;
+    int found = -1;
+    if (lua_type(L, 2) == LUA_TNUMBER) {
+        int i = (int)luaL_checkinteger(L, 2) - 1;
+        if (i >= 0 && i < r->nbones) found = i;
+    } else {
+        const char *name = luaL_checkstring(L, 2);
+        char bn[BM_MODEL_NAME + 1];
+        for (int i = 0; i < r->nbones && found < 0; i++) {
+            bm_rig_bone(r, i, bn, NULL, NULL, NULL);
+            if (strcmp(bn, name) == 0) found = i;
+        }
+    }
+    if (found < 0) {
+        lua_pushnil(L);
+        return 1;
+    }
+    float h[3];
+    bm_rig_bone(r, found, NULL, NULL, h, NULL);
+    const float *m = lm->skel->mat[found];
+    for (int k = 0; k < 3; k++)
+        lua_pushnumber(L, m[k * 4] * h[0] + m[k * 4 + 1] * h[1] + m[k * 4 + 2] * h[2] + m[k * 4 + 3]);
+    return 3;
 }
 
 /* bounds3d(mesh) -> x0, y0, z0, x1, y1, z1: the box around its vertices, in
@@ -936,6 +1214,7 @@ static const luaL_Reg api[] = {
     { "time", l_time }, { "stat", l_stat }, { "tri", l_tri },
     { "mesh", l_mesh }, { "mesh_sphere", l_mesh_sphere }, { "mesh_cube", l_mesh_cube },
     { "model", l_model }, { "models", l_models }, { "bounds3d", l_bounds3d },
+    { "animate", l_animate }, { "clips", l_clips }, { "bone3d", l_bone3d },
     { "draw3d", l_draw3d }, { "camera3d", l_camera3d }, { "light3d", l_light3d },
     { "fog3d", l_fog3d }, { "project3d", l_project3d }, { "lamp3d", l_lamp3d },
     { "zclear", l_zclear }, { "log", l_log }, { "quit", l_quit },
@@ -1201,6 +1480,13 @@ static int load_assets(const bm_cart_t *c)
         memcpy(rt.mesh, c->mesh, c->mesh_size);
         rt.mesh_size = c->mesh_size;
     }
+    if (c->anim) {
+        rt.anim = malloc(c->anim_size);
+        if (!rt.anim)
+            return -1;
+        memcpy(rt.anim, c->anim, c->anim_size);
+        rt.anim_size = c->anim_size;
+    }
 
     rt.map.w = c->map_cells ? c->map_w : 256;
     rt.map.h = c->map_cells ? c->map_h : 256;
@@ -1223,6 +1509,9 @@ static void free_assets(void)
     rt.map.cells = NULL;
     rt.mesh = NULL;
     rt.mesh_size = 0;
+    free(rt.anim);
+    rt.anim = NULL;
+    rt.anim_size = 0;
 }
 
 /* ---------------------------------------------------------------- editor */

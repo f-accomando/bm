@@ -13,7 +13,7 @@ const path = require('path');
 const zlib = require('zlib');
 
 const JS = path.join(__dirname, '..', '..', 'sdk', 'studio', 'js');
-for (const f of ['core.js', 'tiles.js', 'edit.js']) require(path.join(JS, f));
+for (const f of ['core.js', 'tiles.js', 'edit.js', 'rig.js']) require(path.join(JS, f));
 const BM = globalThis.BM, E = BM.edit, v3 = BM.v3;
 
 let checks = 0, fails = 0;
@@ -184,10 +184,100 @@ async function testFiles(out) {
   check(/^local sign = mesh\(\{/m.test(lua) && lua.includes('-1') && lua.includes('0xE84A5A'), 'Lua export');
 }
 
+/* a figure of two blocks: a body and an arm, the arm turning around the
+ * shoulder */
+function riggedModel() {
+  const faces = [];
+  E.placeFaces(faces, E.blockFaces([0, 0, 0], { c: 0x3366CC }, [0, 0, 1]), true);
+  const arm = E.blockFaces([1, 0.5, 0], { c: 0xCC6633 }, [0, 0, 1]);
+  arm.forEach(f => { f.b = f.p.map(() => 1); });
+  faces.push(...arm);
+  const R = BM.rig, Q = R.Q;
+  const up = { q: Q.axisAngle([0, 0, 1], Math.PI / 2), t: [0, 0.25, 0] };
+  return {
+    name: 'figure', faces,
+    rig: {
+      bones: [{ name: 'body', parent: -1, head: [0.5, 0, 0.5], tail: [0.5, 1, 0.5] },
+        { name: 'arm.R', parent: 0, head: [1, 1, 0.5], tail: [2, 1, 0.5] }],
+      clips: [
+        { name: 'wave', length: 1, loop: true, mode: 'smooth', keys: [{ t: 0, pose: R.restPose(2) }, { t: 0.5, pose: [R.restPose(1)[0], up] }] },
+        { name: 'still', length: 0.5, loop: false, mode: 'step', keys: [{ t: 0, pose: R.restPose(2) }] },
+      ],
+    },
+  };
+}
+
+function testRig() {
+  const R = BM.rig, Q = R.Q, m = riggedModel();
+  const e = [20, -35, 70];
+  check(Q.toEuler(Q.fromEuler(e)).every((v, i) => near(v, e[i], 1e-6)), 'Euler angles both ways');
+  // halfway between rest and the arm up: 45 degrees, smoothstep at u = 0.5 is 0.5
+  const half = R.samplePose(m.rig, m.rig.clips[0], 0.25);
+  check(nearV(half[1].q, Q.axisAngle([0, 0, 1], Math.PI / 4), 1e-6) && near(half[1].t[1], 0.125), 'halfway pose');
+  // looping: 0.75 s is halfway from the last key back to the first
+  check(nearV(R.samplePose(m.rig, m.rig.clips[0], 0.75)[1].q, half[1].q, 1e-6), 'the loop goes back to the first key');
+  check(nearV(R.samplePose(m.rig, m.rig.clips[0], 1.25)[1].q, half[1].q, 1e-6), 'time wraps round');
+  // the arm up: its far end (x = 2) goes above the shoulder
+  const up = R.samplePose(m.rig, m.rig.clips[0], 0.5), faces = R.posedFaces(m, up);
+  const bone = f => (f.src.b || [0])[0];
+  const top = Math.max(...faces.filter(f => bone(f) === 1).flatMap(f => f.p.map(p => p[1])));
+  check(near(top, 2.25, 1e-5), `the arm turns up around the shoulder: top at ${top}`);
+  const body = faces.filter(f => bone(f) === 0).flatMap(f => f.p);
+  check(body.every(p => p[1] <= 1 + 1e-9), 'the body stays');
+  const bones = R.posedBones(m.rig, up);
+  check(nearV(bones[1].head, [1, 1.25, 0.5], 1e-6) && nearV(bones[1].tail, [1, 2.25, 0.5], 1e-6), 'posed bone ends');
+  // auto skin by face: the arm block is nearer the arm bone
+  const copy = { ...m, faces: m.faces.map(BM.cloneFace) };
+  copy.faces.forEach(f => { delete f.b; });
+  R.autoSkin(copy);
+  check(copy.faces.filter(f => f.b[0] === 1).length === 6, 'auto skin: the arm block goes to the arm');
+  check(R.mirrorName('arm.R') === 'arm.L' && R.mirrorName('leftFoot') === 'rightFoot' && R.mirrorName('spine') === null, 'mirrored names');
+  // step: no in-between
+  const st = { ...m.rig.clips[0], mode: 'step' };
+  check(nearV(R.samplePose(m.rig, st, 0.49)[1].q, [0, 0, 0, 1]), 'step keeps the pose until the next key');
+}
+
+function testAnimFile(out) {
+  const m = riggedModel(), p = sampleProject();
+  p.models = [m, p.models[0]];
+  check(!BM.checkProject(p).length, 'a rigged model is fine: ' + BM.checkProject(p));
+  const bytes = BM.buildCart(p), { project: q, warnings } = BM.parseCart(bytes);
+  check(!warnings.length, 'no warnings: ' + warnings);
+  const r = q.models[0];
+  check(r.rig && r.rig.bones.length === 2 && r.rig.bones[1].name === 'arm.R' && r.rig.bones[1].parent === 0, 'bones back');
+  check(r.rig.clips.length === 2 && r.rig.clips[0].mode === 'smooth' && r.rig.clips[0].loop && !r.rig.clips[1].loop &&
+    r.rig.clips[1].mode === 'step', 'clips back');
+  check(nearV(r.rig.clips[0].keys[1].pose[1].q, m.rig.clips[0].keys[1].pose[1].q, 1e-6), 'keyframes back');
+  check(r.faces.length === m.faces.length && r.faces.every((f, i) => f.b && f.b.join() === (m.faces[i].b || [0, 0, 0, 0]).join()),
+    'the bone of every corner back');
+  check(!q.models[1].rig, 'a model without a skeleton stays without');
+  // corners in one place but of two bones stay two vertices
+  const mesh = BM.modelToMesh(m);
+  check(mesh.verts.length === 8 + 8 && mesh.bones.filter(b => b === 1).length === 8, 'two bones: their own vertices');
+  // a rig that does not fit the model any more is left out, with a warning
+  const bad = BM.buildCart({ ...p, models: [m] });
+  const secs = [];
+  const dv = new DataView(bad.buffer);
+  for (let i = 0; i < bad[17]; i++) secs.push([dv.getUint32(128 + i * 16, true), dv.getUint32(132 + i * 16, true)]);
+  const anim = secs.find(s => s[0] === BM.SEC.ANIM);
+  check(!!anim, 'an ANIM section');
+  dv.setUint16(anim[1] + 8 + 20, 3, true);                      // vertices: 3
+  dv.setUint32(20, BM.crc32(bad, 128), true);
+  const broken = BM.parseCart(bad);
+  check(broken.warnings.length === 1 && !broken.project.models[0].rig, 'a skeleton that does not fit is left out');
+  // bad rigs are refused before saving
+  const twice = BM.cloneRig(m.rig);
+  twice.bones[1].name = 'body';
+  check(BM.checkRig({ name: 'x', rig: twice }).some(s => s.includes('two bones')), 'two bones with one name');
+  fs.writeFileSync(out.replace(/\.bm$/, '-anim.bm'), bytes);
+}
+
 (async () => {
   const out = process.argv[2] || path.join('build', 'studio-test.bm');
   fs.mkdirSync(path.dirname(path.resolve(out)), { recursive: true });
   testGeometry();
+  testRig();
+  testAnimFile(out);
   await testFiles(out);
   console.log(`studio: ${checks - fails}/${checks} checks passed`);
   process.exit(fails ? 1 : 0);

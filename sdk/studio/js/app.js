@@ -726,7 +726,9 @@
           if (name) A.modelsEdit('new model', ms => { ms.push({ name, faces: [] }); return ms.length - 1; });
         },
         dupModel: () => A.modelsEdit('duplicate model', ms => {
-          ms.splice(A.cur + 1, 0, { name: A.uniqueName(A.model().name), faces: A.model().faces.map(BM.cloneFace) });
+          const copy = { name: A.uniqueName(A.model().name), faces: A.model().faces.map(BM.cloneFace) };
+          if (A.model().rig) copy.rig = BM.cloneRig(A.model().rig);
+          ms.splice(A.cur + 1, 0, copy);
           return A.cur + 1;
         }),
         renameModel: () => A.renameModel(A.cur),

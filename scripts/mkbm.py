@@ -12,7 +12,9 @@ sheet.png: 8-bit RGB or RGBA PNG (non-interlaced); size multiple of 8 recommende
 map.csv:   one row of comma-separated sprite indices per line (0 = empty).
 --models:  3D models for model(): a .glb exported by bm Studio (sdk/studio;
            its texture is the sprite sheet, used as the sheet when there is
-           no --sheet) or the models of another .bm.
+           no --sheet) or a .bm made with bm Studio / bm Animator: its models,
+           their skeletons and animations (ANIM), and its sheet when there is
+           no --sheet.
 Format: see src/bm/bm.h.
 """
 import argparse
@@ -22,7 +24,7 @@ import zlib
 
 import bmmesh
 
-SEC_LUA, SEC_SHEET, SEC_MAP, SEC_COVER, SEC_SHEET8, SEC_MESH = 1, 2, 3, 4, 5, 6
+SEC_LUA, SEC_SHEET, SEC_MAP, SEC_COVER, SEC_SHEET8, SEC_MESH, SEC_ANIM = 1, 2, 3, 4, 5, 6, 7
 
 
 def read_png(path, data=None):
@@ -146,8 +148,26 @@ def sheet8(w, h, rgba):
     return bytes(out)
 
 
+def sheet8_decode(body):
+    """a SHEET8 section body -> (w, h, rgba)"""
+    w, h, ncol = struct.unpack_from("<HHH", body, 0)
+    pal = [body[8 + i * 4:12 + i * 4] for i in range(ncol)]
+    out, q, n = bytearray(), 8 + ncol * 4, w * h
+    while len(out) < n * 4:
+        t = body[q]
+        q += 1
+        if t < 128:
+            for k in range(t + 1):
+                out += pal[body[q + k]]
+            q += t + 1
+        else:
+            out += pal[body[q]] * (t - 126)
+            q += 1
+    return w, h, bytes(out[:n * 4])
+
+
 def pack(lua, sheet=None, map_=None, title="", author="", res=(640, 360), cover=None, sheet_packed=False,
-         mesh=None):
+         mesh=None, extra=()):
     sections = []
     if cover:                               # first: the menu reads only the start
         w, h, rgba = cover
@@ -164,6 +184,7 @@ def pack(lua, sheet=None, map_=None, title="", author="", res=(640, 360), cover=
         sections.append((SEC_MAP, struct.pack("<HH", w, h) + cells))
     if mesh:
         sections.append((SEC_MESH, mesh))
+    sections.extend(extra)
 
     table_size = 16 * len(sections)
     offset = 128 + table_size
@@ -202,8 +223,23 @@ def main():
     map_ = read_map(a.map) if a.map else None
     res = tuple(int(v) for v in a.res.split("x"))
     cover = make_cover(read_png(a.cover)) if a.cover else None
-    mesh = None
-    if a.models:
+    mesh, extra = None, []
+    if a.models and a.models.endswith(".bm"):
+        secs = dict(bmmesh.cart_sections(open(a.models, "rb").read()))
+        if SEC_MESH not in secs:
+            raise SystemExit(f"{a.models}: no 3D models in it")
+        mesh = bytearray(secs[SEC_MESH])
+        if a.uv_inset is not None:
+            struct.pack_into("<H", mesh, 2, max(0, min(65535, round(a.uv_inset * 256))))
+        mesh = bytes(mesh)
+        if SEC_ANIM in secs:
+            extra.append((SEC_ANIM, secs[SEC_ANIM]))
+        if not sheet and SEC_SHEET8 in secs:
+            sheet, a.sheet8 = sheet8_decode(secs[SEC_SHEET8]), True
+        elif not sheet and SEC_SHEET in secs:
+            w, h = struct.unpack_from("<HH", secs[SEC_SHEET], 0)
+            sheet = (w, h, secs[SEC_SHEET][4:])
+    elif a.models:
         if not sheet and a.models.endswith(".glb"):
             png = bmmesh.glb_image(open(a.models, "rb").read())
             if png:
@@ -214,7 +250,7 @@ def main():
         models, inset = bmmesh.models_from_file(a.models)
         inset = a.uv_inset if a.uv_inset is not None else (inset if inset is not None else 0.25)
         mesh = bmmesh.encode(models, inset)
-    data = pack(lua, sheet, map_, a.title, a.author, res, cover, a.sheet8, mesh)
+    data = pack(lua, sheet, map_, a.title, a.author, res, cover, a.sheet8, mesh, extra)
     open(a.output, "wb").write(data)
     print(f"{a.output}: {len(data)} bytes ({a.title or 'untitled'}, {a.res})")
 

@@ -42,6 +42,22 @@
  *                        u16 reserved; u32 colour: 0xRRGGBB, or bit 31 set =
  *                        textured with the sprite sheet; u16 u0, v0, u1, v1,
  *                        u2, v2: texture corners in sheet pixels x 8 }.
+ *   7 ANIM   skeletons and animations of MESH models (made with bm Animator,
+ *            sdk/animator): u16 rigs, u16 reserved, u32 reserved, then per
+ *            rig:
+ *              char[16] model name (the model it moves), u16 bones (1..64),
+ *              u16 clips (0..255), u16 vertices (the model's), u16 reserved,
+ *              bones x { char[16] name; i16 parent (-1, or an earlier bone);
+ *                        u16 reserved; f32 head[3], tail[3] (at rest) },
+ *              vertices x u8: the bone each vertex of the model follows,
+ *              zero padded to a multiple of 4,
+ *              clips x { char[16] name; u16 keys (1..1024); u8 mode (0
+ *                        linear, 1 smooth, 2 step); u8 flags (bit 0: loop);
+ *                        f32 length (seconds); keys x { f32 time (rising,
+ *                        0..length); bones x { f32 q[4] (x, y, z, w: the
+ *                        turn, relative to the parent), f32 t[3] (a move) } } }.
+ *            A bone turns around its head: M = M_parent * T(head + t) * R(q)
+ *            * T(-head) moves the vertices at rest (see runtime.c animate()).
  * Graphics are stored independently of the screen format and converted when
  * the cartridge is loaded, so the same file works if 32-bit output is added.
  */
@@ -61,6 +77,7 @@
 #define BM_SEC_COVER       4
 #define BM_SEC_SHEET8      5
 #define BM_SEC_MESH        6
+#define BM_SEC_ANIM        7
 #define BM_SHEET_MAX       4096            /* width and height of a sheet */
 #define BM_COVER_W         128
 #define BM_COVER_H         80
@@ -69,6 +86,11 @@
 #define BM_MODEL_FACES     16384
 #define BM_MODELS_MAX      256
 #define BM_MESH_FACE       24              /* bytes of a face in MESH */
+#define BM_BONES_MAX       64
+#define BM_CLIPS_MAX       255
+#define BM_KEYS_MAX        1024
+#define BM_BONE_SIZE       44              /* bytes of a bone in ANIM */
+#define BM_POSE_SIZE       28              /* bytes of one bone of a key */
 
 typedef struct {
     char title[49];
@@ -88,6 +110,8 @@ typedef struct {
     const uint8_t *mesh;            /* MESH section, or NULL */
     uint32_t mesh_size;
     uint16_t models;                /* models in it */
+    const uint8_t *anim;            /* ANIM section, or NULL */
+    uint32_t anim_size;
 } bm_cart_t;
 
 /* One model of a MESH section (bm_parse has already checked it). */
@@ -115,6 +139,37 @@ float bm_mesh_inset(const uint8_t *mesh);
  * in sheet pixels. */
 void bm_model_vertex(const bm_model_t *m, int i, float xyz[3]);
 void bm_model_face(const bm_model_t *m, int f, uint16_t idx[3], uint32_t *colour, float uv[6]);
+
+/* One skeleton of an ANIM section, and one of its animations. */
+typedef struct {
+    char model[BM_MODEL_NAME + 1];
+    uint16_t nbones, nclips, nverts;
+    const uint8_t *bones;           /* nbones x BM_BONE_SIZE */
+    const uint8_t *vbones;          /* nverts bytes */
+    const uint8_t *clips;           /* the clips, one after the other */
+    uint32_t size;                  /* bytes of the whole rig */
+} bm_rig_t;
+
+typedef struct {
+    char name[BM_MODEL_NAME + 1];
+    uint16_t nkeys;
+    uint8_t mode, loop;
+    float length;
+    const uint8_t *keys;            /* nkeys x (4 + nbones x BM_POSE_SIZE) */
+} bm_clip_t;
+
+/* Checks an ANIM section: the number of rigs, or -1 if it is broken. */
+int bm_anim_check(const uint8_t *anim, uint32_t size);
+/* The rig of the model called `model` in a checked ANIM section: 0, or -1. */
+int bm_anim_rig(const uint8_t *anim, uint32_t size, const char *model, bm_rig_t *r);
+/* Reads a rig from its own bytes (the r.size bytes at r.bones - 24). */
+int bm_rig_read(const uint8_t *p, uint32_t size, bm_rig_t *r);
+void bm_rig_bone(const bm_rig_t *r, int i, char name[BM_MODEL_NAME + 1], int *parent, float head[3],
+                 float tail[3]);
+/* Clip i of a rig: 0, or -1 if there is none. */
+int bm_rig_clip(const bm_rig_t *r, int i, bm_clip_t *c);
+/* Key k of a clip: its time, and the turn q and move t of each bone. */
+float bm_clip_key(const bm_clip_t *c, int nbones, int k, float (*q)[4], float (*t)[3]);
 
 /* 1 if these first 8 bytes are the magic of a .bm cartridge. */
 int bm_is_cart(const void *head8);

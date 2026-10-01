@@ -8,11 +8,15 @@
  *     sheet: { w, h, px: Uint8ClampedArray RGBA (alpha 0 or 255) },
  *     map: Uint8Array | null        MAP section, kept as it came
  *     cover: { w, h, px } | null    the picture on the cartridge in the menu
- *     models: [{ name, faces: [face] }],
+ *     models: [{ name, faces: [face], rig? }],
  *     uvInset: pixels,              see MESH in bm.h
  *     extras: [{ type, data }] }    sections this editor does not know
  * A face is a tile (4 corners) or a triangle (3): { p: [[x, y, z], ...],
- * uv: [[u, v], ...] in sheet pixels, c: null (textured) or 0xRRGGBB }.
+ * uv: [[u, v], ...] in sheet pixels, c: null (textured) or 0xRRGGBB,
+ * b?: [bone of each corner] (bm Animator) }.
+ * A rig (bm Animator; section ANIM): { bones: [{ name, parent, head, tail }],
+ * clips: [{ name, length, loop, mode: 'linear' | 'smooth' | 'step',
+ * keys: [{ t, pose: [{ q: [x, y, z, w], t: [x, y, z] }, ...one per bone] }] }] }.
  * Corners go clockwise seen from the side that shows (as for mesh()),
  * y up; a tile is bottom left, top left, top right, bottom right.
  */
@@ -20,9 +24,10 @@
   'use strict';
   const BM = root.BM || (root.BM = {});
 
-  const SEC = { LUA: 1, SHEET: 2, MAP: 3, COVER: 4, SHEET8: 5, MESH: 6 };
+  const SEC = { LUA: 1, SHEET: 2, MAP: 3, COVER: 4, SHEET8: 5, MESH: 6, ANIM: 7 };
   const TEXTURED = 0x80000000;
-  const LIMITS = { verts: 4096, faces: 16384, models: 256, name: 15, sheet: 4096, tris60: 1200 };
+  const LIMITS = { verts: 4096, faces: 16384, models: 256, name: 15, sheet: 4096, tris60: 1200, bones: 64, clips: 255, keys: 1024 };
+  const MODES = ['linear', 'smooth', 'step'];
 
   // ------------------------------------------------------------ bytes
 
@@ -352,8 +357,12 @@
   }
 
   function cloneFace(f) {
-    return { p: f.p.map(q => q.slice()), uv: f.uv.map(q => q.slice()), c: f.c };
+    const g = { p: f.p.map(q => q.slice()), uv: f.uv.map(q => q.slice()), c: f.c };
+    if (f.b) g.b = f.b.slice();
+    return g;
   }
+
+  const cloneRig = r => r ? JSON.parse(JSON.stringify(r)) : undefined;
 
   function modelBounds(faces) {
     const lo = [Infinity, Infinity, Infinity], hi = [-Infinity, -Infinity, -Infinity];
@@ -365,17 +374,21 @@
 
   const posKey = p => Math.round(p[0] * 1e4) + ',' + Math.round(p[1] * 1e4) + ',' + Math.round(p[2] * 1e4);
 
-  /* a model as the kernel gets it: shared vertices, triangles */
+  /* a model as the kernel gets it: shared vertices, triangles; with a rig
+   * corners of different bones stay apart (the bone of each vertex in
+   * `bones`) */
   function modelToMesh(model) {
-    const verts = [], index = new Map(), faces = [];
-    const vid = p => {
-      const key = posKey(p);
+    const verts = [], index = new Map(), faces = [], bones = [], rigged = !!model.rig;
+    const nb = rigged ? model.rig.bones.length : 1;
+    const vid = (p, bone) => {
+      bone = rigged && bone > 0 && bone < nb ? bone : 0;
+      const key = rigged ? posKey(p) + '#' + bone : posKey(p);
       let i = index.get(key);
-      if (i === undefined) { i = verts.length; index.set(key, i); verts.push(p); }
+      if (i === undefined) { i = verts.length; index.set(key, i); verts.push(p); bones.push(bone); }
       return i;
     };
     for (const f of model.faces) {
-      const ids = f.p.map(vid);
+      const ids = f.p.map((p, k) => vid(p, f.b ? f.b[k] : 0));
       const tris = f.p.length === 4 ? [[0, 1, 2], [0, 2, 3]] : [[0, 1, 2]];
       for (const t of tris) {
         const [a, b, c] = t.map(k => ids[k]);
@@ -387,25 +400,31 @@
         });
       }
     }
-    return { verts, faces };
+    return { verts, faces, bones };
   }
 
   /* back from triangles: the two halves of each tile, as modelToMesh
    * wrote them, become a tile again */
-  function meshToFaces(verts, faces) {
+  function meshToFaces(verts, faces, vbones) {
     const out = [];
-    const tri = t => ({
-      p: t.idx.map(i => verts[i].slice()),
-      uv: t.colour & TEXTURED ? [[t.uv[0], t.uv[1]], [t.uv[2], t.uv[3]], [t.uv[4], t.uv[5]]] : [[0, 0], [0, 0], [0, 0]],
-      c: t.colour & TEXTURED ? null : t.colour & 0xFFFFFF,
-    });
+    const tri = t => {
+      const f = {
+        p: t.idx.map(i => verts[i].slice()),
+        uv: t.colour & TEXTURED ? [[t.uv[0], t.uv[1]], [t.uv[2], t.uv[3]], [t.uv[4], t.uv[5]]] : [[0, 0], [0, 0], [0, 0]],
+        c: t.colour & TEXTURED ? null : t.colour & 0xFFFFFF,
+      };
+      if (vbones) f.b = t.idx.map(i => vbones[i]);
+      return f;
+    };
     for (let i = 0; i < faces.length; i++) {
       const t = faces[i], n = faces[i + 1], a = tri(t);
       if (n && n.idx[0] === t.idx[0] && n.idx[1] === t.idx[2] && n.colour === t.colour &&
           (!(t.colour & TEXTURED) || (n.uv[0] === t.uv[0] && n.uv[1] === t.uv[1] && n.uv[2] === t.uv[4] && n.uv[3] === t.uv[5]))) {
         const b = tri(n);
         if (v3.dot(faceNormal(a), faceNormal(b)) > 0) {
-          out.push({ p: [a.p[0], a.p[1], a.p[2], b.p[2]], uv: [a.uv[0], a.uv[1], a.uv[2], b.uv[2]], c: a.c });
+          const q = { p: [a.p[0], a.p[1], a.p[2], b.p[2]], uv: [a.uv[0], a.uv[1], a.uv[2], b.uv[2]], c: a.c };
+          if (vbones) q.b = [a.b[0], a.b[1], a.b[2], b.b[2]];
+          out.push(q);
           i++;
           continue;
         }
@@ -422,11 +441,11 @@
 
   // ------------------------------------------------------------ MESH
 
-  function meshEncode(models, inset) {
+  /* entries: [{ model, mesh: modelToMesh(model) }] */
+  function meshEncode(entries, inset) {
     const wr = new Writer(65536);
-    wr.u16(models.length); wr.u16(Math.max(0, Math.min(65535, Math.round(inset * 256)))); wr.u32(0);
-    for (const m of models) {
-      const mesh = modelToMesh(m);
+    wr.u16(entries.length); wr.u16(Math.max(0, Math.min(65535, Math.round(inset * 256)))); wr.u32(0);
+    for (const { model: m, mesh } of entries) {
       if (!mesh.faces.length) throw new Error(`model "${m.name}" is empty`);
       if (mesh.verts.length > LIMITS.verts) throw new Error(`model "${m.name}": ${mesh.verts.length} vertices, at most ${LIMITS.verts}`);
       if (mesh.faces.length > LIMITS.faces) throw new Error(`model "${m.name}": ${mesh.faces.length} triangles, at most ${LIMITS.faces}`);
@@ -444,6 +463,7 @@
     return wr.result();
   }
 
+  /* -> { raw: [{ name, verts, tris }], inset }: meshToFaces makes them faces */
   function meshDecode(b) {
     const dv = new DataView(b.buffer, b.byteOffset, b.byteLength);
     const count = dv.getUint16(0, true), inset = dv.getUint16(2, true) / 256, models = [];
@@ -463,9 +483,79 @@
         for (let k = 0; k < 6; k++) uv.push(dv.getUint16(o + 12 + k * 2, true) / 8);
         faces.push({ idx, colour: dv.getUint32(o + 8, true), uv });
       }
-      models.push({ name, faces: meshToFaces(verts, faces) });
+      models.push({ name, verts, tris: faces });
     }
-    return { models, inset };
+    return { raw: models, inset };
+  }
+
+  // ------------------------------------------------------------ ANIM
+
+  /* entries: [{ model (with a rig), mesh: modelToMesh(model) }] */
+  function animEncode(entries) {
+    const wr = new Writer(65536), name16 = s => { const n = new Uint8Array(16); n.set(cstr(s, LIMITS.name)); return n; };
+    wr.u16(entries.length); wr.u16(0); wr.u32(0);
+    for (const { model, mesh } of entries) {
+      const rig = model.rig, nb = rig.bones.length;
+      wr.bytes(name16(model.name));
+      wr.u16(nb); wr.u16(rig.clips.length); wr.u16(mesh.verts.length); wr.u16(0);
+      for (const bone of rig.bones) {
+        wr.bytes(name16(bone.name));
+        wr.u16(bone.parent < 0 ? 0xFFFF : bone.parent); wr.u16(0);
+        for (const v of bone.head) wr.f32(v);
+        for (const v of bone.tail) wr.f32(v);
+      }
+      for (const b of mesh.bones) wr.u8(b);
+      wr.pad4();
+      for (const clip of rig.clips) {
+        wr.bytes(name16(clip.name));
+        wr.u16(clip.keys.length); wr.u8(Math.max(0, MODES.indexOf(clip.mode))); wr.u8(clip.loop ? 1 : 0);
+        wr.f32(clip.length);
+        for (const key of clip.keys) {
+          wr.f32(key.t);
+          for (let i = 0; i < nb; i++) {
+            const p = key.pose[i] || { q: [0, 0, 0, 1], t: [0, 0, 0] };
+            for (const v of p.q) wr.f32(v);
+            for (const v of p.t) wr.f32(v);
+          }
+        }
+      }
+    }
+    return wr.result();
+  }
+
+  function animDecode(b) {
+    const dv = new DataView(b.buffer, b.byteOffset, b.byteLength), out = [];
+    const count = dv.getUint16(0, true);
+    let o = 8;
+    const f32 = () => { const v = dv.getFloat32(o, true); o += 4; return v; };
+    for (let r = 0; r < count; r++) {
+      const name = cstrRead(b.subarray(o, o + 16));
+      const nb = dv.getUint16(o + 16, true), nc = dv.getUint16(o + 18, true), nv = dv.getUint16(o + 20, true);
+      o += 24;
+      const bones = [];
+      for (let i = 0; i < nb; i++) {
+        const bn = cstrRead(b.subarray(o, o + 16)), parent = dv.getInt16(o + 16, true);
+        o += 20;
+        bones.push({ name: bn, parent, head: [f32(), f32(), f32()], tail: [f32(), f32(), f32()] });
+      }
+      const vbones = Array.from(b.subarray(o, o + nv));
+      o += (nv + 3) & ~3;
+      const clips = [];
+      for (let c = 0; c < nc; c++) {
+        const cn = cstrRead(b.subarray(o, o + 16)), nk = dv.getUint16(o + 16, true);
+        const mode = MODES[b[o + 18]] || 'linear', loop = !!(b[o + 19] & 1);
+        o += 20;
+        const length = f32(), keys = [];
+        for (let k = 0; k < nk; k++) {
+          const t = f32(), pose = [];
+          for (let i = 0; i < nb; i++) pose.push({ q: [f32(), f32(), f32(), f32()], t: [f32(), f32(), f32()] });
+          keys.push({ t, pose });
+        }
+        clips.push({ name: cn, length, loop, mode, keys });
+      }
+      out.push({ name, bones, vbones, clips });
+    }
+    return out;
   }
 
   // ------------------------------------------------------------ .bm
@@ -477,6 +567,7 @@
     const dv = new DataView(b.buffer, b.byteOffset, b.byteLength);
     if (dv.getUint16(8, true) !== 1 || dv.getUint16(10, true) !== 128) throw new Error('unsupported .bm version');
     const warnings = [];
+    let rawModels = [], rigs = [];
     if (crc32(b, 128) !== dv.getUint32(20, true)) warnings.push('the CRC is wrong: the file was damaged (bm refuses it until it is saved again)');
     const w = dv.getUint16(12, true);
     const project = {
@@ -504,12 +595,21 @@
       }
       case SEC.MESH: {
         const m = meshDecode(body);
-        project.models = m.models;
+        rawModels = m.raw;
         project.uvInset = m.inset;
         break;
       }
+      case SEC.ANIM: rigs = animDecode(body); break;
       default: project.extras.push({ type, data: body });
       }
+    }
+    for (const r of rawModels) {
+      const a = rigs.find(x => x.name === r.name);
+      const ok = a && a.vbones.length === r.verts.length;
+      if (a && !ok) warnings.push(`the skeleton of "${r.name}" does not fit the model any more: left out`);
+      const model = { name: r.name, faces: meshToFaces(r.verts, r.tris, ok ? a.vbones : null) };
+      if (ok) model.rig = { bones: a.bones, clips: a.clips };
+      project.models.push(model);
     }
     if (!project.sheet) project.sheet = newImage(256, 256);
     return { project, warnings };
@@ -534,8 +634,10 @@
       }
     }
     if (project.map) sections.push([SEC.MAP, project.map]);
-    const models = project.models.filter(m => m.faces.length);
-    if (models.length) sections.push([SEC.MESH, meshEncode(models, project.uvInset)]);
+    const entries = project.models.filter(m => m.faces.length).map(model => ({ model, mesh: modelToMesh(model) }));
+    if (entries.length) sections.push([SEC.MESH, meshEncode(entries, project.uvInset)]);
+    const rigged = entries.filter(e => e.model.rig && e.model.rig.bones.length);
+    if (rigged.length) sections.push([SEC.ANIM, animEncode(rigged)]);
     for (const e of project.extras || []) sections.push([e.type, e.data]);
     if (sections.length > 255) throw new Error('too many sections');
 
@@ -576,9 +678,33 @@
       const s = modelStats(m);
       if (s.verts > LIMITS.verts) problems.push(`"${m.name}": ${s.verts} vertices (at most ${LIMITS.verts})`);
       if (s.tris > LIMITS.faces) problems.push(`"${m.name}": ${s.tris} triangles (at most ${LIMITS.faces})`);
+      if (m.rig) problems.push(...checkRig(m));
     }
     if (project.models.filter(m => m.faces.length).length > LIMITS.models) problems.push(`at most ${LIMITS.models} models`);
     return problems;
+  }
+
+  function checkRig(m) {
+    const r = m.rig, out = [], bn = new Set(), cn = new Set();
+    if (!r.bones.length) return out;
+    if (r.bones.length > LIMITS.bones) out.push(`"${m.name}": ${r.bones.length} bones (at most ${LIMITS.bones})`);
+    r.bones.forEach((b, i) => {
+      if (!b.name || utf8(b.name).length > LIMITS.name) out.push(`"${m.name}": bone name "${b.name}": 1 to ${LIMITS.name} bytes`);
+      if (bn.has(b.name)) out.push(`"${m.name}": two bones called "${b.name}"`);
+      bn.add(b.name);
+      if (b.parent >= i) out.push(`"${m.name}": bone "${b.name}" comes before its parent`);
+    });
+    if (r.clips.length > LIMITS.clips) out.push(`"${m.name}": at most ${LIMITS.clips} animations`);
+    for (const c of r.clips) {
+      if (!c.name || utf8(c.name).length > LIMITS.name) out.push(`"${m.name}": animation name "${c.name}": 1 to ${LIMITS.name} bytes`);
+      if (cn.has(c.name)) out.push(`"${m.name}": two animations called "${c.name}"`);
+      cn.add(c.name);
+      if (!c.keys.length) out.push(`"${m.name}": the animation "${c.name}" has no keyframes`);
+      if (c.keys.length > LIMITS.keys) out.push(`"${m.name}": "${c.name}" has more than ${LIMITS.keys} keyframes`);
+      if (!(c.length > 0)) out.push(`"${m.name}": "${c.name}" lasts no time`);
+      for (let k = 1; k < c.keys.length; k++) if (c.keys[k].t < c.keys[k - 1].t) out.push(`"${m.name}": "${c.name}": keyframes out of order`);
+    }
+    return out;
   }
 
   // ------------------------------------------------------------ glTF
@@ -891,8 +1017,9 @@ end
   Object.assign(BM, {
     SEC, TEXTURED, LIMITS, crc32, Writer, utf8, fromUtf8, inflate, deflate,
     newImage, binarizeAlpha, isPNG, decodePNG, encodePNG, makeCover, countColours, imageIsEmpty,
-    sheet8Encode, sheet8Decode, v3, faceNormal, faceCenter, cloneFace, modelBounds, posKey,
-    modelToMesh, meshToFaces, modelStats, meshEncode, meshDecode, parseCart, buildCart, checkProject,
+    sheet8Encode, sheet8Decode, v3, faceNormal, faceCenter, cloneFace, cloneRig, modelBounds, posKey, MODES,
+    modelToMesh, meshToFaces, modelStats, meshEncode, meshDecode, animEncode, animDecode, parseCart, buildCart,
+    checkProject, checkRig,
     srgbToLinear, linearToSrgb, exportGLB, importGLB, glbParse, VIEWER_MARK, viewerLua, modelToLua,
   });
   if (typeof module !== 'undefined' && module.exports) module.exports = BM;

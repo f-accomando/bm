@@ -2809,6 +2809,73 @@ end
 """
 
 
+ANIM_CART = r"""
+local m
+local function hex(x, y) return string.format("%06x", pget(x, y) or 0) end
+function _init()
+  m = model("figure")
+  local c = clips(m)
+  log("clips", #c, c[1].name, c[1].length, tostring(c[1].loop), c[2].name, tostring(c[2].loop))
+  log("rest", bone3d(m, "arm.R"))
+  log("len", animate(m, "wave", 0.5))
+  log("up", bone3d(m, 2))
+  log("bad", select(2, pcall(animate, m, "dance", 0)), tostring(bone3d(m, "tail")))
+end
+local n = 0
+function _update() n = n + 1 end
+function _draw()
+  cls(0)
+  zclear()
+  camera3d(0.5, 1, -6, 0, 0, 60)
+  light3d(0, 0, -1, 1)
+  if n == 2 then animate(m) end                       -- rest
+  if n == 4 then animate(m, "wave", 0.5) end          -- the arm up
+  if n == 6 then animate(m, "wave", 0.25, "still", 0, 1) end   -- all of "still": rest
+  draw3d(m, 0, 0, 0)
+  if n == 3 then log("drawn rest", hex(435, 203), hex(366, 88)) end
+  if n == 5 then log("drawn up", hex(435, 203), hex(366, 88)) end
+  if n == 7 then log("drawn mix", hex(435, 203), hex(366, 88)) quit() end
+end
+"""
+
+
+def test_animation(b, opts):
+    """bm Animator: a model with a skeleton (ANIM, written by the Studio's
+    core in make test-studio) moves on the console: animate() poses it
+    (an arm turns up around its shoulder), clips() lists the animations,
+    bone3d() follows a bone, two clips mix."""
+    path = b("studio-test-anim.bm")
+    if not os.path.exists(path):
+        print("     skipped: no build/studio-test-anim.bm (make test-studio needs Node)")
+        return
+    secs = dict(bmmesh.cart_sections(open(path, "rb").read()))
+    cart = mkbm.pack(ANIM_CART.encode(), title="anim test", mesh=secs[bmmesh.SEC_MESH], extra=[(7, secs[7])])
+    q = Qemu(b("kernel.img"))
+    try:
+        q.boot()
+        assert _upload(q, cart)
+        out = q.expect("drawn mix\t", timeout=15).decode(errors="replace")
+        out += q.expect("\n").decode(errors="replace")
+        lines = {l.split("\t")[0]: l.split("\t")[1:] for l in out.splitlines() if "\t" in l}
+        assert lines["clips"] == ["2", "wave", "1.0", "true", "still", "false"], out
+        assert [float(v) for v in lines["rest"]] == [1, 1, 0.5], out
+        assert lines["len"] == ["1.0"], out
+        up = [float(v) for v in lines["up"]]
+        assert abs(up[0] - 1) < 1e-4 and abs(up[1] - 1.25) < 1e-4 and abs(up[2] - 0.5) < 1e-4, out
+        assert "no animation \"dance\"" in lines["bad"][0] and lines["bad"][1] == "nil", out
+
+        def orange(h):
+            c = int(h, 16)
+            return (c >> 16) > 150 and (c & 255) < 100
+        rest, upp, mix = lines["drawn rest"], lines["drawn up"], lines["drawn mix"]
+        assert orange(rest[0]) and rest[1] == "000000", out      # the arm out to the side
+        assert upp[0] == "000000" and orange(upp[1]), out        # the arm up
+        assert mix == rest, out
+        q.expect("> ", timeout=10)
+    finally:
+        q.close()
+
+
 def test_sdk_keeps_models(b, opts):
     """The SDK on the console (cart_load / cart_save) writes back the
     sections it does not edit: the 3D models made with bm Studio stay."""

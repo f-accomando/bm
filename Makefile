@@ -106,19 +106,21 @@ res_texroom := 320x180
 title_village := Studio Village
 res_village := 320x180
 # Optional per game: carts/<game>/cover.png (printed on the cartridge in the
-# menu, scripts/mkcovers.py), sheet.png, map.csv, models.glb (3D models from
-# bm Studio, sdk/studio; its sprite sheet too when there is no sheet.png),
+# menu, scripts/mkcovers.py), sheet.png, map.csv, models.bm or models.glb (3D
+# models from bm Studio / bm Animator, sdk/: with their skeletons and
+# animations from a .bm; their sprite sheet too when there is no sheet.png),
 # res_<game> := 320x180.
 .SECONDEXPANSION:
 $(BUILD)/carts/%.bm: carts/%/main.lua scripts/mkbm.py scripts/bmmesh.py \
-                      $$(wildcard carts/$$*/cover.png carts/$$*/sheet.png carts/$$*/map.csv carts/$$*/models.glb)
+                      $$(wildcard carts/$$*/cover.png carts/$$*/sheet.png carts/$$*/map.csv carts/$$*/models.glb \
+                                  carts/$$*/models.bm)
 	@mkdir -p $(dir $@)
 	$(PYTHON) scripts/mkbm.py -o $@ --lua $< --title "$(title_$*)" --author bm \
 	    --res $(or $(res_$*),640x360) \
 	    $(if $(wildcard carts/$*/cover.png),--cover carts/$*/cover.png) \
 	    $(if $(wildcard carts/$*/sheet.png),--sheet carts/$*/sheet.png) \
 	    $(if $(wildcard carts/$*/map.csv),--map carts/$*/map.csv) \
-	    $(if $(wildcard carts/$*/models.glb),--models carts/$*/models.glb)
+	    $(if $(wildcard carts/$*/models.bm),--models carts/$*/models.bm,$(if $(wildcard carts/$*/models.glb),--models carts/$*/models.glb))
 
 # Chaos Kitchen (M17) is written in several Lua files, joined by its build.py
 KITCHEN_SRC := $(sort $(wildcard carts/kitchen/src/*.lua))
@@ -375,7 +377,7 @@ test-studio: $(BUILD)/host/test_bm $(BUILD)/demo.bm
 	@if command -v node >/dev/null 2>&1; then \
 	    node tests/studio/test_core.js $(BUILD)/studio-test.bm && \
 	    $(PYTHON) tests/studio/check_cart.py $(BUILD)/studio-test.bm && \
-	    $(BUILD)/host/test_bm $(BUILD)/demo.bm $(BUILD)/studio-test.bm; \
+	    $(BUILD)/host/test_bm $(BUILD)/demo.bm $(BUILD)/studio-test.bm $(BUILD)/studio-test-anim.bm; \
 	else echo "test-studio: node not found, skipped"; fi
 
 # The same in a browser (Playwright + Chromium, not needed by `make test`):
