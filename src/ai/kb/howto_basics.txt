@@ -1,0 +1,193 @@
+# How-to: the shape of a game, states, time.
+
+== game_skeleton
+kind: howto
+title: Lo scheletro di un gioco completo
+ask: da dove comincio un gioco | gioco vuoto da cui partire | template di un gioco
+ask: struttura minima di un gioco | game template | starting point for a game
+ask: primo gioco | nuovo gioco da zero | esempio completo minimo
+keys: scheletro, template, iniziare
+see: callbacks, game_states
+text:
+Variabili in _init (così una nuova partita riparte da capo), logica in
+_update, disegno in _draw.
+code:
+function _init()
+  px, py = 320, 180
+  score = 0
+end
+
+function _update()
+  if btn(0) then px = px - 2 end
+  if btn(1) then px = px + 2 end
+  if btn(2) then py = py - 2 end
+  if btn(3) then py = py + 2 end
+end
+
+function _draw()
+  cls(0x101828)
+  circfill(px, py, 8, 0xFFD050)
+  print("punti " .. score, 8, 8)
+end
+
+== game_states
+kind: howto
+title: Stati del gioco: titolo, partita, game over
+ask: schermata del titolo e game over | stati del gioco | game states | scene diverse
+ask: menu iniziale poi la partita | passare dal menu al gioco | state machine
+ask: schermata di fine partita | ricominciare dopo il game over | title screen
+keys: stati, titolo, gameover
+see: title_menu, game_over_screen
+text:
+Una variabile dice in che stato sei; _update e _draw fanno cose diverse a
+seconda dello stato.
+code:
+state = "title"
+
+function _update()
+  if state == "title" then
+    if btnp(4) then start_game(); state = "play" end
+  elseif state == "play" then
+    update_game()
+    if lives <= 0 then state = "over" end
+  elseif state == "over" then
+    if btnp(4) then state = "title" end
+  end
+end
+
+function _draw()
+  cls(0)
+  if state == "title" then print("PREMI A", 280, 170, 0xFFFFFF, 2)
+  elseif state == "play" then draw_game()
+  else print("GAME OVER", 248, 160, 0xFF4040, 2) end
+end
+
+== timer
+kind: howto
+title: Un timer: fare qualcosa ogni N secondi
+ask: fare qualcosa ogni secondo | timer | ogni tot fotogrammi | ripetere ogni 2 secondi
+ask: aspettare prima di fare una cosa | ritardo | delay | every n seconds | contatore
+ask: generare un nemico ogni tanto | attendere mezzo secondo
+keys: timer, ritardo, aspettare
+see: time, countdown
+text:
+Si conta in fotogrammi (60 al secondo): un contatore che scende a zero.
+code:
+local spawn_t = 0
+
+function _update()
+  spawn_t = spawn_t - 1
+  if spawn_t <= 0 then
+    spawn_enemy()
+    spawn_t = 120          -- 2 secondi
+  end
+end
+
+== countdown
+kind: howto
+title: Conto alla rovescia sullo schermo
+ask: conto alla rovescia | tempo che scade | countdown timer | tempo limite del livello
+ask: mostrare i secondi rimasti | gioco a tempo | time limit
+ask: tempo che diminuisce | secondi che calano
+keys: rovescia, scadenza, limite
+see: timer, time
+text:
+time() dà i secondi dall'avvio: il tempo rimasto è il limite meno quanto
+è passato dall'inizio del livello.
+code:
+local limit, start = 60, time()
+
+function _draw()
+  local left = math.max(0, limit - (time() - start))
+  print(string.format("%02d", math.ceil(left)), 300, 8, 0xFFFFFF, 2)
+  if left == 0 then print("TEMPO SCADUTO", 216, 170, 0xFF4040, 2) end
+end
+
+== blink
+kind: howto
+title: Far lampeggiare qualcosa
+ask: testo che lampeggia | far lampeggiare lo sprite | blink | intermittente
+ask: scritta premi start che lampeggia | flashing text | sprite che sfarfalla
+keys: lampeggiare, blink
+see: invincible
+text:
+Con il numero del fotogramma: visibile per 30 fotogrammi, invisibile per
+altri 30.
+code:
+if (stat(3) // 30) % 2 == 0 then
+  print("PREMI START", 272, 300, 0xFFFFFF)
+end
+
+== pause
+kind: howto
+title: Mettere in pausa il gioco
+ask: mettere in pausa | pausa con start | pause the game | fermare il gioco
+ask: menu di pausa | stop temporaneo
+keys: pausa, pause
+see: btnp
+text:
+Start da solo è libero per la pausa (Start+Select esce). In pausa
+_update non muove niente.
+code:
+paused = false
+
+function _update()
+  if btnp(8) then paused = not paused end
+  if paused then return end
+  update_game()
+end
+
+function _draw()
+  draw_game()
+  if paused then print("PAUSA", 280, 170, 0xFFFFFF, 2) end
+end
+
+== restart
+kind: howto
+title: Ricominciare la partita
+ask: ricominciare da capo | reset del gioco | restart the game | nuova partita
+ask: azzerare punteggio e vite | riavviare il livello
+keys: ricominciare, reset, restart
+see: game_states
+text:
+Metti tutto lo stato della partita in una funzione e chiamala sia da _init
+sia quando si ricomincia.
+code:
+function new_game()
+  px, py, score, lives = 320, 180, 0, 3
+  enemies = {}
+end
+
+function _init() new_game() end
+
+function _update()
+  if lives <= 0 and btnp(4) then new_game() end
+end
+
+== perf_measure
+kind: howto
+title: Misurare fps e tempo per fotogramma
+ask: il gioco va lento | misurare le prestazioni | quanti fps | is my game fast enough
+ask: rallentamenti | lag | ottimizzare | quanti millisecondi usa | performance
+keys: lento, fps, prestazioni
+see: stat, perf_tips
+text:
+stat(1) è il tempo dell'ultimo fotogramma in ms (il budget è 16,7), stat(2)
+gli fps. Stampali in un angolo mentre provi.
+code:
+function _draw()
+  draw_game()
+  print(stat(2) .. " fps " .. stat(1) .. " ms", 8, 344, 0x80FF80)
+end
+
+== frame_count
+kind: howto
+title: Contare i fotogrammi
+ask: numero del fotogramma | contare i frame | frame counter | quanti fotogrammi sono passati
+keys: fotogramma, frame
+see: stat, anim_frames
+text:
+stat(3) è il numero del fotogramma; oppure un tuo contatore in _update.
+code:
+t = (t or 0) + 1
+if t % 60 == 0 then log("un altro secondo") end

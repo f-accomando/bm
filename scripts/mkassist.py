@@ -27,6 +27,7 @@ def main():
     ap.add_argument('--kb', default=os.path.join(ROOT, 'src/ai/kb'))
     ap.add_argument('--weights', default=os.path.join(ROOT, 'src/ai/assist.weights'))
     ap.add_argument('--ref', help='reference features and outputs for the C tests')
+    ap.add_argument('--snippets', help='every code example, for tests/ai/check_snippets.lua')
     a = ap.parse_args()
 
     entries = al.parse_kb(al.kb_paths(a.kb))
@@ -47,6 +48,12 @@ def main():
         f.write(blob)
     print('%s: %d bytes, %d entries, network %d -> %d -> %d' %
           (a.out, len(blob), len(entries), al.NBUCKETS, hidden, len(entries)))
+
+    if a.snippets:
+        with open(a.snippets, 'w', encoding='utf-8') as f:
+            for e in entries:
+                if e.code:
+                    f.write('== %s\n%s\n' % (e.id, e.code))
 
     if a.ref:
         # the network as the kernel has it: rows in the order of the entries

@@ -1,0 +1,207 @@
+# How-to: sound, saves, more players, 3D, lights.
+
+== sfx_examples
+kind: howto
+title: Effetti sonori pronti (salto, moneta, colpo, laser, esplosione)
+ask: effetti sonori | suono del salto | suono della moneta | sound effects
+ask: suono quando colpisco | suono del laser | rumore di esplosione | sfx
+ask: che suono metto quando | effetto audio per il gioco
+ask: beep | suonino | bip quando succede qualcosa
+keys: effetti, suono, sfx
+see: note, envelope, freq
+text:
+Una voce per tipo di suono: un effetto non taglia l'altro.
+code:
+function sfx_jump() note(0, 440, 80, SQUARE, 90); jump_t = 6 end
+function sfx_coin()
+  note(1, 988, 50, SQUARE, 80)
+  coin_t = 4                          -- poi la seconda nota
+end
+function sfx_hit() note(2, 110, 120, SAW, 120) end
+function sfx_boom()
+  envelope(3, 0, 60, 0, 30)
+  note(3, 2500, 300, NOISE, 130)
+end
+-- in _update: la nota del salto sale, la moneta fa due note
+if (jump_t or 0) > 0 then
+  jump_t = jump_t - 1
+  freq(0, 880 - jump_t * 70)
+end
+if (coin_t or 0) > 0 then
+  coin_t = coin_t - 1
+  if coin_t == 0 then note(1, 1319, 80, SQUARE, 80) end
+end
+
+== jingle
+kind: howto
+title: Una piccola melodia (jingle)
+ask: suonare una melodia | musichetta | jingle | play a tune | sequenza di note
+ask: musica di vittoria | motivetto quando vinci | melody
+keys: melodia, jingle, musichetta
+see: note, playing, music_loop
+text:
+Una tabella di note (Hz e durata): quando la voce ha finito, parte la
+successiva.
+code:
+local tune = { {523, 120}, {659, 120}, {784, 120}, {1047, 300} }
+local step = 0
+
+function play_jingle() step = 1 end
+
+function update_jingle()
+  if step > 0 and not playing(4) then
+    local n = tune[step]
+    if n then
+      note(4, n[1], n[2], TRIANGLE, 110)
+      step = step + 1
+    else
+      step = 0
+    end
+  end
+end
+
+== music_loop
+kind: howto
+title: Musica di sottofondo in loop
+ask: musica di sottofondo | musica in loop | background music | colonna sonora
+ask: melodia che si ripete | basso e melodia
+keys: musica, sottofondo, loop
+see: jingle, note
+text:
+Un passo ogni 8 fotogrammi; due voci (melodia e basso), 0 = pausa.
+code:
+local mel = { 659, 0, 784, 659, 587, 0, 523, 0 }
+local bass = { 131, 131, 196, 196, 175, 175, 196, 196 }
+local t = 0
+
+function update_music()
+  t = t + 1
+  if t % 8 == 0 then
+    local i = (t // 8) % #mel + 1
+    if mel[i] > 0 then note(6, mel[i], 100, SQUARE, 50) end
+    note(7, bass[i], 120, TRIANGLE, 70)
+  end
+end
+
+== high_score
+kind: howto
+title: Salvare il record (punteggio migliore)
+ask: salvare il record | high score | punteggio migliore che resta | best score
+ask: ricordare il record anche dopo aver spento | classifica salvata
+keys: record, highscore, migliore
+see: save, saved
+text:
+Leggi il record in _init; a fine partita, se è battuto, salvalo (una volta,
+non a ogni fotogramma).
+code:
+function _init()
+  local d = saved()
+  best = d and d.best or 0
+end
+
+function game_over()
+  if score > best then
+    best = score
+    save({ best = best })
+  end
+end
+
+== save_progress
+kind: howto
+title: Salvare i progressi (livello, oggetti)
+ask: salvare il livello raggiunto | salvare la partita | save progress | continuare la partita
+ask: salvare gli oggetti raccolti | checkpoint
+keys: progressi, livello, continuare
+see: save, saved
+text:
+Una tabella con quello che serve per ripartire; save() accetta tabelle
+dentro tabelle.
+code:
+save({ level = level, hp = hp,
+       items = { key = has_key, coins = coins } })
+-- all'avvio:
+local d = saved()
+if d then level, hp = d.level, d.hp end
+
+== two_players
+kind: howto
+title: Due giocatori, ognuno con il suo controller
+ask: due giocatori | gioco in due | multiplayer locale | two players
+ask: secondo controller | giocatore 2 | ognuno con il suo pad | coop
+keys: giocatori, multiplayer, due
+see: btn, players
+text:
+btn(i, p) legge solo il controller del giocatore p. Abbina i pad dal
+monitor con T (o Settings > Controllers).
+code:
+local p = { { x = 100, y = 180 }, { x = 540, y = 180 } }
+
+function _update()
+  for i = 1, 2 do
+    if btn(2, i) then p[i].y = p[i].y - 3 end
+    if btn(3, i) then p[i].y = p[i].y + 3 end
+  end
+end
+
+== night_scene
+kind: howto
+title: Scena notturna con le luci
+ask: scena di notte | gioco al buio | torcia del personaggio | night scene
+ask: lampioni accesi | dungeon buio | atmosfera notturna
+keys: notte, buio, luci
+see: light_begin, light
+text:
+Disegna la scena, poi light_begin con una luce di fondo scura, una light
+per ogni lampada, light_end. L'HUD dopo, a piena luce.
+code:
+function _draw()
+  cls(0)
+  map(0, 0)
+  spr(1, px, py)
+  light_begin(0x0A0A16)
+  light(px + 4, py + 4, 48 * (0.95 + math.random() * 0.1), 0xFFC888)
+  light(200, 100, 60, 0xFFB060)
+  light_end()
+  print("vita " .. hp, 8, 8)
+end
+
+== cube_3d
+kind: howto
+title: Un cubo 3D che gira
+ask: cubo 3d che gira | primo esempio 3d | rotating cube | modello 3d che ruota
+ask: come si fa il 3d | grafica 3d | hello world 3d
+keys: cubo, 3d, ruota
+see: draw3d, mesh_cube, camera3d
+text:
+Una mesh pronta, la camera, la luce, e draw3d con una rotazione che
+cresce con il tempo.
+code:
+function _init()
+  cube = mesh_cube(0x40A0FF)
+end
+
+function _draw()
+  cls(0x101020)
+  zclear()
+  camera3d(0, 0, -5)
+  light3d(-0.4, 0.8, -0.5, 0.3)
+  draw3d(cube, 0, 0, 0, time() * 0.7, time(), 0, 1)
+end
+
+== fps_camera
+kind: howto
+title: Camminare in prima persona in 3D
+ask: prima persona 3d | camminare in un mondo 3d | first person camera | fps
+ask: muovere la camera con le frecce in 3d | girare la visuale
+keys: prima persona, camminare, 3d
+see: camera3d, draw3d
+text:
+Sinistra e destra girano (yaw), su e giù avanzano nella direzione in cui
+guardi.
+code:
+if btn(0) then yaw = yaw - 0.04 end
+if btn(1) then yaw = yaw + 0.04 end
+local f = (btn(2) and 0.08 or 0) - (btn(3) and 0.08 or 0)
+cx = cx + math.sin(yaw) * f
+cz = cz + math.cos(yaw) * f
+camera3d(cx, 1.6, cz, yaw, 0, 70)

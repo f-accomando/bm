@@ -138,6 +138,9 @@ def dense_batch(feats_list, nb):
 
 
 def train(xs, ys, ncls, hidden, epochs, seed, lr=0.004, l2=1e-6):
+    """Adam on cross-entropy; the input is sparse (a few dozen features of
+    4096), so the first layer is a sum of rows and its gradient goes only
+    to those rows"""
     rs = np.random.RandomState(seed)
     nb = al.NBUCKETS
     w1 = (rs.randn(nb, hidden) * 0.1).astype(np.float32)
@@ -150,14 +153,20 @@ def train(xs, ys, ncls, hidden, epochs, seed, lr=0.004, l2=1e-6):
     t = 0
     n = len(xs)
     bs = 64
+    feats = [np.array(f, np.int64) for f in xs]
+    scale = [np.float32(1.0 / np.sqrt(len(f))) for f in xs]
     for ep in range(epochs):
         order = rs.permutation(n)
         loss_sum = 0.0
         for s in range(0, n, bs):
             idx = order[s:s + bs]
-            x = dense_batch([xs[i] for i in idx], nb)
+            rows = np.concatenate([np.full(len(feats[i]), k) for k, i in enumerate(idx)])
+            cols = np.concatenate([feats[i] for i in idx])
+            vals = np.concatenate([np.full(len(feats[i]), scale[i], np.float32) for i in idx])
             y = ys[idx]
-            h = x @ w1 + b1
+            h = np.zeros((len(idx), hidden), np.float32)
+            np.add.at(h, rows, w1[cols] * vals[:, None])
+            h += b1
             hr = np.maximum(h, 0)
             mask = (rs.rand(*hr.shape) > 0.15).astype(np.float32) / 0.85
             hd = hr * mask
@@ -172,7 +181,8 @@ def train(xs, ys, ncls, hidden, epochs, seed, lr=0.004, l2=1e-6):
             gw2 = hd.T @ dz + l2 * w2
             gb2 = dz.sum(axis=0)
             dh = (dz @ w2.T) * mask * (h > 0)
-            gw1 = x.T @ dh + l2 * w1
+            gw1 = l2 * w1
+            np.add.at(gw1, cols, dh[rows] * vals[:, None])
             gb1 = dh.sum(axis=0)
             t += 1
             for i, g in enumerate((gw1, gb1, gw2, gb2)):

@@ -284,7 +284,7 @@ int ai_ask(const char *q, const char *ctx, unsigned kinds, ai_hit_t *hits, int m
     /* the best `max`, best first */
     int n = 0;
     for (int i = 0; i < ai.nent; i++) {
-        if (!(ai.kmask[i] & kinds) || score[i] < 0.005f)
+        if (!(ai.kmask[i] & kinds) || score[i] < 0.002f)
             continue;
         int j = n < max ? n++ : max;
         if (j == max && score[i] <= hits[max - 1].score)

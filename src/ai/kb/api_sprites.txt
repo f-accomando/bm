@@ -1,0 +1,111 @@
+# The sprite and map API.
+
+== spr
+kind: api
+name: spr
+title: spr(n, x, y, [w, h, flip_x, flip_y]) - disegna uno sprite
+ask: come disegno uno sprite | disegnare uno sprite sullo schermo | draw a sprite
+ask: mostrare un'immagine dello sprite sheet | sprite 16x16 | sprite specchiato
+ask: girare lo sprite a sinistra | flip sprite | disegnare il personaggio | show an image
+see: sspr, sset, anim_frames
+text:
+Disegna la cella n dello sprite sheet (celle 8x8, numerate da sinistra a
+destra e dall'alto in basso) in x, y. w e h dicono quante celle (2, 2 =
+uno sprite 16x16); flip_x e flip_y lo specchiano. I pixel trasparenti non
+vengono disegnati.
+code:
+spr(1, x, y)                 -- la cella 1, 8x8
+spr(4, x, y, 2, 2)           -- 16x16 dalla cella 4
+spr(4, x, y, 2, 2, true)     -- specchiato: guarda a sinistra
+
+== sspr
+kind: api
+name: sspr
+title: sspr(sx, sy, sw, sh, dx, dy, [flip_x, flip_y]) - un rettangolo dello sheet
+ask: disegnare una parte qualsiasi dello sprite sheet | sprite di dimensioni strane
+ask: copiare un rettangolo dello sheet | draw part of the sprite sheet | sprite 24x24
+ask: sprite non multiplo di 8 | sfondo grande dallo sheet | blit
+see: spr
+text:
+Copia il rettangolo dello sheet che parte da (sx, sy), largo sw e alto sh
+pixel, sullo schermo in (dx, dy). Per sprite che non sono a celle 8x8.
+code:
+sspr(0, 64, 24, 32, x, y)          -- uno sprite 24x32
+sspr(0, 128, 256, 64, 0, 296)      -- una striscia di sfondo
+
+== sget
+kind: api
+name: sget
+title: sget(x, y) - legge un pixel dello sprite sheet
+ask: leggere un pixel dello sprite sheet | colore di un pixel dello sheet | get sheet pixel
+ask: copiare uno sprite pixel per pixel | read the sprite sheet
+see: sset, pget
+text:
+Il colore 0xRRGGBB del pixel (x, y) dello sheet, o nil se è trasparente.
+code:
+local c = sget(8, 0)
+if c == nil then log("trasparente") end
+
+== sset
+kind: api
+name: sset
+title: sset(x, y, [c]) - scrive un pixel dello sprite sheet
+ask: disegnare uno sprite dal codice | modificare lo sprite sheet | write to the sprite sheet
+ask: creare uno sprite senza png | sprite da una stringa | cambiare colore a uno sprite
+ask: rendere trasparente un pixel | sprite generati nel codice | set sheet pixel
+see: sget, sprite_from_string
+text:
+Cambia un pixel dello sheet: con c il colore, senza c diventa trasparente.
+Così si disegnano sprite senza PNG o si modificano durante il gioco.
+code:
+sset(0, 0, 0xFF0000)      -- rosso
+sset(1, 0)                -- trasparente
+spr(0, x, y)              -- la cella 0, cambiata
+
+== map
+kind: api
+name: map
+title: map(mx, my, [x, y, mw, mh]) - disegna la mappa a tile
+ask: disegnare la mappa | mostrare il livello | draw the tile map | tilemap
+ask: disegnare le tile | mappa del livello sullo schermo | sfondo a tessere
+see: mget, mset, camera, map_scroll
+text:
+Disegna la mappa dalla cella (mx, my), mw x mh celle, con l'angolo in
+(x, y). Ogni cella della mappa è un numero di cella dello sheet (0 =
+vuota). Con una mappa grande disegna solo la parte visibile.
+code:
+map(0, 0)                          -- tutta, dall'angolo
+map(0, 0, 0, 0, 80, 45)            -- 80x45 celle 8x8 = tutto lo schermo
+
+== mget
+kind: api
+name: mget
+title: mget(mx, my) - legge una cella della mappa
+ask: leggere una cella della mappa | che tile c'è in un punto | get map tile
+ask: tile sotto il giocatore | collisione con la mappa | muro della mappa | read the map
+see: mset, map, collide_map
+text:
+Il numero della cella (mx, my) della mappa, 0 se è vuota. Da coordinate in
+pixel a celle: dividi per 8 (x // 8).
+code:
+local t = mget(px // 8, py // 8)
+if t >= 32 and t < 64 then         -- le celle 32-63 sono muri
+  log("muro")
+end
+
+== mset
+kind: api
+name: mset
+title: mset(mx, my, n) - cambia una cella della mappa
+ask: cambiare una tile della mappa | scrivere nella mappa | set map tile
+ask: aprire una porta nella mappa | togliere una moneta dalla mappa | modificare il livello
+see: mget, map, pickup_tiles
+text:
+Mette la cella n dello sheet nella cella (mx, my) della mappa (0 la
+svuota): porte che si aprono, oggetti raccolti, livelli generati.
+code:
+local cx, cy = px // 8, py // 8
+if mget(cx, cy) == 5 then          -- 5: una moneta
+  mset(cx, cy, 0)
+  score = score + 1
+end

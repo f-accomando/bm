@@ -80,7 +80,7 @@ $(BUILD)/k/src/script/embed.S.o: $(wildcard src/script/*.lua) keys/release-pub.p
 AI_KB := $(wildcard src/ai/kb/*.txt)
 $(BUILD)/assist.bin: $(AI_KB) src/ai/assist.weights scripts/mkassist.py scripts/assistlib.py
 	@mkdir -p $(dir $@) $(BUILD)/ai
-	$(PYTHON) scripts/mkassist.py -o $@ --ref $(BUILD)/ai/ref.txt
+	$(PYTHON) scripts/mkassist.py -o $@ --ref $(BUILD)/ai/ref.txt --snippets $(BUILD)/ai/snippets.txt
 
 ai-model:
 	$(PYTHON) scripts/trainassist.py
@@ -412,8 +412,9 @@ $(BUILD)/host/test_ai: tests/ai/test_ai.c $(AI_SRCS) src/ai/*.h src/lib/crc32.c
 	@mkdir -p $(dir $@)
 	$(HOSTCC) -O2 -Wall -Wextra -Isrc -o $@ tests/ai/test_ai.c $(AI_SRCS) src/lib/crc32.c -lm
 
-test-ai: $(BUILD)/host/test_ai $(BUILD)/assist.bin
+test-ai: $(BUILD)/host/test_ai $(BUILD)/assist.bin $(BUILD)/host/luahost
 	$< $(BUILD)/assist.bin $(BUILD)/ai/ref.txt
+	$(BUILD)/host/luahost tests/ai/check_snippets.lua $(BUILD)/ai/snippets.txt
 
 HOSTCC ?= cc
 

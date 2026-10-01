@@ -141,8 +141,22 @@ local function refresh()
     st.hits = safe(ai.list, KINDS[st.mode]) or {}
     st.us = nil
   else
-    st.hits, st.us = safe(ai.ask, q ~= "" and q or st.ctx, { n = 12, ctx = st.ctx, kinds = KINDS[st.mode] })
+    st.hits, st.us = safe(ai.ask, q ~= "" and q or st.ctx, { n = 8, ctx = st.ctx, kinds = KINDS[st.mode] })
     st.hits = st.hits or {}
+    -- then what the best answer points to ("see also"), if not there yet
+    local best = st.hits[1] and safe(ai.entry, st.hits[1].id)
+    if best then
+      local seen = {}
+      for _, h in ipairs(st.hits) do seen[h.id] = true end
+      for _, id in ipairs(best.see) do
+        local e = not seen[id] and safe(ai.entry, id)
+        if e and KINDS[st.mode]:find(e.kind, 1, true) then
+          st.hits[#st.hits + 1] = { id = e.id, title = e.title, kind = e.kind, score = 0, related = true }
+          seen[id] = true
+        end
+      end
+    end
+    st.unsure = not st.hits[1] or st.hits[1].score < 0.3
   end
   st.top = 1
   choose(1)
@@ -342,6 +356,8 @@ function M.draw()
   local ly = qy + 16
   if st.hint or st.msg then
     print((st.msg or st.hint):sub(1, st.cols), tx, ly, st.msg and C_ERR or C_ACC)
+  elseif st.unsure and #st.hits > 0 and st.us then
+    print("not sure what you mean: maybe one of these", tx, ly, C_DIM)
   elseif st.q == "" and not st.ctx then
     print(("type a question, or choose (" .. #st.hits .. " topics)"):sub(1, st.cols), tx, ly, C_DIM)
   end
@@ -356,8 +372,8 @@ function M.draw()
     if not hit then break end
     local ry = ly + r * 16
     if i == st.sel then rectfill(x + 4, ry, w - 8, 16, C_SEL) end
-    local tag = TAG[hit.kind] or hit.kind
-    print(hit.title:sub(1, st.cols - 10), tx, ry, i == st.sel and 0xFFFFFF or C_TEXT)
+    local tag = (hit.related and "see " or "") .. (TAG[hit.kind] or hit.kind)
+    print(hit.title:sub(1, st.cols - 12), tx, ry, i == st.sel and 0xFFFFFF or hit.related and C_DIM or C_TEXT)
     print(tag, x + w - 8 - #tag * 8, ry, C_DIM)
   end
   if #st.hits > st.list_rows then

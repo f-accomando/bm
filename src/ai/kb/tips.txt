@@ -1,0 +1,97 @@
+# Tips: the editor, the console, performance.
+
+== perf_tips
+kind: tip
+title: Consigli per i 60 fps
+ask: il gioco rallenta | come rendo il gioco più veloce | ottimizzare | performance tips
+ask: troppi sprite | troppi nemici | scatti | il gioco va a scatti | lag
+keys: veloce, ottimizzare, rallenta
+see: perf_measure, stat
+text:
+Il disegno è in C, il costo è il Lua di _update e _draw. Non creare
+tabelle nuove a ogni fotogramma nei cicli caldi; aggiorna solo i nemici
+vicini alla camera; disegna solo la parte visibile della mappa; usa local.
+Ordini di grandezza sul Pi: ~1800 sprite 16x16 da Lua a 60 fps, ~1200
+triangoli 3D.
+code:
+local spr, abs = spr, math.abs       -- local: piu' veloci
+for _, e in ipairs(enemies) do
+  if abs(e.x - camx) < 400 then update(e) end
+end
+
+== editor_keys
+kind: tip
+title: I tasti dell'editor (bm SDK)
+ask: tasti dell'editor | come si usa l'editor | editor shortcuts | scorciatoie
+ask: come passo agli sprite | pagina della mappa | come salvo nell'editor
+ask: come provo il gioco | ctrl r | annullare | undo
+keys: editor, tasti, scorciatoie
+see: editor_run, assistant_keys
+text:
+F1 codice, F2 sprite, F3 mappa, Esc menu (nuovo, apri, salva, salva come,
+titolo, autore, risoluzione). Ctrl+S salva, Ctrl+R (F5) prova il gioco,
+Ctrl+Z annulla, Ctrl+K taglia la riga, Ctrl+D la duplica, Ctrl+G va alla
+riga dell'errore. F12 tenuto: i tasti della pagina.
+
+== editor_run
+kind: tip
+title: Provare il gioco e tornare all'editor
+ask: provare il gioco dall'editor | far partire il gioco | run the game | testare
+ask: il gioco si ferma con un errore | tornare all'editor | ctrl r
+keys: provare, run
+see: editor_keys, err_call_nil
+text:
+Ctrl+R (o F5) salva, gioca e torna all'editor; se il gioco si ferma con un
+errore l'editor apre la riga in rosso. Esc, Start+Select o PS escono dal
+gioco.
+
+== sd_card
+kind: tip
+title: Mettere un gioco sulla SD dal PC
+ask: copiare il gioco sulla sd | mettere un gioco sulla scheda | install a game
+ask: impacchettare il gioco | mkbm | creare il file bm dal pc | copertina del gioco
+keys: sd, copiare, mkbm
+see: editor_run
+text:
+Sul PC: python3 scripts/mkbm.py -o gioco.bm --lua main.lua --title "Gioco"
+(con --sheet foglio.png, --map mappa.csv, --cover copertina.png, --res
+320x180). Poi copia gioco.bm nella cartella carts/ della SD; R nel menu
+rilegge la SD. Dall'editor sulla console il gioco si salva già in /carts.
+
+== resolution
+kind: tip
+title: Bassa risoluzione 320x180
+ask: pixel più grossi | bassa risoluzione | stile 16 bit | 320x180 | low resolution
+keys: risoluzione, pixel
+see: screen_size
+text:
+Con --res 320x180 (o "risoluzione" nel menu dell'editor) lo schermo è
+320x180: pixel grossi e più tempo per fotogramma. SCREEN_W e SCREEN_H lo
+dicono al codice.
+
+== colors_tip
+kind: tip
+title: Colori sullo schermo a 16 bit
+ask: i colori sono diversi | colori sbiaditi | perché il colore cambia | rgb565
+ask: quanti colori ha lo schermo | palette
+keys: colori, 16 bit
+see: rgb
+text:
+I colori 0xRRGGBB diventano RGB565 (5 bit rosso, 6 verde, 5 blu): le
+sfumature molto vicine diventano uguali. Per i gradienti tri() aggiunge un
+dithering.
+
+== assistant_keys
+kind: tip
+title: Come si usa l'assistente
+ask: come funziona l'assistente | tasti dell'assistente | help with the assistant
+ask: cosa sai fare | aiuto | chi sei | come ti uso | cosa posso chiederti
+keys: assistente, aiuto
+see: ai_ask
+text:
+Scrivi una domanda (italiano o inglese): le risposte cambiano mentre
+scrivi. Su/giù scelgono, Invio (A) inserisce il codice o lo sprite, PgDn
+mostra il resto, Tab (X) cambia modo (codice, sprite, tutto), Esc (B)
+chiude. Negli sprite sinistra/destra danno le varianti; i colori e la
+misura si scrivono nella domanda: "slime rosso 32x32". Non è un chatbot:
+conosce bm, le sue API, il Lua per i giochi e gli errori più comuni.

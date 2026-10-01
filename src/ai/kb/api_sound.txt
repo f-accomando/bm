@@ -1,0 +1,102 @@
+# Sound: 8 voices of synthesis, HDMI output.
+
+== note
+kind: api
+name: note
+title: note(v, hz, [ms], [forma], [vol]) - suona una nota
+ask: suonare una nota | fare un suono | play a sound | emettere un beep
+ask: effetto sonoro | suono quando salto | play a note | blip | audio
+ask: frequenza in hertz | onda quadra | volume del suono
+see: noteoff, envelope, sfx_examples
+text:
+Suona sulla voce v (0-7) una nota di hz Hertz; con ms si spegne da sola.
+Forme: SQUARE, TRIANGLE, SAW, NOISE. vol 0-255 (128). Una voce per tipo di
+suono, così un effetto non interrompe l'altro.
+code:
+note(0, 880, 60, SQUARE, 100)      -- blip
+note(1, 220, 200, TRIANGLE, 120)   -- nota bassa e morbida
+note(2, 2500, 300, NOISE, 130)     -- rumore: esplosione
+
+== noteoff
+kind: api
+name: noteoff
+title: noteoff(v) - rilascia la nota
+ask: fermare un suono | spegnere una nota | stop a sound | silenzio | mute
+see: note, playing
+text:
+Rilascia la nota della voce v (parte la fase di release dell'inviluppo).
+Una nota senza ms resta accesa finché non la spegni.
+code:
+note(3, 440, nil, SAW, 90)    -- resta accesa
+-- piu' tardi:
+noteoff(3)
+
+== freq
+kind: api
+name: freq
+title: freq(v, hz) - cambia l'altezza senza ripartire
+ask: cambiare la nota mentre suona | glissando | sirena | vibrato | pitch bend
+ask: suono che sale | effetto laser che scende | change frequency
+see: note
+text:
+Cambia l'altezza della voce v senza ripartire l'inviluppo: glissandi,
+sirene, laser. Un passo per fotogramma in _update.
+code:
+note(1, 1300, 100, SQUARE, 70)
+laser = 6
+-- in _update:
+if laser > 0 then laser = laser - 1; freq(1, 400 + laser * 150) end
+
+== envelope
+kind: api
+name: envelope
+title: envelope(v, a, d, s, r) - inviluppo ADSR della voce
+ask: inviluppo adsr | attacco e rilascio del suono | sound envelope | suono che sfuma
+ask: suono che si smorza | decay | fade out del suono
+see: note
+text:
+Attack, decay e release sono tempi 0-255 (0 istantaneo, 255 = 2 s),
+sustain un livello 0-255. Predefinito 1, 0, 255, 10.
+code:
+envelope(2, 0, 60, 0, 30)          -- colpo che si smorza
+note(2, 2500, 300, NOISE, 130)     -- esplosione
+
+== duty
+kind: api
+name: duty
+title: duty(v, d) - timbro dell'onda quadra
+ask: cambiare il timbro dell'onda quadra | suono nasale | pulse width | duty cycle
+see: note
+text:
+La larghezza dell'onda quadra della voce v, 0-255 (128 = 50%; 32-64 più
+nasale, come le console a 8 bit).
+code:
+duty(0, 48)
+note(0, 660, 100, SQUARE, 100)
+
+== playing
+kind: api
+name: playing
+title: playing(v) - la voce sta suonando?
+ask: sapere se un suono è finito | la voce suona ancora | is the sound playing
+ask: aspettare la fine della nota
+see: note
+text:
+true finché la voce suona (release compreso): per suonare la nota
+successiva di una melodia quando la precedente finisce.
+code:
+if not playing(3) then
+  note(3, 523, 150, TRIANGLE, 100)
+end
+
+== apu
+kind: api
+name: apu
+title: apu(v, reg, [valore]) - registri grezzi del sintetizzatore
+ask: registri del sintetizzatore | accesso diretto all'audio | raw audio registers
+see: note
+text:
+Legge o scrive un registro grezzo (16 byte per voce: src/audio/synth.h).
+Di solito bastano note, freq, envelope e duty.
+code:
+local vol = apu(0, 5)

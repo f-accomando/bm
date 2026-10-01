@@ -1,7 +1,160 @@
-# Held-out questions (never trained on): question => the right entries
+# Held-out questions: never trained on (scripts/trainassist.py prints how
+# many come first; tests/ai/test_ai.c wants 90% in the first three).
+# question => the right entries (any of them)
+
+# drawing
 pulisci lo schermo => cls
+come metto lo sfondo nero => cls
+voglio disegnare un pallino giallo => circfill, pset
+fare un rettangolo colorato pieno => rectfill
+come faccio solo il contorno di un quadrato => rect
+come si traccia una riga tra due punti => line
+scrivere game over grande in mezzo => center_text, print
+how do i write text on the screen => print
+mostrare il numero dei punti in alto => hud, print
+dove sono le coordinate dello schermo, quanto è largo => screen_size
+make a gradient triangle => tri
+colore a caso per le palline => rgb, random
+
+# sprites and map
 disegna il mio sprite => spr
+voglio uno sprite 16x16 che guarda a sinistra => spr, face_direction, big_sprite
+sprite che cammina con due fotogrammi => anim_frames
+come cambio un pixel dello sheet da codice => sset, sprite_from_string
+come leggo che tile c'è sotto i piedi => mget, collide_map
+mostrare il livello fatto a tessere => map
+far scorrere il livello quando il giocatore si muove => map_scroll, camera
+la camera dovrebbe seguire l'omino in modo fluido => camera_smooth
+tile che fanno male come le spine => tile_ranges
+prendere le monetine sparse nel livello => pickup_tiles
+generare una grotta diversa ogni volta => map_gen
+scrivere il livello con dei caratteri nel codice => map_in_code
+
+# input and movement
 voglio muovere l'omino con le freccette => move_arrows
+how do i move my character with the keyboard => move_arrows
+il personaggio in diagonale corre troppo => move_8dir
+usare la levetta del ds4 per muoversi => move_stick, stick
+il personaggio deve scivolare un po' quando lascio il tasto => accel_friction
+non deve uscire dai bordi dello schermo => clamp_screen
+se esce a destra rientra da sinistra => wrap_screen
+nemico che mi viene dietro => chase
+ruotare la nave e accelerare come in asteroids => move_angle
+muoversi una casella per volta => grid_move
+nemico che cammina da una parte all'altra => patrol
+quanto dista il nemico dal giocatore => distance
+il tasto deve valere una volta sola, non ripetere => btnp
+sapere se A è premuto => btn
+quanti joypad sono collegati => players
+scrivere con la tastiera il nome => name_input, keyp
+
+# physics and collisions
+come faccio saltare il personaggio => jump_gravity
+far cadere il personaggio e farlo atterrare => jump_gravity, platformer
+voglio un salto doppio => double_jump
+gioco di piattaforme con la mappa => platformer
+come capisco se due sprite si scontrano => collide_rect
+check if two circles touch => collide_circle
+il mio omino passa attraverso i muri => collide_map, platformer
+la pallina deve rimbalzare sulle pareti => bounce_walls
+racchetta e pallina come pong => pong_ball
+
+# action
+il giocatore deve sparare quando premo A => bullets
+sparare tenendo premuto con una certa cadenza => cooldown
+gestire tanti nemici insieme => enemies_list
+i colpi devono uccidere gli alieni => bullets_hit
+il nemico spara verso di me => enemy_aim
+nemici che arrivano a ondate sempre più forti => spawn_waves
+esplosione con tante scintille => particles
+lo schermo deve tremare quando esplode qualcosa => screen_shake
+dopo essere colpito il giocatore lampeggia e non perde altre vite => invincible
+barra della salute del boss => health_bar
+
+# game structure and ui
+come è fatto un gioco, quali funzioni servono => callbacks, game_skeleton
+un esempio di gioco da cui partire => game_skeleton
+schermata iniziale, partita e fine => game_states
+fare qualcosa ogni 3 secondi => timer
+tempo che scende fino a zero => countdown
+scritta premi start che lampeggia => blink
+mettere in pausa il gioco con start => pause
+ricomincia la partita da capo => restart
+il gioco va a scatti, come misuro => perf_measure, perf_tips
+menu con gioca e opzioni scelto con le frecce => title_menu
+mostrare il punteggio finale quando perdi => game_over_screen
+fumetto con il testo che si scrive da solo => dialog_box
+transizione al nero tra due livelli => fade
+chi viene disegnato sopra a chi => draw_order
+lo stesso nemico ma blu => palette_swap
+
+# sound
+fare un beep quando prendo la moneta => sfx_examples, note
+suono di esplosione => sfx_examples, envelope, note
+suonare una canzoncina quando vinci => jingle
+musica di sottofondo che si ripete => music_loop
+suono che scende come un laser => freq, sfx_examples
+fermare il suono => noteoff
+
+# saves, players, system
+salvare il punteggio più alto => high_score, save
+caricare i dati salvati => saved
+salvare a che livello sono arrivato => save_progress
+giocare in due con due controller => two_players
+numero casuale tra 1 e 6 => random
+scrivere un messaggio nel log per il debug => log
+uscire dal gioco e tornare al menu => quit
+quanti fps sto facendo => stat, perf_measure
+quanto tempo è passato dall'inizio => time
+
+# 3d and lights
+come si fa un cubo che gira in 3d => cube_3d
+camminare in un mondo 3d in prima persona => fps_camera
+nebbia sugli oggetti lontani => fog3d
+scena di notte con la torcia => night_scene, light_begin
+lampione che tremola => light, night_scene
+creare un modello 3d con vertici e facce => mesh
+
+# lua
+come aggiungo un elemento a una lista => lua_tables
+scorrere tutti gli elementi di una tabella => lua_loops
+come scrivo una funzione che restituisce due valori => lua_functions
+differenza tra local e globale => lua_local
+unire testo e numeri => lua_strings
+arrotondare un numero con la virgola => lua_math
+come si scrive diverso in lua => lua_if, err_unexpected_symbol
+fare una classe nemico con i metodi => lua_objects
+sequenza di eventi con delle pause => lua_coroutines
+ordinare la classifica dal più alto => lua_sort
+
+# errors
+attempt to call a nil value (global 'sprr') => err_call_nil
+attempt to index a nil value (local 'enemy') => err_index_nil
+attempt to perform arithmetic on a nil value (global 'punti') => err_arith_nil
+attempt to compare nil with number => err_compare_nil
+'end' expected (to close 'if' at line 12) near <eof> => err_end_expected
+unexpected symbol near '+' => err_unexpected_symbol
+cart timeout: more than 20 million instructions in one frame => err_timeout
+bad argument #3 to 'print' (number expected, got nil) => err_bad_argument
+il gioco si blocca e poi dice timeout => err_timeout
+'then' expected near '=' => err_then_expected
+attempt to concatenate a nil value (field 'name') => err_concat_nil
+attempt to call a number value (global 'time') => err_call_value
+
+# sprite recipes
 voglio uno slime verde => sprite.slime
 disegnami una navetta per lo spazio => sprite.ship
 mattoncini per il muro del castello => sprite.brick
+uno scheletro cattivo => sprite.skull
+il cuoricino delle vite => sprite.heart
+una moneta che gira => sprite.coin
+il pavimento d'erba per la mappa => sprite.grass, sprite.ground
+un mostriciattolo con le corna => sprite.monster
+una bottiglietta magica rossa => sprite.potion
+un tesoro da aprire => sprite.chest
+l'acqua del lago => sprite.water
+un nemico robotico => sprite.robot
+un fantasmino bianco => sprite.ghost
+una chiave d'oro => sprite.key
+il fuoco di un falò => sprite.fire
+un albero di natale => sprite.tree

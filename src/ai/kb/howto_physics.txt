@@ -1,0 +1,189 @@
+# How-to: jumping, gravity, collisions.
+
+== jump_gravity
+kind: howto
+title: Saltare con la gravità
+ask: come faccio saltare il personaggio | salto con la gravità | jump with gravity
+ask: far cadere il giocatore | gravità | il personaggio vola via | fisica del salto
+ask: saltare quando premo A | platform jump | caduta
+keys: saltare, salto, gravita, jump
+see: platformer, double_jump, btnp
+text:
+Una velocità verticale vy: la gravità la aumenta a ogni fotogramma, il
+salto la rende negativa (verso l'alto). Si salta solo da terra.
+code:
+local vy, on_ground = 0, false
+
+function _update()
+  vy = vy + 0.35                      -- gravita'
+  y = y + vy
+  if y >= 300 then                    -- il pavimento
+    y, vy, on_ground = 300, 0, true
+  end
+  if btnp(4) and on_ground then
+    vy, on_ground = -7, false         -- il salto
+  end
+end
+
+== double_jump
+kind: howto
+title: Doppio salto
+ask: doppio salto | saltare in aria una seconda volta | double jump | salto multiplo
+keys: doppio, salto
+see: jump_gravity
+text:
+Conta i salti: si azzerano toccando terra.
+code:
+if on_ground then jumps = 0 end
+if btnp(4) and jumps < 2 then
+  vy = -6.5
+  jumps = jumps + 1
+  on_ground = false
+end
+
+== platformer
+kind: howto
+title: Platform: camminare e saltare sulle tile della mappa
+ask: gioco di piattaforme | platformer | camminare sulle piattaforme della mappa
+ask: collisione con il pavimento della mappa | stare sopra i blocchi | super mario
+ask: il personaggio cade attraverso il pavimento | collisioni del platform
+keys: platform, piattaforme, mario
+see: collide_map, jump_gravity
+text:
+Prima il movimento orizzontale e la sua collisione, poi quello verticale:
+così si scivola lungo i muri. solid() dice se in un punto c'è una tile
+solida (qui le celle da 32 a 63).
+code:
+local function solid(x, y)
+  local t = mget(x // 8, y // 8)
+  return t >= 32 and t < 64
+end
+
+function _update()
+  local nx = px + ((btn(1) and 2 or 0) - (btn(0) and 2 or 0))
+  if not solid(nx, py) and not solid(nx + 7, py)
+     and not solid(nx, py + 7) and not solid(nx + 7, py + 7) then
+    px = nx
+  end
+  vy = math.min(vy + 0.35, 6)
+  local ny = py + vy
+  if solid(px, ny + 7) or solid(px + 7, ny + 7) then
+    py = (ny + 7) // 8 * 8 - 8       -- appoggiato sopra
+    vy, on_ground = 0, true
+  elseif solid(px, ny) or solid(px + 7, ny) then
+    vy = 0                           -- testa contro il soffitto
+  else
+    py, on_ground = ny, false
+  end
+  if btnp(4) and on_ground then vy = -6 end
+end
+
+== collide_rect
+kind: howto
+title: Collisione tra due rettangoli
+ask: collisione tra due rettangoli | due sprite si toccano | collision between two boxes
+ask: controllare se il giocatore tocca il nemico | aabb | hitbox | sovrapposizione
+ask: rilevare un urto | overlap check | collisioni tra sprite
+keys: collisione, toccare, hitbox, rettangoli
+see: collide_circle, bullets
+text:
+Due rettangoli si sovrappongono se nessuno dei due è tutto a sinistra,
+destra, sopra o sotto l'altro.
+code:
+local function hit(a, b)
+  return a.x < b.x + b.w and b.x < a.x + a.w and
+         a.y < b.y + b.h and b.y < a.y + a.h
+end
+
+if hit(player, enemy) then lives = lives - 1 end
+
+== collide_circle
+kind: howto
+title: Collisione tra due cerchi
+ask: collisione tra cerchi | palle che si toccano | circle collision | raggio di collisione
+ask: collisione rotonda | distanza minore della somma dei raggi
+ask: two circles collide | circles overlap | sfere che si toccano
+keys: cerchi, raggio
+see: collide_rect, distance
+text:
+Si toccano se la distanza tra i centri è minore della somma dei raggi
+(confronta i quadrati: niente radice).
+code:
+local dx, dy = a.x - b.x, a.y - b.y
+local r = a.r + b.r
+if dx * dx + dy * dy < r * r then
+  log("colpito")
+end
+
+== point_in_rect
+kind: howto
+title: Un punto dentro un rettangolo
+ask: punto dentro un rettangolo | il cursore è sopra il pulsante | point in rectangle
+ask: cliccare su un bottone | il colpo è dentro il bersaglio
+keys: punto, dentro
+see: collide_rect
+text:
+Il punto è dentro se sta tra i bordi sinistro e destro e tra quelli sopra
+e sotto.
+code:
+local function inside(px, py, r)
+  return px >= r.x and px < r.x + r.w and py >= r.y and py < r.y + r.h
+end
+
+== collide_map
+kind: howto
+title: Collisioni con i muri della mappa
+ask: collisione con i muri | non attraversare i muri | wall collision with the tile map
+ask: tile solide | il personaggio passa attraverso i muri | blocchi solidi della mappa
+ask: labirinto con i muri | top down collision
+keys: muri, solide, attraversare
+see: mget, platformer, tile_ranges
+text:
+Prova la nuova posizione: se uno degli angoli dello sprite finisce su una
+tile solida, non muoverti. x e y separati, così si scivola lungo i muri.
+code:
+local function solid(x, y)
+  local t = mget(x // 8, y // 8)
+  return t >= 32 and t < 64
+end
+
+local function free(x, y)            -- uno sprite 8x8
+  return not (solid(x, y) or solid(x + 7, y) or
+              solid(x, y + 7) or solid(x + 7, y + 7))
+end
+
+if free(px + dx, py) then px = px + dx end
+if free(px, py + dy) then py = py + dy end
+
+== bounce_walls
+kind: howto
+title: Una palla che rimbalza sui bordi
+ask: palla che rimbalza | rimbalzare sui bordi dello schermo | bouncing ball
+ask: rimbalzo | invertire la direzione sul muro | bounce
+ask: rimbalza sulle pareti | ball bounces off the walls
+keys: rimbalzare, rimbalzo, palla
+see: pong_ball
+text:
+Quando la palla supera un bordo, inverti la sua velocità su quell'asse.
+code:
+bx, by = bx + vx, by + vy
+if bx < r or bx > SCREEN_W - r then vx = -vx end
+if by < r or by > SCREEN_H - r then vy = -vy end
+circfill(bx, by, r, 0xFFFFFF)
+
+== pong_ball
+kind: howto
+title: Pallina e racchetta (come Pong o Arkanoid)
+ask: pallina che rimbalza sulla racchetta | pong | arkanoid | breakout | paddle
+ask: rimbalzo sulla racchetta con angolo
+keys: racchetta, pong, pallina
+see: bounce_walls, collide_rect
+text:
+Se la palla tocca la racchetta, torna su; l'angolo dipende da dove l'ha
+presa.
+code:
+if by + r >= pad.y and bx > pad.x and bx < pad.x + pad.w and vy > 0 then
+  vy = -vy
+  vx = (bx - (pad.x + pad.w / 2)) / (pad.w / 2) * 4
+  note(0, 660, 40, SQUARE, 90)
+end

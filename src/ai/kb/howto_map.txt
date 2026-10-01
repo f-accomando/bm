@@ -1,0 +1,124 @@
+# How-to: tile maps and scrolling.
+
+== map_scroll
+kind: howto
+title: Mappa grande che scorre con il giocatore
+ask: mappa più grande dello schermo | scorrimento della mappa | scrolling map
+ask: la telecamera segue il giocatore | livello che scorre | side scroller
+ask: disegnare solo la parte visibile della mappa
+ask: il livello scorre mentre cammino | far scorrere la mappa
+keys: scorrimento, scorre, scrolling
+see: camera, map, camera_smooth
+text:
+camera() sul giocatore e map() solo per le celle visibili (81x46 celle
+coprono lo schermo anche a metà cella).
+code:
+local cx = math.max(0, px - SCREEN_W // 2)
+local cy = math.max(0, py - SCREEN_H // 2)
+camera(cx, cy)
+map(cx // 8, cy // 8, cx // 8 * 8, cy // 8 * 8, 81, 46)
+spr(1, px, py)
+camera()
+
+== camera_smooth
+kind: howto
+title: Telecamera morbida che insegue
+ask: telecamera morbida | la camera segue con ritardo | smooth camera | lerp camera
+ask: scorrimento fluido | camera che scatta
+keys: morbida, fluido, lerp
+see: map_scroll
+text:
+Ogni fotogramma la camera fa un pezzo (qui il 10%) della strada verso il
+giocatore.
+code:
+camx = camx + (px - SCREEN_W / 2 - camx) * 0.1
+camy = camy + (py - SCREEN_H / 2 - camy) * 0.1
+camera(math.floor(camx), math.floor(camy))
+
+== pickup_tiles
+kind: howto
+title: Raccogliere oggetti dalla mappa (monete)
+ask: raccogliere le monete | prendere un oggetto dalla mappa | collect coins
+ask: togliere la moneta quando la tocco | oggetti da raccogliere | pickups
+keys: raccogliere, monete, coins
+see: mset, mget
+text:
+Guarda la cella sotto il centro del giocatore: se è una moneta, svuotala
+con mset e dai i punti.
+code:
+local cx, cy = (px + 4) // 8, (py + 4) // 8
+if mget(cx, cy) == 5 then              -- 5: la moneta nello sheet
+  mset(cx, cy, 0)
+  score = score + 10
+  note(0, 1320, 60, SQUARE, 90)
+end
+
+== tile_ranges
+kind: howto
+title: Tipi di tile con gli intervalli di numeri
+ask: quali tile sono solide | tipi di tile | muri e pavimento | tile types
+ask: tile che fanno male | acqua lava spine | proprietà delle tile
+keys: tipi, intervalli, solide
+see: collide_map
+text:
+Un'idea che semplifica: tieni le tile dello stesso tipo in un intervallo
+dello sheet (come in Hunter's Night): 32-63 muri, 64-79 pericoli...
+code:
+local function kind(t)
+  if t >= 32 and t < 64 then return "wall" end
+  if t >= 64 and t < 80 then return "danger" end
+  return "free"
+end
+if kind(mget(px // 8, py // 8)) == "danger" then lives = lives - 1 end
+
+== map_in_code
+kind: howto
+title: Scrivere un livello nel codice (con mset)
+ask: livello scritto nel codice | mappa da stringhe | creare la mappa senza csv
+ask: disegnare il livello con i caratteri | level from text
+keys: livello, stringhe, mset
+see: mset, map
+text:
+Ogni carattere è una tile: # muro (cella 32), o moneta (cella 5).
+code:
+local level = {
+  "##########",
+  "#o.....o.#",
+  "#..####..#",
+  "##########",
+}
+local tiles = { ["#"] = 32, o = 5 }
+for y, row in ipairs(level) do
+  for x = 1, #row do
+    mset(x - 1, y - 1, tiles[row:sub(x, x)] or 0)
+  end
+end
+
+== map_gen
+kind: howto
+title: Generare una mappa a caso (grotte)
+ask: generare una mappa casuale | livello procedurale | random cave | dungeon generato
+ask: mappa diversa ogni partita | generazione procedurale
+keys: generare, procedurale, casuale
+see: mset, map_in_code
+text:
+Riempi a caso, poi qualche passo di "automa cellulare": una cella diventa
+muro se intorno ci sono tanti muri. Viene una grotta.
+code:
+local W, H = 80, 45
+for y = 0, H - 1 do
+  for x = 0, W - 1 do
+    mset(x, y, math.random() < 0.45 and 32 or 0)
+  end
+end
+for step = 1, 4 do
+  for y = 1, H - 2 do
+    for x = 1, W - 2 do
+      local n = 0
+      for j = -1, 1 do for i = -1, 1 do
+        if mget(x + i, y + j) == 32 then n = n + 1 end
+      end end
+      mset(x, y, n >= 5 and 32 or 0)
+    end
+  end
+end

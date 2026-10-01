@@ -54,7 +54,7 @@ for _r, _c in ((range(0x80, 0x86), 'a'), ([0x87], 'c'), (range(0x88, 0x8C), 'e')
 _TO_437 = {'—': '-', '–': '-', '’': "'", '‘': "'", '“': '"',
            '”': '"', '…': '...', '×': 'x', '→': '->', '←': '<-',
            '↑': '^', '↓': 'v', '·': '.', '≤': '<=', '≥': '>=',
-           '≠': '~='}
+           '≠': '~=', 'È': "E'", 'À': "A'", 'Ì': "I'", 'Ò': "O'", 'Ù': "U'"}
 
 
 def to_cp437(s, where=''):
@@ -223,8 +223,8 @@ def parse_kb(paths):
         for fld in ('title', 'text', 'code'):
             to_cp437(getattr(e, fld), e.where)
         for ln in e.code.split('\n'):
-            if len(ln) > 74:
-                raise ValueError('%s: code line longer than 74 characters: %r' % (e.where, ln))
+            if len(ln) > 72:
+                raise ValueError('%s: code line longer than 72 characters (the panel): %r' % (e.where, ln))
     return entries
 
 

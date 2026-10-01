@@ -33,6 +33,7 @@ kind: sprite
 gen: robot
 title: Robot
 ask: crea un robot | disegna un androide | robot sprite | automa | mech | cyborg
+ask: robotico | nemico meccanico
 text: Testa con antenna e visore, corpo, braccia e gambe di metallo.
 
 == sprite.hero
@@ -73,6 +74,7 @@ kind: sprite
 gen: skull
 title: Teschio
 ask: crea un teschio | disegna un cranio | skull sprite | scheletro | pericolo morte
+ask: nemico scheletro | ossa
 text: Cranio, orbite, naso e denti.
 
 == sprite.coin
