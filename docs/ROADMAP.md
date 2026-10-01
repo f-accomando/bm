@@ -1004,12 +1004,15 @@ Sotto-milestone:
     codificatore di bm Studio, lo sheet al posto del vecchio in `bm_rewrite_with`),
     `cart_load(...).palette`.
   - **Test**: `test_bm` (packer SHEET8, sheet sostituito, zoom), bm Pixel sul PC con le API
-    sostituite (`tests/studio/pixel_host.lua`, 54 controlli), i suoi file riletti da bm
+    sostituite (`tests/studio/pixel_host.lua`, 55 controlli), i suoi file riletti da bm
     Studio (`check_pixel.js`) e dal kernel; QEMU `test_pixel` (Studio Village: solo i pixel
-    disegnati cambiano nel file).
+    disegnati cambiano nel file) e `test_pixel_big` (Titan Clash, sheet 2048×3448: si apre a
+    1/4, "saving ..." mentre scrive, cambia un pixel solo).
+  - Tasti come chip di bm-ui (`prompt()`, `lastinput()`), come nelle altre app di sviluppo.
   - **Da verificare sul Pi**: scheda Dev → *bm Pixel*, oppure Studio Village → X → *Open in
     bm Pixel*: disegnare con matita e linee, tavolozza (F3), sheet (F2), Ctrl+S, provare il
-    gioco (F5); fluidità del disegno e dell'animazione.
+    gioco (F5); fluidità del disegno e dell'animazione; quanto ci mette a salvare uno sheet
+    grande (Titan Clash: 13 s in QEMU).
   - Restano: tile e **mappe** (oggi nell'SDK, pagina mappa), livelli, tavolozze per
     sprite.
 - **22.3 Render 3D**: mesh low-poly (vertici, estrusione, colori e UV sullo sheet),

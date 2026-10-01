@@ -2385,7 +2385,24 @@ static uint8_t *sheet_section(lua_State *L, int pal, const bm_cart_t *old, uint3
     }
     uint8_t pal_rgba[256 * 4];
     int ncol = 0, waiting = set->n;             /* colours used with no entry yet */
-    for (int j = 0; j < npc; j++) {
+    int clear_at = -1, clr = -1;                /* the old palette's transparent entry keeps its place */
+    if (orig && old->sheet8 && old->sheet8_size >= 8) {
+        int on = old->sheet8[4] | old->sheet8[5] << 8;
+        for (int j = 0; j < on && 12 + (uint32_t)j * 4 <= old->sheet8_size; j++)
+            if (old->sheet8[8 + j * 4 + 3] < 128) {
+                clear_at = j;
+                break;
+            }
+        clr = clear_at >= 0 ? cs_find(set, SHEET_CLEAR, 0) : -1;
+    }
+    for (int j = 0; j <= npc; j++) {
+        if (clr >= 0 && set->slot[clr] < 0 && ncol == clear_at) {
+            memset(pal_rgba + ncol * 4, 0, 4);
+            set->slot[clr] = (int16_t)ncol++;
+            waiting--;
+        }
+        if (j == npc)
+            break;
         int at = cs_find(set, pc[j], 0);
         int takes = at >= 0 && set->slot[at] < 0;
         if (takes || ncol + waiting < 256) {

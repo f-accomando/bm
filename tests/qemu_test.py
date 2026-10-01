@@ -2931,6 +2931,89 @@ def test_pixel(b, opts):
         shutil.rmtree(tmp, ignore_errors=True)
 
 
+def test_pixel_big(b, opts):
+    """bm Pixel on the biggest sheet of the games, Titan Clash's (2048x3448,
+    SHEET8): it opens zoomed out, a pixel drawn and saved (a frame says
+    "saving" while the file is written); in the file only that pixel
+    changes and the rest stays byte for byte."""
+    tmp = tempfile.mkdtemp(prefix="bm-pixelbig-")
+    img = os.path.join(tmp, "sd.img")
+    mksd.build(img, [(b("carts/titan.bm"), "carts/titan.bm")])
+    with open(b("carts/titan.bm"), "rb") as f:
+        titan0 = f.read()
+    q = Qemu(b("kernel.img"), ["-drive", f"if=sd,format=raw,file={img}"])
+
+    def keys(*ks, gap=0.3):
+        for k in ks:
+            q.send(k)
+            time.sleep(gap)
+
+    def screen(want, tries=120):
+        for _ in range(tries):
+            _, text = settled_screen(q, lambda i, t: all(any(w in l for l in t) for w in want), tries=2)
+            if all(any(w in l for l in text) for w in want):
+                return "\n".join(text)
+            time.sleep(0.25)
+        raise AssertionError(f"not on the screen: {want}\n" + "\n".join(text))
+
+    def shot(name):
+        if opts.shots:
+            _save_png(q.screendump(), os.path.join(opts.shots, f"pixel-big-{name}.png"))
+
+    F1, F2, UP, ESC, SAVE = "\x1bOP", "\x1bOQ", "\x1b[A", "\x1b", "\x13"
+    try:
+        q.expect(MENU, timeout=30)
+        time.sleep(0.5)
+        screen(["Games", "Titan Clash"])
+        keys("x")
+        screen(["Open in bm Mesh"])
+        for _ in range(6):
+            keys("s")                           # down to Open in bm Pixel
+        screen(["Open in bm Pixel"])
+        keys("\r", gap=1.0)
+        screen(["COLOURS 165", "sheet 2048x3448, 165 colours (the file's palette)"])
+        keys(F2, gap=0.5)
+        screen(["sheet 2048x3448  zoom 1/4"])
+        shot("sheet")
+        keys(F1, gap=0.5)
+        screen(["COLOURS 165"])
+        keys("1", "b", " ")
+        screen(["/carts/titan.bm*"])
+        keys(SAVE, gap=0.1)
+        screen(["saving /carts/titan.bm ..."])
+        shot("saving")
+        screen(["saved /carts/titan.bm"])
+        keys(ESC, gap=0.6)
+        screen(["bm Pixel", "Exit bm Pixel"])
+        keys(UP, "\r")
+        screen(["Games", "last: bm Pixel on titan.bm"])
+    finally:
+        q.close()
+    try:
+        part = os.path.join(tmp, "part.img")
+        with open(img, "rb") as f, open(part, "wb") as o:
+            f.seek(2048 * 512)
+            o.write(f.read())
+        fsck = subprocess.run(["fsck.vfat", "-n", part], capture_output=True, text=True)
+        assert fsck.returncode == 0, fsck.stdout + fsck.stderr
+        env = dict(os.environ, MTOOLS_SKIP_CHECK="1")
+        saved = subprocess.run(["mtype", "-i", part, "::/CARTS/TITAN.BM"], capture_output=True, env=env).stdout
+        secs, secs0 = dict(bmmesh.cart_sections(saved)), dict(bmmesh.cart_sections(titan0))
+        assert sorted(secs) == sorted(secs0), (sorted(secs), sorted(secs0))
+        for t in secs0:
+            if t != 5:
+                assert secs[t] == secs0[t], f"section {t} changed"
+        w, h, px, pal = _sheet_pixels(saved)
+        w0, h0, px0, pal0 = _sheet_pixels(titan0)
+        assert (w, h) == (2048, 3448) == (w0, h0), (w, h)
+        assert pal == pal0, "the palette as it was"
+        changed = [i for i in range(w * h) if px[i] != px0[i]]
+        first = next(c for c in pal0 if c is not None)
+        assert changed == [0] and px[0] == first, [(i % w, i // w, px0[i], px[i]) for i in changed[:5]]
+    finally:
+        shutil.rmtree(tmp, ignore_errors=True)
+
+
 def test_kitchen(b, opts):
     """M17: Chaos Kitchen boots, goes from the title through the lobby into a
     campaign kitchen and into the endless kitchen, plays with serial keys

@@ -204,10 +204,13 @@ local function sheet_section(palette, old)
   for _, c in ipairs(palette or {}) do assert(math.type(c) == "integer" and c >= 0 and c <= 0xFFFFFF, "palette: " .. tostring(c)) end
   local rgb = {}                          -- RGB565 -> 24 bits, for the pixels drawn
   for _, c in ipairs(palette or {}) do if not rgb[q565(c)] then rgb[q565(c)] = c end end
-  local ow, oh, opx = 0, 0, {}
+  local ow, oh, opx, clear_at = 0, 0, {}, nil
   if old then
-    local w0, h0, p0 = decode_sheet(old)
+    local w0, h0, p0, pal0, nc0 = decode_sheet(old)
     if w0 then ow, oh, opx = w0, h0, p0 end
+    for i = 0, (pal0 and nc0 or 0) - 1 do      -- its transparent entry keeps its place
+      if not pal0[i] then clear_at = i; break end
+    end
     for i = 0, ow * oh - 1 do local c = opx[i]; if c and not rgb[q565(c)] then rgb[q565(c)] = c end end
   end
   local w, h = sheet.w, sheet.h
@@ -229,13 +232,20 @@ local function sheet_section(palette, old)
     return 2, table.concat(t)
   end
   local entries, slot, waiting = {}, {}, nused
+  local function clear_here()
+    if used[-1] and not slot[-1] and #entries == clear_at then
+      slot[-1] = #entries; entries[#entries + 1] = -1; waiting = waiting - 1
+    end
+  end
   for _, c in ipairs(palette or {}) do
+    clear_here()
     local takes = used[c] and not slot[c]
     if takes or #entries + waiting < 256 then
       if takes then slot[c] = #entries; waiting = waiting - 1 end
       entries[#entries + 1] = c
     end
   end
+  clear_here()
   local idx = {}
   for i = 0, w * h - 1 do
     local c = fin[i]
@@ -326,7 +336,7 @@ local function key(...)
     keyq[#keyq + 1] = k
     frames(1)
   end
-  frames(1)
+  frames(5)                             -- a save waits for frames that say so
 end
 
 local function sees(s) return screen():find(s, 1, true) ~= nil end
@@ -508,8 +518,11 @@ local w0, h0 = E.cart_sheet()
 type_text(w0 .. "x" .. (h0 + 64))
 check(select(2, E.cart_sheet()) == h0 + 64, "the sheet is 64 pixels taller")
 
--- save: only the sheet changes in the file
-key("^s")
+-- save: only the sheet changes in the file; first a frame that says so
+keyq[#keyq + 1] = "^s"
+frames(1)
+check(sees("saving /carts/village.bm ..."), "Ctrl+S: saving first")
+key()
 check(status():find("saved /carts/village.bm", 1, true), "Ctrl+S: " .. status())
 local v1 = file("village.bm")
 for _, t in ipairs({ 1, 4, 8, 9 }) do

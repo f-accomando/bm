@@ -89,6 +89,7 @@ local clip_b = nil                   -- the clipboard: {w, h, px}
 local pick, input, help = nil, nil, false
 local confirm_t, confirm_what = 0, nil
 local files_seen = {}                -- per file: sprite, size, animation (save())
+local busy = nil                     -- {text, fn, wait}: a save, after a frame that says so
 
 local function say(s, c, t) msg, msg_c, msg_t = s, c or C_TEXT, t or 200 end
 local function pal() return proj.palette end
@@ -233,20 +234,25 @@ local function new_sheet()
   say("a new 256x256 sheet: Esc > Save as gives it a name", C_ACC)
 end
 
-local function save_to(path, from)
-  if not path then say("no name yet: Esc > Save as", C_ERR); return false end
+-- A big sheet takes seconds to write: the save waits for a frame that
+-- says "saving", then `after` runs if it went well.
+local function save_to(path, from, after)
+  if not path then say("no name yet: Esc > Save as", C_ERR); return end
   local t = { sheet = true, palette = pal(), from = from }
   if not proj.path then
     t.lua = VIEWER
     t.title = path:match("([^/]+)%.[^.]*$") or "sprites"
   end
-  local ok, e = cart_write(path, t)
-  if not ok then say("save failed: " .. tostring(e), C_ERR); return false end
-  proj.path = path
-  dirty = false
-  remember()
-  say("saved " .. path, C_ACC)
-  return true
+  -- (wait: the box drawn on 4 frames, one per page of the screen and more)
+  busy = { text = "saving " .. path .. " ...", wait = 3, fn = function()
+    local ok, e = cart_write(path, t)
+    if not ok then say("save failed: " .. tostring(e), C_ERR); return end
+    proj.path = path
+    dirty = false
+    remember()
+    say("saved " .. path, C_ACC)
+    if after then after() end
+  end }
 end
 
 ----------------------------------------------------------------- input
@@ -1314,7 +1320,7 @@ local function save_as()
     if t == "" then return end
     if not t:upper():match("%.BM$") then t = t .. ".BM" end
     local to = short_path("/carts/" .. t)
-    if save_to(to, proj.path) then go(last_page) end
+    save_to(to, proj.path, function() go(last_page) end)
   end)
 end
 
@@ -1324,9 +1330,8 @@ end
 
 local function try_game()
   if not proj.path then say("give it a name first: Esc > Save as", C_ERR); return end
-  if dirty and not save_to(proj.path) then return end
-  remember()
-  cart_run(proj.path)
+  local function run() remember(); cart_run(proj.path) end
+  if dirty then save_to(proj.path, nil, run) else run() end
 end
 
 local MENU = {
@@ -1466,6 +1471,16 @@ local PAGES = { "draw", "sheet", "palette", "menu" }
 
 function _update()
   frame = frame + 1
+  if busy then                          -- nothing else until the save is done
+    if busy.wait > 0 then busy.wait = busy.wait - 1
+    else
+      local fn = busy.fn
+      busy = nil
+      fn()
+      last_t = time()
+    end
+    return
+  end
   if msg_t > 0 then msg_t = msg_t - 1 end
   if confirm_t > 0 then confirm_t = confirm_t - 1 end
   local now = time()
@@ -1548,4 +1563,11 @@ function _draw()
   if pick then draw_pick() end
   if input then draw_input() end
   if keyheld("f12") or help then draw_keys() end
+  if busy then                           -- the text on the columns and rows of the font
+    local w = #busy.text * 8 + 32
+    local x = (W - w) // 16 * 8
+    rectfill(x, 160, w, 48, C_BAR)
+    rect(x, 160, w, 48, C_ACC)
+    print(busy.text, x + 16, 176, C_ACC)
+  end
 end

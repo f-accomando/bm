@@ -386,7 +386,9 @@ file con il nome lungo lo tiene). Lo sheet diventa una sezione **SHEET8** quando
 tavolozza, e la leggono anche l'SDK, bm Studio, lo studio 3D, `mkbm.py` e i giochi. La
 console tiene 16 bit per pixel (RGB565): un pixel che non è stato ridisegnato tiene i 24 bit
 che aveva nel file (quelli di bm Studio sul PC), uno ridisegnato prende quelli del colore
-della tavolozza.
+della tavolozza. Anche gli sheet grandi si aprono (quello di Titan Clash, 2048×3448, parte
+rimpicciolito a 1/4); scriverli richiede qualche secondo, e intanto lo schermo dice
+"saving ...".
 
 ## Test
 
@@ -432,7 +434,8 @@ scheletri intatti) e dal kernel (`test_meshcap`); `test_bm` prova il packer SHEE
 (le stesse sequenze del codificatore di bm Studio), lo sheet al posto del vecchio in
 `bm_rewrite_with` e lo `sspr` ingrandito. In QEMU, `test_pixel` apre Studio Village dalle
 opzioni, disegna e salva: nel file cambiano solo i pixel disegnati, gli altri restano
-identici byte per byte.
+identici byte per byte; `test_pixel_big` fa lo stesso con lo sheet di Titan Clash
+(2048×3448): cambia un pixel solo e la tavolozza resta quella.
 
 ## Struttura
 
