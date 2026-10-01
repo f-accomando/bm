@@ -2285,11 +2285,13 @@ def test_sd_sdhc_and_usb_menu(b, opts):
         img_, text = settled_screen(q, lambda i, t: tabs_lit(i) == ["Games"])
         assert tabs_lit(img_) == ["Games"], "\n".join(text)
         sendkeys(q, "c")                      # C is the X button: the options (M27)
-        _, text = settled_screen(q, lambda i, t: any("Author" in l for l in t))
-        assert any("Author" in l for l in text) and any("Play" in l for l in text), "\n".join(text)
+        # (with five tools the info rows, Author..., are below: the panel scrolls)
+        opts_row = "Open in bm Mesh"
+        _, text = settled_screen(q, lambda i, t: any(opts_row in l for l in t))
+        assert any(opts_row in l for l in text) and any("Play" in l for l in text), "\n".join(text)
         sendkeys(q, "x")                      # X is the B button: back
-        _, text = settled_screen(q, lambda i, t: not any("Author" in l for l in t))
-        assert not any("Author" in l for l in text), "\n".join(text)
+        _, text = settled_screen(q, lambda i, t: not any(opts_row in l for l in t))
+        assert not any(opts_row in l for l in text), "\n".join(text)
         sendkeys(q, "ret")
         q.expect("playing game.bm", timeout=10)
         time.sleep(1.5)
