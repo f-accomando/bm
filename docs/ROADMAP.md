@@ -1310,6 +1310,10 @@ della scheda Dev; Settings > System > Restart; le icone della barra (DS4 blu, ta
 bianca, tastiera Bluetooth blu, WiFi); la barra di scorrimento; L1 / R1 e Settings che si
 apre da sola; PS nel menu e nel monitor. I task 5–9 non sono stati fatti (milestone chiusa).
 
+Dopo la chiusura (decisione 2026-10-01): dal menu al monitor si va con **Ctrl+Esc** (o
+Start+Select, `q` dalla seriale), non più con Esc: Esc da solo torna indietro come B (anche
+dalla seriale e dalla console di rete). Nei giochi Esc esce come prima.
+
 Dopo la chiusura (decisione 2026-09-30): **bm native demo** e **bm stress test** non sono più
 nella scheda Games. Non vanno più sulla SD (`make sdcard` e `make image` mettono solo i giochi;
 `make install` toglie `carts/demo.bm` e `carts/stress.bm` dalla scheda) e il menu non mostra più

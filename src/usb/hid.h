@@ -94,9 +94,12 @@ int hid_keys_held(uint8_t *out, int max);
 #define HID_KEY_F1      0xF9            /* .. F5 = 0xFD */
 #define HID_KEY_F6      0xE6            /* .. F12 = 0xEC (code page 437 Greek: never typed) */
 /* Once per press, then cleared: HID_QUIT_KEY for Esc or Start+Select,
- * HID_QUIT_PS for the PS / Xbox Guide button (home: never the monitor). */
-#define HID_QUIT_KEY 1
-#define HID_QUIT_PS  2
+ * HID_QUIT_PS for the PS / Xbox Guide button (home: never the monitor).
+ * Ctrl+Esc and Start+Select add HID_QUIT_MONITOR: from the menu, they go
+ * to the monitor; Esc alone goes back there, like B. */
+#define HID_QUIT_KEY     1
+#define HID_QUIT_PS      2
+#define HID_QUIT_MONITOR 4
 int      hid_quit_pressed(void);
 
 /* "it" (default) or "us" */

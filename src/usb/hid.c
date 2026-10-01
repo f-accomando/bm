@@ -236,7 +236,8 @@ static void keyboard_boot(int k, const uint8_t *r)
         if (was) continue;
         /* new key */
         if (u == 0x29) {                                            /* Esc */
-            if (!text_mode) quit_edge |= HID_QUIT_KEY;
+            if (!text_mode)                     /* with Ctrl: the monitor, from the menu */
+                quit_edge |= HID_QUIT_KEY | (mods & 0x11 ? HID_QUIT_MONITOR : 0);
             push(0x1B);
             continue;
         }
@@ -515,7 +516,7 @@ void hid_bt_report(int slot, const uint8_t *r, uint32_t len)
         quit_edge |= HID_QUIT_PS;
     if ((b & (HID_START | HID_SELECT)) == (HID_START | HID_SELECT) &&
         (bt_buttons[slot] & (HID_START | HID_SELECT)) != (HID_START | HID_SELECT))
-        quit_edge |= HID_QUIT_KEY;
+        quit_edge |= HID_QUIT_KEY | HID_QUIT_MONITOR;
     bt_ps_held[slot] = ps;
     bt_buttons[slot] = b;
     bt_latched[slot] |= b;
@@ -785,7 +786,7 @@ static void gamepad_report(const uint8_t *r, uint32_t len)
     }
     if ((b & (HID_START | HID_SELECT)) == (HID_START | HID_SELECT) &&
         (pad_buttons & (HID_START | HID_SELECT)) != (HID_START | HID_SELECT))
-        quit_edge |= HID_QUIT_KEY;
+        quit_edge |= HID_QUIT_KEY | HID_QUIT_MONITOR;
     pad_buttons = b;
     latched_pad |= b;
 }
