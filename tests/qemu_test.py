@@ -512,6 +512,26 @@ def bar_icons(img):
     return runs
 
 
+def wait_screen(q, cond, timeout=6.0):
+    """A screendump once cond(shot) holds (or the last one at the timeout):
+    after a new selection the menu blurs a cover for its background, slow
+    in QEMU on a busy PC, so a fixed sleep is not enough."""
+    deadline = time.time() + timeout
+    while True:
+        shot_ = q.screendump()
+        if cond(shot_):
+            return shot_
+        if time.time() > deadline:
+            print("    wait_screen: still not there after %.0f s" % timeout)
+            return shot_
+        time.sleep(0.2)
+
+
+def title_is(t):
+    """cond for wait_screen: the menu's title pill shows t."""
+    return lambda shot_: t in screen_text(shot_)[4]
+
+
 def wait_icons(q, n, timeout=6.0):
     """A screendump of the menu once it is drawn (the tabs) and its bar has
     n status icons: the first frame of the menu comes 0.5-1 s after
@@ -2072,25 +2092,23 @@ def test_bt_mouse(b, opts):
         # to the top left corner, then over the covers: 1.2 pixels per count
         # when moving fast
         chip.move(-2000, -2000)
-        time.sleep(0.3)
+        assert arrow_at(wait_screen(q, lambda s_: arrow_at(s_, 0, 0)), 0, 0), "not in the corner"
         chip.move(100, 100)                              # (120, 120): Pong
-        time.sleep(0.4)
-        shot_ = q.screendump()
+        shot_ = wait_screen(q, lambda s_: arrow_at(s_, 120, 120) and title_is("Pong")(s_))
         assert arrow_at(shot_, 120, 120) and "Pong" in screen_text(shot_)[4], screen_text(shot_)[4]
         chip.move(120, 0)                                # (264, 120): Snake
-        time.sleep(0.4)
-        assert "Snake" in screen_text(q.screendump())[4]
+        assert "Snake" in screen_text(wait_screen(q, title_is("Snake")))[4]
         # Settings > Controllers: the mouse is there
         q.mini.write(b"3")
-        time.sleep(0.5)
+        wait_screen(q, lambda s_: "Controllers" in "".join(screen_text(s_)))
         q.mini.write(b"\r")
-        time.sleep(0.8)
-        text = "\n".join(screen_text(q.screendump()))
+        text = "\n".join(screen_text(wait_screen(q, lambda s_: "Bluetooth on" in "".join(screen_text(s_)))))
         assert re.search(r"Mouse +Bluetooth on", text), text
         q.mini.write(b"\x1b")                             # back to Settings, to Games
         time.sleep(0.5)
         q.mini.write(b"1")
-        time.sleep(0.5)
+        shot_ = wait_screen(q, lambda s_: title_is("Snake")(s_) and arrow_at(s_, 264, 120))
+        assert arrow_at(shot_, 264, 120), "the arrow is not on Snake"
         chip.move(0, 0, buttons=1)                      # a click on Snake
         time.sleep(0.1)
         chip.move(0, 0, buttons=0)
@@ -2105,10 +2123,9 @@ def test_bt_mouse(b, opts):
         _mini_expect(q, "mouse MX Master 3S connected")
         time.sleep(0.5)
         chip.move(-2000, -2000)
-        time.sleep(0.3)
+        wait_screen(q, lambda s_: arrow_at(s_, 0, 0))
         chip.move(100, 100)
-        time.sleep(0.4)
-        shot_ = q.screendump()
+        shot_ = wait_screen(q, lambda s_: arrow_at(s_, 120, 120) and title_is("Pong")(s_))
         assert arrow_at(shot_, 120, 120) and "Pong" in screen_text(shot_)[4], screen_text(shot_)[4]
     finally:
         q.close()
@@ -2214,9 +2231,9 @@ def test_bt_mouse_classic(b, opts):
         for _ in range(3):                              # to the corner (8-bit motion)
             chip.move(-127, -127)
             time.sleep(0.2)
+        wait_screen(q, lambda s_: arrow_at(s_, 0, 0))
         chip.move(100, 100)                             # (120, 120): Pong
-        time.sleep(0.4)
-        shot_ = q.screendump()
+        shot_ = wait_screen(q, lambda s_: arrow_at(s_, 120, 120) and title_is("Pong")(s_))
         assert arrow_at(shot_, 120, 120) and "Pong" in screen_text(shot_)[4], screen_text(shot_)[4]
         chip.move(buttons=1)
         time.sleep(0.1)
@@ -2860,49 +2877,38 @@ def test_usb_mouse(b, opts):
         # over a cover: it is selected, its title shown
         x, y = cover_xy(2)
         q.pointer(x, y)
-        time.sleep(0.4)
-        shot_ = q.screendump()
+        shot_ = wait_screen(q, lambda s_: arrow_at(s_, x, y) and title_is(MOUSE_TITLES[2])(s_))
         assert arrow_at(shot_, x, y), "the arrow did not follow"
         assert MOUSE_TITLES[2] in screen_text(shot_)[4], screen_text(shot_)[4]
         # the wheel: a row down (the last cover of the shorter row)
         q.click("wheel-down")
-        time.sleep(0.4)
-        assert MOUSE_TITLES[4] in screen_text(q.screendump())[4]
+        assert MOUSE_TITLES[4] in screen_text(wait_screen(q, title_is(MOUSE_TITLES[4])))[4]
         # the keys move the selection: the arrow goes away until it moves
         sendkeys(q, "left")
-        time.sleep(0.4)
-        shot_ = q.screendump()
+        shot_ = wait_screen(q, lambda s_: not arrow_at(s_, x, y) and title_is(MOUSE_TITLES[3])(s_))
         assert not arrow_at(shot_, x, y), "the arrow stayed with the keys"
         assert MOUSE_TITLES[3] in screen_text(shot_)[4], screen_text(shot_)[4]
+
+        def click_at(px, py, button="left"):        # once the arrow is there
+            q.pointer(px, py)
+            assert arrow_at(wait_screen(q, lambda s_: arrow_at(s_, px, py)), px, py), (px, py)
+            q.click(button)
         # a click on Dev changes the tab, on Games back
-        q.pointer(108, 24)
-        time.sleep(0.3)
-        q.click()
-        time.sleep(0.5)
-        assert "bm SDK" in screen_text(q.screendump())[4]
-        q.pointer(44, 24)
-        time.sleep(0.3)
-        q.click()
-        time.sleep(0.5)
+        click_at(108, 24)
+        assert "bm SDK" in screen_text(wait_screen(q, title_is("bm SDK")))[4]
+        click_at(44, 24)
+        wait_screen(q, title_is(MOUSE_TITLES[3]))
         # the right button on a cover: its options; a click outside closes them
         x, y = cover_xy(1)
-        q.pointer(x, y)
-        time.sleep(0.3)
-        q.click("right")
-        time.sleep(0.5)
-        text = "\n".join(screen_text(q.screendump()))
+        click_at(x, y, "right")
+        text = "\n".join(screen_text(wait_screen(q, lambda s_: "Open in the SDK" in "".join(screen_text(s_)))))
         assert "Play" in text and "Open in the SDK" in text, text
-        q.pointer(30, 200)
-        time.sleep(0.3)
-        q.click()
-        time.sleep(0.5)
-        text = "\n".join(screen_text(q.screendump()))
+        click_at(30, 200)
+        text = "\n".join(screen_text(wait_screen(
+            q, lambda s_: "Open in the SDK" not in "".join(screen_text(s_)))))
         assert "Open in the SDK" not in text and MOUSE_TITLES[1] in text, text
         # a click on a cover plays it
-        x, y = cover_xy(0)
-        q.pointer(x, y)
-        time.sleep(0.3)
-        q.click()
+        click_at(*cover_xy(0))
         q.expect("playing astrowing.bm", timeout=10)
         time.sleep(1.0)
         q.send("q")
