@@ -912,8 +912,10 @@ def test_home_ui(b, opts):
         keys("\r")                              # A changes it too: back as it was
         screen([f"< {before} >"])
         keys("s")
-        keys("s")
-        screen(["< ARM (no GPU) >"])            # 3D of the games: QEMU has no V3D
+        keys("\r")                              # Graphics
+        screen(["Settings > Graphics", "Game drawing (.bm)", "3D of the games", "ARM (no GPU)",
+                "3D anti-aliasing", "Off"])     # QEMU has no V3D; no anti-aliasing unless asked
+        keys("q")
         keys("s")
         keys("\r")
         screen(["Settings > System", "Version", "Board", "SD card", "FAT32"])
@@ -921,7 +923,7 @@ def test_home_ui(b, opts):
         keys("w")                               # the list scrolls to its last rows
         screen(["Restart", "Open the monitor"])
         keys("q")
-        keys("wwwww")                           # System -> Controllers
+        keys("wwww")                            # System -> Controllers
         keys("\r")
         screen(["Settings > Controllers", "Player 1", "keyboard / USB", "Bluetooth keyboard",
                 "Pair a new controller"])

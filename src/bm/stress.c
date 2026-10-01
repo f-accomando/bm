@@ -29,7 +29,7 @@ typedef struct {
     void (*setup)(void);
     void (*frame)(int n, int f);    /* draws one frame with n items */
     void (*teardown)(void);
-    int gpu;                        /* the 3D drawn by the GPU (gpu3d), not the ARM */
+    int gpu;                        /* the 3D drawn by the GPU (gpu3d): 1, 2 with MSAA 4x */
 } test_t;
 
 static g16_t g;
@@ -93,9 +93,18 @@ static void sphere_teardown(void)
 }
 
 /* n spheres of 96 triangles on a grid in front of the camera */
-static void spheres3d(int n, int f)
+/* a page cleared to one colour: with the GPU, its job starts from that
+ * colour instead of loading the page, as in a game after cls() */
+static void cls3d(void)
 {
     g16_cls(&g, g16_rgb(10, 10, 30));
+    if (r3d.backend)
+        gpu3d_page(1, g16_rgb(10, 10, 30));
+}
+
+static void spheres3d(int n, int f)
+{
+    cls3d();
     r3d_zclear(&r3d);
     r3d.g = &g;
     r3d_camera(&r3d, 0, 0, -8, 0, 0, 60);
@@ -194,7 +203,7 @@ static void quad_teardown(void)
 static void quads(int n, int f)
 {
     (void)f;
-    g16_cls(&g, g16_rgb(10, 10, 30));
+    cls3d();
     r3d_zclear(&r3d);
     r3d_camera(&r3d, 0, 0, 0, 0, 0, 60);
     r3d_light(&r3d, 0.3f, 0.4f, -1, 0.3f);
@@ -229,6 +238,9 @@ static const test_t tests[] = {
     { "GPU quad flat", "q",         1,  2000, quad_flat,    quads,     quad_teardown, 1 },
     { "GPU quad Gouraud", "q",      1,  2000, quad_smooth,  quads,     quad_teardown, 1 },
     { "GPU quad texture", "q",      1,  2000, quad_tex,     quads,     quad_teardown, 1 },
+    /* anti-aliasing (MSAA 4x), where the GPU can */
+    { "GPU spheres AA 4x", "obj",   1,  8000, sphere_setup, spheres3d, sphere_teardown, 2 },
+    { "GPU quad AA 4x", "q",        1,  2000, quad_flat,    quads,     quad_teardown, 2 },
 };
 #define NTESTS (int)(sizeof tests / sizeof *tests)
 
@@ -379,8 +391,16 @@ void bm_stress_run(framebuffer_t *fb)
             continue;
         }
         if (T->setup) T->setup();
-        if (T->gpu)
+        if (T->gpu) {
             r3d.backend = gpu3d_backend();
+            gpu3d_drop();                   /* each row from a clean state */
+            gpu3d_set_msaa(T->gpu == 2);
+        }
+        if (T->gpu == 2 && !gpu3d_msaa()) {
+            if (T->teardown) T->teardown();
+            skip[t] = 3;                    /* no MSAA on this GPU */
+            continue;
+        }
         uart_puts("\n");
         uart_puts(T->name);
         uart_puts(":\n");
@@ -418,6 +438,8 @@ void bm_stress_run(framebuffer_t *fb)
         per_item[t] = count > 1 ? (samples[count - 1].ms - samples[0].ms) * 1000.0f /
                                   (samples[count - 1].n - samples[0].n) : 0;
     }
+    if (gpu)
+        gpu3d_set_msaa(0);
     bm_video_leave(fb, con_w, con_h);
     machine_line("after C part");
 
@@ -428,6 +450,10 @@ void bm_stress_run(framebuffer_t *fb)
         kprintf("%-24s", tests[t].name);
         if (skip[t] == 2) {
             kprintf("  the GPU failed: %s\n", gpu3d_status());
+            continue;
+        }
+        if (skip[t] == 3) {
+            kprintf("  no MSAA on this GPU\n");
             continue;
         }
         print_threshold(results[t][0], &tests[t]);

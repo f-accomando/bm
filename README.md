@@ -28,8 +28,8 @@ Avviare un altro gioco chiede prima di chiudere quello sospeso.
 **X** su una copertina apre le sue opzioni (riprendi, chiudi, apri nell'SDK, informazioni,
 cancella il salvataggio, elimina dalla SD); la scheda **Dev** ha l'SDK e gli strumenti del
 monitor (Lua, sistema, registro, test, benchmark); **Settings**, l'ultima scheda, apre
-subito il suo pannello: controller, WiFi, layout della tastiera, disegno dei giochi e
-sistema (M27, BareMetal UI). Tutto si usa col solo controller. Nel menu **PS** torna a
+subito il suo pannello: controller, WiFi, layout della tastiera, grafica (disegno dei
+giochi, chi disegna il 3D, anti-aliasing) e sistema (M27, BareMetal UI). Tutto si usa col solo controller. Nel menu **PS** torna a
 Games e chiude i pannelli; nel monitor apre il menu.
 Per scrivere un gioco: [docs/GUIDA-GIOCHI.md](docs/GUIDA-GIOCHI.md) (guida pratica) e
 [docs/API.md](docs/API.md) (riferimento).
@@ -76,6 +76,7 @@ Risoluzioni di menu, console e giochi, e quanto costano: [docs/RISOLUZIONI.md](d
 | **M28** | Tastiera Bluetooth LE (MX Keys S): pairing con codice, HID over GATT, riconnessione | ✅ verificato sul Pi |
 | **M29** | **Pi 1 B**: stesso kernel, hub USB (split transactions), Ethernet LAN9512, immagine `bm-pi1.img` | ✅ verificato sul Pi 1 B |
 | **M30** | **GPU e 3D più veloce**: driver V3D nostro sotto `draw3d`, rasterizzatore ARM 2×, modo 480×270, Texture Room a 640×360 e 60 fps | ✅ verificato sul Pi |
+| M31 | **GPU 2**: anti-aliasing MSAA 4×, texture in T-format, pagina pulita senza load, meno lavoro per triangolo sull'ARM | in corso (passi 1–3 da provare sul Pi) |
 
 ## Cosa fa il kernel
 
@@ -118,7 +119,7 @@ con **`b`**.
 | `Y` | input: test USB dal vivo (contatori ok/nak/err e ultimo report), poi per 10 s i tasti tenuti da ogni giocatore (P1–P4; `*` = tastiera/seriale) |
 | `L` | layout tastiera: italiano ↔ US |
 | `D` | test del DMA passo per passo (copie e riempimenti, tempi CPU contro DMA) |
-| `g` | test della GPU 3D (V3D) passo per passo: accensione, un triangolo, z-buffer, velocità, un'immagine disegnata dalla GPU, poi la stessa scena 3D da ARM e GPU affiancate con i tempi e una scena 3D-2D-3D (z-buffer conservato) (M30; anche "GPU test" nella scheda Dev) |
+| `g` | test della GPU 3D (V3D) passo per passo: accensione, un triangolo, z-buffer, velocità, un'immagine disegnata dalla GPU, poi la stessa scena 3D da ARM e GPU affiancate con i tempi, una scena 3D-2D-3D (z-buffer conservato), texture in ordine di riga e a tile, la scena senza e con MSAA 4× (M30, M31; anche "GPU test" nella scheda Dev) |
 | `R` | **Texture Room**, benchmark 3D: la stanza con le casse raddoppiate da 8 finché tiene 30 fps, a 320×180 e poi a 640×360, con l'ARM e poi con la GPU; una riga per passo (triangoli, ms, fps) e il riepilogo delle casse a 60 e a 30 fps (M30; anche "Texture Room" nella scheda Dev) |
 | `e` | **editor** dei giochi `.bm` (codice, sprite, mappa; è anche l'ultimo elemento del menu) |
 | `a` | audio: stato dell'uscita HDMI (clock, canale DMA, costo della sintesi) e una melodia di prova con le quattro forme d'onda |
@@ -195,9 +196,10 @@ aggiungere un gioco basta copiarlo in `carts/` sulla SD dal PC.
 `bm/config.txt` (layout della tastiera, modo di disegno; si può modificare anche dal
 PC) e `bm/save/*.SAV` (salvataggi e record delle cartucce: `save()`/`saved()`).
 In `bm/config.txt`, `dma_zclear=0` fa pulire lo z-buffer dalla CPU invece che dal DMA
-(M30; da usare solo se un gioco 3D si blocca), e `gpu3d=0` fa disegnare il 3D dei
-giochi all'ARM invece che alla GPU (M30: *Impostazioni > 3D of the games*; se la GPU
-non risponde si torna all'ARM da soli).
+(M30; da usare solo se un gioco 3D si blocca), `gpu3d=0` fa disegnare il 3D dei
+giochi all'ARM invece che alla GPU (M30: *Impostazioni > Graphics > 3D of the games*; se
+la GPU non risponde si torna all'ARM da soli) e `gpu3d_aa=1` accende l'anti-aliasing
+MSAA 4× del 3D sulla GPU (M31: *Impostazioni > Graphics > 3D anti-aliasing*).
 
 Limiti attuali: un solo dispositivo USB, senza hub; niente
 Bluetooth (il chip BCM43438 usa la stessa UART della console seriale e richiede

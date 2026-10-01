@@ -259,7 +259,7 @@ void home_tool_start(int i, home_do_t *d)
 /* ---------------------------------------------------------------- settings */
 
 enum {
-    R_CONTROLLERS = 1, R_WIFI, R_LAYOUT, R_DRAW, R_GPU3D, R_SYSTEM,
+    R_CONTROLLERS = 1, R_WIFI, R_LAYOUT, R_GRAPHICS, R_DRAW, R_GPU3D, R_AA, R_SYSTEM,
     R_PAD1, R_PAD2, R_PAD3, R_PAD4, R_KEYBOARD, R_PAIR, R_PAIR_KBD, R_TEST, R_FORGET,
     R_NETWORK, R_STATE, R_IP, R_TIME, R_CONSOLE, R_PASSWORD, R_CONNECT, R_BOOT,
     R_VERSION, R_BOARD, R_UPTIME, R_MEMORY, R_CLOCKS, R_SD, R_RESTART, R_MONITOR,
@@ -287,6 +287,22 @@ static int gpu3d_on(void)
 {
     const char *on = config_get("gpu3d");
     return !(on && strcmp(on, "0") == 0);
+}
+
+/* gpu3d_aa=1: the GPU smooths the edges of the 3D (MSAA 4x) */
+static int aa_on(void)
+{
+    const char *on = config_get("gpu3d_aa");
+    return on && strcmp(on, "1") == 0;
+}
+
+static const char *aa_choice(void)
+{
+    if (!aa_on())
+        return "Off";
+    if (gpu3d_ready() && !gpu3d_msaa())
+        return "4x: not on this GPU";
+    return "4x (MSAA)";
 }
 
 static const char *gpu3d_choice(void)
@@ -320,15 +336,23 @@ void home_panel(int id, home_panel_t *p)
         home_row(p, MENU_ROW_CHOICE, R_LAYOUT, "Keyboard layout",
                  "Layout of the USB keyboard", "%s",
                  hid_layout()[0] == 'i' ? "Italian" : "US");
+        home_row(p, MENU_ROW_SUB, R_GRAPHICS, "Graphics",
+                 "Game drawing, 3D on the GPU, anti-aliasing", "%s%s", gpu3d_choice(),
+                 strcmp(gpu3d_choice(), "GPU") == 0 && aa_on() ? ", AA 4x" : "");
+        home_row(p, MENU_ROW_SUB, R_SYSTEM, "System",
+                 "Version, memory, SD card, restart", "%s", bm_version);
+        break;
+    }
+    case HOME_GRAPHICS:
+        ksnprintf(p->title, sizeof p->title, "Settings > Graphics");
         home_row(p, MENU_ROW_CHOICE, R_DRAW, "Game drawing (.bm)",
                  "Direct on screen, or via RAM (compare: Render bench)", "%s",
                  bm_via_ram() ? "Via RAM" : "Direct");
         home_row(p, MENU_ROW_CHOICE, R_GPU3D, "3D of the games",
                  "Drawn by the GPU (V3D), or by the ARM", "%s", gpu3d_choice());
-        home_row(p, MENU_ROW_SUB, R_SYSTEM, "System",
-                 "Version, memory, SD card, restart", "%s", bm_version);
+        home_row(p, MENU_ROW_CHOICE, R_AA, "3D anti-aliasing",
+                 "Smooth edges of the GPU's 3D (try Dev > GPU test)", "%s", aa_choice());
         break;
-    }
     case HOME_CONTROLLERS: {
         ksnprintf(p->title, sizeof p->title, "Settings > Controllers");
         int local = input_local_player(), ble = input_ble_player();
@@ -467,6 +491,7 @@ void home_act(int id, int row, int how, home_do_t *d)
     case R_CONTROLLERS: d->what = HOME_OPEN; d->panel = HOME_CONTROLLERS; break;
     case R_WIFI: d->what = HOME_OPEN; d->panel = HOME_WIFI; break;
     case R_SYSTEM: d->what = HOME_OPEN; d->panel = HOME_SYSTEM; break;
+    case R_GRAPHICS: d->what = HOME_OPEN; d->panel = HOME_GRAPHICS; break;
     case R_LAYOUT:
         hid_set_layout(hid_layout()[0] == 'i' ? "us" : "it");
         config_save();
@@ -484,6 +509,11 @@ void home_act(int id, int row, int how, home_do_t *d)
             ksnprintf(d->note, sizeof d->note, "GPU: %s", gpu3d_status());
         else
             ksnprintf(d->note, sizeof d->note, "the 3D of the next game: %s", gpu3d_choice());
+        break;
+    case R_AA:
+        config_set("gpu3d_aa", aa_on() ? "0" : "1");
+        config_save();
+        ksnprintf(d->note, sizeof d->note, "anti-aliasing of the next game: %s", aa_on() ? "4x" : "off");
         break;
     case R_BOOT:
         config_set("wifi_boot", wifi_at_boot() ? "0" : "1");

@@ -169,7 +169,7 @@ function _draw()
   end
   if show_hud then
     rectfill(0, 0, W, 18, 0x000000)
-    -- stat(6): the GPU draws the 3D (Settings > 3D of the games); no pixel count then
+    -- stat(6): the GPU draws the 3D (Settings > Graphics); no pixel count then
     local px = stat(6) == 1 and "  GPU" or string.format("%5dpx", stat(5))
     print(string.format("%4.1f ms %2d fps %4d tri %s", stat(1), stat(2), stat(4), px), 2, 1, 0xFFE060)
     if W >= 640 then rectfill(0, H - 18, W, 18, 0x000000) end   -- HD: the hints readable
@@ -178,7 +178,7 @@ function _draw()
     else
       print(string.format("A tour %s  B crates %d", tour and "on" or "off", #crates), 2, H - 17, 0xC0C0C0)
       if W >= 640 and stat(6) ~= 1 then
-        print("drawn by the ARM: Settings > 3D of the games > GPU", W - 8 * 51, H - 17, 0xA0A0A0)
+        print("drawn by the ARM: Settings > Graphics > GPU", W - 8 * 45, H - 17, 0xA0A0A0)
       end
     end
   end

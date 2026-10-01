@@ -26,6 +26,8 @@
 #include <string.h>
 
 int emu_red_a = 1, emu_tex_swap = 0;
+int emu_tformat = 0;                    /* the order of the 1 KiB subtiles of a T-format tile */
+int emu_ms_load_one = 0;                /* MSAA: a colour load fills sample 0 only (else all 4) */
 emu_stats_t emu_stats;
 char emu_error[256];
 
@@ -100,13 +102,14 @@ typedef struct {
     int shader;
     const uint32_t *params;
     int depth_func, z_update;
+    int oversample;                     /* CONFIGURATION_BITS: 1 = 4x (MSAA) */
     int clip[4];
 } eprim_t;
 
 static eprim_t *prims;
 static int nprims, cap;
 static uint32_t bin_alloc, bin_tsda;
-static int bin_tx, bin_ty;
+static int bin_tx, bin_ty, bin_ms;
 
 static uint32_t rd32(const uint8_t *p) { return (uint32_t)p[0] | p[1] << 8 | p[2] << 16 | (uint32_t)p[3] << 24; }
 static uint16_t rd16(const uint8_t *p) { return (uint16_t)(p[0] | p[1] << 8); }
@@ -126,7 +129,8 @@ static int bin(uint32_t start, uint32_t end)
     if (!p || !e || e < p)
         return err("binning list %08x..%08x outside memory", start, end);
     nprims = 0;
-    int cfg_seen = 0, started = 0, flushed = 0, depth_func = -1, z_update = 0, clip[4] = { -1, 0, 0, 0 };
+    int cfg_seen = 0, started = 0, flushed = 0, depth_func = -1, z_update = 0, oversample = 0;
+    int clip[4] = { -1, 0, 0, 0 };
     const uint8_t *rec = NULL;
     while (p < e) {
         uint8_t id = *p++;
@@ -141,8 +145,9 @@ static int bin(uint32_t start, uint32_t end)
             bin_tx = p[12]; bin_ty = p[13];
             if (!ptr(bin_alloc) || !ptr(bin_tsda) || (bin_alloc >> 28) != (bin_tsda >> 28))
                 return err("binning memory %08x / tile state %08x", bin_alloc, bin_tsda);
-            if ((p[14] & 0x04) == 0 || (p[14] >> 3 & 3) != 0)
+            if ((p[14] & 0x04) == 0 || (p[14] >> 3 & 3) != 0 || (p[14] & 0x82))
                 return err("binning flags %02x: auto tile state, first blocks of 32", p[14], 0);
+            bin_ms = p[14] & 1;
             cfg_seen = 1;
             p += 15;
             break;
@@ -161,6 +166,7 @@ static int bin(uint32_t start, uint32_t end)
                 return err("configuration %02x: both faces expected", p[0], 0);
             depth_func = rd16(p + 1) >> 4 & 7;
             z_update = rd16(p + 1) >> 7 & 1;
+            oversample = p[0] >> 6 & 3;
             p += 3;
             break;
         case 65:                                                /* NV_SHADER_STATE */
@@ -200,6 +206,7 @@ static int bin(uint32_t start, uint32_t end)
                 pr->params = params;
                 pr->depth_func = depth_func;
                 pr->z_update = z_update;
+                pr->oversample = oversample;
                 memcpy(pr->clip, clip, sizeof clip);
             }
             emu_stats.prims += n / 3;
@@ -218,8 +225,11 @@ static int bin(uint32_t start, uint32_t end)
 
 /* ---------------------------------------------------------------- rendering */
 
-static uint8_t tcol[64 * 64][4];        /* tile buffer: bytes a b c d */
+/* tile buffer: bytes a b c d and depth; 64x64 pixels, or with MSAA 32x32
+ * pixels of 4 samples (sample s of pixel (x, y) at (y * 32 + x) * 4 + s) */
+static uint8_t tcol[64 * 64][4];
 static uint32_t tz[64 * 64];
+static int ms, TS = 64, NS = 1;         /* the frame's mode, tile size, samples */
 static uint32_t clear_col, clear_z;
 
 static void tile_clear(void)
@@ -251,6 +261,8 @@ static uint8_t unit8(float f)
     return (uint8_t)(f <= 0 ? 0 : f >= 1 ? 255 : f * 255.0f + 0.5f);
 }
 
+static uint32_t t_index(int x, int y, int w);
+
 static void shade(const eprim_t *pr, const float *va, uint8_t *out, int *discard)
 {
     *discard = 0;
@@ -266,7 +278,9 @@ static void shade(const eprim_t *pr, const float *va, uint8_t *out, int *discard
     int tx = (int)floorf(va[0] * (float)w), ty = (int)floorf(va[1] * (float)h);
     tx = tx < 0 ? 0 : tx >= w ? w - 1 : tx;                     /* clamp */
     ty = ty < 0 ? 0 : ty >= h ? h - 1 : ty;
-    uint32_t t = tex[ty * w + tx];
+    const int type = (int)(p0 >> 4 & 15) | (int)(p1 >> 31) << 4;
+    uint32_t t = type == 16 ? tex[ty * w + tx]             /* RGBA32R: raster order */
+               : tex[t_index(tx, ty, w)];                  /* RGBA8888: T-format */
     if (emu_tex_swap)
         t = (t & 0xFF00FF00u) | (t >> 16 & 0xFF) | (t & 0xFF) << 16;
     uint8_t c[4] = { (uint8_t)t, (uint8_t)(t >> 8), (uint8_t)(t >> 16), (uint8_t)(t >> 24) };
@@ -277,6 +291,28 @@ static void shade(const eprim_t *pr, const float *va, uint8_t *out, int *discard
         *discard = 1;
 }
 
+/* the word of texel (x, y) in a T-format texture w wide, as the emulator
+ * lays it out: 4 KiB tiles of 32x32 texels in rows, odd rows right to
+ * left; in a tile four 1 KiB subtiles of 16x16, in a C (even rows of
+ * tiles) or a reversed C (odd rows), or in raster order (emu_tformat 1:
+ * the backend must learn either); in a subtile 4x4 utiles of 4x4 texels
+ * in raster order. emu_tformat 2: rows, which the backend must refuse. */
+static uint32_t t_index(int x, int y, int w)
+{
+    static const uint8_t even[2][2] = { { 0, 3 }, { 1, 2 } }, odd[2][2] = { { 2, 1 }, { 3, 0 } },
+                         plain[2][2] = { { 0, 1 }, { 2, 3 } };        /* [sy][sx] */
+    if (emu_tformat == 2)
+        return (uint32_t)(y * w + x);   /* a TMU that reads it in rows: no T-format */
+    const int tpr = (w + 31) / 32, ty = y / 32;
+    int tx = x / 32;
+    if (ty & 1)
+        tx = tpr - 1 - tx;
+    const int sx = x / 16 & 1, sy = y / 16 & 1;
+    const int sub = emu_tformat ? plain[sy][sx] : (ty & 1 ? odd : even)[sy][sx];
+    return (uint32_t)(ty * tpr + tx) * 1024u + (uint32_t)sub * 256u +
+           (uint32_t)((y / 4 & 3) * 4 + (x / 4 & 3)) * 16u + (uint32_t)((y & 3) * 4 + (x & 3));
+}
+
 static float edge(const evert_t *a, const evert_t *b, float x, float y)
 {
     return (b->x - a->x) * (y - a->y) - (b->y - a->y) * (x - a->x);
@@ -284,16 +320,20 @@ static float edge(const evert_t *a, const evert_t *b, float x, float y)
 
 static void draw_tile(int tx, int ty, int fw, int fh)
 {
+    /* sample positions in a pixel: its centre, or MSAA's rotated grid */
+    static const float one[1][2] = { { 0.5f, 0.5f } },
+                       four[4][2] = { { 0.375f, 0.125f }, { 0.875f, 0.375f }, { 0.125f, 0.625f }, { 0.625f, 0.875f } };
+    const float (*sp)[2] = ms ? four : one;
     for (int n = 0; n < nprims; n++) {
         const eprim_t *pr = &prims[n];
         const evert_t *v = pr->v;
         float area = edge(&v[0], &v[1], v[2].x, v[2].y);
         if (area == 0)
             continue;
-        int x0 = tx * 64, y0 = ty * 64, x1 = x0 + 64, y1 = y0 + 64;
+        int x0 = tx * TS, y0 = ty * TS, x1 = x0 + TS, y1 = y0 + TS;
         if (x1 > fw) x1 = fw;
         if (y1 > fh) y1 = fh;
-        /* only the pixels of the triangle's bounding box (centres at +0.5) */
+        /* only the pixels of the triangle's bounding box */
         float bx0 = fminf(v[0].x, fminf(v[1].x, v[2].x)), bx1 = fmaxf(v[0].x, fmaxf(v[1].x, v[2].x));
         float by0 = fminf(v[0].y, fminf(v[1].y, v[2].y)), by1 = fmaxf(v[0].y, fmaxf(v[1].y, v[2].y));
         if ((float)x0 < bx0 - 1) x0 = (int)floorf(bx0 - 1);
@@ -306,31 +346,40 @@ static void draw_tile(int tx, int ty, int fw, int fh)
         if (y1 > pr->clip[1] + pr->clip[3]) y1 = pr->clip[1] + pr->clip[3];
         for (int y = y0; y < y1; y++)
             for (int x = x0; x < x1; x++) {
-                float px = x + 0.5f, py = y + 0.5f;
-                float w0 = edge(&v[1], &v[2], px, py) / area, w1 = edge(&v[2], &v[0], px, py) / area,
-                      w2 = edge(&v[0], &v[1], px, py) / area;
-                if (w0 < 0 || w1 < 0 || w2 < 0)
-                    continue;
-                float zs = w0 * v[0].z + w1 * v[1].z + w2 * v[2].z;
-                float iw = w0 * v[0].iw + w1 * v[1].iw + w2 * v[2].iw;
-                float va[3];
-                for (int k = 0; k < 3; k++)
-                    va[k] = (w0 * v[0].v[k] * v[0].iw + w1 * v[1].v[k] * v[1].iw + w2 * v[2].v[k] * v[2].iw) / iw;
-                uint32_t zz = (uint32_t)(zs <= 0 ? 0 : zs >= 1 ? 0xFFFFFF : zs * 16777215.0f);
-                int i = (y - ty * 64) * 64 + (x - tx * 64);
-                int pass = pr->depth_func == 7 || (pr->depth_func == 1 && zz < tz[i]) ||
-                           (pr->depth_func == 3 && zz <= tz[i]);
-                if (!pass)
-                    continue;
+                const int pix = ((y - ty * TS) * TS + (x - tx * TS)) * NS;
                 uint8_t c[4];
-                int discard;
-                shade(pr, va, c, &discard);
-                if (discard)
-                    continue;
-                memcpy(tcol[i], c, 4);
-                if (pr->z_update)
-                    tz[i] = zz;
-                emu_stats.pixels++;
+                int shaded = 0, discard = 0;
+                for (int s = 0; s < NS; s++) {
+                    float px = x + sp[s][0], py = y + sp[s][1];
+                    float w0 = edge(&v[1], &v[2], px, py) / area, w1 = edge(&v[2], &v[0], px, py) / area,
+                          w2 = edge(&v[0], &v[1], px, py) / area;
+                    if (w0 < 0 || w1 < 0 || w2 < 0)
+                        continue;
+                    float zs = w0 * v[0].z + w1 * v[1].z + w2 * v[2].z;
+                    uint32_t zz = (uint32_t)(zs <= 0 ? 0 : zs >= 1 ? 0xFFFFFF : zs * 16777215.0f);
+                    const int i = pix + s;
+                    int pass = pr->depth_func == 7 || (pr->depth_func == 1 && zz < tz[i]) ||
+                               (pr->depth_func == 3 && zz <= tz[i]);
+                    if (!pass)
+                        continue;
+                    if (!shaded) {              /* once a pixel, at its centre */
+                        float cx = x + 0.5f, cy = y + 0.5f;
+                        float c0 = edge(&v[1], &v[2], cx, cy) / area, c1 = edge(&v[2], &v[0], cx, cy) / area,
+                              c2 = edge(&v[0], &v[1], cx, cy) / area;
+                        float iw = c0 * v[0].iw + c1 * v[1].iw + c2 * v[2].iw;
+                        float va[3];
+                        for (int k = 0; k < 3; k++)
+                            va[k] = (c0 * v[0].v[k] * v[0].iw + c1 * v[1].v[k] * v[1].iw + c2 * v[2].v[k] * v[2].iw) / iw;
+                        shade(pr, va, c, &discard);
+                        shaded = 1;
+                        emu_stats.pixels++;
+                    }
+                    if (discard)
+                        break;
+                    memcpy(tcol[i], c, 4);
+                    if (pr->z_update)
+                        tz[i] = zz;
+                }
             }
     }
 }
@@ -361,6 +410,7 @@ static int render(uint32_t start, uint32_t end, int have_bin)
     int fw = 0, fh = 0, tx = -1, ty = -1, load = 0, zload = 0, eof = 0, have_cfg = 0, tiles = 0;
     int loaded = 0;                     /* a load took place: a store before the next load */
     uint32_t load_addr = 0, zload_addr = 0;
+    ms = 0, TS = 64, NS = 1;
     while (p < e) {
         uint8_t id = *p++;
         if (eof && id != 1)
@@ -371,23 +421,34 @@ static int render(uint32_t start, uint32_t end, int have_bin)
             clear_col = rd32(p); clear_z = rd32(p + 8) & 0xFFFFFF;
             p += 13;
             break;
-        case 113:                                               /* TILE_RENDERING_MODE_CONFIG */
+        case 113: {                                             /* TILE_RENDERING_MODE_CONFIG */
+            const uint16_t flags = rd16(p + 8);
             fb = ptr(rd32(p)); fw = rd16(p + 4); fh = rd16(p + 6);
-            if (!fb || (rd32(p) & 15) || (rd16(p + 8) >> 2 & 3) != 2)
-                return err("frame %08x, flags %04x (BGR565 expected)", rd32(p), rd16(p + 8));
+            if (!fb || (rd32(p) & 15) || (flags >> 2 & 3) != 2 || (flags & 0xFFC2))
+                return err("frame %08x, flags %04x (BGR565 expected)", rd32(p), flags);
+            ms = flags & 1;             /* MSAA 4x, resolved (decimated 4x) at the store */
+            emu_stats.msframes += (uint32_t)ms;
+            if ((flags >> 4 & 3) != (unsigned)ms)
+                return err("flags %04x: MSAA needs decimate 4x, and only MSAA", flags, 0);
+            TS = ms ? 32 : 64;
+            NS = ms ? 4 : 1;
+            if (have_bin && (bin_ms != ms || bin_tx != (fw + TS - 1) / TS || bin_ty != (fh + TS - 1) / TS))
+                return err("binning in tiles of %u, rendering in tiles of %u", bin_ms ? 32 : 64, (unsigned)TS);
             have_cfg = 1;
             tile_clear();
             p += 10;
             break;
+        }
         case 29:                                                /* LOAD_TILE_BUFFER_GENERAL */
             if (load || zload || loaded)
                 return err("load %04x: a load is pending (tile coordinates and a store first)", rd16(p), 0);
             if (rd16(p) == 0x0201) {
                 load = 1; load_addr = rd32(p + 2);
-            } else if (rd16(p) == 0x0012) {
+                emu_stats.loads++;
+            } else if (rd16(p) == 0x0012 && !ms) {
                 zload = 1; zload_addr = rd32(p + 2);
             } else {
-                return err("load %04x: colour (raster BGR565) or depth (T-format) expected", rd16(p), 0);
+                return err("load %04x: colour (raster BGR565) or depth (T-format, no MSAA) expected", rd16(p), 0);
             }
             p += 6;
             break;
@@ -398,11 +459,13 @@ static int render(uint32_t start, uint32_t end, int have_bin)
                 const uint16_t *src = ptr(load_addr);
                 if (!src)
                     return err("load from %08x", load_addr, 0);
-                for (int y = 0; y < 64; y++)
-                    for (int x = 0; x < 64; x++) {
-                        int X = tx * 64 + x, Y = ty * 64 + y;
+                for (int y = 0; y < TS; y++)
+                    for (int x = 0; x < TS; x++) {
+                        int X = tx * TS + x, Y = ty * TS + y;
                         if (X < fw && Y < fh)
-                            from565(src[Y * fw + X], tcol[y * 64 + x]);
+                            for (int s = 0; s < NS; s++)
+                                if (!(s && emu_ms_load_one))
+                                    from565(src[Y * fw + X], tcol[(y * TS + x) * NS + s]);
                     }
                 load = 0;
                 loaded = 1;
@@ -427,7 +490,7 @@ static int render(uint32_t start, uint32_t end, int have_bin)
             if (load || zload)
                 return err("general store %04x with a load pending", bits, 0);
             if ((bits & 0x1FFF) == 0 && a == 0) {               /* a store of nothing */
-            } else if ((bits & 0x1FFF) == 0x0012 && !(a & 15)) {   /* depth, T-format */
+            } else if ((bits & 0x1FFF) == 0x0012 && !(a & 15) && !ms) {   /* depth, T-format */
                 uint32_t *dst = zbuf_at(a, fw, fh);
                 if (!dst || tx < 0)
                     return err("depth store to %08x", a, 0);
@@ -439,7 +502,7 @@ static int render(uint32_t start, uint32_t end, int have_bin)
                     }
                 emu_stats.zstores++;
             } else {
-                return err("general store %04x %08x: nothing, or the depth in T-format", bits, a);
+                return err("general store %04x %08x: nothing, or the depth in T-format (no MSAA)", bits, a);
             }
             for (int i = 0; i < 64 * 64; i++) {             /* the clears not turned off */
                 if (!(bits & 1u << 13))
@@ -455,6 +518,10 @@ static int render(uint32_t start, uint32_t end, int have_bin)
             uint32_t a = rd32(p);
             if (!have_bin || a != bin_alloc + (uint32_t)(ty * bin_tx + tx) * 32)
                 return err("branch to %08x for tile %u", a, (unsigned)(ty * 100 + tx));
+            for (int n = 0; n < nprims; n++)
+                if (prims[n].oversample != ms)
+                    return err("a primitive rasterised %ux, the frame is %ux", prims[n].oversample ? 4 : 1,
+                               ms ? 4 : 1);
             draw_tile(tx, ty, fw, fh);
             p += 4;
             break;
@@ -462,11 +529,19 @@ static int render(uint32_t start, uint32_t end, int have_bin)
         case 24: case 25:                                       /* STORE_MS_TILE_BUFFER (EOF) */
             if (!have_cfg || tx < 0)
                 return err("store before the configuration", 0, 0);
-            for (int y = 0; y < 64; y++)
-                for (int x = 0; x < 64; x++) {
-                    int X = tx * 64 + x, Y = ty * 64 + y;
-                    if (X < fw && Y < fh)
-                        fb[Y * fw + X] = to565(tcol[y * 64 + x]);
+            for (int y = 0; y < TS; y++)
+                for (int x = 0; x < TS; x++) {
+                    int X = tx * TS + x, Y = ty * TS + y;
+                    if (X >= fw || Y >= fh)
+                        continue;
+                    uint8_t c[4];
+                    for (int k = 0; k < 4; k++) {       /* the samples' mean */
+                        unsigned sum = 0;
+                        for (int s = 0; s < NS; s++)
+                            sum += tcol[(y * TS + x) * NS + s][k];
+                        c[k] = (uint8_t)((sum + (unsigned)NS / 2) / (unsigned)NS);
+                    }
+                    fb[Y * fw + X] = to565(c);
                 }
             tile_clear();
             tiles++;
@@ -479,8 +554,8 @@ static int render(uint32_t start, uint32_t end, int have_bin)
     }
     if (!eof)
         return err("rendering list without end of frame", 0, 0);
-    if (tiles != ((fw + 63) / 64) * ((fh + 63) / 64))
-        return err("%u tiles stored, frame of %u", (unsigned)tiles, (unsigned)(((fw + 63) / 64) * ((fh + 63) / 64)));
+    if (tiles != ((fw + TS - 1) / TS) * ((fh + TS - 1) / TS))
+        return err("%u tiles stored, frame of %u", (unsigned)tiles, (unsigned)(((fw + TS - 1) / TS) * ((fh + TS - 1) / TS)));
     return 0;
 }
 

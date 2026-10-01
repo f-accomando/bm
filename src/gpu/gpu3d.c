@@ -8,7 +8,7 @@
 
 /* the memory of a job, in one block: the binner wants its own (tile
  * state, tile lists, overflow) within one 256 MiB window */
-#define JOB_TSDA     4096           /* 48 bytes per tile: 10 x 6 tiles at most */
+#define JOB_TSDA     16384          /* 48 bytes per tile: 20 x 12 tiles with MSAA */
 #define JOB_ALLOC    (4u << 20)     /* tile lists */
 #define JOB_OVERFLOW (2u << 20)
 #define JOB_ZBUF     (1u << 20)     /* depth kept between jobs: 640x384, 32 bits */
@@ -76,6 +76,8 @@ static struct {
     int w, h;                       /* its target size */
     int z_saved, z_w, z_h;          /* zbuf holds the depth so far (of a w x h frame) */
     int split;                      /* 3D of this frame drawn before some 2D */
+    int page_uniform;               /* the page is page_colour all over (gpu3d_page) */
+    uint16_t page_colour;
     int z_wanted;                   /* this cartridge draws 3D after 2D in a frame */
     /* the batch being filled */
     int b_open, b_shader, b_nodepth, b_first;
@@ -84,6 +86,12 @@ static struct {
     int clip[4];                    /* clip window written last (x0 y0 x1 y1) */
     int cfg;                        /* configuration written last, -1: none */
     int red_a, tex_swap;            /* colour byte order, found by the probe */
+    int tformat, tformat_off;       /* textures in T-format (learned by the probe; off: rows) */
+    int msaa;                       /* MSAA 4x asked for (gpu3d_set_msaa) */
+    int ms_ok;                      /* the probe: 0 no MSAA, 1 on cleared pages, 2 also on loaded ones */
+    int ms, tile;                   /* the job: MSAA, tile size */
+    int t_rev;                      /* odd rows of 4 KiB tiles run right to left */
+    uint16_t t_inner[2][1024];      /* word of each texel in its tile: even, odd rows of tiles */
     int ia;                         /* varying of the colour's first value: 0, or 2 (red_a 0) */
     const uint8_t *fb_mem;          /* the framebuffer and its bus address */
     uint32_t fb_size, fb_bus;
@@ -122,9 +130,32 @@ static uint32_t bus_of(const void *p)
 
 /* ---------------------------------------------------------------- textures */
 
-/* the RGBA32R texture of a sheet, made again when the sheet changed; NULL
- * if it cannot be one (larger than 2048, no memory). A slot the waiting
- * job still reads is drawn first (into g) before it is made again. */
+/* an RGB565 colour as a texel: the bytes a b c d the tile buffer gets
+ * back, red and blue in the order the probe found, alpha in d */
+static uint32_t texel_of(uint16_t c, int opaque)
+{
+    const int ra = G.red_a ^ G.tex_swap;
+    uint32_t r = (uint32_t)(c >> 11) << 3 | c >> 13, g = (uint32_t)(c >> 5 & 63) << 2 | (c >> 9 & 3),
+             b = (uint32_t)(c & 31) << 3 | (c >> 2 & 7);
+    return (opaque ? 0xFF000000u : 0) | (ra ? b << 16 | g << 8 | r : r << 16 | g << 8 | b);
+}
+
+/* the word of texel (x, y) in a T-format texture w wide (a multiple of
+ * 32), with the layout the probe learned */
+static uint32_t t_word(int x, int y, int w)
+{
+    const int tpr = w / 32, ty = y / 32;
+    int tx = x / 32;
+    if ((ty & 1) && G.t_rev)
+        tx = tpr - 1 - tx;
+    return (uint32_t)(ty * tpr + tx) * 1024u + G.t_inner[ty & 1][(y & 31) * 32 + (x & 31)];
+}
+
+/* the texture of a sheet, made again when the sheet changed: T-format
+ * (RGBA8888 in tiles) when the probe learned it and the sides are
+ * multiples of 32, else RGBA32R (rows); NULL if it cannot be one (larger
+ * than 2048, no memory). A slot the waiting job still reads is drawn
+ * first (into g) before it is made again. */
 static const tex_t *tex_get(const g16_t *g, const g16_sheet_t *s)
 {
     for (int i = 0; i < NTEX; i++)
@@ -153,24 +184,26 @@ static const tex_t *tex_get(const g16_t *g, const g16_sheet_t *s)
             return NULL;
         }
     }
-    /* each texel as the bytes a b c d of the tile buffer: red and blue in
-     * the order found by the probe, alpha in d */
-    const int ra = G.red_a ^ G.tex_swap;
     const uint32_t n = (uint32_t)s->w * (uint32_t)s->h;
-    for (uint32_t i = 0; i < n; i++) {
-        uint32_t c = s->px[i];
-        uint32_t r = (c >> 11) << 3 | c >> 13, g = (c >> 5 & 63) << 2 | (c >> 9 & 3),
-                 b = (c & 31) << 3 | (c >> 2 & 7);
-        uint32_t a = s->alpha[i] ? 0xFF000000u : 0;
-        t->texels[i] = a | (ra ? b << 16 | g << 8 | r : r << 16 | g << 8 | b);
+    const int tiled = G.tformat && !G.tformat_off && s->w % 32 == 0 && s->h % 32 == 0;
+    if (tiled) {
+        for (int y = 0; y < s->h; y++)
+            for (int x = 0; x < s->w; x++) {
+                const uint32_t i = (uint32_t)y * (uint32_t)s->w + (uint32_t)x;
+                t->texels[t_word(x, y, s->w)] = texel_of(s->px[i], s->alpha[i]);
+            }
+    } else {
+        for (uint32_t i = 0; i < n; i++)
+            t->texels[i] = texel_of(s->px[i], s->alpha[i]);
     }
-    /* P0: base (4 KiB units), type RGBA32R = 16 (low bits 0 here, bit 4
-     * in P1); P1: type bit 4, height and width (2048 is 0), nearest texel
-     * when magnified and minified, clamp in s and t */
+    /* P0: base (4 KiB units), type: RGBA8888 (0, T-format) or RGBA32R
+     * (16: low bits 0 here, bit 4 in P1); P1: type bit 4, height and width
+     * (2048 is 0), nearest texel when magnified and minified, clamp in s
+     * and t */
     t->params = t->texels + n;
     t->params[0] = v3d_bus(t->texels) & ~0xFFFu;
-    t->params[1] = 1u << 31 | (uint32_t)(s->h & 2047) << 20 | (uint32_t)(s->w & 2047) << 8 | 1u << 7 |
-                   1u << 4 | 1u << 2 | 1u;
+    t->params[1] = (tiled ? 0 : 1u << 31) | (uint32_t)(s->h & 2047) << 20 | (uint32_t)(s->w & 2047) << 8 |
+                   1u << 7 | 1u << 4 | 1u << 2 | 1u;
     t->sheet = s;
     t->version = s->version;
     t->w = s->w;
@@ -209,7 +242,11 @@ static int tex_opaque(const g16_sheet_t *s, const r3d_corner_t v[3])
 
 static void job_begin(int w, int h)
 {
-    const int tx = (w + V3D_TILE - 1) / V3D_TILE, ty = (h + V3D_TILE - 1) / V3D_TILE;
+    /* MSAA where the probe allows it, never with the depth kept between
+     * jobs (it would have 4 samples a pixel) */
+    G.ms = G.msaa && !G.z_saved && !G.z_wanted && (G.ms_ok == 2 || (G.ms_ok == 1 && G.page_uniform));
+    G.tile = G.ms ? V3D_TILE_MSAA : V3D_TILE;
+    const int tx = (w + G.tile - 1) / G.tile, ty = (h + G.tile - 1) / G.tile;
     memset(G.tsda, 0, JOB_TSDA);        /* no stale tile state for the binner */
     v3d_cl_init(&G.cl, G.bcl, JOB_BCL);
     v3d_cl_u8(&G.cl, V3D_TILE_BINNING_MODE_CONFIG);
@@ -220,7 +257,7 @@ static void job_begin(int w, int h)
     v3d_cl_u8(&G.cl, (uint8_t)ty);
     /* tile state set up by the binner; first blocks of 32 bytes (the
      * rendering list branches to them), then blocks of 128 */
-    v3d_cl_u8(&G.cl, V3D_BIN_AUTO_INIT_TSDA | 0 << 3 | 2 << 5);
+    v3d_cl_u8(&G.cl, (uint8_t)(V3D_BIN_AUTO_INIT_TSDA | 0 << 3 | 2 << 5 | (G.ms ? V3D_BIN_MSAA4 : 0)));
     v3d_cl_u8(&G.cl, V3D_START_TILE_BINNING);
     v3d_cl_u8(&G.cl, V3D_VIEWPORT_OFFSET);
     v3d_cl_u16(&G.cl, 0);
@@ -273,7 +310,8 @@ static int batch_open(const g16_t *g, int shader, int nodepth, const tex_t *t)
                  : V3D_CFG_DEPTH(1) | V3D_CFG_Z_UPDATE | V3D_CFG_EARLY_Z | V3D_CFG_EARLY_Z_UPDATE;
     if (G.cfg != cfg) {
         v3d_cl_u8(&G.cl, V3D_CONFIGURATION_BITS);
-        v3d_cl_u8(&G.cl, V3D_CFG_FRONT | V3D_CFG_BACK);     /* r3d culled the back faces */
+        /* r3d culled the back faces; MSAA: the rasteriser takes 4 samples */
+        v3d_cl_u8(&G.cl, (uint8_t)(V3D_CFG_FRONT | V3D_CFG_BACK | (G.ms ? V3D_CFG_MSAA4 : 0)));
         v3d_cl_u16(&G.cl, cfg);
         G.cfg = cfg;
     }
@@ -379,6 +417,7 @@ static void add_tri(const g16_t *g, const r3d_corner_t v[3], int kind, const tex
         batch_close();                  /* another screen size: the old job is dropped */
         G.open = 0;
         G.z_saved = 0;
+        G.page_uniform = 0;
     }
     if (!G.open) {
         if (G.split && !G.z_saved && !G.z_wanted) {
@@ -477,9 +516,11 @@ static void cb_zclear(void *ctx, const g16_t *g)
  * zstore keeps it there for the next job. Two loads of a tile take place
  * one at a time (tile coordinates, then a store of nothing that clears
  * nothing), and so do two stores, as Linux's vc4 does. */
-static uint32_t rcl_build(uint32_t fb, int w, int h, int bin, int load, uint32_t clear, int zload, int zstore)
+static uint32_t rcl_build(uint32_t fb, int w, int h, int bin, int load, uint32_t clear, int zload, int zstore,
+                          int ms)
 {
-    const int tx = (w + V3D_TILE - 1) / V3D_TILE, ty = (h + V3D_TILE - 1) / V3D_TILE;
+    const int ts = ms ? V3D_TILE_MSAA : V3D_TILE;
+    const int tx = (w + ts - 1) / ts, ty = (h + ts - 1) / ts;
     const uint32_t zb = v3d_bus(G.zbuf);
     v3d_cl_t cl;
     v3d_cl_init(&cl, G.rcl, JOB_RCL);
@@ -492,7 +533,7 @@ static uint32_t rcl_build(uint32_t fb, int w, int h, int bin, int load, uint32_t
     v3d_cl_u32(&cl, fb);
     v3d_cl_u16(&cl, (uint16_t)w);
     v3d_cl_u16(&cl, (uint16_t)h);
-    v3d_cl_u16(&cl, V3D_RENDER_BGR565);
+    v3d_cl_u16(&cl, (uint16_t)(V3D_RENDER_BGR565 | (ms ? V3D_RENDER_MSAA4 : 0)));
     v3d_cl_u8(&cl, V3D_TILE_COORDINATES);   /* a store of nothing: the tile */
     v3d_cl_u8(&cl, 0);                      /* buffer takes the clear values */
     v3d_cl_u8(&cl, 0);
@@ -570,6 +611,44 @@ void gpu3d_drop(void)
     batch_close();
     G.open = 0;
     G.z_saved = G.split = G.z_wanted = 0;
+    G.page_uniform = 0;
+}
+
+void gpu3d_set_msaa(int on)
+{
+    G.msaa = on;
+}
+
+int gpu3d_msaa(void)
+{
+    return G.ms_ok;
+}
+
+void gpu3d_tiled_textures(int on)
+{
+    G.tformat_off = !on;
+    for (int i = 0; i < NTEX; i++)
+        G.tex[i].sheet = NULL;          /* made again in the other layout */
+}
+
+int gpu3d_tiles(void)
+{
+    return G.tformat;
+}
+
+void gpu3d_page(int uniform, uint16_t c)
+{
+    G.page_uniform = uniform;
+    G.page_colour = c;
+}
+
+/* an RGB565 colour as the tile buffer's clear colour (bytes a b c d, red
+ * in byte a or c as the probe found) */
+static uint32_t clear_of(uint16_t c)
+{
+    uint32_t r = (c >> 11) << 3 | c >> 13, g = (c >> 5 & 63) << 2 | (c >> 9 & 3),
+             b = (c & 31) << 3 | (c >> 2 & 7);
+    return 0xFF000000u | (G.red_a ? b << 16 | g << 8 | r : r << 16 | g << 8 | b);
 }
 
 /* the depth of a w x h frame fits in zbuf (T-format: sides rounded up to 32) */
@@ -599,10 +678,17 @@ static int flush_job(const g16_t *g, int store)
         disable("binning list overflow");
         return -1;
     }
-    const int zload = G.z_saved && G.z_w == g->w && G.z_h == g->h;
-    const int zstore = store && zbuf_fits(g->w, g->h);
+    const int zload = !G.ms && G.z_saved && G.z_w == g->w && G.z_h == g->h;
+    const int zstore = !G.ms && store && zbuf_fits(g->w, g->h);
+    /* a page of one colour is not read back: the tiles start with it */
+    const int load = !G.page_uniform;
     uint32_t fb = bus_of(g->px);
-    uint32_t end = rcl_build(fb, g->w, g->h, 1, 1, 0, zload, zstore);
+    uint32_t end = rcl_build(fb, g->w, g->h, 1, load, load ? 0 : clear_of(G.page_colour), zload, zstore, G.ms);
+    if (G.ms)
+        G.st.msjobs++;
+    G.page_uniform = 0;                 /* now it has the 3D too */
+    if (!load)
+        G.st.cleared++;
     if (run(1, end) != 0) {
         disable("the GPU did not finish a frame (registers in the log)");
         return -1;
@@ -653,6 +739,69 @@ static uint8_t *block_alloc(void)
     return b;
 }
 
+/* MSAA 4x: multisample jobs without binning on the probe's buffer. A
+ * clear alone must store its colour; then a load of the buffer: if it
+ * fills the 4 samples of a pixel, the store (their mean) gives the buffer
+ * back; if it fills one, a mix with the clear colour. 2: MSAA on any page,
+ * 1: only on pages of one colour (cleared, not loaded), 0: none. A job
+ * that does not end only turns MSAA off. */
+static int probe_ms(void)
+{
+    const uint32_t bus = v3d_bus(G.probe);
+    for (int i = 0; i < PROBE_W * PROBE_H; i++)
+        G.probe[i] = 0x1234;
+    if (run(0, rcl_build(bus, PROBE_W, PROBE_H, 0, 0, clear_of(0x001F), 0, 0, 1)) != 0 ||
+        G.probe[10 * PROBE_W + 10] != 0x001F || G.probe[PROBE_W * PROBE_H - 1] != 0x001F)
+        return 0;
+    for (int i = 0; i < PROBE_W * PROBE_H; i++)
+        G.probe[i] = 0x07E0;
+    if (run(0, rcl_build(bus, PROBE_W, PROBE_H, 0, 1, clear_of(0xF800), 0, 0, 1)) != 0)
+        return 1;
+    return G.probe[10 * PROBE_W + 10] == 0x07E0 && G.probe[PROBE_W * PROBE_H - 1] == 0x07E0 ? 2 : 1;
+}
+
+/* G.probe holds, for each texel of a 64x64 T-format texture, the word the
+ * TMU read: 1 if it is a layout of 4 KiB tiles in rows (learned into
+ * t_inner and t_rev), 0 if not */
+static int tformat_learn(void)
+{
+    static uint8_t seen[PROBE_W * PROBE_H / 8];
+    memset(seen, 0, sizeof seen);
+    for (int i = 0; i < PROBE_W * PROBE_H; i++) {
+        const uint16_t w = G.probe[i];
+        if (w >= PROBE_W * PROBE_H || (seen[w / 8] >> (w % 8) & 1))
+            return 0;                   /* not each word once */
+        seen[w / 8] |= (uint8_t)(1u << (w % 8));
+    }
+    int pos[2][2];                      /* the place of each tile, [row][column] */
+    for (int ty = 0; ty < 2; ty++)
+        for (int tx = 0; tx < 2; tx++) {
+            pos[ty][tx] = G.probe[ty * 32 * PROBE_W + tx * 32] / 1024;
+            for (int y = 0; y < 32; y++)
+                for (int x = 0; x < 32; x++)
+                    if (G.probe[(ty * 32 + y) * PROBE_W + tx * 32 + x] / 1024 != pos[ty][tx])
+                        return 0;       /* a tile is not 4 KiB in one piece */
+        }
+    if (pos[0][0] != 0 || pos[0][1] != 1)
+        return 0;
+    if (pos[1][0] == 2 && pos[1][1] == 3)
+        G.t_rev = 0;
+    else if (pos[1][0] == 3 && pos[1][1] == 2)
+        G.t_rev = 1;
+    else
+        return 0;
+    for (int row = 0; row < 2; row++)
+        for (int y = 0; y < 32; y++)
+            for (int x = 0; x < 32; x++) {
+                const int i = (row * 32 + y) * PROBE_W + x, j = i + 32;   /* both tiles of the row */
+                const uint16_t a = (uint16_t)(G.probe[i] % 1024), b = (uint16_t)(G.probe[j] % 1024);
+                if (a != b)
+                    return 0;           /* tiles of a row laid out differently */
+                G.t_inner[row][y * 32 + x] = a;
+            }
+    return 1;
+}
+
 /* The order of red and blue: a clear with byte a of the colour full says
  * where byte a lands in BGR565; a texture whose texels have byte a full
  * says whether the TMU keeps the bytes in place. */
@@ -668,7 +817,7 @@ static int probe(void)
     pg.cy1 = PROBE_H;
 
     memset(G.probe, 0x55, JOB_PROBE);
-    if (run(0, rcl_build(v3d_bus(G.probe), PROBE_W, PROBE_H, 0, 0, 0x000000FFu, 0, 0)) != 0) {
+    if (run(0, rcl_build(v3d_bus(G.probe), PROBE_W, PROBE_H, 0, 0, 0x000000FFu, 0, 0, 0)) != 0) {
         disable("probe: a clear did not finish");
         return -1;
     }
@@ -718,6 +867,23 @@ static int probe(void)
         disable(G.why);
         return -1;
     }
+
+    /* T-format, the TMU's tiled layout (a texture read in tiles fits its
+     * cache better than one in rows): the same quad with a 64x64 RGBA8888
+     * texture whose word i shows as the RGB565 value i tells, texel by
+     * texel, which word the TMU reads: the layout of a 4 KiB tile (32x32
+     * texels) in even and in odd rows of tiles, and the order of the
+     * tiles. Textures go in T-format only if all of it holds together. */
+    for (int i = 0; i < PROBE_W * PROBE_H; i++)
+        pt.texels[i] = texel_of((uint16_t)i, 1);
+    pt.params[1] &= ~(1u << 31);        /* type RGBA8888 */
+    memset(G.probe, 0, JOB_PROBE);
+    add_tri(&pg, t1, R3D_KIND_TEXTURE, &pt, 0, SH_TEX);
+    add_tri(&pg, t2, R3D_KIND_TEXTURE, &pt, 0, SH_TEX);
+    if (gpu3d_flush(&pg, 0) != 0)
+        return -1;
+    G.tformat = tformat_learn();
+    G.ms_ok = probe_ms();
     memset(&G.st, 0, sizeof G.st);
     return 0;
 }
@@ -754,8 +920,10 @@ int gpu3d_init(void)
     G.backend.zclear = cb_zclear;
     if (probe() != 0)
         return -1;
-    ksnprintf(G.why, sizeof G.why, "ready (byte a = %s, texels %s)", G.red_a ? "red" : "blue",
-              G.tex_swap ? "swapped" : "in place");
+    static const char *const ms[3] = { "no", "on cleared pages", "on any page" };
+    ksnprintf(G.why, sizeof G.why, "ready (byte a = %s, texels %s, textures %s, MSAA %s)",
+              G.red_a ? "red" : "blue", G.tex_swap ? "swapped" : "in place", G.tformat ? "in tiles" : "in rows",
+              ms[G.ms_ok]);
     G.status = G.why;
     G.ready = 1;
     return 0;

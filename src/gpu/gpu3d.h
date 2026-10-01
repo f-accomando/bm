@@ -39,6 +39,12 @@ const r3d_backend_t *gpu3d_backend(void);
 void gpu3d_set_fb(const void *mem, uint32_t size, uint32_t bus);
 
 int gpu3d_pending(void);            /* triangles waiting for a flush */
+
+/* The page holds nothing but colour c (RGB565: a cls() since the last
+ * job): the next job clears its tiles to c instead of loading the page
+ * (less memory traffic). gpu3d_page(0, 0) when anything else is drawn on
+ * the page or another page is drawn on. */
+void gpu3d_page(int uniform, uint16_t c);
 void gpu3d_drop(void);              /* forgets them and the depth (the cartridge ended) */
 
 /* Draws the waiting triangles into g's page. keep: the 3D goes on in this
@@ -48,9 +54,23 @@ void gpu3d_drop(void);              /* forgets them and the depth (the cartridge
  * stays off: gpu3d_ready() is 0 and gpu3d_status() says why). */
 int gpu3d_flush(const g16_t *g, int keep);
 
+/* Anti-aliasing (MSAA 4x) for the next jobs, where the probe allows it:
+ * gpu3d_msaa() is 0 (no MSAA), 1 (on pages of one colour: cleared, not
+ * loaded) or 2 (on any page). Never in a job that keeps the depth. */
+void gpu3d_set_msaa(int on);
+int gpu3d_msaa(void);
+
+/* The GPU test: textures in T-format where the probe learned it (1), or in
+ * rows (0); the textures made so far are made again. gpu3d_tiles(): the
+ * probe learned T-format. */
+void gpu3d_tiled_textures(int on);
+int gpu3d_tiles(void);
+
 typedef struct {
     uint32_t jobs, tris, bin_us, render_us, max_us;
     uint32_t zjobs;                 /* jobs that loaded or stored the depth */
+    uint32_t cleared;               /* jobs that cleared the page instead of loading it */
+    uint32_t msjobs;                /* jobs with MSAA 4x */
 } gpu3d_stats_t;
 
 /* totals since the last call, then zeroed */

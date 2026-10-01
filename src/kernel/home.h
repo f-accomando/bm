@@ -30,7 +30,7 @@ void home_row(home_panel_t *p, int kind, int id, const char *label, const char *
               const char *fmt, ...) __attribute__((format(printf, 6, 7)));
 
 /* The panels. HOME_CART (a cartridge's options) is built by carts.c. */
-enum { HOME_SETTINGS = 1, HOME_CONTROLLERS, HOME_WIFI, HOME_SYSTEM, HOME_CART };
+enum { HOME_SETTINGS = 1, HOME_CONTROLLERS, HOME_WIFI, HOME_SYSTEM, HOME_CART, HOME_GRAPHICS };
 
 /* What a row asks of the menu. */
 enum {

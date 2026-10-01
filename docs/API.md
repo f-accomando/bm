@@ -281,8 +281,8 @@ I triangoli che attraversano il piano vicino alla camera vengono tagliati, non s
 pavimenti e oggetti grandi restano interi anche quando passano accanto alla camera.
 
 **3D sulla GPU (M30).** I triangoli li disegna la GPU del Pi (V3D); con
-*Impostazioni > 3D of the games* su `ARM` (`gpu3d=0` in `bm/config.txt`), e in QEMU, li
-disegna l'ARM. Le stesse funzioni, nessun cambiamento nelle cartucce. L'ARM continua a
+*Impostazioni > Graphics > 3D of the games* su `ARM` (`gpu3d=0` in `bm/config.txt`), e in
+QEMU, li disegna l'ARM. Le stesse funzioni, nessun cambiamento nelle cartucce. L'ARM continua a
 trasformare, illuminare e tagliare; la GPU riempie i pixel con uno z-buffer a 24 bit,
 sfumature senza dithering e texture con il texel più vicino. Il 3D in attesa viene
 disegnato prima di ogni disegno 2D che lo segue, di `pget`, di `sset` e a fine
@@ -292,6 +292,20 @@ di memoria scritta e riletta per fotogramma; il primo fotogramma no): conviene
 comunque disegnare prima tutto il 3D e poi l'HUD. Lo z-buffer della GPU riparte da
 zero a ogni fotogramma, anche senza `zclear()`. `stat(6)` vale 1 quando il 3D lo fa
 la GPU. Se la GPU non risponde, il kernel torna all'ARM da solo e lo scrive nel log.
+Un fotogramma che comincia con `cls()` costa meno alla GPU: le tile partono dal colore
+di `cls` invece di rileggere la pagina. Le texture con i lati multipli di 32 (sprite
+sheet 128×128, 256×256, …) vanno alla GPU in T-format, il formato a tile della sua
+cache, più veloce da leggere.
+
+**Anti-aliasing (M31).** *Impostazioni > Graphics > 3D anti-aliasing: 4x*
+(`gpu3d_aa=1` in `bm/config.txt`) fa disegnare il 3D della GPU con l'MSAA 4×: quattro
+campioni per pixel, la media a fine tile, bordi dei triangoli senza scalini. Non
+cambia nulla nelle cartucce. Vale solo dove la GPU lo regge (la prova all'avvio lo
+dice: *4x: not on this GPU* altrimenti) e solo nei lavori senza z-buffer conservato:
+le cartucce che disegnano 3D, poi 2D, poi altro 3D nello stesso fotogramma restano
+senza anti-aliasing (lo z-buffer a 4 campioni non si salva). Se la prova trova che la
+GPU non sa ricaricare la pagina nei 4 campioni, l'MSAA si usa solo nei fotogrammi che
+cominciano con `cls()`. Sull'ARM non c'è anti-aliasing.
 Esempio completo: `carts/astrowing` (volo in stile Star Fox: modelli costruiti in
 codice, orizzonte con `project3d`, nebbia, esplosioni, boss).
 

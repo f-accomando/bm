@@ -85,6 +85,8 @@ void v3d_cl_f32(v3d_cl_t *cl, float v);
 #define V3D_RENDER_BGR565_DITHER        (0u << 2)
 #define V3D_RENDER_RGBA8888             (1u << 2)
 #define V3D_RENDER_BGR565               (2u << 2)
+#define V3D_RENDER_MSAA4                (1u | 1u << 4)  /* 4 samples, averaged at the store */
+#define V3D_TILE_MSAA                   32
 
 /* LOAD_TILE_BUFFER_GENERAL: the colour buffer, raster order, BGR565 */
 #define V3D_LOAD_COLOUR_BGR565          (1u | 0u << 4 | 2u << 8)
@@ -111,5 +113,6 @@ void v3d_cl_f32(v3d_cl_t *cl, float v);
 
 /* TILE_BINNING_MODE_CONFIG flags */
 #define V3D_BIN_AUTO_INIT_TSDA          0x04
+#define V3D_BIN_MSAA4                   0x01    /* multisample: tiles of 32x32 */
 
 #endif

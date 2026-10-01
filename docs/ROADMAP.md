@@ -1312,7 +1312,7 @@ Fatto (2026-10-01, da misurare sul Pi):
 Kitchen con la GPU 6,8 ms, 60 fps, 758 triangoli (prima di M30: 14,1 ms, 54 fps); lo
 stress test ha le righe GPU accanto a quelle software. Il criterio di chiusura è
 raggiunto, e da qui **la GPU è il default** per il 3D dei giochi (`gpu3d=0` o
-*Impostazioni > 3D of the games: ARM* per l'ARM; in QEMU e se la V3D non risponde si
+*Impostazioni > Graphics > 3D of the games: ARM* per l'ARM; in QEMU e se la V3D non risponde si
 torna all'ARM da soli). Report prima/dopo: `docs/M30-PRIMA-DOPO.md`.
 
 Dopo la chiusura (2026-10-01): Texture Room e Texture Room HD diventano **un benchmark
@@ -1322,12 +1322,56 @@ renderer e numero di casse, che la cartuccia legge in `BENCH`): casse raddoppiat
 finché tiene 30 fps, a 320×180 e poi a 640×360, con l'ARM e poi con la GPU. Ogni passo
 dura 2 s e scrive casse, triangoli, ms e fps; alla fine un riepilogo con le casse
 massime a 60 e a 30 fps per ogni caso (`src/bm/roombench.c`). Restano fuori da
-M30, per dopo: MSAA 4×, texture in T-format per la TMU (oggi 9 ns per pixel con
-texture contro 1), il costo per triangolo dell'ARM (~2 µs, ora il limite), filtro
-bilineare, sprite 2D sulla GPU.
-  Rinviati: MSAA 4× (caricare la pagina in un tile multicampione non è un percorso
-  di Mesa né del driver di Linux: non verificabile senza il Pi) e il filtro
-  bilineare (cambia l'aspetto delle texture rispetto all'ARM).
+M30, e passano a M31: MSAA 4×, texture in T-format per la TMU (oggi 9 ns per pixel con
+texture contro 1), il costo per triangolo dell'ARM (~2 µs, ora il limite); per dopo il
+filtro bilineare (cambia l'aspetto delle texture rispetto all'ARM) e gli sprite 2D
+sulla GPU.
+
+## M31 — GPU 2: anti-aliasing, texture a tile, meno lavoro per l'ARM (L) — in corso
+Il seguito di M30 (decisione 2026-10-01): con la GPU il 3D è limitato dall'ARM (~2 µs
+per triangolo) e, con le texture, dalla lettura in ordine di riga (9 ns per pixel contro
+1). In più la GPU sa fare l'anti-aliasing che l'ARM non può permettersi.
+- **Fatto quando:** sul Pi il test `g` passa i passi 12 e 13 (texture a tile identiche
+  e più veloci, MSAA con i bordi smussati), lo stress test ha le righe AA, e il costo
+  per triangolo dell'ARM con la GPU scende in modo misurabile (righe GPU spheres,
+  benchmark Texture Room).
+
+**Passi:**
+1. **Pagina pulita senza load**: un fotogramma che comincia con `cls` non fa rileggere
+   la pagina alla GPU; le tile partono dal colore di `cls`.
+2. **Texture in T-format** (il formato a tile della TMU, meglio per la sua cache), con il
+   layout imparato dalla GPU stessa e il ritorno all'ordine di riga se la prova non torna.
+3. **MSAA 4×** per il 3D della GPU, scelto in *Impostazioni > Graphics*.
+4. **Meno lavoro per triangolo sull'ARM** (trasformazioni, vertici NV, liste).
+
+Fatto (2026-10-01, da verificare sul Pi):
+- Passo 1: `cls()` dice al backend il colore della pagina (`gpu3d_page`); il lavoro
+  che parte da una pagina di un solo colore pulisce le tile con quel colore invece di
+  caricarle (un load della pagina in meno per fotogramma). Lo stress test fa lo
+  stesso con le sue righe GPU.
+- Passo 2: all'avvio, dopo gli ordini dei byte, la prova disegna una texture 64×64
+  RGBA8888 in cui la parola *i* si vede come il colore RGB565 *i*: dai pixel il backend
+  impara, texel per texel, quale parola legge la TMU (tile da 4 KiB di 32×32 texel, il
+  layout dentro la tile nelle righe pari e dispari, l'ordine delle tile) e mette le
+  texture con i lati multipli di 32 in T-format solo se tutto torna; altrimenti restano
+  in ordine di riga. Lo stato della GPU lo dice (`textures in tiles` o `in rows`).
+  Prova sul Pi: passo 12 di `g` (pavimento 256×256 con texture, in ordine di riga e a
+  tile: tempi e immagini identiche, altrimenti le tile si spengono e lo scrive).
+  Sul PC l'emulatore ha tre layout T-format (`make test-gpu3d`).
+- Passo 3: **MSAA 4×**. Tile di 32×32 con 4 campioni, rasterizzazione a 4 campioni
+  (`CONFIGURATION_BITS`), la media scritta nella pagina allo store. Caricare la pagina
+  in un tile multicampione non è un percorso usato da Mesa né dal driver di Linux,
+  quindi una prova all'avvio lo controlla: un lavoro MSAA che pulisce deve dare il
+  colore giusto, e un load deve riempire i 4 campioni (allora MSAA su ogni pagina;
+  se ne riempie uno solo, MSAA solo sulle pagine pulite con `cls`; se il lavoro non
+  finisce, niente MSAA). Mai con lo z-buffer conservato tra un lavoro e l'altro (i
+  campioni sarebbero 4 per pixel). Si accende in *Impostazioni > Graphics > 3D
+  anti-aliasing* (`gpu3d_aa=1`, spento di default); le Impostazioni ora hanno il
+  sottomenu *Graphics* (disegno dei giochi, 3D, anti-aliasing). Prova sul Pi: passo 13
+  di `g` (la scena del passo 10 senza e con MSAA, tempi, quota di pixel smussati e un
+  ritaglio ingrandito 2× delle due immagini affiancate) e le righe `GPU spheres AA 4x`
+  e `GPU quad AA 4x` dello stress test. Sul PC l'emulatore fa l'MSAA (campioni, media)
+  anche nella variante in cui il load riempie un solo campione.
 
 ## Rischi principali
 | Rischio | Mitigazione |

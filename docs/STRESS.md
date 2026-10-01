@@ -36,6 +36,7 @@ per poligoni 2D/3D, sia dal C sia attraverso l'API delle cartucce Lua (`.bm`).
 | 3D spheres 96 (Lua) | come il test C, con `draw3d()` chiamato da Lua | trasformazioni e raster in C |
 | quad 320×180 flat / no z / Gouraud / texture | N quad di 320×180 pixel (un quarto dello schermo, cioè uno schermo 320×180 intero), uno per quadrante a turno, ciascuno più vicino del precedente: ogni pixel passa lo z-buffer e viene scritto | la pendenza è il **costo di un pixel** (colonna `ns/px`), senza il lavoro per triangolo delle sfere; texture 256×256, più grande della cache dati (M30) |
 | GPU spheres 96 / smooth / textured, GPU quad flat / Gouraud / texture | le stesse scene con il 3D disegnato dalla GPU (backend `gpu3d`, M30): l'ARM trasforma, illumina e taglia, la V3D riempie i pixel; il tempo comprende il lavoro della GPU | solo sul Pi (in QEMU la riga `GPU rows: none (...)` dice perché mancano); i quad GPU arrivano a 2000, ognuno più vicino del precedente di un passo dello z a 24 bit |
+| GPU spheres AA 4x, GPU quad AA 4x | sfere e quad piatti della GPU con l'anti-aliasing MSAA 4× (M31): tile di 32×32 pixel con 4 campioni l'uno | il costo dell'MSAA rispetto alle righe GPU senza; `no MSAA on this GPU` se la prova all'avvio non lo trova |
 
 Per il 3D la tabella riporta il numero di sfere e, tra parentesi, i **triangoli
 effettivamente disegnati** per frame.
@@ -164,6 +165,11 @@ entro un oggetto, e compaiono le righe GPU:
 Con la GPU le sfere sono limitate dall'ARM (trasformazioni e vertici, ~2 µs per
 triangolo), i quad dalla V3D: 1 ns per pixel in tinta unita o Gouraud, 9 con la texture
 256×256 in ordine di riga.
+
+Dopo M30 (M31, da misurare sul Pi): la pagina pulita con `cls` non viene riletta dalla
+GPU, le texture con i lati multipli di 32 vanno in T-format (la texture 256×256 dei quad
+ne approfitta: da confrontare con i 9 ns/px qui sopra) e due righe nuove misurano
+l'MSAA 4×.
 
 ## Come eseguirlo sul Pi
 

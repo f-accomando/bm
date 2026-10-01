@@ -117,9 +117,24 @@ static void flush3d(int keep)
         rt.r3d.backend = NULL;          /* the GPU failed: the ARM draws the 3D again */
 }
 
-static void sync3d(void) { flush3d(1); }
+/* before drawing on the page (or reading it): the 3D waiting goes first,
+ * and the page is no longer one colour */
+static void sync3d(void)
+{
+    flush3d(1);
+    if (rt.r3d.backend)
+        gpu3d_page(0, 0);
+}
 
-static int l_cls(lua_State *L)      { sync3d(); g16_cls(&rt.g, col(L, 1, 0)); return 0; }
+static int l_cls(lua_State *L)
+{
+    const uint16_t c = col(L, 1, 0);
+    sync3d();
+    g16_cls(&rt.g, c);
+    if (rt.r3d.backend)
+        gpu3d_page(1, c);               /* the GPU's next job clears to it */
+    return 0;
+}
 static int l_pset(lua_State *L)     { sync3d(); g16_pset(&rt.g, ival(L, 1), ival(L, 2), col(L, 3, 0xFFFFFF)); return 0; }
 static int l_line(lua_State *L)     { sync3d(); g16_line(&rt.g, ival(L, 1), ival(L, 2), ival(L, 3), ival(L, 4), col(L, 5, 0xFFFFFF)); return 0; }
 static int l_rect(lua_State *L)     { sync3d(); g16_rect(&rt.g, ival(L, 1), ival(L, 2), ival(L, 3), ival(L, 4), col(L, 5, 0xFFFFFF)); return 0; }
@@ -358,7 +373,7 @@ void bm_next_run(int w, int h, int gpu3d, int bench)
 }
 
 /* The V3D draws the 3D of the cartridges (M30) if it starts and passes its
- * probe; gpu3d=0 in bm/config.txt (Settings > 3D of the games: ARM) keeps
+ * probe; gpu3d=0 in bm/config.txt (Settings > Graphics > 3D of the games: ARM) keeps
  * the ARM's rasterizer */
 static void gpu3d_maybe(void)
 {
@@ -367,7 +382,10 @@ static void gpu3d_maybe(void)
         return;
     if (gpu3d_init() == 0) {
         gpu3d_stats_t st;
+        gpu3d_drop();                   /* nothing learned from the game before (depth kept) */
         gpu3d_take_stats(&st);          /* this game's from here */
+        const char *aa = config_get("gpu3d_aa");
+        gpu3d_set_msaa(aa && strcmp(aa, "1") == 0);     /* anti-aliasing: Settings */
         rt.r3d.backend = gpu3d_backend();
         if (!cur.bench)                 /* a benchmark has its own report */
             kprintf("bm: the 3D is drawn by the GPU (%s)\n", gpu3d_status());
@@ -1578,6 +1596,8 @@ static void present(framebuffer_t *fb, uint32_t *deadline, uint32_t *prev, uint3
 {
     flush3d(0);
     rt.present_us = bm_video_present(fb, &rt.g);
+    if (rt.r3d.backend)
+        gpu3d_page(0, 0);               /* another page: what it holds is not known */
     zclear_dma_start();
     while ((int32_t)(timer_ticks() - *deadline) < 0)
         ;

@@ -37,6 +37,10 @@ Lua 5.4 embedded. Documentazione: `README.md`, `docs/ROADMAP.md`, `docs/HARDWARE
   monitor e le righe GPU dello stress test.
 - Gli shader QPU si scrivono in `tools/qpuasm.py`, che genera `src/gpu/shaders.h`
   (`make test-qpu` controlla che sia aggiornato).
+- M31 (in corso): cose della V3D non documentate o non usate da Mesa (layout T-format
+  delle texture, load della pagina in un tile MSAA) le **impara la prova all'avvio** di
+  `gpu3d.c` e, se non tornano, si spengono da sole; l'emulatore ne ha le varianti
+  (`make test-gpu3d` le prova tutte). L'MSAA è spento di default (`gpu3d_aa=1`).
 
 ## Comunicazione con l'utente
 

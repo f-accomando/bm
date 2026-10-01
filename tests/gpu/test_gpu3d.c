@@ -2,10 +2,13 @@
  * The GPU backend of r3d (src/gpu/gpu3d.c) against the software
  * rasterizer, on the V3D emulator of v3d_emu.c (M30).
  *
- *   test_gpu3d RED_A TEX_SWAP [DIR]
+ *   test_gpu3d RED_A TEX_SWAP [TFORMAT [MS_LOAD_ONE [DIR]]]
  *
- * RED_A and TEX_SWAP are the emulator's hidden byte orders: the backend's
- * probe must find them. Every scene is drawn by the software and by the
+ * RED_A and TEX_SWAP are the emulator's hidden byte orders, TFORMAT its
+ * layout of T-format textures (0, 1; 2: none), MS_LOAD_ONE whether a load
+ * fills one sample of four with MSAA: the backend's probe must find them.
+ * With MSAA the scenes are drawn a third time: they may differ from the
+ * GPU's without it only on edges (and not at all where MSAA is not used). Every scene is drawn by the software and by the
  * GPU; the pictures must match but for edge and texel-border pixels.
  * With DIR, both pictures of every scene go there as PPM.
  */
@@ -208,15 +211,30 @@ static void s_split(r3d_t *r, g16_t *g, int gpu)
     }
 }
 
-static const struct { const char *name; scene_fn fn; int w, h; float limit; } scenes[] = {
-    { "spheres", s_spheres, 640, 360, 0.02f },
-    { "textures", s_textures, 640, 360, 0.04f },
-    { "noz_zclear", s_noz_zclear, 480, 270, 0.02f },
-    { "many", s_many, 640, 360, 0.05f },
-    { "3 sheets", s_sheets, 640, 360, 0.02f },
-    { "full job", s_full, 640, 360, 0.02f },
-    { "3D 2D 3D", s_split, 640, 360, 0.02f },
+/* a page of one colour (cls): the GPU clears the tiles to it instead of
+ * loading the page */
+static void s_cleared(r3d_t *r, g16_t *g, int gpu)
+{
+    const uint16_t bg = g16_rgb(20, 90, 60);
+    g16_cls(g, bg);
+    if (gpu)
+        gpu3d_page(1, bg);
+    s_spheres(r, g, gpu);
+}
+
+/* msaa: drawn a third time with MSAA (not where the depth goes from a job
+ * to the next: MSAA does not keep it) */
+static const struct { const char *name; scene_fn fn; int w, h; float limit; int msaa; } scenes[] = {
+    { "spheres", s_spheres, 640, 360, 0.02f, 1 },
+    { "textures", s_textures, 640, 360, 0.04f, 1 },
+    { "noz_zclear", s_noz_zclear, 480, 270, 0.02f, 1 },
+    { "many", s_many, 640, 360, 0.05f, 1 },
+    { "3 sheets", s_sheets, 640, 360, 0.02f, 1 },
+    { "full job", s_full, 640, 360, 0.02f, 0 },
+    { "3D 2D 3D", s_split, 640, 360, 0.02f, 0 },
+    { "cleared", s_cleared, 320, 180, 0.02f, 1 },
 };
+#define CLEARED 7                   /* its index: no bar, no load */
 
 /* ---------------------------------------------------------------- compare */
 
@@ -242,20 +260,60 @@ static void save(const uint16_t *px, int w, int h, const char *name, const char 
 static void run_scene(int s)
 {
     const int w = scenes[s].w, h = scenes[s].h;
-    uint16_t *a = test_aligned_alloc(16, (size_t)w * h * 2), *b = test_aligned_alloc(16, (size_t)w * h * 2);
+    uint16_t *a = test_aligned_alloc(16, (size_t)w * h * 2), *b = test_aligned_alloc(16, (size_t)w * h * 2),
+             *c = test_aligned_alloc(16, (size_t)w * h * 2);
+    uint16_t *pages[3] = { a, b, c };
     r3d_t r;
     g16_t g;
-    for (int pass = 0; pass < 2; pass++) {
-        g16_target(&g, pass ? b : a, (uint32_t)w, w, h, &font);
+    for (int pass = 0; pass < (scenes[s].msaa ? 3 : 2); pass++) {
+        g16_target(&g, pages[pass], (uint32_t)w, w, h, &font);
         g16_cls(&g, g16_rgb(30, 20, 50));
         g16_rectfill(&g, 0, 0, w, 12, g16_rgb(200, 200, 0));      /* drawn by the ARM first */
         r3d_init(&r, &g);
         r.backend = pass ? gpu3d_backend() : NULL;
         r3d_zclear(&r);
         uint32_t prims = emu_stats.prims, batches = emu_stats.batches, jobs = emu_stats.jobs,
-                 zstores = emu_stats.zstores;
+                 zstores = emu_stats.zstores, loads = emu_stats.loads, msframes = emu_stats.msframes;
+        if (pass)
+            gpu3d_drop();               /* each scene as a new cartridge */
+        gpu3d_set_msaa(pass == 2);
         scenes[s].fn(&r, &g, pass);
-        if (pass) {
+        gpu3d_set_msaa(0);
+        if (pass == 2) {
+            /* MSAA on any page, or only where the page was cleared */
+            const int expect = !emu_ms_load_one || s == CLEARED;
+            int differ = 0;
+            for (int i = 0; i < w * h; i++)
+                differ += c[i] != b[i];
+            const float frac = (float)differ / (float)(w * h);
+            /* smoothing moves colour across edges but keeps the mean of
+             * every small block: blocks of 8x8 whose mean moved */
+            int blocks = 0, moved = 0;
+            for (int by = 0; by + 8 <= h; by += 8)
+                for (int bx = 0; bx + 8 <= w; bx += 8, blocks++) {
+                    int sum[2][3] = { { 0, 0, 0 }, { 0, 0, 0 } };
+                    for (int y = by; y < by + 8; y++)
+                        for (int x = bx; x < bx + 8; x++)
+                            for (int k = 0; k < 3; k++) {
+                                sum[0][k] += (int)(rgb(b[y * w + x]) >> (8 * k) & 255);
+                                sum[1][k] += (int)(rgb(c[y * w + x]) >> (8 * k) & 255);
+                            }
+                    for (int k = 0; k < 3; k++)
+                        if (abs(sum[0][k] - sum[1][k]) > 16 * 64) {
+                            moved++;
+                            break;
+                        }
+                }
+            printf("  %-12s MSAA %s: %.2f%% of the pixels smoothed, %d of %d blocks moved\n", scenes[s].name,
+                   emu_stats.msframes > msframes ? "on" : "off", frac * 100, moved, blocks);
+            if (expect)
+                CHECK(emu_stats.msframes > msframes && frac > 0.0005f && moved * 100 <= blocks,
+                      "%s: MSAA %u frames, %.2f%% of the pixels changed, %d blocks moved", scenes[s].name,
+                      emu_stats.msframes - msframes, frac * 100, moved);
+            else
+                CHECK(emu_stats.msframes == msframes && differ == 0,
+                      "%s: MSAA on a loaded page with one sample loaded", scenes[s].name);
+        } else if (pass) {
             CHECK(emu_stats.prims > prims, "%s: the GPU drew nothing", scenes[s].name);
             printf("  %-12s %u triangles in %u batches, %u jobs\n", scenes[s].name, emu_stats.prims - prims,
                    emu_stats.batches - batches, emu_stats.jobs - jobs);
@@ -269,6 +327,10 @@ static void run_scene(int s)
             }
             if (s == 6)
                 CHECK(emu_stats.zstores > zstores, "3D 2D 3D: the depth was not kept");
+            if (s == CLEARED)
+                CHECK(emu_stats.loads == loads && emu_stats.jobs > jobs, "cleared: the page was loaded");
+            else
+                CHECK(emu_stats.loads > loads, "%s: the page was not loaded", scenes[s].name);
         }
         r3d_free(&r);
     }
@@ -286,23 +348,30 @@ static void run_scene(int s)
     float frac = (float)differ / (float)(w * h);
     printf("  %-12s %dx%d: %d pixels covered, %.2f%% differ\n", scenes[s].name, w, h, covered, frac * 100);
     CHECK(frac <= scenes[s].limit, "%s: %.2f%% of the pixels differ", scenes[s].name, frac * 100);
-    CHECK(rgb(b[5 * w + 5]) == rgb(g16_rgb(200, 200, 0)), "%s: the bar drawn before the 3D is gone",
-          scenes[s].name);
+    if (s != CLEARED)
+        CHECK(rgb(b[5 * w + 5]) == rgb(g16_rgb(200, 200, 0)), "%s: the bar drawn before the 3D is gone",
+              scenes[s].name);
     save(a, w, h, scenes[s].name, "cpu");
     save(b, w, h, scenes[s].name, "gpu");
+    if (scenes[s].msaa)
+        save(c, w, h, scenes[s].name, "msaa");
 }
 
 int main(int argc, char **argv)
 {
     emu_red_a = argc > 1 ? atoi(argv[1]) : 1;
     emu_tex_swap = argc > 2 ? atoi(argv[2]) : 0;
-    ppm_dir = argc > 3 ? argv[3] : NULL;
-    printf("gpu3d on the emulator: byte a = %s, texels %s\n", emu_red_a ? "red" : "blue",
-           emu_tex_swap ? "swapped" : "in place");
+    emu_tformat = argc > 3 ? atoi(argv[3]) : 0;
+    emu_ms_load_one = argc > 4 ? atoi(argv[4]) : 0;
+    ppm_dir = argc > 5 ? argv[5] : NULL;
+    printf("gpu3d on the emulator: byte a = %s, texels %s, T-format %d, MSAA load %s\n",
+           emu_red_a ? "red" : "blue", emu_tex_swap ? "swapped" : "in place", emu_tformat,
+           emu_ms_load_one ? "one sample" : "all samples");
     CHECK(gpu3d_init() == 0, "init: %s (%s)", gpu3d_status(), emu_error);
-    char want[80];
-    snprintf(want, sizeof want, "byte a = %s, texels %s", emu_red_a ? "red" : "blue",
-             emu_tex_swap ? "swapped" : "in place");
+    char want[120];
+    snprintf(want, sizeof want, "byte a = %s, texels %s, textures in %s, MSAA %s", emu_red_a ? "red" : "blue",
+             emu_tex_swap ? "swapped" : "in place", emu_tformat == 2 ? "rows" : "tiles",
+             emu_ms_load_one ? "on cleared pages" : "on any page");
     CHECK(strstr(gpu3d_status(), want) != NULL, "probe: '%s', expected '%s'", gpu3d_status(), want);
     if (!gpu3d_ready()) {
         printf("gpu3d: %d/%d checks passed\n", checks - failures, checks);

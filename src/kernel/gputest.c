@@ -585,12 +585,10 @@ static void scene_free(void)
     g16_sheet_free(&sc_sheet);
 }
 
-/* a textured floor without depth, 24 spheres (flat and smooth), a cube,
- * a quad with transparent squares; 2D drawn before the 3D must stay */
-static void scene_draw(g16_t *g, r3d_t *r, int gpu)
+/* the 3D of steps 10 and 13: a textured floor without depth, 24 spheres
+ * (flat and smooth), a cube, a quad with transparent squares */
+static void scene_3d(r3d_t *r)
 {
-    g16_cls(g, g16_rgb(30, 20, 50));
-    g16_rectfill(g, 0, 0, W, 12, g16_rgb(200, 200, 0));
     r3d_zclear(r);
     r3d_camera(r, 0, 1.5f, -7, 0, -0.15f, 60);
     r3d_light(r, -0.4f, 0.7f, -0.6f, 0.3f);
@@ -601,6 +599,26 @@ static void scene_draw(g16_t *g, r3d_t *r, int gpu)
                        i & 1 ? R3D_SMOOTH : 0);
     r3d_draw_flags(r, &sc_cube, (v3_t){ 0.3f, 0.2f, -1.5f }, 0.2f, 0.4f, 0, 0.6f, 0);
     r3d_draw_flags(r, &sc_quad, (v3_t){ -1.2f, 0.4f, -2.5f }, 0, 0.3f, 0, 0.8f, 0);
+}
+
+/* step 10: the 3D over a page with 2D on it (a bar), which must stay */
+static void scene_draw(g16_t *g, r3d_t *r, int gpu)
+{
+    g16_cls(g, g16_rgb(30, 20, 50));
+    g16_rectfill(g, 0, 0, W, 12, g16_rgb(200, 200, 0));
+    scene_3d(r);
+    if (gpu)
+        gpu3d_flush(g, 0);
+}
+
+/* step 13: the 3D over a cleared page (the GPU's job starts from the
+ * colour: MSAA even where the page cannot be loaded into its samples) */
+static void scene_aa(g16_t *g, r3d_t *r, int gpu)
+{
+    g16_cls(g, g16_rgb(30, 20, 50));
+    if (gpu)
+        gpu3d_page(1, g16_rgb(30, 20, 50));
+    scene_3d(r);
     if (gpu)
         gpu3d_flush(g, 0);
 }
@@ -646,6 +664,7 @@ static int step_compare(framebuffer_t *fb, const char *what, void (*scene)(g16_t
         fail(gpu3d_status());
         return -1;
     }
+    gpu3d_set_msaa(0);                      /* the GPU as the ARM draws: no smoothing */
     uint16_t *pg[2] = { aligned_alloc(64, W * H * 2), aligned_alloc(64, W * H * 2) };
     r3d_t r;
     g16_t g;
@@ -717,6 +736,200 @@ static int step_compare(framebuffer_t *fb, const char *what, void (*scene)(g16_t
     return err ? -1 : 0;
 }
 
+/* 12: the textures in rows and in T-format, as the probe learned it: a
+ * floor with a 256x256 texture from under the camera to far away (the
+ * texels spread out: the TMU's cache matters), the same picture both ways
+ * and the GPU's time of each. A difference turns the tiles off. */
+static int step_tiles(void)
+{
+    step("12 textures in tiles (T-format)");
+    if (gpu3d_init() != 0) {
+        fail(gpu3d_status());
+        return -1;
+    }
+    if (!gpu3d_tiles()) {
+        kprintf("skipped: the probe found no T-format (textures stay in rows)\n");
+        return 0;
+    }
+    gpu3d_drop();                           /* no depth kept from step 11 */
+    g16_sheet_t sheet;
+    r3d_mesh_t floor_m;
+    memset(&sheet, 0, sizeof sheet);
+    memset(&floor_m, 0, sizeof floor_m);
+    uint16_t *pg[2] = { aligned_alloc(64, W * H * 2), aligned_alloc(64, W * H * 2) };
+    int err = !pg[0] || !pg[1] || g16_sheet_alloc(&sheet, 256, 256) != 0 || r3d_mesh_alloc(&floor_m, 4, 2) != 0 ||
+              r3d_mesh_alloc_uv(&floor_m) != 0;
+    uint32_t us[2] = { 0, 0 };
+    if (!err) {
+        for (int y = 0; y < 256; y++)
+            for (int x = 0; x < 256; x++)
+                g16_sheet_set(&sheet, x, y, g16_rgb((uint32_t)(x ^ y), (uint32_t)(x * 3 + y) & 255,
+                                                    (uint32_t)(y * 5) & 255), 1);
+        for (int cy = 0; cy < 32; cy++)
+            for (int cx = 0; cx < 32; cx++)
+                g16_sheet_update_cell(&sheet, cx, cy);
+        floor_m.verts[0] = (v3_t){ -1, -1, 0 }; floor_m.verts[1] = (v3_t){ 1, -1, 0 };
+        floor_m.verts[2] = (v3_t){ 1, 1, 0 };   floor_m.verts[3] = (v3_t){ -1, 1, 0 };
+        static const uint16_t f[6] = { 0, 2, 1, 0, 3, 2 };
+        memcpy(floor_m.faces, f, sizeof f);
+        static const float uv[12] = { 0, 255.5f, 255.5f, 0, 255.5f, 255.5f,   0, 255.5f, 0, 0, 255.5f, 0 };
+        memcpy(floor_m.uv, uv, sizeof uv);
+        floor_m.colors[0] = floor_m.colors[1] = R3D_TEXTURED;
+        floor_m.tex = &sheet;
+        r3d_mesh_normals(&floor_m);
+    }
+    for (int pass = 0; pass < 2 && !err; pass++) {
+        g16_t g;
+        r3d_t r;
+        g16_target(&g, pg[pass], W, W, H, &font_console_8x16);
+        if (r3d_init(&r, &g) != 0) {
+            err = 1;
+            break;
+        }
+        r.backend = gpu3d_backend();
+        gpu3d_tiled_textures(pass);
+        gpu3d_stats_t st;
+        for (int k = 0; k < 6; k++) {       /* the first: the texture made */
+            if (k == 1)
+                gpu3d_take_stats(&st);
+            g16_cls(&g, g16_rgb(30, 20, 50));
+            r3d_zclear(&r);
+            r3d_camera(&r, 0, 1.0f, -1.0f, 0, -0.35f, 70);
+            r3d_light(&r, 0, 1, 0, 1);
+            r3d_draw_flags(&r, &floor_m, (v3_t){ 0, 0, 6 }, 1.5707963f, 0, 0, 7, R3D_UNLIT);
+            if (gpu3d_flush(&g, 0) != 0)
+                err = 2;
+        }
+        gpu3d_take_stats(&st);
+        us[pass] = st.render_us / 5;
+        r3d_free(&r);
+    }
+    gpu3d_tiled_textures(1);
+    int differ = 0;
+    if (!err)
+        for (int i = 0; i < W * H; i++)
+            differ += pg[0][i] != pg[1][i];
+    if (err) {
+        fail(err == 2 ? gpu3d_status() : "no memory for the texture");
+    } else if (differ) {
+        gpu3d_tiled_textures(0);            /* the games keep the rows */
+        char why[80];
+        ksnprintf(why, sizeof why, "%d pixels differ: textures back in rows", differ);
+        fail(why);
+    } else {
+        const uint32_t x10 = us[1] ? us[0] * 10 / us[1] : 0;
+        kprintf("ok  render in rows %lu us, in tiles %lu us (%lu.%lux), the same picture\n", us[0], us[1],
+                x10 / 10, x10 % 10);
+    }
+    r3d_mesh_free(&floor_m);
+    g16_sheet_free(&sheet);
+    free(pg[0]);
+    free(pg[1]);
+    return err || differ ? -1 : 0;
+}
+
+/* 13: anti-aliasing (MSAA 4x): the scene of step 10 on a cleared page,
+ * by the GPU without and with MSAA: the GPU's time of each, how much the
+ * smoothing changed (edges only: the mean of every 8x8 block stays), and
+ * the middle of both pictures twice as big, without on the left */
+static int step_msaa(framebuffer_t *fb)
+{
+    step("13 anti-aliasing (MSAA 4x)");
+    if (gpu3d_init() != 0) {
+        fail(gpu3d_status());
+        return -1;
+    }
+    const int where = gpu3d_msaa();
+    if (!where) {
+        kprintf("skipped: no MSAA on this GPU\n");
+        return 0;
+    }
+    gpu3d_drop();                           /* step 11 taught it to keep the depth: no MSAA then */
+    uint16_t *pg[2] = { aligned_alloc(64, W * H * 2), aligned_alloc(64, W * H * 2) };
+    uint32_t us[2] = { 0, 0 }, ms_jobs = 0;
+    int err = !pg[0] || !pg[1] || scene_init() != 0;
+    for (int pass = 0; pass < 2 && !err; pass++) {
+        g16_t g;
+        r3d_t r;
+        g16_target(&g, pg[pass], W, W, H, &font_console_8x16);
+        if (r3d_init(&r, &g) != 0) {
+            err = 1;
+            break;
+        }
+        r.backend = gpu3d_backend();
+        gpu3d_set_msaa(pass);
+        gpu3d_stats_t st;
+        scene_aa(&g, &r, 1);                /* textures made, caches warm */
+        gpu3d_take_stats(&st);
+        scene_aa(&g, &r, 1);
+        gpu3d_take_stats(&st);
+        if (gpu3d_failed())
+            err = 2;
+        us[pass] = st.bin_us + st.render_us;
+        if (pass)
+            ms_jobs = st.msjobs;
+        r3d_free(&r);
+    }
+    gpu3d_set_msaa(0);
+    if (err) {
+        fail(err == 2 ? gpu3d_status() : "no memory for the scene");
+    } else {
+        int differ = 0, blocks = 0, moved = 0;
+        for (int i = 0; i < W * H; i++)
+            differ += pg[0][i] != pg[1][i];
+        for (int by = 0; by + 8 <= H; by += 8)
+            for (int bx = 0; bx + 8 <= W; bx += 8, blocks++) {
+                int sum[2][3] = { { 0, 0, 0 }, { 0, 0, 0 } };
+                for (int y = by; y < by + 8; y++)
+                    for (int x = bx; x < bx + 8; x++)
+                        for (int p = 0; p < 2; p++) {
+                            uint32_t c = g16_to_rgb24(pg[p][y * W + x]);
+                            for (int k = 0; k < 3; k++)
+                                sum[p][k] += (int)(c >> (8 * k) & 255);
+                        }
+                for (int k = 0; k < 3; k++)
+                    if (sum[0][k] - sum[1][k] > 16 * 64 || sum[1][k] - sum[0][k] > 16 * 64) {
+                        moved++;
+                        break;
+                    }
+            }
+        const int permille = (int)((int64_t)differ * 1000 / (W * H));
+        if (!ms_jobs || !differ || moved * 100 > blocks) {
+            char why[100];
+            ksnprintf(why, sizeof why, "%lu MSAA jobs, %d.%d%% of the pixels changed, %d of %d blocks moved",
+                      ms_jobs, permille / 10, permille % 10, moved, blocks);
+            fail(why);
+        } else {
+            kprintf("ok  GPU without %lu us, with %lu us; %d.%d%% of the pixels smoothed (MSAA %s)\n", us[0],
+                    us[1], permille / 10, permille % 10, where == 2 ? "on any page" : "on cleared pages");
+        }
+        /* the middle of both pictures, twice as big, until a key or 10 s */
+        if (fb->depth == 32 && fb->width >= W && fb->height >= H) {
+            kprintf("  the picture: without anti-aliasing on the left, with on the right (2x, a key or 10 s)\n");
+            timer_delay_ms(40);
+            fb_fill_rect(fb, 0, 0, W, H, fb_color(fb, 0, 0, 0));
+            for (int y = 0; y < H / 2; y++)
+                for (int x = 0; x < W; x++) {
+                    const int half = x >= W / 2, sx = W / 2 - W / 8 + (x % (W / 2)) / 2,
+                              sy = H / 2 - H / 8 + y / 2;
+                    uint32_t c = g16_to_rgb24(pg[half][sy * W + sx]);
+                    fb_putpixel(fb, (uint32_t)x, (uint32_t)(y + H / 4),
+                                fb_color(fb, (uint8_t)(c >> 16), (uint8_t)(c >> 8), (uint8_t)c));
+                }
+            uint32_t t0 = timer_ticks();
+            input_flush();
+            while (timer_ticks() - t0 < 10000000u && input_key() < 0)
+                ;
+            console_suspend(1);
+            console_suspend(0);
+        }
+    }
+    scene_free();
+    free(pg[0]);
+    free(pg[1]);
+    return err ? -1 : 0;
+}
+
 void gpu_test(framebuffer_t *fb)
 {
     failed = 0;
@@ -743,8 +956,10 @@ void gpu_test(framebuffer_t *fb)
              step_speed_fill() == 0 && step_texture() == 0 && step_screen(fb) == 0;
     free(m.block);
     m.block = NULL;
-    if (ok && step_compare(fb, "10 the 3D of the games on the GPU", scene_draw) == 0)
-        step_compare(fb, "11 depth kept across 2D (3D, 2D, 3D)", scene_split);
+    if (ok && step_compare(fb, "10 the 3D of the games on the GPU", scene_draw) == 0 &&
+        step_compare(fb, "11 depth kept across 2D (3D, 2D, 3D)", scene_split) == 0 &&
+        step_tiles() == 0)
+        step_msaa(fb);
     if (gpu3d_ready())
         gpu3d_drop();                       /* the games start from a clean state */
     kprintf(failed ? "GPU test \x1b[91mfailed\x1b[0m: a photo of these lines helps\n" : "GPU test passed\n");
