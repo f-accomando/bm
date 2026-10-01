@@ -121,6 +121,18 @@ screenshot in `docs/img/`), `README_OLD.md` (il README completo, in italiano),
 - In `carts/nano8/roms` solo cartucce con una licenza che ne permette la ridistribuzione,
   elencate in `CREDITS.md` con il testo della licenza in `licenses/`.
 
+## Yharnam (carts/yharnam)
+
+- Gioco a 256×256: la risoluzione quadrata del formato (il firmware dà 480×270, il gioco
+  disegna nel riquadro al centro, `bm_video_enter` in `runtime.c`). Città gotica infinita
+  fatta a pezzi grandi uno schermo (16×16 tessere) fuori dallo schermo mentre si cammina
+  (`timeslice`), le strade decise solo dalle coordinate. Luce a livelli come in Dank Tomb:
+  `fades`, `dark_begin`, `glow`, `dark_end` (`g16_fade_*` in `gfx16.c`).
+- La grafica è tutta in codice: `mkassets.py` (numpy, Pillow) con `art/` (`sdf.py` rende
+  modelli 3D in pixel art: il cacciatore, gli oggetti; tessere e case in 2D) scrive
+  `sheet.png` e il blocco `-- [atlas begin]` di `main.lua`. Dopo averla cambiata:
+  rieseguirlo e fare commit di `sheet.png`. Prove: `make test-yharnam`, QEMU `test_yharnam`.
+
 ## Assistente AI (M30)
 
 - `src/ai/`: rete INT8 che sceglie tra le voci di `src/ai/kb/*.txt` (formato in

@@ -2580,6 +2580,69 @@ def test_village(b, opts):
         q.close()
 
 
+def test_yharnam(b, opts):
+    """Yharnam: a 256x256 cartridge, shown in the middle of a 480x270
+    screen with black around it; the town made while you walk, lit by
+    levels (fades, glow). Title, start, the first square's name, a dark
+    night with warm lamps and fires, no Lua error."""
+    BX, BY = 112, 7                             # the 256x256 box in the 480x270 screen
+
+    def box(img):
+        w, h, px = img
+        out = bytearray()
+        for y in range(BY, BY + 256):
+            out += px[(y * w + BX) * 3:(y * w + BX + 256) * 3]
+        return 256, 256, bytes(out)
+
+    q = Qemu(b("kernel.img"))
+    try:
+        q.expect(MENU, timeout=30)
+        time.sleep(0.5)
+        with open(b("carts/yharnam.bm"), "rb") as f:
+            assert _upload(q, f.read())
+        text = []
+        for _ in range(20):
+            time.sleep(0.25)
+            img = q.screendump()
+            if img[0] == 480:
+                text = screen_text(box(img))
+                if any("YHARNAM" in l for l in text):
+                    break
+        assert img[0] == 480 and img[1] == 270, img[:2]
+        assert any("YHARNAM" in l for l in text) and any("A: START" in l for l in text), "\n".join(text)
+        w, h, px = img
+        for x, y in ((0, 0), (479, 269), (BX - 1, 128), (BX + 256, 128), (240, BY - 1), (240, BY + 256)):
+            assert px[(y * w + x) * 3:(y * w + x) * 3 + 3] == b"\0\0\0", ("border", x, y)
+        if opts.shots:
+            _save_png(img, os.path.join(opts.shots, "yharnam-title.png"))
+        q.send(" ")                             # A: start
+        time.sleep(1.5)
+        for k in "ssddwwaa":
+            q.send(k)
+            time.sleep(0.15)
+        for _ in range(10):
+            img = box(q.screendump())
+            text = screen_text(img)
+            cols = [tuple(img[2][i:i + 3]) for i in range(0, len(img[2]), 3)]
+            dark = sum(r + g + b < 120 for r, g, b in cols)
+            warm = sum(r > 200 and g > 120 and b < 150 for r, g, b in cols)
+            if any("Square" in l for l in text) and warm > 20:
+                break
+            time.sleep(0.4)
+        if opts.shots:
+            _save_png(q.screendump(), os.path.join(opts.shots, "yharnam-play.png"))
+        print(f"     yharnam: {dark} dark pixels of 65536, {warm} warm (lamps, fires)")
+        assert any("Square" in l for l in text), "\n".join(text)
+        assert dark > 30000, dark               # a night, nearly dark
+        assert warm > 20, warm                  # warm lamps and fires
+        q.send("q")
+        out = q.expect("update+draw", timeout=10).decode(errors="replace")
+        assert "stopped with an error" not in out, out
+        assert '"Yharnam"' in out, out[-300:]
+    finally:
+        q.close()
+
+
 def test_studio_cart(b, opts):
     """A cartridge written by bm Studio (make test-studio: tests/studio/
     test_core.js) plays on the console: the model viewer that a new project

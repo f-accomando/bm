@@ -167,6 +167,47 @@ static void test_light(void)
     g16_light_free(&l);
 }
 
+/* lighting by levels (fades, as in Dank Tomb) */
+static void test_fade(void)
+{
+    static uint16_t px[64 * 64];
+    g16_t g;
+    g16_fade_t f;
+    g16_target(&g, px, 64, 64, 64, &font);
+    CHECK(g16_fade_init(&f, 64, 64) == 0, "fade init");
+    /* a grey with 4 levels: black, dark blue, grey, warm white */
+    const uint16_t grey = g16_rgb(128, 128, 128);
+    const uint16_t to[4] = { 0, g16_rgb(16, 16, 48), grey, g16_rgb(248, 216, 160) };
+    g16_fade_reset(&f, 4);
+    CHECK(g16_fade_colour(&f, grey, to) == 0, "fade colour");
+    g16_fade_done(&f);
+    g16_cls(&g, grey);
+    g16_rectfill(&g, 0, 60, 64, 4, g16_rgb(96, 64, 32));      /* a colour without a table */
+    g16_fade_clear(&f, 1);
+    g16_fade_glow(&f, 32, 32, 24, 3, 0);
+    g16_fade_apply(&g, &f);
+    CHECK(px[32 * 64 + 32] == to[3], "centre at the top level (%04x)", px[32 * 64 + 32]);
+    CHECK(px[2 * 64 + 2] == to[1], "ambient outside the lamp (%04x)", px[2 * 64 + 2]);
+    CHECK(px[32 * 64 + 32 + 12] == to[2], "the middle ring (%04x)", px[32 * 64 + 44]);
+    CHECK(px[32 * 64 + 32 - 12] == to[2], "rings are round (%04x)", px[32 * 64 + 20]);
+    uint32_t o = g16_to_rgb24(px[62 * 64 + 2]);
+    CHECK(o != 0 && (o >> 16) < 96, "colours without a table are scaled (%06x)", o);
+    /* two lamps: the brighter wins; dithered edges mix two levels */
+    g16_cls(&g, grey);
+    g16_fade_clear(&f, 0);
+    g16_fade_glow(&f, 20, 32, 16, 2, 256);
+    g16_fade_glow(&f, 20, 32, 6, 3, 256);
+    g16_fade_apply(&g, &f);
+    CHECK(px[32 * 64 + 20] == to[3], "the brighter lamp wins");
+    int lv1 = 0, lv0 = 0;
+    for (int x = 28; x < 36; x++) {
+        lv1 += px[32 * 64 + x] == to[1];
+        lv0 += px[32 * 64 + x] == to[0];
+    }
+    CHECK(lv1 > 0 && lv0 > 0, "dithered edge: %d at level 1, %d at 0", lv1, lv0);
+    g16_fade_free(&f);
+}
+
 static void test_3d(void)
 {
     static uint16_t big[360 * 640];
@@ -346,6 +387,21 @@ static void test_format(const char *path)
     CHECK(c.lua && c.lua_size > 100 && memcmp(c.lua, "--", 2) == 0, "lua section");
     CHECK(c.sheet_w == 128 && c.sheet_h == 128 && c.sheet_rgba, "sheet");
     CHECK(c.map_w == 160 && c.map_h == 90 && c.map_cells, "map");
+
+    /* the square resolution, 256x256; any other size is refused */
+    {
+        const char code[] = "function _draw() cls(2) end";
+        size_t n4;
+        uint8_t *r = bm_rewrite(d, n, code, sizeof code - 1, "Square", "", 256, &n4);
+        bm_cart_t c4;
+        CHECK(r && bm_parse(r, n4, &c4, err, sizeof err) == 0, "256x256 parses: %s", err);
+        CHECK(c4.width == 256 && c4.height == 256, "256x256 header %ux%u", c4.width, c4.height);
+        if (r) {
+            r[14] = 180;            /* 256x180: the header is outside the CRC */
+            CHECK(bm_parse(r, n4, &c4, err, sizeof err) != 0, "256x180 refused");
+        }
+        free(r);
+    }
 
     /* new code, the rest kept: sheet, map, an unknown section (appended) */
     {
@@ -783,6 +839,7 @@ int main(int argc, char **argv)
     test_sprites();
     test_text();
     test_light();
+    test_fade();
     test_3d();
     test_format(argc > 1 ? argv[1] : "build/demo.bm");
     test_sheet8();

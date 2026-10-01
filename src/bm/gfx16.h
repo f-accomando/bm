@@ -94,6 +94,42 @@ void g16_light_clear(g16_light_t *l, uint32_t ambient_rgb);   /* 0xFFFFFF = unli
 void g16_light_add(g16_light_t *l, float x, float y, float radius, uint32_t rgb, float intensity);
 void g16_light_apply(g16_t *g, const g16_light_t *l);
 
+/* Lighting by levels, as in Dank Tomb (PICO-8): every pixel gets a light
+ * level 0..levels-1 (the brightest lamp that reaches it: rings from the
+ * lamp's level at the centre down to 0 at its radius, the ring edges
+ * dithered 4x4), then each colour of the picture becomes the colour its
+ * fade table gives for that level. Colours without a table are scaled by
+ * the average of the tables at that level. */
+#define G16_FADE_LEVELS 16
+#define G16_FADE_COLOURS 255
+
+typedef struct {
+    int w, h;                   /* screen pixels */
+    int levels;                 /* 2..G16_FADE_LEVELS */
+    int ncol;                   /* colours with a table */
+    uint8_t *lv;                /* w x h levels */
+    uint8_t *index;             /* 65536: RGB565 -> its table, 255 = none */
+    uint16_t *tab;              /* G16_FADE_LEVELS x 256: the colour at each level */
+    uint16_t from[256];         /* the colour of each table */
+    uint16_t mul[G16_FADE_LEVELS][3];   /* the others: r, g, b x 256 */
+} g16_fade_t;
+
+int  g16_fade_init(g16_fade_t *f, int w, int h);
+void g16_fade_free(g16_fade_t *f);
+/* Forgets the tables; the next ones have `levels` levels (2..16). */
+void g16_fade_reset(g16_fade_t *f, int levels);
+/* The table of colour `from`: to[0] (darkest) .. to[levels-1]. Returns -1
+ * when there are already G16_FADE_COLOURS tables. */
+int  g16_fade_colour(g16_fade_t *f, uint16_t from, const uint16_t *to);
+/* After the tables: the scale of the colours without one. */
+void g16_fade_done(g16_fade_t *f);
+void g16_fade_clear(g16_fade_t *f, int ambient);
+/* A lamp at screen (x, y): `level` at the centre, 0 at `radius`; dither
+ * 0..256 is how much of each ring edge is mixed (0 = sharp rings, 256 = a
+ * smooth ordered-dither ramp). */
+void g16_fade_glow(g16_fade_t *f, int x, int y, int radius, int level, int dither);
+void g16_fade_apply(g16_t *g, const g16_fade_t *f);
+
 /* Sheet helpers */
 int  g16_sheet_alloc(g16_sheet_t *s, int w, int h);
 void g16_sheet_free(g16_sheet_t *s);

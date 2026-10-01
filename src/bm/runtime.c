@@ -67,6 +67,7 @@ static struct {
     r3d_t r3d;
     int r3d_ready;
     g16_light_t light;          /* light_begin() .. light_end() */
+    g16_fade_t fade;            /* fades(), dark_begin() .. dark_end() */
     int text_mode;              /* keyp() was called: the keyboard types */
     int raw_keys;               /* rawkeys(true): the keyboard is read with keydown() */
     lua_State *slice_thread;    /* timeslice(): this coroutine yields after slice_at */
@@ -1667,6 +1668,85 @@ static int l_light_end(lua_State *L)
     return 0;
 }
 
+/* Lighting by levels, as in Dank Tomb: fades() gives each colour what it
+ * becomes at every light level, dark_begin() fills the screen with the
+ * ambient level, glow() adds lamps (rings of levels), dark_end() turns
+ * every pixel into its colour at its level. */
+static int fade_ready(lua_State *L)
+{
+    if (!rt.fade.lv && g16_fade_init(&rt.fade, rt.g.w, rt.g.h) != 0)
+        return luaL_error(L, "not enough memory for lighting");
+    return 0;
+}
+
+/* fades({ {from, l0, l1, ...}, ... }) -> levels: every row has the same
+ * length, 3..17 (2..16 levels, l0 the darkest) */
+static int l_fades(lua_State *L)
+{
+    luaL_checktype(L, 1, LUA_TTABLE);
+    fade_ready(L);
+    const lua_Integer n = luaL_len(L, 1);
+    int levels = 0;
+    for (lua_Integer i = 1; i <= n; i++) {
+        lua_geti(L, 1, i);
+        luaL_checktype(L, -1, LUA_TTABLE);
+        const lua_Integer len = luaL_len(L, -1);
+        if (i == 1) {
+            if (len < 3 || len > G16_FADE_LEVELS + 1)
+                return luaL_error(L, "fades: a row is a colour and 2 to %d levels", G16_FADE_LEVELS);
+            levels = (int)len - 1;
+            g16_fade_reset(&rt.fade, levels);
+        } else if (len != levels + 1) {
+            return luaL_error(L, "fades: row %d has %d levels, not %d", (int)i, (int)len - 1, levels);
+        }
+        uint16_t to[G16_FADE_LEVELS];
+        lua_geti(L, -1, 1);
+        const uint16_t from = g16_rgb24((uint32_t)luaL_checkinteger(L, -1));
+        lua_pop(L, 1);
+        for (int k = 0; k < levels; k++) {
+            lua_geti(L, -1, k + 2);
+            to[k] = g16_rgb24((uint32_t)luaL_checkinteger(L, -1));
+            lua_pop(L, 1);
+        }
+        lua_pop(L, 1);
+        if (g16_fade_colour(&rt.fade, from, to) != 0)
+            return luaL_error(L, "fades: more than %d colours", G16_FADE_COLOURS);
+    }
+    g16_fade_done(&rt.fade);
+    lua_pushinteger(L, rt.fade.levels);
+    return 1;
+}
+
+/* dark_begin([ambient level]): everything drawn so far will be lit by
+ * dark_end() (the cartridge draws into RAM from now on) */
+static int l_dark_begin(lua_State *L)
+{
+    fade_ready(L);
+    if (video_to_ram(&rt.g) != 0)
+        return luaL_error(L, "not enough memory for lighting");
+    g16_fade_clear(&rt.fade, (int)luaL_optinteger(L, 1, 0));
+    return 0;
+}
+
+/* glow(x, y, radius, level [, dither 0..1]) - world coordinates (camera) */
+static int l_glow(lua_State *L)
+{
+    if (!rt.fade.lv)
+        return luaL_error(L, "glow() before dark_begin()");
+    const float d = fnum(L, 5, 0.5f);
+    g16_fade_glow(&rt.fade, (int)floorf(fnum(L, 1, 0)) - rt.g.cam_x, (int)floorf(fnum(L, 2, 0)) - rt.g.cam_y,
+                  (int)fnum(L, 3, 32), (int)luaL_checkinteger(L, 4), (int)(d * 256));
+    return 0;
+}
+
+static int l_dark_end(lua_State *L)
+{
+    (void)L;
+    if (rt.fade.lv)
+        g16_fade_apply(&rt.g, &rt.fade);
+    return 0;
+}
+
 static int l_quit(lua_State *L)
 {
     (void)L;
@@ -1697,6 +1777,7 @@ static const luaL_Reg api[] = {
     { "cart_read", l_cart_read }, { "cart_write", l_cart_write }, { "cart_meshes", l_cart_meshes },
     { "cart_sheet", l_cart_sheet },
     { "light_begin", l_light_begin }, { "light", l_light }, { "light_end", l_light_end },
+    { "fades", l_fades }, { "dark_begin", l_dark_begin }, { "glow", l_glow }, { "dark_end", l_dark_end },
     { "note", l_note }, { "noteoff", l_noteoff }, { "freq", l_freq },
     { "envelope", l_envelope }, { "duty", l_duty }, { "playing", l_playing }, { "apu", l_apu },
     { "hz", l_hz }, { "slide", l_slide }, { "vibrato", l_vibrato }, { "arp", l_arp },
@@ -2160,6 +2241,17 @@ static int l_ls(lua_State *L)
     return 1;
 }
 
+/* The resolutions of a cartridge, as the Lua side names them */
+static const char *res_name(int w)
+{
+    return w == 320 ? "320x180" : w == 256 ? "256x256" : "640x360";
+}
+
+static int res_width(const char *res)
+{
+    return strcmp(res, "320x180") == 0 ? 320 : strcmp(res, "256x256") == 0 ? 256 : 640;
+}
+
 static void push_project(lua_State *L, const char *title, const char *author, int w, const char *lua,
                          size_t lua_len)
 {
@@ -2168,7 +2260,7 @@ static void push_project(lua_State *L, const char *title, const char *author, in
     lua_setfield(L, -2, "title");
     lua_pushstring(L, author);
     lua_setfield(L, -2, "author");
-    lua_pushstring(L, w == 320 ? "320x180" : "640x360");
+    lua_pushstring(L, res_name(w));
     lua_setfield(L, -2, "res");
     lua_pushlstring(L, lua, lua_len);
     lua_setfield(L, -2, "lua");
@@ -2514,7 +2606,7 @@ static int l_cart_save(lua_State *L)
     lua_getfield(L, 2, "lua");
     size_t lua_len;
     const char *lua = luaL_checklstring(L, -1, &lua_len);
-    int w = strcmp(res, "320x180") == 0 ? 320 : 640, h = w == 320 ? 180 : 360;
+    int w = res_width(res), h = w == 320 ? 180 : w == 256 ? 256 : 360;
 
     char dir[64], name[16];
     split_path(path, dir, sizeof dir, name, sizeof name);
@@ -2620,7 +2712,7 @@ static int l_cart_read(lua_State *L)
     lua_setfield(L, -2, "title");
     lua_pushstring(L, author);
     lua_setfield(L, -2, "author");
-    lua_pushstring(L, c.width == 320 ? "320x180" : "640x360");
+    lua_pushstring(L, res_name(c.width));
     lua_setfield(L, -2, "res");
     lua_pushlstring(L, c.lua, c.lua_size);
     lua_setfield(L, -2, "lua");
@@ -2762,7 +2854,7 @@ static int l_cart_write(lua_State *L)
     title[48] = author[32] = 0;
     const char *t = field(L, 2, "title", old ? title : name);
     const char *a = field(L, 2, "author", author);
-    const char *res = field(L, 2, "res", c.width == 320 ? "320x180" : "640x360");
+    const char *res = field(L, 2, "res", res_name(c.width));
     if (!old && !lua) {
         lua_pushboolean(L, 0);
         lua_pushstring(L, "a new cartridge needs its code (lua)");
@@ -2784,7 +2876,7 @@ static int l_cart_write(lua_State *L)
         put[nput++] = (bm_put_t){ st, sheet, ss };
     }
     size_t out_len;
-    uint8_t *out = bm_rewrite_with(old, old_len, lua, lua_len, t, a, strcmp(res, "320x180") ? 640 : 320, put, nput,
+    uint8_t *out = bm_rewrite_with(old, old_len, lua, lua_len, t, a, res_width(res), put, nput,
                                    &out_len);
     free(old);
     free(sheet);
@@ -3137,13 +3229,32 @@ static int video_to_ram(g16_t *g)
 int bm_via_ram(void) { return via_ram; }
 int bm_video_uses_ram(void) { return shadow != NULL; }
 
+/* A square 256x256 cartridge is drawn in the middle of a 480x270 screen
+ * (1920x1080 / 4: whole pixels on a 1080p TV), black around it: `box` is
+ * the byte offset of its top left corner in a page, 0 for the 16:9 sizes. */
+static uint32_t box;
+
+static uint16_t *page_px(const framebuffer_t *fb)
+{
+    return (uint16_t *)(fb->base + box);
+}
+
 int bm_video_enter(framebuffer_t *fb, int w, int h, g16_t *g)
 {
     console_suspend(1);
     free(shadow);
     shadow = NULL;
-    if (fb_init_depth(fb, (uint32_t)w, (uint32_t)h, 3, 16) != 0)
+    const int boxed = w == 256 && h == 256;
+    const uint32_t fw = boxed ? 480u : (uint32_t)w, fh = boxed ? 270u : (uint32_t)h;
+    box = 0;
+    if (fb_init_depth(fb, fw, fh, 3, 16) != 0)
         return -1;
+    if (boxed) {
+        if (fb->width < (uint32_t)w || fb->height < (uint32_t)h)
+            return -1;
+        box = (fb->height - (uint32_t)h) / 2 * fb->pitch + (fb->width - (uint32_t)w) / 2 * 2;
+        memset(fb->mem, 0, (size_t)fb->pitch * fb->height * fb->buffers);
+    }
     if (via_ram) {
         shadow = malloc((size_t)w * (size_t)h * 2);
         if (!shadow)
@@ -3151,7 +3262,7 @@ int bm_video_enter(framebuffer_t *fb, int w, int h, g16_t *g)
         memset(shadow, 0, (size_t)w * (size_t)h * 2);
         g16_target(g, shadow, (uint32_t)w, w, h, &font_console_8x16);
     } else {
-        g16_target(g, (uint16_t *)fb->base, fb->pitch / 2, w, h, &font_console_8x16);
+        g16_target(g, page_px(fb), fb->pitch / 2, w, h, &font_console_8x16);
     }
     return 0;
 }
@@ -3160,12 +3271,16 @@ uint32_t bm_video_present(framebuffer_t *fb, g16_t *g)
 {
     if (!shadow) {
         fb_flip(fb);
-        g->px = (uint16_t *)fb->base;
+        g->px = page_px(fb);
         return 0;
     }
     uint32_t t0 = timer_ticks();
     const uint32_t row = (uint32_t)g->w * 2;
-    if (fb->pitch == row && dma_ready() && dma_frames) {
+    if (box) {
+        uint8_t *dst = fb->base + box;
+        for (int y = 0; y < g->h; y++)
+            memcpy(dst + (uint32_t)y * fb->pitch, g->px + (uint32_t)y * g->stride, row);
+    } else if (fb->pitch == row && dma_ready() && dma_frames) {
         /* the DMA reads the SDRAM much faster than the ARM1176 */
         dcache_clean_all();
         dma_copy(fb->base, g->px, row * (uint32_t)g->h);
@@ -3185,6 +3300,7 @@ void bm_video_leave(framebuffer_t *fb, uint32_t w, uint32_t h)
 {
     free(shadow);
     shadow = NULL;
+    box = 0;
     fb_init(fb, w, h, 2);
     console_suspend(0);
 }
@@ -3236,6 +3352,7 @@ static void release(lua_State *L)
     lua_close(L);               /* frees meshes (__gc) before the z-buffer */
     n8lua_close();
     g16_light_free(&rt.light);
+    g16_fade_free(&rt.fade);
     if (rt.r3d_ready)
         r3d_free(&rt.r3d);
     rt.r3d_ready = 0;

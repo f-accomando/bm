@@ -146,7 +146,7 @@ $(BUILD)/demo.bm: $(DEMO_BM_SRC) scripts/mkbm.py
 	    --map carts/demo/map.csv --title "bm native demo" --author bm
 
 # Demo games (Lua only, sprites drawn in code): build/carts/<name>.bm
-GAMES := pong snake shooter astrowing hunt kitchen titan texroom village nano8
+GAMES := pong snake shooter astrowing hunt kitchen titan texroom village nano8 yharnam
 GAME_CARTS := $(patsubst %,$(BUILD)/carts/%.bm,$(GAMES))
 title_pong    := Pong
 title_snake   := Snake
@@ -161,11 +161,15 @@ title_nano8 := nano8
 res_texroom := 320x180
 title_village := Studio Village
 res_village := 320x180
+title_yharnam := Yharnam
+res_yharnam := 256x256
+sheet8_yharnam := 1
 # Optional per game: carts/<game>/cover.png (printed on the cartridge in the
 # menu, scripts/mkcovers.py), sheet.png, map.csv, models.bm or models.glb (3D
 # models from bm Studio / bm Animator, sdk/: with their skeletons and
 # animations from a .bm; their sprite sheet too when there is no sheet.png),
-# res_<game> := 320x180.
+# res_<game> := 320x180 or 256x256, sheet8_<game> := 1 (the sheet with a
+# palette and runs: up to 256 colours, much smaller).
 .SECONDEXPANSION:
 $(BUILD)/carts/%.bm: carts/%/main.lua scripts/mkbm.py scripts/bmmesh.py \
                       $$(wildcard carts/$$*/cover.png carts/$$*/sheet.png carts/$$*/map.csv carts/$$*/models.glb \
@@ -174,7 +178,7 @@ $(BUILD)/carts/%.bm: carts/%/main.lua scripts/mkbm.py scripts/bmmesh.py \
 	$(PYTHON) scripts/mkbm.py -o $@ --lua $< --title "$(title_$*)" --author bm \
 	    --res $(or $(res_$*),640x360) \
 	    $(if $(wildcard carts/$*/cover.png),--cover carts/$*/cover.png) \
-	    $(if $(wildcard carts/$*/sheet.png),--sheet carts/$*/sheet.png) \
+	    $(if $(wildcard carts/$*/sheet.png),--sheet carts/$*/sheet.png $(if $(sheet8_$*),--sheet8)) \
 	    $(if $(wildcard carts/$*/map.csv),--map carts/$*/map.csv) \
 	    $(if $(wildcard carts/$*/models.bm),--models carts/$*/models.bm,$(if $(wildcard carts/$*/models.glb),--models carts/$*/models.glb))
 
@@ -224,6 +228,10 @@ test-kitchen: $(BUILD)/host/luahost $(BUILD)/kitchen/main.lua
 test-titan: $(BUILD)/host/luahost $(BUILD)/titan/main.lua
 	$< tests/titan/sim.lua $(BUILD)/titan/main.lua $(BUILD)/titan/main.map
 
+# Yharnam: the street plan, the chunks, a long walk, the cost of a frame
+test-yharnam: $(BUILD)/host/luahost carts/yharnam/main.lua
+	$< tests/yharnam/sim.lua carts/yharnam/main.lua
+
 # The Sound editor in a fake bm: its banks are the console's format, byte for byte
 $(BUILD)/demo.bmau: carts/sound/demo.json scripts/bmaudio.py
 	@mkdir -p $(dir $@)
@@ -250,7 +258,8 @@ test-nano8: $(BUILD)/host/n8host $(BUILD)/host/n8cartinfo $(BUILD)/host/luahost 
 
 .DEFAULT_GOAL := all
 .PHONY: FORCE test-smp all clean firmware image image-pi1 sdcard install sdcard-chainloader sdcard-stress qemu qemu-screenshot \
-        run-serial test test-bm test-ai ai-model test-usb test-audio test-fat test-kitchen test-titan test-sound test-nano8 \
+        run-serial test test-bm test-ai ai-model test-usb test-audio test-fat test-kitchen test-titan test-yharnam test-sound \
+        test-nano8 \
         test-net test-http test-https test-release release disasm wav test-studio test-studio-ui studio test-prompts \
         showreel
 
@@ -390,7 +399,7 @@ qemu: $(BUILD)/kernel.img
 qemu-screenshot: $(BUILD)/kernel.img
 	./scripts/qemu-screenshot.sh $< $(BUILD)/screen.png
 
-test: all test-bm test-usb test-fat test-audio test-kitchen test-titan test-sound test-nano8 test-net test-http test-https \
+test: all test-bm test-usb test-fat test-audio test-kitchen test-titan test-yharnam test-sound test-nano8 test-net test-http test-https \
       test-release test-smp test-ai test-studio test-prompts
 	$(PYTHON) tests/qemu_test.py --build $(BUILD)
 

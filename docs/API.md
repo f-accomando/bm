@@ -71,7 +71,8 @@ Se c'è un errore Lua, la cartuccia si ferma e l'errore, con la riga, appare sul
 | `_update()` | ogni fotogramma (60 Hz), prima di `_draw` |
 | `_draw()` | ogni fotogramma, dopo `_update` |
 
-Globali: `SCREEN_W` e `SCREEN_H` (640 e 360; 320 e 180 con `--res 320x180`).
+Globali: `SCREEN_W` e `SCREEN_H` (640 e 360; 320 e 180 con `--res 320x180`; 256 e 256 con
+`--res 256x256`).
 Lo schermo **non** viene cancellato da solo: di solito `_draw` comincia con `cls()`.
 
 Limiti: un errore o un ciclo infinito (oltre **20 milioni di istruzioni** Lua in un
@@ -413,6 +414,35 @@ print("vita", 4, 4, 0xFFFFFF)                -- l'HUD non viene oscurato
 ```
 
 Esempio completo: `carts/hunt` (Hunter's Night).
+
+### Luce a livelli (come in Dank Tomb)
+
+L'altra luce, quella del gioco PICO-8 *Dank Tomb*: ogni pixel ha un **livello di luce**
+(0 il più buio) e il suo colore diventa quello che una **tabella di dissolvenza** dà a
+quel livello. Le lampade fanno anelli concentrici di livelli, dal loro livello al centro
+fino a 0 al bordo; i bordi degli anelli sono mescolati con un dithering ordinato 4×4; dove
+due lampade si toccano vince la più forte. Le tabelle sono scelte dalla cartuccia: si può
+far diventare blu notte le ombre e arancioni i colori vicino alle lampade, restando sui
+colori della propria palette. Tutto in C (`g16_fade_*` in `src/bm/gfx16.c`).
+
+| Funzione | Descrizione |
+|---|---|
+| `fades(tabelle)` | le tabelle: `{ {colore, l0, l1, ...}, ... }`, per ogni colore della palette quello che diventa al livello 0 (il più buio), 1, ...; tutte le righe hanno lo stesso numero di livelli (2–16, fino a 255 colori). I colori senza tabella vengono scalati come la media delle tabelle. Restituisce il numero di livelli |
+| `dark_begin([ambiente])` | inizia il fotogramma: tutti i pixel al livello `ambiente` (predefinito 0); da qui la cartuccia disegna in RAM |
+| `glow(x, y, raggio, livello, [dither])` | una lampada in coordinate del mondo (vale `camera`): `livello` al centro, 0 a `raggio`; `dither` 0–1 (predefinito 0,5) è quanto si mescolano i bordi degli anelli (0 anelli netti, 1 sfumatura continua a retino) |
+| `dark_end()` | applica i livelli a tutto ciò che è stato disegnato; quello che disegni dopo (fiamme, scintille, HUD) resta com'è e "brilla" |
+
+```lua
+fades(TABELLE)                               -- una volta, in _init
+cls(0); map(...); spr(...)                   -- la scena alla luce piena
+dark_begin(1)                                -- notte: livello 1 dappertutto
+glow(lx, ly, 72 + math.random(2), 6)         -- un lampione
+glow(px, py, 28, 3)                          -- la poca luce attorno al giocatore
+dark_end()
+spr(FIAMMA, fx, fy)                          -- le fiamme non vengono oscurate
+```
+
+Esempio completo: `carts/yharnam`.
 
 ### 3D (software)
 
