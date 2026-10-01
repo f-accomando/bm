@@ -180,9 +180,12 @@ if ok_pt then
   PADBITS = 0; frame()
   check(pt.is_on(), "Share: the chords write the question")
   check(on_screen("Share: chords off"), "the keys of the chords at the bottom")
-  chord(B.R2 | B.UP | B.Y)                   -- sa
-  chord(B.L2 | B.RIGHT)                      -- l
-  chord(B.UP | B.B)                          -- to
+  check(pt.mode() == "facile", "facile, the mode to start with")
+  chord(B.R2 | B.RIGHT)                      -- s: the clock, R2 round
+  chord(B.UP)                                -- a
+  chord(B.L2 | B.RIGHT | B.DOWN)             -- l
+  chord(B.R2 | B.RIGHT | B.DOWN)             -- t
+  chord(B.L2 | B.LEFT)                       -- o
   check(on_screen("Salto"), "the question written: Salto")
   check(on_screen("Saltare con la gravit"), "and answered")
   -- a question that starts: "come" is the first word offered after "co"

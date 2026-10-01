@@ -1465,7 +1465,10 @@ Task:
    testi scritti per bm, nel codice le API dell'assistente e i nomi della scheda) mostra
    il resto della parola in blu-grigio, R2 / L2 / L2+R2 scrivono il 1°, 2°, 3°
    suggerimento, e quel che ha scritto resta verde. Modalità **steno** (come la
-   stenotipia): gruppi di consonanti sulle diagonali e dittonghi. **Esercizio** con guida
+   stenotipia): gruppi di consonanti sulle diagonali e dittonghi. Modalità **facile**
+   (quella di partenza, per chi non vuole imparare): la croce è un orologio di lettere in
+   ordine alfabetico, L2 / R2 girano l'orologio; una lettera per pressione, 65 pressioni su
+   100 caratteri con la predizione. **Esercizio** con guida
    dal menu. Il kernel legge **L2/R2** (`pad()` 4096, 8192). Su 100 caratteri italiani:
    tastiera 100 pressioni, tastiera a schermo 416, multitap 163, sillabe 50, sillabe +
    predizione 41, steno + predizione 39; in Lua 71 → 46 con la predizione. La predizione

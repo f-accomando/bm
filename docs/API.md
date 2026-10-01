@@ -378,8 +378,10 @@ La base di conoscenza è in `src/ai/kb/` (formato e come riaddestrare:
 `src/ai/kb/README.md`).
 
 **Scrittura col pad** (`require "padtype"`, guida e tabelle in
-[PADTYPE.md](PADTYPE.md)): un accordo della croce e dei tasti scrive una sillaba, i
-grilletti (L2, R2: `pad()` 4096, 8192) scelgono il banco, il dizionario finisce la parola.
+[PADTYPE.md](PADTYPE.md)): la croce scrive, i grilletti (L2, R2: `pad()` 4096, 8192)
+scelgono il banco, il dizionario finisce la parola. Tre modi: `"facile"` (il primo: la
+croce è un orologio di lettere in ordine alfabetico, L2 / R2 i giri successivi),
+`"sillabe"` (croce + tasto = una sillaba), `"steno"`.
 
 ```lua
 local pt = require "padtype"
@@ -403,7 +405,7 @@ all'assistente), una miscela con i pesi (`{it = 1, ask = 2}`) o `"none"`; si pu�
 ogni fotogramma (bm Code lo fa tra codice, commenti e stringhe). Il pannello
 dell'assistente (`require "assist"`) lo usa già: Share, e la domanda si scrive con gli
 accordi. Altro: `host.move(dir)`, `host.undo()` (Start + croce, Start + L1), `host.words`
-(codice: `pt.count_words(righe)`, i nomi della scheda, con il peso `host.words_weight`); `pt.set{mode = "steno"}`, `pt.suggestions()`,
+(codice: `pt.count_words(righe)`, i nomi della scheda, con il peso `host.words_weight`); `pt.set{mode = "sillabe"}`, `pt.suggestions()`,
 `pt.flash()` (quanto ha appena scritto la predizione), `pt.encode(testo, {mode, lang,
 predict})` (le pressioni minime), `pt.practice_open(i)` / `practice_update()` /
 `practice_draw()` (l'esercizio sui testi `pt.TEXTS`).

@@ -103,7 +103,7 @@ Risoluzioni di menu, console e giochi, e quanto costano: [docs/RISOLUZIONI.md](d
 | **M27** | **BareMetal UI**: sottomenu, opzioni delle cartucce, strumenti nella scheda Dev, impostazioni | ✅ chiusa: task 1–4 verificati sul Pi |
 | **M28** | Tastiera Bluetooth LE (MX Keys S): pairing con codice, HID over GATT, riconnessione | ✅ verificato sul Pi |
 | **M29** | **Pi 1 B**: stesso kernel, hub USB (split transactions), Ethernet LAN9512, immagine `bm-pi1.img` | ✅ verificato sul Pi 1 B |
-| M30 | **Assistente AI** per lo sviluppo: domande su API e codice, errori, base degli sprite; rete INT8 sulla console; **scrittura col pad** (sillabe con un accordo, predizione) | base fatta (QEMU), in bm Code con la scrittura col pad ([PADTYPE.md](docs/PADTYPE.md)); gli altri editor dopo |
+| M30 | **Assistente AI** per lo sviluppo: domande su API e codice, errori, base degli sprite; rete INT8 sulla console; **scrittura col pad** (lettere sull'orologio della croce, sillabe con un accordo, predizione) | base fatta (QEMU), in bm Code con la scrittura col pad ([PADTYPE.md](docs/PADTYPE.md)); gli altri editor dopo |
 
 ## Cosa fa il kernel
 

@@ -630,11 +630,15 @@ local MENU = {
   { "Save as...", "" }, { "Close tab", "Ctrl+W" }, { "Run the game", "F5" },
   { "Split screen", "F4" }, { "Font size", "F10" }, { "Find", "Ctrl+F" },
   { "Replace", "Ctrl+H" }, { "Go to line", "Ctrl+L" }, { "Assistant", "F6" },
-  { "Explain the error", "F9" }, { "Pad typing", "Share" }, { "Pad: syllables / steno", "" },
-  { "Pad: comments it / en", "" }, { "Pad practice...", "" }, { "Keys", "F1" }, { "Exit", "" },
+  { "Explain the error", "F9" }, { "Pad typing", "Share" }, { "Pad mode", "" },
+  { "Pad words in comments", "" }, { "Pad practice...", "" }, { "Keys", "F1" }, { "Exit", "" },
 }
 
 local function open_menu()
+  for _, m in ipairs(MENU) do                -- the pad's settings, on the right
+    if m[1] == "Pad mode" then m[2] = padtype.mode()
+    elseif m[1] == "Pad words in comments" then m[2] = PAD_LANGS[pad_lang] end
+  end
   overlay = { kind = "menu", sel = 1 }
 end
 
@@ -657,10 +661,13 @@ local function menu_choose(name)
   elseif name == "Assistant" then open_assistant(t, v)
   elseif name == "Explain the error" then explain_error(t, v)
   elseif name == "Pad typing" then pad_typing(not padtype.is_on())
-  elseif name == "Pad: syllables / steno" then
-    padtype.set{ mode = padtype.mode() == "steno" and "sillabe" or "steno" }
-    say("pad: " .. padtype.mode() .. (padtype.mode() == "steno" and " (groups on the diagonals, ia io ie)" or ""), C_ACC)
-  elseif name == "Pad: comments it / en" then
+  elseif name == "Pad mode" then
+    local nxt = { facile = "sillabe", sillabe = "steno", steno = "facile" }
+    local what = { facile = " (the cross a clock of letters a-h, L2 i-p, R2 q-x)",
+                   sillabe = " (cross + button = a syllable)", steno = " (groups on the diagonals, ia io ie)" }
+    padtype.set{ mode = nxt[padtype.mode()] or "facile" }
+    say("pad: " .. padtype.mode() .. what[padtype.mode()], C_ACC)
+  elseif name == "Pad words in comments" then
     pad_lang = pad_lang % #PAD_LANGS + 1
     say("pad: words in comments and strings: " .. PAD_LANGS[pad_lang], C_ACC)
   elseif name == "Pad practice..." then
@@ -1157,7 +1164,7 @@ local HELP = {
   "Assistant", "F6 ask (the word under the cursor)", "F9 explain the game's error",
   "#entry: what to do #  then Enter:", "  the assistant does it here", "",
   "Pad", "cross moves, Y+cross pages/tabs", "X assistant, Start menu",
-  "Share: writing with chords on/off", "  cross + buttons = a syllable",
+  "Share: writing with the pad on/off", "  easy: cross a-h, L2 i-p, R2 q-x",
   "  R2 / L2 / L2+R2 the suggestions", "  Start+cross moves, Start Enter",
 }
 

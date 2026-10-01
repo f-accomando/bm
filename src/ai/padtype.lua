@@ -1,18 +1,23 @@
--- Typing with the pad (M30): one press of the cross and the four buttons
--- writes a whole syllable, the shoulders choose the bank, the dictionary
--- finishes the word. Two ways of writing:
+-- Typing with the pad (M30): the cross writes, the triggers choose the
+-- bank, the dictionary finishes the word. Three ways of writing:
+--   facile   the cross is a clock of eight letters in alphabetical order,
+--            from up clockwise (a b c d e f g h); with L2 the next eight
+--            (i-p), with R2 q-x, with both y z and punctuation. One press,
+--            one letter: nothing to learn, the panel shows the clock
 --   sillabe  a consonant from the cross (L2 / R2 for the other banks), a
 --            vowel from the buttons; together, the syllable: down + triangle
 --            = "ca". L1 doubles the consonant, R1 adds the space
 --   steno    the same, plus groups of consonants on the diagonals with L2 /
 --            R2 ("tr", "ch", "st"...) and the diphthongs ia, io, ie (two
 --            buttons): one press per syllable, like a stenotype
+-- The rest is the same in all three: R1 space, L1 erase, R2 / L2 alone the
+-- suggestions, Start Enter, Share off.
 -- A press is a chord: it writes when every button is up again, so the
 -- buttons need not go down at the same moment. Words come from
 -- require "padwords" (scripts/mkpadwords.py). Guide: docs/PADTYPE.md.
 --
 --   local pt = require "padtype"
---   pt.on(true), pt.is_on(), pt.set{ mode = "steno" }
+--   pt.on(true), pt.is_on(), pt.set{ mode = "sillabe" } ("facile", "steno")
 --   pt.update(host)     each frame: reads pad() and edits through the host:
 --     host.before()     the text before the cursor, on its line
 --     host.insert(s), host.erase(n), host.newline(), host.move(dir),
@@ -59,6 +64,19 @@ local ONSET = {
   [DOWN | LEFT] = { "k", "sc", "sp", "pi" },
   [LEFT | UP] = { "y", "pr", "br", "gr" },
 }
+-- facile: a clock of letters in alphabetical order, from up clockwise; the
+-- triggers are the next rounds, the last one y z and punctuation
+local RING = {
+  [UP] = { "a", "i", "q", "y" },
+  [UP | RIGHT] = { "b", "j", "r", "z" },
+  [RIGHT] = { "c", "k", "s", "." },
+  [RIGHT | DOWN] = { "d", "l", "t", "," },
+  [DOWN] = { "e", "m", "u", "?" },
+  [DOWN | LEFT] = { "f", "n", "v", "!" },
+  [LEFT] = { "g", "o", "w", "'" },
+  [LEFT | UP] = { "h", "p", "x", ":" },
+}
+local function table_of(mode) return mode == "facile" and RING or ONSET end
 local function bank_of(b)
   local k = b & BANKS
   return k == 0 and 1 or k == L2 and 2 or k == R2 and 3 or 4
@@ -84,7 +102,7 @@ local SYMBOL = {
   [R1] = { [BY] = "_", [BB] = "~", [BA] = "%", [BX] = "&" },
   [L1 | R1] = { [BY] = "|", [BB] = "^", [BA] = "@", [BX] = "\\" },
 }
-P.ONSET, P.NUCLEUS, P.PUNCT, P.SYMBOL = ONSET, NUCLEUS, PUNCT, SYMBOL
+P.ONSET, P.RING, P.NUCLEUS, P.PUNCT, P.SYMBOL = ONSET, RING, NUCLEUS, PUNCT, SYMBOL
 
 -- the accents, in code page 437: a press of the sign goes round them
 local ACCENT = { a = "\133", ["\133"] = "a", e = "\138", ["\138"] = "\130", ["\130"] = "e",
@@ -105,7 +123,7 @@ P.plain = plain
 ------------------------------------------------------------------ state
 
 local st = {
-  on = false, mode = "sillabe",
+  on = false, mode = "facile",
   held = 0, chord = 0, dirs = 0, used = false, hold = 0,
   caps = nil,                   -- nil: automatic, true / false: the next letter
   autospace = false,            -- the last character is the space of a suggestion
@@ -139,9 +157,28 @@ local function bits_count(v)
   return n
 end
 
--- the text of a letter chord, or nil
+-- the text of a letter chord, or nil; true after it for the punctuation
+-- of the clock (facile)
 local function letters(dirs, b, mode)
   local face = b & FACE
+  if mode == "facile" then
+    local on, v = "", ""
+    if dirs ~= 0 then
+      local row = RING[dirs]
+      if not row then return nil end
+      on = row[bank_of(b)]
+    end
+    if face ~= 0 then
+      v = NUCLEUS[face]
+      if not v or STENO_ONLY[face] then return nil end
+    end
+    if on:find("^%p$") then
+      if v ~= "" or b & L1 ~= 0 then return nil end
+      return on, true
+    end
+    if b & L1 ~= 0 and on ~= "" then on = on .. on end
+    return on .. v
+  end
   local on = ""
   if dirs ~= 0 then
     local row = ONSET[dirs]
@@ -191,8 +228,8 @@ function P.decode(b, dirs, mode)
     local s = PUNCT[b & BANKS][face]
     return s and { kind = "punct", s = s, space = space } or nil
   end
-  local s = letters(dirs, b, mode)
-  return s and { kind = "text", s = s, space = space } or nil
+  local s, punct = letters(dirs, b, mode)
+  return s and { kind = punct and "punct" or "text", s = s, space = space } or nil
 end
 
 ------------------------------------------------------------------ the words
@@ -603,8 +640,8 @@ local function labels()
     return dl, fl, "Start + cross: move   Start + L1: undo"
   end
   local bank = bank_of(b)
-  for dir, row in pairs(ONSET) do
-    if bits_count(dir) == 1 or bank == 1 or st.mode == "steno" then dl[dir] = row[bank] end
+  for dir, row in pairs(table_of(st.mode)) do
+    if bits_count(dir) == 1 or bank == 1 or st.mode ~= "sillabe" then dl[dir] = row[bank] end
   end
   local dirs = st.chord ~= 0 and st.dirs or (b & DIRS)
   for f, v in pairs(NUCLEUS) do
@@ -634,8 +671,8 @@ function P.draw(x, y, hint)
   local hdir = hint & DIRS
   local function hl(bit, c) return (hint ~= 0 and (bit == hdir or (bit & FACE ~= 0 and hint & bit ~= 0))) and P.C_PEND or c end
   if hint & BANKS ~= 0 then                    -- the bank of the hint: its letters
-    for dir, row in pairs(ONSET) do
-      dl[dir] = (bits_count(dir) == 1 or st.mode == "steno") and row[bank_of(hint)] or nil
+    for dir, row in pairs(table_of(st.mode)) do
+      dl[dir] = (bits_count(dir) == 1 or st.mode ~= "sillabe") and row[bank_of(hint)] or nil
     end
   end
   local function at(t, col, row, c, left)
@@ -647,8 +684,9 @@ function P.draw(x, y, hint)
   -- the cross: its diagonals at the corners
   at(dl[UP], 7, 1, hl(UP)); at(dl[DOWN], 7, 3, hl(DOWN))
   at(dl[LEFT], 3, 2, hl(LEFT)); at(dl[RIGHT], 11, 2, hl(RIGHT))
-  at(dl[UP | LEFT], 3, 1, hl(UP | LEFT, C_DIM)); at(dl[UP | RIGHT], 11, 1, hl(UP | RIGHT, C_DIM))
-  at(dl[DOWN | LEFT], 3, 3, hl(DOWN | LEFT, C_DIM)); at(dl[DOWN | RIGHT], 11, 3, hl(DOWN | RIGHT, C_DIM))
+  local dc = st.mode == "facile" and C_TEXT or C_DIM      -- facile: the diagonals are letters too
+  at(dl[UP | LEFT], 3, 1, hl(UP | LEFT, dc)); at(dl[UP | RIGHT], 11, 1, hl(UP | RIGHT, dc))
+  at(dl[DOWN | LEFT], 3, 3, hl(DOWN | LEFT, dc)); at(dl[DOWN | RIGHT], 11, 3, hl(DOWN | RIGHT, dc))
   local cx, cy = x + 7 * cw + cw // 2, y + 2 * ch + ch // 2
   rectfill(cx - 1, cy - 4, 3, 9, C_LINE); rectfill(cx - 4, cy - 1, 9, 3, C_LINE)
   -- the buttons, their shape before what they write
@@ -687,8 +725,12 @@ function P.draw(x, y, hint)
     local d = st.code and dicts.lua
     local sig = d and (d.api[st.picked or ""] or d.api[st.cands[1] or ""])
     if sig then at(sig:sub(1, W_COLS - 2), 1, 4, 0x70D0FF, true); return end
-    local row = function(bank) return ONSET[UP][bank] .. ONSET[RIGHT][bank] .. ONSET[DOWN][bank] .. ONSET[LEFT][bank] end
-    at("L2 " .. row(2) .. "  R2 " .. row(3) .. "  L2+R2 " .. row(4) .. "  L1 double", 1, 4, C_DIM, true)
+    if st.mode == "facile" then
+      at("L2 i-p   R2 q-x   L2+R2 y z . , ? ! ' :", 1, 4, C_DIM, true)
+    else
+      local row = function(bank) return ONSET[UP][bank] .. ONSET[RIGHT][bank] .. ONSET[DOWN][bank] .. ONSET[LEFT][bank] end
+      at("L2 " .. row(2) .. "  R2 " .. row(3) .. "  L2+R2 " .. row(4) .. "  L1 double", 1, 4, C_DIM, true)
+    end
     at("L1 del  R1 space  L1+L2 accent  L1+R1 Caps", 1, 5, C_DIM, true)
   end
 end
@@ -746,13 +788,18 @@ local pr                                -- the practice, when open
 local function written_of(typed, target)
   local i, j = 1, 1
   local bol = true
+  -- the word being written may differ in case: a name started in lowercase,
+  -- its suggestion has the capital
+  local word = #typed - #typed:match(LETTER .. "*$") + 1
   while i <= #typed do
     if bol then
       while typed:sub(i, i) == " " do i = i + 1 end
       while target:sub(j, j) == " " do j = j + 1 end
       if i > #typed then break end
     end
-    if typed:sub(i, i) ~= target:sub(j, j) then return nil, j - 1 end
+    local a, b = typed:sub(i, i), target:sub(j, j)
+    if i >= word then a, b = a:lower(), b:lower() end
+    if a ~= b then return nil, j - 1 end
     bol = typed:sub(i, i) == "\n"
     i, j = i + 1, j + 1
   end
@@ -777,7 +824,8 @@ local function guide()
       local space = presses == 1 and target:sub(m + 2, m + 2) == " "
       local upto = m + 1 + (space and 1 or 0)
       local _, left = P.encode(target, { mode = st.mode, lang = pr.t.lang, predict = true,
-                                         from = target:sub(1, upto), words = h.words })
+                                         from = target:sub(1, upto), words = h.words,
+                                         simple = st.mode == "facile" })
       pr.next = { bits = L1 | L2 | (space and R1 or 0), kind = "accent", out = space and " " or "" }
       pr.left = presses + left
       return
@@ -787,7 +835,8 @@ local function guide()
     pr.done = true
   elseif n then
     local steps, left = P.encode(target, { mode = st.mode, lang = pr.t.lang, predict = true, from = target:sub(1, n),
-                                           autospace = st.autospace, cut = cut, caps = st.caps, words = h.words })
+                                           autospace = st.autospace, cut = cut, caps = st.caps, words = h.words,
+                                           simple = st.mode == "facile", typed = typed })
     pr.next, pr.left = steps[1], left
   end
 end
@@ -799,7 +848,8 @@ function P.practice_open(i)
   pr = { t = t, host = P.text_host(t.lang) }
   pr.host.words = P.count_words({})
   pr.host.exit = function() pr.closed = true end
-  local _, best = P.encode(t.text, { mode = st.mode, lang = t.lang, predict = true, words = pr.host.words })
+  local _, best = P.encode(t.text, { mode = st.mode, lang = t.lang, predict = true, words = pr.host.words,
+                                     simple = st.mode == "facile" })
   pr.best = best
   P.on(true)
   st.presses = 0
@@ -905,20 +955,24 @@ end
 
 ------------------------------------------------------------------ encoding
 
--- every letter chord of a mode: text -> bits (the fewest buttons)
+-- every letter chord of a mode: text -> bits (the fewest buttons); simple:
+-- only the cross and the triggers, one letter a press (a beginner)
 local chord_cache = {}
-local function chords(mode)
-  if chord_cache[mode] then return chord_cache[mode] end
+local function chords(mode, simple)
+  local ck = mode .. (simple and "/simple" or "")
+  if chord_cache[ck] then return chord_cache[ck] end
   local t = {}
   local function put(s, b)
     if s and s ~= "" and (not t[s] or bits_count(b) < bits_count(t[s])) then t[s] = b end
   end
   local faces = { 0 }
-  for f in pairs(NUCLEUS) do faces[#faces + 1] = f end
+  if not simple then
+    for f in pairs(NUCLEUS) do faces[#faces + 1] = f end
+  end
   for _, bank in ipairs({ 0, L2, R2, L2 | R2 }) do
     for _, f in ipairs(faces) do
-      for _, dbl in ipairs({ 0, L1 }) do
-        for dir in pairs(ONSET) do
+      for _, dbl in ipairs(simple and { 0 } or { 0, L1 }) do
+        for dir in pairs(table_of(mode)) do
           put(letters(dir, bank | f | dbl, mode), dir | bank | f | dbl)
         end
         if bank == 0 and dbl == 0 then put(letters(0, f, mode), f) end
@@ -936,11 +990,14 @@ local function chords(mode)
     end
     n["$"] = b
   end
-  chord_cache[mode] = { list = t, trie = trie }
-  return chord_cache[mode]
+  chord_cache[ck] = { list = t, trie = trie }
+  return chord_cache[ck]
 end
 
-local function stroke_of(s)            -- punctuation and symbols
+local function stroke_of(s, mode)      -- punctuation and symbols
+  if mode == "facile" then               -- the clock's, the last round
+    for dir, row in pairs(RING) do if row[4] == s then return dir | L2 | R2 end end
+  end
   for bank, row in pairs(PUNCT) do
     for f, c in pairs(row) do if c == s then return bank | f end end
   end
@@ -967,8 +1024,8 @@ end
 -- The shortest way to write a word: cost[k] for its first k characters,
 -- each chunk one chord, with the signs it needs (a capital before, an
 -- accent after); anything else one press of the Share layer or a bank.
-local function word_steps(word, mode, caps_auto, start)
-  local tr = chords(mode).trie
+local function word_steps(word, mode, caps_auto, start, simple)
+  local tr = chords(mode, simple).trie
   local n = #word
   start = start or 0
   local cost, back, info = { [start] = 0 }, {}, {}
@@ -995,7 +1052,7 @@ local function word_steps(word, mode, caps_auto, start)
         if acc > 0 then break end                         -- an accent ends it
       end
       -- anything else (j too): one press of Share or a bank; 0 if none
-      local b = stroke_of(first) or 0
+      local b = stroke_of(first, mode) or 0
       if cost[p] + 1 < (cost[p + 1] or INF) and (b ~= 0 or not tr[plain(first)]) then
         cost[p + 1], back[p + 1], info[p + 1] = cost[p] + 1, p, { bits = b, sym = true }
       end
@@ -1040,6 +1097,9 @@ end
 -- practice; o.autospace: the console has the space of a suggestion at
 -- the end (o.cut: left out of o.from, the text has punctuation there),
 -- o.caps: the capital already chosen for the next letter (true / false).
+-- o.simple: as a beginner writes, one letter a press with the cross and the
+-- triggers, the space on its own (the practice of facile). o.typed: the
+-- console's text, when its last word differs from o.from in case.
 function P.encode(text, o)
   o = o or {}
   local mode, lang = o.mode or "sillabe", o.lang or "it"
@@ -1068,22 +1128,26 @@ function P.encode(text, o)
       local caps_auto = prose and sentence_start(line)
       if caps_now ~= nil and start == 0 then caps_auto = caps_now end
       caps_now = nil
-      local cost, back, info = word_steps(word, mode, caps_auto, start)
+      local cost, back, info = word_steps(word, mode, caps_auto, start, o.simple)
       local best, how = cost[#word] or 1e9, nil
+      -- the start of the word on the console in another case (a name begun in
+      -- lowercase): only its suggestion can finish it
+      local actual = o.typed and start > 0 and o.typed:match(LETTER .. "*$") or nil
+      if actual and actual ~= word:sub(1, start) then best = 1e9 else actual = nil end
       if o.predict then
         local _, prev = word_at(line, lang)
         -- a name can be started in lowercase: the suggestion has its capital
         local typed = { { word, cost, back, info } }
         if prose and not caps_auto and word:find("^%u") and start == 0 then
           local low = word:sub(1, 1):lower() .. word:sub(2)
-          local c2, b2, i2 = word_steps(low, mode, false)
+          local c2, b2, i2 = word_steps(low, mode, false, nil, o.simple)
           typed[2] = { low, c2, b2, i2 }
         end
         for _, ty in ipairs(typed) do
           local tw, tcost = ty[1], ty[2]
           for k = start, #word - 1 do
             if tcost[k] and tcost[k] + 1 < best then
-              local prefix = tw:sub(1, k)
+              local prefix = actual and actual .. tw:sub(start + 1, k) or tw:sub(1, k)
               for r, w in ipairs(candidates(lang, prefix, prev or "^", 3, o.words, o.words_weight)) do
                 local sw, ending = shaped(w, prefix, lang, caps_auto)
                 if sw == word then
@@ -1132,7 +1196,7 @@ function P.encode(text, o)
     elseif tk.k == "space" then
       local last = steps[#steps]
       if last and (last.kind == "chord" or last.kind == "accent" or last.kind == "punct")
-         and last.bits & R1 == 0 then
+         and last.bits & R1 == 0 and not o.simple then
         last.bits, last.out = last.bits | R1, last.out .. " "
       else
         step(R1, "space", " ")
@@ -1145,7 +1209,7 @@ function P.encode(text, o)
       autospace = false
     else
       local c = tk.s
-      local b = stroke_of(c) or 0
+      local b = stroke_of(c, mode) or 0
       local kind = b & SELECT ~= 0 and "sym" or "punct"
       step(b, kind, c)
       if autospace and c:find("^[,%.;:!%?']$") then

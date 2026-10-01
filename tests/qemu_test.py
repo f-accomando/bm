@@ -3494,7 +3494,7 @@ def test_code_pad_typing(b, opts):
     mksd.build(img, [(hcd, "bm/BCM43430A1.hcd"), (cfg, "bm/config.txt"), (b("demo.bm"), "carts/game.bm")])
     q = Qemu(b("kernel.img"), ["-drive", f"if=sd,format=raw,file={img}"], mini_uart=True)
     q.mini_buf = b""
-    HAT = {None: 8, "up": 0, "right": 2, "down": 4, "left": 6}
+    HAT = {None: 8, "up": 0, "up-right": 1, "right": 2, "down-right": 3, "down": 4, "left": 6}
     TRI, SQU, CRO, CIR = 0x80, 0x10, 0x20, 0x40
     L1, R1, L2, R2, SHARE, START = 0x01, 0x02, 0x04, 0x08, 0x10, 0x20
 
@@ -3533,6 +3533,15 @@ def test_code_pad_typing(b, opts):
         q.mini.write(b"\x14")                       # Ctrl+T: an empty tab
         time.sleep(0.5)
 
+        def next_mode(want):                         # the menu: "Pad mode"
+            chord(sh=START)
+            see(["Pad mode"])
+            for _ in range(5):
+                chord("up")
+            chord(None, CRO)
+            see(["pad: " + want])
+
+        next_mode("sillabe")                         # facile is the first
         chord(sh=SHARE)                              # Share: the chords write
         see(["PAD sillabe", "Share: off", "L1 del"])
         # a comment: "-- " then Italian words
@@ -3605,6 +3614,24 @@ def test_code_pad_typing(b, opts):
         shot("practice")
         chord(sh=SHARE)
         see(["F1 keys"], gone=["Pad practice"])
+
+        # facile: the cross a clock of letters, L2 / R2 the next rounds
+        next_mode("steno")
+        next_mode("facile")
+        chord(sh=SHARE)
+        see(["PAD facile", "L2 i-p"])
+        chord(sh=START)                              # a new line
+        chord(face=CRO, sh=R2)
+        chord(face=CRO, sh=R2 | R1)                  # "-- "
+        chord("up-right")                            # b
+        chord("down")                                # e
+        chord("down-right", sh=L2)                   # l
+        chord("down-right", sh=L2)                   # l
+        chord("left", sh=L2)                         # o
+        see(["-- bello", "PAD facile it"])
+        shot("facile")
+        chord(sh=SHARE)
+        see(["F1 keys"], gone=["PAD facile"])
     finally:
         q.close()
         shutil.rmtree(tmp, ignore_errors=True)

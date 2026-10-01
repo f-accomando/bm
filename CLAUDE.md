@@ -92,8 +92,10 @@ Lua 5.4 embedded. Documentazione: `README.md`, `docs/ROADMAP.md`, `docs/HARDWARE
 
 ## Scrittura col pad (M30)
 
-- `src/ai/padtype.lua` (`require "padtype"`): accordi croce + tasti = sillabe, banchi con
-  L2/R2, predizione, pannello, esercizio, `encode` (pressioni minime: benchmark e guida).
+- `src/ai/padtype.lua` (`require "padtype"`): tre modi, **facile** (il primo: la croce è
+  un orologio di lettere in ordine alfabetico, L2/R2 i giri; per chi comincia), sillabe
+  (accordi croce + tasti) e steno; banchi con L2/R2, predizione, pannello, esercizio,
+  `encode` (pressioni minime: benchmark e guida; `simple` = una lettera per pressione).
   Le tabelle sono solo lì (motore, pannello ed `encode` le condividono); la guida
   `docs/PADTYPE.md` le riporta: cambiarle insieme. In bm Code: Share la accende.
 - Dizionari: `scripts/mkpadwords.py` → `build/padwords.lua` (`require "padwords"`, nel

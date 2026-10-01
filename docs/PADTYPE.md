@@ -1,25 +1,65 @@
 # Scrittura col pad (M30)
 
-Scrivere testo e codice col solo controller, senza tastiera a schermo: **un accordo**
-della croce e dei quattro tasti scrive **una sillaba intera** (giù + △ = "ca"), i
-grilletti scelgono il banco delle consonanti, e il dizionario **finisce la parola**
-(R2 la scrive). L'idea è quella del T9 dei Nokia (pochi tasti, il dizionario fa il resto),
-ma per sillabe invece che per lettere; la modalità **steno** aggiunge gruppi di consonanti e
-dittonghi, come la stenotipia dei tribunali.
+Scrivere testo e codice col solo controller, senza tastiera a schermo. Tre modi, dal più
+semplice al più veloce, con gli stessi tasti per tutto il resto:
+
+- **Facile** (si comincia da qui): **la croce è un orologio di lettere in ordine
+  alfabetico** (↑ a, ↗ b, → c, ↘ d, ↓ e, ↙ f, ← g, ↖ h); **L2** e **R2** girano
+  l'orologio (i–p, q–x, poi y z e la punteggiatura). Una pressione, una lettera; non c'è
+  niente da imparare a memoria, il pannello mostra l'orologio.
+- **Sillabe**: un accordo della croce e dei quattro tasti scrive **una sillaba intera**
+  (giù + △ = "ca"). L'idea è quella del T9 dei Nokia, ma per sillabe.
+- **Steno**: in più gruppi di consonanti e dittonghi, come la stenotipia dei tribunali.
+
+In tutti e tre il dizionario **finisce la parola** (R2 la scrive), R1 è lo spazio, L1
+cancella, Start va a capo, Share spegne.
 
 Su un testo italiano di 100 caratteri: tastiera **100** pressioni, tastiera a schermo delle
-console **416**, **sillabe 50**, **sillabe + predizione 41**, **steno + predizione 39**
-(i numeri completi più sotto).
+console **416**, **facile 102** e **facile + predizione 65**, **sillabe + predizione 41**,
+**steno + predizione 39** (i numeri completi più sotto). Facile è lento quanto una
+tastiera senza la predizione, ma si usa subito; le altre due rendono il doppio dopo un po'
+di pratica.
 
 - **Dove**: in **bm Code** (scheda Dev), **Share** (Select) accende e spegne la scrittura;
   anche nelle richieste di una riga (Trova, Vai alla riga, Salva come) e nella domanda del
-  **pannello dell'assistente**. La predizione segue l'ambiente: nel codice le parole di
-  Lua, dopo `--` e nelle stringhe l'italiano (o l'inglese), quando si parla con
-  l'assistente le parole delle sue domande (sezione 3).
+  **pannello dell'assistente**. Il modo si sceglie dal menu (Start, **Pad mode**), Facile
+  all'inizio. La predizione segue l'ambiente: nel codice le parole di Lua, dopo `--` e
+  nelle stringhe l'italiano (o l'inglese), quando si parla con l'assistente le parole delle
+  sue domande (sezione 3).
 - **Esercizio**: menu di bm Code (Start), **Pad practice...**: un testo da 100 caratteri
   da ricopiare, le pressioni contate, il migliore possibile, e il **prossimo accordo**
   consigliato, illuminato anche nel pannello.
 - **Modulo**: `require "padtype"` (`src/ai/padtype.lua`), qualsiasi cartuccia può usarlo.
+
+## 0. Facile: l'orologio delle lettere
+
+Le lettere sono sulla croce come sul quadrante di un orologio, **in ordine alfabetico, dalla
+punta in alto in senso orario**, otto per giro. I grilletti dicono quale giro:
+
+| Croce | — | L2 | R2 | L2+R2 |
+|---|---|---|---|---|
+| ↑ | a | i | q | y |
+| ↗ | b | j | r | z |
+| → | c | k | s | . |
+| ↘ | d | l | t | , |
+| ↓ | e | m | u | ? |
+| ↙ | f | n | v | ! |
+| ← | g | o | w | ' |
+| ↖ | h | p | x | : |
+
+Si tiene il grilletto (se serve), si preme la direzione, si lascia: la lettera è scritta.
+Tenendo L2 o R2, il pannello mostra le otto lettere di quel giro intorno alla croce. Le
+diagonali si fanno anche con la levetta sinistra, che le prende più facilmente.
+
+Il resto è come negli altri modi (sezione 2): **R1** spazio, **L1** cancella, **R2 / L2 /
+L2+R2 da soli** il 1°, 2° o 3° suggerimento, **L1+L2** l'accento, **L1+R1** la maiuscola
+(a inizio frase è automatica), **Start** a capo, **Share** tenuto + un tasto i numeri. I
+quattro tasti sono scorciatoie per le vocali (△ a, □ e, ✕ i, ○ o, ✕+○ u): servono, ma
+non sono necessarie.
+
+Con la predizione bastano le prime lettere: "C", "i" e L2+R2 prende "Ciao"; "d", "o" e L2
+prende "domani". L'esercizio, in Facile, propone proprio questo: una lettera alla volta e
+il suggerimento appena c'è.
 
 ## 1. Quante sillabe ha l'italiano
 
@@ -176,8 +216,8 @@ rifà in un secondo quando cambiano i testi.
 
 Nei tribunali e al Senato italiano si scrive con la **stenotipia** (la macchina Michela,
 1863): pochi tasti premuti insieme danno una sillaba intera, inizio, vocale e fine, e
-il resocontista scrive alla velocità della voce. La modalità **steno** (menu: "Pad:
-syllables / steno") porta l'idea sul pad, sopra le sillabe (tutto il resto è uguale):
+il resocontista scrive alla velocità della voce. La modalità **steno** (menu: **Pad
+mode**) porta l'idea sul pad, sopra le sillabe (tutto il resto è uguale):
 
 - **diagonali con un grilletto**: i gruppi di consonanti più frequenti, scelti sui testi
   (ricerca che aggiunge ogni volta il gruppo che fa risparmiare di più):
@@ -207,16 +247,19 @@ pressioni su una tastiera, una maiuscola con Shift conta una). Anche in inglese 
 tabelle e gli stessi suggerimenti della console (un utente esperto; `padtype.encode`), e
 `make test-pad` riscrive ogni testo premendo quegli accordi nel motore vero.
 
-| Testo (100 caratteri) | Tastiera | Tastiera a schermo | Multitap sillabe | Sillabe | Steno | Sillabe + predizione | Steno + predizione |
-|---|---|---|---|---|---|---|---|
-| italiano | 100 | 416 | 163 | 50 | 46 | 41 | 39 |
-| english | 100 | 382 | 201 | 57 | 56 | 49 | 48 |
-| lua | 100 | 372 | 177 | 71 | 70 | 46 | 46 |
+| Testo (100 caratteri) | Tastiera | Tastiera a schermo | Multitap sillabe | Facile | Facile + predizione | Sillabe | Steno | Sillabe + predizione | Steno + predizione |
+|---|---|---|---|---|---|---|---|---|---|
+| italiano | 100 | 416 | 163 | 102 | 65 | 50 | 46 | 41 | 39 |
+| english | 100 | 382 | 201 | 101 | 74 | 57 | 56 | 49 | 48 |
+| lua | 100 | 372 | 177 | 94 | 58 | 71 | 70 | 46 | 46 |
 
 - **Tastiera a schermo**: la griglia delle console (QWERTY, la croce si muove, ✕ scrive,
   △ spazio): 4 pressioni per carattere.
 - **Multitap sillabe**: la prima idea, come i vecchi cellulari: su, su, su = ba, ca, da;
   △ e ○ scorrono le vocali; ✕ conferma. 1,6–2 pressioni per carattere: scorrere costa.
+- **Facile**: contato come scrive chi comincia (una lettera per pressione con la croce e i
+  grilletti, lo spazio a parte): come una tastiera, 1 pressione per carattere; **con la
+  predizione** 0,65.
 - **Sillabe**: mezza pressione per carattere; **con la predizione** 0,41.
 - **Lua**: la predizione vale di più (71 → 46), perché le parole del codice sono poche e
   si ripetono (function, then, end, btn, x).
@@ -226,12 +269,38 @@ pressioni per carattere, con il dizionario italiano 0,497, con italiano + domand
 della base di conoscenza 0,412.
 
 Sui testi del corpus **che il dizionario non ha visto** (ogni gruppo tolto a turno,
-136 245 caratteri): sillabe **0,518** pressioni per carattere, steno **0,464**, sillabe +
-predizione **0,456**, steno + predizione **0,422**.
+136 245 caratteri): facile **1,012** pressioni per carattere, facile + predizione **0,716**,
+sillabe **0,518**, steno **0,464**, sillabe + predizione **0,456**, steno + predizione
+**0,422**.
 
 ## 6. Le prime 10 parole
 
-`Ciao Marco, domani sera giochiamo da me? La console nuova` (57 caratteri, 10 parole):
+**Facile + predizione**: 33 pressioni, ognuna una direzione con al più i grilletti.
+
+| # | Tasti | Scrive | | # | Tasti | Scrive |
+|---|---|---|---|---|---|---|
+| 1 | → | C | | 18 | → | c |
+| 2 | L2 + ↑ | i | | 19 | ↖ | h |
+| 3 | L2 + R2 | ao_ (suggerimento) | | 20 | L2 + ↑ | i |
+| 4 | L2 + ↓ | m | | 21 | R2 | amo_ (suggerimento) |
+| 5 | ↑ | a | | 22 | ↘ | d |
+| 6 | R2 + ↗ | r | | 23 | ↑ | a |
+| 7 | → | c | | 24 | R1 | _ (spazio) |
+| 8 | R2 | o_ (suggerimento: Marco) | | 25 | L2 + ↓ | m |
+| 9 | L2 + R2 + ↘ | , | | 26 | ↓ | e |
+| 10 | ↘ | d | | 27 | L2 + R2 + ↓ | ? |
+| 11 | L2 + ← | o | | 28 | R1 | _ (spazio) |
+| 12 | L2 | mani_ (suggerimento) | | 29 | L2 | La_ (suggerimento) |
+| 13 | R2 + → | s | | 30 | R2 | console_ (suggerimento) |
+| 14 | L2 | era_ (suggerimento) | | 31 | L2 + ↙ | n |
+| 15 | ← | g | | 32 | R2 + ↓ | u |
+| 16 | L2 + ↑ | i | | 33 | L2 + R2 | ova_ (suggerimento) |
+| 17 | L2 + ← | o | | | | |
+
+"Marco" si comincia minuscolo: il suggerimento lo scrive con la maiuscola.
+
+**Sillabe e steno + predizione**, `Ciao Marco, domani sera giochiamo da me? La console
+nuova` (57 caratteri, 10 parole):
 **23 pressioni** con le sillabe e la predizione, **21** in steno (una tastiera ne vuole
 57). `_` è lo spazio; "suggerimento" è la parte scritta dalla predizione (R2 il primo, L2
 il secondo, L2 + R2 il terzo). Generate da `make pad-bench`.
@@ -272,6 +341,11 @@ arriva prima ancora di una lettera, perché dopo "la" è la parola più frequent
 
 Con un DS4 (o un altro pad con L2/R2), nella scheda **Dev > bm Code**:
 
+0. **Facile** (il modo con cui si parte): Share, poi Start per andare a capo, R2 + ✕ due
+   volte (con R1 la seconda) per `-- `, e "bello" con l'orologio: ↗ b, ↓ e, L2 + ↘ l, di
+   nuovo l, L2 + ← o. Tenendo L2 il pannello mostra i–p intorno alla croce, con R2 q–x.
+   Share per spegnere, poi Start, **Pad mode**: si passa a sillabe (e poi steno, e di
+   nuovo facile). I passi che seguono sono per sillabe.
 1. **Share**: in basso a destra compare il pannello "PAD sillabe"; la barra in basso dice
    `PAD sillabe lua`.
 2. Scrivi una riga di commento: R2 + ✕ due volte (con R1 la seconda) fa `-- `; poi ↓ + ✕,
@@ -287,7 +361,7 @@ Con un DS4 (o un altro pad con L2/R2), nella scheda **Dev > bm Code**:
 7. Share spegne; Start apre il menu: **Pad practice...**, "italiano": ricopia il testo
    seguendo il prossimo accordo (scritto sotto e illuminato nel pannello). Alla fine:
    pressioni fatte contro le 41 del migliore e le 100 della tastiera.
-8. Menu, **Pad: syllables / steno**, e di nuovo l'esercizio: le diagonali con un grilletto
+8. Menu, **Pad mode** (steno), e di nuovo l'esercizio: le diagonali con un grilletto
    scrivono tr, ch, sc, pr...
 9. Dopo il codice, `-- `: la barra torna `PAD sillabe it` (il commento è testo); Start, a
    capo nel codice: `lua`.

@@ -85,15 +85,19 @@ local function multitap(text)
   return n
 end
 
+-- facile is counted as a beginner writes it: one letter a press with the
+-- cross and the triggers, the space on its own
 local function count(text, lang, mode, predict)
-  local _, n = pt.encode(text, { lang = lang, mode = mode, predict = predict, words = lang == "lua" and pt.count_words({}) or nil })
+  local _, n = pt.encode(text, { lang = lang, mode = mode, predict = predict, simple = mode == "facile",
+                                 words = lang == "lua" and pt.count_words({}) or nil })
   return n
 end
 
-out("| Testo (100 caratteri) | Tastiera | Tastiera a schermo | Multitap sillabe | Sillabe | Steno | Sillabe + predizione | Steno + predizione |\n")
-out("|---|---|---|---|---|---|---|---|\n")
+out("| Testo (100 caratteri) | Tastiera | Tastiera a schermo | Multitap sillabe | Facile | Facile + predizione | Sillabe | Steno | Sillabe + predizione | Steno + predizione |\n")
+out("|---|---|---|---|---|---|---|---|---|---|\n")
 for _, t in ipairs(texts.list) do
-  out(string.format("| %s | 100 | %d | %d | %d | %d | %d | %d |\n", t.name, osk(t.text), multitap(t.text),
+  out(string.format("| %s | 100 | %d | %d | %d | %d | %d | %d | %d | %d |\n", t.name, osk(t.text), multitap(t.text),
+                    count(t.text, t.lang, "facile", false), count(t.text, t.lang, "facile", true),
                     count(t.text, t.lang, "sillabe", false), count(t.text, t.lang, "steno", false),
                     count(t.text, t.lang, "sillabe", true), count(t.text, t.lang, "steno", true)))
 end
@@ -130,8 +134,8 @@ local function nice(b)
 end
 local it = texts.list[1].text
 local ten = it:match("^(%S+ %S+ %S+ %S+ %S+ %S+ %S+ %S+ %S+ %S+)")
-for _, mode in ipairs({ "sillabe", "steno" }) do
-  local steps, n = pt.encode(ten, { mode = mode, predict = true })
+for _, mode in ipairs({ "facile", "sillabe", "steno" }) do
+  local steps, n = pt.encode(ten, { mode = mode, predict = true, simple = mode == "facile" })
   out(string.format("\n%s + predizione, le prime 10 parole (%d caratteri, %d pressioni):\n\n", mode, #ten, n))
   out("| # | Tasti | Scrive |\n|---|---|---|\n")
   for i, s in ipairs(steps) do
@@ -139,6 +143,7 @@ for _, mode in ipairs({ "sillabe", "steno" }) do
     if s.kind == "pick" then what = what .. " (suggerimento)" end
     if s.kind == "caps" then what = "(maiuscola)" end
     if s.kind == "accent" then what = "(accento)" .. what end
+    if s.kind == "space" then what = "_ (spazio)" end
     out(string.format("| %d | %s | %s |\n", i, nice(s.bits), what))
   end
 end
@@ -146,7 +151,7 @@ end
 -- the corpus, each group left out of the dictionary in turn
 if arg[2] == "--folds" then
   local groups = { "giochi", "informativi", "lettere", "narrativa", "quotidiano", "tecnica" }
-  local tot = { 0, 0, 0, 0 }
+  local tot = { 0, 0, 0, 0, 0, 0 }
   local chars = 0
   for _, g in ipairs(groups) do
     package.loaded.padwords = dofile(build .. "/pad/fold_" .. g .. ".lua")
@@ -157,13 +162,14 @@ if arg[2] == "--folds" then
         local text = pt.from_utf8(f:read("a"))
         f:close()
         chars = chars + #text
-        for i, m in ipairs({ { "sillabe", false }, { "steno", false }, { "sillabe", true }, { "steno", true } }) do
+        for i, m in ipairs({ { "sillabe", false }, { "steno", false }, { "sillabe", true }, { "steno", true },
+                             { "facile", false }, { "facile", true } }) do
           tot[i] = tot[i] + count(text, "it", m[1], m[2])
         end
       end
     end
   end
   out(string.format("\nTesti di src/ai/words non visti dal dizionario (%d caratteri), pressioni per carattere:\n", chars))
-  out(string.format("sillabe %.3f, steno %.3f, sillabe + predizione %.3f, steno + predizione %.3f\n",
-                    tot[1] / chars, tot[2] / chars, tot[3] / chars, tot[4] / chars))
+  out(string.format("facile %.3f, facile + predizione %.3f, sillabe %.3f, steno %.3f, sillabe + predizione %.3f, steno + predizione %.3f\n",
+                    tot[5] / chars, tot[6] / chars, tot[1] / chars, tot[2] / chars, tot[3] / chars, tot[4] / chars))
 end

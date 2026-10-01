@@ -55,7 +55,7 @@ end
 ------------------------------------------------------------------ chords
 
 local function dec(b, mode)
-  local a = pt.decode(b, nil, mode)
+  local a = pt.decode(b, nil, mode or "sillabe")
   return a and (a.s or a.kind) .. (a.space and "_" or "") or "nil"
 end
 check(dec(B.DOWN | B.Y) == "ca", "down + triangle = ca")
@@ -82,6 +82,8 @@ check(dec(B.START) == "newline", "Start alone: a new line")
 
 ------------------------------------------------------------------ editing
 
+check(pt.mode() == "facile", "facile is the mode to start with")
+pt.set{ mode = "sillabe" }
 local h = new_host("it", true)
 pt.on(true)
 frame(h, 0)                                -- (Share, which turned it on, is up)
@@ -154,6 +156,36 @@ check(s[1] == "function" or s[2] == "function", "code: f -> function, first or s
 press(h, fn)
 check(h.text == "function ", "a keyword comes with a space")
 
+------------------------------------------------------------------ facile
+
+-- the clock: eight letters in alphabetical order from up, clockwise; L2,
+-- R2, both: the next rounds; the rest as in the other modes
+check(dec(B.UP, "facile") == "a" and dec(B.UP | B.RIGHT, "facile") == "b" and dec(B.LEFT | B.UP, "facile") == "h",
+      "facile: a at the top, b, ... h clockwise")
+check(dec(B.UP | B.L2, "facile") == "i" and dec(B.LEFT | B.UP | B.L2, "facile") == "p", "facile: L2 i-p")
+check(dec(B.UP | B.R2, "facile") == "q" and dec(B.LEFT | B.UP | B.R2, "facile") == "x", "facile: R2 q-x")
+check(dec(B.UP | B.L2 | B.R2, "facile") == "y" and dec(B.UP | B.RIGHT | B.L2 | B.R2, "facile") == "z",
+      "facile: both, y z")
+local a = pt.decode(B.RIGHT | B.L2 | B.R2 | B.R1, nil, "facile")
+check(a and a.kind == "punct" and a.s == "." and a.space, "facile: the last round is punctuation")
+check(dec(B.R1, "facile") == "space" and dec(B.L1, "facile") == "erase" and dec(B.R2, "facile") == "pick",
+      "facile: the shoulders as in the other modes")
+pt.set{ mode = "facile" }
+h = new_host("it", true)
+pt.on(true)
+frame(h, 0)
+for _, b in ipairs({ B.RIGHT, B.UP | B.L2, B.UP, B.LEFT | B.L2 }) do press(h, b) end
+check(h.text == "Ciao", "facile: c i a o, one letter a press: " .. h.text)
+PAD = B.L2
+pt.update(h)
+screen = {}
+pt.draw(0, 0)
+local shown = table.concat(screen, " ")
+check(shown:find("i") and shown:find("p") and shown:find("PAD facile"), "facile: L2 held, the panel shows i-p")
+PAD = 0
+pt.update(h)
+pt.set{ mode = "sillabe" }
+
 ------------------------------------------------------------------ the panel
 
 pt.on(true)
@@ -206,12 +238,14 @@ local function replay(text, o)
   return got == want, n, got
 end
 for _, t in ipairs(texts.list) do
-  for _, mode in ipairs({ "sillabe", "steno" }) do
+  for _, mode in ipairs({ "sillabe", "steno", "facile", "facile simple" }) do
     for _, pred in ipairs({ false, true }) do
-      local ok, n, got = replay(t.text, { mode = mode, lang = t.lang, predict = pred })
+      local m, simple = mode:match("^(%S+)( ?s?i?m?p?l?e?)$")
+      local ok, n, got = replay(t.text, { mode = m, simple = simple ~= "", lang = t.lang, predict = pred })
       check(ok, string.format("%s, %s%s: written again\n  want %q\n  got  %q", t.name, mode,
                               pred and " + prediction" or "", t.text, got))
-      check(n < #t.text, t.name .. ": fewer presses than characters")
+      if simple == "" then check(n < #t.text, t.name .. ": fewer presses than characters") end
+      if simple ~= "" and pred then check(n < 0.8 * #t.text, t.name .. ": facile + prediction, " .. n) end
     end
   end
 end
@@ -241,13 +275,15 @@ for i, t in ipairs(pt.TEXTS) do
   PAD = 128; pt.practice_update(); PAD = 0; pt.practice_update()
   check(not pt.practice_is_open(), t.name .. ": Share closes the practice")
 end
--- following the guide press by press gets there too, as fast
+-- following the guide press by press gets there too, as fast (facile: one
+-- letter a press, as a beginner)
 for i, t in ipairs(pt.TEXTS) do
-  for _, mode in ipairs({ "sillabe", "steno" }) do
+  for _, mode in ipairs({ "sillabe", "steno", "facile" }) do
     pt.set{ mode = mode }
     pt.practice_open(i)
     PAD = 0; pt.practice_update()
-    local _, best = pt.encode(t.text, { mode = mode, lang = t.lang, predict = true, words = pt.count_words({}) })
+    local _, best = pt.encode(t.text, { mode = mode, lang = t.lang, predict = true, words = pt.count_words({}),
+                                        simple = mode == "facile" })
     local done
     for _ = 1, 120 do
       local nxt
