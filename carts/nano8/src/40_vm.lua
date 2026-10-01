@@ -205,6 +205,13 @@ function Vm.tick()
   end
   Vm.frames = Vm.frames + 1
   Vm.t = Vm.t + 1 / Vm.fps
+  -- the frames the cart really makes in a second (shown in the pause menu)
+  local now = time()
+  Vm.fps_n = (Vm.fps_n or 0) + 1
+  if not Vm.fps_t0 or now - Vm.fps_t0 >= 1 then
+    if Vm.fps_t0 then Vm.fps_real = floor(Vm.fps_n / (now - Vm.fps_t0) + 0.5) end
+    Vm.fps_t0, Vm.fps_n = now, 0
+  end
   if Vm.request then handle_request() end
   if Vm.frames % 30 == 0 then
     keep_data()

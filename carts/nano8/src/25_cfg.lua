@@ -1,6 +1,7 @@
 -- Cfg: what nano8 keeps on the SD card (bm's save()): the key mapping,
 -- the screen size, and each cart's persistent data (cartdata: 256 bytes
--- per id).
+-- per id, kept as hex without the zeros at the end: a high score is a few
+-- characters, and bm's 32 KiB per save hold hundreds of carts).
 
 Cfg.data = nil
 local dirty, saved_at = false, -10
@@ -37,7 +38,9 @@ function Cfg.load()
     if s.scale == "fill" or s.scale == "crisp" then d.scale = s.scale end
     if type(s.cart) == "table" then
       for id, v in pairs(s.cart) do
-        if type(id) == "string" and type(v) == "string" and #v == 256 then d.cart[id] = v end
+        if type(id) == "string" and type(v) == "string" and #v <= 512 and not v:find("[^%x]") then
+          d.cart[id] = v
+        end
       end
     end
     if type(s.last) == "string" then d.last = s.last end
@@ -46,11 +49,15 @@ function Cfg.load()
 end
 
 function Cfg.cartdata(id)
-  return Cfg.data.cart[id]
+  local h = Cfg.data.cart[id]
+  if not h then return nil end
+  local b = h:gsub("%x%x", function(x) return char(tonumber(x, 16)) end)
+  return b .. ("\0"):rep(256 - #b)
 end
 
 function Cfg.set_cartdata(id, bytes)
-  Cfg.data.cart[id] = bytes
+  local hex = bytes:gsub("%z+$", ""):gsub(".", function(c) return fmt("%02x", byte(c)) end)
+  Cfg.data.cart[id] = hex
   dirty = true
 end
 
@@ -63,7 +70,8 @@ end
 function Cfg.flush(force)
   if not dirty then return end
   if not force and time() - saved_at < 2 then return end
-  local ok, err = save(Cfg.data)
+  local ok, done, err = pcall(save, Cfg.data)
+  if ok then ok, err = done, err else err = done end
   saved_at = time()
   dirty = false
   if not ok then log("nano8: cannot save: " .. tostring(err)) end

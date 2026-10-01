@@ -321,6 +321,9 @@ local function pause_draw()
   rectfill(x - 2, y - 2, w + 4, h + 4, C.accent)
   rectfill(x, y, w, h, C.panel)
   n8.text("paused", x + 12, y + 9, C.dim, 2)
+  -- how the cart runs: frames a second (of the ones it wants), CPU of a frame
+  local perf = fmt("%d/%d fps  cpu %d%%", Vm.fps_real or Vm.fps, Vm.fps, floor(min(Vm.cpu or 0, 9.99) * 100))
+  n8.text(perf, x + w - 8 - #perf * 4, y + 12, C.dim, 1)
   for k, it in ipairs(P.items) do
     local l = type(it.label) == "function" and it.label() or it.label
     local yy = y + 30 + (k - 1) * 20
