@@ -1221,7 +1221,7 @@ static void push_project(lua_State *L, const char *title, const char *author, in
     lua_setfield(L, -2, "title");
     lua_pushstring(L, author);
     lua_setfield(L, -2, "author");
-    lua_pushstring(L, w == 320 ? "320x180" : "640x360");
+    lua_pushstring(L, w == 320 ? "320x180" : w == 480 ? "480x270" : "640x360");
     lua_setfield(L, -2, "res");
     lua_pushlstring(L, lua, lua_len);
     lua_setfield(L, -2, "lua");
@@ -1313,7 +1313,7 @@ static int l_cart_save(lua_State *L)
     lua_getfield(L, 2, "lua");
     size_t lua_len;
     const char *lua = luaL_checklstring(L, -1, &lua_len);
-    int w = strcmp(res, "320x180") == 0 ? 320 : 640, h = w == 320 ? 180 : 360;
+    int w = strcmp(res, "320x180") == 0 ? 320 : strcmp(res, "480x270") == 0 ? 480 : 640, h = w * 9 / 16;
 
     char dir[64], name[16];
     const char *slash = strrchr(path, '/');

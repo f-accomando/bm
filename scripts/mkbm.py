@@ -3,7 +3,7 @@
 mkbm.py - packs a native bm cartridge (.bm). Standard library only.
 
   mkbm.py -o game.bm --lua main.lua [--sheet sheet.png [--sheet8]] [--map map.csv]
-           [--title "My game"] [--author me] [--res 640x360|320x180]
+           [--title "My game"] [--author me] [--res 640x360|480x270|320x180]
 
 sheet.png: 8-bit RGB or RGBA PNG (non-interlaced); size multiple of 8 recommended.
 --sheet8:  store the sheet with a palette and runs (at most 256 colours): big
@@ -183,7 +183,7 @@ def main():
     ap.add_argument("--cover", help="picture for the menu (PNG, any size: cropped to 16:10, 128x80)")
     ap.add_argument("--title", default="")
     ap.add_argument("--author", default="")
-    ap.add_argument("--res", default="640x360", choices=["640x360", "320x180"])
+    ap.add_argument("--res", default="640x360", choices=["640x360", "480x270", "320x180"])
     a = ap.parse_args()
     lua = open(a.lua, "rb").read()
     sheet = read_png(a.sheet) if a.sheet else None

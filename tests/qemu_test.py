@@ -2671,6 +2671,48 @@ def test_textured_mesh(b, opts):
         q.close()
 
 
+RES480_CART = r"""
+local m
+function _init()
+  for y = 0, 15 do for x = 0, 15 do sset(x, y, x < 8 and 0xFF0000 or 0x0000FF) end end
+  m = mesh({ -1,-1,0, 1,-1,0, 1,1,0, -1,1,0 }, { 1,3,2,-1, 1,4,3,-1 },
+           { 0,16, 16,0, 16,16,   0,16, 0,0, 16,0 })
+end
+local n = 0
+function _update() n = n + 1 end
+function _draw()
+  cls(0x00FF00)
+  zclear()
+  camera3d(0, 0, -3)
+  light3d(0, 0, -1, 1)
+  draw3d(m, 0, 0, 0)
+  rectfill(SCREEN_W - 8, SCREEN_H - 8, 8, 8, 0xFFFFFF)
+  if n == 30 then
+    log("res", SCREEN_W, SCREEN_H, string.format("%06x %06x %06x", pget(200, 135), pget(280, 135),
+        pget(SCREEN_W - 1, SCREEN_H - 1)), stat(4))
+  end
+end
+"""
+
+
+def test_res_480(b, opts):
+    """M30: a cartridge at 480x270 (4x on 1080p): the screen mode, 3D with
+    textures (the z-buffer cleared by the DMA from the second frame on)."""
+    q = Qemu(b("kernel.img"))
+    try:
+        q.boot()
+        assert _upload(q, mkbm.pack(RES480_CART.encode(), title="480 test", res=(480, 270)))
+        out = q.expect("res\t", timeout=15).decode(errors="replace")
+        out += q.expect("\n").decode(errors="replace")
+        assert "res\t480\t270\tff0000 0000ff ffffff\t2" in out, out
+        w, h, px = q.screendump()
+        assert (w, h) == (480, 270), (w, h)
+        q.send("q")
+        q.expect("> ", timeout=10)
+    finally:
+        q.close()
+
+
 def test_editor(b, opts):
     """M15: the editor makes a new game, saves it on the SD card, tries it,
     comes back; a game that stops with an error brings the editor to the

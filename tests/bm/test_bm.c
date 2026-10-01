@@ -332,6 +332,13 @@ static void test_format(const char *path)
     CHECK(c.sheet_w == 128 && c.sheet_h == 128 && c.sheet_rgba, "sheet");
     CHECK(c.map_w == 160 && c.map_h == 90 && c.map_cells, "map");
 
+    /* the three video modes (the header is outside the CRC) */
+    d[12] = 480 & 255; d[13] = 480 >> 8; d[14] = 270 & 255; d[15] = 270 >> 8;
+    CHECK(bm_parse(d, n, &c, err, sizeof err) == 0 && c.width == 480 && c.height == 270, "480x270: %s", err);
+    d[12] = 400 & 255; d[13] = 400 >> 8; d[14] = 300 & 255; d[15] = 300 >> 8;
+    CHECK(bm_parse(d, n, &c, err, sizeof err) != 0 && strstr(err, "resolution"), "400x300 rejected");
+    d[12] = 640 & 255; d[13] = 640 >> 8; d[14] = 360 & 255; d[15] = 360 >> 8;
+
     d[n - 1] ^= 1;
     CHECK(bm_parse(d, n, &c, err, sizeof err) != 0 && strstr(err, "CRC"), "corruption detected");
     d[n - 1] ^= 1;

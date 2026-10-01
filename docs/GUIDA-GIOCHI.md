@@ -33,8 +33,9 @@ Una cartuccia `.bm` è un unico file che contiene:
 | copertina per il menu (PNG) | `--cover` | no |
 
 La crea `scripts/mkbm.py` (solo libreria standard di Python, nessuna dipendenza).
-Risoluzione: **640×360** (predefinita) oppure **320×180** con `--res 320x180` (pixel più
-grossi, stile 16 bit, e più tempo per fotogramma). Colori: `0xRRGGBB`, lo schermo è a
+Risoluzione: **640×360** (predefinita), **480×270** con `--res 480x270` (il compromesso
+per il 3D con texture) oppure **320×180** con `--res 320x180` (pixel più grossi, stile 16
+bit, e più tempo per fotogramma). Colori: `0xRRGGBB`, lo schermo è a
 16 bit (RGB565).
 
 ## 2. Il gioco più piccolo
@@ -99,7 +100,7 @@ python3 scripts/mkbm.py -o palla.bm --lua carts/palla/main.lua --title "Palla" -
 ```
 
 Opzioni: `--sheet sprite.png`, `--map mappa.csv`, `--cover copertina.png`,
-`--res 320x180`.
+`--res 480x270` o `--res 320x180`.
 
 **Sul Pi:** copia il file nella cartella `carts/` della SD.
 

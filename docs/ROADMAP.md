@@ -1244,6 +1244,9 @@ Fatto (2026-10-01, da misurare sul Pi):
   identici a prima; istruzioni ARM per pixel in `docs/PRESTAZIONI.md` (texture con luce
   70 → 46, Texture Room 85 → 58). Strumenti: `make bench3d` (checksum delle scene) e
   `make count-insns` (istruzioni contate con `qemu-arm`).
+- Passo 3: modo **480×270** per le cartucce (`mkbm.py --res 480x270`, `SCREEN_W` 480,
+  l'editor lo propone tra 640×360 e 320×180); test QEMU `test_res_480` (modo video, 3D
+  con texture, z-buffer pulito dal DMA).
 
 ## Rischi principali
 | Rischio | Mitigazione |
