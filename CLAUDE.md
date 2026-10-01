@@ -17,6 +17,8 @@ Lua 5.4 embedded. Documentazione: `README.md`, `docs/ROADMAP.md`, `docs/HARDWARE
   Il vecchio nome sopravvive solo dove serve alla compatibilità (la cartella della SD e
   l'intestazione delle cartucce di prima, lette ancora; il tag di rete per i kernel
   vecchi in `tools/bm_net.py`). Il repository GitHub è `f-accomando/bm`.
+- Il branch principale è `claude/bare-metal-mvp`: quando l'utente dice "main" intende
+  quello (un branch `main` non esiste).
 
 ## Cartucce `.cart`: rimosse
 
