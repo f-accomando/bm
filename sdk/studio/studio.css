@@ -68,6 +68,9 @@ h4 { margin: 10px 0 4px; font-size: 12px; color: var(--dim); text-transform: upp
 .drop button[data-check]:not(.checked)::before { content: ""; width: 12px; }
 .wstabs { display: flex; gap: 2px; margin-left: 12px; }
 .wstabs button { min-width: 64px; }
+.applink { margin-left: auto; color: var(--dim); text-decoration: none; border: 1px solid var(--line); border-radius: 4px; padding: 2px 8px; }
+.applink:hover { color: var(--text); background: var(--bar); }
+.applink + .doc { margin-left: 12px; }
 .doc { margin-left: auto; color: var(--dim); display: flex; gap: 6px; align-items: center; }
 #dirty.on::after { content: "●"; color: var(--acc); }
 

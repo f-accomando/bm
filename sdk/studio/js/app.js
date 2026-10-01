@@ -70,7 +70,28 @@
       this.setTool('tile');
       const loop = () => { this.frame(); requestAnimationFrame(loop); };
       requestAnimationFrame(loop);
-      window.addEventListener('beforeunload', e => { if (this.dirty) { e.preventDefault(); e.returnValue = ''; } });
+      window.addEventListener('beforeunload', e => { if (this.dirty && !this.leaving) { e.preventDefault(); e.returnValue = ''; } });
+      // a project passed from bm Animator
+      BM.handoff.take().then(async h => {
+        if (!h || !h.bytes) return;
+        try {
+          const { project, warnings } = BM.parseCart(new Uint8Array(h.bytes));
+          this.loadProject(project, h.handle || null, h.name || null, warnings);
+          if (h.dirty) this.markDirty();
+          this.status('from bm Animator: ' + (h.name || project.title), 'good');
+        } catch (e) { this.error(e); }
+      });
+    }
+
+    /* the project goes to bm Animator (the same tab), as it is now */
+    async toAnimator() {
+      this.syncCart();
+      const problems = BM.checkProject(this.project);
+      if (problems.length) { await this.alert('First fix this', problems.map(esc).join('<br>')); return; }
+      this.leaving = true;
+      await BM.handoff.go('../animator/index.html', {
+        bytes: BM.buildCart(this.project), name: this.fileName || slug(this.project.title) + '.bm', handle: this.handle, dirty: this.dirty,
+      });
     }
 
     // ------------------------------------------------------------ access
@@ -331,7 +352,7 @@
           for (let x = 0; x < sheet.w; x++) if (sheet.px[(y * sheet.w + x) * 4 + 3] >= 128) { lowest = y + 1; break; }
         const T = this.S.tileSize, top = Math.ceil(lowest / T) * T;
         const nw = Math.min(BM.LIMITS.sheet, Math.max(sheet.w, Math.ceil(img.w / 8) * 8));
-        const nh = Math.min(BM.LIMITS.sheet, Math.ceil((top + img.h) / 8) * 8);
+        const nh = Math.min(BM.LIMITS.sheet, Math.max(sheet.h, Math.ceil((top + img.h) / 8) * 8));
         if (img.w > nw || top + img.h > nh) return null;
         sheet = this.resized(sheet, nw, nh);
         pos = [0, top];
@@ -620,6 +641,7 @@
           A.download(await BM.encodePNG(A.regionImage(r)), slug(A.project.title) + `-${r.x}-${r.y}.png`);
         },
         exportLua: () => A.download(BM.utf8(BM.modelToLua(A.model())), slug(A.model().name) + '.lua'),
+        toAnimator: () => A.toAnimator(),
         undo: () => A.undo(),
         redo: () => A.redo(),
         selectAll: () => {
@@ -1356,7 +1378,7 @@ end</pre>
         m.addEventListener('mouseenter', () => { if ($$('.menu.open').length && !m.classList.contains('open')) { $$('.menu').forEach(x => x.classList.remove('open')); m.classList.add('open'); } });
       });
       document.addEventListener('click', () => $$('.menu').forEach(x => x.classList.remove('open')));
-      $$('[data-cmd]').forEach(b => b.addEventListener('click', e => { e.stopPropagation(); $$('.menu').forEach(x => x.classList.remove('open')); this.cmd(b.dataset.cmd); }));
+      $$('[data-cmd]').forEach(b => b.addEventListener('click', e => { e.preventDefault(); e.stopPropagation(); $$('.menu').forEach(x => x.classList.remove('open')); this.cmd(b.dataset.cmd); }));
       $$('[data-tool]').forEach(b => b.addEventListener('click', () => this.setTool(b.dataset.tool)));
       $$('[data-ws]').forEach(b => b.addEventListener('click', () => this.setWorkspace(b.dataset.ws)));
       $$('[data-side]').forEach(b => b.addEventListener('click', () => {

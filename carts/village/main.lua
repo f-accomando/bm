@@ -1,6 +1,7 @@
 -- Studio Village: a little village whose 3D models were made with bm
--- Studio (sdk/studio). They live in the cartridge itself (models.glb, packed
--- by make): model("house") gives a mesh, as mesh() would.
+-- Studio (sdk/studio) and a villager animated with bm Animator
+-- (sdk/animator). They live in the cartridge itself (models.bm, packed by
+-- make): model("house") gives a mesh, animate() moves the villager.
 -- Left / right: turn around the village. Up / down: closer, farther.
 -- A: tour on/off. B: day / night. Y: hide the numbers.
 
@@ -18,8 +19,15 @@ local things = {                          -- what stands where: model, x, z, tur
   { "bush", -5.3, 0.2, 0.5, 1.1 },
 }
 
+-- the villager's walk pre-rendered into sprites by bm Animator (the
+-- numbers printed by mkmodels.js): 8 frames of 24x32, 4 directions
+local WALK = { x = 0, y = 64, w = 24, h = 32, frames = 8, dirs = 4, ax = 12, ay = 29, fps = 10 }
+
 local ang, dist, tour, night, hud = 0.4, 12, true, false, true
 local t = 0
+-- the villager walks along the path, waves at each end and turns back
+local man = { x = -4, dir = 1, wave = 0 }
+local LEFT, RIGHT, SPEED = -4.5, 5, 1.6
 
 function _init()
   for _, name in ipairs(models()) do m[name] = model(name) end
@@ -35,6 +43,32 @@ function _update()
   if btn(2) then dist = math.max(5, dist - 0.1) end
   if btn(3) then dist = math.min(20, dist + 0.1) end
   if tour then ang = ang + 0.004 end
+  if man.wave > 0 then
+    man.wave = man.wave - 1 / 60
+    if man.wave <= 0 then man.dir = -man.dir end
+  else
+    man.x = man.x + man.dir * SPEED / 60
+    if (man.dir > 0 and man.x >= RIGHT) or (man.dir < 0 and man.x <= LEFT) then man.wave = 2.4 end
+  end
+end
+
+local function draw_villager()
+  local v = m.villager
+  if not v then return end
+  if man.wave > 0 then
+    -- from the walk into the wave and back: a mix of the two animations
+    local k = math.min(1, (2.4 - man.wave) * 3, man.wave * 3)
+    animate(v, "walk", t, "wave", t, k)
+  else
+    animate(v, "walk", t)
+  end
+  local ry = man.dir > 0 and -1.5708 or 1.5708                      -- its front (-z) along the path
+  draw3d(v, man.x, 0, 2, 0, ry, 0, 1)
+  if night then                                                     -- a lantern in its hand
+    local hx, hy, hz = bone3d(v, "arm.L")
+    local c, s = math.cos(ry), math.sin(ry)
+    lamp3d(3, man.x + c * hx + s * hz, hy - 0.4, 2 - s * hx + c * hz, 3, 1.2)
+  end
 end
 
 function _draw()
@@ -59,9 +93,16 @@ function _draw()
     local mesh = m[it[1]]
     if mesh then draw3d(mesh, it[2], 0, it[3], 0, it[4], 0, it[5]) end
   end
+  draw_villager()
   if hud then
     print("Studio Village", 4, 4, 0xFFFFFF)
     print(stat(2) .. " fps  " .. stat(4) .. " tri", 4, 20, night and 0x8890A8 or 0x203050)
-    print("models made with bm Studio", 4, H - 18, night and 0x8890A8 or 0x203050)
+    print("models: bm Studio  villager: bm Animator", 4, H - 18, night and 0x8890A8 or 0x203050)
+    -- the same villager as pre-rendered sprites (2D), facing the way he walks
+    local s = WALK
+    local dir = man.wave > 0 and 0 or (man.dir > 0 and 1 or 3)
+    local f = man.wave > 0 and 0 or math.floor(t * s.fps) % s.frames
+    rectfill(W - 34, 4, 30, 38, night and 0x1C2030 or 0xDCEAF4)
+    sspr(s.x + f * s.w, s.y + dir * s.h, s.w, s.h, W - 19 - s.ax, 39 - s.ay)
   end
 end

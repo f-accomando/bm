@@ -2484,6 +2484,16 @@ def test_studio_cart(b, opts):
     try:
         q.expect(MENU, timeout=30)
         time.sleep(0.5)
+        # first the one with a skeleton: the viewer plays its animations (X: the next one)
+        with open(b("studio-test-anim.bm"), "rb") as f:
+            assert _upload(q, f.read())
+        time.sleep(1.5)
+        q.send("c")
+        time.sleep(0.5)
+        q.send("q")
+        out = q.expect("update+draw", timeout=10).decode(errors="replace")
+        assert "stopped with an error" not in out, out
+        time.sleep(0.5)
         with open(path, "rb") as f:
             assert _upload(q, f.read())
         time.sleep(2.5)

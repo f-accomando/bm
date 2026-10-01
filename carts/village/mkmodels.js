@@ -2,10 +2,12 @@
 /*
  * Studio Village: its 3D models, built with bm Studio's own tools
  * (sdk/studio/js: the starter sheet, tiles, blocks, corners moved by
- * hand) and saved as models.glb, which the Makefile packs into the
- * cartridge (models and sprite sheet). models.glb is in git: `make` does
- * not need Node. To change the village, open models.glb in bm Studio, or
- * change this script and run it again:
+ * hand), the villager of bm Animator (skeleton, idle / walk / wave) and his
+ * walk pre-rendered into sprites; all saved as models.bm, which the
+ * Makefile packs into the cartridge (models, skeletons, sprite sheet).
+ * models.bm is in git: `make` does not need Node. To change the village,
+ * open models.bm in bm Studio or bm Animator, or change this script and
+ * run it again:
  *
  *   node carts/village/mkmodels.js
  */
@@ -14,7 +16,7 @@ const fs = require('fs');
 const path = require('path');
 
 const STUDIO = path.join(__dirname, '..', '..', 'sdk', 'studio', 'js');
-for (const f of ['core.js', 'tiles.js', 'edit.js']) require(path.join(STUDIO, f));
+for (const f of ['core.js', 'tiles.js', 'edit.js', 'rig.js', 'sprites.js', 'examples.js']) require(path.join(STUDIO, f));
 const BM = globalThis.BM, E = BM.edit;
 
 const T = 16;
@@ -161,6 +163,14 @@ function ground() {
   return f;
 }
 
+/* the w x h pixels of the sheet at `at` (to check they are free) */
+function crop(sheet, at, img) {
+  const out = new Uint8ClampedArray(img.w * img.h * 4);
+  for (let y = 0; y < img.h; y++)
+    out.set(sheet.px.subarray(((at[1] + y) * sheet.w + at[0]) * 4, ((at[1] + y) * sheet.w + at[0] + img.w) * 4), y * img.w * 4);
+  return out;
+}
+
 function centre(faces, cx, cz) {
   for (const f of faces) for (const p of f.p) { p[0] -= cx; p[2] -= cz; }
   return faces;
@@ -173,17 +183,30 @@ function centre(faces, cx, cz) {
     models: [
       { name: 'ground', faces: ground() }, { name: 'house', faces: house() }, { name: 'tree', faces: tree() },
       { name: 'bush', faces: bush() }, { name: 'well', faces: well() }, { name: 'fence', faces: fence() },
-      { name: 'crates', faces: crates() },
+      { name: 'crates', faces: crates() }, BM.examples.villager(),
     ],
   };
+  // the villager's walk, pre-rendered (bm Animator's Sprites page): 8 frames
+  // of 24x32 from 4 directions, at SPRITES in the sheet (main.lua knows where)
+  const v = project.models.find(m => m.name === 'villager');
+  const spr = BM.sprites.render(v, project.sheet, v.rig.clips.find(c => c.name === 'walk'),
+    { frames: 8, dirs: 4, w: 24, h: 32, pitch: 20, bands: 3, colours: 16, outline: 0x101018 });
+  const SPRITES = [0, 64];
+  if (BM.freeSpot({ w: spr.img.w, h: spr.img.h, px: crop(project.sheet, SPRITES, spr.img) }, spr.img.w, spr.img.h) === null)
+    throw new Error('the place of the sprites in the sheet is taken');
+  for (let y = 0; y < spr.img.h; y++)
+    project.sheet.px.set(spr.img.px.subarray(y * spr.img.w * 4, (y + 1) * spr.img.w * 4), ((SPRITES[1] + y) * project.sheet.w + SPRITES[0]) * 4);
   const problems = BM.checkProject(project);
   if (problems.length) throw new Error(problems.join('\n'));
-  const glb = await BM.exportGLB(project, project.models);
-  const out = path.join(__dirname, 'models.glb');
-  fs.writeFileSync(out, glb);
+  project.lua = '-- the models of Studio Village (the game is carts/village/main.lua)\nfunction _draw() cls(0) end\n';
+  const bm = BM.buildCart(project);
+  const out = path.join(__dirname, 'models.bm');
+  fs.writeFileSync(out, bm);
   for (const m of project.models) {
     const s = BM.modelStats(m);
-    console.log(`${m.name.padEnd(8)} ${String(s.tris).padStart(4)} triangles ${String(s.verts).padStart(4)} corners`);
+    console.log(`${m.name.padEnd(8)} ${String(s.tris).padStart(4)} triangles ${String(s.verts).padStart(4)} corners` +
+      (m.rig ? `, ${m.rig.bones.length} bones, ${m.rig.clips.map(c => c.name).join(' ')}` : ''));
   }
-  console.log(`${out}: ${glb.length} bytes`);
+  console.log(BM.sprites.snippet('villager walk', spr, SPRITES, 10));
+  console.log(`${out}: ${bm.length} bytes`);
 })().catch(e => { console.error(e); process.exit(1); });

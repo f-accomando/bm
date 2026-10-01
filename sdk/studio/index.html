@@ -25,6 +25,8 @@
         <button data-cmd="exportAllGlb">Export all models (.glb)</button>
         <button data-cmd="exportPng">Export the sheet (.png)</button>
         <button data-cmd="exportLua">Export this model as Lua code</button>
+        <hr>
+        <button data-cmd="toAnimator">Animate in bm Animator (bones, keyframes, sprites)</button>
       </div>
     </div>
     <div class="menu"><button class="mbtn">Edit</button>
@@ -62,6 +64,7 @@
     <button data-ws="3d" class="on">3D</button>
     <button data-ws="pixel">Pixel</button>
   </div>
+  <a class="applink" href="../animator/index.html" data-cmd="toAnimator" title="Bones, keyframes, sprites">bm Animator ↗</a>
   <div class="doc"><span id="docName">new project</span><span id="dirty" title="not saved"></span></div>
 </header>
 
@@ -249,6 +252,7 @@
 <script src="js/core.js"></script>
 <script src="js/tiles.js"></script>
 <script src="js/edit.js"></script>
+<script src="js/handoff.js"></script>
 <script src="js/gl.js"></script>
 <script src="js/view3d.js"></script>
 <script src="js/sheetview.js"></script>

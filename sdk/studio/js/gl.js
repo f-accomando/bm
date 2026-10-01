@@ -212,7 +212,9 @@ void main() { gl_FragColor = v_col; }`;
       if (o.cull) { gl.enable(gl.CULL_FACE); gl.cullFace(gl.BACK); } else gl.disable(gl.CULL_FACE);
       if (o.alpha !== undefined && o.alpha < 1) { gl.enable(gl.BLEND); gl.blendFunc(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA); gl.depthMask(false); }
       if (o.offset) { gl.enable(gl.POLYGON_OFFSET_FILL); gl.polygonOffset(-1, -2); }
+      if (o.noDepth) gl.disable(gl.DEPTH_TEST);
       gl.drawArrays(gl.TRIANGLES, 0, buf.count);
+      gl.enable(gl.DEPTH_TEST);
       gl.disable(gl.POLYGON_OFFSET_FILL);
       gl.disable(gl.BLEND);
       gl.depthMask(true);

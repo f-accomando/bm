@@ -274,6 +274,53 @@
     return true;
   }
 
+  /* the first place of the sheet (on a grid of `step`) where w x h pixels
+   * are all transparent, or null */
+  function freeSpot(sheet, w, h, step = 8) {
+    const W = sheet.w, H = sheet.h, sat = new Int32Array((W + 1) * (H + 1));
+    for (let y = 0; y < H; y++) {
+      let row = 0;
+      for (let x = 0; x < W; x++) {
+        row += sheet.px[(y * W + x) * 4 + 3] >= 128 ? 1 : 0;
+        sat[(y + 1) * (W + 1) + x + 1] = sat[y * (W + 1) + x + 1] + row;
+      }
+    }
+    for (let y = 0; y + h <= H; y += step)
+      for (let x = 0; x + w <= W; x += step) {
+        const s = sat[(y + h) * (W + 1) + x + w] - sat[y * (W + 1) + x + w] - sat[(y + h) * (W + 1) + x] + sat[y * (W + 1) + x];
+        if (s === 0) return [x, y];
+      }
+    return null;
+  }
+
+  function resizeImage(img, w, h) {
+    const out = newImage(w, h);
+    for (let y = 0; y < Math.min(h, img.h); y++)
+      out.px.set(img.px.subarray(y * img.w * 4, (y * img.w + Math.min(w, img.w)) * 4), y * w * 4);
+    return out;
+  }
+
+  /* a copy of the sheet with img in it: where there is room, else below
+   * everything (the sheet grows, up to 4096); -> { sheet, at } or null */
+  function placeInSheet(sheet, img, step = 8) {
+    let at = freeSpot(sheet, img.w, img.h, step), out;
+    if (at) out = { w: sheet.w, h: sheet.h, px: sheet.px.slice() };
+    else {
+      let lowest = 0;
+      for (let y = sheet.h - 1; y >= 0 && !lowest; y--)
+        for (let x = 0; x < sheet.w; x++) if (sheet.px[(y * sheet.w + x) * 4 + 3] >= 128) { lowest = y + 1; break; }
+      const top = Math.ceil(lowest / step) * step;
+      const nw = Math.min(LIMITS.sheet, Math.max(sheet.w, Math.ceil(img.w / 8) * 8));
+      const nh = Math.min(LIMITS.sheet, Math.max(sheet.h, Math.ceil((top + img.h) / 8) * 8));
+      if (img.w > nw || top + img.h > nh) return null;
+      out = resizeImage(sheet, nw, nh);
+      at = [0, top];
+    }
+    for (let y = 0; y < img.h; y++)
+      out.px.set(img.px.subarray(y * img.w * 4, (y + 1) * img.w * 4), ((at[1] + y) * out.w + at[0]) * 4);
+    return { sheet: out, at };
+  }
+
   // ------------------------------------------------------------ SHEET8
 
   function sheet8Encode(img) {
@@ -939,17 +986,20 @@
 
   function viewerLua() {
     return `${VIEWER_MARK} of this cartridge.
--- Left / right: model; up / down: closer / farther; A: light; B: spin.
+-- Left / right: model; up / down: closer / farther; A: light; B: spin;
+-- X: the next animation (models with a skeleton, from bm Animator).
 -- Replace it with your game: model("name") gives a model as a mesh for
--- draw3d(), models() the list of names, bounds3d(mesh) its size.
+-- draw3d(), models() the list of names, bounds3d(mesh) its size,
+-- animate(mesh, "walk", t) the pose of an animation at time t.
 
-local names, meshes, boxes = {}, {}, {}
-local cur, zoom, spin, lit, angle = 1, 1, true, true, 0.6
+local names, meshes, boxes, anims = {}, {}, {}, {}
+local cur, zoom, spin, lit, angle, clip, t = 1, 1, true, true, 0.6, 1, 0
 
 function _init()
   names = models()
   for i, n in ipairs(names) do
     meshes[i] = model(n)
+    anims[i] = clips(meshes[i])
     local x0, y0, z0, x1, y1, z1 = bounds3d(meshes[i])
     boxes[i] = { (x0 + x1) / 2, (y0 + y1) / 2, (z0 + z1) / 2,
                  math.max(x1 - x0, y1 - y0, z1 - z0, 0.5) }
@@ -957,13 +1007,15 @@ function _init()
 end
 
 function _update()
+  t = t + 1 / 60
   if #names == 0 then return end
-  if btnp(0) then cur = (cur - 2) % #names + 1 end
-  if btnp(1) then cur = cur % #names + 1 end
+  if btnp(0) then cur = (cur - 2) % #names + 1; clip = 1 end
+  if btnp(1) then cur = cur % #names + 1; clip = 1 end
   if btn(2) then zoom = math.max(0.3, zoom - 0.02) end
   if btn(3) then zoom = math.min(4, zoom + 0.02) end
   if btnp(4) then lit = not lit end
   if btnp(5) then spin = not spin end
+  if btnp(6) and #anims[cur] > 0 then clip = clip % #anims[cur] + 1; t = 0 end
   if spin then angle = angle + 0.01 end
 end
 
@@ -973,7 +1025,8 @@ function _draw()
     print("no 3D models yet: make them with bm Studio", 16, 16, 0xFFFFFF)
     return
   end
-  local b = boxes[cur]
+  local b, a = boxes[cur], anims[cur]
+  if #a > 0 then animate(meshes[cur], a[clip].name, t) end
   local d = b[4] * 1.6 * zoom
   zclear()
   camera3d(0, d * 0.55, -d, 0, -0.5, 60)
@@ -983,9 +1036,9 @@ function _draw()
   local x = -(b[1] * c + b[3] * s)
   local z = -(-b[1] * s + b[3] * c)
   draw3d(meshes[cur], x, -b[2], z, 0, angle, 0, 1, lit and 0 or 2)
-  print(names[cur] .. "  " .. cur .. "/" .. #names, 8, 6, 0xFFFFFF)
+  print(names[cur] .. "  " .. cur .. "/" .. #names .. (#a > 0 and ("  " .. a[clip].name) or ""), 8, 6, 0xFFFFFF)
   print(stat(4) .. " triangles  " .. stat(2) .. " fps", 8, 24, 0x8890A8)
-  print("left/right model  up/down zoom  A light  B spin", 8, SCREEN_H - 20, 0x8890A8)
+  print("left/right model  up/down zoom  A light  B spin" .. (#a > 0 and "  X animation" or ""), 8, SCREEN_H - 20, 0x8890A8)
 end
 `;
   }
@@ -1016,7 +1069,8 @@ end
 
   Object.assign(BM, {
     SEC, TEXTURED, LIMITS, crc32, Writer, utf8, fromUtf8, inflate, deflate,
-    newImage, binarizeAlpha, isPNG, decodePNG, encodePNG, makeCover, countColours, imageIsEmpty,
+    newImage, binarizeAlpha, isPNG, decodePNG, encodePNG, makeCover, countColours, imageIsEmpty, freeSpot, resizeImage,
+    placeInSheet,
     sheet8Encode, sheet8Decode, v3, faceNormal, faceCenter, cloneFace, cloneRig, modelBounds, posKey, MODES,
     modelToMesh, meshToFaces, modelStats, meshEncode, meshDecode, animEncode, animDecode, parseCart, buildCart,
     checkProject, checkRig,

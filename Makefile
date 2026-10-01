@@ -385,11 +385,12 @@ test-studio: $(BUILD)/host/test_bm $(BUILD)/demo.bm
 test-studio-ui:
 	node tests/studio/test_ui.js $(BUILD)/studio
 
-# bm Studio on http://localhost:8765 (it also opens from the file:
-# sdk/studio/index.html in Chrome or Edge)
+# bm Studio and bm Animator on http://localhost:8765 (they also open from
+# the files, sdk/studio/index.html and sdk/animator/index.html, in Chrome or Edge)
 studio:
-	@echo "bm Studio: http://localhost:8765  (Ctrl+C to stop)"
-	$(PYTHON) -m http.server 8765 --bind 127.0.0.1 --directory sdk/studio
+	@echo "bm Studio:   http://localhost:8765/studio/"
+	@echo "bm Animator: http://localhost:8765/animator/   (Ctrl+C to stop)"
+	$(PYTHON) -m http.server 8765 --bind 127.0.0.1 --directory sdk
 
 HOSTCC ?= cc
 
