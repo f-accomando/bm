@@ -854,7 +854,7 @@ def test_home_ui(b, opts):
 
         # the options of the suspended game
         keys("x")
-        screen(["AAA saver", "Resume", "Close the game", "Open in the SDK", "Author", "tests"])
+        screen(["AAA saver", "Resume", "Close the game", "Open in the SDK", "Open in bm Code", "Author", "tests"])
         shot("options")
         keys("ww")                              # up from the first row: the last ones
         screen(["Delete the save data", "Records and progress start again"])
@@ -2852,6 +2852,13 @@ def test_code_editor(b, opts):
         k("\x1a", 0.3)                                      # Ctrl+Z
         see(["if v > 0 then"])
 
+        # a new cartridge: Ctrl+N, the name offered, Ctrl+S writes it
+        k("\x0e", 0.5)                                      # Ctrl+N
+        see(["New cartridge, file name", "GAME1.BM"])
+        k("\r", 0.5)
+        k("\x13")
+        expect("code: saved /carts/GAME1.BM")
+
         # leave: the untitled tab has changes; kept for later
         k("\x1b", 0.6)                                     # Esc: the menu
         see(["New cartridge", "Exit"])
@@ -2889,6 +2896,10 @@ def test_code_editor(b, opts):
         subprocess.run(["mcopy", "-i", part, "-o", "::/CARTS/PONG.BM", os.path.join(tmp, "pong.bm")],
                        check=True, env=env)
         assert open(os.path.join(tmp, "pong.bm"), "rb").read().find(b"-- edited by bm Code") > 0
+        subprocess.run(["mcopy", "-i", part, "-o", "::/CARTS/GAME1.BM", os.path.join(tmp, "game1.bm")],
+                       check=True, env=env)
+        g = sections(open(os.path.join(tmp, "game1.bm"), "rb").read())
+        assert list(g) == [1] and g[1].startswith(b"-- my game"), g.keys()
     finally:
         shutil.rmtree(tmp, ignore_errors=True)
 

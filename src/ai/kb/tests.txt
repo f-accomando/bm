@@ -171,3 +171,7 @@ rinomina speed in velocita => act.rename
 cosa fa questa funzione? => act.explain
 rendila locale => act.make_local
 crea uno snippet per uno sprite particle effect => particles
+voglio un font più piccolo per scrivere tante righe => font
+salvare il codice senza perdere la mappa => cart_write
+come apro due file uno accanto all'altro => bm_code
+come chiedo all'assistente di modificare la funzione => entry_lines

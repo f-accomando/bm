@@ -14,3 +14,5 @@ ask: capitale della francia | chi era napoleone | ricetta della carbonara
 ask: traduci in inglese | quanto fa 2 più 2 | consigli per le vacanze | meteo domani
 ask: prezzo del bitcoin | notizie di oggi | scrivi una poesia | world news
 ask: il mio telefono non funziona | come installo windows | password del wifi di casa
+ask: che tempo farà domani | previsioni del tempo | meteo a milano | piove domani
+ask: fa freddo a torino | che tempo fa a napoli | temperatura di oggi | will it rain tomorrow

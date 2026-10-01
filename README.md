@@ -67,7 +67,7 @@ Risoluzioni di menu, console e giochi, e quanto costano: [docs/RISOLUZIONI.md](d
 | M19 | HTTPS: aggiornamenti da GitHub, "git leggero" (archivi e API con token) | |
 | **M20** | **Titan Clash**: picchiaduro 2D a robot giganti; prima base giocabile (1 robot, armatura leggera/pesante, spada o cannoni, hangar, contro CPU o in 2) | ✅ base giocabile |
 | **M21** | Menu "home" a griglia (Games / Dev) e giochi sospesi in memoria | ✅ |
-| M22 | SDK e strumenti dedicati: codice, pixel art, 3D, musica, import/export, 3D→sprite, sprite stacking | in coda |
+| M22 | SDK e strumenti dedicati: codice, pixel art, 3D, musica, import/export, 3D→sprite, sprite stacking | 22.1: **bm Code** (tab, due pagine, font 6x12) fatto in QEMU |
 | M23 | Emulatore di cartucce `.p8` / `.p8.png` (stile PICO-8) | in coda |
 | M24 | Scambio in rete locale tra console (P2P) | in coda |
 | M25 | Store su GitHub: catalogo, download verificati, pubblicazione dall'SDK | in coda |
@@ -501,6 +501,7 @@ src/ai/                  assistente (M30): rete INT8 (nn.c), testo (text.c), dom
                          ricette di sprite (sprite.c), tabella Lua ai (lua_ai.c), pannello
                          (assist.lua, require "assist"); base di conoscenza in src/ai/kb/
 carts/assistant/         lo strumento Assistant della scheda Dev
+carts/code/              bm Code, l'editor del codice (tab, due pagine, font 6x12, #entry:)
 scripts/mkassist.py      base di conoscenza + rete -> build/assist.bin (nel kernel)
 scripts/trainassist.py   addestramento della rete (make ai-model, numpy)
 tests/ai/                test dell'assistente (C, Lua, esempi di codice)
@@ -530,7 +531,8 @@ src/kernel/selftest.c    self-test di newlib
 src/arch/mmu.c           tabella delle sezioni da 1 MiB, attivazione MMU e cache
 src/arch/cache.c         clean/invalidate della D-cache per range (mailbox)
 src/gfx/console.c        console testuale: celle, scroll, cursore, ANSI, barra di stato
-src/gfx/font8x16.c       font 8×16 CP437 (derivato da Terminus, OFL: docs/LICENSE.font)
+src/gfx/font8x16.c       font 8×16 CP437 (derivato da Terminus, OFL: docs/LICENSE.font);
+                         font6x12.c e font8x14.c per font() delle cartucce (bm Code)
 src/drivers/             mmio, mailbox, prop tags, framebuffer, gpio, uart (PL011),
                          timer, LED, watchdog, scheda (board.c: Zero, Zero W, Pi 1)
 src/lib/                 kprintf, crc32, syscalls newlib (_sbrk, _write, ...)

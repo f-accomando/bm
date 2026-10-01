@@ -95,3 +95,40 @@ mostra il resto, Tab (X) cambia modo (codice, sprite, tutto), Esc (B)
 chiude. Negli sprite sinistra/destra danno le varianti; i colori e la
 misura si scrivono nella domanda: "slime rosso 32x32". Non è un chatbot:
 conosce bm, le sue API, il Lua per i giochi e gli errori più comuni.
+
+== bm_code
+kind: tip
+title: bm Code, l'editor del codice
+ask: come uso bm code | editor del codice | code editor | scrivere codice sulla console
+ask: aprire più file | due pagine affiancate | split screen | schede | tab
+ask: font piccolo nell'editor | più righe sullo schermo | come apro un gioco per modificarlo
+keys: code, editor, tab, schede
+see: editor_keys, entry_lines
+text: Nella scheda Dev, Code (o "Open in bm Code" nelle opzioni di una
+cartuccia, o C dal monitor). Ogni cartuccia in una tab: Ctrl+O apre, Ctrl+N ne
+crea una nuova, Ctrl+S salva solo il codice (sprite e mappa restano), F5 la prova
+e torna sulla riga dell'errore. F2/F3 cambiano tab, F4 mette due pagine
+affiancate (F7 passa all'altra), F10 cambia il font (6x12, 8x14, 8x16). F6
+l'assistente, F9 spiega l'errore, F1 tutti i tasti. Le tab restano aperte
+la volta dopo.
+
+== entry_lines
+kind: tip
+title: Righe #entry: l'assistente lavora sul codice
+ask: come uso entry | righe entry | far modificare il codice all'assistente
+ask: chiedere all'assistente di cambiare una funzione | #entry | comandi per l'assistente
+keys: entry
+see: bm_code
+text: In bm Code scrivi su una riga "#entry: cosa vuoi #" e premi Invio:
+l'assistente lo fa sulla funzione intorno alla riga (o subito sotto) e la riga
+sparisce; Ctrl+Z annulla. Esempi: "aggiungi operatore ternario", "commenta
+questa funzione", "aggiungi un log", "togli i log", "controlla i parametri",
+"rendi locale", "sistema l'indentazione", "rinomina vecchio in nuovo",
+"ottimizza", "spiega questa funzione", "commenta tutta la funzione"; oppure
+un esempio da inserire ("crea uno snippet per un effetto di particelle") o uno
+sprite come codice ("crea uno sprite slime rosso").
+code:
+function move(dx)
+  -- #entry: aggiungi operatore ternario #
+  if dx > 0 then face = 1 else face = -1 end
+end

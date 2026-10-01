@@ -853,6 +853,40 @@ Sotto-milestone:
   - colori della sintassi, cerca e sostituisci;
   - salto all'errore;
   - aiuto sulle API (F1 sulla parola), completamento dei nomi delle API.
+
+  **bm Code** (2026-10-01, fatto in QEMU): l'editor del codice nella scheda Dev (anche `C`
+  dal monitor e "Open in bm Code" nelle opzioni di una cartuccia), `carts/code/main.lua`.
+  - Più cartucce aperte in **tab** (F2/F3), **due pagine affiancate** (F4, F7 passa
+    all'altra: due file, o due punti dello stesso file per la revisione).
+  - **Font** 6x12 (106 colonne, 28 righe di codice), 8x14 o 8x16 (F10), da Terminus come
+    quello della console: niente caratteri enormi.
+  - Legge e scrive le cartucce **al loro posto**: `cart_read` / `cart_write` cambiano solo
+    il codice, sprite, mappa, copertina e sezioni sconosciute restano; i nomi lunghi pure.
+    Ctrl+N crea una cartuccia nuova, "Save as" una copia.
+  - Colori della sintassi, numeri di riga, rientro automatico (e `end` che torna a posto),
+    annulla/ripeti, selezione (Ctrl+B), copia/taglia/incolla, cerca e sostituisci, vai
+    alla riga, F5 prova il gioco e torna sulla riga dell'errore.
+  - L'assistente: F6 (la parola sotto il cursore), F9 spiega l'errore, righe
+    `#entry: ... #` (M30).
+  - Le tab e le modifiche non salvate restano per la volta dopo (sessione in `save()`).
+  - Col pad: croce, Y+croce per pagine e tab, X l'assistente, Start il menu.
+  - Restano per 22.1: più file per progetto, completamento dei nomi delle API.
+  - Test: `test_code_editor` in QEMU (un `.bm` con nome lungo e sprite, due tab, due
+    pagine, il salvataggio che tiene sheet e mappa, prova con errore e ritorno, F9,
+    `#entry:` e annulla, cartuccia nuova, `fsck.vfat`); `make test-bm` (`bm_rewrite`, font
+    largo 6), `make test-fat` (riscrittura di un file con nome lungo).
+  - Corretto per strada: `save()` con tabelle oltre ~1 KiB rompeva lo stack di Lua
+    ("cannot store a thread"); ora il testo si costruisce in un buffer fisso.
+
+  **Da provare sul Pi** (Dev > Code, tastiera USB):
+  - il font 6x12 sul monitor: si legge bene? (F10: 8x14 e 8x16);
+  - Ctrl+O, un gioco della SD, una modifica, Ctrl+S: il gioco parte ancora con i suoi
+    sprite e la sua mappa;
+  - F4 due pagine (F7 passa dall'una all'altra, F2/F3 cambiano tab), fluido anche così;
+  - F5 prova il gioco; con un errore torna sulla riga rossa, F9 lo spiega;
+  - una riga `#entry: aggiungi operatore ternario #` dentro una funzione con un if/else,
+    Invio, poi Ctrl+Z;
+  - Esc > Exit con modifiche non salvate: "Keep for later" e alla riapertura ci sono.
 - **22.2 Pixel art**:
   - sprite, tavolozze, animazioni (fotogrammi, onion skin, anteprima);
   - strumenti (linea, rettangolo, riempimento, selezione, specchio);
@@ -1263,13 +1297,21 @@ Task:
    sfoglia tutto. `keyp()` conosce F6–F12.
 7. ✅ **Assistant** nella scheda Dev (e `A` dal monitor): il pannello da solo, il codice
    inserito e gli sprite nello sheet su due riquadri, F8 misura la velocità sullo schermo.
-8. **Integrazione**, quando le app sono pronte (l'editor di M15, poi gli strumenti di M22):
+8. **Integrazione**: ✅ in **bm Code** (22.1): F6 con la parola sotto il cursore e il codice
+   inserito al cursore, F9 sulla riga dell'errore, e le righe `#entry: ... #` (sotto).
+   Restano, quando le app saranno pronte (l'editor di M15, poi gli strumenti di M22):
    - editor del codice: F6 apre il pannello con la parola sotto il cursore, Invio inserisce
      il codice al cursore; la riga rossa dell'errore apre il pannello in modalità errore;
    - editor degli sprite: F6 (modo sprite) mette la base nella cella scelta, nella misura
      della pagina (8x8 o 16x16) e con la tavolozza dell'editor;
    - una combinazione per il pad (proposta: Y+X), e l'aiuto F12 che la ricorda.
-9. Dopo: numeri e nomi della domanda dentro il codice proposto ("muovi a velocità 3"),
+9. ✅ **Azioni sul codice** (API di prova, `assist.act`): una riga `#entry: richiesta #` in bm
+   Code, Invio, e l'assistente lo fa sulla funzione intorno o sotto: operatore ternario,
+   commento, log, togli i log, controllo dei nil, rendi locale, indentazione, rinomina,
+   commenta/scommenta, ottimizza (API come locali), spiega; oppure inserisce un esempio
+   ("crea uno snippet per un effetto di particelle") o uno sprite scritto come codice
+   ("crea uno sprite slime rosso"). Non cambia niente se non è sicura; Ctrl+Z annulla.
+10. Dopo: numeri e nomi della domanda dentro il codice proposto ("muovi a velocità 3"),
    completamento dei nomi delle API, le domande senza risposta giusta che diventano voci
    nuove, ricette di sprite animate (più fotogrammi nello sheet).
 

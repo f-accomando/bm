@@ -217,3 +217,17 @@ o "risoluzione" nel menu dell'editor). (0, 0) è l'angolo in alto a sinistra.
 code:
 local cx, cy = SCREEN_W // 2, SCREEN_H // 2    -- il centro
 circfill(cx, cy, 4, 0xFFFFFF)
+
+== font
+kind: api
+name: font
+title: font([nome]) - il font di print: 6x12, 8x14 o 8x16
+ask: cambiare il font | testo più piccolo | font piccolo | change the font size
+ask: scritte più piccole per avere più righe | dimensione dei caratteri | small text
+text: Da qui in poi print usa quel font: "6x12" (106 colonne per 30 righe a
+640x360), "8x14" o "8x16" (quello normale). Restituisce larghezza e altezza di un
+carattere del font corrente.
+code:
+local cw, ch = font("6x12")
+print("tante righe con il font piccolo", 0, 0)
+font("8x16")

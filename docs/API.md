@@ -100,6 +100,7 @@ Le coordinate sono in pixel, (0,0) in alto a sinistra; `w` e `h` sono larghezza 
 | `circ(x, y, r, c)` / `circfill(x, y, r, c)` | cerchio vuoto / pieno |
 | `tri(x0, y0, x1, y1, x2, y2, c, [c1, c2])` | triangolo pieno; con tre colori (uno per vertice) il colore sfuma da un angolo all'altro (Gouraud, con dithering) |
 | `print(testo, x, y, [c, scala])` | testo con il font 8×16 (bianco se `c` manca), ingrandito `scala` volte (1–8: 2 = caratteri 16×32); restituisce la x dopo l'ultimo carattere |
+| `font([nome])` | il font di `print` da qui in poi: `"8x16"` (quello normale), `"8x14"` o `"6x12"` (106 colonne per 30 righe a 640×360: per gli strumenti con tanto testo); restituisce larghezza e altezza di un carattere del font corrente |
 | `camera([x, y])` | sposta tutto il disegno di (−x, −y); senza argomenti la azzera |
 | `clip([x, y, w, h])` | limita il disegno al rettangolo; senza argomenti tutto lo schermo |
 
@@ -238,6 +239,8 @@ Pong, Snake e Star Shooter in `carts/` usano effetti e piccole melodie (una funz
 | `cart_load(percorso)` | apre un `.bm`: il suo sprite sheet e la sua mappa sostituiscono quelli della cartuccia che chiama; restituisce `{title, author, res, lua, sheet_w, sheet_h, map_w, map_h}` |
 | `cart_new()` | sprite sheet e mappa vuoti (256×256) |
 | `cart_save(percorso, {title, author, res, lua})` | scrive un `.bm` con il codice dato e lo sprite sheet, la mappa (e la copertina) correnti; nome 8.3, es. `"/carts/GIOCO.BM"` |
+| `cart_read(percorso)` | il codice e l'intestazione di un `.bm`: `{title, author, res, lua, size}`, **senza** toccare lo sheet e la mappa di chi chiama (al contrario di `cart_load`): per editor con più file aperti |
+| `cart_write(percorso, {lua, [title, author, res, from]})` | cambia **solo** il codice (e i campi dati) di un `.bm`: sprite sheet, mappa, copertina e le sezioni che il kernel non conosce restano com'erano; un file con il nome lungo lo tiene. Un file che non c'è diventa una cartuccia con solo il codice (nome 8.3). `from`: le altre sezioni vengono da un altro file ("salva come") |
 | `cart_run(percorso)` | esce, gioca quel file e poi riapre la cartuccia che l'ha chiesto, con `cart_arg()` = `{path=, error=, back=true}` (dal menu, "Open in the SDK": `back=false`) |
 
 ### Assistente (M30, per gli strumenti di sviluppo)
@@ -288,6 +291,15 @@ pannello mostra la riga, il nome scritto male e cosa vuol dire), `size` e `palet
 per gli sprite, `on_insert(codice)`, `on_sprite(sprite)`, `on_close()`, `x, y, w, h`
 (predefinito: quasi tutto lo schermo). Poi `assist.update()` e `assist.draw()` a ogni
 fotogramma, `assist.is_open()`, `assist.close()`.
+
+**Azioni sul codice** (`assist.act(richiesta, righe, n)`): quello che chiede una riga
+`#entry: richiesta #` alla riga `n` di `righe` (una tabella di stringhe). La rete sceglie
+tra le azioni (operatore ternario, commento, log, togli i log, controllo dei nil, rendi
+locale, indentazione, rinomina, commenta/scommenta, ottimizza, spiega), un esempio da
+inserire o uno sprite scritto come codice; lavora sulla funzione intorno alla riga o
+subito sotto. Restituisce `{lines, ok, message, cursor, explain}` (le righe nuove, senza
+la riga `#entry:`), e non cambia niente se non è abbastanza sicura. bm Code la usa con
+Invio su quelle righe.
 
 La base di conoscenza è in `src/ai/kb/` (formato e come riaddestrare:
 `src/ai/kb/README.md`).

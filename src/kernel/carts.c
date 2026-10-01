@@ -436,7 +436,7 @@ static int is_suspended(const cart_t *c)
 
 /* The options of a cartridge (X on its cover): a panel like the settings. */
 enum { C_PLAY = 100, C_CLOSE, C_SDK, C_AUTHOR, C_FILE, C_SIZE, C_TYPE, C_SAVE,
-       C_DEL_SAVE, C_DELETE };
+       C_DEL_SAVE, C_DELETE, C_CODE };
 
 static int opt_cart;            /* the cartridge of the HOME_CART panel */
 static long opt_save;           /* its save file: bytes, -1 if none */
@@ -460,9 +460,12 @@ static void cart_panel(home_panel_t *p)
     if (susp)
         home_row(p, MENU_ROW_ACTION, C_CLOSE, "Close the game",
                  "Ends the suspended game: what was not saved is lost", NULL);
-    if (!c->builtin)
+    if (!c->builtin) {
         home_row(p, MENU_ROW_ACTION, C_SDK, "Open in the SDK",
                  "Code, sprites and map of this cartridge", NULL);
+        home_row(p, MENU_ROW_ACTION, C_CODE, "Open in bm Code",
+                 "Its code in tabs, small font; sprites and map stay as they are", NULL);
+    }
     home_row(p, MENU_ROW_INFO, C_AUTHOR, "Author", "From the cartridge header",
              "%s", c->author[0] ? c->author : "-");
     home_row(p, MENU_ROW_INFO, C_FILE, "File", c->builtin ? "Built into the kernel" : "On the SD card",
@@ -538,7 +541,7 @@ static void cart_act(int row, int how, home_do_t *d)
 }
 
 enum { ASK_NONE, ASK_SWITCH, ASK_PANEL };
-enum { GO_NONE, GO_PLAY, GO_SDK, GO_TEXT, GO_UPLOAD, GO_NETPLAY };
+enum { GO_NONE, GO_PLAY, GO_SDK, GO_CODE, GO_TEXT, GO_UPLOAD, GO_NETPLAY };
 
 #define DEPTH_MAX 4
 
@@ -787,9 +790,9 @@ void carts_menu(framebuffer_t *fb)
             if (quit || back) {
                 depth--;
                 built = -1;
-            } else if (r && id == HOME_CART && action == 1 && (row == C_PLAY || row == C_SDK)) {
+            } else if (r && id == HOME_CART && action == 1 && (row == C_PLAY || row == C_SDK || row == C_CODE)) {
                 const cart_t *c = &carts[opt_cart];
-                int g = row == C_PLAY ? GO_PLAY : GO_SDK;
+                int g = row == C_PLAY ? GO_PLAY : row == C_SDK ? GO_SDK : GO_CODE;
                 if (bm_suspended(NULL, 0) && !(g == GO_PLAY && is_suspended(c))) {
                     ask = ASK_SWITCH;           /* another game is frozen: ask first */
                     ask_go = g;
@@ -944,6 +947,15 @@ void carts_menu(framebuffer_t *fb)
                 crumb("cartridge menu", NULL);
                 depth = 0;
                 rescan();                       /* it may have saved new files */
+                break;
+            case GO_CODE:
+                bm_close_suspended();
+                susp_path[0] = 0;
+                carts_code(fb, carts[go_cart].path);
+                ksnprintf(last_msg, sizeof last_msg, "last: bm Code on %s", carts[go_cart].name);
+                crumb("cartridge menu", NULL);
+                depth = 0;
+                rescan();
                 break;
             case GO_TEXT:
                 go_text(fb);

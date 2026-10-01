@@ -230,3 +230,31 @@ code:
 local hits, us = ai.ask("come salto")
 log(hits[1].title, us .. " us")
 local s = ai.sprite("moneta", { size = 16 })
+
+== cart_read
+kind: api
+name: cart_read
+title: cart_read(percorso) - legge il codice di un .bm (senza toccare altro)
+ask: leggere il codice di un altro gioco | cart_read | read a cartridge's code
+ask: aprire un bm senza cambiare lo sprite sheet
+see: cart_write, cart_load
+text: {title, author, res, lua, size} di un .bm, senza cambiare lo sheet e la
+mappa di chi chiama (al contrario di cart_load). Per editor con più file aperti.
+code:
+local c = cart_read("/carts/PONG.BM")
+if c then log(c.title, #c.lua) end
+
+== cart_write
+kind: api
+name: cart_write
+title: cart_write(percorso, {lua, title, author, res, from}) - scrive solo il codice
+ask: salvare solo il codice di un bm | cart_write | write the code of a cartridge
+ask: cambiare il codice senza perdere gli sprite | salvare con un altro nome
+see: cart_read, cart_save
+text: Cambia il codice (e titolo, autore, risoluzione se ci sono) di un .bm:
+sprite sheet, mappa, copertina e ogni altra sezione restano com'erano. Un file
+nuovo diventa una cartuccia con solo il codice (nome 8.3). from: le altre
+sezioni vengono da un altro file ("salva come").
+code:
+local ok, err = cart_write("/carts/PONG.BM", { lua = code })
+if not ok then log("non salvato: " .. err) end

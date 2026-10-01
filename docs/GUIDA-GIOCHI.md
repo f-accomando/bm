@@ -17,6 +17,12 @@ monitor). Con una tastiera USB (e se vuoi un gamepad Bluetooth per disegnare):
 | **Esc** | menu: nuovo, apri, salva, salva come, titolo, autore, risoluzione, esci |
 | **Ctrl+S** / **Ctrl+R** (F5) | salva / prova il gioco (poi si torna all'editor) |
 
+**bm Code**: nella scheda Dev c'è anche **Code**, l'editor solo del codice: più cartucce
+in tab, due pagine affiancate (F4), un font piccolo e nitido (6x12: tante righe), F5 prova
+il gioco e torna sulla riga dell'errore, F1 mostra tutti i tasti. Salva solo il codice:
+sprite e mappa della cartuccia restano come sono. Una riga `#entry: commenta questa
+funzione #` seguita da Invio chiede all'assistente di farlo.
+
 **Assistente** (M30): nella scheda Dev, **Assistant** risponde a domande come "come
 faccio saltare il personaggio" o "attempt to call a nil value" con la spiegazione e il
 codice pronto, e disegna la base di uno sprite ("slime rosso", "moneta", "tile di

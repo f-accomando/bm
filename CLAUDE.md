@@ -34,6 +34,9 @@ Lua 5.4 embedded. Documentazione: `README.md`, `docs/ROADMAP.md`, `docs/HARDWARE
 - Dopo aver cambiato la base di conoscenza: `make ai-model` (numpy) e commit di
   `src/ai/assist.weights`; `make test-ai` controlla C contro Python, domande di prova,
   esempi di codice e pannello.
+- bm Code (`carts/code/main.lua`, scheda Dev): l'editor del codice; usa `cart_read` /
+  `cart_write` (solo il codice), `font("6x12")` e `assist.act` per le righe `#entry:`.
+  Test: `test_code_editor` in QEMU (lo schermo si legge anche col font 6x12).
 
 ## Comunicazione con l'utente
 
