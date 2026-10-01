@@ -1467,7 +1467,7 @@ static int l_keys(lua_State *L)
 
 /* pad([p]) -> the controller buttons player p (1-4) holds, as bits: 1 left,
  * 2 right, 4 up, 8 down, 16 A, 32 B, 64 Start, 128 Select, 256 X, 512 Y,
- * 1024 L1, 2048 R1; without p, any player */
+ * 1024 L1, 2048 R1, 4096 L2, 8192 R2; without p, any player */
 static int l_pad(lua_State *L)
 {
     uint32_t b = 0;

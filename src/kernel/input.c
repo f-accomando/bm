@@ -278,7 +278,7 @@ void input_status(char *buf, unsigned size)
 
 void input_live_test(uint32_t seconds)
 {
-    static const char *const names[] = { "<", ">", "^", "v", "A", "B", "St", "Se", "X", "Y", "L1", "R1" };
+    static const char *const names[] = { "<", ">", "^", "v", "A", "B", "St", "Se", "X", "Y", "L1", "R1", "L2", "R2" };
     kprintf("input test for %lu s: players and the buttons they hold\n", seconds);
     for (int p = 0; p < INPUT_PLAYERS; p++) {
         char a[18];

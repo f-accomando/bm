@@ -16,6 +16,8 @@
 #define HID_Y       (1u << 9)
 #define HID_L1      (1u << 10)      /* shoulder buttons: the menu's tabs (not in games) */
 #define HID_R1      (1u << 11)
+#define HID_L2      (1u << 12)      /* triggers: only in pad() (bm Code's pad typing) */
+#define HID_R2      (1u << 13)
 
 /* report_id: the keyboard's report ID if the device may send report
  * protocol reports (first byte = ID), else 0. */

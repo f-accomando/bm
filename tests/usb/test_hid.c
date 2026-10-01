@@ -129,10 +129,13 @@ int main(void)
     usb[6] = 0x02;
     hid_report(USB_GAMEPAD, usb, 64);
     CHECK(hid_buttons() == HID_R1);
+    usb[6] = 0x04 | 0x08;                                      /* L2 + R2 */
+    hid_report(USB_GAMEPAD, usb, 64);
+    CHECK(hid_buttons() == (HID_L2 | HID_R2));
     usb[6] = 0x20 | 0x10;                                      /* options + share */
     hid_report(USB_GAMEPAD, usb, 64);
     CHECK(hid_buttons() == (HID_START | HID_SELECT));
-    CHECK(hid_quit_pressed() == HID_QUIT_KEY);                 /* Start+Select */
+    CHECK(hid_quit_pressed() == (HID_QUIT_KEY | HID_QUIT_MONITOR));  /* Start+Select */
     usb[6] = 0; usb[7] = 1;                                    /* PS button: home */
     hid_report(USB_GAMEPAD, usb, 64);
     CHECK(hid_quit_pressed() == HID_QUIT_PS);
@@ -202,6 +205,13 @@ int main(void)
     xb[3] = 0x01 | 0x02;
     hid_report(USB_XBOX360, xb, sizeof xb);
     CHECK(hid_buttons() == (HID_L1 | HID_R1));
+    xb[3] = 0; xb[4] = 200; xb[5] = 30;                        /* LT pulled, RT barely */
+    hid_report(USB_XBOX360, xb, sizeof xb);
+    CHECK(hid_buttons() == HID_L2);
+    xb[4] = 0; xb[5] = 255;
+    hid_report(USB_XBOX360, xb, sizeof xb);
+    CHECK(hid_buttons() == HID_R2);
+    xb[5] = 0;
     xb[3] = 0x04;
     hid_report(USB_XBOX360, xb, sizeof xb);
     CHECK(hid_quit_pressed() == HID_QUIT_PS);
