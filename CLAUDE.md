@@ -44,6 +44,16 @@ Lua 5.4 embedded. Documentazione: `README.md`, `docs/ROADMAP.md`, `docs/HARDWARE
 - Il branch principale è `claude/bare-metal-mvp`: quando l'utente dice "main" intende
   quello (un branch `main` non esiste).
 
+## Branch delle sessioni
+
+- Quando una nuova sessione comincia uno sviluppo specifico (una funzione, un gioco, un
+  passo di una milestone), prima di modificare i file chiedere all'utente il nome del
+  branch, proponendone uno breve legato allo sviluppo (es. `claude/m19-aggiornamenti`).
+  Il branch parte da `claude/bare-metal-mvp` aggiornato e commit e push vanno lì, anche se
+  la sessione ne ha assegnato un altro.
+- Non serve chiederlo per domande, letture della roadmap o lavoro che l'utente ha già
+  indicato su un branch esistente (es. "fai commit su bare-metal-mvp").
+
 ## Cartucce `.cart`: rimosse
 
 - Decisione dell'utente (2026-09-30): bm esegue solo i `.bm`. Il vecchio formato `.cart`
