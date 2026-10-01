@@ -42,6 +42,13 @@ Lua 5.4 embedded. Documentazione: `README.md`, `docs/ROADMAP.md`, `docs/HARDWARE
   sostituite; i nomi dalle variabili). Salva con `cart_write(path, {sections=, lua=})`;
   lo scheletro di un modello segue i vertici (`vb`). Prove: `tests/studio/mesh_host.lua`,
   `check_mesh.js`, `test_meshcap` (in `make test-bm`/`test-studio`), QEMU `test_mesh`.
+- **bm Pixel** (`carts/pixel/main.lua`, incorporata, scheda Dev, monitor `5`, opzioni "Open
+  in bm Pixel"): la pixel art dello sprite sheet del progetto (`sget`/`sset`, `sspr` con
+  zoom, `cart_sheet(w, h)` per la misura). Salva con `cart_write(path, {sheet = true,
+  palette = ...})`: solo lo sheet cambia nel file, come SHEET8 con la tavolozza per prima
+  (`sheet_section` in `runtime.c`, `bm_sheet8_pack` in `format.c`); i pixel non ridisegnati
+  tengono i loro 24 bit. Attenzione in Lua: `cond and nil or x` dà sempre `x`. Prove:
+  `tests/studio/pixel_host.lua`, `check_pixel.js` (in `make test-studio`), QEMU `test_pixel`.
 
 ## Nome
 

@@ -978,10 +978,40 @@ Sotto-milestone:
   - una riga `#entry: aggiungi operatore ternario #` dentro una funzione con un if/else,
     Invio, poi Ctrl+Z;
   - Esc > Exit con modifiche non salvate: "Keep for later" e alla riapertura ci sono.
-- **22.2 Pixel art**:
-  - sprite, tavolozze, animazioni (fotogrammi, onion skin, anteprima);
-  - strumenti (linea, rettangolo, riempimento, selezione, specchio);
-  - tile e **mappe** (proposta: la mappa sta qui, tile e mappe sono legati).
+- **22.2 Pixel art** — ✅ in QEMU (2026-10-01, branch `pixel-art`), da verificare sul Pi:
+  - **bm Pixel** (`carts/pixel/main.lua`, nel kernel come gli altri strumenti): scheda
+    **Dev**, monitor `5`, "Open in bm Pixel" nelle opzioni di una cartuccia
+    ([sdk/README.md](../sdk/README.md#sulla-console-bm-pixel)). Tre pagine:
+    - DRAW: lo sprite ingrandito (8–128 pixel), matita (tratto con spazio tenuto), gomma,
+      riempimento, contagocce, linea, rettangolo e ovale (vuoti o pieni), selezione
+      (copia, taglia, incolla, solleva e sposta, specchia, gira, cancella), scorrimento,
+      disegno a specchio, griglia, animazione dei fotogrammi che seguono con onion skin e
+      velocità, la base di uno sprite dall'assistente (F6);
+    - SHEET: lo sheet intero con zoom, scelta dello sprite, copia e incolla tra sprite,
+      misura dello sheet fino a 4096×4096;
+    - PALETTE: fino a 256 colori, modifica RGB (con il colore RGB565 della console),
+      aggiungi, togli, sposta, ordina, colori dello sheet, tavolozze dell'SDK e di bm
+      Studio, sostituzione di un colore nello sprite o nello sheet.
+    Menu: apri, sheet nuovo (diventa una cartuccia con un visualizzatore), salva, salva
+    come, prova il gioco e torna, misura dello sheet; annulla e rifai; tastiera e gamepad.
+  - **Formato e compatibilità**: lo sheet si salva come SHEET8 (≤ 256 colori) con la
+    tavolozza di bm Pixel per prima, che torna uguale riaprendo; il resto del file resta
+    byte per byte; i pixel non ridisegnati tengono i 24 bit che avevano (la console lavora
+    in RGB565). SDK, bm Studio, studio 3D, `mkbm.py` e giochi leggono lo stesso sheet.
+  - **Kernel**: `sspr(..., zoom)` (ingrandito o rimpicciolito, `g16_sspr_zoom`),
+    `cart_sheet([w, h])` (misura dello sheet del progetto), `cart_write(path, {sheet =
+    true, palette = ...})` (`sheet_section`, `bm_sheet8_pack` con le sequenze del
+    codificatore di bm Studio, lo sheet al posto del vecchio in `bm_rewrite_with`),
+    `cart_load(...).palette`.
+  - **Test**: `test_bm` (packer SHEET8, sheet sostituito, zoom), bm Pixel sul PC con le API
+    sostituite (`tests/studio/pixel_host.lua`, 54 controlli), i suoi file riletti da bm
+    Studio (`check_pixel.js`) e dal kernel; QEMU `test_pixel` (Studio Village: solo i pixel
+    disegnati cambiano nel file).
+  - **Da verificare sul Pi**: scheda Dev → *bm Pixel*, oppure Studio Village → X → *Open in
+    bm Pixel*: disegnare con matita e linee, tavolozza (F3), sheet (F2), Ctrl+S, provare il
+    gioco (F5); fluidità del disegno e dell'animazione.
+  - Restano: tile e **mappe** (oggi nell'SDK, pagina mappa), livelli, tavolozze per
+    sprite.
 - **22.3 Render 3D**: mesh low-poly (vertici, estrusione, colori e UV sullo sheet),
   luci, camera, anteprima con Gouraud e texture, esportazione nella sezione MESH.
 - **22.4 Musica ed effetti** — ✅ in QEMU (2026-10-01), da verificare sul Pi:

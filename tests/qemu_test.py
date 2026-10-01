@@ -961,6 +961,8 @@ def test_home_ui(b, opts):
         keys("d")
         screen(["bm Mesh", "mesh (built-in)"])
         keys("d")
+        screen(["bm Pixel", "pixel (built-in)"])
+        keys("d")
         screen(["Code", "code editor: tabs, two pages"])
         keys("d")
         screen(["Assistant", "help with code and sprites"])
@@ -2761,6 +2763,122 @@ def test_mesh(b, opts):
         lua = secs[1]
         assert lua.startswith(lua0) and b"function mesh_ship()" in lua and b"-- [bm Mesh end]" in lua, lua[-400:]
         assert bmmesh.SEC_ANIM not in secs
+    finally:
+        shutil.rmtree(tmp, ignore_errors=True)
+
+
+def _sheet_pixels(data):
+    """The sheet of a .bm: (w, h, [0xRRGGBB or None ...]), from SHEET8 or
+    SHEET, and the SHEET8 palette (None for SHEET)."""
+    secs = dict(bmmesh.cart_sections(data))
+    if 5 in secs:
+        s = secs[5]
+        w, h, nc = struct.unpack_from("<HHH", s)
+        pal = [(s[8 + i * 4] << 16 | s[9 + i * 4] << 8 | s[10 + i * 4]) if s[11 + i * 4] >= 128 else None
+               for i in range(nc)]
+        px, q = [], 8 + nc * 4
+        while len(px) < w * h:
+            t = s[q]
+            q += 1
+            if t < 128:
+                px += [pal[i] for i in s[q:q + t + 1]]
+                q += t + 1
+            else:
+                px += [pal[s[q]]] * (t - 126)
+                q += 1
+        assert q == len(s) and len(px) == w * h, "SHEET8: the runs do not add up"
+        return w, h, px, pal
+    s = secs[2]
+    w, h = struct.unpack_from("<HH", s)
+    px = [(s[4 + i * 4] << 16 | s[5 + i * 4] << 8 | s[6 + i * 4]) if s[7 + i * 4] >= 128 else None
+          for i in range(w * h)]
+    return w, h, px, None
+
+
+def test_pixel(b, opts):
+    """bm Pixel on the console (a game's options, "Open in bm Pixel"): the
+    village's sheet with its palette (SHEET8), a pixel and a line drawn
+    with the palette's first colour, saved: in the file only those pixels
+    change (the others keep their 24 bits), the palette comes first in the
+    SHEET8, the code, cover, models and skeletons stay byte for byte."""
+    tmp = tempfile.mkdtemp(prefix="bm-pixel-")
+    img = os.path.join(tmp, "sd.img")
+    mksd.build(img, [(b("carts/village.bm"), "carts/village.bm")])
+    with open(b("carts/village.bm"), "rb") as f:
+        village0 = f.read()
+    q = Qemu(b("kernel.img"), ["-drive", f"if=sd,format=raw,file={img}"])
+
+    def keys(*ks, gap=0.3):
+        for k in ks:
+            q.send(k)
+            time.sleep(gap)
+
+    def screen(want, tries=40):
+        for _ in range(tries):
+            _, text = settled_screen(q, lambda i, t: all(any(w in l for l in t) for w in want), tries=2)
+            if all(any(w in l for l in text) for w in want):
+                return "\n".join(text)
+            time.sleep(0.25)
+        raise AssertionError(f"not on the screen: {want}\n" + "\n".join(text))
+
+    def shot(name):
+        if opts.shots:
+            _save_png(q.screendump(), os.path.join(opts.shots, f"pixel-{name}.png"))
+
+    F2, F3, UP, RIGHT, ESC, SAVE = "\x1bOQ", "\x1bOR", "\x1b[A", "\x1b[C", "\x1b", "\x13"
+    try:
+        q.expect(MENU, timeout=30)
+        time.sleep(0.5)
+        screen(["Games", "Studio Village"])
+        keys("x")
+        screen(["Open in bm Mesh"])
+        for _ in range(6):
+            keys("s")                           # Play, SDK, Code, Sound, 3D studio, Mesh, Pixel
+        screen(["Open in bm Pixel"])
+        keys("\r", gap=1.0)
+        text = screen(["F1 draw", "COLOURS", "sprite 0  (0,0)  16x16", "spr(0, x, y, 2, 2)"])
+        assert "(the file's palette)" in text, text
+        shot("draw")
+        keys("1", "b", " ", "l", " ", RIGHT, RIGHT, RIGHT, " ")
+        screen(["line"])
+        keys(F2, gap=0.5)
+        screen(["sheet 256x256", "sprite 0 at (0,0)"])
+        shot("sheet")
+        keys(F3, gap=0.5)
+        screen(["PALETTE", "e edit"])
+        shot("palette")
+        keys("\r", SAVE, gap=0.6)
+        screen(["saved /carts/village.bm"])
+        keys(ESC, gap=0.6)
+        screen(["bm Pixel", "Exit bm Pixel"])
+        keys(UP, "\r")                          # up from Continue: Exit bm Pixel
+        screen(["Games", "last: bm Pixel on village.bm"])
+    finally:
+        q.close()
+    try:
+        part = os.path.join(tmp, "part.img")
+        with open(img, "rb") as f, open(part, "wb") as o:
+            f.seek(2048 * 512)
+            o.write(f.read())
+        fsck = subprocess.run(["fsck.vfat", "-n", part], capture_output=True, text=True)
+        assert fsck.returncode == 0, fsck.stdout + fsck.stderr
+        env = dict(os.environ, MTOOLS_SKIP_CHECK="1")
+        saved = subprocess.run(["mtype", "-i", part, "::/CARTS/VILLAGE.BM"], capture_output=True, env=env).stdout
+        secs, secs0 = dict(bmmesh.cart_sections(saved)), dict(bmmesh.cart_sections(village0))
+        for t in (1, 4, 8, 9):
+            assert secs[t] == secs0[t], f"section {t} changed"
+        assert 5 in secs and 2 not in secs, sorted(secs)
+        w, h, px, pal = _sheet_pixels(saved)
+        w0, h0, px0, pal0 = _sheet_pixels(village0)
+        assert (w, h) == (w0, h0), (w, h)
+        first = next(c for c in pal0 if c is not None)
+        drawn = {(0, 0), (1, 0), (2, 0), (3, 0)}       # the pointer starts at the sprite's corner
+        for (x, y) in drawn:
+            assert px[y * w + x] == first, (x, y, hex(px[y * w + x] or 0), hex(first))
+        other = [i for i in range(w * h) if (i % w, i // w) not in drawn and px[i] != px0[i]]
+        assert not other, f"{len(other)} pixels not drawn on changed, e.g. {other[:5]}"
+        opaque0 = [c for c in pal0 if c is not None]
+        assert [c for c in pal if c is not None][:len(opaque0)] == opaque0, "the palette first, as it was"
     finally:
         shutil.rmtree(tmp, ignore_errors=True)
 

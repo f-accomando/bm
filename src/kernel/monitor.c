@@ -49,6 +49,7 @@ static const char help_text[] =
             "  A  sound editor: sounds, sound effects and music of a .bm cartridge\n"
             "  3  3D studio: models and animations of a .bm cartridge\n"
             "  4  bm Mesh: the meshes of a .bm (also those its code builds) to edit\n"
+            "  5  bm Pixel: the sprite sheet of a .bm: pixel art, palette, animation\n"
             "  C  bm Code: the code editor (tabs, two pages, small font)\n"
             "  I  assistant: how to write code, sprite bases (M30; F6 in the tools)\n"
             "  T  Bluetooth: pair a controller as the next player (DS4: Share + PS)\n"
@@ -247,6 +248,7 @@ void monitor_run(void)
         case 'A': carts_sound_editor(console_framebuffer()); break;
         case '3': carts_studio3d(console_framebuffer()); break;
         case '4': carts_mesh(console_framebuffer()); break;
+        case '5': carts_pixel(console_framebuffer()); break;
         case 'I': home_assistant(console_framebuffer()); break;
         case 'C': carts_code(console_framebuffer(), NULL); break;
         case 'D': dma_test(console_framebuffer()); break;

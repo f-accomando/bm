@@ -89,3 +89,10 @@ bm_studio3d_cart_end:
 bm_mesh_cart:
     .incbin "mesh.bm"
 bm_mesh_cart_end:
+
+    .section .rodata
+    .balign 4
+    .globl bm_pixel_cart, bm_pixel_cart_end
+bm_pixel_cart:
+    .incbin "pixel.bm"
+bm_pixel_cart_end:

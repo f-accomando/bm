@@ -331,6 +331,63 @@ Animator, lo studio 3D, `mkbm.py --models` e il kernel; le mesh nel codice hanno
 di "Copy as Lua" di bm Studio (vertici, poi `a, b, c, colore` con `-1` per la texture, poi
 le coordinate dello sheet) e si aprono in bm Code come il resto del codice.
 
+## Sulla console: bm Pixel
+
+**bm Pixel** è l'editor della pixel art, incorporato nel kernel (`carts/pixel/main.lua`):
+scheda **Dev**, oppure **X** sulla copertina di un gioco → **Open in bm Pixel** (dal monitor,
+il tasto `5`). Lavora sullo **sprite sheet** del `.bm`, lo stesso che usano i giochi
+(`spr`, `sspr`, `map`), l'SDK, bm Studio e lo studio 3D (le texture dei modelli). Tre pagine
+(F1–F3, sul gamepad Y + sinistra/destra), il menu con Esc; tenendo premuto **F12**, o con
+**?**, compaiono i tasti; **Tab** (sul gamepad X) apre l'elenco dei comandi della pagina.
+
+- **F1, il disegno**: lo sprite scelto, ingrandito (8×8, 16×16, 32×32, 64×64 o 128×128
+  pixel: **z** cambia la misura, PgUp e PgDn passano allo sprite prima e dopo), con la
+  griglia (**t**). Un puntatore si muove con le frecce (o la croce) e **spazio** (o A)
+  usa l'attrezzo; tenendo premuto spazio la matita traccia una linea.
+  - **b** matita, **e** gomma, **g** riempimento, **i** il colore di un pixel (un colore
+    nuovo entra nella tavolozza), **l** linea, **u**/**U** rettangolo vuoto/pieno, **o**/**O**
+    ovale vuoto/pieno, **m** selezione: per linee, rettangoli, ovali e selezioni lo spazio
+    fissa un angolo, le frecce portano all'altro, lo spazio di nuovo disegna.
+  - Con una selezione (o tutto lo sprite): Ctrl+C copia, Ctrl+X taglia, Ctrl+V incolla
+    (il blocco galleggia: si sposta con le frecce e si posa con spazio o Invio; i suoi
+    pixel trasparenti lasciano quello che c'è sotto), **Invio** solleva la selezione per
+    spostarla, **h**/**v** specchiano, **r** gira di un quarto, Canc cancella;
+    Shift+**w a s d** fanno scorrere lo sprite di un pixel (quello che esce rientra
+    dall'altra parte).
+  - **y** disegna a specchio (sinistra-destra), **,** e **.** cambiano colore, **x** torna
+    al colore di prima, **1**–**9**, **0** i primi dieci; il colore 0 è il trasparente.
+  - **Animazione**: lo sprite e quelli che lo seguono nello sheet sono i fotogrammi
+    (**+**/**−** quanti, **<**/**>** la velocità, **p** ferma o riparte): il riquadro a destra
+    li fa girare, accanto allo sprite alla misura vera. **k** è l'onion skin: il fotogramma
+    prima si vede a puntini sotto i pixel trasparenti.
+  - **F6**: l'assistente (M30) disegna la base di uno sprite da una parola ("slime",
+    "moneta", "astronave"…) con i colori della tavolozza; galleggia come un incollato.
+- **F2, lo sheet**: lo sheet intero (zoom con + e −), le frecce scelgono lo sprite (nella
+  misura scelta), Invio lo disegna; Ctrl+C e Ctrl+V copiano uno sprite in un altro posto,
+  Canc lo svuota, **R** cambia la misura dello sheet (multipli di 8 fino a 4096: quello che
+  ci sta resta). In alto il numero dello sprite e la chiamata `spr()` che lo disegna.
+- **F3, la tavolozza**: fino a 256 colori. Frecce e Invio scelgono il colore con cui
+  disegnare, **e** lo modifica (R, G e B con le frecce, < e > di uno; accanto il colore come
+  lo mostra la console, in RGB565), **a** ne aggiunge uno, Canc lo toglie, **[** e **]** lo
+  spostano, **s** ordina per tinta, **f** prende i colori usati nello sheet, **1** e **2**
+  mettono le tavolozze dell'SDK e di bm Studio; **x** (**X**) cambia il colore con cui si
+  disegna in quello scelto, in tutto lo sprite (in tutto lo sheet).
+
+Il **menu** apre un altro `.bm`, fa uno **sheet nuovo** (256×256; salvandolo con *Save as*
+diventa una cartuccia con un codice che mostra lo sheet), salva (Ctrl+S), salva come,
+**prova il gioco** (F5: si torna nella stessa pagina), cambia la misura dello sheet.
+Ctrl+Z e Ctrl+Y (Y + A sul gamepad) annullano e rifanno. Per ogni file si ricorda lo
+sprite, la misura, l'animazione e la pagina.
+
+Il salvataggio usa `cart_write(path, {sheet = true, palette = ...})`: nel file cambia solo
+lo sheet (codice, mappa, copertina, suoni, modelli e scheletri restano byte per byte, e un
+file con il nome lungo lo tiene). Lo sheet diventa una sezione **SHEET8** quando ha al più
+256 colori, con la tavolozza di bm Pixel per prima: riaprendo il file torna la stessa
+tavolozza, e la leggono anche l'SDK, bm Studio, lo studio 3D, `mkbm.py` e i giochi. La
+console tiene 16 bit per pixel (RGB565): un pixel che non è stato ridisegnato tiene i 24 bit
+che aveva nel file (quelli di bm Studio sul PC), uno ridisegnato prende quelli del colore
+della tavolozza.
+
 ## Test
 
 ```sh
@@ -364,6 +421,19 @@ cattura vera (`src/bm/meshcap.c`) su Astro Wing, Texture Room e Chaos Kitchen. I
 `test_mesh` apre Astro Wing dalle opzioni, copia la nave come modello, ne sposta i vertici,
 la copia come codice e salva.
 
+bm Pixel ha il suo banco di prova sul PC (`tests/studio/pixel_host.lua`, in `make
+test-studio`): lo sheet in una tabella con i colori come li tiene il kernel, `cart_write`
+che lo scrive come lui, e tutti gli attrezzi (matita e tratto, linea, rettangolo, ovale,
+riempimento, contagocce, specchio, selezione, copia, incolla, sollevare e spostare,
+specchiare, girare, far scorrere, annulla e rifai, l'assistente, la tavolozza, lo sheet più
+alto, salva, riapri, sheet nuovo, prova il gioco). I file sono riletti da bm Studio
+(`check_pixel.js`: i pixel non ridisegnati con i loro 24 bit, la tavolozza, modelli e
+scheletri intatti) e dal kernel (`test_meshcap`); `test_bm` prova il packer SHEET8 del kernel
+(le stesse sequenze del codificatore di bm Studio), lo sheet al posto del vecchio in
+`bm_rewrite_with` e lo `sspr` ingrandito. In QEMU, `test_pixel` apre Studio Village dalle
+opzioni, disegna e salva: nel file cambiano solo i pixel disegnati, gli altri restano
+identici byte per byte.
+
 ## Struttura
 
 ```
@@ -394,4 +464,8 @@ src/bm/meshcap.c             cart_meshes(): le mesh che il codice di un .bm cost
 tests/bm/test_meshcap.c      la cattura sulle cartucce vere
 tests/studio/mesh_host.lua   bm Mesh sul PC, con le API di bm sostituite
 tests/studio/check_mesh.js   i suoi file riletti da bm Studio
+carts/pixel/main.lua         bm Pixel, l'editor della pixel art (incorporato nel kernel, scheda Dev)
+carts/pixel/mkcover.js       la sua copertina
+tests/studio/pixel_host.lua  bm Pixel sul PC, con le API di bm sostituite
+tests/studio/check_pixel.js  i suoi file riletti da bm Studio
 ```

@@ -27,10 +27,11 @@ muoversi, Invio (o A) per giocare, **L1 / R1** (Q / E sulla tastiera) per cambia
 il gioco **sospeso**: la copertina mostra "Playing" e A lo riprende dal punto in cui era.
 Avviare un altro gioco chiede prima di chiudere quello sospeso.
 **X** su una copertina apre le sue opzioni (riprendi, chiudi, apri nell'SDK, nel Sound
-editor, nello studio 3D o in bm Mesh, informazioni, cancella il salvataggio, elimina dalla
-SD); la scheda **Dev** ha l'SDK, il **Sound editor** (suoni, effetti sonori e musica dei
-giochi), lo **studio 3D** (modelli e animazioni), **bm Mesh** (le mesh, anche quelle del
-codice) e gli strumenti del monitor (Lua, sistema,
+editor, nello studio 3D, in bm Mesh o in bm Pixel, informazioni, cancella il salvataggio,
+elimina dalla SD); la scheda **Dev** ha l'SDK, il **Sound editor** (suoni, effetti sonori e
+musica dei giochi), lo **studio 3D** (modelli e animazioni), **bm Mesh** (le mesh, anche
+quelle del codice), **bm Pixel** (la pixel art dello sprite sheet) e gli strumenti del
+monitor (Lua, sistema,
 registro, test, benchmark); **Settings**, l'ultima scheda, apre
 subito il suo pannello: controller, WiFi, layout della tastiera, disegno dei giochi,
 **volume** e sistema (M27, BareMetal UI). Nei giochi **START** mette in pausa: lì si
@@ -65,7 +66,11 @@ due animazioni) e gli attrezzi essenziali per **costruire** a blocchi e tessere,
 scheda Dev, modifica vertici e facce di tutte le mesh di un `.bm`, anche quelle che il
 codice del gioco costruisce con `mesh()` (le navi di Astro Wing): le copia come modelli
 (da mesh a modello) o come funzioni `mesh_nome()` nel codice (da modello a mesh)
-([sdk/README.md](sdk/README.md#sulla-console-bm-mesh)).
+([sdk/README.md](sdk/README.md#sulla-console-bm-mesh)). **bm Pixel** disegna lo sprite
+sheet: matita, riempimento, linee, rettangoli, ovali, selezioni da copiare, specchiare e
+girare, disegno a specchio, tavolozza fino a 256 colori salvata con lo sheet, animazione
+dei fotogrammi con onion skin, la base di uno sprite dall'assistente
+([sdk/README.md](sdk/README.md#sulla-console-bm-pixel)).
 
 ## Roadmap
 
@@ -100,7 +105,7 @@ Risoluzioni di menu, console e giochi, e quanto costano: [docs/RISOLUZIONI.md](d
 | M19 | HTTPS: aggiornamenti da GitHub, "git leggero" (archivi e API con token) | |
 | **M20** | **Titan Clash**: picchiaduro 2D a robot giganti; prima base giocabile (1 robot, armatura leggera/pesante, spada o cannoni, hangar, contro CPU o in 2) | ✅ base giocabile |
 | **M21** | Menu "home" a griglia (Games / Dev) e giochi sospesi in memoria | ✅ |
-| M22 | SDK e strumenti dedicati: codice, pixel art, 3D, musica, import/export, 3D→sprite, sprite stacking | 22.1 codice (**bm Code**: tab, due pagine, font 6x12) e 22.4 musica ed effetti (Sound editor) ✅ in QEMU; **bm Studio** e **bm Animator** sul PC (3D, pixel art, import/export, animazione, 3D→sprite); sulla console lo **studio 3D** (player e versione semplificata) e **bm Mesh** (vertici e facce, mesh ↔ modello); il resto in coda |
+| M22 | SDK e strumenti dedicati: codice, pixel art, 3D, musica, import/export, 3D→sprite, sprite stacking | 22.1 codice (**bm Code**: tab, due pagine, font 6x12) e 22.4 musica ed effetti (Sound editor) ✅ in QEMU; **bm Studio** e **bm Animator** sul PC (3D, pixel art, import/export, animazione, 3D→sprite); sulla console lo **studio 3D** (player e versione semplificata), **bm Mesh** (vertici e facce, mesh ↔ modello) e **bm Pixel** (22.2 pixel art: attrezzi, tavolozze, animazione) ✅ in QEMU; il resto in coda |
 | M23 | Emulatore di cartucce `.p8` / `.p8.png` (stile PICO-8): **nano8** | tutto tranne i numeri 16.16, provato nel PC e in QEMU, da provare sul Pi |
 | M24 | Scambio in rete locale tra console (P2P) | in coda |
 | M25 | Store su GitHub: catalogo, download verificati, pubblicazione dall'SDK | in coda |
@@ -155,6 +160,7 @@ con **`b`**.
 | `A` | **Sound editor**: suoni, effetti sonori e musica dei giochi `.bm` (anche nella scheda Dev) |
 | `3` | **studio 3D**: modelli e animazioni di un `.bm` (player, blocchi e tessere, ossa, keyframe; anche nella scheda Dev) |
 | `4` | **bm Mesh**: le mesh di un `.bm`, anche quelle che costruisce il suo codice: vertici e facce, da mesh a modello e da modello a codice (anche nella scheda Dev) |
+| `5` | **bm Pixel**: lo sprite sheet di un `.bm`: pixel art, tavolozza, animazione dei fotogrammi (anche nella scheda Dev) |
 | `C` | **bm Code**: l'editor del codice (tab, due pagine affiancate, font 6x12; anche nella scheda Dev) |
 | `I` | **Assistant** (M30): come si scrive il codice, basi di sprite (F6 negli strumenti; anche nella scheda Dev) |
 | `a` | audio: stato dell'uscita HDMI (clock, canale DMA, costo della sintesi, volume) e una prova: le sei forme d'onda, un accordo, glide, vibrato e arpeggio |
@@ -618,6 +624,7 @@ sdk/studio/              bm Studio: modelli 3D e pixel art per i .bm, sul PC (sd
 sdk/animator/            bm Animator: scheletri, animazioni, sprite pre-renderizzati
 carts/studio3d/          lo studio 3D della console (scheda Dev): player, blocchi, ossa, keyframe
 carts/mesh/              bm Mesh (scheda Dev): le mesh di un .bm, anche quelle del codice; mesh <-> modello
+carts/pixel/             bm Pixel (scheda Dev): la pixel art dello sprite sheet, tavolozza, animazione
 tests/studio/            test di bm Studio, bm Animator e dello studio 3D: Node, Playwright, Lua sul PC
 carts/kitchen/           Chaos Kitchen (M17): src/*.lua, build.py, mkassets.py,
                          models/*.glb e import_chefs.py (modelli 3D degli chef)

@@ -32,6 +32,7 @@ extern const uint8_t bm_editor_cart[], bm_editor_cart_end[];
 extern const uint8_t bm_sound_cart[], bm_sound_cart_end[];
 extern const uint8_t bm_studio3d_cart[], bm_studio3d_cart_end[];
 extern const uint8_t bm_mesh_cart[], bm_mesh_cart_end[];
+extern const uint8_t bm_pixel_cart[], bm_pixel_cart_end[];
 
 typedef struct {
     char title[49];             /* from the header; the file name if none */
@@ -174,6 +175,8 @@ static void rescan(void)
         add_builtin("3D studio (built-in)", bm_studio3d_cart, bm_studio3d_cart_end);
     if (ncarts < MAX_CARTS)
         add_builtin("mesh (built-in)", bm_mesh_cart, bm_mesh_cart_end);
+    if (ncarts < MAX_CARTS)
+        add_builtin("pixel (built-in)", bm_pixel_cart, bm_pixel_cart_end);
     for (int i = 0; i < ncarts; i++) {
         cart_t *c = &carts[i];
         if (c->builtin)
@@ -264,7 +267,7 @@ void carts_play_buffer(framebuffer_t *fb, const uint8_t *data, size_t len)
 }
 
 /* A development tool built into the kernel (the SDK, the Sound editor,
- * bm Code, the 3D studio, bm Mesh), and the games it tries: when the tool asks to
+ * bm Code, the 3D studio, bm Mesh, bm Pixel), and the games it tries: when the tool asks to
  * play a file (cart_run), play it, then open the tool again on that file
  * with the error the game stopped with, if any. `open`: a file to start on
  * (the menu's "Open in ..."), or NULL. */
@@ -330,6 +333,16 @@ void carts_mesh(framebuffer_t *fb)
     mesh_session(fb, NULL);
 }
 
+static void pixel_session(framebuffer_t *fb, const char *open)
+{
+    carts_tool_session(fb, bm_pixel_cart, (size_t)(bm_pixel_cart_end - bm_pixel_cart), "bm Pixel", open);
+}
+
+void carts_pixel(framebuffer_t *fb)
+{
+    pixel_session(fb, NULL);
+}
+
 void carts_editor(framebuffer_t *fb)
 {
     editor_session(fb, NULL, bm_editor_cart, bm_editor_cart_end);
@@ -363,17 +376,20 @@ static void play(framebuffer_t *fb, const cart_t *c)
     bm_close_suspended();              /* the menu asked first */
     susp_path[0] = 0;
     if (c->builtin == bm_editor_cart || c->builtin == bm_sound_cart || c->builtin == bm_studio3d_cart ||
-        c->builtin == bm_mesh_cart) {
+        c->builtin == bm_mesh_cart || c->builtin == bm_pixel_cart) {
         if (c->builtin == bm_editor_cart)
             carts_editor(fb);
         else if (c->builtin == bm_sound_cart)
             carts_sound_editor(fb);
         else if (c->builtin == bm_mesh_cart)
             carts_mesh(fb);
+        else if (c->builtin == bm_pixel_cart)
+            carts_pixel(fb);
         else
             carts_studio3d(fb);
         ksnprintf(last_msg, sizeof last_msg, "last: %s", c->builtin == bm_editor_cart ? "editor" :
-                  c->builtin == bm_sound_cart ? "sound editor" : c->builtin == bm_mesh_cart ? "bm Mesh" : "3D studio");
+                  c->builtin == bm_sound_cart ? "sound editor" : c->builtin == bm_mesh_cart ? "bm Mesh" :
+                  c->builtin == bm_pixel_cart ? "bm Pixel" : "3D studio");
         crumb("cartridge menu", NULL);
         rescan();                       /* it may have saved new files */
         return;
@@ -462,7 +478,7 @@ static void draw(int sel, int top, int rows)
 static int is_dev(const cart_t *c)
 {
     return c->builtin == bm_editor_cart || c->builtin == bm_sound_cart || c->builtin == bm_studio3d_cart ||
-           c->builtin == bm_mesh_cart;
+           c->builtin == bm_mesh_cart || c->builtin == bm_pixel_cart;
 }
 
 static int tab_items(int tab, int *idx)
@@ -484,7 +500,7 @@ static int is_suspended(const cart_t *c)
 
 /* The options of a cartridge (X on its cover): a panel like the settings. */
 enum { C_PLAY = 100, C_CLOSE, C_SDK, C_SOUND, C_STUDIO3D, C_AUTHOR, C_FILE, C_SIZE, C_TYPE, C_SAVE,
-       C_DEL_SAVE, C_DELETE, C_CODE, C_MESH };
+       C_DEL_SAVE, C_DELETE, C_CODE, C_MESH, C_PIXEL };
 
 static int opt_cart;            /* the cartridge of the HOME_CART panel */
 static long opt_save;           /* its save file: bytes, -1 if none */
@@ -519,6 +535,8 @@ static void cart_panel(home_panel_t *p)
                  "Its 3D models and animations: play, build, rig, animate", NULL);
         home_row(p, MENU_ROW_ACTION, C_MESH, "Open in bm Mesh",
                  "Its meshes, also those its code builds: vertices, faces; to models or to code", NULL);
+        home_row(p, MENU_ROW_ACTION, C_PIXEL, "Open in bm Pixel",
+                 "Its sprite sheet: pixel art, palette, animation; the rest stays as it is", NULL);
     }
     home_row(p, MENU_ROW_INFO, C_AUTHOR, "Author", "From the cartridge header",
              "%s", c->author[0] ? c->author : "-");
@@ -595,7 +613,7 @@ static void cart_act(int row, int how, home_do_t *d)
 }
 
 enum { ASK_NONE, ASK_SWITCH, ASK_PANEL };
-enum { GO_NONE, GO_PLAY, GO_SDK, GO_SOUND, GO_CODE, GO_STUDIO3D, GO_MESH, GO_TEXT, GO_UPLOAD, GO_NETPLAY };
+enum { GO_NONE, GO_PLAY, GO_SDK, GO_SOUND, GO_CODE, GO_STUDIO3D, GO_MESH, GO_PIXEL, GO_TEXT, GO_UPLOAD, GO_NETPLAY };
 
 #define DEPTH_MAX 4
 
@@ -850,10 +868,10 @@ void carts_menu(framebuffer_t *fb)
                 built = -1;
             } else if (r && id == HOME_CART && action == 1 &&
                        (row == C_PLAY || row == C_SDK || row == C_SOUND || row == C_CODE || row == C_STUDIO3D ||
-                        row == C_MESH)) {
+                        row == C_MESH || row == C_PIXEL)) {
                 const cart_t *c = &carts[opt_cart];
                 int g = row == C_PLAY ? GO_PLAY : row == C_SDK ? GO_SDK : row == C_SOUND ? GO_SOUND :
-                        row == C_CODE ? GO_CODE : row == C_MESH ? GO_MESH : GO_STUDIO3D;
+                        row == C_CODE ? GO_CODE : row == C_MESH ? GO_MESH : row == C_PIXEL ? GO_PIXEL : GO_STUDIO3D;
                 if (bm_suspended(NULL, 0) && !(g == GO_PLAY && is_suspended(c))) {
                     ask = ASK_SWITCH;           /* another game is frozen: ask first */
                     ask_go = g;
@@ -1037,6 +1055,15 @@ void carts_menu(framebuffer_t *fb)
                 susp_path[0] = 0;
                 mesh_session(fb, carts[go_cart].path);
                 ksnprintf(last_msg, sizeof last_msg, "last: bm Mesh on %s", carts[go_cart].name);
+                crumb("cartridge menu", NULL);
+                depth = 0;
+                rescan();
+                break;
+            case GO_PIXEL:
+                bm_close_suspended();
+                susp_path[0] = 0;
+                pixel_session(fb, carts[go_cart].path);
+                ksnprintf(last_msg, sizeof last_msg, "last: bm Pixel on %s", carts[go_cart].name);
                 crumb("cartridge menu", NULL);
                 depth = 0;
                 rescan();
