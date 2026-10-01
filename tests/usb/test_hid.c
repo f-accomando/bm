@@ -132,7 +132,7 @@ int main(void)
     usb[6] = 0x20 | 0x10;                                      /* options + share */
     hid_report(USB_GAMEPAD, usb, 64);
     CHECK(hid_buttons() == (HID_START | HID_SELECT));
-    CHECK(hid_quit_pressed() == HID_QUIT_KEY);                 /* Start+Select */
+    CHECK(hid_quit_pressed() == (HID_QUIT_KEY | HID_QUIT_MONITOR)); /* Start+Select: also the monitor */
     usb[6] = 0; usb[7] = 1;                                    /* PS button: home */
     hid_report(USB_GAMEPAD, usb, 64);
     CHECK(hid_quit_pressed() == HID_QUIT_PS);

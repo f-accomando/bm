@@ -335,9 +335,18 @@ E.cart_meshes = function(path)
   while i <= #queue do
     local t, base, inarray = queue[i][1], queue[i][2], queue[i][3]
     i = i + 1
-    for k, v in next, t do
+    local keys = {}                      -- in order, as the kernel
+    for k in next, t do
+      if type(k) == "string" or math.type(k) == "integer" then keys[#keys + 1] = k end
+    end
+    table.sort(keys, function(a, b)
+      if type(a) ~= type(b) then return type(a) == "number" end
+      return a < b
+    end)
+    for _, k in ipairs(keys) do
+      local v = t[k]
       if type(k) == "string" then visit(v, inarray and base .. "_" .. k or k)
-      elseif math.type(k) == "integer" then visit(v, base .. k, true) end
+      else visit(v, base .. k, true) end
     end
   end
   for n, m in ipairs(caps) do m.name = names[n] or (m.kind .. n) end

@@ -329,12 +329,18 @@ static void cap_hook(lua_State *G, lua_Debug *ar)
         luaL_error(G, "more than %d million instructions", CAP_BUDGET * CAP_EVERY / 1000000);
 }
 
-/* the names: globals first, then tables and upvalues, breadth first; in a
- * table found in an array the names take the array's along (chef[2].body ->
- * "chef2_body") */
+/* the names: globals first, then tables and upvalues, breadth first, the
+ * keys of each table in order (the same names every time, whatever the
+ * order of Lua's hash tables); in a table found in an array the names take
+ * the array's along (chef[2].body -> "chef2_body") */
 static const char WALK[] =
-    "local dbg, mt, G, type, getmetatable, next, mtype = ...\n"
+    "local dbg, mt, G, type, getmetatable, next, mtype, sort = ...\n"
     "local names, seen, queue = {}, {}, {}\n"
+    "local function before(a, b)\n"
+    "  local ta, tb = type(a), type(b)\n"
+    "  if ta ~= tb then return ta == 'number' end\n"
+    "  return a < b\n"
+    "end\n"
     "local function visit(v, name, inarray)\n"
     "  if type(v) == 'table' then\n"
     "    if getmetatable(v) == mt then\n"
@@ -357,9 +363,15 @@ static const char WALK[] =
     "while i <= #queue and i <= 20000 do\n"
     "  local t, base, inarray = queue[i][1], queue[i][2], queue[i][3]\n"
     "  i = i + 1\n"
-    "  for k, v in next, t do\n"
+    "  local keys = {}\n"
+    "  for k in next, t do\n"
+    "    if type(k) == 'string' or mtype(k) == 'integer' then keys[#keys + 1] = k end\n"
+    "  end\n"
+    "  sort(keys, before)\n"
+    "  for _, k in next, keys do\n"
+    "    local v = t[k]\n"
     "    if type(k) == 'string' then visit(v, inarray and base .. '_' .. k or k)\n"
-    "    elseif mtype(k) == 'integer' then visit(v, base .. k, true) end\n"
+    "    else visit(v, base .. k, true) end\n"
     "  end\n"
     "end\n"
     "return names\n";
@@ -427,7 +439,7 @@ int bm_mesh_capture(lua_State *L, const char *lua, size_t len, int width, int he
     lua_pop(G, 1);
     /* the walk's tools, before the cartridge's code can change them */
     static const char *const std[] = { "type", "getmetatable", "next", NULL };
-    lua_createtable(G, 5, 0);
+    lua_createtable(G, 6, 0);
     lua_pushglobaltable(G);
     lua_rawseti(G, -2, 1);
     for (int i = 0; std[i]; i++) {
@@ -437,6 +449,10 @@ int bm_mesh_capture(lua_State *L, const char *lua, size_t len, int width, int he
     lua_getglobal(G, "math");
     lua_getfield(G, -1, "type");
     lua_rawseti(G, -3, 5);
+    lua_pop(G, 1);
+    lua_getglobal(G, "table");
+    lua_getfield(G, -1, "sort");
+    lua_rawseti(G, -3, 6);
     lua_pop(G, 1);
     lua_setfield(G, LUA_REGISTRYINDEX, "bm.capture.std");
     /* every function of bm does nothing; a few give what the code expects */
@@ -491,10 +507,10 @@ int bm_mesh_capture(lua_State *L, const char *lua, size_t len, int width, int he
         luaL_requiref(G, "debug", luaopen_debug, 0);
         luaL_getmetatable(G, CAP_MT);
         lua_getfield(G, LUA_REGISTRYINDEX, "bm.capture.std");
-        for (int i = 1; i <= 5; i++)
+        for (int i = 1; i <= 6; i++)
             lua_rawgeti(G, -i, i);
-        lua_remove(G, -6);
-        if (lua_pcall(G, 7, 1, 0) == LUA_OK) {
+        lua_remove(G, -7);
+        if (lua_pcall(G, 8, 1, 0) == LUA_OK) {
             for (int i = 0; i < cap.n; i++) {
                 lua_rawgeti(G, -1, i + 1);
                 const char *s = lua_tostring(G, -1);

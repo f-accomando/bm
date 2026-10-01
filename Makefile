@@ -503,7 +503,7 @@ test-bm: $(BUILD)/host/test_bm $(BUILD)/demo.bm $(BUILD)/host/test_meshcap $(BUI
 	    $(BUILD)/meshcap-test.bm '!stop here,wheel:1,cars1_body:1,gem:2' \
 	    $(BUILD)/carts/astrowing.bm ship:32,dart,tower,gate,ring:120,laser,bolt,debris,debris2,mark,core,core_hot,turret \
 	    $(BUILD)/carts/texroom.bm floor_mesh,walls_mesh,crate_mesh,pillar_mesh \
-	    $(BUILD)/carts/kitchen.bm chef_classic1_body,chef_model1_body,plate,dplate
+	    $(BUILD)/carts/kitchen.bm chef_classic1_body,chef1_body,plate,dplate
 
 # The assistant (M30): C features and network against the Python reference,
 # answers to the held-out questions, sprite generator
