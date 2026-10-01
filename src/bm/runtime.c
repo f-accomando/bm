@@ -346,12 +346,13 @@ static int l_tri(lua_State *L)
 
 /* ---- 3D (software rasterizer, see r3d.h) */
 
-/* gpu3d=1 in bm/config.txt (Settings > 3D of the games): the V3D draws the
- * 3D of the cartridges (M30), if it starts and passes its probe */
+/* The V3D draws the 3D of the cartridges (M30) if it starts and passes its
+ * probe; gpu3d=0 in bm/config.txt (Settings > 3D of the games: ARM) keeps
+ * the ARM's rasterizer */
 static void gpu3d_maybe(void)
 {
     const char *v = config_get("gpu3d");
-    if (!v || strcmp(v, "1") != 0)
+    if (v && strcmp(v, "0") == 0)
         return;
     if (gpu3d_init() == 0) {
         gpu3d_stats_t st;

@@ -22,6 +22,7 @@
 #include "fs/fat.h"
 #include "gfx/console.h"
 #include "gpu/gpu3d.h"
+#include "gpu/v3d.h"
 #include "lib/heap.h"
 #include "lib/printf.h"
 #include "drivers/board.h"
@@ -273,11 +274,20 @@ static const char *local_devices(void)
     return "keyboard / USB";
 }
 
-/* gpu3d=1: the V3D draws the 3D of the games (M30, a test for now) */
+/* the V3D draws the 3D of the games (M30) unless gpu3d=0 */
 static int gpu3d_on(void)
 {
     const char *on = config_get("gpu3d");
-    return on && strcmp(on, "1") == 0;
+    return !(on && strcmp(on, "0") == 0);
+}
+
+static const char *gpu3d_choice(void)
+{
+    if (!gpu3d_on())
+        return "ARM";
+    if (v3d_init() != 0)
+        return "ARM (no GPU)";          /* QEMU */
+    return gpu3d_failed() ? "GPU: failed" : "GPU";
 }
 
 static int wifi_at_boot(void)
@@ -306,8 +316,7 @@ void home_panel(int id, home_panel_t *p)
                  "Direct on screen, or via RAM (compare: Render bench)", "%s",
                  bm_via_ram() ? "Via RAM" : "Direct");
         home_row(p, MENU_ROW_CHOICE, R_GPU3D, "3D of the games",
-                 "ARM, or the GPU (a test: try Dev > GPU test first)", "%s",
-                 !gpu3d_on() ? "ARM" : gpu3d_failed() ? "GPU: failed" : "GPU");
+                 "Drawn by the GPU (V3D), or by the ARM", "%s", gpu3d_choice());
         home_row(p, MENU_ROW_SUB, R_SYSTEM, "System",
                  "Version, memory, SD card, restart", "%s", bm_version);
         break;
@@ -466,7 +475,7 @@ void home_act(int id, int row, int how, home_do_t *d)
         if (gpu3d_on() && gpu3d_failed())
             ksnprintf(d->note, sizeof d->note, "GPU: %s", gpu3d_status());
         else
-            ksnprintf(d->note, sizeof d->note, "the 3D of the next game: %s", gpu3d_on() ? "GPU" : "ARM");
+            ksnprintf(d->note, sizeof d->note, "the 3D of the next game: %s", gpu3d_choice());
         break;
     case R_BOOT:
         config_set("wifi_boot", wifi_at_boot() ? "0" : "1");

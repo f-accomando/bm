@@ -1203,7 +1203,7 @@ con il MAC; `eth: link up, 100 Mbit/s full duplex` dopo qualche secondo col cavo
 `net: IP ...`; `ping` dal PC; `tools/bm_net.py IP`; una tastiera su una porta USB
 (`usb: keyboard ... (hub port 2, split)`) che scrive nel menu e nei giochi.
 
-## M30 — GPU e 3D più veloce (L/XL)
+## M30 — GPU e 3D più veloce (L/XL) — ✅ verificata sul Pi (2026-10-01)
 Decisione 2026-09-30, dopo l'analisi delle prestazioni 3D: il rasterizzatore software ha
 ancora un margine (circa 2× sui pixel con texture), ma il salto vero è la **GPU 3D del
 VideoCore IV** (V3D: 12 QPU, texture filtrate, z-buffer nel chip), finora mai usata.
@@ -1260,7 +1260,7 @@ Fatto (2026-10-01, da misurare sul Pi):
 - Passo 3: modo **480×270** per le cartucce (`mkbm.py --res 480x270`, `SCREEN_W` 480,
   l'editor lo propone tra 640×360 e 320×180); test QEMU `test_res_480` (modo video, 3D
   con texture, z-buffer pulito dal DMA).
-- Passi 5 e parte del 6 (da provare sul Pi, **spento di default**): **backend GPU per
+- Passi 5 e parte del 6: **backend GPU per
   `draw3d`** (`src/gpu/gpu3d.c`). r3d trasforma, illumina, taglia e scarta come prima e
   passa i triangoli dello schermo al backend, che li raccoglie in un lavoro per la V3D
   (gruppi di triangoli con lo stesso shader, z e texture; vertici nel formato NV);
@@ -1305,6 +1305,17 @@ Fatto (2026-10-01, da misurare sul Pi):
   dello stress: 182 sfere a 60 fps (7142 triangoli) contro 69 sull'ARM, quad 1 ns per
   pixel (9 con texture). Il limite ora è l'ARM (~2 µs per triangolo). Per chiudere M30
   manca Texture Room HD con la GPU.
+
+✅ Verificata sul Pi (2026-10-01, `d0c7fe8`): **Texture Room HD con la GPU** a 640×360,
+32 casse (573 triangoli), **5,8 ms, 60 fps** (sull'ARM: 25–26 ms, 37–41 fps); Chaos
+Kitchen con la GPU 6,8 ms, 60 fps, 758 triangoli (prima di M30: 14,1 ms, 54 fps); lo
+stress test ha le righe GPU accanto a quelle software. Il criterio di chiusura è
+raggiunto, e da qui **la GPU è il default** per il 3D dei giochi (`gpu3d=0` o
+*Impostazioni > 3D of the games: ARM* per l'ARM; in QEMU e se la V3D non risponde si
+torna all'ARM da soli). Report prima/dopo: `docs/M30-PRIMA-DOPO.md`. Restano fuori da
+M30, per dopo: MSAA 4×, texture in T-format per la TMU (oggi 9 ns per pixel con
+texture contro 1), il costo per triangolo dell'ARM (~2 µs, ora il limite), filtro
+bilineare, sprite 2D sulla GPU.
   Rinviati: MSAA 4× (caricare la pagina in un tile multicampione non è un percorso
   di Mesa né del driver di Linux: non verificabile senza il Pi) e il filtro
   bilineare (cambia l'aspetto delle texture rispetto all'ARM).

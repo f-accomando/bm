@@ -75,6 +75,7 @@ Risoluzioni di menu, console e giochi, e quanto costano: [docs/RISOLUZIONI.md](d
 | **M27** | **BareMetal UI**: sottomenu, opzioni delle cartucce, strumenti nella scheda Dev, impostazioni | ✅ chiusa: task 1–4 verificati sul Pi |
 | **M28** | Tastiera Bluetooth LE (MX Keys S): pairing con codice, HID over GATT, riconnessione | ✅ verificato sul Pi |
 | **M29** | **Pi 1 B**: stesso kernel, hub USB (split transactions), Ethernet LAN9512, immagine `bm-pi1.img` | ✅ verificato sul Pi 1 B |
+| **M30** | **GPU e 3D più veloce**: driver V3D nostro sotto `draw3d`, rasterizzatore ARM 2×, modo 480×270, Texture Room HD a 60 fps | ✅ verificato sul Pi |
 
 ## Cosa fa il kernel
 
@@ -193,9 +194,9 @@ aggiungere un gioco basta copiarlo in `carts/` sulla SD dal PC.
 `bm/config.txt` (layout della tastiera, modo di disegno; si può modificare anche dal
 PC) e `bm/save/*.SAV` (salvataggi e record delle cartucce: `save()`/`saved()`).
 In `bm/config.txt`, `dma_zclear=0` fa pulire lo z-buffer dalla CPU invece che dal DMA
-(M30; da usare solo se un gioco 3D si blocca), e `gpu3d=1` fa disegnare il 3D dei
-giochi alla GPU (M30, una prova: *Impostazioni > 3D of the games*; se la GPU non
-risponde si torna all'ARM da soli).
+(M30; da usare solo se un gioco 3D si blocca), e `gpu3d=0` fa disegnare il 3D dei
+giochi all'ARM invece che alla GPU (M30: *Impostazioni > 3D of the games*; se la GPU
+non risponde si torna all'ARM da soli).
 
 Limiti attuali: un solo dispositivo USB, senza hub; niente
 Bluetooth (il chip BCM43438 usa la stessa UART della console seriale e richiede

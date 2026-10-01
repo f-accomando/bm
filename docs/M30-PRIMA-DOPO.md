@@ -2,16 +2,16 @@
 
 Confronto tra **prima** (`9cda3c7`, 2026-09-30, l'ultimo commit prima di M30) e **dopo**
 (il branch `claude/gallant-newton-z2cugw`, 2026-10-01). Il codice di M30 è tutto
-scritto e provato sul PC e in QEMU. Sul Pi il 3D dell'ARM è misurato e la GPU passa
-tutto il suo test; manca la prova di Texture Room HD con la GPU, e fino ad allora il
-backend GPU resta spento di default (sezione 4).
+scritto, provato sul PC e in QEMU, e **verificato sul Pi**: la GPU passa tutto il suo
+test e Texture Room HD gira a 60 fps a 640×360. Da qui la GPU è il default per il 3D dei
+giochi; l'ARM resta come riserva (sezione 4).
 
 ## 1. In breve
 
-- **3D sull'ARM (il default):** stessi pixel di prima e meno istruzioni. Texture Room
+- **3D sull'ARM (ora la riserva):** stessi pixel di prima e meno istruzioni. Texture Room
   scende del 30% (5,52 → 3,86 milioni di istruzioni a fotogramma), i pixel con texture
   da 70 a 46 istruzioni l'uno.
-- **3D sulla GPU (da accendere):** l'ARM non disegna più pixel, trasforma e illumina
+- **3D sulla GPU (ora il default):** l'ARM non disegna più pixel, trasforma e illumina
   soltanto. Per Texture Room fa 0,62 milioni di istruzioni a fotogramma, l'89% in meno
   di prima. Da qui il costo dell'ARM dipende dai triangoli e non più dai pixel: la
   stessa stanza a 640×360 (Texture Room HD) costa all'ARM quanto quella a 320×180.
@@ -22,7 +22,8 @@ backend GPU resta spento di default (sezione 4).
   piccoli e i triangoli 2D quasi 2×. Texture Room HD sull'ARM fa 37–41 fps. La GPU,
   dopo una correzione al driver, passa tutto il test `g` (0,1% di pixel diversi
   dall'ARM): 182 sfere a 60 fps contro 69 dell'ARM (6× settembre), 811 Mpixel/s di
-  riempimento. Manca solo Texture Room HD con la GPU (sezione 4).
+  riempimento. **Texture Room HD con la GPU: 5,8 ms, 60 fps** con 32 casse a
+  640×360 (sull'ARM 25–26 ms); Chaos Kitchen 6,8 ms, 60 fps (prima 14,1 ms, 54 fps).
 
 ## 2. Cosa c'era e cosa c'è
 
@@ -173,9 +174,17 @@ Cosa dicono i numeri:
   previsto: per questo si fa solo quando serve.
 - La parte Lua dello stress è girata sull'ARM (in *Impostazioni* il 3D era su `ARM`).
 
-Da provare ancora: **Texture Room HD con la GPU** (il criterio di chiusura di M30). Dai
-numeri sopra ci si aspetta 60 fps: ~450 triangoli costano all'ARM circa 1 ms, e a
-640×360 la V3D disegna lo schermo con le texture in 2–3 ms.
+**I giochi con la GPU** (stesso kernel, 2026-10-01):
+
+| Gioco | Prima di M30 (ARM) | Dopo, ARM | Dopo, GPU |
+|---|---|---|---|
+| Texture Room HD, 640×360 | — | 8 casse 25,3 ms, 41 fps; 16 casse 26,3 ms, 37 fps | **32 casse, 573 triangoli: 5,8 ms, 60 fps** |
+| Texture Room, 320×180, 8 casse | 11,6 ms, 60 fps | — | — |
+| Chaos Kitchen 1-1 | 14,1 ms, 54 fps | — | **6,8 ms, 60 fps** (758 triangoli) |
+
+Texture Room HD con quattro volte i pixel di Texture Room e quattro volte le casse costa
+la metà del tempo che Texture Room costava prima di M30. Il criterio di chiusura (60 fps
+a 640×360 con la GPU, righe GPU nello stress test) è raggiunto.
 
 ## 5. Differenze rimaste tra ARM e GPU
 
@@ -187,10 +196,8 @@ numeri sopra ci si aspetta 60 fps: ~450 triangoli costano all'ARM circa 1 ms, e 
 - Il 3D dopo il 2D nello stesso fotogramma: lo z si conserva dal secondo fotogramma
   in poi. Nessuno dei giochi lo fa: disegnano tutti prima il 3D e poi l'HUD.
 
-## 6. Cosa resta
+## 6. Cosa resta (dopo M30)
 
-- Texture Room HD con la GPU sul Pi. Se fa 60 fps, M30 si chiude e il 3D della GPU può
-  diventare il default.
 - Il costo per triangolo dell'ARM (≈ 2 µs) ora è il limite: da ridurre in r3d per il
   percorso GPU, o spostando le trasformazioni sulle QPU.
 - Texture in T-format per la TMU (oggi 9 ns per pixel con texture contro 1 senza).

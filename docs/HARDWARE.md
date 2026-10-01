@@ -52,7 +52,7 @@ riempimento ~430 MB/s *(M)*).
 | Risorsa | Pi Zero W | s32 (spec) | bm oggi | Uso |
 |---|---|---|---|---|
 | Uscita | mini-HDMI fino a 1920×1080 a 60 Hz; composito (pad TV) *(D)* | — | HDMI *(M)* | — |
-| GPU | VideoCore IV, core 250 MHz *(M)*, OpenGL ES 2.0, scaler hardware (HVS) *(D)*; 3D (V3D): 12 QPU in 3 slice, texture filtrate, tile 64×64 con z a 24 bit nel chip *(D)* | — | lo scaler (framebuffer ingrandito dalla GPU); il 3D delle cartucce è software sull'ARM; M30: driver V3D minimo e prova `g` | GPU 3D: prima prova (M30) |
+| GPU | VideoCore IV, core 250 MHz *(M)*, OpenGL ES 2.0, scaler hardware (HVS) *(D)*; 3D (V3D): 12 QPU in 3 slice, texture filtrate, tile 64×64 con z a 24 bit nel chip *(D)* | — | lo scaler (framebuffer ingrandito dalla GPU); il 3D delle cartucce (M30: driver V3D nostro, 811 Mpixel/s, ARM come riserva) | GPU 3D usata dal 3D dei giochi |
 | Risoluzione logica | qualsiasi, scalata dalla GPU | **320×224** (4:3); 384×224 (16:9) previsto *(S)* | console 640×360 (32 bit); cartucce s32 320×224 (32 bit); **cartucce native 640×360 RGB565** | 640×360 = 11% dei pixel di 1080p |
 | Colori | framebuffer 32 bit (16,7 milioni) *(M)* | 8 palette × 256 colori a 24 bit; tile a 8 bit indicizzati *(S)* | 32 bit per console e s32; 16 bit RGB565 (65 536 colori) per le native | — |
 | Tile | — | 2048, taglie 8/16/32/64 px *(S)* | — | — |

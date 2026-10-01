@@ -12,7 +12,9 @@
  * that follows 3D, before reading pixels, and at the end of the frame;
  * zclear() starts a new job.
  *
- * Off by default: gpu3d=1 in bm/config.txt, or Settings > 3D drawing.
+ * The default where a V3D answers (verified on the Pi, 2026-10-01); gpu3d=0
+ * in bm/config.txt (Settings > 3D of the games: ARM) keeps the ARM's
+ * rasterizer, which also takes over when the V3D is absent or fails.
  */
 #ifndef GPU3D_H
 #define GPU3D_H

@@ -913,7 +913,7 @@ def test_home_ui(b, opts):
         screen([f"< {before} >"])
         keys("s")
         keys("s")
-        screen(["< ARM >"])                     # 3D of the games: the ARM unless asked
+        screen(["< ARM (no GPU) >"])            # 3D of the games: QEMU has no V3D
         keys("s")
         keys("\r")
         screen(["Settings > System", "Version", "Board", "SD card", "FAT32"])

@@ -82,8 +82,11 @@ static void snapshot(void)
 
 int v3d_init(void)
 {
+    static int absent;                  /* asked once: QEMU has none */
     if (ready)
         return 0;
+    if (absent)
+        return -1;
     /* the firmware answers 0 when the QPUs are on (hello_fft); whatever
      * it says, the V3D decides by answering with its identity */
     uint32_t v[1] = { 1 };
@@ -98,6 +101,7 @@ int v3d_init(void)
         ksnprintf(why, sizeof why, "no V3D answers (IDENT0 %08lx, mailbox %s %lx; QEMU has none)",
                   ident[0], known ? "answer" : "error", v[0]);
         status = why;
+        absent = 1;
         return -1;
     }
     /* all of the VPM to the vertex pipeline (as Linux: no user programs),

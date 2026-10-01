@@ -280,9 +280,9 @@ Esempio completo: `carts/hunt` (Hunter's Night).
 I triangoli che attraversano il piano vicino alla camera vengono tagliati, non scartati:
 pavimenti e oggetti grandi restano interi anche quando passano accanto alla camera.
 
-**3D sulla GPU (prova, M30).** Con *Impostazioni > 3D of the games* su `GPU`
-(`gpu3d=1` in `bm/config.txt`) i triangoli li disegna la GPU del Pi (V3D) invece
-dell'ARM; le stesse funzioni, nessun cambiamento nelle cartucce. L'ARM continua a
+**3D sulla GPU (M30).** I triangoli li disegna la GPU del Pi (V3D); con
+*Impostazioni > 3D of the games* su `ARM` (`gpu3d=0` in `bm/config.txt`), e in QEMU, li
+disegna l'ARM. Le stesse funzioni, nessun cambiamento nelle cartucce. L'ARM continua a
 trasformare, illuminare e tagliare; la GPU riempie i pixel con uno z-buffer a 24 bit,
 sfumature senza dithering e texture con il texel più vicino. Il 3D in attesa viene
 disegnato prima di ogni disegno 2D che lo segue, di `pget`, di `sset` e a fine

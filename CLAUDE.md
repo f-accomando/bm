@@ -29,10 +29,12 @@ Lua 5.4 embedded. Documentazione: `README.md`, `docs/ROADMAP.md`, `docs/HARDWARE
 
 ## GPU (M30)
 
-- Il 3D dei giochi lo fa il rasterizzatore software (`src/bm/r3d.c`); il backend V3D
-  (`src/gpu/gpu3d.c`, sotto r3d) è **spento di default** (`gpu3d=1` in `bm/config.txt`)
-  finché non è provato sul Pi. QEMU non ha la V3D: sul PC si prova con l'emulatore
-  `tests/gpu/v3d_emu.c` (`make test-gpu3d`); sul Pi con il test `g` del monitor.
+- Il 3D dei giochi lo disegna la **GPU** (backend V3D `src/gpu/gpu3d.c`, sotto
+  `src/bm/r3d.c`), verificata sul Pi il 2026-10-01. Il rasterizzatore software di r3d
+  resta: con `gpu3d=0` in `bm/config.txt`, in QEMU (che non ha la V3D) e da solo se la
+  GPU non risponde. Sul PC la GPU si prova con l'emulatore `tests/gpu/v3d_emu.c`
+  (`make test-gpu3d`) e il driver con `make test-v3d`; sul Pi con il test `g` del
+  monitor e le righe GPU dello stress test.
 - Gli shader QPU si scrivono in `tools/qpuasm.py`, che genera `src/gpu/shaders.h`
   (`make test-qpu` controlla che sia aggiornato).
 
