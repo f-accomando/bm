@@ -80,6 +80,11 @@ void n8snd_attach(const uint8_t *r, uint32_t sample_rate)
     cmd_t c = { C_ATTACH, 0, 0, 0, 0, r };
     if (sample_rate)
         rate = sample_rate;
+    /* letting go is immediate: the RAM may be freed right after. One core,
+     * and the interrupt never stops halfway for this code, so a store is
+     * enough; the request still resets the channels. */
+    if (!r)
+        ram = NULL;
     push(c);
 }
 

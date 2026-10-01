@@ -470,9 +470,8 @@ static int l_split(lua_State *L)
     int conv = !given(L, 3) || lua_toboolean(L, 3);
     lua_newtable(L);
     int tab = lua_gettop(L), k = 1;
-    size_t group = 0;
+    size_t group = 0;                       /* > 0: pieces of this many characters */
     char sep = ',';
-    int none = 0;
     if (lua_type(L, 2) == LUA_TNUMBER) {
         int g = ia(L, 2, 1);
         group = g > 0 ? (size_t)g : 1;
@@ -482,9 +481,8 @@ static int l_split(lua_State *L)
         if (sl)
             sep = sp[0];
         else
-            group = 1, none = 1;
+            group = 1;                      /* "": every character */
     }
-    (void)none;
     size_t start = 0;
     for (size_t i = 0; i <= len; i++) {
         int cut = group ? (i - start == group || i == len) : (i == len || s[i] == sep);
@@ -1120,6 +1118,13 @@ static int l_power(lua_State *L)
     return 0;
 }
 
+/* present(): the frame is complete, it goes on show (flip) */
+static int l_present(lua_State *L)
+{
+    n8_present(mach(L));
+    return 0;
+}
+
 static int l_setfps(lua_State *L)
 {
     mach(L)->fps = ia(L, 1, 30) >= 60 ? 60 : 30;
@@ -1271,7 +1276,7 @@ static const luaL_Reg lib[] = {
     { "snapshot", l_snapshot }, { "power", l_power }, { "setfps", l_setfps }, { "buttons", l_buttons },
     { "compile", l_compile }, { "sndstat", l_sndstat }, { "pause", l_pause }, { "peekstr", l_peekstr },
     { "pokestr", l_pokestr }, { "glyph", l_glyph }, { "reset", l_reset }, { "text", l_text },
-    { "traceback", l_traceback },
+    { "traceback", l_traceback }, { "present", l_present },
     { NULL, NULL },
 };
 

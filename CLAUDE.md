@@ -35,6 +35,16 @@ Lua 5.4 embedded. Documentazione: `README.md`, `docs/ROADMAP.md`, `docs/HARDWARE
   (`scripts/bmaudio.py`). Se cambia, cambiarlo in tutti e tre: `make test-sound`
   controlla che il banco demo torni identico byte per byte.
 
+## nano8 (M23)
+
+- Emulatore delle cartucce `.p8` / `.p8.png`: la cartuccia `carts/nano8` (Lua: traduttore del
+  dialetto, ambiente, input, interfaccia) e la macchina in C nel kernel (`src/bm/n8*.c`, la
+  tabella `n8`; `src/audio/n8snd.c` per il suono). Il C è portabile: `make test-nano8` lo
+  prova sul PC, `build/host/n8host` gioca nano8 sul PC con screenshot e WAV.
+- Non è PICO-8: nome, logo e font sono nostri (`src/bm/n8font.c`), mai quelli di Lexaloffle.
+- In `carts/nano8/roms` solo cartucce con una licenza che ne permette la ridistribuzione,
+  elencate in `CREDITS.md` con il testo della licenza in `licenses/`.
+
 ## Comunicazione con l'utente
 
 - Riportare la **lista delle milestone** solo quando una milestone è completata per

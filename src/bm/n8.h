@@ -51,6 +51,10 @@ typedef struct {
     uint8_t btn[8], btn_prev[8];
     uint16_t btn_frames[8][8];
     int fps;                        /* 30 or 60: btnp's repeat speed */
+    /* the frame on show: the screen and the draw state (palettes, mode)
+     * as they were at the last flip */
+    uint8_t shown[0x2000];
+    uint8_t shown_state[0x80];
 } n8_t;
 
 /* 16.16 fixed point, the way the carts' numbers are stored in memory and
@@ -125,7 +129,9 @@ void n8_buttons(n8_t *m, const uint8_t bits[8]);
 int  n8_btn(const n8_t *m, int b, int p);
 int  n8_btnp(const n8_t *m, int b, int p);
 
-/* The display: the 128x128 screen through the display palette (and the
+/* The frame is complete (flip): it becomes the one on show. */
+void n8_present(n8_t *m);
+/* The display: the frame on show through the display palette (and the
  * screen modes, the second palette by scanline) into RGB565, scaled to
  * dw x dh with the nearest pixel. */
 void n8_blit(const n8_t *m, uint16_t *dst, uint32_t stride, int dw, int dh);

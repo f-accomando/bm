@@ -14,5 +14,6 @@ che ne permette la ridistribuzione. `make sdcard` e `make image` li mettono nell
 | `plat.p8` | Boo is missing! (piattaforme) | Sean McColgan | github.com/mccolgst/pico-8-cartridges | MIT (`licenses/mccolgst-MIT.txt`) |
 | `momma_zilla.p8` | Momma ZILLA (arcade, Ludum Dare 38) | Sean McColgan | github.com/mccolgst/pico-8-cartridges | MIT |
 | `platformer.p8.png` | Pico8Platformer (demo di piattaforme) | Emma Maassen | github.com/Enichan/Pico8Platformer | MIT (`licenses/enichan-MIT.txt`) |
+| `nanodemo.p8` | Comet Catcher (la demo di nano8) | bm | `carts/nano8/mkdemo.py` | come bm |
 
 Altre cartucce: basta copiarle (`.p8` o `.p8.png`) in `carts/nano8/` sulla SD.

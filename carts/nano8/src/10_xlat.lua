@@ -319,11 +319,12 @@ end
 -- object as _ENV); Env fills these
 Xl.builtins = {}
 Xl.constants = {}
+local env_tricks = false     -- the cart mentions _ENV: only then the wrapping is needed
 
 local function suffixedexp()
   local n = K[P] == NAME and mapname(V[P])
   local s = primaryexp()
-  if n then
+  if n and env_tricks then
     local nk, nv = K[P], V[P]
     local mark, bare = s:match("^(\1%d+\2)(.*)$")
     mark, bare = mark or "", bare or s
@@ -716,6 +717,7 @@ end
 
 -- translate(code) -> Lua 5.4 source, or nil and "line n: message"
 function Xl.translate(src)
+  env_tricks = find(src, "_ENV", 1, true) ~= nil
   local ok, res = pcall(function()
     K, V, LN, M = lex(src)
     P = 1

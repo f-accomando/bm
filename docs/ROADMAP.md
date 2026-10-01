@@ -917,21 +917,66 @@ Considerazioni:
 Decisione 2026-09-29: in coda. Scritto da zero in C sul runtime di bm (non il port di
 fake-08, in C++). Nessun nome, logo o font di PICO-8 (prodotto di Lexaloffle): nome e
 font nostri; le cartucce del forum sono per lo più CC BY-NC-SA (uso non commerciale).
-1. **Caricatore**:
-   - `.p8.png`: PNG con inflate, 32 KiB nascosti nei 2 bit bassi dei colori, codice
-     compresso nei formati `:c:` e `pxa`;
-   - `.p8` di testo;
-   - l'immagine fa da copertina nel menu.
-2. **Dialetto Lua** tradotto in Lua 5.4 prima di eseguirlo: `+=`, `!=`, `if (c) x`
-   su una riga, `?`, `\`, operatori sui bit, `@`/`%`/`$`, commenti `//`.
-3. **Macchina**: RAM di 32 KiB emulata (schermo 128×128 a 4 bit, stato del disegno,
-   sprite, mappa, `peek`/`poke`/`memcpy`), convertita in colore a ogni fotogramma
-   (framebuffer piccolo, ingrandito dalla GPU).
-4. **API grafica e input** (`spr`, `sspr`, `map`, `tline`, `fillp`, `pal`, `print`
-   con i codici di controllo, `btn`/`btnp` per più giocatori con M16).
-5. **Audio**: 4 canali, 8 forme d'onda, strumenti personalizzati, effetti, musica.
-6. **Numeri a virgola fissa 16.16** (Lua modificato): dal ~70–80% al ~95% delle
-   cartucce compatibili.
+
+Decisione 2026-10-01: l'emulatore si chiama **nano8** ed è una cartuccia `.bm` della
+scheda Games (`carts/nano8`, Lua), con la macchina in C nel kernel (`src/bm/n8*.c`, la
+tabella `n8` di ogni cartuccia) e il suono nell'interrupt audio (`src/audio/n8snd.c`).
+I tasti si mappano su tastiera e controller. Branch `nano-emulator`.
+
+Stato (2026-10-01): tutto nel PC e in QEMU, **da provare sul Pi**.
+1. **Caricatore** ✅ (`src/bm/n8cart.c`):
+   - `.p8.png`: PNG con inflate (nostro), 32 KiB nascosti nei 2 bit bassi dei colori,
+     codice in chiaro o compresso nei formati `:c:` e `pxa`;
+   - `.p8` di testo, con i simboli in UTF-8 convertiti in P8SCII;
+   - l'etichetta (label) fa da anteprima nella lista di nano8, titolo e autore dalle prime
+     due righe di commento.
+2. **Dialetto Lua** ✅ tradotto in Lua 5.4 prima di eseguirlo (`carts/nano8/src/10_xlat.lua`,
+   un vero parser, i numeri di riga restano quelli della cartuccia): `+=` e tutti gli altri,
+   `!=`, `if (c) x` e `while (c) x` su una riga, `?`, `\`, operatori sui bit (`& | ^^ ~ <<
+   >> >>> <<> >><`), `@`/`%`/`$`, commenti `//`, i simboli come nomi (⬅️ ➡️ ⬆️ ⬇️ 🅾️ ❎, i
+   fill pattern ▒ ░ …), gli escape `\^ \# \- \| \+ \*` nelle stringhe. Le funzioni di sistema
+   restano raggiungibili dentro `function(_ENV)` con un oggetto come `_ENV` (newleste).
+3. **Macchina** ✅ (`src/bm/n8.c`): 64 KiB con la mappa di memoria delle cartucce (schermo
+   128×128 a 4 bit, stato del disegno a 0x5f00, sprite, mappa, flag, memoria alta,
+   rimappatura di schermo / sprite / mappa a 0x5f54–0x5f57), convertita in RGB565 dalla
+   palette dello schermo a ogni fotogramma, con le modalità di 0x5f2c e la seconda palette per
+   riga. Diversamente dal piano, il framebuffer resta 640×360: lo schermo è ingrandito 2×
+   (256×256, nitido) o a tutta altezza (360×360), a scelta nel menu di pausa.
+4. **API grafica e input** ✅ (`src/bm/n8lua.c`): forme (anche `oval`, `rrect`), `spr`,
+   `sspr`, `map`, `tline`, `fillp`, `pal` / `palt` (anche con tabelle e la palette dello
+   schermo), `print` con i codici di controllo (colori, sfondo, `\^w` `\^t` e gli altri
+   attributi, glifi `\^.` e `\^:`, font personalizzato a 0x5600), `peek`/`poke` a 1, 2 e
+   4 byte, `memcpy`, `reload`, `cartdata`/`dget`/`dset` (salvati sulla SD), `menuitem`,
+   `flip`, `load` fra cartucce della stessa cartella, `btn`/`btnp` (ripetizione come
+   l'originale) per 8 giocatori, i controller di M16 ai giocatori 1–4.
+   Mappatura dei tasti (nella lista e nel menu di pausa, "Controls"): tastiera 1 e 2 e
+   controller, salvata in `bm/save`.
+5. **Audio** ✅ da provare sul Pi (`src/audio/n8snd.c`): 4 canali, 8 forme d'onda, strumenti
+   personalizzati (sfx 0–7), effetti delle note (slide, vibrato, drop, fade, arpeggi),
+   loop, musica a pattern con loop e stop, dissolvenze, filtri buzz e dampen.
+6. **Numeri a virgola fissa 16.16** (Lua modificato): **non fatto**. I numeri sono double di
+   Lua 5.4: le costanti sono arrotondate a 16.16 come nell'originale, divisioni per zero e
+   modulo non fermano il gioco, le operazioni sui bit lavorano in 16.16; resta diverso solo
+   l'overflow oltre ±32767 (raro nei giochi).
+- **Prove**: `make test-nano8` (caricatore, traduttore, 151 controlli di
+  `tests/nano8/carts/api.p8`, le cartucce incluse giocate 20 s con i tasti premuti),
+  `tests/qemu_test.py -k nano8` (la stessa cartuccia di prova sul kernel vero). Sul PC
+  `build/host/n8host` gioca nano8 con screenshot, WAV e misure (`--perf`): girano senza
+  errori Celeste (originale e newleste), Just One Boss, Desert Strike, Zepton, Piconian,
+  Bon Planto, Sixlets II, Starmoo Valley, Momma Zilla, Boo is missing!.
+- **Cartucce incluse** (`carts/nano8/roms`, licenze in `CREDITS.md`): sette di altri autori
+  con licenza CC0 o MIT e `nanodemo.p8` (Comet Catcher, nostra, da `carts/nano8/mkdemo.py`).
+- **Mouse e tastiera delle cartucce** (`poke(0x5f2d, 1)`): bm non ha un mouse, quindi il
+  cursore (`stat(32)`, `stat(33)`) segue la levetta, la croce o le frecce, 🅾️ e ❎ sono i suoi
+  tasti (`stat(34)`); i tasti premuti diventano testo per `stat(30)` / `stat(31)` (layout US).
+  `load("#nome")` (le cartucce in più parti del forum) cerca `nome.p8.png` / `nome.p8` nella
+  stessa cartella.
+- **Cartucce pesanti**: un fotogramma che supera ~400 mila istruzioni Lua si ferma e riprende al
+  fotogramma dopo (`timeslice()` del runtime): il gioco rallenta invece di fermarsi con "cart
+  timeout"; sullo schermo resta l'ultimo fotogramma completo (al `flip`).
+- **Limiti noti**: i kana sono un riquadro, i `.p8` con `#include` vanno esportati prima.
+  Le cartucce più pesanti (pseudo-3D a 60 fps come Zepton) possono scendere sotto i 60 fps
+  sul Pi Zero.
 - **Fatto quando:** un gioco senza suono gira dalla SD (primo traguardo), poi con audio
   e numeri 16.16.
 

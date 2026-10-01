@@ -195,11 +195,22 @@ static int l_pad(lua_State *L)
 
 static int l_quit(lua_State *L) { (void)L; return 0; }
 
+/* the console stops a long frame and goes on next time (timeslice);
+ * here a frame runs to its end */
+static int l_timeslice(lua_State *L) { (void)L; return 0; }
+
+static int l_stick(lua_State *L)
+{
+    lua_pushnumber(L, 0);
+    lua_pushnumber(L, 0);
+    return 2;
+}
+
 static const luaL_Reg api[] = {
     { "cls", l_cls }, { "rectfill", l_rectfill }, { "rect", l_rect }, { "line", l_line }, { "pset", l_pset },
     { "print", l_print }, { "time", l_time }, { "log", l_log }, { "ls", l_ls }, { "save", l_save },
     { "saved", l_saved }, { "volume", l_volume }, { "rawkeys", l_rawkeys }, { "keydown", l_keydown },
-    { "keys", l_keys }, { "pad", l_pad }, { "quit", l_quit },
+    { "keys", l_keys }, { "pad", l_pad }, { "quit", l_quit }, { "stick", l_stick }, { "timeslice", l_timeslice },
     { NULL, NULL },
 };
 

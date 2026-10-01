@@ -9,7 +9,7 @@ Env.FLIP = FLIP
 -- the n8 functions that are the console's, not the cart's
 local CONSOLE = { blit = true, load = true, preview = true, drawlabel = true, snapshot = true, power = true,
                   setfps = true, buttons = true, compile = true, sndstat = true, pause = true, peekstr = true,
-                  pokestr = true, glyph = true, text = true, traceback = true }
+                  pokestr = true, glyph = true, text = true, traceback = true, present = true }
 
 -- the symbols as constants: the buttons, and fill patterns (with the
 -- transparency bit .5)
@@ -59,9 +59,12 @@ local function stat(n, a)
   if (n >= 16 and n <= 26) or (n >= 46 and n <= 56) then return n8.sndstat(n) end
   if n == 57 then return n8.sndstat(57) ~= 0 end
   if n == 28 then return keydown(floor(tonumber(a) or 0)) end
-  if n == 30 then return false end
-  if n == 31 then return "" end
-  if n >= 32 and n <= 36 then return 0 end
+  if n == 30 then return #Vm.typed > 0 end
+  if n == 31 then return remove(Vm.typed, 1) or "" end
+  if n == 32 then return floor(Vm.mouse.x) end
+  if n == 33 then return floor(Vm.mouse.y) end
+  if n == 34 then return Vm.mouse.b end
+  if n >= 35 and n <= 39 then return 0 end
   if n >= 80 and n <= 95 then
     local d = { 2026, 1, 1, 0, 0, 0 }
     return d[(n - 80) % 10 + 1] or 0

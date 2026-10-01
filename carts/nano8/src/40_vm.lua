@@ -5,6 +5,7 @@
 Vm.state = nil            -- "run", "error", "done", or nil
 Vm.fps, Vm.t, Vm.cpu = 30, 0, 0
 Vm.menu = {}
+Vm.mouse = { x = 64, y = 64, b = 0, held = 0 }
 
 local FLIP = Env.FLIP
 
@@ -44,6 +45,11 @@ function Vm.start(path, param)
   Vm.state = nil
   local info, err = n8.load(path)
   if not info then return Vm.fail("Cannot load " .. short(path), err) end
+  if find(info.code, "^%s*#include") or find(info.code, "\n%s*#include") then
+    return Vm.fail("This cart is made of several files",
+                   "Its code has #include lines: the files they name are on the PC where it was written. "
+                   .. "Export it as .p8.png (or as a single .p8) and copy that to the SD card.")
+  end
   local code, terr = Xl.translate(info.code)
   info.code = nil
   if not code then return Vm.fail("The code cannot be read", terr) end
@@ -58,6 +64,7 @@ function Vm.start(path, param)
   n8.setfps(30)
   Vm.cartid, Vm.saved_data, Vm.request, Vm.want_pause = nil, nil, nil, false
   Vm.menu = {}
+  Vm.mouse.x, Vm.mouse.y, Vm.mouse.b = 64, 64, 0
   Vm.pause_held = true                -- the button that started it is not a pause
   Vm.co = coroutine.create(function()
     local ok, e = xpcall(function()
@@ -78,6 +85,7 @@ function Vm.start(path, param)
     end, n8.traceback)
     if not ok then error(e, 0) end
   end)
+  timeslice(Vm.co)
   Vm.state = "run"
   collectgarbage()
   log("nano8: playing " .. path)
@@ -101,12 +109,21 @@ function Vm.extcmd(cmd)
   end
 end
 
--- a cart asked for another (load): relative to its own folder
+-- a cart asked for another (load): relative to its own folder; "#name"
+-- (a cart of the forum) is looked for there too, as name.p8.png or name.p8
 local function resolve(path)
-  if type(path) ~= "string" or path == "" or path:sub(1, 1) == "#" then return nil end
+  if type(path) ~= "string" or path == "" then return nil end
   local dir = Vm.path:match("^(.*)/[^/]*$") or ""
-  local p = path:sub(1, 1) == "/" and path or dir .. "/" .. path
-  local tries = { p, p .. ".p8", p .. ".p8.png" }
+  local tries
+  if path:sub(1, 1) == "#" then
+    local name = path:sub(2)
+    local p = dir .. "/" .. name
+    local bare = dir .. "/" .. name:gsub("%-%d+$", "")
+    tries = { p .. ".p8.png", p .. ".p8", bare .. ".p8.png", bare .. ".p8", p }
+  else
+    local p = path:sub(1, 1) == "/" and path or dir .. "/" .. path
+    tries = { p, p .. ".p8", p .. ".p8.png" }
+  end
   for _, t in ipairs(tries) do
     local d, n = t:match("^(.*)/([^/]*)$")
     for _, e in ipairs(ls(d == "" and "/" or d)) do
@@ -167,6 +184,10 @@ function Vm.tick()
     Vm.pause_held = false
   end
   n8.buttons(b[1], b[2], b[3], b[4], b[5], b[6], b[7], b[8])
+  if n8.peek(0x5f2d) & 1 == 1 then
+    Vm.mouse_move(b[1])
+    Vm.typing()
+  end
   local t0 = time()
   local ok, e = coroutine.resume(Vm.co)
   Vm.cpu = (time() - t0) * Vm.fps
@@ -175,6 +196,12 @@ function Vm.tick()
   end
   if coroutine.status(Vm.co) == "dead" then
     Vm.state = "done"
+    n8.present()
+  elseif e == FLIP then
+    n8.present()
+  elseif not Vm.request then
+    Vm.cpu = 1                        -- stopped by the time slice: the frame goes on next time
+    return
   end
   Vm.frames = Vm.frames + 1
   Vm.t = Vm.t + 1 / Vm.fps
@@ -187,6 +214,62 @@ function Vm.tick()
     Vm.want_pause = false
     return "pause"
   end
+end
+
+-- The mouse of the carts (poke(0x5f2d, 1)): bm has none, so the
+-- cursor follows the left stick, the cross or the arrows (faster the
+-- longer they are held), and O / X are its left and right buttons.
+function Vm.mouse_move(bits)
+  local m = Vm.mouse
+  local sx, sy = stick(1)
+  local dx = (bits & 2 ~= 0 and 1 or 0) - (bits & 1 ~= 0 and 1 or 0)
+  local dy = (bits & 8 ~= 0 and 1 or 0) - (bits & 4 ~= 0 and 1 or 0)
+  if abs(sx) > abs(dx) then dx = sx end
+  if abs(sy) > abs(dy) then dy = sy end
+  if dx ~= 0 or dy ~= 0 then
+    m.held = m.held + 1
+  else
+    m.held = 0
+  end
+  local speed = min(3, 0.75 + m.held / 15) * (Vm.fps == 60 and 1 or 2)
+  m.x = clamp(m.x + dx * speed, 0, 127)
+  m.y = clamp(m.y + dy * speed, 0, 127)
+  m.b = (bits & 16 ~= 0 and 1 or 0) | (bits & 32 ~= 0 and 2 or 0)
+end
+
+-- The keyboard as text for the carts (stat(30) and stat(31), with
+-- poke(0x5f2d, 1)): the keys pressed this frame, US layout
+local SHIFTED = { ["1"] = "!", ["2"] = "@", ["3"] = "#", ["4"] = "$", ["5"] = "%", ["6"] = "^", ["7"] = "&",
+                  ["8"] = "*", ["9"] = "(", ["0"] = ")", ["-"] = "_", ["="] = "+", ["["] = "{", ["]"] = "}",
+                  ["\\"] = "|", [";"] = ":", ["'"] = '"', [","] = "<", ["."] = ">", ["/"] = "?", ["`"] = "~" }
+local PUNCT = { [0x2D] = "-", [0x2E] = "=", [0x2F] = "[", [0x30] = "]", [0x31] = "\\", [0x33] = ";",
+                [0x34] = "'", [0x35] = "`", [0x36] = ",", [0x37] = ".", [0x38] = "/" }
+local typed, was_down = {}, {}
+Vm.typed = typed
+
+function Vm.typing()
+  local now = {}
+  local shift = keydown(0xE1) or keydown(0xE5)
+  for _, u in ipairs(keys()) do
+    now[u] = true
+    if not was_down[u] then
+      local ch
+      if u >= 0x04 and u <= 0x1D then ch = char(0x61 + u - 0x04)
+      elseif u >= 0x1E and u <= 0x26 then ch = char(0x31 + u - 0x1E)
+      elseif u == 0x27 then ch = "0"
+      elseif u == 0x2C then ch = " "
+      elseif u == 0x28 then ch = "\r"
+      elseif u == 0x2A then ch = "\b"
+      elseif u == 0x2B then ch = "\t"
+      elseif PUNCT[u] then ch = PUNCT[u] end
+      if ch and shift then
+        -- the carts' upper case letters are their "small" ones: A-Z
+        ch = ch:match("%l") and ch:upper() or SHIFTED[ch] or ch
+      end
+      if ch and #typed < 32 then typed[#typed + 1] = ch end
+    end
+  end
+  was_down = now
 end
 
 -- the pause menu: the cart's own items run here
@@ -204,6 +287,7 @@ end
 
 function Vm.close()
   if Vm.state then Vm.save_now() end
+  timeslice(nil)
   quiet()
   Vm.state = nil
   Vm.co, Vm.G = nil, nil

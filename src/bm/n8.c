@@ -267,6 +267,7 @@ void n8_power(n8_t *m)
     memset(m->ram, 0, sizeof m->ram);
     memcpy(m->ram, m->rom, N8_ROM_SIZE);
     n8_reset_draw(m);
+    n8_present(m);
     memset(m->btn, 0, sizeof m->btn);
     memset(m->btn_prev, 0, sizeof m->btn_prev);
     memset(m->btn_frames, 0, sizeof m->btn_frames);
@@ -1095,7 +1096,7 @@ static uint16_t rgb565(uint32_t c)
 /* The 128 pixels of display row y, through the screen modes */
 static void display_row(const n8_t *m, int y, int mode, const uint16_t *pl, uint16_t *o)
 {
-    const uint8_t *scr = m->ram + N8_SCREEN;
+    const uint8_t *scr = m->shown;
     for (int x = 0; x < 128; x++) {
         int sx = x, sy = y;
         switch (mode) {
@@ -1141,6 +1142,12 @@ static void put_row(uint16_t *o, const uint32_t *words, int dw)
         o[dw - 1] = ((const uint16_t *)words)[dw - 1];
 }
 
+void n8_present(n8_t *m)
+{
+    memcpy(m->shown, m->ram + N8_SCREEN, sizeof m->shown);
+    memcpy(m->shown_state, m->ram + 0x5f00, sizeof m->shown_state);
+}
+
 void n8_blit(const n8_t *m, uint16_t *dst, uint32_t stride, int dw, int dh)
 {
     static uint32_t line32[512];            /* a destination row, 1024 pixels at most */
@@ -1149,15 +1156,15 @@ void n8_blit(const n8_t *m, uint16_t *dst, uint32_t stride, int dw, int dh)
     uint16_t *line = (uint16_t *)line32;
     uint16_t pal[2][16];
     for (int i = 0; i < 16; i++) {
-        pal[0][i] = rgb565(n8_rgb(m->ram[N8_PAL_SCREEN + i]));
-        pal[1][i] = rgb565(n8_rgb(m->ram[0x5f60 + i]));
+        pal[0][i] = rgb565(n8_rgb(m->shown_state[0x10 + i]));
+        pal[1][i] = rgb565(n8_rgb(m->shown_state[0x60 + i]));
     }
     if (dw > 1024) dw = 1024;
     if (dw <= 0 || dh <= 0)
         return;
-    const uint8_t *scr = m->ram + N8_SCREEN;
-    int scan = m->ram[0x5f5f] == 0x10;
-    int mode = m->ram[N8_SCREEN_MODE];
+    const uint8_t *scr = m->shown;
+    int scan = m->shown_state[0x5f] == 0x10;
+    int mode = m->shown_state[0x2c];
     int k = dw / 128;
     int whole = !mode && dw == 128 * k && dh == 128 * k && k >= 1 && k <= 4;
     if (!whole)
@@ -1167,7 +1174,7 @@ void n8_blit(const n8_t *m, uint16_t *dst, uint32_t stride, int dw, int dh)
     for (int y = 0; y < dh; y++) {
         int sy = y * 128 / dh;
         if (sy != prev) {
-            const uint16_t *pl = pal[scan && (m->ram[0x5f70 + (sy >> 3)] >> (sy & 7) & 1)];
+            const uint16_t *pl = pal[scan && (m->shown_state[0x70 + (sy >> 3)] >> (sy & 7) & 1)];
             if (whole && k == 2) {
                 /* sharp 2x: each pixel a 32-bit word, straight from the bytes */
                 const uint8_t *r = scr + sy * 64;

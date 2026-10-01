@@ -64,6 +64,8 @@ static struct {
     g16_light_t light;          /* light_begin() .. light_end() */
     int text_mode;              /* keyp() was called: the keyboard types */
     int raw_keys;               /* rawkeys(true): the keyboard is read with keydown() */
+    lua_State *slice_thread;    /* timeslice(): this coroutine yields after slice_at */
+    uint32_t slice_at, slice_len;
     int esc_wait;               /* frames since a serial Esc */
     int esc_num;                /* ESC [ n ~ */
     uint8_t tq[256];            /* typed keys for keyp() */
@@ -1053,6 +1055,19 @@ static int l_pad(lua_State *L)
     return 1;
 }
 
+/* timeslice(co, [k]): coroutine co yields (resume returns true and
+ * nothing) after about k thousand Lua instructions in a frame (default
+ * 400), so a long computation goes on over several frames instead of
+ * stopping the cartridge; timeslice(nil) turns it off */
+static int l_timeslice(lua_State *L)
+{
+    rt.slice_thread = lua_isthread(L, 1) ? lua_tothread(L, 1) : NULL;
+    lua_Integer k = luaL_optinteger(L, 2, 400);
+    rt.slice_len = (uint32_t)(k < 10 ? 10 : k > FRAME_BUDGET / 2 ? FRAME_BUDGET / 2 : k);
+    rt.slice_at = rt.slice_len;
+    return 0;
+}
+
 /* cartridge files, for the editor (defined after the asset loader) */
 static int l_ls(lua_State *L);
 static int l_cart_load(lua_State *L);
@@ -1119,7 +1134,7 @@ static const luaL_Reg api[] = {
     { "zclear", l_zclear }, { "log", l_log }, { "quit", l_quit },
     { "save", l_save }, { "saved", l_saved },
     { "keyp", l_keyp }, { "keyheld", l_keyheld }, { "rawkeys", l_rawkeys }, { "keydown", l_keydown },
-    { "keys", l_keys }, { "pad", l_pad }, { "ls", l_ls }, { "cart_load", l_cart_load }, { "cart_new", l_cart_new },
+    { "keys", l_keys }, { "pad", l_pad }, { "timeslice", l_timeslice }, { "ls", l_ls }, { "cart_load", l_cart_load }, { "cart_new", l_cart_new },
     { "cart_save", l_cart_save }, { "cart_run", l_cart_run }, { "cart_arg", l_cart_arg },
     { "light_begin", l_light_begin }, { "light", l_light }, { "light_end", l_light_end },
     { "note", l_note }, { "noteoff", l_noteoff }, { "freq", l_freq },
@@ -1137,7 +1152,15 @@ static const luaL_Reg api[] = {
 static void hook(lua_State *L, lua_Debug *ar)
 {
     (void)ar;
-    if (++rt.hook_count > FRAME_BUDGET)
+    ++rt.hook_count;
+    /* a coroutine given to timeslice(): it stops here and goes on next
+     * frame, instead of running into the budget */
+    if (L == rt.slice_thread && rt.hook_count >= rt.slice_at && lua_isyieldable(L)) {
+        rt.slice_at = rt.hook_count + rt.slice_len;
+        lua_yield(L, 0);
+        return;
+    }
+    if (rt.hook_count > FRAME_BUDGET)
         luaL_error(L, "cart timeout: more than %d million instructions in one frame",
                    FRAME_BUDGET * HOOK_EVERY / 1000000);
 }
@@ -1219,6 +1242,7 @@ static int call(lua_State *L, const char *name)
         return 0;
     }
     rt.hook_count = 0;
+    rt.slice_at = rt.slice_len;
     if (lua_pcall(L, 0, 0, -2) != LUA_OK) {
         lua_remove(L, -2);
         return -1;
