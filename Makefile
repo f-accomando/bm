@@ -239,7 +239,7 @@ test-nano8: $(BUILD)/host/n8host $(BUILD)/host/n8cartinfo $(BUILD)/host/luahost 
 .DEFAULT_GOAL := all
 .PHONY: FORCE test-smp all clean firmware image image-pi1 sdcard install sdcard-chainloader sdcard-stress qemu qemu-screenshot \
         run-serial test test-bm test-ai ai-model test-usb test-audio test-fat test-kitchen test-titan test-sound test-nano8 \
-        test-net test-http test-https test-release release disasm wav test-studio test-studio-ui studio
+        test-net test-http test-https test-release release disasm wav test-studio test-studio-ui studio showreel
 
 all: $(BUILD)/kernel.img $(BUILD)/chainloader.img $(GAME_CARTS)
 
@@ -552,6 +552,18 @@ test-studio: $(BUILD)/host/test_bm $(BUILD)/demo.bm $(BUILD)/host/luahost $(BUIL
 test-studio-ui:
 	node tests/studio/test_ui.js $(BUILD)/studio
 	node tests/studio/test_animator_ui.js $(BUILD)/studio
+
+# The showreel at the top of the README (docs/showreel.gif and .mp4): a
+# villager made from nothing in bm Studio and bm Animator (Playwright +
+# Chromium), then the map in the SDK, the code in bm Code with the assistant
+# and the game, on the console in QEMU; ffmpeg puts it together (about 4
+# minutes, tools/showreel/)
+SHOWREEL := $(BUILD)/showreel
+showreel: $(BUILD)/kernel.img
+	node tools/showreel/web.js $(SHOWREEL)/web
+	$(PYTHON) tools/showreel/console.py $(BUILD) $(SHOWREEL)/web $(SHOWREEL)/console
+	node tools/showreel/cards.js $(SHOWREEL)/cards
+	$(PYTHON) tools/showreel/assemble.py $(SHOWREEL) docs/showreel.mp4 docs/showreel.gif
 
 # bm Studio and bm Animator on http://localhost:8765 (they also open from
 # the files, sdk/studio/index.html and sdk/animator/index.html, in Chrome or Edge)

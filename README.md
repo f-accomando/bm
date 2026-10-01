@@ -1,5 +1,13 @@
 # bm — BareMetal
 
+<p align="center">
+  <img src="docs/showreel.gif" width="720" alt="Showreel: un paesano disegnato e costruito a blocchi in bm Studio, con scheletro e camminata in bm Animator; sulla console la mappa nell'SDK, il codice in bm Code con l'assistente AI e il gioco">
+</p>
+<p align="center"><sub><b>Un gioco da zero, solo con bm</b> (30 s): pixel art e modello 3D in bm Studio, scheletro e
+camminata in bm Animator, poi sulla console la mappa nell'SDK, il codice in bm Code con l'assistente AI
+e il gioco. Le scene della console sono riprese in QEMU (<code>-M raspi0</code>) con lo stesso kernel del Pi.
+<a href="docs/showreel.mp4">MP4 1280×720</a> · si rifà con <code>make showreel</code></sub></p>
+
 **bm** (BareMetal) è una console bare metal (Assembly / C / Lua embedded) per
 **Raspberry Pi Zero W v1.1** (SoC BCM2835, CPU ARM1176JZF-S, ARMv6): nessun sistema
 operativo, il kernel parte direttamente dalla SD. Le sue cartucce native hanno
