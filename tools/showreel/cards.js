@@ -21,12 +21,12 @@ function loadPlaywright() {
 const OUT = path.resolve(process.argv[2] || 'build/showreel/cards');
 const STEPS = [
   ['1', 'Pixel art', 'bm Studio'],
-  ['2', 'Modello 3D', 'bm Studio'],
-  ['3', 'Scheletro', 'bm Animator'],
-  ['4', 'Animazione', 'bm Animator'],
-  ['5', 'Mappa', 'SDK, sulla console'],
-  ['6', 'Codice con l\'assistente AI', 'bm Code, sulla console'],
-  ['7', 'Si gioca', 'sulla console'],
+  ['2', '3D model', 'bm Studio'],
+  ['3', 'Skeleton', 'bm Animator'],
+  ['4', 'Animation', 'bm Animator'],
+  ['5', 'Map', 'SDK, on the console'],
+  ['6', 'Code with the AI assistant', 'bm Code, on the console'],
+  ['7', 'Play', 'on the console'],
 ];
 
 const CSS = `
@@ -65,13 +65,13 @@ const CSS = `
   };
   await shot(`<div class="card">
       <div class="logo"><span class="badge">bm</span><span class="name">BareMetal</span></div>
-      <div class="big">Un gioco da zero, solo con bm</div>
-      <div class="sub">un paesano disegnato, modellato, animato e programmato<br>con gli strumenti di bm, fino al gioco sulla console</div>
+      <div class="big">A game from scratch, with bm alone</div>
+      <div class="sub">a villager drawn, modelled, animated and programmed<br>with bm's own tools, all the way to the game on the console</div>
       <div class="steps">${STEPS.map(s => `<span>${s[0]} · ${s[1]}</span>`).join('')}</div>
     </div>`, 'title.png');
   await shot(`<div class="card">
       <div class="logo"><span class="badge">bm</span><span class="name">BareMetal</span></div>
-      <div class="sub">fantasy console bare metal per Raspberry Pi Zero W:<br>giochi in Lua, grafica 2D e 3D, editor sul PC e sulla console</div>
+      <div class="sub">a bare-metal fantasy console for the Raspberry Pi Zero W:<br>games in Lua, 2D and 3D graphics, editors on the PC and on the console</div>
       <div class="url">github.com/f-accomando/bm</div>
     </div>`, 'end.png');
   // two places: bottom left on the PC applications, top right on the console
