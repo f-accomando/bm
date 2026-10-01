@@ -512,15 +512,16 @@ def bar_icons(img):
     return runs
 
 
-def wait_icons(q, n, timeout=5.0):
-    """A screendump of the menu once its bar has n status icons (the first
-    frames can come a little late on a busy PC)."""
+def wait_icons(q, n, timeout=6.0):
+    """A screendump of the menu once it is drawn (the tabs) and its bar has
+    n status icons: the first frame of the menu comes 0.5-1 s after
+    "cartridge menu", later on a busy PC."""
     deadline = time.time() + timeout
     while True:
         shot_ = q.screendump()
-        if len(bar_icons(shot_)) == n or time.time() > deadline:
+        if ("Games" in screen_text(shot_)[1] and len(bar_icons(shot_)) == n) or time.time() > deadline:
             return shot_
-        time.sleep(0.3)
+        time.sleep(0.2)
 
 
 def blue_number(img, span):
@@ -2064,8 +2065,7 @@ def test_bt_mouse(b, opts):
         # the menu: keyboard (blue 1) and the mouse (blue dot) in the bar
         q.mini.write(b"M")
         _mini_expect(q, "cartridge menu")
-        time.sleep(1.0)
-        shot_ = q.screendump()
+        shot_ = wait_icons(q, 2)
         runs = bar_icons(shot_)
         assert len(runs) == 2 and blue_number(shot_, runs[0]) and blue_number(shot_, runs[1]), runs
         assert arrow_at(shot_, 320, 180), "no arrow"
@@ -2208,8 +2208,7 @@ def test_bt_mouse_classic(b, opts):
             assert s_ in out, out
         q.mini.write(b"M")
         _mini_expect(q, "cartridge menu")
-        time.sleep(1.0)
-        shot_ = q.screendump()
+        shot_ = wait_icons(q, 1)
         runs = bar_icons(shot_)
         assert len(runs) == 1 and blue_number(shot_, runs[0]) and arrow_at(shot_, 320, 180), runs
         for _ in range(3):                              # to the corner (8-bit motion)
@@ -2261,8 +2260,7 @@ def test_stick_pointer(b, opts):
         _mini_expect(q, "next time just press PS")
         q.mini.write(b"M")
         _mini_expect(q, "cartridge menu")
-        time.sleep(1.0)
-        assert not arrow_at(q.screendump(), 320, 180), "an arrow before the stick moved"
+        assert not arrow_at(wait_icons(q, 1), 320, 180), "an arrow before the stick moved"
         chip.report(rx=255)                             # right, for a moment
         time.sleep(0.3)
         chip.report()
@@ -2367,8 +2365,7 @@ def test_bt_keyboard(b, opts):
         # keyboard player 2 (blue)
         q.mini.write(b"M")
         _mini_expect(q, "cartridge menu")
-        time.sleep(1.0)
-        shot_ = q.screendump()
+        shot_ = wait_icons(q, 2)
         runs = bar_icons(shot_)
         assert len(runs) == 2 and all(20 <= x1 - x0 <= 27 for x0, x1 in runs), runs
         assert not blue_number(shot_, runs[0]) and blue_number(shot_, runs[1]), runs
@@ -2855,8 +2852,7 @@ def test_usb_mouse(b, opts):
         assert "usb: port 3: if0 class 03/00/00 ep 81 mps 8" in out and " tablet" in out, out
         assert "usb: tablet (mouse) 0627:0001 'QEMU USB Tablet' (hub port 3), wheel" in out, out
         assert "usb: keyboard 0627:0001 'QEMU USB Keyboard'" in out, out
-        time.sleep(1.0)
-        shot_ = q.screendump()
+        shot_ = wait_icons(q, 2)
         runs = bar_icons(shot_)
         assert len(runs) == 2 and not blue_number(shot_, runs[0]) and not blue_number(shot_, runs[1]), runs
         assert runs[1][1] - runs[1][0] <= 13, runs          # the mouse: narrow, no number
@@ -2979,8 +2975,7 @@ def test_mouse_cart(b, opts):
     try:
         out = q.expect("cartridge menu", timeout=90).decode(errors="replace")
         assert ", mouse off" in out, out
-        time.sleep(1.0)
-        shot_ = q.screendump()
+        shot_ = wait_icons(q, 0)
         assert bar_icons(shot_) == [] and not arrow_at(shot_, 320, 180), bar_icons(shot_)
         q.pointer(*cover_xy(0))
         time.sleep(0.3)
