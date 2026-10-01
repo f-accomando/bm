@@ -70,7 +70,7 @@ FORCE:
 # Third-party code: its own warning policy, not ours.
 $(LUA_OBJS) $(LWIP_OBJS) $(MBEDTLS_OBJS): WARN := -w
 # Lua scripts embedded with .incbin
-$(BUILD)/k/src/script/embed.S.o: $(wildcard src/script/*.lua) keys/release-pub.pem \
+$(BUILD)/k/src/script/embed.S.o: $(wildcard src/script/*.lua) keys/release-pub.pem keys/market-pub.pem \
                                  $(BUILD)/demo.bm $(BUILD)/stress.bm $(BUILD)/editor.bm $(BUILD)/sound.bm \
                                  $(BUILD)/studio3d.bm \
                                  $(BUILD)/assist.bin src/ai/assist.lua $(BUILD)/assistant.bm \
@@ -231,7 +231,7 @@ test-nano8: $(BUILD)/host/n8host $(BUILD)/host/n8cartinfo $(BUILD)/host/luahost 
 	$(PYTHON) tests/nano8/run.py --build $(BUILD) $(NANO8_ROMS)
 
 .DEFAULT_GOAL := all
-.PHONY: FORCE test-smp all clean firmware image image-pi1 sdcard install sdcard-chainloader sdcard-stress qemu qemu-screenshot \
+.PHONY: FORCE test-smp test-catalog all clean firmware image image-pi1 sdcard install sdcard-chainloader sdcard-stress qemu qemu-screenshot \
         run-serial test test-bm test-ai ai-model test-usb test-audio test-fat test-kitchen test-titan test-sound test-nano8 \
         test-net test-http test-https test-release release disasm wav test-studio test-studio-ui studio
 
@@ -371,7 +371,7 @@ qemu: $(BUILD)/kernel.img
 qemu-screenshot: $(BUILD)/kernel.img
 	./scripts/qemu-screenshot.sh $< $(BUILD)/screen.png
 
-test: all test-bm test-usb test-fat test-audio test-kitchen test-titan test-sound test-nano8 test-net test-http test-https \
+test: all test-bm test-usb test-fat test-audio test-kitchen test-titan test-sound test-nano8 test-net test-http test-https test-catalog \
       test-release test-smp test-ai test-studio
 	$(PYTHON) tests/qemu_test.py --build $(BUILD)
 
@@ -425,6 +425,19 @@ $(BUILD)/host/test_release: tests/net/test_release.c src/net/release.c src/net/r
 	@mkdir -p $(dir $@)
 	$(HOSTCC) -O1 -w -DBM_HOST_TEST -Isrc -Isrc/net -Ithird_party/mbedtls/include \
 		-DMBEDTLS_CONFIG_FILE='"bm_mbedtls.h"' -o $@ tests/net/test_release.c src/net/release.c $(MBEDTLS_SRCS)
+
+# The Market's catalog (M25): scripts/mkmarket.py checks and signs a folder
+# of games with a test key, src/net/catalog.c checks signature, records and
+# files, the kernel's PNG reader decodes the covers
+test-catalog: $(BUILD)/host/test_catalog
+	$(PYTHON) tests/net/run_catalog_test.py $(BUILD)/host/test_catalog
+
+$(BUILD)/host/test_catalog: tests/net/test_catalog.c src/net/catalog.c src/net/catalog.h \
+                            src/bm/n8cart.c src/bm/n8.c src/bm/n8font.c $(MBEDTLS_SRCS)
+	@mkdir -p $(dir $@)
+	$(HOSTCC) -O1 -w -DBM_HOST_TEST -Isrc -Isrc/net -Ithird_party/mbedtls/include \
+		-DMBEDTLS_CONFIG_FILE='"bm_mbedtls.h"' -o $@ tests/net/test_catalog.c src/net/catalog.c \
+		src/bm/n8cart.c src/bm/n8.c src/bm/n8font.c $(MBEDTLS_SRCS) -lm
 
 # Bluetooth LE pairing cryptography (SMP), against the spec's sample data
 test-smp: $(BUILD)/host/test_smp
