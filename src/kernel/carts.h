@@ -27,4 +27,7 @@ void carts_play_buffer(framebuffer_t *fb, const uint8_t *data, size_t len);
 /* The built-in editor (menu, monitor 'e'). */
 void carts_editor(framebuffer_t *fb);
 
+/* The built-in 3D studio: models and animations of a .bm (menu, monitor '3'). */
+void carts_studio3d(framebuffer_t *fb);
+
 #endif

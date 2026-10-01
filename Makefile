@@ -71,13 +71,21 @@ FORCE:
 $(LUA_OBJS) $(LWIP_OBJS) $(MBEDTLS_OBJS): WARN := -w
 # Lua scripts embedded with .incbin
 $(BUILD)/k/src/script/embed.S.o: $(wildcard src/script/*.lua) \
-                                 $(BUILD)/demo.bm $(BUILD)/stress.bm $(BUILD)/editor.bm
+                                 $(BUILD)/demo.bm $(BUILD)/stress.bm $(BUILD)/editor.bm \
+                                 $(BUILD)/studio3d.bm
 
 # The editor (M15), built into the kernel
 $(BUILD)/editor.bm: carts/editor/main.lua carts/editor/cover.png scripts/mkbm.py
 	@mkdir -p $(dir $@)
 	$(PYTHON) scripts/mkbm.py -o $@ --lua $< --cover carts/editor/cover.png \
 	    --title "bm SDK" --author bm
+
+# The 3D studio (M22): models and animations of a .bm, on the console. Its
+# sheet holds the starter tiles of bm Studio (carts/studio3d/mkassets.js).
+$(BUILD)/studio3d.bm: carts/studio3d/main.lua carts/studio3d/cover.png carts/studio3d/sheet.png scripts/mkbm.py
+	@mkdir -p $(dir $@)
+	$(PYTHON) scripts/mkbm.py -o $@ --lua $< --cover carts/studio3d/cover.png \
+	    --sheet carts/studio3d/sheet.png --sheet8 --title "bm 3D studio" --author bm
 
 $(BUILD)/stress.bm: carts/stress/main.lua scripts/mkbm.py
 	@mkdir -p $(dir $@)
@@ -373,11 +381,16 @@ test-bm: $(BUILD)/host/test_bm $(BUILD)/demo.bm
 # bm Studio (sdk/studio): its core in Node (the .bm, PNG and glTF it writes,
 # the editing geometry), then the same files read by the Python of the build
 # and by the kernel's parser. Skipped without Node.
-test-studio: $(BUILD)/host/test_bm $(BUILD)/demo.bm
+test-studio: $(BUILD)/host/test_bm $(BUILD)/demo.bm $(BUILD)/host/luahost $(BUILD)/carts/village.bm
+	rm -rf $(BUILD)/studio3d-sd && mkdir -p $(BUILD)/studio3d-sd/carts
+	cp $(BUILD)/carts/village.bm $(BUILD)/studio3d-sd/carts/
+	$(BUILD)/host/luahost tests/studio/studio3d_host.lua . $(BUILD)/studio3d-sd
 	@if command -v node >/dev/null 2>&1; then \
 	    node tests/studio/test_core.js $(BUILD)/studio-test.bm && \
 	    $(PYTHON) tests/studio/check_cart.py $(BUILD)/studio-test.bm && \
-	    $(BUILD)/host/test_bm $(BUILD)/demo.bm $(BUILD)/studio-test.bm $(BUILD)/studio-test-anim.bm; \
+	    node tests/studio/check_studio3d.js $(BUILD)/studio3d-sd $(BUILD)/carts/village.bm && \
+	    $(BUILD)/host/test_bm $(BUILD)/demo.bm $(BUILD)/studio-test.bm $(BUILD)/studio-test-anim.bm \
+	        $(BUILD)/studio3d-sd/carts/blocks.bm; \
 	else echo "test-studio: node not found, skipped"; fi
 
 # The same in a browser (Playwright + Chromium, not needed by `make test`):
