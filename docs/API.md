@@ -271,6 +271,9 @@ Esempio completo: `carts/hunt` (Hunter's Night).
 | `model(nome)` / `model(n)` | un **modello 3D della cartuccia** (fatto con [bm Studio](../sdk/README.md), sezione MESH) come mesh, con la texture dello sprite sheet; `n` conta dall'1; `nil` se non c'è. Ogni chiamata costruisce una mesh nuova: va fatta in `_init` |
 | `models()` | i nomi dei modelli della cartuccia, in ordine (`{}` se non ne ha) |
 | `bounds3d(m)` | `x0, y0, z0, x1, y1, z1`: il box intorno ai vertici di una mesh, nelle sue coordinate (prima di spostarla, girarla e scalarla con `draw3d`): per centrarla, per le collisioni |
+| `animate(m, [anim, t, anim2, t2, k])` | **animazione scheletrica**: un modello con lo scheletro di [bm Animator](../sdk/README.md#bm-animator) prende la posa dell'animazione `anim` (nome o numero) al tempo `t` in secondi (in ciclo, se l'animazione è in ciclo); con `anim2, t2` mescola due animazioni (`k` da 0, solo la prima, a 1, solo la seconda: per passare dall'una all'altra); senza animazione la posa di riposo. Restituisce la durata dell'animazione. Errore se la mesh non ha scheletro o l'animazione non c'è |
+| `clips(m)` | le animazioni di un modello: `{ {name=, length=, loop=}, ... }` (`{}` senza scheletro) |
+| `bone3d(m, osso)` | `x, y, z`: dove si trova la testa di un osso (nome o numero) nell'ultima posa, nelle coordinate del modello (come `bounds3d`); `nil` se l'osso non c'è. Per attaccare oggetti alle mani, luci, effetti |
 | `draw3d(m, x, y, z, [rx, ry, rz, scala, flag])` | disegna una mesh con z-buffer e luce per faccia. `flag`: 1 = senza z-buffer (né prova né scrittura: pavimenti e sfondi disegnati per primi, più veloci), 2 = senza luce (colori pieni), 4 = **liscia** (Gouraud: luce calcolata sui vertici e sfumata sulla faccia, con dithering; le facce che condividono gli stessi indici di vertice sembrano una superficie curva, per gli spigoli vivi usare vertici separati); si sommano |
 | `camera3d(x, y, z, [yaw, pitch, fov, roll])` | camera (default a z = −5, fov 60°); `roll` inclina l'inquadratura (radianti) |
 | `light3d(x, y, z, [ambiente])` | direzione della luce e luce ambiente (0–1) |
@@ -284,7 +287,8 @@ pavimenti e oggetti grandi restano interi anche quando passano accanto alla came
 Esempio completo: `carts/astrowing` (volo in stile Star Fox: modelli costruiti in
 codice, orizzonte con `project3d`, nebbia, esplosioni, boss). Con i modelli di bm Studio:
 `carts/village` (`model()` per ogni modello, terreno disegnato senza z-buffer, notte con
-`lamp3d` e `fog3d`).
+`lamp3d` e `fog3d`; il paesano di bm Animator con `animate()`, due animazioni mescolate,
+una luce in mano con `bone3d()`, e la sua versione a sprite pre-renderizzati).
 
 ## Budget e consigli
 

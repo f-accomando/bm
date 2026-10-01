@@ -21,6 +21,9 @@ Lua 5.4 embedded. Documentazione: `README.md`, `docs/ROADMAP.md`, `docs/HARDWARE
   `build/studio/`). In questo ambiente: `/opt/node22/lib/node_modules/playwright`.
 - Convenzione dei vertici: una faccia si vede dal lato da cui appare in senso orario
   (`r3d.c`); verso glTF la z cambia segno e l'ordine dei vertici si inverte.
+- **bm Animator** (`sdk/animator`, usa i file di `sdk/studio/js`): scheletri e animazioni
+  nella sezione ANIM (tipo 7); `rig.js` e `animate()` in `runtime.c` fanno gli stessi
+  conti (cambiarli insieme). `sprites.js` (3D→sprite) è un rasterizzatore software.
 
 ## Nome
 

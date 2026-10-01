@@ -858,6 +858,37 @@ strumenti sulla console potranno leggerli e scriverli.
 - **Da verificare sul Pi**: Studio Village (scheda Games); un `.bm` salvato da bm Studio
   copiato in `carts/` (il visualizzatore dei modelli di un progetto nuovo).
 
+**bm Animator (2026-10-01, stesso branch): rigging, keyframe, animazione scheletrica,
+3D→sprite (22.6).** Terza applicazione per il PC (`sdk/animator`), con le stesse regole
+delle altre due (lavora sul `.bm`, porta il progetto da e verso bm Studio).
+- **Formato**: sezione **ANIM** del `.bm` (tipo 7, `src/bm/bm.h`): per ogni modello le
+  ossa (testa, coda, padre), l'osso di ogni vertice, le animazioni (keyframe di posa
+  intera, linear / smooth / step, ciclo). Un osso gira intorno alla testa:
+  M = M_padre · T(testa + t) · R(q) · T(−testa); ogni vertice segue un osso solo (parti
+  rigide come sulla PS1, o stirate alle giunture se gli angoli condivisi sono di ossa
+  diverse). Il kernel la controlla in `bm_parse`.
+- **API**: `model()` porta lo scheletro, `animate(m, anim, t, [anim2, t2, k])` (anche il
+  misto di due animazioni), `clips(m)`, `bone3d(m, osso)`; gli stessi conti in C
+  (`runtime.c`) e in JavaScript (`sdk/studio/js/rig.js`).
+- **bm Animator**: Rig (ossa trascinate per le giunture, specchio sinistra/destra, pelle
+  per faccia o per angolo, a mano o all'osso più vicino), Animate (anelli per girare,
+  coda per puntare, testa per spostare; linea del tempo con keyframe automatici, ciclo,
+  riproduzione, onion skin, specchio e copia della posa, annulla), Sprites (fotogrammi da
+  1–8 direzioni, camera piatta o in prospettiva, luce a bande, contorno, riduzione dei
+  colori, nello sheet con il codice Lua per `sspr()`). Esporta `.glb` con giunture, pelle e
+  animazioni. Si apre con un esempio: il paesano (idle, walk, wave).
+- **22.6 (3D→sprite)**: fatto sul PC con un rasterizzatore software in JavaScript (gli
+  stessi pixel nel browser e in Node). Restano da fare hitbox e hurtbox per fotogramma.
+- **Esempio**: in Studio Village il paesano cammina sul sentiero, saluta alle estremità
+  (due animazioni mescolate), porta una luce di notte (`bone3d`); nell'angolo la sua
+  camminata pre-renderizzata a sprite. `carts/village/models.bm` (da `mkmodels.js`).
+- **Build**: `mkbm.py --models file.bm` porta modelli, scheletri e sheet;
+  `carts/<gioco>/models.bm` entra nella cartuccia da solo.
+- **Test**: `make test-studio` (rig, ANIM, sprite, glTF animato verificato con un
+  valutatore glTF; il parser del kernel sullo stesso file), `make test-studio-ui`
+  (Playwright, anche l'Animator), QEMU `test_animation`.
+- **Da verificare sul Pi**: Studio Village (il paesano che cammina e lo sprite nell'angolo).
+
 Sotto-milestone:
 - **22.0 Base comune**:
   - formato del progetto;

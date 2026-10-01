@@ -1,21 +1,28 @@
-# bm Studio — modelli 3D e pixel art per le cartucce `.bm`
+# bm Studio e bm Animator — le risorse delle cartucce `.bm`
 
-**bm Studio** (`sdk/studio/`) è l'applicazione per il PC con cui si fanno le risorse
-delle cartucce `.bm`: **modelli 3D a tessere** in stile [Crocotile 3D](https://crocotile3d.com/)
-e la **pixel art dello sprite sheet**. Lavora direttamente sul `.bm`: lo apre, cambia i
-modelli e lo sheet, lo salva al suo posto (anche sulla SD). Non tocca il codice del gioco,
-la mappa e le sezioni che non conosce: le riscrive come le ha trovate.
+Due applicazioni per il PC fanno le risorse delle cartucce `.bm`, con le stesse regole:
+lavorano direttamente sul `.bm` (lo aprono, lo cambiano, lo salvano al suo posto, anche
+sulla SD), non toccano il codice del gioco, la mappa e le sezioni che non conoscono, e
+scambiano formati standard con gli altri programmi.
 
-È una pagina web senza dipendenze (HTML + JavaScript, niente da installare né compilare).
+- **bm Studio** (`sdk/studio/`): **modelli 3D a tessere** in stile
+  [Crocotile 3D](https://crocotile3d.com/) e la **pixel art dello sprite sheet**
+  (anche come editor di PNG).
+- **bm Animator** (`sdk/animator/`): **scheletro** dei modelli (rigging), **animazione a
+  keyframe**, **animazione scheletrica** che la console riproduce, e le animazioni
+  **pre-renderizzate in sprite** per i giochi in 2D. [Vedi sotto](#bm-animator).
+
+Sono pagine web senza dipendenze (HTML + JavaScript, niente da installare né compilare).
+Un pulsante in alto passa dall'una all'altra portando il progetto aperto.
 
 ## Aprirlo
 
-- **Doppio clic su `sdk/studio/index.html`** con Chrome o Edge (da Windows con WSL:
-  `\\wsl$\<distro>\...\bm\sdk\studio\index.html`, oppure copia la cartella `sdk/studio`
-  dove vuoi). Firefox e Safari funzionano, ma senza il salvataggio "al suo posto": il
-  `.bm` si scarica.
-- Oppure `make studio` e poi <http://localhost:8765> (da WSL si apre anche dal browser di
-  Windows).
+- **Doppio clic su `sdk/studio/index.html`** (o `sdk/animator/index.html`) con Chrome o
+  Edge (da Windows con WSL: `\\wsl$\<distro>\...\bm\sdk\studio\index.html`, oppure copia la
+  cartella `sdk` dove vuoi). Firefox e Safari funzionano, ma senza il salvataggio "al suo
+  posto": il `.bm` si scarica.
+- Oppure `make studio` e poi <http://localhost:8765/studio/> e
+  <http://localhost:8765/animator/> (da WSL si aprono anche dal browser di Windows).
 
 ## Come si usa (l'essenziale)
 
@@ -121,28 +128,117 @@ strumenti di bm Studio da `mkmodels.js`; `models.glb` si apre nello Studio).
   texture di ogni faccia un po' verso l'interno, perché sul Pi la tessera accanto nello
   sheet non si veda lungo i bordi.
 
+## bm Animator
+
+Apre un `.bm` con dei modelli (fatti con bm Studio) e ne fa lo scheletro e le animazioni;
+parte con un esempio già pronto, un paesano con tre animazioni (idle, walk, wave). Tre
+pagine (`1` `2` `3`, o Tab):
+
+**Rig** — lo scheletro, sul modello a riposo:
+- **＋ Bone** (`N`) aggiunge un osso, figlio di quello scelto (il primo va dal fondo al
+  centro del modello). Un osso ha una **testa**, il punto intorno a cui gira, e una
+  **coda**. Si trascinano le giunture (testa e coda) col mouse, sulla griglia di 1/32;
+  le giunture nello stesso punto si muovono insieme (una catena resta unita), con Shift
+  solo quella dell'osso scelto. Nome e padre si cambiano a destra.
+- **⇋ Mirror** copia l'osso scelto e i suoi figli dall'altra parte (sinistra ↔ destra,
+  con i nomi `.L` / `.R`).
+- **Skin** (pelle): ogni faccia segue un osso. Si scelgono delle facce (clic, Shift+clic,
+  rettangolo) e **Assign** (`A`) le dà all'osso scelto; **Auto** dà ogni faccia all'osso
+  più vicino (parti rigide, come i giochi PS1), **Auto smooth** ogni angolo (il modello si
+  stira alle giunture). I colori mostrano chi segue chi (`C`).
+
+**Animate** — le pose sulla linea del tempo:
+- clic su un osso per sceglierlo; i tre **anelli** (x rosso, y verde, z blu) lo girano
+  (Shift: a scatti di 15°); trascinare la **coda** lo punta dove si vuole, trascinare la
+  **testa** lo sposta. A destra gli stessi valori in numeri.
+- **auto key**: ogni cambio della posa diventa un **keyframe** al tempo corrente (un
+  keyframe è la posa di tutto lo scheletro). `K` ne mette uno, Canc lo toglie; sulla linea
+  del tempo un clic sposta il tempo, i rombi (i keyframe) si trascinano, clic destro li
+  cancella.
+- Spazio riproduce, ←/→ un fotogramma, Shift+←/→ il keyframe prima/dopo; lunghezza,
+  fotogrammi al secondo, ciclo (loop) e il passaggio tra i keyframe: **linear**, **smooth**
+  (accelera e rallenta) o **step** (a scatti, niente in mezzo).
+- `M` specchia la posa (sinistra ↔ destra), Ctrl+C / Ctrl+V copia e incolla la posa, `R`
+  rimette l'osso a riposo; `O` mostra in trasparenza i keyframe prima e dopo (onion skin).
+- Più animazioni per modello (pannello a destra: New, Duplicate, Rename, Delete).
+
+**Sprites** — l'animazione **pre-renderizzata in sprite**, per i giochi in 2D:
+- si sceglie animazione, numero di fotogrammi, dimensione (per esempio 48×48), **direzioni**
+  (1, 2, 4 o 8: il modello girato intorno a sé), quanto si guarda dall'alto, camera piatta
+  (ortogonale) o in prospettiva;
+- l'aspetto: luce (anche a **bande**, cel shading), **contorno**, **colori** ridotti (una
+  tavolozza per tutti i fotogrammi), bordi lisci (disegno a 2× e riduzione);
+- l'anteprima gira e una griglia mostra tutti i fotogrammi (a destra i fotogrammi, in
+  basso le direzioni: davanti, poi girando in senso orario);
+- **Put in the sheet** mette la griglia nello sprite sheet della cartuccia (dove c'è posto,
+  o lo allarga) e dà il codice Lua per disegnarla con `sspr()`; **Export .png** la salva a
+  parte. Il disegno è un piccolo rasterizzatore in JavaScript: gli stessi pixel ogni volta.
+
+Nel gioco:
+
+```lua
+local man, t = nil, 0
+function _init() man = model("villager") end          -- con il suo scheletro
+function _update() t = t + 1 / 60 end
+function _draw()
+  cls(0) zclear()
+  camera3d(0, 2, -6, 0, -0.25)
+  animate(man, "walk", t)                              -- la posa di "walk" al tempo t
+  draw3d(man, 0, 0, 0)
+end
+```
+
+- `animate(m, "walk", t, "wave", t, k)` mescola due animazioni (`k` da 0 a 1: per passare
+  dall'una all'altra); `animate(m)` è la posa di riposo; restituisce la durata.
+- `clips(m)`: le animazioni, `{ {name=, length=, loop=}, ... }`.
+- `bone3d(m, "arm.L")`: dove si trova la testa di un osso nella posa (coordinate del
+  modello): per attaccarci una spada, una lanterna...
+- Esempio: *Studio Village* (`carts/village`): il paesano cammina sul sentiero, saluta
+  alle estremità (due animazioni mescolate), di notte porta una luce (`bone3d`), e nell'angolo
+  c'è la sua versione a sprite pre-renderizzata.
+
+File: lo scheletro e le animazioni stanno nel `.bm` (sezione **ANIM**, `src/bm/bm.h`),
+accanto ai modelli; bm Studio li conserva quando modifica il modello (le facce nuove seguono
+il primo osso). **Export .glb** scrive il modello con giunture, pelle e animazioni (per
+Blender o il visualizzatore 3D di Windows; `smooth` diventa una curva campionata a 30 al
+secondo). Per un gioco del repository: `carts/<gioco>/models.bm` (un `.bm` con i modelli e
+gli scheletri) entra nella cartuccia da solo, con il suo sheet se il gioco non ha
+`sheet.png`.
+
+Limiti: ogni angolo segue **un** osso (niente pesi misti); 64 ossa per modello, 255
+animazioni, 1024 keyframe per animazione; un keyframe è sempre la posa intera. I `.glb`
+con scheletro di altri programmi non si importano (i modelli fermi sì, in bm Studio).
+
 ## Test
 
 ```sh
-make test-studio      # core in Node (file .bm, PNG, glTF, geometria), letto da Python e dal kernel
-make test-studio-ui   # nel browser con Playwright: mouse, strumenti, salvataggio, screenshot in build/studio/
+make test-studio      # core in Node (.bm, ANIM, PNG, glTF anche animato, sprite, geometria), letto da Python e dal kernel
+make test-studio-ui   # nel browser con Playwright: bm Studio e bm Animator col mouse, screenshot in build/studio/
 ```
 
 `make test` comprende `test-studio` (saltato senza Node) e, in QEMU, `test_models`,
-`test_sdk_keeps_models`, `test_village` e `test_studio_cart` (il `.bm` scritto dallo
-Studio, con il suo visualizzatore, sulla console emulata).
+`test_sdk_keeps_models`, `test_village`, `test_animation` (un braccio che si alza sulla
+console emulata) e `test_studio_cart` (i `.bm` scritti dallo Studio, con il loro
+visualizzatore).
 
 ## Struttura
 
 ```
-sdk/studio/index.html        la pagina
+sdk/studio/index.html        bm Studio
 sdk/studio/studio.css        l'aspetto (i colori dell'interfaccia della console)
-sdk/studio/js/core.js        formato .bm e sezioni, MESH, SHEET8, PNG, glTF, codice Lua (anche in Node)
+sdk/studio/js/core.js        formato .bm e sezioni, MESH, ANIM, SHEET8, PNG, glTF, codice Lua (anche in Node)
 sdk/studio/js/tiles.js       lo sheet iniziale, disegnato nel codice
 sdk/studio/js/edit.js        geometria degli strumenti: tessere, blocchi, raggi, spostamenti
+sdk/studio/js/rig.js         scheletri: quaternioni, pose, keyframe, pelle (gli stessi conti del kernel)
+sdk/studio/js/sprites.js     da 3D a sprite: un rasterizzatore software (anche in Node)
+sdk/studio/js/gltfskin.js    .glb con scheletro e animazioni
+sdk/studio/js/examples.js    il paesano d'esempio (scheletro e tre animazioni)
+sdk/studio/js/handoff.js     il progetto da un'applicazione all'altra
 sdk/studio/js/gl.js          rendering WebGL con la convenzione di bm (r3d.c)
-sdk/studio/js/view3d.js      vista 3D e strumenti
+sdk/studio/js/view3d.js      vista 3D e strumenti di bm Studio
 sdk/studio/js/sheetview.js   lo sheet: scelta delle tessere ed editor dei pixel
-sdk/studio/js/app.js         l'applicazione: file, annulla, pannelli, tasti
+sdk/studio/js/app.js         bm Studio: file, annulla, pannelli, tasti
+sdk/animator/index.html      bm Animator
+sdk/animator/js/animator.js  bm Animator: vista con ossa e anelli, linea del tempo, sprite, file
 scripts/bmmesh.py            MESH e .glb per mkbm.py
 ```

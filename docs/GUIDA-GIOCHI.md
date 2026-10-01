@@ -21,9 +21,10 @@ Se il gioco si ferma con un errore, l'editor torna sulla riga in rosso (Ctrl+G l
 ritrova). I giochi si salvano in `/carts` con un nome 8.3 (es. `MIOGIOCO.BM`) e
 compaiono nel menu. Tutto il resto di questa guida vale anche per l'editor.
 
-**Sul PC**, per i modelli 3D e la pixel art: **bm Studio** ([sdk/README.md](../sdk/README.md)),
-una pagina web che apre e salva i `.bm` (anche direttamente sulla SD). L'editor della
-console, quando salva, tiene i modelli fatti con bm Studio.
+**Sul PC**, per i modelli 3D e la pixel art: **bm Studio**; per scheletri, animazioni e
+sprite pre-renderizzati: **bm Animator** ([sdk/README.md](../sdk/README.md)). Sono pagine
+web che aprono e salvano i `.bm` (anche direttamente sulla SD). L'editor della console,
+quando salva, tiene i modelli e le animazioni.
 
 ## 1. Com'è fatta una cartuccia
 
@@ -228,7 +229,30 @@ function _draw()
 end
 ```
 
-`models()` dà i nomi, `bounds3d(m)` il box intorno al modello. **Da Blender** (o da altri
+`models()` dà i nomi, `bounds3d(m)` il box intorno al modello.
+
+**Animati con bm Animator**: lo scheletro e le animazioni (fatti sul PC, nel `.bm`) vengono
+con il modello; `animate(m, "walk", t)` mette il modello nella posa di "walk" al tempo `t`
+(in secondi), prima di `draw3d`:
+
+```lua
+local man, t = nil, 0
+function _init() man = model("villager") end
+function _update() t = t + 1 / 60 end
+function _draw()
+  cls(0) zclear()
+  camera3d(0, 2, -6, 0, -0.25)
+  animate(man, "walk", t)                     -- oppure animate(man, "walk", t, "idle", t, k): un misto
+  draw3d(man, 0, 0, 0)
+end
+```
+
+`clips(m)` dice quali animazioni ci sono, `bone3d(m, "arm.L")` dove si trova un osso (per
+attaccargli una spada o una luce). bm Animator fa anche gli **sprite pre-renderizzati**:
+l'animazione disegnata da 1 a 8 direzioni nello sprite sheet, da usare con `sspr()` in un
+gioco 2D (il codice Lua per disegnarli lo prepara lui).
+
+**Da Blender** (o da altri
 programmi): un `.glb` si importa in bm Studio (le texture finiscono nello sprite sheet) e
 da lì nel `.bm`; per un gioco del repository basta mettere `models.glb` nella sua cartella
 (vedi `carts/village`).
@@ -305,5 +329,5 @@ disegnate da `scripts/mkcovers.py`. Senza copertina il menu stampa il titolo.
 | `carts/hunt` | 320×180, mappa 2048×2048 generata, luci, combattimento, boss |
 | `carts/demo` | sprite sheet PNG e mappa CSV veri e propri |
 | `carts/kitchen` | gioco grande: sorgenti in più file uniti da `build.py`, 3D con mesh costruite in codice, 1–4 giocatori (`btn(i, p)`, `players()`), salvataggi, e un simulatore host (`tests/kitchen/sim.lua`) che gioca da solo per trovare errori e misurare il costo di ogni frame |
-| `carts/village` | modelli 3D fatti con bm Studio (`models.glb`): `model()`, terreno senza z-buffer, notte con `lamp3d` e nebbia |
+| `carts/village` | modelli 3D fatti con bm Studio e un paesano animato con bm Animator (`models.bm`): `model()`, `animate()` con due animazioni mescolate, `bone3d()`, terreno senza z-buffer, notte con `lamp3d` e nebbia, sprite pre-renderizzati |
 | `carts/titan` | sprite grandi pre-renderizzati (un modello 3D fatto in Python diventa pixel art a strati: un frame, tante combinazioni di equipaggiamento), sheet grande con palette (`--sheet8`), parallasse, stati di un picchiaduro con hitbox per frame, CPU avversaria |

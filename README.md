@@ -34,16 +34,23 @@ Games e chiude i pannelli; nel monitor apre il menu.
 Per scrivere un gioco: [docs/GUIDA-GIOCHI.md](docs/GUIDA-GIOCHI.md) (guida pratica) e
 [docs/API.md](docs/API.md) (riferimento).
 
-## bm Studio: modelli 3D e pixel art sul PC
+## bm Studio e bm Animator: le risorse sul PC
 
-**bm Studio** ([sdk/README.md](sdk/README.md)) è l'applicazione per il PC che fa le
-risorse delle cartucce, in stile Crocotile 3D: **modelli 3D a tessere** (si posano le
-tessere dello sprite sheet su una griglia, si impilano blocchi, si spostano gli angoli
-per tetti e rampe, si dipinge sul modello) e la **pixel art dello sprite sheet**. Lavora
-direttamente sul `.bm` (lo apre e lo salva al suo posto, anche sulla SD); scambia `.glb`
-e `.png` con gli altri programmi. È una pagina web senza dipendenze: doppio clic su
-`sdk/studio/index.html` (Chrome o Edge), oppure `make studio`. Nel gioco:
-`m = model("casa")`, poi `draw3d(m, x, y, z)`. Esempio: *Studio Village* (`carts/village`).
+Due applicazioni per il PC ([sdk/README.md](sdk/README.md)) fanno le risorse delle
+cartucce. Lavorano direttamente sul `.bm` (lo aprono e lo salvano al suo posto, anche
+sulla SD) e scambiano `.glb` e `.png` con gli altri programmi. Sono pagine web senza
+dipendenze: doppio clic su `sdk/studio/index.html` o `sdk/animator/index.html` (Chrome o
+Edge), oppure `make studio`.
+
+- **bm Studio**, in stile Crocotile 3D: **modelli 3D a tessere** (si posano le tessere
+  dello sprite sheet su una griglia, si impilano blocchi, si spostano gli angoli per tetti e
+  rampe, si dipinge sul modello) e la **pixel art dello sprite sheet**. Nel gioco:
+  `m = model("casa")`, poi `draw3d(m, x, y, z)`.
+- **bm Animator**: **scheletro** (ossa e pelle), **animazioni a keyframe** sulla linea del
+  tempo, riprodotte dalla console con `animate(m, "walk", t)` (**animazione scheletrica**),
+  e le animazioni **pre-renderizzate in sprite** (da 1 a 8 direzioni) nello sprite sheet.
+
+Esempio: *Studio Village* (`carts/village`): i modelli dello Studio e un paesano animato.
 
 ## Roadmap
 
@@ -78,7 +85,7 @@ Risoluzioni di menu, console e giochi, e quanto costano: [docs/RISOLUZIONI.md](d
 | M19 | HTTPS: aggiornamenti da GitHub, "git leggero" (archivi e API con token) | |
 | **M20** | **Titan Clash**: picchiaduro 2D a robot giganti; prima base giocabile (1 robot, armatura leggera/pesante, spada o cannoni, hangar, contro CPU o in 2) | ✅ base giocabile |
 | **M21** | Menu "home" a griglia (Games / Dev) e giochi sospesi in memoria | ✅ |
-| M22 | SDK e strumenti dedicati: codice, pixel art, 3D, musica, import/export, 3D→sprite, sprite stacking | in corso: **bm Studio** sul PC (3D, pixel art, import/export) |
+| M22 | SDK e strumenti dedicati: codice, pixel art, 3D, musica, import/export, 3D→sprite, sprite stacking | in corso: **bm Studio** e **bm Animator** sul PC (3D, pixel art, import/export, animazione, 3D→sprite) |
 | M23 | Emulatore di cartucce `.p8` / `.p8.png` (stile PICO-8) | in coda |
 | M24 | Scambio in rete locale tra console (P2P) | in coda |
 | M25 | Store su GitHub: catalogo, download verificati, pubblicazione dall'SDK | in coda |
@@ -284,12 +291,13 @@ make                  # build/kernel.img + build/chainloader.img
 make test             # test end-to-end in QEMU: boot, console, schermo, eccezioni, chainloader
 make qemu             # esegue in QEMU (-M raspi0), seriale sul terminale
 make qemu-screenshot  # esecuzione headless, salva build/screen.png
-make studio           # bm Studio su http://localhost:8765 (sdk/README.md)
+make studio           # bm Studio e bm Animator su http://localhost:8765 (sdk/README.md)
 ```
 
-`make test` comprende anche `make test-studio` (bm Studio in Node: i file che scrive,
-letti anche dal Python della build e dal parser del kernel; saltato senza Node).
-`make test-studio-ui` prova lo Studio in un browser vero (Playwright + Chromium).
+`make test` comprende anche `make test-studio` (bm Studio e bm Animator in Node: i file
+che scrivono, letti anche dal Python della build e dal parser del kernel; saltato senza
+Node). `make test-studio-ui` prova le due applicazioni in un browser vero (Playwright +
+Chromium).
 
 La CI GitHub Actions (`.github/workflows/ci.yml`) esegue build e `make test` a ogni push.
 Se modifichi di proposito il test pattern: `python3 tests/qemu_test.py --update-ref`.
@@ -320,7 +328,8 @@ Cartucce solo per bm che sfruttano il Pi Zero: **640×360, colore diretto a 16 b
 `src/bm/bm.h` (header + sezioni: copertina, codice Lua, sprite sheet RGBA, mappa, modelli
 3D di bm Studio); la grafica è salvata in un formato indipendente dallo schermo, pronta
 per un futuro 32 bit. I modelli 3D (`--models modelli.glb`, o un `.bm` fatto con
-[bm Studio](sdk/README.md)) si caricano con `model("nome")`.
+[bm Studio](sdk/README.md)) si caricano con `model("nome")`; con uno scheletro di bm
+Animator, `animate()` li muove.
 
 ```sh
 python3 scripts/mkbm.py -o gioco.bm --lua main.lua --sheet sheet.png --map map.csv \
@@ -330,7 +339,7 @@ python3 scripts/mkbm.py -o gioco.bm --lua main.lua --sheet sheet.png --map map.c
 La cartuccia definisce `_init()`, `_update()` e `_draw()` (60 volte al secondo) e usa
 un'API in stile PICO-8: forme, sprite e mappa, testo, input (`btn`/`btnp`), tempo,
 3D software. **Riferimento completo e guida alla prima cartuccia: [docs/API.md](docs/API.md).**
-Giochi di esempio: `carts/pong`, `carts/snake`, `carts/shooter`, `carts/astrowing` (3D), `carts/hunt` (mappa 2048×2048, luci; grafica e mappa da `mkassets.py`), `carts/texroom` (stanza 3D con texture a 320×180, ms e fps sullo schermo; texture da `mkassets.py`), `carts/village` (Studio Village: modelli 3D fatti con bm Studio, in `models.glb`) (solo Lua, sprite
+Giochi di esempio: `carts/pong`, `carts/snake`, `carts/shooter`, `carts/astrowing` (3D), `carts/hunt` (mappa 2048×2048, luci; grafica e mappa da `mkassets.py`), `carts/texroom` (stanza 3D con texture a 320×180, ms e fps sullo schermo; texture da `mkassets.py`), `carts/village` (Studio Village: modelli 3D fatti con bm Studio e un paesano animato con bm Animator, in `models.bm`) (solo Lua, sprite
 disegnati nel codice con `sset`), `carts/demo` (sprite sheet PNG e mappa CSV),
 `carts/kitchen` (Chaos Kitchen: gioco grande in più file Lua uniti da `build.py`, 3D,
 fino a 4 giocatori, simulatore host in `tests/kitchen/`), `carts/titan` (Titan Clash:
@@ -488,10 +497,11 @@ src/bm/                 cartucce native: formato, grafica RGB565 (gfx16), 3D sof
                          runtime Lua, stress test
 carts/demo/              cartuccia nativa demo: main.lua, sheet.png, map.csv
 carts/pong|snake|shooter|astrowing|hunt|texroom giochi demo (solo Lua)
-carts/village/           Studio Village: main.lua, models.glb (modelli e sheet da bm Studio),
-                         mkmodels.js (li costruisce con gli strumenti dello Studio)
+carts/village/           Studio Village: main.lua, models.bm (modelli, scheletro e sheet),
+                         mkmodels.js (li costruisce con gli strumenti di Studio e Animator)
 sdk/studio/              bm Studio: modelli 3D e pixel art per i .bm, sul PC (sdk/README.md)
-tests/studio/            test di bm Studio: core in Node, interfaccia con Playwright
+sdk/animator/            bm Animator: scheletri, animazioni, sprite pre-renderizzati
+tests/studio/            test di bm Studio e bm Animator: core in Node, interfaccia con Playwright
 carts/kitchen/           Chaos Kitchen (M17): src/*.lua, build.py, mkassets.py,
                          models/*.glb e import_chefs.py (modelli 3D degli chef)
 tests/kitchen/           simulatore host di Chaos Kitchen (luahost + sim.lua)
@@ -501,6 +511,7 @@ tests/titan/             simulatore host di Titan Clash (sim.lua)
 docs/API.md              API delle cartucce .bm e guida alla prima cartuccia
 scripts/mkbm.py         packer .bm (PNG e CSV, solo libreria standard Python)
 scripts/bmmesh.py        sezione MESH (modelli 3D) e file .glb di bm Studio, per mkbm.py --models
+                         (con un .bm: modelli, scheletri e sheet)
 scripts/mksd.py          immagine SD (MBR + FAT32): make image e test in QEMU
 tests/bm/               test host della grafica e del formato
 src/script/luavm.c       stato Lua, allocatore con limite (64 MiB), esecuzione protetta
