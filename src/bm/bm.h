@@ -138,6 +138,12 @@ int bm_parse(const uint8_t *data, size_t len, bm_cart_t *c, char *err, size_t er
 int bm_sheet8_unpack(const bm_cart_t *c, void (*set)(void *ctx, int x, int y, const uint8_t rgba[4]),
                       void *ctx);
 
+/* Packs a SHEET8 section: w x h palette indices `idx` (row by row), the
+ * palette as `ncol` RGBA8888 colours (1..256). The runs are those of bm
+ * Studio's encoder (core.js), so both give the same bytes. Returns a
+ * malloc'd section (*outlen bytes), or NULL without memory. */
+uint8_t *bm_sheet8_pack(int w, int h, const uint8_t *pal_rgba, int ncol, const uint8_t *idx, size_t *outlen);
+
 /* Checks a MESH section: the number of models, or -1 if it is broken. */
 int bm_mesh_check(const uint8_t *mesh, uint32_t size);
 /* Model i (0-based) of a checked MESH section: 0, or -1 if there is none. */
@@ -202,7 +208,9 @@ typedef struct {
 /* bm_rewrite, with the sections of `put` in place of those of their type
  * (or at the end, if the file has none); lua NULL keeps the code as it is.
  * Putting MESH or ANIM also takes away those of the first bm Studio files
- * (a type 6 that is not a sound bank, a type 7). */
+ * (a type 6 that is not a sound bank, a type 7). A SHEET or SHEET8 put is
+ * the sheet: it takes the place of the file's sheet, whichever of the two
+ * it was. */
 uint8_t *bm_rewrite_with(const uint8_t *old, size_t oldlen, const char *lua, size_t lua_len,
                          const char *title, const char *author, int width, const bm_put_t *put, int nput,
                          size_t *outlen);

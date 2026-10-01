@@ -27,6 +27,16 @@ function font(n)
   return cur_font[1], cur_font[2]
 end
 local keys, held, pressed = {}, {}, {}
+-- the keys as chips: written as "[name]"; prompt(name) alone measures
+local function chip_w(n) return #n == 1 and 16 or math.max(16, #n * 6 + 10) end
+function prompt(n, x, y)
+  assert(type(n) == "string", "prompt: a name")
+  if type(x) ~= "number" then return chip_w(n), 16 end
+  screen[#screen + 1] = "[" .. n .. "]"
+  return x + chip_w(n)
+end
+local last_input
+function lastinput() return last_input end
 function keyp() return table.remove(keys, 1) end
 function btn(i) return held[i] == true end
 function btnp(i) return pressed[i] == true end
@@ -156,6 +166,16 @@ local fw = font()
 check(fw == 6, "6x12: the tool's font is back after drawing")
 assist.close()
 font("8x16")
+
+-- the keys at the bottom: the keyboard's, or the pad's buttons after a pad
+assist.open{ mode = "code" }
+type_("come salto")
+check(on_screen("[enter]") and on_screen("[esc]") and on_screen("insert"), "keys: the keyboard's")
+last_input = "ds4"
+frame()
+check(on_screen("[A]") and on_screen("[B]") and not on_screen("[enter]"), "keys: the pad's after a pad")
+last_input = nil
+assist.close()
 
 say(string.format("panel: %d checks, %d failed", checks, fails))
 os.exit(fails == 0 and 0 or 1)

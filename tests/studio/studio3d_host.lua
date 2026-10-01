@@ -83,6 +83,15 @@ E.rectfill = function(x, y, w, h, c) if c == 0x3050A0 then sel_rows[#sel_rows + 
 for _, n in ipairs({ "cls", "rect", "line", "circ", "circfill", "tri", "clip", "sspr", "spr",
                      "camera", "zclear", "light3d", "fog3d", "lamp3d", "pset" }) do E[n] = nop end
 E.print = function(s, x, y) texts[#texts + 1] = { tostring(s), x or 0, y or 0 }; return (x or 0) + #tostring(s) * 8 end
+-- the keys as chips: written as "[name]"; prompt(name) alone measures
+local function chip_w(n) return #n == 1 and 16 or math.max(16, #n * 6 + 10) end
+E.prompt = function(n, x, y)
+  assert(type(n) == "string", "prompt: a name")
+  if type(x) ~= "number" then return chip_w(n), 16 end
+  texts[#texts + 1] = { "[" .. n .. "]", x, y }
+  return x + chip_w(n)
+end
+E.lastinput = function() return nil end
 E.time = function() return frame / 60 end
 E.stat = function() return 0 end
 E.log = function(...) io.write(table.concat({ ... }, "\t"), "\n") end
@@ -361,7 +370,7 @@ for i, f in ipairs(list) do if f.name == "village.bm" then idx = i end end
 for _ = 2, idx do key("down") end
 key("\n")
 check(#cur_models() == 8, "the village: 8 models, " .. #cur_models())
-check(sees("F1 play") and sees("MODELS"), "the player")
+check(sees("[f1]") and sees("MODELS"), "the player")
 local orig6, orig7 = sec[8], sec[9]
 -- choose the villager
 local names = {}
@@ -534,7 +543,7 @@ check(sees("colours: arrows choose"), "pad Y (alone): the picker (on the colours
 buttons(5)
 check(sees("model: 8 faces"), "pad B: back to the build page")
 pad[7] = true; frames(2); pad[0] = true; frames(2); pad = {}; frames(3)
-check(sees("MODELS") and sees("F1 play"), "pad Y + left: the page before, play")
+check(sees("MODELS") and sees("[f1]"), "pad Y + left: the page before, play")
 pad[7] = true; frames(2); pad[5] = true; frames(2); pad = {}; frames(3)
 check(sees("Exit 3D studio"), "pad Y + B: the menu")
 buttons(5)

@@ -72,7 +72,7 @@ $(LUA_OBJS) $(LWIP_OBJS) $(MBEDTLS_OBJS): WARN := -w
 # Lua scripts embedded with .incbin
 $(BUILD)/k/src/script/embed.S.o: $(wildcard src/script/*.lua) keys/release-pub.pem \
                                  $(BUILD)/demo.bm $(BUILD)/stress.bm $(BUILD)/editor.bm $(BUILD)/sound.bm \
-                                 $(BUILD)/studio3d.bm $(BUILD)/mesh.bm \
+                                 $(BUILD)/studio3d.bm $(BUILD)/mesh.bm $(BUILD)/pixel.bm \
                                  $(BUILD)/assist.bin src/ai/assist.lua $(BUILD)/assistant.bm \
                                  $(BUILD)/code.bm
 
@@ -121,6 +121,12 @@ $(BUILD)/studio3d.bm: carts/studio3d/main.lua carts/studio3d/cover.png carts/stu
 $(BUILD)/mesh.bm: carts/mesh/main.lua carts/mesh/cover.png scripts/mkbm.py
 	@mkdir -p $(dir $@)
 	$(PYTHON) scripts/mkbm.py -o $@ --lua $< --cover carts/mesh/cover.png --title "bm Mesh" --author bm
+
+# bm Pixel: the pixel art of a .bm (its sprite sheet), on the console. Its
+# cover: carts/pixel/mkcover.js.
+$(BUILD)/pixel.bm: carts/pixel/main.lua carts/pixel/cover.png scripts/mkbm.py
+	@mkdir -p $(dir $@)
+	$(PYTHON) scripts/mkbm.py -o $@ --lua $< --cover carts/pixel/cover.png --title "bm Pixel" --author bm
 
 $(BUILD)/stress.bm: carts/stress/main.lua scripts/mkbm.py
 	@mkdir -p $(dir $@)
@@ -239,7 +245,8 @@ test-nano8: $(BUILD)/host/n8host $(BUILD)/host/n8cartinfo $(BUILD)/host/luahost 
 .DEFAULT_GOAL := all
 .PHONY: FORCE test-smp all clean firmware image image-pi1 sdcard install sdcard-chainloader sdcard-stress qemu qemu-screenshot \
         run-serial test test-bm test-ai ai-model test-usb test-audio test-fat test-kitchen test-titan test-sound test-nano8 \
-        test-net test-http test-https test-release release disasm wav test-studio test-studio-ui studio showreel
+        test-net test-http test-https test-release release disasm wav test-studio test-studio-ui studio test-prompts \
+        showreel
 
 all: $(BUILD)/kernel.img $(BUILD)/chainloader.img $(GAME_CARTS)
 
@@ -378,7 +385,7 @@ qemu-screenshot: $(BUILD)/kernel.img
 	./scripts/qemu-screenshot.sh $< $(BUILD)/screen.png
 
 test: all test-bm test-usb test-fat test-audio test-kitchen test-titan test-sound test-nano8 test-net test-http test-https \
-      test-release test-smp test-ai test-studio
+      test-release test-smp test-ai test-studio test-prompts
 	$(PYTHON) tests/qemu_test.py --build $(BUILD)
 
 $(BUILD)/host/test_bm: tests/bm/test_bm.c src/bm/gfx16.c src/bm/r3d.c src/bm/format.c src/lib/crc32.c src/bm/*.h
@@ -505,6 +512,18 @@ test-bm: $(BUILD)/host/test_bm $(BUILD)/demo.bm $(BUILD)/host/test_meshcap $(BUI
 	    $(BUILD)/carts/texroom.bm floor_mesh,walls_mesh,crate_mesh,pillar_mesh \
 	    $(BUILD)/carts/kitchen.bm chef_classic1_body,chef1_body,plate,dplate
 
+# The button prompts (bm-ui): every one checked, and both sets drawn 3x as
+# on a TV into build/prompts/prompts.png (the menu) and chips.png (the apps)
+$(BUILD)/host/test_prompts: tests/ui/test_prompts.c src/kernel/prompts.c src/kernel/prompts.h \
+                            src/gfx/font8x16.c src/gfx/font6x12.c src/lib/crc32.c
+	@mkdir -p $(dir $@)
+	$(HOSTCC) -O2 -Wall -Wextra -Isrc -o $@ tests/ui/test_prompts.c src/kernel/prompts.c \
+		src/gfx/font8x16.c src/gfx/font6x12.c src/lib/crc32.c -lm
+
+test-prompts: $(BUILD)/host/test_prompts
+	@mkdir -p $(BUILD)/prompts
+	$< $(BUILD)/prompts
+
 # The assistant (M30): C features and network against the Python reference,
 # answers to the held-out questions, sprite generator
 AI_SRCS := src/ai/assist.c src/ai/nn.c src/ai/text.c src/ai/sprite.c
@@ -538,11 +557,16 @@ test-studio: $(BUILD)/host/test_bm $(BUILD)/demo.bm $(BUILD)/host/luahost $(BUIL
 	$(BUILD)/host/test_meshcap src/bm/runtime.c $(BUILD)/mesh-sd/carts/astrowing.bm ship \
 	    $(BUILD)/mesh-sd/carts/village.bm "" $(BUILD)/mesh-sd/carts/meshcopy.bm ""
 	$(PYTHON) scripts/bmmesh.py $(BUILD)/mesh-sd/carts/astrowing.bm $(BUILD)/mesh-sd/carts/village.bm >/dev/null
+	rm -rf $(BUILD)/pixel-sd && mkdir -p $(BUILD)/pixel-sd/carts
+	cp $(BUILD)/carts/village.bm $(BUILD)/demo.bm $(BUILD)/pixel-sd/carts/
+	$(BUILD)/host/luahost tests/studio/pixel_host.lua . $(BUILD)/pixel-sd
+	$(BUILD)/host/test_meshcap src/bm/runtime.c $(BUILD)/pixel-sd/carts/village.bm "" $(BUILD)/pixel-sd/carts/newspr.bm ""
 	@if command -v node >/dev/null 2>&1; then \
 	    node tests/studio/test_core.js $(BUILD)/studio-test.bm && \
 	    $(PYTHON) tests/studio/check_cart.py $(BUILD)/studio-test.bm && \
 	    node tests/studio/check_studio3d.js $(BUILD)/studio3d-sd $(BUILD)/carts/village.bm && \
 	    node tests/studio/check_mesh.js $(BUILD)/mesh-sd $(BUILD)/carts/village.bm && \
+	    node tests/studio/check_pixel.js $(BUILD)/pixel-sd $(BUILD)/carts/village.bm && \
 	    $(BUILD)/host/test_bm $(BUILD)/demo.bm $(BUILD)/studio-test.bm $(BUILD)/studio-test-anim.bm \
 	        $(BUILD)/studio3d-sd/carts/blocks.bm; \
 	else echo "test-studio: node not found, skipped"; fi

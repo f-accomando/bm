@@ -23,6 +23,7 @@
 #include "drivers/dma.h"
 #include "arch/cache.h"
 #include "kernel/crumbs.h"
+#include "kernel/prompts.h"
 #include "n8lua.h"
 #include "ai/lua_ai.h"
 #include "require.h"
@@ -139,11 +140,18 @@ static int l_spr(lua_State *L)
     return 0;
 }
 
+/* sspr(sx, sy, sw, sh, dx, dy, [flip_x, flip_y, zoom]): zoom (default 1)
+ * draws it that many times bigger, or smaller below 1 (nearest pixel) */
 static int l_sspr(lua_State *L)
 {
     sheet_commit();
-    g16_sspr(&rt.g, &rt.sheet, ival(L, 1), ival(L, 2), ival(L, 3), ival(L, 4), ival(L, 5), ival(L, 6),
-             lua_toboolean(L, 7), lua_toboolean(L, 8));
+    lua_Number zoom = luaL_optnumber(L, 9, 1);
+    if (zoom == 1)
+        g16_sspr(&rt.g, &rt.sheet, ival(L, 1), ival(L, 2), ival(L, 3), ival(L, 4), ival(L, 5), ival(L, 6),
+                 lua_toboolean(L, 7), lua_toboolean(L, 8));
+    else
+        g16_sspr_zoom(&rt.g, &rt.sheet, ival(L, 1), ival(L, 2), ival(L, 3), ival(L, 4), ival(L, 5), ival(L, 6),
+                      lua_toboolean(L, 7), lua_toboolean(L, 8), (float)zoom);
     return 0;
 }
 
@@ -221,6 +229,117 @@ static int l_font(lua_State *L)
     lua_pushinteger(L, rt.g.font->width);
     lua_pushinteger(L, rt.g.font->height);
     return 2;
+}
+
+/* ---------------------------------------------------------------- prompts */
+
+/* the pad's buttons, upper case: as on a DS4, or on a lettered pad */
+static const struct { const char *name; uint8_t ds4, pad; } pad_prompts[] = {
+    { "A", PROMPT_CROSS, PROMPT_PAD_A }, { "B", PROMPT_CIRCLE, PROMPT_PAD_B },
+    { "X", PROMPT_SQUARE, PROMPT_PAD_X }, { "Y", PROMPT_TRIANGLE, PROMPT_PAD_Y },
+    { "START", PROMPT_OPTIONS, PROMPT_PAD_START }, { "SELECT", PROMPT_SHARE, PROMPT_PAD_SELECT },
+    { "L1", PROMPT_L1, PROMPT_L1 }, { "R1", PROMPT_R1, PROMPT_R1 },
+    { "L2", PROMPT_L2, PROMPT_L2 }, { "R2", PROMPT_R2, PROMPT_R2 },
+    { "L3", PROMPT_L3, PROMPT_L3 }, { "R3", PROMPT_R3, PROMPT_R3 },
+    { "LSTICK", PROMPT_LSTICK, PROMPT_LSTICK }, { "RSTICK", PROMPT_RSTICK, PROMPT_RSTICK },
+    { "DPAD", PROMPT_DPAD, PROMPT_DPAD }, { "UP", PROMPT_DPAD_UP, PROMPT_DPAD_UP },
+    { "DOWN", PROMPT_DPAD_DOWN, PROMPT_DPAD_DOWN }, { "LEFT", PROMPT_DPAD_LEFT, PROMPT_DPAD_LEFT },
+    { "RIGHT", PROMPT_DPAD_RIGHT, PROMPT_DPAD_RIGHT }, { "UPDOWN", PROMPT_DPAD_UPDOWN, PROMPT_DPAD_UPDOWN },
+    { "LEFTRIGHT", PROMPT_DPAD_LEFTRIGHT, PROMPT_DPAD_LEFTRIGHT },
+    { "PS", PROMPT_PS, PROMPT_PS }, { "TOUCHPAD", PROMPT_TOUCHPAD, PROMPT_TOUCHPAD },
+    { "CROSS", PROMPT_CROSS, PROMPT_CROSS }, { "CIRCLE", PROMPT_CIRCLE, PROMPT_CIRCLE },
+    { "SQUARE", PROMPT_SQUARE, PROMPT_SQUARE }, { "TRIANGLE", PROMPT_TRIANGLE, PROMPT_TRIANGLE },
+    { "OPTIONS", PROMPT_OPTIONS, PROMPT_OPTIONS }, { "SHARE", PROMPT_SHARE, PROMPT_SHARE },
+};
+
+/* the keyboard's keys with a name, lower case (the names of keyp()) */
+static const struct { const char *name; uint8_t id; } key_prompts[] = {
+    { "up", PROMPT_KEY_UP }, { "down", PROMPT_KEY_DOWN }, { "left", PROMPT_KEY_LEFT },
+    { "right", PROMPT_KEY_RIGHT }, { "enter", PROMPT_KEY_ENTER }, { "esc", PROMPT_KEY_ESC },
+    { "space", PROMPT_KEY_SPACE }, { "tab", PROMPT_KEY_TAB }, { "backspace", PROMPT_KEY_BACKSPACE },
+    { "shift", PROMPT_KEY_SHIFT }, { "ctrl", PROMPT_KEY_CTRL }, { "alt", PROMPT_KEY_ALT },
+    { "del", PROMPT_KEY_DEL }, { "home", PROMPT_KEY_HOME }, { "end", PROMPT_KEY_END },
+    { "pgup", PROMPT_KEY_PGUP }, { "pgdn", PROMPT_KEY_PGDN },
+};
+
+/* the pad the prompts show: the one pressed last, a DS4 until then */
+static int prompt_lettered;
+
+static const prompt_t *find_prompt(const char *n, int small)
+{
+    int src = hid_last_source();
+    if (src == HID_SOURCE_DS4 || src == HID_SOURCE_PAD)
+        prompt_lettered = src == HID_SOURCE_PAD;
+    for (size_t i = 0; i < sizeof pad_prompts / sizeof *pad_prompts; i++)
+        if (!strcmp(n, pad_prompts[i].name))
+            return prompt_chip(prompt_lettered ? pad_prompts[i].pad : pad_prompts[i].ds4, small);
+    for (size_t i = 0; i < sizeof key_prompts / sizeof *key_prompts; i++)
+        if (!strcmp(n, key_prompts[i].name))
+            return prompt_chip(key_prompts[i].id, small);
+    if (n[0] == 'f' && n[1] >= '1' && n[1] <= '9') {
+        int k = atoi(n + 1);
+        if (k >= 1 && k <= 12 && (n[2] == 0 || (k >= 10 && n[3] == 0)))
+            return prompt_chip(PROMPT_KEY_F1 + k - 1, small);
+    }
+    if (n[0] && !n[1] && !(n[0] >= 'A' && n[0] <= 'Z'))
+        return prompt_chip_key((unsigned char)n[0], small);
+    return NULL;
+}
+
+/* prompt(name, x, y [, small]): a button or a key as a chip of the apps'
+ * set (prompts.c), its top left at (x, y), 16 px high for 8x16 text, 12
+ * with small (by default when the font is 6x12); returns the x after it.
+ * prompt(name [, small]) only measures: the width and height.
+ * Upper case the pad's buttons ("A", "B", "X", "Y", "START", "L1",
+ * "UPDOWN"...), shown as on the pad pressed last: a DS4 (cross, circle...)
+ * until another pad is used. Lower case the keyboard's keys, with the
+ * names of keyp() ("enter", "esc", "f1", "up") or one character ("s"). */
+static int l_prompt(lua_State *L)
+{
+    const char *n = luaL_checkstring(L, 1);
+    int measure = !lua_isnumber(L, 2), at = measure ? 2 : 4;
+    int small = lua_isnoneornil(L, at) ? rt.g.font->height <= 12 : lua_toboolean(L, at);
+    const prompt_t *p = find_prompt(n, small);
+    if (!p)
+        return luaL_argerror(L, 1, "not a button or a key");
+    if (measure) {
+        lua_pushinteger(L, p->w);
+        lua_pushinteger(L, p->h);
+        return 2;
+    }
+    int x = ival(L, 2), y = ival(L, 3);
+    for (int j = 0; j < p->h; j++)
+        for (int i = 0; i < p->w; i++) {
+            uint32_t c = p->px[j * p->w + i], a = c >> 24;
+            if (!a)
+                continue;
+            if (a < 255) {                      /* the edges: over what is there */
+                int b = g16_pget(&rt.g, x + i, y + j);
+                if (b < 0)
+                    continue;
+                uint32_t under = g16_to_rgb24((uint16_t)b), out = 0;
+                for (int sh = 0; sh <= 16; sh += 8) {
+                    int u = (int)(under >> sh & 255), v = (int)(c >> sh & 255);
+                    out |= (uint32_t)(u + (v - u) * (int)a / 255) << sh;
+                }
+                c = out;
+            }
+            g16_pset(&rt.g, x + i, y + j, g16_rgb24(c & 0xFFFFFF));
+        }
+    lua_pushinteger(L, x + p->w);
+    return 1;
+}
+
+/* lastinput(): what pressed something last, "keyboard", "ds4" or "pad"
+ * (another controller); nil before anything is pressed */
+static int l_lastinput(lua_State *L)
+{
+    int s = hid_last_source();
+    if (s == HID_SOURCE_NONE)
+        lua_pushnil(L);
+    else
+        lua_pushstring(L, s == HID_SOURCE_KEYBOARD ? "keyboard" : s == HID_SOURCE_DS4 ? "ds4" : "pad");
+    return 1;
 }
 
 static int l_camera(lua_State *L) { g16_camera(&rt.g, oval(L, 1, 0), oval(L, 2, 0)); return 0; }
@@ -1510,6 +1629,7 @@ static int l_cart_data(lua_State *L);
 static int l_cart_read(lua_State *L);
 static int l_cart_write(lua_State *L);
 static int l_cart_meshes(lua_State *L);
+static int l_cart_sheet(lua_State *L);
 
 /* ---------------------------------------------------------------- light */
 
@@ -1558,6 +1678,7 @@ static const luaL_Reg api[] = {
     { "rect", l_rect }, { "rectfill", l_rectfill }, { "circ", l_circ }, { "circfill", l_circfill },
     { "spr", l_spr }, { "sspr", l_sspr }, { "map", l_map }, { "mget", l_mget }, { "mset", l_mset },
     { "sget", l_sget }, { "sset", l_sset }, { "print", l_print }, { "font", l_font }, { "camera", l_camera },
+    { "prompt", l_prompt }, { "lastinput", l_lastinput },
     { "clip", l_clip }, { "rgb", l_rgb }, { "btn", l_btn }, { "btnp", l_btnp },
     { "players", l_players }, { "stick", l_stick },
     { "time", l_time }, { "stat", l_stat }, { "tri", l_tri },
@@ -1573,6 +1694,7 @@ static const luaL_Reg api[] = {
     { "cart_save", l_cart_save }, { "cart_run", l_cart_run }, { "cart_arg", l_cart_arg },
     { "cart_data", l_cart_data },
     { "cart_read", l_cart_read }, { "cart_write", l_cart_write }, { "cart_meshes", l_cart_meshes },
+    { "cart_sheet", l_cart_sheet },
     { "light_begin", l_light_begin }, { "light", l_light }, { "light_end", l_light_end },
     { "note", l_note }, { "noteoff", l_noteoff }, { "freq", l_freq },
     { "envelope", l_envelope }, { "duty", l_duty }, { "playing", l_playing }, { "apu", l_apu },
@@ -2089,8 +2211,241 @@ static int l_cart_load(lua_State *L)
     memcpy(author, c.author, sizeof author);
     title[48] = author[32] = 0;
     push_project(L, title, author, c.width, c.lua, c.lua_size);
+    if (c.sheet8) {                     /* palette = the opaque colours of its SHEET8 palette */
+        const uint8_t *p = c.sheet8;
+        int nc = p[4] | p[5] << 8, k = 0;
+        lua_createtable(L, nc, 0);
+        for (int i = 0; i < nc; i++) {
+            const uint8_t *e = p + 8 + i * 4;
+            if (e[3] < 128)
+                continue;
+            lua_pushinteger(L, (lua_Integer)(e[0] << 16 | e[1] << 8 | e[2]));
+            lua_rawseti(L, -2, ++k);
+        }
+        lua_setfield(L, -2, "palette");
+    }
     free(data);
     return 1;
+}
+
+/* cart_sheet([w, h]) -> the width and height of the project's sprite sheet;
+ * with w and h (multiples of 8, 8 to 4096) it gets that size: the pixels
+ * that fit stay where they are, the new ones are transparent (bm Pixel) */
+static int l_cart_sheet(lua_State *L)
+{
+    if (!lua_isnoneornil(L, 1)) {
+        int w = (int)luaL_checkinteger(L, 1), h = (int)luaL_checkinteger(L, 2);
+        luaL_argcheck(L, w >= G16_CELL && w <= BM_SHEET_MAX && w % G16_CELL == 0, 1, "8 to 4096, a multiple of 8");
+        luaL_argcheck(L, h >= G16_CELL && h <= BM_SHEET_MAX && h % G16_CELL == 0, 2, "8 to 4096, a multiple of 8");
+        if (w != rt.sheet.w || h != rt.sheet.h) {
+            g16_sheet_t ns;
+            uint8_t *dirty = calloc((size_t)(w / G16_CELL) * (h / G16_CELL), 1);
+            if (!dirty || g16_sheet_alloc(&ns, w, h) != 0) {
+                free(dirty);
+                return luaL_error(L, "not enough memory for a %dx%d sheet", w, h);
+            }
+            int cw = w < rt.sheet.w ? w : rt.sheet.w, ch = h < rt.sheet.h ? h : rt.sheet.h;
+            for (int y = 0; rt.sheet.px && y < ch; y++) {
+                memcpy(ns.px + (size_t)y * w, rt.sheet.px + (size_t)y * rt.sheet.w, (size_t)cw * 2);
+                memcpy(ns.alpha + (size_t)y * w, rt.sheet.alpha + (size_t)y * rt.sheet.w, (size_t)cw);
+            }
+            g16_sheet_free(&rt.sheet);
+            rt.sheet = ns;                  /* the same struct: meshes keep their texture */
+            free(rt.cell_dirty);
+            rt.cell_dirty = dirty;
+            memset(rt.cell_dirty, 1, (size_t)(w / G16_CELL) * (h / G16_CELL));
+            rt.sheet_dirty = 1;
+            sheet_commit();
+        }
+    }
+    lua_pushinteger(L, rt.sheet.w);
+    lua_pushinteger(L, rt.sheet.h);
+    return 2;
+}
+
+/* The project's sheet as a section for cart_write: SHEET8 when it has at
+ * most 256 colours (transparent counts as one), else SHEET. A pixel whose
+ * RGB565 is the one it had in `old` (the file being rewritten, the same x
+ * and y) keeps its 24 bits from there, so what was not drawn on comes back
+ * byte for byte; a pixel drawn on takes the 24 bits of the first colour of
+ * the palette (the table at index `pal`, bm Pixel's) with its RGB565, else
+ * of a colour of the old sheet, else RGB565 widened. The palette's colours
+ * come first in the SHEET8 palette, as they are and in their order (also
+ * those no pixel uses) while there is room, so it comes back as it was;
+ * then the other colours, in the order they appear. NULL without memory. */
+#define SHEET_CLEAR 0x01000000u                 /* a transparent pixel */
+#define SHEET_HASH  1024                        /* > 256 colours: open addressing */
+
+typedef struct {
+    uint32_t key[SHEET_HASH];                   /* colour + 1, 0 = empty */
+    int16_t slot[SHEET_HASH];                   /* its palette index, -1 none yet */
+    int n;
+} colour_set_t;
+
+static int cs_find(colour_set_t *s, uint32_t c, int add)
+{
+    uint32_t i = (c * 2654435761u) >> 22;
+    while (s->key[i] && s->key[i] != c + 1)
+        i = (i + 1) & (SHEET_HASH - 1);
+    if (!s->key[i]) {
+        if (!add || s->n >= 257)
+            return -1;
+        s->key[i] = c + 1;
+        s->slot[i] = -1;
+        s->n++;
+    }
+    return (int)i;
+}
+
+static void orig_set(void *ctx, int x, int y, const uint8_t rgba[4])
+{
+    uint32_t *o = ctx;
+    uint32_t w = o[0];
+    o[1 + (uint32_t)y * w + (uint32_t)x] = rgba[3] >= 128 ? (uint32_t)(rgba[0] << 16 | rgba[1] << 8 | rgba[2])
+                                                           : SHEET_CLEAR;
+}
+
+static uint8_t *sheet_section(lua_State *L, int pal, const bm_cart_t *old, uint32_t *type, uint32_t *size)
+{
+    sheet_commit();
+    const uint32_t w = (uint32_t)rt.sheet.w, h = (uint32_t)rt.sheet.h, n = w * h;
+    const uint32_t ow = old && (old->sheet8 || old->sheet_rgba) ? old->sheet_w : 0;
+    const uint32_t oh = ow ? old->sheet_h : 0;
+    uint32_t *rgb = malloc(65536 * sizeof *rgb);    /* the 24 bits of an RGB565 drawn (bit 24: not known) */
+    uint32_t *fin = malloc((size_t)n * sizeof *fin); /* each pixel's colour, or SHEET_CLEAR */
+    uint32_t *orig = ow ? malloc((1 + (size_t)ow * oh) * sizeof *orig) : NULL;
+    uint32_t pc[256];                           /* the palette given */
+    int npc = 0;
+    colour_set_t *set = calloc(1, sizeof *set);
+    uint8_t *out = NULL, *idx = NULL;
+    if (!rgb || !fin || !set || (ow && !orig))
+        goto done;
+    for (int k = 0; k < 65536; k++)
+        rgb[k] = 1u << 24;
+    if (pal && lua_istable(L, pal)) {
+        lua_Integer m = luaL_len(L, pal);
+        for (lua_Integer i = 1; i <= m && npc < 256; i++) {
+            lua_rawgeti(L, pal, i);
+            if (lua_isinteger(L, -1)) {
+                uint32_t c = (uint32_t)lua_tointeger(L, -1) & 0xFFFFFF;
+                pc[npc++] = c;
+                if (rgb[g16_rgb24(c)] >> 24)
+                    rgb[g16_rgb24(c)] = c;
+            }
+            lua_pop(L, 1);
+        }
+    }
+    if (orig) {                                 /* the old sheet, pixel by pixel */
+        orig[0] = ow;
+        if (old->sheet8) {
+            if (bm_sheet8_unpack(old, orig_set, orig) != 0)
+                goto done;
+        } else {
+            for (uint32_t i = 0; i < ow * oh; i++) {
+                const uint8_t *e = old->sheet_rgba + i * 4;
+                orig[1 + i] = e[3] >= 128 ? (uint32_t)(e[0] << 16 | e[1] << 8 | e[2]) : SHEET_CLEAR;
+            }
+        }
+        for (uint32_t i = 0; i < ow * oh; i++)
+            if (orig[1 + i] != SHEET_CLEAR && rgb[g16_rgb24(orig[1 + i])] >> 24)
+                rgb[g16_rgb24(orig[1 + i])] = orig[1 + i];
+    }
+    for (uint32_t y = 0; y < h; y++)
+        for (uint32_t x = 0; x < w; x++) {
+            uint32_t i = y * w + x;
+            if (!rt.sheet.alpha[i]) {
+                fin[i] = SHEET_CLEAR;
+                continue;
+            }
+            uint16_t k = rt.sheet.px[i];
+            uint32_t o = x < ow && y < oh ? orig[1 + y * ow + x] : SHEET_CLEAR;
+            if (o != SHEET_CLEAR && g16_rgb24(o) == k)
+                fin[i] = o;                     /* not drawn on: as it was */
+            else
+                fin[i] = rgb[k] >> 24 ? g16_to_rgb24(k) : rgb[k];
+        }
+    for (uint32_t i = 0; i < n && set->n <= 256; i++)
+        cs_find(set, fin[i], 1);
+    if (set->n > 256) {                         /* SHEET: RGBA */
+        *type = BM_SEC_SHEET;
+        *size = 4 + n * 4;
+        out = malloc(*size);
+        if (!out)
+            goto done;
+        out[0] = (uint8_t)w; out[1] = (uint8_t)(w >> 8);
+        out[2] = (uint8_t)h; out[3] = (uint8_t)(h >> 8);
+        for (uint32_t i = 0; i < n; i++) {
+            uint8_t *e = out + 4 + i * 4;
+            uint32_t c = fin[i];
+            e[0] = (uint8_t)(c >> 16); e[1] = (uint8_t)(c >> 8); e[2] = (uint8_t)c;
+            e[3] = c == SHEET_CLEAR ? 0 : 255;
+            if (c == SHEET_CLEAR) e[0] = e[1] = e[2] = 0;
+        }
+        goto done;
+    }
+    uint8_t pal_rgba[256 * 4];
+    int ncol = 0, waiting = set->n;             /* colours used with no entry yet */
+    int clear_at = -1, clr = -1;                /* the old palette's transparent entry keeps its place */
+    if (orig && old->sheet8 && old->sheet8_size >= 8) {
+        int on = old->sheet8[4] | old->sheet8[5] << 8;
+        for (int j = 0; j < on && 12 + (uint32_t)j * 4 <= old->sheet8_size; j++)
+            if (old->sheet8[8 + j * 4 + 3] < 128) {
+                clear_at = j;
+                break;
+            }
+        clr = clear_at >= 0 ? cs_find(set, SHEET_CLEAR, 0) : -1;
+    }
+    for (int j = 0; j <= npc; j++) {
+        if (clr >= 0 && set->slot[clr] < 0 && ncol == clear_at) {
+            memset(pal_rgba + ncol * 4, 0, 4);
+            set->slot[clr] = (int16_t)ncol++;
+            waiting--;
+        }
+        if (j == npc)
+            break;
+        int at = cs_find(set, pc[j], 0);
+        int takes = at >= 0 && set->slot[at] < 0;
+        if (takes || ncol + waiting < 256) {
+            if (takes) {
+                set->slot[at] = (int16_t)ncol;
+                waiting--;
+            }
+            uint8_t *e = pal_rgba + ncol++ * 4;
+            e[0] = (uint8_t)(pc[j] >> 16); e[1] = (uint8_t)(pc[j] >> 8); e[2] = (uint8_t)pc[j]; e[3] = 255;
+        }
+    }
+    idx = malloc(n ? n : 1);
+    if (!idx)
+        goto done;
+    for (uint32_t i = 0; i < n; i++) {
+        int at = cs_find(set, fin[i], 0);
+        if (set->slot[at] < 0) {                /* the others, as they appear */
+            uint8_t *e = pal_rgba + ncol * 4;
+            uint32_t c = fin[i];
+            if (c == SHEET_CLEAR) {
+                e[0] = e[1] = e[2] = e[3] = 0;
+            } else {
+                e[0] = (uint8_t)(c >> 16); e[1] = (uint8_t)(c >> 8); e[2] = (uint8_t)c; e[3] = 255;
+            }
+            set->slot[at] = (int16_t)ncol++;
+        }
+        idx[i] = (uint8_t)set->slot[at];
+    }
+    if (ncol == 0) {                            /* no pixels: one transparent colour */
+        memset(pal_rgba, 0, 4);
+        ncol = 1;
+    }
+    size_t len = 0;
+    out = bm_sheet8_pack((int)w, (int)h, pal_rgba, ncol, idx, &len);
+    *type = BM_SEC_SHEET8;
+    *size = (uint32_t)len;
+done:
+    free(idx);
+    free(rgb);
+    free(fin);
+    free(orig);
+    free(set);
+    return out;
 }
 
 /* cart_new(): an empty 256x256 sprite sheet and map, no cover */
@@ -2313,15 +2668,18 @@ static int l_cart_meshes(lua_State *L)
     return 2;
 }
 
-/* cart_write(path, {[lua=], [title=, author=, res=, from=, sections=]}) ->
- * true, or false and a message. Changes only the code (and the fields
- * given) of the cartridge: its sheet, map, cover, sound bank and any other
- * section stay as they are. lua absent: the code stays too. sections:
- * {[8] = MESH bytes, [9] = ANIM bytes} (false takes them away), checked
- * first (bm Mesh, the 3D tools). from: take the sections from another file
- * ("save as"). A file that does not exist yet becomes a new cartridge with
- * the code (its name must then be 8.3; an existing file keeps its long
- * name). */
+/* cart_write(path, {[lua=], [title=, author=, res=, from=, sections=,
+ * sheet=, palette=]}) -> true, or false and a message. Changes only the
+ * code (and the fields given) of the cartridge: its sheet, map, cover, sound
+ * bank and any other section stay as they are. lua absent: the code stays
+ * too. sections: {[8] = MESH bytes, [9] = ANIM bytes} (false takes them
+ * away), checked first (bm Mesh, the 3D tools). sheet = true: the project's
+ * sprite sheet (cart_load, sset, cart_sheet) takes the place of the file's,
+ * as SHEET8 with `palette` ({0xRRGGBB, ...}) first in its palette when it
+ * has at most 256 colours (sheet_section; bm Pixel). from: take the
+ * sections from another file ("save as"). A file that does not exist yet
+ * becomes a new cartridge with the code (its name must then be 8.3; an
+ * existing file keeps its long name). */
 static int l_cart_write(lua_State *L)
 {
     const char *path = luaL_checkstring(L, 1);
@@ -2329,7 +2687,7 @@ static int l_cart_write(lua_State *L)
     lua_getfield(L, 2, "lua");
     size_t lua_len = 0;
     const char *lua = lua_isnil(L, -1) ? NULL : luaL_checklstring(L, -1, &lua_len);
-    bm_put_t put[2];
+    bm_put_t put[3];
     int nput = 0;
     lua_getfield(L, 2, "sections");
     if (!lua_isnil(L, -1)) {
@@ -2396,10 +2754,26 @@ static int l_cart_write(lua_State *L)
         lua_pushstring(L, "a new cartridge needs its code (lua)");
         return 2;
     }
+    uint8_t *sheet = NULL;
+    lua_getfield(L, 2, "sheet");
+    int want_sheet = lua_toboolean(L, -1);
+    lua_pop(L, 1);
+    if (want_sheet) {
+        uint32_t st = 0, ss = 0;
+        lua_getfield(L, 2, "palette");
+        sheet = sheet_section(L, lua_istable(L, -1) ? lua_gettop(L) : 0, old ? &c : NULL, &st, &ss);
+        lua_pop(L, 1);
+        if (!sheet) {
+            free(old);
+            return luaL_error(L, "not enough memory to save the sheet");
+        }
+        put[nput++] = (bm_put_t){ st, sheet, ss };
+    }
     size_t out_len;
     uint8_t *out = bm_rewrite_with(old, old_len, lua, lua_len, t, a, strcmp(res, "320x180") ? 640 : 320, put, nput,
                                    &out_len);
     free(old);
+    free(sheet);
     if (!out)
         return luaL_error(L, "not enough memory to save");
     /* an existing file keeps its entry (and its long name); a new one is 8.3 */

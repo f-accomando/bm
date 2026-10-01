@@ -15,7 +15,7 @@ are part of bm: some run on the PC, others on the console itself.
 
 ## 1. What bm is
 
-- **One program on the SD card.** `kernel.img` (~1.9 MB of C, ARM assembly and Lua 5.4)
+- **One program on the SD card.** `kernel.img` (~2 MB of C, ARM assembly and Lua 5.4)
   drives the hardware itself:
   - HDMI video, and audio through HDMI;
   - USB keyboards and gamepads;
@@ -127,6 +127,8 @@ Everything a cartridge contains is made with bm's own tools. They read and write
   build, rig and animate.
 - **bm Mesh**: the vertices and faces of every mesh, including the ones the game's code
   builds.
+- **bm Pixel**: the sprite sheet's pixel art. It has drawing tools, a palette of up to 256
+  colours and frame animation with onion skin.
 
 <p align="center">
   <img src="docs/img/code.png" width="49%" alt="bm Code on the console">

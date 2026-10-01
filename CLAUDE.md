@@ -44,6 +44,13 @@ screenshot in `docs/img/`), `README_OLD.md` (il README completo, in italiano),
   sostituite; i nomi dalle variabili). Salva con `cart_write(path, {sections=, lua=})`;
   lo scheletro di un modello segue i vertici (`vb`). Prove: `tests/studio/mesh_host.lua`,
   `check_mesh.js`, `test_meshcap` (in `make test-bm`/`test-studio`), QEMU `test_mesh`.
+- **bm Pixel** (`carts/pixel/main.lua`, incorporata, scheda Dev, monitor `5`, opzioni "Open
+  in bm Pixel"): la pixel art dello sprite sheet del progetto (`sget`/`sset`, `sspr` con
+  zoom, `cart_sheet(w, h)` per la misura). Salva con `cart_write(path, {sheet = true,
+  palette = ...})`: solo lo sheet cambia nel file, come SHEET8 con la tavolozza per prima
+  (`sheet_section` in `runtime.c`, `bm_sheet8_pack` in `format.c`); i pixel non ridisegnati
+  tengono i loro 24 bit. Attenzione in Lua: `cond and nil or x` dà sempre `x`. Prove:
+  `tests/studio/pixel_host.lua`, `check_pixel.js` (in `make test-studio`), QEMU `test_pixel`.
 
 ## Nome
 
@@ -69,6 +76,18 @@ screenshot in `docs/img/`), `README_OLD.md` (il README completo, in italiano),
 - Decisione dell'utente (2026-09-30): bm esegue solo i `.bm`. Il vecchio formato `.cart`
   e il suo interprete non entrano nelle build, nel kernel o nell'immagine SD; non
   reintrodurli senza una richiesta esplicita.
+
+## Icone dei tasti (bm-ui)
+
+- `src/kernel/prompts.c`: tasti di DS4, pad generici e tastiera come icone, due set scelti
+  dall'utente. Menu: in rilievo (faccia bianca su bordino grigio, simbolo ritagliato; solo
+  i 4 tasti frontali del DS4 anche a colori), nei suggerimenti secondo `hid_last_source()`.
+  App di sviluppo (SDK, 3D studio, bm Mesh, bm Pixel, Sound, bm Code, assistente; non
+  nano8): chip colorati da 16 o 12 px, dal Lua con `prompt()` / `lastinput()`; le scritte
+  accanto restano sulle colonne del font (in bm Mesh e bm Pixel `hint()` e `chip_hint()`).
+  Nei test sul PC `prompt` scrive `"[nome]"`. bm Code ha un suo `prompt()` locale (il
+  dialogo): lì si chiama `key_chip`. `make test-prompts` disegna i due set in
+  `build/prompts/`: guardarli dopo ogni modifica.
 
 ## Audio
 

@@ -36,6 +36,9 @@ void carts_studio3d(framebuffer_t *fb);
  * (menu, monitor '4'). */
 void carts_mesh(framebuffer_t *fb);
 
+/* bm Pixel: the pixel art of a .bm, its sprite sheet (menu, monitor '5'). */
+void carts_pixel(framebuffer_t *fb);
+
 /* bm Code, the code editor (Dev tab, monitor 'C'); `open`: a file, or NULL */
 void carts_code(framebuffer_t *fb, const char *open);
 

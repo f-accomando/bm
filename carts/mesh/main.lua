@@ -621,6 +621,30 @@ local input = nil            -- { label, text, done }
 local help = false
 local confirm_t, confirm_what = 0, nil
 
+-- the keys as chips (prompt(), the look of all the Dev apps): the labels
+-- stay on the font's 8 px columns
+local function snap(x) return (x + 7) // 8 * 8 end
+
+-- the keys of the page on the hint row: { { {keys...}, label }, ... }, as many as fit
+local function hint(list)
+  local x = 0
+  for _, h in ipairs(list) do
+    local kx = x
+    for _, k in ipairs(h[1]) do kx = kx + prompt(k) + 1 end
+    if snap(kx + 2) + #h[2] * 8 > W then break end
+    for _, k in ipairs(h[1]) do x = prompt(k, x, HINT_Y) + 1 end
+    x = print(h[2], snap(x + 2), HINT_Y, C_DIM) + 12
+  end
+end
+
+-- a key as a chip, or the pad's button when a pad was used last and the
+-- action has one; then its label. Returns the x after it.
+local function chip_hint(key, pad, label, x, y, c)
+  local li = lastinput()
+  x = prompt(pad and (li == "ds4" or li == "pad") and pad or key, x, y)
+  return print(label, snap(x + 3), y, c or C_DIM) + 12
+end
+
 local function choose(title, rows, sel) pick = { title = title, rows = rows, sel = sel or 1 } end
 local function ask(label, text, done) input = { label = label, text = text, done = done } end
 
@@ -659,7 +683,8 @@ local function draw_pick()
   local y0 = max(32, (H - h) // 32 * 16)
   rectfill(40, y0, 560, h, C_PANEL)
   rect(40, y0, 560, h, C_ACC)
-  print(p.title, 56, y0, C_ACC)
+  local tx = print(p.title, 56, y0, C_ACC) + 16
+  chip_hint("esc", "B", "back", chip_hint("enter", "A", "choose", tx, y0), y0)
   local first = clamp(p.sel - rows // 2, 1, max(1, #p.rows - rows + 1))
   for i = first, min(#p.rows, first + rows - 1) do
     local y = y0 + 16 + (i - first) * 16
@@ -674,6 +699,7 @@ local function draw_input()
   rect(80, 144, 480, 64, C_ACC)
   print(input.label, 96, 160, C_DIM)
   print(input.text .. ((frame // 20) % 2 == 0 and "_" or ""), 96, 176, C_TEXT)
+  chip_hint("esc", nil, "cancel", chip_hint("enter", nil, "ok", 336, 144), 144)
 end
 
 ----------------------------------------------------------------- 3D helpers
@@ -774,7 +800,6 @@ local function draw_list(x, y, rows)
   if first + rows - 1 < #items then print("v", x + PANEL_W - 16, y + rows * 16, C_DIM) end
 end
 
-local function hint(s) print(s:sub(1, 79), 0, HINT_Y, C_DIM) end
 
 -- the pages: what each one gives the others (the rest stays inside its block)
 local lp, list_reset, list_key, list_pad, list_actions, draw_list_page
@@ -1008,7 +1033,8 @@ function draw_list_page()
     print(proj.warn:sub(1, 52), x, HINT_Y - 32, C_ERR)
   end
   print("M model  C code  G game's code", x, HINT_Y - 16, C_DIM)
-  hint("up/down choose  Enter edit  m to model  c to code  r rename  d copy  Del delete")
+  hint({ { { "up", "down" }, "choose" }, { { "enter" }, "edit" }, { { "m" }, "to model" }, { { "c" }, "to code" },
+         { { "r" }, "rename" }, { { "d" }, "copy" }, { { "del" }, "delete" } })
 end
 end
 
@@ -1843,7 +1869,6 @@ function draw_edit()
   zclear()
   if not it then
     print("nothing to edit: F1 the list, Esc > Open", 32, 160, C_TEXT)
-    hint("")
     return
   end
   local cam = ed.cam
@@ -1912,9 +1937,14 @@ function draw_edit()
     print(string.format("#%06X  step %s  %s", ed.colour, num(MOVE_STEPS[ed.step]), kind_text(it)), 24, 32, C_DIM)
   end
   if ed.pal then draw_palette() end
-  if ed.tool then hint("arrows change  x y z n axis  , . step  Enter done  Esc cancel")
-  elseif ed.pal then hint("arrows colour  Enter take it  Esc close")
-  else hint("arrows point  space choose  a all  Tab vert/face  g move  r rotate  t scale  x extrude") end
+  if ed.tool then
+    hint({ { { "up", "down", "left", "right" }, "change" }, { { "x", "y", "z", "n" }, "axis" }, { { ",", "." }, "step" }, { { "enter" }, "done" },
+           { { "esc" }, "cancel" } })
+  elseif ed.pal then hint({ { { "up", "down", "left", "right" }, "colour" }, { { "enter" }, "take it" }, { { "esc" }, "close" } })
+  else
+    hint({ { { "up", "down", "left", "right" }, "point" }, { { "space" }, "choose" }, { { "a" }, "all" }, { { "tab" }, "vert/face" },
+           { { "g" }, "move" }, { { "r" }, "rotate" }, { { "t" }, "scale" }, { { "x" }, "extrude" } })
+  end
 end
 end
 
@@ -1942,7 +1972,7 @@ local function open_chooser()
     rows[i] = { f, function() if open_file(f) then go("list") end end }
     if f == proj.path then sel = i end
   end
-  choose("open a cartridge (Enter), Esc back", rows, sel)
+  choose("open a cartridge", rows, sel)
 end
 
 local function try_game()
@@ -1993,12 +2023,14 @@ local function draw_menu()
   print("M " .. n.model .. " models (MESH section)", x, 96, KIND_C.model)
   print("C " .. n.code .. " code meshes (mesh_ functions)", x, 112, KIND_C.code)
   print("G " .. n.game .. " built by the game's code", x, 128, KIND_C.game)
-  print("F1 list   F2 edit   F5 try the game", x, 160, C_DIM)
-  print("F12 (held) or ? : keys", x, 176, C_DIM)
+  chip_hint("f5", nil, "try the game", chip_hint("f2", nil, "edit", chip_hint("f1", nil, "list", x, 160), 160), 160)
+  local kx = snap(prompt("f12", x, 176) + 3)
+  kx = print("(held) or", kx, 176, C_DIM) + 4
+  chip_hint("?", nil, "keys", kx, 176)
   print("the models: as bm Studio, the 3D studio", x, 208, C_DIM)
   print("and bm Animator (skeletons kept); the", x, 224, C_DIM)
   print("code: as bm Studio's Lua, for bm Code", x, 240, C_DIM)
-  hint("up/down choose  Enter select  Esc back")
+  hint({ { { "up", "down" }, "choose" }, { { "enter" }, "select" }, { { "esc" }, "back" } })
 end
 
 ----------------------------------------------------------------- keys help
@@ -2135,17 +2167,19 @@ function _draw()
   elseif page == "edit" then draw_edit()
   else draw_menu() end
 
-  -- tab bar
+  -- tab bar: each page with its key
   rectfill(0, 0, W, 16, C_BAR)
-  local tabs = { { "list", "F1 list" }, { "edit", "F2 edit" }, { "menu", "Esc menu" } }
-  local x = 0
+  local tabs = { { "list", "f1", "list" }, { "edit", "f2", "edit" }, { "menu", "esc", "menu" } }
+  local x = 4
   for _, t in ipairs(tabs) do
-    local s = " " .. t[2] .. " "
-    if t[1] == page then rectfill(x, 0, #s * 8, 16, C_SEL) end
-    print(s, x, 0, t[1] == page and 0xFFFFFF or C_DIM)
-    x = x + #s * 8 + 8
+    local lx = snap(x + prompt(t[2]) + 3)
+    local w = lx + #t[3] * 8 - x
+    if t[1] == page then rectfill(x - 4, 0, w + 8, 16, C_SEL) end
+    prompt(t[2], x, 0)
+    print(t[3], lx, 0, t[1] == page and 0xFFFFFF or C_DIM)
+    x = x + w + 20
   end
-  print("bm Mesh", x + 8, 0, C_ACC)
+  print("bm Mesh", snap(x + 4), 0, C_ACC)
   local name = (proj.path or "no file") .. (dirty and "*" or "")
   print(name, W - #name * 8 - 8, 0, dirty and C_ACC or C_DIM)
 
@@ -2155,8 +2189,11 @@ function _draw()
   if msg_t > 0 and msg then status = msg
   elseif page == "menu" then status = "up/down choose, Enter select"
   else status = I() and ("mesh " .. cur .. "/" .. #items .. ": " .. I().name .. " (" .. KIND_L[I().kind] .. ")") or "" end
-  if #status <= 62 then status = status .. string.rep(" ", 65 - #status) .. "F12 or ?: keys" end
   print(status:sub(1, 79), 0, STATUS_Y, (msg_t > 0 and msg_c) or C_TEXT)
+  if #status <= 62 then                  -- room on the right: F12 or ? for the keys
+    local kx = print("or", snap(prompt("f12", 524, STATUS_Y) + 3), STATUS_Y, C_DIM) + 4
+    chip_hint("?", nil, "keys", kx, STATUS_Y)
+  end
   if pick then draw_pick() end
   if input then draw_input() end
   if keyheld("f12") or help then draw_keys() end
