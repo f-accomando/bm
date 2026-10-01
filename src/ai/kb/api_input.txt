@@ -92,8 +92,9 @@ end
 kind: api
 name: mousep
 title: mousep([i]) - un clic del mouse (una volta sola)
-ask: clic del mouse | ho cliccato | mouse click | click once
-ask: tasto destro del mouse | right click | premere il tasto del mouse
+ask: clic del mouse | ho cliccato | mouse click | click once | il giocatore ha cliccato
+ask: tasto destro del mouse | right click | premere il tasto del mouse | detect a click
+ask: did the user click | cliccare su un pulsante | button clicked with the mouse
 keys: clic, click, mouse
 see: mouse, btnp
 text:

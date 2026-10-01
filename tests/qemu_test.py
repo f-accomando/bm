@@ -512,6 +512,17 @@ def bar_icons(img):
     return runs
 
 
+def wait_icons(q, n, timeout=5.0):
+    """A screendump of the menu once its bar has n status icons (the first
+    frames can come a little late on a busy PC)."""
+    deadline = time.time() + timeout
+    while True:
+        shot_ = q.screendump()
+        if len(bar_icons(shot_)) == n or time.time() > deadline:
+            return shot_
+        time.sleep(0.3)
+
+
 def blue_number(img, span):
     """The number disc of a status icon is blue (a Bluetooth controller)."""
     return any(b > 200 and r < 80 and 90 < g < 160
@@ -970,9 +981,9 @@ def test_home_ui(b, opts):
         keys("wwwww")                           # System -> Controllers
         keys("\r")
         screen(["Settings > Controllers", "Player 1", "keyboard / USB", "Bluetooth keyboard",
-                "Pair a new controller"])
+                "Mouse"])
         keys("w")                               # the list scrolls to its last row
-        screen(["Pair a keyboard", "Forget all controllers"])
+        screen(["Pair a new controller", "Pair a keyboard", "Pair a mouse", "Forget all controllers"])
         keys("q")
         keys("s")
         keys("\r")
@@ -2454,7 +2465,7 @@ def test_bt_keyboard_legacy(b, opts):
         q.mini.write(b"M")
         _mini_expect(q, "cartridge menu")
         time.sleep(1.0)
-        shot_ = q.screendump()
+        shot_ = wait_icons(q, 1)
         runs = bar_icons(shot_)
         assert len(runs) == 1 and blue_number(shot_, runs[0]), runs
     finally:
