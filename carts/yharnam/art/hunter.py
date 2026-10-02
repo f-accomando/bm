@@ -51,6 +51,10 @@ STEEL = hmat('steel', [12, 13, 14], [0.40, 0.80], weight=2.2, detail=True, keep=
 DSTEEL = hmat('dsteel', [1, 12, 13], [0.35, 0.72], weight=2.2, detail=True, keep=True, metal=True)
 BLOOD = hmat('blood', [1, 15], [0.30], weight=2.0, detail=True, keep=True)
 WOOD = hmat('wood', [6, 7], [0.55], weight=1.8, detail=True)
+GRIP = hmat('grip', [1, 6, 7], [0.42, 0.82], weight=2.0, detail=True)        # the handle's leather
+CORD = hmat('cord', [8, 10, 11], [0.40, 0.78], weight=2.2, detail=True)      # the cord bound round it
+BANDAGE = hmat('bandage', [10, 11], [0.42], weight=1.6, detail=True, keep=True)
+RUST = hmat('rust', [1, 6], [0.55], weight=1.5, detail=True, keep=True)  # the dark iron under them
 BUCKLE = hmat('buckle', [12, 13, 14], [0.3, 0.6], weight=3.0, detail=True, keep=True, noline=True, metal=True)
 
 DIRS = [('S', (0, -1)), ('SE', (1, -1)), ('E', (1, 0)), ('NE', (1, 1)),
@@ -58,8 +62,17 @@ DIRS = [('S', (0, -1)), ('SE', (1, -1)), ('E', (1, 0)), ('NE', (1, 1)),
 W, H = 64, 72           # frame
 CX, CY = 32, 62         # the point between the feet
 
-SHAFT = 13.0            # the saw cleaver: from the grip to the hinge
-BLADE_L = 12.5          # ... and the blade, folded back along the shaft or out
+# The saw cleaver (after Bloodborne's): a thin curved handle wrapped in
+# leather, from the hand to the hinge; a broad blade bound in bandages, the
+# teeth along one edge, folded back along the handle (teeth outwards) or
+# swung out beyond the hinge. The hinge is off the handle's line (PIVOT_Y,
+# on the folded blade's side), so the open blade stands round the handle's
+# line and the folded one lies beside the handle, its back against it.
+SHAFT = 13.5            # from the hand to the hinge
+BLADE_L = 11.5          # the blade, from the hinge to its far end
+PIVOT_Y = -0.95
+PIVOT = (0.0, PIVOT_Y, -SHAFT)
+SPINE = -0.55           # the blade's back, from the hinge (its own frame)
 
 # Every joint of the rig, in degrees (or world units for offsets). The body:
 # ty forward, air (height off the ground), pitch (backwards +), roll (to
@@ -178,7 +191,7 @@ def skeleton(p, lift=0.0):
     S.add('cape', 'chest', [0, 0, 14.6], rx(-a('cape')))
     # weapons: the saw cleaver (grip, shaft, the blade on its hinge) and the pistol
     S.add('cleaver', 'hand_r', [0.2, 0.5, -1.3], rz(D(-18)) @ rx(D(46 + p['grip'])) @ ry(D(-8)))
-    S.add('blade', 'cleaver', [0, 0, -SHAFT], rx(a('blade')))
+    S.add('blade', 'cleaver', PIVOT, rx(a('blade')))
     S.add('pistol', 'hand_l', [-0.1, 0.4, -1.2], ry(D(18)) @ rx(D(30 + p['pgrip'])))
     return S
 
@@ -199,8 +212,25 @@ def grounded(p):
     return skeleton(p, -low + p['air'])
 
 
-TIP = ('blade', (0, 1.0, -BLADE_L + 0.6))       # the far end of the saw cleaver
+TIP = ('blade', (0, SPINE + 2.4, -BLADE_L + 0.4))   # the far end of the saw cleaver, open
+TIP_FOLDED = ('blade', (0, SPINE + 2.6, 0.0))         # ... folded: the hinge's end of the blade
 MUZZLE = ('pistol', (0, 0.4, -10.0))
+
+
+# the handle: (z, y, radius) from the end in the hand to the hinge, a
+# gentle S (bowing away from the folded blade); the hook over the hinge,
+# (y, z from the hinge), curling back towards the hand
+HANDLE = [(2.4, -0.55, 0.5), (0.0, 0.0, 0.48), (-2.6, 0.6, 0.44), (-5.6, 1.15, 0.42), (-8.6, 1.25, 0.42),
+          (-11.4, 0.7, 0.45), (-SHAFT, 0.0, 0.5)]
+HOOK = [(0.55, 0.2), (1.35, 0.8), (1.75, 1.8), (1.85, 2.9), (2.05, 3.7)]
+
+
+def handle_mat(q):
+    """leather, cord bound at both ends"""
+    z = q[:, 2]
+    m = np.full(len(q), GRIP)
+    m[(z > 0.9) | (z < -SHAFT + 2.0)] = CORD
+    return m
 
 
 # ---------------------------------------------------------------- model
@@ -318,37 +348,52 @@ def model(S, p):
         add('farm_' + side, lambda q: sd_roundcone(q, (0, 0, -5.6), (0, 0, -8.6), 2.15, 1.95), LEATH, g)
         add('hand_' + side, lambda q: sd_ellipsoid(q - np.array([0, 0.3, -1.2]), (1.45, 1.75, 1.85)), LEATH, g)
 
-    # saw cleaver: the grip, an iron shaft, and the serrated blade on a hinge
-    # at the end of the shaft (folded back along it, or out in line with it)
-    add('cleaver', lambda q: sd_roundcone(q, (0, 0, 2.4), (0, 0, -2.6), 0.78, 0.72), WOOD, 'cleaver')
-    add('cleaver', lambda q: sd_box(q - np.array([0, 0, -2.9]), (0.95, 0.95, 0.45), 0.2), DSTEEL, 'cleaver')
-    add('cleaver', lambda q: sd_roundcone(q, (0, 0, -3.0), (0, 0, -SHAFT), 0.55, 0.5), DSTEEL, 'cleaver')
-    add('cleaver', lambda q: sd_box(q - np.array([0, 0, -SHAFT]), (0.75, 0.8, 0.7), 0.2), DSTEEL, 'cleaver')
+    # saw cleaver: the curved handle (a chain of round cones through
+    # HANDLE), the hinge (a disc) with its hook, and the blade on it
+    for (z0, y0, r0), (z1, y1, r1) in zip(HANDLE, HANDLE[1:]):
+        add('cleaver', (lambda a_, b_, ra, rb: lambda q: sd_roundcone(q, a_, b_, ra, rb))(
+            (0, y0, z0), (0, y1, z1), r0, r1), GRIP, 'cleaver', handle_mat)
+    def hinge(q):
+        c = q - np.array(PIVOT)
+        rr = np.sqrt(c[:, 1] ** 2 + c[:, 2] ** 2)
+        return np.maximum(rr - 1.05, np.abs(c[:, 0]) - 0.55)
+    add('cleaver', hinge, RUST, 'cleaver')
+    for (y0, z0), (y1, z1) in zip(HOOK, HOOK[1:]):
+        add('cleaver', (lambda a_, b_: lambda q: sd_roundcone(q, a_, b_, 0.24, 0.22))(
+            (0, y0, -SHAFT + z0), (0, y1, -SHAFT + z1)), STEEL, 'cleaver')
+
+    L0 = 0.9                                            # the blade begins a little behind the hinge
+
+    def blade_geo(q):
+        x, y, z = q[:, 0], q[:, 1], q[:, 2]
+        u = np.clip((L0 - z) / (L0 + BLADE_L), 0, 1)     # 0 at the hinge, 1 at the far end
+        edge = SPINE + 3.3 + 1.6 * u                     # the toothed edge, wider towards the end
+        teeth = 0.75 * ((-z / 1.25) % 1.0) * (z < L0 - 1.2)
+        return u, edge, teeth
 
     def blade(q):
         x, y, z = q[:, 0], q[:, 1], q[:, 2]
-        L0, L1 = 0.6, -BLADE_L
-        u = np.clip((z - L0) / (L1 - L0), 0, 1)          # 0 at the hinge, 1 at the tip
-        y0 = -0.9
-        y1 = 1.7 + 1.6 * u
-        teeth = 0.75 * ((-z * 0.8) % 1.0)
-        y1t = y1 + teeth * (z < L0 - 0.8)
-        cy = (y0 + y1t) / 2
-        hy = (y1t - y0) / 2
-        dz = np.maximum(z - L0, L1 - z)
-        d = np.maximum.reduce([np.abs(x) - 0.45, np.abs(y - cy) - hy, dz])
-        tip = (y - y0) * 0.7 + (z - L1 - 1.5)
-        return np.maximum(d, -tip * 0.6)
+        u, edge, teeth = blade_geo(q)
+        far = -BLADE_L - 0.9 * np.clip((y - SPINE) / 4.9, 0, 1.2)    # the end cut slanting
+        d = np.maximum.reduce([np.abs(x) - 0.42 + 0.06 * np.clip(y - SPINE, 0, 5), SPINE - y, y - edge - teeth,
+                               z - L0, far - z])
+        heel = (y - SPINE - 1.6) * 0.7 + (z - L0 + 0.6) * 0.7          # the hinge's corner, cut off
+        return np.maximum(d, heel)
 
     def blade_mat(q):
         x, y, z = q[:, 0], q[:, 1], q[:, 2]
-        m = np.full(len(q), STEEL)
-        u = (z - 0.6) / -(BLADE_L + 0.6)
-        n = hash2(np.floor(z * 0.9), np.floor(y * 0.9) + 3)
-        m[(u > 0.55) & (n > 0.45 - (u - 0.55))] = BLOOD
-        m[(y < -0.4) & (u < 0.9)] = DSTEEL              # the dark back of the blade
+        u, edge, teeth = blade_geo(q)
+        # bandages crossed over the iron, and dried blood on them
+        v1 = ((z * 0.8 + y) / 2.3) % 1.0
+        v2 = ((z * 0.8 - y) / 2.6 + 0.37) % 1.0
+        m = np.full(len(q), RUST)
+        m[(v1 < 0.64) | (v2 < 0.56)] = BANDAGE
+        n = hash2(np.floor(z * 0.7) + 11, np.floor(y * 0.7) + 5)
+        m[(m == BANDAGE) & (n > 0.93 - 0.12 * u)] = BLOOD
+        m[y < SPINE + 0.3] = RUST                        # the iron of the back
+        m[y > edge - 0.15] = STEEL                       # the teeth
         return m
-    add('blade', blade, STEEL, 'cleaver', blade_mat)
+    add('blade', blade, BANDAGE, 'cleaver', blade_mat)
 
     # hunter pistol: grip, lock, long barrel
     add('pistol', lambda q: sd_roundcone(q, (0, -0.4, 2.6), (0, 0.2, -0.6), 0.9, 0.75), WOOD, 'pistol')
@@ -378,7 +423,7 @@ def render_pose(p, facing, ss=3):
     img, proj = render(M, W, H, CX, CY, facing=facing, bound=(c, R), ss=ss)
     rgba = pixelize(img, proj, outline=PAL[1])
     out, (x0, y0) = crop(rgba)
-    tip, mz = S.pt(*TIP), S.pt(*MUZZLE)
+    tip, mz = S.pt(*(TIP if p['blade'] < 90 else TIP_FOLDED)), S.pt(*MUZZLE)
     return out, (CX - x0, CY - y0), (float(tip @ r), float(-(tip @ u))), (float(mz @ r), float(-(mz @ u)))
 
 

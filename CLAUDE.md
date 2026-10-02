@@ -154,6 +154,13 @@ screenshot in `docs/img/`), `README_OLD.md` (il README completo, in italiano),
   cleaver punti dove serve). Renderle tutte richiede circa un'ora: `mkassets.py` tiene i
   fotogrammi in `build/yharnam-frames/` e ridisegna solo quelli cambiati. Nel gioco:
   `HUNT[nome].d[direzione][fotogramma]`; sul titolo X mostra tutte le animazioni.
+- La saw cleaver (dalle foto dell'utente, `art/hunter.py`): manico sottile e curvo di cuoio
+  (`HANDLE`, corda chiara alle due estremità), snodo a disco con il gancio (`HOOK`), lama larga
+  fasciata di bende incrociate sul ferro scuro, denti su un lato, sangue secco. Lo snodo è fuori
+  dalla linea del manico (`PIVOT_Y`): chiusa la lama sta accanto al manico, dorso contro di esso
+  e denti in fuori; aperta sta attorno alla linea del manico. Deve leggersi a colpo d'occhio:
+  chiusa è un blocco chiaro corto vicino alla mano, aperta una linea scura e la lama chiara
+  lontana. La scia dei colpi parte dal capo della lama lontano dalla mano (`TIP`, `TIP_FOLDED`).
 - Le creature (12 nemici e 4 boss, uno per tipo: villici, bestie, cacciatori, orrori) sono in
   `art/foe_*.py`; scheletri (umanoide, quadrupede, ragno), pose chiave, `reach` per la seconda
   mano su un'asta, `aim` e il registro `Creature` in `art/rig.py`; colori e pezzi comuni in
