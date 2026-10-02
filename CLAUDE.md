@@ -156,6 +156,18 @@ screenshot in `docs/img/`), `README_OLD.md` (il README completo, in italiano),
   tempo); aperta più lenta e pesante (più danno per colpo, soprattutto caricato: colpire al
   momento giusto e ritirarsi).
   L1/R1 si leggono con `pad()`; dalla seriale sono `u` e `o` (kernel), dalla tastiera Q ed E.
+- Come combattono le creature (richiesta dell'utente: non solo numero di colpi; `AI` nel blocco
+  `FOE`): ogni nemico ha uno stile (`AI.STYLE`: distanza che tiene, giri attorno al cacciatore,
+  zigzag, carica, pausa tra i colpi, caricamento lento, colpo trattenuto in alto con l'arma che
+  luccica, colpo rapido, catene, ritirata dopo il colpo, schivata dei colpi del cacciatore,
+  contrattacco quando lui è scoperto). I boss hanno tre fasi secondo la vita (`AI.BOSS`: sopra
+  due terzi, sopra un terzo, l'ultimo): semplici all'inizio, poi più rapidi, con più mosse e
+  sequenze `"a+b"`; si entra in una fase con un ruggito (il Hound ulula), un momento per colpire.
+  I valori delle creature più in là nella caccia crescono un po' (`o.agg`). `tests/yharnam/foes.lua`
+  (in `make test-yharnam`) misura ritmo, pause, caricamenti, distanza, movimento, ritirate,
+  schivate e contrattacchi di ogni creatura e di ogni fase dei boss, e controlla che tutto sia
+  leggibile (almeno 8 tick di caricamento), che non ci siano due creature uguali e che i boss
+  crescano di fase in fase.
 - La caccia (richiesta dell'utente: non si va all'infinito in una direzione): zone di `AREA` ×
   `AREA` pezzi verso est, chiuse da un muro di nebbia (`inside`, `draw_edge`); in fondo a ogni
   zona l'arena del boss (`boss_chunk`: pira, giardini, cimitero, cappella a turno), ucciso il

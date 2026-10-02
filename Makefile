@@ -229,10 +229,12 @@ test-titan: $(BUILD)/host/luahost $(BUILD)/titan/main.lua
 	$< tests/titan/sim.lua $(BUILD)/titan/main.lua $(BUILD)/titan/main.map
 
 # Yharnam: the street plan, the chunks, a long walk, the cost of a frame;
-# then the fight measured, with the paths of the lamps (balance.lua)
+# then the fight measured, with the paths of the lamps (balance.lua), and
+# the ways of the creatures and the phases of the bosses (foes.lua)
 test-yharnam: $(BUILD)/host/luahost carts/yharnam/main.lua
 	$< tests/yharnam/sim.lua carts/yharnam/main.lua
 	$< tests/yharnam/balance.lua carts/yharnam/main.lua
+	$< tests/yharnam/foes.lua carts/yharnam/main.lua
 
 # The Sound editor in a fake bm: its banks are the console's format, byte for byte
 $(BUILD)/demo.bmau: carts/sound/demo.json scripts/bmaudio.py

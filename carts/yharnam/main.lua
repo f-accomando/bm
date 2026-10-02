@@ -2569,7 +2569,8 @@ do
       st = setmetatable({ hp = floor(st.hp * (1 + 0.35 * area)), dmg = st.dmg + area // 2 }, { __index = st })
     end
     local o = { def = def, st = st, name = name, x = x, y = y, dir = 0, hp = st.hp, cd = 30 + math.random(60),
-                area = area,
+                area = area, hpmax = st.hp, ph = 1, style = FOE.style_of(name, 1), side = math.random(2) * 2 - 3,
+                agg = def.boss and 1 or 1 + 0.08 * area, back = 0, react_cd = 0, chained = 0,
                 boss = def.boss, home = home, hx = x, hy = y, alert = false, corpse = 0, z = y }
     play(o, "idle")
     o.f = math.random(#def.a.idle.t)
@@ -2694,6 +2695,7 @@ do
   -- staggered: reeling, open to a visceral attack for a while
   local function stagger(o, ticks)
     o.act, o.beam, o.stag = "stagger", nil, ticks or 110
+    o.hold, o.queue, o.next = nil, nil, nil
     play(o, "hurt")
     note(1, 2400, 140, METAL, 70); note(2, 1200, 220, TRIANGLE, 60)
   end
@@ -2733,7 +2735,7 @@ do
         sfx_roar()
       end
     elseif flinch and not reeling then
-      o.act, o.beam = "hurt", nil
+      o.act, o.beam, o.hold, o.queue, o.next = "hurt", nil, nil, nil, nil
       play(o, "hurt")
     end
   end
@@ -2911,32 +2913,179 @@ do
     end
   end
 
-  -- what a boss does next, from how far the hunter is
-  local function boss_choice(o, dd)
-    local n = o.name
-    local r = math.random()
-    if n == "butcher" then
-      if dd < 46 then return r < 0.4 and "attack" or r < 0.7 and "combo1" or r < 0.9 and "combo2" or "slam" end
-      if dd < 80 then return r < 0.6 and "slam" or "throw" end
-      if dd < 150 then return r < 0.5 and "throw" or nil end
-    elseif n == "hound" then
-      if dd < 48 then return r < 0.35 and "attack" or r < 0.65 and "combo1" or r < 0.9 and "combo2" or "howl" end
-      if dd < 130 then return r < 0.5 and "pounce" or (not o.fury and r < 0.65) and "howl" or nil end
-    elseif n == "father" then
-      if dd < 40 then return r < 0.3 and "attack" or r < 0.55 and "combo1" or r < 0.75 and "combo2" or "whirl" end
-      if dd < 76 then return r < 0.55 and "blast" or nil end
-    elseif n == "watcher" then
-      if dd < 50 then return r < 0.3 and "attack" or r < 0.55 and "combo1" or r < 0.8 and "combo2" or "grasp" end
-      if dd < 76 then return r < 0.5 and "grasp" or "beam" end
-      if dd < 170 then return r < 0.4 and "beam" or nil end
+  ----------------------------------------------------------- how each one fights
+  -- Not a count of blows only (the user's wish): every kind has its ways.
+  -- keep: the distance it holds between blows; orbit: it circles the hunter
+  -- there (the side changes now and then); zig: it zigzags as it comes;
+  -- stalk: it comes slower; flee: it backs away when the hunter is closer;
+  -- rush: its pace as it closes in to strike; wait: ticks between its blows;
+  -- wind: the pace of its wind-up (below 1: slower, easier to read and to
+  -- parry); hold: the chance of a blow held at the top (a delayed blow, its
+  -- weapon glints) and for how many ticks; quick: the chance of a blow with
+  -- no wind-up to speak of; strike: the pace of the blow and what follows
+  -- (below 1: a long recovery, a window); chain: the chance of another blow
+  -- at once (at most chains; tired: its rest after them); lunge: its step in
+  -- the wind-up; back: ticks it backs off after a blow; react: the chance it
+  -- steps away from the hunter's blow; punish: it strikes at once when the
+  -- hunter is caught in his own blow
+  local AI = {}
+  AI.STYLE = {
+    pitchfork = { keep = 34, wait = { 60, 110 }, wind = 0.85, hold = { 0.5, 14, 26 }, chain = 0.2, chains = 1,
+                  lunge = 0.4 },                                        -- wary: the fork's length, a slow thrust
+    torch = { keep = 20, rush = 1.6, wait = { 25, 50 }, wind = 1.2, chain = 0.5, chains = 2, lunge = 0.4 },  -- reckless
+    rifle = { keep = 100, flee = 64, wait = { 80, 140 }, hold = { 1, 20, 40 } },  -- aims long, from afar
+    crone = { keep = 30, zig = 0.7, stalk = 0.8, rush = 1.8, wait = { 35, 70 }, wind = 1.3, lunge = 0.9, back = 30,
+              react = 0.4 },                                            -- erratic: darts in and away
+    dog = { keep = 50, orbit = 1, rush = 1.2, wait = { 25, 50 }, back = 18, react = 0.35, lunge = 1.4 },  -- bite, away
+    scourge = { keep = 22, rush = 1.4, wait = { 20, 40 }, wind = 1.1, strike = 0.8, chain = 0.7, chains = 2,
+                lunge = 0.5, tired = 70 },                              -- a frenzy, then spent
+    axehunter = { keep = 48, orbit = 0.7, rush = 1.7, wait = { 45, 80 }, hold = { 0.6, 10, 22 }, chain = 0.35,
+                  chains = 1, lunge = 0.8, react = 0.5, punish = true },  -- a duellist
+    church = { keep = 30, orbit = 0.4, wait = { 50, 90 }, wind = 0.9, hold = { 0.75, 24, 44 }, quick = 0.25,
+               lunge = 0.3 },                                           -- the delayed blow, or a quick one
+    kin = { keep = 14, zig = 0.9, rush = 1.3, wait = { 15, 35 }, wind = 1.2, chain = 0.3, chains = 1,
+            back = 10 },                                                -- a swarm
+    brainsucker = { keep = 24, stalk = 0.6, wait = { 40, 80 }, wind = 0.7, lunge = 0.2 },  -- stalks, a slow grasp
+    lantern = { keep = 44, stalk = 0.7, rush = 0.8, wait = { 90, 150 }, wind = 0.7, strike = 0.7 },  -- creeps, slow
+    spider = { keep = 80, orbit = 0.6, rush = 2.2, wait = { 50, 90 }, back = 40, lunge = 0.9, react = 0.3 },  -- darts
+  }
+  -- The bosses: three phases as their blood runs out (above two thirds,
+  -- above one third, the last), plain at first, quicker and crueller at the
+  -- end. rate: the pace of every move; near (in reach), mid (to 90 px), far:
+  -- its moves by weight, "a+b" a pattern (b at once after a; it comes after
+  -- the hunter for b), "" a few steps closer. A new phase begins with a
+  -- roar (the hound howls): a moment to strike
+  AI.BOSS = {
+    butcher = {
+      { rate = 0.9, wait = { 70, 110 }, hold = { 0.5, 12, 22 }, keep = 36,
+        near = { "attack", 6, "combo1", 3 }, mid = { "throw", 2, "", 3 }, far = { "throw", 2, "", 2 } },
+      { rate = 1, wait = { 45, 80 }, hold = { 0.35, 10, 24 }, keep = 36,
+        near = { "attack", 2, "combo1", 3, "combo2", 3, "slam", 2 },
+        mid = { "slam", 3, "throw", 2, "throw+slam", 2, "", 2 }, far = { "throw", 3, "", 2 } },
+      { rate = 1.15, wait = { 25, 50 }, hold = { 0.25, 20, 34 }, keep = 30, rush = 1.5,
+        near = { "combo1+slam", 3, "combo2+combo1", 3, "attack+combo2", 2, "slam", 1 },
+        mid = { "slam+combo1", 3, "throw+throw", 2, "", 1 }, far = { "throw+throw", 2, "", 2 } },
+    },
+    hound = {
+      { rate = 1, wait = { 50, 90 }, keep = 70, orbit = 0.8,
+        near = { "attack", 4, "combo1", 2 }, mid = { "pounce", 4, "", 2 }, far = { "", 1 } },
+      { rate = 1.1, wait = { 35, 60 }, keep = 64, orbit = 1, react = 0.3,
+        near = { "attack", 2, "combo1", 3, "combo2", 3 }, mid = { "pounce", 3, "pounce+combo2", 3 },
+        far = { "howl", 1, "", 2 } },
+      { rate = 1.1, wait = { 25, 45 }, keep = 50, orbit = 1.2, react = 0.3, fury = true,
+        near = { "combo1+combo2", 3, "combo2+pounce", 2, "attack+combo1", 2 },
+        mid = { "pounce+combo1", 4, "pounce+pounce", 2 }, far = { "pounce", 2, "", 1 } },
+    },
+    father = {
+      { rate = 1, wait = { 55, 90 }, hold = { 0.4, 10, 20 }, keep = 44, orbit = 0.7, react = 0.3,
+        near = { "attack", 4, "combo1", 3 }, mid = { "blast", 4, "", 2 }, far = { "", 1 } },
+      { rate = 1.1, wait = { 40, 70 }, hold = { 0.3, 10, 24 }, keep = 40, orbit = 0.9, react = 0.35, punish = true,
+        near = { "combo1", 3, "combo2", 3, "whirl", 2, "combo1+blast", 2 },
+        mid = { "blast", 3, "blast+combo1", 2, "", 1 }, far = { "", 1 } },
+      { rate = 1.25, wait = { 15, 35 }, keep = 30, rush = 1.5, punish = true,
+        near = { "whirl+combo2", 3, "combo1+whirl", 3, "combo2+blast", 2 },
+        mid = { "blast+combo1", 3, "blast+whirl", 2, "", 1 }, far = { "", 1 } },
+    },
+    watcher = {
+      { rate = 0.9, wait = { 70, 110 }, keep = 90, flee = 50,
+        near = { "attack", 3, "grasp", 2 }, mid = { "grasp", 3, "beam", 2 }, far = { "beam", 3 } },
+      { rate = 1, wait = { 45, 80 }, keep = 70,
+        near = { "attack", 2, "combo1", 3, "combo2", 3, "grasp", 2 }, mid = { "beam+grasp", 3, "grasp", 2 },
+        far = { "beam", 3, "", 1 } },
+      { rate = 1.15, wait = { 25, 45 }, keep = 50, orbit = 0.6,
+        near = { "combo1+grasp", 3, "combo2+combo1", 3, "attack+grasp", 2 },
+        mid = { "grasp+combo2", 3, "beam+grasp", 2 },
+        far = { "beam+beam", 2, "", 1 } },
+    },
+  }
+  FOE.styles, FOE.bosses = AI.STYLE, AI.BOSS
+  function FOE.style_of(name, ph) return AI.BOSS[name] and AI.BOSS[name][ph] or AI.STYLE[name] end
+  -- how far the moves of the bosses reach (the others: the reach of its blow)
+  AI.RANGE = { throw = 150, blast = 76, pounce = 120, howl = 999, beam = 170, grasp = 80, slam = 64, whirl = 44 }
+  -- the patterns taken apart, once
+  AI.SEQ = {}
+  function AI.seq(m)
+    local q = AI.SEQ[m]
+    if not q then
+      q = {}
+      for w in m:gmatch("[^+]+") do q[#q + 1] = w end
+      AI.SEQ[m] = q
     end
+    return q
+  end
+  -- the first frame of every move where something happens (a blow, a shot)
+  AI.FIRST = {}
+  function AI.init()
+    for _, f in ipairs(FOES) do
+      for _, a in pairs(f.a) do
+        for k, v in pairs(a) do
+          if k ~= "t" and k ~= "d" and k ~= "loop" and k ~= "shift" and (not AI.FIRST[a] or v[1] < AI.FIRST[a]) then
+            AI.FIRST[a] = v[1]
+          end
+        end
+      end
+    end
+  end
+  AI.init()
+  FOE.ai = AI
+  function AI.pick(l)
+    if not l then return nil end
+    local sum = 0
+    for i = 2, #l, 2 do sum = sum + l[i] end
+    local r = math.random() * sum
+    for i = 1, #l, 2 do
+      r = r - l[i + 1]
+      if r <= 0 then return l[i] end
+    end
+    return l[#l - 1]
+  end
+
+  -- a move begins: a blow held at the top or a quick one is decided here
+  function AI.start(o, name, dd)
+    local S = o.style
+    o.act, o.hold = name, nil
+    o.quick = (S.quick and math.random() < S.quick) or (S.flee and dd < S.flee * 0.7) or nil
+    play(o, name)
+  end
+  FOE.start = AI.start
+
+  -- what a boss does next, from how far the hunter is and its phase
+  function AI.choice(o, dd)
+    local S = o.style
+    return AI.pick(dd < o.st.reach + 10 and S.near or dd < 90 and S.mid or S.far)
+  end
+
+  -- a step; blocked, it slides along the wall on its side (or turns to the other)
+  function AI.slide(o, vx, vy)
+    local x0, y0 = o.x, o.y
+    move(o, vx, vy)
+    if o.x == x0 and o.y == y0 then
+      local s = o.side
+      move(o, -vy * s, vx * s)
+      if o.x == x0 and o.y == y0 then o.side = -s end
+    end
+  end
+
+  -- on its way (k: its pace), towards (dx, dy) or away
+  function AI.go(o, dx, dy, dd, k)
+    local f = o.fury and 1.5 or 1
+    local sp = o.st.sp * k * f
+    local vx, vy = dx / dd * sp, dy / dd * sp
+    local z = o.style.zig
+    if z then
+      local w = sin(t * 0.12 + o.hx) * z
+      vx, vy = vx - vy * w, vy + vx * w
+    end
+    AI.slide(o, vx, vy)
+    if o.anim ~= "walk" then play(o, "walk") end
+    step(o, k * f * (o.name == "dog" and 1.2 or 1))
   end
 
   ----------------------------------------------------------- every tick
   local function think(o, alive)
-    local st = o.st
+    local st, S = o.st, o.style
     local dx, dy = P.x - o.x, P.y - o.y
-    local dd = sqrt(dx * dx + dy * dy)
+    local dd = max(0.01, sqrt(dx * dx + dy * dy))
     if o.act == "dead" then
       if not o.ended then
         o.ended = step(o)
@@ -2958,31 +3107,67 @@ do
       if P.vic ~= o then o.act, o.stag = "stagger", 20 end
       return
     end
+    if o.act == "rage" then                       -- a boss into its next phase: it reels and roars
+      if o.f < 2 then step(o, 0.25) end
+      o.rage = o.rage - 1
+      if o.rage <= 0 then
+        o.act, o.cd = nil, 10
+        play(o, "idle")
+      end
+      return
+    end
     if o.act then
-      local done = step(o, o.fury and 1.25 or 1)
-      if o.newf then event(o) end
+      if o.hold and o.hold > 0 then o.hold = o.hold - 1 return end    -- the blow held at the top
+      local a = o.def.a[o.anim]
+      local first = AI.FIRST[a]
+      local pre = first and o.f < first
+      local rate = o.act == "hurt" and 1 or (S.rate or 1) * o.agg * (o.fury and 1.25 or 1) *
+                   (pre and (o.quick and 1.4 or S.wind or 1) or S.strike or 1)
+      local done = step(o, rate)
+      if o.newf then
+        if pre and o.f == first - 1 and not o.quick and S.hold and math.random() < S.hold[1] then
+          o.hold = S.hold[2] + math.random(0, S.hold[3] - S.hold[2])
+        end
+        event(o)
+      end
       -- a few creatures lunge in their blow (the pounce flies in its frames)
-      if (o.anim == "attack" or o.anim:sub(1, 5) == "combo") and o.def.a[o.anim].hit and
-             o.f <= o.def.a[o.anim].hit[1] and dd > st.r + 8 then
+      if (o.anim == "attack" or o.anim:sub(1, 5) == "combo") and a.hit and o.f <= a.hit[1] and dd > st.r + 8 then
         local v = DIRV[o.dir + 1]
-        local k = o.name == "dog" and 1.4 or 0.3
+        local k = S.lunge or 0.3
         move(o, v[1] * k, v[2] * k)
       end
       if done then
         -- the body ends ahead of where it stood (a pounce): it is there now
-        local sh = o.def.a[o.anim].shift
+        local sh = a.shift
         if sh then
           local v = DIRV[o.dir + 1]
           move(o, v[1] * sh, v[2] * sh)
         end
+        local was = o.act
         o.act = nil
-        o.cd = (o.boss and 30 or 50) + math.random(o.boss and 50 or 70)
         play(o, "idle")
+        local nxt = o.queue and table.remove(o.queue, 1)
+        if o.queue and #o.queue == 0 then o.queue = nil end
+        if nxt then
+          o.next, o.cd, o.chase = nxt, 4 + math.random(8), 0          -- the pattern goes on
+        elseif was == "hurt" then
+          o.cd = max(o.cd, 20 + math.random(20))
+        elseif S.chain and was == "attack" and o.chained < (S.chains or 1) and dd < st.reach + 10 and
+               math.random() < S.chain then
+          o.chained = o.chained + 1
+          AI.start(o, "attack", dd)
+        else
+          local tired = S.tired and o.chained >= (S.chains or 1)
+          o.chained = 0
+          o.cd = (S.wait[1] + math.random(0, S.wait[2] - S.wait[1])) / o.agg + (tired and S.tired or 0)
+          if S.back then o.back, o.backsp = S.back, 1 end
+        end
       end
       return
     end
     if o.fury then o.fury = o.fury - 1; if o.fury <= 0 then o.fury = nil end end
     if o.cd > 0 then o.cd = o.cd - 1 end
+    if o.react_cd > 0 then o.react_cd = o.react_cd - 1 end
     if o.boss and not o.awake then
       if alive and dd < 112 then
         o.awake = true
@@ -3009,23 +3194,91 @@ do
     if o.alert and alive and dd > st.sight * 1.8 and not o.boss then o.alert = false end
     if o.alert and alive then
       o.dir = dir_to(dx, dy)
-      local want
       if o.boss then
-        if o.cd <= 0 then want = boss_choice(o, dd) end
-      elseif o.cd <= 0 and dd < st.reach + (st.ranged and 0 or 4) then
-        want = "attack"
+        local h = o.hp / o.hpmax
+        local ph = h > 0.66 and 1 or h > 0.33 and 2 or 3
+        if ph > o.ph then
+          -- its next phase: it roars (the hound howls), then fights another way
+          o.ph, o.style, o.next, o.queue, o.back = ph, AI.BOSS[o.name][ph], nil, nil, 0
+          if o.style.fury then o.fury = 1e9 end
+          sfx_roar()
+          FOE.shake = 16
+          if o.name == "hound" and ph == 2 then
+            AI.start(o, "howl", dd)
+          else
+            o.act, o.rage = "rage", 50
+            play(o, "hurt")
+          end
+          return
+        end
       end
-      if want then
-        o.act = want
-        play(o, want)
+      -- backing off, after its blow or from the hunter's
+      if o.back > 0 then
+        o.back = o.back - 1
+        AI.go(o, -dx, -dy, dd, o.backsp)
         return
       end
-      local close = st.ranged and 90 or (st.reach * 0.7 + st.r * 0.3)
-      if dd > close then
-        local sp = st.sp * (o.fury and 1.5 or 1)
-        move(o, dx / dd * sp, dy / dd * sp)
+      -- the hunter swings at it: some step away, some strike back in his blow
+      local pa = P.act
+      if (pa == "attack" or pa == "heavy") and dd < st.reach + 26 then
+        if S.react and P.f <= 2 and o.react_cd <= 0 then
+          o.react_cd = 50
+          if math.random() < S.react then
+            o.back, o.backsp, o.dodges = 12, 1.8, (o.dodges or 0) + 1
+            return
+          end
+        elseif S.punish and o.cd > 0 and P.f > HUNT[P.anim].hit then
+          o.cd, o.counters = 0, (o.counters or 0) + 1
+        end
+      end
+      if o.cd <= 0 then
+        local want = o.next
+        if not want then
+          if o.boss then
+            want = AI.choice(o, dd)
+            if want == "" then
+              want, o.cd, o.closing = nil, 15 + math.random(15), 40  -- a few steps closer first
+            elseif want then
+              local q = AI.seq(want)
+              want, o.queue = q[1], #q > 1 and { table.unpack(q, 2) } or nil
+              o.next, o.chase = want, 0
+            end
+          else
+            want = "attack"
+          end
+        end
+        if want then
+          if dd <= (AI.RANGE[want] or st.reach + (st.ranged and 0 or 6)) then
+            o.next = nil
+            AI.start(o, want, dd)
+            return
+          end
+          -- out of its reach: it closes in, quicker (a boss gives up after a while)
+          o.chase = (o.chase or 0) + 1
+          if o.boss and o.chase > 80 then o.next, o.queue, o.cd = nil, nil, 20 end
+          AI.go(o, dx, dy, dd, S.rush or 1)
+          return
+        end
+      end
+      -- between its blows: the distance it likes, circling the hunter (a boss
+      -- coming closer: within its reach)
+      local keep = S.keep or st.reach
+      if o.closing and o.closing > 0 then o.closing, keep = o.closing - 1, st.reach end
+      if S.flee and dd < S.flee then
+        AI.go(o, -dx, -dy, dd, 1)
+        return
+      elseif dd > keep + 8 then
+        AI.go(o, dx, dy, dd, S.stalk or 1)
+        return
+      elseif dd < keep - 12 and not S.orbit then
+        AI.go(o, -dx, -dy, dd, 0.6)                      -- too close: it gives itself room
+        return
+      elseif S.orbit then
+        if math.random() < 0.012 then o.side = -o.side end
+        local sp, k = st.sp * S.orbit, (dd - keep) * 0.04
+        AI.slide(o, (-dy * o.side * sp + dx * k) / dd, (dx * o.side * sp + dy * k) / dd)
         if o.anim ~= "walk" then play(o, "walk") end
-        step(o, (o.fury and 1.5 or 1) * (o.name == "dog" and 1.2 or 1))
+        step(o, S.orbit)
         return
       end
     end
@@ -3172,6 +3425,8 @@ do
       local o = list[k]
       if o.boss and o.act ~= "dead" then
         o.x, o.y, o.hp, o.awake, o.act, o.alert, o.beam, o.fury = o.hx, o.hy, o.st.hp, false, nil, false, nil, nil
+        o.ph, o.style, o.back, o.cd = 1, FOE.style_of(o.name, 1), 0, 30
+        o.hold, o.queue, o.next, o.chase = nil, nil, nil, nil
         play(o, "idle")
       else
         table.remove(list, k)
@@ -3256,6 +3511,12 @@ do
     end
     for _, o in ipairs(list) do
       if o.act == "stagger" and (t // 4) % 2 == 0 then FOE.mark(o, 0xF8F8E8) end
+      -- a blow held at the top: its weapon glints (the moment to read it)
+      if o.hold and o.hold > 0 and (o.hold // 3) % 2 == 0 then
+        local x, y = point(o, 1)
+        pset(x, y, 0xF8F8E8); pset(x - 2, y, 0xC8C0B0); pset(x + 2, y, 0xC8C0B0)
+        pset(x, y - 2, 0xC8C0B0); pset(x, y + 2, 0xC8C0B0)
+      end
     end
   end
   -- a small diamond over a creature's head

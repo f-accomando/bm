@@ -391,8 +391,10 @@ local staggered = false
 press(6, 1)
 for i = 1, 40 do frame(0, "foe"); if o.act == "hurt" then staggered = true end end
 check(staggered, "the pistol staggers a dog")
--- the rally: struck soon after a wound, the blood comes back
+-- the rally: struck soon after a wound, the blood comes back (the dog
+-- made to stand and take it: its own ways keep it out of reach)
 settle(40)
+o.style = { keep = 10, wait = { 999, 999 } }
 P.act, P.hp, P.rally, P.rally_t = nil, 6, 3, 100
 local hp0 = P.hp
 for i = 1, 20 do
@@ -412,7 +414,8 @@ for i = 1, 900 do
   if #F.shots > 0 then fired = true break end
 end
 check(fired, "the rifleman shoots")
--- every boss: awake, its specials and combos, slain
+-- every boss: awake, through its three phases (its blood at a half, then a
+-- fifth: a roar each time), its specials and combos, slain
 local seen_all = {}
 for _, name in ipairs({ "butcher", "hound", "father", "watcher" }) do
   clear()
@@ -423,11 +426,16 @@ for _, name in ipairs({ "butcher", "hound", "father", "watcher" }) do
   local b = F.new(name, fx, fy, 0)
   local seen, nseen = {}, 0
   local fx_seen = {}
+  local roars = 0
   for i = 1, 7000 do
+    if i == 2400 then b.hp = b.hpmax * 0.5 end
+    if i == 4800 then b.hp = b.hpmax * 0.2 end
+    local ph = b.ph
     frame(0, "boss")
+    if b.ph > ph then roars = roars + 1 end
     P.inv, P.hp = 60, 10
     if P.act == "dead" or P.act == "down" or P.act == "lying" then P.act = nil end
-    if b.act and not seen[b.act] then seen[b.act] = true; nseen = nseen + 1 end
+    if b.act and b.act ~= "rage" and not seen[b.act] then seen[b.act] = true; nseen = nseen + 1 end
     if #F.shots > 0 then fx_seen.shot = true end
     if #F.rings > 0 then fx_seen.ring = true end
     if #F.burns > 0 then fx_seen.burn = true end
@@ -439,6 +447,7 @@ for _, name in ipairs({ "butcher", "hound", "father", "watcher" }) do
     end
   end
   check(F.boss == b, name .. ": the boss is awake")
+  check(b.ph == 3 and roars == 2, name .. ": three phases, a roar into each")
   local specials, combos = 0, 0
   for k in pairs(seen) do
     if k:sub(1, 5) == "combo" then combos = combos + 1
