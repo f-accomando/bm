@@ -141,6 +141,15 @@ screenshot in `docs/img/`), `README_OLD.md` (il README completo, in italiano),
   chiazze (`patch` in `gen`), i cortili verso erba o terra a zone grandi, poche decorazioni;
   lampioni radi, pochi oggetti, slarghi agli incroci. La tessera 0 dello sheet è vuota: la
   cella 0 per `map()` non si disegna (prima lasciava quadrati neri nelle strade).
+- Oggetti distruttibili (richiesta dell'utente: strade più vive e meno ingombre): barili, casse,
+  pile di casse, panche e bare (`BRK` in `main.lua`; i resti in `art/props.py`, `BROKEN`). Si
+  rompono con i colpi del cacciatore (`FOE.strike`), correndo, rotolando o con un passo rapido
+  addosso (`walk_by`), con lo sparo (`BRK.first`: il primo sulla traiettoria, se prima non c'è una
+  creatura), con i colpi e gli schianti delle creature, le palle dei fucili e le bombe, e i boss ci
+  passano attraverso. Rotti smettono di bloccare (`col.off`), restano i resti a terra, schegge
+  (particelle tipo 8 che cadono e restano un po') e polvere; restano rotti anche quando il pezzo
+  di città si rifà (`BRK.gone`) e tornano interi quando la città si ripopola (`FOE.reset`: lampada,
+  morte). Prove in `tests/yharnam/sim.lua`.
 - Il fuoco (bracieri, pire) è un ciclo di fotogrammi in pixel art (`art/fire.py`, `FIRE_ANIM`),
   disegnato dopo la luce, più le scintille: pieno alla base, lingue che salgono. Le fiamme
   lasciano libere 40 delle `MAXP` particelle, e solo i fuochi visti ne emettono.

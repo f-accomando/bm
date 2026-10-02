@@ -543,6 +543,107 @@ def cage():
     return m, ((0, 0, 11), 14), (32, 44, 16, 36)
 
 
+# ---------------------------------------------------------------- broken
+# what is left of the wooden things the hunter (or a creature) smashes:
+# staves, planks and hoops lying round where they stood, the same woods
+
+def _plank(c, size, yaw=0.0, tilt=0.0, roll=0.0):
+    """a box lying at c, turned yaw about the vertical, tilted (pitch) and rolled"""
+    R = rz(yaw) @ ry(tilt) @ rx(roll)
+    c = np.asarray(c, float)
+    return lambda q: sd_box((q - c) @ R, size, 0.15)
+
+
+def _scatter(a, n, rad, size, mat, seed, z=0.35, group='plank', spread=0.9):
+    """n planks thrown round the middle, from rad[0] to rad[1] out"""
+    rng = np.random.default_rng(seed)
+    for k in range(n):
+        an = k * 2 * math.pi / n + rng.uniform(-0.5, 0.5)
+        d = rng.uniform(*rad)
+        yaw = an + math.pi / 2 + rng.uniform(-spread, spread)
+        tilt = rng.uniform(-0.25, 0.25)
+        a('root', _plank((math.cos(an) * d, math.sin(an) * d * 0.8, z + abs(tilt) * size[0] * 0.5), size, yaw, tilt),
+          mat, '%s%d' % (group, k), tex=tex_planks(0, 1.6, seed=k))
+
+
+def barrel_broken():
+    m = Model()
+    a = m.add
+    # the bottom of the barrel, open, and its staves all round
+    a('root', lambda q: np.maximum(sd_cyl(q, (0, 0), 4.5, 0, 2.6), -sd_cyl(q, (0, 0), 3.6, 0.9, 4.0)), WOOD, 'stump')
+    _scatter(a, 7, (5.0, 8.0), (3.0, 0.75, 0.3), WOOD, 3)
+    # one hoop flat on the street, one leaning on the stump
+    a('root', lambda q: sd_torus_z(q, (5.2, -3.0, 0.45), 4.6, 0.42), IRON, 'hoop')
+    lean = rx(D(64))
+    a('root', lambda q: sd_torus_z((q - np.array([-2.6, 2.0, 3.6])) @ lean, (0, 0, 0), 4.4, 0.42), IRON, 'hoop2')
+    return m, ((0, 0, 2), 13), (40, 32, 20, 22)
+
+
+def crate_broken(stack=1, seed=5):
+    m = Model()
+    a = m.add
+    # the floor of the crate, a low open tray, and its sides fallen out
+    a('root', lambda q: np.maximum(sd_box(q - np.array([0, 0, 0.9]), (4.5, 4.5, 0.9), 0.2),
+                                   -sd_box(q - np.array([0, 0, 1.6]), (3.7, 3.7, 1.2))), WOOD, 'tray')
+    rng = np.random.default_rng(seed)
+    for k in range(2 + stack):
+        an = k * 2 * math.pi / (2 + stack) + rng.uniform(-0.4, 0.4)
+        d = 6.2 + rng.uniform(0, 1.5)
+        a('root', _plank((math.cos(an) * d, math.sin(an) * d * 0.8, 0.9), (4.4, 4.4, 0.4), an, rng.uniform(-0.3, 0.3),
+                         rng.uniform(-0.3, 0.3)), WOOD, 'side%d' % k, tex=tex_planks(0, 2.2, seed=k))
+    _scatter(a, 4 + 3 * stack, (3.0, 7.5 + stack), (3.6, 0.6, 0.3), DWOOD, seed + 11, group='brace')
+    return m, ((0, 0, 1.5), 12 + 2 * stack), (40, 32, 20, 22)
+
+
+def bench_broken():
+    m = Model()
+    a = m.add
+    # the seat snapped in two, one half on the street, one against a leg
+    a('root', _plank((-4.6, 0.6, 2.8), (4.4, 2.6, 0.5), 0.15, 0.55), WOOD, 'seat0', tex=tex_planks(0, 2.2))
+    a('root', _plank((4.4, -0.4, 0.55), (4.2, 2.6, 0.5), -0.25, 0.0), WOOD, 'seat1', tex=tex_planks(0, 2.2, seed=1))
+    # the back fallen behind
+    a('root', _plank((0.5, -4.6, 0.45), (8.6, 1.9, 0.4), 0.12, 0.0, 1.5), WOOD, 'back', tex=tex_planks(0, 2.2, seed=2))
+    # one iron end still standing, the other over on its side
+    a('root', lambda q: sd_box(q - np.array([-7.6, 0, 3.0]), (0.6, 2.4, 3.0), 0.2), IRON, 'leg0')
+    a('root', lambda q: sd_box(q - np.array([-7.6, -2.6, 8.0]), (0.6, 0.4, 3.4), 0.2), IRON, 'leg0')
+    for dy in (-2.0, 2.0):                      # the fallen end: its two bars and the foot
+        a('root', _plank((9.6 - dy * 0.3, 0.8 + dy, 0.5), (3.0, 0.4, 0.45), 0.3), IRON, 'leg1')
+    a('root', _plank((12.4, 0.2, 0.5), (0.4, 2.4, 0.45), 0.3), IRON, 'leg1')
+    _scatter(a, 3, (3.0, 7.0), (1.6, 0.5, 0.25), WOOD, 9, group='chip')
+    return m, ((0, 0, 3), 13), (40, 32, 20, 22)
+
+
+def coffin_broken(seed=0):
+    m = Model()
+    a = m.add
+
+    def shape(q):
+        y = q[:, 1]
+        w = np.where(y > 5.0, 4.6 - (y - 5.0) * 0.30, 3.2 + (y + 11.0) * 0.088)
+        return np.maximum(np.abs(q[:, 0]) - w, np.abs(y + 1.5) - 10.0)
+    sw = lambda q: np.stack([q[:, 1], q[:, 0], q[:, 2]], 1)
+    # the open box, low, along x; what was inside it; the lid in pieces
+    a('root', lambda q: np.maximum(np.maximum(shape(sw(q)), np.abs(q[:, 2] - 1.3) - 1.3),
+                                   -np.maximum(shape(sw(q)) + 0.7, 0.8 - q[:, 2])), DWOOD, 'box',
+      tex=tex_planks(1, 2.2))
+    a('root', lambda q: sd_sphere(q, (5.6, 0.2, 1.6), 1.5), BONE, 'skull')
+    a('root', lambda q: sd_capsule(q, (2.8, -0.8, 1.0), (-4.0, 0.6, 1.0), 0.45), BONE, 'bones')
+    a('root', lambda q: sd_capsule(q, (1.0, 1.4, 1.1), (-6.5, 2.0, 0.9), 0.4), BONE, 'bones')
+    rng = np.random.default_rng(seed + 4)
+    for k in range(3):
+        y = -9.0 + k * 6.5 + rng.uniform(-1, 1)
+        x = rng.choice([-1, 1]) * rng.uniform(5.5, 7.5)
+        a('root', _plank((y * 0.9, x, 0.4), (3.4, 4.0, 0.35), rng.uniform(-0.5, 0.5), rng.uniform(-0.2, 0.2)),
+          DWOOD, 'lid%d' % k, tex=tex_planks(1, 2.2, seed=k))
+    a('root', lambda q: sd_box(q - np.array([3.0, -6.6, 0.35]), (2.6, 0.5, 0.3)), BRASS, 'cross')
+    a('root', lambda q: sd_box(q - np.array([3.8, -6.6, 0.35]), (0.5, 1.6, 0.3)), BRASS, 'cross')
+    return m, ((0, 0, 1.5), 16), (48, 40, 24, 26)
+
+
+BROKEN = {'barrel': 'barrel_broken', 'crate': 'crate_broken', 'crates': 'crates_broken', 'bench': 'bench_broken',
+          'coffin': 'coffin_broken', 'coffin_up': 'coffin_up_broken'}
+
+
 PROPS = {
     'lamp': lambda: gas_lamp(True),
     'lamp_off': lambda: gas_lamp(False),
@@ -583,6 +684,12 @@ PROPS = {
     'cage': cage,
     'shrine': lambda: shrine(False),
     'shrine_lit': lambda: shrine(True),
+    'barrel_broken': barrel_broken,
+    'crate_broken': lambda: crate_broken(1, 5),
+    'crates_broken': lambda: crate_broken(2, 8),
+    'bench_broken': bench_broken,
+    'coffin_broken': lambda: coffin_broken(0),
+    'coffin_up_broken': lambda: coffin_broken(3),
 }
 
 
@@ -595,6 +702,8 @@ SCALE = {
     'chimney': 1.6, 'chimney1': 1.6, 'spire': 1.9, 'tree': 1.9, 'tree2': 1.9, 'tree3': 1.9, 'bush': 1.8,
     'bush2': 1.8, 'fence_x': 2.0, 'fence_y': 2.0, 'fence_post': 2.0, 'bollard': 1.4, 'cage': 2.2,
     'shrine': 1.5, 'shrine_lit': 1.5,
+    'barrel_broken': 2.0, 'crate_broken': 2.0, 'crates_broken': 2.0, 'bench_broken': 2.2, 'coffin_broken': 2.6,
+    'coffin_up_broken': 2.6,
 }
 
 

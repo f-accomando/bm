@@ -691,6 +691,83 @@ o.awake, o.cd = true, 999
 for i = 1, 5 do F.harm(o, 4, false) end
 check(o.act == "stagger", "a boss reels when the blows add up (" .. tostring(o.act) .. ")")
 clear()
+
+-- things that break: barrels, crates, benches, coffins
+local BRK = Y.BRK
+local function breakable(skip)
+  for cy = 0, Y.AREA - 1 do
+    for cx = 0, Y.AREA - 1 do
+      local ch = Y.ensure(cx, cy)
+      for _, b in ipairs(ch.objs) do
+        if b.col and not b.broken and not skip[b] then return b, cx, cy end
+      end
+    end
+  end
+end
+-- the hunter beside it, facing it
+local function beside(b)
+  for _, r in ipairs({ 15, 18, 22 }) do
+    for k = 0, 15 do
+      local a = k * math.pi / 8
+      local x, y = b.x + math.cos(a) * r, b.y + math.sin(a) * r * 0.7
+      if not Y.blocked(x, y) then
+        local best, bd = 0, -2
+        Y.teleport(x, y)
+        local dx, dy = b.x - x, b.y - y
+        local dd = math.sqrt(dx * dx + dy * dy)
+        for d = 0, 7 do
+          local ang = ({ { 0, 1 }, { 0.7071, 0.7071 }, { 1, 0 }, { 0.7071, -0.7071 }, { 0, -1 }, { -0.7071, -0.7071 },
+                         { -1, 0 }, { -0.7071, 0.7071 } })[d + 1]
+          local dot = (ang[1] * dx + ang[2] * dy) / dd
+          if dot > bd then best, bd = d, dot end
+        end
+        P.dir, P.act, P.st, P.ext, P.combo, P.lock = best, nil, 100, false, 0, nil
+        return true
+      end
+    end
+  end
+end
+local skip, b, bcx, bcy = {}, nil, nil, nil
+repeat
+  b, bcx, bcy = breakable(skip)
+  if b then skip[b] = true end
+until not b or beside(b)
+check(b, "a breakable thing in the first area")
+local nb = #Y.parts
+settle(10)
+press(4, 1)
+for i = 1, 40 do frame(0, "break") end
+check(b.broken and BRK.gone[b.key], "a blow breaks a " .. b.name)
+check(b.s == Y.SPR[BRK.kinds[b.name]], "what is left of it is drawn")
+check(b.col.off, "it blocks the way no more")
+local splinters = 0
+for _, p in ipairs(Y.parts) do if p.kind == 8 then splinters = splinters + 1 end end
+check(splinters > 0, "splinters fly")
+-- its chunk made again: still broken
+Y.ensure(bcx + 4, bcy + 4)
+local again
+for _, o2 in ipairs(Y.ensure(bcx, bcy).objs) do if o2.key == b.key then again = o2 end end
+check(again and again.broken and again.col.off, "broken it stays when its street is made again")
+-- the town fills again: whole
+F.reset()
+check(not again.broken and not again.col.off and again.s == Y.SPR[again.name], "whole again when the town fills again")
+-- running into one breaks it too, and a creature's blow, and a shot
+local b2
+skip = {}
+repeat
+  b2 = breakable(skip)
+  if b2 then skip[b2] = true end
+until not b2 or beside(b2)
+check(b2, "another breakable thing")
+local hit = BRK.touch(b2.col.x, b2.col.y, 2, 0)
+check(hit == b2 and b2.broken, "running into it breaks it")
+F.reset()
+check(BRK.smash(b2.x - 20, b2.y, 1, 0, 26, 0.3) == 1 and b2.broken, "a creature's blow breaks it")
+F.reset()
+local o3, sx, sy = BRK.first(b2.x - 60, b2.y, b2.x + 60, b2.y)
+check(o3 == b2 and sx < b2.x, "a shot finds it on its way")
+F.reset()
+clear()
 F.quiet = false
 
 io.write(string.format("frames: %d; Lua instructions per frame: median %d, 99%% %d, heaviest %d (%s); " ..
