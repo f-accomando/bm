@@ -298,6 +298,14 @@ static int cap_project(lua_State *G)
     return 3;
 }
 
+/* cart_sheet(): a sheet of 256 x 256 */
+static int cap_sheet(lua_State *G)
+{
+    lua_pushinteger(G, 256);
+    lua_pushinteger(G, 256);
+    return 2;
+}
+
 static int cap_bone(lua_State *G)
 {
     for (int k = 0; k < 6; k++)
@@ -467,7 +475,7 @@ int bm_mesh_capture(lua_State *L, const char *lua, size_t len, int width, int he
         { "mget", cap_zero }, { "pget", cap_zero }, { "sget", cap_zero },
         { "project3d", cap_project }, { "animate", cap_zero }, { "clips", cap_table },
         { "ls", cap_table }, { "keys", cap_table }, { "pad", cap_zero }, { "players", cap_two },
-        { "stick", cap_stick }, { "bone3d", cap_bone },
+        { "stick", cap_stick }, { "bone3d", cap_bone }, { "cart_sheet", cap_sheet },
         { "require", cap_require },
         { NULL, NULL },
     };

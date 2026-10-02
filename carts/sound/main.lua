@@ -328,20 +328,33 @@ end
 function ui.play_icon(x, y, c) tri(x, y, x, y + 12, x + 10, y + 6, c) end
 function ui.stop_icon(x, y, c) rectfill(x, y + 1, 10, 10, c) end
 
--- a button chip: "A", "Y"... then optional arrows, then the label
-local BTN_C = { A = C.green, B = C.red, X = C.blue, Y = C.yellow }
-function ui.hint(x, y, btn, dir, label)
-  local w = #btn * 8 + 6
-  ui.box(x, y, w, 16, BTN_C[btn] or C.line)
-  print(btn, x + 3, y, BTN_C[btn] and C.dark or C.text)
-  x = x + w + 2
-  if dir then                          -- held with a direction: the arrow beside the button
-    ui.arrow(x, y, dir, C.text)
-    x = x + (dir == "lr" and 16 or 12)
-  end
-  print(label, x, y, C.dim)
-  return x + #label * 8 + 8
+-- the hints as chips (prompt()): keys or pad buttons, then the label;
+-- returns the x after it
+local function snap(x) return (x + 7) // 8 * 8 end   -- text stays on its 8 px columns
+function ui.chips(keys, label, x, y)
+  for _, k in ipairs(keys) do x = prompt(k, x, y) + 1 end
+  return print(label, snap(x + 2), y, C.dim) + 8
 end
+function ui.chips_w(keys, label, x)
+  local kx = x
+  for _, k in ipairs(keys) do kx = kx + prompt(k) + 1 end
+  return snap(kx + 2) + #label * 8 + 8 - x
+end
+
+-- a pad button and the direction held with it ("ud", "lr"), as on the pad;
+-- with the keyboard in use, the keys that do the same (see HELP)
+local DIRS = { u = "UP", d = "DOWN", l = "LEFT", r = "RIGHT", ud = "UPDOWN", lr = "LEFTRIGHT" }
+local KEYS_OF = {
+  A = { "enter" }, Aud = { "-", "=" }, Alr = { "_", "+" }, Yud = { "[", "]" }, Ylr = { ";", "'" },
+  B = { "esc" }, Bud = { "k", "l" }, Blr = { "o", "p" }, X = { "backspace" }, START = { "space" },
+  SELECT = { "esc" },
+}
+local function hint_keys(btn, dir)
+  local k = lastinput() == "keyboard" and KEYS_OF[btn .. (dir or "")]
+  return k or (dir and { btn, DIRS[dir] } or { btn })
+end
+function ui.hint(x, y, btn, dir, label) return ui.chips(hint_keys(btn, dir), label, x, y) end
+function ui.hint_w(x, btn, dir, label) return ui.chips_w(hint_keys(btn, dir), label, x) end
 
 -- a value bar: label, value text, fill 0..1
 function ui.bar(x, y, w, label, value, k, c, selected)
@@ -1299,7 +1312,11 @@ local function draw_overlay()
     end
     ui.arrow(x + 30 + (o.pos - 1) * 38 + 12, y + 34, "u", C.yellow)
     ui.arrow(x + 30 + (o.pos - 1) * 38 + 12, y + 96, "d", C.yellow)
-    print("up/down letter  left/right move  A done  B cancel", x + 12, y + 122, C.dim)
+    local kb, hx = lastinput() == "keyboard", x + 12
+    hx = ui.chips(kb and { "up", "down" } or { "UPDOWN" }, "letter", hx, y + 122)
+    hx = ui.chips(kb and { "left", "right" } or { "LEFTRIGHT" }, "move", hx, y + 122)
+    hx = ui.hint(hx, y + 122, "A", nil, "done")
+    ui.hint(hx, y + 122, "B", nil, "cancel")
   elseif o.kind == "ask" then
     local x, y = draw_panel(420, 130, o.q, C.orange)
     print(o.detail or "", x + 16, y + 44, C.text)
@@ -1773,8 +1790,7 @@ local function draw_bottom()
   end
   local x = 8
   for _, h in ipairs(hints) do
-    local w = #h[1] * 8 + 8 + (h[2] and (h[2] == "lr" and 16 or 12) or 0) + #h[3] * 8 + 8
-    if x + w > W - 108 then break end
+    if x + ui.hint_w(x, h[1], h[2], h[3]) > W - 108 then break end
     x = ui.hint(x, y, h[1], h[2], h[3])
   end
   ui.hint(W - 104, y, "SELECT", nil, "menu")

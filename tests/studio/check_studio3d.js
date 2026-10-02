@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 /*
- * The files the 3D studio of the console wrote in its host test
- * (tests/studio/studio3d_host.lua), read by bm Studio's own parser:
+ * The files bm Studio and bm Animator of the console wrote in their host
+ * test (tests/studio/tools3d_host.lua), read by bm Studio's own parser:
  * - BLOCKS.BM: the faces are the very ones bm Studio makes with the same
  *   tools (a block, a floor tile painted red, a tile on the far wall), the
  *   skeleton and the animation are there;

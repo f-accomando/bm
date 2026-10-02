@@ -58,6 +58,56 @@ int bm_sheet8_unpack(const bm_cart_t *c, void (*set)(void *ctx, int x, int y, co
     return sheet8_walk(c->sheet8, c->sheet8_size, set, ctx);
 }
 
+/* the literal indices waiting, in runs of at most 128 */
+static uint8_t *sheet8_flush(uint8_t *q, const uint8_t *idx, uint32_t at, uint32_t lit)
+{
+    while (lit) {
+        uint32_t k = lit > 128 ? 128 : lit;
+        *q++ = (uint8_t)(k - 1);
+        memcpy(q, idx + at, k);
+        q += k;
+        at += k;
+        lit -= k;
+    }
+    return q;
+}
+
+uint8_t *bm_sheet8_pack(int w, int h, const uint8_t *pal_rgba, int ncol, const uint8_t *idx, size_t *outlen)
+{
+    uint32_t n = (uint32_t)w * h;
+    /* at worst every 128 indices need one more byte */
+    uint8_t *out = malloc(8 + (size_t)ncol * 4 + n + n / 128 + 2);
+    if (!out)
+        return NULL;
+    out[0] = (uint8_t)w; out[1] = (uint8_t)(w >> 8);
+    out[2] = (uint8_t)h; out[3] = (uint8_t)(h >> 8);
+    out[4] = (uint8_t)ncol; out[5] = (uint8_t)(ncol >> 8);
+    out[6] = out[7] = 0;
+    memcpy(out + 8, pal_rgba, (size_t)ncol * 4);
+    uint8_t *q = out + 8 + ncol * 4;
+    uint32_t i = 0, lit_at = 0, lit = 0;
+    while (i < n) {
+        uint32_t j = i;
+        while (j < n && j - i < 129 && idx[j] == idx[i])
+            j++;
+        if (j - i >= 3) {                           /* a run: 3 to 129 times the same index */
+            q = sheet8_flush(q, idx, lit_at, lit);
+            lit = 0;
+            *q++ = (uint8_t)(j - i + 126);
+            *q++ = idx[i];
+            i = j;
+        } else {
+            if (!lit)
+                lit_at = i;
+            lit++;
+            i++;
+        }
+    }
+    q = sheet8_flush(q, idx, lit_at, lit);
+    *outlen = (size_t)(q - out);
+    return out;
+}
+
 /* ---------------------------------------------------------------- MESH */
 
 static float rdf32(const uint8_t *p)
@@ -430,12 +480,14 @@ uint8_t *bm_rewrite_with(const uint8_t *old, size_t oldlen, const char *lua, siz
     enum { MAXSEC = 32, MAXPUT = 8 };
     uint32_t type[MAXSEC], size[MAXSEC];
     const uint8_t *src[MAXSEC];
-    int used[MAXPUT] = { 0 }, put_mesh = 0, put_anim = 0;
+    int used[MAXPUT] = { 0 }, put_mesh = 0, put_anim = 0, put_sheet = -1;
     if (nput > MAXPUT)
         nput = MAXPUT;
     for (int k = 0; k < nput; k++) {
         put_mesh |= put[k].type == BM_SEC_MESH;
         put_anim |= put[k].type == BM_SEC_ANIM;
+        if (put[k].type == BM_SEC_SHEET || put[k].type == BM_SEC_SHEET8)
+            put_sheet = k;
     }
     unsigned n = 0, have_lua = 0, count = old ? old[17] : 0;
     for (unsigned i = 0; i < count && n < MAXSEC; i++) {
@@ -452,6 +504,12 @@ uint8_t *bm_rewrite_with(const uint8_t *old, size_t oldlen, const char *lua, siz
         } else if ((put_mesh && type[n] == BM_SEC_AUDIO && (size[n] < 4 || memcmp(src[n], "BMAU", 4) != 0)) ||
                    (put_anim && type[n] == BM_SEC_OLD_ANIM)) {
             continue;                           /* the first bm Studio files: replaced */
+        } else if (put_sheet >= 0 && (type[n] == BM_SEC_SHEET || type[n] == BM_SEC_SHEET8)) {
+            if (used[put_sheet]++ || !put[put_sheet].data)
+                continue;                       /* one sheet, in the place of the first */
+            type[n] = put[put_sheet].type;
+            src[n] = put[put_sheet].data;
+            size[n] = put[put_sheet].size;
         } else {
             int k = 0;
             while (k < nput && put[k].type != type[n])

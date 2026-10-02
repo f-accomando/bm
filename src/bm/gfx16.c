@@ -224,6 +224,44 @@ void g16_sspr(g16_t *g, const g16_sheet_t *s, int sx, int sy, int sw, int sh,
     blit(g, s, sx, sy, sw, sh, dx - g->cam_x, dy - g->cam_y, flip_x, flip_y, 0);
 }
 
+void g16_sspr_zoom(g16_t *g, const g16_sheet_t *s, int sx, int sy, int sw, int sh,
+                   int dx, int dy, int flip_x, int flip_y, float zoom)
+{
+    if (!s->px || !(zoom > 0.0f) || zoom > 4096.0f || !clamp_rect(s, &sx, &sy, &sw, &sh)) return;
+    int dw = (int)(sw * zoom + 0.5f), dh = (int)(sh * zoom + 0.5f);
+    dx -= g->cam_x;
+    dy -= g->cam_y;
+    if (dw == sw && dh == sh) {
+        blit(g, s, sx, sy, sw, sh, dx, dy, flip_x, flip_y, 0);
+        return;
+    }
+    if (dw <= 0 || dh <= 0) return;
+    int x0 = dx, y0 = dy, x1 = dx + dw, y1 = dy + dh;
+    if (x0 < g->cx0) x0 = g->cx0;
+    if (y0 < g->cy0) y0 = g->cy0;
+    if (x1 > g->cx1) x1 = g->cx1;
+    if (y1 > g->cy1) y1 = g->cy1;
+    if (x0 >= x1 || y0 >= y1) return;
+    /* source pixel of a screen pixel: (offset * step) >> 16, with the step
+     * rounded up so that whole zooms land exactly on their pixels */
+    const uint32_t stepx = (uint32_t)((((uint64_t)sw << 16) + (uint32_t)dw - 1) / (uint32_t)dw);
+    const uint32_t stepy = (uint32_t)((((uint64_t)sh << 16) + (uint32_t)dh - 1) / (uint32_t)dh);
+    for (int y = y0; y < y1; y++) {
+        int ly = (int)(((uint64_t)(uint32_t)(y - dy) * stepy) >> 16);
+        if (ly >= sh) ly = sh - 1;
+        const uint32_t sbase = (uint32_t)(sy + (flip_y ? sh - 1 - ly : ly)) * s->w;
+        uint16_t *dst = g->px + (uint32_t)y * g->stride;
+        uint64_t fx = (uint64_t)(uint32_t)(x0 - dx) * stepx;
+        for (int x = x0; x < x1; x++, fx += stepx) {
+            int lx = (int)(fx >> 16);
+            if (lx >= sw) lx = sw - 1;
+            uint32_t k = sbase + (uint32_t)(sx + (flip_x ? sw - 1 - lx : lx));
+            if (s->alpha[k])
+                dst[x] = s->px[k];
+        }
+    }
+}
+
 void g16_map(g16_t *g, const g16_sheet_t *s, const g16_map_t *m,
              int mx, int my, int x, int y, int mw, int mh)
 {

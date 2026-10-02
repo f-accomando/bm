@@ -51,6 +51,8 @@ typedef struct {
 /* What each player plays with, and the network, for the icons of the bar */
 enum { MENU_DEV_NONE, MENU_DEV_KEYBOARD, MENU_DEV_PAD };
 enum { MENU_NET_NONE, MENU_NET_WIFI, MENU_NET_ETHERNET };
+/* Whose buttons the hints at the bottom show (prompts.c) */
+enum { MENU_PROMPTS_DS4, MENU_PROMPTS_KEYBOARD, MENU_PROMPTS_PAD };
 
 typedef struct {
     const char *const *tabs;    /* tab names */
@@ -63,6 +65,8 @@ typedef struct {
     unsigned mice;              /* POINTER_USB / POINTER_BLUETOOTH: a mouse icon each */
     int net;                    /* MENU_NET_*: the link's icon... */
     int net_wait;               /* ...dimmed while there is no address yet */
+    int prompts;                /* MENU_PROMPTS_*: the device pressed last... */
+    int prompts_colour;         /* ...the DS4's face buttons in their colours */
     const char *details;        /* line under the grid (path, size) */
     const char *note;           /* last game, errors */
     const menu_panel_t *panel;  /* a submenu over the grid, or NULL */

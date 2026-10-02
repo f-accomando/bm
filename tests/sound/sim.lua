@@ -28,6 +28,16 @@ for _, n in ipairs({ "cls", "pset", "line", "rect", "rectfill", "circ", "circfil
   env[n] = function() calls = calls + 1 end
 end
 env.SCREEN_W, env.SCREEN_H = 640, 360
+-- the keys as chips: prompt(name) alone measures
+local function chip_w(n) return #n == 1 and 16 or math.max(16, #n * 6 + 10) end
+env.prompt = function(n, x, y)
+  assert(type(n) == "string", "prompt: a name")
+  calls = calls + 1
+  if type(x) ~= "number" then return chip_w(n), 16 end
+  return x + chip_w(n)
+end
+local last_input = nil
+env.lastinput = function() return last_input end
 env.print = function(s, x, y, c, scale)
   assert(type(x) == "number" and type(y) == "number", "print: x, y must be numbers")
   calls = calls + 1
@@ -160,6 +170,8 @@ end
 
 local frames = 0
 local function frame()
+  -- the hints follow what was pressed last: keyboard, a DS4, another pad
+  last_input = ({ "keyboard", "ds4", "pad", nil })[frames // 50 % 4 + 1]
   env._update()
   env._draw()
   for i = 0, 9 do pad_prev[i] = pad[i] end

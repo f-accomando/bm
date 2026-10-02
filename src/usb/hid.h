@@ -120,6 +120,11 @@ uint32_t hid_pad_buttons(void);
 /* L2 R2 L3 R3 held on the pads, or pressed since the last call (the
  * pointer's buttons, M31); the other readers' presses are not taken. */
 uint32_t hid_pointer_buttons(void);
+/* What pressed a button or a key last, for the buttons shown on screen:
+ * a keyboard (USB or Bluetooth), a DS4 (Bluetooth or USB) or another pad;
+ * HID_SOURCE_NONE until something is pressed. */
+enum { HID_SOURCE_NONE, HID_SOURCE_KEYBOARD, HID_SOURCE_DS4, HID_SOURCE_PAD };
+int      hid_last_source(void);
 /* Text mode (editors): hid_getc() also returns the navigation keys as the
  * codes below, and Esc no longer counts as "quit". */
 void hid_text_mode(int on);

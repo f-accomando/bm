@@ -249,16 +249,20 @@ def test_console_ansi_and_status(b, opts):
     q = Qemu(b("kernel.img"))
     try:
         q.expect(MENU, timeout=30)
-        # the menu: tabs at the top, button hints at the bottom (near white)
-        _, text = settled_screen(q, lambda i, t: any("Start+Select Monitor" in l for l in t))
+        # the menu: tabs at the top, button hints at the bottom (near white);
+        # nothing pressed yet: the DS4's buttons, Share + Options for the monitor
+        _, text = settled_screen(q, lambda i, t: "Monitor" in t[21])
         img = q.screendump()
         text = screen_text(img)
         assert "Games" in text[1] and "Dev" in text[1], text[1]
-        sel = next(i for i, l in enumerate(text) if "Start+Select Monitor" in l)
-        col = text[sel].index("Start+Select")
-        colours = {pixel(img, x, sel * 16 + y) for x in range(col * 8, col * 8 + 96) for y in range(16)}
+        col = text[21].index("Monitor")
+        colours = {pixel(img, x, 21 * 16 + y) for x in range(col * 8, col * 8 + 56) for y in range(16)}
         assert any(r > 230 and g > 230 and b > 230 for r, g, b in colours), \
             f"hint text not rendered {colours}"
+        spans = prompt_spans(img, 21)
+        assert len(spans) == 3 and spans[-1][1] - spans[-1][0] >= 44, spans   # cross, Share, Options
+        if opts.shots:
+            _save_png(img, os.path.join(opts.shots, "menu-hints.png"))
         q.send("q")
         q.expect(PROMPT)
         q.expect("> ")
@@ -542,6 +546,38 @@ def wait_icons(q, n, timeout=6.0):
         if ("Games" in screen_text(shot_)[1] and len(bar_icons(shot_)) == n) or time.time() > deadline:
             return shot_
         time.sleep(0.2)
+
+
+def wait_bar_icons(q, ok, tries=16):
+    """The menu bar once its icons are what ok(runs, img) wants: QEMU shows
+    page 0 even while it is drawn, and a USB device can be announced a
+    moment after the menu, so one screendump can miss them. Returns
+    (img, runs), the last ones if they never get there."""
+    for _ in range(tries):
+        img = q.screendump()
+        runs = bar_icons(img)
+        if ok(runs, img):
+            break
+        time.sleep(0.5)
+    return img, runs
+
+
+def prompt_spans(img, row):
+    """The button prompts on a text row of the menu's hints (prompts.c):
+    spans [x0, x1) of their grey lip, the second-last pixel row of the cell
+    (the labels' white text never has that colour)."""
+    runs, start, y = [], None, row * 16 + 14
+    for x in range(640):
+        r, g, b = pixel(img, x, y)
+        lip = 120 <= r <= 160 and abs(r - g) < 8 and 8 <= b - r <= 24
+        if lip and start is None:
+            start = x
+        elif not lip and start is not None:
+            runs.append((start, x))
+            start = None
+    if start is not None:
+        runs.append((start, 640))
+    return runs
 
 
 def blue_number(img, span):
@@ -925,9 +961,9 @@ def test_home_ui(b, opts):
 
         # the options of the suspended game
         keys("x")
-        # (with five tools, Open in bm Mesh and the info rows are below: the panel scrolls)
+        # (with the tools, bm Mesh, bm Pixel and the info rows are below: the panel scrolls)
         screen(["AAA saver", "Resume", "Close the game", "Open in the SDK", "Open in bm Code",
-                "Open in the Sound editor", "Open in the 3D studio"])
+                "Open in the Sound editor", "Open in bm Studio"])
         shot("options")
         keys("ww")                              # up from the first row: the last ones
         screen(["Delete the save data", "Records and progress start again"])
@@ -958,7 +994,7 @@ def test_home_ui(b, opts):
         # the other cartridge leaves the SD card
         keys("d")
         keys("x")
-        screen(["BBB delete me", "Play", "Open in the 3D studio"])
+        screen(["BBB delete me", "Play", "Open in bm Studio"])
         keys("w")                               # up from the first: the last rows, the file too
         screen(["Delete from the SD card", "/carts/Un gioco da cancellare.bm"])
         keys("\r")
@@ -1021,9 +1057,13 @@ def test_home_ui(b, opts):
         keys("d")                               # the covers' names are on pictures: the pill
         screen(["bm Sound", "sound (built-in)"])
         keys("d")
-        screen(["bm 3D studio", "3D studio (built-in)"])
+        screen(["bm Studio", "studio (built-in)"])
+        keys("d")
+        screen(["bm Animator", "animator (built-in)"])
         keys("d")
         screen(["bm Mesh", "mesh (built-in)"])
+        keys("d")
+        screen(["bm Pixel", "pixel (built-in)"])
         keys("d")
         screen(["Code", "code editor: tabs, two pages"])
         keys("d")
@@ -2382,8 +2422,9 @@ def test_bt_keyboard(b, opts):
         # keyboard player 2 (blue)
         q.mini.write(b"M")
         _mini_expect(q, "cartridge menu")
-        shot_ = wait_icons(q, 2)
-        runs = bar_icons(shot_)
+        time.sleep(1.0)
+        shot_, runs = wait_bar_icons(
+            q, lambda r, i: len(r) == 2 and blue_number(i, r[1]))
         assert len(runs) == 2 and all(20 <= x1 - x0 <= 27 for x0, x1 in runs), runs
         assert not blue_number(shot_, runs[0]) and blue_number(shot_, runs[1]), runs
         # in a game each keyboard moves its own player
@@ -2479,8 +2520,7 @@ def test_bt_keyboard_legacy(b, opts):
         q.mini.write(b"M")
         _mini_expect(q, "cartridge menu")
         time.sleep(1.0)
-        shot_ = wait_icons(q, 1)
-        runs = bar_icons(shot_)
+        shot_, runs = wait_bar_icons(q, lambda r, i: len(r) == 1 and blue_number(i, r[0]))
         assert len(runs) == 1 and blue_number(shot_, runs[0]), runs
     finally:
         q.close()
@@ -2611,6 +2651,29 @@ def test_menu_tabs(b, opts):
         state(["Settings"], ["Controllers", "WiFi and network"])
         if opts.shots:
             _save_png(q.screendump(), os.path.join(opts.shots, "home-tabs-settings.png"))
+
+        # Settings > Controllers > Button icons: the DS4's face buttons of the
+        # hints in their colours (the circle of Back red), then white again
+        def red_hint():
+            img_ = q.screendump()
+            return any(r > 220 and g < 140 and b_ < 140 for x in range(640)
+                       for y in range(21 * 16, 22 * 16) for r, g, b_ in [pixel(img_, x, y)])
+        press(buttons=0x08 | 0x20)          # A (cross): Controllers
+        state(["Settings"], ["Settings > Controllers"])
+        press(buttons=0x00)                 # up twice: round to Button icons
+        press(buttons=0x00)
+        state(["Settings"], ["Button icons", "< White >"])
+        assert not red_hint(), "white button icons drawn red"
+        press(buttons=0x02)                 # right: Colour
+        state(["Settings"], ["< Colour >", "button icons: colour"])
+        assert red_hint(), "no red circle for Back"
+        if opts.shots:
+            _save_png(q.screendump(), os.path.join(opts.shots, "home-button-icons.png"))
+        press(buttons=0x06)                 # left: White
+        state(["Settings"], ["< White >", "button icons: white"])
+        assert not red_hint(), "the circle stayed red"
+        press(buttons=0x08 | 0x40)          # B: back to Settings
+        state(["Settings"], ["Controllers", "WiFi and network"], gone=["Button icons"])
         press(shoulders=2)                  # R1 on the last tab: nothing
         state(["Settings"], ["Controllers"])
         press(buttons=0x08 | 0x40)          # B (circle): out of Settings, back to Dev
@@ -2701,10 +2764,10 @@ def test_bt_two_pads(b, opts):
         q.mini.write(b"M")
         _mini_expect(q, "cartridge menu")
         time.sleep(1.0)
-        screen_img = q.screendump()
+        screen_img, runs = wait_bar_icons(
+            q, lambda r, i: len(r) == 3 and all(blue_number(i, x) for x in r))
         if opts.shots:
             _save_png(screen_img, os.path.join(opts.shots, "home-pads.png"))
-        runs = bar_icons(screen_img)
         assert len(runs) == 3 and all(20 <= x1 - x0 <= 27 for x0, x1 in runs), runs
         assert all(blue_number(screen_img, r) for r in runs), "Bluetooth: blue numbers"
 
@@ -2758,11 +2821,14 @@ def test_sd_sdhc_and_usb_menu(b, opts):
     try:
         out = q.expect("cartridge menu", timeout=90).decode(errors="replace")
         assert "sd: SDHC card (sdhost), FAT32, 4095 MiB, label BMSD; 1 cartridges" in out, out
-        time.sleep(1.0)
-        shot_ = q.screendump()                # the bar: the keyboard icon (M27)
-        runs = bar_icons(shot_)
+        time.sleep(1.0)                       # the bar: the keyboard icon (M27)
+        shot_, runs = wait_bar_icons(q, lambda r, i: len(r) == 1 and len(prompt_spans(i, 21)) == 4)
         assert len(runs) == 1 and 20 <= runs[0][1] - runs[0][0] <= 27, runs
         assert not blue_number(shot_, runs[0]), "USB: a white number"
+        # the hints: player 1's keyboard, Enter Play, C Options, Ctrl+Esc Monitor
+        widths = [x1 - x0 for x0, x1 in prompt_spans(shot_, 21)]
+        assert len(widths) == 4 and widths[0] >= 34 and widths[1] <= 16 and widths[2] >= 28 and \
+            20 <= widths[3] <= 28, widths
         sendkeys(q, "e")                      # E is R1: the Dev tab
         img_, text = settled_screen(q, lambda i, t: tabs_lit(i) == ["Dev"])
         assert tabs_lit(img_) == ["Dev"], "\n".join(text)
@@ -2770,8 +2836,8 @@ def test_sd_sdhc_and_usb_menu(b, opts):
         img_, text = settled_screen(q, lambda i, t: tabs_lit(i) == ["Games"])
         assert tabs_lit(img_) == ["Games"], "\n".join(text)
         sendkeys(q, "c")                      # C is the X button: the options (M27)
-        # (with five tools the info rows, Author..., are below: the panel scrolls)
-        opts_row = "Open in bm Mesh"
+        # (with the tools the info rows, Author..., are below: the panel scrolls)
+        opts_row = "Open in bm Studio"
         _, text = settled_screen(q, lambda i, t: any(opts_row in l for l in t))
         assert any(opts_row in l for l in text) and any("Play" in l for l in text), "\n".join(text)
         sendkeys(q, "x")                      # X is the B button: back
@@ -3105,7 +3171,9 @@ def test_village(b, opts):
             grass = sum(g > 60 and g > r + 20 and g > b + 20 for r, g, b in cols)
             roof = sum(r > 70 and r > 2 * g and r > 2 * b for r, g, b in cols)
             sky = sum(b > 150 and b > r + 40 for r, g, b in cols)
-            if grass > 300 and roof > 20 and sky > 300:
+            # page 0 can be caught half drawn (QEMU ignores the page flips):
+            # the textures too, or another screendump
+            if grass > 300 and roof > 20 and sky > 300 and len(set(cols)) > 100:
                 break
             time.sleep(0.5)
         if opts.shots:
@@ -3168,11 +3236,14 @@ def test_studio_cart(b, opts):
         q.close()
 
 
-def test_studio3d(b, opts):
-    """The 3D studio on the console (Dev tab; a game's options, "Open in the
-    3D studio"): the player shows the models and animations of the village;
-    a new project gets a block, is saved, tried (its viewer plays) and the
-    studio comes back to it; the file holds the model the kernel reads."""
+def test_studio_animator(b, opts):
+    """bm Studio and bm Animator on the console (a game's options, "Open in
+    bm Studio"; the menu's "Open in bm Animator"): bm Studio shows the
+    village's models with its tools (select, vertex, paint, tiles, models);
+    a new project gets a block, is saved, tried (its viewer plays) and comes
+    back; bm Animator opens it (cart_tool) and gives it a skeleton and an
+    animation; then the village's villager plays, its bones, its sprites go
+    into the sheet. The file holds what the kernel reads."""
     tmp = tempfile.mkdtemp(prefix="bm-s3d-")
     img = os.path.join(tmp, "sd.img")
     mksd.build(img, [(b("carts/village.bm"), "carts/village.bm")])
@@ -3192,48 +3263,46 @@ def test_studio3d(b, opts):
         raise AssertionError(f"not on the screen: {want}\n" + "\n".join(text))
 
     def shot(name):
+        # a whole frame: the tab bar and the status bar are drawn last
         if opts.shots:
-            _save_png(q.screendump(), os.path.join(opts.shots, f"studio3d-{name}.png"))
+            img_, _ = settled_screen(q, lambda i, t: "menu" in t[0] and t[21].strip() != "", tries=20)
+            _save_png(img_, os.path.join(opts.shots, f"{name}.png"))
 
-    F2, F3, F4, UP, DOWN, ESC = "\x1bOQ", "\x1bOR", "\x1bOS", "\x1b[A", "\x1b[B", "\x1b"
+    F1, F2, F3, F4 = "\x1bOP", "\x1bOQ", "\x1bOR", "\x1bOS"
+    UP, DOWN, RIGHT, ESC, TAB = "\x1b[A", "\x1b[B", "\x1b[C", "\x1b", "\t"
     try:
         q.expect(MENU, timeout=30)
         time.sleep(0.5)
         screen(["Games", "Studio Village"])
         keys("x")
-        screen(["Open in the SDK", "Open in bm Code", "Open in the Sound editor", "Open in the 3D studio"])
-        keys("s", "s", "s", "s", "\r")
-        text = screen(["F1 play", "MODELS", "ground", "villager", "169 vertices, 288 triangles"])
-        assert "opened /carts/village.bm" in text, text
-        for _ in range(7):
-            keys(DOWN)
-        screen(["ANIMATIONS", "idle", "walk", "wave", "112 vertices, 168 triangles, 7 bones"])
-        keys("k")
-        shot("player")
-        keys(F3)
-        screen(["BONES", "hips", "spine", "arm.L", "leg.R", "tail of hips"])
-        shot("rig")
-        keys(F4)
-        screen(["BONES", "idle  1/3  smooth  loop  2.00 s"])
-        shot("animate")
+        screen(["Open in the SDK", "Open in bm Code", "Open in the Sound editor", "Open in bm Studio"])
+        keys("s", "s", "s", "s", "\r")         # Play, SDK, Code, Sound, Studio
+        screen(["build", "models", "TOOLS", "MODEL", "model 1/8: ground"])
+        shot("studio-build")
+        keys("3", "a")
+        screen(["SELECT", "faces chosen"])
+        shot("studio-select")
+        keys("4")
+        screen(["VERTEX", "faces)"])
+        shot("studio-vertex")
+        keys("5", "\r", gap=0.5)
+        screen(["PAINT", " at "])
+        shot("studio-paint")
+        keys(ESC, "1", TAB, "d")
+        screen(["tiles: sheet 256x256", "2 x 1 tiles"])
+        shot("studio-tiles")
+        keys(TAB, F2)
+        screen(["MODELS 8", "villager"])
+        shot("studio-models")
 
         # a new project: a block, saved as CUBE.BM
         keys(ESC, gap=0.6)
-        screen(["bm 3D studio", "New project", "Exit 3D studio"])
+        screen(["bm Studio", "New project", "Exit bm Studio"])
         keys(DOWN, DOWN, "\r", gap=0.4)         # Continue, Open..., New project
-        screen(["BLOCK", "cell 0,0,0", "model: 0 faces"])
+        screen(["BLOCK", "cell 0,0,0"])
         keys(" ")
-        screen(["model: 6 faces"])
-        shot("build")
-        # a skeleton (root and a child) and an animation with a turn at 0.25 s:
-        # the kernel checks each new ANIM section (cart_data) before drawing it
-        keys(F3, "n", "n", gap=0.5)
-        screen(["BONES", "root", "bone2", "tail of bone2"])
-        keys(F4, "n", gap=0.5)
-        screen(["anim1  1/1  smooth  loop  1.00 s"])
-        keys("\x1b[C", "\x1b[C", "\x1b[C", "w", gap=0.4)
-        screen(["TURN root   0.25 s  frame 3  key"])
-        shot("keyframe")
+        screen(["6 faces", "12 tri", "8 vert"])
+        shot("studio-new")
         keys(ESC, gap=0.6)
         for _ in range(4):
             keys(DOWN)                          # down to "Save as..."
@@ -3245,18 +3314,67 @@ def test_studio3d(b, opts):
             keys(ch, gap=0.1)
         screen(["saved /carts/CUBE.BM"])
 
-        # try it: the viewer of a new project plays it, then the studio comes back
+        # try it: the viewer of a new project plays it, then bm Studio comes back
         keys("\x1b[15~", gap=1)                 # F5
         time.sleep(3)
         keys("q")                               # the game ends (its keys are a gamepad's)
         out = q.expect('bm: "New 3D project"', timeout=20).decode(errors="replace")
         assert "stopped with an error" not in out, out
-        screen(["back from the game", "anim1  1/1"])     # the page it was on
+        screen(["back from the game", "BLOCK"])  # the page it was on
 
-        # out of the studio: back to the menu
+        # bm Animator on the same file (cart_tool)
         keys(ESC, gap=0.6)
-        keys(UP, "\r")                          # up from Continue: Exit 3D studio
-        screen(["Games", "last: 3D studio on village.bm"])
+        screen(["Open in bm Animator"])
+        for _ in range(8):
+            keys(DOWN)                          # Continue ... Author, Open in bm Animator
+        keys("\r", gap=1.0)
+        screen(["play", "sprites", "MODELS", "no skeleton yet"])
+        # a skeleton (root and a child) and an animation with a turn at 0.25 s:
+        # the kernel checks each new ANIM section (cart_data) before drawing it
+        keys(F2, "n", "n", gap=0.5)
+        screen(["BONES 2", "root", "bone2", "tail of bone2"])
+        keys(F3, "n", gap=0.5)
+        screen(["anim1  1/1  smooth  loop  1.00 s"])
+        keys(RIGHT, RIGHT, RIGHT, "w", gap=0.4)
+        screen(["TURN root   0.25 s  frame 3  key"])
+        shot("animator-keyframe")
+        keys("\x13", gap=0.6)                   # Ctrl+S
+        screen(["saved /carts/CUBE.BM"])
+
+        # the village: the villager, its bones, its animations, its sprites
+        keys(ESC, gap=0.6)
+        keys(DOWN, "\r")                        # Open...
+        screen(["/carts/CUBE.BM", "/carts/village.bm"])
+        shot("animator-open")
+        keys(DOWN, "\r", gap=1.0)               # CUBE.BM, then village.bm
+        screen(["opened /carts/village.bm", "MODELS"])
+        for _ in range(7):
+            keys(DOWN)
+        screen(["ANIMATIONS", "idle", "walk", "wave", "112 vertices, 168 triangles, 7 bones"])
+        keys("k")
+        shot("animator-player")
+        keys(F2)
+        screen(["BONES 7", "hips", "spine", "arm.L", "leg.R", "tail of hips"])
+        shot("animator-rig")
+        keys("v")
+        screen(["SKIN", "faces chosen"])
+        shot("animator-skin")
+        keys("v", F3, "o")
+        screen(["ANIMATIONS", "BONES", "idle  1/3  smooth  loop  2.00 s  onion"])
+        shot("animator-animate")
+        keys(F4)
+        screen(["SPRITES", "villager", "idle", "384x192 pixels in the sheet"])
+        shot("animator-sprites")
+        keys("\r")
+        screen(["32 sprites put in the sheet", "sspr("], tries=80)
+        shot("animator-sprites-put")
+
+        # out (not saved: asked twice)
+        keys(ESC, gap=0.6)
+        keys(UP, "\r", gap=0.6)                 # up from Continue: Exit bm Animator
+        screen(["unsaved changes"])
+        keys("\r")
+        screen(["Games", "last: bm Animator on village"])
     finally:
         q.close()
     try:
@@ -3278,6 +3396,10 @@ def test_studio3d(b, opts):
         assert struct.unpack_from("<H", anim)[0] == 1 and (nb, nc, nv) == (2, 1, 8), (nb, nc, nv)
         assert anim[clip:clip + 5] == b"anim1" and struct.unpack_from("<H", anim, clip + 16)[0] == 2
         assert saved[24:38] == b"New 3D project", saved[24:48]
+        assert 5 in secs or 2 in secs, sorted(secs)     # the sheet of the new project (starter tiles)
+        village = subprocess.run(["mtype", "-i", part, "::/CARTS/VILLAGE.BM"], capture_output=True, env=env).stdout
+        with open(b("carts/village.bm"), "rb") as f:
+            assert village == f.read(), "the village was not saved: it stays as it was"
     finally:
         shutil.rmtree(tmp, ignore_errors=True)
 
@@ -3318,9 +3440,11 @@ def test_mesh(b, opts):
         time.sleep(0.5)
         screen(["Games", "Astro Wing"])
         keys("x")
-        screen(["Open in the 3D studio", "Open in bm Mesh"])
-        keys("s", "s", "s", "s", "s", "\r")
-        text = screen(["F1 list", "MESHES 13", "ship", "30 vertices, 32 triangles", "built by the game's code"])
+        screen(["Open in bm Studio"])
+        keys("s", "s", "s", "s", "s", "s")      # Play, SDK, Code, Sound, Studio, Animator, Mesh
+        screen(["Open in bm Mesh"])
+        keys("\r")
+        text = screen(["list", "edit", "MESHES 13", "ship", "30 vertices, 32 triangles", "built by the game's code"])
         assert "0 models, 0 code meshes, 13 from the game's code" in text, text
         assert "core_hot" in text and "turret" in text, text
         shot("list")
@@ -3371,6 +3495,205 @@ def test_mesh(b, opts):
         lua = secs[1]
         assert lua.startswith(lua0) and b"function mesh_ship()" in lua and b"-- [bm Mesh end]" in lua, lua[-400:]
         assert bmmesh.SEC_ANIM not in secs
+    finally:
+        shutil.rmtree(tmp, ignore_errors=True)
+
+
+def _sheet_pixels(data):
+    """The sheet of a .bm: (w, h, [0xRRGGBB or None ...]), from SHEET8 or
+    SHEET, and the SHEET8 palette (None for SHEET)."""
+    secs = dict(bmmesh.cart_sections(data))
+    if 5 in secs:
+        s = secs[5]
+        w, h, nc = struct.unpack_from("<HHH", s)
+        pal = [(s[8 + i * 4] << 16 | s[9 + i * 4] << 8 | s[10 + i * 4]) if s[11 + i * 4] >= 128 else None
+               for i in range(nc)]
+        px, q = [], 8 + nc * 4
+        while len(px) < w * h:
+            t = s[q]
+            q += 1
+            if t < 128:
+                px += [pal[i] for i in s[q:q + t + 1]]
+                q += t + 1
+            else:
+                px += [pal[s[q]]] * (t - 126)
+                q += 1
+        assert q == len(s) and len(px) == w * h, "SHEET8: the runs do not add up"
+        return w, h, px, pal
+    s = secs[2]
+    w, h = struct.unpack_from("<HH", s)
+    px = [(s[4 + i * 4] << 16 | s[5 + i * 4] << 8 | s[6 + i * 4]) if s[7 + i * 4] >= 128 else None
+          for i in range(w * h)]
+    return w, h, px, None
+
+
+def test_pixel(b, opts):
+    """bm Pixel on the console (a game's options, "Open in bm Pixel"): the
+    village's sheet with its palette (SHEET8), a pixel and a line drawn
+    with the palette's first colour, saved: in the file only those pixels
+    change (the others keep their 24 bits), the palette comes first in the
+    SHEET8, the code, cover, models and skeletons stay byte for byte."""
+    tmp = tempfile.mkdtemp(prefix="bm-pixel-")
+    img = os.path.join(tmp, "sd.img")
+    mksd.build(img, [(b("carts/village.bm"), "carts/village.bm")])
+    with open(b("carts/village.bm"), "rb") as f:
+        village0 = f.read()
+    q = Qemu(b("kernel.img"), ["-drive", f"if=sd,format=raw,file={img}"])
+
+    def keys(*ks, gap=0.3):
+        for k in ks:
+            q.send(k)
+            time.sleep(gap)
+
+    def screen(want, tries=40):
+        for _ in range(tries):
+            _, text = settled_screen(q, lambda i, t: all(any(w in l for l in t) for w in want), tries=2)
+            if all(any(w in l for l in text) for w in want):
+                return "\n".join(text)
+            time.sleep(0.25)
+        raise AssertionError(f"not on the screen: {want}\n" + "\n".join(text))
+
+    def shot(name):
+        if opts.shots:
+            _save_png(q.screendump(), os.path.join(opts.shots, f"pixel-{name}.png"))
+
+    F2, F3, UP, RIGHT, ESC, SAVE = "\x1bOQ", "\x1bOR", "\x1b[A", "\x1b[C", "\x1b", "\x13"
+    try:
+        q.expect(MENU, timeout=30)
+        time.sleep(0.5)
+        screen(["Games", "Studio Village"])
+        keys("x")
+        screen(["Open in bm Studio"])
+        for _ in range(7):
+            keys("s")                           # Play, SDK, Code, Sound, Studio, Animator, Mesh, Pixel
+        screen(["Open in bm Pixel"])
+        keys("\r", gap=1.0)
+        text = screen(["draw", "sheet", "palette", "COLOURS", "sprite 0  (0,0)  16x16", "spr(0, x, y, 2, 2)"])
+        assert "(the file's palette)" in text, text
+        shot("draw")
+        keys("1", "b", " ", "l", " ", RIGHT, RIGHT, RIGHT, " ")
+        screen(["line"])
+        keys(F2, gap=0.5)
+        screen(["sheet 256x256", "sprite 0 at (0,0)"])
+        shot("sheet")
+        keys(F3, gap=0.5)
+        screen(["PALETTE", "edit", "add", "remove"])
+        shot("palette")
+        keys("\r", SAVE, gap=0.6)
+        screen(["saved /carts/village.bm"])
+        keys(ESC, gap=0.6)
+        screen(["bm Pixel", "Exit bm Pixel"])
+        keys(UP, "\r")                          # up from Continue: Exit bm Pixel
+        screen(["Games", "last: bm Pixel on village.bm"])
+    finally:
+        q.close()
+    try:
+        part = os.path.join(tmp, "part.img")
+        with open(img, "rb") as f, open(part, "wb") as o:
+            f.seek(2048 * 512)
+            o.write(f.read())
+        fsck = subprocess.run(["fsck.vfat", "-n", part], capture_output=True, text=True)
+        assert fsck.returncode == 0, fsck.stdout + fsck.stderr
+        env = dict(os.environ, MTOOLS_SKIP_CHECK="1")
+        saved = subprocess.run(["mtype", "-i", part, "::/CARTS/VILLAGE.BM"], capture_output=True, env=env).stdout
+        secs, secs0 = dict(bmmesh.cart_sections(saved)), dict(bmmesh.cart_sections(village0))
+        for t in (1, 4, 8, 9):
+            assert secs[t] == secs0[t], f"section {t} changed"
+        assert 5 in secs and 2 not in secs, sorted(secs)
+        w, h, px, pal = _sheet_pixels(saved)
+        w0, h0, px0, pal0 = _sheet_pixels(village0)
+        assert (w, h) == (w0, h0), (w, h)
+        first = next(c for c in pal0 if c is not None)
+        drawn = {(0, 0), (1, 0), (2, 0), (3, 0)}       # the pointer starts at the sprite's corner
+        for (x, y) in drawn:
+            assert px[y * w + x] == first, (x, y, hex(px[y * w + x] or 0), hex(first))
+        other = [i for i in range(w * h) if (i % w, i // w) not in drawn and px[i] != px0[i]]
+        assert not other, f"{len(other)} pixels not drawn on changed, e.g. {other[:5]}"
+        opaque0 = [c for c in pal0 if c is not None]
+        assert [c for c in pal if c is not None][:len(opaque0)] == opaque0, "the palette first, as it was"
+    finally:
+        shutil.rmtree(tmp, ignore_errors=True)
+
+
+def test_pixel_big(b, opts):
+    """bm Pixel on the biggest sheet of the games, Titan Clash's (2048x3448,
+    SHEET8): it opens zoomed out, a pixel drawn and saved (a frame says
+    "saving" while the file is written); in the file only that pixel
+    changes and the rest stays byte for byte."""
+    tmp = tempfile.mkdtemp(prefix="bm-pixelbig-")
+    img = os.path.join(tmp, "sd.img")
+    mksd.build(img, [(b("carts/titan.bm"), "carts/titan.bm")])
+    with open(b("carts/titan.bm"), "rb") as f:
+        titan0 = f.read()
+    q = Qemu(b("kernel.img"), ["-drive", f"if=sd,format=raw,file={img}"])
+
+    def keys(*ks, gap=0.3):
+        for k in ks:
+            q.send(k)
+            time.sleep(gap)
+
+    def screen(want, tries=120):
+        for _ in range(tries):
+            _, text = settled_screen(q, lambda i, t: all(any(w in l for l in t) for w in want), tries=2)
+            if all(any(w in l for l in text) for w in want):
+                return "\n".join(text)
+            time.sleep(0.25)
+        raise AssertionError(f"not on the screen: {want}\n" + "\n".join(text))
+
+    def shot(name):
+        if opts.shots:
+            _save_png(q.screendump(), os.path.join(opts.shots, f"pixel-big-{name}.png"))
+
+    F1, F2, UP, ESC, SAVE = "\x1bOP", "\x1bOQ", "\x1b[A", "\x1b", "\x13"
+    try:
+        q.expect(MENU, timeout=30)
+        time.sleep(0.5)
+        screen(["Games", "Titan Clash"])
+        keys("x")
+        screen(["Open in bm Studio"])
+        for _ in range(7):
+            keys("s")                           # down to Open in bm Pixel
+        screen(["Open in bm Pixel"])
+        keys("\r", gap=1.0)
+        screen(["COLOURS 165", "sheet 2048x3448, 165 colours (the file's palette)"])
+        keys(F2, gap=0.5)
+        screen(["sheet 2048x3448  zoom 1/4"])
+        shot("sheet")
+        keys(F1, gap=0.5)
+        screen(["COLOURS 165"])
+        keys("1", "b", " ")
+        screen(["/carts/titan.bm*"])
+        keys(SAVE, gap=0.1)
+        screen(["saving /carts/titan.bm ..."])
+        shot("saving")
+        screen(["saved /carts/titan.bm"])
+        keys(ESC, gap=0.6)
+        screen(["bm Pixel", "Exit bm Pixel"])
+        keys(UP, "\r")
+        screen(["Games", "last: bm Pixel on titan.bm"])
+    finally:
+        q.close()
+    try:
+        part = os.path.join(tmp, "part.img")
+        with open(img, "rb") as f, open(part, "wb") as o:
+            f.seek(2048 * 512)
+            o.write(f.read())
+        fsck = subprocess.run(["fsck.vfat", "-n", part], capture_output=True, text=True)
+        assert fsck.returncode == 0, fsck.stdout + fsck.stderr
+        env = dict(os.environ, MTOOLS_SKIP_CHECK="1")
+        saved = subprocess.run(["mtype", "-i", part, "::/CARTS/TITAN.BM"], capture_output=True, env=env).stdout
+        secs, secs0 = dict(bmmesh.cart_sections(saved)), dict(bmmesh.cart_sections(titan0))
+        assert sorted(secs) == sorted(secs0), (sorted(secs), sorted(secs0))
+        for t in secs0:
+            if t != 5:
+                assert secs[t] == secs0[t], f"section {t} changed"
+        w, h, px, pal = _sheet_pixels(saved)
+        w0, h0, px0, pal0 = _sheet_pixels(titan0)
+        assert (w, h) == (2048, 3448) == (w0, h0), (w, h)
+        assert pal == pal0, "the palette as it was"
+        changed = [i for i in range(w * h) if px[i] != px0[i]]
+        first = next(c for c in pal0 if c is not None)
+        assert changed == [0] and px[0] == first, [(i % w, i // w, px0[i], px[i]) for i in changed[:5]]
     finally:
         shutil.rmtree(tmp, ignore_errors=True)
 
@@ -3672,6 +3995,9 @@ def test_sound_editor(b, opts):
         for _ in range(5):
             k("\x1b[B")                                     # track 6: empty in pattern 0
         k("q")                                              # C5
+        if opts.shots:
+            time.sleep(0.5)
+            _save_png(q.screendump(), os.path.join(opts.shots, "sound-pattern.png"))
         k("\x13", 1)                                        # Ctrl+S: a new pack, named
         k("\r")                                             # "DEMO"
         q.expect("sound: saved /bm/sounds/DEMO.BM", timeout=20)
@@ -4038,7 +4364,7 @@ def test_assistant(b, opts):
         see(["line 12: did you mean spr?", "attempt to call a nil value"])
         shot("error")
         k("\x1b", 0.5)                                     # Esc closes the panel
-        see(["F9 error"])
+        see(["bm assistant", "sprite", "speed"])          # its bar: the keys as chips
         k("\x1b", 0.5)                                     # Esc: back to the monitor
         out = q.expect("> ", timeout=10).decode(errors="replace")
         assert "error" not in out, out
@@ -4088,7 +4414,7 @@ def test_code_editor(b, opts):
         q.boot()
         k("C")
         expect("code: ready")
-        see(["F1 keys"])
+        see(["keys"])                                       # the F1 chip, then "keys"
         k("\x0f", 0.5)                                      # Ctrl+O: the files
         see(["Open a cartridge", "/carts/Il mio demo.bm", "/carts/pong.bm"])
         shot("open")
@@ -4414,6 +4740,8 @@ def test_nano8(b, opts):
         q.expect("nano8: playing /carts/nano8/sixlets2.p8.png", timeout=20)
         time.sleep(4.0)
         assert b"nano8: Runtime error" not in q.buf, q.buf
+        if opts.shots:
+            _save_png(q.screendump(), os.path.join(opts.shots, "nano8-sixlets2.png"))
         q.send("q")
         q.expect('"nano8" suspended', timeout=10)
     finally:

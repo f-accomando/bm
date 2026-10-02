@@ -65,6 +65,10 @@ void g16_spr(g16_t *g, const g16_sheet_t *s, int n, int x, int y,
 /* Any rectangle of the sheet, unscaled. */
 void g16_sspr(g16_t *g, const g16_sheet_t *s, int sx, int sy, int sw, int sh,
               int dx, int dy, int flip_x, int flip_y);
+/* The same, `zoom` times bigger (or smaller, below 1), nearest pixel: it
+ * covers round(sw * zoom) x round(sh * zoom) pixels of the screen. */
+void g16_sspr_zoom(g16_t *g, const g16_sheet_t *s, int sx, int sy, int sw, int sh,
+                   int dx, int dy, int flip_x, int flip_y, float zoom);
 /* Map cells [mx, mx+mw) x [my, my+mh) drawn at (x, y); cell 0 is skipped. */
 void g16_map(g16_t *g, const g16_sheet_t *s, const g16_map_t *m,
              int mx, int my, int x, int y, int mw, int mh);

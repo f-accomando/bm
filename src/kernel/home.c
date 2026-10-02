@@ -262,7 +262,7 @@ void home_tool_start(int i, home_do_t *d)
 enum {
     R_CONTROLLERS = 1, R_WIFI, R_LAYOUT, R_DRAW, R_VOLUME, R_SYSTEM,
     R_PAD1, R_PAD2, R_PAD3, R_PAD4, R_KEYBOARD, R_MOUSE, R_PAIR, R_PAIR_KBD, R_PAIR_MOUSE, R_TEST,
-    R_FORGET,
+    R_PROMPTS, R_FORGET,
     R_NETWORK, R_STATE, R_IP, R_TIME, R_CONSOLE, R_PASSWORD, R_CONNECT, R_BOOT,
     R_VERSION, R_BOARD, R_UPTIME, R_MEMORY, R_CLOCKS, R_SD, R_RESTART, R_MONITOR,
 };
@@ -282,6 +282,12 @@ static const char *local_devices(void)
     if (k == USB_KEYBOARD) return "USB keyboard";
     if (k == USB_GAMEPAD || k == USB_XBOX360) return "USB gamepad";
     return "keyboard / USB";
+}
+
+int home_prompts_colour(void)
+{
+    const char *v = config_get("prompts");
+    return v && strcmp(v, "colour") == 0;
 }
 
 static int wifi_at_boot(void)
@@ -364,6 +370,9 @@ void home_panel(int id, home_panel_t *p)
                  "Bluetooth LE or classic: put the mouse in pairing mode first", NULL);
         home_row(p, MENU_ROW_ACTION, R_TEST, "Test the buttons",
                  "The buttons each player holds, for 10 s", NULL);
+        home_row(p, MENU_ROW_CHOICE, R_PROMPTS, "Button icons",
+                 "DS4 buttons in the hints: white or in colour", "%s",
+                 home_prompts_colour() ? "Colour" : "White");
         home_row(p, MENU_ROW_ACTION, R_FORGET, "Forget all controllers",
                  "Removes every pairing; pair them again after", NULL);
         break;
@@ -499,6 +508,11 @@ void home_act(int id, int row, int how, home_do_t *d)
         ksnprintf(d->note, sizeof d->note, "volume: %d / %d", audio_volume(), AUDIO_VOLUME_MAX);
         break;
     }
+    case R_PROMPTS:
+        config_set("prompts", home_prompts_colour() ? "white" : "colour");
+        config_save();
+        ksnprintf(d->note, sizeof d->note, "button icons: %s", home_prompts_colour() ? "colour" : "white");
+        break;
     case R_BOOT:
         config_set("wifi_boot", wifi_at_boot() ? "0" : "1");
         config_save();
