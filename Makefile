@@ -228,6 +228,20 @@ test-kitchen: $(BUILD)/host/luahost $(BUILD)/kitchen/main.lua
 test-titan: $(BUILD)/host/luahost $(BUILD)/titan/main.lua
 	$< tests/titan/sim.lua $(BUILD)/titan/main.lua $(BUILD)/titan/main.map
 
+# bmplay: a Lua cartridge played on the PC with the console's drawing and
+# sound, its buttons pressed by a bot; video.sh makes a video of it.
+# make yharnam-video: a hunt played by tools/bmplay/yharnam_bot.lua, from the
+# title to the Butcher slain (build/yharnam-run.mp4; needs ffmpeg)
+BMPLAY_SRCS := tools/bmplay/bmplay.c src/bm/gfx16.c src/bm/format.c src/lib/crc32.c src/gfx/font8x16.c \
+               src/gfx/font8x14.c src/gfx/font6x12.c src/audio/synth.c src/audio/player.c
+$(BUILD)/host/bmplay: $(BMPLAY_SRCS) src/bm/*.h src/audio/*.h $(LUA_SRCS)
+	@mkdir -p $(dir $@)
+	$(HOSTCC) -O2 -Wall -Wextra -Isrc -Ithird_party/lua -o $@ $(BMPLAY_SRCS) $(LUA_SRCS) -lm
+
+yharnam-video: $(BUILD)/host/bmplay $(BUILD)/carts/yharnam.bm tools/bmplay/yharnam_bot.lua
+	tools/bmplay/video.sh $(BUILD)/host/bmplay $(BUILD)/carts/yharnam.bm tools/bmplay/yharnam_bot.lua \
+	    $(BUILD)/yharnam-run.mp4
+
 # Yharnam: the street plan, the chunks, a long walk, the cost of a frame;
 # then the fight measured, with the paths of the lamps (balance.lua), and
 # the ways of the creatures and the phases of the bosses (foes.lua)
@@ -265,7 +279,7 @@ test-nano8: $(BUILD)/host/n8host $(BUILD)/host/n8cartinfo $(BUILD)/host/luahost 
         run-serial test test-bm test-ai ai-model test-usb test-audio test-fat test-kitchen test-titan test-yharnam test-sound \
         test-nano8 \
         test-net test-http test-https test-release release disasm wav test-studio test-studio-ui studio test-prompts \
-        showreel
+        showreel yharnam-video
 
 all: $(BUILD)/kernel.img $(BUILD)/chainloader.img $(GAME_CARTS)
 

@@ -191,6 +191,11 @@ screenshot in `docs/img/`), `README_OLD.md` (il README completo, in italiano),
   ogni via e per dei mix, e controlla queste regole: rieseguirlo dopo ogni ritocco.
 - I comandi non sono sullo schermo: Start apre la pausa, con la pagina Controls (icone di
   `prompt()` secondo `lastinput()`).
+- Video di una caccia: `make yharnam-video` (`build/yharnam-run.mp4`, serve ffmpeg). `tools/bmplay/bmplay.c`
+  fa girare la cartuccia sul PC con il disegno (`gfx16.c`, luci comprese) e il suono (`synth.c`,
+  `player.c`) della console, i tasti premuti da un bot in Lua; `yharnam_bot.lua` gioca dal titolo
+  al Butcher ucciso (strade, lampade, lotta, parry, visceral); la run è sempre la stessa (seme e
+  bot). `BOT_TRACE=1` stampa come va.
 - Lo sheet è largo 4096 (skyline, fotogrammi uguali tenuti una volta). La cache delle creature
   dipende dal codice (non dai commenti né dagli import) di `rig.py`, `foeparts.py` e del loro
   modulo; quella del cacciatore da `hunter.py`; tutte da `sdf.SDF_VERSION` (aumentarlo se cambia
