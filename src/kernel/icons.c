@@ -97,9 +97,9 @@ static float mouse(float x, float y)
     /* filled like the other icons: an upright capsule; cut into it, the
      * line between the buttons from the top to under the wheel and the
      * wheel's outline (odd widths around CX: edges on whole pixels) */
-    float wheel = rrect(x, y, CX, 6.0f, 2.5f, 3.0f, 2.5f);
+    float wheel = rrect(x, y, CX, 5.5f, 1.5f, 2.5f, 1.5f);
     float d = rrect(x, y, CX, 9.0f, 6.5f, 9.0f, 6.5f);
-    d = cut(d, both(rrect(x, y, CX, 5.5f, 0.5f, 5.5f, 0.0f), -wheel));
+    d = cut(d, both(rrect(x, y, CX, 5.0f, 0.5f, 5.0f, 0.0f), -wheel));
     return cut(d, outline(wheel, 1.0f));
 }
 
