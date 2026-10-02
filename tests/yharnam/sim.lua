@@ -10,6 +10,7 @@
 --   luahost tests/yharnam/sim.lua carts/yharnam/main.lua
 
 local SRC = arg[1]
+math.randomseed(1)            -- the same run every time (the cartridge uses math.random)
 
 ---------------------------------------------------------------- fake bm
 
@@ -17,7 +18,7 @@ local env = {}
 local held, prev = 0, 0
 local now = 0
 local logs = {}
-local SHEET_W, SHEET_H = 2048, 4096
+local SHEET_W, SHEET_H = 4096, 4096
 local px_sprites = 0
 local MAPW, MAPH = 256, 256
 local map = {}
@@ -146,6 +147,54 @@ for name, a in pairs(Y.HUNT) do
   end
 end
 io.write(string.format("the hunter: %d animations, %d frames\n", nanim, nframes))
+-- the creatures: 12 and their 4 bosses (one of each kind), every animation in
+-- the 5 directions drawn, its events on frames it has
+local kinds, bosses, nfoe = {}, {}, 0
+local ffr = 0
+for _, f in ipairs(Y.FOES) do
+  nfoe = nfoe + 1
+  kinds[f.kind] = (kinds[f.kind] or 0) + 1
+  if f.boss then bosses[f.kind] = (bosses[f.kind] or 0) + 1 end
+  local need = { "idle", "walk", "attack", "hurt", "death" }
+  for _, n in ipairs(need) do check(f.a[n], f.name .. ": no " .. n) end
+  check(#f.order == (f.boss and 9 or 5), f.name .. ": " .. #f.order .. " animations")
+  for _, n in ipairs(f.order) do
+    local a = f.a[n]
+    check(#a.d == 5, f.name .. " " .. n .. ": 5 directions")
+    for d = 1, 5 do
+      check(#a.d[d] == #a.t, f.name .. " " .. n .. ": a frame for every tick count")
+      for _, fr in ipairs(a.d[d]) do
+        ffr = ffr + 1
+        check(fr[1] >= 0 and fr[2] >= 0 and fr[1] + fr[3] <= SHEET_W and fr[2] + fr[4] <= SHEET_H,
+              f.name .. " " .. n .. ": frame")
+      end
+    end
+    for ev, fs in pairs(a) do
+      if ev ~= "t" and ev ~= "d" and ev ~= "loop" and ev ~= "shift" then
+        for _, k in ipairs(fs) do check(k >= 1 and k <= #a.t, f.name .. " " .. n .. ": event " .. ev) end
+      end
+    end
+  end
+  check(f.a.attack.hit or f.a.attack.fire, f.name .. ": an attack that lands")
+  if f.boss then
+    local specials, combos = 0, 0
+    for _, n in ipairs(f.order) do
+      local a = f.a[n]
+      if n:sub(1, 5) == "combo" then
+        combos = combos + 1
+        local blows = (a.hit and #a.hit or 0) + (a.fire and #a.fire or 0)
+        check(blows == 2, f.name .. " " .. n .. ": a combo of two blows")
+      elseif n ~= "idle" and n ~= "walk" and n ~= "attack" and n ~= "hurt" and n ~= "death" then
+        specials = specials + 1
+      end
+    end
+    check(specials == 2 and combos == 2, f.name .. ": 2 special attacks and 2 combos")
+  end
+end
+check(nfoe == 16, "16 creatures, not " .. nfoe)
+check(kinds.town == 5 and kinds.beast == 3 and kinds.hunter == 3 and kinds.horror == 5, "4 + 2 + 2 + 4 and the bosses")
+check(bosses.town == 1 and bosses.beast == 1 and bosses.hunter == 1 and bosses.horror == 1, "a boss of each kind")
+io.write(string.format("the creatures: %d, %d frames\n", nfoe, ffr))
 
 ---------------------------------------------------------------- the street plan
 
@@ -330,8 +379,13 @@ local function quiet()
     end
   end
 end
+-- no creatures for these: they would join in
+local F = Y.FOE
+F.quiet = true
+for k = #F.list, 1, -1 do F.list[k] = nil end
 Y.teleport(quiet())
 settle()
+P.hp, P.hits, P.inv = 10, {}, 0
 press(4, 6); press(4, 6); press(4, 6)
 local top = P.combo
 for i = 1, 30 do frame(1 << 4, "act"); frame(0, "act"); top = math.max(top, P.combo) end
@@ -365,6 +419,128 @@ Y.hurt(99)
 check(P.act == "dead", "killed")
 settle(400)
 check(P.act == nil and P.hp == 10, "back at the last lamp, healed (" .. tostring(P.act) .. ", hp " .. P.hp .. ", " .. P.anim .. " " .. P.f .. ")")
+
+-- the creatures: a townsman comes, strikes, is cut down; the pistol staggers
+local qx, qy = quiet()
+local function clear() for k = #F.list, 1, -1 do F.list[k] = nil end end
+local function free_near(x, y, r)
+  for k = 1, 200 do
+    local a = math.random() * 2 * math.pi
+    local px, py = x + math.cos(a) * r, y + math.sin(a) * r
+    if not Y.blocked(px, py) then return px, py end
+  end
+  return x, y
+end
+Y.teleport(qx, qy)
+clear()
+P.hp, P.inv, P.act = 10, 0, nil
+local fx, fy = free_near(qx, qy, 60)
+local o = F.new("pitchfork", fx, fy, 0)
+local struck = false
+for i = 1, 900 do
+  frame(0, "foe")
+  if P.hp < 10 then struck = true break end
+end
+check(struck, "a townsman comes and strikes the hunter")
+check(o.alert, "it saw the hunter")
+settle(60)
+P.hp, P.inv = 10, 0
+-- face it and cut it down
+local killed = false
+for i = 1, 60 do
+  P.dir = F.dir_to(o.x - P.x, o.y - P.y)
+  press(4, 8)
+  P.hp = 10
+  if o.act == "dead" then killed = true break end
+end
+check(killed, "the saw cleaver kills a townsman (hp " .. o.hp .. ")")
+check(F.killed >= 1, "it is counted")
+settle(120)
+check(o.ended, "it lies dead")
+-- a dog: shot, it staggers
+clear()
+settle(60)
+P.act, P.hp = nil, 10
+-- straight ahead of the hunter, where the shot goes
+local DV = { { 0, 1 }, { 0.7071, 0.7071 }, { 1, 0 }, { 0.7071, -0.7071 }, { 0, -1 }, { -0.7071, -0.7071 },
+             { -1, 0 }, { -0.7071, 0.7071 } }
+for d = 0, 7 do
+  local px, py = P.x + DV[d + 1][1] * 44, P.y + DV[d + 1][2] * 44
+  if not Y.blocked(px, py) then P.dir, fx, fy = d, px, py break end
+end
+o = F.new("dog", fx, fy, 0)
+o.cd = 999
+local staggered = false
+press(6, 1)
+for i = 1, 40 do frame(0, "foe"); if o.act == "hurt" then staggered = true end end
+check(staggered, "the pistol staggers a dog")
+-- the rally: struck soon after a wound, the blood comes back
+settle(40)
+P.act, P.hp, P.rally, P.rally_t = nil, 6, 3, 100
+local hp0 = P.hp
+for i = 1, 20 do
+  if o.act == "dead" then break end
+  P.dir = F.dir_to(o.x - P.x, o.y - P.y)
+  press(4, 8)
+end
+check(P.hp > hp0, "the rally gives back health (" .. hp0 .. " -> " .. P.hp .. ")")
+-- the rifleman fires
+clear()
+fx, fy = free_near(qx, qy, 90)
+o = F.new("rifle", fx, fy, 0)
+local fired = false
+for i = 1, 900 do
+  frame(0, "foe")
+  P.inv, P.hp = 60, 10
+  if #F.shots > 0 then fired = true break end
+end
+check(fired, "the rifleman shoots")
+-- every boss: awake, its specials and combos, slain
+local seen_all = {}
+for _, name in ipairs({ "butcher", "hound", "father", "watcher" }) do
+  clear()
+  F.won = nil
+  Y.teleport(qx, qy)
+  P.act = nil
+  fx, fy = free_near(qx, qy, 70)
+  local b = F.new(name, fx, fy, 0)
+  local seen, nseen = {}, 0
+  local fx_seen = {}
+  for i = 1, 7000 do
+    frame(0, "boss")
+    P.inv, P.hp = 60, 10
+    if P.act == "dead" or P.act == "down" or P.act == "lying" then P.act = nil end
+    if b.act and not seen[b.act] then seen[b.act] = true; nseen = nseen + 1 end
+    if #F.shots > 0 then fx_seen.shot = true end
+    if #F.rings > 0 then fx_seen.ring = true end
+    if #F.burns > 0 then fx_seen.burn = true end
+    if b.beam then fx_seen.beam = true end
+    -- the hunter steps away now and then: the boss has to come, or reach
+    if i % 260 == 0 then
+      local nx, ny = free_near(b.x, b.y, 40 + (i // 260) % 4 * 30)
+      P.x, P.y = nx, ny
+    end
+  end
+  check(F.boss == b, name .. ": the boss is awake")
+  local specials, combos = 0, 0
+  for k in pairs(seen) do
+    if k:sub(1, 5) == "combo" then combos = combos + 1
+    elseif k ~= "attack" and k ~= "hurt" then specials = specials + 1 end
+  end
+  local list = {}
+  for k in pairs(seen) do list[#list + 1] = k end
+  table.sort(list)
+  io.write(name .. ": " .. table.concat(list, " ") .. "\n")
+  check(specials == 2 and combos == 2 and seen.attack, name .. ": both specials, both combos, the plain blow")
+  if name == "butcher" then check(fx_seen.burn and fx_seen.ring, "the Butcher's fire and slam") end
+  if name == "hound" then check(fx_seen.ring, "the Hound's pounce and howl shake the ground") end
+  if name == "watcher" then check(fx_seen.beam and fx_seen.ring, "the Watcher's gaze and grasp") end
+  F.harm(b, 999, false)
+  settle(200)
+  check(b.act == "dead" and F.won, name .. ": prey slaughtered")
+end
+clear()
+F.quiet = false
 
 io.write(string.format("frames: %d; Lua instructions per frame: median %d, 99%% %d, heaviest %d (%s); " ..
                        "a chunk made in the background: up to %d (in slices of 40k on the console); " ..

@@ -2583,8 +2583,9 @@ def test_village(b, opts):
 def test_yharnam(b, opts):
     """Yharnam: a 256x256 cartridge, shown in the middle of a 480x270
     screen with black around it; the town made while you walk, lit by
-    levels (fades, glow). Title, start, the first square's name, a dark
-    night with warm lamps and fires, no Lua error."""
+    levels (fades, glow). Title, the animations (the hunter's, a creature's,
+    a boss's), start, the first square's name, a dark night with warm lamps
+    and fires, no Lua error."""
     BX, BY = 112, 7                             # the 256x256 box in the 480x270 screen
 
     def box(img):
@@ -2628,6 +2629,19 @@ def test_yharnam(b, opts):
         assert any("walk  S" in l for l in text), "\n".join(text)
         if opts.shots:
             _save_png(q.screendump(), os.path.join(opts.shots, "yharnam-gallery.png"))
+        q.send("v")                             # Y: the next one, the first creature
+        time.sleep(0.5)
+        text = screen_text(box(q.screendump()))
+        assert any("Townsman" in l for l in text) and any("idle  S" in l for l in text), "\n".join(text)
+        for _ in range(4):                      # ... and on to the first boss
+            q.send("v")
+            time.sleep(0.3)
+        q.send("d")                             # turned south-west: south-east, mirrored
+        time.sleep(0.6)
+        text = screen_text(box(q.screendump()))
+        assert any("The Butcher" in l for l in text), "\n".join(text)
+        if opts.shots:
+            _save_png(q.screendump(), os.path.join(opts.shots, "yharnam-boss.png"))
         q.send("x")                             # B: back to the title
         time.sleep(0.5)
         q.send(" ")                             # A: start

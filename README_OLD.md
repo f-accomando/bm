@@ -440,8 +440,8 @@ disegnati nel codice con `sset`), `carts/demo` (sprite sheet PNG e mappa CSV),
 fino a 4 giocatori, simulatore host in `tests/kitchen/`), `carts/titan` (Titan Clash:
 picchiaduro con sprite grandi pre-renderizzati da un modello 3D, sheet 2048×3376 con
 palette, simulatore host in `tests/titan/`), `carts/yharnam` (Yharnam: città gotica infinita a
-256×256 fatta mentre si cammina, luce a livelli come in Dank Tomb; grafica da `mkassets.py`,
-simulatore host in `tests/yharnam/`).
+256×256 fatta mentre si cammina, luce a livelli come in Dank Tomb, 12 nemici e 4 boss;
+grafica da `mkassets.py`, simulatore host in `tests/yharnam/`).
 
 Sandbox: niente `io`, `os`, `load`, `dofile`, `require`. Un errore o un ciclo infinito
 (oltre 20 milioni di istruzioni in un frame) ferma la cartuccia e mostra l'errore
@@ -638,7 +638,8 @@ carts/titan/             Titan Clash (M20): src/*.lua, build.py; mkrobot.py (il 
                          pre-renderizzato), art.py e mkassets.py (sheet.png)
 tests/titan/             simulatore host di Titan Clash (sim.lua)
 carts/yharnam/           Yharnam: main.lua, mkassets.py e art/ (sdf.py: modelli 3D in pixel art;
-                         hunter.py, props.py, tiles.py, buildings.py), sheet.png, cover.png
+                         hunter.py, anims.py, rig.py, foeparts.py, foe_*.py: le creature;
+                         props.py, tiles.py, buildings.py), sheet.png, cover.png
 tests/yharnam/           simulatore host di Yharnam (sim.lua)
 carts/nano8/             nano8 (M23): src/*.lua (traduttore, API, input, ui), build.py,
                          roms/ (le cartucce .p8 incluse, CREDITS.md), mkdemo.py (Comet Catcher)

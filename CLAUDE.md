@@ -137,6 +137,21 @@ screenshot in `docs/img/`), `README_OLD.md` (il README completo, in italiano),
   cleaver punti dove serve). Renderle tutte richiede circa un'ora: `mkassets.py` tiene i
   fotogrammi in `build/yharnam-frames/` e ridisegna solo quelli cambiati. Nel gioco:
   `HUNT[nome].d[direzione][fotogramma]`; sul titolo X mostra tutte le animazioni.
+- Le creature (12 nemici e 4 boss, uno per tipo: villici, bestie, cacciatori, orrori) sono in
+  `art/foe_*.py`; scheletri (umanoide, quadrupede, ragno), pose chiave, `reach` per la seconda
+  mano su un'asta, `aim` e il registro `Creature` in `art/rig.py`; colori e pezzi comuni in
+  `art/foeparts.py` (lo sheet tiene al più 255 colori: riusare le rampe). Sono disegnate in 5
+  direzioni (S SE E NE N) e specchiate nel gioco per SW W NW, perciò la luce viene dall'alto
+  (`sdf.LIGHT_TOP`). Nemici: idle, walk, attack, hurt, death; boss: in più 2 attacchi speciali
+  e 2 combo di due colpi (eventi `hit`, `fire`, `throw`, `slam`, `howl`, `beam`). Nel gioco
+  `FOES` (l'atlante) e la tabella `FOE` (comparsa per quartiere, IA, colpi, boss).
+- Lo sheet è largo 4096 (skyline, fotogrammi uguali tenuti una volta). La cache delle creature
+  dipende dal codice (non dai commenti né dagli import) di `rig.py`, `foeparts.py` e del loro
+  modulo; quella del cacciatore da `hunter.py`; tutte da `sdf.SDF_VERSION` (aumentarlo se cambia
+  il modo di disegnare). `sdf.render` valuta ogni primitiva solo dove la sua sfera può arrivare
+  (stessi pixel, da 2 a 5 volte più veloce); il render completo delle creature richiede circa
+  un'ora. Con `YH_DRAFT=1` i fotogrammi mancanti diventano segnaposto, per provare il gioco
+  intanto (non fare commit di quello sheet).
 
 ## Assistente AI (M30)
 

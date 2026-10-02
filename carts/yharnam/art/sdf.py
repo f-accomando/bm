@@ -13,6 +13,9 @@ import math
 import numpy as np
 
 D = math.radians
+# Bump when a change here changes the pictures: the caches of rendered frames
+# (mkassets.py) are keyed on it, not on this file.
+SDF_VERSION = 1
 ELEV = D(36)                                   # the camera looks down at this angle
 INK = (24, 16, 32)                             # outline
 
@@ -23,6 +26,11 @@ def nrm(v):
 
 
 LIGHT_W = nrm([-0.85, -0.55, 0.75])            # from the upper left of the screen, towards the viewer
+RIM_W = nrm([0.7, 0.3, 0.4])                   # a cold edge light from the right, behind
+# the creatures drawn for one side and mirrored for the other are lit the
+# same on both: from above, a little towards the viewer, an edge light behind
+LIGHT_TOP = nrm([0.0, -0.5, 0.86])
+RIM_TOP = nrm([0.0, 0.8, 0.45])
 
 
 def rx(a):
@@ -310,6 +318,86 @@ def ambient_occ(Pts, n, prims):
     return np.clip(1 - 0.22 * occ, 0, 1)
 
 
+# ---------------------------------------------------------------- culling
+# Each primitive gets a bounding sphere (found by sampling its distance on two
+# grids); a ray, a shadow ray or a shading point then only evaluates the
+# primitives whose sphere it can reach. The picture is the same, much sooner.
+
+def prim_sphere(pr, C, Rb):
+    """a sphere (centre in model space, radius) holding primitive pr, which
+    lies inside the model's bounding sphere (C, Rb); None if it is empty"""
+    cl = (np.asarray(C, float) - pr.t) @ pr.R
+    lo, hi = cl - Rb, cl + Rb
+    for n in (14, 12):
+        g = [np.linspace(lo[k], hi[k], n) for k in range(3)]
+        Q = np.stack(np.meshgrid(*g, indexing='ij'), -1).reshape(-1, 3)
+        step = float((hi - lo).max()) / (n - 1)
+        near = Q[pr.f(Q) < step * 1.05 + 0.3]
+        if len(near) == 0:
+            return None
+        lo, hi = near.min(0) - step, near.max(0) + step
+    c = (lo + hi) / 2
+    return pr.t + pr.R @ c, float(np.linalg.norm(hi - lo)) / 2
+
+
+def scene_d_cull(Pts, prims, masks):
+    """scene_d, each primitive only where its mask says it can matter"""
+    d = np.full(len(Pts), 1e9)
+    for pr, mk in zip(prims, masks):
+        if mk is None:
+            d = np.minimum(d, pr.f((Pts - pr.t) @ pr.R))
+            continue
+        s = np.nonzero(mk)[0]
+        if len(s) == 0:
+            continue
+        d[s] = np.minimum(d[s], pr.f((Pts[s] - pr.t) @ pr.R))
+    return d
+
+
+def near_masks(Pts, spheres, pad):
+    return [np.ones(len(Pts), bool) if sp is None else
+            ((Pts - sp[0]) ** 2).sum(1) < (sp[1] + pad) ** 2 for sp in spheres]
+
+
+def march_cull(O, d, prims, t0, t1, masks, steps=180, eps=0.012, fac=0.7):
+    t = t0.copy()
+    hit = np.zeros(len(O), bool)
+    idx = np.nonzero(t0 < t1)[0]
+    for _ in range(steps):
+        if len(idx) == 0:
+            break
+        Pts = O[idx] + d * t[idx, None]
+        dist = scene_d_cull(Pts, prims, [m[idx] for m in masks])
+        h = dist < eps
+        hit[idx[h]] = True
+        t[idx[~h]] += np.maximum(dist[~h] * fac, 0.004)
+        keep = (~h) & (t[idx] < t1[idx])
+        idx = idx[keep]
+    return hit, t
+
+
+def soft_shadow_cull(Pts, l, prims, spheres, tmax=40.0, k=10.0, steps=56):
+    # the primitives near each shadow ray, a segment from the point towards the light
+    masks = []
+    for sp in spheres:
+        if sp is None:
+            masks.append(np.ones(len(Pts), bool))
+            continue
+        cp = sp[0] - Pts
+        tt = np.clip(cp @ l, 0.0, tmax)
+        q = cp - tt[:, None] * l
+        masks.append((q * q).sum(1) < (sp[1] + 3.0) ** 2)
+    res = np.ones(len(Pts))
+    t = np.full(len(Pts), 0.35)
+    for _ in range(steps):
+        dist = scene_d_cull(Pts + l * t[:, None], prims, masks)
+        res = np.minimum(res, k * dist / t)
+        t += np.clip(dist, 0.15, 2.0)
+        if (t > tmax).all():
+            break
+    return np.clip(res, 0, 1)
+
+
 def camera(facing=(0, -1)):
     """character -> world rotation for a model facing `facing` on the map,
     and the camera vectors (right, up, view) in model space"""
@@ -323,11 +411,14 @@ def camera(facing=(0, -1)):
     return M, M.T @ rW, M.T @ uW, M.T @ dW
 
 
-def render(model, W, H, CX, CY, facing=(0, -1), bound=((0, 0, 29), 33.0), ss=3, ground_ao=False):
+def render(model, W, H, CX, CY, facing=(0, -1), bound=((0, 0, 29), 33.0), ss=3, ground_ao=False,
+           light=LIGHT_W, rim_dir=RIM_W, cull=True):
     """-> per pixel (material, group, light, depth), and the decals"""
     prims = model.finish()
+    if cull:
+        return render_cull(model, prims, W, H, CX, CY, facing, bound, ss, light, rim_dir)
     M, r, u, d = camera(facing)
-    l = M.T @ LIGHT_W
+    l = M.T @ light
     xs = (np.arange(W * ss) + 0.5) / ss - CX
     ys = CY - (np.arange(H * ss) + 0.5) / ss
     X, Y = np.meshgrid(xs, ys)
@@ -359,13 +450,105 @@ def render(model, W, H, CX, CY, facing=(0, -1), bound=((0, 0, 29), 33.0), ss=3, 
         ndl = n @ l
         diff = np.clip((ndl + 0.25) / 1.25, 0, 1)
         L = ao * (0.22 + 0.78 * diff * (0.3 + 0.7 * sh)) + tx
-        rim = np.clip(1 - np.abs(n @ (-d)), 0, 1) ** 3 * np.clip(n @ (M.T @ nrm([0.7, 0.3, 0.4])), 0, 1)
+        rim = np.clip(1 - np.abs(n @ (-d)), 0, 1) ** 3 * np.clip(n @ (M.T @ rim_dir), 0, 1)
         L = L + 0.35 * rim
         hvec = nrm(l - d)
         spec = np.clip(n @ hvec, 0, 1) ** 20
         metal = np.array([MATS[k].metal for k in m]) if len(m) else np.zeros(0, bool)
         L = np.where(metal, 0.25 + 0.55 * diff + 0.9 * spec, L)
         glow = np.array([MATS[k].glow for k in m]) if len(m) else np.zeros(0, bool)
+        L = np.where(glow, 0.5 + 0.5 * np.clip(n @ (-d), 0, 1), L)
+        mat_[hi], grp[hi], lum[hi], dep[hi] = m, g, np.clip(L, 0, 1), t[hi]
+    img = downsample(mat_.reshape(H * ss, W * ss), grp.reshape(H * ss, W * ss),
+                     lum.reshape(H * ss, W * ss), dep.reshape(H * ss, W * ss), ss)
+    proj = []
+    for pt, colour in model.decals:
+        pc = M.T @ (np.asarray(pt, float) * model.scale)
+        proj.append((pc @ r + CX, CY - pc @ u, pc @ d + 200.0, colour))
+    return img, proj
+
+
+def render_cull(model, prims, W, H, CX, CY, facing, bound, ss, light, rim_dir):
+    """render() with every primitive limited to the rays and points that can
+    reach its bounding sphere"""
+    M, r, u, d = camera(facing)
+    l = M.T @ light
+    xs = (np.arange(W * ss) + 0.5) / ss - CX
+    ys = CY - (np.arange(H * ss) + 0.5) / ss
+    X, Y = np.meshgrid(xs, ys)
+    X, Y = X.ravel(), Y.ravel()
+    O = X[:, None] * r + Y[:, None] * u - 200.0 * d
+    C = np.asarray(bound[0], float)
+    Rb = bound[1]
+    oc = O - C
+    b = oc @ d
+    c = (oc * oc).sum(1) - Rb * Rb
+    disc = b * b - c
+    ok = disc > 0
+    sq = np.sqrt(np.maximum(disc, 0))
+    t0 = np.where(ok, -b - sq, 1e9)
+    t1 = np.where(ok, -b + sq, -1e9)
+    spheres = [prim_sphere(pr, C, Rb) for pr in prims]
+    keep = [i for i, sp in enumerate(spheres) if sp is not None]
+    prims = [prims[i] for i in keep]
+    spheres = [spheres[i] for i in keep]
+    # the rays (parallel: a point on the screen) that pass near each sphere
+    rmasks = [(X - sp[0] @ r) ** 2 + (Y - sp[0] @ u) ** 2 < (sp[1] + 0.05) ** 2 for sp in spheres]
+    hit, t = march_cull(O, d, prims, t0, t1, rmasks)
+    N = len(O)
+    mat_ = np.full(N, -1)
+    grp = np.full(N, -1)
+    lum = np.zeros(N)
+    dep = np.full(N, 1e9)
+    hi = np.nonzero(hit)[0]
+    if len(hi):
+        Pts = O[hi] + d * t[hi, None]
+        nm = near_masks(Pts, spheres, 0.6)
+        e = 0.06
+        ks = np.array([[1, -1, -1], [-1, -1, 1], [-1, 1, -1], [1, 1, 1]], float)
+        n = np.zeros_like(Pts)
+        for kk in ks:
+            n += kk * scene_d_cull(Pts + kk * e, prims, nm)[:, None]
+        n = n / np.maximum(np.linalg.norm(n, axis=1, keepdims=True), 1e-9)
+        # material, group, texture: the nearest primitive
+        Dm = np.full((len(prims), len(Pts)), 1e9)
+        for i, (pr, mk) in enumerate(zip(prims, nm)):
+            s = np.nonzero(mk)[0]
+            if len(s):
+                Dm[i, s] = pr.f((Pts[s] - pr.t) @ pr.R)
+        kmin = Dm.argmin(0)
+        m = np.zeros(len(Pts), int)
+        g = np.zeros(len(Pts), int)
+        tx = np.zeros(len(Pts))
+        for i, pr in enumerate(prims):
+            sel = kmin == i
+            if not sel.any():
+                continue
+            g[sel] = pr.group
+            q = (Pts[sel] - pr.t) @ pr.R
+            m[sel] = pr.mat if pr.matf is None else pr.matf(q)
+            if pr.tex is not None:
+                tx[sel] = pr.tex(q)
+        sh = soft_shadow_cull(Pts + n * 0.08, l, prims, spheres)
+        am = near_masks(Pts, spheres, 3.2)
+        occ = np.zeros(len(Pts))
+        sca = 1.0
+        for i in range(1, 6):
+            hh = 0.5 * i
+            dd = scene_d_cull(Pts + n * hh, prims, am)
+            occ += (hh - dd) * sca
+            sca *= 0.6
+        ao = np.clip(1 - 0.22 * occ, 0, 1)
+        ndl = n @ l
+        diff = np.clip((ndl + 0.25) / 1.25, 0, 1)
+        L = ao * (0.22 + 0.78 * diff * (0.3 + 0.7 * sh)) + tx
+        rim = np.clip(1 - np.abs(n @ (-d)), 0, 1) ** 3 * np.clip(n @ (M.T @ rim_dir), 0, 1)
+        L = L + 0.35 * rim
+        hvec = nrm(l - d)
+        spec = np.clip(n @ hvec, 0, 1) ** 20
+        metal = np.array([MATS[k].metal for k in m])
+        L = np.where(metal, 0.25 + 0.55 * diff + 0.9 * spec, L)
+        glow = np.array([MATS[k].glow for k in m])
         L = np.where(glow, 0.5 + 0.5 * np.clip(n @ (-d), 0, 1), L)
         mat_[hi], grp[hi], lum[hi], dep[hi] = m, g, np.clip(L, 0, 1), t[hi]
     img = downsample(mat_.reshape(H * ss, W * ss), grp.reshape(H * ss, W * ss),

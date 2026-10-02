@@ -157,6 +157,7 @@ local multiplayer for up to 4 players. The games on the card, all `.bm`:
   <img src="docs/img/texroom.png" width="49%" alt="Texture Room: a textured 3D room">
   <img src="docs/img/hunt.png" width="49%" alt="Hunter's Night: gothic 2D with lights">
   <img src="docs/img/yharnam.png" width="49%" alt="Yharnam: an endless gothic town at night, 256x256">
+  <img src="docs/img/yharnam-boss.png" width="49%" alt="Yharnam: the Butcher, one of the four bosses, in the animation viewer">
 </p>
 
 - **Astro Wing**: 3D flight.
@@ -168,7 +169,9 @@ local multiplayer for up to 4 players. The games on the card, all `.bm`:
 - **Yharnam**: an endless gothic town at night, at 256×256: the streets are made while you
   walk, lit as in Dank Tomb (light levels and fade tables), with fires and warm lamps. The
   hunter has 27 animations in 8 directions: saw cleaver combos (folded and opened), the
-  pistol, backstep, hurt, knocked down, death.
+  pistol, backstep, hurt, knocked down, death. Twelve creatures roam the districts (mad
+  townsfolk, beasts, hunters, eldritch horrors) and four bosses wait in theirs, each with
+  two special attacks and two combos.
 - The rest: Pong (2 players), Snake, Star Shooter, and **nano8** for `.p8` carts.
 
 The console screenshots come from QEMU (`tests/qemu_test.py --shots DIR`). The bm Studio
