@@ -37,6 +37,7 @@ sys.path.insert(0, os.path.join(HERE, 'art'))
 
 import anims  # noqa: E402
 import buildings  # noqa: E402
+import fire  # noqa: E402
 import hunter  # noqa: E402
 # the creatures, in this order: townsfolk, beasts, hunters, horrors
 import foe_villagers  # noqa: E402,F401,I100
@@ -158,6 +159,7 @@ def main():
         sheet[y:y + 16, x:x + 16] = img
         return (y // 8) * (SW // 8) + x // 8          # its first map cell
 
+    tile(np.zeros((16, 16, 4), np.uint8))   # tile 0: its first cell is 0, which map() leaves empty
     ground = {k: [tile(t) for t in v] for k, v in tiles.GROUND.items()}
     curbs = {m: tile(t) for m, t in tiles.CURBS.items()}
     gedges = {m: tile(t) for m, t in tiles.GRASS_EDGES.items()}
@@ -173,7 +175,9 @@ def main():
     # props, the hunter's frames and the creatures', tallest first on a
     # skyline; a frame drawn twice the same is kept once
     pk = Skyline(0, tiles_end + 1, SW, SH)
+    flames = {kind: fire.frames(kind) for kind in fire.KINDS}
     items = [('prop', name, img) for name, img, _ in prop_imgs]
+    items += [('fire', (kind, i), img) for kind, fs in flames.items() for i, (img, _) in enumerate(fs)]
     items += [('hunt', i, f[0]) for i, f in enumerate(frames)]
     items += [('foe', i, f[0]) for i, f in enumerate(foes)]
     items.sort(key=lambda it: (-it[2].shape[0], -it[2].shape[1]))
@@ -243,6 +247,13 @@ def main():
     for r, rows in roof.items():
         out.append('  %s = { %s },' % (r, ', '.join('%s = { l = %d, m = %d, r = %d }' % (row, s['l'], s['m'], s['r'])
                                                     for row, s in rows.items())))
+    out.append('}')
+    # the flames of braziers (small) and pyres (big): a loop of frames
+    # { sx, sy, w, h, ax, ay } (the anchor: the middle of their base)
+    out.append('local FIRE_ANIM = {')
+    for kind, fs in flames.items():
+        out.append('  %s = { %s },' % (kind, ', '.join(lua_list(where['fire', (kind, i)] + anchor)
+                                                       for i, (_, anchor) in enumerate(fs))))
     out.append('}')
     out.append('local SPR = {')
     for name in props.PROPS:

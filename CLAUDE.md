@@ -132,6 +132,13 @@ screenshot in `docs/img/`), `README_OLD.md` (il README completo, in italiano),
   modelli 3D in pixel art: il cacciatore, gli oggetti; tessere e case in 2D) scrive
   `sheet.png` e il blocco `-- [atlas begin]` di `main.lua`. Dopo averla cambiata:
   rieseguirlo e fare commit di `sheet.png`. Prove: `make test-yharnam`, QEMU `test_yharnam`.
+- La città (richiesta dell'utente: zone ampie, strade non affollate): il pavimento delle strade è
+  lo stesso in un quartiere di 3×3 isolati (`quarter_pave`); le varianti di una tessera vanno a
+  chiazze (`patch` in `gen`), i cortili verso erba o terra a zone grandi, poche decorazioni;
+  lampioni radi, pochi oggetti, slarghi agli incroci. La tessera 0 dello sheet è vuota: la
+  cella 0 per `map()` non si disegna (prima lasciava quadrati neri nelle strade).
+- Il fuoco (bracieri, pire) è un ciclo di fotogrammi in pixel art (`art/fire.py`, `FIRE_ANIM`),
+  disegnato dopo la luce, più le scintille: pieno alla base, lingue che salgono.
 - Le animazioni del cacciatore (8 direzioni) sono pose chiave in `art/anims.py` (lo
   scheletro e le sue articolazioni in `art/hunter.py`; `aim` gira il polso perché la saw
   cleaver punti dove serve). Renderle tutte richiede circa un'ora: `mkassets.py` tiene i

@@ -18,6 +18,8 @@
  *     --scale S       every pixel S x S
  *     --audio FILE    the sound, raw s16le mono at 48 kHz
  *     --png FILE      the last frame drawn, as a PPM picture
+ *     --shots N,N,..  those frames as PPM pictures in --shotdir (default .),
+ *                     shot-N.ppm
  *     --size          prints the screen size ("256x256") and stops
  *
  * The API is the part of the console's (src/bm/runtime.c) the games of the
@@ -385,6 +387,7 @@ int main(int argc, char **argv)
 {
     const char *cart = NULL, *bot = NULL, *video = NULL, *audio = NULL, *png = NULL;
     int size_only = 0;
+    const char *shots = NULL, *shotdir = ".";
     long frames = 60L * 60 * 30;
     int every = 1, scale = 1;
     lua_Integer seed = 1;
@@ -399,6 +402,8 @@ int main(int argc, char **argv)
         else if (!strcmp(a, "--audio") && v) audio = argv[++i];
         else if (!strcmp(a, "--png") && v) png = argv[++i];
         else if (!strcmp(a, "--size")) size_only = 1;
+        else if (!strcmp(a, "--shots") && v) shots = argv[++i];
+        else if (!strcmp(a, "--shotdir") && v) shotdir = argv[++i];
         else if (a[0] != '-' && !cart) cart = a;
         else { fprintf(stderr, "bmplay: what is %s?\n", a); return 2; }
     }
@@ -512,6 +517,23 @@ int main(int argc, char **argv)
         }
         if (af) fwrite(pcm, 2, RATE / FPS, af);
         if (vf && rt.frame % every == 0) write_frame(vf, scale);
+        if (shots) {
+            for (const char *q = shots; *q; ) {
+                long n = strtol(q, (char **)&q, 10);
+                if (n == rt.frame) {
+                    char path[512];
+                    snprintf(path, sizeof path, "%s/shot-%ld.ppm", shotdir, n);
+                    FILE *f = fopen(path, "wb");
+                    if (f) {
+                        fprintf(f, "P6\n%d %d\n255\n", w * scale, h * scale);
+                        write_frame(f, scale);
+                        fclose(f);
+                    }
+                }
+                while (*q == ',' || *q == ' ') q++;
+                if (*q && (*q < '0' || *q > '9')) break;
+            }
+        }
     }
     fprintf(stderr, "bmplay: %ld frames\n", rt.frame);
     if (png) {
