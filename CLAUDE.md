@@ -154,7 +154,16 @@ screenshot in `docs/img/`), `README_OLD.md` (il README completo, in italiano),
 ## Assistente AI (M30)
 
 - `src/ai/`: rete INT8 che sceglie tra le voci di `src/ai/kb/*.txt` (formato in
-  `src/ai/kb/README.md`) e ricette di sprite; pannello Lua `require "assist"`.
+  `src/ai/kb/README.md`), ricette di sprite (`sprite.c`) e ricette 3D (`mesh.c`,
+  `mesh_chars.c`: forme, oggetti, persone, animali e macchine con scheletro e animazioni,
+  `kind: mesh` in `kb/meshes.txt`, API `ai.mesh`); pannello Lua `require "assist"`
+  (modo `mesh`: il modello gira nel pannello). bm Studio e bm Animator lo aprono con F6
+  (pad: Y + X) da `bm3d.lua` (`T.assistant`, `T.take_model`): il modello entra nel
+  progetto con scheletro e animazioni. Per guardare le ricette sul PC: `make
+  build/host/meshview && build/host/meshview sheet out.ppm` (tutte) o `meshview one
+  mech out.ppm` (una, da quattro lati e nelle pose); guardarle dopo ogni modifica.
+  Una faccia si vede dal lato in senso orario: i primitivi passano per `face_out()`
+  con un punto interno al solido. Un'unità = un blocco; il modello guarda verso −z.
 - Dopo aver cambiato la base di conoscenza: `make ai-model` (numpy) e commit di
   `src/ai/assist.weights`; `make test-ai` controlla C contro Python, domande di prova,
   esempi di codice e pannello.

@@ -339,7 +339,8 @@ Si prova da **Dev > Assistant** (o `I` dal monitor).
 | `ai.list([kinds])` | tutte le voci `{id, title, kind}` (per sfogliarle col pad) |
 | `ai.near(parola)` | il nome delle API più vicino a una parola scritta male (`"sprr"` → `"spr"`, 1), o `nil` |
 | `ai.sprite(richiesta, [{gen=, size=16, seed=1, outline=true, palette={…}}])` | la base di uno sprite: `{w, h, gen, name, seed, px = {0xRRGGBB o -1 (trasparente), …}}` riga per riga. La ricetta viene dalle parole (`"slime"`, `"astronave"`, `"moneta"`, `"erba"`…) o da `gen`; i colori (`"rosso"`, `"blue"`…) e la misura (`"8x8"`, `"32x32"`, `"piccolo"`, `"grande"`) dalle parole; un altro `seed` è una variante; con `palette` ogni pixel diventa il colore più vicino della tavolozza |
-| `ai.recipes()` | le ricette degli sprite `{id, name}` |
+| `ai.recipes()` | le ricette degli sprite `{id, name}`; `ai.recipes("mesh")` quelle 3D `{id, name, rigged}` |
+| `ai.mesh(richiesta, [{gen=, seed=1, scale=1, rig=true}])` | la base di un **modello 3D** per bm Studio e bm Animator: `{gen, name, seed, faces = { {p = {{x,y,z}, …}, c = 0xRRGGBB, b = {osso, …}}, … }, bones = { {name, parent, head, tail}, … } o nil, clips = { {name, loop, length, mode, keys = { {t, pose = { {q, t}, … }}, … }}, … }}`, le stesse tabelle di `bm3d.lua` (un'unità = un blocco di bm Studio, il modello guarda verso −z e poggia su y = 0). La ricetta (53: forme, oggetti, persone, animali, macchine) viene dalle parole (`"casa"`, `"albero"`, `"mech"`…) o da `gen`; i colori (`"rossa"`, `"blue"`), la misura (`"piccolo"`, `"grande"`, `"enorme"`), le proporzioni (`"alto"`, `"basso"`, `"largo"`, `"sottile"`) e `"senza scheletro"` dalle parole; un altro `seed` è una variante. Persone, animali e macchine hanno lo scheletro (ogni spigolo su un osso) e le animazioni (`idle`, `walk`, `fly`, `attack`…) |
 | `ai.checksum(domanda)` | il CRC-32 delle uscite della rete per una domanda: per i test (uguale a quello del riferimento in Python) |
 
 **Il pannello** (`require "assist"`): quello che gli strumenti aprono con un tasto
@@ -364,7 +365,7 @@ function _draw()
 end
 ```
 
-`assist.open{...}`: `mode` = `"code"` (API, esempi, errori), `"sprite"`, `"error"`
+`assist.open{...}`: `mode` = `"code"` (API, esempi, errori), `"sprite"`, `"mesh"` (le ricette 3D: il modello gira nel pannello, `on_mesh(m)` lo riceve; è il modo di bm Studio e bm Animator con F6), `"error"`
 o `"any"`; `query` (domanda già scritta), `ctx`, `error` (un messaggio d'errore: il
 pannello mostra la riga, il nome scritto male e cosa vuol dire), `size` e `palette`
 per gli sprite, `on_insert(codice)`, `on_sprite(sprite)`, `on_close()`, `x, y, w, h`

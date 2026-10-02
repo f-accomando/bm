@@ -121,8 +121,10 @@ Everything a cartridge contains is made with bm's own tools. They read and write
 - **bm Code**: the code editor, with tabs, two pages side by side and a small sharp
   6×12 font.
 - **AI assistant**: a small INT8 network that runs on the Pi. It answers questions about
-  the API and error messages, comments code, and sketches sprites. Its knowledge base is
-  in Italian for now.
+  the API and error messages, comments code, sketches sprites and, in bm Studio and bm
+  Animator (F6), builds low-poly 3D models from words: shapes, objects, people, animals
+  and machines, the characters with a skeleton and animations. Its knowledge base is in
+  Italian for now.
 - **Sound editor**: an 8-voice synthesizer, sound effects and music patterns for the
   cartridge's sound bank.
 - **bm Studio** and **bm Animator**: the PC programs' twins, on the same files. bm Studio

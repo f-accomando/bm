@@ -1,7 +1,8 @@
 /*
  * The development assistant (M30): a knowledge base of bm (API, how-to with
  * code, Lua errors, sprite recipes) and a tiny INT8 network that maps a
- * question, in Italian or English, to its entries. Everything comes from
+ * question, in Italian or English, to its entries; the 3D recipes
+ * (mesh.c) are entries too. Everything comes from
  * one BMAI file built by scripts/mkassist.py and embedded in the kernel; it
  * does nothing until asked, then answers in well under a millisecond.
  */
@@ -16,7 +17,8 @@
 #define AI_KIND_SPRITE  8
 #define AI_KIND_TIP     16
 #define AI_KIND_ACTION  32      /* something to do on the code (#entry: lines) */
-#define AI_KIND_ALL     63
+#define AI_KIND_MESH    64      /* a 3D recipe (bm Studio, bm Animator) */
+#define AI_KIND_ALL     127
 
 typedef struct {
     const char *id, *kind, *title, *name, *text, *code, *gen, *see, *keys;

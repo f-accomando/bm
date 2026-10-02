@@ -2826,6 +2826,128 @@ def test_studio_animator(b, opts):
         shutil.rmtree(tmp, ignore_errors=True)
 
 
+def test_studio_assistant(b, opts):
+    """M30 in bm Studio and bm Animator: F6 opens the assistant in its 3D
+    mode; a request ("casa rossa") shows the recipe turning in the panel
+    and Enter makes it a model; a rigged one ("mech") brings its skeleton
+    and animations, which bm Animator plays (cart_tool on the saved file)
+    and the kernel's ANIM section holds; the Animator's own F6 adds a
+    dragon. The file is read back and checked."""
+    tmp = tempfile.mkdtemp(prefix="bm-s3dai-")
+    img = os.path.join(tmp, "sd.img")
+    mksd.build(img, [(b("carts/village.bm"), "carts/village.bm")])
+    q = Qemu(b("kernel.img"), ["-drive", f"if=sd,format=raw,file={img}"])
+
+    def keys(*ks, gap=0.3):
+        for k in ks:
+            q.send(k)
+            time.sleep(gap)
+
+    def screen(want, tries=40):
+        for _ in range(tries):
+            _, text = settled_screen(q, lambda i, t: all(any(w in l for l in t) for w in want), tries=2)
+            if all(any(w in l for l in text) for w in want):
+                return "\n".join(text)
+            time.sleep(0.25)
+        raise AssertionError(f"not on the screen: {want}\n" + "\n".join(text))
+
+    def shot(name):
+        if opts.shots:
+            img_, _ = settled_screen(q, lambda i, t: "menu" in t[0] and t[21].strip() != "", tries=20)
+            _save_png(img_, os.path.join(opts.shots, f"{name}.png"))
+
+    F2, F6 = "\x1bOQ", "\x1b[17~"
+    DOWN, ESC = "\x1b[B", "\x1b"
+    try:
+        q.expect(MENU, timeout=30)
+        time.sleep(0.5)
+        screen(["Games", "Studio Village"])
+        keys("x")
+        screen(["Open in bm Studio"])
+        keys("s", "s", "s", "s", "\r")
+        screen(["build", "models", "TOOLS", "model 1/8: ground"])
+        # a new project, then the assistant: a house from words
+        keys(ESC, gap=0.6)
+        keys(DOWN, DOWN, "\r", gap=0.4)         # New project
+        screen(["BLOCK", "cell 0,0,0"])
+        keys(F6, gap=0.6)
+        screen(["Assistant", "mesh", "type a question"])
+        for ch in "casa rossa":
+            keys(ch, gap=0.12)
+        screen(["Casa (casetta col tetto)", "faces", "3D"])
+        shot("studio-assistant")
+        keys("\r", gap=1.0)
+        screen(["the assistant's house: 35 faces, model house", "TOOLS"])
+        shot("studio-assistant-house")
+        # a rigged one: the mech, a new model with its skeleton
+        keys(F6, gap=0.6)
+        for ch in "mech":
+            keys(ch, gap=0.12)
+        screen(["Mech (robot da combattimento", "9 bones: idle walk fire"])
+        keys("\r", gap=1.5)
+        screen(["9 bones, 3 animations, model mech"])
+        keys(F2)
+        screen(["MODELS 2", "house", "mech"])
+        shot("studio-assistant-models")
+        # saved as AI.BM, then bm Animator on it: the mech's animations play
+        keys(ESC, gap=0.6)
+        for _ in range(4):
+            keys(DOWN)
+        keys("\r")
+        screen(["file name"])
+        for _ in range(8):
+            keys("\x7f", gap=0.1)
+        for ch in "AI\r":
+            keys(ch, gap=0.1)
+        screen(["saved /carts/AI.BM"])
+        keys(ESC, gap=0.6)                      # the menu goes back to the page...
+        keys(ESC, gap=0.6)                      # ...and opens again on Continue
+        screen(["Open in bm Animator"])
+        for _ in range(8):
+            keys(DOWN)
+        keys("\r", gap=1.5)
+        screen(["play", "sprites", "MODELS", "house", "mech"], tries=80)
+        keys(DOWN)
+        screen(["ANIMATIONS", "idle", "walk", "fire", "9 bones"])
+        shot("animator-assistant-mech")
+        # the Animator's own F6: a dragon, played at once
+        keys(F6, gap=0.6)
+        for ch in "drago":
+            keys(ch, gap=0.12)
+        screen(["Drago", "10 bones: idle fly walk"])
+        keys("\r", gap=1.5)
+        screen(["the assistant's dragon:", "10 bones, 3 animations, model dragon"])
+        screen(["ANIMATIONS", "fly"])
+        shot("animator-assistant-dragon")
+        keys("\x13", gap=0.8)                   # Ctrl+S
+        screen(["saved /carts/AI.BM"])
+        keys(ESC, gap=0.6)
+        keys("\x1b[A", "\r", gap=0.6)           # Exit bm Animator
+        screen(["Games"])
+    finally:
+        q.close()
+    try:
+        part = os.path.join(tmp, "part.img")
+        with open(img, "rb") as f, open(part, "wb") as o:
+            f.seek(2048 * 512)
+            o.write(f.read())
+        env = dict(os.environ, MTOOLS_SKIP_CHECK="1")
+        saved = subprocess.run(["mtype", "-i", part, "::/CARTS/AI.BM"], capture_output=True, env=env).stdout
+        secs = dict(bmmesh.cart_sections(saved))
+        models, _ = bmmesh.decode(secs[bmmesh.SEC_MESH])
+        names = [m["name"] for m in models]
+        assert names == ["house", "mech", "dragon"], names
+        assert len(models[0]["faces"]) >= 60 and len(models[1]["faces"]) >= 1000, [len(m["faces"]) for m in models]
+        anim = secs[bmmesh.SEC_ANIM]
+        assert struct.unpack_from("<H", anim)[0] == 2, "two rigs: the mech's and the dragon's"
+        nb, nc, nv = struct.unpack_from("<HHH", anim, 8 + 16)
+        assert anim[8:12] == b"mech" and (nb, nc) == (9, 3), (anim[8:24], nb, nc)
+        clip = 8 + 24 + nb * 44 + ((nv + 3) & ~3)
+        assert anim[clip:clip + 4] == b"idle", anim[clip:clip + 16]
+    finally:
+        shutil.rmtree(tmp, ignore_errors=True)
+
+
 def test_mesh(b, opts):
     """bm Mesh on the console (a game's options, "Open in bm Mesh"): it lists
     the meshes Astro Wing builds in its code (cart_meshes runs the code

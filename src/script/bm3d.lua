@@ -11,6 +11,9 @@
 -- update(dt), draw(), refresh(), status() and its help lines (keys).
 
 local T = {}
+-- the assistant's panel (F6, Y + X): the base of a model from a 3D recipe
+local ok_assist, assist = pcall(require, "assist")
+if not ok_assist then assist = { update = function() return false end, draw = function() end } end
 local W, H = SCREEN_W, SCREEN_H
 T.W, T.H = W, H
 
@@ -1129,6 +1132,7 @@ local function global_key(k)
   if k == "esc" and S.page ~= "menu" and not busy then go("menu"); return true
   elseif k == "^s" then T.save_project(); return true
   elseif k == "f5" or k == "^r" then T.run_project(); return true
+  elseif k == "f6" and not busy then T.assistant(); return true
   elseif k == "^z" then T.do_undo(S.undo, S.redo, "undo"); refresh(); return true
   elseif k == "^y" then T.do_undo(S.redo, S.undo, "redo"); refresh(); return true
   elseif (k == "[" or k == "]") and S.page ~= "menu" and not busy and #S.models > 0 then
@@ -1137,6 +1141,53 @@ local function global_key(k)
     return true
   end
   return false
+end
+
+-- the assistant (F6, Y + X): a 3D recipe ("una casa rossa", "mech"...)
+-- becomes a model, with its skeleton and animations when it has them
+function T.assistant()
+  if not ok_assist or not ai or not ai.mesh then say("the assistant is not here", C.ERR); return end
+  assist.open{ mode = "mesh", on_mesh = T.take_model }
+end
+
+-- the assistant's model: into the current model if it is empty, else a new
+-- one named after the recipe; then the first page shows it
+function T.take_model(m)
+  if not m or not m.faces or #m.faces == 0 then return end
+  local cur, i = M(), nil
+  if cur and #cur.faces == 0 and not (cur.rig and #cur.rig.bones > 0) then
+    i = S.cur
+    if cur.name:match("^model%d*$") then cur.name = T.unique_name(m.gen, S.cur) end
+  else
+    i = T.new_model(m.gen)
+  end
+  local mm = S.models[i]
+  mm.faces = m.faces
+  mm.rig = nil
+  if m.bones and #m.bones > 0 then
+    mm.rig = { bones = m.bones, clips = m.clips or {} }
+  else
+    for _, f in ipairs(mm.faces) do f.b = nil end
+  end
+  mm.dirty = true
+  S.undo, S.redo = {}, {}
+  local ok, e = T.sync()
+  if not ok then
+    mm.faces, mm.rig, mm.dirty = {}, nil, true
+    T.sync()
+    say("cannot: " .. tostring(e), C.ERR)
+    return
+  end
+  S.dirty = true
+  T.select_model(i)
+  refresh()
+  go(A.order[1])
+  local pg = A.pages[A.order[1]]
+  if pg.reset then pg.reset() end              -- the camera on it
+  local nb = mm.rig and #mm.rig.bones or 0
+  say(string.format("the assistant's %s: %d faces%s, model %s", m.name or m.gen, #m.faces,
+                    nb > 0 and string.format(", %d bones, %d animations", nb, #mm.rig.clips) or "", mm.name),
+      C.ACC, 300)
 end
 
 function T.run(app)
@@ -1181,6 +1232,7 @@ function T.run(app)
     local dt = clamp(now - last_t, 0, 0.1)
     last_t = now
     read_pad()
+    if assist.update() then return end          -- the assistant has the keys
 
     while true do
       local k = keyp()
@@ -1210,6 +1262,7 @@ function T.run(app)
         for n, p in ipairs(list) do if p == S.page then i = n end end
         go(list[(i - 1 + (btnp(1) and 1 or -1)) % #list + 1])
       elseif btnp(5) then go("menu")
+      elseif btnp(6) then T.assistant()
       elseif btnp(4) then T.do_undo(S.undo, S.redo, "undo"); refresh()
       elseif (btnp(2) or btnp(3)) and #S.models > 0 then
         if pg and pg.pad_y then pg.pad_y(btnp(2) and -1 or 1)
@@ -1261,6 +1314,7 @@ function T.run(app)
     if choosing then draw_choose() end
     if input then draw_input() end
     if keyheld("f12") or help then draw_keys() end
+    assist.draw()                                -- the assistant's panel on top, if open
   end
 end
 

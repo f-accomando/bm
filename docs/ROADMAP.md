@@ -1623,6 +1623,31 @@ Task:
 10. Dopo: numeri e nomi della domanda dentro il codice proposto ("muovi a velocità 3"),
    completamento dei nomi delle API, le domande senza risposta giusta che diventano voci
    nuove, ricette di sprite animate (più fotogrammi nello sheet).
+11. ✅ **Ricette 3D per bm Studio e bm Animator** (2026-10-02, `src/ai/mesh.c`,
+   `mesh_chars.c`, `kb/meshes.txt`): 53 ricette low-poly nello stile dei blocchi della
+   console, scelte dalla rete dalle parole della richiesta ("una casa rossa grande",
+   "mech", "drago verde che vola"): forme semplici (cubo, sfera, cilindro, cono, piramide,
+   colonna, muro, scala, rampa, piattaforma, arco), oggetti (albero, pino, casa, torre,
+   sedia, tavolo, barile, cassa, forziere, spada, scudo, auto, lampione, staccionata,
+   roccia, cespuglio, fungo, cactus, ponte, pozzo, cartello, torcia, barca, cannone,
+   letto, fiore, moneta, gemma) e personaggi con **scheletro e animazioni** pronte per
+   bm Animator (persona, cavaliere, robot, mech, cane, cavallo, uccello, pesce, slime,
+   ragno, drago, fantasma, scheletro, pupazzo di neve: idle, walk, wave, attack, fly,
+   swim, bounce, fire...). Primitivi (scatola, tubo, sfera, prisma, specchio), materiali
+   con il tono dall'alto in basso, colori, misura, proporzioni e "senza scheletro" dalle
+   parole, un seme per variante. `ai.mesh()` e il modo `mesh` del pannello (il modello
+   gira nel pannello, Invio lo consegna); in bm Studio e bm Animator **F6** (pad Y + X):
+   il modello entra nel progetto (nel modello vuoto o in uno nuovo), con scheletro e
+   animazioni, e la prima pagina lo mostra. Il benchmark di qualità è stato il mech di
+   D.Va (Overwatch): cabina col pilota, gambe piegate, cannoni a tre canne, alette e
+   propulsori. Sul PC `build/host/meshview` disegna tutte le ricette (`sheet`) o una
+   da quattro lati e nelle pose delle animazioni (`one`): le immagini vanno guardate.
+   Costo: ~56 KB di codice nel kernel, niente RAM finché non si chiede (il modello di
+   2048 facce vive solo mentre `ai.mesh` costruisce le tabelle), 0,03 ms sul PC per il
+   mech. Test: `make test-ai` (ogni ricetta: facce valide, a terra, intorno all'origine,
+   ossa e clip, variante, stesso seme stesso modello, parole), il pannello sul PC,
+   `tools3d_host.lua` (F6 nel Studio con un `ai` finto), `test_studio_assistant` in QEMU.
+   Dopo: texture dallo sheet, ricette composte ("un villaggio"), più varianti per ricetta.
 
 Numeri: in QEMU 0,45 ms per domanda (sul PC 0,03 ms) e 1 ms per uno sprite 16x16; il
 kernel cresce di ~410 KB (rete 270 KB, voci e testi 80 KB). RAM: niente finché non si

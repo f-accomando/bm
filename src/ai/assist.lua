@@ -14,20 +14,22 @@
 --     assist.draw()                         -- the panel on top, if open
 --   end
 --
--- Modes: "code" (API, how-to, errors), "sprite" (sprite recipes), "error"
--- (an error message: what it means, a typo), "any". It answers while you
--- type; Enter (A) hands the code to on_insert or the sprite to on_sprite
--- ({w, h, px = {0xRRGGBB or -1, ...}}), Esc (B) closes. Nothing runs while
--- it is closed.
+-- Modes: "code" (API, how-to, errors), "sprite" (sprite recipes), "mesh"
+-- (3D recipes: bm Studio, bm Animator), "error" (an error message: what it
+-- means, a typo), "any". It answers while you type; Enter (A) hands the
+-- code to on_insert, the sprite to on_sprite ({w, h, px = {0xRRGGBB or -1,
+-- ...}}) or the 3D model to on_mesh (ai.mesh's table: faces, bones, clips;
+-- shown turning in the panel), Esc (B) closes. Nothing runs while it is
+-- closed.
 
 local M = {}
 
 local C_PANEL, C_BAR, C_LINE = 0x1C2030, 0x2A3048, 0x3A4060
 local C_TEXT, C_DIM, C_ACC, C_ERR, C_SEL = 0xE0E4F0, 0x8088A0, 0xFFC050, 0xFF6060, 0x3050A0
 local C_KW, C_API, C_STR, C_NUM, C_COM = 0xFF7AB0, 0x70D0FF, 0x90E070, 0xFFB060, 0x707C98
-local KINDS = { code = "api,howto,error,tip", sprite = "sprite", error = "error,api,howto",
-                any = "api,howto,error,tip,sprite" }
-local TAG = { api = "API", howto = "how-to", error = "error", tip = "tip", sprite = "sprite" }
+local KINDS = { code = "api,howto,error,tip", sprite = "sprite", mesh = "mesh", error = "error,api,howto",
+                any = "api,howto,error,tip,sprite,mesh" }
+local TAG = { api = "API", howto = "how-to", error = "error", tip = "tip", sprite = "sprite", mesh = "3D" }
 
 local st                                 -- nil while closed
 
@@ -83,6 +85,38 @@ local function error_hint(msg)
   return hint
 end
 
+-- a 3D model from ai.mesh as a mesh of the kernel, to show it turning, and
+-- its centre and size; nothing on a PC without the 3D (the tests)
+local function preview_mesh(model)
+  if not model or not mesh or not draw3d then return nil end
+  local v, f, idx = {}, {}, {}
+  local lo, hi = { 1e9, 1e9, 1e9 }, { -1e9, -1e9, -1e9 }
+  for _, fc in ipairs(model.faces) do
+    local ids = {}
+    for k, p in ipairs(fc.p) do
+      local key = p[1] .. "," .. p[2] .. "," .. p[3]
+      local i = idx[key]
+      if not i then
+        v[#v + 1], v[#v + 2], v[#v + 3] = p[1], p[2], p[3]
+        i = #v // 3
+        idx[key] = i
+        for d = 1, 3 do
+          if p[d] < lo[d] then lo[d] = p[d] end
+          if p[d] > hi[d] then hi[d] = p[d] end
+        end
+      end
+      ids[k] = i
+    end
+    f[#f + 1], f[#f + 2], f[#f + 3], f[#f + 4] = ids[1], ids[2], ids[3], fc.c
+    if #ids == 4 then f[#f + 1], f[#f + 2], f[#f + 3], f[#f + 4] = ids[1], ids[3], ids[4], fc.c end
+  end
+  if #v == 0 or #v // 3 > 4096 or #f // 4 > 16384 then return nil end
+  local ok, m = pcall(mesh, v, f)
+  if not ok then return nil end
+  return m, { (lo[1] + hi[1]) / 2, (lo[2] + hi[2]) / 2, (lo[3] + hi[3]) / 2,
+              math.max(hi[1] - lo[1], hi[2] - lo[2], hi[3] - lo[3], 0.5) }
+end
+
 -- ---------------------------------------------------------------- state
 
 local function layout()
@@ -109,9 +143,15 @@ local function choose(i)
   if st.sel >= st.top + st.list_rows then st.top = st.sel - st.list_rows + 1 end
   local hit = st.hits[st.sel]
   st.entry = safe(ai.entry, hit.id)
-  st.scroll, st.lines, st.sprite = 0, {}, nil
+  st.scroll, st.lines, st.sprite, st.model, st.pmesh = 0, {}, nil, nil, nil
   local e = st.entry
   if not e then return end
+  if e.kind == "mesh" then
+    st.model = safe(ai.mesh, st.q ~= "" and st.q or e.gen, { gen = e.gen, seed = st.seed })
+    st.pmesh, st.pbox = preview_mesh(st.model)
+    wrap(e.text or "", st.cols - (st.detail_rows * st.fh - st.fh) // st.fw - 2, st.lines)
+    return
+  end
   if e.kind == "sprite" then
     st.sprite = safe(ai.sprite, st.q ~= "" and st.q or e.gen,
                      { gen = e.gen, size = st.size, seed = st.seed, palette = st.palette })
@@ -174,7 +214,7 @@ function M.open(o)
   st = {
     mode = KINDS[o.mode or "any"] and (o.mode or "any") or "any",
     q = o.query or "", ctx = o.ctx ~= "" and o.ctx or nil,
-    on_insert = o.on_insert, on_sprite = o.on_sprite, on_close = o.on_close,
+    on_insert = o.on_insert, on_sprite = o.on_sprite, on_mesh = o.on_mesh, on_close = o.on_close,
     palette = o.palette, size = o.size or 16, seed = 1,
     x = o.x, y = o.y, w = o.w, h = o.h,
     hits = {}, sel = 1, top = 1, scroll = 0, lines = {}, frame = 0,
@@ -211,6 +251,14 @@ local function act()
     else
       st.msg = "this tool takes no sprites"
     end
+  elseif e.kind == "mesh" then
+    if st.model and st.on_mesh then
+      local m, cb = st.model, st.on_mesh
+      M.close()
+      cb(m)
+    else
+      st.msg = "this tool takes no 3D models"
+    end
   elseif e.code ~= "" and st.on_insert then
     local code, cb = e.code, st.on_insert
     M.close()
@@ -221,7 +269,7 @@ local function act()
 end
 
 local function variant(d)
-  if st.entry and st.entry.kind == "sprite" then
+  if st.entry and (st.entry.kind == "sprite" or st.entry.kind == "mesh") then
     st.seed = math.max(1, st.seed + d)
     choose(st.sel)
   else
@@ -244,8 +292,8 @@ function M.key(k)
     if st.q ~= "" then st.q = st.q:sub(1, -2); refresh() end
   elseif k == "^u" then st.q = ""; st.ctx = nil; refresh()
   elseif k == "\t" then
-    -- the next mode: code, sprite, any
-    st.mode = st.mode == "code" and "sprite" or st.mode == "sprite" and "any" or "code"
+    -- the next mode: code, sprite, mesh, any
+    st.mode = st.mode == "code" and "sprite" or st.mode == "sprite" and "mesh" or st.mode == "mesh" and "any" or "code"
     refresh()
   elseif #k == 1 and k:byte() >= 32 then
     if #st.q < st.cols - 4 then st.q = st.q .. k; refresh() end
@@ -338,6 +386,34 @@ local function draw_sprite(sp, x, y, z)
   end
 end
 
+-- the model turning in the box (x, y, size): the kernel's camera projects
+-- on the whole screen, so project3d measures where to put the model for
+-- it to land in the box
+local function draw_model(x, y, size)
+  local m, b = st.pmesh, st.pbox
+  if not m then return end
+  -- far enough for the model (b[4] units) to fit the box: the camera's
+  -- focal length is (SCREEN_W / 2) / tan(30 degrees) pixels (fov 60)
+  local d = b[4] * (SCREEN_W / 2) / math.tan(math.rad(30)) / size * 1.25 + 0.3
+  clip(x, y, size, size)
+  zclear()
+  camera3d(0, d * 0.4, -d, 0, -0.38, 60)
+  light3d(-0.4, 0.8, -0.5, 0.45)
+  local ox, oy = project3d(0, 0, 0)
+  local x1 = project3d(1, 0, 0)
+  local _, y1 = project3d(0, 1, 0)
+  if ox and x1 and y1 and x1 ~= ox and y1 ~= oy then
+    local wx = (x + size / 2 - ox) / (x1 - ox)
+    local wy = (y + size / 2 - oy) / (y1 - oy)
+    local a = st.frame * 0.012
+    local c, s = math.cos(a), math.sin(a)
+    local mx = -(b[1] * c + b[3] * s)                 -- turn around the model's middle
+    local mz = -(-b[1] * s + b[3] * c)
+    draw3d(m, wx + mx, wy - b[2], mz, 0, a, 0, 1, 0)
+  end
+  clip()
+end
+
 local function checker(x, y, w, h, s)
   rectfill(x, y, w, h, 0x5A606C)
   for j = 0, h // s - 1 do
@@ -400,7 +476,29 @@ function M.draw()
   local dy = ly + st.list_rows * fh
   line(x + 4, dy - 1, x + w - 5, dy - 1, C_LINE)
   local e = st.entry
-  if e and e.kind == "sprite" then
+  if e and e.kind == "mesh" then
+    local box = st.detail_rows * fh - fh
+    local m = st.model
+    rectfill(tx, dy + 4, box, box, 0x2A3048)
+    rect(tx, dy + 4, box, box, C_LINE)
+    draw_model(tx, dy + 4, box)
+    if not st.pmesh and m then print("3D", tx + box // 2 - fw, dy + 4 + box // 2 - fh // 2, C_DIM) end
+    local ix = tx + box + 2 * fw
+    local info = (m and m.name or e.title) .. "  #" .. st.seed
+    print(info:sub(1, st.cols - box // fw - 2), ix, dy, C_TEXT)
+    if m then
+      local nb = m.bones and #m.bones or 0
+      local what = #m.faces .. " faces"
+      if nb > 0 then
+        what = what .. ", " .. nb .. " bones:"
+        for _, c in ipairs(m.clips or {}) do what = what .. " " .. c.name end
+      end
+      print(what:sub(1, st.cols - box // fw - 2), ix, dy + fh, C_DIM)
+    end
+    for k = 1, math.min(#st.lines, st.detail_rows - 3) do
+      print(st.lines[k].t, ix, dy + (k + 1) * fh, C_DIM)
+    end
+  elseif e and e.kind == "sprite" then
     local z = st.size >= 32 and 3 or st.size >= 16 and 5 or 8
     local box = st.size * z
     local avail = st.detail_rows * fh - fh
@@ -444,7 +542,7 @@ function M.draw()
   local li = lastinput()
   local pad = li == "ds4" or li == "pad"
   local list
-  if e and e.kind == "sprite" then
+  if e and (e.kind == "sprite" or e.kind == "mesh") then
     list = { { "enter", "A", "use" }, { { "<", ">" }, "LEFTRIGHT", "variant" },
              { { "up", "down" }, "UPDOWN", "choose" }, { "tab", "X", "mode" }, { "esc", "B", "close" } }
   else

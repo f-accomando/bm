@@ -418,8 +418,36 @@ local function new_env(arg_path)
     add_file(path)
     return true
   end
+  -- the assistant's panel (src/ai/assist.lua) with a stand-in for the
+  -- kernel's `ai`: one 3D recipe, a cube on one bone with one animation
+  E.font = function() return 8, 16 end
+  E.rect, E.line, E.zclear, E.light3d = function() end, function() end, function() end, function() end
+  local cube_entry = { id = "mesh.cube", kind = "mesh", title = "Cubo (un blocco)", name = "", code = "",
+                       text = "Un blocco di un'unita'.", gen = "cube", see = {} }
+  E.ai = {
+    list = function() return { { id = "mesh.cube", title = cube_entry.title, kind = "mesh" } } end,
+    ask = function() return { { id = "mesh.cube", title = cube_entry.title, kind = "mesh", score = 0.9 } }, 40 end,
+    entry = function(id) return id == "mesh.cube" and cube_entry or nil end,
+    mesh = function(q, o)
+      local faces = {}
+      local function quad(a, b, c, d, col) faces[#faces + 1] = { p = { a, b, c, d }, c = col, b = { 1, 1, 1, 1 } } end
+      quad({ 0, 0, 0 }, { 0, 1, 0 }, { 1, 1, 0 }, { 1, 0, 0 }, 0xD83A3A)
+      quad({ 1, 0, 1 }, { 1, 1, 1 }, { 0, 1, 1 }, { 0, 0, 1 }, 0xD83A3A)
+      quad({ 0, 0, 1 }, { 0, 1, 1 }, { 0, 1, 0 }, { 0, 0, 0 }, 0xD83A3A)
+      quad({ 1, 0, 0 }, { 1, 1, 0 }, { 1, 1, 1 }, { 1, 0, 1 }, 0xD83A3A)
+      quad({ 0, 1, 0 }, { 0, 1, 1 }, { 1, 1, 1 }, { 1, 1, 0 }, 0xF07070)
+      quad({ 0, 0, 1 }, { 0, 0, 0 }, { 1, 0, 0 }, { 1, 0, 1 }, 0x902020)
+      local seed = o and o.seed or 1
+      return { gen = "cube", name = "cube", seed = seed, faces = faces,
+               bones = { { name = "root", parent = 0, head = { 0.5, 0, 0.5 }, tail = { 0.5, 1, 0.5 } } },
+               clips = { { name = "idle", loop = true, length = 1, mode = 1,
+                           keys = { { t = 0, pose = { { q = { 0, 0, 0, 1 }, t = { 0, 0, 0 } } } },
+                                    { t = 0.5, pose = { { q = { 0, 0, 0, 1 }, t = { 0, 0.1, 0 } } } } } } } }
+    end,
+  }
   E.require = function(name)
-    assert(name == "bm3d", "require: only bm3d here")
+    if name == "assist" then return assert(loadfile(ROOT .. "/src/ai/assist.lua", "t", E))() end
+    assert(name == "bm3d", "require: only bm3d and assist here")
     return assert(loadfile(ROOT .. "/src/script/bm3d.lua", "t", E))()
   end
 end
@@ -666,6 +694,23 @@ type_text("tower")
 check(cur_models()[2].name == "tower", "renamed tower")
 key("del", "del")
 check(#cur_models() == 1, "deleted (asked twice)")
+
+-- the assistant (F6): a 3D recipe becomes a new model, with its skeleton
+-- and animation; Esc leaves it as it was
+key("f6")
+check(sees("Assistant") and sees("Cubo"), "F6: the assistant's panel, the recipes")
+key("esc")
+check(not sees("Assistant") and #cur_models() == 1, "Esc: closed, nothing changed")
+key("f6")
+type_text("cubo rosso")
+check(status():find("the assistant's cube: 6 faces, 1 bones, 1 animations, model cube", 1, true), "Enter: " .. status())
+check(#cur_models() == 2 and cur_models()[2].name == "cube" and cur_models()[2].nf == 12, "a new model, cube, 12 triangles")
+check(sees("TOOLS") and sees("BLOCK"), "back on the build page")
+local crig = anim_rigs(sec[9])["cube"]
+check(crig and #crig.bones == 1 and crig.bones[1].name == "root" and #crig.clips == 1 and crig.clips[1].name == "idle",
+      "its skeleton and animation in ANIM")
+key("f2", "del", "del")
+check(#cur_models() == 1, "deleted again")
 
 -- save, then open it again
 menu_pick("Save as", EXIT_S)

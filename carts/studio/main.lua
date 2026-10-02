@@ -1532,9 +1532,9 @@ T.run({
   viewer = VIEWER,
   empty_model = true,
   page_list = { build, models_page },
-  keys_all = { "F1 build  F2 models  Esc menu  [ ] model",
+  keys_all = { "F1 build  F2 models  Esc menu  [ ] model  F6 assistant (a model from words)",
                "Ctrl+S save  F5 try the game  Ctrl+Z/Y undo/redo  + - zoom" },
-  keys_pad = { "pad: Y + left/right page  Y + B menu  Y + up/down model  Y + A undo",
+  keys_pad = { "pad: Y + left/right page  Y + B menu  Y + up/down model  Y + A undo  Y + X assistant",
                "build: A put  B remove  X side  Y tiles  X + pad level and turn",
                "select, vertex: A choose  B move  X all  paint: A the face's tile" },
   init = function()

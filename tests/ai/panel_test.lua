@@ -104,6 +104,42 @@ keys = { "\n" }
 frame()
 check(sprite and sprite.w == 32 and sprite.gen == "slime", "words: 32x32 slime")
 
+-- a 3D model (bm Studio, bm Animator): the recipe, its variant, Enter
+-- hands over the faces, the bones and the animations; the words' colour
+local model
+assist.open{ mode = "mesh", on_mesh = function(m) model = m end }
+type_("un cane")
+check(on_screen("Cane"), "mesh: dog")
+check(on_screen("bones:") and on_screen("walk"), "mesh: faces, bones and animations on screen")
+keys = { "right" }
+frame()
+check(on_screen("#2"), "right: variant 2")
+keys = { "\n" }
+frame()
+check(model and model.gen == "dog" and model.seed == 2 and #model.faces > 50 and #model.bones == 7 and
+      #model.clips == 2 and model.clips[2].name == "walk" and #model.clips[2].keys[1].pose == 7,
+      "model handed over: dog, variant 2, 7 bones, walk")
+check(model and model.faces[1].p[1][2] >= 0 and #model.faces[1].b == #model.faces[1].p, "faces with bones")
+assist.open{ mode = "mesh", on_mesh = function(m) model = m end }
+type_("casa blu senza scheletro")
+keys = { "\n" }
+frame()
+check(model and model.gen == "house" and not model.bones, "words: a house, no skeleton")
+local blue = false
+for _, f in ipairs(model.faces) do if f.c == 0x3A62D8 then blue = true end end
+check(blue, "words: blue walls")
+assist.open{ mode = "mesh", on_mesh = function(m) model = m end }
+type_("mech")
+keys = { "\n" }
+frame()
+check(model and model.gen == "mech" and #model.bones == 9 and #model.clips == 3, "the mech: 9 bones, 3 animations")
+-- Tab goes round the modes: code, sprite, mesh, any
+assist.open{ mode = "sprite" }
+keys = { "\t" }
+frame()
+check(on_screen("mesh"), "Tab from sprite: mesh")
+assist.close()
+
 -- an error message: the line, the mistyped name, what it means
 assist.open{ error = "main.lua:7: attempt to call a nil value (global 'sprr')\nstack traceback: ..." }
 frame()

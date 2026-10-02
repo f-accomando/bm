@@ -611,7 +611,7 @@ test-prompts: $(BUILD)/host/test_prompts
 
 # The assistant (M30): C features and network against the Python reference,
 # answers to the held-out questions, sprite generator
-AI_SRCS := src/ai/assist.c src/ai/nn.c src/ai/text.c src/ai/sprite.c
+AI_SRCS := src/ai/assist.c src/ai/nn.c src/ai/text.c src/ai/sprite.c src/ai/mesh.c src/ai/mesh_chars.c
 $(BUILD)/host/test_ai: tests/ai/test_ai.c $(AI_SRCS) src/ai/*.h src/lib/crc32.c
 	@mkdir -p $(dir $@)
 	$(HOSTCC) -O2 -Wall -Wextra -Isrc -o $@ tests/ai/test_ai.c $(AI_SRCS) src/lib/crc32.c -lm
@@ -622,8 +622,15 @@ $(BUILD)/host/luaai: tests/ai/luaai.c src/ai/lua_ai.c $(AI_SRCS) src/ai/*.h src/
 	$(HOSTCC) -O2 -w -DBM_HOST_TEST -Isrc -Ithird_party/lua -o $@ tests/ai/luaai.c src/ai/lua_ai.c \
 		$(AI_SRCS) src/lib/crc32.c $(LUA_SRCS) -lm
 
-test-ai: $(BUILD)/host/test_ai $(BUILD)/assist.bin $(BUILD)/host/luahost $(BUILD)/host/luaai
+# The 3D recipes drawn on the PC: build/ai/meshes.ppm (every recipe) and
+# `meshview one mech out.ppm` (one, from four sides and in its poses)
+$(BUILD)/host/meshview: tests/ai/meshview.c $(AI_SRCS) src/ai/*.h src/lib/crc32.c
+	@mkdir -p $(dir $@)
+	$(HOSTCC) -O2 -Wall -Wextra -Isrc -o $@ tests/ai/meshview.c $(AI_SRCS) src/lib/crc32.c -lm
+
+test-ai: $(BUILD)/host/test_ai $(BUILD)/assist.bin $(BUILD)/host/luahost $(BUILD)/host/luaai $(BUILD)/host/meshview
 	$< $(BUILD)/assist.bin $(BUILD)/ai/ref.txt
+	$(BUILD)/host/meshview sheet $(BUILD)/ai/meshes.ppm > /dev/null
 	$(BUILD)/host/luahost tests/ai/check_snippets.lua $(BUILD)/ai/snippets.txt
 	$(BUILD)/host/luaai $(BUILD)/assist.bin tests/ai/panel_test.lua
 	$(BUILD)/host/luaai $(BUILD)/assist.bin tests/ai/act_test.lua
