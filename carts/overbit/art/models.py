@@ -1,10 +1,11 @@
 #!/usr/bin/env python3
 """
-The 3D models of Overbit (every hero's meshes, skeletons and animations)
-as a .bm holding only the MESH and ANIM sections: the game's build packs it
-with mkbm.py --models, and bm Studio, bm Animator and bm Mesh can open it.
+The 3D models of Overbit (every hero's meshes, skeletons and animations,
+the map) as a .bm holding only the MESH and ANIM sections and the sheet
+(the pictures of the map): the game's build packs it with mkbm.py
+--models, and bm Studio, bm Animator and bm Mesh can open it.
 
-  models.py OUT.bm [--lua viewer.lua] [--stats]
+  models.py OUT.bm [--lua viewer.lua] [--stats] [--map MAP.lua]
 """
 import argparse
 import os
@@ -30,6 +31,19 @@ def collect():
     return models
 
 
+def build_map(lua_out, pvs_tool=None):
+    """the map (partenope.py): its lit models, and its data for the Lua code
+    (with what can be seen from where, if the tool is given)"""
+    import mapbake
+    import partenope
+    import maptex
+    mp = partenope.build()
+    models, lua = mapbake.build(mp, partenope.LIGHT, chunk=8.0, max_edge=12.0, verbose=True, pvs_tool=pvs_tool)
+    with open(lua_out, "w") as f:
+        f.write(lua)
+    return [m for m, _ in models], maptex.sheet(mp.atlas)
+
+
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("out")
@@ -38,13 +52,18 @@ def main():
     ap.add_argument("--res", default="320x180")
     ap.add_argument("--stats", action="store_true")
     ap.add_argument("--define", action="append", default=[], help="NAME=lua value, set before the code")
+    ap.add_argument("--map", help="also the map: its data for the Lua code goes to this file")
+    ap.add_argument("--pvs", help="the tool that finds what can be seen from where (build/host/mappvs)")
     a = ap.parse_args()
     built = collect()
-    mesh = bmmesh.encode([m.model() for m, _, _ in built], inset=0)
+    extra, sheet = build_map(a.map, a.pvs) if a.map else ([], None)
+    mesh = bmmesh.encode([m.model() for m, _, _ in built] + extra, inset=0)
     anim = rig.encode([(m.name, sk, m.vbone, clips) for m, sk, clips in built])
     lua = open(a.lua, "rb").read() if a.lua else b"-- models only\n"
     lua = "".join(f"{d.split('=', 1)[0]} = {d.split('=', 1)[1]}\n" for d in a.define).encode() + lua
-    data = mkbm.pack(lua, title=a.title, author="bm", res=tuple(int(v) for v in a.res.split("x")), mesh=mesh, extra=[(bmmesh.SEC_ANIM, anim)])
+    # the map's pictures are the sprite sheet (SHEET8: few colours)
+    data = mkbm.pack(lua, sheet, title=a.title, author="bm", res=tuple(int(v) for v in a.res.split("x")),
+                     sheet_packed=True, mesh=mesh, extra=[(bmmesh.SEC_ANIM, anim)])
     os.makedirs(os.path.dirname(os.path.abspath(a.out)), exist_ok=True)
     with open(a.out, "wb") as f:
         f.write(data)

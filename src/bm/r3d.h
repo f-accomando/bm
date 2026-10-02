@@ -29,6 +29,8 @@ typedef struct {
     float *uv;                  /* NULL, or 6 per face: u0 v0 u1 v1 u2 v2 in texels */
     const g16_sheet_t *tex;     /* texture of the R3D_TEXTURED faces */
     uint8_t *vlod;              /* per vertex: bit d set if a face shown at detail d uses it */
+    uint8_t *clight;            /* NULL, or 9 per face: the light baked at its corners
+                                 * (R G B, 128 = 1): drawn smooth with it (and the lamps) */
     /* a mesh with a skeleton (rigid skinning, done while drawing): verts,
      * normals and vnormals are at rest, each vertex follows the 3x4 matrix
      * (row major) of its bone; NULL for a plain mesh */

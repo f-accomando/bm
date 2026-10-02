@@ -218,11 +218,17 @@ $(BUILD)/carts/nano8.bm: $(BUILD)/nano8/main.lua carts/nano8/cover.png scripts/m
 OVERBIT_SRC := $(sort $(wildcard carts/overbit/src/*.lua))
 OVERBIT_ART := $(wildcard carts/overbit/art/*.py carts/overbit/art/heroes/*.py)
 title_overbit := Overbit
-$(BUILD)/overbit/main.lua: $(OVERBIT_SRC) carts/overbit/build.py
-	$(PYTHON) carts/overbit/build.py $@ --map $(BUILD)/overbit/main.map
+$(BUILD)/overbit/main.lua: $(OVERBIT_SRC) carts/overbit/build.py $(BUILD)/overbit/models.bm
+	$(PYTHON) carts/overbit/build.py $@ --map $(BUILD)/overbit/main.map --extra $(BUILD)/overbit/21_map.lua
 
-$(BUILD)/overbit/models.bm: $(OVERBIT_ART) scripts/bmmesh.py scripts/mkbm.py
-	$(PYTHON) carts/overbit/art/models.py $@
+$(BUILD)/overbit/models.bm: $(OVERBIT_ART) scripts/bmmesh.py scripts/mkbm.py $(BUILD)/host/mappvs
+	$(PYTHON) carts/overbit/art/models.py $@ --map $(BUILD)/overbit/21_map.lua --pvs $(BUILD)/host/mappvs
+
+# what can be seen from where on the maps (carts/overbit/art/mapbake.py)
+$(BUILD)/host/mappvs: tools/mappvs.c src/bm/r3d.c src/bm/gfx16.c src/bm/format.c src/lib/crc32.c src/bm/*.h
+	@mkdir -p $(dir $@)
+	$(HOSTCC) -O2 -std=c11 -Wall -Isrc -o $@ tools/mappvs.c src/bm/r3d.c src/bm/gfx16.c src/bm/format.c \
+	    src/lib/crc32.c -lm
 
 $(BUILD)/overbit/sounds.json: carts/overbit/art/sounds.py
 	@mkdir -p $(dir $@)
@@ -237,19 +243,26 @@ $(BUILD)/carts/overbit.bm: $(BUILD)/overbit/main.lua $(BUILD)/overbit/models.bm 
 
 # variants that start in a mode: the reel (for docs/img) and the benchmark
 $(BUILD)/overbit/%.bm: $(OVERBIT_SRC) carts/overbit/build.py $(BUILD)/overbit/models.bm $(BUILD)/overbit/sounds.json
-	$(PYTHON) carts/overbit/build.py $(BUILD)/overbit/$*.lua --start $*
+	$(PYTHON) carts/overbit/build.py $(BUILD)/overbit/$*.lua --start $* --extra $(BUILD)/overbit/21_map.lua
 	$(PYTHON) scripts/mkbm.py -o $@ --lua $(BUILD)/overbit/$*.lua --title "Overbit $*" --author bm --res 320x180 \
 	    --models $(BUILD)/overbit/models.bm --audio $(BUILD)/overbit/sounds.json
 
 # the range with each hero chosen (tests): range-kaiju.bm, ...
 OVERBIT_HEROES := kaiju sarge frost fuse rail orbit akari
 $(BUILD)/overbit/range-%.bm: $(OVERBIT_SRC) carts/overbit/build.py $(BUILD)/overbit/models.bm $(BUILD)/overbit/sounds.json
-	$(PYTHON) carts/overbit/build.py $(BUILD)/overbit/range-$*.lua --start range --hero $*
+	$(PYTHON) carts/overbit/build.py $(BUILD)/overbit/range-$*.lua --start range --hero $* --extra $(BUILD)/overbit/21_map.lua
 	$(PYTHON) scripts/mkbm.py -o $@ --lua $(BUILD)/overbit/range-$*.lua --title "Overbit $*" --author bm --res 320x180 \
 	    --models $(BUILD)/overbit/models.bm --audio $(BUILD)/overbit/sounds.json
 
+# a whole match in a minute (tests): the point opens at once, quick rounds
+$(BUILD)/overbit/match-fast.bm: $(OVERBIT_SRC) carts/overbit/build.py $(BUILD)/overbit/models.bm $(BUILD)/overbit/sounds.json
+	$(PYTHON) carts/overbit/build.py $(BUILD)/overbit/match-fast.lua --start match --extra $(BUILD)/overbit/21_map.lua \
+	    --define 'OVERBIT_RULES={unlock=4,cap=3,pct=0.15,round_end=2,match_end=3}'
+	$(PYTHON) scripts/mkbm.py -o $@ --lua $(BUILD)/overbit/match-fast.lua --title "Overbit match" --author bm \
+	    --res 320x180 --models $(BUILD)/overbit/models.bm --audio $(BUILD)/overbit/sounds.json
+
 test-overbit: $(BUILD)/host/bmhost-bin $(BUILD)/carts/overbit.bm $(BUILD)/overbit/reel.bm $(BUILD)/overbit/bench.bm \
-              $(foreach h,$(OVERBIT_HEROES),$(BUILD)/overbit/range-$(h).bm)
+              $(BUILD)/overbit/match-fast.bm $(foreach h,$(OVERBIT_HEROES),$(BUILD)/overbit/range-$(h).bm)
 	$(PYTHON) tests/overbit/run.py $(BUILD)
 
 # Overbit's animation reel as a video (docs/img/overbit-reel-rally.mp4 and
@@ -270,12 +283,32 @@ overbit-reel: $(BUILD)/host/bmhost-bin $(BUILD)/overbit/reel.bm
 # GIF of their ultimates
 OVERBIT_REEL_HEROES := kaiju,sarge,frost,fuse,rail,orbit,akari
 $(BUILD)/overbit/reel-heroes.bm: $(OVERBIT_SRC) carts/overbit/build.py $(BUILD)/overbit/models.bm $(BUILD)/overbit/sounds.json
-	$(PYTHON) carts/overbit/build.py $(BUILD)/overbit/reel-heroes.lua --start reel --hero $(OVERBIT_REEL_HEROES)
+	$(PYTHON) carts/overbit/build.py $(BUILD)/overbit/reel-heroes.lua --start reel --hero $(OVERBIT_REEL_HEROES) \
+	    --extra $(BUILD)/overbit/21_map.lua
 	$(PYTHON) scripts/mkbm.py -o $@ --lua $(BUILD)/overbit/reel-heroes.lua --title "Overbit reel" --author bm --res 320x180 \
 	    --models $(BUILD)/overbit/models.bm --audio $(BUILD)/overbit/sounds.json
 overbit-reel-heroes: $(BUILD)/host/bmhost-bin $(BUILD)/overbit/reel-heroes.bm
 	$(PYTHON) carts/overbit/tools/reel.py $(BUILD) $(BUILD)/overbit/reel-heroes.bm 232 docs/img/overbit-reel-heroes.mp4 \
 	    --size 640x360 --crf 30 --gif docs/img/overbit-reel-heroes.gif --gif-shots ULTIMATE
+
+# a match of ten bots on Partenope, filmed round the point, behind and in the
+# eyes of the heroes (docs/img/overbit-match.mp4 and a GIF of 20 s)
+$(BUILD)/overbit/match-film.bm: $(OVERBIT_SRC) carts/overbit/build.py $(BUILD)/overbit/models.bm $(BUILD)/overbit/sounds.json
+	$(PYTHON) carts/overbit/build.py $(BUILD)/overbit/match-film.lua --start match --extra $(BUILD)/overbit/21_map.lua \
+	    --define OVERBIT_SPECTATE=true --define 'OVERBIT_RULES={unlock=6,pct=0.3,round_end=4,match_end=5}'
+	$(PYTHON) scripts/mkbm.py -o $@ --lua $(BUILD)/overbit/match-film.lua --title "Overbit match" --author bm \
+	    --res 320x180 --models $(BUILD)/overbit/models.bm --audio $(BUILD)/overbit/sounds.json
+overbit-reel-match: $(BUILD)/host/bmhost-bin $(BUILD)/overbit/match-film.bm
+	$(BUILD)/host/bmhost-bin $(BUILD)/overbit/match-film.bm --seconds 90 --video $(BUILD)/overbit/match.rgb \
+	    --wav $(BUILD)/overbit/match.wav --quiet
+	ffmpeg -y -loglevel error -f rawvideo -pixel_format rgb24 -video_size 320x180 -framerate 60 \
+	    -i $(BUILD)/overbit/match.rgb -i $(BUILD)/overbit/match.wav -vf "scale=640:360:flags=neighbor" \
+	    -c:v libx264 -preset slow -crf 30 -pix_fmt yuv420p -c:a aac -b:a 96k -shortest docs/img/overbit-match.mp4
+	ffmpeg -y -loglevel error -f rawvideo -pixel_format rgb24 -video_size 320x180 -framerate 60 \
+	    -i $(BUILD)/overbit/match.rgb -ss 8 -t 20 \
+	    -vf "fps=10,scale=384:216:flags=neighbor,split[a][b];[a]palettegen=max_colors=80[p];[b][p]paletteuse=dither=none" \
+	    docs/img/overbit-match.gif
+	rm -f $(BUILD)/overbit/match.rgb
 
 # A Lua interpreter for the PC (the same Lua 5.4 as the console): host tests
 # of the Lua cartridges.
@@ -339,7 +372,7 @@ bmhost: $(BUILD)/host/bmhost-bin
 .PHONY: FORCE test-smp all clean firmware image image-pi1 sdcard install sdcard-chainloader sdcard-stress qemu qemu-screenshot \
         run-serial test test-bm test-ai ai-model test-usb test-audio test-fat test-kitchen test-titan test-sound test-nano8 \
         test-net test-http test-https test-release release disasm wav test-studio test-studio-ui studio test-prompts \
-        showreel bmhost test-overbit overbit-reel overbit-reel-heroes
+        showreel bmhost test-overbit overbit-reel overbit-reel-heroes overbit-reel-match
 
 all: $(BUILD)/kernel.img $(BUILD)/chainloader.img $(GAME_CARTS)
 

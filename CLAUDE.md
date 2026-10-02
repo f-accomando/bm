@@ -124,8 +124,19 @@ screenshot in `docs/img/`), `README_OLD.md` (il README completo, in italiano),
   vedere i frame (`--shots`), registrare (`--video`, `--wav`), input da script,
   `--clock-scale 21` per stimare i ms del Pi. `make test-overbit`, `make overbit-reel`.
 - Prestazioni senza Pi: `tools/armprof.py` (istruzioni ARM per funzione con QEMU, serve
-  `gcc-arm-linux-gnueabihf`) su `tests/bm/r3dbench.c`. Il Pi resta il giudice: chiedere
+  `gcc-arm-linux-gnueabihf`) su `tests/bm/r3dbench.c` e `tests/bm/mapbench.c` (la mappa da
+  un punto di vista); anche bmhost compilato per ARM Linux (un frame intero con il Lua).
+  `BMHOST_SLOW=ms` fa scrivere a bmhost i frame più lenti. Il Pi resta il giudice: chiedere
   all'utente le foto del benchmark e dell'overlay.
+- La mappa (Partenope): `art/partenope.py` la costruisce con `mapgeo.py` (scatole, rampe,
+  scale, pezzi di `geo.py`, quadri dell'atlante `maptex.py` con `decal`/`tex_quad`, nodi
+  dei bot `nav_node`), `mapbake.py` la cuoce (facce nascoste, luce agli angoli, pezzi di
+  8 m come modelli "lit", visibilità con `tools/mappvs.c`, grafo dei bot) e scrive
+  `build/overbit/21_map.lua` (`World.MAP`); l'atlante è lo sheet della cartuccia (SHEET8).
+  Conta i **triangoli**, non i pixel: dettagli nelle texture, `Mat(thin=True)` per le
+  cose lunghe e sottili (non divise), `detail=True` per quelle piccole (solo vicino).
+- La partita (`src/81_match.lua`, Controllo): regole in `RULES` (`--define
+  'OVERBIT_RULES={...}'` di `build.py` per i test), bot provvisori fino a M31.4.
 
 ## Audio
 

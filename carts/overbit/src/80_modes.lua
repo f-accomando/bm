@@ -1,5 +1,6 @@
--- Modes: the title menu, the training range (Rally against dummies), the
--- animation reel (every move of the hero, filmed in third person).
+-- Modes: the title menu, the training range (the hero against dummies), the
+-- animation reel (every move of the hero, filmed in third person); the
+-- match is in 81_match.
 
 Modes = { cur = nil }
 
@@ -12,13 +13,15 @@ end
 
 -- ---------------------------------------------------------------- drawing the game
 
--- the 3D scene seen by the camera (already set), then the effects
-local function draw_scene(skip)
+-- the 3D scene seen by the camera (already set), then the effects; extra:
+-- what the mode draws in the world (the point of the match)
+local function draw_scene(skip, extra)
   World.light()
   Fx.lamps()
   World.draw_sky(Cam.pitch)
   zclear()
   World.draw()
+  if extra then extra() end
   Props.draw()
   Actors.draw(Cam.x, Cam.y, Cam.z, skip)
   Proj.draw()
@@ -73,8 +76,20 @@ local Range = {}
 
 function Range.start()
   clear_match()
+  World.use(Range.map and "map" or "range")
   local s = World.spawn
   G.local_actor = Actors.spawn(G.hero_id, 1, s.x, s.y, s.z, s.yaw, { name = "You" })
+  if Range.map then
+    -- on the map: dummies on the point, a friend by the spawn
+    local p = World.mark("point")
+    for i, sc in ipairs({ "still", "strafe", "jumper" }) do
+      local a = Actors.spawn(HERO_ORDER[(i * 3) % #HERO_ORDER + 1], 2, p.x + (i - 2) * 3, p.y, p.z + 3, -pi / 2,
+        { dummy = true, respawn = 2.5, name = "Dummy" .. i })
+      a.script = SCRIPTS[sc]
+    end
+    G.dmg_numbers = true
+    return
+  end
   spawn_dummy(0, 0, "still", "Dummy")
   local st = Actors.spawn(H.kaiju and "kaiju" or "rally", 2, -8, 0, 8, pi, { dummy = true, respawn = 2.5, name = "Strafer" })
   st.script = SCRIPTS.strafe
@@ -89,7 +104,7 @@ local function update_actors()
   local me = G.local_actor
   for _, a in ipairs(G.actors) do
     if a.alive then
-      if a == me then
+      if a == me and not a.script then
         local c = Input.cmd
         a.cmd = c
         if not Actors.frozen(a) then
@@ -122,6 +137,7 @@ end
 
 function Range.draw()
   local me = G.local_actor
+  if Dev.draw_cam() then return end
   if me.alive and me.hero.camera and me.hero.camera(me) then
     draw_scene(nil)                              -- a camera of the hero's own (Fuse's wheel)
   elseif me.alive then
@@ -143,7 +159,7 @@ end
 -- ---------------------------------------------------------------- the title menu
 
 local Menu = { sel = 1, t = 0 }
-local ITEMS = { "TRAINING RANGE", "HERO", "ANIMATION REEL", "QUALITY", "BENCHMARK" }
+local ITEMS = { "PLAY: CONTROL", "TRAINING RANGE", "HERO", "ANIMATION REEL", "QUALITY", "BENCHMARK" }
 
 G.hero_id = "rally"          -- OVERBIT_HERO (tests) in _init
 
@@ -190,7 +206,8 @@ function Menu.update()
   if c.jump_p or c.menu_p or c.fire_p then
     local it = ITEMS[Menu.sel]
     Snd.play("ui")
-    if it == "TRAINING RANGE" then Modes.start("range")
+    if it == "PLAY: CONTROL" then Modes.start("match")
+    elseif it == "TRAINING RANGE" then Modes.start("range")
     elseif it == "HERO" then next_hero(1)
     elseif it == "ANIMATION REEL" then Modes.start("reel")
     elseif it == "QUALITY" then
@@ -234,7 +251,19 @@ end
 
 -- ---------------------------------------------------------------- registry
 
-local MODES = { range = Range, menu = Menu }
+-- the range on the map (M31.3, before the match): walk Partenope
+local Explore = setmetatable({}, { __index = Range })
+function Explore.start()
+  Range.map = true
+  Range.start()
+  Range.map = false
+end
+function Explore.update() Range.update() end
+function Explore.draw()
+  Range.draw()
+end
+
+local MODES = { range = Range, menu = Menu, explore = Explore }
 Modes.list = MODES
 
 function Modes.start(name)

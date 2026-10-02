@@ -262,8 +262,8 @@ function Hud.draw(a)
     end
   else
     local s = "RESPAWN IN " .. math.ceil(max(0, a.respawn - a.dead_t))
-    rectfill(W // 2 - #s * 3 - 4, 40, #s * 6 + 8, 14, INK)
-    print(s, W // 2 - #s * 3, 41, 0xFFFFFF)
+    rectfill(W // 2 - #s * 3 - 4, 46, #s * 6 + 8, 14, INK)
+    print(s, W // 2 - #s * 3, 47, 0xFFFFFF)
   end
   feed()
   if Fx.flash > 0 then

@@ -1,8 +1,10 @@
--- The world of the training range (M31.1): a square yard at sunset with
--- walls, crates, a ramp and platforms; boxes for the collisions and the
--- rays. The map of step 3 (Partenope) replaces it with the C world.
+-- The worlds: the training range (M31.1: a square yard at sunset with
+-- walls, crates, a ramp and platforms, lit as it is drawn) and the maps
+-- (M31.3: Partenope; made by carts/overbit/art/partenope.py with the light
+-- baked into the faces, in chunks of the ground drawn only when the camera
+-- sees them). Boxes for the collisions and the rays, in C (world3d).
 
-World = { boxes = {}, spawn = { x = 0, y = 0, z = -14, yaw = 0 } }
+World = { boxes = {}, spawn = { x = 0, y = 0, z = -14, yaw = 0 }, kind = "range" }
 
 local boxes = World.boxes
 local meshes = {}
@@ -115,6 +117,7 @@ end
 local SKY = { 0x2A3A6A, 0x3D5486, 0x5C6FA0, 0x8A84AE, 0xC08C9C, 0xF0A07A, 0xFFC27A }
 
 function World.draw_sky(pitch)
+  if World.kind == "map" then return World.map_sky(pitch) end
   local h = SCREEN_H
   -- the horizon on screen moves with the pitch (focal = w/2 / tan(fov/2))
   local hy = h / 2 + math.tan(pitch) * Cam.focal
@@ -130,6 +133,7 @@ function World.draw_sky(pitch)
 end
 
 function World.draw()
+  if World.kind == "map" then return World.map_draw() end
   draw3d(meshes.hills, 0, 0, 0, 0, 0, 0, 1, 1 + 2)
   draw3d(meshes.ground, 0, 0, 0, 0, 0, 0, 1, 1)
   draw3d(meshes.lines, 0, 0, 0, 0, 0, 0, 1, 1 + 2)
@@ -138,18 +142,167 @@ end
 
 -- the light of the range: a low warm sun, blue sky light, warm bounce
 function World.light()
+  if World.kind == "map" then
+    -- the sun of the bake (partenope.py), for the heroes and the effects
+    light3d(-0.78, 0.36, -0.5, 0.42)
+    sky3d(0xFFB070, 0x9AA8E0, 0x9A7060)
+    fog3d(0xD8A0A0, 45, 150)
+    return
+  end
   light3d(-0.55, 0.62, 0.55, 0.42)
   sky3d(0xFFE2BC, 0xA8C0F0, 0x9A8070)
   fog3d(0xC890A0, 40, 140)
 end
 
 -- the collision world in C (world3d): the solid boxes
-local CW
+local CW, CW_range
 
 function World.build_collision()
   CW = world3d()
   for _, b in ipairs(boxes) do
     if b.solid then world_box(CW, b[1], b[2], b[3], b[4], b[5], b[6]) end
+  end
+  CW_range = CW
+end
+
+-- ---------------------------------------------------------------- the map
+
+local MAPW                      -- the loaded map: chunks, collision, marks
+
+local function load_map()
+  local M = World.MAP
+  local w = { chunks = {}, far = {}, marks = M.marks }
+  for _, c in ipairs(M.chunks) do
+    local m = model(c[1])
+    if m then
+      local ch = { mesh = m, x0 = c[2], y0 = c[3], z0 = c[4], x1 = c[5], y1 = c[6], z1 = c[7] }
+      ch.cx, ch.cy, ch.cz = (c[2] + c[5]) / 2, (c[3] + c[6]) / 2, (c[4] + c[7]) / 2
+      ch.r = len3(c[5] - c[2], c[6] - c[3], c[7] - c[4]) / 2
+      if c.far then w.far[#w.far + 1] = ch else w.chunks[#w.chunks + 1] = ch end
+    end
+  end
+  w.pvs = M.pvs
+  w.cw = world3d()
+  local b = M.boxes
+  for i = 1, #b, 6 do world_box(w.cw, b[i], b[i + 1], b[i + 2], b[i + 3], b[i + 4], b[i + 5]) end
+  log(string.format("overbit map %s: %d chunks, %d boxes", M.name, #w.chunks, #b // 6))
+  return w
+end
+
+-- the world in use: "range" or "map"
+function World.use(kind)
+  if kind == "map" and World.MAP then
+    MAPW = MAPW or load_map()
+    CW = MAPW.cw
+    World.kind = "map"
+    local s1 = MAPW.marks.spawn1
+    World.spawn = { x = s1.x, y = 0, z = s1.z, yaw = s1.yaw }
+  else
+    CW = CW_range
+    World.kind = "range"
+    World.spawn = { x = 0, y = 0, z = -14, yaw = 0 }
+  end
+end
+
+function World.mark(name)
+  return MAPW and MAPW.marks[name]
+end
+
+-- the chunks the camera sees (a sphere round each against the sides of the
+-- view), nearest first; far ones without their small things
+local vis = {}
+function World.map_draw()
+  local cx, cy, cz, yaw, pitch = Cam.x, Cam.y, Cam.z, Cam.yaw, Cam.pitch
+  local cp = cos(pitch)
+  local fx, fy, fz = sin(yaw) * cp, sin(pitch), cos(yaw) * cp
+  local rx, rz = cos(yaw), -sin(yaw)
+  local ux, uy, uz = -sin(pitch) * sin(yaw), cp, -sin(pitch) * cos(yaw)
+  local th = math.tan(Cam.fov * pi / 360)
+  local tv = th * SCREEN_H / SCREEN_W
+  local sh, sv = sqrt(1 + th * th), sqrt(1 + tv * tv)
+  local q = G.quality
+  local near_d = ({ 16, 22, 28, 34, 40 })[q + 1]
+  -- the far scenery first, without the fog (its colours are hazy already)
+  fog3d()
+  for _, c in ipairs(MAPW.far) do draw3d(c.mesh, 0, 0, 0, 0, 0, 0, 1, 16 + 16) end
+  World.fog_on()
+  -- the chunks that can be seen from the camera's square of the ground
+  -- (precomputed: mapbake.py), else all of them
+  local list, set = MAPW.chunks, nil
+  local pv = MAPW.pvs
+  if pv and cy < pv.max_y then
+    local i, j = floor((cx - pv.x0) / pv.cell), floor((cz - pv.z0) / pv.cell)
+    if i >= 0 and i < pv.nx and j >= 0 and j < pv.nz then set = pv.sets[j * pv.nx + i + 1] end
+  end
+  local n = 0
+  local count = set and #set or #list
+  for k = 1, count do
+    local c = set and list[set:byte(k)] or list[k]
+    local dx, dy, dz = c.cx - cx, c.cy - cy, c.cz - cz
+    local z = dx * fx + dy * fy + dz * fz
+    if z > -c.r then
+      local x = dx * rx + dz * rz
+      local y = dx * ux + dy * uy + dz * uz
+      if abs(x) <= z * th + c.r * sh and abs(y) <= z * tv + c.r * sv then
+        -- the distance to the box
+        local ex = max(c.x0 - cx, 0, cx - c.x1)
+        local ey = max(c.y0 - cy, 0, cy - c.y1)
+        local ez = max(c.z0 - cz, 0, cz - c.z1)
+        n = n + 1
+        local v = vis[n] or {}
+        vis[n] = v
+        v.c, v.d = c, ex * ex + ey * ey + ez * ez
+      end
+    end
+  end
+  for i = n + 1, #vis do vis[i] = nil end
+  table.sort(vis, function(a, b) return a.d < b.d end)
+  local nd2 = near_d * near_d
+  for i = 1, n do
+    local v = vis[i]
+    draw3d(v.c.mesh, 0, 0, 0, 0, 0, 0, 1, v.d < nd2 and 0 or 32)       -- 32: detail 1, no small things
+  end
+  World.chunks_drawn = n
+end
+
+function World.fog_on()
+  if World.kind == "map" then fog3d(0xD8A0A0, 45, 150) else fog3d(0xC890A0, 40, 140) end
+end
+
+-- the sky of the map: the sunset in bands, the sun low over the sea, two
+-- streaks of cloud lit from below
+local MSKY = { 0x2A3468, 0x3E4C86, 0x5E66A0, 0x8C78A8, 0xBC84A0, 0xE69488, 0xFFB078, 0xFFCE8A }
+local SUN = { -0.78, 0.36, -0.5 }
+function World.map_sky(pitch)
+  local h = SCREEN_H
+  local hy = h / 2 + math.tan(pitch) * Cam.focal
+  local n = #MSKY
+  local span = 150
+  local top = hy - span
+  rectfill(0, 0, SCREEN_W, max(0, floor(top)), MSKY[1])
+  for i = 1, n do
+    local y0 = floor(top + (i - 1) * span / n)
+    local y1 = floor(top + i * span / n)
+    if y1 > 0 and y0 < h then rectfill(0, y0, SCREEN_W, y1 - y0, MSKY[i]) end
+  end
+  if hy < h then rectfill(0, floor(hy), SCREEN_W, h - floor(hy), 0x6A6E8C) end
+  -- the sun (its direction from the camera, far away)
+  local sx, sy = project3d(Cam.x + SUN[1] * 800, Cam.y + SUN[2] * 800 * 0.25, Cam.z + SUN[3] * 800)
+  if sx then
+    local x, y = floor(sx), floor(sy)
+    circfill(x, y, 22, 0xFFC890)
+    circfill(x, y, 16, 0xFFDDA8)
+    circfill(x, y, 11, 0xFFF4DC)
+  end
+  -- clouds: long thin streaks, warm under, at fixed headings
+  for i = 1, 5 do
+    local a = -2.2 + i * 0.55
+    local cx2, cy2 = project3d(Cam.x + sin(a) * 700, Cam.y + 120 + i * 18, Cam.z + cos(a) * 700)
+    if cx2 then
+      local w = 40 + i * 9
+      rectfill(floor(cx2 - w), floor(cy2), w * 2, 3, 0xF2A8A0)
+      rectfill(floor(cx2 - w * 0.7), floor(cy2) - 2, floor(w * 1.4), 2, 0xD890A8)
+    end
   end
 end
 

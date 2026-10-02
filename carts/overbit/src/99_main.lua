@@ -13,6 +13,7 @@ end
 function _update()
   G.frame = G.frame + 1
   Input.read()
+  Dev.update()
   if Input.cmd.dev_p or Input.cmd.f1_p then G.dev = not G.dev end
   if G.dev and Input.cmd.f2_p then G.qauto = false Quality.set((G.quality + 1) % 5) end
   if G.dev and Input.cmd.f3_p then G.qauto = not G.qauto end

@@ -42,14 +42,32 @@ def encode(models, inset=0.25):
             raise ValueError(f"{m['name']}: 1 to {MAX_VERTS} vertices, not {len(v)}")
         if not 1 <= len(f) <= MAX_FACES:
             raise ValueError(f"{m['name']}: 1 to {MAX_FACES} faces, not {len(f)}")
-        out += name.ljust(NAME_LEN, b"\0") + struct.pack("<HHI", len(v), len(f), 0)
+        # a "lit" model (flags bit 0): each face that is not textured carries
+        # the light baked at its corners, (r, g, b) x 3 bytes (128 = 1), in
+        # place of the texture corners: "light" in the face, after uv
+        lit = bool(m.get("lit"))
+        out += name.ljust(NAME_LEN, b"\0") + struct.pack("<HHI", len(v), len(f), 1 if lit else 0)
         for p in v:
             out += struct.pack("<3f", *p)
-        for a, b, c, colour, uv in f:
+        for face in f:
+            a, b, c, colour, uv = face[:5]
             if max(a, b, c) >= len(v) or min(a, b, c) < 0:
                 raise ValueError(f"{m['name']}: vertex index out of range")
-            q = [max(0, min(65535, round(t * 8))) for t in (uv or (0,) * 6)]
-            out += struct.pack("<4HI6H", a, b, c, 0, colour & 0xFFFFFFFF, *q)
+            res = 0
+            if lit and not colour & 0x80000000 and len(face) > 5:
+                L = [max(0, min(255, int(x))) for x in face[5]]
+                q = []
+                for k in range(3):
+                    q += [L[k * 3] | L[k * 3 + 1] << 8, L[k * 3 + 2]]
+            else:
+                q = [max(0, min(65535, round(t * 8))) for t in (uv or (0,) * 6)]
+                if lit and len(face) > 5:
+                    # a textured face of a lit model: one light, RGB 5-6-5 with the top = 2
+                    L = face[5]
+                    lr, lg, lb = (sum(L[k * 3 + ch] for k in range(3)) / 3 for ch in range(3))
+                    res = (min(31, round(lr / 256 * 31)) << 11 | min(63, round(lg / 256 * 63)) << 5 |
+                           min(31, round(lb / 256 * 31)))
+            out += struct.pack("<4HI6H", a, b, c, res, colour & 0xFFFFFFFF, *q)
     return bytes(out)
 
 

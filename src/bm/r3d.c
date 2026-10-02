@@ -20,7 +20,7 @@ typedef struct { float x, y, z; } sv_t;     /* screen x, y; z = 1/depth */
 typedef struct {
     float ax, ay, bx, by;       /* top and middle vertex */
     float s_ac, s_ab, s_bc;     /* dx/dy of the long edge and the two short ones */
-    float area;                 /* twice the signed area (for the gradients) */
+    float area, inv;            /* twice the signed area (for the gradients), 1 / area */
     float e1x, e1y, e2x, e2y;   /* b - a, c - a */
     int y0, y1;                 /* scanlines [y0, y1), clipped */
 } tri_t;
@@ -42,6 +42,7 @@ static int tri_setup(tri_t *t, const g16_t *g, float ax, float ay, float bx, flo
     t->area = t->e1x * t->e2y - t->e2x * t->e1y;
     if (t->area > -1e-6f && t->area < 1e-6f)
         return 0;
+    t->inv = 1.0f / t->area;
     t->s_ac = (cx - ax) / (cy - ay);
     t->s_ab = by - ay > 1e-6f ? (bx - ax) / (by - ay) : 0.0f;
     t->s_bc = cy - by > 1e-6f ? (cx - bx) / (cy - by) : 0.0f;
@@ -49,15 +50,50 @@ static int tri_setup(tri_t *t, const g16_t *g, float ax, float ay, float bx, flo
     t->y1 = iceil(cy - 0.5f);
     if (t->y0 < g->cy0) t->y0 = g->cy0;
     if (t->y1 > g->cy1) t->y1 = g->cy1;
+    /* a triangle that reaches past the left or right of the clip (a wall
+     * beside the camera, cut by the near plane, can be thousands of pixels
+     * wide): only the rows where it is between them, not empty spans */
+    const float X0 = (float)g->cx0, X1 = (float)g->cx1;
+    if (t->y0 < t->y1 && (ax < X0 || bx < X0 || cx < X0 || ax > X1 || bx > X1 || cx > X1)) {
+        const float px[3] = { ax, bx, cx }, py[3] = { ay, by, cy };
+        float ylo = 1e30f, yhi = -1e30f;
+        for (int i = 0; i < 3; i++) {
+            if (px[i] >= X0 && px[i] <= X1) {
+                ylo = py[i] < ylo ? py[i] : ylo;
+                yhi = py[i] > yhi ? py[i] : yhi;
+            }
+            const int j = i == 2 ? 0 : i + 1;
+            for (int k = 0; k < 2; k++) {
+                const float d0 = px[i] - (k ? X1 : X0), d1 = px[j] - (k ? X1 : X0);
+                if ((d0 < 0) != (d1 < 0)) {
+                    const float yy = py[i] + (py[j] - py[i]) * (d0 / (d0 - d1));
+                    ylo = yy < ylo ? yy : ylo;
+                    yhi = yy > yhi ? yy : yhi;
+                }
+            }
+        }
+        if (ylo > yhi)
+            return 0;
+        const int a = iceil(ylo - 0.5f) - 1, b = iceil(yhi - 0.5f) + 1;     /* a row more each way */
+        if (t->y0 < a) t->y0 = a;
+        if (t->y1 > b) t->y1 = b;
+    }
     return t->y0 < t->y1;
 }
 
 /* Gradients of an attribute with values va, vb, vc at the vertices. */
 static inline void tri_grad(const tri_t *t, float va, float vb, float vc, float *ddx, float *ddy)
 {
-    float d1 = vb - va, d2 = vc - va, inv = 1.0f / t->area;
-    *ddx = (d1 * t->e2y - d2 * t->e1y) * inv;
-    *ddy = (d2 * t->e1x - d1 * t->e2x) * inv;
+    float d1 = vb - va, d2 = vc - va;
+    *ddx = (d1 * t->e2y - d2 * t->e1y) * t->inv;
+    *ddy = (d2 * t->e1x - d1 * t->e2x) * t->inv;
+}
+
+/* the value of an attribute at pixel (0, 0): then at (x, y) it is
+ * base + x * ddx + y * ddy (pixel centres) */
+static inline float tri_base(const tri_t *t, float va, float ddx, float ddy)
+{
+    return va + (0.5f - t->ax) * ddx + (0.5f - t->ay) * ddy;
 }
 
 /* Pixels [x0, x1) of scanline y, clipped; 0 if none. */
@@ -140,6 +176,28 @@ static const uint8_t bayer4[4][4] = {
     { 0, 8, 2, 10 }, { 12, 4, 14, 6 }, { 3, 11, 1, 9 }, { 15, 7, 13, 5 },
 };
 
+/* The same offsets for a colour packed in one 32-bit number (raster_gouraud):
+ * red in bits 22..31 (8-bit value x 4), green in 11..21 (x 8), blue in 0..10
+ * (x 8): the top 5, 6, 5 bits of each field are the RGB565 levels. */
+#define DPK(d) ((uint32_t)((d) >> 1) * 4u << 22 | (uint32_t)((d) >> 2) * 8u << 11 | (uint32_t)((d) >> 1) * 8u)
+static const uint32_t bayer4_pk[4][4] = {
+    { DPK(0), DPK(8), DPK(2), DPK(10) }, { DPK(12), DPK(4), DPK(14), DPK(6) },
+    { DPK(3), DPK(11), DPK(1), DPK(9) }, { DPK(15), DPK(7), DPK(13), DPK(5) },
+};
+
+/* a saturating clamp of z (1/depth in 24.8) to the 16 bits of the z-buffer */
+static inline int32_t zsat(int32_t zf)
+{
+#if defined(__ARM_ARCH) && __ARM_ARCH >= 6 && !defined(__thumb__)
+    int32_t r;
+    __asm__("usat %0, #16, %1, asr #8" : "=r"(r) : "r"(zf));
+    return r;
+#else
+    int32_t zz = zf >> 8;
+    return zz < 0 ? 0 : zz > 65535 ? 65535 : zz;
+#endif
+}
+
 /* r, g, b: 0..248 / 0..252 / 0..248 (the vertex colours are limited so that
  * the dither never overflows: 248 + 7 still rounds to the top level) */
 static inline uint16_t dither565(uint32_t r, uint32_t g, uint32_t b, uint32_t d)
@@ -152,20 +210,35 @@ static inline uint16_t dither565(uint32_t r, uint32_t g, uint32_t b, uint32_t d)
  * the face, in screen space, and dithered. With zbuf == NULL, a 2D fill. */
 typedef struct { float x, y, z, r, g, b; } gv_t;
 
-static inline float climit(float v, float hi)
+static inline float climit(float v, float lo, float hi)
 {
-    return v < 0.5f ? 0.5f : v > hi ? hi : v;
+    return v < lo ? lo : v > hi ? hi : v;
 }
+
+/* a rounded float -> int (no libm) */
+static inline int32_t iround(float f)
+{
+    return (int32_t)(f + (f < 0 ? -0.5f : 0.5f));
+}
+
+#ifdef R3D_STATS
+uint32_t r3d_stat_visited, r3d_stat_spans, r3d_stat_tris;
+#endif
 
 static uint32_t raster_gouraud(g16_t *g, uint16_t *zbuf, gv_t a, gv_t b, gv_t c, int screen)
 {
+#ifdef R3D_STATS
+    r3d_stat_tris++;
+#endif
     SORT3(gv_t, a, b, c);
     tri_t t;
     if (!tri_setup(&t, g, a.x, a.y, b.x, b.y, c.x, c.y))
         return 0;
-    a.r = climit(a.r, 248.4f); b.r = climit(b.r, 248.4f); c.r = climit(c.r, 248.4f);
-    a.g = climit(a.g, 252.4f); b.g = climit(b.g, 252.4f); c.g = climit(c.g, 252.4f);
-    a.b = climit(a.b, 248.4f); b.b = climit(b.b, 248.4f); c.b = climit(c.b, 248.4f);
+    /* a little in from the ends: the packed colour below never carries
+     * from one field to the next (the dither on top, the drift of the step) */
+    a.r = climit(a.r, 2.5f, 246.5f); b.r = climit(b.r, 2.5f, 246.5f); c.r = climit(c.r, 2.5f, 246.5f);
+    a.g = climit(a.g, 1.5f, 251.5f); b.g = climit(b.g, 1.5f, 251.5f); c.g = climit(c.g, 1.5f, 251.5f);
+    a.b = climit(a.b, 1.5f, 247.5f); b.b = climit(b.b, 1.5f, 247.5f); c.b = climit(c.b, 1.5f, 247.5f);
     float drx, dry, dgx, dgy, dbx, dby, dzx = 0, dzy = 0;
     tri_grad(&t, a.r, b.r, c.r, &drx, &dry);
     tri_grad(&t, a.g, b.g, c.g, &dgx, &dgy);
@@ -177,17 +250,31 @@ static uint32_t raster_gouraud(g16_t *g, uint16_t *zbuf, gv_t a, gv_t b, gv_t c,
     const int32_t ir = (int32_t)(drx * 65536.0f) * step, ig = (int32_t)(dgx * 65536.0f) * step,
                   ib = (int32_t)(dbx * 65536.0f) * step, dzf = (int32_t)(dzx * ZSCALE) * step;
     uint32_t count = 0;
+    /* the packed step (bayer4_pk) and 16 steps exact */
+    const uint32_t pstep = ((uint32_t)iround(drx * 4.0f) << 22) + ((uint32_t)iround(dgx * 8.0f) << 11) +
+                           (uint32_t)iround(dbx * 8.0f);
+    const int32_t ir16 = (int32_t)(drx * 65536.0f * 16.0f), ig16 = (int32_t)(dgx * 65536.0f * 16.0f),
+                  ib16 = (int32_t)(dbx * 65536.0f * 16.0f);
+    /* the attributes at each row start from a base: one multiply a span */
+    float br = tri_base(&t, a.r, drx, dry), bg = tri_base(&t, a.g, dgx, dgy), bb = tri_base(&t, a.b, dbx, dby);
+    float bz = zbuf ? tri_base(&t, a.z, dzx, dzy) : 0;
+    br += t.y0 * dry; bg += t.y0 * dgy; bb += t.y0 * dby; bz += t.y0 * dzy;
 
-    for (int y = t.y0; y < t.y1; y++) {
+    for (int y = t.y0; y < t.y1; y++, br += dry, bg += dgy, bb += dby, bz += dzy) {
         int x0, x1;
         if (!tri_span(&t, g, y, &x0, &x1))
             continue;
         if (screen && ((x0 + y) & 1) && ++x0 >= x1)
             continue;
-        /* the edge rounding can step a hair outside the vertex range */
-        int32_t cr = (int32_t)(climit(ATTR(&t, a.r, drx, dry, x0, y), 248.4f) * 65536.0f);
-        int32_t cg = (int32_t)(climit(ATTR(&t, a.g, dgx, dgy, x0, y), 252.4f) * 65536.0f);
-        int32_t cb = (int32_t)(climit(ATTR(&t, a.b, dbx, dby, x0, y), 248.4f) * 65536.0f);
+        /* the edge rounding can step a hair outside the vertex range:
+         * clamped as integers */
+        const float fx = (float)x0;
+        int32_t cr = (int32_t)((br + fx * drx) * 65536.0f);
+        int32_t cg = (int32_t)((bg + fx * dgx) * 65536.0f);
+        int32_t cb = (int32_t)((bb + fx * dbx) * 65536.0f);
+        cr = cr < 163840 ? 163840 : cr > 16154624 ? 16154624 : cr;         /* 2.5 .. 246.5 */
+        cg = cg < 98304 ? 98304 : cg > 16482304 ? 16482304 : cg;           /* 1.5 .. 251.5 */
+        cb = cb < 98304 ? 98304 : cb > 16220160 ? 16220160 : cb;           /* 1.5 .. 247.5 */
         const uint8_t *dith = bayer4[y & 3];
         uint16_t *row = g->px + (uint32_t)y * g->stride;
         if (!zbuf) {
@@ -196,8 +283,41 @@ static uint32_t raster_gouraud(g16_t *g, uint16_t *zbuf, gv_t a, gv_t b, gv_t c,
             count += (uint32_t)(x1 - x0 + step - 1) / (uint32_t)step;
             continue;
         }
-        int32_t zf = (int32_t)(ATTR(&t, a.z, dzx, dzy, x0, y) * ZSCALE);
+#ifdef R3D_STATS
+        r3d_stat_visited += (uint32_t)(x1 - x0);
+        r3d_stat_spans++;
+#endif
+        int32_t zf = (int32_t)((bz + fx * dzx) * ZSCALE);
         uint16_t *zrow = zbuf + (uint32_t)y * g->w;
+        if (step == 1) {
+            /* the common case, kept small for the registers of the ARM1176:
+             * the colour packed in one number (bayer4_pk), stepped as one;
+             * the rounding of its step drifts, so it is packed again from
+             * the exact values every 16 pixels (by then at most 8/32 of a
+             * level off: the margins of climit); the dither by the address
+             * (the rows of a screen start on 8 bytes; if not, the pattern
+             * is only shifted) */
+            const uint32_t *dpk = bayer4_pk[y & 3];
+#if defined(__GNUC__)
+            __asm__("" : "+r"(dpk));        /* one register (not rebuilt every pixel) */
+#endif
+            uint16_t *pp = row + x0, *zp = zrow + x0, *const pend = row + x1;
+            while (pp < pend) {
+                uint32_t c = ((uint32_t)cr >> 14) << 22 | ((uint32_t)cg >> 13) << 11 | ((uint32_t)cb >> 13);
+                uint16_t *const e = pend - pp > 16 ? pp + 16 : pend;
+                for (; pp < e; pp++, zp++, zf += dzf, c += pstep) {
+                    const int32_t zz = zsat(zf);
+                    if (zz > *zp) {
+                        *zp = (uint16_t)zz;
+                        const uint32_t d = c + *(const uint32_t *)((const uint8_t *)dpk + (((uintptr_t)pp & 6) << 1));
+                        *pp = (uint16_t)((d >> 27) << 11 | ((d << 10) >> 26) << 5 | (d << 21) >> 27);
+                    }
+                }
+                cr += ir16; cg += ig16; cb += ib16;
+            }
+            count += (uint32_t)(x1 - x0);
+            continue;
+        }
         for (int x = x0; x < x1; x += step, zf += dzf, cr += ir, cg += ig, cb += ib) {
             int32_t zz = zf >> 8;
             if (zz > 65535) zz = 65535;
@@ -221,7 +341,7 @@ static uint32_t raster_gouraud(g16_t *g, uint16_t *zbuf, gv_t a, gv_t b, gv_t c,
 typedef struct { float x, y, z, u, v, k; } tv_t;    /* z = 1/depth; u, v premultiplied by z */
 
 static uint32_t raster_tex(g16_t *g, uint16_t *zbuf, tv_t a, tv_t b, tv_t c,
-                           const g16_sheet_t *tex, int screen)
+                           const g16_sheet_t *tex, int screen, const uint8_t *lrgb, uint32_t fog_rgb, int fog)
 {
     SORT3(tv_t, a, b, c);
     tri_t t;
@@ -237,6 +357,28 @@ static uint32_t raster_tex(g16_t *g, uint16_t *zbuf, tv_t a, tv_t b, tv_t c,
     const int32_t dkf = flat_k ? 0 : (int32_t)(dkx * 65536.0f), dzf = (int32_t)(dzx * ZSCALE);
     const int tw = tex->w, th = tex->h;
     uint32_t count = 0;
+    /* a face whose depth changes little (far, or seen square on): one exact
+     * division at each end of a span, linear between (off by less than a
+     * texel); else every TEX_RUN pixels */
+    const float zlo = a.z < b.z ? (a.z < c.z ? a.z : c.z) : (b.z < c.z ? b.z : c.z),
+                zhi = a.z > b.z ? (a.z > c.z ? a.z : c.z) : (b.z > c.z ? b.z : c.z);
+    const int run = zhi - zlo < zhi * (1.0f / 32) ? 4096 : TEX_RUN;
+    int tshift = 0;
+    while ((1 << tshift) < tw) tshift++;
+    const int fast = lrgb && zbuf && !screen && (1 << tshift) == tw;
+    const uint16_t *const px = tex->px;
+    const uint8_t *const alpha = tex->alpha;
+    /* baked light (a "lit" model): one colour, 128 = 1, up to 2; the fog
+     * (0..256) takes its share off the light and adds its colour */
+    uint32_t l0 = 0, l1 = 0, l2 = 0, f0 = 0, f1 = 0, f2 = 0;
+    if (lrgb) {
+        l0 = lrgb[0] * (uint32_t)(256 - fog) >> 8;
+        l1 = lrgb[1] * (uint32_t)(256 - fog) >> 8;
+        l2 = lrgb[2] * (uint32_t)(256 - fog) >> 8;
+        f0 = (fog_rgb >> 16 & 255) * (uint32_t)fog >> 11;
+        f1 = (fog_rgb >> 8 & 255) * (uint32_t)fog >> 10;
+        f2 = (fog_rgb & 255) * (uint32_t)fog >> 11;
+    }
 
     for (int y = t.y0; y < t.y1; y++) {
         int x0, x1;
@@ -252,7 +394,7 @@ static uint32_t raster_tex(g16_t *g, uint16_t *zbuf, tv_t a, tv_t b, tv_t c,
         float iz = 1.0f / (z > 1e-9f ? z : 1e-9f);
         int32_t uf = (int32_t)(u * iz * 65536.0f), vf = (int32_t)(v * iz * 65536.0f);
         for (int x = x0; x < x1;) {
-            int n = x1 - x < TEX_RUN ? x1 - x : TEX_RUN;
+            int n = x1 - x < run ? x1 - x : run;
             z += dzx * n; u += dux * n; v += dvx * n;
             float iz2 = 1.0f / (z > 1e-9f ? z : 1e-9f);
             int32_t uf2 = (int32_t)(u * iz2 * 65536.0f), vf2 = (int32_t)(v * iz2 * 65536.0f);
@@ -262,6 +404,30 @@ static uint32_t raster_tex(g16_t *g, uint16_t *zbuf, tv_t a, tv_t b, tv_t c,
             } else {
                 float in = 1.0f / n;
                 duf = (int32_t)((float)(uf2 - uf) * in); dvf = (int32_t)((float)(vf2 - vf) * in);
+            }
+            if (fast) {
+                /* the world of a map: baked light, a z-buffer, a sheet as
+                 * wide as a power of two */
+                for (int e = x + n; x < e; x++, zf += dzf, uf += duf, vf += dvf) {
+                    const int32_t zz = zsat(zf);
+                    if (zz <= zrow[x])
+                        continue;
+                    int tx = uf >> 16, ty = vf >> 16;
+                    if ((unsigned)tx >= (unsigned)tw) tx = tx < 0 ? 0 : tw - 1;
+                    if ((unsigned)ty >= (unsigned)th) ty = ty < 0 ? 0 : th - 1;
+                    const uint32_t i = (uint32_t)ty << tshift | (uint32_t)tx;
+                    if (!alpha[i])
+                        continue;
+                    const uint32_t p = px[i];
+                    uint32_t rr = ((p >> 11) * l0 >> 7) + f0, gg = ((p >> 5 & 63) * l1 >> 7) + f1,
+                             bb = ((p & 31) * l2 >> 7) + f2;
+                    rr = rr > 31 ? 31 : rr; gg = gg > 63 ? 63 : gg; bb = bb > 31 ? 31 : bb;
+                    zrow[x] = (uint16_t)zz;
+                    row[x] = (uint16_t)(rr << 11 | gg << 5 | bb);
+                }
+                count += (uint32_t)n;               /* pixels visited (an estimate) */
+                uf = uf2; vf = vf2;
+                continue;
             }
             for (int e = x + n; x < e; x++, zf += dzf, uf += duf, vf += dvf, kf += dkf) {
                 int32_t zz = zf >> 8;
@@ -277,10 +443,16 @@ static uint32_t raster_tex(g16_t *g, uint16_t *zbuf, tv_t a, tv_t b, tv_t c,
                 if (!tex->alpha[i])
                     continue;
                 uint32_t p = tex->px[i];
-                uint32_t k = kf <= 0 ? 0 : (uint32_t)(kf >> 8);
-                if (k < 256) {
-                    uint32_t rr = (p >> 11) * k >> 8, gg = (p >> 5 & 63) * k >> 8, bb = (p & 31) * k >> 8;
-                    p = rr << 11 | gg << 5 | bb;
+                if (lrgb) {
+                    uint32_t rr = ((p >> 11) * l0 >> 7) + f0, gg = ((p >> 5 & 63) * l1 >> 7) + f1,
+                             bb = ((p & 31) * l2 >> 7) + f2;
+                    p = (rr > 31 ? 31 : rr) << 11 | (gg > 63 ? 63 : gg) << 5 | (bb > 31 ? 31 : bb);
+                } else {
+                    uint32_t k = kf <= 0 ? 0 : (uint32_t)(kf >> 8);
+                    if (k < 256) {
+                        uint32_t rr = (p >> 11) * k >> 8, gg = (p >> 5 & 63) * k >> 8, bb = (p & 31) * k >> 8;
+                        p = rr << 11 | gg << 5 | bb;
+                    }
                 }
                 if (zrow)
                     zrow[x] = (uint16_t)zz;
@@ -525,6 +697,10 @@ static int clip_near(const cv_t in[3], cv_t out[4])
 }
 
 #define MAX_VERTS 4096
+/* triangles smaller than this (twice the area, in pixels) are drawn in one
+ * colour: below it the setup of the colour gradients costs more than the
+ * pixels, and a gradient over a dozen pixels does not show */
+#define SMALL_TRI 48.0f
 
 void r3d_draw(r3d_t *r, const r3d_mesh_t *m, v3_t p, float rx, float ry, float rz, float scale)
 {
@@ -777,6 +953,21 @@ static void light_fast(const r3d_t *r, const lamps_t *L, const shine_t *sh, v3_t
     }
 }
 
+/* the lamps on top of a light (baked faces): by distance only */
+static void lamps_add(const lamps_t *L, float px, float py, float pz, lit_t *out)
+{
+    for (int i = 0; i < L->n; i++) {
+        float dx = px - L->pos[i].x, dy = py - L->pos[i].y, dz = pz - L->pos[i].z;
+        float d2 = dx * dx + dy * dy + dz * dz;
+        if (d2 < L->r2[i]) {
+            float k = L->k[i] * (1.0f - d2 / L->r2[i]);
+            out->l.r += k * L->c[i].r;
+            out->l.g += k * L->c[i].g;
+            out->l.b += k * L->c[i].b;
+        }
+    }
+}
+
 void r3d_draw_flags(r3d_t *r, const r3d_mesh_t *m, v3_t p, float rx, float ry, float rz,
                     float scale, unsigned flags)
 {
@@ -834,6 +1025,8 @@ void r3d_draw_flags(r3d_t *r, const r3d_mesh_t *m, v3_t p, float rx, float ry, f
         sh.H = hl > 1e-6f ? (v3_t){ hx / hl, hy / hl, hz / hl } : sh.V;
     }
 
+    /* baked light (a "lit" model): the lamps still add to it (flashes, fire) */
+    const int baked_lamps = m->clight && lamps.n;
     int bx0 = r->g->w, by0 = r->g->h, bx1 = 0, by1 = 0;     /* R3D_FRONT: screen box */
     int nv = 0;
     for (int i = 0; i < m->nverts; i++) {
@@ -865,6 +1058,8 @@ void r3d_draw_flags(r3d_t *r, const r3d_mesh_t *m, v3_t p, float rx, float ry, f
             vn[i] = xform_dir(&X, i, m->vnormals[i]);
             vkey[i] = 0xFFFFFFFFu;          /* no colour yet */
             c->u = w.x; c->v = w.y; c->r = w.z;   /* world position, for the lamps (u v r are free here) */
+        } else if (baked_lamps) {
+            c->u = w.x; c->v = w.y; c->r = w.z;
         }
     }
     r->verts += (uint32_t)nv;
@@ -901,6 +1096,66 @@ void r3d_draw_flags(r3d_t *r, const r3d_mesh_t *m, v3_t p, float rx, float ry, f
         const int glossy = (rgb & R3D_GLOSSY) != 0;
         const int screen = (rgb & R3D_SCREEN) != 0;
 
+        if (m->clight && !textured) {
+            /* light baked at the corners (the world of a map): the colour of
+             * each corner from it, the lamps on top, the fog; smooth */
+            const uint8_t *bl = m->clight + t * 9;
+            float col[3][3];
+            for (int k = 0; k < 3; k++) {
+                const cv_t *ck = &cv[fc[k]];
+                lit_t L = { { bl[k * 3] * (1.0f / 128), bl[k * 3 + 1] * (1.0f / 128), bl[k * 3 + 2] * (1.0f / 128) },
+                            { 0, 0, 0 } };
+                if (emissive)
+                    L = full;
+                else if (baked_lamps)
+                    lamps_add(&lamps, ck->u, ck->v, ck->r, &L);
+                float ff = 0;
+                if (fog) {
+                    ff = (ck->z - r->fog_near) * fog_k;
+                    ff = ff < 0 ? 0 : ff > 1 ? 1 : ff;
+                }
+                cv_t tmp;
+                vertex_rgb(&tmp, rgb, &L, 0, r->fog_rgb, ff);
+                col[k][0] = tmp.r; col[k][1] = tmp.g; col[k][2] = tmp.b;
+            }
+            if (nin == 3) {
+                const sv_t *a = &sv[fc[0]], *b = &sv[fc[1]], *c = &sv[fc[2]];
+                if ((b->x - a->x) * (c->y - a->y) - (b->y - a->y) * (c->x - a->x) < SMALL_TRI) {
+                    /* a few pixels: one colour (the setup of the gradients
+                     * would cost more than the pixels) */
+                    uint32_t rr = (uint32_t)((col[0][0] + col[1][0] + col[2][0]) * (1.0f / 3)),
+                             gg = (uint32_t)((col[0][1] + col[1][1] + col[2][1]) * (1.0f / 3)),
+                             bb = (uint32_t)((col[0][2] + col[1][2] + col[2][2]) * (1.0f / 3));
+                    r->pixels += raster(r->g, zbuf, *a, *b, *c, g16_rgb(rr, gg, bb), screen);
+                } else {
+                    gv_t g0 = { a->x, a->y, a->z, col[0][0], col[0][1], col[0][2] };
+                    gv_t g1 = { b->x, b->y, b->z, col[1][0], col[1][1], col[1][2] };
+                    gv_t g2 = { c->x, c->y, c->z, col[2][0], col[2][1], col[2][2] };
+                    r->pixels += raster_gouraud(r->g, zbuf, g0, g1, g2, screen);
+                }
+            } else {
+                cv_t tri[3] = { *c0, *c1, *c2 }, cl[4];
+                for (int k = 0; k < 3; k++) {
+                    tri[k].r = col[k][0]; tri[k].g = col[k][1]; tri[k].b = col[k][2];
+                }
+                int np = clip_near(tri, cl);
+                sv_t pts[4];
+                for (int i = 0; i < np; i++)
+                    pts[i] = project(&v, cl[i], zmul);
+                float area = (pts[1].x - pts[0].x) * (pts[2].y - pts[0].y) - (pts[1].y - pts[0].y) * (pts[2].x - pts[0].x);
+                if (area <= 0)
+                    continue;
+                gv_t gv[4];
+                for (int i = 0; i < np; i++)
+                    gv[i] = (gv_t){ pts[i].x, pts[i].y, pts[i].z, cl[i].r, cl[i].g, cl[i].b };
+                r->pixels += raster_gouraud(r->g, zbuf, gv[0], gv[1], gv[2], screen);
+                if (np == 4)
+                    r->pixels += raster_gouraud(r->g, zbuf, gv[0], gv[2], gv[3], screen);
+            }
+            r->tris_drawn++;
+            continue;
+        }
+
         if (smooth && !(rgb & R3D_FLAT) && !textured) {
             /* Gouraud: the colour of each corner, once per vertex and face colour */
             const uint32_t key = rgb & 0x7FFFFFFFu;
@@ -925,10 +1180,18 @@ void r3d_draw_flags(r3d_t *r, const r3d_mesh_t *m, v3_t p, float rx, float ry, f
             }
             if (nin == 3) {
                 const sv_t *a = &sv[fc[0]], *b = &sv[fc[1]], *c = &sv[fc[2]];
-                gv_t g0 = { a->x, a->y, a->z, vc[fc[0]][0], vc[fc[0]][1], vc[fc[0]][2] };
-                gv_t g1 = { b->x, b->y, b->z, vc[fc[1]][0], vc[fc[1]][1], vc[fc[1]][2] };
-                gv_t g2 = { c->x, c->y, c->z, vc[fc[2]][0], vc[fc[2]][1], vc[fc[2]][2] };
-                r->pixels += raster_gouraud(r->g, zbuf, g0, g1, g2, screen);
+                if ((b->x - a->x) * (c->y - a->y) - (b->y - a->y) * (c->x - a->x) < SMALL_TRI) {
+                    const float *v0 = vc[fc[0]], *v1 = vc[fc[1]], *v2 = vc[fc[2]];
+                    uint32_t rr = (uint32_t)((v0[0] + v1[0] + v2[0]) * (1.0f / 3)),
+                             gg = (uint32_t)((v0[1] + v1[1] + v2[1]) * (1.0f / 3)),
+                             bb = (uint32_t)((v0[2] + v1[2] + v2[2]) * (1.0f / 3));
+                    r->pixels += raster(r->g, zbuf, *a, *b, *c, g16_rgb(rr, gg, bb), screen);
+                } else {
+                    gv_t g0 = { a->x, a->y, a->z, vc[fc[0]][0], vc[fc[0]][1], vc[fc[0]][2] };
+                    gv_t g1 = { b->x, b->y, b->z, vc[fc[1]][0], vc[fc[1]][1], vc[fc[1]][2] };
+                    gv_t g2 = { c->x, c->y, c->z, vc[fc[2]][0], vc[fc[2]][1], vc[fc[2]][2] };
+                    r->pixels += raster_gouraud(r->g, zbuf, g0, g1, g2, screen);
+                }
             } else {
                 cv_t tri[3] = { *c0, *c1, *c2 }, cl[4];
                 for (int k = 0; k < 3; k++) {
@@ -952,9 +1215,10 @@ void r3d_draw_flags(r3d_t *r, const r3d_mesh_t *m, v3_t p, float rx, float ry, f
             continue;
         }
 
-        /* flat (and textured): the light of the face, at its middle */
+        /* flat (and textured): the light of the face, at its middle (a
+         * textured face of a "lit" model has its own, baked) */
         lit_t k = full;
-        if (!emissive) {
+        if (!emissive && !m->clight) {
             v3_t n = xform_dir(&X, fc[0], m->normals[t]);
             float mx = 0, my = 0, mz = 0;
             if (lamps.n) {
@@ -991,9 +1255,15 @@ void r3d_draw_flags(r3d_t *r, const r3d_mesh_t *m, v3_t p, float rx, float ry, f
             tv_t tv[4];
             for (int i = 0; i < np; i++)
                 tv[i] = (tv_t){ pts[i].x, pts[i].y, pts[i].z, cl[i].u * pts[i].z, cl[i].v * pts[i].z, cl[i].r };
-            r->pixels += raster_tex(r->g, zbuf, tv[0], tv[1], tv[2], m->tex, screen);
+            const uint8_t *lrgb = m->clight ? m->clight + t * 9 : NULL;
+            int tf = 0;
+            if (lrgb && fog) {
+                float ff = ((c0->z + c1->z + c2->z) * (1.0f / 3.0f) - r->fog_near) * fog_k;
+                tf = ff <= 0 ? 0 : ff >= 1 ? 256 : (int)(ff * 256);
+            }
+            r->pixels += raster_tex(r->g, zbuf, tv[0], tv[1], tv[2], m->tex, screen, lrgb, r->fog_rgb, tf);
             if (np == 4)
-                r->pixels += raster_tex(r->g, zbuf, tv[0], tv[2], tv[3], m->tex, screen);
+                r->pixels += raster_tex(r->g, zbuf, tv[0], tv[2], tv[3], m->tex, screen, lrgb, r->fog_rgb, tf);
             r->tris_drawn++;
             continue;
         }
@@ -1200,7 +1470,7 @@ int r3d_mesh_alloc_uv(r3d_mesh_t *m)
 void r3d_mesh_free(r3d_mesh_t *m)
 {
     free(m->verts); free(m->faces); free(m->colors); free(m->normals); free(m->vnormals); free(m->uv);
-    free(m->vlod);
+    free(m->vlod); free(m->clight);
     memset(m, 0, sizeof *m);
 }
 

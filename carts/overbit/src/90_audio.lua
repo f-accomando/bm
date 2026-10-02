@@ -6,7 +6,8 @@ Snd = { on = true }
 local NAMES = { "cannon", "pistol", "rocket", "boost", "bump", "boom", "boom_big", "redline", "eject",
                 "call", "land", "hit", "crit", "kill", "step", "ui", "ui_back", "field",
                 "saber", "barrier", "shatter", "strike", "repeater", "limit", "dash",
-                "rifle", "helix", "sprint", "heal", "visor" }
+                "rifle", "helix", "sprint", "heal", "visor",
+                "open", "capture", "lost", "win", "lose", "tick" }
 local index = {}
 for i, n in ipairs(NAMES) do index[n] = i - 1 end
 Snd.index = index

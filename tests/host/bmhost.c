@@ -206,6 +206,11 @@ void host_frame(const uint16_t *px, int w, int h, int stride)
         const double us = now - t_flip;
         cpu_sum += us;
         if (us > cpu_max) cpu_max = us;
+        /* BMHOST_SLOW=ms: the frames that take longer, with their number */
+        static double slow = -1;
+        if (slow < 0) slow = getenv("BMHOST_SLOW") ? atof(getenv("BMHOST_SLOW")) : 0;
+        if (slow > 0 && us > slow * 1000)
+            fprintf(stderr, "bmhost: frame %ld took %.1f ms\n", f, us / 1000);
     }
     const int want = run.shot_name[0] || (run.shots && run.every > 0 && f >= run.from &&
                                           (f - run.from) % run.every == 0);

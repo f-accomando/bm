@@ -3247,7 +3247,9 @@ def test_overbit(b, opts):
         sky = count(img, lambda r, g, b: b > 120 and r < 160 and b > g)
         print(f"     overbit title: orange {orange}, sky {sky}")
         assert orange > 20 and sky > 50, (orange, sky)
-        sendkeys(q, "spc")                      # TRAINING RANGE
+        sendkeys(q, "down")                     # TRAINING RANGE (under PLAY: CONTROL)
+        time.sleep(0.5)
+        sendkeys(q, "spc")
         time.sleep(5)
         def corners(im):
             # the white cannons in the lower corners of the first-person view

@@ -155,7 +155,9 @@ function Fx.draw()
   for i = 1, np do
     local p = P[i]
     local dx, dy, dz = p.x - cx, p.y - cy, p.z - cz
-    if dx * dx + dy * dy + dz * dz > 0.36 then         -- not at the eye (a disc over the screen)
+    -- not at the eye: a big ball near the camera is a disc over the screen
+    -- (at least 3 times its size away: at most ~50 pixels wide)
+    if dx * dx + dy * dy + dz * dz > max(0.36, p.size * p.size * 9) then
       local u = p.age / p.life
       local rgb = p.rgb
       if u > 0.6 then rgb = fade(rgb, 1 - (u - 0.6) * 2) end

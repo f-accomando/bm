@@ -680,6 +680,13 @@ static int l_model(lua_State *L)
         }
         m->colors[f] = colour;
     }
+    /* a model with its light baked (the world of a map): the light of each corner */
+    if (md.flags & BM_MODEL_LIT) {
+        if (!(m->clight = malloc((size_t)md.nfaces * 9)))
+            return luaL_error(L, "not enough memory for the model");
+        for (int f = 0; f < md.nfaces; f++)
+            bm_model_face_light(&md, f, m->clight + f * 9);
+    }
     r3d_mesh_normals(m);
     /* a skeleton made for this model (the same vertices) comes with it */
     bm_rig_t r;

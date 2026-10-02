@@ -8,9 +8,10 @@ load that misses the cache tens), so the report also weighs every
 instruction with a rough ARM1176 cost.
 
   armprof.py BINARY [ARGS...]          (built with arm-linux-gnueabihf-gcc -static)
+  ARMPROF_BLOCKS=20 armprof.py ...     also the 20 hottest blocks and their lines (-g)
 
-The program runs once under qemu-arm -d in_asm,exec,nochain; the log can be
-big (hundreds of MB for a few hundred million instructions).
+The program runs once under qemu-arm -d in_asm,exec,nochain; the log (GB
+for a few hundred million instructions) is read through a pipe while it runs.
 """
 import collections
 import os
@@ -50,9 +51,13 @@ def main():
         m = re_d.match(line)
         if m:
             mnem[int(m.group(1), 16)] = m.group(2)
-    log = tempfile.NamedTemporaryFile(prefix="armprof-", suffix=".log", delete=False).name
+    # the log goes through a pipe, read while QEMU writes it: it would take
+    # tens of GB on the disk for a few seconds of a game
+    tmp = tempfile.mkdtemp(prefix="armprof-")
+    log = os.path.join(tmp, "log")
+    os.mkfifo(log)
     try:
-        subprocess.run(["qemu-arm", "-d", "in_asm,exec,nochain", "-D", log] + sys.argv[1:], check=False)
+        qemu = subprocess.Popen(["qemu-arm", "-d", "in_asm,exec,nochain", "-D", log] + sys.argv[1:])
         blocks = {}          # pc -> (symbol, n instructions, weighted cost)
         execs = collections.Counter()
         re_tr = re.compile(r"^Trace \d+: 0x[0-9a-f]+ \[[0-9a-f]+/([0-9a-f]+)/")
@@ -87,6 +92,7 @@ def main():
                     if m:
                         execs[int(m.group(1), 16)] += 1
         close()
+        qemu.wait()
         n = collections.Counter()
         c = collections.Counter()
         for p_, k in execs.items():
@@ -99,8 +105,21 @@ def main():
         for s_, v in c.most_common(25):
             print(f"{s_[:32]:32s} {n[s_]:14d} {100 * n[s_] / max(1, tn):6.1f} {v:14d} {100 * v / max(1, tc):6.1f}")
         print(f"{'total':32s} {tn:14d} {'':6s} {tc:14d}")
+        if os.environ.get("ARMPROF_BLOCKS"):
+            # the hottest blocks, with their source lines (needs -g)
+            bc = collections.Counter()
+            for p_, k in execs.items():
+                if p_ in blocks:
+                    bc[p_] = blocks[p_][2] * k
+            top = bc.most_common(int(os.environ["ARMPROF_BLOCKS"]))
+            lines = subprocess.run(["arm-linux-gnueabihf-addr2line", "-e", binary] + [hex(p_) for p_, _ in top],
+                                   capture_output=True, text=True).stdout.split("\n")
+            print(f"\n{'block':>10s} {'instr':>5s} {'runs':>9s} {'~cycles':>11s}  source")
+            for (p_, v), src in zip(top, lines):
+                print(f"{p_:10x} {blocks[p_][1]:5d} {execs[p_]:9d} {v:11d}  {blocks[p_][0][:20]} {os.path.basename(src)}")
     finally:
         os.unlink(log)
+        os.rmdir(tmp)
 
 
 if __name__ == "__main__":

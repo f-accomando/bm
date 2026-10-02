@@ -62,6 +62,13 @@ SFX = [
     ("SPRINT", 40, ["C3 4 120 bend+5", "off"]),
     ("HEAL", 60, ["C5 10 180", "E5 10 180", "G5 10 200", "C6 10 200 fadeout2", "off"]),
     ("VISOR", 60, ["C6 7 180", "E6 7 190", "G6 7 200", "C7 7 220", "off"]),
+    # the match (Control): the point opens, captured, lost, the end of a round
+    ("OPEN", 80, ["G4 7 170", "C5 7 190", "G5 7 210", "off"]),
+    ("CAPTURE", 90, ["C5 10 200", "E5 10 210", "G5 10 220", "C6 8 240 fadeout3", "off"]),
+    ("LOST", 90, ["G4 10 200", "E4 10 190", "C4 10 180 fadeout3", "off"]),
+    ("WIN", 130, ["C5 10 220", "E5 10 220", "G5 10 230", "C6 10 240", ".", "G5 8 220", "C6 8 255 fadeout4", "off"]),
+    ("LOSE", 130, ["C5 10 200", "B4 10 190", "A4 10 180", "G4 10 170", ".", "C4 6 200 fadeout4", "off"]),
+    ("TICK", 25, ["C6 9 150", "off"]),
 ]
 
 

@@ -16,7 +16,7 @@ ROOT = os.path.join(HERE, "..", "..")
 # USB usages of the keys (as the game reads them with keydown)
 K = {"W": 0x1A, "A": 0x04, "S": 0x16, "D": 0x07, "J": 0x0D, "K": 0x0E, "E": 0x08, "Q": 0x14,
      "SHIFT": 0xE1, "SPACE": 0x2C, "LEFT": 0x50, "RIGHT": 0x4F, "UP": 0x52, "DOWN": 0x51, "F1": 0x3A, "F4": 0x3D,
-     "F5": 0x3E, "ENTER": 0x28}
+     "F5": 0x3E, "ENTER": 0x28, "H": 0x0B}
 
 
 def keys(*names):
@@ -48,8 +48,10 @@ def main():
     # the range: from the menu, fire at the dummy until its mech breaks and
     # its pilot falls; the field, flight, rockets; then Redline (dev: F4)
     script = f"""
-30 keys {keys('SPACE')}
+30 keys {keys('DOWN')}
 32 keys none
+34 keys {keys('SPACE')}
+36 keys none
 100 keys {keys('J')}
 700 keys {keys('K')}
 760 keys {keys('SHIFT')}
@@ -127,6 +129,37 @@ def main():
     check(len(shots) >= 90 and "FIRST PERSON" in log, f"reel: {len(shots)} shots", log)
     for name in ("KAIJU", "SARGE", "FROST", "FUSE", "RAIL", "ORBIT", "AKARI"):
         check(f" {name}" in log, f"reel: {name.lower()}'s shots", log)
+
+    # the match from the menu: the hero select (Rally), out of the spawn,
+    # back in to change hero (H: Kaiju), the point opens after 20 s
+    script = f"""
+30 keys {keys('SPACE')}
+32 keys none
+60 keys {keys('SPACE')}
+62 keys none
+100 keys {keys('H')}
+102 keys none
+110 keys {keys('DOWN')}
+112 keys none
+120 keys {keys('SPACE')}
+122 keys none
+130 keys {keys('W')}
+600 keys none
+"""
+    code, log = run(build, cart, 26, script, "match")
+    check(code == 0 and "stopped with an error" not in log, "match: no Lua error", log)
+    check("overbit match start: rally" in log, "match: starts with Rally", log)
+    check("overbit hero kaiju" in log, "match: Kaiju chosen in the spawn room", log)
+    check("overbit point open" in log, "match: the point opens", log)
+
+    # a whole match with quick rules: the bots fight over the point until a
+    # team wins two rounds
+    code, log = run(build, os.path.join(build, "overbit", "match-fast.bm"), 240,
+                    f"30 keys {keys('SPACE')}\n32 keys none\n", "match-fast")
+    check(code == 0 and "stopped with an error" not in log, "match-fast: no Lua error", log)
+    check("overbit point team" in log, "match-fast: the point is captured", log)
+    check("overbit kill" in log, "match-fast: the bots fight", log)
+    check("overbit match team" in log, "match-fast: a team wins the match", log)
 
     # the benchmark (on the PC every step is fast: it runs to the end)
     script = f"""

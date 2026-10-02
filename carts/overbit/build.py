@@ -19,8 +19,8 @@ import os
 HERE = os.path.dirname(os.path.abspath(__file__))
 
 
-def build():
-    files = sorted(glob.glob(os.path.join(HERE, "src", "*.lua")))
+def build(extra=()):
+    files = sorted(glob.glob(os.path.join(HERE, "src", "*.lua")) + list(extra), key=os.path.basename)
     out, spans, line = [], [], 1
     for i, path in enumerate(files):
         name = os.path.basename(path)
@@ -52,11 +52,14 @@ def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("out")
     ap.add_argument("--map")
-    ap.add_argument("--start", help="the mode at start (tests, reels): menu, range, reel, bench")
+    ap.add_argument("--start", help="the mode at start (tests, reels): menu, range, match, explore, reel, bench")
     ap.add_argument("--hero", help="the hero chosen at start (tests): rally, kaiju, ...")
     ap.add_argument("--quality", type=int, help="a fixed quality level 0..4 (benchmarks)")
+    ap.add_argument("--define", action="append", default=[], help="NAME=lua value, a global set after the code (tests)")
+    ap.add_argument("--extra", action="append", default=[],
+                    help="a generated file to join too, in name order with the others (the map: 21_map.lua)")
     a = ap.parse_args()
-    text, spans = build()
+    text, spans = build(a.extra)
     # which build this is, on the screen (title, Select panel) and in the
     # log: the first 7 hex digits of the sources' SHA-1, so the same game
     # always has the same tag and any change gives a new one
@@ -68,6 +71,9 @@ def main():
         text += f'OVERBIT_HERO = "{a.hero}"\n'
     if a.quality is not None:
         text += f"OVERBIT_QUALITY = {a.quality}\n"
+    for d in a.define:
+        name, value = d.split("=", 1)
+        text += f"{name} = {value}\n"
     os.makedirs(os.path.dirname(os.path.abspath(a.out)), exist_ok=True)
     with open(a.out, "w", encoding="utf-8") as f:
         f.write(text)

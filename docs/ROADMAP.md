@@ -1794,6 +1794,73 @@ Passi (in quest'ordine, richiesto dall'autore):
 - **Da provare sul Pi**: nel menu HERO per scegliere l'eroe, poi il poligono; il
   BENCHMARK (foto della tabella: ora dice anche update e 3D).
 
+**Passo 3 — la mappa Partenope e la modalità Controllo: fatto sul PC (2026-10-03), da provare sul Pi.**
+- **Partenope** (`art/partenope.py`): il lungomare di una Napoli futura al tramonto, il
+  Vesuvio oltre la baia. Simmetrica (una metà per squadra): la stanza di spawn in fondo,
+  tre strade verso il centro (la via principale con la PIZZERIA BIT e la sua insegna al
+  neon, il vicolo con i panni stesi e il passaggio sotto l'arco, il molo con i container
+  e i chioschi), la piazza con la fontana della sirena e il **punto**, la chiesa con la
+  cupola gialla, i campanili, la terrazza con le scale; facciate colorate con le persiane
+  verdi, lampioni, neon, pannello olografico, pini, cielo a bande, sole basso, mare con il
+  riflesso, il Vesuvio e la città sulla collina.
+- **Motore del mondo**: invece di BSP e span buffer (il piano) la mappa è fatta di
+  **pezzi di 8 m** con la luce già cotta agli angoli (modelli "lit" della sezione MESH).
+  Sul Pi conta il triangolo, non il pixel (~4–5 µs a triangolo), quindi tutto lavora sul
+  numero di triangoli: visibilità precalcolata (`tools/mappvs.c`: da ogni quadrato di 4 m
+  disegna i pezzi con il rasterizzatore della console in colori che sono i loro numeri,
+  sulle sei facce di un cubo; in media 44 pezzi su 96), poi i pezzi tagliati contro la
+  vista e disegnati dal più vicino, quelli lontani senza le cose piccole.
+- **Luce cotta** (`art/mapbake.py`, numpy): il sole basso con ombre morbide (più raggi),
+  il cielo con l'occlusione ambientale, il rimbalzo caldo dei muri, lampioni, neon e la
+  luce delle squadre negli spawn, con le loro ombre. Facce divise solo dove serve: lati
+  fino a 12 m, le cose lunghe e sottili (cornicioni, cordoli, ringhiere) intere.
+- **Texture delle facciate** (`art/maptex.py`): un atlante 512×256 disegnato pixel per
+  pixel, che diventa lo sprite sheet della cartuccia (SHEET8, 255 colori): finestre con le
+  persiane aperte o chiuse, accese, con il balcone, ad arco, portoni, vetrine, le insegne
+  (PIZZERIA BIT, GELATO, CAFFE', PARTENOPE), tende a righe, panni stesi. 249 quadri al
+  posto di ~2000 triangoli di persiane, ringhiere e vetri; le facce con texture dei modelli
+  lit hanno una luce colorata e la nebbia.
+- **Rasterizzatore**: il colore di Gouraud in un numero solo (rosso, verde e blu
+  impacchettati, il dithering sommato, z con `usat`: 23 istruzioni a pixel invece di 31);
+  i triangoli che escono dai lati dello schermo (un muro accanto alla telecamera) saltano
+  le righe vuote (11 000 righe a frame nella vista della strada); texture lineari dove la
+  profondità cambia poco e un percorso veloce per quelle della mappa. La vista della
+  strada: da ~10 a ~6 milioni di cicli stimati (armprof). Un modello trovava il suo
+  scheletro controllando di nuovo ogni chiave di ogni animazione: ora salta gli altri.
+- Collisioni: 131 scatole in C (`world3d`). **Grafo dei bot**: 75 nodi lungo le strade,
+  collegati quando un corpo può camminare in linea retta (nessuna scatola sulla linea e ai
+  lati, il pavimento che sale al massimo di 0,5 m: le scale sì, i salti in giù in un verso).
+- **Controllo** (`src/81_match.lua`): 5 contro 5 come la coda per ruoli di Overwatch 2
+  (1 tank, 2 danni, 2 supporto), i bot negli altri nove posti. Scelta dell'eroe all'inizio
+  e nella stanza di spawn (H, o giù sul pad: un bot del ruolo nuovo prende il vecchio
+  eroe); il punto si apre dopo 20 s, una squadra da sola lo cattura in 8 s (più in fretta
+  in due o tre), poi la sua percentuale sale di 1 ogni 0,9 s; contestato si ferma, al 99%
+  con un nemico sul punto è tempo supplementare; vince il round chi arriva a 100, la
+  partita chi vince due round. Si rinasce dopo 10 s. HUD in alto (percentuali, punto con
+  la cattura, round vinti, messaggi), l'anello del punto sul terreno nel colore di chi lo
+  tiene, suoni (apertura, cattura, punto perso, vittoria, sconfitta, conto alla rovescia),
+  il tabellone alla fine.
+- Bot provvisori (il passo 4 li fa davvero): seguono il grafo verso il punto, aspettano
+  che si apra, mirano con un po' di errore e sparano nel raggio del loro eroe, usano le
+  abilità ogni tanto e l'ultimate con un nemico vicino; i supporti curano chi è ferito.
+- **Reel della partita**: dieci bot, una telecamera che gira intorno al punto, segue un
+  eroe e guarda con i suoi occhi (`make overbit-reel-match` → `docs/img/overbit-match.mp4`
+  e la GIF). Dev kit: F6 la **telecamera libera**.
+- Strumenti: `tests/bm/mapbench.c` (la mappa da un punto di vista, per armprof), bmhost
+  compilato per ARM Linux sotto QEMU (il profilo di un frame intero, Lua compreso),
+  `BMHOST_SLOW=ms` (i frame lenti); `build.py --define` per le regole dei test.
+- Test: `make test-overbit` gioca una partita dal menu (Rally, poi Kaiju nello spawn, il
+  punto si apre) e una partita veloce intera di bot (cattura, uccisioni, una squadra vince).
+- Stime (armprof: istruzioni pesate con i costi dell'ARM1176; il Pi di solito è un 30% più
+  lento): la vista della strada ~6 M cicli per la sola mappa; una scaramuccia sul punto
+  con dieci eroi in vista, qualità 2: ~14 M cicli a frame (la parte per vertice e per
+  faccia degli eroi 3,7 M, Gouraud 2,6 M, Lua 2 M), cioè ~18 ms sul Pi: lì la qualità
+  automatica scende. Il prossimo da ottimizzare è la parte per vertice e per faccia degli
+  eroi. Una toppa alla VM di Lua (il contatore del watchdog senza una chiamata per
+  istruzione, `third_party/lua/lvm.c`) ha tolto più di metà del tempo del Lua.
+- **Da provare sul Pi**: "PLAY: CONTROL" nel menu; con Select (o Tab) l'overlay: una foto
+  dei ms nella strada, nella piazza durante uno scontro e dallo spawn.
+
 ## Rischi principali
 | Rischio | Mitigazione |
 |---------|-------------|
