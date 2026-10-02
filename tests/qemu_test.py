@@ -2400,7 +2400,8 @@ def test_sd_sdhc_and_usb_menu(b, opts):
         sendkeys(q, "c")                      # C is the X button: the options (M27)
         # (with the tools the info rows, Author..., are below: the panel scrolls)
         opts_row = "Open in bm Studio"
-        _, text = settled_screen(q, lambda i, t: any(opts_row in l for l in t))
+        # both rows checked below: a frame caught half drawn may have one alone
+        _, text = settled_screen(q, lambda i, t: any(opts_row in l for l in t) and any("Play" in l for l in t))
         assert any(opts_row in l for l in text) and any("Play" in l for l in text), "\n".join(text)
         sendkeys(q, "x")                      # X is the B button: back
         _, text = settled_screen(q, lambda i, t: not any(opts_row in l for l in t))
