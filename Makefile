@@ -241,7 +241,15 @@ $(BUILD)/overbit/%.bm: $(OVERBIT_SRC) carts/overbit/build.py $(BUILD)/overbit/mo
 	$(PYTHON) scripts/mkbm.py -o $@ --lua $(BUILD)/overbit/$*.lua --title "Overbit $*" --author bm --res 320x180 \
 	    --models $(BUILD)/overbit/models.bm --audio $(BUILD)/overbit/sounds.json
 
-test-overbit: $(BUILD)/host/bmhost-bin $(BUILD)/carts/overbit.bm $(BUILD)/overbit/reel.bm $(BUILD)/overbit/bench.bm
+# the range with each hero chosen (tests): range-kaiju.bm, ...
+OVERBIT_HEROES := kaiju sarge frost fuse rail orbit akari
+$(BUILD)/overbit/range-%.bm: $(OVERBIT_SRC) carts/overbit/build.py $(BUILD)/overbit/models.bm $(BUILD)/overbit/sounds.json
+	$(PYTHON) carts/overbit/build.py $(BUILD)/overbit/range-$*.lua --start range --hero $*
+	$(PYTHON) scripts/mkbm.py -o $@ --lua $(BUILD)/overbit/range-$*.lua --title "Overbit $*" --author bm --res 320x180 \
+	    --models $(BUILD)/overbit/models.bm --audio $(BUILD)/overbit/sounds.json
+
+test-overbit: $(BUILD)/host/bmhost-bin $(BUILD)/carts/overbit.bm $(BUILD)/overbit/reel.bm $(BUILD)/overbit/bench.bm \
+              $(foreach h,$(OVERBIT_HEROES),$(BUILD)/overbit/range-$(h).bm)
 	$(PYTHON) tests/overbit/run.py $(BUILD)
 
 # Overbit's animation reel as a video (docs/img/overbit-reel-rally.mp4 and
@@ -257,6 +265,17 @@ overbit-reel: $(BUILD)/host/bmhost-bin $(BUILD)/overbit/reel.bm
 	    -vf "fps=15,scale=480:270:flags=neighbor,split[a][b];[a]palettegen=max_colors=128[p];[b][p]paletteuse=dither=none" \
 	    docs/img/overbit-reel-rally.gif
 	rm -f $(BUILD)/overbit/reel.rgb
+
+# the reel of the other seven heroes (docs/img/overbit-reel-heroes.mp4) and a
+# GIF of their ultimates
+OVERBIT_REEL_HEROES := kaiju,sarge,frost,fuse,rail,orbit,akari
+$(BUILD)/overbit/reel-heroes.bm: $(OVERBIT_SRC) carts/overbit/build.py $(BUILD)/overbit/models.bm $(BUILD)/overbit/sounds.json
+	$(PYTHON) carts/overbit/build.py $(BUILD)/overbit/reel-heroes.lua --start reel --hero $(OVERBIT_REEL_HEROES)
+	$(PYTHON) scripts/mkbm.py -o $@ --lua $(BUILD)/overbit/reel-heroes.lua --title "Overbit reel" --author bm --res 320x180 \
+	    --models $(BUILD)/overbit/models.bm --audio $(BUILD)/overbit/sounds.json
+overbit-reel-heroes: $(BUILD)/host/bmhost-bin $(BUILD)/overbit/reel-heroes.bm
+	$(PYTHON) carts/overbit/tools/reel.py $(BUILD) $(BUILD)/overbit/reel-heroes.bm 232 docs/img/overbit-reel-heroes.mp4 \
+	    --size 640x360 --crf 30 --gif docs/img/overbit-reel-heroes.gif --gif-shots ULTIMATE
 
 # A Lua interpreter for the PC (the same Lua 5.4 as the console): host tests
 # of the Lua cartridges.
@@ -320,7 +339,7 @@ bmhost: $(BUILD)/host/bmhost-bin
 .PHONY: FORCE test-smp all clean firmware image image-pi1 sdcard install sdcard-chainloader sdcard-stress qemu qemu-screenshot \
         run-serial test test-bm test-ai ai-model test-usb test-audio test-fat test-kitchen test-titan test-sound test-nano8 \
         test-net test-http test-https test-release release disasm wav test-studio test-studio-ui studio test-prompts \
-        showreel bmhost test-overbit overbit-reel
+        showreel bmhost test-overbit overbit-reel overbit-reel-heroes
 
 all: $(BUILD)/kernel.img $(BUILD)/chainloader.img $(GAME_CARTS)
 

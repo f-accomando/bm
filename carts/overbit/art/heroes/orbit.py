@@ -60,20 +60,20 @@ def mesh(sk, name="orbit"):
                   chest=(1.1, 1.12), waist=1.1, hips=1.1, arms=1.2, legs_k=1.15)
     H, C, S, HP = B["head"], B["chest"], B["spine"], B["hips"]
     # -- the head inside the bubble: curls, freckles (dots), eyes
-    m.add(ellipsoid(0.096 * hs, 0.08 * hs, 0.104 * hs, segs=8, rings=4).move(0, ny + 0.17 * hs, -0.012), HAIR, H, 2, 3)
-    m.add(ellipsoid(0.096 * hs, 0.08 * hs, 0.104 * hs, segs=6, rings=3).move(0, ny + 0.17 * hs, -0.012), HAIR, H, 0, 1)
+    m.add(ellipsoid(0.096 * hs, 0.08 * hs, 0.104 * hs, segs=8, rings=4).move(0, ny + 0.17 * hs, -0.012), HAIR, H, 3, 3)
+    m.add(ellipsoid(0.096 * hs, 0.08 * hs, 0.104 * hs, segs=6, rings=3).move(0, ny + 0.17 * hs, -0.012), HAIR, H, 0, 2)
     for i, (x, y, z) in enumerate([(-0.07, 0.2, 0.05), (0.07, 0.2, 0.05), (-0.09, 0.14, -0.02), (0.09, 0.14, -0.02),
                                    (0.0, 0.25, 0.02), (-0.05, 0.24, -0.06), (0.05, 0.24, -0.06)]):
         m.add(ellipsoid(0.035 * hs, 0.035 * hs, 0.035 * hs, segs=5, rings=3).move(x * hs, ny + y * hs, z * hs), HAIR, H, 3 if i > 3 else 2, 3)
     humanoid.eyes(m, sk, b, EYE_W, EYE_I, x=0.035, y=0.13, z=0.086, r=0.015)
-    m.add(ellipsoid(0.013 * hs, 0.018 * hs, 0.018 * hs, segs=5, rings=3).move(0, ny + 0.105 * hs, 0.1 * hs), SKIN, H, 2, 3)
+    m.add(ellipsoid(0.013 * hs, 0.018 * hs, 0.018 * hs, segs=5, rings=3).move(0, ny + 0.105 * hs, 0.1 * hs), SKIN, H, 3, 3)
     # the bubble helmet: a clear dome over the head, the collar ring
     m.add(ellipsoid(0.15 * hs, 0.16 * hs, 0.15 * hs, segs=10, rings=6).move(0, ny + 0.14 * hs, 0.005), GLASS, H, 1, 3)
     m.add(lathe([(0.13 * hs, ny - 0.02 * k), (0.14 * hs, ny + 0.02 * k)], segs=10, close_top=False, close_bottom=False),
           ORANGE, C, 1, 3)
     m.add(box(0.05 * hs, 0.012, 0.012).move(0.12 * hs, ny + 0.16 * hs, 0.06 * hs), TEAL, H, 3, 3)
     # -- the suit: a chest panel with lights, orange shoulder and knee pads
-    m.add(box(0.16 * k, 0.12 * k, 0.03).move(0, cy + 0.10 * k, 0.12 * k), SUIT2, C, 2, 3)
+    m.add(box(0.16 * k, 0.12 * k, 0.03).move(0, cy + 0.10 * k, 0.12 * k), SUIT2, C, 3, 3)
     for i in range(3):
         m.add(box(0.025 * k, 0.025 * k, 0.012).move((-0.04 + i * 0.04) * k, cy + 0.10 * k, 0.137 * k), TEAL if i != 1 else ORANGE, C, 3, 3)
     for s in ("L", "R"):
@@ -81,17 +81,17 @@ def mesh(sk, name="orbit"):
         m.add(ellipsoid(0.085 * k, 0.06 * k, 0.085 * k, segs=6, rings=4).move(sh[0], sh[1] + 0.03 * k, 0), ORANGE,
               B[f"upperarm.{s}"], 1, 3)
         kn = sk.bones[B[f"shin.{s}"]][2]
-        m.add(box(0.09 * k, 0.09 * k, 0.05 * k, bevel=0.012).move(kn[0], kn[1], kn[2] + 0.07 * k), ORANGE, B[f"shin.{s}"], 2, 3)
+        m.add(box(0.09 * k, 0.09 * k, 0.05 * k, bevel=0.012).move(kn[0], kn[1], kn[2] + 0.07 * k), ORANGE, B[f"shin.{s}"], 3, 3)
         an = sk.bones[B[f"foot.{s}"]][2]
         m.add(box(0.1 * k, 0.02, 0.2 * k).move(an[0], 0.012, an[2] + 0.05 * k), TEAL, B[f"foot.{s}"], 1, 3)
         m.add(lathe([(0.07 * k, an[1] + 0.02), (0.075 * k, an[1] + 0.1 * k)], segs=8, close_bottom=False).move(an[0], 0, an[2]),
-              SUIT2, B[f"shin.{s}"], 2, 3)
+              SUIT2, B[f"shin.{s}"], 3, 3)
     # the thruster pack: a rounded box and two nozzles
     m.add(box(0.22 * k, 0.26 * k, 0.1 * k, bevel=0.03).move(0, cy + 0.06 * k, -0.15 * k), SUIT, C, 0, 3)
     for sx in (-1, 1):
-        m.add(cylinder(0.035 * k, 0.07 * k, segs=6, r2=0.045 * k).move(sx * 0.07 * k, cy - 0.12 * k, -0.17 * k), DARK, C, 2, 3)
-        m.add(cylinder(0.03 * k, 0.01, segs=6).move(sx * 0.07 * k, cy - 0.125 * k, -0.17 * k), TEAL, C, 2, 3)
-    m.add(box(0.2 * k, 0.03 * k, 0.02).move(0, cy + 0.12 * k, -0.2 * k), ORANGE, C, 2, 3)
+        m.add(cylinder(0.035 * k, 0.07 * k, segs=6, r2=0.045 * k).move(sx * 0.07 * k, cy - 0.12 * k, -0.17 * k), DARK, C, 3, 3)
+        m.add(cylinder(0.03 * k, 0.01, segs=6).move(sx * 0.07 * k, cy - 0.125 * k, -0.17 * k), TEAL, C, 3, 3)
+    m.add(box(0.2 * k, 0.03 * k, 0.02).move(0, cy + 0.12 * k, -0.2 * k), ORANGE, C, 3, 3)
     # -- the blaster
     g = B["gun"]
     hx, hy2, hz = sk.bones[g][2]

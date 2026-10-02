@@ -208,11 +208,12 @@ end
 
 -- ---------------------------------------------------------------- the update
 
+local TIMERS = { "fire_cd", "helix_cd", "field_cd", "visor_t", "rockets_t", "field_anim" }  -- once, not every frame
 function S.update(a, c)
   local s = a.st
   tick_field(a)
   if not a.alive then return end
-  for _, k in ipairs({ "fire_cd", "helix_cd", "field_cd", "visor_t", "rockets_t", "field_anim" }) do
+  for _, k in ipairs(TIMERS) do
     if s[k] and s[k] > 0 then s[k] = max(0, s[k] - DT) end
   end
   if s.reload_t > 0 then

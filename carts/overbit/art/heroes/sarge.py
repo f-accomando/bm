@@ -11,6 +11,7 @@ Models: sarge (third person), sarge_fp (hands and rifle seen from the eye).
 import math
 
 from geo import Mat, Mesh, box, cylinder, ellipsoid, hull, lathe, wedge
+import fp
 import humanoid
 from humanoid import Body
 import rig
@@ -170,26 +171,52 @@ def fp_skeleton():
     sk = Skeleton()
     sk.bone("root", None, (0, 0, 0), (0, 0.1, 0))
     sk.bone("gun", "root", (0.16, -0.20, 0.22), (0.16, -0.20, 0.80))
-    sk.bone("hand.L", "root", (-0.02, -0.26, 0.50), (0.02, -0.22, 0.55))
+    sk.bone("hand.L", "root", (0.13, -0.28, 0.52), (0.15, -0.24, 0.56))
     return sk
 
 
 def fp_mesh(sk, name="sarge_fp"):
+    """the pulse rifle close up: a tapered dark receiver with white side
+    panels and cyan light lines, a holo sight, a shrouded barrel, the helix
+    launcher under it; gloves and the jacket's sleeves"""
     m = Mesh(name)
     g, L = sk.index["gun"], sk.index["hand.L"]
     x, y, z = 0.16, -0.20, 0.22
-    m.add(box(0.07, 0.11, 0.50, bevel=0.012).move(x, y + 0.03, z + 0.20), GUN, g)
-    m.add(box(0.074, 0.05, 0.34).move(x, y + 0.10, z + 0.25), GUN_W, g)
-    m.add(box(0.074, 0.012, 0.26).move(x, y + 0.126, z + 0.25), GLOW, g)
-    m.add(cylinder(0.024, 0.26, segs=8, axis="z").move(x, y + 0.04, z + 0.45), GUN, g)
-    m.add(cylinder(0.034, 0.14, segs=8, axis="z").move(x, y - 0.02, z + 0.36), GUN_W, g)
-    m.add(box(0.045, 0.11, 0.06).move(x, y - 0.06, z + 0.06), GUN, g)
-    # the right hand on the grip and the sleeve
-    m.add(ellipsoid(0.045, 0.05, 0.06, segs=6, rings=4).move(x, y - 0.02, z - 0.02), GLOVE, g)
-    m.add(cylinder(0.05, 0.30, segs=8, r2=0.045, axis="z").move(x + 0.02, y - 0.06, z - 0.33), JACKET2, g)
-    # the left hand under the barrel
-    m.add(ellipsoid(0.045, 0.045, 0.06, segs=6, rings=4).move(-0.0, -0.24, 0.52), GLOVE, L)
-    m.add(cylinder(0.05, 0.40, segs=8, r2=0.045, axis="z").turn(ry=25).move(-0.20, -0.30, 0.15), JACKET2, L)
+    # receiver: taller at the back, narrowing to the front
+    m.add(hull([(x - 0.036, y - 0.03, z - 0.06), (x + 0.036, y - 0.03, z - 0.06), (x - 0.036, y + 0.075, z - 0.06),
+                (x + 0.036, y + 0.075, z - 0.06), (x - 0.032, y - 0.01, z + 0.36), (x + 0.032, y - 0.01, z + 0.36),
+                (x - 0.03, y + 0.06, z + 0.34), (x + 0.03, y + 0.06, z + 0.34)]), GUN, g)
+    # white side panels, the cyan lines on them
+    for sx in (-1, 1):
+        m.add(hull([(x + sx * 0.037, y + 0.005, z - 0.02), (x + sx * 0.037, y + 0.06, z - 0.02),
+                    (x + sx * 0.034, y + 0.012, z + 0.26), (x + sx * 0.033, y + 0.05, z + 0.24),
+                    (x + sx * 0.03, y + 0.03, z + 0.1)]), GUN_W, g)
+        m.add(box(0.004, 0.008, 0.2).move(x + sx * 0.039, y + 0.03, z + 0.1), GLOW, g)
+    m.add(box(0.05, 0.012, 0.3).move(x, y + 0.082, z + 0.12), GUN, g)                      # top rail
+    # the holo sight: a frame and its amber dot
+    m.add(box(0.044, 0.008, 0.05).move(x, y + 0.095, z + 0.06), GUN, g)
+    for sx in (-1, 1):
+        m.add(box(0.006, 0.05, 0.012).move(x + sx * 0.02, y + 0.12, z + 0.08), GUN, g)
+    m.add(box(0.046, 0.006, 0.012).move(x, y + 0.145, z + 0.08), GUN, g)
+    m.add(box(0.008, 0.008, 0.004).move(x, y + 0.115, z + 0.08), VISOR, g)
+    # barrel: a six-sided shroud, the muzzle
+    m.add(cylinder(0.026, 0.22, segs=6, axis="z").move(x, y + 0.03, z + 0.34), GUN, g)
+    m.add(cylinder(0.031, 0.05, segs=6, axis="z").move(x, y + 0.03, z + 0.55), GUN_W, g)
+    m.add(cylinder(0.014, 0.012, segs=6, axis="z").move(x, y + 0.03, z + 0.6), GLOW, g)
+    # the helix launcher under the barrel: three dark mouths
+    m.add(cylinder(0.034, 0.18, segs=8, axis="z").move(x, y - 0.03, z + 0.3), GUN_W, g)
+    for i in range(3):
+        a = 2 * math.pi * i / 3 + 0.5
+        m.add(cylinder(0.01, 0.008, segs=5, axis="z").move(x + math.cos(a) * 0.016, y - 0.03 + math.sin(a) * 0.016,
+                                                            z + 0.48), GUN, g)
+    m.add(box(0.04, 0.1, 0.055).turn(rx=12).move(x, y - 0.08, z + 0.1), GUN, g)            # magazine
+    m.add(box(0.036, 0.09, 0.045).turn(rx=-12).move(x, y - 0.075, z - 0.02), GUN, g)       # grip
+    # the right glove on the grip, the sleeve
+    fp.forearm(m, g, (x + 0.01, y - 0.09, z - 0.04), (x + 0.12, y - 0.27, z - 0.38), JACKET2, r=0.05, cuff=JACKET)
+    fp.fist(m, g, (x + 0.01, y - 0.09, z - 0.04), (x, y - 0.03, z + 0.01), GLOVE, r=0.043, thumb=-1)
+    # the left glove under the launcher
+    fp.forearm(m, L, (x - 0.03, y - 0.08, z + 0.3), (-0.2, -0.42, 0.06), JACKET2, r=0.05, cuff=JACKET)
+    fp.fist(m, L, (x - 0.03, y - 0.08, z + 0.3), (x + 0.02, y - 0.035, z + 0.33), GLOVE, r=0.043, thumb=1)
     return m.weld()
 
 

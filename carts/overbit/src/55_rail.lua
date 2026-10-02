@@ -165,11 +165,13 @@ end
 
 -- ---------------------------------------------------------------- the update
 
+local TIMERS = { "fire_cd", "slide_cd", "dis_cd", "rail_anim", "dis_anim", "over_anim" }  -- once, not every frame
+local LAYERS = { { "reload", "reload_t" }, { "rail", "rail_anim" }, { "disruptor", "dis_anim" }, { "overclock", "over_anim" } }  -- once, not every frame
 function R.update(a, c)
   local s = a.st
   tick_field(a)
   if not a.alive then return end
-  for _, k in ipairs({ "fire_cd", "slide_cd", "dis_cd", "rail_anim", "dis_anim", "over_anim" }) do
+  for _, k in ipairs(TIMERS) do
     if s[k] and s[k] > 0 then s[k] = max(0, s[k] - DT) end
   end
   if s.reload_t > 0 then
@@ -231,7 +233,7 @@ function R.update(a, c)
     s.reload_t = BOLT.reload
     Actors.layer(a, "reload", true)
   end
-  for _, lay in ipairs({ { "reload", "reload_t" }, { "rail", "rail_anim" }, { "disruptor", "dis_anim" }, { "overclock", "over_anim" } }) do
+  for _, lay in ipairs(LAYERS) do
     if a.anim.layer == lay[1] and (s[lay[2]] or 0) <= 0 then Actors.layer(a, "aim") end
   end
   if not sliding then

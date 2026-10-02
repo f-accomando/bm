@@ -254,13 +254,14 @@ end
 
 -- ---------------------------------------------------------------- the update
 
+local TIMERS = { "fire_cd", "strike_cd", "bbroken", "bflash" }  -- once, not every frame
 function K.update(a, c)
   local s = a.st
   if not a.alive then
     Proj.barrier_off(a)
     return
   end
-  for _, k in ipairs({ "fire_cd", "strike_cd", "bbroken", "bflash" }) do
+  for _, k in ipairs(TIMERS) do
     if s[k] and s[k] > 0 then s[k] = max(0, s[k] - DT) end
   end
   if a.form == MECH then

@@ -268,11 +268,14 @@ end
 
 -- ---------------------------------------------------------------- the update
 
+local TIMERS = { "fire_cd", "kunai_cd", "step_cd", "suzu_cd", "kunai_anim", "suzu_anim", "step_anim", "rush_anim" }  -- once, not every frame
+local LAYERS = { { "reload", "reload_t" }, { "kunai", "kunai_anim" }, { "suzu", "suzu_anim" }, { "step", "step_anim" },
+                         { "rush", "rush_anim" } }  -- once, not every frame
 function K.update(a, c)
   local s = a.st
   tick_rush(a)
   if not a.alive then return end
-  for _, k in ipairs({ "fire_cd", "kunai_cd", "step_cd", "suzu_cd", "kunai_anim", "suzu_anim", "step_anim", "rush_anim" }) do
+  for _, k in ipairs(TIMERS) do
     if s[k] and s[k] > 0 then s[k] = max(0, s[k] - DT) end
   end
   if s.reload_t > 0 then
@@ -312,8 +315,7 @@ function K.update(a, c)
     s.reload_t = OFUDA.reload
     Actors.layer(a, "reload", true)
   end
-  for _, lay in ipairs({ { "reload", "reload_t" }, { "kunai", "kunai_anim" }, { "suzu", "suzu_anim" }, { "step", "step_anim" },
-                         { "rush", "rush_anim" } }) do
+  for _, lay in ipairs(LAYERS) do
     if a.anim.layer == lay[1] and (s[lay[2]] or 0) <= 0 then Actors.layer(a, "aim") end
   end
   Actors.move(a, c)

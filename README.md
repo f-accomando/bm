@@ -150,9 +150,15 @@ z-buffer and Gouraud shading, skeletal animation, music and sound effects, saves
 local multiplayer for up to 4 players. The games on the card, all `.bm`:
 
 <p align="center">
-  <img src="docs/img/overbit-reel-rally.gif" width="720" alt="Overbit: Rally, a tank in a white mech: its moves and abilities, filmed on the console's 3D">
+  <img src="docs/img/overbit-reel-heroes.gif" width="720" alt="Overbit: the ultimates of seven heroes, filmed on the console's 3D">
   <br><sub><b>Overbit</b> (in progress): a hero shooter in first person at 320×180, 60 fps on a Pi Zero.
-  Rally's animation reel, <a href="docs/img/overbit-reel-rally.mp4">MP4 with sound</a> · <code>make overbit-reel</code></sub>
+  The ultimates of Kaiju, Sarge, Frost, Fuse, Rail, Orbit and Akari; the whole reel,
+  <a href="docs/img/overbit-reel-heroes.mp4">MP4 with sound</a> · <code>make overbit-reel-heroes</code></sub>
+</p>
+
+<p align="center">
+  <img src="docs/img/overbit-reel-rally.gif" width="720" alt="Overbit: Rally, a tank in a white mech: its moves and abilities, filmed on the console's 3D">
+  <br><sub>Rally's animation reel, <a href="docs/img/overbit-reel-rally.mp4">MP4 with sound</a> · <code>make overbit-reel</code></sub>
 </p>
 
 <p align="center">
@@ -165,7 +171,9 @@ local multiplayer for up to 4 players. The games on the card, all `.bm`:
 </p>
 
 - **Overbit** (in progress, M31): a hero shooter in 3D, first person, 8 heroes with the
-  kits of Overwatch's (our own names and looks). First hero: **Rally**, a tank in a mech.
+  kits of Overwatch's (our own names and looks): the tanks **Rally** and **Kaiju** (two
+  mechs with their pilots), **Sarge**, **Frost**, **Fuse** and **Rail** for damage, the
+  supports **Orbit** and **Akari**; a training range, a benchmark, the reels.
 - **Astro Wing**: 3D flight.
 - **Titan Clash**: giant robots fighting, against the CPU or two players.
 - **Chaos Kitchen**: co-op cooking in 3D for 1 to 4 players.

@@ -4,7 +4,8 @@ function _init()
   Input.init()
   World.init()
   Quality.set(G.quality)
-  if OVERBIT_HERO and H[OVERBIT_HERO] then G.hero_id = OVERBIT_HERO end
+  if OVERBIT_HERO and H[OVERBIT_HERO] then G.hero_id = OVERBIT_HERO end     -- (the reel takes a list too)
+  if OVERBIT_QUALITY then G.qauto = false Quality.set(OVERBIT_QUALITY) end
   Modes.start(OVERBIT_START or "menu")
   log("overbit build " .. (OVERBIT_BUILD or "dev"))
 end

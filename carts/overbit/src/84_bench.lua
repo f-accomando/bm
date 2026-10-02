@@ -1,8 +1,9 @@
--- Benchmark (dev kit): how far the console goes. Mechs in a ring, running
--- and firing, more and more of them every 3 seconds at the chosen quality;
--- the average frame time of each step is kept. It stops when a step passes
--- 33 ms (30 fps) and shows the table: the last row under 16.7 ms is what
--- the console holds at 60 fps.
+-- Benchmark (dev kit): how far the console goes. Heroes in a ring (every
+-- hero of the roster in turn, mechs and people), running and firing, more
+-- and more of them every 3 seconds at the chosen quality; the average frame
+-- time of each step is kept. It stops when a step passes 33 ms (30 fps) and
+-- shows the table: the last row under 16.7 ms is what the console holds at
+-- 60 fps (a match has 12 heroes).
 
 local Bench = {}
 local STEPS = { 1, 2, 3, 4, 5, 6, 8, 10, 12, 14, 16, 20 }
@@ -26,10 +27,11 @@ function Bench.grow()
   Bench.i = Bench.i + 1
   local n = STEPS[Bench.i]
   if not n then Bench.finish() return end
-  -- the ring: every mech on the far team, some firing at the camera
+  -- the ring: every hero on the far team, some firing at the camera
   while #G.actors - 1 < n do
     local k = #G.actors
-    local a = Actors.spawn("rally", 2, 0, 0, 0, 0, { name = "M" .. k, dummy = true, respawn = 0.5 })
+    local id = HERO_ORDER[(k - 1) % #HERO_ORDER + 1]
+    local a = Actors.spawn(id, 2, 0, 0, 0, 0, { name = "H" .. k, dummy = true, respawn = 0.5 })
     a.bench_k = k
   end
   for _, a in ipairs(G.actors) do
@@ -39,7 +41,7 @@ function Bench.grow()
       a.home.x, a.home.z = a.x, a.z
     end
   end
-  Bench.t, Bench.sum, Bench.frames, Bench.worst = 0, 0, 0, 0
+  Bench.t, Bench.sum, Bench.frames, Bench.worst, Bench.usum, Bench.dsum = 0, 0, 0, 0, 0, 0
 end
 
 function Bench.finish()
@@ -48,9 +50,10 @@ function Bench.finish()
   local best = 0
   for _, r in ipairs(Bench.rows) do if r.ms <= 16.7 then best = r.n end end
   Bench.best = best
-  log(string.format("overbit bench quality %s: %d mechs at 60 fps", Quality.names[Bench.q + 1], best))
+  log(string.format("overbit bench quality %s: %d heroes at 60 fps", Quality.names[Bench.q + 1], best))
   for _, r in ipairs(Bench.rows) do
-    log(string.format("overbit bench %2d mechs %5.1f ms (worst %5.1f) %d tri %d px", r.n, r.ms, r.worst, r.tri, r.px))
+    log(string.format("overbit bench %2d heroes %5.1f ms (worst %5.1f, update %4.1f, 3D %4.1f) %d tri %d px", r.n, r.ms,
+      r.worst, r.upd, r.d3, r.tri, r.px))
   end
 end
 
@@ -78,11 +81,14 @@ function Bench.update()
   if Bench.t > 0.5 then
     local ms = stat(1)
     Bench.sum, Bench.frames = Bench.sum + ms, Bench.frames + 1
+    Bench.usum, Bench.dsum = Bench.usum + (G.update_ms or 0), Bench.dsum + stat(6)
     Bench.worst = max(Bench.worst, ms)
   end
   if Bench.t >= STEP_LEN then
     local avg = Bench.sum / max(1, Bench.frames)
-    Bench.rows[#Bench.rows + 1] = { n = STEPS[Bench.i], ms = avg, worst = Bench.worst, tri = stat(4), px = stat(5) }
+    local nf = max(1, Bench.frames)
+    Bench.rows[#Bench.rows + 1] = { n = STEPS[Bench.i], ms = avg, worst = Bench.worst, tri = stat(4), px = stat(5),
+                                    upd = Bench.usum / nf, d3 = Bench.dsum / nf }
     if avg > 33.3 then Bench.finish() else Bench.grow() end
   end
 end
@@ -94,19 +100,19 @@ function Bench.draw()
   Modes.draw_scene(cam)
   font("6x12")
   rectfill(0, 0, 320, 14, 0x101418)
-  print(string.format("BENCHMARK %s  %d mechs  %.1f ms", Quality.names[Bench.q + 1],
+  print(string.format("BENCHMARK %s  %d heroes  %.1f ms", Quality.names[Bench.q + 1],
     STEPS[min(Bench.i, #STEPS)] or 0, stat(1)), 4, 2, 0xFFFFFF)
   if Bench.done or #Bench.rows > 0 then
     local y = 18
     rectfill(196, 16, 122, 14 + 11 * #Bench.rows, 0x101418)
-    print("mechs   ms  worst", 200, y, 0xFFE070)
+    print("heroes  ms  worst", 200, y, 0xFFE070)
     for _, r in ipairs(Bench.rows) do
       y = y + 11
       print(string.format("%3d  %5.1f  %5.1f", r.n, r.ms, r.worst), 200, y, r.ms <= 16.7 and 0x80FF90 or 0xFF8080)
     end
   end
   if Bench.done then
-    local s = string.format("60 FPS UP TO %d MECHS", Bench.best)
+    local s = string.format("60 FPS UP TO %d HEROES", Bench.best)
     rectfill(80, 150, 160, 16, 0xF26A21)
     print(s, 160 - #s * 3, 152, 0xFFFFFF)
   end

@@ -53,9 +53,9 @@ def rifle(m, g, hx, hy, hz):
     for dx in (-0.022, 0.022):
         m.add(box(0.016, 0.03, 0.30).move(hx + dx, hy + 0.07, hz + 0.42), GUN_W, g, 1, 3)              # prongs
     m.add(box(0.026, 0.016, 0.26).move(hx, hy + 0.07, hz + 0.40), CYAN, g, 1, 3)                      # the coil
-    m.add(box(0.074, 0.012, 0.18).move(hx, hy + 0.14, hz + 0.05), CYAN, g, 2, 3)
+    m.add(box(0.074, 0.012, 0.18).move(hx, hy + 0.14, hz + 0.05), CYAN, g, 3, 3)
     m.add(box(0.04, 0.10, 0.05).move(hx, hy - 0.04, hz + 0.0), GUN, g, 1, 3)                          # grip
-    m.add(box(0.03, 0.06, 0.08).move(hx, hy + 0.17, hz + 0.0), GUN, g, 2, 3)                          # sight
+    m.add(box(0.03, 0.06, 0.08).move(hx, hy + 0.17, hz + 0.0), GUN, g, 3, 3)                          # sight
 
 
 def mesh(sk, name="rail"):
@@ -70,15 +70,15 @@ def mesh(sk, name="rail"):
                   chest=(1.0, 1.0), waist=0.95, hips=1.05, arms=0.95, legs_k=0.95)
     H, C, S, HP = B["head"], B["chest"], B["spine"], B["hips"]
     # -- the head: short hair, shaved on the right with the implant line
-    m.add(ellipsoid(0.092 * hs, 0.075 * hs, 0.1 * hs, segs=8, rings=4).move(-0.006, ny + 0.17 * hs, -0.012), HAIR, H, 2, 3)
-    m.add(ellipsoid(0.092 * hs, 0.075 * hs, 0.1 * hs, segs=6, rings=3).move(-0.006, ny + 0.17 * hs, -0.012), HAIR, H, 0, 1)
-    m.add(box(0.006, 0.006, 0.07 * hs).move(0.09 * hs, ny + 0.15 * hs, 0.0), CYAN, H, 2, 3)
+    m.add(ellipsoid(0.092 * hs, 0.075 * hs, 0.1 * hs, segs=8, rings=4).move(-0.006, ny + 0.17 * hs, -0.012), HAIR, H, 3, 3)
+    m.add(ellipsoid(0.092 * hs, 0.075 * hs, 0.1 * hs, segs=6, rings=3).move(-0.006, ny + 0.17 * hs, -0.012), HAIR, H, 0, 2)
+    m.add(box(0.006, 0.006, 0.07 * hs).move(0.09 * hs, ny + 0.15 * hs, 0.0), CYAN, H, 3, 3)
     m.add(box(0.006, 0.04 * hs, 0.006).move(0.09 * hs, ny + 0.13 * hs, 0.035 * hs), CYAN, H, 3, 3)
     humanoid.eyes(m, sk, b, EYE_W, EYE_I, x=0.034, y=0.13, z=0.086, r=0.013)
-    m.add(ellipsoid(0.014 * hs, 0.02 * hs, 0.02 * hs, segs=5, rings=3).move(0, ny + 0.105 * hs, 0.1 * hs), SKIN, H, 2, 3)
+    m.add(ellipsoid(0.014 * hs, 0.02 * hs, 0.02 * hs, segs=5, rings=3).move(0, ny + 0.105 * hs, 0.1 * hs), SKIN, H, 3, 3)
     # -- the coat: high collar, the white plate, gold piping, the long tails
     m.add(lathe([(0.075 * k, ny - 0.02 * k), (0.085 * k, ny + 0.06 * k), (0.09 * k, ny + 0.09 * k)], segs=8,
-                close_top=False), COAT2, C, 2, 3)
+                close_top=False), COAT2, C, 3, 3)
     m.add(hull([(-0.12 * k, cy + 0.20 * k, 0.09 * k), (0.12 * k, cy + 0.20 * k, 0.09 * k), (-0.11 * k, cy - 0.02 * k, 0.11 * k),
                 (0.11 * k, cy - 0.02 * k, 0.11 * k), (-0.10 * k, cy + 0.20 * k, 0.125 * k), (0.10 * k, cy + 0.20 * k, 0.125 * k),
                 (-0.09 * k, cy + 0.0, 0.135 * k), (0.09 * k, cy + 0.0, 0.135 * k)]), PLATE, C, 1, 3)
@@ -92,13 +92,13 @@ def mesh(sk, name="rail"):
     for sx in (-1, 1):                                     # epaulettes
         sh = sk.bones[B["upperarm.L" if sx < 0 else "upperarm.R"]][2]
         m.add(box(0.11 * k, 0.025 * k, 0.11 * k, bevel=0.01).move(sh[0], sh[1] + 0.06 * k, 0), GOLD if sx < 0 else CYBER,
-              B["upperarm.L" if sx < 0 else "upperarm.R"], 2, 3)
+              B["upperarm.L" if sx < 0 else "upperarm.R"], 3, 3)
     # -- the cybernetic right arm: white plates, cyan lines
     ua, fa, hd = B["upperarm.R"], B["forearm.R"], B["hand.R"]
     sh, el = sk.bones[ua][2], sk.bones[ua][3]
     wr = sk.bones[fa][3]
-    m.add(tube(sh, el, 0.064 * k, 0.054 * k, segs=6, caps=True), CYBER, ua, 2, 3)
-    m.add(tube(el, wr, 0.054 * k, 0.042 * k, segs=6, caps=True), CYBER, fa, 2, 3)
+    m.add(tube(sh, el, 0.064 * k, 0.054 * k, segs=6, caps=True), CYBER, ua, 3, 3)
+    m.add(tube(el, wr, 0.054 * k, 0.042 * k, segs=6, caps=True), CYBER, fa, 3, 3)
     m.add(tube((el[0] + 0.05 * k, el[1], el[2]), (wr[0] + 0.04 * k, wr[1], wr[2]), 0.008, 0.008, segs=3), CYAN, fa, 3, 3)
     m.add(tube((sh[0] + 0.06 * k, sh[1] - 0.04, sh[2]), (el[0] + 0.052 * k, el[1], el[2]), 0.008, 0.008, segs=3), CYAN, ua, 3, 3)
     # -- the rifle
@@ -163,29 +163,45 @@ def fp_skeleton():
     sk = Skeleton()
     sk.bone("root", None, (0, 0, 0), (0, 0.1, 0))
     sk.bone("gun", "root", (0.17, -0.21, 0.28), (0.17, -0.21, 0.92))
-    sk.bone("hand.L", "root", (0.04, -0.27, 0.52), (0.06, -0.23, 0.56))
+    sk.bone("hand.L", "root", (0.14, -0.26, 0.52), (0.16, -0.22, 0.56))
     return sk
 
 
 def fp_mesh(sk, name="rail_fp"):
+    """the rail rifle close up: a long angular navy body with white armour
+    on the sides, two prongs at the front and the cyan coil between them, a
+    sight; the cyber hand on the grip, a gloved hand on the front"""
     m = Mesh(name)
     g, L = sk.index["gun"], sk.index["hand.L"]
     x, y, z = 0.17, -0.21, 0.28
-    m.add(box(0.072, 0.11, 0.46, bevel=0.016).move(x, y + 0.04, z + 0.12), GUN, g)
-    m.add(box(0.074, 0.045, 0.28).move(x, y + 0.09, z + 0.06), GUN_W, g)
-    m.add(box(0.076, 0.012, 0.2).move(x, y + 0.116, z + 0.08), CYAN, g)
-    for dx in (-0.024, 0.024):
-        m.add(box(0.016, 0.032, 0.32).move(x + dx, y + 0.06, z + 0.48), GUN_W, g)
-    m.add(box(0.028, 0.014, 0.28).move(x, y + 0.06, z + 0.46), CYAN, g)
-    m.add(box(0.03, 0.05, 0.08).move(x, y + 0.15, z + 0.04), GUN, g)
-    m.add(box(0.034, 0.012, 0.012).move(x, y + 0.18, z + 0.04), CYAN, g)
-    # the cyber hand on the grip, the coat sleeve
-    fp.forearm(m, g, (x + 0.01, y - 0.07, z + 0.0), (x + 0.13, y - 0.25, z - 0.34), CYBER, r=0.045, cuff=COAT2)
-    m.add(tube((x + 0.06, y - 0.12, z - 0.10), (x + 0.03, y - 0.09, z - 0.04), 0.006, 0.006, segs=3), CYAN, g)
-    fp.fist(m, g, (x + 0.01, y - 0.07, z + 0.0), (x, y, z + 0.05), CYBER, r=0.042, thumb=-1)
-    # the left hand (gloved) under the front
-    fp.forearm(m, L, (0.07, -0.27, 0.54), (-0.17, -0.44, 0.16), COAT, r=0.05, cuff=GOLD)
-    fp.fist(m, L, (0.07, -0.27, 0.54), (0.15, -0.21, 0.57), COAT2, r=0.042, thumb=1)
+    m.add(hull([(x - 0.034, y - 0.03, z - 0.08), (x + 0.034, y - 0.03, z - 0.08), (x - 0.034, y + 0.08, z - 0.05),
+                (x + 0.034, y + 0.08, z - 0.05), (x - 0.03, y - 0.0, z + 0.34), (x + 0.03, y - 0.0, z + 0.34),
+                (x - 0.028, y + 0.06, z + 0.32), (x + 0.028, y + 0.06, z + 0.32)]), GUN, g)
+    for sx in (-1, 1):
+        m.add(hull([(x + sx * 0.035, y + 0.0, z - 0.04), (x + sx * 0.035, y + 0.07, z - 0.02),
+                    (x + sx * 0.031, y + 0.01, z + 0.22), (x + sx * 0.03, y + 0.055, z + 0.2),
+                    (x + sx * 0.028, y + 0.035, z + 0.28)]), GUN_W, g)
+        m.add(box(0.004, 0.006, 0.16).move(x + sx * 0.037, y + 0.045, z + 0.08), CYAN, g)
+    # the prongs and the coil glowing between them
+    for sx in (-1, 1):
+        m.add(hull([(x + sx * 0.012, y + 0.01, z + 0.3), (x + sx * 0.03, y + 0.01, z + 0.3), (x + sx * 0.012, y + 0.06, z + 0.3),
+                    (x + sx * 0.03, y + 0.06, z + 0.3), (x + sx * 0.02, y + 0.03, z + 0.66), (x + sx * 0.024, y + 0.045, z + 0.64)]),
+              GUN_W, g)
+    m.add(box(0.016, 0.018, 0.3).move(x, y + 0.035, z + 0.46), CYAN, g)
+    for i in range(4):
+        m.add(box(0.03, 0.03, 0.01).move(x, y + 0.035, z + 0.36 + i * 0.07), GUN, g)
+    # the sight: a long scope with a cyan lens
+    m.add(cylinder(0.018, 0.12, segs=8, axis="z").move(x, y + 0.11, z + 0.02), GUN, g)
+    m.add(cylinder(0.014, 0.006, segs=8, axis="z").move(x, y + 0.11, z + 0.141), CYAN, g)
+    m.add(box(0.02, 0.03, 0.03).move(x, y + 0.09, z + 0.08), GUN, g)
+    m.add(box(0.036, 0.09, 0.045).turn(rx=-14).move(x, y - 0.07, z - 0.02), GUN, g)        # grip
+    m.add(box(0.05, 0.07, 0.12).move(x, y + 0.02, z - 0.16), GUN_W, g)                       # stock
+    # the cyber hand on the grip, the coat sleeve with its gold cuff
+    fp.forearm(m, g, (x + 0.01, y - 0.09, z - 0.04), (x + 0.13, y - 0.27, z - 0.38), CYBER, r=0.046, cuff=COAT2)
+    m.add(tube((x + 0.06, y - 0.15, z - 0.17), (x + 0.03, y - 0.11, z - 0.08), 0.006, 0.006, segs=3), CYAN, g)
+    fp.fist(m, g, (x + 0.01, y - 0.09, z - 0.04), (x, y - 0.03, z + 0.01), CYBER, r=0.042, thumb=-1)
+    fp.forearm(m, L, (x - 0.03, y - 0.05, z + 0.24), (-0.18, -0.44, 0.02), COAT, r=0.05, cuff=GOLD)
+    fp.fist(m, L, (x - 0.03, y - 0.05, z + 0.24), (x + 0.015, y - 0.0, z + 0.27), COAT2, r=0.042, thumb=1)
     return m.weld()
 
 

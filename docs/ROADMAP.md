@@ -1751,6 +1751,49 @@ Passi (in quest'ordine, richiesto dall'autore):
   ferma e mentre si spara; il pad (levetta destra per mirare, R2 sparare, L2 Null Field,
   L1 propulsori, R1 missili, triangolo ultimate).
 
+**Passo 2 — gli altri 7 eroi: fatto sul PC (2026-10-02), da provare sul Pi.**
+- Arte: un corpo comune per le persone (`humanoid.py`: scheletro con le proporzioni di
+  ognuno, braccia sull'arma con la cinematica inversa, le clip standard, `body()` con i
+  pezzi lungo le ossa), mani e braccia in prima persona (`fp.py`), `geo.tube`. Ogni eroe ha
+  il suo modello, le sue animazioni speciali, l'arma in prima persona e i suoni.
+- **Kaiju** (D.Mon): BIG RED, un mech rosso con la cupola verde (Plasma Saber 65 danni a
+  colpo largo, Fusion Repeater da 30 colpi, Propulsors con 3 scatti di carburante, Power
+  Barrier esagonale che ferma i colpi e con l'attacco Surging Strike, Limit Break: un giro
+  completo della lama, 220 danni) e il pilota, un mostriciattolo verde (Mini Repeater,
+  Call Mech).
+- **Sarge** (Soldier: 76): fucile a impulsi (30 colpi, 9/s, la dispersione cresce),
+  Helix Rockets, Sprint, Biotic Field, Tactical Visor (i colpi trovano il bersaglio).
+- **Frost** (Mei): getto di gelo che rallenta, ghiacciolo (doppio alla testa),
+  Cryo-Freeze, Ice Wall (5 colonne con la loro vita che fermano tutti e tutti i colpi),
+  Blizzard (rallenta, ferisce, poi congela).
+- **Fuse** (Junkrat): granate che rimbalzano, Concussion Mine (anche per saltare), Steel
+  Trap, Boom Wheel guidata in terza persona, Total Mayhem (bombe quando cade).
+- **Rail** (Sojourn): proiettili che caricano l'energia, colpo rail (30 + l'energia),
+  Power Slide (e il salto alto), Disruptor Shot, Overclock (i colpi attraversano tutti).
+- **Orbit** (Juno): Mediblaster che cura gli amici e ferisce i nemici, Pulsar Torpedoes
+  (fino a 4 bersagli), doppio salto e volo planato, Glide Boost, Hyper Ring, Orbital Ray.
+- **Akari** (Kiriko): ofuda che trovano gli amici, kunai (triplo alla testa), Swift Step,
+  Protection Suzu, Kitsune Rush (una strada di portali: più veloci, più colpi, ricariche).
+- Sistemi comuni: barriere che fermano i colpi, oggetti con la loro vita nel mondo,
+  stati (congelato, bloccato, rallentato, più veloce, intoccabile), i nemici non si
+  attraversano, numeri verdi delle cure, telecamere degli eroi, un amico ferito nel
+  poligono per i supporti; nel menu **HERO** (sinistra/destra) per scegliere; F5 nel dev
+  kit fa perdere la vita (un mech si rompe e il pilota salta fuori).
+- **Reel**: tutti gli eroi, abilità per abilità e un po' di prima persona (100 riprese);
+  `make overbit-reel-heroes` → `docs/img/overbit-reel-heroes.mp4` e la GIF delle 7
+  ultimate.
+- **Benchmark**: ora con tutti gli eroi in cerchio a 9 m (il caso peggiore: tutti vicini),
+  con le colonne di update e disegno 3D. Stime (PC ×21, rumorose di ±3 ms): 12 eroi
+  ~16–18 ms in HIGH, ~25 ms in ULTRA, ~16 ms in MEDIUM; la qualità automatica scende quando
+  serve. Il disegno è la spesa maggiore: un eroe a pieno dettaglio ~0,6 ms (Rally, Sarge),
+  ~0,9 ms (Frost, Fuse), la parte per faccia di `r3d_draw_flags` per prima (armprof):
+  da ottimizzare con il motore del mondo (passo 3). Dettaglio pieno sotto i 7 m × la
+  qualità, ombre dei personaggi con il modello povero.
+- Test: `make test-overbit` gioca anche ogni nuovo eroe nel poligono (abilità e ultimate
+  controllate nel log) e tutto il reel.
+- **Da provare sul Pi**: nel menu HERO per scegliere l'eroe, poi il poligono; il
+  BENCHMARK (foto della tabella: ora dice anche update e 3D).
+
 ## Rischi principali
 | Rischio | Mitigazione |
 |---------|-------------|

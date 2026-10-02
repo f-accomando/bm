@@ -443,18 +443,39 @@ def fp_skeleton():
 
 
 def fp_mesh(sk, name="kaiju_fp"):
+    """the mech's forearms from the dome: layered red gauntlets with a
+    yellow stripe and grey knuckles; the left holds the plasma blade on a
+    dark hilt, the right has the hexagon emitter and two barrels"""
     m = Mesh(name)
     L, BL, R = sk.index["arm.L"], sk.index["blade"], sk.index["arm.R"]
     for bone, x in ((L, -1), (R, 1)):
-        m.add(hull([(x * 0.98, -0.40, -0.10), (x * 0.62, -0.40, -0.10), (x * 0.98, -0.70, -0.10), (x * 0.62, -0.70, -0.10),
-                    (x * 0.94, -0.42, 0.85), (x * 0.66, -0.42, 0.85), (x * 0.94, -0.68, 0.85), (x * 0.66, -0.68, 0.85)]),
-              RED, bone, 0, 3)
-        m.add(box(0.30, 0.04, 0.70).move(x * 0.80, -0.38, 0.40), YELLOW, bone, 0, 3)
-    m.add(hull([(-0.80, -0.50, 0.85), (-0.80, -0.44, 0.85), (-0.80, -0.50, 2.2), (-0.77, -0.47, 1.0),
-                (-0.83, -0.47, 1.0), (-0.80, -0.45, 2.1)]), GREEN, BL, 0, 3)
-    m.add(facing(hexagon(0.22).move(0.80, -0.55, 0.86), (0, 0, 1)), GREEN2, R, 0, 3)
-    m.add(cylinder(0.045, 0.25, segs=8, caps=False, axis="z").move(0.72, -0.66, 0.85), DARK, R, 0, 3)
-    m.add(cylinder(0.045, 0.25, segs=8, caps=False, axis="z").move(0.88, -0.66, 0.85), DARK, R, 0, 3)
+        cx = x * 0.80
+        # the gauntlet: wide at the back, narrower at the wrist
+        m.add(hull([(cx - 0.17, -0.42, -0.1), (cx + 0.17, -0.42, -0.1), (cx - 0.17, -0.72, -0.1), (cx + 0.17, -0.72, -0.1),
+                    (cx - 0.13, -0.45, 0.78), (cx + 0.13, -0.45, 0.78), (cx - 0.13, -0.67, 0.78), (cx + 0.13, -0.67, 0.78)]),
+              RED, bone)
+        # the top plate, a step higher, and its yellow stripe
+        m.add(hull([(cx - 0.12, -0.40, -0.05), (cx + 0.12, -0.40, -0.05), (cx - 0.1, -0.37, 0.55), (cx + 0.1, -0.37, 0.55),
+                    (cx - 0.13, -0.44, 0.6), (cx + 0.13, -0.44, 0.6), (cx - 0.15, -0.44, -0.05), (cx + 0.15, -0.44, -0.05)]),
+              RED2, bone)
+        m.add(box(0.05, 0.012, 0.5).move(cx, -0.37, 0.25), YELLOW, bone)
+        # the knuckle block and the joints
+        m.add(box(0.24, 0.17, 0.1, bevel=0.02).move(cx, -0.56, 0.82), GREY, bone)
+        for i in range(3):
+            m.add(box(0.06, 0.05, 0.04).move(cx - 0.07 + i * 0.07, -0.47, 0.88), DARK, bone)
+        m.add(cylinder(0.06, 0.36, segs=8, axis="x").move(cx - 0.18, -0.70, 0.2), GREY, bone)
+    # the blade: a dark hilt, the green edge, a brighter core
+    m.add(box(0.07, 0.07, 0.14).move(-0.80, -0.47, 0.92), DARK, BL)
+    m.add(hull([(-0.80, -0.50, 0.95), (-0.80, -0.43, 0.95), (-0.80, -0.50, 2.2), (-0.775, -0.47, 1.0),
+                (-0.825, -0.47, 1.0), (-0.80, -0.455, 2.1)]), GREEN, BL)
+    m.add(box(0.012, 0.012, 1.0).move(-0.80, -0.465, 1.5), Mat(0xE0FFE8, emissive=True), BL)
+    # right: the hexagon emitter on a dark ring, the barrels below
+    m.add(cylinder(0.25, 0.05, segs=6, axis="z").turn(rz=30).move(0.80, -0.55, 0.82), DARK, R)
+    m.add(facing(hexagon(0.21).move(0.80, -0.55, 0.875), (0, 0, 1)), GREEN2, R)
+    m.add(facing(hexagon(0.09).move(0.80, -0.55, 0.88), (0, 0, 1)), Mat(0xE0FFE8, emissive=True), R)
+    for dx in (-0.08, 0.08):
+        m.add(cylinder(0.045, 0.28, segs=8, axis="z").move(0.80 + dx, -0.70, 0.82), DARK, R)
+        m.add(cylinder(0.026, 0.01, segs=8, axis="z").move(0.80 + dx, -0.70, 1.1), GREEN, R)
     return m.weld()
 
 
@@ -560,7 +581,13 @@ def build():
     sk = pilot_skeleton()
     out.append((pilot_mesh(sk), sk, pilot_clips(sk)))
     sk = fp_skeleton()
-    out.append((fp_mesh(sk), sk, fp_clips(sk)))
+    fm = fp_mesh(sk)
+    # the arms a little higher and closer in than they are on the mech:
+    # more of the gauntlets shows in the lower corners
+    move = lambda p: (p[0] * 0.9, p[1] + 0.13, p[2])        # noqa: E731
+    fm.verts = [move(v) for v in fm.verts]
+    sk.bones = [(n, par, move(h), move(t)) for n, par, h, t in sk.bones]
+    out.append((fm, sk, fp_clips(sk)))
     sk = pfp_skeleton()
     out.append((pfp_mesh(sk), sk, pfp_clips(sk)))
     return out

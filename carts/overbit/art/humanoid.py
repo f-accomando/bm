@@ -325,25 +325,25 @@ def body(m, sk, b, mat, chest=(1.0, 1.0), waist=1.0, hips=1.0, arms=1.0, legs_k=
         hs = b.head
         hp = (0, ny + 0.125 * k * hs, 0.01)
         hr = (0.088 * k * hs, 0.108 * k * hs, 0.098 * k * hs)
-        m.add(ellipsoid(*hr, segs=8, rings=6).move(*hp), skin, B["head"], 2, 3)
-        m.add(ellipsoid(*hr, segs=6, rings=4).move(*hp), skin, B["head"], 0, 1)
-    m.add(tube((0, ny - 0.03 * k, 0), (0, ny + 0.06 * k, 0.005), 0.045 * k, 0.042 * k, segs=6), skin, B["head"], 2, 3)
+        m.add(ellipsoid(*hr, segs=8, rings=6).move(*hp), skin, B["head"], 3, 3)
+        m.add(ellipsoid(*hr, segs=6, rings=4).move(*hp), skin, B["head"], 0, 2)
+    m.add(tube((0, ny - 0.03 * k, 0), (0, ny + 0.06 * k, 0.005), 0.045 * k, 0.042 * k, segs=6), skin, B["head"], 3, 3)
     # the torso: chest (a lathe, flattened front to back), waist, hips
     m.add(lathe([(0.12 * k * cw, cy - 0.03 * k), (0.172 * k * cw, cy + 0.10 * k), (0.185 * k * cw, cy + 0.20 * k),
-                 (0.11 * k * cw, ny + 0.02 * k)], segs=8).scale(1, 1, 0.66 * cd), top, B["chest"], 2, 3)
+                 (0.11 * k * cw, ny + 0.02 * k)], segs=8).scale(1, 1, 0.66 * cd), top, B["chest"], 3, 3)
     m.add(lathe([(0.12 * k * cw, cy - 0.03 * k), (0.18 * k * cw, cy + 0.15 * k), (0.11 * k * cw, ny + 0.02 * k)],
-                segs=6).scale(1, 1, 0.66 * cd), top, B["chest"], 0, 1)
+                segs=6).scale(1, 1, 0.66 * cd), top, B["chest"], 0, 2)
     m.add(lathe([(0.118 * k * waist, hy + 0.05 * k), (0.112 * k * waist, cy - 0.06 * k), (0.125 * k * cw, cy + 0.0)],
-                segs=8).scale(1, 1, 0.68 * cd), top2, B["spine"], 2, 3)
+                segs=8).scale(1, 1, 0.68 * cd), top2, B["spine"], 3, 3)
     m.add(lathe([(0.118 * k * waist, hy + 0.05 * k), (0.125 * k * cw, cy + 0.0)],
-                segs=6).scale(1, 1, 0.68 * cd), top2, B["spine"], 0, 1)
+                segs=6).scale(1, 1, 0.68 * cd), top2, B["spine"], 0, 2)
     if belt:
         m.add(lathe([(0.123 * k * waist, hy + 0.03 * k), (0.121 * k * waist, hy + 0.075 * k)], segs=8, close_top=False,
-                    close_bottom=False).scale(1, 1, 0.71 * cd), belt, B["spine"], 2, 3)
+                    close_bottom=False).scale(1, 1, 0.71 * cd), belt, B["spine"], 3, 3)
     m.add(lathe([(0.118 * k * hips, hy - 0.10 * k), (0.128 * k * hips, hy - 0.01 * k), (0.12 * k * hips, hy + 0.06 * k)],
-                segs=8).scale(1, 1, 0.72 * cd), pants, B["hips"], 2, 3)
+                segs=8).scale(1, 1, 0.72 * cd), pants, B["hips"], 3, 3)
     m.add(lathe([(0.118 * k * hips, hy - 0.10 * k), (0.12 * k * hips, hy + 0.06 * k)],
-                segs=6).scale(1, 1, 0.72 * cd), pants, B["hips"], 0, 1)
+                segs=6).scale(1, 1, 0.72 * cd), pants, B["hips"], 0, 2)
     for s, x in (("L", -1), ("R", 1)):
         UA, FA, HD = B[f"upperarm.{s}"], B[f"forearm.{s}"], B[f"hand.{s}"]
         TH, SH, FT = B[f"thigh.{s}"], B[f"shin.{s}"], B[f"foot.{s}"]
@@ -352,11 +352,11 @@ def body(m, sk, b, mat, chest=(1.0, 1.0), waist=1.0, hips=1.0, arms=1.0, legs_k=
         hd, ht = sk.bones[HD][2], sk.bones[HD][3]
         ra = arms
         m.add(ellipsoid(0.068 * k * ra, 0.064 * k * ra, 0.072 * k * ra, segs=6, rings=4).move(sh[0], sh[1] + 0.008, 0),
-              sleeve, UA, 2, 3)
-        m.add(tube(sh, el, 0.060 * k * ra, 0.050 * k * ra, segs=6), sleeve, UA, 2, 3)
-        m.add(tube(sh, el, 0.060 * k * ra, 0.050 * k * ra, segs=4), sleeve, UA, 0, 1)
-        m.add(tube(el, wr, 0.050 * k * ra, 0.038 * k * ra, segs=6), cuff, FA, 2, 3)
-        m.add(tube(el, wr, 0.050 * k * ra, 0.038 * k * ra, segs=4), cuff, FA, 0, 1)
+              sleeve, UA, 3, 3)
+        m.add(tube(sh, el, 0.060 * k * ra, 0.050 * k * ra, segs=6), sleeve, UA, 3, 3)
+        m.add(tube(sh, el, 0.060 * k * ra, 0.050 * k * ra, segs=4), sleeve, UA, 0, 2)
+        m.add(tube(el, wr, 0.050 * k * ra, 0.038 * k * ra, segs=6), cuff, FA, 3, 3)
+        m.add(tube(el, wr, 0.050 * k * ra, 0.038 * k * ra, segs=4), cuff, FA, 0, 2)
         if hands:
             d = (ht[0] - hd[0], ht[1] - hd[1], ht[2] - hd[2])
             m.add(hull([(hd[0] - 0.032 * k, hd[1] + 0.015, hd[2] - 0.02), (hd[0] + 0.032 * k, hd[1] + 0.015, hd[2] - 0.02),
@@ -366,10 +366,10 @@ def body(m, sk, b, mat, chest=(1.0, 1.0), waist=1.0, hips=1.0, arms=1.0, legs_k=
         th, kn = sk.bones[TH][2], sk.bones[TH][3]
         an = sk.bones[SH][3]
         rl = legs_k
-        m.add(tube(th, kn, 0.088 * k * rl, 0.064 * k * rl, segs=7), pants, TH, 2, 3)
-        m.add(tube(th, kn, 0.088 * k * rl, 0.064 * k * rl, segs=4), pants, TH, 0, 1)
-        m.add(tube(kn, an, 0.064 * k * rl, 0.05 * k * rl, segs=6), shin, SH, 2, 3)
-        m.add(tube(kn, an, 0.064 * k * rl, 0.05 * k * rl, segs=4), shin, SH, 0, 1)
+        m.add(tube(th, kn, 0.088 * k * rl, 0.064 * k * rl, segs=7), pants, TH, 3, 3)
+        m.add(tube(th, kn, 0.088 * k * rl, 0.064 * k * rl, segs=4), pants, TH, 0, 2)
+        m.add(tube(kn, an, 0.064 * k * rl, 0.05 * k * rl, segs=6), shin, SH, 3, 3)
+        m.add(tube(kn, an, 0.064 * k * rl, 0.05 * k * rl, segs=4), shin, SH, 0, 2)
         if boots:
             m.add(hull([(an[0] - 0.055 * k, 0.0, -0.065 * k), (an[0] + 0.055 * k, 0.0, -0.065 * k),
                         (an[0] - 0.055 * k, 0.0, 0.18 * k), (an[0] + 0.055 * k, 0.0, 0.18 * k),

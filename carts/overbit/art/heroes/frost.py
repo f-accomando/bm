@@ -54,22 +54,22 @@ def blaster(m, g, hx, hy, hz, lo_detail=True):
     m.add(box(0.075, 0.10, 0.30).move(hx, hy + 0.045, hz + 0.10), WHITE, g, 0, 0)
     m.add(cylinder(0.034, 0.22, segs=6, axis="z").move(hx, hy + 0.115, hz + 0.0), ICE, g, 1, 3)        # the cell on top
     m.add(lathe([(0.05, 0.0), (0.058, 0.03), (0.04, 0.07)], segs=6).turn(rx=90).move(hx, hy + 0.05, hz + 0.25),
-          PARKA2, g, 2, 3)                                                                               # nozzle
-    m.add(cylinder(0.026, 0.02, segs=8, axis="z").move(hx, hy + 0.05, hz + 0.32), ICE, g, 2, 3)
+          PARKA2, g, 3, 3)                                                                               # nozzle
+    m.add(cylinder(0.026, 0.02, segs=8, axis="z").move(hx, hy + 0.05, hz + 0.32), ICE, g, 3, 3)
     m.add(box(0.04, 0.09, 0.05).move(hx, hy - 0.03, hz + 0.0), DARK, g, 1, 3)                          # grip
-    m.add(box(0.035, 0.08, 0.04).move(hx, hy - 0.02, hz + 0.20), DARK, g, 2, 3)                        # front grip
-    m.add(box(0.08, 0.012, 0.18).move(hx, hy + 0.0, hz + 0.10), PARKA2, g, 2, 3)                       # stripe
+    m.add(box(0.035, 0.08, 0.04).move(hx, hy - 0.02, hz + 0.20), DARK, g, 3, 3)                        # front grip
+    m.add(box(0.08, 0.012, 0.18).move(hx, hy + 0.0, hz + 0.10), PARKA2, g, 3, 3)                       # stripe
 
 
 def drone(m, bone, x, y, z, s=1.0):
     """Pip: a white ball with a dark face and a blue eye, two little fins"""
-    m.add(ellipsoid(0.09 * s, 0.085 * s, 0.09 * s, segs=8, rings=5).move(x, y, z), WHITE, bone, 2, 3)
-    m.add(ellipsoid(0.09 * s, 0.085 * s, 0.09 * s, segs=5, rings=3).move(x, y, z), WHITE, bone, 0, 1)
+    m.add(ellipsoid(0.09 * s, 0.085 * s, 0.09 * s, segs=8, rings=5).move(x, y, z), WHITE, bone, 3, 3)
+    m.add(ellipsoid(0.09 * s, 0.085 * s, 0.09 * s, segs=5, rings=3).move(x, y, z), WHITE, bone, 0, 2)
     m.add(ellipsoid(0.06 * s, 0.045 * s, 0.03 * s, segs=6, rings=3).move(x, y + 0.01 * s, z + 0.07 * s), DARK, bone, 1, 3)
     m.add(ellipsoid(0.022 * s, 0.022 * s, 0.012 * s, segs=5, rings=3).move(x, y + 0.012 * s, z + 0.095 * s), ICE, bone, 1, 3)
     for sx in (-1, 1):
         m.add(hull([(x + sx * 0.08 * s, y + 0.02 * s, z - 0.02 * s), (x + sx * 0.08 * s, y - 0.02 * s, z - 0.02 * s),
-                    (x + sx * 0.08 * s, y, z + 0.03 * s), (x + sx * 0.14 * s, y + 0.05 * s, z - 0.03 * s)]), PARKA2, bone, 2, 3)
+                    (x + sx * 0.08 * s, y, z + 0.03 * s), (x + sx * 0.14 * s, y + 0.05 * s, z - 0.03 * s)]), PARKA2, bone, 3, 3)
 
 
 def mesh(sk, name="frost"):
@@ -84,46 +84,46 @@ def mesh(sk, name="frost"):
                   chest=(1.28, 1.35), waist=1.5, hips=1.32, arms=1.45, legs_k=1.05)
     H, C, S, HP = B["head"], B["chest"], B["spine"], B["hips"]
     # -- the head: hair cap with a fringe, the bun and its snowflake pin, round glasses
-    m.add(ellipsoid(0.095 * hs, 0.082 * hs, 0.104 * hs, segs=8, rings=4).move(0, ny + 0.168 * hs, -0.01), HAIR, H, 2, 3)
-    m.add(ellipsoid(0.095 * hs, 0.082 * hs, 0.104 * hs, segs=6, rings=3).move(0, ny + 0.168 * hs, -0.01), HAIR, H, 0, 1)
+    m.add(ellipsoid(0.095 * hs, 0.082 * hs, 0.104 * hs, segs=8, rings=4).move(0, ny + 0.168 * hs, -0.01), HAIR, H, 3, 3)
+    m.add(ellipsoid(0.095 * hs, 0.082 * hs, 0.104 * hs, segs=6, rings=3).move(0, ny + 0.168 * hs, -0.01), HAIR, H, 0, 2)
     m.add(hull([(-0.085 * hs, ny + 0.19 * hs, 0.06 * hs), (0.085 * hs, ny + 0.19 * hs, 0.06 * hs),
                 (-0.07 * hs, ny + 0.15 * hs, 0.095 * hs), (0.04 * hs, ny + 0.155 * hs, 0.098 * hs),
-                (0, ny + 0.215 * hs, 0.05 * hs)], smooth=True), HAIR, H, 2, 3)
+                (0, ny + 0.215 * hs, 0.05 * hs)], smooth=True), HAIR, H, 3, 3)
     m.add(ellipsoid(0.058 * hs, 0.052 * hs, 0.058 * hs, segs=7, rings=4).move(0, ny + 0.255 * hs, -0.045 * hs), HAIR, H, 1, 3)
     for a in (0, 60, 120):
-        m.add(box(0.075 * hs, 0.012, 0.01).turn(rz=a).move(-0.045 * hs, ny + 0.26 * hs, 0.012 * hs), ICE, H, 2, 3)
+        m.add(box(0.075 * hs, 0.012, 0.01).turn(rz=a).move(-0.045 * hs, ny + 0.26 * hs, 0.012 * hs), ICE, H, 3, 3)
     humanoid.eyes(m, sk, b, EYE_W, EYE_I, x=0.035, y=0.128, z=0.088, r=0.014)
     for sx in (-1, 1):
-        m.add(cylinder(0.026 * hs, 0.008, segs=8, axis="z").move(sx * 0.036 * hs, ny + 0.128 * hs, 0.098 * hs), FRAME, H, 2, 3)
-        m.add(cylinder(0.021 * hs, 0.009, segs=8, axis="z").move(sx * 0.036 * hs, ny + 0.128 * hs, 0.1 * hs), LENS, H, 2, 3)
-    m.add(box(0.02 * hs, 0.006, 0.006).move(0, ny + 0.13 * hs, 0.104 * hs), FRAME, H, 2, 3)
-    m.add(ellipsoid(0.012 * hs, 0.01 * hs, 0.01 * hs, segs=5, rings=3).move(0, ny + 0.10 * hs, 0.105 * hs), SKIN, H, 2, 3)
+        m.add(cylinder(0.026 * hs, 0.008, segs=8, axis="z").move(sx * 0.036 * hs, ny + 0.128 * hs, 0.098 * hs), FRAME, H, 3, 3)
+        m.add(cylinder(0.021 * hs, 0.009, segs=8, axis="z").move(sx * 0.036 * hs, ny + 0.128 * hs, 0.1 * hs), LENS, H, 3, 3)
+    m.add(box(0.02 * hs, 0.006, 0.006).move(0, ny + 0.13 * hs, 0.104 * hs), FRAME, H, 3, 3)
+    m.add(ellipsoid(0.012 * hs, 0.01 * hs, 0.01 * hs, segs=5, rings=3).move(0, ny + 0.10 * hs, 0.105 * hs), SKIN, H, 3, 3)
     # -- the parka: fur hood down round the neck, the hem, zip and pockets, the cuffs
     m.add(lathe([(0.10 * k, ny - 0.05 * k), (0.14 * k, ny - 0.01 * k), (0.12 * k, ny + 0.05 * k), (0.07 * k, ny + 0.06 * k)],
-                segs=8, close_top=False).scale(1, 1, 0.9).move(0, 0, -0.02), FUR, C, 2, 3)
+                segs=8, close_top=False).scale(1, 1, 0.9).move(0, 0, -0.02), FUR, C, 3, 3)
     m.add(hull([(-0.12 * k, ny + 0.04 * k, -0.08 * k), (0.12 * k, ny + 0.04 * k, -0.08 * k), (-0.10 * k, ny - 0.14 * k, -0.15 * k),
-                (0.10 * k, ny - 0.14 * k, -0.15 * k), (0, ny + 0.06 * k, -0.16 * k)], smooth=True), PARKA, C, 2, 3)  # hood
+                (0.10 * k, ny - 0.14 * k, -0.15 * k), (0, ny + 0.06 * k, -0.16 * k)], smooth=True), PARKA, C, 3, 3)  # hood
     m.add(lathe([(0.20 * k, hy - 0.16 * k), (0.19 * k, hy - 0.04 * k), (0.165 * k, hy + 0.08 * k)], segs=8,
-                close_top=False).scale(1, 1, 0.8), PARKA, HP, 2, 3)
+                close_top=False).scale(1, 1, 0.8), PARKA, HP, 3, 3)
     m.add(lathe([(0.20 * k, hy - 0.16 * k), (0.165 * k, hy + 0.08 * k)], segs=6, close_top=False).scale(1, 1, 0.8),
-          PARKA, HP, 0, 1)
+          PARKA, HP, 0, 2)
     m.add(lathe([(0.205 * k, hy - 0.17 * k), (0.205 * k, hy - 0.13 * k)], segs=8, close_top=False, close_bottom=False)
           .scale(1, 1, 0.82), PARKA2, HP, 3, 3)
-    m.add(box(0.016 * k, 0.40 * k, 0.012).move(0, cy - 0.02 * k, 0.163 * k), PARKA2, C, 2, 3)          # zip
+    m.add(box(0.016 * k, 0.40 * k, 0.012).move(0, cy - 0.02 * k, 0.163 * k), PARKA2, C, 3, 3)          # zip
     for sx in (-1, 1):
-        m.add(box(0.07 * k, 0.06 * k, 0.02).move(sx * 0.10 * k, hy - 0.02 * k, 0.15 * k), PARKA2, HP, 2, 3)
+        m.add(box(0.07 * k, 0.06 * k, 0.02).move(sx * 0.10 * k, hy - 0.02 * k, 0.15 * k), PARKA2, HP, 3, 3)
     # the cryo tank on the back, with its glowing window and two straps
     m.add(cylinder(0.075 * k, 0.30 * k, segs=8).move(0, cy - 0.08 * k, -0.17 * k), METAL, C, 1, 3)
     m.add(cylinder(0.075 * k, 0.30 * k, segs=5).move(0, cy - 0.08 * k, -0.17 * k), METAL, C, 0, 0)
     m.add(cylinder(0.05 * k, 0.20 * k, segs=6).move(0, cy - 0.03 * k, -0.20 * k), ICE, C, 1, 3)
     m.add(ellipsoid(0.075 * k, 0.03 * k, 0.075 * k, segs=8, rings=3).move(0, cy + 0.22 * k, -0.17 * k), DARK, C, 1, 3)
     for sx in (-1, 1):
-        m.add(box(0.03 * k, 0.03 * k, 0.30 * k).move(sx * 0.09 * k, cy + 0.17 * k, -0.02 * k), DARK, C, 2, 3)
+        m.add(box(0.03 * k, 0.03 * k, 0.30 * k).move(sx * 0.09 * k, cy + 0.17 * k, -0.02 * k), DARK, C, 3, 3)
     # fur on the boots
     for s in ("L", "R"):
         an = sk.bones[B[f"foot.{s}"]][2]
         m.add(lathe([(0.07 * k, an[1] + 0.06 * k), (0.075 * k, an[1] + 0.12 * k)], segs=8, close_bottom=False)
-              .move(an[0], 0, an[2]), FUR, B[f"shin.{s}"], 2, 3)
+              .move(an[0], 0, an[2]), FUR, B[f"shin.{s}"], 3, 3)
     # -- the blaster
     g = B["gun"]
     hx, hy2, hz = sk.bones[g][2]

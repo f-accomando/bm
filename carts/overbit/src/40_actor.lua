@@ -203,17 +203,30 @@ function Actors.frozen(a)
   return a.fx.frozen_t and a.fx.frozen_t > 0
 end
 
--- the timers of the status effects
+-- the timers of the status effects: the fields whose name ends in "_t"
+-- (the answer kept per name: no new strings every frame)
+local is_timer = setmetatable({}, { __index = function(t, k)
+  local v = type(k) == "string" and k:sub(-2) == "_t"
+  t[k] = v
+  return v
+end })
+local is_cd = setmetatable({}, { __index = function(t, k)
+  local v = type(k) == "string" and k:sub(-3) == "_cd"
+  t[k] = v
+  return v
+end })
+
 function Actors.tick_fx(a)
-  for k, v in pairs(a.fx) do
-    if k:sub(-2) == "_t" and v > 0 then a.fx[k] = v - DT end
+  local fx = a.fx
+  for k, v in pairs(fx) do
+    if is_timer[k] and v > 0 then fx[k] = v - DT end
   end
   -- Kitsune Rush: the cooldowns run twice as fast, the weapon half again
   if a.fx.rush_t and a.fx.rush_t > 0 then
     for k, v in pairs(a.st) do
       if type(v) == "number" and v > 0 then
         if k == "fire_cd" then a.st[k] = max(0, v - DT * 0.5)
-        elseif k:sub(-3) == "_cd" then a.st[k] = max(0, v - DT) end
+        elseif is_cd[k] then a.st[k] = max(0, v - DT) end
       end
     end
   end
@@ -398,7 +411,7 @@ end
 function Actors.detail(d)
   local q = G.quality
   local k = ({ 0.45, 0.65, 1, 1.3, 1.7 })[q + 1]
-  if d < 9 * k then return q >= 2 and 3 or 2 end
+  if d < 7 * k then return q >= 2 and 3 or 2 end
   if d < 20 * k then return q >= 1 and 2 or 1 end
   if d < 38 * k then return 1 end
   return 0
@@ -413,14 +426,22 @@ function Actors.draw(cx, cy, cz, skip)
       local flags = (3 - det) * 16
       if q >= 2 then flags = flags + 4 end           -- Gouraud
       local sc = a.form.scale or 1
-      if q >= 3 and d < 30 then
-        draw3d(a.mesh, a.x, a.y, a.z, 0, a.yaw, 0, sc, flags + 8)   -- the shadow on the ground
+      if q >= 3 and d < 30 then                      -- the shadow on the ground: a coarse model is enough
+        draw3d(a.mesh, a.x, a.y, a.z, 0, a.yaw, 0, sc, (3 - min(det, 1)) * 16 + 8)
       end
       draw3d(a.mesh, a.x, a.y, a.z, 0, a.yaw, 0, sc, flags)
       if a.hero.draw_extra then a.hero.draw_extra(a, d) end
       if a.alive and Actors.frozen(a) then
         local k = a.height / 3.2 * 1.12
-        draw3d(Props.ice_mesh(true), a.x, a.y - 0.05, a.z, 0, a.yaw, 0, max(k, (a.radius + 0.1) / 0.62), 0)
+        local ice = Props.ice_mesh(true)
+        if a.radius > 0.6 then                   -- a mech: three blocks round it
+          for i = 0, 2 do
+            local an = a.yaw + i * 2 * pi / 3
+            draw3d(ice, a.x + sin(an) * a.radius * 0.55, a.y - 0.05, a.z + cos(an) * a.radius * 0.55, 0, an, 0, k, 0)
+          end
+        else
+          draw3d(ice, a.x, a.y - 0.05, a.z, 0, a.yaw, 0, max(k, (a.radius + 0.1) / 0.62), 0)
+        end
       end
     end
   end

@@ -111,6 +111,15 @@ screenshot in `docs/img/`), `README_OLD.md` (il README completo, in italiano),
   `rig.py` scheletri e clip, `heroes/<eroe>.py`), suoni da `art/sounds.py`.
 - Convenzioni: metri, y in alto, un personaggio guarda +z e la sua destra è +x (ossa "L" a
   −x); yaw a → avanti (sin a, 0, cos a). Facce in senso orario viste da fuori.
+- Eroi: il kit in `src/5x_<eroe>.lua` (tabella in `H`, forme, `update`, `draw_fp`, `hud`,
+  ganci `draw_extra`, `draw_hud`, `camera`, `on_lethal`...), il modello in
+  `art/heroes/<eroe>.py`. Le persone usano il corpo comune (`humanoid.py`: scheletro,
+  `body()`, armi tenute con IK, clip standard) e `fp.py` per mani e braccia in prima
+  persona. Livelli di dettaglio: i pezzi piccoli solo al 3, le versioni povere fino al 2.
+  Sistemi comuni: barriere e props (`45_proj`, `47_props`), stati (`frozen_t`,
+  `rooted_t`, `slow_t`, `haste_t`, `rush_t`, `invuln_t`), `Actors.cone`, numeri delle cure.
+- Test e reel per eroe: `build.py --hero <id>` (anche una lista per il reel), le cartucce
+  `range-<eroe>.bm` di `make test-overbit`; `make overbit-reel-heroes` per il video.
 - **bmhost** (`make bmhost`, `tests/host/`): il runtime vero delle cartucce sul PC; per
   vedere i frame (`--shots`), registrare (`--video`, `--wav`), input da script,
   `--clock-scale 21` per stimare i ms del Pi. `make test-overbit`, `make overbit-reel`.

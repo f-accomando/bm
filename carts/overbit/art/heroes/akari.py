@@ -68,7 +68,7 @@ def kunai(m, bone, hx, hy, hz, lo=1):
                 (hx, hy - 0.01, hz + 0.2)]), STEEL, bone, lo, 3)
     m.add(cylinder(0.008, 0.08, segs=4, axis="z").move(hx, hy - 0.01, hz + 0.0), HAIR, bone, lo, 3)
     m.add(lathe([(0.016, 0.0), (0.016, 0.006)], segs=6, close_top=False, close_bottom=False).turn(rx=90)
-          .move(hx, hy - 0.01, hz - 0.01), RED, bone, 2, 3)
+          .move(hx, hy - 0.01, hz - 0.01), RED, bone, 3, 3)
 
 
 def mesh(sk, name="akari"):
@@ -83,33 +83,33 @@ def mesh(sk, name="akari"):
                   chest=(0.95, 1.0), waist=0.92, hips=1.0, arms=0.95, legs_k=0.92)
     H, C, S, HP = B["head"], B["chest"], B["spine"], B["hips"]
     # -- the head: black hair, a white streak, a ponytail; the fox mask on the side
-    m.add(ellipsoid(0.095 * hs, 0.082 * hs, 0.104 * hs, segs=8, rings=4).move(0, ny + 0.168 * hs, -0.01), HAIR, H, 2, 3)
-    m.add(ellipsoid(0.095 * hs, 0.082 * hs, 0.104 * hs, segs=6, rings=3).move(0, ny + 0.168 * hs, -0.01), HAIR, H, 0, 1)
+    m.add(ellipsoid(0.095 * hs, 0.082 * hs, 0.104 * hs, segs=8, rings=4).move(0, ny + 0.168 * hs, -0.01), HAIR, H, 3, 3)
+    m.add(ellipsoid(0.095 * hs, 0.082 * hs, 0.104 * hs, segs=6, rings=3).move(0, ny + 0.168 * hs, -0.01), HAIR, H, 0, 2)
     m.add(hull([(-0.09 * hs, ny + 0.20 * hs, 0.05 * hs), (0.09 * hs, ny + 0.20 * hs, 0.05 * hs),
                 (-0.085 * hs, ny + 0.13 * hs, 0.09 * hs), (0.02 * hs, ny + 0.15 * hs, 0.1 * hs),
-                (0.07 * hs, ny + 0.16 * hs, 0.095 * hs)], smooth=True), HAIR, H, 2, 3)              # fringe
-    m.add(box(0.02 * hs, 0.012, 0.08 * hs).turn(rx=-20).move(0.045 * hs, ny + 0.245 * hs, 0.04 * hs), STREAK, H, 2, 3)
+                (0.07 * hs, ny + 0.16 * hs, 0.095 * hs)], smooth=True), HAIR, H, 3, 3)              # fringe
+    m.add(box(0.02 * hs, 0.012, 0.08 * hs).turn(rx=-20).move(0.045 * hs, ny + 0.245 * hs, 0.04 * hs), STREAK, H, 3, 3)
     m.add(tube((0, ny + 0.2 * hs, -0.09 * hs), (0, ny + 0.03 * hs, -0.17 * hs), 0.035 * hs, 0.015 * hs, segs=5), HAIR, H, 1, 3)
     m.add(cylinder(0.022 * hs, 0.025, segs=6).move(0, ny + 0.175 * hs, -0.1 * hs), RED, H, 3, 3)
     humanoid.eyes(m, sk, b, EYE_W, EYE_I, x=0.034, y=0.128, z=0.088, r=0.015)
-    m.add(ellipsoid(0.012 * hs, 0.017 * hs, 0.017 * hs, segs=5, rings=3).move(0, ny + 0.105 * hs, 0.1 * hs), SKIN, H, 2, 3)
+    m.add(ellipsoid(0.012 * hs, 0.017 * hs, 0.017 * hs, segs=5, rings=3).move(0, ny + 0.105 * hs, 0.1 * hs), SKIN, H, 3, 3)
     # the fox mask on the left side of the head: a white muzzle and ears, red marks
     mx, my, mz = -0.1 * hs, ny + 0.17 * hs, 0.02 * hs
     m.add(hull([(mx, my + 0.05 * hs, mz - 0.05 * hs), (mx, my + 0.05 * hs, mz + 0.05 * hs), (mx, my - 0.04 * hs, mz - 0.04 * hs),
                 (mx, my - 0.04 * hs, mz + 0.04 * hs), (mx - 0.07 * hs, my - 0.01 * hs, mz)], smooth=True), MASK, H, 1, 3)
     for dz in (-0.035, 0.035):
         m.add(hull([(mx, my + 0.04 * hs, mz + dz * hs - 0.015 * hs), (mx, my + 0.04 * hs, mz + dz * hs + 0.015 * hs),
-                    (mx - 0.01 * hs, my + 0.04 * hs, mz + dz * hs), (mx + 0.005, my + 0.1 * hs, mz + dz * hs)]), MASK, H, 2, 3)
+                    (mx - 0.01 * hs, my + 0.04 * hs, mz + dz * hs), (mx + 0.005, my + 0.1 * hs, mz + dz * hs)]), MASK, H, 3, 3)
     m.add(box(0.004, 0.012 * hs, 0.05 * hs).move(mx - 0.035 * hs, my + 0.01 * hs, mz), MASK_R, H, 3, 3)
     # -- the jacket: hood down, white trim, open front over the white top; the sash
     m.add(hull([(-0.11 * k, ny + 0.03 * k, -0.07 * k), (0.11 * k, ny + 0.03 * k, -0.07 * k), (-0.09 * k, ny - 0.12 * k, -0.13 * k),
-                (0.09 * k, ny - 0.12 * k, -0.13 * k), (0, ny + 0.05 * k, -0.14 * k)], smooth=True), JACKET2, C, 2, 3)
+                (0.09 * k, ny - 0.12 * k, -0.13 * k), (0, ny + 0.05 * k, -0.14 * k)], smooth=True), JACKET2, C, 3, 3)
     m.add(hull([(-0.06 * k, cy + 0.20 * k, 0.1 * k), (0.06 * k, cy + 0.20 * k, 0.1 * k), (-0.07 * k, cy - 0.02 * k, 0.115 * k),
                 (0.07 * k, cy - 0.02 * k, 0.115 * k), (0, cy + 0.10 * k, 0.13 * k)]), WHITE, C, 1, 3)
     for sx in (-1, 1):
         m.add(box(0.012, 0.25 * k, 0.012).turn(rz=sx * 8).move(sx * 0.075 * k, cy + 0.09 * k, 0.118 * k), WHITE, C, 3, 3)
-    m.add(lathe([(0.20 * k, hy - 0.10 * k), (0.15 * k, hy + 0.0)], segs=8, close_top=False).scale(1, 1, 0.75), JACKET, HP, 2, 3)
-    m.add(box(0.06 * k, 0.07 * k, 0.04 * k).move(-0.06 * k, hy + 0.06 * k, -0.115 * k), RED, S, 2, 3)          # the knot
+    m.add(lathe([(0.20 * k, hy - 0.10 * k), (0.15 * k, hy + 0.0)], segs=8, close_top=False).scale(1, 1, 0.75), JACKET, HP, 3, 3)
+    m.add(box(0.06 * k, 0.07 * k, 0.04 * k).move(-0.06 * k, hy + 0.06 * k, -0.115 * k), RED, S, 3, 3)          # the knot
     for side in ("L", "R"):
         tb = B[f"tail.{side}"]
         h0, t0 = sk.bones[tb][2], sk.bones[tb][3]

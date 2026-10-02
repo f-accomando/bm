@@ -55,11 +55,11 @@ def launcher(m, g, hx, hy, hz, lod_lo=1):
     m.add(cylinder(0.045, 0.52, segs=5, axis="z").move(hx, hy + 0.06, hz - 0.12), OLIVE, g, 0, lod_lo - 1)
     m.add(lathe([(0.05, 0.0), (0.065, 0.06), (0.06, 0.09)], segs=8).turn(rx=90).move(hx, hy + 0.06, hz + 0.40), DARK, g, 1, 3)
     m.add(cylinder(0.085, 0.07, segs=8, axis="x").move(hx - 0.035, hy - 0.02, hz + 0.12), BOMB, g, 1, 3)     # the drum
-    m.add(cylinder(0.05, 0.075, segs=6, axis="x").move(hx - 0.037, hy - 0.02, hz + 0.12), HAZARD, g, 2, 3)
+    m.add(cylinder(0.05, 0.075, segs=6, axis="x").move(hx - 0.037, hy - 0.02, hz + 0.12), HAZARD, g, 3, 3)
     for z in (0.0, 0.26):
-        m.add(cylinder(0.048, 0.03, segs=8, axis="z").move(hx, hy + 0.06, hz + z), HAZARD, g, 2, 3)
+        m.add(cylinder(0.048, 0.03, segs=8, axis="z").move(hx, hy + 0.06, hz + z), HAZARD, g, 3, 3)
     m.add(box(0.04, 0.10, 0.05).move(hx, hy - 0.02, hz - 0.01), DARK, g, 1, 3)                                # grip
-    m.add(box(0.03, 0.05, 0.16).move(hx, hy + 0.12, hz + 0.05), STEEL, g, 2, 3)                               # sight rail
+    m.add(box(0.03, 0.05, 0.16).move(hx, hy + 0.12, hz + 0.05), STEEL, g, 3, 3)                               # sight rail
 
 
 def mesh(sk, name="fuse"):
@@ -85,14 +85,13 @@ def mesh(sk, name="fuse"):
         tip = (base[0] + d[0] / l * 0.12 * hs, base[1] + d[1] / l * 0.12 * hs + 0.03, base[2] + d[2] / l * 0.12 * hs)
         lo = 3 if i >= 6 else 1
         m.add(tube(base, tip, 0.032 * hs, 0.004, segs=4), HAIR, H, lo, 3)
-        m.add(tube(tip, (tip[0], tip[1] + 0.005, tip[2]), 0.006, 0.002, segs=3), SOOT, H, 3, 3)
     m.add(lathe([(0.097 * hs, ny + 0.18 * hs), (0.1 * hs, ny + 0.205 * hs)], segs=8, close_top=False, close_bottom=False),
-          GOGGLE, H, 2, 3)
+          GOGGLE, H, 3, 3)
     for sx in (-1, 1):
         m.add(cylinder(0.028 * hs, 0.02, segs=6, axis="z").move(sx * 0.04 * hs, ny + 0.205 * hs, 0.085 * hs), LENS, H, 1, 3)
     m.add(box(0.09 * hs, 0.022 * hs, 0.02).move(0, ny + 0.072 * hs, 0.088 * hs), TEETH, H, 1, 3)               # the grin
     humanoid.eyes(m, sk, b, Mat(0xFFFFFF), Mat(0x2A7A30), x=0.034, y=0.13, z=0.084, r=0.013)
-    m.add(ellipsoid(0.014 * hs, 0.02 * hs, 0.02 * hs, segs=5, rings=3).move(0, ny + 0.105 * hs, 0.1 * hs), SKIN, H, 2, 3)
+    m.add(ellipsoid(0.014 * hs, 0.02 * hs, 0.02 * hs, segs=5, rings=3).move(0, ny + 0.105 * hs, 0.1 * hs), SKIN, H, 3, 3)
     # -- the torn hem of the top, the bandolier of bombs, the backpack and canister
     for i in range(6):
         a = 2 * math.pi * i / 6
@@ -104,22 +103,22 @@ def mesh(sk, name="fuse"):
         t = i / 4
         x = (-0.12 + 0.24 * t) * k
         y = cy + (0.18 - 0.25 * t) * k
-        m.add(ellipsoid(0.03 * k, 0.03 * k, 0.03 * k, segs=6, rings=4).move(x, y, 0.13 * k), BOMB, C, 2 if i % 2 else 1, 3)
+        m.add(ellipsoid(0.03 * k, 0.03 * k, 0.03 * k, segs=5, rings=3).move(x, y, 0.13 * k), BOMB, C, 3 if i % 2 else 1, 3)
         m.add(box(0.01, 0.01, 0.01).move(x, y + 0.03 * k, 0.15 * k), RED, C, 3, 3)
     m.add(hull([(-0.15 * k, cy + 0.22 * k, 0.14 * k), (-0.1 * k, cy + 0.24 * k, 0.12 * k), (0.15 * k, cy - 0.06 * k, 0.14 * k),
-                (0.12 * k, cy - 0.08 * k, 0.12 * k)]), BELT, C, 2, 3)
+                (0.12 * k, cy - 0.08 * k, 0.12 * k)]), BELT, C, 3, 3)
     m.add(box(0.26 * k, 0.32 * k, 0.12 * k, bevel=0.02).move(0, cy + 0.04 * k, -0.17 * k), RUST, C, 0, 3)
     m.add(cylinder(0.06 * k, 0.30 * k, segs=6).move(0.08 * k, cy - 0.06 * k, -0.25 * k), HAZARD, C, 1, 3)
-    m.add(cylinder(0.02 * k, 0.08 * k, segs=5).move(0.08 * k, cy + 0.24 * k, -0.25 * k), STEEL, C, 2, 3)
+    m.add(cylinder(0.02 * k, 0.08 * k, segs=5).move(0.08 * k, cy + 0.24 * k, -0.25 * k), STEEL, C, 3, 3)
     # -- the scrap arm (left): steel over the skin, a ring at the elbow, a claw
     ua, fa, hd = B["upperarm.L"], B["forearm.L"], B["hand.L"]
     el = sk.bones[fa][2]
     wr = sk.bones[fa][3]
     m.add(tube(el, wr, 0.05 * k, 0.045 * k, segs=6, caps=True), STEEL, fa, 1, 3)
-    m.add(cylinder(0.058 * k, 0.04 * k, segs=6).move(el[0], el[1] - 0.02, el[2]), DARK, fa, 2, 3)
+    m.add(cylinder(0.058 * k, 0.04 * k, segs=6).move(el[0], el[1] - 0.02, el[2]), DARK, fa, 3, 3)
     hdp = sk.bones[hd][2]
     for dx in (-0.025, 0.025):
-        m.add(box(0.015, 0.08 * k, 0.03).move(hdp[0] + dx, hdp[1] - 0.05 * k, hdp[2] + 0.02), STEEL, hd, 2, 3)
+        m.add(box(0.015, 0.08 * k, 0.03).move(hdp[0] + dx, hdp[1] - 0.05 * k, hdp[2] + 0.02), STEEL, hd, 3, 3)
     # -- the peg leg (left): a pipe and a spring below the knee, a rubber foot
     sh = B["shin.L"]
     kn = sk.bones[sh][2]
@@ -127,7 +126,7 @@ def mesh(sk, name="fuse"):
     m.add(tube(kn, (an[0], an[1] + 0.05, an[2]), 0.03 * k, 0.03 * k, segs=6), STEEL, sh, 0, 3)
     m.add(cylinder(0.045 * k, 0.06 * k, segs=6).move(kn[0], kn[1] - 0.07 * k, kn[2]), DARK, sh, 1, 3)
     for i in range(3):
-        m.add(cylinder(0.04 * k, 0.012, segs=6).move(an[0], an[1] + 0.1 * k + i * 0.035 * k, an[2]), HAZARD, sh, 2, 3)
+        m.add(cylinder(0.04 * k, 0.012, segs=6).move(an[0], an[1] + 0.1 * k + i * 0.035 * k, an[2]), HAZARD, sh, 3, 3)
     m.add(cylinder(0.05 * k, 0.04, segs=6).move(an[0], 0.0, an[2]), BOMB, B["foot.L"], 0, 3)
     # -- the launcher
     g = B["gun"]
@@ -286,7 +285,7 @@ def wheel_mesh(sk, name="fuse_wheel"):
         a = 2 * math.pi * i / 10
         cy, cz = math.cos(a) * r, math.sin(a) * r
         sp = cylinder(0.05, 0.14, segs=4, r2=0.005, caps=False)
-        m.add(sp.turn(rx=math.degrees(a) - 90).move(0, cy, cz), STEEL, 0, 2, 3)
+        m.add(sp.turn(rx=math.degrees(a) - 90).move(0, cy, cz), STEEL, 0, 3, 3)
     m.add(ellipsoid(0.06, 0.06, 0.06, segs=6, rings=4).move(0.2, 0, 0), RED, 0, 0, 3)
     m.add(ellipsoid(0.06, 0.06, 0.06, segs=6, rings=4).move(-0.2, 0, 0), RED, 0, 0, 3)
     return m.weld()
@@ -323,7 +322,7 @@ def trap_mesh(sk, name="fuse_trap"):
             m.add(tube(p0, p1, 0.022, 0.022, segs=4), STEEL, jb, 0, 3)
             mx, mz = (p0[0] + p1[0]) / 2, (p0[2] + p1[2]) / 2
             m.add(hull([(mx - 0.02, 0.03, mz), (mx + 0.02, 0.03, mz), (mx, 0.03, mz + 0.02), (mx * 0.92, 0.1, mz * 0.92)]),
-                  STEEL, jb, 2, 3)
+                  STEEL, jb, 3, 3)
     return m.weld()
 
 

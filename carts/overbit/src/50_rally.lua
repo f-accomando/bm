@@ -252,11 +252,12 @@ end
 
 -- ---------------------------------------------------------------- the update of a frame
 
+local TIMERS = { "fire_cd", "boost_cd", "rocket_cd" }  -- once, not every frame
 function R.update(a, c)
   local s = a.st
   if s.bomb and s.bomb.update then s.bomb.update() end
   if not a.alive then return end
-  for _, k in ipairs({ "fire_cd", "boost_cd", "rocket_cd" }) do
+  for _, k in ipairs(TIMERS) do
     if s[k] and s[k] > 0 then s[k] = max(0, s[k] - DT) end
   end
   if a.form == MECH then
