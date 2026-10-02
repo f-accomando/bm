@@ -136,6 +136,16 @@ screenshot in `docs/img/`), `README_OLD.md` (il README completo, in italiano),
   modelli 3D in pixel art: il cacciatore, gli oggetti; tessere e case in 2D) scrive
   `sheet.png` e il blocco `-- [atlas begin]` di `main.lua`. Dopo averla cambiata:
   rieseguirlo e fare commit di `sheet.png`. Prove: `make test-yharnam`, QEMU `test_yharnam`.
+- Ordine e caso secondo la zona (richiesta dell'utente): in città (isolati di case, piazze, pire,
+  cappelle: `urban`) gli incroci stanno sulla griglia e le strade corrono dritte, larghe 4, con un
+  viale largo 6 ogni tre (sui confini dei quartieri, mai mancante); i lampioni stanno in fila sul
+  marciapiede ogni `lsp` tessere (10; sui viali 12, su entrambi i lati sfalsati), lontani dagli
+  incroci; i vicoli sono dritti; le case sono a schiera (una fila: stessa altezza e tetto, due
+  facciate alternate, larghezze uguali, porta al centro, finestre specchiate, comignoli in coppia o
+  al centro); nelle piazze bracieri e panche in coppie specchiate, attorno alla pira un anello a
+  passo regolare. Vicino a parchi e cimiteri le strade ondeggiano e i lampioni sono sparsi; alberi
+  e cespugli a boschetti con radure (`grove`). Nell'arena di un boss un quinto degli ostacoli in
+  meno (fontane, pire, lampioni, ringhiere e bracieri restano).
 - La città (richiesta dell'utente: zone ampie, strade non affollate): il pavimento delle strade è
   lo stesso in un quartiere di 3×3 isolati (`quarter_pave`); le varianti di una tessera vanno a
   chiazze (`patch` in `gen`), i cortili verso erba o terra a zone grandi, poche decorazioni;

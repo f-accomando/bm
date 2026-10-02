@@ -1373,6 +1373,13 @@ end
 -- chunks the hunter may walk: the areas open so far
 local function inside(cx, cy) return cy >= 0 and cy < AREA and cx >= 0 and cx < G.open * AREA end
 
+-- The town has an order (the user's wish): where the blocks round a corner
+-- are all town (houses, squares, pyres, chapels: not parks nor cemeteries)
+-- the corner is on the grid and the streets between such blocks run
+-- straight, every third one an avenue; by the parks and cemeteries the
+-- streets wind as they please. (urban is set once district is known.)
+local urban
+
 local function corner(i, j)
   local k = key2(i, j)
   local c = corners[k]
@@ -1380,6 +1387,9 @@ local function corner(i, j)
     local h = hash(i, j, 1)
     c = { x = i * CS + (h % 5) - 2, y = j * CS + ((h >> 3) % 5) - 2,
           plaza = (h >> 6) % 100 < 28, r = 3.6 + ((h >> 13) % 4) * 0.6 }
+    if urban(i - 1, j - 1) and urban(i, j - 1) and urban(i - 1, j) and urban(i, j) then
+      c.x, c.y, c.grid = i * CS, j * CS, true
+    end
     corners[k] = c
   end
   return c
@@ -1391,14 +1401,24 @@ local function edge(i, j, dir)
   local e = edges[k]
   if e == nil then
     local h = hash(i, j, 2 + dir)
-    if h % 100 < 12 and not (abs(i) <= 1 and abs(j) <= 1) then
+    -- in town: straight; on a quarter's border (every third line) an avenue,
+    -- never missing, with lamps on both pavements; else lamps on one side
+    local town = dir == 0 and urban(i, j - 1) and urban(i, j) or dir == 1 and urban(i - 1, j) and urban(i, j)
+    local avenue = town and (dir == 0 and j or i) % 3 == 0
+    if h % 100 < 12 and not avenue and not (abs(i) <= 1 and abs(j) <= 1) then
       e = false
     else
       local a = corner(i, j)
       local b = dir == 0 and corner(i + 1, j) or corner(i, j + 1)
-      local w = 4 + (h >> 8) % 3
+      local w = town and (avenue and 6 or 4) or 4 + (h >> 8) % 3
       e = { a = a, b = b, dir = dir, hw = w / 2,
             A = ((h >> 12) % 61) / 10 - 3.0, B = ((h >> 18) % 21) / 10 - 1.0, pave = quarter_pave(i, j) }
+      if town then
+        e.A, e.B, e.town = 0, 0, true
+        e.lamps = avenue and { 1, -1 } or { (h >> 24) % 2 == 0 and 1 or -1 }
+        e.lsp = avenue and 12 or 10                    -- tiles between two lamps of a row
+        e.lph = (h >> 26) % e.lsp
+      end
       -- how far across its line the street can reach: tiles further are not on it
       local va, vb = dir == 0 and a.y or a.x, dir == 0 and b.y or b.x
       local reach = abs(e.A) + abs(e.B) + e.hw + 0.5
@@ -1468,6 +1488,11 @@ local function district(cx, cy)
   return d
 end
 
+function urban(cx, cy)
+  local k = district(cx, cy).kind
+  return k ~= "park" and k ~= "cemetery"
+end
+
 -- the sides of chunk (cx, cy), and the streets that meet at its corners
 local function near_edges(cx, cy)
   local t = {}
@@ -1506,7 +1531,7 @@ local function road_at(tx, ty, ne)
   if al then
     local u, v = lx, ly
     if al.dir == 1 then u, v = ly, lx end
-    if abs(v - (al.p + 1.4 * sin(u / CS * PI * al.k + al.ph))) < 1.0 then return PV_ALLEY end
+    if abs(v - al.p - 0.5) < 1.0 then return PV_ALLEY end      -- a straight lane through the block
   end
   ne = ne or near_edges(cx, cy)
   for i = 1, #ne do
@@ -1546,6 +1571,7 @@ local function add_obj(ch, name, x, y, z, col)
   if col then
     local c = { x = x, y = y + (col.dy or 0), rx = col[1], ry = col[2] }
     ch.cols[#ch.cols + 1] = c
+    o.c = c
     if BRK.kinds[name] then
       o.col, o.key = c, key2(ch.cx, ch.cy) * 512 + #ch.objs
       if BRK.gone[o.key] then BRK.wreck(o) end
@@ -1625,8 +1651,21 @@ local function gen(ch)
     end
     local function T(i, j, c) cells[j * w + i + 1] = c end
     local rows = h - 5
-    local door = irange(r, 1, w - 2)
+    -- the front in order: the door in the middle, the windows mirrored
+    -- about it (which are lit stays a matter of chance, pair by pair)
+    local door = (w - 1) // 2
     local lit_p = big and 0.55 or 0.3
+    local fks = {}
+    for i = 1, w - 2 do
+      local m = w - 1 - i
+      if i == door then fks[i] = r() < 0.5 and "door_lit" or "door"
+      elseif m < i and m ~= door then fks[i] = fks[m]
+      elseif r() < 0.12 and not big then fks[i] = "plain"
+      else
+        local u, g = r() < lit_p, r() < lit_p
+        fks[i] = (u and g) and "win_ug" or u and "win_u" or g and "win_g" or "win"
+      end
+    end
     for i = 0, w - 1 do
       local side = i == 0 and "l" or i == w - 1 and "r" or "m"
       local R = ROOF[roof]
@@ -1637,15 +1676,7 @@ local function gen(ch)
         else t = (j % 2 == 1) and R.slope[side] or R.slope2[side] end
         T(i, j, t)
       end
-      local fk
-      if i == 0 then fk = "left"
-      elseif i == w - 1 then fk = "right"
-      elseif i == door then fk = r() < 0.5 and "door_lit" or "door"
-      elseif r() < 0.15 and not big then fk = "plain"
-      else
-        local u, g = r() < lit_p, r() < lit_p
-        fk = (u and g) and "win_ug" or u and "win_u" or g and "win_g" or "win"
-      end
+      local fk = i == 0 and "left" or i == w - 1 and "right" or fks[i]
       local fc = FACADE[mat][fk]
       for j = 0, 4 do T(i, rows + j, fc[j + 1]) end
       local fx, fb = wx(x0 + i), py0 + (y0 + h) * TS
@@ -1655,10 +1686,10 @@ local function gen(ch)
     local bottom = py0 + (y0 + h) * TS
     local o = { bld = cells, x = px0 + x0 * TS, y = bottom, top = py0 + y0 * TS, w = w, h = h, z = bottom }
     ch.objs[#ch.objs + 1] = o
-    -- chimneys on the ridge, some smoking
+    -- chimneys on the ridge, a pair at the ends or one in the middle, some smoking
     local n = big and 0 or irange(r, 0, 2)
-    for k = 1, n do
-      local i = irange(r, 0, w - 1)
+    local at = n == 2 and { 0, w - 1 } or n == 1 and { door } or {}
+    for _, i in ipairs(at) do
       local c = add_obj(ch, r() < 0.5 and "chimney" or "chimney1", wx(x0 + i), py0 + y0 * TS + 14, bottom + 0.5)
       if r() < 0.45 then ch.smokes[#ch.smokes + 1] = { x = c.x, y = c.y - 30 } end
     end
@@ -1681,17 +1712,32 @@ local function gen(ch)
       end
       ::placed::
     end
+    -- rows of houses (terraces): one height and one roof to a row, two
+    -- fronts in turn, the free length split into houses of about one width
     for yb = CS - 1, 6, -1 do
-      local x = 0
-      while x < CS do
-        local h = r() < 0.55 and 7 or 8
-        if yb - h + 1 >= 0 and rect_free(x, yb - h + 1, 3, h) then
-          local w, wmax = 3, irange(r, 4, 7)
-          while w < wmax and rect_free(x, yb - h + 1, w + 1, h) do w = w + 1 end
-          building(x, yb - h + 1, w, h, pick(r, FMATS), pick(r, RMATS))
-          x = x + w + (r() < 0.2 and 1 or 0)
-        else
-          x = x + 1
+      local h = r() < 0.55 and 7 or 8
+      if yb - h + 1 >= 0 then
+        local roof, fa, fb = pick(r, RMATS), pick(r, FMATS), pick(r, FMATS)
+        local x = 0
+        while x < CS do
+          if rect_free(x, yb - h + 1, 1, h) then
+            local L = 1
+            while x + L < CS and rect_free(x + L, yb - h + 1, 1, h) do L = L + 1 end
+            if L >= 3 then
+              local n = max(1, floor(L / 5.5 + 0.5))
+              while L / n > 7 do n = n + 1 end
+              while n > 1 and L / n < 3 do n = n - 1 end
+              local px = x
+              for k = 1, n do
+                local w = floor(L * k / n) - floor(L * (k - 1) / n)
+                building(px, yb - h + 1, w, h, k % 2 == 1 and fa or fb, roof)
+                px = px + w
+              end
+            end
+            x = x + L
+          else
+            x = x + 1
+          end
         end
       end
     end
@@ -1703,12 +1749,14 @@ local function gen(ch)
     { "bush2", 0.02, { 8, 4 } }, { "barrel", 0.012, { 6, 3 } }, { "crates", 0.008, { 6, 3 } },
     { "crate", 0.01, { 6, 3 } }, { "well", 0.004, { 10, 5 } } }
 
-  local function scatter(list, k, ground_cb)
+  -- (dens: how thick they grow here, round 1)
+  local function scatter(list, k, dens)
     for ly = 0, CS - 1 do
       for lx = 0, CS - 1 do
         if freecell(lx, ly, k) then
+          local m = dens and dens(lx, ly) or 1
           for _, p in ipairs(list) do
-            if r() < p[2] then
+            if r() < p[2] * m then
               take(lx, ly)
               add_obj(ch, p[1], wx(lx) + irange(r, -3, 3), wy(ly) + irange(r, -2, 4), nil, p[3])
               break
@@ -1717,6 +1765,13 @@ local function gen(ch)
         end
       end
     end
+  end
+
+  -- in the open the trees grow as they will: in clumps, clearings between
+  local gs1, gs2 = h01(cx, cy, 61) * 6.3, h01(cx, cy, 62) * 6.3
+  local function grove(lx, ly)
+    local g = 0.5 + 0.5 * sin((tx0 + lx) * 0.42 + gs1) * sin((ty0 + ly) * 0.36 + gs2)
+    return 0.15 + 1.9 * g * g
   end
 
   local kd = d.kind
@@ -1764,7 +1819,7 @@ local function gen(ch)
       local lx, ly = irange(r, 1, 14), irange(r, 1, 14)
       if freecell(lx, ly, K_GRASS) then take(lx, ly); add_obj(ch, "angel", wx(lx), wy(ly) + 6, nil, { 9, 5 }) end
     end
-    scatter({ { "tree3", 0.03, { 5, 3 } }, { "tree", 0.02, { 6, 3 } }, { "bush2", 0.02, { 8, 4 } } }, K_GRASS)
+    scatter({ { "tree3", 0.03, { 5, 3 } }, { "tree", 0.02, { 6, 3 } }, { "bush2", 0.02, { 8, 4 } } }, K_GRASS, grove)
     -- railings where the cemetery meets the pavement, a gap for the paths
     for ly = 0, CS - 1 do
       for lx = 0, CS - 1 do
@@ -1802,7 +1857,7 @@ local function gen(ch)
       if freecell(p[1], p[2], K_PATH) then take(p[1], p[2]); ch.lampspots[#ch.lampspots + 1] = p end
     end
     scatter({ { "tree", 0.025, { 6, 3 } }, { "tree2", 0.02, { 5, 3 } }, { "tree3", 0.015, { 5, 3 } },
-              { "bush", 0.035, { 9, 4 } }, { "bush2", 0.03, { 8, 4 } } }, K_GRASS)
+              { "bush", 0.035, { 9, 4 } }, { "bush2", 0.03, { 8, 4 } } }, K_GRASS, grove)
     scatter({ { "bench", 0.03, { 12, 3 } } }, K_PATH)
   elseif kd == "square" or kd == "pyre" or kd == "chapel" then
     -- (the chapel's front is the marble square; see the buildings above)
@@ -1814,17 +1869,18 @@ local function gen(ch)
     else
       add_obj(ch, "angel", cxp, cyp + 8, nil, { 10, 5 })
     end
-    local first = irange(r, 0, 1)
-    for k = first, 3, 2 do
-      local a = k * PI / 2 + PI / 4
-      local bx, by = cxp + cos(a) * 62, cyp + sin(a) * 50 + 10
+    -- a pair of braziers before it and a pair of benches behind, mirrored
+    for _, sx in ipairs({ -1, 1 }) do
+      local bx, by = cxp + sx * 44, cyp + 45
       if road_at((fdiv(bx, TS)), (fdiv(by, TS)), ne) > 0 then
         add_obj(ch, "brazier", bx, by, nil, { 8, 4 })
         ch.fires[#ch.fires + 1] = { x = bx, y = by - 25, w = 7, rate = 1.2, big = false }
         add_light(ch, bx, by - 8, 62, 6, 1.0)
       end
     end
-    if r() < 0.5 then add_obj(ch, "bench", cxp - 48, cyp - 40, nil, { 12, 3 }) end
+    if r() < 0.6 then
+      for _, sx in ipairs({ -1, 1 }) do add_obj(ch, "bench", cxp + sx * 48, cyp - 40, nil, { 12, 3 }) end
+    end
   elseif kd == "pyre" then
     local cxp, cyp = px0 + 8 * TS, py0 + 8 * TS
     add_obj(ch, "pyre", cxp, cyp + 14, nil, { 16, 7 })
@@ -1832,9 +1888,10 @@ local function gen(ch)
     add_light(ch, cxp, cyp + 4, 112, 7, 1.0, 0.6)
     add_light(ch, cxp, cyp, 72, 7, 1.0, 0.3)
     local spots = {}
-    for k = 1, 10 do
-      local a = r() * 2 * PI
-      local dd = 50 + r() * 22
+    local a0 = irange(r, 0, 5) * PI / 3 + PI / 6
+    for k = 0, 5 do
+      local a = a0 + k * 2 * PI / 3 + (k >= 3 and PI / 3 or 0)
+      local dd = 60
       local ox, oy = cxp + cos(a) * dd, cyp + 14 + sin(a) * dd * 0.7
       local ok = road_at(fdiv(ox, TS), fdiv(oy, TS), ne) > 0 and #spots < 3
       for _, q in ipairs(spots) do
@@ -1860,11 +1917,38 @@ local function gen(ch)
   end
 
   ------------------------------------------------- street furniture
-  -- gas lamps along the pavements, some of them dark
+  -- gas lamps: along a town street in a row on its pavement (both, on an
+  -- avenue, half a step apart), every lsp tiles, away from the crossings;
+  -- elsewhere here and there
+  for _, p in ipairs(ch.lampspots) do p.fixed = true end
+  for _, e in ipairs(ne) do
+    if e.town then
+      local a, b = e.a, e.b
+      local u0, u1 = e.dir == 0 and a.x or a.y, e.dir == 0 and b.x or b.y
+      for k, side in ipairs(e.lamps) do
+        local ph = (e.lph + (k - 1) * e.lsp // 2) % e.lsp
+        for u = u0 + 2, u1 - 3 do
+          if (u - ph) % e.lsp == 0 then
+            local t = (u + 0.5 - u0) / (u1 - u0)
+            local c = (e.dir == 0 and a.y or a.x) + ((e.dir == 0 and b.y or b.x) - (e.dir == 0 and a.y or a.x)) * t
+            local v = side > 0 and math.ceil(c + e.hw - 0.5) or floor(c - e.hw - 0.5)
+            local lx, ly = (e.dir == 0 and u or v) - tx0, (e.dir == 0 and v or u) - ty0
+            if t > 0.1 and t < 0.9 and freecell(lx, ly, K_WALK) then
+              ch.lampspots[#ch.lampspots + 1] = { lx, ly, fixed = true }
+            end
+          end
+        end
+      end
+    end
+  end
   for ly = 0, CS - 1 do
     for lx = 0, CS - 1 do
       if K(lx, ly) == K_WALK and not used[ly * CS + lx + 1] and h01(tx0 + lx, ty0 + ly, 31) < 0.06 then
-        ch.lampspots[#ch.lampspots + 1] = { lx, ly }
+        local x, y, town = tx0 + lx + 0.5, ty0 + ly + 0.5, false
+        for _, e in ipairs(ne) do
+          if e.town and edge_dist(e, x, y) < e.hw + 1.6 then town = true end
+        end
+        if not town then ch.lampspots[#ch.lampspots + 1] = { lx, ly } end
       end
     end
   end
@@ -1872,7 +1956,7 @@ local function gen(ch)
   for _, p in ipairs(ch.lampspots) do
     local ok = true
     for _, q in ipairs(placed) do
-      if abs(q[1] - p[1]) + abs(q[2] - p[2]) < 10 then ok = false end
+      if not (p.fixed and q.fixed) and abs(q[1] - p[1]) + abs(q[2] - p[2]) < 10 then ok = false end
     end
     if ok then
       placed[#placed + 1] = p
@@ -1919,6 +2003,25 @@ local function gen(ch)
       local lx, ly = irange(r, 0, CS - 1), irange(r, 0, CS - 1)
       if freecell(lx, ly, K_ROAD) then take(lx, ly); add_obj(ch, "coffin", wx(lx), wy(ly) + 4, nil, { 14, 4 }); break end
     end
+  end
+
+  -- a boss's arena: a fifth fewer things in the way (the user's wish), the
+  -- ones that make the place (fountain, pyre, lamps, railings...) kept
+  if d.boss then
+    local keep = { lamp = true, fountain = true, well = true, pyre = true, shrine = true, mausoleum = true,
+                   fence_x = true, fence_y = true, brazier = true }
+    local cand = {}
+    for _, o in ipairs(ch.objs) do
+      if o.c and not keep[o.name] then cand[#cand + 1] = o end
+    end
+    for _, o in ipairs(cand) do o.drop = h01(floor(o.x), floor(o.y), 51) end
+    table.sort(cand, function(p, q) return p.drop < q.drop end)
+    local gone = {}
+    for k = 1, floor(#cand * 0.2 + 0.5) do gone[cand[k]] = true; gone[cand[k].c] = true end
+    local objs, cols = {}, {}
+    for _, o in ipairs(ch.objs) do if not gone[o] then objs[#objs + 1] = o end end
+    for _, c in ipairs(ch.cols) do if not gone[c] then cols[#cols + 1] = c end end
+    ch.objs, ch.cols = objs, cols
   end
 
   ------------------------------------------------- the ground, overlays
