@@ -1,5 +1,6 @@
 /*
- * WiFi of the Pi Zero W: the BCM43430 behind the SDIO host (sdio.c).
+ * WiFi of the Pi Zero W and Zero 2 W: the BCM43430 (CYW43436 on the Zero
+ * 2 W) behind the SDIO host (sdio.c).
  *
  * Bring-up as in Plan 9's ether4330 and Linux's brcmfmac: the chip's
  * backplane is reached through function 1 (a 32 KiB window), the cores are
@@ -83,15 +84,28 @@
 #define WLC_GET_VAR     262
 #define WLC_SET_VAR     263
 
-#define FW_FILE   "brcmfmac43430-sdio.bin"        /* in /bm on the SD card */
-#define NVRAM_FILE "brcmfmac43430-sdio.txt"
-#define CLM_FILE  "brcmfmac43430-sdio.clm_blob"
+/* The chip's firmware, its board settings (NVRAM text) and its regulatory
+ * data (CLM), in /bm on the SD card. The Zero W has a BCM43438 (chip 43430
+ * rev 1). The Zero 2 W has a CYW43436, which says 43430 too: rev 2 and
+ * later is the 43436, rev 1 the 43436s (the names of Raspberry Pi OS's
+ * firmware-nonfree; the 43436s has no CLM of its own). */
+typedef struct {
+    const char *fw, *nvram, *clm;
+} wifi_files_t;
+
+static const wifi_files_t files_43430 = {
+    "brcmfmac43430-sdio.bin", "brcmfmac43430-sdio.txt", "brcmfmac43430-sdio.clm_blob" };
+static const wifi_files_t files_43436 = {
+    "brcmfmac43436-sdio.bin", "brcmfmac43436-sdio.txt", "brcmfmac43436-sdio.clm_blob" };
+static const wifi_files_t files_43436s = {
+    "brcmfmac43436s-sdio.bin", "brcmfmac43436s-sdio.txt", "brcmfmac43430-sdio.clm_blob" };
 
 static struct {
     uint32_t window;
     uint32_t chipcommon, armctl, armregs, d11ctl, socramctl, socramregs, sdregs;
     int armcore, sdiorev, socramrev;
     uint32_t ramsize;
+    const wifi_files_t *files;          /* for this chip (identify) */
     uint8_t txseq, credit;
     uint16_t reqid;
     int up;                             /* firmware running, control channel works */
@@ -560,9 +574,18 @@ static int identify(void)
     if (bp_read32(ENUM_BASE, &id))
         return fail("chip id read failed");
     uint32_t chip = id & 0xFFFF, rev = id >> 16 & 0xF;
-    kprintf("wifi: chip %lu (%04lx) rev %lu%s\n", chip, chip, rev,
-            chip == 43430 ? ": BCM43430/43438, ok" : "");
-    return chip == 43430 ? 0 : -1;
+    const char *name = "BCM43430/43438";
+    w.files = &files_43430;
+    if (board()->model == BOARD_ZERO_2W) {
+        name = rev >= 2 ? "CYW43436" : "CYW43436s";
+        w.files = rev >= 2 ? &files_43436 : &files_43436s;
+    }
+    if (chip != 43430) {
+        kprintf("wifi: chip %lu (%04lx) rev %lu\n", chip, chip, rev);
+        return -1;
+    }
+    kprintf("wifi: chip %lu (%04lx) rev %lu: %s, ok\n", chip, chip, rev, name);
+    return 0;
 }
 
 int wifi_probe(void)
@@ -626,16 +649,16 @@ int wifi_start(void)
 
     /* firmware and NVRAM from the SD card */
     size_t fw_len = 0, nv_len = 0;
-    uint8_t *fw = load_file(FW_FILE, &fw_len);
+    uint8_t *fw = load_file(w.files->fw, &fw_len);
     if (!fw) {
-        kprintf("\x1b[91mwifi: bm/%s not on the SD card (make firmware; make sdcard)\x1b[0m\n", FW_FILE);
+        kprintf("\x1b[91mwifi: bm/%s not on the SD card (make firmware; make sdcard)\x1b[0m\n", w.files->fw);
         list_bm();
         return -1;
     }
-    uint8_t *nv = load_file(NVRAM_FILE, &nv_len);
+    uint8_t *nv = load_file(w.files->nvram, &nv_len);
     if (!nv) {
         free(fw);
-        kprintf("\x1b[91mwifi: bm/%s not on the SD card (make firmware; make sdcard)\x1b[0m\n", NVRAM_FILE);
+        kprintf("\x1b[91mwifi: bm/%s not on the SD card (make firmware; make sdcard)\x1b[0m\n", w.files->nvram);
         list_bm();
         return -1;
     }
@@ -731,7 +754,7 @@ int wifi_start(void)
         kprintf("wifi: MAC %02x:%02x:%02x:%02x:%02x:%02x\n",
                 w.mac[0], w.mac[1], w.mac[2], w.mac[3], w.mac[4], w.mac[5]);
     size_t clm_len = 0;
-    uint8_t *clm = load_file(CLM_FILE, &clm_len);
+    uint8_t *clm = load_file(w.files->clm, &clm_len);
     if (clm) {
         r = clm_load(clm, clm_len);
         free(clm);
@@ -740,7 +763,7 @@ int wifi_start(void)
         else
             kprintf("wifi: regulatory data (CLM) %lu bytes loaded\n", (uint32_t)clm_len);
     } else {
-        kprintf("wifi: no bm/%s (optional with older firmware)\n", CLM_FILE);
+        kprintf("wifi: no bm/%s (optional with older firmware)\n", w.files->clm);
     }
     /* radio on, no power saving (the chip answers at once) */
     set_int_var("bus:txglom", 0);

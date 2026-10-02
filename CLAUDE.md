@@ -1,17 +1,21 @@
 # bm (BareMetal) — note per chi lavora su questo repository
 
-Kernel bare metal per Raspberry Pi Zero W (BCM2835, ARM1176JZF-S): C + assembly +
+Kernel bare metal per Raspberry Pi Zero W (BCM2835, ARM1176JZF-S) e, con una seconda
+build (`kernel7.img`), per il Pi Zero 2 W (BCM2710A1, Cortex-A53 a 32 bit): C + assembly +
 Lua 5.4 embedded. Documentazione: `README.md` (presentazione in inglese, con showreel e
 screenshot in `docs/img/`), `README_OLD.md` (il README completo, in italiano),
 `docs/ROADMAP.md`, `docs/HARDWARE.md`.
 
 ## Build e test
 
-- `make` → `build/kernel.img` e `build/chainloader.img` (toolchain `arm-none-eabi-gcc`).
+- `make` → `build/kernel.img`, `build/kernel7.img` e `build/chainloader.img` (toolchain
+  `arm-none-eabi-gcc`).
 - `make test` → test sul PC (grafica, FAT, USB, audio, rete, giochi) + test end-to-end in
-  QEMU (`-M raspi0`).
-- L'utente prova sul Pi reale copiando `dist/kernel.img` sulla SD (WSL, `/mnt/d`),
-  senza cavo seriale: tutto ciò che deve verificare va mostrato sullo schermo.
+  QEMU (`-M raspi0`); `make test-zero2` gli stessi con `kernel7.img` (Pi Zero 2 W) in
+  `-M raspi2b`.
+- L'utente prova sul Pi reale copiando `dist/kernel.img` (e `dist/kernel7.img`) sulla SD
+  (WSL, `/mnt/d`), senza cavo seriale: tutto ciò che deve verificare va mostrato sullo
+  schermo.
 
 ## bm Studio (sdk/studio)
 
@@ -81,6 +85,20 @@ screenshot in `docs/img/`), `README_OLD.md` (il README completo, in italiano),
   la sessione ne ha assegnato un altro.
 - Non serve chiederlo per domande, letture della roadmap o lavoro che l'utente ha già
   indicato su un branch esistente (es. "fai commit su bare-metal-mvp").
+
+## Pi Zero 2 W (M31): `kernel7.img`
+
+- Gli stessi sorgenti compilati una seconda volta per ARMv7 a 32 bit (`ARCH7` nel
+  `Makefile`, oggetti in `build/k7/`, `-DBM_ZERO2`): `build/kernel7.img`. Sulla SD stanno
+  `kernel.img` e `kernel7.img`; `config.txt` sceglie (`[pi02]`). Il codice specifico va
+  sotto `#ifdef BM_ZERO2` (indirizzi del SoC, `src/drivers/mmio.h`) o `#if __ARM_ARCH >= 7`
+  (istruzioni ARMv7: barriere, cache, HYP); ogni modifica deve compilare in tutti e due.
+- Sul Zero 2 W: periferiche a 0x3F000000, avvio in HYP, un solo core (gli altri nello stub
+  del firmware a 0x0: mai scrivere lì), LED sul GPIO 29 (il 47 è l'I2C dell'alimentatore),
+  BT_ON GPIO 42, firmware del CYW43436 (`board.c`, `wifi.c`, `bt.c`).
+- Test: `make test-zero2` (QEMU `raspi2b`), `make test-hyp` (avvio in HYP nella macchina
+  `virt`). Un kernel mandato dalla rete deve essere per la scheda giusta (`bmK6`/`bmK7`
+  all'offset 4, `netxfer.c`).
 
 ## Cartucce `.cart`: rimosse
 

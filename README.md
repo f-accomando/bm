@@ -8,7 +8,7 @@ and walk in bm Animator, then on the console the map in the SDK, the code in bm 
 and the game. The console scenes are recorded in QEMU (<code>-M raspi0</code>) with the same kernel as the Pi.
 <a href="docs/showreel.mp4">MP4 1280×720</a> · rebuilt by <code>make showreel</code></sub></p>
 
-**bm** is a games console that runs on a **Raspberry Pi Zero W** with no operating system.
+**bm** is a games console that runs on a **Raspberry Pi Zero W** (and Zero 2 W) with no operating system.
 The kernel boots straight from the SD card into a menu of games. Games are written in
 Lua, with 2D and 3D graphics, sound and up to four controllers. The tools to make them
 are part of bm: some run on the PC, others on the console itself.
@@ -28,6 +28,8 @@ are part of bm: some run on the PC, others on the console itself.
 - **Plays `.p8` carts too.** nano8, a built-in emulator, runs PICO-8-style `.p8` and
   `.p8.png` carts.
 - **Same kernel for the Pi 1** (A, B, A+, B+), which has the same chip.
+- **Pi Zero 2 W too:** its own build of the same sources, `kernel7.img` (ARMv7, 32-bit),
+  sits next to `kernel.img` on the same SD card; the Pi's firmware starts the right one.
 
 Why bare metal instead of Linux:
 
@@ -188,7 +190,8 @@ make test                        # tests on the PC and end to end in QEMU
 Needs `arm-none-eabi-gcc`, Python 3, `dosfstools` and `mtools`, plus QEMU for the tests.
 
 - The full documentation, in Italian: [README_OLD.md](README_OLD.md). It covers the
-  monitor, keys, network, releases, the Pi 1, the source layout and technical notes.
+  monitor, keys, network, releases, the Pi 1, the Pi Zero 2 W, the source layout and
+  technical notes.
 - The plan: [docs/ROADMAP.md](docs/ROADMAP.md).
 
 ## License

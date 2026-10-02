@@ -318,9 +318,11 @@ sudo apt install gcc-arm-none-eabi binutils-arm-none-eabi qemu-system-arm make c
 ## Build e test
 
 ```sh
-make                  # build/kernel.img + build/chainloader.img
+make                  # build/kernel.img + build/kernel7.img (Pi Zero 2 W) + build/chainloader.img
 make test             # test end-to-end in QEMU: boot, console, schermo, eccezioni, chainloader
+make test-zero2       # gli stessi test con kernel7.img in QEMU (-M raspi2b)
 make qemu             # esegue in QEMU (-M raspi0), seriale sul terminale
+make qemu7            # kernel7.img in QEMU (-M raspi2b)
 make qemu-screenshot  # esecuzione headless, salva build/screen.png
 make studio           # bm Studio e bm Animator su http://localhost:8765 (sdk/README.md)
 ```
@@ -523,14 +525,16 @@ make install            # = make sdcard, poi copia tutto sulla SD in /mnt/d
 make install SD=/mnt/e  # se la SD è montata altrove
 ```
 
-`make install` copia kernel, file di avvio, `config.txt`, cartucce e il firmware del chip
-in `bm/` (Bluetooth e WiFi); non tocca mai impostazioni e salvataggi
+`make install` copia i due kernel (`kernel.img` e `kernel7.img` del Pi Zero 2 W), file di
+avvio, `config.txt`, cartucce e il firmware dei chip in `bm/` (Bluetooth e WiFi del Zero W
+e del Zero 2 W); non tocca mai impostazioni e salvataggi
 (`bm/CONFIG.TXT`, `bm/SAVE`). Alla fine elenca cosa c'è in `bm/` sulla SD.
 
 ## Release (M19)
 
-A ogni tag `v*` il CI (`.github/workflows/ci.yml`), dopo i test, costruisce il kernel (con il
-tag come versione: `bm v0.1.0` nella barra) e i giochi e li pubblica in una release di GitHub
+A ogni tag `v*` il CI (`.github/workflows/ci.yml`), dopo i test, costruisce i kernel
+(`kernel.img` e `kernel7.img`, con il tag come versione: `bm v0.1.0` nella barra) e i giochi e
+li pubblica in una release di GitHub
 con `bm/ca.pem` e `manifest.txt`: per ogni file il nome nella release, dove va sulla SD, la
 dimensione e lo SHA-256. `manifest.sig` è la firma del manifesto (ECDSA P-256), fatta con la
 chiave privata nel secret `BM_RELEASE_KEY` del repository; la chiave pubblica
@@ -557,7 +561,7 @@ Il modo più semplice è l'immagine completa: `make firmware && make image`, poi
 1. Formatta la SD con una partizione **FAT32** (tabella MBR).
 2. `make firmware && make sdcard` (per fissare una versione del firmware: `FW_REF=<tag> make firmware`).
 3. Copia il contenuto di `dist/` nella root della SD (`cp -r dist/* /mnt/d/`):
-   `bootcode.bin  start.elf  fixup.dat  config.txt  kernel.img  carts/`
+   `bootcode.bin  start.elf  fixup.dat  config.txt  kernel.img  kernel7.img  carts/  bm/`
 4. Collega l'HDMI (mini-HDMI) *prima* di alimentare il Pi.
 
 ## Raspberry Pi 1 (B e B+, M29)
@@ -582,6 +586,37 @@ make firmware && make image-pi1   # dist/bm-pi1.img: scrivila sulla SD come bm.i
   sotto i 60 fps.
 - Il firmware di avvio (`make firmware`) e gli aggiornamenti di bm (`--kernel`, M19)
   sono gli stessi per Zero W e Pi 1.
+
+## Raspberry Pi Zero 2 W (M31)
+
+Il Zero 2 W ha un altro processore (BCM2710A1: quattro Cortex-A53) e quindi un suo kernel,
+**`kernel7.img`**: gli stessi sorgenti compilati per ARMv7 a 32 bit. `make`, `make sdcard`,
+`make install` e `make image` mettono sulla SD **tutti e due i kernel**, e `config.txt` fa
+partire quello giusto (`[pi02]` → `kernel7.img`): la stessa scheda va nel Zero W e nel
+Zero 2 W.
+
+```sh
+make firmware && make image   # dist/bm.img per Zero, Zero W e Zero 2 W
+make install                  # oppure: aggiorna la SD in /mnt/d (tutti e due i kernel)
+```
+
+- **Schermo**: la prima riga dice `Raspberry Pi Zero 2 W (BCM2710A1, revision 902120)`, la
+  seconda `Cortex-A53 from HYP` (il processore e il modo in cui il firmware l'ha avviato).
+  Nel menu, scheda System, la riga CPU dice `Cortex-A53, 1000 MHz, ...`.
+- **Un core su quattro**: gli altri tre restano fermi nello stub del firmware.
+- **LED**: il LED ACT del Zero 2 W è il GPIO 29.
+- **WiFi e Bluetooth**: il chip è un CYW43436, con un firmware diverso da quello del Zero W;
+  `make firmware` scarica anche i suoi file (`brcmfmac43436-sdio.*`, `brcmfmac43436s-sdio.*`,
+  `SYN43430A1.hcd`, `SYN43430B0.hcd`) e `make sdcard` li mette in `bm/`. Il kernel sceglie
+  quelli della versione del chip e lo scrive sullo schermo (`wifi: chip ... CYW43436`,
+  `bt: chip LMP subversion ...`).
+- **Kernel dalla rete**: `tools/bm_net.py IP --kernel build/kernel7.img` (sul Zero 2 W
+  viene scritto come `kernel7.img`); un kernel per l'altra scheda viene rifiutato senza
+  scrivere niente (all'offset 4 di ogni immagine c'è `bmK6` o `bmK7`).
+- **Chainloader seriale**: solo per le schede BCM2835 (`kernel.img`).
+- **Test**: QEMU non ha il Zero 2 W; `make test-zero2` prova `kernel7.img` in `raspi2b`
+  (un Pi 2 B: le stesse periferiche, un Cortex-A7, niente radio). Dettagli in
+  [`docs/HARDWARE.md`](docs/HARDWARE.md), sezione 8.
 
 ## Struttura
 

@@ -19,6 +19,7 @@
 #include "arch/mmu.h"
 #include "drivers/fb.h"
 #include "drivers/led.h"
+#include "drivers/mmio.h"
 #include "drivers/prop.h"
 #include "drivers/rng.h"
 #include "drivers/timer.h"
@@ -115,8 +116,17 @@ static void run_boot_script(void)
 static uint32_t arm_memory_end(void)
 {
     uint32_t v[2] = { 0, 0 };
-    if (prop_query(PROP_GET_ARM_MEMORY, v, 2) != 0 || v[1] == 0)
+    if (prop_query(PROP_GET_ARM_MEMORY, v, 2) != 0 || v[1] == 0 || v[0] + v[1] > PERIPHERAL_BASE)
         return 0x10000000u;             /* 256 MiB: safe for gpu_mem <= 256 */
+    return v[0] + v[1];
+}
+
+/* End of the SDRAM: the GPU's share sits on top of the ARM's. */
+static uint32_t sdram_end(uint32_t arm_end)
+{
+    uint32_t v[2] = { 0, 0 };
+    if (prop_query(PROP_GET_VC_MEMORY, v, 2) != 0 || v[0] + v[1] <= arm_end)
+        return 0x20000000u;             /* 512 MiB: the Pi Zero, W and 2 W */
     return v[0] + v[1];
 }
 
@@ -173,8 +183,24 @@ static void eth_boot(void)
         net_start(&net_eth);
 }
 
+/* Heap, ARM clock, memory map and caches. */
+static void memory_init(void)
+{
+    uint32_t mem_end = arm_memory_end();
+    heap_init(mem_end);
+    prop_clock_set_max(CLOCK_ARM);
+    mmu_init(mem_end, sdram_end(mem_end));
+}
+
 void kernel_main(uint32_t atags)
 {
+#ifdef BM_ZERO2
+    /* Before anything else: until the MMU is on the Cortex-A53 of the Pi
+     * Zero 2 W sees the RAM as device memory, where the unaligned accesses
+     * that ARMv7 code (ours and the C library's) makes freely are alignment
+     * faults. */
+    memory_init();
+#endif
     led_init();
     led_set(1);
     uart_init();
@@ -193,15 +219,14 @@ void kernel_main(uint32_t atags)
     if (err)
         panic("framebuffer init failed (%d)", err);
 
-    uint32_t mem_end = arm_memory_end();
-    heap_init(mem_end);
-    prop_clock_set_max(CLOCK_ARM);
-    mmu_init(mem_end);
+#ifndef BM_ZERO2
+    memory_init();
+#endif
 
     /* the board is asked only now: at the very start a real Zero W gave
      * a revision that is not its own (no WiFi, the LED on another pin) */
-    kprintf("\n\x1b[1;36mbm\x1b[0m kernel %s - Raspberry %s (BCM2835, revision %06lx)\n", bm_version,
-            board()->name, board()->revision);
+    kprintf("\n\x1b[1;36mbm\x1b[0m kernel %s - Raspberry %s (%s, revision %06lx)\n", bm_version,
+            board()->name, BOARD_SOC, board()->revision);
     led_init_board();
 
     irq_init();

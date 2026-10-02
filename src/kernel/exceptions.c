@@ -7,6 +7,7 @@
 #include "drivers/watchdog.h"
 #include "crumbs.h"
 #include "drivers/fb.h"
+#include "drivers/mmio.h"
 #include "gfx/console.h"
 #include "drivers/led.h"
 #include "lib/printf.h"
@@ -78,7 +79,7 @@ void exception_handler(uint32_t type, exc_frame_t *f)
         kprintf("DFAR=%08lx DFSR=%08lx\n", read_dfar(), read_dfsr());
     else if (type == EXC_PABT)
         kprintf("IFSR=%08lx\n", read_ifsr());
-    if (!(f->pc & 3) && f->pc < 0x20000000u)
+    if (!(f->pc & 3) && f->pc < PERIPHERAL_BASE)
         kprintf("insn @PC = %08lx\n", *(volatile uint32_t *)f->pc);
 
     die(type);

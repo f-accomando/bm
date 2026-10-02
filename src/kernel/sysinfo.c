@@ -11,6 +11,32 @@
 
 extern char __kernel_end[];
 
+/* The mode the firmware started the kernel in (start.S): SVC on the
+ * ARM1176, HYP on the Cortex-A53 of the Pi Zero 2 W. */
+uint32_t boot_mode;
+
+static const char *mode_name(uint32_t m)
+{
+    switch (m) {
+    case 0x13: return "SVC";
+    case 0x1A: return "HYP";
+    case 0x16: return "MON";
+    default:   return "?";
+    }
+}
+
+const char *sysinfo_cpu(void)
+{
+    uint32_t midr;
+    __asm__ volatile("mrc p15, 0, %0, c0, c0, 0" : "=r"(midr));
+    switch (midr >> 4 & 0xFFF) {
+    case 0xB76: return "ARM1176";
+    case 0xC07: return "Cortex-A7";
+    case 0xD03: return "Cortex-A53";
+    default:    return "ARM";
+    }
+}
+
 void sysinfo_print(void)
 {
     uint32_t v[2];
@@ -27,6 +53,10 @@ void sysinfo_print(void)
     if (prop_query(PROP_GET_VC_MEMORY, v, 2) == 0)
         kprintf("GPU memory     : %08lx + %lu MiB\n", v[0], v[1] >> 20);
 
+    uint32_t midr;
+    __asm__ volatile("mrc p15, 0, %0, c0, c0, 0" : "=r"(midr));
+    kprintf("CPU            : %s (MIDR %08lx), started in %s mode\n", sysinfo_cpu(), midr,
+            mode_name(boot_mode));
     kprintf("ARM clock      : %lu MHz\n", prop_clock_rate(CLOCK_ARM) / 1000000);
     kprintf("core clock     : %lu MHz\n", prop_clock_rate(CLOCK_CORE) / 1000000);
     kprintf("UART clock     : %lu Hz, %lu baud\n", uart_clock(), (uint32_t)UART_BAUD);
@@ -64,6 +94,7 @@ void sysinfo_print_short(void)
             rev[0], prop_clock_rate(CLOCK_ARM) / 1000000,
             prop_clock_rate(CLOCK_CORE) / 1000000, arm[1] >> 20, vc[1] >> 20,
             temp[1] / 1000, (temp[1] % 1000) / 100);
-    kprintf("MMU+caches %s, heap %lu MiB, UART %lu Hz\n",
-            mmu_enabled() ? "on" : "off", (uint32_t)((heap_end() - heap_start()) >> 20), uart_clock());
+    kprintf("%s from %s, MMU+caches %s, heap %lu MiB, UART %lu Hz\n", sysinfo_cpu(),
+            mode_name(boot_mode), mmu_enabled() ? "on" : "off",
+            (uint32_t)((heap_end() - heap_start()) >> 20), uart_clock());
 }

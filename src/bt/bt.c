@@ -1,7 +1,7 @@
 /*
- * Bluetooth on the Pi Zero W (BCM43438): up to four HID game controllers
- * (the DualShock 4 is the reference), one per player. Classic Bluetooth
- * only:
+ * Bluetooth on the Pi Zero W (BCM43438) and Zero 2 W (CYW43436): up to four
+ * HID game controllers (the DualShock 4 is the reference), one per player.
+ * Classic Bluetooth only:
  *
  *   chip up      power, 32 kHz clock, firmware patch, event mask, SSP on
  *   pairing      inquiry, Create Connection, SSP "Just Works" (no MITM),
@@ -39,7 +39,7 @@
 #include <string.h>
 
 #define BT_FAST_BAUD 921600u       /* UART speed after the firmware patch */
-#define BT_ON_GPIO   45             /* BT_REG_ON of the BCM43438 on the Zero W */
+#define BT_ON_GPIO   (board()->bt_on_pin) /* BT_REG_ON: 45 on the Zero W, 42 on the 2 W */
 #define LPO_GPIO     43             /* GPCLK2: 32.768 kHz sleep clock */
 
 #define CM_GP2CTL    (PERIPHERAL_BASE + 0x101080)
@@ -366,17 +366,38 @@ static int reset(void)
     return hci_cmd(HCI_RESET, NULL, 0, NULL, 0, 1000000);
 }
 
+/* The firmware patch of the chip: BCM43430A1.hcd for the BCM43438 of the
+ * Zero W; the Zero 2 W's CYW43436 comes in two versions, told apart by
+ * their LMP subversion as Linux's btbcm does, with the files of Raspberry
+ * Pi OS's bluez-firmware (synaptics/). NULL: a chip we have none for. */
+static const char *patch_name(void)
+{
+    if (board()->model != BOARD_ZERO_2W)
+        return "BCM43430A1.hcd";
+    uint8_t v[8] = { 0 };
+    hci_cmd(HCI_READ_LOCAL_VERSION, NULL, 0, v, sizeof v, 500000);
+    uint16_t sub = (uint16_t)(v[6] | v[7] << 8);
+    const char *name = sub == 0x2209 ? "SYN43430A1.hcd" : sub == 0x410c ? "SYN43430B0.hcd" : NULL;
+    kprintf("bt: chip LMP subversion %04x: %s\n", sub, name ? name : "no firmware patch known");
+    return name;
+}
+
 /* The .hcd file is a list of HCI commands: opcode (2), length (1), data. */
 static int load_patch(void)
 {
     fat_entry_t e;
     uint8_t *data = NULL;
     size_t len = 0;
-    if (config_find_file("BCM43430A1.hcd", &e) == 0 || fat_find("/BCM43430A1.hcd", &e) == 0)
+    const char *name = patch_name();
+    if (!name)
+        return -1;
+    char root[24];
+    ksnprintf(root, sizeof root, "/%s", name);
+    if (config_find_file(name, &e) == 0 || fat_find(root, &e) == 0)
         fat_load(&e, &data, &len);
     if (!data) {
-        kprintf("bt: BCM43430A1.hcd not on the SD card (make firmware; make sdcard puts it\n"
-                "    in bm/): the chip runs its ROM firmware\n");
+        kprintf("bt: %s not on the SD card (make firmware; make sdcard puts it\n"
+                "    in bm/): the chip runs its ROM firmware\n", name);
         return -1;
     }
     if (hci_cmd(HCI_BCM_DOWNLOAD_MINI, NULL, 0, NULL, 0, 1000000) != 0) {
