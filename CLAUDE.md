@@ -292,6 +292,10 @@ screenshot in `docs/img/`), `README_OLD.md` (il README completo, in italiano),
   fotogramma (30 fps).
 - Prove: `make test-yharnam8` (un bot gioca dentro nano8, `tests/yharnam/y8.lua`), `make
   test-nano8`, QEMU `test_yharnam8`.
+- Video: `make yharnam8-video` (`build/yharnam8-run.mp4`, serve ffmpeg): `tests/yharnam/y8_bot.lua`
+  gioca con i soli tasti dal titolo al Butcher ucciso (percorso sulle tessere, lampade, lotta,
+  parata e visceral, fiala), sempre la stessa corsa (`srand`); `y8_video.sh` la gioca tre volte con
+  n8host (la durata, il suono `--wav`, le immagini `--video`). `BOT_TRACE=1` stampa come va.
 
 ## Assistente AI (M30)
 

@@ -274,6 +274,11 @@ $(BUILD)/host/n8cartinfo: tests/nano8/cartinfo.c src/bm/n8.c src/bm/n8font.c src
 test-nano8: $(BUILD)/host/n8host $(BUILD)/host/n8cartinfo $(BUILD)/host/luahost $(BUILD)/nano8/main.lua
 	$(PYTHON) tests/nano8/run.py --build $(BUILD) $(NANO8_ROMS)
 
+# make yharnam8-video: Yharnam 8 played in nano8 by tests/yharnam/y8_bot.lua, from
+# the title to the Butcher slain (build/yharnam8-run.mp4; needs ffmpeg)
+yharnam8-video: $(BUILD)/host/n8host $(BUILD)/nano8/main.lua
+	tests/yharnam/y8_video.sh $(BUILD) $(BUILD)/yharnam8-run.mp4
+
 # Yharnam 8 (carts/yharnam/pico8: the hunt to the measure of PICO-8, a rom of
 # nano8): the rom made again is the one in the repository, and a bot plays it
 # inside nano8 (tests/yharnam/y8.lua: the hunter's ways, lamps, death, bosses)
@@ -287,7 +292,7 @@ test-yharnam8: $(BUILD)/host/n8host $(BUILD)/nano8/main.lua
 .DEFAULT_GOAL := all
 .PHONY: FORCE test-smp all clean firmware image image-pi1 sdcard install sdcard-chainloader sdcard-stress qemu qemu-screenshot \
         run-serial test test-bm test-ai ai-model test-usb test-audio test-fat test-kitchen test-titan test-yharnam test-sound \
-        test-nano8 test-yharnam8 \
+        test-nano8 test-yharnam8 yharnam8-video \
         test-net test-http test-https test-release release disasm wav test-studio test-studio-ui studio test-prompts \
         showreel yharnam-video
 

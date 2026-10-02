@@ -25,7 +25,7 @@ end
 -- 5 celestial child; the bosses 6-9. s sprite, z size (0 small, 1 tall,
 -- 2 big), sp speed, r reach, w wind-up, c recovery, k distance kept,
 -- o circling, n blows in a row, e dodging, ec echoes, pm poise, l lunge
-ty=rows"s,z,hp,sp,r,dmg,w,c,k,o,n,e,ec,pm,l,mv,nm|70,1,6,.5,14,3,22,24,16,0,1,0,20,99,1.2,m,townsman|70,1,5,.4,90,3,40,30,60,0,1,0,25,99,0,g,rifleman|72,1,9,.8,14,3,14,20,20,.6,3,0,40,99,1.6,m,scourge beast|68,1,10,.75,15,3,18,16,28,.4,2,.5,50,99,2,m,mad hunter|74,0,4,.7,10,2,12,16,10,0,1,0,30,99,1.5,m,celestial child|96,2,110,.55,20,4,22,22,18,0,1,0,600,25,1.4,m,the butcher|100,2,110,.9,22,4,18,20,26,.5,1,0,700,22,2,m,the great hound|104,2,130,.75,18,4,18,18,22,.4,1,.2,800,24,1.8,m,father graves|108,2,150,.5,28,4,24,24,30,.3,1,0,900,28,0,m,the watcher"
+ty=rows"s,z,hp,sp,r,dmg,w,c,k,o,n,e,ec,pm,l,mv,nm|70,1,6,.5,14,3,22,24,16,0,1,0,20,99,1.2,m,townsman|70,1,5,.4,90,3,40,30,60,0,1,0,25,99,0,g,rifleman|72,1,9,.8,14,3,14,20,20,.6,3,0,40,99,1.6,m,scourge beast|68,1,10,.75,15,3,18,16,28,.4,2,.5,50,99,2,m,mad hunter|74,0,4,.7,10,2,12,16,10,0,1,0,30,99,1.5,m,celestial child|96,2,110,.55,20,4,22,22,18,0,1,0,600,45,1.4,m,the butcher|100,2,110,.9,22,4,18,20,26,.5,1,0,700,40,2,m,the great hound|104,2,130,.75,18,4,18,18,22,.4,1,.2,800,45,1.8,m,father graves|108,2,150,.5,28,4,24,24,30,.3,1,0,900,50,0,m,the watcher"
 -- the bosses' moves, a phase to a list (m<n>: n blows in a row)
 bmv={"m1,m1,ring|m1,m2,ring,fire|m3,ring,fire,leap","m1,leap|m2,leap,ring|m3,leap,ring,leap","m1,gun|m2,leap,gun|m3,fire,ring,leap","beam,m1|beam,ring,fire|beam,m3,fire,ring"}
 -- the saw cleaver, folded and open: wind-up, blow, recovery, reach,
