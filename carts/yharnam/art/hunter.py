@@ -98,7 +98,8 @@ SPINE = -BLADE_W[0] / 2 - PIVOT_OFF                     # the blade's back, from
 # bends it sideways. Legs: th swings the thigh forward, tha lifts it
 # sideways, knee, foot (by default it keeps the sole level: knee - th).
 # blade: the hinge of the saw cleaver, 180 folded, 0 out; grip turns it in
-# the hand.
+# the hand; croll rolls it round its own line (what is behind the hand
+# swings round with it: kept out of the body).
 BASE = dict(ty=0.0, air=0.0, pitch=0.0, roll=0.0, yaw=0.0, pelvis_yaw=0.0, pelvis_roll=0.0,
             lean=7.0, chest_yaw=0.0, chest_roll=0.0, head_pitch=-4.0, head_yaw=0.0, head_roll=0.0,
             breath=0.0, sway=0.0, cape=0.0,
@@ -106,7 +107,7 @@ BASE = dict(ty=0.0, air=0.0, pitch=0.0, roll=0.0, yaw=0.0, pelvis_yaw=0.0, pelvi
             sw_l=2.0, abd_l=13.0, yaw_l=0.0, roll_l=0.0, el_l=26.0, tw_l=0.0, wr_l=0.0, wd_l=0.0,
             th_r=5.0, tha_r=0.0, knee_r=6.0, toe_r=0.0,
             th_l=-3.0, tha_l=0.0, knee_l=4.0, toe_l=0.0,
-            spread=4.5, grip=0.0, blade=180.0, pgrip=0.0, skirt_r=None, skirt_l=None)
+            spread=4.5, grip=0.0, blade=180.0, croll=0.0, pgrip=0.0, skirt_r=None, skirt_l=None)
 
 
 def pose(base=None, **kw):
@@ -206,7 +207,12 @@ def skeleton(p, lift=0.0):
     S.add('skirt_b', 'pelvis', [0, -0.8, 4.2], rx(-D(3) - abs(a('sway')) * 0.8 - 0.25 * abs(a('th_r'))))
     S.add('cape', 'chest', [0, 0, 14.6], rx(-a('cape')))
     # weapons: the saw cleaver (grip, shaft, the blade on its hinge) and the pistol
-    S.add('cleaver', 'hand_r', [0.2, 0.5, -1.3], rz(D(-18)) @ rx(D(46 + p['grip'])) @ ry(D(-8)))
+    # wield: how the hand points the weapon (its -z: where the blows go);
+    # folded, the cleaver is turned end for end in the hand (the hinge
+    # behind the fist, blade and tail ahead of it, the arch still over the
+    # blade); opening, it turns back as the blade swings out of the hinge
+    S.add('wield', 'hand_r', [0.2, 0.5, -1.3], rz(D(-18)) @ rx(D(46 + p['grip'])) @ ry(D(-8)))
+    S.add('cleaver', 'wield', [0, 0, 0], ry(-a('blade')) @ rz(a('croll')))
     S.add('blade', 'cleaver', PIVOT, rx(a('blade')))
     S.add('pistol', 'hand_l', [-0.1, 0.4, -1.2], ry(D(18)) @ rx(D(30 + p['pgrip'])))
     return S
@@ -228,8 +234,7 @@ def grounded(p):
     return skeleton(p, -low + p['air'])
 
 
-TIP = ('blade', (0, SPINE + 3.0 - BEND, -BLADE_L + 0.4))   # the far end of the saw cleaver, open
-TIP_FOLDED = ('blade', (0, SPINE + 3.2, 0.0))         # ... folded: the hinge's end of the blade
+TIP = ('blade', (0, SPINE + 3.0 - BEND, -BLADE_L + 0.4))   # the far end of the blade, ahead of the hand
 MUZZLE = ('pistol', (0, 0.4, -10.0))
 
 
@@ -247,6 +252,31 @@ def handle_mat(q):
     m = np.full(len(q), GRIP)
     m[(u < 0.09) | (u > 0.86)] = CORD
     return m
+
+
+def _seg(q, a, b):
+    ab = b - a
+    t = min(1.0, max(0.0, float((q - a) @ ab) / float(ab @ ab)))
+    return float(np.linalg.norm(q - (a + t * ab)))
+
+
+def intrusion(p):
+    """how deep the saw cleaver's parts behind the hand (the folded blade's
+    far end, the handle's tail) go into the body: 0 when they stay out"""
+    S = grounded(p)
+    body = [(S.pt('pelvis', (0, 0, -2)), S.pt('chest', (0, 0, 12)), 5.2),
+            (S.pt('head', (0, 0, 0)), S.pt('head', (0, 0, 6)), 3.2),
+            (S.pt('farm_l', (0, 0, 0)), S.pt('hand_l', (0, 0, 0)), 1.9)]
+    for sd in 'rl':
+        body += [(S.pt('thigh_' + sd, (0, 0, 0)), S.pt('shin_' + sd, (0, 0, 0)), 2.6),
+                 (S.pt('shin_' + sd, (0, 0, 0)), S.pt('foot_' + sd, (0, 0, 0)), 2.0),
+                 (S.pt('uarm_' + sd, (0, 0, 0)), S.pt('farm_' + sd, (0, 0, 0)), 2.1),
+                 (S.pt('skirt_' + sd, (0, 0, 0)), S.pt('skirt_' + sd, (0, 1.5, -18)), 3.0)]
+    w = BLADE_W[0] + 0.7 * BLADE_W[1]
+    pts = [S.pt('blade', (0, y, z)) for z in np.linspace(0.5, -BLADE_L, 8)
+           for y in (SPINE + 0.5, SPINE + w * 0.5, SPINE + w)]
+    pts += [S.pt('cleaver', (0, y, z)) for (z, y, r) in HANDLE if abs(z) > 2.5]
+    return sum(max(0.0, r + 0.8 - _seg(q, a, b)) for q in pts for a, b, r in body)
 
 
 # ---------------------------------------------------------------- model
@@ -448,7 +478,7 @@ def render_pose(p, facing, ss=3):
     img, proj = render(M, W, H, CX, CY, facing=facing, bound=(c, R), ss=ss)
     rgba = pixelize(img, proj, outline=PAL[1])
     out, (x0, y0) = crop(rgba)
-    tip, mz = S.pt(*(TIP if p['blade'] < 90 else TIP_FOLDED)), S.pt(*MUZZLE)
+    tip, mz = S.pt(*TIP), S.pt(*MUZZLE)
     return out, (CX - x0, CY - y0), (float(tip @ r), float(-(tip @ u))), (float(mz @ r), float(-(mz @ u)))
 
 

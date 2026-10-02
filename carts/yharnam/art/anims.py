@@ -11,7 +11,7 @@ import math
 
 import numpy as np
 
-from hunter import BASE, extended, idle_pose, pose, skeleton, walk_pose
+from hunter import BASE, extended, idle_pose, intrusion, pose, skeleton, walk_pose
 
 NUM = [k for k, v in BASE.items() if isinstance(v, float)]
 
@@ -52,7 +52,7 @@ def sample(keys, t):
 
 def weapon_dir(p):
     S = skeleton(p)
-    return S.b['cleaver'][0] @ np.array([0, 0, -1.0]), S.b['body'][0]
+    return S.b['wield'][0] @ np.array([0, 0, -1.0]), S.b['body'][0]
 
 
 def aim(p, az, el):
@@ -103,8 +103,47 @@ def keyed(base, keys, times, ext=False):
 ANIMS = {}
 
 
+ROLLS = list(range(-150, 181, 15))
+
+
+def unclip(frames, start=True, end=True):
+    """rolls the saw cleaver round its own line, frame by frame, so what is
+    behind the hand (the hinge folded, the handle's tail open) keeps out of
+    the body: the least intrusion, the roll changing little from one
+    frame to the next (at most 60 degrees) and none at the first and the
+    last frame when they are a stance (start, end)"""
+    cost = [[4.0 * intrusion(dict(p, croll=float(c))) for c in ROLLS] for p in frames]
+    if not any(min(row) < row[ROLLS.index(0)] for row in cost):
+        return frames
+    n, best, back = len(frames), [], []
+    for f in range(n):
+        row, brow = [], []
+        for j, c in enumerate(ROLLS):
+            fixed = (f == 0 and start) or (f == n - 1 and end)
+            own = cost[f][j] + (1e6 if fixed and c else 0.03 * abs(c) if f in (0, n - 1) else 0.0)
+            if f == 0:
+                row.append(own)
+                brow.append(-1)
+                continue
+            k = min((best[-1][i] + 0.05 * abs(c - ROLLS[i]) + (1e6 if abs(c - ROLLS[i]) > 60 else 0), i)
+                    for i in range(len(ROLLS)))
+            row.append(own + k[0])
+            brow.append(k[1])
+        best.append(row)
+        back.append(brow)
+    j = min(range(len(ROLLS)), key=lambda i: best[-1][i])
+    rolls = []
+    for f in range(n - 1, -1, -1):
+        rolls.append(ROLLS[j])
+        j = back[f][j]
+    rolls.reverse()
+    return [dict(p, croll=float(c)) for p, c in zip(frames, rolls)]
+
+
 def anim(name, frames, ticks, loop=False, ext=False, **events):
     assert len(frames) == len(ticks), name
+    lying = name.startswith(('down', 'getup', 'death'))
+    frames = unclip(frames, start=not lying and not name.startswith('hurt'), end=not lying)
     ANIMS[name] = {'frames': frames, 'ticks': ticks, 'loop': loop, 'ext': ext, 'events': events}
 
 
