@@ -12,101 +12,15 @@
 local SRC = arg[1]
 math.randomseed(1)            -- the same run every time (the cartridge uses math.random)
 
----------------------------------------------------------------- fake bm
-
-local env = {}
-local held, prev = 0, 0
-local now = 0
-local logs = {}
-local SHEET_W, SHEET_H = 4096, 4096
-local px_sprites = 0
-local MAPW, MAPH = 256, 256
-local map = {}
-
-local function chk(cond, msg) if not cond then error(msg, 3) end end
-local function num(v, name) chk(type(v) == "number", (name or "argument") .. ": number expected, got " .. type(v)) end
-
-for _, n in ipairs({ "cls", "line", "rect", "circ", "camera", "clip", "note", "noteoff", "freq", "quit",
-                     "dark_begin", "dark_end", "timeslice" }) do
-  env[n] = function() end
-end
-env.pset = function(x, y, c) num(x, "pset x"); num(y, "pset y"); num(c, "pset colour") end
-env.rectfill = function(x, y, w, h, c) num(x); num(y); num(w); num(h); num(c, "rectfill colour") end
-env.circfill = function(x, y, r, c) num(x); num(y); num(r); num(c, "circfill colour") end
-env.sspr = function(sx, sy, sw, sh, dx, dy)
-  num(sx, "sspr sx"); num(sy, "sspr sy"); num(sw); num(sh); num(dx, "sspr dx"); num(dy, "sspr dy")
-  chk(sx >= 0 and sy >= 0 and sx + sw <= SHEET_W and sy + sh <= SHEET_H, "sspr outside the sheet")
-  px_sprites = px_sprites + sw * sh
-end
-env.spr = function(n, x, y, w, h)
-  num(n, "spr n"); num(x, "spr x"); num(y, "spr y")
-  chk(math.type(n) == "integer" and n > 0 and n < (SHEET_W // 8) * (SHEET_H // 8), "spr: bad cell " .. tostring(n))
-  px_sprites = px_sprites + 64 * (w or 1) * (h or 1)
-end
-env.map = function(mx, my, x, y, mw, mh)
-  num(mx); num(my); num(x); num(y); num(mw); num(mh)
-  chk(mx >= 0 and my >= 0 and mx + mw <= MAPW and my + mh <= MAPH, "map: outside the map")
-end
-env.mset = function(x, y, n)
-  chk(math.type(x) == "integer" and math.type(y) == "integer" and math.type(n) == "integer", "mset: integers")
-  chk(x >= 0 and y >= 0 and x < MAPW and y < MAPH, "mset outside the map")
-  map[y * MAPW + x] = n
-end
-env.glow = function(x, y, r, lv, d)
-  num(x, "glow x"); num(y, "glow y"); num(r, "glow radius")
-  chk(math.type(lv) == "integer" and lv >= 0 and lv < 16, "glow: the level is an integer 0..15")
-end
-local levels
-env.fades = function(t)
-  chk(#t > 0 and #t <= 255, "fades: 1..255 colours")
-  levels = #t[1] - 1
-  for _, row in ipairs(t) do
-    chk(#row == levels + 1, "fades: rows of the same length")
-    for _, c in ipairs(row) do chk(math.type(c) == "integer" and c >= 0 and c <= 0xFFFFFF, "fades: colours") end
-  end
-  return levels
-end
-env.SCREEN_W, env.SCREEN_H = 256, 256
-env.SQUARE, env.TRIANGLE, env.SAW, env.NOISE, env.SINE, env.METAL = 0, 1, 2, 3, 4, 5
-env.print = function(s, x, y, c)
-  num(x, "print x"); num(y, "print y")
-  return x + #tostring(s) * 8
-end
-env.log = function(...) local t = { ... } for i = 1, #t do t[i] = tostring(t[i]) end logs[#logs + 1] = table.concat(t, "\t") end
-env.time = function() return now end
-env.stat = function() return 0 end
-env.btn = function(b) return (held >> b) & 1 == 1 end
-env.prompt = function(name, x, y) num(x, "prompt x"); num(y, "prompt y"); return x + 16 end
-env.lastinput = function() return nil end
--- pad(): bits 1024 L1, 2048 R1 from the held mask's bits 10 and 11
-env.pad = function() return held & (1024 | 2048) end
-env.btnp = function(b) return (held >> b) & 1 == 1 and (prev >> b) & 1 == 0 end
-for _, lib in ipairs({ "string", "table", "math", "utf8", "coroutine" }) do env[lib] = _G[lib] end
-for _, f in ipairs({ "assert", "error", "ipairs", "next", "pairs", "pcall", "rawequal", "rawget", "rawlen",
-                     "rawset", "select", "setmetatable", "getmetatable", "tonumber", "tostring", "type", "xpcall" }) do
-  env[f] = _G[f]
-end
+local B = dofile((arg[0]:match("^(.*/)") or "") .. "fakebm.lua")
+local env, call = B.env, B.call
+local SHEET_W, SHEET_H = B.SHEET_W, B.SHEET_H
 
 ---------------------------------------------------------------- load
-
-local f = assert(io.open(SRC))
-local code = f:read("a")
-f:close()
-local chunk, err = load(code, "=main.lua", "t", env)
-if not chunk then io.stderr:write(err .. "\n") os.exit(1) end
 
 local instr, gen_instr = 0, 0
 local in_gen = false
 local function counter() if in_gen then gen_instr = gen_instr + 1000 else instr = instr + 1000 end end
-
-local function call(fn)
-  local ok, e = xpcall(fn, debug.traceback)
-  if not ok then
-    io.stderr:write(e .. "\n")
-    for i = math.max(1, #logs - 5), #logs do io.stderr:write("log: " .. logs[i] .. "\n") end
-    os.exit(1)
-  end
-end
 
 -- the chunks made in the background (a coroutine) are counted apart
 local resume = coroutine.resume
@@ -119,9 +33,7 @@ env.coroutine = setmetatable({ resume = function(co, ...)
   return table.unpack(r, 1, r.n)
 end }, { __index = coroutine })
 
-call(chunk)
-local Y = env.YHARNAM
-assert(Y, "the cartridge has no YHARNAM table for the tests")
+local Y = B.load(SRC)
 setmetatable(Y.SPR, { __index = function(_, k) error("no sprite called " .. tostring(k), 2) end })
 local checks = 0
 local function check(cond, msg)
@@ -203,7 +115,7 @@ io.write(string.format("the creatures: %d, %d frames\n", nfoe, ffr))
 ---------------------------------------------------------------- the street plan
 
 call(env._init)
-check(levels == 8, "8 light levels, not " .. tostring(levels))
+check(B.levels == 8, "8 light levels, not " .. tostring(B.levels))
 
 local CS = Y.CS
 -- either side of a border sees the same streets (road_at depends only on
@@ -309,18 +221,15 @@ local worst = { instr = 0, gen = 0, px = 0 }
 local frames = 0
 local costs = {}
 local function frame(buttons, label)
-  prev, held = held, buttons
-  instr, gen_instr, px_sprites = 0, 0, 0
+  instr, gen_instr, B.px = 0, 0, 0
   debug.sethook(counter, "", 1000)
-  call(env._update)
-  call(env._draw)
+  B.frame(buttons)
   debug.sethook()
-  now = now + 1 / 60
   frames = frames + 1
   if instr > worst.instr then worst.instr, worst.where = instr, label end
   costs[#costs + 1] = instr
   if gen_instr > worst.gen then worst.gen = gen_instr end
-  if px_sprites > worst.px then worst.px = px_sprites end
+  if B.px > worst.px then worst.px = B.px end
 end
 
 -- the title: the camera drifts over the town for a minute
@@ -610,6 +519,7 @@ press(3, 2); press(3, 2); press(3, 2); press(3, 2)  -- Hunter's Path
 local r0 = P.mods.fold_rate
 press(4, 2)
 check(P.mods.fold_rate > r0 and Y.G.slots[3] == 5, "the Hunter's Path: the folded blade quicker")
+check(P.mods.fold_rate < 1.1 and not P.mods.fold_chain, "another path than his own: a divided blood, felt less")
 press(2, 2); press(2, 2)                         -- Quicksilver Rite
 press(4, 2)
 check(#Y.G.slots == 4 and P.mods.gun > 1 and P.mods.stag > 1, "the fourth path, the last")

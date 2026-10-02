@@ -160,12 +160,18 @@ screenshot in `docs/img/`), `README_OLD.md` (il README completo, in italiano),
   nemici uccisi, da spendere con parsimonia: Select (Tab) cura poco per `HEAL_COST`, la morte
   costa `DEATH_COST` e senza abbastanza echi la caccia è perduta (stato `lost`).
 - Le vie della lampada (`PATHS`, decisione dell'utente): al massimo 4 (`SLOT_COST`), anche la
-  stessa più volte; la prima scelta pesa di più, l'ultima di meno, con curve diverse per via.
+  stessa più volte. Bilanciamento (richiesta dell'utente: build puntate su un aspetto, con
+  varianti): la prima via presa è quella del cacciatore e pesa di più; ripresa conta ogni volta
+  meno ma ancora in modo visibile (`curve`, diversa per via); le altre vie pesano circa un terzo,
+  meno quante più sono (`DISCORD`): un mix vale meno di una via seguita (`path_weights`).
   Nomi evocativi e descrizioni senza numeri; gli effetti non si vedono sulle barre (stessa
   misura): agiscono su `P.mods` (`apply_paths`). Feral Affinity: meno danno subito; Moonlit
-  Breath: stamina spesa meno e recuperata prima; Quicksilver Rite: pistola, finestra del parry,
-  barcollare più lungo; Serrated Oath: danno della saw cleaver aperta; Hunter's Path: lama
-  chiusa più rapida e combo prima. Incrementi visibili ma piccoli (uno o due colpi in più).
+  Breath: stamina spesa meno e recuperata prima; Quicksilver Rite: danno della pistola, finestra
+  del parry (in tick dopo il colpo), barcollare più lungo; Serrated Oath: danno della saw
+  cleaver aperta; Hunter's Path: lama chiusa più rapida, combo prima e meno stamina per i suoi
+  colpi. `tests/yharnam/balance.lua` (in `make test-yharnam`) misura col codice del gioco colpi
+  per uccidere un cittadino e due boss, colpi subiti, colpi in 4 s, DPS, stamina e pistola per
+  ogni via e per dei mix, e controlla queste regole: rieseguirlo dopo ogni ritocco.
 - I comandi non sono sullo schermo: Start apre la pausa, con la pagina Controls (icone di
   `prompt()` secondo `lastinput()`).
 - Lo sheet è largo 4096 (skyline, fotogrammi uguali tenuti una volta). La cache delle creature

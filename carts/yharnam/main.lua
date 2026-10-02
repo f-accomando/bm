@@ -2095,8 +2095,9 @@ local P = { x = 0, y = 0, dir = 0, anim = "idle", f = 1, ft = 0, rev = false, ac
             r1 = false, charge = 0, charged = false, hpmax = HP_MAX, stmax = ST_MAX,
             -- what the paths chosen at the lamps change (none, at first): damage taken, stamina
             -- spent and regained, the pistol and the parry, the open saw, the folded blade's speed
+            -- and stamina
             mods = { hurt = 1, st_cost = 1, st_regen = 1, gun = 1, parry = 0, stag = 1, ext_dmg = 1, fold_rate = 1,
-                     fold_chain = false } }
+                     fold_cost = 1, fold_chain = false } }
 
 local function solid_at(x, y)
   local tx, ty = fdiv(x, TS), fdiv(y, TS)
@@ -2258,10 +2259,11 @@ local function step_anim(rate)
   P.newf = false
   P.ft = P.ft + (rate or 1)
   if P.ft >= a.t[P.f] then
+    local over = P.ft - a.t[P.f]            -- what is left of the tick goes on (a quicker rate counts)
     if P.rev then
-      if P.f > 1 then P.f, P.ft, P.newf = P.f - 1, 0, true else return true end
-    elseif P.f < #a.t then P.f, P.ft, P.newf = P.f + 1, 0, true
-    elseif a.loop then P.f, P.ft, P.newf = 1, 0, true
+      if P.f > 1 then P.f, P.ft, P.newf = P.f - 1, over, true else return true end
+    elseif P.f < #a.t then P.f, P.ft, P.newf = P.f + 1, over, true
+    elseif a.loop then P.f, P.ft, P.newf = 1, over, true
     else return true end                    -- ended: it stays so
   end
   return false
@@ -2331,7 +2333,7 @@ end
 
 local function attack(stage, dx, dy)
   if dx ~= 0 or dy ~= 0 then P.dir = DIRS[dy][dx] else aim_at(44) end
-  spend(P.ext and 20 or 15)
+  spend(P.ext and 20 or 15 * P.mods.fold_cost)
   P.act, P.combo, P.queued = "attack", stage, false
   P.trail = {}
   play((P.ext and "xslash" or "slash") .. stage)
@@ -2340,7 +2342,7 @@ end
 -- the heavy blow: held at the top while R1 is held, it charges
 local function heavy(dx, dy)
   if dx ~= 0 or dy ~= 0 then P.dir = DIRS[dy][dx] else aim_at(44) end
-  spend(26)
+  spend(P.ext and 26 or 26 * P.mods.fold_cost)
   P.act, P.charge, P.charged, P.queued = "heavy", 0, false, false
   P.trail = {}
   play(xname("heavy"))
@@ -2348,7 +2350,7 @@ end
 
 -- the trick: the saw cleaver transformed in a blow, the combo goes on
 local function trick()
-  spend(18)
+  spend(P.ext and 18 or 18 * P.mods.fold_cost)
   P.act, P.combo, P.queued = "trick", min(P.combo + 1, 3), false
   P.trail = {}
   play(P.ext and "trick_x" or "trick")
@@ -2402,13 +2404,15 @@ local function fire()
   local fr = HUNT[P.anim].d[P.dir + 1][P.f]
   local mx, my = P.x + fr[9], P.y + fr[10]
   local v = DIRV[P.dir + 1]
-  local x, y = mx, my
+  -- its way over the street, from the hunter's feet (the muzzle is high and
+  -- ahead of him: a creature at arm's length is on the way too) to a wall
+  local gx, gy = P.x, P.y
   for k = 1, 60 do
-    x, y = x + v[1] * 4, y + v[2] * 4
-    if solid_at(x, y + 18) then break end
+    gx, gy = gx + v[1] * 4, gy + v[2] * 4
+    if solid_at(gx, gy) then break end
   end
-  local hx, hy = FOE.shot(mx, my, x, y)
-  if hx then x, y = hx, hy end
+  local x, y = FOE.shot(P.x, P.y, gx, gy)
+  if not x then x, y = gx, gy + my - P.y end            -- the wall, at the muzzle's height
   flash, tracer = 6, { mx, my, x, y, 6 }
   sfx_shot()
   for k = 1, 10 do
@@ -2766,8 +2770,9 @@ do
     FOE.shake = 8
     harm(o, dmg, true)
   end
-  -- the shot: the first creature on its way. A boss caught winding up a
-  -- blow is staggered (as the hunters parry with their guns)
+  -- the shot, over the street from (x0, y0) to (x1, y1): the first creature
+  -- on its way (where it is hit: its chest). One caught winding up a blow
+  -- is staggered (as the hunters parry with their guns)
   function FOE.shot(x0, y0, x1, y1)
     local best, bt
     local lx, ly = x1 - x0, y1 - y0
@@ -2775,11 +2780,9 @@ do
     if ll < 1 then return nil end
     for _, o in ipairs(list) do
       if o.act ~= "dead" then
-        local ox, oy = o.x, o.y - 12
-        local tt = ((ox - x0) * lx + (oy - y0) * ly) / ll
+        local tt = ((o.x - x0) * lx + (o.y - y0) * ly) / ll
         if tt > 0 and tt <= 1 then
-          local px, py = x0 + lx * tt, y0 + ly * tt
-          local ex, ey = ox - px, oy - py
+          local ex, ey = o.x - (x0 + lx * tt), o.y - (y0 + ly * tt)
           if ex * ex + ey * ey < (o.st.r + 6) ^ 2 and (not bt or tt < bt) then best, bt = o, tt end
         end
       end
@@ -2788,11 +2791,17 @@ do
       local o = best
       local a = o.act and o.def.a[o.anim]
       local hits = a and (a.hit or a.fire or a.slam or a.beam)
-      local winding = o.act and o.act ~= "hurt" and o.act ~= "stagger" and o.act ~= "held" and hits and
-                      o.f < hits[1] + P.mods.parry
+      local winding = false
+      if hits and o.act ~= "hurt" and o.act ~= "stagger" and o.act ~= "held" then
+        -- the ticks into its blow, against the tick it lands (and after, as the paths grant)
+        local el, due = o.ft, 0
+        for k = 1, o.f - 1 do el = el + a.t[k] end
+        for k = 1, hits[1] - 1 do due = due + a.t[k] end
+        winding = el < due + P.mods.parry
+      end
       harm(o, P.mods.gun, not o.boss)
       if winding and o.act ~= "dead" then stagger(o, 110 * P.mods.stag) end      -- the parry
-      return x0 + lx * bt, y0 + ly * bt
+      return o.x, o.y - 12
     end
   end
 
@@ -3267,39 +3276,55 @@ end
 -- death more, and a path at a lamp (at most four) much more
 local DEATH_COST, HEAL_COST, HEAL_HP = 200, 120, 3
 local SLOT_COST = { 800, 1200, 1600, 2000 }
--- The paths a hunter takes at the lamps: four at most, any of them again;
--- the first taken weighs the most, the last the least, each in its own way.
+-- The paths a hunter takes at the lamps: four at most, any of them again.
+-- The first one taken is his own: it gives all it has, and taken again a
+-- little less every time (curve: each path in its own way). Any other path
+-- is walked with a divided blood (DISCORD): about a third, less the more
+-- paths, so a hunter is made by one path, with a turn of another at most.
 -- What they do is felt, never shown: no bar grows, no number is told.
+-- apply(m, w): w is the weight of the path in the hunter (1: taken once,
+-- his own; tests/yharnam/balance.lua measures what it makes of a fight)
+local DISCORD = { 1, 0.35, 0.2, 0.15 }
 local PATHS = {
   { name = "Feral Affinity", lore = { "blood thick as a beast's;", "blows sink in, and pass" },
-    apply = function(m, k) m.hurt = m.hurt * (1 - ({ 0.18, 0.12, 0.08, 0.05 })[k]) end },
+    curve = { 1, 0.6, 0.35, 0.25 },
+    apply = function(m, w) m.hurt = 1 - 0.19 * w end },
   { name = "Moonlit Breath", lore = { "a breath that outlasts", "the night" },
-    apply = function(m, k)
-      local v = ({ 0.20, 0.13, 0.08, 0.04 })[k]
-      m.st_cost, m.st_regen = m.st_cost * (1 - v), m.st_regen * (1 + v)
-    end },
+    curve = { 1, 0.65, 0.45, 0.3 },
+    apply = function(m, w) m.st_cost, m.st_regen = 1 / (1 + 0.25 * w), 1 + 0.25 * w end },
   { name = "Quicksilver Rite", lore = { "the bullet knows", "the moment" },
-    apply = function(m, k)
-      m.gun = m.gun + ({ 1, 0.5, 0.5, 0.25 })[k]
-      m.parry = m.parry + ({ 2, 1, 1, 0 })[k]
-      m.stag = m.stag * ({ 1.3, 1.15, 1.1, 1.05 })[k]
-    end },
+    curve = { 1, 0.6, 0.45, 0.35 },
+    apply = function(m, w) m.gun, m.parry, m.stag = 1 + w, 5 * w, 1 + 0.3 * w end },
   { name = "Serrated Oath", lore = { "the open saw", "bites deeper" },
-    apply = function(m, k) m.ext_dmg = m.ext_dmg * ({ 1.3, 1.18, 1.1, 1.05 })[k] end },
+    curve = { 1, 0.7, 0.5, 0.35 },
+    apply = function(m, w) m.ext_dmg = 1 + 0.25 * w end },
   { name = "Hunter's Path", lore = { "the folded blade,", "quick as thought" },
-    apply = function(m, k)
-      m.fold_rate = m.fold_rate * ({ 1.16, 1.10, 1.06, 1.03 })[k]
-      if k <= 2 then m.fold_chain = true end
+    curve = { 1, 0.65, 0.45, 0.3 },
+    apply = function(m, w)
+      m.fold_rate, m.fold_cost = 1 + 0.2 * w, 1 / (1 + 0.15 * w)
+      m.fold_chain = w >= 1                      -- the combo goes on a frame sooner
     end },
 }
 local ROMAN = { "I", "II", "III", "IV" }
 local menu = { i = 1, page = nil }
 
+-- the weight of each path in the hunter: every taking as the curve of its
+-- path (how many times taken) and the discord (how many paths before it)
+local function path_weights(slots)
+  local w, times, rank, ranks = {}, {}, {}, 0
+  for _, i in ipairs(slots) do
+    if not rank[i] then ranks = ranks + 1; rank[i] = ranks end
+    times[i] = (times[i] or 0) + 1
+    w[i] = (w[i] or 0) + PATHS[i].curve[times[i]] * DISCORD[rank[i]]
+  end
+  return w
+end
+
 -- the hunter as his paths made him
 local function apply_paths()
   local m = { hurt = 1, st_cost = 1, st_regen = 1, gun = 1, parry = 0, stag = 1, ext_dmg = 1, fold_rate = 1,
-              fold_chain = false }
-  for k, i in ipairs(G.slots) do PATHS[i].apply(m, k) end
+              fold_cost = 1, fold_chain = false }
+  for i, w in pairs(path_weights(G.slots)) do PATHS[i].apply(m, w) end
   P.mods = m
 end
 
@@ -3618,6 +3643,7 @@ YHARNAM = { road_at = road_at, district = district, chunk = chunk, ensure = ensu
             camera = function() return cam_x, cam_y end, CS = CS, TS = TS, SPR = SPR, FACADE = FACADE,
             HUNT = HUNT, FOES = FOES, FOE = FOE, hurt = hurt, flash = function() return flash end, dirs = DIRS,
             G = G, AREA = AREA, boss_chunk = boss_chunk, lamp_chunk = lamp_chunk, PATHS = PATHS, menu = menu,
+            apply_paths = apply_paths, path_weights = path_weights,
             state = function() return state end,
             teleport = function(x, y)
               P.x, P.y = x, y
@@ -4102,10 +4128,13 @@ local function draw_menu()
     if i > 1 and i < n and (not cost or G.echoes < cost) then col = sel and 0x988870 or 0x585048 end
     local x = print(name, 40, y, col)
     if i > 1 and i < n then
-      -- how many times this path was taken: a mark each
+      -- how many times this path was taken: a mark each (gold: the hunter's own, the first)
       local m = 0
       for _, p in ipairs(G.slots) do
-        if p == i - 1 then rectfill(x + 4 + m * 5, y + 6, 3, 3, 0xC8A060); m = m + 1 end
+        if p == i - 1 then
+          rectfill(x + 4 + m * 5, y + 6, 3, 3, p == G.slots[1] and 0xC8A060 or 0x787068)
+          m = m + 1
+        end
       end
       if cost then
         local c = cost .. ""
