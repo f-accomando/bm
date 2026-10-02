@@ -132,6 +132,11 @@ screenshot in `docs/img/`), `README_OLD.md` (il README completo, in italiano),
   modelli 3D in pixel art: il cacciatore, gli oggetti; tessere e case in 2D) scrive
   `sheet.png` e il blocco `-- [atlas begin]` di `main.lua`. Dopo averla cambiata:
   rieseguirlo e fare commit di `sheet.png`. Prove: `make test-yharnam`, QEMU `test_yharnam`.
+- Le animazioni del cacciatore (8 direzioni) sono pose chiave in `art/anims.py` (lo
+  scheletro e le sue articolazioni in `art/hunter.py`; `aim` gira il polso perché la saw
+  cleaver punti dove serve). Renderle tutte richiede circa un'ora: `mkassets.py` tiene i
+  fotogrammi in `build/yharnam-frames/` e ridisegna solo quelli cambiati. Nel gioco:
+  `HUNT[nome].d[direzione][fotogramma]`; sul titolo X mostra tutte le animazioni.
 
 ## Assistente AI (M30)
 

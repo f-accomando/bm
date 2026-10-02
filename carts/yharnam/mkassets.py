@@ -3,16 +3,24 @@
 and writes where everything is into main.lua, between the lines
 "-- [atlas begin]" and "-- [atlas end]".
 
-    python3 carts/yharnam/mkassets.py        (needs numpy and Pillow; ~2 min)
+    python3 carts/yharnam/mkassets.py        (needs numpy and Pillow)
 
-The sheet (1024 wide, at most 256 colours: packed as SHEET8):
-  - the hunter: 8 rows (S SE E NE N NW W SW) x 12 frames (idle 0-3, walk
-    0-7) of 56x60, from art/hunter.py;
-  - 16x16 tiles from y = 480 on: ground, kerbs, grass edges, decals,
-    building fronts and roofs (art/tiles.py, art/buildings.py);
-  - props: lamps, braziers, graves, statues... (art/props.py).
+The hunter's frames take long to render (1600 of them, a few seconds each):
+they are kept in build/yharnam-frames/ and only the ones whose pose or
+model changed are drawn again.
+
+The sheet (2048 wide, at most 256 colours: packed as SHEET8):
+  - 16x16 tiles at the top: ground, kerbs, grass edges, decals, building
+    fronts and roofs (art/tiles.py, art/buildings.py), so their map cells
+    stay small numbers;
+  - props: lamps, braziers, graves, statues... (art/props.py);
+  - the hunter: every animation of art/anims.py in the 8 directions (S SE E
+    NE N NW W SW), each frame cut to its own box, with the point between
+    the feet, the tip of the saw cleaver and the muzzle of the pistol.
 """
+import hashlib
 import os
+import pickle
 import sys
 from multiprocessing import Pool
 
@@ -22,21 +30,36 @@ from PIL import Image
 HERE = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, os.path.join(HERE, 'art'))
 
+import anims  # noqa: E402
 import buildings  # noqa: E402
 import hunter  # noqa: E402
 import props  # noqa: E402
 import sdf  # noqa: E402
 import tiles  # noqa: E402
 
-SW = 1024
-FW, FH = 56, 60                  # hunter frame
-FX0, FY0 = 4, 12                 # where a frame is cut from the 64x72 render
-TILE_Y = 480
+SW = 2048
+CACHE = os.path.join(HERE, '..', '..', 'build', 'yharnam-frames')
 
 
-def hunter_job(a):
-    d, kind, k, n = a
-    return hunter.frame(kind, k, n, hunter.DIRS[d][1])
+def model_version():
+    h = hashlib.sha1()
+    for f in ('hunter.py', 'sdf.py'):
+        h.update(open(os.path.join(HERE, 'art', f), 'rb').read())
+    return h.hexdigest()[:12]
+
+
+VERSION = model_version()
+
+
+def frame_job(a):
+    p, d = a
+    key = hashlib.sha1(repr((VERSION, sorted(p.items()), d)).encode()).hexdigest()
+    path = os.path.join(CACHE, key + '.pkl')
+    if os.path.exists(path):
+        return pickle.load(open(path, 'rb'))
+    r = hunter.render_pose(p, hunter.DIRS[d][1])
+    pickle.dump(r, open(path, 'wb'))
+    return r
 
 
 def prop_job(name):
@@ -63,62 +86,59 @@ class Packer:
 
 
 def main():
+    os.makedirs(CACHE, exist_ok=True)
+    names = list(anims.ANIMS)
+    jobs = [(p, d) for n in names for d in range(8) for p in anims.ANIMS[n]['frames']]
     with Pool(4) as pool:
-        jobs = [(d, 'idle', k, 4) for d in range(8) for k in range(4)]
-        jobs += [(d, 'walk', k, 8) for d in range(8) for k in range(8)]
-        frames = pool.map(hunter_job, jobs)
         prop_imgs = pool.map(prop_job, list(props.PROPS))
+        frames = pool.map(frame_job, jobs, chunksize=4)
+    print('%d frames of the hunter' % len(frames))
 
-    sheet = np.zeros((1024, SW, 4), np.uint8)
-    for i, (d, kind, k, n) in enumerate(jobs):
-        col = k if kind == 'idle' else 4 + k
-        f = frames[i][FY0:FY0 + FH, FX0:FX0 + FW]
-        sheet[d * FH:(d + 1) * FH, col * FW:(col + 1) * FW] = f
-
-    # tiles: a grid of 16x16 from TILE_Y
+    sheet = np.zeros((4096, SW, 4), np.uint8)
     tiles_list = []
 
     def tile(img):
         n = len(tiles_list)
         tiles_list.append(img)
-        x, y = (n % (SW // 16)) * 16, TILE_Y + (n // (SW // 16)) * 16
+        x, y = (n % (SW // 16)) * 16, (n // (SW // 16)) * 16
         sheet[y:y + 16, x:x + 16] = img
         return (y // 8) * (SW // 8) + x // 8          # its first map cell
 
-    atlas = []
     ground = {k: [tile(t) for t in v] for k, v in tiles.GROUND.items()}
     curbs = {m: tile(t) for m, t in tiles.CURBS.items()}
     gedges = {m: tile(t) for m, t in tiles.GRASS_EDGES.items()}
     decals = {k: [tile(t) for t in v] for k, v in tiles.DECALS.items()}
-    fac = buildings.facade_tiles()
     facade = {}
-    for (mat, kind, row), t in fac.items():
+    for (mat, kind, row), t in buildings.facade_tiles().items():
         facade.setdefault(mat, {}).setdefault(kind, [None] * buildings.FACADE_ROWS)[row] = tile(t)
-    rf = buildings.roof_tiles()
     roof = {}
-    for (r, row, side), t in rf.items():
+    for (r, row, side), t in buildings.roof_tiles().items():
         roof.setdefault(r, {}).setdefault(row, {})[side] = tile(t)
-    tiles_end = TILE_Y + ((len(tiles_list) + SW // 16 - 1) // (SW // 16)) * 16
+    tiles_end = ((len(tiles_list) + SW // 16 - 1) // (SW // 16)) * 16
 
-    # props: right of the hunter, then under the tiles; tallest first
-    pk = [Packer(12 * FW + 1, 0, SW, TILE_Y - 1), Packer(0, tiles_end + 1, SW, 1024)]
+    # props, then the hunter's frames, tallest first on shelves
+    pk = Packer(0, tiles_end + 1, SW, 4096)
     spr = {}
     for name, img, (ax, ay) in sorted(prop_imgs, key=lambda p: -p[1].shape[0]):
         h, w = img.shape[:2]
-        for p in pk:
-            at = p.place(w, h)
-            if at:
-                break
-        else:
-            raise SystemExit('the sheet is full: ' + name)
-        x, y = at
+        x, y = pk.place(w, h)
         sheet[y:y + h, x:x + w] = img
         spr[name] = (x, y, w, h, ax, ay)
-    used_h = max(tiles_end, max(s[1] + s[3] for s in spr.values()) + 1)
-    used_h = (used_h + 7) // 8 * 8
+    pk = Packer(0, pk.y + pk.row + 2, SW, 4096)
+    order = sorted(range(len(frames)), key=lambda i: -frames[i][0].shape[0])
+    boxes = [None] * len(frames)
+    for i in order:
+        img = frames[i][0]
+        h, w = img.shape[:2]
+        at = pk.place(w, h)
+        if not at:
+            raise SystemExit('the sheet is full')
+        x, y = at
+        sheet[y:y + h, x:x + w] = img
+        boxes[i] = (x, y, w, h)
+    used_h = (pk.y + pk.row + 8) // 8 * 8
     sheet = sheet[:used_h]
 
-    # the palette, and the colours that make their own light
     opaque = sheet[:, :, 3] > 0
     colours = sorted({tuple(int(v) for v in c) for c in sheet[opaque][:, :3]})
     if len(colours) > 255:
@@ -129,9 +149,9 @@ def main():
             glowing.update(m.ramp)
     glowing.update(tuple(c) for c in tiles.RAMPS['lit'])
     glowing = sorted(c for c in glowing if c in set(colours))
-
     Image.fromarray(sheet, 'RGBA').save(os.path.join(HERE, 'sheet.png'))
-    print('sheet.png: %dx%d, %d colours, %d tiles, %d props' % (SW, used_h, len(colours), len(tiles_list), len(spr)))
+    print('sheet.png: %dx%d, %d colours, %d tiles, %d props, %d frames' % (SW, used_h, len(colours),
+                                                                          len(tiles_list), len(spr), len(frames)))
 
     def lua_list(v):
         return '{ ' + ', '.join(str(x) for x in v) + ' }'
@@ -141,7 +161,6 @@ def main():
 
     out = ['-- [atlas begin] written by mkassets.py: do not edit by hand',
            'local SHEET_W = %d' % SW,
-           'local HUNTER = { w = %d, h = %d, ax = %d, ay = %d }' % (FW, FH, hunter.CX - FX0, hunter.CY - FY0),
            'local GROUND = {']
     for k, v in ground.items():
         out.append('  %s = %s,' % (k, lua_list(v)))
@@ -168,15 +187,35 @@ def main():
     for name in props.PROPS:
         out.append('  %s = %s,' % (name, lua_list(spr[name])))
     out.append('}')
+    # the hunter: per animation its ticks, whether it loops, the saw cleaver
+    # out or not, its events (the frame of a blow, a shot...), then per
+    # direction the frames { sx, sy, w, h, ax, ay, tip x, tip y, muzzle x, muzzle y }
+    out.append('local HUNT = {')
+    i = 0
+    for n in names:
+        a = anims.ANIMS[n]
+        ev = ''.join(', %s = %d' % (k, v + 1) for k, v in a['events'].items())
+        out.append('  %s = { t = %s, loop = %s, x = %s%s, d = {' % (n, lua_list(a['ticks']), str(a['loop']).lower(),
+                                                                    str(a['ext']).lower(), ev))
+        for d in range(8):
+            fr = []
+            for _ in a['frames']:
+                img, (ax, ay), tip, mz = frames[i]
+                x, y, w, h = boxes[i]
+                fr.append(lua_list((x, y, w, h, ax, ay, round(tip[0]), round(tip[1]), round(mz[0]), round(mz[1]))))
+                i += 1
+            out.append('    { %s },' % ', '.join(fr))
+        out.append('  } },')
+    out.append('}')
     out.append('local PALETTE = {')
-    for i in range(0, len(colours), 8):
-        out.append('  ' + ', '.join(rgb(c) for c in colours[i:i + 8]) + ',')
+    for k in range(0, len(colours), 8):
+        out.append('  ' + ', '.join(rgb(c) for c in colours[k:k + 8]) + ',')
     out.append('}')
     out.append('local GLOWING = { %s }' % ', '.join('[%s] = true' % rgb(c) for c in glowing))
     out.append('-- [atlas end]')
 
     path = os.path.join(HERE, 'main.lua')
-    src = open(path).read() if os.path.exists(path) else '-- [atlas begin]\n-- [atlas end]\n'
+    src = open(path).read()
     a = src.index('-- [atlas begin]')
     b = src.index('-- [atlas end]') + len('-- [atlas end]')
     open(path, 'w').write(src[:a] + '\n'.join(out) + src[b:])

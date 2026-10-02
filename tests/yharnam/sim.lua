@@ -17,7 +17,7 @@ local env = {}
 local held, prev = 0, 0
 local now = 0
 local logs = {}
-local SHEET_W, SHEET_H = 1024, 4096
+local SHEET_W, SHEET_H = 2048, 4096
 local px_sprites = 0
 local MAPW, MAPH = 256, 256
 local map = {}
@@ -132,6 +132,20 @@ end
 for mat, kinds in pairs(Y.FACADE) do
   for k, cells in pairs(kinds) do check(#cells == 5, "facade " .. mat .. " " .. k) end
 end
+-- every animation of the hunter: all its frames in the 8 directions, in the sheet
+local nanim, nframes = 0, 0
+for name, a in pairs(Y.HUNT) do
+  nanim = nanim + 1
+  check(#a.d == 8, name .. ": 8 directions")
+  for d = 1, 8 do
+    check(#a.d[d] == #a.t, name .. ": a frame for every tick count")
+    for _, fr in ipairs(a.d[d]) do
+      nframes = nframes + 1
+      check(fr[1] >= 0 and fr[2] >= 0 and fr[1] + fr[3] <= SHEET_W and fr[2] + fr[4] <= SHEET_H, name .. ": frame")
+    end
+  end
+end
+io.write(string.format("the hunter: %d animations, %d frames\n", nanim, nframes))
 
 ---------------------------------------------------------------- the street plan
 
@@ -284,6 +298,74 @@ check(far > 400, "the hunter went somewhere (" .. far .. " px)")
 
 table.sort(costs)
 local p50, p99 = costs[#costs // 2], costs[#costs * 99 // 100]
+-- what the hunter does: a combo of three blows, a shot, the saw cleaver
+-- opened and closed, a backstep, hurt, knocked down, killed and back
+local function press(b, n)
+  frame(1 << b, "act")
+  for i = 1, (n or 1) - 1 do frame(0, "act") end
+end
+local function settle(n) for i = 1, n or 120 do frame(0, "act") end end
+-- somewhere quiet: a street with no fire near (fire burns)
+local function quiet()
+  for r = 0, 6 do
+    for cy = -r, r do
+      for cx = -r, r do
+        local ch = Y.ensure(cx, cy)
+        for ty = 0, 15 do
+          for tx = 0, 15 do
+            local x, y = cx * 256 + tx * 16 + 8, cy * 256 + ty * 16 + 8
+            if ch.kind[ty * 16 + tx + 1] == Y.kinds.road and not Y.blocked(x, y) then
+              local ok = true
+              for dy = -1, 1 do for dx = -1, 1 do
+                local n = Y.ensure(cx + dx, cy + dy)
+                for _, f in ipairs(n.fires) do
+                  if math.abs(f.x - x) + math.abs(f.y - y) < 160 then ok = false end
+                end
+              end end
+              if ok then return x, y end
+            end
+          end
+        end
+      end
+    end
+  end
+end
+Y.teleport(quiet())
+settle()
+press(4, 6); press(4, 6); press(4, 6)
+local top = P.combo
+for i = 1, 30 do frame(1 << 4, "act"); frame(0, "act"); top = math.max(top, P.combo) end
+check(top == 3, "the combo reaches its third blow (" .. top .. ")")
+settle()
+check(P.act == nil, "the combo ends")
+press(6, 1)
+local flashed = false
+for i = 1, 60 do frame(0, "act"); flashed = flashed or Y.flash() > 0 end
+check(flashed, "the pistol fires")
+press(7, 1); settle(80)
+check(P.ext, "the saw cleaver opens")
+press(4, 1); settle(120)
+check(P.anim:find("_x") and P.act == nil, "back to the extended stance after a blow")
+press(7, 1); settle(80)
+check(not P.ext, "the saw cleaver closes")
+local bx, by = P.x, P.y
+press(5, 1); settle(60)
+check(math.abs(P.x - bx) + math.abs(P.y - by) > 12 or Y.blocked(P.x - 1, P.y), "the backstep moves him back")
+P.inv = 0
+Y.hurt(1)
+check(P.act == "hurt" and P.anim:find("hurt"), "hurt")
+settle(70)
+P.inv = 0; Y.hurt(1); P.inv = 0; Y.hurt(1)
+check(P.act == "down", "the third blow in a row knocks him down")
+local states = {}
+for i = 1, 400 do frame(0, "act"); states[P.act or "free"] = true end
+check(states.lying and states.getup and P.act == nil, "lying, getting up, on his feet again")
+P.inv = 0
+Y.hurt(99)
+check(P.act == "dead", "killed")
+settle(400)
+check(P.act == nil and P.hp == 10, "back at the last lamp, healed (" .. tostring(P.act) .. ", hp " .. P.hp .. ", " .. P.anim .. " " .. P.f .. ")")
+
 io.write(string.format("frames: %d; Lua instructions per frame: median %d, 99%% %d, heaviest %d (%s); " ..
                        "a chunk made in the background: up to %d (in slices of 40k on the console); " ..
                        "sprite pixels up to %d\n", frames, p50, p99, worst.instr, worst.where, worst.gen, worst.px))

@@ -2615,6 +2615,21 @@ def test_yharnam(b, opts):
             assert px[(y * w + x) * 3:(y * w + x) * 3 + 3] == b"\0\0\0", ("border", x, y)
         if opts.shots:
             _save_png(img, os.path.join(opts.shots, "yharnam-title.png"))
+        q.send("c")                             # X: the animations of the hunter
+        for _ in range(12):
+            time.sleep(0.25)
+            text = screen_text(box(q.screendump()))
+            if any("idle  S" in l for l in text):
+                break
+        assert any("idle  S" in l for l in text), "\n".join(text)
+        q.send("s")                             # the next animation
+        time.sleep(0.5)
+        text = screen_text(box(q.screendump()))
+        assert any("walk  S" in l for l in text), "\n".join(text)
+        if opts.shots:
+            _save_png(q.screendump(), os.path.join(opts.shots, "yharnam-gallery.png"))
+        q.send("x")                             # B: back to the title
+        time.sleep(0.5)
         q.send(" ")                             # A: start
         time.sleep(1.5)
         for k in "ssddwwaa":

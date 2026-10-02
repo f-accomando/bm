@@ -166,7 +166,9 @@ local multiplayer for up to 4 players. The games on the card, all `.bm`:
 - **Texture Room**: a 3D room, all textured.
 - **Hunter's Night**: gothic 2D at 320×180, with lights.
 - **Yharnam**: an endless gothic town at night, at 256×256: the streets are made while you
-  walk, lit as in Dank Tomb (light levels and fade tables), with fires and warm lamps.
+  walk, lit as in Dank Tomb (light levels and fade tables), with fires and warm lamps. The
+  hunter has 27 animations in 8 directions: saw cleaver combos (folded and opened), the
+  pistol, backstep, hurt, knocked down, death.
 - The rest: Pong (2 players), Snake, Star Shooter, and **nano8** for `.p8` carts.
 
 The console screenshots come from QEMU (`tests/qemu_test.py --shots DIR`). The bm Studio
