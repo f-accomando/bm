@@ -117,17 +117,20 @@ anim('idle_x', [idle_pose(k, 4, True) for k in range(4)], [26, 16, 26, 16], loop
 anim('walk_x', [walk_pose(k, 8, True) for k in range(8)], [6] * 8, loop=True, ext=True)
 
 # ---------------------------------------------------------------- the pistol
-# the left arm comes up level, fires, kicks up with the recoil, comes down
+# the left arm comes up straight and taut (a little above level, so it
+# reads as raised from every side, not as the arm at rest), the shoulder
+# forward and the pistol in line with it; fires, kicks up with the recoil,
+# comes down
 
-AIM = dict(sw_l=86, abd_l=6, yaw_l=-4, el_l=6, wr_l=-30, wd_l=18, tw_l=0,
-           chest_yaw=-8, pelvis_yaw=-6, lean=5, head_pitch=-2, head_yaw=-6,
-           sw_r=-12, abd_r=20, el_r=26, th_l=12, knee_l=12, th_r=-8, knee_r=10, spread=7)
+AIM = dict(sw_l=108, abd_l=8, yaw_l=-18, el_l=0, wr_l=-30, wd_l=10, tw_l=0,
+           chest_yaw=-12, pelvis_yaw=-8, lean=3, head_pitch=-2, head_yaw=4,
+           sw_r=-18, abd_r=22, el_r=20, th_l=12, knee_l=12, th_r=-8, knee_r=10, spread=7)
 SHOOT_KEYS = [
     (0.0, {}),
     (0.30, AIM),
     (0.42, AIM),
-    (0.52, dict(AIM, sw_l=104, el_l=24, wr_l=-14, lean=1, head_pitch=-8, chest_yaw=-10)),
-    (0.68, dict(AIM, sw_l=92, el_l=12, wr_l=-24)),
+    (0.52, dict(AIM, sw_l=124, el_l=14, wr_l=-14, lean=0, head_pitch=-8, chest_yaw=-14)),
+    (0.68, dict(AIM, sw_l=112, el_l=4, wr_l=-24)),
     (1.0, {}),
 ]
 for ext, name in ((False, 'shoot'), (True, 'shoot_x')):
