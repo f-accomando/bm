@@ -154,15 +154,19 @@ screenshot in `docs/img/`), `README_OLD.md` (il README completo, in italiano),
   cleaver punti dove serve). Renderle tutte richiede circa un'ora: `mkassets.py` tiene i
   fotogrammi in `build/yharnam-frames/` e ridisegna solo quelli cambiati. Nel gioco:
   `HUNT[nome].d[direzione][fotogramma]`; sul titolo X mostra tutte le animazioni.
-- La saw cleaver (dalle foto dell'utente, `art/hunter.py`): manico sottile di cuoio ad arco ampio
-  (`HANDLE`, `ARCH`; corda chiara alle due estremità), impugnato per la sua estremità: esce dal
-  pugno e si inarca fino allo snodo (miniatura e illustrazione dell'utente: chiusa, l'arco sopra la
-  lama; aperta, l'arco e poi la lama che scende, un po' curva, `BEND`), snodo a disco con il gancio (`HOOK`), lama larga
-  fasciata di bende incrociate sul ferro scuro, denti su un lato, sangue secco. Lo snodo è fuori
-  dalla linea del manico (`PIVOT_Y`): chiusa la lama sta accanto al manico, dorso contro di esso
-  e denti in fuori; aperta sta attorno alla linea del manico. Deve leggersi a colpo d'occhio:
-  chiusa è un blocco chiaro corto vicino alla mano, aperta una linea scura e la lama chiara
-  lontana. La scia dei colpi parte dal capo della lama lontano dalla mano (`TIP`, `TIP_FOLDED`).
+- La saw cleaver (dalle foto e dalle immagini dell'utente, `art/hunter.py`): manico lungo e
+  sottile di cuoio ad arco ampio (`HANDLE`, `ARCH`, corda chiara alle estremità), impugnato più
+  vicino allo snodo che alla coda (`GRIP_AT`); snodo a disco con il gancio (`HOOK`); lama larga
+  (`BLADE_L`, `BLADE_W`, un po' curva: `BEND`) fasciata di bende incrociate sul ferro scuro, denti
+  su un lato, sangue secco. Proporzioni grandi come nelle immagini (lama circa un terzo
+  dell'altezza del cacciatore). Chiusa (come la miniatura dell'utente): l'arma è girata nella mano,
+  lo snodo dietro il pugno, lama e coda davanti, l'arco sopra la lama, così nei colpi la lama non
+  rientra nel corpo; aperta (come l'illustrazione): la lama oltre lo snodo, la coda del manico
+  dietro la mano; aprendola l'arma ruota nella mano (`cleaver` sotto `wield`: `wield` è dove la
+  mano punta i colpi, lo usa `aim`). Quello che resta dietro la mano è tenuto fuori dal corpo
+  ruotando l'arma sul suo asse fotogramma per fotogramma (`croll`, `anims.unclip`, misura in
+  `hunter.intrusion`: zero alle pose di guardia). La scia dei colpi parte dalla fine della lama
+  (`TIP`). Sparando, il braccio sinistro è teso e un po' alzato (`AIM` in `anims.py`).
 - Le creature (12 nemici e 4 boss, uno per tipo: villici, bestie, cacciatori, orrori) sono in
   `art/foe_*.py`; scheletri (umanoide, quadrupede, ragno), pose chiave, `reach` per la seconda
   mano su un'asta, `aim` e il registro `Creature` in `art/rig.py`; colori e pezzi comuni in
