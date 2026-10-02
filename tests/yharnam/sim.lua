@@ -76,6 +76,8 @@ env.log = function(...) local t = { ... } for i = 1, #t do t[i] = tostring(t[i])
 env.time = function() return now end
 env.stat = function() return 0 end
 env.btn = function(b) return (held >> b) & 1 == 1 end
+env.prompt = function(name, x, y) num(x, "prompt x"); num(y, "prompt y"); return x + 16 end
+env.lastinput = function() return nil end
 -- pad(): bits 1024 L1, 2048 R1 from the held mask's bits 10 and 11
 env.pad = function() return held & (1024 | 2048) end
 env.btnp = function(b) return (held >> b) & 1 == 1 and (prev >> b) & 1 == 0 end
@@ -579,30 +581,65 @@ check(Y.G.echoes == e0 + 30, "a townsman leaves 30 echoes")
 settle(30)
 -- Select: echoes for health
 P.act, P.hp = nil, 4
-Y.G.echoes = 100
+Y.G.echoes = 200
 frame(1 << 9, "heal"); frame(0, "heal")
-check(P.act == "heal" and Y.G.echoes == 40, "Select spends echoes to heal")
+check(P.act == "heal" and Y.G.echoes == 80, "Select spends echoes to heal")
 settle(60)
-check(P.hp == 8, "and the health comes back (" .. P.hp .. ")")
--- a hunter's lamp: lit, it opens its menu; Vitality bought; rest
+check(P.hp == 7, "and some health comes back (" .. P.hp .. ")")
+P.hp = 10
+frame(1 << 9, "heal"); frame(0, "heal")
+check(P.act ~= "heal" and Y.G.echoes == 80, "not when whole, nor with too few echoes")
+-- a hunter's lamp: lit, it opens its menu; a path taken; rest
 local lx, ly = Y.lamp_chunk(0, 1)
 local sh = Y.ensure(lx, ly).shrine
 Y.teleport(sh.x, sh.y + 16)
 settle(10)
-Y.G.echoes = 1000
+Y.G.echoes = 700
 press(4, 2)
 check(Y.G.lit[sh.key] and Y.state() == "lamp", "A by the lamp: lit, and its menu")
-press(3, 2); press(4, 2)
-check(P.hpmax == 12 and Y.G.echoes == 700, "Vitality bought with echoes (" .. P.hpmax .. ", " .. Y.G.echoes .. ")")
-press(2, 2); press(4, 2)
+press(3, 2); press(4, 2)                         -- the first path: too dear yet
+check(#Y.G.slots == 0 and Y.G.echoes == 700, "a path costs more echoes than these")
+Y.G.echoes = 6000
+press(4, 2)                                      -- Feral Affinity, the first path
+check(Y.G.slots[1] == 1 and Y.G.echoes == 5200, "the first path taken, for 800 echoes")
+local h1 = P.mods.hurt
+check(h1 < 1 and h1 > 0.7, "it is felt (blows hurt less) (" .. h1 .. ")")
+press(4, 2)                                      -- the same path again: it weighs less now
+check(P.mods.hurt < h1 and (1 - P.mods.hurt / h1) < (1 - h1), "the second weighs less than the first")
+press(3, 2); press(3, 2); press(3, 2); press(3, 2)  -- Hunter's Path
+local r0 = P.mods.fold_rate
+press(4, 2)
+check(P.mods.fold_rate > r0 and Y.G.slots[3] == 5, "the Hunter's Path: the folded blade quicker")
+press(2, 2); press(2, 2)                         -- Quicksilver Rite
+press(4, 2)
+check(#Y.G.slots == 4 and P.mods.gun > 1 and P.mods.stag > 1, "the fourth path, the last")
+local e4 = Y.G.echoes
+press(4, 2)
+check(#Y.G.slots == 4 and Y.G.echoes == e4, "no fifth path")
+check(P.hpmax == 10 and P.stmax == 100, "the bars stay as they were")
+for i = 1, 8 do press(2, 2) end
+while Y.menu.i ~= 1 do press(2, 2) end
+press(4, 2)
 check(Y.state() == "play", "rested")
+-- blows taken weigh less now
+P.hp, P.inv, P.act = 10, 0, nil
+Y.hurt(2)
+check(P.hp > 8 and P.hp < 9, "Feral Affinity: a blow of 2 takes less (" .. P.hp .. ")")
+settle(80)
+-- Start: the pause, the controls, back
+press(8, 2)
+check(Y.state() == "pause", "Start: the pause")
+press(3, 2); press(4, 2)
+check(Y.menu.page == "controls", "the controls")
+press(5, 2); press(5, 2)
+check(Y.state() == "play", "back to the hunt")
 -- a death costs echoes, back at the lamp; without them the hunt is lost
-Y.G.echoes = 150
+Y.G.echoes = 250
 P.inv = 0
 Y.teleport(qx, qy)
 Y.hurt(99)
 settle(400)
-check(Y.state() == "play" and Y.G.echoes == 50, "a death costs 100 echoes (" .. Y.G.echoes .. ")")
+check(Y.state() == "play" and Y.G.echoes == 50, "a death costs 200 echoes (" .. Y.G.echoes .. ")")
 check(math.abs(P.x - sh.x) < 4 and math.abs(P.y - sh.y - 16) < 4, "back at the last lamp lit")
 Y.G.echoes = 20
 P.inv = 0
@@ -611,7 +648,8 @@ settle(400)
 check(Y.state() == "lost", "too few echoes: the hunt is lost")
 settle(100)
 press(4, 2)
-check(Y.state() == "title" and Y.G.echoes == 0 and next(Y.G.lit) == nil, "begin again: a new hunt")
+check(Y.state() == "title" and Y.G.echoes == 0 and next(Y.G.lit) == nil and #Y.G.slots == 0 and
+      P.mods.hurt == 1, "begin again: a new hunt, no paths")
 press(4, 2)
 check(Y.state() == "play", "and it starts")
 Y.G.echoes = 1000000

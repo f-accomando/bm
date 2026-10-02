@@ -157,9 +157,17 @@ screenshot in `docs/img/`), `README_OLD.md` (il README completo, in italiano),
   zona l'arena del boss (`boss_chunk`: pira, giardini, cimitero, cappella a turno), ucciso il
   quale si apre la zona dopo (`G.open`). Due lampade del cacciatore per zona (`lamp_chunk`, prop
   `shrine`): una a metà, una prima del boss; si torna all'ultima accesa. Echi (`G.echoes`) dai
-  nemici uccisi: Select (Tab) cura per `HEAL_COST`, alla lampada si spendono in `UPGRADES`
-  (provvisori: gli aspetti del cacciatore li definirà l'utente); la morte costa `DEATH_COST`
-  echi e senza abbastanza echi la caccia è perduta (stato `lost`, poi una caccia nuova).
+  nemici uccisi, da spendere con parsimonia: Select (Tab) cura poco per `HEAL_COST`, la morte
+  costa `DEATH_COST` e senza abbastanza echi la caccia è perduta (stato `lost`).
+- Le vie della lampada (`PATHS`, decisione dell'utente): al massimo 4 (`SLOT_COST`), anche la
+  stessa più volte; la prima scelta pesa di più, l'ultima di meno, con curve diverse per via.
+  Nomi evocativi e descrizioni senza numeri; gli effetti non si vedono sulle barre (stessa
+  misura): agiscono su `P.mods` (`apply_paths`). Feral Affinity: meno danno subito; Moonlit
+  Breath: stamina spesa meno e recuperata prima; Quicksilver Rite: pistola, finestra del parry,
+  barcollare più lungo; Serrated Oath: danno della saw cleaver aperta; Hunter's Path: lama
+  chiusa più rapida e combo prima. Incrementi visibili ma piccoli (uno o due colpi in più).
+- I comandi non sono sullo schermo: Start apre la pausa, con la pagina Controls (icone di
+  `prompt()` secondo `lastinput()`).
 - Lo sheet è largo 4096 (skyline, fotogrammi uguali tenuti una volta). La cache delle creature
   dipende dal codice (non dai commenti né dagli import) di `rig.py`, `foeparts.py` e del loro
   modulo; quella del cacciatore da `hunter.py`; tutte da `sdf.SDF_VERSION` (aumentarlo se cambia

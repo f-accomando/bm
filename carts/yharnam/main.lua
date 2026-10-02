@@ -1344,7 +1344,7 @@ local corners, edges, districts = {}, {}, {}
 local AREA = 4
 local BOSS_KIND = { "pyre", "park", "cemetery", "chapel" }
 local BOSS_NAME = { pyre = "butcher", park = "hound", cemetery = "father", chapel = "watcher" }
-local G = { open = 1, echoes = 0, lit = {}, spawn = nil, lost = false, popups = {}, levels = {} }
+local G = { open = 1, echoes = 0, lit = {}, spawn = nil, lost = false, popups = {}, slots = {} }
 local function boss_chunk(a) return a * AREA + AREA - 1, a % 2 == 0 and AREA - 1 or 0 end
 local function lamp_chunk(a, k)             -- k = 1 half way, 2 before the boss
   local bx, by = boss_chunk(a)
@@ -2092,7 +2092,11 @@ local ST_MAX = 100
 local P = { x = 0, y = 0, dir = 0, anim = "idle", f = 1, ft = 0, rev = false, act = nil, ext = false,
             hp = HP_MAX, inv = 0, combo = 0, queued = false, moving = false, hits = {}, trail = {},
             rally = 0, rally_t = 0, st = ST_MAX, st_wait = 0, lock = nil, bt = 0, brel = 0, l1 = false,
-            r1 = false, charge = 0, charged = false, hpmax = HP_MAX, stmax = ST_MAX, str = 0 }
+            r1 = false, charge = 0, charged = false, hpmax = HP_MAX, stmax = ST_MAX,
+            -- what the paths chosen at the lamps change (none, at first): damage taken, stamina
+            -- spent and regained, the pistol and the parry, the open saw, the folded blade's speed
+            mods = { hurt = 1, st_cost = 1, st_regen = 1, gun = 1, parry = 0, stag = 1, ext_dmg = 1, fold_rate = 1,
+                     fold_chain = false } }
 
 local function solid_at(x, y)
   local tx, ty = fdiv(x, TS), fdiv(y, TS)
@@ -2316,7 +2320,7 @@ end
 
 -- stamina: every blow and dodge costs some; it comes back after a pause
 local function spend(n)
-  P.st, P.st_wait = max(-20, P.st - n), 30
+  P.st, P.st_wait = max(-20, P.st - n * P.mods.st_cost), 30
 end
 
 -- the rally: blood taken back from what the blade cuts
@@ -2416,6 +2420,7 @@ end
 -- burnt, struck: hurt (three ways), knocked down, or killed
 local function hurt(amount, heavy)
   if P.inv > 0 or P.act == "dead" or P.act == "down" or P.act == "lying" or P.act == "getup" then return end
+  amount = amount * P.mods.hurt
   P.rally, P.rally_t = min(P.rally + min(amount, P.hp), P.hpmax), 150
   P.hp = P.hp - amount
   sfx_hurt()
@@ -2525,8 +2530,8 @@ do
 
   -- what each one leaves when slain: blood echoes
   local ECHOES = { pitchfork = 30, torch = 30, rifle = 40, crone = 25, dog = 20, scourge = 80, axehunter = 120,
-                   church = 120, kin = 50, brainsucker = 90, lantern = 70, spider = 80, butcher = 1500,
-                   hound = 1800, father = 2200, watcher = 2500 }
+                   church = 120, kin = 50, brainsucker = 90, lantern = 70, spider = 80, butcher = 800,
+                   hound = 1000, father = 1200, watcher = 1400 }
   FOE.echoes = ECHOES
 
   -- area: the deeper in the hunt, the stronger (more health, harder blows)
@@ -2734,7 +2739,7 @@ do
           local f = DIRV[o.dir + 1]
           local behind = dd > 1 and (f[1] * dx + f[2] * dy) / dd > 0.35   -- it faces away from the hunter
           harm(o, dmg, not o.boss)
-          if charged and behind and o.act ~= "dead" then stagger(o, 110) end
+          if charged and behind and o.act ~= "dead" then stagger(o, 110 * P.mods.stag) end
           n = n + 1
         end
       end
@@ -2784,9 +2789,9 @@ do
       local a = o.act and o.def.a[o.anim]
       local hits = a and (a.hit or a.fire or a.slam or a.beam)
       local winding = o.act and o.act ~= "hurt" and o.act ~= "stagger" and o.act ~= "held" and hits and
-                      o.f < hits[1]
-      harm(o, 1, not o.boss)
-      if winding and o.act ~= "dead" then stagger(o, 110) end      -- the parry
+                      o.f < hits[1] + P.mods.parry
+      harm(o, P.mods.gun, not o.boss)
+      if winding and o.act ~= "dead" then stagger(o, 110 * P.mods.stag) end      -- the parry
       return x0 + lx * bt, y0 + ly * bt
     end
   end
@@ -3258,23 +3263,50 @@ local function respawn()
   cam_x, cam_y = P.x - W / 2, P.y - H * 0.62
 end
 
-local DEATH_COST, HEAL_COST, HEAL_HP = 100, 60, 4
--- what echoes buy at a hunter's lamp. Provisional: the hunter's aspects are
--- still to be decided; each is a name, what it gives, its cost at level lv
-local UPGRADES = {
-  { name = "Vitality", what = "+2 health", cost = function(lv) return 300 + 200 * lv end,
-    buy = function() P.hpmax = P.hpmax + 2; P.hp = P.hpmax end },
-  { name = "Endurance", what = "+20 stamina", cost = function(lv) return 250 + 150 * lv end,
-    buy = function() P.stmax = P.stmax + 20; P.st = P.stmax end },
-  { name = "Strength", what = "+1 to blows", cost = function(lv) return 400 + 300 * lv end,
-    buy = function() P.str = P.str + 1 end },
+-- echoes are dear: a little blood costs a good part of an area's prey, a
+-- death more, and a path at a lamp (at most four) much more
+local DEATH_COST, HEAL_COST, HEAL_HP = 200, 120, 3
+local SLOT_COST = { 800, 1200, 1600, 2000 }
+-- The paths a hunter takes at the lamps: four at most, any of them again;
+-- the first taken weighs the most, the last the least, each in its own way.
+-- What they do is felt, never shown: no bar grows, no number is told.
+local PATHS = {
+  { name = "Feral Affinity", lore = { "blood thick as a beast's;", "blows sink in, and pass" },
+    apply = function(m, k) m.hurt = m.hurt * (1 - ({ 0.18, 0.12, 0.08, 0.05 })[k]) end },
+  { name = "Moonlit Breath", lore = { "a breath that outlasts", "the night" },
+    apply = function(m, k)
+      local v = ({ 0.20, 0.13, 0.08, 0.04 })[k]
+      m.st_cost, m.st_regen = m.st_cost * (1 - v), m.st_regen * (1 + v)
+    end },
+  { name = "Quicksilver Rite", lore = { "the bullet knows", "the moment" },
+    apply = function(m, k)
+      m.gun = m.gun + ({ 1, 0.5, 0.5, 0.25 })[k]
+      m.parry = m.parry + ({ 2, 1, 1, 0 })[k]
+      m.stag = m.stag * ({ 1.3, 1.15, 1.1, 1.05 })[k]
+    end },
+  { name = "Serrated Oath", lore = { "the open saw", "bites deeper" },
+    apply = function(m, k) m.ext_dmg = m.ext_dmg * ({ 1.3, 1.18, 1.1, 1.05 })[k] end },
+  { name = "Hunter's Path", lore = { "the folded blade,", "quick as thought" },
+    apply = function(m, k)
+      m.fold_rate = m.fold_rate * ({ 1.16, 1.10, 1.06, 1.03 })[k]
+      if k <= 2 then m.fold_chain = true end
+    end },
 }
-local menu = { i = 1 }
+local ROMAN = { "I", "II", "III", "IV" }
+local menu = { i = 1, page = nil }
+
+-- the hunter as his paths made him
+local function apply_paths()
+  local m = { hurt = 1, st_cost = 1, st_regen = 1, gun = 1, parry = 0, stag = 1, ext_dmg = 1, fold_rate = 1,
+              fold_chain = false }
+  for k, i in ipairs(G.slots) do PATHS[i].apply(m, k) end
+  P.mods = m
+end
 
 -- a new hunt: no echoes, no lamps lit, the first area only, from the start
 local function new_hunt()
-  G.open, G.echoes, G.lit, G.spawn, G.lost, G.popups, G.levels = 1, 0, {}, nil, false, {}, {}
-  P.hpmax, P.stmax, P.str = HP_MAX, ST_MAX, 0
+  G.open, G.echoes, G.lit, G.spawn, G.lost, G.popups, G.slots = 1, 0, {}, nil, false, {}, {}
+  apply_paths()
   for k in pairs(FOE.slain) do FOE.slain[k] = nil end
   respawn()
   P.inv = 0
@@ -3293,6 +3325,10 @@ local function shrine_near()
 end
 
 local function update_play()
+  if btnp(8) and P.act ~= "dead" then
+    state, menu.i, menu.page = "pause", 1, nil
+    return
+  end
   local dx, dy = 0, 0
   if btn(0) then dx = dx - 1 end
   if btn(1) then dx = dx + 1 end
@@ -3307,7 +3343,7 @@ local function update_play()
   P.l1, P.r1 = l1, r1
   if btn(5) then P.bt, P.brel = P.bt + 1, 0 else P.brel, P.bt = P.bt, 0 end
   if P.st_wait > 0 then P.st_wait = P.st_wait - 1
-  elseif P.st < P.stmax then P.st = min(P.stmax, P.st + 1.4) end
+  elseif P.st < P.stmax then P.st = min(P.stmax, P.st + 1.4 * P.mods.st_regen) end
   if l1p then
     P.lock = not P.lock and FOE.nearest(150) or nil
     note(2, P.lock and 1600 or 800, 60, TRIANGLE, 40)
@@ -3388,7 +3424,7 @@ local function update_play()
       dodge(dx, dy)
     elseif P.moving then
       local run = P.bt >= 10 and P.st > 0 and not P.lock
-      if run then P.st, P.st_wait = P.st - 0.45, 30 end
+      if run then P.st, P.st_wait = P.st - 0.45 * P.mods.st_cost, 30 end
       P.dir = P.lock and FOE.dir_to(P.lock.x - P.x, P.lock.y - P.y) or DIRS[dy][dx]
       local sp = run and 1.55 or (P.lock and 0.8 or 0.92)
       if dx ~= 0 and dy ~= 0 then sp = sp * 0.7071 end
@@ -3403,11 +3439,11 @@ local function update_play()
     end
   elseif act == "attack" then
     local a = HUNT[P.anim]
-    local done = step_anim()
+    local done = step_anim(P.ext and 1 or P.mods.fold_rate)
     if P.f <= a.hit then forward(P.ext and 0.45 or 0.35) end
     if P.newf and P.f == a.hit then
       sfx_swing(P.ext)
-      local dmg = (P.ext and 2 or 1) + (P.combo == 3 and 1 or 0) + P.str
+      local dmg = (P.ext and 2 * P.mods.ext_dmg or 1) + (P.combo == 3 and 1 or 0)
       rally(FOE.strike(dmg, P.ext and 34 or 26, P.combo == 3 and 0.5 or 0.1))
     end
     -- the tip of the blade leaves a trail through the blow
@@ -3419,7 +3455,7 @@ local function update_play()
     if btnp(4) and P.f >= a.hit - 1 and P.combo < 3 then P.queued = "a" end
     if btnp(7) and P.f >= a.hit - 1 then P.queued = "y" end
     if r1p and P.f >= a.hit - 1 then P.queued = "r" end
-    if P.queued and P.f > a.hit + 1 and P.st > 0 then
+    if P.queued and P.f > a.hit + ((not P.ext and P.mods.fold_chain) and 0 or 1) and P.st > 0 then
       local q = P.queued
       if q == "y" then trick() elseif q == "r" then heavy(dx, dy) else attack(P.combo + 1, dx, dy) end
     elseif done then
@@ -3433,11 +3469,11 @@ local function update_play()
       P.st_wait = 30
       if P.charge == 20 then P.charged = true; note(1, 220, 300, SAW, 60); note(2, 880, 300, TRIANGLE, 40) end
     else
-      local done = step_anim()
+      local done = step_anim(P.ext and 1 or P.mods.fold_rate)
       if P.f <= a.hit then forward(P.ext and 0.4 or 0.3) end
       if P.newf and P.f == a.hit then
         sfx_swing(true)
-        local dmg = (P.ext and 4 or 3) + (P.charged and 3 or 0) + P.str
+        local dmg = ((P.ext and 4 or 3) + (P.charged and 3 or 0)) * (P.ext and P.mods.ext_dmg or 1)
         rally(FOE.strike(dmg, P.ext and 36 or 30, 0.2, P.charged))
         if P.charged then FOE.shake = 6 end
       end
@@ -3449,11 +3485,11 @@ local function update_play()
     end
   elseif act == "trick" then
     local a = HUNT[P.anim]
-    local done = step_anim()
+    local done = step_anim(P.ext and 1 or P.mods.fold_rate)
     if P.f <= a.hit then forward(0.35) end
     if P.newf and P.f == a.hit then
       sfx_swing(true)
-      rally(FOE.strike((P.ext and 3 or 2) + P.str, 32, 0.0))
+      rally(FOE.strike(P.ext and 3 * P.mods.ext_dmg or 2, 32, 0.0))
     end
     if P.newf and P.f == a.lock then P.ext = not P.ext; sfx_clank() end
     if P.f >= a.hit - 2 and P.f <= a.hit + 1 then
@@ -3484,7 +3520,7 @@ local function update_play()
     local a = HUNT[P.anim]
     local done = step_anim()
     if P.newf and P.f == a.hit and P.vic then
-      FOE.visceral(P.vic, (P.ext and 14 or 12) + 2 * P.str)
+      FOE.visceral(P.vic, P.ext and 14 or 12)
       rally(P.rally)
     end
     if done then P.act, P.vic, P.inv = nil, nil, 0 end
@@ -3581,7 +3617,7 @@ YHARNAM = { road_at = road_at, district = district, chunk = chunk, ensure = ensu
             blocked = blocked, lamps = lamp_state, kinds = { road = K_ROAD, walk = K_WALK, house = K_HOUSE },
             camera = function() return cam_x, cam_y end, CS = CS, TS = TS, SPR = SPR, FACADE = FACADE,
             HUNT = HUNT, FOES = FOES, FOE = FOE, hurt = hurt, flash = function() return flash end, dirs = DIRS,
-            G = G, AREA = AREA, boss_chunk = boss_chunk, lamp_chunk = lamp_chunk, UPGRADES = UPGRADES,
+            G = G, AREA = AREA, boss_chunk = boss_chunk, lamp_chunk = lamp_chunk, PATHS = PATHS, menu = menu,
             state = function() return state end,
             teleport = function(x, y)
               P.x, P.y = x, y
@@ -3671,8 +3707,8 @@ function _update()
     step_anim()
     FOE.update(true)
   elseif state == "lamp" then
-    -- at a hunter's lamp: rest, buy strength with echoes, or leave
-    local n = #UPGRADES + 2
+    -- at a hunter's lamp: rest, take a path with echoes, or leave
+    local n = #PATHS + 2
     if btnp(2) then menu.i = (menu.i - 2) % n + 1 end
     if btnp(3) then menu.i = menu.i % n + 1 end
     if btnp(5) or (btnp(4) and menu.i == n) then
@@ -3684,17 +3720,40 @@ function _update()
       state = "play"
       note(1, 392, 500, TRIANGLE, 60); note(2, 523, 500, TRIANGLE, 40)
     elseif btnp(4) then
-      local k = menu.i - 1
-      local lv = G.levels[k] or 0
-      local c = UPGRADES[k].cost(lv)
-      if G.echoes >= c then
-        G.echoes, G.levels[k] = G.echoes - c, lv + 1
-        UPGRADES[k].buy()
-        note(1, 523, 200, TRIANGLE, 70); note(2, 784, 300, TRIANGLE, 50)
+      local k = #G.slots + 1
+      if k <= #SLOT_COST and G.echoes >= SLOT_COST[k] then
+        G.echoes = G.echoes - SLOT_COST[k]
+        G.slots[k] = menu.i - 1
+        apply_paths()
+        note(0, 98, 900, SAW, 70); note(1, 392, 700, TRIANGLE, 70); note(2, 587, 900, TRIANGLE, 50)
+        local sh = P.shrine
+        if sh then
+          for _ = 1, 40 do
+            local an = math.random() * 2 * PI
+            spawn(sh.x, sh.y - 30, cos(an) * 1.2, sin(an) * 1.2 - 0.4, 30 + math.random(30), 5)
+          end
+        end
       else
         note(1, 90, 120, SQUARE, 40)
       end
     end
+  elseif state == "pause" then
+    -- the pause: resume, the controls, or give the hunt up
+    if menu.page then
+      if btnp(4) or btnp(5) or btnp(8) then menu.page = nil end
+    else
+      if btnp(2) then menu.i = (menu.i - 2) % 3 + 1 end
+      if btnp(3) then menu.i = menu.i % 3 + 1 end
+      if btnp(5) or btnp(8) or (btnp(4) and menu.i == 1) then
+        state = "play"
+      elseif btnp(4) and menu.i == 2 then
+        menu.page = "controls"
+      elseif btnp(4) and menu.i == 3 then
+        state, t = "title", 0
+        new_hunt()
+      end
+    end
+    return
   elseif state == "lost" then
     if t > 90 and (btnp(4) or btnp(5)) then
       state, t = "title", 0
@@ -4024,31 +4083,76 @@ local function draw_gallery()
   print("up down: animation  B: back", 16, 240, 0x8890A0)
 end
 
--- the lamp's menu: rest, the upgrades and their costs, leave
+-- the lamp's menu: rest, the paths (with what the next one costs), leave
 local function draw_menu()
-  rectfill(16, 48, 224, 160, 0x080608)
-  rect(16, 48, 224, 160, 0x786040)
-  print("HUNTER'S LAMP", 72, 56, 0xE8C878)
+  rectfill(16, 40, 224, 208, 0x080608)
+  rect(16, 40, 224, 208, 0x786040)
+  print("HUNTER'S LAMP", 72, 48, 0xE8C878)
   local e = G.echoes .. " echoes"
-  print(e, (W - #e * 8) // 2 // 8 * 8, 72, 0xC8A060)
-  local n = #UPGRADES + 2
+  print(e, (W - #e * 8) // 2 // 8 * 8, 64, 0xC8A060)
+  local n = #PATHS + 2
+  local k = #G.slots + 1
+  local cost = SLOT_COST[k]
   for i = 1, n do
     local y = 96 + (i - 1) * 16
-    local s
-    if i == 1 then s = "Rest"
-    elseif i == n then s = "Leave"
-    else
-      local u = UPGRADES[i - 1]
-      local lv = G.levels[i - 1] or 0
-      s = u.name .. " " .. lv + 1 .. "  " .. u.cost(lv)
-    end
+    local name = i == 1 and "Rest" or i == n and "Leave" or PATHS[i - 1].name
     local sel = i == menu.i
     if sel then print(">", 24, y, 0xE8C878) end
-    print(s, 40, y, sel and 0xF0E0C0 or 0x908878)
+    local col = sel and 0xF0E0C0 or 0x908878
+    if i > 1 and i < n and (not cost or G.echoes < cost) then col = sel and 0x988870 or 0x585048 end
+    local x = print(name, 40, y, col)
+    if i > 1 and i < n then
+      -- how many times this path was taken: a mark each
+      local m = 0
+      for _, p in ipairs(G.slots) do
+        if p == i - 1 then rectfill(x + 4 + m * 5, y + 6, 3, 3, 0xC8A060); m = m + 1 end
+      end
+      if cost then
+        local c = cost .. ""
+        print(c, 232 - #c * 8, y, col)
+      end
+    end
   end
   local i = menu.i
-  local what = i == 1 and "health; the town fills again" or i == n and "back to the hunt" or UPGRADES[i - 1].what
-  print(what, 24, 184, 0x686878)
+  local lore = i == 1 and { "whole again; and the", "town wakes again" } or i == n and { "back to the hunt", "" } or
+               (cost and PATHS[i - 1].lore or { "your paths are walked", "to their end" })
+  print(lore[1], 24, 208, 0x686878)
+  print(lore[2], 24, 224, 0x686878)
+end
+
+-- the pause, and the controls (keys as on the device used last)
+local CONTROLS = {
+  { "DPAD", "up", "walk" },
+  { "A", "space", "blow, again: combo" },
+  { "R1", "e", "heavy, hold: charge" },
+  { "L1", "q", "lock on" },
+  { "B", "x", "dodge, hold: run" },
+  { "X", "c", "pistol: the parry" },
+  { "Y", "v", "transform: the trick" },
+  { "SELECT", "tab", "blood, to heal" },
+  { "START", "enter", "this menu" },
+}
+local function draw_pause()
+  rectfill(16, 32, 224, 208, 0x080608)
+  rect(16, 32, 224, 208, 0x786040)
+  if menu.page == "controls" then
+    print("CONTROLS", 96, 48, 0xE8C878)
+    local kb = lastinput() == "keyboard"
+    for i, c in ipairs(CONTROLS) do
+      local y = 64 + (i - 1) * 16
+      prompt(kb and c[2] or c[1], 24, y)
+      print(c[3], 80, y, 0xB0A890)
+    end
+    print("reeling, then A: visceral", 24, 208, 0x686878)
+    return
+  end
+  print("PAUSE", 104, 48, 0xE8C878)
+  for i, name in ipairs({ "Resume", "Controls", "Give up the hunt" }) do
+    local y = 96 + (i - 1) * 32
+    local sel = i == menu.i
+    if sel then print(">", 40, y, 0xE8C878) end
+    print(name, 56, y, sel and 0xF0E0C0 or 0x908878)
+  end
 end
 
 -- the end of a hunt with no echoes left
@@ -4076,12 +4180,8 @@ function _draw()
       print("YHARNAM", 96, 16, 0xE8C878)
       print("a town of endless night", 40, 32, 0x8890A0)
       print("X: animations", 72, 48, 0x686878)
-      rectfill(0, 208, W, 48, 0x000000)
-      print("A blow  R1 heavy  L1 lock", 24, 224, 0x8890A0)
-      print("B dodge X gun Y trick Sel heal", 8, 240, 0x8890A0)
-    else
-      rectfill(0, 208, W, 16, 0x000000)
     end
+    rectfill(0, 208, W, 16, 0x000000)
     print("A: START", 96, 208, (t // 30) % 2 == 0 and 0xE8E0D0 or 0x988870)
   elseif state == "gallery" then
     -- drawn by draw_gallery
@@ -4120,7 +4220,7 @@ function _draw()
     -- stamina, green, under it
     rectfill(7, 14, P.stmax * 0.7 + 2, 4, 0x081008)
     if P.st > 0 then rectfill(8, 15, floor(P.st * 0.7), 2, P.st_wait > 0 and 0x488838 or 0x68B050) end
-    if state == "lamp" then draw_menu() end
+    if state == "lamp" then draw_menu() elseif state == "pause" then draw_pause() end
     if P.act == "dead" and died_t > 0 then
       local k = min(died_t, 40)
       rectfill(0, 104, W, 48, 0x080404)

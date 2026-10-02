@@ -2664,6 +2664,18 @@ def test_yharnam(b, opts):
         assert any("Square" in l for l in text), "\n".join(text)
         assert dark > 30000, dark               # a night, nearly dark
         assert warm > 20, warm                  # warm lamps and fires
+        q.send("\r")                            # Start: the pause, then its controls
+        time.sleep(0.5)
+        text = screen_text(box(q.screendump()))
+        assert any("PAUSE" in l for l in text) and any("Controls" in l for l in text), "\n".join(text)
+        q.send("s")
+        time.sleep(0.3)
+        q.send(" ")
+        time.sleep(0.6)
+        text = screen_text(box(q.screendump()))
+        assert any("CONTROLS" in l for l in text) and any("lock on" in l for l in text), "\n".join(text)
+        if opts.shots:
+            _save_png(q.screendump(), os.path.join(opts.shots, "yharnam-controls.png"))
         q.send("q")
         out = q.expect("update+draw", timeout=10).decode(errors="replace")
         assert "stopped with an error" not in out, out

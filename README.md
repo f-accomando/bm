@@ -175,7 +175,8 @@ local multiplayer for up to 4 players. The games on the card, all `.bm`:
   with i-frames, lock-on, charged blows, the trick weapon transformed mid-combo, the gun
   parry and the visceral attack, the rally. The town is walked area by area, each closed by
   mist and ended by its boss, with two hunter's lamps to light; blood echoes from the slain
-  heal and buy strength at a lamp, and a death costs them.
+  are dear: a little healing, a death, and at most four paths taken at the lamps, which shape
+  how the hunter fights.
 - The rest: Pong (2 players), Snake, Star Shooter, and **nano8** for `.p8` carts.
 
 The console screenshots come from QEMU (`tests/qemu_test.py --shots DIR`). The bm Studio
