@@ -64,6 +64,9 @@ static struct {
     uint32_t last_cpu_us, fps;
     uint32_t present_us;        /* last copy of the frame to the framebuffer */
     uint32_t hook_count;
+    uint32_t frame_instr_k, last_instr_k;   /* Lua instructions (thousands): this frame, the last */
+    int perf_key;               /* 'p' on the serial line: the dev kit's overlay on or off */
+    int f3_held;
     int esc;
     int quit;
     r3d_t r3d;
@@ -440,7 +443,8 @@ static int l_time(lua_State *L)
 }
 
 /* stat(n): 0 Lua KiB, 1 last frame CPU ms (update+draw), 2 fps, 3 frame number,
- *         4 3D triangles drawn and 5 3D pixels written since the last zclear() */
+ *         4 3D triangles drawn and 5 3D pixels written since the last zclear(),
+ *         6 Lua instructions of the last frame (update+draw, to the thousand) */
 static int l_stat(lua_State *L)
 {
     switch (ival(L, 1)) {
@@ -450,6 +454,7 @@ static int l_stat(lua_State *L)
     case 3: lua_pushinteger(L, rt.frame); break;
     case 4: lua_pushinteger(L, rt.r3d_ready ? rt.r3d.tris_drawn : 0); break;
     case 5: lua_pushinteger(L, rt.r3d_ready ? rt.r3d.pixels : 0); break;
+    case 6: lua_pushinteger(L, (lua_Integer)rt.last_instr_k * 1000); break;
     default: lua_pushnil(L);
     }
     return 1;
@@ -1888,7 +1893,9 @@ static int call(lua_State *L, const char *name)
     }
     rt.hook_count = 0;
     rt.slice_at = rt.slice_len;
-    if (lua_pcall(L, 0, 0, -2) != LUA_OK) {
+    int r = lua_pcall(L, 0, 0, -2);
+    rt.frame_instr_k += rt.hook_count;
+    if (r != LUA_OK) {
         lua_remove(L, -2);
         return -1;
     }
@@ -2001,6 +2008,7 @@ static int poll_keys(void)
             case 'o': case 'O': b = SER_R1; break;
             case '\r': b = BTN_START; break;
             case '\t': b = BTN_SELECT; break;
+            case 'p': case 'P': rt.perf_key = 1; continue;
             case 'q': case 'Q': return 1;
             }
         }
@@ -3366,6 +3374,64 @@ static void release(lua_State *L)
 
 static int vol_start;                   /* the volume when the cartridge started or resumed */
 
+/* ---------------------------------------------------------------- the dev kit */
+
+/* The performance overlay, over any game (Settings > Performance overlay,
+ * F3 on a keyboard, 'p' on the serial line): its frames a second, the CPU
+ * time of _update + _draw and the Lua instructions of a frame (the mean and,
+ * after ^, the most of the last second), and the time of the last 64 frames
+ * against the 16.7 ms of a frame at 60 Hz. Drawn on the 8x16 grid, top right:
+ *   60fps 6.1ms ^7.5
+ *   lua 9k ^10k        */
+#define PERF_N 64
+static int perf_on;
+static struct { uint16_t us10[PERF_N], k[PERF_N]; uint32_t at; } perf;
+
+void bm_set_perf(int on) { perf_on = on != 0; }
+int bm_perf(void) { return perf_on; }
+
+static void perf_frame(void)
+{
+    uint32_t i = perf.at++ % PERF_N;
+    perf.us10[i] = (uint16_t)(rt.last_cpu_us / 10 > 65535 ? 65535 : rt.last_cpu_us / 10);
+    perf.k[i] = (uint16_t)(rt.last_instr_k > 65535 ? 65535 : rt.last_instr_k);
+    if (!perf_on)
+        return;
+    uint32_t n = perf.at < 60 ? perf.at : 60, sum = 0, most = 0, ksum = 0, kmost = 0;
+    for (uint32_t j = 0; j < n; j++) {
+        uint32_t k = (perf.at - 1 - j) % PERF_N;
+        sum += perf.us10[k];
+        ksum += perf.k[k];
+        if (perf.us10[k] > most) most = perf.us10[k];
+        if (perf.k[k] > kmost) kmost = perf.k[k];
+    }
+    uint32_t mean = sum / n, kmean = ksum / n;
+    g16_t *g = &rt.g;
+    const g16_t keep = *g;
+    g16_camera(g, 0, 0);
+    g16_clip(g, 0, 0, 0, 0);
+    g->font = &font_console_8x16;
+    const int x = g->w - 144;                     /* the text on the 8 x 16 grid (read by the tests) */
+    g16_rectfill(g, x - 4, 0, 148, 50, g16_rgb(8, 8, 16));
+    char line[32];
+    ksnprintf(line, sizeof line, "%lufps %lu.%lums ^%lu.%lu", rt.fps, mean / 100, mean / 10 % 10,
+              most / 100, most / 10 % 10);
+    g16_text(g, x, 0, line, g16_rgb(232, 232, 216));
+    ksnprintf(line, sizeof line, "lua %luk ^%luk", kmean, kmost);
+    g16_text(g, x, 16, line, g16_rgb(200, 184, 120));
+    /* the last 64 frames, 2 px each; the top is 16.7 ms (a frame at 60 Hz) */
+    for (uint32_t j = 0; j < PERF_N && j < perf.at; j++) {
+        uint32_t v = perf.us10[(perf.at - 1 - j) % PERF_N];
+        int hgt = (int)(v * 14 / 1670);
+        if (hgt > 14) hgt = 14;
+        if (hgt < 1) hgt = 1;
+        uint16_t c = v < 835 ? g16_rgb(72, 200, 96) : v < 1670 ? g16_rgb(232, 200, 64) : g16_rgb(232, 64, 48);
+        g16_rectfill(g, x + 140 - (int)j * 2, 48 - hgt, 2, hgt, c);
+    }
+    g16_line(g, x - 2, 33, x + 141, 33, g16_rgb(72, 72, 96));
+    *g = keep;
+}
+
 /* The frame loop, then either suspend or close. */
 static int run_frames(framebuffer_t *fb, lua_State *L, const char *title, int w, int h,
                       uint32_t con_w, uint32_t con_h, uint32_t seconds, bm_stats_t *st,
@@ -3382,12 +3448,22 @@ static int run_frames(framebuffer_t *fb, lua_State *L, const char *title, int w,
             break;
         }
         audio_idle();
+        /* F3, or 'p' from the serial line: the dev kit (not while typing: the
+         * editors have their own F keys) */
+        int f3 = !rt.text_mode && hid_usage_held(0x3C);
+        if ((f3 && !rt.f3_held) || rt.perf_key)
+            perf_on = !perf_on;
+        rt.f3_held = f3;
+        rt.perf_key = 0;
         uint32_t t0 = timer_ticks();
+        rt.frame_instr_k = 0;
         if (call(L, "_update") != 0 || call(L, "_draw") != 0) {
             error = lua_tostring(L, -1);
             break;
         }
         rt.last_cpu_us = timer_ticks() - t0;
+        rt.last_instr_k = rt.frame_instr_k;
+        perf_frame();
         st->cpu_us_total += rt.last_cpu_us;
         if (rt.last_cpu_us > st->cpu_us_max)
             st->cpu_us_max = rt.last_cpu_us;

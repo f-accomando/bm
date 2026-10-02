@@ -12,6 +12,10 @@ screenshot in `docs/img/`), `README_OLD.md` (il README completo, in italiano),
   QEMU (`-M raspi0`).
 - L'utente prova sul Pi reale copiando `dist/kernel.img` sulla SD (WSL, `/mnt/d`),
   senza cavo seriale: tutto ciò che deve verificare va mostrato sullo schermo.
+- Dev kit (richiesta dell'utente): l'overlay delle prestazioni sopra ogni `.bm` (`perf_frame`
+  in `runtime.c`): fps, ms di `_update` + `_draw`, istruzioni Lua del fotogramma (`stat(6)`),
+  i massimi dell'ultimo secondo e il grafico degli ultimi 64 fotogrammi. Settings > System >
+  "Performance overlay" (config `perf`), F3 (non in modalità testo), `p` dalla seriale.
 
 ## bm Studio (sdk/studio)
 

@@ -969,7 +969,13 @@ def test_home_ui(b, opts):
         screen(["Settings > System", "Version", "Board", "SD card", "FAT32"])
         shot("system")
         keys("w")                               # the list scrolls to its last rows
-        screen(["Restart", "Open the monitor"])
+        screen(["Performance overlay", "Restart", "Open the monitor"])
+        keys("ww")                              # the dev kit's overlay: on, then off again
+        screen(["< Off >", "fps, ms, Lua instructions"])
+        keys("\r")
+        screen(["< On >", "performance overlay: on"])
+        keys("\r")
+        screen(["< Off >", "performance overlay: off"])
         keys("q")
         keys("wwwww")                           # System -> Controllers
         keys("\r")
@@ -2677,6 +2683,17 @@ def test_yharnam(b, opts):
         assert any("CONTROLS" in l for l in text) and any("lock on" in l for l in text), "\n".join(text)
         if opts.shots:
             _save_png(q.screendump(), os.path.join(opts.shots, "yharnam-controls.png"))
+        # the dev kit: the performance overlay ('p' from the serial line, F3 on a keyboard)
+        q.send("p")
+        time.sleep(0.6)
+        text = screen_text(box(q.screendump()))
+        assert any("fps" in l and "ms" in l for l in text), "\n".join(text)
+        if opts.shots:
+            _save_png(q.screendump(), os.path.join(opts.shots, "yharnam-perf.png"))
+        q.send("p")
+        time.sleep(0.6)
+        text = screen_text(box(q.screendump()))
+        assert not any("fps" in l for l in text), "\n".join(text)
         q.send("q")
         out = q.expect("update+draw", timeout=10).decode(errors="replace")
         assert "stopped with an error" not in out, out

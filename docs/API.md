@@ -181,7 +181,7 @@ nano8) legge la tastiera tasto per tasto e i controller pulsante per pulsante:
 | Funzione | Descrizione |
 |---|---|
 | `time()` | secondi dall'avvio della cartuccia (con decimali) |
-| `stat(n)` | 0 KiB usati da Lua, 1 ms di CPU dell'ultimo fotogramma, 2 fps, 3 numero del fotogramma, 4 triangoli 3D, 5 pixel 3D |
+| `stat(n)` | 0 KiB usati da Lua, 1 ms di CPU dell'ultimo fotogramma, 2 fps, 3 numero del fotogramma, 4 triangoli 3D, 5 pixel 3D, 6 istruzioni Lua dell'ultimo fotogramma (`_update` + `_draw`, alle migliaia) |
 | `log(...)` | scrive nel log del kernel (seriale e console), non sullo schermo del gioco |
 | `quit()` | chiude la cartuccia alla fine del fotogramma |
 | `timeslice(co, [k])` | la coroutine `co` si ferma da sola dopo circa `k` mila istruzioni Lua in un fotogramma (400 se manca) e `coroutine.resume` torna `true` senza valori: un calcolo lungo prosegue nei fotogrammi successivi invece di fermare la cartuccia per il limite di istruzioni. `timeslice(nil)` lo toglie (nano8 lo usa per le sue cartucce) |
@@ -476,6 +476,17 @@ una luce in mano con `bone3d()`, e la sua versione a sprite pre-renderizzati).
 
 - 60 fps = **16,7 ms** per fotogramma per `_update` + `_draw` + la copia sullo schermo.
   In alto a sinistra nella demo, `stat(1)` mostra quanto ne usa la cartuccia.
+- Il **dev kit**: l'overlay delle prestazioni sopra qualsiasi gioco, in alto a destra.
+  Si accende da Settings > System > "Performance overlay" (resta salvato), con F3 sulla tastiera
+  (non mentre un editor scrive) o con `p` dalla seriale:
+
+      60fps 6.1ms ^7.5      fotogrammi al secondo; ms di _update + _draw: media e,
+                            dopo ^, il massimo dell'ultimo secondo
+      lua 9k ^10k           istruzioni Lua di un fotogramma (migliaia): media, massimo
+
+  sotto, il tempo degli ultimi 64 fotogrammi: la cima è 16,7 ms; verde sotto metà,
+  giallo fino a 16,7, rosso oltre (il fotogramma salta). Dal codice: `stat(1)`,
+  `stat(2)`, `stat(6)`. Il limite è di 20 milioni di istruzioni per chiamata.
 - Il disegno è in C: una chiamata `spr` o `rectfill` costa pochi microsecondi, ma
   ogni chiamata da Lua ha un costo fisso. Ordini di grandezza sul Pi (docs/STRESS.md):
   ~1800 sprite 16×16 chiamati da Lua a 60 fps, ~4500 dal C; ~1200 triangoli 3D.
