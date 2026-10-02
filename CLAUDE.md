@@ -151,6 +151,10 @@ screenshot in `docs/img/`), `README_OLD.md` (il README completo, in italiano),
   combo continua nell'altra forma, B toccato schiva (col lock-on L1 passo rapido, senza
   capriola, fermo backstep; tenuto corre), X spara: durante la carica di un nemico è il parry
   (barcolla), poi A è il visceral. Rally, i boss barcollano quando i colpi si sommano (poise).
+  Le due forme della saw cleaver (`BLADE`, decisione dell'utente): chiusa un po' più rapida,
+  colpi leggeri ed economici, la stamina torna prima (più DPS: kiting, tanti colpi in poco
+  tempo); aperta più lenta e pesante (più danno per colpo, soprattutto caricato: colpire al
+  momento giusto e ritirarsi).
   L1/R1 si leggono con `pad()`; dalla seriale sono `u` e `o` (kernel), dalla tastiera Q ed E.
 - La caccia (richiesta dell'utente: non si va all'infinito in una direzione): zone di `AREA` ×
   `AREA` pezzi verso est, chiuse da un muro di nebbia (`inside`, `draw_edge`); in fondo a ogni
@@ -164,6 +168,7 @@ screenshot in `docs/img/`), `README_OLD.md` (il README completo, in italiano),
   varianti): la prima via presa è quella del cacciatore e pesa di più; ripresa conta ogni volta
   meno ma ancora in modo visibile (`curve`, diversa per via); le altre vie pesano circa un terzo,
   meno quante più sono (`DISCORD`): un mix vale meno di una via seguita (`path_weights`).
+  Alla lampada un rombo per ogni volta che una via è stata presa: dorati quelli della prima.
   Nomi evocativi e descrizioni senza numeri; gli effetti non si vedono sulle barre (stessa
   misura): agiscono su `P.mods` (`apply_paths`). Feral Affinity: meno danno subito; Moonlit
   Breath: stamina spesa meno e recuperata prima; Quicksilver Rite: danno della pistola, finestra

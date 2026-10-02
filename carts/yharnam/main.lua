@@ -2321,8 +2321,9 @@ local function aim_at(range)
 end
 
 -- stamina: every blow and dodge costs some; it comes back after a pause
-local function spend(n)
-  P.st, P.st_wait = max(-20, P.st - n * P.mods.st_cost), 30
+-- (wait ticks; a light blow of the folded blade lets the breath come sooner)
+local function spend(n, wait)
+  P.st, P.st_wait = max(-20, P.st - n * P.mods.st_cost), wait or 30
 end
 
 -- the rally: blood taken back from what the blade cuts
@@ -2331,9 +2332,30 @@ local function rally(n)
   if back > 0 and P.act ~= "dead" then P.hp, P.rally = min(P.hpmax, P.hp + back), P.rally - back end
 end
 
+-- The two forms of the saw cleaver (the user's design). Folded: a little
+-- quicker, lighter blows, cheap, the breath back sooner: more blows in less
+-- time, more damage over a fight, for harrying and backing off. Open:
+-- slower, heavy, dear: the most in one blow (charged above all), a blow
+-- landed at the right moment and away. What their blows do (light: the
+-- three of a combo; charged: added to the heavy), their stamina, the ticks
+-- before the breath comes back, their pace; tests/yharnam/balance.lua
+-- measures them.
+local BLADE = {
+  fold = { light = { 1.5, 1.5, 2.5 }, heavy = 3, charged = 3, trick = 2.5, visceral = 14, cost = 12, heavy_cost = 22,
+           trick_cost = 16, breath = 20, rate = 1, reach = 26 },
+  open = { light = { 2.5, 2.5, 3.5 }, heavy = 5, charged = 4, trick = 3.5, visceral = 14, cost = 26, heavy_cost = 30,
+           trick_cost = 22, breath = 30, rate = 0.95, reach = 34 },
+}
+-- the form in hand; what its blows do (the open saw: Serrated Oath), cost
+-- and how quick they are (the folded blade: Hunter's Path)
+function BLADE.form() return P.ext and BLADE.open or BLADE.fold end
+function BLADE.dmg(n) return n * (P.ext and P.mods.ext_dmg or 1) end
+function BLADE.cost(n) return n * (P.ext and 1 or P.mods.fold_cost) end
+function BLADE.rate() return P.ext and BLADE.open.rate or BLADE.fold.rate * P.mods.fold_rate end
+
 local function attack(stage, dx, dy)
   if dx ~= 0 or dy ~= 0 then P.dir = DIRS[dy][dx] else aim_at(44) end
-  spend(P.ext and 20 or 15 * P.mods.fold_cost)
+  spend(BLADE.cost(BLADE.form().cost), BLADE.form().breath / BLADE.rate())
   P.act, P.combo, P.queued = "attack", stage, false
   P.trail = {}
   play((P.ext and "xslash" or "slash") .. stage)
@@ -2342,7 +2364,7 @@ end
 -- the heavy blow: held at the top while R1 is held, it charges
 local function heavy(dx, dy)
   if dx ~= 0 or dy ~= 0 then P.dir = DIRS[dy][dx] else aim_at(44) end
-  spend(P.ext and 26 or 26 * P.mods.fold_cost)
+  spend(BLADE.cost(BLADE.form().heavy_cost))
   P.act, P.charge, P.charged, P.queued = "heavy", 0, false, false
   P.trail = {}
   play(xname("heavy"))
@@ -2350,7 +2372,7 @@ end
 
 -- the trick: the saw cleaver transformed in a blow, the combo goes on
 local function trick()
-  spend(P.ext and 18 or 18 * P.mods.fold_cost)
+  spend(BLADE.cost(BLADE.form().trick_cost))
   P.act, P.combo, P.queued = "trick", min(P.combo + 1, 3), false
   P.trail = {}
   play(P.ext and "trick_x" or "trick")
@@ -3464,12 +3486,12 @@ local function update_play()
     end
   elseif act == "attack" then
     local a = HUNT[P.anim]
-    local done = step_anim(P.ext and 1 or P.mods.fold_rate)
+    local done = step_anim(BLADE.rate())
     if P.f <= a.hit then forward(P.ext and 0.45 or 0.35) end
     if P.newf and P.f == a.hit then
       sfx_swing(P.ext)
-      local dmg = (P.ext and 2 * P.mods.ext_dmg or 1) + (P.combo == 3 and 1 or 0)
-      rally(FOE.strike(dmg, P.ext and 34 or 26, P.combo == 3 and 0.5 or 0.1))
+      local b = BLADE.form()
+      rally(FOE.strike(BLADE.dmg(b.light[P.combo]), b.reach, P.combo == 3 and 0.5 or 0.1))
     end
     -- the tip of the blade leaves a trail through the blow
     if P.f >= a.hit - 2 and P.f <= a.hit + 1 then
@@ -3494,12 +3516,12 @@ local function update_play()
       P.st_wait = 30
       if P.charge == 20 then P.charged = true; note(1, 220, 300, SAW, 60); note(2, 880, 300, TRIANGLE, 40) end
     else
-      local done = step_anim(P.ext and 1 or P.mods.fold_rate)
+      local done = step_anim(BLADE.rate())
       if P.f <= a.hit then forward(P.ext and 0.4 or 0.3) end
       if P.newf and P.f == a.hit then
         sfx_swing(true)
-        local dmg = ((P.ext and 4 or 3) + (P.charged and 3 or 0)) * (P.ext and P.mods.ext_dmg or 1)
-        rally(FOE.strike(dmg, P.ext and 36 or 30, 0.2, P.charged))
+        local b = BLADE.form()
+        rally(FOE.strike(BLADE.dmg(b.heavy + (P.charged and b.charged or 0)), b.reach + 2, 0.2, P.charged))
         if P.charged then FOE.shake = 6 end
       end
       if P.f >= a.hit - 2 and P.f <= a.hit + 1 then
@@ -3510,11 +3532,11 @@ local function update_play()
     end
   elseif act == "trick" then
     local a = HUNT[P.anim]
-    local done = step_anim(P.ext and 1 or P.mods.fold_rate)
+    local done = step_anim(BLADE.rate())
     if P.f <= a.hit then forward(0.35) end
     if P.newf and P.f == a.hit then
       sfx_swing(true)
-      rally(FOE.strike(P.ext and 3 * P.mods.ext_dmg or 2, 32, 0.0))
+      rally(FOE.strike(BLADE.dmg(BLADE.form().trick), 32, 0.0))
     end
     if P.newf and P.f == a.lock then P.ext = not P.ext; sfx_clank() end
     if P.f >= a.hit - 2 and P.f <= a.hit + 1 then
@@ -3545,7 +3567,7 @@ local function update_play()
     local a = HUNT[P.anim]
     local done = step_anim()
     if P.newf and P.f == a.hit and P.vic then
-      FOE.visceral(P.vic, P.ext and 14 or 12)
+      FOE.visceral(P.vic, BLADE.form().visceral)
       rally(P.rally)
     end
     if done then P.act, P.vic, P.inv = nil, nil, 0 end
@@ -3643,7 +3665,7 @@ YHARNAM = { road_at = road_at, district = district, chunk = chunk, ensure = ensu
             camera = function() return cam_x, cam_y end, CS = CS, TS = TS, SPR = SPR, FACADE = FACADE,
             HUNT = HUNT, FOES = FOES, FOE = FOE, hurt = hurt, flash = function() return flash end, dirs = DIRS,
             G = G, AREA = AREA, boss_chunk = boss_chunk, lamp_chunk = lamp_chunk, PATHS = PATHS, menu = menu,
-            apply_paths = apply_paths, path_weights = path_weights,
+            apply_paths = apply_paths, path_weights = path_weights, BLADE = BLADE,
             state = function() return state end,
             teleport = function(x, y)
               P.x, P.y = x, y
@@ -4128,11 +4150,16 @@ local function draw_menu()
     if i > 1 and i < n and (not cost or G.echoes < cost) then col = sel and 0x988870 or 0x585048 end
     local x = print(name, 40, y, col)
     if i > 1 and i < n then
-      -- how many times this path was taken: a mark each (gold: the hunter's own, the first)
+      -- a rhombus for every time this path was taken (gold: the hunter's own,
+      -- the first taken; ash: the others)
       local m = 0
       for _, p in ipairs(G.slots) do
         if p == i - 1 then
-          rectfill(x + 4 + m * 5, y + 6, 3, 3, p == G.slots[1] and 0xC8A060 or 0x787068)
+          local cx, c = x + 9 + m * 9, p == G.slots[1] and 0xC8A060 or 0x787068
+          for r = 0, 6 do
+            local hw = 3 - abs(r - 3)
+            rectfill(cx - hw, y + 4 + r, hw * 2 + 1, 1, c)
+          end
           m = m + 1
         end
       end

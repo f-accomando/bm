@@ -11,9 +11,11 @@
 --   Watcher      the same for the fourth (133 hp)
 --   die          blows the hunter takes before he dies: of 2 (a townsman of
 --                the first areas), of 3 (a boss, a townsman further on); no rally
---   4 s          blows landed in 4 seconds (stamina and all) and the damage
---                per second (DPS) in them
---   stamina      folded blows from full stamina; a combo of three, seconds
+--   4 s          blows landed in 4 seconds (stamina and all), the damage of a
+--                blow (mean) and the damage per second (DPS) in them
+--   10 s         the DPS over 10 seconds, the breath run out
+--   stamina      folded blows from full stamina (none coming back)
+--   combo        a combo of three blows, seconds (folded/open)
 --   pistol       shots to kill the townsman; the parry window against his
 --                thrust (s, from the start of it); how long a creature reels (s)
 --
@@ -189,26 +191,31 @@ local function measure(slots)
     hunter(slots, ext)
     local d
     h, d = mash(dummy("pitchfork", 0, 1e6), 240)
-    r["n4_" .. k], r["dps_" .. k] = h, d / 4
+    r["n4_" .. k], r["dps_" .. k], r["blow_" .. k] = h, d / 4, d / h
+    hunter(slots, ext)
+    _, d = mash(dummy("pitchfork", 0, 1e6), 600)
+    r["dps10_" .. k] = d / 10
   end
   hunter(slots, false)
   r.die2, r.die3 = to_die(2), to_die(3)
-  -- folded blows from full stamina to none
+  -- folded blows from full stamina to none (none of it coming back)
   hunter(slots, false)
   local n, was = 0, P.st
   mash(dummy("pitchfork", 0, 1e6), 600, 4, function()
     if P.st < was then n = n + 1 end
-    was = P.st
+    was, P.st_wait = P.st, 99
     return P.st <= 0
   end)
   r.full = n
   -- a combo of three, with stamina to spare
-  hunter(slots, false)
-  local _, _, t = mash(dummy("pitchfork", 0, 1e6), 600, 4, function(hits)
-    P.st = P.stmax
-    return hits >= 3
-  end)
-  r.combo = t / 60
+  for _, ext in ipairs({ false, true }) do
+    hunter(slots, ext)
+    local _, _, t = mash(dummy("pitchfork", 0, 1e6), 600, 4, function(hits)
+      P.st = P.stmax
+      return hits >= 3
+    end)
+    r[ext and "combo_o" or "combo"] = t / 60
+  end
   -- the pistol
   hunter(slots, false)
   r.shots = mash(dummy("pitchfork", 0), 1200, 6)
@@ -241,20 +248,28 @@ local MIXES = { { 4, 4, 4, 5 }, { 5, 5, 5, 4 }, { 1, 1, 1, 2 }, { 2, 2, 2, 5 }, 
                 { 1, 1, 3, 3 }, { 5, 4, 4, 4 }, { 4, 5, 2, 1 }, { 1, 2, 3, 4 } }
 for _, b in ipairs(MIXES) do builds[#builds + 1] = b end
 
+local BL = Y.BLADE
+for _, k in ipairs({ "fold", "open" }) do
+  local b = BL[k]
+  io.write(string.format("%s: light %s, heavy %g (charged %g), trick %g, visceral %g; stamina %g a blow (heavy %g), " ..
+                         "breath back after %g ticks; pace %g\n", k == "fold" and "folded" or "open",
+                         table.concat(b.light, "/"), b.heavy, b.heavy + b.charged, b.trick, b.visceral, b.cost,
+                         b.heavy_cost, b.breath, b.rate))
+end
 io.write("the paths: " .. table.concat(NAMES, ", ") .. "\n")
 io.write("                 townsman (5 hp)      the Butcher (60 hp)     the Watcher (133 hp)  die   in 4 s" ..
-         "                stamina      pistol\n")
+         "                          10 s       stamina   combo      pistol\n")
 io.write("build            blows f/o  s f/o     blows f/o  s f/o        blows f/o  s f/o     of 2/3  " ..
-         "blows f/o  DPS f/o   full combo   shots parry reel\n")
+         "blows f/o  a blow f/o  DPS f/o   DPS f/o    full      s f/o      shots parry reel\n")
 local R = {}
 for _, b in ipairs(builds) do
   local r = measure(b)
   R[label(b)] = r
   io.write(string.format("%-16s %3d/%-3d %4.2f/%-5.2f %3d/%-3d %4.1f/%-6.1f %3d/%-3d %4.1f/%-5.1f %2d/%-3d " ..
-                         "%3d/%-3d %4.1f/%-4.1f %4d  %4.2f %5d %5.2f %5.2f\n",
+                         "%3d/%-3d %4.2f/%-4.2f %4.1f/%-4.1f %4.1f/%-4.1f %4d   %4.2f/%-4.2f %5d %5.2f %5.2f\n",
                          label(b), r.town_f, r.town_o, r.towns_f, r.towns_o, r.b1_f, r.b1_o, r.b1s_f, r.b1s_o,
-                         r.b4_f, r.b4_o, r.b4s_f, r.b4s_o, r.die2, r.die3, r.n4_f, r.n4_o, r.dps_f, r.dps_o,
-                         r.full, r.combo, r.shots, r.parry, r.reel))
+                         r.b4_f, r.b4_o, r.b4s_f, r.b4s_o, r.die2, r.die3, r.n4_f, r.n4_o, r.blow_f, r.blow_o,
+                         r.dps_f, r.dps_o, r.dps10_f, r.dps10_o, r.full, r.combo, r.combo_o, r.shots, r.parry, r.reel))
 end
 
 -- each path, taken again, does more of what it does
@@ -291,10 +306,17 @@ for _, b in ipairs(MIXES) do
         r.reel <= focus.reel.reel and r.dps_o <= focus.dps_o.dps_o and r.combo >= focus.combo.combo,
         label(b) .. ": a mix does nothing better than a path followed")
 end
+-- the two forms of the saw cleaver: folded a little quicker and lighter,
+-- more damage per second; open slower and heavier, a townsman in fewer blows
+local r0 = R["no path"]
+check(r0.combo < r0.combo_o and r0.combo > 0.6 * r0.combo_o, "the folded blade: a little quicker")
+check(r0.blow_o > 1.3 * r0.blow_f, "the open saw: heavier blows")
+check(r0.dps_f > r0.dps_o and r0.dps10_f > r0.dps10_o, "the folded blade: more damage per second")
+check(r0.town_o < r0.town_f, "the open saw: a townsman in fewer blows")
 -- and nothing turns the fight upside down
 for name, r in pairs(R) do
   check(r.town_f >= 2 and r.town_o >= 2, name .. ": a townsman takes more than one blow")
-  check(r.b1s_f >= 6 and r.b1s_o >= 5, name .. ": the Butcher takes a while")
+  check(r.b1s_f >= 5 and r.b1s_o >= 5, name .. ": the Butcher takes a while")
   check(r.die3 <= 7 and r.die2 <= 10, name .. ": blows still hurt")
   check(r.dps_o <= 2 * R["no path"].dps_o and r.dps_f <= 2 * R["no path"].dps_f, name .. ": at most twice the damage")
 end
