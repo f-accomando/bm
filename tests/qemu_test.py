@@ -2584,8 +2584,8 @@ def test_yharnam(b, opts):
     """Yharnam: a 256x256 cartridge, shown in the middle of a 480x270
     screen with black around it; the town made while you walk, lit by
     levels (fades, glow). Title, the animations (the hunter's, a creature's,
-    a boss's), start, the first square's name, a dark night with warm lamps
-    and fires, no Lua error."""
+    a boss's), start (no area's name on screen, the user's wish), a dark
+    night with warm lamps and fires, no Lua error."""
     BX, BY = 112, 7                             # the 256x256 box in the 480x270 screen
 
     def box(img):
@@ -2655,13 +2655,14 @@ def test_yharnam(b, opts):
             cols = [tuple(img[2][i:i + 3]) for i in range(0, len(img[2]), 3)]
             dark = sum(r + g + b < 120 for r, g, b in cols)
             warm = sum(r > 200 and g > 120 and b < 150 for r, g, b in cols)
-            if any("Square" in l for l in text) and warm > 20:
+            if not any("A: START" in l for l in text) and warm > 20:
                 break
             time.sleep(0.4)
         if opts.shots:
             _save_png(q.screendump(), os.path.join(opts.shots, "yharnam-play.png"))
         print(f"     yharnam: {dark} dark pixels of 65536, {warm} warm (lamps, fires)")
-        assert any("Square" in l for l in text), "\n".join(text)
+        assert not any("A: START" in l for l in text), "\n".join(text)
+        assert not any(w in l for l in text for w in ("Square", "lamps")), "\n".join(text)
         assert dark > 30000, dark               # a night, nearly dark
         assert warm > 20, warm                  # warm lamps and fires
         q.send("\r")                            # Start: the pause, then its controls

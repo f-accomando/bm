@@ -442,7 +442,7 @@ for _, name in ipairs({ "butcher", "hound", "father", "watcher" }) do
     if b.beam then fx_seen.beam = true end
     -- the hunter steps away now and then: the boss has to come, or reach
     if i % 260 == 0 then
-      local nx, ny = free_near(b.x, b.y, 40 + (i // 260) % 4 * 30)
+      local nx, ny = free_near(b.x, b.y, 30 + (i // 260) % 4 * 30)
       P.x, P.y = nx, ny
     end
   end

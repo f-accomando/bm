@@ -1283,11 +1283,11 @@ local PALETTE = {
   0xA86040, 0xA86048, 0xA87050, 0xB09060, 0xB0A890, 0xB0A8A0, 0xB0A8A8, 0xB0F0F8,
   0xB84848, 0xB8A080, 0xB8B098, 0xB8B0A8, 0xB8B8B8, 0xC0D8E8, 0xC84810, 0xC8C0B8,
   0xC8C8C0, 0xD0A890, 0xD0C0A8, 0xD86820, 0xD87828, 0xD8B858, 0xE06020, 0xE0A888,
-  0xE0D0A8, 0xE0D8C0, 0xE0D8D0, 0xE0E0D8, 0xE8E8E0, 0xF0B048, 0xF87850, 0xF89030,
-  0xF89828, 0xF8C050, 0xF8D878, 0xF8D880, 0xF8E888, 0xF8E890, 0xF8F0C0, 0xF8F8D0,
-  0xF8F8D8,
+  0xE0D0A8, 0xE0D8C0, 0xE0D8D0, 0xE0E0D8, 0xE0F8F8, 0xE8E8E0, 0xF0B048, 0xF87850,
+  0xF89030, 0xF89828, 0xF8C050, 0xF8D878, 0xF8D880, 0xF8E888, 0xF8E890, 0xF8F0C0,
+  0xF8F8D0, 0xF8F8D8,
 }
-local GLOWING = { [0xA04818] = true, [0xB0F0F8] = true, [0xC84810] = true, [0xD87828] = true, [0xF0B048] = true, [0xF87850] = true, [0xF89828] = true, [0xF8D880] = true, [0xF8E888] = true, [0xF8F0C0] = true, [0xF8F8D0] = true }
+local GLOWING = { [0xA04818] = true, [0xB0F0F8] = true, [0xC84810] = true, [0xD87828] = true, [0xE0F8F8] = true, [0xF0B048] = true, [0xF87850] = true, [0xF89828] = true, [0xF8D880] = true, [0xF8E888] = true, [0xF8F0C0] = true, [0xF8F8D0] = true }
 -- [atlas end]
 
 local W, H = SCREEN_W, SCREEN_H          -- 256 x 256
@@ -2175,8 +2175,9 @@ local parts = {}
 local MAXP = 160
 local FLAME = { 0xF8F8D8, 0xF8E890, 0xF8C050, 0xF89030, 0xE06020, 0xA83818, 0x602010 }
 
+-- (flames keep a part of the room free: the rest is for blood, smoke, motes)
 local function spawn(x, y, vx, vy, life, kind)
-  if #parts >= MAXP then return end
+  if #parts >= (kind == 1 and MAXP - 40 or MAXP) then return end
   parts[#parts + 1] = { x = x, y = y, vx = vx, vy = vy, t = 0, life = life, kind = kind }
 end
 
@@ -2210,6 +2211,9 @@ local function update_parts()
       elseif k == 3 then
         p.vx = p.vx * 0.99 + 0.004
         p.vy = p.vy * 0.995
+      elseif k >= 6 then
+        p.vx = p.vx * 0.97 + JIT[(k0 + i * 3) & 63] * 0.03
+        p.vy = p.vy * 0.99 - 0.002
       else
         p.vy = p.vy + 0.03
       end
@@ -2262,7 +2266,7 @@ end
 
 local state = "title"
 local t = 0
-local banner, banner_t, here = nil, 0, nil
+local banner, banner_t = nil, 0
 local near_lamp
 
 local function lamp_at(key) return lamp_state[key] end
@@ -3927,12 +3931,6 @@ local function update_play()
   local tx, ty = P.x - W / 2, P.y - H * 0.62
   cam_x = cam_x + (tx - cam_x) * 0.12
   cam_y = cam_y + (ty - cam_y) * 0.12
-  -- a new district: its name
-  local d = district(pcx, pcy)
-  if d ~= here then
-    here = d
-    banner, banner_t = d.name, 200
-  end
   if banner_t > 0 then banner_t = banner_t - 1 end
   for i = #G.popups, 1, -1 do
     local pp = G.popups[i]
@@ -3948,7 +3946,7 @@ YHARNAM = { road_at = road_at, district = district, chunk = chunk, ensure = ensu
             camera = function() return cam_x, cam_y end, CS = CS, TS = TS, SPR = SPR, FACADE = FACADE,
             HUNT = HUNT, FOES = FOES, FOE = FOE, hurt = hurt, flash = function() return flash end, dirs = DIRS,
             G = G, AREA = AREA, boss_chunk = boss_chunk, lamp_chunk = lamp_chunk, PATHS = PATHS, menu = menu,
-            apply_paths = apply_paths, path_weights = path_weights, BLADE = BLADE,
+            apply_paths = apply_paths, path_weights = path_weights, BLADE = BLADE, parts = parts,
             state = function() return state end,
             teleport = function(x, y)
               P.x, P.y = x, y
@@ -4279,10 +4277,16 @@ local function draw_scene()
       local dd = abs(f.x - P.x) + abs(f.y - P.y)
       if not fire_near or dd < fire_near then fire_near = dd end
     end
-    -- a hunter's lamp: a wide warm light when lit, a faint glimmer when not
+    -- a hunter's lamp: lit, a soft breathing aura (not a strong light: the
+    -- user's wish, a cold fire, a mystic essence); dark, a faint glimmer
     local sh = ch.shrine
     if sh then
-      if G.lit[sh.key] then glow(sh.x, sh.y - 24, 70, 7, 0.3) else glow(sh.x, sh.y - 26, 22, 3, 0.6) end
+      if G.lit[sh.key] then
+        glow(sh.x, sh.y - 30, 46 + sin(t * 0.04) * 4, 5, 0.7)
+        glow(sh.x, sh.y - 33, 16, 6, 0.4)
+      else
+        glow(sh.x, sh.y - 30, 18, 2, 0.7)
+      end
     end
   end
   glow(P.x, P.y - 14, 42, 4, 0.7)               -- what the hunter's eyes make out
@@ -4340,6 +4344,29 @@ local function draw_scene()
       if (p.t // 3 + p.life) % 4 ~= 0 then pset(p.x, p.y, p.t < p.life * 0.6 and 0xF8B040 or 0xC05020) end
     elseif k == 4 then
       pset(p.x, p.y, 0xF8E8A0)
+    elseif k >= 6 then
+      local a = p.t / p.life
+      local tw = (p.t // 5 + p.life) % 5
+      if tw ~= 0 then
+        local c = k == 7 and 0x506878 or a > 0.75 and 0x587898 or tw == 1 and 0xF0F8F8 or
+                  tw == 3 and 0xB8A8E8 or 0x98D0E8
+        pset(p.x, p.y, c)
+        if k == 6 and a < 0.6 and (p.t + p.life) % 37 < 3 then        -- now and then a glint
+          pset(p.x - 1, p.y, 0x98D0E8); pset(p.x + 1, p.y, 0x98D0E8)
+          pset(p.x, p.y - 1, 0x98D0E8); pset(p.x, p.y + 1, 0x98D0E8)
+        end
+      end
+    end
+  end
+  for _, ch in ipairs(near) do
+    local sh = ch.shrine
+    if sh and G.lit[sh.key] and abs(sh.x - cam_x - W / 2) < W and abs(sh.y - cam_y - H / 2) < H then
+      for k = 0, 9 do
+        if (k + t // 6) % 4 ~= 0 then
+          local a = t * 0.025 + k * 0.6283
+          pset(sh.x + cos(a) * 11, sh.y - 33 + sin(a) * 6, k % 3 == 0 and 0xE8F8F8 or 0x88B8D8)
+        end
+      end
     end
   end
   camera()
@@ -4349,7 +4376,8 @@ end
 local function emit()
   for _, ch in ipairs(visible_chunks(48)) do
     for _, f in ipairs(ch.fires) do
-      f.acc = (f.acc or 0) + f.rate
+      f.acc = (f.x > cam_x - 40 and f.x < cam_x + W + 40 and f.y > cam_y - 40 and f.y < cam_y + H + 60) and
+              (f.acc or 0) + f.rate or 0                -- only fires seen burn sparks
       while f.acc >= 1 do
         f.acc = f.acc - 1
         local x = f.x + (math.random() - 0.5) * 1.4 * f.w
@@ -4363,6 +4391,13 @@ local function emit()
           spawn(f.x + (math.random() - 0.5) * 10, f.y - 40, 0.1, -0.35, 140, 3)
         end
       end
+    end
+    -- motes of a cold light round a hunter's lamp: many when lit, a few when not
+    local sh = ch.shrine
+    if sh and math.random() < (G.lit[sh.key] and 0.3 or 0.05) then
+      local a, r = math.random() * 2 * PI, 5 + math.random() * 12
+      spawn(sh.x + cos(a) * r, sh.y - 33 + sin(a) * r * 0.6, -sin(a) * 0.12, -0.08 - math.random() * 0.12,
+            70 + math.random(80), G.lit[sh.key] and 6 or 7)
     end
     for _, s in ipairs(ch.smokes) do
       if math.random() < 0.06 then spawn(s.x + math.random(-1, 1), s.y, 0.05, -0.22 - math.random() * 0.1, 160, 3) end
@@ -4531,10 +4566,7 @@ function _draw()
       rectfill(48, 224, 160, 16, 0x000000)
       print("A: light the lamp", 56, 224, 0xE8C878)
     end
-    -- the hunter's lamps of this area lit, and the echoes
-    local a = fdiv(P.x, AREA * CPX)
-    local lit = (G.lit[a * 10 + 1] and 1 or 0) + (G.lit[a * 10 + 2] and 1 or 0)
-    shadow_print("lamps " .. lit .. "/2", 8, 240, lit > 0 and 0xE8C878 or 0x887860)
+    -- the echoes
     local e = G.echoes .. ""
     shadow_print(e, W - 8 - #e * 8, 240, 0xC8A060)
     circfill(W - 14 - #e * 8, 247, 2, 0xA01818)      -- a drop of blood

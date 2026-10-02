@@ -25,6 +25,11 @@ DWOOD = M('dark wood', [(32, 16, 24), (56, 32, 32), (88, 56, 48), (120, 88, 64)]
 BRASS = M('brass', [(88, 64, 24), (152, 112, 40), (208, 176, 88)], [0.4, 0.8], weight=2.0, detail=True, metal=True)
 GLASS = M('lit glass', [(248, 176, 72), (248, 224, 144), (248, 248, 208)], [0.55, 0.85], weight=2.0, glow=True,
           keep=True, noline=True)
+# the hunter's lamp lit: a cold, pale light, as of something not of this world
+SPIRIT_GLASS = M('spirit glass', [(88, 136, 176), (152, 208, 232), (224, 248, 248)], [0.5, 0.85], weight=2.0,
+                 glow=True, keep=True, noline=True)
+SPIRIT = M('spirit flame', [(176, 224, 248), (240, 248, 248)], [0.6], weight=3.0, detail=True, glow=True, keep=True,
+           noline=True)
 DGLASS = M('dark glass', [(24, 32, 48), (48, 64, 88), (88, 112, 136)], [0.5, 0.85], weight=1.5, keep=True)
 COALS = M('coals', [(104, 24, 8), (200, 72, 16), (248, 152, 40)], [0.4, 0.75], weight=1.6, glow=True, keep=True,
           noline=True)
@@ -78,7 +83,7 @@ def gas_lamp(lit=True):
 
 def shrine(lit=True):
     """the hunter's lamp: a lantern on a short iron post over a stone step,
-    where the hunt rests (a checkpoint); lit, it burns white and warm"""
+    where the hunt rests (a checkpoint); lit, it burns with a cold pale light"""
     m = Model()
     a = m.add
     a('root', lambda q: sd_box(q - np.array([0, 0, 1.2]), (7.0, 7.0, 1.2), 0.3), STONE, 'step')
@@ -88,7 +93,7 @@ def shrine(lit=True):
     a('root', lambda q: sd_torus_z(q, (0, 0, 14.0), 1.2, 0.5), IRON, 'post')
     a('root', lambda q: sd_cone(q, 22.0, 24.0, 1.6, 3.4), IRON, 'post')
     # the lantern: a wide cage of iron round its glass, a hood, a ring
-    glass = GLASS if lit else DGLASS
+    glass = SPIRIT_GLASS if lit else DGLASS
     a('root', lambda q: sd_box(q - np.array([0, 0, 29.0]), (3.4, 3.4, 4.6), 0.6), glass, 'lamp')
     for k in range(8):
         ang = k * math.pi / 4
@@ -100,7 +105,7 @@ def shrine(lit=True):
     a('root', lambda q: sd_torus_z(q - np.array([0, 0, 0]), (0, 0, 38.4), 1.2, 0.35) +
       0 * q[:, 0], IRON, 'lamp')
     if lit:
-        a('root', lambda q: sd_ellipsoid(q - np.array([0, 0, 28.6]), (1.3, 1.3, 2.4)), FLAME, 'lamp')
+        a('root', lambda q: sd_ellipsoid(q - np.array([0, 0, 28.6]), (1.3, 1.3, 2.4)), SPIRIT, 'lamp')
     return m, ((0, 0, 19), 22), (40, 60, 20, 54)
 
 

@@ -138,7 +138,13 @@ screenshot in `docs/img/`), `README_OLD.md` (il README completo, in italiano),
   lampioni radi, pochi oggetti, slarghi agli incroci. La tessera 0 dello sheet è vuota: la
   cella 0 per `map()` non si disegna (prima lasciava quadrati neri nelle strade).
 - Il fuoco (bracieri, pire) è un ciclo di fotogrammi in pixel art (`art/fire.py`, `FIRE_ANIM`),
-  disegnato dopo la luce, più le scintille: pieno alla base, lingue che salgono.
+  disegnato dopo la luce, più le scintille: pieno alla base, lingue che salgono. Le fiamme
+  lasciano libere 40 delle `MAXP` particelle, e solo i fuochi visti ne emettono.
+- La lampada del cacciatore (richiesta dell'utente): non una luce forte ma un'aura fredda,
+  mistica: vetro e fiamma azzurro pallido (`SPIRIT` in `art/props.py`), un bagliore tenue che
+  respira, particelle lucenti che salgono e luccicano (tipo 6; 7 fioche quando è spenta) e un
+  alone di punti che gira. Sullo schermo niente nomi dei quartieri né "lamps k/2" (richiesta
+  dell'utente): solo gli echi, e LAMP LIT quando se ne accende una.
 - Le animazioni del cacciatore (8 direzioni) sono pose chiave in `art/anims.py` (lo
   scheletro e le sue articolazioni in `art/hunter.py`; `aim` gira il polso perché la saw
   cleaver punti dove serve). Renderle tutte richiede circa un'ora: `mkassets.py` tiene i
