@@ -1573,8 +1573,9 @@ Fatto (QEMU, test sul PC):
   punto dell'ultimo fotogramma (zone registrate mentre si disegna).
 - **Barra**: icona `ICON_MOUSE` in `icons.c`, con il pallino `ICON_DOT` (blu) per il
   Bluetooth; una per il mouse USB e una per quello Bluetooth se ci sono entrambi.
-  2026-10-02 (utente): il mouse è disegnato **a contorno** (capsula di 2 pixel, rotellina e
-  linea tra i tasti di 1 pixel, come l'immagine di riferimento) e `ICON_DOT` è lo stesso
+  2026-10-02 (utente): il mouse ha la forma dell'immagine di riferimento (capsula
+  verticale, linea tra i tasti dall'alto fino sotto la rotellina, rotellina a pillola), piena
+  come le altre icone: linea e contorno della rotellina sono tagli di 1 pixel; `ICON_DOT` è lo stesso
   disco dei numeri, in basso al centro, senza la cifra. `ICON_DOT` vale per ogni icona:
   tastiera e controller col pallino senza numero esistono (`icon_mask(ICON_PAD, ICON_DOT)`),
   la barra per ora non li usa.
