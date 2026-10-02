@@ -1652,6 +1652,58 @@ codice inserito, sprite nello sheet, test di velocità, F9), `make ai-model` per
   con F6 (e col pad), il codice entra al cursore e lo sprite nella cella; il menu e
   l'editor restano a 60 fps; i test in QEMU coprono l'integrazione.
 
+## M31 — Overbit: sparatutto a eroi in 3D (XL) — avviata il 2026-10-02
+Richiesta dell'autore (2026-10-02): un clone di Overwatch in `.bm`, **8 eroi** (2 tank,
+4 DPS, 2 supporto), 3D in prima persona, **una mappa**, multiplayer online, dev kit, la
+nostra AI per il gioco da soli. Lo scopo è **spingere la grafica** del Pi Zero al limite:
+qualità massima finché si resta a 60 fps; se spingendo si tocca 30 fps si torna indietro.
+
+Decisioni:
+- **Nomi e aspetto nostri** (come nano8 non è PICO-8): stesso kit di ogni eroe (ruolo,
+  numero di abilità e ultimate, meccaniche e numeri), ma nome del gioco, nomi degli eroi
+  e design originali. Niente marchi di Blizzard né il logo Porsche del riferimento.
+- Gioco **Overbit** (`carts/overbit`), branch `claude/overclone`.
+- Eroi (il kit di partenza tra parentesi):
+  - tank: **Rally** (D.Va) — pilota di corse in un mech bianco e nero lucido con
+    dettagli arancio; **Kaiju** (D.Mon) — un piccolo mostro in una cupola verde su un
+    mech rosso con lama e scudo di plasma;
+  - DPS: **Sarge** (Soldier: 76), **Frost** (Mei), **Fuse** (Junkrat), **Rail** (Sojourn);
+  - supporto: **Orbit** (Juno), **Akari** (Kiriko).
+- 5 contro 5 come Overwatch 2 (1 tank, 2 DPS, 2 supporto), i posti vuoti ai bot.
+- **320×180** (lo scaler della GPU porta a 720p/1080p): 4 volte meno pixel di 640×360,
+  che con il rasterizzatore software è la scelta che lascia spazio alla qualità.
+- Modelli e animazioni nel formato di bm Studio / bm Animator (sezioni MESH e ANIM),
+  generati da script Python (`carts/overbit/art`): si aprono anche con gli strumenti della
+  console.
+- **bmhost** (`make bmhost`): il runtime vero delle cartucce sul PC, per i reel (frame e
+  WAV), gli screenshot e i test. Il PC è circa 21 volte più veloce del Pi su Texture Room
+  (0,55 ms contro 11,6 ms): i costi sul Pi si stimano così, poi si misurano sul Pi.
+- **Qualità automatica**: il gioco misura il tempo dei frame (`stat(1)`) e alza o abbassa
+  la qualità (dettaglio dei modelli, ombre, effetti, distanza) per restare a 60 fps; il
+  dev kit ha una prova che spinge la qualità fino a 30 fps e mostra i limiti sul Pi.
+
+Passi (in quest'ordine, richiesto dall'autore):
+1. **Rally** (kit di D.Va) con animazioni e abilità, poi un **reel delle animazioni**:
+   - motore: materiali per faccia (emissivi, lucidi, trasparenza a retino, livelli di
+     dettaglio), luce colorata del cielo e del terreno, riflessi e luce di contorno, ombre
+     proiettate, modello in prima persona sempre davanti, colpi contro le ossa (hitbox),
+     strati di animazione (gambe e busto), effetti 3D;
+   - Rally: mech (cannoni a fusione, propulsori, matrice difensiva, micro-missili,
+     autodistruzione, espulsione) e pilota (pistola, richiamo del mech), HUD, suoni,
+     poligono di tiro;
+   - reel: ogni animazione in terza persona, renderizzato con bmhost (`docs/img`).
+2. Gli altri **7 eroi**, con il numero di abilità e ultimate del kit di partenza.
+3. La **mappa** e il motore del mondo: **Partenope**, un porto di una Napoli futura al
+   tramonto (Vesuvio sullo sfondo), modalità controllo; geometria statica con BSP e span
+   buffer (ogni pixel disegnato una volta), luce precalcolata (ombre e occlusione
+   ambientale) nelle texture, cielo, collisioni e raggi in C; selezione degli eroi.
+4. **AI**: bot con grafo di navigazione, combattimento e uso delle abilità; scelte
+   tattiche da una piccola rete INT8 (come quella di M30) addestrata sul PC.
+5. **Rete**: UDP per le cartucce, partite in LAN (una console ospita), predizione e
+   interpolazione; online con un relay (`tools/`) per giocare via internet.
+- **Dev kit**: menu di sviluppo nel gioco (tempi per fase, qualità, telecamera libera,
+  hitbox, bot, reel), script degli asset, guida per aggiungere eroi e modificare la mappa.
+
 ## Rischi principali
 | Rischio | Mitigazione |
 |---------|-------------|

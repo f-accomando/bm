@@ -1,8 +1,12 @@
 /*
  * Software 3D for native cartridges: z-buffered triangles in RGB565, flat or
  * Gouraud-shaded (dithered), perspective projection, back-face culling,
- * clipping on the near plane, one directional light and point lamps, optional
- * distance fog, textured faces (perspective correct, from a sprite sheet).
+ * clipping on the near plane, a sun with coloured sky and ground light,
+ * specular highlights and rim light, point lamps, optional distance fog,
+ * textured faces (perspective correct, from a sprite sheet), per-face
+ * materials (emissive, glossy, screen-door transparent, levels of detail),
+ * planar shadows, a first-person layer always in front, and 3D effects
+ * (points, lines, billboard sprites).
  * Everything runs on the ARM (VFP for the transforms, fixed point in the
  * inner loops); the VideoCore 3D unit is not used.
  */
@@ -19,30 +23,61 @@ typedef struct {
     int nverts, nfaces;
     v3_t *verts;
     uint16_t *faces;            /* 3 vertex indices per face */
-    uint32_t *colors;           /* 0xRRGGBB per face, or R3D_TEXTURED */
+    uint32_t *colors;           /* 0xRRGGBB per face + material bits, or R3D_TEXTURED */
     v3_t *normals;              /* per face, object space */
     v3_t *vnormals;             /* per vertex (average of its faces), for Gouraud */
     float *uv;                  /* NULL, or 6 per face: u0 v0 u1 v1 u2 v2 in texels */
     const g16_sheet_t *tex;     /* texture of the R3D_TEXTURED faces */
+    uint8_t *vlod;              /* per vertex: bit d set if a face shown at detail d uses it */
+    /* a mesh with a skeleton (rigid skinning, done while drawing): verts,
+     * normals and vnormals are at rest, each vertex follows the 3x4 matrix
+     * (row major) of its bone; NULL for a plain mesh */
+    const float (*bones)[12];
+    const uint8_t *vbone;
+    int nbones;
 } r3d_mesh_t;
 
-#define R3D_TEXTURED 0x80000000u
+/* Face colours: 0xRRGGBB in the low 24 bits; the high bits are the
+ * material (0 = a plain lit face, as before):
+ *   bit 31  textured with the sprite sheet (the colour is ignored)
+ *   bit 30  emissive: full colour, no light (glowing parts, screens)
+ *   bit 29  glossy: specular highlight of the sun
+ *   bit 28  screen-door transparent: every other pixel (shields, glass)
+ *   bit 27  flat: lit as one plane even in a smooth (Gouraud) draw, so
+ *           hard edges can share their corners with the faces around
+ *   bits 24-25  a level of detail k (0..3), and bit 26: the face shows at
+ *           the levels below k (a coarse stand-in) if set, else at k and
+ *           above (a detail); 0 = at every level. */
+#define R3D_TEXTURED  0x80000000u
+#define R3D_EMISSIVE  0x40000000u
+#define R3D_GLOSSY    0x20000000u
+#define R3D_SCREEN    0x10000000u
+#define R3D_FLAT      0x08000000u
+#define R3D_LOD_SHOWS(c, d) (((c) >> 26 & 1u) ? (d) < ((c) >> 24 & 3u) : (d) >= ((c) >> 24 & 3u))
 
 #define R3D_LAMPS 4
+
+typedef struct { float r, g, b; } r3d_rgb_t;
 
 typedef struct {
     g16_t *g;
     uint16_t *zbuf;             /* g->w * g->h, 0 = far */
+    uint8_t *mask;              /* g->w * g->h, for shadows (allocated when needed) */
     v3_t cam_pos;
     float cam_yaw, cam_pitch, cam_roll;
     float focal;                /* pixels: (w/2) / tan(fov/2) */
     v3_t light;                 /* unit vector towards the light, world space */
     float ambient;
-    struct { v3_t pos; float r2, k; int on; } lamp[R3D_LAMPS];  /* point lights, per face */
+    r3d_rgb_t sun, sky, ground; /* colours of the sun and of the light from above and below (1 = white) */
+    float spec_k;               /* strength of the highlight on glossy faces */
+    int spec_shift;             /* exponent = 2^spec_shift */
+    float rim_k;                /* light on the edges seen from the camera */
+    struct { v3_t pos; float r2, k; r3d_rgb_t c; int on; } lamp[R3D_LAMPS];  /* point lights */
     uint32_t fog_rgb;           /* faces fade to this colour ... */
     float fog_near, fog_far;    /* ... between these depths (off if far <= near) */
+    int shadow_style;           /* 0 darken, 1 dither */
     /* statistics of the last frame (reset by r3d_zclear) */
-    uint32_t tris_in, tris_drawn, pixels;
+    uint32_t tris_in, tris_drawn, pixels, verts;
 } r3d_t;
 
 int  r3d_init(r3d_t *r, g16_t *g);
@@ -51,10 +86,17 @@ void r3d_zclear(r3d_t *r);
 void r3d_camera(r3d_t *r, float x, float y, float z, float yaw, float pitch, float fov_deg);
 void r3d_camera_roll(r3d_t *r, float roll);
 void r3d_light(r3d_t *r, float x, float y, float z, float ambient);
+/* Colours (0xRRGGBB) of the sun, of the ambient light from the sky (faces
+ * looking up) and from the ground (faces looking down); white = as before. */
+void r3d_sky(r3d_t *r, uint32_t sun, uint32_t sky, uint32_t ground);
+/* Highlights on glossy faces (k 0..2, exponent 4..64) and rim light (0..1). */
+void r3d_shine(r3d_t *r, float spec_k, int exponent, float rim_k);
 void r3d_fog(r3d_t *r, uint32_t rgb, float near, float far);
 /* Point light i (0..R3D_LAMPS-1): faces whose centre is within `radius` get
- * up to `k` more light, fading with the distance; radius <= 0 turns it off. */
+ * up to `k` more light (of colour rgb), fading with the distance; radius <= 0
+ * turns it off. */
 void r3d_lamp(r3d_t *r, int i, float x, float y, float z, float radius, float k);
+void r3d_lamp_rgb(r3d_t *r, int i, float x, float y, float z, float radius, float k, uint32_t rgb);
 
 /* World point -> screen. Returns 0 if it is behind the camera. */
 int r3d_project(const r3d_t *r, v3_t p, float *sx, float *sy, float *depth);
@@ -64,12 +106,32 @@ void r3d_draw(r3d_t *r, const r3d_mesh_t *m, v3_t p, float rx, float ry, float r
 /* The same with flags: R3D_NOZ ignores the z-buffer (no test, no write:
  * for floors and backdrops drawn before the rest), R3D_UNLIT full colour,
  * R3D_SMOOTH Gouraud shading (light per vertex, colour interpolated and
- * dithered; faces that share vertex indices look like one curved surface). */
+ * dithered; faces that share vertex indices look like one curved surface),
+ * R3D_SHADOW the shadow of the mesh on the plane y = p.y along the sun
+ * (darkens what is already drawn there, the mesh itself is not drawn),
+ * R3D_FRONT in front of everything drawn before (first-person arms and
+ * weapons: the z-buffer under it is cleared, its own depths are exact from
+ * 0.1 units), R3D_DETAIL(n) only the faces of level of detail n (0 the
+ * lowest; without it, 3: every face). */
 #define R3D_NOZ    1u
 #define R3D_UNLIT  2u
 #define R3D_SMOOTH 4u
+#define R3D_SHADOW 8u
+#define R3D_DETAIL(n) ((3u - (unsigned)(n)) << 4)
+#define R3D_FRONT  64u
 void r3d_draw_flags(r3d_t *r, const r3d_mesh_t *m, v3_t p, float rx, float ry, float rz,
                     float scale, unsigned flags);
+
+/* 3D effects, z-tested against what is drawn (they do not write depth):
+ * a round point of world radius `radius`; a line from a to b `width`
+ * pixels wide; a rectangle of the sprite sheet facing the camera, `size`
+ * world units wide (transparent texels skipped). flags: R3D_FX_SCREEN draws
+ * every other pixel. Each returns the pixels drawn. */
+#define R3D_FX_SCREEN 1u
+uint32_t r3d_point(r3d_t *r, v3_t p, float radius, uint32_t rgb, unsigned flags);
+uint32_t r3d_line(r3d_t *r, v3_t a, v3_t b, uint32_t rgb, int width, unsigned flags);
+uint32_t r3d_sprite(r3d_t *r, const g16_sheet_t *s, int sx, int sy, int sw, int sh, v3_t p,
+                    float size, unsigned flags);
 
 /* Mesh helpers */
 int  r3d_mesh_alloc(r3d_mesh_t *m, int nverts, int nfaces);

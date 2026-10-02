@@ -61,6 +61,8 @@ static struct {
     uint32_t start_us, frame;
     uint32_t last_cpu_us, fps;
     uint32_t present_us;        /* last copy of the frame to the framebuffer */
+    uint32_t us3d;              /* time in 3D drawing since the last zclear() */
+    uint32_t frame_t0;          /* when this frame's _update began */
     uint32_t hook_count;
     int esc;
     int quit;
@@ -447,7 +449,9 @@ static int l_time(lua_State *L)
 }
 
 /* stat(n): 0 Lua KiB, 1 last frame CPU ms (update+draw), 2 fps, 3 frame number,
- *         4 3D triangles drawn and 5 3D pixels written since the last zclear() */
+ *         4 3D triangles drawn and 5 3D pixels written since the last zclear(),
+ *         6 ms spent in 3D drawing (draw3d and the effects) since then,
+ *         7 3D vertices transformed since then, 8 ms since this frame began */
 static int l_stat(lua_State *L)
 {
     switch (ival(L, 1)) {
@@ -457,6 +461,9 @@ static int l_stat(lua_State *L)
     case 3: lua_pushinteger(L, rt.frame); break;
     case 4: lua_pushinteger(L, rt.r3d_ready ? rt.r3d.tris_drawn : 0); break;
     case 5: lua_pushinteger(L, rt.r3d_ready ? rt.r3d.pixels : 0); break;
+    case 6: lua_pushnumber(L, rt.us3d / 1000.0); break;
+    case 7: lua_pushinteger(L, rt.r3d_ready ? rt.r3d.verts : 0); break;
+    case 8: lua_pushnumber(L, (timer_ticks() - rt.frame_t0) / 1000.0); break;
     default: lua_pushnil(L);
     }
     return 1;
@@ -479,6 +486,11 @@ static int l_tri(lua_State *L)
 
 /* ---- 3D (software rasterizer, see r3d.h) */
 
+static float fnum(lua_State *L, int i, float def)
+{
+    return (float)luaL_optnumber(L, i, def);
+}
+
 static r3d_t *r3d(lua_State *L)
 {
     if (!rt.r3d_ready) {
@@ -494,8 +506,10 @@ static r3d_t *r3d(lua_State *L)
 typedef struct {
     uint8_t *data;
     bm_rig_t r;
-    v3_t *rest;
-    float (*mat)[12];
+    float (*mat)[12];           /* the pose: where each bone carries its rest vertices (r3d skins while drawing) */
+    float *radius;              /* per bone: the capsule around its vertices (hit3d) */
+    float turn[BM_BONES_MAX][4];    /* bone_turn(): an extra turn of each bone (quaternion) */
+    uint8_t turned[BM_BONES_MAX];
 } skel_t;
 
 /* A mesh of Lua: r3d_mesh_t first, so every function can see just that. */
@@ -509,8 +523,8 @@ static void skel_free(skel_t *s)
     if (!s)
         return;
     free(s->data);
-    free(s->rest);
     free(s->mat);
+    free(s->radius);
     free(s);
 }
 
@@ -560,7 +574,8 @@ static int l_mesh(lua_State *L)
             m->faces[f * 3 + k] = (uint16_t)(idx - 1);
         }
         lua_rawgeti(L, 2, f * 4 + 4);
-        m->colors[f] = (uint32_t)lua_tointeger(L, -1);
+        lua_Integer c = lua_tointeger(L, -1);
+        m->colors[f] = c < 0 ? R3D_TEXTURED : (uint32_t)c;     /* -1: textured */
         lua_pop(L, 1);
     }
     if (lua_istable(L, 3)) {
@@ -653,7 +668,7 @@ static int l_model(lua_State *L)
         float uv[6];
         bm_model_face(&md, f, m->faces + f * 3, &colour, uv);
         if (colour & R3D_TEXTURED) {
-            colour = R3D_TEXTURED;
+            colour &= 0xFF000000u;          /* textured, with its material bits */
             if (!m->uv) {
                 if (r3d_mesh_alloc_uv(m) != 0)
                     return luaL_error(L, "not enough memory for the model");
@@ -670,19 +685,36 @@ static int l_model(lua_State *L)
     if (rt.anim && bm_anim_rig(rt.anim, rt.anim_size, md.name, &r) == 0 && r.nverts == md.nverts) {
         skel_t *sk = calloc(1, sizeof *sk);
         const uint8_t *start = r.bones - (BM_MODEL_NAME + 8);
-        if (!sk || !(sk->data = malloc(r.size)) || !(sk->rest = malloc(md.nverts * sizeof(v3_t))) ||
-            !(sk->mat = malloc(r.nbones * sizeof *sk->mat))) {
+        if (!sk || !(sk->data = malloc(r.size)) || !(sk->mat = malloc(r.nbones * sizeof *sk->mat)) ||
+            !(sk->radius = calloc(r.nbones, sizeof(float)))) {
             skel_free(sk);
             return luaL_error(L, "not enough memory for the model");
         }
         memcpy(sk->data, start, r.size);
         bm_rig_read(sk->data, r.size, &sk->r);
-        memcpy(sk->rest, m->verts, md.nverts * sizeof(v3_t));
         for (int i = 0; i < r.nbones; i++) {
             static const float id[12] = { 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0 };
             memcpy(sk->mat[i], id, sizeof id);
+            sk->turn[i][0] = sk->turn[i][1] = sk->turn[i][2] = 0;
+            sk->turn[i][3] = 1;
+        }
+        /* the capsule of each bone: its segment, wide enough for its vertices */
+        for (int v = 0; v < md.nverts; v++) {
+            int b = sk->r.vbones[v];
+            float h[3], t[3];
+            bm_rig_bone(&sk->r, b, NULL, NULL, h, t);
+            float d[3] = { t[0] - h[0], t[1] - h[1], t[2] - h[2] }, q[3] = { m->verts[v].x - h[0],
+                           m->verts[v].y - h[1], m->verts[v].z - h[2] };
+            float dd = d[0] * d[0] + d[1] * d[1] + d[2] * d[2], u = dd > 1e-12f ? (q[0] * d[0] + q[1] * d[1] + q[2] * d[2]) / dd : 0;
+            u = u < 0 ? 0 : u > 1 ? 1 : u;
+            float ex = q[0] - d[0] * u, ey = q[1] - d[1] * u, ez = q[2] - d[2] * u, e = sqrtf(ex * ex + ey * ey + ez * ez);
+            if (e > sk->radius[b])
+                sk->radius[b] = e;
         }
         ((lmesh_t *)m)->skel = sk;
+        m->bones = (const float (*)[12])sk->mat;     /* r3d moves each vertex with its bone */
+        m->vbone = sk->r.vbones;
+        m->nbones = r.nbones;
     }
     return 1;
 }
@@ -763,6 +795,15 @@ static void pose_at(int nb, const bm_clip_t *c, float t, float (*q)[4], float (*
 }
 
 /* M[i] = M[parent] * T(head + t) * R(q) * T(-head); every vertex follows its bone */
+static void quat_mul(float out[4], const float a[4], const float b[4])
+{
+    float x = a[3] * b[0] + a[0] * b[3] + a[1] * b[2] - a[2] * b[1];
+    float y = a[3] * b[1] - a[0] * b[2] + a[1] * b[3] + a[2] * b[0];
+    float z = a[3] * b[2] + a[0] * b[1] - a[1] * b[0] + a[2] * b[3];
+    float w = a[3] * b[3] - a[0] * b[0] - a[1] * b[1] - a[2] * b[2];
+    out[0] = x; out[1] = y; out[2] = z; out[3] = w;
+}
+
 static void skin(lmesh_t *lm, float (*q)[4], float (*tr)[3])
 {
     skel_t *s = lm->skel;
@@ -771,6 +812,10 @@ static void skin(lmesh_t *lm, float (*q)[4], float (*tr)[3])
         int parent;
         float h[3], tail[3], r[9];
         bm_rig_bone(&s->r, i, NULL, &parent, h, tail);
+        if (s->turned[i]) {                 /* bone_turn(): in the parent's frame, before the pose */
+            float a[4] = { q[i][0], q[i][1], q[i][2], q[i][3] };
+            quat_mul(q[i], s->turn[i], a);
+        }
         quat_norm(q[i]);
         float x = q[i][0], y = q[i][1], z = q[i][2], w = q[i][3];
         r[0] = 1 - 2 * (y * y + z * z); r[1] = 2 * (x * y - z * w); r[2] = 2 * (x * z + y * w);
@@ -795,14 +840,8 @@ static void skin(lmesh_t *lm, float (*q)[4], float (*tr)[3])
             m[row * 4 + 3] = a[row * 4] * local[3] + a[row * 4 + 1] * local[7] + a[row * 4 + 2] * local[11] + a[row * 4 + 3];
         }
     }
-    r3d_mesh_t *mesh = &lm->m;
-    for (int v = 0; v < mesh->nverts; v++) {
-        const float *m = s->mat[s->r.vbones[v]];
-        v3_t p = s->rest[v];
-        mesh->verts[v] = (v3_t){ m[0] * p.x + m[1] * p.y + m[2] * p.z + m[3], m[4] * p.x + m[5] * p.y + m[6] * p.z + m[7],
-                                 m[8] * p.x + m[9] * p.y + m[10] * p.z + m[11] };
-    }
-    r3d_mesh_normals(mesh);
+    /* the vertices stay at rest: r3d moves each one with its bone while it
+     * draws (rigid skinning, only the vertices the level of detail needs) */
 }
 
 static lmesh_t *skel_mesh(lua_State *L, int idx)
@@ -828,10 +867,29 @@ static void find_clip(lua_State *L, const skel_t *s, int idx, bm_clip_t *c)
     luaL_error(L, "no animation \"%s\"", name);
 }
 
-/* animate(mesh, [clip, time, [clip2, time2, k]]) -> the clip's length: the
- * mesh (from model()) takes the pose of the clip at that time, in seconds
- * (a looping clip goes round); with a second clip, a mix of the two (k = 0
- * the first, 1 the second); with no clip, the rest pose */
+/* the bone named (or numbered, from 1) by argument idx: 0-based, or -1 */
+static int find_bone(lua_State *L, const bm_rig_t *r, int idx)
+{
+    if (lua_type(L, idx) == LUA_TNUMBER) {
+        int i = (int)lua_tointeger(L, idx) - 1;
+        return i >= 0 && i < r->nbones ? i : -1;
+    }
+    const char *name = luaL_checkstring(L, idx);
+    char bn[BM_MODEL_NAME + 1];
+    for (int i = 0; i < r->nbones; i++) {
+        bm_rig_bone(r, i, bn, NULL, NULL, NULL);
+        if (strcmp(bn, name) == 0)
+            return i;
+    }
+    return -1;
+}
+
+/* animate(mesh, [clip, time, [clip2, time2, k, [bone]]]) -> the clip's
+ * length: the mesh (from model()) takes the pose of the clip at that time,
+ * in seconds (a looping clip goes round); with a second clip, a mix of the
+ * two (k = 0 the first, 1 the second), only for `bone` and the bones under
+ * it if given (an upper body that shoots on legs that run); with no clip,
+ * the rest pose */
 static int l_animate(lua_State *L)
 {
     lmesh_t *lm = skel_mesh(L, 1);
@@ -854,7 +912,18 @@ static int l_animate(lua_State *L)
             pose_at(nb, &c2, (float)luaL_optnumber(L, 5, 0), pose_q2, pose_t2);
             float k = (float)luaL_optnumber(L, 6, 0.5);
             k = k < 0 ? 0 : k > 1 ? 1 : k;
+            uint8_t layer[BM_BONES_MAX];
+            int top = lua_isnoneornil(L, 7) ? -1 : find_bone(L, &lm->skel->r, 7);
+            if (!lua_isnoneornil(L, 7) && top < 0)
+                return luaL_error(L, "no bone \"%s\"", lua_tostring(L, 7));
             for (int i = 0; i < nb; i++) {
+                int parent;
+                bm_rig_bone(&lm->skel->r, i, NULL, &parent, NULL, NULL);
+                layer[i] = top < 0 || i == top || (parent >= 0 && layer[parent]);
+            }
+            for (int i = 0; i < nb; i++) {
+                if (!layer[i])
+                    continue;
                 float a[4] = { pose_q[i][0], pose_q[i][1], pose_q[i][2], pose_q[i][3] };
                 quat_slerp(pose_q[i], a, pose_q2[i], k);
                 for (int j = 0; j < 3; j++) pose_t[i][j] += (pose_t2[i][j] - pose_t[i][j]) * k;
@@ -892,18 +961,7 @@ static int l_bone3d(lua_State *L)
 {
     lmesh_t *lm = skel_mesh(L, 1);
     const bm_rig_t *r = &lm->skel->r;
-    int found = -1;
-    if (lua_type(L, 2) == LUA_TNUMBER) {
-        int i = (int)luaL_checkinteger(L, 2) - 1;
-        if (i >= 0 && i < r->nbones) found = i;
-    } else {
-        const char *name = luaL_checkstring(L, 2);
-        char bn[BM_MODEL_NAME + 1];
-        for (int i = 0; i < r->nbones && found < 0; i++) {
-            bm_rig_bone(r, i, bn, NULL, NULL, NULL);
-            if (strcmp(bn, name) == 0) found = i;
-        }
-    }
+    int found = find_bone(L, r, 2);
     if (found < 0) {
         lua_pushnil(L);
         return 1;
@@ -918,14 +976,138 @@ static int l_bone3d(lua_State *L)
     return 6;
 }
 
+/* bone_turn(mesh, bone, rx, ry, rz): every later animate() turns the bone by
+ * these angles (radians, x then y then z, in its parent's frame) on top of
+ * the animation: aiming up and down, a head that looks. bone_turn(mesh,
+ * bone) takes it away. */
+static int l_bone_turn(lua_State *L)
+{
+    lmesh_t *lm = skel_mesh(L, 1);
+    skel_t *sk = lm->skel;
+    int b = find_bone(L, &sk->r, 2);
+    if (b < 0)
+        return luaL_error(L, "no bone \"%s\"", lua_tostring(L, 2));
+    if (lua_isnoneornil(L, 3)) {
+        sk->turned[b] = 0;
+        return 0;
+    }
+    float h[3] = { (float)luaL_checknumber(L, 3) * 0.5f, (float)luaL_optnumber(L, 4, 0) * 0.5f,
+                   (float)luaL_optnumber(L, 5, 0) * 0.5f };
+    float qx[4] = { sinf(h[0]), 0, 0, cosf(h[0]) }, qy[4] = { 0, sinf(h[1]), 0, cosf(h[1]) },
+          qz[4] = { 0, 0, sinf(h[2]), cosf(h[2]) }, t[4];
+    quat_mul(t, qy, qx);
+    quat_mul(sk->turn[b], qz, t);
+    sk->turned[b] = 1;
+    return 0;
+}
+
+/* bones3d(mesh) -> { "name", ... }: the bones of its skeleton, in order */
+static int l_bones3d(lua_State *L)
+{
+    lmesh_t *lm = skel_mesh(L, 1);
+    const bm_rig_t *r = &lm->skel->r;
+    lua_createtable(L, r->nbones, 0);
+    char bn[BM_MODEL_NAME + 1];
+    for (int i = 0; i < r->nbones; i++) {
+        bm_rig_bone(r, i, bn, NULL, NULL, NULL);
+        lua_pushstring(L, bn);
+        lua_rawseti(L, -2, i + 1);
+    }
+    return 1;
+}
+
+/* hit3d(mesh, x, y, z, ry, scale, ox, oy, oz, dx, dy, dz, [maxd]) -> t, bone:
+ * the ray from o along d (any length; t in units of d) against the bones of
+ * a mesh with a skeleton in its last pose, drawn at (x, y, z) turned by ry
+ * around y and scaled: each bone is a capsule from its head to its tail,
+ * wide enough for its vertices. The nearest hit within maxd (default 1000),
+ * or nil. For hitboxes that follow the animation (a head shot: bone "head"). */
+static int l_hit3d(lua_State *L)
+{
+    lmesh_t *lm = skel_mesh(L, 1);
+    const skel_t *sk = lm->skel;
+    const float px = fnum(L, 2, 0), py = fnum(L, 3, 0), pz = fnum(L, 4, 0), ry = fnum(L, 5, 0),
+                sc = fnum(L, 6, 1);
+    float o[3] = { fnum(L, 7, 0), fnum(L, 8, 0), fnum(L, 9, 0) }, d[3] = { fnum(L, 10, 0), fnum(L, 11, 0), fnum(L, 12, 1) };
+    const float maxd = fnum(L, 13, 1000);
+    /* the ray into the model's own frame: undo the move, the turn and the scale */
+    const float c = cosf(ry), s = sinf(ry), is = sc != 0 ? 1.0f / sc : 1;
+    float ox = o[0] - px, oy = o[1] - py, oz = o[2] - pz;
+    /* draw3d turns with Ry: x' = c x + s z, z' = -s x + c z; back: */
+    float lo[3] = { (c * ox - s * oz) * is, oy * is, (s * ox + c * oz) * is };
+    float ld[3] = { (c * d[0] - s * d[2]) * is, d[1] * is, (s * d[0] + c * d[2]) * is };
+    float best = maxd;
+    int hit = -1;
+    for (int b = 0; b < sk->r.nbones; b++) {
+        float rad = sk->radius[b];
+        if (rad <= 0)
+            continue;                       /* a bone with no vertices */
+        float h[3], t[3], a[3], e[3];
+        bm_rig_bone(&sk->r, b, NULL, NULL, h, t);
+        const float *m = sk->mat[b];
+        for (int k = 0; k < 3; k++) {
+            a[k] = m[k * 4] * h[0] + m[k * 4 + 1] * h[1] + m[k * 4 + 2] * h[2] + m[k * 4 + 3];
+            e[k] = m[k * 4] * t[0] + m[k * 4 + 1] * t[1] + m[k * 4 + 2] * t[2] + m[k * 4 + 3];
+        }
+        /* ray against capsule: sample the closest approach of the two lines */
+        float u[3] = { e[0] - a[0], e[1] - a[1], e[2] - a[2] }, w[3] = { lo[0] - a[0], lo[1] - a[1], lo[2] - a[2] };
+        float A = ld[0] * ld[0] + ld[1] * ld[1] + ld[2] * ld[2], B = ld[0] * u[0] + ld[1] * u[1] + ld[2] * u[2],
+              C = u[0] * u[0] + u[1] * u[1] + u[2] * u[2], D = ld[0] * w[0] + ld[1] * w[1] + ld[2] * w[2],
+              E = u[0] * w[0] + u[1] * w[1] + u[2] * w[2];
+        float den = A * C - B * B, tr, tc;
+        if (den > 1e-9f) {
+            tr = (B * E - C * D) / den;
+            tc = (A * E - B * D) / den;
+        } else {
+            tr = -D / (A > 1e-9f ? A : 1);
+            tc = 0;
+        }
+        tc = tc < 0 ? 0 : tc > 1 ? 1 : tc;
+        /* the point of the segment nearest the ray, then the sphere there */
+        float q[3] = { a[0] + u[0] * tc - lo[0], a[1] + u[1] * tc - lo[1], a[2] + u[2] * tc - lo[2] };
+        float qd = q[0] * ld[0] + q[1] * ld[1] + q[2] * ld[2];
+        float qq = q[0] * q[0] + q[1] * q[1] + q[2] * q[2];
+        float disc = qd * qd - A * (qq - rad * rad);
+        (void)tr;
+        if (disc < 0 || A <= 1e-12f)
+            continue;
+        float th = (qd - sqrtf(disc)) / A;
+        if (th < 0)
+            th = (qd + sqrtf(disc)) / A >= 0 ? 0 : -1;
+        if (th >= 0 && th < best) {
+            best = th;
+            hit = b;
+        }
+    }
+    if (hit < 0) {
+        lua_pushnil(L);
+        return 1;
+    }
+    char bn[BM_MODEL_NAME + 1];
+    bm_rig_bone(&sk->r, hit, bn, NULL, NULL, NULL);
+    lua_pushnumber(L, best);
+    lua_pushstring(L, bn);
+    return 2;
+}
+
 /* bounds3d(mesh) -> x0, y0, z0, x1, y1, z1: the box around its vertices, in
  * its own coordinates (before draw3d moves, turns and scales it) */
+static v3_t posed(const r3d_mesh_t *m, int i)
+{
+    v3_t p = m->verts[i];
+    if (!m->bones)
+        return p;
+    const float *b = m->bones[m->vbone[i]];
+    return (v3_t){ b[0] * p.x + b[1] * p.y + b[2] * p.z + b[3], b[4] * p.x + b[5] * p.y + b[6] * p.z + b[7],
+                   b[8] * p.x + b[9] * p.y + b[10] * p.z + b[11] };
+}
+
 static int l_bounds3d(lua_State *L)
 {
     const r3d_mesh_t *m = luaL_checkudata(L, 1, MESH_MT);
-    v3_t lo = m->verts[0], hi = m->verts[0];
+    v3_t lo = posed(m, 0), hi = lo;
     for (int i = 1; i < m->nverts; i++) {
-        v3_t p = m->verts[i];
+        v3_t p = posed(m, i);
         if (p.x < lo.x) lo.x = p.x;
         if (p.y < lo.y) lo.y = p.y;
         if (p.z < lo.z) lo.z = p.z;
@@ -956,10 +1138,6 @@ static int l_mesh_cube(lua_State *L)
     return 1;
 }
 
-static float fnum(lua_State *L, int i, float def)
-{
-    return (float)luaL_optnumber(L, i, def);
-}
 
 /* draw3d(mesh, x, y, z [, rx, ry, rz, scale, flags]) - flags: 1 no z-buffer
  * (floors and backdrops drawn first), 2 unlit (full colour), 4 smooth
@@ -968,9 +1146,78 @@ static int l_draw3d(lua_State *L)
 {
     r3d_mesh_t *m = luaL_checkudata(L, 1, MESH_MT);
     v3_t p = { fnum(L, 2, 0), fnum(L, 3, 0), fnum(L, 4, 0) };
-    r3d_draw_flags(r3d(L), m, p, fnum(L, 5, 0), fnum(L, 6, 0), fnum(L, 7, 0), fnum(L, 8, 1),
+    r3d_t *r = r3d(L);
+    uint32_t t0 = timer_ticks();
+    r3d_draw_flags(r, m, p, fnum(L, 5, 0), fnum(L, 6, 0), fnum(L, 7, 0), fnum(L, 8, 1),
                    (unsigned)luaL_optinteger(L, 9, 0));
+    rt.us3d += timer_ticks() - t0;
     return 0;
+}
+
+/* sky3d(sun, sky, ground): colours (0xRRGGBB) of the sunlight and of the
+ * ambient light from above and from below; sky3d() back to white */
+static int l_sky3d(lua_State *L)
+{
+    r3d_sky(r3d(L), (uint32_t)luaL_optinteger(L, 1, 0xFFFFFF), (uint32_t)luaL_optinteger(L, 2, 0xFFFFFF),
+            (uint32_t)luaL_optinteger(L, 3, 0xFFFFFF));
+    return 0;
+}
+
+/* shine3d(spec, exponent, rim): highlights on glossy faces and rim light */
+static int l_shine3d(lua_State *L)
+{
+    r3d_shine(r3d(L), fnum(L, 1, 0.6f), (int)luaL_optinteger(L, 2, 16), fnum(L, 3, 0));
+    return 0;
+}
+
+/* shadow3d(style): 0 darkens (default), 1 a dithered black (no reads of the
+ * screen) */
+static int l_shadow3d(lua_State *L)
+{
+    r3d(L)->shadow_style = (int)luaL_optinteger(L, 1, 0);
+    return 0;
+}
+
+/* point3d(x, y, z, radius, colour, [flags]) -> pixels: a round point of
+ * world radius, behind what is nearer; flags 1 = every other pixel */
+static int l_point3d(lua_State *L)
+{
+    r3d_t *r = r3d(L);
+    uint32_t t0 = timer_ticks();
+    uint32_t n = r3d_point(r, (v3_t){ fnum(L, 1, 0), fnum(L, 2, 0), fnum(L, 3, 0) }, fnum(L, 4, 0.1f),
+                           (uint32_t)luaL_optinteger(L, 5, 0xFFFFFF), (unsigned)luaL_optinteger(L, 6, 0));
+    rt.us3d += timer_ticks() - t0;
+    lua_pushinteger(L, n);
+    return 1;
+}
+
+/* line3d(x0, y0, z0, x1, y1, z1, colour, [width, flags]) -> pixels */
+static int l_line3d(lua_State *L)
+{
+    r3d_t *r = r3d(L);
+    uint32_t t0 = timer_ticks();
+    uint32_t n = r3d_line(r, (v3_t){ fnum(L, 1, 0), fnum(L, 2, 0), fnum(L, 3, 0) },
+                          (v3_t){ fnum(L, 4, 0), fnum(L, 5, 0), fnum(L, 6, 0) },
+                          (uint32_t)luaL_optinteger(L, 7, 0xFFFFFF), (int)luaL_optinteger(L, 8, 1),
+                          (unsigned)luaL_optinteger(L, 9, 0));
+    rt.us3d += timer_ticks() - t0;
+    lua_pushinteger(L, n);
+    return 1;
+}
+
+/* sprite3d(sx, sy, sw, sh, x, y, z, size, [flags]) -> pixels: a rectangle of
+ * the sprite sheet facing the camera, `size` world units wide */
+static int l_sprite3d(lua_State *L)
+{
+    r3d_t *r = r3d(L);
+    sheet_commit();
+    uint32_t t0 = timer_ticks();
+    uint32_t n = r3d_sprite(r, &rt.sheet, ival(L, 1), ival(L, 2), ival(L, 3), ival(L, 4),
+                            (v3_t){ fnum(L, 5, 0), fnum(L, 6, 0), fnum(L, 7, 0) }, fnum(L, 8, 1),
+                            (unsigned)luaL_optinteger(L, 9, 0));
+    rt.us3d += timer_ticks() - t0;
+    lua_pushinteger(L, n);
+    return 1;
 }
 
 /* camera3d(x, y, z [, yaw, pitch, fov, roll]) */
@@ -1029,13 +1276,15 @@ static int l_lamp3d(lua_State *L)
     if (lua_isnoneornil(L, 2))
         r3d_lamp(r, i, 0, 0, 0, 0, 0);
     else
-        r3d_lamp(r, i, fnum(L, 2, 0), fnum(L, 3, 0), fnum(L, 4, 0), fnum(L, 5, 3), fnum(L, 6, 1));
+        r3d_lamp_rgb(r, i, fnum(L, 2, 0), fnum(L, 3, 0), fnum(L, 4, 0), fnum(L, 5, 3), fnum(L, 6, 1),
+                     (uint32_t)luaL_optinteger(L, 7, 0xFFFFFF));
     return 0;
 }
 
 static int l_zclear(lua_State *L)
 {
     r3d_zclear(r3d(L));
+    rt.us3d = 0;
     return 0;
 }
 
@@ -1697,6 +1946,9 @@ static const luaL_Reg api[] = {
     { "model", l_model }, { "models", l_models }, { "bounds3d", l_bounds3d },
     { "animate", l_animate }, { "clips", l_clips }, { "bone3d", l_bone3d },
     { "draw3d", l_draw3d }, { "camera3d", l_camera3d }, { "light3d", l_light3d },
+    { "sky3d", l_sky3d }, { "shine3d", l_shine3d }, { "shadow3d", l_shadow3d },
+    { "point3d", l_point3d }, { "line3d", l_line3d }, { "sprite3d", l_sprite3d },
+    { "bone_turn", l_bone_turn }, { "bones3d", l_bones3d }, { "hit3d", l_hit3d },
     { "fog3d", l_fog3d }, { "project3d", l_project3d }, { "lamp3d", l_lamp3d },
     { "zclear", l_zclear }, { "log", l_log }, { "quit", l_quit },
     { "save", l_save }, { "saved", l_saved },
@@ -3271,6 +3523,7 @@ static int run_frames(framebuffer_t *fb, lua_State *L, const char *title, int w,
         }
         audio_idle();
         uint32_t t0 = timer_ticks();
+        rt.frame_t0 = t0;
         if (call(L, "_update") != 0 || call(L, "_draw") != 0) {
             error = lua_tostring(L, -1);
             break;
