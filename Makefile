@@ -165,7 +165,8 @@ res_village := 320x180
 # menu, scripts/mkcovers.py), sheet.png, map.csv, models.bm or models.glb (3D
 # models from bm Studio / bm Animator, sdk/: with their skeletons and
 # animations from a .bm; their sprite sheet too when there is no sheet.png),
-# res_<game> := 320x180.
+# res_<game> := 320x180 or 256x256, sheet8_<game> := 1 (the sheet with a
+# palette and runs: up to 256 colours, much smaller).
 .SECONDEXPANSION:
 $(BUILD)/carts/%.bm: carts/%/main.lua scripts/mkbm.py scripts/bmmesh.py \
                       $$(wildcard carts/$$*/cover.png carts/$$*/sheet.png carts/$$*/map.csv carts/$$*/models.glb \
@@ -174,7 +175,7 @@ $(BUILD)/carts/%.bm: carts/%/main.lua scripts/mkbm.py scripts/bmmesh.py \
 	$(PYTHON) scripts/mkbm.py -o $@ --lua $< --title "$(title_$*)" --author bm \
 	    --res $(or $(res_$*),640x360) \
 	    $(if $(wildcard carts/$*/cover.png),--cover carts/$*/cover.png) \
-	    $(if $(wildcard carts/$*/sheet.png),--sheet carts/$*/sheet.png) \
+	    $(if $(wildcard carts/$*/sheet.png),--sheet carts/$*/sheet.png $(if $(sheet8_$*),--sheet8)) \
 	    $(if $(wildcard carts/$*/map.csv),--map carts/$*/map.csv) \
 	    $(if $(wildcard carts/$*/models.bm),--models carts/$*/models.bm,$(if $(wildcard carts/$*/models.glb),--models carts/$*/models.glb))
 
@@ -223,6 +224,15 @@ test-kitchen: $(BUILD)/host/luahost $(BUILD)/kitchen/main.lua
 
 test-titan: $(BUILD)/host/luahost $(BUILD)/titan/main.lua
 	$< tests/titan/sim.lua $(BUILD)/titan/main.lua $(BUILD)/titan/main.map
+
+# bmplay: a Lua cartridge played on the PC with the console's drawing (lights
+# by levels too) and sound, its buttons pressed by a bot in Lua;
+# tools/bmplay/video.sh BMPLAY CART.bm BOT.lua OUT.mp4 makes a video of it
+BMPLAY_SRCS := tools/bmplay/bmplay.c src/bm/gfx16.c src/bm/format.c src/lib/crc32.c src/gfx/font8x16.c \
+               src/gfx/font8x14.c src/gfx/font6x12.c src/audio/synth.c src/audio/player.c
+$(BUILD)/host/bmplay: $(BMPLAY_SRCS) src/bm/*.h src/audio/*.h $(LUA_SRCS)
+	@mkdir -p $(dir $@)
+	$(HOSTCC) -O2 -Wall -Wextra -Isrc -Ithird_party/lua -o $@ $(BMPLAY_SRCS) $(LUA_SRCS) -lm
 
 # The Sound editor in a fake bm: its banks are the console's format, byte for byte
 $(BUILD)/demo.bmau: carts/sound/demo.json scripts/bmaudio.py

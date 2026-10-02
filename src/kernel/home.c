@@ -264,7 +264,7 @@ enum {
     R_PAD1, R_PAD2, R_PAD3, R_PAD4, R_KEYBOARD, R_MOUSE, R_PAIR, R_PAIR_KBD, R_PAIR_MOUSE, R_TEST,
     R_PROMPTS, R_FORGET,
     R_NETWORK, R_STATE, R_IP, R_TIME, R_CONSOLE, R_PASSWORD, R_CONNECT, R_BOOT,
-    R_VERSION, R_BOARD, R_UPTIME, R_MEMORY, R_CLOCKS, R_SD, R_RESTART, R_MONITOR,
+    R_VERSION, R_BOARD, R_UPTIME, R_MEMORY, R_CLOCKS, R_SD, R_RESTART, R_MONITOR, R_PERF,
 };
 
 static int popcount(unsigned v)
@@ -426,6 +426,9 @@ void home_panel(int id, home_panel_t *p)
                  temp[1] / 1000, temp[1] % 1000 / 100);
         home_row(p, MENU_ROW_INFO, R_SD, "SD card", "The card the console started from",
                  "%s", fat_describe());
+        home_row(p, MENU_ROW_CHOICE, R_PERF, "Performance overlay",
+                 "Over the games: fps, ms, Lua instructions (F3 too)", "%s",
+                 bm_perf() ? "On" : "Off");
         home_row(p, MENU_ROW_ACTION, R_RESTART, "Restart", "Restarts the console", NULL);
         home_row(p, MENU_ROW_ACTION, R_MONITOR, "Open the monitor",
                  "The text console with every command", NULL);
@@ -497,6 +500,11 @@ void home_act(int id, int row, int how, home_do_t *d)
         bm_set_via_ram(!bm_via_ram());
         config_save();
         ksnprintf(d->note, sizeof d->note, ".bm games draw %s", bm_via_ram() ? "via RAM" : "directly");
+        break;
+    case R_PERF:
+        bm_set_perf(!bm_perf());
+        config_save();
+        ksnprintf(d->note, sizeof d->note, "performance overlay: %s", bm_perf() ? "on" : "off");
         break;
     case R_VOLUME: {
         int v = audio_volume() + (how ? how : 1);

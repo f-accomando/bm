@@ -71,7 +71,8 @@ Se c'è un errore Lua, la cartuccia si ferma e l'errore, con la riga, appare sul
 | `_update()` | ogni fotogramma (60 Hz), prima di `_draw` |
 | `_draw()` | ogni fotogramma, dopo `_update` |
 
-Globali: `SCREEN_W` e `SCREEN_H` (640 e 360; 320 e 180 con `--res 320x180`).
+Globali: `SCREEN_W` e `SCREEN_H` (640 e 360; 320 e 180 con `--res 320x180`; 256 e 256 con
+`--res 256x256`).
 Lo schermo **non** viene cancellato da solo: di solito `_draw` comincia con `cls()`.
 
 Limiti: un errore o un ciclo infinito (oltre **20 milioni di istruzioni** Lua in un
@@ -191,7 +192,7 @@ nano8) legge la tastiera tasto per tasto e i controller pulsante per pulsante:
 | `rawkeys(on)` | con `true` le tastiere smettono di fare da controller per `btn()` e `pad()`: si leggono con `keydown()`. Esc chiude comunque la cartuccia |
 | `keydown(u)` | `true` finché è premuto il tasto con l'usage USB HID `u` (USB o Bluetooth): `0x04`…`0x1D` le lettere A–Z, `0x1E`…`0x27` le cifre, `0x28` Invio, `0x2C` spazio, `0x4F`…`0x52` le frecce (destra, sinistra, giù, su), `0xE0`…`0xE7` Ctrl, Shift, Alt, GUI di sinistra e poi di destra |
 | `keys()` | gli usage dei tasti premuti adesso (`{0x1D, 0xE1}`): per "premi un tasto" |
-| `pad([p])` | i pulsanti che il giocatore `p` (1–4) tiene premuti, in bit: 1 sinistra, 2 destra, 4 su, 8 giù, 16 A, 32 B, 64 Start, 128 Select, 256 X, 512 Y, 1024 L1, 2048 R1, 4096 L2, 8192 R2, 16384 L3, 32768 R3 (i grilletti e le levette premute: DS4 e Xbox 360); senza `p` quelli di tutti. I tasti della seriale contano come il controller del primo giocatore |
+| `pad([p])` | i pulsanti che il giocatore `p` (1–4) tiene premuti, in bit: 1 sinistra, 2 destra, 4 su, 8 giù, 16 A, 32 B, 64 Start, 128 Select, 256 X, 512 Y, 1024 L1, 2048 R1, 4096 L2, 8192 R2, 16384 L3, 32768 R3 (i grilletti e le levette premute: DS4 e Xbox 360); senza `p` quelli di tutti. I tasti della seriale contano come il controller del primo giocatore (L1 e R1: `u` e `o` dalla seriale, Q ed E dalla tastiera USB; Select: Tab da entrambe) |
 | `lastinput()` | che cosa è stato premuto per ultimo: `"keyboard"`, `"ds4"` o `"pad"` (un altro controller); `nil` prima di ogni tasto. Serve a mostrare i tasti giusti con `prompt()` (per esempio `"enter"` o `"A"`) |
 
 ### Tempo e sistema
@@ -199,7 +200,7 @@ nano8) legge la tastiera tasto per tasto e i controller pulsante per pulsante:
 | Funzione | Descrizione |
 |---|---|
 | `time()` | secondi dall'avvio della cartuccia (con decimali) |
-| `stat(n)` | 0 KiB usati da Lua, 1 ms di CPU dell'ultimo fotogramma, 2 fps, 3 numero del fotogramma, 4 triangoli 3D, 5 pixel 3D |
+| `stat(n)` | 0 KiB usati da Lua, 1 ms di CPU dell'ultimo fotogramma, 2 fps, 3 numero del fotogramma, 4 triangoli 3D, 5 pixel 3D, 6 istruzioni Lua dell'ultimo fotogramma (`_update` + `_draw`, alle migliaia) |
 | `log(...)` | scrive nel log del kernel (seriale e console), non sullo schermo del gioco |
 | `quit()` | chiude la cartuccia alla fine del fotogramma |
 | `timeslice(co, [k])` | la coroutine `co` si ferma da sola dopo circa `k` mila istruzioni Lua in un fotogramma (400 se manca) e `coroutine.resume` torna `true` senza valori: un calcolo lungo prosegue nei fotogrammi successivi invece di fermare la cartuccia per il limite di istruzioni. `timeslice(nil)` lo toglie (nano8 lo usa per le sue cartucce) |
@@ -433,6 +434,35 @@ print("vita", 4, 4, 0xFFFFFF)                -- l'HUD non viene oscurato
 
 Esempio completo: `carts/hunt` (Hunter's Night).
 
+### Luce a livelli (come in Dank Tomb)
+
+L'altra luce, quella del gioco PICO-8 *Dank Tomb*: ogni pixel ha un **livello di luce**
+(0 il più buio) e il suo colore diventa quello che una **tabella di dissolvenza** dà a
+quel livello. Le lampade fanno anelli concentrici di livelli, dal loro livello al centro
+fino a 0 al bordo; i bordi degli anelli sono mescolati con un dithering ordinato 4×4; dove
+due lampade si toccano vince la più forte. Le tabelle sono scelte dalla cartuccia: si può
+far diventare blu notte le ombre e arancioni i colori vicino alle lampade, restando sui
+colori della propria palette. Tutto in C (`g16_fade_*` in `src/bm/gfx16.c`).
+
+| Funzione | Descrizione |
+|---|---|
+| `fades(tabelle)` | le tabelle: `{ {colore, l0, l1, ...}, ... }`, per ogni colore della palette quello che diventa al livello 0 (il più buio), 1, ...; tutte le righe hanno lo stesso numero di livelli (2–16, fino a 255 colori). I colori senza tabella vengono scalati come la media delle tabelle. Restituisce il numero di livelli |
+| `dark_begin([ambiente])` | inizia il fotogramma: tutti i pixel al livello `ambiente` (predefinito 0); da qui la cartuccia disegna in RAM |
+| `glow(x, y, raggio, livello, [dither])` | una lampada in coordinate del mondo (vale `camera`): `livello` al centro, 0 a `raggio`; `dither` 0–1 (predefinito 0,5) è quanto si mescolano i bordi degli anelli (0 anelli netti, 1 sfumatura continua a retino) |
+| `dark_end()` | applica i livelli a tutto ciò che è stato disegnato; quello che disegni dopo (fiamme, scintille, HUD) resta com'è e "brilla" |
+
+```lua
+fades(TABELLE)                               -- una volta, in _init
+cls(0); map(...); spr(...)                   -- la scena alla luce piena
+dark_begin(1)                                -- notte: livello 1 dappertutto
+glow(lx, ly, 72 + math.random(2), 6)         -- un lampione
+glow(px, py, 28, 3)                          -- la poca luce attorno al giocatore
+dark_end()
+spr(FIAMMA, fx, fy)                          -- le fiamme non vengono oscurate
+```
+
+Esempio: `SQUARE_CART` in `tests/qemu_test.py` (una lampada su una cartuccia 256×256).
+
 ### 3D (software)
 
 | Funzione | Descrizione |
@@ -465,6 +495,17 @@ una luce in mano con `bone3d()`, e la sua versione a sprite pre-renderizzati).
 
 - 60 fps = **16,7 ms** per fotogramma per `_update` + `_draw` + la copia sullo schermo.
   In alto a sinistra nella demo, `stat(1)` mostra quanto ne usa la cartuccia.
+- Il **dev kit**: l'overlay delle prestazioni sopra qualsiasi gioco, in alto a destra.
+  Si accende da Settings > System > "Performance overlay" (resta salvato), con F3 sulla tastiera
+  (non mentre un editor scrive) o con `p` dalla seriale:
+
+      60fps 6.1ms ^7.5      fotogrammi al secondo; ms di _update + _draw: media e,
+                            dopo ^, il massimo dell'ultimo secondo
+      lua 9k ^10k           istruzioni Lua di un fotogramma (migliaia): media, massimo
+
+  sotto, il tempo degli ultimi 64 fotogrammi: la cima è 16,7 ms; verde sotto metà,
+  giallo fino a 16,7, rosso oltre (il fotogramma salta). Dal codice: `stat(1)`,
+  `stat(2)`, `stat(6)`. Il limite è di 20 milioni di istruzioni per chiamata.
 - Il disegno è in C: una chiamata `spr` o `rectfill` costa pochi microsecondi, ma
   ogni chiamata da Lua ha un costo fisso. Ordini di grandezza sul Pi (docs/STRESS.md):
   ~1800 sprite 16×16 chiamati da Lua a 60 fps, ~4500 dal C; ~1200 triangoli 3D.

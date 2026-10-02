@@ -5,8 +5,9 @@
  *                made before the project was renamed: still read)
  *   8   u16      version (1)
  *   10  u16      header size (128)
- *   12  u16      width  (640 or 320)
- *   14  u16      height (360 or 180)
+ *   12  u16      width  (640, 320 or 256)
+ *   14  u16      height (360, 180 or 256: 640x360, 320x180, 256x256; the
+ *                square one is shown in the middle of a 480x270 screen)
  *   16  u8       pixel format (1 = RGB565; 2 = XRGB8888, reserved)
  *   17  u8       section count
  *   18  u16      reserved (0)
@@ -192,7 +193,8 @@ int bm_is_cart(const void *head8);
 /* A cartridge with new code, title, author and resolution, and every other
  * section of `old` copied as it is (sheet, map, cover, and the sections this
  * kernel does not know, in their order). old == NULL: a new cartridge with
- * only the code. `old` must have passed bm_parse. Returns a malloc'd file
+ * only the code. `width` is the resolution: 320 (320x180), 256 (256x256),
+ * anything else 640x360. `old` must have passed bm_parse. Returns a malloc'd file
  * (*outlen bytes; the caller frees it), or NULL without memory. */
 uint8_t *bm_rewrite(const uint8_t *old, size_t oldlen, const char *lua, size_t lua_len,
                     const char *title, const char *author, int width, size_t *outlen);

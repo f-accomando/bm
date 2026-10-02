@@ -4,7 +4,7 @@
  * No DOM here: the same file runs in the browser and in Node (tests).
  *
  * The project, as the editor holds it:
- *   { title, author, res: "640x360" | "320x180", lua: string,
+ *   { title, author, res: "640x360" | "320x180" | "256x256", lua: string,
  *     sheet: { w, h, px: Uint8ClampedArray RGBA (alpha 0 or 255) },
  *     map: Uint8Array | null        MAP section, kept as it came
  *     cover: { w, h, px } | null    the picture on the cartridge in the menu
@@ -621,7 +621,7 @@
     const w = dv.getUint16(12, true);
     const project = {
       title: cstrRead(b.subarray(24, 72)), author: cstrRead(b.subarray(72, 104)),
-      res: w === 320 ? '320x180' : '640x360', lua: '', sheet: null, map: null, cover: null,
+      res: w === 320 ? '320x180' : w === 256 ? '256x256' : '640x360', lua: '', sheet: null, map: null, cover: null,
       models: [], uvInset: 0.25, extras: [],
     };
     for (let i = 0; i < b[17]; i++) {
@@ -702,7 +702,7 @@
     const out = wr.result(), dv = new DataView(out.buffer);
     out.set(utf8('BMCART'), 0);
     dv.setUint16(8, 1, true); dv.setUint16(10, 128, true);
-    const [rw, rh] = project.res === '320x180' ? [320, 180] : [640, 360];
+    const [rw, rh] = project.res === '320x180' ? [320, 180] : project.res === '256x256' ? [256, 256] : [640, 360];
     dv.setUint16(12, rw, true); dv.setUint16(14, rh, true);
     out[16] = 1; out[17] = sections.length;
     out.set(cstr(project.title || '', 47), 24);
