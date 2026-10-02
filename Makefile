@@ -274,10 +274,20 @@ $(BUILD)/host/n8cartinfo: tests/nano8/cartinfo.c src/bm/n8.c src/bm/n8font.c src
 test-nano8: $(BUILD)/host/n8host $(BUILD)/host/n8cartinfo $(BUILD)/host/luahost $(BUILD)/nano8/main.lua
 	$(PYTHON) tests/nano8/run.py --build $(BUILD) $(NANO8_ROMS)
 
+# Yharnam 8 (carts/yharnam/pico8: the hunt to the measure of PICO-8, a rom of
+# nano8): the rom made again is the one in the repository, and a bot plays it
+# inside nano8 (tests/yharnam/y8.lua: the hunter's ways, lamps, death, bosses)
+test-yharnam8: $(BUILD)/host/n8host $(BUILD)/nano8/main.lua
+	$(PYTHON) carts/yharnam/pico8/mk.py --check
+	@rm -rf $(BUILD)/y8sd && mkdir -p $(BUILD)/y8sd/carts/nano8
+	@cp carts/nano8/roms/yharnam8.p8 $(BUILD)/y8sd/carts/nano8/
+	$(BUILD)/host/n8host $(BUILD)/nano8/main.lua --root $(BUILD)/y8sd --exec "NANO8.Ui.play(1)" \
+	    --at "5:exec=dofile('tests/yharnam/y8.lua')" --frames 40000 --quiet
+
 .DEFAULT_GOAL := all
 .PHONY: FORCE test-smp all clean firmware image image-pi1 sdcard install sdcard-chainloader sdcard-stress qemu qemu-screenshot \
         run-serial test test-bm test-ai ai-model test-usb test-audio test-fat test-kitchen test-titan test-yharnam test-sound \
-        test-nano8 \
+        test-nano8 test-yharnam8 \
         test-net test-http test-https test-release release disasm wav test-studio test-studio-ui studio test-prompts \
         showreel yharnam-video
 
@@ -417,7 +427,7 @@ qemu: $(BUILD)/kernel.img
 qemu-screenshot: $(BUILD)/kernel.img
 	./scripts/qemu-screenshot.sh $< $(BUILD)/screen.png
 
-test: all test-bm test-usb test-fat test-audio test-kitchen test-titan test-yharnam test-sound test-nano8 test-net test-http test-https \
+test: all test-bm test-usb test-fat test-audio test-kitchen test-titan test-yharnam test-sound test-nano8 test-yharnam8 test-net test-http test-https \
       test-release test-smp test-ai test-studio test-prompts
 	$(PYTHON) tests/qemu_test.py --build $(BUILD)
 

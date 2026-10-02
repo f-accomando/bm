@@ -4294,6 +4294,52 @@ def test_chainloader_bad_crc(b, opts):
         q.close()
 
 
+def test_yharnam8(b, opts):
+    """Yharnam 8 (carts/nano8/roms/yharnam8.p8, the hunt to the measure of
+    PICO-8) on the console's nano8: the title, the hunt begun (O), the
+    hunter walking in the ring of his lamp's light (the darkness made in the
+    screen's memory), no error"""
+    tmp = tempfile.mkdtemp(prefix="bm-y8-")
+    img = os.path.join(tmp, "sd.img")
+    rom = os.path.join(HERE, "..", "carts", "nano8", "roms", "yharnam8.p8")
+    mksd.build(img, [(b("carts/nano8.bm"), "carts/nano8.bm"), (rom, "carts/nano8/yharnam8.p8")])
+    q = Qemu(b("kernel.img"), ["-drive", f"if=sd,format=raw,file={img}"])
+    try:
+        q.expect(MENU, timeout=30)
+        time.sleep(0.5)
+        q.send("\r")                           # the only game: nano8
+        q.expect("playing nano8.bm", timeout=10)
+        time.sleep(2.0)
+        q.send(" ")                            # A: the only cart
+        q.expect("nano8: playing /carts/nano8/yharnam8.p8", timeout=20)
+        time.sleep(6.0)
+        q.send(" ")                            # O: the hunt begins
+        time.sleep(2.0)
+        for _ in range(8):                     # a few steps to the right
+            q.send("d")
+            time.sleep(0.15)
+        time.sleep(2.0)
+        assert b"nano8: Runtime error" not in q.buf, q.buf[-2000:]
+        # the cart 2x at (192, 52): light round the hunter, dark corners
+        w, h, px = q.screendump()
+
+        def lum(x, y):
+            i = ((52 + y * 2) * w + 192 + x * 2) * 3
+            return px[i] + px[i + 1] + px[i + 2]
+        lit = sum(1 for y in range(48, 80) for x in range(48, 80) if lum(x, y) > 60)
+        dark = sum(1 for y in list(range(14, 24)) + list(range(100, 110)) for x in list(range(0, 10)) + list(range(118, 128))
+                   if lum(x, y) < 30)
+        print(f"     yharnam8: {lit} lit pixels of 1024 round the hunter, {dark} dark of 400 in the corners")
+        assert lit > 300 and dark > 250, (lit, dark)
+        if opts.shots:
+            _save_png(q.screendump(), os.path.join(opts.shots, "yharnam8.png"))
+        q.send("q")
+        q.expect('"nano8" suspended', timeout=10)
+    finally:
+        q.close()
+        shutil.rmtree(tmp, ignore_errors=True)
+
+
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--build", default="build")
