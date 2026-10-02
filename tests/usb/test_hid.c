@@ -148,6 +148,16 @@ int main(void)
     bt[7] = 0x80 | 8;                                          /* triangle */
     hid_report(USB_GAMEPAD, bt, 78);
     CHECK(hid_buttons() == HID_Y);
+    bt[7] = 8; bt[8] = 0x04 | 0x08 | 0x40 | 0x80;              /* L2 R2 L3 R3 (shooters) */
+    bt[5] = 255; bt[6] = 0;                                    /* right stick right and up */
+    hid_report(USB_GAMEPAD, bt, 78);
+    CHECK(hid_buttons() == (HID_L2 | HID_R2 | HID_L3 | HID_R3));
+    {
+        int8_t rs[2];
+        CHECK(hid_stick_r(-1, rs) == 1 && rs[0] == 127 && rs[1] == -127);
+    }
+    bt[8] = 0; bt[5] = bt[6] = 128;
+    hid_report(USB_GAMEPAD, bt, 78);
 
     /* press and release between two reads: seen once, then gone */
     hid_ds4_attach();

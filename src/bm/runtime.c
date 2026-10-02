@@ -404,16 +404,26 @@ static int l_players(lua_State *L)
     return 2;
 }
 
-/* stick([p]) -> x, y in -1..1 (x right, y down): the left stick of player
- * p, or the cross; without p the one pushed furthest */
+static void stick_of(int p, int right, float *x, float *y)
+{
+    if (right)
+        input_stick_r(p, x, y);
+    else
+        input_stick(p, rt.praw[p], x, y);
+}
+
+/* stick([p, [n]]) -> x, y in -1..1 (x right, y down): the left stick of
+ * player p, or the cross; with n = 1 the right stick (0, 0 without one);
+ * without p the one pushed furthest */
 static int l_stick(lua_State *L)
 {
     float x = 0, y = 0;
+    const int right = (int)luaL_optinteger(L, 2, 0) == 1;
     if (lua_isnoneornil(L, 1)) {
         float best = -1;
         for (int p = 0; p < INPUT_PLAYERS; p++) {
             float px, py;
-            input_stick(p, rt.praw[p], &px, &py);
+            stick_of(p, right, &px, &py);
             if (px * px + py * py > best) {
                 best = px * px + py * py;
                 x = px;
@@ -423,7 +433,7 @@ static int l_stick(lua_State *L)
     } else {
         int p = ival(L, 1);
         if (p >= 1 && p <= INPUT_PLAYERS)
-            input_stick(p - 1, rt.praw[p - 1], &x, &y);
+            stick_of(p - 1, right, &x, &y);
     }
     lua_pushnumber(L, x);
     lua_pushnumber(L, y);

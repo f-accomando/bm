@@ -16,6 +16,10 @@
 #define HID_Y       (1u << 9)
 #define HID_L1      (1u << 10)      /* shoulder buttons: the menu's tabs (not in games) */
 #define HID_R1      (1u << 11)
+#define HID_L2      (1u << 12)      /* triggers and stick clicks: .bm pad() bits (shooters) */
+#define HID_R2      (1u << 13)
+#define HID_L3      (1u << 14)
+#define HID_R3      (1u << 15)
 
 /* report_id: the keyboard's report ID if the device may send report
  * protocol reports (first byte = ID), else 0. */
@@ -50,6 +54,8 @@ uint32_t hid_players(uint32_t out[HID_PLAYERS], int text, int local, int ble);
  * slot, or of the USB gamepad with slot -1. Returns 1 if the pad has an
  * analog stick (else xy is 0). */
 int hid_stick(int slot, int8_t xy[2]);
+/* The same for the right stick (aiming in shooters). */
+int hid_stick_r(int slot, int8_t xy[2]);
 
 /* A Bluetooth LE keyboard (HID over GATT). Its keyboard input report, as
  * found in the report map: report ID, bit offsets of the modifier byte and

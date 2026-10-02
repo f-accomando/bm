@@ -248,11 +248,33 @@ $(BUILD)/host/n8cartinfo: tests/nano8/cartinfo.c src/bm/n8.c src/bm/n8font.c src
 test-nano8: $(BUILD)/host/n8host $(BUILD)/host/n8cartinfo $(BUILD)/host/luahost $(BUILD)/nano8/main.lua
 	$(PYTHON) tests/nano8/run.py --build $(BUILD) $(NANO8_ROMS)
 
+# bmhost: a .bm cartridge on the PC with the console's own runtime (Lua,
+# gfx16, r3d, the sound player) and the kernel's services replaced
+# (tests/host/stubs.c): frames to PNG or raw video, sound to WAV, input from
+# a script. For the reels of the games and for tests with screenshots.
+BMHOST_RT := src/bm/runtime.c src/bm/gfx16.c src/bm/r3d.c src/bm/format.c src/bm/meshcap.c \
+             src/bm/require.c src/kernel/prompts.c src/gfx/font8x16.c src/gfx/font8x14.c \
+             src/gfx/font6x12.c src/lib/printf.c src/lib/crc32.c src/audio/audio.c src/audio/synth.c \
+             src/audio/player.c src/audio/iec958.c
+BMHOST_LUA := $(filter-out third_party/lua/lua.c third_party/lua/luac.c,$(LUA_SRCS))
+BMHOST_OBJS := $(patsubst %,$(BUILD)/host/bmhost/%.o,$(BMHOST_RT) $(BMHOST_LUA))
+$(BUILD)/host/bmhost/%.c.o: %.c
+	@mkdir -p $(dir $@)
+	$(HOSTCC) -std=c11 -O2 -g -w -Itests/host/shim -Isrc -Isrc/bm -Ithird_party/lua -c -o $@ $<
+$(BUILD)/host/bmhost/runtime-deps: $(wildcard src/bm/*.h src/audio/*.h src/kernel/*.h src/usb/hid.h)
+	@mkdir -p $(dir $@) && touch $@
+$(BMHOST_OBJS): $(BUILD)/host/bmhost/runtime-deps
+$(BUILD)/host/bmhost-bin: tests/host/bmhost.c tests/host/stubs.c tests/host/host.h tests/host/libs.S \
+                          $(BMHOST_OBJS) src/ai/assist.lua src/script/bm3d.lua
+	$(HOSTCC) -O2 -g -Wall -Wextra -D_DEFAULT_SOURCE -Itests/host/shim -Isrc -Isrc/bm -Ithird_party/lua \
+	    -o $@ tests/host/bmhost.c tests/host/stubs.c tests/host/libs.S $(BMHOST_OBJS) -lm
+bmhost: $(BUILD)/host/bmhost-bin
+
 .DEFAULT_GOAL := all
 .PHONY: FORCE test-smp all clean firmware image image-pi1 sdcard install sdcard-chainloader sdcard-stress qemu qemu-screenshot \
         run-serial test test-bm test-ai ai-model test-usb test-audio test-fat test-kitchen test-titan test-sound test-nano8 \
         test-net test-http test-https test-release release disasm wav test-studio test-studio-ui studio test-prompts \
-        showreel
+        showreel bmhost
 
 all: $(BUILD)/kernel.img $(BUILD)/chainloader.img $(GAME_CARTS)
 

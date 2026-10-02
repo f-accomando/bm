@@ -59,6 +59,7 @@ static uint32_t latched_kbd[KBDS], latched_pad, bt_latched[HID_PLAYERS];
 static int text_mode;                   /* editors: navigation keys as codes, Esc stays */
 static int bt_ps_held[HID_PLAYERS];
 static int8_t bt_axis[HID_PLAYERS][2], pad_axis[2];     /* left stick, -127..127 */
+static int8_t bt_axis_r[HID_PLAYERS][2], pad_axis_r[2]; /* right stick */
 static int bt_analog[HID_PLAYERS], pad_analog;
 static int quit_edge;
 static int last_source;                 /* HID_SOURCE_*: what pressed something last */
@@ -459,6 +460,20 @@ int hid_stick(int slot, int8_t xy[2])
     return bt_analog[slot];
 }
 
+int hid_stick_r(int slot, int8_t xy[2])
+{
+    if (slot < 0) {
+        xy[0] = pad_axis_r[0];
+        xy[1] = pad_axis_r[1];
+        return pad_analog;
+    }
+    if (slot >= HID_PLAYERS)
+        return 0;
+    xy[0] = bt_axis_r[slot][0];
+    xy[1] = bt_axis_r[slot][1];
+    return bt_analog[slot];
+}
+
 int hid_usage_held(uint8_t u)
 {
     if (u >= 0xE0 && u <= 0xE7)                 /* modifiers: a bit of the first byte */
@@ -526,6 +541,8 @@ void hid_bt_report(int slot, const uint8_t *r, uint32_t len)
     bt_latched[slot] |= b;
     bt_axis[slot][0] = ds4_axis(r[off]);
     bt_axis[slot][1] = ds4_axis(r[off + 1]);
+    bt_axis_r[slot][0] = ds4_axis(r[off + 2]);
+    bt_axis_r[slot][1] = ds4_axis(r[off + 3]);
     bt_analog[slot] = 1;
 }
 
@@ -536,6 +553,7 @@ void hid_bt_clear(int slot)
     bt_buttons[slot] = 0;
     bt_ps_held[slot] = 0;
     bt_axis[slot][0] = bt_axis[slot][1] = 0;
+    bt_axis_r[slot][0] = bt_axis_r[slot][1] = 0;
     bt_analog[slot] = 0;
 }
 
@@ -695,6 +713,10 @@ uint32_t hid_ds4_buttons(const uint8_t *d, uint32_t len, int *ps)
     if (d[5] & 0x10) b |= HID_SELECT;           /* share */
     if (d[5] & 0x01) b |= HID_L1;
     if (d[5] & 0x02) b |= HID_R1;
+    if (d[5] & 0x04) b |= HID_L2;
+    if (d[5] & 0x08) b |= HID_R2;
+    if (d[5] & 0x40) b |= HID_L3;
+    if (d[5] & 0x80) b |= HID_R3;
     *ps = d[6] & 1;
     return b;
 }
@@ -728,6 +750,8 @@ static void gamepad_report(const uint8_t *r, uint32_t len)
         b = hid_ds4_buttons(r + off, len - (uint32_t)off, &ps);
         pad_axis[0] = ds4_axis(r[off]);
         pad_axis[1] = ds4_axis(r[off + 1]);
+        pad_axis_r[0] = ds4_axis(r[off + 2]);
+        pad_axis_r[1] = ds4_axis(r[off + 3]);
         if (ps && !pad.ps_held) {
             quit_edge |= HID_QUIT_PS;           /* the PS button leaves the game */
             last_source = HID_SOURCE_DS4;
@@ -742,6 +766,10 @@ static void gamepad_report(const uint8_t *r, uint32_t len)
         if (d & 0x08) b |= HID_RIGHT;
         if (d & 0x10) b |= HID_START;
         if (d & 0x20) b |= HID_SELECT;
+        if (d & 0x40) b |= HID_L3;              /* stick clicks */
+        if (d & 0x80) b |= HID_R3;
+        if (r[4] > 64) b |= HID_L2;             /* LT, RT: 0..255 */
+        if (r[5] > 64) b |= HID_R2;
         if (k & 0x10) b |= HID_A;
         if (k & 0x20) b |= HID_B;
         if (k & 0x40) b |= HID_X;
@@ -754,6 +782,11 @@ static void gamepad_report(const uint8_t *r, uint32_t len)
         int16_t lx = (int16_t)(r[6] | r[7] << 8), ly = (int16_t)(r[8] | r[9] << 8);
         pad_axis[0] = (int8_t)(lx / 258);
         pad_axis[1] = (int8_t)(-(ly / 258));
+        if (len >= 14) {
+            int16_t rx = (int16_t)(r[10] | r[11] << 8), ry = (int16_t)(r[12] | r[13] << 8);
+            pad_axis_r[0] = (int8_t)(rx / 258);
+            pad_axis_r[1] = (int8_t)(-(ry / 258));
+        }
         if (lx < -12000) b |= HID_LEFT;
         if (lx > 12000) b |= HID_RIGHT;
         if (ly > 12000) b |= HID_UP;
@@ -773,7 +806,9 @@ static void gamepad_report(const uint8_t *r, uint32_t len)
             case 5: b |= HID_R1; break;
             case 8: b |= HID_SELECT; break;
             case 9: b |= HID_START; break;
-            default: if (i >= 6 && i < 8) b |= (i & 1) ? HID_B : HID_A;
+            case 10: b |= HID_L3; break;
+            case 11: b |= HID_R3; break;
+            default: if (i >= 6 && i < 8) b |= ((i & 1) ? HID_B | HID_R2 : HID_A | HID_L2);
             }
         }
         if (pad.have_x) {

@@ -54,13 +54,15 @@ if mask & 2 ~= 0 then print("c'e' il giocatore 2", 8, 24) end
 == stick
 kind: api
 name: stick
-title: stick([p]) - la levetta analogica
+title: stick([p, n]) - la levetta analogica
 ask: leggere la levetta analogica | joystick analogico | analog stick | levetta del pad
 ask: movimento analogico | quanto è spinta la levetta | thumbstick
+ask: levetta destra per mirare | right stick aim | mirare con il pad
 see: btn, move_stick
 text:
 x, y tra -1 e 1 della levetta sinistra del giocatore p (x a destra, y in
 basso), con zona morta. Con la tastiera vale la croce (8 direzioni).
+stick(p, 1) è la levetta destra (mira degli sparatutto): 0, 0 senza.
 code:
 local sx, sy = stick(1)
 x = x + sx * 3
