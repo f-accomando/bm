@@ -121,7 +121,9 @@ Everything a cartridge contains is made with bm's own tools. They read and write
 
 - **SDK**: code, sprites and map, try the game and come back to the editor.
 - **bm Code**: the code editor, with tabs, two pages side by side and a small sharp
-  6×12 font.
+  6×12 font. While you type a word it shows the rest of the likeliest one and Tab writes
+  it: Lua and the API in the code, Italian or English in comments, the assistant's
+  questions in `#entry:` lines ([docs/PREDICT.md](docs/PREDICT.md)).
 - **AI assistant**: a small INT8 network that runs on the Pi. It answers questions about
   the API and error messages, comments code, and sketches sprites. Its knowledge base is
   in Italian for now.

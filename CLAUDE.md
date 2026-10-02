@@ -162,6 +162,21 @@ screenshot in `docs/img/`), `README_OLD.md` (il README completo, in italiano),
   `cart_write` (solo il codice), `font("6x12")` e `assist.act` per le righe `#entry:`.
   Test: `test_code_editor` in QEMU (lo schermo si legge anche col font 6x12).
 
+## Completamento delle parole (M30)
+
+- `src/ai/predict.lua` (`require "predict"`): n-gramma che finisce la parola scritta; in
+  bm Code il resto in blu-grigio, Tab lo scrive (verde fino al tasto dopo), anche in
+  Trova/Sostituisci e nella domanda del pannello (`assist.lua`). Guida `docs/PREDICT.md`.
+- Il dizionario segue il cursore (`place_at` in bm Code): codice → `"lua"` + nomi della
+  scheda; dopo `--` e nelle stringhe `"it"` / `"en"` (menu); `#entry:` e pannello
+  `{it = 1, ask = 2}`.
+- Dizionari: `scripts/mkwords.py` → `build/words.lua` (`require "words"`, nel kernel) dai
+  testi di `src/ai/words` (scritti per bm, niente testi con licenze altrui), dal Lua dei
+  giochi e dalle API della base di conoscenza.
+- `make test-predict` (in `make test`), `make predict-bench`, `make syllables`; in QEMU
+  `test_code_completion`. La scrittura col pad (accordi, modi facile/sillabe/steno) è
+  solo sul branch `ai-assistant`, non su main.
+
 ## Mouse e puntatore (M32)
 
 - `src/kernel/pointer.c`: il puntatore di sistema (mouse USB/Bluetooth, levetta destra dei

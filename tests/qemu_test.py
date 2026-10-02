@@ -4646,6 +4646,102 @@ def test_code_editor(b, opts):
         shutil.rmtree(tmp, ignore_errors=True)
 
 
+def test_code_completion(b, opts):
+    """bm Code's word completion (src/ai/predict.lua): while a word is typed
+    its rest appears in grey-blue and the status line says "Tab: word"; Tab
+    writes it (green until the next key) with the words of where the cursor
+    is: Lua in the code, Italian after "--", the questions to the assistant
+    after "#entry:"; in the find prompt the tab's names; in the assistant's
+    panel the question. Tab before any letter still indents."""
+    q = Qemu(b("kernel.img"))
+
+    def k(s, gap=0.05):
+        for c in re.findall(r"\x1b\[[0-9]*[~A-Z]|\x1bO[A-Z]|.", s, re.S):
+            q.send(c)
+            time.sleep(gap)
+
+    def see(words, tries=40):
+        text = []
+        for _ in range(tries):
+            text = screen_text(q.screendump(), 6, 12)
+            if all(any(w in l for l in text) for w in words):
+                return text
+            time.sleep(0.25)
+        raise AssertionError(f"not on screen: {words}\n" + "\n".join(text))
+
+    def coloured(rgb, tol=12):
+        """the pixels of about that colour on the screen"""
+        w, h, px = q.screendump()
+        want = ((rgb >> 16) & 255, (rgb >> 8) & 255, rgb & 255)
+        n = 0
+        for i in range(0, len(px), 3):
+            if all(abs(px[i + j] - want[j]) <= tol for j in range(3)):
+                n += 1
+        return n
+
+    GHOST, PRED = 0x6C8CC8, 0x50E0B0
+
+    def shot(name):
+        if opts.shots:
+            _save_png(q.screendump(), os.path.join(opts.shots, f"code-complete-{name}.png"))
+    try:
+        q.boot()
+        k("C")
+        q.expect("code: ready", timeout=15)
+        see(["keys"])
+        k("\x14", 0.4)                                      # Ctrl+T: an empty tab
+        k("f", 0.4)
+        see(["  1 function", "Tab: function"])              # f + the grey-blue rest
+        assert coloured(GHOST) > 20, "the suggestion in grey-blue"
+        shot("ghost")
+        k("\t", 0.4)
+        text = see(["  1 function"])
+        assert not any("Tab:" in l for l in text), "written: no suggestion left"
+        assert coloured(PRED) > 20, "what Tab wrote, green"
+        shot("written")
+        k(" _upd", 0.1)
+        see(["Tab: _update"])
+        k("\t", 0.3)
+        k("()\r", 0.1)
+        k("-- muovi il gioc", 0.08)                          # a comment: Italian
+        see(["Tab: gioco"])
+        k("\t", 0.3)
+        k("\r", 0.1)
+        k("if bt", 0.08)
+        see(["Tab: btnp"])
+        k("\t", 0.3)
+        see(["  1 function _update()", "  2   -- muovi il gioco", "  3   if btnp"])
+        k("\r\r#entry: come faccio a sal", 0.06)           # a request: the questions
+        see(["Tab: salvare"])
+        # Tab before a word: still the indentation
+        k("\x0c", 0.3)                                      # Ctrl+L: go to line
+        k("3\r", 0.2)
+        k("\x1b[H\x1b[H", 0.1)                              # Home twice: the first column
+        k("\t", 0.3)
+        see(["  3     if btnp"])
+        # the find: the tab's names
+        k("\x06", 0.4)                                      # Ctrl+F
+        see(["Find:"])
+        k("\b" * 20, 0.02)
+        k("_up", 0.1)
+        k("\t", 0.3)
+        see(["Find:", "_update"])
+        k("\r", 0.4)
+        # the assistant: the question
+        k("\x1b[17~", 0.6)                                  # F6
+        see(["Assistant"])
+        k("\x15", 0.2)                                      # Ctrl+U: an empty question
+        k("co", 0.2)
+        see(["? come"])
+        k("\t", 0.4)
+        k(" faccio a saltare", 0.05)
+        see(["? come faccio a saltare", "Saltare con la gravit"])
+        shot("assistant")
+        k("\x1b", 0.6)
+    finally:
+        q.close()
+
+
 def test_editor(b, opts):
     """M15: the editor makes a new game, saves it on the SD card, tries it,
     comes back; a game that stops with an error brings the editor to the

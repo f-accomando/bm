@@ -77,9 +77,10 @@ Lo schermo **non** viene cancellato da solo: di solito `_draw` comincia con `cls
 
 Limiti: un errore o un ciclo infinito (oltre **20 milioni di istruzioni** Lua in un
 fotogramma) ferma la cartuccia senza bloccare la console. Sandbox: niente `io`, `os`,
-`load`, `dofile`; `require` carica solo le librerie incluse nel kernel (per ora
-`"assist"`, il pannello dell'assistente); ci sono `string`, `table`, `math`, `utf8`,
-`coroutine`.
+`load`, `dofile`; `require` carica solo le librerie incluse nel kernel (`"assist"`, il
+pannello dell'assistente; `"bm3d"`, quello che bm Studio e bm Animator condividono;
+`"predict"` e `"words"`, il completamento delle parole); ci sono `string`, `table`,
+`math`, `utf8`, `coroutine`.
 
 ## Colori
 
@@ -364,6 +365,8 @@ Si prova da **Dev > Assistant** (o `I` dal monitor).
 **Il pannello** (`require "assist"`): quello che gli strumenti aprono con un tasto
 (F6 nell'Assistant). Risponde mentre scrivi; Invio (A) passa il codice o lo sprite allo
 strumento, Esc (B) chiude, Tab (X) cambia modo; senza domanda si sfoglia tutto col pad.
+Mentre si scrive una parola della domanda il resto della più probabile appare in
+blu-grigio e Tab la scrive (il completamento, sotto).
 
 ```lua
 local assist = require "assist"
@@ -401,6 +404,15 @@ Invio su quelle righe.
 
 La base di conoscenza è in `src/ai/kb/` (formato e come riaddestrare:
 `src/ai/kb/README.md`).
+
+**Completamento delle parole** (`require "predict"`, guida in [PREDICT.md](PREDICT.md)):
+`predict.complete(testo_prima_del_cursore, {lang = "lua"})` → `nil` o
+`{prefix, word, rest, ending, list}`: la parola più probabile che inizia come quella
+scritta (`rest` è quello che manca, da mostrare in `predict.C_GHOST`; Tab sostituisce
+`prefix` con `word`). `lang`: `"it"`, `"en"`, `"lua"`, `"ask"` (le domande
+all'assistente), una miscela con i pesi (`{it = 1, ask = 2}`) o `"none"`; `words` i nomi
+del codice (`predict.count_words(righe)`), con peso `words_weight`. I dizionari si leggono
+alla prima parola, o un pezzo per fotogramma con `predict.preload({"lua", "it"})`.
 
 ### nano8 (la libreria `n8`)
 

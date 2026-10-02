@@ -18,7 +18,8 @@
 -- (an error message: what it means, a typo), "any". It answers while you
 -- type; Enter (A) hands the code to on_insert or the sprite to on_sprite
 -- ({w, h, px = {0xRRGGBB or -1, ...}}), Esc (B) closes. Nothing runs while
--- it is closed.
+-- it is closed. While a word of the question is typed, the completion
+-- (require "predict") shows the rest in grey-blue: Tab writes it.
 
 local M = {}
 
@@ -36,6 +37,18 @@ for w in ("and break do else elseif end false for function goto if in local nil 
   KEYWORDS[w] = true
 end
 local API                                -- names of the API, for the colours
+
+-- the completion of the question (src/ai/predict.lua): Italian and the
+-- questions of the knowledge base (docs/PREDICT.md)
+local QUESTION = { it = 1, ask = 2 }
+local predict
+local function predict_lib()
+  if predict == nil then
+    local ok, m = pcall(require, "predict")
+    predict = ok and m or false
+  end
+  return predict or nil
+end
 
 -- ---------------------------------------------------------------- helpers
 
@@ -229,9 +242,32 @@ local function variant(d)
   end
 end
 
+-- the suggestion for the word being typed at the end of the question
+local function suggest()
+  local p = predict_lib()
+  st.comp = p and p.complete(st.q, { lang = QUESTION }) or nil
+end
+
+-- Tab: the suggestion written, green until the next key
+local function accept()
+  local c = st.comp
+  local q = st.q:sub(1, #st.q - #c.prefix) .. c.word
+  if #q > st.cols - 4 then return end
+  st.q, st.comp = q, nil
+  st.flash = { #q - #c.word, #c.word }
+  refresh()
+end
+
+local function next_mode()
+  st.mode = st.mode == "code" and "sprite" or st.mode == "sprite" and "any" or "code"
+  refresh()
+end
+
 -- one key from keyp(); true if the panel used it
 function M.key(k)
   if not st then return false end
+  local comp = st.comp
+  st.comp, st.flash = nil, nil
   if k == "esc" then M.close()
   elseif k == "\n" then act()
   elseif k == "up" then choose(st.sel - 1)
@@ -241,14 +277,13 @@ function M.key(k)
   elseif k == "pgup" then st.scroll = math.max(0, st.scroll - st.detail_rows)
   elseif k == "pgdn" then st.scroll = math.max(0, math.min(#st.lines - st.detail_rows, st.scroll + st.detail_rows))
   elseif k == "\b" then
-    if st.q ~= "" then st.q = st.q:sub(1, -2); refresh() end
+    if st.q ~= "" then st.q = st.q:sub(1, -2); refresh(); suggest() end
   elseif k == "^u" then st.q = ""; st.ctx = nil; refresh()
   elseif k == "\t" then
-    -- the next mode: code, sprite, any
-    st.mode = st.mode == "code" and "sprite" or st.mode == "sprite" and "any" or "code"
-    refresh()
+    -- the suggestion, or the next mode: code, sprite, any
+    if comp then st.comp = comp; accept() else next_mode() end
   elseif #k == 1 and k:byte() >= 32 then
-    if #st.q < st.cols - 4 then st.q = st.q .. k; refresh() end
+    if #st.q < st.cols - 4 then st.q = st.q .. k; refresh(); suggest() end
   else
     return false
   end
@@ -270,6 +305,8 @@ end
 function M.update()
   if not st then return false end
   st.frame = st.frame + 1
+  local p = predict_lib()
+  if p and not st.ready then st.ready = p.preload({ "it", "ask" }) end
   local k = keyp()
   while k and st do
     M.key(k)
@@ -282,7 +319,7 @@ function M.update()
   if pressed(1) then variant(1) end
   if btnp(4) then act() end
   if st and btnp(5) then M.close() end
-  if st and btnp(6) then M.key("\t") end
+  if st and btnp(6) then st.comp, st.flash = nil, nil; next_mode() end
   return true
 end
 
@@ -365,7 +402,18 @@ function M.draw()
   local qy = y + fh
   local cursor = (st.frame // 30) % 2 == 0 and "_" or " "
   print("?", tx, qy, C_ACC)
-  print(st.q .. cursor, tx + 2 * fw, qy, C_TEXT)
+  print(st.q, tx + 2 * fw, qy, C_TEXT)
+  local p = predict_lib()
+  if st.flash and p then                 -- what Tab has just written
+    local a, n = st.flash[1], st.flash[2]
+    print(st.q:sub(a + 1, a + n), tx + (2 + a) * fw, qy, p.C_PRED)
+  end
+  if st.comp and p then                  -- the rest of the word, under the cursor
+    print(st.comp.rest, tx + (2 + #st.q) * fw, qy, p.C_GHOST)
+    if cursor == "_" then print("_", tx + (2 + #st.q) * fw, qy, C_TEXT) end
+  else
+    print(cursor, tx + (2 + #st.q) * fw, qy, C_TEXT)
+  end
   if st.q == "" and st.ctx then print("(" .. st.ctx .. ")", tx + 4 * fw, qy, C_DIM) end
   local ly = qy + fh
   if st.hint or st.msg then
@@ -446,10 +494,11 @@ function M.draw()
   local list
   if e and e.kind == "sprite" then
     list = { { "enter", "A", "use" }, { { "<", ">" }, "LEFTRIGHT", "variant" },
-             { { "up", "down" }, "UPDOWN", "choose" }, { "tab", "X", "mode" }, { "esc", "B", "close" } }
+             { { "up", "down" }, "UPDOWN", "choose" }, { "tab", "X", (st.comp and not pad) and "word" or "mode" },
+             { "esc", "B", "close" } }
   else
     list = { { "enter", "A", "insert" }, { { "up", "down" }, "UPDOWN", "choose" }, { "pgdn", nil, "more" },
-             { "tab", "X", "mode" }, { "esc", "B", "close" } }
+             { "tab", "X", (st.comp and not pad) and "word" or "mode" }, { "esc", "B", "close" } }
   end
   local kx = tx
   for _, k in ipairs(list) do

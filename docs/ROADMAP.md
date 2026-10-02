@@ -1620,9 +1620,21 @@ Task:
    commenta/scommenta, ottimizza (API come locali), spiega; oppure inserisce un esempio
    ("crea uno snippet per un effetto di particelle") o uno sprite scritto come codice
    ("crea uno sprite slime rosso"). Non cambia niente se non è sicura; Ctrl+Z annulla.
-10. Dopo: numeri e nomi della domanda dentro il codice proposto ("muovi a velocità 3"),
-   completamento dei nomi delle API, le domande senza risposta giusta che diventano voci
-   nuove, ricette di sprite animate (più fotogrammi nello sheet).
+10. ✅ **Completamento delle parole** (2026-10-02, guida e numeri in
+   [PREDICT.md](PREDICT.md)): in bm Code, mentre si scrive una parola, il resto della più
+   probabile in blu-grigio dopo il cursore; **Tab** la scrive e resta verde fino al tasto
+   dopo. Un n-gramma (`require "predict"`, dizionari `require "words"` da
+   `scripts/mkwords.py`) che segue il punto del cursore: nel codice Lua, le API della base
+   di conoscenza e i nomi della scheda (`f` → `function`, `if bt` → `btnp`); dopo `--` e
+   nelle stringhe l'italiano o l'inglese (menu); nelle righe `#entry:` e nella domanda
+   del pannello le domande all'assistente; in Trova e Sostituisci i nomi del codice. Su
+   100 caratteri italiani 83 tasti invece di 100, sul Lua il 19% in meno, sulle domande
+   mai viste all'assistente il 26%. Con il conteggio delle sillabe dell'italiano
+   (`make syllables`).
+11. Dopo: numeri e nomi della domanda dentro il codice proposto ("muovi a velocità 3"),
+   le domande senza risposta giusta che diventano voci nuove, ricette di sprite animate
+   (più fotogrammi nello sheet), le parole nuove dell'utente nel dizionario del
+   completamento.
 
 Numeri: in QEMU 0,45 ms per domanda (sul PC 0,03 ms) e 1 ms per uno sprite 16x16; il
 kernel cresce di ~410 KB (rete 270 KB, voci e testi 80 KB). RAM: niente finché non si
