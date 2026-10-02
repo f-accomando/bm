@@ -1057,10 +1057,10 @@ def test_make_image(b, opts):
     q = Qemu(b("kernel.img"), ["-drive", f"if=sd,format=raw,file={img}"])
     try:
         out = q.expect(MENU, timeout=30).decode(errors="replace")
-        assert "FAT32, 63 MiB, label BM; 10 cartridges" in out, out
+        assert "FAT32, 63 MiB, label BM; 11 cartridges" in out, out
         time.sleep(0.5)
         want = ("Pong", "Snake", "Star Shooter", "Chaos Kitchen", "Texture Room", "Studio Village", "nano8")
-        titles = want + ("Astro Wing", "Titan Clash", "Hunter's Night")
+        titles = want + ("Astro Wing", "Titan Clash", "Hunter's Night", "Overbit")
 
         def chosen(t):                         # the name of the chosen cover (row 4)
             return next((n for n in titles if len(t) > 4 and n in t[4]), None)
@@ -1109,7 +1109,7 @@ def test_make_image(b, opts):
         q = Qemu(b("kernel.img"), ["-drive", f"if=sd,format=raw,file={os.path.join(tmp, 'bm-pi1.img')}"],
                  machine="raspi1ap")
         out = q.expect(MENU, timeout=30).decode(errors="replace")
-        assert "Raspberry Pi 1 A+" in out and "; 10 cartridges" in out, out
+        assert "Raspberry Pi 1 A+" in out and "; 11 cartridges" in out, out
     finally:
         q.close()
         shutil.rmtree(tmp, ignore_errors=True)
@@ -3208,6 +3208,70 @@ def test_titan(b, opts):
         time.sleep(0.5)
         q.send("q")
         q.expect(PROMPT)
+    finally:
+        q.close()
+
+
+def test_overbit(b, opts):
+    """M31: Overbit boots to its title (the sunset sky and the orange menu
+    bar on screen), the keyboard takes it to the training range (first
+    person: Rally's white cannons in the lower corners), J held fires the
+    cannons; no Lua error, frame statistics on quit."""
+    q = Qemu(b("kernel.img"), USB_KBD)
+
+    def count(img, test):
+        w, h, px = img
+        return sum(test(*px[(y * w + x) * 3:(y * w + x) * 3 + 3]) for y in range(0, h, 4) for x in range(0, w, 4))
+
+    def shot(name, ok=lambda img: True, tries=24):
+        # QEMU shows the page being drawn (it ignores the flips) and a frame
+        # takes long here: screendumps until one is whole
+        for _ in range(tries):
+            img = q.screendump()
+            if ok(img):
+                break
+            time.sleep(0.3)
+        if opts.shots:
+            _save_png(img, os.path.join(opts.shots, f"overbit-{name}.png"))
+        return img
+
+    try:
+        q.expect(MENU, timeout=30)
+        time.sleep(0.5)
+        with open(b("carts/overbit.bm"), "rb") as f:
+            assert _upload(q, f.read())
+        q.expect("overbit build", timeout=30)
+        time.sleep(4)
+        img = shot("title", lambda im: count(im, lambda r, g, b: r > 200 and 80 < g < 140 and b < 80) > 20)
+        orange = count(img, lambda r, g, b: r > 200 and 80 < g < 140 and b < 80)
+        sky = count(img, lambda r, g, b: b > 120 and r < 160 and b > g)
+        print(f"     overbit title: orange {orange}, sky {sky}")
+        assert orange > 20 and sky > 50, (orange, sky)
+        sendkeys(q, "spc")                      # TRAINING RANGE
+        time.sleep(5)
+        def corners(im):
+            # the white cannons in the lower corners of the first-person view
+            w, h, px = im
+            n = 0
+            for y in range(h * 3 // 4, h, 4):
+                for x in list(range(0, w // 4, 4)) + list(range(w * 3 // 4, w, 4)):
+                    r, g, bb = px[(y * w + x) * 3:(y * w + x) * 3 + 3]
+                    n += r > 180 and g > 180 and bb > 180
+            return n
+        img = shot("range", lambda im: corners(im) > 10)
+        white = corners(img)
+        print(f"     overbit range: white in the lower corners {white}")
+        assert white > 10, white
+        with socket.socket(socket.AF_UNIX) as s:
+            s.connect(q.mon_path)
+            s.sendall(b"sendkey j 3000\n")       # hold J: Fusion Cannons
+        time.sleep(1.5)
+        shot("fire")
+        time.sleep(2.5)
+        q.send("q")
+        out = q.expect("update+draw", timeout=20).decode(errors="replace")
+        assert "stopped with an error" not in out, out
+        assert '"Overbit"' in out, out[-400:]
     finally:
         q.close()
 

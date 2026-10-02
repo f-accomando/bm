@@ -1704,6 +1704,53 @@ Passi (in quest'ordine, richiesto dall'autore):
 - **Dev kit**: menu di sviluppo nel gioco (tempi per fase, qualità, telecamera libera,
   hitbox, bot, reel), script degli asset, guida per aggiungere eroi e modificare la mappa.
 
+**Passo 1 — Rally: fatto in QEMU e sul PC (2026-10-02), da provare sul Pi.**
+- Motore (`src/bm/r3d.c`): bit di materiale nel colore delle facce (emissive, lucide, a
+  retino, piatte, livelli di dettaglio), luce del sole colorata con cielo e terreno,
+  riflessi e luce di bordo con una sola direzione di vista per oggetto (niente radici
+  quadrate per vertice), lampade colorate, ombre proiettate (una maschera, poi ogni pixel
+  scurito una volta), il livello in primo piano per la prima persona, punti, linee e
+  sprite 3D. Lo skinning rigido è dentro la trasformazione dei vertici (una matrice per
+  osso, solo i vertici del livello di dettaglio): `animate()` calcola solo le ossa.
+  Nuove funzioni: `sky3d`, `shine3d`, `shadow3d`, `point3d`, `line3d`, `sprite3d`,
+  `bone_turn`, `bones3d`, `hit3d`, `animate(..., osso)`, `stat(6..8)`; collisioni in C
+  (`src/bm/world3d.c`: `world3d`, `world_box`, `world_ray`, `world_move`, `world_floor`).
+- Input: levetta destra (`stick(p, 1)`), L2/R2/L3/R3 in `pad()` (DS4, Xbox 360, pad generici).
+- Arte (`carts/overbit/art`): primitive, scatole smussate, gusci convessi, profili ruotati
+  (`geo.py`), scheletri, pose e cinematica inversa delle gambe (`rig.py`); Rally: mech
+  (842/702/484/220 triangoli per livello di dettaglio, 16 ossa, 17 animazioni), pilota (12
+  animazioni), cannoni e mani in prima persona; banco di suoni (`sounds.py`).
+- Gioco (`carts/overbit/src`): prima persona a 96°, HUD come Overwatch (vita a segmenti di
+  25 con l'armatura, abilità con i tasti del pad o della tastiera, ultimate, mirino, colpi,
+  kill feed), poligono di tiro con quattro manichini (fermo, che si sposta, che salta, che
+  spara missili), effetti (particelle, traccianti, esplosioni con luce), qualità
+  automatica (5 livelli), overlay di sviluppo (Select/Tab/F1: ms per fase, triangoli,
+  vertici, pixel, grafico degli ultimi 64 frame; F2 qualità, F3 automatica, F4 ultimate),
+  benchmark (mech che corrono e sparano, sempre di più ogni 3 s, fino a 30 fps: la
+  tabella dice quanti ne reggono 60 fps).
+- Kit di Rally: cannoni a fusione (11 pallini, 6,7 colpi/s, rallentano), Null Field
+  (risorsa di 3 s che si ricarica, mangia i proiettili davanti), propulsori (volo di 2 s
+  lungo la mira, urto con spinta), 18 micro-missili, Redline (il pilota salta fuori, il
+  mech esplode dopo 3 s: 1000 danni fino a 20 m, i muri riparano), espulsione quando il
+  mech è distrutto, Pit Pistol e Pit Stop (un mech nuovo dal cielo).
+- **Reel delle animazioni**: modalità del gioco (`make overbit-reel` →
+  `docs/img/overbit-reel-rally.mp4` con l'audio e la GIF dei primi 32 s): 11 riprese delle
+  abilità in terza persona, le 29 clip una per una, un po' di prima persona.
+- Strumenti: **bmhost** (il runtime delle cartucce sul PC: frame, WAV, input da script,
+  `--clock-scale 21` per stimare i ms del Pi), **`tools/armprof.py`** (istruzioni ARM per
+  funzione contate da QEMU con un costo approssimato dell'ARM1176: un profiler senza il
+  Pi), `tests/bm/r3dbench.c`. Il rasterizzatore è stato riscritto nel percorso per
+  vertice e per faccia (−23% di istruzioni sulla scena di prova).
+- Test: `make test-overbit` (poligono giocato con tasti scriptati: il manichino cade,
+  Redline, Pit Stop; tutto il reel; il benchmark), `test_overbit` in QEMU.
+- Stime (PC ×21, da verificare): poligono a qualità alta ~12–14 ms per frame; il disegno
+  3D costa ~5 µs a triangolo come misurato in passato sul Pi.
+- **Da provare sul Pi**: Overbit dal menu; nel menu "BENCHMARK" (con la qualità scelta in
+  "QUALITY": si può provarne più d'una) e una foto della tabella finale; nel poligono
+  Select (o Tab) per l'overlay: una foto dei ms di update, del disegno 3D e del totale,
+  ferma e mentre si spara; il pad (levetta destra per mirare, R2 sparare, L2 Null Field,
+  L1 propulsori, R1 missili, triangolo ultimate).
+
 ## Rischi principali
 | Rischio | Mitigazione |
 |---------|-------------|

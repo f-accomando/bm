@@ -42,8 +42,10 @@
  *              faces x { u16 a, b, c: 0-based vertex indices, clockwise
  *                        seen from the side that shows (as for mesh());
  *                        u16 reserved; u32 colour: 0xRRGGBB, or bit 31 set =
- *                        textured with the sprite sheet; u16 u0, v0, u1, v1,
- *                        u2, v2: texture corners in sheet pixels x 8 }.
+ *                        textured with the sprite sheet; bits 24..30 the
+ *                        material (emissive, glossy, screen-door, flat,
+ *                        level of detail: r3d.h; 0 = plain); u16 u0, v0, u1,
+ *                        v1, u2, v2: texture corners in sheet pixels x 8 }.
  *   9 ANIM   skeletons and animations of MESH models (made with bm Animator,
  *            sdk/animator): u16 rigs, u16 reserved, u32 reserved, then per
  *            rig:

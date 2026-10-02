@@ -51,9 +51,15 @@ double host_real_us(void)
  * run is the same every time; stat(1) is not the cost on the PC (bmhost
  * prints that). */
 static uint32_t vclock = 1000000, readings;
+static double frame_real;           /* --clock-scale: real time at the start of the frame */
 
 uint32_t timer_ticks(void)
 {
+    if (host.clock_scale > 0) {
+        /* profiling: the PC's real time, scaled to guess the Pi's */
+        double d = (host_real_us() - frame_real) * host.clock_scale;
+        return vclock + (uint32_t)d + readings++;
+    }
     return vclock + readings++;
 }
 
@@ -62,9 +68,12 @@ void timer_delay_ms(uint32_t ms) { vclock += ms * 1000; }
 
 static void next_frame(void)
 {
+    if (host.clock_scale > 0)
+        vclock += (uint32_t)((host_real_us() - frame_real) * host.clock_scale);
     vclock += readings;
     readings = 0;
     vclock += 16667 - (vclock - 1000000) % 16667;
+    frame_real = host_real_us();
 }
 
 /* ---------------------------------------------------------------- log */

@@ -538,55 +538,6 @@ typedef struct {
     int n;
 } lamps_t;
 
-/* Light for a world-space normal n at point p (relative to the camera, world
- * axes): sun, sky and ground, lamps, rim; the highlight only if `glossy`.
- * With the default white light it is the old scalar ambient + (1-ambient) d. */
-static void light_at(const r3d_t *r, const lamps_t *L, float nx, float ny, float nz,
-                     float px, float py, float pz, int glossy, lit_t *out)
-{
-    float d = nx * r->light.x + ny * r->light.y + nz * r->light.z;
-    float dd = d > 0 ? d : 0, a = r->ambient, t = 0.5f + 0.5f * ny;
-    float sr = r->ground.r + (r->sky.r - r->ground.r) * t, sg = r->ground.g + (r->sky.g - r->ground.g) * t,
-          sb = r->ground.b + (r->sky.b - r->ground.b) * t;
-    out->l.r = a * sr + (1.0f - a) * dd * r->sun.r;
-    out->l.g = a * sg + (1.0f - a) * dd * r->sun.g;
-    out->l.b = a * sb + (1.0f - a) * dd * r->sun.b;
-    out->s.r = out->s.g = out->s.b = 0;
-    for (int i = 0; i < L->n; i++) {
-        float dx = px - L->pos[i].x, dy = py - L->pos[i].y, dz = pz - L->pos[i].z;
-        float d2 = dx * dx + dy * dy + dz * dz;
-        if (d2 < L->r2[i]) {
-            float k = L->k[i] * (1.0f - d2 / L->r2[i]);
-            out->l.r += k * L->c[i].r;
-            out->l.g += k * L->c[i].g;
-            out->l.b += k * L->c[i].b;
-        }
-    }
-    if (r->rim_k > 0 || (glossy && r->spec_k > 0 && d > 0)) {
-        float il = 1.0f / sqrtf(px * px + py * py + pz * pz + 1e-12f);
-        float vx = -px * il, vy = -py * il, vz = -pz * il;     /* towards the camera */
-        if (r->rim_k > 0) {
-            float nv = nx * vx + ny * vy + nz * vz, e = 1.0f - (nv > 0 ? nv : 0);
-            float k = r->rim_k * e * e;
-            out->l.r += k * r->sky.r;
-            out->l.g += k * r->sky.g;
-            out->l.b += k * r->sky.b;
-        }
-        if (glossy && r->spec_k > 0 && d > 0) {
-            float hx = r->light.x + vx, hy = r->light.y + vy, hz = r->light.z + vz;
-            float nh = (nx * hx + ny * hy + nz * hz) / sqrtf(hx * hx + hy * hy + hz * hz + 1e-12f);
-            if (nh > 0) {
-                for (int i = 0; i < r->spec_shift; i++)
-                    nh *= nh;
-                float k = nh * r->spec_k;
-                out->s.r = k * r->sun.r;
-                out->s.g = k * r->sun.g;
-                out->s.b = k * r->sun.b;
-            }
-        }
-    }
-}
-
 /* Gouraud colour of a vertex: face colour lit, then fog. */
 static void vertex_rgb(cv_t *c, uint32_t rgb, const lit_t *k, int glossy, uint32_t fog, float f)
 {
@@ -780,12 +731,60 @@ static void draw_shadow(r3d_t *r, const r3d_mesh_t *m, const xform_t *x, v3_t p,
         shadow_apply(r, box);
 }
 
+/* The light of a whole object seen from the camera: rim light and
+ * highlights use one view direction for all its vertices (an object is
+ * small next to its distance), so no square root per vertex. */
+typedef struct {
+    v3_t V, H;                  /* towards the camera; half way between it and the sun */
+} shine_t;
+
+static void light_fast(const r3d_t *r, const lamps_t *L, const shine_t *sh, v3_t n, float px, float py, float pz,
+                       int glossy, lit_t *out)
+{
+    const float d = n.x * r->light.x + n.y * r->light.y + n.z * r->light.z;
+    const float dd = d > 0 ? d : 0, a = r->ambient, t = 0.5f + 0.5f * n.y, ka = (1.0f - a) * dd;
+    out->l.r = a * (r->ground.r + (r->sky.r - r->ground.r) * t) + ka * r->sun.r;
+    out->l.g = a * (r->ground.g + (r->sky.g - r->ground.g) * t) + ka * r->sun.g;
+    out->l.b = a * (r->ground.b + (r->sky.b - r->ground.b) * t) + ka * r->sun.b;
+    out->s.r = out->s.g = out->s.b = 0;
+    for (int i = 0; i < L->n; i++) {
+        float dx = px - L->pos[i].x, dy = py - L->pos[i].y, dz = pz - L->pos[i].z;
+        float d2 = dx * dx + dy * dy + dz * dz;
+        if (d2 < L->r2[i]) {
+            float k = L->k[i] * (1.0f - d2 / L->r2[i]);
+            out->l.r += k * L->c[i].r;
+            out->l.g += k * L->c[i].g;
+            out->l.b += k * L->c[i].b;
+        }
+    }
+    if (r->rim_k > 0) {
+        float nv = n.x * sh->V.x + n.y * sh->V.y + n.z * sh->V.z, e = 1.0f - (nv > 0 ? nv : 0);
+        float k = r->rim_k * e * e;
+        out->l.r += k * r->sky.r;
+        out->l.g += k * r->sky.g;
+        out->l.b += k * r->sky.b;
+    }
+    if (glossy && d > 0 && r->spec_k > 0) {
+        float nh = n.x * sh->H.x + n.y * sh->H.y + n.z * sh->H.z;
+        if (nh > 0) {
+            for (int i = 0; i < r->spec_shift; i++)
+                nh *= nh;
+            float k = nh * r->spec_k;
+            out->s.r = k * r->sun.r;
+            out->s.g = k * r->sun.g;
+            out->s.b = k * r->sun.b;
+        }
+    }
+}
+
 void r3d_draw_flags(r3d_t *r, const r3d_mesh_t *m, v3_t p, float rx, float ry, float rz,
                     float scale, unsigned flags)
 {
     static sv_t sv[MAX_VERTS];
     static cv_t cv[MAX_VERTS];
-    static lit_t vl[MAX_VERTS];         /* Gouraud: light at each vertex */
+    static v3_t vn[MAX_VERTS];          /* Gouraud: vertex normals in world axes */
+    static float vc[MAX_VERTS][3];      /* Gouraud: the colour of each vertex... */
+    static uint32_t vkey[MAX_VERTS];    /* ...for this face colour (computed when a face needs it) */
     if (m->nverts > MAX_VERTS)
         return;
 
@@ -819,11 +818,21 @@ void r3d_draw_flags(r3d_t *r, const r3d_mesh_t *m, v3_t p, float rx, float ry, f
         lamps.k[lamps.n] = r->lamp[i].k;
         lamps.c[lamps.n++] = r->lamp[i].c;
     }
-    /* highlights per vertex only if some face is glossy */
-    int any_glossy = 0;
-    if (smooth && !unlit && r->spec_k > 0)
-        for (int t = 0; t < m->nfaces && !any_glossy; t++)
-            any_glossy = (m->colors[t] & (R3D_GLOSSY | R3D_TEXTURED)) == R3D_GLOSSY;
+    /* one view direction for the whole object (its middle, about a unit
+     * above where it stands; the camera's own back for a first-person model) */
+    shine_t sh;
+    {
+        float wx = r->cam_pos.x - p.x, wy = r->cam_pos.y - (p.y + (front ? 0 : scale)), wz = r->cam_pos.z - p.z;
+        float l = sqrtf(wx * wx + wy * wy + wz * wz);
+        if (front || l < 0.3f) {
+            sh.V = (v3_t){ -C[6], -C[7], -C[8] };
+        } else {
+            sh.V = (v3_t){ wx / l, wy / l, wz / l };
+        }
+        float hx = r->light.x + sh.V.x, hy = r->light.y + sh.V.y, hz = r->light.z + sh.V.z;
+        float hl = sqrtf(hx * hx + hy * hy + hz * hz);
+        sh.H = hl > 1e-6f ? (v3_t){ hx / hl, hy / hl, hz / hl } : sh.V;
+    }
 
     int bx0 = r->g->w, by0 = r->g->h, bx1 = 0, by1 = 0;     /* R3D_FRONT: screen box */
     int nv = 0;
@@ -833,12 +842,13 @@ void r3d_draw_flags(r3d_t *r, const r3d_mesh_t *m, v3_t p, float rx, float ry, f
         nv++;
         /* object -> world, relative to the camera (with its bone, if any) */
         v3_t w = xform_vert(&X, i);
-        const float wx = w.x, wy = w.y, wz = w.z;
-        cv_t c = { C[0] * wx + C[1] * wy + C[2] * wz, C[3] * wx + C[4] * wy + C[5] * wz,
-                   C[6] * wx + C[7] * wy + C[8] * wz, 0, 0, 0, 0, 0 };
-        cv[i] = c;
-        if (c.z >= NEAR) {
-            sv[i] = project(&v, c, zmul);
+        cv_t *c = &cv[i];
+        c->x = C[0] * w.x + C[1] * w.y + C[2] * w.z;
+        c->y = C[3] * w.x + C[4] * w.y + C[5] * w.z;
+        c->z = C[6] * w.x + C[7] * w.y + C[8] * w.z;
+        if (c->z >= NEAR) {
+            float iz = 1.0f / c->z;
+            sv[i] = (sv_t){ v.hw + c->x * v.f * iz, v.hh - c->y * v.f * iz, iz * zmul };
             if (front) {
                 int x = (int)sv[i].x, y = (int)sv[i].y;
                 if (x < bx0) bx0 = x;
@@ -852,12 +862,9 @@ void r3d_draw_flags(r3d_t *r, const r3d_mesh_t *m, v3_t p, float rx, float ry, f
             by1 = r->g->h;
         }
         if (smooth) {
-            if (unlit) {
-                vl[i] = (lit_t){ { 1, 1, 1 }, { 0, 0, 0 } };
-            } else {
-                v3_t n = xform_dir(&X, i, m->vnormals[i]);
-                light_at(r, &lamps, n.x, n.y, n.z, wx, wy, wz, any_glossy, &vl[i]);
-            }
+            vn[i] = xform_dir(&X, i, m->vnormals[i]);
+            vkey[i] = 0xFFFFFFFFu;          /* no colour yet */
+            c->u = w.x; c->v = w.y; c->r = w.z;   /* world position, for the lamps (u v r are free here) */
         }
     }
     r->verts += (uint32_t)nv;
@@ -871,124 +878,145 @@ void r3d_draw_flags(r3d_t *r, const r3d_mesh_t *m, v3_t p, float rx, float ry, f
             memset(zbuf + (uint32_t)y * r->g->w + bx0, 0, (size_t)(bx1 > bx0 ? bx1 - bx0 : 0) * 2);
     }
 
+    static const lit_t full = { { 1, 1, 1 }, { 0, 0, 0 } };
     for (int t = 0; t < m->nfaces; t++) {
-        const uint16_t *fc = m->faces + t * 3;
         const uint32_t rgb = m->colors[t];
         if (!R3D_LOD_SHOWS(rgb, detail))
             continue;
+        const uint16_t *fc = m->faces + t * 3;
+        const cv_t *c0 = &cv[fc[0]], *c1 = &cv[fc[1]], *c2 = &cv[fc[2]];
         r->tris_in++;
-        cv_t tri[3] = { cv[fc[0]], cv[fc[1]], cv[fc[2]] };
-        int nin = (tri[0].z >= NEAR) + (tri[1].z >= NEAR) + (tri[2].z >= NEAR);
+        const int nin = (c0->z >= NEAR) + (c1->z >= NEAR) + (c2->z >= NEAR);
         if (nin == 0)
             continue;
         /* back faces first, on the vertices in front of the camera (the
          * clipped polygon has the same winding) */
         if (nin == 3) {
-            sv_t a = sv[fc[0]], b = sv[fc[1]], c = sv[fc[2]];
-            if ((b.x - a.x) * (c.y - a.y) - (b.y - a.y) * (c.x - a.x) <= 0)
+            const sv_t *a = &sv[fc[0]], *b = &sv[fc[1]], *c = &sv[fc[2]];
+            if ((b->x - a->x) * (c->y - a->y) - (b->y - a->y) * (c->x - a->x) <= 0)
                 continue;                   /* y points down on screen */
         }
         const int textured = (rgb & R3D_TEXTURED) && m->uv && m->tex;
         const int emissive = unlit || (rgb & R3D_EMISSIVE);
         const int glossy = (rgb & R3D_GLOSSY) != 0;
         const int screen = (rgb & R3D_SCREEN) != 0;
-        if (textured)
+
+        if (smooth && !(rgb & R3D_FLAT) && !textured) {
+            /* Gouraud: the colour of each corner, once per vertex and face colour */
+            const uint32_t key = rgb & 0x7FFFFFFFu;
+            for (int k = 0; k < 3; k++) {
+                const int i = fc[k];
+                if (vkey[i] == key)
+                    continue;
+                vkey[i] = key;
+                lit_t L;
+                if (emissive)
+                    L = full;
+                else
+                    light_fast(r, &lamps, &sh, vn[i], cv[i].u, cv[i].v, cv[i].r, glossy, &L);
+                float ff = 0;
+                if (fog) {
+                    ff = (cv[i].z - r->fog_near) * fog_k;
+                    ff = ff < 0 ? 0 : ff > 1 ? 1 : ff;
+                }
+                cv_t tmp;
+                vertex_rgb(&tmp, rgb, &L, glossy, r->fog_rgb, ff);
+                vc[i][0] = tmp.r; vc[i][1] = tmp.g; vc[i][2] = tmp.b;
+            }
+            if (nin == 3) {
+                const sv_t *a = &sv[fc[0]], *b = &sv[fc[1]], *c = &sv[fc[2]];
+                gv_t g0 = { a->x, a->y, a->z, vc[fc[0]][0], vc[fc[0]][1], vc[fc[0]][2] };
+                gv_t g1 = { b->x, b->y, b->z, vc[fc[1]][0], vc[fc[1]][1], vc[fc[1]][2] };
+                gv_t g2 = { c->x, c->y, c->z, vc[fc[2]][0], vc[fc[2]][1], vc[fc[2]][2] };
+                r->pixels += raster_gouraud(r->g, zbuf, g0, g1, g2, screen);
+            } else {
+                cv_t tri[3] = { *c0, *c1, *c2 }, cl[4];
+                for (int k = 0; k < 3; k++) {
+                    tri[k].r = vc[fc[k]][0]; tri[k].g = vc[fc[k]][1]; tri[k].b = vc[fc[k]][2];
+                }
+                int np = clip_near(tri, cl);
+                sv_t pts[4];
+                for (int i = 0; i < np; i++)
+                    pts[i] = project(&v, cl[i], zmul);
+                float area = (pts[1].x - pts[0].x) * (pts[2].y - pts[0].y) - (pts[1].y - pts[0].y) * (pts[2].x - pts[0].x);
+                if (area <= 0)
+                    continue;
+                gv_t gv[4];
+                for (int i = 0; i < np; i++)
+                    gv[i] = (gv_t){ pts[i].x, pts[i].y, pts[i].z, cl[i].r, cl[i].g, cl[i].b };
+                r->pixels += raster_gouraud(r->g, zbuf, gv[0], gv[1], gv[2], screen);
+                if (np == 4)
+                    r->pixels += raster_gouraud(r->g, zbuf, gv[0], gv[2], gv[3], screen);
+            }
+            r->tris_drawn++;
+            continue;
+        }
+
+        /* flat (and textured): the light of the face, at its middle */
+        lit_t k = full;
+        if (!emissive) {
+            v3_t n = xform_dir(&X, fc[0], m->normals[t]);
+            float mx = 0, my = 0, mz = 0;
+            if (lamps.n) {
+                /* the middle, back from camera space to world axes (C is a rotation) */
+                float cx = (c0->x + c1->x + c2->x) * (1.0f / 3.0f), cy = (c0->y + c1->y + c2->y) * (1.0f / 3.0f),
+                      cz = (c0->z + c1->z + c2->z) * (1.0f / 3.0f);
+                mx = C[0] * cx + C[3] * cy + C[6] * cz;
+                my = C[1] * cx + C[4] * cy + C[7] * cz;
+                mz = C[2] * cx + C[5] * cy + C[8] * cz;
+            }
+            light_fast(r, &lamps, &sh, n, mx, my, mz, glossy, &k);
+        }
+        if (textured) {
+            const float gk = lit_grey(&k);
+            cv_t tri[3] = { *c0, *c1, *c2 }, cl[4];
             for (int i = 0; i < 3; i++) {
                 tri[i].u = m->uv[t * 6 + i * 2];
                 tri[i].v = m->uv[t * 6 + i * 2 + 1];
+                tri[i].r = gk;
             }
-
-        if (smooth && !(rgb & R3D_FLAT)) {
-            static const lit_t full = { { 1, 1, 1 }, { 0, 0, 0 } };
-            for (int i = 0; i < 3; i++) {
-                const lit_t *k = emissive ? &full : &vl[fc[i]];
-                if (textured) {
-                    tri[i].r = lit_grey(k);
-                } else {
-                    float ff = 0;
-                    if (fog) {
-                        ff = (tri[i].z - r->fog_near) * fog_k;
-                        ff = ff < 0 ? 0 : ff > 1 ? 1 : ff;
-                    }
-                    vertex_rgb(&tri[i], rgb, k, glossy, r->fog_rgb, ff);
-                }
-            }
-        } else {
-            /* flat: the light at the middle of the face, normal rotated to world space */
-            lit_t k = { { 1, 1, 1 }, { 0, 0, 0 } };
-            if (!emissive) {
-                v3_t n = xform_dir(&X, fc[0], m->normals[t]);
-                /* the middle, back from camera space to world axes (C is a rotation) */
-                float mx = (tri[0].x + tri[1].x + tri[2].x) * (1.0f / 3.0f),
-                      my = (tri[0].y + tri[1].y + tri[2].y) * (1.0f / 3.0f),
-                      mz = (tri[0].z + tri[1].z + tri[2].z) * (1.0f / 3.0f);
-                light_at(r, &lamps, n.x, n.y, n.z, C[0] * mx + C[3] * my + C[6] * mz,
-                         C[1] * mx + C[4] * my + C[7] * mz, C[2] * mx + C[5] * my + C[8] * mz, glossy, &k);
-            }
-            if (textured) {
-                float g = lit_grey(&k);
-                for (int i = 0; i < 3; i++)
-                    tri[i].r = g;
+            sv_t pts[4];
+            int np = 3;
+            if (nin == 3) {
+                cl[0] = tri[0]; cl[1] = tri[1]; cl[2] = tri[2];
+                pts[0] = sv[fc[0]]; pts[1] = sv[fc[1]]; pts[2] = sv[fc[2]];
             } else {
-                float ff = 0;
-                if (fog) {
-                    ff = ((tri[0].z + tri[1].z + tri[2].z) * (1.0f / 3.0f) - r->fog_near) * fog_k;
-                    ff = ff < 0 ? 0 : ff > 1 ? 1 : ff;
-                }
-                uint16_t col = shade(rgb, &k, r->fog_rgb, ff);
-                sv_t pts[4];
-                int np = 3;
-                if (nin == 3) {
-                    pts[0] = sv[fc[0]]; pts[1] = sv[fc[1]]; pts[2] = sv[fc[2]];
-                } else {
-                    cv_t cl[4];
-                    np = clip_near(tri, cl);
-                    for (int i = 0; i < np; i++)
-                        pts[i] = project(&v, cl[i], zmul);
-                    float area = (pts[1].x - pts[0].x) * (pts[2].y - pts[0].y) -
-                                 (pts[1].y - pts[0].y) * (pts[2].x - pts[0].x);
-                    if (area <= 0)
-                        continue;
-                }
-                r->pixels += raster(r->g, zbuf, pts[0], pts[1], pts[2], col, screen);
-                if (np == 4)
-                    r->pixels += raster(r->g, zbuf, pts[0], pts[2], pts[3], col, screen);
-                r->tris_drawn++;
-                continue;
+                np = clip_near(tri, cl);
+                for (int i = 0; i < np; i++)
+                    pts[i] = project(&v, cl[i], zmul);
+                float area = (pts[1].x - pts[0].x) * (pts[2].y - pts[0].y) - (pts[1].y - pts[0].y) * (pts[2].x - pts[0].x);
+                if (area <= 0)
+                    continue;
             }
-        }
-
-        /* per-vertex attributes: textured (flat or smooth) or Gouraud */
-        cv_t cl[4];
-        sv_t pts[4];
-        int np;
-        if (nin == 3) {
-            cl[0] = tri[0]; cl[1] = tri[1]; cl[2] = tri[2];
-            pts[0] = sv[fc[0]]; pts[1] = sv[fc[1]]; pts[2] = sv[fc[2]];
-            np = 3;
-        } else {
-            np = clip_near(tri, cl);
-            for (int i = 0; i < np; i++)
-                pts[i] = project(&v, cl[i], zmul);
-            float area = (pts[1].x - pts[0].x) * (pts[2].y - pts[0].y) -
-                         (pts[1].y - pts[0].y) * (pts[2].x - pts[0].x);
-            if (area <= 0)
-                continue;
-        }
-        if (textured) {
             tv_t tv[4];
             for (int i = 0; i < np; i++)
                 tv[i] = (tv_t){ pts[i].x, pts[i].y, pts[i].z, cl[i].u * pts[i].z, cl[i].v * pts[i].z, cl[i].r };
             r->pixels += raster_tex(r->g, zbuf, tv[0], tv[1], tv[2], m->tex, screen);
             if (np == 4)
                 r->pixels += raster_tex(r->g, zbuf, tv[0], tv[2], tv[3], m->tex, screen);
+            r->tris_drawn++;
+            continue;
+        }
+        float ff = 0;
+        if (fog) {
+            ff = ((c0->z + c1->z + c2->z) * (1.0f / 3.0f) - r->fog_near) * fog_k;
+            ff = ff < 0 ? 0 : ff > 1 ? 1 : ff;
+        }
+        uint16_t col = shade(rgb, &k, r->fog_rgb, ff);
+        if (nin == 3) {
+            r->pixels += raster(r->g, zbuf, sv[fc[0]], sv[fc[1]], sv[fc[2]], col, screen);
         } else {
-            gv_t gv[4];
+            cv_t tri[3] = { *c0, *c1, *c2 }, cl[4];
+            int np = clip_near(tri, cl);
+            sv_t pts[4];
             for (int i = 0; i < np; i++)
-                gv[i] = (gv_t){ pts[i].x, pts[i].y, pts[i].z, cl[i].r, cl[i].g, cl[i].b };
-            r->pixels += raster_gouraud(r->g, zbuf, gv[0], gv[1], gv[2], screen);
+                pts[i] = project(&v, cl[i], zmul);
+            float area = (pts[1].x - pts[0].x) * (pts[2].y - pts[0].y) - (pts[1].y - pts[0].y) * (pts[2].x - pts[0].x);
+            if (area <= 0)
+                continue;
+            r->pixels += raster(r->g, zbuf, pts[0], pts[1], pts[2], col, screen);
             if (np == 4)
-                r->pixels += raster_gouraud(r->g, zbuf, gv[0], gv[2], gv[3], screen);
+                r->pixels += raster(r->g, zbuf, pts[0], pts[2], pts[3], col, screen);
         }
         r->tris_drawn++;
     }

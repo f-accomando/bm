@@ -6,6 +6,7 @@
 #include "bm.h"
 #include "gfx16.h"
 #include "r3d.h"
+#include "world3d.h"
 #include "drivers/timer.h"
 #include "drivers/uart.h"
 #include "fs/fat.h"
@@ -1288,6 +1289,85 @@ static int l_zclear(lua_State *L)
     return 0;
 }
 
+/* ---- collision worlds (world3d.h): boxes, rays, moving bodies */
+
+#define WORLD_MT "bm.world"
+
+static w3_world_t *check_world(lua_State *L, int i)
+{
+    return luaL_checkudata(L, i, WORLD_MT);
+}
+
+static int l_world_gc(lua_State *L)
+{
+    w3_free(check_world(L, 1));
+    return 0;
+}
+
+/* world3d() -> an empty collision world */
+static int l_world3d(lua_State *L)
+{
+    w3_world_t *w = lua_newuserdatauv(L, sizeof *w, 0);
+    w3_init(w);
+    luaL_setmetatable(L, WORLD_MT);
+    return 1;
+}
+
+/* world_box(w, x0, y0, z0, x1, y1, z1, [tag]) -> its number: a solid box */
+static int l_world_box(lua_State *L)
+{
+    w3_world_t *w = check_world(L, 1);
+    float lo[3] = { fnum(L, 2, 0), fnum(L, 3, 0), fnum(L, 4, 0) }, hi[3] = { fnum(L, 5, 0), fnum(L, 6, 0), fnum(L, 7, 0) };
+    int i = w3_add_box(w, lo, hi, (int)luaL_optinteger(L, 8, 0));
+    if (i < 0)
+        return luaL_error(L, "not enough memory for the world");
+    lua_pushinteger(L, i + 1);
+    return 1;
+}
+
+/* world_ray(w, ox, oy, oz, dx, dy, dz, [maxd, ground]) -> t, nx, ny, nz, box
+ * (0 = the ground y = 0, which counts unless ground is false), or nil */
+static int l_world_ray(lua_State *L)
+{
+    w3_world_t *w = check_world(L, 1);
+    float o[3] = { fnum(L, 2, 0), fnum(L, 3, 0), fnum(L, 4, 0) }, d[3] = { fnum(L, 5, 0), fnum(L, 6, 0), fnum(L, 7, 1) };
+    float t, n[3];
+    int ground = lua_isnoneornil(L, 9) || lua_toboolean(L, 9);
+    int i = w3_ray(w, o, d, fnum(L, 8, 1000), ground, &t, n);
+    if (i == -1) {
+        lua_pushnil(L);
+        return 1;
+    }
+    lua_pushnumber(L, t);
+    lua_pushnumber(L, n[0]);
+    lua_pushnumber(L, n[1]);
+    lua_pushnumber(L, n[2]);
+    lua_pushinteger(L, i == -2 ? 0 : i + 1);
+    return 5;
+}
+
+/* world_move(w, x, y, z, r, h, dx, dy, dz, [step, on_ground]) -> x, y, z, flags:
+ * 1 on the ground, 2 a wall (4 along x, 8 along z), 16 a ceiling */
+static int l_world_move(lua_State *L)
+{
+    w3_world_t *w = check_world(L, 1);
+    float p[3] = { fnum(L, 2, 0), fnum(L, 3, 0), fnum(L, 4, 0) }, d[3] = { fnum(L, 7, 0), fnum(L, 8, 0), fnum(L, 9, 0) };
+    int f = w3_move(w, p, fnum(L, 5, 0.4f), fnum(L, 6, 1.8f), d, fnum(L, 10, 0.45f), lua_toboolean(L, 11));
+    lua_pushnumber(L, p[0]);
+    lua_pushnumber(L, p[1]);
+    lua_pushnumber(L, p[2]);
+    lua_pushinteger(L, f);
+    return 4;
+}
+
+/* world_floor(w, x, z, y, r, [step]) -> the height of the floor under (x, z) */
+static int l_world_floor(lua_State *L)
+{
+    w3_world_t *w = check_world(L, 1);
+    lua_pushnumber(L, w3_floor(w, fnum(L, 2, 0), fnum(L, 3, 0), fnum(L, 4, 0), fnum(L, 5, 0.4f), fnum(L, 6, 0.45f)));
+    return 1;
+}
+
 /* log(...) - text to the kernel log (serial + console), not the screen */
 static int l_log(lua_State *L)
 {
@@ -1949,6 +2029,8 @@ static const luaL_Reg api[] = {
     { "sky3d", l_sky3d }, { "shine3d", l_shine3d }, { "shadow3d", l_shadow3d },
     { "point3d", l_point3d }, { "line3d", l_line3d }, { "sprite3d", l_sprite3d },
     { "bone_turn", l_bone_turn }, { "bones3d", l_bones3d }, { "hit3d", l_hit3d },
+    { "world3d", l_world3d }, { "world_box", l_world_box }, { "world_ray", l_world_ray },
+    { "world_move", l_world_move }, { "world_floor", l_world_floor },
     { "fog3d", l_fog3d }, { "project3d", l_project3d }, { "lamp3d", l_lamp3d },
     { "zclear", l_zclear }, { "log", l_log }, { "quit", l_quit },
     { "save", l_save }, { "saved", l_saved },
@@ -2026,6 +2108,10 @@ static lua_State *new_cart_state(const bm_cart_t *c)
     }
     luaL_newmetatable(L, MESH_MT);
     lua_pushcfunction(L, l_mesh_gc);
+    lua_setfield(L, -2, "__gc");
+    lua_pop(L, 1);
+    luaL_newmetatable(L, WORLD_MT);
+    lua_pushcfunction(L, l_world_gc);
     lua_setfield(L, -2, "__gc");
     lua_pop(L, 1);
     lua_pushglobaltable(L);

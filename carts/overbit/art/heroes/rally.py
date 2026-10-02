@@ -221,65 +221,95 @@ def pilot_skeleton():
     return sk
 
 
+def limb(r0, r1, length, segs=6, bulge=1.0):
+    """a limb from y = 0 down to y = -length, radius r0 at the top and r1 at
+    the bottom, a little fuller in the middle"""
+    rm = (r0 + r1) / 2 * bulge
+    return lathe([(r1, -length), (rm, -length * 0.5), (r0, 0)], segs=segs, close_top=False, close_bottom=False)
+
+
 def pilot_mesh(sk, name="rally_pilot"):
+    """about 560 / 420 / 300 / 200 triangles"""
     m = Mesh(name)
     B = sk.index
-    # head: face, hair (a bob with a fringe), glasses
-    m.add(ellipsoid(0.085, 0.105, 0.095, segs=8, rings=6).move(0, 1.555, 0.01), SKIN, B["head"], 1, 3)
-    m.add(ellipsoid(0.085, 0.105, 0.095, segs=6, rings=4).move(0, 1.555, 0.01), SKIN, B["head"], 0, 0)
-    m.add(hull([(-0.095, 1.60, -0.02), (0.095, 1.60, -0.02), (-0.09, 1.66, 0.06), (0.09, 1.66, 0.06),
-                (0.0, 1.685, 0.0), (-0.07, 1.67, -0.07), (0.07, 1.67, -0.07), (-0.10, 1.50, -0.05),
-                (0.10, 1.50, -0.05), (-0.06, 1.47, -0.09), (0.06, 1.47, -0.09), (0.0, 1.60, 0.115),
-                (-0.07, 1.585, 0.10), (0.07, 1.585, 0.10)], smooth=True), HAIR, B["head"], 0, 3)
-    m.add(hull([(-0.075, 1.575, 0.085), (0.075, 1.575, 0.085), (-0.075, 1.545, 0.085), (0.075, 1.545, 0.085),
-                (-0.07, 1.575, 0.105), (0.07, 1.575, 0.105), (-0.07, 1.545, 0.105), (0.07, 1.545, 0.105)]),
-          LENS, B["head"], 1, 3)
-    # neck, torso: white top, grey vest, purple jacket
-    m.add(cylinder(0.04, 0.08, segs=6).move(0, 1.42, 0), SKIN, B["chest"], 1, 3)
-    m.add(hull([(-0.17, 1.44, -0.08), (0.17, 1.44, -0.08), (-0.17, 1.44, 0.08), (0.17, 1.44, 0.08),
-                (-0.14, 1.18, -0.07), (0.14, 1.18, -0.07), (-0.14, 1.18, 0.08), (0.14, 1.18, 0.08)], smooth=True),
-          JACKET, B["chest"], 0, 3)
-    m.add(hull([(-0.08, 1.43, 0.085), (0.08, 1.43, 0.085), (-0.10, 1.20, 0.085), (0.10, 1.20, 0.085),
-                (-0.08, 1.43, 0.06), (0.08, 1.43, 0.06), (-0.10, 1.20, 0.06), (0.10, 1.20, 0.06)]), VEST, B["chest"], 1, 3)
-    m.add(hull([(-0.03, 1.43, 0.095), (0.03, 1.43, 0.095), (-0.03, 1.21, 0.095), (0.03, 1.21, 0.095),
-                (-0.03, 1.43, 0.07), (0.03, 1.43, 0.07), (-0.03, 1.21, 0.07), (0.03, 1.21, 0.07)]), TOP, B["chest"], 2, 3)
-    m.add(hull([(-0.13, 1.20, -0.07), (0.13, 1.20, -0.07), (-0.13, 1.20, 0.08), (0.13, 1.20, 0.08),
-                (-0.12, 0.98, -0.06), (0.12, 0.98, -0.06), (-0.12, 0.98, 0.07), (0.12, 0.98, 0.07)], smooth=True),
-          TOP, B["spine"], 0, 3)
-    m.add(hull([(-0.13, 1.00, -0.07), (0.13, 1.00, -0.07), (-0.13, 1.00, 0.08), (0.13, 1.00, 0.08),
-                (-0.12, 0.86, -0.07), (0.12, 0.86, -0.07), (-0.12, 0.86, 0.07), (0.12, 0.86, 0.07)]), PANTS, B["hips"], 0, 3)
+    H, C, S, HP = B["head"], B["chest"], B["spine"], B["hips"]
+    # -- head: a slightly big head (a stylised hero), short bob with a fringe
+    m.add(ellipsoid(0.088, 0.108, 0.098, segs=8, rings=6).move(0, 1.565, 0.012), SKIN, H, 2, 3)
+    m.add(ellipsoid(0.088, 0.108, 0.098, segs=6, rings=4).move(0, 1.565, 0.012), SKIN, H, 0, 1)
+    m.add(hull([(-0.012, 1.555, 0.105), (0.012, 1.555, 0.105), (0, 1.53, 0.118), (0, 1.565, 0.098)]), SKIN, H, 3, 3)  # nose
+    m.add(ellipsoid(0.098, 0.112, 0.106, segs=8, rings=5).move(0, 1.60, -0.008), HAIR, H, 2, 3)
+    m.add(ellipsoid(0.098, 0.112, 0.106, segs=6, rings=4).move(0, 1.60, -0.008), HAIR, H, 0, 1)
+    # the bob: sides and back down to the jaw, the fringe over the brow
+    m.add(hull([(-0.104, 1.60, -0.05), (-0.104, 1.60, 0.06), (-0.098, 1.49, -0.06), (-0.094, 1.50, 0.05),
+                (-0.07, 1.48, -0.09), (-0.06, 1.60, -0.11), (-0.085, 1.66, 0.0)], smooth=True), HAIR, H, 1, 3)
+    m.add(hull([(0.104, 1.60, -0.05), (0.104, 1.60, 0.06), (0.098, 1.49, -0.06), (0.094, 1.50, 0.05),
+                (0.07, 1.48, -0.09), (0.06, 1.60, -0.11), (0.085, 1.66, 0.0)], smooth=True), HAIR, H, 1, 3)
+    m.add(hull([(-0.08, 1.635, 0.07), (0.08, 1.635, 0.07), (-0.07, 1.595, 0.103), (0.06, 1.585, 0.106),
+                (0.0, 1.67, 0.05), (-0.02, 1.60, 0.112)], smooth=True), HAIR, H, 2, 3)
+    # orange glasses: two lenses and a bridge
+    for x in (-1, 1):
+        m.add(hull([(x * 0.012, 1.578, 0.098), (x * 0.072, 1.578, 0.090), (x * 0.012, 1.548, 0.100),
+                    (x * 0.068, 1.550, 0.092), (x * 0.040, 1.565, 0.108)]), LENS, H, 1, 3)
+    m.add(box(0.03, 0.006, 0.01).move(0, 1.574, 0.104), DARK, H, 3, 3)
+    # -- neck and torso: white top, grey vest, an open purple bomber with a collar
+    m.add(cylinder(0.038, 0.09, segs=6, caps=False).move(0, 1.415, 0.0), SKIN, C, 1, 3)
+    m.add(lathe([(0.105, 1.20), (0.15, 1.30), (0.165, 1.40), (0.10, 1.465)], segs=8).scale(1, 1, 0.62),
+          JACKET, C, 0, 3)
+    m.add(hull([(-0.11, 1.44, 0.07), (0.11, 1.44, 0.07), (-0.12, 1.40, 0.11), (0.12, 1.40, 0.11),
+                (-0.06, 1.47, 0.03), (0.06, 1.47, 0.03), (0, 1.46, -0.05)], smooth=True), JACKET2, C, 2, 3)  # collar
+    m.add(hull([(-0.07, 1.42, 0.098), (0.07, 1.42, 0.098), (-0.09, 1.21, 0.088), (0.09, 1.21, 0.088),
+                (-0.07, 1.42, 0.07), (0.07, 1.42, 0.07), (-0.09, 1.21, 0.06), (0.09, 1.21, 0.06)]), VEST, C, 1, 3)
+    m.add(hull([(-0.028, 1.43, 0.106), (0.028, 1.43, 0.106), (-0.028, 1.22, 0.096), (0.028, 1.22, 0.096),
+                (-0.028, 1.43, 0.08), (0.028, 1.43, 0.08), (-0.028, 1.22, 0.07), (0.028, 1.22, 0.07)]), TOP, C, 1, 3)
+    # waist: the white top, then the belt and the hips
+    m.add(lathe([(0.10, 0.99), (0.092, 1.08), (0.104, 1.21)], segs=8).scale(1, 1, 0.66), TOP, S, 0, 3)
+    m.add(lathe([(0.115, 0.86), (0.112, 0.94), (0.104, 1.00)], segs=8).scale(1, 1, 0.70), PANTS, HP, 0, 3)
+    m.add(lathe([(0.106, 0.985), (0.106, 1.005)], segs=8, close_top=False, close_bottom=False).scale(1, 1, 0.68),
+          DARK, HP, 2, 3)
     for s, x in (("L", -1), ("R", 1)):
-        UA, FA, H = B[f"upperarm.{s}"], B[f"forearm.{s}"], B[f"hand.{s}"]
+        UA, FA, HD = B[f"upperarm.{s}"], B[f"forearm.{s}"], B[f"hand.{s}"]
         TH, SH, FT = B[f"thigh.{s}"], B[f"shin.{s}"], B[f"foot.{s}"]
-        m.add(cylinder(0.055, 0.27, segs=6, r2=0.05).turn(rz=x * 168).move(x * 0.19, 1.41, 0), JACKET, UA, 0, 3)
-        m.add(cylinder(0.05, 0.25, segs=6, r2=0.04).turn(rz=x * 172).move(x * 0.24, 1.15, 0.0), JACKET2, FA, 0, 3)
-        m.add(ellipsoid(0.04, 0.055, 0.035, segs=6, rings=4).move(x * 0.275, 0.87, 0.025), GLOVE, H, 0, 3)
-        m.add(cylinder(0.07, 0.42, segs=6, r2=0.055).turn(rz=180).move(x * 0.10, 0.91, 0.0), PANTS, TH, 0, 3)
-        m.add(cylinder(0.055, 0.42, segs=6, r2=0.045).turn(rz=180).move(x * 0.11, 0.50, 0.01), PANTS, SH, 0, 3)
-        m.add(facing(quad((x * 0.168, 0.85, -0.01), (x * 0.168, 0.85, 0.02), (x * 0.155, 0.12, 0.02),
-                          (x * 0.155, 0.12, -0.01)), (x, 0, 0)), STRIPE, TH, 2, 3)
-        m.add(hull([(x * 0.11 - 0.05, 0.0, -0.06), (x * 0.11 + 0.05, 0.0, -0.06), (x * 0.11 - 0.05, 0.0, 0.18),
-                    (x * 0.11 + 0.05, 0.0, 0.18), (x * 0.11 - 0.045, 0.10, -0.05), (x * 0.11 + 0.045, 0.10, -0.05),
-                    (x * 0.11 - 0.04, 0.07, 0.12), (x * 0.11 + 0.04, 0.07, 0.12)]), SHOE, FT, 0, 3)
-        m.add(box(0.105, 0.02, 0.25).move(x * 0.11, 0.01, 0.06), SOLE, FT, 2, 3)
-    # the light gun in the right hand
+        # puffy bomber sleeves, cuffs, gloves
+        m.add(limb(0.064, 0.055, 0.27, bulge=1.18).turn(rz=x * -11).move(x * 0.19, 1.41, 0), JACKET, UA, 0, 3)
+        m.add(limb(0.056, 0.045, 0.23, bulge=1.1).turn(rz=x * -7).move(x * 0.24, 1.15, 0.0), JACKET, FA, 0, 3)
+        m.add(cylinder(0.044, 0.035, segs=6).turn(rz=x * -7).move(x * 0.265, 0.905, 0.012), JACKET2, FA, 2, 3)
+        m.add(hull([(x * 0.275 - 0.035, 0.90, -0.01), (x * 0.275 + 0.035, 0.90, -0.01), (x * 0.275 - 0.03, 0.90, 0.05),
+                    (x * 0.275 + 0.03, 0.90, 0.05), (x * 0.275, 0.80, 0.03), (x * 0.275 - 0.03, 0.83, 0.0),
+                    (x * 0.275 + 0.03, 0.83, 0.0)], smooth=True), GLOVE, HD, 0, 3)
+        # legs: grey trousers with a white stripe, chunky purple trainers
+        m.add(limb(0.088, 0.060, 0.42, bulge=1.06).move(x * 0.10, 0.92, 0.0), PANTS, TH, 0, 3)
+        m.add(limb(0.062, 0.050, 0.41).move(x * 0.11, 0.50, 0.01), PANTS, SH, 0, 3)
+        m.add(facing(quad((x * 0.170, 0.86, -0.012), (x * 0.170, 0.86, 0.012), (x * 0.156, 0.10, 0.012),
+                          (x * 0.156, 0.10, -0.012)), (x, 0, 0)), STRIPE, TH, 2, 3)
+        m.add(hull([(x * 0.11 - 0.052, 0.0, -0.06), (x * 0.11 + 0.052, 0.0, -0.06), (x * 0.11 - 0.055, 0.0, 0.19),
+                    (x * 0.11 + 0.055, 0.0, 0.19), (x * 0.11 - 0.048, 0.11, -0.05), (x * 0.11 + 0.048, 0.11, -0.05),
+                    (x * 0.11 - 0.045, 0.075, 0.13), (x * 0.11 + 0.045, 0.075, 0.13), (x * 0.11, 0.05, 0.205)],
+                   smooth=False), SHOE, FT, 0, 3)
+        m.add(box(0.112, 0.025, 0.27).move(x * 0.11, 0.012, 0.065), SOLE, FT, 1, 3)
+    # the light gun in the right hand: white and pink, a cyan glow at the muzzle
     g = B["hand.R"]
-    m.add(box(0.04, 0.05, 0.16, bevel=0.01).move(0.28, 0.86, 0.11), GUN_W, g, 1, 3)
-    m.add(box(0.03, 0.07, 0.035).move(0.28, 0.82, 0.06), GUN_P, g, 1, 3)
-    m.add(facing(strip((0.28, 0.865, 0.191), 0.02, 0.02), (0, 0, 1)), GUN_GLOW, g, 2, 3)
+    m.add(box(0.042, 0.055, 0.17, bevel=0.012).move(0.28, 0.865, 0.115), GUN_W, g, 3, 3)
+    m.add(box(0.042, 0.055, 0.17).move(0.28, 0.865, 0.115), GUN_W, g, 0, 2)
+    m.add(box(0.032, 0.075, 0.04).move(0.28, 0.82, 0.06), GUN_P, g, 1, 3)
+    m.add(box(0.05, 0.016, 0.10).move(0.28, 0.897, 0.12), GUN_P, g, 2, 3)
+    m.add(facing(strip((0.28, 0.868, 0.201), 0.022, 0.022), (0, 0, 1)), GUN_GLOW, g, 2, 3)
     return m.weld()
 
 
 # ------------------------------------------------------------------ first person
 
+FP_X, FP_Y, FP_Z = 0.80, -0.50, 1.00      # the middle of a cannon, seen from the eye (x for the right one)
+
+
 def fp_skeleton():
     """the mech's cannons seen from the cockpit: the camera is at the origin
-    looking along +z"""
+    looking along +z; with a 96 degree view the cannons fill the lower
+    corners"""
     sk = Skeleton()
     sk.bone("root", None, (0, 0, 0), (0, 0.2, 0))
     for s, x in (("L", -1), ("R", 1)):
-        sk.bone(f"arm.{s}", "root", (x * 0.80, -0.55, 0.30), (x * 0.95, -0.70, 0.55))
-        sk.bone(f"gun.{s}", f"arm.{s}", (x * 0.95, -0.70, 0.55), (x * 0.95, -0.70, 1.75))
+        sk.bone(f"arm.{s}", "root", (x * (FP_X - 0.10), FP_Y + 0.15, FP_Z - 0.80), (x * FP_X, FP_Y, FP_Z - 0.55))
+        sk.bone(f"gun.{s}", f"arm.{s}", (x * FP_X, FP_Y, FP_Z - 0.55), (x * FP_X, FP_Y, FP_Z + 0.62))
     return sk
 
 
@@ -288,20 +318,24 @@ def fp_mesh(sk, name="rally_fp"):
     B = sk.index
     for s, x in (("L", -1), ("R", 1)):
         A, G = B[f"arm.{s}"], B[f"gun.{s}"]
-        m.add(box(0.46, 0.44, 0.50, bevel=0.06).move(x * 0.95, -0.66, 0.38), WHITE, A, 0, 3)
-        m.add(cylinder(0.16, 0.30, segs=8, axis="x").move(x * 0.95 - (0.15 if x > 0 else 0.15) * 0 - 0.15, -0.52, 0.30),
-              DARK, A, 0, 3)
-        m.add(box(0.42, 0.40, 1.20, bevel=0.06).move(x * 0.95, -0.72, 1.15), WHITE, G, 0, 3)
-        m.add(box(0.30, 0.28, 0.06).move(x * 0.95, -0.72, 1.76), BLACK, G, 0, 3)
-        for y in (-0.66, -0.78):
-            m.add(facing(strip((x * 0.95, y, 1.795), 0.22, 0.03), (0, 0, 1)), GLOW, G, 0, 3)
+        gx, gy, gz = x * FP_X, FP_Y, FP_Z
+        m.add(box(0.46, 0.44, 0.50, bevel=0.06).move(gx, gy + 0.06, gz - 0.80), WHITE, A, 0, 3)
+        m.add(cylinder(0.16, 0.30, segs=8, axis="x").move(gx - 0.15, gy + 0.20, gz - 0.85), DARK, A, 0, 3)
+        m.add(box(0.42, 0.40, 1.20, bevel=0.06).move(gx, gy, gz), WHITE, G, 0, 3)
+        m.add(facing(quad((gx - 0.15, gy + 0.135, gz + 0.605), (gx + 0.15, gy + 0.135, gz + 0.605),
+                          (gx + 0.15, gy - 0.135, gz + 0.605), (gx - 0.15, gy - 0.135, gz + 0.605)), (0, 0, 1)),
+              BLACK, G, 0, 3)
+        for y in (0.06, -0.06):
+            m.add(facing(strip((gx, gy + y, gz + 0.61), 0.22, 0.03), (0, 0, 1)), GLOW, G, 0, 3)
         for dx in (-0.07, 0.07):
-            m.add(cylinder(0.065, 0.18, segs=8, axis="z").move(x * 0.95 + dx, -0.72, 1.76), DARK, G, 0, 3)
+            m.add(cylinder(0.065, 0.18, segs=8, caps=False, axis="z").move(gx + dx, gy, gz + 0.60), DARK, G, 0, 3)
         # the orange strip on top, the black grille on the inner side
-        m.add(facing(quad((x * 0.85, -0.515, 0.70), (x * 1.05, -0.515, 0.70), (x * 1.05, -0.515, 1.60),
-                          (x * 0.85, -0.515, 1.60)), (0, 1, 0)), ORANGE, G, 0, 3)
-        m.add(facing(quad((x * 0.735, -0.62, 0.80), (x * 0.735, -0.62, 1.50), (x * 0.735, -0.80, 1.50),
-                          (x * 0.735, -0.80, 0.80)), (-x, 0, 0)), BLACK, G, 0, 3)
+        m.add(facing(quad((gx - 0.10, gy + 0.205, gz - 0.45), (gx + 0.10, gy + 0.205, gz - 0.45),
+                          (gx + 0.10, gy + 0.205, gz + 0.45), (gx - 0.10, gy + 0.205, gz + 0.45)), (0, 1, 0)),
+              ORANGE, G, 0, 3)
+        m.add(facing(quad((gx - x * 0.215, gy + 0.10, gz - 0.35), (gx - x * 0.215, gy + 0.10, gz + 0.35),
+                          (gx - x * 0.215, gy - 0.08, gz + 0.35), (gx - x * 0.215, gy - 0.08, gz - 0.35)), (-x, 0, 0)),
+              BLACK, G, 0, 3)
     return m.weld()
 
 
@@ -654,18 +688,19 @@ def pilot_clips(sk):
     clips.append(sample(hit, 0.25, 5, loop=False, name="hit"))
 
     def death(t):
-        u = _sm(t / 0.9)
-        p = human_legs(0.0, 0.0, 0.0, -0.75 * u)
-        p["hips"] = (-80 * u, 0, 0)
-        p["chest"] = (-10 * u, 0, 0)
-        p["head"] = (-20 * u, 0, 0)
-        for s in "LR":
-            p[f"thigh.{s}"] = (-75 * u + p[f"thigh.{s}"][0] * (1 - u), 0, 0)
-            p[f"shin.{s}"] = (20 * u, 0, 0)
-        p["upperarm.L"] = (-100 * u, 0, -40 * u)
-        p["upperarm.R"] = (-100 * u, 0, 40 * u)
+        # knees give first, then the whole body falls on its back, pivoting on the feet
+        k = _sm(t / 0.3)
+        u = _sm((t - 0.15) / 0.75)
+        p = {"root": (-84 * u, 0, 6 * u, 0, 0.06 * u, -0.25 * u)}
+        p["thigh.L"], p["thigh.R"] = (-25 * k * (1 - u), 0, 0), (-15 * k * (1 - u), 0, 0)
+        p["shin.L"], p["shin.R"] = (40 * k * (1 - u) + 8 * u, 0, 0), (30 * k * (1 - u) + 12 * u, 0, 0)
+        p["chest"] = (-12 * k, 0, 0)
+        p["head"] = (-25 * k + 20 * u, 20 * u, 0)
+        p["upperarm.L"] = (-60 * u, 0, -55 * u)
+        p["upperarm.R"] = (-40 * u, 0, 65 * u)
+        p["forearm.L"], p["forearm.R"] = (-30 * u, 0, 0), (-20 * u, 0, 0)
         return p
-    clips.append(sample(death, 0.9, 9, loop=False, name="death"))
+    clips.append(sample(death, 0.9, 10, loop=False, name="death"))
 
     def victory(t):
         u = t / 2.4

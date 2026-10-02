@@ -16,6 +16,9 @@
  *     --wav FILE        the sound, 48 kHz mono
  *     --input FILE      the input script (see below)
  *     --quiet           no kernel log
+ *     --clock-scale K   the clock runs at the PC's real time x K inside a
+ *                       frame (stat(1) estimates the Pi's cost with K ~ 21;
+ *                       the run is not the same every time any more)
  *
  * Input script, one event per line, "frame command arguments":
  *     0 pad 1 r2 left       buttons held by player 1 (exactly these; "none")
@@ -293,6 +296,7 @@ int main(int argc, char **argv)
         else if (!strcmp(a, "--wav") && v) run.wav_path = v, i++;
         else if (!strcmp(a, "--input") && v) input = v, i++;
         else if (!strcmp(a, "--quiet")) host.quiet = 1;
+        else if (!strcmp(a, "--clock-scale") && v) host.clock_scale = atof(v), i++;
         else if (a[0] != '-') cart = a;
         else {
             fprintf(stderr, "bmhost: unknown option %s\n", a);

@@ -146,7 +146,7 @@ $(BUILD)/demo.bm: $(DEMO_BM_SRC) scripts/mkbm.py
 	    --map carts/demo/map.csv --title "bm native demo" --author bm
 
 # Demo games (Lua only, sprites drawn in code): build/carts/<name>.bm
-GAMES := pong snake shooter astrowing hunt kitchen titan texroom village nano8
+GAMES := pong snake shooter astrowing hunt kitchen titan texroom village nano8 overbit
 GAME_CARTS := $(patsubst %,$(BUILD)/carts/%.bm,$(GAMES))
 title_pong    := Pong
 title_snake   := Snake
@@ -212,6 +212,52 @@ $(BUILD)/carts/nano8.bm: $(BUILD)/nano8/main.lua carts/nano8/cover.png scripts/m
 	$(PYTHON) scripts/mkbm.py -o $@ --lua $< --title "$(title_nano8)" --author bm \
 	    --cover carts/nano8/cover.png
 
+# Overbit (M31): a hero shooter in 3D. Several Lua files joined by its
+# build.py; the heroes' models and animations (MESH, ANIM) made by
+# carts/overbit/art/models.py, the sounds by art/sounds.py.
+OVERBIT_SRC := $(sort $(wildcard carts/overbit/src/*.lua))
+OVERBIT_ART := $(wildcard carts/overbit/art/*.py carts/overbit/art/heroes/*.py)
+title_overbit := Overbit
+$(BUILD)/overbit/main.lua: $(OVERBIT_SRC) carts/overbit/build.py
+	$(PYTHON) carts/overbit/build.py $@ --map $(BUILD)/overbit/main.map
+
+$(BUILD)/overbit/models.bm: $(OVERBIT_ART) scripts/bmmesh.py scripts/mkbm.py
+	$(PYTHON) carts/overbit/art/models.py $@
+
+$(BUILD)/overbit/sounds.json: carts/overbit/art/sounds.py
+	@mkdir -p $(dir $@)
+	$(PYTHON) carts/overbit/art/sounds.py $@
+
+$(BUILD)/carts/overbit.bm: $(BUILD)/overbit/main.lua $(BUILD)/overbit/models.bm $(BUILD)/overbit/sounds.json \
+                           scripts/mkbm.py scripts/bmaudio.py $(wildcard carts/overbit/cover.png)
+	@mkdir -p $(dir $@)
+	$(PYTHON) scripts/mkbm.py -o $@ --lua $< --title "$(title_overbit)" --author bm --res 320x180 \
+	    --models $(BUILD)/overbit/models.bm --audio $(BUILD)/overbit/sounds.json \
+	    $(if $(wildcard carts/overbit/cover.png),--cover carts/overbit/cover.png)
+
+# variants that start in a mode: the reel (for docs/img) and the benchmark
+$(BUILD)/overbit/%.bm: $(OVERBIT_SRC) carts/overbit/build.py $(BUILD)/overbit/models.bm $(BUILD)/overbit/sounds.json
+	$(PYTHON) carts/overbit/build.py $(BUILD)/overbit/$*.lua --start $*
+	$(PYTHON) scripts/mkbm.py -o $@ --lua $(BUILD)/overbit/$*.lua --title "Overbit $*" --author bm --res 320x180 \
+	    --models $(BUILD)/overbit/models.bm --audio $(BUILD)/overbit/sounds.json
+
+test-overbit: $(BUILD)/host/bmhost-bin $(BUILD)/carts/overbit.bm $(BUILD)/overbit/reel.bm $(BUILD)/overbit/bench.bm
+	$(PYTHON) tests/overbit/run.py $(BUILD)
+
+# Overbit's animation reel as a video (docs/img/overbit-reel-rally.mp4 and
+# a GIF of the first half minute): bmhost renders it, ffmpeg encodes it
+overbit-reel: $(BUILD)/host/bmhost-bin $(BUILD)/overbit/reel.bm
+	$(BUILD)/host/bmhost-bin $(BUILD)/overbit/reel.bm --seconds 107 --video $(BUILD)/overbit/reel.rgb \
+	    --wav $(BUILD)/overbit/reel.wav --quiet
+	ffmpeg -y -loglevel error -f rawvideo -pixel_format rgb24 -video_size 320x180 -framerate 60 \
+	    -i $(BUILD)/overbit/reel.rgb -i $(BUILD)/overbit/reel.wav -vf "scale=960:540:flags=neighbor" \
+	    -c:v libx264 -preset slow -crf 28 -pix_fmt yuv420p -c:a aac -b:a 96k -shortest docs/img/overbit-reel-rally.mp4
+	ffmpeg -y -loglevel error -f rawvideo -pixel_format rgb24 -video_size 320x180 -framerate 60 \
+	    -i $(BUILD)/overbit/reel.rgb -t 32 \
+	    -vf "fps=15,scale=480:270:flags=neighbor,split[a][b];[a]palettegen=max_colors=128[p];[b][p]paletteuse=dither=none" \
+	    docs/img/overbit-reel-rally.gif
+	rm -f $(BUILD)/overbit/reel.rgb
+
 # A Lua interpreter for the PC (the same Lua 5.4 as the console): host tests
 # of the Lua cartridges.
 $(BUILD)/host/luahost: tests/kitchen/luahost.c $(LUA_SRCS)
@@ -252,7 +298,7 @@ test-nano8: $(BUILD)/host/n8host $(BUILD)/host/n8cartinfo $(BUILD)/host/luahost 
 # gfx16, r3d, the sound player) and the kernel's services replaced
 # (tests/host/stubs.c): frames to PNG or raw video, sound to WAV, input from
 # a script. For the reels of the games and for tests with screenshots.
-BMHOST_RT := src/bm/runtime.c src/bm/gfx16.c src/bm/r3d.c src/bm/format.c src/bm/meshcap.c \
+BMHOST_RT := src/bm/runtime.c src/bm/gfx16.c src/bm/r3d.c src/bm/world3d.c src/bm/format.c src/bm/meshcap.c \
              src/bm/require.c src/kernel/prompts.c src/gfx/font8x16.c src/gfx/font8x14.c \
              src/gfx/font6x12.c src/lib/printf.c src/lib/crc32.c src/audio/audio.c src/audio/synth.c \
              src/audio/player.c src/audio/iec958.c
@@ -274,7 +320,7 @@ bmhost: $(BUILD)/host/bmhost-bin
 .PHONY: FORCE test-smp all clean firmware image image-pi1 sdcard install sdcard-chainloader sdcard-stress qemu qemu-screenshot \
         run-serial test test-bm test-ai ai-model test-usb test-audio test-fat test-kitchen test-titan test-sound test-nano8 \
         test-net test-http test-https test-release release disasm wav test-studio test-studio-ui studio test-prompts \
-        showreel bmhost
+        showreel bmhost test-overbit overbit-reel
 
 all: $(BUILD)/kernel.img $(BUILD)/chainloader.img $(GAME_CARTS)
 
@@ -413,7 +459,7 @@ qemu-screenshot: $(BUILD)/kernel.img
 	./scripts/qemu-screenshot.sh $< $(BUILD)/screen.png
 
 test: all test-bm test-usb test-fat test-audio test-kitchen test-titan test-sound test-nano8 test-net test-http test-https \
-      test-release test-smp test-ai test-studio test-prompts
+      test-release test-smp test-ai test-studio test-prompts test-overbit
 	$(PYTHON) tests/qemu_test.py --build $(BUILD)
 
 $(BUILD)/host/test_bm: tests/bm/test_bm.c src/bm/gfx16.c src/bm/r3d.c src/bm/format.c src/lib/crc32.c src/bm/*.h

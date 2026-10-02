@@ -180,7 +180,7 @@ nano8) legge la tastiera tasto per tasto e i controller pulsante per pulsante:
 | Funzione | Descrizione |
 |---|---|
 | `time()` | secondi dall'avvio della cartuccia (con decimali) |
-| `stat(n)` | 0 KiB usati da Lua, 1 ms di CPU dell'ultimo fotogramma, 2 fps, 3 numero del fotogramma, 4 triangoli 3D, 5 pixel 3D |
+| `stat(n)` | 0 KiB usati da Lua, 1 ms di CPU dell'ultimo fotogramma, 2 fps, 3 numero del fotogramma, 4 triangoli 3D, 5 pixel 3D, 6 ms passati nel disegno 3D (da `zclear`), 7 vertici 3D trasformati, 8 ms dall'inizio di questo fotogramma (per misurare le fasi) |
 | `log(...)` | scrive nel log del kernel (seriale e console), non sullo schermo del gioco |
 | `quit()` | chiude la cartuccia alla fine del fotogramma |
 | `timeslice(co, [k])` | la coroutine `co` si ferma da sola dopo circa `k` mila istruzioni Lua in un fotogramma (400 se manca) e `coroutine.resume` torna `true` senza valori: un calcolo lungo prosegue nei fotogrammi successivi invece di fermare la cartuccia per il limite di istruzioni. `timeslice(nil)` lo toglie (nano8 lo usa per le sue cartucce) |
@@ -418,21 +418,59 @@ Esempio completo: `carts/hunt` (Hunter's Night).
 
 | Funzione | Descrizione |
 |---|---|
-| `mesh(v, f, [uv])` | mesh da tabelle: `v` = {x,y,z, x,y,z, …}, `f` = {a,b,c,colore, …} (indici da 1; una faccia si vede dal lato da cui i suoi vertici appaiono in senso **orario**). Con `uv` (6 numeri per faccia: u,v dei tre vertici in pixel dello sprite sheet) le facce con colore `-1` hanno la **texture** dello sprite sheet (prospettiva corretta, i pixel trasparenti restano vuoti) |
+| `mesh(v, f, [uv])` | mesh da tabelle: `v` = {x,y,z, x,y,z, …}, `f` = {a,b,c,colore, …} (indici da 1; una faccia si vede dal lato da cui i suoi vertici appaiono in senso **orario**). Con `uv` (6 numeri per faccia: u,v dei tre vertici in pixel dello sprite sheet) le facce con colore `-1` hanno la **texture** dello sprite sheet (prospettiva corretta, i pixel trasparenti restano vuoti). Il colore può avere i **bit di materiale** (tabella sotto) |
 | `mesh_sphere([r, segmenti, c1, c2])`, `mesh_cube([c])` | mesh pronte |
 | `model(nome)` / `model(n)` | un **modello 3D della cartuccia** (fatto con [bm Studio](../sdk/README.md), sezione MESH) come mesh, con la texture dello sprite sheet; `n` conta dall'1; `nil` se non c'è. Ogni chiamata costruisce una mesh nuova: va fatta in `_init` |
 | `models()` | i nomi dei modelli della cartuccia, in ordine (`{}` se non ne ha) |
 | `bounds3d(m)` | `x0, y0, z0, x1, y1, z1`: il box intorno ai vertici di una mesh, nelle sue coordinate (prima di spostarla, girarla e scalarla con `draw3d`): per centrarla, per le collisioni |
-| `animate(m, [anim, t, anim2, t2, k])` | **animazione scheletrica**: un modello con lo scheletro di [bm Animator](../sdk/README.md#bm-animator) prende la posa dell'animazione `anim` (nome o numero) al tempo `t` in secondi (in ciclo, se l'animazione è in ciclo); con `anim2, t2` mescola due animazioni (`k` da 0, solo la prima, a 1, solo la seconda: per passare dall'una all'altra); senza animazione la posa di riposo. Restituisce la durata dell'animazione. Errore se la mesh non ha scheletro o l'animazione non c'è |
+| `animate(m, [anim, t, anim2, t2, k, osso])` | **animazione scheletrica**: un modello con lo scheletro di [bm Animator](../sdk/README.md#bm-animator) prende la posa dell'animazione `anim` (nome o numero) al tempo `t` in secondi (in ciclo, se l'animazione è in ciclo); con `anim2, t2` mescola due animazioni (`k` da 0, solo la prima, a 1, solo la seconda: per passare dall'una all'altra); con `osso` la seconda vale solo per quell'osso e quelli sotto (un busto che spara su gambe che corrono); senza animazione la posa di riposo. Restituisce la durata dell'animazione. Errore se la mesh non ha scheletro o l'animazione non c'è. Le ossa muovono i vertici mentre la mesh si disegna (skinning rigido): `animate` costa solo le ossa |
+| `bone_turn(m, osso, [rx, ry, rz])` | da ora ogni `animate` gira anche l'osso di questi angoli (radianti, x poi y poi z, nel sistema del genitore) sopra l'animazione: mirare in alto e in basso, gambe che seguono la direzione di marcia. `bone_turn(m, osso)` lo toglie |
+| `bones3d(m)` | i nomi delle ossa dello scheletro, in ordine |
+| `hit3d(m, x, y, z, ry, scala, ox, oy, oz, dx, dy, dz, [maxd])` | `t, osso`: il raggio da `o` lungo `d` contro le ossa della mesh nell'ultima posa, disegnata in (x, y, z) girata di `ry` e scalata; ogni osso è una capsula dalla testa alla coda larga quanto i suoi vertici. Il colpo più vicino entro `maxd` (`t` in unità di `d`), o `nil`: hitbox che seguono l'animazione (colpo alla testa: osso `"head"`) |
 | `clips(m)` | le animazioni di un modello: `{ {name=, length=, loop=}, ... }` (`{}` senza scheletro) |
 | `bone3d(m, osso)` | `x, y, z, cx, cy, cz`: dove si trovano la testa e la coda di un osso (nome o numero) nell'ultima posa, nelle coordinate del modello (come `bounds3d`); `nil` se l'osso non c'è. Per attaccare oggetti alle mani (la testa), la punta di una spada (la coda), luci, effetti |
-| `draw3d(m, x, y, z, [rx, ry, rz, scala, flag])` | disegna una mesh con z-buffer e luce per faccia. `flag`: 1 = senza z-buffer (né prova né scrittura: pavimenti e sfondi disegnati per primi, più veloci), 2 = senza luce (colori pieni), 4 = **liscia** (Gouraud: luce calcolata sui vertici e sfumata sulla faccia, con dithering; le facce che condividono gli stessi indici di vertice sembrano una superficie curva, per gli spigoli vivi usare vertici separati); si sommano |
+| `draw3d(m, x, y, z, [rx, ry, rz, scala, flag])` | disegna una mesh con z-buffer e luce per faccia. `flag`: 1 = senza z-buffer (né prova né scrittura: pavimenti e sfondi disegnati per primi, più veloci), 2 = senza luce (colori pieni), 4 = **liscia** (Gouraud: luce calcolata sui vertici e sfumata sulla faccia, con dithering; le facce che condividono gli stessi indici di vertice sembrano una superficie curva, per gli spigoli vivi usare vertici separati o il bit "piatta"), 8 = l'**ombra** della mesh sul piano `y` del punto (lungo il sole: scurisce quello che c'è già, la mesh non si disegna), 16, 32, 48 = **livello di dettaglio** 2, 1, 0 (solo le facce di quel livello, vedi i bit di materiale; senza: 3, tutte), 64 = **in primo piano** (armi e braccia in prima persona: lo z-buffer sotto viene pulito, profondità precise da 0,1 unità); si sommano |
+| `sky3d(sole, cielo, terreno)` | colori (0xRRGGBB) della luce del sole e della luce ambiente che viene dall'alto e dal basso (le facce rivolte in su prendono il cielo, quelle in giù il terreno); `sky3d()` torna al bianco |
+| `shine3d(spec, esponente, bordo)` | riflessi del sole sulle facce lucide (`spec` 0–2, `esponente` 4–64: più alto, più piccolo) e luce sul bordo delle forme (`bordo` 0–1) |
+| `shadow3d(stile)` | ombre di `draw3d` con il flag 8: 0 scuriscono (predefinito), 1 nero a retino (senza leggere lo schermo) |
+| `point3d(x, y, z, raggio, colore, [flag])` | un punto rotondo di raggio nel mondo, dietro le cose più vicine (non scrive lo z-buffer): particelle, scintille, proiettili. `flag` 1 = un pixel sì e uno no. Restituisce i pixel |
+| `line3d(x0, y0, z0, x1, y1, z1, colore, [spessore, flag])` | una linea 3D, tagliata dal piano vicino e nascosta dalle cose più vicine: traccianti, raggi |
+| `sprite3d(sx, sy, sw, sh, x, y, z, larghezza, [flag])` | un rettangolo dello sprite sheet rivolto alla camera, largo `larghezza` unità nel mondo, nascosto dalle cose più vicine: esplosioni, fumo, icone sopra i personaggi |
 | `camera3d(x, y, z, [yaw, pitch, fov, roll])` | camera (default a z = −5, fov 60°); `roll` inclina l'inquadratura (radianti) |
 | `light3d(x, y, z, [ambiente])` | direzione della luce e luce ambiente (0–1) |
 | `zclear()` | pulisce lo z-buffer (a ogni fotogramma, prima di `draw3d`) |
 | `fog3d(colore, vicino, lontano)` | nebbia: le facce sfumano nel colore tra le due distanze; `fog3d()` la toglie |
-| `lamp3d(i, x, y, z, raggio, [k])` | luce puntiforme `i` (1–4): le facce con il centro entro `raggio` diventano più chiare, fino a `k` in più (predefinito 1) al centro; `lamp3d(i)` la spegne, `lamp3d()` le spegne tutte. Con `light3d` ad ambiente basso fa scene al buio con lanterne |
+| `lamp3d(i, x, y, z, raggio, [k, colore])` | luce puntiforme `i` (1–4): le facce con il centro entro `raggio` diventano più chiare, fino a `k` in più (predefinito 1) al centro, del `colore` dato (bianco se manca); `lamp3d(i)` la spegne, `lamp3d()` le spegne tutte. Con `light3d` ad ambiente basso fa scene al buio con lanterne |
 | `project3d(x, y, z)` | punto del mondo → `sx, sy, profondità` sullo schermo (`nil` se è dietro la camera): per disegnare in 2D cose allineate al 3D (orizzonte, mirini, etichette) |
+
+**Bit di materiale** nel colore di una faccia (di `mesh()` e dei modelli; 0 = la faccia di
+sempre):
+
+| Bit | Valore | Effetto |
+|---|---|---|
+| 30 | `0x40000000` | **emissiva**: colore pieno, senza luce (luci, schermi, energia) |
+| 29 | `0x20000000` | **lucida**: il riflesso del sole (`shine3d`) |
+| 28 | `0x10000000` | **a retino**: un pixel sì e uno no, si vede quello che c'è dietro (scudi, vetri) |
+| 27 | `0x08000000` | **piatta**: anche in un disegno liscio (flag 4) prende la luce del suo piano; gli spigoli vivi possono condividere i vertici |
+| 24–26 | | **livello di dettaglio**: bit 24–25 un livello `k` (0–3); bit 26 a 0 la faccia si vede da `k` in su (un dettaglio), a 1 sotto `k` (una versione semplice) |
+
+```lua
+local SHIELD = 0x40C8FF | 0x40000000 | 0x10000000   -- azzurro, emissivo, a retino
+local DETAIL = 0xFFFFFF | 0x02000000                 -- bianco, solo dal dettaglio 2 in su
+```
+
+### Mondi di collisione
+
+Scatole solide, raggi e corpi che si muovono scivolando sui muri (in C: molto più veloci
+che in Lua). Esempio completo: `carts/overbit`.
+
+| Funzione | Descrizione |
+|---|---|
+| `world3d()` | un mondo di collisione vuoto |
+| `world_box(w, x0, y0, z0, x1, y1, z1, [tag])` | una scatola solida; restituisce il suo numero |
+| `world_ray(w, ox, oy, oz, dx, dy, dz, [maxd, terreno])` | `t, nx, ny, nz, scatola`: il primo punto colpito lungo il raggio (la normale della faccia; scatola 0 = il terreno `y = 0`, che conta a meno che `terreno` sia `false`), o `nil` |
+| `world_move(w, x, y, z, r, h, dx, dy, dz, [gradino, a_terra])` | `x, y, z, flag`: un corpo (piedi in `x, y, z`, raggio `r`, altezza `h`) spostato di `d`, che scivola sui muri e sale i gradini fino a `gradino` (0,45) se era a terra. `flag`: 1 a terra, 2 un muro (4 lungo x, 8 lungo z), 16 un soffitto |
+| `world_floor(w, x, z, y, r, [gradino])` | l'altezza del pavimento sotto `(x, z)` |
 
 I triangoli che attraversano il piano vicino alla camera vengono tagliati, non scartati:
 pavimenti e oggetti grandi restano interi anche quando passano accanto alla camera.

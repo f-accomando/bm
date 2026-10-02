@@ -102,6 +102,22 @@ screenshot in `docs/img/`), `README_OLD.md` (il README completo, in italiano),
   dialogo): lì si chiama `key_chip`. `make test-prompts` disegna i due set in
   `build/prompts/`: guardarli dopo ogni modifica.
 
+## Overbit (M31)
+
+- Sparatutto a eroi in 3D (`carts/overbit`, branch `claude/overclone`): kit di Overwatch
+  con **nomi e design nostri** (decisione dell'utente), mai marchi di Blizzard o altri.
+  Lua in `src/*.lua` uniti da `build.py` (00_core resta al livello più alto, gli altri in
+  `do ... end`); modelli e animazioni generati da `art/models.py` (`geo.py` primitive,
+  `rig.py` scheletri e clip, `heroes/<eroe>.py`), suoni da `art/sounds.py`.
+- Convenzioni: metri, y in alto, un personaggio guarda +z e la sua destra è +x (ossa "L" a
+  −x); yaw a → avanti (sin a, 0, cos a). Facce in senso orario viste da fuori.
+- **bmhost** (`make bmhost`, `tests/host/`): il runtime vero delle cartucce sul PC; per
+  vedere i frame (`--shots`), registrare (`--video`, `--wav`), input da script,
+  `--clock-scale 21` per stimare i ms del Pi. `make test-overbit`, `make overbit-reel`.
+- Prestazioni senza Pi: `tools/armprof.py` (istruzioni ARM per funzione con QEMU, serve
+  `gcc-arm-linux-gnueabihf`) su `tests/bm/r3dbench.c`. Il Pi resta il giudice: chiedere
+  all'utente le foto del benchmark e dell'overlay.
+
 ## Audio
 
 - Sintetizzatore `src/audio/synth.c`; player dei banchi di suoni `src/audio/player.c`
