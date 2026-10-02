@@ -1,6 +1,6 @@
 /*
  * Status icons of the menu bar (M27): keyboard, controller (DualShock 4
- * style), mouse (M31, an outline), WiFi, Ethernet, all in the same box. Drawn once from shapes with
+ * style), mouse (M32, an outline), WiFi, Ethernet, all in the same box. Drawn once from shapes with
  * anti-aliasing (4x4 samples per pixel) into coverage masks; the player
  * number goes on a small disc over the bottom middle, with a gap cut
  * around it so the icon stays readable (white for USB, blue for

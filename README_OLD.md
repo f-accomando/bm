@@ -117,7 +117,8 @@ Risoluzioni di menu, console e giochi, e quanto costano: [docs/RISOLUZIONI.md](d
 | **M28** | Tastiera Bluetooth LE (MX Keys S): pairing con codice, HID over GATT, riconnessione | ✅ verificato sul Pi |
 | **M29** | **Pi 1 B**: stesso kernel, hub USB (split transactions), Ethernet LAN9512, immagine `bm-pi1.img` | ✅ verificato sul Pi 1 B |
 | M30 | **Assistente AI** per lo sviluppo: domande su API e codice, errori, base degli sprite; rete INT8 sulla console | base fatta (QEMU), integrazione negli editor dopo |
-| M31 | **Mouse** USB e Bluetooth (LE e classico) e puntatore: nel menu, nelle cartucce che lo chiedono (`mouse()`), anche con la levetta destra dei pad | fatto in QEMU, da provare sul Pi |
+| M31 | **Pi Zero 2 W**: `kernel7.img`, gli stessi sorgenti per ARMv7, una SD per tutte le schede | fatta in QEMU, da verificare sul Pi |
+| M32 | **Mouse** USB e Bluetooth (LE e classico) e puntatore: nel menu, nelle cartucce che lo chiedono (`mouse()`), anche con la levetta destra dei pad | fatto in QEMU, da provare sul Pi |
 
 ## Cosa fa il kernel
 
@@ -169,7 +170,7 @@ con **`b`**.
 | `I` | **Assistant** (M30): come si scrive il codice, basi di sprite (F6 negli strumenti; anche nella scheda Dev) |
 | `a` | audio: stato dell'uscita HDMI (clock, canale DMA, costo della sintesi, volume) e una prova: le sei forme d'onda, un accordo, glide, vibrato e arpeggio |
 | `T` | Bluetooth: cerca per 8 s e **abbina il primo controller** trovato come **prossimo giocatore** (fino a 4; DS4: Share + PS finché lampeggia); la console seriale passa alla mini UART (stessi pin) |
-| `O` | Bluetooth: **abbina un mouse** (M31) in modalità abbinamento: prima cerca per 10 s un mouse Bluetooth LE, poi per 8 s uno classico; nessun codice da digitare |
+| `O` | Bluetooth: **abbina un mouse** (M32) in modalità abbinamento: prima cerca per 10 s un mouse Bluetooth LE, poi per 8 s uno classico; nessun codice da digitare |
 | `P` | Bluetooth: **dimentica tutti i pad**, la tastiera e il mouse abbinati (chiede conferma con `y`): chiavi tolte da `bm/config.txt`, dispositivi scollegati; poi si riabbinano con `T`, `K`, `O` |
 | `o` | **log dell'avvio**: tutto quello che il kernel ha scritto dall'accensione (primi 64 KiB), a pagine |
 | `W` | WiFi (M18): accende il chip e lo identifica, un passo per riga |
@@ -222,7 +223,7 @@ viene scelta l'interfaccia tastiera, anche se il dispositivo usa i report con ID
   **tasto PS (o Share+Options) = esci**. Lo stesso decodificatore servirà per il
   Bluetooth (M12).
 
-**Mouse (M31).** Un mouse USB (anche con la tastiera, sullo stesso ricevitore o dietro un
+**Mouse (M32).** Un mouse USB (anche con la tastiera, sullo stesso ricevitore o dietro un
 hub) o Bluetooth (LE, come i Logitech MX, o classico: Settings > Controllers > *Pair a
 mouse*, o `O` dal monitor) muove il **puntatore**; senza mouse lo muove la **levetta
 destra** di un pad (R2 o R3 = tasto sinistro, L2 = destro). Vedi sotto.
@@ -297,7 +298,7 @@ Test pattern (comando `t`):
 
 ![test pattern](docs/m0-test-pattern.png)
 
-## Mouse e puntatore (M31)
+## Mouse e puntatore (M32)
 
 - **Dove c'è**: nel menu di bm sempre; nelle app (giochi, strumenti) solo se l'app lo chiede
   con `mouse(true)` (vedi [docs/API.md](docs/API.md)); nella console testuale no.
@@ -345,9 +346,11 @@ sudo apt install gcc-arm-none-eabi binutils-arm-none-eabi qemu-system-arm make c
 ## Build e test
 
 ```sh
-make                  # build/kernel.img + build/chainloader.img
+make                  # build/kernel.img + build/kernel7.img (Pi Zero 2 W) + build/chainloader.img
 make test             # test end-to-end in QEMU: boot, console, schermo, eccezioni, chainloader
+make test-zero2       # gli stessi test con kernel7.img in QEMU (-M raspi2b)
 make qemu             # esegue in QEMU (-M raspi0), seriale sul terminale
+make qemu7            # kernel7.img in QEMU (-M raspi2b)
 make qemu-screenshot  # esecuzione headless, salva build/screen.png
 make studio           # bm Studio e bm Animator su http://localhost:8765 (sdk/README.md)
 ```
@@ -550,14 +553,16 @@ make install            # = make sdcard, poi copia tutto sulla SD in /mnt/d
 make install SD=/mnt/e  # se la SD è montata altrove
 ```
 
-`make install` copia kernel, file di avvio, `config.txt`, cartucce e il firmware del chip
-in `bm/` (Bluetooth e WiFi); non tocca mai impostazioni e salvataggi
+`make install` copia i due kernel (`kernel.img` e `kernel7.img` del Pi Zero 2 W), file di
+avvio, `config.txt`, cartucce e il firmware dei chip in `bm/` (Bluetooth e WiFi del Zero W
+e del Zero 2 W); non tocca mai impostazioni e salvataggi
 (`bm/CONFIG.TXT`, `bm/SAVE`). Alla fine elenca cosa c'è in `bm/` sulla SD.
 
 ## Release (M19)
 
-A ogni tag `v*` il CI (`.github/workflows/ci.yml`), dopo i test, costruisce il kernel (con il
-tag come versione: `bm v0.1.0` nella barra) e i giochi e li pubblica in una release di GitHub
+A ogni tag `v*` il CI (`.github/workflows/ci.yml`), dopo i test, costruisce i kernel
+(`kernel.img` e `kernel7.img`, con il tag come versione: `bm v0.1.0` nella barra) e i giochi e
+li pubblica in una release di GitHub
 con `bm/ca.pem` e `manifest.txt`: per ogni file il nome nella release, dove va sulla SD, la
 dimensione e lo SHA-256. `manifest.sig` è la firma del manifesto (ECDSA P-256), fatta con la
 chiave privata nel secret `BM_RELEASE_KEY` del repository; la chiave pubblica
@@ -584,7 +589,7 @@ Il modo più semplice è l'immagine completa: `make firmware && make image`, poi
 1. Formatta la SD con una partizione **FAT32** (tabella MBR).
 2. `make firmware && make sdcard` (per fissare una versione del firmware: `FW_REF=<tag> make firmware`).
 3. Copia il contenuto di `dist/` nella root della SD (`cp -r dist/* /mnt/d/`):
-   `bootcode.bin  start.elf  fixup.dat  config.txt  kernel.img  carts/`
+   `bootcode.bin  start.elf  fixup.dat  config.txt  kernel.img  kernel7.img  carts/  bm/`
 4. Collega l'HDMI (mini-HDMI) *prima* di alimentare il Pi.
 
 ## Raspberry Pi 1 (B e B+, M29)
@@ -609,6 +614,37 @@ make firmware && make image-pi1   # dist/bm-pi1.img: scrivila sulla SD come bm.i
   sotto i 60 fps.
 - Il firmware di avvio (`make firmware`) e gli aggiornamenti di bm (`--kernel`, M19)
   sono gli stessi per Zero W e Pi 1.
+
+## Raspberry Pi Zero 2 W (M31)
+
+Il Zero 2 W ha un altro processore (BCM2710A1: quattro Cortex-A53) e quindi un suo kernel,
+**`kernel7.img`**: gli stessi sorgenti compilati per ARMv7 a 32 bit. `make`, `make sdcard`,
+`make install` e `make image` mettono sulla SD **tutti e due i kernel**, e `config.txt` fa
+partire quello giusto (`[pi02]` → `kernel7.img`): la stessa scheda va nel Zero W e nel
+Zero 2 W.
+
+```sh
+make firmware && make image   # dist/bm.img per Zero, Zero W e Zero 2 W
+make install                  # oppure: aggiorna la SD in /mnt/d (tutti e due i kernel)
+```
+
+- **Schermo**: la prima riga dice `Raspberry Pi Zero 2 W (BCM2710A1, revision 902120)`, la
+  seconda `Cortex-A53 from HYP` (il processore e il modo in cui il firmware l'ha avviato).
+  Nel menu, scheda System, la riga CPU dice `Cortex-A53, 1000 MHz, ...`.
+- **Un core su quattro**: gli altri tre restano fermi nello stub del firmware.
+- **LED**: il LED ACT del Zero 2 W è il GPIO 29.
+- **WiFi e Bluetooth**: il chip è un CYW43436, con un firmware diverso da quello del Zero W;
+  `make firmware` scarica anche i suoi file (`brcmfmac43436-sdio.*`, `brcmfmac43436s-sdio.*`,
+  `SYN43430A1.hcd`, `SYN43430B0.hcd`) e `make sdcard` li mette in `bm/`. Il kernel sceglie
+  quelli della versione del chip e lo scrive sullo schermo (`wifi: chip ... CYW43436`,
+  `bt: chip LMP subversion ...`).
+- **Kernel dalla rete**: `tools/bm_net.py IP --kernel build/kernel7.img` (sul Zero 2 W
+  viene scritto come `kernel7.img`); un kernel per l'altra scheda viene rifiutato senza
+  scrivere niente (all'offset 4 di ogni immagine c'è `bmK6` o `bmK7`).
+- **Chainloader seriale**: solo per le schede BCM2835 (`kernel.img`).
+- **Test**: QEMU non ha il Zero 2 W; `make test-zero2` prova `kernel7.img` in `raspi2b`
+  (un Pi 2 B: le stesse periferiche, un Cortex-A7, niente radio). Dettagli in
+  [`docs/HARDWARE.md`](docs/HARDWARE.md), sezione 8.
 
 ## Struttura
 

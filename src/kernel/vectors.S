@@ -1,5 +1,6 @@
 /*
- * Exception vector table (copied to 0x0 by start.S) and entry stubs.
+ * Exception vector table (copied to 0x0 by start.S; on ARMv7, kernel7.img,
+ * used in place through VBAR) and entry stubs.
  *
  * Each stub builds an exc_frame_t on the current mode's stack:
  *   [sp, lr of interrupted mode] [spsr] [r0..r12] [pc of faulting insn]
@@ -70,7 +71,8 @@ exc_common:
 /*
  * IRQ entry: runs the C handler in SVC mode (IRQs still masked) and returns
  * to the interrupted code. Saves the AAPCS caller-saved registers, including
- * VFP d0-d7 and FPSCR, since C code built for hard-float may use them.
+ * VFP d0-d7 and FPSCR, since C code built for hard-float may use them; with
+ * 32 VFP registers (NEON, kernel7.img) d16-d31 too.
  */
     .globl irq_entry
 irq_entry:
@@ -79,6 +81,9 @@ irq_entry:
     cps     #0x13
     push    {r0-r3, r12, lr}        @ 8 words total with the SRS frame
     vpush   {d0-d7}
+#ifdef __ARM_NEON
+    vpush   {d16-d31}
+#endif
     vmrs    r0, fpscr
     and     r1, sp, #4              @ realign the stack to 8 bytes (AAPCS)
     sub     sp, sp, r1
@@ -87,6 +92,9 @@ irq_entry:
     pop     {r0, r1}
     add     sp, sp, r1
     vmsr    fpscr, r0
+#ifdef __ARM_NEON
+    vpop    {d16-d31}
+#endif
     vpop    {d0-d7}
     pop     {r0-r3, r12, lr}
     rfeia   sp!                     @ restore pc and cpsr from the SRS frame

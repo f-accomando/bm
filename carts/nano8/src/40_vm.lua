@@ -227,7 +227,7 @@ function Vm.tick()
   end
 end
 
--- The mouse of the carts (poke(0x5f2d, 1)): bm's pointer (M31) once it
+-- The mouse of the carts (poke(0x5f2d, 1)): bm's pointer (M32) once it
 -- shows (a mouse, or the right stick moved), over the picture of the cart,
 -- which draws its own cursor; else the cursor follows the left stick, the
 -- cross or the arrows (faster the longer they are held). O / X are also

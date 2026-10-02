@@ -29,6 +29,8 @@ void board_decode(uint32_t rev, board_t *b)
         case 0x06: b->model = BOARD_CM1; break;
         case 0x09: b->model = BOARD_ZERO; break;
         case 0x0C: b->model = BOARD_ZERO_W; break;
+        case 0x12: b->model = BOARD_ZERO_2W; break;
+        case 0x04: b->model = BOARD_PI2_B; break;
         default:   b->model = BOARD_OTHER; break;
         }
     } else {
@@ -48,10 +50,12 @@ void board_decode(uint32_t rev, board_t *b)
     }
 
     /* ACT LED: GPIO 16 active low on the first Pi 1 A/B, GPIO 47 on the
-     * later boards (active high on the Pi 1 A+/B+, low on the Zero) */
-    b->led_pin = 47;
+     * later boards (active high on the Pi 1 A+/B+ and Pi 2 B, low on the
+     * Zero), GPIO 29 active low on the Zero 2 W */
+    b->led_pin = BOARD_LED_PIN;
     b->led_active_high = 0;
     b->wireless = 1;
+    b->bt_on_pin = 45;
     b->ethernet = 0;
     switch (b->model) {
     case BOARD_PI1_A:     put(b->name, &n, "Pi 1 A"); break;
@@ -61,6 +65,8 @@ void board_decode(uint32_t rev, board_t *b)
     case BOARD_CM1:       put(b->name, &n, "Compute Module 1"); break;
     case BOARD_ZERO:      put(b->name, &n, "Pi Zero"); break;
     case BOARD_ZERO_W:    put(b->name, &n, "Pi Zero W"); break;
+    case BOARD_ZERO_2W:   put(b->name, &n, "Pi Zero 2 W"); break;
+    case BOARD_PI2_B:     put(b->name, &n, "Pi 2 B"); break;
     default:              put(b->name, &n, "Pi (unknown board)"); break;
     }
     if (pcb) {
@@ -71,8 +77,16 @@ void board_decode(uint32_t rev, board_t *b)
     case BOARD_PI1_A: case BOARD_PI1_B:
         b->led_pin = 16;
         break;
-    case BOARD_PI1_APLUS: case BOARD_PI1_BPLUS:
+    case BOARD_PI1_APLUS: case BOARD_PI1_BPLUS: case BOARD_PI2_B:
+        b->led_pin = 47;
         b->led_active_high = 1;
+        break;
+    case BOARD_ZERO: case BOARD_ZERO_W:
+        b->led_pin = 47;
+        break;
+    case BOARD_ZERO_2W:
+        b->led_pin = 29;
+        b->bt_on_pin = 42;
         break;
     case BOARD_CM1:
         b->led_pin = 0;
@@ -83,9 +97,9 @@ void board_decode(uint32_t rev, board_t *b)
     /* The Pi 1 has no radio. The plain Zero has none either, but QEMU's
      * raspi0 says "Zero" and the WiFi/Bluetooth tests run there: it keeps
      * the probe, which fails quietly on a real Zero. */
-    if (b->model >= BOARD_PI1_A && b->model <= BOARD_CM1)
+    if ((b->model >= BOARD_PI1_A && b->model <= BOARD_CM1) || b->model == BOARD_PI2_B)
         b->wireless = 0;
-    b->ethernet = b->model == BOARD_PI1_B || b->model == BOARD_PI1_BPLUS;
+    b->ethernet = b->model == BOARD_PI1_B || b->model == BOARD_PI1_BPLUS || b->model == BOARD_PI2_B;
     if (b->model == BOARD_UNKNOWN || b->model == BOARD_OTHER) {
         put(b->name, &n, " ");
         char h[9];

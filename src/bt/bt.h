@@ -25,7 +25,7 @@ void bt_pair_keyboard(unsigned seconds);
 int bt_keyboard(void);
 int bt_keyboard_paired(void);
 
-/* A mouse (M31): Bluetooth LE (HID over GATT) or classic (boot protocol).
+/* A mouse (M32): Bluetooth LE (HID over GATT) or classic (boot protocol).
  * Looks for one in pairing mode, LE first, then classic, and pairs it
  * (bt_mouse, bt_mouse_key or bt_mouse_classic in bm/config.txt); then it
  * comes back by itself. */

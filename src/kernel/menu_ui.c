@@ -592,7 +592,7 @@ static int hint(const menu_view_t *v, int col, int row, int b, const char *label
     }
     int lc = (x + 4 + 7) / 8;
     g16_text(&g, lc * 8, y, label, c16(C_TEXT));
-    /* the pointer (M31) clicks it: A, B, X; "Change" is A on a choice row */
+    /* the pointer (M32) clicks it: A, B, X; "Change" is A on a choice row */
     static const char letter[] = { 'A', 'B', 'X', 'A', 0 };
     if (!hints_dead && letter[b])
         zone(col * 8 - 8, y - 4, (lc + (int)strlen(label)) * 8 - (col * 8 - 8) + 4, 24,
@@ -683,7 +683,7 @@ static void put_icon(const icon_mask_t *m, int x0, int y0, uint32_t ink, uint32_
 }
 
 /* right-aligned: a keyboard or a controller with its number for each
- * player, the mice (M31: no number, a blue dot on Bluetooth), then WiFi or
+ * player, the mice (M32: no number, a blue dot on Bluetooth), then WiFi or
  * Ethernet when the console is on a network */
 static void status_icons(const menu_view_t *v)
 {

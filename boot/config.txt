@@ -1,7 +1,13 @@
-# bm - Raspberry Pi Zero / Zero W boot configuration
+# bm - Raspberry Pi Zero / Zero W / Zero 2 W boot configuration
 
+# kernel.img: the BCM2835 boards (Pi Zero, Zero W, Pi 1); kernel7.img: the
+# Pi Zero 2 W (BCM2710A1, Cortex-A53 in 32 bit). Both are on the card.
 kernel=kernel.img
 arm_64bit=0
+
+[pi02]
+kernel=kernel7.img
+[all]
 
 # Always drive HDMI even if no monitor is detected at power-on
 hdmi_force_hotplug=1

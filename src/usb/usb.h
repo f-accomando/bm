@@ -18,7 +18,7 @@ typedef struct {
     uint16_t vid, pid;
     uint8_t speed;
     char name[48];
-    /* a mouse (M31), used next to the keyboard or gamepad: on the same
+    /* a mouse (M32), used next to the keyboard or gamepad: on the same
      * device (a receiver with both) or on another port of the hub */
     int mouse;                      /* 0 none, 1 mouse, 2 tablet (absolute) */
     uint16_t mouse_vid, mouse_pid;

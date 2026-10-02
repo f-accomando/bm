@@ -1599,7 +1599,7 @@ static int l_keys(lua_State *L)
 /* pad([p]) -> the controller buttons player p (1-4) holds, as bits: 1 left,
  * 2 right, 4 up, 8 down, 16 A, 32 B, 64 Start, 128 Select, 256 X, 512 Y,
  * 1024 L1, 2048 R1; without p, any player */
-/* mouse(on [, arrow]): the cartridge wants the pointer (M31; without it
+/* mouse(on [, arrow]): the cartridge wants the pointer (M32; without it
  * there is none in a cartridge), with the system's arrow drawn over the
  * frame unless arrow is false; returns false when the console has it off
  * (mouse=off in bm/config.txt). mouse() -> x, y, buttons (1 left, 2 right,

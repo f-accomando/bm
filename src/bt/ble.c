@@ -2,7 +2,7 @@
  * Bluetooth LE keyboards and mice (HID over GATT), e.g. the Logitech MX
  * Keys and MX Master: one of each, connected at the same time.
  *
- *   pairing     'K' (keyboard) or 'O' (mouse, M31) in the monitor: active
+ *   pairing     'K' (keyboard) or 'O' (mouse, M32) in the monitor: active
  *               scan for one in pairing mode, LE connection, SMP pairing
  *               as initiator. For a keyboard we show a 6-digit code and
  *               its owner types it (Passkey Entry); a mouse cannot type:
@@ -817,7 +817,7 @@ static void find_report(uint8_t id)
     }
 }
 
-/* the report map is read: which report is the mouse (M31): buttons, X, Y,
+/* the report map is read: which report is the mouse (M32): buttons, X, Y,
  * wheel; else the boot mouse report, in boot protocol */
 static void choose_mouse_report(void)
 {

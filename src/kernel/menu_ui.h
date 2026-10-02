@@ -75,7 +75,7 @@ typedef struct {
     const char *ask_yes;        /* the label of A ("Close it", "Delete") */
 } menu_view_t;
 
-/* What is under a point of the last frame (M31: the pointer), the
+/* What is under a point of the last frame (M32: the pointer), the
  * topmost thing: a cover (index; full = not cut by the edges of the grid),
  * a tab (index), Settings, a row of the panel (index in its rows), a
  * button of the hints (index 'A', 'B' or 'X'), the panel or the question

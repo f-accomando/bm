@@ -137,7 +137,7 @@ della mappa; ogni numero è una cella dello sheet).
 | `players()` | quanti giocatori hanno un controller (almeno 1) e, come secondo valore, quali: bit `n` = giocatore `n+1` (es. `3, 7` = giocatori 1, 2 e 3) |
 | `stick([p])` | la levetta sinistra del giocatore `p`: `x, y` tra −1 e 1 (x verso destra, y verso il basso), con zona morta; con la tastiera o un pad senza levetta vale la croce (8 direzioni). Senza `p`: quella spinta di più |
 
-**Mouse e puntatore (M31).** Una cartuccia ha il puntatore solo se lo chiede: senza
+**Mouse e puntatore (M32).** Una cartuccia ha il puntatore solo se lo chiede: senza
 `mouse(true)` non c'è (nel menu di bm invece c'è sempre). Lo muovono un mouse USB o
 Bluetooth, oppure la levetta destra di un pad (R2 o R3 tasto sinistro, L2 destro); la
 console può averlo spento per tutto il sistema (`mouse=off` in `bm/config.txt`).

@@ -11,6 +11,7 @@ Standard library only (Linux / macOS / WSL).
   bm_net.py IP --send x.bm --to /bm   (another folder)
   bm_net.py IP --play game.bm           played at once, not saved
   bm_net.py IP --kernel build/kernel.img written as kernel.img, then reboot
+  bm_net.py IP --kernel build/kernel7.img   the same on a Pi Zero 2 W (kernel7.img)
 
 The password is the one shown on the Pi's screen after 'W' (net_password in
 bm/config.txt). In the console keys go to the Pi one by one, as on its
@@ -33,7 +34,9 @@ PORT = 3333
 XFER_PORT = 3334
 ANSWERS = {b"OK": "ok", b"PW": "wrong password", b"SZ": "file too big (or no memory)",
            b"BH": "bad request", b"CE": "damaged in transit (crc)",
-           b"WE": "could not write on the SD card"}
+           b"WE": "could not write on the SD card",
+           b"KA": "not a kernel for this Pi (the Pi Zero 2 W takes build/kernel7.img, "
+                  "the other boards build/kernel.img)"}
 QUIT_KEYS = (b"\x11", b"\x1d")  # Ctrl-Q, Ctrl-]
 
 
@@ -152,7 +155,8 @@ def main():
     ap.add_argument("--to", default="/carts", help="folder for --send (default /carts)")
     ap.add_argument("--name", help="8.3 name on the SD card (default: the file's)")
     ap.add_argument("--play", metavar="FILE", help="play a .bm at once")
-    ap.add_argument("--kernel", metavar="FILE", help="write kernel.img and reboot the Pi")
+    ap.add_argument("--kernel", metavar="FILE",
+                    help="write the kernel (kernel.img, kernel7.img on a Pi Zero 2 W) and reboot the Pi")
     args = ap.parse_args()
 
     jobs = [(b"S", args.send), (b"P", args.play), (b"K", args.kernel)]

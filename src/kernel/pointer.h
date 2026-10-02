@@ -1,5 +1,5 @@
 /*
- * The pointer (M31): one arrow on the screen, moved by a mouse (USB,
+ * The pointer (M32): one arrow on the screen, moved by a mouse (USB,
  * Bluetooth classic or Bluetooth LE) or by the right stick of a pad.
  *
  * - The whole system can go without it: mouse=off in bm/config.txt (there

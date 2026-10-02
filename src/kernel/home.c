@@ -421,8 +421,8 @@ void home_panel(int id, home_panel_t *p)
         home_row(p, MENU_ROW_INFO, R_MEMORY, "Memory in use", "The heap of the kernel and games",
                  "%lu of %lu MiB", (uint32_t)mi.uordblks >> 20,
                  (uint32_t)((heap_end() - heap_start()) >> 20));
-        home_row(p, MENU_ROW_INFO, R_CLOCKS, "CPU", "ARM clock and chip temperature",
-                 "%lu MHz, %lu.%lu C", prop_clock_rate(CLOCK_ARM) / 1000000,
+        home_row(p, MENU_ROW_INFO, R_CLOCKS, "CPU", "Processor, clock and chip temperature",
+                 "%s, %lu MHz, %lu.%lu C", sysinfo_cpu(), prop_clock_rate(CLOCK_ARM) / 1000000,
                  temp[1] / 1000, temp[1] % 1000 / 100);
         home_row(p, MENU_ROW_INFO, R_SD, "SD card", "The card the console started from",
                  "%s", fat_describe());

@@ -223,7 +223,7 @@ Animator** (dal monitor i tasti `3` e `6`), e dal menu dell'uno si passa all'alt
 stesso file (*Open in bm Animator*, *Open in bm Studio*). Leggono e scrivono le stesse
 sezioni MESH e ANIM dei programmi per il PC: un `.bm` fatto sul PC si apre sulla console e
 viceversa, e un gioco senza modelli può riceverne. Si usano con la tastiera o con il
-gamepad (Bluetooth o USB); il mouse (M31) c'è nel menu, ma Studio e Animator non lo usano
+gamepad (Bluetooth o USB); il mouse (M32) c'è nel menu, ma Studio e Animator non lo usano
 ancora.
 
 Le pagine si scelgono con i tasti F (o Y + sinistra/destra sul gamepad), il menu con Esc

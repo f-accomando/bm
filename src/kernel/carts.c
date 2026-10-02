@@ -866,7 +866,7 @@ void carts_menu(framebuffer_t *fb)
         if (dx || dy)
             pointer_hide();                     /* the keys move the selection: no arrow */
 
-        /* the pointer (M31): moving over a cover or a row selects it, the
+        /* the pointer (M32): moving over a cover or a row selects it, the
          * left button does what A does there (or what is clicked: a tab, a
          * button of the hints), the right one goes back, or opens the
          * options of a cover; outside a panel or a question it closes them;

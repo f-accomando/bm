@@ -1,7 +1,7 @@
 /*
  * HID devices: boot-protocol keyboards (Italian or US layout), generic
  * HID gamepads (report descriptor parsed for buttons, X/Y and hat switch)
- * and Xbox 360 wired controllers; mice (M31) on USB and Bluetooth.
+ * and Xbox 360 wired controllers; mice (M32) on USB and Bluetooth.
  */
 #include "hid.h"
 #include "usb.h"
@@ -65,7 +65,7 @@ static int bt_analog2[HID_PLAYERS], pad_analog2;
 static int quit_edge;
 static int last_source;                 /* HID_SOURCE_*: what pressed something last */
 static int caps;
-/* the pointer's buttons on the pads (M31), seen pressed since its last read */
+/* the pointer's buttons on the pads (M32), seen pressed since its last read */
 #define PTR_BITS (HID_L2 | HID_R2 | HID_L3 | HID_R3)
 static uint32_t ptr_latch;
 

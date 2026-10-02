@@ -40,7 +40,7 @@ static int ndevs;
 static usb_dev_t *hub;              /* the hub on the root port, if any */
 static int hub_ports;
 static usb_dev_t *hid_dev;          /* the HID device in use */
-static usb_dev_t *mouse_dev;        /* the mouse (M31), maybe the same device */
+static usb_dev_t *mouse_dev;        /* the mouse (M32), maybe the same device */
 static usb_info_t info;
 static int ds4;
 
@@ -241,7 +241,7 @@ typedef struct {
     uint16_t mps, rlen;
 } hid_pick_t;
 
-/* Its mouse interface (M31): found, with the report layout (boot: the
+/* Its mouse interface (M32): found, with the report layout (boot: the
  * descriptor did not parse, the boot protocol is used). */
 typedef struct {
     int found, boot;

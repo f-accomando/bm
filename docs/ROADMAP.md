@@ -902,7 +902,7 @@ divide in due, con gli stessi nomi: **bm Studio** (`carts/studio`, monitor `3`) 
 Animator** (`carts/animator`, monitor `6`), nella scheda Dev e nelle opzioni di ogni gioco;
 dal menu dell'uno si passa all'altro sullo stesso file
 ([sdk/README.md](../sdk/README.md#sulla-console-bm-studio-e-bm-animator)). Per ora tastiera
-e gamepad; il puntatore di sistema (M31, `mouse(true)`) c'è, ma Studio e Animator non lo usano ancora.
+e gamepad; il puntatore di sistema (M32, `mouse(true)`) c'è, ma Studio e Animator non lo usano ancora.
 - **bm Studio**: attrezzi block, tile (anche più tessere insieme), select (puntatore della
   tastiera sulle facce: scegli, tutte, unite; sposta, gira, capovolgi, specchia, altro
   lato, nuova tessera, gira la texture, scala, copia, cancella, in un modello nuovo),
@@ -1652,7 +1652,63 @@ codice inserito, sprite nello sheet, test di velocità, F9), `make ai-model` per
   con F6 (e col pad), il codice entra al cursore e lo sprite nella cella; il menu e
   l'editor restano a 60 fps; i test in QEMU coprono l'integrazione.
 
-## M31 — Mouse USB e Bluetooth, puntatore di sistema (M) — fatto in QEMU (2026-10-01), da provare sul Pi
+## M31 — Raspberry Pi Zero 2 W (L) — fatta in QEMU (2026-10-02), da verificare sul Pi
+Richiesta 2026-10-02: una versione di bm per il **Pi Zero 2 W**. Il Zero 2 W ha un altro
+SoC, il BCM2710A1 (RP3A0: quattro Cortex-A53, le periferiche del BCM2835 a un altro
+indirizzo), quindi non può avviare `kernel.img` (ARMv6).
+
+Decisioni:
+- **Un secondo kernel, `kernel7.img`**: gli stessi sorgenti compilati per ARMv7 a 32 bit
+  (`-march=armv7ve -mtune=cortex-a53`, VFPv4 + NEON; `-DBM_ZERO2` per gli indirizzi del
+  SoC). Niente port a 64 bit: il codice (Lua, driver, puntatori a 32 bit) resta uno solo,
+  e ARMv7 gira anche in QEMU `raspi2b` (Cortex-A7) per i test.
+- **Una sola SD per tutte le schede**: `kernel.img` e `kernel7.img` stanno insieme e
+  `config.txt` fa partire `kernel7.img` sul Zero 2 W (`[pi02]`). `make sdcard`,
+  `install`, `image` e `release` mettono tutti e due i kernel.
+- **Un core**: gli altri tre restano nello stub del firmware (a 0x0, per questo i vettori
+  delle eccezioni non si copiano più lì ma si usa VBAR). Usarli è un passo successivo.
+
+**Passi** (2026-10-02):
+1. ✅ (QEMU `raspi2b`, test `make test-hyp`) **CPU**: `start.S` passa da HYP (dove il firmware
+   avvia il Cortex-A53) a SVC come lo stub di Linux (nessuna trappola verso HYP: VFP,
+   NEON, contatore generico), vettori con VBAR; l'interrupt salva anche d16–d31;
+   barriere e cache ARMv7 (`src/arch/cache.c`: righe da 64 byte, "tutta la cache" per
+   set/way su L1 e L2); MMU con le periferiche a 0x3F000000 e quelle dell'ARM a
+   0x40000000, la RAM solo fin dove c'è; MMU e cache prima di tutto il resto (senza MMU
+   il Cortex-A53 vede la RAM come memoria "device": gli accessi non allineati sono
+   eccezioni). `make test-hyp` avvia `start.S` nella macchina `virt` di QEMU con le
+   estensioni di virtualizzazione, che parte in HYP come il Pi (`raspi2b` parte in SVC).
+2. ✅ (test sul PC) **Scheda**: revisione `902120` → `Pi Zero 2 W`, LED ACT sul GPIO 29
+   attivo basso (sul Zero 2 W il GPIO 47 è l'I2C dell'alimentatore: `kernel7.img` non lo
+   tocca mai); `Pi 2 B` per QEMU. La prima riga dice SoC e revisione, la seconda il
+   processore e il modo di avvio (`Cortex-A53 from HYP`); la riga CPU del menu System il
+   processore. Test: `make test-usb` (`test_board`, `test_board7`).
+3. ✅ (da provare sul Pi) **WiFi e Bluetooth del CYW43436**: stessi pin del Zero W tranne
+   BT_ON (GPIO 42 invece di 45). Il chip dice 43430: rev 2+ è il 43436
+   (`brcmfmac43436-sdio.bin/.txt/.clm_blob`), rev 1 il 43436s (`brcmfmac43436s-sdio.bin/.txt`
+   con la CLM del 43430); la patch Bluetooth dalla sottoversione LMP (`0x410c` →
+   `SYN43430B0.hcd`, `0x2209` → `SYN43430A1.hcd`), come Linux e Raspberry Pi OS.
+   `make firmware` scarica anche questi file, `make sdcard` li mette in `bm/`.
+4. ✅ (test sul PC) **Kernel dalla rete**: all'offset 4 di ogni immagine c'è `bmK6` o `bmK7`;
+   `bm_net.py --kernel` su un Zero 2 W scrive `kernel7.img`, e un kernel per l'altra
+   scheda viene rifiutato (`KA`) senza scrivere niente. Test: `make test-net`.
+5. ✅ (QEMU) **Test**: `make test-zero2` = tutti i test in QEMU con `kernel7.img` in
+   `raspi2b` (saltati quelli di Pi 1, radio e chainloader); anche nella CI.
+
+**Da provare sul Pi Zero 2 W** (tutto sullo schermo): `make firmware && make install`
+(o `make image`), poi accendere il Zero 2 W:
+- prima riga `Raspberry Pi Zero 2 W (BCM2710A1, revision 902120)`, seconda
+  `Cortex-A53 from HYP, MMU+caches on`; il LED ACT lampeggia una volta al secondo;
+- menu, giochi a 60 fps, audio HDMI, tastiera o pad USB (adattatore OTG), salvataggi;
+- `W` (WiFi): la riga `wifi: chip 43430 ... CYW43436` (o `CYW43436s`) e la connessione;
+  `T` (Bluetooth): `bt: chip LMP subversion ...` con il nome della patch, poi un DS4;
+- la stessa SD nel Zero W: parte `kernel.img` come prima.
+- **Fatto quando:** tutto questo funziona sul Pi Zero 2 W.
+
+Poi, se servono: gli altri tre core (audio, rete o rendering su un core a parte), i
+giochi più pesanti a 60 fps grazie alla CPU più veloce, misure in `docs/PRESTAZIONI.md`.
+
+## M32 — Mouse USB e Bluetooth, puntatore di sistema (M) — fatto in QEMU (2026-10-01), da provare sul Pi
 Richiesta 2026-10-01 (utente): supporto mouse **USB e Bluetooth**, anche con le **levette
 analogiche** dei pad. Decisioni:
 - il mouse si può spegnere **per tutto il sistema** ma non dall'utente: `mouse=off` in
@@ -1744,6 +1800,7 @@ Fatto (QEMU, test sul PC):
 | Bluetooth (M12) senza emulatore | un solo controller di riferimento, tracce HCI registrate sul Pi per i test |
 | Scrittura su SD (M11) che corrompe la scheda | test in QEMU con `fsck.vfat`, file di bm in una cartella dedicata |
 | Split transactions e LAN951x (M29) senza emulatore | schema di USPi/Circle (provati sul Pi 1), chip simulato nei test sul PC, diagnostica a schermo (`y`, `E`) |
+| Pi Zero 2 W (M31) senza emulatore | `raspi2b` per le periferiche, `virt` per l'avvio in HYP, scelte di firmware e pin come Linux e Raspberry Pi OS, diagnostica a schermo |
 
 ## Hardware consigliato per lo sviluppo
 - Adattatore USB-seriale 3.3 V (**non 5 V**) su GPIO14/15 + GND

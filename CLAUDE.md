@@ -1,17 +1,21 @@
 # bm (BareMetal) — note per chi lavora su questo repository
 
-Kernel bare metal per Raspberry Pi Zero W (BCM2835, ARM1176JZF-S): C + assembly +
+Kernel bare metal per Raspberry Pi Zero W (BCM2835, ARM1176JZF-S) e, con una seconda
+build (`kernel7.img`), per il Pi Zero 2 W (BCM2710A1, Cortex-A53 a 32 bit): C + assembly +
 Lua 5.4 embedded. Documentazione: `README.md` (presentazione in inglese, con showreel e
 screenshot in `docs/img/`), `README_OLD.md` (il README completo, in italiano),
 `docs/ROADMAP.md`, `docs/HARDWARE.md`.
 
 ## Build e test
 
-- `make` → `build/kernel.img` e `build/chainloader.img` (toolchain `arm-none-eabi-gcc`).
+- `make` → `build/kernel.img`, `build/kernel7.img` e `build/chainloader.img` (toolchain
+  `arm-none-eabi-gcc`).
 - `make test` → test sul PC (grafica, FAT, USB, audio, rete, giochi) + test end-to-end in
-  QEMU (`-M raspi0`).
-- L'utente prova sul Pi reale copiando `dist/kernel.img` sulla SD (WSL, `/mnt/d`),
-  senza cavo seriale: tutto ciò che deve verificare va mostrato sullo schermo.
+  QEMU (`-M raspi0`); `make test-zero2` gli stessi con `kernel7.img` (Pi Zero 2 W) in
+  `-M raspi2b`.
+- L'utente prova sul Pi reale copiando `dist/kernel.img` (e `dist/kernel7.img`) sulla SD
+  (WSL, `/mnt/d`), senza cavo seriale: tutto ciò che deve verificare va mostrato sullo
+  schermo.
 - Dev kit (richiesta dell'utente): l'overlay delle prestazioni sopra ogni `.bm` (`perf_frame`
   in `runtime.c`): fps, ms di `_update` + `_draw`, istruzioni Lua del fotogramma (`stat(6)`),
   i massimi dell'ultimo secondo e il grafico degli ultimi 64 fotogrammi. Settings > System >
@@ -51,7 +55,7 @@ screenshot in `docs/img/`), `README_OLD.md` (il README completo, in italiano),
   (`require "bm3d"`); salvano con `cart_write` (`sections`, `sheet` solo se dipinto,
   `from = false` per un progetto nuovo). `tile_face`/`place_faces` sono il port di
   `edit.js` (le facce devono restare identiche, `check_studio3d.js`). Una pagina è un
-  blocco `do ... end` (meno di 200 locali). Il puntatore di sistema (M31) c'è, ma non
+  blocco `do ... end` (meno di 200 locali). Il puntatore di sistema (M32) c'è, ma non
   lo chiedono ancora (`mouse(true)`): per ora tastiera e pad. Scritte sulle righe di 16 pixel (i test in QEMU leggono lo
   schermo). Stessa estetica delle altre app (richiesta dell'utente): pannello a sinistra
   di 168 px con liste a intestazione grigia (niente barre di icone), due righe sopra la
@@ -93,6 +97,20 @@ screenshot in `docs/img/`), `README_OLD.md` (il README completo, in italiano),
   la sessione ne ha assegnato un altro.
 - Non serve chiederlo per domande, letture della roadmap o lavoro che l'utente ha già
   indicato su un branch esistente (es. "fai commit su bare-metal-mvp").
+
+## Pi Zero 2 W (M31): `kernel7.img`
+
+- Gli stessi sorgenti compilati una seconda volta per ARMv7 a 32 bit (`ARCH7` nel
+  `Makefile`, oggetti in `build/k7/`, `-DBM_ZERO2`): `build/kernel7.img`. Sulla SD stanno
+  `kernel.img` e `kernel7.img`; `config.txt` sceglie (`[pi02]`). Il codice specifico va
+  sotto `#ifdef BM_ZERO2` (indirizzi del SoC, `src/drivers/mmio.h`) o `#if __ARM_ARCH >= 7`
+  (istruzioni ARMv7: barriere, cache, HYP); ogni modifica deve compilare in tutti e due.
+- Sul Zero 2 W: periferiche a 0x3F000000, avvio in HYP, un solo core (gli altri nello stub
+  del firmware a 0x0: mai scrivere lì), LED sul GPIO 29 (il 47 è l'I2C dell'alimentatore),
+  BT_ON GPIO 42, firmware del CYW43436 (`board.c`, `wifi.c`, `bt.c`).
+- Test: `make test-zero2` (QEMU `raspi2b`), `make test-hyp` (avvio in HYP nella macchina
+  `virt`). Un kernel mandato dalla rete deve essere per la scheda giusta (`bmK6`/`bmK7`
+  all'offset 4, `netxfer.c`).
 
 ## Cartucce `.cart`: rimosse
 
@@ -144,7 +162,7 @@ screenshot in `docs/img/`), `README_OLD.md` (il README completo, in italiano),
   `cart_write` (solo il codice), `font("6x12")` e `assist.act` per le righe `#entry:`.
   Test: `test_code_editor` in QEMU (lo schermo si legge anche col font 6x12).
 
-## Mouse e puntatore (M31)
+## Mouse e puntatore (M32)
 
 - `src/kernel/pointer.c`: il puntatore di sistema (mouse USB/Bluetooth, levetta destra dei
   pad). Decisioni dell'utente: si spegne per tutto il sistema solo con `mouse=off` in

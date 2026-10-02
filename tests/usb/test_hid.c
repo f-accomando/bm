@@ -226,7 +226,7 @@ int main(void)
     hid_report(USB_XBOX360, xb, sizeof xb);
     CHECK(hid_quit_pressed() == 0);
 
-    /* M31: the right stick and the triggers (the pointer's buttons) */
+    /* M32: the right stick and the triggers (the pointer's buttons) */
     xb[3] = 0; xb[4] = 200; xb[2] = 0x80;                      /* LT + R3 */
     xb[10] = 0xFF; xb[11] = 0x7F;                              /* right stick: right */
     hid_report(USB_XBOX360, xb, sizeof xb);
@@ -249,7 +249,7 @@ int main(void)
     hid_buttons();
 
     /* a generic HID gamepad (the parser of hid_gamepad_attach): 12 buttons,
-     * X Y Z Rz (0..255), a hat; Z / Rz are its right stick (M31) */
+     * X Y Z Rz (0..255), a hat; Z / Rz are its right stick (M32) */
     static const uint8_t gpad[] = {
         0x05, 0x01, 0x09, 0x05, 0xA1, 0x01, 0x15, 0x00, 0x25, 0x01, 0x75, 0x01, 0x95, 0x0C,
         0x05, 0x09, 0x19, 0x01, 0x29, 0x0C, 0x81, 0x02, 0x95, 0x04, 0x81, 0x01,
@@ -267,7 +267,7 @@ int main(void)
     hid_report(USB_GAMEPAD, gr, sizeof gr);
     hid_buttons();
 
-    /* M31: mice. QEMU's usb-mouse: buttons, X, Y, wheel (relative, no ID) */
+    /* M32: mice. QEMU's usb-mouse: buttons, X, Y, wheel (relative, no ID) */
     static const uint8_t qmouse[] = {
         0x05, 0x01, 0x09, 0x02, 0xA1, 0x01, 0x09, 0x01, 0xA1, 0x00, 0x05, 0x09, 0x19, 0x01,
         0x29, 0x03, 0x15, 0x00, 0x25, 0x01, 0x95, 0x03, 0x75, 0x01, 0x81, 0x02, 0x95, 0x01,

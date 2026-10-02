@@ -2,9 +2,11 @@
 #include "mbox.h"
 #include "arch/cache.h"
 
-#define PROP_MAX_WORDS 8
+#define PROP_MAX_WORDS 8             /* + 6 words of header: msg[] */
 
-static volatile uint32_t __attribute__((aligned(CACHE_LINE))) msg[6 + PROP_MAX_WORDS];
+/* whole cache lines (64 bytes on the Cortex-A53): nothing else shares
+ * them while the GPU writes its answer */
+static volatile uint32_t __attribute__((aligned(CACHE_LINE))) msg[16];
 
 int prop_query(uint32_t tag, uint32_t *vals, unsigned n)
 {

@@ -16,7 +16,7 @@
 #define HID_Y       (1u << 9)
 #define HID_L1      (1u << 10)      /* shoulder buttons: the menu's tabs (not in games) */
 #define HID_R1      (1u << 11)
-#define HID_L2      (1u << 12)      /* triggers and stick clicks (M31): with the right */
+#define HID_L2      (1u << 12)      /* triggers and stick clicks (M32): with the right */
 #define HID_R2      (1u << 13)      /* stick as the pointer, R2 / R3 click and L2 is the */
 #define HID_L3      (1u << 14)      /* right button; not in btn() */
 #define HID_R3      (1u << 15)
@@ -54,11 +54,11 @@ uint32_t hid_players(uint32_t out[HID_PLAYERS], int text, int local, int ble);
  * slot, or of the USB gamepad with slot -1. Returns 1 if the pad has an
  * analog stick (else xy is 0). */
 int hid_stick(int slot, int8_t xy[2]);
-/* The right stick (M31: it moves the pointer), the same way; 0 for pads
+/* The right stick (M32: it moves the pointer), the same way; 0 for pads
  * without one. */
 int hid_stick2(int slot, int8_t xy[2]);
 
-/* ---- mice (M31): USB, Bluetooth classic and Bluetooth LE */
+/* ---- mice (M32): USB, Bluetooth classic and Bluetooth LE */
 
 /* Where the fields of a mouse's input report are, from its report
  * descriptor (USB) or report map (LE): bit offsets after the report ID,
@@ -118,7 +118,7 @@ uint32_t hid_buttons(void);
 /* The same without the keyboard (text mode: the keyboard types). */
 uint32_t hid_pad_buttons(void);
 /* L2 R2 L3 R3 held on the pads, or pressed since the last call (the
- * pointer's buttons, M31); the other readers' presses are not taken. */
+ * pointer's buttons, M32); the other readers' presses are not taken. */
 uint32_t hid_pointer_buttons(void);
 /* What pressed a button or a key last, for the buttons shown on screen:
  * a keyboard (USB or Bluetooth), a DS4 (Bluetooth or USB) or another pad;

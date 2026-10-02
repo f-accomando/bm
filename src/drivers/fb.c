@@ -15,7 +15,7 @@
 #define TAG_SET_VIRT_OFFSET   0x00048009u
 #define TAG_WAIT_FOR_VSYNC    0x0004000Eu
 
-static volatile uint32_t __attribute__((aligned(CACHE_LINE))) msg[36];
+static volatile uint32_t __attribute__((aligned(CACHE_LINE))) msg[48];   /* whole cache lines */
 
 int fb_init(framebuffer_t *fb, uint32_t width, uint32_t height, uint32_t buffers)
 {
