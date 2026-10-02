@@ -969,7 +969,13 @@ def test_home_ui(b, opts):
         screen(["Settings > System", "Version", "Board", "SD card", "FAT32"])
         shot("system")
         keys("w")                               # the list scrolls to its last rows
-        screen(["Restart", "Open the monitor"])
+        screen(["Performance overlay", "Restart", "Open the monitor"])
+        keys("ww")                              # the dev kit's overlay: on, then off again
+        screen(["< Off >", "fps, ms, Lua instructions"])
+        keys("\r")
+        screen(["< On >", "performance overlay: on"])
+        keys("\r")
+        screen(["< Off >", "performance overlay: off"])
         keys("q")
         keys("wwwww")                           # System -> Controllers
         keys("\r")
@@ -3223,6 +3229,79 @@ def _save_png(img, path):
     with open(path, "wb") as f:
         f.write(b"\x89PNG\r\n\x1a\n" + chunk(b"IHDR", struct.pack(">IIBBBBB", w, h, 8, 2, 0, 0, 0))
                 + chunk(b"IDAT", zlib.compress(raw)) + chunk(b"IEND", b""))
+
+
+# a square cartridge (256x256, in the middle of a 480x270 screen) lit by
+# levels as in Dank Tomb: white everywhere, one lamp in the middle
+SQUARE_CART = r"""
+local l1 = 0
+function _init()
+  fades({ { 0xFFFFFF, 0x000000, 0x404040, 0x808080, 0xFFFFFF } })
+end
+function _draw()
+  cls(0xFFFFFF)
+  dark_begin(0)
+  glow(128, 128, 60, 3)
+  dark_end()
+  if pad() & 1024 ~= 0 then l1 = 30 end
+  if l1 > 0 then l1 = l1 - 1; print("L1 HELD", 8, 48, 0xFFFF00) end
+  print("SQUARE " .. SCREEN_W .. "X" .. SCREEN_H, 8, 16, 0x00FF00)
+end
+"""
+
+
+def test_square_lights(b, opts):
+    """A 256x256 cartridge: shown in the middle of a 480x270 screen, black
+    round it; the light by levels (fades, dark_begin, glow, dark_end): the
+    lamp's middle as drawn, its edge dark; L1 from the serial line ('u');
+    the dev kit's performance overlay ('p' from the serial line, F3)"""
+    BX, BY = 112, 7                             # the 256x256 box in the 480x270 screen
+
+    def box(img):
+        w, h, px = img
+        out = bytearray()
+        for y in range(BY, BY + 256):
+            out += px[(y * w + BX) * 3:(y * w + BX + 256) * 3]
+        return 256, 256, bytes(out)
+
+    q = Qemu(b("kernel.img"))
+    try:
+        q.expect(MENU, timeout=30)
+        time.sleep(0.5)
+        assert _upload(q, mkbm.pack(SQUARE_CART.encode(), title="square", res=(256, 256)))
+        for _ in range(20):
+            time.sleep(0.25)
+            img = q.screendump()
+            if img[0] == 480 and any("SQUARE 256X256" in l for l in screen_text(box(img))):
+                break
+        assert img[0] == 480 and img[1] == 270, img[:2]
+        text = screen_text(box(img))
+        assert any("SQUARE 256X256" in l for l in text), "\n".join(text)
+        w, h, px = img
+        for x, y in ((0, 0), (479, 269), (BX - 1, 128), (BX + 256, 128), (240, BY - 1), (240, BY + 256)):
+            assert px[(y * w + x) * 3:(y * w + x) * 3 + 3] == b"\0\0\0", ("border", x, y)
+        mid = px[((BY + 128) * w + BX + 128) * 3:((BY + 128) * w + BX + 128) * 3 + 3]
+        edge = px[((BY + 240) * w + BX + 128) * 3:((BY + 240) * w + BX + 128) * 3 + 3]
+        assert min(mid) > 200 and max(edge) < 40, (mid, edge)
+        if opts.shots:
+            _save_png(img, os.path.join(opts.shots, "square-lights.png"))
+        q.send("u")                             # L1
+        time.sleep(0.3)
+        text = screen_text(box(q.screendump()))
+        assert any("L1 HELD" in l for l in text), "\n".join(text)
+        q.send("p")                             # the performance overlay
+        time.sleep(0.6)
+        text = screen_text(box(q.screendump()))
+        assert any("fps" in l and "ms" in l for l in text), "\n".join(text)
+        q.send("p")
+        time.sleep(0.6)
+        text = screen_text(box(q.screendump()))
+        assert not any("fps" in l for l in text), "\n".join(text)
+        q.send("q")
+        out = q.expect("update+draw", timeout=10).decode(errors="replace")
+        assert "stopped with an error" not in out, out
+    finally:
+        q.close()
 
 
 def _upload(q, data):

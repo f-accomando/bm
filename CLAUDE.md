@@ -12,6 +12,18 @@ screenshot in `docs/img/`), `README_OLD.md` (il README completo, in italiano),
   QEMU (`-M raspi0`).
 - L'utente prova sul Pi reale copiando `dist/kernel.img` sulla SD (WSL, `/mnt/d`),
   senza cavo seriale: tutto ciò che deve verificare va mostrato sullo schermo.
+- Dev kit (richiesta dell'utente): l'overlay delle prestazioni sopra ogni `.bm` (`perf_frame`
+  in `runtime.c`): fps, ms di `_update` + `_draw`, istruzioni Lua del fotogramma (`stat(6)`),
+  i massimi dell'ultimo secondo e il grafico degli ultimi 64 fotogrammi. Settings > System >
+  "Performance overlay" (config `perf`), F3 (non in modalità testo), `p` dalla seriale.
+- Arrivati dal gioco Yharnam (branch `claude/yharnam`; il gioco va nel market): la risoluzione
+  quadrata 256×256 del formato (il firmware dà 480×270, il gioco disegna nel riquadro al centro,
+  `bm_video_enter` in `runtime.c`; `--res 256x256` in `mkbm.py`), la luce a livelli come in Dank
+  Tomb (`fades`, `dark_begin`, `glow`, `dark_end`; `g16_fade_*` in `gfx16.c`), lo sheet con
+  palette nel Makefile (`sheet8_<gioco> := 1`), L1/R1 di `pad()` dalla seriale (`u`, `o`) e dalla
+  tastiera (Q, E). Prova in QEMU: `test_square_lights`. `tools/bmplay` (`make
+  build/host/bmplay`) gioca una cartuccia sul PC col disegno e il suono della console e un bot
+  in Lua; `video.sh` ne fa un video.
 
 ## bm Studio (sdk/studio)
 

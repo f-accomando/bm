@@ -366,8 +366,9 @@ int bm_parse(const uint8_t *d, size_t len, bm_cart_t *c, char *err, size_t errle
     c->width = rd16(d + 12);
     c->height = rd16(d + 14);
     c->pixel_format = d[16];
-    if (!((c->width == 640 && c->height == 360) || (c->width == 320 && c->height == 180)))
-        return fail(err, errlen, "resolution must be 640x360 or 320x180");
+    if (!((c->width == 640 && c->height == 360) || (c->width == 320 && c->height == 180) ||
+          (c->width == 256 && c->height == 256)))
+        return fail(err, errlen, "resolution must be 640x360, 320x180 or 256x256");
     if (c->pixel_format != BM_FMT_RGB565)
         return fail(err, errlen, "pixel format not supported (only RGB565)");
     memcpy(c->title, d + 24, 48);
@@ -554,8 +555,8 @@ uint8_t *bm_rewrite_with(const uint8_t *old, size_t oldlen, const char *lua, siz
     memcpy(buf, "BMCART\0\0", 8);
     wr16(buf + 8, 1);
     wr16(buf + 10, BM_HEADER_SIZE);
-    wr16(buf + 12, width == 320 ? 320 : 640);
-    wr16(buf + 14, width == 320 ? 180 : 360);
+    wr16(buf + 12, width == 320 || width == 256 ? width : 640);
+    wr16(buf + 14, width == 320 ? 180 : width == 256 ? 256 : 360);
     buf[16] = BM_FMT_RGB565;
     buf[17] = (uint8_t)n;
     strncpy((char *)buf + 24, title ? title : "", 47);
