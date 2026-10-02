@@ -2646,7 +2646,7 @@ def test_yharnam(b, opts):
         time.sleep(0.5)
         q.send(" ")                             # A: start
         time.sleep(1.5)
-        for k in "ssddwwaa":
+        for k in "ssddwwaauok":                 # walk, L1 lock, R1 heavy, B dodge
             q.send(k)
             time.sleep(0.15)
         for _ in range(10):

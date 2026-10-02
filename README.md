@@ -171,7 +171,9 @@ local multiplayer for up to 4 players. The games on the card, all `.bm`:
   hunter has 27 animations in 8 directions: saw cleaver combos (folded and opened), the
   pistol, backstep, hurt, knocked down, death. Twelve creatures roam the districts (mad
   townsfolk, beasts, hunters, eldritch horrors) and four bosses wait in theirs, each with
-  two special attacks and two combos.
+  two special attacks and two combos. The fight is Bloodborne's: stamina, quickstep and roll
+  with i-frames, lock-on, charged blows, the trick weapon transformed mid-combo, the gun
+  parry and the visceral attack, the rally.
 - The rest: Pong (2 players), Snake, Star Shooter, and **nano8** for `.p8` carts.
 
 The console screenshots come from QEMU (`tests/qemu_test.py --shots DIR`). The bm Studio

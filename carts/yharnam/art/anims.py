@@ -346,3 +346,134 @@ for ext in (False, True):
     base = extended(dict(STAND)) if ext else STAND
     anim('backstep' + sx, keyed(base, BACKSTEP, [0.0, 0.14, 0.30, 0.42, 0.56, 0.70, 0.86], ext),
          [3, 3, 4, 4, 4, 5, 6], ext=ext)
+
+# ---------------------------------------------------------------- quicksteps and the roll
+# with a target held: a short dash ahead, left or right (back is the
+# backstep), low and fast, the coat flying after; without one: a roll
+
+QSTEP = {
+    'f': [(0.0, {}),
+          (0.20, dict(lean=20, knee_r=26, knee_l=24, th_r=10, th_l=-6, sw_r=10, sw_l=-10, head_pitch=4)),
+          (0.42, dict(air=2.5, lean=26, knee_r=18, knee_l=40, th_r=30, th_l=-26, sw_r=-14, sw_l=26, el_r=40,
+                      el_l=40, skirt_r=-20, skirt_l=10, cape=12)),
+          (0.66, dict(air=0.5, lean=18, knee_r=30, knee_l=30, th_r=16, th_l=-10, skirt_r=-8, skirt_l=4, cape=6)),
+          (0.84, dict(lean=12, knee_r=18, knee_l=16)),
+          (1.0, {})],
+    'l': [(0.0, {}),
+          (0.20, dict(lean=12, roll=-6, knee_r=24, knee_l=24, tha_l=6, head_yaw=10)),
+          (0.42, dict(air=2.5, lean=14, roll=10, chest_roll=-6, knee_r=34, knee_l=20, tha_l=26, tha_r=-8, abd_r=30,
+                      abd_l=40, el_r=40, el_l=30, head_yaw=14, skirt_r=16, skirt_l=-20, cape=10)),
+          (0.66, dict(air=0.5, lean=12, roll=4, knee_r=28, knee_l=30, tha_l=14, abd_l=24, cape=5)),
+          (0.84, dict(lean=10, knee_r=16, knee_l=18, tha_l=4)),
+          (1.0, {})],
+    'r': [(0.0, {}),
+          (0.20, dict(lean=12, roll=6, knee_r=24, knee_l=24, tha_r=6, head_yaw=-10)),
+          (0.42, dict(air=2.5, lean=14, roll=-10, chest_roll=6, knee_r=20, knee_l=34, tha_r=26, tha_l=-8, abd_r=40,
+                      abd_l=30, el_r=30, el_l=40, head_yaw=-14, skirt_r=20, skirt_l=-16, cape=10)),
+          (0.66, dict(air=0.5, lean=12, roll=-4, knee_r=30, knee_l=28, tha_r=14, abd_r=24, cape=5)),
+          (0.84, dict(lean=10, knee_r=18, knee_l=16, tha_r=4)),
+          (1.0, {})],
+}
+TUCK = dict(knee_r=120, knee_l=116, th_r=70, th_l=74, sw_r=60, sw_l=60, el_r=90, el_l=90, abd_r=20, abd_l=20,
+            head_pitch=30, lean=30, cape=-10, skirt_r=60, skirt_l=60)
+ROLL = [(0.0, {}),
+        (0.16, dict(lean=30, knee_r=40, knee_l=40, th_r=20, th_l=24, sw_r=30, sw_l=30, head_pitch=14)),
+        (0.30, dict(TUCK, pitch=-80, air=1.0)),
+        (0.46, dict(TUCK, pitch=-170, air=2.0)),
+        (0.62, dict(TUCK, pitch=-270, air=1.0)),
+        (0.78, dict(lean=26, pitch=-350, knee_r=60, knee_l=50, th_r=40, th_l=20, sw_r=20, sw_l=20, head_pitch=10)),
+        (1.0, dict(pitch=-360))]
+for ext in (False, True):
+    sx = '_x' if ext else ''
+    base = extended(dict(STAND)) if ext else STAND
+    for k, keys in QSTEP.items():
+        anim('qstep_' + k + sx, keyed(base, keys, [0.0, 0.18, 0.36, 0.52, 0.70, 0.88], ext), [2, 2, 3, 3, 3, 4],
+             ext=ext)
+    frames = keyed(base, ROLL, [0.08, 0.22, 0.34, 0.46, 0.58, 0.70, 0.86], ext)
+    for f in frames:
+        f['pitch'] = f['pitch'] % 360.0 if f['pitch'] < -1 else f['pitch']
+    anim('roll' + sx, frames, [3, 3, 3, 3, 3, 4, 5], ext=ext)
+
+# ---------------------------------------------------------------- the heavy blow, charged
+# drawn back over the right shoulder (held there while the button is held:
+# the charge), then down hard across the body
+
+HEAVY = [(0.0, {}),
+         (0.26, dict(chest_yaw=-40, pelvis_yaw=-16, lean=2, head_pitch=-10, head_yaw=16, sw_r=150, abd_r=40,
+                     yaw_r=-20, el_r=110, tw_r=-20, sw_l=40, abd_l=30, yaw_l=30, el_l=60, th_r=-14, knee_r=24,
+                     th_l=16, knee_l=20, spread=10, aim=(-150, 50))),
+         (0.40, dict(chest_yaw=-44, pelvis_yaw=-18, lean=0, head_pitch=-12, head_yaw=18, sw_r=158, abd_r=42,
+                     yaw_r=-22, el_r=116, tw_r=-22, sw_l=42, abd_l=32, yaw_l=32, el_l=62, th_r=-16, knee_r=28,
+                     th_l=18, knee_l=24, spread=11, aim=(-155, 55))),
+         (0.54, dict(chest_yaw=-4, pelvis_yaw=0, lean=24, sw_r=110, abd_r=20, yaw_r=10, el_r=30, sw_l=30,
+                     th_l=26, knee_l=34, th_r=-18, knee_r=20, aim=(0, 30))),
+         (0.62, dict(chest_yaw=30, pelvis_yaw=10, lean=34, head_pitch=10, sw_r=60, abd_r=16, yaw_r=40, el_r=10,
+                     sw_l=10, abd_l=36, th_l=30, knee_l=46, th_r=-20, knee_r=28, aim=(40, -40))),
+         (0.80, dict(chest_yaw=36, pelvis_yaw=12, lean=34, head_pitch=12, sw_r=50, abd_r=14, yaw_r=50, el_r=16,
+                     abd_l=36, th_l=30, knee_l=46, th_r=-20, knee_r=28, aim=(60, -60))),
+         (1.0, {})]
+XHEAVY = [(0.0, {}),
+          (0.26, dict(lean=-6, chest_yaw=-20, head_pitch=-16, sw_r=172, abd_r=16, el_r=70, sw_l=80, abd_l=30,
+                      el_l=50, th_r=-14, knee_r=22, th_l=18, knee_l=18, spread=10, aim=(180, 40))),
+          (0.40, dict(lean=-8, chest_yaw=-22, head_pitch=-18, sw_r=176, abd_r=18, el_r=74, sw_l=84, abd_l=32,
+                      el_l=52, th_r=-16, knee_r=26, th_l=20, knee_l=22, spread=11, aim=(180, 46))),
+          (0.54, dict(lean=16, chest_yaw=-6, sw_r=130, abd_r=12, el_r=24, sw_l=50, aim=(0, 70))),
+          (0.62, dict(lean=40, chest_yaw=6, head_pitch=14, sw_r=60, abd_r=8, el_r=6, sw_l=20, abd_l=36, th_l=34,
+                      knee_l=58, th_r=-20, knee_r=44, aim=(2, -54))),
+          (0.80, dict(lean=42, chest_yaw=6, head_pitch=16, sw_r=48, abd_r=8, el_r=6, sw_l=14, abd_l=36, th_l=34,
+                      knee_l=58, th_r=-20, knee_r=44, aim=(4, -62))),
+          (1.0, {})]
+HT = [0.0, 0.14, 0.26, 0.40, 0.50, 0.57, 0.63, 0.74, 0.88]
+anim('heavy', keyed(STANCE, HEAVY, HT), [4, 4, 5, 4, 3, 2, 3, 6, 7], hit=6, charge=3)
+anim('heavy_x', keyed(XSTANCE, XHEAVY, HT, True), [4, 4, 5, 4, 3, 2, 3, 6, 7], ext=True, hit=6, charge=3)
+
+# ---------------------------------------------------------------- the trick: transforming in a blow
+# folded to out: a rising sweep that flings the blade open on its hinge;
+# out to folded: a chop that snaps it shut on the way down
+
+TRICK = [(0.0, {}),
+         (0.24, dict(chest_yaw=-30, pelvis_yaw=-10, lean=14, sw_r=40, abd_r=50, yaw_r=-50, el_r=70, wr_r=-30,
+                     knee_r=22, knee_l=20, blade=178, aim=(-110, -20))),
+         (0.40, dict(chest_yaw=-6, lean=10, sw_r=80, abd_r=30, yaw_r=-10, el_r=30, blade=120, aim=(-40, 10))),
+         (0.50, dict(chest_yaw=20, pelvis_yaw=8, lean=16, sw_r=96, abd_r=16, yaw_r=30, el_r=12, blade=40,
+                     aim=(30, 26))),
+         (0.60, dict(chest_yaw=36, pelvis_yaw=12, lean=18, sw_r=90, abd_r=8, yaw_r=60, el_r=20, blade=0, grip=-24,
+                     aim=(80, 30))),
+         (0.80, dict(chest_yaw=30, lean=14, sw_r=60, abd_r=12, yaw_r=50, el_r=30, blade=0, grip=-24, aim=(90, 0))),
+         (1.0, dict(XFIGHT))]
+TRICK_X = [(0.0, {}),
+           (0.26, dict(lean=-4, chest_yaw=-16, head_pitch=-14, sw_r=168, abd_r=16, el_r=70, sw_l=60, abd_l=30,
+                       el_l=40, blade=0, grip=-24, aim=(175, 40))),
+           (0.44, dict(lean=14, chest_yaw=-4, sw_r=120, abd_r=12, el_r=30, blade=0, grip=-24, aim=(0, 60))),
+           (0.54, dict(lean=30, chest_yaw=6, head_pitch=10, sw_r=66, abd_r=10, el_r=8, blade=60, grip=-12,
+                       th_l=24, knee_l=36, th_r=-14, knee_r=24, aim=(4, -40))),
+           (0.66, dict(lean=30, chest_yaw=8, sw_r=50, abd_r=10, el_r=12, blade=150, grip=0, th_l=24, knee_l=36,
+                       th_r=-14, knee_r=24, aim=(6, -56))),
+           (0.82, dict(lean=20, sw_r=40, el_r=30, blade=180, grip=0, aim=(10, -40))),
+           (1.0, dict(FIGHT, blade=180.0))]
+TT = [0.0, 0.14, 0.28, 0.40, 0.48, 0.56, 0.66, 0.80, 0.92]
+anim('trick', keyed(STANCE, TRICK, TT), [3, 3, 4, 3, 2, 2, 3, 5, 6], hit=5, lock=6)
+anim('trick_x', keyed(XSTANCE, TRICK_X, TT), [3, 3, 4, 3, 2, 2, 3, 5, 6], ext=True, hit=5, lock=6)
+
+# ---------------------------------------------------------------- the visceral attack
+# the left hand driven into the staggered prey, a twist, torn out in a
+# spray of blood, the hunter thrown back a step by it
+
+VISCERAL = [(0.0, {}),
+            (0.16, dict(chest_yaw=24, pelvis_yaw=8, lean=8, sw_l=-30, abd_l=20, el_l=100, sw_r=-10, abd_r=30,
+                        th_l=-6, knee_l=10, th_r=10, knee_r=14)),
+            (0.28, dict(chest_yaw=-30, pelvis_yaw=-12, lean=24, sw_l=92, abd_l=4, yaw_l=6, el_l=4, wr_l=-10, sw_r=-14,
+                        abd_r=34, th_l=28, knee_l=34, th_r=-18, knee_r=16, head_pitch=6)),
+            (0.44, dict(chest_yaw=-28, pelvis_yaw=-12, lean=22, sw_l=96, abd_l=6, el_l=10, tw_l=60, sw_r=-14,
+                        abd_r=34, th_l=28, knee_l=34, th_r=-18, knee_r=16)),
+            (0.58, dict(chest_yaw=-20, pelvis_yaw=-8, lean=16, sw_l=110, abd_l=10, el_l=24, tw_l=80, sw_r=-10,
+                        abd_r=34, th_l=26, knee_l=30, th_r=-16, knee_r=16, head_pitch=-6)),
+            (0.68, dict(chest_yaw=20, pelvis_yaw=6, lean=-10, head_pitch=-14, sw_l=40, abd_l=40, el_l=90, tw_l=0,
+                        sw_r=-20, abd_r=40, th_l=10, knee_l=20, th_r=-6, knee_r=24)),
+            (0.82, dict(chest_yaw=24, lean=-4, sw_l=20, abd_l=46, el_l=70, abd_r=36, knee_l=18, knee_r=20)),
+            (1.0, {})]
+VT = [0.0, 0.12, 0.22, 0.30, 0.40, 0.50, 0.58, 0.64, 0.72, 0.84, 0.94]
+for ext in (False, True):
+    sx = '_x' if ext else ''
+    base = extended(dict(STAND)) if ext else STAND
+    anim('visceral' + sx, keyed(base, VISCERAL, VT, ext), [3, 3, 3, 4, 8, 6, 3, 3, 5, 6, 8], ext=ext, hit=7)

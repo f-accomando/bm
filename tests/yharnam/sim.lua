@@ -76,6 +76,8 @@ env.log = function(...) local t = { ... } for i = 1, #t do t[i] = tostring(t[i])
 env.time = function() return now end
 env.stat = function() return 0 end
 env.btn = function(b) return (held >> b) & 1 == 1 end
+-- pad(): bits 1024 L1, 2048 R1 from the held mask's bits 10 and 11
+env.pad = function() return held & (1024 | 2048) end
 env.btnp = function(b) return (held >> b) & 1 == 1 and (prev >> b) & 1 == 0 end
 for _, lib in ipairs({ "string", "table", "math", "utf8", "coroutine" }) do env[lib] = _G[lib] end
 for _, f in ipairs({ "assert", "error", "ipairs", "next", "pairs", "pcall", "rawequal", "rawget", "rawlen",
@@ -539,6 +541,122 @@ for _, name in ipairs({ "butcher", "hound", "father", "watcher" }) do
   settle(200)
   check(b.act == "dead" and F.won, name .. ": prey slaughtered")
 end
+-- the fight, as in Bloodborne: stamina, dodges, the lock, the charge, the
+-- parry and the visceral attack, the trick in a combo, a boss's poise
+clear()
+Y.teleport(qx, qy)
+settle(30)
+P.act, P.hp, P.inv, P.st, P.ext = nil, 10, 0, 100, false
+press(4, 1)
+check(P.st < 100, "a blow costs stamina")
+settle(150)
+check(P.st == 100, "stamina comes back")
+-- a tap of B with a direction: a roll, unharmed through it
+local rx, ry = P.x, P.y
+local dodged
+for d = 0, 7 do
+  local bits = ({ 8, 8 | 2, 2, 2 | 4, 4, 4 | 1, 1, 1 | 8 })[d + 1]
+  local v = DV[d + 1]
+  if not Y.blocked(P.x + v[1] * 30, P.y + v[2] * 30) then
+    frame(bits | (1 << 5), "fight"); frame(bits | (1 << 5), "fight"); frame(bits, "fight")
+    dodged = P.act
+    for i = 1, 3 do frame(bits, "fight") end
+    break
+  end
+end
+check(dodged == "roll" and P.anim:find("roll"), "B tapped while moving: a roll (" .. tostring(dodged) .. ")")
+check(P.inv > 0, "invulnerable in the roll")
+settle(60)
+check(math.abs(P.x - rx) + math.abs(P.y - ry) > 15, "the roll carries him")
+-- the lock (L1) on a creature, and a quickstep to the side
+fx, fy = free_near(P.x, P.y, 50)
+o = F.new("pitchfork", fx, fy, 0)
+o.cd = 999
+frame(1 << 10, "fight"); frame(0, "fight")
+check(P.lock == o, "L1 locks on the creature")
+settle(5)
+check(P.dir == F.dir_to(o.x - P.x, o.y - P.y), "locked: he faces it")
+local stepped
+for _, bits in ipairs({ 1, 2, 4, 8, 1 | 4, 1 | 8, 2 | 4, 2 | 8 }) do
+  local bdx = (bits & 1 ~= 0 and -1) or (bits & 2 ~= 0 and 1) or 0
+  local bdy = (bits & 4 ~= 0 and -1) or (bits & 8 ~= 0 and 1) or 0
+  local di = Y.dirs[bdy][bdx]
+  local rel = (di - P.dir) % 8
+  if rel == 2 or rel == 6 then
+    frame(bits | (1 << 5), "fight"); frame(bits, "fight")
+    stepped = P.anim
+    break
+  end
+end
+check(stepped and stepped:find("qstep"), "locked, B to the side: a quickstep (" .. tostring(stepped) .. ")")
+settle(40)
+-- R1 held: the heavy blow waits at the top, charged
+P.act, P.st = nil, 100
+for i = 1, 40 do frame(1 << 11, "fight") end
+check(P.act == "heavy" and P.charged, "R1 held: a charged heavy blow")
+for i = 1, 60 do frame(0, "fight") end
+check(P.act == nil, "and released")
+-- the parry: shot as it winds up, it reels; A tears it open
+clear()
+settle(20)
+P.act, P.hp, P.st, P.lock = nil, 10, 100, nil
+for d = 0, 7 do
+  local px, py = P.x + DV[d + 1][1] * 26, P.y + DV[d + 1][2] * 26
+  if not Y.blocked(px, py) then P.dir, fx, fy = d, px, py break end
+end
+o = F.new("pitchfork", fx, fy, 0)
+o.alert, o.cd = true, 0
+local waited = 0
+while o.act ~= "attack" and waited < 200 do frame(0, "fight"); waited = waited + 1; P.inv, P.hp = 60, 10 end
+check(o.act == "attack", "the townsman winds up")
+P.dir = F.dir_to(o.x - P.x, o.y - P.y)
+press(6, 1)
+local reeled = false
+for i = 1, 20 do frame(0, "fight"); P.inv = 60; if o.act == "stagger" then reeled = true break end end
+check(reeled, "the parry: shot as it winds up, it reels")
+for i = 1, 40 do if P.act == nil then break end frame(0, "fight") end
+P.dir = F.dir_to(o.x - P.x, o.y - P.y)
+local hp0 = o.hp
+press(4, 1)
+check(P.act == "visceral" and o.act == "held", "A on a reeling creature: the visceral attack")
+settle(80)
+check(o.hp < hp0 - 8 or o.act == "dead", "the visceral attack tears it open")
+-- a charged blow in its back staggers it
+clear()
+settle(20)
+P.act, P.st = nil, 100
+o = F.new("church", P.x + DV[P.dir + 1][1] * 24, P.y + DV[P.dir + 1][2] * 24, 0)
+o.dir, o.cd, o.hp = P.dir, 999, 50                 -- it faces away from the hunter
+o.alert = false
+o.st = setmetatable({ sight = 0 }, { __index = o.st })
+for i = 1, 45 do frame(1 << 11, "fight") end
+check(P.charged, "charged")
+for i = 1, 30 do frame(0, "fight") end
+check(o.act == "stagger", "a charged blow in the back: it reels (" .. tostring(o.act) .. ")")
+-- the trick: a blow, Y, the blade transformed in a blow, the combo goes on in the other form
+clear()
+settle(30)
+P.act, P.st, P.ext, P.combo = nil, 100, false, 0
+press(4, 1)
+local ypressed = false
+for i = 1, 40 do
+  local a = Y.HUNT[P.anim]
+  local b = 0
+  if not ypressed and P.act == "attack" and P.f >= a.hit - 1 then b, ypressed = 1 << 7, true end
+  frame(b, "fight")
+  if P.act == "trick" then break end
+end
+local tricked = P.act == "trick"
+for i = 1, 30 do frame(i == 20 and (1 << 4) or 0, "fight") end
+check(tricked and P.ext, "A, then Y: the trick opens the saw cleaver in a blow")
+settle(80)
+-- a boss's poise breaks under blows
+clear()
+fx, fy = free_near(P.x, P.y, 60)
+o = F.new("butcher", fx, fy, 0)
+o.awake, o.cd = true, 999
+for i = 1, 5 do F.harm(o, 4, false) end
+check(o.act == "stagger", "a boss reels when the blows add up (" .. tostring(o.act) .. ")")
 clear()
 F.quiet = false
 

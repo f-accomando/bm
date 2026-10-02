@@ -145,6 +145,13 @@ screenshot in `docs/img/`), `README_OLD.md` (il README completo, in italiano),
   (`sdf.LIGHT_TOP`). Nemici: idle, walk, attack, hurt, death; boss: in più 2 attacchi speciali
   e 2 combo di due colpi (eventi `hit`, `fire`, `throw`, `slam`, `howl`, `beam`). Nel gioco
   `FOES` (l'atlante) e la tabella `FOE` (comparsa per quartiere, IA, colpi, boss).
+- Il combattimento come in Bloodborne (`update_play`, `FOE.strike` / `stagger` / `visceral`):
+  stamina (colpi, schivate, corsa), A colpo rapido in combo, R1 pesante (tenuto: caricato; alle
+  spalle fa barcollare), Y dopo un colpo trasforma la saw cleaver in un colpo (`trick`) e la
+  combo continua nell'altra forma, B toccato schiva (col lock-on L1 passo rapido, senza
+  capriola, fermo backstep; tenuto corre), X spara: durante la carica di un nemico è il parry
+  (barcolla), poi A è il visceral. Rally, i boss barcollano quando i colpi si sommano (poise).
+  L1/R1 si leggono con `pad()`; dalla seriale sono `u` e `o` (kernel), dalla tastiera Q ed E.
 - Lo sheet è largo 4096 (skyline, fotogrammi uguali tenuti una volta). La cache delle creature
   dipende dal codice (non dai commenti né dagli import) di `rig.py`, `foeparts.py` e del loro
   modulo; quella del cacciatore da `hunter.py`; tutte da `sdf.SDF_VERSION` (aumentarlo se cambia

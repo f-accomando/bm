@@ -45,6 +45,8 @@
 
 enum { BTN_LEFT, BTN_RIGHT, BTN_UP, BTN_DOWN, BTN_A, BTN_B, BTN_X, BTN_Y, BTN_START, BTN_SELECT,
        BTN_COUNT };
+/* the shoulder buttons from the serial keys: pad() only, not btn() */
+enum { SER_L1 = BTN_COUNT, SER_R1, SER_COUNT };
 
 static struct {
     g16_t g;
@@ -52,7 +54,7 @@ static struct {
     g16_map_t map;
     uint8_t *cell_dirty;
     int sheet_dirty;
-    uint8_t hold[BTN_COUNT];
+    uint8_t hold[SER_COUNT];
     int uses_xy;                /* the cart asked for btn(6) or btn(7) */
     uint16_t now, prev;             /* button bits this frame / last frame, any player */
     uint16_t pnow[INPUT_PLAYERS], pprev[INPUT_PLAYERS];     /* the same per player */
@@ -1995,6 +1997,8 @@ static int poll_keys(void)
             case 'k': case 'K': case 'x': case 'X': b = BTN_B; break;
             case 'c': case 'C': case 'l': case 'L': b = BTN_X; break;
             case 'v': case 'V': case 'i': case 'I': b = BTN_Y; break;
+            case 'u': case 'U': b = SER_L1; break;
+            case 'o': case 'O': b = SER_R1; break;
             case '\r': b = BTN_START; break;
             case 'q': case 'Q': return 1;
             }
@@ -2016,10 +2020,10 @@ static int poll_keys(void)
         for (int k; (k = hid_getc()) >= 0;)
             text_push((uint8_t)k);
     uint32_t serial = 0;                    /* HID_* bits of the serial keys held */
-    for (int b = 0; b < BTN_COUNT; b++)
+    for (int b = 0; b < SER_COUNT; b++)
         if (rt.hold[b]) {
             serial |= b == BTN_X ? HID_X : b == BTN_Y ? HID_Y : b == BTN_START ? HID_START :
-                      b == BTN_SELECT ? HID_SELECT : 1u << b;
+                      b == BTN_SELECT ? HID_SELECT : b == SER_L1 ? HID_L1 : b == SER_R1 ? HID_R1 : 1u << b;
             rt.hold[b]--;
         }
     rt.prev = rt.now;
