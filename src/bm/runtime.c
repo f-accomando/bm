@@ -2000,6 +2000,7 @@ static int poll_keys(void)
             case 'u': case 'U': b = SER_L1; break;
             case 'o': case 'O': b = SER_R1; break;
             case '\r': b = BTN_START; break;
+            case '\t': b = BTN_SELECT; break;
             case 'q': case 'Q': return 1;
             }
         }

@@ -325,10 +325,13 @@ end
 for i = 1, 3600 do frame(0, "title") end
 local cx, cy = Y.camera()
 check(cx > 2500 and cy > 1200, "the camera drifted over the town")
--- A: the hunter starts on a street where the camera is
+-- A: a hunt begins at the start, whatever the camera showed
 frame(1 << 4, "start")
 frame(0, "start")
-check(not Y.blocked(P.x, P.y), "the hunter starts on a free street")
+check(Y.state() == "play" and not Y.blocked(P.x, P.y), "the hunter starts on a free street")
+check(P.x < 256 and P.y < 256, "at the start of the hunt")
+-- the walk below may die: it has echoes enough to come back every time
+Y.G.echoes = 1000000
 
 -- the hunter walks at random for a few minutes, sometimes running
 math.randomseed(7)
@@ -384,6 +387,7 @@ end
 -- no creatures for these: they would join in
 local F = Y.FOE
 F.quiet = true
+Y.G.echoes = 1000000
 for k = #F.list, 1, -1 do F.list[k] = nil end
 Y.teleport(quiet())
 settle()
@@ -541,6 +545,78 @@ for _, name in ipairs({ "butcher", "hound", "father", "watcher" }) do
   settle(200)
   check(b.act == "dead" and F.won, name .. ": prey slaughtered")
 end
+-- the hunt: areas closed by mist, a boss at the end of each, two lamps
+local A = Y.AREA
+check(Y.blocked(-12, 100) and Y.blocked(100, -12), "mist to the west and north of the start")
+check(Y.blocked(A * 256 + 8, 300), "the second area is closed")
+local bx, by = Y.boss_chunk(0)
+local dd = Y.district(bx, by)
+check(dd.boss and dd.kind == "pyre", "the first area ends at a pyre: the Butcher's (" .. dd.kind .. ")")
+for k = 1, 2 do
+  local lx, ly = Y.lamp_chunk(0, k)
+  check(Y.ensure(lx, ly).shrine, "a hunter's lamp in chunk " .. lx .. "," .. ly)
+end
+-- the boss is in its arena
+F.quiet = false
+clear()
+Y.teleport(bx * 256 + 128, by * 256 + 128)
+for cy = by - 1, by + 1 do for cx = bx - 1, bx + 1 do local c = Y.chunk(cx, cy); if c then c.spawned = false end end end
+local arena = Y.ensure(bx, by)
+arena.spawned = false
+F.populate(arena)
+local found
+for _, f in ipairs(F.list) do if f.boss then found = f.name end end
+check(found == "butcher", "the Butcher waits in the pyre (" .. tostring(found) .. ")")
+F.quiet = true
+clear()
+-- echoes: what a slain creature leaves
+Y.teleport(qx, qy)
+settle(20)
+local e0 = Y.G.echoes
+o = F.new("pitchfork", P.x + 30, P.y, 0)
+F.harm(o, 99, false)
+check(Y.G.echoes == e0 + 30, "a townsman leaves 30 echoes")
+settle(30)
+-- Select: echoes for health
+P.act, P.hp = nil, 4
+Y.G.echoes = 100
+frame(1 << 9, "heal"); frame(0, "heal")
+check(P.act == "heal" and Y.G.echoes == 40, "Select spends echoes to heal")
+settle(60)
+check(P.hp == 8, "and the health comes back (" .. P.hp .. ")")
+-- a hunter's lamp: lit, it opens its menu; Vitality bought; rest
+local lx, ly = Y.lamp_chunk(0, 1)
+local sh = Y.ensure(lx, ly).shrine
+Y.teleport(sh.x, sh.y + 16)
+settle(10)
+Y.G.echoes = 1000
+press(4, 2)
+check(Y.G.lit[sh.key] and Y.state() == "lamp", "A by the lamp: lit, and its menu")
+press(3, 2); press(4, 2)
+check(P.hpmax == 12 and Y.G.echoes == 700, "Vitality bought with echoes (" .. P.hpmax .. ", " .. Y.G.echoes .. ")")
+press(2, 2); press(4, 2)
+check(Y.state() == "play", "rested")
+-- a death costs echoes, back at the lamp; without them the hunt is lost
+Y.G.echoes = 150
+P.inv = 0
+Y.teleport(qx, qy)
+Y.hurt(99)
+settle(400)
+check(Y.state() == "play" and Y.G.echoes == 50, "a death costs 100 echoes (" .. Y.G.echoes .. ")")
+check(math.abs(P.x - sh.x) < 4 and math.abs(P.y - sh.y - 16) < 4, "back at the last lamp lit")
+Y.G.echoes = 20
+P.inv = 0
+Y.hurt(99)
+settle(400)
+check(Y.state() == "lost", "too few echoes: the hunt is lost")
+settle(100)
+press(4, 2)
+check(Y.state() == "title" and Y.G.echoes == 0 and next(Y.G.lit) == nil, "begin again: a new hunt")
+press(4, 2)
+check(Y.state() == "play", "and it starts")
+Y.G.echoes = 1000000
+F.quiet = true
+
 -- the fight, as in Bloodborne: stamina, dodges, the lock, the charge, the
 -- parry and the visceral attack, the trick in a combo, a boss's poise
 clear()

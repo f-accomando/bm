@@ -173,7 +173,9 @@ local multiplayer for up to 4 players. The games on the card, all `.bm`:
   townsfolk, beasts, hunters, eldritch horrors) and four bosses wait in theirs, each with
   two special attacks and two combos. The fight is Bloodborne's: stamina, quickstep and roll
   with i-frames, lock-on, charged blows, the trick weapon transformed mid-combo, the gun
-  parry and the visceral attack, the rally.
+  parry and the visceral attack, the rally. The town is walked area by area, each closed by
+  mist and ended by its boss, with two hunter's lamps to light; blood echoes from the slain
+  heal and buy strength at a lamp, and a death costs them.
 - The rest: Pong (2 players), Snake, Star Shooter, and **nano8** for `.p8` carts.
 
 The console screenshots come from QEMU (`tests/qemu_test.py --shots DIR`). The bm Studio

@@ -152,6 +152,14 @@ screenshot in `docs/img/`), `README_OLD.md` (il README completo, in italiano),
   capriola, fermo backstep; tenuto corre), X spara: durante la carica di un nemico è il parry
   (barcolla), poi A è il visceral. Rally, i boss barcollano quando i colpi si sommano (poise).
   L1/R1 si leggono con `pad()`; dalla seriale sono `u` e `o` (kernel), dalla tastiera Q ed E.
+- La caccia (richiesta dell'utente: non si va all'infinito in una direzione): zone di `AREA` ×
+  `AREA` pezzi verso est, chiuse da un muro di nebbia (`inside`, `draw_edge`); in fondo a ogni
+  zona l'arena del boss (`boss_chunk`: pira, giardini, cimitero, cappella a turno), ucciso il
+  quale si apre la zona dopo (`G.open`). Due lampade del cacciatore per zona (`lamp_chunk`, prop
+  `shrine`): una a metà, una prima del boss; si torna all'ultima accesa. Echi (`G.echoes`) dai
+  nemici uccisi: Select (Tab) cura per `HEAL_COST`, alla lampada si spendono in `UPGRADES`
+  (provvisori: gli aspetti del cacciatore li definirà l'utente); la morte costa `DEATH_COST`
+  echi e senza abbastanza echi la caccia è perduta (stato `lost`, poi una caccia nuova).
 - Lo sheet è largo 4096 (skyline, fotogrammi uguali tenuti una volta). La cache delle creature
   dipende dal codice (non dai commenti né dagli import) di `rig.py`, `foeparts.py` e del loro
   modulo; quella del cacciatore da `hunter.py`; tutte da `sdf.SDF_VERSION` (aumentarlo se cambia

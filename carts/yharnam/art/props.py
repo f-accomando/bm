@@ -76,6 +76,34 @@ def gas_lamp(lit=True):
     return m, ((0, 0, 33), 36), (40, 80, 20, 74)
 
 
+def shrine(lit=True):
+    """the hunter's lamp: a lantern on a short iron post over a stone step,
+    where the hunt rests (a checkpoint); lit, it burns white and warm"""
+    m = Model()
+    a = m.add
+    a('root', lambda q: sd_box(q - np.array([0, 0, 1.2]), (7.0, 7.0, 1.2), 0.3), STONE, 'step')
+    a('root', lambda q: sd_box(q - np.array([0, 0, 3.4]), (5.0, 5.0, 1.0), 0.3), STONE, 'step')
+    a('root', lambda q: sd_cone(q, 4.0, 7.0, 2.4, 1.6), IRON, 'post')
+    a('root', lambda q: sd_cyl(q, (0, 0), 1.0, 7, 22), IRON, 'post')
+    a('root', lambda q: sd_torus_z(q, (0, 0, 14.0), 1.2, 0.5), IRON, 'post')
+    a('root', lambda q: sd_cone(q, 22.0, 24.0, 1.6, 3.4), IRON, 'post')
+    # the lantern: a wide cage of iron round its glass, a hood, a ring
+    glass = GLASS if lit else DGLASS
+    a('root', lambda q: sd_box(q - np.array([0, 0, 29.0]), (3.4, 3.4, 4.6), 0.6), glass, 'lamp')
+    for k in range(8):
+        ang = k * math.pi / 4
+        cx, cy = 4.2 * math.cos(ang), 4.2 * math.sin(ang)
+        a('root', (lambda cx, cy: lambda q: sd_capsule(q, (cx, cy, 24.2), (cx * 1.05, cy * 1.05, 33.6), 0.35))(cx, cy),
+          IRON, 'lamp')
+    a('root', lambda q: sd_torus_z(q, (0, 0, 24.4), 4.2, 0.55), IRON, 'lamp')
+    a('root', lambda q: sd_cone(q, 33.4, 37.0, 5.2, 1.0), IRON, 'lamp')
+    a('root', lambda q: sd_torus_z(q - np.array([0, 0, 0]), (0, 0, 38.4), 1.2, 0.35) +
+      0 * q[:, 0], IRON, 'lamp')
+    if lit:
+        a('root', lambda q: sd_ellipsoid(q - np.array([0, 0, 28.6]), (1.3, 1.3, 2.4)), FLAME, 'lamp')
+    return m, ((0, 0, 19), 22), (40, 60, 20, 54)
+
+
 def brazier():
     m = Model()
     a = m.add
@@ -548,6 +576,8 @@ PROPS = {
     'fence_post': fence_post,
     'bollard': bollard,
     'cage': cage,
+    'shrine': lambda: shrine(False),
+    'shrine_lit': lambda: shrine(True),
 }
 
 
@@ -559,6 +589,7 @@ SCALE = {
     'carriage': 2.0, 'barrel': 2.0, 'crate': 2.0, 'crates': 2.0, 'fountain': 2.6, 'well': 1.9, 'bench': 2.2,
     'chimney': 1.6, 'chimney1': 1.6, 'spire': 1.9, 'tree': 1.9, 'tree2': 1.9, 'tree3': 1.9, 'bush': 1.8,
     'bush2': 1.8, 'fence_x': 2.0, 'fence_y': 2.0, 'fence_post': 2.0, 'bollard': 1.4, 'cage': 2.2,
+    'shrine': 1.5, 'shrine_lit': 1.5,
 }
 
 
