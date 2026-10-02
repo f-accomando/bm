@@ -19,7 +19,7 @@ import bmmesh  # noqa: E402
 import mkbm  # noqa: E402
 import rig  # noqa: E402
 
-HEROES = ["rally"]
+HEROES = ["rally", "kaiju", "sarge", "frost", "fuse", "rail", "orbit", "akari"]
 
 
 def collect():

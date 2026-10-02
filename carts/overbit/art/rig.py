@@ -173,3 +173,109 @@ def over(base, top):
     out = dict(base)
     out.update(top)
     return out
+
+
+# ------------------------------------------------------------------ rotations and IK
+
+def mat_mul(a, b):
+    return [sum(a[i * 3 + k] * b[k * 3 + j] for k in range(3)) for i in range(3) for j in range(3)]
+
+
+def mat_t(a):
+    return [a[j * 3 + i] for i in range(3) for j in range(3)]
+
+
+def mat_euler(r):
+    """R = Rz Ry Rx (row major) -> (rx, ry, rz) degrees"""
+    sy = max(-1.0, min(1.0, -r[6]))
+    ry = math.asin(sy)
+    if abs(sy) < 0.9999:
+        rx = math.atan2(r[7], r[8])
+        rz = math.atan2(r[3], r[0])
+    else:                                   # gimbal lock: put it all in x
+        rx = math.atan2(-r[5], r[4])
+        rz = 0.0
+    return (math.degrees(rx), math.degrees(ry), math.degrees(rz))
+
+
+def _norm(v):
+    l = math.sqrt(v[0] * v[0] + v[1] * v[1] + v[2] * v[2])
+    return (v[0] / l, v[1] / l, v[2] / l) if l > 1e-12 else (0.0, 1.0, 0.0)
+
+
+def _cross(a, b):
+    return (a[1] * b[2] - a[2] * b[1], a[2] * b[0] - a[0] * b[2], a[0] * b[1] - a[1] * b[0])
+
+
+def _dot(a, b):
+    return a[0] * b[0] + a[1] * b[1] + a[2] * b[2]
+
+
+def turn_between(a, b):
+    """the smallest rotation taking direction a to direction b (matrix)"""
+    a, b = _norm(a), _norm(b)
+    v = _cross(a, b)
+    c = _dot(a, b)
+    if c < -0.99999:                        # opposite: half a turn around any normal
+        axis = _norm(_cross(a, (1, 0, 0) if abs(a[0]) < 0.9 else (0, 1, 0)))
+        x, y, z = axis
+        return [2 * x * x - 1, 2 * x * y, 2 * x * z, 2 * x * y, 2 * y * y - 1, 2 * y * z, 2 * x * z, 2 * y * z,
+                2 * z * z - 1]
+    k = 1.0 / (1.0 + c)
+    vx, vy, vz = v
+    return [vx * vx * k + c, vx * vy * k - vz, vx * vz * k + vy,
+            vy * vx * k + vz, vy * vy * k + c, vy * vz * k - vx,
+            vz * vx * k - vy, vz * vy * k + vx, vz * vz * k + c]
+
+
+def world_rot(sk, pose, bone):
+    return sk.matrices(pose)[sk[bone]][0]
+
+
+def bone_head(sk, pose, bone):
+    return sk.place(pose, bone, sk.bones[sk[bone]][2])
+
+
+def aim(sk, pose, bone, direction):
+    """sets the local turn of `bone` (in pose) so that it points along a
+    world direction (from its head to its tail at rest -> direction)"""
+    name, parent, head, tail = sk.bones[sk[bone]]
+    rest = (tail[0] - head[0], tail[1] - head[1], tail[2] - head[2])
+    want = turn_between(rest, direction)
+    wp = sk.matrices(pose)[parent][0] if parent >= 0 else [1, 0, 0, 0, 1, 0, 0, 0, 1]
+    pose[bone] = mat_euler(mat_mul(mat_t(wp), want))
+    return pose
+
+
+def arm_ik(sk, pose, upper, lower, target, pole):
+    """two bones (shoulder-elbow-hand) reaching `target` (world), the elbow
+    towards `pole` (a direction); sets both local turns in pose"""
+    S = bone_head(sk, pose, upper)
+    _, _, uh, ut = sk.bones[sk[upper]]
+    _, _, lh, lt = sk.bones[sk[lower]]
+    l1 = math.dist(uh, ut)
+    l2 = math.dist(lh, lt)
+    d = math.dist(S, target)
+    d = max(1e-4, min(d, (l1 + l2) * 0.999))
+    u = _norm((target[0] - S[0], target[1] - S[1], target[2] - S[2]))
+    a = (l1 * l1 - l2 * l2 + d * d) / (2 * d)
+    h = math.sqrt(max(0.0, l1 * l1 - a * a))
+    p = _norm(pole)
+    pp = _norm((p[0] - u[0] * _dot(p, u), p[1] - u[1] * _dot(p, u), p[2] - u[2] * _dot(p, u)))
+    E = (S[0] + u[0] * a + pp[0] * h, S[1] + u[1] * a + pp[1] * h, S[2] + u[2] * a + pp[2] * h)
+    T = (S[0] + u[0] * d, S[1] + u[1] * d, S[2] + u[2] * d)
+    aim(sk, pose, upper, (E[0] - S[0], E[1] - S[1], E[2] - S[2]))
+    aim(sk, pose, lower, (T[0] - E[0], T[1] - E[1], T[2] - E[2]))
+    return pose
+
+
+def orient(sk, pose, bone, world):
+    """sets the local turn of `bone` so that its world turn is `world`"""
+    parent = sk.bones[sk[bone]][1]
+    wp = sk.matrices(pose)[parent][0] if parent >= 0 else [1, 0, 0, 0, 1, 0, 0, 0, 1]
+    pose[bone] = mat_euler(mat_mul(mat_t(wp), world))
+    return pose
+
+
+def rot_euler(rx, ry, rz):
+    return qmat(quat_euler(rx, ry, rz))

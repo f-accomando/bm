@@ -19,6 +19,7 @@ local function draw_scene(skip)
   World.draw_sky(Cam.pitch)
   zclear()
   World.draw()
+  Props.draw()
   Actors.draw(Cam.x, Cam.y, Cam.z, skip)
   Proj.draw()
   Fx.draw()
@@ -44,6 +45,15 @@ local SCRIPTS = {
     if p then face(a, p.x, p.y + 1.5, p.z) end
     c.jump_p = floor(G.t * 60) % 120 == a.id * 7 % 120
   end,
+  -- a friend who keeps getting hurt: the supports have someone to heal
+  wounded = function(a, c, p)
+    a.wound_t = (a.wound_t or 3) - DT
+    if a.wound_t <= 0 then
+      a.wound_t = 4
+      if Actors.total(a) > 120 then Actors.damage(a, 90, nil, false, "range") end
+    end
+    if p then face(a, p.x, p.y + 1.5, p.z) end
+  end,
   shooter = function(a, c, p)
     if not p or not p.alive then return end
     face(a, p.x, p.y + 1.2, p.z)
@@ -64,9 +74,12 @@ local Range = {}
 function Range.start()
   clear_match()
   local s = World.spawn
-  G.local_actor = Actors.spawn("rally", 1, s.x, s.y, s.z, s.yaw, { name = "You" })
+  G.local_actor = Actors.spawn(G.hero_id, 1, s.x, s.y, s.z, s.yaw, { name = "You" })
   spawn_dummy(0, 0, "still", "Dummy")
-  spawn_dummy(-8, 8, "strafe", "Strafer")
+  local st = Actors.spawn(H.kaiju and "kaiju" or "rally", 2, -8, 0, 8, pi, { dummy = true, respawn = 2.5, name = "Strafer" })
+  st.script = SCRIPTS.strafe
+  local bud = Actors.spawn(H.sarge and "sarge" or "rally", 1, 5, 0, -8, -0.4, { dummy = true, respawn = 2.5, name = "Buddy" })
+  bud.script = SCRIPTS.wounded
   spawn_dummy(9, 14, "jumper", "Jumper")
   spawn_dummy(0, 24, "shooter", "Gunner")
   G.dmg_numbers = true
@@ -79,12 +92,15 @@ local function update_actors()
       if a == me then
         local c = Input.cmd
         a.cmd = c
-        a.yaw = wrap_angle(a.yaw + c.look_x)
-        a.pitch = clamp(a.pitch + c.look_y, -1.45, 1.45)
+        if not Actors.frozen(a) then
+          a.yaw = wrap_angle(a.yaw + c.look_x)
+          a.pitch = clamp(a.pitch + c.look_y, -1.45, 1.45)
+        end
       else
         local c = Input.blank(a.cmd)
         if a.script then a.script(a, c, me) end
       end
+      Actors.status(a, a.cmd)
       a.hero.update(a, a.cmd)
     else
       a.dead_t = a.dead_t + DT
@@ -106,7 +122,9 @@ end
 
 function Range.draw()
   local me = G.local_actor
-  if me.alive then
+  if me.alive and me.hero.camera and me.hero.camera(me) then
+    draw_scene(nil)                              -- a camera of the hero's own (Fuse's wheel)
+  elseif me.alive then
     Cam.first(me)
     draw_scene(me)
     if me.hero.draw_fp_extra then me.hero.draw_fp_extra(me, Cam.x, Cam.y, Cam.z, Cam.yaw, Cam.pitch) end
@@ -125,11 +143,31 @@ end
 -- ---------------------------------------------------------------- the title menu
 
 local Menu = { sel = 1, t = 0 }
-local ITEMS = { "TRAINING RANGE", "ANIMATION REEL", "QUALITY", "BENCHMARK" }
+local ITEMS = { "TRAINING RANGE", "HERO", "ANIMATION REEL", "QUALITY", "BENCHMARK" }
+
+G.hero_id = "rally"          -- OVERBIT_HERO (tests) in _init
+
+local function menu_hero()
+  if Menu.hero then
+    for i, a in ipairs(G.actors) do if a == Menu.hero then table.remove(G.actors, i) break end end
+  end
+  Menu.hero = Actors.spawn(G.hero_id, 1, 0, 0, 0, pi * 0.85, { name = H[G.hero_id].name })
+  Menu.vt = 0
+end
+
+-- the next hero of the roster (k = 1 or -1)
+local function next_hero(k)
+  local n = #HERO_ORDER
+  for i, id in ipairs(HERO_ORDER) do
+    if id == G.hero_id then G.hero_id = HERO_ORDER[(i - 1 + k) % n + 1] break end
+  end
+  menu_hero()
+end
 
 function Menu.start()
   clear_match()
-  Menu.hero = Actors.spawn("rally", 1, 0, 0, 0, pi * 0.85, { name = "Rally" })
+  Menu.hero = nil
+  menu_hero()
   Menu.t = 0
 end
 
@@ -138,9 +176,14 @@ function Menu.update()
   local c = Input.cmd
   if c.up_p then Menu.sel = (Menu.sel - 2) % #ITEMS + 1 Snd.play("ui") end
   if c.down_p then Menu.sel = Menu.sel % #ITEMS + 1 Snd.play("ui") end
+  if ITEMS[Menu.sel] == "HERO" and (c.left_p or c.right_p) then
+    next_hero(c.right_p and 1 or -1)
+    Snd.play("ui")
+  end
   local a = Menu.hero
   -- the hero on the title: idle, now and then its victory pose
-  local ph = Menu.t % 9
+  Menu.vt = Menu.vt + DT
+  local ph = Menu.vt % 9
   a.override = ph > 6 and "victory" or nil
   if ph > 6 and ph - DT <= 6 then a.anim.base, a.anim.bt = "victory", 0 end
   Actors.animate(a)
@@ -148,6 +191,7 @@ function Menu.update()
     local it = ITEMS[Menu.sel]
     Snd.play("ui")
     if it == "TRAINING RANGE" then Modes.start("range")
+    elseif it == "HERO" then next_hero(1)
     elseif it == "ANIMATION REEL" then Modes.start("reel")
     elseif it == "QUALITY" then
       if G.qauto then G.qauto = false Quality.set(4)
@@ -172,11 +216,18 @@ function Menu.draw()
   for i, it in ipairs(ITEMS) do
     local s = it
     if it == "QUALITY" then s = "QUALITY: " .. (G.qauto and "AUTO" or Quality.names[G.quality + 1]) end
+    if it == "HERO" then s = "HERO: < " .. H[G.hero_id].name:upper() .. " >" end
     local y = 96 + (i - 1) * 16
     local sel = i == Menu.sel
     if sel then rectfill(8, y - 2, #s * 6 + 12, 14, 0xF26A21) end
     print(s, 14, y, sel and 0xFFFFFF or 0xD8DCE2)
   end
+  -- the chosen hero: name, role, line
+  local h = H[G.hero_id]
+  local role = h.role:upper()
+  print(h.name:upper(), 316 - #h.name * 6, 128, h.rgb)
+  print(role, 316 - #role * 6, 141, 0xD8DCE2)
+  print(h.desc, 316 - #h.desc * 6, 154, 0x9AA0A8)
   print("build " .. (OVERBIT_BUILD or "dev"), 4, 168, 0x9AA0A8)
   font()
 end

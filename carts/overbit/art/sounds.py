@@ -24,6 +24,10 @@ SOUNDS = [
     ("TICK", "metal", 128, 140, [0, 4, 0, 3], 0, 0),         # 9 hit marker
     ("CHORD", "triangle", 128, 160, [1, 40, 140, 30], 0, 0), # 10 call mech
     ("HUM", "triangle", 128, 90, [3, 30, 200, 20], 0, 0),    # 11 field
+    ("SWISH", "noise", 128, 170, [1, 16, 0, 10], 0, 0),      # 12 blades
+    ("PLASMA", "saw", 96, 130, [0, 20, 60, 12], -7, 12),     # 13 plasma hum
+    ("PEW", "square", 64, 140, [0, 7, 0, 4], 12, 3),         # 14 small guns
+    ("GLASS", "metal", 128, 200, [0, 30, 0, 30], 0, 0),      # 15 shatter, ice
 ]
 
 SFX = [
@@ -46,6 +50,18 @@ SFX = [
     ("UI", 30, ["C6 7 160", "off"]),
     ("UIBACK", 30, ["G5 7 140", "off"]),
     ("FIELD", 60, ["C4 11 160 vib6", ".", ".", "off"]),
+    ("SABER", 45, ["G5 12 200 bend-7", "C4 13 170 bend-5", "off"]),
+    ("BARRIER", 70, ["C4 13 160 bend+12", "C5 11 170 vib4", ".", "off"]),
+    ("SHATTER", 60, ["C7 15 255", "G6 15 230", "C6 5 220 fadeout3", "off"]),
+    ("STRIKE", 50, ["C3 1 255 bend-12", "G3 13 220 bend-7", "off"]),
+    ("REPEATER", 25, ["E6 14 170 bend-12", "off"]),
+    ("LIMIT", 90, ["C3 13 220 bend+12", "G3 12 255", "C4 13 255 bend+12", "G4 12 240", "C5 5 220 fadeout4", "off"]),
+    ("DASH", 50, ["C4 3 220 bend+7", "G4 4 160", "off"]),
+    ("RIFLE", 25, ["C5 0 190", "G4 14 120 bend-12", "off"]),
+    ("HELIX", 50, ["E5 3 200 bend+5", "C3 1 230 bend-12", "off"]),
+    ("SPRINT", 40, ["C3 4 120 bend+5", "off"]),
+    ("HEAL", 60, ["C5 10 180", "E5 10 180", "G5 10 200", "C6 10 200 fadeout2", "off"]),
+    ("VISOR", 60, ["C6 7 180", "E6 7 190", "G6 7 200", "C7 7 220", "off"]),
 ]
 
 

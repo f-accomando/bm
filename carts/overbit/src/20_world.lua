@@ -155,8 +155,13 @@ end
 
 -- a ray from o along d (unit): distance to the first wall or the ground, and
 -- the normal there; nil if nothing within maxd
+-- (and the props: then the prop is the 5th value)
 function World.ray(ox, oy, oz, dx, dy, dz, maxd)
   local t, nx, ny, nz = world_ray(CW, ox, oy, oz, dx, dy, dz, maxd)
+  if #Props.list > 0 then
+    local pt, px, py, pz, prop = Props.ray(ox, oy, oz, dx, dy, dz, t or maxd)
+    if pt then return pt, px, py, pz, prop end
+  end
   return t, nx, ny, nz
 end
 
@@ -181,5 +186,6 @@ function World.clear(ax, ay, az, bx, by, bz)
   local dx, dy, dz = bx - ax, by - ay, bz - az
   local d = len3(dx, dy, dz)
   if d < 1e-4 then return true end
+  if #Props.list > 0 and Props.ray(ax, ay, az, dx / d, dy / d, dz / d, d) then return false end
   return world_ray(CW, ax, ay, az, dx / d, dy / d, dz / d, d) == nil
 end

@@ -41,7 +41,7 @@ local H = {}            -- hero definitions, by id (50_*.lua)
 local HERO_ORDER = {}   -- their ids in roster order
 
 -- forward declarations filled in by later files
-local World, Fx, Actors, Proj, Hud, Cam, Snd, Input, Quality, Modes, Dev
+local World, Fx, Actors, Proj, Props, Hud, Cam, Snd, Input, Quality, Modes, Dev
 
 -- colours of the teams: 1 = the player's side (blue), 2 = the other (red)
 local TEAM_RGB = { 0x46B4FF, 0xFF4646 }

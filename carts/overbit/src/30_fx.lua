@@ -42,6 +42,17 @@ function Fx.burst(x, y, z, n, s, spread, life, size, rgb, grav, dx, dy, dz)
   end
 end
 
+-- a flat ring of n particles flying out from (x, y, z) at `speed`
+function Fx.ring(x, y, z, r, n, rgb, speed, life)
+  n = floor(n * Fx.density + 0.5)
+  for i = 1, n do
+    local an = 2 * pi * i / n
+    local c, s = cos(an), sin(an)
+    spawn(x + c * r, y, z + s * r, c * speed, (random() - 0.5) * 0.6, s * speed, life or 0.4,
+      0.22 + random() * 0.1, rgb, 2.5, 0)
+  end
+end
+
 function Fx.tracer(x0, y0, z0, x1, y1, z1, rgb, width, life)
   if nt >= MAXT then return end
   nt = nt + 1
@@ -74,9 +85,9 @@ function Fx.light(x, y, z, radius, k, rgb, life)
   end
 end
 
-function Fx.number(x, y, z, n, crit)
+function Fx.number(x, y, z, n, crit, heal)
   if #nums > 24 then table.remove(nums, 1) end
-  nums[#nums + 1] = { x = x, y = y, z = z, n = n, crit = crit, age = 0 }
+  nums[#nums + 1] = { x = x, y = y, z = z, n = n, crit = crit, heal = heal, age = 0 }
 end
 
 function Fx.update()
@@ -140,12 +151,16 @@ end
 Fx.fade = fade
 
 function Fx.draw()
+  local cx, cy, cz = Cam.x, Cam.y, Cam.z
   for i = 1, np do
     local p = P[i]
-    local u = p.age / p.life
-    local rgb = p.rgb
-    if u > 0.6 then rgb = fade(rgb, 1 - (u - 0.6) * 2) end
-    point3d(p.x, p.y, p.z, p.size * (1 - u * 0.5), rgb, u > 0.5 and 1 or 0)
+    local dx, dy, dz = p.x - cx, p.y - cy, p.z - cz
+    if dx * dx + dy * dy + dz * dz > 0.36 then         -- not at the eye (a disc over the screen)
+      local u = p.age / p.life
+      local rgb = p.rgb
+      if u > 0.6 then rgb = fade(rgb, 1 - (u - 0.6) * 2) end
+      point3d(p.x, p.y, p.z, p.size * (1 - u * 0.5), rgb, u > 0.5 and 1 or 0)
+    end
   end
   for i = 1, nt do
     local t = T[i]
@@ -159,7 +174,7 @@ function Fx.draw2d()
     local sx, sy = project3d(n.x, n.y, n.z)
     if sx then
       local s = tostring(n.n)
-      local c = n.crit and 0xFF4040 or 0xFFFFFF
+      local c = n.heal and 0x60FF90 or (n.crit and 0xFF4040 or 0xFFFFFF)
       if n.age > 0.6 then c = fade(c, 1 - (n.age - 0.6) / 0.3) end
       print(s, floor(sx) - #s * 3, floor(sy) - 6, c)
     end

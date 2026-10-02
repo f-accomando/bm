@@ -208,6 +208,22 @@ def cylinder(r, h, segs=8, r2=None, smooth=True, caps=True, axis="y"):
     return p
 
 
+def along(part, p0, p1):
+    """a part made along +y (from y = 0) turned to run from p0 towards p1"""
+    d = norm(sub(p1, p0))
+    ref = (1.0, 0.0, 0.0) if abs(d[0]) < 0.9 else (0.0, 0.0, 1.0)
+    x = norm(cross(d, ref))
+    z = cross(x, d)
+    return part.map(lambda p: (p0[0] + p[0] * x[0] + p[1] * d[0] + p[2] * z[0],
+                               p0[1] + p[0] * x[1] + p[1] * d[1] + p[2] * z[1],
+                               p0[2] + p[0] * x[2] + p[1] * d[2] + p[2] * z[2]))
+
+
+def tube(p0, p1, r0, r1=None, segs=6, caps=False, smooth=True):
+    """a round limb from p0 (radius r0) to p1 (radius r1)"""
+    return along(cylinder(r0, length(sub(p1, p0)), segs=segs, r2=r1, caps=caps, smooth=smooth), p0, p1)
+
+
 def ellipsoid(rx, ry, rz, segs=10, rings=6, smooth=True):
     pts, faces = [(0, ry, 0)], []
     for k in range(1, rings):

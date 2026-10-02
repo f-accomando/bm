@@ -1,7 +1,7 @@
 -- Dev kit overlay (Select / Tab / F1): the cost of the frame on the console,
 -- split in its phases, what was drawn, the quality and the governor.
 -- F2 the next quality level (manual), F3 the governor on or off, F4 a full
--- ultimate.
+-- ultimate, F5 lose this life (a mech breaks and its pilot ejects).
 
 Dev = {}
 

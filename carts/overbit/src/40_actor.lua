@@ -50,6 +50,7 @@ function Actors.total_max(a) return a.hpmax + a.armormax + a.shieldmax end
 
 -- damage `amount` from `src` (an actor or nil); returns what was taken
 function Actors.damage(a, amount, src, crit, kind)
+  if a.is_barrier then return a.hit(a, amount, src) end     -- a barrier in the way (45_proj)
   if not a.alive or amount <= 0 then return 0 end
   if a.fx.invuln_t and a.fx.invuln_t > 0 then return 0 end
   if src and src ~= a and src.team == a.team then return 0 end
@@ -90,6 +91,7 @@ end
 
 function Actors.heal(a, amount, src)
   if not a.alive or amount <= 0 then return 0 end
+  a.heal_t = 0.3
   if a.fx.antiheal_t and a.fx.antiheal_t > 0 then return 0 end
   local d = min(amount, a.hpmax - a.hp)
   a.hp = a.hp + d
@@ -142,6 +144,7 @@ end
 function Actors.move(a, c, speed_k)
   local f = a.form
   local slow = (a.fx.slow_t and a.fx.slow_t > 0) and (1 - a.fx.slow) or 1
+  if a.fx.haste_t and a.fx.haste_t > 0 then slow = slow * (1 + a.fx.haste) end        -- Hyper Ring, Kitsune Rush
   local speed = f.speed * (speed_k or 1) * slow * (a.crouch > 0.5 and 0.5 or 1)
   -- wanted velocity from the stick, in the world
   local s, co = sin(a.yaw), cos(a.yaw)
@@ -160,6 +163,21 @@ function Actors.physics(a, grav_k)
   local og, wall = World.move(a, a.vx * DT, a.vy * DT, a.vz * DT)
   a.on_ground = og
   a.hit_wall = wall
+  -- enemies do not walk through each other: out of their circle (the walls still hold)
+  for _, o in ipairs(Actors.list) do
+    if o ~= a and o.alive and o.team ~= a.team and not o.hidden then
+      local dx, dz = a.x - o.x, a.z - o.z
+      local r = a.radius + o.radius
+      local d2 = dx * dx + dz * dz
+      if d2 < r * r and a.y < o.y + o.height and o.y < a.y + a.height then
+        local d = sqrt(d2)
+        if d < 1e-3 then dx, dz, d = sin(a.yaw), cos(a.yaw), 1 end
+        local push = (r - d) * 0.5 + 0.01
+        World.move(a, dx / d * push, 0, dz / d * push)
+      end
+    end
+  end
+  if #Props.list > 0 then Props.push(a) end
   if og then
     if not was and a.vy < -4 then
       a.land_t = 0.35
@@ -170,10 +188,34 @@ function Actors.physics(a, grav_k)
   if a.pushed_t then a.pushed_t = a.pushed_t - DT end
 end
 
+-- the status effects on a command, before the hero reads it: frozen (no
+-- control at all), rooted (no moving or jumping)
+function Actors.status(a, c)
+  local fx = a.fx
+  if fx.frozen_t and fx.frozen_t > 0 then
+    Input.blank(c)
+  elseif fx.rooted_t and fx.rooted_t > 0 then
+    c.mx, c.mz, c.jump, c.jump_p = 0, 0, false, false
+  end
+end
+
+function Actors.frozen(a)
+  return a.fx.frozen_t and a.fx.frozen_t > 0
+end
+
 -- the timers of the status effects
 function Actors.tick_fx(a)
   for k, v in pairs(a.fx) do
     if k:sub(-2) == "_t" and v > 0 then a.fx[k] = v - DT end
+  end
+  -- Kitsune Rush: the cooldowns run twice as fast, the weapon half again
+  if a.fx.rush_t and a.fx.rush_t > 0 then
+    for k, v in pairs(a.st) do
+      if type(v) == "number" and v > 0 then
+        if k == "fire_cd" then a.st[k] = max(0, v - DT * 0.5)
+        elseif k:sub(-3) == "_cd" then a.st[k] = max(0, v - DT) end
+      end
+    end
   end
   if a.hit_t > 0 then a.hit_t = a.hit_t - DT end
   if a.hit_marker_t then a.hit_marker_t = a.hit_marker_t - DT end
@@ -211,12 +253,37 @@ function Actors.ray(ox, oy, oz, dx, dy, dz, maxd, skip, team)
   return who and best, who, crit
 end
 
--- a hitscan shot: world first, then the actors in front of the wall
+-- a hitscan shot: world first, then the enemy barriers and the actors in
+-- front of the wall (a barrier comes back as `who`: Actors.damage knows it)
 function Actors.shoot(src, ox, oy, oz, dx, dy, dz, range)
-  local wt, nx, ny, nz = World.ray(ox, oy, oz, dx, dy, dz, range)
-  local at, who, crit = Actors.ray(ox, oy, oz, dx, dy, dz, wt or range, src, src.team)
+  local wt, nx, ny, nz, prop = World.ray(ox, oy, oz, dx, dy, dz, range)
+  local bt, bar = nil, nil
+  if Proj.nbarriers > 0 then bt, bar = Proj.ray_barrier(ox, oy, oz, dx, dy, dz, wt or range, src.team) end
+  local at, who, crit = Actors.ray(ox, oy, oz, dx, dy, dz, bt or wt or range, src, src.team)
   if who then return at, who, crit end
-  return wt, nil, false, nx, ny, nz
+  if bar then return bt, bar, false, -bar.nx, 0, -bar.nz end
+  return wt, prop, false, nx, ny, nz          -- a prop (an ice pillar) can be shot too
+end
+
+-- the enemies in front of `a` within reach (a cone of half angle `half`,
+-- radians, around its aim, with the world clear between): a list
+function Actors.cone(a, reach, half, height)
+  local out = {}
+  local fx, fz = sin(a.yaw), cos(a.yaw)
+  local cs = cos(half)
+  local ey = a.y + a.height * 0.5
+  for _, o in ipairs(Actors.list) do
+    if o.alive and o.team ~= a.team then
+      local dx, dz = o.x - a.x, o.z - a.z
+      local d = sqrt(dx * dx + dz * dz)
+      local dy = (o.y + o.height * 0.5) - ey
+      if d - o.radius < reach and abs(dy) < (height or 2.5) + o.height * 0.5 then
+        local inside = d < a.radius + o.radius + 0.2 or (dx * fx + dz * fz) / d > cs
+        if inside and World.clear(a.x, ey, a.z, o.x, o.y + o.height * 0.5, o.z) then out[#out + 1] = o end
+      end
+    end
+  end
+  return out
 end
 
 -- damage with distance falloff (full until near, `low` share at far)
@@ -247,6 +314,11 @@ end
 -- moves their clocks
 function Actors.animate(a)
   local an, f = a.anim, a.form
+  if a.alive and Actors.frozen(a) then             -- frozen: the pose stays as it is
+    if an.layer then animate(a.mesh, an.base, an.bt, an.layer, an.lt, an.lk, f.layer_bone)
+    else animate(a.mesh, an.base, an.bt) end
+    return
+  end
   local clips = f.clips
   local speed = sqrt(a.vx * a.vx + a.vz * a.vz)
   if a.alive then
@@ -346,6 +418,10 @@ function Actors.draw(cx, cy, cz, skip)
       end
       draw3d(a.mesh, a.x, a.y, a.z, 0, a.yaw, 0, sc, flags)
       if a.hero.draw_extra then a.hero.draw_extra(a, d) end
+      if a.alive and Actors.frozen(a) then
+        local k = a.height / 3.2 * 1.12
+        draw3d(Props.ice_mesh(true), a.x, a.y - 0.05, a.z, 0, a.yaw, 0, max(k, (a.radius + 0.1) / 0.62), 0)
+      end
     end
   end
 end

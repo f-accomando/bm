@@ -53,6 +53,7 @@ def main():
     ap.add_argument("out")
     ap.add_argument("--map")
     ap.add_argument("--start", help="the mode at start (tests, reels): menu, range, reel, bench")
+    ap.add_argument("--hero", help="the hero chosen at start (tests): rally, kaiju, ...")
     a = ap.parse_args()
     text, spans = build()
     # which build this is, on the screen (title, Select panel) and in the
@@ -62,6 +63,8 @@ def main():
     text += f'OVERBIT_BUILD = "{tag}"\n'
     if a.start:
         text += f'OVERBIT_START = "{a.start}"\n'
+    if a.hero:
+        text += f'OVERBIT_HERO = "{a.hero}"\n'
     os.makedirs(os.path.dirname(os.path.abspath(a.out)), exist_ok=True)
     with open(a.out, "w", encoding="utf-8") as f:
         f.write(text)

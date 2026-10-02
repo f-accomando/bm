@@ -22,7 +22,7 @@ local K = {
   W = 0x1A, A = 0x04, S = 0x16, D = 0x07, J = 0x0D, Z = 0x1D, K = 0x0E, X = 0x1B, E = 0x08,
   Q = 0x14, R = 0x15, C = 0x06, V = 0x19, SPACE = 0x2C, LSHIFT = 0xE1, RSHIFT = 0xE5,
   LCTRL = 0xE0, RIGHT = 0x4F, LEFT = 0x50, DOWN = 0x51, UP = 0x52, ENTER = 0x28, TAB = 0x2B,
-  F1 = 0x3A, F2 = 0x3B, F3 = 0x3C, F4 = 0x3D, P = 0x13, N1 = 0x1E, N2 = 0x1F, N3 = 0x20, N4 = 0x21,
+  F1 = 0x3A, F2 = 0x3B, F3 = 0x3C, F4 = 0x3D, F5 = 0x3E, P = 0x13, N1 = 0x1E, N2 = 0x1F, N3 = 0x20, N4 = 0x21,
 }
 Input.K = K
 
@@ -78,7 +78,7 @@ function Input.read()
     dev = b(PB.SELECT) or kd(K.TAB),
     up = b(PB.U) or kd(K.UP), down = b(PB.D) or kd(K.DOWN),
     left = b(PB.L) or kd(K.LEFT), right = b(PB.R) or kd(K.RIGHT),
-    f1 = kd(K.F1), f2 = kd(K.F2), f3 = kd(K.F3), f4 = kd(K.F4),
+    f1 = kd(K.F1), f2 = kd(K.F2), f3 = kd(K.F3), f4 = kd(K.F4), f5 = kd(K.F5),
   }
   for k, v in pairs(now) do
     cmd[k] = v

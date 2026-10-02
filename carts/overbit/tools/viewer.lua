@@ -27,8 +27,8 @@ function _draw()
   cls(0x6f8fb0)
   local m, cl = meshes[mi], clipl[mi][ci]
   local fp = names[mi]:find("fp") ~= nil
-  local h = fp and 0 or (names[mi]:find("mech") and 1.6 or 0.9)
-  local dist = fp and 0 or (names[mi]:find("mech") and 6.5 or 3.2)
+  local h = fp and 0 or (names[mi]:find("mech") and 1.6 or 0.95)
+  local dist = fp and 0 or (names[mi]:find("mech") and 6.5 or 4.4)
   local yaw = VIEW_YAW or (time() * 0.6)
   zclear()
   camera3d(math.sin(yaw) * -dist, h + (fp and 0 or 0.4), math.cos(yaw) * -dist, yaw, fp and 0 or -0.08, fp and 96 or 50)
