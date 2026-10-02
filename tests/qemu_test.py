@@ -3045,6 +3045,27 @@ def test_mouse_cart(b, opts):
         q.expect("update+draw", timeout=15)
     finally:
         q.close()
+    # a square cartridge (256x256 in the middle of a 480x270 screen): the
+    # arrow is in its box
+    square = os.path.join(tmp, "square.bm")
+    with open(square, "wb") as f:
+        f.write(mkbm.pack(MOUSE_CART.encode(), title="Mouse square", res=(256, 256)))
+    mksd.build(img, [(square, "carts/square.bm")])
+    q = Qemu(b("kernel.img"), tablet)
+    try:
+        q.expect("cartridge menu", timeout=90)
+        wait_icons(q, 1)
+        q.send("\r")
+        q.expect("playing square.bm", timeout=10)
+        q.expect("enabled true", timeout=10)
+        q.pointer(128, 64, 256, 256)
+        q.expect("mouse 128,64 b0 w0 true", timeout=10)
+        shot_ = wait_screen(q, lambda s_: arrow_at(s_, 112 + 128, 7 + 64))
+        assert shot_[:2] == (480, 270) and arrow_at(shot_, 112 + 128, 7 + 64), shot_[:2]
+        q.send("q")
+        q.expect("update+draw", timeout=15)
+    finally:
+        q.close()
     # the whole console without the pointer
     with open(os.path.join(tmp, "config.txt"), "w") as f:
         f.write("mouse=off\n")

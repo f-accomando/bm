@@ -3325,7 +3325,7 @@ uint32_t bm_video_present(framebuffer_t *fb, g16_t *g)
 {
     if (!shadow) {
         if (rt.mouse && rt.mouse_arrow)         /* on the page about to be shown */
-            pointer_draw((uint16_t *)fb->base, fb->pitch / 2, g->w, g->h);
+            pointer_draw(page_px(fb), fb->pitch / 2, g->w, g->h);
         fb_flip(fb);
         g->px = page_px(fb);
         return 0;
@@ -3349,7 +3349,7 @@ uint32_t bm_video_present(framebuffer_t *fb, g16_t *g)
     }
     uint32_t us = timer_ticks() - t0;
     if (rt.mouse && rt.mouse_arrow)             /* over the copy: never in the cartridge's buffer */
-        pointer_draw((uint16_t *)fb->base, fb->pitch / 2, g->w, g->h);
+        pointer_draw(page_px(fb), fb->pitch / 2, g->w, g->h);
     fb_flip(fb);
     return us;
 }
