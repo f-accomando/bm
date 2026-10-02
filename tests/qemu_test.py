@@ -2,8 +2,10 @@
 """
 End-to-end tests in QEMU (-M raspi0). Images are loaded at 0x8000 through
 -bios, exactly as the Pi firmware does. The serial port is a TCP socket.
+--kernel7: the same tests with kernel7.img (the Pi Zero 2 W's build) in
+raspi2b (a Pi 2 B: the BCM2710's peripherals, a Cortex-A7, no radio).
 
-  tests/qemu_test.py [--build build] [--update-ref] [-k name]
+  tests/qemu_test.py [--build build] [--update-ref] [-k name] [--kernel7]
 """
 import argparse
 import hashlib
@@ -39,11 +41,25 @@ def free_port():
         return s.getsockname()[1]
 
 
+# --kernel7: kernel7.img in raspi2b (main)
+KERNEL7 = False
+# tests that need a BCM2835 board, skipped with --kernel7
+BCM2835_ONLY = {
+    "test_pi1_board": "a Pi 1 (raspi1ap)",
+    "test_wifi_probe": "the radio chip (raspi2b is a Pi 2 B: none)",
+    "test_bt_": "the radio chip (raspi2b is a Pi 2 B: none)",
+    "test_menu_tabs": "a Bluetooth pad (the radio chip)",
+    "test_chainloader": "the serial chainloader (ARMv6)",
+}
+
+
 class Qemu:
-    def __init__(self, image, extra=(), mini_uart=False, machine="raspi0"):
+    def __init__(self, image, extra=(), mini_uart=False, machine=None):
         """mini_uart: the second serial port (the mini UART, where the
         console goes when the PL011 is given to Bluetooth) on a socket too,
-        as self.mini. machine: raspi1ap is a Pi 1 A+ (same SoC)."""
+        as self.mini. machine: raspi1ap is a Pi 1 A+ (same SoC); by
+        default raspi0, raspi2b with --kernel7."""
+        machine = machine or ("raspi2b" if KERNEL7 else "raspi0")
         self.tmp = tempfile.mkdtemp(prefix="bm-")
         self.mon_path = os.path.join(self.tmp, "mon.sock")
         tcp, tcp2 = free_port(), free_port()
@@ -190,7 +206,8 @@ def test_boot_banner(b, opts):
     try:
         out = q.boot()
         out += q.diagnostics()
-        for s in (b"bm\x1b[0m kernel", b"board 920092", b"screen 640x360",
+        board = b"board a21041" if KERNEL7 else b"board 920092"   # raspi2b: a Pi 2 B
+        for s in (b"bm\x1b[0m kernel", board, b"screen 640x360",
                   b"double buffer on", b"sd: no card", b"usb: nothing attached"):
             assert s in out, f"missing {s!r} in boot log"
         hz = int(re.search(rb"measured (\d+) Hz", out).group(1))
@@ -946,7 +963,8 @@ def test_home_ui(b, opts):
 
         # settings: the keyboard layout changes and is saved; the submenus
         keys("3")
-        screen(["Settings", "Controllers", "WiFi and network", "Keyboard layout", "System"])
+        net = "Network" if KERNEL7 else "WiFi and network"     # raspi2b: a Pi 2 B, Ethernet only
+        screen(["Settings", "Controllers", net, "Keyboard layout", "System"])
         shot("settings")
         keys("ss")
         _, text = settled_screen(q, lambda i, t: any("< Italian >" in l or "< US >" in l for l in t))
@@ -986,9 +1004,12 @@ def test_home_ui(b, opts):
         keys("q")
         keys("s")
         keys("\r")
-        screen(["Settings > WiFi and network", "Network", "none saved", "port 3333"])
-        keys("w")                               # the list scrolls to its last row
-        screen(["Connect to a network", "Connect at boot", "< On >"])
+        if KERNEL7:
+            screen(["Settings > Network", "Ethernet", "no cable", "port 3333"])
+        else:
+            screen(["Settings > WiFi and network", "Network", "none saved", "port 3333"])
+            keys("w")                           # the list scrolls to its last row
+            screen(["Connect to a network", "Connect at boot", "< On >"])
         keys("q")
         keys("q")
         time.sleep(0.5)
@@ -1097,8 +1118,10 @@ def test_make_image(b, opts):
         q.close()
 
         # the Pi 1 image: same kernel and games, no WiFi/Bluetooth firmware
-        with open(os.path.join(fw, "BCM43430A1.hcd"), "wb") as f:
-            f.write(b"placeholder")
+        # (and no kernel7.img, the Pi Zero 2 W's)
+        for n in ("BCM43430A1.hcd", "SYN43430B0.hcd"):
+            with open(os.path.join(fw, n), "wb") as f:
+                f.write(b"placeholder")
         subprocess.run(["make", "-s", "-C", root, "image", "image-pi1", f"FW_DIR={fw}",
                         f"DIST={tmp}", f"BUILD={os.path.abspath(b('.'))}"],
                        check=True, stdout=subprocess.DEVNULL)
@@ -1107,13 +1130,16 @@ def test_make_image(b, opts):
             return subprocess.run(["mdir", "-i", f"{os.path.join(tmp, name)}@@1M", "-b", "-/", "::"],
                                   env=env, capture_output=True, text=True).stdout
         assert "::/BM/BCM43430A1.HCD" in ls("bm.img").upper(), ls("bm.img")
+        assert "::/BM/SYN43430B0.HCD" in ls("bm.img").upper(), ls("bm.img")
+        assert "::/KERNEL.IMG" in ls("bm.img").upper() and "::/KERNEL7.IMG" in ls("bm.img").upper(), ls("bm.img")
         # the carts nano8 plays, with their long names
         assert "::/carts/nano8/nanodemo.p8" in ls("bm.img"), ls("bm.img")
         assert "::/carts/nano8/starmoovalley.p8.png" in ls("bm.img"), ls("bm.img")
         pi1 = ls("bm-pi1.img")
         assert "::/KERNEL.IMG" in pi1.upper() and "BCM43430A1" not in pi1.upper(), pi1
-        q = Qemu(b("kernel.img"), ["-drive", f"if=sd,format=raw,file={os.path.join(tmp, 'bm-pi1.img')}"],
-                 machine="raspi1ap")
+        assert "KERNEL7" not in pi1.upper(), pi1
+        q = Qemu(os.path.join(os.path.dirname(b("kernel.img")), "kernel.img"),   # kernel.img even with --kernel7
+                 ["-drive", f"if=sd,format=raw,file={os.path.join(tmp, 'bm-pi1.img')}"], machine="raspi1ap")
         out = q.expect(MENU, timeout=30).decode(errors="replace")
         assert "Raspberry Pi 1 A+" in out and "; 10 cartridges" in out, out
     finally:
@@ -4257,24 +4283,37 @@ def main():
     ap.add_argument("--update-ref", action="store_true")
     ap.add_argument("-k", dest="filter", default="")
     ap.add_argument("--shots", default="", help="directory for screenshots of the games")
+    ap.add_argument("--kernel7", action="store_true",
+                    help="kernel7.img (Pi Zero 2 W) in raspi2b instead of kernel.img in raspi0")
     opts = ap.parse_args()
+    global KERNEL7
+    KERNEL7 = opts.kernel7
 
     def b(name):
+        if KERNEL7 and name == "kernel.img":
+            name = "kernel7.img"
         return os.path.join(opts.build, name)
 
     tests = [(n, f) for n, f in globals().items()
              if n.startswith("test_") and opts.filter in n]
-    failed = 0
+    failed = skipped = 0
     for name, fn in tests:
+        skip = KERNEL7 and next((why for t, why in BCM2835_ONLY.items() if name.startswith(t)), None)
+        if skip:
+            print(f"SKIP {name} (kernel7.img: needs {skip})", flush=True)
+            skipped += 1
+            continue
         t0 = time.time()
         try:
             fn(b, opts)
-            print(f"PASS {name} ({time.time() - t0:.1f}s)")
+            print(f"PASS {name} ({time.time() - t0:.1f}s)", flush=True)
         except Exception:
             failed += 1
-            print(f"FAIL {name}")
+            print(f"FAIL {name}", flush=True)
             traceback.print_exc()
-    print(f"\n{len(tests) - failed}/{len(tests)} passed")
+            sys.stdout.flush()
+    print(f"\n{len(tests) - skipped - failed}/{len(tests) - skipped} passed"
+          + (f" ({skipped} skipped)" if skipped else ""))
     return 1 if failed else 0
 
 

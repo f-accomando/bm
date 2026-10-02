@@ -1,5 +1,6 @@
 # bm - bare metal console for Raspberry Pi Zero / Zero W (BCM2835);
-# the same kernel runs on the Pi 1 (A, B, A+, B+)
+# the same kernel runs on the Pi 1 (A, B, A+, B+). The Pi Zero 2 W
+# (BCM2710A1, Cortex-A53) has its own build of the same sources, kernel7.img
 
 CROSS   ?= arm-none-eabi-
 CC      := $(CROSS)gcc
@@ -28,17 +29,23 @@ BAUD    ?= 115200
 VERSION := $(shell git describe --always --dirty 2>/dev/null || echo dev)
 
 ARCH    := -mcpu=arm1176jzf-s -marm -mfpu=vfp -mfloat-abi=hard
-COMMON  := $(ARCH) -std=c11 -O2 -Wall -Wextra -g -Isrc \
-           -ffunction-sections -fdata-sections \
-           -DUART_BAUD=$(BAUD) $(BOOT_DEFS)
+# kernel7.img, the Pi Zero 2 W: ARMv7 in 32 bit (hardware divide, VFPv4 with
+# 32 registers, NEON) tuned for the Cortex-A53; ARMv7 and not ARMv8 so that
+# it also runs in QEMU's raspi2b (Cortex-A7, the same peripherals).
+# SOC=-DBM_ZERO2: the BCM2710's addresses (src/drivers/mmio.h).
+ARCH7   := -march=armv7ve -mtune=cortex-a53 -marm -mfpu=neon-vfpv4 -mfloat-abi=hard
+SOC     :=
+COMMON  = $(ARCH) $(SOC) -std=c11 -O2 -Wall -Wextra -g -Isrc \
+          -ffunction-sections -fdata-sections \
+          -DUART_BAUD=$(BAUD) $(BOOT_DEFS)
 # Kernel: hosted C on top of newlib (libc, libm), see src/lib/syscalls.c.
 CFLAGS  = $(COMMON) -D_DEFAULT_SOURCE -Ithird_party/lua \
           -Ithird_party/lwip/src/include -Isrc/net \
           -Ithird_party/mbedtls/include -DMBEDTLS_CONFIG_FILE='"bm_mbedtls.h"' $(WARN)
 # Chainloader: freestanding, no libc.
 LCFLAGS := $(COMMON) -Os -ffreestanding -fno-builtin -fno-tree-loop-distribute-patterns
-ASFLAGS := $(ARCH) -g -Isrc -Isrc/kernel -Wa,-I$(BUILD)
-LDFLAGS := $(ARCH) -nostartfiles -Wl,--gc-sections
+ASFLAGS = $(ARCH) $(SOC) -g -Isrc -Isrc/kernel -Wa,-I$(BUILD)
+LDFLAGS = $(ARCH) -nostartfiles -Wl,--gc-sections
 LDLIBS  := -Wl,--start-group -lc -lm -lgcc -Wl,--end-group
 LLDLIBS := -nostdlib -lgcc
 
@@ -53,24 +60,30 @@ LOADER_SRCS := $(wildcard chainloader/*.S chainloader/*.c) \
                src/arch/cache.c src/lib/crc32.c
 
 KERNEL_OBJS := $(patsubst %,$(BUILD)/k/%.o,$(KERNEL_SRCS))
+KERNEL7_OBJS := $(patsubst %,$(BUILD)/k7/%.o,$(KERNEL_SRCS))
 LOADER_OBJS := $(patsubst %,$(BUILD)/l/%.o,$(LOADER_SRCS))
 LUA_OBJS    := $(patsubst %,$(BUILD)/k/%.o,$(LUA_SRCS))
 LWIP_OBJS   := $(patsubst %,$(BUILD)/k/%.o,$(LWIP_SRCS))
 MBEDTLS_OBJS := $(patsubst %,$(BUILD)/k/%.o,$(MBEDTLS_SRCS))
+THIRD7_OBJS := $(patsubst %,$(BUILD)/k7/%.o,$(LUA_SRCS) $(LWIP_SRCS) $(MBEDTLS_SRCS))
+
+# The objects of kernel7.img (Pi Zero 2 W): the same sources, other flags.
+$(BUILD)/k7/% $(BUILD)/kernel7.elf: ARCH := $(ARCH7)
+$(BUILD)/k7/%: SOC := -DBM_ZERO2
 
 # The version string lives in one object, rebuilt when `git describe` changes.
 VERSION_STAMP := $(BUILD)/version.txt
 $(VERSION_STAMP): FORCE
 	@mkdir -p $(dir $@)
 	@echo '$(VERSION)' | cmp -s - $@ || echo '$(VERSION)' > $@
-$(BUILD)/k/src/kernel/version.c.o: $(VERSION_STAMP)
-$(BUILD)/k/src/kernel/version.c.o: CFLAGS += -DBM_VERSION=\"$(VERSION)\"
+$(BUILD)/k/src/kernel/version.c.o $(BUILD)/k7/src/kernel/version.c.o: $(VERSION_STAMP)
+$(BUILD)/k/src/kernel/version.c.o $(BUILD)/k7/src/kernel/version.c.o: CFLAGS += -DBM_VERSION=\"$(VERSION)\"
 FORCE:
 
 # Third-party code: its own warning policy, not ours.
-$(LUA_OBJS) $(LWIP_OBJS) $(MBEDTLS_OBJS): WARN := -w
+$(LUA_OBJS) $(LWIP_OBJS) $(MBEDTLS_OBJS) $(THIRD7_OBJS): WARN := -w
 # Lua scripts embedded with .incbin
-$(BUILD)/k/src/script/embed.S.o: $(wildcard src/script/*.lua) keys/release-pub.pem \
+$(BUILD)/k/src/script/embed.S.o $(BUILD)/k7/src/script/embed.S.o: $(wildcard src/script/*.lua) keys/release-pub.pem \
                                  $(BUILD)/demo.bm $(BUILD)/stress.bm $(BUILD)/editor.bm $(BUILD)/sound.bm \
                                  $(BUILD)/studio.bm $(BUILD)/animator.bm $(BUILD)/mesh.bm $(BUILD)/pixel.bm \
                                  $(BUILD)/assist.bin src/ai/assist.lua $(BUILD)/assistant.bm \
@@ -259,18 +272,32 @@ test-nano8: $(BUILD)/host/n8host $(BUILD)/host/n8cartinfo $(BUILD)/host/luahost 
 	$(PYTHON) tests/nano8/run.py --build $(BUILD) $(NANO8_ROMS)
 
 .DEFAULT_GOAL := all
-.PHONY: FORCE test-smp all clean firmware image image-pi1 sdcard install sdcard-chainloader sdcard-stress qemu qemu-screenshot \
+.PHONY: FORCE test-smp all clean firmware image image-pi1 sdcard install sdcard-chainloader sdcard-stress qemu qemu7 qemu-screenshot \
         run-serial test test-bm test-ai ai-model test-usb test-audio test-fat test-kitchen test-titan test-sound test-nano8 \
-        test-net test-http test-https test-release release disasm wav test-studio test-studio-ui studio test-prompts \
+        test-net test-http test-https test-release release disasm wav test-studio test-studio-ui studio test-prompts test-hyp test-zero2 \
         showreel
 
-all: $(BUILD)/kernel.img $(BUILD)/chainloader.img $(GAME_CARTS)
+all: $(BUILD)/kernel.img $(BUILD)/kernel7.img $(BUILD)/chainloader.img $(GAME_CARTS)
 
-$(BUILD)/k/%.S.o $(BUILD)/l/%.S.o: %.S
+# (one rule per directory: a pattern rule with several targets would be one
+# recipe making them all)
+$(BUILD)/k/%.S.o: %.S
+	@mkdir -p $(dir $@)
+	$(CC) $(ASFLAGS) -c $< -o $@
+
+$(BUILD)/l/%.S.o: %.S
+	@mkdir -p $(dir $@)
+	$(CC) $(ASFLAGS) -c $< -o $@
+
+$(BUILD)/k7/%.S.o: %.S
 	@mkdir -p $(dir $@)
 	$(CC) $(ASFLAGS) -c $< -o $@
 
 $(BUILD)/k/%.c.o: %.c
+	@mkdir -p $(dir $@)
+	$(CC) $(CFLAGS) -MMD -MP -c $< -o $@
+
+$(BUILD)/k7/%.c.o: %.c
 	@mkdir -p $(dir $@)
 	$(CC) $(CFLAGS) -MMD -MP -c $< -o $@
 
@@ -280,6 +307,9 @@ $(BUILD)/l/%.c.o: %.c
 
 $(BUILD)/kernel.elf: $(KERNEL_OBJS) linker.ld
 	$(CC) $(LDFLAGS) -T linker.ld -Wl,-Map=$(BUILD)/kernel.map $(KERNEL_OBJS) $(LDLIBS) -o $@
+
+$(BUILD)/kernel7.elf: $(KERNEL7_OBJS) linker.ld
+	$(CC) $(LDFLAGS) -T linker.ld -Wl,-Map=$(BUILD)/kernel7.map $(KERNEL7_OBJS) $(LDLIBS) -o $@
 
 $(BUILD)/chainloader.elf: $(LOADER_OBJS) chainloader/linker.ld
 	$(CC) $(LDFLAGS) -T chainloader/linker.ld -Wl,-Map=$(BUILD)/chainloader.map $(LOADER_OBJS) $(LLDLIBS) -o $@
@@ -300,66 +330,75 @@ firmware:
 # Cartridges go to carts/ (the menu also looks in the root directory).
 # Only the games: the native demo and the stress test live in the kernel
 # (monitor `n`, the Stress test of the Dev tab), not in the Games tab.
+# Both kernels go on the card: config.txt makes the firmware start
+# kernel7.img on a Pi Zero 2 W and kernel.img on the other boards, so one
+# card works in every Pi bm runs on.
 KERNEL ?= kernel
 SD_CARTS := $(GAME_CARTS)
-sdcard: $(BUILD)/$(KERNEL).img $(SD_CARTS)
+# the WiFi and Bluetooth chips' firmware (make firmware), in bm/: the Zero
+# W's BCM43438, then the Zero 2 W's CYW43436 (two versions of the chip)
+RADIO_FW := BCM43430A1.hcd brcmfmac43430-sdio.bin brcmfmac43430-sdio.txt brcmfmac43430-sdio.clm_blob \
+            SYN43430A1.hcd SYN43430B0.hcd brcmfmac43436-sdio.bin brcmfmac43436-sdio.txt \
+            brcmfmac43436-sdio.clm_blob brcmfmac43436s-sdio.bin brcmfmac43436s-sdio.txt
+sdcard: $(BUILD)/$(KERNEL).img $(BUILD)/kernel7.img $(SD_CARTS)
 	@test -f $(FW_DIR)/start.elf || { echo "Run 'make firmware' first"; exit 1; }
 	@mkdir -p $(DIST)/carts
 	cp $(FW_DIR)/bootcode.bin $(FW_DIR)/start.elf $(FW_DIR)/fixup.dat $(DIST)/
 	cp boot/config.txt $(DIST)/
 	cp $(BUILD)/$(KERNEL).img $(DIST)/kernel.img
+	cp $(BUILD)/kernel7.img $(DIST)/kernel7.img
 	rm -f $(DIST)/carts/*.bm       # the old extension (now .bm)
 	rm -f $(DIST)/carts/*.cart     # the old .cart format: bm no longer plays it
 	cp $(SD_CARTS) $(DIST)/carts/
 	mkdir -p $(DIST)/carts/nano8 && cp $(NANO8_ROMS) $(DIST)/carts/nano8/
 	mkdir -p $(DIST)/bm && cp boot/ca.pem $(DIST)/bm/ca.pem
-	@if [ -f $(FW_DIR)/BCM43430A1.hcd ]; then mkdir -p $(DIST)/bm && \
-	    cp $(FW_DIR)/BCM43430A1.hcd $(DIST)/bm/ && echo "cp BCM43430A1.hcd -> $(DIST)/bm/"; fi
-	@for f in brcmfmac43430-sdio.bin brcmfmac43430-sdio.txt brcmfmac43430-sdio.clm_blob; do \
+	@for f in $(RADIO_FW); do \
 	    if [ -f $(FW_DIR)/$$f ]; then mkdir -p $(DIST)/bm && cp $(FW_DIR)/$$f $(DIST)/bm/ && \
 	        echo "cp $$f -> $(DIST)/bm/"; fi; done
-	@echo "Copy the contents of $(DIST)/ ($(KERNEL)) to the root of a FAT32 SD card."
+	@echo "Copy the contents of $(DIST)/ ($(KERNEL), kernel7) to the root of a FAT32 SD card."
 
-# Whole SD card image (MBR + FAT32): firmware, config, kernel and the
+# Whole SD card image (MBR + FAT32): firmware, config, both kernels and the
 # cartridges. Write it with Raspberry Pi Imager ("Use custom"), balenaEtcher
-# or dd. Needs dosfstools and mtools. The kernel is the same for every
-# BCM2835 board; image-pi1 leaves out the WiFi/Bluetooth chip's firmware
-# (the Pi 1 has no radio; on the B / B+ the network is the Ethernet).
+# or dd. Needs dosfstools and mtools. kernel.img is the same for every
+# BCM2835 board, kernel7.img is the Pi Zero 2 W's; image-pi1 leaves out the
+# WiFi/Bluetooth chips' firmware and kernel7.img (the Pi 1 has no radio; on
+# the B / B+ the network is the Ethernet).
 IMAGE_FILES = $(FW_DIR)/bootcode.bin=bootcode.bin $(FW_DIR)/start.elf=start.elf \
               $(FW_DIR)/fixup.dat=fixup.dat boot/config.txt=config.txt \
               $(BUILD)/kernel.img=kernel.img \
               $(foreach c,$(SD_CARTS),$(c)=carts/$(notdir $(c))) \
               $(foreach r,$(NANO8_ROMS),$(r)=carts/nano8/$(notdir $(r))) \
               boot/ca.pem=bm/ca.pem
-image: $(BUILD)/kernel.img $(SD_CARTS)
+image: $(BUILD)/kernel.img $(BUILD)/kernel7.img $(SD_CARTS)
 	@test -f $(FW_DIR)/start.elf || { echo "Run 'make firmware' first"; exit 1; }
 	@mkdir -p $(DIST)
 	$(PYTHON) scripts/mksd.py $(DIST)/bm.img --size-mib 64 --label BM $(IMAGE_FILES) \
-	    $(if $(wildcard $(FW_DIR)/BCM43430A1.hcd),$(FW_DIR)/BCM43430A1.hcd=bm/BCM43430A1.hcd) \
-	    $(foreach f,$(wildcard $(FW_DIR)/brcmfmac43430-sdio.*),$(f)=bm/$(notdir $(f)))
+	    $(BUILD)/kernel7.img=kernel7.img \
+	    $(foreach f,$(RADIO_FW),$(if $(wildcard $(FW_DIR)/$(f)),$(FW_DIR)/$(f)=bm/$(f)))
 
 image-pi1: $(BUILD)/kernel.img $(SD_CARTS)
 	@test -f $(FW_DIR)/start.elf || { echo "Run 'make firmware' first"; exit 1; }
 	@mkdir -p $(DIST)
 	$(PYTHON) scripts/mksd.py $(DIST)/bm-pi1.img --size-mib 64 --label BM $(IMAGE_FILES)
 
-# The files of a release (M19), in $(DIST)/release: kernel.img, the games,
-# bm/ca.pem and manifest.txt with where each goes, its size and SHA-256,
+# The files of a release (M19), in $(DIST)/release: kernel.img and
+# kernel7.img (the Pi Zero 2 W's), the games, bm/ca.pem and manifest.txt
+# with where each goes, its size and SHA-256,
 # signed (manifest.sig) with the key in BM_RELEASE_KEY (the environment;
 # on GitHub the repository's secret). CI on a tag v*:
 #   make release VERSION=v0.1.0 RELEASE_FLAGS=--require-key
 # The signature must match keys/release-pub.pem, the key in the kernel.
 RELEASE_DIR := $(DIST)/release
 RELEASE_PUB ?= keys/release-pub.pem
-release: $(BUILD)/kernel.img $(GAME_CARTS)
+release: $(BUILD)/kernel.img $(BUILD)/kernel7.img $(GAME_CARTS)
 	rm -rf $(RELEASE_DIR)
 	$(PYTHON) scripts/mkrelease.py $(RELEASE_DIR) --version $(VERSION) --commit $$(git rev-parse HEAD) \
-	    --file $(BUILD)/kernel.img:/kernel.img \
+	    --file $(BUILD)/kernel.img:/kernel.img --file $(BUILD)/kernel7.img:/kernel7.img \
 	    $(foreach c,$(GAME_CARTS),--file $(c):/carts/$(notdir $(c))) \
 	    --file boot/ca.pem:/bm/ca.pem --pub $(RELEASE_PUB) $(RELEASE_FLAGS)
 
 # Copies what make sdcard prepared onto a mounted SD card (SD=/mnt/d by
-# default): kernel, boot files, config.txt, cartridges and the chip
+# default): both kernels, boot files, config.txt, cartridges and the chip
 # firmware in bm/. Settings and saves (bm/CONFIG.TXT, bm/SAVE) are
 # never touched. Uses sudo when the card is not writable (WSL).
 SD ?= /mnt/d
@@ -372,7 +411,8 @@ install: sdcard
 	$$S mkdir -p $(SD)/carts $(SD)/bm && \
 	if [ -d $(SD)/$(OLD_DIR) ]; then $$S cp -rn $(SD)/$(OLD_DIR)/. $(SD)/bm/ && $$S rm -rf $(SD)/$(OLD_DIR) && \
 	    echo "moved $(OLD_DIR)/ (settings, saves, firmware) to bm/"; fi && \
-	$$S cp $(DIST)/bootcode.bin $(DIST)/start.elf $(DIST)/fixup.dat $(DIST)/config.txt $(DIST)/kernel.img $(SD)/ && \
+	$$S cp $(DIST)/bootcode.bin $(DIST)/start.elf $(DIST)/fixup.dat $(DIST)/config.txt $(DIST)/kernel.img \
+	    $(DIST)/kernel7.img $(SD)/ && \
 	$$S rm -f $(SD)/carts/demo.cart $(SD)/carts/demo.bm $(SD)/carts/stress.bm && \
 	$$S cp -r $(DIST)/carts/* $(SD)/carts/ && \
 	if [ -d $(DIST)/bm ]; then $$S cp $(DIST)/bm/* $(SD)/bm/; fi && \
@@ -397,12 +437,22 @@ QEMU_ARGS := -M raspi0 -serial stdio -serial null
 qemu: $(BUILD)/kernel.img
 	$(QEMU) $(QEMU_ARGS) -bios $<
 
+# kernel7.img (Pi Zero 2 W) in raspi2b, a Pi 2 B: QEMU has no Zero 2 W, but
+# the Pi 2 B has the BCM2710's peripherals (and a Cortex-A7, no radio)
+qemu7: $(BUILD)/kernel7.img
+	$(QEMU) -M raspi2b -serial stdio -serial null -bios $<
+
 qemu-screenshot: $(BUILD)/kernel.img
 	./scripts/qemu-screenshot.sh $< $(BUILD)/screen.png
 
 test: all test-bm test-usb test-fat test-audio test-kitchen test-titan test-sound test-nano8 test-net test-http test-https \
-      test-release test-smp test-ai test-studio test-prompts
+      test-release test-smp test-ai test-studio test-prompts test-hyp
 	$(PYTHON) tests/qemu_test.py --build $(BUILD)
+
+# The same QEMU tests with kernel7.img, the Pi Zero 2 W's, in raspi2b (the
+# BCM2710's peripherals); those of the BCM2835 boards alone are skipped
+test-zero2: all test-hyp
+	$(PYTHON) tests/qemu_test.py --build $(BUILD) --kernel7
 
 $(BUILD)/host/test_bm: tests/bm/test_bm.c src/bm/gfx16.c src/bm/r3d.c src/bm/format.c src/lib/crc32.c src/bm/*.h
 	@mkdir -p $(dir $@)
@@ -455,6 +505,20 @@ $(BUILD)/host/test_release: tests/net/test_release.c src/net/release.c src/net/r
 	$(HOSTCC) -O1 -w -DBM_HOST_TEST -Isrc -Isrc/net -Ithird_party/mbedtls/include \
 		-DMBEDTLS_CONFIG_FILE='"bm_mbedtls.h"' -o $@ tests/net/test_release.c src/net/release.c $(MBEDTLS_SRCS)
 
+# kernel7.img's start in Hyp mode, as the Pi Zero 2 W's firmware does it:
+# start.S and vectors.S in QEMU's virt machine with the virtualization
+# extensions (raspi2b starts in SVC), tests/boot/hyp_main.c on its PL011
+HYP_DIR := $(BUILD)/hyp
+$(HYP_DIR)/hyp.elf: tests/boot/hyp_main.c $(BUILD)/k7/src/boot/start.S.o $(BUILD)/k7/src/kernel/vectors.S.o linker.ld
+	@mkdir -p $(dir $@)
+	sed 's/^    \. = 0x8000;/    . = 0x40008000;/' linker.ld > $(HYP_DIR)/linker.ld
+	$(CC) $(ARCH7) -DBM_ZERO2 -O2 -Wall -Wextra -Isrc/kernel -ffreestanding -nostdlib -nostartfiles \
+	    -T $(HYP_DIR)/linker.ld tests/boot/hyp_main.c $(BUILD)/k7/src/boot/start.S.o \
+	    $(BUILD)/k7/src/kernel/vectors.S.o -lgcc -o $@
+
+test-hyp: $(HYP_DIR)/hyp.elf
+	$(PYTHON) tests/boot/run_hyp.py $(QEMU) $<
+
 # Bluetooth LE pairing cryptography (SMP), against the spec's sample data
 test-smp: $(BUILD)/host/test_smp
 	$(BUILD)/host/test_smp
@@ -491,10 +555,11 @@ $(BUILD)/host/bmrender: tests/audio/render.c src/audio/synth.c src/audio/player.
 	@mkdir -p $(dir $@)
 	$(HOSTCC) -O2 -Wall -Wextra -Isrc -o $@ tests/audio/render.c src/audio/synth.c src/audio/player.c -lm
 
-test-usb: $(BUILD)/host/test_hid $(BUILD)/host/test_eth $(BUILD)/host/test_board
+test-usb: $(BUILD)/host/test_hid $(BUILD)/host/test_eth $(BUILD)/host/test_board $(BUILD)/host/test_board7
 	$(BUILD)/host/test_hid
 	$(BUILD)/host/test_eth
 	$(BUILD)/host/test_board
+	$(BUILD)/host/test_board7
 
 $(BUILD)/host/test_hid: tests/usb/test_hid.c src/usb/hid.c src/usb/hid.h src/usb/usb.h
 	@mkdir -p $(dir $@)
@@ -509,6 +574,10 @@ $(BUILD)/host/test_eth: tests/usb/test_eth.c tests/usb/lan9512_sim.c tests/usb/l
 $(BUILD)/host/test_board: tests/usb/test_board.c src/drivers/board.c src/drivers/board.h
 	@mkdir -p $(dir $@)
 	$(HOSTCC) -O2 -Wall -Wextra -Isrc -o $@ tests/usb/test_board.c src/drivers/board.c
+
+$(BUILD)/host/test_board7: tests/usb/test_board.c src/drivers/board.c src/drivers/board.h
+	@mkdir -p $(dir $@)
+	$(HOSTCC) -O2 -Wall -Wextra -DBM_ZERO2 -Isrc -o $@ tests/usb/test_board.c src/drivers/board.c
 
 # the meshes a cartridge builds in its code (cart_meshes(), bm Mesh)
 MESHCAP_SRCS := tests/bm/test_meshcap.c src/bm/meshcap.c src/bm/format.c src/bm/r3d.c src/lib/crc32.c
@@ -617,4 +686,4 @@ HOSTCC ?= cc
 clean:
 	rm -rf build build-stress $(DIST)
 
--include $(KERNEL_OBJS:.o=.d) $(LOADER_OBJS:.o=.d)
+-include $(KERNEL_OBJS:.o=.d) $(KERNEL7_OBJS:.o=.d) $(LOADER_OBJS:.o=.d)
