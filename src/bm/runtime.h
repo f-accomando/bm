@@ -61,6 +61,10 @@ uint32_t bm_video_present(framebuffer_t *fb, g16_t *g);
 /* Draw target: 0 = framebuffer back page (default), 1 = RAM buffer + copy. */
 void bm_set_via_ram(int on);
 int  bm_via_ram(void);
+/* The dev kit: the performance overlay over the games (fps, ms, Lua
+ * instructions, the time of the last frames); F3 or 'p' toggles it too. */
+void bm_set_perf(int on);
+int  bm_perf(void);
 /* 1 while the running cartridge draws into a RAM buffer (lights). */
 int  bm_video_uses_ram(void);
 
@@ -72,6 +76,8 @@ void bm_set_dma_frames(int on);
  * error the last cartridge stopped with ("" if none). */
 void bm_set_arg(const char *path, const char *error);
 int  bm_take_run(char *path, size_t n);
+/* the tool a tool asked for with cart_tool(name, path) (the path: bm_take_run) */
+int  bm_take_tool(char *name, size_t n);
 const char *bm_last_error(void);
 /* cart_arg().back: the editor comes back from trying a game (1), or opens
  * the file it was given from the menu (0). */

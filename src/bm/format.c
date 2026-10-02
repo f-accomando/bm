@@ -58,6 +58,56 @@ int bm_sheet8_unpack(const bm_cart_t *c, void (*set)(void *ctx, int x, int y, co
     return sheet8_walk(c->sheet8, c->sheet8_size, set, ctx);
 }
 
+/* the literal indices waiting, in runs of at most 128 */
+static uint8_t *sheet8_flush(uint8_t *q, const uint8_t *idx, uint32_t at, uint32_t lit)
+{
+    while (lit) {
+        uint32_t k = lit > 128 ? 128 : lit;
+        *q++ = (uint8_t)(k - 1);
+        memcpy(q, idx + at, k);
+        q += k;
+        at += k;
+        lit -= k;
+    }
+    return q;
+}
+
+uint8_t *bm_sheet8_pack(int w, int h, const uint8_t *pal_rgba, int ncol, const uint8_t *idx, size_t *outlen)
+{
+    uint32_t n = (uint32_t)w * h;
+    /* at worst every 128 indices need one more byte */
+    uint8_t *out = malloc(8 + (size_t)ncol * 4 + n + n / 128 + 2);
+    if (!out)
+        return NULL;
+    out[0] = (uint8_t)w; out[1] = (uint8_t)(w >> 8);
+    out[2] = (uint8_t)h; out[3] = (uint8_t)(h >> 8);
+    out[4] = (uint8_t)ncol; out[5] = (uint8_t)(ncol >> 8);
+    out[6] = out[7] = 0;
+    memcpy(out + 8, pal_rgba, (size_t)ncol * 4);
+    uint8_t *q = out + 8 + ncol * 4;
+    uint32_t i = 0, lit_at = 0, lit = 0;
+    while (i < n) {
+        uint32_t j = i;
+        while (j < n && j - i < 129 && idx[j] == idx[i])
+            j++;
+        if (j - i >= 3) {                           /* a run: 3 to 129 times the same index */
+            q = sheet8_flush(q, idx, lit_at, lit);
+            lit = 0;
+            *q++ = (uint8_t)(j - i + 126);
+            *q++ = idx[i];
+            i = j;
+        } else {
+            if (!lit)
+                lit_at = i;
+            lit++;
+            i++;
+        }
+    }
+    q = sheet8_flush(q, idx, lit_at, lit);
+    *outlen = (size_t)(q - out);
+    return out;
+}
+
 /* ---------------------------------------------------------------- MESH */
 
 static float rdf32(const uint8_t *p)
@@ -316,8 +366,9 @@ int bm_parse(const uint8_t *d, size_t len, bm_cart_t *c, char *err, size_t errle
     c->width = rd16(d + 12);
     c->height = rd16(d + 14);
     c->pixel_format = d[16];
-    if (!((c->width == 640 && c->height == 360) || (c->width == 320 && c->height == 180)))
-        return fail(err, errlen, "resolution must be 640x360 or 320x180");
+    if (!((c->width == 640 && c->height == 360) || (c->width == 320 && c->height == 180) ||
+          (c->width == 256 && c->height == 256)))
+        return fail(err, errlen, "resolution must be 640x360, 320x180 or 256x256");
     if (c->pixel_format != BM_FMT_RGB565)
         return fail(err, errlen, "pixel format not supported (only RGB565)");
     memcpy(c->title, d + 24, 48);
@@ -419,25 +470,69 @@ static void wr32(uint8_t *p, uint32_t v) { wr16(p, v); wr16(p + 2, v >> 16); }
 uint8_t *bm_rewrite(const uint8_t *old, size_t oldlen, const char *lua, size_t lua_len,
                     const char *title, const char *author, int width, size_t *outlen)
 {
+    return bm_rewrite_with(old, oldlen, lua, lua_len, title, author, width, NULL, 0, outlen);
+}
+
+uint8_t *bm_rewrite_with(const uint8_t *old, size_t oldlen, const char *lua, size_t lua_len,
+                         const char *title, const char *author, int width, const bm_put_t *put, int nput,
+                         size_t *outlen)
+{
     (void)oldlen;
-    enum { MAXSEC = 32 };
+    enum { MAXSEC = 32, MAXPUT = 8 };
     uint32_t type[MAXSEC], size[MAXSEC];
     const uint8_t *src[MAXSEC];
+    int used[MAXPUT] = { 0 }, put_mesh = 0, put_anim = 0, put_sheet = -1;
+    if (nput > MAXPUT)
+        nput = MAXPUT;
+    for (int k = 0; k < nput; k++) {
+        put_mesh |= put[k].type == BM_SEC_MESH;
+        put_anim |= put[k].type == BM_SEC_ANIM;
+        if (put[k].type == BM_SEC_SHEET || put[k].type == BM_SEC_SHEET8)
+            put_sheet = k;
+    }
     unsigned n = 0, have_lua = 0, count = old ? old[17] : 0;
     for (unsigned i = 0; i < count && n < MAXSEC; i++) {
         const uint8_t *e = old + BM_HEADER_SIZE + i * 16;
         type[n] = rd32(e);
+        src[n] = old + rd32(e + 4);
+        size[n] = rd32(e + 8);
         if (type[n] == BM_SEC_LUA) {
             if (have_lua++) continue;           /* one code section */
-            src[n] = (const uint8_t *)lua;
-            size[n] = (uint32_t)lua_len;
+            if (lua) {
+                src[n] = (const uint8_t *)lua;
+                size[n] = (uint32_t)lua_len;
+            }
+        } else if ((put_mesh && type[n] == BM_SEC_AUDIO && (size[n] < 4 || memcmp(src[n], "BMAU", 4) != 0)) ||
+                   (put_anim && type[n] == BM_SEC_OLD_ANIM)) {
+            continue;                           /* the first bm Studio files: replaced */
+        } else if (put_sheet >= 0 && (type[n] == BM_SEC_SHEET || type[n] == BM_SEC_SHEET8)) {
+            if (used[put_sheet]++ || !put[put_sheet].data)
+                continue;                       /* one sheet, in the place of the first */
+            type[n] = put[put_sheet].type;
+            src[n] = put[put_sheet].data;
+            size[n] = put[put_sheet].size;
         } else {
-            src[n] = old + rd32(e + 4);
-            size[n] = rd32(e + 8);
+            int k = 0;
+            while (k < nput && put[k].type != type[n])
+                k++;
+            if (k < nput) {
+                if (used[k]++ || !put[k].data)
+                    continue;                   /* taken away, or put once */
+                src[n] = put[k].data;
+                size[n] = put[k].size;
+            }
         }
         n++;
     }
-    if (!have_lua && n < MAXSEC) {
+    for (int k = 0; k < nput && n < MAXSEC; k++) {
+        if (used[k] || !put[k].data)
+            continue;
+        type[n] = put[k].type;
+        src[n] = put[k].data;
+        size[n] = put[k].size;
+        n++;
+    }
+    if (!have_lua && lua && n < MAXSEC) {
         type[n] = BM_SEC_LUA;
         src[n] = (const uint8_t *)lua;
         size[n] = (uint32_t)lua_len;
@@ -460,8 +555,8 @@ uint8_t *bm_rewrite(const uint8_t *old, size_t oldlen, const char *lua, size_t l
     memcpy(buf, "BMCART\0\0", 8);
     wr16(buf + 8, 1);
     wr16(buf + 10, BM_HEADER_SIZE);
-    wr16(buf + 12, width == 320 ? 320 : 640);
-    wr16(buf + 14, width == 320 ? 180 : 360);
+    wr16(buf + 12, width == 320 || width == 256 ? width : 640);
+    wr16(buf + 14, width == 320 ? 180 : width == 256 ? 256 : 360);
     buf[16] = BM_FMT_RGB565;
     buf[17] = (uint8_t)n;
     strncpy((char *)buf + 24, title ? title : "", 47);

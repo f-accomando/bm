@@ -15,9 +15,8 @@ scambiano formati standard con gli altri programmi.
 Sono pagine web senza dipendenze (HTML + JavaScript, niente da installare né compilare).
 Un pulsante in alto passa dall'una all'altra portando il progetto aperto.
 
-Sulla console c'è la loro versione semplificata, lo **studio 3D** (scheda **Dev**): un
-player dei modelli e delle animazioni, e gli strumenti essenziali per costruire, fare lo
-scheletro e animare, sugli stessi file. [Vedi sotto](#sulla-console-lo-studio-3d).
+Sulla console ci sono bm Studio e bm Animator con gli stessi nomi (scheda **Dev**), per
+tastiera e gamepad, sugli stessi file. [Vedi sotto](#sulla-console-bm-studio-e-bm-animator).
 
 ## Aprirlo
 
@@ -214,61 +213,225 @@ Limiti: ogni angolo segue **un** osso (niente pesi misti); 64 ossa per modello, 
 animazioni, 1024 keyframe per animazione; un keyframe è sempre la posa intera. I `.glb`
 con scheletro di altri programmi non si importano (i modelli fermi sì, in bm Studio).
 
-## Sulla console: lo studio 3D
+## Sulla console: bm Studio e bm Animator
 
-Lo **studio 3D** è una cartuccia incorporata nel kernel (`carts/studio3d/main.lua`),
-nella scheda **Dev** accanto all'SDK. Si apre anche da un gioco: **X** sulla copertina,
-**Open in the 3D studio** (o, dal monitor, il tasto `3`). Legge e scrive le stesse sezioni
-MESH e ANIM di bm Studio e bm Animator: un `.bm` fatto sul PC si apre sulla console e
-viceversa, e un gioco senza modelli può riceverne. Si usa con la tastiera o con il
-gamepad (Bluetooth o USB); è pronto per un puntatore quando arriverà il mouse Bluetooth.
+Sulla console ci sono gli stessi due programmi, con gli stessi nomi: **bm Studio**
+(`carts/studio/main.lua`, i modelli) e **bm Animator** (`carts/animator/main.lua`,
+scheletri, animazioni e sprite). Sono cartucce incorporate nel kernel, nella scheda **Dev**;
+da un gioco si aprono con **X** sulla copertina, **Open in bm Studio** o **Open in bm
+Animator** (dal monitor i tasti `3` e `6`), e dal menu dell'uno si passa all'altro sullo
+stesso file (*Open in bm Animator*, *Open in bm Studio*). Leggono e scrivono le stesse
+sezioni MESH e ANIM dei programmi per il PC: un `.bm` fatto sul PC si apre sulla console e
+viceversa, e un gioco senza modelli può riceverne. Si usano con la tastiera o con il
+gamepad (Bluetooth o USB); il mouse verrà in un secondo momento.
 
-Quattro pagine (F1–F4, oppure Y + sinistra/destra sul gamepad), il menu con Esc
-(Y + B); tenendo premuto **F12**, o con **?**, compaiono i tasti della pagina.
+Le pagine si scelgono con i tasti F (o Y + sinistra/destra sul gamepad), il menu con Esc
+(Y + B); tenendo premuto **F12**, o con **?**, compaiono i tasti della pagina. In tutte le
+viste 3D + e − fanno lo zoom e **Alt + frecce** (sul gamepad X + croce) girano la camera.
 
-- **F1 play, il player**: i modelli del `.bm` in una lista, con vertici, triangoli e ossa;
-  la camera gira da sola intorno al modello (a d w s per girarla a mano, + e − per lo
-  zoom; sul gamepad X + croce). Le animazioni si scelgono con sinistra/destra e partono
-  con spazio; `,` e `.` vanno avanti e indietro di un fotogramma, `<` e `>` cambiano la
-  velocità, **k** mostra lo scheletro, **b** mescola l'animazione con la successiva
-  (25, 50, 75 %: la stessa `animate()` dei giochi).
-- **F2 build, i blocchi e le tessere** (Crocotile all'essenziale): un cursore a forma di
-  cella si muove con le frecce sul piano e con PgUp/PgDn in altezza, sempre rispetto alla
-  vista (q e girano la vista di 45°, w s la inclinano). Tre attrezzi:
-  1 **blocco** (spazio lo mette, Backspace lo toglie: due blocchi vicini non hanno parete
-  in mezzo, e togliendone uno ricompare la parete del vicino), 2 **tessera** (su un lato
-  della cella: pavimento, parete in fondo, a destra, davanti, a sinistra, soffitto; **f**
-  cambia lato), 3 **pittura** (ridipinge le facce di quel lato, o di tutti i lati; **x**
-  prende la tessera da una faccia). **Tab** (o Y) apre lo sheet del progetto: si sceglie
-  una tessera da 8, 16 o 32 pixel (**z**) o un colore (**c**); **r** e **h** girano e
-  specchiano la tessera. Le facce sono le stesse che fa bm Studio con gli stessi attrezzi.
-- **F3 rig, le ossa**: **n** fa lo scheletro (un osso, root, dal fondo del modello) e poi
-  aggiunge ossa figlie di quella scelta; su/giù sceglie l'osso, w a s d r f spostano la sua
-  coda (o la testa, con Tab) di 1/8 (maiuscole: 1/32); x lo cancella, **k** dà ogni faccia
-  all'osso più vicino (la pelle a parti rigide), **v** colora le facce con il loro osso.
-- **F4 animate, i keyframe**: **n** fa un'animazione; su/giù sceglie l'osso,
-  sinistra/destra il fotogramma (12 al secondo, come bm Animator). w/s, a/d, q/e girano
-  l'osso di 15° intorno a x, y, z (maiuscole: 5°), con **g** lo spostano: ogni giro è un
-  keyframe in quel punto. k aggiunge un keyframe, x lo toglie, c e v copiano e incollano la
-  posa, r rimette l'osso a riposo; l ciclo sì/no, m linear / smooth / step, `<` `>` la
-  durata; PgUp/PgDn cambiano animazione, Backspace due volte la cancella.
+Hanno l'aspetto delle altre app della console (bm Mesh, bm Pixel): a sinistra un pannello
+con le liste, sopra la vista due righe che dicono cosa c'è e cosa si sta facendo, in basso
+i tasti; le cose scelte in giallo, quella sotto il puntatore in azzurro.
 
-Il **menu** apre i `.bm` della SD, fa un progetto nuovo (con lo sheet di tessere iniziale
-di bm Studio e il codice del visualizzatore dei modelli), salva (Ctrl+S, o *Save as* con
-un nome 8.3 in `/carts`), **prova il gioco** (F5: si gioca il file salvato, poi si torna
-allo studio nella stessa pagina) e crea, rinomina, duplica e cancella i modelli; `[` e `]`
-(o Y + su/giù) cambiano modello. Ctrl+Z e Ctrl+Y (Y + A sul gamepad) annullano e rifanno.
+**bm Studio**, F1 **build** — nel pannello a sinistra gli attrezzi, la tessera o il colore
+del pennello (con lo sheet intorno) e il modello (facce, triangoli, vertici: avvisa oltre
+i 1200 triangoli dei 60 fps):
 
-Come lavora: i modelli e gli scheletri sono tabelle Lua; a ogni modifica la cartuccia
+- **1 blocco** e **2 tessera** (Crocotile all'essenziale): un cursore a forma di cella si
+  muove con le frecce sul piano e con PgUp/PgDn in altezza, sempre rispetto alla vista
+  (**q e** girano la vista di 45°, **w s** la inclinano). Spazio mette, Backspace toglie:
+  due blocchi vicini non hanno parete in mezzo, e togliendone uno ricompare la parete del
+  vicino; la tessera va su un lato della cella (**f**: pavimento, pareti, soffitto). **Tab**
+  (o Y) apre lo sheet: tessere da 8, 16 o 32 pixel (**z**), anche **più tessere insieme**
+  (**a d w s**: una porta alta due tessere si posa in un colpo), o un colore (**c**); **r**
+  e **h** girano e specchiano la tessera, **x** la prende da una faccia.
+- **3 select**: le frecce portano il puntatore sulla faccia più vicina in quella direzione
+  sullo schermo; spazio la sceglie, **a** tutte, **c** quelle unite (un oggetto intero).
+  Le facce scelte: **g** le sposta (frecce, PgUp/PgDn; Tab cambia il passo da 1 a 1/16;
+  Invio le lascia lì, Esc le rimette dov'erano), **r** le gira, **t** le capovolge, **m** le
+  specchia, **n** mostra l'altro lato, Invio ci mette la tessera del pennello, **u** gira la
+  texture, **,** **.** dimezzano e raddoppiano, **d** (Ctrl+D) le copia e sposta la copia,
+  Canc le cancella, **o** le porta in un modello nuovo.
+- **4 vertex**: il puntatore va sugli angoli; spazio li sceglie, **g** li sposta (tetti,
+  rampe, forme libere), **m** ne unisce più d'uno in uno.
+- **5 paint**: la faccia sotto il puntatore, Invio: la sua tessera grande nel pannello, e
+  si dipinge pixel per pixel (spazio; **e** trasparente, **i** prende il colore, **c** la
+  tavolozza); il modello cambia mentre si dipinge. Lo sheet dipinto si salva con il modello.
+- **v** cambia la vista (luce, colori piatti, fil di ferro), **b** mostra anche le facce
+  viste da dietro (più scure), **z** torna al modello.
+
+F2 **models**: i modelli del file, con il loro aspetto; **n** nuovo, **r** rinomina, **d**
+duplica, Canc cancella (due volte), PgUp/PgDn cambiano l'ordine, **i** il margine delle
+texture. Il menu ha anche titolo e autore della cartuccia.
+
+**bm Animator**:
+
+- F1 **play**: il player. I modelli in una lista, con vertici, triangoli e ossa; la camera
+  gira da sola (a d w s per girarla a mano). Le animazioni si scelgono con
+  sinistra/destra e partono con spazio; `,` e `.` vanno avanti e indietro di un
+  fotogramma, `<` e `>` cambiano la velocità, **k** mostra lo scheletro, **b** mescola
+  l'animazione con la successiva (25, 50, 75 %: la stessa `animate()` dei giochi).
+- F2 **rig**: **n** fa lo scheletro (un osso, root, dal fondo del modello) e poi aggiunge
+  ossa figlie di quella scelta; su/giù sceglie l'osso, **w a s d r f** spostano la sua coda
+  (o la testa, con Tab) di 1/8 (maiuscole: 1/32): le giunture nello stesso punto si
+  muovono insieme. **m** specchia l'osso e i suoi figli dall'altra parte (nomi `.L` / `.R`,
+  anche nelle animazioni), Invio lo rinomina, **p** sceglie il padre, x lo cancella. La
+  pelle: **k** dà ogni faccia all'osso più vicino (parti rigide), **K** ogni angolo
+  (il modello si stira alle giunture); **v** mostra le facce coi colori delle ossa e le fa
+  scegliere col puntatore (spazio, **c** le unite), **a** le dà all'osso (PgUp/PgDn).
+- F3 **animate**: **n** fa un'animazione; su/giù sceglie l'osso, sinistra/destra il
+  fotogramma (12 al secondo, come bm Animator). w/s, a/d, q/e girano l'osso di 15° intorno
+  a x, y, z (maiuscole: 5°), con **g** lo spostano: ogni giro è un keyframe in quel punto.
+  **k** aggiunge un keyframe, x lo toglie, **,** **.** vanno al keyframe prima e dopo,
+  **(** **)** lo spostano di un fotogramma; **c v** copiano e incollano la posa, **r** rimette
+  l'osso a riposo, **m** specchia la posa; **o** mostra le ossa dei keyframe prima e dopo
+  (onion skin); **l** ciclo sì/no, **i** linear / smooth / step, `<` `>` la durata. A
+  sinistra le animazioni: PgUp/PgDn le cambiano, **n** nuova, Ctrl+D duplica, Invio
+  rinomina, Backspace due volte cancella.
+- F4 **sprites**: l'animazione disegnata in sprite dal motore 3D della console, per i
+  giochi in 2D: fotogrammi, misura (16…128), direzioni (1, 2, 4, 8), quanto dall'alto,
+  camera piatta o in prospettiva, luce, contorno, colori ridotti (32, 16, 8), riempimento;
+  l'anteprima gira tra le direzioni. Invio mette la griglia nello sprite sheet (sotto
+  quello che c'è, allargandolo se serve) e mostra il codice `sspr()` per disegnarla.
+
+Il **menu** apre i `.bm` della SD, salva (Ctrl+S, o *Save as* con un nome 8.3 in
+`/carts`), **prova il gioco** (F5: si gioca il file salvato, poi si torna nella stessa
+pagina); bm Studio fa anche un progetto nuovo (con lo sheet di tessere iniziale di bm Studio
+e il codice del visualizzatore dei modelli). `[` e `]` (o Y + su/giù) cambiano modello.
+Ctrl+Z e Ctrl+Y (Y + A sul gamepad) annullano e rifanno, anche i pixel dipinti e gli
+sprite messi nello sheet.
+
+Come lavorano: i modelli e gli scheletri sono tabelle Lua; a ogni modifica la cartuccia
 riscrive la parte di quel modello delle sezioni MESH e ANIM (`string.pack`, il formato di
 `src/bm/bm.h`) e le passa al kernel con `cart_data()`, che le controlla: `model()`,
-`animate()` e `bone3d()` disegnano e muovono sempre quello che verrà salvato, e
-`cart_save()` lo scrive. Un `.bm` aperto e salvato senza modifiche tiene le sue sezioni
-byte per byte.
+`animate()` e `bone3d()` disegnano e muovono sempre quello che verrà salvato. Il codice
+comune ai due programmi (formato, progetto, annulla, menu, schede, il puntatore della
+tastiera) è la libreria del kernel `src/script/bm3d.lua` (`require "bm3d"`). Salvano con
+`cart_write`: nel file cambiano solo MESH e ANIM (e lo sheet, se è stato dipinto o ha
+ricevuto sprite); un `.bm` aperto e salvato senza modifiche resta uguale byte per byte.
 
-Più semplice dei programmi per il PC: niente angoli spostati a mano, selezioni, pittura
-dello sheet (si fa nell'SDK, pagina sprite), import/export `.glb` e sprite
-pre-renderizzati; un osso per faccia (la pelle a parti rigide); keyframe di posa intera.
+Restano solo sul PC: import ed export `.glb` e `.png`, la copertina da un'immagine; ogni
+angolo segue un osso (niente pesi misti) e un keyframe è la posa intera, come sul PC.
+
+## Sulla console: bm Mesh
+
+**bm Mesh** è l'editor delle mesh, incorporato nel kernel (`carts/mesh/main.lua`): scheda
+**Dev**, oppure **X** sulla copertina di un gioco → **Open in bm Mesh** (dal monitor, il
+tasto `4`). Legge tre tipi di mesh di un `.bm`, segnati nella lista con una lettera:
+
+- **M**, i **modelli** della sezione MESH (quelli di bm Studio, sul PC e sulla console, con lo
+  scheletro di bm Animator se ce l'hanno): nel gioco `model("nome")`;
+- **C**, le mesh **nel codice** scritte da bm Mesh: funzioni `mesh_nome()` alla fine di
+  `main.lua`, tra le righe `-- [bm Mesh begin]` e `-- [bm Mesh end]`; nel gioco
+  `local m = mesh_nome()` (in `_init` o dopo) e poi `draw3d(m, ...)`;
+- **G**, le mesh che il **codice del gioco** costruisce con `mesh()`, `mesh_sphere()` e
+  `mesh_cube()`, come le navi e gli anelli di Astro Wing. Il kernel le trova eseguendo il
+  codice a parte (`cart_meshes()`: niente file, schermo o suono, un limite di istruzioni)
+  e dà a ciascuna il nome della variabile che la tiene (`M.ship` → `ship`).
+
+Due pagine (F1 lista, F2 modifica; sul gamepad Y + sinistra/destra) e il menu con Esc;
+tenendo premuto **F12**, o con **?**, compaiono i tasti.
+
+- **F1, la lista**: su/giù sceglie la mesh, che gira in anteprima con vertici, triangoli e
+  scheletro. **m** la copia come **modello** (da mesh a modello), **c** come **codice** (da
+  modello a mesh: `mesh_nome()`), **r** rinomina, **d** duplica (un modello con lo
+  scheletro), **Del** due volte cancella, **n** fa un modello nuovo (un cubo; con F3 anche
+  piano e sfera). Le mesh del gioco non si rinominano né si cancellano: è il suo codice
+  che le fa (bm Code lo modifica).
+- **F2, la modifica**: un **puntatore** (frecce, più veloce tenendo premuto; sul gamepad la
+  croce) indica il vertice o la faccia sotto di sé (**Tab** cambia tra vertici e facce;
+  **n** e **b** lo portano sul successivo o sul precedente, anche dietro). **Spazio**
+  aggiunge o toglie dalla scelta, **Invio** sceglie solo quello, **a** tutto o niente,
+  **l** tutto quello che è collegato. Poi:
+  - **g** sposta, **r** ruota, **t** scala: le frecce e PgUp/PgDn cambiano il valore
+    (sinistra/destra e PgUp/PgDn sui due assi della vista, su/giù in altezza; **x y z**
+    solo su quell'asse, **n** lungo la normale), `,` e `.` il passo (0,01–1; 1–90°;
+    ×1,01–2), **Invio** conferma, **Esc** annulla;
+  - **x** estrude le facce scelte (poi si spostano lungo la normale), **d** le duplica,
+    **m** specchia la scelta (sinistra-destra sullo schermo), **M** la copia dall'altra
+    parte dello 0 (per i modelli simmetrici: i vertici sullo 0 restano in comune);
+  - **j** fa una faccia sui 3 o 4 vertici scelti (nell'ordine, verso la camera), **k**
+    unisce i vertici scelti in uno, **K** salda quelli nello stesso punto (con il flag 4
+    di `draw3d` le facce intorno sembrano lisce), **u** divide ogni faccia in 4, **i** le
+    gira, **Del** cancella;
+  - **p** colora le facce, **o** prende il colore dalla faccia, **c** la tavolozza;
+  - la vista: q e girano, w s inclinano, + − zoom, **f** inquadra la scelta, 1 3 7 0 le
+    viste dritte; sul gamepad X + croce. Ctrl+Z e Ctrl+Y annullano e rifanno.
+
+  Modificare una mesh **G** ne fa prima una copia come modello (il codice del gioco non si
+  riscrive): il gioco la usa con `model("nome")`.
+
+Il **menu** apre un altro `.bm`, salva (Ctrl+S) o salva come (nome 8.3 in `/carts`) e
+**prova il gioco** (F5: si torna nella stessa pagina). Il salvataggio usa
+`cart_write(path, {sections = {[8] = MESH, [9] = ANIM}, lua = ...})`: cambiano solo i
+modelli e il blocco di bm Mesh nel codice; sprite sheet, mappa, copertina, banco di suoni
+e il resto del codice restano byte per byte. Un modello con lo scheletro lo tiene: l'osso
+di ogni vertice segue i vertici aggiunti (quello del vertice da cui vengono) e tolti, e
+ossa e animazioni restano quelle di bm Animator.
+
+Compatibile con le altre app: i modelli sono quelli che leggono e scrivono bm Studio, bm
+Animator (sul PC e sulla console), `mkbm.py --models` e il kernel; le mesh nel codice hanno il formato
+di "Copy as Lua" di bm Studio (vertici, poi `a, b, c, colore` con `-1` per la texture, poi
+le coordinate dello sheet) e si aprono in bm Code come il resto del codice.
+
+## Sulla console: bm Pixel
+
+**bm Pixel** è l'editor della pixel art, incorporato nel kernel (`carts/pixel/main.lua`):
+scheda **Dev**, oppure **X** sulla copertina di un gioco → **Open in bm Pixel** (dal monitor,
+il tasto `5`). Lavora sullo **sprite sheet** del `.bm`, lo stesso che usano i giochi
+(`spr`, `sspr`, `map`), l'SDK e bm Studio (le texture dei modelli). Tre pagine
+(F1–F3, sul gamepad Y + sinistra/destra), il menu con Esc; tenendo premuto **F12**, o con
+**?**, compaiono i tasti; **Tab** (sul gamepad X) apre l'elenco dei comandi della pagina.
+
+- **F1, il disegno**: lo sprite scelto, ingrandito (8×8, 16×16, 32×32, 64×64 o 128×128
+  pixel: **z** cambia la misura, PgUp e PgDn passano allo sprite prima e dopo), con la
+  griglia (**t**). Un puntatore si muove con le frecce (o la croce) e **spazio** (o A)
+  usa l'attrezzo; tenendo premuto spazio la matita traccia una linea.
+  - **b** matita, **e** gomma, **g** riempimento, **i** il colore di un pixel (un colore
+    nuovo entra nella tavolozza), **l** linea, **u**/**U** rettangolo vuoto/pieno, **o**/**O**
+    ovale vuoto/pieno, **m** selezione: per linee, rettangoli, ovali e selezioni lo spazio
+    fissa un angolo, le frecce portano all'altro, lo spazio di nuovo disegna.
+  - Con una selezione (o tutto lo sprite): Ctrl+C copia, Ctrl+X taglia, Ctrl+V incolla
+    (il blocco galleggia: si sposta con le frecce e si posa con spazio o Invio; i suoi
+    pixel trasparenti lasciano quello che c'è sotto), **Invio** solleva la selezione per
+    spostarla, **h**/**v** specchiano, **r** gira di un quarto, Canc cancella;
+    Shift+**w a s d** fanno scorrere lo sprite di un pixel (quello che esce rientra
+    dall'altra parte).
+  - **y** disegna a specchio (sinistra-destra), **,** e **.** cambiano colore, **x** torna
+    al colore di prima, **1**–**9**, **0** i primi dieci; il colore 0 è il trasparente.
+  - **Animazione**: lo sprite e quelli che lo seguono nello sheet sono i fotogrammi
+    (**+**/**−** quanti, **<**/**>** la velocità, **p** ferma o riparte): il riquadro a destra
+    li fa girare, accanto allo sprite alla misura vera. **k** è l'onion skin: il fotogramma
+    prima si vede a puntini sotto i pixel trasparenti.
+  - **F6**: l'assistente (M30) disegna la base di uno sprite da una parola ("slime",
+    "moneta", "astronave"…) con i colori della tavolozza; galleggia come un incollato.
+- **F2, lo sheet**: lo sheet intero (zoom con + e −), le frecce scelgono lo sprite (nella
+  misura scelta), Invio lo disegna; Ctrl+C e Ctrl+V copiano uno sprite in un altro posto,
+  Canc lo svuota, **R** cambia la misura dello sheet (multipli di 8 fino a 4096: quello che
+  ci sta resta). In alto il numero dello sprite e la chiamata `spr()` che lo disegna.
+- **F3, la tavolozza**: fino a 256 colori. Frecce e Invio scelgono il colore con cui
+  disegnare, **e** lo modifica (R, G e B con le frecce, < e > di uno; accanto il colore come
+  lo mostra la console, in RGB565), **a** ne aggiunge uno, Canc lo toglie, **[** e **]** lo
+  spostano, **s** ordina per tinta, **f** prende i colori usati nello sheet, **1** e **2**
+  mettono le tavolozze dell'SDK e di bm Studio; **x** (**X**) cambia il colore con cui si
+  disegna in quello scelto, in tutto lo sprite (in tutto lo sheet).
+
+Il **menu** apre un altro `.bm`, fa uno **sheet nuovo** (256×256; salvandolo con *Save as*
+diventa una cartuccia con un codice che mostra lo sheet), salva (Ctrl+S), salva come,
+**prova il gioco** (F5: si torna nella stessa pagina), cambia la misura dello sheet.
+Ctrl+Z e Ctrl+Y (Y + A sul gamepad) annullano e rifanno. Per ogni file si ricorda lo
+sprite, la misura, l'animazione e la pagina.
+
+Il salvataggio usa `cart_write(path, {sheet = true, palette = ...})`: nel file cambia solo
+lo sheet (codice, mappa, copertina, suoni, modelli e scheletri restano byte per byte, e un
+file con il nome lungo lo tiene). Lo sheet diventa una sezione **SHEET8** quando ha al più
+256 colori, con la tavolozza di bm Pixel per prima: riaprendo il file torna la stessa
+tavolozza, e la leggono anche l'SDK, bm Studio, bm Animator, `mkbm.py` e i giochi. La
+console tiene 16 bit per pixel (RGB565): un pixel che non è stato ridisegnato tiene i 24 bit
+che aveva nel file (quelli di bm Studio sul PC), uno ridisegnato prende quelli del colore
+della tavolozza. Anche gli sheet grandi si aprono (quello di Titan Clash, 2048×3448, parte
+rimpicciolito a 1/4); scriverli richiede qualche secondo, e intanto lo schermo dice
+"saving ...".
 
 ## Test
 
@@ -282,14 +445,44 @@ make test-studio-ui   # nel browser con Playwright: bm Studio e bm Animator col 
 console emulata) e `test_studio_cart` (i `.bm` scritti dallo Studio, con il loro
 visualizzatore).
 
-Lo studio 3D della console ha un banco di prova sul PC (`tests/studio/studio3d_host.lua`,
-dentro `make test-studio`, con il Lua 5.4 della console): le API di bm sostituite (una
-cartella fa da SD), i tasti e il gamepad simulati, e il percorso intero (il player sul
-villaggio, blocchi, tessere, pittura, annulla, ossa, keyframe, salvataggio e riapertura).
-I file che scrive sono riletti da bm Studio (`check_studio3d.js`: le facce sono
-**identiche** a quelle dello Studio con gli stessi attrezzi), da `bmmesh.py` e dal parser
-del kernel (`test_bm`). In QEMU, `test_studio3d` apre il villaggio dalle opzioni del gioco,
-costruisce, anima, salva, prova il gioco e torna.
+bm Studio e bm Animator della console hanno un banco di prova sul PC
+(`tests/studio/tools3d_host.lua`, dentro `make test-studio`, con il Lua 5.4 della console):
+le API di bm sostituite (una cartella fa da SD; i disegni controllano i loro argomenti, i
+tasti chip i loro nomi), i tasti e il gamepad simulati, e il percorso intero: bm Studio
+sul villaggio, blocchi, tessere (anche più insieme), selezione e spostamenti, vertici,
+pittura, viste, modelli, annulla, salvataggio e riapertura; poi bm Animator sullo stesso
+file (`cart_tool`): ossa, specchio, nomi, padre, pelle, keyframe, onion, animazioni,
+sprite nello sheet, salvataggio. I file sono riletti da bm Studio (`check_studio3d.js`: le
+facce sono **identiche** a quelle dello Studio con gli stessi attrezzi), da `bmmesh.py` e
+dal parser del kernel (`test_bm`). In QEMU, `test_studio_animator` apre il villaggio in bm
+Studio dalle opzioni del gioco, prova gli attrezzi, costruisce, salva, prova il gioco,
+passa a bm Animator, anima, salva e mette gli sprite del paesano nello sheet.
+
+bm Mesh ha il suo banco di prova sul PC (`tests/studio/mesh_host.lua`, in `make
+test-studio`): `cart_meshes()` sostituito da un `load` del codice del gioco con le stesse
+regole del kernel, e il percorso intero (le 13 mesh di Astro Wing, mesh → modello uguale a
+quello che il codice dà a `mesh()`, mesh → codice che rieseguito dà le stesse mesh,
+spostamenti, annulla, suddivisione, specchio, facce nuove, unione, colore, estrusione,
+duplicazione, il paesano con lo scheletro dopo vertici spostati e cancellati, salva come).
+I file che scrive sono riletti da bm Studio (`check_mesh.js`), da `bmmesh.py` e dal kernel
+(`test_meshcap`: ogni scheletro corrisponde al suo modello). `test_meshcap` prova anche la
+cattura vera (`src/bm/meshcap.c`) su Astro Wing, Texture Room e Chaos Kitchen. In QEMU,
+`test_mesh` apre Astro Wing dalle opzioni, copia la nave come modello, ne sposta i vertici,
+la copia come codice e salva.
+
+bm Pixel ha il suo banco di prova sul PC (`tests/studio/pixel_host.lua`, in `make
+test-studio`): lo sheet in una tabella con i colori come li tiene il kernel, `cart_write`
+che lo scrive come lui, e tutti gli attrezzi (matita e tratto, linea, rettangolo, ovale,
+riempimento, contagocce, specchio, selezione, copia, incolla, sollevare e spostare,
+specchiare, girare, far scorrere, annulla e rifai, l'assistente, la tavolozza, lo sheet più
+alto, salva, riapri, sheet nuovo, prova il gioco). I file sono riletti da bm Studio
+(`check_pixel.js`: i pixel non ridisegnati con i loro 24 bit, la tavolozza, modelli e
+scheletri intatti) e dal kernel (`test_meshcap`); `test_bm` prova il packer SHEET8 del kernel
+(le stesse sequenze del codificatore di bm Studio), lo sheet al posto del vecchio in
+`bm_rewrite_with` e lo `sspr` ingrandito. In QEMU, `test_pixel` apre Studio Village dalle
+opzioni, disegna e salva: nel file cambiano solo i pixel disegnati, gli altri restano
+identici byte per byte; `test_pixel_big` fa lo stesso con lo sheet di Titan Clash
+(2048×3448): cambia un pixel solo e la tavolozza resta quella.
 
 ## Struttura
 
@@ -311,8 +504,20 @@ sdk/studio/js/app.js         bm Studio: file, annulla, pannelli, tasti
 sdk/animator/index.html      bm Animator
 sdk/animator/js/animator.js  bm Animator: vista con ossa e anelli, linea del tempo, sprite, file
 scripts/bmmesh.py            MESH e .glb per mkbm.py
-carts/studio3d/main.lua      lo studio 3D della console (incorporato nel kernel, scheda Dev)
-carts/studio3d/mkassets.js   il suo sheet (le tessere iniziali) e la copertina
-tests/studio/studio3d_host.lua    lo studio 3D sul PC, con le API di bm sostituite
-tests/studio/check_studio3d.js    i suoi file riletti da bm Studio
+carts/studio/main.lua        bm Studio della console (incorporato nel kernel, scheda Dev)
+carts/animator/main.lua      bm Animator della console (incorporato nel kernel, scheda Dev)
+carts/studio/mkassets.js     lo sheet di bm Studio (le tessere iniziali) e le due copertine
+src/script/bm3d.lua          il codice comune ai due (require "bm3d")
+tests/studio/tools3d_host.lua     bm Studio e bm Animator sul PC, con le API di bm sostituite
+tests/studio/check_studio3d.js    i loro file riletti da bm Studio
+carts/mesh/main.lua          bm Mesh, l'editor delle mesh (incorporato nel kernel, scheda Dev)
+carts/mesh/mkcover.js        la sua copertina
+src/bm/meshcap.c             cart_meshes(): le mesh che il codice di un .bm costruisce
+tests/bm/test_meshcap.c      la cattura sulle cartucce vere
+tests/studio/mesh_host.lua   bm Mesh sul PC, con le API di bm sostituite
+tests/studio/check_mesh.js   i suoi file riletti da bm Studio
+carts/pixel/main.lua         bm Pixel, l'editor della pixel art (incorporato nel kernel, scheda Dev)
+carts/pixel/mkcover.js       la sua copertina
+tests/studio/pixel_host.lua  bm Pixel sul PC, con le API di bm sostituite
+tests/studio/check_pixel.js  i suoi file riletti da bm Studio
 ```

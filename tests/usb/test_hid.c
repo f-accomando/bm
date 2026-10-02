@@ -37,6 +37,7 @@ static void drain(void) { while (hid_getc() >= 0) ; hid_quit_pressed(); }
 int main(void)
 {
     uint8_t id = 99;
+    CHECK(hid_last_source() == HID_SOURCE_NONE);
     CHECK(hid_is_keyboard(desc_ids, sizeof desc_ids, &id) == 1 && id == 1);
     CHECK(hid_is_keyboard(desc_boot, sizeof desc_boot, &id) == 1 && id == 0);
     CHECK(hid_is_keyboard(desc_pad, sizeof desc_pad, &id) == 0);
@@ -49,6 +50,7 @@ int main(void)
     hid_report(USB_KEYBOARD, up, 8);
     CHECK(hid_getc() == 'h');
     CHECK(hid_getc() == -1);
+    CHECK(hid_last_source() == HID_SOURCE_KEYBOARD);      /* the buttons shown on screen */
 
     /* report protocol with ID 1 (a keyboard that ignored SET_PROTOCOL) */
     hid_keyboard_attach(1);
@@ -117,9 +119,11 @@ int main(void)
     uint8_t usb[64] = { 0x01, 128, 128, 128, 128, 0x08 };     /* centred, hat none */
     hid_report(USB_GAMEPAD, usb, 64);
     CHECK(hid_buttons() == 0);
+    CHECK(hid_last_source() == HID_SOURCE_KEYBOARD);           /* nothing pressed yet */
     usb[5] = 0x20 | 2;                                         /* cross + hat right */
     hid_report(USB_GAMEPAD, usb, 64);
     CHECK(hid_buttons() == (HID_A | HID_RIGHT));
+    CHECK(hid_last_source() == HID_SOURCE_DS4);
     usb[5] = 0x40 | 8; usb[2] = 10;                            /* circle + stick up */
     hid_report(USB_GAMEPAD, usb, 64);
     CHECK(hid_buttons() == (HID_B | HID_UP));
@@ -132,7 +136,7 @@ int main(void)
     usb[6] = 0x20 | 0x10;                                      /* options + share */
     hid_report(USB_GAMEPAD, usb, 64);
     CHECK(hid_buttons() == (HID_START | HID_SELECT));
-    CHECK(hid_quit_pressed() == (HID_QUIT_KEY | HID_QUIT_MONITOR));   /* Start+Select: also the monitor */
+    CHECK(hid_quit_pressed() == (HID_QUIT_KEY | HID_QUIT_MONITOR)); /* Start+Select: also the monitor */
     usb[6] = 0; usb[7] = 1;                                    /* PS button: home */
     hid_report(USB_GAMEPAD, usb, 64);
     CHECK(hid_quit_pressed() == HID_QUIT_PS);
@@ -202,6 +206,20 @@ int main(void)
     xb[3] = 0x01 | 0x02;
     hid_report(USB_XBOX360, xb, sizeof xb);
     CHECK(hid_buttons() == (HID_L1 | HID_R1));
+    CHECK(hid_last_source() == HID_SOURCE_PAD);
+    xb[3] = 0;
+    hid_report(USB_XBOX360, xb, sizeof xb);
+    p1[7] = 0;
+    hid_bt_report(1, p1, sizeof p1);                           /* a Bluetooth DS4 */
+    p1[5] = 0x08 | 0x40;
+    hid_bt_report(1, p1, sizeof p1);
+    CHECK(hid_last_source() == HID_SOURCE_DS4);
+    p1[5] = 0x08;
+    hid_bt_report(1, p1, sizeof p1);
+    xb[3] = 0x01 | 0x02;
+    hid_report(USB_XBOX360, xb, sizeof xb);
+    hid_buttons();
+    hid_quit_pressed();
     xb[3] = 0x04;
     hid_report(USB_XBOX360, xb, sizeof xb);
     CHECK(hid_quit_pressed() == HID_QUIT_PS);

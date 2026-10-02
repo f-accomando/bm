@@ -5,8 +5,9 @@
  *                made before the project was renamed: still read)
  *   8   u16      version (1)
  *   10  u16      header size (128)
- *   12  u16      width  (640 or 320)
- *   14  u16      height (360 or 180)
+ *   12  u16      width  (640, 320 or 256)
+ *   14  u16      height (360, 180 or 256: 640x360, 320x180, 256x256; the
+ *                square one is shown in the middle of a 480x270 screen)
  *   16  u8       pixel format (1 = RGB565; 2 = XRGB8888, reserved)
  *   17  u8       section count
  *   18  u16      reserved (0)
@@ -138,6 +139,12 @@ int bm_parse(const uint8_t *data, size_t len, bm_cart_t *c, char *err, size_t er
 int bm_sheet8_unpack(const bm_cart_t *c, void (*set)(void *ctx, int x, int y, const uint8_t rgba[4]),
                       void *ctx);
 
+/* Packs a SHEET8 section: w x h palette indices `idx` (row by row), the
+ * palette as `ncol` RGBA8888 colours (1..256). The runs are those of bm
+ * Studio's encoder (core.js), so both give the same bytes. Returns a
+ * malloc'd section (*outlen bytes), or NULL without memory. */
+uint8_t *bm_sheet8_pack(int w, int h, const uint8_t *pal_rgba, int ncol, const uint8_t *idx, size_t *outlen);
+
 /* Checks a MESH section: the number of models, or -1 if it is broken. */
 int bm_mesh_check(const uint8_t *mesh, uint32_t size);
 /* Model i (0-based) of a checked MESH section: 0, or -1 if there is none. */
@@ -186,9 +193,28 @@ int bm_is_cart(const void *head8);
 /* A cartridge with new code, title, author and resolution, and every other
  * section of `old` copied as it is (sheet, map, cover, and the sections this
  * kernel does not know, in their order). old == NULL: a new cartridge with
- * only the code. `old` must have passed bm_parse. Returns a malloc'd file
+ * only the code. `width` is the resolution: 320 (320x180), 256 (256x256),
+ * anything else 640x360. `old` must have passed bm_parse. Returns a malloc'd file
  * (*outlen bytes; the caller frees it), or NULL without memory. */
 uint8_t *bm_rewrite(const uint8_t *old, size_t oldlen, const char *lua, size_t lua_len,
                     const char *title, const char *author, int width, size_t *outlen);
+
+/* A section for bm_rewrite_with: data NULL takes the sections of that type
+ * away. */
+typedef struct {
+    uint32_t type;
+    const uint8_t *data;
+    uint32_t size;
+} bm_put_t;
+
+/* bm_rewrite, with the sections of `put` in place of those of their type
+ * (or at the end, if the file has none); lua NULL keeps the code as it is.
+ * Putting MESH or ANIM also takes away those of the first bm Studio files
+ * (a type 6 that is not a sound bank, a type 7). A SHEET or SHEET8 put is
+ * the sheet: it takes the place of the file's sheet, whichever of the two
+ * it was. */
+uint8_t *bm_rewrite_with(const uint8_t *old, size_t oldlen, const char *lua, size_t lua_len,
+                         const char *title, const char *author, int width, const bm_put_t *put, int nput,
+                         size_t *outlen);
 
 #endif

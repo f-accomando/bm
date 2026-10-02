@@ -11,7 +11,7 @@
 #include "drivers/fb.h"
 #include "bm/gfx16.h"
 
-#define HOME_ROWS_MAX 16
+#define HOME_ROWS_MAX 24
 
 /* A panel being built: rows with their own text, what each one does, and
  * a line of help for each. */
@@ -55,6 +55,10 @@ typedef struct {
     int wait;                   /* HOME_TEXT: then "A: back to the menu" */
     char note[96];              /* a line for the menu's footer, if not empty */
 } home_do_t;
+
+/* Settings > Controllers > Button icons: the DS4's face buttons in the
+ * hints white (0) or in their colours (1); kept in config.txt. */
+int  home_prompts_colour(void);
 
 /* Builds settings panel `id`. */
 void home_panel(int id, home_panel_t *p);

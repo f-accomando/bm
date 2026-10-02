@@ -72,7 +72,7 @@ $(LUA_OBJS) $(LWIP_OBJS) $(MBEDTLS_OBJS): WARN := -w
 # Lua scripts embedded with .incbin
 $(BUILD)/k/src/script/embed.S.o: $(wildcard src/script/*.lua) keys/release-pub.pem keys/market-pub.pem \
                                  $(BUILD)/demo.bm $(BUILD)/stress.bm $(BUILD)/editor.bm $(BUILD)/sound.bm \
-                                 $(BUILD)/studio3d.bm \
+                                 $(BUILD)/studio.bm $(BUILD)/animator.bm $(BUILD)/mesh.bm $(BUILD)/pixel.bm \
                                  $(BUILD)/assist.bin src/ai/assist.lua $(BUILD)/assistant.bm \
                                  $(BUILD)/code.bm
 
@@ -109,12 +109,30 @@ $(BUILD)/sound.bm: carts/sound/main.lua carts/sound/cover.png carts/sound/demo.j
 	$(PYTHON) scripts/mkbm.py -o $@ --lua $< --cover carts/sound/cover.png \
 	    --audio carts/sound/demo.json --title "bm Sound" --author bm
 
-# The 3D studio (M22): models and animations of a .bm, on the console. Its
-# sheet holds the starter tiles of bm Studio (carts/studio3d/mkassets.js).
-$(BUILD)/studio3d.bm: carts/studio3d/main.lua carts/studio3d/cover.png carts/studio3d/sheet.png scripts/mkbm.py
+# bm Studio and bm Animator on the console (M22): the models, then their
+# skeletons and animations; their shared code is src/script/bm3d.lua. bm
+# Studio's sheet holds the starter tiles of bm Studio on the PC; the covers
+# and the sheet: carts/studio/mkassets.js.
+$(BUILD)/studio.bm: carts/studio/main.lua carts/studio/cover.png carts/studio/sheet.png scripts/mkbm.py
 	@mkdir -p $(dir $@)
-	$(PYTHON) scripts/mkbm.py -o $@ --lua $< --cover carts/studio3d/cover.png \
-	    --sheet carts/studio3d/sheet.png --sheet8 --title "bm 3D studio" --author bm
+	$(PYTHON) scripts/mkbm.py -o $@ --lua $< --cover carts/studio/cover.png \
+	    --sheet carts/studio/sheet.png --sheet8 --title "bm Studio" --author bm
+
+$(BUILD)/animator.bm: carts/animator/main.lua carts/animator/cover.png scripts/mkbm.py
+	@mkdir -p $(dir $@)
+	$(PYTHON) scripts/mkbm.py -o $@ --lua $< --cover carts/animator/cover.png --title "bm Animator" --author bm
+
+# bm Mesh: the meshes of a .bm (its models and those its code builds), on
+# the console. Its cover: carts/mesh/mkcover.js.
+$(BUILD)/mesh.bm: carts/mesh/main.lua carts/mesh/cover.png scripts/mkbm.py
+	@mkdir -p $(dir $@)
+	$(PYTHON) scripts/mkbm.py -o $@ --lua $< --cover carts/mesh/cover.png --title "bm Mesh" --author bm
+
+# bm Pixel: the pixel art of a .bm (its sprite sheet), on the console. Its
+# cover: carts/pixel/mkcover.js.
+$(BUILD)/pixel.bm: carts/pixel/main.lua carts/pixel/cover.png scripts/mkbm.py
+	@mkdir -p $(dir $@)
+	$(PYTHON) scripts/mkbm.py -o $@ --lua $< --cover carts/pixel/cover.png --title "bm Pixel" --author bm
 
 $(BUILD)/stress.bm: carts/stress/main.lua scripts/mkbm.py
 	@mkdir -p $(dir $@)
@@ -128,7 +146,7 @@ $(BUILD)/demo.bm: $(DEMO_BM_SRC) scripts/mkbm.py
 	    --map carts/demo/map.csv --title "bm native demo" --author bm
 
 # Demo games (Lua only, sprites drawn in code): build/carts/<name>.bm
-GAMES := pong snake shooter astrowing hunt kitchen titan texroom village nano8
+GAMES := pong snake shooter astrowing hunt kitchen titan texroom village nano8 yharnam
 GAME_CARTS := $(patsubst %,$(BUILD)/carts/%.bm,$(GAMES))
 title_pong    := Pong
 title_snake   := Snake
@@ -143,11 +161,15 @@ title_nano8 := nano8
 res_texroom := 320x180
 title_village := Studio Village
 res_village := 320x180
+title_yharnam := Yharnam
+res_yharnam := 256x256
+sheet8_yharnam := 1
 # Optional per game: carts/<game>/cover.png (printed on the cartridge in the
 # menu, scripts/mkcovers.py), sheet.png, map.csv, models.bm or models.glb (3D
 # models from bm Studio / bm Animator, sdk/: with their skeletons and
 # animations from a .bm; their sprite sheet too when there is no sheet.png),
-# res_<game> := 320x180.
+# res_<game> := 320x180 or 256x256, sheet8_<game> := 1 (the sheet with a
+# palette and runs: up to 256 colours, much smaller).
 .SECONDEXPANSION:
 $(BUILD)/carts/%.bm: carts/%/main.lua scripts/mkbm.py scripts/bmmesh.py \
                       $$(wildcard carts/$$*/cover.png carts/$$*/sheet.png carts/$$*/map.csv carts/$$*/models.glb \
@@ -156,7 +178,7 @@ $(BUILD)/carts/%.bm: carts/%/main.lua scripts/mkbm.py scripts/bmmesh.py \
 	$(PYTHON) scripts/mkbm.py -o $@ --lua $< --title "$(title_$*)" --author bm \
 	    --res $(or $(res_$*),640x360) \
 	    $(if $(wildcard carts/$*/cover.png),--cover carts/$*/cover.png) \
-	    $(if $(wildcard carts/$*/sheet.png),--sheet carts/$*/sheet.png) \
+	    $(if $(wildcard carts/$*/sheet.png),--sheet carts/$*/sheet.png $(if $(sheet8_$*),--sheet8)) \
 	    $(if $(wildcard carts/$*/map.csv),--map carts/$*/map.csv) \
 	    $(if $(wildcard carts/$*/models.bm),--models carts/$*/models.bm,$(if $(wildcard carts/$*/models.glb),--models carts/$*/models.glb))
 
@@ -206,6 +228,28 @@ test-kitchen: $(BUILD)/host/luahost $(BUILD)/kitchen/main.lua
 test-titan: $(BUILD)/host/luahost $(BUILD)/titan/main.lua
 	$< tests/titan/sim.lua $(BUILD)/titan/main.lua $(BUILD)/titan/main.map
 
+# bmplay: a Lua cartridge played on the PC with the console's drawing and
+# sound, its buttons pressed by a bot; video.sh makes a video of it.
+# make yharnam-video: a hunt played by tools/bmplay/yharnam_bot.lua, from the
+# title to the Butcher slain (build/yharnam-run.mp4; needs ffmpeg)
+BMPLAY_SRCS := tools/bmplay/bmplay.c src/bm/gfx16.c src/bm/format.c src/lib/crc32.c src/gfx/font8x16.c \
+               src/gfx/font8x14.c src/gfx/font6x12.c src/audio/synth.c src/audio/player.c
+$(BUILD)/host/bmplay: $(BMPLAY_SRCS) src/bm/*.h src/audio/*.h $(LUA_SRCS)
+	@mkdir -p $(dir $@)
+	$(HOSTCC) -O2 -Wall -Wextra -Isrc -Ithird_party/lua -o $@ $(BMPLAY_SRCS) $(LUA_SRCS) -lm
+
+yharnam-video: $(BUILD)/host/bmplay $(BUILD)/carts/yharnam.bm tools/bmplay/yharnam_bot.lua
+	tools/bmplay/video.sh $(BUILD)/host/bmplay $(BUILD)/carts/yharnam.bm tools/bmplay/yharnam_bot.lua \
+	    $(BUILD)/yharnam-run.mp4
+
+# Yharnam: the street plan, the chunks, a long walk, the cost of a frame;
+# then the fight measured, with the paths of the lamps (balance.lua), and
+# the ways of the creatures and the phases of the bosses (foes.lua)
+test-yharnam: $(BUILD)/host/luahost carts/yharnam/main.lua
+	$< tests/yharnam/sim.lua carts/yharnam/main.lua
+	$< tests/yharnam/balance.lua carts/yharnam/main.lua
+	$< tests/yharnam/foes.lua carts/yharnam/main.lua
+
 # The Sound editor in a fake bm: its banks are the console's format, byte for byte
 $(BUILD)/demo.bmau: carts/sound/demo.json scripts/bmaudio.py
 	@mkdir -p $(dir $@)
@@ -232,8 +276,10 @@ test-nano8: $(BUILD)/host/n8host $(BUILD)/host/n8cartinfo $(BUILD)/host/luahost 
 
 .DEFAULT_GOAL := all
 .PHONY: FORCE test-smp test-catalog test-github test-lan market-seed all clean firmware image image-pi1 sdcard install sdcard-chainloader sdcard-stress qemu qemu-screenshot \
-        run-serial test test-bm test-ai ai-model test-usb test-audio test-fat test-kitchen test-titan test-sound test-nano8 \
-        test-net test-http test-https test-release release disasm wav test-studio test-studio-ui studio
+        run-serial test test-bm test-ai ai-model test-usb test-audio test-fat test-kitchen test-titan test-yharnam test-sound \
+        test-nano8 \
+        test-net test-http test-https test-release release disasm wav test-studio test-studio-ui studio test-prompts \
+        showreel yharnam-video
 
 all: $(BUILD)/kernel.img $(BUILD)/chainloader.img $(GAME_CARTS)
 
@@ -371,8 +417,8 @@ qemu: $(BUILD)/kernel.img
 qemu-screenshot: $(BUILD)/kernel.img
 	./scripts/qemu-screenshot.sh $< $(BUILD)/screen.png
 
-test: all test-bm test-usb test-fat test-audio test-kitchen test-titan test-sound test-nano8 test-net test-http test-https test-catalog test-github test-lan \
-      test-release test-smp test-ai test-studio
+test: all test-bm test-usb test-fat test-audio test-kitchen test-titan test-yharnam test-sound test-nano8 test-net test-http test-https test-catalog test-github test-lan \
+      test-release test-smp test-ai test-studio test-prompts
 	$(PYTHON) tests/qemu_test.py --build $(BUILD)
 
 $(BUILD)/host/test_bm: tests/bm/test_bm.c src/bm/gfx16.c src/bm/r3d.c src/bm/format.c src/lib/crc32.c src/bm/*.h
@@ -531,8 +577,35 @@ $(BUILD)/host/test_board: tests/usb/test_board.c src/drivers/board.c src/drivers
 	@mkdir -p $(dir $@)
 	$(HOSTCC) -O2 -Wall -Wextra -Isrc -o $@ tests/usb/test_board.c src/drivers/board.c
 
-test-bm: $(BUILD)/host/test_bm $(BUILD)/demo.bm
+# the meshes a cartridge builds in its code (cart_meshes(), bm Mesh)
+MESHCAP_SRCS := tests/bm/test_meshcap.c src/bm/meshcap.c src/bm/format.c src/bm/r3d.c src/lib/crc32.c
+$(BUILD)/host/test_meshcap: $(MESHCAP_SRCS) src/bm/*.h $(LUA_SRCS)
+	@mkdir -p $(dir $@)
+	$(HOSTCC) -O2 -Wall -Wextra -Isrc/bm -Isrc -Ithird_party/lua -o $@ $(MESHCAP_SRCS) $(LUA_SRCS) -lm
+
+$(BUILD)/meshcap-test.bm: tests/bm/meshcap_cart.lua scripts/mkbm.py
+	$(PYTHON) scripts/mkbm.py -o $@ --lua $< --title "meshcap test" --author tests
+
+test-bm: $(BUILD)/host/test_bm $(BUILD)/demo.bm $(BUILD)/host/test_meshcap $(BUILD)/carts/astrowing.bm \
+         $(BUILD)/carts/texroom.bm $(BUILD)/carts/kitchen.bm $(BUILD)/meshcap-test.bm
 	$< $(BUILD)/demo.bm
+	$(BUILD)/host/test_meshcap src/bm/runtime.c \
+	    $(BUILD)/meshcap-test.bm '!stop here,wheel:1,cars1_body:1,gem:2' \
+	    $(BUILD)/carts/astrowing.bm ship:32,dart,tower,gate,ring:120,laser,bolt,debris,debris2,mark,core,core_hot,turret \
+	    $(BUILD)/carts/texroom.bm floor_mesh,walls_mesh,crate_mesh,pillar_mesh \
+	    $(BUILD)/carts/kitchen.bm chef_classic1_body,chef1_body,plate,dplate
+
+# The button prompts (bm-ui): every one checked, and both sets drawn 3x as
+# on a TV into build/prompts/prompts.png (the menu) and chips.png (the apps)
+$(BUILD)/host/test_prompts: tests/ui/test_prompts.c src/kernel/prompts.c src/kernel/prompts.h \
+                            src/gfx/font8x16.c src/gfx/font6x12.c src/lib/crc32.c
+	@mkdir -p $(dir $@)
+	$(HOSTCC) -O2 -Wall -Wextra -Isrc -o $@ tests/ui/test_prompts.c src/kernel/prompts.c \
+		src/gfx/font8x16.c src/gfx/font6x12.c src/lib/crc32.c -lm
+
+test-prompts: $(BUILD)/host/test_prompts
+	@mkdir -p $(BUILD)/prompts
+	$< $(BUILD)/prompts
 
 # The assistant (M30): C features and network against the Python reference,
 # answers to the held-out questions, sprite generator
@@ -556,14 +629,27 @@ test-ai: $(BUILD)/host/test_ai $(BUILD)/assist.bin $(BUILD)/host/luahost $(BUILD
 # bm Studio (sdk/studio): its core in Node (the .bm, PNG and glTF it writes,
 # the editing geometry), then the same files read by the Python of the build
 # and by the kernel's parser. Skipped without Node.
-test-studio: $(BUILD)/host/test_bm $(BUILD)/demo.bm $(BUILD)/host/luahost $(BUILD)/carts/village.bm
+test-studio: $(BUILD)/host/test_bm $(BUILD)/demo.bm $(BUILD)/host/luahost $(BUILD)/carts/village.bm \
+             $(BUILD)/carts/astrowing.bm $(BUILD)/host/test_meshcap
 	rm -rf $(BUILD)/studio3d-sd && mkdir -p $(BUILD)/studio3d-sd/carts
 	cp $(BUILD)/carts/village.bm $(BUILD)/studio3d-sd/carts/
-	$(BUILD)/host/luahost tests/studio/studio3d_host.lua . $(BUILD)/studio3d-sd
+	$(BUILD)/host/luahost tests/studio/tools3d_host.lua . $(BUILD)/studio3d-sd
+	rm -rf $(BUILD)/mesh-sd && mkdir -p $(BUILD)/mesh-sd/carts
+	cp $(BUILD)/carts/village.bm $(BUILD)/carts/astrowing.bm $(BUILD)/mesh-sd/carts/
+	$(BUILD)/host/luahost tests/studio/mesh_host.lua . $(BUILD)/mesh-sd
+	$(BUILD)/host/test_meshcap src/bm/runtime.c $(BUILD)/mesh-sd/carts/astrowing.bm ship \
+	    $(BUILD)/mesh-sd/carts/village.bm "" $(BUILD)/mesh-sd/carts/meshcopy.bm ""
+	$(PYTHON) scripts/bmmesh.py $(BUILD)/mesh-sd/carts/astrowing.bm $(BUILD)/mesh-sd/carts/village.bm >/dev/null
+	rm -rf $(BUILD)/pixel-sd && mkdir -p $(BUILD)/pixel-sd/carts
+	cp $(BUILD)/carts/village.bm $(BUILD)/demo.bm $(BUILD)/pixel-sd/carts/
+	$(BUILD)/host/luahost tests/studio/pixel_host.lua . $(BUILD)/pixel-sd
+	$(BUILD)/host/test_meshcap src/bm/runtime.c $(BUILD)/pixel-sd/carts/village.bm "" $(BUILD)/pixel-sd/carts/newspr.bm ""
 	@if command -v node >/dev/null 2>&1; then \
 	    node tests/studio/test_core.js $(BUILD)/studio-test.bm && \
 	    $(PYTHON) tests/studio/check_cart.py $(BUILD)/studio-test.bm && \
 	    node tests/studio/check_studio3d.js $(BUILD)/studio3d-sd $(BUILD)/carts/village.bm && \
+	    node tests/studio/check_mesh.js $(BUILD)/mesh-sd $(BUILD)/carts/village.bm && \
+	    node tests/studio/check_pixel.js $(BUILD)/pixel-sd $(BUILD)/carts/village.bm && \
 	    $(BUILD)/host/test_bm $(BUILD)/demo.bm $(BUILD)/studio-test.bm $(BUILD)/studio-test-anim.bm \
 	        $(BUILD)/studio3d-sd/carts/blocks.bm; \
 	else echo "test-studio: node not found, skipped"; fi
@@ -573,6 +659,18 @@ test-studio: $(BUILD)/host/test_bm $(BUILD)/demo.bm $(BUILD)/host/luahost $(BUIL
 test-studio-ui:
 	node tests/studio/test_ui.js $(BUILD)/studio
 	node tests/studio/test_animator_ui.js $(BUILD)/studio
+
+# The showreel at the top of the README (docs/showreel.gif and .mp4): a
+# villager made from nothing in bm Studio and bm Animator (Playwright +
+# Chromium), then the map in the SDK, the code in bm Code with the assistant
+# and the game, on the console in QEMU; ffmpeg puts it together (about 4
+# minutes, tools/showreel/)
+SHOWREEL := $(BUILD)/showreel
+showreel: $(BUILD)/kernel.img
+	node tools/showreel/web.js $(SHOWREEL)/web
+	$(PYTHON) tools/showreel/console.py $(BUILD) $(SHOWREEL)/web $(SHOWREEL)/console
+	node tools/showreel/cards.js $(SHOWREEL)/cards
+	$(PYTHON) tools/showreel/assemble.py $(SHOWREEL) docs/showreel.mp4 docs/showreel.gif
 
 # bm Studio and bm Animator on http://localhost:8765 (they also open from
 # the files, sdk/studio/index.html and sdk/animator/index.html, in Chrome or Edge)

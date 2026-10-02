@@ -167,6 +167,47 @@ static void test_light(void)
     g16_light_free(&l);
 }
 
+/* lighting by levels (fades, as in Dank Tomb) */
+static void test_fade(void)
+{
+    static uint16_t px[64 * 64];
+    g16_t g;
+    g16_fade_t f;
+    g16_target(&g, px, 64, 64, 64, &font);
+    CHECK(g16_fade_init(&f, 64, 64) == 0, "fade init");
+    /* a grey with 4 levels: black, dark blue, grey, warm white */
+    const uint16_t grey = g16_rgb(128, 128, 128);
+    const uint16_t to[4] = { 0, g16_rgb(16, 16, 48), grey, g16_rgb(248, 216, 160) };
+    g16_fade_reset(&f, 4);
+    CHECK(g16_fade_colour(&f, grey, to) == 0, "fade colour");
+    g16_fade_done(&f);
+    g16_cls(&g, grey);
+    g16_rectfill(&g, 0, 60, 64, 4, g16_rgb(96, 64, 32));      /* a colour without a table */
+    g16_fade_clear(&f, 1);
+    g16_fade_glow(&f, 32, 32, 24, 3, 0);
+    g16_fade_apply(&g, &f);
+    CHECK(px[32 * 64 + 32] == to[3], "centre at the top level (%04x)", px[32 * 64 + 32]);
+    CHECK(px[2 * 64 + 2] == to[1], "ambient outside the lamp (%04x)", px[2 * 64 + 2]);
+    CHECK(px[32 * 64 + 32 + 12] == to[2], "the middle ring (%04x)", px[32 * 64 + 44]);
+    CHECK(px[32 * 64 + 32 - 12] == to[2], "rings are round (%04x)", px[32 * 64 + 20]);
+    uint32_t o = g16_to_rgb24(px[62 * 64 + 2]);
+    CHECK(o != 0 && (o >> 16) < 96, "colours without a table are scaled (%06x)", o);
+    /* two lamps: the brighter wins; dithered edges mix two levels */
+    g16_cls(&g, grey);
+    g16_fade_clear(&f, 0);
+    g16_fade_glow(&f, 20, 32, 16, 2, 256);
+    g16_fade_glow(&f, 20, 32, 6, 3, 256);
+    g16_fade_apply(&g, &f);
+    CHECK(px[32 * 64 + 20] == to[3], "the brighter lamp wins");
+    int lv1 = 0, lv0 = 0;
+    for (int x = 28; x < 36; x++) {
+        lv1 += px[32 * 64 + x] == to[1];
+        lv0 += px[32 * 64 + x] == to[0];
+    }
+    CHECK(lv1 > 0 && lv0 > 0, "dithered edge: %d at level 1, %d at 0", lv1, lv0);
+    g16_fade_free(&f);
+}
+
 static void test_3d(void)
 {
     static uint16_t big[360 * 640];
@@ -330,6 +371,7 @@ static uint8_t *read_file(const char *p, size_t *n)
 
 static void put16(uint8_t *p, unsigned v) { p[0] = (uint8_t)v; p[1] = (uint8_t)(v >> 8); }
 static void put32(uint8_t *p, uint32_t v) { put16(p, v & 0xFFFF); put16(p + 2, v >> 16); }
+static uint32_t rd32le(const uint8_t *p) { return p[0] | p[1] << 8 | p[2] << 16 | (uint32_t)p[3] << 24; }
 
 static void test_format(const char *path)
 {
@@ -345,6 +387,21 @@ static void test_format(const char *path)
     CHECK(c.lua && c.lua_size > 100 && memcmp(c.lua, "--", 2) == 0, "lua section");
     CHECK(c.sheet_w == 128 && c.sheet_h == 128 && c.sheet_rgba, "sheet");
     CHECK(c.map_w == 160 && c.map_h == 90 && c.map_cells, "map");
+
+    /* the square resolution, 256x256; any other size is refused */
+    {
+        const char code[] = "function _draw() cls(2) end";
+        size_t n4;
+        uint8_t *r = bm_rewrite(d, n, code, sizeof code - 1, "Square", "", 256, &n4);
+        bm_cart_t c4;
+        CHECK(r && bm_parse(r, n4, &c4, err, sizeof err) == 0, "256x256 parses: %s", err);
+        CHECK(c4.width == 256 && c4.height == 256, "256x256 header %ux%u", c4.width, c4.height);
+        if (r) {
+            r[14] = 180;            /* 256x180: the header is outside the CRC */
+            CHECK(bm_parse(r, n4, &c4, err, sizeof err) != 0, "256x180 refused");
+        }
+        free(r);
+    }
 
     /* new code, the rest kept: sheet, map, an unknown section (appended) */
     {
@@ -557,10 +614,133 @@ static void test_mesh(void)
     len = cart_with(cart, sec, n, BM_SEC_AUDIO);
     CHECK(bm_parse(cart, len, &c, err, sizeof err) == 0 && c.mesh && c.models == 2 && !c.audio,
           "a MESH of type 6 (old files) is read as MESH: %s", err);
+
+    /* bm_rewrite_with (cart_write with sections): new models in place of the
+     * old ones (here those of type 6), the code as it was */
+    {
+        uint8_t one[256];
+        size_t m = 8;
+        put16(one, 1); put16(one + 2, 64); put32(one + 4, 0);
+        m += mesh_model(one + m, "gem", 3, tri_v, 1, tri_f, tri_c, tri_uv);
+        bm_put_t put = { BM_SEC_MESH, one, (uint32_t)m };
+        size_t n2;
+        uint8_t *r = bm_rewrite_with(cart, len, NULL, 0, "T", "A", 640, &put, 1, &n2);
+        bm_cart_t c2;
+        CHECK(r && bm_parse(r, n2, &c2, err, sizeof err) == 0 && c2.models == 1 && c2.lua_size == c.lua_size &&
+              !memcmp(c2.lua, c.lua, c.lua_size), "rewrite with MESH: one model, the same code: %s", err);
+        int old = 0;
+        for (unsigned i = 0; r && i < r[17]; i++)
+            old += r[BM_HEADER_SIZE + i * 16] == BM_SEC_AUDIO;
+        CHECK(old == 0, "the old MESH of type 6 is gone");
+        bm_put_t gone = { BM_SEC_MESH, NULL, 0 };
+        size_t n3;
+        uint8_t *r2 = bm_rewrite_with(r, n2, "x=1", 3, "T", "A", 640, &gone, 1, &n3);
+        CHECK(r2 && bm_parse(r2, n3, &c2, err, sizeof err) == 0 && !c2.mesh && c2.lua_size == 3,
+              "rewrite taking MESH away, new code");
+        free(r);
+        free(r2);
+    }
 }
 
 /* A cartridge written by bm Studio (tests/studio/test_core.js): the
  * kernel's parser takes its models. */
+/* bm Pixel: the SHEET8 packer of the kernel (the runs of bm Studio's
+ * encoder), the sheet put by bm_rewrite_with, the zoomed blit */
+static uint8_t big_idx[64 * 40];
+static const uint8_t *big_pal;
+static int big_ok;
+
+static void set_big(void *ctx, int x, int y, const uint8_t rgba[4])
+{
+    (void)ctx;
+    if (memcmp(rgba, big_pal + big_idx[y * 64 + x] * 4, 4) != 0)
+        big_ok = 0;
+}
+
+static void test_pixel(void)
+{
+    /* the exact runs: 3 the same is a run, 129 the longest */
+    uint8_t one[130];
+    const uint8_t pal1[8] = { 0, 0, 0, 0, 255, 255, 255, 255 };
+    size_t len = 0;
+    memset(one, 1, sizeof one);
+    uint8_t *p = bm_sheet8_pack(130, 1, pal1, 2, one, &len);
+    CHECK(p && len == 16 + 4 && p[16] == 255 && p[17] == 1 && p[18] == 0 && p[19] == 1,
+          "130 the same: a run of 129 and a literal of 1 (%u bytes)", (unsigned)len);
+    free(p);
+    const uint8_t five[5] = { 1, 1, 1, 0, 1 };
+    p = bm_sheet8_pack(5, 1, pal1, 2, five, &len);
+    CHECK(p && len == 16 + 5 && p[16] == 129 && p[17] == 1 && p[18] == 1 && p[19] == 0 && p[20] == 1,
+          "1 1 1 0 1: a run of 3, a literal of 2");
+    free(p);
+
+    /* a bigger picture: literals longer than 128, runs of every length */
+    static const uint8_t pal[6 * 4] = { 0, 0, 0, 0,  255, 0, 0, 255,  0, 255, 0, 255,
+                                        0, 0, 255, 255,  9, 8, 7, 255,  200, 100, 50, 255 };
+    int i = 0;
+    for (; i < 300; i++) big_idx[i] = (uint8_t)(i % 6);
+    for (int run = 1; i < 64 * 40; run = run % 140 + 1)
+        for (int k = 0; k < run && i < 64 * 40; k++) big_idx[i++] = (uint8_t)(run % 6);
+    uint8_t *sec = bm_sheet8_pack(64, 40, pal, 6, big_idx, &len);
+    uint8_t *cart = malloc(len + 512);
+    CHECK(sec && cart, "pack");
+    size_t clen = cart_with(cart, sec, len, BM_SEC_SHEET8);
+    bm_cart_t c;
+    char err[64] = "";
+    CHECK(bm_parse(cart, clen, &c, err, sizeof err) == 0 && c.sheet_w == 64 && c.sheet_h == 40,
+          "the packed SHEET8 reads: %s", err);
+    big_pal = pal;
+    big_ok = 1;
+    CHECK(bm_sheet8_unpack(&c, set_big, NULL) == 0 && big_ok, "and gives the same pixels back");
+
+    /* the sheet put: SHEET8 in the place of a SHEET (and the other way) */
+    uint8_t rgba[4 + 8 * 8 * 4] = { 8, 0, 8, 0 };
+    uint8_t *old = malloc(sizeof rgba + 512);
+    size_t olen = cart_with(old, rgba, sizeof rgba, BM_SEC_SHEET);
+    bm_put_t put = { BM_SEC_SHEET8, sec, (uint32_t)len };
+    size_t nlen = 0;
+    uint8_t *nw = bm_rewrite_with(old, olen, NULL, 0, "t", "a", 640, &put, 1, &nlen);
+    CHECK(nw && nw[17] == 2 && rd32le(nw + BM_HEADER_SIZE + 16) == BM_SEC_SHEET8,
+          "the SHEET8 takes the place of the SHEET (2 sections)");
+    CHECK(nw && bm_parse(nw, nlen, &c, err, sizeof err) == 0 && c.sheet8 && !c.sheet_rgba && c.lua_size == 8,
+          "the new file: the code, the SHEET8, no SHEET: %s", err);
+    bm_put_t back = { BM_SEC_SHEET, rgba, sizeof rgba };
+    size_t blen = 0;
+    uint8_t *b2 = nw ? bm_rewrite_with(nw, nlen, NULL, 0, "t", "a", 640, &back, 1, &blen) : NULL;
+    CHECK(b2 && b2[17] == 2 && bm_parse(b2, blen, &c, err, sizeof err) == 0 && c.sheet_rgba && !c.sheet8,
+          "and a SHEET in the place of the SHEET8");
+    free(b2);
+    free(nw);
+    free(old);
+    free(cart);
+    free(sec);
+
+    /* the zoomed blit: whole zooms land on their pixels, below 1 it samples */
+    g16_t g;
+    g16_sheet_t s;
+    g16_target(&g, fb, W, W, H, &font);
+    CHECK(g16_sheet_alloc(&s, 16, 8) == 0, "sheet");
+    for (int y = 0; y < 4; y++)
+        for (int x = 0; x < 4; x++)
+            g16_sheet_set(&s, 8 + x, y, (uint16_t)(1 + x + y * 4), !(x == 1 && y == 1));
+    g16_cls(&g, 0x7777);
+    g16_sspr_zoom(&g, &s, 8, 0, 2, 2, 0, 0, 0, 0, 3.0f);
+    CHECK(at(0, 0) == 1 && at(2, 2) == 1 && at(3, 0) == 2 && at(5, 2) == 2 && at(0, 3) == 5 &&
+          at(3, 3) == 0x7777 && at(5, 5) == 0x7777 && at(6, 0) == 0x7777 && at(0, 6) == 0x7777,
+          "zoom 3: 2x2 pixels on 6x6, the transparent one shows what was under it");
+    g16_cls(&g, 0);
+    g16_sspr_zoom(&g, &s, 8, 0, 4, 4, 10, 10, 1, 0, 2.0f);
+    CHECK(at(10, 10) == 4 && at(11, 11) == 4 && at(16, 10) == 1 && at(17, 17) == 13, "zoom 2, flipped");
+    g16_cls(&g, 0);
+    g16_sspr_zoom(&g, &s, 8, 0, 4, 4, 30, 30, 0, 0, 0.5f);
+    CHECK(at(30, 30) == 1 && at(31, 30) == 3 && at(30, 31) == 9 && at(31, 31) == 11 && at(32, 30) == 0,
+          "zoom 0.5: every second pixel");
+    g16_cls(&g, 0);
+    g16_sspr_zoom(&g, &s, 8, 0, 4, 4, W - 3, H - 3, 0, 0, 2.0f);
+    CHECK(at(W - 3, H - 3) == 1 && at(W - 1, H - 3) == 2 && at(W - 1, H - 1) == 0, "clipped at the edge");
+    g16_sheet_free(&s);
+}
+
 static void test_studio_cart(const char *path)
 {
     size_t n;
@@ -630,8 +810,8 @@ static void test_anim_cart(const char *path)
     free(d);
 }
 
-/* A cartridge saved by the 3D studio of the console (its host test,
- * tests/studio/studio3d_host.lua): the kernel reads what it wrote. */
+/* A cartridge saved by bm Studio and bm Animator of the console (their host
+ * test, tests/studio/tools3d_host.lua): the kernel reads what they wrote. */
 static void test_console_cart(const char *path)
 {
     size_t n;
@@ -640,7 +820,7 @@ static void test_console_cart(const char *path)
     if (!d) return;
     bm_cart_t c;
     char err[64] = "";
-    CHECK(bm_parse(d, n, &c, err, sizeof err) == 0, "parse the cartridge of the 3D studio: %s", err);
+    CHECK(bm_parse(d, n, &c, err, sizeof err) == 0, "parse the cartridge of bm Studio and bm Animator: %s", err);
     bm_model_t m;
     CHECK(c.models == 1 && bm_mesh_model(c.mesh, c.mesh_size, 0, &m) == 0 && strcmp(m.name, "model") == 0 &&
           m.nfaces == 16, "its model: 16 triangles");
@@ -659,10 +839,12 @@ int main(int argc, char **argv)
     test_sprites();
     test_text();
     test_light();
+    test_fade();
     test_3d();
     test_format(argc > 1 ? argv[1] : "build/demo.bm");
     test_sheet8();
     test_mesh();
+    test_pixel();
     if (argc > 2)
         test_studio_cart(argv[2]);
     if (argc > 3)

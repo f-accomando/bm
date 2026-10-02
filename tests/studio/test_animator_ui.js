@@ -160,6 +160,24 @@ function check(ok, msg) { checks++; if (!ok) { fails++; console.log('FAIL ' + ms
   await page.waitForFunction(() => window.app && app.project && app.project.models[0].name === 'villager' && app.fileName, null, { timeout: 5000 });
   check(await ev(() => app.rig().clips.length) === 3, 'and back in bm Animator');
 
+  // models with tiles show the sheet, not the magenta of a missing texture
+  {
+    const [fc] = await Promise.all([page.waitForEvent('filechooser'), ev(() => app.cmd('open'))]);
+    await fc.setFiles(path.join(ROOT, 'carts', 'village', 'models.bm'));
+    await page.waitForFunction(() => app.project && app.project.models.some(m => m.name === 'house'));
+    await ev(() => { app.cur = app.project.models.findIndex(m => m.name === 'house'); app.S.view.skin = false; app.refreshAll(); app.view.frame(); app.requestRender(); });
+    await page.waitForTimeout(400);
+    const png = await page.locator('#glc').screenshot();
+    const magenta = await ev(async b64 => {
+      const img = await BM.decodePNG(Uint8Array.from(atob(b64), c => c.charCodeAt(0)));
+      let n = 0;
+      for (let i = 0; i < img.px.length; i += 4) if (img.px[i] > 240 && img.px[i + 1] < 16 && img.px[i + 2] > 240) n++;
+      return n;
+    }, png.toString('base64'));
+    check(magenta === 0, `the house of Studio Village with its textures (${magenta} magenta pixels)`);
+    await shot('a4-textures');
+  }
+
   check(!errors.length, 'no errors in the page: ' + errors.join('; '));
   await browser.close();
   console.log(`animator ui: ${checks - fails}/${checks} checks passed (screenshots in ${OUT})`);

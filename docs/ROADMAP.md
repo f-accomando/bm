@@ -873,7 +873,7 @@ delle altre due (lavora sul `.bm`, porta il progetto da e verso bm Studio).
 semplificata.** Su richiesta dell'utente gli strumenti del PC restano quelli principali e
 sulla console arriva una loro versione `.bm`: una cartuccia incorporata nel kernel
 (`carts/studio3d`), nella scheda **Dev** e nelle opzioni di ogni gioco (*Open in the 3D
-studio*; monitor `3`), sugli stessi file ([sdk/README.md](../sdk/README.md#sulla-console-lo-studio-3d)).
+studio*; monitor `3`), sugli stessi file. Poi diviso in bm Studio e bm Animator (sotto).
 - **Play** (il player): modelli, vertici, triangoli, ossa; camera che gira, animazioni
   (fotogramma per fotogramma, velocità), scheletro sovrapposto, misto di due animazioni.
 - **Build**: cursore a celle, blocchi (senza pareti tra blocchi vicini), tessere su un
@@ -895,6 +895,76 @@ studio*; monitor `3`), sugli stessi file ([sdk/README.md](../sdk/README.md#sulla
 - **Da verificare sul Pi**: scheda Dev → *3D studio*; aprire Studio Village, guardare il
   paesano (k: scheletro, b: misto), costruire qualche blocco in un progetto nuovo,
   salvarlo e provarlo (F5); fluidità del player e della costruzione sul Pi Zero.
+
+**bm Studio e bm Animator sulla console (2026-10-01, branch `sdk-dev`).** Su richiesta
+dell'utente lo studio 3D della console arriva al livello dei programmi per il PC e si
+divide in due, con gli stessi nomi: **bm Studio** (`carts/studio`, monitor `3`) e **bm
+Animator** (`carts/animator`, monitor `6`), nella scheda Dev e nelle opzioni di ogni gioco;
+dal menu dell'uno si passa all'altro sullo stesso file
+([sdk/README.md](../sdk/README.md#sulla-console-bm-studio-e-bm-animator)). Per ora tastiera
+e gamepad; il mouse (branch `claude/mouse`) in un secondo momento.
+- **bm Studio**: attrezzi block, tile (anche più tessere insieme), select (puntatore della
+  tastiera sulle facce: scegli, tutte, unite; sposta, gira, capovolgi, specchia, altro
+  lato, nuova tessera, gira la texture, scala, copia, cancella, in un modello nuovo),
+  vertex (sposta e unisci gli angoli), paint (i pixel della tessera di una faccia, sul
+  modello); viste luce / colori / fil di ferro e facce posteriori; conteggi con avvisi;
+  pagina models (nuovo, rinomina, duplica, cancella, ordine, margine delle texture);
+  titolo e autore.
+- **bm Animator**: play; rig con specchio delle ossa (`.L` / `.R`), nome, padre, giunture
+  che si muovono insieme, pelle rigida o liscia, facce assegnate a un osso; animate con
+  keyframe prima/dopo e spostabili, posa specchiata, onion skin, lista delle animazioni
+  (nuova, duplica, rinomina, cancella); **sprites**: un'animazione disegnata dal motore 3D
+  della console nello sprite sheet (fotogrammi, misura, direzioni, camera, luce, contorno,
+  colori) con il codice `sspr()`.
+- **Kernel**: la libreria `require "bm3d"` (`src/script/bm3d.lua`, il codice comune),
+  `cart_tool(nome, percorso)` (un altro strumento sullo stesso file), `cart_write` con
+  `from = false` (cartuccia nuova). I due salvano con `cart_write`: nel file cambiano solo
+  MESH, ANIM e lo sheet se dipinto (prima `cart_save` riscriveva tutto e lo sheet SHEET8
+  diventava SHEET).
+- **Test**: `tests/studio/tools3d_host.lua` (112 controlli, in `make test-studio`), i file
+  riletti da bm Studio (`check_studio3d.js`), `bmmesh.py` e dal kernel; QEMU
+  `test_studio_animator` (con le schermate).
+- **Da verificare sul Pi**: Studio Village → X → *Open in bm Studio*: attrezzi 1-5,
+  Tab (le tessere), F2 (i modelli); un progetto nuovo, *Save as*, F5; menu → *Open in bm
+  Animator*: F2 rig (n, m, v), F3 animate (n, frecce, w, o), F4 sprites (Invio); la
+  fluidità della selezione e della pittura con molti triangoli (il terreno del villaggio).
+
+**bm Mesh (2026-10-01, stesso branch): le mesh di un `.bm`, anche quelle del codice.**
+Su richiesta dell'utente: un editor `.bm` che legge le mesh, le modifica e le scrive nel
+`.bm`, con il passaggio da mesh a modello e da modello a mesh, compatibile con le altre
+app. Cartuccia incorporata (`carts/mesh`), nella scheda **Dev** e nelle opzioni di ogni
+gioco (*Open in bm Mesh*; monitor `4`) ([sdk/README.md](../sdk/README.md#sulla-console-bm-mesh)).
+- **Lettura**: i modelli della sezione MESH (bm Studio, studio 3D; con lo scheletro di bm
+  Animator), le mesh scritte da bm Mesh nel codice e quelle che il **codice del gioco**
+  costruisce con `mesh()`, `mesh_sphere()`, `mesh_cube()` (Astro Wing: 13, con i nomi
+  delle variabili: ship, dart, ring, ...).
+- **Modifica**: puntatore (frecce o croce), vertici e facce scelti uno per uno, tutti o
+  collegati; sposta, ruota, scala (passi, assi x y z o la normale), estrudi, duplica,
+  specchia e copia specchiata, faccia nuova su 3-4 vertici, unisci e salda i vertici,
+  suddividi, gira le facce, colora, cancella; annulla e rifai; primitive (cubo, piano,
+  sfera).
+- **Mesh → modello** (`m`): una copia nella sezione MESH, `model("nome")` nel gioco;
+  **modello → mesh** (`c`): una funzione `mesh_nome()` alla fine di `main.lua`, tra
+  `-- [bm Mesh begin]` e `-- [bm Mesh end]` (lo stesso testo di "Copy as Lua" di bm Studio;
+  bm Mesh riscrive solo quelle righe). Modificare una mesh del gioco ne fa una copia come
+  modello (il codice del gioco non si riscrive).
+- **Compatibilità**: le sezioni MESH (8) e ANIM (9) come le scrivono bm Studio, bm Animator
+  e lo studio 3D; un modello con scheletro lo tiene (l'osso di ogni vertice segue i
+  vertici aggiunti e tolti); il resto del file (sheet, mappa, copertina, suoni, codice
+  fuori dal blocco) resta byte per byte; il codice si apre in bm Code.
+- **Kernel**: `cart_meshes(percorso)` esegue il codice di un `.bm` in uno stato Lua a parte
+  (`src/bm/meshcap.c`: `mesh()` e le primitive tengono una copia, le altre funzioni di bm
+  non fanno niente, limite di istruzioni) e dà le mesh con il nome della variabile;
+  `cart_write` accetta `sections` (MESH e ANIM, controllate) e il codice è facoltativo
+  (`bm_rewrite_with` in `format.c`).
+- **Test**: `test_meshcap` (la cattura sulle cartucce vere: Astro Wing, Texture Room,
+  Chaos Kitchen), bm Mesh sul PC con le API sostituite (`tests/studio/mesh_host.lua`, 65
+  controlli), i suoi file riletti da bm Studio (`check_mesh.js`), `bmmesh.py` e dal kernel;
+  `test_bm` per `bm_rewrite_with`; QEMU `test_mesh` (Astro Wing: la nave come modello
+  spostato e come codice, salvata).
+- **Da verificare sul Pi**: scheda Dev → *bm Mesh*, oppure Astro Wing → X → *Open in bm
+  Mesh*: la lista delle 13 mesh, la nave copiata come modello (m), vertici spostati (F2,
+  a, g, frecce, Invio), Ctrl+S; tempi di lettura del codice e fluidità dell'editor.
 
 Sotto-milestone:
 - **22.0 Base comune**:
@@ -941,10 +1011,43 @@ Sotto-milestone:
   - una riga `#entry: aggiungi operatore ternario #` dentro una funzione con un if/else,
     Invio, poi Ctrl+Z;
   - Esc > Exit con modifiche non salvate: "Keep for later" e alla riapertura ci sono.
-- **22.2 Pixel art**:
-  - sprite, tavolozze, animazioni (fotogrammi, onion skin, anteprima);
-  - strumenti (linea, rettangolo, riempimento, selezione, specchio);
-  - tile e **mappe** (proposta: la mappa sta qui, tile e mappe sono legati).
+- **22.2 Pixel art** — ✅ in QEMU (2026-10-01, branch `pixel-art`), da verificare sul Pi:
+  - **bm Pixel** (`carts/pixel/main.lua`, nel kernel come gli altri strumenti): scheda
+    **Dev**, monitor `5`, "Open in bm Pixel" nelle opzioni di una cartuccia
+    ([sdk/README.md](../sdk/README.md#sulla-console-bm-pixel)). Tre pagine:
+    - DRAW: lo sprite ingrandito (8–128 pixel), matita (tratto con spazio tenuto), gomma,
+      riempimento, contagocce, linea, rettangolo e ovale (vuoti o pieni), selezione
+      (copia, taglia, incolla, solleva e sposta, specchia, gira, cancella), scorrimento,
+      disegno a specchio, griglia, animazione dei fotogrammi che seguono con onion skin e
+      velocità, la base di uno sprite dall'assistente (F6);
+    - SHEET: lo sheet intero con zoom, scelta dello sprite, copia e incolla tra sprite,
+      misura dello sheet fino a 4096×4096;
+    - PALETTE: fino a 256 colori, modifica RGB (con il colore RGB565 della console),
+      aggiungi, togli, sposta, ordina, colori dello sheet, tavolozze dell'SDK e di bm
+      Studio, sostituzione di un colore nello sprite o nello sheet.
+    Menu: apri, sheet nuovo (diventa una cartuccia con un visualizzatore), salva, salva
+    come, prova il gioco e torna, misura dello sheet; annulla e rifai; tastiera e gamepad.
+  - **Formato e compatibilità**: lo sheet si salva come SHEET8 (≤ 256 colori) con la
+    tavolozza di bm Pixel per prima, che torna uguale riaprendo; il resto del file resta
+    byte per byte; i pixel non ridisegnati tengono i 24 bit che avevano (la console lavora
+    in RGB565). SDK, bm Studio, studio 3D, `mkbm.py` e giochi leggono lo stesso sheet.
+  - **Kernel**: `sspr(..., zoom)` (ingrandito o rimpicciolito, `g16_sspr_zoom`),
+    `cart_sheet([w, h])` (misura dello sheet del progetto), `cart_write(path, {sheet =
+    true, palette = ...})` (`sheet_section`, `bm_sheet8_pack` con le sequenze del
+    codificatore di bm Studio, lo sheet al posto del vecchio in `bm_rewrite_with`),
+    `cart_load(...).palette`.
+  - **Test**: `test_bm` (packer SHEET8, sheet sostituito, zoom), bm Pixel sul PC con le API
+    sostituite (`tests/studio/pixel_host.lua`, 55 controlli), i suoi file riletti da bm
+    Studio (`check_pixel.js`) e dal kernel; QEMU `test_pixel` (Studio Village: solo i pixel
+    disegnati cambiano nel file) e `test_pixel_big` (Titan Clash, sheet 2048×3448: si apre a
+    1/4, "saving ..." mentre scrive, cambia un pixel solo).
+  - Tasti come chip di bm-ui (`prompt()`, `lastinput()`), come nelle altre app di sviluppo.
+  - **Da verificare sul Pi**: scheda Dev → *bm Pixel*, oppure Studio Village → X → *Open in
+    bm Pixel*: disegnare con matita e linee, tavolozza (F3), sheet (F2), Ctrl+S, provare il
+    gioco (F5); fluidità del disegno e dell'animazione; quanto ci mette a salvare uno sheet
+    grande (Titan Clash: 13 s in QEMU).
+  - Restano: tile e **mappe** (oggi nell'SDK, pagina mappa), livelli, tavolozze per
+    sprite.
 - **22.3 Render 3D**: mesh low-poly (vertici, estrusione, colori e UV sullo sheet),
   luci, camera, anteprima con Gouraud e texture, esportazione nella sezione MESH.
 - **22.4 Musica ed effetti** — ✅ in QEMU (2026-10-01), da verificare sul Pi:
@@ -1352,6 +1455,65 @@ kernel: lo stress test nella scheda Dev, la demo col comando `n` del monitor.
   gli strumenti e le impostazioni (abbinare un secondo controller, collegare il WiFi,
   cambiare layout, riavviare); il menu resta a 60 fps; ogni funzione ha un test in
   QEMU.
+
+**Icone dei tasti** (branch `bm-ui`, 2026-10-01): un set di icone piatte per i tasti del
+DS4, dei pad generici e della tastiera, nello stile delle icone della barra.
+- Stile scelto dall'utente fra quattro varianti (pieno, contorno, rilievo, scuro a colori):
+  **rilievo**. Faccia bianca alta 14 pixel su un bordino grigio di 2 pixel, simbolo o
+  scritta ritagliati nella faccia. I quattro tasti frontali del DS4 hanno anche la
+  versione a colori: faccia scura con bordo e bordino grigi, simbolo nel suo colore
+  (croce blu, cerchio rosso, quadrato rosa, triangolo verde).
+- `src/kernel/prompts.c` (C semplice, come `icons.c`): forme con antialiasing (8×8
+  campioni ai bordi), fatte al primo uso e tenute. Tutte alte 16 pixel, come una riga di
+  testo.
+  - DS4: croce, cerchio, quadrato, triangolo; croce direzionale (tutta o una direzione
+    in bianco, le altre grigie); L1 R1, L2 R2 (più tondi in alto), L3 R3, levette L e R;
+    OPTIONS, SHARE, PS, touchpad.
+  - Pad generici: A B X Y, START, SELECT.
+  - Tastiera: frecce, Enter, Esc, Space, Tab, Backspace, Shift, Ctrl, Alt, Del, Home,
+    End, PgUp, PgDn, F1–F12 e un tasto per ogni carattere (`prompt_key`). Una lettera è
+    nel font 8×16 in grassetto, le parole nel 6×12.
+- **Menu**: i suggerimenti in basso mostrano i tasti dell'ultimo dispositivo premuto
+  (`hid_last_source()`), prima di allora la tastiera del giocatore 1 o il DS4.
+  - DS4: croce Play, quadrato Options, SHARE+OPTIONS Monitor; nei pannelli croce
+    Select, croce direzionale Change, cerchio Back.
+  - Tastiera: Enter, C, Ctrl+Esc (Esc da solo torna indietro); nei pannelli le frecce ← →.
+  - Pad generici: A, X, SELECT+START.
+  - Settings > Controllers > **Button icons**: White / Colour (`prompts=` in
+    `config.txt`).
+- Test: `make test-prompts` controlla ogni icona e disegna il set intero, 3x come sulla
+  TV, in `build/prompts/prompts.png`; `test_hid` controlla `hid_last_source()`; in QEMU
+  `prompt_spans` trova le icone dei suggerimenti dal loro bordino grigio.
+- **Da provare sul Pi:** i suggerimenti col DS4 (bianchi e, da Settings > Controllers >
+  Button icons, a colori), poi con la tastiera USB (Enter / C / Ctrl+Esc) premendone un
+  tasto.
+
+**Secondo set: le app di sviluppo** (2026-10-01). Prima ogni app scriveva i tasti a modo
+suo: solo il Sound editor li disegnava (chip con gli angoli tagliati, colori Xbox, solo i
+nomi del pad), SDK, 3D studio, bm Code e assistente li scrivevano come testo ("F1 code",
+"Enter/A: insert"). Fra quattro varianti l'utente ha scelto i **chip colorati**.
+- Chip piatti pieni di colore, scritta ritagliata: i tasti della tastiera nell'ambra delle
+  app, i quattro tasti frontali del DS4 nei loro colori, A B X Y dei pad generici nei loro
+  (verde, rosso, blu, giallo), gli altri pulsanti del pad grigio chiaro, la croce
+  direzionale con le direzioni giuste chiare. Alti 16 pixel accanto al testo 8×16, 12
+  accanto al 6×12 di bm Code (`prompt_chip`, `prompt_chip_key` in `prompts.c`; il set del
+  menu resta identico, pixel per pixel).
+- API Lua: `prompt(nome, x, y, [piccolo])` (maiuscolo i pulsanti del pad, come sul pad
+  usato per ultimo; minuscolo i tasti, coi nomi di `keyp()`), `prompt(nome)` misura,
+  `lastinput()` dice se l'ultimo tasto era della tastiera, di un DS4 o di un altro pad
+  (`docs/API.md`).
+- Nelle app (non in nano8, che è un emulatore): le schede di SDK e 3D studio (F1…F4,
+  Esc), le barre in basso ("hold F12 keys"), la riga dei suggerimenti del 3D studio, il
+  Sound editor (coi tasti della tastiera se è quella l'ultima usata: Enter, - =, [ ],
+  Backspace, Space…), il menu di bm Code con le scorciatoie e i suoi dialoghi, il pannello
+  dell'assistente e la sua barra. Le scritte dopo i chip restano sulle colonne del font (i
+  test in QEMU leggono lo schermo). Le liste dei tasti di F12 restano testo.
+- Test: `make test-prompts` controlla anche i chip e disegna `build/prompts/chips.png`; i
+  simulatori sul PC (Sound, 3D studio, pannello) hanno `prompt` e `lastinput`, e il
+  pannello prova tastiera e pad.
+- **Da provare sul Pi:** le schede, le barre e i suggerimenti di SDK, 3D studio, Sound
+  editor, bm Code e assistente, con la tastiera e poi col DS4 (Sound, i menu e il pannello
+  passano ai pulsanti del pad).
 
 ## M28 — Tastiera Bluetooth LE (M) — ✅ verificata sul Pi (2026-09-30)
 Richiesta 2026-09-30: una Logitech **MX Keys S** (con tastierino). È Bluetooth **Low

@@ -87,7 +87,36 @@ bm_market_key:
 
     .section .rodata
     .balign 4
-    .globl bm_studio3d_cart, bm_studio3d_cart_end
-bm_studio3d_cart:
-    .incbin "studio3d.bm"
-bm_studio3d_cart_end:
+    .globl bm_studio_cart, bm_studio_cart_end
+bm_studio_cart:
+    .incbin "studio.bm"
+bm_studio_cart_end:
+
+    .section .rodata
+    .balign 4
+    .globl bm_animator_cart, bm_animator_cart_end
+bm_animator_cart:
+    .incbin "animator.bm"
+bm_animator_cart_end:
+
+/* what bm Studio and bm Animator share (require "bm3d") */
+    .section .rodata
+    .balign 4
+    .globl bm_lib_bm3d, bm_lib_bm3d_end
+bm_lib_bm3d:
+    .incbin "src/script/bm3d.lua"
+bm_lib_bm3d_end:
+
+    .section .rodata
+    .balign 4
+    .globl bm_mesh_cart, bm_mesh_cart_end
+bm_mesh_cart:
+    .incbin "mesh.bm"
+bm_mesh_cart_end:
+
+    .section .rodata
+    .balign 4
+    .globl bm_pixel_cart, bm_pixel_cart_end
+bm_pixel_cart:
+    .incbin "pixel.bm"
+bm_pixel_cart_end:

@@ -29,9 +29,13 @@ Scritto per scegliere la risoluzione del menu (M27, BareMetal UI).
 | Console di testo e monitor | 640×360 (80×22 caratteri 8×16) | 32 bit | 2 | 3× |
 | Menu (BareMetal UI) | 640×360 | 16 bit (RGB565) | 3 | 3× |
 | Giochi `.bm` | 640×360 oppure 320×180 | 16 bit (RGB565) | 3 | 3× oppure 6× |
+| Giochi `.bm` quadrati | 256×256 al centro di 480×270 | 16 bit (RGB565) | 3 | 4× (1024×1024, bordi neri) |
 
-- Le due risoluzioni dei giochi `.bm` sono fissate dal formato (`src/bm/format.c`):
-  "resolution must be 640x360 or 320x180".
+- Le risoluzioni dei giochi `.bm` sono fissate dal formato (`src/bm/format.c`):
+  "resolution must be 640x360, 320x180 or 256x256".
+- 256×256 (`--res 256x256`): il firmware dà uno schermo di 480×270 (1920×1080 / 4,
+  pixel interi su 1080p) e il gioco disegna nel quadrato al centro (`bm_video_enter`
+  in `runtime.c`); i bordi restano neri. `SCREEN_W` e `SCREEN_H` valgono 256.
 - Le copertine dei giochi nel `.bm` sono 128×80 (`BM_COVER_W`, `BM_COVER_H`).
 
 ## 3. Risoluzioni possibili per il menu
