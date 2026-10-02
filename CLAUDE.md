@@ -154,8 +154,10 @@ screenshot in `docs/img/`), `README_OLD.md` (il README completo, in italiano),
   cleaver punti dove serve). Renderle tutte richiede circa un'ora: `mkassets.py` tiene i
   fotogrammi in `build/yharnam-frames/` e ridisegna solo quelli cambiati. Nel gioco:
   `HUNT[nome].d[direzione][fotogramma]`; sul titolo X mostra tutte le animazioni.
-- La saw cleaver (dalle foto dell'utente, `art/hunter.py`): manico sottile e curvo di cuoio
-  (`HANDLE`, corda chiara alle due estremità), snodo a disco con il gancio (`HOOK`), lama larga
+- La saw cleaver (dalle foto dell'utente, `art/hunter.py`): manico sottile di cuoio ad arco ampio
+  (`HANDLE`, `ARCH`; corda chiara alle due estremità), impugnato per la sua estremità: esce dal
+  pugno e si inarca fino allo snodo (miniatura e illustrazione dell'utente: chiusa, l'arco sopra la
+  lama; aperta, l'arco e poi la lama che scende, un po' curva, `BEND`), snodo a disco con il gancio (`HOOK`), lama larga
   fasciata di bende incrociate sul ferro scuro, denti su un lato, sangue secco. Lo snodo è fuori
   dalla linea del manico (`PIVOT_Y`): chiusa la lama sta accanto al manico, dorso contro di esso
   e denti in fuori; aperta sta attorno alla linea del manico. Deve leggersi a colpo d'occhio:

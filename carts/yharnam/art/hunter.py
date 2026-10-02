@@ -68,8 +68,10 @@ CX, CY = 32, 62         # the point between the feet
 # swung out beyond the hinge. The hinge is off the handle's line (PIVOT_Y,
 # on the folded blade's side), so the open blade stands round the handle's
 # line and the folded one lies beside the handle, its back against it.
-SHAFT = 13.5            # from the hand to the hinge
-BLADE_L = 11.5          # the blade, from the hinge to its far end
+SHAFT = 15.0            # from the hand to the hinge (in a straight line)
+BLADE_L = 12.0          # the blade, from the hinge to its far end
+ARCH = 3.4              # how far the handle bows out of that line (the hand holds its end)
+BEND = 1.2              # how far the open blade curves away from its teeth at the far end
 PIVOT_Y = -0.95
 PIVOT = (0.0, PIVOT_Y, -SHAFT)
 SPINE = -0.55           # the blade's back, from the hinge (its own frame)
@@ -212,24 +214,25 @@ def grounded(p):
     return skeleton(p, -low + p['air'])
 
 
-TIP = ('blade', (0, SPINE + 2.4, -BLADE_L + 0.4))   # the far end of the saw cleaver, open
+TIP = ('blade', (0, SPINE + 2.4 - BEND, -BLADE_L + 0.4))   # the far end of the saw cleaver, open
 TIP_FOLDED = ('blade', (0, SPINE + 2.6, 0.0))         # ... folded: the hinge's end of the blade
 MUZZLE = ('pistol', (0, 0.4, -10.0))
 
 
-# the handle: (z, y, radius) from the end in the hand to the hinge, a
-# gentle S (bowing away from the folded blade); the hook over the hinge,
-# (y, z from the hinge), curling back towards the hand
-HANDLE = [(2.4, -0.55, 0.5), (0.0, 0.0, 0.48), (-2.6, 0.6, 0.44), (-5.6, 1.15, 0.42), (-8.6, 1.25, 0.42),
-          (-11.4, 0.7, 0.45), (-SHAFT, 0.0, 0.5)]
-HOOK = [(0.55, 0.2), (1.35, 0.8), (1.75, 1.8), (1.85, 2.9), (2.05, 3.7)]
+# the handle: (z, y, radius) from its end in the hand to the hinge, a wide
+# arch bowing away from the folded blade (it rises out of the fist and comes
+# down to the hinge); the hook over the hinge, (y, z from the hinge),
+# reaching back towards the hand
+HANDLE = [(0.8 - k / 9 * (SHAFT + 0.8), ARCH * math.sin(math.pi * (k / 9) ** 0.85),
+           0.5 if k in (0, 1, 9) else 0.42) for k in range(10)]
+HOOK = [(0.55, 0.2), (1.4, 0.5), (2.2, 1.1), (2.6, 2.0)]
 
 
 def handle_mat(q):
     """leather, cord bound at both ends"""
     z = q[:, 2]
     m = np.full(len(q), GRIP)
-    m[(z > 0.9) | (z < -SHAFT + 2.0)] = CORD
+    m[(z > -1.4) | (z < -SHAFT + 2.0)] = CORD
     return m
 
 
@@ -371,7 +374,15 @@ def model(S, p):
         teeth = 0.75 * ((-z / 1.25) % 1.0) * (z < L0 - 1.2)
         return u, edge, teeth
 
+    def bent(q):
+        """the blade curves away from its teeth towards the far end"""
+        u = np.clip((L0 - q[:, 2]) / (L0 + BLADE_L), 0, 1)
+        q = q.copy()
+        q[:, 1] += BEND * u * u
+        return q
+
     def blade(q):
+        q = bent(q)
         x, y, z = q[:, 0], q[:, 1], q[:, 2]
         u, edge, teeth = blade_geo(q)
         far = -BLADE_L - 0.9 * np.clip((y - SPINE) / 4.9, 0, 1.2)    # the end cut slanting
@@ -381,6 +392,7 @@ def model(S, p):
         return np.maximum(d, heel)
 
     def blade_mat(q):
+        q = bent(q)
         x, y, z = q[:, 0], q[:, 1], q[:, 2]
         u, edge, teeth = blade_geo(q)
         # bandages crossed over the iron, and dried blood on them
