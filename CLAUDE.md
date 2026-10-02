@@ -219,11 +219,23 @@ screenshot in `docs/img/`), `README_OLD.md` (il README completo, in italiano),
   crescano di fase in fase.
 - La caccia (richiesta dell'utente: non si va all'infinito in una direzione): zone di `AREA` ×
   `AREA` pezzi verso est, chiuse da un muro di nebbia (`inside`, `draw_edge`); in fondo a ogni
-  zona l'arena del boss (`boss_chunk`: pira, giardini, cimitero, cappella a turno), ucciso il
-  quale si apre la zona dopo (`G.open`). Due lampade del cacciatore per zona (`lamp_chunk`, prop
-  `shrine`): una a metà, una prima del boss; si torna all'ultima accesa. Echi (`G.echoes`) dai
-  nemici uccisi, da spendere con parsimonia: Select (Tab) cura poco per `HEAL_COST`, la morte
-  costa `DEATH_COST` e senza abbastanza echi la caccia è perduta (stato `lost`).
+  zona l'arena del boss (`boss_chunk`), ucciso il quale si apre la zona dopo (`G.open`). Due
+  lampade del cacciatore per zona (`lamp_chunk`, prop `shrine`): una a metà, una prima del boss; si
+  torna all'ultima accesa. Echi (`G.echoes`) dai nemici uccisi, da spendere con parsimonia: Select
+  (Tab) cura poco per `HEAL_COST`, la morte costa `DEATH_COST` e senza abbastanza echi la caccia è
+  perduta (stato `lost`). Per ora (decisione dell'utente) le zone sono 4: ucciso il quarto boss,
+  sparito il suo annuncio, la caccia finisce (`G.done`, stato `end`: tempo, uccisi, morti, echi;
+  A torna al titolo).
+- Una regione per zona (richiesta dell'utente; `REGION` in `main.lua`, `REGION.of(cx)`): i quartieri
+  che la fanno (pesi), il pavimento dei suoi quartieri, il tipo dell'arena del boss. 1 Yharnam
+  centrale (strade, piazze, pire; arena pira, Butcher); 2 il bosco (`wild`: `woods` e `clearing`,
+  qualche cimitero; sentieri di terra `PV_EARTH` senza cordoli, niente marciapiedi ma erba, alberi
+  e cespugli a boschetti, nelle radure un fuoco con due panche, un po' di luce di luna:
+  `AMBIENT` + 1; arena radura, Hound); 3 Cathedral Ward (cimiteri, cappelle; arena cimitero,
+  Father); 4 il quartiere proibito (cappelle; arena cappella, Watcher). Niente nemici nuovi nel
+  bosco (decisione dell'utente): `POOL.woods`/`clearing` e i `POOL[tipo .. regione]` riusano i 12.
+  Una strada tra due regioni è di quella a ovest. Gli alberi sono sprite grandi: un bosco disegna al
+  più quanto la città (più cespugli che alberi; misura: sprite pixel nel test).
 - Le vie della lampada (`PATHS`, decisione dell'utente): al massimo 4 (`SLOT_COST`), anche la
   stessa più volte. Bilanciamento (richiesta dell'utente: build puntate su un aspetto, con
   varianti): la prima via presa è quella del cacciatore e pesa di più; ripresa conta ogni volta

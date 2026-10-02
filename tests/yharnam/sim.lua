@@ -213,7 +213,7 @@ local kinds = {}
 for k, v in pairs(count) do kinds[#kinds + 1] = k .. " " .. v end
 table.sort(kinds)
 io.write("districts of 41x41 chunks: " .. table.concat(kinds, ", ") .. "\n")
-check(#kinds == 6, "every kind of district appears")
+check(#kinds == 8, "every kind of district appears")
 
 ---------------------------------------------------------------- frames
 
@@ -229,7 +229,7 @@ local function frame(buttons, label)
   if instr > worst.instr then worst.instr, worst.where = instr, label end
   costs[#costs + 1] = instr
   if gen_instr > worst.gen then worst.gen = gen_instr end
-  if B.px > worst.px then worst.px = B.px end
+  if B.px > worst.px then worst.px, worst.pxat = B.px, label .. " " .. frames end
 end
 
 -- the title: the camera drifts over the town for a minute
@@ -770,8 +770,102 @@ F.reset()
 clear()
 F.quiet = false
 
+-- the regions: one to an area, each with its districts, its paving, its
+-- boss; the second a forest (woods and clearings, earth paths, no pavements)
+local R = Y.REGION
+local kinds_of = {}
+for a = 0, 3 do
+  local n, mine = 0, {}
+  for _, m in ipairs(R[a + 1].mix) do mine[m[1]] = true end
+  for cy = 0, A - 1 do
+    for cx = a * A, a * A + A - 1 do
+      local d = Y.district(cx, cy)
+      if mine[d.kind] or d.boss then n = n + 1 end
+      kinds_of[a] = (kinds_of[a] or "") .. d.kind:sub(1, 2) .. " "
+    end
+  end
+  check(n == A * A, "area " .. (a + 1) .. ": only the districts of its region")
+  local bx2, by2 = Y.boss_chunk(a)
+  local bd = Y.district(bx2, by2)
+  check(bd.boss and bd.kind == R[a + 1].boss, "area " .. (a + 1) .. ": its boss's arena is a " .. R[a + 1].boss)
+  for k = 1, 2 do
+    local lx, ly = Y.lamp_chunk(a, k)
+    check(Y.ensure(lx, ly).shrine, "area " .. (a + 1) .. ": hunter's lamp " .. k)
+  end
+end
+io.write("regions: " .. kinds_of[0] .. "| " .. kinds_of[1] .. "| " .. kinds_of[2] .. "| " .. kinds_of[3] .. "\n")
+local earth, stone, trees, walk = 0, 0, 0, 0
+for cy = 0, A - 1 do
+  for cx = A + 1, 2 * A - 2 do                    -- inside the forest (its border streets are the town's)
+    for ty = 0, 15 do
+      for tx = 0, 15 do
+        local pv = Y.road_at(cx * 16 + tx, cy * 16 + ty)
+        if pv == 9 then earth = earth + 1 elseif pv > 0 then stone = stone + 1 end
+      end
+    end
+    local ch = Y.ensure(cx, cy)
+    for _, o in ipairs(ch.objs) do
+      if o.name and (o.name:sub(1, 4) == "tree" or o.name:sub(1, 4) == "bush") then trees = trees + 1 end
+    end
+    for i = 1, 256 do if ch.kind[i] == Y.kinds.walk then walk = walk + 1 end end
+  end
+end
+io.write(string.format("the forest: %d tiles of earth paths, %d of stone, %d trees and bushes in 8 chunks\n", earth,
+                       stone, trees))
+check(earth > 200 and stone == 0, "the forest's paths are earth")
+check(walk == 0, "no pavements in the forest")
+check(trees > 8 * 10, "trees and bushes, many, in the forest")
+local town_earth = 0
+for ty = 0, 4 * 16 - 1 do for tx = 0, 4 * 16 - 1 do if Y.road_at(tx, ty) == 9 then town_earth = town_earth + 1 end end end
+check(town_earth == 0, "no earth paths in the town")
+-- a walk in the forest (the most things on screen): its frames count too
+clear()
+Y.G.open = 2
+Y.teleport(5 * 256 + 128, 1 * 256 + 128)
+local wood0, wood_px = #costs, 0
+for i = 1, 1200 do
+  local b = ({ 1, 2, 4, 8, 1 | 4, 2 | 8 })[(i // 90) % 6 + 1]
+  frame(b, "forest")
+  wood_px = math.max(wood_px, B.px)
+  P.hp = 10
+end
+local wmax = 0
+for k = wood0 + 2, #costs do wmax = math.max(wmax, costs[k]) end
+io.write(string.format("the forest: heaviest frame %d Lua instructions, sprite pixels up to %d\n", wmax, wood_px))
+-- every boss in its arena, the Hound in a clearing of the forest
+F.quiet = false
+local BOSSES = { "butcher", "hound", "father", "watcher" }
+local last
+for a = 0, 3 do
+  clear()
+  Y.G.open = a + 1
+  local bx2, by2 = Y.boss_chunk(a)
+  Y.teleport(bx2 * 256 + 128, by2 * 256 + 128)
+  local arena2 = Y.ensure(bx2, by2)
+  arena2.spawned = false
+  F.populate(arena2)
+  local found2
+  for _, f in ipairs(F.list) do if f.boss then found2 = f end end
+  check(found2 and found2.name == BOSSES[a + 1], "area " .. (a + 1) .. ": " .. BOSSES[a + 1] .. " waits in its arena")
+  last = found2
+end
+-- the fourth slain: the way stays shut (there is no fifth), the night is
+-- over once its banner is gone: how the hunt went, then the title again
+F.quiet = true
+Y.G.deaths, Y.G.slain = 2, 40
+F.harm(last, 999, false)
+check(Y.G.open == 4 and Y.G.done, "the fourth boss slain: the hunt is done, no fifth area")
+for i = 1, 400 do frame(0, "end") ; if Y.state() == "end" then break end end
+check(Y.state() == "end", "the end of the hunt, after the banner")
+settle(100)
+press(4, 2)
+check(Y.state() == "title" and Y.G.open == 1 and not Y.G.done and Y.G.slain == 0, "A: back to the title, a new hunt")
+press(4, 2)
+check(Y.state() == "play", "and a new hunt begins")
+clear()
+
 io.write(string.format("frames: %d; Lua instructions per frame: median %d, 99%% %d, heaviest %d (%s); " ..
                        "a chunk made in the background: up to %d (in slices of 40k on the console); " ..
-                       "sprite pixels up to %d\n", frames, p50, p99, worst.instr, worst.where, worst.gen, worst.px))
+                       "sprite pixels up to %d (%s)\n", frames, p50, p99, worst.instr, worst.where, worst.gen, worst.px, worst.pxat))
 check(p99 < 60000, "frames over 60k Lua instructions (6 ms on the Pi)")
 io.write(string.format("yharnam: %d checks passed\n", checks + 2))

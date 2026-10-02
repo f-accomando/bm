@@ -1342,16 +1342,34 @@ local function fdiv(a, b) return floor(a) // b end   -- an integer, from pixels 
 -- width and paving. Corners, sides and districts depend only on their
 -- coordinates, so neighbouring chunks agree on the streets they share.
 
-local PV_COBBLE, PV_SETTS, PV_FLAGS, PV_ALLEY, PV_WARM, PV_MARBLE, PV_DARK, PV_WET = 1, 2, 3, 4, 5, 6, 7, 8
+local PV_COBBLE, PV_SETTS, PV_FLAGS, PV_ALLEY, PV_WARM, PV_MARBLE, PV_DARK, PV_WET, PV_EARTH = 1, 2, 3, 4, 5, 6, 7, 8, 9
+local AREA = 4                           -- chunks to an area of the hunt (see below)
+
+-- The four regions of the hunt, one to an area (the user's wish: each its
+-- own place): the districts it is made of (weights, in order), the paving
+-- of its quarters, the kind of its boss's arena. Central Yharnam, the
+-- Forest (woods and clearings, earth paths, a little moonlight), Cathedral
+-- Ward, the forbidden quarter. There is no fifth: the fourth boss ends it.
+local REGION = {
+  { mix = { { "town", 70 }, { "square", 12 }, { "pyre", 8 }, { "park", 5 }, { "cemetery", 5 } },
+    pave = { PV_COBBLE, PV_COBBLE, PV_WARM, PV_SETTS, PV_WET }, boss = "pyre" },
+  { mix = { { "woods", 78 }, { "clearing", 12 }, { "cemetery", 10 } }, pave = { PV_EARTH }, boss = "clearing",
+    wild = true },
+  { mix = { { "town", 40 }, { "cemetery", 28 }, { "square", 14 }, { "chapel", 10 }, { "park", 8 } },
+    pave = { PV_SETTS, PV_DARK, PV_COBBLE, PV_DARK }, boss = "cemetery" },
+  { mix = { { "town", 45 }, { "chapel", 22 }, { "cemetery", 15 }, { "square", 10 }, { "pyre", 8 } },
+    pave = { PV_DARK, PV_WET, PV_DARK, PV_SETTS }, boss = "chapel" },
+}
+-- the region of chunk column cx (west of the start: the first; east of the last: the last)
+function REGION.of(cx) return REGION[min(#REGION, max(1, cx // AREA + 1))] end
 
 local corners, edges, districts = {}, {}, {}
 -- The paving of a quarter (3 x 3 blocks): all its streets have the same,
 -- the next quarter perhaps another (the user's wish: the ground in larger
--- zones of one kind, not a mosaic)
-local quarter_pave
-do
-  local QUARTER = { PV_COBBLE, PV_COBBLE, PV_WARM, PV_SETTS, PV_WET, PV_COBBLE, PV_DARK }
-  function quarter_pave(i, j) return QUARTER[hash(i // 3, j // 3, 41) % #QUARTER + 1] end
+-- zones of one kind, not a mosaic), from those of its region
+local function quarter_pave(i, j, reg)
+  local P = reg.pave
+  return P[hash(i // 3, j // 3, 41) % #P + 1]
 end
 
 -- The hunt: areas of AREA x AREA chunks in a row eastwards (and AREA chunks
@@ -1360,10 +1378,8 @@ end
 -- Each area has two hunter's lamps to light: one half way, one before the
 -- boss. Echoes: what the slain leave; they heal, they buy strength at a
 -- lamp, a death costs some, and without them the hunt is lost.
-local AREA = 4
-local BOSS_KIND = { "pyre", "park", "cemetery", "chapel" }
-local BOSS_NAME = { pyre = "butcher", park = "hound", cemetery = "father", chapel = "watcher" }
-local G = { open = 1, echoes = 0, lit = {}, spawn = nil, lost = false, popups = {}, slots = {} }
+local G = { open = 1, echoes = 0, lit = {}, spawn = nil, lost = false, popups = {}, slots = {}, time = 0, deaths = 0,
+            slain = 0, done = false }
 local function boss_chunk(a) return a * AREA + AREA - 1, a % 2 == 0 and AREA - 1 or 0 end
 local function lamp_chunk(a, k)             -- k = 1 half way, 2 before the boss
   local bx, by = boss_chunk(a)
@@ -1374,10 +1390,12 @@ end
 local function inside(cx, cy) return cy >= 0 and cy < AREA and cx >= 0 and cx < G.open * AREA end
 
 -- The town has an order (the user's wish): where the blocks round a corner
--- are all town (houses, squares, pyres, chapels: not parks nor cemeteries)
--- the corner is on the grid and the streets between such blocks run
+-- are all town (houses, squares, pyres, chapels: not parks, cemeteries,
+-- woods) the corner is on the grid and the streets between such blocks run
 -- straight, every third one an avenue; by the parks and cemeteries the
--- streets wind as they please. (urban is set once district is known.)
+-- streets wind as they please, in the woods they are earth paths. (urban is
+-- set once district is known.) A street between two regions belongs to the
+-- western one (and the corner too), one along a column of chunks to its.
 local urban
 
 local function corner(i, j)
@@ -1386,7 +1404,8 @@ local function corner(i, j)
   if not c then
     local h = hash(i, j, 1)
     c = { x = i * CS + (h % 5) - 2, y = j * CS + ((h >> 3) % 5) - 2,
-          plaza = (h >> 6) % 100 < 28, r = 3.6 + ((h >> 13) % 4) * 0.6 }
+          plaza = (h >> 6) % 100 < 28, r = 3.6 + ((h >> 13) % 4) * 0.6,
+          pv = REGION.of(i - 1).wild and PV_EARTH or PV_FLAGS }
     if urban(i - 1, j - 1) and urban(i, j - 1) and urban(i - 1, j) and urban(i, j) then
       c.x, c.y, c.grid = i * CS, j * CS, true
     end
@@ -1405,14 +1424,15 @@ local function edge(i, j, dir)
     -- never missing, with lamps on both pavements; else lamps on one side
     local town = dir == 0 and urban(i, j - 1) and urban(i, j) or dir == 1 and urban(i - 1, j) and urban(i, j)
     local avenue = town and (dir == 0 and j or i) % 3 == 0
-    if h % 100 < 12 and not avenue and not (abs(i) <= 1 and abs(j) <= 1) then
+    local reg = REGION.of(dir == 1 and i - 1 or i)
+    if h % 100 < (reg.wild and 20 or 12) and not avenue and not (abs(i) <= 1 and abs(j) <= 1) then
       e = false
     else
       local a = corner(i, j)
       local b = dir == 0 and corner(i + 1, j) or corner(i, j + 1)
-      local w = town and (avenue and 6 or 4) or 4 + (h >> 8) % 3
+      local w = town and (avenue and 6 or 4) or reg.wild and 3 + (h >> 8) % 2 or 4 + (h >> 8) % 3
       e = { a = a, b = b, dir = dir, hw = w / 2,
-            A = ((h >> 12) % 61) / 10 - 3.0, B = ((h >> 18) % 21) / 10 - 1.0, pave = quarter_pave(i, j) }
+            A = ((h >> 12) % 61) / 10 - 3.0, B = ((h >> 18) % 21) / 10 - 1.0, pave = quarter_pave(i, j, reg) }
       if town then
         e.A, e.B, e.town = 0, 0, true
         e.lamps = avenue and { 1, -1 } or { (h >> 24) % 2 == 0 and 1 or -1 }
@@ -1455,21 +1475,23 @@ local function district(cx, cy)
   local d = districts[k]
   if d then return d end
   local h = hash(cx, cy, 7)
-  local v = (h % 1000) / 1000
+  local v = (h % 1000) / 10
+  local reg = REGION.of(cx)
   local kind = "town"
   if cx == 0 and cy == 0 then kind = "square"
-  elseif v < 0.10 then kind = "cemetery"
-  elseif v < 0.17 then kind = "park"
-  elseif v < 0.24 then kind = "square"
-  elseif v < 0.29 then kind = "pyre"
-  elseif v < 0.34 then kind = "chapel" end
+  else
+    for _, m in ipairs(reg.mix) do
+      if v < m[2] then kind = m[1]; break end
+      v = v - m[2]
+    end
+  end
   -- the arena at the end of an area: the boss's kind of district
   local bossy = false
-  if cx >= 0 and cy >= 0 and cy < AREA then
+  if cx >= 0 and cy >= 0 and cy < AREA and cx < #REGION * AREA then
     local bx, by = boss_chunk(cx // AREA)
-    if cx == bx and cy == by then kind, bossy = BOSS_KIND[(cx // AREA) % 4 + 1], true end
+    if cx == bx and cy == by then kind, bossy = reg.boss, true end
   end
-  d = { kind = kind, boss = bossy }
+  d = { kind = kind, boss = bossy, wild = reg.wild }
   if kind == "square" then d.plaza, d.prx, d.pry, d.pcy = PV_FLAGS, 5.6, 5.0, 8
   elseif kind == "pyre" then d.plaza, d.prx, d.pry, d.pcy = PV_FLAGS, 5.2, 4.6, 8
   elseif kind == "chapel" then d.plaza, d.prx, d.pry, d.pcy = PV_MARBLE, 5.4, 2.4, 13.0 end
@@ -1480,6 +1502,8 @@ local function district(cx, cy)
   local s = SAINTS[(h >> 9) % #SAINTS + 1]
   if kind == "cemetery" then d.name = a .. " Cemetery"
   elseif kind == "park" then d.name = a .. " Gardens"
+  elseif kind == "woods" then d.name = a .. " Woods"
+  elseif kind == "clearing" then d.name = a .. " Glade"
   elseif kind == "square" then d.name = a .. " Square"
   elseif kind == "pyre" then d.name = "The " .. a .. " Pyre"
   elseif kind == "chapel" then d.name = "Chapel of " .. s
@@ -1490,7 +1514,7 @@ end
 
 function urban(cx, cy)
   local k = district(cx, cy).kind
-  return k ~= "park" and k ~= "cemetery"
+  return k ~= "park" and k ~= "cemetery" and k ~= "woods" and k ~= "clearing"
 end
 
 -- the sides of chunk (cx, cy), and the streets that meet at its corners
@@ -1517,7 +1541,7 @@ local function road_at(tx, ty, ne)
       local c = corner(cx + di, cy + dj)
       if c.plaza then
         local dx, dy = x - c.x, y - c.y
-        if dx * dx + dy * dy < c.r * c.r then return PV_FLAGS end
+        if dx * dx + dy * dy < c.r * c.r then return c.pv end
       end
     end
   end
@@ -1859,6 +1883,41 @@ local function gen(ch)
     scatter({ { "tree", 0.025, { 6, 3 } }, { "tree2", 0.02, { 5, 3 } }, { "tree3", 0.015, { 5, 3 } },
               { "bush", 0.035, { 9, 4 } }, { "bush2", 0.03, { 8, 4 } } }, K_GRASS, grove)
     scatter({ { "bench", 0.03, { 12, 3 } } }, K_PATH)
+  elseif kd == "woods" or kd == "clearing" then
+    -- the forest: grass under the trees, in clumps with glades between; a
+    -- clearing is open in the middle with the trees all round, a hunters'
+    -- fire there (not in the Hound's: its ground is bare)
+    for i = 1, CS * CS do if kind[i] == K_FREE then kind[i] = K_GRASS end end
+    local cxp, cyp = px0 + 8 * TS, py0 + 8 * TS
+    local dens = grove
+    if kd == "clearing" then
+      dens = function(lx, ly)
+        local dx, dy = (lx - 7.5) / 7, (ly - 7.5) / 7
+        local q = dx * dx + dy * dy
+        return q < 0.45 and 0 or q < 0.8 and 0.4 or 1.4
+      end
+      if not d.boss then
+        add_obj(ch, "brazier", cxp, cyp + 8, nil, { 8, 4 })
+        ch.fires[#ch.fires + 1] = { x = cxp, y = cyp - 17, w = 7, rate = 1.2 }
+        add_light(ch, cxp, cyp, 70, 6, 1.0)
+        for _, sx in ipairs({ -1, 1 }) do add_obj(ch, "bench", cxp + sx * 40, cyp + 10, nil, { 12, 3 }) end
+      end
+    else
+      -- now and then something left among the trees
+      for _ = 1, irange(r, 0, 2) do
+        local lx, ly = irange(r, 2, CS - 3), irange(r, 2, CS - 3)
+        if freecell(lx, ly, K_GRASS) then
+          take(lx, ly)
+          local nm = pick(r, { "grave_cross", "grave_broken", "grave_round", "well", "crates", "barrel", "cage", "coffin" })
+          local cl = nm == "well" and { 12, 5 } or nm == "coffin" and { 14, 4 } or nm == "cage" and { 8, 4 } or { 7, 3 }
+          add_obj(ch, nm, wx(lx), wy(ly) + 4, nil, cl)
+        end
+      end
+    end
+    -- (the trees are big sprites: a screen of the forest draws at most about
+    -- what one of the town does, so more bushes than trees)
+    scatter({ { "tree", 0.03, { 6, 3 } }, { "tree2", 0.035, { 5, 3 } }, { "tree3", 0.04, { 5, 3 } },
+              { "bush", 0.06, { 9, 4 } }, { "bush2", 0.06, { 8, 4 } } }, K_GRASS, dens)
   elseif kd == "square" or kd == "pyre" or kd == "chapel" then
     -- (the chapel's front is the marble square; see the buildings above)
   end
@@ -1943,7 +2002,7 @@ local function gen(ch)
   end
   for ly = 0, CS - 1 do
     for lx = 0, CS - 1 do
-      if K(lx, ly) == K_WALK and not used[ly * CS + lx + 1] and h01(tx0 + lx, ty0 + ly, 31) < 0.06 then
+      if K(lx, ly) == K_WALK and not used[ly * CS + lx + 1] and h01(tx0 + lx, ty0 + ly, 31) < (d.wild and 0.035 or 0.06) then
         local x, y, town = tx0 + lx + 0.5, ty0 + ly + 0.5, false
         for _, e in ipairs(ne) do
           if e.town and edge_dist(e, x, y) < e.hw + 1.6 then town = true end
@@ -1977,7 +2036,7 @@ local function gen(ch)
         local below = ly > 0 and K(lx, ly - 1) == K_HOUSE
         if v < 0.012 and below then
           take(lx, ly); add_obj(ch, pick(r, { "barrel", "crate", "crates" }), wx(lx), wy(ly), nil, { 6, 3 })
-        elseif v < 0.016 then
+        elseif v < 0.016 and not d.wild then
           take(lx, ly); add_obj(ch, "bollard", wx(lx), wy(ly) + 4, nil, { 3, 2 })
         elseif v < 0.022 then
           take(lx, ly); add_obj(ch, "coffin_up", wx(lx), wy(ly), nil, { 7, 3 })
@@ -2044,31 +2103,45 @@ local function gen(ch)
         local pv = RD(lx, ly)
         local set = pv == PV_SETTS and G.setts or pv == PV_FLAGS and G.flags or pv == PV_ALLEY and G.cobble_moss
           or pv == PV_WARM and G.cobble_warm or pv == PV_MARBLE and G.marble or pv == PV_DARK and G.flags_dark
-          or pv == PV_WET and G.cobble_wet or G.cobble
+          or pv == PV_WET and G.cobble_wet or pv == PV_EARTH and G.dirt or G.cobble
         A[i] = pv == PV_MARBLE and set[(tx + ty) % 2 + 1] or patch(set, tx, ty, hv)
-        -- the kerb where the street meets the pavement
+        -- the kerb where the street meets the pavement (an earth path has none)
         local m = 0
         if RD(lx, ly - 1) == 0 then m = m | 1 end
         if RD(lx + 1, ly) == 0 then m = m | 2 end
         if RD(lx, ly + 1) == 0 then m = m | 4 end
         if RD(lx - 1, ly) == 0 then m = m | 8 end
-        if m > 0 and pv ~= PV_MARBLE then
+        if m > 0 and pv ~= PV_MARBLE and pv ~= PV_EARTH then
           B[i] = CURB[m]
         elseif (hv >> 8) % 100 < 3 then
           local dv = (hv >> 16) % 100
           local set2 = dv < 30 and DECAL.puddle or dv < 48 and DECAL.leaves or dv < 62 and DECAL.crack
             or dv < 72 and DECAL.drain or dv < 78 and DECAL.manhole or dv < 88 and DECAL.blood
             or dv < 95 and DECAL.straw or DECAL.bones
+          if pv == PV_EARTH and (set2 == DECAL.crack or set2 == DECAL.drain or set2 == DECAL.manhole) then
+            set2 = DECAL.leaves
+          end
           B[i] = set2[(hv >> 24) % #set2 + 1]
         end
       elseif k == K_WALK then
-        A[i] = patch(G.pave, tx, ty, hv)
-        if (hv >> 8) % 100 < 2 then
-          local set2 = ((hv >> 16) % 2 == 0) and DECAL.leaves or DECAL.crack
-          B[i] = set2[(hv >> 24) % #set2 + 1]
+        -- in the forest, and by an earth path, a grass verge: no pavement
+        local verge = d.wild
+        for dy = -1, 1 do for dx = -1, 1 do if RD(lx + dx, ly + dy) == PV_EARTH then verge = true end end end
+        if verge then
+          A[i], kind[i] = patch(G.grass, tx, ty, hv), K_GRASS
+        else
+          A[i] = patch(G.pave, tx, ty, hv)
+          if (hv >> 8) % 100 < 2 then
+            local set2 = ((hv >> 16) % 2 == 0) and DECAL.leaves or DECAL.crack
+            B[i] = set2[(hv >> 24) % #set2 + 1]
+          end
         end
       elseif k == K_HOUSE then
         A[i] = G.dirt[1]                   -- never seen: the house is drawn over it
+      elseif k == K_GRASS and d.wild and kd ~= "cemetery" then
+        -- the forest floor: dark grass and light in wide zones, bare earth here and there
+        local n = sin(tx * 0.19 + ty * 0.07) + sin(ty * 0.15 - tx * 0.09 + 2.1) + ((hv % 100) / 100 - 0.5) * 0.3
+        A[i] = patch(n > 0.2 and G.grass_dark or n > -1.5 and G.grass or G.dirt, tx, ty, hv)
       elseif k == K_GRASS then
         A[i] = patch(kd == "cemetery" and G.grass_dark or G.grass, tx, ty, hv)
       elseif k == K_PATH then
@@ -2117,7 +2190,7 @@ local function gen(ch)
     end
   end
   -- a hunter's lamp in the chunks that have one: on the street nearest the middle
-  if cx >= 0 and cy >= 0 and cy < AREA then
+  if cx >= 0 and cy >= 0 and cy < AREA and cx < #REGION * AREA then
     local a = cx // AREA
     for k = 1, 2 do
       local lx0, ly0 = lamp_chunk(a, k)
@@ -2129,6 +2202,17 @@ local function gen(ch)
             if (kk == K_ROAD or kk == K_WALK) and not used[ly * CS + lx + 1] and not solid[ly * CS + lx + 1] then
               local dd = abs(lx - 7.5) + abs(ly - 7.5)
               if not bd or dd < bd then best, bd = { lx, ly }, dd end
+            end
+          end
+        end
+        if not best then          -- (in the forest the paths may keep to the edges)
+          for ly = 2, CS - 3 do
+            for lx = 2, CS - 3 do
+              local kk = kind[ly * CS + lx + 1]
+              if kk ~= K_HOUSE and not used[ly * CS + lx + 1] and not solid[ly * CS + lx + 1] then
+                local dd = abs(lx - 7.5) + abs(ly - 7.5)
+                if not bd or dd < bd then best, bd = { lx, ly }, dd end
+              end
             end
           end
         end
@@ -2746,7 +2830,9 @@ do
     watcher = { hp = 65, sp = 0.6, reach = 44, dmg = 3, sight = 180, r = 14 },
   }
   FOE.stats = STATS
-  -- who lives where, and the boss of each kind of district
+  -- who lives where (a kind of district; in a region of its own, kind ..
+  -- region), and the boss of each kind of arena. The forest has no
+  -- creatures of its own (the user's wish): the beasts, spiders, hunters
   local POOL = {
     town = { "pitchfork", "torch", "rifle", "crone", "pitchfork", "torch", "dog" },
     square = { "pitchfork", "torch", "crone", "rifle" },
@@ -2754,8 +2840,16 @@ do
     park = { "dog", "dog", "scourge" },
     cemetery = { "axehunter", "church", "lantern", "dog" },
     chapel = { "kin", "brainsucker", "lantern", "spider", "church", "kin" },
+    woods = { "dog", "dog", "scourge", "spider", "axehunter", "rifle" },
+    clearing = { "scourge", "dog", "axehunter", "torch" },
+    cemetery2 = { "axehunter", "dog", "scourge", "lantern" },
+    town3 = { "church", "lantern", "crone", "pitchfork", "rifle", "axehunter" },
+    square3 = { "church", "lantern", "rifle", "crone" },
+    town4 = { "kin", "brainsucker", "church", "torch", "spider", "lantern" },
+    square4 = { "kin", "brainsucker", "church", "lantern" },
+    pyre4 = { "torch", "kin", "brainsucker", "crone" },
   }
-  local BOSS_OF = { pyre = "butcher", park = "hound", cemetery = "father", chapel = "watcher" }
+  local BOSS_OF = { pyre = "butcher", clearing = "hound", cemetery = "father", chapel = "watcher" }
   FOE.boss_of = BOSS_OF
   local MAXF = 14
 
@@ -2869,15 +2963,16 @@ do
     local d = district(cx, cy)
     local area = cx // AREA
     local r = newrng(hash(cx, cy, 23 + FOE.respawns))
-    local pool = POOL[d.kind] or POOL.town
-    local n = d.kind == "town" and irange(r, 0, 2) or irange(r, 1, 3)
+    local pool = POOL[d.kind .. (area + 1)] or POOL[d.kind] or POOL.town
+    local n = (d.kind == "town" or d.kind == "woods") and irange(r, 0, 2) or irange(r, 1, 3)
     if ch.shrine then n = min(n, 1) end                 -- a little peace by a hunter's lamp
     local function spot()
       for _ = 1, 16 do
         local lx, ly = irange(r, 1, CS - 2), irange(r, 1, CS - 2)
         local k = ch.kind[ly * CS + lx + 1]
         local x, y = (cx * CS + lx) * TS + 8, (cy * CS + ly) * TS + 8
-        if (k == K_ROAD or k == K_WALK or k == K_FREE) and not ch.solid[ly * CS + lx + 1] and not stuck(x, y, 8) then
+        if (k == K_ROAD or k == K_WALK or k == K_FREE or d.wild and k == K_GRASS) and not ch.solid[ly * CS + lx + 1]
+           and not stuck(x, y, 8) then
           return x, y
         end
       end
@@ -2971,6 +3066,7 @@ do
       play(o, "death")
       sfx_cry(o)
       FOE.killed = FOE.killed + 1
+      G.slain = G.slain + 1
       local e = floor(ECHOES[o.name] * (1 + 0.5 * o.area))
       G.echoes = G.echoes + e
       G.popups[#G.popups + 1] = { x = o.x, y = o.y - 30, t = 60, s = "+" .. e }
@@ -2978,7 +3074,8 @@ do
         FOE.slain[o.home] = true
         FOE.won, FOE.won_t = o.def.title, 0
         if FOE.boss == o then FOE.boss = nil end
-        G.open = max(G.open, o.area + 2)        -- the way on, to the next area
+        G.open = min(#REGION, max(G.open, o.area + 2))   -- the way on, to the next area
+        if o.area + 1 >= #REGION then G.done = true end   -- the last: the night is over
         sfx_roar()
       end
     elseif flinch and not reeling then
@@ -3188,8 +3285,8 @@ do
     crone = { keep = 30, zig = 0.7, stalk = 0.8, rush = 1.8, wait = { 35, 70 }, wind = 1.3, lunge = 0.9, back = 30,
               react = 0.4 },                                            -- erratic: darts in and away
     dog = { keep = 50, orbit = 1, rush = 1.2, wait = { 25, 50 }, back = 18, react = 0.35, lunge = 1.4 },  -- bite, away
-    scourge = { keep = 22, rush = 1.4, wait = { 20, 40 }, wind = 1.1, strike = 0.8, chain = 0.7, chains = 2,
-                lunge = 0.5, tired = 70 },                              -- a frenzy, then spent
+    scourge = { keep = 22, orbit = 0.6, rush = 1.4, wait = { 20, 40 }, wind = 1.1, strike = 0.8, chain = 0.7,
+                chains = 3, lunge = 0.5, tired = 70 },                  -- prowls round, a frenzy, then spent
     axehunter = { keep = 48, orbit = 0.7, rush = 1.7, wait = { 45, 80 }, hold = { 0.6, 10, 22 }, chain = 0.35,
                   chains = 1, lunge = 0.8, react = 0.5, punish = true },  -- a duellist
     church = { keep = 30, orbit = 0.4, wait = { 50, 90 }, wind = 0.9, hold = { 0.75, 24, 44 }, quick = 0.25,
@@ -3869,6 +3966,7 @@ end
 -- a new hunt: no echoes, no lamps lit, the first area only, from the start
 local function new_hunt()
   G.open, G.echoes, G.lit, G.spawn, G.lost, G.popups, G.slots = 1, 0, {}, nil, false, {}, {}
+  G.time, G.deaths, G.slain, G.done = 0, 0, 0, false
   apply_paths()
   for k in pairs(FOE.slain) do FOE.slain[k] = nil end
   respawn()
@@ -3890,6 +3988,12 @@ end
 local function update_play()
   if btnp(8) and P.act ~= "dead" then
     state, menu.i, menu.page = "pause", 1, nil
+    return
+  end
+  G.time = G.time + 1
+  -- the fourth boss slain, its banner gone: the end of the hunt
+  if G.done and not FOE.won and P.act ~= "dead" then
+    state, t = "end", 0
     return
   end
   local dx, dy = 0, 0
@@ -4123,6 +4227,7 @@ local function update_play()
       died_t = died_t + 1
       if died_t > 150 then
         -- a death costs echoes; with too few, the hunt is lost
+        G.deaths = G.deaths + 1
         if G.echoes >= DEATH_COST then
           G.echoes = G.echoes - DEATH_COST
           respawn()
@@ -4176,7 +4281,7 @@ YHARNAM = { road_at = road_at, district = district, chunk = chunk, ensure = ensu
             HUNT = HUNT, FOES = FOES, FOE = FOE, hurt = hurt, flash = function() return flash end, dirs = DIRS,
             G = G, AREA = AREA, boss_chunk = boss_chunk, lamp_chunk = lamp_chunk, PATHS = PATHS, menu = menu,
             apply_paths = apply_paths, path_weights = path_weights, BLADE = BLADE, parts = parts, BRK = BRK,
-            state = function() return state end,
+            REGION = REGION, state = function() return state end,
             teleport = function(x, y)
               P.x, P.y = x, y
               cam_x, cam_y = x - W / 2, y - H * 0.62
@@ -4312,7 +4417,7 @@ function _update()
       end
     end
     return
-  elseif state == "lost" then
+  elseif state == "lost" or state == "end" then
     if t > 90 and (btnp(4) or btnp(5)) then
       state, t = "title", 0
       new_hunt()
@@ -4484,7 +4589,7 @@ local function draw_scene()
     end
   end
   -- the lights
-  dark_begin(AMBIENT)
+  dark_begin(AMBIENT + (REGION.of(fdiv(cam_x + W / 2, CPX)).wild and 1 or 0))   -- moonlight in the forest
   local fire_near
   for _, ch in ipairs(near) do
     for _, l in ipairs(ch.lights) do
@@ -4760,12 +4865,30 @@ local function draw_lost()
   if t > 90 then print("A: begin again", 72, 208, (t // 30) % 2 == 0 and 0xE8E0D0 or 0x988870) end
 end
 
+-- the end: the fourth boss slain, the night over; how the hunt went, the dawn
+local function draw_end()
+  cls(0x040202)
+  local SUN = { 0x100408, 0x200810, 0x381018, 0x581818, 0x782818, 0x983818, 0xB85020, 0xD06828, 0xE08838 }
+  for k = 1, #SUN do rectfill(0, 184 + (k - 1) * 8, W, 8, SUN[k]) end
+  print("THE NIGHT", 56, 32, 0xE8C878, 2)
+  print("IS OVER", 72, 56, 0xE8C878, 2)
+  print("the hunt is done", 64, 96, 0x8890A0)
+  local s = G.time // 60
+  local lines = { string.format("time   %d:%02d", s // 60, s % 60), "slain  " .. G.slain,
+                  "deaths " .. G.deaths, "echoes " .. G.echoes }
+  for k, l in ipairs(lines) do print(l, 72, 112 + k * 16, 0xC8B898) end
+  if t > 90 then print("A: a new hunt", 72, 224, (t // 30) % 2 == 0 and 0xF8F0E0 or 0x281008) end
+end
+
 function _draw()
   if state == "gallery" then
     draw_gallery()
     return
   elseif state == "lost" then
     draw_lost()
+    return
+  elseif state == "end" then
+    draw_end()
     return
   end
   emit()
