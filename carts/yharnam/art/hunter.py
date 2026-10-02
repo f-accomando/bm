@@ -62,19 +62,33 @@ DIRS = [('S', (0, -1)), ('SE', (1, -1)), ('E', (1, 0)), ('NE', (1, 1)),
 W, H = 64, 72           # frame
 CX, CY = 32, 62         # the point between the feet
 
-# The saw cleaver (after Bloodborne's): a thin curved handle wrapped in
-# leather, from the hand to the hinge; a broad blade bound in bandages, the
-# teeth along one edge, folded back along the handle (teeth outwards) or
-# swung out beyond the hinge. The hinge is off the handle's line (PIVOT_Y,
-# on the folded blade's side), so the open blade stands round the handle's
-# line and the folded one lies beside the handle, its back against it.
-SHAFT = 15.0            # from the hand to the hinge (in a straight line)
-BLADE_L = 12.0          # the blade, from the hinge to its far end
-ARCH = 3.4              # how far the handle bows out of that line (the hand holds its end)
-BEND = 1.2              # how far the open blade curves away from its teeth at the far end
-PIVOT_Y = -0.95
-PIVOT = (0.0, PIVOT_Y, -SHAFT)
-SPINE = -0.55           # the blade's back, from the hinge (its own frame)
+# The saw cleaver (after Bloodborne's and the user's pictures): a long thin
+# handle of leather in a wide arch, from the hinge to its far end (the
+# tail); the hand holds it nearer the hinge than the tail (GRIP_AT along
+# it). A broad blade bound in bandages, the teeth along one edge. Folded,
+# the blade lies back from the hinge under the arch, its back along the
+# handle where the handle leaves the hinge, the tail coming down near its
+# far end; open, it swings out beyond the hinge, on the handle's line there.
+# The pivot is off that line (PIVOT), so the open blade stands round it and
+# the folded one lies beside the handle. The cleaver's -z (from the hand) is
+# the open blade's way.
+HANDLE_L = 18.0         # the handle, from the hinge along the folded blade to the tail
+ARCH = 4.6              # how high the arch rises over the hinge's line
+GRIP_AT = 0.38          # where the hand holds it: 0 the hinge, 1 the tail
+BLADE_L = 17.5          # the blade, from the hinge to its far end
+BLADE_W = (4.4, 1.6)    # its width at the hinge, and how much wider it gets
+BEND = 1.5              # how far the blade curves away from its teeth at the far end
+
+
+def arch(u):
+    """the handle's height over the hinge's line, u from the hinge (0) to the tail (1)"""
+    return ARCH * np.sin(np.pi * np.clip(u, 0.0, 1.0)) ** 0.8
+
+
+HINGE = (-float(arch(GRIP_AT)), -GRIP_AT * HANDLE_L)   # (y, z) of the hinge: below and ahead of the hand
+PIVOT_OFF = (-0.45 - BLADE_W[0] / 2) / 2                # the pivot, towards the folded blade's side
+PIVOT = (0.0, HINGE[0] + PIVOT_OFF, HINGE[1])
+SPINE = -BLADE_W[0] / 2 - PIVOT_OFF                     # the blade's back, from the pivot (its own frame)
 
 # Every joint of the rig, in degrees (or world units for offsets). The body:
 # ty forward, air (height off the ground), pitch (backwards +), roll (to
@@ -214,25 +228,24 @@ def grounded(p):
     return skeleton(p, -low + p['air'])
 
 
-TIP = ('blade', (0, SPINE + 2.4 - BEND, -BLADE_L + 0.4))   # the far end of the saw cleaver, open
-TIP_FOLDED = ('blade', (0, SPINE + 2.6, 0.0))         # ... folded: the hinge's end of the blade
+TIP = ('blade', (0, SPINE + 3.0 - BEND, -BLADE_L + 0.4))   # the far end of the saw cleaver, open
+TIP_FOLDED = ('blade', (0, SPINE + 3.2, 0.0))         # ... folded: the hinge's end of the blade
 MUZZLE = ('pistol', (0, 0.4, -10.0))
 
 
-# the handle: (z, y, radius) from its end in the hand to the hinge, a wide
-# arch bowing away from the folded blade (it rises out of the fist and comes
-# down to the hinge); the hook over the hinge, (y, z from the hinge),
-# reaching back towards the hand
-HANDLE = [(0.8 - k / 9 * (SHAFT + 0.8), ARCH * math.sin(math.pi * (k / 9) ** 0.85),
-           0.5 if k in (0, 1, 9) else 0.42) for k in range(10)]
-HOOK = [(0.55, 0.2), (1.4, 0.5), (2.2, 1.1), (2.6, 2.0)]
+# the handle: (z, y, radius) from the hinge to the tail, through the hand
+# (at the origin); the hook on the hinge, (y, z from it), rising and
+# leaning back towards the hand under the arch
+HANDLE = [(HINGE[1] + u * HANDLE_L, HINGE[0] + float(arch(u)), 0.5 if u < 0.1 or u > 0.85 else 0.44)
+          for u in [k / 12 * 0.96 for k in range(13)]]
+HOOK = [(0.6, 0.1), (1.7, 0.2), (2.6, 0.6), (3.1, 1.3)]
 
 
 def handle_mat(q):
-    """leather, cord bound at both ends"""
-    z = q[:, 2]
+    """leather, cord bound at the hinge and at the tail"""
+    u = (q[:, 2] - HINGE[1]) / HANDLE_L
     m = np.full(len(q), GRIP)
-    m[(z > -1.4) | (z < -SHAFT + 2.0)] = CORD
+    m[(u < 0.09) | (u > 0.86)] = CORD
     return m
 
 
@@ -359,19 +372,19 @@ def model(S, p):
     def hinge(q):
         c = q - np.array(PIVOT)
         rr = np.sqrt(c[:, 1] ** 2 + c[:, 2] ** 2)
-        return np.maximum(rr - 1.05, np.abs(c[:, 0]) - 0.55)
+        return np.maximum(rr - 1.25, np.abs(c[:, 0]) - 0.6)
     add('cleaver', hinge, RUST, 'cleaver')
     for (y0, z0), (y1, z1) in zip(HOOK, HOOK[1:]):
         add('cleaver', (lambda a_, b_: lambda q: sd_roundcone(q, a_, b_, 0.24, 0.22))(
-            (0, y0, -SHAFT + z0), (0, y1, -SHAFT + z1)), STEEL, 'cleaver')
+            (0, HINGE[0] + y0, HINGE[1] + z0), (0, HINGE[0] + y1, HINGE[1] + z1)), STEEL, 'cleaver')
 
     L0 = 0.9                                            # the blade begins a little behind the hinge
 
     def blade_geo(q):
         x, y, z = q[:, 0], q[:, 1], q[:, 2]
         u = np.clip((L0 - z) / (L0 + BLADE_L), 0, 1)     # 0 at the hinge, 1 at the far end
-        edge = SPINE + 3.3 + 1.6 * u                     # the toothed edge, wider towards the end
-        teeth = 0.75 * ((-z / 1.25) % 1.0) * (z < L0 - 1.2)
+        edge = SPINE + BLADE_W[0] + BLADE_W[1] * u        # the toothed edge, wider towards the end
+        teeth = 0.85 * ((-z / 1.4) % 1.0) * (z < L0 - 1.2)
         return u, edge, teeth
 
     def bent(q):
@@ -385,10 +398,10 @@ def model(S, p):
         q = bent(q)
         x, y, z = q[:, 0], q[:, 1], q[:, 2]
         u, edge, teeth = blade_geo(q)
-        far = -BLADE_L - 0.9 * np.clip((y - SPINE) / 4.9, 0, 1.2)    # the end cut slanting
+        far = -BLADE_L - 1.1 * np.clip((y - SPINE) / sum(BLADE_W), 0, 1.2)    # the end cut slanting
         d = np.maximum.reduce([np.abs(x) - 0.42 + 0.06 * np.clip(y - SPINE, 0, 5), SPINE - y, y - edge - teeth,
                                z - L0, far - z])
-        heel = (y - SPINE - 1.6) * 0.7 + (z - L0 + 0.6) * 0.7          # the hinge's corner, cut off
+        heel = (y - SPINE - 2.2) * 0.7 + (z - L0 + 0.6) * 0.7          # the hinge's corner, cut off
         return np.maximum(d, heel)
 
     def blade_mat(q):
