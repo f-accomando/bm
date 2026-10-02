@@ -87,7 +87,7 @@ $(BUILD)/k/src/script/embed.S.o $(BUILD)/k7/src/script/embed.S.o: $(wildcard src
                                  $(BUILD)/demo.bm $(BUILD)/stress.bm $(BUILD)/editor.bm $(BUILD)/sound.bm \
                                  $(BUILD)/studio.bm $(BUILD)/animator.bm $(BUILD)/mesh.bm $(BUILD)/pixel.bm \
                                  $(BUILD)/assist.bin src/ai/assist.lua $(BUILD)/assistant.bm \
-                                 $(BUILD)/code.bm
+                                 $(BUILD)/code.bm src/ai/predict.lua $(BUILD)/words.lua
 
 # The development assistant (M30): knowledge base + trained network, built
 # into the kernel. The network is trained on the PC (numpy) by `make
@@ -99,6 +99,14 @@ $(BUILD)/assist.bin: $(AI_KB) src/ai/assist.weights scripts/mkassist.py scripts/
 
 ai-model:
 	$(PYTHON) scripts/trainassist.py
+
+# The word completion (M30): its dictionaries, from the texts of
+# src/ai/words, the Lua of the games and the API of the knowledge base
+WORDS_SRC := $(wildcard src/ai/words/*.txt) $(wildcard carts/*/main.lua carts/kitchen/src/*.lua carts/titan/src/*.lua) \
+             $(AI_KB) scripts/mkwords.py
+$(BUILD)/words.lua: $(WORDS_SRC)
+	@mkdir -p $(dir $@)
+	$(PYTHON) scripts/mkwords.py -o $@
 
 # bm Code, the code editor (Dev tab, monitor C)
 $(BUILD)/code.bm: carts/code/main.lua scripts/mkbm.py
@@ -273,7 +281,7 @@ test-nano8: $(BUILD)/host/n8host $(BUILD)/host/n8cartinfo $(BUILD)/host/luahost 
 
 .DEFAULT_GOAL := all
 .PHONY: FORCE test-smp all clean firmware image image-pi1 sdcard install sdcard-chainloader sdcard-stress qemu qemu7 qemu-screenshot \
-        run-serial test test-bm test-ai ai-model test-usb test-audio test-fat test-kitchen test-titan test-sound test-nano8 \
+        run-serial test test-bm test-ai ai-model test-predict predict-bench syllables test-usb test-audio test-fat test-kitchen test-titan test-sound test-nano8 \
         test-net test-http test-https test-release release disasm wav test-studio test-studio-ui studio test-prompts test-hyp test-zero2 \
         showreel
 
@@ -446,7 +454,7 @@ qemu-screenshot: $(BUILD)/kernel.img
 	./scripts/qemu-screenshot.sh $< $(BUILD)/screen.png
 
 test: all test-bm test-usb test-fat test-audio test-kitchen test-titan test-sound test-nano8 test-net test-http test-https \
-      test-release test-smp test-ai test-studio test-prompts test-hyp
+      test-release test-smp test-ai test-predict test-studio test-prompts test-hyp
 	$(PYTHON) tests/qemu_test.py --build $(BUILD)
 
 # The same QEMU tests with kernel7.img, the Pi Zero 2 W's, in raspi2b (the
@@ -622,10 +630,27 @@ $(BUILD)/host/luaai: tests/ai/luaai.c src/ai/lua_ai.c $(AI_SRCS) src/ai/*.h src/
 	$(HOSTCC) -O2 -w -DBM_HOST_TEST -Isrc -Ithird_party/lua -o $@ tests/ai/luaai.c src/ai/lua_ai.c \
 		$(AI_SRCS) src/lib/crc32.c $(LUA_SRCS) -lm
 
-test-ai: $(BUILD)/host/test_ai $(BUILD)/assist.bin $(BUILD)/host/luahost $(BUILD)/host/luaai
+# The word completion on the PC: words, contexts, suggestions, and the
+# benchmark texts typed again with Tab
+test-predict: $(BUILD)/host/luahost $(BUILD)/words.lua
+	$(BUILD)/host/luahost tests/predict/predict_test.lua $(BUILD)
+
+# Its benchmark (docs/PREDICT.md): the keys saved on the texts of 100
+# characters, then the corpus with each group left out of the dictionary
+WORD_FOLDS := giochi informativi lettere narrativa quotidiano tecnica
+predict-bench: $(BUILD)/host/luahost $(BUILD)/words.lua
+	@mkdir -p $(BUILD)/predict
+	for g in $(WORD_FOLDS); do $(PYTHON) scripts/mkwords.py --skip it_$$g -o $(BUILD)/predict/fold_$$g.lua || exit 1; done
+	$(BUILD)/host/luahost tests/predict/bench.lua $(BUILD) --folds
+
+# The syllables of Italian, counted on the same texts (docs/PREDICT.md)
+syllables:
+	$(PYTHON) scripts/syllables.py
+
+test-ai: $(BUILD)/host/test_ai $(BUILD)/assist.bin $(BUILD)/host/luahost $(BUILD)/host/luaai $(BUILD)/words.lua
 	$< $(BUILD)/assist.bin $(BUILD)/ai/ref.txt
 	$(BUILD)/host/luahost tests/ai/check_snippets.lua $(BUILD)/ai/snippets.txt
-	$(BUILD)/host/luaai $(BUILD)/assist.bin tests/ai/panel_test.lua
+	$(BUILD)/host/luaai $(BUILD)/assist.bin tests/ai/panel_test.lua $(BUILD)
 	$(BUILD)/host/luaai $(BUILD)/assist.bin tests/ai/act_test.lua
 
 # bm Studio (sdk/studio): its core in Node (the .bm, PNG and glTF it writes,

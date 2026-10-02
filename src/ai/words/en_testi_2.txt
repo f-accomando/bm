@@ -1,0 +1,113 @@
+When your program stops with a red message, do not panic. An error message is not an insult, it is the computer trying to help you. Read it slowly from the beginning. It usually tells you the name of the file, the number of the line and a short description of what went wrong.
+
+The message "attempt to index a nil value" means that you tried to look inside something that does not exist. Maybe you wrote the name of a table incorrectly, or maybe you used it before you created it. Check the spelling of the name on that line, and make sure the table was filled before the game started to use it.
+
+The message "attempt to perform arithmetic on a nil value" is a close cousin. You asked the computer to add, subtract or multiply, but one of the numbers was never given a value. Look for a variable that you forgot to set at the start, or one whose name has a small typing mistake in it.
+
+The message "attempt to call a nil value" says that you tried to run a function that does not exist. Perhaps you misspelled its name, or perhaps you wrote the function below the place where you call it. The computer reads the file from top to bottom, so a function must be defined before the moment it is used.
+
+The message "unexpected symbol near" tells you that the computer found something it did not understand, usually a missing comma, an extra bracket or a word in the wrong place. The mistake is often on the line before the one that is reported, so look at both.
+
+The message "end expected" means that you opened a block, such as a function or a loop, but you never closed it. Every opening needs a matching ending. A good way to avoid this problem is to indent your code, so you can see at a glance which parts belong together.
+
+The message "attempt to compare number with nil" appears when you ask whether a value is bigger than another value, but one of them is empty. This often happens with timers and scores that were never started at zero.
+
+The message "bad argument number one, number expected, got string" says that a function wanted a number but you gave it a piece of text. Remember that the word "ten" and the number ten are very different things for a computer.
+
+The message "stack overflow" usually means that a function keeps calling itself forever and never stops. Look for a place where you forgot to write the condition that ends the repetition.
+
+The message "out of memory" means that the console has no more room. It often happens when a loop adds new objects to a table every frame and never removes the old ones. Delete things that are no longer needed, such as bullets that have left the screen.
+
+Sometimes there is no message at all, and the game simply does something strange. In that case, print the value of your variables on the screen and watch them while you play. Most of the time you will see a number that is not what you expected, and that number will lead you to the problem.
+
+Now some lines that characters might say in a game.
+
+"Welcome, traveler. The road ahead is long, and the night is cold."
+"I have been guarding this bridge for twenty years, and nobody has ever crossed it without paying."
+"You look tired. Sit by the fire and tell me where you come from."
+"Careful, the floor in this room is not as solid as it looks."
+"Have you seen my cat? She ran into the cave yesterday and never came back."
+"Thank you for saving the village. We will never forget what you did."
+"The king is not himself these days. Something strange is happening in the castle."
+"I can sell you a sword, a shield or a bowl of hot soup. Which one do you need the most?"
+"Go away! This is my garden, and those are my flowers."
+"Rumor has it that a dragon sleeps under the mountain, and that it dreams about gold."
+"You cannot open this door without the silver key."
+"That was a good fight. Next time I will not go easy on you."
+"Hurry! The bridge is falling apart!"
+"I am only a humble merchant, but I know a good adventurer when I see one."
+"The old tower has been empty since the storm. Some say you can still hear voices there."
+"Do not trust the man in the red hat. He smiles too much."
+"We meet again, little hero. This time the castle will be mine."
+"Oh no, not another slime. I just cleaned this floor."
+"Here, take this lantern. It will light your way through the dark tunnels."
+"Do you want to hear a secret? The treasure is not where the map says it is."
+
+Item descriptions from the backpack.
+
+Wooden Sword. A simple blade carved from oak. It is not very sharp, but it never breaks.
+Iron Shield. Heavy and reliable. It blocks small arrows and the angry words of your friends.
+Healing Potion. Restores half of your health. It tastes like cherries and old socks.
+Magic Ring. A thin silver ring that glows when enemies are near.
+Rusty Key. Opens an old door somewhere in the village. Nobody remembers which one.
+Mushroom. Found in the dark forest. Eat it and your speed doubles for ten seconds, but your vision becomes blurry.
+Golden Coin. Shiny and valuable. Collect a hundred of them to buy a new house.
+Torch. Lights up a small area for a few minutes. Keep away from dry grass.
+Spell Book. Full of strange symbols. Reading it too long gives you a headache.
+Lucky Feather. Increases your chance of finding rare items. Handle with care.
+Ice Boots. You can walk on water, but only for a short time. Do not stop to enjoy the view.
+Bomb. Destroys cracked walls and, if you are not careful, your own plans.
+Map Fragment. One piece of a much larger map. Find the other three to discover the hidden island.
+Heart Crystal. Permanently adds one heart to your life bar.
+Fishing Rod. Perfect for relaxing. Sometimes you will catch a boot.
+
+Tutorial hints.
+
+Press A to jump.
+Press B to attack.
+Hold the left button to run faster.
+Use the arrow keys to move the character.
+Press the start button to open the menu.
+Jump on an enemy to defeat it.
+Collect all the stars to open the exit.
+Stand next to a person and press A to talk.
+Hold A longer to jump higher.
+Watch out for the red spikes on the floor.
+Press down while standing on a door to enter it.
+Your health is shown at the top of the screen.
+You can save your game at any bed.
+Break the crates to find hidden coins.
+Press both buttons at the same time to use your special power.
+Try again! Everyone fails the first time.
+Well done! You completed the first lesson.
+Look closely at the walls, some of them are not real.
+Push the block onto the switch to open the gate.
+Wait for the platform to come back before you jump.
+
+Menu texts.
+
+New Game
+Continue
+Options
+Credits
+Quit
+Press Start
+Music volume
+Sound effects
+Difficulty: Easy, Normal, Hard
+Are you sure you want to quit? Your progress will be lost.
+Game saved successfully.
+Loading, please wait
+Select your character
+Choose a level
+High scores
+Back to the main menu
+Resume game
+Restart level
+Change controls
+Game over. Try again?
+Congratulations! You have finished the game.
+New record! Enter your name.
+Paused
+Press any button to continue
+Thanks for playing
