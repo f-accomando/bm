@@ -265,38 +265,6 @@ screenshot in `docs/img/`), `README_OLD.md` (il README completo, in italiano),
   un'ora. Con `YH_DRAFT=1` i fotogrammi mancanti diventano segnaposto, per provare il gioco
   intanto (non fare commit di quello sheet).
 
-## Yharnam 8 (carts/yharnam/pico8)
-
-- La versione PICO-8 di Yharnam (richiesta dell'utente), una rom di nano8:
-  `carts/nano8/roms/yharnam8.p8`, scritta da `carts/yharnam/pico8/mk.py` con `art.py` (personaggi),
-  `tiles.py` (tessere: terreni per regola, il resto a mano), `maps.py` (la mappa, costruita con
-  funzioni: case, lampioni, sentieri...), `sfx.py`, `game.lua` (il codice) e `label.txt`. Dopo ogni
-  modifica rieseguire `mk.py` e fare commit della rom (`make test-yharnam8` controlla che sia
-  aggiornata). `mk.py --png` disegna tutta la mappa; controlla che nemici e lampade si raggiungano.
-- Nei limiti di PICO-8: 128×128, 16 colori (la palette dello schermo usa i colori scuri del secondo
-  set), al più 8192 token (`mk.py` li conta con `tokens.py`), sprite 0-127 (tessere 0-63,
-  personaggi 64-127), mappa 128×64 (la metà bassa sta negli sprite 128-255: il `.p8` la scrive in
-  `__gfx__`, nano8 legge solo 32 righe di `__map__`); niente numeri oltre 32767 (`dist`).
-- Ridotto (decisione dell'utente): tre direzioni disegnate più lo specchio, arma e pistola a linee,
-  5 nemici semplici e 4 boss a tre fasi, mappa statica di 4 regioni da 64×32 tessere percorse a U
-  (città, bosco, Cathedral Ward, quartiere proibito; nebbia ai passaggi finché il boss vive),
-  niente particelle. Tenuto: tutte le meccaniche del cacciatore su due tasti (O toccato colpo e combo,
-  tenuto caricato; X toccato capriola, passo rapido vicino a un nemico, passo indietro da fermo,
-  tenuto corsa o, da fermo, fiala; O+X pistola, parata nel caricamento e poi O visceral, o dopo un
-  colpo il trick), stamina, rally, poise dei boss, lampade e vie, echi, morte, fine dopo il quarto
-  boss, e la luce alla Dank Tomb.
-- La luce (`shade`): dopo il disegno, riga per riga, i byte dello schermo (due pixel) negli anelli
-  attorno a lampioni, fuochi, lampade accese e cacciatore passano per una tabella (`lut`: un passo
-  più scuro per livello, `dk`); fuori è nero (`memset`); una riga si divide tra le luci per
-  vicinanza. Le cose che brillano (flag 2) si ridisegnano dopo. Circa 150 mila istruzioni Lua per
-  fotogramma (30 fps).
-- Prove: `make test-yharnam8` (un bot gioca dentro nano8, `tests/yharnam/y8.lua`), `make
-  test-nano8`, QEMU `test_yharnam8`.
-- Video: `make yharnam8-video` (`build/yharnam8-run.mp4`, serve ffmpeg): `tests/yharnam/y8_bot.lua`
-  gioca con i soli tasti dal titolo al Butcher ucciso (percorso sulle tessere, lampade, lotta,
-  parata e visceral, fiala), sempre la stessa corsa (`srand`); `y8_video.sh` la gioca tre volte con
-  n8host (la durata, il suono `--wav`, le immagini `--video`). `BOT_TRACE=1` stampa come va.
-
 ## Assistente AI (M30)
 
 - `src/ai/`: rete INT8 che sceglie tra le voci di `src/ai/kb/*.txt` (formato in
