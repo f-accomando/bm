@@ -1662,7 +1662,8 @@ Decisioni:
 - **Nomi e aspetto nostri** (come nano8 non è PICO-8): stesso kit di ogni eroe (ruolo,
   numero di abilità e ultimate, meccaniche e numeri), ma nome del gioco, nomi degli eroi
   e design originali. Niente marchi di Blizzard né il logo Porsche del riferimento.
-- Gioco **Overbit** (`carts/overbit`), branch `claude/overclone`.
+- Gioco **Overbit** (`carts/overbit`), branch `3d-performance` (fino al 2026-10-03
+  `claude/overclone`).
 - Eroi (il kit di partenza tra parentesi):
   - tank: **Rally** (D.Va) — pilota di corse in un mech bianco e nero lucido con
     dettagli arancio; **Kaiju** (D.Mon) — un piccolo mostro in una cupola verde su un
@@ -2133,9 +2134,9 @@ GPU+AA; la faccia con texture *e* retino sulla GPU (oggi l'unico caso che torna
 all'ARM); il flicker dei menu con il 3D sull'ARM.
 
 ### Dopo M34: come si lavora (decisione 2026-10-03)
-- Il motore (`src/gpu`, `r3d.c`, shader, emulatore, benchmark) si sviluppa su
-  `3d-performance`, partito da `claude/overclone`; Overbit si sviluppa su
-  `claude/overclone`. Merge piccoli e frequenti nei due versi.
+- **Tutto su `3d-performance`** (decisione dell'utente, 2026-10-03): il motore
+  (`src/gpu`, `r3d.c`, shader, emulatore, benchmark) e Overbit. `claude/overclone` è
+  fermo a `600e600`, già unito qui; non ci si lavora più.
 - Ogni novità della GPU che cambia aspetto, latenza o memoria è **un'opzione**: una
   chiave in `bm/config.txt`, una riga in *Impostazioni > Graphics* e un argomento di
   `gpu3d()` per le cartucce e i benchmark. Il default resta quello verificato sul Pi; le

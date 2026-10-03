@@ -104,7 +104,8 @@ screenshot in `docs/img/`), `README_OLD.md` (il README completo, in italiano),
 
 ## Overbit (M31)
 
-- Sparatutto a eroi in 3D (`carts/overbit`, branch `claude/overclone`): kit di Overwatch
+- Sparatutto a eroi in 3D (`carts/overbit`, branch `3d-performance`, dove ora sta tutto: motore
+  GPU e gioco; `claude/overclone` è fermo e già unito, decisione dell'utente): kit di Overwatch
   con **nomi e design nostri** (decisione dell'utente), mai marchi di Blizzard o altri.
   Lua in `src/*.lua` uniti da `build.py` (00_core resta al livello più alto, gli altri in
   `do ... end`); modelli e animazioni generati da `art/models.py` (`geo.py` primitive,
