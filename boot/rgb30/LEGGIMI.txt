@@ -1,0 +1,30 @@
+bm per PowKiddy RGB30
+=====================
+
+Questa scheda avvia bm sull'RGB30: va nello slot TF1 (quello da cui si avvia
+ROCKNIX). Accendi con il tasto di accensione (non collegando il caricatore).
+
+  kernel8.img       il kernel di bm: per aggiornarlo sostituisci questo file
+  extlinux/         le istruzioni per U-Boot (non toccare)
+  bm/               giochi .s16, impostazioni (config.txt), firmware Bluetooth,
+                    bootlog.txt (cosa e' successo all'ultimo avvio)
+
+LED: rosso acceso = avvio in corso; verde che lampeggia = bm funziona;
+rosso fisso con il verde che lampeggia = problema allo schermo (leggi
+bm/bootlog.txt dal PC); rosso che lampeggia N volte = errore N.
+Se si blocca accendendo lo schermo, i LED fermi dicono dove: rosso e verde =
+clock, solo verde = controller video, nessuno = DSI/pannello.
+
+WiFi: scrivi in bm/config.txt le righe wifi_ssid=NomeRete e wifi_psk=password
+(e wifi_boot=1 per collegarti a ogni avvio); nel menu, WiFi: B cerca, X entra.
+
+Tasti: B conferma, A torna indietro (confirm=a in bm/config.txt li scambia).
+Menu: tre schede, Games (i giochi), Dev (3D Bench, prove dello schermo e dei
+tasti, boot log) e System (Bluetooth, WiFi, sistema); L1/R1 cambiano scheda.
+Il 3D Bench salva il rapporto in bm/bench.
+
+Prove: con show_bm=1 in bm/config.txt il menu mostra e avvia le cartucce .bm
+del Pi (c'e' Yharnam). Start + Select esce dal gioco.
+
+Non formattare e non ripartizionare la scheda: il bootloader sta fuori dalla
+partizione. Per rifarla: make TARGET=rgb30 image e riscrivi l'immagine.

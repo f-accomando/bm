@@ -64,4 +64,19 @@ void hci_acl_send_pb(uint16_t handle, int pb, const void *data, uint16_t len);
 /* Drops the queue (after a reset). */
 void hci_flush(void);
 
+/* The transport under the HCI layer: H4 on the Bluetooth UART by default
+ * (the Pi's Broadcom chip); the RGB30's Realtek chip speaks H5, the
+ * three-wire UART protocol (bt/h5.c). */
+typedef struct {
+    /* one event or ACL packet: 0, or -1 after timeout_us */
+    int  (*read)(hci_pkt_t *p, uint32_t timeout_us);
+    /* one packet: type (1 command, 2 ACL), then hdr and data */
+    void (*write)(uint8_t type, const uint8_t *hdr, unsigned hlen,
+                  const uint8_t *data, unsigned dlen);
+    /* 1 if data is waiting */
+    int  (*ready)(void);
+} hci_transport_t;
+
+void hci_set_transport(const hci_transport_t *t);
+
 #endif

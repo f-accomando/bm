@@ -2,6 +2,9 @@
  * .bm runtime: sandboxed Lua 5.4 state + drawing API in C (gfx16) + frame
  * loop. Lua only runs game logic; every pixel is drawn by C.
  */
+#ifdef BM_RGB30
+#include "display.h"            /* fb_init_game */
+#endif
 #include "runtime.h"
 #include "bm.h"
 #include "gfx16.h"
@@ -1191,7 +1194,7 @@ static void quat_slerp(float out[4], const float a[4], const float b[4], float u
 
 static float pose_q[BM_BONES_MAX][4], pose_t[BM_BONES_MAX][3];
 static float pose_q2[BM_BONES_MAX][4], pose_t2[BM_BONES_MAX][3];
-static float key_q[BM_BONES_MAX][4], key_t[BM_BONES_MAX][3];
+static float key_q[BM_BONES_MAX][4], key_tr[BM_BONES_MAX][3];
 
 /* the pose of clip c at time t into q, tr */
 static void pose_at(int nb, const bm_clip_t *c, float t, float (*q)[4], float (*tr)[3])
@@ -1229,11 +1232,11 @@ static void pose_at(int nb, const bm_clip_t *c, float t, float (*q)[4], float (*
     if (c->mode == 2) u = 0;                         /* step */
     else if (c->mode == 1) u = u * u * (3 - 2 * u);  /* smooth */
     bm_clip_key(c, nb, ka, q, tr);
-    bm_clip_key(c, nb, kb, key_q, key_t);
+    bm_clip_key(c, nb, kb, key_q, key_tr);
     for (int i = 0; i < nb; i++) {
         float a[4] = { q[i][0], q[i][1], q[i][2], q[i][3] };
         quat_slerp(q[i], a, key_q[i], u);
-        for (int k = 0; k < 3; k++) tr[i][k] += (key_t[i][k] - tr[i][k]) * u;
+        for (int k = 0; k < 3; k++) tr[i][k] += (key_tr[i][k] - tr[i][k]) * u;
     }
 }
 
@@ -4536,11 +4539,20 @@ int bm_video_enter(framebuffer_t *fb, int w, int h, g16_t *g)
     console_suspend(1);
     free(shadow);
     shadow = NULL;
+#ifdef BM_RGB30
+    /* the cartridge's own size, made as big as the panel by the display
+     * controller (rgb30/display.h): no box around a square screen */
+    const int boxed = 0;
+    box = 0;
+    if (fb_init_game(fb, w, h) != 0)
+        return -1;
+#else
     const int boxed = w == 256 && h == 256;
     const uint32_t fw = boxed ? 480u : (uint32_t)w, fh = boxed ? 270u : (uint32_t)h;
     box = 0;
     if (fb_init_depth(fb, fw, fh, 3, 16) != 0)
         return -1;
+#endif
     gpu3d_set_fb(fb->mem, fb->size, fb->bus);   /* its pages, for the GPU's 3D */
     if (boxed) {
         if (fb->width < (uint32_t)w || fb->height < (uint32_t)h)
@@ -4748,8 +4760,16 @@ static int run_frames(framebuffer_t *fb, lua_State *L, const char *title, int w,
     int left = 0;                           /* Esc, PS, Start+Select, 'q' */
     int updated = 0;                        /* this frame's _update ran while the GPU drew the last (M35) */
     uint32_t early_us = 0;                  /* its time */
+    /* the time limit in 64 bits: seconds * 10^6 overflows 32 bits after
+     * 71 minutes (24 hours used to end a game after 8 min 20 s), and so
+     * does the microsecond counter */
+    uint64_t played_us = 0, limit_us = (uint64_t)seconds * 1000000u;
+    uint32_t played_at = start;
     while (!error) {
-        if (rt.quit || timer_ticks() - start >= seconds * 1000000u)
+        uint32_t now_us = timer_ticks();
+        played_us += now_us - played_at;
+        played_at = now_us;
+        if (rt.quit || played_us >= limit_us)
             break;
         if (poll_keys()) {
             left = 1;

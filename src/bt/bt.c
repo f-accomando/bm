@@ -23,11 +23,15 @@
 #include "ble.h"
 #include "btuart.h"
 #include "hci.h"
+#ifdef BM_RGB30
+#include "rgb30/rk_bt.h"            /* the Realtek RTL8821CS (H5) */
+#else
 #include "drivers/board.h"
 #include "drivers/gpio.h"
 #include "drivers/mmio.h"
-#include "drivers/timer.h"
 #include "drivers/uart.h"
+#endif
+#include "drivers/timer.h"
 #include "fs/fat.h"
 #include "kernel/config.h"
 #include "lib/crc32.h"
@@ -347,6 +351,7 @@ static int slot_connected(int s)
 /* ---------------------------------------------------------------- chip */
 
 /* The 32.768 kHz sleep clock of the BCM43438, shared by Bluetooth and WiFi. */
+#ifndef BM_RGB30
 const char *bcm43438_lpo_clock(void)
 {
     gpio_set_function(LPO_GPIO, GPIO_ALT0);
@@ -440,11 +445,20 @@ static int load_patch(void)
     kprintf("bt: firmware patch loaded (%u records, %u bytes)\n", records, (unsigned)len);
     return 0;
 }
+#endif
 
 int bt_start(void)
 {
     if (bt.started)
         return 0;
+    uint8_t v[8] = { 0 }, a[6] = { 0 };
+#ifdef BM_RGB30
+    uint32_t fast = 115200;
+    if (rk_bt_bringup(&fast) != 0)
+        return -1;
+    hci_cmd(HCI_READ_LOCAL_VERSION, NULL, 0, v, sizeof v, 500000);
+    hci_cmd(HCI_READ_BD_ADDR, NULL, 0, a, sizeof a, 500000);
+#else
     if (!board()->wireless) {
         /* moving the console UART would take the serial pins away */
         kprintf("bt: no Bluetooth on the %s\n", board()->name);
@@ -475,7 +489,6 @@ int bt_start(void)
         return -1;
     }
 
-    uint8_t v[8] = { 0 }, a[6] = { 0 };
     hci_cmd(HCI_READ_LOCAL_VERSION, NULL, 0, v, sizeof v, 500000);
     hci_cmd(HCI_READ_BD_ADDR, NULL, 0, a, sizeof a, 500000);
 
@@ -496,6 +509,7 @@ int bt_start(void)
         kprintf("bt: the chip stays at 115200 baud (input may lag)\n");
         fast = 115200;
     }
+#endif
 
     /* events we handle (SSP ones are not in the default mask), SSP on,
      * our name and class (console), page scan so the pads can come back */

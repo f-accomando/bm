@@ -1,6 +1,11 @@
 # bm - bare metal console for Raspberry Pi Zero / Zero W (BCM2835);
 # the same kernel runs on the Pi 1 (A, B, A+, B+). The Pi Zero 2 W
 # (BCM2710A1, Cortex-A53) has its own build of the same sources, kernel7.img
+#
+# make TARGET=rgb30: the PowKiddy RGB30 (RK3566, AArch64), see rgb30.mk
+ifeq ($(TARGET),rgb30)
+include rgb30.mk
+else
 
 CROSS   ?= arm-none-eabi-
 CC      := $(CROSS)gcc
@@ -53,7 +58,7 @@ LUA_SRCS    := $(wildcard third_party/lua/*.c)
 MBEDTLS_SRCS := $(wildcard third_party/mbedtls/library/*.c)
 LWIP_SRCS   := $(wildcard third_party/lwip/src/core/*.c third_party/lwip/src/core/ipv4/*.c) \
                third_party/lwip/src/netif/ethernet.c third_party/lwip/src/apps/sntp/sntp.c
-KERNEL_SRCS := $(shell find src -name '*.c' -o -name '*.S') $(LUA_SRCS) $(LWIP_SRCS) $(MBEDTLS_SRCS)
+KERNEL_SRCS := $(shell find src -path src/rgb30 -prune -o \( -name '*.c' -o -name '*.S' \) -print) $(LUA_SRCS) $(LWIP_SRCS) $(MBEDTLS_SRCS)
 LOADER_SRCS := $(wildcard chainloader/*.S chainloader/*.c) \
                src/drivers/uart.c src/drivers/gpio.c src/drivers/mbox.c \
                src/drivers/prop.c src/drivers/timer.c src/drivers/led.c src/drivers/board.c \
@@ -382,6 +387,16 @@ BMPLAY_SRCS := tools/bmplay/bmplay.c src/bm/gfx16.c src/bm/format.c src/lib/crc3
 $(BUILD)/host/bmplay: $(BMPLAY_SRCS) src/bm/*.h src/audio/*.h $(LUA_SRCS)
 	@mkdir -p $(dir $@)
 	$(HOSTCC) -O2 -Wall -Wextra -Isrc -Ithird_party/lua -o $@ $(BMPLAY_SRCS) $(LUA_SRCS) -lm
+
+# Yharnam (from the claude/yharnam branch, for the RGB30's tests: rgb30.mk
+# packs it; not in the Pi's games here): the
+# street plan, the chunks, a long walk, the cost of a frame; then the fight
+# measured, with the paths of the lamps (balance.lua), and the ways of the
+# creatures and the phases of the bosses (foes.lua)
+test-yharnam: $(BUILD)/host/luahost carts/yharnam/main.lua
+	$< tests/yharnam/sim.lua carts/yharnam/main.lua
+	$< tests/yharnam/balance.lua carts/yharnam/main.lua
+	$< tests/yharnam/foes.lua carts/yharnam/main.lua
 
 # The Sound editor in a fake bm: its banks are the console's format, byte for byte
 $(BUILD)/demo.bmau: carts/sound/demo.json scripts/bmaudio.py
@@ -1015,3 +1030,5 @@ clean:
 	rm -rf build build-stress $(DIST)
 
 -include $(KERNEL_OBJS:.o=.d) $(KERNEL7_OBJS:.o=.d) $(LOADER_OBJS:.o=.d)
+
+endif   # TARGET

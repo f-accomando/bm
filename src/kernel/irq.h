@@ -18,6 +18,24 @@ void irq_register(unsigned irq, irq_fn fn, void *arg);
 void irq_enable(unsigned irq);
 void irq_disable(unsigned irq);
 
+#ifdef __aarch64__
+/* RGB30 build (src/rgb30): the I bit of DAIF; the numbers are GIC INTIDs */
+static inline void irq_cpu_enable(void)  { __asm__ volatile("msr daifclr, #2" ::: "memory"); }
+static inline void irq_cpu_disable(void) { __asm__ volatile("msr daifset, #2" ::: "memory"); }
+
+static inline uint32_t irq_save(void)
+{
+    uint64_t daif;
+    __asm__ volatile("mrs %0, daif\n msr daifset, #2" : "=r"(daif) :: "memory");
+    return (uint32_t)daif;
+}
+
+static inline void irq_restore(uint32_t daif)
+{
+    if (!(daif & 0x80))
+        irq_cpu_enable();
+}
+#else
 static inline void irq_cpu_enable(void)  { __asm__ volatile("cpsie i" ::: "memory"); }
 static inline void irq_cpu_disable(void) { __asm__ volatile("cpsid i" ::: "memory"); }
 
@@ -34,6 +52,8 @@ static inline void irq_restore(uint32_t cpsr)
     if (!(cpsr & 0x80))
         irq_cpu_enable();
 }
+
+#endif
 
 uint32_t irq_count(void);   /* total IRQs handled */
 /* Microseconds spent in the handler of irq since boot (wraps after 71

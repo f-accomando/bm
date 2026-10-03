@@ -33,6 +33,12 @@
 #define RAMP_US 25000000u               /* a ramp stops after 25 s */
 
 static const b3d_platform_t *P;
+
+static const char *pmu_name(void)
+{
+    return P->pmu ? P->pmu : "ARM1176 PMU";
+}
+
 static r3d_t R;
 static g16_t *g;
 
@@ -833,7 +839,7 @@ static void report(void)
     put("date %s\n", P->date && P->date[0] ? P->date : "unknown (no network time)");
     put("machine %s\n", P->machine ? P->machine : "?");
     put("gpu %s\n", gpu3d_status());
-    put("counters %s\n", P->counting ? "ARM1176 PMU" : "none");
+    put("counters %s\n", P->counting ? pmu_name() : "none");
     put("previous %s\n", prev_name[0] ? prev_name : "none");
     put("columns R,test,profile,version,n60,n30,over,ms,worst,tris_in,tris,verts,pixels,gltris,jobs,gpu_ms,"
         "instr,wait_instr,dmiss,cycles,secs\n");
@@ -1068,8 +1074,10 @@ static void page_info(const char *saved)
             y += LH;
         }
     }
-    text(0, y, C_DIM, "ARM counters: %s", P->counting ? "instructions, D-cache misses, cycles (ARM1176 PMU)"
-                                                     : "none on this machine");
+    if (P->counting)
+        text(0, y, C_DIM, "ARM counters: instructions, D-cache misses, cycles (%s)", pmu_name());
+    else
+        text(0, y, C_DIM, "ARM counters: none on this machine");
     y += LH;
     text(0, y, saved && saved[0] != '!' ? C_GOOD : C_BAD, "report: %s", saved ? saved : "not saved");
     y += LH + 6;
@@ -1167,7 +1175,8 @@ static void draw_page(int i, const char *saved)
         page_info(saved);
     else
         page_test(i - 2);
-    text(W - 27 * CW, H - LH, C_DIM, "left/right: pages, B: back");
+    const char *back = P->back ? P->back : "B";
+    text(W - (26 + (int)strlen(back)) * CW, H - LH, C_DIM, "left/right: pages, %s: back", back);
     g->font = f;
 }
 

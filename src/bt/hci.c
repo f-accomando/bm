@@ -15,8 +15,8 @@ static hci_pkt_t queue[QUEUE];
 static unsigned q_head, q_tail;
 static hci_pkt_t scratch;
 
-/* One packet from the UART; 0, or -1 (timeout or out of sync). */
-static int read_packet(hci_pkt_t *p, uint32_t timeout_us)
+/* One packet from the UART (H4); 0, or -1 (timeout or out of sync). */
+static int h4_read(hci_pkt_t *p, uint32_t timeout_us)
 {
     int type = btuart_read(timeout_us);
     if (type < 0)
@@ -43,6 +43,28 @@ static int read_packet(hci_pkt_t *p, uint32_t timeout_us)
     return 0;
 }
 
+static void h4_write(uint8_t type, const uint8_t *hdr, unsigned hlen,
+                     const uint8_t *data, unsigned dlen)
+{
+    btuart_write(&type, 1);
+    btuart_write(hdr, hlen);
+    if (dlen)
+        btuart_write(data, dlen);
+}
+
+static const hci_transport_t h4 = { h4_read, h4_write, btuart_ready };
+static const hci_transport_t *tr = &h4;
+
+void hci_set_transport(const hci_transport_t *t)
+{
+    tr = t ? t : &h4;
+}
+
+static int read_packet(hci_pkt_t *p, uint32_t timeout_us)
+{
+    return tr->read(p, timeout_us);
+}
+
 static void enqueue(const hci_pkt_t *p)
 {
     if ((q_head + 1) % QUEUE == q_tail)
@@ -58,7 +80,7 @@ void hci_flush(void)
 
 int hci_pending(void)
 {
-    return q_head != q_tail || btuart_ready();
+    return q_head != q_tail || tr->ready();
 }
 
 int hci_recv(hci_pkt_t *p, uint32_t timeout_us)
@@ -82,10 +104,8 @@ int hci_recv(hci_pkt_t *p, uint32_t timeout_us)
 
 void hci_send(uint16_t opcode, const void *params, uint8_t len)
 {
-    uint8_t hdr[4] = { H4_COMMAND, (uint8_t)opcode, (uint8_t)(opcode >> 8), len };
-    btuart_write(hdr, 4);
-    if (len)
-        btuart_write(params, len);
+    uint8_t hdr[3] = { (uint8_t)opcode, (uint8_t)(opcode >> 8), len };
+    tr->write(H4_COMMAND, hdr, 3, params, len);
 }
 
 int hci_cmd(uint16_t opcode, const void *params, uint8_t len,
@@ -121,16 +141,14 @@ int hci_cmd(uint16_t opcode, const void *params, uint8_t len,
 
 void hci_acl_send(uint16_t handle, const void *data, uint16_t len)
 {
-    uint8_t hdr[5] = { HCI_ACL, (uint8_t)handle, (uint8_t)((handle >> 8) | 0x20),
+    uint8_t hdr[4] = { (uint8_t)handle, (uint8_t)((handle >> 8) | 0x20),
                        (uint8_t)len, (uint8_t)(len >> 8) };
-    btuart_write(hdr, 5);
-    btuart_write(data, len);
+    tr->write(HCI_ACL, hdr, 4, data, len);
 }
 
 void hci_acl_send_pb(uint16_t handle, int pb, const void *data, uint16_t len)
 {
-    uint8_t hdr[5] = { HCI_ACL, (uint8_t)handle, (uint8_t)((handle >> 8) | (pb & 3) << 4),
+    uint8_t hdr[4] = { (uint8_t)handle, (uint8_t)((handle >> 8) | (pb & 3) << 4),
                        (uint8_t)len, (uint8_t)(len >> 8) };
-    btuart_write(hdr, 5);
-    btuart_write(data, len);
+    tr->write(HCI_ACL, hdr, 4, data, len);
 }

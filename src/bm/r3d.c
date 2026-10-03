@@ -169,7 +169,7 @@ static inline int64_t fx32(float f)
  * (a negative depth never passes the test) */
 static inline uint32_t zsat(int32_t zf)
 {
-#if defined(__ARM_ARCH) && __ARM_ARCH >= 6 && !defined(__thumb__)
+#if defined(__arm__) && __ARM_ARCH >= 6 && !defined(__thumb__)
     uint32_t r;
     __asm__("usat %0, #16, %1, asr #8" : "=r"(r) : "r"(zf));
     return r;

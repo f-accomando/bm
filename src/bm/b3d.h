@@ -33,7 +33,9 @@ typedef struct {
     uint32_t (*present)(void);          /* shows the page; the microseconds it took */
     void (*count)(b3d_count_t *c);      /* the counters now */
     int counting;                       /* they count */
+    const char *pmu;                    /* whose counters (NULL: the ARM1176's) */
     int (*key)(void);                   /* B3D_KEY_*: what was pressed since the last call */
+    const char *back;                   /* the button that leaves (NULL: "B") */
     void (*log)(const char *line);      /* a line for the log (serial, console) */
     /* the report: saved as a new file (its name back), the last one saved */
     int (*save)(const char *text, size_t len, char *name, size_t n);

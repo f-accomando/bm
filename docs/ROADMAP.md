@@ -2602,6 +2602,49 @@ il Pi non ha ancora mostrato, come in M34–M36.
 - Escluso (decisione dell'utente): impostor per gli oggetti lontani, cambio di
   risoluzione, overclock della GPU e dell'ARM.
 
+## M40 — bm per PowKiddy RGB30 (XL) — in corso (branch `rgb30-powkiddy`)
+Decisione 2026-10-01 (utente): una versione **bare metal** di bm per la PowKiddy RGB30
+(Rockchip RK3566, 4 × Cortex-A55 a 64 bit, 1 GiB, schermo 720×720 MIPI-DSI, RTL8821CS).
+Menu **512×512** al centro dello schermo (formato 1:1; dal 2026-10-03 360×360 ×2, a tutto
+schermo, task 8); giochi e app
+in un formato nuovo, **`.s16`**, da definire; le cartucce `.bm` del Pi nascoste (`show_bm=1` in
+`bm/config.txt` le elenca soltanto). Tutto in [RGB30.md](RGB30.md).
+
+Task:
+1. ✅ **Base a 64 bit** (`make TARGET=rgb30`, `rgb30.mk`, `src/rgb30/`): avvio come Image
+   arm64 da U-Boot (EL2 → EL1, si sposta a 0x10000000), MMU, cache, GICv3, timer generico,
+   eccezioni, picolibc, Lua; la stessa base gira nella macchina virt di QEMU, con i test
+   (`make TARGET=rgb30 test`).
+2. ✅ **Scheda SD** (`make TARGET=rgb30 firmware image`): bootloader di ROCKNIX (U-Boot 2026.01,
+   scaricato e controllato), FAT32 "BM" con extlinux e `kernel8.img`; avvio verificato in QEMU
+   attraverso lo stesso U-Boot.
+3. **Schermo**: VOP2 → DSI0 → D-PHY → pannello ST7703 + retroilluminazione PWM4 (scritto, da
+   provare sulla console); LED come segnale; `bm/bootlog.txt` scritto sulla SD a ogni avvio.
+   Modalità video pronte per la GPU Mali (richiesta 2026-10-03): framebuffer con il layout delle
+   destinazioni di rendering della GPU in 64 MiB di memoria video e GPU, ingrandimento del
+   controller video (720×720 1:1, 360×360 ×2, 240×240 ×3), pagina *Display* di prova.
+4. **Comandi, SD, menu**: tasti GPIO, levette (SARADC + commutatore), SDMMC0 in PIO, PMIC RK817
+   (spegnimento, batteria), menu 512×512 con `.s16` e strumenti (in QEMU il menu e la FAT sono
+   provati; sulla console i tasti vanno, 2026-10-03, e l'asse verticale delle levette è stato
+   girato).
+5. **Bluetooth**: RTL8821CS su UART1 con H5 (trasporto in `src/bt/h5.c`, già sotto lo stack
+   HCI) e firmware Realtek (`rtl8821cs_fw.bin` + config), controller e tastiere con lo stack di
+   M12/M28.
+6. **WiFi**: RTL8821CS su SDIO (sdmmc2): driver come rtw88 (GPL-2.0 OR BSD-3-Clause), 4-way
+   handshake WPA2 nell'host, lo stack di rete di M18 (scritti: scansione, reti aperte e WPA2-PSK,
+   chiavi nella CAM, lwIP; provati sul PC su un chip e access point simulati; sulla console da
+   provare).
+7. **Cartucce del Pi per le prove** (richiesta 2026-10-03): il runtime `.bm` compilato a 64 bit
+   (sostituti dei driver del Pi in `src/rgb30/bm_port.c`, comandi in `bm_input.c`), avviato dal
+   menu con `show_bm=1`; Yharnam (256×256, dal branch `claude/yharnam`) nell'immagine SD,
+   ingrandita a tutto schermo. Provata in QEMU; il suono e la GPU Mali mancano ancora.
+8. ✅ **Menu a tutto schermo con le schede** (richiesta 2026-10-03): 360×360 ingrandito ×2 sul
+   pannello 720×720; schede Games / Dev / System come sul Pi (L1/R1); in Dev il **3D Bench**
+   (`src/bm/b3d.c` con i contatori del Cortex-A55, rapporto in `bm/bench`), Render bench,
+   Display, Input test, Boot log, Lua. Provato in QEMU (`test_bench3d` e gli altri).
+- **Fatto quando:** sulla RGB30 il menu appare, i tasti e le levette rispondono, un controller
+  Bluetooth si accoppia e la console entra nella rete WiFi salvata in `bm/config.txt`.
+
 ## Rischi principali
 | Rischio | Mitigazione |
 |---------|-------------|

@@ -115,6 +115,36 @@ screenshot in `docs/img/`), `README_OLD.md` (il README completo, in italiano),
   `virt`). Un kernel mandato dalla rete deve essere per la scheda giusta (`bmK6`/`bmK7`
   all'offset 4, `netxfer.c`).
 
+## RGB30 (branch `rgb30-powkiddy`, M40)
+
+- bm per PowKiddy RGB30 (RK3566, AArch64): `make TARGET=rgb30` (incluso da `rgb30.mk`; la build
+  del Pi non cambia), `make TARGET=rgb30 test` (QEMU `-M virt`), `make TARGET=rgb30 firmware
+  image` (SD). Guida: `docs/RGB30.md`.
+- Compilatore `aarch64-linux-gnu-gcc` + **picolibc** (non newlib); codice specifico in
+  `src/rgb30/` (`plat_virt.c`/`sd_virt.c` per QEMU, `rk_*.c` per la console). Gli header in comune
+  con l'ARMv6 (`kernel/irq.h`, `arch/cache.h`) hanno un ramo `__aarch64__`.
+- Menu 360×360 ingrandito ×2 sul pannello (`ui.c`), schede Games / Dev / System (L1/R1; dalla
+  seriale `l`/`r`), giochi `.s16` (formato da definire), `.bm` nascosti salvo `show_bm=1`. In Dev il
+  3D Bench (`b3d_rgb30.c`: `src/bm/b3d.c` con i contatori del Cortex-A55). Nei test lo schermo si
+  legge dai pixel: il testo del menu sta sulla griglia del font 8×16 (x multipli di 8, y di 16).
+- L'utente prova senza seriale: LED (rosso = avvio, verde a 1 Hz = vivo) e `bm/bootlog.txt`
+  scritto sulla SD a ogni avvio.
+- Cartucce del Pi (`.bm`): con `show_bm=1` si avviano, per le prove. Il runtime `src/bm` è lo
+  stesso del Pi (`#ifdef BM_RGB30` solo in `bm_video_enter`: lo schermo è `fb_init_game`); i
+  driver del Pi che chiama sono sostituiti in `src/rgb30/bm_port.c` (suono muto, niente V3D e
+  DMA) e `bm_input.c` (comandi per lettera, `game_buttons=position`). Yharnam (dal branch
+  `claude/yharnam`) è nell'immagine SD; test `test_bm_cartridge`.
+- Tasti: **B conferma, A torna indietro** (decisione dell'utente; `confirm=a` li scambia):
+  nell'interfaccia si usano `pad_ok` / `pad_back` e `pad_ok_name()` / `pad_back_name()` (`pad.h`),
+  mai `PAD_A` / `PAD_B` per conferma e indietro.
+- Schermo: modalità pronte per la GPU Mali (`src/rgb30/display.h`, `fb_init_mode`): righe a 64
+  byte, tessere da 16, pagine su 64 KiB nella memoria video e GPU (0x3c000000, 64 MiB), il
+  controller video ingrandisce sul pannello 720×720. Pagina *Display* nel menu.
+- WiFi: port di rtw88 (`src/rgb30/rtw*.c`, BSD-3-Clause), WPA2 in software (`wpa.c`), lwIP di
+  M18. `make TARGET=rgb30 test-wifi`: frame, WPA2 contro `tests/rgb30/wpa_vectors.h` (scritto da
+  `wpa_vectors.py`, Python + `cryptography`) e tutta la stazione su un chip e access point simulati
+  (`wifi_sim_test.c`, `-v` mostra la console).
+
 ## Cartucce `.cart`: rimosse
 
 - Decisione dell'utente (2026-09-30): bm esegue solo i `.bm`. Il vecchio formato `.cart`

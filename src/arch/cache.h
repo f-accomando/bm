@@ -3,7 +3,12 @@
 
 #include <stdint.h>
 
-#if __ARM_ARCH >= 7
+#ifdef __aarch64__
+#define CACHE_LINE 64   /* Cortex-A55 (RGB30 build, src/rgb30/cache.c) */
+
+static inline void arm_dsb(void) { __asm__ volatile("dsb sy" ::: "memory"); }
+static inline void arm_isb(void) { __asm__ volatile("isb" ::: "memory"); }
+#elif __ARM_ARCH >= 7
 #define CACHE_LINE 64   /* Cortex-A53 (Pi Zero 2 W) L1 and L2 line size */
 
 static inline void arm_dsb(void)

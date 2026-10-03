@@ -18,4 +18,9 @@ int  btuart_ready(void);
 /* Drops whatever is waiting in the receive FIFO. */
 void btuart_drain(void);
 
+/* RGB30 (src/rgb30/rk_btuart.c): RTS/CTS flow control on or off, and the
+ * bytes lost because the receive ring was full. */
+void btuart_set_flow(int on);
+unsigned btuart_overruns(void);
+
 #endif
