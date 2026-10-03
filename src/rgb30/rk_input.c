@@ -88,8 +88,10 @@ static int adc_read(unsigned chn)
     return v;
 }
 
-/* mux channel: 0 left x, 1 right x, 2 left y, 3 right y; the dts ranges:
- * left x and right y run 1023..15, right x and left y 15..1023 */
+/* mux channel: 0 left x, 1 right x, 2 left y, 3 right y. Raw values:
+ * left x 1023 at the left, right x 15; left y 1023 at the top, right y 15.
+ * The y axes are the other way round from the dts (tried on the console,
+ * 2026-10-03); reversed ones are turned so that left and up are negative. */
 static int16_t axis(unsigned mux, int inverted)
 {
     rk_gpio_set(rk_pin(0, 'B', 6), !(mux & 1));
@@ -111,8 +113,8 @@ void plat_sticks(int16_t axes[4])
     if (!ready)
         input_init();
     axes[0] = axis(0, 1);
-    axes[1] = axis(2, 0);
+    axes[1] = axis(2, 1);
     axes[2] = axis(1, 0);
-    axes[3] = axis(3, 1);
+    axes[3] = axis(3, 0);
 }
 #endif

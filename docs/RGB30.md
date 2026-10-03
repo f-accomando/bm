@@ -106,6 +106,8 @@ prima di accendere lo schermo e il registro si scrive tre volte (prima dello sch
   ST7703, retroilluminazione PWM4. Valori di Linux (`rockchip_drm_vop2.c`, `dw-mipi-dsi.c`,
   `phy-rockchip-inno-dsidphy.c`, `panel-sitronix-st7703.c`). **Da provare sulla console.**
 - Comandi: 18 tasti su GPIO3, levette su SARADC canale 3 con commutatore; pagina *Input test*.
+  **Provati sulla console** (2026-10-03): tasti a posto; l'asse verticale delle levette era al
+  contrario (il dts lo dà diverso), corretto.
 - SD: controller SDMMC0 (DesignWare MSHC) in PIO, 4 bit, 12 MHz; FAT dal codice del Pi.
 - PMIC RK817 su I2C0: spegnimento, tensione della batteria, stato di carica.
 - Modalità video pronte per la GPU (`src/rgb30/display.h`): ogni framebuffer ha la forma che la

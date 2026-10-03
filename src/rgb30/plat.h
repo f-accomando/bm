@@ -68,7 +68,7 @@ const char *plat_display_info(void);
 int plat_display_problem(void);
 
 /* buttons held now (PAD_* bits, rgb30/pad.h) and the analog sticks
- * (-32768..32767: left x, left y, right x, right y) */
+ * (-32768..32767: left x, left y, right x, right y; negative: left, up) */
 uint32_t plat_buttons(void);
 void plat_sticks(int16_t axes[4]);
 

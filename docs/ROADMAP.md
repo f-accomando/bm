@@ -2623,8 +2623,9 @@ Task:
    destinazioni di rendering della GPU in 64 MiB di memoria video e GPU, ingrandimento del
    controller video (720×720 1:1, 360×360 ×2, 240×240 ×3), pagina *Display* di prova.
 4. **Comandi, SD, menu**: tasti GPIO, levette (SARADC + commutatore), SDMMC0 in PIO, PMIC RK817
-   (spegnimento, batteria), menu 512×512 con `.s16` e strumenti (scritti; in QEMU il menu e la FAT
-   sono provati, sulla console da provare).
+   (spegnimento, batteria), menu 512×512 con `.s16` e strumenti (in QEMU il menu e la FAT sono
+   provati; sulla console i tasti vanno, 2026-10-03, e l'asse verticale delle levette è stato
+   girato).
 5. **Bluetooth**: RTL8821CS su UART1 con H5 (trasporto in `src/bt/h5.c`, già sotto lo stack
    HCI) e firmware Realtek (`rtl8821cs_fw.bin` + config), controller e tastiere con lo stack di
    M12/M28.
