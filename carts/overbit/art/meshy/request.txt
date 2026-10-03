@@ -2,15 +2,17 @@
 # changes (a push to 3d-performance): one per line, the name of a spec in
 # this folder, optionally task=ID (a refine already made: no new task) or
 # rig=ID (Meshy rigs the model that task made: NAME_rig.glb).
-# The ten models (meshy-out 704acae and 104eb81), packed here by pack.py
-# (NAME.mesh, NAME.png); rigged by Meshy for art/meshyrig.py:
-sarge rig=01a101dd-b321-7588-bd8e-f0de779aab07
-frost rig=01a101e0-2c27-7493-9c7d-c21cbd09178d
-fuse rig=01a101e0-2118-738a-9b22-256d97e19aee
-rail rig=01a101e0-0bc3-7568-84ec-4ee9c9f0f79d
-orbit rig=01a101e7-1fd3-70fe-8c43-6dbbb4c847ca
-akari rig=01a101e2-1204-76f3-8496-d47103535ccd
-rally_mech rig=01a101e7-2111-73a3-bc13-fe65d56ddf07
-rally_pilot rig=01a101e2-1843-7445-8ea0-17c17c7fb715
-kaiju_mech rig=01a101e7-0f6c-77b0-bc30-78b20a33ce6b
-kaiju_pilot rig=01a101e7-3e28-72ca-98a7-ef3ce22ca59b
+# Packed here by pack.py (NAME.mesh, NAME.png, NAME.rig). Made before and
+# kept: frost rig=01a101e0-2c27-7493-9c7d-c21cbd09178d,
+# rail rig=01a101e0-0bc3-7568-84ec-4ee9c9f0f79d,
+# orbit rig=01a101e7-1fd3-70fe-8c43-6dbbb4c847ca,
+# akari rig=01a101e2-1204-76f3-8496-d47103535ccd.
+# Made again (2026-10-03: Sarge and Fuse modern and colourful, the mechs'
+# pilots two young women, Rally's machine guns, Kaiju's fists for its sword
+# and shield, the mechs bigger):
+sarge
+fuse
+rally_pilot
+kaiju_pilot
+rally_mech
+kaiju_mech

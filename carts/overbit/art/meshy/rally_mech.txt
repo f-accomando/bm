@@ -1,7 +1,7 @@
-# Rally (tank): a racing driver's mech. The pilot: rally_pilot
+# Rally (tank): a racing driver's mech with machine guns for forearms. The pilot: rally_pilot
 name = rally_mech
-height = 2.4
+height = 3.0
 pose = none
 symmetry = on
-prompt = 3D game model of a sleek compact racing mech robot, symmetric, front view. Smooth glossy white car-body armor with black panels and two bold orange racing stripes over the top, an open cockpit seat with a curved windshield, two short arm cannons, a rear spoiler wing, two sturdy straight legs ending in wheeled feet like inline skates. Clean bevelled hard-surface shapes, stylized.
-texture = glossy white car paint, black trim and joints, two bright orange racing stripes, orange headlights, grey wheels, tinted black windshield; stylized hand-painted game texture with clean colour blocks
+prompt = 3D game model of a big sleek racing mech robot, symmetric, front view, standing with arms down. Smooth glossy white car-body armor with black panels and two bold orange racing stripes over the top, an open cockpit seat with a curved windshield in the chest, broad rounded shoulders, each forearm is a heavy rotary machine gun with six barrels pointing down instead of a hand, a rear spoiler wing, two sturdy straight legs ending in wheeled feet. Clean bevelled hard-surface shapes, stylized.
+texture = glossy white car paint, black trim and joints, two bright orange racing stripes, dark gunmetal machine gun barrels with orange rings, orange headlights, grey wheels, tinted black windshield; bright stylized hand-painted game texture with clean saturated colour blocks
