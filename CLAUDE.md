@@ -79,6 +79,20 @@ screenshot in `docs/img/`), `README_OLD.md` (il README completo, in italiano),
   tengono i loro 24 bit. Attenzione in Lua: `cond and nil or x` dà sempre `x`. Prove:
   `tests/studio/pixel_host.lua`, `check_pixel.js` (in `make test-studio`), QEMU `test_pixel`.
 
+## Risorse e scheda Lib (`docs/RISORSE.md`)
+
+- File di risorsa: lo stesso contenitore del `.bm` con la firma `BMRES`, il tipo all'offset 12
+  e mai codice: `.bmm` modelli, `.bmi` immagini, `.bms` suoni, `.bmt` mappe, `.bmc` palette,
+  `.bmk` kit; sezioni INFO (10, testo `chiave: valore` e blocchi `[tipo nome]`) e SPRITES (11,
+  zone con nome, fotogrammi a destra del primo), anche nei `.bm`. Specifica in `src/bm/bm.h`.
+- `scripts/bmres.py`: list, extract, add (isole nelle celle libere, lo sheet cresce solo in
+  altezza, nomi resi unici, INFO con `origin`), convert, info. Kernel: `bm_parse_any`,
+  `bm_zone`, `bm_info_get` (`format.c`); in un `.bm` INFO o SPRITES rotti si ignorano.
+- Scheda **Lib** dopo Dev (decisione dell'utente): Games · Dev · Lib · Settings (dalla seriale
+  `4` è Settings); gruppi con sinistra/destra, lista a sinistra, anteprima a destra; Y
+  (tastiera V) suona. `src/kernel/lib.c` (elenco), `libview.c` (anteprime), `menu_ui.c`,
+  `carts.c`. Test: `make test-res`, QEMU `test_lib_tab`.
+
 ## Nome
 
 - Il progetto si chiama **bm** (BareMetal); cartucce `.bm`, cartella `bm/` sulla SD.

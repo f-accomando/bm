@@ -615,9 +615,19 @@ def scroll_thumb(img):
 
 def tabs_lit(img):
     """Which tabs of the menu bar are on their light pill (M27): Games, Dev,
-    Settings, from a pixel of the pill left of each name."""
-    return [name for name, x in (("Games", 20), ("Dev", 92), ("Settings", 148))
+    Lib, Settings, from a pixel of the pill left of each name."""
+    return [name for name, x in (("Games", 20), ("Dev", 92), ("Lib", 148), ("Settings", 204))
             if sum(pixel(img, x, 24)) > 600]
+
+
+def img_tabs(q, want=None):
+    """the tabs lit on the screen (a few tries for `want`: a frame may be half drawn)"""
+    for _ in range(8):
+        lit = tabs_lit(q.screendump())
+        if want is None or lit == want:
+            break
+        time.sleep(0.2)
+    return lit
 
 
 def settled_screen(q, ok, tries=8):
@@ -1028,7 +1038,7 @@ def test_home_ui(b, opts):
         assert "BBB" not in text, text
 
         # settings: the keyboard layout changes and is saved; the submenus
-        keys("3")
+        keys("4")
         net = "Network" if KERNEL7 else "WiFi and network"     # raspi2b: a Pi 2 B, Ethernet only
         screen(["Settings", "Controllers", net, "Keyboard layout", "System"])
         shot("settings")
@@ -2173,7 +2183,7 @@ def test_bt_mouse(b, opts):
         chip.move(120, 0)                                # (264, 120): Snake
         assert "Snake" in screen_text(wait_screen(q, title_is("Snake")))[4]
         # Settings > Controllers: the mouse is there
-        q.mini.write(b"3")
+        q.mini.write(b"4")
         wait_screen(q, lambda s_: "Controllers" in "".join(screen_text(s_)))
         q.mini.write(b"\r")
         text = "\n".join(screen_text(wait_screen(q, lambda s_: "Bluetooth on" in "".join(screen_text(s_)))))
@@ -2632,9 +2642,9 @@ def test_bt_forget(b, opts):
 
 
 def test_menu_tabs(b, opts):
-    """The tabs with a DS4 (M27): R1 and L1 move between Games, Dev and
-    Settings; on Settings its panel opens by itself and Dev is off; B out of
-    it goes back to Dev. Up on the first row stays on the covers. PS in the
+    """The tabs with a DS4 (M27): R1 and L1 move between Games, Dev, Lib and
+    Settings; on Settings its panel opens by itself and Lib is off; B out of
+    it goes back to Lib. Up on the first row stays on the covers. PS in the
     menu goes home (Games, panels closed), never to the monitor; PS in the
     monitor opens the games menu."""
     tmp = tempfile.mkdtemp(prefix="bm-tabs-")
@@ -2681,7 +2691,9 @@ def test_menu_tabs(b, opts):
 
         press(shoulders=2)                  # R1: Dev
         state(["Dev"], ["bm SDK"])
-        press(shoulders=2)                  # R1: Settings, its panel open, Dev off
+        press(shoulders=2)                  # R1: Lib
+        state(["Lib"], ["Models", "Images"])
+        press(shoulders=2)                  # R1: Settings, its panel open, Lib off
         state(["Settings"], ["Controllers", "WiFi and network"])
         if opts.shots:
             _save_png(q.screendump(), os.path.join(opts.shots, "home-tabs-settings.png"))
@@ -2710,8 +2722,10 @@ def test_menu_tabs(b, opts):
         state(["Settings"], ["Controllers", "WiFi and network"], gone=["Button icons"])
         press(shoulders=2)                  # R1 on the last tab: nothing
         state(["Settings"], ["Controllers"])
-        press(buttons=0x08 | 0x40)          # B (circle): out of Settings, back to Dev
-        state(["Dev"], ["bm SDK"], gone=["Controllers"])
+        press(buttons=0x08 | 0x40)          # B (circle): out of Settings, back to Lib
+        state(["Lib"], ["Models"], gone=["Controllers"])
+        press(shoulders=1)                  # L1: Dev
+        state(["Dev"], ["bm SDK"])
         press(shoulders=1)                  # L1: Games
         state(["Games"], ["bm native demo"])
         press(shoulders=1)                  # L1 on the first tab: nothing
@@ -2725,6 +2739,7 @@ def test_menu_tabs(b, opts):
         state(["Games"], ["bm native demo"])
 
         # PS in the menu: home, not the monitor
+        press(shoulders=2)
         press(shoulders=2)
         press(shoulders=2)
         state(["Settings"], ["Controllers"])
@@ -2743,6 +2758,132 @@ def test_menu_tabs(b, opts):
         state(["Games"], ["bm native demo"])
         q.mini.write(b"q")
         _mini_expect(q, "back to the monitor")
+    finally:
+        q.close()
+        shutil.rmtree(tmp, ignore_errors=True)
+
+
+def test_lib_tab(b, opts):
+    """The Lib tab (docs/RISORSE.md): after Dev; left/right the groups, the
+    list of the files with their resources (the resource files of /bm/lib,
+    then the games), the details of the selected one (author, licence and
+    tags from INFO once the selection rests); A on a game's model opens it
+    in bm Studio, and back in the menu the tab is there again."""
+    import bmres
+    tmp = tempfile.mkdtemp(prefix="bm-lib-")
+    img = os.path.join(tmp, "sd.img")
+    village, demo, sound = (bmres.read(b(p)) for p in ("carts/village.bm", "demo.bm", "sound.bm"))
+    files = []
+
+    def res(name, f):
+        path = os.path.join(tmp, name)
+        bmres.write(path, f)
+        files.append((path, "bm/lib/" + name))
+    house = bmres.extract_models(village, ["house"])
+    info = bmres.info_of(house)
+    bmres.kv_set(info["file"], "license", "CC0-1.0")
+    bmres.kv_set(info["file"], "tags", "building, village")
+    bmres.info_store(house, info)
+    res("HOUSE.BMM", house)
+    res("FLAG.BMI", bmres.extract_image(demo, rect=(8, 0, 16, 8), name="flag", frames=2, fps=6))
+    res("JUMP.BMS", bmres.extract_sounds(sound, sfx=["JUMP"]))
+    res("DEMO.BMT", bmres.extract_map(demo))
+    res("VILLAGE.BMC", bmres.extract_palette(village))
+    kit = bmres.extract_kit(village)
+    kit.name = "Village kit"
+    res("VILLAGE.BMK", kit)
+    mksd.build(img, files + [(b("carts/village.bm"), "carts/village.bm"), (b("demo.bm"), "carts/game.bm")])
+    q = Qemu(b("kernel.img"), ["-drive", f"if=sd,format=raw,file={img}"])
+
+    def keys(*ks, gap=0.3):
+        for k in ks:
+            q.send(k)
+            time.sleep(gap)
+
+    def screen(want, gone=(), tries=40):
+        for _ in range(tries):
+            _, text = settled_screen(q, lambda i, t: all(any(w in l for l in t) for w in want), tries=2)
+            if all(any(w in l for l in text) for w in want) and not any(g in l for l in text for g in gone):
+                return "\n".join(text)
+            time.sleep(0.25)
+        raise AssertionError(f"not on the screen: {want} (or still: {gone})\n" + "\n".join(text))
+
+    def shot(name):
+        if opts.shots:                          # a whole frame: the bar and the hints drawn
+            img_, _ = settled_screen(q, lambda i, t: "Games" in t[1] and "Monitor" in t[21], tries=20)
+            _save_png(img_, os.path.join(opts.shots, f"lib-{name}.png"))
+
+    def box(img_):
+        """the pixels of the preview box (x 280-615, y 92-219) that are not its background"""
+        return [pixel(img_, x, y) for y in range(92, 220, 2) for x in range(280, 616, 2)
+                if pixel(img_, x, y) != (0x10, 0x10, 0x16)]
+
+    def drawn(least=200, tries=20):
+        for _ in range(tries):
+            px = box(q.screendump())
+            if len(px) >= least:
+                return px
+            time.sleep(0.25)
+        raise AssertionError(f"the preview is empty ({len(px)} pixels)")
+
+    try:
+        q.expect(MENU, timeout=30)
+        time.sleep(0.5)
+        keys("3")
+        q.expect("lib: ", timeout=20)
+        text = screen(["Models", "Images", "Sounds", "Maps", "Palettes", "Kits", "HOUSE.BMM", "house",
+                       "VILLAGE.BMK", "123 vertices, 180 faces", "from bm/lib/HOUSE.BMM"])
+        assert img_tabs(q, ["Lib"]) == ["Lib"], img_tabs(q)
+        # the INFO lines and the preview once the selection rests: the house turns
+        screen(["bm   CC0-1.0", "tags: building, village"])
+        a = drawn()
+        time.sleep(0.6)
+        b_ = drawn()
+        assert a != b_, "the model does not turn"
+        shot("models")
+        keys("d")
+        screen(["FLAG.BMI", "flag", "8x8", "8x8 pixels, 2 frames", "sheet"], gone=["HOUSE.BMM"])
+        drawn(2000)                                 # the flag, big, on the checkerboard
+        shot("images")
+        keys("d")
+        screen(["JUMP.BMS", "JUMP", "sound effect", "from bm/lib/JUMP.BMS", "Play"])
+        drawn(100)                                  # a bar for each note
+        keys("v")                                   # Y: plays it
+        q.expect("lib: playing sfx JUMP", timeout=10)
+        shot("sounds")
+        screen(["Play"], gone=["Stop"])             # short: it ends by itself
+        keys("d")
+        screen(["DEMO.BMT", "GAME.BM", "160x90", "map 160x90 tiles"])
+        drawn(2000)
+        shot("maps")
+        keys("d")
+        screen(["VILLAGE.BMC", "Studio Village", "120 col", "30 colours"])     # 121 with the clear one
+        shot("palettes")
+        cols = set(drawn(1000))
+        assert len(cols) >= 10, f"the squares of the colours: {len(cols)}"     # 30 greens: 17 in RGB565
+        keys("d")
+        screen(["VILLAGE.BMK", "Village kit", "kit", "8 models, 1 animated", "sheet 256x256, 0 zones"])
+        shot("kits")
+        keys("d")                                   # round to Models
+        screen(["HOUSE.BMM", "house"])
+        # down to the villager of the game (not the kit's), then A: bm Studio on it
+        for _ in range(30):
+            rows = screen(["Models"]).splitlines()
+            if rows[14][35:].strip() == "villager" and rows[16][35:].strip() == "from carts/village.bm":
+                break
+            keys("s", gap=0.2)
+        text = screen(["from carts/village.bm", "112 vertices, 168 faces"])
+        shot("villager")
+        keys("\r", gap=1.0)
+        screen(["build", "models", "TOOLS"])
+        keys("\x1b", gap=0.6)
+        screen(["bm Studio", "Exit bm Studio"])
+        keys("\x1b[A", "\r", gap=0.6)
+        q.expect("lib: ", timeout=20)                # read again: a tool may have saved
+        screen(["Models", "VILLAGE.BM", "from carts/village.bm", "last: bm Studio on VILLAGE.BM"])
+        keys("4")
+        screen(["Controllers"])
+        assert img_tabs(q, ["Settings"]) == ["Settings"], img_tabs(q)
     finally:
         q.close()
         shutil.rmtree(tmp, ignore_errors=True)

@@ -161,7 +161,19 @@ typedef struct {
     uint16_t models;                /* models in it */
     const uint8_t *anim;            /* ANIM section, or NULL */
     uint32_t anim_size;
+    uint8_t kind;                   /* BM_RES_CART, or the kind of a resource file */
+    const uint8_t *info;            /* INFO section (text), or NULL */
+    uint32_t info_size;
+    const uint8_t *sprites;         /* SPRITES section, or NULL */
+    uint16_t zones;                 /* zones in it */
 } bm_cart_t;
+
+/* A zone of the SPRITES section. */
+typedef struct {
+    char name[BM_MODEL_NAME + 1];
+    uint16_t x, y, w, h;            /* the first frame, sheet pixels */
+    uint8_t frames, fps;            /* the next frames: w x h boxes to the right */
+} bm_zone_t;
 
 /* One model of a MESH section (bm_parse has already checked it). */
 typedef struct {
@@ -172,6 +184,17 @@ typedef struct {
 } bm_model_t;
 
 int bm_parse(const uint8_t *data, size_t len, bm_cart_t *c, char *err, size_t errlen);
+/* bm_parse for a cartridge or a resource file ("BMRES": no code, the
+ * sections of its kind; c->kind says which). */
+int bm_parse_any(const uint8_t *data, size_t len, bm_cart_t *c, char *err, size_t errlen);
+/* 1 if these first 8 bytes are the magic of a resource file. */
+int bm_is_res(const void *head8);
+/* Zone i (0-based) of a parsed file's SPRITES: 0, or -1 if there is none. */
+int bm_zone(const bm_cart_t *c, int i, bm_zone_t *z);
+/* A value of INFO: `key` in the block of the part "[type name]", else on
+ * the file's own lines (type NULL: only those). 1 if found, the value in
+ * out (cut to n - 1 bytes). */
+int bm_info_get(const bm_cart_t *c, const char *type, const char *name, const char *key, char *out, size_t n);
 
 /* Unpacks a SHEET8 section: set(x, y, rgba) for every pixel. Returns 0, or
  * -1 if the data is broken (bm_parse has already checked it). */

@@ -1,10 +1,20 @@
 # Risorse: un file per risorsa e la scheda Lib
 
-Proposta del 2026-10-03 (branch `claude/lib-risorse`): niente di questo è ancora nel
-codice. Descrive i file che portano **una risorsa fuori da un `.bm`** (modelli, immagini,
-suoni, mappe, palette), gli strumenti per estrarle, integrarle e vederle, e la **scheda
-Lib** del menu che le elenca. Il codice Lua come risorsa non è compreso: per ora resta
-fuori.
+Proposta del 2026-10-03, in lavorazione sul branch `claude/lib-risorse`. Descrive i file
+che portano **una risorsa fuori da un `.bm`** (modelli, immagini, suoni, mappe, palette),
+gli strumenti per estrarle, integrarle e vederle, e la **scheda Lib** del menu che le
+elenca. Il codice Lua come risorsa non è compreso: per ora resta fuori.
+
+**Stato (2026-10-03)**
+- Fatti i passi 1–4 del capitolo 10: la specifica in `src/bm/bm.h`; `scripts/bmres.py`
+  (`make test-res`: 112 controlli in Python, 28 in C col parser del kernel); il kernel
+  legge i file `BMRES` (`bm_parse_any`, `bm_zone`, `bm_info_get` in `format.c`); la
+  scheda Lib (`src/kernel/lib.c` l'elenco, `libview.c` le anteprime, `menu_ui.c` il
+  disegno, `carts.c` i comandi), provata in QEMU da `test_lib_tab`.
+- Da fare: la lettura a pezzi nella FAT e l'indice `/bm/INDEX.DAT` (oggi entrando in Lib
+  si leggono tutti i file, come fa già il menu per le copertine); *Options* (X); Y che
+  anima i modelli; le app che aprono i file di risorsa (oggi A apre solo le risorse dei
+  `.bm`); SPRITES e i tag in bm Pixel e nelle altre app.
 
 ---
 
@@ -219,18 +229,22 @@ che nel progetto riceve i blocchi delle voci con `origin`).
     su una riga sotto le schede, con quello scelto evidenziato come le schede;
   - **su/giù**: la lista a sinistra;
   - **A**: *Open*, nell'app del gruppo (bm Studio per i modelli, bm Pixel per immagini
-    e palette, bm Sound per i suoni, bm editor per le mappe; un kit chiede con quale);
+    e palette, bm Sound per i suoni, bm editor per le mappe; un kit chiede con quale).
+    Per ora solo per le risorse dentro un `.bm`;
   - **X**: *Options*, un pannello come quelli del menu: *Copy into a project…*, *Save
     to /bm/lib* (per le risorse dentro un `.bm`), *Tags…*, *Rename*, *Delete* (solo i
     file di `/bm/lib`), *Details*;
-  - **Y** (tastiera `y`): suona o ferma il suono, fa partire o cambia l'animazione;
+  - **Y** (tastiera `V`, come Y nei giochi; dalla seriale `v`): suona o ferma il suono
+    (non mentre un gioco è sospeso: il suo banco aspetta nel player); più avanti anche
+    l'animazione dei modelli;
   - **B** chiude i pannelli, come nelle altre schede.
 - Col puntatore (M32) si scelgono gruppo, voce e pulsanti.
 
 ### La lista (a sinistra)
-- Le voci sono raggruppate per provenienza, con una riga d'intestazione grigia: prima
-  `/bm/lib`, poi ogni `.bm` (in `/carts` e nella radice) che ha risorse di quel gruppo,
-  con il numero a destra (`VILLAGE.BM   12`).
+- Le voci sono raggruppate per file, con una riga d'intestazione grigia e il numero a
+  destra (`VILLAGE.BM   8`): prima i file di `/bm/lib` (per nome), poi i pacchetti di
+  `/bm/sounds` e i `.bm` di `/carts` e della radice (per titolo). Il percorso intero è
+  nelle righe dei dettagli (`from bm/lib/HOUSE.BMM`).
 - Cosa è una voce, gruppo per gruppo:
   - **Models**: ogni modello; una `A` accanto ai modelli animati;
   - **Images**: le zone di SPRITES; senza SPRITES, lo sheet intero del file
