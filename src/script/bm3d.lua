@@ -1262,8 +1262,8 @@ local function build_menu()
   items[#items + 1] = { "Save   (Ctrl+S)", function() T.save_project() end }
   items[#items + 1] = { "Save as...", function() T.save_as() end }
   items[#items + 1] = { "Try the game (F5)", function() T.run_project() end }
-  if A.picture then items[#items + 1] = { "Model from picture...", function() if T.picture_chooser() then go(S.last_page or A.order[1]) end end } end
   if A.menu then A.menu(items) end
+  if A.picture then items[#items + 1] = { "Model from picture...", function() if T.picture_chooser() then go(S.last_page or A.order[1]) end end } end
   items[#items + 1] = { "Exit " .. A.name, function() if not needs_confirm("exit") then quit() end end }
 end
 
