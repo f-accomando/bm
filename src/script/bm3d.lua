@@ -944,6 +944,140 @@ function T.counts(m, x, y, narrow)
   if nt > T.TRIS_60FPS then return "heavy for 60 fps (" .. T.TRIS_60FPS .. " triangles a scene)" end
 end
 
+----------------------------------------------------------------- a model from a picture
+
+-- a picture becomes a model through an image-to-3D service (picture3d,
+-- src/net/img3d.c): the pictures on the SD card to choose from, the job
+-- followed on the status line (a look every 5 seconds), then the .glb as
+-- a model: its texture goes on the sheet when the sheet is untouched,
+-- else the faces take the colours under them. Esc gives the job up.
+local pic = nil
+local PIC_PROVIDER = "meshy"
+
+local function pictures()
+  local out = {}
+  for _, dir in ipairs({ "/pics", "/" }) do
+    for _, f in ipairs(ls(dir)) do
+      local n = f.name:lower()
+      if not f.dir and (n:match("%.png$") or n:match("%.jpe?g$")) then
+        out[#out + 1] = (dir == "/" and "" or dir) .. "/" .. f.name
+      end
+    end
+  end
+  table.sort(out)
+  return out
+end
+
+local function sheet_untouched()
+  local w, h = cart_sheet()
+  for y = 0, h - 1 do
+    for x = 0, w - 1 do
+      if sget(x, y) then return false end
+    end
+  end
+  return true
+end
+
+-- the model into the project: a new model named after the picture
+local function picture_take(url)
+  local m, err = picture3d("take", url, { name = pic.name, faces = T.TRIS_60FPS, height = 2 })
+  if not m then T.say(PIC_PROVIDER .. ": " .. tostring(err), C.ERR, 400); return end
+  local use_texture = m.textured and m.texture and sheet_untouched()
+  local i = T.new_model(pic.name)
+  local model = S.models[i]
+  model.faces = T.decode_model(use_texture and m.record or m.flat or m.record)
+  if use_texture then
+    local w, h = cart_sheet()
+    if w < 256 or h < 256 then cart_sheet(math.max(w, 256), math.max(h, 256)) end
+    local tex = m.texture
+    for y = 0, 255 do
+      local base = y * 1024
+      for x = 0, 255 do
+        local r, g, b, a = tex:byte(base + x * 4 + 1, base + x * 4 + 4)
+        sset(x, y, a >= 128 and (r << 16 | g << 8 | b) or nil)
+      end
+    end
+    S.sheet_dirty = true
+  end
+  S.undo, S.redo = {}, {}
+  model.dirty = true
+  local ok, e = T.sync()
+  if not ok then
+    table.remove(S.models, i)
+    T.sync()
+    T.say("cannot take the model: " .. tostring(e), C.ERR, 400)
+    return
+  end
+  T.select_model(i)
+  S.dirty = true
+  T.refresh()
+  T.say(PIC_PROVIDER .. ": the model " .. model.name .. ", " .. m.nf .. " triangles" ..
+      (use_texture and ", its texture on the sheet" or (m.textured and ", flat colours (the sheet is in use)" or "")),
+      C.ACC, 400)
+end
+
+local function picture_start(path)
+  local task, err = picture3d("start", path, { provider = PIC_PROVIDER, polycount = 2000 })
+  if not task then T.say("cannot start: " .. tostring(err), C.ERR, 400); return end
+  local name = path:match("([^/]+)%.[^.]+$") or "model"
+  name = name:gsub("[^%w_]", ""):sub(1, 15):lower()
+  pic = { task = task, t = 0, name = name ~= "" and name or "model", progress = 0, url = nil }
+  T.say(PIC_PROVIDER .. ": the job started: a few minutes for the model (Esc gives up)", C.ACC, 600)
+end
+
+-- the pictures of the SD card to choose from; false if there are none,
+-- no kernel support or no key
+function T.picture_chooser()
+  if not picture3d then T.say("this kernel cannot ask a service for models", C.ERR, 300); return false end
+  local ok, why = picture3d("ready", PIC_PROVIDER)
+  if not ok then T.say(tostring(why), C.ERR, 600); return false end
+  if pic then T.say(PIC_PROVIDER .. ": a job is on its way already (Esc gives it up)", C.ERR, 300); return false end
+  local files = pictures()
+  if #files == 0 then T.say("no .png or .jpg pictures in /pics on the SD card", C.ERR, 400); return false end
+  local rows = {}
+  for i, f in ipairs(files) do rows[i] = { f, function() picture_start(f) end } end
+  T.choose("a picture to make a model from (" .. PIC_PROVIDER .. ".ai)", rows, 1)
+  return true
+end
+
+-- each frame: a look at the job every 5 seconds; the download the frame
+-- after it is done (the message shows first: the calls block)
+function T.picture_update()
+  if not pic then return end
+  pic.t = pic.t + 1
+  if pic.url then
+    local url = pic.url
+    pic = { name = pic.name }
+    picture_take(url)
+    pic = nil
+    return
+  end
+  if pic.t % 300 ~= 0 then return end
+  local st, a = picture3d("status", pic.task, PIC_PROVIDER)
+  if st == "running" then
+    pic.progress = a
+    T.say(PIC_PROVIDER .. ": " .. a .. "% of the model (Esc gives up)", C.TEXT, 320)
+  elseif st == "done" then
+    pic.url = a
+    T.say(PIC_PROVIDER .. ": downloading the model...", C.ACC, 600)
+  else
+    T.say(PIC_PROVIDER .. ": " .. tostring(a), C.ERR, 600)
+    pic = nil
+  end
+end
+
+-- Esc while a job is on its way: it is given up (the service goes on by itself)
+function T.picture_key(k)
+  if pic and not pic.url and (k == "esc" or k == "back") then
+    pic = nil
+    T.say(PIC_PROVIDER .. ": the job given up", C.DIM, 200)
+    return true
+  end
+  return false
+end
+
+function T.picture_busy() return pic ~= nil end
+
 ----------------------------------------------------------------- dialogs
 
 local input, choosing, help = nil, nil, false
@@ -1077,6 +1211,7 @@ local function build_menu()
   items[#items + 1] = { "Save   (Ctrl+S)", function() T.save_project() end }
   items[#items + 1] = { "Save as...", function() T.save_as() end }
   items[#items + 1] = { "Try the game (F5)", function() T.run_project() end }
+  if A.picture then items[#items + 1] = { "Model from picture...", function() if T.picture_chooser() then go(S.last_page or A.order[1]) end end } end
   if A.menu then A.menu(items) end
   items[#items + 1] = { "Exit " .. A.name, function() if not needs_confirm("exit") then quit() end end }
 end
@@ -1256,6 +1391,7 @@ function T.run(app)
     last_t = now
     read_pad()
     if assist.update() then return end          -- the assistant has the keys
+    T.picture_update()                          -- a model on its way from a picture
 
     while true do
       local k = keyp()
@@ -1264,6 +1400,7 @@ function T.run(app)
       elseif input then input_key(k)
       elseif choosing then choose_key(k)
       elseif k == "?" then help = true
+      elseif T.picture_key(k) then
       elseif not global_key(k) then
         local pg = A.pages[S.page]
         if pg then pg.key(k) else menu_key(k) end

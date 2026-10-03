@@ -168,11 +168,12 @@ end
 
 ----------------------------------------------------------------- the SD card and the project (shared by the two programs)
 
-local on_sd = { ["/carts"] = { "village.bm" } }
+local on_sd = { ["/carts"] = { "village.bm" }, ["/pics"] = { "hero.png", "notes.txt" } }
 local function host(path) return SD .. path:lower() end
 local sec = {}                -- the project's MESH (8) and ANIM (9)
 local sheet = { w = 256, h = 256, px = {} }
 local ran, tooled = nil, nil
+local PIC = { key = false }   -- the fake image-to-3D service's state
 
 local function add_file(path)
   local dir, name = path:match("^(.*)/([^/]+)$")
@@ -312,6 +313,48 @@ local function new_env(arg_path)
   -- the reducer stands in (the kernel's is C: tests/bm/test_decimate.c
   -- tries it): the first `target` triangles stay, with the vertices they
   -- use and their bones
+  -- a picture becomes a model: the service stands in (the kernel's img3d.c
+  -- is tried on the PC by tests/net/run_img3d_test.py); the job is done at
+  -- the second look; the model a textured cube with a red texture
+  E.picture3d = function(action, a, opts)
+    if action == "providers" then return { "meshy" } end
+    if action == "ready" then
+      if not PIC.key then return false, "meshy: put the key in bm/config.txt on the SD card as meshy_key=..." end
+      return true
+    end
+    if action == "start" then
+      PIC.started = a
+      if PIC.fail then return nil, "meshy: no network (WiFi not connected)" end
+      PIC.looks = 0
+      return "job-1"
+    end
+    if action == "status" then
+      assert(a == "job-1")
+      PIC.looks = PIC.looks + 1
+      if PIC.looks == 1 then return "running", 40 end
+      return "done", "http://fake/model.glb"
+    end
+    if action == "take" then
+      assert(a == "http://fake/model.glb")
+      PIC.taken = opts
+      local v = {}
+      for _, c in ipairs({ { 0, 0, 0 }, { 1, 0, 0 }, { 1, 1, 0 }, { 0, 1, 0 }, { 0, 0, 1 }, { 1, 0, 1 }, { 1, 1, 1 }, { 0, 1, 1 } }) do
+        v[#v + 1] = string.pack("<fff", c[1] - 0.5, c[2] * 2, c[3] - 0.5)
+      end
+      local quads = { { 0, 3, 2, 1 }, { 4, 5, 6, 7 }, { 0, 1, 5, 4 }, { 2, 3, 7, 6 }, { 1, 2, 6, 5 }, { 0, 4, 7, 3 } }
+      local tris, flat = {}, {}
+      for _, q in ipairs(quads) do
+        for _, t in ipairs({ { q[1], q[2], q[3] }, { q[1], q[3], q[4] } }) do
+          tris[#tris + 1] = string.pack("<I2I2I2I2I4I2I2I2I2I2I2", t[1], t[2], t[3], 0, 0x80000000, 0, 0, 2048, 0, 2048, 2048)
+          flat[#flat + 1] = string.pack("<I2I2I2I2I4I2I2I2I2I2I2", t[1], t[2], t[3], 0, 0xC03030, 0, 0, 0, 0, 0, 0)
+        end
+      end
+      local head = ("hero"):sub(1, 16) .. string.rep("\0", 12) .. string.pack("<I2I2I4", 8, 12, 0)
+      return { record = head .. table.concat(v) .. table.concat(tris), flat = head .. table.concat(v) .. table.concat(flat),
+               texture = string.rep("\xC0\x30\x30\xFF", 256 * 256), nv = 8, nf = 12, textured = true }
+    end
+    error("picture3d: " .. tostring(action))
+  end
   E.mesh_reduce = function(rec, target, vb)
     local nv, nf = string.unpack("<I2I2", rec, 17)
     local keep = math.min(nf, math.max(1, target))
@@ -610,6 +653,49 @@ check(cur_models()[8].nf == 20 and vr and vr.nv == cur_models()[8].nv, "the vill
 key("^z")
 check(cur_models()[8].nf == vnf and anim_rigs(sec[9])["villager"].nv == cur_models()[8].nv, "undo: the villager whole again")
 for _ = 1, 7 do key("up") end
+
+-- a model from a picture: no key, then the job followed to the model
+-- (the village's sheet is in use: flat colours); a service that fails
+key("m")
+check(status():find("meshy_key", 1, true) and #cur_models() == 8, "p without a key: says where the key goes")
+PIC.key = true
+key("m")
+check(sees("a picture to make a model from") and sees("/pics/hero.png") and not sees("notes.txt"), "p: the pictures of /pics")
+key("esc")
+key("m", "\n")
+check(PIC.started == "/pics/hero.png" and status():find("the job started", 1, true), "the job started on the picture")
+local announced = false
+for _ = 1, 310 do
+  frames(1)
+  if status():find("40%", 1, true) then announced = true; break end
+end
+check(announced, "a look after 5 s: 40%")
+announced = false
+for _ = 1, 310 do
+  frames(1)
+  if status():find("downloading", 1, true) then announced = true; break end
+end
+check(announced, "done: the download is announced first")
+frames(2)
+check(#cur_models() == 9 and cur_models()[9].name == "hero" and cur_models()[9].nf == 12, "the model hero, 12 triangles")
+check(status():find("flat colours (the sheet is in use)", 1, true), "the village's sheet is in use: " .. status())
+check(PIC.taken and PIC.taken.faces == 1200 and PIC.taken.height == 2, "asked for 1200 triangles, 2 tall")
+check(sees("MODELS 9") and sees("hero"), "listed")
+key("esc")                                          -- the menu
+check(sees("Model from picture..."), "the menu has it too")
+key("esc")
+PIC.fail = true
+key("m", "\n")
+check(status():find("cannot start: meshy: no network", 1, true) and #cur_models() == 9, "a service that fails says so")
+PIC.fail = false
+key("m", "\n")
+key("esc")
+check(status():find("given up", 1, true), "Esc gives the job up")
+frames(600)
+check(#cur_models() == 9, "no model from a job given up")
+key("f2", "del", "del")
+check(#cur_models() == 8, "hero deleted")
+PIC.key = false
 
 -- save as a copy: the sections come back the same, byte for byte (cart_write)
 menu_pick("Save as", EXIT_S)

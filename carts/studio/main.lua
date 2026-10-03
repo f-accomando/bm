@@ -1417,6 +1417,7 @@ models_page = {
   keys = { "up/down        choose a model", "Enter          build it (F1)", "n              new model",
            "r              rename", "d              duplicate", "Del            delete (twice)",
            "PgUp PgDn      move it up / down the list", "-              fewer triangles (reduce)",
+           "m              a model from a picture (image-to-3D service)",
            "i              the texture margin (inset)" },
 }
 
@@ -1472,6 +1473,8 @@ function models_page.key(k)
     S.undo, S.redo = {}, {}
     S.cur = j
     T.sync(); S.dirty = true
+  elseif k == "m" then
+    T.picture_chooser()
   elseif k == "-" and m and m.nt and m.nt > 1 then
     -- the reducer (src/bm/decimate.c): the triangles wanted, half by default
     T.ask("triangles (now " .. m.nt .. "; at most " .. T.TRIS_60FPS .. " a scene at 60 fps)", tostring(m.nt // 2),
@@ -1537,7 +1540,8 @@ function models_page.draw()
   end
   print("texture margin " .. S.inset .. " px", W - 192, 16, C.DIM)
   T.hint({ { { "up", "down" }, "model" }, { { "enter" }, "build" }, { { "n" }, "new" }, { { "r" }, "rename" },
-           { { "d" }, "copy" }, { { "del" }, "delete" }, { { "-" }, "reduce" }, { { "pgup", "pgdn" }, "order" } })
+           { { "d" }, "copy" }, { { "del" }, "delete" }, { { "-" }, "reduce" }, { { "m" }, "picture" },
+           { { "pgup", "pgdn" }, "order" } })
 end
 
 end
@@ -1548,6 +1552,7 @@ T.run({
   name = "bm Studio",
   viewer = VIEWER,
   empty_model = true,
+  picture = true,
   page_list = { build, models_page },
   keys_all = { "F1 build  F2 models  Esc menu  [ ] model  F6 assistant (a model from words)",
                "Ctrl+S save  F5 try the game  Ctrl+Z/Y undo/redo  + - zoom" },

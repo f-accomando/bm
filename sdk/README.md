@@ -266,8 +266,28 @@ texture, **-** riduce i triangoli (chiede quanti; la metà per default): il ridu
 kernel (`src/bm/decimate.c`, collasso degli spigoli con le quadriche) tiene bordi, linee di
 colore e cuciture della texture, lo scheletro segue i vertici, Ctrl+Z annulla. Per
 adattare un modello pesante (un `.glb` importato, un modello di meshy2mesh) ai 1200
-triangoli del Pi. Sul PC fa lo stesso `tools/bmreduce.py CART.bm --faces 1200`. Il menu
-ha anche titolo e autore della cartuccia.
+triangoli del Pi. Sul PC fa lo stesso `tools/bmreduce.py CART.bm --faces 1200`. **m** (o
+"Model from picture..." nel menu) fa un modello da un'immagine, vedi sotto. Il menu ha
+anche titolo e autore della cartuccia.
+
+**Un modello da un'immagine, sulla console.** bm Studio manda un'immagine a un servizio
+image-to-3D (il primo è [Meshy](https://www.meshy.ai), altri si aggiungono alla tabella in
+`src/net/img3d.c`), segue il lavoro e prende il modello: la texture va sullo sprite sheet
+del progetto se è ancora vuoto, altrimenti le facce prendono i colori della texture; il
+modello è alto 2 blocchi e ridotto a 1200 triangoli dal riduttore. Per installarlo:
+
+1. La console è collegata al WiFi (Settings > Network) e sulla SD c'è `bm/ca.pem` (è nella
+   `dist/`: i certificati per https).
+2. La chiave del servizio in `bm/config.txt` sulla SD, una riga: `meshy_key=msy_...` (si
+   crea su meshy.ai, Settings > API keys; i modelli costano crediti).
+3. Le immagini (`.png` o `.jpg`, un soggetto su sfondo pulito, meglio di fronte) nella
+   cartella `pics/` della SD.
+
+Poi in bm Studio, pagina models, **m**: si sceglie l'immagine, il lavoro parte e la riga di
+stato dice a che punto è (uno sguardo ogni 5 secondi, un paio di minuti in tutto; Esc lo
+abbandona); alla fine il modello compare nella lista con il nome dell'immagine. Ctrl+S lo
+salva. Senza chiave o senza rete il messaggio dice cosa manca. Sul PC fa lo stesso
+`tools/meshy2mesh.py` (vedi sotto).
 
 **bm Animator**:
 

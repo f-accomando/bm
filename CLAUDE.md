@@ -190,6 +190,19 @@ screenshot in `docs/img/`), `README_OLD.md` (il README completo, in italiano),
   `tools/bmreduce.py`, e meshy2mesh sopra `--max-tris` (la griglia resta solo oltre i limiti
   del formato). Test: `tests/bm/test_decimate.c` (in `make test-bm`), lo stand-in Lua in
   `tools3d_host.lua`, `test_mesh_reduce` in QEMU.
+- **Modello da un'immagine sulla console** (`picture3d` in `runtime.c`): `src/net/img3d.c`
+  parla col servizio (tabella dei fornitori: nome, indirizzo, nome della chiave in
+  `bm/config.txt`; Meshy per primo: POST `/image-to-3d` con l'immagine in base64, GET dello
+  stato, download del `.glb`) sopra `http.c`/`tls.c`; `src/bm/glb.c` legge il `.glb`
+  (`json.c` parser JSON minimo, `jpeg.c` decodificatore JPEG baseline, `png.c` il PNG di
+  nano8 spostato lì) e dà il record MESH con la texture 256×256, il gemello a colori piatti
+  e il modello ridotto con `decimate.c`. In Lua `T.picture_chooser`/`T.picture_update` in
+  `bm3d.lua` (tasto `m` della pagina models, voce "Model from picture..." del menu; le
+  chiamate bloccano: il messaggio si mostra il fotogramma prima). Test: `make test-img3d`
+  (servizio finto in Python, `tests/net/run_img3d_test.py`), `tests/bm/run_glb_test.py` in
+  `make test-bm` (il `.glb` di `tests/ai/glbfix.py`, PNG e JPEG), lo stand-in in
+  `tools3d_host.lua`, `test_picture_model` in QEMU (senza rete: il messaggio). Dalla
+  seriale di QEMU `p` è l'overlay delle prestazioni: non usarlo come tasto delle app.
 - Dopo aver cambiato la base di conoscenza: `make ai-model` (numpy) e commit di
   `src/ai/assist.weights`; `make test-ai` controlla C contro Python, domande di prova,
   esempi di codice e pannello.

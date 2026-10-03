@@ -1704,6 +1704,21 @@ Task:
    (piani, due colori, texture, cucitura, sfera chiusa, record, i modelli di village e
    kitchen dimezzati) in `make test-bm`, lo stand-in in `tools3d_host.lua`,
    `test_mesh_reduce` in QEMU.
+15. ✅ **Un modello da un'immagine sulla console** (2026-10-03): bm Studio, pagina models,
+   `m` (o "Model from picture..." nel menu): l'immagine di `pics/` sulla SD va a un servizio
+   image-to-3D, la riga di stato segue il lavoro (uno sguardo ogni 5 s, Esc lo abbandona), il
+   `.glb` torna come modello: texture sullo sheet se è vuoto (altrimenti colori piatti presi
+   dalla texture), 2 blocchi di altezza, 1200 triangoli col riduttore. Non è legato a Meshy:
+   i servizi sono una tabella in `src/net/img3d.c` (nome, indirizzo, nome della chiave in
+   `bm/config.txt`, le tre chiamate); Meshy è il primo. Installazione: WiFi, `bm/ca.pem`,
+   una riga `meshy_key=...` in `bm/config.txt`, le immagini in `pics/`. Nel kernel sono
+   arrivati un lettore `.glb` (`src/bm/glb.c`, lo stesso lavoro di meshy2mesh), un parser
+   JSON (`json.c`), un decodificatore JPEG baseline (`jpeg.c`, le texture di Meshy sono
+   JPEG 2048×2048, 2,7 MB: decodificate in C e ridotte a 256×256) e il PNG di nano8 in
+   `png.c`. Il kernel cresce di ~20 KB. Test: `make test-img3d` (servizio finto),
+   `tests/bm/run_glb_test.py`, lo stand-in nel test di bm Studio, `test_picture_model` in
+   QEMU. Non provato con l'API vera dalla console (questo ambiente non ha la rete): la
+   stessa richiesta è quella di meshy2mesh, che ha fatto i modelli di `meshy-out`.
 
 Numeri: in QEMU 0,45 ms per domanda (sul PC 0,03 ms) e 1 ms per uno sprite 16x16; il
 kernel cresce di ~410 KB (rete 270 KB, voci e testi 80 KB). RAM: niente finché non si

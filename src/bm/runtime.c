@@ -7,6 +7,8 @@
 #include "gfx16.h"
 #include "r3d.h"
 #include "decimate.h"
+#include "glb.h"
+#include "net/img3d.h"
 #include "drivers/timer.h"
 #include "drivers/uart.h"
 #include "fs/fat.h"
@@ -1640,6 +1642,7 @@ static int l_cart_read(lua_State *L);
 static int l_cart_write(lua_State *L);
 static int l_cart_meshes(lua_State *L);
 static int l_mesh_reduce(lua_State *L);
+static int l_picture3d(lua_State *L);
 static int l_cart_sheet(lua_State *L);
 
 /* ---------------------------------------------------------------- light */
@@ -1784,7 +1787,7 @@ static const luaL_Reg api[] = {
     { "cart_save", l_cart_save }, { "cart_run", l_cart_run }, { "cart_tool", l_cart_tool }, { "cart_arg", l_cart_arg },
     { "cart_data", l_cart_data },
     { "cart_read", l_cart_read }, { "cart_write", l_cart_write }, { "cart_meshes", l_cart_meshes },
-    { "mesh_reduce", l_mesh_reduce },
+    { "mesh_reduce", l_mesh_reduce }, { "picture3d", l_picture3d },
     { "cart_sheet", l_cart_sheet },
     { "light_begin", l_light_begin }, { "light", l_light }, { "light_end", l_light_end },
     { "fades", l_fades }, { "dark_begin", l_dark_begin }, { "glow", l_glow }, { "dark_end", l_dark_end },
@@ -2837,6 +2840,172 @@ static int l_mesh_reduce(lua_State *L)
     free(out);
     free(vb_out);
     return 3;
+}
+
+/* picture3d(action, ...): a picture becomes a 3D model through an
+ * image-to-3D service (src/net/img3d.c, the .glb read by src/bm/glb.c).
+ *   picture3d("providers") -> { "meshy", ... }
+ *   picture3d("ready", provider) -> true, or false and why (no key in
+ *     bm/config.txt: meshy_key=...)
+ *   picture3d("start", picture, {provider=, polycount=}) -> the job's id,
+ *     or nil and a message; picture: a .png / .jpg on the SD card, or an
+ *     https URL the service fetches
+ *   picture3d("status", job, provider) -> "running", progress (0..100);
+ *     "done", the .glb's URL; or nil and a message
+ *   picture3d("take", url, {name=, faces=, height=}) -> { record =
+ *     (the MESH model record, textured if the .glb has a texture), flat =
+ *     (the same with colours sampled from the texture, or nil), texture =
+ *     (256 x 256 RGBA bytes, or nil), nv =, nf =, textured = }, or nil
+ *     and a message. The calls block while the network works (bm Studio
+ *     shows what it is doing before each one). */
+static int l_picture3d(lua_State *L)
+{
+    const char *action = luaL_checkstring(L, 1);
+    char err[160];
+    if (strcmp(action, "providers") == 0) {
+        lua_newtable(L);
+        for (int i = 0; img3d_provider_name(i); i++) {
+            lua_pushstring(L, img3d_provider_name(i));
+            lua_rawseti(L, -2, i + 1);
+        }
+        return 1;
+    }
+    if (strcmp(action, "ready") == 0) {
+        const img3d_provider_t *p = img3d_provider(luaL_optstring(L, 2, "meshy"));
+        const char *key = p ? config_get(img3d_key_name(p)) : NULL;
+        if (!p || !key || !key[0]) {
+            lua_pushboolean(L, 0);
+            if (!p)
+                lua_pushstring(L, "no such service");
+            else {
+                snprintf(err, sizeof err, "%s: put the key in bm/config.txt on the SD card as %s=...",
+                         luaL_optstring(L, 2, "meshy"), img3d_key_name(p));
+                lua_pushstring(L, err);
+            }
+            return 2;
+        }
+        lua_pushboolean(L, 1);
+        return 1;
+    }
+    if (strcmp(action, "start") == 0) {
+        const char *picture = luaL_checkstring(L, 2);
+        const char *pname = "meshy";
+        int polycount = 2000;
+        if (lua_istable(L, 3)) {
+            lua_getfield(L, 3, "provider");
+            if (lua_isstring(L, -1))
+                pname = lua_tostring(L, -1);
+            lua_getfield(L, 3, "polycount");
+            if (lua_isinteger(L, -1))
+                polycount = (int)lua_tointeger(L, -1);
+            lua_pop(L, 2);
+        }
+        const img3d_provider_t *p = img3d_provider(pname);
+        const char *key = p ? config_get(img3d_key_name(p)) : NULL;
+        if (!p || !key) {
+            lua_pushnil(L);
+            lua_pushstring(L, p ? "no key for the service (bm/config.txt)" : "no such service");
+            return 2;
+        }
+        uint8_t *data = NULL;
+        size_t len = 0;
+        int is_url = strncmp(picture, "http://", 7) == 0 || strncmp(picture, "https://", 8) == 0;
+        if (!is_url) {
+            fat_entry_t e;
+            memset(&e, 0, sizeof e);
+            if (fat_find(picture, &e) != 0 || e.is_dir || fat_load(&e, &data, &len) != 0) {
+                lua_pushnil(L);
+                lua_pushfstring(L, "%s: %s", picture, e.is_dir ? "a directory" : fat_error());
+                return 2;
+            }
+        }
+        char task[64];
+        int r = img3d_start(p, key, data, len, is_url ? picture : NULL, polycount, task, sizeof task, err, sizeof err);
+        free(data);
+        if (r < 0) {
+            lua_pushnil(L);
+            lua_pushstring(L, err);
+            return 2;
+        }
+        lua_pushstring(L, task);
+        return 1;
+    }
+    if (strcmp(action, "status") == 0) {
+        const char *task = luaL_checkstring(L, 2);
+        const img3d_provider_t *p = img3d_provider(luaL_optstring(L, 3, "meshy"));
+        const char *key = p ? config_get(img3d_key_name(p)) : NULL;
+        if (!p || !key) {
+            lua_pushnil(L);
+            lua_pushstring(L, "no such service, or no key");
+            return 2;
+        }
+        int progress = 0;
+        char url[512];
+        int r = img3d_status(p, key, task, &progress, url, sizeof url, err, sizeof err);
+        if (r < 0) {
+            lua_pushnil(L);
+            lua_pushstring(L, err);
+            return 2;
+        }
+        lua_pushstring(L, r ? "done" : "running");
+        if (r)
+            lua_pushstring(L, url);
+        else
+            lua_pushinteger(L, progress);
+        return 2;
+    }
+    if (strcmp(action, "take") == 0) {
+        const char *url = luaL_checkstring(L, 2);
+        const char *name = "model";
+        glb_opts_t o = { 2.0f, 1200, 256 };
+        if (lua_istable(L, 3)) {
+            lua_getfield(L, 3, "name");
+            if (lua_isstring(L, -1))
+                name = lua_tostring(L, -1);
+            lua_getfield(L, 3, "faces");
+            if (lua_isinteger(L, -1))
+                o.max_faces = (int)lua_tointeger(L, -1);
+            lua_getfield(L, 3, "height");
+            if (lua_isnumber(L, -1))
+                o.height = (float)lua_tonumber(L, -1);
+            lua_pop(L, 3);
+        }
+        uint8_t *glb = NULL;
+        size_t len = 0;
+        if (img3d_download(url, 24u << 20, &glb, &len, err, sizeof err) < 0) {
+            lua_pushnil(L);
+            lua_pushstring(L, err);
+            return 2;
+        }
+        glb_model_t m;
+        int r = glb_to_model(glb, len, name, &o, &m, err, sizeof err);
+        free(glb);
+        if (r < 0) {
+            lua_pushnil(L);
+            lua_pushstring(L, err);
+            return 2;
+        }
+        lua_newtable(L);
+        lua_pushlstring(L, (const char *)m.record, m.record_len);
+        lua_setfield(L, -2, "record");
+        if (m.flat) {
+            lua_pushlstring(L, (const char *)m.flat, m.flat_len);
+            lua_setfield(L, -2, "flat");
+        }
+        if (m.texture) {
+            lua_pushlstring(L, (const char *)m.texture, 256 * 256 * 4);
+            lua_setfield(L, -2, "texture");
+        }
+        lua_pushinteger(L, m.nv);
+        lua_setfield(L, -2, "nv");
+        lua_pushinteger(L, m.nf);
+        lua_setfield(L, -2, "nf");
+        lua_pushboolean(L, m.textured);
+        lua_setfield(L, -2, "textured");
+        glb_model_free(&m);
+        return 1;
+    }
+    return luaL_error(L, "picture3d: providers, ready, start, status or take");
 }
 
 /* cart_write(path, {[lua=], [title=, author=, res=, from=, sections=,

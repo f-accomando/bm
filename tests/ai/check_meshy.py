@@ -23,78 +23,9 @@ out_dir = os.path.join(build, "meshy")
 os.makedirs(out_dir, exist_ok=True)
 
 
-def png(w, h, rgb):
-    raw = b"".join(b"\0" + bytes(rgb[y * w * 3:(y + 1) * w * 3]) for y in range(h))
+import glbfix  # noqa: E402
 
-    def chunk(t, b):
-        return struct.pack(">I", len(b)) + t + b + struct.pack(">I", zlib.crc32(t + b) & 0xFFFFFFFF)
-    return b"\x89PNG\r\n\x1a\n" + chunk(b"IHDR", struct.pack(">IIBBBBB", w, h, 8, 2, 0, 0, 0)) \
-        + chunk(b"IDAT", zlib.compress(raw)) + chunk(b"IEND", b"")
-
-
-def glb(nodes, meshes, accessors, views, blob, images=(), materials=(), textures=()):
-    js = {"asset": {"version": "2.0"}, "scene": 0, "scenes": [{"nodes": list(range(len(nodes)))}],
-          "nodes": nodes, "meshes": meshes, "accessors": accessors, "bufferViews": views,
-          "buffers": [{"byteLength": len(blob)}], "images": list(images), "materials": list(materials),
-          "textures": list(textures)}
-    j = json.dumps(js).encode()
-    j += b" " * ((-len(j)) % 4)
-    blob += b"\0" * ((-len(blob)) % 4)
-    body = struct.pack("<II", len(j), 0x4E4F534A) + j + struct.pack("<II", len(blob), 0x004E4942) + blob
-    return struct.pack("<4sII", b"glTF", 2, 12 + len(body)) + body
-
-
-# a box 2 wide, 1 tall, 1 deep at y -0.5..0.5, textured: 24 vertices (4 per side)
-box_pos, box_uv, box_idx = [], [], []
-sides = [((0, 0, 1), (1, 0, 0), (0, 1, 0)), ((0, 0, -1), (-1, 0, 0), (0, 1, 0)), ((1, 0, 0), (0, 0, -1), (0, 1, 0)),
-         ((-1, 0, 0), (0, 0, 1), (0, 1, 0)), ((0, 1, 0), (1, 0, 0), (0, 0, -1)), ((0, -1, 0), (1, 0, 0), (0, 0, 1))]
-half = (1.0, 0.5, 0.5)
-for n, u, v in sides:
-    base = len(box_pos)
-    for su, sv in ((-1, -1), (1, -1), (1, 1), (-1, 1)):
-        box_pos.append(tuple(half[k] * (n[k] + su * u[k] + sv * v[k]) for k in range(3)))
-        box_uv.append(((su + 1) / 2, (1 - sv) / 2))
-    box_idx += [base, base + 1, base + 2, base, base + 2, base + 3]
-# a pyramid with vertex colours, uint32 indices, moved by a node
-pyr_pos = [(-0.5, 0, -0.5), (0.5, 0, -0.5), (0.5, 0, 0.5), (-0.5, 0, 0.5), (0, 1, 0)]
-pyr_col = [(1, 0, 0), (0, 1, 0), (0, 0, 1), (1, 1, 0), (1, 1, 1)]
-pyr_idx = [0, 4, 1, 1, 4, 2, 2, 4, 3, 3, 4, 0, 0, 1, 2, 0, 2, 3]       # counter-clockwise from outside
-tex = png(16, 16, [c for y in range(16) for x in range(16) for c in ((255, 0, 0) if x < 8 else (0, 0, 255))])
-
-blob = b""
-views, accessors = [], []
-
-
-def add(data, count, ctype, atype, target=None):
-    global blob
-    off = len(blob)
-    blob += data + b"\0" * ((-len(data)) % 4)
-    views.append({"buffer": 0, "byteOffset": off, "byteLength": len(data)})
-    accessors.append({"bufferView": len(views) - 1, "componentType": ctype, "count": count, "type": atype})
-    return len(accessors) - 1
-
-
-a_bpos = add(b"".join(struct.pack("<3f", *p) for p in box_pos), 24, 5126, "VEC3")
-a_buv = add(b"".join(struct.pack("<2f", *p) for p in box_uv), 24, 5126, "VEC2")
-a_bidx = add(b"".join(struct.pack("<H", i) for i in box_idx), 36, 5123, "SCALAR")
-a_ppos = add(b"".join(struct.pack("<3f", *p) for p in pyr_pos), 5, 5126, "VEC3")
-a_pcol = add(b"".join(struct.pack("<3f", *p) for p in pyr_col), 5, 5126, "VEC3")
-a_pidx = add(b"".join(struct.pack("<I", i) for i in pyr_idx), 18, 5125, "SCALAR")
-accessors[a_bpos]["min"] = [-1, -0.5, -0.5]
-accessors[a_bpos]["max"] = [1, 0.5, 0.5]
-accessors[a_ppos]["min"] = [-0.5, 0, -0.5]
-accessors[a_ppos]["max"] = [0.5, 1, 0.5]
-img_off = len(blob)
-blob += tex
-views.append({"buffer": 0, "byteOffset": img_off, "byteLength": len(tex)})
-data = glb(
-    nodes=[{"mesh": 0}, {"mesh": 1, "translation": [0, 0.5, 0], "scale": [2, 2, 2]}],
-    meshes=[{"primitives": [{"attributes": {"POSITION": a_bpos, "TEXCOORD_0": a_buv}, "indices": a_bidx, "material": 0}]},
-            {"primitives": [{"attributes": {"POSITION": a_ppos, "COLOR_0": a_pcol}, "indices": a_pidx}]}],
-    accessors=accessors, views=views, blob=blob,
-    images=[{"bufferView": len(views) - 1, "mimeType": "image/png"}],
-    materials=[{"pbrMetallicRoughness": {"baseColorTexture": {"index": 0}}}],
-    textures=[{"source": 0}])
+data = glbfix.build("png")
 glb_path = os.path.join(out_dir, "test.glb")
 open(glb_path, "wb").write(data)
 
@@ -129,7 +60,7 @@ assert len(cols) >= 3, cols
 # pyramid 1.5..3)
 
 
-def outward(model, faces, inside):
+def _unused_outward(model, faces, inside):
     v = model["verts"]
     bad = 0
     for a, b, c, *_ in faces:
@@ -143,8 +74,8 @@ def outward(model, faces, inside):
     return bad
 
 
-assert outward(m, tex_faces, (0, 0.75, 0)) == 0, "the box's faces show from outside"
-assert outward(m, flat_faces, (0, 2.0, 0)) == 0, "the pyramid's faces show from outside"
+assert glbfix.outward(m, tex_faces, (0, 0.75, 0)) == 0, "the box's faces show from outside"
+assert glbfix.outward(m, flat_faces, (0, 2.0, 0)) == 0, "the pyramid's faces show from outside"
 print("meshy2mesh: textured cartridge ok:", len(m["verts"]), "vertices", len(m["faces"]), "triangles")
 
 # into an existing cartridge: flat colours, the sheet stays, the old model stays
@@ -181,10 +112,7 @@ print("meshy2mesh: flat into an existing cartridge, the reducer and the grid ok"
 
 # a node that mirrors (scale -1 on x): glTF says its faces are already
 # clockwise in front, so the conversion must not reverse them again
-mirror_glb = glb(
-    nodes=[{"mesh": 0, "scale": [-1, 1, 1]}],
-    meshes=[{"primitives": [{"attributes": {"POSITION": a_ppos, "COLOR_0": a_pcol}, "indices": a_pidx}]}],
-    accessors=accessors, views=views, blob=blob)
+mirror_glb = glbfix.build("png", mirrored=True)
 mirror_path = os.path.join(out_dir, "mirror.glb")
 open(mirror_path, "wb").write(mirror_glb)
 cart4 = os.path.join(out_dir, "mirror.bm")
@@ -194,7 +122,10 @@ r = subprocess.run([sys.executable, tool, "--glb", mirror_path, "-o", cart4, "--
                    capture_output=True, text=True)
 assert r.returncode == 0, r.stdout + r.stderr
 models4, _ = bmmesh.decode(dict(bmmesh.cart_sections(open(cart4, "rb").read()))[8])
-assert outward(models4[0], models4[0]["faces"], (0, 0.3, 0)) == 0, "a mirrored node's faces show from outside"
+pyr4 = [f for f in models4[0]["faces"] if f[3] != bmmesh.TEXTURED]
+pv4 = {i for f in pyr4 for i in f[:3]}
+inside4 = tuple(sum(models4[0]["verts"][i][k] for i in pv4) / len(pv4) for k in range(3))
+assert glbfix.outward(models4[0], pyr4, inside4) == 0, "a mirrored node's faces show from outside"
 print("meshy2mesh: a mirrored node ok")
 
 # bmrender draws it: the texture's red and blue on the picture

@@ -8,6 +8,7 @@ raspi2b (a Pi 2 B: the BCM2710's peripherals, a Cortex-A7, no radio).
   tests/qemu_test.py [--build build] [--update-ref] [-k name] [--kernel7]
 """
 import argparse
+import base64
 import hashlib
 import re
 import os
@@ -3141,6 +3142,74 @@ def test_mesh_reduce(b, opts):
         assert len(m["faces"]) == len(m0["faces"]), (m["name"], len(m["faces"]), len(m0["faces"]))
     shutil.rmtree(tmp, ignore_errors=True)
     print(f"mesh_reduce: the ground {len(models0[0]['faces'])} -> {len(models[0]['faces'])} triangles, saved")
+
+
+def test_picture_model(b, opts):
+    """A model from a picture on the console (picture3d, src/net/img3d.c):
+    bm Studio's models page, "m" lists the pictures of /pics and, with the
+    key in bm/config.txt, starts the job; QEMU has no WiFi, so the start
+    fails at once with a clear message and nothing changes. Without the
+    key the message says where it goes."""
+    tmp = tempfile.mkdtemp(prefix="bm-pic-")
+    img = os.path.join(tmp, "sd.img")
+    pic = os.path.join(tmp, "hero.png")
+    with open(pic, "wb") as f:                  # a tiny PNG
+        f.write(base64.b64decode("iVBORw0KGgoAAAANSUhEUgAAAAIAAAACCAIAAAD91JpzAAAAD0lEQVR4nGP4z8DwHwQZAB"
+                                 "u+BP8Zc9tnAAAAAElFTkSuQmCC"))
+    cfg = os.path.join(tmp, "config.txt")
+    with open(cfg, "w") as f:
+        f.write("# bm settings (key=value)\nmeshy_key=msy_test_key_for_qemu\n")
+    ca = os.path.join(HERE, "..", "boot", "ca.pem")
+    mksd.build(img, [(b("carts/village.bm"), "carts/village.bm"), (pic, "pics/hero.png"), (cfg, "bm/config.txt"),
+                     (ca, "bm/ca.pem")])
+    q = Qemu(b("kernel.img"), ["-drive", f"if=sd,format=raw,file={img}"])
+
+    def keys(*ks, gap=0.3):
+        for k in ks:
+            q.send(k)
+            time.sleep(gap)
+
+    def screen(want, tries=40):
+        for _ in range(tries):
+            _, text = settled_screen(q, lambda i, t: all(any(w in l for l in t) for w in want), tries=2)
+            if all(any(w in l for l in text) for w in want):
+                return "\n".join(text)
+            time.sleep(0.25)
+        raise AssertionError(f"not on the screen: {want}\n" + "\n".join(text))
+
+    def shot(name):
+        if opts.shots:
+            img_, _ = settled_screen(q, lambda i, t: "menu" in t[0] and t[21].strip() != "", tries=20)
+            _save_png(img_, os.path.join(opts.shots, f"{name}.png"))
+
+    F2, ESC = "\x1bOQ", "\x1b"
+    try:
+        q.expect(MENU, timeout=30)
+        time.sleep(0.5)
+        screen(["Games", "Studio Village"])
+        keys("x")
+        screen(["Open in bm Studio"])
+        keys("s", "s", "s", "s", "\r")
+        screen(["build", "models", "TOOLS", "model 1/8: ground"])
+        keys(F2)
+        screen(["MODELS 8", "picture"])
+        keys("m")
+        screen(["/pics/hero.png"])                 # the chooser (its title row is not on a 16 px row)
+        shot("picture-chooser")
+        keys("\r", gap=1.0)
+        # QEMU has no WiFi: the start fails with the reason (no network, no
+        # clock for TLS, no root certificates...), named after the service
+        screen(["cannot start: meshy:"], tries=80)
+        shot("picture-no-network")
+        screen(["MODELS 8"])
+        keys(ESC, gap=0.6)
+        screen(["Model from picture...", "Exit bm Studio"])
+        keys("\x1b[A", "\r", gap=0.6)
+        screen(["Games"])
+    finally:
+        q.close()
+    shutil.rmtree(tmp, ignore_errors=True)
+    print("picture3d: the chooser and a clear message without a network")
 
 
 def test_mesh(b, opts):
