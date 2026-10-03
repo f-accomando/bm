@@ -2216,8 +2216,20 @@ a fotogramma), prima persona / vista dall'alto:
 Da vedere sul Pi: la riga di stato della GPU (`vertex shader yes, clipping yes, lit
 models yes`), il passo 14 del test `g`, il benchmark di Overbit con GPU+VS1 e GPU+VS (i
 µs della GPU: nella V3D il vertex shader gira di nuovo per ogni tile che il triangolo
-tocca). Restano all'ARM le facce con texture dei modelli illuminati dal sole e le facce
-su due ossa (in Overbit non ce ne sono).
+tocca).
+
+**Modelli Meshy (2026-10-03).** Gli eroi, i mech e i piloti di Overbit sono diventati
+figure Meshy con texture (1200 triangoli) messe sugli scheletri degli eroi
+(`art/meshyrig.py`). Per tenerle sulla GPU:
+- **bm3d 3.3**: le facce con texture dei modelli illuminati dal sole, con la luce di ogni
+  angolo (Gouraud) sull'ARM e sulla GPU, e sul vertex shader (`vs_lit_tex`);
+- **bm3d 3.4**: le pelli, cioè le facce a cavallo di due ossa (un quarto delle facce di
+  una figura Meshy, gli anelli attorno alle articolazioni): gruppi per coppia di ossa,
+  ogni angolo messo dalla matrice del suo osso (`vs_lit_tex2`, `cs_colour2`, ombre
+  `vs_shadow2`/`cs_shadow2`); le facce su tre ossa (dove tre parti si toccano) le toglie
+  `meshyrig.py` con una copia dell'angolo.
+Test: scene `vshader textured` e `vshader skin` dell'emulatore, `heroes_tex` e
+`heroes_skin` del 3D Bench.
 
 ## M37 — 2D e qualità sulla GPU (M, se serve)
 - Sprite, tile e testo come quad della GPU, per i giochi con molto 2D sopra il 3D.

@@ -3599,7 +3599,7 @@ def test_gpu3d_fallback(b, opts):
         time.sleep(0.5)
         with open(b("texroom.bm"), "rb") as f:
             assert _upload(q, f.read())
-        out = q.expect("bm: the 3D is drawn by the ARM: ", timeout=20).decode(errors="replace")
+        out = q.expect("bm: the 3D is drawn by the ARM as bm3d 0.2: ", timeout=20).decode(errors="replace")
         q.expect("no V3D answers", timeout=5)
         for _ in range(20):                     # the room, with its textures (after _init)
             time.sleep(0.5)

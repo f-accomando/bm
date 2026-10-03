@@ -40,7 +40,7 @@ local SHOTS = {
   { cap = "RALLY", sub = "TANK - A RACING PILOT IN A WHITE MECH", len = 4.5,
     setup = function() place(A, 0, 0, pi) end,
     cam = function(t) front(1.6, 0.7 - t * 0.3, -0.08, 7.5) end },
-  { cap = "WALK AND RUN", sub = "BIRD LEGS, INVERSE KINEMATICS", len = 5,
+  { cap = "WALK AND RUN", sub = "LEGS BY INVERSE KINEMATICS", len = 5,
     setup = function() place(A, -6, -6, pi / 2) end,
     drive = function(c, t)
       c.mz = t < 2.2 and 0.55 or 1

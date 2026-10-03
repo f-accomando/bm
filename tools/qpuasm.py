@@ -864,9 +864,9 @@ SHADERS["vs_lit_tex"] = """
 # matrices and blended, B + w (A - B), as r3d places each vertex by its
 # own bone. Uniforms: matrix A (12, by rows), matrix B (12), then XFORM's
 # f*16, 0.5, -f*16, 0.5, -NEAR.
-def BLEND3(dst, keep):
-    """one coordinate by matrix A into `keep` (a register) and by B; dst =
-    B + w (A - B)"""
+def BY_A(keep):
+    """one coordinate of the corner by matrix A (the next four uniforms)
+    into `keep`; XFORM2_CAM and SHADOW2 then blend it with B's"""
     return f"""
         nop                 ; fmul r0, ra0, unif
         nop                 ; fmul r1, ra1, unif
@@ -879,11 +879,11 @@ def BLEND3(dst, keep):
 XFORM_PROJECT = XFORM[XFORM.index("        mov sfu_recip, r2"):]
 
 
-def XFORM2_CAM(src_a="unif"):
+def XFORM2_CAM():
     """the corner in the camera: ra6 rb6 r2 (x y depth), A then B"""
     out = ""
     for keep in ("ra23", "rb23", "ra24"):
-        out += BLEND3(None, keep)
+        out += BY_A(keep)
     for keep, dst in (("ra23", "ra6"), ("rb23", "rb6"), ("ra24", "r2")):
         out += f"""
         nop                 ; fmul r0, ra0, unif
@@ -1063,7 +1063,7 @@ SHADERS["vs_shadow"] = """
 # plane, 1/Ly, Lx, Lz, plane + 0.01.
 SHADOW2 = ""
 for _keep in ("ra26", "rb26", "ra27"):
-    SHADOW2 += BLEND3(None, _keep)
+    SHADOW2 += BY_A(_keep)
 for _keep, _dst in (("ra26", "ra3"), ("rb26", "r3"), ("ra27", "ra4")):
     SHADOW2 += f"""
         nop                 ; fmul r0, ra0, unif
