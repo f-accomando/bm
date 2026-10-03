@@ -103,8 +103,12 @@ SD_FILES64 = $(BUILD)/kernel8.img=kernel8.img boot/rgb30/extlinux.conf=extlinux/
              $(FW64)/rtl8821cs_fw.bin=bm/rtl8821cs_fw.bin $(FW64)/rtl8821cs_config.bin=bm/rtl8821cs_config.bin \
              $(FW64)/rtw8821c_fw.bin=bm/rtw8821c_fw.bin \
              $(wildcard $(FW64)/LICENCE.rtlwifi_firmware.txt)$(if $(wildcard $(FW64)/LICENCE.rtlwifi_firmware.txt),=bm/LICENCE.rtlwifi_firmware.txt)
+# RGB30_CONFIG=file: your own bm/config.txt in the image (wifi_ssid, wifi_psk:
+# keep that file out of the repository)
+SD_FILES64 += $(if $(RGB30_CONFIG),$(RGB30_CONFIG)=bm/config.txt)
 image: $(BUILD)/kernel8.img
 	@test -f $(FW64)/u-boot.itb || { echo "Run 'make TARGET=rgb30 firmware' first"; exit 1; }
+	@test -z "$(RGB30_CONFIG)" || test -f "$(RGB30_CONFIG)" || { echo "RGB30_CONFIG: $(RGB30_CONFIG) not found"; exit 1; }
 	@mkdir -p $(DIST)
 	$(PYTHON) scripts/mksd.py $(DIST)/bm-rgb30.img --size-mib 256 --start-mib 16 --label BM --active \
 	    --raw $(FW64)/idbloader.img@64 --raw $(FW64)/u-boot.itb@16384 $(SD_FILES64)
@@ -118,6 +122,7 @@ sdcard: $(BUILD)/kernel8.img
 	cp boot/rgb30/extlinux.conf $(DIST)/sd/extlinux/
 	cp boot/rgb30/LEGGIMI.txt $(DIST)/sd/
 	@if [ -f $(FW64)/rtl8821cs_fw.bin ]; then cp $(FW64)/rtl8821cs_*.bin $(FW64)/rtw8821c_fw.bin $(DIST)/sd/bm/; fi
+	@if [ -n "$(RGB30_CONFIG)" ]; then cp "$(RGB30_CONFIG)" $(DIST)/sd/bm/config.txt; fi
 	@echo "Copy the contents of $(DIST)/sd/ to the BM drive of the card."
 
 $(BUILD)/k/%.S.o: %.S

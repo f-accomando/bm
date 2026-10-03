@@ -134,6 +134,9 @@ wifi_psk=password
 wifi_boot=1
 ```
 
+Oppure già nell'immagine: `make TARGET=rgb30 image RGB30_CONFIG=$HOME/rgb30-config.txt` mette quel
+file come `bm/config.txt` (tienilo fuori dal repository: contiene la password).
+
 Nel menu, *WiFi*: **A** cerca le reti (elenco con segnale, canale, sicurezza), **X** entra nella
 rete di `wifi_ssid`; poi DHCP e l'indirizzo IP sullo schermo, con la password della console di
 rete (`python3 tools/bm_net.py <ip>`: i tasti w/a/s/d, Invio, Esc arrivano al menu come dalla
