@@ -882,7 +882,7 @@ test-ai: $(BUILD)/host/test_ai $(BUILD)/assist.bin $(BUILD)/host/luahost $(BUILD
 # language) become a .bm with the model, then one more model in it;
 # tools/meshy2mesh.py on a .glb made by the test (no call to Meshy)
 test-img2mesh: $(BUILD)/host/meshview
-	rm -rf $(BUILD)/img2mesh/test $(BUILD)/img2mesh/test.bm
+	rm -rf $(BUILD)/img2mesh/test $(BUILD)/img2mesh/test.bm && mkdir -p $(BUILD)/img2mesh
 	$< one knight $(BUILD)/img2mesh/knight.ppm > /dev/null
 	$(PYTHON) tools/img2mesh.py $(BUILD)/img2mesh/knight.ppm -o $(BUILD)/img2mesh/test.bm --name mech \
 	    --replay tests/ai/img2mesh/replay --work $(BUILD)/img2mesh/test --rounds 1

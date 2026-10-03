@@ -115,6 +115,7 @@ gen: house
 title: Casa (casetta col tetto)
 ask: crea una casa | house | una casetta | cottage | make a house | casa col tetto
 ask: casa del villaggio | abitazione | capanna | hut | home | casa 3d
+ask: casa blu | casa verde | casetta gialla | blue house | green house | casa di mattoni
 text: Muri, tetto a due falde, porta e finestre; le varianti hanno il camino.
 Il colore chiesto è quello dei muri, il secondo quello del tetto.
 
