@@ -4,26 +4,11 @@
  * trip between the two consoles.
  */
 #include "audio/audio.h"
-#include "kernel/config.h"
 
-#include <string.h>
+static int volume = AUDIO_VOLUME_MAX;
 
-static int via_ram, volume = AUDIO_VOLUME_MAX, perf, pointer_on = 1;
-
-void bm_set_via_ram(int on)         { via_ram = on; }
-int  bm_via_ram(void)               { return via_ram; }
 void audio_set_volume(int level)    { volume = level; }
 int  audio_volume(void)             { return volume; }
-void bm_set_perf(int on)            { perf = on; }
-int  bm_perf(void)                  { return perf; }
-
-/* mouse= (the Pi's pointer, M32): read, kept */
-void pointer_config(void)
-{
-    const char *v = config_get("mouse");
-    pointer_on = !(v && (!strcmp(v, "off") || !strcmp(v, "0") || !strcmp(v, "no")));
-}
-int pointer_enabled(void)           { return pointer_on; }
 
 /* the Pi 1 B's Ethernet (net.c's other data path): not on the RGB30 */
 #include "usb/smsc95xx.h"

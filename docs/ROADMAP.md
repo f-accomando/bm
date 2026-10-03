@@ -2633,6 +2633,10 @@ Task:
    handshake WPA2 nell'host, lo stack di rete di M18 (scritti: scansione, reti aperte e WPA2-PSK,
    chiavi nella CAM, lwIP; provati sul PC su un chip e access point simulati; sulla console da
    provare).
+7. **Cartucce del Pi per le prove** (richiesta 2026-10-03): il runtime `.bm` compilato a 64 bit
+   (sostituti dei driver del Pi in `src/rgb30/bm_port.c`, comandi in `bm_input.c`), avviato dal
+   menu con `show_bm=1`; Yharnam (256×256, dal branch `claude/yharnam`) nell'immagine SD,
+   ingrandita a tutto schermo. Provata in QEMU; il suono e la GPU Mali mancano ancora.
 - **Fatto quando:** sulla RGB30 il menu appare, i tasti e le levette rispondono, un controller
   Bluetooth si accoppia e la console entra nella rete WiFi salvata in `bm/config.txt`.
 

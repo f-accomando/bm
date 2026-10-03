@@ -45,17 +45,17 @@ int  plat_uart_getc(void);             /* -1: nothing waiting */
 void plat_led(int green, int red);
 
 /* The screen. A mode is an image in memory, w x h pixels, depth 32
- * (XRGB8888) or 16 (RGB565), pitch bytes per row, shown `scale` times bigger
- * (1..8, scaled by the display controller: nearest neighbour, or smooth)
- * and centred on the panel (720x720 on the RGB30); an image bigger than
- * the panel is scaled down to fit. QEMU shows the image 1:1.
+ * (XRGB8888) or 16 (RGB565), pitch bytes per row, shown out_w x out_h big
+ * (scaled by the display controller: nearest neighbour, or smooth) and
+ * centred on the panel (720x720 on the RGB30); scale is how it was asked
+ * (1..8 times, 0 as big as fits). QEMU shows the image 1:1.
  * plat_display_init() sets a mode; plat_display_show() makes the buffer at
  * `addr` the one shown, from the next frame. Returns 0 on success. */
 #define PLAT_PANEL_W    720
 #define PLAT_PANEL_H    720
 typedef struct {
     uint32_t w, h, depth, pitch;
-    uint32_t scale;
+    uint32_t scale, out_w, out_h;
     int smooth;
 } plat_mode_t;
 int  plat_display_init(const plat_mode_t *m, uintptr_t addr);

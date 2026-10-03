@@ -20,5 +20,8 @@ WiFi: scrivi in bm/config.txt le righe wifi_ssid=NomeRete e wifi_psk=password
 
 Tasti: B conferma, A torna indietro (confirm=a in bm/config.txt li scambia).
 
+Prove: con show_bm=1 in bm/config.txt il menu mostra e avvia le cartucce .bm
+del Pi (c'e' Yharnam). Start + Select esce dal gioco.
+
 Non formattare e non ripartizionare la scheda: il bootloader sta fuori dalla
 partizione. Per rifarla: make TARGET=rgb30 image e riscrivi l'immagine.

@@ -19,11 +19,18 @@
 #define FB_PAGE_ALIGN   0x10000u
 
 /* w x h pixels, depth 32 or 16, 1 to 3 pages, shown scale times bigger
- * (1..8; 0: as big as fits the panel), nearest neighbour or smooth. 0, or
- * -1 (no room), -2 (bad size), -3 (the display refused it). */
+ * (1..8; 0: as big as fits the panel, keeping the shape), nearest
+ * neighbour or smooth. 0, or -1 (no room), -2 (bad size), -3 (the display
+ * refused it). */
+#define FB_FILL 0u
 int fb_init_mode(framebuffer_t *fb, uint32_t w, uint32_t h, uint32_t buffers, uint32_t depth,
                  uint32_t scale, int smooth);
 /* the mode on screen now */
 const plat_mode_t *fb_mode(void);
+
+/* A cartridge's screen (src/bm): w x h RGB565, three pages, as big as the
+ * panel allows (bm_scale=int in bm/config.txt: whole multiples only, the
+ * pixels all the same size; bm_smooth=1: smooth instead of sharp). */
+int fb_init_game(framebuffer_t *fb, int w, int h);
 
 #endif

@@ -190,8 +190,7 @@ static uint16_t scale_factor(uint32_t src, uint32_t dst)
  * vop2_setup_scale) */
 static void window(const plat_mode_t *m, uintptr_t addr)
 {
-    uint32_t w = m->w, h = m->h, s = m->scale ? m->scale : 1;
-    uint32_t dw = w * s, dh = h * s;
+    uint32_t w = m->w, h = m->h, dw = m->out_w, dh = m->out_h;
     if (dw > PANEL_W)
         dw = PANEL_W;
     if (dh > PANEL_H)

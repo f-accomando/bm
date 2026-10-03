@@ -128,6 +128,11 @@ screenshot in `docs/img/`), `README_OLD.md` (il README completo, in italiano),
   multipli di 8×16, 2x a multipli di 16).
 - L'utente prova senza seriale: LED (rosso = avvio, verde a 1 Hz = vivo) e `bm/bootlog.txt`
   scritto sulla SD a ogni avvio.
+- Cartucce del Pi (`.bm`): con `show_bm=1` si avviano, per le prove. Il runtime `src/bm` è lo
+  stesso del Pi (`#ifdef BM_RGB30` solo in `bm_video_enter`: lo schermo è `fb_init_game`); i
+  driver del Pi che chiama sono sostituiti in `src/rgb30/bm_port.c` (suono muto, niente V3D e
+  DMA) e `bm_input.c` (comandi per lettera, `game_buttons=position`). Yharnam (dal branch
+  `claude/yharnam`) è nell'immagine SD; test `test_bm_cartridge`.
 - Tasti: **B conferma, A torna indietro** (decisione dell'utente; `confirm=a` li scambia):
   nell'interfaccia si usano `pad_ok` / `pad_back` e `pad_ok_name()` / `pad_back_name()` (`pad.h`),
   mai `PAD_A` / `PAD_B` per conferma e indietro.

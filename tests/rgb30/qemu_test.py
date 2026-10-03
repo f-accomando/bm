@@ -356,6 +356,43 @@ def test_confirm_button(b, opts):
             q.close()
 
 
+def test_bm_cartridge(b, opts):
+    """A Pi cartridge on the RGB30 (show_bm=1): Yharnam, 256x256 RGB565,
+    runs on the AArch64 kernel (QEMU shows its screen 1:1, widened to
+    32 bits); the title, then the game after A; 'q' leaves and the menu's
+    512x512 comes back."""
+    cart = os.path.join(b, "carts", "yharnam.bm")
+    if not os.path.exists(cart):
+        raise AssertionError(f"{cart} missing (make TARGET=rgb30 test builds it)")
+    tmp = tempfile.mkdtemp(prefix="bm64sd-")
+    with open(cart, "rb") as f:
+        sd = make_sd(tmp, {"bm/config.txt": b"show_bm=1\n", "bm/yharnam.bm": f.read()})
+    q = Qemu(os.path.join(b, "kernel.elf"), sd=sd)
+    try:
+        boot(q)
+        time.sleep(0.4)
+        assert "yharnam.bm" in screen_all(q.screendump())
+        q.send("\r")                            # confirm: play
+        q.expect("play: /bm/yharnam.bm", timeout=10)
+        time.sleep(8)
+        img = q.screendump()
+        assert img[0] == 256 and img[1] == 256, f"screen {img[0]}x{img[1]}"
+        colours = {img[2][i:i + 3] for i in range(0, len(img[2]), 3 * 97)}
+        assert len(colours) > 20, f"{len(colours)} colours: not the town"
+        q.send(" ")                              # the game's A: start
+        time.sleep(3)
+        q.send("q")
+        out = q.expect("fps", timeout=10).decode(errors="replace")
+        frames = int(out.split('"Yharnam" ')[1].split()[0])
+        assert frames > 100, out
+        time.sleep(1)
+        img = q.screendump()
+        assert img[0] == SCREEN and img[1] == SCREEN, f"screen {img[0]}x{img[1]}"
+        assert "Up/Down: choose" in screen_all(img)
+    finally:
+        q.close()
+
+
 def test_menu_input_page(b, opts):
     """Down to the input test, A opens it, the serial port presses buttons."""
     q = Qemu(os.path.join(b, "kernel.elf"))

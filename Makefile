@@ -388,6 +388,16 @@ $(BUILD)/host/bmplay: $(BMPLAY_SRCS) src/bm/*.h src/audio/*.h $(LUA_SRCS)
 	@mkdir -p $(dir $@)
 	$(HOSTCC) -O2 -Wall -Wextra -Isrc -Ithird_party/lua -o $@ $(BMPLAY_SRCS) $(LUA_SRCS) -lm
 
+# Yharnam (from the claude/yharnam branch, for the RGB30's tests: rgb30.mk
+# packs it; not in the Pi's games here): the
+# street plan, the chunks, a long walk, the cost of a frame; then the fight
+# measured, with the paths of the lamps (balance.lua), and the ways of the
+# creatures and the phases of the bosses (foes.lua)
+test-yharnam: $(BUILD)/host/luahost carts/yharnam/main.lua
+	$< tests/yharnam/sim.lua carts/yharnam/main.lua
+	$< tests/yharnam/balance.lua carts/yharnam/main.lua
+	$< tests/yharnam/foes.lua carts/yharnam/main.lua
+
 # The Sound editor in a fake bm: its banks are the console's format, byte for byte
 $(BUILD)/demo.bmau: carts/sound/demo.json scripts/bmaudio.py
 	@mkdir -p $(dir $@)

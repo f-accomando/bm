@@ -61,8 +61,12 @@ MBEDTLS_SRCS := $(addprefix third_party/mbedtls/library/,aes.c bignum.c bignum_c
 # transfer) over the WiFi (src/rgb30/rtw_sta.c)
 LWIP_SRCS := $(wildcard third_party/lwip/src/core/*.c third_party/lwip/src/core/ipv4/*.c) \
              third_party/lwip/src/netif/ethernet.c third_party/lwip/src/apps/sntp/sntp.c
-NET_SRCS := src/net/net.c src/net/netcon.c src/net/netxfer.c
-SHARED_SRCS += $(BT_SRCS) $(MBEDTLS_SRCS) $(LWIP_SRCS) $(NET_SRCS)
+NET_SRCS := src/net/net.c src/net/netcon.c src/net/netxfer.c src/net/cartnet.c
+# the Pi's cartridges (.bm, shown with show_bm=1): the runtime unchanged,
+# the Pi's drivers it calls replaced by src/rgb30/bm_port.c and bm_input.c
+BM_SRCS := $(filter-out src/bm/stress.c src/bm/roombench.c,$(wildcard src/bm/*.c)) \
+           src/audio/player.c src/audio/n8snd.c src/kernel/prompts.c src/kernel/pointer.c
+SHARED_SRCS += $(BT_SRCS) $(MBEDTLS_SRCS) $(LWIP_SRCS) $(NET_SRCS) $(BM_SRCS)
 RGB30_SRCS := $(wildcard src/rgb30/*.c src/rgb30/*.S)
 KERNEL_SRCS := $(RGB30_SRCS) $(SHARED_SRCS) $(LUA_SRCS)
 KERNEL_OBJS := $(patsubst %,$(BUILD)/k/%.o,$(KERNEL_SRCS))
@@ -103,10 +107,19 @@ SD_FILES64 = $(BUILD)/kernel8.img=kernel8.img boot/rgb30/extlinux.conf=extlinux/
              $(FW64)/rtl8821cs_fw.bin=bm/rtl8821cs_fw.bin $(FW64)/rtl8821cs_config.bin=bm/rtl8821cs_config.bin \
              $(FW64)/rtw8821c_fw.bin=bm/rtw8821c_fw.bin \
              $(wildcard $(FW64)/LICENCE.rtlwifi_firmware.txt)$(if $(wildcard $(FW64)/LICENCE.rtlwifi_firmware.txt),=bm/LICENCE.rtlwifi_firmware.txt)
+# Yharnam (the Pi's cartridge, from the claude/yharnam branch, 256x256): on
+# the SD card for testing (listed with show_bm=1) and in the QEMU tests
+YHARNAM := $(BUILD)/carts/yharnam.bm
+$(YHARNAM): carts/yharnam/main.lua carts/yharnam/sheet.png carts/yharnam/cover.png scripts/mkbm.py
+	@mkdir -p $(dir $@)
+	$(PYTHON) scripts/mkbm.py -o $@ --lua $< --title Yharnam --author bm --res 256x256 \
+	    --cover carts/yharnam/cover.png --sheet carts/yharnam/sheet.png --sheet8
+SD_FILES64 += $(YHARNAM)=bm/yharnam.bm
+
 # RGB30_CONFIG=file: your own bm/config.txt in the image (wifi_ssid, wifi_psk:
 # keep that file out of the repository)
 SD_FILES64 += $(if $(RGB30_CONFIG),$(RGB30_CONFIG)=bm/config.txt)
-image: $(BUILD)/kernel8.img
+image: $(BUILD)/kernel8.img $(YHARNAM)
 	@test -f $(FW64)/u-boot.itb || { echo "Run 'make TARGET=rgb30 firmware' first"; exit 1; }
 	@test -z "$(RGB30_CONFIG)" || test -f "$(RGB30_CONFIG)" || { echo "RGB30_CONFIG: $(RGB30_CONFIG) not found"; exit 1; }
 	@mkdir -p $(DIST)
@@ -116,9 +129,10 @@ image: $(BUILD)/kernel8.img
 	@echo "Write $(DIST)/bm-rgb30.img (or .img.gz) to a microSD card, slot TF1."
 
 # The files of the BM partition, to copy by hand onto a card made with `image`
-sdcard: $(BUILD)/kernel8.img
+sdcard: $(BUILD)/kernel8.img $(YHARNAM)
 	@mkdir -p $(DIST)/sd/extlinux $(DIST)/sd/bm
 	cp $(BUILD)/kernel8.img $(DIST)/sd/kernel8.img
+	cp $(YHARNAM) $(DIST)/sd/bm/yharnam.bm
 	cp boot/rgb30/extlinux.conf $(DIST)/sd/extlinux/
 	cp boot/rgb30/LEGGIMI.txt $(DIST)/sd/
 	@if [ -f $(FW64)/rtl8821cs_fw.bin ]; then cp $(FW64)/rtl8821cs_*.bin $(FW64)/rtw8821c_fw.bin $(DIST)/sd/bm/; fi
@@ -148,7 +162,7 @@ qemu:
 	    -kernel build/rgb30-virt/kernel.elf -serial stdio -display none
 
 test: test-bt test-wifi
-	$(MAKE) -f rgb30.mk PLAT=virt
+	$(MAKE) -f rgb30.mk PLAT=virt all build/rgb30-virt/carts/yharnam.bm
 	$(PYTHON) tests/rgb30/qemu_test.py --build build/rgb30-virt
 
 # H5 and the Realtek firmware set-up on the PC, against a simulated chip

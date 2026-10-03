@@ -122,6 +122,8 @@ prima di accendere lo schermo e il registro si scrive tre volte (prima dello sch
   sfumato; il menu resta 512×512 1:1. Pagina **Display** nel menu: le modalità una dopo l'altra
   con un'immagine di prova (bordi, griglia delle tessere, barre di colore). La GPU stessa (driver
   Mali) non c'è ancora.
+- Cartucce del Pi (`.bm`) avviabili con `show_bm=1`, per le prove: Yharnam nell'immagine SD (vedi
+  sotto).
 - Menu 512×512: giochi `.s16`, strumenti (Input test, System, Bluetooth, WiFi, Display, Boot log, Lua sulla
   seriale, Reboot, Power off).
 - Bluetooth: RTL8821CS su UART1, protocollo H5 (`src/bt/h5.c`) e firmware Realtek
@@ -137,6 +139,24 @@ prima di accendere lo schermo e il registro si scrive tre volte (prima dello sch
   deauth. 2,4 GHz, fino a 54 Mbit/s (niente 802.11n per ora). **Provato sul PC** con un chip e due
   access point simulati, DHCP e ping compresi (`make TARGET=rgb30 test-wifi`); **da provare sulla
   console.**
+
+## Cartucce del Pi (`.bm`) per le prove
+
+Con `show_bm=1` in `bm/config.txt` il menu elenca le cartucce `.bm` di `bm/` e le **avvia** (senza,
+restano nascoste come deciso). Il runtime è quello del Pi (`src/bm`), lo stesso codice compilato a
+64 bit; quello che del Pi non c'è lo sostituiscono `src/rgb30/bm_port.c` (suono muto per ora, il
+3D disegnato dall'ARM, niente DMA) e `src/rgb30/bm_input.c` (i comandi). Nell'immagine SD c'è
+**Yharnam** (256×256, dal branch `claude/yharnam`).
+
+- Schermo: la cartuccia disegna alla sua risoluzione e il controller video la ingrandisce fino a
+  riempire il pannello (256×256 → 720×720), nitida. `bm_scale=int`: solo multipli interi (256 ×2 =
+  512×512, i pixel tutti uguali, con il bordo); `bm_smooth=1`: sfumata.
+- Tasti: nei giochi valgono le lettere stampate sulla console (un gioco che scrive "A: start" vuole
+  il tasto A); `game_buttons=position` li mette per posizione, come un DS4 sul Pi (il tasto in basso,
+  B, diventa la A del gioco). Le levette sono la levetta sinistra e destra del gioco; Start +
+  Select esce e torna al menu.
+- In QEMU il gioco gira (test `test_bm_cartridge`), mostrato 1:1 (QEMU non ingrandisce e non ha il
+  formato a 16 bit: lo converte `plat_virt.c`).
 
 ## WiFi: come si usa
 

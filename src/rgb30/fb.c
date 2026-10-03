@@ -8,6 +8,9 @@
  */
 #include "display.h"
 #include "drivers/timer.h"
+#include "kernel/config.h"
+
+#include <string.h>
 
 static plat_mode_t shown_mode;
 
@@ -31,14 +34,21 @@ int fb_init_mode(framebuffer_t *fb, uint32_t width, uint32_t height, uint32_t bu
         depth = 32;
     if (width < 16 || height < 16 || width > 4096 || height > 4096)
         return -2;
-    if (scale == 0) {                   /* as big as fits */
-        scale = PLAT_PANEL_W / width < PLAT_PANEL_H / height ? PLAT_PANEL_W / width
-                                                             : PLAT_PANEL_H / height;
-        if (scale == 0)
-            scale = 1;
+    uint32_t out_w, out_h;
+    if (scale == FB_FILL) {             /* as big as fits, the same shape */
+        if ((uint64_t)width * PLAT_PANEL_H <= (uint64_t)height * PLAT_PANEL_W) {
+            out_h = PLAT_PANEL_H;
+            out_w = width * PLAT_PANEL_H / height;
+        } else {
+            out_w = PLAT_PANEL_W;
+            out_h = height * PLAT_PANEL_W / width;
+        }
+    } else {
+        if (scale > 8)
+            scale = 8;
+        out_w = width * scale;
+        out_h = height * scale;
     }
-    if (scale > 8)
-        scale = 8;
     uint32_t pitch = (width * (depth / 8) + FB_ROW_ALIGN - 1) & ~(FB_ROW_ALIGN - 1);
     uint32_t rows = (height + FB_TILE - 1) & ~(FB_TILE - 1);
     uint32_t page = (pitch * rows + FB_PAGE_ALIGN - 1) & ~(FB_PAGE_ALIGN - 1);
@@ -58,7 +68,7 @@ int fb_init_mode(framebuffer_t *fb, uint32_t width, uint32_t height, uint32_t bu
     fb->depth = depth;
     for (uint64_t *p = (uint64_t *)fb->mem, *e = (uint64_t *)(fb->mem + fb->size); p < e; p++)
         *p = 0;
-    plat_mode_t m = { width, height, depth, pitch, scale, smooth };
+    plat_mode_t m = { width, height, depth, pitch, scale, out_w, out_h, smooth };
     if (plat_display_init(&m, (uintptr_t)fb->mem) != 0)
         return -3;
     shown_mode = m;
@@ -68,6 +78,19 @@ int fb_init_mode(framebuffer_t *fb, uint32_t width, uint32_t height, uint32_t bu
 const plat_mode_t *fb_mode(void)
 {
     return &shown_mode;
+}
+
+int fb_init_game(framebuffer_t *fb, int w, int h)
+{
+    const char *s = config_get("bm_scale"), *sm = config_get("bm_smooth");
+    uint32_t scale = FB_FILL;
+    if (s && !strcmp(s, "int")) {
+        scale = PLAT_PANEL_W / (uint32_t)w < PLAT_PANEL_H / (uint32_t)h ? PLAT_PANEL_W / (uint32_t)w
+                                                                        : PLAT_PANEL_H / (uint32_t)h;
+        if (scale == 0)
+            scale = 1;
+    }
+    return fb_init_mode(fb, (uint32_t)w, (uint32_t)h, 3, 16, scale, sm && sm[0] == '1');
 }
 
 static void fill32(uint32_t *p, uint32_t v, uint32_t n)

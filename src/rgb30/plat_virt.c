@@ -8,6 +8,7 @@
 #include "io.h"
 #include "lib/printf.h"
 
+#include <stdlib.h>
 #include <string.h>
 
 #define UART        0x09000000u
@@ -101,13 +102,14 @@ static int ramfb_write(uintptr_t addr)
     static volatile struct { uint32_t control, length; uint64_t address; } dma __attribute__((aligned(16)));
     if (ramfb_key < 0)
         return -1;
-    uint32_t bpp = mode.depth / 8;
+    /* always XRGB8888: QEMU's ramfb has no RGB565 (plat_display_show
+     * converts the 16-bit pages) */
     cfg.addr = __builtin_bswap64(addr);
-    cfg.fourcc = __builtin_bswap32(mode.depth == 16 ? 0x36314752u /* RG16 */ : 0x34325258u /* XR24 */);
+    cfg.fourcc = __builtin_bswap32(0x34325258u);    /* XR24 */
     cfg.flags = 0;
     cfg.width = __builtin_bswap32(mode.w);
     cfg.height = __builtin_bswap32(mode.h);
-    cfg.stride = __builtin_bswap32(mode.pitch ? mode.pitch : mode.w * bpp);
+    cfg.stride = __builtin_bswap32(mode.depth == 16 ? mode.w * 4 : mode.pitch ? mode.pitch : mode.w * 4);
     dma.control = __builtin_bswap32(((uint32_t)ramfb_key << 16) | 0x08 /* select */ | 0x10 /* write */);
     dma.length = __builtin_bswap32(sizeof cfg);
     dma.address = __builtin_bswap64((uintptr_t)&cfg);
@@ -123,11 +125,35 @@ static int ramfb_write(uintptr_t addr)
     return -3;
 }
 
+/* a 16-bit page as XRGB8888, for ramfb */
+static uint32_t *wide;
+
+static uintptr_t widen(uintptr_t addr)
+{
+    for (uint32_t y = 0; y < mode.h; y++) {
+        const uint16_t *s = (const uint16_t *)(addr + (uintptr_t)y * mode.pitch);
+        uint32_t *d = wide + (size_t)y * mode.w;
+        for (uint32_t x = 0; x < mode.w; x++) {
+            uint32_t c = s[x];
+            uint32_t r = (c >> 11) & 31, g = (c >> 5) & 63, b = c & 31;
+            d[x] = (r << 3 | r >> 2) << 16 | (g << 2 | g >> 4) << 8 | (b << 3 | b >> 2);
+        }
+    }
+    return (uintptr_t)wide;
+}
+
 int plat_display_init(const plat_mode_t *m, uintptr_t addr)
 {
     if (ramfb_key < 0)
         ramfb_key = find_ramfb();
     mode = *m;                          /* shown 1:1: ramfb does not scale */
+    if (m->depth == 16) {
+        free(wide);
+        wide = malloc((size_t)m->w * m->h * 4);
+        if (!wide)
+            return -1;
+        addr = widen(addr);
+    }
     int r = ramfb_write(addr);
     ksnprintf(info, sizeof info, "ramfb %lux%lu %lu bpp (fw_cfg key %d): %s",
               m->w, m->h, m->depth, ramfb_key, r == 0 ? "ok" : "error");
@@ -136,7 +162,7 @@ int plat_display_init(const plat_mode_t *m, uintptr_t addr)
 
 void plat_display_show(uintptr_t addr)
 {
-    ramfb_write(addr);
+    ramfb_write(mode.depth == 16 && wide ? widen(addr) : addr);
 }
 
 int plat_display_wait_vsync(void)

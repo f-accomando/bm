@@ -25,6 +25,9 @@
 #include "bt/bt.h"
 #include "wifi/wifi.h"
 #include "net/net.h"
+#include "bm/runtime.h"
+
+#include <stdlib.h>
 
 #include <stdarg.h>
 #include <string.h>
@@ -179,17 +182,51 @@ static void page_message(const char *title, const char *lines[], int n)
     wait_back();
 }
 
+/* A Pi cartridge (listed with show_bm=1, for testing): the runtime of
+ * src/bm, its screen as big as the panel (rgb30/display.h), the 3D on the
+ * ARM, no sound yet. Start + Select leaves. */
+#define PLAY_SECS (24u * 3600u)
+
+static void play_bm(int i)
+{
+    char path[80];
+    ksnprintf(path, sizeof path, "/bm/%s", games[i].name);
+    fat_entry_t e;
+    uint8_t *data = NULL;
+    size_t len = 0;
+    if (fat_find(path, &e) != 0 || fat_load(&e, &data, &len) != 0) {
+        const char *lines[] = { path, "", "cannot be read:", fat_error() };
+        page_message("Game", lines, 4);
+        return;
+    }
+    kprintf("play: %s (%lu bytes)\n", path, (uint32_t)len);
+    bm_stats_t st;
+    bm_run(fb, data, len, PLAY_SECS, &st, 0);
+    free(data);
+    console_suspend(1);                             /* the menu draws itself */
+    bm_print_stats(&st);
+    while (pad_state())                             /* Start + Select still held */
+        timer_delay_ms(10);
+    pad_pressed();
+    if (!st.ok) {
+        const char *lines[] = { games[i].name, "", "stopped with an error:", bm_last_error() };
+        page_message("Game", lines, 4);
+    }
+}
+
 static void page_game(int i)
 {
+    if (games[i].is_bm) {
+        play_bm(i);
+        return;
+    }
     char l0[64];
     ksnprintf(l0, sizeof l0, "%s (%lu bytes)", games[i].name, games[i].size);
     const char *lines[] = {
         l0,
         "",
-        games[i].is_bm ? "A .bm cartridge for the Pi: the RGB30 does not run"
-                       : "The .s16 format of the RGB30 is not defined yet:",
-        games[i].is_bm ? "them (show_bm=1 only lists them)."
-                       : "games will start from here once it is.",
+        "The .s16 format of the RGB30 is not defined yet:",
+        "games will start from here once it is.",
     };
     page_message("Game", lines, 4);
 }
@@ -414,6 +451,7 @@ static void test_image(int i)
     gfx_rect(fb, 0, 0, 1, (int)h, rgb(C_OK));
     gfx_rect(fb, (int)w - 1, 0, 1, (int)h, rgb(C_OK));
     textf(16, 16, C_TEXT, C_BG, "%lux%lu x%lu %s", w, h, m->scale, m->smooth ? "smooth" : "sharp");
+    textf(16, 64, C_DIM, C_BG, "on the panel %lux%lu", m->out_w, m->out_h);
     textf(16, 32, C_DIM, C_BG, "pitch %lu, %lu page%s", fb->pitch, fb->buffers,
           fb->buffers == 1 ? "" : "s");
     textf(16, 48, C_DIM, C_BG, "at %08lx", fb->bus);
@@ -510,7 +548,7 @@ void ui_home(framebuffer_t *f)
             text2x(48, y, name, C_TEXT);
             y += ROW_H;
         }
-        const char *help = sel < n_games ? (games[sel].is_bm ? "Pi cartridge (show_bm=1)" : ".s16 game")
+        const char *help = sel < n_games ? (games[sel].is_bm ? "Pi cartridge (test: Start+Select leaves)" : ".s16 game")
                                          : tool_help[sel - n_games];
         text(16, FOOT_Y - 16, help, C_DIM, C_BG);
         char hint[48];
