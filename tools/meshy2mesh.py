@@ -139,6 +139,7 @@ def glb_scene(data):
     js, bin_ = bmmesh.read_glb(data)
     positions, uvs, colours, tris = [], [], [], []
     have_uv = have_col = False
+    mirrored = []               # per triangle: the node's transform mirrors (det < 0)
 
     def material_image(prim):
         mi = prim.get("material")
@@ -154,6 +155,8 @@ def glb_scene(data):
     def visit(ni, parent):
         node = js["nodes"][ni]
         m = bmmesh._mat_mul(parent, bmmesh._node_matrix(node))
+        det = (m[0] * (m[5] * m[10] - m[9] * m[6]) - m[4] * (m[1] * m[10] - m[9] * m[2])
+               + m[8] * (m[1] * m[6] - m[5] * m[2]))
         if "mesh" in node:
             for prim in js["meshes"][node["mesh"]]["primitives"]:
                 if prim.get("mode", 4) != 4:
@@ -181,6 +184,7 @@ def glb_scene(data):
                     idx = list(range(len(pos)))
                 for k in range(0, len(idx) - 2, 3):
                     tris.append((base + idx[k], base + idx[k + 1], base + idx[k + 2], image))
+                    mirrored.append(det < 0)
         for ch in node.get("children", []):
             visit(ch, m)
 
@@ -196,7 +200,7 @@ def glb_scene(data):
             bv = js["bufferViews"][img["bufferView"]]
             blob = bin_[bv.get("byteOffset", 0):bv.get("byteOffset", 0) + bv["byteLength"]]
         images.append(blob)
-    return positions, (uvs if have_uv else None), (colours if have_col else None), tris, images
+    return positions, (uvs if have_uv else None), (colours if have_col else None), tris, images, mirrored
 
 
 def decode_image(blob):
@@ -250,7 +254,7 @@ def resize(img, size):
 
 def convert(data, name, height, flat, max_tris, grid):
     """a .glb -> (model dict for bmmesh.encode, sheet (w, h, rgba) or None)"""
-    positions, uvs, colours, tris, images = glb_scene(data)
+    positions, uvs, colours, tris, images, mirrored = glb_scene(data)
     if not tris:
         raise SystemExit("the .glb has no triangles")
     decoded = {}
@@ -265,7 +269,7 @@ def convert(data, name, height, flat, max_tris, grid):
     cx, cz = (lo[0] + hi[0]) / 2, (lo[2] + hi[2]) / 2
     pts = [((p[0] - cx) * s, (p[1] - lo[1]) * s, -(p[2] - cz) * s) for p in positions]
     faces = []
-    for a, b, c, image in tris:
+    for (a, b, c, image), mirror in zip(tris, mirrored):
         img = decoded.get(image)
         if textured and img:
             colour = None
@@ -278,7 +282,9 @@ def convert(data, name, height, flat, max_tris, grid):
                            for k in range(3))
         else:
             colour = (138, 138, 154)
-        faces.append((a, c, b, colour, image))               # the winding flipped with z
+        # the winding flips with z (glTF: counter-clockwise in front, the
+        # console: clockwise) unless the node's own transform mirrored it
+        faces.append((a, b, c, colour, image) if mirror else (a, c, b, colour, image))
     # too many triangles for the console: the vertices snap to a grid
     # (flat colours only: the texture would tear)
     if len(faces) > max_tris or len(pts) > bmmesh.MAX_VERTS:
@@ -286,7 +292,8 @@ def convert(data, name, height, flat, max_tris, grid):
             print(f"meshy2mesh: {len(faces)} triangles: more than --max-tris {max_tris}, painted flat instead",
                   file=sys.stderr)
             textured = False
-            faces = [(a, b, c, col or sample(decoded[im], *(tuple((uvs[a][k] + uvs[b][k] + uvs[c][k]) / 3 for k in range(2)))), im)
+            faces = [(a, b, c, col or (sample(decoded[im], *(tuple((uvs[a][k] + uvs[b][k] + uvs[c][k]) / 3 for k in range(2))))
+                                       if decoded.get(im) and uvs[a] and uvs[b] and uvs[c] else (138, 138, 154)), im)
                      for a, b, c, col, im in faces]
         pts, faces = cluster(pts, faces, grid)
         if len(faces) > bmmesh.MAX_FACES or len(pts) > bmmesh.MAX_VERTS:

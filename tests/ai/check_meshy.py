@@ -58,7 +58,7 @@ for n, u, v in sides:
 # a pyramid with vertex colours, uint32 indices, moved by a node
 pyr_pos = [(-0.5, 0, -0.5), (0.5, 0, -0.5), (0.5, 0, 0.5), (-0.5, 0, 0.5), (0, 1, 0)]
 pyr_col = [(1, 0, 0), (0, 1, 0), (0, 0, 1), (1, 1, 0), (1, 1, 1)]
-pyr_idx = [0, 1, 4, 1, 2, 4, 2, 3, 4, 3, 0, 4, 0, 2, 1, 0, 3, 2]
+pyr_idx = [0, 4, 1, 1, 4, 2, 2, 4, 3, 3, 4, 0, 0, 1, 2, 0, 2, 3]       # counter-clockwise from outside
 tex = png(16, 16, [c for y in range(16) for x in range(16) for c in ((255, 0, 0) if x < 8 else (0, 0, 255))])
 
 blob = b""
@@ -82,6 +82,8 @@ a_pcol = add(b"".join(struct.pack("<3f", *p) for p in pyr_col), 5, 5126, "VEC3")
 a_pidx = add(b"".join(struct.pack("<I", i) for i in pyr_idx), 18, 5125, "SCALAR")
 accessors[a_bpos]["min"] = [-1, -0.5, -0.5]
 accessors[a_bpos]["max"] = [1, 0.5, 0.5]
+accessors[a_ppos]["min"] = [-0.5, 0, -0.5]
+accessors[a_ppos]["max"] = [0.5, 1, 0.5]
 img_off = len(blob)
 blob += tex
 views.append({"buffer": 0, "byteOffset": img_off, "byteLength": len(tex)})
@@ -121,10 +123,28 @@ assert 0 <= min(us) and max(us) <= 256, (min(us), max(us))
 # the pyramid's colours come from its vertices (the apex white, the base coloured)
 cols = {f[3] for f in flat_faces}
 assert len(cols) >= 3, cols
-# the winding: the box's top face shows from above (clockwise seen from +y)
-import math
-top = [f for f in tex_faces if all(abs(m["verts"][i][1] - 1.5 * 2 / 3 * 1) >= -1 for i in f[:3])]
-assert top, "faces"
+# the winding: every face shows from outside its solid, i.e. the cross
+# product of its corners points away from a point inside (the box's
+# middle, the pyramid's; the model is 3 tall: the box is y 0..1.5, the
+# pyramid 1.5..3)
+
+
+def outward(model, faces, inside):
+    v = model["verts"]
+    bad = 0
+    for a, b, c, *_ in faces:
+        A, B, C = v[a], v[b], v[c]
+        e1 = [B[k] - A[k] for k in range(3)]
+        e2 = [C[k] - A[k] for k in range(3)]
+        n = (e1[1] * e2[2] - e1[2] * e2[1], e1[2] * e2[0] - e1[0] * e2[2], e1[0] * e2[1] - e1[1] * e2[0])
+        mid = [(A[k] + B[k] + C[k]) / 3 for k in range(3)]
+        if sum(n[k] * (mid[k] - inside[k]) for k in range(3)) <= 0:
+            bad += 1
+    return bad
+
+
+assert outward(m, tex_faces, (0, 0.75, 0)) == 0, "the box's faces show from outside"
+assert outward(m, flat_faces, (0, 2.0, 0)) == 0, "the pyramid's faces show from outside"
 print("meshy2mesh: textured cartridge ok:", len(m["verts"]), "vertices", len(m["faces"]), "triangles")
 
 # into an existing cartridge: flat colours, the sheet stays, the old model stays
@@ -150,6 +170,24 @@ models3, _ = bmmesh.decode(dict(bmmesh.cart_sections(open(cart3, "rb").read()))[
 assert len(models3[0]["verts"]) <= 12 and 1 <= len(models3[0]["faces"]) <= 18, (len(models3[0]["verts"]), len(models3[0]["faces"]))
 assert "painted flat" in r.stderr, r.stderr
 print("meshy2mesh: flat into an existing cartridge and the grid ok")
+
+# a node that mirrors (scale -1 on x): glTF says its faces are already
+# clockwise in front, so the conversion must not reverse them again
+mirror_glb = glb(
+    nodes=[{"mesh": 0, "scale": [-1, 1, 1]}],
+    meshes=[{"primitives": [{"attributes": {"POSITION": a_ppos, "COLOR_0": a_pcol}, "indices": a_pidx}]}],
+    accessors=accessors, views=views, blob=blob)
+mirror_path = os.path.join(out_dir, "mirror.glb")
+open(mirror_path, "wb").write(mirror_glb)
+cart4 = os.path.join(out_dir, "mirror.bm")
+if os.path.exists(cart4):
+    os.remove(cart4)
+r = subprocess.run([sys.executable, tool, "--glb", mirror_path, "-o", cart4, "--name", "mir", "--height", "1"],
+                   capture_output=True, text=True)
+assert r.returncode == 0, r.stdout + r.stderr
+models4, _ = bmmesh.decode(dict(bmmesh.cart_sections(open(cart4, "rb").read()))[8])
+assert outward(models4[0], models4[0]["faces"], (0, 0.3, 0)) == 0, "a mirrored node's faces show from outside"
+print("meshy2mesh: a mirrored node ok")
 
 # bmrender draws it: the texture's red and blue on the picture
 sys.path.insert(0, os.path.join(ROOT, "tools"))
