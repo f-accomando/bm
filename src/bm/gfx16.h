@@ -17,6 +17,8 @@ typedef struct {
     uint16_t *px;               /* RGB565 */
     uint8_t *alpha;             /* 1 = opaque */
     uint8_t *cell_opaque;       /* per 8x8 cell: 1 if every pixel is opaque */
+    uint32_t version;           /* changes with every g16_sheet_set / _update_cell, and is
+                                 * new for every sheet allocated (copies, e.g. a GPU texture) */
 } g16_sheet_t;
 
 typedef struct {

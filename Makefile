@@ -74,7 +74,7 @@ $(BUILD)/k/src/script/embed.S.o: $(wildcard src/script/*.lua) keys/release-pub.p
                                  $(BUILD)/demo.bm $(BUILD)/stress.bm $(BUILD)/editor.bm $(BUILD)/sound.bm \
                                  $(BUILD)/studio.bm $(BUILD)/animator.bm $(BUILD)/mesh.bm $(BUILD)/pixel.bm \
                                  $(BUILD)/assist.bin src/ai/assist.lua $(BUILD)/assistant.bm \
-                                 $(BUILD)/code.bm
+                                 $(BUILD)/code.bm $(BUILD)/texroom.bm
 
 # The development assistant (M30): knowledge base + trained network, built
 # into the kernel. The network is trained on the PC (numpy) by `make
@@ -138,6 +138,13 @@ $(BUILD)/stress.bm: carts/stress/main.lua scripts/mkbm.py
 	@mkdir -p $(dir $@)
 	$(PYTHON) scripts/mkbm.py -o $@ --lua $< --title "bm stress test" --author bm
 
+# Texture Room (M14, M33): the 3D benchmark of the Dev tab, built into the
+# kernel; the benchmark runs it at 320x180 and 640x360 (bm_next_run)
+$(BUILD)/texroom.bm: carts/texroom/main.lua carts/texroom/sheet.png carts/texroom/cover.png scripts/mkbm.py
+	@mkdir -p $(dir $@)
+	$(PYTHON) scripts/mkbm.py -o $@ --lua $< --title "Texture Room" --author bm --res 320x180 \
+	    --cover carts/texroom/cover.png --sheet carts/texroom/sheet.png
+
 # Native demo cartridge (.bm): Lua + sprite sheet + map
 DEMO_BM_SRC := carts/demo/main.lua carts/demo/sheet.png carts/demo/map.csv
 $(BUILD)/demo.bm: $(DEMO_BM_SRC) scripts/mkbm.py
@@ -146,7 +153,7 @@ $(BUILD)/demo.bm: $(DEMO_BM_SRC) scripts/mkbm.py
 	    --map carts/demo/map.csv --title "bm native demo" --author bm
 
 # Demo games (Lua only, sprites drawn in code): build/carts/<name>.bm
-GAMES := pong snake shooter astrowing hunt kitchen titan texroom village nano8 overbit
+GAMES := pong snake shooter astrowing hunt kitchen titan village nano8 overbit
 GAME_CARTS := $(patsubst %,$(BUILD)/carts/%.bm,$(GAMES))
 title_pong    := Pong
 title_snake   := Snake
@@ -156,9 +163,7 @@ title_hunt := Hunter's Night
 res_hunt := 320x180
 title_kitchen := Chaos Kitchen
 title_titan := Titan Clash
-title_texroom := Texture Room
 title_nano8 := nano8
-res_texroom := 320x180
 title_village := Studio Village
 res_village := 320x180
 # Optional per game: carts/<game>/cover.png (printed on the cartridge in the
@@ -381,7 +386,8 @@ $(BUILD)/host/bmhost-bin: tests/host/bmhost.c tests/host/stubs.c tests/host/host
 bmhost: $(BUILD)/host/bmhost-bin
 
 .DEFAULT_GOAL := all
-.PHONY: FORCE test-smp all clean firmware image image-pi1 sdcard install sdcard-chainloader sdcard-stress qemu qemu-screenshot \
+.PHONY: FORCE test-smp test-qpu test-gpu3d test-v3d bench3d count-insns all clean firmware image image-pi1 sdcard install \
+        sdcard-chainloader sdcard-stress qemu qemu-screenshot \
         run-serial test test-bm test-ai ai-model test-usb test-audio test-fat test-kitchen test-titan test-sound test-nano8 \
         test-net test-http test-https test-release release disasm wav test-studio test-studio-ui studio test-prompts \
         showreel bmhost test-overbit overbit-reel overbit-reel-heroes overbit-reel-match
@@ -495,7 +501,8 @@ install: sdcard
 	if [ -d $(SD)/$(OLD_DIR) ]; then $$S cp -rn $(SD)/$(OLD_DIR)/. $(SD)/bm/ && $$S rm -rf $(SD)/$(OLD_DIR) && \
 	    echo "moved $(OLD_DIR)/ (settings, saves, firmware) to bm/"; fi && \
 	$$S cp $(DIST)/bootcode.bin $(DIST)/start.elf $(DIST)/fixup.dat $(DIST)/config.txt $(DIST)/kernel.img $(SD)/ && \
-	$$S rm -f $(SD)/carts/demo.cart $(SD)/carts/demo.bm $(SD)/carts/stress.bm && \
+	$$S rm -f $(SD)/carts/demo.cart $(SD)/carts/demo.bm $(SD)/carts/stress.bm \
+	    $(SD)/carts/texroom.bm $(SD)/carts/texroom_hd.bm && \
 	$$S cp -r $(DIST)/carts/* $(SD)/carts/ && \
 	if [ -d $(DIST)/bm ]; then $$S cp $(DIST)/bm/* $(SD)/bm/; fi && \
 	sync && echo "installed on $(SD): kernel $$(git describe --always --dirty), carts, bm/ firmware" && \
@@ -523,7 +530,7 @@ qemu-screenshot: $(BUILD)/kernel.img
 	./scripts/qemu-screenshot.sh $< $(BUILD)/screen.png
 
 test: all test-bm test-usb test-fat test-audio test-kitchen test-titan test-sound test-nano8 test-net test-http test-https \
-      test-release test-smp test-ai test-studio test-prompts test-overbit
+      test-release test-smp test-qpu test-gpu3d test-v3d test-ai test-studio test-prompts test-overbit
 	$(PYTHON) tests/qemu_test.py --build $(BUILD)
 
 $(BUILD)/host/test_bm: tests/bm/test_bm.c src/bm/gfx16.c src/bm/r3d.c src/bm/format.c src/lib/crc32.c src/bm/*.h
@@ -642,12 +649,12 @@ $(BUILD)/meshcap-test.bm: tests/bm/meshcap_cart.lua scripts/mkbm.py
 	$(PYTHON) scripts/mkbm.py -o $@ --lua $< --title "meshcap test" --author tests
 
 test-bm: $(BUILD)/host/test_bm $(BUILD)/demo.bm $(BUILD)/host/test_meshcap $(BUILD)/carts/astrowing.bm \
-         $(BUILD)/carts/texroom.bm $(BUILD)/carts/kitchen.bm $(BUILD)/meshcap-test.bm
+         $(BUILD)/texroom.bm $(BUILD)/carts/kitchen.bm $(BUILD)/meshcap-test.bm
 	$< $(BUILD)/demo.bm
 	$(BUILD)/host/test_meshcap src/bm/runtime.c \
 	    $(BUILD)/meshcap-test.bm '!stop here,wheel:1,cars1_body:1,gem:2' \
 	    $(BUILD)/carts/astrowing.bm ship:32,dart,tower,gate,ring:120,laser,bolt,debris,debris2,mark,core,core_hot,turret \
-	    $(BUILD)/carts/texroom.bm floor_mesh,walls_mesh,crate_mesh,pillar_mesh \
+	    $(BUILD)/texroom.bm floor_mesh,walls_mesh,crate_mesh,pillar_mesh \
 	    $(BUILD)/carts/kitchen.bm chef_classic1_body,chef1_body,plate,dplate
 
 # The button prompts (bm-ui): every one checked, and both sets drawn 3x as
@@ -733,6 +740,52 @@ studio:
 	@echo "bm Studio:   http://localhost:8765/studio/"
 	@echo "bm Animator: http://localhost:8765/animator/   (Ctrl+C to stop)"
 	$(PYTHON) -m http.server 8765 --bind 127.0.0.1 --directory sdk
+
+# Rasterizer bench (M33): checksums of fixed 3D scenes (a change to r3d.c
+# that should not change the picture must keep them), and with
+# count-insns the ARM instructions per pixel and per triangle (needs
+# gcc-arm-linux-gnueabihf and qemu-user).
+$(BUILD)/host/bench3d: tests/bm/bench3d.c src/bm/gfx16.c src/bm/r3d.c src/bm/*.h
+	@mkdir -p $(dir $@)
+	$(HOSTCC) -O2 -Wall -Wextra -Isrc -o $@ tests/bm/bench3d.c src/bm/gfx16.c src/bm/r3d.c -lm
+
+bench3d: $(BUILD)/host/bench3d
+	$<
+
+count-insns:
+	$(PYTHON) tests/bm/count_insns.py
+
+# The GPU backend of the 3D (M33) on a V3D emulator, against the software
+# rasterizer, for the four byte orders its probe must find
+$(BUILD)/host/test_gpu3d: tests/gpu/test_gpu3d.c tests/gpu/v3d_emu.c tests/gpu/v3d_emu.h src/gpu/gpu3d.c \
+                          src/gpu/gpu3d.h src/gpu/v3d_cl.c src/gpu/v3d.h src/gpu/shaders.h src/bm/r3d.c \
+                          src/bm/gfx16.c src/bm/*.h
+	@mkdir -p $(dir $@)
+	$(HOSTCC) -O2 -Wall -Wextra -Isrc -Itests/gpu -Daligned_alloc=test_aligned_alloc -Dfree=test_free \
+	    -c src/gpu/gpu3d.c -o $@-gpu3d.o
+	$(HOSTCC) -O2 -Wall -Wextra -Isrc -Itests/gpu -o $@ tests/gpu/test_gpu3d.c tests/gpu/v3d_emu.c \
+	    src/gpu/v3d_cl.c src/bm/r3d.c src/bm/gfx16.c $@-gpu3d.o -lm
+
+# The V3D driver's job runner against a model of the V3D's registers
+$(BUILD)/host/test_v3d: tests/gpu/test_v3d.c tests/gpu/mock/drivers/mmio.h src/gpu/v3d.c src/gpu/v3d.h
+	@mkdir -p $(dir $@)
+	$(HOSTCC) -O2 -Wall -Wextra -Wno-format -Itests/gpu/mock -Isrc -o $@ tests/gpu/test_v3d.c src/gpu/v3d.c
+
+test-v3d: $(BUILD)/host/test_v3d
+	$<
+
+test-gpu3d: $(BUILD)/host/test_gpu3d
+	$< 1 0 0 0
+	$< 0 0 1 1
+	$< 1 1 1 0
+	$< 0 1 0 1
+	$< 1 0 2 0
+
+# QPU shaders (M33): the assembler against shaders run on a Pi, and
+# src/gpu/shaders.h up to date with the sources in tools/qpuasm.py
+test-qpu:
+	$(PYTHON) tools/qpuasm.py -o $(BUILD)/shaders.h
+	cmp $(BUILD)/shaders.h src/gpu/shaders.h
 
 HOSTCC ?= cc
 

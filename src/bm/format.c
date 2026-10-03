@@ -406,8 +406,9 @@ int bm_parse(const uint8_t *d, size_t len, bm_cart_t *c, char *err, size_t errle
     c->width = rd16(d + 12);
     c->height = rd16(d + 14);
     c->pixel_format = d[16];
-    if (!((c->width == 640 && c->height == 360) || (c->width == 320 && c->height == 180)))
-        return fail(err, errlen, "resolution must be 640x360 or 320x180");
+    if (!((c->width == 640 && c->height == 360) || (c->width == 480 && c->height == 270) ||
+          (c->width == 320 && c->height == 180)))
+        return fail(err, errlen, "resolution must be 640x360, 480x270 or 320x180");
     if (c->pixel_format != BM_FMT_RGB565)
         return fail(err, errlen, "pixel format not supported (only RGB565)");
     memcpy(c->title, d + 24, 48);

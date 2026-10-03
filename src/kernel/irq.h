@@ -36,5 +36,8 @@ static inline void irq_restore(uint32_t cpsr)
 }
 
 uint32_t irq_count(void);   /* total IRQs handled */
+/* Microseconds spent in the handler of irq since boot (wraps after 71
+ * minutes); irq < 0: all handlers together. */
+uint32_t irq_busy_us(int irq);
 
 #endif

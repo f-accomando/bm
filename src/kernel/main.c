@@ -95,6 +95,7 @@ extern const uint8_t bm_stress_cart[], bm_stress_cart_end[];
  * results left on the console for a photo. */
 static void run_stress(void)
 {
+    bm_stress_settle(20000);
     bm_stress_run(&fb);
     kprintf("Lua part (cartridge API):\n");
     bm_stats_t bs;

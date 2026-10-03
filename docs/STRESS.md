@@ -34,6 +34,9 @@ per poligoni 2D/3D, sia dal C sia attraverso l'API delle cartucce Lua (`.bm`).
 | 3D textured | le stesse sfere con una texture a scacchi 16×32 dello sheet (prospettiva corretta) | dal kernel con Gouraud (M14), da misurare sul Pi |
 | sprites 16×16 (Lua) | come il test C, ma ogni sprite è una chiamata `spr()` da Lua con il calcolo della posizione in Lua | costo reale per una cartuccia |
 | 3D spheres 96 (Lua) | come il test C, con `draw3d()` chiamato da Lua | trasformazioni e raster in C |
+| quad 320×180 flat / no z / Gouraud / texture | N quad di 320×180 pixel (un quarto dello schermo, cioè uno schermo 320×180 intero), uno per quadrante a turno, ciascuno più vicino del precedente: ogni pixel passa lo z-buffer e viene scritto | la pendenza è il **costo di un pixel** (colonna `ns/px`), senza il lavoro per triangolo delle sfere; texture 256×256, più grande della cache dati (M33) |
+| GPU spheres 96 / smooth / textured, GPU quad flat / Gouraud / texture | le stesse scene con il 3D disegnato dalla GPU (backend `gpu3d`, M33): l'ARM trasforma, illumina e taglia, la V3D riempie i pixel; il tempo comprende il lavoro della GPU | solo sul Pi (in QEMU la riga `GPU rows: none (...)` dice perché mancano); i quad GPU arrivano a 2000, ognuno più vicino del precedente di un passo dello z a 24 bit |
+| GPU spheres AA 4x, GPU quad AA 4x | sfere e quad piatti della GPU con l'anti-aliasing MSAA 4× (M34): tile di 32×32 pixel con 4 campioni l'uno | il costo dell'MSAA rispetto alle righe GPU senza; `no MSAA on this GPU` se la prova all'avvio non lo trova |
 
 Per il 3D la tabella riporta il numero di sfere e, tra parentesi, i **triangoli
 effettivamente disegnati** per frame.
@@ -120,6 +123,54 @@ Tabella e analisi in `docs/ROADMAP.md` (M14): parte C più lenta che a settembre
 Lua uguale; da allora lo stress test stampa clock, temperatura, throttling e un ciclo di
 sola CPU prima e dopo la parte C, per capire la differenza alla prossima misura.
 
+### Misura del 2026-10-01 (`6c2fdaa`, M33)
+
+A sistema fermo (la parte C aspetta 20 s dall'avvio): ARM 1000 MHz, core 250 (massimo
+400), V3D 250, SDRAM 400 MHz, 49,7 °C, nessun throttling, interrupt 0,4% (1188/s).
+
+| Test | Pi 60 fps | Pi 30 fps | µs/oggetto |
+|---|---:|---:|---:|
+| sprites 16×16 (C) | 4456 | 9204 | 3,50 |
+| sprites 32×32 (C) | 1504 | 3113 | 10,36 |
+| triangles 2D ~170px | **5038** | 10424 | 3,09 |
+| 3D spheres 96 (C) | **70** (2700 tri) | 226 (8914 tri) | 114,11 |
+| 3D smooth (Gouraud) | 18 (705 tri) | 84 (3276 tri) | 221,84 |
+| 3D textured | <1 | 51 (1987 tri) | 238,64 |
+| quad 320×180 flat | 11 | 24 | 22 ns/px |
+| quad 320×180 no z | 53 | 114 | 5 ns/px |
+| quad 320×180 Gouraud | 5 | 11 | 49 ns/px |
+| quad 320×180 texture | 2 | 5 | 97 ns/px |
+| sprites 16×16 (Lua) | 1848 | 3817 | 8,42 |
+| 3D spheres 96 (Lua) | 61 (2323 tri) | 204 (7994 tri) | 126,70 |
+
+Gli sprite tornano ai valori di settembre, quindi il calo del 29 settembre era un
+disturbo dell'avvio. Il rasterizzatore di M33 (bordi in virgola fissa, cicli delle
+texture specializzati) porta i triangoli 2D a 1,9× e le sfere 3D a 2,3× rispetto a
+settembre. Le righe GPU mancano (`GPU rows: none (probe: a clear did not finish)`):
+era un errore nell'attesa del driver, corretto dopo questa misura (vedi
+`docs/M33-PRIMA-DOPO.md`).
+
+Con `d0c7fe8` (stesso giorno, driver corretto) le righe ARM ripetono gli stessi valori
+entro un oggetto, e compaiono le righe GPU:
+
+| Test | Pi 60 fps | Pi 30 fps | µs/oggetto |
+|---|---:|---:|---:|
+| GPU spheres 96 | **182** (7142 tri) | 389 (15346 tri) | 80,10 |
+| GPU smooth (Gouraud) | **170** (6673 tri) | 364 (14360 tri) | 85,58 |
+| GPU textured | **156** (6094 tri) | 333 (13135 tri) | 93,16 |
+| GPU quad flat | **200** | 430 | 1 ns/px |
+| GPU quad Gouraud | **199** | 427 | 1 ns/px |
+| GPU quad texture | **28** | 60 | 9 ns/px |
+
+Con la GPU le sfere sono limitate dall'ARM (trasformazioni e vertici, ~2 µs per
+triangolo), i quad dalla V3D: 1 ns per pixel in tinta unita o Gouraud, 9 con la texture
+256×256 in ordine di riga.
+
+Dopo M33 (M34, da misurare sul Pi): la pagina pulita con `cls` non viene riletta dalla
+GPU, le texture con i lati multipli di 32 vanno in T-format (la texture 256×256 dei quad
+ne approfitta: da confrontare con i 9 ns/px qui sopra) e due righe nuove misurano
+l'MSAA 4×.
+
 ## Come eseguirlo sul Pi
 
 ```sh
@@ -135,6 +186,23 @@ e alla fine resta sullo schermo la tabella dei risultati: basta una foto.
 Per tornare al kernel normale: `make sdcard` e ricopiare `dist/kernel.img`.
 Con il cavo seriale lo stesso test si avvia dal monitor con il tasto `S`.
 
+## Le righe della macchina (M33)
+
+Prima e dopo la parte C lo stress test scrive due righe:
+
+- `ARM ... MHz, core ... (max ...), V3D ..., SDRAM ... MHz, ... C`: i clock. Il **core**
+  regola la cache L2 e il bus della memoria; `enable_uart=1` in `config.txt` lo fissa a
+  250 MHz (con `force_turbo=1` il firmware lo fissa invece alla frequenza turbo, 400 MHz
+  sul Zero: da provare, confrontando le righe `quad`).
+- `throttled ..., loop ... ms, irq ...% (N/s; ... )`: i flag di throttling del firmware
+  (0 = niente), il tempo di un ciclo di sola CPU e la parte del tempo passata negli
+  interrupt (audio, Bluetooth, timer...), con i due più pesanti: è il tempo che il
+  disegno non ha.
+
+Il kernel `make sdcard-stress` aspetta che il kernel giri da 20 s prima di partire: subito
+dopo l'avvio il WiFi si collega e il pad abbinato si riconnette, e i primi test lo
+pagavano (con `8298b15` la sfera 3D da Lua andava quasi il doppio di quella in C).
+
 ## Come leggere i risultati
 
 - **C vs Lua:** la differenza tra le due righe "sprites 16×16" è il costo della logica
@@ -144,6 +212,9 @@ Con il cavo seriale lo stesso test si avvia dal monitor con il tasto `S`.
 - **3D:** il limite è il numero di triangoli disegnati e la loro area. Le sfere del
   test sono piccole (poche centinaia di pixel per triangolo al massimo); triangoli
   grandi costano di più.
+- **Quad:** `ns/px` è il costo di un pixel scritto per ciascun modo; per esempio con
+  100 ns/px le texture riempiono in 16,7 ms circa 167 000 pixel (meno il resto del
+  frame).
 
 ## Possibili ottimizzazioni (dopo le misure)
 

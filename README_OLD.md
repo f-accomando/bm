@@ -22,8 +22,9 @@ balenaEtcher o `dd`; collega HDMI e una **tastiera o un gamepad USB** (adattator
 sulla porta micro-USB centrale) e accendi. Il Pi si avvia in un paio di secondi sul
 **menu delle cartucce** (in 3D: ogni gioco è una piccola scheda a forma di Memory
 Stick Duo con la copertina stampata sopra e i contatti in rame sul retro): Pong,
-Snake, Star Shooter, Astro Wing (3D), Hunter's Night (gotico, 320×180 con luci), Texture Room (3D con texture),
-**nano8** (le cartucce `.p8` / `.p8.png`, vedi [nano8](#nano8-cartucce-p8-e-p8png-m23)) e le demo. Frecce per scegliere,
+Snake, Star Shooter, Astro Wing (3D), Hunter's Night (gotico, 320×180 con luci), Chaos Kitchen, Titan Clash,
+**nano8** (le cartucce `.p8` / `.p8.png`, vedi [nano8](#nano8-cartucce-p8-e-p8png-m23)) e le demo; Texture Room (3D con
+texture) è il benchmark 3D della scheda Dev. Frecce per scegliere,
 Nel menu le copertine stanno in una griglia (schede **Games** e **Dev**); frecce per
 muoversi, Invio (o A) per giocare, **L1 / R1** (Q / E sulla tastiera) per cambiare scheda.
 **Esc** (o Start+Select, o PS) torna al menu e lascia
@@ -36,8 +37,8 @@ musica dei giochi), lo **studio 3D** (modelli e animazioni), **bm Mesh** (le mes
 quelle del codice), **bm Pixel** (la pixel art dello sprite sheet) e gli strumenti del
 monitor (Lua, sistema,
 registro, test, benchmark); **Settings**, l'ultima scheda, apre
-subito il suo pannello: controller, WiFi, layout della tastiera, disegno dei giochi,
-**volume** e sistema (M27, BareMetal UI). Nei giochi **START** mette in pausa: lì si
+subito il suo pannello: controller, WiFi, layout della tastiera, grafica (disegno dei
+giochi, chi disegna il 3D, anti-aliasing), **volume** e sistema (M27, BareMetal UI). Nei giochi **START** mette in pausa: lì si
 regola anche il volume. Tutto si usa col solo controller. Nel menu **PS** torna a
 Games e chiude i pannelli; nel monitor apre il menu.
 Per scrivere un gioco: [docs/GUIDA-GIOCHI.md](docs/GUIDA-GIOCHI.md) (guida pratica) e
@@ -117,6 +118,8 @@ Risoluzioni di menu, console e giochi, e quanto costano: [docs/RISOLUZIONI.md](d
 | **M28** | Tastiera Bluetooth LE (MX Keys S): pairing con codice, HID over GATT, riconnessione | ✅ verificato sul Pi |
 | **M29** | **Pi 1 B**: stesso kernel, hub USB (split transactions), Ethernet LAN9512, immagine `bm-pi1.img` | ✅ verificato sul Pi 1 B |
 | M30 | **Assistente AI** per lo sviluppo: domande su API e codice, errori, base degli sprite; rete INT8 sulla console | base fatta (QEMU), integrazione negli editor dopo |
+| **M33** | **GPU e 3D più veloce**: driver V3D nostro sotto `draw3d`, rasterizzatore ARM 2×, modo 480×270, Texture Room a 640×360 e 60 fps | ✅ verificato sul Pi |
+| M34 | **GPU 2**: anti-aliasing MSAA 4×, texture in T-format, pagina pulita senza load, meno lavoro per triangolo sull'ARM | in corso (passi 1–4 da provare sul Pi) |
 
 ## Cosa fa il kernel
 
@@ -159,6 +162,8 @@ con **`b`**.
 | `Y` | input: test USB dal vivo (contatori ok/nak/err e ultimo report), poi per 10 s i tasti tenuti da ogni giocatore (P1–P4; `*` = tastiera/seriale) |
 | `L` | layout tastiera: italiano ↔ US |
 | `D` | test del DMA passo per passo (copie e riempimenti, tempi CPU contro DMA) |
+| `g` | test della GPU 3D (V3D) passo per passo: accensione, un triangolo, z-buffer, velocità, un'immagine disegnata dalla GPU, poi la stessa scena 3D da ARM e GPU affiancate con i tempi, una scena 3D-2D-3D (z-buffer conservato), texture in ordine di riga e a tile, la scena senza e con MSAA 4× (M33, M34; anche "GPU test" nella scheda Dev) |
+| `R` | **Texture Room**, benchmark 3D: la stanza con le casse raddoppiate da 8 finché tiene 30 fps, a 320×180 e poi a 640×360, con l'ARM e poi con la GPU; una riga per passo (triangoli, ms, fps) e il riepilogo delle casse a 60 e a 30 fps (M33; anche "Texture Room" nella scheda Dev) |
 | `e` | **editor** dei giochi `.bm` (codice, sprite, mappa; è anche nella scheda Dev del menu) |
 | `A` | **Sound editor**: suoni, effetti sonori e musica dei giochi `.bm` (anche nella scheda Dev) |
 | `3` | **studio 3D**: modelli e animazioni di un `.bm` (player, blocchi e tessere, ossa, keyframe; anche nella scheda Dev) |
@@ -224,9 +229,9 @@ viene scelta l'interfaccia tastiera, anche se il dispositivo usa i report con ID
 (quella da cui si avvia il Pi) e cerca i file **`.bm`** nella
 cartella `carts/` e nella radice. Nomi lunghi supportati. `make sdcard` mette in
 `dist/carts/` i giochi (`pong.bm`, `snake.bm`, `shooter.bm`, `astrowing.bm`, `hunt.bm`,
-`kitchen.bm`, `titan.bm`, `texroom.bm`, `village.bm`); `make image` li mette nell'immagine SD. La demo
-nativa e lo stress test non sono giochi: restano nel kernel (comando `n` del monitor,
-Stress test nella scheda Dev) e `make install` li toglie dalla SD.
+`kitchen.bm`, `titan.bm`, `village.bm`, ...); `make image` li mette nell'immagine SD. La demo
+nativa, lo stress test e Texture Room non sono giochi: restano nel kernel (comando `n` del
+monitor, Stress test e Texture Room nella scheda Dev) e `make install` li toglie dalla SD.
 
 **Menu delle cartucce.** Mostra titolo e autore letti dalle cartucce (ordinate per
 titolo) e sotto il nome del file scelto. Su/giù per scegliere, Invio (o A) per giocare,
@@ -240,6 +245,11 @@ aggiungere un gioco basta copiarlo in `carts/` sulla SD dal PC.
 **Scrittura (M11).** bm scrive solo nella cartella `bm/` della SD:
 `bm/config.txt` (layout della tastiera, modo di disegno; si può modificare anche dal
 PC) e `bm/save/*.SAV` (salvataggi e record delle cartucce: `save()`/`saved()`).
+In `bm/config.txt`, `dma_zclear=0` fa pulire lo z-buffer dalla CPU invece che dal DMA
+(M33; da usare solo se un gioco 3D si blocca), `gpu3d=0` fa disegnare il 3D dei
+giochi all'ARM invece che alla GPU (M33: *Impostazioni > Graphics > 3D of the games*; se
+la GPU non risponde si torna all'ARM da soli) e `gpu3d_aa=1` accende l'anti-aliasing
+MSAA 4× del 3D sulla GPU (M34: *Impostazioni > Graphics > 3D anti-aliasing*).
 
 Limiti attuali: un solo dispositivo USB, senza hub; niente
 Bluetooth (il chip BCM43438 usa la stessa UART della console seriale e richiede
@@ -620,7 +630,8 @@ scripts/mkassist.py      base di conoscenza + rete -> build/assist.bin (nel kern
 scripts/trainassist.py   addestramento della rete (make ai-model, numpy)
 tests/ai/                test dell'assistente (C, Lua, esempi di codice)
 carts/demo/              cartuccia nativa demo: main.lua, sheet.png, map.csv
-carts/pong|snake|shooter|astrowing|hunt|texroom giochi demo (solo Lua)
+carts/pong|snake|shooter|astrowing|hunt giochi demo (solo Lua)
+carts/texroom/           Texture Room: il benchmark 3D della scheda Dev (nel kernel)
 carts/village/           Studio Village: main.lua, models.bm (modelli, scheletro e sheet),
                          mkmodels.js (li costruisce con gli strumenti di Studio e Animator)
 sdk/studio/              bm Studio: modelli 3D e pixel art per i .bm, sul PC (sdk/README.md)

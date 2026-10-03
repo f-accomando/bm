@@ -111,3 +111,9 @@ bm_mesh_cart_end:
 bm_pixel_cart:
     .incbin "pixel.bm"
 bm_pixel_cart_end:
+    .section .rodata
+    .balign 4
+    .globl bm_texroom_cart, bm_texroom_cart_end
+bm_texroom_cart:
+    .incbin "texroom.bm"
+bm_texroom_cart_end:

@@ -15,6 +15,7 @@ typedef struct {
     uint32_t shown;     /* index of the buffer on screen */
     int vsync;          /* firmware supports "wait for vsync" (-1 = unknown) */
     uint32_t depth;     /* bits per pixel: 32 (console) or 16 (RGB565) */
+    uint32_t bus;       /* bus address of mem, as the firmware gave it (DMA, V3D) */
 } framebuffer_t;
 
 /* Asks the firmware for a 32bpp framebuffer with `buffers` (1 to 3) pages

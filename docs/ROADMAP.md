@@ -1924,6 +1924,197 @@ Passi (in quest'ordine, richiesto dall'autore):
   relay: le stesse uccisioni, catture e round su entrambi, nessuna divergenza.
 - **Da provare sul Pi**: due console sulla stessa WiFi, PLAY ONLINE: una HOST A MATCH,
   l'altra JOIN, poi START; una foto se compare "OUT OF SYNC" o "WAITING FOR THE OTHERS".
+## M33 — GPU e 3D più veloce (L/XL) — ✅ verificata sul Pi (2026-10-01)
+Decisione 2026-09-30, dopo l'analisi delle prestazioni 3D: il rasterizzatore software ha
+ancora un margine (circa 2× sui pixel con texture), ma il salto vero è la **GPU 3D del
+VideoCore IV** (V3D: 12 QPU, texture filtrate, z-buffer nel chip), finora mai usata.
+Niente OpenGL: né quello del firmware (VCHIQ, userland Broadcom, thread) né Mesa (Linux
+DRM). Un **driver V3D nostro, piccolo e a funzioni fisse**, sotto l'API che le cartucce
+usano già (`mesh`, `draw3d`, `camera3d`, `light3d`, `fog3d`, `lamp3d`): le cartucce non
+cambiano, vanno più veloci. Il rasterizzatore software resta per QEMU (che non emula la
+V3D), per i test sul PC e come riserva.
+- **Fatto quando:** Texture Room gira a 60 fps a 640×360 con la GPU (la cartuccia
+  *Texture Room HD*, poi il benchmark Texture Room della scheda Dev), e lo stress test
+  mostra le righe GPU accanto a quelle software.
+
+**Passi:**
+1. **Misure** (stress test `s`): la parte C parte dopo che l'avvio si è calmato (WiFi,
+   Bluetooth); righe con un quad a tutto schermo (piatto, Gouraud, texture) per separare
+   il costo per pixel da quello per triangolo; clock del core (fissato a 250 MHz da
+   `enable_uart=1`: regola la L2 e il bus della memoria).
+2. **Rasterizzatore più veloce** (software): divisione per l'area una volta per
+   triangolo, mesh fuori dallo schermo scartate prima di trasformarle, ciclo delle
+   texture più corto, Gouraud a rampa quando la luce è bianca, z-buffer pulito dal DMA.
+3. **Modo 480×270** per le cartucce (4× esatto su 1080p): la risoluzione naturale per il
+   3D in software.
+4. **Prova della V3D** (monitor `g`, passo per passo sullo schermo come `D`): accensione,
+   identificativo, pulizia dello schermo con la sola lista di rendering, un triangolo
+   Gouraud, molti triangoli con i tempi.
+5. **Backend V3D per `draw3d`**: piatto, Gouraud, z-buffer; righe GPU nello stress test.
+6. **Texture, nebbia, trasparenze, MSAA 4×**; poi, se servono: vertex shader sulle QPU,
+   luce per pixel, sprite 2D sulla GPU.
+
+Fatto (2026-10-01, da misurare sul Pi):
+- Passo 1: lo stress test aspetta 20 s dopo l'avvio, scrive clock (core e massimo, V3D,
+  SDRAM), throttling e tempo negli interrupt (con i due più pesanti), e ha quattro righe
+  `quad 320x180` (piatto, senza z, Gouraud, texture) con il costo di un pixel in ns.
+- Passo 2: bordi dei triangoli in virgola fissa 32.32 (niente confronti in virgola mobile
+  per riga), cicli delle texture specializzati (clamp controllato per segmento,
+  trasparenza per cella dello sheet, luce con 2 moltiplicazioni), dither del Gouraud in un
+  registro che ruota, mesh fuori dalla vista scartate prima di trasformarle, z-buffer
+  pulito dal DMA a fine frame (`dma_zclear=0` in `bm/config.txt` lo spegne). Pixel
+  identici a prima; istruzioni ARM per pixel in `docs/PRESTAZIONI.md` (texture con luce
+  70 → 46, Texture Room 85 → 58). Strumenti: `make bench3d` (checksum delle scene) e
+  `make count-insns` (istruzioni contate con `qemu-arm`).
+- Passo 4 (da provare sul Pi): **prova della V3D**, monitor `g` o "GPU test" nella
+  scheda Dev. Driver minimo `src/gpu/v3d.c` (accensione col mailbox, identità, cache
+  della V3D, liste di controllo con timeout e registri sullo schermo in caso d'errore),
+  shader QPU assemblati da `tools/qpuasm.py` (che riproduce bit per bit gli shader di
+  due esempi bare metal già provati su un Pi Zero W). Passi, ognuno scritto prima di
+  partire: 1 accensione, 2 identità (slice, QPU, TMU), 3 pulizia dello schermo con la
+  sola lista di rendering (e l'ordine dei colori in RGB565), 4 un triangolo Gouraud,
+  5 z-buffer (il triangolo più vicino vince in entrambi gli ordini), 6 velocità con
+  20 000 triangoli piccoli, 7 velocità con 20 schermi interi, 8 un quadrato con texture
+  letta dalla TMU (texture RGBA a 32 bit in ordine di riga, come nell'esempio per il Pi
+  Zero W), 9 un'immagine disegnata dalla GPU direttamente nella pagina della console
+  (resta 10 s o fino a un tasto).
+  In QEMU (che non ha la V3D) si ferma al passo 1 e lo dice (`test_gpu_absent`).
+- Passo 3: modo **480×270** per le cartucce (`mkbm.py --res 480x270`, `SCREEN_W` 480,
+  l'editor lo propone tra 640×360 e 320×180); test QEMU `test_res_480` (modo video, 3D
+  con texture, z-buffer pulito dal DMA).
+- Passi 5 e parte del 6: **backend GPU per
+  `draw3d`** (`src/gpu/gpu3d.c`). r3d trasforma, illumina, taglia e scarta come prima e
+  passa i triangoli dello schermo al backend, che li raccoglie in un lavoro per la V3D
+  (gruppi di triangoli con lo stesso shader, z e texture; vertici nel formato NV);
+  la V3D carica ogni tile dalla pagina (il 2D disegnato prima resta sotto), disegna con
+  uno z-buffer a 24 bit e la rimette nella pagina. Tre shader: colore sfumato (piatto e
+  Gouraud, nebbia e luci già nel colore), texture × luce, texture × luce con i texel
+  trasparenti scartati. Triangoli oltre il range delle coordinate tagliati in una banda
+  di guardia; sheet più grandi di 2048 in grigio. All'avvio una prova in un buffer
+  piccolo trova da sola l'ordine dei byte di colori e texel. Il 3D in attesa viene
+  disegnato prima del 2D che lo segue, di `pget`/`sset`/`light_begin` e a fine
+  fotogramma (contato in `stat(1)`); se la GPU non finisce un lavoro il kernel torna
+  all'ARM e scrive i registri nel log. Si accende in *Impostazioni > 3D of the games*
+  (`gpu3d=1`); `stat(9)` lo dice alla cartuccia (Texture Room scrive `GPU` nell'HUD);
+  a fine partita il log ha lavori, triangoli e ms della GPU per fotogramma.
+  Prova sul Pi: passo 10 di `g` (la stessa scena da ARM e GPU, tempi, pixel diversi,
+  le due immagini affiancate). Sul PC: emulatore della V3D (`tests/gpu/v3d_emu.c`:
+  liste di controllo, binning per tile, shader eseguiti per tipo) e `make test-gpu3d`
+  (scene confrontate col rasterizzatore software, nei quattro ordini di byte possibili).
+  Poi: **righe GPU nello stress test** (sfere piatte, Gouraud, con texture e i quad a
+  tutto schermo disegnati dal backend, fino a 2000 quad con lo z a 24 bit; in QEMU la
+  riga `GPU rows: none (...)` dice perché mancano) e **z-buffer conservato tra un
+  lavoro e l'altro**: quando un lavoro si chiude a metà fotogramma (lavoro pieno,
+  texture da rifare, oppure 2D seguito da altro 3D) la V3D salva lo Z in memoria in
+  formato T e il lavoro dopo lo ricarica, come fa il driver vc4 di Linux (un load per
+  volta, uno store vuoto in mezzo). Per il 2D lo fa solo per le cartucce che ne hanno
+  bisogno (lo impara al primo fotogramma), per non pagare 1 MB a fotogramma per ogni
+  HUD. Prova sul Pi: passo 11 di `g` (3D, 2D, 3D confrontato con l'ARM).
+  Infine **Texture Room HD**: lo stesso `main.lua` di Texture Room costruito a 640×360
+  (`build/carts/texroom_hd.bm`), la cartuccia del criterio di chiusura; con il 3D
+  sull'ARM scrive in basso come accendere la GPU.
+  Report prima/dopo (istruzioni, funzioni, correttezza della GPU sull'emulatore, cosa
+  misurare sul Pi): `docs/M33-PRIMA-DOPO.md`.
+- **Sul Pi (2026-10-01, `6c2fdaa`):** il 3D sull'ARM va 2,3× (sfere 31 → 70 a 60 fps), i
+  triangoli 2D 1,9×, e Texture Room HD sull'ARM fa 37–41 fps. La V3D si accende e
+  risponde (3 slice × 4 QPU, 250 MHz), ma la prima pulizia si è fermata con "no end of
+  frame": l'attesa del driver prendeva per un errore il bit "binner senza memoria",
+  acceso fin dall'avvio. Corretto, con un test sul PC che simula i registri come li ha
+  mostrati il Pi (`make test-v3d`).
+- **GPU sul Pi (2026-10-01, `d0c7fe8`):** il test `g` passa tutti gli 11 passi (stessa
+  scena 3309 triangoli: ARM 28,8 ms, GPU 9,1 ms, 0,1% di pixel diversi; z conservato tra
+  2D e 3D: 0,0%). La V3D riempie 811 Mpixel/s e fa 3 milioni di triangoli/s. Righe GPU
+  dello stress: 182 sfere a 60 fps (7142 triangoli) contro 69 sull'ARM, quad 1 ns per
+  pixel (9 con texture). Il limite ora è l'ARM (~2 µs per triangolo). Per chiudere M33
+  manca Texture Room HD con la GPU.
+
+✅ Verificata sul Pi (2026-10-01, `d0c7fe8`): **Texture Room HD con la GPU** a 640×360,
+32 casse (573 triangoli), **5,8 ms, 60 fps** (sull'ARM: 25–26 ms, 37–41 fps); Chaos
+Kitchen con la GPU 6,8 ms, 60 fps, 758 triangoli (prima di M33: 14,1 ms, 54 fps); lo
+stress test ha le righe GPU accanto a quelle software. Il criterio di chiusura è
+raggiunto, e da qui **la GPU è il default** per il 3D dei giochi (`gpu3d=0` o
+*Impostazioni > Graphics > 3D of the games: ARM* per l'ARM; in QEMU e se la V3D non risponde si
+torna all'ARM da soli). Report prima/dopo: `docs/M33-PRIMA-DOPO.md`.
+
+Dopo la chiusura (2026-10-01): Texture Room e Texture Room HD diventano **un benchmark
+nella scheda Dev** (comando `R` del monitor), non più giochi. Il kernel porta la
+cartuccia al suo interno e la rilancia passo per passo (`bm_next_run`: risoluzione,
+renderer e numero di casse, che la cartuccia legge in `BENCH`): casse raddoppiate da 8
+finché tiene 30 fps, a 320×180 e poi a 640×360, con l'ARM e poi con la GPU. Ogni passo
+dura 2 s e scrive casse, triangoli, ms e fps; alla fine un riepilogo con le casse
+massime a 60 e a 30 fps per ogni caso (`src/bm/roombench.c`). Restano fuori da
+M33, e passano a M34: MSAA 4×, texture in T-format per la TMU (oggi 9 ns per pixel con
+texture contro 1), il costo per triangolo dell'ARM (~2 µs, ora il limite); per dopo il
+filtro bilineare (cambia l'aspetto delle texture rispetto all'ARM) e gli sprite 2D
+sulla GPU.
+
+## M34 — GPU 2: anti-aliasing, texture a tile, meno lavoro per l'ARM (L) — in corso
+Il seguito di M33 (decisione 2026-10-01): con la GPU il 3D è limitato dall'ARM (~2 µs
+per triangolo) e, con le texture, dalla lettura in ordine di riga (9 ns per pixel contro
+1). In più la GPU sa fare l'anti-aliasing che l'ARM non può permettersi.
+- **Fatto quando:** sul Pi il test `g` passa i passi 12 e 13 (texture a tile identiche
+  e più veloci, MSAA con i bordi smussati), lo stress test ha le righe AA, e il costo
+  per triangolo dell'ARM con la GPU scende in modo misurabile (righe GPU spheres,
+  benchmark Texture Room).
+
+**Passi:**
+1. **Pagina pulita senza load**: un fotogramma che comincia con `cls` non fa rileggere
+   la pagina alla GPU; le tile partono dal colore di `cls`.
+2. **Texture in T-format** (il formato a tile della TMU, meglio per la sua cache), con il
+   layout imparato dalla GPU stessa e il ritorno all'ordine di riga se la prova non torna.
+3. **MSAA 4×** per il 3D della GPU, scelto in *Impostazioni > Graphics*.
+4. **Meno lavoro per triangolo sull'ARM** (trasformazioni, vertici NV, liste).
+
+Fatto (2026-10-01, da verificare sul Pi):
+- Passo 1: `cls()` dice al backend il colore della pagina (`gpu3d_page`); il lavoro
+  che parte da una pagina di un solo colore pulisce le tile con quel colore invece di
+  caricarle (un load della pagina in meno per fotogramma). Lo stress test fa lo
+  stesso con le sue righe GPU.
+- Passo 2: all'avvio, dopo gli ordini dei byte, la prova disegna una texture 64×64
+  RGBA8888 in cui la parola *i* si vede come il colore RGB565 *i*: dai pixel il backend
+  impara, texel per texel, quale parola legge la TMU (tile da 4 KiB di 32×32 texel, il
+  layout dentro la tile nelle righe pari e dispari, l'ordine delle tile) e mette le
+  texture con i lati multipli di 32 in T-format solo se tutto torna; altrimenti restano
+  in ordine di riga. Lo stato della GPU lo dice (`textures in tiles` o `in rows`).
+  Prova sul Pi: passo 12 di `g` (pavimento 256×256 con texture, in ordine di riga e a
+  tile: tempi e immagini identiche, altrimenti le tile si spengono e lo scrive).
+  Sul PC l'emulatore ha tre layout T-format (`make test-gpu3d`).
+- Passo 3: **MSAA 4×**. Tile di 32×32 con 4 campioni, rasterizzazione a 4 campioni
+  (`CONFIGURATION_BITS`), la media scritta nella pagina allo store. Caricare la pagina
+  in un tile multicampione non è un percorso usato da Mesa né dal driver di Linux,
+  quindi una prova all'avvio lo controlla: un lavoro MSAA che pulisce deve dare il
+  colore giusto, e un load deve riempire i 4 campioni (allora MSAA su ogni pagina;
+  se ne riempie uno solo, MSAA solo sulle pagine pulite con `cls`; se il lavoro non
+  finisce, niente MSAA). Mai con lo z-buffer conservato tra un lavoro e l'altro (i
+  campioni sarebbero 4 per pixel). Si accende in *Impostazioni > Graphics > 3D
+  anti-aliasing* (`gpu3d_aa=1`, spento di default); le Impostazioni ora hanno il
+  sottomenu *Graphics* (disegno dei giochi, 3D, anti-aliasing). Prova sul Pi: passo 13
+  di `g` (la scena del passo 10 senza e con MSAA, tempi, quota di pixel smussati e un
+  ritaglio ingrandito 2× delle due immagini affiancate) e le righe `GPU spheres AA 4x`
+  e `GPU quad AA 4x` dello stress test. Sul PC l'emulatore fa l'MSAA (campioni, media)
+  anche nella variante in cui il load riempie un solo campione.
+- Passo 4: **meno istruzioni ARM per triangolo** con la GPU, pixel identici (stessi
+  checksum di `make bench3d`, sull'ARM e sulla GPU emulata): sfere 936 → 706 (−25%),
+  con texture 1131 → 888, Texture Room 1386 → 1109 (`make count-insns`, scene `+gpu`;
+  dettagli in `docs/PRESTAZIONI.md`). `count-insns` non traccia più l'emulatore della
+  V3D (da 10 minuti a 80 secondi per scena). Prova sul Pi: righe GPU dello stress test
+  (µs per sfera, prima 80) e benchmark Texture Room.
+
+**Unita a Overbit (2026-10-03, branch `claude/overclone`).** Nel branch
+`3d-performance` M33 e M34 erano M30 e M31 (qui M30 è l'assistente, M31 Overbit, M32 il
+mouse del branch principale). r3d unisce le due strade: i bordi in virgola fissa, i
+cicli delle texture specializzati, le mesh fuori dalla vista scartate (non quelle con
+scheletro) e il backend della GPU, con quello che Overbit aveva aggiunto (materiali,
+luce del cielo, riflessi, retino, livelli di dettaglio, ossa, luce precalcolata agli
+angoli, ombre, effetti, strato in prima persona, Gouraud impacchettato, righe tagliate
+ai lati). Il primo piano di `R3D_FRONT` con la GPU è uno `zclear` del backend.
+Quello che la GPU non sa ancora disegnare (ombre e effetti 3D, che leggono lo
+z-buffer; facce a retino; texture con la luce precalcolata RGB) chiama
+`r3d_t.arm_hook`: la GPU disegna ciò che ha in coda e la cartuccia passa all'ARM (una
+riga nel log). Overbit quindi resta sull'ARM finché la GPU non ha questi pezzi.
+`stat(6)` del branch (la GPU disegna) diventa `stat(9)`: 6–8 sono già i tempi di
+Overbit. Pixel del rasterizzatore uguali a prima del merge (`bench3d`: 1–14 pixel su
+230 400 cambiano di un livello di retino).
 
 ## Rischi principali
 | Rischio | Mitigazione |
@@ -1935,6 +2126,7 @@ Passi (in quest'ordine, richiesto dall'autore):
 | Bluetooth (M12) senza emulatore | un solo controller di riferimento, tracce HCI registrate sul Pi per i test |
 | Scrittura su SD (M11) che corrompe la scheda | test in QEMU con `fsck.vfat`, file di bm in una cartella dedicata |
 | Split transactions e LAN951x (M29) senza emulatore | schema di USPi/Circle (provati sul Pi 1), chip simulato nei test sul PC, diagnostica a schermo (`y`, `E`) |
+| GPU V3D (M33) senza emulatore e senza seriale | prova passo per passo sullo schermo (`g`), timeout su ogni attesa, emulatore della V3D per i test sul PC, rasterizzatore software come riserva (anche automatica) |
 
 ## Hardware consigliato per lo sviluppo
 - Adattatore USB-seriale 3.3 V (**non 5 V**) su GPIO14/15 + GND

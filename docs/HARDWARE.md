@@ -41,8 +41,8 @@ la RAM (memcpy ~100 MB/s, riempimento ~430 MB/s *(M)*).
 | Risorsa | Pi Zero W | bm oggi | Uso |
 |---|---|---|---|
 | Uscita | mini-HDMI fino a 1920×1080 a 60 Hz; composito (pad TV) *(D)* | HDMI *(M)* | — |
-| GPU | VideoCore IV, core 250 MHz *(M)*, OpenGL ES 2.0, scaler hardware (HVS) *(D)* | solo lo scaler (framebuffer ingrandito dalla GPU); il 3D delle cartucce è software sull'ARM | GPU 3D inutilizzata (vedi docs/STRESS.md) |
-| Risoluzione logica | qualsiasi, scalata dalla GPU | console e menu 640×360 (32 bit); **cartucce 640×360 o 320×180 RGB565** | 640×360 = 11% dei pixel di 1080p |
+| GPU | VideoCore IV, core 250 MHz *(M)*, OpenGL ES 2.0, scaler hardware (HVS) *(D)*; 3D (V3D): 12 QPU in 3 slice, texture filtrate, tile 64×64 con z a 24 bit nel chip *(D)* | lo scaler (framebuffer ingrandito dalla GPU); il 3D delle cartucce (M33: driver V3D nostro, 811 Mpixel/s, ARM come riserva) | GPU 3D usata dal 3D dei giochi |
+| Risoluzione logica | qualsiasi, scalata dalla GPU | console e menu 640×360 (32 bit); **cartucce 640×360, 480×270 o 320×180 RGB565** | 640×360 = 11% dei pixel di 1080p |
 | Colori | framebuffer 32 bit (16,7 milioni) *(M)* | 32 bit per la console; 16 bit RGB565 (65 536 colori) per le cartucce | — |
 | Sprite | nessun limite hardware (disegno software) | 256 sprite 16×16 ≈ 0,9 ms *(M)* | — |
 | Frequenza | 60 Hz (vsync del firmware **non disponibile** su Pi Zero, tag non supportato *(M)*) | 60 fps dal timer, 0 frame persi *(M)* | — |

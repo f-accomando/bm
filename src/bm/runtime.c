@@ -22,6 +22,7 @@
 #include "audio/player.h"
 #include "audio/synth.h"
 #include "drivers/dma.h"
+#include "gpu/gpu3d.h"
 #include "arch/cache.h"
 #include "kernel/crumbs.h"
 #include "kernel/prompts.h"
@@ -71,6 +72,9 @@ static struct {
     int quit;
     r3d_t r3d;
     int r3d_ready;
+    int zclear_seen;            /* zclear() called in this frame */
+    int zclear_dma;             /* the z-buffer is being (or has been) cleared by the DMA
+                                 * for the next frame, and nothing has drawn on it since */
     g16_light_t light;          /* light_begin() .. light_end() */
     int text_mode;              /* keyp() was called: the keyboard types */
     int raw_keys;               /* rawkeys(true): the keyboard is read with keydown() */
@@ -121,16 +125,60 @@ static void sheet_commit(void)
 
 /* ---------------------------------------------------------------- API */
 
-static int l_cls(lua_State *L)      { g16_cls(&rt.g, col(L, 1, 0)); return 0; }
-static int l_pset(lua_State *L)     { g16_pset(&rt.g, ival(L, 1), ival(L, 2), col(L, 3, 0xFFFFFF)); return 0; }
-static int l_line(lua_State *L)     { g16_line(&rt.g, ival(L, 1), ival(L, 2), ival(L, 3), ival(L, 4), col(L, 5, 0xFFFFFF)); return 0; }
-static int l_rect(lua_State *L)     { g16_rect(&rt.g, ival(L, 1), ival(L, 2), ival(L, 3), ival(L, 4), col(L, 5, 0xFFFFFF)); return 0; }
-static int l_rectfill(lua_State *L) { g16_rectfill(&rt.g, ival(L, 1), ival(L, 2), ival(L, 3), ival(L, 4), col(L, 5, 0xFFFFFF)); return 0; }
-static int l_circ(lua_State *L)     { g16_circ(&rt.g, ival(L, 1), ival(L, 2), ival(L, 3), col(L, 4, 0xFFFFFF)); return 0; }
-static int l_circfill(lua_State *L) { g16_circfill(&rt.g, ival(L, 1), ival(L, 2), ival(L, 3), col(L, 4, 0xFFFFFF)); return 0; }
+/* The 3D drawn by the GPU waits in a job until something else touches the
+ * page: then the job goes first (2D drawn after the 3D lands on it, pget
+ * reads the 3D). keep: in the middle of a frame, the depth stays for the
+ * 3D drawn after; 0 at the end of the frame. */
+static void flush3d(int keep)
+{
+    if (!rt.r3d.backend)
+        return;
+    if (((gpu3d_pending() || !keep) && gpu3d_flush(&rt.g, keep) != 0) || gpu3d_failed())
+        rt.r3d.backend = NULL;          /* the GPU failed: the ARM draws the 3D again */
+}
+
+/* before drawing on the page (or reading it): the 3D waiting goes first,
+ * and the page is no longer one colour */
+static void sync3d(void)
+{
+    flush3d(1);
+    if (rt.r3d.backend)
+        gpu3d_page(0, 0);
+}
+
+/* r3d needs the ARM (shadows, 3D effects, materials the GPU lacks: see
+ * r3d_t.arm_hook): the GPU draws what it holds, and the ARM draws the 3D
+ * of this cartridge from here on */
+static void gpu3d_to_arm(void *ctx, const char *why)
+{
+    (void)ctx;
+    flush3d(0);
+    if (rt.r3d.backend) {
+        gpu3d_drop();
+        gpu3d_page(0, 0);
+    }
+    kprintf("bm: the 3D is drawn by the ARM from here: the cartridge uses %s\n", why);
+}
+
+static int l_cls(lua_State *L)
+{
+    const uint16_t c = col(L, 1, 0);
+    sync3d();
+    g16_cls(&rt.g, c);
+    if (rt.r3d.backend)
+        gpu3d_page(1, c);               /* the GPU's next job clears to it */
+    return 0;
+}
+static int l_pset(lua_State *L)     { sync3d(); g16_pset(&rt.g, ival(L, 1), ival(L, 2), col(L, 3, 0xFFFFFF)); return 0; }
+static int l_line(lua_State *L)     { sync3d(); g16_line(&rt.g, ival(L, 1), ival(L, 2), ival(L, 3), ival(L, 4), col(L, 5, 0xFFFFFF)); return 0; }
+static int l_rect(lua_State *L)     { sync3d(); g16_rect(&rt.g, ival(L, 1), ival(L, 2), ival(L, 3), ival(L, 4), col(L, 5, 0xFFFFFF)); return 0; }
+static int l_rectfill(lua_State *L) { sync3d(); g16_rectfill(&rt.g, ival(L, 1), ival(L, 2), ival(L, 3), ival(L, 4), col(L, 5, 0xFFFFFF)); return 0; }
+static int l_circ(lua_State *L)     { sync3d(); g16_circ(&rt.g, ival(L, 1), ival(L, 2), ival(L, 3), col(L, 4, 0xFFFFFF)); return 0; }
+static int l_circfill(lua_State *L) { sync3d(); g16_circfill(&rt.g, ival(L, 1), ival(L, 2), ival(L, 3), col(L, 4, 0xFFFFFF)); return 0; }
 
 static int l_pget(lua_State *L)
 {
+    sync3d();
     int c = g16_pget(&rt.g, ival(L, 1), ival(L, 2));
     if (c < 0) lua_pushnil(L);
     else lua_pushinteger(L, g16_to_rgb24((uint16_t)c));
@@ -139,6 +187,7 @@ static int l_pget(lua_State *L)
 
 static int l_spr(lua_State *L)
 {
+    sync3d();
     sheet_commit();
     g16_spr(&rt.g, &rt.sheet, ival(L, 1), ival(L, 2), ival(L, 3), oval(L, 4, 1), oval(L, 5, 1),
             lua_toboolean(L, 6), lua_toboolean(L, 7));
@@ -149,6 +198,7 @@ static int l_spr(lua_State *L)
  * draws it that many times bigger, or smaller below 1 (nearest pixel) */
 static int l_sspr(lua_State *L)
 {
+    sync3d();
     sheet_commit();
     lua_Number zoom = luaL_optnumber(L, 9, 1);
     if (zoom == 1)
@@ -162,6 +212,7 @@ static int l_sspr(lua_State *L)
 
 static int l_map(lua_State *L)
 {
+    sync3d();
     sheet_commit();
     g16_map(&rt.g, &rt.sheet, &rt.map, ival(L, 1), ival(L, 2), oval(L, 3, 0), oval(L, 4, 0),
             oval(L, 5, rt.map.w), oval(L, 6, rt.map.h));
@@ -200,6 +251,7 @@ static int l_sset(lua_State *L)
     if (x < 0 || y < 0 || x >= rt.sheet.w || y >= rt.sheet.h)
         return 0;
     int opaque = !lua_isnoneornil(L, 3);
+    sync3d();                           /* the waiting 3D may use the sheet as texture */
     g16_sheet_set(&rt.sheet, x, y, opaque ? col(L, 3, 0) : 0, opaque);
     rt.cell_dirty[(y / G16_CELL) * (rt.sheet.w / G16_CELL) + x / G16_CELL] = 1;
     rt.sheet_dirty = 1;
@@ -215,6 +267,7 @@ static int l_print(lua_State *L)
     int scale = oval(L, 5, 1);
     if (scale > 8) scale = 8;
     const char *s = luaL_tolstring(L, 1, NULL);
+    sync3d();
     lua_pushinteger(L, g16_text_scaled(&rt.g, x, y, s, c, scale));
     return 1;
 }
@@ -313,6 +366,7 @@ static int l_prompt(lua_State *L)
         return 2;
     }
     int x = ival(L, 2), y = ival(L, 3);
+    sync3d();
     for (int j = 0; j < p->h; j++)
         for (int i = 0; i < p->w; i++) {
             uint32_t c = p->px[j * p->w + i], a = c >> 24;
@@ -452,9 +506,10 @@ static int l_time(lua_State *L)
 }
 
 /* stat(n): 0 Lua KiB, 1 last frame CPU ms (update+draw), 2 fps, 3 frame number,
- *         4 3D triangles drawn and 5 3D pixels written since the last zclear(),
- *         6 ms spent in 3D drawing (draw3d and the effects) since then,
- *         7 3D vertices transformed since then, 8 ms since this frame began */
+ *         4 3D triangles drawn and 5 3D pixels written since the last zclear()
+ *         (0 with the GPU), 6 ms spent in 3D drawing (draw3d and the effects;
+ *         with the GPU, the ARM's part) since then, 7 3D vertices transformed
+ *         since then, 8 ms since this frame began, 9 1 if the GPU draws the 3D */
 static int l_stat(lua_State *L)
 {
     switch (ival(L, 1)) {
@@ -467,6 +522,7 @@ static int l_stat(lua_State *L)
     case 6: lua_pushnumber(L, rt.us3d / 1000.0); break;
     case 7: lua_pushinteger(L, rt.r3d_ready ? rt.r3d.verts : 0); break;
     case 8: lua_pushnumber(L, (timer_ticks() - rt.frame_t0) / 1000.0); break;
+    case 9: lua_pushinteger(L, rt.r3d_ready && rt.r3d.backend); break;
     default: lua_pushnil(L);
     }
     return 1;
@@ -476,6 +532,7 @@ static int l_stat(lua_State *L)
  * corner, blended across the triangle (Gouraud, dithered) */
 static int l_tri(lua_State *L)
 {
+    sync3d();
     if (!lua_isnoneornil(L, 8)) {
         uint32_t c0 = (uint32_t)luaL_optinteger(L, 7, 0xFFFFFF);
         g16_tri_gouraud(&rt.g, ival(L, 1), ival(L, 2), ival(L, 3), ival(L, 4), ival(L, 5), ival(L, 6),
@@ -494,14 +551,89 @@ static float fnum(lua_State *L, int i, float def)
     return (float)luaL_optnumber(L, i, def);
 }
 
+/* bm_next_run: options of the next run only */
+static struct { int w, h, gpu3d, bench; } next = { 0, 0, -1, 0 }, cur = { 0, 0, -1, 0 };
+
+void bm_next_run(int w, int h, int gpu3d, int bench)
+{
+    next.w = w;
+    next.h = h;
+    next.gpu3d = gpu3d;
+    next.bench = bench;
+}
+
+/* The V3D draws the 3D of the cartridges (M33) if it starts and passes its
+ * probe; gpu3d=0 in bm/config.txt (Settings > Graphics > 3D of the games: ARM) keeps
+ * the ARM's rasterizer */
+static void gpu3d_maybe(void)
+{
+    const char *v = config_get("gpu3d");
+    if (cur.gpu3d == 0 || (cur.gpu3d < 0 && v && strcmp(v, "0") == 0))
+        return;
+    if (gpu3d_init() == 0) {
+        gpu3d_stats_t st;
+        gpu3d_drop();                   /* nothing learned from the game before (depth kept) */
+        gpu3d_take_stats(&st);          /* this game's from here */
+        const char *aa = config_get("gpu3d_aa");
+        gpu3d_set_msaa(aa && strcmp(aa, "1") == 0);     /* anti-aliasing: Settings */
+        rt.r3d.backend = gpu3d_backend();
+        rt.r3d.arm_hook = gpu3d_to_arm;
+        if (!cur.bench)                 /* a benchmark has its own report */
+            kprintf("bm: the 3D is drawn by the GPU (%s)\n", gpu3d_status());
+    } else {
+        kprintf("bm: the 3D is drawn by the ARM: %s\n", gpu3d_status());
+    }
+}
+
 static r3d_t *r3d(lua_State *L)
 {
     if (!rt.r3d_ready) {
         if (r3d_init(&rt.r3d, &rt.g) != 0)
             luaL_error(L, "not enough memory for the z-buffer");
         rt.r3d_ready = 1;
+        gpu3d_maybe();
     }
     return &rt.r3d;
+}
+
+/* The DMA clear started at the end of the frame, if any, is waited for
+ * (it ran during _update). claim = the buffer is about to be drawn on:
+ * a later zclear() in the same frame clears it again. */
+static void zclear_dma_wait(int claim)
+{
+    if (!rt.zclear_dma)
+        return;
+    dma_wait();
+    if (claim)
+        rt.zclear_dma = 0;
+}
+
+/* After a frame that cleared the z-buffer, the next clear starts at once
+ * on the DMA, while the cartridge runs _update (zclear() then only waits
+ * for it): about 1 ms saved per frame at 640x360. dma_zclear=0 in
+ * bm/config.txt turns it off. */
+static void zclear_dma_start(void)
+{
+    const int seen = rt.zclear_seen;
+    rt.zclear_seen = 0;
+    if (!seen || !rt.r3d_ready || rt.r3d.backend || rt.zclear_dma || !dma_ready())
+        return;
+    static int off = -1;
+    if (off < 0) {
+        const char *v = config_get("dma_zclear");
+        off = v && strcmp(v, "0") == 0;
+    }
+    if (off)
+        return;
+    const uint32_t bytes = (uint32_t)rt.r3d.g->w * (uint32_t)rt.r3d.g->h * 2;
+    if (bytes & 15)
+        return;
+    /* no dirty line of the z-buffer may be written back over the DMA's
+     * zeros, and none may stay cached: the whole data cache is cleaned and
+     * dropped (16 KiB, cheaper than the 460 KiB range) */
+    dcache_clean_invalidate_all();
+    dma_fill(rt.r3d.zbuf, 0, bytes);
+    rt.zclear_dma = 1;
 }
 
 /* What animate() needs for a model with a skeleton (bm Animator): its own
@@ -1157,6 +1289,7 @@ static int l_draw3d(lua_State *L)
     r3d_mesh_t *m = luaL_checkudata(L, 1, MESH_MT);
     v3_t p = { fnum(L, 2, 0), fnum(L, 3, 0), fnum(L, 4, 0) };
     r3d_t *r = r3d(L);
+    zclear_dma_wait(1);
     uint32_t t0 = timer_ticks();
     r3d_draw_flags(r, m, p, fnum(L, 5, 0), fnum(L, 6, 0), fnum(L, 7, 0), fnum(L, 8, 1),
                    (unsigned)luaL_optinteger(L, 9, 0));
@@ -1193,6 +1326,7 @@ static int l_shadow3d(lua_State *L)
 static int l_point3d(lua_State *L)
 {
     r3d_t *r = r3d(L);
+    zclear_dma_wait(1);
     uint32_t t0 = timer_ticks();
     uint32_t n = r3d_point(r, (v3_t){ fnum(L, 1, 0), fnum(L, 2, 0), fnum(L, 3, 0) }, fnum(L, 4, 0.1f),
                            (uint32_t)luaL_optinteger(L, 5, 0xFFFFFF), (unsigned)luaL_optinteger(L, 6, 0));
@@ -1205,6 +1339,7 @@ static int l_point3d(lua_State *L)
 static int l_line3d(lua_State *L)
 {
     r3d_t *r = r3d(L);
+    zclear_dma_wait(1);
     uint32_t t0 = timer_ticks();
     uint32_t n = r3d_line(r, (v3_t){ fnum(L, 1, 0), fnum(L, 2, 0), fnum(L, 3, 0) },
                           (v3_t){ fnum(L, 4, 0), fnum(L, 5, 0), fnum(L, 6, 0) },
@@ -1221,6 +1356,7 @@ static int l_sprite3d(lua_State *L)
 {
     r3d_t *r = r3d(L);
     sheet_commit();
+    zclear_dma_wait(1);
     uint32_t t0 = timer_ticks();
     uint32_t n = r3d_sprite(r, &rt.sheet, ival(L, 1), ival(L, 2), ival(L, 3), ival(L, 4),
                             (v3_t){ fnum(L, 5, 0), fnum(L, 6, 0), fnum(L, 7, 0) }, fnum(L, 8, 1),
@@ -1293,8 +1429,15 @@ static int l_lamp3d(lua_State *L)
 
 static int l_zclear(lua_State *L)
 {
-    r3d_zclear(r3d(L));
+    r3d_t *r = r3d(L);
+    rt.zclear_seen = 1;
     rt.us3d = 0;
+    if (rt.zclear_dma) {
+        zclear_dma_wait(1);
+        r->tris_in = r->tris_drawn = r->pixels = r->verts = 0;
+        return 0;
+    }
+    r3d_zclear(r);
     return 0;
 }
 
@@ -2085,6 +2228,7 @@ static int video_to_ram(g16_t *g);
  * on (lighting reads the picture back). */
 static int l_light_begin(lua_State *L)
 {
+    sync3d();
     if (!rt.light.rgb && g16_light_init(&rt.light, rt.g.w, rt.g.h) != 0)
         return luaL_error(L, "not enough memory for lighting");
     if (video_to_ram(&rt.g) != 0)
@@ -2106,6 +2250,7 @@ static int l_light(lua_State *L)
 static int l_light_end(lua_State *L)
 {
     (void)L;
+    sync3d();
     if (rt.light.rgb)
         g16_light_apply(&rt.g, &rt.light);
     return 0;
@@ -2238,6 +2383,10 @@ static lua_State *new_cart_state(const bm_cart_t *c)
     lua_setglobal(L, "SCREEN_W");
     lua_pushinteger(L, c->height);
     lua_setglobal(L, "SCREEN_H");
+    if (cur.bench) {                    /* a kernel benchmark (bm_next_run) */
+        lua_pushinteger(L, cur.bench);
+        lua_setglobal(L, "BENCH");
+    }
     lua_gc(L, LUA_GCGEN, 0, 0);         /* generational GC: short pauses */
     lua_sethook(L, hook, LUA_MASKCOUNT, HOOK_EVERY);
     return L;
@@ -2624,7 +2773,7 @@ static void push_project(lua_State *L, const char *title, const char *author, in
     lua_setfield(L, -2, "title");
     lua_pushstring(L, author);
     lua_setfield(L, -2, "author");
-    lua_pushstring(L, w == 320 ? "320x180" : "640x360");
+    lua_pushstring(L, w == 320 ? "320x180" : w == 480 ? "480x270" : "640x360");
     lua_setfield(L, -2, "res");
     lua_pushlstring(L, lua, lua_len);
     lua_setfield(L, -2, "lua");
@@ -2659,6 +2808,7 @@ static int l_cart_load(lua_State *L)
         lua_pushstring(L, err);
         return 2;
     }
+    sync3d();                           /* the waiting 3D may use the sheet as texture */
     free_assets();
     if (load_assets(&c) != 0 || extras_keep(data) != 0) {
         free(data);
@@ -2704,6 +2854,7 @@ static int l_cart_sheet(lua_State *L)
         luaL_argcheck(L, w >= G16_CELL && w <= BM_SHEET_MAX && w % G16_CELL == 0, 1, "8 to 4096, a multiple of 8");
         luaL_argcheck(L, h >= G16_CELL && h <= BM_SHEET_MAX && h % G16_CELL == 0, 2, "8 to 4096, a multiple of 8");
         if (w != rt.sheet.w || h != rt.sheet.h) {
+            sync3d();                   /* the waiting 3D may use the sheet as texture */
             g16_sheet_t ns;
             uint8_t *dirty = calloc((size_t)(w / G16_CELL) * (h / G16_CELL), 1);
             if (!dirty || g16_sheet_alloc(&ns, w, h) != 0) {
@@ -2919,6 +3070,7 @@ static int l_cart_new(lua_State *L)
 {
     bm_cart_t c;
     memset(&c, 0, sizeof c);
+    sync3d();
     free_assets();
     if (load_assets(&c) != 0)
         return luaL_error(L, "not enough memory for the cartridge");
@@ -2970,7 +3122,7 @@ static int l_cart_save(lua_State *L)
     lua_getfield(L, 2, "lua");
     size_t lua_len;
     const char *lua = luaL_checklstring(L, -1, &lua_len);
-    int w = strcmp(res, "320x180") == 0 ? 320 : 640, h = w == 320 ? 180 : 360;
+    int w = strcmp(res, "320x180") == 0 ? 320 : strcmp(res, "480x270") == 0 ? 480 : 640, h = w * 9 / 16;
 
     char dir[64], name[16];
     split_path(path, dir, sizeof dir, name, sizeof name);
@@ -3600,6 +3752,7 @@ int bm_video_enter(framebuffer_t *fb, int w, int h, g16_t *g)
     shadow = NULL;
     if (fb_init_depth(fb, (uint32_t)w, (uint32_t)h, 3, 16) != 0)
         return -1;
+    gpu3d_set_fb(fb->mem, fb->size, fb->bus);   /* its pages, for the GPU's 3D */
     if (via_ram) {
         shadow = malloc((size_t)w * (size_t)h * 2);
         if (!shadow)
@@ -3658,7 +3811,11 @@ static void leave_mode(framebuffer_t *fb, uint32_t w, uint32_t h)
 
 static void present(framebuffer_t *fb, uint32_t *deadline, uint32_t *prev, uint32_t *dropped)
 {
+    flush3d(0);
     rt.present_us = bm_video_present(fb, &rt.g);
+    if (rt.r3d.backend)
+        gpu3d_page(0, 0);               /* another page: what it holds is not known */
+    zclear_dma_start();
     while ((int32_t)(timer_ticks() - *deadline) < 0)
         ;
     uint32_t now = timer_ticks();
@@ -3692,7 +3849,12 @@ static void release(lua_State *L)
     set_copy(&own_audio, &own_audio_len, NULL, 0);
     lua_close(L);               /* frees meshes (__gc) before the z-buffer */
     n8lua_close();
+    if (rt.r3d.backend)
+        gpu3d_drop();           /* an error in the middle of a frame */
+    rt.r3d.backend = NULL;
     g16_light_free(&rt.light);
+    zclear_dma_wait(1);         /* the DMA may still be clearing it */
+    rt.zclear_seen = 0;
     if (rt.r3d_ready)
         r3d_free(&rt.r3d);
     rt.r3d_ready = 0;
@@ -3723,11 +3885,13 @@ static int run_frames(framebuffer_t *fb, lua_State *L, const char *title, int w,
             error = lua_tostring(L, -1);
             break;
         }
+        flush3d(0);                         /* the GPU's 3D counts in the frame's time */
         rt.last_cpu_us = timer_ticks() - t0;
         st->cpu_us_total += rt.last_cpu_us;
         if (rt.last_cpu_us > st->cpu_us_max)
             st->cpu_us_max = rt.last_cpu_us;
         rt.frame++;
+        st->tris3d = rt.r3d_ready ? rt.r3d.tris_drawn : 0;
         crumb_frame(rt.frame);
         present(fb, &deadline, &prev, &st->dropped);
         st->copy_us_total += rt.present_us;
@@ -3743,6 +3907,7 @@ static int run_frames(framebuffer_t *fb, lua_State *L, const char *title, int w,
     st->frames = (uint32_t)rt.frame;
     st->elapsed_us = timer_ticks() - start;
     st->lua_kb = (uint32_t)(luavm_mem() / 1024);
+    st->gpu3d = rt.r3d_ready && rt.r3d.backend != NULL;
     st->ok = error == NULL;
 
     if (!error && left && suspendable) {
@@ -3787,9 +3952,15 @@ int bm_run(framebuffer_t *fb, const uint8_t *data, size_t len,
     proj_cover = NULL;
     extras_free();
     set_copy(&proj_audio, &proj_audio_len, NULL, 0);
+    cur = next;                         /* the options of this run, then none */
+    bm_next_run(0, 0, -1, 0);
     if (bm_parse(data, len, &cart, err, sizeof err) != 0) {
         kprintf("\x1b[91mbm: %s\x1b[0m\n", err);
         return BM_ENDED;
+    }
+    if (cur.w > 0 && cur.h > 0) {
+        cart.width = cur.w;
+        cart.height = cur.h;
     }
     memcpy(st->title, cart.title, sizeof st->title);
     if (load_assets(&cart) != 0 || !(L = new_cart_state(&cart))) {
@@ -3827,7 +3998,7 @@ int bm_run(framebuffer_t *fb, const uint8_t *data, size_t len,
         call(L, "_init") != 0)
         error = lua_tostring(L, -1);
     return run_frames(fb, L, cart.title, cart.width, cart.height, con_w, con_h, seconds, st,
-                      error, suspendable);
+                      error, suspendable && !cur.bench);
 }
 
 void bm_play(framebuffer_t *fb, const uint8_t *data, size_t len,
@@ -3905,6 +4076,14 @@ void bm_print_stats(const bm_stats_t *st)
             st->cpu_us_max / 1000, st->cpu_us_max % 1000 / 10, st->lua_kb);
     if (copy)
         kprintf("     copy to screen %lu.%02lu ms per frame\n", copy / 1000, copy % 1000 / 10);
+    gpu3d_stats_t g;
+    gpu3d_take_stats(&g);
+    if (g.jobs) {
+        uint32_t per = (g.bin_us + g.render_us) / st->frames;
+        kprintf("     GPU 3D %lu jobs, %lu triangles a frame, %lu.%02lu ms a frame (bin %lu%%), max job %lu us\n",
+                g.jobs, g.tris / st->frames, per / 1000, per % 1000 / 10,
+                g.bin_us + g.render_us ? g.bin_us * 100 / (g.bin_us + g.render_us) : 0, g.max_us);
+    }
 }
 
 /* ---------------------------------------------------------------- C bench */

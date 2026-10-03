@@ -17,6 +17,7 @@
 #include <time.h>
 
 #include "drivers/dma.h"
+#include "gpu/gpu3d.h"
 #include "drivers/fb.h"
 #include "drivers/timer.h"
 #include "fs/fat.h"
@@ -360,12 +361,28 @@ int fb_flip(framebuffer_t *fb)
 
 int dma_ready(void) { return 0; }
 void dma_copy(void *dst, const void *src, uint32_t len) { memcpy(dst, src, len); }
+void dma_fill(void *dst, uint32_t value, uint32_t len) { memset(dst, (int)value, len); }
 int dma_wait(void) { return 0; }
 int dma_channel_claim(const uint8_t *pref, unsigned n) { (void)pref; (void)n; return -1; }
 void crumb_frame(uint32_t frame) { (void)frame; }
 void irq_register(unsigned irq, irq_fn fn, void *arg) { (void)irq; (void)fn; (void)arg; }
 void irq_enable(unsigned irq) { (void)irq; }
 void irq_disable(unsigned irq) { (void)irq; }
+
+/* no V3D on the PC: the ARM's rasterizer draws the 3D, as in QEMU */
+const char *gpu3d_status(void) { return "no V3D (bmhost)"; }
+int gpu3d_init(void) { return -1; }
+int gpu3d_ready(void) { return 0; }
+int gpu3d_failed(void) { return 0; }
+const r3d_backend_t *gpu3d_backend(void) { return NULL; }
+void gpu3d_set_fb(const void *mem, uint32_t size, uint32_t bus) { (void)mem; (void)size; (void)bus; }
+int gpu3d_pending(void) { return 0; }
+void gpu3d_page(int uniform, uint16_t c) { (void)uniform; (void)c; }
+void gpu3d_drop(void) { }
+int gpu3d_flush(const g16_t *g, int keep) { (void)g; (void)keep; return 0; }
+void gpu3d_set_msaa(int on) { (void)on; }
+int gpu3d_msaa(void) { return 0; }
+void gpu3d_take_stats(gpu3d_stats_t *s) { memset(s, 0, sizeof *s); }
 
 /* nano8 and the assistant are not part of the host runner */
 void n8lua_set_io(const n8lua_io_t *io) { (void)io; }

@@ -71,7 +71,8 @@ Se c'è un errore Lua, la cartuccia si ferma e l'errore, con la riga, appare sul
 | `_update()` | ogni fotogramma (60 Hz), prima di `_draw` |
 | `_draw()` | ogni fotogramma, dopo `_update` |
 
-Globali: `SCREEN_W` e `SCREEN_H` (640 e 360; 320 e 180 con `--res 320x180`).
+Globali: `SCREEN_W` e `SCREEN_H` (640 e 360; 480 e 270 con `--res 480x270`; 320 e 180 con
+`--res 320x180`).
 Lo schermo **non** viene cancellato da solo: di solito `_draw` comincia con `cls()`.
 
 Limiti: un errore o un ciclo infinito (oltre **20 milioni di istruzioni** Lua in un
@@ -180,7 +181,7 @@ nano8) legge la tastiera tasto per tasto e i controller pulsante per pulsante:
 | Funzione | Descrizione |
 |---|---|
 | `time()` | secondi dall'avvio della cartuccia (con decimali) |
-| `stat(n)` | 0 KiB usati da Lua, 1 ms di CPU dell'ultimo fotogramma, 2 fps, 3 numero del fotogramma, 4 triangoli 3D, 5 pixel 3D, 6 ms passati nel disegno 3D (da `zclear`), 7 vertici 3D trasformati, 8 ms dall'inizio di questo fotogramma (per misurare le fasi) |
+| `stat(n)` | 0 KiB usati da Lua, 1 ms dell'ultimo fotogramma (`_update` + `_draw`, con il 3D della GPU), 2 fps, 3 numero del fotogramma, 4 triangoli 3D, 5 pixel 3D (0 con la GPU), 6 ms passati nel disegno 3D (da `zclear`; con la GPU la parte dell'ARM), 7 vertici 3D trasformati, 8 ms dall'inizio di questo fotogramma (per misurare le fasi), 9 `1` se il 3D lo disegna la GPU |
 | `log(...)` | scrive nel log del kernel (seriale e console), non sullo schermo del gioco |
 | `quit()` | chiude la cartuccia alla fine del fotogramma |
 | `timeslice(co, [k])` | la coroutine `co` si ferma da sola dopo circa `k` mila istruzioni Lua in un fotogramma (400 se manca) e `coroutine.resume` torna `true` senza valori: un calcolo lungo prosegue nei fotogrammi successivi invece di fermare la cartuccia per il limite di istruzioni. `timeslice(nil)` lo toglie (nano8 lo usa per le sue cartucce) |
@@ -504,6 +505,38 @@ che in Lua). Esempio completo: `carts/overbit`.
 
 I triangoli che attraversano il piano vicino alla camera vengono tagliati, non scartati:
 pavimenti e oggetti grandi restano interi anche quando passano accanto alla camera.
+
+**3D sulla GPU (M33).** I triangoli li disegna la GPU del Pi (V3D); con
+*Impostazioni > Graphics > 3D of the games* su `ARM` (`gpu3d=0` in `bm/config.txt`), e in
+QEMU, li disegna l'ARM. Le stesse funzioni, nessun cambiamento nelle cartucce. L'ARM continua a
+trasformare, illuminare e tagliare; la GPU riempie i pixel con uno z-buffer a 24 bit,
+sfumature senza dithering e texture con il texel più vicino. Il 3D in attesa viene
+disegnato prima di ogni disegno 2D che lo segue, di `pget`, di `sset` e a fine
+fotogramma. Se una cartuccia disegna altro 3D dopo il 2D nello stesso fotogramma,
+dal fotogramma successivo la GPU conserva lo z-buffer tra le due parti (circa 1 MB
+di memoria scritta e riletta per fotogramma; il primo fotogramma no): conviene
+comunque disegnare prima tutto il 3D e poi l'HUD. Lo z-buffer della GPU riparte da
+zero a ogni fotogramma, anche senza `zclear()`. `stat(9)` vale 1 quando il 3D lo fa
+la GPU. Se la GPU non risponde, il kernel torna all'ARM da solo e lo scrive nel log.
+La GPU non sa ancora fare le ombre (`draw3d` con il flag 8) e gli effetti 3D
+(`point3d`, `line3d`, `sprite3d`, che leggono lo z-buffer), le facce a retino e le
+texture dei modelli con la luce precalcolata: alla prima di queste cose la cartuccia
+passa all'ARM per il resto della partita (una riga nel log; al massimo un fotogramma
+disegnato in un ordine sbagliato).
+Un fotogramma che comincia con `cls()` costa meno alla GPU: le tile partono dal colore
+di `cls` invece di rileggere la pagina. Le texture con i lati multipli di 32 (sprite
+sheet 128×128, 256×256, …) vanno alla GPU in T-format, il formato a tile della sua
+cache, più veloce da leggere.
+
+**Anti-aliasing (M34).** *Impostazioni > Graphics > 3D anti-aliasing: 4x*
+(`gpu3d_aa=1` in `bm/config.txt`) fa disegnare il 3D della GPU con l'MSAA 4×: quattro
+campioni per pixel, la media a fine tile, bordi dei triangoli senza scalini. Non
+cambia nulla nelle cartucce. Vale solo dove la GPU lo regge (la prova all'avvio lo
+dice: *4x: not on this GPU* altrimenti) e solo nei lavori senza z-buffer conservato:
+le cartucce che disegnano 3D, poi 2D, poi altro 3D nello stesso fotogramma restano
+senza anti-aliasing (lo z-buffer a 4 campioni non si salva). Se la prova trova che la
+GPU non sa ricaricare la pagina nei 4 campioni, l'MSAA si usa solo nei fotogrammi che
+cominciano con `cls()`. Sull'ARM non c'è anti-aliasing.
 Esempio completo: `carts/astrowing` (volo in stile Star Fox: modelli costruiti in
 codice, orizzonte con `project3d`, nebbia, esplosioni, boss). Con i modelli di bm Studio:
 `carts/village` (`model()` per ogni modello, terreno disegnato senza z-buffer, notte con

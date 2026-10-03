@@ -958,6 +958,10 @@ def test_home_ui(b, opts):
         keys("\r")                              # A changes it too: back as it was
         screen([f"< {before} >"])
         keys("s")
+        keys("\r")                              # Graphics
+        screen(["Settings > Graphics", "Game drawing (.bm)", "3D of the games", "ARM (no GPU)",
+                "3D anti-aliasing", "Off"])     # QEMU has no V3D; no anti-aliasing unless asked
+        keys("q")
         keys("s")                               # the volume: left/right, saved
         screen(["Volume", "< 10 / 10 >"])
         keys("a")
@@ -1057,9 +1061,9 @@ def test_make_image(b, opts):
     q = Qemu(b("kernel.img"), ["-drive", f"if=sd,format=raw,file={img}"])
     try:
         out = q.expect(MENU, timeout=30).decode(errors="replace")
-        assert "FAT32, 63 MiB, label BM; 11 cartridges" in out, out
+        assert "FAT32, 63 MiB, label BM; 10 cartridges" in out, out
         time.sleep(0.5)
-        want = ("Pong", "Snake", "Star Shooter", "Chaos Kitchen", "Texture Room", "Studio Village", "nano8")
+        want = ("Pong", "Snake", "Star Shooter", "Chaos Kitchen", "Studio Village", "nano8")
         titles = want + ("Astro Wing", "Titan Clash", "Hunter's Night", "Overbit")
 
         def chosen(t):                         # the name of the chosen cover (row 4)
@@ -1080,8 +1084,8 @@ def test_make_image(b, opts):
         screen = "\n".join(rows)
         for title in want:
             assert title in seen, screen
-        for title in ("bm native demo", "bm stress test"):   # not games: in the kernel
-            assert title not in screen, screen
+        for title in ("bm native demo", "bm stress test", "Texture Room"):   # not games: in the kernel
+            assert title not in screen and title not in seen, screen
         q.send("q")
         q.expect(PROMPT)
         q.expect("> ")
@@ -1109,7 +1113,7 @@ def test_make_image(b, opts):
         q = Qemu(b("kernel.img"), ["-drive", f"if=sd,format=raw,file={os.path.join(tmp, 'bm-pi1.img')}"],
                  machine="raspi1ap")
         out = q.expect(MENU, timeout=30).decode(errors="replace")
-        assert "Raspberry Pi 1 A+" in out and "; 11 cartridges" in out, out
+        assert "Raspberry Pi 1 A+" in out and "; 10 cartridges" in out, out
     finally:
         q.close()
         shutil.rmtree(tmp, ignore_errors=True)
@@ -2506,7 +2510,7 @@ def test_texroom(b, opts):
     try:
         q.expect(MENU, timeout=30)
         time.sleep(0.5)
-        with open(b("carts/texroom.bm"), "rb") as f:
+        with open(b("texroom.bm"), "rb") as f:
             assert _upload(q, f.read())
         time.sleep(3)
 
@@ -3529,6 +3533,88 @@ def test_audio(b, opts):
         q.close()
 
 
+def test_room_bench(b, opts):
+    """M33: the Texture Room benchmark (monitor R, Dev tab): the room at
+    320x180 and then at 640x360 (the HUD on screen at both sizes), crates
+    doubled until under 30 fps, a line per step and the summary; QEMU has
+    no V3D, so only the ARM's cases and a line saying why."""
+    q = Qemu(b("kernel.img"))
+    try:
+        q.boot()
+        q.send("R")
+        q.expect("Texture Room: crates doubled", timeout=10)
+        seen = set()
+        t0 = time.time()
+        while len(seen) < 2 and time.time() - t0 < 120:
+            w, h, px = q.screendump()
+            hud = sum(all(abs(px[(y * w + x) * 3 + i] - (255, 224, 96)[i]) < 30 for i in range(3))
+                      for y in range(0, 16, 2) for x in range(0, w, 2))
+            if hud and (w, h) in ((320, 180), (640, 360)):
+                seen.add((w, h))
+            time.sleep(0.3)
+        assert seen == {(320, 180), (640, 360)}, seen
+        out = q.expect("Texture Room benchmark done", timeout=300).decode(errors="replace")
+        plain = re.sub(r"\x1b\[[0-9;]*m", "", out)
+        for case in ("ARM 320x180", "ARM 640x360"):
+            m = re.search(re.escape(case) + r"\s+(\d+)\s+(\d+)\s+[\d.]+ ms\s+[\d.]+ fps", plain)
+            assert m and int(m[1]) >= 8 and int(m[2]) > 100, f"{case}:\n{plain}"
+        assert "GPU: none (no V3D answers" in plain, plain
+        assert re.search(r"ARM 320x180\s+(<8|\d+ \(\d+\))\s+(<8|\d+ \(\d+\))", plain), plain
+        assert "GPU 320x180" not in plain and "error" not in plain, plain
+        q.expect("> ", timeout=10)
+    finally:
+        q.close()
+
+
+def test_gpu_absent(b, opts):
+    """M33: QEMU has no V3D: the GPU test stops at its first step and says
+    why, and the monitor goes on."""
+    q = Qemu(b("kernel.img"))
+    try:
+        q.boot()
+        q.send("g")
+        out = q.expect("GPU test \x1b[91mfailed", timeout=20).decode(errors="replace")
+        assert "1 power on the 3D unit" in out, out
+        assert "no V3D answers" in out, out
+        q.expect("> ", timeout=10)
+        q.send("i")
+        q.expect("> ", timeout=10)
+    finally:
+        q.close()
+
+
+def test_gpu3d_fallback(b, opts):
+    """M33: gpu3d=1 in bm/config.txt on a machine without a V3D (QEMU): the
+    game says why in the log and its 3D is drawn by the ARM as before."""
+    tmp = tempfile.mkdtemp(prefix="bm-gpu3d-")
+    img = os.path.join(tmp, "sd.img")
+    cfg = os.path.join(tmp, "config.txt")
+    with open(cfg, "w") as f:
+        f.write("wifi_boot=0\ngpu3d=1\n")
+    mksd.build(img, [(cfg, "bm/config.txt")])
+    q = Qemu(b("kernel.img"), ["-drive", f"if=sd,format=raw,file={img}"])
+    try:
+        q.expect(MENU, timeout=30)
+        time.sleep(0.5)
+        with open(b("texroom.bm"), "rb") as f:
+            assert _upload(q, f.read())
+        out = q.expect("bm: the 3D is drawn by the ARM: ", timeout=20).decode(errors="replace")
+        q.expect("no V3D answers", timeout=5)
+        for _ in range(20):                     # the room, with its textures (after _init)
+            time.sleep(0.5)
+            w, h, px = q.screendump()
+            cols = [tuple(px[(y * w + x) * 3:(y * w + x) * 3 + 3]) for y in range(0, h, 4) for x in range(0, w, 4)]
+            if len(set(cols)) > 100:
+                break
+        assert len(set(cols)) > 100, len(set(cols))
+        q.send("q")
+        out = q.expect("update+draw", timeout=10).decode(errors="replace")
+        assert "stopped with an error" not in out and "GPU 3D" not in out, out
+    finally:
+        q.close()
+        shutil.rmtree(tmp, ignore_errors=True)
+
+
 def test_dma(b, opts):
     """M14: the DMA test copies and fills RAM and the screen correctly."""
     q = Qemu(b("kernel.img"))
@@ -3976,6 +4062,48 @@ def test_code_editor(b, opts):
         shutil.rmtree(tmp, ignore_errors=True)
 
 
+RES480_CART = r"""
+local m
+function _init()
+  for y = 0, 15 do for x = 0, 15 do sset(x, y, x < 8 and 0xFF0000 or 0x0000FF) end end
+  m = mesh({ -1,-1,0, 1,-1,0, 1,1,0, -1,1,0 }, { 1,3,2,-1, 1,4,3,-1 },
+           { 0,16, 16,0, 16,16,   0,16, 0,0, 16,0 })
+end
+local n = 0
+function _update() n = n + 1 end
+function _draw()
+  cls(0x00FF00)
+  zclear()
+  camera3d(0, 0, -3)
+  light3d(0, 0, -1, 1)
+  draw3d(m, 0, 0, 0)
+  rectfill(SCREEN_W - 8, SCREEN_H - 8, 8, 8, 0xFFFFFF)
+  if n == 30 then
+    log("res", SCREEN_W, SCREEN_H, string.format("%06x %06x %06x", pget(200, 135), pget(280, 135),
+        pget(SCREEN_W - 1, SCREEN_H - 1)), stat(4))
+  end
+end
+"""
+
+
+def test_res_480(b, opts):
+    """M33: a cartridge at 480x270 (4x on 1080p): the screen mode, 3D with
+    textures (the z-buffer cleared by the DMA from the second frame on)."""
+    q = Qemu(b("kernel.img"))
+    try:
+        q.boot()
+        assert _upload(q, mkbm.pack(RES480_CART.encode(), title="480 test", res=(480, 270)))
+        out = q.expect("res\t", timeout=15).decode(errors="replace")
+        out += q.expect("\n").decode(errors="replace")
+        assert "res\t480\t270\tff0000 0000ff ffffff\t2" in out, out
+        w, h, px = q.screendump()
+        assert (w, h) == (480, 270), (w, h)
+        q.send("q")
+        q.expect("> ", timeout=10)
+    finally:
+        q.close()
+
+
 def test_editor(b, opts):
     """M15: the editor makes a new game, saves it on the SD card, tries it,
     comes back; a game that stops with an error brings the editor to the
@@ -4130,6 +4258,14 @@ def test_stress_monitor(b, opts):
         # QEMU is slow at floating point: the new 3D rows may start below 1
         assert re.search(r"3D smooth \(Gouraud\)\s+(<1|\d+ \(\d+ tri\))", plain), plain
         assert re.search(r"3D textured\s+(<1|\d+ \(\d+ tri\))", plain), plain
+        # the quad rows give the cost of one pixel
+        for name in ("quad 320x180 flat", "quad 320x180 no z", "quad 320x180 Gouraud",
+                     "quad 320x180 texture"):
+            assert re.search(re.escape(name) + r"\s+\S+\s+\S+\s+[\d.]+ q\s+\d+ ns/px", plain), \
+                f"{name} missing:\n{plain}"
+        assert re.search(r"irq \d+\.\d% \(\d+/s", plain), plain
+        # QEMU has no V3D: no GPU rows, and the line says why
+        assert "GPU rows: none (no V3D answers" in plain and "GPU spheres" not in plain, plain
         text = "\n".join(screen_text(q.screendump()))
         assert "sprites 16x16 (C)" in text and "3D spheres 96 (Lua)" in text, text
     finally:

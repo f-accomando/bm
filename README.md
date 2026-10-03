@@ -63,8 +63,10 @@ Hardware of the **Raspberry Pi Zero W**:
 - RAM: 512 MiB, of which **448 MiB** go to the ARM.
 - Memory bandwidth, measured: memcpy ~100 MB/s, fill ~430 MB/s. This is the real
   limit.
-- GPU: VideoCore IV. bm uses only its scaler, which enlarges the 640×360 or 320×180
-  picture to 720p or 1080p for free. The 3D is drawn in software on the ARM.
+- GPU: VideoCore IV. Its scaler enlarges the 640×360, 480×270 or 320×180 picture to
+  720p or 1080p for free, and our own small V3D driver draws the 3D of the games: the
+  ARM transforms, lights and clips, the GPU fills the pixels (811 Mpixel/s measured).
+  Without it (QEMU, or `gpu3d=0`) the ARM rasterizer draws.
 
 Measured **on the Pi**: the most objects per frame, from the stress test
 ([docs/STRESS.md](docs/STRESS.md)), at 640×360 in RGB565.
@@ -82,7 +84,9 @@ Real games on the Pi:
 
 - **Astro Wing** (3D flight) takes 6.3 ms per frame and runs at 60 fps.
 - **Titan Clash** (2D fighting, large sprites) takes 11.6 ms and runs at 60 fps.
-- **Texture Room** runs at 60 fps with 456 textured triangles and 60 516 textured pixels.
+- **Texture Room** runs at 60 fps with 456 textured triangles and 60 516 textured pixels;
+  at 640×360 with 32 crates it takes 5.8 ms with the GPU against 25–26 ms on the ARM.
+- **Chaos Kitchen** with the GPU: 6.8 ms per frame (14.1 ms before).
 - A simple Lua operation costs about 100 ns.
 
 More: [docs/PRESTAZIONI.md](docs/PRESTAZIONI.md) (choices, expected against measured)

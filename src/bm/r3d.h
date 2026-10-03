@@ -7,8 +7,9 @@
  * materials (emissive, glossy, screen-door transparent, levels of detail),
  * planar shadows, a first-person layer always in front, and 3D effects
  * (points, lines, billboard sprites).
- * Everything runs on the ARM (VFP for the transforms, fixed point in the
- * inner loops); the VideoCore 3D unit is not used.
+ * The ARM transforms, lights, culls and clips (VFP), and rasterizes in
+ * fixed point; or a backend (the GPU, src/gpu/gpu3d.c) draws the screen
+ * triangles, for what it can draw (r3d_t.arm_hook).
  */
 #ifndef R3D_H
 #define R3D_H
@@ -37,6 +38,9 @@ typedef struct {
     const float (*bones)[12];
     const uint8_t *vbone;
     int nbones;
+    float radius;               /* of a sphere around (0,0,0) holding every vertex, set by
+                                 * r3d_mesh_normals (< 0: unknown): meshes out of view are
+                                 * skipped before their vertices are transformed */
 } r3d_mesh_t;
 
 /* Face colours: 0xRRGGBB in the low 24 bits; the high bits are the
@@ -58,6 +62,30 @@ typedef struct {
 #define R3D_LOD_SHOWS(c, d) (((c) >> 26 & 1u) ? (d) < ((c) >> 24 & 3u) : (d) >= ((c) >> 24 & 3u))
 
 #define R3D_LAMPS 4
+#define R3D_NEAR 0.1f               /* near plane: nothing nearer is drawn */
+
+/*
+ * A drawing backend other than the software rasterizer (M33: the GPU).
+ * r3d still transforms, lights, culls the back faces and clips on the near
+ * plane; the backend gets screen triangles. A corner: screen x, y, z =
+ * 1/depth, and either a colour (r, g, b in 0..1, light and fog applied)
+ * or texture coordinates (u, v in texels of tex) and the light k (0..1).
+ */
+typedef struct { float x, y, z, a, b, c; } r3d_corner_t;
+
+/* R3D_INSIDE, added to the kind: the mesh's bounding sphere is in front of
+ * the near plane and its corners are no farther than the backend's guard
+ * from the screen (rounding aside), so the backend need not check them */
+enum { R3D_KIND_COLOUR, R3D_KIND_TEXTURE, R3D_INSIDE = 4 };
+
+typedef struct {
+    /* nodepth: no depth test and no depth write (R3D_NOZ) */
+    void (*tri)(void *ctx, const g16_t *g, const r3d_corner_t v[3], int kind,
+                const g16_sheet_t *tex, int nodepth);
+    void (*zclear)(void *ctx, const g16_t *g);      /* what follows ignores what was drawn */
+    void *ctx;
+    float guard;                /* pixels around the screen for R3D_INSIDE; 0: never */
+} r3d_backend_t;
 
 typedef struct { float r, g, b; } r3d_rgb_t;
 
@@ -78,8 +106,17 @@ typedef struct {
     uint32_t fog_rgb;           /* faces fade to this colour ... */
     float fog_near, fog_far;    /* ... between these depths (off if far <= near) */
     int shadow_style;           /* 0 darken, 1 dither */
-    /* statistics of the last frame (reset by r3d_zclear) */
+    /* statistics of the last frame (reset by r3d_zclear); pixels are
+     * counted by the software rasterizer only */
     uint32_t tris_in, tris_drawn, pixels, verts;
+    const r3d_backend_t *backend;   /* NULL: the software rasterizer */
+    /* called (with arm_ctx) when a draw needs the software rasterizer
+     * while a backend is set: shadows and 3D effects (they read the
+     * z-buffer), screen-door faces, textures with baked light. It draws
+     * what the backend holds; then r3d sets backend to NULL and the ARM
+     * draws from there on. */
+    void (*arm_hook)(void *ctx, const char *why);
+    void *arm_ctx;
 } r3d_t;
 
 int  r3d_init(r3d_t *r, g16_t *g);

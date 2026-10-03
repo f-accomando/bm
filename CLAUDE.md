@@ -179,6 +179,29 @@ screenshot in `docs/img/`), `README_OLD.md` (il README completo, in italiano),
   `cart_write` (solo il codice), `font("6x12")` e `assist.act` per le righe `#entry:`.
   Test: `test_code_editor` in QEMU (lo schermo si legge anche col font 6x12).
 
+## GPU (M33)
+
+- Il 3D dei giochi lo disegna la **GPU** (backend V3D `src/gpu/gpu3d.c`, sotto
+  `src/bm/r3d.c`), verificata sul Pi il 2026-10-01. Il rasterizzatore software di r3d
+  resta: con `gpu3d=0` in `bm/config.txt`, in QEMU (che non ha la V3D) e da solo se la
+  GPU non risponde. Sul PC la GPU si prova con l'emulatore `tests/gpu/v3d_emu.c`
+  (`make test-gpu3d`) e il driver con `make test-v3d`; sul Pi con il test `g` del
+  monitor e le righe GPU dello stress test.
+- Gli shader QPU si scrivono in `tools/qpuasm.py`, che genera `src/gpu/shaders.h`
+  (`make test-qpu` controlla che sia aggiornato).
+- M34 (in corso): cose della V3D non documentate o non usate da Mesa (layout T-format
+  delle texture, load della pagina in un tile MSAA) le **impara la prova all'avvio** di
+  `gpu3d.c` e, se non tornano, si spengono da sole; l'emulatore ne ha le varianti
+  (`make test-gpu3d` le prova tutte). L'MSAA è spento di default (`gpu3d_aa=1`).
+- Numeri: nel branch `3d-performance` erano M30 e M31; qui M30 è l'assistente, M31
+  Overbit e M32 il mouse (branch principale), quindi la GPU è M33 e M34.
+- Quello che il backend non sa disegnare (ombre e effetti 3D, che leggono lo z-buffer;
+  facce a retino; texture con la luce precalcolata dei modelli "lit") chiama
+  `r3d_t.arm_hook`: la GPU disegna ciò che ha in coda e la cartuccia passa all'ARM
+  (`gpu3d_to_arm` in `runtime.c`, una riga nel log). Overbit oggi va quindi sull'ARM.
+  `stat(9)` vale 1 se il 3D lo fa la GPU. bmhost non ha la GPU (stub in
+  `tests/host/stubs.c`).
+
 ## Comunicazione con l'utente
 
 - Riportare la **lista delle milestone** solo quando una milestone è completata per
