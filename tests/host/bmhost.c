@@ -454,5 +454,8 @@ int main(int argc, char **argv)
                         "kept, %u pages cleared not loaded, %u with MSAA\n",
                 (unsigned)g.jobs, (double)g.jobs / (double)run.frame, (unsigned)g.tris,
                 (double)g.tris / (double)run.frame, (unsigned)g.zjobs, (unsigned)g.cleared, (unsigned)g.msjobs);
+    if (g.glmeshes && run.frame > 0)
+        fprintf(stderr, "bmhost: vertex shader: %.0f meshes and %.0f triangles a frame\n",
+                (double)g.glmeshes / (double)run.frame, (double)g.gltris / (double)run.frame);
     return st.ok ? 0 : 1;
 }

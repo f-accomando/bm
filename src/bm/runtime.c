@@ -582,6 +582,8 @@ static void gpu3d_maybe(void)
         gpu3d_take_stats(&st);          /* this game's from here */
         const char *aa = config_get("gpu3d_aa");
         gpu3d_set_msaa(aa && strcmp(aa, "1") == 0);     /* anti-aliasing: Settings */
+        const char *vs = config_get("gpu3d_vs");
+        gpu3d_set_vshader(vs && strcmp(vs, "1") == 0);  /* vertex shader: Settings */
         rt.r3d.backend = gpu3d_backend();
         rt.r3d.arm_hook = gpu3d_to_arm;
         if (!cur.bench)                 /* a benchmark has its own report */
@@ -1447,8 +1449,10 @@ static int l_zclear(lua_State *L)
     return 0;
 }
 
-/* gpu3d([on, [aa]]) -> on, aa: whether the GPU draws the 3D, and whether
- * with anti-aliasing (MSAA 4x, where the GPU allows it). With on, the 3D
+/* gpu3d([on, [aa, [vs]]]) -> on, aa, vs: whether the GPU draws the 3D,
+ * whether with anti-aliasing (MSAA 4x, where the GPU allows it) and whether
+ * its vertex shader places the corners of the models (M36, where the GPU's
+ * probe drew with it). With on, the 3D
  * goes to the GPU (if the console has one that answers) or to the ARM from
  * here, whatever Settings > Graphics says: for benchmarks; switch between
  * frames (what was drawn so far in a frame is not in the other's depth). */
@@ -1471,10 +1475,13 @@ static int l_gpu3d(lua_State *L)
         }
         if (!lua_isnoneornil(L, 2))
             gpu3d_set_msaa(lua_toboolean(L, 2));
+        if (!lua_isnoneornil(L, 3))
+            gpu3d_set_vshader(lua_toboolean(L, 3));
     }
     lua_pushboolean(L, r->backend != NULL);
     lua_pushboolean(L, r->backend != NULL && gpu3d_msaa_on());
-    return 2;
+    lua_pushboolean(L, r->backend != NULL && gpu3d_vshader_on());
+    return 3;
 }
 
 /* ---- collision worlds (world3d.h): boxes, rays, moving bodies */

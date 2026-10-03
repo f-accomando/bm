@@ -203,7 +203,7 @@ static const uint32_t fs_tex_rgb_alpha[80] __attribute__((aligned(8))) = {
     0x009e7000, 0x500009e7,     /* nop                 ; nop           ; sbdone */
 };
 
-static const uint32_t vs_tex_rgb[234] __attribute__((aligned(8))) = {
+static const uint32_t vs_tex_rgb[246] __attribute__((aligned(8))) = {
     0x00801a00, 0xe0020c67,     /* ldi vr_setup, 0x801a00 */
     0x00001a00, 0xe0021c67,     /* ldi vw_setup, 0x1a00 */
     0x009e7000, 0x100009e7,     /* nop                 ; nop */
@@ -237,11 +237,17 @@ static const uint32_t vs_tex_rgb[234] __attribute__((aligned(8))) = {
     0x201a7034, 0x100049e0,     /* nop                 ; fmul r0, ra6, r4 */
     0x20827006, 0x100049e0,     /* nop                 ; fmul r0, r0, unif */
     0x218061bc, 0x10024821,     /* fadd r0, r0, unif   ; fmul r1, rb6, r4 */
-    0x2782700e, 0x10024821,     /* ftoi r0, r0         ; fmul r1, r1, unif */
+    0x2782700e, 0x100248a1,     /* ftoi r2, r0         ; fmul r1, r1, unif */
     0x01827380, 0x10020867,     /* fadd r1, r1, unif   ; nop */
-    0x079e7240, 0x10020867,     /* ftoi r1, r1         ; nop */
-    0x159e7000, 0x10120267,     /* mov ra9.16a, r0     ; nop */
-    0x35827266, 0x10224262,     /* mov ra9.16b, r1     ; fmul r2, r4, unif */
+    0x089e7480, 0x100208e7,     /* itof r3, r2         ; nop */
+    0x029e70c0, 0x100229e7,     /* fsub.setf nop, r0, r3 ; nop */
+    0x0d9c15c0, 0xd00808a7,     /* sub.ifn r2, r2, 1   ; nop */
+    0x079e7240, 0x10020827,     /* ftoi r0, r1         ; nop */
+    0x089e7000, 0x100208e7,     /* itof r3, r0         ; nop */
+    0x029e72c0, 0x100229e7,     /* fsub.setf nop, r1, r3 ; nop */
+    0x0d9c11c0, 0xd0080827,     /* sub.ifn r0, r0, 1   ; nop */
+    0x159e7480, 0x10120267,     /* mov ra9.16a, r2     ; nop */
+    0x35827026, 0x10224262,     /* mov ra9.16b, r0     ; fmul r2, r4, unif */
     0x019e05c0, 0xd0021267,     /* fadd rb9, r2, 1.0   ; nop */
     0x02807f80, 0x10020827,     /* fsub r0, rb7, unif  ; nop */
     0x20827006, 0x100049e0,     /* nop                 ; fmul r0, r0, unif */
@@ -323,7 +329,7 @@ static const uint32_t vs_tex_rgb[234] __attribute__((aligned(8))) = {
     0x009e7000, 0x100009e7,     /* nop                 ; nop */
 };
 
-static const uint32_t vs_baked[242] __attribute__((aligned(8))) = {
+static const uint32_t vs_baked[254] __attribute__((aligned(8))) = {
     0x00901a00, 0xe0020c67,     /* ldi vr_setup, 0x901a00 */
     0x00001a00, 0xe0021c67,     /* ldi vw_setup, 0x1a00 */
     0x009e7000, 0x100009e7,     /* nop                 ; nop */
@@ -358,11 +364,17 @@ static const uint32_t vs_baked[242] __attribute__((aligned(8))) = {
     0x201a7034, 0x100049e0,     /* nop                 ; fmul r0, ra6, r4 */
     0x20827006, 0x100049e0,     /* nop                 ; fmul r0, r0, unif */
     0x218061bc, 0x10024821,     /* fadd r0, r0, unif   ; fmul r1, rb6, r4 */
-    0x2782700e, 0x10024821,     /* ftoi r0, r0         ; fmul r1, r1, unif */
+    0x2782700e, 0x100248a1,     /* ftoi r2, r0         ; fmul r1, r1, unif */
     0x01827380, 0x10020867,     /* fadd r1, r1, unif   ; nop */
-    0x079e7240, 0x10020867,     /* ftoi r1, r1         ; nop */
-    0x159e7000, 0x10120267,     /* mov ra9.16a, r0     ; nop */
-    0x35827266, 0x10224262,     /* mov ra9.16b, r1     ; fmul r2, r4, unif */
+    0x089e7480, 0x100208e7,     /* itof r3, r2         ; nop */
+    0x029e70c0, 0x100229e7,     /* fsub.setf nop, r0, r3 ; nop */
+    0x0d9c15c0, 0xd00808a7,     /* sub.ifn r2, r2, 1   ; nop */
+    0x079e7240, 0x10020827,     /* ftoi r0, r1         ; nop */
+    0x089e7000, 0x100208e7,     /* itof r3, r0         ; nop */
+    0x029e72c0, 0x100229e7,     /* fsub.setf nop, r1, r3 ; nop */
+    0x0d9c11c0, 0xd0080827,     /* sub.ifn r0, r0, 1   ; nop */
+    0x159e7480, 0x10120267,     /* mov ra9.16a, r2     ; nop */
+    0x35827026, 0x10224262,     /* mov ra9.16b, r0     ; fmul r2, r4, unif */
     0x019e05c0, 0xd0021267,     /* fadd rb9, r2, 1.0   ; nop */
     0x02807f80, 0x10020827,     /* fsub r0, rb7, unif  ; nop */
     0x20827006, 0x100049e0,     /* nop                 ; fmul r0, r0, unif */
@@ -447,7 +459,7 @@ static const uint32_t vs_baked[242] __attribute__((aligned(8))) = {
     0x009e7000, 0x100009e7,     /* nop                 ; nop */
 };
 
-static const uint32_t cs_colour[94] __attribute__((aligned(8))) = {
+static const uint32_t cs_colour[106] __attribute__((aligned(8))) = {
     0x00301a00, 0xe0020c67,     /* ldi vr_setup, 0x301a00 */
     0x00001a00, 0xe0021c67,     /* ldi vw_setup, 0x1a00 */
     0x009e7000, 0x100009e7,     /* nop                 ; nop */
@@ -476,11 +488,17 @@ static const uint32_t cs_colour[94] __attribute__((aligned(8))) = {
     0x201a7034, 0x100049e0,     /* nop                 ; fmul r0, ra6, r4 */
     0x20827006, 0x100049e0,     /* nop                 ; fmul r0, r0, unif */
     0x218061bc, 0x10024821,     /* fadd r0, r0, unif   ; fmul r1, rb6, r4 */
-    0x2782700e, 0x10024821,     /* ftoi r0, r0         ; fmul r1, r1, unif */
+    0x2782700e, 0x100248a1,     /* ftoi r2, r0         ; fmul r1, r1, unif */
     0x01827380, 0x10020867,     /* fadd r1, r1, unif   ; nop */
-    0x079e7240, 0x10020867,     /* ftoi r1, r1         ; nop */
-    0x159e7000, 0x10120267,     /* mov ra9.16a, r0     ; nop */
-    0x35827266, 0x10224262,     /* mov ra9.16b, r1     ; fmul r2, r4, unif */
+    0x089e7480, 0x100208e7,     /* itof r3, r2         ; nop */
+    0x029e70c0, 0x100229e7,     /* fsub.setf nop, r0, r3 ; nop */
+    0x0d9c15c0, 0xd00808a7,     /* sub.ifn r2, r2, 1   ; nop */
+    0x079e7240, 0x10020827,     /* ftoi r0, r1         ; nop */
+    0x089e7000, 0x100208e7,     /* itof r3, r0         ; nop */
+    0x029e72c0, 0x100229e7,     /* fsub.setf nop, r1, r3 ; nop */
+    0x0d9c11c0, 0xd0080827,     /* sub.ifn r0, r0, 1   ; nop */
+    0x159e7480, 0x10120267,     /* mov ra9.16a, r2     ; nop */
+    0x35827026, 0x10224262,     /* mov ra9.16b, r0     ; fmul r2, r4, unif */
     0x019e05c0, 0xd0021267,     /* fadd rb9, r2, 1.0   ; nop */
     0x201a0037, 0x100049e0,     /* nop                 ; fmul r0, ra6, unif */
     0x2080603e, 0x100049e1,     /* nop                 ; fmul r1, rb6, unif */

@@ -189,6 +189,28 @@ static void s_vshader_lit(r3d_t *r, g16_t *g, int gpu)
     r3d_fog(r, 0, 0, 0);
 }
 
+/* M36: meshes the GPU clips: a "lit" floor under the camera and a wall
+ * beside it, both reaching behind it (the near plane, the guard band),
+ * and a lamp. The fog starts past them: the GPU blends the corners' fog
+ * where it cuts a face, the ARM works it out there (as Overbit's map
+ * pieces, nearer than its fog). Faces of one light (the ARM's own
+ * rasterizer takes a face's light from its first corner). */
+static void s_vshader_clip(r3d_t *r, g16_t *g, int gpu)
+{
+    r3d_camera(r, 0, 0.5f, -5, 0.15f, -0.1f, 70);
+    r3d_light(r, -0.3f, 0.8f, 0.4f, 0.4f);
+    r3d_fog(r, 0xC0A080, 60, 120);
+    r3d_lamp_rgb(r, 0, 0.3f, 0, -3, 2.5f, 0.8f, 0xFF8040);
+    gpu3d_set_vshader(gpu && !vs_off);
+    r3d_draw_flags(r, &lit_quad, (v3_t){ 0, -1, 2 }, 1.5707963f, 0, 0, 30, 0);
+    r3d_draw_flags(r, &lit_quad, (v3_t){ 0.6f, 0, -4 }, 0, 1.5707963f, 0, 3, 0);
+    r3d_draw_flags(r, &lit_quad, (v3_t){ 0.6f, 0, -4 }, 0, -1.5707963f, 0, 3, 0);
+    flush(r, g, gpu);
+    gpu3d_set_vshader(0);
+    r3d_lamp(r, 0, 0, 0, 0, 0, 0);
+    r3d_fog(r, 0, 0, 0);
+}
+
 static void s_spheres(r3d_t *r, g16_t *g, int gpu)
 {
     r3d_camera(r, 0, 0, -6, 0, 0, 60);
@@ -340,6 +362,7 @@ static const struct { const char *name; scene_fn fn; int w, h; float limit; int 
     { "effects", s_effects, 640, 360, 0.02f, 1 },
     { "vshader", s_vshader, 640, 360, 0.02f, 1 },
     { "vshader lit", s_vshader_lit, 640, 360, 0.04f, 1 },
+    { "vshader clip", s_vshader_clip, 640, 360, 0.04f, 1 },
 };
 #define CLEARED 7                   /* its index: no bar, no load */
 
@@ -435,7 +458,8 @@ static void run_scene(int s)
             }
             if (s == 6)
                 CHECK(emu_stats.zstores > zstores, "3D 2D 3D: the depth was not kept");
-            if (scenes[s].fn == s_vshader || scenes[s].fn == s_vshader_lit)
+            if (scenes[s].fn == s_vshader || scenes[s].fn == s_vshader_lit ||
+                (scenes[s].fn == s_vshader_clip && emu_clip != 1))
                 CHECK(emu_stats.glverts > glverts, "vshader: no mesh placed by the vertex shader");
             if (s == CLEARED)
                 CHECK(emu_stats.loads == loads && emu_stats.jobs > jobs, "cleared: the page was loaded");
@@ -474,15 +498,18 @@ int main(int argc, char **argv)
     emu_tformat = argc > 3 ? atoi(argv[3]) : 0;
     emu_ms_load_one = argc > 4 ? atoi(argv[4]) : 0;
     emu_cw_flip = argc > 5 ? atoi(argv[5]) : 0;
-    ppm_dir = argc > 6 ? argv[6] : NULL;
+    emu_clip = argc > 6 ? atoi(argv[6]) : 0;
+    ppm_dir = argc > 7 ? argv[7] : NULL;
     printf("gpu3d on the emulator: byte a = %s, texels %s, T-format %d, MSAA load %s\n",
            emu_red_a ? "red" : "blue", emu_tex_swap ? "swapped" : "in place", emu_tformat,
            emu_ms_load_one ? "one sample" : "all samples");
     CHECK(gpu3d_init() == 0, "init: %s (%s)", gpu3d_status(), emu_error);
-    char want[120];
-    snprintf(want, sizeof want, "byte a = %s, texels %s, textures in %s, MSAA %s, vertex shader %s",
+    char want[160];
+    static const char *const clips[3] = { "yes", "no", "yes (Z planes)" };
+    snprintf(want, sizeof want, "byte a = %s, texels %s, textures in %s, MSAA %s, vertex shader %s, clipping %s",
              emu_red_a ? "red" : "blue", emu_tex_swap ? "swapped" : "in place", emu_tformat == 2 ? "rows" : "tiles",
-             emu_ms_load_one ? "on cleared pages" : "on any page", emu_cw_flip ? "yes" : "yes (cw)");
+             emu_ms_load_one ? "on cleared pages" : "on any page", emu_cw_flip ? "yes" : "yes (cw)",
+             clips[emu_clip]);
     CHECK(strstr(gpu3d_status(), want) != NULL, "probe: '%s', expected '%s'", gpu3d_status(), want);
     if (!gpu3d_ready()) {
         printf("gpu3d: %d/%d checks passed\n", checks - failures, checks);
@@ -492,10 +519,12 @@ int main(int argc, char **argv)
     make_meshes();
     for (size_t s = 0; s < sizeof scenes / sizeof *scenes; s++)
         run_scene((int)s);
-    /* M36: the same lit scene by the GPU a triangle at a time (r3d places
-     * the corners) and with the vertex shader: nearly the same pixels */
-    {
-        uint16_t *pg[2] = { test_aligned_alloc(16, 640 * 360 * 2), test_aligned_alloc(16, 640 * 360 * 2) };
+    /* M36: the same lit scenes by the GPU a triangle at a time (r3d places
+     * the corners) and with the vertex shader: nearly the same pixels (the
+     * clipped corners not quite where the ARM puts them) */
+    uint16_t *pg[2] = { test_aligned_alloc(16, 640 * 360 * 2), test_aligned_alloc(16, 640 * 360 * 2) };
+    for (int sc = 0; sc < 2; sc++) {
+        scene_fn fn = sc ? s_vshader_clip : s_vshader_lit;
         for (int vsh = 0; vsh < 2; vsh++) {
             g16_t g;
             r3d_t r;
@@ -506,15 +535,20 @@ int main(int argc, char **argv)
             gpu3d_drop();
             r3d_zclear(&r);
             vs_off = !vsh;
-            s_vshader_lit(&r, &g, 1);
+            fn(&r, &g, 1);
             vs_off = 0;
             r3d_free(&r);
         }
         int differ = 0;
         for (int i = 0; i < 640 * 360; i++)
             differ += pg[0][i] != pg[1][i];
-        printf("  vertex shader against r3d's corners: %.3f%% of the pixels differ\n", differ * 100.0 / (640 * 360));
+        printf("  vertex shader against r3d's corners (%s): %.3f%% of the pixels differ\n", sc ? "clipped" : "lit",
+               differ * 100.0 / (640 * 360));
         CHECK(differ * 1000 < 640 * 360, "vertex shader: %d pixels differ from r3d's corners", differ);
+        if (ppm_dir && sc) {
+            save(pg[0], 640, 360, "vshader clip", "nv");
+            save(pg[1], 640, 360, "vshader clip", "gl");
+        }
     }
     gpu3d_stats_t st;
     gpu3d_take_stats(&st);

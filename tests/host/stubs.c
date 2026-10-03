@@ -406,6 +406,9 @@ int gpu3d_flush(const g16_t *g, int keep) { (void)g; (void)keep; return 0; }
 void gpu3d_set_msaa(int on) { (void)on; }
 int gpu3d_msaa(void) { return 0; }
 int gpu3d_msaa_on(void) { return 0; }
+int gpu3d_vshader(void) { return 0; }
+void gpu3d_set_vshader(int on) { (void)on; }
+int gpu3d_vshader_on(void) { return 0; }
 void gpu3d_take_stats(gpu3d_stats_t *s) { memset(s, 0, sizeof *s); }
 #endif
 

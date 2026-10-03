@@ -162,22 +162,30 @@ local Menu = { sel = 1, t = 0 }
 local ITEMS = { "PLAY: CONTROL", "PLAY ONLINE", "TRAINING RANGE", "HERO", "BOTS", "ANIMATION REEL", "QUALITY",
                 "3D", "BENCHMARK" }
 
--- the 3D renderer: the GPU, the GPU with anti-aliasing, the ARM (a console
--- without a GPU, QEMU: the ARM only)
+-- the 3D renderer: the GPU, with its vertex shader (VS), with anti-aliasing,
+-- both, the ARM (a console without a GPU, QEMU: the ARM only; a choice this
+-- GPU cannot do is skipped)
+local RENDERERS = { { true, false, false }, { true, false, true }, { true, true, false }, { true, true, true },
+                    { false, false, false } }
+
 local function renderer_name()
-  local on, aa = gpu3d()
-  return on and (aa and "GPU + AA 4X" or "GPU") or "ARM"
+  local on, aa, vs = gpu3d()
+  if not on then return "ARM" end
+  return "GPU" .. (vs and " + VS" or "") .. (aa and " + AA 4X" or "")
 end
 
 local function next_renderer()
-  local on, aa = gpu3d()
-  if on and not aa then
-    local _, ok = gpu3d(true, true)
-    if not ok then gpu3d(false, false) end
-  elseif on then
-    gpu3d(false, false)
-  elseif not gpu3d(true, false) then
-    Menu.no_gpu = true
+  local on, aa, vs = gpu3d()
+  local cur = #RENDERERS
+  for i, r in ipairs(RENDERERS) do
+    if r[1] == on and r[2] == (aa or false) and r[3] == (vs or false) then cur = i end
+  end
+  for k = 1, #RENDERERS do
+    local r = RENDERERS[(cur + k - 1) % #RENDERERS + 1]
+    local on2, aa2, vs2 = gpu3d(r[1], r[2], r[3])
+    if not r[1] then return end
+    if not on2 then Menu.no_gpu = true gpu3d(false, false, false) return end
+    if aa2 == r[2] and vs2 == r[3] then return end
   end
 end
 

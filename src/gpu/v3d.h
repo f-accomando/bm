@@ -76,7 +76,10 @@ void v3d_cl_f32(v3d_cl_t *cl, float v);
 #define V3D_GL_SHADER_STATE             64      /* the record's address | its number of attributes */
 #define V3D_CONFIGURATION_BITS          96
 #define V3D_CLIP_WINDOW                 102
-#define V3D_VIEWPORT_OFFSET             103
+#define V3D_VIEWPORT_OFFSET             103     /* x, y (s12.4) added to the screen coordinates */
+#define V3D_Z_MIN_MAX_CLIPPING_PLANES   104     /* min, max Zs (floats) */
+#define V3D_CLIPPER_XY_SCALING          105     /* half width, half height in 1/16 pixel (floats) */
+#define V3D_CLIPPER_Z_SCALING           106     /* Zc / Wc -> Zs: scale, offset (floats) */
 #define V3D_TILE_BINNING_MODE_CONFIG    112
 #define V3D_TILE_RENDERING_MODE_CONFIG  113
 #define V3D_CLEAR_COLORS                114

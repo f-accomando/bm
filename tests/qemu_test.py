@@ -960,7 +960,8 @@ def test_home_ui(b, opts):
         keys("s")
         keys("\r")                              # Graphics
         screen(["Settings > Graphics", "Game drawing (.bm)", "3D of the games", "ARM (no GPU)",
-                "3D anti-aliasing", "Off"])     # QEMU has no V3D; no anti-aliasing unless asked
+                "3D anti-aliasing", "Off",      # QEMU has no V3D; no anti-aliasing unless asked
+                "3D vertices"])                 # nor the vertex shader (M36)
         keys("q")
         keys("s")                               # the volume: left/right, saved
         screen(["Volume", "< 10 / 10 >"])

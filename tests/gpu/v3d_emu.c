@@ -30,6 +30,8 @@ int emu_tformat = 0;                    /* the order of the 1 KiB subtiles of a 
 int emu_ms_load_one = 0;                /* MSAA: a colour load fills sample 0 only (else all 4) */
 int emu_skip = 0;                       /* jobs only counted, not run (ARM instruction counts) */
 int emu_cw_flip = 0;                    /* GL: the V3D calls the other orientation clockwise */
+int emu_clip = 0;                       /* GL clipping: 0 as GL (near plane, guard band), 1 none (the
+                                         * flag ignored), 2 the near plane only with Z_MIN_MAX given */
 emu_stats_t emu_stats;
 char emu_error[256];
 
@@ -284,11 +286,17 @@ static int qpu_run(qpu_t *q, const uint32_t *code, int max)
             const uint32_t *res = alu ? res_mul : res_add;
             if (cond == 0 || waddr == 39)
                 continue;
-            if (cond != 1)
-                return err("QPU: conditional write at %u (not emulated)", (unsigned)pc, 0);
+            if (cond > 5 || (cond != 1 && waddr >= 36))
+                return err("QPU: condition %u on write address %u (not emulated)", (unsigned)cond, (unsigned)waddr);
+            int on[16];                 /* the lanes written: always, or as the flags say */
+            for (int l = 0; l < 16; l++)
+                on[l] = cond == 1 || (cond == 2 && q->z[l]) || (cond == 3 && !q->z[l]) || (cond == 4 && q->n[l]) ||
+                        (cond == 5 && !q->n[l]);
             if (waddr < 32) {
                 uint32_t (*reg)[16] = file_a ? q->ra : q->rb;
                 for (int l = 0; l < 16; l++) {
+                    if (!on[l])
+                        continue;
                     if (file_a && pack == 1)
                         reg[waddr][l] = (reg[waddr][l] & 0xFFFF0000u) | (res[l] & 0xFFFF);
                     else if (file_a && pack == 2)
@@ -298,7 +306,9 @@ static int qpu_run(qpu_t *q, const uint32_t *code, int max)
                 }
                 if (file_a) new_a = waddr; else new_b = waddr;
             } else if (waddr >= 32 && waddr <= 35) {
-                memcpy(q->acc[waddr - 32], res, sizeof q->acc[0]);
+                for (int l = 0; l < 16; l++)
+                    if (on[l])
+                        q->acc[waddr - 32][l] = res[l];
             } else if (waddr == 48) {       /* VPM write */
                 if (last3)
                     return err("QPU: VPM write at %u, in the last three instructions", (unsigned)pc, 0);
@@ -357,8 +367,10 @@ typedef struct {
 } eprim_t;
 
 /* the vertices of a GL batch, shaded by its vertex and coordinate shaders
- * (16 at a time, as the VCD fills the VPM); 0 or -1 */
-static int gl_vertices(const uint8_t *rec, int nattr, uint32_t first, uint32_t n, int nvary, evert_t *out)
+ * (16 at a time, as the VCD fills the VPM), and their clip coordinates
+ * (Xc Yc Zc Wc, the coordinate shader's first rows); 0 or -1 */
+static int gl_vertices(const uint8_t *rec, int nattr, uint32_t first, uint32_t n, int nvary, evert_t *out,
+                       float (*cc)[4])
 {
     static uint32_t vpm[QPU_VPM_ROWS][16], vs_out[QPU_VPM_ROWS][16];
     static qpu_t q;
@@ -399,11 +411,14 @@ static int gl_vertices(const uint8_t *rec, int nattr, uint32_t first, uint32_t n
                 continue;
             }
             /* the coordinate shader places them as the vertex shader */
-            for (uint32_t l = 0; l < cnt; l++)
+            for (uint32_t l = 0; l < cnt; l++) {
                 for (int k = 0; k < 3; k++)
                     if (vpm[4 + k][l] != vs_out[k][l])
                         return err("GL: the coordinate shader's word %u differs from the vertex shader's (%08x)",
                                    (unsigned)k, vpm[4 + k][l]);
+                for (int k = 0; k < 4; k++)
+                    cc[b + l][k] = qf(vpm[k][l]);
+            }
         }
         for (uint32_t l = 0; l < cnt; l++) {
             evert_t *v = &out[b + l];
@@ -420,13 +435,112 @@ static int gl_vertices(const uint8_t *rec, int nattr, uint32_t first, uint32_t n
     return 0;
 }
 
-/* a triangle the CONFIGURATION_BITS keep: forward-facing ones are those
- * clockwise on the screen (y down), or the others with bit 2 clear */
-static int faces_kept(int cfg, const evert_t *v)
+/* a polygon the CONFIGURATION_BITS keep (area: twice its signed area on
+ * the screen): forward-facing ones are those clockwise on the screen (y
+ * down), or the others with bit 2 clear */
+static int area_kept(int cfg, float area)
 {
-    const float area = (v[1].x - v[0].x) * (v[2].y - v[0].y) - (v[1].y - v[0].y) * (v[2].x - v[0].x);
     const int cw = (area > 0) ^ emu_cw_flip, forward = (cfg >> 2 & 1) ? cw : !cw;
     return forward ? cfg & 1 : cfg >> 1 & 1;
+}
+
+static int faces_kept(int cfg, const evert_t *v)
+{
+    return area_kept(cfg, (v[1].x - v[0].x) * (v[2].y - v[0].y) - (v[1].y - v[0].y) * (v[2].x - v[0].x));
+}
+
+/* GL clipping (the record's flag 4), as the PTB does it: a triangle that
+ * crosses the near plane (Zc >= -Wc; with emu_clip 2 the plane of
+ * Z_MIN_MAX instead, none without it) or reaches out of the guard band
+ * (CLIP_GUARD pixels from the viewport's centre) is cut in clip space;
+ * the new corners are placed by the clipper (Xc / Wc times its XY scale,
+ * plus the viewport offset; Zc / Wc times its Z scale, plus its offset)
+ * and their varyings blended in clip space (perspective-correct). */
+#define CLIP_GUARD 2000.0f
+
+typedef struct { float c[4], b[3]; } cvert_t;
+
+typedef struct {
+    float xs, ys, zs, zo;               /* CLIPPER_XY_SCALING (1/16 pixel), CLIPPER_Z_SCALING */
+    int vx, vy;                         /* VIEWPORT_OFFSET (1/16 pixel) */
+    int zplanes;                        /* Z_MIN_MAX given */
+    float zmin, zmax;
+} clipper_t;
+
+/* the distance of c inside plane k (>= 0: kept) */
+static float plane(const clipper_t *cl, int k, const float *c)
+{
+    const float gx = CLIP_GUARD * 16 / fabsf(cl->xs), gy = CLIP_GUARD * 16 / fabsf(cl->ys);
+    switch (k) {
+    case 0: return emu_clip == 2 ? c[2] * cl->zs + (cl->zo - cl->zmin) * c[3] : c[2] + c[3];  /* near */
+    case 1: return emu_clip == 2 ? (cl->zmax - cl->zo) * c[3] - c[2] * cl->zs : c[3] - c[2];  /* far */
+    case 2: return gx * c[3] - c[0];
+    case 3: return gx * c[3] + c[0];
+    case 4: return gy * c[3] - c[1];
+    default: return gy * c[3] + c[1];
+    }
+}
+
+/* the polygon of triangle t clipped (n corners, up to 9), or -1 if t needs
+ * no clipping */
+static int clip_tri(const clipper_t *cl, const float (*cc)[4], cvert_t *poly)
+{
+    const int k0 = emu_clip == 2 && !cl->zplanes ? 2 : 0;
+    int need = 0;
+    for (int k = k0; k < 6; k++)
+        for (int i = 0; i < 3; i++)
+            need |= plane(cl, k, cc[i]) < 0;
+    if (!need)
+        return -1;
+    cvert_t buf[2][12];
+    int n = 3;
+    for (int i = 0; i < 3; i++) {
+        memcpy(buf[0][i].c, cc[i], sizeof buf[0][i].c);
+        for (int j = 0; j < 3; j++)
+            buf[0][i].b[j] = i == j;
+    }
+    int cur = 0;
+    for (int k = k0; k < 6 && n > 0; k++) {
+        const cvert_t *in = buf[cur];
+        cvert_t *out = buf[!cur];
+        int m = 0;
+        for (int i = 0; i < n; i++) {
+            const cvert_t *a = &in[i], *b = &in[(i + 1) % n];
+            const float da = plane(cl, k, a->c), db = plane(cl, k, b->c);
+            if (da >= 0)
+                out[m++] = *a;
+            if ((da >= 0) != (db >= 0)) {
+                const float t = da / (da - db);
+                cvert_t *o = &out[m++];
+                for (int j = 0; j < 4; j++)
+                    o->c[j] = a->c[j] + t * (b->c[j] - a->c[j]);
+                for (int j = 0; j < 3; j++)
+                    o->b[j] = a->b[j] + t * (b->b[j] - a->b[j]);
+            }
+        }
+        n = m;
+        cur = !cur;
+    }
+    memcpy(poly, buf[cur], (size_t)n * sizeof *poly);
+    return n;
+}
+
+/* a corner of a clipped polygon: one of the triangle's (as its shaders
+ * placed it), or a new one */
+static evert_t clip_corner(const clipper_t *cl, const cvert_t *c, const evert_t *t, int nvary)
+{
+    for (int i = 0; i < 3; i++)
+        if (c->b[i] == 1.0f)
+            return t[i];
+    evert_t v;
+    const float iw = 1.0f / c->c[3];
+    v.x = floorf((c->c[0] * iw * cl->xs + (float)cl->vx) + 0.5f) / 16.0f;
+    v.y = floorf((c->c[1] * iw * cl->ys + (float)cl->vy) + 0.5f) / 16.0f;
+    v.z = c->c[2] * iw * cl->zs + cl->zo;
+    v.iw = iw;
+    for (int j = 0; j < nvary; j++)
+        v.v[j] = c->b[0] * t[0].v[j] + c->b[1] * t[1].v[j] + c->b[2] * t[2].v[j];
+    return v;
 }
 
 static eprim_t *prims;
@@ -455,8 +569,11 @@ static int bin(uint32_t start, uint32_t end)
     int cfg_seen = 0, started = 0, flushed = 0, depth_func = -1, z_update = 0, oversample = 0, faces = 3;
     int clip[4] = { -1, 0, 0, 0 };
     const uint8_t *rec = NULL, *glrec = NULL;
-    int glattr = 0;
+    int glattr = 0, glclip = 0, xy_set = 0, z_set = 0;
+    clipper_t cl;
+    memset(&cl, 0, sizeof cl);
     static evert_t *glv;
+    static float (*glc)[4];
     static uint32_t glcap;
     while (p < e) {
         uint8_t id = *p++;
@@ -483,11 +600,28 @@ static int bin(uint32_t start, uint32_t end)
             started = 1;
             break;
         case 103:                                               /* VIEWPORT_OFFSET */
-            if (rd32(p))
-                return err("viewport offset %08x: the vertices are absolute", rd32(p), 0);
+            cl.vx = (int16_t)rd16(p);
+            cl.vy = (int16_t)rd16(p + 2);
             p += 4;
             break;
-        case 105: case 106: p += 8; break;                      /* CLIPPER_XY_SCALING, _Z_ */
+        case 104:                                               /* Z_MIN_MAX_CLIPPING_PLANES */
+            cl.zmin = rdf(p);
+            cl.zmax = rdf(p + 4);
+            cl.zplanes = 1;
+            p += 8;
+            break;
+        case 105:                                               /* CLIPPER_XY_SCALING */
+            cl.xs = rdf(p);
+            cl.ys = rdf(p + 4);
+            xy_set = cl.xs != 0 && cl.ys != 0;
+            p += 8;
+            break;
+        case 106:                                               /* CLIPPER_Z_SCALING */
+            cl.zs = rdf(p);
+            cl.zo = rdf(p + 4);
+            z_set = 1;
+            p += 8;
+            break;
         case 102:                                               /* CLIP_WINDOW */
             clip[0] = rd16(p); clip[1] = rd16(p + 2); clip[2] = rd16(p + 4); clip[3] = rd16(p + 6);
             p += 8;
@@ -514,8 +648,9 @@ static int bin(uint32_t start, uint32_t end)
             rec = NULL;
             if (!glrec || (rd32(p) & 8))
                 return err("GL shader record %08x (extended records not emulated)", rd32(p), 0);
-            if (rd16(glrec) & ~1u)
-                return err("GL record flags %04x: clipping and point size not emulated", rd16(glrec), 0);
+            if (rd16(glrec) & ~5u)
+                return err("GL record flags %04x: point size not emulated", rd16(glrec), 0);
+            glclip = rd16(glrec) >> 2 & 1;
             p += 4;
             break;
         case 33: {                                              /* VERTEX_ARRAY_PRIMITIVES */
@@ -531,27 +666,55 @@ static int bin(uint32_t start, uint32_t end)
                 if (n > glcap) {
                     glcap = n;
                     glv = realloc(glv, glcap * sizeof *glv);
+                    glc = realloc(glc, glcap * sizeof *glc);
                 }
-                if (gl_vertices(glrec, glattr, first, n, nvary, glv) != 0)
+                if (gl_vertices(glrec, glattr, first, n, nvary, glv, glc) != 0)
                     return -1;
+                if (glclip && (!xy_set || !z_set))
+                    return err("GL clipping without CLIPPER_XY_SCALING (%u) or CLIPPER_Z_SCALING (%u)", xy_set, z_set);
+                for (uint32_t i = 0; i < n; i++) {
+                    glv[i].x += cl.vx / 16.0f;
+                    glv[i].y += cl.vy / 16.0f;
+                }
                 const int colour = sh == SH_COLOUR || sh == SH_SCREEN;
                 const uint32_t *params = colour ? NULL : ptr(rd32(glrec + 8));
                 for (uint32_t i = 0; i < n; i += 3) {
-                    if (!faces_kept(faces, &glv[i]))
-                        continue;
-                    if (nprims == cap) {
-                        cap = cap ? cap * 2 : 4096;
-                        prims = realloc(prims, (size_t)cap * sizeof *prims);
+                    evert_t tri[9];
+                    cvert_t poly[9];
+                    int np = glclip && emu_clip != 1 ? clip_tri(&cl, (const float (*)[4])&glc[i], poly) : -1;
+                    if (np < 0) {
+                        if (!faces_kept(faces, &glv[i]))
+                            continue;
+                        memcpy(tri, &glv[i], 3 * sizeof *tri);
+                        np = 3;
+                    } else {
+                        float area = 0;
+                        for (int k = 0; k < np; k++)
+                            tri[k] = clip_corner(&cl, &poly[k], &glv[i], nvary);
+                        for (int k = 0; k < np; k++) {
+                            const evert_t *a = &tri[k], *b = &tri[(k + 1) % np];
+                            area += a->x * b->y - b->x * a->y;
+                        }
+                        if (np < 3 || !area_kept(faces, area))
+                            continue;
                     }
-                    eprim_t *pr = &prims[nprims++];
-                    memcpy(pr->v, &glv[i], sizeof pr->v);
-                    pr->shader = sh;
-                    pr->nvary = nvary;
-                    pr->params = params;
-                    pr->depth_func = depth_func;
-                    pr->z_update = z_update;
-                    pr->oversample = oversample;
-                    memcpy(pr->clip, clip, sizeof clip);
+                    for (int k = 1; k + 1 < np; k++) {
+                        if (nprims == cap) {
+                            cap = cap ? cap * 2 : 4096;
+                            prims = realloc(prims, (size_t)cap * sizeof *prims);
+                        }
+                        eprim_t *pr = &prims[nprims++];
+                        pr->v[0] = tri[0];
+                        pr->v[1] = tri[k];
+                        pr->v[2] = tri[k + 1];
+                        pr->shader = sh;
+                        pr->nvary = nvary;
+                        pr->params = params;
+                        pr->depth_func = depth_func;
+                        pr->z_update = z_update;
+                        pr->oversample = oversample;
+                        memcpy(pr->clip, clip, sizeof clip);
+                    }
                 }
                 emu_stats.prims += n / 3;
                 emu_stats.batches++;
@@ -574,8 +737,8 @@ static int bin(uint32_t start, uint32_t end)
                     evert_t t[3];
                     for (int k = 0; k < 3; k++) {
                         const uint8_t *v = vb + (size_t)(first + i + (uint32_t)k) * (size_t)stride;
-                        t[k].x = (int16_t)rd16(v) / 16.0f;
-                        t[k].y = (int16_t)rd16(v + 2) / 16.0f;
+                        t[k].x = ((int16_t)rd16(v) + cl.vx) / 16.0f;
+                        t[k].y = ((int16_t)rd16(v + 2) + cl.vy) / 16.0f;
                     }
                     if (!faces_kept(faces, t))
                         continue;
@@ -587,8 +750,8 @@ static int bin(uint32_t start, uint32_t end)
                 eprim_t *pr = &prims[nprims++];
                 for (int k = 0; k < 3; k++) {
                     const uint8_t *v = vb + (size_t)(first + i + (uint32_t)k) * (size_t)stride;
-                    pr->v[k] = (evert_t){ (int16_t)rd16(v) / 16.0f, (int16_t)rd16(v + 2) / 16.0f, rdf(v + 4),
-                                          rdf(v + 8), { 0 } };
+                    pr->v[k] = (evert_t){ ((int16_t)rd16(v) + cl.vx) / 16.0f, ((int16_t)rd16(v + 2) + cl.vy) / 16.0f,
+                                          rdf(v + 4), rdf(v + 8), { 0 } };
                     for (int j = 0; j < nvary; j++)
                         pr->v[k].v[j] = rdf(v + 12 + 4 * j);
                 }

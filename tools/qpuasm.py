@@ -481,9 +481,11 @@ SHADERS = {
 # the attributes of 16 vertices in row k of the VPM; a read of "vpm" gives
 # the next row (vr_setup), a write fills the next (vw_setup). Uniforms, in
 # the order read: the object-to-camera matrix by rows (m00 m01 m02 m03, m10
-# .., m20 ..), f*16, the screen centre's x*16, -f*16, its y*16, -NEAR; the
-# coordinate shader then reads f/hw and f/hh (its clip coordinates).
-# Screen x, y in 12.4 as the NV vertices (absolute, VIEWPORT_OFFSET 0) and
+# .., m20 ..), f*16, 0.5, -f*16, 0.5, -NEAR; the coordinate shader then
+# reads f/hw and f/hh (its clip coordinates). Screen x, y in 12.4 from the
+# screen's centre (VIEWPORT_OFFSET adds it, as with Mesa's shaders: the
+# corners made by the clipper are placed the same way), rounded as the NV
+# vertices (floor(v + 0.5): ftoi, then one less where that went up), and
 # z = 1 - NEAR/depth as the ARM's: the two kinds of batches share a job.
 
 XFORM = """
@@ -507,12 +509,18 @@ XFORM = """
         nop                 ; nop
         nop                 ; fmul r0, ra6, r4          # x / depth
         nop                 ; fmul r0, r0, unif         # * f*16
-        fadd r0, r0, unif   ; fmul r1, rb6, r4          # + centre x*16; y / depth
-        ftoi r0, r0         ; fmul r1, r1, unif         # screen x (12.4); * -f*16
-        fadd r1, r1, unif   ; nop                       # + centre y*16
-        ftoi r1, r1         ; nop                       # screen y
-        mov ra9.16a, r0     ; nop
-        mov ra9.16b, r1     ; fmul r2, r4, unif         # -NEAR / depth
+        fadd r0, r0, unif   ; fmul r1, rb6, r4          # + 0.5; y / depth
+        ftoi r2, r0         ; fmul r1, r1, unif         # x truncated; * -f*16
+        fadd r1, r1, unif   ; nop                       # + 0.5
+        itof r3, r2         ; nop
+        fsub.setf nop, r0, r3 ; nop                     # N: below its truncation
+        sub.ifn r2, r2, 1   ; nop                       # screen x (12.4), floored
+        ftoi r0, r1         ; nop
+        itof r3, r0         ; nop
+        fsub.setf nop, r1, r3 ; nop
+        sub.ifn r0, r0, 1   ; nop                       # screen y
+        mov ra9.16a, r2     ; nop
+        mov ra9.16b, r0     ; fmul r2, r4, unif         # -NEAR / depth
         fadd rb9, r2, 1.0   ; nop                       # z = 1 - NEAR / depth
 """
 

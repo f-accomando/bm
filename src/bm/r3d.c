@@ -1424,13 +1424,18 @@ void r3d_draw_flags(r3d_t *r, const r3d_mesh_t *m, v3_t p, float rx, float ry, f
     view_setup(r, &v);
     const float *C = v.c;
     int inside = 0;                     /* R3D_INSIDE for the backend */
+    float R[9];
+    rot_matrix(R, rx, ry, rz);
     if (m->radius >= 0 && !(m->bones && m->nbones > 0) && !(flags & R3D_SHADOW)) {
         /* the mesh's bounding sphere, in camera space, against the near
          * plane and the four planes through the eye and the screen edges:
          * a mesh out of view is skipped before its vertices are transformed
          * (not one with a skeleton: its vertices move) */
         const float rad = m->radius * fabsf(scale);
-        const float wx = p.x - r->cam_pos.x, wy = p.y - r->cam_pos.y, wz = p.z - r->cam_pos.z;
+        const v3_t o = m->centre;
+        const float wx = p.x + scale * (R[0] * o.x + R[1] * o.y + R[2] * o.z) - r->cam_pos.x,
+                    wy = p.y + scale * (R[3] * o.x + R[4] * o.y + R[5] * o.z) - r->cam_pos.y,
+                    wz = p.z + scale * (R[6] * o.x + R[7] * o.y + R[8] * o.z) - r->cam_pos.z;
         const float cx = C[0] * wx + C[1] * wy + C[2] * wz, cy = C[3] * wx + C[4] * wy + C[5] * wz,
                     cz = C[6] * wx + C[7] * wy + C[8] * wz;
         if (cz + rad < NEAR || v.f * fabsf(cx) - v.hw * cz > rad * v.side ||
@@ -1445,8 +1450,6 @@ void r3d_draw_flags(r3d_t *r, const r3d_mesh_t *m, v3_t p, float rx, float ry, f
             v.f * (fabsf(cy) + rad) <= (v.hh + gb) * zmin)
             inside = R3D_INSIDE;
     }
-    float R[9];
-    rot_matrix(R, rx, ry, rz);
     static xform_t X;
     xform_setup(&X, r, m, R, p, scale);
     const unsigned detail = 3u - (flags >> 4 & 3u), dbit = 1u << detail;
@@ -1511,7 +1514,7 @@ void r3d_draw_flags(r3d_t *r, const r3d_mesh_t *m, v3_t p, float rx, float ry, f
     /* M36: a mesh in view the GPU places itself (its vertex shader): an
      * unlit one, or a "lit" model (light baked at its corners: the world
      * of a map), with the fog and the lamps; the backend may say no */
-    if (fused && inside && (unlit || m->clight) && r->backend->mesh && !skinned && !front) {
+    if (fused && (unlit || m->clight) && r->backend->mesh && !skinned && !front) {
         r3d_env_t env;
         env.f = v.f;
         env.cx = v.hw;
@@ -1530,6 +1533,7 @@ void r3d_draw_flags(r3d_t *r, const r3d_mesh_t *m, v3_t p, float rx, float ry, f
         }
         env.detail = detail;
         env.unlit = unlit;
+        env.inside = inside != 0;
         if (r->backend->mesh(r->backend->ctx, r->g, m, F[0], &env, zbuf ? R3D_DEPTH_WRITE : R3D_DEPTH_NONE)) {
             r->tris_in += (uint32_t)m->nfaces;
             r->tris_drawn += (uint32_t)m->nfaces;   /* sent: the GPU throws the back faces away */
@@ -2087,10 +2091,22 @@ void r3d_mesh_normals(r3d_mesh_t *m)
 {
     static uint32_t stamp;
     m->version = ++stamp;          /* a new mesh for the backend's copies */
+    v3_t lo = { 0, 0, 0 }, hi = { 0, 0, 0 };
+    for (int i = 0; i < m->nverts; i++) {
+        v3_t v = m->verts[i];
+        if (i == 0 || v.x < lo.x) lo.x = v.x;
+        if (i == 0 || v.y < lo.y) lo.y = v.y;
+        if (i == 0 || v.z < lo.z) lo.z = v.z;
+        if (i == 0 || v.x > hi.x) hi.x = v.x;
+        if (i == 0 || v.y > hi.y) hi.y = v.y;
+        if (i == 0 || v.z > hi.z) hi.z = v.z;
+    }
+    m->centre = (v3_t){ (lo.x + hi.x) * 0.5f, (lo.y + hi.y) * 0.5f, (lo.z + hi.z) * 0.5f };
     float r2 = 0;
     for (int i = 0; i < m->nverts; i++) {
         v3_t v = m->verts[i];
-        float d = v.x * v.x + v.y * v.y + v.z * v.z;
+        float dx = v.x - m->centre.x, dy = v.y - m->centre.y, dz = v.z - m->centre.z;
+        float d = dx * dx + dy * dy + dz * dz;
         if (d > r2) r2 = d;
     }
     m->radius = sqrtf(r2) * 1.0001f + 1e-6f;

@@ -81,6 +81,7 @@ typedef struct {
     uint32_t cleared;               /* jobs that cleared the page instead of loading it */
     uint32_t msjobs;                /* jobs with MSAA 4x */
     uint32_t glmeshes;              /* meshes placed by the vertex shader (M36) */
+    uint32_t gltris;                /* their triangles (in tris too) */
 } gpu3d_stats_t;
 
 /* totals since the last call, then zeroed */

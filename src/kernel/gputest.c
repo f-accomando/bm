@@ -930,6 +930,126 @@ static int step_msaa(framebuffer_t *fb)
     return err ? -1 : 0;
 }
 
+/* the scene of step 14: "lit" models as a map has them (light baked at
+ * the corners): a floor from under the camera (the GPU clips it at the
+ * near plane), rows of cubes, unlit spheres; fog past them, a lamp */
+static void scene_vs(g16_t *g, r3d_t *r, int gpu)
+{
+    g16_cls(g, g16_rgb(30, 20, 50));
+    r3d_zclear(r);
+    r3d_camera(r, 0, 1.2f, -7, 0.1f, -0.15f, 60);
+    r3d_light(r, -0.4f, 0.7f, -0.6f, 0.3f);
+    r3d_fog(r, 0xC0A080, 40, 90);
+    r3d_lamp_rgb(r, 0, -1.5f, 0, -2, 3, 0.8f, 0xFF8040);
+    r3d_draw_flags(r, &sc_floor, (v3_t){ 0, -1.2f, 2 }, 1.5707963f, 0, 0, 12, 0);
+    for (int i = 0; i < 40; i++)
+        r3d_draw_flags(r, &sc_cube, (v3_t){ -4.5f + 1.0f * (float)(i % 10), -0.8f + 0.9f * (float)(i / 10),
+                                            (float)(i / 10) * 1.5f }, 0.3f * (float)i, 0.5f, 0, 0.35f, 0);
+    for (int i = 0; i < 12; i++)
+        r3d_draw_flags(r, &sc_sphere, (v3_t){ -3.3f + 0.6f * (float)i, 1.8f, 3 }, 0, 0.3f * (float)i, 0, 0.25f,
+                       R3D_UNLIT);
+    r3d_lamp(r, 0, 0, 0, 0, 0, 0);
+    r3d_fog(r, 0, 0, 0);
+    if (gpu)
+        gpu3d_flush(g, 0);
+}
+
+/* 14 (M36): the scene above by the GPU with the corners placed by the ARM
+ * (left) and by the GPU's vertex shader (right): the same picture, and
+ * the ARM's time of each */
+static int step_vshader(framebuffer_t *fb)
+{
+    step("14 vertex shader (the GPU places the corners)");
+    if (gpu3d_init() != 0) {
+        fail(gpu3d_status());
+        return -1;
+    }
+    if (!gpu3d_vshader()) {
+        kprintf("skipped: %s\n", gpu3d_status());
+        return 0;
+    }
+    gpu3d_drop();
+    const int was = gpu3d_vshader_on();
+    uint16_t *pg[2] = { aligned_alloc(64, W * H * 2), aligned_alloc(64, W * H * 2) };
+    uint32_t us[2] = { 0, 0 }, glm = 0, gpu_us[2] = { 0, 0 };
+    int err = !pg[0] || !pg[1] || scene_init() != 0;
+    r3d_mesh_t *lit[2] = { &sc_floor, &sc_cube };
+    for (int k = 0; k < 2 && !err; k++) {
+        lit[k]->clight = malloc((size_t)lit[k]->nfaces * 9);
+        if (!lit[k]->clight) {
+            err = 1;
+            break;
+        }
+        for (int i = 0; i < lit[k]->nfaces * 9; i++)
+            lit[k]->clight[i] = (uint8_t)(k ? 70 + (i * 37) % 140 : 150);
+        r3d_mesh_normals(lit[k]);
+    }
+    for (int pass = 0; pass < 2 && !err; pass++) {
+        g16_t g;
+        r3d_t r;
+        g16_target(&g, pg[pass], W, W, H, &font_console_8x16);
+        if (r3d_init(&r, &g) != 0) {
+            err = 1;
+            break;
+        }
+        r.backend = gpu3d_backend();
+        gpu3d_set_vshader(pass);
+        gpu3d_stats_t st;
+        scene_vs(&g, &r, 1);                /* corners made, caches warm */
+        gpu3d_take_stats(&st);
+        uint32_t t0 = timer_ticks();
+        scene_vs(&g, &r, 1);
+        us[pass] = timer_ticks() - t0;
+        gpu3d_take_stats(&st);
+        gpu_us[pass] = st.bin_us + st.render_us;
+        if (pass)
+            glm = st.glmeshes;
+        if (gpu3d_failed())
+            err = 2;
+        r3d_free(&r);
+    }
+    gpu3d_set_vshader(was);
+    if (err) {
+        fail(err == 2 ? gpu3d_status() : "no memory for the scene");
+    } else {
+        int differ = 0;
+        for (int i = 0; i < W * H; i++)
+            differ += differs(pg[0][i], pg[1][i]);
+        const int permille = (int)((int64_t)differ * 1000 / (W * H));
+        if (permille > 10 || !glm) {
+            char why[100];
+            ksnprintf(why, sizeof why, "%d.%d%% of the pixels differ, %lu meshes by the vertex shader",
+                      permille / 10, permille % 10, glm);
+            fail(why);
+        } else {
+            kprintf("ok  ARM %lu us without, %lu us with (%lu meshes; GPU %lu / %lu us), %d.%d%% differ\n",
+                    us[0], us[1], glm, gpu_us[0], gpu_us[1], permille / 10, permille % 10);
+        }
+        if (fb->depth == 32 && fb->width >= W && fb->height >= H) {
+            kprintf("  the picture: corners by the ARM on the left, by the GPU on the right (a key or 10 s)\n");
+            timer_delay_ms(40);
+            fb_fill_rect(fb, 0, 0, W, H, fb_color(fb, 0, 0, 0));
+            for (int y = 0; y < H / 2; y++)
+                for (int x = 0; x < W; x++) {
+                    const uint16_t *src = pg[x >= W / 2] + (y * 2) * W + (x % (W / 2)) * 2;
+                    uint32_t c = g16_to_rgb24(*src);
+                    fb_putpixel(fb, (uint32_t)x, (uint32_t)(y + H / 4), fb_color(fb, (uint8_t)(c >> 16),
+                                (uint8_t)(c >> 8), (uint8_t)c));
+                }
+            uint32_t t0 = timer_ticks();
+            input_flush();
+            while (timer_ticks() - t0 < 10000000u && input_key() < 0)
+                ;
+            console_suspend(1);
+            console_suspend(0);
+        }
+    }
+    scene_free();
+    free(pg[0]);
+    free(pg[1]);
+    return err ? -1 : 0;
+}
+
 void gpu_test(framebuffer_t *fb)
 {
     failed = 0;
@@ -958,8 +1078,8 @@ void gpu_test(framebuffer_t *fb)
     m.block = NULL;
     if (ok && step_compare(fb, "10 the 3D of the games on the GPU", scene_draw) == 0 &&
         step_compare(fb, "11 depth kept across 2D (3D, 2D, 3D)", scene_split) == 0 &&
-        step_tiles() == 0)
-        step_msaa(fb);
+        step_tiles() == 0 && step_msaa(fb) == 0)
+        step_vshader(fb);
     if (gpu3d_ready())
         gpu3d_drop();                       /* the games start from a clean state */
     kprintf(failed ? "GPU test \x1b[91mfailed\x1b[0m: a photo of these lines helps\n" : "GPU test passed\n");

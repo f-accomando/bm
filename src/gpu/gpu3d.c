@@ -77,7 +77,8 @@ typedef struct {
  * memory the V3D reads, made again when the mesh changes (its version):
  * x y z, the face's normal, its colour (0..1, in the order of the colour
  * varyings). */
-#define NMESH 64
+#define NMESH 256                   /* a map's pieces in view, and what moves on them */
+#define MESH_HINTS 512
 #define MESH_GROUPS 16
 typedef struct {
     uint8_t vs, fs, lamps, lods;        /* shaders, lamps on, levels of detail that show it */
@@ -98,7 +99,7 @@ typedef struct {
 static struct {
     int ready, failed;
     const char *status;
-    char why[128];
+    char why[160];
     uint8_t *block;
     uint8_t *tsda, *alloc, *overflow, *zbuf, *bcl, *rcl, *recs, *code;
     uint16_t *probe;
@@ -139,9 +140,13 @@ static struct {
     uint32_t gldraws;               /* meshes the job draws with the vertex shader */
     uint32_t job_no, tick;
     gmesh_t gm[NMESH];
+    uint16_t hint[MESH_HINTS];      /* the slot a mesh had last, by its address */
     int gl_ok;                      /* the probe drew with the vertex shader */
     int gl_cw;                      /* CONFIGURATION_BITS clockwise bit for r3d's front faces */
     int gl_on;                      /* asked for (gpu3d_set_vshader) */
+    int clip_ok;                    /* the probe saw the GPU clip: 1, 2 with Z_MIN_MAX_CLIPPING_PLANES */
+    uint32_t vp;                    /* the job's VIEWPORT_OFFSET (x, y in 12.4) */
+    float clipper[2];               /* the job's CLIPPER_XY_SCALING (0: not written yet) */
     gpu3d_stats_t st;
     r3d_backend_t backend;
 } G;
@@ -320,6 +325,8 @@ static void job_begin(int w, int h)
     v3d_cl_u8(&G.cl, V3D_VIEWPORT_OFFSET);
     v3d_cl_u16(&G.cl, 0);
     v3d_cl_u16(&G.cl, 0);
+    G.vp = 0;
+    G.clipper[0] = G.clipper[1] = 0;
     G.clip[0] = G.clip[1] = G.clip[2] = G.clip[3] = -1;
     G.cfg = -1;
     G.vbytes = 0;
@@ -348,6 +355,19 @@ static void batch_close(void)
     G.b_len[1] = (uint8_t)(n >> 8);
     G.b_len[2] = (uint8_t)(n >> 16);
     G.b_len[3] = (uint8_t)(n >> 24);
+}
+
+/* the viewport offset (x, y in 12.4), if not the one written last: 0 for
+ * the NV corners (absolute), the screen's centre for the vertex shader's */
+static void viewport(int x, int y)
+{
+    const uint32_t vp = (uint16_t)x | (uint32_t)(uint16_t)y << 16;
+    if (G.vp != vp) {
+        v3d_cl_u8(&G.cl, V3D_VIEWPORT_OFFSET);
+        v3d_cl_u16(&G.cl, (uint16_t)x);
+        v3d_cl_u16(&G.cl, (uint16_t)y);
+        G.vp = vp;
+    }
 }
 
 /* the clip window of g, if not the one written last */
@@ -392,6 +412,7 @@ static int batch_open(const g16_t *g, int shader, int depth, const tex_t *t)
                  : V3D_CFG_DEPTH(1) | V3D_CFG_Z_UPDATE | V3D_CFG_EARLY_Z | V3D_CFG_EARLY_Z_UPDATE;
     /* r3d culled the back faces; MSAA: the rasteriser takes 4 samples */
     config(V3D_CFG_FRONT | V3D_CFG_BACK, cfg);
+    viewport(0, 0);
     /* NV shader record: flags, vertex stride, uniforms, varyings, code,
      * uniforms, vertices (those of this batch) */
     uint8_t *r = G.rec_next;
@@ -795,22 +816,33 @@ static int mesh_build(const g16_t *g, gmesh_t *e, const r3d_mesh_t *m, int unlit
  * NULL; a slot the waiting job still reads is drawn first */
 static gmesh_t *mesh_get(const g16_t *g, const r3d_mesh_t *m, int unlit)
 {
-    gmesh_t *e = NULL, *old = &G.gm[0];
-    for (int i = 0; i < NMESH; i++) {
-        if (G.gm[i].m == m) {
-            e = &G.gm[i];
-            break;
+    uint16_t *h = &G.hint[((uintptr_t)m >> 4) % MESH_HINTS];
+    gmesh_t *e = G.gm[*h].m == m ? &G.gm[*h] : NULL;
+    if (!e) {
+        /* the least used slot, one the open job does not read if any */
+        gmesh_t *old = NULL;
+        for (int i = 0; i < NMESH; i++) {
+            gmesh_t *x = &G.gm[i];
+            if (x->m == m) {
+                e = x;
+                break;
+            }
+            const int busy = x->corners && x->job == G.job_no && G.open;
+            const int old_busy = old && old->corners && old->job == G.job_no && G.open;
+            if (!old || (old_busy && !busy) || (busy == old_busy && x->used < old->used))
+                old = x;
         }
-        if (G.gm[i].used < old->used)
-            old = &G.gm[i];
+        if (!e)
+            e = old;
+        *h = (uint16_t)(e - G.gm);
+        if (e->m != m)
+            e->version = 0;             /* made below */
     }
-    if (e && e->version == m->version && e->unlit == unlit &&
+    if (e->m == m && e->version == m->version && e->unlit == unlit &&
         (!e->tex || (e->tex->sheet == m->tex && e->tex->version == e->tex_version))) {
         e->used = ++G.tick;
         return e->corners ? e : NULL;
     }
-    if (!e)
-        e = old;
     if (e->corners && e->job == G.job_no && G.open && flush_job(g, 1) != 0)
         return NULL;
     free(e->corners);
@@ -833,7 +865,7 @@ static int gl_draw(const g16_t *g, gmesh_t *e, const ggroup_t *gr, const float M
         return -1;
     job_for(g);
     batch_close();
-    if (G.rec_next + 64 > G.recs + JOB_RECS || G.cl.p + 96 > G.cl.end ||
+    if (G.rec_next + 64 > G.recs + JOB_RECS || G.cl.p + 128 > G.cl.end ||
         G.unif_next + 80 > G.unif + JOB_UNIF / 4) {
         if (flush_job(g, 1) != 0)
             return -1;
@@ -846,16 +878,34 @@ static int gl_draw(const g16_t *g, gmesh_t *e, const ggroup_t *gr, const float M
                        : shaders[fs].discard ? V3D_CFG_DEPTH(1) | V3D_CFG_Z_UPDATE
                        : V3D_CFG_DEPTH(1) | V3D_CFG_Z_UPDATE | V3D_CFG_EARLY_Z | V3D_CFG_EARLY_Z_UPDATE;
     config(V3D_CFG_FRONT | (G.gl_cw ? V3D_CFG_CW : 0), cfg);
+    /* the shaders place the corners from the screen's centre; corners
+     * made by the clipper: Xc / Wc times the half width (Xc = x f / (w/2),
+     * Wc = depth), y down the screen, Zs = Zc / Wc + 1 (Zc = -NEAR) */
+    viewport((int)(env->cx * 16.0f), (int)(env->cy * 16.0f));
+    const int clipping = !env->inside;
+    if (clipping && (G.clipper[0] != env->cx || G.clipper[1] != env->cy)) {
+        v3d_cl_u8(&G.cl, V3D_CLIPPER_XY_SCALING);
+        v3d_cl_f32(&G.cl, env->cx * 16.0f);
+        v3d_cl_f32(&G.cl, -env->cy * 16.0f);
+        v3d_cl_u8(&G.cl, V3D_CLIPPER_Z_SCALING);
+        v3d_cl_f32(&G.cl, 1.0f);
+        v3d_cl_f32(&G.cl, 1.0f);
+        if (G.clip_ok == 2) {
+            v3d_cl_u8(&G.cl, V3D_Z_MIN_MAX_CLIPPING_PLANES);
+            v3d_cl_f32(&G.cl, 0.0f);
+            v3d_cl_f32(&G.cl, 1.0f);
+        }
+        G.clipper[0] = env->cx;
+        G.clipper[1] = env->cy;
+    }
     /* uniforms, in the order the shaders read them (tools/qpuasm.py): the
-     * matrix, f*16, the centre's x*16 (+ 0.5: the shader truncates), -f*16,
-     * the centre's y*16, -NEAR; then the coordinate shader's f/(w/2),
-     * f/(h/2), and the vertex shader's fog and lamps */
+     * matrix, f*16, 0.5 (rounding), -f*16, 0.5, -NEAR; then the coordinate
+     * shader's f/(w/2), f/(h/2), and the vertex shader's fog and lamps */
     uint32_t *cs = G.unif_next, *vs = cs + 20;
     const float place[17] = { M[0], M[1], M[2], M[3], M[4], M[5], M[6], M[7], M[8], M[9], M[10], M[11],
-                              env->f * 16.0f, env->cx * 16.0f + 0.5f, -env->f * 16.0f, env->cy * 16.0f + 0.5f,
-                              -R3D_NEAR };
+                              env->f * 16.0f, 0.5f, -env->f * 16.0f, 0.5f, -R3D_NEAR };
     memcpy(cs, place, sizeof place);
-    const float clip[2] = { env->f / (g->w * 0.5f), env->f / (g->h * 0.5f) };
+    const float clip[2] = { env->f / env->cx, env->f / env->cy };
     memcpy(cs + 17, clip, sizeof clip);
     memcpy(vs, place, sizeof place);
     float fl[5 + 4 * 7];
@@ -877,8 +927,8 @@ static int gl_draw(const g16_t *g, gmesh_t *e, const ggroup_t *gr, const float M
     }
     memcpy(vs + 17, fl, sizeof fl);
     G.unif_next += 20 + 17 + 5 + 28;
-    /* GL shader record: flags (clipping off: r3d gives meshes inside the
-     * guard band), the fragment shader (its varyings, its uniforms: the
+    /* GL shader record: flags (clipping for meshes not inside the guard
+     * band and the near plane), the fragment shader (its varyings, its uniforms: the
      * texture), the vertex shader (x y z, then the rest of the corner),
      * the coordinate shader (x y z), the two attributes (address, bytes -
      * 1, stride, VPM row of each shader) */
@@ -887,6 +937,7 @@ static int gl_draw(const g16_t *g, gmesh_t *e, const ggroup_t *gr, const float M
     G.rec_next += 64;
     memset(r, 0, 64);
     uint32_t a;
+    r[0] = clipping ? 4 : 0;
     r[3] = shaders[fs].varyings;
     a = v3d_bus(G.code + 1024 * fs); memcpy(r + 4, &a, 4);
     a = gr->vs == GV_TEX_RGB ? v3d_bus(e->tex->params) : 0; memcpy(r + 8, &a, 4);
@@ -911,6 +962,7 @@ static int gl_draw(const g16_t *g, gmesh_t *e, const ggroup_t *gr, const float M
         G.tex_used[e->tex - G.tex] = 1;
     G.gldraws++;
     G.st.tris += gr->n / 3;
+    G.st.gltris += gr->n / 3;
     return 0;
 }
 
@@ -918,7 +970,7 @@ static int cb_mesh(void *ctx, const g16_t *g, const r3d_mesh_t *m, const float M
                    int depth)
 {
     (void)ctx;
-    if (!G.gl_ok || !G.gl_on || G.failed)
+    if (!G.gl_ok || !G.gl_on || G.failed || (!env->inside && !G.clip_ok))
         return 0;
     gmesh_t *e = mesh_get(g, m, env->unlit);
     if (!e)
@@ -1273,6 +1325,7 @@ static int probe_gl(const g16_t *pg)
     memset(&env, 0, sizeof env);
     env.f = env.cx = env.cy = 32;
     env.unlit = 1;
+    env.inside = 1;
     for (int cw = 0; cw < 2; cw++) {
         G.gl_cw = cw;
         memset(G.probe, 0, JOB_PROBE);
@@ -1289,6 +1342,67 @@ static int probe_gl(const g16_t *pg)
             return 0;
         }
     }
+    return 0;
+}
+
+/* M36: whether the GPU clips what the vertex shader placed (the record's
+ * flag 4), as GL wants: a floor that goes behind the camera (red, both
+ * ways round) cut at the near plane, a triangle reaching thousands of
+ * pixels to the right (green: out of the 12.4 range) cut at the guard
+ * band, one nearer than the near plane (blue, over the green) not drawn.
+ * Tried without and then with Z_MIN_MAX_CLIPPING_PLANES (0..1); 0 if
+ * neither drew the right pixels. Without the depth test: what is drawn
+ * does not hang on how the GPU stores a depth below 0. */
+static int probe_clip(const g16_t *pg)
+{
+    static r3d_mesh_t m;
+    static v3_t v[9], n[4];
+    static uint16_t f[12] = { 0, 1, 2, 0, 2, 1, 3, 5, 4, 6, 7, 8 };
+    static uint32_t c[4] = { 0xFF0000, 0xFF0000, 0x00FF00, 0x0000FF };
+    /* f = 32, centre (32, 32): the floor y = -1 from depth 4 to -4 (at
+     * row 32 + 32 / depth), the green at depth 2 from (4, 4) and (4, 28)
+     * to 3000 pixels right of the centre, the blue (44, 4) (60, 4) (44, 20)
+     * at depth 0.06 */
+    static const v3_t p[9] = { { -2, -1, 4 }, { 2, -1, 4 }, { 0, -1, -4 },
+                               { -1.75f, 1.75f, 2 }, { -1.75f, 0.25f, 2 }, { 187.5f, 1.0f, 2 },
+                               { 0.0225f, 0.0525f, 0.06f }, { 0.0525f, 0.0525f, 0.06f }, { 0.0225f, 0.0225f, 0.06f } };
+    static const struct { uint8_t x, y; uint16_t want; } at[] = {
+        { 32, 44, 0xF800 }, { 2, 60, 0xF800 }, { 61, 60, 0xF800 }, { 32, 60, 0xF800 },
+        { 8, 44, 0 }, { 32, 36, 0 }, { 32, 30, 0 },
+        { 40, 16, 0x07E0 }, { 10, 16, 0x07E0 }, { 40, 2, 0 }, { 2, 16, 0 }, { 40, 31, 0 }, { 48, 8, 0x07E0 },
+    };
+    memcpy(v, p, sizeof p);
+    for (int i = 0; i < 4; i++)
+        n[i] = (v3_t){ 0, 0, -1 };
+    m.nverts = 9;
+    m.nfaces = 4;
+    m.verts = v;
+    m.faces = f;
+    m.colors = c;
+    m.normals = n;
+    m.version = 0xFFFFFFFEu;            /* not one of r3d's */
+    const float M[12] = { 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0 };
+    r3d_env_t env;
+    memset(&env, 0, sizeof env);
+    env.f = env.cx = env.cy = 32;
+    env.unlit = 1;
+    for (int zplanes = 1; zplanes <= 2; zplanes++) {
+        G.clip_ok = zplanes;
+        memset(G.probe, 0, JOB_PROBE);
+        gmesh_t *e = mesh_get(pg, &m, 1);
+        if (!e || e->ngroups != 1 || gl_draw(pg, e, &e->g[0], M, &env, R3D_DEPTH_NONE) != 0 ||
+            gpu3d_flush(pg, 0) != 0) {
+            G.clip_ok = 0;
+            return 0;
+        }
+        unsigned wrong = 0;
+        for (unsigned i = 0; i < sizeof at / sizeof at[0]; i++)
+            wrong |= (G.probe[at[i].y * PROBE_W + at[i].x] != at[i].want) << i;
+        if (!wrong)
+            return zplanes;
+        kprintf("gpu3d: clipping probe (Z planes %s): pixels %04x wrong\n", zplanes == 2 ? "on" : "off", wrong);
+    }
+    G.clip_ok = 0;
     return 0;
 }
 
@@ -1375,6 +1489,7 @@ static int probe(void)
     G.tformat = tformat_learn();
     G.ms_ok = probe_ms();
     G.gl_ok = probe_gl(&pg);
+    G.clip_ok = G.gl_ok ? probe_clip(&pg) : 0;
     memset(&G.st, 0, sizeof G.st);
     return 0;
 }
@@ -1418,9 +1533,11 @@ int gpu3d_init(void)
     if (probe() != 0)
         return -1;
     static const char *const ms[3] = { "no", "on cleared pages", "on any page" };
-    ksnprintf(G.why, sizeof G.why, "ready (byte a = %s, texels %s, textures %s, MSAA %s, vertex shader %s)",
-              G.red_a ? "red" : "blue", G.tex_swap ? "swapped" : "in place", G.tformat ? "in tiles" : "in rows",
-              ms[G.ms_ok], G.gl_ok ? (G.gl_cw ? "yes (cw)" : "yes") : "no");
+    static const char *const clips[3] = { "no", "yes", "yes (Z planes)" };
+    ksnprintf(G.why, sizeof G.why, "ready (byte a = %s, texels %s, textures %s, MSAA %s, vertex shader %s, "
+              "clipping %s)", G.red_a ? "red" : "blue", G.tex_swap ? "swapped" : "in place",
+              G.tformat ? "in tiles" : "in rows", ms[G.ms_ok], G.gl_ok ? (G.gl_cw ? "yes (cw)" : "yes") : "no",
+              clips[G.clip_ok]);
     G.status = G.why;
     G.ready = 1;
     return 0;

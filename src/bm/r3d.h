@@ -39,9 +39,11 @@ typedef struct {
     const uint8_t *vbone;
     int nbones;
     uint32_t version;           /* new at each r3d_mesh_normals (a backend copies meshes) */
-    float radius;               /* of a sphere around (0,0,0) holding every vertex, set by
+    float radius;               /* of a sphere around centre holding every vertex, set by
                                  * r3d_mesh_normals (< 0: unknown): meshes out of view are
                                  * skipped before their vertices are transformed */
+    v3_t centre;                /* the middle of the vertices' box (a map's piece in world
+                                 * coordinates is far from (0,0,0)) */
 } r3d_mesh_t;
 
 /* Face colours: 0xRRGGBB in the low 24 bits; the high bits are the
@@ -97,6 +99,8 @@ typedef struct {
     float lamp[R3D_LAMPS][7];
     unsigned detail;
     int unlit;                  /* R3D_UNLIT: every face at full light */
+    int inside;                 /* R3D_INSIDE: no corner needs clipping (else the backend
+                                 * clips, or says no) */
 } r3d_env_t;
 
 typedef struct {
@@ -105,9 +109,9 @@ typedef struct {
                 const g16_sheet_t *tex, int depth);
     /* M36, optional: a whole mesh placed by the GPU (its vertex shader),
      * M object -> camera (3x4 by rows); 1 if the backend took it, 0 if r3d
-     * draws it a triangle at a time. r3d asks only for meshes R3D_INSIDE,
-     * without skeleton, unlit or with baked light (the backend may still
-     * say no: gpu3d.c) */
+     * draws it a triangle at a time. r3d asks only for meshes without
+     * skeleton, unlit or with baked light (the backend may still say no:
+     * gpu3d.c, which takes the meshes not R3D_INSIDE if the GPU clips) */
     int (*mesh)(void *ctx, const g16_t *g, const r3d_mesh_t *m, const float M[12], const r3d_env_t *env,
                 int depth);
     void (*zclear)(void *ctx, const g16_t *g);      /* what follows ignores what was drawn */
