@@ -516,24 +516,126 @@ XFORM = """
         fadd rb9, r2, 1.0   ; nop                       # z = 1 - NEAR / depth
 """
 
-SHADERS["vs_colour"] = """
-        ldi vr_setup, 0x601a00                          # 6 rows: x y z, colour
+# The lamps (M36): four, each read as x y z (camera space), 1/r^2 and its
+# colour times k (bytes a b c): s = max(0, 1 - d^2/r^2), the light in
+# ra5 rb3 rb4 (bytes a b c) += s * colour. A lamp that is off has k 0.
+LAMP = """
+        fsub r0, ra6, unif  ; nop                       # dx
+        fsub r1, rb6, unif  ; fmul r0, r0, r0           # dy; dx^2
+        fsub r2, rb7, unif  ; fmul r1, r1, r1           # dz; dy^2
+        fadd r0, r0, r1     ; fmul r2, r2, r2
+        fadd r0, r0, r2     ; nop                       # d^2
+        nop                 ; fmul r0, r0, unif         # / r^2
+        fsub r0, 1.0, r0    ; nop
+        fmax r0, r0, 0      ; nop                       # s
+        nop                 ; fmul r1, r0, unif
+        fadd ra5, ra5, r1   ; fmul r2, r0, unif
+        fadd rb3, rb3, r2   ; fmul r3, r0, unif
+        fadd rb4, rb4, r3   ; nop
+"""
+
+# The fog: f = clamp((depth - near) * k, 0, 1) in r0 and ra10 (readable
+# from the second instruction after; near and k read)
+FOG = """
+        fsub r0, rb7, unif  ; nop                       # depth - near
+        nop                 ; fmul r0, r0, unif         # * k
+        fmax r0, r0, 0      ; nop
+        fmin r0, r0, 1.0    ; nop                       # f
+        nop                 ; mov ra10, r0
+"""
+
+# A "lit" model's textured faces (the world of a map): the light baked at
+# the corner (bytes a b c) plus the lamps, halved and less the fog's share
+# (the fragment shader doubles it), and the fog's colour times f: the
+# varyings of fs_tex_rgb. Attributes x y z, s t, light (8 words); uniforms
+# after the placing ones: the fog (near, k, colour a b c), four lamps.
+SHADERS["vs_tex_rgb"] = """
+        ldi vr_setup, 0x801a00                          # 8 rows
         ldi vw_setup, 0x1a00
         nop                 ; nop
         nop                 ; nop
         mov ra0, vpm        ; nop
         mov ra1, vpm        ; nop
         mov ra2, vpm        ; nop
-        mov ra3, vpm        ; nop
-        mov ra4, vpm        ; nop
-        mov ra5, vpm        ; nop
-""" + XFORM + """
+        mov ra3, vpm        ; nop                       # s
+        mov ra4, vpm        ; nop                       # t
+        mov ra5, vpm        ; nop                       # light a
+        mov rb3, vpm        ; nop                       # light b
+        mov rb4, vpm        ; nop                       # light c
+""" + XFORM + FOG + """
+        nop                 ; fmul ra11, r0, unif       # fog a * f
+        nop                 ; fmul rb11, r0, unif       # fog b * f
+        nop                 ; fmul ra12, r0, unif       # fog c * f
+""" + LAMP * 4 + """
+        fsub r3, 1.0, ra10  ; nop                       # 1 - f
+        nop                 ; fmul r3, r3, 0.5          # kl
+        nop                 ; fmul r0, ra5, r3          # light * kl
+        nop                 ; fmul r1, rb3, r3
+        nop                 ; fmul r2, rb4, r3
+        fmin r0, r0, 1.0    ; nop
+        fmin r1, r1, 1.0    ; nop
+        fmin r2, r2, 1.0    ; nop
         mov vpm, ra9        ; nop                       # screen x, y
         mov vpm, rb9        ; nop                       # z
         mov vpm, r4         ; nop                       # 1 / w
-        mov vpm, ra3        ; nop                       # the three varyings
-        mov vpm, ra4        ; nop
-        mov vpm, ra5        ; nop
+        mov vpm, ra3        ; nop                       # s
+        mov vpm, ra4        ; nop                       # t
+        mov vpm, r0         ; nop                       # light a b c
+        mov vpm, r1         ; nop
+        mov vpm, r2         ; nop
+        mov vpm, ra11       ; nop                       # fog a b c
+        mov vpm, rb11       ; nop
+        mov vpm, ra12       ; nop
+        nop                 ; nop           ; thrend
+        nop                 ; nop
+        nop                 ; nop
+"""
+
+# Faces of a colour (bytes a b c, 0..1) times a light at the corner (baked,
+# or 1 for unlit meshes) plus the lamps, then the fog (colour + (fog -
+# colour) * f), at most 1: the varyings of fs_colour. Attributes x y z, colour,
+# light (9 words); uniforms as vs_tex_rgb.
+SHADERS["vs_baked"] = """
+        ldi vr_setup, 0x901a00                          # 9 rows
+        ldi vw_setup, 0x1a00
+        nop                 ; nop
+        nop                 ; nop
+        mov ra0, vpm        ; nop
+        mov ra1, vpm        ; nop
+        mov ra2, vpm        ; nop
+        mov ra3, vpm        ; nop                       # colour a
+        mov ra4, vpm        ; nop                       # colour b
+        mov rb2, vpm        ; nop                       # colour c
+        mov ra5, vpm        ; nop                       # light a
+        mov rb3, vpm        ; nop                       # light b
+        mov rb4, vpm        ; nop                       # light c
+""" + XFORM + FOG + """
+        mov ra11, unif      ; nop                       # fog a b c
+        mov rb11, unif      ; nop
+        mov ra12, unif      ; nop
+""" + LAMP * 4 + """
+        mov r0, ra3         ; nop                       # colour * light
+        mov r2, rb2         ; fmul r0, r0, ra5
+        nop                 ; fmul r1, ra4, rb3
+        nop                 ; fmul r2, r2, rb4
+        fsub r3, ra11, r0   ; nop                       # (fog - colour) * f + colour
+        nop                 ; fmul r3, r3, ra10
+        fadd r0, r0, r3     ; nop
+        fsub r3, rb11, r1   ; nop
+        nop                 ; fmul r3, r3, ra10
+        fadd r1, r1, r3     ; nop
+        fsub r3, ra12, r2   ; nop
+        nop                 ; fmul r3, r3, ra10
+        fadd r2, r2, r3     ; nop
+        fmin r0, r0, 1.0    ; nop                       # at most 1, as the ARM after its fog
+        fmin r1, r1, 1.0    ; nop
+        fmin r2, r2, 1.0    ; nop
+        mov vpm, ra9        ; nop
+        mov vpm, rb9        ; nop
+        mov vpm, r4         ; nop
+        mov vpm, r0         ; nop
+        mov vpm, r1         ; nop
+        mov vpm, r2         ; nop
         nop                 ; nop           ; thrend
         nop                 ; nop
         nop                 ; nop

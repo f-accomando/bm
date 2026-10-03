@@ -1508,11 +1508,29 @@ void r3d_draw_flags(r3d_t *r, const r3d_mesh_t *m, v3_t p, float rx, float ry, f
                     F[b][k * 4 + j] = C[k * 3] * W[j] + C[k * 3 + 1] * W[4 + j] + C[k * 3 + 2] * W[8 + j];
         }
     }
-    /* M36: a mesh in view the GPU places itself (its vertex shader): the
-     * plain kinds the backend knows, for now flat colours without light */
-    if (fused && inside && unlit && r->backend->mesh && !skinned && !front && !fog && !m->clight) {
-        const r3d_proj_t pr = { v.f, v.hw, v.hh };
-        if (r->backend->mesh(r->backend->ctx, r->g, m, F[0], &pr, zbuf ? R3D_DEPTH_WRITE : R3D_DEPTH_NONE)) {
+    /* M36: a mesh in view the GPU places itself (its vertex shader): an
+     * unlit one, or a "lit" model (light baked at its corners: the world
+     * of a map), with the fog and the lamps; the backend may say no */
+    if (fused && inside && (unlit || m->clight) && r->backend->mesh && !skinned && !front) {
+        r3d_env_t env;
+        env.f = v.f;
+        env.cx = v.hw;
+        env.cy = v.hh;
+        env.fog_near = fog ? r->fog_near : 0;
+        env.fog_k = fog_k;
+        env.fog[0] = (r->fog_rgb >> 16 & 255) * (1.0f / 255);
+        env.fog[1] = (r->fog_rgb >> 8 & 255) * (1.0f / 255);
+        env.fog[2] = (r->fog_rgb & 255) * (1.0f / 255);
+        env.nlamps = lamps.n;
+        for (int i = 0; i < lamps.n; i++) {
+            float *L = env.lamp[i];
+            L[0] = lamps.pos[i].x; L[1] = lamps.pos[i].y; L[2] = lamps.pos[i].z;
+            L[3] = 1.0f / lamps.r2[i];
+            L[4] = lamps.k[i] * lamps.c[i].r; L[5] = lamps.k[i] * lamps.c[i].g; L[6] = lamps.k[i] * lamps.c[i].b;
+        }
+        env.detail = detail;
+        env.unlit = unlit;
+        if (r->backend->mesh(r->backend->ctx, r->g, m, F[0], &env, zbuf ? R3D_DEPTH_WRITE : R3D_DEPTH_NONE)) {
             r->tris_in += (uint32_t)m->nfaces;
             r->tris_drawn += (uint32_t)m->nfaces;   /* sent: the GPU throws the back faces away */
             return;

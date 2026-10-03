@@ -51,7 +51,7 @@ static const font_t font = { 8, 16, glyphs };
 static const char *ppm_dir;
 
 static g16_sheet_t sheet, sheet2, sheet3;
-static r3d_mesh_t sphere, quad, floor_m, cube, lit_quad, glass;
+static r3d_mesh_t sphere, quad, floor_m, cube, lit_quad, glass, lit_box;
 
 /* 128x128: four 32x32 checkers in the top row (red/yellow, blue/white,
  * green/black, grey/orange); the second row: the same checkers whose
@@ -124,6 +124,27 @@ static void make_meshes(void)
     }
     r3d_mesh_normals(&lit_quad);
     r3d_mesh_cube(&glass, 0x40C0F0 | R3D_SCREEN);
+    /* M36: a "lit" box as Overbit's map has them: textured faces and faces
+     * of a colour, light baked at every corner, an emissive face, two
+     * faces shown only at the details 0 and 1 */
+    r3d_mesh_cube(&lit_box, 0x80C060);
+    r3d_mesh_alloc_uv(&lit_box);
+    lit_box.clight = malloc((size_t)lit_box.nfaces * 9);
+    for (int f = 0; f < lit_box.nfaces; f++) {
+        if (f < 4) {
+            lit_box.colors[f] = R3D_TEXTURED;
+            const float uv[6] = { 64, 31.5f, 95.5f, 0, 95.5f, 31.5f };
+            memcpy(lit_box.uv + f * 6, uv, sizeof uv);
+        } else if (f < 6) {
+            lit_box.colors[f] = 0xF06040 | R3D_EMISSIVE;
+        } else if (f < 8) {
+            lit_box.colors[f] = 0x4060F0 | 1u << 26 | 2u << 24;     /* details 0 and 1 */
+        }
+        for (int k = 0; k < 9; k++)
+            lit_box.clight[f * 9 + k] = (uint8_t)(60 + (f * 37 + k * 23) % 160);
+    }
+    lit_box.tex = &sheet;
+    r3d_mesh_normals(&lit_box);
 }
 
 /* ---------------------------------------------------------------- scenes */
@@ -149,6 +170,23 @@ static void s_vshader(r3d_t *r, g16_t *g, int gpu)
     r3d_draw_flags(r, &sphere, (v3_t){ -1.0f, 0.2f, 8 }, 0, 0, 0, 1.0f, 0);         /* lit: the ARM's way */
     flush(r, g, gpu);
     gpu3d_set_vshader(0);
+}
+
+/* M36: "lit" boxes with fog and a lamp, at two levels of detail */
+static int vs_off;                      /* the GPU without its vertex shader */
+static void s_vshader_lit(r3d_t *r, g16_t *g, int gpu)
+{
+    r3d_camera(r, 0, 0.5f, -5, 0, -0.1f, 60);
+    r3d_light(r, -0.3f, 0.8f, 0.4f, 0.4f);
+    r3d_fog(r, 0xC0A080, 3, 10);
+    r3d_lamp_rgb(r, 0, 1.2f, 0.3f, 0.5f, 2.5f, 0.8f, 0xFF8040);
+    gpu3d_set_vshader(gpu && !vs_off);
+    r3d_draw_flags(r, &lit_box, (v3_t){ -1.4f, 0, 1 }, 0.4f, 0.7f, 0, 1.0f, 0);
+    r3d_draw_flags(r, &lit_box, (v3_t){ 1.3f, 0.2f, 3 }, 0.2f, -0.6f, 0.1f, 1.2f, R3D_DETAIL(1));
+    flush(r, g, gpu);
+    gpu3d_set_vshader(0);
+    r3d_lamp(r, 0, 0, 0, 0, 0, 0);
+    r3d_fog(r, 0, 0, 0);
 }
 
 static void s_spheres(r3d_t *r, g16_t *g, int gpu)
@@ -301,6 +339,7 @@ static const struct { const char *name; scene_fn fn; int w, h; float limit; int 
     { "overbit", s_overbit, 640, 360, 0.03f, 1 },
     { "effects", s_effects, 640, 360, 0.02f, 1 },
     { "vshader", s_vshader, 640, 360, 0.02f, 1 },
+    { "vshader lit", s_vshader_lit, 640, 360, 0.04f, 1 },
 };
 #define CLEARED 7                   /* its index: no bar, no load */
 
@@ -396,7 +435,7 @@ static void run_scene(int s)
             }
             if (s == 6)
                 CHECK(emu_stats.zstores > zstores, "3D 2D 3D: the depth was not kept");
-            if (scenes[s].fn == s_vshader)
+            if (scenes[s].fn == s_vshader || scenes[s].fn == s_vshader_lit)
                 CHECK(emu_stats.glverts > glverts, "vshader: no mesh placed by the vertex shader");
             if (s == CLEARED)
                 CHECK(emu_stats.loads == loads && emu_stats.jobs > jobs, "cleared: the page was loaded");
@@ -453,6 +492,30 @@ int main(int argc, char **argv)
     make_meshes();
     for (size_t s = 0; s < sizeof scenes / sizeof *scenes; s++)
         run_scene((int)s);
+    /* M36: the same lit scene by the GPU a triangle at a time (r3d places
+     * the corners) and with the vertex shader: nearly the same pixels */
+    {
+        uint16_t *pg[2] = { test_aligned_alloc(16, 640 * 360 * 2), test_aligned_alloc(16, 640 * 360 * 2) };
+        for (int vsh = 0; vsh < 2; vsh++) {
+            g16_t g;
+            r3d_t r;
+            g16_target(&g, pg[vsh], 640, 640, 360, &font);
+            g16_cls(&g, g16_rgb(30, 20, 50));
+            r3d_init(&r, &g);
+            r.backend = gpu3d_backend();
+            gpu3d_drop();
+            r3d_zclear(&r);
+            vs_off = !vsh;
+            s_vshader_lit(&r, &g, 1);
+            vs_off = 0;
+            r3d_free(&r);
+        }
+        int differ = 0;
+        for (int i = 0; i < 640 * 360; i++)
+            differ += pg[0][i] != pg[1][i];
+        printf("  vertex shader against r3d's corners: %.3f%% of the pixels differ\n", differ * 100.0 / (640 * 360));
+        CHECK(differ * 1000 < 640 * 360, "vertex shader: %d pixels differ from r3d's corners", differ);
+    }
     gpu3d_stats_t st;
     gpu3d_take_stats(&st);
     CHECK(st.jobs >= 5, "%u jobs", st.jobs);

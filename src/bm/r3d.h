@@ -86,8 +86,18 @@ enum { R3D_KIND_COLOUR, R3D_KIND_TEXTURE, R3D_KIND_SCREEN, R3D_KIND_TEX_RGB, R3D
  * or tested only (3D effects, shadows) */
 enum { R3D_DEPTH_WRITE, R3D_DEPTH_NONE, R3D_DEPTH_TEST };
 
-/* the projection of a backend mesh: screen x = cx + f x / z, y = cy - f y / z */
-typedef struct { float f, cx, cy; } r3d_proj_t;
+/* what a backend mesh (M36) needs of the scene: the projection (screen x =
+ * cx + f x / z, y = cy - f y / z), the fog (f = clamp((depth - near) * k,
+ * 0, 1), k 0 for none; its colour 0..1), the lamps (camera x y z, 1/r^2,
+ * colour times k), the level of detail (0..3) */
+typedef struct {
+    float f, cx, cy;
+    float fog_near, fog_k, fog[3];
+    int nlamps;
+    float lamp[R3D_LAMPS][7];
+    unsigned detail;
+    int unlit;                  /* R3D_UNLIT: every face at full light */
+} r3d_env_t;
 
 typedef struct {
     /* depth: R3D_DEPTH_* */
@@ -95,9 +105,10 @@ typedef struct {
                 const g16_sheet_t *tex, int depth);
     /* M36, optional: a whole mesh placed by the GPU (its vertex shader),
      * M object -> camera (3x4 by rows); 1 if the backend took it, 0 if r3d
-     * draws it a triangle at a time. r3d asks only for meshes R3D_INSIDE
-     * and of the kinds the backend knows (gpu3d.c) */
-    int (*mesh)(void *ctx, const g16_t *g, const r3d_mesh_t *m, const float M[12], const r3d_proj_t *pr,
+     * draws it a triangle at a time. r3d asks only for meshes R3D_INSIDE,
+     * without skeleton, unlit or with baked light (the backend may still
+     * say no: gpu3d.c) */
+    int (*mesh)(void *ctx, const g16_t *g, const r3d_mesh_t *m, const float M[12], const r3d_env_t *env,
                 int depth);
     void (*zclear)(void *ctx, const g16_t *g);      /* what follows ignores what was drawn */
     void *ctx;

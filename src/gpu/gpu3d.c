@@ -15,8 +15,8 @@
 #define JOB_BCL      (256u << 10)
 #define JOB_RCL      (16u << 10)
 #define JOB_RECS     (64u << 10)    /* shader records: NV 16 bytes, GL 64 */
-#define JOB_UNIF     (64u << 10)    /* uniforms of the vertex shaders */
-#define JOB_CODE     (8u << 10)     /* the shaders, 1 KiB each */
+#define JOB_UNIF     (128u << 10)   /* uniforms of the vertex shaders */
+#define JOB_CODE     (10u << 10)    /* the shaders, 1 KiB each */
 #define JOB_VERTS    (4u << 20)
 #define PROBE_W      64
 #define PROBE_H      64
@@ -43,8 +43,9 @@ typedef struct {
 #define VMAX_BYTES ((uint32_t)JOB_VERTS - 21u * (uint32_t)VSTRIDE(8))   /* room for a clipped triangle */
 
 enum { SH_COLOUR, SH_TEX, SH_TEX_ALPHA, SH_SCREEN, SH_TEX_RGB, SH_TEX_RGB_ALPHA, SH_COUNT };
-#define CODE_VS 6                       /* the vertex and coordinate shaders' kilobytes of G.code */
-#define CODE_CS 7
+enum { GV_BAKED, GV_TEX_RGB, GV_COUNT };     /* the vertex shaders of meshes (M36) */
+#define CODE_CS 6                       /* the coordinate shader's kilobyte of G.code */
+#define CODE_VS 7                       /* and the vertex shaders' */
 
 /* discard: the shader may write no pixel (early z off) */
 static const struct { const uint32_t *code; size_t size; uint8_t uniforms, varyings, discard; } shaders[SH_COUNT] = {
@@ -76,13 +77,21 @@ typedef struct {
  * memory the V3D reads, made again when the mesh changes (its version):
  * x y z, the face's normal, its colour (0..1, in the order of the colour
  * varyings). */
-#define NMESH 48
-#define CORNER 36                       /* bytes */
+#define NMESH 64
+#define MESH_GROUPS 16
+typedef struct {
+    uint8_t vs, fs, lamps, lods;        /* shaders, lamps on, levels of detail that show it */
+    uint32_t first, n;                  /* its first byte in the corners, its corners */
+} ggroup_t;
 typedef struct {
     const r3d_mesh_t *m;
     uint32_t version;
+    int unlit;
     uint8_t *corners;                   /* NULL: not a mesh the GPU takes */
-    uint32_t n;                         /* corners */
+    ggroup_t g[MESH_GROUPS];
+    int ngroups;
+    const tex_t *tex;                   /* its texture (textured faces), at version tex_version */
+    uint32_t tex_version;
     uint32_t job, used;                 /* the job that drew it last; when, for the least recent */
 } gmesh_t;
 
@@ -662,39 +671,129 @@ static void cb_zclear(void *ctx, const g16_t *g)
 
 /* ---------------------------------------------------------------- meshes (M36) */
 
-/* the corners of a mesh the GPU takes (faces of one plain colour: no
- * texture, material or level of detail; no skeleton or baked light), or
- * NULL */
-static uint8_t *mesh_corners(const r3d_mesh_t *m)
+/* the vertex shaders of meshes, their words a corner (x y z first) */
+static const struct { const uint32_t *code; size_t size; uint8_t words, kb; } vshaders[GV_COUNT] = {
+    { vs_baked, sizeof vs_baked, 9, CODE_VS },          /* colour, light */
+    { vs_tex_rgb, sizeof vs_tex_rgb, 8, CODE_VS + 1 },  /* s t, light */
+};
+
+/* the groups of a face: vertex shader, fragment shader, lamps (0: an
+ * emissive face) and the levels of detail that show it */
+static uint32_t group_key(int vs, int fs, int lamps, int lods)
 {
-    if (m->bones || m->clight || m->nfaces <= 0 || m->nfaces > 65535 / 3)
-        return NULL;
-    for (int f = 0; f < m->nfaces; f++)
-        if (m->colors[f] & 0xFF000000u)     /* textured, a material, a level of detail */
-            return NULL;
-    uint8_t *b = aligned_alloc(16, ((size_t)m->nfaces * 3 * CORNER + 15) & ~(size_t)15);
-    if (!b)
-        return NULL;
-    float *o = (float *)b;
-    for (int f = 0; f < m->nfaces; f++) {
-        const uint32_t c = m->colors[f];
-        float col[3];
-        col[G.ia] = (float)(c >> 16 & 255) * (1.0f / 255.0f);   /* red where the probe found it */
-        col[1] = (float)(c >> 8 & 255) * (1.0f / 255.0f);
-        col[2 - G.ia] = (float)(c & 255) * (1.0f / 255.0f);
-        for (int k = 0; k < 3; k++, o += CORNER / 4) {
-            const v3_t v = m->verts[m->faces[f * 3 + k]], n = m->normals[f];
-            o[0] = v.x; o[1] = v.y; o[2] = v.z;
-            o[3] = n.x; o[4] = n.y; o[5] = n.z;
-            o[6] = col[0]; o[7] = col[1]; o[8] = col[2];
-        }
-    }
-    return b;
+    return (uint32_t)vs << 12 | (uint32_t)fs << 8 | (uint32_t)lamps << 4 | (uint32_t)lods;
 }
 
-/* the cached corners of m (made again if it changed), or NULL; a slot the
- * waiting job still reads is drawn first */
-static gmesh_t *mesh_get(const g16_t *g, const r3d_mesh_t *m)
+/* corner k of face f in group key of mesh m into o */
+static void put_mesh_corner(float *o, const r3d_mesh_t *m, int f, int k, int vs, int emissive, const tex_t *t)
+{
+    const v3_t v = m->verts[m->faces[f * 3 + k]];
+    o[0] = v.x; o[1] = v.y; o[2] = v.z;
+    const uint8_t *bl = m->clight ? m->clight + f * 9 + k * 3 : NULL;
+    float l[3] = { 1, 1, 1 };
+    if (bl && !emissive) {
+        l[G.ia] = bl[0] * (1.0f / 128);         /* red where the probe found it */
+        l[1] = bl[1] * (1.0f / 128);
+        l[2 - G.ia] = bl[2] * (1.0f / 128);
+    }
+    if (vs == GV_TEX_RGB) {
+        o[3] = m->uv[f * 6 + k * 2] * t->inv_w;
+        o[4] = m->uv[f * 6 + k * 2 + 1] * t->inv_h;
+        o[5] = l[0]; o[6] = l[1]; o[7] = l[2];
+    } else {
+        const uint32_t c = m->colors[f];
+        o[3 + G.ia] = (float)(c >> 16 & 255) * (1.0f / 255.0f);
+        o[4] = (float)(c >> 8 & 255) * (1.0f / 255.0f);
+        o[5 - G.ia] = (float)(c & 255) * (1.0f / 255.0f);
+        o[6] = l[0]; o[7] = l[1]; o[8] = l[2];
+    }
+}
+
+/* the corners of m in groups (gmesh_t), or 0 if the GPU cannot take it:
+ * faces of a colour (lit by the light baked at their corners, or not at
+ * all) and textured faces of a "lit" model; no skeleton, no textured
+ * screen-door; unlit: every face at full light */
+static int mesh_build(const g16_t *g, gmesh_t *e, const r3d_mesh_t *m, int unlit)
+{
+    if (m->bones || m->nfaces <= 0 || m->nfaces > 65535 / 3 || (!unlit && !m->clight))
+        return 0;
+    const tex_t *t = NULL;
+    uint32_t key[64];
+    int nkeys = 0;
+    static uint8_t gidx[65535 / 3];
+    for (int f = 0; f < m->nfaces; f++) {
+        const uint32_t c = m->colors[f];
+        const int textured = (c & R3D_TEXTURED) && m->uv && m->tex;
+        const int emissive = unlit || (c & R3D_EMISSIVE);
+        int lods = 0;
+        for (int d = 0; d < 4; d++)
+            lods |= R3D_LOD_SHOWS(c, (unsigned)d) << d;
+        int vs, fs;
+        if (textured) {
+            if ((c & R3D_SCREEN) || unlit)
+                return 0;
+            if (!t && !(t = tex_get(g, m->tex)))
+                return 0;
+            r3d_corner_t v[3];
+            for (int k = 0; k < 3; k++) {
+                v[k].a = m->uv[f * 6 + k * 2];
+                v[k].b = m->uv[f * 6 + k * 2 + 1];
+            }
+            vs = GV_TEX_RGB;
+            fs = tex_opaque(t, v) ? SH_TEX_RGB : SH_TEX_RGB_ALPHA;
+        } else {
+            vs = GV_BAKED;
+            fs = (c & R3D_SCREEN) ? SH_SCREEN : SH_COLOUR;
+        }
+        const uint32_t k = group_key(vs, fs, !emissive && !unlit, lods);
+        int i = 0;
+        while (i < nkeys && key[i] != k)
+            i++;
+        if (i == nkeys) {
+            if (nkeys == MESH_GROUPS)
+                return 0;
+            key[nkeys++] = k;
+        }
+        gidx[f] = (uint8_t)i;
+    }
+    /* the groups one after the other, each with the stride of its shader */
+    uint32_t bytes = 0, count[MESH_GROUPS] = { 0 };
+    for (int f = 0; f < m->nfaces; f++)
+        count[gidx[f]] += 3;
+    for (int i = 0; i < nkeys; i++)
+        bytes += count[i] * vshaders[key[i] >> 12].words * 4u;
+    uint8_t *b = aligned_alloc(16, (bytes + 15) & ~15u);
+    if (!b)
+        return 0;
+    uint32_t at = 0;
+    for (int i = 0; i < nkeys; i++) {
+        ggroup_t *gr = &e->g[i];
+        gr->vs = (uint8_t)(key[i] >> 12);
+        gr->fs = (uint8_t)(key[i] >> 8 & 15);
+        gr->lamps = (uint8_t)(key[i] >> 4 & 1);
+        gr->lods = (uint8_t)(key[i] & 15);
+        gr->first = at;
+        gr->n = count[i];
+        const uint32_t stride = vshaders[gr->vs].words * 4u;
+        float *o = (float *)(b + at);
+        for (int f = 0; f < m->nfaces; f++) {
+            if (gidx[f] != i)
+                continue;
+            for (int k = 0; k < 3; k++, o += stride / 4)
+                put_mesh_corner(o, m, f, k, gr->vs, !gr->lamps, t);
+        }
+        at += count[i] * stride;
+    }
+    e->corners = b;
+    e->ngroups = nkeys;
+    e->tex = t;
+    e->tex_version = t ? t->version : 0;
+    return 1;
+}
+
+/* the cached corners of m (made again if it or its texture changed), or
+ * NULL; a slot the waiting job still reads is drawn first */
+static gmesh_t *mesh_get(const g16_t *g, const r3d_mesh_t *m, int unlit)
 {
     gmesh_t *e = NULL, *old = &G.gm[0];
     for (int i = 0; i < NMESH; i++) {
@@ -705,7 +804,8 @@ static gmesh_t *mesh_get(const g16_t *g, const r3d_mesh_t *m)
         if (G.gm[i].used < old->used)
             old = &G.gm[i];
     }
-    if (e && e->version == m->version) {
+    if (e && e->version == m->version && e->unlit == unlit &&
+        (!e->tex || (e->tex->sheet == m->tex && e->tex->version == e->tex_version))) {
         e->used = ++G.tick;
         return e->corners ? e : NULL;
     }
@@ -714,83 +814,120 @@ static gmesh_t *mesh_get(const g16_t *g, const r3d_mesh_t *m)
     if (e->corners && e->job == G.job_no && G.open && flush_job(g, 1) != 0)
         return NULL;
     free(e->corners);
+    e->corners = NULL;
     e->m = m;
     e->version = m->version;
-    e->corners = mesh_corners(m);
-    e->n = e->corners ? (uint32_t)m->nfaces * 3 : 0;
+    e->unlit = unlit;
     e->used = ++G.tick;
+    if (!mesh_build(g, e, m, unlit))
+        e->corners = NULL;
     return e->corners ? e : NULL;
 }
 
-/* a GL batch: the V3D reads the corners of e, its vertex shader places
- * them with matrix M, the binner throws the back faces away */
-static int gl_draw(const g16_t *g, gmesh_t *e, const float M[12], const r3d_proj_t *pr, int depth)
+/* one GL batch: the V3D reads the corners of group gr, its vertex shader
+ * places them with matrix M, the binner throws the back faces away */
+static int gl_draw(const g16_t *g, gmesh_t *e, const ggroup_t *gr, const float M[12], const r3d_env_t *env,
+                   int depth)
 {
     if (G.failed)
         return -1;
     job_for(g);
     batch_close();
-    if (G.rec_next + 64 > G.recs + JOB_RECS || G.cl.p + 96 > G.cl.end || G.unif_next + 20 > G.unif + JOB_UNIF / 4) {
+    if (G.rec_next + 64 > G.recs + JOB_RECS || G.cl.p + 96 > G.cl.end ||
+        G.unif_next + 80 > G.unif + JOB_UNIF / 4) {
         if (flush_job(g, 1) != 0)
             return -1;
         job_begin(g->w, g->h);
     }
     clip_window(g);
+    const int fs = gr->fs;
     const uint16_t cfg = depth == R3D_DEPTH_NONE ? V3D_CFG_DEPTH(7)
                        : depth == R3D_DEPTH_TEST ? V3D_CFG_DEPTH(1)
+                       : shaders[fs].discard ? V3D_CFG_DEPTH(1) | V3D_CFG_Z_UPDATE
                        : V3D_CFG_DEPTH(1) | V3D_CFG_Z_UPDATE | V3D_CFG_EARLY_Z | V3D_CFG_EARLY_Z_UPDATE;
     config(V3D_CFG_FRONT | (G.gl_cw ? V3D_CFG_CW : 0), cfg);
-    /* uniforms, in the order the shaders read them (tools/qpuasm.py):
-     * the matrix, f*16, the centre's x*16 (+ 0.5: the shader truncates),
-     * -f*16, the centre's y*16, -NEAR; the coordinate shader then f/(w/2)
-     * and f/(h/2) */
-    uint32_t *u = G.unif_next;
-    const float uf[19] = { M[0], M[1], M[2], M[3], M[4], M[5], M[6], M[7], M[8], M[9], M[10], M[11],
-                           pr->f * 16.0f, pr->cx * 16.0f + 0.5f, -pr->f * 16.0f, pr->cy * 16.0f + 0.5f, -R3D_NEAR,
-                           pr->f / (g->w * 0.5f), pr->f / (g->h * 0.5f) };
-    memcpy(u, uf, sizeof uf);
-    G.unif_next += 20;
+    /* uniforms, in the order the shaders read them (tools/qpuasm.py): the
+     * matrix, f*16, the centre's x*16 (+ 0.5: the shader truncates), -f*16,
+     * the centre's y*16, -NEAR; then the coordinate shader's f/(w/2),
+     * f/(h/2), and the vertex shader's fog and lamps */
+    uint32_t *cs = G.unif_next, *vs = cs + 20;
+    const float place[17] = { M[0], M[1], M[2], M[3], M[4], M[5], M[6], M[7], M[8], M[9], M[10], M[11],
+                              env->f * 16.0f, env->cx * 16.0f + 0.5f, -env->f * 16.0f, env->cy * 16.0f + 0.5f,
+                              -R3D_NEAR };
+    memcpy(cs, place, sizeof place);
+    const float clip[2] = { env->f / (g->w * 0.5f), env->f / (g->h * 0.5f) };
+    memcpy(cs + 17, clip, sizeof clip);
+    memcpy(vs, place, sizeof place);
+    float fl[5 + 4 * 7];
+    fl[0] = env->fog_near;
+    fl[1] = env->fog_k;
+    fl[2 + G.ia] = env->fog[0];                 /* bytes a b c */
+    fl[3] = env->fog[1];
+    fl[4 - G.ia] = env->fog[2];
+    for (int i = 0; i < 4; i++) {
+        float *L = fl + 5 + 7 * i;
+        if (i < env->nlamps && gr->lamps) {
+            memcpy(L, env->lamp[i], 4 * sizeof *L);
+            L[4 + G.ia] = env->lamp[i][4];
+            L[5] = env->lamp[i][5];
+            L[6 - G.ia] = env->lamp[i][6];
+        } else {
+            memset(L, 0, 7 * sizeof *L);        /* k 0: no light from it */
+        }
+    }
+    memcpy(vs + 17, fl, sizeof fl);
+    G.unif_next += 20 + 17 + 5 + 28;
     /* GL shader record: flags (clipping off: r3d gives meshes inside the
-     * guard band), the fragment shader (3 varyings), the vertex shader (x
-     * y z and the colour: 6 words), the coordinate shader (x y z: 3), the
-     * two attributes (address, bytes - 1, stride, VPM rows of each shader) */
+     * guard band), the fragment shader (its varyings, its uniforms: the
+     * texture), the vertex shader (x y z, then the rest of the corner),
+     * the coordinate shader (x y z), the two attributes (address, bytes -
+     * 1, stride, VPM row of each shader) */
+    const uint32_t words = vshaders[gr->vs].words, stride = words * 4;
     uint8_t *r = G.rec_next;
     G.rec_next += 64;
     memset(r, 0, 64);
     uint32_t a;
-    r[3] = 3;
-    a = v3d_bus(G.code + 1024 * SH_COLOUR); memcpy(r + 4, &a, 4);
-    r[14] = 3; r[15] = 6;
-    a = v3d_bus(G.code + 1024 * CODE_VS); memcpy(r + 16, &a, 4);
-    a = v3d_bus(u); memcpy(r + 20, &a, 4);
+    r[3] = shaders[fs].varyings;
+    a = v3d_bus(G.code + 1024 * fs); memcpy(r + 4, &a, 4);
+    a = gr->vs == GV_TEX_RGB ? v3d_bus(e->tex->params) : 0; memcpy(r + 8, &a, 4);
+    r[14] = 3; r[15] = (uint8_t)words;
+    a = v3d_bus(G.code + 1024 * vshaders[gr->vs].kb); memcpy(r + 16, &a, 4);
+    a = v3d_bus(vs); memcpy(r + 20, &a, 4);
     r[26] = 1; r[27] = 3;
     a = v3d_bus(G.code + 1024 * CODE_CS); memcpy(r + 28, &a, 4);
-    a = v3d_bus(u); memcpy(r + 32, &a, 4);
-    a = v3d_bus(e->corners); memcpy(r + 36, &a, 4);
-    r[40] = 11; r[41] = CORNER; r[42] = 0; r[43] = 0;
-    a = v3d_bus(e->corners + 24); memcpy(r + 44, &a, 4);
-    r[48] = 11; r[49] = CORNER; r[50] = 3; r[51] = 0;
+    a = v3d_bus(cs); memcpy(r + 32, &a, 4);
+    a = v3d_bus(e->corners + gr->first); memcpy(r + 36, &a, 4);
+    r[40] = 11; r[41] = (uint8_t)stride; r[42] = 0; r[43] = 0;
+    a = v3d_bus(e->corners + gr->first + 12); memcpy(r + 44, &a, 4);
+    r[48] = (uint8_t)(stride - 12 - 1); r[49] = (uint8_t)stride; r[50] = 3; r[51] = 0;
     v3d_cl_u8(&G.cl, V3D_GL_SHADER_STATE);
     v3d_cl_u32(&G.cl, v3d_bus(r) | 2);
     v3d_cl_u8(&G.cl, V3D_VERTEX_ARRAY_PRIMITIVES);
     v3d_cl_u8(&G.cl, 4);
-    v3d_cl_u32(&G.cl, e->n);
+    v3d_cl_u32(&G.cl, gr->n);
     v3d_cl_u32(&G.cl, 0);
     e->job = G.job_no;
+    if (e->tex && e->tex >= G.tex && e->tex < G.tex + NTEX)
+        G.tex_used[e->tex - G.tex] = 1;
     G.gldraws++;
-    G.st.tris += e->n / 3;
-    G.st.glmeshes++;
+    G.st.tris += gr->n / 3;
     return 0;
 }
 
-static int cb_mesh(void *ctx, const g16_t *g, const r3d_mesh_t *m, const float M[12], const r3d_proj_t *pr,
+static int cb_mesh(void *ctx, const g16_t *g, const r3d_mesh_t *m, const float M[12], const r3d_env_t *env,
                    int depth)
 {
     (void)ctx;
     if (!G.gl_ok || !G.gl_on || G.failed)
         return 0;
-    gmesh_t *e = mesh_get(g, m);
-    return e && gl_draw(g, e, M, pr, depth) == 0;
+    gmesh_t *e = mesh_get(g, m, env->unlit);
+    if (!e)
+        return 0;
+    for (int i = 0; i < e->ngroups; i++)
+        if ((e->g[i].lods >> env->detail & 1) && gl_draw(g, e, &e->g[i], M, env, depth) != 0)
+            return 0;
+    G.st.glmeshes++;
+    return 1;
 }
 
 /* ---------------------------------------------------------------- run */
@@ -1132,12 +1269,16 @@ static int probe_gl(const g16_t *pg)
     m.normals = n;
     m.version = 0xFFFFFFFFu;            /* not one of r3d's */
     const float M[12] = { 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 2 };
-    const r3d_proj_t pr = { 32, 32, 32 };
+    r3d_env_t env;
+    memset(&env, 0, sizeof env);
+    env.f = env.cx = env.cy = 32;
+    env.unlit = 1;
     for (int cw = 0; cw < 2; cw++) {
         G.gl_cw = cw;
         memset(G.probe, 0, JOB_PROBE);
-        gmesh_t *e = mesh_get(pg, &m);
-        if (!e || gl_draw(pg, e, M, &pr, R3D_DEPTH_WRITE) != 0 || gpu3d_flush(pg, 0) != 0)
+        gmesh_t *e = mesh_get(pg, &m, 1);
+        if (!e || e->ngroups != 1 || gl_draw(pg, e, &e->g[0], M, &env, R3D_DEPTH_WRITE) != 0 ||
+            gpu3d_flush(pg, 0) != 0)
             return 0;
         const uint16_t left = G.probe[20 * PROBE_W + 10], right = G.probe[20 * PROBE_W + 40],
                        in = G.probe[40 * PROBE_W + 10], out = G.probe[40 * PROBE_W + 20];
@@ -1267,8 +1408,9 @@ int gpu3d_init(void)
     G.probe_tex = (uint32_t *)(((uintptr_t)G.probe + JOB_PROBE + 4095) & ~(uintptr_t)4095);
     for (int i = 0; i < SH_COUNT; i++)
         memcpy(G.code + 1024 * i, shaders[i].code, shaders[i].size);
-    memcpy(G.code + 1024 * CODE_VS, vs_colour, sizeof vs_colour);
     memcpy(G.code + 1024 * CODE_CS, cs_colour, sizeof cs_colour);
+    for (int i = 0; i < GV_COUNT; i++)
+        memcpy(G.code + 1024 * vshaders[i].kb, vshaders[i].code, vshaders[i].size);
     G.backend.tri = cb_tri;
     G.backend.mesh = cb_mesh;
     G.backend.zclear = cb_zclear;
