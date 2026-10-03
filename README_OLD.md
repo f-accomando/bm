@@ -581,7 +581,15 @@ chiave privata nel secret `BM_RELEASE_KEY` del repository; la chiave pubblica
 (`keys/release-pub.pem`) è dentro il kernel, che controlla firma e SHA-256 prima di installare
 (`src/net/release.c`; l'aggiornamento dal Pi è il passo 4 di M19).
 
-La prima volta, dal PC (la chiave privata resta lì, in `~/.bm/release-key.pem`: tienine una copia):
+Tutto in un comando, da WSL (con la SD nel lettore): `scripts/release.sh v0.1.0` installa se
+serve la GitHub CLI (`gh`) e fa il login, crea la chiave (o tiene quella che c'è), mette il
+secret, fa commit e push della chiave pubblica, mette sulla SD un kernel con la chiave (prima
+del tag: un kernel compilato sul tag sarebbe la release stessa), crea e manda il tag e aspetta
+la CI fino alla release. Chiede prima di ogni passo che cambia qualcosa; `--sd E` per un'altra
+lettera, `--no-sd` per le release dopo la prima (il Pi si aggiorna da solo), `--dry-run` per
+vedere cosa farebbe.
+
+La prima volta a mano, dal PC (la chiave privata resta lì, in `~/.bm/release-key.pem`: tienine una copia):
 
 ```sh
 scripts/release-key.sh                          # la coppia di chiavi
@@ -809,6 +817,7 @@ scripts/mksd.py          immagine SD (MBR + FAT32): make image e test in QEMU
 scripts/mkmarket.py      catalogo del Market: controllo, firma, copertine, --add
 scripts/mkrelease.py     file di una release e manifest.txt firmato (make release, CI sui tag v*)
 scripts/release-key.sh   coppia di chiavi delle release; la pubblica in keys/release-pub.pem
+scripts/release.sh       una release da WSL: gh, chiave, secret, kernel sulla SD, tag, attesa della CI
 src/net/release.c        verifica delle release: firma del manifesto, righe, SHA-256 dei file
 src/net/catalog.c        catalogo del Market (M25): firma con la chiave del market, record, SHA-256
 tests/bm/               test host della grafica e del formato

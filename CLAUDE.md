@@ -531,7 +531,8 @@ screenshot in `docs/img/`), `README_OLD.md` (il README completo, in italiano),
 ## Aggiornamenti dal Pi (M19)
 
 - Release firmate (CI sui tag `v*`, `scripts/mkrelease.py`, chiave `keys/release-pub.pem` /
-  `scripts/release-key.sh`, secret `BM_RELEASE_KEY`); sul Pi `src/kernel/update.c`:
+  `scripts/release-key.sh`, secret `BM_RELEASE_KEY`; `scripts/release.sh vX.Y.Z` fa tutta la
+  procedura da WSL, anche il kernel con la chiave sulla SD prima del tag); sul Pi `src/kernel/update.c`:
   Settings > System > *Check for updates* / *Install the update*, monitor `u`. Niente si
   scrive finché tutti i file non sono scaricati e controllati; i kernel di prima vanno in
   `/bm/backup`; quello della scheda si scrive per ultimo. Prova: `test_update` in QEMU
