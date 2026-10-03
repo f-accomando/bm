@@ -103,10 +103,73 @@ def meshy_wait(task, key, minutes=40):
         time.sleep(5)
 
 
+def fetch_image(url, tries=3):
+    """the picture at an https URL, fetched from here as a browser would
+    (sites that refuse Meshy's fetcher, or hot links): (bytes, media type).
+    A wiki page with ?file=NAME (fandom, MediaWiki) is resolved to the
+    file through the wiki's API; an HTML page to its og:image."""
+    import html
+    import urllib.parse
+
+    def get(u):
+        req = urllib.request.Request(u, headers={"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
+                                                 "AppleWebKit/537.36 Chrome/120 Safari/537.36",
+                                                 "Accept": "image/*,text/html;q=0.9,*/*;q=0.8"})
+        with urllib.request.urlopen(req, timeout=60) as r:
+            return r.read(), (r.headers.get("Content-Type") or "").split(";")[0].strip().lower()
+
+    parts = urllib.parse.urlsplit(url)
+    q = urllib.parse.parse_qs(parts.query)
+    if q.get("file"):
+        # a MediaWiki page showing a file: the file's own URL from the API
+        api_url = f"{parts.scheme}://{parts.netloc}/api.php?" + urllib.parse.urlencode(
+            {"action": "query", "titles": "File:" + q["file"][0], "prop": "imageinfo", "iiprop": "url",
+             "format": "json"})
+        data, _ = get(api_url)
+        for page in json.loads(data).get("query", {}).get("pages", {}).values():
+            for info in page.get("imageinfo", []):
+                if info.get("url"):
+                    url = info["url"]
+    last = None
+    for n in range(tries):
+        try:
+            data, media = get(url)
+            if media.startswith("text/html"):
+                m = re.search(r'property="og:image"\s+content="([^"]+)"', data.decode(errors="replace")) or \
+                    re.search(r'content="([^"]+)"\s+property="og:image"', data.decode(errors="replace"))
+                if not m:
+                    raise ValueError("an HTML page without a picture")
+                data, media = get(html.unescape(m.group(1)))
+            if not media.startswith("image/"):
+                raise ValueError(f"not a picture: {media or 'no type'}")
+            return data, media
+        except (urllib.error.URLError, ValueError, OSError) as e:
+            last = e
+            time.sleep(2 * (n + 1))
+    print(f"meshy2mesh: {url}: {last}; Meshy will fetch it itself", file=sys.stderr)
+    return None
+
+
 def meshy_image_to_3d(image, key, polycount, texture=True, symmetry="auto", minutes=40):
     """-> the task's result: model_urls, texture_urls... (SUCCEEDED).
-    image: a file, or an https URL Meshy fetches itself"""
-    url = image if re.match(r"^https?://", image) else image_data_uri(image)
+    image: a file, or an https URL (fetched from here when it can be, so
+    the picture goes to Meshy as data; else Meshy fetches it itself)"""
+    if re.match(r"^https?://", image):
+        got = fetch_image(image)
+        if got:
+            data, media = got
+            if media not in ("image/png", "image/jpeg"):
+                import tempfile
+                with tempfile.NamedTemporaryFile(suffix="." + media.split("/")[1], delete=False) as f:
+                    f.write(data)
+                url = image_data_uri(f.name)
+                os.remove(f.name)
+            else:
+                url = f"data:{media};base64," + base64.standard_b64encode(data).decode()
+        else:
+            url = image
+    else:
+        url = image_data_uri(image)
     body = {"image_url": url, "ai_model": "meshy-5", "topology": "triangle",
             "target_polycount": polycount, "should_remesh": True, "should_texture": texture,
             "enable_pbr": False, "symmetry_mode": symmetry}
