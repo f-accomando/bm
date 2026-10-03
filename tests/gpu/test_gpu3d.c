@@ -225,9 +225,15 @@ static void make_meshes(void)
 
 typedef void (*scene_fn)(r3d_t *r, g16_t *g, int gpu);
 
+static int use_queue;                   /* M35: the end of the scene started, then waited for */
+
 static void flush(r3d_t *r, g16_t *g, int gpu)
 {
     (void)r;
+    if (gpu && use_queue) {
+        CHECK(gpu3d_submit(g) == 0 && gpu3d_sync() == 0, "submit: %s (%s)", gpu3d_status(), emu_error);
+        return;
+    }
     if (gpu)
         CHECK(gpu3d_flush(g, 0) == 0, "flush: %s (%s)", gpu3d_status(), emu_error);
 }
@@ -640,7 +646,7 @@ int main(int argc, char **argv)
     char want[160];
     static const char *const clips[3] = { "yes", "no", "yes (Z planes)" };
     snprintf(want, sizeof want, "byte a = %s, texels %s, textures in %s, MSAA %s, vertex shader %s, clipping %s, "
-             "lit models yes", emu_red_a ? "red" : "blue", emu_tex_swap ? "swapped" : "in place",
+             "lit models yes, queue yes", emu_red_a ? "red" : "blue", emu_tex_swap ? "swapped" : "in place",
              emu_tformat == 2 ? "rows" : "tiles", emu_ms_load_one ? "on cleared pages" : "on any page",
              emu_cw_flip ? "yes" : "yes (cw)", clips[emu_clip]);
     CHECK(strstr(gpu3d_status(), want) != NULL, "probe: '%s', expected '%s'", gpu3d_status(), want);
@@ -699,6 +705,35 @@ int main(int argc, char **argv)
             save(pg[1], 640, 360, sc_name[sc], "gl");
         }
     }
+    /* M35: every scene again with its end started on the V3D (semaphores,
+     * gpu3d_submit) and waited for: the same pixels */
+    for (size_t s = 0; s < sizeof scenes / sizeof *scenes; s++) {
+        const int w = scenes[s].w, h = scenes[s].h;
+        uint16_t *q[2] = { test_aligned_alloc(16, (size_t)w * h * 2), test_aligned_alloc(16, (size_t)w * h * 2) };
+        const uint32_t async = emu_stats.async;
+        for (int k = 0; k < 2; k++) {
+            g16_t g;
+            r3d_t r;
+            g16_target(&g, q[k], (uint32_t)w, w, h, &font);
+            g16_cls(&g, g16_rgb(30, 20, 50));
+            r3d_init(&r, &g);
+            r.backend = gpu3d_backend();
+            gpu3d_drop();
+            r3d_zclear(&r);
+            use_queue = k;
+            gpu3d_set_queue(k);
+            scenes[s].fn(&r, &g, 1);
+            gpu3d_set_queue(0);
+            use_queue = 0;
+            r3d_free(&r);
+        }
+        int differ = 0;
+        for (int i = 0; i < w * h; i++)
+            differ += q[0][i] != q[1][i];
+        CHECK(differ == 0, "queue: %s, %d pixels differ from the job run to its end", scenes[s].name, differ);
+        CHECK(emu_stats.async > async, "queue: %s, no job started", scenes[s].name);
+    }
+    printf("  queue: %u jobs started and waited for later, the same pixels\n", emu_stats.async);
     gpu3d_stats_t st;
     gpu3d_take_stats(&st);
     CHECK(st.jobs >= 5, "%u jobs", st.jobs);

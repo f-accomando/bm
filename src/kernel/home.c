@@ -287,7 +287,7 @@ void home_tool_start(int i, home_do_t *d)
 /* ---------------------------------------------------------------- settings */
 
 enum {
-    R_CONTROLLERS = 1, R_WIFI, R_LAYOUT, R_GRAPHICS, R_DRAW, R_GPU3D, R_AA, R_VS, R_VOLUME, R_SYSTEM,
+    R_CONTROLLERS = 1, R_WIFI, R_LAYOUT, R_GRAPHICS, R_DRAW, R_GPU3D, R_AA, R_VS, R_QUEUE, R_VOLUME, R_SYSTEM,
     R_PAD1, R_PAD2, R_PAD3, R_PAD4, R_KEYBOARD, R_PAIR, R_PAIR_KBD, R_TEST, R_PROMPTS, R_FORGET,
     R_NETWORK, R_STATE, R_IP, R_TIME, R_CONSOLE, R_PASSWORD, R_CONNECT, R_BOOT,
     R_VERSION, R_BOARD, R_UPTIME, R_MEMORY, R_CLOCKS, R_SD, R_DRIVER3D, R_RESTART, R_MONITOR,
@@ -357,6 +357,23 @@ static const char *vs_choice(void)
     return vs_on() == 1 ? "GPU: scenery" : "GPU: all models";
 }
 
+/* gpu3d_queue=1 (M35): the end of a frame's 3D starts on the GPU and the
+ * game's next _update runs meanwhile */
+static int queue_on(void)
+{
+    const char *on = config_get("gpu3d_queue");
+    return on && strcmp(on, "1") == 0;
+}
+
+static const char *queue_choice(void)
+{
+    if (!queue_on())
+        return "Off";
+    if (gpu3d_ready() && !gpu3d_queue_ok())
+        return "On: not on this GPU";
+    return "On";
+}
+
 static const char *gpu3d_choice(void)
 {
     if (!gpu3d_on())
@@ -410,6 +427,8 @@ void home_panel(int id, home_panel_t *p)
                  "Smooth edges of the GPU's 3D (try Dev > GPU test)", "%s", aa_choice());
         home_row(p, MENU_ROW_CHOICE, R_VS, "3D vertices",
                  "Who places the corners: ARM, or the GPU for the scenery or all", "%s", vs_choice());
+        home_row(p, MENU_ROW_CHOICE, R_QUEUE, "3D frame queue",
+                 "The game goes on while the GPU draws the frame before", "%s", queue_choice());
         break;
     case HOME_CONTROLLERS: {
         ksnprintf(p->title, sizeof p->title, "Settings > Controllers");
@@ -503,7 +522,8 @@ void home_panel(int id, home_panel_t *p)
             /* the drivers' version, and the one the 3D settings reproduce */
             const int gpu = gpu3d_on() && !gpu3d_failed() && v3d_init() == 0;
             home_row(p, MENU_ROW_INFO, R_DRIVER3D, "3D driver", "bm3d version (block); the games' 3D now",
-                     "bm3d %s (%s), as %s", BM3D_VERSION, BM3D_BLOCK, bm3d_mode(gpu, gpu ? vs_on() : 0));
+                     "bm3d %s (%s), as %s", BM3D_VERSION, BM3D_BLOCK,
+                     bm3d_mode_q(gpu, gpu ? vs_on() : 0, gpu && queue_on()));
         }
         home_row(p, MENU_ROW_ACTION, R_RESTART, "Restart", "Restarts the console", NULL);
         home_row(p, MENU_ROW_ACTION, R_MONITOR, "Open the monitor",
@@ -604,6 +624,11 @@ void home_act(int id, int row, int how, home_do_t *d)
         ksnprintf(d->note, sizeof d->note, "3D vertices of the next game: %s", vs_choice());
         break;
     }
+    case R_QUEUE:
+        config_set("gpu3d_queue", queue_on() ? "0" : "1");
+        config_save();
+        ksnprintf(d->note, sizeof d->note, "3D frame queue of the next game: %s", queue_choice());
+        break;
     case R_BOOT:
         config_set("wifi_boot", wifi_at_boot() ? "0" : "1");
         config_save();

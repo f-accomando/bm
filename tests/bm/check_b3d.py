@@ -7,8 +7,8 @@ import sys
 
 TESTS = ["spheres", "spheres_smooth", "spheres_tex", "spheres_unlit", "spheres_baked", "spheres_shine", "heroes",
          "heroes_tex", "heroes_skin", "heroes_shadow", "clip", "tiny", "draws", "quad_flat", "quad_smooth", "quad_tex", "quad_alpha",
-         "quad_screen", "texswap", "split", "match"]
-FUTURE = ["queue", "gpu2d", "bilinear"]
+         "quad_screen", "texswap", "split", "match", "queue"]
+FUTURE = ["gpu2d", "bilinear"]
 
 
 def main():
@@ -32,7 +32,8 @@ def main():
     got = {(r[1], r[2]) for r in rows}
     for t in TESTS:
         profs = {p for (tt, p) in got if tt == t}
-        check({"ARM", "GPU"} <= profs, f"{t}: {' '.join(sorted(profs))}")
+        need = {"GPU+VS", "GPU+VS+Q"} if t == "queue" else {"ARM", "GPU"}
+        check(need <= profs, f"{t}: {' '.join(sorted(profs))}")
     for t in FUTURE:
         check(any(l.startswith(f"F,{t},") for l in lines), f"{t}: shown as not developed yet")
     # the vertex shader's rows: the models it takes cost the ARM fewer instructions (here: fewer

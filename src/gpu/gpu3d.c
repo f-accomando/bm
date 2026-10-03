@@ -160,6 +160,10 @@ static struct {
                                      * light, 2 also the models lit by the sun (heroes) */
     int clip_ok;                    /* the probe saw the GPU clip: 1, 2 with Z_MIN_MAX_CLIPPING_PLANES */
     int lit_ok;                     /* the probe saw vs_lit light as r3d (models lit by the sun) */
+    int queue_ok;                   /* M35: the probe saw a started job end right (semaphores) */
+    int queue_on;                   /* asked for (gpu3d_set_queue) */
+    int inflight;                   /* a job started (v3d_start), not waited for yet */
+    int async_now;                  /* flush_job starts the job instead of running it */
     uint32_t vp;                    /* the job's VIEWPORT_OFFSET (x, y in 12.4) */
     float clipper[2];               /* the job's CLIPPER_XY_SCALING (0: not written yet) */
     gpu3d_stats_t st;
@@ -167,6 +171,7 @@ static struct {
 } G;
 
 static int flush_job(const g16_t *g, int store);
+static int job_wait(void);
 
 static void disable(const char *why)
 {
@@ -237,6 +242,8 @@ static const tex_t *tex_get(const g16_t *g, const g16_sheet_t *s)
         G.tex_next = (G.tex_next + 1) % NTEX;
     }
     if (G.tex_used[slot] && gpu3d_pending() && flush_job(g, 1) != 0)
+        return NULL;
+    if (job_wait() != 0)                /* a job started last may read it (M35) */
         return NULL;
     tex_t *t = &G.tex[slot];
     const int cw = s->w / G16_CELL, ch = s->h / G16_CELL;
@@ -320,6 +327,7 @@ static int tex_opaque(const tex_t *t, const r3d_corner_t v[3])
 
 static void job_begin(int w, int h)
 {
+    job_wait();                         /* the job started last reads the same memory */
     /* MSAA where the probe allows it, never with the depth kept between
      * jobs (it would have 4 samples a pixel) */
     G.ms = G.msaa && !G.z_saved && !G.z_wanted && (G.ms_ok == 2 || (G.ms_ok == 1 && G.page_uniform));
@@ -972,6 +980,8 @@ static gmesh_t *mesh_get(const g16_t *g, const r3d_mesh_t *m, int unlit, int smo
     }
     if (e->corners && e->job == G.job_no && G.open && flush_job(g, 1) != 0)
         return NULL;
+    if (e->corners && job_wait() != 0)  /* a job started last may read them (M35) */
+        return NULL;
     free(e->corners);
     free(e->g);
     e->corners = NULL;
@@ -1369,8 +1379,10 @@ static int cb_shadow(void *ctx, const g16_t *g, const r3d_mesh_t *m, const float
  * zstore keeps it there for the next job. Two loads of a tile take place
  * one at a time (tile coordinates, then a store of nothing that clears
  * nothing), and so do two stores, as Linux's vc4 does. */
+/* sem (M35, a job started with v3d_start): the rendering waits on the
+ * binner's semaphore before the first tile reads the tile lists */
 static uint32_t rcl_build(uint32_t fb, int w, int h, int bin, int load, uint32_t clear, int zload, int zstore,
-                          int ms)
+                          int ms, int sem)
 {
     const int ts = ms ? V3D_TILE_MSAA : V3D_TILE;
     const int tx = (w + ts - 1) / ts, ty = (h + ts - 1) / ts;
@@ -1418,6 +1430,8 @@ static uint32_t rcl_build(uint32_t fb, int w, int h, int bin, int load, uint32_t
             v3d_cl_u8(&cl, (uint8_t)x);
             v3d_cl_u8(&cl, (uint8_t)y);
             if (bin) {
+                if (sem && x == 0 && y == 0)
+                    v3d_cl_u8(&cl, V3D_WAIT_ON_SEMAPHORE);
                 v3d_cl_u8(&cl, V3D_BRANCH_TO_SUB_LIST);
                 v3d_cl_u32(&cl, v3d_bus(G.alloc) + (uint32_t)(y * tx + x) * 32);
             }
@@ -1454,6 +1468,46 @@ static int run(int bin, uint32_t rcl_end)
     return err;
 }
 
+/* M35: the job started (v3d_start) and not waited for: wait now. The
+ * ARM must not touch what it reads (the job's lists, records, uniforms
+ * and vertices, the meshes' corners, the textures) nor the page it draws
+ * on before this */
+static int job_wait(void)
+{
+    if (!G.inflight)
+        return 0;
+    G.inflight = 0;
+    uint32_t bus_us = 0, rus = 0;
+    const int err = v3d_wait(TIMEOUT_US, &bus_us, &rus);
+    G.st.render_us += rus;
+    if (rus > G.st.max_us)
+        G.st.max_us = rus;
+    if (err) {
+        static char buf[640];
+        v3d_dump(buf, sizeof buf);
+        kprintf("gpu3d: the V3D did not finish a started job:\n%s", buf);
+        disable("the GPU did not finish a frame started early (registers in the log)");
+        return -1;
+    }
+    return 0;
+}
+
+static int run_async(uint32_t rcl_end)
+{
+    v3d_set_overflow(v3d_bus(G.overflow), JOB_OVERFLOW);
+    if (v3d_start(v3d_bus(G.bcl), v3d_bus(G.cl.p), v3d_bus(G.rcl), rcl_end) != 0)
+        return -1;
+    G.inflight = 1;
+    G.st.jobs++;
+    G.st.queued++;
+    return 0;
+}
+
+int gpu3d_sync(void)
+{
+    return job_wait();
+}
+
 int gpu3d_pending(void)
 {
     return G.open && (G.vbytes || G.b_open || G.gldraws);
@@ -1461,6 +1515,7 @@ int gpu3d_pending(void)
 
 void gpu3d_drop(void)
 {
+    job_wait();
     batch_close();
     G.open = 0;
     G.z_saved = G.split = G.z_wanted = 0;
@@ -1545,6 +1600,9 @@ static int flush_job(const g16_t *g, int store)
         disable("the page is not as wide as the screen");
         return -1;
     }
+    const int async = G.async_now;
+    if (async)
+        v3d_cl_u8(&G.cl, V3D_INCREMENT_SEMAPHORE);  /* the rendering waits on it (M35) */
     v3d_cl_u8(&G.cl, V3D_FLUSH);        /* ends the tile lists */
     v3d_cl_u8(&G.cl, V3D_NOP);
     if (G.cl.overflow) {
@@ -1556,13 +1614,14 @@ static int flush_job(const g16_t *g, int store)
     /* a page of one colour is not read back: the tiles start with it */
     const int load = !G.page_uniform;
     uint32_t fb = bus_of(g->px);
-    uint32_t end = rcl_build(fb, g->w, g->h, 1, load, load ? 0 : clear_of(G.page_colour), zload, zstore, G.ms);
+    uint32_t end = rcl_build(fb, g->w, g->h, 1, load, load ? 0 : clear_of(G.page_colour), zload, zstore, G.ms,
+                             async);
     if (G.ms)
         G.st.msjobs++;
     G.page_uniform = 0;                 /* now it has the 3D too */
     if (!load)
         G.st.cleared++;
-    if (run(1, end) != 0) {
+    if (async ? run_async(end) != 0 : run(1, end) != 0) {
         disable("the GPU did not finish a frame (registers in the log)");
         return -1;
     }
@@ -1586,7 +1645,38 @@ int gpu3d_flush(const g16_t *g, int keep)
     } else if (had) {
         G.split = 1;
     }
+    if (job_wait() != 0)                /* a job started before: the page has it when this returns */
+        r = -1;
     return r;
+}
+
+int gpu3d_submit(const g16_t *g)
+{
+    if (!G.queue_ok || !G.queue_on || G.failed)
+        return gpu3d_flush(g, 0);
+    if (job_wait() != 0)
+        return -1;
+    G.async_now = 1;
+    const int r = flush_job(g, 0);
+    G.async_now = 0;
+    G.z_saved = 0;
+    G.split = 0;
+    return r;
+}
+
+void gpu3d_set_queue(int on)
+{
+    G.queue_on = on;
+}
+
+int gpu3d_queue(void)
+{
+    return G.queue_ok && G.queue_on;
+}
+
+int gpu3d_queue_ok(void)
+{
+    return G.queue_ok;
 }
 
 void gpu3d_take_stats(gpu3d_stats_t *s)
@@ -1623,12 +1713,12 @@ static int probe_ms(void)
     const uint32_t bus = v3d_bus(G.probe);
     for (int i = 0; i < PROBE_W * PROBE_H; i++)
         G.probe[i] = 0x1234;
-    if (run(0, rcl_build(bus, PROBE_W, PROBE_H, 0, 0, clear_of(0x001F), 0, 0, 1)) != 0 ||
+    if (run(0, rcl_build(bus, PROBE_W, PROBE_H, 0, 0, clear_of(0x001F), 0, 0, 1, 0)) != 0 ||
         G.probe[10 * PROBE_W + 10] != 0x001F || G.probe[PROBE_W * PROBE_H - 1] != 0x001F)
         return 0;
     for (int i = 0; i < PROBE_W * PROBE_H; i++)
         G.probe[i] = 0x07E0;
-    if (run(0, rcl_build(bus, PROBE_W, PROBE_H, 0, 1, clear_of(0xF800), 0, 0, 1)) != 0)
+    if (run(0, rcl_build(bus, PROBE_W, PROBE_H, 0, 1, clear_of(0xF800), 0, 0, 1, 0)) != 0)
         return 1;
     return G.probe[10 * PROBE_W + 10] == 0x07E0 && G.probe[PROBE_W * PROBE_H - 1] == 0x07E0 ? 2 : 1;
 }
@@ -1846,6 +1936,39 @@ static int probe_lit(const g16_t *pg)
 /* The order of red and blue: a clear with byte a of the colour full says
  * where byte a lands in BGR565; a texture whose texels have byte a full
  * says whether the TMU keeps the bytes in place. */
+/* M35: a job started with v3d_start (the binner's semaphore, the
+ * rendering waiting on it) on a cleared buffer, a green quad over all of
+ * it; 1 if the V3D ends it and the buffer is green, else 0 (every job is
+ * run and waited for, as before) */
+static int probe_queue(const g16_t *pg)
+{
+    const float z = 0.5f;
+    const r3d_corner_t v[4] = {
+        { 0, 0, z, 0, 1, 0, { 0, 0, 0 }, { 0, 0, 0 } }, { PROBE_W, 0, z, 0, 1, 0, { 0, 0, 0 }, { 0, 0, 0 } },
+        { PROBE_W, PROBE_H, z, 0, 1, 0, { 0, 0, 0 }, { 0, 0, 0 } }, { 0, PROBE_H, z, 0, 1, 0, { 0, 0, 0 }, { 0, 0, 0 } },
+    };
+    const r3d_corner_t t1[3] = { v[0], v[1], v[2] }, t2[3] = { v[0], v[2], v[3] };
+    memset(G.probe, 0, JOB_PROBE);
+    G.page_uniform = 1;
+    G.page_colour = 0;
+    add_tri(pg, t1, R3D_KIND_COLOUR, NULL, 1, SH_COLOUR, 0);
+    add_tri(pg, t2, R3D_KIND_COLOUR, NULL, 1, SH_COLOUR, 0);
+    G.async_now = 1;
+    int r = flush_job(pg, 0);
+    G.async_now = 0;
+    if (r != 0 || G.failed)
+        return 0;
+    uint32_t b = 0, us = 0;
+    G.inflight = 0;
+    if (v3d_wait(TIMEOUT_US, &b, &us) != 0) {
+        kprintf("gpu3d: a started job did not end: every job runs to its end as before\n");
+        return 0;
+    }
+    G.page_uniform = 0;
+    const uint16_t c = G.probe[PROBE_W * 20 + 20], d = G.probe[PROBE_W * 50 + 40];
+    return c == 0x07E0 && d == 0x07E0;
+}
+
 static int probe(void)
 {
     g16_t pg;
@@ -1858,7 +1981,7 @@ static int probe(void)
     pg.cy1 = PROBE_H;
 
     memset(G.probe, 0x55, JOB_PROBE);
-    if (run(0, rcl_build(v3d_bus(G.probe), PROBE_W, PROBE_H, 0, 0, 0x000000FFu, 0, 0, 0)) != 0) {
+    if (run(0, rcl_build(v3d_bus(G.probe), PROBE_W, PROBE_H, 0, 0, 0x000000FFu, 0, 0, 0, 0)) != 0) {
         disable("probe: a clear did not finish");
         return -1;
     }
@@ -1928,6 +2051,7 @@ static int probe(void)
     G.gl_ok = probe_gl(&pg);
     G.clip_ok = G.gl_ok ? probe_clip(&pg) : 0;
     G.lit_ok = G.gl_ok ? probe_lit(&pg) : 0;
+    G.queue_ok = probe_queue(&pg);
     memset(&G.st, 0, sizeof G.st);
     return 0;
 }
@@ -1980,9 +2104,9 @@ int gpu3d_init(void)
     static const char *const clips[3] = { "no", "yes", "yes (Z planes)" };
     ksnprintf(G.why, sizeof G.why, "bm3d " BM3D_VERSION " ready (byte a = %s, texels %s, textures %s, MSAA %s, "
               "vertex shader %s, "
-              "clipping %s, lit models %s)", G.red_a ? "red" : "blue", G.tex_swap ? "swapped" : "in place",
+              "clipping %s, lit models %s, queue %s)", G.red_a ? "red" : "blue", G.tex_swap ? "swapped" : "in place",
               G.tformat ? "in tiles" : "in rows", ms[G.ms_ok], G.gl_ok ? (G.gl_cw ? "yes (cw)" : "yes") : "no",
-              clips[G.clip_ok], G.lit_ok ? "yes" : "no");
+              clips[G.clip_ok], G.lit_ok ? "yes" : "no", G.queue_ok ? "yes" : "no");
     G.status = G.why;
     G.ready = 1;
     return 0;

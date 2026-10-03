@@ -34,6 +34,12 @@ stress test, il 3D Bench, il benchmark di Overbit e il quarto valore di `gpu3d()
   modelli Meshy sono una superficie unica) in gruppi per coppia di ossa, ogni angolo messo
   dalla matrice del suo osso come fa r3d (`vs_lit_tex2`, `cs_colour2`, le ombre
   `vs_shadow2`/`cs_shadow2`).
+- **4.0** (2026-10-03, M35): il fotogramma in coda: alla fine del fotogramma il lavoro della
+  GPU parte e non si aspetta (il binning incrementa un semaforo che il rendering aspetta,
+  come il driver vc4 di Linux: i due thread partono insieme); intanto gira il `_update`
+  del fotogramma dopo, e si aspetta la GPU solo prima di toccare la pagina o la memoria
+  che il lavoro legge. Una prova all'avvio (`probe_queue`) la spegne se la V3D non finisce
+  il lavoro come deve. Opzione `gpu3d_queue`.
 
 ## Le modalità: versioni vecchie sul codice di oggi
 
@@ -42,7 +48,8 @@ Le impostazioni riproducono le versioni precedenti, così si confrontano sullo s
 - 3D sull'ARM (`gpu3d=0`): **0.2**;
 - GPU senza vertex shader (`gpu3d_vs=0`): **2.1** (con `gpu3d_aa=1` anche l'MSAA);
 - GPU con il vertex shader per lo scenario (`gpu3d_vs=1`): **3.0**;
-- GPU con il vertex shader per tutto (`gpu3d_vs=2`): **3.4**.
+- GPU con il vertex shader per tutto (`gpu3d_vs=2`): **3.4**;
+- con il fotogramma in coda (`gpu3d_queue=1`): **4.0**.
 
 0.1 e 1.0 non girano più: i loro numeri sono quelli misurati sul Pi allora
 (`docs/M33-PRIMA-DOPO.md`).

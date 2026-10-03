@@ -10,11 +10,12 @@
  *
  * The settings reproduce older versions on today's code (the "mode"): the
  * ARM alone is 0.2, the GPU without its vertex shader 2.1, with it for the
- * scenery 3.0, for every model 3.4. 0.1 and 1.0 no longer run: the 3D
- * Bench shows the numbers measured on the Pi with them.
+ * scenery 3.0, for every model 3.4, with the frame in the queue 4.0. 0.1
+ * and 1.0 no longer run: the 3D Bench shows the numbers measured on the Pi
+ * with them.
  */
-#define BM3D_VERSION "3.4"
-#define BM3D_BLOCK   "M36"
+#define BM3D_VERSION "4.0"
+#define BM3D_BLOCK   "M35"
 
 typedef struct {
     const char *version, *block, *date, *what;
@@ -34,18 +35,27 @@ static inline const bm3d_version_t *bm3d_versions(int *n)
         { "3.2", "M36", "2026-10-03", "vertex shader for shadows and the first-person layer" },
         { "3.3", "M36", "2026-10-03", "textured models lit by the sun: Gouraud, on the vertex shader too" },
         { "3.4", "M36", "2026-10-03", "skins on the vertex shader: faces on two bones (the Meshy heroes)" },
+        { "4.0", "M35", "2026-10-03", "the frame in the queue: the GPU draws while the game's next update runs" },
     };
     *n = (int)(sizeof v / sizeof v[0]);
     return v;
 }
 
 /* the version a renderer reproduces: gpu (the V3D draws), vs (its vertex
- * shader: 0, 1 the scenery, 2 every model) */
-static inline const char *bm3d_mode(int gpu, int vs)
+ * shader: 0, 1 the scenery, 2 every model), queue (the frame in the queue,
+ * M35) */
+static inline const char *bm3d_mode_q(int gpu, int vs, int queue)
 {
     if (!gpu)
         return "0.2";
+    if (queue)
+        return "4.0";
     return vs >= 2 ? "3.4" : vs == 1 ? "3.0" : "2.1";
+}
+
+static inline const char *bm3d_mode(int gpu, int vs)
+{
+    return bm3d_mode_q(gpu, vs, 0);
 }
 
 #endif

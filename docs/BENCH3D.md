@@ -14,7 +14,8 @@ riprodurre (`docs/DRIVERS.md`):
 - **GPU**: bm3d 2.1, la GPU disegna i triangoli che l'ARM prepara;
 - **GPU+AA**: la stessa con l'MSAA 4×;
 - **GPU+VS1**: bm3d 3.0, il vertex shader per lo scenario;
-- **GPU+VS**: bm3d 3.4, il vertex shader per tutto.
+- **GPU+VS**: bm3d 3.4, il vertex shader per tutto;
+- **GPU+VS+Q**: bm3d 4.0, lo stesso con il fotogramma in coda (M35; solo nel test `queue`).
 
 Un profilo che la GPU non sa fare (le prove all'avvio lo hanno spento) non ha la riga.
 A ogni passo `n` cresce di un terzo finché un fotogramma supera i **40 ms**; i carichi a
@@ -47,8 +48,10 @@ i numeri del Pi con i driver di prima sono le barre storiche.
   z conservato);
 - `match`: una partita sintetica, mappa di 100 pezzi, eroi con le ombre, un modello in
   prima persona e un HUD;
-- da sviluppare (pagina "non ancora"): `queue` (M35, il fotogramma dopo mentre la GPU
-  disegna), `gpu2d` (M37, sprite e testo sulla GPU), `bilinear` (M37, texture filtrate).
+- `queue`: sfere Gouraud più un lavoro fisso dell'ARM dopo il 3D (4 milioni di istruzioni,
+  la logica di un gioco), con GPU+VS e GPU+VS+Q: in coda l'ARM lavora mentre la GPU disegna;
+- da sviluppare (pagina "non ancora"): `gpu2d` (M37, sprite e testo sulla GPU), `bilinear`
+  (M37, texture filtrate).
 
 I carichi massimi sono molto oltre quello che i driver fanno oggi (fino a 8000 sfere, 512
 eroi, 40 000 chiamate): restano margine per i driver che verranno.

@@ -561,6 +561,12 @@ static int shader_of(const uint8_t *code)
     return -1;
 }
 
+/* M35: the binner's semaphore (INCREMENT_SEMAPHORE at the end of the
+ * binning list, WAIT_ON_SEMAPHORE in the rendering list). A job started
+ * with v3d_start (async) must have both: on the V3D the two threads run
+ * together and the rendering would read tile lists not yet written. */
+static int sem_count, emu_async;
+
 static int bin(uint32_t start, uint32_t end)
 {
     const uint8_t *p = ptr(start), *e = ptr(end);
@@ -584,6 +590,7 @@ static int bin(uint32_t start, uint32_t end)
         case 0: p = e; break;                                   /* HALT */
         case 1: break;                                          /* NOP */
         case 4: flushed = 1; break;                             /* FLUSH */
+        case 7: sem_count++; break;                             /* INCREMENT_SEMAPHORE */
         case 112:                                               /* TILE_BINNING_MODE_CONFIG */
             bin_alloc = rd32(p); bin_tsda = rd32(p + 8);
             bin_tx = p[12]; bin_ty = p[13];
@@ -990,6 +997,7 @@ static int render(uint32_t start, uint32_t end, int have_bin)
     uint16_t *fb = NULL;
     int fw = 0, fh = 0, tx = -1, ty = -1, load = 0, zload = 0, eof = 0, have_cfg = 0, tiles = 0;
     int loaded = 0;                     /* a load took place: a store before the next load */
+    int waited = 0;                     /* WAIT_ON_SEMAPHORE seen */
     uint32_t load_addr = 0, zload_addr = 0;
     ms = 0, TS = 64, NS = 1;
     while (p < e) {
@@ -998,6 +1006,12 @@ static int render(uint32_t start, uint32_t end, int have_bin)
             return err("rendering list: packet %u after the end of frame", id, 0);
         switch (id) {
         case 1: break;
+        case 8:                                                 /* WAIT_ON_SEMAPHORE */
+            if (sem_count <= 0)
+                return err("WAIT_ON_SEMAPHORE with no INCREMENT_SEMAPHORE from the binner", 0, 0);
+            sem_count--;
+            waited = 1;
+            break;
         case 114:                                               /* CLEAR_COLORS */
             clear_col = rd32(p); clear_z = rd32(p + 8) & 0xFFFFFF;
             p += 13;
@@ -1096,6 +1110,8 @@ static int render(uint32_t start, uint32_t end, int have_bin)
             break;
         }
         case 17: {                                              /* BRANCH_TO_SUB_LIST */
+            if (emu_async && have_bin && !waited)
+                return err("a started job reads the tile lists before waiting on the binner", 0, 0);
             uint32_t a = rd32(p);
             if (!have_bin || a != bin_alloc + (uint32_t)(ty * bin_tx + tx) * 32)
                 return err("branch to %08x for tile %u", a, (unsigned)(ty * 100 + tx));
@@ -1151,9 +1167,47 @@ int v3d_run(uint32_t bin_start, uint32_t bin_end, uint32_t rnd, uint32_t rnd_end
     if (emu_skip)
         return 0;
     int have_bin = bin_end != bin_start;
+    sem_count = 0;
     if (have_bin && bin(bin_start, bin_end) != 0)
         return -1;
     if (!have_bin)
         nprims = 0;
-    return render(rnd, rnd_end, have_bin);
+    const int r = render(rnd, rnd_end, have_bin);
+    if (!r && sem_count != 0)
+        return err("the binner's semaphore incremented and not waited on", 0, 0);
+    return r;
+}
+
+/* M35: the emulator runs a started job at once; v3d_wait gives its
+ * result. emu_stats.async counts them. */
+static int async_busy, async_err;
+
+int v3d_start(uint32_t bin_start, uint32_t bin_end, uint32_t rnd, uint32_t rnd_end)
+{
+    if (async_busy) {
+        err("v3d_start with a job still running", 0, 0);
+        return -1;
+    }
+    emu_async = 1;
+    async_err = v3d_run(bin_start, bin_end, rnd, rnd_end, 0, NULL, NULL);
+    emu_async = 0;
+    async_busy = 1;
+    emu_stats.async++;
+    return 0;
+}
+
+int v3d_busy(void)
+{
+    return 0;
+}
+
+int v3d_wait(uint32_t timeout_us, uint32_t *bin_us, uint32_t *rnd_us)
+{
+    (void)timeout_us;
+    if (bin_us) *bin_us = 0;
+    if (rnd_us) *rnd_us = 1;
+    if (!async_busy)
+        return 0;
+    async_busy = 0;
+    return async_err;
 }

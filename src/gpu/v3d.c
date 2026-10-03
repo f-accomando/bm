@@ -218,6 +218,80 @@ int v3d_run(uint32_t bin, uint32_t bin_end, uint32_t rnd, uint32_t rnd_end, uint
     return err;
 }
 
+/* M35: a job started and not waited for. The binning list ends with
+ * INCREMENT_SEMAPHORE and the rendering list waits on it before its first
+ * tile, as Linux's vc4 does, so the two threads start together and the ARM
+ * goes on. */
+static struct {
+    int busy, bin;
+    uint32_t t0;
+} job;
+
+int v3d_start(uint32_t bin, uint32_t bin_end, uint32_t rnd, uint32_t rnd_end)
+{
+    if (!ready || job.busy)
+        return -1;
+    dcache_clean_invalidate_all();
+    dmb();
+    wr(V3D_L2CACTL, L2C_CLEAR);
+    wr(V3D_SLCACTL, 0x0F0F0F0Fu);
+    wr(V3D_BFC, 1);
+    wr(V3D_RFC, 1);
+    dmb();
+    job.bin = bin_end != bin;
+    if (job.bin) {
+        wr(V3D_BPOA, overflow_bus);
+        wr(V3D_BPOS, overflow_size);
+        wr(V3D_CT0CA, bin);
+        wr(V3D_CT0EA, bin_end);
+    }
+    wr(V3D_CT1CA, rnd);
+    wr(V3D_CT1EA, rnd_end);             /* waits on the semaphore if there is binning */
+    dmb();
+    job.busy = 1;
+    job.t0 = timer_ticks();
+    return 0;
+}
+
+int v3d_busy(void)
+{
+    if (!job.busy)
+        return 0;
+    dmb();
+    const int done = (rd(V3D_RFC) & 0xFF) != 0;
+    dmb();
+    return !done;
+}
+
+int v3d_wait(uint32_t timeout_us, uint32_t *bin_us, uint32_t *rnd_us)
+{
+    if (bin_us) *bin_us = 0;
+    if (rnd_us) *rnd_us = 0;
+    if (!job.busy)
+        return 0;
+    job.busy = 0;
+    int err = 0;
+    uint32_t b = 0, r = 0;
+    if (job.bin)
+        err = wait_count(V3D_BFC, V3D_CT0CS, timeout_us, &b);
+    if (!err)
+        err = wait_count(V3D_RFC, V3D_CT1CS, timeout_us, &r);
+    /* the time from the start to the end the ARM saw (at most the job's:
+     * it may have ended while the ARM was busy) */
+    (void)b;
+    (void)r;
+    if (rnd_us) *rnd_us = timer_ticks() - job.t0;
+    if (err) {
+        wr(V3D_CT0CS, CT_RESET);
+        wr(V3D_CT1CS, CT_RESET);
+        wr(V3D_BFC, 1);
+        wr(V3D_RFC, 1);
+        dmb();
+    }
+    dcache_clean_invalidate_all();
+    return err;
+}
+
 void v3d_dump(char *buf, size_t n)
 {
     if (!snapped)

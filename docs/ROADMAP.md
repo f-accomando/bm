@@ -2159,6 +2159,19 @@ Oggi a fine fotogramma l'ARM aspetta che la V3D finisca (nella scena di prova 2,
 - **Fatto quando:** il benchmark di Overbit e lo stress test mostrano il guadagno sul Pi,
   con l'opzione accesa e spenta.
 
+**Stato (2026-10-03, branch `3d-performance`; sul PC, da provare sul Pi).** Fatto il passo 1,
+**bm3d 4.0**: `gpu3d_submit` avvia il lavoro di fine fotogramma con `v3d_start` (il binning
+finisce con `INCREMENT_SEMAPHORE`, il rendering aspetta con `WAIT_ON_SEMAPHORE` prima del
+primo tile, come il driver vc4 di Linux: i due thread partono insieme) e il runtime chiama
+intanto il `_update` del fotogramma dopo; `gpu3d_sync` aspetta prima di toccare la pagina
+(2D, letture, la copia sullo schermo), il driver prima del lavoro dopo o di cambiare mesh e
+texture che il lavoro legge. Prova all'avvio `probe_queue` (stato: `queue yes`); opzione
+*Graphics > 3D frame queue* (`gpu3d_queue`, spenta di default), quarto argomento di
+`gpu3d()`; test `queue` del 3D Bench (GPU+VS e GPU+VS+Q, con 4 milioni di istruzioni di
+logica dopo il 3D). L'emulatore controlla i semafori (un lavoro avviato che legge le liste
+dei tile prima di aspettare è un errore) e ogni scena dei test esce identica in coda.
+Restano i passi 2 e 3.
+
 ## M36 — Vertici sulla GPU (L/XL)
 Con la GPU il limite è l'ARM (~1,5–2 µs per triangolo: trasformare, illuminare,
 scartare, scrivere i vertici); la V3D da sola fa 3 milioni di triangoli/s. La mesh va

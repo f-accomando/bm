@@ -125,6 +125,28 @@ int main(void)
     regs[CT1CS / 4] = 0;
     CHECK(job(0, 0, 3, NULL) == 0, "the next job after an error failed");
 
+    /* M35: a job started and waited for later */
+    CHECK(v3d_wait(200000, NULL, NULL) == 0, "a wait with no job started failed");
+    bin_delay = 4;
+    rnd_delay = 6;
+    CHECK(v3d_start(0x40100000u, 0x40100100u, 0x40200000u, 0x40200100u) == 0, "start failed");
+    CHECK(v3d_start(0x40100000u, 0x40100100u, 0x40200000u, 0x40200100u) == -1, "a second start while busy");
+    CHECK(v3d_busy() == 1, "busy at once");
+    int polls = 1;
+    while (v3d_busy() && polls < 100)
+        polls++;
+    CHECK(polls < 100 && regs[RFC / 4] == 1, "the started job never seen to end (%d polls)", polls);
+    uint32_t us = 0;
+    CHECK(v3d_wait(200000, NULL, &us) == 0 && us > 0, "the wait after the end failed");
+    CHECK(regs[RFC / 4] == 0 && regs[BFC / 4] == 0, "the counts not given back: BFC %u RFC %u", regs[BFC / 4],
+          regs[RFC / 4]);
+    CHECK(v3d_busy() == 0, "busy after the wait");
+    rnd_delay = 0;                      /* a started job that never ends */
+    CHECK(v3d_start(0, 0, 0x40200000u, 0x40200100u) == 0, "start without binning failed");
+    uint32_t t0 = now;
+    CHECK(v3d_wait(200000, NULL, NULL) == -1 && now - t0 >= 200000, "a started job that never ends was a success");
+    CHECK(job(0, 0, 3, NULL) == 0, "the next job after a started one failed");
+
     printf("v3d: %d/%d checks passed\n", checks - failures, checks);
     return failures ? 1 : 0;
 }

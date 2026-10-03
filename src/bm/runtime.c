@@ -136,8 +136,22 @@ static void flush3d(int keep)
 {
     if (!rt.r3d.backend)
         return;
-    if (((gpu3d_pending() || !keep) && gpu3d_flush(&rt.g, keep) != 0) || gpu3d_failed())
+    /* (a frame started on the GPU, M35: waited for, the page has it) */
+    if (((gpu3d_pending() || !keep) && gpu3d_flush(&rt.g, keep) != 0) || gpu3d_sync() != 0 || gpu3d_failed())
         rt.r3d.backend = NULL;          /* the GPU failed: the ARM draws the 3D again */
+}
+
+/* M35: the end of the frame's 3D started on the GPU and not waited for
+ * (gpu3d_queue on): the next _update runs meanwhile; flush3d waits */
+static int submit3d(void)
+{
+    if (!rt.r3d.backend || !gpu3d_queue())
+        return 0;
+    if (gpu3d_submit(&rt.g) != 0 || gpu3d_failed()) {
+        rt.r3d.backend = NULL;
+        return 0;
+    }
+    return 1;
 }
 
 /* before drawing on the page (or reading it): the 3D waiting goes first,
@@ -585,10 +599,12 @@ static void gpu3d_maybe(void)
         gpu3d_set_msaa(aa && strcmp(aa, "1") == 0);     /* anti-aliasing: Settings */
         const char *vs = config_get("gpu3d_vs");
         gpu3d_set_vshader(vs ? atoi(vs) : 0);           /* vertex shader: Settings (0, 1, 2) */
+        const char *q = config_get("gpu3d_queue");
+        gpu3d_set_queue(q && strcmp(q, "1") == 0);      /* the frame in the queue (M35): Settings */
         rt.r3d.backend = gpu3d_backend();
         rt.r3d.arm_hook = gpu3d_to_arm;
         if (!cur.bench)                 /* a benchmark has its own report */
-            kprintf("bm: the 3D is drawn by the GPU as bm3d %s (%s)\n", bm3d_mode(1, gpu3d_vshader_on()),
+            kprintf("bm: the 3D is drawn by the GPU as bm3d %s (%s)\n", bm3d_mode_q(1, gpu3d_vshader_on(), gpu3d_queue()),
                     gpu3d_status());
     } else {
         kprintf("bm: the 3D is drawn by the ARM as bm3d %s: %s\n", bm3d_mode(0, 0), gpu3d_status());
@@ -1451,15 +1467,17 @@ static int l_zclear(lua_State *L)
     return 0;
 }
 
-/* gpu3d([on, [aa, [vs]]]) -> on, aa, vs, version: whether the GPU draws the 3D,
+/* gpu3d([on, [aa, [vs, [queue]]]]) -> on, aa, vs, version, queue: whether the GPU draws the 3D,
  * whether with anti-aliasing (MSAA 4x, where the GPU allows it) and whether
  * its vertex shader places the corners of the models (M36, where the GPU's
  * probe drew with it): false, 1 the scenery (meshes unlit or with baked
  * light), 2 (or true) every model; version: the bm3d version that reproduces
- * (src/gpu/version3d.h: "0.2" the ARM, "2.1", "3.0", "3.4"). With on, the 3D
+ * (src/gpu/version3d.h: "0.2" the ARM, "2.1", "3.0", "3.4", "4.0"). With on, the 3D
  * goes to the GPU (if the console has one that answers) or to the ARM from
  * here, whatever Settings > Graphics says: for benchmarks; switch between
- * frames (what was drawn so far in a frame is not in the other's depth). */
+ * frames (what was drawn so far in a frame is not in the other's depth).
+ * queue (M35): the end of a frame's 3D started on the GPU while the next
+ * _update runs (where the GPU's probe saw it work). */
 static int l_gpu3d(lua_State *L)
 {
     r3d_t *r = r3d(L);
@@ -1481,6 +1499,8 @@ static int l_gpu3d(lua_State *L)
             gpu3d_set_msaa(lua_toboolean(L, 2));
         if (!lua_isnoneornil(L, 3))
             gpu3d_set_vshader(lua_isboolean(L, 3) ? 2 * lua_toboolean(L, 3) : (int)luaL_checkinteger(L, 3));
+        if (!lua_isnoneornil(L, 4))
+            gpu3d_set_queue(lua_toboolean(L, 4));
     }
     lua_pushboolean(L, r->backend != NULL);
     lua_pushboolean(L, r->backend != NULL && gpu3d_msaa_on());
@@ -1489,8 +1509,9 @@ static int l_gpu3d(lua_State *L)
         lua_pushinteger(L, vs);
     else
         lua_pushboolean(L, 0);
-    lua_pushstring(L, bm3d_mode(r->backend != NULL, vs));     /* the bm3d version reproduced */
-    return 4;
+    lua_pushstring(L, bm3d_mode_q(r->backend != NULL, vs, r->backend != NULL && gpu3d_queue()));  /* reproduced */
+    lua_pushboolean(L, r->backend != NULL && gpu3d_queue());
+    return 5;
 }
 
 /* ---- collision worlds (world3d.h): boxes, rays, moving bodies */
@@ -3933,6 +3954,8 @@ static int run_frames(framebuffer_t *fb, lua_State *L, const char *title, int w,
     uint32_t start = timer_ticks(), deadline = start + FRAME_US, prev = start;
     uint32_t fps_t0 = start, fps_frames = 0;
     int left = 0;                           /* Esc, PS, Start+Select, 'q' */
+    int updated = 0;                        /* this frame's _update ran while the GPU drew the last (M35) */
+    uint32_t early_us = 0;                  /* its time */
     while (!error) {
         if (rt.quit || timer_ticks() - start >= seconds * 1000000u)
             break;
@@ -3941,18 +3964,35 @@ static int run_frames(framebuffer_t *fb, lua_State *L, const char *title, int w,
             break;
         }
         audio_idle();
-        uint32_t t0 = timer_ticks();
+        /* with this frame's _update, if it ran during the last (stat(8)
+         * counts as if it had run just now) */
+        const uint32_t t0 = timer_ticks() - early_us;
         rt.frame_t0 = t0;
-        if (call(L, "_update") != 0 || call(L, "_draw") != 0) {
+        early_us = 0;
+        if ((!updated && call(L, "_update") != 0) || call(L, "_draw") != 0) {
             error = lua_tostring(L, -1);
             break;
         }
+        updated = 0;
+        rt.frame++;                         /* (before the next _update, if it runs early) */
+        if (submit3d()) {
+            /* the frame in the queue (M35): the GPU draws it while the next
+             * frame's _update runs; flush3d waits for it before the page
+             * is shown */
+            const uint32_t t1 = timer_ticks();
+            rt.frame_t0 = t1;
+            if (call(L, "_update") != 0) {
+                error = lua_tostring(L, -1);
+                break;
+            }
+            updated = 1;
+            early_us = timer_ticks() - t1;
+        }
         flush3d(0);                         /* the GPU's 3D counts in the frame's time */
-        rt.last_cpu_us = timer_ticks() - t0;
+        rt.last_cpu_us = timer_ticks() - t0 - early_us;
         st->cpu_us_total += rt.last_cpu_us;
         if (rt.last_cpu_us > st->cpu_us_max)
             st->cpu_us_max = rt.last_cpu_us;
-        rt.frame++;
         st->tris3d = rt.r3d_ready ? rt.r3d.tris_drawn : 0;
         crumb_frame(rt.frame);
         present(fb, &deadline, &prev, &st->dropped);

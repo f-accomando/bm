@@ -255,7 +255,25 @@ int config_find_file(const char *name, fat_entry_t *e)
 }
 
 void config_save(void) { }
-const char *config_get(const char *key) { (void)key; return NULL; }
+/* bm/config.txt: BMHOST_CONFIG="key=value,key=value" (gpu3d_vs=2, gpu3d_queue=1...) */
+const char *config_get(const char *key)
+{
+    static char val[64];
+    const char *c = getenv("BMHOST_CONFIG");
+    const size_t n = strlen(key);
+    while (c && *c) {
+        if (!strncmp(c, key, n) && c[n] == '=') {
+            const char *v = c + n + 1, *e = strchr(v, ',');
+            const size_t len = e ? (size_t)(e - v) : strlen(v);
+            snprintf(val, sizeof val, "%.*s", (int)len, v);
+            return val;
+        }
+        c = strchr(c, ',');
+        if (c)
+            c++;
+    }
+    return NULL;
+}
 
 /* ---------------------------------------------------------------- input */
 
@@ -410,6 +428,11 @@ int gpu3d_vshader(void) { return 0; }
 void gpu3d_set_vshader(int on) { (void)on; }
 int gpu3d_vshader_on(void) { return 0; }
 void gpu3d_take_stats(gpu3d_stats_t *s) { memset(s, 0, sizeof *s); }
+int gpu3d_submit(const g16_t *g) { (void)g; return 0; }
+int gpu3d_sync(void) { return 0; }
+void gpu3d_set_queue(int on) { (void)on; }
+int gpu3d_queue(void) { return 0; }
+int gpu3d_queue_ok(void) { return 0; }
 #endif
 
 /* nano8 and the assistant are not part of the host runner */

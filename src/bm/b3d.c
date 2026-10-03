@@ -38,20 +38,24 @@ static g16_t *g;
 
 /* ---------------------------------------------------------------- profiles */
 
-enum { PF_ARM, PF_GPU, PF_AA, PF_VS1, PF_VS, NPROF };
+enum { PF_ARM, PF_GPU, PF_AA, PF_VS1, PF_VS, PF_VSQ, NPROF };
 #define M_ARM (1u << PF_ARM)
 #define M_GPU (1u << PF_GPU)
 #define M_AA  (1u << PF_AA)
 #define M_VS1 (1u << PF_VS1)
 #define M_VS  (1u << PF_VS)
+#define M_VSQ (1u << PF_VSQ)
 #define M_ALL (M_ARM | M_GPU | M_VS1 | M_VS)
 #define M_LIT (M_ARM | M_GPU | M_VS)    /* models lit by the sun: VS1 is the GPU for them */
 
-static const struct { const char *name; int gpu, aa, vs; } prof[NPROF] = {
-    { "ARM", 0, 0, 0 }, { "GPU", 1, 0, 0 }, { "GPU+AA", 1, 1, 0 }, { "GPU+VS1", 1, 0, 1 }, { "GPU+VS", 1, 0, 2 },
+/* queue (M35): the end of each frame started on the GPU, the ARM's work of
+ * the frame (the test's `work`) done meanwhile */
+static const struct { const char *name; int gpu, aa, vs, queue; } prof[NPROF] = {
+    { "ARM", 0, 0, 0, 0 }, { "GPU", 1, 0, 0, 0 }, { "GPU+AA", 1, 1, 0, 0 }, { "GPU+VS1", 1, 0, 1, 0 },
+    { "GPU+VS", 1, 0, 2, 0 }, { "GPU+VS+Q", 1, 0, 2, 1 },
 };
 
-static const char *prof_version(int p) { return bm3d_mode(prof[p].gpu, prof[p].vs); }
+static const char *prof_version(int p) { return bm3d_mode_q(prof[p].gpu, prof[p].vs, prof[p].queue); }
 
 /* ---------------------------------------------------------------- meshes */
 
@@ -492,6 +496,17 @@ static void match(int n, int f)
 
 /* ---------------------------------------------------------------- tests */
 
+/* a game's logic between two frames: k thousand steps of a random
+ * generator (3 instructions each) */
+static volatile uint32_t work_sink;
+static void work(int k)
+{
+    uint32_t x = work_sink | 1;
+    for (int i = 0; i < k * 1000; i++)
+        x = x * 1664525u + 1013904223u;
+    work_sink = x;
+}
+
 typedef struct {
     const char *id, *name, *unit;       /* the report's key; shown; what n counts */
     int start, max;
@@ -501,37 +516,40 @@ typedef struct {
     void (*teardown)(void);
     const char *future;                 /* not developed yet: what it waits for */
     int quad_px;                        /* each item is a 320x180 quad: pixels are its point */
+    int work;                           /* the ARM's work of a frame after its 3D (a game's logic),
+                                         * thousands of steps of 3 instructions */
 } test_t;
 
 static const test_t tests[] = {
-    { "spheres", "spheres, 96 faces, flat", "spheres", 1, 8000, M_LIT | M_AA, sp_flat, spheres, sp_undo, NULL, 0 },
-    { "spheres_smooth", "spheres, Gouraud", "spheres", 1, 8000, M_LIT, sp_smooth, spheres, sp_undo, NULL, 0 },
-    { "spheres_tex", "spheres, textured", "spheres", 1, 8000, M_ARM | M_GPU, sp_tex, spheres, sp_undo, NULL, 0 },
-    { "spheres_unlit", "spheres, unlit", "spheres", 1, 8000, M_ALL, sp_unlit, spheres, sp_undo, NULL, 0 },
-    { "spheres_baked", "spheres, baked light", "spheres", 1, 8000, M_ALL, sp_baked, spheres, sp_undo, NULL, 0 },
+    { "spheres", "spheres, 96 faces, flat", "spheres", 1, 8000, M_LIT | M_AA, sp_flat, spheres, sp_undo, NULL, 0, 0 },
+    { "spheres_smooth", "spheres, Gouraud", "spheres", 1, 8000, M_LIT, sp_smooth, spheres, sp_undo, NULL, 0, 0 },
+    { "spheres_tex", "spheres, textured", "spheres", 1, 8000, M_ARM | M_GPU, sp_tex, spheres, sp_undo, NULL, 0, 0 },
+    { "spheres_unlit", "spheres, unlit", "spheres", 1, 8000, M_ALL, sp_unlit, spheres, sp_undo, NULL, 0, 0 },
+    { "spheres_baked", "spheres, baked light", "spheres", 1, 8000, M_ALL, sp_baked, spheres, sp_undo, NULL, 0, 0 },
     { "spheres_shine", "spheres, sky, rim, gloss, 4 lamps, fog", "spheres", 1, 8000, M_LIT, sp_shine,
-      spheres_shine, sp_undo, NULL, 0 },
-    { "heroes", "heroes: 16 bones, 1536 faces", "heroes", 1, 512, M_LIT, NULL, heroes, NULL, NULL, 0 },
-    { "heroes_tex", "heroes, textured", "heroes", 1, 512, M_LIT, NULL, heroes_tex, NULL, NULL, 0 },
+      spheres_shine, sp_undo, NULL, 0, 0 },
+    { "heroes", "heroes: 16 bones, 1536 faces", "heroes", 1, 512, M_LIT, NULL, heroes, NULL, NULL, 0, 0 },
+    { "heroes_tex", "heroes, textured", "heroes", 1, 512, M_LIT, NULL, heroes_tex, NULL, NULL, 0, 0 },
     { "heroes_skin", "heroes, textured skins (as the Meshy ones)", "heroes", 1, 512, M_LIT, NULL, heroes_skin, NULL,
-      NULL, 0 },
+      NULL, 0, 0 },
     { "heroes_shadow", "heroes with shadows on a floor", "heroes", 1, 512, M_LIT, NULL, heroes_shadow, NULL, NULL,
-      0 },
-    { "clip", "map pieces through the near plane", "pieces", 1, 4000, M_ALL, NULL, clip_scene, NULL, NULL, 0 },
-    { "tiny", "small faces (about 4 pixels)", "grids", 1, 2000, M_LIT, NULL, tiny, NULL, NULL, 0 },
-    { "draws", "draw calls: a cube each", "draws", 1, 40000, M_LIT, NULL, draws, NULL, NULL, 0 },
-    { "quad_flat", "fill: quads 320x180, flat", "quads", 1, 4000, M_LIT | M_AA, q_flat, quads, q_free, NULL, 1 },
-    { "quad_smooth", "fill: quads, Gouraud", "quads", 1, 4000, M_LIT, q_smooth, quads, q_free, NULL, 1 },
-    { "quad_tex", "fill: quads, textured", "quads", 1, 4000, M_ARM | M_GPU, q_tex, quads, q_free, NULL, 1 },
+      0, 0 },
+    { "clip", "map pieces through the near plane", "pieces", 1, 4000, M_ALL, NULL, clip_scene, NULL, NULL, 0, 0 },
+    { "tiny", "small faces (about 4 pixels)", "grids", 1, 2000, M_LIT, NULL, tiny, NULL, NULL, 0, 0 },
+    { "draws", "draw calls: a cube each", "draws", 1, 40000, M_LIT, NULL, draws, NULL, NULL, 0, 0 },
+    { "quad_flat", "fill: quads 320x180, flat", "quads", 1, 4000, M_LIT | M_AA, q_flat, quads, q_free, NULL, 1, 0 },
+    { "quad_smooth", "fill: quads, Gouraud", "quads", 1, 4000, M_LIT, q_smooth, quads, q_free, NULL, 1, 0 },
+    { "quad_tex", "fill: quads, textured", "quads", 1, 4000, M_ARM | M_GPU, q_tex, quads, q_free, NULL, 1, 0 },
     { "quad_alpha", "fill: quads, texels with holes", "quads", 1, 4000, M_ARM | M_GPU, q_alpha, quads, q_free, NULL,
-      1 },
-    { "quad_screen", "fill: quads, screen-door", "quads", 1, 4000, M_ARM | M_GPU, q_screen, quads, q_free, NULL, 1 },
-    { "texswap", "three textures in turn", "quads", 1, 8000, M_ARM | M_GPU, q_tex, texswap, q_free, NULL, 0 },
-    { "split", "3D then 2D, again and again", "rounds", 1, 400, M_LIT, NULL, split, NULL, NULL, 0 },
-    { "match", "a match: map, heroes, shadows, HUD", "heroes", 1, 256, M_ALL | M_AA, NULL, match, NULL, NULL, 0 },
-    { "queue", "next frame while the GPU draws", "", 0, 0, 0, NULL, NULL, NULL, "M35: ARM and GPU together", 0 },
-    { "gpu2d", "sprites and text on the GPU", "", 0, 0, 0, NULL, NULL, NULL, "M37: 2D on the GPU", 0 },
-    { "bilinear", "filtered textures", "", 0, 0, 0, NULL, NULL, NULL, "M37: quality options", 0 },
+      1, 0 },
+    { "quad_screen", "fill: quads, screen-door", "quads", 1, 4000, M_ARM | M_GPU, q_screen, quads, q_free, NULL, 1, 0 },
+    { "texswap", "three textures in turn", "quads", 1, 8000, M_ARM | M_GPU, q_tex, texswap, q_free, NULL, 0, 0 },
+    { "split", "3D then 2D, again and again", "rounds", 1, 400, M_LIT, NULL, split, NULL, NULL, 0, 0 },
+    { "match", "a match: map, heroes, shadows, HUD", "heroes", 1, 256, M_ALL | M_AA, NULL, match, NULL, NULL, 0, 0 },
+    { "queue", "spheres and 4M instructions of logic", "spheres", 1, 8000, M_VS | M_VSQ, sp_smooth, spheres, sp_undo,
+      NULL, 0, 1300 },
+    { "gpu2d", "sprites and text on the GPU", "", 0, 0, 0, NULL, NULL, NULL, "M37: 2D on the GPU", 0, 0 },
+    { "bilinear", "filtered textures", "", 0, 0, 0, NULL, NULL, NULL, "M37: quality options", 0, 0 },
 };
 #define NTESTS ((int)(sizeof tests / sizeof tests[0]))
 
@@ -634,7 +652,8 @@ static void ramp(int ti, int pf)
     if (prof[pf].gpu) {
         if (gpu3d_init() != 0 || !gpu3d_backend())
             return;
-        if ((prof[pf].aa && !gpu3d_msaa()) || (prof[pf].vs > gpu3d_vshader()))
+        if ((prof[pf].aa && !gpu3d_msaa()) || (prof[pf].vs > gpu3d_vshader()) ||
+            (prof[pf].queue && !gpu3d_queue_ok()))
             return;                     /* not on this GPU: no row */
         R.backend = gpu3d_backend();
         gpu3d_drop();
@@ -656,14 +675,22 @@ static void ramp(int ti, int pf)
         t->frame(n, 0);                 /* warm: textures, corners, caches */
         if (R.backend)
             gpu3d_flush(g, 0);
+        gpu3d_set_queue(prof[pf].queue);
         gpu3d_take_stats(&st);
         for (int f = 1; f <= frames; f++) {
             b3d_count_t c0, c1;
             counts(&c0);
             const uint32_t u0 = P->us();
             t->frame(n, f);
-            if (R.backend)
-                gpu3d_flush(g, 0);
+            if (R.backend && prof[pf].queue) {
+                gpu3d_submit(g);        /* the GPU draws while the ARM works (M35) */
+                work(t->work);
+                gpu3d_sync();
+            } else {
+                if (R.backend)
+                    gpu3d_flush(g, 0);
+                work(t->work);
+            }
             counts(&c1);
             const uint32_t u1 = P->us();
             a.tris_in += (float)R.tris_in;
@@ -681,12 +708,13 @@ static void ramp(int ti, int pf)
             a.dmiss += (float)(c1.dmiss - c0.dmiss);
             a.cycles += (float)(c1.cycles - c0.cycles);
         }
+        gpu3d_set_queue(0);
         gpu3d_take_stats(&st);
         const float k = 1.0f / (float)frames;
         a.ms *= k; a.instr *= k; a.wait_instr *= k; a.dmiss *= k; a.cycles *= k;
         a.tris_in *= k; a.tris *= k; a.verts *= k; a.pixels *= k;
         a.gpu_ms = (float)(st.bin_us + st.render_us) * k / 1000.0f;
-        a.wait_ms = a.gpu_ms;           /* the ARM waits for every job (no queue yet: M35) */
+        a.wait_ms = a.gpu_ms;           /* the ARM waits for every job (with the queue: at most) */
         a.jobs = (float)st.jobs * k;
         a.gltris = (float)st.gltris * k;
         s[ns++] = a;
@@ -877,7 +905,7 @@ static void read_prev(void)
 #define C_HIST  g16_rgb(150, 150, 160)
 #define C_HW    g16_rgb(255, 90, 90)
 
-static const uint16_t prof_col[NPROF] = { 0xFC00 /* orange */, 0x2D7F, 0x8C1F, 0x07F0, 0x07E0 };
+static const uint16_t prof_col[NPROF] = { 0xFC00 /* orange */, 0x2D7F, 0x8C1F, 0x07F0, 0x07E0, 0xFFE0 };
 
 static void text(int x, int y, uint16_t c, const char *fmt, ...) __attribute__((format(printf, 4, 5)));
 static void text(int x, int y, uint16_t c, const char *fmt, ...)
@@ -938,8 +966,8 @@ static void page_summary(void)
                         "last report");
     text(0, 34, C_DIM, "test");
     for (int pf = 0; pf < NPROF; pf++)
-        text(104 + 52 * pf, 34, prof_col[pf], "%7s", prof[pf].name);
-    text(372, 34, C_DIM, "best      x ARM   x last  fits 60 fps");
+        text(100 + 46 * pf, 34, prof_col[pf], "%7s", prof[pf].name);
+    text(380, 34, C_DIM, "best      x ARM  x last fits 60");
     int y = 48;
     float gsum[NPROF] = { 0 };
     int gn[NPROF] = { 0 };
@@ -960,17 +988,17 @@ static void page_summary(void)
             const result_t *r = &res[ti][pf];
             char b[16];
             if (r->ran) {
-                text(104 + 52 * pf, y, r->n60 >= 1 ? prof_col[pf] : C_BAD, "%7s", num(b, r->n60, r->over, r->last_n));
+                text(100 + 46 * pf, y, r->n60 >= 1 ? prof_col[pf] : C_BAD, "%7s", num(b, r->n60, r->over, r->last_n));
                 if (best < 0 || r->n60 > res[ti][best].n60)
                     best = pf;
             } else {
-                text(104 + 52 * pf, y, C_DIM, "      -");
+                text(100 + 46 * pf, y, C_DIM, "      -");
             }
         }
         const result_t *arm = &res[ti][PF_ARM];
         if (best >= 0) {
             const float b = res[ti][best].n60;
-            text(372, y, prof_col[best], "%s", prof[best].name);
+            text(380, y, prof_col[best], "%s", prof[best].name);
             if (arm->ran && arm->n60 > 0 && b > 0) {
                 const float k = b / arm->n60;
                 text(432, y, C_GOOD, "%4d.%dx", (int)k, (int)(k * 10) % 10);
@@ -988,7 +1016,6 @@ static void page_summary(void)
         }
         y += LH;
     }
-    y += 4;
     text(0, y, C_HEAD, "mean against the ARM:");
     for (int pf = 1; pf < NPROF; pf++)
         if (gn[pf]) {
@@ -996,12 +1023,10 @@ static void page_summary(void)
             text(138 + 102 * (pf - 1), y, prof_col[pf], "%s %d.%dx", prof[pf].name, (int)k, (int)(k * 10) % 10);
         }
     y += LH;
-    text(0, y, C_DIM, "not developed yet: %s", fut);
-    y += LH;
     if (prev_name[0])
-        text(0, y, C_DIM, "against %s", prev_name);
+        text(0, y, C_DIM, "later: %s; against %s", fut, prev_name);
     else
-        text(0, y, C_DIM, "the first report: nothing to compare with yet");
+        text(0, y, C_DIM, "later: %s; the first report", fut);
 }
 
 static void page_info(const char *saved)
@@ -1018,6 +1043,9 @@ static void page_info(const char *saved)
          prof_version(PF_ARM), prof_version(PF_GPU), prof_version(PF_AA), prof_version(PF_VS1),
          prof_version(PF_VS));
     y += LH;
+    text(0, y, gpu3d_queue_ok() ? C_TEXT : C_DIM, "GPU+VS+Q: the same with the frame in the queue (M35: the ARM goes "
+         "on while the GPU draws)%s", gpu3d_queue_ok() ? "" : ", not on this GPU");
+    y += LH;
     text(0, y, C_DIM, "0.1 and 1.0 no longer run: their bars are the numbers the Pi gave then (docs/M33-PRIMA-DOPO.md)");
     y += LH + 6;
     char w[110];
@@ -1025,8 +1053,21 @@ static void page_info(const char *saved)
     y += LH;
     text(0, y, C_DIM, "date: %s", P->date && P->date[0] ? P->date : "unknown (no network time)");
     y += LH;
-    text(0, y, C_DIM, "%s", cut(w, gpu3d_status(), 105));
-    y += LH;
+    {
+        /* the GPU's status: on two lines where it is long (after a comma) */
+        const char *st = gpu3d_status();
+        size_t n = strlen(st), at = n;
+        if (n > 105)
+            for (at = 104; at > 40 && !(st[at] == ' ' && st[at - 1] == ','); at--)
+                ;
+        ksnprintf(w, sizeof w, "%.*s", (int)(at < sizeof w ? at : sizeof w - 1), st);
+        text(0, y, C_DIM, "%s", w);
+        y += LH;
+        if (at < n) {
+            text(0, y, C_DIM, "  %s", cut(w, st + at + 1, 103));
+            y += LH;
+        }
+    }
     text(0, y, C_DIM, "ARM counters: %s", P->counting ? "instructions, D-cache misses, cycles (ARM1176 PMU)"
                                                      : "none on this machine");
     y += LH;

@@ -42,6 +42,16 @@ void v3d_set_overflow(uint32_t bus, uint32_t size);
 int v3d_run(uint32_t bin, uint32_t bin_end, uint32_t rnd, uint32_t rnd_end, uint32_t timeout_us,
             uint32_t *bin_us, uint32_t *rnd_us);
 
+/* M35: the same job started, not waited for (the binning list must end
+ * with V3D_INCREMENT_SEMAPHORE before its FLUSH, the rendering list start
+ * with V3D_WAIT_ON_SEMAPHORE when there is binning): 0, or -1 (a job still
+ * running, no V3D). v3d_busy: 1 while it runs. v3d_wait: waits for it as
+ * v3d_run (0 at once if none was started); *rnd_us the time from its start
+ * to the end the ARM saw, *bin_us 0. */
+int v3d_start(uint32_t bin, uint32_t bin_end, uint32_t rnd, uint32_t rnd_end);
+int v3d_busy(void);
+int v3d_wait(uint32_t timeout_us, uint32_t *bin_us, uint32_t *rnd_us);
+
 /* Registers of the last failed job (or now), one line each. */
 void v3d_dump(char *buf, size_t n);
 
