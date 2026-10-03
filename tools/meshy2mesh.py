@@ -10,6 +10,7 @@ sampled from the texture) - the blocky style of the other models.
 
   tools/meshy2mesh.py IMAGE -o OUT.bm [--name NAME] [--polycount 2000]
                       [--height 2] [--flat] [--max-tris 3000] [--grid 32]
+                      (IMAGE: a file, or an https URL Meshy fetches itself)
   tools/meshy2mesh.py --glb MODEL.glb -o OUT.bm ...   (a mesh already made)
 
 OUT.bm: a new cartridge with bm Studio's viewer (textured, its own sheet)
@@ -62,8 +63,10 @@ def image_data_uri(path):
 
 
 def meshy_image_to_3d(image, key, polycount, texture=True, symmetry="auto"):
-    """-> the task's result: model_urls, texture_urls... (SUCCEEDED)"""
-    body = {"image_url": image_data_uri(image), "ai_model": "meshy-5", "topology": "triangle",
+    """-> the task's result: model_urls, texture_urls... (SUCCEEDED).
+    image: a file, or an https URL Meshy fetches itself"""
+    url = image if re.match(r"^https?://", image) else image_data_uri(image)
+    body = {"image_url": url, "ai_model": "meshy-5", "topology": "triangle",
             "target_polycount": polycount, "should_remesh": True, "should_texture": texture,
             "enable_pbr": False, "symmetry_mode": symmetry}
     r = api("POST", "/image-to-3d", key, body)
@@ -353,7 +356,7 @@ def write_cart(out, model, sheet, title):
 
 def main():
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
-    ap.add_argument("image", nargs="?", help="the picture (png, jpg, webp)")
+    ap.add_argument("image", nargs="?", help="the picture (png, jpg, webp), or its https URL")
     ap.add_argument("--glb", help="a .glb already made: no call to Meshy")
     ap.add_argument("-o", "--out", required=True, help="the .bm to write or to add the model to")
     ap.add_argument("--name", help="the model's name (up to 15 letters; default: from the file name)")
@@ -368,7 +371,8 @@ def main():
     src = a.glb or a.image
     if not src:
         ap.error("an image, or --glb")
-    name = (a.name or re.sub(r"[^A-Za-z0-9_]", "", os.path.splitext(os.path.basename(src))[0]) or "model")[:15]
+    stem = os.path.splitext(os.path.basename(src.split("?")[0]))[0]
+    name = (a.name or re.sub(r"[^A-Za-z0-9_]", "", stem) or "model")[:15]
     if a.glb:
         data = open(a.glb, "rb").read()
     else:

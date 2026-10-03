@@ -150,3 +150,20 @@ models3, _ = bmmesh.decode(dict(bmmesh.cart_sections(open(cart3, "rb").read()))[
 assert len(models3[0]["verts"]) <= 12 and 1 <= len(models3[0]["faces"]) <= 18, (len(models3[0]["verts"]), len(models3[0]["faces"]))
 assert "painted flat" in r.stderr, r.stderr
 print("meshy2mesh: flat into an existing cartridge and the grid ok")
+
+# bmrender draws it: the texture's red and blue on the picture
+sys.path.insert(0, os.path.join(ROOT, "tools"))
+import bmrender  # noqa: E402
+png_path = os.path.join(out_dir, "meshy.png")
+names = bmrender.render(cart, png_path, size=120)
+assert [n for n, _, _ in names] == ["thing", "flat1"], names
+raw = zlib.decompress(b"".join(
+    open(png_path, "rb").read()[i + 8:i + 8 + struct.unpack(">I", open(png_path, "rb").read()[i:i + 4])[0]]
+    for i in [open(png_path, "rb").read().find(b"IDAT") - 4]))
+reds = blues = 0
+for i in range(0, len(raw), 3 * 5):
+    r, g, b = raw[i], raw[i + 1], raw[i + 2]
+    reds += r > 120 and g < 80 and b < 80
+    blues += b > 120 and r < 80 and g < 80
+assert reds > 50 and blues > 50, (reds, blues)
+print("bmrender: the textured box drawn:", png_path)
