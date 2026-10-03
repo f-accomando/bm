@@ -1,13 +1,15 @@
 # The models .github/workflows/meshy-overbit.yml makes when this file
 # changes (a push to 3d-performance): one per line, the name of a spec in
 # this folder, optionally task=ID (a refine already made: no new task).
-# Made: sarge (refine 01a101dd-b321-7588-bd8e-f0de779aab07)
-frost
-fuse
-rail
+# Made (refine task ids, to download them again):
+#   sarge 01a101dd-b321-7588-bd8e-f0de779aab07
+#   frost 01a101e0-2c27-7493-9c7d-c21cbd09178d
+#   fuse 01a101e0-2118-738a-9b22-256d97e19aee
+#   rail 01a101e0-0bc3-7568-84ec-4ee9c9f0f79d
+#   akari 01a101e2-1204-76f3-8496-d47103535ccd
+#   rally_pilot 01a101e2-1843-7445-8ea0-17c17c7fb715
+# Again with sharper descriptions (the first ones on meshy-out 704acae):
 orbit
-akari
 rally_mech
-rally_pilot
 kaiju_mech
 kaiju_pilot

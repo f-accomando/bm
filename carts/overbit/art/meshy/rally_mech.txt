@@ -3,5 +3,5 @@ name = rally_mech
 height = 2.4
 pose = none
 symmetry = on
-prompt = 3D game model of a compact racing mech robot, front view, symmetric. A glossy white and black armored body shaped like a sports car with an empty open cockpit and a windshield on top, two short boxy arm cannons, a spoiler wing on the back, two thick straight legs ending in wheeled feet like roller skates, orange racing stripes and orange lights. Clean hard-surface shapes for a hero shooter.
-texture = glossy white car paint, black panels, bright orange racing stripes and number 7, orange glowing lights, dark grey joints and wheels, tinted black windshield; stylized hand-painted game texture with clean colour blocks
+prompt = 3D game model of a sleek compact racing mech robot, symmetric, front view. Smooth glossy white car-body armor with black panels and two bold orange racing stripes over the top, an open cockpit seat with a curved windshield, two short arm cannons, a rear spoiler wing, two sturdy straight legs ending in wheeled feet like inline skates. Clean bevelled hard-surface shapes, stylized.
+texture = glossy white car paint, black trim and joints, two bright orange racing stripes, orange headlights, grey wheels, tinted black windshield; stylized hand-painted game texture with clean colour blocks

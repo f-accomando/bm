@@ -3,5 +3,5 @@ name = kaiju_mech
 height = 3.0
 pose = none
 symmetry = auto
-prompt = 3D game model of a big round red mech robot, front view. A round red armored body with two white horns, a green glass dome on top as an empty cockpit, heavy shoulders, a glowing green energy blade on the left forearm, a hexagonal shield emitter with a gun on the right forearm, thick short legs with grey joints, yellow trim. Clean hard-surface shapes for a hero shooter.
-texture = bright red armor, white horns, yellow trim lines, translucent green glass dome, glowing green blade, dark grey joints and gun, cyan hexagon emitter; stylized hand-painted game texture with clean colour blocks
+prompt = 3D game model of a big round red mech robot, symmetric, front view, no head. A barrel-shaped round red armored body topped by a large transparent green glass dome as the cockpit, two white horns on the heavy round shoulders, a glowing green energy blade on the left forearm, a hexagonal shield emitter on the right forearm, thick short legs with grey joints, yellow trim stripes. Clean hard-surface shapes, stylized.
+texture = bright red armor, white horns, yellow trim stripes, bright green glass dome, glowing green blade, dark grey joints, cyan hexagon emitter; stylized hand-painted game texture with clean colour blocks
