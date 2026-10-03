@@ -46,10 +46,10 @@ jobs:
           path: |
             build/kernel.img
             build/kernel7.img
-          if-no-files-found: ignore
             build/chainloader.img
             build-stress/kernel.img
             build/screen.png
+          if-no-files-found: ignore
 
   release:
     # A tag v* whose tests passed (M19): the kernels, the games and bm/ca.pem

@@ -12,7 +12,7 @@ import sys
 def main():
     qemu, elf = sys.argv[1], sys.argv[2]
     p = subprocess.Popen([qemu, "-M", "virt,virtualization=on", "-cpu", "cortex-a7", "-m", "256",
-                          "-display", "none", "-monitor", "none", "-serial", "stdio",
+                          "-display", "none", "-monitor", "none", "-serial", "stdio", "-nic", "none",
                           "-kernel", elf], stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
     out = b""
     try:
