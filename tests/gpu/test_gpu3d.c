@@ -51,7 +51,7 @@ static const font_t font = { 8, 16, glyphs };
 static const char *ppm_dir;
 
 static g16_sheet_t sheet, sheet2, sheet3;
-static r3d_mesh_t sphere, quad, floor_m, cube;
+static r3d_mesh_t sphere, quad, floor_m, cube, lit_quad, glass;
 
 /* 128x128: four 32x32 checkers in the top row (red/yellow, blue/white,
  * green/black, grey/orange); the second row: the same checkers whose
@@ -106,6 +106,24 @@ static void make_meshes(void)
         q[k]->tex = &sheet;
         r3d_mesh_normals(q[k]);
     }
+    /* Overbit (M34): a quad of a "lit" model (light baked at the corners,
+     * warm, the same at every corner: the ARM takes one per face) and a
+     * screen-door cube */
+    r3d_mesh_alloc(&lit_quad, 4, 2);
+    memcpy(lit_quad.verts, floor_m.verts, 4 * sizeof *lit_quad.verts);
+    memcpy(lit_quad.faces, floor_m.faces, 6 * sizeof *lit_quad.faces);
+    r3d_mesh_alloc_uv(&lit_quad);
+    memcpy(lit_quad.uv, floor_m.uv, 12 * sizeof *lit_quad.uv);
+    lit_quad.colors[0] = lit_quad.colors[1] = R3D_TEXTURED;
+    lit_quad.tex = &sheet;
+    lit_quad.clight = malloc(2 * 9);
+    for (int i = 0; i < 6; i++) {
+        lit_quad.clight[i * 3] = 176;
+        lit_quad.clight[i * 3 + 1] = 120;
+        lit_quad.clight[i * 3 + 2] = 90;
+    }
+    r3d_mesh_normals(&lit_quad);
+    r3d_mesh_cube(&glass, 0x40C0F0 | R3D_SCREEN);
 }
 
 /* ---------------------------------------------------------------- scenes */
@@ -222,6 +240,39 @@ static void s_cleared(r3d_t *r, g16_t *g, int gpu)
     s_spheres(r, g, gpu);
 }
 
+/* Overbit (M34): a lit textured quad in the fog, a screen-door cube, the
+ * dithered shadow of a sphere on a floor */
+static void s_overbit(r3d_t *r, g16_t *g, int gpu)
+{
+    r3d_camera(r, 0, 1.5f, -5, 0, -0.25f, 60);
+    r3d_light(r, -0.3f, 0.8f, 0.4f, 0.4f);
+    r->shadow_style = 1;
+    r3d_draw_flags(r, &cube, (v3_t){ 0, -2.2f, 1 }, 0, 0, 0, 1.2f, 0);       /* the floor: a cube's top */
+    r3d_draw_flags(r, &sphere, (v3_t){ 0.6f, -1.0f, 1 }, 0, 0, 0, 0.8f, R3D_SHADOW);   /* on the top */
+    r3d_draw_flags(r, &sphere, (v3_t){ 0.6f, -0.2f, 1 }, 0, 0, 0, 0.8f, R3D_SMOOTH);
+    r3d_fog(r, 0xC0A080, 3, 12);
+    r3d_draw_flags(r, &lit_quad, (v3_t){ -1.6f, 0.4f, 2 }, 0, 0.3f, 0, 1, 0);
+    r3d_fog(r, 0, 0, 0);
+    r3d_draw_flags(r, &glass, (v3_t){ 1.6f, 0.8f, 0 }, 0.3f, 0.5f, 0, 0.6f, 0);
+    flush(r, g, gpu);
+}
+
+/* the 3D effects, tested against the depth of a cube: points, lines, a
+ * sprite with transparent texels */
+static void s_effects(r3d_t *r, g16_t *g, int gpu)
+{
+    r3d_camera(r, 0, 0, -5, 0, 0, 60);
+    r3d_light(r, 0, 0, -1, 0.6f);
+    r3d_draw_flags(r, &cube, (v3_t){ 0, 0, 0 }, 0.2f, 0.4f, 0, 0.8f, 0);
+    for (int i = 0; i < 6; i++)
+        r3d_point(r, (v3_t){ -2.0f + 0.8f * (float)i, 0.2f * (float)(i % 2), 0.5f - 0.5f * (float)i }, 0.12f,
+                  0xF0E040, i == 5 ? R3D_FX_SCREEN : 0);
+    r3d_line(r, (v3_t){ -2, -1, -1 }, (v3_t){ 2, 1.2f, 2 }, 0xFF6020, 3, 0);
+    r3d_line(r, (v3_t){ -2, 1, 2 }, (v3_t){ 2, -1.2f, -1 }, 0x60FF20, 2, 0);
+    r3d_sprite(r, &sheet, 0, 32, 32, 32, (v3_t){ 1.3f, -0.9f, -0.5f }, 0.9f, 0);
+    flush(r, g, gpu);
+}
+
 /* msaa: drawn a third time with MSAA (not where the depth goes from a job
  * to the next: MSAA does not keep it) */
 static const struct { const char *name; scene_fn fn; int w, h; float limit; int msaa; } scenes[] = {
@@ -233,6 +284,8 @@ static const struct { const char *name; scene_fn fn; int w, h; float limit; int 
     { "full job", s_full, 640, 360, 0.02f, 0 },
     { "3D 2D 3D", s_split, 640, 360, 0.02f, 0 },
     { "cleared", s_cleared, 320, 180, 0.02f, 1 },
+    { "overbit", s_overbit, 640, 360, 0.03f, 1 },
+    { "effects", s_effects, 640, 360, 0.02f, 1 },
 };
 #define CLEARED 7                   /* its index: no bar, no load */
 

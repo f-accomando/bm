@@ -385,12 +385,25 @@ $(BUILD)/host/bmhost-bin: tests/host/bmhost.c tests/host/stubs.c tests/host/host
 	    -o $@ tests/host/bmhost.c tests/host/stubs.c tests/host/hostnet.c tests/host/libs.S $(BMHOST_OBJS) -lm
 bmhost: $(BUILD)/host/bmhost-bin
 
+# bmhost-gpu: the same with the GPU's 3D (src/gpu/gpu3d.c) on the V3D
+# emulator of the tests (tests/gpu/v3d_emu.c): the frames as the GPU draws
+# them, to set them beside the ARM's (slower: the emulator is plain C)
+$(BUILD)/host/bmhost-gpu: tests/host/bmhost.c tests/host/stubs.c tests/host/hostnet.c tests/host/host.h tests/host/libs.S \
+                          $(BMHOST_OBJS) src/ai/assist.lua src/script/bm3d.lua src/gpu/gpu3d.c src/gpu/v3d_cl.c \
+                          src/gpu/shaders.h tests/gpu/v3d_emu.c tests/gpu/v3d_emu.h
+	$(HOSTCC) -std=c11 -O2 -g -w -Isrc -Itests/gpu -Daligned_alloc=test_aligned_alloc -Dfree=test_free \
+	    -c src/gpu/gpu3d.c -o $@-gpu3d.o
+	$(HOSTCC) -O2 -g -Wall -Wextra -D_DEFAULT_SOURCE -DBMHOST_GPU -Itests/host/shim -Isrc -Isrc/bm -Itests/gpu \
+	    -Ithird_party/lua -o $@ tests/host/bmhost.c tests/host/stubs.c tests/host/hostnet.c tests/host/libs.S \
+	    $(BMHOST_OBJS) $@-gpu3d.o src/gpu/v3d_cl.c tests/gpu/v3d_emu.c -lm
+bmhost-gpu: $(BUILD)/host/bmhost-gpu
+
 .DEFAULT_GOAL := all
 .PHONY: FORCE test-smp test-qpu test-gpu3d test-v3d bench3d count-insns all clean firmware image image-pi1 sdcard install \
         sdcard-chainloader sdcard-stress qemu qemu-screenshot \
         run-serial test test-bm test-ai ai-model test-usb test-audio test-fat test-kitchen test-titan test-sound test-nano8 \
         test-net test-http test-https test-release release disasm wav test-studio test-studio-ui studio test-prompts \
-        showreel bmhost test-overbit overbit-reel overbit-reel-heroes overbit-reel-match
+        showreel bmhost bmhost-gpu test-overbit overbit-reel overbit-reel-heroes overbit-reel-match
 
 all: $(BUILD)/kernel.img $(BUILD)/chainloader.img $(GAME_CARTS)
 

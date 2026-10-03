@@ -69,19 +69,26 @@ typedef struct {
  * r3d still transforms, lights, culls the back faces and clips on the near
  * plane; the backend gets screen triangles. A corner: screen x, y, z =
  * 1/depth, and either a colour (r, g, b in 0..1, light and fog applied)
- * or texture coordinates (u, v in texels of tex) and the light k (0..1).
+ * or texture coordinates (u, v in texels of tex) and the light k (0..1);
+ * R3D_KIND_TEX_RGB (M34): u, v, and the light l (r, g, b, 0..1 for 0..2,
+ * fog already taken off) and the fog f to add (r, g, b in 0..1).
  */
-typedef struct { float x, y, z, a, b, c; } r3d_corner_t;
+typedef struct { float x, y, z, a, b, c; float l[3], f[3]; } r3d_corner_t;
 
-/* R3D_INSIDE, added to the kind: the mesh's bounding sphere is in front of
+/* R3D_KIND_SCREEN: a colour on the pixels with x + y even only (screen-door).
+ * R3D_INSIDE, added to the kind: the mesh's bounding sphere is in front of
  * the near plane and its corners are no farther than the backend's guard
  * from the screen (rounding aside), so the backend need not check them */
-enum { R3D_KIND_COLOUR, R3D_KIND_TEXTURE, R3D_INSIDE = 4 };
+enum { R3D_KIND_COLOUR, R3D_KIND_TEXTURE, R3D_KIND_SCREEN, R3D_KIND_TEX_RGB, R3D_INSIDE = 4 };
+
+/* the depth of a backend triangle: tested and written, neither (R3D_NOZ),
+ * or tested only (3D effects, shadows) */
+enum { R3D_DEPTH_WRITE, R3D_DEPTH_NONE, R3D_DEPTH_TEST };
 
 typedef struct {
-    /* nodepth: no depth test and no depth write (R3D_NOZ) */
+    /* depth: R3D_DEPTH_* */
     void (*tri)(void *ctx, const g16_t *g, const r3d_corner_t v[3], int kind,
-                const g16_sheet_t *tex, int nodepth);
+                const g16_sheet_t *tex, int depth);
     void (*zclear)(void *ctx, const g16_t *g);      /* what follows ignores what was drawn */
     void *ctx;
     float guard;                /* pixels around the screen for R3D_INSIDE; 0: never */

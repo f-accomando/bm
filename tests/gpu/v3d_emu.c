@@ -94,13 +94,13 @@ static int err(const char *fmt, unsigned a, unsigned b)
 
 /* ---------------------------------------------------------------- binning */
 
-enum { SH_COLOUR, SH_TEX, SH_TEX_ALPHA };
+enum { SH_COLOUR, SH_TEX, SH_TEX_ALPHA, SH_SCREEN, SH_TEX_RGB, SH_TEX_RGB_ALPHA };
 
-typedef struct { float x, y, z, iw, v[3]; } evert_t;
+typedef struct { float x, y, z, iw, v[8]; } evert_t;
 
 typedef struct {
     evert_t v[3];
-    int shader;
+    int shader, nvary;
     const uint32_t *params;
     int depth_func, z_update;
     int oversample;                     /* CONFIGURATION_BITS: 1 = 4x (MSAA) */
@@ -121,6 +121,9 @@ static int shader_of(const uint8_t *code)
     if (!memcmp(code, fs_colour, sizeof fs_colour)) return SH_COLOUR;
     if (!memcmp(code, fs_tex_lit, sizeof fs_tex_lit)) return SH_TEX;
     if (!memcmp(code, fs_tex_lit_alpha, sizeof fs_tex_lit_alpha)) return SH_TEX_ALPHA;
+    if (!memcmp(code, fs_colour_screen, sizeof fs_colour_screen)) return SH_SCREEN;
+    if (!memcmp(code, fs_tex_rgb, sizeof fs_tex_rgb)) return SH_TEX_RGB;
+    if (!memcmp(code, fs_tex_rgb_alpha, sizeof fs_tex_rgb_alpha)) return SH_TEX_RGB_ALPHA;
     return -1;
 }
 
@@ -185,12 +188,13 @@ static int bin(uint32_t start, uint32_t end)
             int sh = shader_of(ptr(rd32(rec + 4)));
             if (sh < 0)
                 return err("unknown shader at %08x", rd32(rec + 4), 0);
+            const int colour = sh == SH_COLOUR || sh == SH_SCREEN, rgb = sh == SH_TEX_RGB || sh == SH_TEX_RGB_ALPHA;
             int stride = rec[1], nvary = rec[3];
-            if (nvary != 3 || stride != 24 || rec[2] != (sh == SH_COLOUR ? 0 : 2))
+            if (nvary != (rgb ? 8 : 3) || stride != 12 + 4 * nvary || rec[2] != (colour ? 0 : 2))
                 return err("shader record: stride %u, varyings %u", stride, nvary);
             const uint8_t *vb = ptr(rd32(rec + 12));
-            const uint32_t *params = sh == SH_COLOUR ? NULL : ptr(rd32(rec + 8));
-            if (!vb || (sh != SH_COLOUR && !params))
+            const uint32_t *params = colour ? NULL : ptr(rd32(rec + 8));
+            if (!vb || (!colour && !params) || (rd32(rec + 12) & 3))
                 return err("vertices %08x, uniforms %08x", rd32(rec + 12), rd32(rec + 8));
             for (uint32_t i = 0; i < n; i += 3) {
                 if (nprims == cap) {
@@ -201,9 +205,12 @@ static int bin(uint32_t start, uint32_t end)
                 for (int k = 0; k < 3; k++) {
                     const uint8_t *v = vb + (size_t)(first + i + (uint32_t)k) * (size_t)stride;
                     pr->v[k] = (evert_t){ (int16_t)rd16(v) / 16.0f, (int16_t)rd16(v + 2) / 16.0f, rdf(v + 4),
-                                          rdf(v + 8), { rdf(v + 12), rdf(v + 16), rdf(v + 20) } };
+                                          rdf(v + 8), { 0 } };
+                    for (int j = 0; j < nvary; j++)
+                        pr->v[k].v[j] = rdf(v + 12 + 4 * j);
                 }
                 pr->shader = sh;
+                pr->nvary = nvary;
                 pr->params = params;
                 pr->depth_func = depth_func;
                 pr->z_update = z_update;
@@ -264,11 +271,25 @@ static uint8_t unit8(float f)
 
 static uint32_t t_index(int x, int y, int w);
 
-static void shade(const eprim_t *pr, const float *va, uint8_t *out, int *discard)
+/* v8muld: a * b / 255, as the QPU rounds it */
+static uint8_t muld(uint32_t a, uint32_t b)
+{
+    const uint32_t x = a * b + 127;
+    return (uint8_t)((x + 1 + (x >> 8)) >> 8);
+}
+
+static uint8_t adds(uint32_t a, uint32_t b)
+{
+    return (uint8_t)(a + b > 255 ? 255 : a + b);
+}
+
+static void shade(const eprim_t *pr, const float *va, uint8_t *out, int *discard, int px, int py)
 {
     *discard = 0;
-    if (pr->shader == SH_COLOUR) {
+    if (pr->shader == SH_COLOUR || pr->shader == SH_SCREEN) {
         out[0] = unit8(va[0]); out[1] = unit8(va[1]); out[2] = unit8(va[2]); out[3] = 255;
+        if (pr->shader == SH_SCREEN && ((px + py) & 1))
+            *discard = 1;               /* only the pixels with x + y even */
         return;
     }
     uint32_t p0 = pr->params[0], p1 = pr->params[1];
@@ -285,6 +306,16 @@ static void shade(const eprim_t *pr, const float *va, uint8_t *out, int *discard
     if (emu_tex_swap)
         t = (t & 0xFF00FF00u) | (t >> 16 & 0xFF) | (t & 0xFF) << 16;
     uint8_t c[4] = { (uint8_t)t, (uint8_t)(t >> 8), (uint8_t)(t >> 16), (uint8_t)(t >> 24) };
+    if (pr->shader == SH_TEX_RGB || pr->shader == SH_TEX_RGB_ALPHA) {
+        /* texel * light / 2, * 2, + fog: bytes a b c (light d = 1, fog d = 0) */
+        for (int i = 0; i < 4; i++) {
+            const uint8_t m = muld(c[i], i < 3 ? unit8(va[2 + i]) : 255);
+            out[i] = adds(adds(m, m), i < 3 ? unit8(va[5 + i]) : 0);
+        }
+        if (pr->shader == SH_TEX_RGB_ALPHA && c[3] == 0)
+            *discard = 1;
+        return;
+    }
     uint32_t k = unit8(va[2]);
     for (int i = 0; i < 4; i++) {
         const uint32_t x = c[i] * k + 127;
@@ -370,10 +401,10 @@ static void draw_tile(int tx, int ty, int fw, int fh)
                         float c0 = edge(&v[1], &v[2], cx, cy) / area, c1 = edge(&v[2], &v[0], cx, cy) / area,
                               c2 = edge(&v[0], &v[1], cx, cy) / area;
                         float iw = c0 * v[0].iw + c1 * v[1].iw + c2 * v[2].iw;
-                        float va[3];
-                        for (int k = 0; k < 3; k++)
+                        float va[8];
+                        for (int k = 0; k < pr->nvary; k++)
                             va[k] = (c0 * v[0].v[k] * v[0].iw + c1 * v[1].v[k] * v[1].iw + c2 * v[2].v[k] * v[2].iw) / iw;
-                        shade(pr, va, c, &discard);
+                        shade(pr, va, c, &discard, x, y);
                         shaded = 1;
                         emu_stats.pixels++;
                     }

@@ -18,6 +18,10 @@
 
 #include "drivers/dma.h"
 #include "gpu/gpu3d.h"
+#ifdef BMHOST_GPU
+#include "gpu/v3d.h"
+#include "../gpu/v3d_emu.h"
+#endif
 #include "drivers/fb.h"
 #include "drivers/timer.h"
 #include "fs/fat.h"
@@ -327,7 +331,9 @@ static uint8_t *pages;
 
 int fb_init_depth(framebuffer_t *fb, uint32_t width, uint32_t height, uint32_t buffers, uint32_t depth)
 {
+#ifndef BMHOST_GPU
     free(pages);
+#endif
     memset(fb, 0, sizeof *fb);
     fb->width = width;
     fb->height = height;
@@ -335,7 +341,16 @@ int fb_init_depth(framebuffer_t *fb, uint32_t width, uint32_t height, uint32_t b
     fb->pitch = width * depth / 8;
     fb->buffers = buffers;
     fb->size = fb->pitch * height;
+#ifdef BMHOST_GPU
+    /* the pages where the emulated V3D reaches them (its arena) */
+    pages = test_aligned_alloc(4096, (size_t)buffers * fb->size);
+    if (pages) {
+        memset(pages, 0, (size_t)buffers * fb->size);
+        fb->bus = v3d_bus(pages);
+    }
+#else
     pages = calloc(buffers, fb->size);
+#endif
     fb->mem = pages;
     fb->shown = 0;
     fb->base = pages + fb->size;
@@ -369,7 +384,9 @@ void irq_register(unsigned irq, irq_fn fn, void *arg) { (void)irq; (void)fn; (vo
 void irq_enable(unsigned irq) { (void)irq; }
 void irq_disable(unsigned irq) { (void)irq; }
 
-/* no V3D on the PC: the ARM's rasterizer draws the 3D, as in QEMU */
+#ifndef BMHOST_GPU
+/* no V3D on the PC: the ARM's rasterizer draws the 3D, as in QEMU (make
+ * bmhost-gpu links src/gpu/gpu3d.c with the V3D emulator instead) */
 const char *gpu3d_status(void) { return "no V3D (bmhost)"; }
 int gpu3d_init(void) { return -1; }
 int gpu3d_ready(void) { return 0; }
@@ -382,7 +399,9 @@ void gpu3d_drop(void) { }
 int gpu3d_flush(const g16_t *g, int keep) { (void)g; (void)keep; return 0; }
 void gpu3d_set_msaa(int on) { (void)on; }
 int gpu3d_msaa(void) { return 0; }
+int gpu3d_msaa_on(void) { return 0; }
 void gpu3d_take_stats(gpu3d_stats_t *s) { memset(s, 0, sizeof *s); }
+#endif
 
 /* nano8 and the assistant are not part of the host runner */
 void n8lua_set_io(const n8lua_io_t *io) { (void)io; }

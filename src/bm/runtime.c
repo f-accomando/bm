@@ -73,6 +73,8 @@ static struct {
     r3d_t r3d;
     int r3d_ready;
     int zclear_seen;            /* zclear() called in this frame */
+    int hold_frame;             /* this frame is not shown (the 3D went from the GPU to the ARM
+                                 * in the middle of it: its depths would be mixed) */
     int zclear_dma;             /* the z-buffer is being (or has been) cleared by the DMA
                                  * for the next frame, and nothing has drawn on it since */
     g16_light_t light;          /* light_begin() .. light_end() */
@@ -152,6 +154,10 @@ static void sync3d(void)
 static void gpu3d_to_arm(void *ctx, const char *why)
 {
     (void)ctx;
+    /* what the GPU drew in this frame is not in the ARM's z-buffer: the
+     * frame would be wrong, so it is not shown (one frame dropped, once) */
+    if (rt.r3d.tris_drawn || gpu3d_pending())
+        rt.hold_frame = 1;
     flush3d(0);
     if (rt.r3d.backend) {
         gpu3d_drop();
@@ -1441,6 +1447,36 @@ static int l_zclear(lua_State *L)
     return 0;
 }
 
+/* gpu3d([on, [aa]]) -> on, aa: whether the GPU draws the 3D, and whether
+ * with anti-aliasing (MSAA 4x, where the GPU allows it). With on, the 3D
+ * goes to the GPU (if the console has one that answers) or to the ARM from
+ * here, whatever Settings > Graphics says: for benchmarks; switch between
+ * frames (what was drawn so far in a frame is not in the other's depth). */
+static int l_gpu3d(lua_State *L)
+{
+    r3d_t *r = r3d(L);
+    if (!lua_isnoneornil(L, 1)) {
+        const int on = lua_toboolean(L, 1);
+        if (on && !r->backend && gpu3d_init() == 0 && !gpu3d_failed()) {
+            gpu3d_drop();
+            gpu3d_page(0, 0);
+            r->backend = gpu3d_backend();
+            r->arm_hook = gpu3d_to_arm;
+        } else if (!on && r->backend) {
+            flush3d(0);
+            gpu3d_drop();
+            r->backend = NULL;
+            zclear_dma_wait(1);
+            memset(r->zbuf, 0, (size_t)r->g->w * r->g->h * 2);
+        }
+        if (!lua_isnoneornil(L, 2))
+            gpu3d_set_msaa(lua_toboolean(L, 2));
+    }
+    lua_pushboolean(L, r->backend != NULL);
+    lua_pushboolean(L, r->backend != NULL && gpu3d_msaa_on());
+    return 2;
+}
+
 /* ---- collision worlds (world3d.h): boxes, rays, moving bodies */
 
 #define WORLD_MT "bm.world"
@@ -2282,7 +2318,7 @@ static const luaL_Reg api[] = {
     { "world3d", l_world3d }, { "world_box", l_world_box }, { "world_ray", l_world_ray },
     { "world_move", l_world_move }, { "world_floor", l_world_floor },
     { "fog3d", l_fog3d }, { "project3d", l_project3d }, { "lamp3d", l_lamp3d },
-    { "zclear", l_zclear }, { "log", l_log }, { "quit", l_quit },
+    { "zclear", l_zclear }, { "gpu3d", l_gpu3d }, { "log", l_log }, { "quit", l_quit },
     { "udp_open", l_udp_open }, { "udp_send", l_udp_send }, { "udp_recv", l_udp_recv }, { "udp_close", l_udp_close },
     { "net_ip", l_net_ip }, { "net_resolve", l_net_resolve },
     { "save", l_save }, { "saved", l_saved },
@@ -3812,7 +3848,12 @@ static void leave_mode(framebuffer_t *fb, uint32_t w, uint32_t h)
 static void present(framebuffer_t *fb, uint32_t *deadline, uint32_t *prev, uint32_t *dropped)
 {
     flush3d(0);
-    rt.present_us = bm_video_present(fb, &rt.g);
+    if (rt.hold_frame) {
+        rt.hold_frame = 0;
+        rt.present_us = 0;
+    } else {
+        rt.present_us = bm_video_present(fb, &rt.g);
+    }
     if (rt.r3d.backend)
         gpu3d_page(0, 0);               /* another page: what it holds is not known */
     zclear_dma_start();

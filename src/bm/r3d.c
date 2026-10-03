@@ -340,18 +340,23 @@ static uint32_t raster_gouraud(g16_t *g, uint16_t *zbuf, gv_t a, gv_t b, gv_t c,
     const int32_t ir16 = (int32_t)(drx * 65536.0f * 16.0f), ig16 = (int32_t)(dgx * 65536.0f * 16.0f),
                   ib16 = (int32_t)(dbx * 65536.0f * 16.0f);
     /* the attributes of a row start from a base: one multiply a span */
-    const float br = tri_base(&t, a.r, drx, dry), bg = tri_base(&t, a.g, dgx, dgy), bb = tri_base(&t, a.b, dbx, dby);
-    const float bz = zbuf ? tri_base(&t, a.z, dzx, dzy) : 0;
+    float br = tri_base(&t, a.r, drx, dry), bg = tri_base(&t, a.g, dgx, dgy), bb = tri_base(&t, a.b, dbx, dby);
+    float bz = zbuf ? tri_base(&t, a.z, dzx, dzy) : 0;
+    br += t.y0 * dry; bg += t.y0 * dgy; bb += t.y0 * dby; bz += t.y0 * dzy;
+    int ry = t.y0;                      /* the row of br, bg, bb, bz */
 
     SCAN(&t, g, {
+        for (; ry < y; ry++) {
+            br += dry; bg += dgy; bb += dby; bz += dzy;
+        }
         if (screen && ((x0 + y) & 1) && ++x0 >= x1)
             continue;
         /* the edge rounding can step a hair outside the vertex range:
          * clamped as integers */
-        const float fx = (float)x0, fy = (float)y;
-        int32_t cr = (int32_t)((br + fy * dry + fx * drx) * 65536.0f);
-        int32_t cg = (int32_t)((bg + fy * dgy + fx * dgx) * 65536.0f);
-        int32_t cb = (int32_t)((bb + fy * dby + fx * dbx) * 65536.0f);
+        const float fx = (float)x0;
+        int32_t cr = (int32_t)((br + fx * drx) * 65536.0f);
+        int32_t cg = (int32_t)((bg + fx * dgx) * 65536.0f);
+        int32_t cb = (int32_t)((bb + fx * dbx) * 65536.0f);
         cr = cr < 163840 ? 163840 : cr > 16154624 ? 16154624 : cr;         /* 2.5 .. 246.5 */
         cg = cg < 98304 ? 98304 : cg > 16482304 ? 16482304 : cg;           /* 1.5 .. 251.5 */
         cb = cb < 98304 ? 98304 : cb > 16220160 ? 16220160 : cb;           /* 1.5 .. 247.5 */
@@ -367,7 +372,7 @@ static uint32_t raster_gouraud(g16_t *g, uint16_t *zbuf, gv_t a, gv_t b, gv_t c,
         r3d_stat_visited += (uint32_t)(x1 - x0);
         r3d_stat_spans++;
 #endif
-        int32_t zf = (int32_t)((bz + fy * dzy + fx * dzx) * ZSCALE);
+        int32_t zf = (int32_t)((bz + fx * dzx) * ZSCALE);
         uint16_t *zrow = zbuf + (uint32_t)y * g->w;
         if (step == 1) {
             /* the common case, kept small for the registers of the ARM1176:
@@ -1024,6 +1029,13 @@ static int clip_near(const cv_t in[3], cv_t out[4])
  * pixels, and a gradient over a dozen pixels does not show */
 #define SMALL_TRI 48.0f
 
+/* the first six fields of a corner (l and f only for R3D_KIND_TEX_RGB:
+ * not written, as a compound literal would) */
+static inline void corner(r3d_corner_t *q, float x, float y, float z, float a, float b, float c)
+{
+    q->x = x; q->y = y; q->z = z; q->a = a; q->b = b; q->c = c;
+}
+
 /* a triangle, or the two of a quad left by the near plane, to the backend */
 static void emit(r3d_t *r, const r3d_corner_t *q, int np, int kind, const g16_sheet_t *tex, int nodepth)
 {
@@ -1035,13 +1047,13 @@ static void emit(r3d_t *r, const r3d_corner_t *q, int np, int kind, const g16_sh
 }
 
 /* corners of colour (r, g, b in 0..255) to the backend */
-static void emit_colour(r3d_t *r, const sv_t *const *ps, const float (*col)[3], int np, int kind, int nodepth)
+static void emit_colour(r3d_t *r, const sv_t *const *ps, const float (*col)[3], int np, int kind, int depth)
 {
     r3d_corner_t q[4];
     for (int i = 0; i < np; i++)
-        q[i] = (r3d_corner_t){ ps[i]->x, ps[i]->y, ps[i]->z, col[i][0] * (1.0f / 255.0f),
-                               col[i][1] * (1.0f / 255.0f), col[i][2] * (1.0f / 255.0f) };
-    emit(r, q, np, R3D_KIND_COLOUR | kind, NULL, nodepth);
+        corner(&q[i], ps[i]->x, ps[i]->y, ps[i]->z, col[i][0] * (1.0f / 255.0f), col[i][1] * (1.0f / 255.0f),
+               col[i][2] * (1.0f / 255.0f));
+    emit(r, q, np, kind, NULL, depth);
 }
 
 void r3d_draw(r3d_t *r, const r3d_mesh_t *m, v3_t p, float rx, float ry, float rz, float scale)
@@ -1050,7 +1062,7 @@ void r3d_draw(r3d_t *r, const r3d_mesh_t *m, v3_t p, float rx, float ry, float r
 }
 
 typedef struct {
-    v3_t pos[R3D_LAMPS];        /* relative to the camera, world axes */
+    v3_t pos[R3D_LAMPS];        /* in camera space (distances are the same) */
     float r2[R3D_LAMPS], k[R3D_LAMPS];
     r3d_rgb_t c[R3D_LAMPS];
     int n;
@@ -1203,7 +1215,7 @@ static void shadow_apply(r3d_t *r, const int box[4])
 static void draw_shadow(r3d_t *r, const r3d_mesh_t *m, const xform_t *x, v3_t p, unsigned detail, const view_t *v)
 {
     static cv_t cv[MAX_VERTS];
-    if (!mask_ready(r))
+    if (!r->backend && !mask_ready(r))
         return;
     v3_t L = r->light;
     if (L.y < 0.25f) L.y = 0.25f;           /* a low sun: shadows not longer than 4x */
@@ -1238,11 +1250,21 @@ static void draw_shadow(r3d_t *r, const r3d_mesh_t *m, const xform_t *x, v3_t p,
         sv_t pts[4];
         for (int i = 0; i < np; i++)
             pts[i] = project(v, cl[i], 1.0f);
+        if (r->backend) {
+            /* the GPU: black on every other pixel (shadow3d(1)), where the
+             * ground is not much nearer than the shadow (its depth 3.5%
+             * nearer), the depth not written: overlaps stay the same */
+            r3d_corner_t q[4];
+            for (int i = 0; i < np; i++)
+                corner(&q[i], pts[i].x, pts[i].y, pts[i].z * 1.035f, 0, 0, 0);
+            emit(r, q, np, R3D_KIND_SCREEN, NULL, R3D_DEPTH_TEST);
+            continue;
+        }
         raster_mask(r, pts[0], pts[1], pts[2], box);
         if (np == 4)
             raster_mask(r, pts[0], pts[2], pts[3], box);
     }
-    if (box[2] > box[0])
+    if (box[2] > box[0] && !r->backend)
         shadow_apply(r, box);
 }
 
@@ -1307,19 +1329,13 @@ static void lamps_add(const lamps_t *L, float px, float py, float pz, lit_t *out
     }
 }
 
-/* What a mesh asks for that a backend cannot draw (NULL: nothing): shadows
- * (they read the z-buffer), screen-door faces, textures with baked light */
-static const char *backend_lacks(const r3d_mesh_t *m, unsigned flags)
+/* What a mesh asks for that a backend cannot draw (NULL: nothing):
+ * textured faces with screen-door */
+static const char *backend_lacks(const r3d_mesh_t *m)
 {
-    if (flags & R3D_SHADOW)
-        return "shadows";
-    for (int t = 0; t < m->nfaces; t++) {
-        const uint32_t c = m->colors[t];
-        if (c & R3D_SCREEN)
-            return "screen-door faces";
-        if (m->clight && (c & R3D_TEXTURED))
-            return "textures with baked light";
-    }
+    for (int t = 0; t < m->nfaces; t++)
+        if ((m->colors[t] & (R3D_SCREEN | R3D_TEXTURED)) == (R3D_SCREEN | R3D_TEXTURED) && m->uv)
+            return "textured screen-door faces";
     return NULL;
 }
 
@@ -1328,8 +1344,9 @@ static const char *backend_lacks(const r3d_mesh_t *m, unsigned flags)
  * plane): to the backend, or Gouraud on the ARM (one colour for a few
  * pixels). 0 if nothing of it is left after clipping. */
 static int face_colours(r3d_t *r, const view_t *v, uint16_t *zbuf, const cv_t *const c[3], const sv_t *const s[3],
-                        int nin, const float (*col)[3], float zmul, int screen, int kind)
+                        int nin, const float (*col)[3], float zmul, int screen, int inside)
 {
+    const int kind = (screen ? R3D_KIND_SCREEN : R3D_KIND_COLOUR) | inside;
     if (nin == 3) {
         if (r->backend) {
             emit_colour(r, s, col, 3, kind, zbuf == NULL);
@@ -1389,8 +1406,8 @@ void r3d_draw_flags(r3d_t *r, const r3d_mesh_t *m, v3_t p, float rx, float ry, f
     static uint32_t vkey[MAX_VERTS];    /* ...for this face colour (computed when a face needs it) */
     if (m->nverts > MAX_VERTS)
         return;
-    if (r->backend) {
-        const char *why = backend_lacks(m, flags);
+    if (r->backend && !(flags & R3D_SHADOW)) {
+        const char *why = backend_lacks(m);
         if (why)
             to_arm(r, why);
     }
@@ -1436,13 +1453,15 @@ void r3d_draw_flags(r3d_t *r, const r3d_mesh_t *m, v3_t p, float rx, float ry, f
     const float zmul = front ? 0.1f : 1.0f;
     const int fog = r->fog_far > r->fog_near;
     const float fog_k = fog ? 1.0f / (r->fog_far - r->fog_near) : 0;
-    /* the lamps relative to the camera (world axes, like the vertices) */
+    /* the lamps in camera space, like the vertices */
     lamps_t lamps = { .n = 0 };
     for (int i = 0; i < R3D_LAMPS && !unlit; i++) {
         if (!r->lamp[i].on)
             continue;
-        lamps.pos[lamps.n] = (v3_t){ r->lamp[i].pos.x - r->cam_pos.x, r->lamp[i].pos.y - r->cam_pos.y,
-                                     r->lamp[i].pos.z - r->cam_pos.z };
+        const float wx = r->lamp[i].pos.x - r->cam_pos.x, wy = r->lamp[i].pos.y - r->cam_pos.y,
+                    wz = r->lamp[i].pos.z - r->cam_pos.z;
+        lamps.pos[lamps.n] = (v3_t){ C[0] * wx + C[1] * wy + C[2] * wz, C[3] * wx + C[4] * wy + C[5] * wz,
+                                     C[6] * wx + C[7] * wy + C[8] * wz };
         lamps.r2[lamps.n] = r->lamp[i].r2;
         lamps.k[lamps.n] = r->lamp[i].k;
         lamps.c[lamps.n++] = r->lamp[i].c;
@@ -1466,18 +1485,23 @@ void r3d_draw_flags(r3d_t *r, const r3d_mesh_t *m, v3_t p, float rx, float ry, f
     /* baked light (a "lit" model): the lamps still add to it (flashes, fire) */
     const int baked_lamps = m->clight && lamps.n;
     int bx0 = r->g->w, by0 = r->g->h, bx1 = 0, by1 = 0;     /* R3D_FRONT: screen box */
-    int nv = 0;
+    int nv = 0, nfront = 0;
+    const int skinned = m->bones && m->nbones > 0;
     for (int i = 0; i < m->nverts; i++) {
         if (m->vlod && !(m->vlod[i] & dbit))
             continue;                       /* no face of this level of detail needs it */
         nv++;
         /* object -> world, relative to the camera (with its bone, if any) */
-        v3_t w = xform_vert(&X, i);
+        const float *W = X.m[skinned ? m->vbone[i] : 0];
+        const v3_t o = m->verts[i];
+        const v3_t w = { W[0] * o.x + W[1] * o.y + W[2] * o.z + W[3], W[4] * o.x + W[5] * o.y + W[6] * o.z + W[7],
+                         W[8] * o.x + W[9] * o.y + W[10] * o.z + W[11] };
         cv_t *c = &cv[i];
         c->x = C[0] * w.x + C[1] * w.y + C[2] * w.z;
         c->y = C[3] * w.x + C[4] * w.y + C[5] * w.z;
         c->z = C[6] * w.x + C[7] * w.y + C[8] * w.z;
         if (c->z >= NEAR) {
+            nfront++;
             float iz = 1.0f / c->z;
             sv[i] = (sv_t){ v.hw + c->x * v.f * iz, v.hh - c->y * v.f * iz, iz * zmul };
             if (front) {
@@ -1495,12 +1519,10 @@ void r3d_draw_flags(r3d_t *r, const r3d_mesh_t *m, v3_t p, float rx, float ry, f
         if (smooth) {
             vn[i] = xform_dir(&X, i, m->vnormals[i]);
             vkey[i] = 0xFFFFFFFFu;          /* no colour yet */
-            c->u = w.x; c->v = w.y; c->r = w.z;   /* world position, for the lamps (u v r are free here) */
-        } else if (baked_lamps) {
-            c->u = w.x; c->v = w.y; c->r = w.z;
         }
     }
     r->verts += (uint32_t)nv;
+    const int all_front = nfront == nv;     /* every corner of every face shown is in front */
     if (front && zbuf) {
         /* the first-person layer: nothing drawn before can hide it */
         if (r->backend) {
@@ -1523,7 +1545,7 @@ void r3d_draw_flags(r3d_t *r, const r3d_mesh_t *m, v3_t p, float rx, float ry, f
         const uint16_t *fc = m->faces + t * 3;
         const cv_t *c0 = &cv[fc[0]], *c1 = &cv[fc[1]], *c2 = &cv[fc[2]];
         r->tris_in++;
-        const int nin = (c0->z >= NEAR) + (c1->z >= NEAR) + (c2->z >= NEAR);
+        const int nin = all_front ? 3 : (c0->z >= NEAR) + (c1->z >= NEAR) + (c2->z >= NEAR);
         if (nin == 0)
             continue;
         /* back faces first, on the vertices in front of the camera (the
@@ -1552,7 +1574,7 @@ void r3d_draw_flags(r3d_t *r, const r3d_mesh_t *m, v3_t p, float rx, float ry, f
                 if (emissive)
                     L = full;
                 else if (baked_lamps)
-                    lamps_add(&lamps, ck->u, ck->v, ck->r, &L);
+                    lamps_add(&lamps, ck->x, ck->y, ck->z, &L);
                 float ff = 0;
                 if (fog) {
                     ff = (ck->z - r->fog_near) * fog_k;
@@ -1579,7 +1601,7 @@ void r3d_draw_flags(r3d_t *r, const r3d_mesh_t *m, v3_t p, float rx, float ry, f
                     if (emissive)
                         L = full;
                     else
-                        light_fast(r, &lamps, &sh, vn[i], cv[i].u, cv[i].v, cv[i].r, glossy, &L);
+                        light_fast(r, &lamps, &sh, vn[i], cv[i].x, cv[i].y, cv[i].z, glossy, &L);
                     float ff = 0;
                     if (fog) {
                         ff = (cv[i].z - r->fog_near) * fog_k;
@@ -1600,52 +1622,94 @@ void r3d_draw_flags(r3d_t *r, const r3d_mesh_t *m, v3_t p, float rx, float ry, f
          * textured face of a "lit" model has its own, baked) */
         lit_t k = full;
         if (!emissive && !m->clight) {
-            v3_t n = xform_dir(&X, fc[0], m->normals[t]);
+            const float *N = X.n[skinned ? m->vbone[fc[0]] : 0];
+            const v3_t n0 = m->normals[t];
+            const v3_t n = { N[0] * n0.x + N[1] * n0.y + N[2] * n0.z, N[3] * n0.x + N[4] * n0.y + N[5] * n0.z,
+                             N[6] * n0.x + N[7] * n0.y + N[8] * n0.z };
             float mx = 0, my = 0, mz = 0;
-            if (lamps.n) {
-                /* the middle, back from camera space to world axes (C is a rotation) */
-                float cx = (c0->x + c1->x + c2->x) * (1.0f / 3.0f), cy = (c0->y + c1->y + c2->y) * (1.0f / 3.0f),
-                      cz = (c0->z + c1->z + c2->z) * (1.0f / 3.0f);
-                mx = C[0] * cx + C[3] * cy + C[6] * cz;
-                my = C[1] * cx + C[4] * cy + C[7] * cz;
-                mz = C[2] * cx + C[5] * cy + C[8] * cz;
+            if (lamps.n) {                  /* the middle, for the lamps */
+                mx = (c0->x + c1->x + c2->x) * (1.0f / 3.0f);
+                my = (c0->y + c1->y + c2->y) * (1.0f / 3.0f);
+                mz = (c0->z + c1->z + c2->z) * (1.0f / 3.0f);
             }
             light_fast(r, &lamps, &sh, n, mx, my, mz, glossy, &k);
         }
         if (textured) {
-            const float gk = lit_grey(&k);
-            cv_t tri[3] = { *c0, *c1, *c2 }, cl[4];
-            for (int i = 0; i < 3; i++) {
-                tri[i].u = m->uv[t * 6 + i * 2];
-                tri[i].v = m->uv[t * 6 + i * 2 + 1];
-                tri[i].r = gk;
+            /* corner i: on the screen at *ps[i], texel (tu[i], tv_[i]); the
+             * light gk; for a "lit" model on the backend, the light baked at
+             * the corner (and the lamps) L[i] and its depth dz[i] (fog) */
+            const float gk = lit_grey(&k), *uv = m->uv + t * 6;
+            const sv_t *ps[4] = { ss[0], ss[1], ss[2], NULL };
+            float tu[4] = { uv[0], uv[2], uv[4], 0 }, tv_[4] = { uv[1], uv[3], uv[5], 0 };
+            float L[4][3], dz[4] = { c0->z, c1->z, c2->z, 0 };
+            const int rgb_light = r->backend && m->clight;
+            if (rgb_light) {
+                const uint8_t *bl = m->clight + t * 9;
+                for (int i = 0; i < 3; i++) {
+                    lit_t Lk = { { bl[i * 3] * (1.0f / 128), bl[i * 3 + 1] * (1.0f / 128),
+                                   bl[i * 3 + 2] * (1.0f / 128) }, { 0, 0, 0 } };
+                    if (baked_lamps)
+                        lamps_add(&lamps, cs[i]->x, cs[i]->y, cs[i]->z, &Lk);
+                    L[i][0] = Lk.l.r; L[i][1] = Lk.l.g; L[i][2] = Lk.l.b;
+                }
             }
             sv_t pts[4];
             int np = 3;
-            if (nin == 3) {
-                cl[0] = tri[0]; cl[1] = tri[1]; cl[2] = tri[2];
-                pts[0] = sv[fc[0]]; pts[1] = sv[fc[1]]; pts[2] = sv[fc[2]];
-            } else {
+            if (nin < 3) {
+                cv_t tri[3] = { *c0, *c1, *c2 }, cl[4];
+                for (int i = 0; i < 3; i++) {
+                    tri[i].u = uv[i * 2];
+                    tri[i].v = uv[i * 2 + 1];
+                    if (rgb_light) {
+                        tri[i].r = L[i][0]; tri[i].g = L[i][1]; tri[i].b = L[i][2];
+                    }
+                }
                 np = clip_near(tri, cl);
-                for (int i = 0; i < np; i++)
+                for (int i = 0; i < np; i++) {
                     pts[i] = project(&v, cl[i], zmul);
+                    ps[i] = &pts[i];
+                    tu[i] = cl[i].u;
+                    tv_[i] = cl[i].v;
+                    dz[i] = cl[i].z;
+                    L[i][0] = cl[i].r; L[i][1] = cl[i].g; L[i][2] = cl[i].b;
+                }
                 float area = (pts[1].x - pts[0].x) * (pts[2].y - pts[0].y) - (pts[1].y - pts[0].y) * (pts[2].x - pts[0].x);
                 if (area <= 0)
                     continue;
             }
+            if (rgb_light) {
+                /* texel * light + fog, the GPU's shader: half the light (it
+                 * doubles it), the fog's share taken off it */
+                const float fr = (r->fog_rgb >> 16 & 255) * (1.0f / 255), fg = (r->fog_rgb >> 8 & 255) * (1.0f / 255),
+                            fb = (r->fog_rgb & 255) * (1.0f / 255);
+                r3d_corner_t q[4];
+                for (int i = 0; i < np; i++) {
+                    float ff = 0;
+                    if (fog) {
+                        ff = (dz[i] - r->fog_near) * fog_k;
+                        ff = ff < 0 ? 0 : ff > 1 ? 1 : ff;
+                    }
+                    const float kl = (1.0f - ff) * 0.5f;
+                    corner(&q[i], ps[i]->x, ps[i]->y, ps[i]->z, tu[i], tv_[i], 1);
+                    q[i].l[0] = L[i][0] * kl; q[i].l[1] = L[i][1] * kl; q[i].l[2] = L[i][2] * kl;
+                    q[i].f[0] = fr * ff; q[i].f[1] = fg * ff; q[i].f[2] = fb * ff;
+                }
+                emit(r, q, np, R3D_KIND_TEX_RGB | inside, m->tex, zbuf == NULL);
+                r->tris_drawn++;
+                continue;
+            }
             if (r->backend) {
-                /* (a "lit" model's textures and screen-door faces never get
-                 * here: backend_lacks) */
+                /* (textured screen-door faces never get here: backend_lacks) */
                 r3d_corner_t q[4];
                 for (int i = 0; i < np; i++)
-                    q[i] = (r3d_corner_t){ pts[i].x, pts[i].y, pts[i].z, cl[i].u, cl[i].v, cl[i].r };
+                    corner(&q[i], ps[i]->x, ps[i]->y, ps[i]->z, tu[i], tv_[i], gk);
                 emit(r, q, np, R3D_KIND_TEXTURE | inside, m->tex, zbuf == NULL);
                 r->tris_drawn++;
                 continue;
             }
             tv_t tv[4];
             for (int i = 0; i < np; i++)
-                tv[i] = (tv_t){ pts[i].x, pts[i].y, pts[i].z, cl[i].u * pts[i].z, cl[i].v * pts[i].z, cl[i].r };
+                tv[i] = (tv_t){ ps[i]->x, ps[i]->y, ps[i]->z, tu[i] * ps[i]->z, tv_[i] * ps[i]->z, gk };
             const uint8_t *lrgb = m->clight ? m->clight + t * 9 : NULL;
             int tf = 0;
             if (lrgb && fog) {
@@ -1663,33 +1727,36 @@ void r3d_draw_flags(r3d_t *r, const r3d_mesh_t *m, v3_t p, float rx, float ry, f
             ff = ((c0->z + c1->z + c2->z) * (1.0f / 3.0f) - r->fog_near) * fog_k;
             ff = ff < 0 ? 0 : ff > 1 ? 1 : ff;
         }
+        const sv_t *ps[4] = { ss[0], ss[1], ss[2], NULL };
         sv_t pts[4];
         int np = 3;
-        if (nin == 3) {
-            pts[0] = sv[fc[0]]; pts[1] = sv[fc[1]]; pts[2] = sv[fc[2]];
-        } else {
+        if (nin < 3) {
             cv_t tri[3] = { *c0, *c1, *c2 }, cl[4];
             np = clip_near(tri, cl);
-            for (int i = 0; i < np; i++)
+            for (int i = 0; i < np; i++) {
                 pts[i] = project(&v, cl[i], zmul);
+                ps[i] = &pts[i];
+            }
             float area = (pts[1].x - pts[0].x) * (pts[2].y - pts[0].y) - (pts[1].y - pts[0].y) * (pts[2].x - pts[0].x);
             if (area <= 0)
                 continue;
         }
         if (r->backend) {
+            /* the colour straight to the backend (no RGB565 on the way) */
             float c[3];
             shade_rgb(rgb, &k, r->fog_rgb, ff, c);
-            const float col[4][3] = { { c[0], c[1], c[2] }, { c[0], c[1], c[2] }, { c[0], c[1], c[2] },
-                                      { c[0], c[1], c[2] } };
-            const sv_t *ps[4] = { &pts[0], &pts[1], &pts[2], &pts[3] };
-            emit_colour(r, ps, col, np, inside, zbuf == NULL);
+            const float k255 = 1.0f / 255.0f, cr = c[0] * k255, cg = c[1] * k255, cb = c[2] * k255;
+            r3d_corner_t q[4];
+            for (int i = 0; i < np; i++)
+                corner(&q[i], ps[i]->x, ps[i]->y, ps[i]->z, cr, cg, cb);
+            emit(r, q, np, (screen ? R3D_KIND_SCREEN : R3D_KIND_COLOUR) | inside, NULL, zbuf == NULL);
             r->tris_drawn++;
             continue;
         }
         const uint16_t col = shade(rgb, &k, r->fog_rgb, ff);
-        r->pixels += raster(r->g, zbuf, pts[0], pts[1], pts[2], col, screen);
+        r->pixels += raster(r->g, zbuf, *ps[0], *ps[1], *ps[2], col, screen);
         if (np == 4)
-            r->pixels += raster(r->g, zbuf, pts[0], pts[2], pts[3], col, screen);
+            r->pixels += raster(r->g, zbuf, *ps[0], *ps[2], *ps[3], col, screen);
         r->tris_drawn++;
     }
 }
@@ -1716,9 +1783,31 @@ static uint16_t fog_colour(const r3d_t *r, uint32_t rgb, float depth)
     return shade(rgb, &k, r->fog_rgb, ff);
 }
 
+/* the colour of an effect for a backend: rgb (0xRRGGBB) fogged, 0..1 */
+static void fog_unit(const r3d_t *r, uint32_t rgb, float depth, float out[3])
+{
+    static const lit_t k = { { 1, 1, 1 }, { 0, 0, 0 } };
+    float ff = 0;
+    if (r->fog_far > r->fog_near) {
+        ff = (depth - r->fog_near) / (r->fog_far - r->fog_near);
+        ff = ff < 0 ? 0 : ff > 1 ? 1 : ff;
+    }
+    shade_rgb(rgb, &k, r->fog_rgb, ff, out);
+    for (int i = 0; i < 3; i++)
+        out[i] *= 1.0f / 255.0f;
+}
+
+/* a convex polygon of n corners on the screen (a fan) to the backend */
+static void emit_fan(r3d_t *r, const r3d_corner_t *q, int n, int kind, const g16_sheet_t *tex)
+{
+    for (int i = 1; i + 1 < n; i++) {
+        const r3d_corner_t t[3] = { q[0], q[i], q[i + 1] };
+        r->backend->tri(r->backend->ctx, r->g, t, kind, tex, R3D_DEPTH_TEST);
+    }
+}
+
 uint32_t r3d_point(r3d_t *r, v3_t p, float radius, uint32_t rgb, unsigned flags)
 {
-    to_arm(r, "3D effects");                /* they read the z-buffer */
     view_t v;
     view_setup(r, &v);
     cv_t c;
@@ -1728,6 +1817,20 @@ uint32_t r3d_point(r3d_t *r, v3_t p, float radius, uint32_t rgb, unsigned flags)
     g16_t *g = r->g;
     float rad = radius * v.f / c.z;
     if (rad < 0.5f) rad = 0.5f;
+    if (r->backend) {
+        /* an octagon, tested against the depth and not writing it */
+        float col[3];
+        fog_unit(r, rgb, c.z, col);
+        r3d_corner_t q[8];
+        for (int i = 0; i < 8; i++) {
+            static const float cs[8][2] = { { 1, 0 }, { 0.7071f, 0.7071f }, { 0, 1 }, { -0.7071f, 0.7071f },
+                                            { -1, 0 }, { -0.7071f, -0.7071f }, { 0, -1 }, { 0.7071f, -0.7071f } };
+            corner(&q[i], s.x + cs[i][0] * rad, s.y + cs[i][1] * rad, s.z, col[0], col[1], col[2]);
+        }
+        emit_fan(r, q, 8, flags & R3D_FX_SCREEN ? R3D_KIND_SCREEN : R3D_KIND_COLOUR, NULL);
+        r->tris_drawn += 6;
+        return (uint32_t)(rad * rad * 3.1f);
+    }
     int x0 = (int)(s.x - rad), x1 = (int)(s.x + rad) + 1, y0 = (int)(s.y - rad), y1 = (int)(s.y + rad) + 1;
     if (x0 < g->cx0) x0 = g->cx0;
     if (y0 < g->cy0) y0 = g->cy0;
@@ -1757,7 +1860,6 @@ uint32_t r3d_point(r3d_t *r, v3_t p, float radius, uint32_t rgb, unsigned flags)
 
 uint32_t r3d_line(r3d_t *r, v3_t a, v3_t b, uint32_t rgb, int width, unsigned flags)
 {
-    to_arm(r, "3D effects");
     view_t v;
     view_setup(r, &v);
     cv_t ca, cb;
@@ -1771,6 +1873,26 @@ uint32_t r3d_line(r3d_t *r, v3_t a, v3_t b, uint32_t rgb, int width, unsigned fl
     }
     sv_t sa = project(&v, ca, 1.0f), sb = project(&v, cb, 1.0f);
     g16_t *g = r->g;
+    if (width < 1) width = 1;
+    if (width > 8) width = 8;
+    if (r->backend) {
+        /* a band `width` pixels wide along the line */
+        float col[3];
+        fog_unit(r, rgb, (ca.z + cb.z) * 0.5f, col);
+        float dx = sb.x - sa.x, dy = sb.y - sa.y, len = sqrtf(dx * dx + dy * dy);
+        if (len < 0.5f) {
+            dx = 0.5f; dy = 0; len = 0.5f;
+        }
+        const float k = 0.5f * (float)width / len, nx = -dy * k, ny = dx * k;
+        r3d_corner_t q[4];
+        corner(&q[0], sa.x + nx, sa.y + ny, sa.z, col[0], col[1], col[2]);
+        corner(&q[1], sb.x + nx, sb.y + ny, sb.z, col[0], col[1], col[2]);
+        corner(&q[2], sb.x - nx, sb.y - ny, sb.z, col[0], col[1], col[2]);
+        corner(&q[3], sa.x - nx, sa.y - ny, sa.z, col[0], col[1], col[2]);
+        emit_fan(r, q, 4, flags & R3D_FX_SCREEN ? R3D_KIND_SCREEN : R3D_KIND_COLOUR, NULL);
+        r->tris_drawn += 2;
+        return (uint32_t)(len * (float)width);
+    }
     const uint16_t col = fog_colour(r, rgb, (ca.z + cb.z) * 0.5f);
     float dx = sb.x - sa.x, dy = sb.y - sa.y;
     float len = fabsf(dx) > fabsf(dy) ? fabsf(dx) : fabsf(dy);
@@ -1778,8 +1900,6 @@ uint32_t r3d_line(r3d_t *r, v3_t a, v3_t b, uint32_t rgb, int width, unsigned fl
     if (steps > 4096) steps = 4096;
     float sx = dx / steps, sy = dy / steps, sz = (sb.z - sa.z) / steps;
     const int horiz = fabsf(dx) > fabsf(dy);
-    if (width < 1) width = 1;
-    if (width > 8) width = 8;
     uint32_t n = 0;
     float x = sa.x, y = sa.y, z = sa.z;
     for (int i = 0; i <= steps; i++, x += sx, y += sy, z += sz) {
@@ -1807,7 +1927,6 @@ uint32_t r3d_sprite(r3d_t *r, const g16_sheet_t *s, int sx, int sy, int sw, int 
 {
     if (sw <= 0 || sh <= 0 || sx < 0 || sy < 0 || sx + sw > s->w || sy + sh > s->h)
         return 0;
-    to_arm(r, "3D effects");
     view_t v;
     view_setup(r, &v);
     cv_t c;
@@ -1817,6 +1936,19 @@ uint32_t r3d_sprite(r3d_t *r, const g16_sheet_t *s, int sx, int sy, int sw, int 
     g16_t *g = r->g;
     float w = size * v.f / c.z, h = w * (float)sh / (float)sw;
     if (w < 1) return 0;
+    if (r->backend) {
+        /* a quad of the sheet, transparent texels thrown away (R3D_FX_SCREEN
+         * is not done: every pixel) */
+        const float X0 = sc.x - w * 0.5f, Y0 = sc.y - h * 0.5f, X1 = sc.x + w * 0.5f, Y1 = sc.y + h * 0.5f;
+        r3d_corner_t q[4];
+        corner(&q[0], X0, Y0, sc.z, (float)sx, (float)sy, 1);
+        corner(&q[1], X1, Y0, sc.z, (float)(sx + sw), (float)sy, 1);
+        corner(&q[2], X1, Y1, sc.z, (float)(sx + sw), (float)(sy + sh), 1);
+        corner(&q[3], X0, Y1, sc.z, (float)sx, (float)(sy + sh), 1);
+        emit_fan(r, q, 4, R3D_KIND_TEXTURE, s);
+        r->tris_drawn += 2;
+        return (uint32_t)(w * h);
+    }
     int x0 = (int)(sc.x - w * 0.5f), y0 = (int)(sc.y - h * 0.5f), x1 = (int)(sc.x + w * 0.5f), y1 = (int)(sc.y + h * 0.5f);
     const float ku = sw / w, kv = sh / h;
     int cx0 = x0 < g->cx0 ? g->cx0 : x0, cy0 = y0 < g->cy0 ? g->cy0 : y0;

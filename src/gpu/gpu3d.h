@@ -59,6 +59,7 @@ int gpu3d_flush(const g16_t *g, int keep);
  * loaded) or 2 (on any page). Never in a job that keeps the depth. */
 void gpu3d_set_msaa(int on);
 int gpu3d_msaa(void);
+int gpu3d_msaa_on(void);            /* asked for and possible (on any page) */
 
 /* The GPU test: textures in T-format where the probe learned it (1), or in
  * rows (0); the textures made so far are made again. gpu3d_tiles(): the

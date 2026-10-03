@@ -15,7 +15,7 @@
 #define JOB_BCL      (256u << 10)
 #define JOB_RCL      (16u << 10)
 #define JOB_RECS     (16u << 10)    /* NV shader records, 16 bytes each */
-#define JOB_CODE     (3u << 10)     /* the shaders, 1 KiB each */
+#define JOB_CODE     (6u << 10)     /* the shaders, 1 KiB each */
 #define JOB_VERTS    (4u << 20)
 #define PROBE_W      64
 #define PROBE_H      64
@@ -29,21 +29,28 @@
 #define GUARD        1000.0f        /* margin around the screen inside the 12.4 range */
 
 /* a vertex as the NV shader state wants it: screen x and y in 12.4,
- * z (0 near .. 1 far), 1/w, three varyings (colour, or s t k) */
+ * z (0 near .. 1 far), 1/w, the varyings of its shader: 3 (colour, or s t
+ * k) or 8 (s t, light r g b, fog r g b); the vertices of a batch follow one
+ * another with the stride of its shader */
 typedef struct {
     int16_t x, y;
     float z, inv_w;
-    float v[3];
+    float v[8];
 } gvert_t;
 
-#define MAX_VERTS (int)(JOB_VERTS / sizeof(gvert_t))
+#define VSTRIDE(n) (12 + 4 * (n))
+#define VMAX_BYTES ((uint32_t)JOB_VERTS - 21u * (uint32_t)VSTRIDE(8))   /* room for a clipped triangle */
 
-enum { SH_COLOUR, SH_TEX, SH_TEX_ALPHA, SH_COUNT };
+enum { SH_COLOUR, SH_TEX, SH_TEX_ALPHA, SH_SCREEN, SH_TEX_RGB, SH_TEX_RGB_ALPHA, SH_COUNT };
 
-static const struct { const uint32_t *code; size_t size; uint8_t uniforms; } shaders[SH_COUNT] = {
-    { fs_colour, sizeof fs_colour, 0 },
-    { fs_tex_lit, sizeof fs_tex_lit, 2 },
-    { fs_tex_lit_alpha, sizeof fs_tex_lit_alpha, 2 },
+/* discard: the shader may write no pixel (early z off) */
+static const struct { const uint32_t *code; size_t size; uint8_t uniforms, varyings, discard; } shaders[SH_COUNT] = {
+    { fs_colour, sizeof fs_colour, 0, 3, 0 },
+    { fs_tex_lit, sizeof fs_tex_lit, 2, 3, 0 },
+    { fs_tex_lit_alpha, sizeof fs_tex_lit_alpha, 2, 3, 1 },
+    { fs_colour_screen, sizeof fs_colour_screen, 0, 3, 1 },
+    { fs_tex_rgb, sizeof fs_tex_rgb, 2, 8, 0 },
+    { fs_tex_rgb_alpha, sizeof fs_tex_rgb_alpha, 2, 8, 1 },
 };
 
 /* a sprite sheet as a texture: RGBA32R (raster order, 32 bits a texel) in
@@ -70,8 +77,8 @@ static struct {
     uint8_t *tsda, *alloc, *overflow, *zbuf, *bcl, *rcl, *recs, *code;
     uint16_t *probe;
     uint32_t *probe_tex;
-    gvert_t *verts;
-    int nverts;
+    uint8_t *verts;                 /* the vertices of the job, */
+    uint32_t vbytes;                /* bytes of them so far */
     v3d_cl_t cl;
     uint8_t *rec_next;
     int open;                       /* the job has its binning header */
@@ -82,8 +89,9 @@ static struct {
     uint16_t page_colour;
     int z_wanted;                   /* this cartridge draws 3D after 2D in a frame */
     /* the batch being filled */
-    int b_open, b_shader, b_nodepth, b_first;
-    int b_room;                     /* vertices it can still start a triangle at (7 corners clipped) */
+    int b_open, b_shader, b_depth;
+    uint32_t b_first, b_stride;     /* its first vertex (byte offset), its vertex stride */
+    uint32_t b_room;                /* offset it can still start a triangle at (7 corners clipped) */
     const tex_t *b_tex;
     uint8_t *b_start, *b_len;       /* its first packet, its vertex count */
     int clip[4];                    /* clip window written last (x0 y0 x1 y1) */
@@ -281,7 +289,7 @@ static void job_begin(int w, int h)
     v3d_cl_u16(&G.cl, 0);
     G.clip[0] = G.clip[1] = G.clip[2] = G.clip[3] = -1;
     G.cfg = -1;
-    G.nverts = 0;
+    G.vbytes = 0;
     G.rec_next = G.recs;
     G.w = w;
     G.h = h;
@@ -295,7 +303,7 @@ static void batch_close(void)
     if (!G.b_open)
         return;
     G.b_open = 0;
-    uint32_t n = (uint32_t)(G.nverts - G.b_first);
+    uint32_t n = (G.vbytes - G.b_first) / G.b_stride;
     if (!n) {                           /* nothing drawn: no packets */
         G.cl.p = G.b_start;
         return;
@@ -307,7 +315,7 @@ static void batch_close(void)
 }
 
 /* 0, or -1 if the job is full */
-static int batch_open(const g16_t *g, int shader, int nodepth, const tex_t *t)
+static int batch_open(const g16_t *g, int shader, int depth, const tex_t *t)
 {
     if (G.rec_next + 16 > G.recs + JOB_RECS || G.cl.p + 64 > G.cl.end)
         return -1;
@@ -321,9 +329,11 @@ static int batch_open(const g16_t *g, int shader, int nodepth, const tex_t *t)
         G.clip[0] = g->cx0; G.clip[1] = g->cy0; G.clip[2] = g->cx1; G.clip[3] = g->cy1;
     }
     /* depth: nearer wins (less than, as the software's strict test), early
-     * z except where texels may be thrown away; NOZ: neither test nor write */
-    uint16_t cfg = nodepth ? V3D_CFG_DEPTH(7)
-                 : shader == SH_TEX_ALPHA ? V3D_CFG_DEPTH(1) | V3D_CFG_Z_UPDATE
+     * z except where pixels may be thrown away; NOZ: neither test nor
+     * write; the effects and shadows: tested, not written */
+    uint16_t cfg = depth == R3D_DEPTH_NONE ? V3D_CFG_DEPTH(7)
+                 : depth == R3D_DEPTH_TEST ? V3D_CFG_DEPTH(1)
+                 : shaders[shader].discard ? V3D_CFG_DEPTH(1) | V3D_CFG_Z_UPDATE
                  : V3D_CFG_DEPTH(1) | V3D_CFG_Z_UPDATE | V3D_CFG_EARLY_Z | V3D_CFG_EARLY_Z_UPDATE;
     if (G.cfg != cfg) {
         v3d_cl_u8(&G.cl, V3D_CONFIGURATION_BITS);
@@ -336,15 +346,17 @@ static int batch_open(const g16_t *g, int shader, int nodepth, const tex_t *t)
      * uniforms, vertices (those of this batch) */
     uint8_t *r = G.rec_next;
     G.rec_next += 16;
+    const uint32_t stride = VSTRIDE(shaders[shader].varyings);
+    G.vbytes = (G.vbytes + 3) & ~3u;
     r[0] = 0;
-    r[1] = sizeof(gvert_t);
+    r[1] = (uint8_t)stride;
     r[2] = shaders[shader].uniforms;
-    r[3] = 3;
+    r[3] = shaders[shader].varyings;
     uint32_t a = v3d_bus(G.code + 1024 * shader);
     memcpy(r + 4, &a, 4);
     a = t ? v3d_bus(t->params) : 0;
     memcpy(r + 8, &a, 4);
-    a = v3d_bus(&G.verts[G.nverts]);
+    a = v3d_bus(G.verts + G.vbytes);
     memcpy(r + 12, &a, 4);
     v3d_cl_u8(&G.cl, V3D_NV_SHADER_STATE);
     v3d_cl_u32(&G.cl, v3d_bus(r));
@@ -355,10 +367,13 @@ static int batch_open(const g16_t *g, int shader, int nodepth, const tex_t *t)
     v3d_cl_u32(&G.cl, 0);               /* first vertex */
     G.b_open = 1;
     G.b_shader = shader;
-    G.b_nodepth = nodepth;
+    G.b_depth = depth;
     G.b_tex = t;
-    G.b_first = G.nverts;
-    G.b_room = (MAX_VERTS < G.nverts + BATCH_MAX ? MAX_VERTS : G.nverts + BATCH_MAX) - 21;
+    G.b_first = G.vbytes;
+    G.b_stride = stride;
+    G.b_room = G.vbytes + (BATCH_MAX - 21) * stride;
+    if (G.b_room > VMAX_BYTES)
+        G.b_room = VMAX_BYTES;
     if (t >= G.tex && t < G.tex + NTEX)
         G.tex_used[t - G.tex] = 1;
     return 0;
@@ -366,14 +381,15 @@ static int batch_open(const g16_t *g, int shader, int nodepth, const tex_t *t)
 
 /* ---------------------------------------------------------------- vertices */
 
-/* a corner while clipping: attributes multiplied by 1/w (they are linear
- * in screen space that way) */
-typedef struct { float x, y, iw, a, b, c; } cvert_t;
+/* a corner while clipping: attributes (a b c, then l and f) multiplied by
+ * 1/w (they are linear in screen space that way) */
+typedef struct { float x, y, iw, at[9]; } cvert_t;
 
 static cvert_t cvert(const r3d_corner_t *v)
 {
     float iw = v->z > 1e-9f ? v->z : 1e-9f;
-    return (cvert_t){ v->x, v->y, iw, v->a * iw, v->b * iw, v->c * iw };
+    return (cvert_t){ v->x, v->y, iw, { v->a * iw, v->b * iw, v->c * iw, v->l[0] * iw, v->l[1] * iw,
+                                        v->l[2] * iw, v->f[0] * iw, v->f[1] * iw, v->f[2] * iw } };
 }
 
 /* the part of polygon in[n] where s * (x or y) <= lim, s = 1 or -1 */
@@ -387,33 +403,51 @@ static int clip_line(const cvert_t *in, int n, cvert_t *out, int axis_y, float s
             out[m++] = *p;
         if ((dp <= 0) != (dq <= 0)) {
             float t = dp / (dp - dq);
-            out[m++] = (cvert_t){ p->x + (q->x - p->x) * t, p->y + (q->y - p->y) * t,
-                                  p->iw + (q->iw - p->iw) * t, p->a + (q->a - p->a) * t,
-                                  p->b + (q->b - p->b) * t, p->c + (q->c - p->c) * t };
+            cvert_t *o = &out[m++];
+            o->x = p->x + (q->x - p->x) * t;
+            o->y = p->y + (q->y - p->y) * t;
+            o->iw = p->iw + (q->iw - p->iw) * t;
+            for (int k = 0; k < 9; k++)
+                o->at[k] = p->at[k] + (q->at[k] - p->at[k]) * t;
         }
     }
     return m;
 }
 
+static inline float unit(float v)
+{
+    return v < 0 ? 0 : v > 1 ? 1 : v;
+}
+
 /* a corner as the shader wants it: x and y rounded to 12.4 (within the
  * guard band, so x * 16 + 32768 is positive and the cast floors), z from
- * 1/w, the colour as r3d gives it (0..1), texel coordinates scaled to 0..1 */
-static inline void put_corner(gvert_t *o, float x, float y, float iw, float a, float b, float c, int kind,
-                              const tex_t *t)
+ * 1/w, the colour as r3d gives it (0..1), texel coordinates scaled to 0..1;
+ * the light and the fog of R3D_KIND_TEX_RGB in the colour's byte order */
+static inline void put_corner(gvert_t *o, float x, float y, float iw, float a, float b, float c, const float *l,
+                              const float *f, int kind, const tex_t *t)
 {
     o->x = (int16_t)((int32_t)(x * 16.0f + 32768.5f) - 32768);
     o->y = (int16_t)((int32_t)(y * 16.0f + 32768.5f) - 32768);
     float z = 1.0f - R3D_NEAR * iw;     /* 0 at the near plane, towards 1 far away */
     o->z = z < 0 ? 0 : z;
     o->inv_w = iw;
-    if (kind == R3D_KIND_COLOUR) {
+    if (kind == R3D_KIND_COLOUR || kind == R3D_KIND_SCREEN) {
         o->v[G.ia] = a;                 /* red or blue in byte a, as the probe found */
         o->v[1] = b;
         o->v[2 - G.ia] = c;
     } else {
         o->v[0] = a * t->inv_w;
         o->v[1] = b * t->inv_h;
-        o->v[2] = c < 0 ? 0 : c > 1 ? 1 : c;
+        if (kind == R3D_KIND_TEX_RGB) {
+            o->v[2 + G.ia] = unit(l[0]);
+            o->v[3] = unit(l[1]);
+            o->v[4 - G.ia] = unit(l[2]);
+            o->v[5 + G.ia] = unit(f[0]);
+            o->v[6] = unit(f[1]);
+            o->v[7 - G.ia] = unit(f[2]);
+        } else {
+            o->v[2] = unit(c);
+        }
     }
 }
 
@@ -421,21 +455,25 @@ static inline void put_corner(gvert_t *o, float x, float y, float iw, float a, f
 static void put(const cvert_t *c, int kind, const tex_t *t)
 {
     const float w = 1.0f / c->iw;
-    put_corner(&G.verts[G.nverts++], c->x, c->y, c->iw, c->a * w, c->b * w, c->c * w, kind, t);
+    const float l[3] = { c->at[3] * w, c->at[4] * w, c->at[5] * w }, f[3] = { c->at[6] * w, c->at[7] * w,
+                                                                               c->at[8] * w };
+    put_corner((gvert_t *)(G.verts + G.vbytes), c->x, c->y, c->iw, c->at[0] * w, c->at[1] * w, c->at[2] * w, l, f,
+               kind, t);
+    G.vbytes += G.b_stride;
 }
 
 /* the batch being filled takes a triangle of this state (same screen,
  * clip window, shader, depth and texture, and room for 7 corners) */
-static inline int batch_takes(const g16_t *g, int shader, int nodepth, const tex_t *t)
+static inline int batch_takes(const g16_t *g, int shader, int depth, const tex_t *t)
 {
-    return G.b_open && G.nverts <= G.b_room && G.b_shader == shader && G.b_tex == t && G.b_nodepth == nodepth &&
+    return G.b_open && G.vbytes <= G.b_room && G.b_shader == shader && G.b_tex == t && G.b_depth == depth &&
            G.w == g->w && G.h == g->h && G.clip[0] == g->cx0 && G.clip[1] == g->cy0 && G.clip[2] == g->cx1 &&
            G.clip[3] == g->cy1;
 }
 
 /* a job and a batch open for this state, with room: 0, or -1 if the GPU
  * failed */
-static int batch_for(const g16_t *g, int shader, int nodepth, const tex_t *t)
+static int batch_for(const g16_t *g, int shader, int depth, const tex_t *t)
 {
     if (G.failed)
         return -1;
@@ -453,20 +491,20 @@ static int batch_for(const g16_t *g, int shader, int nodepth, const tex_t *t)
         }
         job_begin(g->w, g->h);
     }
-    if (G.nverts + 21 > MAX_VERTS) {    /* a clipped triangle is up to 7 of them */
+    if (G.vbytes > VMAX_BYTES) {        /* a clipped triangle is up to 7 corners */
         flush_job(g, 1);                /* the next job goes on with this depth */
         if (G.failed)
             return -1;
         job_begin(g->w, g->h);
     }
-    if (!batch_takes(g, shader, nodepth, t)) {
+    if (!batch_takes(g, shader, depth, t)) {
         batch_close();
-        if (batch_open(g, shader, nodepth, t) != 0) {
+        if (batch_open(g, shader, depth, t) != 0) {
             flush_job(g, 1);
             if (G.failed)
                 return -1;
             job_begin(g->w, g->h);
-            batch_open(g, shader, nodepth, t);
+            batch_open(g, shader, depth, t);
         }
     }
     return 0;
@@ -495,10 +533,10 @@ static void add_clipped(const r3d_corner_t v[3], int kind, const tex_t *t, float
 
 /* a triangle into the job (clipped to the guard band if it reaches out of
  * the range of the 12.4 coordinates; inside: r3d found it cannot) */
-static inline void add_tri(const g16_t *g, const r3d_corner_t v[3], int kind, const tex_t *t, int nodepth,
+static inline void add_tri(const g16_t *g, const r3d_corner_t v[3], int kind, const tex_t *t, int depth,
                            int shader, int inside)
 {
-    if (!batch_takes(g, shader, nodepth, t) && batch_for(g, shader, nodepth, t) != 0)
+    if (!batch_takes(g, shader, depth, t) && batch_for(g, shader, depth, t) != 0)
         return;
     if (!inside) {
         const float x0 = -GUARD, y0 = -GUARD, x1 = g->w + GUARD, y1 = g->h + GUARD;
@@ -510,33 +548,43 @@ static inline void add_tri(const g16_t *g, const r3d_corner_t v[3], int kind, co
             return;
         }
     }
-    gvert_t *o = &G.verts[G.nverts];    /* nearly every triangle: straight in */
-    for (int i = 0; i < 3; i++)
-        put_corner(&o[i], v[i].x, v[i].y, v[i].z, v[i].a, v[i].b, v[i].c, kind, t);
-    G.nverts += 3;
+    uint8_t *o = G.verts + G.vbytes;    /* nearly every triangle: straight in */
+    for (int i = 0; i < 3; i++, o += G.b_stride)
+        put_corner((gvert_t *)o, v[i].x, v[i].y, v[i].z, v[i].a, v[i].b, v[i].c, v[i].l, v[i].f, kind, t);
+    G.vbytes += 3 * G.b_stride;
     G.st.tris++;
 }
 
 static void cb_tri(void *ctx, const g16_t *g, const r3d_corner_t v[3], int kind, const g16_sheet_t *tex,
-                   int nodepth)
+                   int depth)
 {
     (void)ctx;
     const int inside = kind & R3D_INSIDE;
-    if ((kind & ~R3D_INSIDE) == R3D_KIND_TEXTURE) {
+    kind &= ~R3D_INSIDE;
+    if (kind == R3D_KIND_TEXTURE || kind == R3D_KIND_TEX_RGB) {
         const tex_t *t = tex ? tex_get(g, tex) : NULL;
         if (t) {
-            add_tri(g, v, R3D_KIND_TEXTURE, t, nodepth, tex_opaque(t, v) ? SH_TEX : SH_TEX_ALPHA, inside);
+            const int opaque = tex_opaque(t, v);
+            if (kind == R3D_KIND_TEXTURE)
+                add_tri(g, v, kind, t, depth, opaque ? SH_TEX : SH_TEX_ALPHA, inside);
+            else
+                add_tri(g, v, kind, t, depth, opaque ? SH_TEX_RGB : SH_TEX_RGB_ALPHA, inside);
             return;
         }
         /* no texture on the GPU (too large): grey times the light */
         r3d_corner_t c[3];
-        for (int i = 0; i < 3; i++)
-            c[i] = (r3d_corner_t){ v[i].x, v[i].y, v[i].z, 200 * v[i].c * (1.0f / 255.0f),
-                                   200 * v[i].c * (1.0f / 255.0f), 200 * v[i].c * (1.0f / 255.0f) };
-        add_tri(g, c, R3D_KIND_COLOUR, NULL, nodepth, SH_COLOUR, inside);
+        for (int i = 0; i < 3; i++) {
+            const float k = kind == R3D_KIND_TEXTURE ? v[i].c : (v[i].l[0] + v[i].l[1] + v[i].l[2]) * (2.0f / 3.0f);
+            c[i] = (r3d_corner_t){ v[i].x, v[i].y, v[i].z, 200 * k * (1.0f / 255.0f), 200 * k * (1.0f / 255.0f),
+                                   200 * k * (1.0f / 255.0f), { 0, 0, 0 }, { 0, 0, 0 } };
+        }
+        add_tri(g, c, R3D_KIND_COLOUR, NULL, depth, SH_COLOUR, inside);
         return;
     }
-    add_tri(g, v, R3D_KIND_COLOUR, NULL, nodepth, SH_COLOUR, inside);
+    if (kind == R3D_KIND_SCREEN)
+        add_tri(g, v, kind, NULL, depth, SH_SCREEN, inside);
+    else
+        add_tri(g, v, R3D_KIND_COLOUR, NULL, depth, SH_COLOUR, inside);
 }
 
 static void cb_zclear(void *ctx, const g16_t *g)
@@ -545,7 +593,7 @@ static void cb_zclear(void *ctx, const g16_t *g)
     /* what is drawn next must not see the depth of what was drawn so far:
      * that goes to the screen now, and the next job starts with a clear
      * depth buffer */
-    if (G.open && G.nverts)
+    if (G.open && G.vbytes)
         gpu3d_flush(g, 0);
     G.z_saved = G.split = 0;
 }
@@ -645,7 +693,7 @@ static int run(int bin, uint32_t rcl_end)
 
 int gpu3d_pending(void)
 {
-    return G.open && (G.nverts || G.b_open);
+    return G.open && (G.vbytes || G.b_open);
 }
 
 void gpu3d_drop(void)
@@ -664,6 +712,11 @@ void gpu3d_set_msaa(int on)
 int gpu3d_msaa(void)
 {
     return G.ms_ok;
+}
+
+int gpu3d_msaa_on(void)
+{
+    return G.msaa && G.ms_ok > 0;
 }
 
 void gpu3d_tiled_textures(int on)
@@ -708,7 +761,7 @@ static int flush_job(const g16_t *g, int store)
     G.open = 0;
     if (G.failed)
         return -1;
-    if (!G.nverts)
+    if (!G.vbytes)
         return 0;
     if (g->stride != (uint32_t)g->w || g->w != G.w || g->h != G.h) {
         disable("the page is not as wide as the screen");
@@ -745,7 +798,7 @@ static int flush_job(const g16_t *g, int store)
 
 int gpu3d_flush(const g16_t *g, int keep)
 {
-    const int had = G.open && G.nverts;
+    const int had = G.open && G.vbytes;
     /* the depth is stored only for cartridges that need it: most draw all
      * their 3D, then the HUD, and a store is 1 MiB of memory traffic */
     int r = flush_job(g, keep && G.z_wanted);
@@ -892,7 +945,7 @@ static int probe(void)
     static const float q[4][2] = { { 0, 0 }, { PROBE_W, 0 }, { PROBE_W, PROBE_H }, { 0, PROBE_H } };
     r3d_corner_t v[4];
     for (int i = 0; i < 4; i++)
-        v[i] = (r3d_corner_t){ q[i][0], q[i][1], 1.0f, q[i][0], q[i][1], 1.0f };
+        v[i] = (r3d_corner_t){ q[i][0], q[i][1], 1.0f, q[i][0], q[i][1], 1.0f, { 0, 0, 0 }, { 0, 0, 0 } };
     const r3d_corner_t t1[3] = { v[0], v[1], v[2] }, t2[3] = { v[0], v[2], v[3] };
     add_tri(&pg, t1, R3D_KIND_TEXTURE, &pt, 0, SH_TEX, 0);
     add_tri(&pg, t2, R3D_KIND_TEXTURE, &pt, 0, SH_TEX, 0);
@@ -953,8 +1006,8 @@ int gpu3d_init(void)
     G.rcl = G.bcl + JOB_BCL;
     G.recs = G.rcl + JOB_RCL;
     G.code = G.recs + JOB_RECS;
-    G.verts = (gvert_t *)(G.code + JOB_CODE);
-    G.probe = (uint16_t *)((uint8_t *)G.verts + JOB_VERTS);
+    G.verts = G.code + JOB_CODE;
+    G.probe = (uint16_t *)(G.verts + JOB_VERTS);
     G.probe_tex = (uint32_t *)(((uintptr_t)G.probe + JOB_PROBE + 4095) & ~(uintptr_t)4095);
     for (int i = 0; i < SH_COUNT; i++)
         memcpy(G.code + 1024 * i, shaders[i].code, shaders[i].size);

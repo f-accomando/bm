@@ -9,7 +9,8 @@ One instruction per line: "add-op ; mul-op [; signal]". The add ALU does
 fadd fsub fmin fmax ftoi itof add sub shr asr ror shl min max and or xor
 not v8adds v8subs; the mul ALU fmul mul24 v8muld v8min v8max (and v8adds,
 v8subs when the add ALU is busy). "mov d, s" goes to the ALU of its slot.
-Sources: r0-r5, ra0-ra31, rb0-rb31, vary, unif, small immediates (0..15,
+Sources: r0-r5, ra0-ra31, rb0-rb31, vary, unif, x_coord (regfile A 41: the
+pixel's x), y_coord (regfile B 41: its y), small immediates (0..15,
 -16..-1, 1.0 2.0 ... 128.0, 1/256 ... 0.5). Destinations: r0-r3, r5,
 ra0-ra31, rb0-rb31, tlbc (colour), tlb_z, t0s t0t t0r t0b, t1s ..., nop;
 a mul destination can pack a float into one byte of a colour: r3.8a ..
@@ -102,6 +103,16 @@ def assemble_line(line, lineno):
             if ins.raddr_b not in (None, n) or ins.small is not None:
                 raise SyntaxError(f"line {lineno}: two regfile B reads")
             ins.raddr_b = n
+            return MUX_B
+        if tok == "x_coord":                # X_PIXEL_COORD: regfile A only
+            if ins.raddr_a not in (None, 41):
+                raise SyntaxError(f"line {lineno}: two regfile A reads")
+            ins.raddr_a = 41
+            return MUX_A
+        if tok == "y_coord":                # Y_PIXEL_COORD: regfile B only
+            if ins.raddr_b not in (None, 41) or ins.small is not None:
+                raise SyntaxError(f"line {lineno}: two regfile B reads")
+            ins.raddr_b = 41
             return MUX_B
         if tok in RADDR:
             n = RADDR[tok]
@@ -306,6 +317,119 @@ SHADERS = {
         nop                 ; nop           ; ldtmu0   # r4 = texel
         shr r2, r4, 15      ; v8muld r0, r4, r1         # texel * k
         shr.setf nop, r2, 9 ; nop                       # Z: alpha is 0
+        mov.ifnz tlb_z, rb15 ; nop
+        mov.ifnz tlbc, r0   ; nop           ; thrend
+        nop                 ; nop
+        nop                 ; nop           ; sbdone
+    """,
+    # Overbit (M34): screen-door transparency, colour per vertex drawn on
+    # the pixels with x + y even only (the others keep what is behind, as
+    # the software's R3D_SCREEN); the binning list turns early z off
+    "fs_colour_screen": """
+        nop                 ; nop
+        nop                 ; nop
+        mov r3, ra15        ; nop                       # W
+        mov r0, vary        ; nop
+        fmul r0, r0, r3     ; nop
+        fadd r0, r0, r5     ; mov r1, vary  ; sbwait
+        fmul r1, r1, r3     ; nop
+        fadd r1, r1, r5     ; mov r2, vary
+        fmul r2, r2, r3     ; nop
+        fadd r2, r2, r5     ; mov r3.8a, r0
+        nop                 ; mov r3.8b, r1
+        nop                 ; mov r3.8c, r2
+        nop                 ; mov r3.8d, 1.0
+        add r0, x_coord, y_coord ; nop
+        and.setf nop, r0, 1 ; nop                       # Z: x + y even
+        mov.ifz tlb_z, rb15 ; nop
+        mov.ifz tlbc, r3    ; nop           ; thrend
+        nop                 ; nop
+        nop                 ; nop           ; sbdone
+    """,
+    # Overbit's map (M34): texture 0 at (s, t) times the light baked at the
+    # corners (3 varyings, half of it: up to 2x) plus the fog (3 varyings):
+    # texel * light * 2 + fog, each byte saturated
+    "fs_tex_rgb": """
+        nop                 ; nop
+        nop                 ; nop
+        mov r0, vary        ; nop                       # s
+        fmul r0, r0, ra15   ; nop
+        fadd r0, r0, r5     ; nop
+        mov r1, vary        ; nop                       # t
+        fmul r1, r1, ra15   ; nop
+        fadd r1, r1, r5     ; nop
+        mov t0t, r1         ; nop
+        mov t0s, r0         ; nop                       # starts the lookup
+        mov r0, vary        ; nop                       # light, byte a
+        fmul r0, r0, ra15   ; nop
+        fadd r0, r0, r5     ; nop
+        mov r1, vary        ; mov r2.8a, r0             # light, byte b
+        fmul r1, r1, ra15   ; nop
+        fadd r1, r1, r5     ; nop
+        mov r0, vary        ; mov r2.8b, r1             # light, byte c
+        fmul r0, r0, ra15   ; nop
+        fadd r0, r0, r5     ; nop
+        mov r1, vary        ; mov r2.8c, r0             # fog, byte a
+        fmul r1, r1, ra15   ; nop
+        fadd r1, r1, r5     ; nop
+        mov r0, vary        ; mov r3.8a, r1             # fog, byte b
+        fmul r0, r0, ra15   ; nop
+        fadd r0, r0, r5     ; nop
+        mov r1, vary        ; mov r3.8b, r0             # fog, byte c
+        fmul r1, r1, ra15   ; nop
+        fadd r1, r1, r5     ; nop
+        nop                 ; mov r3.8c, r1
+        nop                 ; mov r2.8d, 1.0            # the texel's alpha stays
+        nop                 ; mov r3.8d, 0
+        nop                 ; nop           ; sbwait
+        mov tlb_z, rb15     ; nop
+        nop                 ; nop           ; ldtmu0    # r4 = texel
+        v8muld r0, r4, r2   ; nop                       # texel * light / 2
+        v8adds r0, r0, r0   ; nop                       # * 2
+        v8adds r0, r0, r3   ; nop                       # + fog
+        mov tlbc, r0        ; nop           ; thrend
+        nop                 ; nop
+        nop                 ; nop           ; sbdone
+    """,
+    # the same where the texture has transparent texels: alpha 0 writes
+    # neither colour nor depth (early z off)
+    "fs_tex_rgb_alpha": """
+        nop                 ; nop
+        nop                 ; nop
+        mov r0, vary        ; nop                       # s
+        fmul r0, r0, ra15   ; nop
+        fadd r0, r0, r5     ; nop
+        mov r1, vary        ; nop                       # t
+        fmul r1, r1, ra15   ; nop
+        fadd r1, r1, r5     ; nop
+        mov t0t, r1         ; nop
+        mov t0s, r0         ; nop                       # starts the lookup
+        mov r0, vary        ; nop                       # light, byte a
+        fmul r0, r0, ra15   ; nop
+        fadd r0, r0, r5     ; nop
+        mov r1, vary        ; mov r2.8a, r0             # light, byte b
+        fmul r1, r1, ra15   ; nop
+        fadd r1, r1, r5     ; nop
+        mov r0, vary        ; mov r2.8b, r1             # light, byte c
+        fmul r0, r0, ra15   ; nop
+        fadd r0, r0, r5     ; nop
+        mov r1, vary        ; mov r2.8c, r0             # fog, byte a
+        fmul r1, r1, ra15   ; nop
+        fadd r1, r1, r5     ; nop
+        mov r0, vary        ; mov r3.8a, r1             # fog, byte b
+        fmul r0, r0, ra15   ; nop
+        fadd r0, r0, r5     ; nop
+        mov r1, vary        ; mov r3.8b, r0             # fog, byte c
+        fmul r1, r1, ra15   ; nop
+        fadd r1, r1, r5     ; nop
+        nop                 ; mov r3.8c, r1
+        nop                 ; mov r2.8d, 1.0
+        nop                 ; mov r3.8d, 0
+        nop                 ; nop           ; sbwait
+        nop                 ; nop           ; ldtmu0    # r4 = texel
+        shr r1, r4, 15      ; v8muld r0, r4, r2         # texel * light / 2
+        shr.setf nop, r1, 9 ; v8adds r0, r0, r0         # Z: alpha is 0; * 2
+        v8adds r0, r0, r3   ; nop                       # + fog
         mov.ifnz tlb_z, rb15 ; nop
         mov.ifnz tlbc, r0   ; nop           ; thrend
         nop                 ; nop
