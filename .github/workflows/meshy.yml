@@ -45,6 +45,8 @@ jobs:
   meshy:
     runs-on: ubuntu-24.04
     timeout-minutes: 60
+    concurrency:
+      group: meshy-out
     permissions:
       contents: write
     steps:
@@ -63,7 +65,8 @@ jobs:
         run: |
           IMAGE=tests/ai/meshy/sample.png; NAME=model; POLYCOUNT=2000; HEIGHT=2; FLAT=false; TASK=""
           if [ "$GITHUB_EVENT_NAME" = push ]; then
-            while IFS='=' read -r k v; do
+            while IFS='=' read -r k v || [ -n "$k" ]; do
+              k="$(echo "$k" | tr -d '[:space:]')"
               v="${v%%#*}"; v="$(echo "$v" | sed 's/^[[:space:]]*//;s/[[:space:]]*$//')"
               case "$k" in
                 image) IMAGE="$v";; name) NAME="$v";; polycount) POLYCOUNT="$v";;
