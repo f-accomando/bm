@@ -1213,7 +1213,11 @@ GitHub, M26 market gratuito, legato allo store). Considerazioni iniziali del 202
 - **Cosa si scambia** (vale anche per M25 e M26):
   - cartucce `.bm` (già un contenitore unico) e pacchetti di risorse (sprite, mesh,
     suoni: un `.bm` senza codice);
-  - ogni pacchetto con un manifesto: nome, autore, versione, licenza, hash SHA-256.
+  - ogni pacchetto con un manifesto: nome, autore, versione, licenza, hash SHA-256;
+  - proposta del 2026-10-03: un file per risorsa (contenitore `BMRES`: `.bmm` modelli,
+    `.bmi` immagini, `.bms` suoni, `.bmt` mappe, `.bmc` palette, `.bmk` kit, con la
+    sezione INFO per il manifesto) e la scheda **Lib** del menu dopo Dev, in
+    [RISORSE.md](RISORSE.md).
 - **Scoperta**: le console si trovano con un annuncio UDP in broadcast sulla rete di casa.
 - **Trasferimento**: cartucce e risorse via TCP (come `netxfer` di M18), per esempio
   tra amici sulla stessa rete; conferma sullo schermo di chi riceve.
