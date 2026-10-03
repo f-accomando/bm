@@ -2289,7 +2289,9 @@ Decisioni:
   - supporto: **Orbit** (Juno), **Akari** (Kiriko).
 - 5 contro 5 come Overwatch 2 (1 tank, 2 DPS, 2 supporto), i posti vuoti ai bot.
 - **320×180** (lo scaler della GPU porta a 720p/1080p): 4 volte meno pixel di 640×360,
-  che con il rasterizzatore software è la scelta che lascia spazio alla qualità.
+  che con il rasterizzatore software è la scelta che lascia spazio alla qualità. Dal
+  2026-10-03 **480×270**, ora che il 3D lo disegna la GPU (vedi "Risoluzione 480×270" in
+  fondo a M38).
 - Modelli e animazioni nel formato di bm Studio / bm Animator (sezioni MESH e ANIM),
   generati da script Python (`carts/overbit/art`): si aprono anche con gli strumenti della
   console.
@@ -2542,6 +2544,30 @@ Passi (in quest'ordine, richiesto dall'autore):
   relay: le stesse uccisioni, catture e round su entrambi, nessuna divergenza.
 - **Da provare sul Pi**: due console sulla stessa WiFi, PLAY ONLINE: una HOST A MATCH,
   l'altra JOIN, poi START; una foto se compare "OUT OF SYNC" o "WAITING FOR THE OTHERS".
+
+**Risoluzione 480×270: fatto sul PC (2026-10-03, branch `claude/overbit-480`), da provare
+sul Pi.**
+- Il primo benchmark sul Pi (foto dell'autore, a 320×180): partita di 10 bot a 22–27 fps
+  con l'ARM e 29–37 con la GPU, Lua 7,2–7,7 ms, 3D 14–21 ms con la GPU e 25–34 con l'ARM;
+  nessuna qualità a 60 fps; anello di eroi: 5 a 60 fps con l'ARM, 6 con la GPU. Con la GPU
+  la colonna PX è 0: i pixel non costano all'ARM, il limite sono il Lua e i vertici.
+- L'immagine era **sgranata**: 320×180 su 1080p fa ogni pixel 6×6 (e un monitor 21:9
+  che allarga il 16:9 lo rende anche irregolare). Ora **480×270**: 4×4 su 1080p, 2,25
+  volte i pixel, la risoluzione del formato pensata per il 3D (`OVERBIT_RES` nel
+  `Makefile`, anche per i reel e `tests/overbit/frames.py`).
+- Il 2D usa `SW`, `SH` di `00_core.lua`: l'HUD resta alle stesse misure in pixel (più fine
+  sullo schermo), ancorato ai bordi, con la barra della vita fino a 160 px; le cose del
+  mondo disegnate in 2D (sole, nuvole, bande del cielo, lampi delle armi, freccia del
+  danno) crescono con `ZOOM` (1,5). Menu, selezione degli eroi, tabellone, reel, lobby e
+  le sovrapposizioni degli eroi (visore, ghiaccio, ruota, energia, aggancio, kunai) rifatti
+  per lo schermo intero; il menu non si sovrappone più alla scritta della build.
+- **Benchmark** in 2 pagine invece di 5: tempi del fotogramma e lavoro per fotogramma
+  nella stessa tabella (fino a 18 righe a pagina), poi anello e driver.
+- Costo previsto: con la GPU l'ARM disegna in più solo il cielo 2D (0,26 MB a fotogramma
+  invece di 0,12) e la GPU riempie 40 tile invece di 15; con l'ARM i pixel sono circa 2,3
+  volte (bmhost, la stessa scena: 122.578 → 280.661).
+- **Da provare sul Pi**: il benchmark di nuovo (foto delle due pagine, per confrontare i
+  ms con quelli di 320×180) e un giudizio sulla nitidezza in partita.
 
 ## M39 — GPU 3: verso il limite della V3D (L/XL)
 Dove siamo (2026-10-03, stime dal PC per le versioni 3.0–4.1): il riempimento è all'80%

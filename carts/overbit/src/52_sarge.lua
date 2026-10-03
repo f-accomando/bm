@@ -322,8 +322,8 @@ function S.draw_fp(a, cx, cy, cz, yaw, pitch, roll)
       local px, py, pz = cx + tx * cyw + z2 * syw, cy + y2, cz - tx * syw + z2 * cyw
       local sx, sy = project3d(px, py, pz)
       if sx then
-        circfill(floor(sx), floor(sy), 4, 0x9FE8FF)
-        circfill(floor(sx), floor(sy), 2, 0xFFFFFF)
+        circfill(floor(sx), floor(sy), floor(4 * ZOOM), 0x9FE8FF)
+        circfill(floor(sx), floor(sy), floor(2 * ZOOM), 0xFFFFFF)
       end
     end
   end
@@ -334,14 +334,14 @@ function S.draw_hud(a)
   local s = a.st
   if s.visor_t <= 0 then return end
   local c = 0xFFA22E
-  rect(2, 2, 316, 176, c)
+  rect(2, 2, SW - 4, SH - 4, c)
   local target = visor_target(a)
   for _, o in ipairs(Actors.list) do
     if o.alive and o.team ~= a.team then
       local sx, sy = project3d(o.x, o.y + o.height * 0.6, o.z)
       if sx then
         local x, y = floor(sx), floor(sy)
-        local r = o == target and 9 or 6
+        local r = o == target and 12 or 8
         local col = o == target and 0xFFFFFF or c
         line(x - r, y - r, x - r + 3, y - r, col) line(x - r, y - r, x - r, y - r + 3, col)
         line(x + r, y - r, x + r - 3, y - r, col) line(x + r, y - r, x + r, y - r + 3, col)
@@ -351,5 +351,5 @@ function S.draw_hud(a)
     end
   end
   local str = string.format("VISOR %.1f", s.visor_t)
-  print(str, 160 - #str * 3, 30, c)
+  print(str, SW // 2 - #str * 3, 46, c)
 end

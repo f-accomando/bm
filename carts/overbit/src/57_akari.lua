@@ -371,6 +371,6 @@ function K.draw_hud(a)
     end
   end
   local str = tostring(s.kunai)
-  print(str, 300 - #str * 6, 118, 0xB8C0C8)
-  line(304, 118, 310, 126, 0xB8C0C8)
+  print(str, SW - 20 - #str * 6, SH - 64, 0xB8C0C8)
+  line(SW - 16, SH - 64, SW - 10, SH - 56, 0xB8C0C8)
 end

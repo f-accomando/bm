@@ -27,6 +27,13 @@ end
 local function grandom_seed(s) rng = (s % 4294967295) + 1 end
 local DT = 1 / 60
 
+-- the screen (the cartridge's resolution, 480x270) and how many of its
+-- pixels make one of the 320x180 the game was first drawn at (ZOOM): the
+-- things of the world drawn in 2D (sun, flashes) grow with it, the HUD
+-- keeps its sizes in pixels and gets more room
+local SW, SH = SCREEN_W or 480, SCREEN_H or 270
+local ZOOM = SW / 320
+
 local function clamp(v, a, b) if v < a then return a elseif v > b then return b end return v end
 local function lerp(a, b, t) return a + (b - a) * t end
 local function approach(v, target, step)

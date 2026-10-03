@@ -515,7 +515,7 @@ function Lobby.draw()
   end
   print("this console " .. (net_ip() or "-") .. (Net.relay and ("   relay " .. Net.relay .. " room " .. Net.room) or
         "   on the LAN"), 8, 20, 0x7A8290)
-  if Lobby.relay_err then print(Lobby.relay_err, 220, 6, 0xFF6060) end
+  if Lobby.relay_err then print(Lobby.relay_err, SW - 8 - #Lobby.relay_err * 6, 6, 0xFF6060) end
   if Lobby.state == "choose" then
     for i, it in ipairs(Lobby.list or ROWS) do
       local s = it
@@ -530,7 +530,7 @@ function Lobby.draw()
       if i == Lobby.sel then rectfill(6, y - 1, #s * 6 + 8, 13, Lobby.edit and 0x46B4FF or 0xF26A21) end
       print(s, 10, y, i == Lobby.sel and 0xFFFFFF or 0xD8DCE2)
     end
-    print(Lobby.edit and "type it, then Enter" or "the matches found appear here", 8, 166, 0x7A8290)
+    print(Lobby.edit and "type it, then Enter" or "the matches found appear here", 8, SH - 14, 0x7A8290)
   elseif Lobby.state == "hosting" then
     print("HOSTING: on the other consoles, PLAY ONLINE and JOIN", 8, 38, 0xD8DCE2)
     for i, p in ipairs(Lobby.players) do
@@ -538,8 +538,8 @@ function Lobby.draw()
       print((i == 1 and "you" or "player " .. i) .. "  " .. (blue and "BLUE" or "RED"), 16, 44 + i * 12,
             blue and 0x46B4FF or 0xFF4646)
     end
-    local x = prompt(Input.cmd.pad and "A" or "space", 8, 165, true)
-    print("START (bots in the empty seats)", x + 3, 165, 0x7A8290)
+    local x = prompt(Input.cmd.pad and "A" or "space", 8, SH - 15, true)
+    print("START (bots in the empty seats)", x + 3, SH - 15, 0x7A8290)
   else
     print(Lobby.state == "waiting" and "IN: waiting for the host to start" or "JOINING...", 8, 44, 0xD8DCE2)
   end

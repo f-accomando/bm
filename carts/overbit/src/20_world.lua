@@ -118,18 +118,19 @@ local SKY = { 0x2A3A6A, 0x3D5486, 0x5C6FA0, 0x8A84AE, 0xC08C9C, 0xF0A07A, 0xFFC2
 
 function World.draw_sky(pitch)
   if World.kind == "map" then return World.map_sky(pitch) end
-  local h = SCREEN_H
+  local h = SH
   -- the horizon on screen moves with the pitch (focal = w/2 / tan(fov/2))
   local hy = h / 2 + math.tan(pitch) * Cam.focal
   local n = #SKY
-  local top = hy - 140
-  rectfill(0, 0, SCREEN_W, max(0, floor(top)), SKY[1])
+  local span = 140 * ZOOM
+  local top = hy - span
+  rectfill(0, 0, SW, max(0, floor(top)), SKY[1])
   for i = 1, n do
-    local y0 = floor(top + (i - 1) * 140 / n)
-    local y1 = floor(top + i * 140 / n)
-    if y1 > 0 and y0 < h then rectfill(0, y0, SCREEN_W, y1 - y0, SKY[i]) end
+    local y0 = floor(top + (i - 1) * span / n)
+    local y1 = floor(top + i * span / n)
+    if y1 > 0 and y0 < h then rectfill(0, y0, SW, y1 - y0, SKY[i]) end
   end
-  if hy < h then rectfill(0, floor(hy), SCREEN_W, h - floor(hy), 0x56525E) end
+  if hy < h then rectfill(0, floor(hy), SW, h - floor(hy), 0x56525E) end
 end
 
 function World.draw()
@@ -218,7 +219,7 @@ function World.map_draw()
   local rx, rz = cos(yaw), -sin(yaw)
   local ux, uy, uz = -sin(pitch) * sin(yaw), cp, -sin(pitch) * cos(yaw)
   local th = math.tan(Cam.fov * pi / 360)
-  local tv = th * SCREEN_H / SCREEN_W
+  local tv = th * SH / SW
   local sh, sv = sqrt(1 + th * th), sqrt(1 + tv * tv)
   local q = G.quality
   local near_d = ({ 16, 22, 28, 34, 40 })[q + 1]
@@ -274,34 +275,34 @@ end
 local MSKY = { 0x2A3468, 0x3E4C86, 0x5E66A0, 0x8C78A8, 0xBC84A0, 0xE69488, 0xFFB078, 0xFFCE8A }
 local SUN = { -0.78, 0.36, -0.5 }
 function World.map_sky(pitch)
-  local h = SCREEN_H
+  local h = SH
   local hy = h / 2 + math.tan(pitch) * Cam.focal
   local n = #MSKY
-  local span = 150
+  local span = 150 * ZOOM
   local top = hy - span
-  rectfill(0, 0, SCREEN_W, max(0, floor(top)), MSKY[1])
+  rectfill(0, 0, SW, max(0, floor(top)), MSKY[1])
   for i = 1, n do
     local y0 = floor(top + (i - 1) * span / n)
     local y1 = floor(top + i * span / n)
-    if y1 > 0 and y0 < h then rectfill(0, y0, SCREEN_W, y1 - y0, MSKY[i]) end
+    if y1 > 0 and y0 < h then rectfill(0, y0, SW, y1 - y0, MSKY[i]) end
   end
-  if hy < h then rectfill(0, floor(hy), SCREEN_W, h - floor(hy), 0x6A6E8C) end
+  if hy < h then rectfill(0, floor(hy), SW, h - floor(hy), 0x6A6E8C) end
   -- the sun (its direction from the camera, far away)
   local sx, sy = project3d(Cam.x + SUN[1] * 800, Cam.y + SUN[2] * 800 * 0.25, Cam.z + SUN[3] * 800)
   if sx then
     local x, y = floor(sx), floor(sy)
-    circfill(x, y, 22, 0xFFC890)
-    circfill(x, y, 16, 0xFFDDA8)
-    circfill(x, y, 11, 0xFFF4DC)
+    circfill(x, y, floor(22 * ZOOM), 0xFFC890)
+    circfill(x, y, floor(16 * ZOOM), 0xFFDDA8)
+    circfill(x, y, floor(11 * ZOOM), 0xFFF4DC)
   end
   -- clouds: long thin streaks, warm under, at fixed headings
   for i = 1, 5 do
     local a = -2.2 + i * 0.55
     local cx2, cy2 = project3d(Cam.x + sin(a) * 700, Cam.y + 120 + i * 18, Cam.z + cos(a) * 700)
     if cx2 then
-      local w = 40 + i * 9
-      rectfill(floor(cx2 - w), floor(cy2), w * 2, 3, 0xF2A8A0)
-      rectfill(floor(cx2 - w * 0.7), floor(cy2) - 2, floor(w * 1.4), 2, 0xD890A8)
+      local w = floor((40 + i * 9) * ZOOM)
+      rectfill(floor(cx2 - w), floor(cy2), w * 2, 4, 0xF2A8A0)
+      rectfill(floor(cx2 - w * 0.7), floor(cy2) - 3, floor(w * 1.4), 3, 0xD890A8)
     end
   end
 end

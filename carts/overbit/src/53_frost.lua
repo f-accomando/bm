@@ -332,14 +332,14 @@ function F.draw_hud(a)
   local s = a.st
   if s.cryo_t <= 0 then return end
   local c1, c2 = 0xCFF2FF, 0x9FE6FF
-  for i = 0, 5 do
-    rect(i, i, 320 - 2 * i, 180 - 2 * i, i % 2 == 0 and c1 or c2)
-  end
   for i = 0, 7 do
-    local x = (i * 47) % 300 + 10
-    tri(x, 0, x + 12, 0, x + 6, 14 + (i * 5) % 10, c1)
-    tri(x, 180, x + 12, 180, x + 6, 166 - (i * 7) % 10, c1)
+    rect(i, i, SW - 2 * i, SH - 2 * i, i % 2 == 0 and c1 or c2)
+  end
+  for i = 0, 11 do
+    local x = (i * 47) % (SW - 20) + 10
+    tri(x, 0, x + 14, 0, x + 7, 18 + (i * 5) % 14, c1)
+    tri(x, SH, x + 14, SH, x + 7, SH - 18 - (i * 7) % 14, c1)
   end
   local str = string.format("CRYO-FREEZE %.1f", s.cryo_t)
-  print(str, 160 - #str * 3, 30, 0xFFFFFF)
+  print(str, SW // 2 - #str * 3, 46, 0xFFFFFF)
 end

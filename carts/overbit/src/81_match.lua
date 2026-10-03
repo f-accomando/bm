@@ -418,7 +418,7 @@ local INK = 0x101418
 
 local function hud_top()
   font("6x12")
-  local cx = 160
+  local cx = SW // 2
   -- the two percentages, the point between them
   for team = 1, 2 do
     local x = team == 1 and cx - 62 or cx + 18
@@ -469,19 +469,20 @@ end
 
 local function big_text(s, rgb, y)
   font("8x16")
-  print(s, 160 - #s * 8 + 1, y + 1, INK, 2)
-  print(s, 160 - #s * 8, y, rgb, 2)
+  print(s, SW // 2 - #s * 8 + 1, y + 1, INK, 2)
+  print(s, SW // 2 - #s * 8, y, rgb, 2)
   font()
 end
 
 -- the end of the match: the result, then everyone's kills and deaths
 local function scoreboard()
-  rectfill(40, 66, 240, 100, INK)
+  local x0, y0 = SW // 2 - 120, 96
+  rectfill(x0, y0, 240, 100, INK)
   font("6x12")
   for team = 1, 2 do
-    local x = team == 1 and 46 or 166
-    print(team == 1 and "BLUE" or "RED", x, 70, TEAM_RGB[team])
-    local y = 84
+    local x = team == 1 and x0 + 6 or x0 + 126
+    print(team == 1 and "BLUE" or "RED", x, y0 + 4, TEAM_RGB[team])
+    local y = y0 + 18
     for _, a in ipairs(G.actors) do
       if a.team == team then
         print(a.name, x, y, a == G.local_actor and 0xFFE070 or 0xD8DCE2)
@@ -533,12 +534,12 @@ function Match.film()
   hud_top()
   if who and M.shot ~= 1 then
     font("6x12")
-    print(who.name:upper(), 6, 166, TEAM_RGB[who.team])
+    print(who.name:upper(), 6, SH - 14, TEAM_RGB[who.team])
     font()
   end
   if M.phase == "round_end" or M.phase == "match_end" then
     local team = M.round_winner == 1 and "BLUE" or "RED"
-    big_text(M.phase == "match_end" and team .. " WINS" or "ROUND TO " .. team, TEAM_RGB[M.round_winner], 60)
+    big_text(M.phase == "match_end" and team .. " WINS" or "ROUND TO " .. team, TEAM_RGB[M.round_winner], 90)
   end
 end
 
@@ -546,65 +547,67 @@ end
 -- abilities on the right, the team underneath
 local FAKE = { st = {}, fx = {}, form = {}, alive = true }
 local function select_draw()
-  rectfill(0, 0, 320, 180, 0x0A0E14)
+  rectfill(0, 0, SW, SH, 0x0A0E14)
   font("6x12")
-  print("CHOOSE YOUR HERO", 8, 4, 0xFFE070)
-  local y = 20
+  print("CHOOSE YOUR HERO", 10, 8, 0xFFE070)
+  local y = 30
   local sel = HERO_ORDER[M.select.sel]
   for _, r in ipairs(ROLE_ORDER) do
-    print(ROLE_NAME[r], 8, y, 0x7A8290)
-    y = y + 12
+    print(ROLE_NAME[r], 10, y, 0x7A8290)
+    y = y + 14
     for i, id in ipairs(HERO_ORDER) do
       if H[id].role == r then
         local h = H[id]
-        if id == sel then rectfill(6, y - 1, 96, 13, h.rgb) end
-        rectfill(10, y + 2, 6, 6, h.rgb)
-        print(h.name:upper(), 20, y, id == sel and INK or 0xD8DCE2)
-        y = y + 13
+        if id == sel then rectfill(8, y - 2, 112, 15, h.rgb) end
+        rectfill(12, y + 2, 6, 6, h.rgb)
+        print(h.name:upper(), 22, y, id == sel and INK or 0xD8DCE2)
+        y = y + 15
       end
     end
-    y = y + 3
+    y = y + 6
   end
   local h = H[sel]
+  local x0 = 150
   font("8x16")
-  print(h.name:upper(), 120, 18, h.rgb)
+  print(h.name:upper(), x0, 28, h.rgb)
   font("6x12")
-  print(ROLE_NAME[h.role], 120 + #h.name * 8 + 8, 22, 0x7A8290)
+  print(ROLE_NAME[h.role], x0 + #h.name * 8 + 8, 32, 0x7A8290)
   -- the line about the hero, cut at the words
-  local line, yy = "", 38
+  local line, yy = "", 52
+  local cols = (SW - x0 - 10) // 6
   for w in h.desc:gmatch("%S+") do
-    if #line + #w + 1 > 32 then print(line, 120, yy, 0xB8BEC8) yy, line = yy + 12, "" end
+    if #line + #w + 1 > cols then print(line, x0, yy, 0xB8BEC8) yy, line = yy + 13, "" end
     line = line == "" and w or line .. " " .. w
   end
-  print(line, 120, yy, 0xB8BEC8)
-  yy = yy + 18
+  print(line, x0, yy, 0xB8BEC8)
+  yy = yy + 24
   for _, ab in ipairs(h.hud) do
     if ab.name then
       local key = Hud.key(ab.key)
-      local x = key and prompt(key, 120, yy, true) or 120
-      print(ab.name, max(x + 4, 146), yy, 0xD8DCE2)
-      yy = yy + 14
+      local x = key and prompt(key, x0, yy, true) or x0
+      print(ab.name, max(x + 4, x0 + 30), yy, 0xD8DCE2)
+      yy = yy + 17
     end
   end
   local ok, un = pcall(h.ult_name, FAKE)
   if ok and un then
-    local x = prompt(Hud.key("ult"), 120, yy, true)
-    print(un, max(x + 4, 146), yy, 0xFFE070)
+    local x = prompt(Hud.key("ult"), x0, yy, true)
+    print(un, max(x + 4, x0 + 30), yy, 0xFFE070)
   end
   -- the team
-  print("YOUR TEAM", 120, 136, 0x7A8290)
-  local x = 120
+  print("YOUR TEAM", x0, SH - 58, 0x7A8290)
+  local x = x0
   for _, a in ipairs(G.actors) do
     if a.team == G.local_actor.team then
       local nm = a == G.local_actor and h.short or a.hero.short
-      print(nm, x, 150, a == G.local_actor and 0xFFE070 or a.hero.rgb)
-      x = x + 30
+      print(nm, x, SH - 42, a == G.local_actor and 0xFFE070 or a.hero.rgb)
+      x = x + 36
     end
   end
-  local px = prompt(Input.cmd.pad and "UPDOWN" or "up", 8, 165, true)
-  print("HERO", px + 3, 165, 0x7A8290)
-  px = prompt(Input.cmd.pad and "A" or "space", px + 36, 165, true)
-  print("PLAY", px + 3, 165, 0x7A8290)
+  local px = prompt(Input.cmd.pad and "UPDOWN" or "up", 10, SH - 17, true)
+  print("HERO", px + 3, SH - 17, 0x7A8290)
+  px = prompt(Input.cmd.pad and "A" or "space", px + 36, SH - 17, true)
+  print("PLAY", px + 3, SH - 17, 0x7A8290)
   font()
 end
 
@@ -649,15 +652,15 @@ function Match.draw()
     elseif Net.desync then s = "OUT OF SYNC (frame " .. Net.desync .. ")"
     elseif M.waiting then s = "WAITING FOR THE OTHERS..." end
     if s then
-      rectfill(160 - #s * 3 - 3, 58, #s * 6 + 6, 13, INK)
-      print(s, 160 - #s * 3, 59, 0xFF8060)
+      rectfill(SW // 2 - #s * 3 - 3, 58, #s * 6 + 6, 13, INK)
+      print(s, SW // 2 - #s * 3, 59, 0xFF8060)
     end
     font()
   end
   if M.phase == "round_end" then
-    big_text(M.round_winner == me.team and "ROUND WON" or "ROUND LOST", M.round_winner == me.team and 0x46B4FF or 0xFF4646, 60)
+    big_text(M.round_winner == me.team and "ROUND WON" or "ROUND LOST", M.round_winner == me.team and 0x46B4FF or 0xFF4646, 90)
   elseif M.phase == "match_end" then
-    big_text(M.round_winner == me.team and "VICTORY" or "DEFEAT", M.round_winner == me.team and 0xFFE070 or 0xFF4646, 30)
+    big_text(M.round_winner == me.team and "VICTORY" or "DEFEAT", M.round_winner == me.team and 0xFFE070 or 0xFF4646, 48)
     if M.t > 2 then scoreboard() end
   end
 end

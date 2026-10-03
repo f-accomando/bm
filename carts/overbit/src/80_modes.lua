@@ -263,28 +263,30 @@ function Menu.draw()
   -- the title
   font("8x16")
   local title = "OVERBIT"
-  print(title, 160 - #title * 8 + 1, 15, 0x101418, 2)
-  print(title, 160 - #title * 8, 14, 0xFFFFFF, 2)
+  local cx = SW // 2
+  print(title, cx - #title * 8 + 1, 19, 0x101418, 2)
+  print(title, cx - #title * 8, 18, 0xFFFFFF, 2)
   font("6x12")
-  print("a hero shooter for bm", 160 - 21 * 3, 48, 0xFFE070)
+  print("a hero shooter for bm", cx - 21 * 3, 54, 0xFFE070)
   for i, it in ipairs(ITEMS) do
     local s = it
     if it == "QUALITY" then s = "QUALITY: " .. (G.qauto and "AUTO" or Quality.names[G.quality + 1]) end
     if it == "3D" then s = "3D: " .. renderer_name() .. (Menu.no_gpu and " (NO GPU)" or "") end
     if it == "HERO" then s = "HERO: < " .. H[G.hero_id].name:upper() .. " >" end
     if it == "BOTS" then s = "BOTS: < " .. Bots.SKILL[G.bot_diff].name .. " >" end
-    local y = 66 + (i - 1) * 13
+    local y = 80 + (i - 1) * 15
     local sel = i == Menu.sel
-    if sel then rectfill(8, y - 1, #s * 6 + 12, 13, 0xF26A21) end
-    print(s, 14, y, sel and 0xFFFFFF or 0xD8DCE2)
+    if sel then rectfill(10, y - 2, #s * 6 + 12, 15, 0xF26A21) end
+    print(s, 16, y, sel and 0xFFFFFF or 0xD8DCE2)
   end
   -- the chosen hero: name, role, line
   local h = H[G.hero_id]
   local role = h.role:upper()
-  print(h.name:upper(), 316 - #h.name * 6, 128, h.rgb)
-  print(role, 316 - #role * 6, 141, 0xD8DCE2)
-  print(h.desc, 316 - #h.desc * 6, 154, 0x9AA0A8)
-  print("build " .. (OVERBIT_BUILD or "dev"), 4, 168, 0x9AA0A8)
+  local rx = SW - 8
+  print(h.name:upper(), rx - #h.name * 6, SH - 56, h.rgb)
+  print(role, rx - #role * 6, SH - 42, 0xD8DCE2)
+  print(h.desc, rx - #h.desc * 6, SH - 28, 0x9AA0A8)
+  print("build " .. (OVERBIT_BUILD or "dev"), 6, SH - 14, 0x9AA0A8)
   font()
 end
 

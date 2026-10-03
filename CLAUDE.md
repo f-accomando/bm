@@ -176,6 +176,9 @@ screenshot in `docs/img/`), `README_OLD.md` (il README completo, in italiano),
   `rig.py` scheletri e clip, `heroes/<eroe>.py`), suoni da `art/sounds.py`.
 - Convenzioni: metri, y in alto, un personaggio guarda +z e la sua destra è +x (ossa "L" a
   −x); yaw a → avanti (sin a, 0, cos a). Facce in senso orario viste da fuori.
+- Schermo **480×270** (`OVERBIT_RES` nel `Makefile`; era 320×180): il 2D usa `SW`, `SH` di
+  `00_core.lua`, mai numeri fissi; l'HUD resta alle sue misure in pixel, ancorato ai bordi;
+  le cose del mondo disegnate in 2D (sole, lampi, mirini sui nemici) crescono con `ZOOM`.
 - Eroi: il kit in `src/5x_<eroe>.lua` (tabella in `H`, forme, `update`, `draw_fp`, `hud`,
   ganci `draw_extra`, `draw_hud`, `camera`, `on_lethal`...), il modello in
   `art/heroes/<eroe>.py`. Le persone usano il corpo comune (`humanoid.py`: scheletro,

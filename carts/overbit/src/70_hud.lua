@@ -1,11 +1,12 @@
--- The HUD, after Overwatch's layout, at 320x180: health in segments of 25
--- (white health, orange armour, blue shields) at the bottom left; the
--- abilities with their cooldowns and buttons at the bottom right; the
--- ultimate in the middle; crosshair, hit markers, kill feed.
+-- The HUD, after Overwatch's layout, on the whole screen (480x270): health
+-- in segments of 25 (white health, orange armour, blue shields) at the
+-- bottom left; the abilities with their cooldowns and buttons at the bottom
+-- right; the ultimate in the middle; crosshair, hit markers, kill feed.
 
 Hud = {}
 
-local W, Hh = 320, 180
+local W, Hh = SW, SH
+local BAR = 160         -- the longest health bar (pixels)
 local WHITE, ARMOR, SHIELD, DMG = 0xF4F4F4, 0xFFB43C, 0x5AC8FF, 0xFF5050
 local INK = 0x101418
 
@@ -24,7 +25,7 @@ local function bar_segments(x, y, a)
   local total = Actors.total_max(a)
   local seg = 25
   local n = math.ceil(total / seg)
-  local w = min(4, floor(124 / n) - 1)
+  local w = min(5, floor(BAR / n) - 1)
   local cx = x
   local pools = { { a.hp, a.hpmax, WHITE }, { a.armor, a.armormax, ARMOR }, { a.shield, a.shieldmax, SHIELD } }
   for _, pl in ipairs(pools) do
@@ -32,12 +33,12 @@ local function bar_segments(x, y, a)
     local k = math.ceil(m / seg)
     for i = 0, k - 1 do
       local fill = clamp((v - i * seg) / seg, 0, 1)
-      rectfill(cx, y, w, 7, 0x2A2E36)
-      if fill > 0 then rectfill(cx, y + floor(7 * (1 - fill)), w, 7 - floor(7 * (1 - fill)), c) end
+      rectfill(cx, y, w, 8, 0x2A2E36)
+      if fill > 0 then rectfill(cx, y + floor(8 * (1 - fill)), w, 8 - floor(8 * (1 - fill)), c) end
       cx = cx + w + 1
     end
   end
-  if a.over > 0 then rectfill(x, y - 3, min(124, floor(a.over / seg * (w + 1))), 2, 0x60FF90) end
+  if a.over > 0 then rectfill(x, y - 3, min(BAR, floor(a.over / seg * (w + 1))), 2, 0x60FF90) end
   return cx
 end
 
@@ -122,7 +123,7 @@ end
 
 local function ult_meter(cx, cy, a)
   local v = a.ult
-  local r = 13
+  local r = 15
   circfill(cx, cy, r + 2, INK)
   -- the charged part as a fan of triangles
   local n = floor(v / 100 * 24)
@@ -174,7 +175,7 @@ end
 
 local function meters(a)
   -- extra meters of the hero (Rally's Null Field) under the crosshair
-  local y = Hh // 2 + 18
+  local y = Hh // 2 + 22
   for _, ab in ipairs(a.hero.hud) do
     if ab.meter then
       local v, on = ab.meter(a)
@@ -208,7 +209,7 @@ local function damage_arrow(a)
   if not k or k == a or G.t - (a.dmg_t or -9) > 0.8 then return end
   local ang = atan(k.x - a.x, k.z - a.z) - a.yaw
   local cx, cy = W // 2, Hh // 2
-  local r = 40
+  local r = floor(40 * ZOOM)
   local x, y = cx + sin(ang) * r, cy - cos(ang) * r
   local px, py = cos(ang) * 6, sin(ang) * 6
   tri(floor(x - px), floor(y - py), floor(x + px), floor(y + py),
@@ -239,22 +240,22 @@ function Hud.draw(a)
     meters(a)
     damage_arrow(a)
     -- health, bottom left
-    local x, y = 8, Hh - 22
+    local x, y = 10, Hh - 24
     local s = floor(Actors.total(a) + 0.5) .. "/" .. floor(Actors.total_max(a))
     print(a.hero.name .. "  " .. s, x, y - 13, 0xFFFFFF)
     bar_segments(x, y, a)
     -- abilities, bottom right
     local nab = 0
     for _, ab in ipairs(a.hero.hud) do if ab.state then nab = nab + 1 end end
-    local ax = W - 6 - 27 * nab
+    local ax = W - 8 - 27 * nab
     for _, ab in ipairs(a.hero.hud) do
       if ab.state then
-        ability_box(ax, Hh - 34, ab, a)
+        ability_box(ax, Hh - 36, ab, a)
         ax = ax + 27
       end
     end
-    ammo(a, W - 6, Hh - 50)
-    ult_meter(W // 2, Hh - 22, a)
+    ammo(a, W - 8, Hh - 52)
+    ult_meter(W // 2, Hh - 24, a)
     -- low health: red corners
     if a.hp < a.hpmax * 0.3 and a.armor <= 0 and floor(G.t * 3) % 2 == 0 then
       rect(0, 0, W, Hh, DMG)
@@ -262,8 +263,8 @@ function Hud.draw(a)
     end
   else
     local s = "RESPAWN IN " .. math.ceil(max(0, a.respawn - a.dead_t))
-    rectfill(W // 2 - #s * 3 - 4, 46, #s * 6 + 8, 14, INK)
-    print(s, W // 2 - #s * 3, 47, 0xFFFFFF)
+    rectfill(W // 2 - #s * 3 - 4, 60, #s * 6 + 8, 14, INK)
+    print(s, W // 2 - #s * 3, 61, 0xFFFFFF)
   end
   feed()
   if Fx.flash > 0 then

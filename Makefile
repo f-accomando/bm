@@ -253,6 +253,8 @@ OVERBIT_ART := $(wildcard carts/overbit/art/*.py carts/overbit/art/heroes/*.py c
 # OVERBIT_CLASSIC=1: the heroes' bodies made of primitives, not the Meshy figures
 OVERBIT_MODELS_FLAGS := $(if $(OVERBIT_CLASSIC),--classic)
 title_overbit := Overbit
+# its screen: 480x270, each pixel 4x4 on a 1080p TV (it was 320x180)
+OVERBIT_RES := 480x270
 $(BUILD)/overbit/main.lua: $(OVERBIT_SRC) carts/overbit/build.py $(BUILD)/overbit/models.bm
 	$(PYTHON) carts/overbit/build.py $@ --map $(BUILD)/overbit/main.map --extra $(BUILD)/overbit/21_map.lua
 
@@ -274,21 +276,21 @@ $(BUILD)/overbit/sounds.json: carts/overbit/art/sounds.py
 $(BUILD)/carts/overbit.bm: $(BUILD)/overbit/main.lua $(BUILD)/overbit/models.bm $(BUILD)/overbit/sounds.json \
                            scripts/mkbm.py scripts/bmaudio.py $(wildcard carts/overbit/cover.png)
 	@mkdir -p $(dir $@)
-	$(PYTHON) scripts/mkbm.py -o $@ --lua $< --title "$(title_overbit)" --author bm --res 320x180 \
+	$(PYTHON) scripts/mkbm.py -o $@ --lua $< --title "$(title_overbit)" --author bm --res $(OVERBIT_RES) \
 	    --models $(BUILD)/overbit/models.bm --audio $(BUILD)/overbit/sounds.json \
 	    $(if $(wildcard carts/overbit/cover.png),--cover carts/overbit/cover.png)
 
 # variants that start in a mode: the reel (for docs/img) and the benchmark
 $(BUILD)/overbit/%.bm: $(OVERBIT_SRC) carts/overbit/build.py $(BUILD)/overbit/models.bm $(BUILD)/overbit/sounds.json
 	$(PYTHON) carts/overbit/build.py $(BUILD)/overbit/$*.lua --start $* --extra $(BUILD)/overbit/21_map.lua
-	$(PYTHON) scripts/mkbm.py -o $@ --lua $(BUILD)/overbit/$*.lua --title "Overbit $*" --author bm --res 320x180 \
+	$(PYTHON) scripts/mkbm.py -o $@ --lua $(BUILD)/overbit/$*.lua --title "Overbit $*" --author bm --res $(OVERBIT_RES) \
 	    --models $(BUILD)/overbit/models.bm --audio $(BUILD)/overbit/sounds.json
 
 # the range with each hero chosen (tests): range-kaiju.bm, ...
 OVERBIT_HEROES := kaiju sarge frost fuse rail orbit akari
 $(BUILD)/overbit/range-%.bm: $(OVERBIT_SRC) carts/overbit/build.py $(BUILD)/overbit/models.bm $(BUILD)/overbit/sounds.json
 	$(PYTHON) carts/overbit/build.py $(BUILD)/overbit/range-$*.lua --start range --hero $* --extra $(BUILD)/overbit/21_map.lua
-	$(PYTHON) scripts/mkbm.py -o $@ --lua $(BUILD)/overbit/range-$*.lua --title "Overbit $*" --author bm --res 320x180 \
+	$(PYTHON) scripts/mkbm.py -o $@ --lua $(BUILD)/overbit/range-$*.lua --title "Overbit $*" --author bm --res $(OVERBIT_RES) \
 	    --models $(BUILD)/overbit/models.bm --audio $(BUILD)/overbit/sounds.json
 
 # a whole match in a minute (tests): the point opens at once, quick rounds
@@ -296,25 +298,25 @@ $(BUILD)/overbit/match-fast.bm: $(OVERBIT_SRC) carts/overbit/build.py $(BUILD)/o
 	$(PYTHON) carts/overbit/build.py $(BUILD)/overbit/match-fast.lua --start match --extra $(BUILD)/overbit/21_map.lua \
 	    --define 'OVERBIT_RULES={unlock=4,cap=3,pct=0.15,round_end=2,match_end=3}'
 	$(PYTHON) scripts/mkbm.py -o $@ --lua $(BUILD)/overbit/match-fast.lua --title "Overbit match" --author bm \
-	    --res 320x180 --models $(BUILD)/overbit/models.bm --audio $(BUILD)/overbit/sounds.json
+	    --res $(OVERBIT_RES) --models $(BUILD)/overbit/models.bm --audio $(BUILD)/overbit/sounds.json
 
 # the benchmark in short (tests): one quality, short phases, a small ring
 $(BUILD)/overbit/bench-fast.bm: $(OVERBIT_SRC) carts/overbit/build.py $(BUILD)/overbit/models.bm $(BUILD)/overbit/sounds.json
 	$(PYTHON) carts/overbit/build.py $(BUILD)/overbit/bench-fast.lua --start bench --extra $(BUILD)/overbit/21_map.lua \
 	    --define 'OVERBIT_BENCH_FAST=true'
 	$(PYTHON) scripts/mkbm.py -o $@ --lua $(BUILD)/overbit/bench-fast.lua --title "Overbit bench" --author bm \
-	    --res 320x180 --models $(BUILD)/overbit/models.bm --audio $(BUILD)/overbit/sounds.json
+	    --res $(OVERBIT_RES) --models $(BUILD)/overbit/models.bm --audio $(BUILD)/overbit/sounds.json
 
 # two consoles on the network (tests): on the LAN, and through a relay on this PC
 $(BUILD)/overbit/net-test.bm: $(OVERBIT_SRC) carts/overbit/build.py $(BUILD)/overbit/models.bm $(BUILD)/overbit/sounds.json
 	$(PYTHON) carts/overbit/build.py $(BUILD)/overbit/net-test.lua --extra $(BUILD)/overbit/21_map.lua
 	$(PYTHON) scripts/mkbm.py -o $@ --lua $(BUILD)/overbit/net-test.lua --title "Overbit" --author bm \
-	    --res 320x180 --models $(BUILD)/overbit/models.bm --audio $(BUILD)/overbit/sounds.json
+	    --res $(OVERBIT_RES) --models $(BUILD)/overbit/models.bm --audio $(BUILD)/overbit/sounds.json
 $(BUILD)/overbit/net-relay.bm: $(OVERBIT_SRC) carts/overbit/build.py $(BUILD)/overbit/models.bm $(BUILD)/overbit/sounds.json
 	$(PYTHON) carts/overbit/build.py $(BUILD)/overbit/net-relay.lua --extra $(BUILD)/overbit/21_map.lua \
 	    --define 'OVERBIT_RELAY="127.0.0.1:47390"'
 	$(PYTHON) scripts/mkbm.py -o $@ --lua $(BUILD)/overbit/net-relay.lua --title "Overbit" --author bm \
-	    --res 320x180 --models $(BUILD)/overbit/models.bm --audio $(BUILD)/overbit/sounds.json
+	    --res $(OVERBIT_RES) --models $(BUILD)/overbit/models.bm --audio $(BUILD)/overbit/sounds.json
 
 test-overbit: $(BUILD)/host/bmhost-bin $(BUILD)/host/bmhost-gpu $(BUILD)/carts/overbit.bm $(BUILD)/overbit/reel.bm \
               $(BUILD)/overbit/bench.bm $(BUILD)/overbit/bench-fast.bm \
@@ -327,10 +329,10 @@ test-overbit: $(BUILD)/host/bmhost-bin $(BUILD)/host/bmhost-gpu $(BUILD)/carts/o
 overbit-reel: $(BUILD)/host/bmhost-bin $(BUILD)/overbit/reel.bm
 	$(BUILD)/host/bmhost-bin $(BUILD)/overbit/reel.bm --seconds 107 --video $(BUILD)/overbit/reel.rgb \
 	    --wav $(BUILD)/overbit/reel.wav --quiet
-	ffmpeg -y -loglevel error -f rawvideo -pixel_format rgb24 -video_size 320x180 -framerate 60 \
+	ffmpeg -y -loglevel error -f rawvideo -pixel_format rgb24 -video_size $(OVERBIT_RES) -framerate 60 \
 	    -i $(BUILD)/overbit/reel.rgb -i $(BUILD)/overbit/reel.wav -vf "scale=960:540:flags=neighbor" \
 	    -c:v libx264 -preset slow -crf 28 -pix_fmt yuv420p -c:a aac -b:a 96k -shortest docs/img/overbit-reel-rally.mp4
-	ffmpeg -y -loglevel error -f rawvideo -pixel_format rgb24 -video_size 320x180 -framerate 60 \
+	ffmpeg -y -loglevel error -f rawvideo -pixel_format rgb24 -video_size $(OVERBIT_RES) -framerate 60 \
 	    -i $(BUILD)/overbit/reel.rgb -t 32 \
 	    -vf "fps=15,scale=480:270:flags=neighbor,split[a][b];[a]palettegen=max_colors=128[p];[b][p]paletteuse=dither=none" \
 	    docs/img/overbit-reel-rally.gif
@@ -342,11 +344,11 @@ OVERBIT_REEL_HEROES := kaiju,sarge,frost,fuse,rail,orbit,akari
 $(BUILD)/overbit/reel-heroes.bm: $(OVERBIT_SRC) carts/overbit/build.py $(BUILD)/overbit/models.bm $(BUILD)/overbit/sounds.json
 	$(PYTHON) carts/overbit/build.py $(BUILD)/overbit/reel-heroes.lua --start reel --hero $(OVERBIT_REEL_HEROES) \
 	    --extra $(BUILD)/overbit/21_map.lua
-	$(PYTHON) scripts/mkbm.py -o $@ --lua $(BUILD)/overbit/reel-heroes.lua --title "Overbit reel" --author bm --res 320x180 \
+	$(PYTHON) scripts/mkbm.py -o $@ --lua $(BUILD)/overbit/reel-heroes.lua --title "Overbit reel" --author bm --res $(OVERBIT_RES) \
 	    --models $(BUILD)/overbit/models.bm --audio $(BUILD)/overbit/sounds.json
 overbit-reel-heroes: $(BUILD)/host/bmhost-bin $(BUILD)/overbit/reel-heroes.bm
 	$(PYTHON) carts/overbit/tools/reel.py $(BUILD) $(BUILD)/overbit/reel-heroes.bm 232 docs/img/overbit-reel-heroes.mp4 \
-	    --size 640x360 --crf 30 --gif docs/img/overbit-reel-heroes.gif --gif-shots ULTIMATE
+	    --size 960x540 --res $(OVERBIT_RES) --crf 30 --gif docs/img/overbit-reel-heroes.gif --gif-shots ULTIMATE
 
 # a match of ten bots on Partenope, filmed round the point, behind and in the
 # eyes of the heroes (docs/img/overbit-match.mp4 and a GIF of 20 s)
@@ -354,14 +356,14 @@ $(BUILD)/overbit/match-film.bm: $(OVERBIT_SRC) carts/overbit/build.py $(BUILD)/o
 	$(PYTHON) carts/overbit/build.py $(BUILD)/overbit/match-film.lua --start match --extra $(BUILD)/overbit/21_map.lua \
 	    --define OVERBIT_SPECTATE=true --define 'OVERBIT_RULES={unlock=6,pct=0.3,round_end=4,match_end=5}'
 	$(PYTHON) scripts/mkbm.py -o $@ --lua $(BUILD)/overbit/match-film.lua --title "Overbit match" --author bm \
-	    --res 320x180 --models $(BUILD)/overbit/models.bm --audio $(BUILD)/overbit/sounds.json
+	    --res $(OVERBIT_RES) --models $(BUILD)/overbit/models.bm --audio $(BUILD)/overbit/sounds.json
 overbit-reel-match: $(BUILD)/host/bmhost-bin $(BUILD)/overbit/match-film.bm
 	$(BUILD)/host/bmhost-bin $(BUILD)/overbit/match-film.bm --seconds 90 --video $(BUILD)/overbit/match.rgb \
 	    --wav $(BUILD)/overbit/match.wav --quiet
-	ffmpeg -y -loglevel error -f rawvideo -pixel_format rgb24 -video_size 320x180 -framerate 60 \
-	    -i $(BUILD)/overbit/match.rgb -i $(BUILD)/overbit/match.wav -vf "scale=640:360:flags=neighbor" \
+	ffmpeg -y -loglevel error -f rawvideo -pixel_format rgb24 -video_size $(OVERBIT_RES) -framerate 60 \
+	    -i $(BUILD)/overbit/match.rgb -i $(BUILD)/overbit/match.wav -vf "scale=960:540:flags=neighbor" \
 	    -c:v libx264 -preset slow -crf 30 -pix_fmt yuv420p -c:a aac -b:a 96k -shortest docs/img/overbit-match.mp4
-	ffmpeg -y -loglevel error -f rawvideo -pixel_format rgb24 -video_size 320x180 -framerate 60 \
+	ffmpeg -y -loglevel error -f rawvideo -pixel_format rgb24 -video_size $(OVERBIT_RES) -framerate 60 \
 	    -i $(BUILD)/overbit/match.rgb -ss 8 -t 20 \
 	    -vf "fps=10,scale=384:216:flags=neighbor,split[a][b];[a]palettegen=max_colors=80[p];[b][p]paletteuse=dither=none" \
 	    docs/img/overbit-match.gif

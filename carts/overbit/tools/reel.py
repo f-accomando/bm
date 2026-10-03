@@ -5,7 +5,7 @@ The reels of Overbit as videos: bmhost plays the reel mode of the game
 shot starts, so a GIF can gather the shots chosen.
 
   reel.py BUILD REEL.bm SECONDS OUT.mp4 [--gif OUT.gif] [--gif-shots WORD,...]
-          [--gif-from S --gif-len S] [--size WxH] [--crf N]
+          [--gif-from S --gif-len S] [--size WxH] [--res WxH] [--crf N]
 
 --gif-shots: the shots whose subtitle or caption contains one of the words
 (e.g. ULTIMATE), each in full; or --gif-from/--gif-len: one stretch.
@@ -28,6 +28,7 @@ def main():
     ap.add_argument("--gif-from", type=float, default=0)
     ap.add_argument("--gif-len", type=float, default=32)
     ap.add_argument("--size", default="960x540")
+    ap.add_argument("--res", default="480x270", help="the cartridge's screen")
     ap.add_argument("--crf", type=int, default=28)
     a = ap.parse_args()
     rgb = os.path.join(a.build, "overbit", "reel.rgb")
@@ -41,7 +42,7 @@ def main():
     shots = [(float(m.group(3)), m.group(2) + " " + m.group(4))
              for m in re.finditer(r"^reel (\d+) (.*?) @([0-9.]+) ?(.*)$", r.stdout + r.stderr, re.M)]
     w, h = a.size.split("x")
-    raw = ["-f", "rawvideo", "-pixel_format", "rgb24", "-video_size", "320x180", "-framerate", "60", "-i", rgb]
+    raw = ["-f", "rawvideo", "-pixel_format", "rgb24", "-video_size", a.res, "-framerate", "60", "-i", rgb]
     subprocess.run(["ffmpeg", "-y", "-loglevel", "error"] + raw + ["-i", wav, "-vf", f"scale={w}:{h}:flags=neighbor",
                     "-c:v", "libx264", "-preset", "slow", "-crf", str(a.crf), "-pix_fmt", "yuv420p", "-c:a", "aac",
                     "-b:a", "96k", "-shortest", a.mp4], check=True)
