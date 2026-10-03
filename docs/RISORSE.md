@@ -170,8 +170,9 @@ per zona, 28 byte:
   u16 riservato (0)
 ```
 
-- I fotogrammi dopo il primo sono i riquadri w×h che seguono in ordine di lettura (a
-  destra, poi la riga di riquadri sotto), come in bm Pixel (`frame_xy`).
+- I fotogrammi dopo il primo sono i riquadri w×h a destra del primo, sulla stessa riga
+  (come in bm Pixel finché la fila non va a capo): una zona si sposta nello sheet
+  intera, senza che i fotogrammi cambino ordine.
 - Può stare anche nel `.bm` di un gioco: gli sprite prendono un nome, e i fotogrammi e
   la velocità che oggi bm Pixel tiene nel suo salvataggio passano lì. Un'eventuale
   `spr("nome")` nei giochi è un'altra decisione, fuori da questa proposta.
@@ -188,9 +189,13 @@ per zona, 28 byte:
 - tutte le risorse di un gioco diventano `.bmk`.
 
 **Integrazione** (da un file di risorsa a un `.bm`):
-- texture, sprite e tessere: celle 8×8 libere nello sheet di destinazione (se non c'è
-  posto lo sheet cresce, fino a 4096, oppure un messaggio dice che non entra); poi si
-  correggono gli angoli di texture, le zone di SPRITES e i numeri della mappa;
+- texture, sprite e tessere: celle 8×8 libere nello sheet di destinazione, a isole (i
+  riquadri che le facce, le zone o le tessere usano insieme). Una cella è libera se è
+  trasparente e nessuna faccia, zona o tessera la usa; la cella 0 non si usa mai (nella
+  mappa è il vuoto). Se non c'è posto lo sheet cresce **in altezza**, fino a 4096: la
+  larghezza resta, così i numeri degli sprite e della mappa non cambiano. Un'isola più
+  larga dello sheet non entra (un messaggio lo dice). Poi si correggono gli angoli di
+  texture, le zone di SPRITES e i numeri della mappa;
 - palette: i colori si uniscono; oltre 256 lo sheet diventa SHEET da solo, come fa già
   `sheet_section` in `runtime.c`;
 - nomi: se esistono già, si aggiunge un numero (16 caratteri per modelli e zone, 8 per
@@ -200,7 +205,8 @@ per zona, 28 byte:
 - INFO della risorsa (autore, licenza, tag) entra nel blocco della voce, con `origin`.
 
 L'integrazione non toglie mai niente al `.bm` di destinazione. Estrarre una risorsa e
-integrarla in un progetto vuoto deve dare le stesse sezioni, byte per byte.
+integrarla in un progetto vuoto deve dare le stesse sezioni, byte per byte (tranne INFO,
+che nel progetto riceve i blocchi delle voci con `origin`).
 
 ## 7. La scheda Lib
 
