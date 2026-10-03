@@ -29,6 +29,7 @@ int emu_red_a = 1, emu_tex_swap = 0;
 int emu_tformat = 0;                    /* the order of the 1 KiB subtiles of a T-format tile */
 int emu_ms_load_one = 0;                /* MSAA: a colour load fills sample 0 only (else all 4) */
 int emu_skip = 0;                       /* jobs only counted, not run (ARM instruction counts) */
+int emu_hang_zclear = 0;                /* a job with fs_zclear does not end */
 int emu_cw_flip = 0;                    /* GL: the V3D calls the other orientation clockwise */
 int emu_clip = 0;                       /* GL clipping: 0 as GL (near plane, guard band), 1 none (the
                                          * flag ignored), 2 the near plane only with Z_MIN_MAX given */
@@ -736,6 +737,8 @@ static int bin(uint32_t start, uint32_t end)
             const int colour = sh == SH_COLOUR || sh == SH_SCREEN || sh == SH_ZCLEAR,
                       rgb = sh == SH_TEX_RGB || sh == SH_TEX_RGB_ALPHA;
             int stride = rec[1], nvary = rec[3];
+            if (sh == SH_ZCLEAR && emu_hang_zclear)
+                return err("fs_zclear: the job does not end (emu_hang_zclear)", 0, 0);
             if (nvary != (rgb ? 8 : sh == SH_ZCLEAR ? 0 : 3) || stride != 12 + 4 * nvary || rec[2] != (colour ? 0 : 2))
                 return err("shader record: stride %u, varyings %u", stride, nvary);
             const uint8_t *vb = ptr(rd32(rec + 12));

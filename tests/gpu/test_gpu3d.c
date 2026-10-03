@@ -638,6 +638,7 @@ int main(int argc, char **argv)
     emu_ms_load_one = argc > 4 ? atoi(argv[4]) : 0;
     emu_cw_flip = argc > 5 ? atoi(argv[5]) : 0;
     emu_clip = argc > 6 ? atoi(argv[6]) : 0;
+    emu_hang_zclear = getenv("EMU_HANG_ZCLEAR") != NULL;     /* the probe's job does not end */
     ppm_dir = argc > 7 ? argv[7] : NULL;
     printf("gpu3d on the emulator: byte a = %s, texels %s, T-format %d, MSAA load %s\n",
            emu_red_a ? "red" : "blue", emu_tex_swap ? "swapped" : "in place", emu_tformat,
@@ -646,9 +647,9 @@ int main(int argc, char **argv)
     char want[200];
     static const char *const clips[3] = { "yes", "no", "yes (Z planes)" };
     snprintf(want, sizeof want, "byte a = %s, texels %s, textures in %s, MSAA %s, vertex shader %s, clipping %s, "
-             "lit models yes, queue yes, zclear in job yes", emu_red_a ? "red" : "blue", emu_tex_swap ? "swapped" : "in place",
+             "lit models yes, queue yes, zclear in job %s", emu_red_a ? "red" : "blue", emu_tex_swap ? "swapped" : "in place",
              emu_tformat == 2 ? "rows" : "tiles", emu_ms_load_one ? "on cleared pages" : "on any page",
-             emu_cw_flip ? "yes" : "yes (cw)", clips[emu_clip]);
+             emu_cw_flip ? "yes" : "yes (cw)", clips[emu_clip], emu_hang_zclear ? "no" : "yes");
     CHECK(strstr(gpu3d_status(), want) != NULL, "probe: '%s', expected '%s'", gpu3d_status(), want);
     if (!gpu3d_ready()) {
         printf("gpu3d: %d/%d checks passed\n", checks - failures, checks);
@@ -740,7 +741,8 @@ int main(int argc, char **argv)
     gpu3d_take_stats(&st);
     printf("  queue: %u jobs started and waited for later, %u zclear() inside a job, the same pixels\n",
            emu_stats.async, st.zinjob);
-    CHECK(st.zinjob >= 2, "queue: %u zclear() inside a job (the first-person and noz_zclear scenes)", st.zinjob);
+    CHECK(emu_hang_zclear ? st.zinjob == 0 : st.zinjob >= 2,
+          "queue: %u zclear() inside a job (the first-person and noz_zclear scenes)", st.zinjob);
     st.jobs += st0.jobs;
     st.tris += st0.tris;
     CHECK(st.jobs >= 5, "%u jobs", st.jobs);

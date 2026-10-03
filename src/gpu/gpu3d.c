@@ -2058,6 +2058,26 @@ static int probe_zclear(const g16_t *pg)
     return 0;
 }
 
+/* After a probe of something optional (the vertex shader, its clipping,
+ * the queue, zclear() in a job): if the GPU failed in it (a job that did
+ * not end), only that is off, as long as a clear still runs; else the GPU
+ * is off as before */
+static int soft(int ok, const char *what)
+{
+    if (!G.failed)
+        return ok;
+    G.failed = 0;
+    G.open = G.inflight = 0;
+    memset(G.probe, 0x55, JOB_PROBE);
+    if (run(0, rcl_build(v3d_bus(G.probe), PROBE_W, PROBE_H, 0, 0, clear_of(0x07E0), 0, 0, 0, 0)) != 0 ||
+        G.probe[PROBE_W * 10 + 10] != 0x07E0) {
+        disable("the GPU stopped answering after a probe (registers in the log)");
+        return 0;
+    }
+    kprintf("gpu3d: %s: the GPU did not end its job; that stays off, the rest goes on\n", what);
+    return 0;
+}
+
 static int probe(void)
 {
     g16_t pg;
@@ -2137,11 +2157,13 @@ static int probe(void)
         return -1;
     G.tformat = tformat_learn();
     G.ms_ok = probe_ms();
-    G.gl_ok = probe_gl(&pg);
-    G.clip_ok = G.gl_ok ? probe_clip(&pg) : 0;
-    G.lit_ok = G.gl_ok ? probe_lit(&pg) : 0;
-    G.queue_ok = probe_queue(&pg);
-    G.zclear_ok = probe_zclear(&pg);
+    G.gl_ok = soft(probe_gl(&pg), "the vertex shader's probe");
+    G.clip_ok = G.gl_ok && !G.failed ? soft(probe_clip(&pg), "the clipping probe") : 0;
+    G.lit_ok = G.gl_ok && !G.failed ? soft(probe_lit(&pg), "the lit models' probe") : 0;
+    G.queue_ok = !G.failed ? soft(probe_queue(&pg), "the queue's probe") : 0;
+    G.zclear_ok = !G.failed ? soft(probe_zclear(&pg), "the probe of zclear() in a job") : 0;
+    if (G.failed)
+        return -1;
     memset(&G.st, 0, sizeof G.st);
     return 0;
 }
