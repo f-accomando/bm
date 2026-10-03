@@ -2,9 +2,9 @@
  * The RGB30's menu: 360x360, shown twice as big (the whole 720x720 panel,
  * every pixel a 2x2 square), in three tabs as on the Pi: Games (the .s16
  * files in bm/ on the SD card, whose format is still to be defined, and
- * with show_bm=1 the Pi's .bm cartridges, which run), Dev (the 3D Bench,
- * the render bench, the display modes, the input test, the boot log, Lua)
- * and System (Bluetooth, WiFi, the console's state, reboot, power off).
+ * for testing the Pi's .bm cartridges, which run; show_bm=0 hides them),
+ * Dev (the 3D Bench, the render bench, the display modes, the input test,
+ * the boot log, Lua) and System (Bluetooth, WiFi, the console's state, reboot, power off).
  * L1 / R1 or left / right change tab.
  */
 #include "ui.h"
@@ -151,7 +151,7 @@ static void frame_end(void)
 /* --- games on the SD card --- */
 
 static struct { char name[56]; uint32_t size; int is_bm; } games[MAX_GAMES];
-static int n_games, n_hidden;      /* n_hidden: .bm without show_bm=1 */
+static int n_games, n_hidden;      /* n_hidden: .bm hidden by show_bm=0 */
 static const char *sd_state = "not read";
 
 static void scan_games(void)
@@ -160,7 +160,7 @@ static void scan_games(void)
     fat_dir_t d;
     fat_entry_t e;
     const char *show = config_get("show_bm");
-    int show_bm = show && strcmp(show, "1") == 0;
+    int show_bm = !show || strcmp(show, "0") != 0;     /* for testing: shown unless show_bm=0 */
     if (fat_opendir(&d, "bm") != 0) {
         sd_state = "no bm/ folder on the SD card";
         return;
@@ -204,7 +204,7 @@ static void page_message(const char *title, const char *lines[], int n)
     wait_back();
 }
 
-/* A Pi cartridge (listed with show_bm=1, for testing): the runtime of
+/* A Pi cartridge (listed for testing, show_bm=0 hides them): the runtime of
  * src/bm, its screen as big as the panel (rgb30/display.h), the 3D on the
  * ARM, no sound yet. Start + Select leaves. */
 #define PLAY_SECS (24u * 3600u)
@@ -593,7 +593,7 @@ void ui_home(framebuffer_t *f)
     int tab = TAB_GAMES, sel[TAB_COUNT] = { 0 }, top[TAB_COUNT] = { 0 };
     kprintf("cartridge menu: %d games", n_games);
     if (n_hidden)
-        kprintf(" (%d .bm hidden: show_bm=1 in bm/config.txt shows them)", n_hidden);
+        kprintf(" (%d .bm hidden by show_bm=0 in bm/config.txt)", n_hidden);
     kprintf("\n");
     for (;;) {
         int n = tab_size(tab);
@@ -611,8 +611,8 @@ void ui_home(framebuffer_t *f)
                                                                 : sd_state, 2, C_DIM);
             if (n_hidden) {
                 char note[96];
-                ksnprintf(note, sizeof note, "%d Pi cartridge%s (.bm) hidden: show_bm=1 in "
-                          "bm/config.txt shows them", n_hidden, n_hidden > 1 ? "s" : "");
+                ksnprintf(note, sizeof note, "%d Pi cartridge%s (.bm) hidden by show_bm=0 in "
+                          "bm/config.txt", n_hidden, n_hidden > 1 ? "s" : "");
                 text_wrap(LIST_Y + 48, note, 3, C_TEXT);
             }
         }

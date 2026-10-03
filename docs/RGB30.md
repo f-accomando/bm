@@ -12,8 +12,9 @@ Decisioni (2026-10-01, utente):
   2026-10-03 (utente) è **360×360 ingrandito ×2** e riempie i 720×720 del pannello;
 - giochi e app dell'RGB30 useranno un formato nuovo, **`.s16`**, ancora da definire: il menu li
   elenca ma non li avvia;
-- le cartucce **`.bm` del Pi sono nascoste** (blocco "morbido": `show_bm=1` in `bm/config.txt`
-  le elenca, ma non partono);
+- le cartucce **`.bm` del Pi erano nascoste** (`show_bm=1` le elencava soltanto); dal 2026-10-03
+  (utente), per le prove, il menu le mostra e le avvia (`show_bm=0` in `bm/config.txt` le
+  nasconde);
 - prima milestone: base + **Bluetooth + WiFi** (audio e salvataggi dopo).
 
 ## Compilare
@@ -55,8 +56,12 @@ make TARGET=rgb30 image        # dist/rgb30/bm-rgb30.img (+ .img.gz): l'immagine
 4. La scheda va nello slot **TF1** (quello da cui si avvia ROCKNIX); per tornare a ROCKNIX basta
    rimettere la sua scheda. Accendere con il **tasto di accensione** (collegando il caricatore
    U-Boot si spegne di nuovo).
-5. Aggiornare bm: Windows vede la partizione "BM"; basta copiarci sopra
-   `dist/rgb30/kernel8.img` (da WSL: `/mnt/<lettera>/kernel8.img`).
+5. Aggiornare bm: Windows vede la partizione "BM" come un'unità con quel nome; basta copiarci
+   sopra `dist/rgb30/sd/` (`make TARGET=rgb30 sdcard`). Da WSL `make TARGET=rgb30 sdcard
+   SD=/mnt/<lettera>` copia da solo (`scripts/copy-sd-rgb30.sh`) e, se non può, dice perché:
+   unità non montata in WSL (con il comando `mount -t drvfs` per montarla), montata solo per
+   root, adattatore SD bloccato, oppure non è la scheda dell'RGB30. `bm/config.txt` sulla scheda
+   resta com'è (si sostituisce solo con `RGB30_CONFIG=file`).
 
 Non formattare né ripartizionare la scheda: il bootloader sta prima della partizione.
 
@@ -122,10 +127,10 @@ prima di accendere lo schermo e il registro si scrive tre volte (prima dello sch
   sfumato; il menu è 360×360 ×2. Pagina **Display** nel menu: le modalità una dopo l'altra
   con un'immagine di prova (bordi, griglia delle tessere, barre di colore). La GPU stessa (driver
   Mali) non c'è ancora.
-- Cartucce del Pi (`.bm`) avviabili con `show_bm=1`, per le prove: Yharnam nell'immagine SD (vedi
+- Cartucce del Pi (`.bm`) nel menu e avviabili, per le prove: Yharnam nell'immagine SD (vedi
   sotto).
 - Menu 360×360 ingrandito ×2 (riempie il pannello), con tre schede come sul Pi: **Games** (giochi
-  `.s16`, e i `.bm` con `show_bm=1`; senza, dice quante cartucce sono nascoste), **Dev** (3D Bench,
+  `.s16` e i `.bm`; con `show_bm=0` dice quante cartucce sono nascoste), **Dev** (3D Bench,
   Render bench, Display, Input test, Boot log, Lua sulla seriale), **System** (Bluetooth, WiFi,
   System, Reboot, Power off). L1/R1 (o sinistra/destra) cambiano scheda.
 - **3D Bench** (scheda Dev, `src/rgb30/b3d_rgb30.c`): lo stesso banco di prova del Pi
@@ -151,8 +156,9 @@ prima di accendere lo schermo e il registro si scrive tre volte (prima dello sch
 
 ## Cartucce del Pi (`.bm`) per le prove
 
-Con `show_bm=1` in `bm/config.txt` il menu elenca le cartucce `.bm` di `bm/` e le **avvia** (senza,
-restano nascoste come deciso). Il runtime è quello del Pi (`src/bm`), lo stesso codice compilato a
+Per le prove (decisione dell'utente, 2026-10-03: "per il momento") la scheda Games elenca le
+cartucce `.bm` di `bm/` e le **avvia**, senza impostazioni; `show_bm=0` in `bm/config.txt` le
+nasconde. Il runtime è quello del Pi (`src/bm`), lo stesso codice compilato a
 64 bit; quello che del Pi non c'è lo sostituiscono `src/rgb30/bm_port.c` (suono muto per ora, il
 3D disegnato dall'ARM, niente DMA) e `src/rgb30/bm_input.c` (i comandi). Nell'immagine SD c'è
 **Yharnam** (256×256, dal branch `claude/yharnam`).
