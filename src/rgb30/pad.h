@@ -1,11 +1,14 @@
 /*
  * The RGB30's controls: D-pad, A B X Y, L1 R1 L2 R2, Select, Start, the
- * stick clicks, volume. The serial port can press them too (tests, or a PC
- * on the console's UART):
- *   arrows or w a s d   D-pad          Enter   A        Backspace  B
+ * stick clicks, volume. Confirm is B (the lower face button) and back is
+ * A, the RGB30's layout; confirm=a in bm/config.txt swaps them. The serial
+ * port (tests, a PC on the console's UART) and the network console press
+ * them too:
+ *   arrows or w a s d   D-pad          Enter   confirm  Backspace, Esc  back
  *   x  X    y  Y        l  L1   r  R1  L / R   L2 / R2
  *   Tab  Select         Space  Start   +  -    volume
- * Each key holds its button for PAD_SERIAL_MS.
+ * Each key holds its button for PAD_SERIAL_MS. Bluetooth pads and
+ * keyboards press the button in the same place (the DS4's cross is B).
  */
 #ifndef RGB30_PAD_H
 #define RGB30_PAD_H
@@ -24,6 +27,14 @@ enum {
 
 /* the button names, PAD_COUNT of them, bit order */
 extern const char *const pad_names[PAD_COUNT];
+
+/* the confirm and back buttons (PAD_B and PAD_A unless confirm=a), and
+ * their names for the screen */
+extern uint32_t pad_ok, pad_back;
+const char *pad_ok_name(void);
+const char *pad_back_name(void);
+/* reads confirm= from bm/config.txt (after config_load) */
+void pad_config(void);
 
 /* Buttons held now (hardware and serial). Reads the serial port: a
  * character that is not a pad key is kept for pad_serial_char(). */

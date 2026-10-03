@@ -310,22 +310,24 @@ static void page_bt(void)
     }
     for (;;) {
         if (bt_on)
-            kprintf("\n\x1b[96mA\x1b[0m pair a controller (10 s)  \x1b[96mX\x1b[0m pair a keyboard (20 s)\n"
-                    "\x1b[96mY\x1b[0m forget all  \x1b[96mB\x1b[0m back   pads: %u, %s\n",
+            kprintf("\n\x1b[96m%s\x1b[0m pair a controller (10 s)  \x1b[96mX\x1b[0m pair a keyboard (20 s)\n"
+                    "\x1b[96mY\x1b[0m forget all  \x1b[96m%s\x1b[0m back   pads: %u, %s\n",
+                    pad_ok_name(), pad_back_name(),
                     bt_pads(), bt_keyboard() ? "keyboard connected" : "no keyboard");
         else
-            kprintf("\nBluetooth is off (see above). \x1b[96mA\x1b[0m try again  \x1b[96mB\x1b[0m back\n");
+            kprintf("\nBluetooth is off (see above). \x1b[96m%s\x1b[0m try again  \x1b[96m%s\x1b[0m back\n",
+                    pad_ok_name(), pad_back_name());
         uint32_t p;
         while (!(p = pad_pressed()))
             timer_delay_ms(10);
-        if (p & PAD_B)
+        if (p & pad_back)
             break;
         if (!bt_on) {
-            if (p & PAD_A)
+            if (p & pad_ok)
                 bt_on = bt_start() == 0;
             continue;
         }
-        if (p & PAD_A) {
+        if (p & pad_ok) {
             kprintf("put the controller in pairing mode (DS4: Share + PS)\n");
             bt_scan(10);
         } else if (p & PAD_X) {
@@ -353,20 +355,22 @@ static void page_wifi(void)
         if (wifi_on && wifi_linked())
             kprintf("\nconnected to \"%s\", IP %s\n", ssid ? ssid : "?", net_ip_text());
         if (wifi_on)
-            kprintf("\n\x1b[96mA\x1b[0m scan  \x1b[96mX\x1b[0m join %s%s%s  \x1b[96mB\x1b[0m back\n",
-                    ssid && ssid[0] ? "\"" : "", ssid && ssid[0] ? ssid : "(none: bm/config.txt)",
-                    ssid && ssid[0] ? "\"" : "");
+            kprintf("\n\x1b[96m%s\x1b[0m scan  \x1b[96mX\x1b[0m join %s%s%s  \x1b[96m%s\x1b[0m back\n",
+                    pad_ok_name(), ssid && ssid[0] ? "\"" : "",
+                    ssid && ssid[0] ? ssid : "(none: bm/config.txt)", ssid && ssid[0] ? "\"" : "",
+                    pad_back_name());
         else
-            kprintf("\nWiFi is off (see above). \x1b[96mA\x1b[0m try again  \x1b[96mB\x1b[0m back\n");
+            kprintf("\nWiFi is off (see above). \x1b[96m%s\x1b[0m try again  \x1b[96m%s\x1b[0m back\n",
+                    pad_ok_name(), pad_back_name());
         uint32_t p;
         while (!(p = pad_pressed()))
             timer_delay_ms(10);
-        if (p & PAD_B)
+        if (p & pad_back)
             break;
         if (!wifi_on) {
-            if (p & PAD_A)
+            if (p & pad_ok)
                 wifi_on = wifi_start() == 0;
-        } else if (p & PAD_A) {
+        } else if (p & pad_ok) {
             wifi_scan();
         } else if (p & PAD_X) {
             /* the address comes from DHCP, then the network console */
@@ -413,9 +417,9 @@ static void test_image(int i)
     textf(16, 32, C_DIM, C_BG, "pitch %lu, %lu page%s", fb->pitch, fb->buffers,
           fb->buffers == 1 ? "" : "s");
     textf(16, 48, C_DIM, C_BG, "at %08lx", fb->bus);
-    text(16, 80, i + 1 < (int)(sizeof modes / sizeof modes[0]) ? "A: next mode" : "A: first mode",
-         C_ACCENT, C_BG);
-    text(16, 96, "B: back", C_ACCENT, C_BG);
+    textf(16, 80, C_ACCENT, C_BG, "%s: %s mode", pad_ok_name(),
+          i + 1 < (int)(sizeof modes / sizeof modes[0]) ? "next" : "first");
+    textf(16, 96, C_ACCENT, C_BG, "%s: back", pad_back_name());
     fb_show(fb, 0);
 }
 
@@ -432,9 +436,9 @@ static void page_display(void)
         uint32_t p;
         while (!(p = pad_pressed()))
             timer_delay_ms(10);
-        if (p & PAD_B)
+        if (p & pad_back)
             break;
-        if (p & (PAD_A | PAD_RIGHT | PAD_DOWN))
+        if (p & (pad_ok | PAD_RIGHT | PAD_DOWN))
             i = (i + 1) % n;
         else if (p & (PAD_LEFT | PAD_UP))
             i = (i + n - 1) % n;
@@ -509,7 +513,9 @@ void ui_home(framebuffer_t *f)
         const char *help = sel < n_games ? (games[sel].is_bm ? "Pi cartridge (show_bm=1)" : ".s16 game")
                                          : tool_help[sel - n_games];
         text(16, FOOT_Y - 16, help, C_DIM, C_BG);
-        footer("Up/Down: choose   A: open");
+        char hint[48];
+        ksnprintf(hint, sizeof hint, "Up/Down: choose   %s: open", pad_ok_name());
+        footer(hint);
         frame_end();
 
         uint32_t p;
@@ -527,7 +533,7 @@ void ui_home(framebuffer_t *f)
         }
         if (p & PAD_UP) sel--;
         if (p & PAD_DOWN) sel++;
-        if (p & PAD_A) {
+        if (p & pad_ok) {
             if (sel < n_games)
                 page_game(sel);
             else

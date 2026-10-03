@@ -108,6 +108,10 @@ prima di accendere lo schermo e il registro si scrive tre volte (prima dello sch
 - Comandi: 18 tasti su GPIO3, levette su SARADC canale 3 con commutatore; pagina *Input test*.
   **Provati sulla console** (2026-10-03): tasti a posto; l'asse verticale delle levette era al
   contrario (il dts lo dà diverso), corretto.
+- Conferma e indietro (decisione dell'utente, 2026-10-03): **B** (il tasto in basso) conferma e
+  **A** torna indietro, come sull'RGB30; `confirm=a` in `bm/config.txt` li scambia. Dalla seriale e
+  dalla console di rete Invio è conferma, Backspace/Esc indietro; i pad e le tastiere Bluetooth
+  premono il tasto nella stessa posizione (la croce del DS4 è B, lo spazio della tastiera anche).
 - SD: controller SDMMC0 (DesignWare MSHC) in PIO, 4 bit, 12 MHz; FAT dal codice del Pi.
 - PMIC RK817 su I2C0: spegnimento, tensione della batteria, stato di carica.
 - Modalità video pronte per la GPU (`src/rgb30/display.h`): ogni framebuffer ha la forma che la
@@ -147,7 +151,7 @@ wifi_boot=1
 Oppure già nell'immagine: `make TARGET=rgb30 image RGB30_CONFIG=$HOME/rgb30-config.txt` mette quel
 file come `bm/config.txt` (tienilo fuori dal repository: contiene la password).
 
-Nel menu, *WiFi*: **A** cerca le reti (elenco con segnale, canale, sicurezza), **X** entra nella
+Nel menu, *WiFi*: **B** cerca le reti (elenco con segnale, canale, sicurezza), **X** entra nella
 rete di `wifi_ssid`; poi DHCP e l'indirizzo IP sullo schermo, con la password della console di
 rete (`python3 tools/bm_net.py <ip>`: i tasti w/a/s/d, Invio, Esc arrivano al menu come dalla
 seriale). Con `wifi_boot=1` la console entra nella rete da sola all'avvio (senza, solo dal menu:

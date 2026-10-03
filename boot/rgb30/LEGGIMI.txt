@@ -16,7 +16,9 @@ Se si blocca accendendo lo schermo, i LED fermi dicono dove: rosso e verde =
 clock, solo verde = controller video, nessuno = DSI/pannello.
 
 WiFi: scrivi in bm/config.txt le righe wifi_ssid=NomeRete e wifi_psk=password
-(e wifi_boot=1 per collegarti a ogni avvio); nel menu, WiFi: A cerca, X entra.
+(e wifi_boot=1 per collegarti a ogni avvio); nel menu, WiFi: B cerca, X entra.
+
+Tasti: B conferma, A torna indietro (confirm=a in bm/config.txt li scambia).
 
 Non formattare e non ripartizionare la scheda: il bootloader sta fuori dalla
 partizione. Per rifarla: make TARGET=rgb30 image e riscrivi l'immagine.

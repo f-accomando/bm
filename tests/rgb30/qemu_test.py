@@ -333,6 +333,29 @@ def test_display_modes(b, opts):
         q.close()
 
 
+def test_confirm_button(b, opts):
+    """B (the RGB30's lower face button) confirms and A goes back by
+    default: the menu says so and the serial port's Enter presses B;
+    confirm=a in bm/config.txt swaps them."""
+    for config, ok, held in ((b"layout=us\n", "B", "00000020"), (b"confirm=a\n", "A", "00000010")):
+        tmp = tempfile.mkdtemp(prefix="bm64sd-")
+        sd = make_sd(tmp, {"bm/config.txt": config})     # no games: the tools come first
+        q = Qemu(os.path.join(b, "kernel.elf"), sd=sd)
+        try:
+            boot(q)
+            time.sleep(0.4)
+            text = screen_all(q.screendump())
+            assert f"Up/Down: choose   {ok}: open" in text, text
+            q.send("\r")                       # confirm on the first tool: Input test
+            time.sleep(0.6)
+            q.send("\r")                       # Enter: the confirm button, held
+            time.sleep(0.05)
+            text = screen_all(q.screendump())
+            assert "Input test" in text and f"held: {held}" in text, text
+        finally:
+            q.close()
+
+
 def test_menu_input_page(b, opts):
     """Down to the input test, A opens it, the serial port presses buttons."""
     q = Qemu(os.path.join(b, "kernel.elf"))

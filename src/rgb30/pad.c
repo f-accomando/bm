@@ -5,15 +5,31 @@
 #include "usb/hid.h"
 #include "net/net.h"
 #include "net/netcon.h"
+#include "kernel/config.h"
 
-/* Bluetooth pads and keyboards (usb/hid.h buttons) on the same bits */
+uint32_t pad_ok = PAD_B, pad_back = PAD_A;
+
+void pad_config(void)
+{
+    const char *v = config_get("confirm");
+    int a = v && (v[0] == 'a' || v[0] == 'A');
+    pad_ok = a ? PAD_A : PAD_B;
+    pad_back = a ? PAD_B : PAD_A;
+}
+
+const char *pad_ok_name(void)   { return pad_ok == PAD_A ? "A" : "B"; }
+const char *pad_back_name(void) { return pad_back == PAD_A ? "A" : "B"; }
+
+/* Bluetooth pads and keyboards (usb/hid.h buttons) on the button in the
+ * same place: their lower face button (the DS4's cross, a keyboard's
+ * space) is the RGB30's B, the right one A, the left one Y, the top one X */
 static uint32_t from_hid(uint32_t h)
 {
     static const struct { uint32_t hid, pad; } map[] = {
         { HID_LEFT, PAD_LEFT }, { HID_RIGHT, PAD_RIGHT }, { HID_UP, PAD_UP },
-        { HID_DOWN, PAD_DOWN }, { HID_A, PAD_A }, { HID_B, PAD_B },
-        { HID_START, PAD_START }, { HID_SELECT, PAD_SELECT }, { HID_X, PAD_X },
-        { HID_Y, PAD_Y }, { HID_L1, PAD_L1 }, { HID_R1, PAD_R1 },
+        { HID_DOWN, PAD_DOWN }, { HID_A, PAD_B }, { HID_B, PAD_A },
+        { HID_START, PAD_START }, { HID_SELECT, PAD_SELECT }, { HID_X, PAD_Y },
+        { HID_Y, PAD_X }, { HID_L1, PAD_L1 }, { HID_R1, PAD_R1 },
     };
     uint32_t p = 0;
     for (unsigned i = 0; i < sizeof map / sizeof map[0]; i++)
@@ -38,8 +54,8 @@ static uint32_t key_button(int c)
     case 's': return PAD_DOWN;
     case 'a': return PAD_LEFT;
     case 'd': return PAD_RIGHT;
-    case '\r': case '\n': return PAD_A;
-    case 8: case 127: return PAD_B;
+    case '\r': case '\n': return pad_ok;
+    case 8: case 127: return pad_back;
     case 'x': return PAD_X;
     case 'y': return PAD_Y;
     case 'l': return PAD_L1;
@@ -67,7 +83,7 @@ static void key_in(int c, uint32_t now)
     if (esc_state == 1) {
         esc_state = c == '[' ? 2 : 0;
         if (!esc_state)
-            hold(PAD_B, now);           /* a lone Esc: B */
+            hold(pad_back, now);        /* a lone Esc: back */
         return;
     }
     if (esc_state == 2) {

@@ -33,6 +33,7 @@
 #include "wifi/wifi.h"
 #include "net/net.h"
 #include "ui.h"
+#include "pad.h"
 
 #include "lua.h"
 #include "lauxlib.h"
@@ -140,6 +141,7 @@ static void sd_boot(void)
     }
     kprintf("SD: %s (%s)\n", fat_describe(), sd_controller());
     config_load();
+    pad_config();                       /* confirm= */
 }
 
 /* Everything printed so far goes to bm/bootlog.txt: if the screen stays

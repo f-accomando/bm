@@ -128,6 +128,9 @@ screenshot in `docs/img/`), `README_OLD.md` (il README completo, in italiano),
   multipli di 8×16, 2x a multipli di 16).
 - L'utente prova senza seriale: LED (rosso = avvio, verde a 1 Hz = vivo) e `bm/bootlog.txt`
   scritto sulla SD a ogni avvio.
+- Tasti: **B conferma, A torna indietro** (decisione dell'utente; `confirm=a` li scambia):
+  nell'interfaccia si usano `pad_ok` / `pad_back` e `pad_ok_name()` / `pad_back_name()` (`pad.h`),
+  mai `PAD_A` / `PAD_B` per conferma e indietro.
 - Schermo: modalità pronte per la GPU Mali (`src/rgb30/display.h`, `fb_init_mode`): righe a 64
   byte, tessere da 16, pagine su 64 KiB nella memoria video e GPU (0x3c000000, 64 MiB), il
   controller video ingrandisce sul pannello 720×720. Pagina *Display* nel menu.
