@@ -1456,7 +1456,7 @@ static int l_zclear(lua_State *L)
  * its vertex shader places the corners of the models (M36, where the GPU's
  * probe drew with it): false, 1 the scenery (meshes unlit or with baked
  * light), 2 (or true) every model; version: the bm3d version that reproduces
- * (src/gpu/version3d.h: "0.2" the ARM, "2.1", "3.0", "3.2"). With on, the 3D
+ * (src/gpu/version3d.h: "0.2" the ARM, "2.1", "3.0", "3.3"). With on, the 3D
  * goes to the GPU (if the console has one that answers) or to the ARM from
  * here, whatever Settings > Graphics says: for benchmarks; switch between
  * frames (what was drawn so far in a frame is not in the other's depth). */

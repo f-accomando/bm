@@ -1720,7 +1720,7 @@ void r3d_draw_flags(r3d_t *r, const r3d_mesh_t *m, v3_t p, float rx, float ry, f
         /* flat (and textured): the light of the face, at its middle (a
          * textured face of a "lit" model has its own, baked) */
         lit_t k = full;
-        if (!emissive && !m->clight) {
+        if (!emissive && !m->clight && !(textured && smooth && !(rgb & R3D_FLAT))) {
             const float *N = X.n[skinned ? m->vbone[fc[0]] : 0];
             const v3_t n0 = m->normals[t];
             const v3_t n = { N[0] * n0.x + N[1] * n0.y + N[2] * n0.z, N[3] * n0.x + N[4] * n0.y + N[5] * n0.z,
@@ -1735,13 +1735,29 @@ void r3d_draw_flags(r3d_t *r, const r3d_mesh_t *m, v3_t p, float rx, float ry, f
         }
         if (textured) {
             /* corner i: on the screen at *ps[i], texel (tu[i], tv_[i]); the
-             * light gk; for a "lit" model on the backend, the light baked at
-             * the corner (and the lamps) L[i] and its depth dz[i] (fog) */
+             * light gk[i] (Gouraud: the sun at each corner, grey, as
+             * vs_lit_tex); for a "lit" model on the backend, the light baked
+             * at the corner (and the lamps) L[i] and its depth dz[i] (fog) */
             if (screen && r->backend)
                 /* textured screen-door: the backend cannot; the ARM from
                  * here on (this frame, mixed, is not shown) */
                 to_arm(r, "textured screen-door faces");
-            const float gk = lit_grey(&k), *uv = m->uv + t * 6;
+            const float *uv = m->uv + t * 6;
+            float gk[4];
+            gk[0] = gk[1] = gk[2] = gk[3] = lit_grey(&k);
+            if (smooth && !(rgb & R3D_FLAT) && !emissive && !m->clight) {
+                const uint32_t key = rgb & 0x7FFFFFFFu;
+                for (int i = 0; i < 3; i++) {
+                    const int vi = fc[i];
+                    if (vkey[vi] != key) {
+                        vkey[vi] = key;
+                        lit_t Lv;
+                        light_fast(r, &lamps, &sh, vn[vi], cv[vi].x, cv[vi].y, cv[vi].z, 0, &Lv);
+                        vc[vi][0] = lit_grey(&Lv);
+                    }
+                    gk[i] = vc[vi][0];
+                }
+            }
             const sv_t *ps[4] = { ss[0], ss[1], ss[2], NULL };
             float tu[4] = { uv[0], uv[2], uv[4], 0 }, tv_[4] = { uv[1], uv[3], uv[5], 0 };
             float L[4][3], dz[4] = { c0->z, c1->z, c2->z, 0 };
@@ -1765,6 +1781,8 @@ void r3d_draw_flags(r3d_t *r, const r3d_mesh_t *m, v3_t p, float rx, float ry, f
                     tri[i].v = uv[i * 2 + 1];
                     if (rgb_light) {
                         tri[i].r = L[i][0]; tri[i].g = L[i][1]; tri[i].b = L[i][2];
+                    } else {
+                        tri[i].r = gk[i];
                     }
                 }
                 np = clip_near(tri, cl);
@@ -1775,6 +1793,7 @@ void r3d_draw_flags(r3d_t *r, const r3d_mesh_t *m, v3_t p, float rx, float ry, f
                     tv_[i] = cl[i].v;
                     dz[i] = cl[i].z;
                     L[i][0] = cl[i].r; L[i][1] = cl[i].g; L[i][2] = cl[i].b;
+                    gk[i] = cl[i].r;
                 }
                 float area = (pts[1].x - pts[0].x) * (pts[2].y - pts[0].y) - (pts[1].y - pts[0].y) * (pts[2].x - pts[0].x);
                 if (area <= 0)
@@ -1805,14 +1824,14 @@ void r3d_draw_flags(r3d_t *r, const r3d_mesh_t *m, v3_t p, float rx, float ry, f
                 /* (textured screen-door faces never get here: to_arm above) */
                 r3d_corner_t q[4];
                 for (int i = 0; i < np; i++)
-                    corner(&q[i], ps[i]->x, ps[i]->y, ps[i]->z, tu[i], tv_[i], gk);
+                    corner(&q[i], ps[i]->x, ps[i]->y, ps[i]->z, tu[i], tv_[i], gk[i]);
                 emit(r, q, np, R3D_KIND_TEXTURE | inside, m->tex, zbuf == NULL);
                 r->tris_drawn++;
                 continue;
             }
             tv_t tv[4];
             for (int i = 0; i < np; i++)
-                tv[i] = (tv_t){ ps[i]->x, ps[i]->y, ps[i]->z, tu[i] * ps[i]->z, tv_[i] * ps[i]->z, gk };
+                tv[i] = (tv_t){ ps[i]->x, ps[i]->y, ps[i]->z, tu[i] * ps[i]->z, tv_[i] * ps[i]->z, gk[i] };
             const uint8_t *lrgb = m->clight ? m->clight + t * 9 : NULL;
             int tf = 0;
             if (lrgb && fog) {

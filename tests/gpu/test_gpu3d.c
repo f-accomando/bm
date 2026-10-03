@@ -51,7 +51,8 @@ static const font_t font = { 8, 16, glyphs };
 static const char *ppm_dir;
 
 static g16_sheet_t sheet, sheet2, sheet3;
-static r3d_mesh_t sphere, quad, floor_m, cube, lit_quad, glass, lit_box, hero;
+static r3d_mesh_t sphere, quad, floor_m, cube, lit_quad, glass, lit_box, hero, hero_tex;
+static const r3d_mesh_t *hero_m = &hero;     /* the hero of s_vshader_heroes */
 static float hero_bones[2][12];
 static uint8_t hero_vbone[512];
 
@@ -119,6 +120,26 @@ static void make_hero(void)
     hero.vbone = hero_vbone;
     hero.nbones = 2;
     r3d_mesh_normals(&hero);
+    /* the same with a texture on the ball (Overbit's Meshy heroes): some
+     * faces flat, some emissive; the head keeps its colours */
+    r3d_mesh_alloc(&hero_tex, hero.nverts, hero.nfaces);
+    memcpy(hero_tex.verts, hero.verts, (size_t)hero.nverts * sizeof *hero.verts);
+    memcpy(hero_tex.faces, hero.faces, (size_t)hero.nfaces * 3 * sizeof *hero.faces);
+    memcpy(hero_tex.colors, hero.colors, (size_t)hero.nfaces * sizeof *hero.colors);
+    r3d_mesh_alloc_uv(&hero_tex);
+    for (int f = 0; f < s.nfaces; f++) {
+        hero_tex.colors[f] = R3D_TEXTURED | (f % 17 == 0 ? R3D_EMISSIVE : 0) | (f % 5 == 0 ? R3D_FLAT : 0);
+        for (int k = 0; k < 3; k++) {
+            const v3_t p = hero.verts[hero.faces[f * 3 + k]];
+            hero_tex.uv[f * 6 + k * 2] = 4 + 120 * (0.5f + 0.5f * p.x);
+            hero_tex.uv[f * 6 + k * 2 + 1] = 4 + 120 * (0.5f - 0.5f * p.y);
+        }
+    }
+    hero_tex.tex = &sheet;
+    hero_tex.bones = hero.bones;
+    hero_tex.vbone = hero_vbone;
+    hero_tex.nbones = 2;
+    r3d_mesh_normals(&hero_tex);
     r3d_mesh_free(&s);
     r3d_mesh_free(&c);
 }
@@ -273,17 +294,26 @@ static void s_vshader_heroes(r3d_t *r, g16_t *g, int gpu)
         memcpy(hero_bones[1], b1, sizeof b1);
         const v3_t at[4] = { { -1.8f, -0.4f, 1 }, { 0, -0.3f, 0 }, { 1.8f, -0.4f, 1.5f }, { 0.3f, 0.2f, -4.6f } };
         if (i < 3)                      /* its shadow on the floor under it */
-            r3d_draw_flags(r, &hero, (v3_t){ at[i].x, -1.2f, at[i].z }, 0, 0.3f * (float)i, 0, 0.7f, R3D_SHADOW);
-        r3d_draw_flags(r, &hero, at[i], 0, 0.3f * (float)i, 0, 0.7f, i == 2 ? 0 : R3D_SMOOTH);
+            r3d_draw_flags(r, hero_m, (v3_t){ at[i].x, -1.2f, at[i].z }, 0, 0.3f * (float)i, 0, 0.7f, R3D_SHADOW);
+        r3d_draw_flags(r, hero_m, at[i], 0, 0.3f * (float)i, 0, 0.7f, i == 2 ? 0 : R3D_SMOOTH);
     }
     /* a first-person model: in front of everything drawn before */
-    r3d_draw_flags(r, &hero, (v3_t){ 0.9f, -0.2f, -3.2f }, 0.3f, 0.5f, 0, 0.3f, R3D_FRONT | R3D_SMOOTH);
+    r3d_draw_flags(r, hero_m, (v3_t){ 0.9f, -0.2f, -3.2f }, 0.3f, 0.5f, 0, 0.3f, R3D_FRONT | R3D_SMOOTH);
     flush(r, g, gpu);
     gpu3d_set_vshader(0);
     r3d_lamp(r, 0, 0, 0, 0, 0, 0);
     r3d_fog(r, 0, 0, 0);
     r3d_shine(r, 0.6f, 16, 0);              /* as r3d_init */
     r3d_sky(r, 0xFFFFFF, 0xFFFFFF, 0xFFFFFF);
+}
+
+/* the same with textured heroes: vs_lit_tex (grey light at the corners,
+ * Gouraud or flat, emissive faces) */
+static void s_vshader_heroes_tex(r3d_t *r, g16_t *g, int gpu)
+{
+    hero_m = &hero_tex;
+    s_vshader_heroes(r, g, gpu);
+    hero_m = &hero;
 }
 
 static void s_spheres(r3d_t *r, g16_t *g, int gpu)
@@ -439,6 +469,7 @@ static const struct { const char *name; scene_fn fn; int w, h; float limit; int 
     { "vshader lit", s_vshader_lit, 640, 360, 0.04f, 1 },
     { "vshader clip", s_vshader_clip, 640, 360, 0.04f, 1 },
     { "vshader heroes", s_vshader_heroes, 640, 360, 0.04f, 1 },
+    { "vshader textured", s_vshader_heroes_tex, 640, 360, 0.04f, 1 },
 };
 #define CLEARED 7                   /* its index: no bar, no load */
 
@@ -535,7 +566,8 @@ static void run_scene(int s)
             if (s == 6)
                 CHECK(emu_stats.zstores > zstores, "3D 2D 3D: the depth was not kept");
             if (scenes[s].fn == s_vshader || scenes[s].fn == s_vshader_lit ||
-                ((scenes[s].fn == s_vshader_clip || scenes[s].fn == s_vshader_heroes) && emu_clip != 1))
+                ((scenes[s].fn == s_vshader_clip || scenes[s].fn == s_vshader_heroes ||
+                  scenes[s].fn == s_vshader_heroes_tex) && emu_clip != 1))
                 CHECK(emu_stats.glverts > glverts, "vshader: no mesh placed by the vertex shader");
             if (s == CLEARED)
                 CHECK(emu_stats.loads == loads && emu_stats.jobs > jobs, "cleared: the page was loaded");
@@ -600,9 +632,9 @@ int main(int argc, char **argv)
      * the corners) and with the vertex shader: nearly the same pixels (the
      * clipped corners not quite where the ARM puts them) */
     uint16_t *pg[2] = { test_aligned_alloc(16, 640 * 360 * 2), test_aligned_alloc(16, 640 * 360 * 2) };
-    static const char *const sc_name[3] = { "lit", "clipped", "heroes" };
-    for (int sc = 0; sc < 3; sc++) {
-        scene_fn fn = sc == 2 ? s_vshader_heroes : sc ? s_vshader_clip : s_vshader_lit;
+    static const char *const sc_name[4] = { "lit", "clipped", "heroes", "textured" };
+    for (int sc = 0; sc < 4; sc++) {
+        scene_fn fn = sc == 3 ? s_vshader_heroes_tex : sc == 2 ? s_vshader_heroes : sc ? s_vshader_clip : s_vshader_lit;
         for (int vsh = 0; vsh < 2; vsh++) {
             g16_t g;
             r3d_t r;
@@ -617,9 +649,22 @@ int main(int argc, char **argv)
             vs_off = 0;
             r3d_free(&r);
         }
+        /* the textured faces: the light halved and doubled by vs_lit_tex
+         * and fs_tex_rgb, a step or two of a byte off fs_tex_lit's */
         int differ = 0;
-        for (int i = 0; i < 640 * 360; i++)
-            differ += pg[0][i] != pg[1][i];
+        for (int i = 0; i < 640 * 360; i++) {
+            if (sc < 3) {
+                differ += pg[0][i] != pg[1][i];
+                continue;
+            }
+            const uint32_t ca = rgb(pg[0][i]), cb = rgb(pg[1][i]);
+            int d = 0;
+            for (int k = 0; k < 24; k += 8) {
+                const int x = (int)(ca >> k & 255) - (int)(cb >> k & 255);
+                d |= x > 12 || x < -12;
+            }
+            differ += d;
+        }
         printf("  vertex shader against r3d's corners (%s): %.3f%% of the pixels differ\n", sc_name[sc],
                differ * 100.0 / (640 * 360));
         CHECK(differ * 1000 < 640 * 360, "vertex shader: %d pixels differ from r3d's corners", differ);

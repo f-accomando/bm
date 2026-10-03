@@ -44,7 +44,7 @@ typedef struct {
 #define VMAX_BYTES ((uint32_t)JOB_VERTS - 21u * (uint32_t)VSTRIDE(8))   /* room for a clipped triangle */
 
 enum { SH_COLOUR, SH_TEX, SH_TEX_ALPHA, SH_SCREEN, SH_TEX_RGB, SH_TEX_RGB_ALPHA, SH_COUNT };
-enum { GV_BAKED, GV_TEX_RGB, GV_LIT, GV_COUNT };    /* the vertex shaders of meshes (M36) */
+enum { GV_BAKED, GV_TEX_RGB, GV_LIT, GV_LIT_TEX, GV_COUNT };     /* the vertex shaders of meshes (M36) */
 #define CODE_CS 6                       /* the coordinate shader's kilobyte of G.code */
 #define CODE_VS 7                       /* and the vertex shaders' (two each) */
 #define CODE_SHADOW (CODE_VS + 2 * GV_COUNT)    /* the shadows' vertex shader (2), coordinate shader (1) */
@@ -705,6 +705,7 @@ static const struct { const uint32_t *code; size_t size; uint8_t words, kb; } vs
     { vs_baked, sizeof vs_baked, 9, CODE_VS },          /* colour, light */
     { vs_tex_rgb, sizeof vs_tex_rgb, 8, CODE_VS + 2 },  /* s t, light */
     { vs_lit, sizeof vs_lit, 14, CODE_VS + 4 },         /* normal, colour, emissive, glossy, lamp point */
+    { vs_lit_tex, sizeof vs_lit_tex, 12, CODE_VS + 6 }, /* normal, s t, emissive, lamp point */
 };
 
 /* the groups of a face: its bone, vertex shader, fragment shader, lamps
@@ -723,6 +724,26 @@ static void put_mesh_corner(float *o, const r3d_mesh_t *m, int f, int k, int vs,
     const int vi = m->faces[f * 3 + k];
     const v3_t v = m->verts[vi];
     o[0] = v.x; o[1] = v.y; o[2] = v.z;
+    if (vs == GV_LIT_TEX) {
+        /* a textured face lit by the sun: as GV_LIT, s t in place of the colour, no gloss */
+        const uint32_t c = m->colors[f];
+        const int sm = smooth && !(c & R3D_FLAT);
+        const v3_t n = sm ? m->vnormals[vi] : m->normals[f];
+        o[3] = n.x; o[4] = n.y; o[5] = n.z;
+        o[6] = m->uv[f * 6 + k * 2] * t->inv_w;
+        o[7] = m->uv[f * 6 + k * 2 + 1] * t->inv_h;
+        o[8] = (float)((c & R3D_EMISSIVE) != 0);
+        if (sm) {
+            o[9] = v.x; o[10] = v.y; o[11] = v.z;
+        } else {
+            const uint16_t *fc = m->faces + f * 3;
+            const v3_t a = m->verts[fc[0]], b = m->verts[fc[1]], d = m->verts[fc[2]];
+            o[9] = (a.x + b.x + d.x) * (1.0f / 3.0f);
+            o[10] = (a.y + b.y + d.y) * (1.0f / 3.0f);
+            o[11] = (a.z + b.z + d.z) * (1.0f / 3.0f);
+        }
+        return;
+    }
     if (vs == GV_LIT) {
         const uint32_t c = m->colors[f];
         const v3_t n = smooth && !(c & R3D_FLAT) ? m->vnormals[vi] : m->normals[f];
@@ -766,9 +787,9 @@ static void put_mesh_corner(float *o, const r3d_mesh_t *m, int f, int k, int vs,
 
 /* the corners of m in groups (gmesh_t), or 0 if the GPU cannot take it:
  * faces of a colour (lit by the light baked at their corners, by the sun
- * and the sky, or not at all) and textured faces of a model with baked
- * light; with a skeleton, the corners of a face on one bone; no textured
- * screen-door; unlit: every face at full light */
+ * and the sky, or not at all) and textured faces (with baked light, or lit
+ * by the sun); with a skeleton, the corners of a face on one bone; no
+ * textured screen-door; unlit: every face at full light */
 static int mesh_build(const g16_t *g, gmesh_t *e, const r3d_mesh_t *m, int unlit, int smooth)
 {
     const int skinned = m->bones && m->nbones > 0, lit = !unlit && !m->clight;
@@ -794,9 +815,7 @@ static int mesh_build(const g16_t *g, gmesh_t *e, const r3d_mesh_t *m, int unlit
                 return 0;                       /* a face on two bones: the ARM's */
         }
         int vs, fs;
-        if (lit) {
-            if (textured)
-                return 0;
+        if (lit && !textured) {
             vs = GV_LIT;
             fs = (c & R3D_SCREEN) ? SH_SCREEN : SH_COLOUR;
         } else if (textured) {
@@ -809,7 +828,7 @@ static int mesh_build(const g16_t *g, gmesh_t *e, const r3d_mesh_t *m, int unlit
                 v[k].a = m->uv[f * 6 + k * 2];
                 v[k].b = m->uv[f * 6 + k * 2 + 1];
             }
-            vs = GV_TEX_RGB;
+            vs = lit ? GV_LIT_TEX : GV_TEX_RGB;
             fs = tex_opaque(t, v) ? SH_TEX_RGB : SH_TEX_RGB_ALPHA;
         } else {
             vs = GV_BAKED;
@@ -948,6 +967,9 @@ static void bone_axes(float *o, const float N[9], const float *v)
         o[j] = N[j] * v[0] + N[3 + j] * v[1] + N[6 + j] * v[2];
 }
 
+/* the uniforms a vertex shader reads: vs_lit_tex reads those of vs_lit */
+static int unif_kind(int vs) { return vs == GV_LIT_TEX ? GV_LIT : vs; }
+
 /* the uniforms of a group: the coordinate shader's (cs) and the vertex
  * shader's, in the order the shaders read them (tools/qpuasm.py) */
 static void gl_uniforms(gunif_t *u, const ggroup_t *gr, const float M[12], const float N[9], const r3d_env_t *env)
@@ -964,7 +986,7 @@ static void gl_uniforms(gunif_t *u, const ggroup_t *gr, const float M[12], const
     memcpy(o, place, sizeof place);
     o += 17;
     float *fo = (float *)o;
-    if (gr->vs == GV_LIT) {
+    if (unif_kind(gr->vs) == GV_LIT) {
         /* the matrix again (the lamps' point); H, the sun, up and V in the
          * bone's axes; p; per byte of the colour B D R A */
         static const float up[3] = { 0, 1, 0 };
@@ -1000,7 +1022,7 @@ static void gl_uniforms(gunif_t *u, const ggroup_t *gr, const float M[12], const
         }
     }
     fo += 5 + 28;
-    if (gr->vs == GV_LIT) {             /* the highlight's colour */
+    if (unif_kind(gr->vs) == GV_LIT) {  /* the highlight's colour */
         fo[G.ia] = env->S[0];
         fo[1] = env->S[1];
         fo[2 - G.ia] = env->S[2];
@@ -1009,7 +1031,7 @@ static void gl_uniforms(gunif_t *u, const ggroup_t *gr, const float M[12], const
     G.unif_next = (uint32_t *)fo;
     u->job = G.job_no;
     u->bone = gr->bone;
-    u->vs = gr->vs;
+    u->vs = unif_kind(gr->vs);
     u->lamps = gr->lamps;
     u->cs = cs;
     u->vs_u = vs;
@@ -1059,7 +1081,7 @@ static int gl_draw(const g16_t *g, gmesh_t *e, const ggroup_t *gr, gunif_t *u, c
         G.clipper[0] = env->cx;
         G.clipper[1] = env->cy;
     }
-    if (u->job != G.job_no || u->bone != gr->bone || u->vs != gr->vs || u->lamps != gr->lamps)
+    if (u->job != G.job_no || u->bone != gr->bone || u->vs != unif_kind(gr->vs) || u->lamps != gr->lamps)
         gl_uniforms(u, gr, M, N, env);
     uint32_t *cs = u->cs, *vs = u->vs_u;
     /* GL shader record: flags (clipping for meshes not inside the guard
@@ -1075,7 +1097,7 @@ static int gl_draw(const g16_t *g, gmesh_t *e, const ggroup_t *gr, gunif_t *u, c
     r[0] = clipping ? 4 : 0;
     r[3] = shaders[fs].varyings;
     a = v3d_bus(G.code + 1024 * fs); memcpy(r + 4, &a, 4);
-    a = gr->vs == GV_TEX_RGB ? v3d_bus(e->tex->params) : 0; memcpy(r + 8, &a, 4);
+    a = gr->vs == GV_TEX_RGB || gr->vs == GV_LIT_TEX ? v3d_bus(e->tex->params) : 0; memcpy(r + 8, &a, 4);
     r[14] = 3; r[15] = (uint8_t)words;
     a = v3d_bus(G.code + 1024 * vshaders[gr->vs].kb); memcpy(r + 16, &a, 4);
     a = v3d_bus(vs); memcpy(r + 20, &a, 4);

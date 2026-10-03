@@ -787,6 +787,78 @@ SHADERS["vs_lit"] = """
         nop                 ; nop
 """
 
+# Textured faces of models lit by the sun (Overbit's Meshy heroes): the
+# light of vs_lit at the corner without its highlight, grey as r3d's
+# lit_grey ((r + g + b) / 3, at most 1) and halved, no fog (as the ARM's
+# textured faces): the varyings of fs_tex_rgb. Attributes x y z, the
+# normal, s t, emissive (0/1), the point of the lamps: 12 words. The
+# uniforms of vs_lit (H, p, the fog's colour and the highlight's read or
+# left unused).
+SHADERS["vs_lit_tex"] = """
+        ldi vr_setup, 0xc01a00                          # 12 rows
+        ldi vw_setup, 0x1a00
+        nop                 ; nop
+        nop                 ; nop
+        mov ra0, vpm        ; nop
+        mov ra1, vpm        ; nop
+        mov ra2, vpm        ; nop
+        mov ra3, vpm        ; nop                       # the normal
+        mov ra4, vpm        ; nop
+        mov rb0, vpm        ; nop
+        mov rb1, vpm        ; nop                       # s
+        mov ra17, vpm       ; nop                       # t
+        mov ra8, vpm        ; nop                       # emissive
+        mov ra20, vpm       ; nop                       # the point of the lamps
+        mov ra21, vpm       ; nop
+        mov ra22, vpm       ; nop
+""" + XFORM + """
+        mov ra13, r4        ; nop                       # 1 / depth
+""" + XPOINT + """
+        mov r0, unif        ; nop                       # H: no highlight on a texture
+        mov r0, unif        ; nop
+        mov r0, unif        ; nop
+""" + DOT("ra18") + DOT("ra14") + DOT("ra19") + """
+        mov r0, unif        ; nop                       # p
+        fmax r3, ra18, 0    ; nop                       # max(d, 0)
+        fmax r2, ra19, 0    ; nop
+        fsub r2, 1.0, r2    ; nop
+        nop                 ; fmul r2, r2, r2           # e^2: the rim
+""" + SHADE("ra5") + SHADE("rb3") + SHADE("rb4") + FOG + """
+        mov r0, unif        ; nop                       # the fog's colour: not used
+        mov r0, unif        ; nop
+        mov r0, unif        ; nop
+""" + LAMP * 4 + """
+        fsub r0, 1.0, ra5   ; nop                       # emissive: full light
+        mov r1, rb3         ; fmul r0, r0, ra8
+        fadd ra5, ra5, r0   ; nop
+        fsub r1, 1.0, r1    ; nop
+        mov r2, rb4         ; fmul r1, r1, ra8
+        fadd rb3, rb3, r1   ; nop
+        fsub r2, 1.0, r2    ; nop
+        nop                 ; fmul r2, r2, ra8
+        fadd rb4, rb4, r2   ; nop
+        fadd r0, ra5, rb3   ; nop                       # grey: (a + b + c) / 3
+        ldi r1, 0x3eaaaaab                              # 1/3
+        fadd r0, r0, rb4    ; nop
+        nop                 ; fmul r0, r0, r1
+        fmin r0, r0, 1.0    ; nop                       # at most 1
+        nop                 ; fmul r0, r0, 0.5          # halved: fs_tex_rgb doubles it
+        mov vpm, ra9        ; nop                       # screen x, y
+        mov vpm, rb9        ; nop                       # z
+        mov vpm, ra13       ; nop                       # 1 / w
+        mov vpm, rb1        ; nop                       # s
+        mov vpm, ra17       ; nop                       # t
+        mov vpm, r0         ; nop                       # light a b c
+        mov vpm, r0         ; nop
+        mov vpm, r0         ; nop
+        mov vpm, 0          ; nop                       # fog a b c: none
+        mov vpm, 0          ; nop
+        mov vpm, 0          ; nop
+        nop                 ; nop           ; thrend
+        nop                 ; nop
+        nop                 ; nop
+"""
+
 # Shadows (M36): the corner (ra0 ra1 ra2) into world axes relative to the
 # camera by its bone (12 uniforms), then down along the sun to the ground's
 # plane, as r3d's draw_shadow: h = max(0, (y - plane) / Ly), x - Lx h,

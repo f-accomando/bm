@@ -27,6 +27,9 @@ stress test, il 3D Bench, il benchmark di Overbit e il quarto valore di `gpu3d()
 - **3.1** (2026-10-03, M36): il vertex shader anche per i modelli illuminati dal sole, con
   le ossa (gli eroi).
 - **3.2** (2026-10-03, M36): il vertex shader anche per le ombre e il primo piano.
+- **3.3** (2026-10-03, M36): i modelli con texture illuminati dal sole (gli eroi di Meshy):
+  la luce di ogni angolo (Gouraud, grigia) anche sulle texture, sull'ARM e sulla GPU; il
+  vertex shader `vs_lit_tex` li mette con le ossa.
 
 ## Le modalità: versioni vecchie sul codice di oggi
 
@@ -35,7 +38,7 @@ Le impostazioni riproducono le versioni precedenti, così si confrontano sullo s
 - 3D sull'ARM (`gpu3d=0`): **0.2**;
 - GPU senza vertex shader (`gpu3d_vs=0`): **2.1** (con `gpu3d_aa=1` anche l'MSAA);
 - GPU con il vertex shader per lo scenario (`gpu3d_vs=1`): **3.0**;
-- GPU con il vertex shader per tutto (`gpu3d_vs=2`): **3.2**.
+- GPU con il vertex shader per tutto (`gpu3d_vs=2`): **3.3**.
 
 0.1 e 1.0 non girano più: i loro numeri sono quelli misurati sul Pi allora
 (`docs/M33-PRIMA-DOPO.md`).

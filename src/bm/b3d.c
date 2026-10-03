@@ -4,7 +4,7 @@
  * Tests: scenes whose load n grows (spheres, heroes, screens of pixels,
  * draws...). Profiles: the renderers, each reproducing a version of the
  * drivers (src/gpu/version3d.h): the ARM (0.2), the GPU (2.1), with MSAA,
- * with the vertex shader for the scenery (3.0) and for every model (3.2).
+ * with the vertex shader for the scenery (3.0) and for every model (3.3).
  * For each test and profile n grows by about a third until a frame takes
  * more than LIMIT_MS; the loads at 60 and 30 fps are interpolated, and the
  * work of the last step under 60 fps is kept for the report.
@@ -55,7 +55,7 @@ static const char *prof_version(int p) { return bm3d_mode(prof[p].gpu, prof[p].v
 
 /* ---------------------------------------------------------------- meshes */
 
-static r3d_mesh_t sphere, quad, cube, tile, grid, hero;
+static r3d_mesh_t sphere, quad, cube, tile, grid, hero, hero_tex;
 static g16_sheet_t sheet[3];
 static float bones[16][12];
 static uint8_t vbone[16 * 64];
@@ -147,30 +147,44 @@ static const float part[16][4] = {     /* x y z of the part's middle, its size *
     { 0.15f, 0.5f, 0, 0.13f }, { 0.15f, 0.25f, 0, 0.12f }, { 0.15f, 0.05f, 0.05f, 0.08f },
 };
 
-static void make_hero(void)
+/* tex: every face textured (the Meshy heroes of Overbit), the light of the
+ * sun at the corners */
+static void make_hero(r3d_mesh_t *m, const g16_sheet_t *tex)
 {
     r3d_mesh_t s;
     r3d_mesh_sphere(&s, 6, 8, 0xC05040, 0x4070C0);
     const int sv = s.nverts < 64 ? s.nverts : 64;
-    r3d_mesh_alloc(&hero, 16 * sv, 16 * s.nfaces);
+    r3d_mesh_alloc(m, 16 * sv, 16 * s.nfaces);
+    if (tex)
+        r3d_mesh_alloc_uv(m);
     for (int b = 0; b < 16; b++) {
         for (int i = 0; i < sv; i++) {
             const v3_t v = s.verts[i];
-            hero.verts[b * sv + i] = (v3_t){ part[b][0] + v.x * part[b][3], part[b][1] + v.y * part[b][3],
-                                             part[b][2] + v.z * part[b][3] };
+            m->verts[b * sv + i] = (v3_t){ part[b][0] + v.x * part[b][3], part[b][1] + v.y * part[b][3],
+                                           part[b][2] + v.z * part[b][3] };
             vbone[b * sv + i] = (uint8_t)b;
         }
         for (int t = 0; t < s.nfaces; t++) {
             for (int k = 0; k < 3; k++)
-                hero.faces[(b * s.nfaces + t) * 3 + k] = (uint16_t)(b * sv + s.faces[t * 3 + k]);
-            hero.colors[b * s.nfaces + t] = s.colors[t] | (b < 3 && t % 2 ? R3D_GLOSSY : 0) |
-                                            (b == 2 && t < 8 ? R3D_EMISSIVE : 0);
+                m->faces[(b * s.nfaces + t) * 3 + k] = (uint16_t)(b * sv + s.faces[t * 3 + k]);
+            const int f = b * s.nfaces + t;
+            m->colors[f] = s.colors[t] | (b < 3 && t % 2 ? R3D_GLOSSY : 0) | (b == 2 && t < 8 ? R3D_EMISSIVE : 0);
+            if (tex) {
+                /* a part of the sheet a bone, its face's corners from the sphere's x and y */
+                m->colors[f] = R3D_TEXTURED | (b == 2 && t < 8 ? R3D_EMISSIVE : 0);
+                for (int k = 0; k < 3; k++) {
+                    const v3_t v = s.verts[s.faces[t * 3 + k]];
+                    m->uv[f * 6 + k * 2] = (float)(b % 4) * 32.0f + 16.0f + 15.0f * v.x;
+                    m->uv[f * 6 + k * 2 + 1] = (float)(b / 4) * 32.0f + 16.0f - 15.0f * v.y;
+                }
+            }
         }
     }
-    hero.bones = (const float (*)[12])bones;
-    hero.vbone = vbone;
-    hero.nbones = 16;
-    r3d_mesh_normals(&hero);
+    m->tex = tex;
+    m->bones = (const float (*)[12])bones;
+    m->vbone = vbone;
+    m->nbones = 16;
+    r3d_mesh_normals(m);
     r3d_mesh_free(&s);
 }
 
@@ -199,7 +213,8 @@ static void meshes_make(void)
     textured(&tile, &sheet[0]);
     bake(&tile, 120);
     make_tile(&grid, 16, 0xD0D0D0);                           /* 512 small faces */
-    make_hero();
+    make_hero(&hero, NULL);
+    make_hero(&hero_tex, &sheet[0]);
 }
 
 static void meshes_free(void)
@@ -210,6 +225,7 @@ static void meshes_free(void)
     r3d_mesh_free(&tile);
     r3d_mesh_free(&grid);
     r3d_mesh_free(&hero);
+    r3d_mesh_free(&hero_tex);
     for (int i = 0; i < 3; i++)
         g16_sheet_free(&sheet[i]);
 }
@@ -338,6 +354,8 @@ static void draws(int n, int f)
 
 /* heroes on a ring of rows, their bones moving; with their shadows on a
  * floor (sh), or the floor alone */
+static const r3d_mesh_t *hero_m = &hero;
+
 static void heroes_at(int n, int f, int sh, int floor_k)
 {
     for (int i = 0; i < floor_k; i++)
@@ -349,8 +367,8 @@ static void heroes_at(int n, int f, int sh, int floor_k)
                     z = 1.0f + 1.5f * (float)(i / row);
         pose((float)f * 0.05f + (float)i);
         if (sh)
-            r3d_draw_flags(&R, &hero, (v3_t){ x, 0, z }, 0, (float)i, 0, 1, R3D_SHADOW);
-        r3d_draw_flags(&R, &hero, (v3_t){ x, 0, z }, 0, (float)i, 0, 1, R3D_SMOOTH);
+            r3d_draw_flags(&R, hero_m, (v3_t){ x, 0, z }, 0, (float)i, 0, 1, R3D_SHADOW);
+        r3d_draw_flags(&R, hero_m, (v3_t){ x, 0, z }, 0, (float)i, 0, 1, R3D_SMOOTH);
     }
 }
 
@@ -361,6 +379,14 @@ static void heroes(int n, int f)
     shine_light();
     heroes_at(n, f, 0, 0);
     scene_light();
+}
+
+/* the same textured, as the Meshy heroes of Overbit */
+static void heroes_tex(int n, int f)
+{
+    hero_m = &hero_tex;
+    heroes(n, f);
+    hero_m = &hero;
 }
 
 static void heroes_shadow(int n, int f)
@@ -469,6 +495,8 @@ static const test_t tests[] = {
     { "spheres_shine", "spheres, sky, rim, gloss, 4 lamps, fog", "spheres", 1, 8000, M_LIT, sp_shine,
       spheres_shine, sp_undo, NULL, 0 },
     { "heroes", "heroes: 16 bones, 1536 faces", "heroes", 1, 512, M_LIT, NULL, heroes, NULL, NULL, 0 },
+    { "heroes_tex", "heroes, textured (as the Meshy ones)", "heroes", 1, 512, M_LIT, NULL, heroes_tex, NULL, NULL,
+      0 },
     { "heroes_shadow", "heroes with shadows on a floor", "heroes", 1, 512, M_LIT, NULL, heroes_shadow, NULL, NULL,
       0 },
     { "clip", "map pieces through the near plane", "pieces", 1, 4000, M_ALL, NULL, clip_scene, NULL, NULL, 0 },
@@ -526,7 +554,7 @@ static float ceiling(const test_t *t, const char **what)
     }
     if (!strncmp(t->id, "heroes", 6)) {
         *what = "V3D 3.0 Mtri/s";
-        return 3.0e6f * frame / (t->id[6] ? 2.0f * 1536.0f : 1536.0f);
+        return 3.0e6f * frame / (!strcmp(t->id, "heroes_shadow") ? 2.0f * 1536.0f : 1536.0f);
     }
     return 0;
 }

@@ -6,7 +6,7 @@ import os
 import sys
 
 TESTS = ["spheres", "spheres_smooth", "spheres_tex", "spheres_unlit", "spheres_baked", "spheres_shine", "heroes",
-         "heroes_shadow", "clip", "tiny", "draws", "quad_flat", "quad_smooth", "quad_tex", "quad_alpha",
+         "heroes_tex", "heroes_shadow", "clip", "tiny", "draws", "quad_flat", "quad_smooth", "quad_tex", "quad_alpha",
          "quad_screen", "texswap", "split", "match"]
 FUTURE = ["queue", "gpu2d", "bilinear"]
 
@@ -39,7 +39,7 @@ def main():
     # vertices placed by r3d)
     vs = {r[1]: r for r in rows if r[2] == "GPU+VS"}
     gpu = {r[1]: r for r in rows if r[2] == "GPU"}
-    check(all(int(vs[t][11]) < int(gpu[t][11]) or int(gpu[t][11]) == 0 for t in ("spheres", "heroes") if t in vs),
+    check(all(int(vs[t][11]) < int(gpu[t][11]) or int(gpu[t][11]) == 0 for t in ("spheres", "heroes", "heroes_tex") if t in vs),
           "GPU+VS: r3d places fewer vertices than GPU")
     check(all(float(r[4]) >= 0 or r[4] == "-1" for r in rows), "loads at 60 fps")
     pages = sorted(f for f in os.listdir(d) if f.startswith("page-"))
