@@ -5,6 +5,10 @@
  * run by qemu-arm) or on the PC.
  *
  *   mapbench CART.bm PREFIX|@LIST x y z yaw pitch [frames] [out.ppm]
+ *
+ * Built with -DBENCH_GPU (and tests/gpu/v3d_emu.c, src/gpu/gpu3d.c, as
+ * tests/bm/herocost.py does), MAPBENCH_GPU=1 draws with the GPU backend on
+ * the V3D emulator: the ARM's share of the map with the GPU.
  */
 #include <stdio.h>
 #include <stdlib.h>
@@ -13,6 +17,29 @@
 
 #include "bm/bm.h"
 #include "bm/r3d.h"
+#ifdef BENCH_GPU
+#include <stdarg.h>
+#include "gpu/gpu3d.h"
+#include "v3d_emu.h"
+
+int kprintf(const char *fmt, ...)
+{
+    va_list ap;
+    va_start(ap, fmt);
+    int n = vprintf(fmt, ap);
+    va_end(ap);
+    return n;
+}
+
+int ksnprintf(char *buf, size_t size, const char *fmt, ...)
+{
+    va_list ap;
+    va_start(ap, fmt);
+    int n = vsnprintf(buf, size, fmt, ap);
+    va_end(ap);
+    return n;
+}
+#endif
 
 static uint8_t glyphs[256 * 16];
 static const font_t font = { 8, 16, glyphs };
@@ -112,11 +139,27 @@ int main(int argc, char **argv)
     float yaw = (float)atof(argv[6]), pitch = (float)atof(argv[7]);
     int frames = argc > 8 ? atoi(argv[8]) : 4;
 
-    static uint16_t fb[320 * 180];
+    static uint16_t fb_ram[320 * 180];
+    uint16_t *fb = fb_ram;
     g16_t g;
     r3d_t r;
+#ifdef BENCH_GPU
+    const int gpu = getenv("MAPBENCH_GPU") != NULL;
+    if (gpu) {
+        fb = test_aligned_alloc(64, sizeof fb_ram);
+        if (gpu3d_init() != 0) {
+            fprintf(stderr, "gpu3d: %s\n", gpu3d_status());
+            return 1;
+        }
+        emu_skip = getenv("BENCH_EMU_SKIP") != NULL;
+    }
+#endif
     g16_target(&g, fb, 320, 320, 180, &font);
     r3d_init(&r, &g);
+#ifdef BENCH_GPU
+    if (gpu)
+        r.backend = gpu3d_backend();
+#endif
     r3d_light(&r, -0.78f, 0.36f, -0.5f, 0.42f);
     r3d_fog(&r, 0xD8A0A0, 45, 150);
     uint32_t tris = 0, drawn = 0, px = 0, verts = 0;
@@ -127,6 +170,12 @@ int main(int argc, char **argv)
         r3d_camera(&r, x, y, z, yaw, pitch, 96);
         for (int i = 0; i < n; i++)
             r3d_draw_flags(&r, &mesh[i], (v3_t){ 0, 0, 0 }, 0, 0, 0, 1, 0);
+#ifdef BENCH_GPU
+        if (gpu && gpu3d_flush(&g, 0) != 0) {
+            fprintf(stderr, "gpu3d: %s (%s)\n", gpu3d_status(), emu_error);
+            return 1;
+        }
+#endif
         tris = r.tris_in;
         drawn = r.tris_drawn;
         px = r.pixels;
