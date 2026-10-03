@@ -154,7 +154,75 @@ screenshot in `docs/img/`), `README_OLD.md` (il README completo, in italiano),
 ## Assistente AI (M30)
 
 - `src/ai/`: rete INT8 che sceglie tra le voci di `src/ai/kb/*.txt` (formato in
-  `src/ai/kb/README.md`) e ricette di sprite; pannello Lua `require "assist"`.
+  `src/ai/kb/README.md`), ricette di sprite (`sprite.c`) e ricette 3D (`mesh.c`,
+  `mesh_chars.c`: forme, oggetti, persone, animali e macchine con scheletro e animazioni,
+  `kind: mesh` in `kb/meshes.txt`, API `ai.mesh`); pannello Lua `require "assist"`
+  (modo `mesh`: il modello gira nel pannello). bm Studio e bm Animator lo aprono con F6
+  (pad: Y + X) da `bm3d.lua` (`T.assistant`, `T.take_model`): il modello entra nel
+  progetto con scheletro e animazioni. Per guardare le ricette sul PC: `make
+  build/host/meshview && build/host/meshview sheet out.ppm` (tutte) o `meshview one
+  mech out.ppm` (una, da quattro lati e nelle pose); guardarle dopo ogni modifica.
+  Una faccia si vede dal lato in senso orario: i primitivi passano per `face_out()`
+  con un punto interno al solido. Un'unità = un blocco; il modello guarda verso −z.
+- **Linguaggio delle parti** (`src/ai/mesh_script.c`, una riga per primitivo, la grammatica
+  in testa al file; `ai.script(testo)` in Lua, `meshview script FILE OUT.ppm` e `meshview
+  json FILE OUT.json` sul PC). **img2mesh** (`tools/img2mesh.py`): un'immagine diventa un
+  modello: Claude (API Anthropic, `claude-opus-5-5`, SDK `anthropic`) guarda l'immagine e
+  scrive lo script, `meshview` lo costruisce e lo disegna, i render tornano al modello per
+  due giri di correzione, il `.bm` esce con MESH e ANIM (`bmmesh.encode_faces`,
+  `encode_anim`, `decode_anim`; `mkbm.pack` o le sezioni di una cartuccia esistente).
+  Esempio e test: `tests/ai/img2mesh/mech.txt` (il mech della ricetta nel linguaggio),
+  `tests/ai/img2mesh/replay/` (risposte registrate: `make test-img2mesh` non chiama l'API),
+  `test_img2mesh` in QEMU. Serve `ANTHROPIC_API_KEY` o un profilo `ant auth login` solo per
+  usarlo davvero.
+- **meshy2mesh** (`tools/meshy2mesh.py`, chiave `MESHY_API_KEY` nell'ambiente, mai nei
+  file): image-to-3D di meshy.ai → `.glb` → `.bm` (texture nello sheet della cartuccia
+  nuova, colori piatti in una esistente o con `--flat`, il riduttore sopra `--max-tris`).
+  `--glb` converte un `.glb` qualunque. Test: `tests/ai/check_meshy.py` (in `make
+  test-img2mesh`), `test_meshy2mesh` in QEMU. La rete di questo ambiente nega
+  `api.meshy.ai`: la chiamata vera si prova dal PC dell'utente.
+- **Riduttore di poligoni** (`src/bm/decimate.c`, C portabile, niente AI): collasso degli
+  spigoli con le quadriche (Garland-Heckbert), mezzo spigolo (i vertici restano quelli del
+  modello, le ossa seguono), bordi, linee di colore e cuciture della texture tenuti con un
+  piano attraverso lo spigolo, nessuna faccia rovesciata. Kernel: `mesh_reduce(record,
+  triangoli, ossa)` in `runtime.c`, `T.reduce_model` in `bm3d.lua`, tasto `-` nella pagina
+  models di bm Studio. PC: `build/host/libbmdecimate.so` via ctypes (`scripts/bmdecimate.py`),
+  `tools/bmreduce.py`, e meshy2mesh sopra `--max-tris` (la griglia resta solo oltre i limiti
+  del formato). Test: `tests/bm/test_decimate.c` (in `make test-bm`), lo stand-in Lua in
+  `tools3d_host.lua`, `test_mesh_reduce` in QEMU.
+- **Modello da un'immagine sulla console** (`picture3d` in `runtime.c`): `src/net/img3d.c`
+  parla col servizio (tabella dei fornitori: nome, indirizzo, nome della chiave in
+  `bm/config.txt`; Meshy per primo: POST `/image-to-3d` con l'immagine in base64, GET dello
+  stato, download del `.glb`) sopra `http.c`/`tls.c`; `src/bm/glb.c` legge il `.glb`
+  (`json.c` parser JSON minimo, `jpeg.c` decodificatore JPEG baseline, `png.c` il PNG di
+  nano8 spostato lì) e dà il record MESH con la texture 256×256, il gemello a colori piatti
+  e il modello ridotto con `decimate.c`. In Lua `T.picture_chooser`/`T.picture_update` in
+  `bm3d.lua` (tasto `m` della pagina models, voce "Model from picture..." del menu; le
+  chiamate bloccano: il messaggio si mostra il fotogramma prima). Test: `make test-img3d`
+  (servizio finto in Python, `tests/net/run_img3d_test.py`), `tests/bm/run_glb_test.py` in
+  `make test-bm` (il `.glb` di `tests/ai/glbfix.py`, PNG e JPEG), lo stand-in in
+  `tools3d_host.lua`, `test_picture_model` in QEMU (senza rete: il messaggio). Dalla
+  seriale di QEMU `p` è l'overlay delle prestazioni: non usarlo come tasto delle app.
+- **Contorno → modello, senza AI** (`src/bm/cutout.c`, C portabile): maschera (alpha, o il
+  colore degli angoli), griglia di 96 celle, via i frammenti sotto 1/50, contorni esterni
+  seguiti sugli spigoli delle celle (i buchi si riempiono), Douglas-Peucker (almeno una
+  cella), ear clipping; estrusione (`depth` frazione dell'altezza) o tornio (`segments`);
+  `face()` gira ogni triangolo perché la normale destrorsa guardi *via* dall'esterno (così
+  la console lo mostra). La texture: il riquadro dell'immagine sullo sheet, i pixel di
+  sfondo accanto alla figura prendono il colore vicino (il contorno corre sugli angoli
+  delle celle). `glb_pack()` in `glb.c` impacchetta record, gemello piatto e texture per
+  tutti e due. Kernel: `cutout3d` in `runtime.c`; bm Studio `m` → scelta del modo (cutout,
+  lathe, meshy.ai) → immagine; il calcolo va al fotogramma dopo il messaggio. PC:
+  `build/host/libbmcutout.so` (ctypes `scripts/bmcutout.py`), `tools/cutout2mesh.py`.
+  Test: `tests/bm/run_cutout_test.py` (lecca-lecca su sfondo trasparente e bianco: chiuso,
+  alto 2, l'immagine davanti nel render; il tornio chiuso e tondo) in `make test-bm`,
+  `test_picture_model` in QEMU (il ritaglio fatto sul kernel ARM e salvato).
+- **local2mesh** (`tools/local2mesh.py`): modelli aperti image-to-3D sul PC dell'utente
+  (TripoSR, Hunyuan3D 2: `--install` clona e fa il venv in `~/.bm/local3d`; `--backend
+  command` per qualunque strumento che scriva un `.glb`), poi `meshy2mesh.convert` e
+  `write_cart`. Qui non si provano i backend veri (niente GPU, huggingface negato):
+  `tests/ai/check_local2mesh.py` (in `make test-img2mesh`) usa un comando finto che scrive
+  il `.glb` di `glbfix.py`.
 - Dopo aver cambiato la base di conoscenza: `make ai-model` (numpy) e commit di
   `src/ai/assist.weights`; `make test-ai` controlla C contro Python, domande di prova,
   esempi di codice e pannello.

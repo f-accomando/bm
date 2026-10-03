@@ -6,12 +6,14 @@
  *
  *   test_ai build/assist.bin build/ai/ref.txt
  */
+#include <math.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 #include <time.h>
 
 #include "ai/assist.h"
+#include "ai/mesh.h"
 #include "ai/sprite.h"
 #include "ai/text.h"
 
@@ -183,6 +185,143 @@ static void test_sprites(void)
 }
 
 /* every recipe: seeds 1-6 at 16x16, 1-2 at 32x32, 1 at 8x8; a PPM, 3x */
+/* ---------------------------------------------------------------- 3D recipes */
+
+static void test_meshes(void)
+{
+    static mesh_model_t a, b;
+    CHECK(mesh_recipes() >= 50, "%d 3D recipes", mesh_recipes());
+    int rigged = 0;
+    for (int i = 0; i < mesh_recipes(); i++) {
+        const char *id = mesh_recipe_id(i);
+        mesh_req_t r;
+        mesh_req_init(&r, id);
+        CHECK(mesh_make(&r, &a) == 0, "%s: no model", id);
+        CHECK(a.nfaces >= 5 && a.nfaces < MESH_MAX_FACES, "%s: %d faces", id, a.nfaces);
+        /* on the ground, around the origin, not huge: a block of bm Studio is one unit */
+        float lo[3] = { 1e9f, 1e9f, 1e9f }, hi[3] = { -1e9f, -1e9f, -1e9f };
+        int degenerate = 0, bad_bone = 0;
+        for (int f = 0; f < a.nfaces; f++) {
+            const mesh_face_t *fc = &a.faces[f];
+            CHECK(fc->n == 3 || fc->n == 4, "%s: face %d with %d corners", id, f, fc->n);
+            for (int k = 0; k < fc->n; k++) {
+                for (int d = 0; d < 3; d++) {
+                    if (fc->p[k][d] < lo[d]) lo[d] = fc->p[k][d];
+                    if (fc->p[k][d] > hi[d]) hi[d] = fc->p[k][d];
+                }
+                if (fc->b[k] >= (a.nbones ? a.nbones : 1)) bad_bone++;
+            }
+            float e1[3], e2[3], n[3];
+            for (int d = 0; d < 3; d++) { e1[d] = fc->p[1][d] - fc->p[0][d]; e2[d] = fc->p[2][d] - fc->p[0][d]; }
+            n[0] = e1[1] * e2[2] - e1[2] * e2[1]; n[1] = e1[2] * e2[0] - e1[0] * e2[2]; n[2] = e1[0] * e2[1] - e1[1] * e2[0];
+            if (n[0] * n[0] + n[1] * n[1] + n[2] * n[2] < 1e-10f) degenerate++;
+        }
+        CHECK(lo[1] > -0.2f && lo[1] < 0.6f, "%s: stands at y %g", id, lo[1]);
+        CHECK(hi[1] - lo[1] <= 6 && hi[0] - lo[0] <= 6 && hi[2] - lo[2] <= 6, "%s: too big (%g x %g x %g)",
+              id, hi[0] - lo[0], hi[1] - lo[1], hi[2] - lo[2]);
+        CHECK(lo[0] < 0.01f && hi[0] > -0.01f, "%s: not around x = 0", id);
+        CHECK(degenerate == 0, "%s: %d degenerate faces", id, degenerate);
+        CHECK(bad_bone == 0, "%s: %d corners on bones that do not exist", id, bad_bone);
+        if (mesh_recipe_rigged(i)) {
+            rigged++;
+            CHECK(a.nbones >= 1 && a.nclips >= 2, "%s: %d bones, %d clips", id, a.nbones, a.nclips);
+            for (int k = 0; k < a.nbones; k++)
+                CHECK(a.bones[k].parent < k && a.bones[k].name[0], "%s: bone %d", id, k);
+            for (int k = 0; k < a.nclips; k++)
+                CHECK(a.clips[k].nkeys >= 1 && a.clips[k].length > 0 && a.clips[k].name[0], "%s: clip %d", id, k);
+            /* the mirrored bones: a .L for every .R */
+            for (int k = 0; k < a.nbones; k++) {
+                size_t n = strlen(a.bones[k].name);
+                if (n > 2 && a.bones[k].name[n - 2] == '.' && a.bones[k].name[n - 1] == 'R') {
+                    char want[16];
+                    strcpy(want, a.bones[k].name);
+                    want[n - 1] = 'L';
+                    int found = 0;
+                    for (int j = 0; j < a.nbones; j++) found |= !strcmp(a.bones[j].name, want);
+                    CHECK(found, "%s: %s without %s", id, a.bones[k].name, want);
+                }
+            }
+        } else {
+            CHECK(a.nbones == 0 && a.nclips == 0, "%s: a skeleton it should not have", id);
+        }
+        /* the same seed, the same model; the next seed a model all the same */
+        mesh_make(&r, &b);
+        CHECK(!memcmp(&a, &b, sizeof a), "%s: same seed, same model", id);
+        r.seed = 2;
+        CHECK(mesh_make(&r, &b) == 0 && b.nfaces >= 5, "%s: seed 2", id);
+        /* without the skeleton, no bones */
+        r.rig = 0;
+        mesh_make(&r, &b);
+        CHECK(b.nbones == 0 && b.nclips == 0, "%s: rig = 0 still has bones", id);
+    }
+    CHECK(rigged >= 10, "%d rigged recipes", rigged);
+    /* the words: colours, size, proportions, no skeleton */
+    mesh_req_t r;
+    mesh_req_init(&r, "house");
+    mesh_parse("una casa rossa grande col tetto blu", &r);
+    CHECK(r.color[0] == 0xD83A3A && r.color[1] == 0x3A62D8 && r.scale == 1.5f, "words: colours and size");
+    mesh_make(&r, &a);
+    float hi = 0;
+    for (int f = 0; f < a.nfaces; f++) if (a.faces[f].p[0][1] > hi) hi = a.faces[f].p[0][1];
+    CHECK(hi > 3.0f && hi < 4.0f, "a big house is 1.5 times as tall: %g", hi);
+    mesh_req_init(&r, "hero");
+    mesh_parse("tall thin hero without skeleton", &r);
+    CHECK(r.tall == 1.3f && r.wide == 0.75f && r.rig == 0, "words: tall, thin, no skeleton");
+    mesh_make(&r, &a);
+    CHECK(a.nbones == 0, "no skeleton asked: %d bones", a.nbones);
+    mesh_req_init(&r, "mech");
+    mesh_parse("mech senza animazioni", &r);
+    CHECK(r.rig == 0, "senza animazioni");
+    CHECK(mesh_find("nothing") < 0, "unknown recipe found");
+    /* the time of a model: well under the frame on the PC */
+    clock_t t0 = clock();
+    mesh_req_init(&r, "mech");
+    for (int i = 0; i < 20; i++) { r.seed = (uint32_t)i + 1; mesh_make(&r, &a); }
+    double ms = (double)(clock() - t0) * 1000.0 / CLOCKS_PER_SEC / 20;
+    printf("3D recipes: %d, the mech (%d faces) in %.2f ms\n", mesh_recipes(), a.nfaces, ms);
+}
+
+/* the part language: the mech script gives the recipe's model, errors name the line */
+static void test_script(void)
+{
+    static mesh_model_t a, b;
+    static char text[1 << 16];
+    char err[128];
+    FILE *f = fopen("tests/ai/img2mesh/mech.txt", "rb");
+    if (!f) {
+        printf("tests/ai/img2mesh/mech.txt not here: the script test is skipped\n");
+        return;
+    }
+    size_t n = fread(text, 1, sizeof text - 1, f);
+    fclose(f);
+    text[n] = 0;
+    CHECK(mesh_script(text, &a, err, sizeof err) == 0, "mech script: %s", err);
+    mesh_req_t r;
+    mesh_req_init(&r, "mech");
+    mesh_make(&r, &b);
+    CHECK(a.nfaces == b.nfaces && a.nbones == b.nbones && a.nclips == b.nclips,
+          "the script makes the recipe's mech: %d faces %d bones %d clips (recipe %d %d %d)",
+          a.nfaces, a.nbones, a.nclips, b.nfaces, b.nbones, b.nclips);
+    /* the same corners, whatever the order of the faces: their sums agree */
+    double sa[3] = { 0, 0, 0 }, sb[3] = { 0, 0, 0 };
+    for (int i = 0; i < a.nfaces; i++)
+        for (int k = 0; k < a.faces[i].n; k++)
+            for (int d = 0; d < 3; d++) { sa[d] += a.faces[i].p[k][d]; sb[d] += b.faces[i].p[k][d]; }
+    CHECK(fabs(sa[0] - sb[0]) < 1 && fabs(sa[1] - sb[1]) < 1 && fabs(sa[2] - sb[2]) < 1,
+          "the script's corners are the recipe's (%g %g %g vs %g %g %g)", sa[0], sa[1], sa[2], sb[0], sb[1], sb[2]);
+    CHECK(mesh_script("mat 1 FF0000\nbx 0 0 0 1 1 1 1\n", &a, err, sizeof err) == 0 && a.nfaces == 6 && a.nbones == 0,
+          "a cube script: %s", err);
+    CHECK(mesh_script("mat 1 FF0000\nbox 0 0 0 1 1\n", &a, err, sizeof err) == -1 && !strncmp(err, "line 2:", 7),
+          "a short box: %s", err);
+    CHECK(mesh_script("mat 1 FF0000\n# nothing\n", &a, err, sizeof err) == -1 && strstr(err, "no faces"), "no faces: %s", err);
+    CHECK(mesh_script("bone a - 0 0 0 0 1 0\nuse b\nbx 0 0 0 1 1 1 1\n", &a, err, sizeof err) == -1 &&
+          strstr(err, "no such bone"), "unknown bone: %s", err);
+    CHECK(mesh_script("bone a.L - 0.5 0 0 0.5 1 0\nuse a.L\nside\nbx 0.5 0 0 1 1 1 1\nmirror a.L\nclip go 1 loop\nkey 0\nturn a.R 10 0 0\n",
+                      &a, err, sizeof err) == 0 && a.nbones == 2 && a.nfaces == 12 && !strcmp(a.bones[1].name, "a.R") &&
+          a.nclips == 1, "mirror and a clip: %s", err);
+    CHECK(a.faces[6].p[0][0] <= 0 && a.faces[6].b[0] == 1, "the mirrored faces on the mirrored bone");
+}
+
 static void sprite_sheet(const char *path)
 {
     enum { Z = 3, CW = 6 * 18 + 2 * 34 + 2 * 10, RH = 34 };
@@ -247,6 +386,8 @@ int main(int argc, char **argv)
     test_near();
     test_speed();
     test_sprites();
+    test_meshes();
+    test_script();
 
     printf("%d checks, %d failed\n", checks, fails);
     return fails != 0;

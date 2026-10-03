@@ -8,12 +8,14 @@ raspi2b (a Pi 2 B: the BCM2710's peripherals, a Cortex-A7, no radio).
   tests/qemu_test.py [--build build] [--update-ref] [-k name] [--kernel7]
 """
 import argparse
+import base64
 import hashlib
 import re
 import os
 import shutil
 import socket
 import struct
+import zlib
 import subprocess
 import sys
 import tempfile
@@ -3456,6 +3458,427 @@ def test_studio_animator(b, opts):
             assert village == f.read(), "the village was not saved: it stays as it was"
     finally:
         shutil.rmtree(tmp, ignore_errors=True)
+
+
+def test_studio_assistant(b, opts):
+    """M30 in bm Studio and bm Animator: F6 opens the assistant in its 3D
+    mode; a request ("casa rossa") shows the recipe turning in the panel
+    and Enter makes it a model; a rigged one ("mech") brings its skeleton
+    and animations, which bm Animator plays (cart_tool on the saved file)
+    and the kernel's ANIM section holds; the Animator's own F6 adds a
+    dragon. The file is read back and checked."""
+    tmp = tempfile.mkdtemp(prefix="bm-s3dai-")
+    img = os.path.join(tmp, "sd.img")
+    mksd.build(img, [(b("carts/village.bm"), "carts/village.bm")])
+    q = Qemu(b("kernel.img"), ["-drive", f"if=sd,format=raw,file={img}"])
+
+    def keys(*ks, gap=0.3):
+        for k in ks:
+            q.send(k)
+            time.sleep(gap)
+
+    def screen(want, tries=40):
+        for _ in range(tries):
+            _, text = settled_screen(q, lambda i, t: all(any(w in l for l in t) for w in want), tries=2)
+            if all(any(w in l for l in text) for w in want):
+                return "\n".join(text)
+            time.sleep(0.25)
+        raise AssertionError(f"not on the screen: {want}\n" + "\n".join(text))
+
+    def shot(name):
+        if opts.shots:
+            img_, _ = settled_screen(q, lambda i, t: "menu" in t[0] and t[21].strip() != "", tries=20)
+            _save_png(img_, os.path.join(opts.shots, f"{name}.png"))
+
+    F2, F6 = "\x1bOQ", "\x1b[17~"
+    DOWN, ESC = "\x1b[B", "\x1b"
+    try:
+        q.expect(MENU, timeout=30)
+        time.sleep(0.5)
+        screen(["Games", "Studio Village"])
+        keys("x")
+        screen(["Open in bm Studio"])
+        keys("s", "s", "s", "s", "\r")
+        screen(["build", "models", "TOOLS", "model 1/8: ground"])
+        # a new project, then the assistant: a house from words
+        keys(ESC, gap=0.6)
+        keys(DOWN, DOWN, "\r", gap=0.4)         # New project
+        screen(["BLOCK", "cell 0,0,0"])
+        keys(F6, gap=0.6)
+        screen(["Assistant", "mesh", "type a question"])
+        for ch in "casa rossa":
+            keys(ch, gap=0.12)
+        screen(["Casa (casetta col tetto)", "faces", "3D"])
+        shot("studio-assistant")
+        keys("\r", gap=1.0)
+        screen(["the assistant's house: 35 faces, model house", "TOOLS"])
+        shot("studio-assistant-house")
+        # a rigged one: the mech, a new model with its skeleton
+        keys(F6, gap=0.6)
+        for ch in "mech":
+            keys(ch, gap=0.12)
+        screen(["Mech (robot da combattimento", "9 bones: idle walk fire"])
+        keys("\r", gap=1.5)
+        screen(["9 bones, 3 animations, model mech"])
+        keys(F2)
+        screen(["MODELS 2", "house", "mech"])
+        shot("studio-assistant-models")
+        # saved as AI.BM, then bm Animator on it: the mech's animations play
+        keys(ESC, gap=0.6)
+        for _ in range(4):
+            keys(DOWN)
+        keys("\r")
+        screen(["file name"])
+        for _ in range(8):
+            keys("\x7f", gap=0.1)
+        for ch in "AI\r":
+            keys(ch, gap=0.1)
+        screen(["saved /carts/AI.BM"])
+        keys(ESC, gap=0.6)                      # the menu goes back to the page...
+        keys(ESC, gap=0.6)                      # ...and opens again on Continue
+        screen(["Open in bm Animator"])
+        for _ in range(8):
+            keys(DOWN)
+        keys("\r", gap=1.5)
+        screen(["play", "sprites", "MODELS", "house", "mech"], tries=80)
+        keys(DOWN)
+        screen(["ANIMATIONS", "idle", "walk", "fire", "9 bones"])
+        shot("animator-assistant-mech")
+        # the Animator's own F6: a dragon, played at once
+        keys(F6, gap=0.6)
+        for ch in "drago":
+            keys(ch, gap=0.12)
+        screen(["Drago", "10 bones: idle fly walk"])
+        keys("\r", gap=1.5)
+        screen(["the assistant's dragon:", "10 bones, 3 animations, model dragon"])
+        screen(["ANIMATIONS", "fly"])
+        shot("animator-assistant-dragon")
+        keys("\x13", gap=0.8)                   # Ctrl+S
+        screen(["saved /carts/AI.BM"])
+        keys(ESC, gap=0.6)
+        keys("\x1b[A", "\r", gap=0.6)           # Exit bm Animator
+        screen(["Games"])
+    finally:
+        q.close()
+    try:
+        part = os.path.join(tmp, "part.img")
+        with open(img, "rb") as f, open(part, "wb") as o:
+            f.seek(2048 * 512)
+            o.write(f.read())
+        env = dict(os.environ, MTOOLS_SKIP_CHECK="1")
+        saved = subprocess.run(["mtype", "-i", part, "::/CARTS/AI.BM"], capture_output=True, env=env).stdout
+        secs = dict(bmmesh.cart_sections(saved))
+        models, _ = bmmesh.decode(secs[bmmesh.SEC_MESH])
+        names = [m["name"] for m in models]
+        assert names == ["house", "mech", "dragon"], names
+        assert len(models[0]["faces"]) >= 60 and len(models[1]["faces"]) >= 1000, [len(m["faces"]) for m in models]
+        anim = secs[bmmesh.SEC_ANIM]
+        assert struct.unpack_from("<H", anim)[0] == 2, "two rigs: the mech's and the dragon's"
+        nb, nc, nv = struct.unpack_from("<HHH", anim, 8 + 16)
+        assert anim[8:12] == b"mech" and (nb, nc) == (9, 3), (anim[8:24], nb, nc)
+        clip = 8 + 24 + nb * 44 + ((nv + 3) & ~3)
+        assert anim[clip:clip + 4] == b"idle", anim[clip:clip + 16]
+    finally:
+        shutil.rmtree(tmp, ignore_errors=True)
+
+
+def test_img2mesh(b, opts):
+    """tools/img2mesh.py offline (the recorded replies: the mech in the part
+    language) writes a .bm the console plays: bm Studio lists its models,
+    bm Animator plays the mech's animations from its ANIM section."""
+    tmp = tempfile.mkdtemp(prefix="bm-i2m-")
+    cart = os.path.join(tmp, "img2mesh.bm")
+    knight = os.path.join(tmp, "knight.ppm")
+    subprocess.run([b("host/meshview"), "one", "knight", knight], check=True, capture_output=True)
+    for name, rounds in (("mech", "1"), ("robot", "0")):
+        subprocess.run([sys.executable, os.path.join(HERE, "..", "tools", "img2mesh.py"), knight, "-o", cart,
+                        "--name", name, "--rounds", rounds, "--replay", os.path.join(HERE, "ai", "img2mesh", "replay"),
+                        "--work", os.path.join(tmp, name), "--meshview", b("host/meshview")],
+                       check=True, capture_output=True)
+    img = os.path.join(tmp, "sd.img")
+    mksd.build(img, [(cart, "carts/img2mesh.bm")])
+    q = Qemu(b("kernel.img"), ["-drive", f"if=sd,format=raw,file={img}"])
+
+    def keys(*ks, gap=0.3):
+        for k in ks:
+            q.send(k)
+            time.sleep(gap)
+
+    def screen(want, tries=40):
+        for _ in range(tries):
+            _, text = settled_screen(q, lambda i, t: all(any(w in l for l in t) for w in want), tries=2)
+            if all(any(w in l for l in text) for w in want):
+                return "\n".join(text)
+            time.sleep(0.25)
+        raise AssertionError(f"not on the screen: {want}\n" + "\n".join(text))
+
+    F2 = "\x1bOQ"
+    DOWN, ESC = "\x1b[B", "\x1b"
+    try:
+        q.expect(MENU, timeout=30)
+        time.sleep(0.5)
+        screen(["Games", "mech"])
+        keys("x")
+        screen(["Open in bm Studio"])
+        keys("s", "s", "s", "s", "\r", gap=0.4)
+        screen(["build", "models", "TOOLS"])
+        keys(F2)
+        screen(["MODELS 2", "mech", "robot", "662 faces 1160 tri 702 vertices", "9 bones, 3 animations"])
+        keys(ESC, gap=0.6)
+        screen(["Open in bm Animator"])
+        for _ in range(8):
+            keys(DOWN)
+        keys("\r", gap=1.5)
+        screen(["play", "ANIMATIONS", "idle", "walk", "fire", "702 vertices, 1160 triangles, 9 bones"], tries=80)
+        if opts.shots:
+            img_, _ = settled_screen(q, lambda i, t: "menu" in t[0] and t[21].strip() != "", tries=20)
+            _save_png(img_, os.path.join(opts.shots, "img2mesh-animator.png"))
+    finally:
+        q.close()
+        shutil.rmtree(tmp, ignore_errors=True)
+
+
+def test_meshy2mesh(b, opts):
+    """tools/meshy2mesh.py offline (tests/ai/check_meshy.py makes a .glb and
+    converts it): the cartridge with the textured box on its own sheet and
+    the flat pyramid plays in bm Studio, which lists both models."""
+    tmp = tempfile.mkdtemp(prefix="bm-meshy-")
+    subprocess.run([sys.executable, os.path.join(HERE, "ai", "check_meshy.py"), tmp], check=True, capture_output=True)
+    cart = os.path.join(tmp, "meshy", "meshy.bm")
+    img = os.path.join(tmp, "sd.img")
+    mksd.build(img, [(cart, "carts/meshy.bm")])
+    q = Qemu(b("kernel.img"), ["-drive", f"if=sd,format=raw,file={img}"])
+
+    def keys(*ks, gap=0.3):
+        for k in ks:
+            q.send(k)
+            time.sleep(gap)
+
+    def screen(want, tries=40):
+        for _ in range(tries):
+            _, text = settled_screen(q, lambda i, t: all(any(w in l for l in t) for w in want), tries=2)
+            if all(any(w in l for l in text) for w in want):
+                return "\n".join(text)
+            time.sleep(0.25)
+        raise AssertionError(f"not on the screen: {want}\n" + "\n".join(text))
+
+    try:
+        q.expect(MENU, timeout=30)
+        time.sleep(0.5)
+        screen(["Games", "thing"])
+        keys("x")
+        screen(["Open in bm Studio"])
+        keys("s", "s", "s", "s", "\r", gap=0.4)
+        screen(["build", "models", "TOOLS", "model 1/2: thing", "18 tri"])
+        keys("\x1bOQ")                         # F2
+        screen(["MODELS 2", "thing", "flat1"])
+        if opts.shots:
+            img_, _ = settled_screen(q, lambda i, t: "menu" in t[0] and t[21].strip() != "", tries=20)
+            _save_png(img_, os.path.join(opts.shots, "meshy-studio.png"))
+        keys("\x1b", gap=0.6)
+        keys("\x1b[A", "\r", gap=0.8)           # Exit bm Studio (nothing changed)
+        screen(["Games", "thing"])
+        keys("\r", gap=0.5)                    # play: the viewer shows the first model
+        q.expect("playing meshy.bm", timeout=20)
+        time.sleep(3.0)
+        img_, _ = settled_screen(q, lambda i, t: True, tries=1)
+        # the box drawn: its red and blue texture halves on the screen
+        w, h, px = img_
+        reds = blues = 0
+        for i in range(0, w * h * 3, 3 * 7):
+            r, g, bl = px[i], px[i + 1], px[i + 2]
+            reds += r > 120 and g < 80 and bl < 80
+            blues += bl > 120 and r < 80 and g < 80
+        assert reds > 200 and blues > 200, (reds, blues)
+        if opts.shots:
+            _save_png(img_, os.path.join(opts.shots, "meshy-viewer.png"))
+        keys("q", gap=1.0)
+        out = q.expect('bm: "thing"', timeout=20).decode(errors="replace")
+        assert "stopped with an error" not in out, out
+    finally:
+        q.close()
+        shutil.rmtree(tmp, ignore_errors=True)
+
+
+def test_mesh_reduce(b, opts):
+    """The polygon reducer on the console (src/bm/decimate.c, mesh_reduce):
+    bm Studio's models page, "-" asks the triangles; the ground of the
+    village (288 triangles) becomes 40, the counts say so, Ctrl+S writes
+    the file and it holds the reduced model; the other models stay."""
+    tmp = tempfile.mkdtemp(prefix="bm-reduce-")
+    img = os.path.join(tmp, "sd.img")
+    mksd.build(img, [(b("carts/village.bm"), "carts/village.bm")])
+    with open(b("carts/village.bm"), "rb") as f:
+        models0, _ = bmmesh.decode(dict(bmmesh.cart_sections(f.read()))[bmmesh.SEC_MESH])
+    q = Qemu(b("kernel.img"), ["-drive", f"if=sd,format=raw,file={img}"])
+
+    def keys(*ks, gap=0.3):
+        for k in ks:
+            q.send(k)
+            time.sleep(gap)
+
+    def screen(want, tries=40):
+        for _ in range(tries):
+            _, text = settled_screen(q, lambda i, t: all(any(w in l for l in t) for w in want), tries=2)
+            if all(any(w in l for l in text) for w in want):
+                return "\n".join(text)
+            time.sleep(0.25)
+        raise AssertionError(f"not on the screen: {want}\n" + "\n".join(text))
+
+    def shot(name):
+        if opts.shots:
+            img_, _ = settled_screen(q, lambda i, t: "menu" in t[0] and t[21].strip() != "", tries=20)
+            _save_png(img_, os.path.join(opts.shots, f"{name}.png"))
+
+    F2, ESC, SAVE = "\x1bOQ", "\x1b", "\x13"
+    try:
+        q.expect(MENU, timeout=30)
+        time.sleep(0.5)
+        screen(["Games", "Studio Village"])
+        keys("x")
+        screen(["Open in bm Studio"])
+        keys("s", "s", "s", "s", "\r")
+        screen(["build", "models", "TOOLS", "model 1/8: ground"])
+        keys(F2)
+        screen(["MODELS 8", "ground", "288 tri"])
+        shot("reduce-before")
+        keys("-")
+        screen(["triangles (now 288"])
+        for _ in range(6):
+            keys("\x7f", gap=0.1)
+        for ch in "40\r":
+            keys(ch, gap=0.1)
+        # a collapse takes two triangles away: 40 or 39
+        text = screen(["reduced to", "faces"])
+        got = re.search(r"reduced to (\d+) triangles", text)
+        assert got and 38 <= int(got.group(1)) <= 40, text
+        shot("reduce-after")
+        keys(SAVE, gap=0.8)
+        screen(["saved /carts/village.bm"])
+        keys(ESC, gap=0.6)
+        screen(["bm Studio", "Exit bm Studio"])
+        keys("\x1b[A", "\r", gap=0.6)
+        screen(["Games"])
+    finally:
+        q.close()
+    part = os.path.join(tmp, "part.img")
+    with open(img, "rb") as f, open(part, "wb") as o:
+        f.seek(2048 * 512)
+        o.write(f.read())
+    env = dict(os.environ, MTOOLS_SKIP_CHECK="1")
+    saved = subprocess.run(["mtype", "-i", part, "::/CARTS/VILLAGE.BM"], capture_output=True, env=env).stdout
+    models, _ = bmmesh.decode(dict(bmmesh.cart_sections(saved))[bmmesh.SEC_MESH])
+    assert [m["name"] for m in models] == [m["name"] for m in models0], [m["name"] for m in models]
+    assert 38 <= len(models[0]["faces"]) <= 40, len(models[0]["faces"])
+    assert all(f[3] == bmmesh.TEXTURED for f in models[0]["faces"]), "the ground keeps its texture"
+    for m, m0 in zip(models[1:], models0[1:]):
+        assert len(m["faces"]) == len(m0["faces"]), (m["name"], len(m["faces"]), len(m0["faces"]))
+    shutil.rmtree(tmp, ignore_errors=True)
+    print(f"mesh_reduce: the ground {len(models0[0]['faces'])} -> {len(models[0]['faces'])} triangles, saved")
+
+
+def test_picture_model(b, opts):
+    """A model from a picture on the console: bm Studio's models page, "m"
+    asks how (the outline cut out or turned, made here; or the image-to-3D
+    service) and lists the pictures of /pics. The cutout is made on the
+    ARM kernel: a red disc on white becomes the model hero with its
+    texture (the village's sheet is in use: flat colours). The service's
+    start fails at once with a clear message (QEMU has no WiFi) and
+    nothing changes."""
+    tmp = tempfile.mkdtemp(prefix="bm-pic-")
+    img = os.path.join(tmp, "sd.img")
+    pic = os.path.join(tmp, "hero.png")
+    w = h = 40
+    px = bytearray()
+    for y in range(h):
+        for x in range(w):
+            px += bytes((220, 40, 40)) if (x - 20) ** 2 + (y - 20) ** 2 < 14 ** 2 else bytes((255, 255, 255))
+    raw = b"".join(b"\0" + bytes(px[y * w * 3:(y + 1) * w * 3]) for y in range(h))
+
+    def chunk(t, body):
+        return struct.pack(">I", len(body)) + t + body + struct.pack(">I", zlib.crc32(t + body) & 0xFFFFFFFF)
+    with open(pic, "wb") as f:
+        f.write(b"\x89PNG\r\n\x1a\n" + chunk(b"IHDR", struct.pack(">IIBBBBB", w, h, 8, 2, 0, 0, 0))
+                + chunk(b"IDAT", zlib.compress(raw)) + chunk(b"IEND", b""))
+    cfg = os.path.join(tmp, "config.txt")
+    with open(cfg, "w") as f:
+        f.write("# bm settings (key=value)\nmeshy_key=msy_test_key_for_qemu\n")
+    ca = os.path.join(HERE, "..", "boot", "ca.pem")
+    mksd.build(img, [(b("carts/village.bm"), "carts/village.bm"), (pic, "pics/hero.png"), (cfg, "bm/config.txt"),
+                     (ca, "bm/ca.pem")])
+    q = Qemu(b("kernel.img"), ["-drive", f"if=sd,format=raw,file={img}"])
+
+    def keys(*ks, gap=0.3):
+        for k in ks:
+            q.send(k)
+            time.sleep(gap)
+
+    def screen(want, tries=40):
+        for _ in range(tries):
+            _, text = settled_screen(q, lambda i, t: all(any(w in l for l in t) for w in want), tries=2)
+            if all(any(w in l for l in text) for w in want):
+                return "\n".join(text)
+            time.sleep(0.25)
+        raise AssertionError(f"not on the screen: {want}\n" + "\n".join(text))
+
+    def shot(name):
+        if opts.shots:
+            img_, _ = settled_screen(q, lambda i, t: "menu" in t[0] and t[21].strip() != "", tries=20)
+            _save_png(img_, os.path.join(opts.shots, f"{name}.png"))
+
+    F2, ESC, DOWN, SAVE = "\x1bOQ", "\x1b", "\x1b[B", "\x13"
+    try:
+        q.expect(MENU, timeout=30)
+        time.sleep(0.5)
+        screen(["Games", "Studio Village"])
+        keys("x")
+        screen(["Open in bm Studio"])
+        keys("s", "s", "s", "s", "\r")
+        screen(["build", "models", "TOOLS", "model 1/8: ground"])
+        keys(F2)
+        screen(["MODELS 8", "picture"])
+        # the outline, made here: the model hero
+        keys("m")
+        screen(["cutout: the picture's outline", "lathe:", "meshy.ai:"])
+        shot("picture-ways")
+        keys("\r")
+        screen(["/pics/hero.png"])
+        keys("\r", gap=1.5)
+        text = screen(["cutout: the model hero", "MODELS 9", "hero"], tries=80)
+        assert "flat colours (the sheet is in use)" in text, text
+        shot("picture-cutout")
+        keys(SAVE, gap=0.8)
+        screen(["saved /carts/village.bm"])
+        # the service: the start fails with the reason (no network, no clock
+        # for TLS...), named after the service; nothing changes
+        keys("m")
+        screen(["meshy.ai:"])
+        keys(DOWN, DOWN, "\r")
+        screen(["/pics/hero.png"])
+        keys("\r", gap=1.0)
+        screen(["cannot start: meshy:"], tries=80)
+        screen(["MODELS 9"])
+        keys(ESC, gap=0.6)
+        screen(["Model from picture...", "Exit bm Studio"])
+        keys("\x1b[A", "\r", gap=0.6)
+        screen(["Games"])
+    finally:
+        q.close()
+    part = os.path.join(tmp, "part.img")
+    with open(img, "rb") as f, open(part, "wb") as o:
+        f.seek(2048 * 512)
+        o.write(f.read())
+    env = dict(os.environ, MTOOLS_SKIP_CHECK="1")
+    saved = subprocess.run(["mtype", "-i", part, "::/CARTS/VILLAGE.BM"], capture_output=True, env=env).stdout
+    models, _ = bmmesh.decode(dict(bmmesh.cart_sections(saved))[bmmesh.SEC_MESH])
+    hero = [m for m in models if m["name"] == "hero"]
+    assert hero and 8 <= len(hero[0]["faces"]) <= 200, [m["name"] for m in models]
+    reds = sum(1 for f in hero[0]["faces"] if f[3] >> 16 > 150 and f[3] & 0xFF < 100)
+    assert reds >= len(hero[0]["faces"]) // 2, reds                                  # the disc's red on the faces
+    ys = [v[1] for v in hero[0]["verts"]]
+    assert abs(max(ys) - 2) < 0.05 and abs(min(ys)) < 0.05, (min(ys), max(ys))
+    shutil.rmtree(tmp, ignore_errors=True)
+    print(f"picture: the cutout hero made on the console ({len(hero[0]['faces'])} triangles, red), saved; the service's message")
 
 
 def test_mesh(b, opts):

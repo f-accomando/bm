@@ -168,11 +168,12 @@ end
 
 ----------------------------------------------------------------- the SD card and the project (shared by the two programs)
 
-local on_sd = { ["/carts"] = { "village.bm" } }
+local on_sd = { ["/carts"] = { "village.bm" }, ["/pics"] = { "hero.png", "notes.txt" } }
 local function host(path) return SD .. path:lower() end
 local sec = {}                -- the project's MESH (8) and ANIM (9)
 local sheet = { w = 256, h = 256, px = {} }
 local ran, tooled = nil, nil
+local PIC = { key = false }   -- the fake image-to-3D service's state
 
 local function add_file(path)
   local dir, name = path:match("^(.*)/([^/]+)$")
@@ -309,6 +310,82 @@ local function new_env(arg_path)
     for i, m in ipairs(mesh_models(sec[8])) do out[i] = m.name end
     return out
   end
+  -- the reducer stands in (the kernel's is C: tests/bm/test_decimate.c
+  -- tries it): the first `target` triangles stay, with the vertices they
+  -- use and their bones
+  -- a picture becomes a model: the service stands in (the kernel's img3d.c
+  -- is tried on the PC by tests/net/run_img3d_test.py); the job is done at
+  -- the second look; the model a textured cube with a red texture
+  E.picture3d = function(action, a, opts)
+    if action == "providers" then return { "meshy" } end
+    if action == "ready" then
+      if not PIC.key then return false, "meshy: put the key in bm/config.txt on the SD card as meshy_key=..." end
+      return true
+    end
+    if action == "start" then
+      PIC.started = a
+      if PIC.fail then return nil, "meshy: no network (WiFi not connected)" end
+      PIC.looks = 0
+      return "job-1"
+    end
+    if action == "status" then
+      assert(a == "job-1")
+      PIC.looks = PIC.looks + 1
+      if PIC.looks == 1 then return "running", 40 end
+      return "done", "http://fake/model.glb"
+    end
+    if action == "take" then
+      assert(a == "http://fake/model.glb")
+      PIC.taken = opts
+      local v = {}
+      for _, c in ipairs({ { 0, 0, 0 }, { 1, 0, 0 }, { 1, 1, 0 }, { 0, 1, 0 }, { 0, 0, 1 }, { 1, 0, 1 }, { 1, 1, 1 }, { 0, 1, 1 } }) do
+        v[#v + 1] = string.pack("<fff", c[1] - 0.5, c[2] * 2, c[3] - 0.5)
+      end
+      local quads = { { 0, 3, 2, 1 }, { 4, 5, 6, 7 }, { 0, 1, 5, 4 }, { 2, 3, 7, 6 }, { 1, 2, 6, 5 }, { 0, 4, 7, 3 } }
+      local tris, flat = {}, {}
+      for _, q in ipairs(quads) do
+        for _, t in ipairs({ { q[1], q[2], q[3] }, { q[1], q[3], q[4] } }) do
+          tris[#tris + 1] = string.pack("<I2I2I2I2I4I2I2I2I2I2I2", t[1], t[2], t[3], 0, 0x80000000, 0, 0, 2048, 0, 2048, 2048)
+          flat[#flat + 1] = string.pack("<I2I2I2I2I4I2I2I2I2I2I2", t[1], t[2], t[3], 0, 0xC03030, 0, 0, 0, 0, 0, 0)
+        end
+      end
+      local head = ("hero"):sub(1, 16) .. string.rep("\0", 12) .. string.pack("<I2I2I4", 8, 12, 0)
+      return { record = head .. table.concat(v) .. table.concat(tris), flat = head .. table.concat(v) .. table.concat(flat),
+               texture = string.rep("\xC0\x30\x30\xFF", 256 * 256), nv = 8, nf = 12, textured = true }
+    end
+    error("picture3d: " .. tostring(action))
+  end
+  E.cutout3d = function(path, opts)
+    PIC.cut = { path = path, opts = opts }
+    if path:find("notes") then return nil, "not a PNG or JPEG picture" end
+    return E.picture3d("take", "http://fake/model.glb", opts)
+  end
+  E.mesh_reduce = function(rec, target, vb)
+    local nv, nf = string.unpack("<I2I2", rec, 17)
+    local keep = math.min(nf, math.max(1, target))
+    local used, order, verts, tris = {}, {}, {}, {}
+    for i = 1, keep do
+      local pos = 25 + nv * 12 + (i - 1) * 24
+      local a, b, c, _, col, u0, v0, u1, v1, u2, v2 = string.unpack("<I2I2I2I2I4I2I2I2I2I2I2", rec, pos)
+      local ids = {}
+      for k, v in ipairs({ a, b, c }) do
+        if not used[v] then
+          order[#order + 1] = v
+          used[v] = #order
+          verts[#verts + 1] = rec:sub(25 + v * 12, 25 + v * 12 + 11)
+        end
+        ids[k] = used[v] - 1
+      end
+      tris[i] = string.pack("<I2I2I2I2I4I2I2I2I2I2I2", ids[1], ids[2], ids[3], 0, col, u0, v0, u1, v1, u2, v2)
+    end
+    local bones
+    if vb then
+      local t = {}
+      for i, v in ipairs(order) do t[i] = vb:sub(v + 1, v + 1) end
+      bones = table.concat(t)
+    end
+    return rec:sub(1, 16) .. string.pack("<I2I2I4", #order, keep, 0) .. table.concat(verts) .. table.concat(tris), bones, keep
+  end
   E.mesh = function(v, f, uv)
     assert(#v // 3 <= 4096 and #f // 4 <= 16384, "mesh: too big")
     if uv then assert(#uv == #f // 4 * 6, "mesh: 6 uv numbers a face") end
@@ -418,8 +495,36 @@ local function new_env(arg_path)
     add_file(path)
     return true
   end
+  -- the assistant's panel (src/ai/assist.lua) with a stand-in for the
+  -- kernel's `ai`: one 3D recipe, a cube on one bone with one animation
+  E.font = function() return 8, 16 end
+  E.rect, E.line, E.zclear, E.light3d = function() end, function() end, function() end, function() end
+  local cube_entry = { id = "mesh.cube", kind = "mesh", title = "Cubo (un blocco)", name = "", code = "",
+                       text = "Un blocco di un'unita'.", gen = "cube", see = {} }
+  E.ai = {
+    list = function() return { { id = "mesh.cube", title = cube_entry.title, kind = "mesh" } } end,
+    ask = function() return { { id = "mesh.cube", title = cube_entry.title, kind = "mesh", score = 0.9 } }, 40 end,
+    entry = function(id) return id == "mesh.cube" and cube_entry or nil end,
+    mesh = function(q, o)
+      local faces = {}
+      local function quad(a, b, c, d, col) faces[#faces + 1] = { p = { a, b, c, d }, c = col, b = { 1, 1, 1, 1 } } end
+      quad({ 0, 0, 0 }, { 0, 1, 0 }, { 1, 1, 0 }, { 1, 0, 0 }, 0xD83A3A)
+      quad({ 1, 0, 1 }, { 1, 1, 1 }, { 0, 1, 1 }, { 0, 0, 1 }, 0xD83A3A)
+      quad({ 0, 0, 1 }, { 0, 1, 1 }, { 0, 1, 0 }, { 0, 0, 0 }, 0xD83A3A)
+      quad({ 1, 0, 0 }, { 1, 1, 0 }, { 1, 1, 1 }, { 1, 0, 1 }, 0xD83A3A)
+      quad({ 0, 1, 0 }, { 0, 1, 1 }, { 1, 1, 1 }, { 1, 1, 0 }, 0xF07070)
+      quad({ 0, 0, 1 }, { 0, 0, 0 }, { 1, 0, 0 }, { 1, 0, 1 }, 0x902020)
+      local seed = o and o.seed or 1
+      return { gen = "cube", name = "cube", seed = seed, faces = faces,
+               bones = { { name = "root", parent = 0, head = { 0.5, 0, 0.5 }, tail = { 0.5, 1, 0.5 } } },
+               clips = { { name = "idle", loop = true, length = 1, mode = 1,
+                           keys = { { t = 0, pose = { { q = { 0, 0, 0, 1 }, t = { 0, 0, 0 } } } },
+                                    { t = 0.5, pose = { { q = { 0, 0, 0, 1 }, t = { 0, 0.1, 0 } } } } } } } }
+    end,
+  }
   E.require = function(name)
-    assert(name == "bm3d", "require: only bm3d here")
+    if name == "assist" then return assert(loadfile(ROOT .. "/src/ai/assist.lua", "t", E))() end
+    assert(name == "bm3d", "require: only bm3d and assist here")
     return assert(loadfile(ROOT .. "/src/script/bm3d.lua", "t", E))()
   end
 end
@@ -528,6 +633,92 @@ key("f2")
 check(sees("MODELS 8") and sees("ground") and sees("villager"), "F2: the models")
 key("down")
 check(sees("faces") and sees("tri"), "a model's faces and triangles")
+
+-- the reducer: "-" asks the triangles (half of them by default); the
+-- skeleton of the villager follows its vertices; Ctrl+Z undoes
+local before = cur_models()[2].nf
+key("-")
+check(sees("triangles (now " .. before), "-: asks the triangles: " .. status())
+key("esc")
+check(cur_models()[2].nf == before, "Esc: nothing changed")
+key("-")
+type_text("10")
+check(cur_models()[2].nf == 10 and status():find("reduced to 10 triangles", 1, true), "reduced to 10: " .. status())
+check(sees("10 tri"), "the counts show 10 triangles")
+key("^z")
+check(cur_models()[2].nf == before, "undo: " .. before .. " triangles again (" .. cur_models()[2].nf .. ")")
+for _ = 1, 6 do key("down") end
+check(sees("villager") and cur_models()[8].name == "villager" and rig1 and anim_rigs(sec[9])["villager"], "the villager, rigged")
+local vnf = cur_models()[8].nf
+key("-")
+type_text("20")
+local vr = anim_rigs(sec[9])["villager"]
+check(cur_models()[8].nf == 20 and vr and vr.nv == cur_models()[8].nv, "the villager reduced to 20: its skeleton fits " ..
+      tostring(vr and vr.nv) .. " vertices")
+key("^z")
+check(cur_models()[8].nf == vnf and anim_rigs(sec[9])["villager"].nv == cur_models()[8].nv, "undo: the villager whole again")
+for _ = 1, 7 do key("up") end
+
+-- a model from a picture: the ways (cutout and lathe here, the service);
+-- the service without a key, then the job followed to the model (the
+-- village's sheet is in use: flat colours); a service that fails
+key("m")
+check(sees("cutout: the picture's outline") and sees("lathe:") and sees("meshy.ai:"), "m: the ways")
+key("down", "down", "\n")
+check(status():find("meshy_key", 1, true) and #cur_models() == 8, "the service without a key: says where the key goes")
+PIC.key = true
+key("m", "down", "down", "\n")
+check(sees("a picture to make a model from (meshy)") and sees("/pics/hero.png") and not sees("notes.txt"), "the pictures of /pics")
+key("esc")
+key("m", "down", "down", "\n", "\n")
+check(PIC.started == "/pics/hero.png" and status():find("the job started", 1, true), "the job started on the picture")
+local announced = false
+for _ = 1, 310 do
+  frames(1)
+  if status():find("40%", 1, true) then announced = true; break end
+end
+check(announced, "a look after 5 s: 40%")
+announced = false
+for _ = 1, 310 do
+  frames(1)
+  if status():find("downloading", 1, true) then announced = true; break end
+end
+check(announced, "done: the download is announced first")
+frames(2)
+check(#cur_models() == 9 and cur_models()[9].name == "hero" and cur_models()[9].nf == 12, "the model hero, 12 triangles")
+check(status():find("flat colours (the sheet is in use)", 1, true), "the village's sheet is in use: " .. status())
+check(PIC.taken and PIC.taken.faces == 1200 and PIC.taken.height == 2, "asked for 1200 triangles, 2 tall")
+check(sees("MODELS 9") and sees("hero"), "listed")
+key("esc")                                          -- the menu
+check(sees("Model from picture..."), "the menu has it too")
+key("esc")
+PIC.fail = true
+key("m", "down", "down", "\n", "\n")
+check(status():find("cannot start: meshy: no network", 1, true) and #cur_models() == 9, "a service that fails says so")
+PIC.fail = false
+key("m", "down", "down", "\n", "\n")
+key("esc")
+check(status():find("given up", 1, true), "Esc gives the job up")
+frames(600)
+check(#cur_models() == 9, "no model from a job given up")
+key("f2", "del", "del")
+check(#cur_models() == 8, "hero deleted")
+PIC.key = false
+-- the outline, made here: a message first, the model the frame after
+key("m", "\n")
+check(sees("a picture to make a model from (cutout)"), "cutout: the pictures")
+key("\n")
+check(status():find("cutout: making the model", 1, true), "cutout: announced first: " .. status())
+frames(2)
+check(#cur_models() == 9 and cur_models()[9].name == "hero" and PIC.cut.opts.lathe == false and PIC.cut.opts.faces == 1200,
+      "cutout: the model hero from /pics/hero.png")
+check(status():find("cutout: the model hero, 12 triangles", 1, true), "cutout: " .. status())
+key("f2", "del", "del")
+key("m", "down", "\n", "\n")
+frames(2)
+check(#cur_models() == 9 and PIC.cut.opts.lathe == true, "lathe: the same, turned")
+key("f2", "del", "del")
+check(#cur_models() == 8, "deleted again")
 
 -- save as a copy: the sections come back the same, byte for byte (cart_write)
 menu_pick("Save as", EXIT_S)
@@ -666,6 +857,23 @@ type_text("tower")
 check(cur_models()[2].name == "tower", "renamed tower")
 key("del", "del")
 check(#cur_models() == 1, "deleted (asked twice)")
+
+-- the assistant (F6): a 3D recipe becomes a new model, with its skeleton
+-- and animation; Esc leaves it as it was
+key("f6")
+check(sees("Assistant") and sees("Cubo"), "F6: the assistant's panel, the recipes")
+key("esc")
+check(not sees("Assistant") and #cur_models() == 1, "Esc: closed, nothing changed")
+key("f6")
+type_text("cubo rosso")
+check(status():find("the assistant's cube: 6 faces, 1 bones, 1 animations, model cube", 1, true), "Enter: " .. status())
+check(#cur_models() == 2 and cur_models()[2].name == "cube" and cur_models()[2].nf == 12, "a new model, cube, 12 triangles")
+check(sees("TOOLS") and sees("BLOCK"), "back on the build page")
+local crig = anim_rigs(sec[9])["cube"]
+check(crig and #crig.bones == 1 and crig.bones[1].name == "root" and #crig.clips == 1 and crig.clips[1].name == "idle",
+      "its skeleton and animation in ANIM")
+key("f2", "del", "del")
+check(#cur_models() == 1, "deleted again")
 
 -- save, then open it again
 menu_pick("Save as", EXIT_S)

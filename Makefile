@@ -265,23 +265,23 @@ test-sound: $(BUILD)/host/luahost $(BUILD)/demo.bmau carts/sound/main.lua
 
 # nano8 on the PC: the loader on every cart, the translator, the API test
 # cart, then each shipped cart played for a while (tests/nano8/run.py)
-N8_HOST_SRC := src/bm/n8.c src/bm/n8font.c src/bm/n8cart.c src/bm/n8lua.c src/audio/n8snd.c \
+N8_HOST_SRC := src/bm/n8.c src/bm/n8font.c src/bm/n8cart.c src/bm/png.c src/bm/n8lua.c src/audio/n8snd.c \
                src/bm/gfx16.c src/gfx/font8x16.c
 $(BUILD)/host/n8host: tests/nano8/n8host.c $(N8_HOST_SRC) src/bm/n8*.h src/audio/n8snd.h $(LUA_SRCS)
 	@mkdir -p $(dir $@)
 	$(HOSTCC) -O2 -w -Isrc -Ithird_party/lua -o $@ tests/nano8/n8host.c $(N8_HOST_SRC) \
 	    $(filter-out third_party/lua/lua.c third_party/lua/luac.c,$(LUA_SRCS)) -lm
 
-$(BUILD)/host/n8cartinfo: tests/nano8/cartinfo.c src/bm/n8.c src/bm/n8font.c src/bm/n8cart.c src/bm/n8*.h
+$(BUILD)/host/n8cartinfo: tests/nano8/cartinfo.c src/bm/n8.c src/bm/n8font.c src/bm/n8cart.c src/bm/png.c src/bm/n8*.h
 	@mkdir -p $(dir $@)
-	$(HOSTCC) -O2 -Wall -Wextra -Isrc -o $@ tests/nano8/cartinfo.c src/bm/n8.c src/bm/n8font.c src/bm/n8cart.c -lm
+	$(HOSTCC) -O2 -Wall -Wextra -Isrc -o $@ tests/nano8/cartinfo.c src/bm/n8.c src/bm/n8font.c src/bm/n8cart.c src/bm/png.c -lm
 
 test-nano8: $(BUILD)/host/n8host $(BUILD)/host/n8cartinfo $(BUILD)/host/luahost $(BUILD)/nano8/main.lua
 	$(PYTHON) tests/nano8/run.py --build $(BUILD) $(NANO8_ROMS)
 
 .DEFAULT_GOAL := all
 .PHONY: FORCE test-smp all clean firmware image image-pi1 sdcard install sdcard-chainloader sdcard-stress qemu qemu7 qemu-screenshot \
-        run-serial test test-bm test-ai ai-model test-predict predict-bench syllables test-usb test-audio test-fat test-kitchen test-titan test-sound test-nano8 \
+        run-serial test test-bm test-ai test-img2mesh ai-model test-predict predict-bench syllables test-usb test-audio test-fat test-kitchen test-titan test-sound test-nano8 \
         test-net test-http test-https test-release release disasm wav test-studio test-studio-ui studio test-prompts test-hyp test-zero2 \
         showreel
 
@@ -453,7 +453,7 @@ qemu7: $(BUILD)/kernel7.img
 qemu-screenshot: $(BUILD)/kernel.img
 	./scripts/qemu-screenshot.sh $< $(BUILD)/screen.png
 
-test: all test-bm test-usb test-fat test-audio test-kitchen test-titan test-sound test-nano8 test-net test-http test-https \
+test: all test-bm test-usb test-fat test-audio test-kitchen test-titan test-sound test-nano8 test-net test-http test-https test-img3d \
       test-release test-smp test-ai test-predict test-studio test-prompts test-hyp
 	$(PYTHON) tests/qemu_test.py --build $(BUILD)
 
@@ -537,6 +537,14 @@ $(BUILD)/host/test_smp: tests/bt/smp_test.c src/bt/smp_crypto.c src/bt/smp_crypt
 		-DMBEDTLS_CONFIG_FILE='"bm_mbedtls.h"' -o $@ tests/bt/smp_test.c src/bt/smp_crypto.c $(MBEDTLS_SRCS)
 
 # HTTP client over POSIX sockets, against a local Python server
+# the picture-to-model flow (src/net/img3d.c) against a fake service, with the .glb reader
+test-img3d: $(BUILD)/host/test_img3d
+	$(PYTHON) tests/net/run_img3d_test.py $(BUILD)/host/test_img3d $(BUILD)/img3d
+
+$(BUILD)/host/test_img3d: tests/net/test_img3d.c src/net/img3d.c src/net/http.c src/net/*.h $(GLB_SRCS) src/bm/*.h
+	@mkdir -p $(dir $@)
+	$(HOSTCC) -O1 -Wall -Wextra -Isrc -Isrc/bm -DHTTP_USER_AGENT='"test"' -o $@ tests/net/test_img3d.c src/net/img3d.c src/net/http.c $(GLB_SRCS) -lm
+
 test-http: $(BUILD)/host/test_http
 	$(PYTHON) tests/net/run_http_test.py $(BUILD)/host/test_http
 
@@ -593,12 +601,48 @@ $(BUILD)/host/test_meshcap: $(MESHCAP_SRCS) src/bm/*.h $(LUA_SRCS)
 	@mkdir -p $(dir $@)
 	$(HOSTCC) -O2 -Wall -Wextra -Isrc/bm -Isrc -Ithird_party/lua -o $@ $(MESHCAP_SRCS) $(LUA_SRCS) -lm
 
+# the polygon reducer (bm Studio's reduce, tools/bmreduce.py)
+DECIMATE_SRCS := tests/bm/test_decimate.c src/bm/decimate.c src/bm/format.c src/lib/crc32.c
+$(BUILD)/host/test_decimate: $(DECIMATE_SRCS) src/bm/*.h
+	@mkdir -p $(dir $@)
+	$(HOSTCC) -O2 -Wall -Wextra -Isrc/bm -Isrc -o $@ $(DECIMATE_SRCS) -lm
+
+# the .glb reader (the image-to-3D services' files on the console)
+GLB_SRCS := src/bm/glb.c src/bm/json.c src/bm/jpeg.c src/bm/decimate.c src/bm/png.c
+$(BUILD)/host/test_glb: tests/bm/test_glb.c $(GLB_SRCS) src/bm/*.h
+	@mkdir -p $(dir $@)
+	$(HOSTCC) -O2 -Wall -Wextra -Isrc/bm -Isrc -o $@ tests/bm/test_glb.c $(GLB_SRCS) -lm
+
+# the outline maker (a model from a picture without any network, cutout.c)
+CUTOUT_SRCS := src/bm/cutout.c $(GLB_SRCS)
+$(BUILD)/host/test_cutout: tests/bm/test_cutout.c $(CUTOUT_SRCS) src/bm/*.h
+	@mkdir -p $(dir $@)
+	$(HOSTCC) -O2 -Wall -Wextra -Isrc/bm -Isrc -o $@ tests/bm/test_cutout.c $(CUTOUT_SRCS) -lm
+
+# the outline maker as a shared library (ctypes: scripts/bmcutout.py, tools/cutout2mesh.py)
+$(BUILD)/host/libbmcutout.so: $(CUTOUT_SRCS) src/bm/*.h
+	@mkdir -p $(dir $@)
+	$(HOSTCC) -O2 -shared -fPIC -o $@ $(CUTOUT_SRCS) -lm
+
+# the reducer as a shared library for the PC tools (ctypes: scripts/bmdecimate.py)
+$(BUILD)/host/libbmdecimate.so: src/bm/decimate.c src/bm/decimate.h
+	@mkdir -p $(dir $@)
+	$(HOSTCC) -O2 -shared -fPIC -o $@ src/bm/decimate.c -lm
+
 $(BUILD)/meshcap-test.bm: tests/bm/meshcap_cart.lua scripts/mkbm.py
 	$(PYTHON) scripts/mkbm.py -o $@ --lua $< --title "meshcap test" --author tests
 
 test-bm: $(BUILD)/host/test_bm $(BUILD)/demo.bm $(BUILD)/host/test_meshcap $(BUILD)/carts/astrowing.bm \
-         $(BUILD)/carts/texroom.bm $(BUILD)/carts/kitchen.bm $(BUILD)/meshcap-test.bm
+         $(BUILD)/carts/texroom.bm $(BUILD)/carts/kitchen.bm $(BUILD)/meshcap-test.bm \
+         $(BUILD)/host/test_decimate $(BUILD)/carts/village.bm $(BUILD)/host/libbmdecimate.so \
+         $(BUILD)/host/test_glb $(BUILD)/host/test_cutout $(BUILD)/host/libbmcutout.so
 	$< $(BUILD)/demo.bm
+	$(BUILD)/host/test_decimate $(BUILD)/carts/village.bm $(BUILD)/carts/kitchen.bm
+	$(PYTHON) tests/bm/run_glb_test.py $(BUILD)/host/test_glb $(BUILD)/glb
+	$(PYTHON) tests/bm/run_cutout_test.py $(BUILD)/host/test_cutout $(BUILD)/cutout
+	$(PYTHON) tools/cutout2mesh.py $(BUILD)/cutout/lolli_alpha.png -o $(BUILD)/cutout/tool.bm
+	$(PYTHON) tools/cutout2mesh.py $(BUILD)/cutout/lolli_white.png -o $(BUILD)/cutout/tool.bm --lathe --name vase
+	$(PYTHON) tools/bmreduce.py $(BUILD)/carts/village.bm --ratio 0.5 -o $(BUILD)/village-half.bm
 	$(BUILD)/host/test_meshcap src/bm/runtime.c \
 	    $(BUILD)/meshcap-test.bm '!stop here,wheel:1,cars1_body:1,gem:2' \
 	    $(BUILD)/carts/astrowing.bm ship:32,dart,tower,gate,ring:120,laser,bolt,debris,debris2,mark,core,core_hot,turret \
@@ -619,7 +663,7 @@ test-prompts: $(BUILD)/host/test_prompts
 
 # The assistant (M30): C features and network against the Python reference,
 # answers to the held-out questions, sprite generator
-AI_SRCS := src/ai/assist.c src/ai/nn.c src/ai/text.c src/ai/sprite.c
+AI_SRCS := src/ai/assist.c src/ai/nn.c src/ai/text.c src/ai/sprite.c src/ai/mesh.c src/ai/mesh_chars.c src/ai/mesh_script.c
 $(BUILD)/host/test_ai: tests/ai/test_ai.c $(AI_SRCS) src/ai/*.h src/lib/crc32.c
 	@mkdir -p $(dir $@)
 	$(HOSTCC) -O2 -Wall -Wextra -Isrc -o $@ tests/ai/test_ai.c $(AI_SRCS) src/lib/crc32.c -lm
@@ -629,6 +673,12 @@ $(BUILD)/host/luaai: tests/ai/luaai.c src/ai/lua_ai.c $(AI_SRCS) src/ai/*.h src/
 	@mkdir -p $(dir $@)
 	$(HOSTCC) -O2 -w -DBM_HOST_TEST -Isrc -Ithird_party/lua -o $@ tests/ai/luaai.c src/ai/lua_ai.c \
 		$(AI_SRCS) src/lib/crc32.c $(LUA_SRCS) -lm
+
+# The 3D recipes drawn on the PC: build/ai/meshes.ppm (every recipe) and
+# `meshview one mech out.ppm` (one, from four sides and in its poses)
+$(BUILD)/host/meshview: tests/ai/meshview.c $(AI_SRCS) src/ai/*.h src/lib/crc32.c
+	@mkdir -p $(dir $@)
+	$(HOSTCC) -O2 -Wall -Wextra -Isrc -o $@ tests/ai/meshview.c $(AI_SRCS) src/lib/crc32.c -lm
 
 # The word completion on the PC: words, contexts, suggestions, and the
 # benchmark texts typed again with Tab
@@ -647,11 +697,27 @@ predict-bench: $(BUILD)/host/luahost $(BUILD)/words.lua
 syllables:
 	$(PYTHON) scripts/syllables.py
 
-test-ai: $(BUILD)/host/test_ai $(BUILD)/assist.bin $(BUILD)/host/luahost $(BUILD)/host/luaai $(BUILD)/words.lua
+test-ai: $(BUILD)/host/test_ai $(BUILD)/assist.bin $(BUILD)/host/luahost $(BUILD)/host/luaai $(BUILD)/host/meshview $(BUILD)/words.lua
 	$< $(BUILD)/assist.bin $(BUILD)/ai/ref.txt
+	$(BUILD)/host/meshview sheet $(BUILD)/ai/meshes.ppm > /dev/null
 	$(BUILD)/host/luahost tests/ai/check_snippets.lua $(BUILD)/ai/snippets.txt
 	$(BUILD)/host/luaai $(BUILD)/assist.bin tests/ai/panel_test.lua $(BUILD)
 	$(BUILD)/host/luaai $(BUILD)/assist.bin tests/ai/act_test.lua
+	$(MAKE) test-img2mesh
+
+# tools/img2mesh.py offline: the recorded replies (the mech in the part
+# language) become a .bm with the model, then one more model in it;
+# tools/meshy2mesh.py on a .glb made by the test (no call to Meshy)
+test-img2mesh: $(BUILD)/host/meshview
+	rm -rf $(BUILD)/img2mesh/test $(BUILD)/img2mesh/test.bm
+	$< one knight $(BUILD)/img2mesh/knight.ppm > /dev/null
+	$(PYTHON) tools/img2mesh.py $(BUILD)/img2mesh/knight.ppm -o $(BUILD)/img2mesh/test.bm --name mech \
+	    --replay tests/ai/img2mesh/replay --work $(BUILD)/img2mesh/test --rounds 1
+	$(PYTHON) tools/img2mesh.py $(BUILD)/img2mesh/knight.ppm -o $(BUILD)/img2mesh/test.bm --name mech2 \
+	    --replay tests/ai/img2mesh/replay --work $(BUILD)/img2mesh/test2 --rounds 0
+	$(PYTHON) tests/ai/check_img2mesh.py $(BUILD)/img2mesh/test.bm
+	$(PYTHON) tests/ai/check_meshy.py $(BUILD)
+	$(PYTHON) tests/ai/check_local2mesh.py $(BUILD)/local2mesh
 
 # bm Studio (sdk/studio): its core in Node (the .bm, PNG and glTF it writes,
 # the editing geometry), then the same files read by the Python of the build

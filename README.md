@@ -125,8 +125,18 @@ Everything a cartridge contains is made with bm's own tools. They read and write
   it: Lua and the API in the code, Italian or English in comments, the assistant's
   questions in `#entry:` lines ([docs/PREDICT.md](docs/PREDICT.md)).
 - **AI assistant**: a small INT8 network that runs on the Pi. It answers questions about
-  the API and error messages, comments code, and sketches sprites. Its knowledge base is
-  in Italian for now.
+  the API and error messages, comments code, sketches sprites and, in bm Studio and bm
+  Animator (F6), builds low-poly 3D models from words: shapes, objects, people, animals
+  and machines, the characters with a skeleton and animations. Its knowledge base is in
+  Italian for now. On the PC, `tools/img2mesh.py` turns a picture into such a model
+  through the Claude API: the model writes the parts, sees them rendered and corrects them;
+  `tools/meshy2mesh.py` does the same through Meshy's image-to-3D. The console does it by
+  itself too: bm Studio's models page sends a picture from the SD card to the service and
+  takes the model back, texture and all (a key in `bm/config.txt`; the services are a
+  table, Meshy first), or makes one by itself from the picture's outline, cut out with some
+  thickness or turned on a lathe, with no network at all. A polygon reducer (quadric edge collapse, in the kernel and in
+  `tools/bmreduce.py`) fits any model to the Pi's 1200 triangles, keeping borders, colour
+  lines, texture seams and the skeleton.
 - **Sound editor**: an 8-voice synthesizer, sound effects and music patterns for the
   cartridge's sound bank.
 - **bm Studio** and **bm Animator**: the PC programs' twins, on the same files. bm Studio

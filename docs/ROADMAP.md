@@ -1631,7 +1631,125 @@ Task:
    100 caratteri italiani 83 tasti invece di 100, sul Lua il 19% in meno, sulle domande
    mai viste all'assistente il 26%. Con il conteggio delle sillabe dell'italiano
    (`make syllables`).
-11. Dopo: numeri e nomi della domanda dentro il codice proposto ("muovi a velocità 3"),
+11. ✅ **Ricette 3D per bm Studio e bm Animator** (2026-10-02, `src/ai/mesh.c`,
+   `mesh_chars.c`, `kb/meshes.txt`): 53 ricette low-poly nello stile dei blocchi della
+   console, scelte dalla rete dalle parole della richiesta ("una casa rossa grande",
+   "mech", "drago verde che vola"): forme semplici (cubo, sfera, cilindro, cono, piramide,
+   colonna, muro, scala, rampa, piattaforma, arco), oggetti (albero, pino, casa, torre,
+   sedia, tavolo, barile, cassa, forziere, spada, scudo, auto, lampione, staccionata,
+   roccia, cespuglio, fungo, cactus, ponte, pozzo, cartello, torcia, barca, cannone,
+   letto, fiore, moneta, gemma) e personaggi con **scheletro e animazioni** pronte per
+   bm Animator (persona, cavaliere, robot, mech, cane, cavallo, uccello, pesce, slime,
+   ragno, drago, fantasma, scheletro, pupazzo di neve: idle, walk, wave, attack, fly,
+   swim, bounce, fire...). Primitivi (scatola, tubo, sfera, prisma, specchio), materiali
+   con il tono dall'alto in basso, colori, misura, proporzioni e "senza scheletro" dalle
+   parole, un seme per variante. `ai.mesh()` e il modo `mesh` del pannello (il modello
+   gira nel pannello, Invio lo consegna); in bm Studio e bm Animator **F6** (pad Y + X):
+   il modello entra nel progetto (nel modello vuoto o in uno nuovo), con scheletro e
+   animazioni, e la prima pagina lo mostra. Il benchmark di qualità è stato il mech di
+   D.Va (Overwatch): cabina col pilota, gambe piegate, cannoni a tre canne, alette e
+   propulsori. Sul PC `build/host/meshview` disegna tutte le ricette (`sheet`) o una
+   da quattro lati e nelle pose delle animazioni (`one`): le immagini vanno guardate.
+   Costo: ~56 KB di codice nel kernel, niente RAM finché non si chiede (il modello di
+   2048 facce vive solo mentre `ai.mesh` costruisce le tabelle), 0,03 ms sul PC per il
+   mech. Test: `make test-ai` (ogni ricetta: facce valide, a terra, intorno all'origine,
+   ossa e clip, variante, stesso seme stesso modello, parole), il pannello sul PC,
+   `tools3d_host.lua` (F6 nel Studio con un `ai` finto), `test_studio_assistant` in QEMU.
+   Dopo: texture dallo sheet, ricette composte ("un villaggio"), più varianti per ricetta.
+12. ✅ **img2mesh: un'immagine diventa un modello** (2026-10-03, `tools/img2mesh.py`,
+   `src/ai/mesh_script.c`). Richiesta dell'utente: riprodurre come strumento quello che ha
+   fatto il mech dall'immagine di D.Va, cioè un modello con la visione che scompone la
+   figura in parti e scrive la ricetta. Sul Pi non può girare: lo strumento chiama Claude
+   attraverso l'API Anthropic (`claude-opus-5-5`, pensiero adattivo, `fallbacks:
+   "default"`) e lascia al nostro motore la parte deterministica. Il **linguaggio delle
+   parti** (`mesh_script.c`: `mat`, `box`, `bx`, `tube`, `cyl`, `ell`, `prism`, `wedge`,
+   `tf`, `bone`, `use`, `side`/`mirror`, `clip`, `key`, `turn`, `shift`, una riga ciascuno,
+   errori con il numero di riga) è interpretato nel kernel (`ai.script`) e sul PC
+   (`meshview script`/`json`); il mech della ricetta scritto nel linguaggio
+   (`tests/ai/img2mesh/mech.txt`) dà lo stesso modello ed è l'esempio nel prompt. Il tool:
+   immagine e descrizione → script → `meshview` lo costruisce e disegna da quattro lati e
+   nelle pose → i render tornano al modello che corregge (due giri, di più con `--rounds`;
+   uno script che non compila torna con l'errore) → `.bm` nuovo con il viewer di bm Studio,
+   o il modello aggiunto/sostituito in una cartuccia esistente (`bmmesh.encode_faces`,
+   `encode_anim`, `decode_anim`). `--record`/`--replay` salvano e rileggono le risposte:
+   `make test-img2mesh` e `test_img2mesh` in QEMU girano senza API. Costo: una manciata di
+   centesimi per giro; serve una chiave API (`ANTHROPIC_API_KEY`) o `ant auth login`.
+   Non provato con l'API vera in questa sessione (nessuna chiave): la parte di rete segue
+   l'SDK alla lettera, da verificare al primo uso. Dopo: la stessa cosa dalla console via
+   WiFi (bm Studio, F6 "da immagine": un PNG dalla SD, la chiave nelle impostazioni, una
+   passata sola).
+13. ✅ **meshy2mesh: Meshy (image-to-3D neurale) → console** (2026-10-03,
+   `tools/meshy2mesh.py`). L'utente ha una chiave di meshy.ai: il tool manda l'immagine
+   all'API image-to-3D (`target_polycount`, `should_texture`), aspetta il task, scarica il
+   `.glb` e lo porta nel formato della console: nodi e trasformazioni del glTF, z
+   capovolta e facce girate (la convenzione di `r3d.c`), a terra, centrato, alto
+   `--height` blocchi; **texture** nello sheet 256×256 della cartuccia nuova (facce
+   texturate con le UV in pixel) o **colori piatti** campionati dalla texture (o dai colori
+   dei vertici) quando entra in una cartuccia esistente o con `--flat`; sopra `--max-tris`
+   i vertici si fondono su una griglia (`--grid`): il modello diventa a blocchi, come gli
+   altri. `--glb` rifà la conversione da un `.glb` già scaricato. Test:
+   `tests/ai/check_meshy.py` (un `.glb` fatto dal test: scatola texturata, piramide
+   colorata, indici 16 e 32 bit, trasformazione di nodo) in `make test-img2mesh`,
+   `test_meshy2mesh` in QEMU (la cartuccia nel viewer e in bm Studio). Non provato con
+   l'API vera: la rete di questo ambiente nega `api.meshy.ai`; i campi dell'API
+   (`image_url` data URI, `ai_model`, `topology`, `target_polycount`, `should_texture`,
+   `model_urls.glb`, `status`) sono quelli della documentazione v1 e vanno verificati al
+   primo uso. Le texture JPEG nel `.glb` chiedono Pillow (`pip install pillow`); i PNG no.
+14. ✅ **Riduttore di poligoni** (2026-10-03, `src/bm/decimate.c`, niente AI): collasso
+   degli spigoli con le quadriche di Garland-Heckbert, in C portabile (kernel e PC). Mezzo
+   spigolo: i vertici restano quelli del modello, così ogni vertice tiene il suo osso (lo
+   scheletro segue) e le facce tengono i loro angoli di texture; l'angolo che si sposta
+   prende quello delle facce che spariscono (texture continua) o la texture della faccia
+   stirata. Bordi aperti, linee di colore e cuciture della texture sono tenuti con un piano
+   attraverso lo spigolo (peso 10 i bordi, 1 le linee); una faccia non si rovescia mai
+   (prova delle normali) e uno spigolo tra due ossa va per ultimo. Il Beast di Meshy da
+   2540 a 1200 e a 500 triangoli resta riconoscibile con la texture. Console:
+   `mesh_reduce(record, triangoli, ossa)` in `runtime.c`, `T.reduce_model` in `bm3d.lua`,
+   tasto `-` nella pagina models di bm Studio (chiede quanti triangoli, la metà per default;
+   Ctrl+Z annulla). PC: `tools/bmreduce.py CART.bm --faces 1200` (ctypes su
+   `build/host/libbmdecimate.so`, `scripts/bmdecimate.py`) e meshy2mesh sopra `--max-tris`
+   (la griglia resta solo oltre i limiti del formato). Test: `tests/bm/test_decimate.c`
+   (piani, due colori, texture, cucitura, sfera chiusa, record, i modelli di village e
+   kitchen dimezzati) in `make test-bm`, lo stand-in in `tools3d_host.lua`,
+   `test_mesh_reduce` in QEMU.
+15. ✅ **Un modello da un'immagine sulla console** (2026-10-03): bm Studio, pagina models,
+   `m` (o "Model from picture..." nel menu): l'immagine di `pics/` sulla SD va a un servizio
+   image-to-3D, la riga di stato segue il lavoro (uno sguardo ogni 5 s, Esc lo abbandona), il
+   `.glb` torna come modello: texture sullo sheet se è vuoto (altrimenti colori piatti presi
+   dalla texture), 2 blocchi di altezza, 1200 triangoli col riduttore. Non è legato a Meshy:
+   i servizi sono una tabella in `src/net/img3d.c` (nome, indirizzo, nome della chiave in
+   `bm/config.txt`, le tre chiamate); Meshy è il primo. Installazione: WiFi, `bm/ca.pem`,
+   una riga `meshy_key=...` in `bm/config.txt`, le immagini in `pics/`. Nel kernel sono
+   arrivati un lettore `.glb` (`src/bm/glb.c`, lo stesso lavoro di meshy2mesh), un parser
+   JSON (`json.c`), un decodificatore JPEG baseline (`jpeg.c`, le texture di Meshy sono
+   JPEG 2048×2048, 2,7 MB: decodificate in C e ridotte a 256×256) e il PNG di nano8 in
+   `png.c`. Il kernel cresce di ~20 KB. Test: `make test-img3d` (servizio finto),
+   `tests/bm/run_glb_test.py`, lo stand-in nel test di bm Studio, `test_picture_model` in
+   QEMU. Non provato con l'API vera dalla console (questo ambiente non ha la rete): la
+   stessa richiesta è quella di meshy2mesh, che ha fatto i modelli di `meshy-out`.
+16. ✅ **local2mesh: modelli aperti in locale, senza chiave** (2026-10-03,
+   `tools/local2mesh.py`): TripoSR o Hunyuan3D 2 installati da lui in `~/.bm/local3d` (git
+   clone, venv, PyTorch per CUDA se c'è `nvidia-smi`, altrimenti CPU), il `.glb` che
+   producono passa per la conversione di meshy2mesh (texture, riduttore); `--backend
+   command` per qualunque strumento. I backend veri si provano dal PC dell'utente (qui
+   niente GPU né huggingface): `tests/ai/check_local2mesh.py` prova lo script con un
+   comando finto. Le opzioni di `run.py` di TripoSR (`--bake-texture`, `mesh.glb` in
+   `0/`) e l'API di Hunyuan3D (`Hunyuan3DDiTFlowMatchingPipeline`, `Hunyuan3DPaintPipeline`)
+   sono quelle dei repository alla data: da verificare al primo uso.
+17. ✅ **Un metodo nostro: dal contorno dell'immagine** (2026-10-03, `src/bm/cutout.c`,
+   niente rete né AI, gira sul Pi in meno di un secondo): lo sfondo (trasparente, o il colore
+   degli angoli) va via, il contorno diventa un poligono (spigoli delle celle di una griglia
+   di 96, i frammenti piccoli scartati, Douglas-Peucker) e il poligono un solido chiuso:
+   ritaglio con spessore (ear clipping davanti e dietro, i lati lungo il contorno; immagine
+   davanti, specchiata dietro, i colori del bordo sui lati) o tornio (il mezzo contorno
+   girato intorno all'asse in 12 passi, l'immagine proiettata davanti). Onesto sui limiti:
+   non inventa quello che non si vede, i buchi del contorno si riempiono. bm Studio, `m`:
+   la scelta del modo (cutout, lathe, meshy.ai) e poi l'immagine; `cutout3d` in Lua; sul PC
+   `tools/cutout2mesh.py` (ctypes su `libbmcutout.so`). Test: `tests/bm/run_cutout_test.py`
+   (lecca-lecca: 48 triangoli chiusi, 2 blocchi, l'immagine davanti; tornio di 120), lo
+   stand-in nel test di bm Studio, `test_picture_model` in QEMU (il disco rosso diventa il
+   modello hero sul kernel ARM, salvato nel file).
+18. Dopo: numeri e nomi della domanda dentro il codice proposto ("muovi a velocità 3"),
    le domande senza risposta giusta che diventano voci nuove, ricette di sprite animate
    (più fotogrammi nello sheet), le parole nuove dell'utente nel dizionario del
    completamento.

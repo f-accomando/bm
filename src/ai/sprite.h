@@ -37,6 +37,9 @@ void spr_req_init(spr_req_t *r, const char *gen);
  * "grande") and "senza contorno" from the words of a request */
 void spr_parse(const char *text, spr_req_t *r);
 
+/* the colour a word names ("rosso", "blue", "dorata"...), or SPR_NO_COLOR */
+uint32_t spr_color_word(const char *w);
+
 /* 0, or -1 for an unknown recipe */
 int spr_make(const spr_req_t *r, spr_img_t *out);
 

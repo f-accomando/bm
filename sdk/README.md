@@ -263,7 +263,50 @@ i 1200 triangoli dei 60 fps):
 
 F2 **models**: i modelli del file, con il loro aspetto; **n** nuovo, **r** rinomina, **d**
 duplica, Canc cancella (due volte), PgUp/PgDn cambiano l'ordine, **i** il margine delle
-texture. Il menu ha anche titolo e autore della cartuccia.
+texture, **-** riduce i triangoli (chiede quanti; la metà per default): il riduttore del
+kernel (`src/bm/decimate.c`, collasso degli spigoli con le quadriche) tiene bordi, linee di
+colore e cuciture della texture, lo scheletro segue i vertici, Ctrl+Z annulla. Per
+adattare un modello pesante (un `.glb` importato, un modello di meshy2mesh) ai 1200
+triangoli del Pi. Sul PC fa lo stesso `tools/bmreduce.py CART.bm --faces 1200`. **m** (o
+"Model from picture..." nel menu) fa un modello da un'immagine, vedi sotto. Il menu ha
+anche titolo e autore della cartuccia.
+
+**Un modello da un'immagine, sulla console.** Pagina models, **m**: tre modi.
+
+- **cutout**: il contorno dell'immagine (sfondo trasparente, o il colore degli angoli)
+  diventa un ritaglio con un po' di spessore, come una figura di carta: l'immagine davanti,
+  specchiata dietro, i colori del bordo sui lati. Fatto sulla console, senza rete.
+- **lathe**: il mezzo contorno tornito intorno all'asse verticale (vasi, torri, razzi,
+  pedine), con l'immagine proiettata davanti. Anche questo senza rete.
+- **meshy.ai**: un servizio image-to-3D neurale (il primo è [Meshy](https://www.meshy.ai),
+  altri si aggiungono alla tabella in `src/net/img3d.c`): bm Studio manda l'immagine, segue
+  il lavoro e prende il modello completo, visto da ogni lato.
+
+In tutti i casi la texture va sullo sprite sheet del progetto se è ancora vuoto, altrimenti
+le facce prendono i colori della texture; il modello è alto 2 blocchi e sta nei 1200
+triangoli. Le immagini (`.png` o `.jpg`, un soggetto su sfondo pulito, meglio di fronte)
+vanno nella cartella `pics/` della SD. Per il servizio serve anche:
+
+1. La console collegata al WiFi (Settings > Network) e sulla SD `bm/ca.pem` (è nella
+   `dist/`: i certificati per https).
+2. La chiave del servizio in `bm/config.txt` sulla SD, una riga: `meshy_key=msy_...` (si
+   crea su meshy.ai, Settings > API keys; i modelli costano crediti).
+
+Con il servizio la riga di stato dice a che punto è il lavoro (uno sguardo ogni 5 secondi,
+un paio di minuti in tutto; Esc lo abbandona); senza chiave o senza rete il messaggio dice
+cosa manca. In ogni caso alla fine il modello compare nella lista con il nome dell'immagine
+e Ctrl+S lo salva. Sul PC fanno lo stesso `tools/cutout2mesh.py hero.png -o hero.bm`
+(`--lathe`, `--depth`, `--segments`) e `tools/meshy2mesh.py` (vedi sotto).
+
+**Senza chiave né cloud, sul PC: `tools/local2mesh.py`.** Gli stessi modelli con una rete
+image-to-3D aperta che gira sul tuo computer: TripoSR (veloce, una scheda NVIDIA da 6 GB
+o la sola CPU, lento) o Hunyuan3D 2 (meglio, NVIDIA da 12 GB in su). Una volta:
+`tools/local2mesh.py --install triposr` (clona il programma in `~/.bm/local3d`, fa un venv
+con PyTorch; i pesi arrivano da huggingface.co al primo uso, qualche GB). Poi
+`tools/local2mesh.py hero.png -o hero.bm` (`--backend hunyuan3d`, `--faces`, `--height`,
+`--flat`, `--name`): il `.glb` del modello passa per la stessa conversione di meshy2mesh,
+texture sullo sheet e riduttore. Con `--backend command --command "tool {image} --out
+{out}"` va qualunque altro strumento che scriva un `.glb`. `--check` dice cosa c'è.
 
 **bm Animator**:
 
