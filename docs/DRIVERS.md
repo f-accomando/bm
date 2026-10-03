@@ -40,6 +40,18 @@ stress test, il 3D Bench, il benchmark di Overbit e il quarto valore di `gpu3d()
   del fotogramma dopo, e si aspetta la GPU solo prima di toccare la pagina o la memoria
   che il lavoro legge. Una prova all'avvio (`probe_queue`) la spegne se la V3D non finisce
   il lavoro come deve. Opzione `gpu3d_queue`.
+- **4.1** (2026-10-03, M35): un solo lavoro della GPU a fotogramma anche con l'HUD e le
+  braccia in prima persona. Il 2D disegnato dopo il 3D mentre la GPU disegna (l'HUD) non
+  la aspetta più: il lavoro parte e il 2D si registra (`d2` in `runtime.c`: rettangoli,
+  testo, sprite, mappa, prompt...), poi va sulla pagina nello stesso ordine quando la GPU ha
+  finito (prima di altro 3D, di leggere la pagina, di mostrarla). Lo `zclear()` tra il
+  mondo e le braccia (`R3D_FRONT`) resta nello stesso lavoro: un quadrato su tutta la
+  pagina con `fs_zclear` scrive la profondità più lontana e rimette a ogni pixel il suo
+  colore (il segnale *colour load* legge il tile buffer, come fa Mesa per il blending);
+  la prova all'avvio `probe_zclear` lo spegne se la V3D non lo fa. Il 2D che il `_update`
+  disegna mentre la GPU lavora va sulla pagina del fotogramma dopo, come senza la coda; un
+  `_update` che disegna 3D o legge la pagina torna a girare dopo il fotogramma (una riga
+  nel log). Tutto con `gpu3d_queue=1`.
 
 ## Le modalità: versioni vecchie sul codice di oggi
 
@@ -49,7 +61,7 @@ Le impostazioni riproducono le versioni precedenti, così si confrontano sullo s
 - GPU senza vertex shader (`gpu3d_vs=0`): **2.1** (con `gpu3d_aa=1` anche l'MSAA);
 - GPU con il vertex shader per lo scenario (`gpu3d_vs=1`): **3.0**;
 - GPU con il vertex shader per tutto (`gpu3d_vs=2`): **3.4**;
-- con il fotogramma in coda (`gpu3d_queue=1`): **4.0**.
+- con il fotogramma in coda (`gpu3d_queue=1`): **4.1**.
 
 0.1 e 1.0 non girano più: i loro numeri sono quelli misurati sul Pi allora
 (`docs/M33-PRIMA-DOPO.md`).

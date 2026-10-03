@@ -231,7 +231,7 @@ static void flush(r3d_t *r, g16_t *g, int gpu)
 {
     (void)r;
     if (gpu && use_queue) {
-        CHECK(gpu3d_submit(g) == 0 && gpu3d_sync() == 0, "submit: %s (%s)", gpu3d_status(), emu_error);
+        CHECK(gpu3d_submit(g, 0) == 0 && gpu3d_sync() == 0, "submit: %s (%s)", gpu3d_status(), emu_error);
         return;
     }
     if (gpu)
@@ -643,10 +643,10 @@ int main(int argc, char **argv)
            emu_red_a ? "red" : "blue", emu_tex_swap ? "swapped" : "in place", emu_tformat,
            emu_ms_load_one ? "one sample" : "all samples");
     CHECK(gpu3d_init() == 0, "init: %s (%s)", gpu3d_status(), emu_error);
-    char want[160];
+    char want[200];
     static const char *const clips[3] = { "yes", "no", "yes (Z planes)" };
     snprintf(want, sizeof want, "byte a = %s, texels %s, textures in %s, MSAA %s, vertex shader %s, clipping %s, "
-             "lit models yes, queue yes", emu_red_a ? "red" : "blue", emu_tex_swap ? "swapped" : "in place",
+             "lit models yes, queue yes, zclear in job yes", emu_red_a ? "red" : "blue", emu_tex_swap ? "swapped" : "in place",
              emu_tformat == 2 ? "rows" : "tiles", emu_ms_load_one ? "on cleared pages" : "on any page",
              emu_cw_flip ? "yes" : "yes (cw)", clips[emu_clip]);
     CHECK(strstr(gpu3d_status(), want) != NULL, "probe: '%s', expected '%s'", gpu3d_status(), want);
@@ -706,7 +706,10 @@ int main(int argc, char **argv)
         }
     }
     /* M35: every scene again with its end started on the V3D (semaphores,
-     * gpu3d_submit) and waited for: the same pixels */
+     * gpu3d_submit) and waited for, its zclear()s inside the job (fs_zclear):
+     * the same pixels */
+    gpu3d_stats_t st0;
+    gpu3d_take_stats(&st0);
     for (size_t s = 0; s < sizeof scenes / sizeof *scenes; s++) {
         const int w = scenes[s].w, h = scenes[s].h;
         uint16_t *q[2] = { test_aligned_alloc(16, (size_t)w * h * 2), test_aligned_alloc(16, (size_t)w * h * 2) };
@@ -733,9 +736,13 @@ int main(int argc, char **argv)
         CHECK(differ == 0, "queue: %s, %d pixels differ from the job run to its end", scenes[s].name, differ);
         CHECK(emu_stats.async > async, "queue: %s, no job started", scenes[s].name);
     }
-    printf("  queue: %u jobs started and waited for later, the same pixels\n", emu_stats.async);
     gpu3d_stats_t st;
     gpu3d_take_stats(&st);
+    printf("  queue: %u jobs started and waited for later, %u zclear() inside a job, the same pixels\n",
+           emu_stats.async, st.zinjob);
+    CHECK(st.zinjob >= 2, "queue: %u zclear() inside a job (the first-person and noz_zclear scenes)", st.zinjob);
+    st.jobs += st0.jobs;
+    st.tris += st0.tris;
     CHECK(st.jobs >= 5, "%u jobs", st.jobs);
     printf("gpu3d: %u jobs, %u triangles; %d/%d checks passed\n", st.jobs, st.tris, checks - failures, checks);
     return failures ? 1 : 0;

@@ -354,7 +354,7 @@ static int qpu_run(qpu_t *q, const uint32_t *code, int max)
 
 /* ---------------------------------------------------------------- binning */
 
-enum { SH_COLOUR, SH_TEX, SH_TEX_ALPHA, SH_SCREEN, SH_TEX_RGB, SH_TEX_RGB_ALPHA };
+enum { SH_COLOUR, SH_TEX, SH_TEX_ALPHA, SH_SCREEN, SH_TEX_RGB, SH_TEX_RGB_ALPHA, SH_ZCLEAR };
 
 typedef struct { float x, y, z, iw, v[8]; } evert_t;
 
@@ -558,6 +558,7 @@ static int shader_of(const uint8_t *code)
     if (!memcmp(code, fs_colour_screen, sizeof fs_colour_screen)) return SH_SCREEN;
     if (!memcmp(code, fs_tex_rgb, sizeof fs_tex_rgb)) return SH_TEX_RGB;
     if (!memcmp(code, fs_tex_rgb_alpha, sizeof fs_tex_rgb_alpha)) return SH_TEX_RGB_ALPHA;
+    if (!memcmp(code, fs_zclear, sizeof fs_zclear)) return SH_ZCLEAR;
     return -1;
 }
 
@@ -732,9 +733,10 @@ static int bin(uint32_t start, uint32_t end)
             int sh = shader_of(ptr(rd32(rec + 4)));
             if (sh < 0)
                 return err("unknown shader at %08x", rd32(rec + 4), 0);
-            const int colour = sh == SH_COLOUR || sh == SH_SCREEN, rgb = sh == SH_TEX_RGB || sh == SH_TEX_RGB_ALPHA;
+            const int colour = sh == SH_COLOUR || sh == SH_SCREEN || sh == SH_ZCLEAR,
+                      rgb = sh == SH_TEX_RGB || sh == SH_TEX_RGB_ALPHA;
             int stride = rec[1], nvary = rec[3];
-            if (nvary != (rgb ? 8 : 3) || stride != 12 + 4 * nvary || rec[2] != (colour ? 0 : 2))
+            if (nvary != (rgb ? 8 : sh == SH_ZCLEAR ? 0 : 3) || stride != 12 + 4 * nvary || rec[2] != (colour ? 0 : 2))
                 return err("shader record: stride %u, varyings %u", stride, nvary);
             const uint8_t *vb = ptr(rd32(rec + 12));
             const uint32_t *params = colour ? NULL : ptr(rd32(rec + 8));
@@ -950,6 +952,11 @@ static void draw_tile(int tx, int ty, int fw, int fh)
                                (pr->depth_func == 3 && zz <= tz[i]);
                     if (!pass)
                         continue;
+                    if (pr->shader == SH_ZCLEAR) {  /* fs_zclear: the colour loaded and written back */
+                        if (pr->z_update)
+                            tz[i] = zz;
+                        continue;
+                    }
                     if (!shaded) {              /* once a pixel, at its centre */
                         float cx = x + 0.5f, cy = y + 0.5f;
                         float c0 = edge(&v[1], &v[2], cx, cy) / area, c1 = edge(&v[2], &v[0], cx, cy) / area,

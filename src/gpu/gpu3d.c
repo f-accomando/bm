@@ -43,11 +43,12 @@ typedef struct {
 #define VSTRIDE(n) (12 + 4 * (n))
 #define VMAX_BYTES ((uint32_t)JOB_VERTS - 21u * (uint32_t)VSTRIDE(8))   /* room for a clipped triangle */
 
-enum { SH_COLOUR, SH_TEX, SH_TEX_ALPHA, SH_SCREEN, SH_TEX_RGB, SH_TEX_RGB_ALPHA, SH_COUNT };
+enum { SH_COLOUR, SH_TEX, SH_TEX_ALPHA, SH_SCREEN, SH_TEX_RGB, SH_TEX_RGB_ALPHA, SH_ZCLEAR, SH_COUNT };
+#define DEPTH_ZCLEAR 3                  /* after R3D_DEPTH_*: always passes, writes (fs_zclear) */
 /* the vertex shaders of meshes (M36); GV_LIT_TEX2: faces on two bones (a skin) */
 enum { GV_BAKED, GV_TEX_RGB, GV_LIT, GV_LIT_TEX, GV_LIT_TEX2, GV_COUNT };
-#define CODE_CS 6                       /* the coordinate shader's kilobyte of G.code */
-#define CODE_VS 7                       /* and the vertex shaders' (two each) */
+#define CODE_CS SH_COUNT                /* the coordinate shader's kilobyte of G.code */
+#define CODE_VS (CODE_CS + 1)           /* and the vertex shaders' (two each) */
 #define CODE_SHADOW (CODE_VS + 2 * GV_COUNT)    /* the shadows' vertex shader (2), coordinate shader (1) */
 #define CODE_CS2 (CODE_SHADOW + 3)      /* on two bones: the coordinate shader, the shadow's two */
 #define CODE_SHADOW2 (CODE_CS2 + 1)
@@ -66,6 +67,7 @@ static const struct { const uint32_t *code; size_t size; uint8_t uniforms, varyi
     { fs_colour_screen, sizeof fs_colour_screen, 0, 3, 1 },
     { fs_tex_rgb, sizeof fs_tex_rgb, 2, 8, 0 },
     { fs_tex_rgb_alpha, sizeof fs_tex_rgb_alpha, 2, 8, 1 },
+    { fs_zclear, sizeof fs_zclear, 0, 0, 0 },
 };
 
 /* a sprite sheet as a texture: RGBA32R (raster order, 32 bits a texel) in
@@ -163,6 +165,7 @@ static struct {
     int queue_ok;                   /* M35: the probe saw a started job end right (semaphores) */
     int queue_on;                   /* asked for (gpu3d_set_queue) */
     int inflight;                   /* a job started (v3d_start), not waited for yet */
+    int zclear_ok;                  /* M35: the probe saw zclear() inside a job work (fs_zclear) */
     int async_now;                  /* flush_job starts the job instead of running it */
     uint32_t vp;                    /* the job's VIEWPORT_OFFSET (x, y in 12.4) */
     float clipper[2];               /* the job's CLIPPER_XY_SCALING (0: not written yet) */
@@ -430,6 +433,7 @@ static int batch_open(const g16_t *g, int shader, int depth, const tex_t *t)
      * z except where pixels may be thrown away; NOZ: neither test nor
      * write; the effects and shadows: tested, not written */
     uint16_t cfg = depth == R3D_DEPTH_NONE ? V3D_CFG_DEPTH(7)
+                 : depth == DEPTH_ZCLEAR ? V3D_CFG_DEPTH(7) | V3D_CFG_Z_UPDATE
                  : depth == R3D_DEPTH_TEST ? V3D_CFG_DEPTH(1)
                  : shaders[shader].discard ? V3D_CFG_DEPTH(1) | V3D_CFG_Z_UPDATE
                  : V3D_CFG_DEPTH(1) | V3D_CFG_Z_UPDATE | V3D_CFG_EARLY_Z | V3D_CFG_EARLY_Z_UPDATE;
@@ -702,14 +706,45 @@ static void cb_tri(void *ctx, const g16_t *g, const r3d_corner_t v[3], int kind,
         add_tri(g, v, R3D_KIND_COLOUR, NULL, depth, SH_COLOUR, inside);
 }
 
+/* zclear() inside the job (M35): a quad over the whole page that writes
+ * the far depth and gives each pixel its colour back (fs_zclear); 0, or
+ * -1 if the GPU failed */
+static int zclear_quad(const g16_t *g)
+{
+    g16_t all = *g;                     /* the whole depth, whatever the clip rectangle */
+    all.cx0 = all.cy0 = 0;
+    all.cx1 = g->w;
+    all.cy1 = g->h;
+    if (!batch_takes(&all, SH_ZCLEAR, DEPTH_ZCLEAR, NULL) && batch_for(&all, SH_ZCLEAR, DEPTH_ZCLEAR, NULL) != 0)
+        return -1;
+    const int16_t x1 = (int16_t)(g->w * 16), y1 = (int16_t)(g->h * 16);
+    const int16_t xy[6][2] = { { 0, 0 }, { x1, 0 }, { x1, y1 }, { 0, 0 }, { x1, y1 }, { 0, y1 } };
+    uint8_t *o = G.verts + G.vbytes;
+    for (int i = 0; i < 6; i++, o += G.b_stride) {
+        gvert_t *v = (gvert_t *)o;
+        v->x = xy[i][0];
+        v->y = xy[i][1];
+        v->z = 1.0f;
+        v->inv_w = 1.0f;
+    }
+    G.vbytes += 6 * G.b_stride;
+    G.st.zinjob++;
+    return 0;
+}
+
 static void cb_zclear(void *ctx, const g16_t *g)
 {
     (void)ctx;
-    /* what is drawn next must not see the depth of what was drawn so far:
-     * that goes to the screen now, and the next job starts with a clear
-     * depth buffer */
-    if (G.open && (G.vbytes || G.gldraws))
+    /* what is drawn next must not see the depth of what was drawn so far.
+     * With the frame queue (M35) and where the probe saw it work, a quad
+     * in the same job clears it (a game with first-person arms: one job a
+     * frame); else what was drawn goes to the screen now, and the next
+     * job starts with a clear depth buffer */
+    if (G.open && (G.vbytes || G.gldraws)) {
+        if (G.queue_on && G.zclear_ok && !G.ms && g->w == G.w && g->h == G.h && zclear_quad(g) == 0)
+            return;                     /* (the depth loaded at the job's start still loaded) */
         gpu3d_flush(g, 0);
+    }
     G.z_saved = G.split = 0;
 }
 
@@ -1650,18 +1685,30 @@ int gpu3d_flush(const g16_t *g, int keep)
     return r;
 }
 
-int gpu3d_submit(const g16_t *g)
+int gpu3d_submit(const g16_t *g, int keep)
 {
     if (!G.queue_ok || !G.queue_on || G.failed)
-        return gpu3d_flush(g, 0);
-    if (job_wait() != 0)
-        return -1;
-    G.async_now = 1;
-    const int r = flush_job(g, 0);
+        return gpu3d_flush(g, keep);
+    const int had = G.open && (G.vbytes || G.gldraws);
+    if (had) {                          /* (nothing new: a job started stays started) */
+        if (job_wait() != 0)
+            return -1;
+        G.async_now = 1;
+    }
+    const int r = flush_job(g, keep && G.z_wanted);
     G.async_now = 0;
-    G.z_saved = 0;
-    G.split = 0;
+    if (!keep) {
+        G.z_saved = 0;
+        G.split = 0;
+    } else if (had) {
+        G.split = 1;
+    }
     return r;
+}
+
+int gpu3d_inflight(void)
+{
+    return G.inflight;
 }
 
 void gpu3d_set_queue(int on)
@@ -1677,6 +1724,11 @@ int gpu3d_queue(void)
 int gpu3d_queue_ok(void)
 {
     return G.queue_ok;
+}
+
+int gpu3d_zclear_ok(void)
+{
+    return G.zclear_ok;
 }
 
 void gpu3d_take_stats(gpu3d_stats_t *s)
@@ -1969,6 +2021,43 @@ static int probe_queue(const g16_t *pg)
     return c == 0x07E0 && d == 0x07E0;
 }
 
+/* M35: zclear() inside a job. Green over the whole buffer, the depth
+ * cleared by fs_zclear, then blue farther away on the left half: blue
+ * there (the depth was cleared), green on the right (the colour kept) */
+static int probe_zclear(const g16_t *pg)
+{
+    const float nz = 0.5f, fz = 0.25f;      /* 1/w: the blue is farther */
+    const r3d_corner_t v[4] = {
+        { 0, 0, nz, 0, 1, 0, { 0, 0, 0 }, { 0, 0, 0 } }, { PROBE_W, 0, nz, 0, 1, 0, { 0, 0, 0 }, { 0, 0, 0 } },
+        { PROBE_W, PROBE_H, nz, 0, 1, 0, { 0, 0, 0 }, { 0, 0, 0 } }, { 0, PROBE_H, nz, 0, 1, 0, { 0, 0, 0 }, { 0, 0, 0 } },
+    };
+    const r3d_corner_t h[4] = {
+        { 0, 0, fz, 0, 0, 1, { 0, 0, 0 }, { 0, 0, 0 } }, { PROBE_W / 2, 0, fz, 0, 0, 1, { 0, 0, 0 }, { 0, 0, 0 } },
+        { PROBE_W / 2, PROBE_H, fz, 0, 0, 1, { 0, 0, 0 }, { 0, 0, 0 } }, { 0, PROBE_H, fz, 0, 0, 1, { 0, 0, 0 }, { 0, 0, 0 } },
+    };
+    const r3d_corner_t t1[3] = { v[0], v[1], v[2] }, t2[3] = { v[0], v[2], v[3] };
+    const r3d_corner_t t3[3] = { h[0], h[1], h[2] }, t4[3] = { h[0], h[2], h[3] };
+    memset(G.probe, 0, JOB_PROBE);
+    G.page_uniform = 1;
+    G.page_colour = 0;
+    add_tri(pg, t1, R3D_KIND_COLOUR, NULL, R3D_DEPTH_WRITE, SH_COLOUR, 0);
+    add_tri(pg, t2, R3D_KIND_COLOUR, NULL, R3D_DEPTH_WRITE, SH_COLOUR, 0);
+    if (zclear_quad(pg) != 0)
+        return 0;
+    add_tri(pg, t3, R3D_KIND_COLOUR, NULL, R3D_DEPTH_WRITE, SH_COLOUR, 0);
+    add_tri(pg, t4, R3D_KIND_COLOUR, NULL, R3D_DEPTH_WRITE, SH_COLOUR, 0);
+    if (flush_job(pg, 0) != 0 || G.failed) {
+        kprintf("gpu3d: zclear() inside a job did not work: a zclear() ends the job as before\n");
+        return 0;
+    }
+    G.page_uniform = 0;
+    const uint16_t l = G.probe[PROBE_W * 30 + 10], r = G.probe[PROBE_W * 30 + 50];
+    if (l == 0x001F && r == 0x07E0)
+        return 1;
+    kprintf("gpu3d: zclear() inside a job gave %04x %04x (expected 001f 07e0): a zclear() ends the job\n", l, r);
+    return 0;
+}
+
 static int probe(void)
 {
     g16_t pg;
@@ -2052,6 +2141,7 @@ static int probe(void)
     G.clip_ok = G.gl_ok ? probe_clip(&pg) : 0;
     G.lit_ok = G.gl_ok ? probe_lit(&pg) : 0;
     G.queue_ok = probe_queue(&pg);
+    G.zclear_ok = probe_zclear(&pg);
     memset(&G.st, 0, sizeof G.st);
     return 0;
 }
@@ -2104,9 +2194,10 @@ int gpu3d_init(void)
     static const char *const clips[3] = { "no", "yes", "yes (Z planes)" };
     ksnprintf(G.why, sizeof G.why, "bm3d " BM3D_VERSION " ready (byte a = %s, texels %s, textures %s, MSAA %s, "
               "vertex shader %s, "
-              "clipping %s, lit models %s, queue %s)", G.red_a ? "red" : "blue", G.tex_swap ? "swapped" : "in place",
-              G.tformat ? "in tiles" : "in rows", ms[G.ms_ok], G.gl_ok ? (G.gl_cw ? "yes (cw)" : "yes") : "no",
-              clips[G.clip_ok], G.lit_ok ? "yes" : "no", G.queue_ok ? "yes" : "no");
+              "clipping %s, lit models %s, queue %s, zclear in job %s)", G.red_a ? "red" : "blue",
+              G.tex_swap ? "swapped" : "in place", G.tformat ? "in tiles" : "in rows", ms[G.ms_ok],
+              G.gl_ok ? (G.gl_cw ? "yes (cw)" : "yes") : "no", clips[G.clip_ok], G.lit_ok ? "yes" : "no",
+              G.queue_ok ? "yes" : "no", G.zclear_ok ? "yes" : "no");
     G.status = G.why;
     G.ready = 1;
     return 0;

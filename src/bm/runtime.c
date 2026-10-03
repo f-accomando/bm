@@ -74,6 +74,9 @@ static struct {
     r3d_t r3d;
     int r3d_ready;
     int zclear_seen;            /* zclear() called in this frame */
+    int early;                  /* in the next frame's _update, run while the GPU draws (M35) */
+    int early_touch;            /* ... which drew 3D or needed the page: */
+    int no_early;               /* its _update runs after the frame again */
     int hold_frame;             /* this frame is not shown (the 3D went from the GPU to the ARM
                                  * in the middle of it: its depths would be mixed) */
     int zclear_dma;             /* the z-buffer is being (or has been) cleared by the DMA
@@ -128,26 +131,119 @@ static void sheet_commit(void)
 
 /* ---------------------------------------------------------------- API */
 
+/* M35: 2D drawn on the page while the GPU draws 3D on it (the frame
+ * queue on): the GPU's job is started and the 2D is recorded here, then
+ * drawn on the page in the same order once the job has ended (flush3d):
+ * before more 3D, before the page is read, at the end of the frame. The
+ * HUD of a game is drawn (as far as the cartridge goes) while the GPU
+ * draws the scene, and the frame's 3D need not wait for it. */
+enum { D2_STATE, D2_CLS, D2_PSET, D2_LINE, D2_RECT, D2_RECTFILL, D2_CIRC, D2_CIRCFILL, D2_SPR, D2_SSPR,
+       D2_SSPR_ZOOM, D2_MAP, D2_TEXT, D2_PROMPT, D2_TRI, D2_TRI_GOURAUD };
+
+#define D2_MAX (256u << 10)             /* bytes recorded at most: then drawn */
+
+#define D2_NONE 0xFFFFFFFFu
+
+static struct {
+    int on;                             /* recording: the GPU has a job on the page */
+    int32_t *w;                         /* the records: op | words << 8, then the words */
+    uint32_t n, cap;                    /* words */
+    uint32_t cut;                       /* the records from here are the next frame's (its
+                                         * _update ran early), or D2_NONE */
+    int cx0, cy0, cx1, cy1, cam_x, cam_y;   /* the drawing state of the records so far */
+    const font_t *font;
+    uint32_t ops;                       /* drawn after the GPU (for the log and the bench) */
+} d2 = { .cut = D2_NONE };
+
+static void draw_prompt(const prompt_t *p, int x, int y);
+
+/* the 2D recorded before word upto, on the page (the GPU's job has
+ * ended); what follows stays recorded (the next frame's) */
+static void d2_replay(uint32_t upto)
+{
+    const g16_t live = rt.g;
+    for (uint32_t i = 0; i < upto;) {
+        const int32_t *a = &d2.w[i + 1];
+        const int op = d2.w[i] & 255;
+        i += 1 + ((uint32_t)d2.w[i] >> 8);
+        switch (op) {
+        case D2_STATE:
+            rt.g.cx0 = a[0]; rt.g.cy0 = a[1]; rt.g.cx1 = a[2]; rt.g.cy1 = a[3];
+            rt.g.cam_x = a[4]; rt.g.cam_y = a[5];
+            memcpy(&rt.g.font, a + 6, sizeof rt.g.font);
+            break;
+        case D2_CLS: g16_cls(&rt.g, (uint16_t)a[0]); break;
+        case D2_PSET: g16_pset(&rt.g, a[0], a[1], (uint16_t)a[2]); break;
+        case D2_LINE: g16_line(&rt.g, a[0], a[1], a[2], a[3], (uint16_t)a[4]); break;
+        case D2_RECT: g16_rect(&rt.g, a[0], a[1], a[2], a[3], (uint16_t)a[4]); break;
+        case D2_RECTFILL: g16_rectfill(&rt.g, a[0], a[1], a[2], a[3], (uint16_t)a[4]); break;
+        case D2_CIRC: g16_circ(&rt.g, a[0], a[1], a[2], (uint16_t)a[3]); break;
+        case D2_CIRCFILL: g16_circfill(&rt.g, a[0], a[1], a[2], (uint16_t)a[3]); break;
+        case D2_SPR: g16_spr(&rt.g, &rt.sheet, a[0], a[1], a[2], a[3], a[4], a[5], a[6]); break;
+        case D2_SSPR:
+            g16_sspr(&rt.g, &rt.sheet, a[0], a[1], a[2], a[3], a[4], a[5], a[6], a[7]);
+            break;
+        case D2_SSPR_ZOOM: {
+            float zoom;
+            memcpy(&zoom, a + 8, sizeof zoom);
+            g16_sspr_zoom(&rt.g, &rt.sheet, a[0], a[1], a[2], a[3], a[4], a[5], a[6], a[7], zoom);
+            break;
+        }
+        case D2_MAP: g16_map(&rt.g, &rt.sheet, &rt.map, a[0], a[1], a[2], a[3], a[4], a[5]); break;
+        case D2_TEXT: g16_text_scaled(&rt.g, a[0], a[1], (const char *)(a + 4), (uint16_t)a[2], a[3]); break;
+        case D2_PROMPT: {
+            const prompt_t *pr;
+            memcpy(&pr, a + 2, sizeof pr);
+            draw_prompt(pr, a[0], a[1]);
+            break;
+        }
+        case D2_TRI: g16_tri(&rt.g, a[0], a[1], a[2], a[3], a[4], a[5], (uint16_t)a[6]); break;
+        case D2_TRI_GOURAUD:
+            g16_tri_gouraud(&rt.g, a[0], a[1], a[2], a[3], a[4], a[5], (uint32_t)a[6], (uint32_t)a[7],
+                            (uint32_t)a[8]);
+            break;
+        }
+        d2.ops++;
+    }
+    rt.g.cx0 = live.cx0; rt.g.cy0 = live.cy0; rt.g.cx1 = live.cx1; rt.g.cy1 = live.cy1;
+    rt.g.cam_x = live.cam_x; rt.g.cam_y = live.cam_y;
+    rt.g.font = live.font;
+    memmove(d2.w, d2.w + upto, (d2.n - upto) * sizeof *d2.w);
+    d2.n -= upto;
+    d2.on = d2.n > 0;
+    if (d2.cut != D2_NONE)
+        d2.cut = 0;
+}
+
 /* The 3D drawn by the GPU waits in a job until something else touches the
  * page: then the job goes first (2D drawn after the 3D lands on it, pget
  * reads the 3D). keep: in the middle of a frame, the depth stays for the
- * 3D drawn after; 0 at the end of the frame. */
+ * 3D drawn after; 0 at the end of the frame. The 2D recorded while the
+ * job was drawing (M35) then goes on the page. */
 static void flush3d(int keep)
 {
-    if (!rt.r3d.backend)
-        return;
     /* (a frame started on the GPU, M35: waited for, the page has it) */
-    if (((gpu3d_pending() || !keep) && gpu3d_flush(&rt.g, keep) != 0) || gpu3d_sync() != 0 || gpu3d_failed())
+    if (rt.r3d.backend &&
+        (((gpu3d_pending() || !keep) && gpu3d_flush(&rt.g, keep) != 0) || gpu3d_sync() != 0 || gpu3d_failed()))
         rt.r3d.backend = NULL;          /* the GPU failed: the ARM draws the 3D again */
+    if (!d2.on)
+        return;
+    if (rt.early && d2.cut < d2.n) {
+        /* the early _update needs the page while it holds 2D for the next
+         * frame: drawn now (this frame shows it) */
+        rt.early_touch = 1;
+        d2.cut = D2_NONE;
+    }
+    d2_replay(d2.cut == D2_NONE || rt.early ? d2.n : d2.cut);
 }
 
 /* M35: the end of the frame's 3D started on the GPU and not waited for
  * (gpu3d_queue on): the next _update runs meanwhile; flush3d waits */
 static int submit3d(void)
 {
-    if (!rt.r3d.backend || !gpu3d_queue())
+    if (!rt.r3d.backend || !gpu3d_queue() || rt.no_early)
         return 0;
-    if (gpu3d_submit(&rt.g) != 0 || gpu3d_failed()) {
+    if (gpu3d_submit(&rt.g, 0) != 0 || gpu3d_failed()) {
         rt.r3d.backend = NULL;
         return 0;
     }
@@ -161,6 +257,85 @@ static void sync3d(void)
     flush3d(1);
     if (rt.r3d.backend)
         gpu3d_page(0, 0);
+}
+
+/* before 3D, or before changing what recorded 2D reads (the map): the
+ * recorded 2D goes on the page first */
+static void settle2d(void)
+{
+    if (rt.early)
+        rt.early_touch = 1;             /* 3D in the early _update: it lands on this frame */
+    if (d2.on)
+        flush3d(1);
+}
+
+/* M35: the next frame's _update runs while the GPU draws this one: the 2D
+ * it draws is recorded, for the next frame's page (begin 1); after the
+ * page is shown, the records are that page's (begin 0) */
+static void d2_early(int begin)
+{
+    if (begin) {
+        d2.cut = d2.n;
+        d2.font = NULL;                 /* the next frame's records start with their state */
+    } else {
+        d2.cut = D2_NONE;
+    }
+}
+
+/* Before 2D on the page: 1 if it is to be recorded (n words of arguments
+ * at *a, after the op): the GPU has 3D for the page and the queue is on,
+ * so the 3D is started and the 2D waits for it. Else 0, the 3D waiting
+ * drawn first (sync3d). */
+static int draw2d(int op, uint32_t words, int32_t **a)
+{
+    if (!d2.on && rt.early) {           /* 2D in the early _update: the next frame's */
+        d2.on = 1;
+        d2.font = NULL;
+    } else if (!d2.on) {
+        if (!rt.r3d.backend || !gpu3d_queue() || !gpu3d_pending()) {
+            sync3d();
+            return 0;
+        }
+        if (gpu3d_submit(&rt.g, 1) != 0 || gpu3d_failed())
+            rt.r3d.backend = NULL;
+        gpu3d_page(0, 0);
+        if (!rt.r3d.backend || !gpu3d_inflight()) {
+            sync3d();
+            return 0;
+        }
+        d2.on = 1;
+        d2.font = NULL;                 /* the first record sets the state */
+    }
+    const int state = rt.g.cx0 != d2.cx0 || rt.g.cy0 != d2.cy0 || rt.g.cx1 != d2.cx1 || rt.g.cy1 != d2.cy1 ||
+                      rt.g.cam_x != d2.cam_x || rt.g.cam_y != d2.cam_y || rt.g.font != d2.font;
+    const uint32_t need = 1 + words + (state ? 7 + sizeof(void *) / 4 : 0);
+    if (d2.n + need > d2.cap) {
+        uint32_t cap = d2.cap ? d2.cap * 2 : 4096;
+        while (cap < d2.n + need)
+            cap *= 2;
+        int32_t *w = cap * 4 <= D2_MAX ? realloc(d2.w, cap * 4) : NULL;
+        if (!w) {                       /* too much: what is recorded goes on the page */
+            if (rt.early)
+                rt.early_touch = 1;
+            flush3d(1);
+            return 0;
+        }
+        d2.w = w;
+        d2.cap = cap;
+    }
+    if (state) {
+        int32_t *s = &d2.w[d2.n];
+        s[0] = D2_STATE | (int32_t)((6 + sizeof(void *) / 4) << 8);
+        s[1] = d2.cx0 = rt.g.cx0; s[2] = d2.cy0 = rt.g.cy0; s[3] = d2.cx1 = rt.g.cx1; s[4] = d2.cy1 = rt.g.cy1;
+        s[5] = d2.cam_x = rt.g.cam_x; s[6] = d2.cam_y = rt.g.cam_y;
+        d2.font = rt.g.font;
+        memcpy(s + 7, &d2.font, sizeof d2.font);
+        d2.n += 7 + sizeof(void *) / 4;
+    }
+    d2.w[d2.n] = op | (int32_t)(words << 8);
+    *a = &d2.w[d2.n + 1];
+    d2.n += 1 + words;
+    return 1;
 }
 
 /* r3d needs the ARM (shadows, 3D effects, materials the GPU lacks: see
@@ -184,21 +359,49 @@ static void gpu3d_to_arm(void *ctx, const char *why)
 static int l_cls(lua_State *L)
 {
     const uint16_t c = col(L, 1, 0);
-    sync3d();
+    int32_t *a;
+    if (draw2d(D2_CLS, 1, &a)) {
+        a[0] = c;
+        return 0;
+    }
     g16_cls(&rt.g, c);
     if (rt.r3d.backend)
         gpu3d_page(1, c);               /* the GPU's next job clears to it */
     return 0;
 }
-static int l_pset(lua_State *L)     { sync3d(); g16_pset(&rt.g, ival(L, 1), ival(L, 2), col(L, 3, 0xFFFFFF)); return 0; }
-static int l_line(lua_State *L)     { sync3d(); g16_line(&rt.g, ival(L, 1), ival(L, 2), ival(L, 3), ival(L, 4), col(L, 5, 0xFFFFFF)); return 0; }
-static int l_rect(lua_State *L)     { sync3d(); g16_rect(&rt.g, ival(L, 1), ival(L, 2), ival(L, 3), ival(L, 4), col(L, 5, 0xFFFFFF)); return 0; }
-static int l_rectfill(lua_State *L) { sync3d(); g16_rectfill(&rt.g, ival(L, 1), ival(L, 2), ival(L, 3), ival(L, 4), col(L, 5, 0xFFFFFF)); return 0; }
-static int l_circ(lua_State *L)     { sync3d(); g16_circ(&rt.g, ival(L, 1), ival(L, 2), ival(L, 3), col(L, 4, 0xFFFFFF)); return 0; }
-static int l_circfill(lua_State *L) { sync3d(); g16_circfill(&rt.g, ival(L, 1), ival(L, 2), ival(L, 3), col(L, 4, 0xFFFFFF)); return 0; }
+
+/* the 2D of pset ... circfill: drawn, or recorded (draw2d) */
+static void shape2d(lua_State *L, int op, int n)
+{
+    int32_t v[5], *a;
+    for (int i = 0; i < n - 1; i++)
+        v[i] = ival(L, i + 1);
+    v[n - 1] = col(L, n, 0xFFFFFF);
+    if (draw2d(op, (uint32_t)n, &a)) {
+        memcpy(a, v, (size_t)n * sizeof *v);
+        return;
+    }
+    switch (op) {
+    case D2_PSET: g16_pset(&rt.g, v[0], v[1], (uint16_t)v[2]); break;
+    case D2_LINE: g16_line(&rt.g, v[0], v[1], v[2], v[3], (uint16_t)v[4]); break;
+    case D2_RECT: g16_rect(&rt.g, v[0], v[1], v[2], v[3], (uint16_t)v[4]); break;
+    case D2_RECTFILL: g16_rectfill(&rt.g, v[0], v[1], v[2], v[3], (uint16_t)v[4]); break;
+    case D2_CIRC: g16_circ(&rt.g, v[0], v[1], v[2], (uint16_t)v[3]); break;
+    case D2_CIRCFILL: g16_circfill(&rt.g, v[0], v[1], v[2], (uint16_t)v[3]); break;
+    }
+}
+
+static int l_pset(lua_State *L)     { shape2d(L, D2_PSET, 3); return 0; }
+static int l_line(lua_State *L)     { shape2d(L, D2_LINE, 5); return 0; }
+static int l_rect(lua_State *L)     { shape2d(L, D2_RECT, 5); return 0; }
+static int l_rectfill(lua_State *L) { shape2d(L, D2_RECTFILL, 5); return 0; }
+static int l_circ(lua_State *L)     { shape2d(L, D2_CIRC, 4); return 0; }
+static int l_circfill(lua_State *L) { shape2d(L, D2_CIRCFILL, 4); return 0; }
 
 static int l_pget(lua_State *L)
 {
+    if (rt.early)
+        rt.early_touch = 1;             /* the early _update would read this frame's page */
     sync3d();
     int c = g16_pget(&rt.g, ival(L, 1), ival(L, 2));
     if (c < 0) lua_pushnil(L);
@@ -208,10 +411,14 @@ static int l_pget(lua_State *L)
 
 static int l_spr(lua_State *L)
 {
-    sync3d();
+    const int32_t v[7] = { ival(L, 1), ival(L, 2), ival(L, 3), oval(L, 4, 1), oval(L, 5, 1), lua_toboolean(L, 6),
+                           lua_toboolean(L, 7) };
+    int32_t *a;
     sheet_commit();
-    g16_spr(&rt.g, &rt.sheet, ival(L, 1), ival(L, 2), ival(L, 3), oval(L, 4, 1), oval(L, 5, 1),
-            lua_toboolean(L, 6), lua_toboolean(L, 7));
+    if (draw2d(D2_SPR, 7, &a))
+        memcpy(a, v, sizeof v);
+    else
+        g16_spr(&rt.g, &rt.sheet, v[0], v[1], v[2], v[3], v[4], v[5], v[6]);
     return 0;
 }
 
@@ -219,24 +426,35 @@ static int l_spr(lua_State *L)
  * draws it that many times bigger, or smaller below 1 (nearest pixel) */
 static int l_sspr(lua_State *L)
 {
-    sync3d();
+    const int32_t v[8] = { ival(L, 1), ival(L, 2), ival(L, 3), ival(L, 4), ival(L, 5), ival(L, 6),
+                           lua_toboolean(L, 7), lua_toboolean(L, 8) };
+    const float zoom = (float)luaL_optnumber(L, 9, 1);
+    int32_t *a;
     sheet_commit();
-    lua_Number zoom = luaL_optnumber(L, 9, 1);
-    if (zoom == 1)
-        g16_sspr(&rt.g, &rt.sheet, ival(L, 1), ival(L, 2), ival(L, 3), ival(L, 4), ival(L, 5), ival(L, 6),
-                 lua_toboolean(L, 7), lua_toboolean(L, 8));
-    else
-        g16_sspr_zoom(&rt.g, &rt.sheet, ival(L, 1), ival(L, 2), ival(L, 3), ival(L, 4), ival(L, 5), ival(L, 6),
-                      lua_toboolean(L, 7), lua_toboolean(L, 8), (float)zoom);
+    if (zoom == 1) {
+        if (draw2d(D2_SSPR, 8, &a))
+            memcpy(a, v, sizeof v);
+        else
+            g16_sspr(&rt.g, &rt.sheet, v[0], v[1], v[2], v[3], v[4], v[5], v[6], v[7]);
+    } else if (draw2d(D2_SSPR_ZOOM, 9, &a)) {
+        memcpy(a, v, sizeof v);
+        memcpy(a + 8, &zoom, sizeof zoom);
+    } else {
+        g16_sspr_zoom(&rt.g, &rt.sheet, v[0], v[1], v[2], v[3], v[4], v[5], v[6], v[7], zoom);
+    }
     return 0;
 }
 
 static int l_map(lua_State *L)
 {
-    sync3d();
+    const int32_t v[6] = { ival(L, 1), ival(L, 2), oval(L, 3, 0), oval(L, 4, 0), oval(L, 5, rt.map.w),
+                           oval(L, 6, rt.map.h) };
+    int32_t *a;
     sheet_commit();
-    g16_map(&rt.g, &rt.sheet, &rt.map, ival(L, 1), ival(L, 2), oval(L, 3, 0), oval(L, 4, 0),
-            oval(L, 5, rt.map.w), oval(L, 6, rt.map.h));
+    if (draw2d(D2_MAP, 6, &a))
+        memcpy(a, v, sizeof v);
+    else
+        g16_map(&rt.g, &rt.sheet, &rt.map, v[0], v[1], v[2], v[3], v[4], v[5]);
     return 0;
 }
 
@@ -250,8 +468,11 @@ static int l_mget(lua_State *L)
 static int l_mset(lua_State *L)
 {
     int x = ival(L, 1), y = ival(L, 2);
-    if (x >= 0 && y >= 0 && x < rt.map.w && y < rt.map.h)
+    if (x >= 0 && y >= 0 && x < rt.map.w && y < rt.map.h) {
+        if (d2.on)
+            flush3d(1);                 /* a map() recorded draws the map as it was */
         rt.map.cells[y * rt.map.w + x] = (uint16_t)ival(L, 3);
+    }
     return 0;
 }
 
@@ -287,8 +508,19 @@ static int l_print(lua_State *L)
     uint16_t c = col(L, 4, 0xFFFFFF);
     int scale = oval(L, 5, 1);
     if (scale > 8) scale = 8;
-    const char *s = luaL_tolstring(L, 1, NULL);
-    sync3d();
+    size_t len;
+    const char *s = luaL_tolstring(L, 1, &len);
+    int32_t *a;
+    if (draw2d(D2_TEXT, 4 + (uint32_t)(len + 4) / 4, &a)) {
+        a[0] = x; a[1] = y; a[2] = c; a[3] = scale;
+        memcpy(a + 4, s, len + 1);
+        /* where it ends, as drawn (nothing drawn: no clip rectangle) */
+        g16_t m = rt.g;
+        m.cx0 = m.cy0 = 0x40000000;
+        m.cx1 = m.cy1 = -0x40000000;
+        lua_pushinteger(L, g16_text_scaled(&m, x, y, s, c, scale));
+        return 1;
+    }
     lua_pushinteger(L, g16_text_scaled(&rt.g, x, y, s, c, scale));
     return 1;
 }
@@ -365,6 +597,29 @@ static const prompt_t *find_prompt(const char *n, int small)
     return NULL;
 }
 
+/* a prompt's picture at x, y (its edges blended over the page) */
+static void draw_prompt(const prompt_t *p, int x, int y)
+{
+    for (int j = 0; j < p->h; j++)
+        for (int i = 0; i < p->w; i++) {
+            uint32_t c = p->px[j * p->w + i], a = c >> 24;
+            if (!a)
+                continue;
+            if (a < 255) {                      /* the edges: over what is there */
+                int b = g16_pget(&rt.g, x + i, y + j);
+                if (b < 0)
+                    continue;
+                uint32_t under = g16_to_rgb24((uint16_t)b), out = 0;
+                for (int sh = 0; sh <= 16; sh += 8) {
+                    int u = (int)(under >> sh & 255), v = (int)(c >> sh & 255);
+                    out |= (uint32_t)(u + (v - u) * (int)a / 255) << sh;
+                }
+                c = out;
+            }
+            g16_pset(&rt.g, x + i, y + j, g16_rgb24(c & 0xFFFFFF));
+        }
+}
+
 /* prompt(name, x, y [, small]): a button or a key as a chip of the apps'
  * set (prompts.c), its top left at (x, y), 16 px high for 8x16 text, 12
  * with small (by default when the font is 6x12); returns the x after it.
@@ -387,25 +642,14 @@ static int l_prompt(lua_State *L)
         return 2;
     }
     int x = ival(L, 2), y = ival(L, 3);
-    sync3d();
-    for (int j = 0; j < p->h; j++)
-        for (int i = 0; i < p->w; i++) {
-            uint32_t c = p->px[j * p->w + i], a = c >> 24;
-            if (!a)
-                continue;
-            if (a < 255) {                      /* the edges: over what is there */
-                int b = g16_pget(&rt.g, x + i, y + j);
-                if (b < 0)
-                    continue;
-                uint32_t under = g16_to_rgb24((uint16_t)b), out = 0;
-                for (int sh = 0; sh <= 16; sh += 8) {
-                    int u = (int)(under >> sh & 255), v = (int)(c >> sh & 255);
-                    out |= (uint32_t)(u + (v - u) * (int)a / 255) << sh;
-                }
-                c = out;
-            }
-            g16_pset(&rt.g, x + i, y + j, g16_rgb24(c & 0xFFFFFF));
-        }
+    int32_t *a;
+    if (draw2d(D2_PROMPT, 2 + sizeof(void *) / 4, &a)) {
+        a[0] = x;
+        a[1] = y;
+        memcpy(a + 2, &p, sizeof p);
+    } else {
+        draw_prompt(p, x, y);
+    }
     lua_pushinteger(L, x + p->w);
     return 1;
 }
@@ -553,15 +797,26 @@ static int l_stat(lua_State *L)
  * corner, blended across the triangle (Gouraud, dithered) */
 static int l_tri(lua_State *L)
 {
-    sync3d();
+    int32_t v[9], *a;
+    for (int i = 0; i < 6; i++)
+        v[i] = ival(L, i + 1);
     if (!lua_isnoneornil(L, 8)) {
-        uint32_t c0 = (uint32_t)luaL_optinteger(L, 7, 0xFFFFFF);
-        g16_tri_gouraud(&rt.g, ival(L, 1), ival(L, 2), ival(L, 3), ival(L, 4), ival(L, 5), ival(L, 6),
-                        c0, (uint32_t)luaL_checkinteger(L, 8), (uint32_t)luaL_optinteger(L, 9, (lua_Integer)c0));
+        const uint32_t c0 = (uint32_t)luaL_optinteger(L, 7, 0xFFFFFF);
+        v[6] = (int32_t)c0;
+        v[7] = (int32_t)(uint32_t)luaL_checkinteger(L, 8);
+        v[8] = (int32_t)(uint32_t)luaL_optinteger(L, 9, (lua_Integer)c0);
+        if (draw2d(D2_TRI_GOURAUD, 9, &a))
+            memcpy(a, v, sizeof v);
+        else
+            g16_tri_gouraud(&rt.g, v[0], v[1], v[2], v[3], v[4], v[5], (uint32_t)v[6], (uint32_t)v[7],
+                            (uint32_t)v[8]);
         return 0;
     }
-    g16_tri(&rt.g, ival(L, 1), ival(L, 2), ival(L, 3), ival(L, 4), ival(L, 5), ival(L, 6),
-            col(L, 7, 0xFFFFFF));
+    v[6] = col(L, 7, 0xFFFFFF);
+    if (draw2d(D2_TRI, 7, &a))
+        memcpy(a, v, 7 * sizeof *v);
+    else
+        g16_tri(&rt.g, v[0], v[1], v[2], v[3], v[4], v[5], (uint16_t)v[6]);
     return 0;
 }
 
@@ -1315,6 +1570,7 @@ static int l_draw3d(lua_State *L)
     r3d_mesh_t *m = luaL_checkudata(L, 1, MESH_MT);
     v3_t p = { fnum(L, 2, 0), fnum(L, 3, 0), fnum(L, 4, 0) };
     r3d_t *r = r3d(L);
+    settle2d();                         /* recorded 2D first: the 3D goes over it */
     zclear_dma_wait(1);
     uint32_t t0 = timer_ticks();
     r3d_draw_flags(r, m, p, fnum(L, 5, 0), fnum(L, 6, 0), fnum(L, 7, 0), fnum(L, 8, 1),
@@ -1352,6 +1608,7 @@ static int l_shadow3d(lua_State *L)
 static int l_point3d(lua_State *L)
 {
     r3d_t *r = r3d(L);
+    settle2d();                         /* recorded 2D first: the 3D goes over it */
     zclear_dma_wait(1);
     uint32_t t0 = timer_ticks();
     uint32_t n = r3d_point(r, (v3_t){ fnum(L, 1, 0), fnum(L, 2, 0), fnum(L, 3, 0) }, fnum(L, 4, 0.1f),
@@ -1365,6 +1622,7 @@ static int l_point3d(lua_State *L)
 static int l_line3d(lua_State *L)
 {
     r3d_t *r = r3d(L);
+    settle2d();                         /* recorded 2D first: the 3D goes over it */
     zclear_dma_wait(1);
     uint32_t t0 = timer_ticks();
     uint32_t n = r3d_line(r, (v3_t){ fnum(L, 1, 0), fnum(L, 2, 0), fnum(L, 3, 0) },
@@ -1382,6 +1640,7 @@ static int l_sprite3d(lua_State *L)
 {
     r3d_t *r = r3d(L);
     sheet_commit();
+    settle2d();                         /* recorded 2D first: the 3D goes over it */
     zclear_dma_wait(1);
     uint32_t t0 = timer_ticks();
     uint32_t n = r3d_sprite(r, &rt.sheet, ival(L, 1), ival(L, 2), ival(L, 3), ival(L, 4),
@@ -1472,7 +1731,7 @@ static int l_zclear(lua_State *L)
  * its vertex shader places the corners of the models (M36, where the GPU's
  * probe drew with it): false, 1 the scenery (meshes unlit or with baked
  * light), 2 (or true) every model; version: the bm3d version that reproduces
- * (src/gpu/version3d.h: "0.2" the ARM, "2.1", "3.0", "3.4", "4.0"). With on, the 3D
+ * (src/gpu/version3d.h: "0.2" the ARM, "2.1", "3.0", "3.4", "4.1"). With on, the 3D
  * goes to the GPU (if the console has one that answers) or to the ARM from
  * here, whatever Settings > Graphics says: for benchmarks; switch between
  * frames (what was drawn so far in a frame is not in the other's depth).
@@ -3896,6 +4155,7 @@ static void present(framebuffer_t *fb, uint32_t *deadline, uint32_t *prev, uint3
     } else {
         rt.present_us = bm_video_present(fb, &rt.g);
     }
+    d2_early(0);                        /* what the early _update drew: this page's */
     if (rt.r3d.backend)
         gpu3d_page(0, 0);               /* another page: what it holds is not known */
     zclear_dma_start();
@@ -3935,6 +4195,11 @@ static void release(lua_State *L)
     if (rt.r3d.backend)
         gpu3d_drop();           /* an error in the middle of a frame */
     rt.r3d.backend = NULL;
+    free(d2.w);                 /* 2D recorded in the middle of a frame (M35) */
+    d2.w = NULL;
+    d2.n = d2.cap = d2.ops = 0;
+    d2.on = 0;
+    d2.cut = D2_NONE;
     g16_light_free(&rt.light);
     zclear_dma_wait(1);         /* the DMA may still be clearing it */
     rt.zclear_seen = 0;
@@ -3981,12 +4246,20 @@ static int run_frames(framebuffer_t *fb, lua_State *L, const char *title, int w,
              * is shown */
             const uint32_t t1 = timer_ticks();
             rt.frame_t0 = t1;
-            if (call(L, "_update") != 0) {
+            d2_early(1);
+            rt.early = 1;
+            const int err = call(L, "_update");
+            rt.early = 0;
+            if (err != 0) {
                 error = lua_tostring(L, -1);
                 break;
             }
             updated = 1;
             early_us = timer_ticks() - t1;
+            if (rt.early_touch) {
+                rt.no_early = 1;
+                kprintf("bm: _update draws 3D or reads the page: it runs after the frame again (frame queue)\n");
+            }
         }
         flush3d(0);                         /* the GPU's 3D counts in the frame's time */
         rt.last_cpu_us = timer_ticks() - t0 - early_us;
@@ -4010,6 +4283,7 @@ static int run_frames(framebuffer_t *fb, lua_State *L, const char *title, int w,
     st->elapsed_us = timer_ticks() - start;
     st->lua_kb = (uint32_t)(luavm_mem() / 1024);
     st->gpu3d = rt.r3d_ready && rt.r3d.backend != NULL;
+    st->d2_ops = d2.ops;
     st->ok = error == NULL;
 
     if (!error && left && suspendable) {

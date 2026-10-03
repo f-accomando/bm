@@ -2170,7 +2170,21 @@ texture che il lavoro legge. Prova all'avvio `probe_queue` (stato: `queue yes`);
 `gpu3d()`; test `queue` del 3D Bench (GPU+VS e GPU+VS+Q, con 4 milioni di istruzioni di
 logica dopo il 3D). L'emulatore controlla i semafori (un lavoro avviato che legge le liste
 dei tile prima di aspettare è un errore) e ogni scena dei test esce identica in coda.
-Restano i passi 2 e 3.
+
+Fatto il passo 3, **bm3d 4.1**: in Overbit l'HUD dopo il 3D faceva aspettare la GPU a metà
+fotogramma e lo `zclear()` delle braccia in prima persona apriva un secondo lavoro, quindi
+la coda non serviva. Ora il 2D disegnato dopo il 3D mentre la GPU ha un lavoro sulla pagina
+fa partire il lavoro e si registra (`d2` in `runtime.c`), poi va sulla pagina nello stesso
+ordine quando la GPU ha finito (prima di altro 3D, di letture della pagina, della copia
+sullo schermo); lo `zclear()` resta nel lavoro (`fs_zclear`: un quadrato che scrive la
+profondità più lontana e rimette il colore letto dal tile buffer; prova `probe_zclear`,
+stato `zclear in job yes`); il 2D del `_update` anticipato va sulla pagina dopo, e un
+`_update` che disegna 3D o legge la pagina torna dopo il fotogramma. Sul PC (bmhost con
+l'emulatore della V3D) Overbit fa un lavoro a fotogramma, avviato e non aspettato, con 53
+disegni 2D registrati intanto, e fotogrammi identici a quelli senza coda;
+`make test-queue2d` confronta i fotogrammi di tre cartucce di prova con la coda accesa e
+spenta. In Overbit il renderer **GPU+VS+Q** (menu "3D" e benchmark) è quello da misurare
+sul Pi. Resta il passo 2.
 
 ## M36 — Vertici sulla GPU (L/XL)
 Con la GPU il limite è l'ARM (~1,5–2 µs per triangolo: trasformare, illuminare,
@@ -2242,7 +2256,11 @@ figure Meshy con texture (1200 triangoli) messe sugli scheletri degli eroi
   `vs_shadow2`/`cs_shadow2`); le facce su tre ossa (dove tre parti si toccano) le toglie
   `meshyrig.py` con una copia dell'angolo.
 Test: scene `vshader textured` e `vshader skin` dell'emulatore, `heroes_tex` e
-`heroes_skin` del 3D Bench.
+`heroes_skin` del 3D Bench. Con le figure Meshy e bm3d 3.4, `frames.py` (stessa partita,
+prima persona / vista dall'alto): GPU 15,01 M / 11,88 M istruzioni dell'ARM a fotogramma
+(~33,0 / 26,1 ms sul Pi: r3d illumina e mette tre volte più angoli), GPU+VS 6,41 M /
+5,71 M (~14,1 / 12,6 ms; r3d 0,27 M, il driver 0,85 M): con il vertex shader le figure
+nuove costano all'ARM quasi quanto le vecchie (5,99 M / 5,16 M).
 
 ## M37 — 2D e qualità sulla GPU (M, se serve)
 - Sprite, tile e testo come quad della GPU, per i giochi con molto 2D sopra il 3D.

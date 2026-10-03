@@ -18,6 +18,7 @@ typedef struct {
     uint32_t copy_us_total;     /* frame copies to the framebuffer */
     uint32_t tris3d;            /* 3D triangles drawn in the last frame */
     int gpu3d;                  /* the GPU drew the 3D at the end */
+    uint32_t d2_ops;            /* 2D drawn after the GPU's 3D, recorded meanwhile (M35) */
     int ok;                     /* 0 = error (message printed), 1 = ran */
 } bm_stats_t;
 

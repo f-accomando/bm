@@ -163,29 +163,30 @@ local ITEMS = { "PLAY: CONTROL", "PLAY ONLINE", "TRAINING RANGE", "HERO", "BOTS"
                 "3D", "BENCHMARK" }
 
 -- the 3D renderer: the GPU, with its vertex shader placing every model
--- (VS), with anti-aliasing, both, the ARM (a console without a GPU, QEMU:
--- the ARM only; a choice this GPU cannot do is skipped)
-local RENDERERS = { { true, false, 0 }, { true, false, 2 }, { true, true, 0 }, { true, true, 2 },
-                    { false, false, 0 } }
+-- (VS), with anti-aliasing, both, the GPU+VS with the frame queue (Q: it
+-- draws while the next frame's _update runs), the ARM (a console without a
+-- GPU, QEMU: the ARM only; a choice this GPU cannot do is skipped)
+local RENDERERS = { { true, false, 0, false }, { true, false, 2, false }, { true, true, 0, false },
+                    { true, true, 2, false }, { true, false, 2, true }, { false, false, 0, false } }
 
 local function renderer_name()
-  local on, aa, vs = gpu3d()
+  local on, aa, vs, _, q = gpu3d()
   if not on then return "ARM" end
-  return "GPU" .. (vs == 1 and " + VS1" or vs and " + VS" or "") .. (aa and " + AA 4X" or "")
+  return "GPU" .. (vs == 1 and " + VS1" or vs and " + VS" or "") .. (aa and " + AA 4X" or "") .. (q and " + Q" or "")
 end
 
 local function next_renderer()
-  local on, aa, vs = gpu3d()
+  local on, aa, vs, _, q = gpu3d()
   local cur = #RENDERERS
   for i, r in ipairs(RENDERERS) do
-    if r[1] == on and r[2] == (aa or false) and r[3] == (vs or 0) then cur = i end
+    if r[1] == on and r[2] == (aa or false) and r[3] == (vs or 0) and r[4] == (q or false) then cur = i end
   end
   for k = 1, #RENDERERS do
     local r = RENDERERS[(cur + k - 1) % #RENDERERS + 1]
-    local on2, aa2, vs2 = gpu3d(r[1], r[2], r[3])
+    local on2, aa2, vs2, _, q2 = gpu3d(r[1], r[2], r[3], r[4])
     if not r[1] then return end
-    if not on2 then Menu.no_gpu = true gpu3d(false, false, 0) return end
-    if aa2 == r[2] and (vs2 or 0) == r[3] then return end
+    if not on2 then Menu.no_gpu = true gpu3d(false, false, 0, false) return end
+    if aa2 == r[2] and (vs2 or 0) == r[3] and (q2 or false) == r[4] then return end
   end
 end
 

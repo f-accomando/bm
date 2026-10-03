@@ -683,7 +683,7 @@ static void ramp(int ti, int pf)
             const uint32_t u0 = P->us();
             t->frame(n, f);
             if (R.backend && prof[pf].queue) {
-                gpu3d_submit(g);        /* the GPU draws while the ARM works (M35) */
+                gpu3d_submit(g, 0);     /* the GPU draws while the ARM works (M35) */
                 work(t->work);
                 gpu3d_sync();
             } else {

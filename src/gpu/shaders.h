@@ -203,6 +203,17 @@ static const uint32_t fs_tex_rgb_alpha[80] __attribute__((aligned(8))) = {
     0x009e7000, 0x500009e7,     /* nop                 ; nop           ; sbdone */
 };
 
+static const uint32_t fs_zclear[16] __attribute__((aligned(8))) = {
+    0x009e7000, 0x100009e7,     /* nop                 ; nop */
+    0x009e7000, 0x100009e7,     /* nop                 ; nop */
+    0x009e7000, 0x400009e7,     /* nop                 ; nop           ; sbwait */
+    0x009e7000, 0x800009e7,     /* nop                 ; nop           ; loadc */
+    0x159cffc0, 0x10020b27,     /* mov tlb_z, rb15     ; nop */
+    0x159e7900, 0x30020ba7,     /* mov tlbc, r4        ; nop           ; thrend */
+    0x009e7000, 0x100009e7,     /* nop                 ; nop */
+    0x009e7000, 0x500009e7,     /* nop                 ; nop           ; sbdone */
+};
+
 static const uint32_t vs_tex_rgb[246] __attribute__((aligned(8))) = {
     0x00801a00, 0xe0020c67,     /* ldi vr_setup, 0x801a00 */
     0x00001a00, 0xe0021c67,     /* ldi vw_setup, 0x1a00 */

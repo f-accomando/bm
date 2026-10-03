@@ -35,15 +35,17 @@ local function config()
 end
 local STEPS_A_FRAME = 40                         -- match frames simulated a frame while warming up
 
-local RNAME = { arm = "ARM", gpu = "GPU", aa = "GPU+AA", vs1 = "GPU+VS1", vs = "GPU+VS" }
-local VS = { vs1 = 1, vs = 2 }                   -- the vertex shader: the scenery, every model
+local RNAME = { arm = "ARM", gpu = "GPU", aa = "GPU+AA", vs1 = "GPU+VS1", vs = "GPU+VS", q = "GPU+VS+Q" }
+local VS = { vs1 = 1, vs = 2, q = 2 }            -- the vertex shader: the scenery, every model
 
 -- ---------------------------------------------------------------- phases
 
 -- the ARM, the GPU, the GPU with anti-aliasing, the GPU with its vertex
--- shader for the scenery and for every model (where this GPU has them)
+-- shader for the scenery and for every model, and that with the frame
+-- queue (M35: the GPU draws while the next frame's _update runs) (where
+-- this GPU has them)
 local function renderers()
-  local on0, aa0, vs0 = gpu3d()
+  local on0, aa0, vs0, _, q0 = gpu3d()
   local list = { "arm" }
   if gpu3d(true) then
     list[#list + 1] = "gpu"
@@ -53,21 +55,22 @@ local function renderers()
     if vs then
       list[#list + 1] = "vs1"
       list[#list + 1] = "vs"
+      if select(5, gpu3d(true, false, 2, true)) then list[#list + 1] = "q" end
     end
   end
-  gpu3d(on0, aa0, vs0 or 0)
-  return list, on0, aa0, vs0
+  gpu3d(on0, aa0, vs0 or 0, q0 or false)
+  return list, on0, aa0, vs0, q0
 end
 
 local function use_renderer(r)
-  gpu3d(r ~= "arm", r == "aa", VS[r] or 0)
+  gpu3d(r ~= "arm", r == "aa", VS[r] or 0, r == "q")
 end
 
 function Bench.start()
   config()
   Bench.saved = { q = G.quality, qauto = G.qauto, diff = G.bot_diff, rules = {} }
-  local list, on0, aa0, vs0 = renderers()
-  Bench.saved.on, Bench.saved.aa, Bench.saved.vs = on0, aa0, vs0
+  local list, on0, aa0, vs0, q0 = renderers()
+  Bench.saved.on, Bench.saved.aa, Bench.saved.vs, Bench.saved.queue = on0, aa0, vs0, q0
   Bench.renderers = list
   Bench.phases = {}
   for _, r in ipairs(list) do
@@ -94,7 +97,7 @@ local function restore()
   G.bot_diff = s.diff
   G.qauto = s.qauto
   Quality.set(s.q)
-  gpu3d(s.on, s.aa, s.vs or 0)
+  gpu3d(s.on, s.aa, s.vs or 0, s.queue or false)
   Match.bench = nil
 end
 
@@ -396,10 +399,10 @@ local function report()
       local r = Bench.rows[i]
       y = y + 11
       if work then
-        print(string.format("%-7s  %-3s %5.1f %4.1f %5.0f %5.0f %5.0f", RNAME[r.r], q_short(r.q), r.upd, r.d3, r.tri,
+        print(string.format("%-8s %-3s %5.1f %4.1f %5.0f %5.0f %5.0f", RNAME[r.r], q_short(r.q), r.upd, r.d3, r.tri,
           r.vtx, r.px), 4, y, 0xD8DCE2)
       else
-        print(string.format("%-7s  %-3s  %4.0f %5.1f %5.1f %5.1f %3.0f%%", RNAME[r.r], q_short(r.q), r.fps, r.ms,
+        print(string.format("%-8s %-3s  %4.0f %5.1f %5.1f %5.1f %3.0f%%", RNAME[r.r], q_short(r.q), r.fps, r.ms,
           r.p99, r.worst, r.over), 4, y, r.ms <= 16.7 and 0x80FF90 or 0xFF8080)
       end
     end
@@ -407,14 +410,14 @@ local function report()
     print("STRESS: HEROES IN A RING (" .. Quality.names[RING_Q + 1] .. ")", 4, y, 0x7A8290)
     for _, g in ipairs(Bench.rings) do
       y = y + 13
-      print(string.format("%-7s %2d HEROES AT 60 FPS, %2d AT 30", RNAME[g.r], g.best60, g.best30), 4, y, 0xD8DCE2)
+      print(string.format("%-8s %2d HEROES AT 60 FPS, %2d AT 30", RNAME[g.r], g.best60, g.best30), 4, y, 0xD8DCE2)
     end
     y = y + 18
     print("BEST QUALITY AT 60 FPS IN THE MATCH", 4, y, 0x7A8290)
     for _, r in ipairs(Bench.renderers) do
       y = y + 13
       local b = Bench.best[r]
-      print(string.format("%-7s %s", RNAME[r], b and Quality.names[b + 1] or "NONE"), 4, y, b and 0x80FF90 or 0xFF8080)
+      print(string.format("%-8s %s", RNAME[r], b and Quality.names[b + 1] or "NONE"), 4, y, b and 0x80FF90 or 0xFF8080)
     end
     -- the GPU against the ARM at the same quality
     local arm, gpu = {}, {}
@@ -428,10 +431,17 @@ local function report()
       print(string.format("GPU %.1fx FASTER THAN ARM (%s)", best, Quality.names[bq + 1]), 4, y, 0xFFE070)
     end
     -- the drivers: the bm3d version each renderer reproduces
-    local d = {}
-    for _, r in ipairs(Bench.renderers) do d[#d + 1] = RNAME[r] .. " " .. (Bench.ver[r] or "?") end
+    local line = "BM3D"
     y = y + 14
-    print("BM3D " .. table.concat(d, "  "), 4, y, 0x7A8290)
+    for _, r in ipairs(Bench.renderers) do
+      local d = RNAME[r] .. " " .. (Bench.ver[r] or "?")
+      if #line + 2 + #d > 52 then                  -- 52 characters on the page
+        print(line, 4, y, 0x7A8290)
+        line, y = "    ", y + 12
+      end
+      line = line .. (#line > 4 and "  " or " ") .. d
+    end
+    print(line, 4, y, 0x7A8290)
   end
   local px = prompt(Input.cmd.pad and "LEFT" or "left", 4, 165, true)
   px = prompt(Input.cmd.pad and "RIGHT" or "right", px + 2, 165, true)

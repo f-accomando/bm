@@ -54,17 +54,21 @@ void gpu3d_drop(void);              /* forgets them and the depth (the cartridge
  * stays off: gpu3d_ready() is 0 and gpu3d_status() says why). */
 int gpu3d_flush(const g16_t *g, int keep);
 
-/* M35, the frame in the queue: the end of a frame's 3D (as gpu3d_flush(g,
- * 0)) started on the V3D and not waited for, when the probe saw it work
- * and gpu3d_set_queue(1) asked for it; else gpu3d_flush(g, 0). Before
- * the ARM touches the page (2D, reading it, showing it) gpu3d_sync()
- * waits for it; the driver waits by itself before its next job or before
- * changing what the job reads (meshes, textures). */
-int gpu3d_submit(const g16_t *g);
+/* M35, the frame in the queue: the 3D waiting (as gpu3d_flush(g, keep))
+ * started on the V3D and not waited for, when the probe saw it work and
+ * gpu3d_set_queue(1) asked for it; else gpu3d_flush(g, keep). Before the
+ * ARM touches the page (2D, reading it, showing it) gpu3d_sync() waits
+ * for it; the driver waits by itself before its next job or before
+ * changing what the job reads (meshes, textures). With nothing waiting, a
+ * job started before is not waited for. gpu3d_inflight(): a job started
+ * and not waited for yet. */
+int gpu3d_submit(const g16_t *g, int keep);
 int gpu3d_sync(void);
+int gpu3d_inflight(void);
 void gpu3d_set_queue(int on);
 int gpu3d_queue(void);                  /* on: asked for and possible */
 int gpu3d_queue_ok(void);               /* the probe saw a started job end right */
+int gpu3d_zclear_ok(void);              /* the probe saw zclear() inside a job work (with the queue) */
 
 /* Anti-aliasing (MSAA 4x) for the next jobs, where the probe allows it:
  * gpu3d_msaa() is 0 (no MSAA), 1 (on pages of one colour: cleared, not
@@ -97,6 +101,7 @@ typedef struct {
     uint32_t glmeshes;              /* meshes placed by the vertex shader (M36) */
     uint32_t gltris;                /* their triangles (in tris too) */
     uint32_t queued;                /* jobs started and waited for later (M35) */
+    uint32_t zinjob;                /* zclear() inside a job (M35) */
 } gpu3d_stats_t;
 
 /* totals since the last call, then zeroed */

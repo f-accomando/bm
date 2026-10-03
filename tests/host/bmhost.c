@@ -454,6 +454,11 @@ int main(int argc, char **argv)
                         "kept, %u pages cleared not loaded, %u with MSAA\n",
                 (unsigned)g.jobs, (double)g.jobs / (double)run.frame, (unsigned)g.tris,
                 (double)g.tris / (double)run.frame, (unsigned)g.zjobs, (unsigned)g.cleared, (unsigned)g.msjobs);
+    if ((g.queued || st.d2_ops) && run.frame > 0)
+        fprintf(stderr, "bmhost: frame queue: %.2f jobs a frame started and waited for later, %.1f 2D drawings "
+                        "a frame recorded meanwhile, %.2f zclear() a frame inside a job\n",
+                (double)g.queued / (double)run.frame, (double)st.d2_ops / (double)run.frame,
+                (double)g.zinjob / (double)run.frame);
     if (g.glmeshes && run.frame > 0)
         fprintf(stderr, "bmhost: vertex shader: %.0f meshes and %.0f triangles a frame\n",
                 (double)g.glmeshes / (double)run.frame, (double)g.gltris / (double)run.frame);

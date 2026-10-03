@@ -411,8 +411,12 @@ $(BUILD)/host/bmhost-gpu: tests/host/bmhost.c tests/host/stubs.c tests/host/host
 	    $(BMHOST_OBJS) $@-gpu3d.o src/gpu/v3d_cl.c tests/gpu/v3d_emu.c -lm
 bmhost-gpu: $(BUILD)/host/bmhost-gpu
 
+# the frame queue's 2D (M35): frames with the queue off and on, the same
+test-queue2d: $(BUILD)/host/bmhost-gpu
+	$(PYTHON) tests/gpu/queue2d.py $(BUILD)
+
 .DEFAULT_GOAL := all
-.PHONY: FORCE test-smp test-qpu test-gpu3d test-b3d test-v3d bench3d count-insns all clean firmware image image-pi1 sdcard install \
+.PHONY: FORCE test-smp test-qpu test-gpu3d test-queue2d test-b3d test-v3d bench3d count-insns all clean firmware image image-pi1 sdcard install \
         sdcard-chainloader sdcard-stress qemu qemu-screenshot \
         run-serial test test-bm test-ai ai-model test-usb test-audio test-fat test-kitchen test-titan test-sound test-nano8 \
         test-net test-http test-https test-release release disasm wav test-studio test-studio-ui studio test-prompts \
@@ -556,7 +560,8 @@ qemu-screenshot: $(BUILD)/kernel.img
 	./scripts/qemu-screenshot.sh $< $(BUILD)/screen.png
 
 test: all test-bm test-usb test-fat test-audio test-kitchen test-titan test-sound test-nano8 test-net test-http test-https \
-      test-release test-smp test-qpu test-gpu3d test-b3d test-v3d test-ai test-studio test-prompts test-overbit
+      test-release test-smp test-qpu test-gpu3d test-queue2d test-b3d test-v3d test-ai test-studio test-prompts \
+      test-overbit
 	$(PYTHON) tests/qemu_test.py --build $(BUILD)
 
 $(BUILD)/host/test_bm: tests/bm/test_bm.c src/bm/gfx16.c src/bm/r3d.c src/bm/format.c src/lib/crc32.c src/bm/*.h

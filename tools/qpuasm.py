@@ -474,6 +474,20 @@ SHADERS = {
         nop                 ; nop
         nop                 ; nop           ; sbdone
     """,
+    # zclear() inside a job (M35): a quad over the page at depth 1 (no
+    # varyings) writes the far depth and gives each pixel back its colour
+    # (the colour load signal reads the tile buffer into r4), so the 3D
+    # after it sees a clear depth over what was drawn
+    "fs_zclear": """
+        nop                 ; nop
+        nop                 ; nop
+        nop                 ; nop           ; sbwait
+        nop                 ; nop           ; loadc     # r4 = the pixel's colour
+        mov tlb_z, rb15     ; nop
+        mov tlbc, r4        ; nop           ; thrend
+        nop                 ; nop
+        nop                 ; nop           ; sbdone
+    """,
 }
 
 # Vertex and coordinate shaders for the GL shader state (M36): the V3D

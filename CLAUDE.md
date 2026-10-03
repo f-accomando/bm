@@ -227,8 +227,15 @@ screenshot in `docs/img/`), `README_OLD.md` (il README completo, in italiano),
 - **Versioni dei driver 3D**: `bm3d X.Y` (X il blocco/milestone, Y il passo) in
   `src/gpu/version3d.h` e `docs/DRIVERS.md`; ogni passo che cambia quello che r3d o
   gpu3d sanno fare alza la versione e aggiunge una riga alla tabella. Le impostazioni
-  riproducono le versioni vecchie (ARM 0.2, GPU 2.1, GPU+VS1 3.0, GPU+VS 3.4, coda 4.0): così i
+  riproducono le versioni vecchie (ARM 0.2, GPU 2.1, GPU+VS1 3.0, GPU+VS 3.4, coda 4.1): così i
   benchmark le confrontano.
+- **Fotogramma in coda (M35, `gpu3d_queue`, spento di default)**: il lavoro della GPU parte e
+  l'ARM va avanti (il `_update` dopo). Il 2D disegnato mentre la GPU ha un lavoro sulla
+  pagina si registra (`draw2d()`/`d2` in `runtime.c`) e va sulla pagina dopo, nello stesso
+  ordine: una funzione Lua nuova che disegna sulla pagina passa da `draw2d()` (o da
+  `sync3d()` se legge la pagina), una che cambia ciò che il 2D registrato legge (sheet,
+  mappa) chiama prima `flush3d(1)`/`sync3d()`. `zclear()` resta nel lavoro (`fs_zclear`).
+  `make test-queue2d` confronta i fotogrammi con la coda accesa e spenta.
 - **3D Bench** (`src/bm/b3d.c`, *Dev > 3D Bench*, monitor `j`, `docs/BENCH3D.md`): ogni
   test 3D con ogni profilo (ARM 0.2, GPU 2.1, GPU+AA, GPU+VS1 3.0, GPU+VS 3.4), carico
   fino a 40 ms, 60/30 fps, statistiche (istruzioni e cache miss dai contatori

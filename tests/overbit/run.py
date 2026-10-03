@@ -241,7 +241,7 @@ def main():
     # then on the ARM and the GPU (bmhost-gpu: the V3D emulated), the same
     # match each time; the ring; the report
     bench = os.path.join(build, "overbit", "bench-fast.bm")
-    for host, rs in (("bmhost-bin", ["ARM"]), ("bmhost-gpu", ["ARM", "GPU", "GPU+AA", "GPU+VS1", "GPU+VS"])):
+    for host, rs in (("bmhost-bin", ["ARM"]), ("bmhost-gpu", ["ARM", "GPU", "GPU+AA", "GPU+VS1", "GPU+VS", "GPU+VS+Q"])):
         code, log = run(build, bench, 60, "", "bench-" + host, host)
         tag = "gpu" if "gpu" in host else "arm"
         rows = re.findall(r"overbit bench (\S+) HIGH: .* (\d+) vtx", log)
