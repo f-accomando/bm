@@ -174,8 +174,9 @@ screenshot in `docs/img/`), `README_OLD.md` (il README completo, in italiano),
   testi di `src/ai/words` (scritti per bm, niente testi con licenze altrui), dal Lua dei
   giochi e dalle API della base di conoscenza.
 - `make test-predict` (in `make test`), `make predict-bench`, `make syllables`; in QEMU
-  `test_code_completion`. La scrittura col pad (accordi, modi facile/sillabe/steno) è
-  solo sul branch `ai-assistant`, non su main.
+  `test_code_completion`. La scrittura col pad (accordi, modi facile/sillabe/steno) non è
+  su main: è archiviata nel branch `archive/pad-typing` (l'ultimo stato del vecchio
+  `ai-assistant`, chiuso il 2026-10-03); per riprenderla si parte da lì.
 
 ## Mouse e puntatore (M32)
 
