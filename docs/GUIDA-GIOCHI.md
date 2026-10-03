@@ -245,7 +245,7 @@ end
   `print` alla fine.
 
 **Con bm Studio** ([sdk/README.md](../sdk/README.md)): i modelli si fanno sul PC posando
-le tessere dello sprite sheet su una griglia (in stile Crocotile 3D) e stanno nel `.bm`
+le tessere dello sprite sheet su una griglia e stanno nel `.bm`
 stesso; nel gioco `model("nome")` li dà come mesh:
 
 ```lua

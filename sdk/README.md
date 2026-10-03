@@ -5,8 +5,8 @@ lavorano direttamente sul `.bm` (lo aprono, lo cambiano, lo salvano al suo posto
 sulla SD), non toccano il codice del gioco, la mappa e le sezioni che non conoscono, e
 scambiano formati standard con gli altri programmi.
 
-- **bm Studio** (`sdk/studio/`): **modelli 3D a tessere** in stile
-  [Crocotile 3D](https://crocotile3d.com/) e la **pixel art dello sprite sheet**
+- **bm Studio** (`sdk/studio/`): **modelli 3D a tessere** e la
+  **pixel art dello sprite sheet**
   (anche come editor di PNG).
 - **bm Animator** (`sdk/animator/`): **scheletro** dei modelli (rigging), **animazione a
   keyframe**, **animazione scheletrica** che la console riproduce, e le animazioni
@@ -238,7 +238,7 @@ i tasti; le cose scelte in giallo, quella sotto il puntatore in azzurro.
 del pennello (con lo sheet intorno) e il modello (facce, triangoli, vertici: avvisa oltre
 i 1200 triangoli dei 60 fps):
 
-- **1 blocco** e **2 tessera** (Crocotile all'essenziale): un cursore a forma di cella si
+- **1 blocco** e **2 tessera**: un cursore a forma di cella si
   muove con le frecce sul piano e con PgUp/PgDn in altezza, sempre rispetto alla vista
   (**q e** girano la vista di 45°, **w s** la inclinano). Spazio mette, Backspace toglie:
   due blocchi vicini non hanno parete in mezzo, e togliendone uno ricompare la parete del

@@ -51,7 +51,7 @@ sulla SD) e scambiano `.glb` e `.png` con gli altri programmi. Sono pagine web s
 dipendenze: doppio clic su `sdk/studio/index.html` o `sdk/animator/index.html` (Chrome o
 Edge), oppure `make studio`.
 
-- **bm Studio**, in stile Crocotile 3D: **modelli 3D a tessere** (si posano le tessere
+- **bm Studio**: **modelli 3D a tessere** (si posano le tessere
   dello sprite sheet su una griglia, si impilano blocchi, si spostano gli angoli per tetti e
   rampe, si dipinge sul modello) e la **pixel art dello sprite sheet**. Nel gioco:
   `m = model("casa")`, poi `draw3d(m, x, y, z)`.

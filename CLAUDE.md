@@ -32,7 +32,7 @@ screenshot in `docs/img/`), `README_OLD.md` (il README completo, in italiano),
 ## bm Studio (sdk/studio)
 
 - Applicazione per il PC (pagina web, niente build né dipendenze) per i modelli 3D a
-  tessere (stile Crocotile 3D) e la pixel art dello sheet; legge e scrive il `.bm`
+  tessere e la pixel art dello sheet; legge e scrive il `.bm`
   (sezione MESH, tipo 8, `src/bm/bm.h`). Guida: `sdk/README.md`.
 - Numeri delle sezioni: 6 è AUDIO (banco di suoni), 8 MESH, 9 ANIM. I primi file di bm
   Studio avevano MESH 6 e ANIM 7: kernel (`format.c`), `core.js` e `bmmesh.py` li leggono

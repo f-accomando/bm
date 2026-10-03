@@ -809,7 +809,7 @@ salvataggio); intorno a lui strumenti specializzati, ognuno una cartuccia nella 
 **Stato (2026-10-01, sviluppato sul branch `sviluppo-sdk`, ora in `claude/bare-metal-mvp`):
 bm Studio, sul PC.** Su richiesta
 dell'utente, 22.3 (3D), parte di 22.2 (pixel art dello sheet) e di 22.5 (import/export)
-arrivano prima come applicazione per il PC, in stile Crocotile 3D (`sdk/studio`,
+arrivano prima come applicazione per il PC (`sdk/studio`,
 [sdk/README.md](../sdk/README.md)); i formati sono quelli previsti qui sotto, quindi gli
 strumenti sulla console potranno leggerli e scriverli.
 - **Formato**: sezione **MESH** del `.bm` (tipo 8, `src/bm/bm.h`; era 6 nei primi file,

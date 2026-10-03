@@ -1,5 +1,5 @@
 -- bm Studio on the console: the 3D models of a .bm, built with tiles and
--- blocks (as bm Studio on the PC, in the style of Crocotile 3D).
+-- blocks (as bm Studio on the PC).
 -- F1 build (block, tile, select, vertex, paint), F2 models, Esc menu;
 -- Ctrl+S save, F5 try the game, Ctrl+Z / Ctrl+Y undo / redo, [ ] model.
 -- Hold F12 (or ?) for the keys of the page. Gamepad: Y + left/right page,

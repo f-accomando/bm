@@ -101,7 +101,7 @@ Everything a cartridge contains is made with bm's own tools. They read and write
 `sdk/animator/index.html`, or run `make studio`. Guide: [sdk/README.md](sdk/README.md).
 
 - **bm Studio**:
-  - 3D models built from tiles, in the style of Crocotile 3D: lay tiles of the sprite
+  - 3D models built from tiles: lay tiles of the sprite
     sheet on a grid, stack blocks, drag corners into roofs and ramps, paint on the model;
   - the pixel art of the sprite sheet;
   - import and export of `.glb` and `.png`.
