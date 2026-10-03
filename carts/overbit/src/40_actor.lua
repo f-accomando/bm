@@ -9,6 +9,7 @@ local ARMOR_CUT = 0.30          -- armour takes this share off every hit
 local GRAV = 18.0               -- m/s^2 (Overwatch's gravity is about 2x real)
 
 local next_id = 1
+function Actors.reset_ids() next_id = 1 end       -- a match starts (the same ids on every console)
 
 -- a hero of team `team` at (x, y, z) facing yaw
 function Actors.spawn(hero_id, team, x, y, z, yaw, opts)
@@ -50,6 +51,10 @@ function Actors.total_max(a) return a.hpmax + a.armormax + a.shieldmax end
 
 -- damage `amount` from `src` (an actor or nil); returns what was taken
 function Actors.damage(a, amount, src, crit, kind)
+  if OVERBIT_NET_DEBUG and not a.is_barrier then
+    log(string.format("netdmg %.3f %s %s %.2f %s %s", G.t, a.seat or a.name, src and (src.seat or src.name) or "-",
+                      amount, tostring(kind), tostring(crit)))
+  end
   if a.is_barrier then return a.hit(a, amount, src) end     -- a barrier in the way (45_proj)
   if not a.alive or amount <= 0 then return 0 end
   if a.fx.invuln_t and a.fx.invuln_t > 0 then return 0 end
@@ -73,6 +78,7 @@ function Actors.damage(a, amount, src, crit, kind)
   a.last_hit_by = src
   a.hit_t = 0.25
   if src and src ~= a then
+    src.dealt = (src.dealt or 0) + taken                -- for the bots' trainer
     src.ult = min(100, src.ult + taken / src.hero.ult_cost * 100)
     src.hit_marker = crit and 2 or 1
     src.hit_marker_t = 0.18
@@ -105,7 +111,10 @@ function Actors.heal(a, amount, src)
     a.shield = a.shield + ds
     d = d + ds
   end
-  if src and src ~= a and d > 0 then src.ult = min(100, src.ult + d / src.hero.ult_cost * 100) end
+  if src and src ~= a and d > 0 then
+    src.ult = min(100, src.ult + d / src.hero.ult_cost * 100)
+    src.healed = (src.healed or 0) + d
+  end
   return d
 end
 
@@ -426,10 +435,13 @@ function Actors.draw(cx, cy, cz, skip)
       local flags = (3 - det) * 16
       if q >= 2 then flags = flags + 4 end           -- Gouraud
       local sc = a.form.scale or 1
-      if q >= 3 and d < 30 then                      -- the shadow on the ground: a coarse model is enough
+      local h = a.height * sc
+      -- not in the view: nothing to do (its long shadow at sunset may be)
+      local seen = Cam.sees(a.x, a.y + h * 0.5, a.z, h * 0.75 + a.radius)
+      if q >= 3 and d < 30 and (seen or Cam.sees(a.x, a.y, a.z, h * 3)) then   -- the shadow: a coarse model
         draw3d(a.mesh, a.x, a.y, a.z, 0, a.yaw, 0, sc, (3 - min(det, 1)) * 16 + 8)
       end
-      draw3d(a.mesh, a.x, a.y, a.z, 0, a.yaw, 0, sc, flags)
+      if seen then draw3d(a.mesh, a.x, a.y, a.z, 0, a.yaw, 0, sc, flags) end
       if a.hero.draw_extra then a.hero.draw_extra(a, d) end
       if a.alive and Actors.frozen(a) then
         local k = a.height / 3.2 * 1.12

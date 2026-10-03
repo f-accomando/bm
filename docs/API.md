@@ -188,6 +188,24 @@ nano8) legge la tastiera tasto per tasto e i controller pulsante per pulsante:
 Numeri casuali: `math.random`. Per partite diverse a ogni avvio, inizializza il
 generatore quando il giocatore preme un tasto: `math.randomseed(stat(3))`.
 
+### Rete (UDP)
+
+Per i giochi in rete (M31.5: Overbit). Pacchetti UDP fino a 1024 byte; ogni cartuccia
+ha 2 socket, chiusi quando finisce. Gli indirizzi sono testo (`"192.168.1.23"`); `"*"` è
+il broadcast della LAN. Serve la rete della console (WiFi o cavo): senza, `udp_open`
+restituisce `nil`. In bmhost gli stessi pacchetti passano dai socket del PC
+(`BMHOST_NET_ID=k` per più console sullo stesso PC, `--realtime` per giocare a 60 frame
+al secondo).
+
+| Funzione | Cosa fa |
+|---|---|
+| `s, porta = udp_open([porta])` | un socket sulla porta (0 o niente: una qualsiasi); `nil` e il motivo se non c'è rete o socket libero |
+| `udp_send(s, indirizzo, porta, dati)` | manda una stringa (al massimo 1024 byte); `true` se è partita (UDP: può perdersi) |
+| `dati, indirizzo, porta = udp_recv(s)` | il prossimo pacchetto arrivato, o `nil`; ne restano in coda fino a 48 |
+| `udp_close(s)` | chiude il socket |
+| `net_ip()` | l'indirizzo della console, o `nil` senza rete |
+| `net_resolve(nome)` | l'indirizzo di un nome: `nil` mentre lo cerca (richiamarla al frame dopo), `false` se non esiste |
+
 ### Salvataggi
 
 | Funzione | Descrizione |
@@ -340,6 +358,18 @@ Si prova da **Dev > Assistant** (o `I` dal monitor).
 | `ai.sprite(richiesta, [{gen=, size=16, seed=1, outline=true, palette={…}}])` | la base di uno sprite: `{w, h, gen, name, seed, px = {0xRRGGBB o -1 (trasparente), …}}` riga per riga. La ricetta viene dalle parole (`"slime"`, `"astronave"`, `"moneta"`, `"erba"`…) o da `gen`; i colori (`"rosso"`, `"blue"`…) e la misura (`"8x8"`, `"32x32"`, `"piccolo"`, `"grande"`) dalle parole; un altro `seed` è una variante; con `palette` ogni pixel diventa il colore più vicino della tavolozza |
 | `ai.recipes()` | le ricette degli sprite `{id, name}` |
 | `ai.checksum(domanda)` | il CRC-32 delle uscite della rete per una domanda: per i test (uguale a quello del riferimento in Python) |
+
+**Reti piccole per i giochi** (M31.4: i bot di Overbit). Una rete di strati densi con pesi
+e attivazioni INT8 (gli stessi conti dell'assistente, con le istruzioni SIMD dell'ARMv6),
+da una stringa che scrive uno script di addestramento (`scripts/nnetlib.py`: quantizza una
+rete di numpy, la impacchetta e dà i numeri esatti della console per i test):
+
+| Funzione | Cosa fa |
+|---|---|
+| `nnet(blob)` | la rete di una stringa "BMNN" (formato in `src/ai/net.h`; errore se è rovinata), fino a 8 strati di 256 |
+| `net:run(ingressi, [uscite])` | le uscite (numeri) per una tabella di ingressi; `uscite`: una tabella da riempire invece di una nuova |
+| `k, v = net:pick(ingressi, [maschera])` | l'indice (da 1) dell'uscita più grande e il suo valore; `maschera`: tabella di booleani, `false` = quell'uscita non si sceglie |
+| `n_in, n_out = net:size()` | quanti ingressi e uscite |
 
 **Il pannello** (`require "assist"`): quello che gli strumenti aprono con un tasto
 (F6 nell'Assistant). Risponde mentre scrivi; Invio (A) passa il codice o lo sprite allo

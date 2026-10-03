@@ -72,7 +72,7 @@ local function blast(a)
   local ex, ey, ez = Actors.eye(a)
   local fx, fy, fz = Actors.aim_dir(a)
   local sp = 0.01
-  local dx, dy, dz = fx + (random() - 0.5) * sp, fy + (random() - 0.5) * sp, fz + (random() - 0.5) * sp
+  local dx, dy, dz = fx + (grandom() - 0.5) * sp, fy + (grandom() - 0.5) * sp, fz + (grandom() - 0.5) * sp
   local wt, nx, ny, nz, prop = World.ray(ex, ey, ez, dx, dy, dz, BLAST.range)
   local t, who, crit = Actors.ray(ex, ey, ez, dx, dy, dz, wt or BLAST.range, a, nil)   -- friends and foes
   local hx, hy, hz

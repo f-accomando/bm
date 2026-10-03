@@ -261,8 +261,20 @@ $(BUILD)/overbit/match-fast.bm: $(OVERBIT_SRC) carts/overbit/build.py $(BUILD)/o
 	$(PYTHON) scripts/mkbm.py -o $@ --lua $(BUILD)/overbit/match-fast.lua --title "Overbit match" --author bm \
 	    --res 320x180 --models $(BUILD)/overbit/models.bm --audio $(BUILD)/overbit/sounds.json
 
+# two consoles on the network (tests): on the LAN, and through a relay on this PC
+$(BUILD)/overbit/net-test.bm: $(OVERBIT_SRC) carts/overbit/build.py $(BUILD)/overbit/models.bm $(BUILD)/overbit/sounds.json
+	$(PYTHON) carts/overbit/build.py $(BUILD)/overbit/net-test.lua --extra $(BUILD)/overbit/21_map.lua
+	$(PYTHON) scripts/mkbm.py -o $@ --lua $(BUILD)/overbit/net-test.lua --title "Overbit" --author bm \
+	    --res 320x180 --models $(BUILD)/overbit/models.bm --audio $(BUILD)/overbit/sounds.json
+$(BUILD)/overbit/net-relay.bm: $(OVERBIT_SRC) carts/overbit/build.py $(BUILD)/overbit/models.bm $(BUILD)/overbit/sounds.json
+	$(PYTHON) carts/overbit/build.py $(BUILD)/overbit/net-relay.lua --extra $(BUILD)/overbit/21_map.lua \
+	    --define 'OVERBIT_RELAY="127.0.0.1:47390"'
+	$(PYTHON) scripts/mkbm.py -o $@ --lua $(BUILD)/overbit/net-relay.lua --title "Overbit" --author bm \
+	    --res 320x180 --models $(BUILD)/overbit/models.bm --audio $(BUILD)/overbit/sounds.json
+
 test-overbit: $(BUILD)/host/bmhost-bin $(BUILD)/carts/overbit.bm $(BUILD)/overbit/reel.bm $(BUILD)/overbit/bench.bm \
-              $(BUILD)/overbit/match-fast.bm $(foreach h,$(OVERBIT_HEROES),$(BUILD)/overbit/range-$(h).bm)
+              $(BUILD)/overbit/match-fast.bm $(BUILD)/overbit/net-test.bm $(BUILD)/overbit/net-relay.bm \
+              $(foreach h,$(OVERBIT_HEROES),$(BUILD)/overbit/range-$(h).bm)
 	$(PYTHON) tests/overbit/run.py $(BUILD)
 
 # Overbit's animation reel as a video (docs/img/overbit-reel-rally.mp4 and
@@ -353,7 +365,7 @@ test-nano8: $(BUILD)/host/n8host $(BUILD)/host/n8cartinfo $(BUILD)/host/luahost 
 BMHOST_RT := src/bm/runtime.c src/bm/gfx16.c src/bm/r3d.c src/bm/world3d.c src/bm/format.c src/bm/meshcap.c \
              src/bm/require.c src/kernel/prompts.c src/gfx/font8x16.c src/gfx/font8x14.c \
              src/gfx/font6x12.c src/lib/printf.c src/lib/crc32.c src/audio/audio.c src/audio/synth.c \
-             src/audio/player.c src/audio/iec958.c
+             src/audio/player.c src/audio/iec958.c src/ai/net.c src/ai/nn.c
 BMHOST_LUA := $(filter-out third_party/lua/lua.c third_party/lua/luac.c,$(LUA_SRCS))
 BMHOST_OBJS := $(patsubst %,$(BUILD)/host/bmhost/%.o,$(BMHOST_RT) $(BMHOST_LUA))
 $(BUILD)/host/bmhost/%.c.o: %.c
@@ -362,10 +374,10 @@ $(BUILD)/host/bmhost/%.c.o: %.c
 $(BUILD)/host/bmhost/runtime-deps: $(wildcard src/bm/*.h src/audio/*.h src/kernel/*.h src/usb/hid.h)
 	@mkdir -p $(dir $@) && touch $@
 $(BMHOST_OBJS): $(BUILD)/host/bmhost/runtime-deps
-$(BUILD)/host/bmhost-bin: tests/host/bmhost.c tests/host/stubs.c tests/host/host.h tests/host/libs.S \
+$(BUILD)/host/bmhost-bin: tests/host/bmhost.c tests/host/stubs.c tests/host/hostnet.c tests/host/host.h tests/host/libs.S \
                           $(BMHOST_OBJS) src/ai/assist.lua src/script/bm3d.lua
 	$(HOSTCC) -O2 -g -Wall -Wextra -D_DEFAULT_SOURCE -Itests/host/shim -Isrc -Isrc/bm -Ithird_party/lua \
-	    -o $@ tests/host/bmhost.c tests/host/stubs.c tests/host/libs.S $(BMHOST_OBJS) -lm
+	    -o $@ tests/host/bmhost.c tests/host/stubs.c tests/host/hostnet.c tests/host/libs.S $(BMHOST_OBJS) -lm
 bmhost: $(BUILD)/host/bmhost-bin
 
 .DEFAULT_GOAL := all
@@ -531,11 +543,11 @@ test-net: $(BUILD)/host/test_netcon $(BUILD)/host/test_ethnet
 	$(BUILD)/host/test_netcon
 	$(BUILD)/host/test_ethnet
 
-$(BUILD)/host/test_ethnet: tests/net/test_ethnet.c src/net/net.c src/net/net.h src/usb/smsc95xx.c src/usb/smsc95xx.h \
-                           tests/usb/lan9512_sim.c tests/usb/lan9512_sim.h $(LWIP_SRCS)
+$(BUILD)/host/test_ethnet: tests/net/test_ethnet.c src/net/net.c src/net/net.h src/net/cartnet.c src/net/cartnet.h \
+                           src/usb/smsc95xx.c src/usb/smsc95xx.h tests/usb/lan9512_sim.c tests/usb/lan9512_sim.h $(LWIP_SRCS)
 	@mkdir -p $(dir $@)
 	$(HOSTCC) -O1 -w -DBM_HOST_TEST -Isrc -Isrc/net -Ithird_party/lwip/src/include -o $@ \
-		tests/net/test_ethnet.c src/net/net.c src/usb/smsc95xx.c tests/usb/lan9512_sim.c $(LWIP_SRCS)
+		tests/net/test_ethnet.c src/net/net.c src/net/cartnet.c src/usb/smsc95xx.c tests/usb/lan9512_sim.c $(LWIP_SRCS)
 
 $(BUILD)/host/test_netcon: tests/net/test_netcon.c src/net/netcon.c src/net/netxfer.c src/net/stream.c src/net/*.h src/lib/crc32.c $(LWIP_SRCS)
 	@mkdir -p $(dir $@)

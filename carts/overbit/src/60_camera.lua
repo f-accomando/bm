@@ -9,8 +9,28 @@ local bob = 0
 function Cam.set(x, y, z, yaw, pitch, roll, fov)
   Cam.x, Cam.y, Cam.z, Cam.yaw, Cam.pitch, Cam.roll = x, y, z, yaw, pitch, roll or 0
   Cam.fov = fov or Cam.fov
-  Cam.focal = SCREEN_W * 0.5 / math.tan(Cam.fov * pi / 360)
+  local th = math.tan(Cam.fov * pi / 360)
+  Cam.focal = SCREEN_W * 0.5 / th
   camera3d(x, y, z, yaw, pitch, Cam.fov, Cam.roll)
+  -- the axes of the view, for Cam.sees (the roll is small: ignored)
+  local sp, cp, sy, cy = sin(pitch), cos(pitch), sin(yaw), cos(yaw)
+  Cam.fx, Cam.fy, Cam.fz = sy * cp, sp, cy * cp
+  Cam.rx, Cam.rz = cy, -sy
+  Cam.ux, Cam.uy, Cam.uz = -sp * sy, cp, -sp * cy
+  local tv = th * SCREEN_H / SCREEN_W
+  Cam.th, Cam.tv = th, tv
+  Cam.sh, Cam.sv = sqrt(1 + th * th), sqrt(1 + tv * tv)
+end
+
+-- can the camera see something in the sphere at (x, y, z) of radius r?
+function Cam.sees(x, y, z, r)
+  local dx, dy, dz = x - Cam.x, y - Cam.y, z - Cam.z
+  local fz = dx * Cam.fx + dy * Cam.fy + dz * Cam.fz
+  if fz < -r then return false end
+  local fx = dx * Cam.rx + dz * Cam.rz
+  if abs(fx) > fz * Cam.th + r * Cam.sh then return false end
+  local fy = dx * Cam.ux + dy * Cam.uy + dz * Cam.uz
+  return abs(fy) <= fz * Cam.tv + r * Cam.sv
 end
 
 -- the first-person view of actor a
@@ -25,7 +45,10 @@ function Cam.first(a)
   local jx, jy = 0, 0
   if sh > 0 then jx, jy = (random() - 0.5) * sh * 0.06, (random() - 0.5) * sh * 0.06 end
   Cam.roll = lerp(Cam.roll, roll, 0.12)
-  Cam.set(x, y + by, z, a.yaw + jx, a.pitch + jy, Cam.roll, Cam.fp_fov)
+  -- on the network the view turns at once, the hero a few frames later (83_net)
+  local yaw, pitch = a.yaw, a.pitch
+  if Net.on and a == G.local_actor and Net.view_yaw then yaw, pitch = Net.view_yaw, Net.view_pitch end
+  Cam.set(x, y + by, z, yaw + jx, pitch + jy, Cam.roll, Cam.fp_fov)
 end
 
 -- orbit around a point (reel, spectating, death)

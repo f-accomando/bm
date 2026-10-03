@@ -314,8 +314,8 @@ function U.on_death(a)
   a.override = nil
   a.st.wheel = nil
   for i = 1, MAYHEM.n do
-    local an = 2 * pi * i / MAYHEM.n + random()
-    frag(a, a.x, a.y + 1.0, a.z, cos(an) * 3, 4 + random() * 2, sin(an) * 3, 0, MAYHEM.splash, 1.0 + random() * 0.4)
+    local an = 2 * pi * i / MAYHEM.n + grandom()
+    frag(a, a.x, a.y + 1.0, a.z, cos(an) * 3, 4 + grandom() * 2, sin(an) * 3, 0, MAYHEM.splash, 1.0 + grandom() * 0.4)
   end
 end
 

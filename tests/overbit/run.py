@@ -48,6 +48,8 @@ def main():
     # the range: from the menu, fire at the dummy until its mech breaks and
     # its pilot falls; the field, flight, rockets; then Redline (dev: F4)
     script = f"""
+26 keys {keys('DOWN')}
+28 keys none
 30 keys {keys('DOWN')}
 32 keys none
 34 keys {keys('SPACE')}
@@ -149,7 +151,7 @@ def main():
     code, log = run(build, cart, 26, script, "match")
     check(code == 0 and "stopped with an error" not in log, "match: no Lua error", log)
     check("overbit match start: rally" in log, "match: starts with Rally", log)
-    check("overbit hero kaiju" in log, "match: Kaiju chosen in the spawn room", log)
+    check("overbit hero You kaiju" in log, "match: Kaiju chosen in the spawn room", log)
     check("overbit point open" in log, "match: the point opens", log)
 
     # a whole match with quick rules: the bots fight over the point until a
@@ -160,6 +162,79 @@ def main():
     check("overbit point team" in log, "match-fast: the point is captured", log)
     check("overbit kill" in log, "match-fast: the bots fight", log)
     check("overbit match team" in log, "match-fast: a team wins the match", log)
+
+    # a match on the network: two bmhost (BMHOST_NET_ID: two consoles on one
+    # PC), one hosts, the other joins from the list; lockstep must give the
+    # same match on both (the same events, no desync), on the LAN and through
+    # the relay (tools/overbit_relay.py)
+    def net_pair(cart, secs, name, relay=False):
+        # (the guest looks at the list after 5 s, the host starts after 9 s)
+        host = f"""30 keys {keys('DOWN')}\n32 keys none\n40 keys {keys('SPACE')}\n42 keys none
+60 keys {keys('SPACE')}\n62 keys none\n540 keys {keys('SPACE')}\n542 keys none
+600 keys {keys('SPACE')}\n602 keys none\n640 keys {keys('W')}\n1300 keys none\n"""
+        guest = f"""30 keys {keys('DOWN')}\n32 keys none\n40 keys {keys('SPACE')}\n42 keys none
+300 keys {keys('DOWN')}\n302 keys none\n305 keys {keys('DOWN')}\n307 keys none\n310 keys {keys('DOWN')}
+312 keys none\n320 keys {keys('SPACE')}\n322 keys none\n600 keys {keys('SPACE')}\n602 keys none
+640 keys {keys('W', 'D')}\n1300 keys none\n"""
+        procs = []
+        for k, sc in enumerate((host, guest)):
+            path = os.path.join(build, "overbit", f"test-{name}-{k}.txt")
+            with open(path, "w") as f:
+                f.write(sc)
+            env = dict(os.environ, BMHOST_NET_ID=str(k))
+            procs.append(subprocess.Popen([os.path.join(build, "host", "bmhost-bin"), cart, "--seconds", str(secs),
+                                           "--realtime", "--input", path], env=env, stdout=subprocess.PIPE,
+                                          stderr=subprocess.STDOUT, text=True))
+        logs = [p.communicate()[0] for p in procs]
+        ev = [[l for l in g.splitlines() if l.startswith("overbit ") and " net " not in l and "build" not in l
+               and "quality" not in l] for g in logs]
+        both = "\n".join(logs)
+        check(all("overbit net start" in g for g in logs), f"{name}: both consoles start the match", both)
+        check(" seat 6 of 2, guest" in logs[1], f"{name}: the guest sits on the red team", both)
+        check("desync" not in both, f"{name}: no desync", both)
+        # the names: "You" on each console is the other's P1 or P6
+        same = [e.replace(" You", " @6").replace(" P1", " You").replace(" @6", " P6") for e in ev[1]]
+        n = min(len(ev[0]), len(same))
+        check(n > 10 and ev[0][:n - 2] == same[:n - 2], f"{name}: the same match on both ({n} events)", both)
+
+    net_pair(os.path.join(build, "overbit", "net-test.bm"), 33, "net-lan")
+    relay = subprocess.Popen([sys.executable, os.path.join(ROOT, "tools", "overbit_relay.py"), "--port", "47390",
+                              "--quiet"])
+    try:
+        net_pair(os.path.join(build, "overbit", "net-relay.bm"), 33, "net-relay")
+    finally:
+        relay.kill()
+
+    # nnet() (src/ai/net.c), the bots' networks: the console's integers are
+    # the Python reference's (scripts/nnetlib.py), on a random network
+    sys.path.insert(0, os.path.join(ROOT, "scripts"))
+    import numpy as np
+    import mkbm
+    import nnetlib
+    rng = np.random.default_rng(3)
+    layers = [(rng.normal(0, 0.5, (32, 24)), rng.normal(0, 0.1, 32), True),
+              (rng.normal(0, 0.3, (32, 32)), rng.normal(0, 0.1, 32), True),
+              (rng.normal(0, 0.3, (6, 32)), rng.normal(0, 0.1, 6), False)]
+    X = rng.normal(0, 0.5, (200, 24))
+    q = nnetlib.quantize(layers, X)
+    lua = ["local net = nnet(" + nnetlib.lua_string(nnetlib.pack(q)) + ")", "function _init()"]
+    for i, x in enumerate(X[:20]):
+        args = ",".join(f"{v:.6f}" for v in x)
+        lua.append(f"  do local o, k = net:run({{{args}}}), net:pick({{{args}}})")
+        lua.append(f"    log(string.format('nnet {i} %d' .. string.rep(' %.4f', 6), k, table.unpack(o))) end")
+    lua += ["end", "function _update() end", "function _draw() cls() end"]
+    path = os.path.join(build, "overbit", "nnet-test.bm")
+    with open(path, "wb") as f:
+        f.write(mkbm.pack("\n".join(lua).encode(), title="nnet", author="bm", res=(320, 180)))
+    code, log = run(build, path, 0.1, "", "nnet")
+    got = {int(l.split()[1]): l.split()[2:] for l in log.splitlines() if l.startswith("nnet ")}
+    bad = 0
+    for i, x in enumerate(X[:20]):
+        y = nnetlib.run_q(q, x)
+        g = got.get(i)
+        if not g or int(g[0]) != int(np.argmax(y)) + 1 or max(abs(float(a) - b) for a, b in zip(g[1:], y)) > 1e-3 * max(1, abs(y).max()):
+            bad += 1
+    check(code == 0 and len(got) == 20 and bad == 0, f"nnet: the console's outputs are the reference's ({bad} differ)", log)
 
     # the benchmark (on the PC every step is fast: it runs to the end)
     script = f"""

@@ -94,8 +94,8 @@ local function fire_cannons(a)
   local mx, my, mz = muzzle(a, s.side)
   local tracers = 0
   for i = 1, CANNON.pellets do
-    local ang = random() * 2 * pi
-    local rad = sqrt(random()) * CANNON.spread
+    local ang = grandom() * 2 * pi
+    local rad = sqrt(grandom()) * CANNON.spread
     local ox, oy = cos(ang) * rad, sin(ang) * rad
     local dx, dy, dz = fx + rx * ox + ux * oy, fy + uy * oy, fz + rz * ox + uz * oy
     local l = len3(dx, dy, dz)
@@ -146,7 +146,7 @@ local function launch_rocket(a)
   local px, py, pz = a.x + hx * cy + (hz + 0.3) * sy, a.y + hy + 0.1, a.z - hx * sy + (hz + 0.3) * cy
   local fx, fy, fz = Actors.aim_dir(a)
   -- a little scatter, then they straighten towards the aim
-  local jx, jy, jz = (random() - 0.5) * 0.16, (random() - 0.2) * 0.14, (random() - 0.5) * 0.16
+  local jx, jy, jz = (grandom() - 0.5) * 0.16, (grandom() - 0.2) * 0.14, (grandom() - 0.5) * 0.16
   Proj.spawn({ x = px, y = py, z = pz, vx = (fx + jx) * ROCKETS.speed, vy = (fy + jy + 0.06) * ROCKETS.speed,
                vz = (fz + jz) * ROCKETS.speed, owner = a, dmg = ROCKETS.dmg, splash = ROCKETS.splash,
                radius = ROCKETS.radius, life = 2.5, size = 0.09, rgb = 0xFFFFFF, glow = 0xFF8A30,

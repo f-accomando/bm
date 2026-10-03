@@ -16,6 +16,8 @@
  *     --wav FILE        the sound, 48 kHz mono
  *     --input FILE      the input script (see below)
  *     --quiet           no kernel log
+ *     --realtime        60 frames a second, as the console (two bmhost
+ *                       playing a match on the network: BMHOST_NET_ID)
  *     --clock-scale K   the clock runs at the PC's real time x K inside a
  *                       frame (stat(1) estimates the Pi's cost with K ~ 21;
  *                       the run is not the same every time any more)
@@ -116,7 +118,7 @@ static int write_png(const char *path, const uint8_t *rgb, int w, int h)
 
 static struct {
     const char *shots, *video_path, *wav_path;
-    int every, from;
+    int every, from, realtime;
     FILE *video, *wav;
     uint32_t wav_samples;
     long frame;                 /* frames shown so far */
@@ -237,6 +239,16 @@ void host_frame(const uint16_t *px, int w, int h, int stride)
     }
     run.shot_name[0] = 0;
     events(f + 1);
+    if (run.realtime) {
+        /* 60 frames a second of the PC's clock (matches on the network) */
+        static double next;
+        double t = host_real_us();
+        if (next == 0 || t > next + 100000)
+            next = t;
+        next += 1000000.0 / 60;
+        if (next > t)
+            usleep((useconds_t)(next - t));
+    }
     t_flip = host_real_us();
 }
 
@@ -302,6 +314,7 @@ int main(int argc, char **argv)
         else if (!strcmp(a, "--input") && v) input = v, i++;
         else if (!strcmp(a, "--quiet")) host.quiet = 1;
         else if (!strcmp(a, "--clock-scale") && v) host.clock_scale = atof(v), i++;
+        else if (!strcmp(a, "--realtime")) run.realtime = 1;
         else if (a[0] != '-') cart = a;
         else {
             fprintf(stderr, "bmhost: unknown option %s\n", a);

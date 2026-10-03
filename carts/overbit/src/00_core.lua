@@ -7,7 +7,24 @@
 
 local sin, cos, sqrt, abs, floor, max, min, atan, pi = math.sin, math.cos, math.sqrt, math.abs,
   math.floor, math.max, math.min, math.atan, math.pi
-local random = math.random
+local random = math.random      -- for the looks (particles, shakes)
+
+-- for the game: the same numbers on every console of a match on the network
+-- (lockstep, 83_net), seeded with the match: xorshift32, as math.random:
+-- grandom() in [0, 1), grandom(n) in 1..n, grandom(a, b) in a..b
+local rng = 0x2545F491
+local function grandom(a, b)
+  local x = rng
+  x = x ~ ((x << 13) & 0xFFFFFFFF)
+  x = x ~ (x >> 17)
+  x = x ~ ((x << 5) & 0xFFFFFFFF)
+  rng = x
+  local u = x / 4294967296.0
+  if not a then return u end
+  if not b then a, b = 1, a end
+  return a + math.floor(u * (b - a + 1))
+end
+local function grandom_seed(s) rng = (s % 4294967295) + 1 end
 local DT = 1 / 60
 
 local function clamp(v, a, b) if v < a then return a elseif v > b then return b end return v end

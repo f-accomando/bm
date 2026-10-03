@@ -136,7 +136,18 @@ screenshot in `docs/img/`), `README_OLD.md` (il README completo, in italiano),
   Conta i **triangoli**, non i pixel: dettagli nelle texture, `Mat(thin=True)` per le
   cose lunghe e sottili (non divise), `detail=True` per quelle piccole (solo vicino).
 - La partita (`src/81_match.lua`, Controllo): regole in `RULES` (`--define
-  'OVERBIT_RULES={...}'` di `build.py` per i test), bot provvisori fino a M31.4.
+  'OVERBIT_RULES={...}'` di `build.py` per i test); i posti hanno un numero (`a.seat`:
+  1-5 blu, 6-10 rossi), `step()` è un frame della partita.
+- Bot (`src/75_bots.lua`): tattica (rete INT8 `Bots.BRAIN` in `src/76_brain.lua`, scritta
+  da `art/brain.py` facendo giocare i bot in bmhost; le regole di `teacher` come riserva),
+  strada sul grafo della mappa, mira e abilità per eroe. Dopo aver cambiato i bot o le
+  regole: `python3 carts/overbit/art/brain.py build` (~20 min) e commit di `76_brain.lua`.
+- Rete (`src/83_net.lua`): **lockstep**, ogni console simula tutto e viaggiano solo i
+  comandi. Quindi nella partita: numeri a caso del gioco con `grandom()` (00_core; per gli
+  effetti `random`), niente `G.frame` né cose della console (`G.local_actor`, la camera,
+  la qualità) che cambino la simulazione, niente stato del gioco cambiato durante il
+  disegno. `OVERBIT_NET_DEBUG` scrive lo stato ogni 10 frame per trovare dove due console
+  divergono. Relay: `tools/overbit_relay.py`.
 
 ## Audio
 

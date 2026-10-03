@@ -1652,7 +1652,7 @@ codice inserito, sprite nello sheet, test di velocità, F9), `make ai-model` per
   con F6 (e col pad), il codice entra al cursore e lo sprite nella cella; il menu e
   l'editor restano a 60 fps; i test in QEMU coprono l'integrazione.
 
-## M31 — Overbit: sparatutto a eroi in 3D (XL) — avviata il 2026-10-02
+## M31 — Overbit: sparatutto a eroi in 3D (XL) — fatta sul PC (2026-10-03), da provare sul Pi
 Richiesta dell'autore (2026-10-02): un clone di Overwatch in `.bm`, **8 eroi** (2 tank,
 4 DPS, 2 supporto), 3D in prima persona, **una mappa**, multiplayer online, dev kit, la
 nostra AI per il gioco da soli. Lo scopo è **spingere la grafica** del Pi Zero al limite:
@@ -1860,6 +1860,70 @@ Passi (in quest'ordine, richiesto dall'autore):
   istruzione, `third_party/lua/lvm.c`) ha tolto più di metà del tempo del Lua.
 - **Da provare sul Pi**: "PLAY: CONTROL" nel menu; con Select (o Tab) l'overlay: una foto
   dei ms nella strada, nella piazza durante uno scontro e dallo spawn.
+
+**Passo 4 — l'AI dei bot: fatto sul PC (2026-10-03), da provare sul Pi.**
+- **Tre livelli** (`src/75_bots.lua`): la *tattica* due volte al secondo (andare al punto,
+  combattere, ritirarsi, aggirare da un fianco, proteggere un amico, aspettare), la
+  *strada* sul grafo dei posti della mappa (il prossimo nodo verso la meta, calcolato una
+  volta per meta: il punto, lo spawn di ogni squadra, i tre fianchi), le *mani*: vedere
+  (raggi verso i corpi), mirare con un tempo di reazione e un errore che vaga e cresce con
+  la distanza, anticipare i colpi lenti, scansare di lato, e le abilità di ogni eroe
+  quando hanno senso (il Null Field sotto il fuoco, la barriera di Kaiju con gli amici
+  dietro, il muro di Frost per ritirarsi, la mina di Fuse fatta esplodere, i kunai di
+  Akari a ripetizione, l'ultimate con più nemici vicini...).
+- **La nostra rete** (come quella dell'assistente di M30): 24 numeri che il bot vede
+  (vita, ultimate, ruolo, distanza e stato del punto, percentuali, quanti amici e nemici,
+  il nemico più vicino, l'amico più ferito, il danno appena preso...) → 32 → 32 → 6
+  tattiche, pesi INT8. Nel kernel `nnet()` (`src/ai/net.c`: gli strati di `nn.c` con le
+  istruzioni SIMD dell'ARMv6) la fa girare per ogni cartuccia; `scripts/nnetlib.py` la
+  quantizza e dà i numeri esatti della console (test: uguali bit per bit).
+- **Addestrata giocando** (`art/brain.py`): partite di dieci bot sul PC senza disegno
+  (bmhost, 4 partite per volta, ~3 s l'una), ogni scelta con quello che è successo dopo
+  (uccisioni, morti, danni fatti e cure, la cattura e le percentuali della squadra, 15
+  secondi scontati). Una rete del valore impara quanto rende un momento; la rete delle
+  tattiche impara le scelte fatte, ognuna pesata da quanto è andata meglio del previsto
+  (*advantage-weighted regression*: resta vicina a quello che si è provato). La
+  generazione 0 sceglie con le regole (e a caso una volta su cinque), le altre con la rete:
+  cinque generazioni, 200 partite, 660 mila scelte, 17 minuti sul PC. **Risultato
+  onesto**: contro le regole la rete vince 21 partite e ne perde 19 su 40, cioè è alla
+  pari (la prima prova, che stimava il valore di ogni tattica con i premi del singolo bot,
+  perdeva 5 a 12). È nella cartuccia (`src/76_brain.lua`, 2 KB) e sceglie le tattiche di
+  tutti i bot; le regole restano come riserva. Per farla crescere: più generazioni, più
+  ingressi (dove sono gli amici, le ultimate dei nemici), regole migliori da cui partire.
+- Tre livelli di bravura nel menu (**BOTS**: EASY, NORMAL, HARD: reazione 0,5/0,3/0,17 s,
+  errore di mira, velocità di rotazione; i difficili saltano per schivare). Le stanze di
+  spawn curano la propria squadra. Nel log di una partita di prova (`OVERBIT_AI_LOG`)
+  ogni scelta con quello che il bot vedeva.
+- Test: `make test-overbit` (una partita intera di bot fino alla vittoria; la rete in C
+  uguale a quella in Python).
+
+**Passo 5 — la rete: fatto sul PC (2026-10-03), da provare sul Pi.**
+- **UDP per le cartucce** nel kernel (`src/net/cartnet.c` su lwIP): `udp_open`,
+  `udp_send` (anche `"*"`, il broadcast della LAN), `udp_recv`, `udp_close`, `net_ip`,
+  `net_resolve`; in bmhost le stesse funzioni sui socket del PC (`tests/host/hostnet.c`,
+  `BMHOST_NET_ID` per più console sullo stesso PC, `--realtime` a 60 frame al secondo).
+- **Lockstep** (`src/83_net.lua`): ogni console fa girare tutta la partita (lo stesso
+  codice, lo stesso seme, anche i bot) e viaggiano solo i comandi dei giocatori: ogni
+  console manda i suoi per il frame 4 più avanti (7 con il relay), l'host raccoglie quelli
+  di tutti e rimanda per ogni frame il pacchetto di tutti; un frame gira quando il suo
+  pacchetto è arrivato. Ogni pacchetto ripete gli ultimi 8 frame (le perdite di UDP non
+  contano). La visuale gira subito, l'eroe segue di 4 frame (67 ms). Ogni secondo un
+  hash della partita: se due console divergono si vede e si scrive nel log. Per il
+  lockstep il gioco ha un suo generatore di numeri a caso (`grandom`, quello degli effetti
+  resta a parte), l'orologio e gli id ripartono da zero a ogni partita, i bot contano i
+  frame della partita.
+- **PLAY ONLINE** nel menu: ospitare una partita o entrare in una di quelle trovate sulla
+  LAN; fino a 10 persone, alternate tra blu e rossi, i posti vuoti ai bot; la scelta
+  dell'eroe viaggia con i comandi; chi se ne va (3 s di silenzio) lascia il posto a un bot,
+  lo stesso su tutte le console.
+- **Via internet**: `tools/overbit_relay.py` su un PC o un server con un indirizzo
+  pubblico (UDP 47310): passa i pacchetti di una console alle altre della stessa stanza,
+  come un broadcast. Nella console: RELAY (indirizzo, anche `nome:porta`) e ROOM (4
+  lettere), scritti con la tastiera o con il pad e salvati.
+- Test: `make test-overbit` fa giocare due bmhost insieme, sulla LAN e attraverso il
+  relay: le stesse uccisioni, catture e round su entrambi, nessuna divergenza.
+- **Da provare sul Pi**: due console sulla stessa WiFi, PLAY ONLINE: una HOST A MATCH,
+  l'altra JOIN, poi START; una foto se compare "OUT OF SYNC" o "WAITING FOR THE OTHERS".
 
 ## Rischi principali
 | Rischio | Mitigazione |

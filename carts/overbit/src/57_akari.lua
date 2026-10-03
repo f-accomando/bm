@@ -87,7 +87,7 @@ local function throw_ofuda(a)
   local target = friend_in_sight(a, OFUDA.cone, OFUDA.range, true)
   local x, y, z = hand(a, 1)
   local fx, fy, fz = Actors.aim_dir(a)
-  local j = (random() - 0.5) * 0.3
+  local j = (grandom() - 0.5) * 0.3
   Proj.spawn({ x = x, y = y, z = z, vx = (fx + j * cos(a.yaw)) * OFUDA.speed, vy = (fy + 0.1) * OFUDA.speed,
                vz = (fz - j * sin(a.yaw)) * OFUDA.speed, owner = a, target = target, homing = target and 8 or nil,
                any_team = true, life = 1.6, size = 0.08, kind = "ofuda",

@@ -1,6 +1,7 @@
 -- The frame: input, the mode's update, the quality governor; the mode draws.
 
 function _init()
+  if OVERBIT_SEED then math.randomseed(OVERBIT_SEED) grandom_seed(OVERBIT_SEED) end   -- the trainer's matches
   Input.init()
   World.init()
   Quality.set(G.quality)
@@ -23,13 +24,14 @@ function _update()
     a.fx.invuln_t = 0
     Actors.damage(a, (Actors.total(a) + 1) / (1 - 0.3), nil, false, "dev")
   end
-  G.t = G.t + DT
+  if not Net.on then G.t = G.t + DT end    -- a network match moves it only when a frame runs
   Modes.update()
   G.update_ms = stat(8)
   Quality.update()
 end
 
 function _draw()
+  if OVERBIT_HEADLESS then return end           -- the trainer's matches: nothing to see
   Modes.draw()
   if G.dev then Dev.draw() end
 end

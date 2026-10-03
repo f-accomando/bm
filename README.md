@@ -151,7 +151,7 @@ local multiplayer for up to 4 players. The games on the card, all `.bm`:
 
 <p align="center">
   <img src="docs/img/overbit-match.gif" width="720" alt="Overbit: ten bots fight for the point on Partenope, a waterfront at sunset">
-  <br><sub><b>Overbit</b> (in progress): a hero shooter in first person at 320×180, 60 fps on a Pi Zero.
+  <br><sub><b>Overbit</b>: a hero shooter in first person at 320×180, made for 60 fps on a Pi Zero.
   A Control match on <b>Partenope</b>, the waterfront of a future Naples at sunset, ten bots on the point;
   <a href="docs/img/overbit-match.mp4">MP4 with sound</a> · <code>make overbit-reel-match</code></sub>
 </p>
@@ -176,12 +176,14 @@ local multiplayer for up to 4 players. The games on the card, all `.bm`:
   <img src="docs/img/hunt.png" width="49%" alt="Hunter's Night: gothic 2D with lights">
 </p>
 
-- **Overbit** (in progress, M31): a hero shooter in 3D, first person, 8 heroes with the
+- **Overbit** (M31, to be tried on the Pi): a hero shooter in 3D, first person, 8 heroes with the
   kits of Overwatch's (our own names and looks): the tanks **Rally** and **Kaiju** (two
   mechs with their pilots), **Sarge**, **Frost**, **Fuse** and **Rail** for damage, the
   supports **Orbit** and **Akari**; the map **Partenope** (light baked in, textured
-  facades) and the **Control** mode, 5 against 5 with bots; a training range, a
-  benchmark, the reels.
+  facades) and the **Control** mode, 5 against 5; bots with our own small INT8 network
+  for their tactics, trained on the PC by letting them play; **online** matches for up to
+  10 consoles (lockstep over UDP, on the LAN or through a small relay); a training range,
+  a benchmark, the reels.
 - **Astro Wing**: 3D flight.
 - **Titan Clash**: giant robots fighting, against the CPU or two players.
 - **Chaos Kitchen**: co-op cooking in 3D for 1 to 4 players.

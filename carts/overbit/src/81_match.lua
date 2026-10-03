@@ -1,6 +1,6 @@
 -- The match: Control on Partenope (M31.3). Two teams of five, as in
 -- Overwatch 2's role queue (1 tank, 2 damage, 2 support); the player is one
--- of the blue team, the other nine are bots. The point in the square
+-- of the blue team, the other nine are bots (75_bots). The point in the square
 -- unlocks after a while; a team alone on it captures it (faster with more
 -- of them), then its percentage climbs while it holds it; 100% wins the
 -- round (not while the enemy is on the point: overtime), two rounds win
@@ -53,7 +53,7 @@ local function pick_team(fixed)
       local free = {}
       for _, id in ipairs(pool) do if not used[id] then free[#free + 1] = id end end
       if #free == 0 then free = pool end
-      local id = free[math.random(#free)]
+      local id = free[grandom(#free)]
       ids[#ids + 1], used[id] = id, true
     end
   end
@@ -76,31 +76,36 @@ local function swap_hero(a, id)
   table.remove(list, #list)
   for i, o in ipairs(list) do if o == a then list[i] = b break end end
   b.home, b.kills, b.deaths, b.script, b.slot = a.home, a.kills, a.deaths, a.script, a.slot
+  b.seat, b.human, b.net_cmd = a.seat, a.human, a.net_cmd
   b.pitch = a.pitch
   if not a.alive then b.alive, b.dead_t = false, a.dead_t end
   if G.local_actor == a then G.local_actor = b end
   return b
 end
 
--- the player takes hero `id`: the team keeps one hero of each kind (a bot
--- of the new role takes the old hero)
-function Match.choose(id)
-  local me = G.local_actor
+-- a player (`a`: the local one, or a seat of a match on the network) takes
+-- hero `id`: the team keeps one hero of each kind (a bot of the new role
+-- takes the old hero; a hero another person plays is not taken)
+function Match.choose(id, a)
+  local me = a or G.local_actor
   if me.hero.id == id then return end
   local old = me.hero.id
   local swap
   for _, o in ipairs(G.actors) do
-    if o ~= me and o.team == me.team and o.hero.id == id then swap = o end
+    if o ~= me and o.team == me.team and o.hero.id == id then
+      if o.human then return end
+      swap = o
+    end
   end
   if not swap and H[id].role ~= H[old].role then
     for _, o in ipairs(G.actors) do
-      if o ~= me and o.team == me.team and o.hero.role == H[id].role then swap = o break end
+      if o ~= me and not o.human and o.team == me.team and o.hero.role == H[id].role then swap = o break end
     end
   end
   if swap then swap_hero(swap, old) end
   me = swap_hero(me, id)
   me.ult = 0
-  log(string.format("overbit hero %s", id))
+  log(string.format("overbit hero %s %s", me.name, id))
 end
 
 -- ---------------------------------------------------------------- the point
@@ -189,206 +194,37 @@ local function draw_point()
   end
 end
 
--- ---------------------------------------------------------------- the bots (stand-ins until M31.4)
-
-local NAV                -- { n, x = {}, y = {}, z = {}, links = {}, to_point = {}, goal = {} }
-
-local function nav_build()
-  local src = World.MAP and World.MAP.nav
-  if not src then return nil end
-  local nv = { x = {}, y = {}, z = {}, links = src.links, names = src.names, goal = {}, to_point = {} }
-  local n = #src.nodes // 3
-  nv.n = n
-  for i = 1, n do
-    nv.x[i], nv.y[i], nv.z[i] = src.nodes[i * 3 - 2], src.nodes[i * 3 - 1], src.nodes[i * 3]
-  end
-  -- the way to the point from every node: distances from the point's nodes
-  -- along the links backwards (Dijkstra on 60 nodes: a moment, once)
-  local back = {}
-  for i = 1, n do back[i] = {} end
-  for i = 1, n do for _, j in ipairs(src.links[i]) do back[j][#back[j] + 1] = i end end
-  local dist, done = {}, {}
-  for i = 1, n do
-    if src.names[i]:sub(1, 2) == "p_" then dist[i] = 0 nv.goal[i] = true end
-  end
-  while true do
-    local best, bd = nil, math.huge
-    for i = 1, n do if dist[i] and not done[i] and dist[i] < bd then best, bd = i, dist[i] end end
-    if not best then break end
-    done[best] = true
-    for _, i in ipairs(back[best]) do
-      local d = bd + len3(nv.x[i] - nv.x[best], nv.y[i] - nv.y[best], nv.z[i] - nv.z[best])
-      if not dist[i] or d < dist[i] then dist[i] = d nv.to_point[i] = best end
-    end
-  end
-  nv.dist = dist
-  return nv
-end
-
--- the nearest node a bot can walk to in a straight line
-local function nav_nearest(a)
-  local best, bd = nil, math.huge
-  local ey = a.y + 1.0
-  for i = 1, NAV.n do
-    local dx, dz = NAV.x[i] - a.x, NAV.z[i] - a.z
-    local d = dx * dx + dz * dz + (NAV.y[i] - a.y) ^ 2 * 4
-    if d < bd and d < 400 and World.clear(a.x, ey, a.z, NAV.x[i], NAV.y[i] + 1.0, NAV.z[i]) then best, bd = i, d end
-  end
-  return best
-end
-
--- how far each hero likes to fight, and the button of its damage
-local STYLE = {
-  rally = { range = 14 }, kaiju = { range = 4.5 }, sarge = { range = 28 }, frost = { range = 9 },
-  fuse = { range = 18, lob = 0.08 }, rail = { range = 34 }, orbit = { range = 24, healer = "fire" },
-  akari = { range = 20, healer = "fire", attack = "fire2" },
-}
-
-local function sees(a, o)
-  return World.clear(a.x, a.y + a.eye, a.z, o.x, o.y + o.height * 0.6, o.z)
-end
-
--- turn towards a point, at most `rate` radians a second
-local function aim_at(a, tx, ty, tz, rate)
-  local dx, dy, dz = tx - a.x, ty - (a.y + a.eye), tz - a.z
-  local want_yaw = atan(dx, dz)
-  local want_pitch = atan(dy, sqrt(dx * dx + dz * dz))
-  local dyaw = wrap_angle(want_yaw - a.yaw)
-  local step = rate * DT
-  a.yaw = wrap_angle(a.yaw + clamp(dyaw, -step, step))
-  a.pitch = a.pitch + clamp(want_pitch - a.pitch, -step, step)
-  return abs(dyaw) + abs(want_pitch - a.pitch)
-end
-
--- the bot's command for this frame
-local function bot_think(a, c)
-  local b = a.brain
-  if not b or b.deaths ~= a.deaths then
-    -- a new life (or the first): a new plan
-    b = { node = nil, t = 0, lx = a.x, lz = a.z, wander_t = 0, err = math.random() * 6, deaths = a.deaths }
-    a.brain = b
-  end
-  local st = STYLE[a.hero.id] or { range = 20 }
-  b.t = b.t + DT
-  -- the target: the nearest enemy it can see (looked for 4 times a second)
-  if b.t >= (b.next_look or 0) then
-    b.next_look = b.t + 0.25
-    local best, bd = nil, 40 * 40
-    for _, o in ipairs(G.actors) do
-      if o.alive and o.team ~= a.team then
-        local dx, dy, dz = o.x - a.x, o.y - a.y, o.z - a.z
-        local d = dx * dx + dy * dy + dz * dz
-        if d < bd and sees(a, o) then best, bd = o, d end
-      end
-    end
-    b.target = best
-    -- a support looks for a hurt friend first
-    b.patient = nil
-    if st.healer then
-      local worst, wk = nil, 0.8
-      for _, o in ipairs(G.actors) do
-        if o ~= a and o.alive and o.team == a.team then
-          local k = Actors.total(o) / Actors.total_max(o)
-          local dx, dz = o.x - a.x, o.z - a.z
-          if k < wk and dx * dx + dz * dz < 25 * 25 and sees(a, o) then worst, wk = o, k end
-        end
-      end
-      b.patient = worst
-    end
-  end
-  local tgt = b.target
-  if tgt and not tgt.alive then tgt, b.target = nil, nil end
-  -- where to go: the point (in the setup, its edge), along the nodes
-  local gx, gz
-  local play = M.phase == "play"
-  if not b.node or b.t >= (b.replan or 0) then
-    b.node = nav_nearest(a)
-    b.replan = b.t + 3
-  end
-  local node = b.node
-  if node then
-    if NAV.goal[node] then
-      -- on the point: move about on it
-      if b.t >= b.wander_t then
-        b.wander_t = b.t + 1.5 + math.random() * 2
-        local ang, r = math.random() * 2 * pi, 1.5 + math.random() * (P.r - 2)
-        b.wx, b.wz = P.x + sin(ang) * r, P.z + cos(ang) * r
-      end
-      gx, gz = b.wx or P.x, b.wz or P.z
-    else
-      gx, gz = NAV.x[node], NAV.z[node]
-      local dx, dz = gx - a.x, gz - a.z
-      if dx * dx + dz * dz < 1.6 then
-        local nxt = NAV.to_point[node]
-        -- before the point opens, wait at the edge of the square
-        if nxt and (play or (NAV.dist[nxt] or 0) > 9) then b.node = nxt end
-      end
-    end
-  end
-  -- stuck against something: jump, look for a node again
-  if b.t >= (b.stuck_check or 0) then
-    b.stuck_check = b.t + 1.2
-    local moved = (a.x - b.lx) ^ 2 + (a.z - b.lz) ^ 2
-    if moved < 0.15 and gx and ((gx - a.x) ^ 2 + (gz - a.z) ^ 2) > 2 then
-      c.jump, c.jump_p = true, true
-      b.node = nil
-    end
-    b.lx, b.lz = a.x, a.z
-  end
-  -- fighting: face the target and fire within the hero's reach; a support
-  -- heals the friend who needs it when no enemy is close
-  local aim, fire_key
-  if b.patient and (not tgt or len3(tgt.x - a.x, 0, tgt.z - a.z) > 12) then
-    aim, fire_key = b.patient, st.healer
-  elseif tgt then
-    aim, fire_key = tgt, st.attack or "fire"
-  end
-  if aim then
-    -- the aim wanders a little (bots are not perfect)
-    local wob = 0.35 * sin(b.t * 2.3 + b.err)
-    local err = aim_at(a, aim.x + wob * 0.5, aim.y + aim.height * 0.62 + (st.lob or 0) * len3(aim.x - a.x, 0, aim.z - a.z),
-                       aim.z - wob * 0.5, 5.5)
-    local d = len3(aim.x - a.x, aim.y - a.y, aim.z - a.z)
-    if err < 0.12 and d < st.range then c[fire_key], c[fire_key .. "_p"] = true, not b.firing b.firing = true
-    else b.firing = false end
-    -- abilities now and then while fighting, the ultimate when charged and close
-    if aim == tgt and b.t >= (b.next_ab or 0) then
-      b.next_ab = b.t + 1 + math.random() * 2
-      local r = math.random()
-      if r < 0.3 then c.ab1, c.ab1_p = true, true elseif r < 0.55 then c.ab2, c.ab2_p = true, true end
-      if a.ult >= 100 and d < 14 then c.ult, c.ult_p = true, true end
-    end
-  elseif gx then
-    aim_at(a, gx, a.y + a.eye, gz, 3.5)
-    b.firing = false
-  end
-  -- moving towards the goal, in the bot's own frame (right, forward); a
-  -- little strafing in a fight
-  if gx then
-    local dx, dz = gx - a.x, gz - a.z
-    local d = sqrt(dx * dx + dz * dz)
-    if d > 0.4 then
-      dx, dz = dx / d, dz / d
-      local fx, fz = sin(a.yaw), cos(a.yaw)
-      local rx, rz = cos(a.yaw), -sin(a.yaw)
-      c.mx, c.mz = dx * rx + dz * rz, dx * fx + dz * fz
-    end
-    if tgt then c.mx = clamp(c.mx + sin(b.t * 1.7 + b.err) * 0.6, -1, 1) end
-  end
-end
-Match.bot_think = bot_think
-
 -- ---------------------------------------------------------------- the match
 
+-- the bots' command each frame (75_bots)
+local function bot_think(a, c) Bots.think(a, c, M) end
+Match.bot_think = bot_think
+
+-- a person's command on the network: what came in the bundle (83_net)
+local function human_think(a, c)
+  local n = a.net_cmd
+  if n then for k, v in pairs(n) do c[k] = v end end
+end
+
+-- the seats: team 1 has 1-5, team 2 has 6-10; alone, the player is seat 1;
+-- on the network the people sit where M.net.seats says
 local function team_setup(team, ids)
   for slot, id in ipairs(ids) do
     local x, z, yaw = spawn_spot(team, slot)
-    local me = team == 1 and slot == 1 and not Match.spectate
-    local a = Actors.spawn(id, team, x, 0, z, yaw, { name = me and "You" or H[id].name, bot = not me,
-                                                    respawn = RULES.respawn })
-    a.home, a.slot = { x = x, y = 0, z = z, yaw = yaw }, slot
-    if me then G.local_actor = a else a.script = bot_think end
-    if team == 1 and slot == 1 and Match.spectate then G.local_actor = a end
+    local seat = (team - 1) * 5 + slot
+    local human, me
+    if M.net then
+      for _, s in ipairs(M.net.seats) do if s == seat then human = true end end
+      me = seat == M.net.seat
+    else
+      me = seat == 1 and not Match.spectate
+      human = me
+    end
+    local name = me and "You" or human and ("P" .. seat) or H[id].name
+    local a = Actors.spawn(id, team, x, 0, z, yaw, { name = name, bot = not human, respawn = RULES.respawn })
+    a.home, a.slot, a.seat, a.human = { x = x, y = 0, z = z, yaw = yaw }, slot, seat, human
+    if not human then a.script = bot_think elseif M.net then a.script = human_think end
+    if me or (seat == 1 and Match.spectate) then G.local_actor = a end
   end
 end
 
@@ -413,15 +249,31 @@ function Match.start()
   -- match of ten bots filmed (OVERBIT_SPECTATE: the reel of the match)
   if OVERBIT_RULES then for k, v in pairs(OVERBIT_RULES) do RULES[k] = v end end
   Match.spectate = OVERBIT_SPECTATE and true or false
+  -- a match on the network (the lobby of 83_net): the same seed, bots and
+  -- seats on every console; the clock and the ids start from zero
+  M.net = Match.net
+  Match.net = nil
+  if M.net then grandom_seed(M.net.seed) end
+  G.t, M.frame = 0, 0
+  Actors.reset_ids()
   for k in pairs(G.actors) do G.actors[k] = nil end
   Actors.feed = {}
   Proj.clear()
   Fx.clear()
   World.use("map")
   P = World.mark("point")
-  NAV = NAV or nav_build()
+  Bots.init()
+  -- training and tests (art/brain.py): the bots' log, chance, their network
+  Bots.log = OVERBIT_AI_LOG and true or false
+  Bots.explore = OVERBIT_AI_EXPLORE or 0
+  local brain = OVERBIT_AI_NET or Bots.BRAIN
+  Bots.net = brain and nnet(brain) or nil
+  Bots.net_team = OVERBIT_AI_NET_TEAM
+  Bots.diff = M.net and M.net.diff or G.bot_diff or 2
+  if M.net then Bots.log, Bots.explore, Bots.net_team = false, 0, nil end
   M.round, M.wins = 1, { 0, 0 }
-  team_setup(1, pick_team(not Match.spectate and G.hero_id or nil))
+  M.end_t, M.lost_t, M.waiting = 0, 0, false
+  team_setup(1, pick_team(not Match.spectate and not M.net and G.hero_id or nil))
   team_setup(2, pick_team(nil))
   round_start()
   if OVERBIT_PROFILE then
@@ -433,7 +285,8 @@ function Match.start()
   end
   M.select = { open = not Match.spectate, sel = 1, can_close = false }
   M.shot_t, M.shot = 0, 0
-  for i, id in ipairs(HERO_ORDER) do if id == G.hero_id then M.select.sel = i end end
+  local mine = M.net and G.local_actor.hero.id or G.hero_id
+  for i, id in ipairs(HERO_ORDER) do if id == mine then M.select.sel = i end end
   G.dmg_numbers = false
   log(string.format("overbit match start: %s", G.hero_id))
 end
@@ -452,7 +305,8 @@ local function select_update()
   if c.up_p or c.left_p then S.sel = (S.sel - 2) % n + 1 Snd.play("ui") end
   if c.down_p or c.right_p then S.sel = S.sel % n + 1 Snd.play("ui") end
   if c.jump_p or c.fire_p then
-    Match.choose(HERO_ORDER[S.sel])
+    if M.net then Net.hero_req = S.sel                -- for everyone, when its frame runs
+    else Match.choose(HERO_ORDER[S.sel]) end
     G.hero_id = HERO_ORDER[S.sel]
     S.open = false
     Snd.play("ui")
@@ -462,21 +316,10 @@ local function select_update()
   end
 end
 
-function Match.update()
+-- one frame of the match: the same on every console of a network match
+local function step()
+  M.frame = M.frame + 1
   M.t = M.t + DT
-  if M.msg_t then M.msg_t = M.msg_t - DT if M.msg_t <= 0 then M.msg = nil M.msg_t = nil end end
-  local me = G.local_actor
-  local c = Input.cmd
-  local menu = c.menu_p
-  if M.select.open then
-    select_update()
-    -- the hero waits while the player chooses (the menu button only closes)
-    Input.blank(c)
-    menu = false
-  elseif (c.hero_p or (c.pad and c.down_p)) and (in_spawn(me) or not me.alive) and M.phase ~= "match_end" then
-    M.select.open, M.select.can_close = true, true
-    for i, id in ipairs(HERO_ORDER) do if id == me.hero.id then M.select.sel = i end end
-  end
   if M.phase == "setup" then
     local left = RULES.unlock - M.t
     if left <= 5 and math.ceil(left) ~= math.ceil(left + DT) then Snd.play("tick") end
@@ -493,14 +336,75 @@ function Match.update()
       M.round = M.round + 1
       round_start()
     end
-  elseif M.phase == "match_end" then
-    if M.t >= RULES.match_end or (M.t > 2 and menu) then
+  end
+  Modes.update_actors()
+  -- the spawn rooms heal their team quickly (as in Overwatch)
+  for _, a in ipairs(G.actors) do
+    if a.alive and in_spawn(a) and Actors.total(a) < Actors.total_max(a) then Actors.heal(a, 120 * DT) end
+  end
+end
+
+-- a frame of a network match, when the bundle of everyone's inputs is
+-- there (at most two a console frame: one behind catches up)
+local by_seat = {}
+local function net_step(me, c)
+  local n = 0
+  while n < 2 and Net.tick(me, c) do
+    for k in pairs(by_seat) do by_seat[k] = nil end
+    for _, a in ipairs(G.actors) do by_seat[a.seat] = a end
+    local asks, gone = Net.apply(by_seat)
+    for _, s in ipairs(gone) do
+      local a = by_seat[s]
+      a.human, a.script, a.name = false, bot_think, a.hero.name
+      log(string.format("overbit net seat %d to a bot", s))
+    end
+    for _, ask in ipairs(asks) do Match.choose(ask[2], by_seat[ask[1]]) end
+    G.t = G.t + DT
+    step()
+    Net.check(M.frame, G.actors)
+    n = n + 1
+    if not Net.behind() then break end
+    c = Input.blank(c)                  -- the second frame: no new presses
+  end
+  M.waiting = n == 0
+  G.local_actor = by_seat[M.net.seat] or G.local_actor
+end
+
+function Match.update()
+  if M.msg_t then M.msg_t = M.msg_t - DT if M.msg_t <= 0 then M.msg = nil M.msg_t = nil end end
+  local me = G.local_actor
+  local c = Input.cmd
+  local menu = c.menu_p
+  if M.select.open then
+    select_update()
+    -- the hero waits while the player chooses (the menu button only closes)
+    Input.blank(c)
+    menu = false
+  elseif (c.hero_p or (c.pad and c.down_p)) and (in_spawn(me) or not me.alive) and M.phase ~= "match_end" then
+    M.select.open, M.select.can_close = true, true
+    for i, id in ipairs(HERO_ORDER) do if id == me.hero.id then M.select.sel = i end end
+  end
+  if M.net then
+    net_step(me, c)
+    if Net.lost then
+      M.lost_t = (M.lost_t or 0) + DT
+      if M.lost_t > 3 then Net.close() Modes.start("menu") return end
+    end
+  else
+    step()
+  end
+  if M.phase == "match_end" then
+    M.end_t = (M.end_t or 0) + DT
+    if OVERBIT_HEADLESS and M.end_t >= RULES.match_end then quit() return end     -- the trainer's matches
+    if M.end_t >= RULES.match_end or (M.end_t > 2 and menu) then
+      if M.net then Net.close() end
       Modes.start("menu")
       return
     end
+  elseif menu then
+    if M.net then Net.close() end
+    Modes.start("menu")
   end
-  Modes.update_actors()
-  if menu and M.phase ~= "match_end" then Modes.start("menu") end
 end
 
 -- ---------------------------------------------------------------- drawing
@@ -728,6 +632,18 @@ function Match.draw()
     font("6x12")
     local x = prompt(Input.cmd.pad and "DOWN" or "h", 8, 42, true)
     print("CHANGE HERO", x + 3, 42, 0xD8DCE2)
+    font()
+  end
+  if M.net then
+    font("6x12")
+    local s
+    if Net.lost then s = "CONNECTION LOST"
+    elseif Net.desync then s = "OUT OF SYNC (frame " .. Net.desync .. ")"
+    elseif M.waiting then s = "WAITING FOR THE OTHERS..." end
+    if s then
+      rectfill(160 - #s * 3 - 3, 58, #s * 6 + 6, 13, INK)
+      print(s, 160 - #s * 3, 59, 0xFF8060)
+    end
     font()
   end
   if M.phase == "round_end" then

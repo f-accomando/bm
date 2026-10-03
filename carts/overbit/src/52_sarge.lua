@@ -98,7 +98,7 @@ local function fire_rifle(a)
     dx, dy, dz = dx / l, dy / l, dz / l
   else
     local sp = s.burst <= RIFLE.free and RIFLE.spread0 or min(RIFLE.spread1, (s.burst - RIFLE.free) * RIFLE.bloom)
-    local ang, rad = random() * 2 * pi, sqrt(random()) * sp
+    local ang, rad = grandom() * 2 * pi, sqrt(grandom()) * sp
     local rx, rz = cos(a.yaw), -sin(a.yaw)
     local ox, oy = cos(ang) * rad, sin(ang) * rad
     dx, dy, dz = fx + rx * ox, fy + oy, fz + rz * ox

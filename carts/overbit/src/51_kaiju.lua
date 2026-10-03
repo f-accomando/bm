@@ -186,7 +186,7 @@ local function fire_repeater(a, mech)
   local ex, ey, ez = Actors.eye(a)
   local fx, fy, fz = Actors.aim_dir(a)
   local sp = mech and REPEATER.spread or 0.012
-  local dx, dy, dz = fx + (random() - 0.5) * sp, fy + (random() - 0.5) * sp, fz + (random() - 0.5) * sp
+  local dx, dy, dz = fx + (grandom() - 0.5) * sp, fy + (grandom() - 0.5) * sp, fz + (grandom() - 0.5) * sp
   local l = len3(dx, dy, dz)
   dx, dy, dz = dx / l, dy / l, dz / l
   local t, who, crit, nx, ny, nz = Actors.shoot(a, ex, ey, ez, dx, dy, dz, 60)

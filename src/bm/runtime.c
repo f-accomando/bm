@@ -27,6 +27,8 @@
 #include "kernel/prompts.h"
 #include "n8lua.h"
 #include "ai/lua_ai.h"
+#include "ai/net.h"
+#include "net/cartnet.h"
 #include "require.h"
 #include "meshcap.h"
 
@@ -1387,6 +1389,102 @@ static int l_log(lua_State *L)
     return 0;
 }
 
+/* ---- the network for the games (M31.5): UDP sockets (src/net/cartnet.h).
+ * Addresses as text, "192.168.1.23"; "*" is the broadcast of the LAN. */
+
+static void push_ip(lua_State *L, uint32_t ip)
+{
+    char t[16];
+    ksnprintf(t, sizeof t, "%u.%u.%u.%u", (unsigned)(ip >> 24), (unsigned)(ip >> 16 & 255),
+              (unsigned)(ip >> 8 & 255), (unsigned)(ip & 255));
+    lua_pushstring(L, t);
+}
+
+/* udp_open([port]): a socket, or nil and why */
+static int l_udp_open(lua_State *L)
+{
+    int port = (int)luaL_optinteger(L, 1, 0);
+    luaL_argcheck(L, port >= 0 && port <= 65535, 1, "a port is 0..65535");
+    if (!cartnet_ip()) {
+        lua_pushnil(L);
+        lua_pushstring(L, "no network");
+        return 2;
+    }
+    int sk = cartnet_open((uint16_t)port);
+    if (sk < 0) {
+        lua_pushnil(L);
+        lua_pushstring(L, "no free socket");
+        return 2;
+    }
+    lua_pushinteger(L, sk);
+    lua_pushinteger(L, cartnet_port(sk));
+    return 2;
+}
+
+/* udp_send(s, address, port, data): true when sent */
+static int l_udp_send(lua_State *L)
+{
+    int sk = (int)luaL_checkinteger(L, 1);
+    const char *to = luaL_checkstring(L, 2);
+    int port = (int)luaL_checkinteger(L, 3);
+    size_t len;
+    const char *d = luaL_checklstring(L, 4, &len);
+    luaL_argcheck(L, len <= CARTNET_MAX, 4, "at most 1024 bytes");
+    uint32_t ip = strcmp(to, "*") == 0 ? CARTNET_BROADCAST : cartnet_resolve(to);
+    lua_pushboolean(L, ip && (ip != CARTNET_BROADCAST || strcmp(to, "*") == 0) &&
+                           cartnet_send(sk, ip, (uint16_t)port, d, (int)len) == 0);
+    return 1;
+}
+
+/* udp_recv(s): data, address, port of the next packet, or nil */
+static int l_udp_recv(lua_State *L)
+{
+    static char buf[CARTNET_MAX];
+    int sk = (int)luaL_checkinteger(L, 1);
+    uint32_t ip;
+    uint16_t port;
+    int n = cartnet_recv(sk, buf, sizeof buf, &ip, &port);
+    if (n < 0) {
+        lua_pushnil(L);
+        return 1;
+    }
+    lua_pushlstring(L, buf, (size_t)n);
+    push_ip(L, ip);
+    lua_pushinteger(L, port);
+    return 3;
+}
+
+static int l_udp_close(lua_State *L)
+{
+    cartnet_close((int)luaL_checkinteger(L, 1));
+    return 0;
+}
+
+/* net_ip(): the console's address, or nil without network */
+static int l_net_ip(lua_State *L)
+{
+    uint32_t ip = cartnet_ip();
+    if (ip)
+        push_ip(L, ip);
+    else
+        lua_pushnil(L);
+    return 1;
+}
+
+/* net_resolve(name): its address once known; nil while looking (ask
+ * again), false if there is no such name */
+static int l_net_resolve(lua_State *L)
+{
+    uint32_t ip = cartnet_resolve(luaL_checkstring(L, 1));
+    if (ip == CARTNET_BROADCAST)
+        lua_pushboolean(L, 0);
+    else if (!ip)
+        lua_pushnil(L);
+    else
+        push_ip(L, ip);
+    return 1;
+}
+
 /* ---- save() / saved(): one table per cartridge in /bm/save, as Lua
  * source ("return {...}") read back in an empty environment: data only. */
 
@@ -2040,6 +2138,8 @@ static const luaL_Reg api[] = {
     { "world_move", l_world_move }, { "world_floor", l_world_floor },
     { "fog3d", l_fog3d }, { "project3d", l_project3d }, { "lamp3d", l_lamp3d },
     { "zclear", l_zclear }, { "log", l_log }, { "quit", l_quit },
+    { "udp_open", l_udp_open }, { "udp_send", l_udp_send }, { "udp_recv", l_udp_recv }, { "udp_close", l_udp_close },
+    { "net_ip", l_net_ip }, { "net_resolve", l_net_resolve },
     { "save", l_save }, { "saved", l_saved },
     { "keyp", l_keyp }, { "keyheld", l_keyheld }, { "rawkeys", l_rawkeys }, { "keydown", l_keydown },
     { "keys", l_keys }, { "pad", l_pad }, { "timeslice", l_timeslice }, { "ls", l_ls }, { "cart_load", l_cart_load }, { "cart_new", l_cart_new },
@@ -2127,6 +2227,7 @@ static lua_State *new_cart_state(const bm_cart_t *c)
     luaL_requiref(L, "n8", luaopen_n8, 1);      /* the nano8 machine (carts/nano8) */
     lua_pop(L, 1);
     ai_lua_open(L);             /* the assistant (M30): idle until asked */
+    nnet_lua_open(L);           /* small INT8 networks of the carts (M31.4) */
     bm_require_open(L);         /* require "assist": libraries in the kernel */
     static const char *const waves[SYNTH_WAVES] = { "SQUARE", "TRIANGLE", "SAW", "NOISE", "SINE", "METAL" };
     for (int w = 0; w < SYNTH_WAVES; w++) {
@@ -3585,6 +3686,7 @@ static struct {
 /* Frees what a cartridge holds (after leave_mode). */
 static void release(lua_State *L)
 {
+    cartnet_reset();            /* the cartridge's sockets */
     audio_reset();
     audio_bank(NULL, 0, NULL, 0);
     set_copy(&own_audio, &own_audio_len, NULL, 0);

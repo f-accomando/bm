@@ -159,9 +159,11 @@ end
 -- ---------------------------------------------------------------- the title menu
 
 local Menu = { sel = 1, t = 0 }
-local ITEMS = { "PLAY: CONTROL", "TRAINING RANGE", "HERO", "ANIMATION REEL", "QUALITY", "BENCHMARK" }
+local ITEMS = { "PLAY: CONTROL", "PLAY ONLINE", "TRAINING RANGE", "HERO", "BOTS", "ANIMATION REEL", "QUALITY",
+                "BENCHMARK" }
 
 G.hero_id = "rally"          -- OVERBIT_HERO (tests) in _init
+G.bot_diff = 2               -- the bots: 1 easy, 2 normal, 3 hard (Bots.SKILL)
 
 local function menu_hero()
   if Menu.hero then
@@ -196,6 +198,10 @@ function Menu.update()
     next_hero(c.right_p and 1 or -1)
     Snd.play("ui")
   end
+  if ITEMS[Menu.sel] == "BOTS" and (c.left_p or c.right_p) then
+    G.bot_diff = (G.bot_diff - 1 + (c.right_p and 1 or -1)) % 3 + 1
+    Snd.play("ui")
+  end
   local a = Menu.hero
   -- the hero on the title: idle, now and then its victory pose
   Menu.vt = Menu.vt + DT
@@ -207,8 +213,10 @@ function Menu.update()
     local it = ITEMS[Menu.sel]
     Snd.play("ui")
     if it == "PLAY: CONTROL" then Modes.start("match")
+    elseif it == "PLAY ONLINE" then Modes.start("lobby")
     elseif it == "TRAINING RANGE" then Modes.start("range")
     elseif it == "HERO" then next_hero(1)
+    elseif it == "BOTS" then G.bot_diff = G.bot_diff % 3 + 1
     elseif it == "ANIMATION REEL" then Modes.start("reel")
     elseif it == "QUALITY" then
       if G.qauto then G.qauto = false Quality.set(4)
@@ -234,9 +242,10 @@ function Menu.draw()
     local s = it
     if it == "QUALITY" then s = "QUALITY: " .. (G.qauto and "AUTO" or Quality.names[G.quality + 1]) end
     if it == "HERO" then s = "HERO: < " .. H[G.hero_id].name:upper() .. " >" end
-    local y = 96 + (i - 1) * 16
+    if it == "BOTS" then s = "BOTS: < " .. Bots.SKILL[G.bot_diff].name .. " >" end
+    local y = 66 + (i - 1) * 13
     local sel = i == Menu.sel
-    if sel then rectfill(8, y - 2, #s * 6 + 12, 14, 0xF26A21) end
+    if sel then rectfill(8, y - 1, #s * 6 + 12, 13, 0xF26A21) end
     print(s, 14, y, sel and 0xFFFFFF or 0xD8DCE2)
   end
   -- the chosen hero: name, role, line

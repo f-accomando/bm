@@ -67,7 +67,7 @@ local function fire_bolt(a)
   local ex, ey, ez = Actors.eye(a)
   local fx, fy, fz = Actors.aim_dir(a)
   local sp = BOLT.spread
-  local dx, dy, dz = fx + (random() - 0.5) * sp, fy + (random() - 0.5) * sp, fz + (random() - 0.5) * sp
+  local dx, dy, dz = fx + (grandom() - 0.5) * sp, fy + (grandom() - 0.5) * sp, fz + (grandom() - 0.5) * sp
   local mx, my, mz = muzzle(a)
   Proj.spawn({ x = ex + dx * 0.5, y = ey + dy * 0.5 - 0.05, z = ez + dz * 0.5, vx = dx * BOLT.speed, vy = dy * BOLT.speed,
                vz = dz * BOLT.speed, owner = a, dmg = BOLT.dmg, headshot = true, life = 0.6, size = 0.04, kind = "bolt",
