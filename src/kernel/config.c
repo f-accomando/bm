@@ -1,4 +1,5 @@
 #include "config.h"
+#include "pointer.h"
 #include "audio/audio.h"
 #include "bm/runtime.h"
 #include "fs/fat.h"
@@ -100,16 +101,21 @@ void config_load(void)
         hid_set_layout(v);
     if ((v = config_get("draw")))
         bm_set_via_ram(strcmp(v, "ram") == 0);
+    if ((v = config_get("perf")))
+        bm_set_perf(strcmp(v, "1") == 0);
     if ((v = config_get("volume")) && v[0] >= '0' && v[0] <= '9')
         audio_set_volume(atoi(v));
-    kprintf("config: %s/%s, layout %s, .bm drawing %s, volume %d/%d\n", DIR, "config.txt", hid_layout(),
-            bm_via_ram() ? "via RAM" : "direct", audio_volume(), AUDIO_VOLUME_MAX);
+    pointer_config();
+    kprintf("config: %s/%s, layout %s, .bm drawing %s, volume %d/%d%s\n", DIR, "config.txt", hid_layout(),
+            bm_via_ram() ? "via RAM" : "direct", audio_volume(), AUDIO_VOLUME_MAX,
+            pointer_enabled() ? "" : ", mouse off");
 }
 
 void config_save(void)
 {
     config_set("layout", hid_layout());
     config_set("draw", bm_via_ram() ? "ram" : "direct");
+    config_set("perf", bm_perf() ? "1" : "0");
     char vol[8];
     ksnprintf(vol, sizeof vol, "%d", audio_volume());
     config_set("volume", vol);

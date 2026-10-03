@@ -6,12 +6,18 @@
 #include "bm.h"
 #include "gfx16.h"
 #include "r3d.h"
+#include "world3d.h"
+#include "decimate.h"
+#include "glb.h"
+#include "cutout.h"
+#include "net/img3d.h"
 #include "drivers/timer.h"
 #include "drivers/uart.h"
 #include "fs/fat.h"
 #include "kernel/config.h"
 #include "lib/crc32.h"
 #include "kernel/input.h"
+#include "kernel/pointer.h"
 #include "usb/hid.h"
 #include "gfx/console.h"
 #include "gfx/font.h"
@@ -21,11 +27,17 @@
 #include "audio/player.h"
 #include "audio/synth.h"
 #include "drivers/dma.h"
+#include "gpu/gpu3d.h"
+#include "gpu/version3d.h"
 #include "arch/cache.h"
 #include "kernel/crumbs.h"
+#include "kernel/prompts.h"
 #include "n8lua.h"
 #include "ai/lua_ai.h"
+#include "ai/net.h"
+#include "net/cartnet.h"
 #include "require.h"
+#include "meshcap.h"
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -43,6 +55,8 @@
 
 enum { BTN_LEFT, BTN_RIGHT, BTN_UP, BTN_DOWN, BTN_A, BTN_B, BTN_X, BTN_Y, BTN_START, BTN_SELECT,
        BTN_COUNT };
+/* the shoulder buttons from the serial keys: pad() only, not btn() */
+enum { SER_L1 = BTN_COUNT, SER_R1, SER_COUNT };
 
 static struct {
     g16_t g;
@@ -50,7 +64,7 @@ static struct {
     g16_map_t map;
     uint8_t *cell_dirty;
     int sheet_dirty;
-    uint8_t hold[BTN_COUNT];
+    uint8_t hold[SER_COUNT];
     int uses_xy;                /* the cart asked for btn(6) or btn(7) */
     uint16_t now, prev;             /* button bits this frame / last frame, any player */
     uint16_t pnow[INPUT_PLAYERS], pprev[INPUT_PLAYERS];     /* the same per player */
@@ -59,12 +73,26 @@ static struct {
     uint32_t start_us, frame;
     uint32_t last_cpu_us, fps;
     uint32_t present_us;        /* last copy of the frame to the framebuffer */
+    uint32_t us3d;              /* time in 3D drawing since the last zclear() */
+    uint32_t frame_t0;          /* when this frame's _update began */
     uint32_t hook_count;
+    uint32_t frame_instr_k, last_instr_k;   /* Lua instructions (thousands): this frame, the last */
+    int perf_key;               /* 'p' on the serial line: the dev kit's overlay on or off */
+    int f3_held;
     int esc;
     int quit;
     r3d_t r3d;
     int r3d_ready;
+    int zclear_seen;            /* zclear() called in this frame */
+    int early;                  /* in the next frame's _update, run while the GPU draws (M35) */
+    int early_touch;            /* ... which drew 3D or needed the page: */
+    int no_early;               /* its _update runs after the frame again */
+    int hold_frame;             /* this frame is not shown (the 3D went from the GPU to the ARM
+                                 * in the middle of it: its depths would be mixed) */
+    int zclear_dma;             /* the z-buffer is being (or has been) cleared by the DMA
+                                 * for the next frame, and nothing has drawn on it since */
     g16_light_t light;          /* light_begin() .. light_end() */
+    g16_fade_t fade;            /* fades(), dark_begin() .. dark_end() */
     int text_mode;              /* keyp() was called: the keyboard types */
     int raw_keys;               /* rawkeys(true): the keyboard is read with keydown() */
     lua_State *slice_thread;    /* timeslice(): this coroutine yields after slice_at */
@@ -78,6 +106,8 @@ static struct {
     uint32_t mesh_size;
     uint8_t *anim;              /* copy of its ANIM section (skeletons), or NULL */
     uint32_t anim_size;
+    int mouse, mouse_arrow;     /* mouse(true [, arrow]): the pointer is the cartridge's */
+    pointer_t ptr;              /* the pointer this frame */
 } rt;
 
 #define MESH_MT "bm.mesh"
@@ -114,16 +144,278 @@ static void sheet_commit(void)
 
 /* ---------------------------------------------------------------- API */
 
-static int l_cls(lua_State *L)      { g16_cls(&rt.g, col(L, 1, 0)); return 0; }
-static int l_pset(lua_State *L)     { g16_pset(&rt.g, ival(L, 1), ival(L, 2), col(L, 3, 0xFFFFFF)); return 0; }
-static int l_line(lua_State *L)     { g16_line(&rt.g, ival(L, 1), ival(L, 2), ival(L, 3), ival(L, 4), col(L, 5, 0xFFFFFF)); return 0; }
-static int l_rect(lua_State *L)     { g16_rect(&rt.g, ival(L, 1), ival(L, 2), ival(L, 3), ival(L, 4), col(L, 5, 0xFFFFFF)); return 0; }
-static int l_rectfill(lua_State *L) { g16_rectfill(&rt.g, ival(L, 1), ival(L, 2), ival(L, 3), ival(L, 4), col(L, 5, 0xFFFFFF)); return 0; }
-static int l_circ(lua_State *L)     { g16_circ(&rt.g, ival(L, 1), ival(L, 2), ival(L, 3), col(L, 4, 0xFFFFFF)); return 0; }
-static int l_circfill(lua_State *L) { g16_circfill(&rt.g, ival(L, 1), ival(L, 2), ival(L, 3), col(L, 4, 0xFFFFFF)); return 0; }
+/* M35: 2D drawn on the page while the GPU draws 3D on it (the frame
+ * queue on): the GPU's job is started and the 2D is recorded here, then
+ * drawn on the page in the same order once the job has ended (flush3d):
+ * before more 3D, before the page is read, at the end of the frame. The
+ * HUD of a game is drawn (as far as the cartridge goes) while the GPU
+ * draws the scene, and the frame's 3D need not wait for it. */
+enum { D2_STATE, D2_CLS, D2_PSET, D2_LINE, D2_RECT, D2_RECTFILL, D2_CIRC, D2_CIRCFILL, D2_SPR, D2_SSPR,
+       D2_SSPR_ZOOM, D2_MAP, D2_TEXT, D2_PROMPT, D2_TRI, D2_TRI_GOURAUD };
+
+#define D2_MAX (256u << 10)             /* bytes recorded at most: then drawn */
+
+#define D2_NONE 0xFFFFFFFFu
+
+static struct {
+    int on;                             /* recording: the GPU has a job on the page */
+    int32_t *w;                         /* the records: op | words << 8, then the words */
+    uint32_t n, cap;                    /* words */
+    uint32_t cut;                       /* the records from here are the next frame's (its
+                                         * _update ran early), or D2_NONE */
+    int cx0, cy0, cx1, cy1, cam_x, cam_y;   /* the drawing state of the records so far */
+    const font_t *font;
+    uint32_t ops;                       /* drawn after the GPU (for the log and the bench) */
+} d2 = { .cut = D2_NONE };
+
+static void draw_prompt(const prompt_t *p, int x, int y);
+
+/* the 2D recorded before word upto, on the page (the GPU's job has
+ * ended); what follows stays recorded (the next frame's) */
+static void d2_replay(uint32_t upto)
+{
+    const g16_t live = rt.g;
+    for (uint32_t i = 0; i < upto;) {
+        const int32_t *a = &d2.w[i + 1];
+        const int op = d2.w[i] & 255;
+        i += 1 + ((uint32_t)d2.w[i] >> 8);
+        switch (op) {
+        case D2_STATE:
+            rt.g.cx0 = a[0]; rt.g.cy0 = a[1]; rt.g.cx1 = a[2]; rt.g.cy1 = a[3];
+            rt.g.cam_x = a[4]; rt.g.cam_y = a[5];
+            memcpy(&rt.g.font, a + 6, sizeof rt.g.font);
+            break;
+        case D2_CLS: g16_cls(&rt.g, (uint16_t)a[0]); break;
+        case D2_PSET: g16_pset(&rt.g, a[0], a[1], (uint16_t)a[2]); break;
+        case D2_LINE: g16_line(&rt.g, a[0], a[1], a[2], a[3], (uint16_t)a[4]); break;
+        case D2_RECT: g16_rect(&rt.g, a[0], a[1], a[2], a[3], (uint16_t)a[4]); break;
+        case D2_RECTFILL: g16_rectfill(&rt.g, a[0], a[1], a[2], a[3], (uint16_t)a[4]); break;
+        case D2_CIRC: g16_circ(&rt.g, a[0], a[1], a[2], (uint16_t)a[3]); break;
+        case D2_CIRCFILL: g16_circfill(&rt.g, a[0], a[1], a[2], (uint16_t)a[3]); break;
+        case D2_SPR: g16_spr(&rt.g, &rt.sheet, a[0], a[1], a[2], a[3], a[4], a[5], a[6]); break;
+        case D2_SSPR:
+            g16_sspr(&rt.g, &rt.sheet, a[0], a[1], a[2], a[3], a[4], a[5], a[6], a[7]);
+            break;
+        case D2_SSPR_ZOOM: {
+            float zoom;
+            memcpy(&zoom, a + 8, sizeof zoom);
+            g16_sspr_zoom(&rt.g, &rt.sheet, a[0], a[1], a[2], a[3], a[4], a[5], a[6], a[7], zoom);
+            break;
+        }
+        case D2_MAP: g16_map(&rt.g, &rt.sheet, &rt.map, a[0], a[1], a[2], a[3], a[4], a[5]); break;
+        case D2_TEXT: g16_text_scaled(&rt.g, a[0], a[1], (const char *)(a + 4), (uint16_t)a[2], a[3]); break;
+        case D2_PROMPT: {
+            const prompt_t *pr;
+            memcpy(&pr, a + 2, sizeof pr);
+            draw_prompt(pr, a[0], a[1]);
+            break;
+        }
+        case D2_TRI: g16_tri(&rt.g, a[0], a[1], a[2], a[3], a[4], a[5], (uint16_t)a[6]); break;
+        case D2_TRI_GOURAUD:
+            g16_tri_gouraud(&rt.g, a[0], a[1], a[2], a[3], a[4], a[5], (uint32_t)a[6], (uint32_t)a[7],
+                            (uint32_t)a[8]);
+            break;
+        }
+        d2.ops++;
+    }
+    rt.g.cx0 = live.cx0; rt.g.cy0 = live.cy0; rt.g.cx1 = live.cx1; rt.g.cy1 = live.cy1;
+    rt.g.cam_x = live.cam_x; rt.g.cam_y = live.cam_y;
+    rt.g.font = live.font;
+    memmove(d2.w, d2.w + upto, (d2.n - upto) * sizeof *d2.w);
+    d2.n -= upto;
+    d2.on = d2.n > 0;
+    if (d2.cut != D2_NONE)
+        d2.cut = 0;
+}
+
+/* The 3D drawn by the GPU waits in a job until something else touches the
+ * page: then the job goes first (2D drawn after the 3D lands on it, pget
+ * reads the 3D). keep: in the middle of a frame, the depth stays for the
+ * 3D drawn after; 0 at the end of the frame. The 2D recorded while the
+ * job was drawing (M35) then goes on the page. */
+static void flush3d(int keep)
+{
+    /* (a frame started on the GPU, M35: waited for, the page has it) */
+    if (rt.r3d.backend &&
+        (((gpu3d_pending() || !keep) && gpu3d_flush(&rt.g, keep) != 0) || gpu3d_sync() != 0 || gpu3d_failed()))
+        rt.r3d.backend = NULL;          /* the GPU failed: the ARM draws the 3D again */
+    if (!d2.on)
+        return;
+    if (rt.early && d2.cut < d2.n) {
+        /* the early _update needs the page while it holds 2D for the next
+         * frame: drawn now (this frame shows it) */
+        rt.early_touch = 1;
+        d2.cut = D2_NONE;
+    }
+    d2_replay(d2.cut == D2_NONE || rt.early ? d2.n : d2.cut);
+}
+
+/* M35: the end of the frame's 3D started on the GPU and not waited for
+ * (gpu3d_queue on): the next _update runs meanwhile; flush3d waits */
+static int submit3d(void)
+{
+    if (!rt.r3d.backend || !gpu3d_queue() || rt.no_early)
+        return 0;
+    if (gpu3d_submit(&rt.g, 0) != 0 || gpu3d_failed()) {
+        rt.r3d.backend = NULL;
+        return 0;
+    }
+    return 1;
+}
+
+/* before drawing on the page (or reading it): the 3D waiting goes first,
+ * and the page is no longer one colour */
+static void sync3d(void)
+{
+    flush3d(1);
+    if (rt.r3d.backend)
+        gpu3d_page(0, 0);
+}
+
+/* before 3D, or before changing what recorded 2D reads (the map): the
+ * recorded 2D goes on the page first */
+static void settle2d(void)
+{
+    if (rt.early)
+        rt.early_touch = 1;             /* 3D in the early _update: it lands on this frame */
+    if (d2.on)
+        flush3d(1);
+}
+
+/* M35: the next frame's _update runs while the GPU draws this one: the 2D
+ * it draws is recorded, for the next frame's page (begin 1); after the
+ * page is shown, the records are that page's (begin 0) */
+static void d2_early(int begin)
+{
+    if (begin) {
+        d2.cut = d2.n;
+        d2.font = NULL;                 /* the next frame's records start with their state */
+    } else {
+        d2.cut = D2_NONE;
+    }
+}
+
+/* Before 2D on the page: 1 if it is to be recorded (n words of arguments
+ * at *a, after the op): the GPU has 3D for the page and the queue is on,
+ * so the 3D is started and the 2D waits for it. Else 0, the 3D waiting
+ * drawn first (sync3d). */
+static int draw2d(int op, uint32_t words, int32_t **a)
+{
+    if (!d2.on && rt.early) {           /* 2D in the early _update: the next frame's */
+        d2.on = 1;
+        d2.font = NULL;
+    } else if (!d2.on) {
+        if (!rt.r3d.backend || !gpu3d_queue() || !gpu3d_pending()) {
+            sync3d();
+            return 0;
+        }
+        if (gpu3d_submit(&rt.g, 1) != 0 || gpu3d_failed())
+            rt.r3d.backend = NULL;
+        gpu3d_page(0, 0);
+        if (!rt.r3d.backend || !gpu3d_inflight()) {
+            sync3d();
+            return 0;
+        }
+        d2.on = 1;
+        d2.font = NULL;                 /* the first record sets the state */
+    }
+    const int state = rt.g.cx0 != d2.cx0 || rt.g.cy0 != d2.cy0 || rt.g.cx1 != d2.cx1 || rt.g.cy1 != d2.cy1 ||
+                      rt.g.cam_x != d2.cam_x || rt.g.cam_y != d2.cam_y || rt.g.font != d2.font;
+    const uint32_t need = 1 + words + (state ? 7 + sizeof(void *) / 4 : 0);
+    if (d2.n + need > d2.cap) {
+        uint32_t cap = d2.cap ? d2.cap * 2 : 4096;
+        while (cap < d2.n + need)
+            cap *= 2;
+        int32_t *w = cap * 4 <= D2_MAX ? realloc(d2.w, cap * 4) : NULL;
+        if (!w) {                       /* too much: what is recorded goes on the page */
+            if (rt.early)
+                rt.early_touch = 1;
+            flush3d(1);
+            return 0;
+        }
+        d2.w = w;
+        d2.cap = cap;
+    }
+    if (state) {
+        int32_t *s = &d2.w[d2.n];
+        s[0] = D2_STATE | (int32_t)((6 + sizeof(void *) / 4) << 8);
+        s[1] = d2.cx0 = rt.g.cx0; s[2] = d2.cy0 = rt.g.cy0; s[3] = d2.cx1 = rt.g.cx1; s[4] = d2.cy1 = rt.g.cy1;
+        s[5] = d2.cam_x = rt.g.cam_x; s[6] = d2.cam_y = rt.g.cam_y;
+        d2.font = rt.g.font;
+        memcpy(s + 7, &d2.font, sizeof d2.font);
+        d2.n += 7 + sizeof(void *) / 4;
+    }
+    d2.w[d2.n] = op | (int32_t)(words << 8);
+    *a = &d2.w[d2.n + 1];
+    d2.n += 1 + words;
+    return 1;
+}
+
+/* r3d needs the ARM (shadows, 3D effects, materials the GPU lacks: see
+ * r3d_t.arm_hook): the GPU draws what it holds, and the ARM draws the 3D
+ * of this cartridge from here on */
+static void gpu3d_to_arm(void *ctx, const char *why)
+{
+    (void)ctx;
+    /* what the GPU drew in this frame is not in the ARM's z-buffer: the
+     * frame would be wrong, so it is not shown (one frame dropped, once) */
+    if (rt.r3d.tris_drawn || gpu3d_pending())
+        rt.hold_frame = 1;
+    flush3d(0);
+    if (rt.r3d.backend) {
+        gpu3d_drop();
+        gpu3d_page(0, 0);
+    }
+    kprintf("bm: the 3D is drawn by the ARM from here: the cartridge uses %s\n", why);
+}
+
+static int l_cls(lua_State *L)
+{
+    const uint16_t c = col(L, 1, 0);
+    int32_t *a;
+    if (draw2d(D2_CLS, 1, &a)) {
+        a[0] = c;
+        return 0;
+    }
+    g16_cls(&rt.g, c);
+    if (rt.r3d.backend)
+        gpu3d_page(1, c);               /* the GPU's next job clears to it */
+    return 0;
+}
+
+/* the 2D of pset ... circfill: drawn, or recorded (draw2d) */
+static void shape2d(lua_State *L, int op, int n)
+{
+    int32_t v[5], *a;
+    for (int i = 0; i < n - 1; i++)
+        v[i] = ival(L, i + 1);
+    v[n - 1] = col(L, n, 0xFFFFFF);
+    if (draw2d(op, (uint32_t)n, &a)) {
+        memcpy(a, v, (size_t)n * sizeof *v);
+        return;
+    }
+    switch (op) {
+    case D2_PSET: g16_pset(&rt.g, v[0], v[1], (uint16_t)v[2]); break;
+    case D2_LINE: g16_line(&rt.g, v[0], v[1], v[2], v[3], (uint16_t)v[4]); break;
+    case D2_RECT: g16_rect(&rt.g, v[0], v[1], v[2], v[3], (uint16_t)v[4]); break;
+    case D2_RECTFILL: g16_rectfill(&rt.g, v[0], v[1], v[2], v[3], (uint16_t)v[4]); break;
+    case D2_CIRC: g16_circ(&rt.g, v[0], v[1], v[2], (uint16_t)v[3]); break;
+    case D2_CIRCFILL: g16_circfill(&rt.g, v[0], v[1], v[2], (uint16_t)v[3]); break;
+    }
+}
+
+static int l_pset(lua_State *L)     { shape2d(L, D2_PSET, 3); return 0; }
+static int l_line(lua_State *L)     { shape2d(L, D2_LINE, 5); return 0; }
+static int l_rect(lua_State *L)     { shape2d(L, D2_RECT, 5); return 0; }
+static int l_rectfill(lua_State *L) { shape2d(L, D2_RECTFILL, 5); return 0; }
+static int l_circ(lua_State *L)     { shape2d(L, D2_CIRC, 4); return 0; }
+static int l_circfill(lua_State *L) { shape2d(L, D2_CIRCFILL, 4); return 0; }
 
 static int l_pget(lua_State *L)
 {
+    if (rt.early)
+        rt.early_touch = 1;             /* the early _update would read this frame's page */
+    sync3d();
     int c = g16_pget(&rt.g, ival(L, 1), ival(L, 2));
     if (c < 0) lua_pushnil(L);
     else lua_pushinteger(L, g16_to_rgb24((uint16_t)c));
@@ -132,25 +424,50 @@ static int l_pget(lua_State *L)
 
 static int l_spr(lua_State *L)
 {
+    const int32_t v[7] = { ival(L, 1), ival(L, 2), ival(L, 3), oval(L, 4, 1), oval(L, 5, 1), lua_toboolean(L, 6),
+                           lua_toboolean(L, 7) };
+    int32_t *a;
     sheet_commit();
-    g16_spr(&rt.g, &rt.sheet, ival(L, 1), ival(L, 2), ival(L, 3), oval(L, 4, 1), oval(L, 5, 1),
-            lua_toboolean(L, 6), lua_toboolean(L, 7));
+    if (draw2d(D2_SPR, 7, &a))
+        memcpy(a, v, sizeof v);
+    else
+        g16_spr(&rt.g, &rt.sheet, v[0], v[1], v[2], v[3], v[4], v[5], v[6]);
     return 0;
 }
 
+/* sspr(sx, sy, sw, sh, dx, dy, [flip_x, flip_y, zoom]): zoom (default 1)
+ * draws it that many times bigger, or smaller below 1 (nearest pixel) */
 static int l_sspr(lua_State *L)
 {
+    const int32_t v[8] = { ival(L, 1), ival(L, 2), ival(L, 3), ival(L, 4), ival(L, 5), ival(L, 6),
+                           lua_toboolean(L, 7), lua_toboolean(L, 8) };
+    const float zoom = (float)luaL_optnumber(L, 9, 1);
+    int32_t *a;
     sheet_commit();
-    g16_sspr(&rt.g, &rt.sheet, ival(L, 1), ival(L, 2), ival(L, 3), ival(L, 4), ival(L, 5), ival(L, 6),
-             lua_toboolean(L, 7), lua_toboolean(L, 8));
+    if (zoom == 1) {
+        if (draw2d(D2_SSPR, 8, &a))
+            memcpy(a, v, sizeof v);
+        else
+            g16_sspr(&rt.g, &rt.sheet, v[0], v[1], v[2], v[3], v[4], v[5], v[6], v[7]);
+    } else if (draw2d(D2_SSPR_ZOOM, 9, &a)) {
+        memcpy(a, v, sizeof v);
+        memcpy(a + 8, &zoom, sizeof zoom);
+    } else {
+        g16_sspr_zoom(&rt.g, &rt.sheet, v[0], v[1], v[2], v[3], v[4], v[5], v[6], v[7], zoom);
+    }
     return 0;
 }
 
 static int l_map(lua_State *L)
 {
+    const int32_t v[6] = { ival(L, 1), ival(L, 2), oval(L, 3, 0), oval(L, 4, 0), oval(L, 5, rt.map.w),
+                           oval(L, 6, rt.map.h) };
+    int32_t *a;
     sheet_commit();
-    g16_map(&rt.g, &rt.sheet, &rt.map, ival(L, 1), ival(L, 2), oval(L, 3, 0), oval(L, 4, 0),
-            oval(L, 5, rt.map.w), oval(L, 6, rt.map.h));
+    if (draw2d(D2_MAP, 6, &a))
+        memcpy(a, v, sizeof v);
+    else
+        g16_map(&rt.g, &rt.sheet, &rt.map, v[0], v[1], v[2], v[3], v[4], v[5]);
     return 0;
 }
 
@@ -164,8 +481,11 @@ static int l_mget(lua_State *L)
 static int l_mset(lua_State *L)
 {
     int x = ival(L, 1), y = ival(L, 2);
-    if (x >= 0 && y >= 0 && x < rt.map.w && y < rt.map.h)
+    if (x >= 0 && y >= 0 && x < rt.map.w && y < rt.map.h) {
+        if (d2.on)
+            flush3d(1);                 /* a map() recorded draws the map as it was */
         rt.map.cells[y * rt.map.w + x] = (uint16_t)ival(L, 3);
+    }
     return 0;
 }
 
@@ -186,6 +506,7 @@ static int l_sset(lua_State *L)
     if (x < 0 || y < 0 || x >= rt.sheet.w || y >= rt.sheet.h)
         return 0;
     int opaque = !lua_isnoneornil(L, 3);
+    sync3d();                           /* the waiting 3D may use the sheet as texture */
     g16_sheet_set(&rt.sheet, x, y, opaque ? col(L, 3, 0) : 0, opaque);
     rt.cell_dirty[(y / G16_CELL) * (rt.sheet.w / G16_CELL) + x / G16_CELL] = 1;
     rt.sheet_dirty = 1;
@@ -200,7 +521,19 @@ static int l_print(lua_State *L)
     uint16_t c = col(L, 4, 0xFFFFFF);
     int scale = oval(L, 5, 1);
     if (scale > 8) scale = 8;
-    const char *s = luaL_tolstring(L, 1, NULL);
+    size_t len;
+    const char *s = luaL_tolstring(L, 1, &len);
+    int32_t *a;
+    if (draw2d(D2_TEXT, 4 + (uint32_t)(len + 4) / 4, &a)) {
+        a[0] = x; a[1] = y; a[2] = c; a[3] = scale;
+        memcpy(a + 4, s, len + 1);
+        /* where it ends, as drawn (nothing drawn: no clip rectangle) */
+        g16_t m = rt.g;
+        m.cx0 = m.cy0 = 0x40000000;
+        m.cx1 = m.cy1 = -0x40000000;
+        lua_pushinteger(L, g16_text_scaled(&m, x, y, s, c, scale));
+        return 1;
+    }
     lua_pushinteger(L, g16_text_scaled(&rt.g, x, y, s, c, scale));
     return 1;
 }
@@ -220,6 +553,130 @@ static int l_font(lua_State *L)
     lua_pushinteger(L, rt.g.font->width);
     lua_pushinteger(L, rt.g.font->height);
     return 2;
+}
+
+/* ---------------------------------------------------------------- prompts */
+
+/* the pad's buttons, upper case: as on a DS4, or on a lettered pad */
+static const struct { const char *name; uint8_t ds4, pad; } pad_prompts[] = {
+    { "A", PROMPT_CROSS, PROMPT_PAD_A }, { "B", PROMPT_CIRCLE, PROMPT_PAD_B },
+    { "X", PROMPT_SQUARE, PROMPT_PAD_X }, { "Y", PROMPT_TRIANGLE, PROMPT_PAD_Y },
+    { "START", PROMPT_OPTIONS, PROMPT_PAD_START }, { "SELECT", PROMPT_SHARE, PROMPT_PAD_SELECT },
+    { "L1", PROMPT_L1, PROMPT_L1 }, { "R1", PROMPT_R1, PROMPT_R1 },
+    { "L2", PROMPT_L2, PROMPT_L2 }, { "R2", PROMPT_R2, PROMPT_R2 },
+    { "L3", PROMPT_L3, PROMPT_L3 }, { "R3", PROMPT_R3, PROMPT_R3 },
+    { "LSTICK", PROMPT_LSTICK, PROMPT_LSTICK }, { "RSTICK", PROMPT_RSTICK, PROMPT_RSTICK },
+    { "DPAD", PROMPT_DPAD, PROMPT_DPAD }, { "UP", PROMPT_DPAD_UP, PROMPT_DPAD_UP },
+    { "DOWN", PROMPT_DPAD_DOWN, PROMPT_DPAD_DOWN }, { "LEFT", PROMPT_DPAD_LEFT, PROMPT_DPAD_LEFT },
+    { "RIGHT", PROMPT_DPAD_RIGHT, PROMPT_DPAD_RIGHT }, { "UPDOWN", PROMPT_DPAD_UPDOWN, PROMPT_DPAD_UPDOWN },
+    { "LEFTRIGHT", PROMPT_DPAD_LEFTRIGHT, PROMPT_DPAD_LEFTRIGHT },
+    { "PS", PROMPT_PS, PROMPT_PS }, { "TOUCHPAD", PROMPT_TOUCHPAD, PROMPT_TOUCHPAD },
+    { "CROSS", PROMPT_CROSS, PROMPT_CROSS }, { "CIRCLE", PROMPT_CIRCLE, PROMPT_CIRCLE },
+    { "SQUARE", PROMPT_SQUARE, PROMPT_SQUARE }, { "TRIANGLE", PROMPT_TRIANGLE, PROMPT_TRIANGLE },
+    { "OPTIONS", PROMPT_OPTIONS, PROMPT_OPTIONS }, { "SHARE", PROMPT_SHARE, PROMPT_SHARE },
+};
+
+/* the keyboard's keys with a name, lower case (the names of keyp()) */
+static const struct { const char *name; uint8_t id; } key_prompts[] = {
+    { "up", PROMPT_KEY_UP }, { "down", PROMPT_KEY_DOWN }, { "left", PROMPT_KEY_LEFT },
+    { "right", PROMPT_KEY_RIGHT }, { "enter", PROMPT_KEY_ENTER }, { "esc", PROMPT_KEY_ESC },
+    { "space", PROMPT_KEY_SPACE }, { "tab", PROMPT_KEY_TAB }, { "backspace", PROMPT_KEY_BACKSPACE },
+    { "shift", PROMPT_KEY_SHIFT }, { "ctrl", PROMPT_KEY_CTRL }, { "alt", PROMPT_KEY_ALT },
+    { "del", PROMPT_KEY_DEL }, { "home", PROMPT_KEY_HOME }, { "end", PROMPT_KEY_END },
+    { "pgup", PROMPT_KEY_PGUP }, { "pgdn", PROMPT_KEY_PGDN },
+};
+
+/* the pad the prompts show: the one pressed last, a DS4 until then */
+static int prompt_lettered;
+
+static const prompt_t *find_prompt(const char *n, int small)
+{
+    int src = hid_last_source();
+    if (src == HID_SOURCE_DS4 || src == HID_SOURCE_PAD)
+        prompt_lettered = src == HID_SOURCE_PAD;
+    for (size_t i = 0; i < sizeof pad_prompts / sizeof *pad_prompts; i++)
+        if (!strcmp(n, pad_prompts[i].name))
+            return prompt_chip(prompt_lettered ? pad_prompts[i].pad : pad_prompts[i].ds4, small);
+    for (size_t i = 0; i < sizeof key_prompts / sizeof *key_prompts; i++)
+        if (!strcmp(n, key_prompts[i].name))
+            return prompt_chip(key_prompts[i].id, small);
+    if (n[0] == 'f' && n[1] >= '1' && n[1] <= '9') {
+        int k = atoi(n + 1);
+        if (k >= 1 && k <= 12 && (n[2] == 0 || (k >= 10 && n[3] == 0)))
+            return prompt_chip(PROMPT_KEY_F1 + k - 1, small);
+    }
+    if (n[0] && !n[1] && !(n[0] >= 'A' && n[0] <= 'Z'))
+        return prompt_chip_key((unsigned char)n[0], small);
+    return NULL;
+}
+
+/* a prompt's picture at x, y (its edges blended over the page) */
+static void draw_prompt(const prompt_t *p, int x, int y)
+{
+    for (int j = 0; j < p->h; j++)
+        for (int i = 0; i < p->w; i++) {
+            uint32_t c = p->px[j * p->w + i], a = c >> 24;
+            if (!a)
+                continue;
+            if (a < 255) {                      /* the edges: over what is there */
+                int b = g16_pget(&rt.g, x + i, y + j);
+                if (b < 0)
+                    continue;
+                uint32_t under = g16_to_rgb24((uint16_t)b), out = 0;
+                for (int sh = 0; sh <= 16; sh += 8) {
+                    int u = (int)(under >> sh & 255), v = (int)(c >> sh & 255);
+                    out |= (uint32_t)(u + (v - u) * (int)a / 255) << sh;
+                }
+                c = out;
+            }
+            g16_pset(&rt.g, x + i, y + j, g16_rgb24(c & 0xFFFFFF));
+        }
+}
+
+/* prompt(name, x, y [, small]): a button or a key as a chip of the apps'
+ * set (prompts.c), its top left at (x, y), 16 px high for 8x16 text, 12
+ * with small (by default when the font is 6x12); returns the x after it.
+ * prompt(name [, small]) only measures: the width and height.
+ * Upper case the pad's buttons ("A", "B", "X", "Y", "START", "L1",
+ * "UPDOWN"...), shown as on the pad pressed last: a DS4 (cross, circle...)
+ * until another pad is used. Lower case the keyboard's keys, with the
+ * names of keyp() ("enter", "esc", "f1", "up") or one character ("s"). */
+static int l_prompt(lua_State *L)
+{
+    const char *n = luaL_checkstring(L, 1);
+    int measure = !lua_isnumber(L, 2), at = measure ? 2 : 4;
+    int small = lua_isnoneornil(L, at) ? rt.g.font->height <= 12 : lua_toboolean(L, at);
+    const prompt_t *p = find_prompt(n, small);
+    if (!p)
+        return luaL_argerror(L, 1, "not a button or a key");
+    if (measure) {
+        lua_pushinteger(L, p->w);
+        lua_pushinteger(L, p->h);
+        return 2;
+    }
+    int x = ival(L, 2), y = ival(L, 3);
+    int32_t *a;
+    if (draw2d(D2_PROMPT, 2 + sizeof(void *) / 4, &a)) {
+        a[0] = x;
+        a[1] = y;
+        memcpy(a + 2, &p, sizeof p);
+    } else {
+        draw_prompt(p, x, y);
+    }
+    lua_pushinteger(L, x + p->w);
+    return 1;
+}
+
+/* lastinput(): what pressed something last, "keyboard", "ds4" or "pad"
+ * (another controller); nil before anything is pressed */
+static int l_lastinput(lua_State *L)
+{
+    int s = hid_last_source();
+    if (s == HID_SOURCE_NONE)
+        lua_pushnil(L);
+    else
+        lua_pushstring(L, s == HID_SOURCE_KEYBOARD ? "keyboard" : s == HID_SOURCE_DS4 ? "ds4" : "pad");
+    return 1;
 }
 
 static int l_camera(lua_State *L) { g16_camera(&rt.g, oval(L, 1, 0), oval(L, 2, 0)); return 0; }
@@ -284,16 +741,26 @@ static int l_players(lua_State *L)
     return 2;
 }
 
-/* stick([p]) -> x, y in -1..1 (x right, y down): the left stick of player
- * p, or the cross; without p the one pushed furthest */
+static void stick_of(int p, int right, float *x, float *y)
+{
+    if (right)
+        input_stick_r(p, x, y);
+    else
+        input_stick(p, rt.praw[p], x, y);
+}
+
+/* stick([p, [n]]) -> x, y in -1..1 (x right, y down): the left stick of
+ * player p, or the cross; with n = 1 the right stick (0, 0 without one);
+ * without p the one pushed furthest */
 static int l_stick(lua_State *L)
 {
     float x = 0, y = 0;
+    const int right = (int)luaL_optinteger(L, 2, 0) == 1;
     if (lua_isnoneornil(L, 1)) {
         float best = -1;
         for (int p = 0; p < INPUT_PLAYERS; p++) {
             float px, py;
-            input_stick(p, rt.praw[p], &px, &py);
+            stick_of(p, right, &px, &py);
             if (px * px + py * py > best) {
                 best = px * px + py * py;
                 x = px;
@@ -303,7 +770,7 @@ static int l_stick(lua_State *L)
     } else {
         int p = ival(L, 1);
         if (p >= 1 && p <= INPUT_PLAYERS)
-            input_stick(p - 1, rt.praw[p - 1], &x, &y);
+            stick_of(p - 1, right, &x, &y);
     }
     lua_pushnumber(L, x);
     lua_pushnumber(L, y);
@@ -317,7 +784,11 @@ static int l_time(lua_State *L)
 }
 
 /* stat(n): 0 Lua KiB, 1 last frame CPU ms (update+draw), 2 fps, 3 frame number,
- *         4 3D triangles drawn and 5 3D pixels written since the last zclear() */
+ *         4 3D triangles drawn and 5 3D pixels written since the last zclear()
+ *         (0 with the GPU), 6 ms spent in 3D drawing (draw3d and the effects;
+ *         with the GPU, the ARM's part) since then, 7 3D vertices transformed
+ *         since then, 8 ms since this frame began, 9 1 if the GPU draws the 3D,
+ *         10 Lua instructions of the last frame (update+draw, to the thousand) */
 static int l_stat(lua_State *L)
 {
     switch (ival(L, 1)) {
@@ -327,6 +798,11 @@ static int l_stat(lua_State *L)
     case 3: lua_pushinteger(L, rt.frame); break;
     case 4: lua_pushinteger(L, rt.r3d_ready ? rt.r3d.tris_drawn : 0); break;
     case 5: lua_pushinteger(L, rt.r3d_ready ? rt.r3d.pixels : 0); break;
+    case 6: lua_pushnumber(L, rt.us3d / 1000.0); break;
+    case 7: lua_pushinteger(L, rt.r3d_ready ? rt.r3d.verts : 0); break;
+    case 8: lua_pushnumber(L, (timer_ticks() - rt.frame_t0) / 1000.0); break;
+    case 9: lua_pushinteger(L, rt.r3d_ready && rt.r3d.backend); break;
+    case 10: lua_pushinteger(L, (lua_Integer)rt.last_instr_k * 1000); break;
     default: lua_pushnil(L);
     }
     return 1;
@@ -336,18 +812,79 @@ static int l_stat(lua_State *L)
  * corner, blended across the triangle (Gouraud, dithered) */
 static int l_tri(lua_State *L)
 {
+    int32_t v[9], *a;
+    for (int i = 0; i < 6; i++)
+        v[i] = ival(L, i + 1);
     if (!lua_isnoneornil(L, 8)) {
-        uint32_t c0 = (uint32_t)luaL_optinteger(L, 7, 0xFFFFFF);
-        g16_tri_gouraud(&rt.g, ival(L, 1), ival(L, 2), ival(L, 3), ival(L, 4), ival(L, 5), ival(L, 6),
-                        c0, (uint32_t)luaL_checkinteger(L, 8), (uint32_t)luaL_optinteger(L, 9, (lua_Integer)c0));
+        const uint32_t c0 = (uint32_t)luaL_optinteger(L, 7, 0xFFFFFF);
+        v[6] = (int32_t)c0;
+        v[7] = (int32_t)(uint32_t)luaL_checkinteger(L, 8);
+        v[8] = (int32_t)(uint32_t)luaL_optinteger(L, 9, (lua_Integer)c0);
+        if (draw2d(D2_TRI_GOURAUD, 9, &a))
+            memcpy(a, v, sizeof v);
+        else
+            g16_tri_gouraud(&rt.g, v[0], v[1], v[2], v[3], v[4], v[5], (uint32_t)v[6], (uint32_t)v[7],
+                            (uint32_t)v[8]);
         return 0;
     }
-    g16_tri(&rt.g, ival(L, 1), ival(L, 2), ival(L, 3), ival(L, 4), ival(L, 5), ival(L, 6),
-            col(L, 7, 0xFFFFFF));
+    v[6] = col(L, 7, 0xFFFFFF);
+    if (draw2d(D2_TRI, 7, &a))
+        memcpy(a, v, 7 * sizeof *v);
+    else
+        g16_tri(&rt.g, v[0], v[1], v[2], v[3], v[4], v[5], (uint16_t)v[6]);
     return 0;
 }
 
 /* ---- 3D (software rasterizer, see r3d.h) */
+
+static float fnum(lua_State *L, int i, float def)
+{
+    return (float)luaL_optnumber(L, i, def);
+}
+
+/* bm_next_run: options of the next run only */
+static struct { int w, h, gpu3d, bench; } next = { 0, 0, -1, 0 }, cur = { 0, 0, -1, 0 };
+
+void bm_next_run(int w, int h, int gpu3d, int bench)
+{
+    next.w = w;
+    next.h = h;
+    next.gpu3d = gpu3d;
+    next.bench = bench;
+}
+
+/* The V3D draws the 3D of the cartridges (M33) if it starts and passes its
+ * probe; gpu3d=0 in bm/config.txt (Settings > Graphics > 3D of the games: ARM) keeps
+ * the ARM's rasterizer */
+static void gpu3d_maybe(void)
+{
+    const char *v = config_get("gpu3d");
+    if (cur.gpu3d == 0 || (cur.gpu3d < 0 && v && strcmp(v, "0") == 0))
+        return;
+    if (rt.g.stride != (uint32_t)rt.g.w) {      /* 256x256 in the middle of the screen: whole pages only */
+        kprintf("bm: the 3D is drawn by the ARM as bm3d %s: the page is a square inside the screen\n",
+                bm3d_mode(0, 0));
+        return;
+    }
+    if (gpu3d_init() == 0) {
+        gpu3d_stats_t st;
+        gpu3d_drop();                   /* nothing learned from the game before (depth kept) */
+        gpu3d_take_stats(&st);          /* this game's from here */
+        const char *aa = config_get("gpu3d_aa");
+        gpu3d_set_msaa(aa && strcmp(aa, "1") == 0);     /* anti-aliasing: Settings */
+        const char *vs = config_get("gpu3d_vs");
+        gpu3d_set_vshader(vs ? atoi(vs) : 0);           /* vertex shader: Settings (0, 1, 2) */
+        const char *q = config_get("gpu3d_queue");
+        gpu3d_set_queue(q && strcmp(q, "1") == 0);      /* the frame in the queue (M35): Settings */
+        rt.r3d.backend = gpu3d_backend();
+        rt.r3d.arm_hook = gpu3d_to_arm;
+        if (!cur.bench)                 /* a benchmark has its own report */
+            kprintf("bm: the 3D is drawn by the GPU as bm3d %s (%s)\n", bm3d_mode_q(1, gpu3d_vshader_on(), gpu3d_queue()),
+                    gpu3d_status());
+    } else {
+        kprintf("bm: the 3D is drawn by the ARM as bm3d %s: %s\n", bm3d_mode(0, 0), gpu3d_status());
+    }
+}
 
 static r3d_t *r3d(lua_State *L)
 {
@@ -355,8 +892,49 @@ static r3d_t *r3d(lua_State *L)
         if (r3d_init(&rt.r3d, &rt.g) != 0)
             luaL_error(L, "not enough memory for the z-buffer");
         rt.r3d_ready = 1;
+        gpu3d_maybe();
     }
     return &rt.r3d;
+}
+
+/* The DMA clear started at the end of the frame, if any, is waited for
+ * (it ran during _update). claim = the buffer is about to be drawn on:
+ * a later zclear() in the same frame clears it again. */
+static void zclear_dma_wait(int claim)
+{
+    if (!rt.zclear_dma)
+        return;
+    dma_wait();
+    if (claim)
+        rt.zclear_dma = 0;
+}
+
+/* After a frame that cleared the z-buffer, the next clear starts at once
+ * on the DMA, while the cartridge runs _update (zclear() then only waits
+ * for it): about 1 ms saved per frame at 640x360. dma_zclear=0 in
+ * bm/config.txt turns it off. */
+static void zclear_dma_start(void)
+{
+    const int seen = rt.zclear_seen;
+    rt.zclear_seen = 0;
+    if (!seen || !rt.r3d_ready || rt.r3d.backend || rt.zclear_dma || !dma_ready())
+        return;
+    static int off = -1;
+    if (off < 0) {
+        const char *v = config_get("dma_zclear");
+        off = v && strcmp(v, "0") == 0;
+    }
+    if (off)
+        return;
+    const uint32_t bytes = (uint32_t)rt.r3d.g->w * (uint32_t)rt.r3d.g->h * 2;
+    if (bytes & 15)
+        return;
+    /* no dirty line of the z-buffer may be written back over the DMA's
+     * zeros, and none may stay cached: the whole data cache is cleaned and
+     * dropped (16 KiB, cheaper than the 460 KiB range) */
+    dcache_clean_invalidate_all();
+    dma_fill(rt.r3d.zbuf, 0, bytes);
+    rt.zclear_dma = 1;
 }
 
 /* What animate() needs for a model with a skeleton (bm Animator): its own
@@ -364,8 +942,10 @@ static r3d_t *r3d(lua_State *L)
 typedef struct {
     uint8_t *data;
     bm_rig_t r;
-    v3_t *rest;
-    float (*mat)[12];
+    float (*mat)[12];           /* the pose: where each bone carries its rest vertices (r3d skins while drawing) */
+    float *radius;              /* per bone: the capsule around its vertices (hit3d) */
+    float turn[BM_BONES_MAX][4];    /* bone_turn(): an extra turn of each bone (quaternion) */
+    uint8_t turned[BM_BONES_MAX];
 } skel_t;
 
 /* A mesh of Lua: r3d_mesh_t first, so every function can see just that. */
@@ -379,8 +959,8 @@ static void skel_free(skel_t *s)
     if (!s)
         return;
     free(s->data);
-    free(s->rest);
     free(s->mat);
+    free(s->radius);
     free(s);
 }
 
@@ -430,7 +1010,8 @@ static int l_mesh(lua_State *L)
             m->faces[f * 3 + k] = (uint16_t)(idx - 1);
         }
         lua_rawgeti(L, 2, f * 4 + 4);
-        m->colors[f] = (uint32_t)lua_tointeger(L, -1);
+        lua_Integer c = lua_tointeger(L, -1);
+        m->colors[f] = c < 0 ? R3D_TEXTURED : (uint32_t)c;     /* -1: textured */
         lua_pop(L, 1);
     }
     if (lua_istable(L, 3)) {
@@ -523,7 +1104,7 @@ static int l_model(lua_State *L)
         float uv[6];
         bm_model_face(&md, f, m->faces + f * 3, &colour, uv);
         if (colour & R3D_TEXTURED) {
-            colour = R3D_TEXTURED;
+            colour &= 0xFF000000u;          /* textured, with its material bits */
             if (!m->uv) {
                 if (r3d_mesh_alloc_uv(m) != 0)
                     return luaL_error(L, "not enough memory for the model");
@@ -534,25 +1115,49 @@ static int l_model(lua_State *L)
         }
         m->colors[f] = colour;
     }
+    /* a model with its light baked (the world of a map): the light of each corner */
+    if (md.flags & BM_MODEL_LIT) {
+        if (!(m->clight = malloc((size_t)md.nfaces * 9)))
+            return luaL_error(L, "not enough memory for the model");
+        for (int f = 0; f < md.nfaces; f++)
+            bm_model_face_light(&md, f, m->clight + f * 9);
+    }
     r3d_mesh_normals(m);
     /* a skeleton made for this model (the same vertices) comes with it */
     bm_rig_t r;
     if (rt.anim && bm_anim_rig(rt.anim, rt.anim_size, md.name, &r) == 0 && r.nverts == md.nverts) {
         skel_t *sk = calloc(1, sizeof *sk);
         const uint8_t *start = r.bones - (BM_MODEL_NAME + 8);
-        if (!sk || !(sk->data = malloc(r.size)) || !(sk->rest = malloc(md.nverts * sizeof(v3_t))) ||
-            !(sk->mat = malloc(r.nbones * sizeof *sk->mat))) {
+        if (!sk || !(sk->data = malloc(r.size)) || !(sk->mat = malloc(r.nbones * sizeof *sk->mat)) ||
+            !(sk->radius = calloc(r.nbones, sizeof(float)))) {
             skel_free(sk);
             return luaL_error(L, "not enough memory for the model");
         }
         memcpy(sk->data, start, r.size);
         bm_rig_read(sk->data, r.size, &sk->r);
-        memcpy(sk->rest, m->verts, md.nverts * sizeof(v3_t));
         for (int i = 0; i < r.nbones; i++) {
             static const float id[12] = { 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0 };
             memcpy(sk->mat[i], id, sizeof id);
+            sk->turn[i][0] = sk->turn[i][1] = sk->turn[i][2] = 0;
+            sk->turn[i][3] = 1;
+        }
+        /* the capsule of each bone: its segment, wide enough for its vertices */
+        for (int v = 0; v < md.nverts; v++) {
+            int b = sk->r.vbones[v];
+            float h[3], t[3];
+            bm_rig_bone(&sk->r, b, NULL, NULL, h, t);
+            float d[3] = { t[0] - h[0], t[1] - h[1], t[2] - h[2] }, q[3] = { m->verts[v].x - h[0],
+                           m->verts[v].y - h[1], m->verts[v].z - h[2] };
+            float dd = d[0] * d[0] + d[1] * d[1] + d[2] * d[2], u = dd > 1e-12f ? (q[0] * d[0] + q[1] * d[1] + q[2] * d[2]) / dd : 0;
+            u = u < 0 ? 0 : u > 1 ? 1 : u;
+            float ex = q[0] - d[0] * u, ey = q[1] - d[1] * u, ez = q[2] - d[2] * u, e = sqrtf(ex * ex + ey * ey + ez * ez);
+            if (e > sk->radius[b])
+                sk->radius[b] = e;
         }
         ((lmesh_t *)m)->skel = sk;
+        m->bones = (const float (*)[12])sk->mat;     /* r3d moves each vertex with its bone */
+        m->vbone = sk->r.vbones;
+        m->nbones = r.nbones;
     }
     return 1;
 }
@@ -633,6 +1238,15 @@ static void pose_at(int nb, const bm_clip_t *c, float t, float (*q)[4], float (*
 }
 
 /* M[i] = M[parent] * T(head + t) * R(q) * T(-head); every vertex follows its bone */
+static void quat_mul(float out[4], const float a[4], const float b[4])
+{
+    float x = a[3] * b[0] + a[0] * b[3] + a[1] * b[2] - a[2] * b[1];
+    float y = a[3] * b[1] - a[0] * b[2] + a[1] * b[3] + a[2] * b[0];
+    float z = a[3] * b[2] + a[0] * b[1] - a[1] * b[0] + a[2] * b[3];
+    float w = a[3] * b[3] - a[0] * b[0] - a[1] * b[1] - a[2] * b[2];
+    out[0] = x; out[1] = y; out[2] = z; out[3] = w;
+}
+
 static void skin(lmesh_t *lm, float (*q)[4], float (*tr)[3])
 {
     skel_t *s = lm->skel;
@@ -641,6 +1255,10 @@ static void skin(lmesh_t *lm, float (*q)[4], float (*tr)[3])
         int parent;
         float h[3], tail[3], r[9];
         bm_rig_bone(&s->r, i, NULL, &parent, h, tail);
+        if (s->turned[i]) {                 /* bone_turn(): in the parent's frame, before the pose */
+            float a[4] = { q[i][0], q[i][1], q[i][2], q[i][3] };
+            quat_mul(q[i], s->turn[i], a);
+        }
         quat_norm(q[i]);
         float x = q[i][0], y = q[i][1], z = q[i][2], w = q[i][3];
         r[0] = 1 - 2 * (y * y + z * z); r[1] = 2 * (x * y - z * w); r[2] = 2 * (x * z + y * w);
@@ -665,14 +1283,8 @@ static void skin(lmesh_t *lm, float (*q)[4], float (*tr)[3])
             m[row * 4 + 3] = a[row * 4] * local[3] + a[row * 4 + 1] * local[7] + a[row * 4 + 2] * local[11] + a[row * 4 + 3];
         }
     }
-    r3d_mesh_t *mesh = &lm->m;
-    for (int v = 0; v < mesh->nverts; v++) {
-        const float *m = s->mat[s->r.vbones[v]];
-        v3_t p = s->rest[v];
-        mesh->verts[v] = (v3_t){ m[0] * p.x + m[1] * p.y + m[2] * p.z + m[3], m[4] * p.x + m[5] * p.y + m[6] * p.z + m[7],
-                                 m[8] * p.x + m[9] * p.y + m[10] * p.z + m[11] };
-    }
-    r3d_mesh_normals(mesh);
+    /* the vertices stay at rest: r3d moves each one with its bone while it
+     * draws (rigid skinning, only the vertices the level of detail needs) */
 }
 
 static lmesh_t *skel_mesh(lua_State *L, int idx)
@@ -698,10 +1310,29 @@ static void find_clip(lua_State *L, const skel_t *s, int idx, bm_clip_t *c)
     luaL_error(L, "no animation \"%s\"", name);
 }
 
-/* animate(mesh, [clip, time, [clip2, time2, k]]) -> the clip's length: the
- * mesh (from model()) takes the pose of the clip at that time, in seconds
- * (a looping clip goes round); with a second clip, a mix of the two (k = 0
- * the first, 1 the second); with no clip, the rest pose */
+/* the bone named (or numbered, from 1) by argument idx: 0-based, or -1 */
+static int find_bone(lua_State *L, const bm_rig_t *r, int idx)
+{
+    if (lua_type(L, idx) == LUA_TNUMBER) {
+        int i = (int)lua_tointeger(L, idx) - 1;
+        return i >= 0 && i < r->nbones ? i : -1;
+    }
+    const char *name = luaL_checkstring(L, idx);
+    char bn[BM_MODEL_NAME + 1];
+    for (int i = 0; i < r->nbones; i++) {
+        bm_rig_bone(r, i, bn, NULL, NULL, NULL);
+        if (strcmp(bn, name) == 0)
+            return i;
+    }
+    return -1;
+}
+
+/* animate(mesh, [clip, time, [clip2, time2, k, [bone]]]) -> the clip's
+ * length: the mesh (from model()) takes the pose of the clip at that time,
+ * in seconds (a looping clip goes round); with a second clip, a mix of the
+ * two (k = 0 the first, 1 the second), only for `bone` and the bones under
+ * it if given (an upper body that shoots on legs that run); with no clip,
+ * the rest pose */
 static int l_animate(lua_State *L)
 {
     lmesh_t *lm = skel_mesh(L, 1);
@@ -724,7 +1355,18 @@ static int l_animate(lua_State *L)
             pose_at(nb, &c2, (float)luaL_optnumber(L, 5, 0), pose_q2, pose_t2);
             float k = (float)luaL_optnumber(L, 6, 0.5);
             k = k < 0 ? 0 : k > 1 ? 1 : k;
+            uint8_t layer[BM_BONES_MAX];
+            int top = lua_isnoneornil(L, 7) ? -1 : find_bone(L, &lm->skel->r, 7);
+            if (!lua_isnoneornil(L, 7) && top < 0)
+                return luaL_error(L, "no bone \"%s\"", lua_tostring(L, 7));
             for (int i = 0; i < nb; i++) {
+                int parent;
+                bm_rig_bone(&lm->skel->r, i, NULL, &parent, NULL, NULL);
+                layer[i] = top < 0 || i == top || (parent >= 0 && layer[parent]);
+            }
+            for (int i = 0; i < nb; i++) {
+                if (!layer[i])
+                    continue;
                 float a[4] = { pose_q[i][0], pose_q[i][1], pose_q[i][2], pose_q[i][3] };
                 quat_slerp(pose_q[i], a, pose_q2[i], k);
                 for (int j = 0; j < 3; j++) pose_t[i][j] += (pose_t2[i][j] - pose_t[i][j]) * k;
@@ -762,18 +1404,7 @@ static int l_bone3d(lua_State *L)
 {
     lmesh_t *lm = skel_mesh(L, 1);
     const bm_rig_t *r = &lm->skel->r;
-    int found = -1;
-    if (lua_type(L, 2) == LUA_TNUMBER) {
-        int i = (int)luaL_checkinteger(L, 2) - 1;
-        if (i >= 0 && i < r->nbones) found = i;
-    } else {
-        const char *name = luaL_checkstring(L, 2);
-        char bn[BM_MODEL_NAME + 1];
-        for (int i = 0; i < r->nbones && found < 0; i++) {
-            bm_rig_bone(r, i, bn, NULL, NULL, NULL);
-            if (strcmp(bn, name) == 0) found = i;
-        }
-    }
+    int found = find_bone(L, r, 2);
     if (found < 0) {
         lua_pushnil(L);
         return 1;
@@ -788,14 +1419,138 @@ static int l_bone3d(lua_State *L)
     return 6;
 }
 
+/* bone_turn(mesh, bone, rx, ry, rz): every later animate() turns the bone by
+ * these angles (radians, x then y then z, in its parent's frame) on top of
+ * the animation: aiming up and down, a head that looks. bone_turn(mesh,
+ * bone) takes it away. */
+static int l_bone_turn(lua_State *L)
+{
+    lmesh_t *lm = skel_mesh(L, 1);
+    skel_t *sk = lm->skel;
+    int b = find_bone(L, &sk->r, 2);
+    if (b < 0)
+        return luaL_error(L, "no bone \"%s\"", lua_tostring(L, 2));
+    if (lua_isnoneornil(L, 3)) {
+        sk->turned[b] = 0;
+        return 0;
+    }
+    float h[3] = { (float)luaL_checknumber(L, 3) * 0.5f, (float)luaL_optnumber(L, 4, 0) * 0.5f,
+                   (float)luaL_optnumber(L, 5, 0) * 0.5f };
+    float qx[4] = { sinf(h[0]), 0, 0, cosf(h[0]) }, qy[4] = { 0, sinf(h[1]), 0, cosf(h[1]) },
+          qz[4] = { 0, 0, sinf(h[2]), cosf(h[2]) }, t[4];
+    quat_mul(t, qy, qx);
+    quat_mul(sk->turn[b], qz, t);
+    sk->turned[b] = 1;
+    return 0;
+}
+
+/* bones3d(mesh) -> { "name", ... }: the bones of its skeleton, in order */
+static int l_bones3d(lua_State *L)
+{
+    lmesh_t *lm = skel_mesh(L, 1);
+    const bm_rig_t *r = &lm->skel->r;
+    lua_createtable(L, r->nbones, 0);
+    char bn[BM_MODEL_NAME + 1];
+    for (int i = 0; i < r->nbones; i++) {
+        bm_rig_bone(r, i, bn, NULL, NULL, NULL);
+        lua_pushstring(L, bn);
+        lua_rawseti(L, -2, i + 1);
+    }
+    return 1;
+}
+
+/* hit3d(mesh, x, y, z, ry, scale, ox, oy, oz, dx, dy, dz, [maxd]) -> t, bone:
+ * the ray from o along d (any length; t in units of d) against the bones of
+ * a mesh with a skeleton in its last pose, drawn at (x, y, z) turned by ry
+ * around y and scaled: each bone is a capsule from its head to its tail,
+ * wide enough for its vertices. The nearest hit within maxd (default 1000),
+ * or nil. For hitboxes that follow the animation (a head shot: bone "head"). */
+static int l_hit3d(lua_State *L)
+{
+    lmesh_t *lm = skel_mesh(L, 1);
+    const skel_t *sk = lm->skel;
+    const float px = fnum(L, 2, 0), py = fnum(L, 3, 0), pz = fnum(L, 4, 0), ry = fnum(L, 5, 0),
+                sc = fnum(L, 6, 1);
+    float o[3] = { fnum(L, 7, 0), fnum(L, 8, 0), fnum(L, 9, 0) }, d[3] = { fnum(L, 10, 0), fnum(L, 11, 0), fnum(L, 12, 1) };
+    const float maxd = fnum(L, 13, 1000);
+    /* the ray into the model's own frame: undo the move, the turn and the scale */
+    const float c = cosf(ry), s = sinf(ry), is = sc != 0 ? 1.0f / sc : 1;
+    float ox = o[0] - px, oy = o[1] - py, oz = o[2] - pz;
+    /* draw3d turns with Ry: x' = c x + s z, z' = -s x + c z; back: */
+    float lo[3] = { (c * ox - s * oz) * is, oy * is, (s * ox + c * oz) * is };
+    float ld[3] = { (c * d[0] - s * d[2]) * is, d[1] * is, (s * d[0] + c * d[2]) * is };
+    float best = maxd;
+    int hit = -1;
+    for (int b = 0; b < sk->r.nbones; b++) {
+        float rad = sk->radius[b];
+        if (rad <= 0)
+            continue;                       /* a bone with no vertices */
+        float h[3], t[3], a[3], e[3];
+        bm_rig_bone(&sk->r, b, NULL, NULL, h, t);
+        const float *m = sk->mat[b];
+        for (int k = 0; k < 3; k++) {
+            a[k] = m[k * 4] * h[0] + m[k * 4 + 1] * h[1] + m[k * 4 + 2] * h[2] + m[k * 4 + 3];
+            e[k] = m[k * 4] * t[0] + m[k * 4 + 1] * t[1] + m[k * 4 + 2] * t[2] + m[k * 4 + 3];
+        }
+        /* ray against capsule: sample the closest approach of the two lines */
+        float u[3] = { e[0] - a[0], e[1] - a[1], e[2] - a[2] }, w[3] = { lo[0] - a[0], lo[1] - a[1], lo[2] - a[2] };
+        float A = ld[0] * ld[0] + ld[1] * ld[1] + ld[2] * ld[2], B = ld[0] * u[0] + ld[1] * u[1] + ld[2] * u[2],
+              C = u[0] * u[0] + u[1] * u[1] + u[2] * u[2], D = ld[0] * w[0] + ld[1] * w[1] + ld[2] * w[2],
+              E = u[0] * w[0] + u[1] * w[1] + u[2] * w[2];
+        float den = A * C - B * B, tr, tc;
+        if (den > 1e-9f) {
+            tr = (B * E - C * D) / den;
+            tc = (A * E - B * D) / den;
+        } else {
+            tr = -D / (A > 1e-9f ? A : 1);
+            tc = 0;
+        }
+        tc = tc < 0 ? 0 : tc > 1 ? 1 : tc;
+        /* the point of the segment nearest the ray, then the sphere there */
+        float q[3] = { a[0] + u[0] * tc - lo[0], a[1] + u[1] * tc - lo[1], a[2] + u[2] * tc - lo[2] };
+        float qd = q[0] * ld[0] + q[1] * ld[1] + q[2] * ld[2];
+        float qq = q[0] * q[0] + q[1] * q[1] + q[2] * q[2];
+        float disc = qd * qd - A * (qq - rad * rad);
+        (void)tr;
+        if (disc < 0 || A <= 1e-12f)
+            continue;
+        float th = (qd - sqrtf(disc)) / A;
+        if (th < 0)
+            th = (qd + sqrtf(disc)) / A >= 0 ? 0 : -1;
+        if (th >= 0 && th < best) {
+            best = th;
+            hit = b;
+        }
+    }
+    if (hit < 0) {
+        lua_pushnil(L);
+        return 1;
+    }
+    char bn[BM_MODEL_NAME + 1];
+    bm_rig_bone(&sk->r, hit, bn, NULL, NULL, NULL);
+    lua_pushnumber(L, best);
+    lua_pushstring(L, bn);
+    return 2;
+}
+
 /* bounds3d(mesh) -> x0, y0, z0, x1, y1, z1: the box around its vertices, in
  * its own coordinates (before draw3d moves, turns and scales it) */
+static v3_t posed(const r3d_mesh_t *m, int i)
+{
+    v3_t p = m->verts[i];
+    if (!m->bones)
+        return p;
+    const float *b = m->bones[m->vbone[i]];
+    return (v3_t){ b[0] * p.x + b[1] * p.y + b[2] * p.z + b[3], b[4] * p.x + b[5] * p.y + b[6] * p.z + b[7],
+                   b[8] * p.x + b[9] * p.y + b[10] * p.z + b[11] };
+}
+
 static int l_bounds3d(lua_State *L)
 {
     const r3d_mesh_t *m = luaL_checkudata(L, 1, MESH_MT);
-    v3_t lo = m->verts[0], hi = m->verts[0];
+    v3_t lo = posed(m, 0), hi = lo;
     for (int i = 1; i < m->nverts; i++) {
-        v3_t p = m->verts[i];
+        v3_t p = posed(m, i);
         if (p.x < lo.x) lo.x = p.x;
         if (p.y < lo.y) lo.y = p.y;
         if (p.z < lo.z) lo.z = p.z;
@@ -826,10 +1581,6 @@ static int l_mesh_cube(lua_State *L)
     return 1;
 }
 
-static float fnum(lua_State *L, int i, float def)
-{
-    return (float)luaL_optnumber(L, i, def);
-}
 
 /* draw3d(mesh, x, y, z [, rx, ry, rz, scale, flags]) - flags: 1 no z-buffer
  * (floors and backdrops drawn first), 2 unlit (full colour), 4 smooth
@@ -838,9 +1589,86 @@ static int l_draw3d(lua_State *L)
 {
     r3d_mesh_t *m = luaL_checkudata(L, 1, MESH_MT);
     v3_t p = { fnum(L, 2, 0), fnum(L, 3, 0), fnum(L, 4, 0) };
-    r3d_draw_flags(r3d(L), m, p, fnum(L, 5, 0), fnum(L, 6, 0), fnum(L, 7, 0), fnum(L, 8, 1),
+    r3d_t *r = r3d(L);
+    settle2d();                         /* recorded 2D first: the 3D goes over it */
+    zclear_dma_wait(1);
+    uint32_t t0 = timer_ticks();
+    r3d_draw_flags(r, m, p, fnum(L, 5, 0), fnum(L, 6, 0), fnum(L, 7, 0), fnum(L, 8, 1),
                    (unsigned)luaL_optinteger(L, 9, 0));
+    rt.us3d += timer_ticks() - t0;
     return 0;
+}
+
+/* sky3d(sun, sky, ground): colours (0xRRGGBB) of the sunlight and of the
+ * ambient light from above and from below; sky3d() back to white */
+static int l_sky3d(lua_State *L)
+{
+    r3d_sky(r3d(L), (uint32_t)luaL_optinteger(L, 1, 0xFFFFFF), (uint32_t)luaL_optinteger(L, 2, 0xFFFFFF),
+            (uint32_t)luaL_optinteger(L, 3, 0xFFFFFF));
+    return 0;
+}
+
+/* shine3d(spec, exponent, rim): highlights on glossy faces and rim light */
+static int l_shine3d(lua_State *L)
+{
+    r3d_shine(r3d(L), fnum(L, 1, 0.6f), (int)luaL_optinteger(L, 2, 16), fnum(L, 3, 0));
+    return 0;
+}
+
+/* shadow3d(style): 0 darkens (default), 1 a dithered black (no reads of the
+ * screen) */
+static int l_shadow3d(lua_State *L)
+{
+    r3d(L)->shadow_style = (int)luaL_optinteger(L, 1, 0);
+    return 0;
+}
+
+/* point3d(x, y, z, radius, colour, [flags]) -> pixels: a round point of
+ * world radius, behind what is nearer; flags 1 = every other pixel */
+static int l_point3d(lua_State *L)
+{
+    r3d_t *r = r3d(L);
+    settle2d();                         /* recorded 2D first: the 3D goes over it */
+    zclear_dma_wait(1);
+    uint32_t t0 = timer_ticks();
+    uint32_t n = r3d_point(r, (v3_t){ fnum(L, 1, 0), fnum(L, 2, 0), fnum(L, 3, 0) }, fnum(L, 4, 0.1f),
+                           (uint32_t)luaL_optinteger(L, 5, 0xFFFFFF), (unsigned)luaL_optinteger(L, 6, 0));
+    rt.us3d += timer_ticks() - t0;
+    lua_pushinteger(L, n);
+    return 1;
+}
+
+/* line3d(x0, y0, z0, x1, y1, z1, colour, [width, flags]) -> pixels */
+static int l_line3d(lua_State *L)
+{
+    r3d_t *r = r3d(L);
+    settle2d();                         /* recorded 2D first: the 3D goes over it */
+    zclear_dma_wait(1);
+    uint32_t t0 = timer_ticks();
+    uint32_t n = r3d_line(r, (v3_t){ fnum(L, 1, 0), fnum(L, 2, 0), fnum(L, 3, 0) },
+                          (v3_t){ fnum(L, 4, 0), fnum(L, 5, 0), fnum(L, 6, 0) },
+                          (uint32_t)luaL_optinteger(L, 7, 0xFFFFFF), (int)luaL_optinteger(L, 8, 1),
+                          (unsigned)luaL_optinteger(L, 9, 0));
+    rt.us3d += timer_ticks() - t0;
+    lua_pushinteger(L, n);
+    return 1;
+}
+
+/* sprite3d(sx, sy, sw, sh, x, y, z, size, [flags]) -> pixels: a rectangle of
+ * the sprite sheet facing the camera, `size` world units wide */
+static int l_sprite3d(lua_State *L)
+{
+    r3d_t *r = r3d(L);
+    sheet_commit();
+    settle2d();                         /* recorded 2D first: the 3D goes over it */
+    zclear_dma_wait(1);
+    uint32_t t0 = timer_ticks();
+    uint32_t n = r3d_sprite(r, &rt.sheet, ival(L, 1), ival(L, 2), ival(L, 3), ival(L, 4),
+                            (v3_t){ fnum(L, 5, 0), fnum(L, 6, 0), fnum(L, 7, 0) }, fnum(L, 8, 1),
+                            (unsigned)luaL_optinteger(L, 9, 0));
+    rt.us3d += timer_ticks() - t0;
+    lua_pushinteger(L, n);
+    return 1;
 }
 
 /* camera3d(x, y, z [, yaw, pitch, fov, roll]) */
@@ -899,14 +1727,149 @@ static int l_lamp3d(lua_State *L)
     if (lua_isnoneornil(L, 2))
         r3d_lamp(r, i, 0, 0, 0, 0, 0);
     else
-        r3d_lamp(r, i, fnum(L, 2, 0), fnum(L, 3, 0), fnum(L, 4, 0), fnum(L, 5, 3), fnum(L, 6, 1));
+        r3d_lamp_rgb(r, i, fnum(L, 2, 0), fnum(L, 3, 0), fnum(L, 4, 0), fnum(L, 5, 3), fnum(L, 6, 1),
+                     (uint32_t)luaL_optinteger(L, 7, 0xFFFFFF));
     return 0;
 }
 
 static int l_zclear(lua_State *L)
 {
-    r3d_zclear(r3d(L));
+    r3d_t *r = r3d(L);
+    rt.zclear_seen = 1;
+    rt.us3d = 0;
+    if (rt.zclear_dma) {
+        zclear_dma_wait(1);
+        r->tris_in = r->tris_drawn = r->pixels = r->verts = 0;
+        return 0;
+    }
+    r3d_zclear(r);
     return 0;
+}
+
+/* gpu3d([on, [aa, [vs, [queue]]]]) -> on, aa, vs, version, queue: whether the GPU draws the 3D,
+ * whether with anti-aliasing (MSAA 4x, where the GPU allows it) and whether
+ * its vertex shader places the corners of the models (M36, where the GPU's
+ * probe drew with it): false, 1 the scenery (meshes unlit or with baked
+ * light), 2 (or true) every model; version: the bm3d version that reproduces
+ * (src/gpu/version3d.h: "0.2" the ARM, "2.1", "3.0", "3.4", "4.1"). With on, the 3D
+ * goes to the GPU (if the console has one that answers) or to the ARM from
+ * here, whatever Settings > Graphics says: for benchmarks; switch between
+ * frames (what was drawn so far in a frame is not in the other's depth).
+ * queue (M35): the end of a frame's 3D started on the GPU while the next
+ * _update runs (where the GPU's probe saw it work). */
+static int l_gpu3d(lua_State *L)
+{
+    r3d_t *r = r3d(L);
+    if (!lua_isnoneornil(L, 1)) {
+        const int on = lua_toboolean(L, 1);
+        if (on && !r->backend && rt.g.stride == (uint32_t)rt.g.w && gpu3d_init() == 0 && !gpu3d_failed()) {
+            gpu3d_drop();
+            gpu3d_page(0, 0);
+            r->backend = gpu3d_backend();
+            r->arm_hook = gpu3d_to_arm;
+        } else if (!on && r->backend) {
+            flush3d(0);
+            gpu3d_drop();
+            r->backend = NULL;
+            zclear_dma_wait(1);
+            memset(r->zbuf, 0, (size_t)r->g->w * r->g->h * 2);
+        }
+        if (!lua_isnoneornil(L, 2))
+            gpu3d_set_msaa(lua_toboolean(L, 2));
+        if (!lua_isnoneornil(L, 3))
+            gpu3d_set_vshader(lua_isboolean(L, 3) ? 2 * lua_toboolean(L, 3) : (int)luaL_checkinteger(L, 3));
+        if (!lua_isnoneornil(L, 4))
+            gpu3d_set_queue(lua_toboolean(L, 4));
+    }
+    lua_pushboolean(L, r->backend != NULL);
+    lua_pushboolean(L, r->backend != NULL && gpu3d_msaa_on());
+    const int vs = r->backend != NULL ? gpu3d_vshader_on() : 0;
+    if (vs)
+        lua_pushinteger(L, vs);
+    else
+        lua_pushboolean(L, 0);
+    lua_pushstring(L, bm3d_mode_q(r->backend != NULL, vs, r->backend != NULL && gpu3d_queue()));  /* reproduced */
+    lua_pushboolean(L, r->backend != NULL && gpu3d_queue());
+    return 5;
+}
+
+/* ---- collision worlds (world3d.h): boxes, rays, moving bodies */
+
+#define WORLD_MT "bm.world"
+
+static w3_world_t *check_world(lua_State *L, int i)
+{
+    return luaL_checkudata(L, i, WORLD_MT);
+}
+
+static int l_world_gc(lua_State *L)
+{
+    w3_free(check_world(L, 1));
+    return 0;
+}
+
+/* world3d() -> an empty collision world */
+static int l_world3d(lua_State *L)
+{
+    w3_world_t *w = lua_newuserdatauv(L, sizeof *w, 0);
+    w3_init(w);
+    luaL_setmetatable(L, WORLD_MT);
+    return 1;
+}
+
+/* world_box(w, x0, y0, z0, x1, y1, z1, [tag]) -> its number: a solid box */
+static int l_world_box(lua_State *L)
+{
+    w3_world_t *w = check_world(L, 1);
+    float lo[3] = { fnum(L, 2, 0), fnum(L, 3, 0), fnum(L, 4, 0) }, hi[3] = { fnum(L, 5, 0), fnum(L, 6, 0), fnum(L, 7, 0) };
+    int i = w3_add_box(w, lo, hi, (int)luaL_optinteger(L, 8, 0));
+    if (i < 0)
+        return luaL_error(L, "not enough memory for the world");
+    lua_pushinteger(L, i + 1);
+    return 1;
+}
+
+/* world_ray(w, ox, oy, oz, dx, dy, dz, [maxd, ground]) -> t, nx, ny, nz, box
+ * (0 = the ground y = 0, which counts unless ground is false), or nil */
+static int l_world_ray(lua_State *L)
+{
+    w3_world_t *w = check_world(L, 1);
+    float o[3] = { fnum(L, 2, 0), fnum(L, 3, 0), fnum(L, 4, 0) }, d[3] = { fnum(L, 5, 0), fnum(L, 6, 0), fnum(L, 7, 1) };
+    float t, n[3];
+    int ground = lua_isnoneornil(L, 9) || lua_toboolean(L, 9);
+    int i = w3_ray(w, o, d, fnum(L, 8, 1000), ground, &t, n);
+    if (i == -1) {
+        lua_pushnil(L);
+        return 1;
+    }
+    lua_pushnumber(L, t);
+    lua_pushnumber(L, n[0]);
+    lua_pushnumber(L, n[1]);
+    lua_pushnumber(L, n[2]);
+    lua_pushinteger(L, i == -2 ? 0 : i + 1);
+    return 5;
+}
+
+/* world_move(w, x, y, z, r, h, dx, dy, dz, [step, on_ground]) -> x, y, z, flags:
+ * 1 on the ground, 2 a wall (4 along x, 8 along z), 16 a ceiling */
+static int l_world_move(lua_State *L)
+{
+    w3_world_t *w = check_world(L, 1);
+    float p[3] = { fnum(L, 2, 0), fnum(L, 3, 0), fnum(L, 4, 0) }, d[3] = { fnum(L, 7, 0), fnum(L, 8, 0), fnum(L, 9, 0) };
+    int f = w3_move(w, p, fnum(L, 5, 0.4f), fnum(L, 6, 1.8f), d, fnum(L, 10, 0.45f), lua_toboolean(L, 11));
+    lua_pushnumber(L, p[0]);
+    lua_pushnumber(L, p[1]);
+    lua_pushnumber(L, p[2]);
+    lua_pushinteger(L, f);
+    return 4;
+}
+
+/* world_floor(w, x, z, y, r, [step]) -> the height of the floor under (x, z) */
+static int l_world_floor(lua_State *L)
+{
+    w3_world_t *w = check_world(L, 1);
+    lua_pushnumber(L, w3_floor(w, fnum(L, 2, 0), fnum(L, 3, 0), fnum(L, 4, 0), fnum(L, 5, 0.4f), fnum(L, 6, 0.45f)));
+    return 1;
 }
 
 /* log(...) - text to the kernel log (serial + console), not the screen */
@@ -919,6 +1882,102 @@ static int l_log(lua_State *L)
     }
     kprintf("\n");
     return 0;
+}
+
+/* ---- the network for the games (M38.5): UDP sockets (src/net/cartnet.h).
+ * Addresses as text, "192.168.1.23"; "*" is the broadcast of the LAN. */
+
+static void push_ip(lua_State *L, uint32_t ip)
+{
+    char t[16];
+    ksnprintf(t, sizeof t, "%u.%u.%u.%u", (unsigned)(ip >> 24), (unsigned)(ip >> 16 & 255),
+              (unsigned)(ip >> 8 & 255), (unsigned)(ip & 255));
+    lua_pushstring(L, t);
+}
+
+/* udp_open([port]): a socket, or nil and why */
+static int l_udp_open(lua_State *L)
+{
+    int port = (int)luaL_optinteger(L, 1, 0);
+    luaL_argcheck(L, port >= 0 && port <= 65535, 1, "a port is 0..65535");
+    if (!cartnet_ip()) {
+        lua_pushnil(L);
+        lua_pushstring(L, "no network");
+        return 2;
+    }
+    int sk = cartnet_open((uint16_t)port);
+    if (sk < 0) {
+        lua_pushnil(L);
+        lua_pushstring(L, "no free socket");
+        return 2;
+    }
+    lua_pushinteger(L, sk);
+    lua_pushinteger(L, cartnet_port(sk));
+    return 2;
+}
+
+/* udp_send(s, address, port, data): true when sent */
+static int l_udp_send(lua_State *L)
+{
+    int sk = (int)luaL_checkinteger(L, 1);
+    const char *to = luaL_checkstring(L, 2);
+    int port = (int)luaL_checkinteger(L, 3);
+    size_t len;
+    const char *d = luaL_checklstring(L, 4, &len);
+    luaL_argcheck(L, len <= CARTNET_MAX, 4, "at most 1024 bytes");
+    uint32_t ip = strcmp(to, "*") == 0 ? CARTNET_BROADCAST : cartnet_resolve(to);
+    lua_pushboolean(L, ip && (ip != CARTNET_BROADCAST || strcmp(to, "*") == 0) &&
+                           cartnet_send(sk, ip, (uint16_t)port, d, (int)len) == 0);
+    return 1;
+}
+
+/* udp_recv(s): data, address, port of the next packet, or nil */
+static int l_udp_recv(lua_State *L)
+{
+    static char buf[CARTNET_MAX];
+    int sk = (int)luaL_checkinteger(L, 1);
+    uint32_t ip;
+    uint16_t port;
+    int n = cartnet_recv(sk, buf, sizeof buf, &ip, &port);
+    if (n < 0) {
+        lua_pushnil(L);
+        return 1;
+    }
+    lua_pushlstring(L, buf, (size_t)n);
+    push_ip(L, ip);
+    lua_pushinteger(L, port);
+    return 3;
+}
+
+static int l_udp_close(lua_State *L)
+{
+    cartnet_close((int)luaL_checkinteger(L, 1));
+    return 0;
+}
+
+/* net_ip(): the console's address, or nil without network */
+static int l_net_ip(lua_State *L)
+{
+    uint32_t ip = cartnet_ip();
+    if (ip)
+        push_ip(L, ip);
+    else
+        lua_pushnil(L);
+    return 1;
+}
+
+/* net_resolve(name): its address once known; nil while looking (ask
+ * again), false if there is no such name */
+static int l_net_resolve(lua_State *L)
+{
+    uint32_t ip = cartnet_resolve(luaL_checkstring(L, 1));
+    if (ip == CARTNET_BROADCAST)
+        lua_pushboolean(L, 0);
+    else if (!ip)
+        lua_pushnil(L);
+    else
+        push_ip(L, ip);
+    return 1;
 }
 
 /* ---- save() / saved(): one table per cartridge in /bm/save, as Lua
@@ -1468,6 +2527,43 @@ static int l_keys(lua_State *L)
 /* pad([p]) -> the controller buttons player p (1-4) holds, as bits: 1 left,
  * 2 right, 4 up, 8 down, 16 A, 32 B, 64 Start, 128 Select, 256 X, 512 Y,
  * 1024 L1, 2048 R1; without p, any player */
+/* mouse(on [, arrow]): the cartridge wants the pointer (M32; without it
+ * there is none in a cartridge), with the system's arrow drawn over the
+ * frame unless arrow is false; returns false when the console has it off
+ * (mouse=off in bm/config.txt). mouse() -> x, y, buttons (1 left, 2 right,
+ * 4 middle), wheel steps this frame (up positive), shown; nil when the
+ * cartridge did not ask or nothing can move it (no mouse, no right stick). */
+static int l_mouse(lua_State *L)
+{
+    if (lua_gettop(L) >= 1) {
+        rt.mouse = lua_toboolean(L, 1);
+        rt.mouse_arrow = lua_isnoneornil(L, 2) || lua_toboolean(L, 2);
+        pointer_env(rt.mouse, rt.g.w, rt.g.h);
+        rt.ptr = *pointer_get();
+        lua_pushboolean(L, pointer_enabled());
+        return 1;
+    }
+    if (!rt.mouse || !pointer_enabled() || !rt.ptr.available) {
+        lua_pushnil(L);
+        return 1;
+    }
+    lua_pushinteger(L, rt.ptr.x);
+    lua_pushinteger(L, rt.ptr.y);
+    lua_pushinteger(L, rt.ptr.buttons);
+    lua_pushinteger(L, rt.ptr.wheel);
+    lua_pushboolean(L, rt.ptr.shown);
+    return 5;
+}
+
+/* mousep([i]): the button i (0 left, 1 right, 2 middle; default 0) was
+ * pressed this frame, with the pointer shown */
+static int l_mousep(lua_State *L)
+{
+    lua_Integer i = luaL_optinteger(L, 1, 0);
+    lua_pushboolean(L, rt.mouse && i >= 0 && i < 3 && (rt.ptr.pressed >> i & 1));
+    return 1;
+}
+
 static int l_pad(lua_State *L)
 {
     uint32_t b = 0;
@@ -1502,12 +2598,18 @@ static int l_cart_load(lua_State *L);
 static int l_cart_new(lua_State *L);
 static int l_cart_save(lua_State *L);
 static int l_cart_run(lua_State *L);
+static int l_cart_tool(lua_State *L);
 static int l_cart_arg(lua_State *L);
 static int l_cart_audio(lua_State *L);
 static int l_cart_put_audio(lua_State *L);
 static int l_cart_data(lua_State *L);
 static int l_cart_read(lua_State *L);
 static int l_cart_write(lua_State *L);
+static int l_cart_meshes(lua_State *L);
+static int l_mesh_reduce(lua_State *L);
+static int l_picture3d(lua_State *L);
+static int l_cutout3d(lua_State *L);
+static int l_cart_sheet(lua_State *L);
 
 /* ---------------------------------------------------------------- light */
 
@@ -1518,6 +2620,7 @@ static int video_to_ram(g16_t *g);
  * on (lighting reads the picture back). */
 static int l_light_begin(lua_State *L)
 {
+    sync3d();
     if (!rt.light.rgb && g16_light_init(&rt.light, rt.g.w, rt.g.h) != 0)
         return luaL_error(L, "not enough memory for lighting");
     if (video_to_ram(&rt.g) != 0)
@@ -1539,8 +2642,88 @@ static int l_light(lua_State *L)
 static int l_light_end(lua_State *L)
 {
     (void)L;
+    sync3d();
     if (rt.light.rgb)
         g16_light_apply(&rt.g, &rt.light);
+    return 0;
+}
+
+/* Lighting by levels, as in Dank Tomb: fades() gives each colour what it
+ * becomes at every light level, dark_begin() fills the screen with the
+ * ambient level, glow() adds lamps (rings of levels), dark_end() turns
+ * every pixel into its colour at its level. */
+static int fade_ready(lua_State *L)
+{
+    if (!rt.fade.lv && g16_fade_init(&rt.fade, rt.g.w, rt.g.h) != 0)
+        return luaL_error(L, "not enough memory for lighting");
+    return 0;
+}
+
+/* fades({ {from, l0, l1, ...}, ... }) -> levels: every row has the same
+ * length, 3..17 (2..16 levels, l0 the darkest) */
+static int l_fades(lua_State *L)
+{
+    luaL_checktype(L, 1, LUA_TTABLE);
+    fade_ready(L);
+    const lua_Integer n = luaL_len(L, 1);
+    int levels = 0;
+    for (lua_Integer i = 1; i <= n; i++) {
+        lua_geti(L, 1, i);
+        luaL_checktype(L, -1, LUA_TTABLE);
+        const lua_Integer len = luaL_len(L, -1);
+        if (i == 1) {
+            if (len < 3 || len > G16_FADE_LEVELS + 1)
+                return luaL_error(L, "fades: a row is a colour and 2 to %d levels", G16_FADE_LEVELS);
+            levels = (int)len - 1;
+            g16_fade_reset(&rt.fade, levels);
+        } else if (len != levels + 1) {
+            return luaL_error(L, "fades: row %d has %d levels, not %d", (int)i, (int)len - 1, levels);
+        }
+        uint16_t to[G16_FADE_LEVELS];
+        lua_geti(L, -1, 1);
+        const uint16_t from = g16_rgb24((uint32_t)luaL_checkinteger(L, -1));
+        lua_pop(L, 1);
+        for (int k = 0; k < levels; k++) {
+            lua_geti(L, -1, k + 2);
+            to[k] = g16_rgb24((uint32_t)luaL_checkinteger(L, -1));
+            lua_pop(L, 1);
+        }
+        lua_pop(L, 1);
+        if (g16_fade_colour(&rt.fade, from, to) != 0)
+            return luaL_error(L, "fades: more than %d colours", G16_FADE_COLOURS);
+    }
+    g16_fade_done(&rt.fade);
+    lua_pushinteger(L, rt.fade.levels);
+    return 1;
+}
+
+/* dark_begin([ambient level]): everything drawn so far will be lit by
+ * dark_end() (the cartridge draws into RAM from now on) */
+static int l_dark_begin(lua_State *L)
+{
+    fade_ready(L);
+    if (video_to_ram(&rt.g) != 0)
+        return luaL_error(L, "not enough memory for lighting");
+    g16_fade_clear(&rt.fade, (int)luaL_optinteger(L, 1, 0));
+    return 0;
+}
+
+/* glow(x, y, radius, level [, dither 0..1]) - world coordinates (camera) */
+static int l_glow(lua_State *L)
+{
+    if (!rt.fade.lv)
+        return luaL_error(L, "glow() before dark_begin()");
+    const float d = fnum(L, 5, 0.5f);
+    g16_fade_glow(&rt.fade, (int)floorf(fnum(L, 1, 0)) - rt.g.cam_x, (int)floorf(fnum(L, 2, 0)) - rt.g.cam_y,
+                  (int)fnum(L, 3, 32), (int)luaL_checkinteger(L, 4), (int)(d * 256));
+    return 0;
+}
+
+static int l_dark_end(lua_State *L)
+{
+    (void)L;
+    if (rt.fade.lv)
+        g16_fade_apply(&rt.g, &rt.fade);
     return 0;
 }
 
@@ -1556,6 +2739,7 @@ static const luaL_Reg api[] = {
     { "rect", l_rect }, { "rectfill", l_rectfill }, { "circ", l_circ }, { "circfill", l_circfill },
     { "spr", l_spr }, { "sspr", l_sspr }, { "map", l_map }, { "mget", l_mget }, { "mset", l_mset },
     { "sget", l_sget }, { "sset", l_sset }, { "print", l_print }, { "font", l_font }, { "camera", l_camera },
+    { "prompt", l_prompt }, { "lastinput", l_lastinput },
     { "clip", l_clip }, { "rgb", l_rgb }, { "btn", l_btn }, { "btnp", l_btnp },
     { "players", l_players }, { "stick", l_stick },
     { "time", l_time }, { "stat", l_stat }, { "tri", l_tri },
@@ -1563,15 +2747,25 @@ static const luaL_Reg api[] = {
     { "model", l_model }, { "models", l_models }, { "bounds3d", l_bounds3d },
     { "animate", l_animate }, { "clips", l_clips }, { "bone3d", l_bone3d },
     { "draw3d", l_draw3d }, { "camera3d", l_camera3d }, { "light3d", l_light3d },
+    { "sky3d", l_sky3d }, { "shine3d", l_shine3d }, { "shadow3d", l_shadow3d },
+    { "point3d", l_point3d }, { "line3d", l_line3d }, { "sprite3d", l_sprite3d },
+    { "bone_turn", l_bone_turn }, { "bones3d", l_bones3d }, { "hit3d", l_hit3d },
+    { "world3d", l_world3d }, { "world_box", l_world_box }, { "world_ray", l_world_ray },
+    { "world_move", l_world_move }, { "world_floor", l_world_floor },
     { "fog3d", l_fog3d }, { "project3d", l_project3d }, { "lamp3d", l_lamp3d },
-    { "zclear", l_zclear }, { "log", l_log }, { "quit", l_quit },
+    { "zclear", l_zclear }, { "gpu3d", l_gpu3d }, { "log", l_log }, { "quit", l_quit },
+    { "udp_open", l_udp_open }, { "udp_send", l_udp_send }, { "udp_recv", l_udp_recv }, { "udp_close", l_udp_close },
+    { "net_ip", l_net_ip }, { "net_resolve", l_net_resolve },
     { "save", l_save }, { "saved", l_saved },
     { "keyp", l_keyp }, { "keyheld", l_keyheld }, { "rawkeys", l_rawkeys }, { "keydown", l_keydown },
-    { "keys", l_keys }, { "pad", l_pad }, { "timeslice", l_timeslice }, { "ls", l_ls }, { "cart_load", l_cart_load }, { "cart_new", l_cart_new },
-    { "cart_save", l_cart_save }, { "cart_run", l_cart_run }, { "cart_arg", l_cart_arg },
+    { "keys", l_keys }, { "pad", l_pad }, { "mouse", l_mouse }, { "mousep", l_mousep }, { "timeslice", l_timeslice }, { "ls", l_ls }, { "cart_load", l_cart_load }, { "cart_new", l_cart_new },
+    { "cart_save", l_cart_save }, { "cart_run", l_cart_run }, { "cart_tool", l_cart_tool }, { "cart_arg", l_cart_arg },
     { "cart_data", l_cart_data },
-    { "cart_read", l_cart_read }, { "cart_write", l_cart_write },
+    { "cart_read", l_cart_read }, { "cart_write", l_cart_write }, { "cart_meshes", l_cart_meshes },
+    { "mesh_reduce", l_mesh_reduce }, { "picture3d", l_picture3d }, { "cutout3d", l_cutout3d },
+    { "cart_sheet", l_cart_sheet },
     { "light_begin", l_light_begin }, { "light", l_light }, { "light_end", l_light_end },
+    { "fades", l_fades }, { "dark_begin", l_dark_begin }, { "glow", l_glow }, { "dark_end", l_dark_end },
     { "note", l_note }, { "noteoff", l_noteoff }, { "freq", l_freq },
     { "envelope", l_envelope }, { "duty", l_duty }, { "playing", l_playing }, { "apu", l_apu },
     { "hz", l_hz }, { "slide", l_slide }, { "vibrato", l_vibrato }, { "arp", l_arp },
@@ -1584,9 +2778,14 @@ static const luaL_Reg api[] = {
 
 /* ---------------------------------------------------------------- state */
 
+/* bmhost's profiler of the Lua (BMHOST_LUAPROF): where the count hook
+ * finds the cartridge; not in the kernel (a weak symbol left undefined) */
+extern void bm_lua_sample(lua_State *L, lua_Debug *ar) __attribute__((weak));
+
 static void hook(lua_State *L, lua_Debug *ar)
 {
-    (void)ar;
+    if (bm_lua_sample)
+        bm_lua_sample(L, ar);
     ++rt.hook_count;
     /* a coroutine given to timeslice(): it stops here and goes on next
      * frame, instead of running into the budget */
@@ -1641,12 +2840,17 @@ static lua_State *new_cart_state(const bm_cart_t *c)
     lua_pushcfunction(L, l_mesh_gc);
     lua_setfield(L, -2, "__gc");
     lua_pop(L, 1);
+    luaL_newmetatable(L, WORLD_MT);
+    lua_pushcfunction(L, l_world_gc);
+    lua_setfield(L, -2, "__gc");
+    lua_pop(L, 1);
     lua_pushglobaltable(L);
     luaL_setfuncs(L, api, 0);
     lua_pop(L, 1);
     luaL_requiref(L, "n8", luaopen_n8, 1);      /* the nano8 machine (carts/nano8) */
     lua_pop(L, 1);
     ai_lua_open(L);             /* the assistant (M30): idle until asked */
+    nnet_lua_open(L);           /* small INT8 networks of the carts (M38.4) */
     bm_require_open(L);         /* require "assist": libraries in the kernel */
     static const char *const waves[SYNTH_WAVES] = { "SQUARE", "TRIANGLE", "SAW", "NOISE", "SINE", "METAL" };
     for (int w = 0; w < SYNTH_WAVES; w++) {
@@ -1657,6 +2861,10 @@ static lua_State *new_cart_state(const bm_cart_t *c)
     lua_setglobal(L, "SCREEN_W");
     lua_pushinteger(L, c->height);
     lua_setglobal(L, "SCREEN_H");
+    if (cur.bench) {                    /* a kernel benchmark (bm_next_run) */
+        lua_pushinteger(L, cur.bench);
+        lua_setglobal(L, "BENCH");
+    }
     lua_gc(L, LUA_GCGEN, 0, 0);         /* generational GC: short pauses */
     lua_sethook(L, hook, LUA_MASKCOUNT, HOOK_EVERY);
     return L;
@@ -1680,7 +2888,9 @@ static int call(lua_State *L, const char *name)
     }
     rt.hook_count = 0;
     rt.slice_at = rt.slice_len;
-    if (lua_pcall(L, 0, 0, -2) != LUA_OK) {
+    int r = lua_pcall(L, 0, 0, -2);
+    rt.frame_instr_k += rt.hook_count;
+    if (r != LUA_OK) {
         lua_remove(L, -2);
         return -1;
     }
@@ -1789,7 +2999,11 @@ static int poll_keys(void)
             case 'k': case 'K': case 'x': case 'X': b = BTN_B; break;
             case 'c': case 'C': case 'l': case 'L': b = BTN_X; break;
             case 'v': case 'V': case 'i': case 'I': b = BTN_Y; break;
+            case 'u': case 'U': b = SER_L1; break;
+            case 'o': case 'O': b = SER_R1; break;
             case '\r': b = BTN_START; break;
+            case '\t': b = BTN_SELECT; break;
+            case 'p': case 'P': rt.perf_key = 1; continue;
             case 'q': case 'Q': return 1;
             }
         }
@@ -1810,12 +3024,13 @@ static int poll_keys(void)
         for (int k; (k = hid_getc()) >= 0;)
             text_push((uint8_t)k);
     uint32_t serial = 0;                    /* HID_* bits of the serial keys held */
-    for (int b = 0; b < BTN_COUNT; b++)
+    for (int b = 0; b < SER_COUNT; b++)
         if (rt.hold[b]) {
             serial |= b == BTN_X ? HID_X : b == BTN_Y ? HID_Y : b == BTN_START ? HID_START :
-                      b == BTN_SELECT ? HID_SELECT : 1u << b;
+                      b == BTN_SELECT ? HID_SELECT : b == SER_L1 ? HID_L1 : b == SER_R1 ? HID_R1 : 1u << b;
             rt.hold[b]--;
         }
+    rt.ptr = *pointer_update();             /* also when unused: the motion is dropped */
     rt.prev = rt.now;
     rt.now = hid_to_btn(pad | serial);
     for (int p = 0; p < INPUT_PLAYERS; p++) {
@@ -1972,7 +3187,7 @@ static int extras_keep(const uint8_t *d)
     }
     return 0;
 }
-static char run_request[64];
+static char run_request[64], tool_request[16];
 static char arg_path[64], arg_error[512], last_error[512];
 static int arg_back = 1;
 
@@ -1985,6 +3200,15 @@ void bm_set_arg(const char *path, const char *error)
 void bm_set_arg_back(int back)
 {
     arg_back = back;
+}
+
+int bm_take_tool(char *name, size_t n)
+{
+    if (!tool_request[0])
+        return 0;
+    ksnprintf(name, n, "%s", tool_request);
+    tool_request[0] = 0;
+    return 1;
 }
 
 int bm_take_run(char *path, size_t n)
@@ -2026,6 +3250,18 @@ static int l_ls(lua_State *L)
     return 1;
 }
 
+/* The resolutions of a cartridge, as the Lua side names them */
+static const char *res_name(int w)
+{
+    return w == 320 ? "320x180" : w == 256 ? "256x256" : w == 480 ? "480x270" : "640x360";
+}
+
+static int res_width(const char *res)
+{
+    return strcmp(res, "320x180") == 0 ? 320 : strcmp(res, "256x256") == 0 ? 256
+         : strcmp(res, "480x270") == 0 ? 480 : 640;
+}
+
 static void push_project(lua_State *L, const char *title, const char *author, int w, const char *lua,
                          size_t lua_len)
 {
@@ -2034,7 +3270,7 @@ static void push_project(lua_State *L, const char *title, const char *author, in
     lua_setfield(L, -2, "title");
     lua_pushstring(L, author);
     lua_setfield(L, -2, "author");
-    lua_pushstring(L, w == 320 ? "320x180" : "640x360");
+    lua_pushstring(L, res_name(w));
     lua_setfield(L, -2, "res");
     lua_pushlstring(L, lua, lua_len);
     lua_setfield(L, -2, "lua");
@@ -2069,6 +3305,7 @@ static int l_cart_load(lua_State *L)
         lua_pushstring(L, err);
         return 2;
     }
+    sync3d();                           /* the waiting 3D may use the sheet as texture */
     free_assets();
     if (load_assets(&c) != 0 || extras_keep(data) != 0) {
         free(data);
@@ -2087,8 +3324,242 @@ static int l_cart_load(lua_State *L)
     memcpy(author, c.author, sizeof author);
     title[48] = author[32] = 0;
     push_project(L, title, author, c.width, c.lua, c.lua_size);
+    if (c.sheet8) {                     /* palette = the opaque colours of its SHEET8 palette */
+        const uint8_t *p = c.sheet8;
+        int nc = p[4] | p[5] << 8, k = 0;
+        lua_createtable(L, nc, 0);
+        for (int i = 0; i < nc; i++) {
+            const uint8_t *e = p + 8 + i * 4;
+            if (e[3] < 128)
+                continue;
+            lua_pushinteger(L, (lua_Integer)(e[0] << 16 | e[1] << 8 | e[2]));
+            lua_rawseti(L, -2, ++k);
+        }
+        lua_setfield(L, -2, "palette");
+    }
     free(data);
     return 1;
+}
+
+/* cart_sheet([w, h]) -> the width and height of the project's sprite sheet;
+ * with w and h (multiples of 8, 8 to 4096) it gets that size: the pixels
+ * that fit stay where they are, the new ones are transparent (bm Pixel) */
+static int l_cart_sheet(lua_State *L)
+{
+    if (!lua_isnoneornil(L, 1)) {
+        int w = (int)luaL_checkinteger(L, 1), h = (int)luaL_checkinteger(L, 2);
+        luaL_argcheck(L, w >= G16_CELL && w <= BM_SHEET_MAX && w % G16_CELL == 0, 1, "8 to 4096, a multiple of 8");
+        luaL_argcheck(L, h >= G16_CELL && h <= BM_SHEET_MAX && h % G16_CELL == 0, 2, "8 to 4096, a multiple of 8");
+        if (w != rt.sheet.w || h != rt.sheet.h) {
+            sync3d();                   /* the waiting 3D may use the sheet as texture */
+            g16_sheet_t ns;
+            uint8_t *dirty = calloc((size_t)(w / G16_CELL) * (h / G16_CELL), 1);
+            if (!dirty || g16_sheet_alloc(&ns, w, h) != 0) {
+                free(dirty);
+                return luaL_error(L, "not enough memory for a %dx%d sheet", w, h);
+            }
+            int cw = w < rt.sheet.w ? w : rt.sheet.w, ch = h < rt.sheet.h ? h : rt.sheet.h;
+            for (int y = 0; rt.sheet.px && y < ch; y++) {
+                memcpy(ns.px + (size_t)y * w, rt.sheet.px + (size_t)y * rt.sheet.w, (size_t)cw * 2);
+                memcpy(ns.alpha + (size_t)y * w, rt.sheet.alpha + (size_t)y * rt.sheet.w, (size_t)cw);
+            }
+            g16_sheet_free(&rt.sheet);
+            rt.sheet = ns;                  /* the same struct: meshes keep their texture */
+            free(rt.cell_dirty);
+            rt.cell_dirty = dirty;
+            memset(rt.cell_dirty, 1, (size_t)(w / G16_CELL) * (h / G16_CELL));
+            rt.sheet_dirty = 1;
+            sheet_commit();
+        }
+    }
+    lua_pushinteger(L, rt.sheet.w);
+    lua_pushinteger(L, rt.sheet.h);
+    return 2;
+}
+
+/* The project's sheet as a section for cart_write: SHEET8 when it has at
+ * most 256 colours (transparent counts as one), else SHEET. A pixel whose
+ * RGB565 is the one it had in `old` (the file being rewritten, the same x
+ * and y) keeps its 24 bits from there, so what was not drawn on comes back
+ * byte for byte; a pixel drawn on takes the 24 bits of the first colour of
+ * the palette (the table at index `pal`, bm Pixel's) with its RGB565, else
+ * of a colour of the old sheet, else RGB565 widened. The palette's colours
+ * come first in the SHEET8 palette, as they are and in their order (also
+ * those no pixel uses) while there is room, so it comes back as it was;
+ * then the other colours, in the order they appear. NULL without memory. */
+#define SHEET_CLEAR 0x01000000u                 /* a transparent pixel */
+#define SHEET_HASH  1024                        /* > 256 colours: open addressing */
+
+typedef struct {
+    uint32_t key[SHEET_HASH];                   /* colour + 1, 0 = empty */
+    int16_t slot[SHEET_HASH];                   /* its palette index, -1 none yet */
+    int n;
+} colour_set_t;
+
+static int cs_find(colour_set_t *s, uint32_t c, int add)
+{
+    uint32_t i = (c * 2654435761u) >> 22;
+    while (s->key[i] && s->key[i] != c + 1)
+        i = (i + 1) & (SHEET_HASH - 1);
+    if (!s->key[i]) {
+        if (!add || s->n >= 257)
+            return -1;
+        s->key[i] = c + 1;
+        s->slot[i] = -1;
+        s->n++;
+    }
+    return (int)i;
+}
+
+static void orig_set(void *ctx, int x, int y, const uint8_t rgba[4])
+{
+    uint32_t *o = ctx;
+    uint32_t w = o[0];
+    o[1 + (uint32_t)y * w + (uint32_t)x] = rgba[3] >= 128 ? (uint32_t)(rgba[0] << 16 | rgba[1] << 8 | rgba[2])
+                                                           : SHEET_CLEAR;
+}
+
+static uint8_t *sheet_section(lua_State *L, int pal, const bm_cart_t *old, uint32_t *type, uint32_t *size)
+{
+    sheet_commit();
+    const uint32_t w = (uint32_t)rt.sheet.w, h = (uint32_t)rt.sheet.h, n = w * h;
+    const uint32_t ow = old && (old->sheet8 || old->sheet_rgba) ? old->sheet_w : 0;
+    const uint32_t oh = ow ? old->sheet_h : 0;
+    uint32_t *rgb = malloc(65536 * sizeof *rgb);    /* the 24 bits of an RGB565 drawn (bit 24: not known) */
+    uint32_t *fin = malloc((size_t)n * sizeof *fin); /* each pixel's colour, or SHEET_CLEAR */
+    uint32_t *orig = ow ? malloc((1 + (size_t)ow * oh) * sizeof *orig) : NULL;
+    uint32_t pc[256];                           /* the palette given */
+    int npc = 0;
+    colour_set_t *set = calloc(1, sizeof *set);
+    uint8_t *out = NULL, *idx = NULL;
+    if (!rgb || !fin || !set || (ow && !orig))
+        goto done;
+    for (int k = 0; k < 65536; k++)
+        rgb[k] = 1u << 24;
+    if (pal && lua_istable(L, pal)) {
+        lua_Integer m = luaL_len(L, pal);
+        for (lua_Integer i = 1; i <= m && npc < 256; i++) {
+            lua_rawgeti(L, pal, i);
+            if (lua_isinteger(L, -1)) {
+                uint32_t c = (uint32_t)lua_tointeger(L, -1) & 0xFFFFFF;
+                pc[npc++] = c;
+                if (rgb[g16_rgb24(c)] >> 24)
+                    rgb[g16_rgb24(c)] = c;
+            }
+            lua_pop(L, 1);
+        }
+    }
+    if (orig) {                                 /* the old sheet, pixel by pixel */
+        orig[0] = ow;
+        if (old->sheet8) {
+            if (bm_sheet8_unpack(old, orig_set, orig) != 0)
+                goto done;
+        } else {
+            for (uint32_t i = 0; i < ow * oh; i++) {
+                const uint8_t *e = old->sheet_rgba + i * 4;
+                orig[1 + i] = e[3] >= 128 ? (uint32_t)(e[0] << 16 | e[1] << 8 | e[2]) : SHEET_CLEAR;
+            }
+        }
+        for (uint32_t i = 0; i < ow * oh; i++)
+            if (orig[1 + i] != SHEET_CLEAR && rgb[g16_rgb24(orig[1 + i])] >> 24)
+                rgb[g16_rgb24(orig[1 + i])] = orig[1 + i];
+    }
+    for (uint32_t y = 0; y < h; y++)
+        for (uint32_t x = 0; x < w; x++) {
+            uint32_t i = y * w + x;
+            if (!rt.sheet.alpha[i]) {
+                fin[i] = SHEET_CLEAR;
+                continue;
+            }
+            uint16_t k = rt.sheet.px[i];
+            uint32_t o = x < ow && y < oh ? orig[1 + y * ow + x] : SHEET_CLEAR;
+            if (o != SHEET_CLEAR && g16_rgb24(o) == k)
+                fin[i] = o;                     /* not drawn on: as it was */
+            else
+                fin[i] = rgb[k] >> 24 ? g16_to_rgb24(k) : rgb[k];
+        }
+    for (uint32_t i = 0; i < n && set->n <= 256; i++)
+        cs_find(set, fin[i], 1);
+    if (set->n > 256) {                         /* SHEET: RGBA */
+        *type = BM_SEC_SHEET;
+        *size = 4 + n * 4;
+        out = malloc(*size);
+        if (!out)
+            goto done;
+        out[0] = (uint8_t)w; out[1] = (uint8_t)(w >> 8);
+        out[2] = (uint8_t)h; out[3] = (uint8_t)(h >> 8);
+        for (uint32_t i = 0; i < n; i++) {
+            uint8_t *e = out + 4 + i * 4;
+            uint32_t c = fin[i];
+            e[0] = (uint8_t)(c >> 16); e[1] = (uint8_t)(c >> 8); e[2] = (uint8_t)c;
+            e[3] = c == SHEET_CLEAR ? 0 : 255;
+            if (c == SHEET_CLEAR) e[0] = e[1] = e[2] = 0;
+        }
+        goto done;
+    }
+    uint8_t pal_rgba[256 * 4];
+    int ncol = 0, waiting = set->n;             /* colours used with no entry yet */
+    int clear_at = -1, clr = -1;                /* the old palette's transparent entry keeps its place */
+    if (orig && old->sheet8 && old->sheet8_size >= 8) {
+        int on = old->sheet8[4] | old->sheet8[5] << 8;
+        for (int j = 0; j < on && 12 + (uint32_t)j * 4 <= old->sheet8_size; j++)
+            if (old->sheet8[8 + j * 4 + 3] < 128) {
+                clear_at = j;
+                break;
+            }
+        clr = clear_at >= 0 ? cs_find(set, SHEET_CLEAR, 0) : -1;
+    }
+    for (int j = 0; j <= npc; j++) {
+        if (clr >= 0 && set->slot[clr] < 0 && ncol == clear_at) {
+            memset(pal_rgba + ncol * 4, 0, 4);
+            set->slot[clr] = (int16_t)ncol++;
+            waiting--;
+        }
+        if (j == npc)
+            break;
+        int at = cs_find(set, pc[j], 0);
+        int takes = at >= 0 && set->slot[at] < 0;
+        if (takes || ncol + waiting < 256) {
+            if (takes) {
+                set->slot[at] = (int16_t)ncol;
+                waiting--;
+            }
+            uint8_t *e = pal_rgba + ncol++ * 4;
+            e[0] = (uint8_t)(pc[j] >> 16); e[1] = (uint8_t)(pc[j] >> 8); e[2] = (uint8_t)pc[j]; e[3] = 255;
+        }
+    }
+    idx = malloc(n ? n : 1);
+    if (!idx)
+        goto done;
+    for (uint32_t i = 0; i < n; i++) {
+        int at = cs_find(set, fin[i], 0);
+        if (set->slot[at] < 0) {                /* the others, as they appear */
+            uint8_t *e = pal_rgba + ncol * 4;
+            uint32_t c = fin[i];
+            if (c == SHEET_CLEAR) {
+                e[0] = e[1] = e[2] = e[3] = 0;
+            } else {
+                e[0] = (uint8_t)(c >> 16); e[1] = (uint8_t)(c >> 8); e[2] = (uint8_t)c; e[3] = 255;
+            }
+            set->slot[at] = (int16_t)ncol++;
+        }
+        idx[i] = (uint8_t)set->slot[at];
+    }
+    if (ncol == 0) {                            /* no pixels: one transparent colour */
+        memset(pal_rgba, 0, 4);
+        ncol = 1;
+    }
+    size_t len = 0;
+    out = bm_sheet8_pack((int)w, (int)h, pal_rgba, ncol, idx, &len);
+    *type = BM_SEC_SHEET8;
+    *size = (uint32_t)len;
+done:
+    free(idx);
+    free(rgb);
+    free(fin);
+    free(orig);
+    free(set);
+    return out;
 }
 
 /* cart_new(): an empty 256x256 sprite sheet and map, no cover */
@@ -2096,6 +3567,7 @@ static int l_cart_new(lua_State *L)
 {
     bm_cart_t c;
     memset(&c, 0, sizeof c);
+    sync3d();
     free_assets();
     if (load_assets(&c) != 0)
         return luaL_error(L, "not enough memory for the cartridge");
@@ -2147,7 +3619,7 @@ static int l_cart_save(lua_State *L)
     lua_getfield(L, 2, "lua");
     size_t lua_len;
     const char *lua = luaL_checklstring(L, -1, &lua_len);
-    int w = strcmp(res, "320x180") == 0 ? 320 : 640, h = w == 320 ? 180 : 360;
+    int w = res_width(res), h = w == 256 ? 256 : w * 9 / 16;
 
     char dir[64], name[16];
     split_path(path, dir, sizeof dir, name, sizeof name);
@@ -2253,7 +3725,7 @@ static int l_cart_read(lua_State *L)
     lua_setfield(L, -2, "title");
     lua_pushstring(L, author);
     lua_setfield(L, -2, "author");
-    lua_pushstring(L, c.width == 320 ? "320x180" : "640x360");
+    lua_pushstring(L, res_name(c.width));
     lua_setfield(L, -2, "res");
     lua_pushlstring(L, c.lua, c.lua_size);
     lua_setfield(L, -2, "lua");
@@ -2263,20 +3735,389 @@ static int l_cart_read(lua_State *L)
     return 1;
 }
 
-/* cart_write(path, {lua=, [title=, author=, res=, from=]}) -> true, or
- * false and a message. Changes only the code (and the fields given) of the
- * cartridge: its sheet, map, cover and any other section stay as they are.
- * from: take those sections from another file ("save as"). A file that does
- * not exist yet becomes a new cartridge with only the code (its name must
- * then be 8.3; an existing file keeps its long name). */
+lua_State *bm_meshcap_newstate(void)
+{
+    return luavm_newstate();
+}
+
+static int capture_call(lua_State *L)
+{
+    const bm_cart_t *c = lua_touserdata(L, 1);
+    return bm_mesh_capture(L, c->lua, c->lua_size, c->width, c->height, api, c->mesh, c->mesh_size);
+}
+
+/* cart_meshes(path) -> { {name=, kind=, verts=, faces=, [uv=]}, ... }, and
+ * nil or the first error of the cartridge's code; or nil and a message.
+ * The 3D meshes the cartridge builds in its code (mesh(), mesh_sphere(),
+ * mesh_cube()), found by running it apart with every other function of bm
+ * doing nothing (meshcap.c); the fields are the arguments of mesh(). For
+ * bm Mesh. */
+static int l_cart_meshes(lua_State *L)
+{
+    const char *path = luaL_checkstring(L, 1);
+    fat_entry_t e;
+    uint8_t *data;
+    size_t len;
+    bm_cart_t c;
+    char err[64];
+    memset(&e, 0, sizeof e);
+    if (fat_find(path, &e) != 0 || e.is_dir || fat_load(&e, &data, &len) != 0) {
+        lua_pushnil(L);
+        lua_pushstring(L, e.is_dir ? "a directory" : fat_error());
+        return 2;
+    }
+    if (bm_parse(data, len, &c, err, sizeof err) != 0) {
+        free(data);
+        lua_pushnil(L);
+        lua_pushstring(L, err);
+        return 2;
+    }
+    lua_pushcfunction(L, capture_call);       /* protected: `data` is freed whatever happens */
+    lua_pushlightuserdata(L, &c);
+    int status = lua_pcall(L, 1, 2, 0);
+    free(data);
+    if (status != LUA_OK) {
+        lua_pushnil(L);
+        lua_insert(L, -2);
+    }
+    return 2;
+}
+
+/* mesh_reduce(record, triangles, [bones, [max_err]]) -> record, bones, n
+ * or nil and a message. Fewer triangles for one model of the MESH section
+ * (src/bm/decimate.c: quadric edge collapse): `record` is the model's part
+ * of the section (as bm3d.lua's encode_mesh writes it), `bones` the bone
+ * of each vertex (one byte each, the ANIM section's), `max_err` stops
+ * before a costlier collapse (0: none). The record comes back with at most
+ * `triangles` triangles (more if nothing else can go without turning a
+ * face over), with the bones of its vertices (nil without `bones`) and
+ * the number of triangles. bm Studio's models page. */
+static int l_mesh_reduce(lua_State *L)
+{
+    size_t len = 0, vblen = 0;
+    const uint8_t *rec = (const uint8_t *)luaL_checklstring(L, 1, &len);
+    int target = (int)luaL_checkinteger(L, 2);
+    const uint8_t *vb = lua_isnoneornil(L, 3) ? NULL : (const uint8_t *)luaL_checklstring(L, 3, &vblen);
+    float max_err = (float)luaL_optnumber(L, 4, 0);
+    if (len < 24 || len > 0x1000000) {
+        lua_pushnil(L);
+        lua_pushstring(L, "broken model record");
+        return 2;
+    }
+    uint32_t nv = rec[16] | rec[17] << 8;
+    if (vb && vblen != nv) {
+        lua_pushnil(L);
+        lua_pushstring(L, "the bones do not fit the model");
+        return 2;
+    }
+    uint8_t *out = malloc(len), *vb_out = vb ? malloc(nv) : NULL;
+    if (!out || (vb && !vb_out)) {
+        free(out);
+        free(vb_out);
+        return luaL_error(L, "not enough memory for the model");
+    }
+    size_t outlen = 0;
+    int n = bm_model_reduce(rec, len, vb, target, max_err, out, &outlen, vb_out);
+    if (n < 0) {
+        free(out);
+        free(vb_out);
+        lua_pushnil(L);
+        lua_pushstring(L, n == -1 ? "broken model record" : "not enough memory for the model");
+        return 2;
+    }
+    lua_pushlstring(L, (const char *)out, outlen);
+    if (vb)
+        lua_pushlstring(L, (const char *)vb_out, out[16] | out[17] << 8);
+    else
+        lua_pushnil(L);
+    lua_pushinteger(L, n);
+    free(out);
+    free(vb_out);
+    return 3;
+}
+
+/* the model table picture3d("take") and cutout3d give */
+static void push_glb_model(lua_State *L, glb_model_t *m)
+{
+    lua_newtable(L);
+    lua_pushlstring(L, (const char *)m->record, m->record_len);
+    lua_setfield(L, -2, "record");
+    if (m->flat) {
+        lua_pushlstring(L, (const char *)m->flat, m->flat_len);
+        lua_setfield(L, -2, "flat");
+    }
+    if (m->texture) {
+        lua_pushlstring(L, (const char *)m->texture, 256 * 256 * 4);
+        lua_setfield(L, -2, "texture");
+    }
+    lua_pushinteger(L, m->nv);
+    lua_setfield(L, -2, "nv");
+    lua_pushinteger(L, m->nf);
+    lua_setfield(L, -2, "nf");
+    lua_pushboolean(L, m->textured);
+    lua_setfield(L, -2, "textured");
+}
+
+/* cutout3d(picture, {name=, lathe=, height=, depth=, segments=, faces=})
+ * -> the same table as picture3d("take"), or nil and a message: a model
+ * from the picture's outline, made here (src/bm/cutout.c, no network): a
+ * cutout with thickness `depth` (a fraction of the height) or, with
+ * lathe = true, the outline turned around the vertical axis in
+ * `segments` steps. picture: a .png / .jpg on the SD card. */
+static int l_cutout3d(lua_State *L)
+{
+    const char *picture = luaL_checkstring(L, 1);
+    const char *name = "model";
+    cutout_opts_t o = { 0, 2.0f, 0.2f, 12, 1200, 256, 0.02f };
+    if (lua_istable(L, 2)) {
+        lua_getfield(L, 2, "name");
+        if (lua_isstring(L, -1))
+            name = lua_tostring(L, -1);
+        lua_getfield(L, 2, "lathe");
+        o.lathe = lua_toboolean(L, -1);
+        lua_getfield(L, 2, "height");
+        if (lua_isnumber(L, -1))
+            o.height = (float)lua_tonumber(L, -1);
+        lua_getfield(L, 2, "depth");
+        if (lua_isnumber(L, -1))
+            o.depth = (float)lua_tonumber(L, -1);
+        lua_getfield(L, 2, "segments");
+        if (lua_isinteger(L, -1))
+            o.segments = (int)lua_tointeger(L, -1);
+        lua_getfield(L, 2, "faces");
+        if (lua_isinteger(L, -1))
+            o.max_faces = (int)lua_tointeger(L, -1);
+        lua_pop(L, 6);
+    }
+    fat_entry_t e;
+    uint8_t *data = NULL;
+    size_t len = 0;
+    memset(&e, 0, sizeof e);
+    if (fat_find(picture, &e) != 0 || e.is_dir || fat_load(&e, &data, &len) != 0) {
+        lua_pushnil(L);
+        lua_pushfstring(L, "%s: %s", picture, e.is_dir ? "a directory" : fat_error());
+        return 2;
+    }
+    glb_model_t m;
+    char err[128];
+    int r = cutout_from_file(data, len, name, &o, &m, err, sizeof err);
+    free(data);
+    if (r < 0) {
+        lua_pushnil(L);
+        lua_pushstring(L, err);
+        return 2;
+    }
+    push_glb_model(L, &m);
+    glb_model_free(&m);
+    return 1;
+}
+
+/* picture3d(action, ...): a picture becomes a 3D model through an
+ * image-to-3D service (src/net/img3d.c, the .glb read by src/bm/glb.c).
+ *   picture3d("providers") -> { "meshy", ... }
+ *   picture3d("ready", provider) -> true, or false and why (no key in
+ *     bm/config.txt: meshy_key=...)
+ *   picture3d("start", picture, {provider=, polycount=}) -> the job's id,
+ *     or nil and a message; picture: a .png / .jpg on the SD card, or an
+ *     https URL the service fetches
+ *   picture3d("status", job, provider) -> "running", progress (0..100);
+ *     "done", the .glb's URL; or nil and a message
+ *   picture3d("take", url, {name=, faces=, height=}) -> { record =
+ *     (the MESH model record, textured if the .glb has a texture), flat =
+ *     (the same with colours sampled from the texture, or nil), texture =
+ *     (256 x 256 RGBA bytes, or nil), nv =, nf =, textured = }, or nil
+ *     and a message. The calls block while the network works (bm Studio
+ *     shows what it is doing before each one). */
+static int l_picture3d(lua_State *L)
+{
+    const char *action = luaL_checkstring(L, 1);
+    char err[160];
+    if (strcmp(action, "providers") == 0) {
+        lua_newtable(L);
+        for (int i = 0; img3d_provider_name(i); i++) {
+            lua_pushstring(L, img3d_provider_name(i));
+            lua_rawseti(L, -2, i + 1);
+        }
+        return 1;
+    }
+    if (strcmp(action, "ready") == 0) {
+        const img3d_provider_t *p = img3d_provider(luaL_optstring(L, 2, "meshy"));
+        const char *key = p ? config_get(img3d_key_name(p)) : NULL;
+        if (!p || !key || !key[0]) {
+            lua_pushboolean(L, 0);
+            if (!p)
+                lua_pushstring(L, "no such service");
+            else {
+                snprintf(err, sizeof err, "%s: put the key in bm/config.txt on the SD card as %s=...",
+                         luaL_optstring(L, 2, "meshy"), img3d_key_name(p));
+                lua_pushstring(L, err);
+            }
+            return 2;
+        }
+        lua_pushboolean(L, 1);
+        return 1;
+    }
+    if (strcmp(action, "start") == 0) {
+        const char *picture = luaL_checkstring(L, 2);
+        const char *pname = "meshy";
+        int polycount = 2000;
+        if (lua_istable(L, 3)) {
+            lua_getfield(L, 3, "provider");
+            if (lua_isstring(L, -1))
+                pname = lua_tostring(L, -1);
+            lua_getfield(L, 3, "polycount");
+            if (lua_isinteger(L, -1))
+                polycount = (int)lua_tointeger(L, -1);
+            lua_pop(L, 2);
+        }
+        const img3d_provider_t *p = img3d_provider(pname);
+        const char *key = p ? config_get(img3d_key_name(p)) : NULL;
+        if (!p || !key) {
+            lua_pushnil(L);
+            lua_pushstring(L, p ? "no key for the service (bm/config.txt)" : "no such service");
+            return 2;
+        }
+        uint8_t *data = NULL;
+        size_t len = 0;
+        int is_url = strncmp(picture, "http://", 7) == 0 || strncmp(picture, "https://", 8) == 0;
+        if (!is_url) {
+            fat_entry_t e;
+            memset(&e, 0, sizeof e);
+            if (fat_find(picture, &e) != 0 || e.is_dir || fat_load(&e, &data, &len) != 0) {
+                lua_pushnil(L);
+                lua_pushfstring(L, "%s: %s", picture, e.is_dir ? "a directory" : fat_error());
+                return 2;
+            }
+        }
+        char task[64];
+        int r = img3d_start(p, key, data, len, is_url ? picture : NULL, polycount, task, sizeof task, err, sizeof err);
+        free(data);
+        if (r < 0) {
+            lua_pushnil(L);
+            lua_pushstring(L, err);
+            return 2;
+        }
+        lua_pushstring(L, task);
+        return 1;
+    }
+    if (strcmp(action, "status") == 0) {
+        const char *task = luaL_checkstring(L, 2);
+        const img3d_provider_t *p = img3d_provider(luaL_optstring(L, 3, "meshy"));
+        const char *key = p ? config_get(img3d_key_name(p)) : NULL;
+        if (!p || !key) {
+            lua_pushnil(L);
+            lua_pushstring(L, "no such service, or no key");
+            return 2;
+        }
+        int progress = 0;
+        char url[512];
+        int r = img3d_status(p, key, task, &progress, url, sizeof url, err, sizeof err);
+        if (r < 0) {
+            lua_pushnil(L);
+            lua_pushstring(L, err);
+            return 2;
+        }
+        lua_pushstring(L, r ? "done" : "running");
+        if (r)
+            lua_pushstring(L, url);
+        else
+            lua_pushinteger(L, progress);
+        return 2;
+    }
+    if (strcmp(action, "take") == 0) {
+        const char *url = luaL_checkstring(L, 2);
+        const char *name = "model";
+        glb_opts_t o = { 2.0f, 1200, 256 };
+        if (lua_istable(L, 3)) {
+            lua_getfield(L, 3, "name");
+            if (lua_isstring(L, -1))
+                name = lua_tostring(L, -1);
+            lua_getfield(L, 3, "faces");
+            if (lua_isinteger(L, -1))
+                o.max_faces = (int)lua_tointeger(L, -1);
+            lua_getfield(L, 3, "height");
+            if (lua_isnumber(L, -1))
+                o.height = (float)lua_tonumber(L, -1);
+            lua_pop(L, 3);
+        }
+        uint8_t *glb = NULL;
+        size_t len = 0;
+        if (img3d_download(url, 24u << 20, &glb, &len, err, sizeof err) < 0) {
+            lua_pushnil(L);
+            lua_pushstring(L, err);
+            return 2;
+        }
+        glb_model_t m;
+        int r = glb_to_model(glb, len, name, &o, &m, err, sizeof err);
+        free(glb);
+        if (r < 0) {
+            lua_pushnil(L);
+            lua_pushstring(L, err);
+            return 2;
+        }
+        push_glb_model(L, &m);
+        glb_model_free(&m);
+        return 1;
+    }
+    return luaL_error(L, "picture3d: providers, ready, start, status or take");
+}
+
+/* cart_write(path, {[lua=], [title=, author=, res=, from=, sections=,
+ * sheet=, palette=]}) -> true, or false and a message. Changes only the
+ * code (and the fields given) of the cartridge: its sheet, map, cover, sound
+ * bank and any other section stay as they are. lua absent: the code stays
+ * too. sections: {[8] = MESH bytes, [9] = ANIM bytes} (false takes them
+ * away), checked first (bm Mesh, the 3D tools). sheet = true: the project's
+ * sprite sheet (cart_load, sset, cart_sheet) takes the place of the file's,
+ * as SHEET8 with `palette` ({0xRRGGBB, ...}) first in its palette when it
+ * has at most 256 colours (sheet_section; bm Pixel). from: take the
+ * sections from another file ("save as"); from = false: a new cartridge,
+ * whatever the file holds now (bm Studio's new project). A file that does not exist yet
+ * becomes a new cartridge with the code (its name must then be 8.3; an
+ * existing file keeps its long name). */
 static int l_cart_write(lua_State *L)
 {
     const char *path = luaL_checkstring(L, 1);
     luaL_checktype(L, 2, LUA_TTABLE);
     lua_getfield(L, 2, "lua");
-    size_t lua_len;
-    const char *lua = luaL_checklstring(L, -1, &lua_len);
-    const char *base = field(L, 2, "from", path);
+    size_t lua_len = 0;
+    const char *lua = lua_isnil(L, -1) ? NULL : luaL_checklstring(L, -1, &lua_len);
+    bm_put_t put[3];
+    int nput = 0;
+    lua_getfield(L, 2, "sections");
+    if (!lua_isnil(L, -1)) {
+        luaL_checktype(L, -1, LUA_TTABLE);
+        static const uint32_t kinds[2] = { BM_SEC_MESH, BM_SEC_ANIM };
+        lua_pushnil(L);
+        while (lua_next(L, -2)) {
+            lua_Integer t = lua_isinteger(L, -2) ? lua_tointeger(L, -2) : -1;
+            if (t != BM_SEC_MESH && t != BM_SEC_ANIM)
+                return luaL_error(L, "sections: only 8 (MESH) and 9 (ANIM)");
+            lua_pop(L, 1);
+        }
+        for (int k = 0; k < 2; k++) {
+            lua_rawgeti(L, -1, kinds[k]);
+            if (lua_isnil(L, -1)) {
+                lua_pop(L, 1);
+                continue;
+            }
+            size_t n = 0;
+            const uint8_t *s = lua_toboolean(L, -1) ? (const uint8_t *)luaL_checklstring(L, -1, &n) : NULL;
+            if (s && (n > 0x1000000 || (kinds[k] == BM_SEC_MESH ? bm_mesh_check(s, (uint32_t)n)
+                                                                 : bm_anim_check(s, (uint32_t)n)) < 0)) {
+                lua_pushboolean(L, 0);
+                lua_pushstring(L, kinds[k] == BM_SEC_MESH ? "broken MESH section" : "broken ANIM section");
+                return 2;
+            }
+            put[nput++] = (bm_put_t){ kinds[k], s, (uint32_t)n };
+            lua_pop(L, 1);          /* the string stays alive in the table */
+        }
+    }
+    lua_pop(L, 1);
+    lua_getfield(L, 2, "from");
+    int fresh = lua_isboolean(L, -1) && !lua_toboolean(L, -1);    /* from = false: a new cartridge */
+    lua_pop(L, 1);
+    const char *base = fresh ? NULL : field(L, 2, "from", path);
     char dir[64], name[FAT_NAME_MAX];
     split_path(path, dir, sizeof dir, name, sizeof name);
 
@@ -2286,7 +4127,7 @@ static int l_cart_write(lua_State *L)
     bm_cart_t c;
     memset(&c, 0, sizeof c);
     char err[64];
-    if (fat_find(base, &e) == 0 && !e.is_dir) {
+    if (base && fat_find(base, &e) == 0 && !e.is_dir) {
         if (fat_load(&e, &old, &old_len) != 0) {
             lua_pushboolean(L, 0);
             lua_pushstring(L, fat_error());
@@ -2305,11 +4146,32 @@ static int l_cart_write(lua_State *L)
     title[48] = author[32] = 0;
     const char *t = field(L, 2, "title", old ? title : name);
     const char *a = field(L, 2, "author", author);
-    const char *res = field(L, 2, "res", c.width == 320 ? "320x180" : "640x360");
+    const char *res = field(L, 2, "res", res_name(c.width));
+    if (!old && !lua) {
+        lua_pushboolean(L, 0);
+        lua_pushstring(L, "a new cartridge needs its code (lua)");
+        return 2;
+    }
+    uint8_t *sheet = NULL;
+    lua_getfield(L, 2, "sheet");
+    int want_sheet = lua_toboolean(L, -1);
+    lua_pop(L, 1);
+    if (want_sheet) {
+        uint32_t st = 0, ss = 0;
+        lua_getfield(L, 2, "palette");
+        sheet = sheet_section(L, lua_istable(L, -1) ? lua_gettop(L) : 0, old ? &c : NULL, &st, &ss);
+        lua_pop(L, 1);
+        if (!sheet) {
+            free(old);
+            return luaL_error(L, "not enough memory to save the sheet");
+        }
+        put[nput++] = (bm_put_t){ st, sheet, ss };
+    }
     size_t out_len;
-    uint8_t *out = bm_rewrite(old, old_len, lua, lua_len, t, a, strcmp(res, "320x180") ? 640 : 320,
-                              &out_len);
+    uint8_t *out = bm_rewrite_with(old, old_len, lua, lua_len, t, a, res_width(res), put, nput,
+                                   &out_len);
     free(old);
+    free(sheet);
     if (!out)
         return luaL_error(L, "not enough memory to save");
     /* an existing file keeps its entry (and its long name); a new one is 8.3 */
@@ -2332,6 +4194,17 @@ static int l_cart_write(lua_State *L)
 static int l_cart_run(lua_State *L)
 {
     ksnprintf(run_request, sizeof run_request, "%s", luaL_checkstring(L, 1));
+    rt.quit = 1;
+    return 0;
+}
+
+/* cart_tool(name, [path]): leaves this tool for another of the console's
+ * ("studio", "animator", "mesh", "pixel", "code", "sdk", "sound") on the
+ * file (bm Studio's "Open in bm Animator") */
+static int l_cart_tool(lua_State *L)
+{
+    ksnprintf(tool_request, sizeof tool_request, "%s", luaL_checkstring(L, 1));
+    ksnprintf(run_request, sizeof run_request, "%s", luaL_optstring(L, 2, ""));
     rt.quit = 1;
     return 0;
 }
@@ -2552,7 +4425,7 @@ static int l_cart_put_audio(lua_State *L)
  * section, or nil; cart_data(type, bytes) replaces it (nil or "" takes it
  * away) -> true, or false and a message. The bytes are checked first;
  * model() and animate() see the new ones at once, cart_save writes them.
- * The 3D studio edits models and skeletons this way. */
+ * bm Studio and bm Animator of the console edit models and skeletons this way. */
 static int l_cart_data(lua_State *L)
 {
     int type = (int)luaL_checkinteger(L, 1);
@@ -2648,13 +4521,33 @@ static int video_to_ram(g16_t *g)
 int bm_via_ram(void) { return via_ram; }
 int bm_video_uses_ram(void) { return shadow != NULL; }
 
+/* A square 256x256 cartridge is drawn in the middle of a 480x270 screen
+ * (1920x1080 / 4: whole pixels on a 1080p TV), black around it: `box` is
+ * the byte offset of its top left corner in a page, 0 for the 16:9 sizes. */
+static uint32_t box;
+
+static uint16_t *page_px(const framebuffer_t *fb)
+{
+    return (uint16_t *)(fb->base + box);
+}
+
 int bm_video_enter(framebuffer_t *fb, int w, int h, g16_t *g)
 {
     console_suspend(1);
     free(shadow);
     shadow = NULL;
-    if (fb_init_depth(fb, (uint32_t)w, (uint32_t)h, 3, 16) != 0)
+    const int boxed = w == 256 && h == 256;
+    const uint32_t fw = boxed ? 480u : (uint32_t)w, fh = boxed ? 270u : (uint32_t)h;
+    box = 0;
+    if (fb_init_depth(fb, fw, fh, 3, 16) != 0)
         return -1;
+    gpu3d_set_fb(fb->mem, fb->size, fb->bus);   /* its pages, for the GPU's 3D */
+    if (boxed) {
+        if (fb->width < (uint32_t)w || fb->height < (uint32_t)h)
+            return -1;
+        box = (fb->height - (uint32_t)h) / 2 * fb->pitch + (fb->width - (uint32_t)w) / 2 * 2;
+        memset(fb->mem, 0, (size_t)fb->pitch * fb->height * fb->buffers);
+    }
     if (via_ram) {
         shadow = malloc((size_t)w * (size_t)h * 2);
         if (!shadow)
@@ -2662,7 +4555,7 @@ int bm_video_enter(framebuffer_t *fb, int w, int h, g16_t *g)
         memset(shadow, 0, (size_t)w * (size_t)h * 2);
         g16_target(g, shadow, (uint32_t)w, w, h, &font_console_8x16);
     } else {
-        g16_target(g, (uint16_t *)fb->base, fb->pitch / 2, w, h, &font_console_8x16);
+        g16_target(g, page_px(fb), fb->pitch / 2, w, h, &font_console_8x16);
     }
     return 0;
 }
@@ -2670,13 +4563,19 @@ int bm_video_enter(framebuffer_t *fb, int w, int h, g16_t *g)
 uint32_t bm_video_present(framebuffer_t *fb, g16_t *g)
 {
     if (!shadow) {
+        if (rt.mouse && rt.mouse_arrow)         /* on the page about to be shown */
+            pointer_draw(page_px(fb), fb->pitch / 2, g->w, g->h);
         fb_flip(fb);
-        g->px = (uint16_t *)fb->base;
+        g->px = page_px(fb);
         return 0;
     }
     uint32_t t0 = timer_ticks();
     const uint32_t row = (uint32_t)g->w * 2;
-    if (fb->pitch == row && dma_ready() && dma_frames) {
+    if (box) {
+        uint8_t *dst = fb->base + box;
+        for (int y = 0; y < g->h; y++)
+            memcpy(dst + (uint32_t)y * fb->pitch, g->px + (uint32_t)y * g->stride, row);
+    } else if (fb->pitch == row && dma_ready() && dma_frames) {
         /* the DMA reads the SDRAM much faster than the ARM1176 */
         dcache_clean_all();
         dma_copy(fb->base, g->px, row * (uint32_t)g->h);
@@ -2688,6 +4587,8 @@ uint32_t bm_video_present(framebuffer_t *fb, g16_t *g)
             memcpy(fb->base + (uint32_t)y * fb->pitch, g->px + (uint32_t)y * g->stride, row);
     }
     uint32_t us = timer_ticks() - t0;
+    if (rt.mouse && rt.mouse_arrow)             /* over the copy: never in the cartridge's buffer */
+        pointer_draw(page_px(fb), fb->pitch / 2, g->w, g->h);
     fb_flip(fb);
     return us;
 }
@@ -2696,6 +4597,7 @@ void bm_video_leave(framebuffer_t *fb, uint32_t w, uint32_t h)
 {
     free(shadow);
     shadow = NULL;
+    box = 0;
     fb_init(fb, w, h, 2);
     console_suspend(0);
 }
@@ -2707,13 +4609,24 @@ static int enter_mode(framebuffer_t *fb, int w, int h)
 
 static void leave_mode(framebuffer_t *fb, uint32_t w, uint32_t h)
 {
+    pointer_env(0, 0, 0);
     bm_video_leave(fb, w, h);
     input_flush();              /* keys typed in the game stay in the game */
 }
 
 static void present(framebuffer_t *fb, uint32_t *deadline, uint32_t *prev, uint32_t *dropped)
 {
-    rt.present_us = bm_video_present(fb, &rt.g);
+    flush3d(0);
+    if (rt.hold_frame) {
+        rt.hold_frame = 0;
+        rt.present_us = 0;
+    } else {
+        rt.present_us = bm_video_present(fb, &rt.g);
+    }
+    d2_early(0);                        /* what the early _update drew: this page's */
+    if (rt.r3d.backend)
+        gpu3d_page(0, 0);               /* another page: what it holds is not known */
+    zclear_dma_start();
     while ((int32_t)(timer_ticks() - *deadline) < 0)
         ;
     uint32_t now = timer_ticks();
@@ -2741,12 +4654,24 @@ static struct {
 /* Frees what a cartridge holds (after leave_mode). */
 static void release(lua_State *L)
 {
+    cartnet_reset();            /* the cartridge's sockets */
     audio_reset();
     audio_bank(NULL, 0, NULL, 0);
     set_copy(&own_audio, &own_audio_len, NULL, 0);
     lua_close(L);               /* frees meshes (__gc) before the z-buffer */
     n8lua_close();
+    if (rt.r3d.backend)
+        gpu3d_drop();           /* an error in the middle of a frame */
+    rt.r3d.backend = NULL;
+    free(d2.w);                 /* 2D recorded in the middle of a frame (M35) */
+    d2.w = NULL;
+    d2.n = d2.cap = d2.ops = 0;
+    d2.on = 0;
+    d2.cut = D2_NONE;
     g16_light_free(&rt.light);
+    zclear_dma_wait(1);         /* the DMA may still be clearing it */
+    rt.zclear_seen = 0;
+    g16_fade_free(&rt.fade);
     if (rt.r3d_ready)
         r3d_free(&rt.r3d);
     rt.r3d_ready = 0;
@@ -2754,6 +4679,64 @@ static void release(lua_State *L)
 }
 
 static int vol_start;                   /* the volume when the cartridge started or resumed */
+
+/* ---------------------------------------------------------------- the dev kit */
+
+/* The performance overlay, over any game (Settings > Performance overlay,
+ * F3 on a keyboard, 'p' on the serial line): its frames a second, the CPU
+ * time of _update + _draw and the Lua instructions of a frame (the mean and,
+ * after ^, the most of the last second), and the time of the last 64 frames
+ * against the 16.7 ms of a frame at 60 Hz. Drawn on the 8x16 grid, top right:
+ *   60fps 6.1ms ^7.5
+ *   lua 9k ^10k        */
+#define PERF_N 64
+static int perf_on;
+static struct { uint16_t us10[PERF_N], k[PERF_N]; uint32_t at; } perf;
+
+void bm_set_perf(int on) { perf_on = on != 0; }
+int bm_perf(void) { return perf_on; }
+
+static void perf_frame(void)
+{
+    uint32_t i = perf.at++ % PERF_N;
+    perf.us10[i] = (uint16_t)(rt.last_cpu_us / 10 > 65535 ? 65535 : rt.last_cpu_us / 10);
+    perf.k[i] = (uint16_t)(rt.last_instr_k > 65535 ? 65535 : rt.last_instr_k);
+    if (!perf_on)
+        return;
+    uint32_t n = perf.at < 60 ? perf.at : 60, sum = 0, most = 0, ksum = 0, kmost = 0;
+    for (uint32_t j = 0; j < n; j++) {
+        uint32_t k = (perf.at - 1 - j) % PERF_N;
+        sum += perf.us10[k];
+        ksum += perf.k[k];
+        if (perf.us10[k] > most) most = perf.us10[k];
+        if (perf.k[k] > kmost) kmost = perf.k[k];
+    }
+    uint32_t mean = sum / n, kmean = ksum / n;
+    g16_t *g = &rt.g;
+    const g16_t keep = *g;
+    g16_camera(g, 0, 0);
+    g16_clip(g, 0, 0, 0, 0);
+    g->font = &font_console_8x16;
+    const int x = g->w - 144;                     /* the text on the 8 x 16 grid (read by the tests) */
+    g16_rectfill(g, x - 4, 0, 148, 50, g16_rgb(8, 8, 16));
+    char line[32];
+    ksnprintf(line, sizeof line, "%lufps %lu.%lums ^%lu.%lu", rt.fps, mean / 100, mean / 10 % 10,
+              most / 100, most / 10 % 10);
+    g16_text(g, x, 0, line, g16_rgb(232, 232, 216));
+    ksnprintf(line, sizeof line, "lua %luk ^%luk", kmean, kmost);
+    g16_text(g, x, 16, line, g16_rgb(200, 184, 120));
+    /* the last 64 frames, 2 px each; the top is 16.7 ms (a frame at 60 Hz) */
+    for (uint32_t j = 0; j < PERF_N && j < perf.at; j++) {
+        uint32_t v = perf.us10[(perf.at - 1 - j) % PERF_N];
+        int hgt = (int)(v * 14 / 1670);
+        if (hgt > 14) hgt = 14;
+        if (hgt < 1) hgt = 1;
+        uint16_t c = v < 835 ? g16_rgb(72, 200, 96) : v < 1670 ? g16_rgb(232, 200, 64) : g16_rgb(232, 64, 48);
+        g16_rectfill(g, x + 140 - (int)j * 2, 48 - hgt, 2, hgt, c);
+    }
+    g16_line(g, x - 2, 33, x + 141, 33, g16_rgb(72, 72, 96));
+    *g = keep;
+}
 
 /* The frame loop, then either suspend or close. */
 static int run_frames(framebuffer_t *fb, lua_State *L, const char *title, int w, int h,
@@ -2763,6 +4746,8 @@ static int run_frames(framebuffer_t *fb, lua_State *L, const char *title, int w,
     uint32_t start = timer_ticks(), deadline = start + FRAME_US, prev = start;
     uint32_t fps_t0 = start, fps_frames = 0;
     int left = 0;                           /* Esc, PS, Start+Select, 'q' */
+    int updated = 0;                        /* this frame's _update ran while the GPU drew the last (M35) */
+    uint32_t early_us = 0;                  /* its time */
     while (!error) {
         if (rt.quit || timer_ticks() - start >= seconds * 1000000u)
             break;
@@ -2771,16 +4756,57 @@ static int run_frames(framebuffer_t *fb, lua_State *L, const char *title, int w,
             break;
         }
         audio_idle();
-        uint32_t t0 = timer_ticks();
-        if (call(L, "_update") != 0 || call(L, "_draw") != 0) {
+        /* F3, or 'p' from the serial line: the dev kit (not while typing: the
+         * editors have their own F keys) */
+        int f3 = !rt.text_mode && hid_usage_held(0x3C);
+        if ((f3 && !rt.f3_held) || rt.perf_key)
+            perf_on = !perf_on;
+        rt.f3_held = f3;
+        rt.perf_key = 0;
+        /* with this frame's _update, if it ran during the last (stat(8)
+         * counts as if it had run just now; its Lua instructions too) */
+        const uint32_t t0 = timer_ticks() - early_us;
+        rt.frame_t0 = t0;
+        early_us = 0;
+        if (!updated)
+            rt.frame_instr_k = 0;
+        if ((!updated && call(L, "_update") != 0) || call(L, "_draw") != 0) {
             error = lua_tostring(L, -1);
             break;
         }
-        rt.last_cpu_us = timer_ticks() - t0;
+        updated = 0;
+        rt.frame++;                         /* (before the next _update, if it runs early) */
+        const uint32_t instr_k = rt.frame_instr_k;
+        if (submit3d()) {
+            /* the frame in the queue (M35): the GPU draws it while the next
+             * frame's _update runs; flush3d waits for it before the page
+             * is shown */
+            const uint32_t t1 = timer_ticks();
+            rt.frame_t0 = t1;
+            rt.frame_instr_k = 0;
+            d2_early(1);
+            rt.early = 1;
+            const int err = call(L, "_update");
+            rt.early = 0;
+            if (err != 0) {
+                error = lua_tostring(L, -1);
+                break;
+            }
+            updated = 1;
+            early_us = timer_ticks() - t1;
+            if (rt.early_touch) {
+                rt.no_early = 1;
+                kprintf("bm: _update draws 3D or reads the page: it runs after the frame again (frame queue)\n");
+            }
+        }
+        flush3d(0);                         /* the GPU's 3D counts in the frame's time */
+        rt.last_cpu_us = timer_ticks() - t0 - early_us;
+        rt.last_instr_k = instr_k;
+        perf_frame();
         st->cpu_us_total += rt.last_cpu_us;
         if (rt.last_cpu_us > st->cpu_us_max)
             st->cpu_us_max = rt.last_cpu_us;
-        rt.frame++;
+        st->tris3d = rt.r3d_ready ? rt.r3d.tris_drawn : 0;
         crumb_frame(rt.frame);
         present(fb, &deadline, &prev, &st->dropped);
         st->copy_us_total += rt.present_us;
@@ -2796,6 +4822,8 @@ static int run_frames(framebuffer_t *fb, lua_State *L, const char *title, int w,
     st->frames = (uint32_t)rt.frame;
     st->elapsed_us = timer_ticks() - start;
     st->lua_kb = (uint32_t)(luavm_mem() / 1024);
+    st->gpu3d = rt.r3d_ready && rt.r3d.backend != NULL;
+    st->d2_ops = d2.ops;
     st->ok = error == NULL;
 
     if (!error && left && suspendable) {
@@ -2840,9 +4868,15 @@ int bm_run(framebuffer_t *fb, const uint8_t *data, size_t len,
     proj_cover = NULL;
     extras_free();
     set_copy(&proj_audio, &proj_audio_len, NULL, 0);
+    cur = next;                         /* the options of this run, then none */
+    bm_next_run(0, 0, -1, 0);
     if (bm_parse(data, len, &cart, err, sizeof err) != 0) {
         kprintf("\x1b[91mbm: %s\x1b[0m\n", err);
         return BM_ENDED;
+    }
+    if (cur.w > 0 && cur.h > 0) {
+        cart.width = cur.w;
+        cart.height = cur.h;
     }
     memcpy(st->title, cart.title, sizeof st->title);
     if (load_assets(&cart) != 0 || !(L = new_cart_state(&cart))) {
@@ -2880,7 +4914,7 @@ int bm_run(framebuffer_t *fb, const uint8_t *data, size_t len,
         call(L, "_init") != 0)
         error = lua_tostring(L, -1);
     return run_frames(fb, L, cart.title, cart.width, cart.height, con_w, con_h, seconds, st,
-                      error, suspendable);
+                      error, suspendable && !cur.bench);
 }
 
 void bm_play(framebuffer_t *fb, const uint8_t *data, size_t len,
@@ -2911,6 +4945,7 @@ int bm_resume(framebuffer_t *fb, uint32_t seconds, bm_stats_t *st)
     rt.g.font = susp.g.font;
     if (susp.used_ram)
         video_to_ram(&rt.g);
+    pointer_env(rt.mouse, susp.w, susp.h);      /* the pointer, if it had asked for it */
     /* the time spent in the menu does not count for time() */
     rt.start_us += timer_ticks() - susp.since;
     rt.esc = 0;
@@ -2958,6 +4993,14 @@ void bm_print_stats(const bm_stats_t *st)
             st->cpu_us_max / 1000, st->cpu_us_max % 1000 / 10, st->lua_kb);
     if (copy)
         kprintf("     copy to screen %lu.%02lu ms per frame\n", copy / 1000, copy % 1000 / 10);
+    gpu3d_stats_t g;
+    gpu3d_take_stats(&g);
+    if (g.jobs) {
+        uint32_t per = (g.bin_us + g.render_us) / st->frames;
+        kprintf("     GPU 3D %lu jobs, %lu triangles a frame, %lu.%02lu ms a frame (bin %lu%%), max job %lu us\n",
+                g.jobs, g.tris / st->frames, per / 1000, per % 1000 / 10,
+                g.bin_us + g.render_us ? g.bin_us * 100 / (g.bin_us + g.render_us) : 0, g.max_us);
+    }
 }
 
 /* ---------------------------------------------------------------- C bench */

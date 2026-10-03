@@ -30,7 +30,7 @@ void home_row(home_panel_t *p, int kind, int id, const char *label, const char *
               const char *fmt, ...) __attribute__((format(printf, 6, 7)));
 
 /* The panels. HOME_CART (a cartridge's options) is built by carts.c. */
-enum { HOME_SETTINGS = 1, HOME_CONTROLLERS, HOME_WIFI, HOME_SYSTEM, HOME_CART };
+enum { HOME_SETTINGS = 1, HOME_CONTROLLERS, HOME_WIFI, HOME_SYSTEM, HOME_CART, HOME_GRAPHICS };
 
 /* What a row asks of the menu. */
 enum {
@@ -52,6 +52,10 @@ typedef struct {
     int wait;                   /* HOME_TEXT: then "A: back to the menu" */
     char note[96];              /* a line for the menu's footer, if not empty */
 } home_do_t;
+
+/* Settings > Controllers > Button icons: the DS4's face buttons in the
+ * hints white (0) or in their colours (1); kept in config.txt. */
+int  home_prompts_colour(void);
 
 /* Builds settings panel `id`. */
 void home_panel(int id, home_panel_t *p);

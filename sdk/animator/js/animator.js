@@ -396,6 +396,12 @@
 
     render() {
       const app = this.app, S = this.S, Rr = this.r, model = app.model(), rig = app.rig();
+      // the sheet is the texture of the faces with tiles: a new file, bm Studio's
+      // project, the sprites put in the sheet or undone (else they show magenta)
+      if (app.project.sheet && this.sheet !== app.project.sheet) {
+        Rr.uploadSheet(app.project.sheet);
+        this.sheet = app.project.sheet;
+      }
       Rr.begin(S.view.bg, this.cam);
       Rr.drawLines(Rr.lineBuffer('grid', this.grid(), 'lines'), {});
       const anim = S.mode === 'anim' && rig;

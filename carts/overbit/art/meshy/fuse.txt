@@ -1,0 +1,5 @@
+# Fuse (damage): a demolitions artist, post-modern and colourful
+name = fuse
+height = 1.85
+prompt = Full-body 3D game character, a lanky young demolitions artist standing in A-pose with empty hands, no weapon. Short neon pink hair with shaved sides, round mirrored purple goggles pushed up on the head, an oversized glossy lime green puffer vest over a black and white zigzag patterned long sleeve top, a bandolier of glossy round charges in candy colours across the chest, wide violet cargo trousers, chunky white sneakers with orange soles, padded orange gloves, a small glossy white backpack with a round capsule. Stylized proportions, colourful hero shooter character.
+texture = glossy lime green puffer vest, black and white zigzag top, candy coloured round charges in pink yellow and cyan, violet trousers, white sneakers with orange soles, orange gloves, neon pink hair, purple mirrored goggles, white backpack with a cyan capsule; bright stylized hand-painted game texture with clean saturated colour blocks

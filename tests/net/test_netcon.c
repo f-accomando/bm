@@ -263,15 +263,20 @@ int main(void)
     for (unsigned i = 0; i < sizeof file; i++)
         file[i] = (uint8_t)(i * 7 + (i >> 8));
 
-    struct { char op; const char *pw, *path; uint32_t crc_xor; const char *answer, *what; } cases[] = {
-        { 'S', "secret", "carts/pong.bm", 0, "OKOK", "file saved on the SD card" },
-        { 'S', "nope", "carts/pong.bm", 0, "PW", "wrong password refused" },
-        { 'S', "secret", "carts/bad.bm", 1, "OKCE", "damaged file refused" },
-        { 'P', "secret", "x.bm", 0, "OKOK", "cartridge to play received" },
-        { 'K', "secret", "kernel.img", 0, "OKOK", "kernel received" },
+    /* mark: what start.S puts at +4 of a kernel image (kernel.img or the
+     * Pi Zero 2 W's kernel7.img); this is kernel.img's build */
+    struct { char op; const char *pw, *path; uint32_t crc_xor; const char *answer, *what, *mark; } cases[] = {
+        { 'S', "secret", "carts/pong.bm", 0, "OKOK", "file saved on the SD card", NULL },
+        { 'S', "nope", "carts/pong.bm", 0, "PW", "wrong password refused", NULL },
+        { 'S', "secret", "carts/bad.bm", 1, "OKCE", "damaged file refused", NULL },
+        { 'P', "secret", "x.bm", 0, "OKOK", "cartridge to play received", NULL },
+        { 'K', "secret", "kernel7.img", 0, "OKKA", "the Pi Zero 2 W's kernel refused", "bmK7" },
+        { 'K', "secret", "kernel.img", 0, "OKOK", "kernel received", "bmK6" },
     };
     for (unsigned t = 0; t < sizeof cases / sizeof cases[0]; t++) {
         w_name[0] = 0;
+        if (cases[t].mark)
+            memcpy(file + 4, cases[t].mark, 4);
         client_t x;
         connect_port(&x, NETXFER_PORT);
         uint8_t h[200];
@@ -315,7 +320,7 @@ int main(void)
             check(strcmp(w_dir, "/carts") == 0 && strcmp(w_name, "pong.bm") == 0 &&
                   w_len == sizeof file && memcmp(w_data, file, w_len) == 0 && netxfer_saves() == 1,
                   "  in /carts/pong.bm, same bytes");
-        if (t == 1 || t == 2)
+        if (t == 1 || t == 2 || t == 4)
             check(w_name[0] == 0, "  nothing written");
         if (t == 3) {
             uint8_t *pb;

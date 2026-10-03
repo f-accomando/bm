@@ -4,10 +4,11 @@
 
 -- bm's controller bits (pad())
 local PAD = { left = 1, right = 2, up = 4, down = 8, a = 16, b = 32, start = 64, select = 128,
-              x = 256, y = 512, l1 = 1024, r1 = 2048 }
+              x = 256, y = 512, l1 = 1024, r1 = 2048, l2 = 4096, r2 = 8192, l3 = 16384, r3 = 32768 }
 In.PAD = PAD
 In.PAD_NAMES = { [1] = "Left", [2] = "Right", [4] = "Up", [8] = "Down", [16] = "A", [32] = "B",
-                 [64] = "Start", [128] = "Select", [256] = "X", [512] = "Y", [1024] = "L1", [2048] = "R1" }
+                 [64] = "Start", [128] = "Select", [256] = "X", [512] = "Y", [1024] = "L1", [2048] = "R1",
+                 [4096] = "L2", [8192] = "R2", [16384] = "L3", [32768] = "R3" }
 
 -- the cart's buttons: left right up down O X pause
 In.BUTTONS = { "Left", "Right", "Up", "Down", "O", "X", "Pause" }
@@ -48,7 +49,7 @@ end
 
 function In.padname(bits)
   local names = {}
-  for b = 0, 11 do
+  for b = 0, 15 do
     if bits >> b & 1 == 1 then names[#names + 1] = In.PAD_NAMES[1 << b] end
   end
   return #names > 0 and concat(names, " ") or "-"

@@ -16,6 +16,9 @@ typedef struct {
     uint32_t dropped;
     uint32_t lua_kb;
     uint32_t copy_us_total;     /* frame copies to the framebuffer */
+    uint32_t tris3d;            /* 3D triangles drawn in the last frame */
+    int gpu3d;                  /* the GPU drew the 3D at the end */
+    uint32_t d2_ops;            /* 2D drawn after the GPU's 3D, recorded meanwhile (M35) */
     int ok;                     /* 0 = error (message printed), 1 = ran */
 } bm_stats_t;
 
@@ -27,6 +30,11 @@ typedef struct {
  */
 void bm_play(framebuffer_t *fb, const uint8_t *data, size_t len,
               uint32_t seconds, bm_stats_t *st);
+/* For the next bm_run / bm_play only (kernel benchmarks): the screen size
+ * instead of the cartridge's (0, 0: its own), who draws the 3D (-1: the
+ * setting, 0: the ARM, 1: the GPU), and a number the cartridge reads as
+ * the global BENCH (0: none). */
+void bm_next_run(int w, int h, int gpu3d, int bench);
 /* The same; with `suspendable`, leaving with Esc / PS / Start+Select / 'q'
  * keeps the cartridge frozen in memory (BM_SUSPENDED) instead of closing
  * it (quit(), an error or the time limit still close it). Starting a
@@ -61,6 +69,10 @@ uint32_t bm_video_present(framebuffer_t *fb, g16_t *g);
 /* Draw target: 0 = framebuffer back page (default), 1 = RAM buffer + copy. */
 void bm_set_via_ram(int on);
 int  bm_via_ram(void);
+/* The dev kit: the performance overlay over the games (fps, ms, Lua
+ * instructions, the time of the last frames); F3 or 'p' toggles it too. */
+void bm_set_perf(int on);
+int  bm_perf(void);
 /* 1 while the running cartridge draws into a RAM buffer (lights). */
 int  bm_video_uses_ram(void);
 
@@ -72,6 +84,8 @@ void bm_set_dma_frames(int on);
  * error the last cartridge stopped with ("" if none). */
 void bm_set_arg(const char *path, const char *error);
 int  bm_take_run(char *path, size_t n);
+/* the tool a tool asked for with cart_tool(name, path) (the path: bm_take_run) */
+int  bm_take_tool(char *name, size_t n);
 const char *bm_last_error(void);
 /* cart_arg().back: the editor comes back from trying a game (1), or opens
  * the file it was given from the menu (0). */

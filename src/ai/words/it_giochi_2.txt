@@ -1,0 +1,60 @@
+Missione: Il pozzo prosciugato. Il villaggio di Roccabruna non ha più acqua. Scendi nel pozzo, esplora le gallerie e scopri che cosa blocca la sorgente. Attenzione ai pipistrelli e ai ragni giganti. Ricompensa: cento monete e la gratitudine degli abitanti.
+Missione: La lettera smarrita. Un messaggero ha perso una lettera importante mentre attraversava il bosco. Cercala tra i cespugli, nelle grotte e vicino al fiume. Quando la trovi, consegnala al sindaco prima del tramonto.
+Missione: Tre uova di drago. Una vecchia cacciatrice vuole che tu recuperi tre uova dal nido sulla montagna. Non romperle e non farti vedere dalla madre, altrimenti la tua avventura finirà molto presto.
+Missione secondaria: Aiuta il panettiere. Il forno si è spento e la farina è finita. Raccogli dieci sacchi di grano nei campi a sud e riportali in paese. Il panettiere ti darà una pagnotta magica che restituisce energia.
+Missione completata! Hai guadagnato centocinquanta punti esperienza e una chiave d'argento. Torna dal capovillaggio per ricevere la tua ricompensa.
+Nuova missione disponibile. Parla con la guardia davanti al castello per conoscere i dettagli. Non dimenticare di salvare la partita prima di partire.
+Spada di ferro. Una lama semplice ma affidabile, usata da molti soldati. Aumenta l'attacco di cinque punti. Si può migliorare dal fabbro con un po' di pazienza e qualche moneta.
+Pozione rossa. Restituisce venti punti vita a chi la beve. Ha un sapore terribile, ma funziona sempre. Conservane almeno tre prima di entrare nel dungeon.
+Scudo del guardiano. Dicono che appartenesse a un cavaliere che non perse mai una battaglia. Riduce i danni dei colpi fisici e ti rende un po' più lento, perché pesa moltissimo.
+Mantello dell'ombra. Chi lo indossa diventa quasi invisibile nell'oscurità. I nemici ti vedono soltanto se ti avvicini troppo. Perfetto per chi preferisce evitare i combattimenti.
+Anello della fortuna. Sembra un gioiello come tanti, ma porta bene a chi lo indossa: i forzieri si aprono più facilmente e i nemici lasciano più monete.
+Chiave arrugginita. Apre una porta, ma nessuno ricorda quale. Forse qualcuno in città può aiutarti a ricordarlo.
+Mappa del tesoro. Un vecchio foglio macchiato, con una croce rossa al centro. Seguendo le istruzioni arriverai alla spiaggia dell'isola, ma dovrai portare una pala e molta pazienza.
+Bomba fumogena. Lancia questa piccola sfera ai piedi dei nemici per confonderli e scappare. Si consuma dopo l'uso, quindi non sprecarla.
+Stivali del vento. Ti permettono di correre più veloce e di saltare più in alto. Gli abitanti dei monti li usano per attraversare i burroni senza dover costruire ponti.
+Erba lunare. Cresce soltanto di notte, nei prati vicino al lago. Mescolata con l'acqua pura, diventa una pozione che cura il veleno e ogni altro malanno.
+Premi A per saltare. Tieni premuto il tasto per saltare più in alto. Se premi B mentre corri, scatti in avanti e puoi attraversare anche i buchi più larghi.
+Premi B per attaccare. Se colpisci tre volte di seguito, esegui un attacco speciale. Attenzione: ogni colpo consuma un po' di energia, quindi non esagerare.
+Usa la croce direzionale per muoverti. Premi su per entrare nelle porte, premi giù per accovacciarti e schivare i proiettili.
+Avvicinati a un oggetto e premi A per raccoglierlo. Se lo zaino è pieno, dovrai lasciare qualcosa per fare spazio.
+Per parlare con una persona, mettiti davanti a lei e premi A. Le persone ti diranno cose utili, quindi ascolta sempre con attenzione.
+Premi Start per aprire il menu. Da qui puoi guardare la mappa, controllare l'inventario, cambiare l'equipaggiamento e salvare la partita.
+Suggerimento: se un nemico è troppo forte, prova a schivare i suoi attacchi e a colpirlo alle spalle. Spesso la pazienza vale più della forza.
+Suggerimento: i muri crepati nascondono stanze segrete. Prova a farli esplodere con una bomba oppure a colpirli con la spada.
+Suggerimento: se hai poca energia, torna al villaggio e dormi in una locanda. Il riposo è gratuito soltanto a casa tua.
+Nuova partita. Continua. Opzioni. Esci. Scegli una voce con la croce direzionale e conferma con A.
+Opzioni: volume della musica, volume degli effetti, velocità del testo, lingua, difficoltà. Premi B per tornare indietro senza salvare i cambiamenti.
+Vuoi salvare la partita? Sì. No. I progressi precedenti verranno sostituiti da quelli nuovi.
+Partita salvata. Puoi spegnere la console in tutta sicurezza oppure continuare l'avventura.
+Vuoi davvero uscire? I progressi non salvati andranno persi. Conferma con A, annulla con B.
+Scegli il tuo personaggio: il guerriero è forte e resistente, la maga conosce molti incantesimi, la ladra è veloce e silenziosa. Puoi cambiare idea più avanti, ma dovrai ricominciare.
+Hai perso! Il tuo eroe è stato sconfitto. Non arrenderti: riprova dall'ultimo punto di controllo e prova a usare una strategia diversa.
+Partita finita. Le tue vite sono esaurite, ma il regno ha ancora bisogno di te. Premi Start per ritentare.
+Sei caduto nel vuoto. Nessun problema, anche i migliori hanno sbagliato salto più di una volta. Riparti dall'ultima bandiera.
+Il tuo equipaggio è stato sconfitto. La nave affonda lentamente e le onde coprono il mare. Forse la prossima volta sceglierai una rotta più sicura.
+Il tempo è scaduto! Il castello è crollato prima che tu potessi uscire. Corri più veloce al prossimo tentativo.
+Complimenti! Hai sconfitto il signore oscuro e salvato il regno. Le campane suonano in tutte le città e la gente balla nelle strade. Questa è la fine della tua avventura, ma ogni fine è anche un nuovo inizio.
+Vittoria! Hai raccolto tutte le stelle e superato ogni livello. Il tuo punteggio finale è il più alto di sempre: sei diventato una leggenda.
+Hai completato il gioco in otto ore e quaranta minuti. Hai trovato novantaquattro oggetti su cento. Riuscirai a scoprire anche gli ultimi sei?
+Ottimo lavoro, pilota! Hai tagliato il traguardo per primo. Il pubblico è in piedi e la coppa è tua. Vuoi ripetere la gara con un'auto più potente?
+Livello uno: la foresta addormentata. Alberi altissimi, funghi che rimbalzano e una nebbia leggera che avvolge ogni cosa. I nemici sono lenti e facili da evitare. Cerca le tre monete nascoste dietro le cascate.
+Livello due: le miniere di cristallo. Le gallerie sono strette, buie e piene di trappole. Porta con te una lanterna e non toccare i cristalli rossi: esplodono dopo pochi secondi.
+Livello tre: il castello sospeso. Per entrare devi saltare di piattaforma in piattaforma sopra un abisso senza fondo. Il vento ti spinge da sinistra, quindi calcola bene la distanza.
+Livello quattro: il porto dei pirati. Barili che rotolano, cannoni che sparano e gabbiani dispettosi che ti rubano le monete. Sconfiggi il capitano per ottenere la chiave della nave fantasma.
+Livello cinque: la montagna di ghiaccio. Il pavimento è scivoloso e i pupazzi di neve lanciano palle di neve molto dure. In cima ti aspetta un gigantesco orso bianco molto arrabbiato.
+Livello sei: il deserto infinito. Sotto il sole cocente ogni passo è una fatica. Cerca le oasi per bere e riposare, e non fidarti delle statue che sembrano muoversi.
+Livello finale: la torre del tempo. Ogni piano è diverso dal precedente: un labirinto di specchi, una stanza capovolta, un corridoio che si ripete. Alla fine incontrerai il signore oscuro.
+Sei entrato nel dungeon. L'aria è fredda e umida, e da qualche parte si sente un lento gocciolio. Davanti a te si aprono tre porte: una di legno, una di ferro e una coperta di rampicanti.
+Hai trovato un forziere! Dentro c'è una pozione, un po' di monete e un biglietto con scritto: «Chi cerca troppo, trova guai.»
+Un nemico selvatico appare all'improvviso! Scegli che cosa fare: attaccare, difendere, usare un oggetto oppure scappare. Attenzione, a volte la fuga non riesce.
+Hai ottenuto un nuovo incantesimo: Fulmine. Costa otto punti magia e colpisce tutti i nemici nella stanza. Usalo con prudenza, perché la tua energia magica si ricarica lentamente.
+Il tuo livello è salito! Forza più due, agilità più uno, magia più tre. Hai imparato anche una nuova abilità: scudo di luce.
+Questo sentiero è bloccato da un masso enorme. Forse un amico con una bella pala o con tanta forza potrebbe aiutarti a spostarlo.
+Il ponte è crollato. Dovrai trovare un altro modo per arrivare dall'altra parte, magari seguendo il fiume oppure chiedendo aiuto al barcaiolo.
+Il boss ti attende dietro la grande porta. Prima di entrare, assicurati di avere abbastanza pozioni, di aver salvato la partita e di essere pronto per un combattimento difficile.
+Punto di controllo raggiunto. Se vieni sconfitto, ricomincerai da qui. Respira, bevi un sorso d'acqua e continua con calma.
+Segreto scoperto! Dietro la cascata si nasconde una grotta piena di monete d'oro. Non dirlo a nessuno, oppure condividilo con i tuoi amici: la scelta è tua.
+Hai sbloccato un nuovo livello. Per giocarlo devi prima raccogliere trenta stelle nei mondi precedenti. Ne mancano ancora undici.
+Questa porta si apre soltanto con la chiave giusta. Prova a cercare nelle stanze vicine, nei forzieri oppure nelle tasche dei nemici più forti.
+Il tuo zaino è pieno. Vuoi gettare qualcosa per fare spazio? Una vecchia scarpa, per esempio, non serve a nessuno.

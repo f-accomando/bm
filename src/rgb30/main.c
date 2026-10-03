@@ -173,7 +173,7 @@ static void wifi_boot(void)
 
 void kernel_main(uintptr_t dtb)
 {
-    mmu_init(0);                /* first: library code needs normal memory */
+    mmu_init(0, 0);             /* first: library code needs normal memory */
     a64_dtb = dtb;
     uart_init();
     plat_led(0, 1);

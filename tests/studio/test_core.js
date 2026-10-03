@@ -202,6 +202,13 @@ async function testFiles(out) {
   // Lua code of a model
   const lua = BM.modelToLua(p.models[1]);
   check(/^local sign = mesh\(\{/m.test(lua) && lua.includes('-1') && lua.includes('0xE84A5A'), 'Lua export');
+
+  // the block of bm Mesh at the end of main.lua: found, and the code without it
+  const game = 'function _draw() end\n';
+  const block = '-- [bm Mesh begin] meshes\nfunction mesh_x()\n  return mesh({0,0,0}, {1,1,1,0})\nend\n-- [bm Mesh end]\n';
+  const mb = BM.meshBlock(game + '\n' + block);
+  check(mb.block === block && mb.code === game, 'the bm Mesh block: ' + JSON.stringify(mb));
+  check(BM.meshBlock(game).block === '' && BM.meshBlock(game).code === game, 'no bm Mesh block');
 }
 
 /* a figure of two blocks: a body and an arm, the arm turning around the

@@ -16,6 +16,8 @@
 #define CLOCK_UART  2
 #define CLOCK_ARM   3
 #define CLOCK_CORE  4
+#define CLOCK_V3D   5
+#define CLOCK_SDRAM 8
 
 /* Runs a single property tag. vals[0..n-1] is the request value buffer and
  * receives the response. Returns 0 on success. */
@@ -23,6 +25,8 @@ int prop_query(uint32_t tag, uint32_t *vals, unsigned n);
 
 /* Convenience: rate in Hz of the given clock id, 0 on failure. */
 uint32_t prop_clock_rate(uint32_t clock_id);
+/* The highest rate the firmware allows for the clock, 0 on failure. */
+uint32_t prop_clock_max(uint32_t clock_id);
 
 /* Raises a clock to the maximum the firmware allows (arm_freq in
  * config.txt); returns the new rate in Hz, 0 on failure. The firmware boots

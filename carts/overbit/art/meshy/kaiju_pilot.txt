@@ -1,0 +1,5 @@
+# Kaiju (tank): the pilot out of the mech, a young mech pilot
+name = kaiju_pilot
+height = 1.6
+prompt = Full-body 3D game character, a young woman mech pilot standing in A-pose with empty hands, no weapon. Long black hair in a high ponytail with red tips, a small headset with a microphone, a cropped red bomber jacket with yellow trim and a white collar, a black fitted pilot top with yellow seams, black shorts over dark leggings, red knee-high boots with white soles, white fingerless gloves. Stylized proportions, colourful hero shooter character.
+texture = bright red cropped bomber jacket with yellow trim and white collar, black top with yellow seams, black shorts, dark grey leggings, red boots with white soles, white gloves, black headset, black hair with red tips, warm skin; bright stylized hand-painted game texture with clean saturated colour blocks

@@ -52,6 +52,22 @@ bm_lib_assist:
     .incbin "src/ai/assist.lua"
 bm_lib_assist_end:
 
+/* the word completion (M30): its Lua library (require "predict") and its
+ * dictionaries, built by scripts/mkwords.py (require "words") */
+    .section .rodata
+    .balign 4
+    .globl bm_lib_predict, bm_lib_predict_end
+bm_lib_predict:
+    .incbin "src/ai/predict.lua"
+bm_lib_predict_end:
+
+    .section .rodata
+    .balign 4
+    .globl bm_lib_words, bm_lib_words_end
+bm_lib_words:
+    .incbin "words.lua"
+bm_lib_words_end:
+
     .section .rodata
     .balign 4
     .globl bm_assistant_cart, bm_assistant_cart_end
@@ -78,7 +94,42 @@ bm_release_key:
 
     .section .rodata
     .balign 4
-    .globl bm_studio3d_cart, bm_studio3d_cart_end
-bm_studio3d_cart:
-    .incbin "studio3d.bm"
-bm_studio3d_cart_end:
+    .globl bm_studio_cart, bm_studio_cart_end
+bm_studio_cart:
+    .incbin "studio.bm"
+bm_studio_cart_end:
+
+    .section .rodata
+    .balign 4
+    .globl bm_animator_cart, bm_animator_cart_end
+bm_animator_cart:
+    .incbin "animator.bm"
+bm_animator_cart_end:
+
+/* what bm Studio and bm Animator share (require "bm3d") */
+    .section .rodata
+    .balign 4
+    .globl bm_lib_bm3d, bm_lib_bm3d_end
+bm_lib_bm3d:
+    .incbin "src/script/bm3d.lua"
+bm_lib_bm3d_end:
+
+    .section .rodata
+    .balign 4
+    .globl bm_mesh_cart, bm_mesh_cart_end
+bm_mesh_cart:
+    .incbin "mesh.bm"
+bm_mesh_cart_end:
+
+    .section .rodata
+    .balign 4
+    .globl bm_pixel_cart, bm_pixel_cart_end
+bm_pixel_cart:
+    .incbin "pixel.bm"
+bm_pixel_cart_end:
+    .section .rodata
+    .balign 4
+    .globl bm_texroom_cart, bm_texroom_cart_end
+bm_texroom_cart:
+    .incbin "texroom.bm"
+bm_texroom_cart_end:

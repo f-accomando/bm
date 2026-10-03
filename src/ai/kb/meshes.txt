@@ -1,0 +1,443 @@
+# 3D recipes (src/ai/mesh.c): what to ask for in bm Studio and bm Animator
+# to get the base of a model. The colours ("rossa", "blue"...), the size
+# ("piccolo", "big", "huge"), the proportions ("alto", "tall", "largo") and
+# "senza scheletro" come from the words of the request, not from these
+# entries. People, animals and machines come with a skeleton and animations.
+
+== mesh.cube
+kind: mesh
+gen: cube
+title: Cubo (un blocco)
+ask: crea un cubo | un cubo 3d | disegna un blocco | cube | a box | make a cube
+ask: quadrato 3d | dado | cubetto | un blocco pieno | solido cubo
+text: Un blocco di un'unità: la misura delle celle di bm Studio.
+
+== mesh.sphere
+kind: mesh
+gen: sphere
+title: Sfera
+ask: crea una sfera | una palla 3d | sphere | a ball | make a sphere | pallone
+ask: globo | sfera low poly | palla | bolla
+text: Una sfera a facce, otto lati e quattro anelli.
+
+== mesh.cylinder
+kind: mesh
+gen: cylinder
+title: Cilindro
+ask: crea un cilindro | cylinder | un tubo | a can | make a cylinder | barattolo
+ask: rullo | cilindro 3d | tubo pieno | disco alto
+text: Un cilindro in piedi a otto lati, alto un'unità.
+
+== mesh.cone
+kind: mesh
+gen: cone
+title: Cono
+ask: crea un cono | cone | make a cone | un cono gelato | punta conica | imbuto
+ask: cono stradale | cono 3d
+text: Un cono a otto lati con la punta in alto.
+
+== mesh.pyramid
+kind: mesh
+gen: pyramid
+title: Piramide
+ask: crea una piramide | pyramid | make a pyramid | piramide egizia | tetraedro
+ask: piramide 3d | punta a quattro lati
+text: Una piramide a base quadrata.
+
+== mesh.column
+kind: mesh
+gen: column
+title: Colonna
+ask: crea una colonna | column | pillar | pilastro | make a pillar | colonna greca
+ask: colonna di pietra | colonna del tempio | pilastro di marmo
+text: Base, fusto a otto lati e capitello.
+
+== mesh.wall
+kind: mesh
+gen: wall
+title: Muro
+ask: crea un muro | wall | a stone wall | muro di pietra | muretto | make a wall
+ask: parete | muraglia | muro con i merli | castle wall | mura
+text: Un muro di quattro unità per due; le varianti aggiungono i merli.
+
+== mesh.stairs
+kind: mesh
+gen: stairs
+title: Scala a gradini
+ask: crea una scala | stairs | staircase | gradini | scalini | make stairs
+ask: scala 3d | scalinata | steps
+text: Quattro gradini che salgono allontanandosi dalla camera.
+
+== mesh.ramp
+kind: mesh
+gen: ramp
+title: Rampa (piano inclinato)
+ask: crea una rampa | ramp | slope | piano inclinato | pendio | make a ramp
+ask: discesa | salita | rampa di legno | cuneo | wedge
+text: Un cuneo che sale allontanandosi dalla camera.
+
+== mesh.platform
+kind: mesh
+gen: platform
+title: Piattaforma
+ask: crea una piattaforma | platform | una piattaforma per saltare | lastra | make a platform
+ask: piattaforma di pietra | pedana | piano sospeso | floating platform
+text: Una lastra di tre unità per due con il bordo sotto.
+
+== mesh.arch
+kind: mesh
+gen: arch
+title: Arco (portale)
+ask: crea un arco | arch | archway | portale | un portone di pietra | make an arch
+ask: arco di pietra | porta ad arco | gate | cancello di pietra
+text: Due pilastri, l'architrave e la chiave di volta.
+
+== mesh.tree
+kind: mesh
+gen: tree
+title: Albero (chioma tonda)
+ask: crea un albero | tree | disegna un albero | a tree | make a tree | albero 3d
+ask: albero con la chioma | quercia | albero del bosco | oak tree | alberello
+text: Tronco e chioma a sfere; ogni variante ha un'altra forma. Il colore
+chiesto è quello delle foglie, il secondo quello del tronco.
+
+== mesh.pine
+kind: mesh
+gen: pine
+title: Pino (abete)
+ask: crea un pino | pine tree | abete | albero di natale | fir | conifera | make a pine
+ask: albero a cono | christmas tree | pino 3d | abete della foresta
+text: Tronco e tre o quattro coni di foglie.
+
+== mesh.house
+kind: mesh
+gen: house
+title: Casa (casetta col tetto)
+ask: crea una casa | house | una casetta | cottage | make a house | casa col tetto
+ask: casa del villaggio | abitazione | capanna | hut | home | casa 3d
+ask: casa blu | casa verde | casetta gialla | blue house | green house | casa di mattoni
+text: Muri, tetto a due falde, porta e finestre; le varianti hanno il camino.
+Il colore chiesto è quello dei muri, il secondo quello del tetto.
+
+== mesh.tower
+kind: mesh
+gen: tower
+title: Torre
+ask: crea una torre | tower | torre del castello | castle tower | make a tower
+ask: torrione | torre di pietra | torre con i merli | torre con il tetto a punta
+text: Una torre tonda di tre unità, con i merli o il tetto a cono.
+
+== mesh.chair
+kind: mesh
+gen: chair
+title: Sedia
+ask: crea una sedia | chair | una sedia di legno | make a chair | seggiola | sgabello
+ask: sedia con lo schienale | sedia 3d
+text: Seduta, cuscino, quattro gambe e schienale.
+
+== mesh.table
+kind: mesh
+gen: table
+title: Tavolo
+ask: crea un tavolo | table | un tavolo di legno | make a table | tavolino | scrivania
+ask: tavolo 3d | banco | desk
+text: Un piano di legno su quattro gambe.
+
+== mesh.barrel
+kind: mesh
+gen: barrel
+title: Barile (botte)
+ask: crea un barile | barrel | una botte | make a barrel | botte di legno | barilotto
+ask: barile 3d | fusto | botte del vino
+text: Una botte panciuta con due cerchi di ferro.
+
+== mesh.crate
+kind: mesh
+gen: crate
+title: Cassa di legno
+ask: crea una cassa | crate | wooden crate | cassa di legno | make a crate | cassetta
+ask: scatola di legno | box di legno | cassa 3d
+text: Un cubo di legno con le assi sugli spigoli.
+
+== mesh.chest
+kind: mesh
+gen: chest
+title: Forziere (baule)
+ask: crea un forziere | chest | treasure chest | baule | make a chest | cassaforte
+ask: forziere del tesoro | scrigno | baule di legno
+text: Un baule di legno con il coperchio bombato, le fasce e il lucchetto.
+
+== mesh.sword
+kind: mesh
+gen: sword
+title: Spada
+ask: crea una spada | sword | una spada 3d | make a sword | lama | spadone
+ask: spada del cavaliere | arma | blade | spada in piedi
+text: Lama, elsa dorata, impugnatura e pomo, con la punta in alto.
+
+== mesh.shield
+kind: mesh
+gen: shield
+title: Scudo
+ask: crea uno scudo | shield | uno scudo 3d | make a shield | scudo del cavaliere
+ask: scudo di legno | scudo con lo stemma
+text: Uno scudo a punta con il bordo di metallo e la borchia.
+
+== mesh.car
+kind: mesh
+gen: car
+title: Automobile
+ask: crea una macchina | car | un'auto | automobile | make a car | macchinina
+ask: auto 3d | vettura | veicolo | furgoncino | car model
+text: Carrozzeria, abitacolo con i vetri, quattro ruote, fari e paraurti.
+Il colore chiesto è quello della carrozzeria.
+
+== mesh.lamp
+kind: mesh
+gen: lamp
+title: Lampione
+ask: crea un lampione | lamp post | street lamp | lampione 3d | make a lamp post
+ask: lanterna sul palo | luce della strada | lampada
+text: Un palo con la lanterna in cima.
+
+== mesh.fence
+kind: mesh
+gen: fence
+title: Staccionata (recinto)
+ask: crea una staccionata | fence | un recinto | steccato | make a fence | recinzione
+ask: staccionata di legno | palizzata | fence 3d
+text: Tre pali e due traverse di legno, lunga due unità.
+
+== mesh.rock
+kind: mesh
+gen: rock
+title: Roccia (masso)
+ask: crea una roccia | rock | un sasso | masso | make a rock | boulder | pietra
+ask: roccia 3d | macigno | sasso grande
+text: Due massi a poche facce; ogni variante è diversa.
+
+== mesh.bush
+kind: mesh
+gen: bush
+title: Cespuglio
+ask: crea un cespuglio | bush | un arbusto | make a bush | siepe | cespuglio 3d
+ask: cespuglio con le bacche | shrub | hedge
+text: Tre sfere di foglie; le varianti hanno le bacche rosse.
+
+== mesh.mushroom
+kind: mesh
+gen: mushroom
+title: Fungo
+ask: crea un fungo | mushroom | un fungo 3d | make a mushroom | fungo rosso
+ask: fungo con i puntini | toadstool | funghetto
+text: Gambo e cappello con i puntini bianchi.
+
+== mesh.cactus
+kind: mesh
+gen: cactus
+title: Cactus
+ask: crea un cactus | cactus | un cactus del deserto | make a cactus | pianta grassa
+ask: cactus con le braccia | cactus 3d
+text: Un cactus a braccia su un vaso di sabbia.
+
+== mesh.bridge
+kind: mesh
+gen: bridge
+title: Ponte di legno
+ask: crea un ponte | bridge | un ponte di legno | make a bridge | ponticello
+ask: passerella | ponte 3d | ponte con le ringhiere
+text: Assi, ringhiere e due spalle; lungo tre unità.
+
+== mesh.well
+kind: mesh
+gen: well
+title: Pozzo
+ask: crea un pozzo | well | un pozzo del villaggio | make a well | pozzo di pietra
+ask: pozzo con il tetto | water well | pozzo 3d
+text: Il bordo di pietra, l'acqua, il tetto e il secchio.
+
+== mesh.sign
+kind: mesh
+gen: sign
+title: Cartello (insegna)
+ask: crea un cartello | signpost | sign | un'insegna | make a sign | segnale
+ask: cartello di legno | indicazione | palo con il cartello | cartello stradale
+text: Un palo con la tavola; le varianti hanno la freccia.
+
+== mesh.torch
+kind: mesh
+gen: torch
+title: Torcia
+ask: crea una torcia | torch | una fiaccola | make a torch | torcia accesa
+ask: torcia 3d | fuoco sul bastone | fiaccola del dungeon
+text: Un bastone con la fiamma.
+
+== mesh.boat
+kind: mesh
+gen: boat
+title: Barca
+ask: crea una barca | boat | una barca a vela | make a boat | barchetta | canoa
+ask: nave di legno | barca 3d | sailing boat | gommone
+text: Uno scafo di legno; le varianti hanno l'albero e la vela.
+
+== mesh.cannon
+kind: mesh
+gen: cannon
+title: Cannone
+ask: crea un cannone | cannon | un cannone 3d | make a cannon | cannone dei pirati
+ask: artiglieria | bombarda | cannone con le ruote
+text: Canna di ferro su un affusto di legno con due ruote.
+
+== mesh.bed
+kind: mesh
+gen: bed
+title: Letto
+ask: crea un letto | bed | un letto 3d | make a bed | lettino | letto con il cuscino
+ask: letto di legno | branda
+text: Telaio, materasso, coperta e cuscino.
+
+== mesh.flower
+kind: mesh
+gen: flower
+title: Fiore
+ask: crea un fiore | flower | un fiore 3d | make a flower | margherita | fiorellino
+ask: pianta con il fiore | daisy | fiore rosso
+text: Stelo, foglie e cinque o sei petali.
+
+== mesh.coin
+kind: mesh
+gen: coin
+title: Moneta
+ask: crea una moneta | coin | una moneta d'oro | make a coin | gettone | monetina
+ask: moneta 3d | soldo | medaglia
+text: Un disco d'oro in piedi, da far girare.
+
+== mesh.gem
+kind: mesh
+gen: gem
+title: Gemma (diamante)
+ask: crea una gemma | gem | un diamante | make a gem | cristallo | gioiello
+ask: diamante 3d | pietra preziosa | crystal | rubino | zaffiro
+text: Due coni base a base, a sei facce.
+
+== mesh.hero
+kind: mesh
+gen: hero
+title: Persona (omino con lo scheletro)
+ask: crea un personaggio | person | un omino 3d | make a character | eroe | ragazzo
+ask: ragazza | protagonista | giocatore 3d | npc | abitante | villager | human
+ask: omino con lo scheletro | personaggio animato | uomo | donna | bambino
+text: Testa, busto, braccia e gambe su sette ossa, con le animazioni idle,
+walk e wave. Il colore chiesto è quello della maglia.
+
+== mesh.knight
+kind: mesh
+gen: knight
+title: Cavaliere (armatura, spada e scudo)
+ask: crea un cavaliere | knight | un cavaliere con l'armatura | make a knight | guerriero
+ask: soldato | warrior | paladino | guardia | cavaliere 3d | armatura
+text: Armatura, elmo, spada e scudo su sette ossa: idle, walk e attack.
+
+== mesh.robot
+kind: mesh
+gen: robot
+title: Robot (androide)
+ask: crea un robot | robot | un androide | make a robot | automa | cyborg | droide
+ask: robot 3d | robot con l'antenna | android
+text: Testa con il visore e l'antenna, corpo, braccia con le pinze e gambe
+di metallo: idle e walk.
+
+== mesh.mech
+kind: mesh
+gen: mech
+title: Mech (robot da combattimento con il pilota)
+ask: crea un mech | mech | un mecha | make a mech | robot gigante | battle mech
+ask: robot da combattimento | mech con il pilota | mecha rosa | robot con i cannoni
+ask: esoscheletro | armatura da combattimento | gundam | mech 3d
+text: Cabina col pilota, due gambe piegate, un cannone per braccio, alette e
+propulsori, su nove ossa: idle, walk e fire. Il colore chiesto è quello della
+corazza.
+
+== mesh.dog
+kind: mesh
+gen: dog
+title: Cane
+ask: crea un cane | dog | un cagnolino | make a dog | cucciolo | lupo | wolf
+ask: cane 3d | cane che cammina | animale a quattro zampe | volpe | fox
+text: Un cane a quattro zampe con la coda e le orecchie, su sette ossa:
+idle (scodinzola) e walk.
+
+== mesh.horse
+kind: mesh
+gen: horse
+title: Cavallo
+ask: crea un cavallo | horse | un cavallo 3d | make a horse | pony | cavallo che cammina
+ask: cavallo con la criniera | destriero | mulo | asino
+text: Un cavallo con il collo, la criniera e la coda, su otto ossa: idle e
+walk.
+
+== mesh.bird
+kind: mesh
+gen: bird
+title: Uccello (uccellino con le ali)
+ask: crea un uccello | bird | un uccellino | make a bird | passero | piccione
+ask: uccello che vola | gabbiano | pappagallo | uccellino 3d | corvo
+text: Corpo, testa con il becco, ali e zampe, su quattro ossa: idle e fly.
+
+== mesh.fish
+kind: mesh
+gen: fish
+title: Pesce
+ask: crea un pesce | fish | un pesciolino | make a fish | pesce rosso | goldfish
+ask: pesce che nuota | pesce 3d | trota | squalo
+text: Corpo, pinne e coda su due ossa: swim e idle.
+
+== mesh.slime
+kind: mesh
+gen: slime
+title: Slime (gelatina)
+ask: crea uno slime | slime | una gelatina 3d | make a slime | blob | melma
+ask: nemico gelatinoso | slime verde | slime che salta | goccia con gli occhi
+text: Una cupola con gli occhi su un osso: idle e bounce.
+
+== mesh.spider
+kind: mesh
+gen: spider
+title: Ragno
+ask: crea un ragno | spider | un ragno 3d | make a spider | ragno gigante | aracnide
+ask: ragno con otto zampe | tarantola | ragno nero
+text: Addome, testa con gli occhi e otto zampe, su nove ossa: idle e walk.
+
+== mesh.dragon
+kind: mesh
+gen: dragon
+title: Drago
+ask: crea un drago | dragon | un drago 3d | make a dragon | drago con le ali | drake
+ask: drago verde | drago volante | dinosauro | wyvern | lucertolone
+text: Corpo, collo, testa con le corna, ali, coda e zampe, su dieci ossa:
+idle, fly e walk.
+
+== mesh.ghost
+kind: mesh
+gen: ghost
+title: Fantasma
+ask: crea un fantasma | ghost | uno spettro | make a ghost | fantasmino | spirito
+ask: fantasma 3d | fantasma che fluttua | spirit | anima
+text: Un lenzuolo con gli occhi e le braccia su tre ossa: float e idle.
+
+== mesh.skeleton
+kind: mesh
+gen: skeleton
+title: Scheletro (nemico)
+ask: crea uno scheletro | skeleton | uno scheletro 3d | make a skeleton | non morto
+ask: scheletro nemico | undead | ossa che camminano | teschio con il corpo
+text: Teschio, costole e ossa sottili su sette ossa: idle e walk.
+
+== mesh.snowman
+kind: mesh
+gen: snowman
+title: Pupazzo di neve
+ask: crea un pupazzo di neve | snowman | un pupazzo di neve 3d | make a snowman
+ask: omino di neve | pupazzo con il cappello | pupazzo con la carota
+text: Tre palle di neve, cappello, carota, sciarpa e braccia di legno, su
+quattro ossa: idle e wave.

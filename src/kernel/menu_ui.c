@@ -1,5 +1,7 @@
 #include "menu_ui.h"
 #include "icons.h"
+#include "pointer.h"
+#include "prompts.h"
 #include "bm/bm.h"
 #include "drivers/timer.h"
 #include "gfx/console.h"
@@ -55,6 +57,31 @@ static uint16_t *bg_cur, *bg_prev;  /* blurred covers, 640x360 */
 static const g16_sheet_t *bg_key;   /* the cover bg_cur was made from */
 static int bg_valid, fade;
 static int dim;                     /* a panel is open: the rest at half brightness */
+
+/* the things the pointer can click in the frame on screen, drawn last on
+ * top (menu_ui_hit) */
+#define MAX_ZONES 64
+static struct zone { int16_t x, y, w, h; uint8_t kind, full; int16_t index; } zones[MAX_ZONES];
+static int nzones;
+
+static int hints_dead;              /* the footer's hints are under a question */
+
+static void zone(int x, int y, int w, int h, int kind, int index, int full)
+{
+    if (nzones < MAX_ZONES && w > 0 && h > 0)
+        zones[nzones++] = (struct zone){ (int16_t)x, (int16_t)y, (int16_t)w, (int16_t)h,
+                                         (uint8_t)kind, (uint8_t)full, (int16_t)index };
+}
+
+menu_hit_t menu_ui_hit(int x, int y)
+{
+    for (int i = nzones - 1; i >= 0; i--) {
+        const struct zone *z = &zones[i];
+        if (x >= z->x && x < z->x + z->w && y >= z->y && y < z->y + z->h)
+            return (menu_hit_t){ z->kind, z->index, z->full };
+    }
+    return (menu_hit_t){ MENU_HIT_NONE, 0, 0 };
+}
 
 /* RGB565 at half brightness */
 static inline uint16_t half(uint16_t c) { return (uint16_t)(c >> 1 & 0x7BEF); }
@@ -476,18 +503,101 @@ static int pill_text(int col, int row, const char *s, uint32_t fg, uint32_t bg)
     return col + n + 2;
 }
 
-/* a round button icon with its letter (A, B, X, Y), then a label */
-static int hint(int col, int row, const char *btn, const char *label)
+/* colour c over b by a (0..255), 0xRRGGBB */
+static uint32_t over(uint32_t b, uint32_t c, int a)
 {
-    int cx = col * 8 + 4, cy = row * 16 + 8;
-    for (int dy = -7; dy <= 7; dy++) {
-        int w = (int)sqrtf(49.0f - (float)(dy * dy) + 0.5f);
-        hspan(cx - w, cx + w + 1, cy + dy, c16(C_TEXT));
+    uint32_t out = 0;
+    for (int sh = 0; sh <= 16; sh += 8) {
+        int x = (int)(b >> sh & 255), y = (int)(c >> sh & 255);
+        out |= (uint32_t)(x + (y - x) * a / 255) << sh;
     }
-    char b[2] = { btn[0], 0 };
-    g16_text(&g, col * 8, row * 16, b, c16(C_BAR));
-    g16_text(&g, (col + 2) * 8, row * 16, label, c16(C_TEXT));
-    return col + 2 + (int)strlen(label) + 3;
+    return out;
+}
+
+/* a prompt of prompts.c over the bar's colour at (x, y); returns its right edge */
+static int put_prompt(const prompt_t *p, int x, int y)
+{
+    if (!p)
+        return x;
+    for (int j = 0; j < PROMPT_H; j++) {
+        uint16_t *row = g.px + (uint32_t)(y + j) * g.stride;
+        for (int i = 0; i < p->w; i++) {
+            uint32_t c = p->px[j * p->w + i], a = c >> 24;
+            if (a && x + i >= 0 && x + i < SW)
+                row[x + i] = c16(over(C_BAR, c & 0xFFFFFF, (int)a));
+        }
+    }
+    return x + p->w;
+}
+
+/* the buttons of the hints, for the device pressed last */
+enum { BTN_A, BTN_B, BTN_X, BTN_CHANGE, BTN_MONITOR };
+
+/* up to two prompts for a button, and what goes between them */
+static int button_prompts(const menu_view_t *v, int b, const prompt_t *p[2], const char **join)
+{
+    static const int ds4[3] = { PROMPT_CROSS, PROMPT_CIRCLE, PROMPT_SQUARE };
+    static const int pad[3] = { PROMPT_PAD_A, PROMPT_PAD_B, PROMPT_PAD_X };
+    *join = "";
+    if (v->prompts == MENU_PROMPTS_KEYBOARD) {
+        switch (b) {                            /* the keys the menu takes */
+        case BTN_A: p[0] = prompt_get(PROMPT_KEY_ENTER, 0); return 1;
+        case BTN_B: p[0] = prompt_get(PROMPT_KEY_ESC, 0); return 1;
+        case BTN_X: p[0] = prompt_key('C'); return 1;
+        case BTN_CHANGE:
+            p[0] = prompt_get(PROMPT_KEY_LEFT, 0);
+            p[1] = prompt_get(PROMPT_KEY_RIGHT, 0);
+            return 2;
+        default:                                /* the monitor: Ctrl+Esc (Esc alone: back) */
+            p[0] = prompt_get(PROMPT_KEY_CTRL, 0);
+            p[1] = prompt_get(PROMPT_KEY_ESC, 0);
+            *join = "+";
+            return 2;
+        }
+    }
+    int ds = v->prompts != MENU_PROMPTS_PAD;
+    switch (b) {
+    case BTN_A: case BTN_B: case BTN_X:
+        p[0] = ds ? prompt_get(ds4[b], v->prompts_colour) : prompt_get(pad[b], 0);
+        return 1;
+    case BTN_CHANGE:
+        p[0] = prompt_get(PROMPT_DPAD_LEFTRIGHT, 0);
+        return 1;
+    default:                                    /* Start+Select */
+        p[0] = prompt_get(ds ? PROMPT_SHARE : PROMPT_PAD_SELECT, 0);
+        p[1] = prompt_get(ds ? PROMPT_OPTIONS : PROMPT_PAD_START, 0);
+        *join = "+";
+        return 2;
+    }
+}
+
+/* the button's prompts from 4 px left of text column `col`, then a label
+ * on the text grid after them; returns the column after the label and a
+ * gap */
+static int hint(const menu_view_t *v, int col, int row, int b, const char *label)
+{
+    const prompt_t *p[2] = { NULL, NULL };
+    const char *join;
+    int n = button_prompts(v, b, p, &join);
+    int x = col * 8 - 4, y = row * 16;
+    for (int i = 0; i < n; i++) {
+        if (i) {
+            x += 2;
+            if (join[0]) {
+                g16_text(&g, x, y, join, c16(C_TEXT));
+                x += 8 * (int)strlen(join) + 2;
+            }
+        }
+        x = put_prompt(p[i], x, y);
+    }
+    int lc = (x + 4 + 7) / 8;
+    g16_text(&g, lc * 8, y, label, c16(C_TEXT));
+    /* the pointer (M32) clicks it: A, B, X; "Change" is A on a choice row */
+    static const char letter[] = { 'A', 'B', 'X', 'A', 0 };
+    if (!hints_dead && letter[b])
+        zone(col * 8 - 8, y - 4, (lc + (int)strlen(label)) * 8 - (col * 8 - 8) + 4, 24,
+             MENU_HIT_BUTTON, letter[b], 1);
+    return lc + (int)strlen(label) + 3;
 }
 
 /* a small triangle pointing up (dir -1) or down (+1), for the scroll marks */
@@ -512,6 +622,7 @@ static void draw_panel(const menu_panel_t *p, int faded)
 {
     round_rect(PANEL_X - 2, PANEL_Y - 2, PANEL_W + 4, PANEL_H + 4, 16, c16(C_LINE));
     round_rect(PANEL_X, PANEL_Y, PANEL_W, PANEL_H, 14, c16(C_BAR));
+    zone(PANEL_X - 2, PANEL_Y - 2, PANEL_W + 4, PANEL_H + 4, MENU_HIT_PANEL, 0, 1);
     char buf[72];
     ksnprintf(buf, sizeof buf, "%s", p->title ? p->title : "");
     buf[52] = 0;
@@ -520,6 +631,7 @@ static void draw_panel(const menu_panel_t *p, int faded)
     for (int i = 0; i < MENU_PANEL_ROWS && p->top + i < p->n; i++) {
         const menu_row_t *r = &p->rows[p->top + i];
         int row = PANEL_ROW0 + 2 * i, y = row * 16, sel = p->top + i == p->sel;
+        zone(PANEL_X + 16, y - 8, PANEL_W - 32, 32, MENU_HIT_ROW, p->top + i, 1);
         if (sel)
             round_rect(PANEL_X + 16, y - 6, PANEL_W - 32, 28, 8, faded ? c16(C_LINE) : c16(C_TAB_ON));
         sel = sel && !faded;
@@ -554,17 +666,6 @@ static void draw_panel(const menu_panel_t *p, int faded)
     }
 }
 
-/* colour c over b by a (0..255), 0xRRGGBB */
-static uint32_t over(uint32_t b, uint32_t c, int a)
-{
-    uint32_t out = 0;
-    for (int sh = 0; sh <= 16; sh += 8) {
-        int x = (int)(b >> sh & 255), y = (int)(c >> sh & 255);
-        out |= (uint32_t)(x + (y - x) * a / 255) << sh;
-    }
-    return out;
-}
-
 /* an icon of icons.c over the bar: the icon in `ink`, the number's disc in
  * `disc` with the digit in `digit`; only written */
 static void put_icon(const icon_mask_t *m, int x0, int y0, uint32_t ink, uint32_t disc, uint32_t digit)
@@ -582,16 +683,27 @@ static void put_icon(const icon_mask_t *m, int x0, int y0, uint32_t ink, uint32_
 }
 
 /* right-aligned: a keyboard or a controller with its number for each
- * player, then WiFi or Ethernet when the console is on a network */
+ * player, the mice (M32: no number, a blue dot on Bluetooth), then WiFi or
+ * Ethernet when the console is on a network */
 static void status_icons(const menu_view_t *v)
 {
-    int icon[5], num[5], bt[5], n = 0;
+    int icon[7], num[7], bt[7], n = 0;
     for (int p = 0; p < 4; p++)
         if (v->dev[p] != MENU_DEV_NONE) {
             icon[n] = v->dev[p] == MENU_DEV_KEYBOARD ? ICON_KEYBOARD : ICON_PAD;
             bt[n] = v->bt >> p & 1;
             num[n++] = p + 1;
         }
+    if (v->mice & POINTER_USB) {
+        icon[n] = ICON_MOUSE;
+        bt[n] = 0;
+        num[n++] = 0;
+    }
+    if (v->mice & POINTER_BLUETOOTH) {
+        icon[n] = ICON_MOUSE;
+        bt[n] = 1;
+        num[n++] = ICON_DOT;
+    }
     int players = n;
     if (v->net != MENU_NET_NONE) {
         icon[n] = v->net == MENU_NET_ETHERNET ? ICON_ETHERNET : ICON_WIFI;
@@ -634,6 +746,8 @@ int menu_ui_open(framebuffer_t *fb)
     ready = 1;
     bg_valid = 0;
     fade = 0;
+    nzones = 0;
+    pointer_env(1, SW, SH);
     t0 = timer_ticks();
     deadline = t0 + FRAME_US;
     return 0;
@@ -644,6 +758,8 @@ void menu_ui_close(framebuffer_t *fb)
     if (!ready)
         return;
     ready = 0;
+    nzones = 0;
+    pointer_env(0, 0, 0);
     fb_init(fb, con_w, con_h, 2);
     console_suspend(0);
 }
@@ -664,6 +780,7 @@ void menu_ui_frame(framebuffer_t *fb, const menu_view_t *v)
     float t = (float)(timer_ticks() - t0) * 1e-6f;
     const menu_item_t *cur = v->sel >= 0 && v->sel < v->n ? &v->items[v->sel] : NULL;
     dim = v->panel != NULL;
+    nzones = 0;
 
     /* background: the selected cover, blurred; a cross-fade on change */
     const g16_sheet_t *key = cur ? cur->cover : NULL;
@@ -693,6 +810,10 @@ void menu_ui_frame(framebuffer_t *fb, const menu_view_t *v)
         int y = GRID_Y0 + (int)lroundf(((float)row - scroll) * PITCH_Y);
         if (y + CARD_H + 8 < GRID_TOP || y - 8 >= GRID_BOT)
             continue;
+        {
+            int z0 = y < GRID_TOP ? GRID_TOP : y, z1 = y + CARD_H > GRID_BOT ? GRID_BOT : y + CARD_H;
+            zone(x, z0, CARD_W, z1 - z0, MENU_HIT_COVER, i, y >= GRID_TOP && y + CARD_H <= GRID_BOT);
+        }
         if (i == v->sel)            /* ring with a gap, like the home screens */
             round_ring(x - 6, y - 6, CARD_W + 12, CARD_H + 12, RADIUS + 6, 3,
                        dim ? c16(0x45454B) : pulse(t));
@@ -716,12 +837,14 @@ void menu_ui_frame(framebuffer_t *fb, const menu_view_t *v)
     int col = 3;
     for (int i = 0; i < v->ntabs; i++) {
         int n = (int)strlen(v->tabs[i]);
+        zone(col * 8 - 8, 4, (n + 2) * 8, 40, MENU_HIT_TAB, i, 1);
         if (i == v->tab && !v->on_gear)
             pill_text(col, 1, v->tabs[i], C_BAR, C_TAB_ON);
         else
             g16_text(&g, col * 8, 16, v->tabs[i], c16(C_DIM));
         col += n + 4;
     }
+    zone(col * 8 - 8, 4, 10 * 8, 40, MENU_HIT_SETTINGS, 0, 1);
     if (v->on_gear)
         pill_text(col, 1, "Settings", C_BAR, C_TAB_ON);
     else
@@ -742,6 +865,7 @@ void menu_ui_frame(framebuffer_t *fb, const menu_view_t *v)
     }
 
     /* bottom bar: details, last game, buttons */
+    hints_dead = v->ask != NULL;
     g16_rectfill(&g, 0, FOOT_Y, SW, SH - FOOT_Y, c16(C_BAR));
     g16_rectfill(&g, 16, FOOT_Y + 1, SW - 32, 1, c16(C_LINE));
     char buf[96];
@@ -758,24 +882,22 @@ void menu_ui_frame(framebuffer_t *fb, const menu_view_t *v)
     if (v->panel) {
         const menu_row_t *r = v->panel->sel < v->panel->n ? &v->panel->rows[v->panel->sel] : NULL;
         col = 40;
-        if (r && r->kind == MENU_ROW_CHOICE) {
-            g16_text(&g, col * 8, 21 * 16, "< >", c16(C_TEXT));
-            g16_text(&g, (col + 4) * 8, 21 * 16, "Change", c16(C_TEXT));
-            col += 13;
-        } else if (r && r->kind != MENU_ROW_INFO) {
-            col = hint(col, 21, "A", r->kind == MENU_ROW_SUB ? "Open" : "Select");
-        }
-        hint(col < 55 ? 55 : col, 21, "B", "Back");
+        if (r && r->kind == MENU_ROW_CHOICE)
+            col = hint(v, col, 21, BTN_CHANGE, "Change");
+        else if (r && r->kind != MENU_ROW_INFO)
+            col = hint(v, col, 21, BTN_A, r->kind == MENU_ROW_SUB ? "Open" : "Select");
+        hint(v, col < 55 ? 55 : col, 21, BTN_B, "Back");
     } else if (v->on_gear) {
-        col = hint(34, 21, "A", "Settings");
-        g16_text(&g, col * 8, 21 * 16, "Start+Select Monitor", c16(C_TEXT));
+        col = hint(v, 34, 21, BTN_A, "Settings");
+        hint(v, col, 21, BTN_MONITOR, "Monitor");
     } else {
-        col = hint(34, 21, "A", cur && cur->kind && strcmp(cur->kind, "tool") == 0 ? "Open" : "Play");
+        col = hint(v, 34, 21, BTN_A, cur && cur->kind && strcmp(cur->kind, "tool") == 0 ? "Open" : "Play");
         if (v->n && v->items[v->sel].path && v->items[v->sel].path[0])
-            col = hint(col, 21, "X", "Options");
-        g16_text(&g, col * 8, 21 * 16, "Start+Select Monitor", c16(C_TEXT));
+            col = hint(v, col, 21, BTN_X, "Options");
+        hint(v, col, 21, BTN_MONITOR, "Monitor");
     }
 
+    hints_dead = 0;
     if (v->panel)
         draw_panel(v->panel, v->ask != NULL);
 
@@ -784,6 +906,7 @@ void menu_ui_frame(framebuffer_t *fb, const menu_view_t *v)
         const int px = 12 * 8, py = 8 * 16 - 8, pw = SW - 24 * 8, ph = 5 * 16 + 16;
         round_rect(px - 2, py - 2, pw + 4, ph + 4, 14, c16(C_LINE));
         round_rect(px, py, pw, ph, 12, c16(C_BAR));
+        zone(px - 2, py - 2, pw + 4, ph + 4, MENU_HIT_ASK, 0, 1);
         char q[64];
         ksnprintf(q, sizeof q, "%s", v->ask);
         g16_text(&g, (SW / 8 - (int)strlen(q)) / 2 * 8, 9 * 16, q, c16(C_TEXT));
@@ -791,10 +914,11 @@ void menu_ui_frame(framebuffer_t *fb, const menu_view_t *v)
             ksnprintf(q, sizeof q, "%s", v->ask_detail);
             g16_text(&g, (SW / 8 - (int)strlen(q)) / 2 * 8, 10 * 16, q, c16(C_DIM));
         }
-        int c = hint(26, 12, "A", v->ask_yes ? v->ask_yes : "Close it");
-        hint(c + 2, 12, "B", "Cancel");
+        int c = hint(v, 26, 12, BTN_A, v->ask_yes ? v->ask_yes : "Close it");
+        hint(v, c + 2, 12, BTN_B, "Cancel");
     }
 
+    pointer_draw(g.px, g.stride, SW, SH);       /* the arrow over everything */
     fb_flip(fb);
     while ((int32_t)(timer_ticks() - deadline) < 0)
         ;

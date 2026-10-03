@@ -35,10 +35,11 @@ compaiono nel menu. Tutto il resto di questa guida vale anche per l'editor.
 **Sul PC**, per i modelli 3D e la pixel art: **bm Studio**; per scheletri, animazioni e
 sprite pre-renderizzati: **bm Animator** ([sdk/README.md](../sdk/README.md)). Sono pagine
 web che aprono e salvano i `.bm` (anche direttamente sulla SD). L'editor della console,
-quando salva, tiene i modelli e le animazioni. **Sulla console**, nella scheda Dev, lo
-**studio 3D** ne è la versione semplificata: guarda i modelli e le animazioni di un gioco
-(X sulla copertina, *Open in the 3D studio*), costruisce a blocchi e tessere, fa lo
-scheletro e le animazioni, salva e prova il gioco, con la tastiera o il gamepad.
+quando salva, tiene i modelli e le animazioni. **Sulla console**, nella scheda Dev, ci
+sono **bm Studio** e **bm Animator** con gli stessi nomi (X sulla copertina di un gioco,
+*Open in bm Studio* / *Open in bm Animator*): costruiscono a blocchi e tessere, scelgono e
+spostano facce e angoli, dipingono sul modello, fanno scheletri, animazioni e sprite,
+salvano e provano il gioco, con la tastiera o il gamepad.
 
 ## 1. Com'è fatta una cartuccia
 
@@ -52,8 +53,10 @@ Una cartuccia `.bm` è un unico file che contiene:
 | copertina per il menu (PNG) | `--cover` | no |
 
 La crea `scripts/mkbm.py` (solo libreria standard di Python, nessuna dipendenza).
-Risoluzione: **640×360** (predefinita) oppure **320×180** con `--res 320x180` (pixel più
-grossi, stile 16 bit, e più tempo per fotogramma). Colori: `0xRRGGBB`, lo schermo è a
+Risoluzione: **640×360** (predefinita), **480×270** con `--res 480x270` (il compromesso
+per il 3D con texture), **320×180** con `--res 320x180` (pixel più grossi, stile 16
+bit, e più tempo per fotogramma) oppure **256×256** quadrata con `--res 256x256` (al centro
+dello schermo, ingrandita 4× su 1080p, bordi neri). Colori: `0xRRGGBB`, lo schermo è a
 16 bit (RGB565).
 
 ## 2. Il gioco più piccolo
@@ -110,6 +113,19 @@ local x, y = stick(1)                     -- levetta del giocatore 1, da -1 a 1
 `btn(i)` senza giocatore risponde a tutti i controller: va bene per i menu e i giochi a
 un giocatore. La tastiera USB è il primo giocatore che non ha un pad.
 
+**Mouse.** Un gioco ha il puntatore solo se lo chiede (lo muovono un mouse o la levetta
+destra di un pad):
+
+```lua
+function _init() mouse(true) end           -- la console disegna la freccia
+function _update()
+  local mx, my = mouse()                   -- nil se non c'è niente che lo muova
+  if mx and mousep() then                  -- clic sinistro
+    tx, ty = mx, my
+  end
+end
+```
+
 ## 3. Impacchettare e provare
 
 ```sh
@@ -118,7 +134,7 @@ python3 scripts/mkbm.py -o palla.bm --lua carts/palla/main.lua --title "Palla" -
 ```
 
 Opzioni: `--sheet sprite.png`, `--map mappa.csv`, `--cover copertina.png`,
-`--res 320x180`.
+`--res 480x270` o `--res 320x180`.
 
 **Sul Pi:** copia il file nella cartella `carts/` della SD.
 
@@ -230,7 +246,7 @@ end
   `print` alla fine.
 
 **Con bm Studio** ([sdk/README.md](../sdk/README.md)): i modelli si fanno sul PC posando
-le tessere dello sprite sheet su una griglia (in stile Crocotile 3D) e stanno nel `.bm`
+le tessere dello sprite sheet su una griglia e stanno nel `.bm`
 stesso; nel gioco `model("nome")` li dà come mesh:
 
 ```lua

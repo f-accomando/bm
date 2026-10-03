@@ -1135,9 +1135,15 @@ void luaV_finishOp (lua_State *L) {
 
 
 /* fetch an instruction and prepare its execution */
+/* bm: with only a count hook (the console's watchdog, runtime.c) 'trap' is
+** set for every instruction; counting down here, without the call to
+** luaG_traceexec until the count is due, is the same and costs a fraction */
 #define vmfetch()	{ \
   if (l_unlikely(trap)) {  /* stack reallocation or hooks? */ \
-    trap = luaG_traceexec(L, pc);  /* handle hooks */ \
+    if (L->hookmask == LUA_MASKCOUNT && L->hookcount > 1) \
+      L->hookcount--; \
+    else \
+      trap = luaG_traceexec(L, pc);  /* handle hooks */ \
     updatebase(ci);  /* correct stack */ \
   } \
   i = *(pc++); \

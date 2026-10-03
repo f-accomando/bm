@@ -4,6 +4,7 @@
 #include "bm/runtime.h"
 #include "upload.h"
 #include "bm/stress.h"
+#include "b3dpi.h"
 #include "home.h"
 #include "input.h"
 #include "script/repl.h"
@@ -28,6 +29,8 @@
 #include "pager.h"
 #include "audio/audio.h"
 #include "dmatest.h"
+#include "gputest.h"
+#include "bm/roombench.h"
 #include "crumbs.h"
 #include "drivers/watchdog.h"
 #include <stdio.h>
@@ -47,12 +50,16 @@ static const char help_text[] =
             "  a  audio: HDMI sound status and a test tune\n"
             "  e  editor: code, sprites and map of a .bm cartridge\n"
             "  A  sound editor: sounds, sound effects and music of a .bm cartridge\n"
-            "  3  3D studio: models and animations of a .bm cartridge\n"
+            "  3  bm Studio: the 3D models of a .bm cartridge (tiles and blocks)\n"
+            "  4  bm Mesh: the meshes of a .bm (also those its code builds) to edit\n"
+            "  5  bm Pixel: the sprite sheet of a .bm: pixel art, palette, animation\n"
+            "  6  bm Animator: skeletons and animations of the 3D models, sprites\n"
             "  C  bm Code: the code editor (tabs, two pages, small font)\n"
             "  I  assistant: how to write code, sprite bases (M30; F6 in the tools)\n"
             "  T  Bluetooth: pair a controller as the next player (DS4: Share + PS)\n"
             "  K  Bluetooth: pair a keyboard (LE, e.g. MX Keys: hold an Easy-Switch key)\n"
-            "  P  Bluetooth: forget all paired pads and the keyboard (asks first)\n"
+            "  O  Bluetooth: pair a mouse (LE or classic; in pairing mode, no code)\n"
+            "  P  Bluetooth: forget all paired pads, the keyboard and the mouse (asks first)\n"
             "  W  WiFi: start, list the networks, join one (M18; saved in bm/config.txt)\n"
             "  E  Ethernet (Pi 1 B / B+): link, counters, chip registers\n"
             "     from the PC: tools/bm_net.py IP (console, --send/--play a cart, --kernel)\n"
@@ -60,6 +67,9 @@ static const char help_text[] =
             "  b  boot diagnostics: benchmarks, the bm demo, Lua boot script\n"
             "  k  CPU benchmark          p  rendering benchmark 640x360 RGB565\n"
             "  D  DMA test step by step (CPU against DMA timings)\n"
+            "  g  GPU test step by step: the 3D unit (V3D), speed, ARM vs GPU\n"
+            "  j  3D Bench: every 3D test with every driver, bars and a saved report\n"
+            "  R  Texture Room benchmark: crates doubled to 30 fps, ARM and GPU\n"
             "  V  .bm drawing: direct on screen / via RAM (compare with p)\n"
             "  s  rendering stress test (sprites, triangles, 3D; C and Lua)\n"
             "  d  animation demo (60 fps; any key stops it)\n"
@@ -217,6 +227,7 @@ void monitor_run(void)
         case 'Y': usb_live_test(5); input_live_test(10); break;
         case 'T': bt_scan(8); break;
         case 'K': bt_pair_keyboard(15); break;
+        case 'O': bt_pair_mouse(10); break;
         case 'W':
             if (wifi_start() == 0 && wifi_scan() > 0 && wifi_connect() == 0 &&
                 net_start(&net_wifi) == 0)
@@ -229,13 +240,14 @@ void monitor_run(void)
             break;
         case 'o': pager_show(klog_text()); break;
         case 'P': {
-            kprintf("forget all Bluetooth pads and the keyboard (keys removed from bm/config.txt)? y = yes\n");
+            kprintf("forget all Bluetooth pads, the keyboard and the mouse (keys removed from\n"
+                    "bm/config.txt)? y = yes\n");
             input_flush();                      /* only a key pressed after the question */
             char k = input_getc();
             if (k == 'y' || k == 'Y') {
                 int n = bt_forget_all();
-                kprintf("bt: %d device%s forgotten; pair again with T (DS4: Share + PS)\n"
-                        "    or K (keyboard)\n", n, n == 1 ? "" : "s");
+                kprintf("bt: %d device%s forgotten; pair again with T (DS4: Share + PS),\n"
+                        "    K (keyboard) or O (mouse)\n", n, n == 1 ? "" : "s");
             }
             else
                 kprintf("cancelled\n");
@@ -244,10 +256,16 @@ void monitor_run(void)
         case 'a': audio_test(); break;
         case 'e': carts_editor(console_framebuffer()); break;
         case 'A': carts_sound_editor(console_framebuffer()); break;
-        case '3': carts_studio3d(console_framebuffer()); break;
+        case '3': carts_studio(console_framebuffer()); break;
+        case '6': carts_animator(console_framebuffer()); break;
+        case '4': carts_mesh(console_framebuffer()); break;
+        case '5': carts_pixel(console_framebuffer()); break;
         case 'I': home_assistant(console_framebuffer()); break;
         case 'C': carts_code(console_framebuffer(), NULL); break;
         case 'D': dma_test(console_framebuffer()); break;
+        case 'g': gpu_test(console_framebuffer()); break;
+        case 'j': case 'J': bm_bench3d(console_framebuffer()); break;
+        case 'R': bm_room_bench(console_framebuffer()); break;
         case 'L':
             hid_set_layout(hid_layout()[0] == 'i' ? "us" : "it");
             kprintf("keyboard layout: %s\n", hid_layout());

@@ -51,6 +51,8 @@ typedef struct {
 /* What each player plays with, and the network, for the icons of the bar */
 enum { MENU_DEV_NONE, MENU_DEV_KEYBOARD, MENU_DEV_PAD };
 enum { MENU_NET_NONE, MENU_NET_WIFI, MENU_NET_ETHERNET };
+/* Whose buttons the hints at the bottom show (prompts.c) */
+enum { MENU_PROMPTS_DS4, MENU_PROMPTS_KEYBOARD, MENU_PROMPTS_PAD };
 
 typedef struct {
     const char *const *tabs;    /* tab names */
@@ -60,8 +62,11 @@ typedef struct {
     int n, sel;
     int dev[4];                 /* players 1-4: MENU_DEV_*, an icon with the number */
     unsigned bt;                /* bit p: player p+1 is on Bluetooth (a blue number) */
+    unsigned mice;              /* POINTER_USB / POINTER_BLUETOOTH: a mouse icon each */
     int net;                    /* MENU_NET_*: the link's icon... */
     int net_wait;               /* ...dimmed while there is no address yet */
+    int prompts;                /* MENU_PROMPTS_*: the device pressed last... */
+    int prompts_colour;         /* ...the DS4's face buttons in their colours */
     const char *details;        /* line under the grid (path, size) */
     const char *note;           /* last game, errors */
     const menu_panel_t *panel;  /* a submenu over the grid, or NULL */
@@ -70,8 +75,18 @@ typedef struct {
     const char *ask_yes;        /* the label of A ("Close it", "Delete") */
 } menu_view_t;
 
-/* Switches the screen to the menu mode; -1 if it cannot (the caller keeps
- * the text menu). */
+/* What is under a point of the last frame (M32: the pointer), the
+ * topmost thing: a cover (index; full = not cut by the edges of the grid),
+ * a tab (index), Settings, a row of the panel (index in its rows), a
+ * button of the hints (index 'A', 'B' or 'X'), the panel or the question
+ * elsewhere, or nothing. */
+enum { MENU_HIT_NONE, MENU_HIT_COVER, MENU_HIT_TAB, MENU_HIT_SETTINGS, MENU_HIT_ROW,
+       MENU_HIT_BUTTON, MENU_HIT_PANEL, MENU_HIT_ASK };
+typedef struct { int kind, index, full; } menu_hit_t;
+menu_hit_t menu_ui_hit(int x, int y);
+
+/* Switches the screen to the menu mode (it has the pointer); -1 if it
+ * cannot (the caller keeps the text menu). */
 int  menu_ui_open(framebuffer_t *fb);
 /* One frame: draws and shows it, waits for the next frame time. */
 void menu_ui_frame(framebuffer_t *fb, const menu_view_t *v);

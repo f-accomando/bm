@@ -768,9 +768,11 @@
         coverFromPng: () => A.pick('.png', async b => A.setCover(BM.makeCover(await A.decodeImage(b)))),
         coverRemove: () => A.setCover(null),
         luaViewer: async () => {
-          if (A.project.lua.trim() && !A.project.lua.startsWith(BM.VIEWER_MARK) &&
+          const { code, block } = BM.meshBlock(A.project.lua);   // the meshes of bm Mesh stay
+          if (code.trim() && !code.startsWith(BM.VIEWER_MARK) &&
               !(await A.confirm('Replace the code of the cartridge with the model viewer?', 'Replace'))) return;
-          A.project.lua = BM.viewerLua(); $('#cartLua').value = A.project.lua; A.markDirty(); A.refreshCart();
+          A.project.lua = BM.viewerLua() + (block ? '\n' + block : '');
+          $('#cartLua').value = A.project.lua; A.markDirty(); A.refreshCart();
         },
         luaImport: () => A.pick('.lua,.txt', b => { A.project.lua = BM.fromUtf8(b); $('#cartLua').value = A.project.lua; A.markDirty(); A.refreshCart(); }),
         luaExport: () => A.download(BM.utf8(A.project.lua), 'main.lua'),

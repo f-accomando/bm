@@ -1,0 +1,11 @@
+# Rally (tank): a racing driver's mech. The pilot: rally_pilot. The figure
+# of refine 01a101e7-2111-73a3-bc13-fe65d56ddf07 (made 2.4 m tall), grown to
+# the height below by art/meshyrig.py; the rotary guns' barrels at the end
+# of its arm cannons are made in models.py (two more tries, 01a1025f-2a76
+# and 01a10263-7e07, with gatling forearms, came out grey and spiky)
+name = rally_mech
+height = 3.0
+pose = none
+symmetry = on
+prompt = 3D game model of a sleek compact racing mech robot, symmetric, front view. Smooth glossy white car-body armor with black panels and two bold orange racing stripes over the top, an open cockpit seat with a curved windshield, two short arm cannons, a rear spoiler wing, two sturdy straight legs ending in wheeled feet like inline skates. Clean bevelled hard-surface shapes, stylized.
+texture = glossy white car paint, black trim and joints, two bright orange racing stripes, orange headlights, grey wheels, tinted black windshield; stylized hand-painted game texture with clean colour blocks

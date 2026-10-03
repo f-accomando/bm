@@ -809,7 +809,7 @@ salvataggio); intorno a lui strumenti specializzati, ognuno una cartuccia nella 
 **Stato (2026-10-01, sviluppato sul branch `sviluppo-sdk`, ora in `claude/bare-metal-mvp`):
 bm Studio, sul PC.** Su richiesta
 dell'utente, 22.3 (3D), parte di 22.2 (pixel art dello sheet) e di 22.5 (import/export)
-arrivano prima come applicazione per il PC, in stile Crocotile 3D (`sdk/studio`,
+arrivano prima come applicazione per il PC (`sdk/studio`,
 [sdk/README.md](../sdk/README.md)); i formati sono quelli previsti qui sotto, quindi gli
 strumenti sulla console potranno leggerli e scriverli.
 - **Formato**: sezione **MESH** del `.bm` (tipo 8, `src/bm/bm.h`; era 6 nei primi file,
@@ -873,7 +873,7 @@ delle altre due (lavora sul `.bm`, porta il progetto da e verso bm Studio).
 semplificata.** Su richiesta dell'utente gli strumenti del PC restano quelli principali e
 sulla console arriva una loro versione `.bm`: una cartuccia incorporata nel kernel
 (`carts/studio3d`), nella scheda **Dev** e nelle opzioni di ogni gioco (*Open in the 3D
-studio*; monitor `3`), sugli stessi file ([sdk/README.md](../sdk/README.md#sulla-console-lo-studio-3d)).
+studio*; monitor `3`), sugli stessi file. Poi diviso in bm Studio e bm Animator (sotto).
 - **Play** (il player): modelli, vertici, triangoli, ossa; camera che gira, animazioni
   (fotogramma per fotogramma, velocità), scheletro sovrapposto, misto di due animazioni.
 - **Build**: cursore a celle, blocchi (senza pareti tra blocchi vicini), tessere su un
@@ -895,6 +895,76 @@ studio*; monitor `3`), sugli stessi file ([sdk/README.md](../sdk/README.md#sulla
 - **Da verificare sul Pi**: scheda Dev → *3D studio*; aprire Studio Village, guardare il
   paesano (k: scheletro, b: misto), costruire qualche blocco in un progetto nuovo,
   salvarlo e provarlo (F5); fluidità del player e della costruzione sul Pi Zero.
+
+**bm Studio e bm Animator sulla console (2026-10-01, branch `sdk-dev`).** Su richiesta
+dell'utente lo studio 3D della console arriva al livello dei programmi per il PC e si
+divide in due, con gli stessi nomi: **bm Studio** (`carts/studio`, monitor `3`) e **bm
+Animator** (`carts/animator`, monitor `6`), nella scheda Dev e nelle opzioni di ogni gioco;
+dal menu dell'uno si passa all'altro sullo stesso file
+([sdk/README.md](../sdk/README.md#sulla-console-bm-studio-e-bm-animator)). Per ora tastiera
+e gamepad; il puntatore di sistema (M32, `mouse(true)`) c'è, ma Studio e Animator non lo usano ancora.
+- **bm Studio**: attrezzi block, tile (anche più tessere insieme), select (puntatore della
+  tastiera sulle facce: scegli, tutte, unite; sposta, gira, capovolgi, specchia, altro
+  lato, nuova tessera, gira la texture, scala, copia, cancella, in un modello nuovo),
+  vertex (sposta e unisci gli angoli), paint (i pixel della tessera di una faccia, sul
+  modello); viste luce / colori / fil di ferro e facce posteriori; conteggi con avvisi;
+  pagina models (nuovo, rinomina, duplica, cancella, ordine, margine delle texture);
+  titolo e autore.
+- **bm Animator**: play; rig con specchio delle ossa (`.L` / `.R`), nome, padre, giunture
+  che si muovono insieme, pelle rigida o liscia, facce assegnate a un osso; animate con
+  keyframe prima/dopo e spostabili, posa specchiata, onion skin, lista delle animazioni
+  (nuova, duplica, rinomina, cancella); **sprites**: un'animazione disegnata dal motore 3D
+  della console nello sprite sheet (fotogrammi, misura, direzioni, camera, luce, contorno,
+  colori) con il codice `sspr()`.
+- **Kernel**: la libreria `require "bm3d"` (`src/script/bm3d.lua`, il codice comune),
+  `cart_tool(nome, percorso)` (un altro strumento sullo stesso file), `cart_write` con
+  `from = false` (cartuccia nuova). I due salvano con `cart_write`: nel file cambiano solo
+  MESH, ANIM e lo sheet se dipinto (prima `cart_save` riscriveva tutto e lo sheet SHEET8
+  diventava SHEET).
+- **Test**: `tests/studio/tools3d_host.lua` (112 controlli, in `make test-studio`), i file
+  riletti da bm Studio (`check_studio3d.js`), `bmmesh.py` e dal kernel; QEMU
+  `test_studio_animator` (con le schermate).
+- **Da verificare sul Pi**: Studio Village → X → *Open in bm Studio*: attrezzi 1-5,
+  Tab (le tessere), F2 (i modelli); un progetto nuovo, *Save as*, F5; menu → *Open in bm
+  Animator*: F2 rig (n, m, v), F3 animate (n, frecce, w, o), F4 sprites (Invio); la
+  fluidità della selezione e della pittura con molti triangoli (il terreno del villaggio).
+
+**bm Mesh (2026-10-01, stesso branch): le mesh di un `.bm`, anche quelle del codice.**
+Su richiesta dell'utente: un editor `.bm` che legge le mesh, le modifica e le scrive nel
+`.bm`, con il passaggio da mesh a modello e da modello a mesh, compatibile con le altre
+app. Cartuccia incorporata (`carts/mesh`), nella scheda **Dev** e nelle opzioni di ogni
+gioco (*Open in bm Mesh*; monitor `4`) ([sdk/README.md](../sdk/README.md#sulla-console-bm-mesh)).
+- **Lettura**: i modelli della sezione MESH (bm Studio, studio 3D; con lo scheletro di bm
+  Animator), le mesh scritte da bm Mesh nel codice e quelle che il **codice del gioco**
+  costruisce con `mesh()`, `mesh_sphere()`, `mesh_cube()` (Astro Wing: 13, con i nomi
+  delle variabili: ship, dart, ring, ...).
+- **Modifica**: puntatore (frecce o croce), vertici e facce scelti uno per uno, tutti o
+  collegati; sposta, ruota, scala (passi, assi x y z o la normale), estrudi, duplica,
+  specchia e copia specchiata, faccia nuova su 3-4 vertici, unisci e salda i vertici,
+  suddividi, gira le facce, colora, cancella; annulla e rifai; primitive (cubo, piano,
+  sfera).
+- **Mesh → modello** (`m`): una copia nella sezione MESH, `model("nome")` nel gioco;
+  **modello → mesh** (`c`): una funzione `mesh_nome()` alla fine di `main.lua`, tra
+  `-- [bm Mesh begin]` e `-- [bm Mesh end]` (lo stesso testo di "Copy as Lua" di bm Studio;
+  bm Mesh riscrive solo quelle righe). Modificare una mesh del gioco ne fa una copia come
+  modello (il codice del gioco non si riscrive).
+- **Compatibilità**: le sezioni MESH (8) e ANIM (9) come le scrivono bm Studio, bm Animator
+  e lo studio 3D; un modello con scheletro lo tiene (l'osso di ogni vertice segue i
+  vertici aggiunti e tolti); il resto del file (sheet, mappa, copertina, suoni, codice
+  fuori dal blocco) resta byte per byte; il codice si apre in bm Code.
+- **Kernel**: `cart_meshes(percorso)` esegue il codice di un `.bm` in uno stato Lua a parte
+  (`src/bm/meshcap.c`: `mesh()` e le primitive tengono una copia, le altre funzioni di bm
+  non fanno niente, limite di istruzioni) e dà le mesh con il nome della variabile;
+  `cart_write` accetta `sections` (MESH e ANIM, controllate) e il codice è facoltativo
+  (`bm_rewrite_with` in `format.c`).
+- **Test**: `test_meshcap` (la cattura sulle cartucce vere: Astro Wing, Texture Room,
+  Chaos Kitchen), bm Mesh sul PC con le API sostituite (`tests/studio/mesh_host.lua`, 65
+  controlli), i suoi file riletti da bm Studio (`check_mesh.js`), `bmmesh.py` e dal kernel;
+  `test_bm` per `bm_rewrite_with`; QEMU `test_mesh` (Astro Wing: la nave come modello
+  spostato e come codice, salvata).
+- **Da verificare sul Pi**: scheda Dev → *bm Mesh*, oppure Astro Wing → X → *Open in bm
+  Mesh*: la lista delle 13 mesh, la nave copiata come modello (m), vertici spostati (F2,
+  a, g, frecce, Invio), Ctrl+S; tempi di lettura del codice e fluidità dell'editor.
 
 Sotto-milestone:
 - **22.0 Base comune**:
@@ -941,10 +1011,43 @@ Sotto-milestone:
   - una riga `#entry: aggiungi operatore ternario #` dentro una funzione con un if/else,
     Invio, poi Ctrl+Z;
   - Esc > Exit con modifiche non salvate: "Keep for later" e alla riapertura ci sono.
-- **22.2 Pixel art**:
-  - sprite, tavolozze, animazioni (fotogrammi, onion skin, anteprima);
-  - strumenti (linea, rettangolo, riempimento, selezione, specchio);
-  - tile e **mappe** (proposta: la mappa sta qui, tile e mappe sono legati).
+- **22.2 Pixel art** — ✅ in QEMU (2026-10-01, branch `pixel-art`), da verificare sul Pi:
+  - **bm Pixel** (`carts/pixel/main.lua`, nel kernel come gli altri strumenti): scheda
+    **Dev**, monitor `5`, "Open in bm Pixel" nelle opzioni di una cartuccia
+    ([sdk/README.md](../sdk/README.md#sulla-console-bm-pixel)). Tre pagine:
+    - DRAW: lo sprite ingrandito (8–128 pixel), matita (tratto con spazio tenuto), gomma,
+      riempimento, contagocce, linea, rettangolo e ovale (vuoti o pieni), selezione
+      (copia, taglia, incolla, solleva e sposta, specchia, gira, cancella), scorrimento,
+      disegno a specchio, griglia, animazione dei fotogrammi che seguono con onion skin e
+      velocità, la base di uno sprite dall'assistente (F6);
+    - SHEET: lo sheet intero con zoom, scelta dello sprite, copia e incolla tra sprite,
+      misura dello sheet fino a 4096×4096;
+    - PALETTE: fino a 256 colori, modifica RGB (con il colore RGB565 della console),
+      aggiungi, togli, sposta, ordina, colori dello sheet, tavolozze dell'SDK e di bm
+      Studio, sostituzione di un colore nello sprite o nello sheet.
+    Menu: apri, sheet nuovo (diventa una cartuccia con un visualizzatore), salva, salva
+    come, prova il gioco e torna, misura dello sheet; annulla e rifai; tastiera e gamepad.
+  - **Formato e compatibilità**: lo sheet si salva come SHEET8 (≤ 256 colori) con la
+    tavolozza di bm Pixel per prima, che torna uguale riaprendo; il resto del file resta
+    byte per byte; i pixel non ridisegnati tengono i 24 bit che avevano (la console lavora
+    in RGB565). SDK, bm Studio, studio 3D, `mkbm.py` e giochi leggono lo stesso sheet.
+  - **Kernel**: `sspr(..., zoom)` (ingrandito o rimpicciolito, `g16_sspr_zoom`),
+    `cart_sheet([w, h])` (misura dello sheet del progetto), `cart_write(path, {sheet =
+    true, palette = ...})` (`sheet_section`, `bm_sheet8_pack` con le sequenze del
+    codificatore di bm Studio, lo sheet al posto del vecchio in `bm_rewrite_with`),
+    `cart_load(...).palette`.
+  - **Test**: `test_bm` (packer SHEET8, sheet sostituito, zoom), bm Pixel sul PC con le API
+    sostituite (`tests/studio/pixel_host.lua`, 55 controlli), i suoi file riletti da bm
+    Studio (`check_pixel.js`) e dal kernel; QEMU `test_pixel` (Studio Village: solo i pixel
+    disegnati cambiano nel file) e `test_pixel_big` (Titan Clash, sheet 2048×3448: si apre a
+    1/4, "saving ..." mentre scrive, cambia un pixel solo).
+  - Tasti come chip di bm-ui (`prompt()`, `lastinput()`), come nelle altre app di sviluppo.
+  - **Da verificare sul Pi**: scheda Dev → *bm Pixel*, oppure Studio Village → X → *Open in
+    bm Pixel*: disegnare con matita e linee, tavolozza (F3), sheet (F2), Ctrl+S, provare il
+    gioco (F5); fluidità del disegno e dell'animazione; quanto ci mette a salvare uno sheet
+    grande (Titan Clash: 13 s in QEMU).
+  - Restano: tile e **mappe** (oggi nell'SDK, pagina mappa), livelli, tavolozze per
+    sprite.
 - **22.3 Render 3D**: mesh low-poly (vertici, estrusione, colori e UV sullo sheet),
   luci, camera, anteprima con Gouraud e texture, esportazione nella sezione MESH.
 - **22.4 Musica ed effetti** — ✅ in QEMU (2026-10-01), da verificare sul Pi:
@@ -1273,6 +1376,10 @@ della scheda Dev; Settings > System > Restart; le icone della barra (DS4 blu, ta
 bianca, tastiera Bluetooth blu, WiFi); la barra di scorrimento; L1 / R1 e Settings che si
 apre da sola; PS nel menu e nel monitor. I task 5–9 non sono stati fatti (milestone chiusa).
 
+Dopo la chiusura (decisione 2026-10-01): dal menu al monitor si va con **Ctrl+Esc** (o
+Start+Select, `q` dalla seriale), non più con Esc: Esc da solo torna indietro come B (anche
+dalla seriale e dalla console di rete). Nei giochi Esc esce come prima.
+
 Dopo la chiusura (decisione 2026-09-30): **bm native demo** e **bm stress test** non sono più
 nella scheda Games. Non vanno più sulla SD (`make sdcard` e `make image` mettono solo i giochi;
 `make install` toglie `carts/demo.bm` e `carts/stress.bm` dalla scheda) e il menu non mostra più
@@ -1283,6 +1390,65 @@ kernel: lo stress test nella scheda Dev, la demo col comando `n` del monitor.
   gli strumenti e le impostazioni (abbinare un secondo controller, collegare il WiFi,
   cambiare layout, riavviare); il menu resta a 60 fps; ogni funzione ha un test in
   QEMU.
+
+**Icone dei tasti** (branch `bm-ui`, 2026-10-01): un set di icone piatte per i tasti del
+DS4, dei pad generici e della tastiera, nello stile delle icone della barra.
+- Stile scelto dall'utente fra quattro varianti (pieno, contorno, rilievo, scuro a colori):
+  **rilievo**. Faccia bianca alta 14 pixel su un bordino grigio di 2 pixel, simbolo o
+  scritta ritagliati nella faccia. I quattro tasti frontali del DS4 hanno anche la
+  versione a colori: faccia scura con bordo e bordino grigi, simbolo nel suo colore
+  (croce blu, cerchio rosso, quadrato rosa, triangolo verde).
+- `src/kernel/prompts.c` (C semplice, come `icons.c`): forme con antialiasing (8×8
+  campioni ai bordi), fatte al primo uso e tenute. Tutte alte 16 pixel, come una riga di
+  testo.
+  - DS4: croce, cerchio, quadrato, triangolo; croce direzionale (tutta o una direzione
+    in bianco, le altre grigie); L1 R1, L2 R2 (più tondi in alto), L3 R3, levette L e R;
+    OPTIONS, SHARE, PS, touchpad.
+  - Pad generici: A B X Y, START, SELECT.
+  - Tastiera: frecce, Enter, Esc, Space, Tab, Backspace, Shift, Ctrl, Alt, Del, Home,
+    End, PgUp, PgDn, F1–F12 e un tasto per ogni carattere (`prompt_key`). Una lettera è
+    nel font 8×16 in grassetto, le parole nel 6×12.
+- **Menu**: i suggerimenti in basso mostrano i tasti dell'ultimo dispositivo premuto
+  (`hid_last_source()`), prima di allora la tastiera del giocatore 1 o il DS4.
+  - DS4: croce Play, quadrato Options, SHARE+OPTIONS Monitor; nei pannelli croce
+    Select, croce direzionale Change, cerchio Back.
+  - Tastiera: Enter, C, Ctrl+Esc (Esc da solo torna indietro); nei pannelli le frecce ← →.
+  - Pad generici: A, X, SELECT+START.
+  - Settings > Controllers > **Button icons**: White / Colour (`prompts=` in
+    `config.txt`).
+- Test: `make test-prompts` controlla ogni icona e disegna il set intero, 3x come sulla
+  TV, in `build/prompts/prompts.png`; `test_hid` controlla `hid_last_source()`; in QEMU
+  `prompt_spans` trova le icone dei suggerimenti dal loro bordino grigio.
+- **Da provare sul Pi:** i suggerimenti col DS4 (bianchi e, da Settings > Controllers >
+  Button icons, a colori), poi con la tastiera USB (Enter / C / Ctrl+Esc) premendone un
+  tasto.
+
+**Secondo set: le app di sviluppo** (2026-10-01). Prima ogni app scriveva i tasti a modo
+suo: solo il Sound editor li disegnava (chip con gli angoli tagliati, colori Xbox, solo i
+nomi del pad), SDK, 3D studio, bm Code e assistente li scrivevano come testo ("F1 code",
+"Enter/A: insert"). Fra quattro varianti l'utente ha scelto i **chip colorati**.
+- Chip piatti pieni di colore, scritta ritagliata: i tasti della tastiera nell'ambra delle
+  app, i quattro tasti frontali del DS4 nei loro colori, A B X Y dei pad generici nei loro
+  (verde, rosso, blu, giallo), gli altri pulsanti del pad grigio chiaro, la croce
+  direzionale con le direzioni giuste chiare. Alti 16 pixel accanto al testo 8×16, 12
+  accanto al 6×12 di bm Code (`prompt_chip`, `prompt_chip_key` in `prompts.c`; il set del
+  menu resta identico, pixel per pixel).
+- API Lua: `prompt(nome, x, y, [piccolo])` (maiuscolo i pulsanti del pad, come sul pad
+  usato per ultimo; minuscolo i tasti, coi nomi di `keyp()`), `prompt(nome)` misura,
+  `lastinput()` dice se l'ultimo tasto era della tastiera, di un DS4 o di un altro pad
+  (`docs/API.md`).
+- Nelle app (non in nano8, che è un emulatore): le schede di SDK e 3D studio (F1…F4,
+  Esc), le barre in basso ("hold F12 keys"), la riga dei suggerimenti del 3D studio, il
+  Sound editor (coi tasti della tastiera se è quella l'ultima usata: Enter, - =, [ ],
+  Backspace, Space…), il menu di bm Code con le scorciatoie e i suoi dialoghi, il pannello
+  dell'assistente e la sua barra. Le scritte dopo i chip restano sulle colonne del font (i
+  test in QEMU leggono lo schermo). Le liste dei tasti di F12 restano testo.
+- Test: `make test-prompts` controlla anche i chip e disegna `build/prompts/chips.png`; i
+  simulatori sul PC (Sound, 3D studio, pannello) hanno `prompt` e `lastinput`, e il
+  pannello prova tastiera e pad.
+- **Da provare sul Pi:** le schede, le barre e i suggerimenti di SDK, 3D studio, Sound
+  editor, bm Code e assistente, con la tastiera e poi col DS4 (Sound, i menu e il pannello
+  passano ai pulsanti del pad).
 
 ## M28 — Tastiera Bluetooth LE (M) — ✅ verificata sul Pi (2026-09-30)
 Richiesta 2026-09-30: una Logitech **MX Keys S** (con tastierino). È Bluetooth **Low
@@ -1454,9 +1620,139 @@ Task:
    commenta/scommenta, ottimizza (API come locali), spiega; oppure inserisce un esempio
    ("crea uno snippet per un effetto di particelle") o uno sprite scritto come codice
    ("crea uno sprite slime rosso"). Non cambia niente se non è sicura; Ctrl+Z annulla.
-10. Dopo: numeri e nomi della domanda dentro il codice proposto ("muovi a velocità 3"),
-   completamento dei nomi delle API, le domande senza risposta giusta che diventano voci
-   nuove, ricette di sprite animate (più fotogrammi nello sheet).
+10. ✅ **Completamento delle parole** (2026-10-02, guida e numeri in
+   [PREDICT.md](PREDICT.md)): in bm Code, mentre si scrive una parola, il resto della più
+   probabile in blu-grigio dopo il cursore; **Tab** la scrive e resta verde fino al tasto
+   dopo. Un n-gramma (`require "predict"`, dizionari `require "words"` da
+   `scripts/mkwords.py`) che segue il punto del cursore: nel codice Lua, le API della base
+   di conoscenza e i nomi della scheda (`f` → `function`, `if bt` → `btnp`); dopo `--` e
+   nelle stringhe l'italiano o l'inglese (menu); nelle righe `#entry:` e nella domanda
+   del pannello le domande all'assistente; in Trova e Sostituisci i nomi del codice. Su
+   100 caratteri italiani 83 tasti invece di 100, sul Lua il 19% in meno, sulle domande
+   mai viste all'assistente il 26%. Con il conteggio delle sillabe dell'italiano
+   (`make syllables`).
+11. ✅ **Ricette 3D per bm Studio e bm Animator** (2026-10-02, `src/ai/mesh.c`,
+   `mesh_chars.c`, `kb/meshes.txt`): 53 ricette low-poly nello stile dei blocchi della
+   console, scelte dalla rete dalle parole della richiesta ("una casa rossa grande",
+   "mech", "drago verde che vola"): forme semplici (cubo, sfera, cilindro, cono, piramide,
+   colonna, muro, scala, rampa, piattaforma, arco), oggetti (albero, pino, casa, torre,
+   sedia, tavolo, barile, cassa, forziere, spada, scudo, auto, lampione, staccionata,
+   roccia, cespuglio, fungo, cactus, ponte, pozzo, cartello, torcia, barca, cannone,
+   letto, fiore, moneta, gemma) e personaggi con **scheletro e animazioni** pronte per
+   bm Animator (persona, cavaliere, robot, mech, cane, cavallo, uccello, pesce, slime,
+   ragno, drago, fantasma, scheletro, pupazzo di neve: idle, walk, wave, attack, fly,
+   swim, bounce, fire...). Primitivi (scatola, tubo, sfera, prisma, specchio), materiali
+   con il tono dall'alto in basso, colori, misura, proporzioni e "senza scheletro" dalle
+   parole, un seme per variante. `ai.mesh()` e il modo `mesh` del pannello (il modello
+   gira nel pannello, Invio lo consegna); in bm Studio e bm Animator **F6** (pad Y + X):
+   il modello entra nel progetto (nel modello vuoto o in uno nuovo), con scheletro e
+   animazioni, e la prima pagina lo mostra. Il benchmark di qualità è stato il mech di
+   D.Va (Overwatch): cabina col pilota, gambe piegate, cannoni a tre canne, alette e
+   propulsori. Sul PC `build/host/meshview` disegna tutte le ricette (`sheet`) o una
+   da quattro lati e nelle pose delle animazioni (`one`): le immagini vanno guardate.
+   Costo: ~56 KB di codice nel kernel, niente RAM finché non si chiede (il modello di
+   2048 facce vive solo mentre `ai.mesh` costruisce le tabelle), 0,03 ms sul PC per il
+   mech. Test: `make test-ai` (ogni ricetta: facce valide, a terra, intorno all'origine,
+   ossa e clip, variante, stesso seme stesso modello, parole), il pannello sul PC,
+   `tools3d_host.lua` (F6 nel Studio con un `ai` finto), `test_studio_assistant` in QEMU.
+   Dopo: texture dallo sheet, ricette composte ("un villaggio"), più varianti per ricetta.
+12. ✅ **img2mesh: un'immagine diventa un modello** (2026-10-03, `tools/img2mesh.py`,
+   `src/ai/mesh_script.c`). Richiesta dell'utente: riprodurre come strumento quello che ha
+   fatto il mech dall'immagine di D.Va, cioè un modello con la visione che scompone la
+   figura in parti e scrive la ricetta. Sul Pi non può girare: lo strumento chiama Claude
+   attraverso l'API Anthropic (`claude-opus-5-5`, pensiero adattivo, `fallbacks:
+   "default"`) e lascia al nostro motore la parte deterministica. Il **linguaggio delle
+   parti** (`mesh_script.c`: `mat`, `box`, `bx`, `tube`, `cyl`, `ell`, `prism`, `wedge`,
+   `tf`, `bone`, `use`, `side`/`mirror`, `clip`, `key`, `turn`, `shift`, una riga ciascuno,
+   errori con il numero di riga) è interpretato nel kernel (`ai.script`) e sul PC
+   (`meshview script`/`json`); il mech della ricetta scritto nel linguaggio
+   (`tests/ai/img2mesh/mech.txt`) dà lo stesso modello ed è l'esempio nel prompt. Il tool:
+   immagine e descrizione → script → `meshview` lo costruisce e disegna da quattro lati e
+   nelle pose → i render tornano al modello che corregge (due giri, di più con `--rounds`;
+   uno script che non compila torna con l'errore) → `.bm` nuovo con il viewer di bm Studio,
+   o il modello aggiunto/sostituito in una cartuccia esistente (`bmmesh.encode_faces`,
+   `encode_anim`, `decode_anim`). `--record`/`--replay` salvano e rileggono le risposte:
+   `make test-img2mesh` e `test_img2mesh` in QEMU girano senza API. Costo: una manciata di
+   centesimi per giro; serve una chiave API (`ANTHROPIC_API_KEY`) o `ant auth login`.
+   Non provato con l'API vera in questa sessione (nessuna chiave): la parte di rete segue
+   l'SDK alla lettera, da verificare al primo uso. Dopo: la stessa cosa dalla console via
+   WiFi (bm Studio, F6 "da immagine": un PNG dalla SD, la chiave nelle impostazioni, una
+   passata sola).
+13. ✅ **meshy2mesh: Meshy (image-to-3D neurale) → console** (2026-10-03,
+   `tools/meshy2mesh.py`). L'utente ha una chiave di meshy.ai: il tool manda l'immagine
+   all'API image-to-3D (`target_polycount`, `should_texture`), aspetta il task, scarica il
+   `.glb` e lo porta nel formato della console: nodi e trasformazioni del glTF, z
+   capovolta e facce girate (la convenzione di `r3d.c`), a terra, centrato, alto
+   `--height` blocchi; **texture** nello sheet 256×256 della cartuccia nuova (facce
+   texturate con le UV in pixel) o **colori piatti** campionati dalla texture (o dai colori
+   dei vertici) quando entra in una cartuccia esistente o con `--flat`; sopra `--max-tris`
+   i vertici si fondono su una griglia (`--grid`): il modello diventa a blocchi, come gli
+   altri. `--glb` rifà la conversione da un `.glb` già scaricato. Test:
+   `tests/ai/check_meshy.py` (un `.glb` fatto dal test: scatola texturata, piramide
+   colorata, indici 16 e 32 bit, trasformazione di nodo) in `make test-img2mesh`,
+   `test_meshy2mesh` in QEMU (la cartuccia nel viewer e in bm Studio). Non provato con
+   l'API vera: la rete di questo ambiente nega `api.meshy.ai`; i campi dell'API
+   (`image_url` data URI, `ai_model`, `topology`, `target_polycount`, `should_texture`,
+   `model_urls.glb`, `status`) sono quelli della documentazione v1 e vanno verificati al
+   primo uso. Le texture JPEG nel `.glb` chiedono Pillow (`pip install pillow`); i PNG no.
+14. ✅ **Riduttore di poligoni** (2026-10-03, `src/bm/decimate.c`, niente AI): collasso
+   degli spigoli con le quadriche di Garland-Heckbert, in C portabile (kernel e PC). Mezzo
+   spigolo: i vertici restano quelli del modello, così ogni vertice tiene il suo osso (lo
+   scheletro segue) e le facce tengono i loro angoli di texture; l'angolo che si sposta
+   prende quello delle facce che spariscono (texture continua) o la texture della faccia
+   stirata. Bordi aperti, linee di colore e cuciture della texture sono tenuti con un piano
+   attraverso lo spigolo (peso 10 i bordi, 1 le linee); una faccia non si rovescia mai
+   (prova delle normali) e uno spigolo tra due ossa va per ultimo. Il Beast di Meshy da
+   2540 a 1200 e a 500 triangoli resta riconoscibile con la texture. Console:
+   `mesh_reduce(record, triangoli, ossa)` in `runtime.c`, `T.reduce_model` in `bm3d.lua`,
+   tasto `-` nella pagina models di bm Studio (chiede quanti triangoli, la metà per default;
+   Ctrl+Z annulla). PC: `tools/bmreduce.py CART.bm --faces 1200` (ctypes su
+   `build/host/libbmdecimate.so`, `scripts/bmdecimate.py`) e meshy2mesh sopra `--max-tris`
+   (la griglia resta solo oltre i limiti del formato). Test: `tests/bm/test_decimate.c`
+   (piani, due colori, texture, cucitura, sfera chiusa, record, i modelli di village e
+   kitchen dimezzati) in `make test-bm`, lo stand-in in `tools3d_host.lua`,
+   `test_mesh_reduce` in QEMU.
+15. ✅ **Un modello da un'immagine sulla console** (2026-10-03): bm Studio, pagina models,
+   `m` (o "Model from picture..." nel menu): l'immagine di `pics/` sulla SD va a un servizio
+   image-to-3D, la riga di stato segue il lavoro (uno sguardo ogni 5 s, Esc lo abbandona), il
+   `.glb` torna come modello: texture sullo sheet se è vuoto (altrimenti colori piatti presi
+   dalla texture), 2 blocchi di altezza, 1200 triangoli col riduttore. Non è legato a Meshy:
+   i servizi sono una tabella in `src/net/img3d.c` (nome, indirizzo, nome della chiave in
+   `bm/config.txt`, le tre chiamate); Meshy è il primo. Installazione: WiFi, `bm/ca.pem`,
+   una riga `meshy_key=...` in `bm/config.txt`, le immagini in `pics/`. Nel kernel sono
+   arrivati un lettore `.glb` (`src/bm/glb.c`, lo stesso lavoro di meshy2mesh), un parser
+   JSON (`json.c`), un decodificatore JPEG baseline (`jpeg.c`, le texture di Meshy sono
+   JPEG 2048×2048, 2,7 MB: decodificate in C e ridotte a 256×256) e il PNG di nano8 in
+   `png.c`. Il kernel cresce di ~20 KB. Test: `make test-img3d` (servizio finto),
+   `tests/bm/run_glb_test.py`, lo stand-in nel test di bm Studio, `test_picture_model` in
+   QEMU. Non provato con l'API vera dalla console (questo ambiente non ha la rete): la
+   stessa richiesta è quella di meshy2mesh, che ha fatto i modelli di `meshy-out`.
+16. ✅ **local2mesh: modelli aperti in locale, senza chiave** (2026-10-03,
+   `tools/local2mesh.py`): TripoSR o Hunyuan3D 2 installati da lui in `~/.bm/local3d` (git
+   clone, venv, PyTorch per CUDA se c'è `nvidia-smi`, altrimenti CPU), il `.glb` che
+   producono passa per la conversione di meshy2mesh (texture, riduttore); `--backend
+   command` per qualunque strumento. I backend veri si provano dal PC dell'utente (qui
+   niente GPU né huggingface): `tests/ai/check_local2mesh.py` prova lo script con un
+   comando finto. Le opzioni di `run.py` di TripoSR (`--bake-texture`, `mesh.glb` in
+   `0/`) e l'API di Hunyuan3D (`Hunyuan3DDiTFlowMatchingPipeline`, `Hunyuan3DPaintPipeline`)
+   sono quelle dei repository alla data: da verificare al primo uso.
+17. ✅ **Un metodo nostro: dal contorno dell'immagine** (2026-10-03, `src/bm/cutout.c`,
+   niente rete né AI, gira sul Pi in meno di un secondo): lo sfondo (trasparente, o il colore
+   degli angoli) va via, il contorno diventa un poligono (spigoli delle celle di una griglia
+   di 96, i frammenti piccoli scartati, Douglas-Peucker) e il poligono un solido chiuso:
+   ritaglio con spessore (ear clipping davanti e dietro, i lati lungo il contorno; immagine
+   davanti, specchiata dietro, i colori del bordo sui lati) o tornio (il mezzo contorno
+   girato intorno all'asse in 12 passi, l'immagine proiettata davanti). Onesto sui limiti:
+   non inventa quello che non si vede, i buchi del contorno si riempiono. bm Studio, `m`:
+   la scelta del modo (cutout, lathe, meshy.ai) e poi l'immagine; `cutout3d` in Lua; sul PC
+   `tools/cutout2mesh.py` (ctypes su `libbmcutout.so`). Test: `tests/bm/run_cutout_test.py`
+   (lecca-lecca: 48 triangoli chiusi, 2 blocchi, l'immagine davanti; tornio di 120), lo
+   stand-in nel test di bm Studio, `test_picture_model` in QEMU (il disco rosso diventa il
+   modello hero sul kernel ARM, salvato nel file).
+18. Dopo: numeri e nomi della domanda dentro il codice proposto ("muovi a velocità 3"),
+   le domande senza risposta giusta che diventano voci nuove, ricette di sprite animate
+   (più fotogrammi nello sheet), le parole nuove dell'utente nel dizionario del
+   completamento.
 
 Numeri: in QEMU 0,45 ms per domanda (sul PC 0,03 ms) e 1 ms per uno sprite 16x16; il
 kernel cresce di ~410 KB (rete 270 KB, voci e testi 80 KB). RAM: niente finché non si
@@ -1486,7 +1782,827 @@ codice inserito, sprite nello sheet, test di velocità, F9), `make ai-model` per
   con F6 (e col pad), il codice entra al cursore e lo sprite nella cella; il menu e
   l'editor restano a 60 fps; i test in QEMU coprono l'integrazione.
 
-## M31 — bm per PowKiddy RGB30 (XL) — in corso (branch `rgb30-powkiddy`)
+## M31 — Raspberry Pi Zero 2 W (L) — fatta in QEMU (2026-10-02), da verificare sul Pi
+Richiesta 2026-10-02: una versione di bm per il **Pi Zero 2 W**. Il Zero 2 W ha un altro
+SoC, il BCM2710A1 (RP3A0: quattro Cortex-A53, le periferiche del BCM2835 a un altro
+indirizzo), quindi non può avviare `kernel.img` (ARMv6).
+
+Decisioni:
+- **Un secondo kernel, `kernel7.img`**: gli stessi sorgenti compilati per ARMv7 a 32 bit
+  (`-march=armv7ve -mtune=cortex-a53`, VFPv4 + NEON; `-DBM_ZERO2` per gli indirizzi del
+  SoC). Niente port a 64 bit: il codice (Lua, driver, puntatori a 32 bit) resta uno solo,
+  e ARMv7 gira anche in QEMU `raspi2b` (Cortex-A7) per i test.
+- **Una sola SD per tutte le schede**: `kernel.img` e `kernel7.img` stanno insieme e
+  `config.txt` fa partire `kernel7.img` sul Zero 2 W (`[pi02]`). `make sdcard`,
+  `install`, `image` e `release` mettono tutti e due i kernel.
+- **Un core**: gli altri tre restano nello stub del firmware (a 0x0, per questo i vettori
+  delle eccezioni non si copiano più lì ma si usa VBAR). Usarli è un passo successivo.
+
+**Passi** (2026-10-02):
+1. ✅ (QEMU `raspi2b`, test `make test-hyp`) **CPU**: `start.S` passa da HYP (dove il firmware
+   avvia il Cortex-A53) a SVC come lo stub di Linux (nessuna trappola verso HYP: VFP,
+   NEON, contatore generico), vettori con VBAR; l'interrupt salva anche d16–d31;
+   barriere e cache ARMv7 (`src/arch/cache.c`: righe da 64 byte, "tutta la cache" per
+   set/way su L1 e L2); MMU con le periferiche a 0x3F000000 e quelle dell'ARM a
+   0x40000000, la RAM solo fin dove c'è; MMU e cache prima di tutto il resto (senza MMU
+   il Cortex-A53 vede la RAM come memoria "device": gli accessi non allineati sono
+   eccezioni). `make test-hyp` avvia `start.S` nella macchina `virt` di QEMU con le
+   estensioni di virtualizzazione, che parte in HYP come il Pi (`raspi2b` parte in SVC).
+2. ✅ (test sul PC) **Scheda**: revisione `902120` → `Pi Zero 2 W`, LED ACT sul GPIO 29
+   attivo basso (sul Zero 2 W il GPIO 47 è l'I2C dell'alimentatore: `kernel7.img` non lo
+   tocca mai); `Pi 2 B` per QEMU. La prima riga dice SoC e revisione, la seconda il
+   processore e il modo di avvio (`Cortex-A53 from HYP`); la riga CPU del menu System il
+   processore. Test: `make test-usb` (`test_board`, `test_board7`).
+3. ✅ (da provare sul Pi) **WiFi e Bluetooth del CYW43436**: stessi pin del Zero W tranne
+   BT_ON (GPIO 42 invece di 45). Il chip dice 43430: rev 2+ è il 43436
+   (`brcmfmac43436-sdio.bin/.txt/.clm_blob`), rev 1 il 43436s (`brcmfmac43436s-sdio.bin/.txt`
+   con la CLM del 43430); la patch Bluetooth dalla sottoversione LMP (`0x410c` →
+   `SYN43430B0.hcd`, `0x2209` → `SYN43430A1.hcd`), come Linux e Raspberry Pi OS.
+   `make firmware` scarica anche questi file, `make sdcard` li mette in `bm/`.
+4. ✅ (test sul PC) **Kernel dalla rete**: all'offset 4 di ogni immagine c'è `bmK6` o `bmK7`;
+   `bm_net.py --kernel` su un Zero 2 W scrive `kernel7.img`, e un kernel per l'altra
+   scheda viene rifiutato (`KA`) senza scrivere niente. Test: `make test-net`.
+5. ✅ (QEMU) **Test**: `make test-zero2` = tutti i test in QEMU con `kernel7.img` in
+   `raspi2b` (saltati quelli di Pi 1, radio e chainloader); anche nella CI.
+
+**Da provare sul Pi Zero 2 W** (tutto sullo schermo): `make firmware && make install`
+(o `make image`), poi accendere il Zero 2 W:
+- prima riga `Raspberry Pi Zero 2 W (BCM2710A1, revision 902120)`, seconda
+  `Cortex-A53 from HYP, MMU+caches on`; il LED ACT lampeggia una volta al secondo;
+- menu, giochi a 60 fps, audio HDMI, tastiera o pad USB (adattatore OTG), salvataggi;
+- `W` (WiFi): la riga `wifi: chip 43430 ... CYW43436` (o `CYW43436s`) e la connessione;
+  `T` (Bluetooth): `bt: chip LMP subversion ...` con il nome della patch, poi un DS4;
+- la stessa SD nel Zero W: parte `kernel.img` come prima.
+- **Fatto quando:** tutto questo funziona sul Pi Zero 2 W.
+
+Poi, se servono: gli altri tre core (audio, rete o rendering su un core a parte), i
+giochi più pesanti a 60 fps grazie alla CPU più veloce, misure in `docs/PRESTAZIONI.md`.
+
+## M32 — Mouse USB e Bluetooth, puntatore di sistema (M) — fatto in QEMU (2026-10-01), da provare sul Pi
+Richiesta 2026-10-01 (utente): supporto mouse **USB e Bluetooth**, anche con le **levette
+analogiche** dei pad. Decisioni:
+- il mouse si può spegnere **per tutto il sistema** ma non dall'utente: `mouse=off` in
+  `bm/config.txt`, nessuna voce nel menu; di base è acceso;
+- è attivo a seconda dell'**ambiente**: nel menu di bm sì, nelle app no, a meno che l'app
+  lo chieda (`mouse(true)`);
+- è **nascosto** se l'ambiente non lo supporta o se non c'è niente che lo muova;
+- nella barra un'**icona del mouse bianca**, senza numero (non è un giocatore), con un
+  **pallino blu** se è Bluetooth.
+
+Fatto (QEMU, test sul PC):
+- `src/usb/hid.c`: dove sono tasti, X, Y, rotellina e AC Pan nel report di un mouse, dal
+  descrittore USB o dalla mappa dei report LE (ID, campi da 12 o 16 bit), oppure il report
+  del protocollo boot; posizioni assolute (tavolette, l'`usb-tablet` di QEMU); la **levetta
+  destra** e L2 R2 L3 R3 di DS4, Xbox 360 e gamepad HID (Rx/Ry o Z/Rz). `pad()` vede i
+  nuovi bit (4096 L2 ... 32768 R3; nano8 li sa mappare).
+- `src/usb/usb.c`: un'interfaccia mouse **oltre** alla tastiera o al gamepad, sullo stesso
+  dispositivo (ricevitore con tastiera e mouse) o su un'altra porta dell'hub, col suo
+  endpoint. La decisione di M7b/M29 ("un solo dispositivo HID") diventa "uno più il
+  mouse". L'`usb-tablet` di QEMU, prima un gamepad, ora è un mouse.
+- `src/bt/ble.c`: **tastiera e mouse LE insieme** (lo stato è per dispositivo; una sola
+  scansione passiva per quelli lontani, una connessione alla volta). Il mouse si abbina
+  senza codice (Just Works, LE Secure Connections o legacy); dalla mappa dei report si
+  prende il report del mouse, altrimenti il Boot Mouse Input Report. Chiavi `bt_mouse` e
+  `bt_mouse_key`; si ricollega da solo (anche da un indirizzo privato, con l'IRK).
+- `src/bt/bt.c`: **mouse Bluetooth classico** in protocollo boot (SET_PROTOCOL sul canale
+  di controllo, report `A1 02`), un collegamento e una chiave suoi (`bt_mouse_classic`).
+  `O` dal monitor o Settings > Controllers > *Pair a mouse*: prima 10 s di ricerca LE, poi
+  8 s di ricerca classica.
+- `src/kernel/pointer.c`: il **puntatore di sistema**. La posizione è una frazione dello
+  schermo (passando dal menu 640x360 a un gioco 320x180 resta allo stesso punto); il
+  movimento è scalato come su 640x360, con accelerazione (lento preciso, veloce lontano);
+  la levetta destra con zona morta e curva (560 pixel/s al massimo); con la levetta, R2 o
+  R3 è il tasto sinistro e L2 il destro. Si vede quando c'è chi lo muove ed è "attivo":
+  un mouse appena collegato, o un movimento; nel menu i tasti e la croce lo nascondono.
+  Un clic col puntatore nascosto lo mostra soltanto. Freccia bianca bordata di nero,
+  12x20, o 8x12 sugli schermi alti meno di 288 pixel.
+- **Menu**: passando sopra una copertina intera o una riga di un pannello la si sceglie;
+  tasto sinistro = A su quello che c'è sotto (copertina, scheda, Settings, riga, i
+  pulsanti A / B / X in basso; una copertina tagliata dal bordo si sceglie soltanto),
+  destro = opzioni della copertina o indietro; un clic fuori da un pannello o da una
+  domanda li chiude; la rotellina scorre le righe. `menu_ui_hit()` dice cosa c'è sotto un
+  punto dell'ultimo fotogramma (zone registrate mentre si disegna).
+- **Barra**: icona `ICON_MOUSE` in `icons.c`, con il pallino `ICON_DOT` (blu) per il
+  Bluetooth; una per il mouse USB e una per quello Bluetooth se ci sono entrambi.
+  2026-10-02 (utente): il mouse ha la forma dell'immagine di riferimento (capsula
+  verticale, linea tra i tasti dall'alto fino sotto la rotellina, rotellina a pillola), piena
+  come le altre icone: linea e contorno della rotellina sono tagli di 1 pixel; `ICON_DOT` è lo stesso
+  disco dei numeri, in basso al centro, senza la cifra. `ICON_DOT` vale per ogni icona:
+  tastiera e controller col pallino senza numero esistono (`icon_mask(ICON_PAD, ICON_DOT)`),
+  la barra per ora non li usa.
+- **Cartucce**: `mouse(on, [freccia])`, `mouse()` → `x, y, tasti, rotellina, visibile`,
+  `mousep([i])` (docs/API.md). La freccia si disegna sulla pagina mostrata, mai nel buffer
+  della cartuccia (anche disegnando via RAM). nano8: le cartucce con `poke(0x5f2d, 1)`
+  seguono il puntatore appena compare (sopra l'immagine 128x128, senza freccia: la
+  disegnano loro). L'assistente (M30) conosce `mouse` e `mousep`.
+- Settings > Controllers: la riga **Mouse** ("USB", "Bluetooth on/off", "off" con
+  `mouse=off`) e **Pair a mouse**; *Forget all controllers* e `P` dimenticano anche il mouse.
+- Test: `make test-usb` (descrittori del mouse e del tablet di QEMU, una mappa stile
+  Logitech, il protocollo boot, levetta destra e grilletti); in QEMU `test_usb_mouse`
+  (tastiera e tablet dietro un hub: icone, freccia, passaggio sopra, rotellina, tasti che
+  la nascondono, schede, tasto destro, clic fuori, clic che gioca), `test_mouse_cart`
+  (API in un gioco 320x180 e `mouse=off`), `test_bt_mouse` (MX Keys e MX Master simulati
+  insieme: abbinamento Just Works, icone blu, puntatore, Settings, riconnessione con
+  l'IRK, chiavi), `test_bt_mouse_classic`, `test_stick_pointer` (levetta destra, R2, L2).
+  La simulazione dei dispositivi LE (`FakeMxKeys`) ora regge più collegamenti.
+
+**Da provare sul Pi** (senza seriale, tutto sullo schermo):
+- il mouse Bluetooth LE: mouse in modalità abbinamento, poi Settings > Controllers > *Pair
+  a mouse* (col DS4 o la tastiera); la schermata dice "found mouse ...", "no code (Just
+  Works)", "mouse ... connected"; nel menu l'icona del mouse col pallino blu e la freccia;
+- il puntatore nel menu: passare sulle copertine, clic per giocare, tasto destro per le
+  opzioni, rotellina; la **velocità** (da regolare se è troppo lenta o veloce);
+- spegnere e riaccendere il mouse (o muoverlo dopo un po'): si ricollega da solo, anche con
+  la MX Keys collegata;
+- la levetta destra del DS4: la freccia compare muovendola; R2 clicca;
+- `mouse=off` in `bm/config.txt`: niente freccia né icona.
+
+- **Fatto quando:** sul Pi il mouse Bluetooth LE si abbina dal menu, muove il puntatore a
+  60 fps insieme alla MX Keys e si ricollega da solo; la levetta destra fa lo stesso.
+
+## M33 — GPU e 3D più veloce (L/XL) — ✅ verificata sul Pi (2026-10-01)
+Decisione 2026-09-30, dopo l'analisi delle prestazioni 3D: il rasterizzatore software ha
+ancora un margine (circa 2× sui pixel con texture), ma il salto vero è la **GPU 3D del
+VideoCore IV** (V3D: 12 QPU, texture filtrate, z-buffer nel chip), finora mai usata.
+Niente OpenGL: né quello del firmware (VCHIQ, userland Broadcom, thread) né Mesa (Linux
+DRM). Un **driver V3D nostro, piccolo e a funzioni fisse**, sotto l'API che le cartucce
+usano già (`mesh`, `draw3d`, `camera3d`, `light3d`, `fog3d`, `lamp3d`): le cartucce non
+cambiano, vanno più veloci. Il rasterizzatore software resta per QEMU (che non emula la
+V3D), per i test sul PC e come riserva.
+- **Fatto quando:** Texture Room gira a 60 fps a 640×360 con la GPU (la cartuccia
+  *Texture Room HD*, poi il benchmark Texture Room della scheda Dev), e lo stress test
+  mostra le righe GPU accanto a quelle software.
+
+**Passi:**
+1. **Misure** (stress test `s`): la parte C parte dopo che l'avvio si è calmato (WiFi,
+   Bluetooth); righe con un quad a tutto schermo (piatto, Gouraud, texture) per separare
+   il costo per pixel da quello per triangolo; clock del core (fissato a 250 MHz da
+   `enable_uart=1`: regola la L2 e il bus della memoria).
+2. **Rasterizzatore più veloce** (software): divisione per l'area una volta per
+   triangolo, mesh fuori dallo schermo scartate prima di trasformarle, ciclo delle
+   texture più corto, Gouraud a rampa quando la luce è bianca, z-buffer pulito dal DMA.
+3. **Modo 480×270** per le cartucce (4× esatto su 1080p): la risoluzione naturale per il
+   3D in software.
+4. **Prova della V3D** (monitor `g`, passo per passo sullo schermo come `D`): accensione,
+   identificativo, pulizia dello schermo con la sola lista di rendering, un triangolo
+   Gouraud, molti triangoli con i tempi.
+5. **Backend V3D per `draw3d`**: piatto, Gouraud, z-buffer; righe GPU nello stress test.
+6. **Texture, nebbia, trasparenze, MSAA 4×**; poi, se servono: vertex shader sulle QPU,
+   luce per pixel, sprite 2D sulla GPU.
+
+Fatto (2026-10-01, da misurare sul Pi):
+- Passo 1: lo stress test aspetta 20 s dopo l'avvio, scrive clock (core e massimo, V3D,
+  SDRAM), throttling e tempo negli interrupt (con i due più pesanti), e ha quattro righe
+  `quad 320x180` (piatto, senza z, Gouraud, texture) con il costo di un pixel in ns.
+- Passo 2: bordi dei triangoli in virgola fissa 32.32 (niente confronti in virgola mobile
+  per riga), cicli delle texture specializzati (clamp controllato per segmento,
+  trasparenza per cella dello sheet, luce con 2 moltiplicazioni), dither del Gouraud in un
+  registro che ruota, mesh fuori dalla vista scartate prima di trasformarle, z-buffer
+  pulito dal DMA a fine frame (`dma_zclear=0` in `bm/config.txt` lo spegne). Pixel
+  identici a prima; istruzioni ARM per pixel in `docs/PRESTAZIONI.md` (texture con luce
+  70 → 46, Texture Room 85 → 58). Strumenti: `make bench3d` (checksum delle scene) e
+  `make count-insns` (istruzioni contate con `qemu-arm`).
+- Passo 4 (da provare sul Pi): **prova della V3D**, monitor `g` o "GPU test" nella
+  scheda Dev. Driver minimo `src/gpu/v3d.c` (accensione col mailbox, identità, cache
+  della V3D, liste di controllo con timeout e registri sullo schermo in caso d'errore),
+  shader QPU assemblati da `tools/qpuasm.py` (che riproduce bit per bit gli shader di
+  due esempi bare metal già provati su un Pi Zero W). Passi, ognuno scritto prima di
+  partire: 1 accensione, 2 identità (slice, QPU, TMU), 3 pulizia dello schermo con la
+  sola lista di rendering (e l'ordine dei colori in RGB565), 4 un triangolo Gouraud,
+  5 z-buffer (il triangolo più vicino vince in entrambi gli ordini), 6 velocità con
+  20 000 triangoli piccoli, 7 velocità con 20 schermi interi, 8 un quadrato con texture
+  letta dalla TMU (texture RGBA a 32 bit in ordine di riga, come nell'esempio per il Pi
+  Zero W), 9 un'immagine disegnata dalla GPU direttamente nella pagina della console
+  (resta 10 s o fino a un tasto).
+  In QEMU (che non ha la V3D) si ferma al passo 1 e lo dice (`test_gpu_absent`).
+- Passo 3: modo **480×270** per le cartucce (`mkbm.py --res 480x270`, `SCREEN_W` 480,
+  l'editor lo propone tra 640×360 e 320×180); test QEMU `test_res_480` (modo video, 3D
+  con texture, z-buffer pulito dal DMA).
+- Passi 5 e parte del 6: **backend GPU per
+  `draw3d`** (`src/gpu/gpu3d.c`). r3d trasforma, illumina, taglia e scarta come prima e
+  passa i triangoli dello schermo al backend, che li raccoglie in un lavoro per la V3D
+  (gruppi di triangoli con lo stesso shader, z e texture; vertici nel formato NV);
+  la V3D carica ogni tile dalla pagina (il 2D disegnato prima resta sotto), disegna con
+  uno z-buffer a 24 bit e la rimette nella pagina. Tre shader: colore sfumato (piatto e
+  Gouraud, nebbia e luci già nel colore), texture × luce, texture × luce con i texel
+  trasparenti scartati. Triangoli oltre il range delle coordinate tagliati in una banda
+  di guardia; sheet più grandi di 2048 in grigio. All'avvio una prova in un buffer
+  piccolo trova da sola l'ordine dei byte di colori e texel. Il 3D in attesa viene
+  disegnato prima del 2D che lo segue, di `pget`/`sset`/`light_begin` e a fine
+  fotogramma (contato in `stat(1)`); se la GPU non finisce un lavoro il kernel torna
+  all'ARM e scrive i registri nel log. Si accende in *Impostazioni > 3D of the games*
+  (`gpu3d=1`); `stat(9)` lo dice alla cartuccia (Texture Room scrive `GPU` nell'HUD);
+  a fine partita il log ha lavori, triangoli e ms della GPU per fotogramma.
+  Prova sul Pi: passo 10 di `g` (la stessa scena da ARM e GPU, tempi, pixel diversi,
+  le due immagini affiancate). Sul PC: emulatore della V3D (`tests/gpu/v3d_emu.c`:
+  liste di controllo, binning per tile, shader eseguiti per tipo) e `make test-gpu3d`
+  (scene confrontate col rasterizzatore software, nei quattro ordini di byte possibili).
+  Poi: **righe GPU nello stress test** (sfere piatte, Gouraud, con texture e i quad a
+  tutto schermo disegnati dal backend, fino a 2000 quad con lo z a 24 bit; in QEMU la
+  riga `GPU rows: none (...)` dice perché mancano) e **z-buffer conservato tra un
+  lavoro e l'altro**: quando un lavoro si chiude a metà fotogramma (lavoro pieno,
+  texture da rifare, oppure 2D seguito da altro 3D) la V3D salva lo Z in memoria in
+  formato T e il lavoro dopo lo ricarica, come fa il driver vc4 di Linux (un load per
+  volta, uno store vuoto in mezzo). Per il 2D lo fa solo per le cartucce che ne hanno
+  bisogno (lo impara al primo fotogramma), per non pagare 1 MB a fotogramma per ogni
+  HUD. Prova sul Pi: passo 11 di `g` (3D, 2D, 3D confrontato con l'ARM).
+  Infine **Texture Room HD**: lo stesso `main.lua` di Texture Room costruito a 640×360
+  (`build/carts/texroom_hd.bm`), la cartuccia del criterio di chiusura; con il 3D
+  sull'ARM scrive in basso come accendere la GPU.
+  Report prima/dopo (istruzioni, funzioni, correttezza della GPU sull'emulatore, cosa
+  misurare sul Pi): `docs/M33-PRIMA-DOPO.md`.
+- **Sul Pi (2026-10-01, `6c2fdaa`):** il 3D sull'ARM va 2,3× (sfere 31 → 70 a 60 fps), i
+  triangoli 2D 1,9×, e Texture Room HD sull'ARM fa 37–41 fps. La V3D si accende e
+  risponde (3 slice × 4 QPU, 250 MHz), ma la prima pulizia si è fermata con "no end of
+  frame": l'attesa del driver prendeva per un errore il bit "binner senza memoria",
+  acceso fin dall'avvio. Corretto, con un test sul PC che simula i registri come li ha
+  mostrati il Pi (`make test-v3d`).
+- **GPU sul Pi (2026-10-01, `d0c7fe8`):** il test `g` passa tutti gli 11 passi (stessa
+  scena 3309 triangoli: ARM 28,8 ms, GPU 9,1 ms, 0,1% di pixel diversi; z conservato tra
+  2D e 3D: 0,0%). La V3D riempie 811 Mpixel/s e fa 3 milioni di triangoli/s. Righe GPU
+  dello stress: 182 sfere a 60 fps (7142 triangoli) contro 69 sull'ARM, quad 1 ns per
+  pixel (9 con texture). Il limite ora è l'ARM (~2 µs per triangolo). Per chiudere M33
+  manca Texture Room HD con la GPU.
+
+✅ Verificata sul Pi (2026-10-01, `d0c7fe8`): **Texture Room HD con la GPU** a 640×360,
+32 casse (573 triangoli), **5,8 ms, 60 fps** (sull'ARM: 25–26 ms, 37–41 fps); Chaos
+Kitchen con la GPU 6,8 ms, 60 fps, 758 triangoli (prima di M33: 14,1 ms, 54 fps); lo
+stress test ha le righe GPU accanto a quelle software. Il criterio di chiusura è
+raggiunto, e da qui **la GPU è il default** per il 3D dei giochi (`gpu3d=0` o
+*Impostazioni > Graphics > 3D of the games: ARM* per l'ARM; in QEMU e se la V3D non risponde si
+torna all'ARM da soli). Report prima/dopo: `docs/M33-PRIMA-DOPO.md`.
+
+Dopo la chiusura (2026-10-01): Texture Room e Texture Room HD diventano **un benchmark
+nella scheda Dev** (comando `R` del monitor), non più giochi. Il kernel porta la
+cartuccia al suo interno e la rilancia passo per passo (`bm_next_run`: risoluzione,
+renderer e numero di casse, che la cartuccia legge in `BENCH`): casse raddoppiate da 8
+finché tiene 30 fps, a 320×180 e poi a 640×360, con l'ARM e poi con la GPU. Ogni passo
+dura 2 s e scrive casse, triangoli, ms e fps; alla fine un riepilogo con le casse
+massime a 60 e a 30 fps per ogni caso (`src/bm/roombench.c`). Restano fuori da
+M33, e passano a M34: MSAA 4×, texture in T-format per la TMU (oggi 9 ns per pixel con
+texture contro 1), il costo per triangolo dell'ARM (~2 µs, ora il limite); per dopo il
+filtro bilineare (cambia l'aspetto delle texture rispetto all'ARM) e gli sprite 2D
+sulla GPU.
+
+## M34 — GPU 2: anti-aliasing, texture a tile, meno lavoro per l'ARM (L) — in corso
+Il seguito di M33 (decisione 2026-10-01): con la GPU il 3D è limitato dall'ARM (~2 µs
+per triangolo) e, con le texture, dalla lettura in ordine di riga (9 ns per pixel contro
+1). In più la GPU sa fare l'anti-aliasing che l'ARM non può permettersi.
+- **Fatto quando:** sul Pi il test `g` passa i passi 12 e 13 (texture a tile identiche
+  e più veloci, MSAA con i bordi smussati), lo stress test ha le righe AA, e il costo
+  per triangolo dell'ARM con la GPU scende in modo misurabile (righe GPU spheres,
+  benchmark Texture Room).
+
+**Passi:**
+1. **Pagina pulita senza load**: un fotogramma che comincia con `cls` non fa rileggere
+   la pagina alla GPU; le tile partono dal colore di `cls`.
+2. **Texture in T-format** (il formato a tile della TMU, meglio per la sua cache), con il
+   layout imparato dalla GPU stessa e il ritorno all'ordine di riga se la prova non torna.
+3. **MSAA 4×** per il 3D della GPU, scelto in *Impostazioni > Graphics*.
+4. **Meno lavoro per triangolo sull'ARM** (trasformazioni, vertici NV, liste).
+
+Fatto (2026-10-01, da verificare sul Pi):
+- Passo 1: `cls()` dice al backend il colore della pagina (`gpu3d_page`); il lavoro
+  che parte da una pagina di un solo colore pulisce le tile con quel colore invece di
+  caricarle (un load della pagina in meno per fotogramma). Lo stress test fa lo
+  stesso con le sue righe GPU.
+- Passo 2: all'avvio, dopo gli ordini dei byte, la prova disegna una texture 64×64
+  RGBA8888 in cui la parola *i* si vede come il colore RGB565 *i*: dai pixel il backend
+  impara, texel per texel, quale parola legge la TMU (tile da 4 KiB di 32×32 texel, il
+  layout dentro la tile nelle righe pari e dispari, l'ordine delle tile) e mette le
+  texture con i lati multipli di 32 in T-format solo se tutto torna; altrimenti restano
+  in ordine di riga. Lo stato della GPU lo dice (`textures in tiles` o `in rows`).
+  Prova sul Pi: passo 12 di `g` (pavimento 256×256 con texture, in ordine di riga e a
+  tile: tempi e immagini identiche, altrimenti le tile si spengono e lo scrive).
+  Sul PC l'emulatore ha tre layout T-format (`make test-gpu3d`).
+- Passo 3: **MSAA 4×**. Tile di 32×32 con 4 campioni, rasterizzazione a 4 campioni
+  (`CONFIGURATION_BITS`), la media scritta nella pagina allo store. Caricare la pagina
+  in un tile multicampione non è un percorso usato da Mesa né dal driver di Linux,
+  quindi una prova all'avvio lo controlla: un lavoro MSAA che pulisce deve dare il
+  colore giusto, e un load deve riempire i 4 campioni (allora MSAA su ogni pagina;
+  se ne riempie uno solo, MSAA solo sulle pagine pulite con `cls`; se il lavoro non
+  finisce, niente MSAA). Mai con lo z-buffer conservato tra un lavoro e l'altro (i
+  campioni sarebbero 4 per pixel). Si accende in *Impostazioni > Graphics > 3D
+  anti-aliasing* (`gpu3d_aa=1`, spento di default); le Impostazioni ora hanno il
+  sottomenu *Graphics* (disegno dei giochi, 3D, anti-aliasing). Prova sul Pi: passo 13
+  di `g` (la scena del passo 10 senza e con MSAA, tempi, quota di pixel smussati e un
+  ritaglio ingrandito 2× delle due immagini affiancate) e le righe `GPU spheres AA 4x`
+  e `GPU quad AA 4x` dello stress test. Sul PC l'emulatore fa l'MSAA (campioni, media)
+  anche nella variante in cui il load riempie un solo campione.
+- Passo 4: **meno istruzioni ARM per triangolo** con la GPU, pixel identici (stessi
+  checksum di `make bench3d`, sull'ARM e sulla GPU emulata): sfere 936 → 706 (−25%),
+  con texture 1131 → 888, Texture Room 1386 → 1109 (`make count-insns`, scene `+gpu`;
+  dettagli in `docs/PRESTAZIONI.md`). `count-insns` non traccia più l'emulatore della
+  V3D (da 10 minuti a 80 secondi per scena). Prova sul Pi: righe GPU dello stress test
+  (µs per sfera, prima 80) e benchmark Texture Room.
+
+**Unita a Overbit (2026-10-03, branch `claude/overclone`).** Nel branch
+`3d-performance` M33 e M34 erano M30 e M31 (qui M30 è l'assistente, M31 il Pi Zero 2 W, M32 il
+mouse del branch principale). r3d unisce le due strade: i bordi in virgola fissa, i
+cicli delle texture specializzati, le mesh fuori dalla vista scartate (non quelle con
+scheletro) e il backend della GPU, con quello che Overbit aveva aggiunto (materiali,
+luce del cielo, riflessi, retino, livelli di dettaglio, ossa, luce precalcolata agli
+angoli, ombre, effetti, strato in prima persona, Gouraud impacchettato, righe tagliate
+ai lati). Il primo piano di `R3D_FRONT` con la GPU è uno `zclear` del backend.
+`stat(6)` del branch (la GPU disegna) diventa `stat(9)`: 6–8 sono già i tempi di
+Overbit. Pixel del rasterizzatore uguali a prima del merge (`bench3d`: 1–14 pixel su
+230 400 cambiano di un livello di retino).
+
+**Overbit sulla GPU (2026-10-03).** Il backend ha imparato quello che a Overbit
+mancava: le facce a retino (uno shader che scarta i pixel dispari), le texture con la
+luce precalcolata RGB e la nebbia sugli angoli (shader `TEX_RGB`, anche con le
+`lamp3d`), le ombre (nere a retino con la prova dello z, senza leggere lo schermo) e
+gli effetti 3D (punti, linee, sprite come triangoli). Resta all'ARM solo una faccia
+con texture *e* retino insieme (`r3d_t.arm_hook`; il fotogramma misto non si mostra).
+Nel gioco: menu "3D" (GPU, GPU+AA, ARM), `gpu3d([on, aa])` per le cartucce, Gouraud da
+MEDIUM e ombre da HIGH quando disegna la GPU, e il **benchmark** (*Overbit >
+BENCHMARK*): i bot giocano la stessa partita con ogni renderer e qualità, poi un anello
+di eroi che cresce fino a 30 fps; tre pagine di report. Poi le ottimizzazioni misurate
+con `tests/overbit/frames.py` (istruzioni dell'ARM per fotogramma, per funzione, con
+`qemu-arm`): driver più snello per triangolo, ombre e trasformazioni più leggere,
+particelle e anelli del Lua riscritti. Numeri, limiti e budget di un 4 contro 4 in
+`docs/M33-PRIMA-DOPO.md` (sezione 7).
+
+**Per chiudere M34:** sul Pi il test `g` (passi 12 texture a tile e 13 MSAA), le righe AA
+dello stress test, il benchmark Texture Room e il benchmark di Overbit con ARM, GPU e
+GPU+AA; la faccia con texture *e* retino sulla GPU (oggi l'unico caso che torna
+all'ARM); il flicker dei menu con il 3D sull'ARM.
+
+### Dopo M34: come si lavora (decisione 2026-10-03)
+- **Tutto su `3d-performance`** (decisione dell'utente, 2026-10-03): il motore
+  (`src/gpu`, `r3d.c`, shader, emulatore, benchmark) e Overbit. `claude/overclone` è
+  fermo a `600e600`, già unito qui; non ci si lavora più.
+- Ogni novità della GPU che cambia aspetto, latenza o memoria è **un'opzione**: una
+  chiave in `bm/config.txt`, una riga in *Impostazioni > Graphics* e un argomento di
+  `gpu3d()` per le cartucce e i benchmark. Il default resta quello verificato sul Pi; le
+  ottimizzazioni a pixel identici non hanno interruttore.
+- Ogni passo si misura su Overbit prima e dopo: il suo benchmark (bot, qualità,
+  renderer, anello di eroi), `tests/overbit/frames.py`, `tests/bm/herobench.c`,
+  `tests/bm/mapbench.c`, `tools/armprof.py`, `make bmhost-gpu`; e sul Pi con le foto del
+  report.
+
+## M35 — ARM e GPU insieme (M)
+Oggi a fine fotogramma l'ARM aspetta che la V3D finisca (nella scena di prova 2,1 ms su
+9,1). Obiettivo: quel tempo fuori dal fotogramma, e meno lavori per fotogramma.
+1. **Fotogramma in coda:** il lavoro del fotogramma parte e l'ARM va avanti (Lua,
+   trasformazioni del fotogramma dopo); si aspetta solo prima di toccare la stessa
+   pagina. Opzione (un fotogramma di latenza in più).
+2. **Memoria dei vertici e delle liste senza cache** (scrittura combinata): niente
+   letture di righe di cache per dati che l'ARM non rilegge. Opzione, misurata sul Pi.
+3. **Meno lavori per fotogramma** quando 3D e 2D si alternano (HUD di Overbit, editor
+   3D): il 2D dopo il 3D raccolto e disegnato in un colpo dove l'ordine lo permette.
+- **Fatto quando:** il benchmark di Overbit e lo stress test mostrano il guadagno sul Pi,
+  con l'opzione accesa e spenta.
+
+**Stato (2026-10-03, branch `3d-performance`; sul PC, da provare sul Pi).** Fatto il passo 1,
+**bm3d 4.0**: `gpu3d_submit` avvia il lavoro di fine fotogramma con `v3d_start` (il binning
+finisce con `INCREMENT_SEMAPHORE`, il rendering aspetta con `WAIT_ON_SEMAPHORE` prima del
+primo tile, come il driver vc4 di Linux: i due thread partono insieme) e il runtime chiama
+intanto il `_update` del fotogramma dopo; `gpu3d_sync` aspetta prima di toccare la pagina
+(2D, letture, la copia sullo schermo), il driver prima del lavoro dopo o di cambiare mesh e
+texture che il lavoro legge. Prova all'avvio `probe_queue` (stato: `queue yes`); opzione
+*Graphics > 3D frame queue* (`gpu3d_queue`, spenta di default), quarto argomento di
+`gpu3d()`; test `queue` del 3D Bench (GPU+VS e GPU+VS+Q, con 4 milioni di istruzioni di
+logica dopo il 3D). L'emulatore controlla i semafori (un lavoro avviato che legge le liste
+dei tile prima di aspettare è un errore) e ogni scena dei test esce identica in coda.
+
+Fatto il passo 3, **bm3d 4.1**: in Overbit l'HUD dopo il 3D faceva aspettare la GPU a metà
+fotogramma e lo `zclear()` delle braccia in prima persona apriva un secondo lavoro, quindi
+la coda non serviva. Ora il 2D disegnato dopo il 3D mentre la GPU ha un lavoro sulla pagina
+fa partire il lavoro e si registra (`d2` in `runtime.c`), poi va sulla pagina nello stesso
+ordine quando la GPU ha finito (prima di altro 3D, di letture della pagina, della copia
+sullo schermo); lo `zclear()` resta nel lavoro (`fs_zclear`: un quadrato che scrive la
+profondità più lontana e rimette il colore letto dal tile buffer; prova `probe_zclear`,
+stato `zclear in job yes`); il 2D del `_update` anticipato va sulla pagina dopo, e un
+`_update` che disegna 3D o legge la pagina torna dopo il fotogramma. Sul PC (bmhost con
+l'emulatore della V3D) Overbit fa un lavoro a fotogramma, avviato e non aspettato, con 53
+disegni 2D registrati intanto, e fotogrammi identici a quelli senza coda;
+`make test-queue2d` confronta i fotogrammi di tre cartucce di prova con la coda accesa e
+spenta. In Overbit il renderer **GPU+VS+Q** (menu "3D" e benchmark) è quello da misurare
+sul Pi; il passo 15 del test `g` (monitor) disegna la scena del passo 10 con un cubo in prima
+persona, il lavoro avviato e aspettato dopo, contro l'ARM, e scrive quanti lavori sono
+partiti e quanti `zclear()` sono rimasti nel lavoro. Una prova all'avvio di una cosa
+facoltativa (vertex shader, clipping, coda, zclear) che blocca la V3D spegne solo quella,
+se dopo uno sfondo pieno la GPU risponde ancora. Resta il passo 2.
+
+## M36 — Vertici sulla GPU (L/XL)
+Con la GPU il limite è l'ARM (~1,5–2 µs per triangolo: trasformare, illuminare,
+scartare, scrivere i vertici); la V3D da sola fa 3 milioni di triangoli/s. La mesh va
+alla GPU una volta sola (finché non cambia) e a ogni `draw3d` l'ARM manda solo matrice,
+luci e ossa; le QPU trasformano e illuminano, la V3D scarta le facce posteriori e
+taglia.
+1. **Prova sul Pi** (un passo del test `g`): un triangolo trasformato da uno shader
+   delle QPU (shader di coordinate e di vertici, VPM), confrontato con l'ARM.
+2. **Mesh piatte e Gouraud** sulla GPU, con l'emulatore che esegue gli stessi shader per
+   tipo; dove la GPU non arriva si resta sul percorso di oggi, mesh per mesh.
+3. **Luci, nebbia, lampade, texture**, poi **ossa** (l'animazione rigida di Overbit:
+   una matrice per osso).
+4. **Overbit** con i vertici sulla GPU: eroi e mappa.
+- Opzione: *vertici: ARM / GPU*.
+- **Fatto quando:** sul Pi l'anello di eroi di Overbit e le sfere dello stress test
+  crescono di almeno 2× rispetto a M34 a 60 fps.
+
+**Stato (2026-10-03, branch `3d-performance`; sul PC, da provare sul Pi).** Fatti i passi
+2–4, più ombre e primo piano, sull'emulatore, che esegue gli shader veri (interprete
+delle QPU) e taglia come GL:
+- shader `vs_baked` e `vs_tex_rgb` (luce agli angoli, nebbia, 4 lampade, livelli di
+  dettaglio, texture: la mappa di Overbit) e `vs_lit` (`light_fast` di r3d: cielo e
+  terra, sole, bordo, riflesso con `exp2`/`log2` della SFU, lampade e nebbia nel punto
+  dove le mette l'ARM: l'angolo, o il centro di una faccia piatta); le ossa come gruppi
+  di facce per osso con un blocco di uniform a osso (negli eroi ogni faccia sta su un
+  osso);
+- le ombre (`vs_shadow`, `cs_shadow`: l'angolo nel mondo con il suo osso, giù lungo il
+  sole fino al piano, nere a retino con la prova dello z): solo le facce che il sole
+  vede, come l'ARM, perché schiacciate lungo il sole tengono il verso con cui il sole le
+  vede e la GPU scarta le altre come facce posteriori; il primo piano (`R3D_FRONT`)
+  dopo lo `zclear`, con le profondità 10 volte più vicine;
+- la GPU taglia le mesh che passano il piano vicino o la guard band (record con il
+  flag 4, `CLIPPER_XY/Z_SCALING`, angoli dal centro dello schermo con
+  `VIEWPORT_OFFSET`);
+- r3d: la sfera di ogni mesh centrata sul suo box (i pezzi della mappa, in coordinate
+  del mondo, erano sempre "fuori"); cache di 256 copie delle mesh;
+- prove all'avvio: `probe_gl` (bit del senso orario), `probe_clip` (piano vicino, guard
+  band, senza e con `Z_MIN_MAX`), `probe_lit` (colore di `vs_lit` contro il calcolo);
+  quello che non torna si spegne da solo;
+- opzione `gpu3d_vs` (0 ARM, 1 lo scenario, 2 tutti i modelli, anche ombre e primo
+  piano), *Graphics > 3D vertices*, terzo argomento di `gpu3d()`, renderer GPU+VS1 e
+  GPU+VS di Overbit (menu "3D" e benchmark); passo 14 del test `g` (stessa scena con
+  gli angoli dell'ARM e del vertex shader, a confronto, con i tempi); righe `GPU+VS`
+  dello stress test; `bench3d`/`count_insns.py` con le scene `+vs` (sfere: 1,02 M
+  istruzioni dell'ARM con la GPU, 72 k con il vertex shader).
+
+Overbit, `tests/overbit/frames.py` (HIGH, combattimento di 10 bot, istruzioni dell'ARM
+a fotogramma), prima persona / vista dall'alto:
+- GPU (M34): 12,51 M / 11,03 M (~27,5 / 24,3 ms sul Pi);
+- GPU+VS1, lo scenario sulla GPU con il clipping: 10,45 M / 8,55 M (−16% / −22%);
+- GPU+VS, anche gli eroi: 7,20 M / 6,08 M (−42% / −45%);
+- GPU+VS con ombre e primo piano: 5,99 M / 5,16 M (−52% / −53%; ~13,2 / 11,3 ms). r3d
+  da 5,25 a 0,26 M, il driver da 2,13 a 0,57 M; ora conta il Lua del gioco (3,9 M).
+
+Da vedere sul Pi: la riga di stato della GPU (`vertex shader yes, clipping yes, lit
+models yes`), il passo 14 del test `g`, il benchmark di Overbit con GPU+VS1 e GPU+VS (i
+µs della GPU: nella V3D il vertex shader gira di nuovo per ogni tile che il triangolo
+tocca).
+
+**Modelli Meshy (2026-10-03).** Gli eroi, i mech e i piloti di Overbit sono diventati
+figure Meshy con texture (1200 triangoli) messe sugli scheletri degli eroi
+(`art/meshyrig.py`). Per tenerle sulla GPU:
+- **bm3d 3.3**: le facce con texture dei modelli illuminati dal sole, con la luce di ogni
+  angolo (Gouraud) sull'ARM e sulla GPU, e sul vertex shader (`vs_lit_tex`);
+- **bm3d 3.4**: le pelli, cioè le facce a cavallo di due ossa (un quarto delle facce di
+  una figura Meshy, gli anelli attorno alle articolazioni): gruppi per coppia di ossa,
+  ogni angolo messo dalla matrice del suo osso (`vs_lit_tex2`, `cs_colour2`, ombre
+  `vs_shadow2`/`cs_shadow2`); le facce su tre ossa (dove tre parti si toccano) le toglie
+  `meshyrig.py` con una copia dell'angolo.
+Test: scene `vshader textured` e `vshader skin` dell'emulatore, `heroes_tex` e
+`heroes_skin` del 3D Bench. Con le figure Meshy e bm3d 3.4, `frames.py` (stessa partita,
+prima persona / vista dall'alto): GPU 15,01 M / 11,88 M istruzioni dell'ARM a fotogramma
+(~33,0 / 26,1 ms sul Pi: r3d illumina e mette tre volte più angoli), GPU+VS 6,41 M /
+5,71 M (~14,1 / 12,6 ms; r3d 0,27 M, il driver 0,85 M): con il vertex shader le figure
+nuove costano all'ARM quasi quanto le vecchie (5,99 M / 5,16 M).
+
+## M37 — 2D e qualità sulla GPU (M, se serve)
+- Sprite, tile e testo come quad della GPU, per i giochi con molto 2D sopra il 3D.
+- Filtro bilineare delle texture (opzione: cambia l'aspetto rispetto all'ARM).
+- Matrice unica oggetto→camera e luce nello spazio dell'oggetto: meno istruzioni per
+  vertice, pixel non più identici al bit (opzione).
+
+## M38 — Overbit: sparatutto a eroi in 3D (XL) — fatta sul PC (2026-10-03), da provare sul Pi
+Richiesta dell'autore (2026-10-02): un clone di Overwatch in `.bm`, **8 eroi** (2 tank,
+4 DPS, 2 supporto), 3D in prima persona, **una mappa**, multiplayer online, dev kit, la
+nostra AI per il gioco da soli. Lo scopo è **spingere la grafica** del Pi Zero al limite:
+qualità massima finché si resta a 60 fps; se spingendo si tocca 30 fps si torna indietro.
+
+Decisioni:
+- **Nomi e aspetto nostri** (come nano8 non è PICO-8): stesso kit di ogni eroe (ruolo,
+  numero di abilità e ultimate, meccaniche e numeri), ma nome del gioco, nomi degli eroi
+  e design originali. Niente marchi di Blizzard né il logo Porsche del riferimento.
+- Gioco **Overbit** (`carts/overbit`), branch `3d-performance` (fino al 2026-10-03
+  `claude/overclone`).
+- Eroi (il kit di partenza tra parentesi):
+  - tank: **Rally** (D.Va) — una giovane pilota di corse in un mech bianco lucido con
+    strisce arancio e due mitragliatrici rotanti al posto degli avambracci; **Kaiju**
+    (D.Mon) — una giovane pilota in un grande mech rosso con spada e scudo (dal
+    2026-10-03; prima un piccolo mostro con lama e scudo di plasma). I mech sono alti 3 e
+    3,4 m, gli altri eroi 1,6–1,9;
+  - DPS: **Sarge** (Soldier: 76), **Frost** (Mei), **Fuse** (Junkrat), **Rail** (Sojourn);
+  - supporto: **Orbit** (Juno), **Akari** (Kiriko).
+- 5 contro 5 come Overwatch 2 (1 tank, 2 DPS, 2 supporto), i posti vuoti ai bot.
+- **320×180** (lo scaler della GPU porta a 720p/1080p): 4 volte meno pixel di 640×360,
+  che con il rasterizzatore software è la scelta che lascia spazio alla qualità.
+- Modelli e animazioni nel formato di bm Studio / bm Animator (sezioni MESH e ANIM),
+  generati da script Python (`carts/overbit/art`): si aprono anche con gli strumenti della
+  console.
+- **bmhost** (`make bmhost`): il runtime vero delle cartucce sul PC, per i reel (frame e
+  WAV), gli screenshot e i test. Il PC è circa 21 volte più veloce del Pi su Texture Room
+  (0,55 ms contro 11,6 ms): i costi sul Pi si stimano così, poi si misurano sul Pi.
+- **Qualità automatica**: il gioco misura il tempo dei frame (`stat(1)`) e alza o abbassa
+  la qualità (dettaglio dei modelli, ombre, effetti, distanza) per restare a 60 fps; il
+  dev kit ha una prova che spinge la qualità fino a 30 fps e mostra i limiti sul Pi.
+
+Passi (in quest'ordine, richiesto dall'autore):
+1. **Rally** (kit di D.Va) con animazioni e abilità, poi un **reel delle animazioni**:
+   - motore: materiali per faccia (emissivi, lucidi, trasparenza a retino, livelli di
+     dettaglio), luce colorata del cielo e del terreno, riflessi e luce di contorno, ombre
+     proiettate, modello in prima persona sempre davanti, colpi contro le ossa (hitbox),
+     strati di animazione (gambe e busto), effetti 3D;
+   - Rally: mech (cannoni a fusione, propulsori, matrice difensiva, micro-missili,
+     autodistruzione, espulsione) e pilota (pistola, richiamo del mech), HUD, suoni,
+     poligono di tiro;
+   - reel: ogni animazione in terza persona, renderizzato con bmhost (`docs/img`).
+2. Gli altri **7 eroi**, con il numero di abilità e ultimate del kit di partenza.
+3. La **mappa** e il motore del mondo: **Partenope**, un porto di una Napoli futura al
+   tramonto (Vesuvio sullo sfondo), modalità controllo; geometria statica con BSP e span
+   buffer (ogni pixel disegnato una volta), luce precalcolata (ombre e occlusione
+   ambientale) nelle texture, cielo, collisioni e raggi in C; selezione degli eroi.
+4. **AI**: bot con grafo di navigazione, combattimento e uso delle abilità; scelte
+   tattiche da una piccola rete INT8 (come quella di M30) addestrata sul PC.
+5. **Rete**: UDP per le cartucce, partite in LAN (una console ospita), predizione e
+   interpolazione; online con un relay (`tools/`) per giocare via internet.
+- **Dev kit**: menu di sviluppo nel gioco (tempi per fase, qualità, telecamera libera,
+  hitbox, bot, reel), script degli asset, guida per aggiungere eroi e modificare la mappa.
+
+**Passo 1 — Rally: fatto in QEMU e sul PC (2026-10-02), da provare sul Pi.**
+- Motore (`src/bm/r3d.c`): bit di materiale nel colore delle facce (emissive, lucide, a
+  retino, piatte, livelli di dettaglio), luce del sole colorata con cielo e terreno,
+  riflessi e luce di bordo con una sola direzione di vista per oggetto (niente radici
+  quadrate per vertice), lampade colorate, ombre proiettate (una maschera, poi ogni pixel
+  scurito una volta), il livello in primo piano per la prima persona, punti, linee e
+  sprite 3D. Lo skinning rigido è dentro la trasformazione dei vertici (una matrice per
+  osso, solo i vertici del livello di dettaglio): `animate()` calcola solo le ossa.
+  Nuove funzioni: `sky3d`, `shine3d`, `shadow3d`, `point3d`, `line3d`, `sprite3d`,
+  `bone_turn`, `bones3d`, `hit3d`, `animate(..., osso)`, `stat(6..8)`; collisioni in C
+  (`src/bm/world3d.c`: `world3d`, `world_box`, `world_ray`, `world_move`, `world_floor`).
+- Input: levetta destra (`stick(p, 1)`), L2/R2/L3/R3 in `pad()` (DS4, Xbox 360, pad generici).
+- Arte (`carts/overbit/art`): primitive, scatole smussate, gusci convessi, profili ruotati
+  (`geo.py`), scheletri, pose e cinematica inversa delle gambe (`rig.py`); Rally: mech
+  (842/702/484/220 triangoli per livello di dettaglio, 16 ossa, 17 animazioni), pilota (12
+  animazioni), cannoni e mani in prima persona; banco di suoni (`sounds.py`).
+- Gioco (`carts/overbit/src`): prima persona a 96°, HUD come Overwatch (vita a segmenti di
+  25 con l'armatura, abilità con i tasti del pad o della tastiera, ultimate, mirino, colpi,
+  kill feed), poligono di tiro con quattro manichini (fermo, che si sposta, che salta, che
+  spara missili), effetti (particelle, traccianti, esplosioni con luce), qualità
+  automatica (5 livelli), overlay di sviluppo (Select/Tab/F1: ms per fase, triangoli,
+  vertici, pixel, grafico degli ultimi 64 frame; F2 qualità, F3 automatica, F4 ultimate),
+  benchmark (mech che corrono e sparano, sempre di più ogni 3 s, fino a 30 fps: la
+  tabella dice quanti ne reggono 60 fps).
+- Kit di Rally: cannoni a fusione (11 pallini, 6,7 colpi/s, rallentano), Null Field
+  (risorsa di 3 s che si ricarica, mangia i proiettili davanti), propulsori (volo di 2 s
+  lungo la mira, urto con spinta), 18 micro-missili, Redline (il pilota salta fuori, il
+  mech esplode dopo 3 s: 1000 danni fino a 20 m, i muri riparano), espulsione quando il
+  mech è distrutto, Pit Pistol e Pit Stop (un mech nuovo dal cielo).
+- **Reel delle animazioni**: modalità del gioco (`make overbit-reel` →
+  `docs/img/overbit-reel-rally.mp4` con l'audio e la GIF dei primi 32 s): 11 riprese delle
+  abilità in terza persona, le 29 clip una per una, un po' di prima persona.
+- Strumenti: **bmhost** (il runtime delle cartucce sul PC: frame, WAV, input da script,
+  `--clock-scale 21` per stimare i ms del Pi), **`tools/armprof.py`** (istruzioni ARM per
+  funzione contate da QEMU con un costo approssimato dell'ARM1176: un profiler senza il
+  Pi), `tests/bm/r3dbench.c`. Il rasterizzatore è stato riscritto nel percorso per
+  vertice e per faccia (−23% di istruzioni sulla scena di prova).
+- Test: `make test-overbit` (poligono giocato con tasti scriptati: il manichino cade,
+  Redline, Pit Stop; tutto il reel; il benchmark), `test_overbit` in QEMU.
+- Stime (PC ×21, da verificare): poligono a qualità alta ~12–14 ms per frame; il disegno
+  3D costa ~5 µs a triangolo come misurato in passato sul Pi.
+- **Da provare sul Pi**: Overbit dal menu; nel menu "BENCHMARK" (con la qualità scelta in
+  "QUALITY": si può provarne più d'una) e una foto della tabella finale; nel poligono
+  Select (o Tab) per l'overlay: una foto dei ms di update, del disegno 3D e del totale,
+  ferma e mentre si spara; il pad (levetta destra per mirare, R2 sparare, L2 Null Field,
+  L1 propulsori, R1 missili, triangolo ultimate).
+
+**Passo 2 — gli altri 7 eroi: fatto sul PC (2026-10-02), da provare sul Pi.**
+- Arte: un corpo comune per le persone (`humanoid.py`: scheletro con le proporzioni di
+  ognuno, braccia sull'arma con la cinematica inversa, le clip standard, `body()` con i
+  pezzi lungo le ossa), mani e braccia in prima persona (`fp.py`), `geo.tube`. Ogni eroe ha
+  il suo modello, le sue animazioni speciali, l'arma in prima persona e i suoni.
+- **Kaiju** (D.Mon): BIG RED, un mech rosso con la cupola verde (Plasma Saber 65 danni a
+  colpo largo, Fusion Repeater da 30 colpi, Propulsors con 3 scatti di carburante, Power
+  Barrier esagonale che ferma i colpi e con l'attacco Surging Strike, Limit Break: un giro
+  completo della lama, 220 danni) e la pilota, una ragazza in bomber rosso (Mini
+  Repeater, Call Mech; fino al 2026-10-03 un mostriciattolo verde).
+- **Sarge** (Soldier: 76): fucile a impulsi (30 colpi, 9/s, la dispersione cresce),
+  Helix Rockets, Sprint, Biotic Field, Tactical Visor (i colpi trovano il bersaglio).
+- **Frost** (Mei): getto di gelo che rallenta, ghiacciolo (doppio alla testa),
+  Cryo-Freeze, Ice Wall (5 colonne con la loro vita che fermano tutti e tutti i colpi),
+  Blizzard (rallenta, ferisce, poi congela).
+- **Fuse** (Junkrat): granate che rimbalzano, Concussion Mine (anche per saltare), Steel
+  Trap, Boom Wheel guidata in terza persona, Total Mayhem (bombe quando cade).
+- **Rail** (Sojourn): proiettili che caricano l'energia, colpo rail (30 + l'energia),
+  Power Slide (e il salto alto), Disruptor Shot, Overclock (i colpi attraversano tutti).
+- **Orbit** (Juno): Mediblaster che cura gli amici e ferisce i nemici, Pulsar Torpedoes
+  (fino a 4 bersagli), doppio salto e volo planato, Glide Boost, Hyper Ring, Orbital Ray.
+- **Akari** (Kiriko): ofuda che trovano gli amici, kunai (triplo alla testa), Swift Step,
+  Protection Suzu, Kitsune Rush (una strada di portali: più veloci, più colpi, ricariche).
+- Sistemi comuni: barriere che fermano i colpi, oggetti con la loro vita nel mondo,
+  stati (congelato, bloccato, rallentato, più veloce, intoccabile), i nemici non si
+  attraversano, numeri verdi delle cure, telecamere degli eroi, un amico ferito nel
+  poligono per i supporti; nel menu **HERO** (sinistra/destra) per scegliere; F5 nel dev
+  kit fa perdere la vita (un mech si rompe e il pilota salta fuori).
+- **Reel**: tutti gli eroi, abilità per abilità e un po' di prima persona (100 riprese);
+  `make overbit-reel-heroes` → `docs/img/overbit-reel-heroes.mp4` e la GIF delle 7
+  ultimate.
+- **Benchmark**: ora con tutti gli eroi in cerchio a 9 m (il caso peggiore: tutti vicini),
+  con le colonne di update e disegno 3D. Stime (PC ×21, rumorose di ±3 ms): 12 eroi
+  ~16–18 ms in HIGH, ~25 ms in ULTRA, ~16 ms in MEDIUM; la qualità automatica scende quando
+  serve. Il disegno è la spesa maggiore: un eroe a pieno dettaglio ~0,6 ms (Rally, Sarge),
+  ~0,9 ms (Frost, Fuse), la parte per faccia di `r3d_draw_flags` per prima (armprof):
+  da ottimizzare con il motore del mondo (passo 3). Dettaglio pieno sotto i 7 m × la
+  qualità, ombre dei personaggi con il modello povero.
+- Test: `make test-overbit` gioca anche ogni nuovo eroe nel poligono (abilità e ultimate
+  controllate nel log) e tutto il reel.
+- **Da provare sul Pi**: nel menu HERO per scegliere l'eroe, poi il poligono; il
+  BENCHMARK (foto della tabella: ora dice anche update e 3D).
+
+**Passo 3 — la mappa Partenope e la modalità Controllo: fatto sul PC (2026-10-03), da provare sul Pi.**
+- **Partenope** (`art/partenope.py`): il lungomare di una Napoli futura al tramonto, il
+  Vesuvio oltre la baia. Simmetrica (una metà per squadra): la stanza di spawn in fondo,
+  tre strade verso il centro (la via principale con la PIZZERIA BIT e la sua insegna al
+  neon, il vicolo con i panni stesi e il passaggio sotto l'arco, il molo con i container
+  e i chioschi), la piazza con la fontana della sirena e il **punto**, la chiesa con la
+  cupola gialla, i campanili, la terrazza con le scale; facciate colorate con le persiane
+  verdi, lampioni, neon, pannello olografico, pini, cielo a bande, sole basso, mare con il
+  riflesso, il Vesuvio e la città sulla collina.
+- **Motore del mondo**: invece di BSP e span buffer (il piano) la mappa è fatta di
+  **pezzi di 8 m** con la luce già cotta agli angoli (modelli "lit" della sezione MESH).
+  Sul Pi conta il triangolo, non il pixel (~4–5 µs a triangolo), quindi tutto lavora sul
+  numero di triangoli: visibilità precalcolata (`tools/mappvs.c`: da ogni quadrato di 4 m
+  disegna i pezzi con il rasterizzatore della console in colori che sono i loro numeri,
+  sulle sei facce di un cubo; in media 44 pezzi su 96), poi i pezzi tagliati contro la
+  vista e disegnati dal più vicino, quelli lontani senza le cose piccole.
+- **Luce cotta** (`art/mapbake.py`, numpy): il sole basso con ombre morbide (più raggi),
+  il cielo con l'occlusione ambientale, il rimbalzo caldo dei muri, lampioni, neon e la
+  luce delle squadre negli spawn, con le loro ombre. Facce divise solo dove serve: lati
+  fino a 12 m, le cose lunghe e sottili (cornicioni, cordoli, ringhiere) intere.
+- **Texture delle facciate** (`art/maptex.py`): un atlante 512×256 disegnato pixel per
+  pixel, che diventa lo sprite sheet della cartuccia (SHEET8, 255 colori): finestre con le
+  persiane aperte o chiuse, accese, con il balcone, ad arco, portoni, vetrine, le insegne
+  (PIZZERIA BIT, GELATO, CAFFE', PARTENOPE), tende a righe, panni stesi. 249 quadri al
+  posto di ~2000 triangoli di persiane, ringhiere e vetri; le facce con texture dei modelli
+  lit hanno una luce colorata e la nebbia.
+- **Rasterizzatore**: il colore di Gouraud in un numero solo (rosso, verde e blu
+  impacchettati, il dithering sommato, z con `usat`: 23 istruzioni a pixel invece di 31);
+  i triangoli che escono dai lati dello schermo (un muro accanto alla telecamera) saltano
+  le righe vuote (11 000 righe a frame nella vista della strada); texture lineari dove la
+  profondità cambia poco e un percorso veloce per quelle della mappa. La vista della
+  strada: da ~10 a ~6 milioni di cicli stimati (armprof). Un modello trovava il suo
+  scheletro controllando di nuovo ogni chiave di ogni animazione: ora salta gli altri.
+- Collisioni: 131 scatole in C (`world3d`). **Grafo dei bot**: 75 nodi lungo le strade,
+  collegati quando un corpo può camminare in linea retta (nessuna scatola sulla linea e ai
+  lati, il pavimento che sale al massimo di 0,5 m: le scale sì, i salti in giù in un verso).
+- **Controllo** (`src/81_match.lua`): 5 contro 5 come la coda per ruoli di Overwatch 2
+  (1 tank, 2 danni, 2 supporto), i bot negli altri nove posti. Scelta dell'eroe all'inizio
+  e nella stanza di spawn (H, o giù sul pad: un bot del ruolo nuovo prende il vecchio
+  eroe); il punto si apre dopo 20 s, una squadra da sola lo cattura in 8 s (più in fretta
+  in due o tre), poi la sua percentuale sale di 1 ogni 0,9 s; contestato si ferma, al 99%
+  con un nemico sul punto è tempo supplementare; vince il round chi arriva a 100, la
+  partita chi vince due round. Si rinasce dopo 10 s. HUD in alto (percentuali, punto con
+  la cattura, round vinti, messaggi), l'anello del punto sul terreno nel colore di chi lo
+  tiene, suoni (apertura, cattura, punto perso, vittoria, sconfitta, conto alla rovescia),
+  il tabellone alla fine.
+- Bot provvisori (il passo 4 li fa davvero): seguono il grafo verso il punto, aspettano
+  che si apra, mirano con un po' di errore e sparano nel raggio del loro eroe, usano le
+  abilità ogni tanto e l'ultimate con un nemico vicino; i supporti curano chi è ferito.
+- **Reel della partita**: dieci bot, una telecamera che gira intorno al punto, segue un
+  eroe e guarda con i suoi occhi (`make overbit-reel-match` → `docs/img/overbit-match.mp4`
+  e la GIF). Dev kit: F6 la **telecamera libera**.
+- Strumenti: `tests/bm/mapbench.c` (la mappa da un punto di vista, per armprof), bmhost
+  compilato per ARM Linux sotto QEMU (il profilo di un frame intero, Lua compreso),
+  `BMHOST_SLOW=ms` (i frame lenti); `build.py --define` per le regole dei test.
+- Test: `make test-overbit` gioca una partita dal menu (Rally, poi Kaiju nello spawn, il
+  punto si apre) e una partita veloce intera di bot (cattura, uccisioni, una squadra vince).
+- Stime (armprof: istruzioni pesate con i costi dell'ARM1176; il Pi di solito è un 30% più
+  lento): la vista della strada ~6 M cicli per la sola mappa; una scaramuccia sul punto
+  con dieci eroi in vista, qualità 2: ~14 M cicli a frame (la parte per vertice e per
+  faccia degli eroi 3,7 M, Gouraud 2,6 M, Lua 2 M), cioè ~18 ms sul Pi: lì la qualità
+  automatica scende. Il prossimo da ottimizzare è la parte per vertice e per faccia degli
+  eroi. Una toppa alla VM di Lua (il contatore del watchdog senza una chiamata per
+  istruzione, `third_party/lua/lvm.c`) ha tolto più di metà del tempo del Lua.
+- **Da provare sul Pi**: "PLAY: CONTROL" nel menu; con Select (o Tab) l'overlay: una foto
+  dei ms nella strada, nella piazza durante uno scontro e dallo spawn.
+
+**Passo 4 — l'AI dei bot: fatto sul PC (2026-10-03), da provare sul Pi.**
+- **Tre livelli** (`src/75_bots.lua`): la *tattica* due volte al secondo (andare al punto,
+  combattere, ritirarsi, aggirare da un fianco, proteggere un amico, aspettare), la
+  *strada* sul grafo dei posti della mappa (il prossimo nodo verso la meta, calcolato una
+  volta per meta: il punto, lo spawn di ogni squadra, i tre fianchi), le *mani*: vedere
+  (raggi verso i corpi), mirare con un tempo di reazione e un errore che vaga e cresce con
+  la distanza, anticipare i colpi lenti, scansare di lato, e le abilità di ogni eroe
+  quando hanno senso (il Null Field sotto il fuoco, la barriera di Kaiju con gli amici
+  dietro, il muro di Frost per ritirarsi, la mina di Fuse fatta esplodere, i kunai di
+  Akari a ripetizione, l'ultimate con più nemici vicini...).
+- **La nostra rete** (come quella dell'assistente di M30): 24 numeri che il bot vede
+  (vita, ultimate, ruolo, distanza e stato del punto, percentuali, quanti amici e nemici,
+  il nemico più vicino, l'amico più ferito, il danno appena preso...) → 32 → 32 → 6
+  tattiche, pesi INT8. Nel kernel `nnet()` (`src/ai/net.c`: gli strati di `nn.c` con le
+  istruzioni SIMD dell'ARMv6) la fa girare per ogni cartuccia; `scripts/nnetlib.py` la
+  quantizza e dà i numeri esatti della console (test: uguali bit per bit).
+- **Addestrata giocando** (`art/brain.py`): partite di dieci bot sul PC senza disegno
+  (bmhost, 4 partite per volta, ~3 s l'una), ogni scelta con quello che è successo dopo
+  (uccisioni, morti, danni fatti e cure, la cattura e le percentuali della squadra, 15
+  secondi scontati). Una rete del valore impara quanto rende un momento; la rete delle
+  tattiche impara le scelte fatte, ognuna pesata da quanto è andata meglio del previsto
+  (*advantage-weighted regression*: resta vicina a quello che si è provato). La
+  generazione 0 sceglie con le regole (e a caso una volta su cinque), le altre con la rete:
+  cinque generazioni, 200 partite, 660 mila scelte, 17 minuti sul PC. **Risultato
+  onesto**: contro le regole la rete vince 21 partite e ne perde 19 su 40, cioè è alla
+  pari (la prima prova, che stimava il valore di ogni tattica con i premi del singolo bot,
+  perdeva 5 a 12). È nella cartuccia (`src/76_brain.lua`, 2 KB) e sceglie le tattiche di
+  tutti i bot; le regole restano come riserva. Per farla crescere: più generazioni, più
+  ingressi (dove sono gli amici, le ultimate dei nemici), regole migliori da cui partire.
+- Tre livelli di bravura nel menu (**BOTS**: EASY, NORMAL, HARD: reazione 0,5/0,3/0,17 s,
+  errore di mira, velocità di rotazione; i difficili saltano per schivare). Le stanze di
+  spawn curano la propria squadra. Nel log di una partita di prova (`OVERBIT_AI_LOG`)
+  ogni scelta con quello che il bot vedeva.
+- Test: `make test-overbit` (una partita intera di bot fino alla vittoria; la rete in C
+  uguale a quella in Python).
+
+**Passo 5 — la rete: fatto sul PC (2026-10-03), da provare sul Pi.**
+- **UDP per le cartucce** nel kernel (`src/net/cartnet.c` su lwIP): `udp_open`,
+  `udp_send` (anche `"*"`, il broadcast della LAN), `udp_recv`, `udp_close`, `net_ip`,
+  `net_resolve`; in bmhost le stesse funzioni sui socket del PC (`tests/host/hostnet.c`,
+  `BMHOST_NET_ID` per più console sullo stesso PC, `--realtime` a 60 frame al secondo).
+- **Lockstep** (`src/83_net.lua`): ogni console fa girare tutta la partita (lo stesso
+  codice, lo stesso seme, anche i bot) e viaggiano solo i comandi dei giocatori: ogni
+  console manda i suoi per il frame 4 più avanti (7 con il relay), l'host raccoglie quelli
+  di tutti e rimanda per ogni frame il pacchetto di tutti; un frame gira quando il suo
+  pacchetto è arrivato. Ogni pacchetto ripete gli ultimi 8 frame (le perdite di UDP non
+  contano). La visuale gira subito, l'eroe segue di 4 frame (67 ms). Ogni secondo un
+  hash della partita: se due console divergono si vede e si scrive nel log. Per il
+  lockstep il gioco ha un suo generatore di numeri a caso (`grandom`, quello degli effetti
+  resta a parte), l'orologio e gli id ripartono da zero a ogni partita, i bot contano i
+  frame della partita.
+- **PLAY ONLINE** nel menu: ospitare una partita o entrare in una di quelle trovate sulla
+  LAN; fino a 10 persone, alternate tra blu e rossi, i posti vuoti ai bot; la scelta
+  dell'eroe viaggia con i comandi; chi se ne va (3 s di silenzio) lascia il posto a un bot,
+  lo stesso su tutte le console.
+- **Via internet**: `tools/overbit_relay.py` su un PC o un server con un indirizzo
+  pubblico (UDP 47310): passa i pacchetti di una console alle altre della stessa stanza,
+  come un broadcast. Nella console: RELAY (indirizzo, anche `nome:porta`) e ROOM (4
+  lettere), scritti con la tastiera o con il pad e salvati.
+- Test: `make test-overbit` fa giocare due bmhost insieme, sulla LAN e attraverso il
+  relay: le stesse uccisioni, catture e round su entrambi, nessuna divergenza.
+- **Da provare sul Pi**: due console sulla stessa WiFi, PLAY ONLINE: una HOST A MATCH,
+  l'altra JOIN, poi START; una foto se compare "OUT OF SYNC" o "WAITING FOR THE OTHERS".
+
+## M39 — GPU 3: verso il limite della V3D (L/XL)
+Dove siamo (2026-10-03, stime dal PC per le versioni 3.0–4.1): il riempimento è all'80%
+di quello dichiarato (811 Mpixel/s misurati sul Pi su 1 Gpixel/s), il lavoro dell'ARM per
+triangolo vicino al minimo (~65 istruzioni con il vertex shader), ma i triangoli della
+GPU sono a ~3 milioni al secondo contro i 16 milioni visti in un demo reale sulla stessa
+GPU (con texture e luce, 1280×720) e i 25 milioni dichiarati da Broadcom. La distanza
+sta in come i vertici arrivano alla V3D e in come ARM e GPU si passano il lavoro. Driver
+**bm3d 5.x**; ogni passo è un'opzione con una prova all'avvio dove la V3D fa qualcosa che
+il Pi non ha ancora mostrato, come in M34–M36.
+1. **Misure di partenza sul Pi.** Il 3D Bench con tutti i profili (ARM 0.2, GPU 2.1,
+   GPU+VS1 3.0, GPU+VS 3.4, GPU+VS+Q 4.1), i passi 14 e 15 del test `g`, il benchmark di
+   Overbit con GPU+VS e GPU+VS+Q: le versioni 3.0–4.1 oggi sono stime. Un test nuovo del
+   3D Bench, `big`: due modelli da 10 000 triangoli e una mappa da 14 000, con e senza
+   logica del gioco (la domanda "regge 34 000 triangoli?").
+2. **Mesh indicizzate e attributi compatti.** Oggi ogni faccia porta i suoi tre angoli in
+   virgola mobile (44–56 byte l'uno): la GPU calcola ogni vertice circa tre volte. Vertici
+   condivisi dove le facce lo permettono (normali morbide, stessa texture: le figure
+   Meshy), primitive indicizzate a 16 bit, gli angoli in un ordine che usi la cache dei
+   vertici della V3D (al build, come meshoptimizer), posizioni separate dagli altri
+   attributi (lo shader di coordinate legge solo quelle), attributi a 16 e 8 bit
+   (posizioni scalate, normali e colori a 8 bit, uv a 16). L'emulatore esegue gli stessi
+   shader con gli indici.
+3. **Più vertici per mesh.** Il limite di 4096 vertici (`MAX_VERTS` di r3d, `mesh()`, i
+   modelli del `.bm`) sale (16 384 o 65 535): un modello da 10 000 triangoli oggi va
+   spezzato.
+4. **Due lavori della GPU in volo.** Due set di memorie (liste, record, uniform, angoli
+   del fotogramma) alternati: l'ARM prepara il 3D del fotogramma dopo mentre la GPU disegna
+   quello di adesso, e il fotogramma dura quanto il più lento dei due invece della somma.
+   Il resto (texture e mesh cambiate mentre un lavoro le legge) aspetta come oggi.
+5. **Texture più leggere.** Formati a 16 bit (RGB565, RGBA4444/5551 per i ritagli) ed
+   ETC1 compresso (4 bit a pixel, fatto al build dagli strumenti del PC), mipmap per le
+   superfici lontane (meno texel letti, meno sfarfallio). L'ARM resta sulle texture di
+   oggi; la prova all'avvio controlla come la TMU legge ogni formato.
+6. **Fragment shader a due thread.** Lo shader cede il QPU all'altro thread mentre aspetta
+   la texture (`thrsw`, il flag del record per gli shader a più thread, metà dei registri
+   per thread): nasconde l'attesa della TMU come fa Mesa. L'emulatore controlla le regole
+   (registri, segnali, posizione del cambio).
+7. **Ordine di disegno.** I modelli opachi dal più vicino al più lontano (la V3D scarta
+   prima i pixel nascosti con lo z anticipato) e i disegni raggruppati per shader e
+   texture (meno cambi di stato nella lista): dentro il lavoro della GPU, senza cambiare
+   cosa vede la cartuccia, o con un aiuto per le cartucce (`sort3d`).
+8. **Occlusione anche per gli attori.** La visibilità precalcolata della mappa (PVS) oggi
+   scarta i pezzi di mappa; la stessa prova per eroi, effetti e oggetti (un aiuto in C,
+   `visible3d(x, y, z, r)`, usato da Overbit).
+9. **Memoria dei lavori senza cache** (il passo 2 di M35): liste e angoli scritti
+   dall'ARM senza passare dalla cache, se il Pi mostra che conviene.
+10. **Il Lua dei giochi.** In Overbit il Lua è ormai circa il 60% del tempo dell'ARM a
+    fotogramma: le parti calde in C (raggi e collisioni, strade dei bot, particelle), meno
+    allocazioni per fotogramma (meno lavoro del garbage collector), `frames.py` per
+    misurare. Uno studio a parte su LuaJIT (supporta l'ARMv6): quanto darebbe e cosa
+    costerebbe portarlo sul bare metal.
+- Opzioni: ognuna in *Settings > Graphics* o in `bm/config.txt`, spenta finché il Pi non
+  la verifica; i renderer di Overbit e i profili del 3D Bench le confrontano.
+- **Fatto quando:** sul Pi il test `big` regge almeno il doppio dei triangoli a 60 fps di
+  bm3d 4.1, il test `spheres` del 3D Bench almeno 3× quelli di 3.4, e Overbit (GPU+VS+Q)
+  sta nei 60 fps a HIGH nello scontro di 10 bot.
+- Escluso (decisione dell'utente): impostor per gli oggetti lontani, cambio di
+  risoluzione, overclock della GPU e dell'ARM.
+
+## M40 — bm per PowKiddy RGB30 (XL) — in corso (branch `rgb30-powkiddy`)
 Decisione 2026-10-01 (utente): una versione **bare metal** di bm per la PowKiddy RGB30
 (Rockchip RK3566, 4 × Cortex-A55 a 64 bit, 1 GiB, schermo 720×720 MIPI-DSI, RTL8821CS).
 Menu **512×512** al centro dello schermo (formato 1:1, da riadattare in seguito); giochi e app
@@ -1526,6 +2642,8 @@ Task:
 | Bluetooth (M12) senza emulatore | un solo controller di riferimento, tracce HCI registrate sul Pi per i test |
 | Scrittura su SD (M11) che corrompe la scheda | test in QEMU con `fsck.vfat`, file di bm in una cartella dedicata |
 | Split transactions e LAN951x (M29) senza emulatore | schema di USPi/Circle (provati sul Pi 1), chip simulato nei test sul PC, diagnostica a schermo (`y`, `E`) |
+| Pi Zero 2 W (M31) senza emulatore | `raspi2b` per le periferiche, `virt` per l'avvio in HYP, scelte di firmware e pin come Linux e Raspberry Pi OS, diagnostica a schermo |
+| GPU V3D (M33) senza emulatore e senza seriale | prova passo per passo sullo schermo (`g`), timeout su ogni attesa, emulatore della V3D per i test sul PC, rasterizzatore software come riserva (anche automatica) |
 
 ## Hardware consigliato per lo sviluppo
 - Adattatore USB-seriale 3.3 V (**non 5 V**) su GPIO14/15 + GND
@@ -1533,3 +2651,77 @@ Task:
 - Pulsanti o pad SNES + qualche resistenza per M7A
 - Filtro RC (270 Ω + 33 nF) e jack per M10 (solo se l'audio va su PWM)
 - Per M12: un controller Bluetooth di riferimento
+
+---
+
+## Spunti R1, R2, … (2026-10-03, da riprendere)
+Cose utili che a bm mancano, viste sullo stato di `claude/bare-metal-mvp` del 2026-10-03,
+escluso quello che è in sviluppo su altri branch (GPU e 3D M33–M37, Overbit e la rete UDP
+dei giochi, Market e scambio in LAN M24–M26, RGB30, `.s16`). Nessuno è deciso: l'utente li
+richiama per nome ("facciamo R7"), e allora si chiede il branch come per ogni sviluppo.
+Suggeriti per primi: R3, R1 con R2, R7 (sul Pi si prova senza seriale e spesso senza
+tastiera).
+
+### Usare la console senza PC né seriale
+- **R1 — WiFi dal menu.** Oggi la rete si sceglie solo dal monitor (`W`: elenco, numero,
+  password scritta con la tastiera, `wifi.c`) o scrivendo `bm/config.txt`. Una pagina in
+  Settings > WiFi and network: le reti trovate col segnale, la scelta, la password (R2),
+  salvate come adesso (`wifi_ssid`, `wifi_psk`, `wifi_security`).
+- **R2 — Tastiera a schermo.** Una griglia di lettere guidata dal pad, servizio del kernel
+  chiamabile anche dalle cartucce (es. `textinput(titolo, testo)`): password del WiFi,
+  nomi dei file, Market. Più semplice della scrittura ad accordi di `archive/pad-typing`.
+- **R3 — Log su SD e visibile dal menu.** `log()`, i messaggi del kernel e il traceback
+  dell'ultimo errore di una cartuccia vanno solo sulla seriale. Le ultime righe in
+  `bm/log.txt` e una pagina "Log" in Settings > System: dal Pi si vede quello che oggi si
+  vede solo in QEMU.
+- **R4 — Screenshot sulla console.** Una combinazione di tasti salva un PNG in
+  `bm/shots/` (segnalare problemi, copertine del Market). `src/bm/png.c` oggi legge
+  soltanto: per scrivere basta il deflate senza compressione.
+- **R5 — Aggiornamento dal menu.** È M19, passi 3–4: `release.c` controlla già manifesto
+  e firma, mancano la chiave (`scripts/release-key.sh`) e la voce del menu; oggi per
+  aggiornare si toglie la SD.
+- **R6 — Pagina web della console.** Un piccolo server HTTP e il nome `bm.local` (mDNS;
+  di lwIP oggi c'è solo SNTP): dal browser del telefono si carica un `.bm`, si scaricano
+  salvataggi e screenshot, si modifica `bm/config.txt`, senza `bm_net.py`.
+
+### API dei giochi
+- **R7 — Lettere accentate in `print()`.** Il testo è disegnato byte per byte nell'ordine
+  CP437 (`g16_text` in `gfx16.c`): "città" scritto in UTF-8 esce con due simboli
+  sbagliati. Conversione da UTF-8 a CP437 (à è é ì ò ù ci sono); poi, se serve, font
+  personalizzati dallo sheet.
+- **R8 — Vibrazione e luce del DS4.** `rumble(p, forte, debole, ms)` e `padlight(p,
+  colore)`: il report d'uscita del DS4 (0x11, `bt.c`) parte già, oggi solo per il colore
+  del giocatore.
+- **R9 — Suoni campionati (PCM/WAV)** nel banco, accanto alla sintesi: voci, batterie
+  vere, effetti registrati; import WAV nel Sound editor. Il formato del banco cambia nei
+  tre posti (`au_parse`, l'editor, `scripts/bmaudio.py`).
+- **R10 — Libreria di gioco comune** (`require "bmlib"`): collisioni con la mappa e tra
+  rettangoli, easing, particelle, camera che segue, macchina a stati. Oggi ogni gioco se
+  le riscrive e l'assistente le spiega soltanto (`kb/howto_physics.txt`).
+- **R11 — Flag delle tile e mappa a più livelli.** `fget`/`fset` (muro, acqua, scala) e
+  livelli sopra e sotto il personaggio; oggi la mappa è un solo strato, da CSV.
+- **R12 — Più salvataggi per cartuccia.** Oggi uno, da 32 KiB (`/bm/save/XXXXXXXX.SAV`):
+  `save(t, slot)` / `saved(slot)`.
+
+### Strumenti di sviluppo
+- **R13 — Debugger Lua in bm Code.** Punti di interruzione, passo passo, variabili
+  locali, con l'hook di debug di Lua.
+- **R14 — Profiler per funzione.** L'overlay delle prestazioni dà il totale del
+  fotogramma; questo le 10 funzioni che costano di più.
+- **R15 — Ricarica dal PC.** `bm_net.py --watch`: a ogni salvataggio di `main.lua` sul PC
+  la cartuccia torna sulla console e riparte.
+- **R16 — Modelli di gioco.** "New game" parte da uno scheletro vuoto (`TEMPLATE` in bm
+  Code, "New project" nell'SDK): modelli pronti per platform, visuale dall'alto,
+  sparatutto e 3D, con codice, sheet e mappa.
+- **R17 — Import MIDI nel Sound editor.** Un file MIDI diventa i pattern del banco.
+- **R18 — Documentazione API in inglese.** Il README è in inglese, ma `docs/API.md`,
+  `docs/GUIDA-GIOCHI.md` e la base dell'assistente sono solo in italiano.
+
+### Hardware
+- **R19 — Altri controller Bluetooth.** Oggi via Bluetooth solo il DS4 (più tastiere e
+  mouse): DualSense, Switch Pro, 8BitDo, i pad Xbox (Bluetooth LE, come `ble.c`).
+- **R20 — Telecomando della TV (HDMI-CEC).** Frecce e OK per muoversi nel menu senza pad.
+- **R21 — Audio senza HDMI.** PWM su GPIO con il filtro RC (vedi l'hardware consigliato)
+  o un DAC I2S, per i monitor senza altoparlanti.
+- **R22 — Pulsanti su GPIO e schermo piccolo.** Il Pi Zero dentro un guscio portatile
+  (pad sui GPIO, LCD DPI o SPI): una strada diversa dall'RGB30.

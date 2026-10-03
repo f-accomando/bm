@@ -45,9 +45,10 @@ static void map_range(uint64_t start, uint64_t end, uint64_t flags)
     }
 }
 
-void mmu_init(uint32_t unused)
+void mmu_init(uint32_t arm_mem_end, uint32_t ram_end)
 {
-    (void)unused;
+    (void)arm_mem_end;          /* the Pi's memory split: the RGB30 maps plat.h's ranges */
+    (void)ram_end;
     map_range(PLAT_RAM_START, PLAT_FB_START, D_ATTR(ATTR_NORMAL) | D_SH_INNER);
     map_range(PLAT_FB_START, PLAT_FB_END, D_ATTR(ATTR_NC) | D_SH_INNER);
     map_range(PLAT_DEV_START, PLAT_DEV_END, D_ATTR(ATTR_DEVICE) | D_PXN | D_UXN);

@@ -260,6 +260,25 @@ void input_stick(int p, uint32_t b, float *x, float *y)
     *y = dy;
 }
 
+void input_stick_r(int p, float *x, float *y)
+{
+    int8_t xy[2] = { 0, 0 };
+    int analog = (bt_pads() >> p & 1) ? hid_stick_r(p, xy)
+               : p == input_local_player() ? hid_stick_r(-1, xy) : 0;
+    float ax = analog ? xy[0] / 127.0f : 0, ay = analog ? xy[1] / 127.0f : 0;
+    float m = sqrtf(ax * ax + ay * ay);
+    if (m < 0.2f) {
+        ax = ay = 0;
+    } else {
+        float k = (m > 1 ? 1 : m) - 0.2f;
+        k = k / 0.8f / m;
+        ax *= k;
+        ay *= k;
+    }
+    *x = ax;
+    *y = ay;
+}
+
 void input_status(char *buf, unsigned size)
 {
     /* a number: that player's pad is connected; k: the player who uses
@@ -278,7 +297,8 @@ void input_status(char *buf, unsigned size)
 
 void input_live_test(uint32_t seconds)
 {
-    static const char *const names[] = { "<", ">", "^", "v", "A", "B", "St", "Se", "X", "Y", "L1", "R1" };
+    static const char *const names[] = { "<", ">", "^", "v", "A", "B", "St", "Se", "X", "Y", "L1", "R1",
+                                          "L2", "R2", "L3", "R3" };
     kprintf("input test for %lu s: players and the buttons they hold\n", seconds);
     for (int p = 0; p < INPUT_PLAYERS; p++) {
         char a[18];

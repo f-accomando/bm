@@ -2,11 +2,15 @@
 -- pages side by side, a small sharp font (6x12: 106 columns, 28 lines of
 -- code), the cartridges read and written in place: only their code changes,
 -- sprites, map and cover stay as they are. The assistant on F6, and lines
--- "#entry: what you want #" that it carries out. F1: every key.
+-- "#entry: what you want #" that it carries out. While a word is typed its
+-- rest appears in grey-blue: Tab writes it (require "predict"). F1: every
+-- key.
 
 local assist = require "assist"
+local predict = require "predict"
 
 local W, H = SCREEN_W, SCREEN_H
+local key_chip = prompt                  -- the kernel's prompt(): prompt() here is the text dialog
 local FONTS = { "6x12", "8x14", "8x16" }
 local C_BG, C_PANE, C_BAR, C_LINE = 0x0E1016, 0x14161E, 0x22273A, 0x343B54
 local C_TEXT, C_DIM, C_ACC, C_ERR, C_OK = 0xE0E4F0, 0x6A7290, 0xFFC050, 0xFF6464, 0x70E090
@@ -176,8 +180,11 @@ end
 
 -- the session (tabs, cursors, split, font): kept across a game tried with
 -- cart_run, and from one time to the next
+local complete_on, words_lang = true, 1   -- the word completion: on, the words of comments
+
 local function save_session()
-  local s = { font = font_i, split = split, focus = focus, tabs = {}, panes = {} }
+  local s = { font = font_i, split = split, focus = focus, tabs = {}, panes = {},
+              complete = { on = complete_on, lang = words_lang } }
   local budget = 16000
   for i, t in ipairs(tabs) do
     local e = { path = t.path, title = t.title, author = t.author, res = t.res }
@@ -202,6 +209,7 @@ local function load_session()
   local s = d and d.code
   if not s then return false end
   set_font(s.font or 1)
+  if s.complete then complete_on, words_lang = s.complete.on ~= false, s.complete.lang or 1 end
   for _, e in ipairs(s.tabs or {}) do
     if e.text then
       local i = new_tab(e.path, e.text, e)
@@ -375,6 +383,75 @@ local function run_entry(t, v)
   return true
 end
 
+------------------------------------------------------------------ completion
+
+-- While a word is typed the dictionaries (src/ai/predict.lua, guide in
+-- docs/PREDICT.md) show the rest of the likeliest one in grey-blue, and Tab
+-- writes it (green until the next key), with the words of where the cursor
+-- is: in the code Lua's, the API's and the tab's names; after "--" and in
+-- strings Italian (or English: menu), from the marker on; after "#entry:"
+-- Italian and the questions to the assistant.
+local WORD_LANGS = { "it", "en" }
+local comp, comp_flash                  -- the suggestion shown, what Tab has written
+local code_words = { n = 0 }
+local words_ready = false               -- the dictionaries read, a slice a frame
+
+-- what the cursor is in: "code", "comment", "string" or "ask" (an #entry:
+-- line), and where its text starts
+local function place_at(l, cx)
+  local e = l:find("#entry:", 1, true)
+  if e and l:sub(1, e - 1):match("^%s*%-*%s*$") and cx >= e + 6 then return "ask", e + 7 end
+  local q, qs, i = nil, nil, 1
+  while i <= cx do
+    local c = l:sub(i, i)
+    if q then
+      if c == "\\" then i = i + 1 elseif c == q then q = nil end
+    elseif c == '"' or c == "'" then q, qs = c, i
+    elseif l:sub(i, i + 1) == "--" then return "comment", i + 2 end
+    i = i + 1
+  end
+  if q then return "string", qs + 1 end
+  return "code"
+end
+
+-- their words, and how much the names of the tab's code count
+local PLACES = {
+  code = { weight = 0.6 },
+  comment = { prose = true, mark = "--", weight = 0.15 },
+  string = { prose = true, mark = '"', weight = 0 },
+  ask = { lang = { it = 1, ask = 2 }, mark = ":", weight = 0.1 },
+}
+
+-- the names of the tab's code, counted again every 30 suggestions
+local function tab_words(t)
+  if code_words.tab ~= t or code_words.n >= 30 then
+    code_words.tab, code_words.n, code_words.words = t, 0, predict.count_words(t.lines)
+  end
+  code_words.n = code_words.n + 1
+  return code_words.words
+end
+
+-- after a key that writes: the suggestion for the word before the cursor
+local function suggest(t, v)
+  comp = nil
+  if not complete_on or v.mark then return end
+  local l = t.lines[v.cy]
+  if l:sub(v.cx + 1, v.cx + 1):find("[%w_\128-\165]") then return end   -- inside a word
+  local place, from = place_at(l, v.cx)
+  local p = PLACES[place]
+  local before = l:sub(1, v.cx)
+  if from then before = p.mark .. before:sub(from) end
+  local c = predict.complete(before, { lang = p.lang or (p.prose and WORD_LANGS[words_lang] or "lua"),
+                                       words = p.weight > 0 and tab_words(t) or nil, words_weight = p.weight })
+  if c then c.t, c.cy, c.cx = t, v.cy, v.cx end
+  comp = c
+end
+
+-- the suggestion at this cursor, if any
+local function comp_here(t, v)
+  return comp and comp.t == t and comp.cy == v.cy and comp.cx == v.cx and comp or nil
+end
+
 ------------------------------------------------------------------ actions
 
 local function run_game()
@@ -402,8 +479,9 @@ local function explain_error(t, v)
   assist.open{ error = t.err.msg, on_insert = function(code) insert_block(t, v, code) end }
 end
 
-local function prompt(label, text, done)
-  overlay = { kind = "prompt", label = label, text = text or "", done = done }
+-- a line of text; words: "code" for the completion of the tab's names
+local function prompt(label, text, done, words)
+  overlay = { kind = "prompt", label = label, text = text or "", done = done, words = words }
 end
 
 local function confirm(question, choices, done)
@@ -508,10 +586,15 @@ local MENU = {
   { "Save as...", "" }, { "Close tab", "Ctrl+W" }, { "Run the game", "F5" },
   { "Split screen", "F4" }, { "Font size", "F10" }, { "Find", "Ctrl+F" },
   { "Replace", "Ctrl+H" }, { "Go to line", "Ctrl+L" }, { "Assistant", "F6" },
-  { "Explain the error", "F9" }, { "Keys", "F1" }, { "Exit", "" },
+  { "Explain the error", "F9" }, { "Word completion", "" }, { "Words in comments", "" },
+  { "Keys", "F1" }, { "Exit", "" },
 }
 
 local function open_menu()
+  for _, m in ipairs(MENU) do                -- the completion's settings, on the right
+    if m[1] == "Word completion" then m[2] = complete_on and "on" or "off"
+    elseif m[1] == "Words in comments" then m[2] = WORD_LANGS[words_lang] end
+  end
   overlay = { kind = "menu", sel = 1 }
 end
 
@@ -533,6 +616,14 @@ local function menu_choose(name)
   elseif name == "Go to line" then do_command("^l")
   elseif name == "Assistant" then open_assistant(t, v)
   elseif name == "Explain the error" then explain_error(t, v)
+  elseif name == "Word completion" then
+    complete_on = not complete_on
+    comp = nil
+    say(complete_on and "word completion on: Tab writes the word in grey-blue" or "word completion off", C_ACC)
+  elseif name == "Words in comments" then
+    words_lang = words_lang % #WORD_LANGS + 1
+    words_ready = false
+    say("words in comments and strings: " .. WORD_LANGS[words_lang], C_ACC)
   elseif name == "Keys" then overlay = { kind = "help" }
   elseif name == "Exit" then quit_editor() end
 end
@@ -569,13 +660,13 @@ do_command = function(k)
     prompt("Find:", find_text or word_at(t, v) or "", function(s)
       find_text = s
       find_next(t, v, s, true)
-    end)
+    end, "code")
   elseif k == "^g" then find_next(t, v, find_text)
   elseif k == "^h" then
     prompt("Replace:", find_text or word_at(t, v) or "", function(a)
       if a == "" then return end
-      prompt("Replace \"" .. a .. "\" with:", "", function(b) replace_all(t, v, a, b) end)
-    end)
+      prompt("Replace \"" .. a .. "\" with:", "", function(b) replace_all(t, v, a, b) end, "code")
+    end, "code")
   elseif k == "^l" then
     prompt("Go to line (1-" .. #t.lines .. "):", "", function(s)
       local n = tonumber(s)
@@ -703,14 +794,40 @@ local function edit_key(k)
   return true
 end
 
+-- Tab: the suggestion written, in one undo step with the word typed
+local function accept(t, v)
+  local c = comp_here(t, v)
+  if not c then return false end
+  local s = c.rest
+  if c.word:sub(1, #c.prefix) ~= c.prefix then         -- its accents, its case
+    snapshot(t, v, "ins")
+    local l = t.lines[v.cy]
+    t.lines[v.cy] = l:sub(1, v.cx - #c.prefix) .. l:sub(v.cx + 1)
+    v.cx, s = v.cx - #c.prefix, c.word
+  end
+  for ch in s:gmatch(".") do edit_key(ch) end            -- "end": back to its block
+  comp, comp_flash = nil, { t = t, cy = v.cy, cx = v.cx, n = #c.word }
+  return true
+end
+
+-- the completion in a prompt (the tab's names, for a find)
+local function prompt_suggest(o)
+  o.comp = o.words and complete_on and predict.complete(o.text, { lang = "lua", words = tab_words(current()) }) or nil
+end
+
 local function overlay_key(k)
   local o = overlay
   if o.kind == "help" or o.kind == "text" then overlay = nil
   elseif o.kind == "prompt" then
+    local c = o.comp
+    o.comp, o.flash = nil, nil
     if k == "esc" then overlay = nil
     elseif k == "\n" then overlay = nil; o.done(o.text)
-    elseif k == "\b" then o.text = o.text:sub(1, -2)
-    elseif #k == 1 and k:byte() >= 32 then o.text = o.text .. k end
+    elseif k == "\t" and c then
+      o.text = o.text:sub(1, #o.text - #c.prefix) .. c.word
+      o.flash = #c.word
+    elseif k == "\b" then o.text = o.text:sub(1, -2); prompt_suggest(o)
+    elseif #k == 1 and k:byte() >= 32 then o.text = o.text .. k; prompt_suggest(o) end
   elseif o.kind == "confirm" then
     if k == "esc" then overlay = nil
     elseif k == "left" or k == "up" then o.sel = math.max(1, (o.sel or 1) - 1)
@@ -808,11 +925,25 @@ function _update()
   if status_t > 0 then status_t = status_t - 1 end
   if assist.update() then return end
   local k = keyp()
+  local typed
   while k do
+    local t, v = current()
+    typed, comp_flash = false, nil
     if overlay then overlay_key(k)
-    elseif not do_command(k) then edit_key(k) end
+    elseif k == "\t" and accept(t, v) then
+    elseif not do_command(k) then
+      edit_key(k)
+      typed = (#k == 1 and k:byte() >= 32) or k == "\b"
+    end
     if assist.is_open() then break end
     k = keyp()
+  end
+  if typed ~= nil then                   -- a key: the suggestion for its word, or none
+    comp = nil
+    if typed and not overlay then suggest(current()) end
+  end
+  if complete_on and not words_ready then
+    words_ready = predict.preload({ "lua", WORD_LANGS[words_lang], "ask" })
   end
   if not assist.is_open() then pad() end
 end
@@ -900,6 +1031,8 @@ local function draw_pane(p, c0, ncols, r0, nrows)
     end
     local num = tostring(i)
     print(string.rep(" ", digits - #num) .. num, x0, y, i == v.cy and C_GUTCUR or C_GUT)
+    local c = active and i == v.cy and comp_here(t, v)
+    if c then l = l:sub(1, v.cx) .. c.rest .. l:sub(v.cx + 1) end
     if entry_request(l) then
       print(l:sub(v.left + 1, v.left + tcols), tx, y, C_ACC)
     else
@@ -914,6 +1047,21 @@ local function draw_pane(p, c0, ncols, r0, nrows)
       end
     end
     if #l > v.left + tcols then print(">", tx + tcols * CW, y, C_DIM) end
+    -- the suggestion, then what Tab has just written, in their colours
+    local function paint(a, txt, col)
+      for k = 1, #txt do
+        local cx = a + k - 1
+        if cx >= v.left and cx < v.left + tcols then
+          rectfill(tx + (cx - v.left) * CW, y, CW, CH, C_CUR)
+          print(txt:sub(k, k), tx + (cx - v.left) * CW, y, col)
+        end
+      end
+    end
+    if c then paint(v.cx, c.rest, predict.C_GHOST) end
+    local f = comp_flash
+    if f and active and i == v.cy and f.t == t and f.cy == i and f.cx == v.cx then
+      paint(v.cx - f.n, l:sub(v.cx - f.n + 1, v.cx), predict.C_PRED)
+    end
   end
   -- the cursor: a bar that blinks
   if active and (frame // 30) % 2 == 0 then
@@ -925,6 +1073,29 @@ local function draw_pane(p, c0, ncols, r0, nrows)
   return t, v
 end
 
+-- keys and pad buttons as chips (prompt()), as high as a text row (12 px
+-- up to the 8x14 font, 16 with 8x16), then the label; returns the x after
+local function chips(keys, label, x, y, c)
+  for _, k in ipairs(keys) do x = key_chip(k, x, y, CH < 16) + 1 end
+  return print(label, (x + 2 + CW - 1) // CW * CW, y, c or C_DIM) + 2 * CW   -- text on its columns
+end
+local function chips_w(keys)
+  local w = 0
+  for _, k in ipairs(keys) do w = w + key_chip(k, CH < 16) + 1 end
+  return w
+end
+-- the key, or the pad's button when a pad was used last
+local function key_or_pad(key, pad)
+  local li = lastinput()
+  return { (li == "ds4" or li == "pad") and pad or key }
+end
+-- a shortcut of the menu ("Ctrl+N", "F5") as its keys, or nil
+local function shortcut_keys(s)
+  local c = s:match("^Ctrl%+(.)$")
+  if c then return { "ctrl", c:lower() } end
+  if s:match("^F%d+$") then return { s:lower() } end
+end
+
 local function draw_tabs()
   rectfill(0, 0, W, CH, C_BAR)
   local x = 0
@@ -934,7 +1105,7 @@ local function draw_tabs()
       if panes[1].tab == i then label = label .. "1 " end
       if panes[2].tab == i then label = label .. "2 " end
     end
-    if x + #label > COLS - 6 then
+    if x + #label > COLS - 10 then
       print("...", x * CW, 0, C_DIM)
       break
     end
@@ -943,7 +1114,9 @@ local function draw_tabs()
     print(label, x * CW, 0, on and 0xFFFFFF or C_DIM)
     x = x + #label + 1
   end
-  print("F1 keys", (COLS - 7) * CW, 0, C_DIM)
+  local lx = (COLS - 5) * CW                         -- "keys" on the last columns, its key before
+  key_chip("f1", lx - 3 - key_chip("f1", CH < 16), 0, CH < 16)
+  print("keys", lx, 0, C_DIM)
 end
 
 local function draw_status(t, v)
@@ -955,6 +1128,14 @@ local function draw_status(t, v)
   print(right, (COLS - #right) * CW, y, C_DIM)
   if status_t == 0 and entry_request(t.lines[v.cy]) then
     status, status_c, status_t = "Enter: the assistant does it", C_ACC, 1
+  elseif status_t == 0 and comp_here(t, v) and not overlay then
+    local c = comp_here(t, v)
+    local others = {}
+    for _, w in ipairs(c.list) do
+      if w ~= c.word and #w > #c.prefix then others[#others + 1] = w end
+    end
+    local more = #others > 0 and "  (also: " .. table.concat(others, ", ") .. ")" or ""
+    status, status_c, status_t = "Tab: " .. c.word .. more, predict.C_GHOST, 1
   end
   if status ~= "" and status_t > 0 then
     local room = COLS - #left - #right - 4
@@ -969,6 +1150,7 @@ local HELP = {
   "F7 the other page", "F10 font 6x12 / 8x14 / 8x16", "",
   "Editing", "Ctrl+Z undo, Ctrl+Y redo", "Ctrl+B start a selection", "Ctrl+C copy, Ctrl+X cut",
   "Ctrl+V paste (a line: above)", "Ctrl+K cut line, Ctrl+D duplicate", "Tab / Ctrl+U indent / unindent",
+  "Tab after a word: the grey-blue rest",
   "Ctrl+F find, Ctrl+G next", "Ctrl+H replace all", "Ctrl+L go to line", "",
   "Assistant", "F6 ask (the word under the cursor)", "F9 explain the game's error",
   "#entry: what to do #  then Enter:", "  the assistant does it here", "",
@@ -1013,8 +1195,13 @@ local function draw_overlay()
     local c0, r0 = (COLS - cols) // 2, ROWS // 2 - 2
     draw_box(c0, r0, cols, 3, o.label)
     local cur = (frame // 30) % 2 == 0 and "_" or " "
-    print(o.text:sub(-(cols - 4)) .. cur, (c0 + 1) * CW, (r0 + 1) * CH, C_TEXT)
-    print("Enter: OK   Esc: cancel", (c0 + 1) * CW, (r0 + 2) * CH, C_DIM)
+    local shown = o.text:sub(-(cols - 4 - (o.comp and #o.comp.rest or 0)))
+    local tx, ty = (c0 + 1) * CW, (r0 + 1) * CH
+    print(shown, tx, ty, C_TEXT)
+    if o.flash then print(shown:sub(-o.flash), tx + (#shown - math.min(o.flash, #shown)) * CW, ty, predict.C_PRED) end
+    if o.comp then print(o.comp.rest, tx + #shown * CW, ty, predict.C_GHOST) end
+    print(cur, tx + #shown * CW, ty, C_TEXT)
+    chips({ "esc" }, "cancel", chips({ "enter" }, "OK", (c0 + 1) * CW, (r0 + 2) * CH), (r0 + 2) * CH)
   elseif o.kind == "confirm" then
     local cols = math.min(COLS - 4, math.max(#o.question + 4, 50))
     local c0, r0 = (COLS - cols) // 2, ROWS // 2 - 2
@@ -1027,7 +1214,8 @@ local function draw_overlay()
       print(" " .. c .. " ", x * CW, (r0 + 2) * CH, on and 0xFFFFFF or C_TEXT)
       x = x + #c + 4
     end
-    print("Enter or the first letter; Esc: cancel", (c0 + 1) * CW, (r0 + 3) * CH, C_DIM)
+    local x = chips({ "enter" }, "or the first letter", (c0 + 1) * CW, (r0 + 3) * CH)
+    chips({ "esc" }, "cancel", x, (r0 + 3) * CH)
   else
     local menu = o.kind == "menu"
     local n = menu and #MENU or #o.items
@@ -1051,10 +1239,17 @@ local function draw_overlay()
         right = it.size and string.format("%d KB", (it.size + 1023) // 1024) or ""
       end
       print(label:sub(1, cols - 12), (c0 + 2) * CW, y, i == o.sel and 0xFFFFFF or C_TEXT)
-      print(right, (c0 + cols - 1 - #right) * CW, y, C_DIM)
+      local keys = menu and shortcut_keys(right)
+      if keys then                       -- the shortcut's keys, on the right
+        local kx = (c0 + cols - 1) * CW - chips_w(keys)
+        for _, k in ipairs(keys) do kx = key_chip(k, kx, y, CH < 16) + 1 end
+      else
+        print(right, (c0 + cols - 1 - #right) * CW, y, C_DIM)
+      end
     end
-    print(menu and "Enter/A choose  Esc/B back" or "Enter/A open  Esc/B back",
-          (c0 + 1) * CW, (r0 + rows - 1) * CH, C_DIM)
+    local fy = (r0 + rows - 1) * CH
+    local x = chips(key_or_pad("enter", "A"), menu and "choose" or "open", (c0 + 1) * CW, fy)
+    chips(key_or_pad("esc", "B"), "back", x, fy)
   end
 end
 

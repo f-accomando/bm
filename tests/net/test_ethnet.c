@@ -3,9 +3,12 @@
  * Ethernet driver (src/usb/smsc95xx.c), itself on a simulated LAN9512
  * (tests/usb/lan9512_sim.c). A small peer on the "cable" answers ARP,
  * DHCP (192.168.1.50 for us) and sends a ping. The cable is plugged in
- * after the start, pulled and plugged in again.
+ * after the start, pulled and plugged in again. The cartridges' UDP
+ * (src/net/cartnet.c): a packet from the peer to a game's socket, a
+ * broadcast of the game on the cable.
  */
 #include "net/net.h"
+#include "net/cartnet.h"
 #include "usb/smsc95xx.h"
 #include "../usb/lan9512_sim.h"
 
@@ -41,7 +44,7 @@ int wifi_send(const void *eth, int len) { (void)eth; (void)len; return -1; }
 /* ---- the peer: 192.168.1.1, router and DHCP server ---- */
 static const uint8_t peer_mac[6] = { 0x02, 0, 0, 0, 0, 1 };
 static const uint8_t peer_ip[4] = { 192, 168, 1, 1 }, our_ip[4] = { 192, 168, 1, 50 };
-static int discovers, requests, arp_asks, echo_replies, bad_frames;
+static int discovers, requests, arp_asks, echo_replies, bad_frames, game_bcasts;
 static uint8_t f[1600];
 
 static uint16_t csum(const uint8_t *p, int len)
@@ -151,6 +154,12 @@ static void on_out(const uint8_t *data, uint32_t n)
             requests++;
             dhcp_reply(b, 5);                       /* ack */
         }
+    } else if (ip[9] == 17 && (ip[ihl + 2] << 8 | ip[ihl + 3]) == 47310) {
+        /* a game's broadcast: to everyone on the cable */
+        static const uint8_t all[4] = { 255, 255, 255, 255 };
+        CHECK(memcmp(e, "\xff\xff\xff\xff\xff\xff", 6) == 0 && memcmp(ip + 16, all, 4) == 0);
+        CHECK(memcmp(ip + ihl + 8, "OB1hello", 8) == 0);
+        game_bcasts++;
     } else if (ip[9] == 1 && ip[ihl] == 0 && memcmp(ip + 16, peer_ip, 4) == 0) {
         const uint8_t *icmp = ip + ihl;             /* echo reply to us */
         int ilen = (ip[2] << 8 | ip[3]) - ihl;
@@ -173,6 +182,19 @@ static void ping(void)
     uint16_t c = csum(icmp, 8 + 32);
     icmp[2] = (uint8_t)(c >> 8); icmp[3] = (uint8_t)c;
     sim_queue_rx(f, (uint32_t)(o + 8 + 32), 0);
+}
+
+/* a UDP packet from the peer's port 47320 to ours, 47310 */
+static void game_packet(const char *msg)
+{
+    int n = (int)strlen(msg);
+    int o = ip_frame(sim_board_mac, our_ip, 17, 8 + n);
+    uint8_t *u = f + o;
+    u[0] = 47320 >> 8; u[1] = 47320 & 255; u[2] = 47310 >> 8; u[3] = 47310 & 255;
+    u[4] = (uint8_t)((8 + n) >> 8); u[5] = (uint8_t)(8 + n);
+    u[6] = u[7] = 0;                                /* no checksum (allowed for UDP) */
+    memcpy(u + 8, msg, (size_t)n);
+    sim_queue_rx(f, (uint32_t)(o + 8 + n), 0);
 }
 
 static void run(int ms)
@@ -223,6 +245,26 @@ int main(void)
     run(50);
     CHECK(echo_replies == 3);
     CHECK(bad_frames == 0);
+
+    /* a game's socket: what the peer sends arrives, a broadcast goes out */
+    int sk = cartnet_open(47310);
+    CHECK(sk >= 0 && cartnet_port(sk) == 47310);
+    CHECK(cartnet_ip() == 0xC0A80132u);
+    char buf[64];
+    uint32_t from;
+    uint16_t port;
+    CHECK(cartnet_recv(sk, buf, sizeof buf, &from, &port) < 0);
+    game_packet("OB1 inputs");
+    run(5);
+    int n = cartnet_recv(sk, buf, sizeof buf, &from, &port);
+    CHECK(n == 10 && memcmp(buf, "OB1 inputs", 10) == 0 && from == 0xC0A80101u && port == 47320);
+    CHECK(cartnet_recv(sk, buf, sizeof buf, &from, &port) < 0);
+    CHECK(cartnet_send(sk, CARTNET_BROADCAST, 47310, "OB1hello", 8) == 0);
+    run(5);
+    CHECK(game_bcasts == 1);
+    CHECK(cartnet_resolve("192.168.1.9") == 0xC0A80109u);
+    cartnet_reset();
+    CHECK(cartnet_recv(sk, buf, sizeof buf, &from, &port) < 0);
 
     /* the WiFi cannot take over the running interface */
     CHECK(net_start(&net_wifi) == -1);

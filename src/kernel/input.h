@@ -68,6 +68,8 @@ unsigned input_connected(void);
 /* Left stick of player p (0-based), -1..1 each (x right, y down); from the
  * direction buttons for keyboards and pads without a stick. */
 void input_stick(int p, uint32_t buttons, float *x, float *y);
+/* The right stick of player p (0..3), with a dead zone; 0, 0 without one. */
+void input_stick_r(int p, float *x, float *y);
 
 /* What player p (0-based) plays with: a Bluetooth pad or a USB gamepad,
  * a USB or Bluetooth keyboard, or nothing (the serial console does not

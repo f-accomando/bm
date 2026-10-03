@@ -34,11 +34,6 @@ typedef struct {
 int  n8_cart_load(const uint8_t *data, size_t len, int flags, n8_cart_t *c, char *err, size_t errlen);
 void n8_cart_free(n8_cart_t *c);
 
-/* Inflates a zlib stream into out (at most cap bytes). Returns the
- * length, or -1. */
-long n8_inflate(const uint8_t *src, size_t len, uint8_t *out, size_t cap);
-/* A PNG as RGBA8888 (malloc'd). Returns 0, or -1. */
-int  n8_png_rgba(const uint8_t *png, size_t len, uint8_t **rgba, int *w, int *h);
 /* Decompresses the code area (0x4300-0x7fff of a .p8.png). Returns the
  * malloc'd code, or NULL. */
 char *n8_code_unpack(const uint8_t *area, size_t len, size_t *out_len);

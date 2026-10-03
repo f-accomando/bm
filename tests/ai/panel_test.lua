@@ -27,10 +27,23 @@ function font(n)
   return cur_font[1], cur_font[2]
 end
 local keys, held, pressed = {}, {}, {}
+-- the keys as chips: written as "[name]"; prompt(name) alone measures
+local function chip_w(n) return #n == 1 and 16 or math.max(16, #n * 6 + 10) end
+function prompt(n, x, y)
+  assert(type(n) == "string", "prompt: a name")
+  if type(x) ~= "number" then return chip_w(n), 16 end
+  screen[#screen + 1] = "[" .. n .. "]"
+  return x + chip_w(n)
+end
+local last_input
+function lastinput() return last_input end
 function keyp() return table.remove(keys, 1) end
 function btn(i) return held[i] == true end
 function btnp(i) return pressed[i] == true end
 
+-- the completion of the question: require "predict" and its dictionaries
+local build = arg and arg[1] or "build"
+package.path = build .. "/?.lua;src/ai/?.lua;" .. package.path
 local assist = dofile("src/ai/assist.lua")
 
 local function frame()                  -- one frame: update and draw
@@ -94,6 +107,42 @@ keys = { "\n" }
 frame()
 check(sprite and sprite.w == 32 and sprite.gen == "slime", "words: 32x32 slime")
 
+-- a 3D model (bm Studio, bm Animator): the recipe, its variant, Enter
+-- hands over the faces, the bones and the animations; the words' colour
+local model
+assist.open{ mode = "mesh", on_mesh = function(m) model = m end }
+type_("un cane")
+check(on_screen("Cane"), "mesh: dog")
+check(on_screen("bones:") and on_screen("walk"), "mesh: faces, bones and animations on screen")
+keys = { "right" }
+frame()
+check(on_screen("#2"), "right: variant 2")
+keys = { "\n" }
+frame()
+check(model and model.gen == "dog" and model.seed == 2 and #model.faces > 50 and #model.bones == 7 and
+      #model.clips == 2 and model.clips[2].name == "walk" and #model.clips[2].keys[1].pose == 7,
+      "model handed over: dog, variant 2, 7 bones, walk")
+check(model and model.faces[1].p[1][2] >= 0 and #model.faces[1].b == #model.faces[1].p, "faces with bones")
+assist.open{ mode = "mesh", on_mesh = function(m) model = m end }
+type_("casa blu senza scheletro")
+keys = { "\n" }
+frame()
+check(model and model.gen == "house" and not model.bones, "words: a house, no skeleton")
+local blue = false
+for _, f in ipairs(model.faces) do if f.c == 0x3A62D8 then blue = true end end
+check(blue, "words: blue walls")
+assist.open{ mode = "mesh", on_mesh = function(m) model = m end }
+type_("mech")
+keys = { "\n" }
+frame()
+check(model and model.gen == "mech" and #model.bones == 9 and #model.clips == 3, "the mech: 9 bones, 3 animations")
+-- Tab goes round the modes: code, sprite, mesh, any
+assist.open{ mode = "sprite" }
+keys = { "\t" }
+frame()
+check(on_screen("mesh"), "Tab from sprite: mesh")
+assist.close()
+
 -- an error message: the line, the mistyped name, what it means
 assist.open{ error = "main.lua:7: attempt to call a nil value (global 'sprr')\nstack traceback: ..." }
 frame()
@@ -156,6 +205,42 @@ local fw = font()
 check(fw == 6, "6x12: the tool's font is back after drawing")
 assist.close()
 font("8x16")
+
+-- the keys at the bottom: the keyboard's, or the pad's buttons after a pad
+assist.open{ mode = "code" }
+type_("come salto")
+check(on_screen("[enter]") and on_screen("[esc]") and on_screen("insert"), "keys: the keyboard's")
+last_input = "ds4"
+frame()
+check(on_screen("[A]") and on_screen("[B]") and not on_screen("[enter]"), "keys: the pad's after a pad")
+last_input = nil
+assist.close()
+
+-- the completion: while a word is typed its rest in grey-blue, Tab writes
+-- it (green), and Tab without a suggestion is still the next mode
+local predict = require "predict"
+local colours = {}
+local print0 = print
+function print(s, x, y, c) colours[tostring(s)] = c; return print0(s, x, y, c) end
+inserted = nil
+assist.open{ mode = "code", on_insert = function(c) inserted = c end }
+type_("co")
+check(colours["me"] == predict.C_GHOST, "co: the rest of come, grey-blue")
+check(on_screen("word"), "the keys: Tab writes the word")
+keys = { "\t" }
+frame()
+check(on_screen("? come") or on_screen("come"), "Tab: come written")
+check(colours["come"] == predict.C_PRED, "what Tab wrote, green")
+check(on_screen("code"), "Tab with a suggestion: the mode stays")
+type_(" faccio a sal")
+check(colours["vare"] == predict.C_GHOST, "sal: salvare")
+type_("tare")
+check(on_screen("Saltare con la gravit"), "the question written with Tab, answered")
+keys = { " ", "\t" }
+frame()
+check(on_screen("sprite"), "after a space Tab is the next mode")
+assist.close()
+print = print0
 
 say(string.format("panel: %d checks, %d failed", checks, fails))
 os.exit(fails == 0 and 0 or 1)

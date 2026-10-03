@@ -5,6 +5,7 @@
 #include "crumbs.h"
 #include "home.h"
 #include "menu_ui.h"
+#include "pointer.h"
 #include "bm/bm.h"
 #include "input.h"
 #include "upload.h"
@@ -30,7 +31,11 @@
 
 extern const uint8_t bm_editor_cart[], bm_editor_cart_end[];
 extern const uint8_t bm_sound_cart[], bm_sound_cart_end[];
-extern const uint8_t bm_studio3d_cart[], bm_studio3d_cart_end[];
+extern const uint8_t bm_studio_cart[], bm_studio_cart_end[];
+extern const uint8_t bm_animator_cart[], bm_animator_cart_end[];
+extern const uint8_t bm_code_cart[], bm_code_cart_end[];
+extern const uint8_t bm_mesh_cart[], bm_mesh_cart_end[];
+extern const uint8_t bm_pixel_cart[], bm_pixel_cart_end[];
 
 typedef struct {
     char title[49];             /* from the header; the file name if none */
@@ -170,7 +175,13 @@ static void rescan(void)
     if (ncarts < MAX_CARTS)
         add_builtin("sound (built-in)", bm_sound_cart, bm_sound_cart_end);
     if (ncarts < MAX_CARTS)
-        add_builtin("3D studio (built-in)", bm_studio3d_cart, bm_studio3d_cart_end);
+        add_builtin("studio (built-in)", bm_studio_cart, bm_studio_cart_end);
+    if (ncarts < MAX_CARTS)
+        add_builtin("animator (built-in)", bm_animator_cart, bm_animator_cart_end);
+    if (ncarts < MAX_CARTS)
+        add_builtin("mesh (built-in)", bm_mesh_cart, bm_mesh_cart_end);
+    if (ncarts < MAX_CARTS)
+        add_builtin("pixel (built-in)", bm_pixel_cart, bm_pixel_cart_end);
     for (int i = 0; i < ncarts; i++) {
         cart_t *c = &carts[i];
         if (c->builtin)
@@ -260,15 +271,39 @@ void carts_play_buffer(framebuffer_t *fb, const uint8_t *data, size_t len)
     }
 }
 
-/* A development tool built into the kernel (the SDK, the Sound editor,
- * bm Code, the 3D studio), and the games it tries: when the tool asks to
- * play a file (cart_run), play it, then open the tool again on that file
- * with the error the game stopped with, if any. `open`: a file to start on
- * (the menu's "Open in ..."), or NULL. */
-void carts_tool_session(framebuffer_t *fb, const uint8_t *cart, size_t cart_len, const char *what,
-                        const char *open)
+/* a development tool built into the kernel (the Dev tab) */
+static int is_dev(const cart_t *c)
 {
-    char path[64] = "", err[512] = "";
+    return c->builtin == bm_editor_cart || c->builtin == bm_sound_cart || c->builtin == bm_studio_cart ||
+           c->builtin == bm_animator_cart || c->builtin == bm_mesh_cart || c->builtin == bm_pixel_cart;
+}
+
+/* The tools a tool can open on its file with cart_tool(name, path) (bm
+ * Studio's "Open in bm Animator" and back). */
+static const struct {
+    const char *name, *what;
+    const uint8_t *start, *end;
+} tools[] = {
+    { "studio", "bm Studio", bm_studio_cart, bm_studio_cart_end },
+    { "animator", "bm Animator", bm_animator_cart, bm_animator_cart_end },
+    { "mesh", "bm Mesh", bm_mesh_cart, bm_mesh_cart_end },
+    { "pixel", "bm Pixel", bm_pixel_cart, bm_pixel_cart_end },
+    { "code", "bm Code", bm_code_cart, bm_code_cart_end },
+    { "sdk", "SDK", bm_editor_cart, bm_editor_cart_end },
+    { "sound", "Sound editor", bm_sound_cart, bm_sound_cart_end },
+};
+
+/* A development tool built into the kernel (the SDK, the Sound editor,
+ * bm Code, bm Studio, bm Animator, bm Mesh, bm Pixel), and the games it
+ * tries: when the tool asks to play a file (cart_run), play it, then open
+ * the tool again on that file with the error the game stopped with, if
+ * any; when it asks for another tool (cart_tool), that one opens on the
+ * file. `open`: a file to start on (the menu's "Open in ..."), or NULL.
+ * Returns the name of the last tool (for the menu's "last: ..."). */
+const char *carts_tool_session(framebuffer_t *fb, const uint8_t *cart, size_t cart_len, const char *what,
+                               const char *open)
+{
+    char path[64] = "", err[512] = "", tool[16];
     int back = 0;
     if (open)
         ksnprintf(path, sizeof path, "%s", open);
@@ -279,6 +314,21 @@ void carts_tool_session(framebuffer_t *fb, const uint8_t *cart, size_t cart_len,
         bm_stats_t st;
         bm_play(fb, cart, cart_len, PLAY_SECS, &st);
         bm_set_arg(NULL, NULL);
+        if (bm_take_tool(tool, sizeof tool)) {
+            unsigned i = 0;
+            while (i < sizeof tools / sizeof tools[0] && strcmp(tools[i].name, tool))
+                i++;
+            path[0] = 0;
+            bm_take_run(path, sizeof path);
+            if (i == sizeof tools / sizeof tools[0])
+                break;
+            cart = tools[i].start;
+            cart_len = (size_t)(tools[i].end - tools[i].start);
+            what = tools[i].what;
+            back = 0;
+            err[0] = 0;
+            continue;
+        }
         if (!bm_take_run(path, sizeof path))
             break;
         back = 1;
@@ -296,40 +346,71 @@ void carts_tool_session(framebuffer_t *fb, const uint8_t *cart, size_t cart_len,
         free(data);
         ksnprintf(err, sizeof err, "%s", bm_last_error());
     }
+    return what;
 }
 
 /* the SDK or the Sound editor */
-static void editor_session(framebuffer_t *fb, const char *open, const uint8_t *cart, const uint8_t *end)
+static const char *editor_session(framebuffer_t *fb, const char *open, const uint8_t *cart, const uint8_t *end)
 {
-    carts_tool_session(fb, cart, (size_t)(end - cart), cart == bm_sound_cart ? "sound editor" : "editor",
-                       open);
+    return carts_tool_session(fb, cart, (size_t)(end - cart), cart == bm_sound_cart ? "Sound editor" : "SDK",
+                              open);
 }
 
-void carts_code(framebuffer_t *fb, const char *open)
+const char *carts_code(framebuffer_t *fb, const char *open)
 {
-    extern const uint8_t bm_code_cart[], bm_code_cart_end[];
-    carts_tool_session(fb, bm_code_cart, (size_t)(bm_code_cart_end - bm_code_cart), "code", open);
+    return carts_tool_session(fb, bm_code_cart, (size_t)(bm_code_cart_end - bm_code_cart), "bm Code", open);
 }
 
-static void studio3d_session(framebuffer_t *fb, const char *open)
+static const char *studio_session(framebuffer_t *fb, const char *open)
 {
-    carts_tool_session(fb, bm_studio3d_cart, (size_t)(bm_studio3d_cart_end - bm_studio3d_cart), "3D studio",
-                       open);
+    return carts_tool_session(fb, bm_studio_cart, (size_t)(bm_studio_cart_end - bm_studio_cart), "bm Studio",
+                              open);
 }
 
-void carts_editor(framebuffer_t *fb)
+static const char *animator_session(framebuffer_t *fb, const char *open)
 {
-    editor_session(fb, NULL, bm_editor_cart, bm_editor_cart_end);
+    return carts_tool_session(fb, bm_animator_cart, (size_t)(bm_animator_cart_end - bm_animator_cart),
+                              "bm Animator", open);
 }
 
-void carts_sound_editor(framebuffer_t *fb)
+static const char *mesh_session(framebuffer_t *fb, const char *open)
 {
-    editor_session(fb, NULL, bm_sound_cart, bm_sound_cart_end);
+    return carts_tool_session(fb, bm_mesh_cart, (size_t)(bm_mesh_cart_end - bm_mesh_cart), "bm Mesh", open);
 }
 
-void carts_studio3d(framebuffer_t *fb)
+const char *carts_mesh(framebuffer_t *fb)
 {
-    studio3d_session(fb, NULL);
+    return mesh_session(fb, NULL);
+}
+
+static const char *pixel_session(framebuffer_t *fb, const char *open)
+{
+    return carts_tool_session(fb, bm_pixel_cart, (size_t)(bm_pixel_cart_end - bm_pixel_cart), "bm Pixel", open);
+}
+
+const char *carts_pixel(framebuffer_t *fb)
+{
+    return pixel_session(fb, NULL);
+}
+
+const char *carts_editor(framebuffer_t *fb)
+{
+    return editor_session(fb, NULL, bm_editor_cart, bm_editor_cart_end);
+}
+
+const char *carts_sound_editor(framebuffer_t *fb)
+{
+    return editor_session(fb, NULL, bm_sound_cart, bm_sound_cart_end);
+}
+
+const char *carts_studio(framebuffer_t *fb)
+{
+    return studio_session(fb, NULL);
+}
+
+const char *carts_animator(framebuffer_t *fb)
+{
+    return animator_session(fb, NULL);
 }
 
 static void play(framebuffer_t *fb, const cart_t *c)
@@ -349,15 +430,21 @@ static void play(framebuffer_t *fb, const cart_t *c)
     }
     bm_close_suspended();              /* the menu asked first */
     susp_path[0] = 0;
-    if (c->builtin == bm_editor_cart || c->builtin == bm_sound_cart || c->builtin == bm_studio3d_cart) {
+    if (is_dev(c)) {
+        const char *w;
         if (c->builtin == bm_editor_cart)
-            carts_editor(fb);
+            w = carts_editor(fb);
         else if (c->builtin == bm_sound_cart)
-            carts_sound_editor(fb);
+            w = carts_sound_editor(fb);
+        else if (c->builtin == bm_mesh_cart)
+            w = carts_mesh(fb);
+        else if (c->builtin == bm_pixel_cart)
+            w = carts_pixel(fb);
+        else if (c->builtin == bm_animator_cart)
+            w = carts_animator(fb);
         else
-            carts_studio3d(fb);
-        ksnprintf(last_msg, sizeof last_msg, "last: %s", c->builtin == bm_editor_cart ? "editor" :
-                  c->builtin == bm_sound_cart ? "sound editor" : "3D studio");
+            w = carts_studio(fb);
+        ksnprintf(last_msg, sizeof last_msg, "last: %s", w);
         crumb("cartridge menu", NULL);
         rescan();                       /* it may have saved new files */
         return;
@@ -435,7 +522,7 @@ static void draw(int sel, int top, int rows)
             outf("\x1b[90m %s%s%s\x1b[0m\n", c->dir, strcmp(c->dir, "/") ? "/" : "", c->name);
     }
     outf("\x1b[90m %s\x1b[0m\n", last_msg[0] ? last_msg : "");
-    out("\x1b[93m up/down choose   Enter/A play   Esc or Start+Select: monitor   R rescan SD\x1b[0m");
+    out("\x1b[93m up/down choose   Enter/A play   Ctrl+Esc/Start+Select: monitor   R rescan SD\x1b[0m");
 }
 
 /* ---------------------------------------------------------------- BareMetal UI */
@@ -443,11 +530,6 @@ static void draw(int sel, int top, int rows)
 /* The two tabs of the graphical menu: games, and the development tools
  * (the SDK, then the tools of home.c). `idx` gets what tab `tab` shows: a
  * cartridge index, or -1 - n for tool n. */
-static int is_dev(const cart_t *c)
-{
-    return c->builtin == bm_editor_cart || c->builtin == bm_sound_cart || c->builtin == bm_studio3d_cart;
-}
-
 static int tab_items(int tab, int *idx)
 {
     int n = 0;
@@ -466,8 +548,8 @@ static int is_suspended(const cart_t *c)
 }
 
 /* The options of a cartridge (X on its cover): a panel like the settings. */
-enum { C_PLAY = 100, C_CLOSE, C_SDK, C_SOUND, C_STUDIO3D, C_AUTHOR, C_FILE, C_SIZE, C_TYPE, C_SAVE,
-       C_DEL_SAVE, C_DELETE, C_CODE };
+enum { C_PLAY = 100, C_CLOSE, C_SDK, C_SOUND, C_STUDIO, C_AUTHOR, C_FILE, C_SIZE, C_TYPE, C_SAVE,
+       C_DEL_SAVE, C_DELETE, C_CODE, C_MESH, C_PIXEL, C_ANIMATOR };
 
 static int opt_cart;            /* the cartridge of the HOME_CART panel */
 static long opt_save;           /* its save file: bytes, -1 if none */
@@ -498,8 +580,14 @@ static void cart_panel(home_panel_t *p)
                  "Its code in tabs, small font; sprites, map and sounds stay as they are", NULL);
         home_row(p, MENU_ROW_ACTION, C_SOUND, "Open in the Sound editor",
                  "Sounds, sound effects and music of this cartridge", NULL);
-        home_row(p, MENU_ROW_ACTION, C_STUDIO3D, "Open in the 3D studio",
-                 "Its 3D models and animations: play, build, rig, animate", NULL);
+        home_row(p, MENU_ROW_ACTION, C_STUDIO, "Open in bm Studio",
+                 "Its 3D models: build them with tiles and blocks, choose, move, paint", NULL);
+        home_row(p, MENU_ROW_ACTION, C_ANIMATOR, "Open in bm Animator",
+                 "Its models' skeletons and animations: play, rig, animate, sprites", NULL);
+        home_row(p, MENU_ROW_ACTION, C_MESH, "Open in bm Mesh",
+                 "Its meshes, also those its code builds: vertices, faces; to models or to code", NULL);
+        home_row(p, MENU_ROW_ACTION, C_PIXEL, "Open in bm Pixel",
+                 "Its sprite sheet: pixel art, palette, animation; the rest stays as it is", NULL);
     }
     home_row(p, MENU_ROW_INFO, C_AUTHOR, "Author", "From the cartridge header",
              "%s", c->author[0] ? c->author : "-");
@@ -576,7 +664,8 @@ static void cart_act(int row, int how, home_do_t *d)
 }
 
 enum { ASK_NONE, ASK_SWITCH, ASK_PANEL };
-enum { GO_NONE, GO_PLAY, GO_SDK, GO_SOUND, GO_CODE, GO_STUDIO3D, GO_TEXT, GO_UPLOAD, GO_NETPLAY };
+enum { GO_NONE, GO_PLAY, GO_SDK, GO_SOUND, GO_CODE, GO_STUDIO, GO_ANIMATOR, GO_MESH, GO_PIXEL, GO_TEXT, GO_UPLOAD,
+       GO_NETPLAY };
 
 #define DEPTH_MAX 4
 
@@ -665,6 +754,15 @@ void carts_menu(framebuffer_t *fb)
                 if (d_ & INPUT_DEV_BLUETOOTH)
                     v.bt |= 1u << p;
             }
+            v.mice = pointer_devices();
+            /* the hints show the buttons of what was pressed last; before
+             * that, player 1's keyboard or the DS4 */
+            int src = hid_last_source();
+            v.prompts = src == HID_SOURCE_KEYBOARD ? MENU_PROMPTS_KEYBOARD
+                      : src == HID_SOURCE_PAD ? MENU_PROMPTS_PAD
+                      : src == HID_SOURCE_NONE && v.dev[0] == MENU_DEV_KEYBOARD ? MENU_PROMPTS_KEYBOARD
+                      : MENU_PROMPTS_DS4;
+            v.prompts_colour = home_prompts_colour();
             int link = net_link_kind();
             v.net = link == NET_LINK_ETHERNET ? MENU_NET_ETHERNET
                   : link == NET_LINK_WIFI ? MENU_NET_WIFI : MENU_NET_NONE;
@@ -706,7 +804,7 @@ void carts_menu(framebuffer_t *fb)
             }
             switch (c) {
             case 0x1B:                          /* an arrow key, or Esc alone: back */
-                if (input_remote_follows()) esc = 1; else quit = 1;
+                if (input_remote_follows()) esc = 1; else back = 1;
                 break;
             case 'w': case 'W': case 'k': dy--; break;
             case 's': case 'S': case 'j': dy++; break;
@@ -721,7 +819,7 @@ void carts_menu(framebuffer_t *fb)
             case 'x': case 'X': opts = 1; break;
             case 0x7F: case 0x08: back = 1; break;
             case '\r': case '\n': case ' ': action = 1; break;
-            case 'q': case 'Q': quit = 1; break;
+            case 'q': case 'Q': quit = HID_QUIT_MONITOR; break;
             case 'r': case 'R': action = 2; break;
             case 'U': action = 3; break;         /* bm_load.py --cart */
             }
@@ -762,9 +860,66 @@ void carts_menu(framebuffer_t *fb)
                 tabto = (cur + 1) % 3;
         }
         /* PS is home: Games, with every panel and question closed (never
-         * the monitor: that is Esc or Start+Select) */
+         * the monitor). Esc alone goes back like B; Ctrl+Esc, Start+Select
+         * and q from the serial port go back a level too, and from the
+         * grid to the monitor (Esc alone did that until 2026-10-01). */
+        if (dx || dy)
+            pointer_hide();                     /* the keys move the selection: no arrow */
+
+        /* the pointer (M32): moving over a cover or a row selects it, the
+         * left button does what A does there (or what is clicked: a tab, a
+         * button of the hints), the right one goes back, or opens the
+         * options of a cover; outside a panel or a question it closes them;
+         * the wheel moves by rows */
+        const pointer_t *pt = pointer_update();
+        if (gfx && pt->shown) {
+            menu_hit_t h = menu_ui_hit(pt->x, pt->y);
+            int click = pt->pressed & 1, right = pt->pressed & 2;
+            dy -= pt->wheel;
+            if (ask != ASK_NONE) {
+                if (click && h.kind == MENU_HIT_BUTTON && h.index == 'A')
+                    action = 1;
+                else if (click && h.kind == MENU_HIT_BUTTON)
+                    back = 1;
+                else if ((click && h.kind != MENU_HIT_ASK) || right)
+                    back = 1;
+            } else if (depth) {
+                int *ps_ = &stack[depth - 1].sel;
+                if (h.kind == MENU_HIT_ROW && h.index < pb.n && (pt->moved || click)) {
+                    *ps_ = h.index;
+                    action = click ? 1 : action;
+                } else if (click && h.kind == MENU_HIT_BUTTON) {
+                    action = h.index == 'A' ? 1 : action;
+                    back = h.index == 'B';
+                } else if (click && h.kind == MENU_HIT_TAB) {
+                    tabto = h.index;
+                } else if (click && h.kind == MENU_HIT_SETTINGS) {
+                    tabto = 2;
+                } else if ((click && h.kind != MENU_HIT_PANEL && h.kind != MENU_HIT_ROW) || right) {
+                    back = 1;
+                }
+            } else {
+                if (h.kind == MENU_HIT_COVER && h.index < n && ((pt->moved && h.full) || click || right))
+                    tsel[tab] = h.index;
+                if (click && h.kind == MENU_HIT_COVER && h.full)
+                    action = 1;
+                else if (click && h.kind == MENU_HIT_TAB)
+                    tabto = h.index;
+                else if (click && h.kind == MENU_HIT_SETTINGS)
+                    tabto = 2;
+                else if (click && h.kind == MENU_HIT_BUTTON && h.index == 'A')
+                    action = 1;
+                else if (click && h.kind == MENU_HIT_BUTTON && h.index == 'X')
+                    opts = 1;
+                else if (right && h.kind == MENU_HIT_COVER)
+                    opts = 1;
+            }
+        }
+
         int ps = quit & HID_QUIT_PS;
-        quit &= ~HID_QUIT_PS;
+        if ((quit & HID_QUIT_KEY) && !(quit & HID_QUIT_MONITOR))
+            back = 1;
+        quit = (quit & HID_QUIT_MONITOR) != 0;
         if (ps)
             tabto = 0;
 
@@ -826,10 +981,12 @@ void carts_menu(framebuffer_t *fb)
                 depth--;
                 built = -1;
             } else if (r && id == HOME_CART && action == 1 &&
-                       (row == C_PLAY || row == C_SDK || row == C_SOUND || row == C_CODE || row == C_STUDIO3D)) {
+                       (row == C_PLAY || row == C_SDK || row == C_SOUND || row == C_CODE || row == C_STUDIO ||
+                        row == C_ANIMATOR || row == C_MESH || row == C_PIXEL)) {
                 const cart_t *c = &carts[opt_cart];
                 int g = row == C_PLAY ? GO_PLAY : row == C_SDK ? GO_SDK : row == C_SOUND ? GO_SOUND :
-                        row == C_CODE ? GO_CODE : GO_STUDIO3D;
+                        row == C_CODE ? GO_CODE : row == C_MESH ? GO_MESH : row == C_PIXEL ? GO_PIXEL :
+                        row == C_ANIMATOR ? GO_ANIMATOR : GO_STUDIO;
                 if (bm_suspended(NULL, 0) && !(g == GO_PLAY && is_suspended(c))) {
                     ask = ASK_SWITCH;           /* another game is frozen: ask first */
                     ask_go = g;
@@ -980,11 +1137,9 @@ void carts_menu(framebuffer_t *fb)
             case GO_SOUND:
                 bm_close_suspended();
                 susp_path[0] = 0;
-                if (go == GO_SDK)
-                    editor_session(fb, carts[go_cart].path, bm_editor_cart, bm_editor_cart_end);
-                else
-                    editor_session(fb, carts[go_cart].path, bm_sound_cart, bm_sound_cart_end);
-                ksnprintf(last_msg, sizeof last_msg, "last: %s on %s", go == GO_SDK ? "SDK" : "Sound editor",
+                ksnprintf(last_msg, sizeof last_msg, "last: %s on %s",
+                          editor_session(fb, carts[go_cart].path, go == GO_SDK ? bm_editor_cart : bm_sound_cart,
+                                         go == GO_SDK ? bm_editor_cart_end : bm_sound_cart_end),
                           carts[go_cart].name);
                 crumb("cartridge menu", NULL);
                 depth = 0;
@@ -993,17 +1148,38 @@ void carts_menu(framebuffer_t *fb)
             case GO_CODE:
                 bm_close_suspended();
                 susp_path[0] = 0;
-                carts_code(fb, carts[go_cart].path);
-                ksnprintf(last_msg, sizeof last_msg, "last: bm Code on %s", carts[go_cart].name);
+                ksnprintf(last_msg, sizeof last_msg, "last: %s on %s", carts_code(fb, carts[go_cart].path),
+                          carts[go_cart].name);
                 crumb("cartridge menu", NULL);
                 depth = 0;
                 rescan();
                 break;
-            case GO_STUDIO3D:
+            case GO_STUDIO:
+            case GO_ANIMATOR:
                 bm_close_suspended();
                 susp_path[0] = 0;
-                studio3d_session(fb, carts[go_cart].path);
-                ksnprintf(last_msg, sizeof last_msg, "last: 3D studio on %s", carts[go_cart].name);
+                ksnprintf(last_msg, sizeof last_msg, "last: %s on %s",
+                          go == GO_STUDIO ? studio_session(fb, carts[go_cart].path)
+                                          : animator_session(fb, carts[go_cart].path),
+                          carts[go_cart].name);
+                crumb("cartridge menu", NULL);
+                depth = 0;
+                rescan();
+                break;
+            case GO_MESH:
+                bm_close_suspended();
+                susp_path[0] = 0;
+                ksnprintf(last_msg, sizeof last_msg, "last: %s on %s", mesh_session(fb, carts[go_cart].path),
+                          carts[go_cart].name);
+                crumb("cartridge menu", NULL);
+                depth = 0;
+                rescan();
+                break;
+            case GO_PIXEL:
+                bm_close_suspended();
+                susp_path[0] = 0;
+                ksnprintf(last_msg, sizeof last_msg, "last: %s on %s", pixel_session(fb, carts[go_cart].path),
+                          carts[go_cart].name);
                 crumb("cartridge menu", NULL);
                 depth = 0;
                 rescan();

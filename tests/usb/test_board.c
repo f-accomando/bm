@@ -1,4 +1,6 @@
-/* Host tests for src/drivers/board.c: revision codes of the BCM2835 boards. */
+/* Host tests for src/drivers/board.c: revision codes of the BCM2835 boards
+ * and of the Pi Zero 2 W; built twice, as for kernel.img and kernel7.img
+ * (-DBM_ZERO2: an unknown board has the LED of the Zero 2 W). */
 #include "drivers/board.h"
 #include "drivers/prop.h"
 
@@ -40,9 +42,14 @@ int main(void)
     CHECK(is(0x900021, BOARD_PI1_APLUS, "Pi 1 A+", 47, 1, 0, 0));
     CHECK(is(0x900032, BOARD_PI1_BPLUS, "Pi 1 B+", 47, 1, 0, 1));
     CHECK(is(0x900093, BOARD_ZERO, "Pi Zero", 47, 0, 1, 0));
+    /* the Pi Zero 2 W (kernel7.img), and the Pi 2 B of QEMU's raspi2b */
+    CHECK(is(0x902120, BOARD_ZERO_2W, "Pi Zero 2 W", 29, 0, 1, 0) && b.bt_on_pin == 42);
+    CHECK(is(0x9000c1, BOARD_ZERO_W, "Pi Zero W", 47, 0, 1, 0) && b.bt_on_pin == 45);
+    CHECK(is(0xa21041, BOARD_PI2_B, "Pi 2 B", 47, 1, 0, 1));
+    CHECK(is(0xa22042, BOARD_PI2_B, "Pi 2 B", 47, 1, 0, 1));
     /* others: the defaults, the code in the name */
-    CHECK(is(0xa02082, BOARD_OTHER, "Pi (unknown board) 00a02082", 47, 0, 1, 0));
-    CHECK(is(0, BOARD_UNKNOWN, "Pi (unknown board) 00000000", 47, 0, 1, 0));
+    CHECK(is(0xa02082, BOARD_OTHER, "Pi (unknown board) 00a02082", BOARD_LED_PIN, 0, 1, 0));
+    CHECK(is(0, BOARD_UNKNOWN, "Pi (unknown board) 00000000", BOARD_LED_PIN, 0, 1, 0));
     /* no firmware answer (prop_query fails): unknown */
     CHECK(board()->model == BOARD_UNKNOWN);
 
