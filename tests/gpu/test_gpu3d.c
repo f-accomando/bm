@@ -51,10 +51,11 @@ static const font_t font = { 8, 16, glyphs };
 static const char *ppm_dir;
 
 static g16_sheet_t sheet, sheet2, sheet3;
-static r3d_mesh_t sphere, quad, floor_m, cube, lit_quad, glass, lit_box, hero, hero_tex;
+static r3d_mesh_t sphere, quad, floor_m, cube, lit_quad, glass, lit_box, hero, hero_tex, hero_skin;
 static const r3d_mesh_t *hero_m = &hero;     /* the hero of s_vshader_heroes */
 static float hero_bones[2][12];
 static uint8_t hero_vbone[512];
+static uint8_t hero_skin_vbone[512];
 
 /* 128x128: four 32x32 checkers in the top row (red/yellow, blue/white,
  * green/black, grey/orange); the second row: the same checkers whose
@@ -140,6 +141,21 @@ static void make_hero(void)
     hero_tex.vbone = hero_vbone;
     hero_tex.nbones = 2;
     r3d_mesh_normals(&hero_tex);
+    /* a skin (the Meshy heroes): the ball's upper half on the head's bone,
+     * the faces round its middle on both (vs_lit_tex2) */
+    r3d_mesh_alloc(&hero_skin, hero.nverts, hero.nfaces);
+    memcpy(hero_skin.verts, hero.verts, (size_t)hero.nverts * sizeof *hero.verts);
+    memcpy(hero_skin.faces, hero.faces, (size_t)hero.nfaces * 3 * sizeof *hero.faces);
+    memcpy(hero_skin.colors, hero_tex.colors, (size_t)hero.nfaces * sizeof *hero.colors);
+    r3d_mesh_alloc_uv(&hero_skin);
+    memcpy(hero_skin.uv, hero_tex.uv, (size_t)hero.nfaces * 6 * sizeof *hero_tex.uv);
+    for (int i = 0; i < hero.nverts; i++)
+        hero_skin_vbone[i] = (uint8_t)(i < s.nverts ? hero.verts[i].y > 0.05f : 1);
+    hero_skin.tex = &sheet;
+    hero_skin.bones = hero.bones;
+    hero_skin.vbone = hero_skin_vbone;
+    hero_skin.nbones = 2;
+    r3d_mesh_normals(&hero_skin);
     r3d_mesh_free(&s);
     r3d_mesh_free(&c);
 }
@@ -316,6 +332,14 @@ static void s_vshader_heroes_tex(r3d_t *r, g16_t *g, int gpu)
     hero_m = &hero;
 }
 
+/* and as a skin: faces on two bones (vs_lit_tex2, vs_shadow2) */
+static void s_vshader_skin(r3d_t *r, g16_t *g, int gpu)
+{
+    hero_m = &hero_skin;
+    s_vshader_heroes(r, g, gpu);
+    hero_m = &hero;
+}
+
 static void s_spheres(r3d_t *r, g16_t *g, int gpu)
 {
     r3d_camera(r, 0, 0, -6, 0, 0, 60);
@@ -470,6 +494,7 @@ static const struct { const char *name; scene_fn fn; int w, h; float limit; int 
     { "vshader clip", s_vshader_clip, 640, 360, 0.04f, 1 },
     { "vshader heroes", s_vshader_heroes, 640, 360, 0.04f, 1 },
     { "vshader textured", s_vshader_heroes_tex, 640, 360, 0.04f, 1 },
+    { "vshader skin", s_vshader_skin, 640, 360, 0.04f, 1 },
 };
 #define CLEARED 7                   /* its index: no bar, no load */
 
@@ -567,7 +592,7 @@ static void run_scene(int s)
                 CHECK(emu_stats.zstores > zstores, "3D 2D 3D: the depth was not kept");
             if (scenes[s].fn == s_vshader || scenes[s].fn == s_vshader_lit ||
                 ((scenes[s].fn == s_vshader_clip || scenes[s].fn == s_vshader_heroes ||
-                  scenes[s].fn == s_vshader_heroes_tex) && emu_clip != 1))
+                  scenes[s].fn == s_vshader_heroes_tex || scenes[s].fn == s_vshader_skin) && emu_clip != 1))
                 CHECK(emu_stats.glverts > glverts, "vshader: no mesh placed by the vertex shader");
             if (s == CLEARED)
                 CHECK(emu_stats.loads == loads && emu_stats.jobs > jobs, "cleared: the page was loaded");
@@ -632,9 +657,10 @@ int main(int argc, char **argv)
      * the corners) and with the vertex shader: nearly the same pixels (the
      * clipped corners not quite where the ARM puts them) */
     uint16_t *pg[2] = { test_aligned_alloc(16, 640 * 360 * 2), test_aligned_alloc(16, 640 * 360 * 2) };
-    static const char *const sc_name[4] = { "lit", "clipped", "heroes", "textured" };
-    for (int sc = 0; sc < 4; sc++) {
-        scene_fn fn = sc == 3 ? s_vshader_heroes_tex : sc == 2 ? s_vshader_heroes : sc ? s_vshader_clip : s_vshader_lit;
+    static const char *const sc_name[5] = { "lit", "clipped", "heroes", "textured", "skin" };
+    for (int sc = 0; sc < 5; sc++) {
+        scene_fn fn = sc == 4 ? s_vshader_skin : sc == 3 ? s_vshader_heroes_tex : sc == 2 ? s_vshader_heroes
+                    : sc ? s_vshader_clip : s_vshader_lit;
         for (int vsh = 0; vsh < 2; vsh++) {
             g16_t g;
             r3d_t r;

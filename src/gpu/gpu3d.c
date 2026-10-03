@@ -17,7 +17,7 @@
 #define JOB_RCL      (16u << 10)
 #define JOB_RECS     (64u << 10)    /* shader records: NV 16 bytes, GL 64 */
 #define JOB_UNIF     (256u << 10)   /* uniforms of the vertex shaders (a hero: one block a bone) */
-#define JOB_CODE     (20u << 10)    /* the shaders: 1 KiB each, 2 KiB for a vertex shader */
+#define JOB_CODE     (24u << 10)    /* the shaders: 1 KiB each, 2 KiB for a vertex shader */
 #define JOB_VERTS    (4u << 20)
 #define PROBE_W      64
 #define PROBE_H      64
@@ -44,13 +44,19 @@ typedef struct {
 #define VMAX_BYTES ((uint32_t)JOB_VERTS - 21u * (uint32_t)VSTRIDE(8))   /* room for a clipped triangle */
 
 enum { SH_COLOUR, SH_TEX, SH_TEX_ALPHA, SH_SCREEN, SH_TEX_RGB, SH_TEX_RGB_ALPHA, SH_COUNT };
-enum { GV_BAKED, GV_TEX_RGB, GV_LIT, GV_LIT_TEX, GV_COUNT };     /* the vertex shaders of meshes (M36) */
+/* the vertex shaders of meshes (M36); GV_LIT_TEX2: faces on two bones (a skin) */
+enum { GV_BAKED, GV_TEX_RGB, GV_LIT, GV_LIT_TEX, GV_LIT_TEX2, GV_COUNT };
 #define CODE_CS 6                       /* the coordinate shader's kilobyte of G.code */
 #define CODE_VS 7                       /* and the vertex shaders' (two each) */
 #define CODE_SHADOW (CODE_VS + 2 * GV_COUNT)    /* the shadows' vertex shader (2), coordinate shader (1) */
+#define CODE_CS2 (CODE_SHADOW + 3)      /* on two bones: the coordinate shader, the shadow's two */
+#define CODE_SHADOW2 (CODE_CS2 + 1)
+#define TWO_BONES(vs) ((vs) == GV_LIT_TEX2)
 _Static_assert(sizeof vs_baked <= 2048 && sizeof vs_tex_rgb <= 2048 && sizeof vs_lit <= 2048 &&
-               sizeof vs_shadow <= 2048 && sizeof cs_colour <= 1024 && sizeof cs_shadow <= 1024 &&
-               CODE_SHADOW + 3 <= JOB_CODE / 1024, "shader code slots");
+               sizeof vs_lit_tex <= 2048 && sizeof vs_lit_tex2 <= 2048 && sizeof vs_shadow <= 2048 &&
+               sizeof cs_colour <= 1024 && sizeof cs_shadow <= 1024 && sizeof cs_colour2 <= 1024 &&
+               sizeof vs_shadow2 <= 1024 && sizeof cs_shadow2 <= 1024 &&
+               CODE_SHADOW2 + 2 <= JOB_CODE / 1024, "shader code slots");
 
 /* discard: the shader may write no pixel (early z off) */
 static const struct { const uint32_t *code; size_t size; uint8_t uniforms, varyings, discard; } shaders[SH_COUNT] = {
@@ -87,7 +93,8 @@ typedef struct {
 #define MESH_GROUPS 255
 typedef struct {
     uint8_t vs, fs, lamps, lods;        /* shaders, lamps on, levels of detail that show it */
-    uint8_t bone;                       /* its matrix (the faces of a group are on one bone) */
+    uint8_t bone, bone2;                /* its matrix (the faces of a group are on one bone; with
+                                         * GV_LIT_TEX2 each corner on bone or bone2) */
     uint32_t first, n;                  /* its first byte in the corners, its corners */
 } ggroup_t;
 typedef struct {
@@ -706,24 +713,42 @@ static const struct { const uint32_t *code; size_t size; uint8_t words, kb; } vs
     { vs_tex_rgb, sizeof vs_tex_rgb, 8, CODE_VS + 2 },  /* s t, light */
     { vs_lit, sizeof vs_lit, 14, CODE_VS + 4 },         /* normal, colour, emissive, glossy, lamp point */
     { vs_lit_tex, sizeof vs_lit_tex, 12, CODE_VS + 6 }, /* normal, s t, emissive, lamp point */
+    { vs_lit_tex2, sizeof vs_lit_tex2, 11, CODE_VS + 8 },   /* w, normal, s t, emissive, normal's w */
 };
 
-/* the groups of a face: its bone, vertex shader, fragment shader, lamps
- * (0: an emissive face of a "lit" model) and the levels of detail that
- * show it; in the order of the bones */
-static uint32_t group_key(int bone, int vs, int fs, int lamps, int lods)
+/* the groups of a face: its bones (two for a face of a skin, else the
+ * same twice), vertex shader, fragment shader, lamps (0: an emissive face
+ * of a "lit" model) and the levels of detail that show it; in the order
+ * of the bones */
+static uint32_t group_key(int bone, int bone2, int vs, int fs, int lamps, int lods)
 {
-    return (uint32_t)bone << 16 | (uint32_t)vs << 12 | (uint32_t)fs << 8 | (uint32_t)lamps << 4 | (uint32_t)lods;
+    return (uint32_t)bone << 24 | (uint32_t)bone2 << 16 | (uint32_t)vs << 12 | (uint32_t)fs << 8 |
+           (uint32_t)lamps << 4 | (uint32_t)lods;
 }
 
 /* corner k of face f in group key of mesh m into o (smooth: GV_LIT with
  * the vertices' normals) */
 static void put_mesh_corner(float *o, const r3d_mesh_t *m, int f, int k, int vs, int emissive, const tex_t *t,
-                            int smooth)
+                            int smooth, int bone)
 {
     const int vi = m->faces[f * 3 + k];
     const v3_t v = m->verts[vi];
     o[0] = v.x; o[1] = v.y; o[2] = v.z;
+    if (vs == GV_LIT_TEX2) {
+        /* a corner of a skin: its weight (1 on the group's first bone, 0 on
+         * the other), as GV_LIT_TEX without the lamps' point (the corner);
+         * a flat face's normal turns with its first corner's bone, as r3d */
+        const uint32_t c = m->colors[f];
+        const int sm = smooth && !(c & R3D_FLAT);
+        const v3_t n = sm ? m->vnormals[vi] : m->normals[f];
+        o[3] = m->vbone[vi] == bone ? 1.0f : 0.0f;
+        o[4] = n.x; o[5] = n.y; o[6] = n.z;
+        o[7] = m->uv[f * 6 + k * 2] * t->inv_w;
+        o[8] = m->uv[f * 6 + k * 2 + 1] * t->inv_h;
+        o[9] = (float)((c & R3D_EMISSIVE) != 0);
+        o[10] = sm ? o[3] : m->vbone[m->faces[f * 3]] == bone ? 1.0f : 0.0f;
+        return;
+    }
     if (vs == GV_LIT_TEX) {
         /* a textured face lit by the sun: as GV_LIT, s t in place of the colour, no gloss */
         const uint32_t c = m->colors[f];
@@ -807,12 +832,23 @@ static int mesh_build(const g16_t *g, gmesh_t *e, const r3d_mesh_t *m, int unlit
         int lods = 0;
         for (int d = 0; d < 4; d++)
             lods |= R3D_LOD_SHOWS(c, (unsigned)d) << d;
-        int bone = 0;
+        int bone = 0, bone2 = 0;
         if (skinned) {
             const uint16_t *fc = m->faces + f * 3;
-            bone = m->vbone[fc[0]];
-            if (m->vbone[fc[1]] != bone || m->vbone[fc[2]] != bone || bone >= m->nbones)
-                return 0;                       /* a face on two bones: the ARM's */
+            const int b0 = m->vbone[fc[0]], b1 = m->vbone[fc[1]], b2 = m->vbone[fc[2]];
+            bone = bone2 = b0;
+            if (b1 != b0 || b2 != b0) {
+                /* a face on two bones: the textured faces of a skin lit by
+                 * the sun (vs_lit_tex2); three bones, or other faces: the
+                 * ARM's */
+                const int o = b1 != b0 ? b1 : b2;
+                if ((b1 != b0 && b1 != o) || (b2 != b0 && b2 != o) || !lit || !textured || (c & R3D_SCREEN))
+                    return 0;
+                bone = b0 < o ? b0 : o;
+                bone2 = b0 < o ? o : b0;
+            }
+            if (bone2 >= m->nbones)
+                return 0;
         }
         int vs, fs;
         if (lit && !textured) {
@@ -828,14 +864,14 @@ static int mesh_build(const g16_t *g, gmesh_t *e, const r3d_mesh_t *m, int unlit
                 v[k].a = m->uv[f * 6 + k * 2];
                 v[k].b = m->uv[f * 6 + k * 2 + 1];
             }
-            vs = lit ? GV_LIT_TEX : GV_TEX_RGB;
+            vs = !lit ? GV_TEX_RGB : bone2 != bone ? GV_LIT_TEX2 : GV_LIT_TEX;
             fs = tex_opaque(t, v) ? SH_TEX_RGB : SH_TEX_RGB_ALPHA;
         } else {
             vs = GV_BAKED;
             fs = (c & R3D_SCREEN) ? SH_SCREEN : SH_COLOUR;
         }
         /* the emissive faces of a "lit" model: emissive at their corners */
-        const uint32_t k = group_key(bone, vs, fs, lit || (!emissive && !unlit), lods);
+        const uint32_t k = group_key(bone, bone2, vs, fs, lit || (!emissive && !unlit), lods);
         int i = 0;
         while (i < nkeys && key[i] != k)
             i++;
@@ -876,7 +912,8 @@ static int mesh_build(const g16_t *g, gmesh_t *e, const r3d_mesh_t *m, int unlit
     for (int j = 0; j < nkeys; j++) {
         const int i = order[j];
         ggroup_t *gr = &gs[j];
-        gr->bone = (uint8_t)(key[i] >> 16);
+        gr->bone = (uint8_t)(key[i] >> 24);
+        gr->bone2 = (uint8_t)(key[i] >> 16);
         gr->vs = (uint8_t)(key[i] >> 12 & 15);
         gr->fs = (uint8_t)(key[i] >> 8 & 15);
         gr->lamps = (uint8_t)(key[i] >> 4 & 1);
@@ -889,7 +926,7 @@ static int mesh_build(const g16_t *g, gmesh_t *e, const r3d_mesh_t *m, int unlit
             if (gidx[f] != i)
                 continue;
             for (int k = 0; k < 3; k++, o += stride / 4)
-                put_mesh_corner(o, m, f, k, gr->vs, !gr->lamps, t, smooth);
+                put_mesh_corner(o, m, f, k, gr->vs, !gr->lamps, t, smooth, gr->bone);
         }
         at += count[i] * stride;
     }
@@ -953,11 +990,11 @@ static gmesh_t *mesh_get(const g16_t *g, const r3d_mesh_t *m, int unlit, int smo
  * lamps (the groups of a bone share them) */
 typedef struct {
     uint32_t job;
-    int bone, vs, lamps;
+    int bone, bone2, vs, lamps;
     uint32_t *cs, *vs_u;
 } gunif_t;
 
-#define GL_UNIF_MAX (20 + 96)           /* words of uniforms of a draw, at most */
+#define GL_UNIF_MAX (32 + 96)           /* words of uniforms of a draw, at most */
 
 /* v (world axes) in the axes of a bone whose normals turn by N (3x3 by
  * rows): N^T v */
@@ -969,6 +1006,59 @@ static void bone_axes(float *o, const float N[9], const float *v)
 
 /* the uniforms a vertex shader reads: vs_lit_tex reads those of vs_lit */
 static int unif_kind(int vs) { return vs == GV_LIT_TEX ? GV_LIT : vs; }
+
+/* the uniforms of a group on two bones (vs_lit_tex2, cs_colour2): the two
+ * matrices (A = gr->bone, B = gr->bone2), f*16, 0.5, -f*16, 0.5, -NEAR (the
+ * coordinate shader then f/(w/2), f/(h/2)); the vertex shader then the
+ * sun, up and V in A's axes and in B's, per byte of the colour B D R A,
+ * the fog (near, k), four lamps */
+static void gl_uniforms2(gunif_t *u, const ggroup_t *gr, const float MA[12], const float NA[9], const float MB[12],
+                         const float NB[9], const r3d_env_t *env)
+{
+    uint32_t *cs = G.unif_next, *vs = cs + 32;
+    float *fc = (float *)cs, *fo = (float *)vs;
+    const float tail[5] = { env->f * 16.0f, 0.5f, -env->f * 16.0f, 0.5f, env->front ? -0.1f * R3D_NEAR : -R3D_NEAR };
+    memcpy(fc, MA, 12 * sizeof *fc);
+    memcpy(fc + 12, MB, 12 * sizeof *fc);
+    memcpy(fc + 24, tail, sizeof tail);
+    fc[29] = env->f / env->cx;
+    fc[30] = env->f / env->cy;
+    memcpy(fo, fc, 29 * sizeof *fo);
+    fo += 29;
+    static const float up[3] = { 0, 1, 0 };
+    const float *dirs[3] = { env->sun, up, env->view };
+    for (int d = 0; d < 3; d++) {
+        bone_axes(fo, NA, dirs[d]);
+        bone_axes(fo + 3, NB, dirs[d]);
+        fo += 6;
+    }
+    for (int c = 0; c < 3; c++) {
+        const int rgb = c == 1 ? 1 : c == G.ia ? 0 : 2;     /* byte c of the colour */
+        fo[0] = env->B[rgb]; fo[1] = env->D[rgb]; fo[2] = env->R[rgb]; fo[3] = env->A[rgb];
+        fo += 4;
+    }
+    fo[0] = env->fog_near;
+    fo[1] = env->fog_k;
+    fo += 2;
+    for (int i = 0; i < 4; i++, fo += 7) {
+        if (i < env->nlamps && gr->lamps) {
+            memcpy(fo, env->lamp[i], 4 * sizeof *fo);
+            fo[4 + G.ia] = env->lamp[i][4];
+            fo[5] = env->lamp[i][5];
+            fo[6 - G.ia] = env->lamp[i][6];
+        } else {
+            memset(fo, 0, 7 * sizeof *fo);
+        }
+    }
+    G.unif_next = (uint32_t *)fo;
+    u->job = G.job_no;
+    u->bone = gr->bone;
+    u->bone2 = gr->bone2;
+    u->vs = gr->vs;
+    u->lamps = gr->lamps;
+    u->cs = cs;
+    u->vs_u = vs;
+}
 
 /* the uniforms of a group: the coordinate shader's (cs) and the vertex
  * shader's, in the order the shaders read them (tools/qpuasm.py) */
@@ -1031,6 +1121,7 @@ static void gl_uniforms(gunif_t *u, const ggroup_t *gr, const float M[12], const
     G.unif_next = (uint32_t *)fo;
     u->job = G.job_no;
     u->bone = gr->bone;
+    u->bone2 = gr->bone2;
     u->vs = unif_kind(gr->vs);
     u->lamps = gr->lamps;
     u->cs = cs;
@@ -1042,7 +1133,7 @@ static void gl_uniforms(gunif_t *u, const ggroup_t *gr, const float M[12], const
  * back faces away; u: the uniforms of the group before, if this one can
  * share them */
 static int gl_draw(const g16_t *g, gmesh_t *e, const ggroup_t *gr, gunif_t *u, const float M[12],
-                   const float N[9], const r3d_env_t *env, int depth)
+                   const float N[9], const float M2[12], const float N2[9], const r3d_env_t *env, int depth)
 {
     if (G.failed)
         return -1;
@@ -1081,8 +1172,14 @@ static int gl_draw(const g16_t *g, gmesh_t *e, const ggroup_t *gr, gunif_t *u, c
         G.clipper[0] = env->cx;
         G.clipper[1] = env->cy;
     }
-    if (u->job != G.job_no || u->bone != gr->bone || u->vs != unif_kind(gr->vs) || u->lamps != gr->lamps)
-        gl_uniforms(u, gr, M, N, env);
+    const int two = TWO_BONES(gr->vs);
+    if (u->job != G.job_no || u->bone != gr->bone || u->bone2 != gr->bone2 || u->vs != unif_kind(gr->vs) ||
+        u->lamps != gr->lamps) {
+        if (two)
+            gl_uniforms2(u, gr, M, N, M2, N2, env);
+        else
+            gl_uniforms(u, gr, M, N, env);
+    }
     uint32_t *cs = u->cs, *vs = u->vs_u;
     /* GL shader record: flags (clipping for meshes not inside the guard
      * band and the near plane), the fragment shader (its varyings, its uniforms: the
@@ -1097,17 +1194,20 @@ static int gl_draw(const g16_t *g, gmesh_t *e, const ggroup_t *gr, gunif_t *u, c
     r[0] = clipping ? 4 : 0;
     r[3] = shaders[fs].varyings;
     a = v3d_bus(G.code + 1024 * fs); memcpy(r + 4, &a, 4);
-    a = gr->vs == GV_TEX_RGB || gr->vs == GV_LIT_TEX ? v3d_bus(e->tex->params) : 0; memcpy(r + 8, &a, 4);
+    a = gr->vs == GV_TEX_RGB || gr->vs == GV_LIT_TEX || two ? v3d_bus(e->tex->params) : 0; memcpy(r + 8, &a, 4);
+    /* the first attribute: x y z (and w on two bones), the coordinate
+     * shader's too */
+    const uint32_t head = two ? 16 : 12;
     r[14] = 3; r[15] = (uint8_t)words;
     a = v3d_bus(G.code + 1024 * vshaders[gr->vs].kb); memcpy(r + 16, &a, 4);
     a = v3d_bus(vs); memcpy(r + 20, &a, 4);
-    r[26] = 1; r[27] = 3;
-    a = v3d_bus(G.code + 1024 * CODE_CS); memcpy(r + 28, &a, 4);
+    r[26] = 1; r[27] = (uint8_t)(head / 4);
+    a = v3d_bus(G.code + 1024 * (two ? CODE_CS2 : CODE_CS)); memcpy(r + 28, &a, 4);
     a = v3d_bus(cs); memcpy(r + 32, &a, 4);
     a = v3d_bus(e->corners + gr->first); memcpy(r + 36, &a, 4);
-    r[40] = 11; r[41] = (uint8_t)stride; r[42] = 0; r[43] = 0;
-    a = v3d_bus(e->corners + gr->first + 12); memcpy(r + 44, &a, 4);
-    r[48] = (uint8_t)(stride - 12 - 1); r[49] = (uint8_t)stride; r[50] = 3; r[51] = 0;
+    r[40] = (uint8_t)(head - 1); r[41] = (uint8_t)stride; r[42] = 0; r[43] = 0;
+    a = v3d_bus(e->corners + gr->first + head); memcpy(r + 44, &a, 4);
+    r[48] = (uint8_t)(stride - head - 1); r[49] = (uint8_t)stride; r[50] = (uint8_t)(head / 4); r[51] = 0;
     v3d_cl_u8(&G.cl, V3D_GL_SHADER_STATE);
     v3d_cl_u32(&G.cl, v3d_bus(r) | 2);
     v3d_cl_u8(&G.cl, V3D_VERTEX_ARRAY_PRIMITIVES);
@@ -1139,7 +1239,8 @@ static int cb_mesh(void *ctx, const g16_t *g, const r3d_mesh_t *m, const float (
         const ggroup_t *gr = &e->g[i];
         if (!(gr->lods >> env->detail & 1))
             continue;
-        if (gr->bone >= nbones || gl_draw(g, e, gr, &u, M[gr->bone], N[gr->bone], env, depth) != 0)
+        if (gr->bone >= nbones || gr->bone2 >= nbones ||
+            gl_draw(g, e, gr, &u, M[gr->bone], N[gr->bone], M[gr->bone2], N[gr->bone2], env, depth) != 0)
             return 0;
     }
     G.st.glmeshes++;
@@ -1165,18 +1266,19 @@ static int cb_shadow(void *ctx, const g16_t *g, const r3d_mesh_t *m, const float
     if (!e && !(e = mesh_get(g, m, 0, !m->clight && m->vnormals != NULL)))
         return 0;
     e->used = ++G.tick;
-    int bone = -1;
+    int bone = -1, bone2 = -1;
     uint32_t job = 0, *cs = NULL, *vs = NULL;
     for (int i = 0; i < e->ngroups; i++) {
         const ggroup_t *gr = &e->g[i];
         if (!(gr->lods >> env->detail & 1) || gr->fs == SH_SCREEN)
             continue;
+        const int two = TWO_BONES(gr->vs);
         if (G.failed)
             return 0;
         job_for(g);
         batch_close();
         if (G.rec_next + 64 > G.recs + JOB_RECS || G.cl.p + 128 > G.cl.end ||
-            G.unif_next + 80 > G.unif + JOB_UNIF / 4) {
+            G.unif_next + 100 > G.unif + JOB_UNIF / 4) {
             if (flush_job(g, 1) != 0)
                 return 0;
             job_begin(g->w, g->h);
@@ -1199,24 +1301,35 @@ static int cb_shadow(void *ctx, const g16_t *g, const r3d_mesh_t *m, const float
             G.clipper[0] = env->cx;
             G.clipper[1] = env->cy;
         }
-        if (job != G.job_no || bone != gr->bone) {
-            /* the bone's matrix, the plane, 1/Ly, Lx, Lz, the plane + 0.01;
-             * the camera's turn (no move), f*16, 0.5, -f*16, 0.5, -1.035 NEAR;
-             * the coordinate shader's f/(w/2), f/(h/2) */
-            const float *B = W[gr->bone];
-            const float u[34] = { B[0], B[1], B[2], B[3], B[4], B[5], B[6], B[7], B[8], B[9], B[10], B[11],
-                                  plane, 1.0f / L.y, L.x, L.z, plane + 0.01f,
-                                  C[0], C[1], C[2], 0, C[3], C[4], C[5], 0, C[6], C[7], C[8], 0,
-                                  env->f * 16.0f, 0.5f, -env->f * 16.0f, 0.5f, -1.035f * R3D_NEAR };
+        if (job != G.job_no || bone != gr->bone || bone2 != (two ? gr->bone2 : -1)) {
+            /* the bone's matrix (on two bones: A's and B's), the plane,
+             * 1/Ly, Lx, Lz, the plane + 0.01; the camera's turn (no move),
+             * f*16, 0.5, -f*16, 0.5, -1.035 NEAR; the coordinate shader's
+             * f/(w/2), f/(h/2) */
+            const float *B = W[gr->bone], *B2 = W[gr->bone2];
+            float u[46];
+            int n = 0;
+            memcpy(u, B, 12 * sizeof *u);
+            n = 12;
+            if (two) {
+                memcpy(u + n, B2, 12 * sizeof *u);
+                n += 12;
+            }
+            const float rest[22] = { plane, 1.0f / L.y, L.x, L.z, plane + 0.01f,
+                                     C[0], C[1], C[2], 0, C[3], C[4], C[5], 0, C[6], C[7], C[8], 0,
+                                     env->f * 16.0f, 0.5f, -env->f * 16.0f, 0.5f, -1.035f * R3D_NEAR };
+            memcpy(u + n, rest, sizeof rest);
+            n += 22;
             cs = G.unif_next;
-            vs = cs + 36;
-            memcpy(cs, u, sizeof u);
+            vs = cs + n + 2;
+            memcpy(cs, u, (size_t)n * sizeof *u);
             const float clip[2] = { env->f / env->cx, env->f / env->cy };
-            memcpy(cs + 34, clip, sizeof clip);
-            memcpy(vs, u, sizeof u);
-            G.unif_next = vs + 34;
+            memcpy(cs + n, clip, sizeof clip);
+            memcpy(vs, u, (size_t)n * sizeof *u);
+            G.unif_next = vs + n;
             job = G.job_no;
             bone = gr->bone;
+            bone2 = two ? gr->bone2 : -1;
         }
         const uint32_t stride = vshaders[gr->vs].words * 4;
         uint8_t *r = G.rec_next;
@@ -1226,14 +1339,14 @@ static int cb_shadow(void *ctx, const g16_t *g, const r3d_mesh_t *m, const float
         r[0] = 4;                               /* clipping */
         r[3] = shaders[SH_SCREEN].varyings;
         a = v3d_bus(G.code + 1024 * SH_SCREEN); memcpy(r + 4, &a, 4);
-        r[14] = 1; r[15] = 3;
-        a = v3d_bus(G.code + 1024 * CODE_SHADOW); memcpy(r + 16, &a, 4);
+        r[14] = 1; r[15] = two ? 4 : 3;
+        a = v3d_bus(G.code + 1024 * (two ? CODE_SHADOW2 : CODE_SHADOW)); memcpy(r + 16, &a, 4);
         a = v3d_bus(vs); memcpy(r + 20, &a, 4);
-        r[26] = 1; r[27] = 3;
-        a = v3d_bus(G.code + 1024 * (CODE_SHADOW + 2)); memcpy(r + 28, &a, 4);
+        r[26] = 1; r[27] = two ? 4 : 3;
+        a = v3d_bus(G.code + 1024 * (two ? CODE_SHADOW2 + 1 : CODE_SHADOW + 2)); memcpy(r + 28, &a, 4);
         a = v3d_bus(cs); memcpy(r + 32, &a, 4);
         a = v3d_bus(e->corners + gr->first); memcpy(r + 36, &a, 4);
-        r[40] = 11; r[41] = (uint8_t)stride; r[42] = 0; r[43] = 0;
+        r[40] = two ? 15 : 11; r[41] = (uint8_t)stride; r[42] = 0; r[43] = 0;
         v3d_cl_u8(&G.cl, V3D_GL_SHADER_STATE);
         v3d_cl_u32(&G.cl, v3d_bus(r) | 1);
         v3d_cl_u8(&G.cl, V3D_VERTEX_ARRAY_PRIMITIVES);
@@ -1599,7 +1712,7 @@ static int probe_gl(const g16_t *pg)
         memset(G.probe, 0, JOB_PROBE);
         gmesh_t *e = mesh_get(pg, &m, 1, 0);
         gunif_t u = { .job = 0, .bone = -1 };
-        if (!e || e->ngroups != 1 || gl_draw(pg, e, &e->g[0], &u, M, I3, &env, R3D_DEPTH_WRITE) != 0 ||
+        if (!e || e->ngroups != 1 || gl_draw(pg, e, &e->g[0], &u, M, I3, M, I3, &env, R3D_DEPTH_WRITE) != 0 ||
             gpu3d_flush(pg, 0) != 0)
             return 0;
         const uint16_t left = G.probe[20 * PROBE_W + 10], right = G.probe[20 * PROBE_W + 40],
@@ -1660,7 +1773,7 @@ static int probe_clip(const g16_t *pg)
         memset(G.probe, 0, JOB_PROBE);
         gmesh_t *e = mesh_get(pg, &m, 1, 0);
         gunif_t u = { .job = 0, .bone = -1 };
-        if (!e || e->ngroups != 1 || gl_draw(pg, e, &e->g[0], &u, M, I3, &env, R3D_DEPTH_NONE) != 0 ||
+        if (!e || e->ngroups != 1 || gl_draw(pg, e, &e->g[0], &u, M, I3, M, I3, &env, R3D_DEPTH_NONE) != 0 ||
             gpu3d_flush(pg, 0) != 0) {
             G.clip_ok = 0;
             return 0;
@@ -1715,7 +1828,7 @@ static int probe_lit(const g16_t *pg)
     memset(G.probe, 0, JOB_PROBE);
     gmesh_t *e = mesh_get(pg, &m, 0, 0);
     gunif_t u = { .job = 0, .bone = -1 };
-    if (!e || e->ngroups != 1 || gl_draw(pg, e, &e->g[0], &u, M, I3, &env, R3D_DEPTH_WRITE) != 0 ||
+    if (!e || e->ngroups != 1 || gl_draw(pg, e, &e->g[0], &u, M, I3, M, I3, &env, R3D_DEPTH_WRITE) != 0 ||
         gpu3d_flush(pg, 0) != 0)
         return 0;
     for (int i = 0; i < 2; i++) {
@@ -1853,6 +1966,9 @@ int gpu3d_init(void)
         memcpy(G.code + 1024 * vshaders[i].kb, vshaders[i].code, vshaders[i].size);
     memcpy(G.code + 1024 * CODE_SHADOW, vs_shadow, sizeof vs_shadow);
     memcpy(G.code + 1024 * (CODE_SHADOW + 2), cs_shadow, sizeof cs_shadow);
+    memcpy(G.code + 1024 * CODE_CS2, cs_colour2, sizeof cs_colour2);
+    memcpy(G.code + 1024 * CODE_SHADOW2, vs_shadow2, sizeof vs_shadow2);
+    memcpy(G.code + 1024 * (CODE_SHADOW2 + 1), cs_shadow2, sizeof cs_shadow2);
     G.backend.tri = cb_tri;
     G.backend.mesh = cb_mesh;
     G.backend.shadow = cb_shadow;

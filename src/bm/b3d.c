@@ -4,7 +4,7 @@
  * Tests: scenes whose load n grows (spheres, heroes, screens of pixels,
  * draws...). Profiles: the renderers, each reproducing a version of the
  * drivers (src/gpu/version3d.h): the ARM (0.2), the GPU (2.1), with MSAA,
- * with the vertex shader for the scenery (3.0) and for every model (3.3).
+ * with the vertex shader for the scenery (3.0) and for every model (3.4).
  * For each test and profile n grows by about a third until a frame takes
  * more than LIMIT_MS; the loads at 60 and 30 fps are interpolated, and the
  * work of the last step under 60 fps is kept for the report.
@@ -55,10 +55,10 @@ static const char *prof_version(int p) { return bm3d_mode(prof[p].gpu, prof[p].v
 
 /* ---------------------------------------------------------------- meshes */
 
-static r3d_mesh_t sphere, quad, cube, tile, grid, hero, hero_tex;
+static r3d_mesh_t sphere, quad, cube, tile, grid, hero, hero_tex, hero_skin;
 static g16_sheet_t sheet[3];
 static float bones[16][12];
-static uint8_t vbone[16 * 64];
+static uint8_t vbone[16 * 64], vbone_skin[16 * 64];
 static unsigned flags;                  /* r3d flags of the spheres and quads */
 
 /* 128x128 checkers in two colours, one sheet a variant (k) */
@@ -215,6 +215,14 @@ static void meshes_make(void)
     make_tile(&grid, 16, 0xD0D0D0);                           /* 512 small faces */
     make_hero(&hero, NULL);
     make_hero(&hero_tex, &sheet[0]);
+    /* a skin: the same, the upper half of each part on the next bone (a
+     * face round the middle of a part on two bones, as the Meshy heroes) */
+    make_hero(&hero_skin, &sheet[0]);
+    for (int i = 0; i < hero_skin.nverts; i++) {
+        const int b = vbone[i];
+        vbone_skin[i] = (uint8_t)(hero_skin.verts[i].y > part[b][1] + 0.02f ? (b + 1) % 16 : b);
+    }
+    hero_skin.vbone = vbone_skin;
 }
 
 static void meshes_free(void)
@@ -226,6 +234,7 @@ static void meshes_free(void)
     r3d_mesh_free(&grid);
     r3d_mesh_free(&hero);
     r3d_mesh_free(&hero_tex);
+    r3d_mesh_free(&hero_skin);
     for (int i = 0; i < 3; i++)
         g16_sheet_free(&sheet[i]);
 }
@@ -389,6 +398,14 @@ static void heroes_tex(int n, int f)
     hero_m = &hero;
 }
 
+/* and as skins: faces on two bones */
+static void heroes_skin(int n, int f)
+{
+    hero_m = &hero_skin;
+    heroes(n, f);
+    hero_m = &hero;
+}
+
 static void heroes_shadow(int n, int f)
 {
     cls3d();
@@ -495,8 +512,9 @@ static const test_t tests[] = {
     { "spheres_shine", "spheres, sky, rim, gloss, 4 lamps, fog", "spheres", 1, 8000, M_LIT, sp_shine,
       spheres_shine, sp_undo, NULL, 0 },
     { "heroes", "heroes: 16 bones, 1536 faces", "heroes", 1, 512, M_LIT, NULL, heroes, NULL, NULL, 0 },
-    { "heroes_tex", "heroes, textured (as the Meshy ones)", "heroes", 1, 512, M_LIT, NULL, heroes_tex, NULL, NULL,
-      0 },
+    { "heroes_tex", "heroes, textured", "heroes", 1, 512, M_LIT, NULL, heroes_tex, NULL, NULL, 0 },
+    { "heroes_skin", "heroes, textured skins (as the Meshy ones)", "heroes", 1, 512, M_LIT, NULL, heroes_skin, NULL,
+      NULL, 0 },
     { "heroes_shadow", "heroes with shadows on a floor", "heroes", 1, 512, M_LIT, NULL, heroes_shadow, NULL, NULL,
       0 },
     { "clip", "map pieces through the near plane", "pieces", 1, 4000, M_ALL, NULL, clip_scene, NULL, NULL, 0 },

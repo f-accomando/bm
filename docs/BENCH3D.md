@@ -14,7 +14,7 @@ riprodurre (`docs/DRIVERS.md`):
 - **GPU**: bm3d 2.1, la GPU disegna i triangoli che l'ARM prepara;
 - **GPU+AA**: la stessa con l'MSAA 4×;
 - **GPU+VS1**: bm3d 3.0, il vertex shader per lo scenario;
-- **GPU+VS**: bm3d 3.3, il vertex shader per tutto.
+- **GPU+VS**: bm3d 3.4, il vertex shader per tutto.
 
 Un profilo che la GPU non sa fare (le prove all'avvio lo hanno spento) non ha la riga.
 A ogni passo `n` cresce di un terzo finché un fotogramma supera i **40 ms**; i carichi a
@@ -33,7 +33,8 @@ i numeri del Pi con i driver di prima sono le barre storiche.
   GPU+VS1);
 - `spheres_shine`: cielo e terra, bordo, riflessi, 4 lampade, nebbia;
 - `heroes`: eroi di 16 ossa e 1536 facce, Gouraud, ossa in movimento; `heroes_tex`: gli
-  stessi con la texture (come i modelli Meshy di Overbit); `heroes_shadow`:
+  stessi con la texture; `heroes_skin`: con la texture e le giunture su due ossa (come i
+  modelli Meshy di Overbit); `heroes_shadow`:
   con le ombre su un pavimento;
 - `clip`: pezzi di mappa attorno e sotto la camera, i più vicini attraverso il piano
   vicino (li taglia la GPU);

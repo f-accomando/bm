@@ -859,6 +859,153 @@ SHADERS["vs_lit_tex"] = """
         nop                 ; nop
 """
 
+# Faces on two bones (a skin: the Meshy heroes): each corner on bone A or
+# B, its weight w (ra25) 1 for A, 0 for B; the corner placed by both
+# matrices and blended, B + w (A - B), as r3d places each vertex by its
+# own bone. Uniforms: matrix A (12, by rows), matrix B (12), then XFORM's
+# f*16, 0.5, -f*16, 0.5, -NEAR.
+def BLEND3(dst, keep):
+    """one coordinate by matrix A into `keep` (a register) and by B; dst =
+    B + w (A - B)"""
+    return f"""
+        nop                 ; fmul r0, ra0, unif
+        nop                 ; fmul r1, ra1, unif
+        fadd r0, r0, r1     ; fmul r1, ra2, unif
+        fadd r0, r0, r1     ; nop
+        fadd {keep}, r0, unif ; nop
+"""
+
+
+XFORM_PROJECT = XFORM[XFORM.index("        mov sfu_recip, r2"):]
+
+
+def XFORM2_CAM(src_a="unif"):
+    """the corner in the camera: ra6 rb6 r2 (x y depth), A then B"""
+    out = ""
+    for keep in ("ra23", "rb23", "ra24"):
+        out += BLEND3(None, keep)
+    for keep, dst in (("ra23", "ra6"), ("rb23", "rb6"), ("ra24", "r2")):
+        out += f"""
+        nop                 ; fmul r0, ra0, unif
+        nop                 ; fmul r1, ra1, unif
+        fadd r0, r0, r1     ; fmul r1, ra2, unif
+        fadd r0, r0, r1     ; nop
+        fadd r0, r0, unif   ; nop
+        fsub r1, {keep}, r0 ; nop
+        nop                 ; fmul r1, r1, ra25
+        fadd {dst}, r0, r1  ; nop
+"""
+    return out
+
+
+XFORM2 = XFORM2_CAM() + XFORM_PROJECT
+
+
+def DOT2(dst, w="ra25"):
+    """n.a and n.b (the next three uniforms each, a light's direction in
+    bone A's and B's axes), blended by w"""
+    return f"""
+        nop                 ; fmul r0, ra3, unif
+        nop                 ; fmul r1, ra4, unif
+        fadd r0, r0, r1     ; fmul r1, rb0, unif
+        fadd r2, r0, r1     ; nop
+        nop                 ; fmul r0, ra3, unif
+        nop                 ; fmul r1, ra4, unif
+        fadd r0, r0, r1     ; fmul r1, rb0, unif
+        fadd r0, r0, r1     ; nop
+        fsub r1, r2, r0     ; nop
+        nop                 ; fmul r1, r1, {w}
+        fadd {dst}, r0, r1  ; nop
+"""
+
+
+SHADERS["cs_colour2"] = """
+        ldi vr_setup, 0x401a00                          # 4 rows: x y z w
+        ldi vw_setup, 0x1a00
+        nop                 ; nop
+        nop                 ; nop
+        mov ra0, vpm        ; nop
+        mov ra1, vpm        ; nop
+        mov ra2, vpm        ; nop
+        mov ra25, vpm       ; nop
+""" + XFORM2 + """
+        nop                 ; fmul r0, ra6, unif        # clip x = x * f / (width/2)
+        nop                 ; fmul r1, rb6, unif        # clip y = y * f / (height/2)
+        nop                 ; fmul r3, r2, rb7          # clip z = -NEAR: at w = NEAR the near plane
+        mov vpm, r0         ; nop
+        mov vpm, r1         ; nop
+        mov vpm, r3         ; nop
+        mov vpm, rb7        ; nop                       # clip w = depth
+        mov vpm, ra9        ; nop
+        mov vpm, rb9        ; nop
+        mov vpm, r4         ; nop
+        nop                 ; nop           ; thrend
+        nop                 ; nop
+        nop                 ; nop
+"""
+
+# vs_lit_tex on two bones: attributes x y z w, the normal, s t, emissive,
+# the normal's weight (11 words: w for a smooth face, else the weight of
+# the face's first corner, whose bone turns a flat face's normal in r3d);
+# the lamps and the fog at the corner itself. Uniforms: as
+# XFORM2, then the sun, the up axis and V in A's axes and in B's (sun A,
+# sun B, up A, up B, V A, V B), per byte of the colour B D R A, the fog
+# (near, k), four lamps.
+SHADERS["vs_lit_tex2"] = """
+        ldi vr_setup, 0xb01a00                          # 11 rows
+        ldi vw_setup, 0x1a00
+        nop                 ; nop
+        nop                 ; nop
+        mov ra0, vpm        ; nop
+        mov ra1, vpm        ; nop
+        mov ra2, vpm        ; nop
+        mov ra25, vpm       ; nop                       # w: 1 bone A, 0 bone B
+        mov ra3, vpm        ; nop                       # the normal
+        mov ra4, vpm        ; nop
+        mov rb0, vpm        ; nop
+        mov rb1, vpm        ; nop                       # s
+        mov ra17, vpm       ; nop                       # t
+        mov ra8, vpm        ; nop                       # emissive
+        mov rb25, vpm       ; nop                       # the normal's weight
+""" + XFORM2 + """
+        mov ra13, r4        ; nop                       # 1 / depth
+""" + DOT2("ra18", "rb25") + DOT2("ra14", "rb25") + DOT2("ra19", "rb25") + """
+        fmax r3, ra18, 0    ; nop                       # max(d, 0)
+        fmax r2, ra19, 0    ; nop
+        fsub r2, 1.0, r2    ; nop
+        nop                 ; fmul r2, r2, r2           # e^2: the rim
+""" + SHADE("ra5") + SHADE("rb3") + SHADE("rb4") + FOG + LAMP * 4 + """
+        fsub r0, 1.0, ra5   ; nop                       # emissive: full light
+        mov r1, rb3         ; fmul r0, r0, ra8
+        fadd ra5, ra5, r0   ; nop
+        fsub r1, 1.0, r1    ; nop
+        mov r2, rb4         ; fmul r1, r1, ra8
+        fadd rb3, rb3, r1   ; nop
+        fsub r2, 1.0, r2    ; nop
+        nop                 ; fmul r2, r2, ra8
+        fadd rb4, rb4, r2   ; nop
+        fadd r0, ra5, rb3   ; nop                       # grey: (a + b + c) / 3
+        ldi r1, 0x3eaaaaab                              # 1/3
+        fadd r0, r0, rb4    ; nop
+        nop                 ; fmul r0, r0, r1
+        fmin r0, r0, 1.0    ; nop                       # at most 1
+        nop                 ; fmul r0, r0, 0.5          # halved: fs_tex_rgb doubles it
+        mov vpm, ra9        ; nop                       # screen x, y
+        mov vpm, rb9        ; nop                       # z
+        mov vpm, ra13       ; nop                       # 1 / w
+        mov vpm, rb1        ; nop                       # s
+        mov vpm, ra17       ; nop                       # t
+        mov vpm, r0         ; nop                       # light a b c
+        mov vpm, r0         ; nop
+        mov vpm, r0         ; nop
+        mov vpm, 0          ; nop                       # fog a b c: none
+        mov vpm, 0          ; nop
+        mov vpm, 0          ; nop
+        nop                 ; nop           ; thrend
+        nop                 ; nop
+        nop                 ; nop
+"""
+
 # Shadows (M36): the corner (ra0 ra1 ra2) into world axes relative to the
 # camera by its bone (12 uniforms), then down along the sun to the ground's
 # plane, as r3d's draw_shadow: h = max(0, (y - plane) / Ly), x - Lx h,
@@ -906,6 +1053,71 @@ SHADERS["vs_shadow"] = """
         mov vpm, 0          ; nop
         mov vpm, 0          ; nop
         mov vpm, 0          ; nop
+        nop                 ; nop           ; thrend
+        nop                 ; nop
+        nop                 ; nop
+"""
+
+# a shadow on two bones: the corner into the world by A and by B, blended
+# by w (ra25), then as SHADOW. Uniforms: matrix A, matrix B, then SHADOW's
+# plane, 1/Ly, Lx, Lz, plane + 0.01.
+SHADOW2 = ""
+for _keep in ("ra26", "rb26", "ra27"):
+    SHADOW2 += BLEND3(None, _keep)
+for _keep, _dst in (("ra26", "ra3"), ("rb26", "r3"), ("ra27", "ra4")):
+    SHADOW2 += f"""
+        nop                 ; fmul r0, ra0, unif
+        nop                 ; fmul r1, ra1, unif
+        fadd r0, r0, r1     ; fmul r1, ra2, unif
+        fadd r0, r0, r1     ; nop
+        fadd r0, r0, unif   ; nop
+        fsub r1, {_keep}, r0 ; nop
+        nop                 ; fmul r1, r1, ra25
+        fadd {_dst}, r0, r1 ; nop
+"""
+SHADOW2 += SHADOW[SHADOW.index("        fsub r0, r3, unif"):]
+
+SHADERS["vs_shadow2"] = """
+        ldi vr_setup, 0x401a00                          # 4 rows: x y z w
+        ldi vw_setup, 0x1a00
+        nop                 ; nop
+        nop                 ; nop
+        mov ra0, vpm        ; nop
+        mov ra1, vpm        ; nop
+        mov ra2, vpm        ; nop
+        mov ra25, vpm       ; nop
+""" + SHADOW2 + XFORM + """
+        mov vpm, ra9        ; nop
+        mov vpm, rb9        ; nop
+        mov vpm, r4         ; nop
+        mov vpm, 0          ; nop
+        mov vpm, 0          ; nop
+        mov vpm, 0          ; nop
+        nop                 ; nop           ; thrend
+        nop                 ; nop
+        nop                 ; nop
+"""
+
+SHADERS["cs_shadow2"] = """
+        ldi vr_setup, 0x401a00                          # 4 rows: x y z w
+        ldi vw_setup, 0x1a00
+        nop                 ; nop
+        nop                 ; nop
+        mov ra0, vpm        ; nop
+        mov ra1, vpm        ; nop
+        mov ra2, vpm        ; nop
+        mov ra25, vpm       ; nop
+""" + SHADOW2 + XFORM + """
+        nop                 ; fmul r0, ra6, unif        # clip x = x * f / (width/2)
+        nop                 ; fmul r1, rb6, unif        # clip y = y * f / (height/2)
+        nop                 ; fmul r3, r2, rb7          # clip z = -NEAR: at w = NEAR the near plane
+        mov vpm, r0         ; nop
+        mov vpm, r1         ; nop
+        mov vpm, r3         ; nop
+        mov vpm, rb7        ; nop                       # clip w = depth
+        mov vpm, ra9        ; nop
+        mov vpm, rb9        ; nop
+        mov vpm, r4         ; nop
         nop                 ; nop           ; thrend
         nop                 ; nop
         nop                 ; nop

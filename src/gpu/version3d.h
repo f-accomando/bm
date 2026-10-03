@@ -10,10 +10,10 @@
  *
  * The settings reproduce older versions on today's code (the "mode"): the
  * ARM alone is 0.2, the GPU without its vertex shader 2.1, with it for the
- * scenery 3.0, for every model 3.3. 0.1 and 1.0 no longer run: the 3D
+ * scenery 3.0, for every model 3.4. 0.1 and 1.0 no longer run: the 3D
  * Bench shows the numbers measured on the Pi with them.
  */
-#define BM3D_VERSION "3.3"
+#define BM3D_VERSION "3.4"
 #define BM3D_BLOCK   "M36"
 
 typedef struct {
@@ -33,6 +33,7 @@ static inline const bm3d_version_t *bm3d_versions(int *n)
         { "3.1", "M36", "2026-10-03", "vertex shader for models lit by the sun, with bones (heroes)" },
         { "3.2", "M36", "2026-10-03", "vertex shader for shadows and the first-person layer" },
         { "3.3", "M36", "2026-10-03", "textured models lit by the sun: Gouraud, on the vertex shader too" },
+        { "3.4", "M36", "2026-10-03", "skins on the vertex shader: faces on two bones (the Meshy heroes)" },
     };
     *n = (int)(sizeof v / sizeof v[0]);
     return v;
@@ -44,7 +45,7 @@ static inline const char *bm3d_mode(int gpu, int vs)
 {
     if (!gpu)
         return "0.2";
-    return vs >= 2 ? "3.3" : vs == 1 ? "3.0" : "2.1";
+    return vs >= 2 ? "3.4" : vs == 1 ? "3.0" : "2.1";
 }
 
 #endif
