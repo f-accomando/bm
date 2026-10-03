@@ -24,7 +24,11 @@ if [ ! -d "$DIR" ] || [ -z "$(ls -A "$DIR" 2>/dev/null)" ]; then
     exit 1
 fi
 if [ ! -f "$DIR/extlinux/extlinux.conf" ]; then
-    echo "copy-sd-rgb30: $DIR is not the RGB30's card (no extlinux/extlinux.conf):" >&2
+    if [ -f "$DIR/bootcode.bin" ] || [ -f "$DIR/kernel.img" ]; then
+        echo "copy-sd-rgb30: $DIR is the Raspberry Pi's card, not the RGB30's:" >&2
+    else
+        echo "copy-sd-rgb30: $DIR is not the RGB30's card (no extlinux/extlinux.conf):" >&2
+    fi
     ls "$DIR" | head -8 | sed 's/^/    /' >&2
     echo "  Choose the drive named BM, or write dist/rgb30/bm-rgb30.img to the card first." >&2
     exit 1
