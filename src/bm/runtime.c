@@ -111,6 +111,9 @@ static struct {
     uint32_t anim_size;
     int mouse, mouse_arrow;     /* mouse(true [, arrow]): the pointer is the cartridge's */
     pointer_t ptr;              /* the pointer this frame */
+    int want_w, want_h;         /* screen(w, h): the resolution from the next frame */
+    int cls_pending;            /* a cls() left to the GPU's next job (cls_settle) */
+    uint16_t cls_colour;
 } rt;
 
 #define MESH_MT "bm.mesh"
@@ -171,7 +174,7 @@ static struct {
     uint32_t ops;                       /* drawn after the GPU (for the log and the bench) */
 } d2 = { .cut = D2_NONE };
 
-static void draw_prompt(const prompt_t *p, int x, int y);
+static void draw_prompt(const prompt_t *p, int x, int y, int scale);
 
 /* the 2D recorded before word upto, on the page (the GPU's job has
  * ended); what follows stays recorded (the next frame's) */
@@ -209,8 +212,8 @@ static void d2_replay(uint32_t upto)
         case D2_TEXT: g16_text_scaled(&rt.g, a[0], a[1], (const char *)(a + 4), (uint16_t)a[2], a[3]); break;
         case D2_PROMPT: {
             const prompt_t *pr;
-            memcpy(&pr, a + 2, sizeof pr);
-            draw_prompt(pr, a[0], a[1]);
+            memcpy(&pr, a + 3, sizeof pr);
+            draw_prompt(pr, a[0], a[1], a[2]);
             break;
         }
         case D2_TRI: g16_tri(&rt.g, a[0], a[1], a[2], a[3], a[4], a[5], (uint16_t)a[6]); break;
@@ -253,6 +256,20 @@ static void flush3d(int keep)
     d2_replay(d2.cut == D2_NONE || rt.early ? d2.n : d2.cut);
 }
 
+/* A cls() with the GPU drawing the 3D is not drawn by the ARM (at 1080p it
+ * writes 4 MB): the GPU's next job clears its tiles to the colour. Before
+ * anything else touches the page (2D, a read, the page shown, the ARM's 3D)
+ * it is settled: if no job has cleared the page since, the ARM fills it. */
+static void cls_settle(void)
+{
+    if (!rt.cls_pending)
+        return;
+    rt.cls_pending = 0;
+    if (rt.r3d.backend && gpu3d_cleared())
+        return;
+    g16_cls(&rt.g, rt.cls_colour);
+}
+
 /* M35: the end of the frame's 3D started on the GPU and not waited for
  * (gpu3d_queue on): the next _update runs meanwhile; flush3d waits */
 static int submit3d(void)
@@ -271,6 +288,7 @@ static int submit3d(void)
 static void sync3d(void)
 {
     flush3d(1);
+    cls_settle();
     if (rt.r3d.backend)
         gpu3d_page(0, 0);
 }
@@ -314,6 +332,7 @@ static int draw2d(int op, uint32_t words, int32_t **a)
         }
         if (gpu3d_submit(&rt.g, 1) != 0 || gpu3d_failed())
             rt.r3d.backend = NULL;
+        cls_settle();
         gpu3d_page(0, 0);
         if (!rt.r3d.backend || !gpu3d_inflight()) {
             sync3d();
@@ -365,6 +384,7 @@ static void gpu3d_to_arm(void *ctx, const char *why)
     if (rt.r3d.tris_drawn || gpu3d_pending())
         rt.hold_frame = 1;
     flush3d(0);
+    cls_settle();
     if (rt.r3d.backend) {
         gpu3d_drop();
         gpu3d_page(0, 0);
@@ -378,6 +398,13 @@ static int l_cls(lua_State *L)
     int32_t *a;
     if (draw2d(D2_CLS, 1, &a)) {
         a[0] = c;
+        return 0;
+    }
+    if (rt.r3d.backend && !bm_video_uses_ram()) {
+        gpu3d_cleared();                /* (a job before this cls cleared to another colour) */
+        rt.cls_pending = 1;             /* the GPU's next job clears to it (cls_settle) */
+        rt.cls_colour = c;
+        gpu3d_page(1, c);
         return 0;
     }
     g16_cls(&rt.g, c);
@@ -613,16 +640,18 @@ static const prompt_t *find_prompt(const char *n, int small)
     return NULL;
 }
 
-/* a prompt's picture at x, y (its edges blended over the page) */
-static void draw_prompt(const prompt_t *p, int x, int y)
+/* a prompt's picture at x, y (its edges blended over the page), each of
+ * its pixels scale x scale */
+static void draw_prompt(const prompt_t *p, int x, int y, int scale)
 {
     for (int j = 0; j < p->h; j++)
         for (int i = 0; i < p->w; i++) {
             uint32_t c = p->px[j * p->w + i], a = c >> 24;
             if (!a)
                 continue;
+            const int px = x + i * scale, py = y + j * scale;
             if (a < 255) {                      /* the edges: over what is there */
-                int b = g16_pget(&rt.g, x + i, y + j);
+                int b = g16_pget(&rt.g, px, py);
                 if (b < 0)
                     continue;
                 uint32_t under = g16_to_rgb24((uint16_t)b), out = 0;
@@ -632,14 +661,18 @@ static void draw_prompt(const prompt_t *p, int x, int y)
                 }
                 c = out;
             }
-            g16_pset(&rt.g, x + i, y + j, g16_rgb24(c & 0xFFFFFF));
+            if (scale == 1)
+                g16_pset(&rt.g, px, py, g16_rgb24(c & 0xFFFFFF));
+            else
+                g16_rectfill(&rt.g, px, py, scale, scale, g16_rgb24(c & 0xFFFFFF));
         }
 }
 
-/* prompt(name, x, y [, small]): a button or a key as a chip of the apps'
- * set (prompts.c), its top left at (x, y), 16 px high for 8x16 text, 12
- * with small (by default when the font is 6x12); returns the x after it.
- * prompt(name [, small]) only measures: the width and height.
+/* prompt(name, x, y [, small, scale]): a button or a key as a chip of the
+ * apps' set (prompts.c), its top left at (x, y), 16 px high for 8x16 text,
+ * 12 with small (by default when the font is 6x12), scale times larger
+ * (1-8, as print's); returns the x after it. prompt(name [, small, scale])
+ * only measures: the width and height.
  * Upper case the pad's buttons ("A", "B", "X", "Y", "START", "L1",
  * "UPDOWN"...), shown as on the pad pressed last: a DS4 (cross, circle...)
  * until another pad is used. Lower case the keyboard's keys, with the
@@ -649,24 +682,27 @@ static int l_prompt(lua_State *L)
     const char *n = luaL_checkstring(L, 1);
     int measure = !lua_isnumber(L, 2), at = measure ? 2 : 4;
     int small = lua_isnoneornil(L, at) ? rt.g.font->height <= 12 : lua_toboolean(L, at);
+    int scale = (int)luaL_optinteger(L, at + 1, 1);
+    scale = scale < 1 ? 1 : scale > 8 ? 8 : scale;
     const prompt_t *p = find_prompt(n, small);
     if (!p)
         return luaL_argerror(L, 1, "not a button or a key");
     if (measure) {
-        lua_pushinteger(L, p->w);
-        lua_pushinteger(L, p->h);
+        lua_pushinteger(L, p->w * scale);
+        lua_pushinteger(L, p->h * scale);
         return 2;
     }
     int x = ival(L, 2), y = ival(L, 3);
     int32_t *a;
-    if (draw2d(D2_PROMPT, 2 + sizeof(void *) / 4, &a)) {
+    if (draw2d(D2_PROMPT, 3 + sizeof(void *) / 4, &a)) {
         a[0] = x;
         a[1] = y;
-        memcpy(a + 2, &p, sizeof p);
+        a[2] = scale;
+        memcpy(a + 3, &p, sizeof p);
     } else {
-        draw_prompt(p, x, y);
+        draw_prompt(p, x, y, scale);
     }
-    lua_pushinteger(L, x + p->w);
+    lua_pushinteger(L, x + p->w * scale);
     return 1;
 }
 
@@ -897,6 +933,8 @@ static r3d_t *r3d(lua_State *L)
         rt.r3d_ready = 1;
         gpu3d_maybe();
     }
+    if (rt.cls_pending && !rt.r3d.backend)
+        cls_settle();                   /* the GPU stopped: the ARM's 3D goes on the cleared page */
     return &rt.r3d;
 }
 
@@ -1772,6 +1810,7 @@ static int l_gpu3d(lua_State *L)
             r->arm_hook = gpu3d_to_arm;
         } else if (!on && r->backend) {
             flush3d(0);
+            cls_settle();
             gpu3d_drop();
             r->backend = NULL;
             zclear_dma_wait(1);
@@ -1794,6 +1833,47 @@ static int l_gpu3d(lua_State *L)
     lua_pushstring(L, bm3d_mode_q(r->backend != NULL, vs, r->backend != NULL && gpu3d_queue()));  /* reproduced */
     lua_pushboolean(L, r->backend != NULL && gpu3d_queue());
     return 5;
+}
+
+/* The resolutions screen() can change to: 16:9, whole pixels on a 1080p
+ * TV but for 1280x720 (1.5x). The cartridge's own (its header) is one. */
+static const uint16_t screen_modes[][2] = {
+    { 320, 180 }, { 384, 216 }, { 480, 270 }, { 640, 360 }, { 960, 540 }, { 1280, 720 }, { 1920, 1080 },
+};
+#define SCREEN_MODES (int)(sizeof screen_modes / sizeof screen_modes[0])
+
+/* screen(w, h) -> true: the cartridge's resolution changes to w x h from the
+ * next frame (SCREEN_W and SCREEN_H then say it; if the console cannot
+ * set it they stay); false: not one of the modes. screen() -> w, h now.
+ * screen(i) -> the i-th mode w, h (1 = 320x180 ... 7 = 1920x1080), or nil.
+ * A square 256x256 cartridge keeps its screen. */
+static int l_screen(lua_State *L)
+{
+    if (lua_isnoneornil(L, 1)) {
+        lua_pushinteger(L, rt.g.w);
+        lua_pushinteger(L, rt.g.h);
+        return 2;
+    }
+    const int w = ival(L, 1);
+    if (lua_isnoneornil(L, 2)) {
+        if (w < 1 || w > SCREEN_MODES)
+            return 0;
+        lua_pushinteger(L, screen_modes[w - 1][0]);
+        lua_pushinteger(L, screen_modes[w - 1][1]);
+        return 2;
+    }
+    const int h = ival(L, 2);
+    int ok = !(rt.g.w == 256 && rt.g.h == 256);
+    int known = 0;
+    for (int i = 0; i < SCREEN_MODES; i++)
+        known |= screen_modes[i][0] == w && screen_modes[i][1] == h;
+    ok = ok && known;
+    if (ok) {
+        rt.want_w = w;
+        rt.want_h = h;
+    }
+    lua_pushboolean(L, ok);
+    return 1;
 }
 
 /* ---- collision worlds (world3d.h): boxes, rays, moving bodies */
@@ -2725,8 +2805,10 @@ static int l_glow(lua_State *L)
 static int l_dark_end(lua_State *L)
 {
     (void)L;
-    if (rt.fade.lv)
+    if (rt.fade.lv) {
+        sync3d();                       /* it reads the page: the 3D (and a cls) on it first */
         g16_fade_apply(&rt.g, &rt.fade);
+    }
     return 0;
 }
 
@@ -2756,7 +2838,7 @@ static const luaL_Reg api[] = {
     { "world3d", l_world3d }, { "world_box", l_world_box }, { "world_ray", l_world_ray },
     { "world_move", l_world_move }, { "world_floor", l_world_floor },
     { "fog3d", l_fog3d }, { "project3d", l_project3d }, { "lamp3d", l_lamp3d },
-    { "zclear", l_zclear }, { "gpu3d", l_gpu3d }, { "log", l_log }, { "quit", l_quit },
+    { "zclear", l_zclear }, { "gpu3d", l_gpu3d }, { "screen", l_screen }, { "log", l_log }, { "quit", l_quit },
     { "udp_open", l_udp_open }, { "udp_send", l_udp_send }, { "udp_recv", l_udp_recv }, { "udp_close", l_udp_close },
     { "net_ip", l_net_ip }, { "net_resolve", l_net_resolve },
     { "save", l_save }, { "saved", l_saved },
@@ -4554,6 +4636,7 @@ int bm_video_enter(framebuffer_t *fb, int w, int h, g16_t *g)
         return -1;
 #endif
     gpu3d_set_fb(fb->mem, fb->size, fb->bus);   /* its pages, for the GPU's 3D */
+    gpu3d_set_size((int)fb->width, (int)fb->height);
     if (boxed) {
         if (fb->width < (uint32_t)w || fb->height < (uint32_t)h)
             return -1;
@@ -4629,6 +4712,7 @@ static void leave_mode(framebuffer_t *fb, uint32_t w, uint32_t h)
 static void present(framebuffer_t *fb, uint32_t *deadline, uint32_t *prev, uint32_t *dropped)
 {
     flush3d(0);
+    cls_settle();
     if (rt.hold_frame) {
         rt.hold_frame = 0;
         rt.present_us = 0;
@@ -4750,8 +4834,63 @@ static void perf_frame(void)
     *g = keep;
 }
 
+/* screen(w, h): the new resolution between two frames (the page shown, no
+ * 3D waiting on the GPU): the framebuffer again, the z-buffer, the 2D
+ * buffers of the screen's size; the font and the 2D camera stay, the clip
+ * is the whole screen. If the console cannot set it, the old one again
+ * (-1 only if not even that). */
+static int screen_apply(framebuffer_t *fb, lua_State *L)
+{
+    const int w = rt.want_w, h = rt.want_h, ow = rt.g.w, oh = rt.g.h;
+    rt.want_w = rt.want_h = 0;
+    if (w == ow && h == oh)
+        return 0;
+    flush3d(0);
+    zclear_dma_wait(1);                 /* the DMA may be clearing the old z-buffer */
+    rt.zclear_seen = 0;
+    const g16_t keep = rt.g;
+    const int via = bm_video_uses_ram();
+    int nw = w, nh = h;
+    if (bm_video_enter(fb, w, h, &rt.g) != 0) {
+        kprintf("\x1b[91mbm: cannot set %dx%d RGB565: %dx%d again\x1b[0m\n", w, h, ow, oh);
+        nw = ow;
+        nh = oh;
+        if (bm_video_enter(fb, ow, oh, &rt.g) != 0)
+            return -1;
+    }
+    if (via)
+        video_to_ram(&rt.g);
+    rt.g.font = keep.font;
+    rt.g.cam_x = keep.cam_x;
+    rt.g.cam_y = keep.cam_y;
+    if (rt.r3d_ready && (nw != ow || nh != oh) && r3d_resize(&rt.r3d, ow) != 0)
+        return -1;
+    if (rt.r3d_ready && rt.r3d.backend)
+        gpu3d_page(0, 0);
+    if (rt.light.rgb) {                 /* made again at the next light_begin() */
+        g16_light_free(&rt.light);
+    }
+    if (rt.fade.lv) {                   /* the levels of the new size, the colours kept */
+        uint8_t *lv = malloc((size_t)nw * (size_t)nh);
+        if (!lv)
+            return -1;
+        free(rt.fade.lv);
+        memset(lv, 0, (size_t)nw * (size_t)nh);
+        rt.fade.lv = lv;
+        rt.fade.w = nw;
+        rt.fade.h = nh;
+    }
+    pointer_env(rt.mouse, nw, nh);
+    lua_pushinteger(L, nw);
+    lua_setglobal(L, "SCREEN_W");
+    lua_pushinteger(L, nh);
+    lua_setglobal(L, "SCREEN_H");
+    kprintf("bm: screen %dx%d\n", nw, nh);
+    return 0;
+}
+
 /* The frame loop, then either suspend or close. */
-static int run_frames(framebuffer_t *fb, lua_State *L, const char *title, int w, int h,
+static int run_frames(framebuffer_t *fb, lua_State *L, const char *title,
                       uint32_t con_w, uint32_t con_h, uint32_t seconds, bm_stats_t *st,
                       const char *error, int suspendable)
 {
@@ -4820,6 +4959,7 @@ static int run_frames(framebuffer_t *fb, lua_State *L, const char *title, int w,
             }
         }
         flush3d(0);                         /* the GPU's 3D counts in the frame's time */
+        cls_settle();
         rt.last_cpu_us = timer_ticks() - t0 - early_us;
         rt.last_instr_k = instr_k;
         perf_frame();
@@ -4830,6 +4970,10 @@ static int run_frames(framebuffer_t *fb, lua_State *L, const char *title, int w,
         crumb_frame(rt.frame);
         present(fb, &deadline, &prev, &st->dropped);
         st->copy_us_total += rt.present_us;
+        if (rt.want_w && screen_apply(fb, L) != 0) {
+            error = "not enough memory for the screen";
+            break;
+        }
         if (++fps_frames, timer_ticks() - fps_t0 >= 1000000) {
             rt.fps = fps_frames;
             fps_frames = 0;
@@ -4850,8 +4994,8 @@ static int run_frames(framebuffer_t *fb, lua_State *L, const char *title, int w,
         audio_pause(1);                     /* music waits, the bank stays */
         susp.L = L;
         susp.active = 1;
-        susp.w = w;
-        susp.h = h;
+        susp.w = rt.g.w;                    /* (screen() may have changed it) */
+        susp.h = rt.g.h;
         susp.g = rt.g;
         susp.used_ram = bm_video_uses_ram();
         susp.since = timer_ticks();
@@ -4933,7 +5077,7 @@ int bm_run(framebuffer_t *fb, const uint8_t *data, size_t len,
         (lua_pushcfunction(L, traceback), lua_insert(L, -2), lua_pcall(L, 0, 0, -2)) != LUA_OK ||
         call(L, "_init") != 0)
         error = lua_tostring(L, -1);
-    return run_frames(fb, L, cart.title, cart.width, cart.height, con_w, con_h, seconds, st,
+    return run_frames(fb, L, cart.title, con_w, con_h, seconds, st,
                       error, suspendable && !cur.bench);
 }
 
@@ -4979,7 +5123,7 @@ int bm_resume(framebuffer_t *fb, uint32_t seconds, bm_stats_t *st)
     audio_pause(0);
     vol_start = audio_volume();
     kprintf("bm: \"%s\" resumed\n", susp.title);
-    return run_frames(fb, L, susp.title, susp.w, susp.h, con_w, con_h, seconds, st, NULL, 1);
+    return run_frames(fb, L, susp.title, con_w, con_h, seconds, st, NULL, 1);
 }
 
 int bm_suspended(char *title, size_t n)

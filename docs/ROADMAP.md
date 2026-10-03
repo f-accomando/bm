@@ -2569,6 +2569,33 @@ sul Pi.**
 - **Da provare sul Pi**: il benchmark di nuovo (foto delle due pagine, per confrontare i
   ms con quelli di 320×180) e un giudizio sulla nitidezza in partita.
 
+**La risoluzione nel gioco, fino a 1080p: fatto sul PC (2026-10-04, branch
+`claude/overbit-480`), da provare sul Pi.** Richiesta dell'autore: sceglierla in gioco.
+- Kernel: **`screen(w, h)`** cambia la risoluzione della cartuccia tra un fotogramma e
+  l'altro (`screen_apply` in `runtime.c`: framebuffer di nuovo, z-buffer con
+  `r3d_resize`, buffer della luce e delle dissolvenze, puntatore, `SCREEN_W`/`SCREEN_H`).
+  Modi 16:9: 320×180, 384×216, 480×270, 640×360, 960×540, 1280×720, 1920×1080 (pixel
+  interi su un TV 1080p tranne 1280×720). `prompt()` ha uno zoom come `print`.
+- GPU (**bm3d 4.2**): buffer dei lavori per 1080p anche con l'MSAA, guard band che si
+  stringe sugli schermi larghi (gli angoli in 12.4 restano sotto 2048 pixel), e il
+  `cls()` lo fa il lavoro della GPU invece dell'ARM (4 MB a fotogramma a 1080p).
+- Overbit: voce **RESOLUTION** nel menu (frecce o A/spazio), salvata sulla SD e rimessa
+  all'avvio; con l'ARM fino a 640×360 (paga ogni pixel; passando all'ARM da una
+  risoluzione più alta torna a 640×360, e il benchmark lì salta l'ARM). HUD e menu su uno
+  schermo logico di `LW`×`LH` ingrandito `UI` volte (2 a 960×540 e 1280×720, 4 a 1080p:
+  sul TV grandi come a 480×270), con versioni compatte di menu e selezione a 320×180 e
+  384×216. Con la GPU il cielo è in 3D (una parete davanti alla camera girata con lei, le
+  bande alle altezze di quelle 2D per ogni campo visivo; sole con `point3d`, nuvole come
+  quadrati): niente 2D prima del 3D, così la GPU pulisce la pagina invece di rileggerla.
+- Test: `test_screen_modes` in QEMU (640×360 → 1920×1080 → 320×180 → 960×540 sul kernel
+  vero), `make test-overbit` (cambio dal menu, salvataggio, ARM limitato, poligono a
+  1920×1080 sull'emulatore della V3D), i test della GPU (la tabella 1080p combacia pixel
+  per pixel tra ARM ed emulatore).
+- **Da provare sul Pi**: RESOLUTION a 960×540 e 1920×1080 con il renderer GPU+VS+Q (il
+  migliore per gli schermi grandi), una foto dell'overlay (Select) in partita a ciascuna
+  e il benchmark a 1080p. Il costo che resta: la GPU scrive la pagina (4 MB a 1080p) e
+  riempie 510 tile, l'ARM disegna l'HUD ingrandito.
+
 ## M39 — GPU 3: verso il limite della V3D (L/XL)
 Dove siamo (2026-10-03, stime dal PC per le versioni 3.0–4.1): il riempimento è all'80%
 di quello dichiarato (811 Mpixel/s misurati sul Pi su 1 Gpixel/s), il lavoro dell'ARM per
@@ -2626,7 +2653,8 @@ il Pi non ha ancora mostrato, come in M34–M36.
   bm3d 4.1, il test `spheres` del 3D Bench almeno 3× quelli di 3.4, e Overbit (GPU+VS+Q)
   sta nei 60 fps a HIGH nello scontro di 10 bot.
 - Escluso (decisione dell'utente): impostor per gli oggetti lontani, cambio di
-  risoluzione, overclock della GPU e dell'ARM.
+  risoluzione, overclock della GPU e dell'ARM. (La risoluzione scelta nel menu dei giochi
+  c'è dal 2026-10-04, M38: qui si intende cambiarla da sola per guadagnare fotogrammi.)
 
 ## M40 — bm per PowKiddy RGB30 (XL) — in corso (branch `rgb30-powkiddy`)
 Decisione 2026-10-01 (utente): una versione **bare metal** di bm per la PowKiddy RGB30

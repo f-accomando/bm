@@ -38,7 +38,7 @@ char emu_error[256];
 
 /* ---------------------------------------------------------------- arena */
 
-#define ARENA (96u << 20)
+#define ARENA (160u << 20)                 /* up to 1920x1080: pages, the job, textures */
 static uint8_t *arena;
 static size_t arena_used;
 

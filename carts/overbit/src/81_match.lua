@@ -418,35 +418,35 @@ local INK = 0x101418
 
 local function hud_top()
   font("6x12")
-  local cx = SW // 2
+  local cx = LW // 2
   -- the two percentages, the point between them
   for team = 1, 2 do
     local x = team == 1 and cx - 62 or cx + 18
-    rectfill(x, 4, 44, 16, INK)
-    rect(x, 4, 44, 16, TEAM_RGB[team])
+    urectfill(x, 4, 44, 16, INK)
+    urect(x, 4, 44, 16, TEAM_RGB[team])
     local s = floor(M.pct[team]) .. "%"
-    print(s, x + 22 - #s * 3, 6, team == M.owner and 0xFFFFFF or 0xB8BEC8)
+    uprint(s, x + 22 - #s * 3, 6, team == M.owner and 0xFFFFFF or 0xB8BEC8)
     -- the rounds won
     for i = 1, RULES.rounds do
       local px = team == 1 and x + 44 - i * 7 or x + (i - 1) * 7
-      rectfill(px + 1, 22, 5, 3, i <= M.wins[team] and TEAM_RGB[team] or 0x3A4048)
+      urectfill(px + 1, 22, 5, 3, i <= M.wins[team] and TEAM_RGB[team] or 0x3A4048)
     end
   end
   local col = M.owner ~= 0 and TEAM_RGB[M.owner] or 0xD8DCE2
-  circfill(cx, 12, 9, INK)
-  circ(cx, 12, 9, col)
+  ucircfill(cx, 12, 9, INK)
+  ucirc(cx, 12, 9, col)
   if M.cap_team ~= 0 and M.cap > 0 then
     -- the capture as an arc round the point
     local n = floor(M.cap * 24)
     for i = 0, n - 1 do
       local a0, a1 = i / 24 * 2 * pi, (i + 1) / 24 * 2 * pi
-      line(floor(cx + sin(a0) * 9), floor(12 - cos(a0) * 9), floor(cx + sin(a1) * 9), floor(12 - cos(a1) * 9),
+      uline(floor(cx + sin(a0) * 9), floor(12 - cos(a0) * 9), floor(cx + sin(a1) * 9), floor(12 - cos(a1) * 9),
            TEAM_RGB[M.cap_team])
-      line(floor(cx + sin(a0) * 8), floor(12 - cos(a0) * 8), floor(cx + sin(a1) * 8), floor(12 - cos(a1) * 8),
+      uline(floor(cx + sin(a0) * 8), floor(12 - cos(a0) * 8), floor(cx + sin(a1) * 8), floor(12 - cos(a1) * 8),
            TEAM_RGB[M.cap_team])
     end
   end
-  print("A", cx - 2, 6, col)
+  uprint("A", cx - 2, 6, col)
   -- the line under it
   local s, sc
   if M.phase == "setup" then
@@ -461,33 +461,33 @@ local function hud_top()
   end
   if M.msg then s, sc = M.msg, 0xFFE070 end
   if s then
-    rectfill(cx - #s * 3 - 3, 27, #s * 6 + 6, 13, INK)
-    print(s, cx - #s * 3, 28, sc or 0xFFFFFF)
+    urectfill(cx - #s * 3 - 3, 27, #s * 6 + 6, 13, INK)
+    uprint(s, cx - #s * 3, 28, sc or 0xFFFFFF)
   end
   font()
 end
 
 local function big_text(s, rgb, y)
   font("8x16")
-  print(s, SW // 2 - #s * 8 + 1, y + 1, INK, 2)
-  print(s, SW // 2 - #s * 8, y, rgb, 2)
+  uprint(s, LW // 2 - #s * 8 + 1, y + 1, INK, 2)
+  uprint(s, LW // 2 - #s * 8, y, rgb, 2)
   font()
 end
 
 -- the end of the match: the result, then everyone's kills and deaths
 local function scoreboard()
-  local x0, y0 = SW // 2 - 120, 96
-  rectfill(x0, y0, 240, 100, INK)
+  local x0, y0 = LW // 2 - 120, LH < 270 and 56 or 96
+  urectfill(x0, y0, 240, 100, INK)
   font("6x12")
   for team = 1, 2 do
     local x = team == 1 and x0 + 6 or x0 + 126
-    print(team == 1 and "BLUE" or "RED", x, y0 + 4, TEAM_RGB[team])
+    uprint(team == 1 and "BLUE" or "RED", x, y0 + 4, TEAM_RGB[team])
     local y = y0 + 18
     for _, a in ipairs(G.actors) do
       if a.team == team then
-        print(a.name, x, y, a == G.local_actor and 0xFFE070 or 0xD8DCE2)
+        uprint(a.name, x, y, a == G.local_actor and 0xFFE070 or 0xD8DCE2)
         local k = a.kills .. "/" .. a.deaths
-        print(k, x + 108 - #k * 6, y, 0xB8BEC8)
+        uprint(k, x + 108 - #k * 6, y, 0xB8BEC8)
         y = y + 13
       end
     end
@@ -534,12 +534,12 @@ function Match.film()
   hud_top()
   if who and M.shot ~= 1 then
     font("6x12")
-    print(who.name:upper(), 6, SH - 14, TEAM_RGB[who.team])
+    uprint(who.name:upper(), 6, LH - 14, TEAM_RGB[who.team])
     font()
   end
   if M.phase == "round_end" or M.phase == "match_end" then
     local team = M.round_winner == 1 and "BLUE" or "RED"
-    big_text(M.phase == "match_end" and team .. " WINS" or "ROUND TO " .. team, TEAM_RGB[M.round_winner], 90)
+    big_text(M.phase == "match_end" and team .. " WINS" or "ROUND TO " .. team, TEAM_RGB[M.round_winner], LH // 3)
   end
 end
 
@@ -547,67 +547,73 @@ end
 -- abilities on the right, the team underneath
 local FAKE = { st = {}, fx = {}, form = {}, alive = true }
 local function select_draw()
-  rectfill(0, 0, SW, SH, 0x0A0E14)
+  local small = LH < 270                -- 320x180, 384x216: closer rows, no team line
+  urectfill(0, 0, LW, LH, 0x0A0E14)
   font("6x12")
-  print("CHOOSE YOUR HERO", 10, 8, 0xFFE070)
-  local y = 30
+  uprint("CHOOSE YOUR HERO", 10, small and 4 or 8, 0xFFE070)
+  local y = small and 20 or 30
+  local row = small and 12 or 15
   local sel = HERO_ORDER[M.select.sel]
   for _, r in ipairs(ROLE_ORDER) do
-    print(ROLE_NAME[r], 10, y, 0x7A8290)
-    y = y + 14
+    uprint(ROLE_NAME[r], 10, y, 0x7A8290)
+    y = y + (small and 12 or 14)
     for i, id in ipairs(HERO_ORDER) do
       if H[id].role == r then
         local h = H[id]
-        if id == sel then rectfill(8, y - 2, 112, 15, h.rgb) end
-        rectfill(12, y + 2, 6, 6, h.rgb)
-        print(h.name:upper(), 22, y, id == sel and INK or 0xD8DCE2)
-        y = y + 15
+        if id == sel then urectfill(8, y - 1 - (small and 0 or 1), small and 100 or 112, row, h.rgb) end
+        urectfill(12, y + 2, 6, 6, h.rgb)
+        uprint(h.name:upper(), 22, y, id == sel and INK or 0xD8DCE2)
+        y = y + row
       end
     end
-    y = y + 6
+    y = y + (small and 2 or 6)
   end
   local h = H[sel]
-  local x0 = 150
+  local x0 = small and 120 or 150
+  local yy = small and 18 or 28
   font("8x16")
-  print(h.name:upper(), x0, 28, h.rgb)
+  uprint(h.name:upper(), x0, yy, h.rgb)
   font("6x12")
-  print(ROLE_NAME[h.role], x0 + #h.name * 8 + 8, 32, 0x7A8290)
+  uprint(ROLE_NAME[h.role], x0 + #h.name * 8 + 8, yy + 4, 0x7A8290)
   -- the line about the hero, cut at the words
-  local line, yy = "", 52
-  local cols = (SW - x0 - 10) // 6
+  local line = ""
+  yy = yy + (small and 20 or 24)
+  local cols = (LW - x0 - 10) // 6
   for w in h.desc:gmatch("%S+") do
-    if #line + #w + 1 > cols then print(line, x0, yy, 0xB8BEC8) yy, line = yy + 13, "" end
+    if #line + #w + 1 > cols then uprint(line, x0, yy, 0xB8BEC8) yy, line = yy + (small and 12 or 13), "" end
     line = line == "" and w or line .. " " .. w
   end
-  print(line, x0, yy, 0xB8BEC8)
-  yy = yy + 24
+  uprint(line, x0, yy, 0xB8BEC8)
+  yy = yy + (small and 16 or 24)
   for _, ab in ipairs(h.hud) do
     if ab.name then
       local key = Hud.key(ab.key)
-      local x = key and prompt(key, x0, yy, true) or x0
-      print(ab.name, max(x + 4, x0 + 30), yy, 0xD8DCE2)
-      yy = yy + 17
+      local x = key and uprompt(key, x0, yy, true) or x0
+      uprint(ab.name, max(x + 4, x0 + 30), yy, 0xD8DCE2)
+      yy = yy + (small and 14 or 17)
     end
   end
   local ok, un = pcall(h.ult_name, FAKE)
   if ok and un then
-    local x = prompt(Hud.key("ult"), x0, yy, true)
-    print(un, max(x + 4, x0 + 30), yy, 0xFFE070)
+    local x = uprompt(Hud.key("ult"), x0, yy, true)
+    uprint(un, max(x + 4, x0 + 30), yy, 0xFFE070)
   end
   -- the team
-  print("YOUR TEAM", x0, SH - 58, 0x7A8290)
-  local x = x0
-  for _, a in ipairs(G.actors) do
-    if a.team == G.local_actor.team then
-      local nm = a == G.local_actor and h.short or a.hero.short
-      print(nm, x, SH - 42, a == G.local_actor and 0xFFE070 or a.hero.rgb)
-      x = x + 36
+  if not small then
+    uprint("YOUR TEAM", x0, LH - 58, 0x7A8290)
+    local x = x0
+    for _, a in ipairs(G.actors) do
+      if a.team == G.local_actor.team then
+        local nm = a == G.local_actor and h.short or a.hero.short
+        uprint(nm, x, LH - 42, a == G.local_actor and 0xFFE070 or a.hero.rgb)
+        x = x + 36
+      end
     end
   end
-  local px = prompt(Input.cmd.pad and "UPDOWN" or "up", 10, SH - 17, true)
-  print("HERO", px + 3, SH - 17, 0x7A8290)
-  px = prompt(Input.cmd.pad and "A" or "space", px + 36, SH - 17, true)
-  print("PLAY", px + 3, SH - 17, 0x7A8290)
+  local px = uprompt(Input.cmd.pad and "UPDOWN" or "up", 10, LH - 17, true)
+  uprint("HERO", px + 3, LH - 17, 0x7A8290)
+  px = uprompt(Input.cmd.pad and "A" or "space", px + 36, LH - 17, true)
+  uprint("PLAY", px + 3, LH - 17, 0x7A8290)
   font()
 end
 
@@ -641,8 +647,8 @@ function Match.draw()
   hud_top()
   if (in_spawn(me) or not me.alive) and M.phase ~= "match_end" then
     font("6x12")
-    local x = prompt(Input.cmd.pad and "DOWN" or "h", 8, 42, true)
-    print("CHANGE HERO", x + 3, 42, 0xD8DCE2)
+    local x = uprompt(Input.cmd.pad and "DOWN" or "h", 8, 42, true)
+    uprint("CHANGE HERO", x + 3, 42, 0xD8DCE2)
     font()
   end
   if M.net then
@@ -652,15 +658,17 @@ function Match.draw()
     elseif Net.desync then s = "OUT OF SYNC (frame " .. Net.desync .. ")"
     elseif M.waiting then s = "WAITING FOR THE OTHERS..." end
     if s then
-      rectfill(SW // 2 - #s * 3 - 3, 58, #s * 6 + 6, 13, INK)
-      print(s, SW // 2 - #s * 3, 59, 0xFF8060)
+      urectfill(LW // 2 - #s * 3 - 3, 58, #s * 6 + 6, 13, INK)
+      uprint(s, LW // 2 - #s * 3, 59, 0xFF8060)
     end
     font()
   end
   if M.phase == "round_end" then
-    big_text(M.round_winner == me.team and "ROUND WON" or "ROUND LOST", M.round_winner == me.team and 0x46B4FF or 0xFF4646, 90)
+    big_text(M.round_winner == me.team and "ROUND WON" or "ROUND LOST", M.round_winner == me.team and 0x46B4FF or 0xFF4646,
+      LH // 3)
   elseif M.phase == "match_end" then
-    big_text(M.round_winner == me.team and "VICTORY" or "DEFEAT", M.round_winner == me.team and 0xFFE070 or 0xFF4646, 48)
+    big_text(M.round_winner == me.team and "VICTORY" or "DEFEAT", M.round_winner == me.team and 0xFFE070 or 0xFF4646,
+      LH < 270 and 18 or 48)
     if M.t > 2 then scoreboard() end
   end
 end

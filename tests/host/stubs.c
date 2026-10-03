@@ -401,10 +401,16 @@ int fb_init_depth(framebuffer_t *fb, uint32_t width, uint32_t height, uint32_t b
     fb->buffers = buffers;
     fb->size = fb->pitch * height;
 #ifdef BMHOST_GPU
-    /* the pages where the emulated V3D reaches them (its arena) */
-    pages = test_aligned_alloc(4096, (size_t)buffers * fb->size);
+    /* the pages where the emulated V3D reaches them (its arena, which
+     * gives nothing back: the largest so far is used again, screen()) */
+    static size_t have;
+    const size_t need = (size_t)buffers * fb->size;
+    if (need > have) {
+        pages = test_aligned_alloc(4096, need);
+        have = pages ? need : 0;
+    }
     if (pages) {
-        memset(pages, 0, (size_t)buffers * fb->size);
+        memset(pages, 0, need);
         fb->bus = v3d_bus(pages);
     }
 #else
@@ -458,8 +464,10 @@ int gpu3d_ready(void) { return 0; }
 int gpu3d_failed(void) { return 0; }
 const r3d_backend_t *gpu3d_backend(void) { return NULL; }
 void gpu3d_set_fb(const void *mem, uint32_t size, uint32_t bus) { (void)mem; (void)size; (void)bus; }
+void gpu3d_set_size(int w, int h) { (void)w; (void)h; }
 int gpu3d_pending(void) { return 0; }
 void gpu3d_page(int uniform, uint16_t c) { (void)uniform; (void)c; }
+int gpu3d_cleared(void) { return 0; }
 void gpu3d_drop(void) { }
 int gpu3d_flush(const g16_t *g, int keep) { (void)g; (void)keep; return 0; }
 void gpu3d_set_msaa(int on) { (void)on; }

@@ -14,8 +14,8 @@
  * and 1.0 no longer run: the 3D Bench shows the numbers measured on the Pi
  * with them.
  */
-#define BM3D_VERSION "4.1"
-#define BM3D_BLOCK   "M35"
+#define BM3D_VERSION "4.2"
+#define BM3D_BLOCK   "M38"
 
 typedef struct {
     const char *version, *block, *date, *what;
@@ -37,6 +37,7 @@ static inline const bm3d_version_t *bm3d_versions(int *n)
         { "3.4", "M36", "2026-10-03", "skins on the vertex shader: faces on two bones (the Meshy heroes)" },
         { "4.0", "M35", "2026-10-03", "the frame in the queue: the GPU draws while the game's next update runs" },
         { "4.1", "M35", "2026-10-03", "2D after 3D recorded while the GPU draws, zclear() inside the job" },
+        { "4.2", "M38", "2026-10-04", "screens up to 1920x1080 (screen()), cls() cleared by the GPU's job" },
     };
     *n = (int)(sizeof v / sizeof v[0]);
     return v;

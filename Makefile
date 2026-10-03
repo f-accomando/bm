@@ -293,6 +293,13 @@ $(BUILD)/overbit/range-%.bm: $(OVERBIT_SRC) carts/overbit/build.py $(BUILD)/over
 	$(PYTHON) scripts/mkbm.py -o $@ --lua $(BUILD)/overbit/range-$*.lua --title "Overbit $*" --author bm --res $(OVERBIT_RES) \
 	    --models $(BUILD)/overbit/models.bm --audio $(BUILD)/overbit/sounds.json
 
+# the range at 1920x1080 (tests: the GPU's emulator)
+$(BUILD)/overbit/range-1080.bm: $(OVERBIT_SRC) carts/overbit/build.py $(BUILD)/overbit/models.bm $(BUILD)/overbit/sounds.json
+	$(PYTHON) carts/overbit/build.py $(BUILD)/overbit/range-1080.lua --start range --extra $(BUILD)/overbit/21_map.lua \
+	    --define 'OVERBIT_RES="1920x1080"'
+	$(PYTHON) scripts/mkbm.py -o $@ --lua $(BUILD)/overbit/range-1080.lua --title "Overbit 1080" --author bm \
+	    --res $(OVERBIT_RES) --models $(BUILD)/overbit/models.bm --audio $(BUILD)/overbit/sounds.json
+
 # a whole match in a minute (tests): the point opens at once, quick rounds
 $(BUILD)/overbit/match-fast.bm: $(OVERBIT_SRC) carts/overbit/build.py $(BUILD)/overbit/models.bm $(BUILD)/overbit/sounds.json
 	$(PYTHON) carts/overbit/build.py $(BUILD)/overbit/match-fast.lua --start match --extra $(BUILD)/overbit/21_map.lua \
@@ -321,6 +328,7 @@ $(BUILD)/overbit/net-relay.bm: $(OVERBIT_SRC) carts/overbit/build.py $(BUILD)/ov
 test-overbit: $(BUILD)/host/bmhost-bin $(BUILD)/host/bmhost-gpu $(BUILD)/carts/overbit.bm $(BUILD)/overbit/reel.bm \
               $(BUILD)/overbit/bench.bm $(BUILD)/overbit/bench-fast.bm \
               $(BUILD)/overbit/match-fast.bm $(BUILD)/overbit/net-test.bm $(BUILD)/overbit/net-relay.bm \
+              $(BUILD)/overbit/range-1080.bm \
               $(foreach h,$(OVERBIT_HEROES),$(BUILD)/overbit/range-$(h).bm)
 	$(PYTHON) tests/overbit/run.py $(BUILD)
 

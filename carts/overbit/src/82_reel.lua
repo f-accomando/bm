@@ -477,17 +477,17 @@ function Reel.draw()
   local x = floor(-200 + 208 * k)
   font("8x16")
   local w = #s.cap * 8
-  rectfill(x - 4, SH - 46, w + 12, 18, H[s.hero].rgb == 0xF26A21 and 0xF26A21 or Fx.fade(H[s.hero].rgb, 0.8))
-  print(s.cap, x + 2, SH - 45, 0xFFFFFF)
+  urectfill(x - 4, LH - 46, w + 12, 18, H[s.hero].rgb == 0xF26A21 and 0xF26A21 or Fx.fade(H[s.hero].rgb, 0.8))
+  uprint(s.cap, x + 2, LH - 45, 0xFFFFFF)
   if s.sub ~= "" then
     font("6x12")
-    rectfill(x - 4, SH - 27, #s.sub * 6 + 10, 14, 0x101418)
-    print(s.sub, x + 1, SH - 26, 0xE8ECF0)
+    urectfill(x - 4, LH - 27, #s.sub * 6 + 10, 14, 0x101418)
+    uprint(s.sub, x + 1, LH - 26, 0xE8ECF0)
   end
   font("6x12")
-  print("OVERBIT  ANIMATION REEL", 6, 4, 0xFFFFFF)
+  uprint("OVERBIT  ANIMATION REEL", 6, 4, 0xFFFFFF)
   local n = string.format("%d/%d", Reel.i, #SHOTS)
-  print(n, SW - 6 - #n * 6, 4, 0xFFE070)
+  uprint(n, LW - 6 - #n * 6, 4, 0xFFE070)
   font()
 end
 

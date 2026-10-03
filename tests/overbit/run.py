@@ -8,6 +8,7 @@ the benchmark, each checked in the game's log.
 """
 import os
 import re
+import shutil
 import subprocess
 import sys
 
@@ -24,12 +25,12 @@ def keys(*names):
     return " ".join(hex(K[n]) for n in names) if names else "none"
 
 
-def run(build, cart, seconds, script, name, host="bmhost-bin"):
+def run(build, cart, seconds, script, name, host="bmhost-bin", extra=()):
     path = os.path.join(build, "overbit", f"test-{name}.txt")
     with open(path, "w") as f:
         f.write(script)
     r = subprocess.run([os.path.join(build, "host", host), cart, "--seconds", str(seconds),
-                        "--input", path], capture_output=True, text=True)
+                        "--input", path] + list(extra), capture_output=True, text=True)
     log = r.stdout + r.stderr
     return r.returncode, log
 
@@ -154,6 +155,32 @@ def main():
     check("overbit match start: rally" in log, "match: starts with Rally", log)
     check("overbit hero You kaiju" in log, "match: Kaiju chosen in the spawn room", log)
     check("overbit point open" in log, "match: the point opens", log)
+
+    # the resolution (screen()): RESOLUTION in the menu with the arrows (on
+    # the GPU's emulator: up to 1920x1080), saved on the SD card and set
+    # again at the next start; the range at 960x540 (the HUD at 2x)
+    sd = os.path.join(build, "overbit", "test-res-sd")
+    shutil.rmtree(sd, ignore_errors=True)
+    os.makedirs(sd)
+    lines, f = [], 30
+    for k in ["DOWN"] * 8 + ["RIGHT", "RIGHT"] + ["UP"] * 6 + ["SPACE"]:
+        lines += [f"{f} keys {keys(k)}", f"{f + 2} keys none"]
+        f += 24
+    code, log = run(build, cart, 9, "\n".join(lines) + "\n", "res-menu", "bmhost-gpu", ["--sd", sd])
+    check(code == 0 and "stopped with an error" not in log, "resolution: no Lua error", log)
+    check("bm: screen 640x360" in log and "bm: screen 960x540" in log, "resolution: 640x360, then 960x540 from the menu",
+          log)
+    code, log = run(build, cart, 1, "", "res-again", "bmhost-gpu", ["--sd", sd])
+    check("overbit resolution 960x540" in log and "bm: screen 960x540" in log, "resolution: saved, set again at the start",
+          log)
+    code, log = run(build, cart, 1, "", "res-arm", "bmhost-bin", ["--sd", sd])
+    check("overbit resolution" not in log and "bm: screen" not in log,
+          "resolution: 960x540 not set when the ARM draws (up to 640x360)", log)
+    code, log = run(build, os.path.join(build, "overbit", "range-1080.bm"), 3,
+                    f"30 keys {keys('J')}\n150 keys none\n", "range-1080", "bmhost-gpu")
+    check(code == 0 and "stopped with an error" not in log and "bm: screen 1920x1080" in log,
+          "resolution: the range at 1920x1080 on the GPU", log)
+    check("the 3D is drawn by the ARM from here" not in log, "resolution: 1920x1080 without falling back to the ARM", log)
 
     # a whole match with quick rules: the bots fight over the point until a
     # team wins two rounds

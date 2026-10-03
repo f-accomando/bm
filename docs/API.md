@@ -72,7 +72,8 @@ Se c'è un errore Lua, la cartuccia si ferma e l'errore, con la riga, appare sul
 | `_draw()` | ogni fotogramma, dopo `_update` |
 
 Globali: `SCREEN_W` e `SCREEN_H` (640 e 360; 480 e 270 con `--res 480x270`; 320 e 180 con
-`--res 320x180`; 256 e 256 con `--res 256x256`).
+`--res 320x180`; 256 e 256 con `--res 256x256`). La cartuccia può cambiare risoluzione
+mentre gira con `screen(w, h)` (sotto): dal fotogramma dopo valgono le misure nuove.
 Lo schermo **non** viene cancellato da solo: di solito `_draw` comincia con `cls()`.
 
 Limiti: un errore o un ciclo infinito (oltre **20 milioni di istruzioni** Lua in un
@@ -95,7 +96,8 @@ Le coordinate sono in pixel, (0,0) in alto a sinistra; `w` e `h` sono larghezza 
 
 | Funzione | Descrizione |
 |---|---|
-| `cls([c])` | riempie lo schermo (nero se `c` manca) |
+| `cls([c])` | riempie lo schermo (nero se `c` manca). Con il 3D sulla GPU non lo riempie l'ARM: il lavoro della GPU pulisce la pagina a quel colore (gratis anche a 1080p); se prima del 3D arriva del 2D lo riempie l'ARM come sempre |
+| `screen(w, h)` | la risoluzione della cartuccia da qui al prossimo fotogramma: `true`, oppure `false` se non è una di queste (16:9): 320×180, 384×216, 480×270, 640×360, 960×540, 1280×720, 1920×1080 (su un TV 1080p tutte a pixel interi tranne 1280×720). `SCREEN_W` e `SCREEN_H` cambiano quando è fatto; lo z-buffer, la camera 3D e i buffer della luce seguono, il font e `camera()` restano, `clip()` torna a tutto lo schermo. Se la console non riesce a dargliela resta quella di prima. `screen()` → larghezza e altezza di adesso; `screen(i)` → la i-esima della lista (da 1), o `nil`. Una cartuccia 256×256 tiene il suo schermo. Il rasterizzatore dell'ARM paga ogni pixel: sopra 640×360 serve la GPU |
 | `pset(x, y, c)` / `pget(x, y)` | scrive / legge un pixel (`pget` dà `0xRRGGBB` o `nil` fuori schermo) |
 | `line(x0, y0, x1, y1, c)` | linea |
 | `rect(x, y, w, h, c)` / `rectfill(x, y, w, h, c)` | rettangolo vuoto / pieno |
@@ -103,7 +105,7 @@ Le coordinate sono in pixel, (0,0) in alto a sinistra; `w` e `h` sono larghezza 
 | `tri(x0, y0, x1, y1, x2, y2, c, [c1, c2])` | triangolo pieno; con tre colori (uno per vertice) il colore sfuma da un angolo all'altro (Gouraud, con dithering) |
 | `print(testo, x, y, [c, scala])` | testo con il font 8×16 (bianco se `c` manca), ingrandito `scala` volte (1–8: 2 = caratteri 16×32); restituisce la x dopo l'ultimo carattere |
 | `font([nome])` | il font di `print` da qui in poi: `"8x16"` (quello normale), `"8x14"` o `"6x12"` (106 colonne per 30 righe a 640×360: per gli strumenti con tanto testo); restituisce larghezza e altezza di un carattere del font corrente |
-| `prompt(nome, x, y, [piccolo])` | un tasto disegnato come un chip colorato (il set delle app, `src/kernel/prompts.c`) con l'angolo in alto a sinistra in (x, y): alto 16 pixel accanto al testo 8×16, 12 con `piccolo` (da solo quando il font è `"6x12"`); restituisce la x dopo il chip. In **maiuscolo** i pulsanti del pad (`"A"`, `"B"`, `"X"`, `"Y"`, `"START"`, `"SELECT"`, `"L1"`…`"R3"`, `"UP"`, `"UPDOWN"`, `"LEFTRIGHT"`, `"DPAD"`, `"LSTICK"`, `"PS"`, `"TOUCHPAD"`), disegnati come sul pad usato per ultimo: un DS4 (croce, cerchio, quadrato, triangolo, OPTIONS, SHARE) finché non se ne usa un altro, che li ha con le lettere. In **minuscolo** i tasti della tastiera, coi nomi di `keyp()` (`"enter"`, `"esc"`, `"tab"`, `"space"`, `"up"`, `"f1"`…) o un carattere (`"s"`, `"1"`, `"+"`). `prompt(nome, [piccolo])` senza coordinate non disegna: restituisce larghezza e altezza |
+| `prompt(nome, x, y, [piccolo, scala])` | un tasto disegnato come un chip colorato (il set delle app, `src/kernel/prompts.c`) con l'angolo in alto a sinistra in (x, y): alto 16 pixel accanto al testo 8×16, 12 con `piccolo` (da solo quando il font è `"6x12"`), ingrandito `scala` volte (1–8, come `print`); restituisce la x dopo il chip. In **maiuscolo** i pulsanti del pad (`"A"`, `"B"`, `"X"`, `"Y"`, `"START"`, `"SELECT"`, `"L1"`…`"R3"`, `"UP"`, `"UPDOWN"`, `"LEFTRIGHT"`, `"DPAD"`, `"LSTICK"`, `"PS"`, `"TOUCHPAD"`), disegnati come sul pad usato per ultimo: un DS4 (croce, cerchio, quadrato, triangolo, OPTIONS, SHARE) finché non se ne usa un altro, che li ha con le lettere. In **minuscolo** i tasti della tastiera, coi nomi di `keyp()` (`"enter"`, `"esc"`, `"tab"`, `"space"`, `"up"`, `"f1"`…) o un carattere (`"s"`, `"1"`, `"+"`). `prompt(nome, [piccolo, scala])` senza coordinate non disegna: restituisce larghezza e altezza |
 | `camera([x, y])` | sposta tutto il disegno di (−x, −y); senza argomenti la azzera |
 | `clip([x, y, w, h])` | limita il disegno al rettangolo; senza argomenti tutto lo schermo |
 

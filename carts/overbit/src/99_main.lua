@@ -14,6 +14,11 @@ end
 function _update()
   G.frame = G.frame + 1
   G.gpu = stat(9) == 1          -- the GPU draws the 3D: some things cost less (40_actor)
+  if SCREEN_W ~= SW or SCREEN_H ~= SH then screen_size() end      -- screen() took effect
+  if G.frame == 2 then Modes.saved_res() end     -- (the GPU has started by now: stat(9))
+  -- the ARM draws (3D in the menu, or the GPU stopped): not above 640x360,
+  -- its pixels cost it (the choice saved stays for the GPU)
+  if not G.gpu and SW * SH > 640 * 360 and screen(640, 360) then log("overbit resolution 640x360 (the ARM draws)") end
   Input.read()
   Dev.update()
   if Input.cmd.dev_p or Input.cmd.f1_p then G.dev = not G.dev end
@@ -33,6 +38,7 @@ end
 
 function _draw()
   if OVERBIT_HEADLESS then return end           -- the trainer's matches: nothing to see
+  if SCREEN_W ~= SW or SCREEN_H ~= SH then screen_size() end      -- (the frame queue ran _update before)
   Modes.draw()
   if G.dev then Dev.draw() end
 end
