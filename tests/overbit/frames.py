@@ -98,8 +98,9 @@ def build_host(root, gpu, out):
        + objs + extra + ["-lm"], cwd=root, stderr=subprocess.DEVNULL)
 
 
-def table(binary, path):
-    """every instruction of the binary: address, width, cycles"""
+def table(binary, path, marker="host_frame"):
+    """every instruction of the binary: address, width, cycles; the address
+    of the marker (0 for none)"""
     dis = subprocess.run(["arm-linux-gnueabihf-objdump", "-d", binary], capture_output=True, text=True).stdout
     re_d = re.compile(r"^\s*([0-9a-f]+):\s+([0-9a-f]{4,8}(?: [0-9a-f]{4})?)\s+(\S+)")
     with open(path, "w") as f:
@@ -109,12 +110,24 @@ def table(binary, path):
                 raw = m.group(2)
                 w = 4 if len(raw.replace(" ", "")) == 8 else 2
                 f.write(f"{m.group(1)} {w} {cost(m.group(3))}\n")
+    if not marker:
+        return 0
     nm = subprocess.run(["arm-linux-gnueabihf-nm", binary], capture_output=True, text=True).stdout
     for line in nm.splitlines():
         p = line.split()
-        if len(p) == 3 and p[2] == "host_frame":
+        if len(p) == 3 and p[2] == marker:
             return int(p[0], 16)
-    sys.exit("frames: no host_frame")
+    sys.exit(f"frames: no {marker}")
+
+
+def framecount():
+    """tests/overbit/framecount.c, built when it changes"""
+    fc = os.path.join(OUT, "framecount")
+    src = os.path.join(TOP, "tests/overbit/framecount.c")
+    if not os.path.exists(fc) or os.path.getmtime(fc) < os.path.getmtime(src):
+        os.makedirs(OUT, exist_ok=True)
+        sh(["cc", "-O2", "-o", fc, src])
+    return fc
 
 
 def cart(cfg, shim, headless, secs):
@@ -173,10 +186,7 @@ def count(binary, bm, csv_path, gpu):
     """the CSV of the frames, and the hot blocks in csv_path + ".blocks\""""
     tbl = csv_path + ".tbl"
     marker = table(binary, tbl)
-    fc = os.path.join(OUT, "framecount")
-    src = os.path.join(TOP, "tests/overbit/framecount.c")
-    if not os.path.exists(fc) or os.path.getmtime(fc) < os.path.getmtime(src):
-        sh(["cc", "-O2", "-o", fc, src])
+    fc = framecount()
     tmp = tempfile.mkdtemp(prefix="frames-", dir=OUT)
     fifo = os.path.join(tmp, "log")
     os.mkfifo(fifo)

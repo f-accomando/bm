@@ -181,6 +181,12 @@ triangolo senza chiamate in mezzo e il colore in 0..1 calcolato una volta per fa
 
 ## 9. Da misurare alla prossima prova
 
+- Overbit con la GPU (`docs/LIMITI.md`): le tre pagine di *Overbit > BENCHMARK* (ms
+  veri di ARM, GPU e GPU+AA a ogni qualità e l'anello di eroi) da confrontare con le
+  stime contate con `qemu-arm` (HIGH: ~28 ms con la GPU contro ~34 sull'ARM nello
+  scontro di 10 bot). Le righe *GPU spheres* dello stress test dopo il driver del
+  2026-10-03 (907 istruzioni per triangolo contro 913: poco cambia) e le righe AA.
+
 - M33: stress `s` con le righe `quad 320x180` (ns per pixel) e le due righe della
   macchina (clock del core, interrupt); Texture Room con 8 e 32 casse dopo il
   rasterizzatore nuovo.
