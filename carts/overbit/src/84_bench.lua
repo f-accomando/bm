@@ -20,9 +20,14 @@ local RING_Q = 3
 -- (OVERBIT_BENCH_FAST, set after the code: read at the start)
 local WARM, MEASURE, QUALITIES, RING, RING_LEN
 
+-- For counting instructions on the PC (tests/overbit/frames.py): only one
+-- phase (OVERBIT_BENCH_ONE = "gpu:2"), the fight at once (OVERBIT_BENCH_HOT:
+-- the two teams face to face at the point, no warming up), and a stop after
+-- this many seconds of the measure (OVERBIT_BENCH_STOP).
 local function config()
   local fast = OVERBIT_BENCH_FAST
   WARM, MEASURE = fast and 8 or 24, fast and 2 or 8
+  if OVERBIT_BENCH_HOT then WARM, MEASURE = 0, 4 end
   QUALITIES = fast and { 2 } or { 1, 2, 3, 4 }
   RING = fast and { 1, 4, 8 } or { 1, 2, 3, 4, 5, 6, 8, 10, 12, 14, 16, 20, 24, 28, 32 }
   RING_LEN = fast and 1 or 3
@@ -60,6 +65,11 @@ function Bench.start()
     for _, q in ipairs(QUALITIES) do Bench.phases[#Bench.phases + 1] = { kind = "match", r = r, q = q } end
   end
   for _, r in ipairs(list) do Bench.phases[#Bench.phases + 1] = { kind = "ring", r = r, q = RING_Q } end
+  if OVERBIT_BENCH_ONE then
+    local r, q = OVERBIT_BENCH_ONE:match("(%a+):(%d)")
+    Bench.renderers = { r }
+    Bench.phases = { { kind = "match", r = r, q = tonumber(q) } }
+  end
   Bench.rows, Bench.rings = {}, {}
   Bench.i, Bench.done, Bench.page = 0, false, 1
   G.qauto = false
@@ -95,6 +105,15 @@ function Bench.next()
     grandom_seed(SEED)
     Match.bench = true
     Match.start()
+    if OVERBIT_BENCH_HOT then
+      -- the two teams already face to face at the point
+      local P = World.mark("point")
+      for i, a in ipairs(G.actors) do
+        a.x, a.z = P.x + (a.team == 1 and -7 or 7), P.z + (i % 5 - 2) * 2.5
+        a.yaw = a.team == 1 and pi / 2 or -pi / 2
+      end
+      Match.state.phase, Match.state.t = "play", 0
+    end
     Bench.warm = WARM * 60
     Bench.who = nil
   else
@@ -230,6 +249,11 @@ function Bench.update()
     sample()
     Bench.t = Bench.t + DT
     Match.step()
+    if OVERBIT_BENCH_STOP and Bench.t >= OVERBIT_BENCH_STOP - 1e-6 then
+      log(string.format("overbit bench stop %.2f frame %d", Bench.t, Match.state.frame))
+      quit()
+      return
+    end
     if Bench.t >= SETTLE + MEASURE then match_done() end
   else
     sample()

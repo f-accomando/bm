@@ -342,6 +342,9 @@ int fb_init_depth(framebuffer_t *fb, uint32_t width, uint32_t height, uint32_t b
     fb->buffers = buffers;
     fb->size = fb->pitch * height;
 #ifdef BMHOST_GPU
+    /* counting the ARM's instructions (tests/overbit/frames.py): the
+     * emulated V3D takes the jobs and does not run them */
+    emu_skip = getenv("BMHOST_EMU_SKIP") != NULL;
     /* the pages where the emulated V3D reaches them (its arena) */
     pages = test_aligned_alloc(4096, (size_t)buffers * fb->size);
     if (pages) {
