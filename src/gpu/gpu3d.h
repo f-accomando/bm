@@ -67,11 +67,20 @@ int gpu3d_msaa_on(void);            /* asked for and possible (on any page) */
 void gpu3d_tiled_textures(int on);
 int gpu3d_tiles(void);
 
+/* M36: whole meshes placed by the GPU's vertex shader instead of a
+ * triangle at a time by r3d. gpu3d_vshader(): the probe drew with it (1)
+ * or not (0); gpu3d_set_vshader() asks for it (off until verified on the
+ * Pi), gpu3d_vshader_on() if asked and possible. */
+int gpu3d_vshader(void);
+void gpu3d_set_vshader(int on);
+int gpu3d_vshader_on(void);
+
 typedef struct {
     uint32_t jobs, tris, bin_us, render_us, max_us;
     uint32_t zjobs;                 /* jobs that loaded or stored the depth */
     uint32_t cleared;               /* jobs that cleared the page instead of loading it */
     uint32_t msjobs;                /* jobs with MSAA 4x */
+    uint32_t glmeshes;              /* meshes placed by the vertex shader (M36) */
 } gpu3d_stats_t;
 
 /* totals since the last call, then zeroed */

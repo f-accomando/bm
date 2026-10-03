@@ -1508,6 +1508,16 @@ void r3d_draw_flags(r3d_t *r, const r3d_mesh_t *m, v3_t p, float rx, float ry, f
                     F[b][k * 4 + j] = C[k * 3] * W[j] + C[k * 3 + 1] * W[4 + j] + C[k * 3 + 2] * W[8 + j];
         }
     }
+    /* M36: a mesh in view the GPU places itself (its vertex shader): the
+     * plain kinds the backend knows, for now flat colours without light */
+    if (fused && inside && unlit && r->backend->mesh && !skinned && !front && !fog && !m->clight) {
+        const r3d_proj_t pr = { v.f, v.hw, v.hh };
+        if (r->backend->mesh(r->backend->ctx, r->g, m, F[0], &pr, zbuf ? R3D_DEPTH_WRITE : R3D_DEPTH_NONE)) {
+            r->tris_in += (uint32_t)m->nfaces;
+            r->tris_drawn += (uint32_t)m->nfaces;   /* sent: the GPU throws the back faces away */
+            return;
+        }
+    }
     for (int i = 0; i < m->nverts; i++) {
         if (m->vlod && !(m->vlod[i] & dbit))
             continue;                       /* no face of this level of detail needs it */
@@ -2057,6 +2067,8 @@ void r3d_mesh_free(r3d_mesh_t *m)
 
 void r3d_mesh_normals(r3d_mesh_t *m)
 {
+    static uint32_t stamp;
+    m->version = ++stamp;          /* a new mesh for the backend's copies */
     float r2 = 0;
     for (int i = 0; i < m->nverts; i++) {
         v3_t v = m->verts[i];

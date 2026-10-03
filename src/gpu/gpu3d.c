@@ -14,14 +14,15 @@
 #define JOB_ZBUF     (1u << 20)     /* depth kept between jobs: 640x384, 32 bits */
 #define JOB_BCL      (256u << 10)
 #define JOB_RCL      (16u << 10)
-#define JOB_RECS     (16u << 10)    /* NV shader records, 16 bytes each */
-#define JOB_CODE     (6u << 10)     /* the shaders, 1 KiB each */
+#define JOB_RECS     (64u << 10)    /* shader records: NV 16 bytes, GL 64 */
+#define JOB_UNIF     (64u << 10)    /* uniforms of the vertex shaders */
+#define JOB_CODE     (8u << 10)     /* the shaders, 1 KiB each */
 #define JOB_VERTS    (4u << 20)
 #define PROBE_W      64
 #define PROBE_H      64
 #define JOB_PROBE    (PROBE_W * PROBE_H * 2)
 #define PROBE_TEX    (PROBE_W * PROBE_H * 4 + 4096)
-#define JOB_BLOCK    (JOB_TSDA + JOB_ALLOC + JOB_OVERFLOW + JOB_ZBUF + JOB_BCL + JOB_RCL + JOB_RECS + JOB_CODE + \
+#define JOB_BLOCK    (JOB_TSDA + JOB_ALLOC + JOB_OVERFLOW + JOB_ZBUF + JOB_BCL + JOB_RCL + JOB_RECS + JOB_UNIF + JOB_CODE + \
                       JOB_VERTS + JOB_PROBE + PROBE_TEX)
 
 #define TIMEOUT_US   200000
@@ -42,6 +43,8 @@ typedef struct {
 #define VMAX_BYTES ((uint32_t)JOB_VERTS - 21u * (uint32_t)VSTRIDE(8))   /* room for a clipped triangle */
 
 enum { SH_COLOUR, SH_TEX, SH_TEX_ALPHA, SH_SCREEN, SH_TEX_RGB, SH_TEX_RGB_ALPHA, SH_COUNT };
+#define CODE_VS 6                       /* the vertex and coordinate shaders' kilobytes of G.code */
+#define CODE_CS 7
 
 /* discard: the shader may write no pixel (early z off) */
 static const struct { const uint32_t *code; size_t size; uint8_t uniforms, varyings, discard; } shaders[SH_COUNT] = {
@@ -68,6 +71,20 @@ typedef struct {
 } tex_t;
 
 #define NTEX 2
+
+/* M36: a mesh whose vertices the V3D places. Its corners (3 a face) in
+ * memory the V3D reads, made again when the mesh changes (its version):
+ * x y z, the face's normal, its colour (0..1, in the order of the colour
+ * varyings). */
+#define NMESH 48
+#define CORNER 36                       /* bytes */
+typedef struct {
+    const r3d_mesh_t *m;
+    uint32_t version;
+    uint8_t *corners;                   /* NULL: not a mesh the GPU takes */
+    uint32_t n;                         /* corners */
+    uint32_t job, used;                 /* the job that drew it last; when, for the least recent */
+} gmesh_t;
 
 static struct {
     int ready, failed;
@@ -109,6 +126,13 @@ static struct {
     tex_t tex[NTEX];
     int tex_next;
     int tex_used[NTEX];             /* by the job being filled */
+    uint32_t *unif, *unif_next;     /* uniforms of the vertex shaders, the job's next */
+    uint32_t gldraws;               /* meshes the job draws with the vertex shader */
+    uint32_t job_no, tick;
+    gmesh_t gm[NMESH];
+    int gl_ok;                      /* the probe drew with the vertex shader */
+    int gl_cw;                      /* CONFIGURATION_BITS clockwise bit for r3d's front faces */
+    int gl_on;                      /* asked for (gpu3d_set_vshader) */
     gpu3d_stats_t st;
     r3d_backend_t backend;
 } G;
@@ -290,6 +314,9 @@ static void job_begin(int w, int h)
     G.clip[0] = G.clip[1] = G.clip[2] = G.clip[3] = -1;
     G.cfg = -1;
     G.vbytes = 0;
+    G.gldraws = 0;
+    G.job_no++;
+    G.unif_next = G.unif;
     G.rec_next = G.recs;
     G.w = w;
     G.h = h;
@@ -314,12 +341,9 @@ static void batch_close(void)
     G.b_len[3] = (uint8_t)(n >> 24);
 }
 
-/* 0, or -1 if the job is full */
-static int batch_open(const g16_t *g, int shader, int depth, const tex_t *t)
+/* the clip window of g, if not the one written last */
+static void clip_window(const g16_t *g)
 {
-    if (G.rec_next + 16 > G.recs + JOB_RECS || G.cl.p + 64 > G.cl.end)
-        return -1;
-    G.b_start = G.cl.p;
     if (G.clip[0] != g->cx0 || G.clip[1] != g->cy0 || G.clip[2] != g->cx1 || G.clip[3] != g->cy1) {
         v3d_cl_u8(&G.cl, V3D_CLIP_WINDOW);
         v3d_cl_u16(&G.cl, (uint16_t)g->cx0);
@@ -328,6 +352,28 @@ static int batch_open(const g16_t *g, int shader, int depth, const tex_t *t)
         v3d_cl_u16(&G.cl, (uint16_t)(g->cy1 - g->cy0));
         G.clip[0] = g->cx0; G.clip[1] = g->cy0; G.clip[2] = g->cx1; G.clip[3] = g->cy1;
     }
+}
+
+/* CONFIGURATION_BITS (faces: which ones, MSAA added here; cfg: depth),
+ * if not the ones written last */
+static void config(int faces, uint16_t cfg)
+{
+    const int key = (faces | (G.ms ? V3D_CFG_MSAA4 : 0)) << 16 | cfg;
+    if (G.cfg != key) {
+        v3d_cl_u8(&G.cl, V3D_CONFIGURATION_BITS);
+        v3d_cl_u8(&G.cl, (uint8_t)(key >> 16));
+        v3d_cl_u16(&G.cl, cfg);
+        G.cfg = key;
+    }
+}
+
+/* 0, or -1 if the job is full */
+static int batch_open(const g16_t *g, int shader, int depth, const tex_t *t)
+{
+    if (G.rec_next + 16 > G.recs + JOB_RECS || G.cl.p + 64 > G.cl.end)
+        return -1;
+    G.b_start = G.cl.p;
+    clip_window(g);
     /* depth: nearer wins (less than, as the software's strict test), early
      * z except where pixels may be thrown away; NOZ: neither test nor
      * write; the effects and shadows: tested, not written */
@@ -335,13 +381,8 @@ static int batch_open(const g16_t *g, int shader, int depth, const tex_t *t)
                  : depth == R3D_DEPTH_TEST ? V3D_CFG_DEPTH(1)
                  : shaders[shader].discard ? V3D_CFG_DEPTH(1) | V3D_CFG_Z_UPDATE
                  : V3D_CFG_DEPTH(1) | V3D_CFG_Z_UPDATE | V3D_CFG_EARLY_Z | V3D_CFG_EARLY_Z_UPDATE;
-    if (G.cfg != cfg) {
-        v3d_cl_u8(&G.cl, V3D_CONFIGURATION_BITS);
-        /* r3d culled the back faces; MSAA: the rasteriser takes 4 samples */
-        v3d_cl_u8(&G.cl, (uint8_t)(V3D_CFG_FRONT | V3D_CFG_BACK | (G.ms ? V3D_CFG_MSAA4 : 0)));
-        v3d_cl_u16(&G.cl, cfg);
-        G.cfg = cfg;
-    }
+    /* r3d culled the back faces; MSAA: the rasteriser takes 4 samples */
+    config(V3D_CFG_FRONT | V3D_CFG_BACK, cfg);
     /* NV shader record: flags, vertex stride, uniforms, varyings, code,
      * uniforms, vertices (those of this batch) */
     uint8_t *r = G.rec_next;
@@ -482,10 +523,9 @@ static inline int batch_takes(const g16_t *g, int shader, int depth, const tex_t
 
 /* a job and a batch open for this state, with room: 0, or -1 if the GPU
  * failed */
-static int batch_for(const g16_t *g, int shader, int depth, const tex_t *t)
+/* a job open for g */
+static void job_for(const g16_t *g)
 {
-    if (G.failed)
-        return -1;
     if (G.open && (g->w != G.w || g->h != G.h)) {
         batch_close();                  /* another screen size: the old job is dropped */
         G.open = 0;
@@ -500,6 +540,13 @@ static int batch_for(const g16_t *g, int shader, int depth, const tex_t *t)
         }
         job_begin(g->w, g->h);
     }
+}
+
+static int batch_for(const g16_t *g, int shader, int depth, const tex_t *t)
+{
+    if (G.failed)
+        return -1;
+    job_for(g);
     if (G.vbytes > VMAX_BYTES) {        /* a clipped triangle is up to 7 corners */
         flush_job(g, 1);                /* the next job goes on with this depth */
         if (G.failed)
@@ -608,9 +655,142 @@ static void cb_zclear(void *ctx, const g16_t *g)
     /* what is drawn next must not see the depth of what was drawn so far:
      * that goes to the screen now, and the next job starts with a clear
      * depth buffer */
-    if (G.open && G.vbytes)
+    if (G.open && (G.vbytes || G.gldraws))
         gpu3d_flush(g, 0);
     G.z_saved = G.split = 0;
+}
+
+/* ---------------------------------------------------------------- meshes (M36) */
+
+/* the corners of a mesh the GPU takes (faces of one plain colour: no
+ * texture, material or level of detail; no skeleton or baked light), or
+ * NULL */
+static uint8_t *mesh_corners(const r3d_mesh_t *m)
+{
+    if (m->bones || m->clight || m->nfaces <= 0 || m->nfaces > 65535 / 3)
+        return NULL;
+    for (int f = 0; f < m->nfaces; f++)
+        if (m->colors[f] & 0xFF000000u)     /* textured, a material, a level of detail */
+            return NULL;
+    uint8_t *b = aligned_alloc(16, ((size_t)m->nfaces * 3 * CORNER + 15) & ~(size_t)15);
+    if (!b)
+        return NULL;
+    float *o = (float *)b;
+    for (int f = 0; f < m->nfaces; f++) {
+        const uint32_t c = m->colors[f];
+        float col[3];
+        col[G.ia] = (float)(c >> 16 & 255) * (1.0f / 255.0f);   /* red where the probe found it */
+        col[1] = (float)(c >> 8 & 255) * (1.0f / 255.0f);
+        col[2 - G.ia] = (float)(c & 255) * (1.0f / 255.0f);
+        for (int k = 0; k < 3; k++, o += CORNER / 4) {
+            const v3_t v = m->verts[m->faces[f * 3 + k]], n = m->normals[f];
+            o[0] = v.x; o[1] = v.y; o[2] = v.z;
+            o[3] = n.x; o[4] = n.y; o[5] = n.z;
+            o[6] = col[0]; o[7] = col[1]; o[8] = col[2];
+        }
+    }
+    return b;
+}
+
+/* the cached corners of m (made again if it changed), or NULL; a slot the
+ * waiting job still reads is drawn first */
+static gmesh_t *mesh_get(const g16_t *g, const r3d_mesh_t *m)
+{
+    gmesh_t *e = NULL, *old = &G.gm[0];
+    for (int i = 0; i < NMESH; i++) {
+        if (G.gm[i].m == m) {
+            e = &G.gm[i];
+            break;
+        }
+        if (G.gm[i].used < old->used)
+            old = &G.gm[i];
+    }
+    if (e && e->version == m->version) {
+        e->used = ++G.tick;
+        return e->corners ? e : NULL;
+    }
+    if (!e)
+        e = old;
+    if (e->corners && e->job == G.job_no && G.open && flush_job(g, 1) != 0)
+        return NULL;
+    free(e->corners);
+    e->m = m;
+    e->version = m->version;
+    e->corners = mesh_corners(m);
+    e->n = e->corners ? (uint32_t)m->nfaces * 3 : 0;
+    e->used = ++G.tick;
+    return e->corners ? e : NULL;
+}
+
+/* a GL batch: the V3D reads the corners of e, its vertex shader places
+ * them with matrix M, the binner throws the back faces away */
+static int gl_draw(const g16_t *g, gmesh_t *e, const float M[12], const r3d_proj_t *pr, int depth)
+{
+    if (G.failed)
+        return -1;
+    job_for(g);
+    batch_close();
+    if (G.rec_next + 64 > G.recs + JOB_RECS || G.cl.p + 96 > G.cl.end || G.unif_next + 20 > G.unif + JOB_UNIF / 4) {
+        if (flush_job(g, 1) != 0)
+            return -1;
+        job_begin(g->w, g->h);
+    }
+    clip_window(g);
+    const uint16_t cfg = depth == R3D_DEPTH_NONE ? V3D_CFG_DEPTH(7)
+                       : depth == R3D_DEPTH_TEST ? V3D_CFG_DEPTH(1)
+                       : V3D_CFG_DEPTH(1) | V3D_CFG_Z_UPDATE | V3D_CFG_EARLY_Z | V3D_CFG_EARLY_Z_UPDATE;
+    config(V3D_CFG_FRONT | (G.gl_cw ? V3D_CFG_CW : 0), cfg);
+    /* uniforms, in the order the shaders read them (tools/qpuasm.py):
+     * the matrix, f*16, the centre's x*16 (+ 0.5: the shader truncates),
+     * -f*16, the centre's y*16, -NEAR; the coordinate shader then f/(w/2)
+     * and f/(h/2) */
+    uint32_t *u = G.unif_next;
+    const float uf[19] = { M[0], M[1], M[2], M[3], M[4], M[5], M[6], M[7], M[8], M[9], M[10], M[11],
+                           pr->f * 16.0f, pr->cx * 16.0f + 0.5f, -pr->f * 16.0f, pr->cy * 16.0f + 0.5f, -R3D_NEAR,
+                           pr->f / (g->w * 0.5f), pr->f / (g->h * 0.5f) };
+    memcpy(u, uf, sizeof uf);
+    G.unif_next += 20;
+    /* GL shader record: flags (clipping off: r3d gives meshes inside the
+     * guard band), the fragment shader (3 varyings), the vertex shader (x
+     * y z and the colour: 6 words), the coordinate shader (x y z: 3), the
+     * two attributes (address, bytes - 1, stride, VPM rows of each shader) */
+    uint8_t *r = G.rec_next;
+    G.rec_next += 64;
+    memset(r, 0, 64);
+    uint32_t a;
+    r[3] = 3;
+    a = v3d_bus(G.code + 1024 * SH_COLOUR); memcpy(r + 4, &a, 4);
+    r[14] = 3; r[15] = 6;
+    a = v3d_bus(G.code + 1024 * CODE_VS); memcpy(r + 16, &a, 4);
+    a = v3d_bus(u); memcpy(r + 20, &a, 4);
+    r[26] = 1; r[27] = 3;
+    a = v3d_bus(G.code + 1024 * CODE_CS); memcpy(r + 28, &a, 4);
+    a = v3d_bus(u); memcpy(r + 32, &a, 4);
+    a = v3d_bus(e->corners); memcpy(r + 36, &a, 4);
+    r[40] = 11; r[41] = CORNER; r[42] = 0; r[43] = 0;
+    a = v3d_bus(e->corners + 24); memcpy(r + 44, &a, 4);
+    r[48] = 11; r[49] = CORNER; r[50] = 3; r[51] = 0;
+    v3d_cl_u8(&G.cl, V3D_GL_SHADER_STATE);
+    v3d_cl_u32(&G.cl, v3d_bus(r) | 2);
+    v3d_cl_u8(&G.cl, V3D_VERTEX_ARRAY_PRIMITIVES);
+    v3d_cl_u8(&G.cl, 4);
+    v3d_cl_u32(&G.cl, e->n);
+    v3d_cl_u32(&G.cl, 0);
+    e->job = G.job_no;
+    G.gldraws++;
+    G.st.tris += e->n / 3;
+    G.st.glmeshes++;
+    return 0;
+}
+
+static int cb_mesh(void *ctx, const g16_t *g, const r3d_mesh_t *m, const float M[12], const r3d_proj_t *pr,
+                   int depth)
+{
+    (void)ctx;
+    if (!G.gl_ok || !G.gl_on || G.failed)
+        return 0;
+    gmesh_t *e = mesh_get(g, m);
+    return e && gl_draw(g, e, M, pr, depth) == 0;
 }
 
 /* ---------------------------------------------------------------- run */
@@ -708,7 +888,7 @@ static int run(int bin, uint32_t rcl_end)
 
 int gpu3d_pending(void)
 {
-    return G.open && (G.vbytes || G.b_open);
+    return G.open && (G.vbytes || G.b_open || G.gldraws);
 }
 
 void gpu3d_drop(void)
@@ -739,6 +919,21 @@ void gpu3d_tiled_textures(int on)
     G.tformat_off = !on;
     for (int i = 0; i < NTEX; i++)
         G.tex[i].sheet = NULL;          /* made again in the other layout */
+}
+
+int gpu3d_vshader(void)
+{
+    return G.gl_ok;
+}
+
+void gpu3d_set_vshader(int on)
+{
+    G.gl_on = on;
+}
+
+int gpu3d_vshader_on(void)
+{
+    return G.gl_ok && G.gl_on;
 }
 
 int gpu3d_tiles(void)
@@ -776,7 +971,7 @@ static int flush_job(const g16_t *g, int store)
     G.open = 0;
     if (G.failed)
         return -1;
-    if (!G.vbytes)
+    if (!G.vbytes && !G.gldraws)
         return 0;
     if (g->stride != (uint32_t)g->w || g->w != G.w || g->h != G.h) {
         disable("the page is not as wide as the screen");
@@ -813,7 +1008,7 @@ static int flush_job(const g16_t *g, int store)
 
 int gpu3d_flush(const g16_t *g, int keep)
 {
-    const int had = G.open && G.vbytes;
+    const int had = G.open && (G.vbytes || G.gldraws);
     /* the depth is stored only for cartridges that need it: most draw all
      * their 3D, then the HUD, and a store is 1 MiB of memory traffic */
     int r = flush_job(g, keep && G.z_wanted);
@@ -912,6 +1107,50 @@ static int tformat_learn(void)
     return 1;
 }
 
+/* M36: two triangles placed by the vertex shader on a cleared buffer, red
+ * on the left as r3d's front faces turn (clockwise on the screen), green on
+ * the right the other way round. Whichever the V3D keeps tells the
+ * clockwise bit; points inside and outside the red one check where the
+ * shader placed it. 1 if all of it holds, else 0 (the meshes stay on the
+ * ARM's path). */
+static int probe_gl(const g16_t *pg)
+{
+    static r3d_mesh_t m;
+    static v3_t v[6], n[2];
+    static uint16_t f[6] = { 0, 1, 2, 3, 4, 5 };
+    static uint32_t c[2] = { 0xFF0000, 0x00FF00 };
+    /* camera space at depth 2, f = 32, centre (32, 32): x = (sx - 32) / 16 */
+    static const float s[6][2] = { { 6, 10 }, { 28, 10 }, { 6, 54 }, { 36, 10 }, { 36, 54 }, { 58, 10 } };
+    for (int i = 0; i < 6; i++)
+        v[i] = (v3_t){ (s[i][0] - 32) / 16.0f, (32 - s[i][1]) / 16.0f, 0 };
+    n[0] = n[1] = (v3_t){ 0, 0, -1 };
+    m.nverts = 6;
+    m.nfaces = 2;
+    m.verts = v;
+    m.faces = f;
+    m.colors = c;
+    m.normals = n;
+    m.version = 0xFFFFFFFFu;            /* not one of r3d's */
+    const float M[12] = { 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 2 };
+    const r3d_proj_t pr = { 32, 32, 32 };
+    for (int cw = 0; cw < 2; cw++) {
+        G.gl_cw = cw;
+        memset(G.probe, 0, JOB_PROBE);
+        gmesh_t *e = mesh_get(pg, &m);
+        if (!e || gl_draw(pg, e, M, &pr, R3D_DEPTH_WRITE) != 0 || gpu3d_flush(pg, 0) != 0)
+            return 0;
+        const uint16_t left = G.probe[20 * PROBE_W + 10], right = G.probe[20 * PROBE_W + 40],
+                       in = G.probe[40 * PROBE_W + 10], out = G.probe[40 * PROBE_W + 20];
+        if (left == 0xF800 && right == 0 && in == 0xF800 && out == 0)
+            return 1;                   /* red only, where it should be */
+        if (!(left == 0 && right == 0x07E0)) {
+            kprintf("gpu3d: vertex shader probe: %04x %04x %04x %04x (clockwise bit %d)\n", left, right, in, out, cw);
+            return 0;
+        }
+    }
+    return 0;
+}
+
 /* The order of red and blue: a clear with byte a of the colour full says
  * where byte a lands in BGR565; a texture whose texels have byte a full
  * says whether the TMU keeps the bytes in place. */
@@ -994,6 +1233,7 @@ static int probe(void)
         return -1;
     G.tformat = tformat_learn();
     G.ms_ok = probe_ms();
+    G.gl_ok = probe_gl(&pg);
     memset(&G.st, 0, sizeof G.st);
     return 0;
 }
@@ -1020,21 +1260,25 @@ int gpu3d_init(void)
     G.bcl = G.zbuf + JOB_ZBUF;
     G.rcl = G.bcl + JOB_BCL;
     G.recs = G.rcl + JOB_RCL;
-    G.code = G.recs + JOB_RECS;
+    G.unif = (uint32_t *)(G.recs + JOB_RECS);
+    G.code = G.recs + JOB_RECS + JOB_UNIF;
     G.verts = G.code + JOB_CODE;
     G.probe = (uint16_t *)(G.verts + JOB_VERTS);
     G.probe_tex = (uint32_t *)(((uintptr_t)G.probe + JOB_PROBE + 4095) & ~(uintptr_t)4095);
     for (int i = 0; i < SH_COUNT; i++)
         memcpy(G.code + 1024 * i, shaders[i].code, shaders[i].size);
+    memcpy(G.code + 1024 * CODE_VS, vs_colour, sizeof vs_colour);
+    memcpy(G.code + 1024 * CODE_CS, cs_colour, sizeof cs_colour);
     G.backend.tri = cb_tri;
+    G.backend.mesh = cb_mesh;
     G.backend.zclear = cb_zclear;
     G.backend.guard = GUARD * 0.9f;     /* r3d's bound, with room for its rounding */
     if (probe() != 0)
         return -1;
     static const char *const ms[3] = { "no", "on cleared pages", "on any page" };
-    ksnprintf(G.why, sizeof G.why, "ready (byte a = %s, texels %s, textures %s, MSAA %s)",
+    ksnprintf(G.why, sizeof G.why, "ready (byte a = %s, texels %s, textures %s, MSAA %s, vertex shader %s)",
               G.red_a ? "red" : "blue", G.tex_swap ? "swapped" : "in place", G.tformat ? "in tiles" : "in rows",
-              ms[G.ms_ok]);
+              ms[G.ms_ok], G.gl_ok ? (G.gl_cw ? "yes (cw)" : "yes") : "no");
     G.status = G.why;
     G.ready = 1;
     return 0;

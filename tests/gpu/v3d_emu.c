@@ -29,6 +29,7 @@ int emu_red_a = 1, emu_tex_swap = 0;
 int emu_tformat = 0;                    /* the order of the 1 KiB subtiles of a T-format tile */
 int emu_ms_load_one = 0;                /* MSAA: a colour load fills sample 0 only (else all 4) */
 int emu_skip = 0;                       /* jobs only counted, not run (ARM instruction counts) */
+int emu_cw_flip = 0;                    /* GL: the V3D calls the other orientation clockwise */
 emu_stats_t emu_stats;
 char emu_error[256];
 
@@ -92,6 +93,254 @@ static int err(const char *fmt, unsigned a, unsigned b)
     return -1;
 }
 
+static uint32_t rd32(const uint8_t *p) { return (uint32_t)p[0] | p[1] << 8 | p[2] << 16 | (uint32_t)p[3] << 24; }
+static uint16_t rd16(const uint8_t *p) { return (uint16_t)(p[0] | p[1] << 8); }
+static float rdf(const uint8_t *p) { uint32_t u = rd32(p); float f; memcpy(&f, &u, 4); return f; }
+
+/* ---------------------------------------------------------------- QPU */
+
+/* The QPU interpreter (M36): the vertex and coordinate shaders run as the
+ * V3D runs them, 16 vertices at a time, so an error in their code shows on
+ * the PC. The subset the shaders of bm use: the ALU ops, regfile A and B,
+ * the accumulators, uniforms, the VPM (horizontal 32-bit rows), the SFU's
+ * reciprocal, small and 32-bit immediates, the 16-bit packs of regfile A.
+ * What the hardware does not allow is an error: reading a register of
+ * regfile A or B the instruction before wrote, r4 within two instructions
+ * of an SFU write, the VPM or uniforms in the last three instructions. */
+
+#define QPU_VPM_ROWS 64
+
+typedef struct {
+    uint32_t ra[32][16], rb[32][16], acc[6][16];
+    uint8_t z[16], n[16];
+    const uint32_t *unif;
+    int nunif, unif_at;
+    uint32_t (*vpm)[16];
+    int vr_addr, vr_left, vr_stride, vw_addr, vw_stride;
+    int wrote_a, wrote_b;               /* regfile registers the last instruction wrote (-1 none) */
+    int sfu_at;                         /* the instruction that wrote the SFU, -1 */
+    int sfu_pending;
+    uint32_t sfu_value[16];
+} qpu_t;
+
+static float qf(uint32_t u) { float f; memcpy(&f, &u, 4); return f; }
+static uint32_t qu(float f) { uint32_t u; memcpy(&u, &f, 4); return u; }
+
+static uint32_t qpu_add_op(int op, uint32_t a, uint32_t b, int *bad)
+{
+    switch (op) {
+    case 0: return 0;
+    case 1: return qu(qf(a) + qf(b));
+    case 2: return qu(qf(a) - qf(b));
+    case 3: return qu(fminf(qf(a), qf(b)));
+    case 4: return qu(fmaxf(qf(a), qf(b)));
+    case 7: { float f = qf(a); return isnan(f) ? 0 : (uint32_t)(int32_t)f; }
+    case 8: return qu((float)(int32_t)a);
+    case 12: return a + b;
+    case 13: return a - b;
+    case 14: return a >> (b & 31);
+    case 15: return (uint32_t)((int32_t)a >> (b & 31));
+    case 17: return a << (b & 31);
+    case 18: return (int32_t)a < (int32_t)b ? a : b;
+    case 19: return (int32_t)a > (int32_t)b ? a : b;
+    case 20: return a & b;
+    case 21: return a | b;
+    case 22: return a ^ b;
+    case 23: return ~a;
+    default: *bad = 1; return 0;
+    }
+}
+
+static uint32_t qpu_mul_op(int op, uint32_t a, uint32_t b, int *bad)
+{
+    switch (op) {
+    case 0: return 0;
+    case 1: return qu(qf(a) * qf(b));
+    case 2: return (a & 0xFFFFFF) * (b & 0xFFFFFF);
+    case 4: {                           /* v8min: mov when a == b */
+        uint32_t r = 0;
+        for (int k = 0; k < 32; k += 8) {
+            uint32_t x = a >> k & 255, y = b >> k & 255;
+            r |= (x < y ? x : y) << k;
+        }
+        return r;
+    }
+    default: *bad = 1; return 0;
+    }
+}
+
+static int qpu_float_add(int op) { return op >= 1 && op <= 7; }
+
+/* source mux m of lane l */
+static uint32_t qpu_src(qpu_t *q, int m, int l, const uint32_t *va, const uint32_t *vb)
+{
+    return m < 6 ? q->acc[m][l] : m == 6 ? va[l] : vb[l];
+}
+
+/* runs code until its thread end; 0, or -1 (emu_error says why) */
+static int qpu_run(qpu_t *q, const uint32_t *code, int max)
+{
+    int end = -1;
+    q->wrote_a = q->wrote_b = -1;
+    q->sfu_at = -1;
+    for (int pc = 0; pc < max; pc++) {
+        const uint32_t lo = code[2 * pc], hi = code[2 * pc + 1];
+        const int sig = hi >> 28, last3 = end >= 0;
+        const int ws = hi >> 12 & 1, sf = hi >> 13 & 1, cond_add = hi >> 17 & 7, cond_mul = hi >> 14 & 7;
+        const int waddr_add = hi >> 6 & 63, waddr_mul = hi & 63, pm = hi >> 24 & 1, pack = hi >> 20 & 15;
+        uint32_t ra_[16], rb_[16], res_add[16], res_mul[16];
+        int bad = 0;
+        if (q->sfu_pending && pc == q->sfu_at + 3) {
+            memcpy(q->acc[4], q->sfu_value, sizeof q->sfu_value);
+            q->sfu_pending = 0;
+        }
+        if (sig == 15)
+            return err("QPU: branch at %u (not emulated)", (unsigned)pc, 0);
+        if (sig == 14) {                /* load immediate */
+            if (hi >> 25 & 7)
+                return err("QPU: packed load immediate at %u", (unsigned)pc, 0);
+            for (int l = 0; l < 16; l++)
+                res_add[l] = res_mul[l] = lo;
+        } else {
+            const int op_add = lo >> 24 & 31, op_mul = lo >> 29 & 7, raddr_a = lo >> 18 & 63,
+                      raddr_b = lo >> 12 & 63;
+            const int add_a = lo >> 9 & 7, add_b = lo >> 6 & 7, mul_a = lo >> 3 & 7, mul_b = lo & 7;
+            if (hi >> 25 & 7)
+                return err("QPU: unpack at %u (not emulated)", (unsigned)pc, 0);
+            const int uses[4] = { op_add ? add_a : -1, op_add ? add_b : -1, op_mul ? mul_a : -1,
+                                  op_mul ? mul_b : -1 };
+            int use_a = 0, use_b = 0, use_r4 = 0;
+            for (int k = 0; k < 4; k++) {
+                use_a |= uses[k] == 6;
+                use_b |= uses[k] == 7;
+                use_r4 |= uses[k] == 4;
+            }
+            if (use_r4 && q->sfu_at >= 0 && pc - q->sfu_at < 3)
+                return err("QPU: r4 read at %u, two instructions after the SFU", (unsigned)pc, 0);
+            if (use_a && raddr_a < 32 && raddr_a == q->wrote_a)
+                return err("QPU: ra%u read at %u right after its write", (unsigned)raddr_a, (unsigned)pc);
+            if (use_b && sig != 13 && raddr_b < 32 && raddr_b == q->wrote_b)
+                return err("QPU: rb%u read at %u right after its write", (unsigned)raddr_b, (unsigned)pc);
+            int unif_read = (use_a && raddr_a == 32) || (use_b && sig != 13 && raddr_b == 32);
+            int vpm_read = (use_a && raddr_a == 48) || (use_b && sig != 13 && raddr_b == 48);
+            if ((unif_read || vpm_read) && last3)
+                return err("QPU: uniform or VPM read at %u, in the last three instructions", (unsigned)pc, 0);
+            uint32_t unif = 0, vrow[16] = { 0 };
+            if (unif_read) {
+                if (q->unif_at >= q->nunif)
+                    return err("QPU: uniform %u read, only %u given", (unsigned)q->unif_at, (unsigned)q->nunif);
+                unif = q->unif[q->unif_at++];
+            }
+            if (vpm_read) {
+                if (q->vr_left <= 0 || q->vr_addr >= QPU_VPM_ROWS)
+                    return err("QPU: VPM read at %u past its setup", (unsigned)pc, 0);
+                memcpy(vrow, q->vpm[q->vr_addr], sizeof vrow);
+                q->vr_addr += q->vr_stride;
+                q->vr_left--;
+            }
+            for (int l = 0; l < 16; l++) {
+                if (use_a)
+                    ra_[l] = raddr_a < 32 ? q->ra[raddr_a][l] : raddr_a == 32 ? unif : raddr_a == 38 ? (uint32_t)l
+                           : raddr_a == 39 ? 0 : raddr_a == 48 ? vrow[l] : 0xDEADBEEF;
+                if (use_b) {
+                    if (sig == 13) {
+                        int s = raddr_b;
+                        rb_[l] = s < 16 ? (uint32_t)s : s < 32 ? (uint32_t)(s - 32)
+                               : s < 40 ? qu(ldexpf(1.0f, s - 32)) : s < 48 ? qu(ldexpf(1.0f, s - 48)) : 0;
+                    } else {
+                        rb_[l] = raddr_b < 32 ? q->rb[raddr_b][l] : raddr_b == 32 ? unif : raddr_b == 38 ? 0
+                               : raddr_b == 39 ? 0 : raddr_b == 48 ? vrow[l] : 0xDEADBEEF;
+                    }
+                }
+            }
+            if ((use_a && raddr_a >= 32 && raddr_a != 32 && raddr_a != 38 && raddr_a != 39 && raddr_a != 48) ||
+                (use_b && sig != 13 && raddr_b >= 32 && raddr_b != 32 && raddr_b != 38 && raddr_b != 39 &&
+                 raddr_b != 48) || (use_b && sig == 13 && raddr_b >= 48))
+                return err("QPU: read address %u/%u at an emulated shader", (unsigned)raddr_a, (unsigned)raddr_b);
+            for (int l = 0; l < 16; l++) {
+                res_add[l] = qpu_add_op(op_add, qpu_src(q, add_a, l, ra_, rb_), qpu_src(q, add_b, l, ra_, rb_), &bad);
+                res_mul[l] = qpu_mul_op(op_mul, qpu_src(q, mul_a, l, ra_, rb_), qpu_src(q, mul_b, l, ra_, rb_), &bad);
+            }
+            if (bad)
+                return err("QPU: op %u/%u not emulated", (unsigned)op_add, (unsigned)op_mul);
+            if (pm || (pack && pack > 2))
+                return err("QPU: pack %u (pm %u) not emulated", (unsigned)pack, (unsigned)pm);
+            if (pack && ((!ws && qpu_float_add(op_add)) || (ws && op_mul == 1)))
+                return err("QPU: 16-bit pack of a float at %u", (unsigned)pc, 0);
+            if (sf) {
+                const uint32_t *r = op_add ? res_add : res_mul;
+                for (int l = 0; l < 16; l++) {
+                    q->z[l] = r[l] == 0;
+                    q->n[l] = r[l] >> 31;
+                }
+            }
+            (void)cond_add;
+        }
+        /* writes: the add ALU to file A (B with ws), the mul ALU to B (A) */
+        int new_a = -1, new_b = -1;
+        for (int alu = 0; alu < 2; alu++) {
+            const int waddr = alu ? waddr_mul : waddr_add, cond = alu ? cond_mul : cond_add;
+            const int file_a = alu ? ws : !ws;
+            const uint32_t *res = alu ? res_mul : res_add;
+            if (cond == 0 || waddr == 39)
+                continue;
+            if (cond != 1)
+                return err("QPU: conditional write at %u (not emulated)", (unsigned)pc, 0);
+            if (waddr < 32) {
+                uint32_t (*reg)[16] = file_a ? q->ra : q->rb;
+                for (int l = 0; l < 16; l++) {
+                    if (file_a && pack == 1)
+                        reg[waddr][l] = (reg[waddr][l] & 0xFFFF0000u) | (res[l] & 0xFFFF);
+                    else if (file_a && pack == 2)
+                        reg[waddr][l] = (reg[waddr][l] & 0xFFFF) | res[l] << 16;
+                    else
+                        reg[waddr][l] = res[l];
+                }
+                if (file_a) new_a = waddr; else new_b = waddr;
+            } else if (waddr >= 32 && waddr <= 35) {
+                memcpy(q->acc[waddr - 32], res, sizeof q->acc[0]);
+            } else if (waddr == 48) {       /* VPM write */
+                if (last3)
+                    return err("QPU: VPM write at %u, in the last three instructions", (unsigned)pc, 0);
+                if (q->vw_addr >= QPU_VPM_ROWS)
+                    return err("QPU: VPM write past row %u", QPU_VPM_ROWS, 0);
+                memcpy(q->vpm[q->vw_addr], res, sizeof q->vpm[0]);
+                q->vw_addr += q->vw_stride;
+            } else if (waddr == 49) {       /* VPM read (file A) or write (file B) setup */
+                const uint32_t v = res[0];
+                if ((v >> 30) || (v >> 8 & 3) != 2 || !(v >> 11 & 1))
+                    return err("QPU: VPM setup %08x: generic horizontal 32-bit expected", v, 0);
+                if (file_a) {
+                    q->vr_addr = v & 255;
+                    q->vr_stride = v >> 12 & 63;
+                    q->vr_left = (v >> 20 & 15) ? (int)(v >> 20 & 15) : 16;
+                } else {
+                    q->vw_addr = v & 255;
+                    q->vw_stride = v >> 12 & 63;
+                }
+            } else if (waddr == 52) {       /* SFU reciprocal: r4, three instructions on */
+                if (q->sfu_pending)
+                    return err("QPU: two SFU writes at %u", (unsigned)pc, 0);
+                for (int l = 0; l < 16; l++)
+                    q->sfu_value[l] = qu(1.0f / qf(res[l]));
+                q->sfu_pending = 1;
+                q->sfu_at = pc;
+            } else {
+                return err("QPU: write address %u at %u (not emulated)", (unsigned)waddr, (unsigned)pc);
+            }
+        }
+        q->wrote_a = new_a;
+        q->wrote_b = new_b;
+        if (sig == 3)
+            end = pc;
+        if (end >= 0 && pc == end + 2)
+            return 0;
+        if (sig != 1 && sig != 3 && sig != 13 && sig != 14)
+            return err("QPU: signal %u at %u (not emulated)", (unsigned)sig, (unsigned)pc);
+    }
+    return err("QPU: no thread end in %u instructions", (unsigned)max, 0);
+}
+
 /* ---------------------------------------------------------------- binning */
 
 enum { SH_COLOUR, SH_TEX, SH_TEX_ALPHA, SH_SCREEN, SH_TEX_RGB, SH_TEX_RGB_ALPHA };
@@ -107,14 +356,84 @@ typedef struct {
     int clip[4];
 } eprim_t;
 
+/* the vertices of a GL batch, shaded by its vertex and coordinate shaders
+ * (16 at a time, as the VCD fills the VPM); 0 or -1 */
+static int gl_vertices(const uint8_t *rec, int nattr, uint32_t first, uint32_t n, int nvary, evert_t *out)
+{
+    static uint32_t vpm[QPU_VPM_ROWS][16], vs_out[QPU_VPM_ROWS][16];
+    static qpu_t q;
+    const uint32_t *code[2] = { ptr(rd32(rec + 16)), ptr(rd32(rec + 28)) },
+                   *unif[2] = { ptr(rd32(rec + 20)), ptr(rd32(rec + 32)) };
+    const int sel[2] = { rec[14], rec[26] }, size[2] = { rec[15], rec[27] };
+    if (!code[0] || !code[1] || !unif[0] || !unif[1])
+        return err("GL record: shader code or uniforms outside memory", 0, 0);
+    for (uint32_t b = 0; b < n; b += 16) {
+        const uint32_t cnt = n - b < 16 ? n - b : 16;
+        for (int s = 0; s < 2; s++) {           /* the vertex shader, then the coordinate shader */
+            memset(vpm, 0, sizeof vpm);
+            if (size[s] > QPU_VPM_ROWS)
+                return err("GL record: %u words of attributes", (unsigned)size[s], 0);
+            for (int a = 0; a < nattr; a++) {
+                const uint8_t *at = rec + 36 + 8 * a;
+                if (!(sel[s] >> a & 1))
+                    continue;
+                const uint32_t base = rd32(at), bytes = at[4] + 1u, stride = at[5], off = at[6 + s];
+                if (bytes % 4 || off + bytes / 4 > (uint32_t)size[s])
+                    return err("GL attribute: %u bytes at word %u", bytes, off);
+                for (uint32_t l = 0; l < cnt; l++) {
+                    const uint8_t *src = ptr(base + (first + b + l) * stride);
+                    if (!src || !ptr(base + (first + b + l) * stride + bytes - 1))
+                        return err("GL attribute %u: vertex outside memory", (unsigned)a, 0);
+                    for (uint32_t w = 0; w < bytes / 4; w++)
+                        vpm[off + w][l] = rd32(src + 4 * w);
+                }
+            }
+            memset(&q, 0, sizeof q);
+            q.unif = unif[s];
+            q.nunif = 256;
+            q.vpm = vpm;
+            if (qpu_run(&q, code[s], 512) != 0)
+                return -1;
+            if (s == 0) {
+                memcpy(vs_out, vpm, sizeof vpm);
+                continue;
+            }
+            /* the coordinate shader places them as the vertex shader */
+            for (uint32_t l = 0; l < cnt; l++)
+                for (int k = 0; k < 3; k++)
+                    if (vpm[4 + k][l] != vs_out[k][l])
+                        return err("GL: the coordinate shader's word %u differs from the vertex shader's (%08x)",
+                                   (unsigned)k, vpm[4 + k][l]);
+        }
+        for (uint32_t l = 0; l < cnt; l++) {
+            evert_t *v = &out[b + l];
+            const uint32_t xy = vs_out[0][l];
+            v->x = (int16_t)(xy & 0xFFFF) / 16.0f;
+            v->y = (int16_t)(xy >> 16) / 16.0f;
+            v->z = qf(vs_out[1][l]);
+            v->iw = qf(vs_out[2][l]);
+            for (int j = 0; j < nvary; j++)
+                v->v[j] = qf(vs_out[3 + j][l]);
+        }
+    }
+    emu_stats.glverts += n;
+    return 0;
+}
+
+/* a triangle the CONFIGURATION_BITS keep: forward-facing ones are those
+ * clockwise on the screen (y down), or the others with bit 2 clear */
+static int faces_kept(int cfg, const evert_t *v)
+{
+    const float area = (v[1].x - v[0].x) * (v[2].y - v[0].y) - (v[1].y - v[0].y) * (v[2].x - v[0].x);
+    const int cw = (area > 0) ^ emu_cw_flip, forward = (cfg >> 2 & 1) ? cw : !cw;
+    return forward ? cfg & 1 : cfg >> 1 & 1;
+}
+
 static eprim_t *prims;
 static int nprims, cap;
 static uint32_t bin_alloc, bin_tsda;
 static int bin_tx, bin_ty, bin_ms;
 
-static uint32_t rd32(const uint8_t *p) { return (uint32_t)p[0] | p[1] << 8 | p[2] << 16 | (uint32_t)p[3] << 24; }
-static uint16_t rd16(const uint8_t *p) { return (uint16_t)(p[0] | p[1] << 8); }
-static float rdf(const uint8_t *p) { uint32_t u = rd32(p); float f; memcpy(&f, &u, 4); return f; }
 
 static int shader_of(const uint8_t *code)
 {
@@ -133,9 +452,12 @@ static int bin(uint32_t start, uint32_t end)
     if (!p || !e || e < p)
         return err("binning list %08x..%08x outside memory", start, end);
     nprims = 0;
-    int cfg_seen = 0, started = 0, flushed = 0, depth_func = -1, z_update = 0, oversample = 0;
+    int cfg_seen = 0, started = 0, flushed = 0, depth_func = -1, z_update = 0, oversample = 0, faces = 3;
     int clip[4] = { -1, 0, 0, 0 };
-    const uint8_t *rec = NULL;
+    const uint8_t *rec = NULL, *glrec = NULL;
+    int glattr = 0;
+    static evert_t *glv;
+    static uint32_t glcap;
     while (p < e) {
         uint8_t id = *p++;
         if (flushed && id != 1 && id != 0)
@@ -160,14 +482,20 @@ static int bin(uint32_t start, uint32_t end)
                 return err("START_TILE_BINNING before the binning configuration", 0, 0);
             started = 1;
             break;
-        case 103: p += 4; break;                                /* VIEWPORT_OFFSET */
+        case 103:                                               /* VIEWPORT_OFFSET */
+            if (rd32(p))
+                return err("viewport offset %08x: the vertices are absolute", rd32(p), 0);
+            p += 4;
+            break;
+        case 105: case 106: p += 8; break;                      /* CLIPPER_XY_SCALING, _Z_ */
         case 102:                                               /* CLIP_WINDOW */
             clip[0] = rd16(p); clip[1] = rd16(p + 2); clip[2] = rd16(p + 4); clip[3] = rd16(p + 6);
             p += 8;
             break;
         case 96:                                                /* CONFIGURATION_BITS */
-            if ((p[0] & 3) != 3)
-                return err("configuration %02x: both faces expected", p[0], 0);
+            if ((p[0] & 3) == 0)
+                return err("configuration %02x: no faces", p[0], 0);
+            faces = p[0] & 7;
             depth_func = rd16(p + 1) >> 4 & 7;
             z_update = rd16(p + 1) >> 7 & 1;
             oversample = p[0] >> 6 & 3;
@@ -175,16 +503,61 @@ static int bin(uint32_t start, uint32_t end)
             break;
         case 65:                                                /* NV_SHADER_STATE */
             rec = ptr(rd32(p));
+            glrec = NULL;
             if (!rec || (rd32(p) & 15))
                 return err("shader record %08x not 16-byte aligned", rd32(p), 0);
             p += 4;
             break;
+        case 64:                                                /* GL_SHADER_STATE */
+            glrec = ptr(rd32(p) & ~15u);
+            glattr = (rd32(p) & 7) ? (int)(rd32(p) & 7) : 8;
+            rec = NULL;
+            if (!glrec || (rd32(p) & 8))
+                return err("GL shader record %08x (extended records not emulated)", rd32(p), 0);
+            if (rd16(glrec) & ~1u)
+                return err("GL record flags %04x: clipping and point size not emulated", rd16(glrec), 0);
+            p += 4;
+            break;
         case 33: {                                              /* VERTEX_ARRAY_PRIMITIVES */
             uint32_t n = rd32(p + 1), first = rd32(p + 5);
-            if (!started || !rec || depth_func < 0 || clip[0] < 0)
-                return err("primitives before the state (started %u, record %u)", started, rec != NULL);
+            if (!started || (!rec && !glrec) || depth_func < 0 || clip[0] < 0)
+                return err("primitives before the state (started %u, record %u)", started, rec || glrec);
             if (p[0] != 4 || n % 3 || n > 65535)
                 return err("primitives: mode %u, %u vertices", p[0], n);
+            if (glrec) {
+                const int sh = shader_of(ptr(rd32(glrec + 4))), nvary = glrec[3];
+                if (sh < 0 || nvary > 8)
+                    return err("GL record: fragment shader at %08x, %u varyings", rd32(glrec + 4), nvary);
+                if (n > glcap) {
+                    glcap = n;
+                    glv = realloc(glv, glcap * sizeof *glv);
+                }
+                if (gl_vertices(glrec, glattr, first, n, nvary, glv) != 0)
+                    return -1;
+                const int colour = sh == SH_COLOUR || sh == SH_SCREEN;
+                const uint32_t *params = colour ? NULL : ptr(rd32(glrec + 8));
+                for (uint32_t i = 0; i < n; i += 3) {
+                    if (!faces_kept(faces, &glv[i]))
+                        continue;
+                    if (nprims == cap) {
+                        cap = cap ? cap * 2 : 4096;
+                        prims = realloc(prims, (size_t)cap * sizeof *prims);
+                    }
+                    eprim_t *pr = &prims[nprims++];
+                    memcpy(pr->v, &glv[i], sizeof pr->v);
+                    pr->shader = sh;
+                    pr->nvary = nvary;
+                    pr->params = params;
+                    pr->depth_func = depth_func;
+                    pr->z_update = z_update;
+                    pr->oversample = oversample;
+                    memcpy(pr->clip, clip, sizeof clip);
+                }
+                emu_stats.prims += n / 3;
+                emu_stats.batches++;
+                p += 9;
+                break;
+            }
             int sh = shader_of(ptr(rd32(rec + 4)));
             if (sh < 0)
                 return err("unknown shader at %08x", rd32(rec + 4), 0);
@@ -197,6 +570,16 @@ static int bin(uint32_t start, uint32_t end)
             if (!vb || (!colour && !params) || (rd32(rec + 12) & 3))
                 return err("vertices %08x, uniforms %08x", rd32(rec + 12), rd32(rec + 8));
             for (uint32_t i = 0; i < n; i += 3) {
+                if (faces != 3) {
+                    evert_t t[3];
+                    for (int k = 0; k < 3; k++) {
+                        const uint8_t *v = vb + (size_t)(first + i + (uint32_t)k) * (size_t)stride;
+                        t[k].x = (int16_t)rd16(v) / 16.0f;
+                        t[k].y = (int16_t)rd16(v + 2) / 16.0f;
+                    }
+                    if (!faces_kept(faces, t))
+                        continue;
+                }
                 if (nprims == cap) {
                     cap = cap ? cap * 2 : 4096;
                     prims = realloc(prims, (size_t)cap * sizeof *prims);

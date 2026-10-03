@@ -5,8 +5,8 @@
 #include <stdint.h>
 
 /* see v3d_emu.c */
-extern int emu_red_a, emu_tex_swap, emu_tformat, emu_ms_load_one, emu_skip;
-typedef struct { uint32_t jobs, prims, pixels, batches, zstores, loads, msframes; } emu_stats_t;
+extern int emu_red_a, emu_tex_swap, emu_tformat, emu_ms_load_one, emu_skip, emu_cw_flip;
+typedef struct { uint32_t jobs, prims, pixels, batches, zstores, loads, msframes, glverts; } emu_stats_t;
 extern emu_stats_t emu_stats;
 extern char emu_error[256];
 

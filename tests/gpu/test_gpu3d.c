@@ -137,6 +137,20 @@ static void flush(r3d_t *r, g16_t *g, int gpu)
         CHECK(gpu3d_flush(g, 0) == 0, "flush: %s (%s)", gpu3d_status(), emu_error);
 }
 
+/* M36: unlit meshes inside the view: with the vertex shader on, the GPU
+ * places them itself (and throws their back faces away) */
+static void s_vshader(r3d_t *r, g16_t *g, int gpu)
+{
+    r3d_camera(r, 0, 0, -6, 0, 0, 60);
+    gpu3d_set_vshader(gpu);
+    r3d_draw_flags(r, &sphere, (v3_t){ -1.6f, 0.4f, 0 }, 0.3f, 0.5f, 0, 1.2f, R3D_UNLIT);
+    r3d_draw_flags(r, &cube, (v3_t){ 1.4f, -0.2f, 0.5f }, 0.4f, 0.7f, 0.2f, 1.1f, R3D_UNLIT);
+    r3d_draw_flags(r, &sphere, (v3_t){ 0.2f, -0.6f, 2 }, 0, 1.0f, 0, 1.4f, R3D_UNLIT);  /* partly behind */
+    r3d_draw_flags(r, &sphere, (v3_t){ -1.0f, 0.2f, 8 }, 0, 0, 0, 1.0f, 0);         /* lit: the ARM's way */
+    flush(r, g, gpu);
+    gpu3d_set_vshader(0);
+}
+
 static void s_spheres(r3d_t *r, g16_t *g, int gpu)
 {
     r3d_camera(r, 0, 0, -6, 0, 0, 60);
@@ -286,6 +300,7 @@ static const struct { const char *name; scene_fn fn; int w, h; float limit; int 
     { "cleared", s_cleared, 320, 180, 0.02f, 1 },
     { "overbit", s_overbit, 640, 360, 0.03f, 1 },
     { "effects", s_effects, 640, 360, 0.02f, 1 },
+    { "vshader", s_vshader, 640, 360, 0.02f, 1 },
 };
 #define CLEARED 7                   /* its index: no bar, no load */
 
@@ -326,7 +341,8 @@ static void run_scene(int s)
         r.backend = pass ? gpu3d_backend() : NULL;
         r3d_zclear(&r);
         uint32_t prims = emu_stats.prims, batches = emu_stats.batches, jobs = emu_stats.jobs,
-                 zstores = emu_stats.zstores, loads = emu_stats.loads, msframes = emu_stats.msframes;
+                 zstores = emu_stats.zstores, loads = emu_stats.loads, msframes = emu_stats.msframes,
+                 glverts = emu_stats.glverts;
         if (pass)
             gpu3d_drop();               /* each scene as a new cartridge */
         gpu3d_set_msaa(pass == 2);
@@ -380,6 +396,8 @@ static void run_scene(int s)
             }
             if (s == 6)
                 CHECK(emu_stats.zstores > zstores, "3D 2D 3D: the depth was not kept");
+            if (scenes[s].fn == s_vshader)
+                CHECK(emu_stats.glverts > glverts, "vshader: no mesh placed by the vertex shader");
             if (s == CLEARED)
                 CHECK(emu_stats.loads == loads && emu_stats.jobs > jobs, "cleared: the page was loaded");
             else
@@ -416,15 +434,16 @@ int main(int argc, char **argv)
     emu_tex_swap = argc > 2 ? atoi(argv[2]) : 0;
     emu_tformat = argc > 3 ? atoi(argv[3]) : 0;
     emu_ms_load_one = argc > 4 ? atoi(argv[4]) : 0;
-    ppm_dir = argc > 5 ? argv[5] : NULL;
+    emu_cw_flip = argc > 5 ? atoi(argv[5]) : 0;
+    ppm_dir = argc > 6 ? argv[6] : NULL;
     printf("gpu3d on the emulator: byte a = %s, texels %s, T-format %d, MSAA load %s\n",
            emu_red_a ? "red" : "blue", emu_tex_swap ? "swapped" : "in place", emu_tformat,
            emu_ms_load_one ? "one sample" : "all samples");
     CHECK(gpu3d_init() == 0, "init: %s (%s)", gpu3d_status(), emu_error);
     char want[120];
-    snprintf(want, sizeof want, "byte a = %s, texels %s, textures in %s, MSAA %s", emu_red_a ? "red" : "blue",
-             emu_tex_swap ? "swapped" : "in place", emu_tformat == 2 ? "rows" : "tiles",
-             emu_ms_load_one ? "on cleared pages" : "on any page");
+    snprintf(want, sizeof want, "byte a = %s, texels %s, textures in %s, MSAA %s, vertex shader %s",
+             emu_red_a ? "red" : "blue", emu_tex_swap ? "swapped" : "in place", emu_tformat == 2 ? "rows" : "tiles",
+             emu_ms_load_one ? "on cleared pages" : "on any page", emu_cw_flip ? "yes" : "yes (cw)");
     CHECK(strstr(gpu3d_status(), want) != NULL, "probe: '%s', expected '%s'", gpu3d_status(), want);
     if (!gpu3d_ready()) {
         printf("gpu3d: %d/%d checks passed\n", checks - failures, checks);

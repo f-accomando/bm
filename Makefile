@@ -797,11 +797,11 @@ test-v3d: $(BUILD)/host/test_v3d
 	$<
 
 test-gpu3d: $(BUILD)/host/test_gpu3d
-	$< 1 0 0 0
-	$< 0 0 1 1
-	$< 1 1 1 0
-	$< 0 1 0 1
-	$< 1 0 2 0
+	$< 1 0 0 0 0
+	$< 0 0 1 1 1
+	$< 1 1 1 0 1
+	$< 0 1 0 1 0
+	$< 1 0 2 0 0
 
 # QPU shaders (M33): the assembler against shaders run on a Pi, and
 # src/gpu/shaders.h up to date with the sources in tools/qpuasm.py

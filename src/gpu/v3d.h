@@ -73,6 +73,7 @@ void v3d_cl_f32(v3d_cl_t *cl, float v);
 #define V3D_LOAD_TILE_BUFFER_GENERAL    29
 #define V3D_VERTEX_ARRAY_PRIMITIVES     33
 #define V3D_NV_SHADER_STATE             65
+#define V3D_GL_SHADER_STATE             64      /* the record's address | its number of attributes */
 #define V3D_CONFIGURATION_BITS          96
 #define V3D_CLIP_WINDOW                 102
 #define V3D_VIEWPORT_OFFSET             103

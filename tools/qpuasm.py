@@ -20,6 +20,7 @@ Reference: VideoCore IV 3D Architecture Reference Guide (Broadcom), chapter 3.
 """
 import argparse
 import re
+import struct
 import sys
 
 ADD_OPS = {"nop": 0, "fadd": 1, "fsub": 2, "fmin": 3, "fmax": 4, "fminabs": 5, "fmaxabs": 6,
@@ -36,7 +37,10 @@ WADDR = {"r0": 32, "r1": 33, "r2": 34, "r3": 35, "tmu_noswap": 36, "r5": 37, "ho
          "tlb_alpha": 47, "vpm": 48, "mutex_release": 51, "sfu_recip": 52, "sfu_recipsqrt": 53,
          "sfu_exp": 54, "sfu_log": 55, "t0s": 56, "t0t": 57, "t0r": 58, "t0b": 59, "t1s": 60,
          "t1t": 61, "t1r": 62, "t1b": 63}
-RADDR = {"unif": 32, "vary": 35, "elem_num": 38, "nop": 39}     # readable from file A or B
+RADDR = {"unif": 32, "vary": 35, "elem_num": 38, "nop": 39, "vpm": 48}   # readable from file A or B
+# written through one register file: (address, file)
+WFILE = {"vr_setup": (49, "A"), "vw_setup": (49, "B"), "vr_addr": (50, "A"), "vw_addr": (50, "B")}
+PACK_A = {"16a": 1, "16b": 2}           # regfile A pack (pm 0): the low or high half of the register
 ACC = {"r0": 0, "r1": 1, "r2": 2, "r3": 3, "r4": 4, "r5": 5}
 COND = {"never": 0, "always": 1, "zs": 2, "zc": 3, "ns": 4, "nc": 5, "cs": 6, "cc": 7,
         "ifz": 2, "ifnz": 3, "ifn": 4, "ifnn": 5, "ifc": 6, "ifnc": 7}
@@ -74,7 +78,36 @@ class Inst:
         self.small = None
 
 
+def load_imm(line, lineno):
+    """ldi dst, value: a 32-bit immediate (integer, hex or float) written by
+    the add ALU's slot (regfile A, B or an accumulator)"""
+    m = re.fullmatch(r"ldi\s+(\S+?)\s*,\s*(\S+)", line)
+    if not m:
+        raise SyntaxError(f"line {lineno}: ldi dst, value: {line}")
+    dst, val = m[1], m[2]
+    if re.fullmatch(r"-?(0x[0-9a-fA-F]+|\d+)", val):
+        imm = int(val, 0) & 0xFFFFFFFF
+    else:
+        imm = struct.unpack("<I", struct.pack("<f", float(val)))[0]
+    ws = 0
+    mm = re.fullmatch(r"r([ab])(\d+)", dst)
+    if mm:
+        waddr, ws = int(mm[2]), 1 if mm[1] == "b" else 0
+    elif dst in WFILE:
+        waddr, f = WFILE[dst]
+        ws = 1 if f == "B" else 0
+    elif dst in WADDR:
+        waddr = WADDR[dst]
+    else:
+        raise SyntaxError(f"line {lineno}: unknown destination {dst}")
+    # signal 14 (load immediate, 32 bits), cond_add always, cond_mul never
+    hi = 14 << 28 | COND["always"] << 17 | ws << 12 | waddr << 6 | WADDR["nop"]
+    return imm, hi
+
+
 def assemble_line(line, lineno):
+    if line.startswith("ldi "):
+        return load_imm(line, lineno)
     parts = [p.strip() for p in line.split(";")]
     if len(parts) < 2 or len(parts) > 3:
         raise SyntaxError(f"line {lineno}: need 'add ; mul [; signal]': {line}")
@@ -137,13 +170,19 @@ def assemble_line(line, lineno):
         pack = None
         if "." in tok:
             tok, pack = tok.split(".", 1)
-            if alu != "mul" or pack not in PACK_MUL:
+            if pack in PACK_A and re.fullmatch(r"ra\d+", tok):
+                fields["pm"] = 0                # a half of a regfile A register
+                fields["pack"] = PACK_A[pack]
+            elif alu != "mul" or pack not in PACK_MUL:
                 raise SyntaxError(f"line {lineno}: pack .{pack} only on the mul ALU")
-            fields["pm"] = 1
-            fields["pack"] = PACK_MUL[pack]
+            else:
+                fields["pm"] = 1
+                fields["pack"] = PACK_MUL[pack]
         m = re.fullmatch(r"r([ab])(\d+)", tok)
         if m:
             return int(m[2]), m[1].upper()
+        if tok in WFILE:
+            return WFILE[tok]
         if tok in WADDR:
             return WADDR[tok], None
         raise SyntaxError(f"line {lineno}: unknown destination {tok}")
@@ -436,6 +475,93 @@ SHADERS = {
         nop                 ; nop           ; sbdone
     """,
 }
+
+# Vertex and coordinate shaders for the GL shader state (M36): the V3D
+# reads the vertices of a mesh, the QPUs place them. The VCD puts word k of
+# the attributes of 16 vertices in row k of the VPM; a read of "vpm" gives
+# the next row (vr_setup), a write fills the next (vw_setup). Uniforms, in
+# the order read: the object-to-camera matrix by rows (m00 m01 m02 m03, m10
+# .., m20 ..), f*16, the screen centre's x*16, -f*16, its y*16, -NEAR; the
+# coordinate shader then reads f/hw and f/hh (its clip coordinates).
+# Screen x, y in 12.4 as the NV vertices (absolute, VIEWPORT_OFFSET 0) and
+# z = 1 - NEAR/depth as the ARM's: the two kinds of batches share a job.
+
+XFORM = """
+        nop                 ; fmul r0, ra0, unif        # m00 x
+        nop                 ; fmul r1, ra1, unif        # m01 y
+        fadd r0, r0, r1     ; fmul r1, ra2, unif        # m02 z
+        fadd r0, r0, r1     ; nop
+        fadd ra6, r0, unif  ; nop                       # + m03: x in the camera
+        nop                 ; fmul r0, ra0, unif
+        nop                 ; fmul r1, ra1, unif
+        fadd r0, r0, r1     ; fmul r1, ra2, unif
+        fadd r0, r0, r1     ; nop
+        fadd rb6, r0, unif  ; nop                       # y in the camera
+        nop                 ; fmul r0, ra0, unif
+        nop                 ; fmul r1, ra1, unif
+        fadd r0, r0, r1     ; fmul r1, ra2, unif
+        fadd r0, r0, r1     ; nop
+        fadd r2, r0, unif   ; nop                       # depth
+        mov sfu_recip, r2   ; nop                       # r4 = 1 / depth, 2 instructions on
+        mov rb7, r2         ; nop
+        nop                 ; nop
+        nop                 ; fmul r0, ra6, r4          # x / depth
+        nop                 ; fmul r0, r0, unif         # * f*16
+        fadd r0, r0, unif   ; fmul r1, rb6, r4          # + centre x*16; y / depth
+        ftoi r0, r0         ; fmul r1, r1, unif         # screen x (12.4); * -f*16
+        fadd r1, r1, unif   ; nop                       # + centre y*16
+        ftoi r1, r1         ; nop                       # screen y
+        mov ra9.16a, r0     ; nop
+        mov ra9.16b, r1     ; fmul r2, r4, unif         # -NEAR / depth
+        fadd rb9, r2, 1.0   ; nop                       # z = 1 - NEAR / depth
+"""
+
+SHADERS["vs_colour"] = """
+        ldi vr_setup, 0x601a00                          # 6 rows: x y z, colour
+        ldi vw_setup, 0x1a00
+        nop                 ; nop
+        nop                 ; nop
+        mov ra0, vpm        ; nop
+        mov ra1, vpm        ; nop
+        mov ra2, vpm        ; nop
+        mov ra3, vpm        ; nop
+        mov ra4, vpm        ; nop
+        mov ra5, vpm        ; nop
+""" + XFORM + """
+        mov vpm, ra9        ; nop                       # screen x, y
+        mov vpm, rb9        ; nop                       # z
+        mov vpm, r4         ; nop                       # 1 / w
+        mov vpm, ra3        ; nop                       # the three varyings
+        mov vpm, ra4        ; nop
+        mov vpm, ra5        ; nop
+        nop                 ; nop           ; thrend
+        nop                 ; nop
+        nop                 ; nop
+"""
+
+SHADERS["cs_colour"] = """
+        ldi vr_setup, 0x301a00                          # 3 rows: x y z
+        ldi vw_setup, 0x1a00
+        nop                 ; nop
+        nop                 ; nop
+        mov ra0, vpm        ; nop
+        mov ra1, vpm        ; nop
+        mov ra2, vpm        ; nop
+""" + XFORM + """
+        nop                 ; fmul r0, ra6, unif        # clip x = x * f / (width/2)
+        nop                 ; fmul r1, rb6, unif        # clip y = y * f / (height/2)
+        nop                 ; fmul r3, r2, rb7          # clip z = -NEAR: at w = NEAR the near plane
+        mov vpm, r0         ; nop
+        mov vpm, r1         ; nop
+        mov vpm, r3         ; nop
+        mov vpm, rb7        ; nop                       # clip w = depth
+        mov vpm, ra9        ; nop
+        mov vpm, rb9        ; nop
+        mov vpm, r4         ; nop
+        nop                 ; nop           ; thrend
+        nop                 ; nop
+        nop                 ; nop
+"""
 
 # shaders run on a Pi (Zero W) by others, as the reference of the encoding
 REFERENCE = [
