@@ -2274,6 +2274,65 @@ nuove costano all'ARM quasi quanto le vecchie (5,99 M / 5,16 M).
 - Matrice unica oggetto→camera e luce nello spazio dell'oggetto: meno istruzioni per
   vertice, pixel non più identici al bit (opzione).
 
+## M39 — GPU 3: verso il limite della V3D (L/XL)
+Dove siamo (2026-10-03, stime dal PC per le versioni 3.0–4.1): il riempimento è all'80%
+di quello dichiarato (811 Mpixel/s misurati sul Pi su 1 Gpixel/s), il lavoro dell'ARM per
+triangolo vicino al minimo (~65 istruzioni con il vertex shader), ma i triangoli della
+GPU sono a ~3 milioni al secondo contro i 16 milioni visti in un demo reale sulla stessa
+GPU (con texture e luce, 1280×720) e i 25 milioni dichiarati da Broadcom. La distanza
+sta in come i vertici arrivano alla V3D e in come ARM e GPU si passano il lavoro. Driver
+**bm3d 5.x**; ogni passo è un'opzione con una prova all'avvio dove la V3D fa qualcosa che
+il Pi non ha ancora mostrato, come in M34–M36.
+1. **Misure di partenza sul Pi.** Il 3D Bench con tutti i profili (ARM 0.2, GPU 2.1,
+   GPU+VS1 3.0, GPU+VS 3.4, GPU+VS+Q 4.1), i passi 14 e 15 del test `g`, il benchmark di
+   Overbit con GPU+VS e GPU+VS+Q: le versioni 3.0–4.1 oggi sono stime. Un test nuovo del
+   3D Bench, `big`: due modelli da 10 000 triangoli e una mappa da 14 000, con e senza
+   logica del gioco (la domanda "regge 34 000 triangoli?").
+2. **Mesh indicizzate e attributi compatti.** Oggi ogni faccia porta i suoi tre angoli in
+   virgola mobile (44–56 byte l'uno): la GPU calcola ogni vertice circa tre volte. Vertici
+   condivisi dove le facce lo permettono (normali morbide, stessa texture: le figure
+   Meshy), primitive indicizzate a 16 bit, gli angoli in un ordine che usi la cache dei
+   vertici della V3D (al build, come meshoptimizer), posizioni separate dagli altri
+   attributi (lo shader di coordinate legge solo quelle), attributi a 16 e 8 bit
+   (posizioni scalate, normali e colori a 8 bit, uv a 16). L'emulatore esegue gli stessi
+   shader con gli indici.
+3. **Più vertici per mesh.** Il limite di 4096 vertici (`MAX_VERTS` di r3d, `mesh()`, i
+   modelli del `.bm`) sale (16 384 o 65 535): un modello da 10 000 triangoli oggi va
+   spezzato.
+4. **Due lavori della GPU in volo.** Due set di memorie (liste, record, uniform, angoli
+   del fotogramma) alternati: l'ARM prepara il 3D del fotogramma dopo mentre la GPU disegna
+   quello di adesso, e il fotogramma dura quanto il più lento dei due invece della somma.
+   Il resto (texture e mesh cambiate mentre un lavoro le legge) aspetta come oggi.
+5. **Texture più leggere.** Formati a 16 bit (RGB565, RGBA4444/5551 per i ritagli) ed
+   ETC1 compresso (4 bit a pixel, fatto al build dagli strumenti del PC), mipmap per le
+   superfici lontane (meno texel letti, meno sfarfallio). L'ARM resta sulle texture di
+   oggi; la prova all'avvio controlla come la TMU legge ogni formato.
+6. **Fragment shader a due thread.** Lo shader cede il QPU all'altro thread mentre aspetta
+   la texture (`thrsw`, il flag del record per gli shader a più thread, metà dei registri
+   per thread): nasconde l'attesa della TMU come fa Mesa. L'emulatore controlla le regole
+   (registri, segnali, posizione del cambio).
+7. **Ordine di disegno.** I modelli opachi dal più vicino al più lontano (la V3D scarta
+   prima i pixel nascosti con lo z anticipato) e i disegni raggruppati per shader e
+   texture (meno cambi di stato nella lista): dentro il lavoro della GPU, senza cambiare
+   cosa vede la cartuccia, o con un aiuto per le cartucce (`sort3d`).
+8. **Occlusione anche per gli attori.** La visibilità precalcolata della mappa (PVS) oggi
+   scarta i pezzi di mappa; la stessa prova per eroi, effetti e oggetti (un aiuto in C,
+   `visible3d(x, y, z, r)`, usato da Overbit).
+9. **Memoria dei lavori senza cache** (il passo 2 di M35): liste e angoli scritti
+   dall'ARM senza passare dalla cache, se il Pi mostra che conviene.
+10. **Il Lua dei giochi.** In Overbit il Lua è ormai circa il 60% del tempo dell'ARM a
+    fotogramma: le parti calde in C (raggi e collisioni, strade dei bot, particelle), meno
+    allocazioni per fotogramma (meno lavoro del garbage collector), `frames.py` per
+    misurare. Uno studio a parte su LuaJIT (supporta l'ARMv6): quanto darebbe e cosa
+    costerebbe portarlo sul bare metal.
+- Opzioni: ognuna in *Settings > Graphics* o in `bm/config.txt`, spenta finché il Pi non
+  la verifica; i renderer di Overbit e i profili del 3D Bench le confrontano.
+- **Fatto quando:** sul Pi il test `big` regge almeno il doppio dei triangoli a 60 fps di
+  bm3d 4.1, il test `spheres` del 3D Bench almeno 3× quelli di 3.4, e Overbit (GPU+VS+Q)
+  sta nei 60 fps a HIGH nello scontro di 10 bot.
+- Escluso (decisione dell'utente): impostor per gli oggetti lontani, cambio di
+  risoluzione, overclock della GPU e dell'ARM.
+
 ## Rischi principali
 | Rischio | Mitigazione |
 |---------|-------------|
