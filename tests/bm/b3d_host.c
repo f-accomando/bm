@@ -3,7 +3,7 @@
  * (tests/gpu/v3d_emu.c), quick mode (a few steps, one frame each), the
  * reports in DIR as on the SD card, every page of results as DIR/page-NN.ppm.
  *
- *   b3d_host DIR [--full]
+ *   b3d_host DIR [--full] [-v]     B3D_EMU_SKIP=1: the V3D's jobs not run
  *
  * make test-b3d runs it twice: the second run must read the first's
  * report (its "last" bars and the comparison of the summary).
@@ -163,6 +163,8 @@ int main(int argc, char **argv)
         fprintf(stderr, "gpu3d: %s (%s)\n", gpu3d_status(), emu_error);
         return 1;
     }
+    /* B3D_EMU_SKIP: the jobs counted, not run (the full bench's loads in minutes) */
+    emu_skip = getenv("B3D_EMU_SKIP") != NULL;
     b3d_platform_t p = {
         .g = &page, .us = us, .present = present, .count = NULL, .counting = 0, .key = key, .log = log_line,
         .save = save, .load_last = load_last, .kernel = "host", .machine = "PC, the V3D emulated",
