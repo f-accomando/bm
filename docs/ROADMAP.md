@@ -2605,7 +2605,8 @@ il Pi non ha ancora mostrato, come in M34–M36.
 ## M40 — bm per PowKiddy RGB30 (XL) — in corso (branch `rgb30-powkiddy`)
 Decisione 2026-10-01 (utente): una versione **bare metal** di bm per la PowKiddy RGB30
 (Rockchip RK3566, 4 × Cortex-A55 a 64 bit, 1 GiB, schermo 720×720 MIPI-DSI, RTL8821CS).
-Menu **512×512** al centro dello schermo (formato 1:1, da riadattare in seguito); giochi e app
+Menu **512×512** al centro dello schermo (formato 1:1; dal 2026-10-03 360×360 ×2, a tutto
+schermo, task 8); giochi e app
 in un formato nuovo, **`.s16`**, da definire; le cartucce `.bm` del Pi nascoste (`show_bm=1` in
 `bm/config.txt` le elenca soltanto). Tutto in [RGB30.md](RGB30.md).
 
@@ -2637,6 +2638,10 @@ Task:
    (sostituti dei driver del Pi in `src/rgb30/bm_port.c`, comandi in `bm_input.c`), avviato dal
    menu con `show_bm=1`; Yharnam (256×256, dal branch `claude/yharnam`) nell'immagine SD,
    ingrandita a tutto schermo. Provata in QEMU; il suono e la GPU Mali mancano ancora.
+8. ✅ **Menu a tutto schermo con le schede** (richiesta 2026-10-03): 360×360 ingrandito ×2 sul
+   pannello 720×720; schede Games / Dev / System come sul Pi (L1/R1); in Dev il **3D Bench**
+   (`src/bm/b3d.c` con i contatori del Cortex-A55, rapporto in `bm/bench`), Render bench,
+   Display, Input test, Boot log, Lua. Provato in QEMU (`test_bench3d` e gli altri).
 - **Fatto quando:** sulla RGB30 il menu appare, i tasti e le levette rispondono, un controller
   Bluetooth si accoppia e la console entra nella rete WiFi salvata in `bm/config.txt`.
 

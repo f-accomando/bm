@@ -123,9 +123,10 @@ screenshot in `docs/img/`), `README_OLD.md` (il README completo, in italiano),
 - Compilatore `aarch64-linux-gnu-gcc` + **picolibc** (non newlib); codice specifico in
   `src/rgb30/` (`plat_virt.c`/`sd_virt.c` per QEMU, `rk_*.c` per la console). Gli header in comune
   con l'ARMv6 (`kernel/irq.h`, `arch/cache.h`) hanno un ramo `__aarch64__`.
-- Menu 512×512 (`ui.c`), giochi `.s16` (formato da definire), `.bm` nascosti salvo `show_bm=1`.
-  Nei test lo schermo si legge dai pixel: il testo del menu sta sulla griglia del font (1x a
-  multipli di 8×16, 2x a multipli di 16).
+- Menu 360×360 ingrandito ×2 sul pannello (`ui.c`), schede Games / Dev / System (L1/R1; dalla
+  seriale `l`/`r`), giochi `.s16` (formato da definire), `.bm` nascosti salvo `show_bm=1`. In Dev il
+  3D Bench (`b3d_rgb30.c`: `src/bm/b3d.c` con i contatori del Cortex-A55). Nei test lo schermo si
+  legge dai pixel: il testo del menu sta sulla griglia del font 8×16 (x multipli di 8, y di 16).
 - L'utente prova senza seriale: LED (rosso = avvio, verde a 1 Hz = vivo) e `bm/bootlog.txt`
   scritto sulla SD a ogni avvio.
 - Cartucce del Pi (`.bm`): con `show_bm=1` si avviano, per le prove. Il runtime `src/bm` è lo

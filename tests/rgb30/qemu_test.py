@@ -23,7 +23,7 @@ sys.path.insert(0, os.path.join(HERE, "..", "..", "scripts"))
 import mksd  # noqa: E402
 
 QEMU = os.environ.get("QEMU64", "qemu-system-aarch64")
-SCREEN = 512
+SCREEN = 360           # the menu (made as big as the 720x720 panel on the console)
 
 
 RAMDISK = 0x50000000    # src/rgb30/sd_virt.c
@@ -118,6 +118,13 @@ def boot(q):
     return out.decode(errors="replace")
 
 
+def keys(q, ks, pause=0.3):
+    """Buttons from the serial port, one at a time (each is held 120 ms)."""
+    for k in ks:
+        q.send(k)
+        time.sleep(pause)
+
+
 def lua_prompt(q):
     q.send("`")
     q.expect("\n> ", timeout=5)
@@ -141,7 +148,7 @@ def test_boot_banner(b, opts):
     try:
         out = boot(q)
         for needle in ("kernel", "QEMU virt (AArch64)", "Cortex-A55", "EL1",
-                       "ramfb 512x512 32 bpp", "IRQ on: timer 1000 Hz",
+                       "ramfb 360x360 32 bpp", "IRQ on: timer 1000 Hz",
                        "2^10 = 1024.0", "fib(25) = 75025"):
             assert needle in out, f"{needle!r} missing:\n{out}"
         hz = int(out.split("measured ")[1].split(" Hz")[0])
@@ -158,8 +165,18 @@ def test_screen_console(b, opts):
         img = q.screendump()
         assert img[0] == SCREEN and img[1] == SCREEN, f"screen {img[0]}x{img[1]}"
         text = screen_all(img)
-        for needle in ("home", "Input test", "System", "Boot log"):
+        for needle in ("Games", "Dev", "System", "No games yet", "L1/R1: tab   Up/Down: choose"):
             assert needle in text, f"{needle!r} not on screen:\n{text}"
+        keys(q, "r")                            # R1: the Dev tab
+        text = screen_all(q.screendump())
+        for needle in ("3D Bench", "Render bench", "Display", "Input test", "Boot log"):
+            assert needle in text, f"{needle!r} not on the Dev tab:\n{text}"
+        keys(q, "r")                            # the System tab
+        text = screen_all(q.screendump())
+        for needle in ("Bluetooth", "WiFi", "System", "Reboot", "Power off"):
+            assert needle in text, f"{needle!r} not on the System tab:\n{text}"
+        keys(q, "r")                            # back round to Games
+        assert "No games yet" in screen_all(q.screendump())
     finally:
         q.close()
 
@@ -212,7 +229,11 @@ def test_menu_games_and_hidden_bm(b, opts):
         text = screen_all(q.screendump())
         assert "racer.s16" in text.lower(), text
         assert "pong" not in text.lower(), text
-        assert "Input test" in text and "Bluetooth" in text and "WiFi" in text, text
+        out = q.expect("\n", timeout=5).decode(errors="replace")
+        assert "(1 .bm hidden: show_bm=1" in out, out
+        keys(q, "l")                            # L1: round to the System tab
+        text = screen_all(q.screendump())
+        assert "Bluetooth" in text and "WiFi" in text and "racer" not in text.lower(), text
     finally:
         q.close()
     sd = make_sd(tmp, {"bm/racer.s16": b"S16" + bytes(100), "bm/pong.bm": b"BMCART" + bytes(64),
@@ -263,9 +284,7 @@ def test_bluetooth_page_without_chip(b, opts):
     q = Qemu(os.path.join(b, "kernel.elf"))
     try:
         boot(q)
-        for k in "ss":                          # Input test, System, Bluetooth
-            q.send(k)
-            time.sleep(0.25)
+        keys(q, "rr")                           # System tab: Bluetooth
         q.send("\r")
         q.expect("no Bluetooth controller in QEMU", timeout=10)
         time.sleep(0.5)
@@ -284,9 +303,7 @@ def test_wifi_page_without_chip(b, opts):
     q = Qemu(os.path.join(b, "kernel.elf"))
     try:
         boot(q)
-        for k in "sss":                         # Input test, System, Bluetooth, WiFi
-            q.send(k)
-            time.sleep(0.25)
+        keys(q, "rrs")                          # System tab: Bluetooth, WiFi
         q.send("\r")
         q.expect("no WiFi chip in QEMU", timeout=10)
         time.sleep(0.5)
@@ -302,13 +319,11 @@ def test_wifi_page_without_chip(b, opts):
 def test_display_modes(b, opts):
     """The Display page: the modes a game or the GPU can use, each with its
     test image (QEMU shows the image 1:1: the screen takes its size), the
-    GPU's layout (rows of 64 bytes); B goes back to the menu's 512x512."""
+    GPU's layout (rows of 64 bytes); B goes back to the menu's 360x360."""
     q = Qemu(os.path.join(b, "kernel.elf"))
     try:
         boot(q)
-        for k in "ssss":                        # Input test, System, Bluetooth, WiFi, Display
-            q.send(k)
-            time.sleep(0.25)
+        keys(q, "rss")                          # Dev tab: 3D Bench, Render bench, Display
         q.send("\r")
         q.expect("720x720 x1 sharp: on", timeout=10)
         time.sleep(0.5)
@@ -339,14 +354,16 @@ def test_confirm_button(b, opts):
     confirm=a in bm/config.txt swaps them."""
     for config, ok, held in ((b"layout=us\n", "B", "00000020"), (b"confirm=a\n", "A", "00000010")):
         tmp = tempfile.mkdtemp(prefix="bm64sd-")
-        sd = make_sd(tmp, {"bm/config.txt": config})     # no games: the tools come first
+        sd = make_sd(tmp, {"bm/config.txt": config, "bm/pong.bm": b"BMCART" + bytes(64)})
         q = Qemu(os.path.join(b, "kernel.elf"), sd=sd)
         try:
             boot(q)
             time.sleep(0.4)
             text = screen_all(q.screendump())
             assert f"Up/Down: choose   {ok}: open" in text, text
-            q.send("\r")                       # confirm on the first tool: Input test
+            assert "No games yet" in text and "1 Pi cartridge (.bm) hidden: show_bm=1" in text, text
+            keys(q, "rsss")                    # Dev tab: Input test
+            q.send("\r")                       # confirm
             time.sleep(0.6)
             q.send("\r")                       # Enter: the confirm button, held
             time.sleep(0.05)
@@ -360,7 +377,7 @@ def test_bm_cartridge(b, opts):
     """A Pi cartridge on the RGB30 (show_bm=1): Yharnam, 256x256 RGB565,
     runs on the AArch64 kernel (QEMU shows its screen 1:1, widened to
     32 bits); the title, then the game after A; 'q' leaves and the menu's
-    512x512 comes back."""
+    360x360 comes back."""
     cart = os.path.join(b, "carts", "yharnam.bm")
     if not os.path.exists(cart):
         raise AssertionError(f"{cart} missing (make TARGET=rgb30 test builds it)")
@@ -393,12 +410,53 @@ def test_bm_cartridge(b, opts):
         q.close()
 
 
+def test_bench3d(b, opts):
+    """The Dev tab's 3D Bench (src/bm/b3d.c) at 640x360: every test on the
+    ARM, the report on the serial port and in bm/bench on the SD card;
+    the back button returns to the menu's 360x360."""
+    tmp = tempfile.mkdtemp(prefix="bm64sd-")
+    sd = make_sd(tmp, {"bm/config.txt": b"layout=us\n"})
+    size = os.path.getsize(sd)
+    dump = os.path.join(tmp, "after.img")
+    q = Qemu(os.path.join(b, "kernel.elf"), sd=sd)
+    try:
+        boot(q)
+        keys(q, "r")                            # Dev tab: 3D Bench
+        q.send("\r")
+        q.expect("b3d spheres ARM n=1 ", timeout=30)
+        img = q.screendump()
+        assert img[0] == 640 and img[1] == 360, f"screen {img[0]}x{img[1]}"
+        out = q.expect("total ", timeout=600)           # the report's last line
+        out += q.expect("\n", timeout=10)
+        out = out.decode(errors="replace")
+        for needle in ("machine QEMU virt, Cortex-A55", "counters Cortex-A55 PMU", "R,spheres,ARM",
+                       "R,quad_tex,ARM"):
+            assert needle in out, f"{needle!r} missing:\n{out[-3000:]}"
+        time.sleep(1)
+        q.send("\x7f")                          # A: back
+        q.expect("3D Bench: done", timeout=20)
+        time.sleep(1)
+        img = q.screendump()
+        assert img[0] == SCREEN and img[1] == SCREEN, f"screen {img[0]}x{img[1]}"
+        assert "Up/Down: choose" in screen_all(img)
+        q.monitor(f'pmemsave {RAMDISK:#x} {size} "{dump}"',
+                  until=lambda: os.path.exists(dump) and os.path.getsize(dump) == size)
+        time.sleep(0.3)
+    finally:
+        q.close()
+    env = dict(os.environ, MTOOLS_SKIP_CHECK="1")
+    rep = subprocess.run(["mtype", "-i", f"{dump}@@{1024 * 1024}", "::/bm/bench/3D0001.TXT"],
+                         capture_output=True, env=env, check=True).stdout.decode(errors="replace")
+    assert rep.startswith("bm 3D Bench") and "R,spheres,ARM" in rep and "total " in rep, rep
+
+
 def test_menu_input_page(b, opts):
-    """Down to the input test, A opens it, the serial port presses buttons."""
+    """The Dev tab's input test: the serial port presses buttons."""
     q = Qemu(os.path.join(b, "kernel.elf"))
     try:
         boot(q)
-        q.send("\r")                           # A on the first entry: Input test
+        keys(q, "rsss")                         # Dev tab: Input test
+        q.send("\r")
         time.sleep(0.4)
         q.send("x")                            # X held for a moment
         time.sleep(0.05)

@@ -38,9 +38,9 @@
 #include "lua.h"
 #include "lauxlib.h"
 
-/* The menu and the console: 512x512, centred on the 720x720 panel */
-#define SCREEN_W 512
-#define SCREEN_H 512
+/* The menu and the console: 360x360, every pixel a 2x2 square on the 720x720 panel */
+#define SCREEN_W 360
+#define SCREEN_H 360
 #define TICK_HZ  1000
 
 uintptr_t a64_dtb;

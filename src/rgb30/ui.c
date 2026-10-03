@@ -1,9 +1,11 @@
 /*
- * The RGB30's menu: 512x512, centred on the 720x720 panel. Games are the
- * .s16 files in bm/ on the SD card (the format is still to be defined: they
- * are listed, not run); .bm cartridges are for the Pi and stay hidden
- * unless bm/config.txt says show_bm=1. Then the tools: input test, system
- * information, Bluetooth, WiFi, boot log, Lua, reboot, power off.
+ * The RGB30's menu: 360x360, shown twice as big (the whole 720x720 panel,
+ * every pixel a 2x2 square), in three tabs as on the Pi: Games (the .s16
+ * files in bm/ on the SD card, whose format is still to be defined, and
+ * with show_bm=1 the Pi's .bm cartridges, which run), Dev (the 3D Bench,
+ * the render bench, the display modes, the input test, the boot log, Lua)
+ * and System (Bluetooth, WiFi, the console's state, reboot, power off).
+ * L1 / R1 or left / right change tab.
  */
 #include "ui.h"
 #include "pad.h"
@@ -26,6 +28,7 @@
 #include "wifi/wifi.h"
 #include "net/net.h"
 #include "bm/runtime.h"
+#include "b3d_rgb30.h"
 
 #include <stdlib.h>
 
@@ -33,8 +36,8 @@
 #include <string.h>
 #include <strings.h>
 
-#define W 512
-#define H 512
+#define W 360
+#define H 360
 
 #define C_BG        0x10141c
 #define C_HEAD      0x1c2433
@@ -58,20 +61,6 @@ static uint32_t rgb(uint32_t c)
 static void text(int x, int y, const char *s, uint32_t fg, uint32_t bg)
 {
     gfx_text(fb, &font_console_8x16, x, y, s, rgb(fg), rgb(bg));
-}
-
-/* the console font twice as big, for titles */
-static void text2x(int x, int y, const char *s, uint32_t fg)
-{
-    const font_t *f = &font_console_8x16;
-    uint32_t c = rgb(fg);
-    for (; *s; s++, x += f->width * 2) {
-        const uint8_t *g = f->glyphs + (uint8_t)*s * f->height;
-        for (int row = 0; row < f->height; row++)
-            for (int col = 0; col < f->width; col++)
-                if (g[row] & (0x80 >> col))
-                    gfx_rect(fb, x + col * 2, y + row * 2, 2, 2, c);
-    }
 }
 
 static void textf(int x, int y, uint32_t fg, uint32_t bg, const char *fmt, ...)
@@ -100,28 +89,58 @@ static void textf(int x, int y, uint32_t fg, uint32_t bg, const char *fmt, ...)
     text(x, y, buf, fg, bg);
 }
 
-/* Layout: everything on the font's grid (1x text at multiples of 8 x 16,
- * 2x text at multiples of 16), which is also how the tests read it back. */
-#define HEAD_H      64
-#define FOOT_Y      (H - 32)
-#define LIST_Y      80
-#define ROW_H       48
+/* Layout (360x360, 45 x 22 characters): everything on the font's grid
+ * (text at multiples of 8 x 16), which is also how the tests read it back.
+ * The bar (the tabs, or a page's title) at the top, a list of rows 32
+ * pixels high, a line of help, the hints at the bottom. */
+#define HEAD_H      40
+#define LIST_Y      48              /* the text of the first row */
+#define ROW_H       32
+#define ROWS        8
+#define HELP_Y      304
+#define FOOT_Y      328
 
 static void frame_begin(const char *title)
 {
     gfx_clear(fb, rgb(C_BG));
     gfx_rect(fb, 0, 0, W, HEAD_H, rgb(C_HEAD));
-    text2x(16, 16, "bm", C_ACCENT);
-    text2x(80, 16, title, C_TEXT);
-    char v[32];
-    ksnprintf(v, sizeof v, "%s", bm_version);
-    text(W - 8 - 8 * (int)strlen(v), 32, v, C_DIM, C_HEAD);
+    text(8, 16, "bm", C_ACCENT, C_HEAD);
+    text(40, 16, title, C_TEXT, C_HEAD);
+    char v[24];
+    ksnprintf(v, sizeof v, "%.12s", bm_version);
+    text(W - 8 - 8 * (int)strlen(v), 16, v, C_DIM, C_HEAD);
 }
 
 static void footer(const char *hints)
 {
     gfx_rect(fb, 0, FOOT_Y, W, H - FOOT_Y, rgb(C_HEAD));
-    text(16, FOOT_Y + 16, hints, C_DIM, C_HEAD);
+    text(8, FOOT_Y + 8, hints, C_DIM, C_HEAD);
+}
+
+/* s in lines of at most 44 characters from (8, y), at most n lines;
+ * returns the lines used */
+static int text_wrap(int y, const char *s, int n, uint32_t fg)
+{
+    int used = 0;
+    while (*s && used < n) {
+        char line[45];
+        int len = (int)strlen(s);
+        int k = len > 44 ? 44 : len;
+        if (len > 44)                               /* at a space, if there is one */
+            for (int j = 44; j > 20; j--)
+                if (s[j] == ' ') {
+                    k = j;
+                    break;
+                }
+        memcpy(line, s, (size_t)k);
+        line[k] = 0;
+        text(8, y + used * 16, line, fg, C_BG);
+        s += k;
+        while (*s == ' ')
+            s++;
+        used++;
+    }
+    return used;
 }
 
 static void frame_end(void)
@@ -132,12 +151,12 @@ static void frame_end(void)
 /* --- games on the SD card --- */
 
 static struct { char name[56]; uint32_t size; int is_bm; } games[MAX_GAMES];
-static int n_games;
+static int n_games, n_hidden;      /* n_hidden: .bm without show_bm=1 */
 static const char *sd_state = "not read";
 
 static void scan_games(void)
 {
-    n_games = 0;
+    n_games = n_hidden = 0;
     fat_dir_t d;
     fat_entry_t e;
     const char *show = config_get("show_bm");
@@ -155,6 +174,8 @@ static void scan_games(void)
             continue;
         int is_s16 = strcasecmp(dot, ".s16") == 0;
         int is_bm = strcasecmp(dot, ".bm") == 0;
+        if (is_bm && !show_bm)
+            n_hidden++;
         if (!is_s16 && !(is_bm && show_bm))
             continue;               /* .bm: for the Pi, hidden here */
         ksnprintf(games[n_games].name, sizeof games[0].name, "%s", e.name);
@@ -175,8 +196,9 @@ static void wait_back(void)
 static void page_message(const char *title, const char *lines[], int n)
 {
     frame_begin(title);
-    for (int i = 0; i < n; i++)
-        text(16, LIST_Y + i * 16, lines[i], i == 0 ? C_TEXT : C_DIM, C_BG);
+    int y = LIST_Y;
+    for (int i = 0; i < n && y < HELP_Y; i++)
+        y += 16 * (lines[i][0] ? text_wrap(y, lines[i], (HELP_Y - y) / 16, i == 0 ? C_TEXT : C_DIM) : 1);
     footer("A/B back");
     frame_end();
     wait_back();
@@ -225,26 +247,25 @@ static void page_game(int i)
     const char *lines[] = {
         l0,
         "",
-        "The .s16 format of the RGB30 is not defined yet:",
-        "games will start from here once it is.",
+        "The .s16 format of the RGB30 is not defined yet: games will start from here once it is.",
     };
-    page_message("Game", lines, 4);
+    page_message("Game", lines, 3);
 }
 
 static void draw_button(int x, int y, const char *name, int on)
 {
-    gfx_rect(fb, x, y, 72, 32, rgb(on ? C_OK : C_HEAD));
-    text(x + 8, y + 16 - 8, name, on ? 0x000000 : C_DIM, on ? C_OK : C_HEAD);
+    gfx_rect(fb, x, y, 56, 24, rgb(on ? C_OK : C_HEAD));
+    text(x + 4, y + 4, name, on ? 0x000000 : C_DIM, on ? C_OK : C_HEAD);
 }
 
 static void draw_stick(int cx, int cy, int16_t ax, int16_t ay, const char *name)
 {
-    gfx_rect(fb, cx - 50, cy - 50, 100, 100, rgb(C_HEAD));
-    gfx_rect(fb, cx - 1, cy - 50, 2, 100, rgb(C_BG));
-    gfx_rect(fb, cx - 50, cy - 1, 100, 2, rgb(C_BG));
-    int x = cx + ax * 46 / 32768, y = cy + ay * 46 / 32768;
-    gfx_rect(fb, x - 4, y - 4, 8, 8, rgb(C_ACCENT));
-    textf(cx - 48, cy + 64, C_DIM, C_BG, "%s %6d %6d", name, ax, ay);
+    gfx_rect(fb, cx - 40, cy - 40, 80, 80, rgb(C_HEAD));
+    gfx_rect(fb, cx - 1, cy - 40, 2, 80, rgb(C_BG));
+    gfx_rect(fb, cx - 40, cy - 1, 80, 2, rgb(C_BG));
+    int x = cx + ax * 36 / 32768, y = cy + ay * 36 / 32768;
+    gfx_rect(fb, x - 3, y - 3, 6, 6, rgb(C_ACCENT));
+    textf(cx - 64, 256, C_DIM, C_BG, "%s %6d %6d", name, ax, ay);
 }
 
 /* every button and both sticks, live; Start + Select together to leave */
@@ -257,11 +278,11 @@ static void page_input(void)
         plat_sticks(ax);
         frame_begin("Input test");
         for (int i = 0; i < PAD_COUNT; i++)
-            draw_button(16 + (i % 6) * 80, LIST_Y + (i / 6) * 48, pad_names[i], (s >> i) & 1);
-        draw_stick(128, 304, ax[0], ax[1], "L");
-        draw_stick(384, 304, ax[2], ax[3], "R");
-        textf(16, 432, C_DIM, C_BG, "held: %08lx", s);
-        footer("Start + Select: back (or 20 s without input)");
+            draw_button(8 + (i % 6) * 58, 48 + (i / 6) * 32, pad_names[i], (s >> i) & 1);
+        draw_stick(88, 200, ax[0], ax[1], "L");
+        draw_stick(272, 200, ax[2], ax[3], "R");
+        textf(8, 288, C_DIM, C_BG, "held: %08lx", s);
+        footer("Start+Select: back (or 20 s idle)");
         frame_end();
         if ((s & (PAD_START | PAD_SELECT)) == (PAD_START | PAD_SELECT))
             break;
@@ -278,7 +299,7 @@ static void page_input(void)
 
 static void page_system(void)
 {
-    char l[10][72];
+    char l[10][200];
     uint64_t midr;
     __asm__ volatile("mrs %0, midr_el1" : "=r"(midr));
     ksnprintf(l[0], sizeof l[0], "bm %s on %s", bm_version, PLAT_NAME);
@@ -304,8 +325,9 @@ static void page_system(void)
         ksnprintf(l[7], sizeof l[7], "battery: unknown");
     ksnprintf(l[8], sizeof l[8], "%s", plat_display_info());
     frame_begin("System");
-    for (int i = 0; i < 9; i++)
-        text(16, LIST_Y + i * 32, l[i], i == 0 ? C_TEXT : C_DIM, C_BG);
+    int y = LIST_Y;
+    for (int i = 0; i < 9 && y < FOOT_Y - 8; i++)
+        y += 16 * text_wrap(y, l[i], (FOOT_Y - 8 - y) / 16, i == 0 ? C_TEXT : C_DIM);
     footer("A/B back");
     frame_end();
     wait_back();
@@ -322,13 +344,9 @@ static void page_log(void)
 
 static void serial_lua(void)
 {
-    const char *lines[] = {
-        "Lua prompt on the serial port (1500000 8N1).",
-        "Type exit() or Ctrl-D there to come back.",
-    };
     frame_begin("Lua");
-    for (int i = 0; i < 2; i++)
-        text(16, LIST_Y + i * 16, lines[i], i == 0 ? C_TEXT : C_DIM, C_BG);
+    int y = LIST_Y + 16 * text_wrap(LIST_Y, "Lua prompt on the serial port (1500000 8N1).", 2, C_TEXT);
+    text_wrap(y, "Type exit() or Ctrl-D there to come back.", 2, C_DIM);
     frame_end();
     ui_serial_repl();
 }
@@ -425,7 +443,7 @@ static const struct { uint32_t w, h, scale; int smooth; } modes[] = {
     { 360, 360, 2, 0 },             /* a quarter of the pixels, sharp */
     { 360, 360, 2, 1 },             /* the same, smooth */
     { 240, 240, 3, 0 },
-    { 512, 512, 1, 0 },             /* the menu's */
+    { 512, 512, 1, 0 },             /* 1:1 in the middle */
 };
 
 static void test_image(int i)
@@ -484,35 +502,86 @@ static void page_display(void)
     fb_init(fb, W, H, 2);                           /* the menu's mode again */
 }
 
-enum { T_INPUT, T_SYSTEM, T_BT, T_WIFI, T_DISPLAY, T_LOG, T_LUA, T_REBOOT, T_OFF, T_COUNT };
-static const char *const tool_names[T_COUNT] = {
-    "Input test", "System", "Bluetooth", "WiFi", "Display", "Boot log", "Lua (serial)", "Reboot",
-    "Power off",
+/* the 3D Bench (src/bm/b3d.c) and the render bench, in the console */
+static void page_bench3d(void)
+{
+    fb_show(fb, 0);
+    console_suspend(0);
+    rgb30_bench3d(fb);
+    console_suspend(1);
+    while (pad_state())
+        timer_delay_ms(10);
+    pad_pressed();
+}
+
+static void page_render(void)
+{
+    fb_show(fb, 0);
+    console_suspend(0);
+    kprintf("\n\x1b[1mRender bench\x1b[0m: map, 256 sprites and text at 640x360 RGB565\n");
+    bm_bench_report(fb, 120);
+    kprintf("\n\x1b[96m%s\x1b[0m back\n", pad_back_name());
+    wait_back();
+    console_suspend(1);
+}
+
+/* --- the tabs --- */
+
+typedef struct {
+    const char *name, *help;
+    void (*run)(void);
+} item_t;
+
+static void do_reboot(void)   { kprintf("rebooting...\n"); plat_reset(); }
+static void do_poweroff(void) { kprintf("power off\n"); plat_poweroff(); }
+
+static const item_t dev_items[] = {
+    { "3D Bench", "every 3D test: bars, report in bm/bench", page_bench3d },
+    { "Render bench", "map, sprites and text, 640x360", page_render },
+    { "Display", "the screen modes for games and the GPU", page_display },
+    { "Input test", "every button and both sticks, live", page_input },
+    { "Boot log", "everything printed since boot", page_log },
+    { "Lua (serial)", "a Lua prompt on the serial port", serial_lua },
 };
-static const char *const tool_help[T_COUNT] = {
-    "every button and both sticks, live",
-    "board, memory, SD card, display",
-    "controllers and keyboards",
-    "network (bm/config.txt: wifi_ssid, wifi_psk)",
-    "the screen modes for games and the GPU",
-    "everything printed since boot",
-    "a Lua prompt on the serial port",
-    "restart the console",
-    "turn the console off",
+static const item_t system_items[] = {
+    { "Bluetooth", "controllers and keyboards", page_bt },
+    { "WiFi", "network (bm/config.txt: wifi_ssid, wifi_psk)", page_wifi },
+    { "System", "board, memory, SD card, battery, display", page_system },
+    { "Reboot", "restart the console", do_reboot },
+    { "Power off", "turn the console off", do_poweroff },
 };
 
-static void run_tool(int t)
+enum { TAB_GAMES, TAB_DEV, TAB_SYSTEM, TAB_COUNT };
+static const char *const tab_names[TAB_COUNT] = { "Games", "Dev", "System" };
+
+static int tab_size(int t)
 {
-    switch (t) {
-    case T_INPUT: page_input(); break;
-    case T_SYSTEM: page_system(); break;
-    case T_BT: page_bt(); break;
-    case T_WIFI: page_wifi(); break;
-    case T_DISPLAY: page_display(); break;
-    case T_LOG: page_log(); break;
-    case T_LUA: serial_lua(); break;
-    case T_REBOOT: kprintf("rebooting...\n"); plat_reset();
-    case T_OFF: kprintf("power off\n"); plat_poweroff();
+    return t == TAB_GAMES ? n_games
+         : t == TAB_DEV ? (int)(sizeof dev_items / sizeof dev_items[0])
+         : (int)(sizeof system_items / sizeof system_items[0]);
+}
+
+static const item_t *tab_item(int t, int i)
+{
+    return t == TAB_DEV ? &dev_items[i] : &system_items[i];
+}
+
+/* the bar: "bm", then the tabs, the selected one as a pill */
+static void tab_bar(int tab)
+{
+    gfx_clear(fb, rgb(C_BG));
+    gfx_rect(fb, 0, 0, W, HEAD_H, rgb(C_HEAD));
+    text(8, 16, "bm", C_ACCENT, C_HEAD);
+    int x = 40;
+    for (int t = 0; t < TAB_COUNT; t++) {
+        int w = 8 * (int)strlen(tab_names[t]);
+        if (t == tab) {
+            gfx_rect(fb, x - 8, 10, w + 16, 28, rgb(C_ACCENT));
+            text(x, 16, tab_names[t], 0x000000, C_ACCENT);
+        } else {
+            text(x, 16, tab_names[t], C_DIM, C_HEAD);
+        }
+        x += w + 24;
     }
 }
 
@@ -521,38 +590,46 @@ void ui_home(framebuffer_t *f)
     fb = f;
     console_suspend(1);
     scan_games();
-    int sel = 0, top = 0;
-    kprintf("cartridge menu: %d games\n", n_games);
+    int tab = TAB_GAMES, sel[TAB_COUNT] = { 0 }, top[TAB_COUNT] = { 0 };
+    kprintf("cartridge menu: %d games", n_games);
+    if (n_hidden)
+        kprintf(" (%d .bm hidden: show_bm=1 in bm/config.txt shows them)", n_hidden);
+    kprintf("\n");
     for (;;) {
-        int n = n_games + T_COUNT;
-        int rows = n_games ? 7 : 6;
-        if (sel >= n) sel = n - 1;
-        if (sel < 0) sel = 0;
-        if (sel < top) top = sel;
-        if (sel >= top + rows) top = sel - rows + 1;
+        int n = tab_size(tab);
+        int *s = &sel[tab], *t = &top[tab];
+        if (*s >= n) *s = n - 1;
+        if (*s < 0) *s = 0;
+        if (*s < *t) *t = *s;
+        if (*s >= *t + ROWS) *t = *s - ROWS + 1;
 
-        frame_begin("home");
-        int y = LIST_Y;
-        if (!n_games) {
-            text(16, y, "No games yet:", C_DIM, C_BG);
-            text(16, y + 16, strcmp(sd_state, "bm/") == 0
-                 ? "put .s16 games in bm/ on the SD card" : sd_state, C_DIM, C_BG);
-            y += ROW_H;
+        tab_bar(tab);
+        const char *help = "";
+        if (tab == TAB_GAMES && !n_games) {
+            text(8, LIST_Y, "No games yet:", C_DIM, C_BG);
+            text_wrap(LIST_Y + 16, strcmp(sd_state, "bm/") == 0 ? "put .s16 games in bm/ on the SD card"
+                                                                : sd_state, 2, C_DIM);
+            if (n_hidden) {
+                char note[96];
+                ksnprintf(note, sizeof note, "%d Pi cartridge%s (.bm) hidden: show_bm=1 in "
+                          "bm/config.txt shows them", n_hidden, n_hidden > 1 ? "s" : "");
+                text_wrap(LIST_Y + 48, note, 3, C_TEXT);
+            }
         }
-        for (int i = top; i < n && i < top + rows; i++) {
-            int is_game = i < n_games;
-            const char *name = is_game ? games[i].name : tool_names[i - n_games];
-            if (i == sel)
-                gfx_rect(fb, 8, y - 8, W - 16, ROW_H - 4, rgb(C_SEL));
-            gfx_rect(fb, 16, y - 4, 6, 36, rgb(is_game ? C_OK : C_ACCENT));
-            text2x(48, y, name, C_TEXT);
-            y += ROW_H;
+        for (int i = *t; i < n && i < *t + ROWS; i++) {
+            int y = LIST_Y + (i - *t) * ROW_H;
+            const char *name = tab == TAB_GAMES ? games[i].name : tab_item(tab, i)->name;
+            if (i == *s)
+                gfx_rect(fb, 0, y - 8, W, ROW_H, rgb(C_SEL));
+            gfx_rect(fb, 8, y - 4, 4, 24, rgb(tab == TAB_GAMES ? C_OK : C_ACCENT));
+            text(24, y, name, C_TEXT, i == *s ? C_SEL : C_BG);
+            if (i == *s)
+                help = tab == TAB_GAMES ? (games[i].is_bm ? "Pi cartridge: Start+Select leaves" : ".s16 game")
+                                        : tab_item(tab, i)->help;
         }
-        const char *help = sel < n_games ? (games[sel].is_bm ? "Pi cartridge (test: Start+Select leaves)" : ".s16 game")
-                                         : tool_help[sel - n_games];
-        text(16, FOOT_Y - 16, help, C_DIM, C_BG);
+        text_wrap(HELP_Y, help, 1, C_DIM);
         char hint[48];
-        ksnprintf(hint, sizeof hint, "Up/Down: choose   %s: open", pad_ok_name());
+        ksnprintf(hint, sizeof hint, "L1/R1: tab   Up/Down: choose   %s: open", pad_ok_name());
         footer(hint);
         frame_end();
 
@@ -569,13 +646,15 @@ void ui_home(framebuffer_t *f)
                 break;
             timer_delay_ms(10);
         }
-        if (p & PAD_UP) sel--;
-        if (p & PAD_DOWN) sel++;
-        if (p & pad_ok) {
-            if (sel < n_games)
-                page_game(sel);
+        if (p & (PAD_L1 | PAD_LEFT)) tab = (tab + TAB_COUNT - 1) % TAB_COUNT;
+        if (p & (PAD_R1 | PAD_RIGHT)) tab = (tab + 1) % TAB_COUNT;
+        if (p & PAD_UP) (*s)--;
+        if (p & PAD_DOWN) (*s)++;
+        if ((p & pad_ok) && n > 0 && !(p & (PAD_L1 | PAD_R1 | PAD_LEFT | PAD_RIGHT))) {
+            if (tab == TAB_GAMES)
+                page_game(*s);
             else
-                run_tool(sel - n_games);
+                tab_item(tab, *s)->run();
         }
     }
 }

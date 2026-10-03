@@ -14,9 +14,11 @@
 
 static plat_mode_t shown_mode;
 
+/* the menu's and the console's screens: as big as the panel (360x360:
+ * every pixel a 2x2 square) */
 int fb_init(framebuffer_t *fb, uint32_t width, uint32_t height, uint32_t buffers)
 {
-    return fb_init_mode(fb, width, height, buffers, 32, 1, 0);
+    return fb_init_mode(fb, width, height, buffers, 32, FB_FILL, 0);
 }
 
 int fb_init_depth(framebuffer_t *fb, uint32_t width, uint32_t height,

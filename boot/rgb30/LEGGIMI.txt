@@ -19,6 +19,9 @@ WiFi: scrivi in bm/config.txt le righe wifi_ssid=NomeRete e wifi_psk=password
 (e wifi_boot=1 per collegarti a ogni avvio); nel menu, WiFi: B cerca, X entra.
 
 Tasti: B conferma, A torna indietro (confirm=a in bm/config.txt li scambia).
+Menu: tre schede, Games (i giochi), Dev (3D Bench, prove dello schermo e dei
+tasti, boot log) e System (Bluetooth, WiFi, sistema); L1/R1 cambiano scheda.
+Il 3D Bench salva il rapporto in bm/bench.
 
 Prove: con show_bm=1 in bm/config.txt il menu mostra e avvia le cartucce .bm
 del Pi (c'e' Yharnam). Start + Select esce dal gioco.

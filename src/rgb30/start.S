@@ -76,6 +76,9 @@ relocated:
     mov     x0, #0x33ff             /* CPTR_EL2: no FP/SIMD traps */
     msr     cptr_el2, x0
     msr     hstr_el2, xzr
+    mrs     x0, pmcr_el0            /* MDCR_EL2: every PMU counter to EL1, no traps */
+    ubfx    x0, x0, #11, #5
+    msr     mdcr_el2, x0
     mrs     x0, S3_4_C12_C9_5       /* ICC_SRE_EL2: GICv3 system registers for EL1 */
     orr     x0, x0, #0xf
     msr     S3_4_C12_C9_5, x0

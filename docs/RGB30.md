@@ -8,8 +8,8 @@ microSD, WiFi + Bluetooth Realtek **RTL8821CS**, PMIC Rockchip RK817. Il codice 
 Decisioni (2026-10-01, utente):
 
 - **bare metal vero**, come sul Pi: niente Linux; U-Boot avvia il kernel dalla SD;
-- **formato 1:1**: il menu è **512×512**, al centro del pannello senza ingrandimento (sarà
-  riadattato in seguito);
+- **formato 1:1**: il menu era **512×512**, al centro del pannello senza ingrandimento; dal
+  2026-10-03 (utente) è **360×360 ingrandito ×2** e riempie i 720×720 del pannello;
 - giochi e app dell'RGB30 useranno un formato nuovo, **`.s16`**, ancora da definire: il menu li
   elenca ma non li avvia;
 - le cartucce **`.bm` del Pi sono nascoste** (blocco "morbido": `show_bm=1` in `bm/config.txt`
@@ -87,8 +87,8 @@ fermi dicono dove:
 | nessuno | collegamento DSI, D-PHY o comandi al pannello (`rk_dsi_init`) |
 | solo rosso | dominio di alimentazione del video, oppure finestra e retroilluminazione |
 
-Lo schermo: il bordo intorno al menu 512×512 è il colore di sfondo del controller video (lo stesso
-blu-grigio scuro del menu). Tutto uniforme blu-grigio = pannello acceso ma finestra non
+Lo schermo: il bordo intorno a un'immagine più piccola del pannello (un gioco con `bm_scale=int`)
+è il colore di sfondo del controller video (lo stesso blu-grigio scuro del menu). Tutto uniforme blu-grigio = pannello acceso ma finestra non
 funzionante; nero = collegamento DSI o pannello; niente del tutto = retroilluminazione.
 
 **`bm/bootlog.txt`**: a ogni avvio il kernel scrive sulla SD tutto quello che ha stampato
@@ -119,13 +119,22 @@ prima di accendere lo schermo e il registro si scrive tre volte (prima dello sch
   pagine su confini di 64 KiB, fino a 3 pagine) nella memoria video e GPU, con il suo indirizzo
   fisico (`fb->bus`). Il controller video ingrandisce l'immagine sul pannello: un gioco può
   disegnare a 720×720 o a 360×360 mostrato ×2 (un quarto dei pixel per la GPU), nitido o
-  sfumato; il menu resta 512×512 1:1. Pagina **Display** nel menu: le modalità una dopo l'altra
+  sfumato; il menu è 360×360 ×2. Pagina **Display** nel menu: le modalità una dopo l'altra
   con un'immagine di prova (bordi, griglia delle tessere, barre di colore). La GPU stessa (driver
   Mali) non c'è ancora.
 - Cartucce del Pi (`.bm`) avviabili con `show_bm=1`, per le prove: Yharnam nell'immagine SD (vedi
   sotto).
-- Menu 512×512: giochi `.s16`, strumenti (Input test, System, Bluetooth, WiFi, Display, Boot log, Lua sulla
-  seriale, Reboot, Power off).
+- Menu 360×360 ingrandito ×2 (riempie il pannello), con tre schede come sul Pi: **Games** (giochi
+  `.s16`, e i `.bm` con `show_bm=1`; senza, dice quante cartucce sono nascoste), **Dev** (3D Bench,
+  Render bench, Display, Input test, Boot log, Lua sulla seriale), **System** (Bluetooth, WiFi,
+  System, Reboot, Power off). L1/R1 (o sinistra/destra) cambiano scheda.
+- **3D Bench** (scheda Dev, `src/rgb30/b3d_rgb30.c`): lo stesso banco di prova del Pi
+  (`src/bm/b3d.c`), a 640×360 ingrandito sul pannello; tutte le prove 3D disegnate dall'ARM (la GPU
+  Mali non ha ancora un driver: le colonne GPU restano vuote), i contatori del Cortex-A55
+  (istruzioni, miss della cache dati L1, cicli; `start.S` li lascia a EL1 con `MDCR_EL2.HPMN`), il
+  rapporto in `bm/bench/3DNNNN.TXT` sulla SD e sulla seriale. Sinistra/destra sfogliano le pagine
+  dei risultati, il tasto indietro (A) torna al menu. In QEMU dura circa 40 s
+  (`test_bench3d`).
 - Bluetooth: RTL8821CS su UART1, protocollo H5 (`src/bt/h5.c`) e firmware Realtek
   (`src/bt/rtlbt.c`), poi lo stesso stack del Pi (controller e tastiere). H5 e firmware **provati
   sul PC** contro un chip simulato (`make TARGET=rgb30 test-bt`); **da provare sulla console.**
