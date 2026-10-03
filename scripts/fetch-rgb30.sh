@@ -18,12 +18,30 @@ mkdir -p "$DEST"
 tmp=$(mktemp -d)
 trap 'rm -rf "$tmp"' EXIT
 
+# curl, saying which address failed and what usually causes it (error 60:
+# the certificate could not be checked)
+dl() {  # dl <curl options...> <url>
+    rc=0
+    curl -fL --retry 3 "$@" || rc=$?
+    [ "$rc" = 0 ] && return 0
+    eval "url=\${$#}"
+    echo "fetch-rgb30: download failed (curl error $rc): $url" >&2
+    if [ "$rc" = 60 ] || [ "$rc" = 35 ] || [ "$rc" = 77 ]; then
+        echo "  the server's certificate could not be checked. Usually:" >&2
+        echo "  - missing CA certificates: sudo apt install --reinstall ca-certificates && sudo update-ca-certificates" >&2
+        echo "  - a wrong clock (now: $(date -u '+%Y-%m-%d %H:%M UTC')): on WSL, sudo hwclock -s" >&2
+        echo "  - an antivirus or proxy that inspects HTTPS: see who signed it with" >&2
+        echo "    curl -sv https://github.com -o /dev/null 2>&1 | grep -i issuer" >&2
+    fi
+    exit 1
+}
+
 check() {  # check <file> <sha256>
     echo "$2  $1" | sha256sum -c --quiet - || { echo "fetch-rgb30: $1: unexpected content" >&2; exit 1; }
 }
 
 echo "fetching the boot loader (first MiB of ROCKNIX $ROCKNIX for RK3566)"
-curl -fL --retry 3 -r 0-1048575 -o "$tmp/head.gz" "$IMG_URL"
+dl -r 0-1048575 -o "$tmp/head.gz" "$IMG_URL"
 gzip -dc "$tmp/head.gz" > "$tmp/head.img" 2>/dev/null || true    # truncated on purpose
 dd if="$tmp/head.img" of="$DEST/idbloader.img" bs=512 skip=64 count=388 status=none
 dd if="$tmp/head.img" of="$tmp/itb" bs=512 skip=16384 count=3185 status=none
@@ -33,7 +51,7 @@ check "$DEST/u-boot.itb" 1f7407a0c57b7affc120e519df3724153f2f6e7884e754a643fe7d9
 
 fetch_fw() {  # fetch_fw <path in linux-firmware> <local name> <sha256>
     echo "fetching $1"
-    curl -fL --retry 3 -o "$DEST/$2" "$FW_URL/$FW_REF/$1"
+    dl -o "$DEST/$2" "$FW_URL/$FW_REF/$1"
     check "$DEST/$2" "$3"
 }
 fetch_fw rtl_bt/rtl8821cs_fw.bin rtl8821cs_fw.bin \
