@@ -51,6 +51,7 @@ BCM2835_ONLY = {
     "test_wifi_probe": "the radio chip (raspi2b is a Pi 2 B: none)",
     "test_bt_": "the radio chip (raspi2b is a Pi 2 B: none)",
     "test_menu_tabs": "a Bluetooth pad (the radio chip)",
+    "test_stick_pointer": "a Bluetooth pad (the radio chip)",
     "test_chainloader": "the serial chainloader (ARMv6)",
 }
 
