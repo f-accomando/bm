@@ -2108,13 +2108,24 @@ scheletro) e il backend della GPU, con quello che Overbit aveva aggiunto (materi
 luce del cielo, riflessi, retino, livelli di dettaglio, ossa, luce precalcolata agli
 angoli, ombre, effetti, strato in prima persona, Gouraud impacchettato, righe tagliate
 ai lati). Il primo piano di `R3D_FRONT` con la GPU è uno `zclear` del backend.
-Quello che la GPU non sa ancora disegnare (ombre e effetti 3D, che leggono lo
-z-buffer; facce a retino; texture con la luce precalcolata RGB) chiama
-`r3d_t.arm_hook`: la GPU disegna ciò che ha in coda e la cartuccia passa all'ARM (una
-riga nel log). Overbit quindi resta sull'ARM finché la GPU non ha questi pezzi.
 `stat(6)` del branch (la GPU disegna) diventa `stat(9)`: 6–8 sono già i tempi di
 Overbit. Pixel del rasterizzatore uguali a prima del merge (`bench3d`: 1–14 pixel su
 230 400 cambiano di un livello di retino).
+
+**Overbit sulla GPU (2026-10-03).** Il backend ha imparato quello che a Overbit
+mancava: le facce a retino (uno shader che scarta i pixel dispari), le texture con la
+luce precalcolata RGB e la nebbia sugli angoli (shader `TEX_RGB`, anche con le
+`lamp3d`), le ombre (nere a retino con la prova dello z, senza leggere lo schermo) e
+gli effetti 3D (punti, linee, sprite come triangoli). Resta all'ARM solo una faccia
+con texture *e* retino insieme (`r3d_t.arm_hook`; il fotogramma misto non si mostra).
+Nel gioco: menu "3D" (GPU, GPU+AA, ARM), `gpu3d([on, aa])` per le cartucce, Gouraud da
+MEDIUM e ombre da HIGH quando disegna la GPU, e il **benchmark** (*Overbit >
+BENCHMARK*): i bot giocano la stessa partita con ogni renderer e qualità, poi un anello
+di eroi che cresce fino a 30 fps; tre pagine di report. Poi le ottimizzazioni misurate
+con `tests/overbit/frames.py` (istruzioni dell'ARM per fotogramma, per funzione, con
+`qemu-arm`): driver più snello per triangolo, ombre e trasformazioni più leggere,
+particelle e anelli del Lua riscritti. Numeri, limiti e budget di un 4 contro 4 in
+`docs/LIMITI.md`.
 
 ## Rischi principali
 | Rischio | Mitigazione |
