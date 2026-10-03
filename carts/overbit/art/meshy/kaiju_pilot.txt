@@ -1,0 +1,5 @@
+# Kaiju (tank): the pilot out of the mech
+name = kaiju_pilot
+height = 1.05
+prompt = Full-body 3D game character, a small cute green lizard monster standing upright in A-pose on two legs with empty claws, no weapon. A big round head with large yellow eyes, a frill around the neck, a short snout with tiny teeth, a pale belly, a thick tail, three-toed feet, a small pilot harness with a yellow buckle. Stylized cartoon proportions, hero shooter character.
+texture = bright green scales, pale yellow belly, orange frill with spots, big yellow eyes with black pupils, dark brown pilot harness with yellow buckle, white claws; stylized hand-painted game texture with clean colour blocks

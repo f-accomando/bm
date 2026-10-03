@@ -1,0 +1,5 @@
+# Rail (damage): a commander with a rail rifle
+name = rail
+height = 1.82
+prompt = Full-body 3D game character, a tall female officer standing in A-pose with empty hands, no weapon. Silver-white hair in a single tight braid, a cyan monocle visor over one eye, a long fitted navy coat with gold piping and a high collar over a white chest plate, one armored shoulder pauldron, dark trousers, tall black boots, black gloves. Stylized realistic proportions, hero shooter character.
+texture = deep navy long coat with gold piping and gold buttons, white chest plate, silver shoulder pauldron, black trousers, gloves and boots, silver-white hair, cyan glowing monocle, dark brown skin; stylized hand-painted game texture with clean colour blocks

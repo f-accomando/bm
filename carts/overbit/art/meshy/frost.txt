@@ -1,0 +1,5 @@
+# Frost (damage): a climate scientist with a cryo blaster
+name = frost
+height = 1.62
+prompt = Full-body 3D game character, a cheerful young woman climate scientist standing in A-pose with empty hands, no weapon. A short dark bob haircut with a teal headband, snow goggles pushed up on the forehead, a long white puffy parka with teal panels and a grey fur collar, teal mittens, navy leggings, chunky white snow boots, a compact cryo tank with an ice-blue glow on her back. Stylized realistic proportions, hero shooter character.
+texture = white puffy parka with teal panels, light grey fur collar, teal mittens and headband, navy leggings, white boots, ice blue glowing tank, dark hair, warm skin; stylized hand-painted game texture with clean colour blocks

@@ -1,0 +1,4 @@
+# The models .github/workflows/meshy-overbit.yml makes when this file
+# changes (a push to 3d-performance): one per line, the name of a spec in
+# this folder, optionally task=ID (a refine already made: no new task).
+sarge

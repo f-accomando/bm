@@ -1,0 +1,121 @@
+name: meshy-overbit
+
+# Overbit's heroes through Meshy (text-to-3D, tools/meshy_text.py): a push
+# to 3d-performance that changes carts/overbit/art/meshy/request.txt makes
+# the models it lists, one line each: the name of a spec in that folder
+# (NAME.txt: the description, the colours, the height) and optionally
+# task=ID to download a refine already paid for instead of a new one.
+# Each model: Meshy's .glb and picture, the .bm (tools/meshy2mesh.py of
+# claude/bare-metal-mvp: textured on a 256x256 sheet), the same reduced to
+# 1200 triangles (_1200, tools/bmreduce.py), the renders (tools/bmrender.py);
+# everything as artifacts and onto the branch meshy-out (out/).
+on:
+  push:
+    branches: [3d-performance]
+    paths: [carts/overbit/art/meshy/request.txt]
+
+jobs:
+  plan:
+    runs-on: ubuntu-24.04
+    outputs:
+      models: ${{ steps.list.outputs.models }}
+    steps:
+      - uses: actions/checkout@v4
+      - id: list
+        run: |
+          python3 - >> "$GITHUB_OUTPUT" <<'EOF'
+          import json
+          out = []
+          for line in open("carts/overbit/art/meshy/request.txt"):
+              words = line.split("#", 1)[0].split()
+              if words:
+                  m = {"name": words[0], "task": ""}
+                  for w in words[1:]:
+                      if w.startswith("task="):
+                          m["task"] = w[5:]
+                  out.append(m)
+          print("models=" + json.dumps(out))
+          EOF
+          cat "$GITHUB_OUTPUT"
+
+  model:
+    needs: plan
+    if: needs.plan.outputs.models != '[]'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 75
+    strategy:
+      fail-fast: false
+      max-parallel: 4
+      matrix:
+        m: ${{ fromJSON(needs.plan.outputs.models) }}
+    env:
+      NAME: ${{ matrix.m.name }}
+      TASK: ${{ matrix.m.task }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/checkout@v4
+        with:
+          ref: claude/bare-metal-mvp
+          path: main
+
+      - name: Pillow
+        run: python3 -m pip install --quiet pillow
+
+      - name: Meshy
+        env:
+          MESHY_API_KEY: ${{ secrets.MESHY_API_KEY }}
+        run: |
+          test -n "$MESHY_API_KEY" || { echo "the secret MESHY_API_KEY is not set"; exit 1; }
+          mkdir -p out
+          spec="carts/overbit/art/meshy/$NAME.txt"
+          if [ -n "$TASK" ]; then
+            python3 tools/meshy_text.py "$spec" -o "out/$NAME.glb" --task "$TASK"
+          else
+            python3 tools/meshy_text.py "$spec" -o "out/$NAME.glb"
+          fi
+
+      - name: To the console
+        run: |
+          H="$(sed -n 's/^height *= *//p' "carts/overbit/art/meshy/$NAME.txt")"
+          python3 main/tools/meshy2mesh.py --glb "out/$NAME.glb" -o "out/$NAME.bm" --name "$NAME" --height "${H:-1.8}"
+          python3 main/scripts/bmmesh.py "out/$NAME.bm"
+          python3 main/tools/bmreduce.py "out/$NAME.bm" --faces 1200 -o "out/${NAME}_1200.bm"
+          python3 main/tools/bmrender.py "out/$NAME.bm" "out/$NAME.png"
+          python3 main/tools/bmrender.py "out/${NAME}_1200.bm" "out/${NAME}_1200.png"
+
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: meshy-${{ matrix.m.name }}
+          path: out/*
+          if-no-files-found: ignore
+
+  publish:
+    needs: model
+    if: always() && needs.model.result != 'skipped'
+    runs-on: ubuntu-24.04
+    concurrency:
+      group: meshy-out
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: meshy-*
+          path: new
+          merge-multiple: true
+
+      - name: Onto the branch meshy-out
+        run: |
+          ls -la new || exit 0
+          git clone --quiet --branch meshy-out --single-branch \
+            "https://x-access-token:${{ github.token }}@github.com/${{ github.repository }}.git" pub
+          cd pub
+          git config user.name "meshy workflow"
+          git config user.email "actions@users.noreply.github.com"
+          mkdir -p out
+          cp ../new/* out/
+          git add -f out
+          names="$(cd ../new && ls *.glb 2>/dev/null | sed 's/\.glb$//' | tr '\n' ' ')"
+          git commit -qm "meshy: Overbit's ${names}from carts/overbit/art/meshy (text-to-3D, 3d-performance)" || echo "nothing new"
+          git push origin meshy-out

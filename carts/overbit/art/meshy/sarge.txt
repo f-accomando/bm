@@ -1,0 +1,5 @@
+# Sarge (damage): a veteran with a pulse rifle. Meshy text-to-3D, tools/meshy_text.py
+name = sarge
+height = 1.86
+prompt = Full-body 3D game character, a broad and tall veteran soldier in his sixties standing in A-pose with empty hands, no weapon. Short grey crew-cut hair and a short grey beard, a narrow amber visor across the eyes. Olive-green field jacket with orange chevrons on the shoulders, a dark tactical chest rig with pouches, grey cargo trousers with knee pads, black combat boots. Stylized realistic proportions, clean readable shapes for a hero shooter.
+texture = olive green field jacket, bright orange chevrons on the shoulders, charcoal chest rig, grey trousers with dark knee pads, black boots, glowing amber visor, tanned weathered skin, grey hair and beard; stylized hand-painted game texture with clean colour blocks

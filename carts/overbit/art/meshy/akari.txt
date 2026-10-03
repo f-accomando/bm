@@ -1,0 +1,5 @@
+# Akari (support): a shrine guardian with paper charms
+name = akari
+height = 1.68
+prompt = Full-body 3D game character, a young woman shrine guardian standing in A-pose with empty hands, no weapon. A short silver bob haircut with a golden hairpin, a crimson haori jacket with gold cloud patterns over a white top, a wide black obi belt with paper charms hanging from it, dark green wide hakama trousers, wrapped shins, wooden sandals. Stylized realistic proportions, hero shooter character.
+texture = crimson red jacket with golden cloud patterns, white top, black belt, white paper charms with red marks, dark green trousers, white shin wraps, brown sandals, silver hair, golden hairpin, fair skin; stylized hand-painted game texture

@@ -1,0 +1,5 @@
+# Orbit (support): a young explorer born on a space station
+name = orbit
+height = 1.66
+prompt = Full-body 3D game character, a young woman space explorer standing in A-pose with empty hands, no weapon. A clear glass bubble helmet over a freckled face and curly black hair in two puffs, a navy-blue and silver flight suit with yellow shoulder and knee pads, a small thruster pack on the back, chunky jet boots with glowing teal soles. Stylized realistic proportions, hero shooter character.
+texture = navy blue flight suit with silver panels, bright yellow shoulder and knee pads, teal glowing light strips and boot soles, transparent glass helmet, black curly hair, light brown freckled skin; stylized hand-painted game texture with clean colour blocks

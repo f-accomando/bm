@@ -1,0 +1,5 @@
+# Fuse (damage): a scrapyard demolitions punk
+name = fuse
+height = 1.85
+prompt = Full-body 3D game character, a lanky young demolitions punk standing in A-pose with empty hands, no weapon. A tall orange mohawk, welding goggles on the forehead, a sleeveless mustard work vest over a red and white striped shirt, a bandolier of small round bombs across the chest, patched cargo trousers tucked into heavy work boots, thick leather welding gauntlets, a scrap-metal backpack with a gas canister. Stylized realistic proportions, hero shooter character.
+texture = mustard yellow vest, red and white striped shirt, brown leather bandolier with dark round bombs, khaki cargo trousers with patches, brown boots and gauntlets, bright orange hair, rusty scrap metal backpack, green gas canister; stylized hand-painted game texture
