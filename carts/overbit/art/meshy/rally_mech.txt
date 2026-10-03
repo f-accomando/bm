@@ -3,5 +3,5 @@ name = rally_mech
 height = 3.0
 pose = none
 symmetry = on
-prompt = 3D game model of a big sleek racing mech robot, symmetric, front view, standing with arms down. Smooth glossy white car-body armor with black panels and two bold orange racing stripes over the top, an open cockpit seat with a curved windshield in the chest, broad rounded shoulders, each forearm is a heavy rotary machine gun with six barrels pointing down instead of a hand, a rear spoiler wing, two sturdy straight legs ending in wheeled feet. Clean bevelled hard-surface shapes, stylized.
-texture = glossy white car paint, black trim and joints, two bright orange racing stripes, dark gunmetal machine gun barrels with orange rings, orange headlights, grey wheels, tinted black windshield; bright stylized hand-painted game texture with clean saturated colour blocks
+prompt = 3D game model of a big chunky racing mech robot, symmetric, front view, standing with arms down. Rounded glossy white armor like a sports car body, two bold orange racing stripes down the chest, a cockpit with a curved dark windshield in the chest, big rounded shoulders, thick forearms that end in large rotary gatling guns with a cluster of six barrels, two sturdy legs with small wheels on the feet. Smooth rounded hard-surface shapes, toy-like, stylized.
+texture = glossy white car paint, two bright orange racing stripes, black joints and trim, dark grey gatling barrels, orange lights, tinted dark windshield; bright stylized hand-painted game texture with clean saturated colour blocks
