@@ -623,6 +623,21 @@ static void scene_aa(g16_t *g, r3d_t *r, int gpu)
         gpu3d_flush(g, 0);
 }
 
+/* step 15 (M35): the scene of step 10 and a first-person cube in front
+ * of everything (R3D_FRONT: a zclear() inside the GPU's job), the job
+ * started and waited for later as with the frame queue */
+static void scene_queue(g16_t *g, r3d_t *r, int gpu)
+{
+    g16_cls(g, g16_rgb(30, 20, 50));
+    g16_rectfill(g, 0, 0, W, 12, g16_rgb(200, 200, 0));
+    scene_3d(r);
+    r3d_draw_flags(r, &sc_cube, (v3_t){ 0.25f, -0.15f, -6.2f }, 0.4f, 0.7f, 0.2f, 0.15f, R3D_FRONT);
+    if (gpu) {
+        gpu3d_submit(g, 0);
+        gpu3d_sync();
+    }
+}
+
 /* 3D, 2D over it, then 3D partly behind the first: the depth of the first
  * part, stored by the GPU and loaded again, must hide the second */
 static void scene_split(g16_t *g, r3d_t *r, int gpu)
@@ -709,6 +724,9 @@ static int step_compare(framebuffer_t *fb, const char *what, void (*scene)(g16_t
             kprintf("ok  ARM %lu us, GPU %lu us (%lu triangles in %lu jobs%s; bin %lu, render %lu), "
                     "%d.%d%% differ\n", us[0], us[1], st.tris, st.jobs, st.zjobs ? ", depth kept" : "",
                     st.bin_us, st.render_us, permille / 10, permille % 10);
+            if (st.queued || st.zinjob)
+                kprintf("    %lu jobs started and waited for later, %lu zclear() inside a job\n", st.queued,
+                        st.zinjob);
         }
         /* the two pictures, ARM left and GPU right, until a key or 10 s */
         if (fb->depth == 32 && fb->width >= W && fb->height >= H) {
@@ -962,6 +980,26 @@ static void scene_vs(g16_t *g, r3d_t *r, int gpu)
         gpu3d_flush(g, 0);
 }
 
+
+/* 15 (M35): the frame queue: the job started (semaphores) and waited for
+ * later, the first-person layer's zclear() inside it (fs_zclear), as the
+ * ARM draws */
+static int step_queue(framebuffer_t *fb)
+{
+    if (gpu3d_init() != 0 || !gpu3d_queue_ok()) {
+        step("15 frame queue and zclear() in the job (M35)");
+        kprintf("skipped: %s\n", gpu3d_status());
+        return 0;
+    }
+    const int was = gpu3d_queue();
+    gpu3d_set_queue(1);
+    const int r = step_compare(fb, "15 frame queue and zclear() in the job (M35)", scene_queue);
+    if (r == 0 && !gpu3d_zclear_ok())
+        kprintf("    zclear in job no: the first-person layer ends the job (%s)\n", gpu3d_status());
+    gpu3d_set_queue(was);
+    return r;
+}
+
 /* 14 (M36): the scene above by the GPU with the corners placed by the ARM
  * (left) and by the GPU's vertex shader (right): the same picture, and
  * the ARM's time of each */
@@ -1088,6 +1126,8 @@ void gpu_test(framebuffer_t *fb)
         step_compare(fb, "11 depth kept across 2D (3D, 2D, 3D)", scene_split) == 0 &&
         step_tiles() == 0 && step_msaa(fb) == 0)
         step_vshader(fb);
+    if (ok && gpu3d_ready())
+        step_queue(fb);
     if (gpu3d_ready())
         gpu3d_drop();                       /* the games start from a clean state */
     kprintf(failed ? "GPU test \x1b[91mfailed\x1b[0m: a photo of these lines helps\n" : "GPU test passed\n");

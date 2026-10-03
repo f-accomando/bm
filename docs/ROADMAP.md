@@ -2184,7 +2184,11 @@ l'emulatore della V3D) Overbit fa un lavoro a fotogramma, avviato e non aspettat
 disegni 2D registrati intanto, e fotogrammi identici a quelli senza coda;
 `make test-queue2d` confronta i fotogrammi di tre cartucce di prova con la coda accesa e
 spenta. In Overbit il renderer **GPU+VS+Q** (menu "3D" e benchmark) è quello da misurare
-sul Pi. Resta il passo 2.
+sul Pi; il passo 15 del test `g` (monitor) disegna la scena del passo 10 con un cubo in prima
+persona, il lavoro avviato e aspettato dopo, contro l'ARM, e scrive quanti lavori sono
+partiti e quanti `zclear()` sono rimasti nel lavoro. Una prova all'avvio di una cosa
+facoltativa (vertex shader, clipping, coda, zclear) che blocca la V3D spegne solo quella,
+se dopo uno sfondo pieno la GPU risponde ancora. Resta il passo 2.
 
 ## M36 — Vertici sulla GPU (L/XL)
 Con la GPU il limite è l'ARM (~1,5–2 µs per triangolo: trasformare, illuminare,
