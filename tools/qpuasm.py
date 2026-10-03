@@ -787,6 +787,58 @@ SHADERS["vs_lit"] = """
         nop                 ; nop
 """
 
+# Shadows (M36): the corner (ra0 ra1 ra2) into world axes relative to the
+# camera by its bone (12 uniforms), then down along the sun to the ground's
+# plane, as r3d's draw_shadow: h = max(0, (y - plane) / Ly), x - Lx h,
+# plane + 0.01, z - Lz h, back into ra0 ra1 ra2 for XFORM (the camera's
+# turn, no move). Uniforms: the matrix, plane, 1/Ly, Lx, Lz, plane + 0.01.
+SHADOW = """
+        nop                 ; fmul r0, ra0, unif
+        nop                 ; fmul r1, ra1, unif
+        fadd r0, r0, r1     ; fmul r1, ra2, unif
+        fadd r0, r0, r1     ; nop
+        fadd ra3, r0, unif  ; nop                       # x in the world
+        nop                 ; fmul r0, ra0, unif
+        nop                 ; fmul r1, ra1, unif
+        fadd r0, r0, r1     ; fmul r1, ra2, unif
+        fadd r0, r0, r1     ; nop
+        fadd r3, r0, unif   ; nop                       # y
+        nop                 ; fmul r0, ra0, unif
+        nop                 ; fmul r1, ra1, unif
+        fadd r0, r0, r1     ; fmul r1, ra2, unif
+        fadd r0, r0, r1     ; nop
+        fadd ra4, r0, unif  ; nop                       # z
+        fsub r0, r3, unif   ; nop                       # y - plane
+        nop                 ; fmul r0, r0, unif         # / Ly
+        fmax r0, r0, 0      ; nop                       # h
+        nop                 ; fmul r1, r0, unif         # Lx h
+        fsub ra0, ra3, r1   ; fmul r2, r0, unif         # x - Lx h; Lz h
+        fsub ra2, ra4, r2   ; nop                       # z - Lz h
+        mov ra1, unif       ; nop                       # on the plane
+"""
+
+# The shadow's corner: black (fs_colour_screen), its depth a little nearer
+# (XFORM's -NEAR uniform is -1.035 NEAR, as the ARM's 1.035 / depth)
+SHADERS["vs_shadow"] = """
+        ldi vr_setup, 0x301a00                          # 3 rows: x y z
+        ldi vw_setup, 0x1a00
+        nop                 ; nop
+        nop                 ; nop
+        mov ra0, vpm        ; nop
+        mov ra1, vpm        ; nop
+        mov ra2, vpm        ; nop
+""" + SHADOW + XFORM + """
+        mov vpm, ra9        ; nop
+        mov vpm, rb9        ; nop
+        mov vpm, r4         ; nop
+        mov vpm, 0          ; nop
+        mov vpm, 0          ; nop
+        mov vpm, 0          ; nop
+        nop                 ; nop           ; thrend
+        nop                 ; nop
+        nop                 ; nop
+"""
+
 SHADERS["cs_colour"] = """
         ldi vr_setup, 0x301a00                          # 3 rows: x y z
         ldi vw_setup, 0x1a00
@@ -796,6 +848,31 @@ SHADERS["cs_colour"] = """
         mov ra1, vpm        ; nop
         mov ra2, vpm        ; nop
 """ + XFORM + """
+        nop                 ; fmul r0, ra6, unif        # clip x = x * f / (width/2)
+        nop                 ; fmul r1, rb6, unif        # clip y = y * f / (height/2)
+        nop                 ; fmul r3, r2, rb7          # clip z = -NEAR: at w = NEAR the near plane
+        mov vpm, r0         ; nop
+        mov vpm, r1         ; nop
+        mov vpm, r3         ; nop
+        mov vpm, rb7        ; nop                       # clip w = depth
+        mov vpm, ra9        ; nop
+        mov vpm, rb9        ; nop
+        mov vpm, r4         ; nop
+        nop                 ; nop           ; thrend
+        nop                 ; nop
+        nop                 ; nop
+"""
+
+# the coordinate shader of the shadows
+SHADERS["cs_shadow"] = """
+        ldi vr_setup, 0x301a00                          # 3 rows: x y z
+        ldi vw_setup, 0x1a00
+        nop                 ; nop
+        nop                 ; nop
+        mov ra0, vpm        ; nop
+        mov ra1, vpm        ; nop
+        mov ra2, vpm        ; nop
+""" + SHADOW + XFORM + """
         nop                 ; fmul r0, ra6, unif        # clip x = x * f / (width/2)
         nop                 ; fmul r1, rb6, unif        # clip y = y * f / (height/2)
         nop                 ; fmul r3, r2, rb7          # clip z = -NEAR: at w = NEAR the near plane

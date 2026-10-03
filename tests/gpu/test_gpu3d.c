@@ -261,6 +261,10 @@ static void s_vshader_heroes(r3d_t *r, g16_t *g, int gpu)
     r3d_fog(r, 0xC0A080, 4, 14);
     r3d_lamp_rgb(r, 0, -1.6f, 0.5f, -1.2f, 2.0f, 0.9f, 0xFF8040);
     gpu3d_set_vshader(gpu && !vs_off ? 2 : 0);
+    r->shadow_style = 1;
+    r3d_draw_flags(r, &cube, (v3_t){ 0, -2.2f, 1 }, 0, 0, 0, 1.0f, 0);       /* the floor: a cube's top */
+    r3d_draw_flags(r, &cube, (v3_t){ -2.4f, -2.2f, 1 }, 0, 0, 0, 1.0f, 0);
+    r3d_draw_flags(r, &cube, (v3_t){ 2.4f, -2.2f, 1.5f }, 0, 0, 0, 1.0f, 0);
     for (int i = 0; i < 4; i++) {
         const float a = 0.5f * (float)i;
         const float b0[12] = { cosf(a), 0, sinf(a), 0, 0, 1, 0, 0, -sinf(a), 0, cosf(a), 0 };
@@ -268,8 +272,12 @@ static void s_vshader_heroes(r3d_t *r, g16_t *g, int gpu)
         memcpy(hero_bones[0], b0, sizeof b0);
         memcpy(hero_bones[1], b1, sizeof b1);
         const v3_t at[4] = { { -1.8f, -0.4f, 1 }, { 0, -0.3f, 0 }, { 1.8f, -0.4f, 1.5f }, { 0.3f, 0.2f, -4.6f } };
+        if (i < 3)                      /* its shadow on the floor under it */
+            r3d_draw_flags(r, &hero, (v3_t){ at[i].x, -1.2f, at[i].z }, 0, 0.3f * (float)i, 0, 0.7f, R3D_SHADOW);
         r3d_draw_flags(r, &hero, at[i], 0, 0.3f * (float)i, 0, 0.7f, i == 2 ? 0 : R3D_SMOOTH);
     }
+    /* a first-person model: in front of everything drawn before */
+    r3d_draw_flags(r, &hero, (v3_t){ 0.9f, -0.2f, -3.2f }, 0.3f, 0.5f, 0, 0.3f, R3D_FRONT | R3D_SMOOTH);
     flush(r, g, gpu);
     gpu3d_set_vshader(0);
     r3d_lamp(r, 0, 0, 0, 0, 0, 0);

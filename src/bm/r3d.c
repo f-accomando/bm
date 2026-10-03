@@ -1454,6 +1454,20 @@ void r3d_draw_flags(r3d_t *r, const r3d_mesh_t *m, v3_t p, float rx, float ry, f
     xform_setup(&X, r, m, R, p, scale);
     const unsigned detail = 3u - (flags >> 4 & 3u), dbit = 1u << detail;
     if (flags & R3D_SHADOW) {
+        if (r->backend && r->backend->shadow) {
+            v3_t L = r->light;
+            if (L.y < 0.25f) L.y = 0.25f;   /* as draw_shadow */
+            r3d_env_t env;
+            memset(&env, 0, sizeof env);
+            env.f = v.f;
+            env.cx = v.hw;
+            env.cy = v.hh;
+            env.detail = detail;
+            const int nb = m->bones && m->nbones > 0 ? (m->nbones < MAX_BONES ? m->nbones : MAX_BONES) : 1;
+            if (r->backend->shadow(r->backend->ctx, r->g, m, (const float (*)[12])X.m, nb, v.c, L,
+                                   p.y - r->cam_pos.y, &env))
+                return;
+        }
         draw_shadow(r, m, &X, p, detail, &v);
         return;
     }
@@ -1514,8 +1528,8 @@ void r3d_draw_flags(r3d_t *r, const r3d_mesh_t *m, v3_t p, float rx, float ry, f
     /* M36: a mesh the GPU places itself (its vertex shader), with its
      * bones: unlit, a "lit" model (light baked at its corners: the world of
      * a map), or lit by the sun and the sky (heroes), with the fog and the
-     * lamps; not the first-person layer; the backend may say no */
-    if (fused && r->backend->mesh && !front) {
+     * lamps; the backend may say no */
+    if (fused && r->backend->mesh) {
         r3d_env_t env;
         env.f = v.f;
         env.cx = v.hw;
@@ -1537,6 +1551,9 @@ void r3d_draw_flags(r3d_t *r, const r3d_mesh_t *m, v3_t p, float rx, float ry, f
         env.inside = inside != 0;
         env.lit = !unlit && !m->clight;
         env.smooth = smooth;
+        env.front = front;
+        if (front && zbuf)
+            r->backend->zclear(r->backend->ctx, r->g);     /* the first-person layer, as below */
         if (env.lit) {
             const float a = r->ambient;
             const float sky[3] = { r->sky.r, r->sky.g, r->sky.b }, ground[3] = { r->ground.r, r->ground.g, r->ground.b },

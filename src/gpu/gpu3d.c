@@ -16,7 +16,7 @@
 #define JOB_RCL      (16u << 10)
 #define JOB_RECS     (64u << 10)    /* shader records: NV 16 bytes, GL 64 */
 #define JOB_UNIF     (256u << 10)   /* uniforms of the vertex shaders (a hero: one block a bone) */
-#define JOB_CODE     (16u << 10)    /* the shaders: 1 KiB each, 2 KiB for a vertex shader */
+#define JOB_CODE     (20u << 10)    /* the shaders: 1 KiB each, 2 KiB for a vertex shader */
 #define JOB_VERTS    (4u << 20)
 #define PROBE_W      64
 #define PROBE_H      64
@@ -46,8 +46,10 @@ enum { SH_COLOUR, SH_TEX, SH_TEX_ALPHA, SH_SCREEN, SH_TEX_RGB, SH_TEX_RGB_ALPHA,
 enum { GV_BAKED, GV_TEX_RGB, GV_LIT, GV_COUNT };    /* the vertex shaders of meshes (M36) */
 #define CODE_CS 6                       /* the coordinate shader's kilobyte of G.code */
 #define CODE_VS 7                       /* and the vertex shaders' (two each) */
+#define CODE_SHADOW (CODE_VS + 2 * GV_COUNT)    /* the shadows' vertex shader (2), coordinate shader (1) */
 _Static_assert(sizeof vs_baked <= 2048 && sizeof vs_tex_rgb <= 2048 && sizeof vs_lit <= 2048 &&
-               sizeof cs_colour <= 1024 && CODE_VS + 2 * GV_COUNT <= JOB_CODE / 1024, "shader code slots");
+               sizeof vs_shadow <= 2048 && sizeof cs_colour <= 1024 && sizeof cs_shadow <= 1024 &&
+               CODE_SHADOW + 3 <= JOB_CODE / 1024, "shader code slots");
 
 /* discard: the shader may write no pixel (early z off) */
 static const struct { const uint32_t *code; size_t size; uint8_t uniforms, varyings, discard; } shaders[SH_COUNT] = {
@@ -953,7 +955,8 @@ static void gl_uniforms(gunif_t *u, const ggroup_t *gr, const float M[12], const
      * shader's f/(w/2), f/(h/2) */
     uint32_t *cs = G.unif_next, *vs = cs + 20, *o = vs;
     const float place[17] = { M[0], M[1], M[2], M[3], M[4], M[5], M[6], M[7], M[8], M[9], M[10], M[11],
-                              env->f * 16.0f, 0.5f, -env->f * 16.0f, 0.5f, -R3D_NEAR };
+                              env->f * 16.0f, 0.5f, -env->f * 16.0f, 0.5f,
+                              env->front ? -0.1f * R3D_NEAR : -R3D_NEAR };     /* R3D_FRONT: 10x nearer */
     memcpy(cs, place, sizeof place);
     const float clip[2] = { env->f / env->cx, env->f / env->cy };
     memcpy(cs + 17, clip, sizeof clip);
@@ -1117,6 +1120,108 @@ static int cb_mesh(void *ctx, const g16_t *g, const r3d_mesh_t *m, const float (
             return 0;
     }
     G.st.glmeshes++;
+    return 1;
+}
+
+/* M36: the shadow of a mesh the GPU has the corners of (any way it was
+ * drawn; else made as the model will be drawn), each group but the
+ * screen-door faces' (they cast none) flattened by vs_shadow: black on
+ * every other pixel, tested against the depth, not written. Only the faces
+ * the sun sees, as the ARM's: flattened along the sun they keep the turn
+ * they have seen from it, the others are back faces on the ground */
+static int cb_shadow(void *ctx, const g16_t *g, const r3d_mesh_t *m, const float (*W)[12], int nbones,
+                     const float C[9], v3_t L, float plane, const r3d_env_t *env)
+{
+    (void)ctx;
+    if (!G.gl_ok || G.gl_on < 2 || G.failed || !G.clip_ok || (m->bones && m->nbones > nbones))
+        return 0;
+    gmesh_t *e = NULL;
+    for (int i = 0; i < NMESH && !e; i++)
+        if (G.gm[i].m == m && G.gm[i].version == m->version && G.gm[i].corners)
+            e = &G.gm[i];
+    if (!e && !(e = mesh_get(g, m, 0, !m->clight && m->vnormals != NULL)))
+        return 0;
+    e->used = ++G.tick;
+    int bone = -1;
+    uint32_t job = 0, *cs = NULL, *vs = NULL;
+    for (int i = 0; i < e->ngroups; i++) {
+        const ggroup_t *gr = &e->g[i];
+        if (!(gr->lods >> env->detail & 1) || gr->fs == SH_SCREEN)
+            continue;
+        if (G.failed)
+            return 0;
+        job_for(g);
+        batch_close();
+        if (G.rec_next + 64 > G.recs + JOB_RECS || G.cl.p + 128 > G.cl.end ||
+            G.unif_next + 80 > G.unif + JOB_UNIF / 4) {
+            if (flush_job(g, 1) != 0)
+                return 0;
+            job_begin(g->w, g->h);
+        }
+        clip_window(g);
+        config(V3D_CFG_FRONT | (G.gl_cw ? V3D_CFG_CW : 0), V3D_CFG_DEPTH(1));
+        viewport((int)(env->cx * 16.0f), (int)(env->cy * 16.0f));
+        if (G.clipper[0] != env->cx || G.clipper[1] != env->cy) {
+            v3d_cl_u8(&G.cl, V3D_CLIPPER_XY_SCALING);
+            v3d_cl_f32(&G.cl, env->cx * 16.0f);
+            v3d_cl_f32(&G.cl, -env->cy * 16.0f);
+            v3d_cl_u8(&G.cl, V3D_CLIPPER_Z_SCALING);
+            v3d_cl_f32(&G.cl, 1.0f);
+            v3d_cl_f32(&G.cl, 1.0f);
+            if (G.clip_ok == 2) {
+                v3d_cl_u8(&G.cl, V3D_Z_MIN_MAX_CLIPPING_PLANES);
+                v3d_cl_f32(&G.cl, 0.0f);
+                v3d_cl_f32(&G.cl, 1.0f);
+            }
+            G.clipper[0] = env->cx;
+            G.clipper[1] = env->cy;
+        }
+        if (job != G.job_no || bone != gr->bone) {
+            /* the bone's matrix, the plane, 1/Ly, Lx, Lz, the plane + 0.01;
+             * the camera's turn (no move), f*16, 0.5, -f*16, 0.5, -1.035 NEAR;
+             * the coordinate shader's f/(w/2), f/(h/2) */
+            const float *B = W[gr->bone];
+            const float u[34] = { B[0], B[1], B[2], B[3], B[4], B[5], B[6], B[7], B[8], B[9], B[10], B[11],
+                                  plane, 1.0f / L.y, L.x, L.z, plane + 0.01f,
+                                  C[0], C[1], C[2], 0, C[3], C[4], C[5], 0, C[6], C[7], C[8], 0,
+                                  env->f * 16.0f, 0.5f, -env->f * 16.0f, 0.5f, -1.035f * R3D_NEAR };
+            cs = G.unif_next;
+            vs = cs + 36;
+            memcpy(cs, u, sizeof u);
+            const float clip[2] = { env->f / env->cx, env->f / env->cy };
+            memcpy(cs + 34, clip, sizeof clip);
+            memcpy(vs, u, sizeof u);
+            G.unif_next = vs + 34;
+            job = G.job_no;
+            bone = gr->bone;
+        }
+        const uint32_t stride = vshaders[gr->vs].words * 4;
+        uint8_t *r = G.rec_next;
+        G.rec_next += 64;
+        memset(r, 0, 64);
+        uint32_t a;
+        r[0] = 4;                               /* clipping */
+        r[3] = shaders[SH_SCREEN].varyings;
+        a = v3d_bus(G.code + 1024 * SH_SCREEN); memcpy(r + 4, &a, 4);
+        r[14] = 1; r[15] = 3;
+        a = v3d_bus(G.code + 1024 * CODE_SHADOW); memcpy(r + 16, &a, 4);
+        a = v3d_bus(vs); memcpy(r + 20, &a, 4);
+        r[26] = 1; r[27] = 3;
+        a = v3d_bus(G.code + 1024 * (CODE_SHADOW + 2)); memcpy(r + 28, &a, 4);
+        a = v3d_bus(cs); memcpy(r + 32, &a, 4);
+        a = v3d_bus(e->corners + gr->first); memcpy(r + 36, &a, 4);
+        r[40] = 11; r[41] = (uint8_t)stride; r[42] = 0; r[43] = 0;
+        v3d_cl_u8(&G.cl, V3D_GL_SHADER_STATE);
+        v3d_cl_u32(&G.cl, v3d_bus(r) | 1);
+        v3d_cl_u8(&G.cl, V3D_VERTEX_ARRAY_PRIMITIVES);
+        v3d_cl_u8(&G.cl, 4);
+        v3d_cl_u32(&G.cl, gr->n);
+        v3d_cl_u32(&G.cl, 0);
+        e->job = G.job_no;
+        G.gldraws++;
+        G.st.tris += gr->n / 3;
+        G.st.gltris += gr->n / 3;
+    }
     return 1;
 }
 
@@ -1723,8 +1828,11 @@ int gpu3d_init(void)
     memcpy(G.code + 1024 * CODE_CS, cs_colour, sizeof cs_colour);
     for (int i = 0; i < GV_COUNT; i++)
         memcpy(G.code + 1024 * vshaders[i].kb, vshaders[i].code, vshaders[i].size);
+    memcpy(G.code + 1024 * CODE_SHADOW, vs_shadow, sizeof vs_shadow);
+    memcpy(G.code + 1024 * (CODE_SHADOW + 2), cs_shadow, sizeof cs_shadow);
     G.backend.tri = cb_tri;
     G.backend.mesh = cb_mesh;
+    G.backend.shadow = cb_shadow;
     G.backend.zclear = cb_zclear;
     G.backend.guard = GUARD * 0.9f;     /* r3d's bound, with room for its rounding */
     if (probe() != 0)

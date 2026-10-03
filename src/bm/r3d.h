@@ -101,6 +101,7 @@ typedef struct {
     int unlit;                  /* R3D_UNLIT: every face at full light */
     int inside;                 /* R3D_INSIDE: no corner needs clipping (else the backend
                                  * clips, or says no) */
+    int front;                  /* R3D_FRONT: depths 10x nearer (r3d cleared the depth) */
     /* a model lit by the sun (not unlit, no baked light): light_fast at
      * each corner, l = A + B n.y + D max(n.sun, 0) + R (1 - max(n.view, 0))^2
      * (r g b each) plus the lamps, the highlight S (n.half)^spec_p where
@@ -122,6 +123,12 @@ typedef struct {
      * if the GPU clips) */
     int (*mesh)(void *ctx, const g16_t *g, const r3d_mesh_t *m, const float (*M)[12], const float (*N)[9],
                 int nbones, const r3d_env_t *env, int depth);
+    /* M36, optional: the shadow of a mesh (R3D_SHADOW) by the GPU: W[b]
+     * object -> world relative to the camera with bone b (3x4), C the
+     * camera's turn (3x3 by rows), down along L (L.y >= 0.25) to the plane
+     * y = plane (relative to the camera); 1 if the backend took it */
+    int (*shadow)(void *ctx, const g16_t *g, const r3d_mesh_t *m, const float (*W)[12], int nbones,
+                  const float C[9], v3_t L, float plane, const r3d_env_t *env);
     void (*zclear)(void *ctx, const g16_t *g);      /* what follows ignores what was drawn */
     void *ctx;
     float guard;                /* pixels around the screen for R3D_INSIDE; 0: never */
