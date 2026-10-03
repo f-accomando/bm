@@ -1,6 +1,6 @@
 -- Kaiju, tank (the kit of D.Mon, a second mech pilot). In the mech BIG RED:
--- Plasma Saber (primary: wide swings, left and right), Fusion Repeater
--- (secondary: the gun of the right arm, with a magazine), Propulsors
+-- Plasma Saber (primary: the sword's wide swings, left and right), Fusion
+-- Repeater (secondary: the gun under the shield of the right arm), Propulsors
 -- (ability 1: short dashes, three charges of fuel), Power Barrier (ability
 -- 2, held: a hexagon wall in front; the primary becomes Surging Strike, a
 -- lunge with the barrier), Limit Break (ultimate: a full circle of the
@@ -10,14 +10,14 @@
 local K = {
   id = "kaiju", name = "Kaiju", short = "KJU", role = "tank", rgb = 0xD8282E,
   ult_cost = 1500,
-  desc = "A little monster in a big red mech",
+  desc = "A young pilot, a big red mech, a sword and a shield",
 }
 H.kaiju = K
 HERO_ORDER[#HERO_ORDER + 1] = "kaiju"
 
 local MECH = {
   name = "mech", tp = "kaiju_mech", fp = "kaiju_fp",
-  hp = 400, armor = 300, speed = 5.0, radius = 1.15, height = 3.05, eye = 2.5, crouch_eye = 2.1,
+  hp = 400, armor = 300, speed = 5.0, radius = 1.25, height = 3.4, eye = 2.85, crouch_eye = 2.45,
   jump = 5.8, head = "dome", corpse = 0.6, cross = "melee",
   clips = { idle = "idle", walk = "walk", run = "run", air = "air", jump = "jump", land = "land",
             crouch = "crouch", death = "death" },
@@ -26,7 +26,7 @@ local MECH = {
 }
 local PILOT = {
   name = "pilot", tp = "kaiju_pilot", fp = "kaiju_pfp",
-  hp = 150, armor = 0, speed = 6.0, radius = 0.3, height = 1.2, eye = 1.0, crouch_eye = 0.7,
+  hp = 150, armor = 0, speed = 6.0, radius = 0.34, height = 1.6, eye = 1.47, crouch_eye = 1.05,
   jump = 6.6, head = "head", corpse = 3,
   clips = { idle = "idle", walk = "walk", run = "run", air = "air", jump = "jump", land = "land",
             crouch = "crouch", death = "death" },

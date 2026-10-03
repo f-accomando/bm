@@ -1,17 +1,19 @@
 """
 Rally - tank (the kit of D.Va): a racing driver in a white mech.
 
-The mech: a sleek white racing robot, black panels and two orange racing
-stripes down its front, the forearms its two cannons, missile pods on the
-shoulders. The pilot: short dark hair, orange-tinted glasses, a purple
-racing jacket with white stripes over a grey vest and a white top, grey
-trousers with white stripes, purple trainers, fingerless gloves; a small
-light gun.
+The mech: a big sleek white racing robot, black panels and two orange
+racing stripes down its front, the forearms two rotary machine guns (six
+barrels round a hub), missile pods on the shoulders. The pilot: a young
+woman racing driver, a short platinum bob with a turquoise streak,
+orange-tinted glasses pushed up, a cropped white and turquoise racing
+jacket with orange stripes, turquoise joggers, white and orange trainers,
+fingerless gloves; a small light gun.
 
 Models: rally_mech and rally_pilot (third person: the Meshy figures of
 art/meshy, by meshyrig.py: the mech on a skeleton fitted to it with these
-bones and clips; the bodies below with --classic), rally_fp (the cockpit
-seen from inside: the two cannons), rally_pfp (the pilot's hands and gun).
+bones and clips; the older bodies below with --classic), rally_fp (the
+cockpit seen from inside: the two rotary guns, their barrels turning
+while they fire), rally_pfp (the pilot's hands and gun).
 """
 import math
 
@@ -103,11 +105,26 @@ def mech_skeleton():
         sk.bone(f"arm.{s}", "body", (x * 0.95, 2.0, 0.25), (x * 1.18, 1.78, 0.30))
         sk.bone(f"gun.{s}", f"arm.{s}", (x * 1.18, 1.76, 0.30), (x * 1.18, 1.76, 1.48))
         sk.bone(f"pod.{s}", "body", (x * 0.72, 2.50, -0.12), (x * 0.72, 2.52, 0.35))
+        # the rotary gun's barrels at the forearm's end (on the Meshy figure too)
+        sk.bone(f"rotor.{s}", f"gun.{s}", (x * 1.18, 1.76, 1.30), (x * 1.18, 1.76, 1.85))
     for s, x in (("L", -1), ("R", 1)):
         sk.bone(f"thigh.{s}", "hips", (x * LEG_X, HIP_Y, 0), (x * 0.60, KNEE[0], KNEE[1]))
         sk.bone(f"shin.{s}", f"thigh.{s}", (x * 0.60, KNEE[0], KNEE[1]), (x * 0.60, HOCK[0], HOCK[1]))
         sk.bone(f"foot.{s}", f"shin.{s}", (x * 0.60, HOCK[0], HOCK[1]), (x * 0.60, TOE[0], TOE[1]))
     return sk
+
+
+def gatling(m, bone, x, y, z, length=0.55):
+    """six barrels round a hub along +z from (x, y, z), two rings holding
+    them, orange glow at the muzzles"""
+    m.add(cylinder(0.07, length, segs=8, axis="z").move(x, y, z + length / 2), DARK, bone, 0, 3)
+    for i in range(6):
+        a = math.pi / 3 * i
+        bx, by = x + 0.12 * math.cos(a), y + 0.12 * math.sin(a)
+        m.add(cylinder(0.04, length, segs=6, axis="z").move(bx, by, z + length / 2), BLACK, bone, 1 if i % 2 else 0, 3)
+        m.add(cylinder(0.024, 0.01, segs=6, axis="z").move(bx, by, z + length + 0.004), ORANGE, bone, 2, 3)
+    for f in (0.25, 0.75):
+        m.add(cylinder(0.17, 0.05, segs=10, caps=False, axis="z").move(x, y, z + length * f), LIGHTGREY, bone, 1, 3)
 
 
 def mech_mesh(sk, name="rally_mech"):
@@ -158,6 +175,8 @@ def mech_mesh(sk, name="rally_mech"):
                            (-1, 0, 0)), ORANGE, B["gun.L"], B["gun.R"], 2, 3)
     both(m, lambda: facing(quad((-1.385, 1.70, 0.60), (-1.385, 1.70, 1.05), (-1.385, 1.60, 1.05), (-1.385, 1.60, 0.60)),
                            (-1, 0, 0)), BLACK, B["gun.L"], B["gun.R"], 3, 3)
+    for s_, x in (("L", -1), ("R", 1)):
+        gatling(m, B[f"rotor.{s_}"], x * 1.18, 1.76, 1.30)
     # -- missile pods on the shoulders: the lid opens (pod bone)
     both(m, lambda: box(0.32, 0.16, 0.48).move(-0.72, 2.43, 0.10), DARK, B["body"], B["body"], 1, 3)
     both(m, lambda: box(0.34, 0.06, 0.50).move(-0.72, 2.53, 0.10), WHITE, B["pod.L"], B["pod.R"], 1, 3)
@@ -312,32 +331,40 @@ def fp_skeleton():
     for s, x in (("L", -1), ("R", 1)):
         sk.bone(f"arm.{s}", "root", (x * (FP_X - 0.10), FP_Y + 0.15, FP_Z - 0.80), (x * FP_X, FP_Y, FP_Z - 0.55))
         sk.bone(f"gun.{s}", f"arm.{s}", (x * FP_X, FP_Y, FP_Z - 0.55), (x * FP_X, FP_Y, FP_Z + 0.62))
+        # the barrels turn around the gun's axis while it fires
+        sk.bone(f"spin.{s}", f"gun.{s}", (x * FP_X, FP_Y, FP_Z + 0.30), (x * FP_X, FP_Y, FP_Z + 1.00))
     return sk
 
 
 def fp_mesh(sk, name="rally_fp"):
+    """the two rotary machine guns from the cockpit: white housings with an
+    orange strip, a black grille, six dark barrels round a hub in front
+    (bone spin.*: they turn while firing)"""
     m = Mesh(name)
     B = sk.index
     for s, x in (("L", -1), ("R", 1)):
-        A, G = B[f"arm.{s}"], B[f"gun.{s}"]
+        A, G, SP = B[f"arm.{s}"], B[f"gun.{s}"], B[f"spin.{s}"]
         gx, gy, gz = x * FP_X, FP_Y, FP_Z
         m.add(box(0.46, 0.44, 0.50, bevel=0.06).move(gx, gy + 0.06, gz - 0.80), WHITE, A, 0, 3)
         m.add(cylinder(0.16, 0.30, segs=8, axis="x").move(gx - 0.15, gy + 0.20, gz - 0.85), DARK, A, 0, 3)
-        m.add(box(0.42, 0.40, 1.20, bevel=0.06).move(gx, gy, gz), WHITE, G, 0, 3)
-        m.add(facing(quad((gx - 0.15, gy + 0.135, gz + 0.605), (gx + 0.15, gy + 0.135, gz + 0.605),
-                          (gx + 0.15, gy - 0.135, gz + 0.605), (gx - 0.15, gy - 0.135, gz + 0.605)), (0, 0, 1)),
-              BLACK, G, 0, 3)
-        for y in (0.06, -0.06):
-            m.add(facing(strip((gx, gy + y, gz + 0.61), 0.22, 0.03), (0, 0, 1)), GLOW, G, 0, 3)
-        for dx in (-0.07, 0.07):
-            m.add(cylinder(0.065, 0.18, segs=8, caps=False, axis="z").move(gx + dx, gy, gz + 0.60), DARK, G, 0, 3)
-        # the orange strip on top, the black grille on the inner side
-        m.add(facing(quad((gx - 0.10, gy + 0.205, gz - 0.45), (gx + 0.10, gy + 0.205, gz - 0.45),
-                          (gx + 0.10, gy + 0.205, gz + 0.45), (gx - 0.10, gy + 0.205, gz + 0.45)), (0, 1, 0)),
+        # the housing: a white drum, shorter than the cannon was
+        m.add(box(0.42, 0.40, 0.80, bevel=0.06).move(gx, gy, gz - 0.20), WHITE, G, 0, 3)
+        m.add(cylinder(0.17, 0.10, segs=10, axis="z").move(gx, gy, gz + 0.22), DARK, G, 0, 3)     # the collar
+        m.add(facing(quad((gx - 0.10, gy + 0.205, gz - 0.55), (gx + 0.10, gy + 0.205, gz - 0.55),
+                          (gx + 0.10, gy + 0.205, gz + 0.15), (gx - 0.10, gy + 0.205, gz + 0.15)), (0, 1, 0)),
               ORANGE, G, 0, 3)
-        m.add(facing(quad((gx - x * 0.215, gy + 0.10, gz - 0.35), (gx - x * 0.215, gy + 0.10, gz + 0.35),
-                          (gx - x * 0.215, gy - 0.08, gz + 0.35), (gx - x * 0.215, gy - 0.08, gz - 0.35)), (-x, 0, 0)),
+        m.add(facing(quad((gx - x * 0.215, gy + 0.10, gz - 0.50), (gx - x * 0.215, gy + 0.10, gz + 0.10),
+                          (gx - x * 0.215, gy - 0.08, gz + 0.10), (gx - x * 0.215, gy - 0.08, gz - 0.50)), (-x, 0, 0)),
               BLACK, G, 0, 3)
+        # the barrels round the hub, two rings holding them, orange glow at the muzzles
+        m.add(cylinder(0.05, 0.62, segs=8, axis="z").move(gx, gy, gz + 0.28), DARK, SP, 0, 3)      # the hub
+        for i in range(6):
+            a = math.pi / 3 * i
+            bx, by = gx + 0.10 * math.cos(a), gy + 0.10 * math.sin(a)
+            m.add(cylinder(0.034, 0.62, segs=6, axis="z").move(bx, by, gz + 0.28), BLACK, SP, 0, 3)
+            m.add(cylinder(0.02, 0.01, segs=6, axis="z").move(bx, by, gz + 0.905), ORANGE, SP, 1, 3)
+        for z in (0.45, 0.80):
+            m.add(cylinder(0.15, 0.04, segs=10, caps=False, axis="z").move(gx, gy, gz + z), LIGHTGREY, SP, 0, 3)
     return m.weld()
 
 
@@ -738,10 +765,13 @@ def fp_clips(sk):
 
     def fire(t):
         p = {}
-        for s, at in (("L", 0.0), ("R", 0.15)):
+        for s, x, at in (("L", -1, 0.0), ("R", 1, 0.15)):
             u = ((t - at) % 0.3) / 0.15
             k = max(0.0, 1 - u) if u < 1 else 0.0
-            p[f"gun.{s}"] = (-2.5 * k, 0, 0, 0, 0.015 * k, -0.12 * k)
+            p[f"gun.{s}"] = (-1.2 * k, 0, 0, 0, 0.008 * k, -0.05 * k)
+            # the barrels turn a sixth of a turn in each key (six barrels:
+            # the loop's end looks as its start)
+            p[f"spin.{s}"] = (0, 0, x * 360 * t / 0.3)
         return p
     clips.append(sample(fire, 0.3, 6, name="fire", mode=0))
 

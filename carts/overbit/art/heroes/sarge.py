@@ -1,11 +1,12 @@
 """
 Sarge - damage (the kit of Soldier: 76): a veteran with a pulse rifle.
 
-Broad and tall, in his sixties: short grey hair and a short grey beard, an
-olive field jacket with orange chevrons on the shoulders, a dark chest rig
-with pouches, grey cargo trousers with knee pads, black boots; a long
-pulse rifle, dark with white panels and cyan glowing strips, rockets under
-the barrel.
+Broad and tall, in his fifties, in a modern city look: a silver undercut
+and a short silver beard, a slim teal visor, a high-collar tangerine
+jacket with white and black geometric panels, a teal harness, slim white
+trousers with orange knee guards, white sneakers; a long pulse rifle,
+white with orange panels and teal glowing strips, rockets under the
+barrel.
 
 Models: sarge (third person: the Meshy figure art/meshy/sarge, on this
 skeleton by meshyrig.py; the body below with --classic), sarge_fp (hands
@@ -23,19 +24,19 @@ from rig import Skeleton, sample
 SKIN = Mat(0xD9A587)
 STUBBLE = Mat(0xB08A74)
 HAIR = Mat(0xB4B4B8)
-VISOR = Mat(0xFFA22E, emissive=True)
-JACKET = Mat(0x4E5639)
-JACKET2 = Mat(0x3E452D)
-RIG = Mat(0x2B2E33)
-CHEVRON = Mat(0xF07A22)
-PANTS = Mat(0x4A4D52)
-PAD = Mat(0x2E3034)
-BOOT = Mat(0x1E1F22)
-GLOVE = Mat(0x6B5B4A)
-GUN = Mat(0x2C3036, glossy=True)
-GUN_W = Mat(0xDDE2E6, glossy=True)
-GLOW = Mat(0x4FD8FF, emissive=True)
-BELT = Mat(0x5A4A36)
+VISOR = Mat(0x2FE6D0, emissive=True)
+JACKET = Mat(0xF2761E)
+JACKET2 = Mat(0xD9611A)
+RIG = Mat(0x1FB5A8)
+CHEVRON = Mat(0xF4F4F4)
+PANTS = Mat(0xE6E9EC)
+PAD = Mat(0xF2761E)
+BOOT = Mat(0xF2F2F2)
+GLOVE = Mat(0x2A2D33)
+GUN = Mat(0xE8ECEF, glossy=True)
+GUN_W = Mat(0xF2761E, glossy=True)
+GLOW = Mat(0x2FF0D0, emissive=True)
+BELT = Mat(0x1FB5A8)
 
 BODY = Body(height=1.86, shoulders=0.23, hips=0.11, arm=1.04, leg=1.0)
 GRIP = None          # set by skeleton(): the foregrip in the gun bone's rest space

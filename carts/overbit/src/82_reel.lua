@@ -47,7 +47,7 @@ local SHOTS = {
       A.yaw = A.yaw + DT * 0.55
     end,
     cam = function(t) front(1.5, 1.2, -0.05, 8) end },
-  { cap = "FUSION CANNONS", sub = "PRIMARY FIRE - 11 PELLETS, 6.7 SHOTS A SECOND", len = 3.5,
+  { cap = "ROTARY GUNS", sub = "PRIMARY FIRE - THE FOREARMS, 11 ROUNDS 6.7 TIMES A SECOND", len = 3.5,
     setup = function() place(A, 0, -12, 0) place(D, 2, 2, pi) end,
     drive = function(c, t) face(A, D.x, D.y + 1.6, D.z) c.fire = t > 0.4 end,
     cam = function(t) front(1.9, -1.1 + t * 0.08, -0.08, 6.5, 58) end },
@@ -191,11 +191,11 @@ end
 local function at(t, t0) return t > t0 and t < t0 + 0.02 end
 local function aim_d(c) face(A, D.x, D.y + D.height * 0.55, D.z) end
 
-hero_shots("kaiju", "TANK - A LITTLE MONSTER IN A BIG RED MECH", {
-  { cap = "PLASMA SABER", sub = "PRIMARY - WIDE SWINGS, 65 DAMAGE", len = 3.5,
+hero_shots("kaiju", "TANK - SWORD AND SHIELD IN A BIG RED MECH", {
+  { cap = "PLASMA SABER", sub = "PRIMARY - WIDE SWINGS OF THE SWORD, 65 DAMAGE", len = 3.5,
     setup = function() place(A, 0, -3.4, 0) place(D, 0, 1, pi) end,
     drive = function(c, t) aim_d(c) c.fire = t > 0.3 end, off = -1.2, zoom = 1.1 },
-  { cap = "FUSION REPEATER", sub = "SECONDARY - THE GUN OF THE RIGHT ARM", len = 3,
+  { cap = "FUSION REPEATER", sub = "SECONDARY - THE GUN UNDER THE SHIELD", len = 3,
     setup = function() place(A, 0, -10, 0) place(D, 1, 2, pi) end,
     drive = function(c, t) aim_d(c) c.fire2 = t > 0.3 end, off = 1.0, zoom = 1.0 },
   { cap = "PROPULSORS", sub = "ABILITY 1 - THREE DASHES OF FUEL", len = 3.5,
@@ -206,7 +206,7 @@ hero_shots("kaiju", "TANK - A LITTLE MONSTER IN A BIG RED MECH", {
     setup = function() place(A, 0, -6, 0) place(G2, 0, 10, pi) G2.st.rocket_cd = 0 place(D, 1, -1.6, pi) end,
     drive = function(c, t) face(A, G2.x, G2.y + 1.6, G2.z) c.ab2 = t > 0.3 c.fire_p = at(t, 3.0) blank_g2(t, 0.6) end,
     off = 2.55, zoom = 1.25 },
-  { cap = "LIMIT BREAK", sub = "ULTIMATE - A FULL CIRCLE OF THE BLADE", len = 3,
+  { cap = "LIMIT BREAK", sub = "ULTIMATE - A FULL CIRCLE OF THE SWORD", len = 3,
     setup = function() place(A, 0, -2, 0) A.ult = 100 place(D, 2, 2, pi) end,
     drive = function(c, t) c.ult_p = at(t, 0.4) end, off = 0.6, zoom = 1.3 },
   { cap = "EJECT", sub = "THE MECH BREAKS: THE PILOT JUMPS OUT", len = 3,
@@ -226,7 +226,7 @@ hero_shots("kaiju", "TANK - A LITTLE MONSTER IN A BIG RED MECH", {
   setup = function() if A.form.name ~= "mech" then Actors.set_form(A, H.kaiju.forms.mech) end place(A, 0, -3.5, 0) place(D, 0, 1, pi) end,
   drive = function(c, t) aim_d(c) c.fire = t < 2 c.ab2 = t > 2.3 and t < 3.8 c.fire2 = t > 4 end })
 
-hero_shots("sarge", "DAMAGE - A VETERAN WITH A PULSE RIFLE", {
+hero_shots("sarge", "DAMAGE - A VETERAN IN TANGERINE, A PULSE RIFLE", {
   { cap = "HEAVY PULSE RIFLE", sub = "PRIMARY - 30 SHOTS, 9 A SECOND", len = 3.5,
     setup = function() place(A, 0, -10, 0) place(D, 1, 2, pi) end,
     drive = function(c, t) aim_d(c) c.fire = t > 0.3 end },
@@ -269,7 +269,7 @@ hero_shots("frost", "DAMAGE - A CLIMATE SCIENTIST WITH A CRYO BLASTER", {
   setup = function() place(A, 0, -6, 0) end,
   drive = function(c, t) aim_d(c) c.fire = t < 2.2 c.fire2_p = at(t, 2.6) if t > 3.6 then A.pitch = -0.25 end c.ab2_p = at(t, 3.8) end })
 
-hero_shots("fuse", "DAMAGE - A SCRAPYARD DEMOLITIONS PUNK", {
+hero_shots("fuse", "DAMAGE - A NEON DEMOLITIONS ARTIST", {
   { cap = "FRAG LAUNCHER", sub = "PRIMARY - BOUNCING GRENADES", len = 4,
     setup = function() place(A, 0, -10, 0) place(D, 1, 0, pi) end,
     drive = function(c, t) aim_d(c) A.pitch = A.pitch + 0.15 c.fire = t > 0.3 end, off = 1.1 },

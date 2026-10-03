@@ -53,10 +53,31 @@ def available(name):
     return os.path.exists(os.path.join(MESHY, name + ".mesh"))
 
 
+# textures made brighter on the sheet: Rally's mech came out of Meshy grey
+# where it is meant white (its greys lifted towards white, the orange of
+# its stripes stronger)
+WHITEN = {"rally_mech": 0.55}
+
+
 def texture(name):
     """(w, h, rgba) of the model's texture"""
     from PIL import Image
     im = Image.open(os.path.join(MESHY, name + ".png")).convert("RGBA")
+    lift = WHITEN.get(name)
+    if lift:
+        import colorsys
+        px = []
+        for r, g, b, a in im.getdata():
+            h, l, sat = colorsys.rgb_to_hls(r / 255, g / 255, b / 255)
+            if sat < 0.25:
+                l = lift + (1 - lift) * l
+            else:
+                sat = min(1.0, sat * 1.25)
+                l = min(0.62, l * 1.1)
+            r2, g2, b2 = colorsys.hls_to_rgb(h, l, sat)
+            px.append((round(r2 * 255), round(g2 * 255), round(b2 * 255), a))
+        im = Image.new("RGBA", im.size)
+        im.putdata(px)
     return im.width, im.height, im.tobytes()
 
 
@@ -249,11 +270,30 @@ def rig_joints(rjoints):
 
 # ------------------------------------------------------------------ the figure
 
+def spec_height(name):
+    """the height of NAME.txt (the figure's, in metres), or None"""
+    path = os.path.join(MESHY, name + ".txt")
+    for line in open(path) if os.path.exists(path) else ():
+        k, _, v = line.partition("=")
+        if k.strip() == "height":
+            return float(v)
+    return None
+
+
 def load(name):
-    """the two models of NAME.mesh: (1200 triangles, 450)"""
+    """the two models of NAME.mesh: (1200 triangles, 450), as tall as the
+    spec says (a figure made smaller can grow: the mechs)"""
     models, _ = bmmesh.decode(open(os.path.join(MESHY, name + ".mesh"), "rb").read())
     by = {m["name"]: m for m in models}
-    return by[name], by[name + "_lo"]
+    hi, lo = by[name], by[name + "_lo"]
+    h = spec_height(name)
+    ys = [p[1] for p in hi["verts"] + lo["verts"]]
+    top = max(ys) - min(ys)
+    if h and abs(h - top) > 0.01 * h:
+        s = h / top
+        hi = dict(hi, verts=[(p[0] * s, p[1] * s, p[2] * s) for p in hi["verts"]])
+        lo = dict(lo, verts=[(p[0] * s, p[1] * s, p[2] * s) for p in lo["verts"]])
+    return hi, lo
 
 
 def joints_of(sk):
@@ -569,6 +609,8 @@ def dress_mech(mod, kind, old, sk_old, name):
     z0 = lambda p: (p[0], p[1], p[2] - zc)                          # noqa: E731
     hip_y = F["hips"][1]
     J_old = joints_of(sk_old)
+    # the parts the figure has not (pods, the sword, the shield) grow with it
+    grow = top / max(v[1] for v in old.verts)
     new = {}                                                        # bone -> (head, tail)
     new["root"] = ((0, 0, 0), (0, 0.5, 0))
     new["hips"] = ((0, hip_y, 0), (0, F["spine"][1], 0))
@@ -592,12 +634,37 @@ def dress_mech(mod, kind, old, sk_old, name):
         new[f"foot.{s}"] = (z0(F[f"ankle.{s}"]), z0(F[f"toe.{s}"]))
         if kind == "rally":
             oh, ot = J_old[f"pod.{s}"]
-            ph = (x * 0.8 * abs(sh[0]), sh[1] + 0.22 * top / 2.4, oh[2])
-            new[f"pod.{s}"] = (ph, add(ph, sub(ot, oh)))
+            ph = (x * 0.8 * abs(sh[0]), sh[1] + 0.22 * top / 2.4, oh[2] * grow)
+            new[f"pod.{s}"] = (ph, add(ph, mul(sub(ot, oh), grow)))
+            # the rotary gun's barrels at the end of the forearm
+            gh, gt = new[f"gun.{s}"]
+            oh, ot = J_old[f"rotor.{s}"]
+            rh = add(gt, mul(sub(oh, J_old[f"gun.{s}"][1]), grow))
+            new[f"rotor.{s}"] = (rh, add(rh, mul(sub(ot, oh), grow)))
     if kind == "kaiju":
+        # the sword in the left fist (at the forearm's end), the shield on
+        # the outer side of the right forearm, as far along it as before and
+        # just out of the figure's forearm
         oh, ot = J_old["blade"]
         bh = new["fore.L"][1]
-        new["blade"] = (bh, add(bh, sub(ot, oh)))
+        new["blade"] = (bh, add(bh, mul(sub(ot, oh), grow)))
+        oh, ot = J_old["shield"]
+        fh, ft = J_old["fore.R"]
+        d_old = norm(sub(ft, fh))
+        off = sub(oh, fh)
+        along = sum(a * b for a, b in zip(off, d_old))
+        perp = sub(off, mul(d_old, along))
+        nh, nt = new["fore.R"]
+        d_new = norm(sub(nt, nh))
+        el, tip = F["elbow.R"], F["tip.R"]
+        axis = norm(sub(tip, el))
+        fore_pts = [p for p, b in zip(turn(hi["verts"]), labels_hi) if b == "forearm.R"] if rig else []
+        radial = sorted(length(sub(sub(p, el), mul(axis, sum(a * b for a, b in zip(sub(p, el), axis)))))
+                        for p in fore_pts)
+        r = radial[int(len(radial) * 0.9)] if radial else 0.2 * grow
+        sh_h = add(add(nh, mul(d_new, along / max(length(sub(ft, fh)), 1e-6) * length(sub(nt, nh)))),
+                   (r + 0.03, perp[1] * grow, perp[2] * grow))
+        new["shield"] = (sh_h, add(sh_h, mul(sub(ot, oh), grow)))
     sk = Skeleton()
     for n, parent, _, _ in sk_old.bones:
         sk.bone(n, sk_old.bones[parent][0] if parent >= 0 else None, *new[n])
@@ -609,14 +676,14 @@ def dress_mech(mod, kind, old, sk_old, name):
         consts.update(LEG_X=abs(leg[0][0][0]), HOCK=(leg[1][1][1], leg[1][1][2]), TOE=(leg[2][1][1], leg[2][1][2]))
     else:
         consts.update(ANKLE=(leg[1][1][1], leg[1][1][2]))
-    saved = {k: getattr(mod, k) for k in consts}
-    for k, v in consts.items():
-        setattr(mod, k, v)
+    saved = {c: getattr(mod, c) for c in consts}
+    for c, v in consts.items():
+        setattr(mod, c, v)
     try:
         clips = mod.mech_clips(sk)
     finally:
-        for k, v in saved.items():
-            setattr(mod, k, v)
+        for c, v in saved.items():
+            setattr(mod, c, v)
     # the figure on the bones
     J = joints_of(proxy)
     seg = segments(F, proxy)
@@ -662,12 +729,12 @@ def dress_mech(mod, kind, old, sk_old, name):
         bn = names[old.vbone[a]]
         if bn in figure:
             continue
-        d = sub(new[bn][0], J_old[bn][0])
         ids = []
         for v in (a, b, c):
             if v not in used:
+                bv = names[old.vbone[v]]
                 used[v] = len(m.verts)
-                m.verts.append(add(old.verts[v], d))
+                m.verts.append(add(new[bv][0], mul(sub(old.verts[v], J_old[bv][0]), grow)))
                 m.vbone.append(sk.index[names[old.vbone[v]]])
                 m.vhard.append(old.vhard[v])
             ids.append(used[v])

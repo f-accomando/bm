@@ -1,17 +1,19 @@
 """
-Kaiju - tank (the kit of D.Mon): a little monster in a big red mech.
+Kaiju - tank (the kit of D.Mon): a young pilot in a big red mech.
 
 The mech, BIG RED: a round red body with white horns and a dome where the
-pilot sits, heavy shoulders, a plasma blade on the left arm (green,
-glowing), a hexagon shield emitter on the right arm, thick legs with grey
-joints, yellow trim. The pilot: a small green lizard monster with big
-yellow eyes, an orange frill and a long tail, in a little pilot harness,
-holding a mini repeater.
+pilot sits, heavy shoulders, a sword in the left fist (a steel blade with
+a glowing green plasma edge, a yellow guard), a big shield on the right
+forearm (red, a yellow rim, the hexagon of the barrier's emitter, the
+repeater's barrels under it), thick legs with grey joints, yellow trim.
+The pilot: a young woman in a cropped red bomber, a high black ponytail
+with red tips and a headset, holding a mini repeater.
 
 Models: kaiju_mech and kaiju_pilot (third person: the Meshy figures of
 art/meshy, by meshyrig.py: the mech on a skeleton fitted to it with these
-bones and clips; the bodies below with --classic), kaiju_fp (the arms from
-the dome), kaiju_pfp (the claws and the mini gun).
+bones and clips, the sword and the shield from here; the bodies below with
+--classic), kaiju_fp (the arms from the dome), kaiju_pfp (the gloved hands
+and the mini gun).
 """
 import math
 
@@ -33,11 +35,20 @@ GREEN = Mat(0x5CFF9C, emissive=True)
 GREEN2 = Mat(0x2FE07A, emissive=True)
 BADGE = Mat(0xF4F4F4, emissive=True)
 
-SKIN = Mat(0x7CCB4E)
-BELLY = Mat(0xE6E08A)
-EYE = Mat(0xFFFFFF, emissive=True)
-PUPIL = Mat(0x101010)
-FRILL = Mat(0xFF8A3C)
+FACE = Mat(0xF0C2A2)
+HAIR = Mat(0x16161C)
+RED_TIP = Mat(0xE2232E)
+EYE = Mat(0xFFFFFF)
+PUPIL = Mat(0x3A2418)
+JACKET = Mat(0xE0262E, glossy=True)
+COLLAR = Mat(0xF4F4F4)
+TRIM = Mat(0xF2C230)
+SUIT = Mat(0x1E2026)
+SHORTS = Mat(0x24262C)
+LEGS = Mat(0x3A3D45)
+BOOT = Mat(0xD8282E, glossy=True)
+SOLE = Mat(0xF0F0F0)
+GLOVE = Mat(0xF2F2F2)
 GUN = Mat(0x3A3F46, glossy=True)
 
 
@@ -77,6 +88,7 @@ def mech_skeleton():
         sk.bone(f"arm.{s}", "body", (x * 0.95, 2.05, 0.05), (x * 1.10, 1.55, 0.15))
         sk.bone(f"fore.{s}", f"arm.{s}", (x * 1.10, 1.55, 0.15), (x * 1.12, 1.30, 0.75))
     sk.bone("blade", "fore.L", (-1.12, 1.30, 0.75), (-1.12, 1.30, 2.10))
+    sk.bone("shield", "fore.R", (1.30, 1.36, 0.40), (1.30, 1.36, 0.95))
     for s, x in (("L", -1), ("R", 1)):
         sk.bone(f"thigh.{s}", "hips", (x * 0.52, HIP_Y, 0), (x * 0.56, KNEE[0], KNEE[1]))
         sk.bone(f"shin.{s}", f"thigh.{s}", (x * 0.56, KNEE[0], KNEE[1]), (x * 0.56, ANKLE[0], ANKLE[1]))
@@ -88,6 +100,57 @@ def both(m, make, mat, bl, br, lo=0, hi=3):
     p = make()
     m.add(p, mat, bl, lo, hi)
     m.add(p.copy().mirror_x(), mat, br, lo, hi)
+
+
+STEEL = Mat(0xE4E9EE, glossy=True)
+
+
+def sword(m, bone, x, y, z):
+    """the sword along +z from the fist at (x, y, z): a dark grip, a yellow
+    guard, a broad steel blade with glowing green plasma edges"""
+    m.add(cylinder(0.06, 0.30, segs=6, axis="z").move(x, y, z - 0.05), DARK, bone, 0, 3)          # the grip
+    m.add(box(0.12, 0.12, 0.10).move(x, y, z - 0.16), YELLOW, bone, 1, 3)                       # the pommel
+    m.add(box(0.12, 0.42, 0.10, bevel=0.02).move(x, y, z + 0.28), YELLOW, bone, 0, 3)           # the guard
+    m.add(hull([(x - 0.035, y - 0.11, z + 0.33), (x + 0.035, y - 0.11, z + 0.33), (x - 0.035, y + 0.11, z + 0.33),
+                (x + 0.035, y + 0.11, z + 0.33), (x - 0.03, y - 0.09, z + 1.55), (x + 0.03, y - 0.09, z + 1.55),
+                (x - 0.03, y + 0.09, z + 1.55), (x + 0.03, y + 0.09, z + 1.55), (x, y, z + 1.85)]),
+          STEEL, bone, 0, 3)                                                                     # the blade
+    for e in (-1, 1):                                                                            # the plasma edges
+        m.add(hull([(x - 0.02, y + e * 0.11, z + 0.36), (x + 0.02, y + e * 0.11, z + 0.36),
+                    (x - 0.02, y + e * 0.14, z + 0.40), (x + 0.02, y + e * 0.14, z + 0.40),
+                    (x - 0.015, y + e * 0.10, z + 1.56), (x + 0.015, y + e * 0.10, z + 1.56), (x, y, z + 1.88)]),
+              GREEN, bone, 1, 3)
+    m.add(box(0.074, 0.03, 1.0).move(x, y, z + 0.92), GREEN2, bone, 2, 3)                      # the fuller
+
+
+def shield(m, bone, x, y, z, k=1.0, barrels=True):
+    """the shield on the outer side of the right forearm from (x, y, z), a
+    little turned to the front, k times its size: red with a yellow rim and
+    the barrier's hexagon emitter; the repeater's two barrels under the
+    forearm"""
+    a = math.radians(30)
+    n = (math.cos(a), 0.0, math.sin(a))            # facing out (+x), 30 degrees to the front
+    ud = (-math.sin(a), 0.0, math.cos(a))          # along the forearm, in the shield's plane
+
+    def at(u, v, w):
+        u, v, w = u * k, v * k, w * k
+        return (x + u * ud[0] + w * n[0], y + v, z + u * ud[2] + w * n[2])
+    outline = [(0.0, 0.62), (0.40, 0.70), (0.80, 0.55), (0.92, 0.0), (0.70, -0.62), (0.40, -0.80), (0.10, -0.62),
+               (-0.05, 0.0)]
+    m.add(hull([at(u, v, 0.0) for u, v in outline] + [at(u, v, -0.10) for u, v in outline]), RED, bone, 0, 3)
+    m.add(hull([at(u, v * 1.06, 0.015) for u, v in outline] + [at(u, v * 1.06, -0.12) for u, v in outline]),
+          YELLOW, bone, 1, 3)
+    m.add(hull([at(0.42 + (u - 0.42) * 0.85, v * 0.85, 0.035) for u, v in outline] +
+               [at(0.42 + (u - 0.42) * 0.85, v * 0.85, 0.0) for u, v in outline]), RED2, bone, 1, 3)
+
+    def hexa(r, w):
+        pts = [at(0.42 + r * math.cos(math.pi / 3 * i), r * math.sin(math.pi / 3 * i), w) for i in range(6)]
+        return facing(Part(pts, [(0, 1, 2), (0, 2, 3), (0, 3, 4), (0, 4, 5)], False), n)
+    m.add(hexa(0.20, 0.045), GREEN2, bone, 1, 3)
+    m.add(hexa(0.09, 0.05), Mat(0xE0FFE8, emissive=True), bone, 2, 3)
+    for dx in (-0.08, 0.08) if barrels else ():
+        m.add(cylinder(0.05, 0.40, segs=6, caps=False, axis="z").move(x - 0.2 + dx, y - 0.22, z + 0.40), DARK,
+              bone, 1, 3)
 
 
 def mech_mesh(sk, name="kaiju_mech"):
@@ -112,9 +175,9 @@ def mech_mesh(sk, name="kaiju_mech"):
     m.add(ellipsoid(0.48, 0.42, 0.48, segs=6, rings=4).move(0, 2.62, 0.08), Mat(0x3CF08A, emissive=True), B["dome"], 0, 0)
     m.add(lathe([(0.50, 2.50), (0.50, 2.58)], segs=10, close_top=False, close_bottom=False).move(0, 0, 0.08),
           GLASS_RIM, B["dome"], 1, 3)
-    m.add(ellipsoid(0.16, 0.20, 0.16, segs=6, rings=4).move(0, 2.70, 0.12), SKIN, B["dome"], 2, 3)
-    m.add(ellipsoid(0.05, 0.05, 0.03, segs=5, rings=3).move(-0.06, 2.76, 0.26), EYE, B["dome"], 3, 3)
-    m.add(ellipsoid(0.05, 0.05, 0.03, segs=5, rings=3).move(0.06, 2.76, 0.26), EYE, B["dome"], 3, 3)
+    m.add(ellipsoid(0.10, 0.12, 0.11, segs=6, rings=4).move(0, 2.72, 0.14), FACE, B["dome"], 2, 3)
+    m.add(ellipsoid(0.11, 0.10, 0.12, segs=6, rings=3).move(0, 2.78, 0.12), HAIR, B["dome"], 2, 3)
+    m.add(ellipsoid(0.04, 0.10, 0.04, segs=5, rings=3).move(0, 2.80, -0.02), HAIR, B["dome"], 3, 3)
     # -- shoulders and arms
     both(m, lambda: ellipsoid(0.42, 0.40, 0.44, segs=8, rings=5).move(-1.0, 2.08, 0.02), RED2, B["arm.L"], B["arm.R"], 1, 3)
     both(m, lambda: ellipsoid(0.42, 0.40, 0.44, segs=6, rings=4).move(-1.0, 2.08, 0.02), RED2, B["arm.L"], B["arm.R"], 0, 0)
@@ -126,14 +189,8 @@ def mech_mesh(sk, name="kaiju_mech"):
                           (-1.24, 1.42, 0.85), (-0.98, 1.42, 0.85), (-1.24, 1.18, 0.85), (-0.98, 1.18, 0.85)]),
          RED, B["fore.L"], B["fore.R"], 0, 3)
     both(m, lambda: box(0.30, 0.05, 0.60).move(-1.11, 1.50, 0.48), YELLOW, B["fore.L"], B["fore.R"], 2, 3)
-    # left: the plasma blade, long and green
-    m.add(hull([(-1.12, 1.30, 0.85), (-1.12, 1.38, 0.85), (-1.12, 1.30, 2.10), (-1.09, 1.33, 1.0),
-                (-1.15, 1.33, 1.0), (-1.12, 1.36, 2.05)]), GREEN, B["blade"], 0, 3)
-    m.add(box(0.14, 0.16, 0.10).move(-1.12, 1.32, 0.86), DARK, B["blade"], 1, 3)
-    # right: the hexagon emitter and the repeater barrels
-    m.add(facing(hexagon(0.24).move(1.11, 1.33, 0.87), (0, 0, 1)), GREEN2, B["fore.R"], 1, 3)
-    m.add(cylinder(0.05, 0.25, segs=6, caps=False, axis="z").move(1.03, 1.16, 0.85), DARK, B["fore.R"], 2, 3)
-    m.add(cylinder(0.05, 0.25, segs=6, caps=False, axis="z").move(1.19, 1.16, 0.85), DARK, B["fore.R"], 2, 3)
+    sword(m, B["blade"], -1.12, 1.32, 0.75)
+    shield(m, B["shield"], 1.30, 1.36, 0.40, k=0.8)
     # -- the waist and the legs (knees in front)
     m.add(box(0.80, 0.30, 0.60).move(0, 1.35, -0.02), DARK, B["hips"], 0, 3)
     for s, x in (("L", -1), ("R", 1)):
@@ -347,88 +404,87 @@ def mech_clips(sk):
     return out
 
 
-# ------------------------------------------------------------------ the pilot: a little monster
+# ------------------------------------------------------------------ the pilot: a young mech pilot
 
-PBODY = Body(height=1.05, shoulders=0.15, hips=0.09, arm=0.85, leg=0.8, head=1.6)
+PBODY = Body(height=1.6, shoulders=0.18, hips=0.11, arm=0.95, leg=0.98, head=1.12)
 
 
 def pilot_skeleton():
-    b = PBODY
-    sk = humanoid.skeleton(b, extra=[("tail", "hips", (0, b.hip_y, -0.08), (0, b.hip_y - 0.15, -0.55))])
+    sk = humanoid.skeleton(PBODY)
     hand = sk.bones[sk["hand.R"]][2]
     sk.bone("gun", "hand.R", hand, (hand[0], hand[1], hand[2] + 0.3))
     return sk
 
 
 def pilot_mesh(sk, name="kaiju_pilot"):
+    """a young woman in a cropped red bomber with yellow trim over a black
+    pilot top, black shorts on dark leggings, red boots, white gloves, a
+    high black ponytail with red tips and a headset; the mini repeater"""
     b = PBODY
     m = Mesh(name)
     B = sk.index
     k = b.k
-    ny = b.neck_y
-    H = B["head"]
-    # a big round head with a wide mouth, big eyes, a frill and two little horns
-    m.add(ellipsoid(0.17, 0.15, 0.16, segs=8, rings=6).move(0, ny + 0.12, 0.02), SKIN, H, 1, 3)
-    m.add(ellipsoid(0.17, 0.15, 0.16, segs=6, rings=4).move(0, ny + 0.12, 0.02), SKIN, H, 0, 0)
+    hs = b.head * k
+    ny, cy, hy = b.neck_y, b.chest_y, b.hip_y
+    humanoid.body(m, sk, b, {"skin": FACE, "top": SUIT, "top2": SUIT, "sleeve": JACKET, "cuff": JACKET,
+                             "hand": GLOVE, "pants": SHORTS, "shin": LEGS, "boot": BOOT},
+                  chest=(1.05, 1.1), waist=0.92, hips=1.05, arms=1.1, legs_k=0.95)
+    H, C, S, HP = B["head"], B["chest"], B["spine"], B["hips"]
+    # -- the head: a black cap of hair with a fringe, the high ponytail with red tips, the headset
+    m.add(ellipsoid(0.096 * hs, 0.09 * hs, 0.104 * hs, segs=8, rings=4).move(0, ny + 0.16 * hs, -0.012), HAIR, H, 2, 3)
+    m.add(ellipsoid(0.096 * hs, 0.09 * hs, 0.104 * hs, segs=6, rings=3).move(0, ny + 0.16 * hs, -0.012), HAIR, H, 0, 1)
+    m.add(hull([(-0.085 * hs, ny + 0.19 * hs, 0.06 * hs), (0.085 * hs, ny + 0.19 * hs, 0.06 * hs),
+                (-0.07 * hs, ny + 0.155 * hs, 0.097 * hs), (0.05 * hs, ny + 0.15 * hs, 0.1 * hs),
+                (0, ny + 0.215 * hs, 0.05 * hs)], smooth=True), HAIR, H, 2, 3)
+    m.add(hull([(-0.03 * hs, ny + 0.25 * hs, -0.07 * hs), (0.03 * hs, ny + 0.25 * hs, -0.07 * hs),
+                (0, ny + 0.27 * hs, -0.05 * hs), (-0.035 * hs, ny + 0.10 * hs, -0.17 * hs),
+                (0.035 * hs, ny + 0.10 * hs, -0.17 * hs), (0, ny + 0.0, -0.17 * hs)], smooth=True), HAIR, H, 1, 3)
+    m.add(hull([(-0.03 * hs, ny + 0.0, -0.17 * hs), (0.03 * hs, ny + 0.0, -0.17 * hs),
+                (0, ny - 0.09 * hs, -0.15 * hs), (0, ny + 0.03 * hs, -0.19 * hs)], smooth=True), RED_TIP, H, 2, 3)
     for x in (-1, 1):
-        m.add(ellipsoid(0.055, 0.06, 0.04, segs=6, rings=4).move(x * 0.07, ny + 0.17, 0.14), EYE, H, 0, 3)
-        m.add(ellipsoid(0.025, 0.03, 0.02, segs=5, rings=3).move(x * 0.07, ny + 0.17, 0.175), PUPIL, H, 1, 3)
-        m.add(hull([(x * 0.06, ny + 0.24, -0.02), (x * 0.09, ny + 0.24, 0.0), (x * 0.075, ny + 0.24, 0.03),
-                    (x * 0.10, ny + 0.36, -0.05)]), FRILL, H, 1, 3)
-    m.add(hull([(-0.17, ny + 0.10, -0.10), (0.17, ny + 0.10, -0.10), (-0.22, ny + 0.22, -0.14), (0.22, ny + 0.22, -0.14),
-                (0, ny + 0.30, -0.12), (0, ny + 0.05, -0.12)]), FRILL, H, 2, 3)
-    m.add(box(0.16, 0.012, 0.02).move(0, ny + 0.06, 0.165), PUPIL, H, 2, 3)          # the grin
-    # a round body with a yellow belly, a tail
-    m.add(ellipsoid(0.17, 0.22, 0.15, segs=8, rings=5).move(0, b.chest_y, 0), SKIN, B["chest"], 0, 3)
-    m.add(ellipsoid(0.12, 0.17, 0.06, segs=6, rings=4).move(0, b.chest_y - 0.03, 0.10), BELLY, B["chest"], 1, 3)
-    m.add(ellipsoid(0.15, 0.12, 0.14, segs=6, rings=4).move(0, b.hip_y + 0.04, 0), SKIN, B["hips"], 0, 3)
-    tl = sk.bones[B["tail"]]
-    m.add(cylinder(0.07, 0.48, segs=6, r2=0.02, caps=False).turn(rx=-105).move(0, b.hip_y, -0.08), SKIN, B["tail"], 0, 3)
-    for s, x in (("L", -1), ("R", 1)):
-        sh = sk.bones[B[f"upperarm.{s}"]][2]
-        el = sk.bones[B[f"forearm.{s}"]][2]
-        hd = sk.bones[B[f"hand.{s}"]][2]
-        m.add(cylinder(0.045, b.upper, segs=6, r2=0.04, caps=False).turn(rz=180).move(sh[0], sh[1], 0), SKIN,
-              B[f"upperarm.{s}"], 0, 3)
-        m.add(cylinder(0.04, b.lower, segs=6, r2=0.035, caps=False).turn(rz=180).move(el[0], el[1], 0), SKIN,
-              B[f"forearm.{s}"], 0, 3)
-        m.add(ellipsoid(0.045, 0.05, 0.05, segs=6, rings=4).move(hd[0], hd[1] - 0.03, hd[2]), SKIN, B[f"hand.{s}"], 0, 3)
-        th = sk.bones[B[f"thigh.{s}"]][2]
-        kn = sk.bones[B[f"shin.{s}"]][2]
-        an = sk.bones[B[f"foot.{s}"]][2]
-        m.add(cylinder(0.07, th[1] - kn[1], segs=6, r2=0.055, caps=False).turn(rz=180).move(th[0], th[1], 0), SKIN,
-              B[f"thigh.{s}"], 0, 3)
-        m.add(cylinder(0.055, kn[1] - an[1], segs=6, r2=0.05, caps=False).turn(rz=180).move(kn[0], kn[1], 0), SKIN,
-              B[f"shin.{s}"], 0, 3)
-        m.add(ellipsoid(0.07, 0.04, 0.10, segs=6, rings=4).move(an[0], 0.03, 0.05), SKIN, B[f"foot.{s}"], 0, 3)
+        m.add(ellipsoid(0.02 * hs, 0.035 * hs, 0.035 * hs, segs=6, rings=3).move(x * 0.098 * hs, ny + 0.13 * hs, 0.0),
+              DARK, H, 2, 3)
+    m.add(box(0.006, 0.006, 0.07 * hs).move(0.09 * hs, ny + 0.095 * hs, 0.05 * hs), DARK, H, 3, 3)    # the microphone
+    humanoid.eyes(m, sk, b, EYE, PUPIL, x=0.034, y=0.128, z=0.088, r=0.014)
+    # -- the cropped bomber: red, open, a white collar, yellow trim at the hem
+    m.add(lathe([(0.15 * k, cy - 0.02 * k), (0.19 * k, cy + 0.10 * k), (0.195 * k, cy + 0.19 * k),
+                 (0.12 * k, ny + 0.02 * k)], segs=8, close_top=False).scale(1, 1, 0.72), JACKET, C, 1, 3)
+    m.add(lathe([(0.152 * k, cy - 0.04 * k), (0.152 * k, cy - 0.01 * k)], segs=8, close_top=False,
+                close_bottom=False).scale(1, 1, 0.74), TRIM, C, 2, 3)
+    m.add(hull([(-0.11 * k, ny + 0.0, 0.07 * k), (0.11 * k, ny + 0.0, 0.07 * k), (-0.12 * k, ny - 0.04 * k, 0.11 * k),
+                (0.12 * k, ny - 0.04 * k, 0.11 * k), (-0.07 * k, ny + 0.03 * k, 0.02 * k), (0.07 * k, ny + 0.03 * k, 0.02 * k),
+                (0, ny + 0.02 * k, -0.06 * k)], smooth=True), COLLAR, C, 2, 3)
+    m.add(box(0.012, 0.30 * k, 0.012).move(0, cy - 0.03 * k, 0.122 * k), TRIM, C, 3, 3)               # the top's seam
+    # boots up to the knee, white soles
+    for s_ in ("L", "R"):
+        an = sk.bones[B[f"foot.{s_}"]][2]
+        kn = sk.bones[B[f"shin.{s_}"]][2]
+        m.add(lathe([(0.058 * k, an[1] + 0.02), (0.064 * k, kn[1] - 0.02)], segs=7, close_bottom=False)
+              .move(an[0], 0, an[2] + 0.01), BOOT, B[f"shin.{s_}"], 1, 3)
+        m.add(box(0.12 * k, 0.02, 0.27 * k).move(an[0], 0.01, an[2] + 0.06 * k), SOLE, B[f"foot.{s_}"], 2, 3)
+    # -- the mini repeater in the right hand
     g = B["gun"]
-    hx, hy, hz = sk.bones[g][2]
-    m.add(box(0.06, 0.07, 0.24).move(hx, hy + 0.03, hz + 0.08), GUN, g, 0, 3)
-    m.add(cylinder(0.02, 0.10, segs=6, axis="z").move(hx, hy + 0.04, hz + 0.20), GUN, g, 1, 3)
-    m.add(box(0.062, 0.012, 0.12).move(hx, hy + 0.07, hz + 0.08), GREEN, g, 2, 3)
+    hx, hy2, hz = sk.bones[g][2]
+    m.add(box(0.06, 0.07, 0.24).move(hx, hy2 + 0.03, hz + 0.08), GUN, g, 0, 3)
+    m.add(cylinder(0.02, 0.10, segs=6, axis="z").move(hx, hy2 + 0.04, hz + 0.20), GUN, g, 1, 3)
+    m.add(box(0.062, 0.012, 0.12).move(hx, hy2 + 0.07, hz + 0.08), GREEN, g, 2, 3)
     return m.weld()
 
 
 def pilot_clips(sk):
     hand = sk.bones[sk["hand.R"]][2]
     grip = (hand[0], hand[1] + 0.02, hand[2] + 0.18)
-    out = humanoid.clips(sk, PBODY, "rifle", fire_rate=0.128, recoil=0.04, run_period=0.42, run_stride=0.55, grip=grip)
-    # the tail sways in every clip: add it to idle and run
-    for c in out:
-        if c.name in ("idle", "run", "walk"):
-            for i, (t, pose) in enumerate(c.keys):
-                pose["tail"] = (10, 25 * math.sin(2 * math.pi * t / c.length), 0)
+    out = humanoid.clips(sk, PBODY, "rifle", fire_rate=0.128, recoil=0.04, run_period=0.5, run_stride=0.8, grip=grip)
 
     def eject(t):
         u = _sm(t / 0.3)
         return {"chest": (-40 * u, 0, 0), "thigh.L": (-100 * u, 0, 0), "thigh.R": (-100 * u, 0, 0),
-                "shin.L": (120 * u, 0, 0), "shin.R": (120 * u, 0, 0), "tail": (60 * u, 0, 0)}
+                "shin.L": (120 * u, 0, 0), "shin.R": (120 * u, 0, 0)}
     out.append(sample(eject, 0.9, 9, loop=False, name="eject"))
 
     def call(t):
         u = _sm(t / 0.25) * (1 - _sm((t - 0.85) / 0.25))
-        return {"upperarm.L": (-170 * u, 0, -20), "upperarm.R": (-170 * u, 0, 20), "head": (-25 * u, 0, 0),
-                "tail": (0, 40 * math.sin(t * 20) * u, 0)}
+        return {"upperarm.L": (-170 * u, 0, -20), "upperarm.R": (-170 * u, 0, 20), "head": (-25 * u, 0, 0)}
     out.append(sample(call, 1.1, 11, loop=False, name="call"))
     return out
 
@@ -447,8 +503,8 @@ def fp_skeleton():
 
 def fp_mesh(sk, name="kaiju_fp"):
     """the mech's forearms from the dome: layered red gauntlets with a
-    yellow stripe and grey knuckles; the left holds the plasma blade on a
-    dark hilt, the right has the hexagon emitter and two barrels"""
+    yellow stripe and grey knuckles; the left holds the sword, the right
+    has the shield on its outer side, the hexagon emitter and two barrels"""
     m = Mesh(name)
     L, BL, R = sk.index["arm.L"], sk.index["blade"], sk.index["arm.R"]
     for bone, x in ((L, -1), (R, 1)):
@@ -467,12 +523,10 @@ def fp_mesh(sk, name="kaiju_fp"):
         for i in range(3):
             m.add(box(0.06, 0.05, 0.04).move(cx - 0.07 + i * 0.07, -0.47, 0.88), DARK, bone)
         m.add(cylinder(0.06, 0.36, segs=8, axis="x").move(cx - 0.18, -0.70, 0.2), GREY, bone)
-    # the blade: a dark hilt, the green edge, a brighter core
-    m.add(box(0.07, 0.07, 0.14).move(-0.80, -0.47, 0.92), DARK, BL)
-    m.add(hull([(-0.80, -0.50, 0.95), (-0.80, -0.43, 0.95), (-0.80, -0.50, 2.2), (-0.775, -0.47, 1.0),
-                (-0.825, -0.47, 1.0), (-0.80, -0.455, 2.1)]), GREEN, BL)
-    m.add(box(0.012, 0.012, 1.0).move(-0.80, -0.465, 1.5), Mat(0xE0FFE8, emissive=True), BL)
-    # right: the hexagon emitter on a dark ring, the barrels below
+    # the sword in the left fist
+    sword(m, BL, -0.80, -0.50, 0.80)
+    # right: the shield on the outer side, the hexagon emitter on a dark ring, the barrels below
+    shield(m, R, 0.99, -0.52, -0.05, k=0.55, barrels=False)
     m.add(cylinder(0.25, 0.05, segs=6, axis="z").turn(rz=30).move(0.80, -0.55, 0.82), DARK, R)
     m.add(facing(hexagon(0.21).move(0.80, -0.55, 0.875), (0, 0, 1)), GREEN2, R)
     m.add(facing(hexagon(0.09).move(0.80, -0.55, 0.88), (0, 0, 1)), Mat(0xE0FFE8, emissive=True), R)
@@ -545,8 +599,8 @@ def pfp_mesh(sk, name="kaiju_pfp"):
     m.add(box(0.07, 0.08, 0.30).move(0.12, -0.14, 0.32), GUN, g, 0, 3)
     m.add(box(0.072, 0.014, 0.16).move(0.12, -0.096, 0.32), GREEN, g, 0, 3)
     m.add(cylinder(0.024, 0.12, segs=8, axis="z").move(0.12, -0.13, 0.47), GUN, g, 0, 3)
-    m.add(ellipsoid(0.05, 0.05, 0.06, segs=6, rings=4).move(0.12, -0.19, 0.20), SKIN, g, 0, 3)
-    m.add(ellipsoid(0.05, 0.05, 0.06, segs=6, rings=4).move(0.04, -0.18, 0.40), SKIN, g, 0, 3)
+    m.add(ellipsoid(0.045, 0.05, 0.06, segs=6, rings=4).move(0.12, -0.19, 0.20), GLOVE, g, 0, 3)
+    m.add(ellipsoid(0.045, 0.05, 0.06, segs=6, rings=4).move(0.04, -0.18, 0.40), GLOVE, g, 0, 3)
     return m.weld()
 
 

@@ -10,10 +10,11 @@
 # Made again (2026-10-03: Sarge and Fuse modern and colourful, the mechs'
 # pilots two young women, Rally's machine guns, Kaiju's fists for its sword
 # and shield, the mechs bigger):
-sarge rig=01a1025d-4e9d-724b-8de7-39543b165898
-fuse rig=01a1025d-4357-7554-891c-5763c14f50fa
-rally_pilot rig=01a1025d-4c1e-7670-92ff-4e8ab8afd57c
-kaiju_pilot rig=01a1025d-5c1c-7691-b51c-959965d35be9
-kaiju_mech rig=01a1025f-2c52-74d0-95e1-161139d481b4
+# sarge rig=01a1025d-4e9d-724b-8de7-39543b165898
+# fuse rig=01a1025d-4357-7554-891c-5763c14f50fa
+# rally_pilot rig=01a1025d-4c1e-7670-92ff-4e8ab8afd57c
+# kaiju_pilot rig=01a1025d-5c1c-7691-b51c-959965d35be9
+# kaiju_mech rig=01a1025f-2c52-74d0-95e1-161139d481b4
 # the first rally_mech (01a1025f-2a76-708e-82a2-0d9ea60898c0) came out grey and spiky: again
-rally_mech
+# rally_mech
+# (nothing to make now: every line is a comment)

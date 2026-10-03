@@ -94,8 +94,8 @@ def main():
                   hold(640, 643, "F5") + hold(700, 760, "J") + hold(770, 773, "F4") + hold(780, 783, "Q"),
                   ["overbit limit break You", "overbit eject You (mech destroyed)", "overbit call mech You"], 15),
         "sarge": (hold(10, 60, "W", "SHIFT") + hold(60, 200, "J") + hold(210, 213, "K") + hold(230, 233, "E") +
-                  hold(250, 253, "F1") + hold(260, 263, "F4") + hold(270, 273, "Q") + hold(280, 400, "J"),
-                  ["overbit biotic field You", "overbit tactical visor You", "overbit kill You > Dummy"], 8),
+                  hold(250, 253, "F1") + hold(260, 263, "F4") + hold(270, 273, "Q") + hold(280, 560, "J"),
+                  ["overbit biotic field You", "overbit tactical visor You", "overbit kill You > Dummy"], 10),
         "frost": (hold(10, 60, "W") + hold(60, 200, "W", "J") + hold(210, 213, "K") + hold(230, 245, "DOWN") +
                   hold(250, 253, "E") + hold(260, 272, "UP") + hold(290, 293, "SHIFT") + hold(360, 363, "SHIFT") +
                   hold(400, 403, "F1") + hold(410, 413, "F4") + hold(420, 423, "Q"),

@@ -9,7 +9,7 @@
 local U = {
   id = "fuse", name = "Fuse", short = "FUS", role = "damage", rgb = 0xF28A1E,
   ult_cost = 1650,
-  desc = "A scrapyard demolitions punk",
+  desc = "A neon demolitions artist",
 }
 H.fuse = U
 HERO_ORDER[#HERO_ORDER + 1] = "fuse"

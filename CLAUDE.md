@@ -127,8 +127,12 @@ screenshot in `docs/img/`), `README_OLD.md` (il README completo, in italiano),
   `<nome>.png`, `<nome>.rig` dal rigging di Meshy, `tools/meshy_rig.py`). `art/meshyrig.py`
   le mette sugli scheletri degli eroi (da A-pose alla posa di riposo, un osso a vertice dal
   rig; per i mech uno scheletro con le stesse ossa misurato sulla figura e le clip rifatte);
-  le armi e gli altri pezzi su ossa non del corpo restano procedurali. Texture 256×256 nello
-  sheet (1024×1024 a 24 bit; l'atlante della mappa in alto a sinistra). I colpi provano la
+  le armi e gli altri pezzi su ossa non del corpo restano procedurali (le mitragliatrici
+  rotanti di Rally, `rotor.*`; la spada e lo scudo di Kaiju, `blade` e `shield`; i pod),
+  ingranditi con il mech; l'altezza della figura è quella del `.txt` (mech 3 e 3,4 m).
+  Texture 256×256 nello sheet (1024×1024 a 24 bit; l'atlante della mappa in alto a
+  sinistra; `WHITEN` schiarisce quella del mech di Rally). Le pilote dei mech sono due
+  ragazze (richiesta dell'utente); niente modelli di Overwatch, nemmeno rinominati. I colpi provano la
   mesh (`hit3d`): la testa dei mech va sull'osso critico (`canopy`, `dome`).
   `OVERBIT_CLASSIC=1 make` (o `models.py --classic`): i corpi fatti di primitive.
 - Test e reel per eroe: `build.py --hero <id>` (anche una lista per il reel), le cartucce

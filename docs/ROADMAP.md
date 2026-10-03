@@ -1665,9 +1665,11 @@ Decisioni:
 - Gioco **Overbit** (`carts/overbit`), branch `3d-performance` (fino al 2026-10-03
   `claude/overclone`).
 - Eroi (il kit di partenza tra parentesi):
-  - tank: **Rally** (D.Va) — pilota di corse in un mech bianco e nero lucido con
-    dettagli arancio; **Kaiju** (D.Mon) — un piccolo mostro in una cupola verde su un
-    mech rosso con lama e scudo di plasma;
+  - tank: **Rally** (D.Va) — una giovane pilota di corse in un mech bianco lucido con
+    strisce arancio e due mitragliatrici rotanti al posto degli avambracci; **Kaiju**
+    (D.Mon) — una giovane pilota in un grande mech rosso con spada e scudo (dal
+    2026-10-03; prima un piccolo mostro con lama e scudo di plasma). I mech sono alti 3 e
+    3,4 m, gli altri eroi 1,6–1,9;
   - DPS: **Sarge** (Soldier: 76), **Frost** (Mei), **Fuse** (Junkrat), **Rail** (Sojourn);
   - supporto: **Orbit** (Juno), **Akari** (Kiriko).
 - 5 contro 5 come Overwatch 2 (1 tank, 2 DPS, 2 supporto), i posti vuoti ai bot.
@@ -1760,8 +1762,8 @@ Passi (in quest'ordine, richiesto dall'autore):
 - **Kaiju** (D.Mon): BIG RED, un mech rosso con la cupola verde (Plasma Saber 65 danni a
   colpo largo, Fusion Repeater da 30 colpi, Propulsors con 3 scatti di carburante, Power
   Barrier esagonale che ferma i colpi e con l'attacco Surging Strike, Limit Break: un giro
-  completo della lama, 220 danni) e il pilota, un mostriciattolo verde (Mini Repeater,
-  Call Mech).
+  completo della lama, 220 danni) e la pilota, una ragazza in bomber rosso (Mini
+  Repeater, Call Mech; fino al 2026-10-03 un mostriciattolo verde).
 - **Sarge** (Soldier: 76): fucile a impulsi (30 colpi, 9/s, la dispersione cresce),
   Helix Rockets, Sprint, Biotic Field, Tactical Visor (i colpi trovano il bersaglio).
 - **Frost** (Mei): getto di gelo che rallenta, ghiacciolo (doppio alla testa),

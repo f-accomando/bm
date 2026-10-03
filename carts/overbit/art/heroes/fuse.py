@@ -1,12 +1,12 @@
 """
-Fuse - damage (the kit of Junkrat): a scrapyard demolitions punk.
+Fuse - damage (the kit of Junkrat): a neon demolitions artist.
 
-Lanky and wired: a tall orange mohawk, welding goggles on the forehead, a
-sleeveless work vest over a red and white striped shirt, a bandolier of
-little bombs across the chest, patched cargo trousers in heavy work boots,
-thick leather welding gauntlets, a scrap backpack with a gas canister. In
-his hands the Frag Launcher: an olive tube with a big drum and yellow
-hazard stripes. His ultimate is the Boom Wheel, a spiked rolling bomb.
+Lanky and wired: short neon pink hair, round mirrored purple goggles, a
+glossy lime puffer vest over a black and white zigzag top, a bandolier of
+candy-coloured round charges, wide violet cargo trousers, chunky white
+sneakers, padded orange gloves, a glossy white backpack with a capsule.
+In the hands the Frag Launcher: a glossy white tube with a pink drum and
+cyan rings. The ultimate is the Boom Wheel, a spiked rolling bomb.
 
 Models: fuse (third person: the Meshy figure art/meshy/fuse, on this
 skeleton by meshyrig.py; the body below with --classic), fuse_fp,
@@ -22,22 +22,23 @@ from humanoid import Body
 from rig import Skeleton, sample
 
 SKIN = Mat(0xD9A27C)
-HAIR = Mat(0xF28A1E)
+HAIR = Mat(0xFF4FA8)
 SOOT = Mat(0x4A3426)
-GOGGLE = Mat(0x5A4A3A)
-LENS = Mat(0xFFC94A, emissive=True)
-TOP = Mat(0xD8B04A)
-SHORTS = Mat(0x6B5A3E)
-BELT = Mat(0x4A3424)
-STEEL = Mat(0x9AA2A8, glossy=True)
-DARK = Mat(0x3A3D40, glossy=True)
-OLIVE = Mat(0x5E6B3A, glossy=True)
-HAZARD = Mat(0xF2C230)
-BOMB = Mat(0x2E2E30, glossy=True)
+GOGGLE = Mat(0x7A3FD0)
+LENS = Mat(0xD07CFF, emissive=True)
+TOP = Mat(0xB4F03C)
+SHORTS = Mat(0x7B3FD0)
+BELT = Mat(0x22252B)
+STEEL = Mat(0xB9C0C8, glossy=True)
+DARK = Mat(0x2A2C32, glossy=True)
+OLIVE = Mat(0xF2F4F6, glossy=True)         # the launcher: glossy white
+HAZARD = Mat(0x22E0F0)                     # cyan rings
+BOMB = Mat(0xFF4FA8, glossy=True)          # candy pink charges
 RED = Mat(0xFF3A2A, emissive=True)
-BOOT = Mat(0x3C2E24)
+BOOT = Mat(0xF4F4F4)
 TEETH = Mat(0xF4F0E0)
-RUST = Mat(0x8A4A2A)
+RUST = Mat(0xF4F4F4)                       # the backpack: white
+GLOVE = Mat(0xFF7A1E)
 
 BODY = Body(height=1.85, shoulders=0.20, hips=0.10, arm=1.08, leg=1.05, head=1.0)
 GRIP = None
@@ -216,12 +217,12 @@ def fp_mesh(sk, name="fuse_fp"):
         m.add(cylinder(0.053, 0.03, segs=10, axis="z").move(x, y + 0.06, z + zz), HAZARD, g)
     m.add(box(0.03, 0.05, 0.18).move(x, y + 0.125, z + 0.1), STEEL, g)
     m.add(box(0.012, 0.02, 0.012).move(x, y + 0.16, z + 0.16), RED, g)
-    # the right hand (skin) on the grip
-    fp.forearm(m, g, (x + 0.01, y - 0.06, z + 0.0), (x + 0.12, y - 0.24, z - 0.34), SKIN, r=0.045)
-    fp.fist(m, g, (x + 0.01, y - 0.06, z + 0.0), (x, y + 0.01, z + 0.05), SKIN, r=0.042, thumb=-1)
-    # the scrap arm under the barrel
-    fp.forearm(m, L, (0.07, -0.29, 0.50), (-0.16, -0.46, 0.14), STEEL, r=0.048, cuff=DARK)
-    fp.fist(m, L, (0.07, -0.29, 0.50), (0.15, -0.24, 0.53), STEEL, r=0.045, thumb=1)
+    # the hands in padded orange gloves, black sleeves: the right on the
+    # grip, the left under the barrel
+    fp.forearm(m, g, (x + 0.01, y - 0.06, z + 0.0), (x + 0.12, y - 0.24, z - 0.34), DARK, r=0.045, cuff=GLOVE)
+    fp.fist(m, g, (x + 0.01, y - 0.06, z + 0.0), (x, y + 0.01, z + 0.05), GLOVE, r=0.042, thumb=-1)
+    fp.forearm(m, L, (0.07, -0.29, 0.50), (-0.16, -0.46, 0.14), DARK, r=0.048, cuff=GLOVE)
+    fp.fist(m, L, (0.07, -0.29, 0.50), (0.15, -0.24, 0.53), GLOVE, r=0.045, thumb=1)
     return m.weld()
 
 

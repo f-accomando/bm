@@ -1,4 +1,4 @@
--- Rally, tank (the kit of D.Va). In the mech: Fusion Cannons (primary),
+-- Rally, tank (the kit of D.Va). In the mech: Rotary Guns (primary, the forearms),
 -- Null Field (secondary: a field that eats projectiles), Afterburners
 -- (ability 1: flight), Swarm Rockets (ability 2), Redline (ultimate: the
 -- pilot jumps out and the mech blows up 3 s later); when the mech is
@@ -15,7 +15,7 @@ HERO_ORDER[#HERO_ORDER + 1] = "rally"
 
 local MECH = {
   name = "mech", tp = "rally_mech", fp = "rally_fp",
-  hp = 375, armor = 325, speed = 5.5, radius = 1.05, height = 2.95, eye = 2.25, crouch_eye = 1.85,
+  hp = 375, armor = 325, speed = 5.5, radius = 1.1, height = 3.0, eye = 2.45, crouch_eye = 2.05,
   jump = 6.2, head = "canopy", corpse = 0.6,
   clips = { idle = "idle", walk = "walk", run = "run", air = "air", jump = "jump", land = "land",
             crouch = "crouch", death = "death" },
@@ -336,7 +336,7 @@ function R.update_mech(a, c)
       s.rocket_next = s.rocket_next + ROCKETS.time / ROCKETS.n
     end
   end
-  -- Fusion Cannons (not while flying or holding the field)
+  -- Rotary Guns (not while flying or holding the field)
   local firing = c.fire and not boosting and not s.field_on
   if firing then
     if s.fire_cd <= 0 then fire_cannons(a) end
