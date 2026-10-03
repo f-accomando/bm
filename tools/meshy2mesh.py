@@ -268,33 +268,40 @@ def convert(data, name, height, flat, max_tris, grid):
     s = height / max(hi[1] - lo[1], 1e-6)
     cx, cz = (lo[0] + hi[0]) / 2, (lo[2] + hi[2]) / 2
     pts = [((p[0] - cx) * s, (p[1] - lo[1]) * s, -(p[2] - cz) * s) for p in positions]
+    # the console keeps the texture corners on the triangles, not on the
+    # vertices: the vertices a texture seam split can be one again
+    pts, remap = merge_positions(pts)
+    orig_tris = tris
+    tris = [(remap[a], remap[b], remap[c], image) for a, b, c, image in tris]
     faces = []
-    for (a, b, c, image), mirror in zip(tris, mirrored):
+    for ((a, b, c, image), mirror), (oa, ob, oc, _) in zip(zip(tris, mirrored), orig_tris):
         img = decoded.get(image)
-        if textured and img:
+        fuv = (uvs[oa], uvs[ob], uvs[oc]) if uvs and uvs[oa] and uvs[ob] and uvs[oc] else None
+        if textured and img and fuv:
             colour = None
-        elif img and uvs and uvs[a] and uvs[b] and uvs[c]:
-            u = (uvs[a][0] + uvs[b][0] + uvs[c][0]) / 3
-            v = (uvs[a][1] + uvs[b][1] + uvs[c][1]) / 3
-            colour = sample(img, u, v)
+        elif img and fuv:
+            colour = sample(img, sum(q[0] for q in fuv) / 3, sum(q[1] for q in fuv) / 3)
         elif colours:
-            colour = tuple(int(bmmesh.linear_to_srgb((colours[a][k] + colours[b][k] + colours[c][k]) / 3))
+            colour = tuple(int(bmmesh.linear_to_srgb((colours[oa][k] + colours[ob][k] + colours[oc][k]) / 3))
                            for k in range(3))
         else:
             colour = (138, 138, 154)
         # the winding flips with z (glTF: counter-clockwise in front, the
         # console: clockwise) unless the node's own transform mirrored it
-        faces.append((a, b, c, colour, image) if mirror else (a, c, b, colour, image))
+        if mirror:
+            faces.append((a, b, c, colour, image, fuv))
+        else:
+            faces.append((a, c, b, colour, image, (fuv[0], fuv[2], fuv[1]) if fuv else None))
     # too many triangles for the console: the vertices snap to a grid
     # (flat colours only: the texture would tear)
     if len(faces) > max_tris or len(pts) > bmmesh.MAX_VERTS:
         if textured:
-            print(f"meshy2mesh: {len(faces)} triangles: more than --max-tris {max_tris}, painted flat instead",
-                  file=sys.stderr)
+            print(f"meshy2mesh: {len(faces)} triangles and {len(pts)} vertices: more than --max-tris {max_tris}"
+                  f" or {bmmesh.MAX_VERTS} vertices, painted flat instead", file=sys.stderr)
             textured = False
-            faces = [(a, b, c, col or (sample(decoded[im], *(tuple((uvs[a][k] + uvs[b][k] + uvs[c][k]) / 3 for k in range(2))))
-                                       if decoded.get(im) and uvs[a] and uvs[b] and uvs[c] else (138, 138, 154)), im)
-                     for a, b, c, col, im in faces]
+            faces = [(a, b, c, col or (sample(decoded[im], sum(q[0] for q in fuv) / 3, sum(q[1] for q in fuv) / 3)
+                                       if decoded.get(im) and fuv else (138, 138, 154)), im, fuv)
+                     for a, b, c, col, im, fuv in faces]
         pts, faces = cluster(pts, faces, grid)
         if len(faces) > bmmesh.MAX_FACES or len(pts) > bmmesh.MAX_VERTS:
             raise SystemExit(f"still {len(faces)} triangles and {len(pts)} vertices: a smaller --grid")
@@ -302,23 +309,37 @@ def convert(data, name, height, flat, max_tris, grid):
     out_faces = []
     if textured:
         # one image on the sheet: the first base colour image used
-        used = [im for _, _, _, _, im in faces if decoded.get(im)]
+        used = [im for _, _, _, _, im, _ in faces if decoded.get(im)]
         first = used[0]
         sheet = resize(decoded[first], SHEET)
-        for a, b, c, col, im in faces:
-            if im == first and uvs[a] and uvs[b] and uvs[c]:
+        for a, b, c, col, im, fuv in faces:
+            if im == first and fuv:
                 uv = []
-                for i in (a, b, c):
-                    uv += [min(1.0, max(0.0, uvs[i][0])) * SHEET, min(1.0, max(0.0, uvs[i][1])) * SHEET]
+                for q in fuv:
+                    uv += [min(1.0, max(0.0, q[0])) * SHEET, min(1.0, max(0.0, q[1])) * SHEET]
                 out_faces.append((a, b, c, bmmesh.TEXTURED, tuple(uv)))
             else:
-                colour = sample(decoded[im], *(tuple((uvs[a][k] + uvs[b][k] + uvs[c][k]) / 3 for k in range(2)))) \
-                    if decoded.get(im) and uvs[a] and uvs[b] and uvs[c] else (col or (138, 138, 154))
+                colour = sample(decoded[im], sum(q[0] for q in fuv) / 3, sum(q[1] for q in fuv) / 3) \
+                    if decoded.get(im) and fuv else (col or (138, 138, 154))
                 out_faces.append((a, b, c, colour[0] << 16 | colour[1] << 8 | colour[2], None))
     else:
-        for a, b, c, col, _ in faces:
+        for a, b, c, col, _, _ in faces:
             out_faces.append((a, b, c, col[0] << 16 | col[1] << 8 | col[2], None))
     return {"name": name, "verts": pts, "faces": out_faces}, sheet
+
+
+def merge_positions(pts):
+    """the same position once: (the vertices, old index -> new index)"""
+    index, out, remap = {}, [], []
+    for p in pts:
+        key = (round(p[0], 5), round(p[1], 5), round(p[2], 5))
+        i = index.get(key)
+        if i is None:
+            i = len(out)
+            index[key] = i
+            out.append(p)
+        remap.append(i)
+    return out, remap
 
 
 def cluster(pts, faces, grid):
@@ -342,21 +363,21 @@ def cluster(pts, faces, grid):
         index.append(i)
     new_pts = [tuple(sums[i][k] / counts[i] for k in range(3)) for i in range(len(sums))]
     merged = {}
-    for a, b, c, col, im in faces:
+    for a, b, c, col, im, fuv in faces:
         ia, ib, ic = index[a], index[b], index[c]
         if len({ia, ib, ic}) < 3:
             continue
         key = (ia, ib, ic)
         if key in merged:
             m = merged[key]
-            m[3] = tuple((m[3][k] * m[5] + col[k]) // (m[5] + 1) for k in range(3))
-            m[5] += 1
+            m[3] = tuple((m[3][k] * m[6] + col[k]) // (m[6] + 1) for k in range(3))
+            m[6] += 1
         else:
-            merged[key] = [ia, ib, ic, col, im, 1]
+            merged[key] = [ia, ib, ic, col, im, fuv, 1]
     # the vertices used, renumbered
     used = sorted({i for k in merged for i in k})
     renum = {i: n for n, i in enumerate(used)}
-    out = [(renum[m[0]], renum[m[1]], renum[m[2]], m[3], m[4]) for m in merged.values()]
+    out = [(renum[m[0]], renum[m[1]], renum[m[2]], m[3], m[4], m[5]) for m in merged.values()]
     return [new_pts[i] for i in used], out
 
 
