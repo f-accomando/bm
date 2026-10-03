@@ -217,6 +217,13 @@ screenshot in `docs/img/`), `README_OLD.md` (il README completo, in italiano),
   gpu3d sanno fare alza la versione e aggiunge una riga alla tabella. Le impostazioni
   riproducono le versioni vecchie (ARM 0.2, GPU 2.1, GPU+VS1 3.0, GPU+VS 3.2): così i
   benchmark le confrontano.
+- **3D Bench** (`src/bm/b3d.c`, *Dev > 3D Bench*, monitor `j`, `docs/BENCH3D.md`): ogni
+  test 3D con ogni profilo (ARM 0.2, GPU 2.1, GPU+AA, GPU+VS1 3.0, GPU+VS 3.2), carico
+  fino a 40 ms, 60/30 fps, statistiche (istruzioni e cache miss dai contatori
+  dell'ARM1176, `src/kernel/pmu.c`, solo sul Pi), grafico a barre con le misure di prima,
+  report in `bm/bench` sulla SD confrontato col giro dopo. Un test nuovo per ogni
+  capacità nuova dei driver; quelle future stanno nella lista come "non ancora".
+  `make test-b3d` lo prova sul PC.
 - Overbit va sulla GPU (menu "3D": GPU, GPU+AA, ARM; benchmark dei bot con `--start
   bench`, `84_bench.lua`). bmhost ha gli stub della GPU; `make bmhost-gpu` usa `gpu3d.c`
   sull'emulatore della V3D (`BMHOST_EMU_SKIP=1`: i lavori non si eseguono). Quanto costa

@@ -1,0 +1,91 @@
+# 3D Bench
+
+Il benchmark unico delle capacità 3D di bm: *Dev > 3D Bench*, o il tasto `j` del
+monitor. Codice: `src/bm/b3d.c` (portabile), `src/kernel/b3dpi.c` (il Pi),
+`tests/bm/b3d_host.c` (il PC, `make test-b3d`).
+
+## Cosa fa
+
+Ogni test è una scena il cui carico `n` cresce (sfere, eroi, quad di pixel, chiamate…).
+Ogni test gira con ogni **profilo**, cioè con ogni driver che il codice di oggi sa
+riprodurre (`docs/DRIVERS.md`):
+
+- **ARM**: bm3d 0.2, il rasterizzatore dell'ARM, come prima della GPU;
+- **GPU**: bm3d 2.1, la GPU disegna i triangoli che l'ARM prepara;
+- **GPU+AA**: la stessa con l'MSAA 4×;
+- **GPU+VS1**: bm3d 3.0, il vertex shader per lo scenario;
+- **GPU+VS**: bm3d 3.2, il vertex shader per tutto.
+
+Un profilo che la GPU non sa fare (le prove all'avvio lo hanno spento) non ha la riga.
+A ogni passo `n` cresce di un terzo finché un fotogramma supera i **40 ms**; i carichi a
+**60 fps** (16,7 ms) e a **30 fps** (33,3 ms) sono interpolati tra due passi. Ogni passo
+misura 6 fotogrammi dopo uno di riscaldamento (texture, copie degli angoli, cache). Il
+tempo di un fotogramma comprende la copia sullo schermo, come nello stress test.
+
+Le sfere e i quad sono le scene dello stress test, alla stessa risoluzione (640×360): così
+i numeri del Pi con i driver di prima sono le barre storiche.
+
+## I test
+
+- `spheres`, `spheres_smooth`, `spheres_tex`: sfere di 96 facce piatte, Gouraud, con
+  texture (quelle dello stress test);
+- `spheres_unlit`, `spheres_baked`: spente, con la luce agli angoli (lo scenario: anche
+  GPU+VS1);
+- `spheres_shine`: cielo e terra, bordo, riflessi, 4 lampade, nebbia;
+- `heroes`: eroi di 16 ossa e 1536 facce, Gouraud, ossa in movimento; `heroes_shadow`:
+  con le ombre su un pavimento;
+- `clip`: pezzi di mappa attorno e sotto la camera, i più vicini attraverso il piano
+  vicino (li taglia la GPU);
+- `tiny`: facce di circa 4 pixel (il costo di preparare un triangolo);
+- `draws`: un cubo per chiamata (il costo di una chiamata);
+- `quad_flat`, `quad_smooth`, `quad_tex`, `quad_alpha`, `quad_screen`: riempimento, quad
+  di 320×180 (piatti, Gouraud, texture, texel con buchi, retino);
+- `texswap`: tre texture a turno (la GPU ne tiene due);
+- `split`: 3D e 2D sopra, più volte nello stesso fotogramma (lavori della GPU spezzati,
+  z conservato);
+- `match`: una partita sintetica, mappa di 100 pezzi, eroi con le ombre, un modello in
+  prima persona e un HUD;
+- da sviluppare (pagina "non ancora"): `queue` (M35, il fotogramma dopo mentre la GPU
+  disegna), `gpu2d` (M37, sprite e testo sulla GPU), `bilinear` (M37, texture filtrate).
+
+I carichi massimi sono molto oltre quello che i driver fanno oggi (fino a 8000 sfere, 512
+eroi, 40 000 chiamate): restano margine per i driver che verranno.
+
+## Le statistiche
+
+Per ogni test e profilo, al passo che sta ancora nei 60 fps: carico, ms (media e peggiore),
+fps, triangoli disegnati, vertici messi dall'ARM, pixel (dell'ARM), ms della GPU
+(binning + rendering), lavori della GPU, **istruzioni dell'ARM** a fotogramma senza quelle
+spese ad aspettare la GPU (e quelle a parte), istruzioni per triangolo e per elemento,
+**cache miss** dei dati. Le istruzioni e i miss vengono dai contatori dell'ARM1176
+(`src/kernel/pmu.c`), solo sul Pi vero (QEMU non li ha).
+
+## Le pagine alla fine
+
+- **Riepilogo**: per ogni test il carico a 60 fps di ogni profilo, il migliore, quante
+  volte l'ARM, quante volte il report di prima, se sta nei 60 fps; la media (geometrica)
+  di ogni profilo contro l'ARM; i test non ancora sviluppati.
+- **Driver**: le versioni bm3d, i profili, la macchina (clock, temperatura, throttling),
+  lo stato della GPU, il report salvato.
+- **Un test per pagina**: le barre (60 fps acceso, 30 fps spento) di ogni profilo con una
+  tacca bianca al valore del report di prima; in grigio i numeri misurati sul Pi con i
+  driver di prima (0.1, 0.2, 1.0: `docs/M33-PRIMA-DOPO.md`); in rosso il limite
+  dell'hardware dove c'è (la V3D: 1 Gpixel/s e 1,5 Gtexel/s secondo Raspberry Pi; 3,0
+  milioni di triangoli al secondo misurati dal test `g`); sotto, la tabella delle
+  statistiche.
+
+Sinistra/destra cambiano pagina, B (o Esc) esce.
+
+## I report
+
+Ogni giro salva `bm/bench/3D0001.TXT`, `3D0002.TXT`… sulla SD: un'intestazione (kernel,
+driver, data se c'è la rete, macchina, stato della GPU) e una riga CSV per test e profilo
+(`R,test,profilo,versione,n60,n30,…`; le colonne sono nella riga `columns`). Il giro
+dopo legge l'ultimo report e lo confronta (tacche bianche, colonna "x last"). Per
+tenerne la storia nel repository, copiarli in `docs/bench/`.
+
+## Sul PC
+
+`make test-b3d` fa due giri brevi sull'emulatore della V3D (pochi passi, un fotogramma
+l'uno: i ms del PC non contano) e controlla report, profili, confronto e pagine
+(`build/b3d/page-NN.ppm`). `build/host/b3d_host DIR --full -v` fa il giro intero.

@@ -1,6 +1,7 @@
 #include "home.h"
 #include "carts.h"
 #include "bench.h"
+#include "b3dpi.h"
 #include "config.h"
 #include "crumbs.h"
 #include "demo.h"
@@ -170,6 +171,12 @@ static void t_gpu(framebuffer_t *fb)
     gpu_test(fb);
 }
 
+static void t_bench3d(framebuffer_t *fb)
+{
+    heading("3D Bench: every 3D test with every driver");
+    bm_bench3d(fb);
+}
+
 static void t_room(framebuffer_t *fb)
 {
     heading("Texture Room: 3D benchmark");
@@ -242,6 +249,8 @@ static tool_t tools[] = {
     { "Stress test", "sprites, triangles and 3D, in C and in Lua", MENU_ICON_FLAME, 0xA03A3A, t_stress, 1, { 0 } },
     { "DMA test", "copies by the CPU against the DMA, step by step", MENU_ICON_ARROWS, 0x2A7A8A, t_dma, 1, { 0 } },
     { "GPU test", "the 3D unit (V3D) step by step; ARM against GPU", MENU_ICON_TRIANGLES, 0x8A5A2A, t_gpu, 1, { 0 } },
+    { "3D Bench", "every 3D test, every driver: bars, report on the SD", MENU_ICON_GAUGE, 0x2A6A8A, t_bench3d, 1,
+      { 0 } },
     { "Texture Room", "3D bench: crates doubled to 30 fps, ARM and GPU", MENU_ICON_GAUGE, 0x9A6A2A, t_room, 1, { 0 } },
     { "Demo", "the 60 fps animation demo, 10 s", MENU_ICON_PLAY, 0x3A8A3A, t_demo, 1, { 0 } },
     { "Test pattern", "HDMI colour bars; any button returns", MENU_ICON_BARS, 0x404050, t_pattern, 0, { 0 } },

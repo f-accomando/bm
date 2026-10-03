@@ -408,7 +408,7 @@ $(BUILD)/host/bmhost-gpu: tests/host/bmhost.c tests/host/stubs.c tests/host/host
 bmhost-gpu: $(BUILD)/host/bmhost-gpu
 
 .DEFAULT_GOAL := all
-.PHONY: FORCE test-smp test-qpu test-gpu3d test-v3d bench3d count-insns all clean firmware image image-pi1 sdcard install \
+.PHONY: FORCE test-smp test-qpu test-gpu3d test-b3d test-v3d bench3d count-insns all clean firmware image image-pi1 sdcard install \
         sdcard-chainloader sdcard-stress qemu qemu-screenshot \
         run-serial test test-bm test-ai ai-model test-usb test-audio test-fat test-kitchen test-titan test-sound test-nano8 \
         test-net test-http test-https test-release release disasm wav test-studio test-studio-ui studio test-prompts \
@@ -552,7 +552,7 @@ qemu-screenshot: $(BUILD)/kernel.img
 	./scripts/qemu-screenshot.sh $< $(BUILD)/screen.png
 
 test: all test-bm test-usb test-fat test-audio test-kitchen test-titan test-sound test-nano8 test-net test-http test-https \
-      test-release test-smp test-qpu test-gpu3d test-v3d test-ai test-studio test-prompts test-overbit
+      test-release test-smp test-qpu test-gpu3d test-b3d test-v3d test-ai test-studio test-prompts test-overbit
 	$(PYTHON) tests/qemu_test.py --build $(BUILD)
 
 $(BUILD)/host/test_bm: tests/bm/test_bm.c src/bm/gfx16.c src/bm/r3d.c src/bm/format.c src/lib/crc32.c src/bm/*.h
@@ -787,6 +787,23 @@ $(BUILD)/host/test_gpu3d: tests/gpu/test_gpu3d.c tests/gpu/v3d_emu.c tests/gpu/v
 	    -c src/gpu/gpu3d.c -o $@-gpu3d.o
 	$(HOSTCC) -O2 -Wall -Wextra -Isrc -Itests/gpu -o $@ tests/gpu/test_gpu3d.c tests/gpu/v3d_emu.c \
 	    src/gpu/v3d_cl.c src/bm/r3d.c src/bm/gfx16.c $@-gpu3d.o -lm
+
+# The 3D Bench (src/bm/b3d.c) on the PC: the V3D emulated, quick mode,
+# twice (the second run reads the first's report); pages in build/b3d
+$(BUILD)/host/b3d_host: tests/bm/b3d_host.c src/bm/b3d.c src/bm/b3d.h tests/gpu/v3d_emu.c tests/gpu/v3d_emu.h \
+                        src/gpu/gpu3d.c src/gpu/gpu3d.h src/gpu/v3d_cl.c src/gpu/v3d.h src/gpu/shaders.h \
+                        src/gpu/version3d.h src/bm/r3d.c src/bm/gfx16.c src/gfx/font8x16.c src/gfx/font6x12.c src/bm/*.h
+	@mkdir -p $(dir $@)
+	$(HOSTCC) -O2 -Wall -Wextra -Isrc -Itests/gpu -Daligned_alloc=test_aligned_alloc -Dfree=test_free \
+	    -c src/gpu/gpu3d.c -o $@-gpu3d.o
+	$(HOSTCC) -O2 -Wall -Wextra -Isrc -Itests/gpu -o $@ tests/bm/b3d_host.c src/bm/b3d.c tests/gpu/v3d_emu.c \
+	    src/gpu/v3d_cl.c src/bm/r3d.c src/bm/gfx16.c src/gfx/font8x16.c src/gfx/font6x12.c $@-gpu3d.o -lm
+
+test-b3d: $(BUILD)/host/b3d_host
+	rm -rf $(BUILD)/b3d && mkdir -p $(BUILD)/b3d
+	$< $(BUILD)/b3d
+	$< $(BUILD)/b3d
+	$(PYTHON) tests/bm/check_b3d.py $(BUILD)/b3d
 
 # The V3D driver's job runner against a model of the V3D's registers
 $(BUILD)/host/test_v3d: tests/gpu/test_v3d.c tests/gpu/mock/drivers/mmio.h src/gpu/v3d.c src/gpu/v3d.h

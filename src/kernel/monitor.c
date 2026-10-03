@@ -4,6 +4,7 @@
 #include "bm/runtime.h"
 #include "upload.h"
 #include "bm/stress.h"
+#include "b3dpi.h"
 #include "home.h"
 #include "input.h"
 #include "script/repl.h"
@@ -66,6 +67,7 @@ static const char help_text[] =
             "  k  CPU benchmark          p  rendering benchmark 640x360 RGB565\n"
             "  D  DMA test step by step (CPU against DMA timings)\n"
             "  g  GPU test step by step: the 3D unit (V3D), speed, ARM vs GPU\n"
+            "  j  3D Bench: every 3D test with every driver, bars and a saved report\n"
             "  R  Texture Room benchmark: crates doubled to 30 fps, ARM and GPU\n"
             "  V  .bm drawing: direct on screen / via RAM (compare with p)\n"
             "  s  rendering stress test (sprites, triangles, 3D; C and Lua)\n"
@@ -259,6 +261,7 @@ void monitor_run(void)
         case 'C': carts_code(console_framebuffer(), NULL); break;
         case 'D': dma_test(console_framebuffer()); break;
         case 'g': gpu_test(console_framebuffer()); break;
+        case 'j': case 'J': bm_bench3d(console_framebuffer()); break;
         case 'R': bm_room_bench(console_framebuffer()); break;
         case 'L':
             hid_set_layout(hid_layout()[0] == 'i' ? "us" : "it");

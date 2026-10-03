@@ -3,6 +3,7 @@
 #include "drivers/mmio.h"
 #include "drivers/prop.h"
 #include "drivers/timer.h"
+#include "kernel/pmu.h"
 #include "lib/printf.h"
 
 #include <string.h>
@@ -143,6 +144,8 @@ uint32_t v3d_bus(const void *p)
 static int wait_count(uint32_t reg, uint32_t cs_reg, uint32_t timeout_us, uint32_t *us)
 {
     uint32_t t0 = timer_ticks();
+    pmu_t p0;
+    pmu_read(&p0);                      /* the 3D Bench: the instructions spent waiting */
     for (;;) {
         dmb();
         uint32_t n = rd(reg), cs = rd(cs_reg);
@@ -150,6 +153,9 @@ static int wait_count(uint32_t reg, uint32_t cs_reg, uint32_t timeout_us, uint32
         if (n & 0xFF) {
             if (us)
                 *us = timer_ticks() - t0;
+            pmu_t p1;
+            pmu_read(&p1);
+            pmu_wait_instr += p1.instr - p0.instr;
             wr(reg, 1);                 /* write 1: back to 0 */
             dmb();
             return 0;
