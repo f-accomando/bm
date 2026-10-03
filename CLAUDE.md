@@ -97,6 +97,8 @@ screenshot in `docs/img/`), `README_OLD.md` (il README completo, in italiano),
   la sessione ne ha assegnato un altro.
 - Non serve chiederlo per domande, letture della roadmap o lavoro che l'utente ha già
   indicato su un branch esistente (es. "fai commit su bare-metal-mvp").
+- Gli spunti **R1, R2, …** (in fondo a `docs/ROADMAP.md`) sono idee non ancora decise:
+  quando l'utente ne nomina uno ("facciamo R7") il significato è lì.
 
 ## Pi Zero 2 W (M31): `kernel7.img`
 

@@ -1938,3 +1938,77 @@ Fatto (QEMU, test sul PC):
 - Pulsanti o pad SNES + qualche resistenza per M7A
 - Filtro RC (270 Ω + 33 nF) e jack per M10 (solo se l'audio va su PWM)
 - Per M12: un controller Bluetooth di riferimento
+
+---
+
+## Spunti R1, R2, … (2026-10-03, da riprendere)
+Cose utili che a bm mancano, viste sullo stato di `claude/bare-metal-mvp` del 2026-10-03,
+escluso quello che è in sviluppo su altri branch (GPU e 3D M33–M37, Overbit e la rete UDP
+dei giochi, Market e scambio in LAN M24–M26, RGB30, `.s16`). Nessuno è deciso: l'utente li
+richiama per nome ("facciamo R7"), e allora si chiede il branch come per ogni sviluppo.
+Suggeriti per primi: R3, R1 con R2, R7 (sul Pi si prova senza seriale e spesso senza
+tastiera).
+
+### Usare la console senza PC né seriale
+- **R1 — WiFi dal menu.** Oggi la rete si sceglie solo dal monitor (`W`: elenco, numero,
+  password scritta con la tastiera, `wifi.c`) o scrivendo `bm/config.txt`. Una pagina in
+  Settings > WiFi and network: le reti trovate col segnale, la scelta, la password (R2),
+  salvate come adesso (`wifi_ssid`, `wifi_psk`, `wifi_security`).
+- **R2 — Tastiera a schermo.** Una griglia di lettere guidata dal pad, servizio del kernel
+  chiamabile anche dalle cartucce (es. `textinput(titolo, testo)`): password del WiFi,
+  nomi dei file, Market. Più semplice della scrittura ad accordi di `archive/pad-typing`.
+- **R3 — Log su SD e visibile dal menu.** `log()`, i messaggi del kernel e il traceback
+  dell'ultimo errore di una cartuccia vanno solo sulla seriale. Le ultime righe in
+  `bm/log.txt` e una pagina "Log" in Settings > System: dal Pi si vede quello che oggi si
+  vede solo in QEMU.
+- **R4 — Screenshot sulla console.** Una combinazione di tasti salva un PNG in
+  `bm/shots/` (segnalare problemi, copertine del Market). `src/bm/png.c` oggi legge
+  soltanto: per scrivere basta il deflate senza compressione.
+- **R5 — Aggiornamento dal menu.** È M19, passi 3–4: `release.c` controlla già manifesto
+  e firma, mancano la chiave (`scripts/release-key.sh`) e la voce del menu; oggi per
+  aggiornare si toglie la SD.
+- **R6 — Pagina web della console.** Un piccolo server HTTP e il nome `bm.local` (mDNS;
+  di lwIP oggi c'è solo SNTP): dal browser del telefono si carica un `.bm`, si scaricano
+  salvataggi e screenshot, si modifica `bm/config.txt`, senza `bm_net.py`.
+
+### API dei giochi
+- **R7 — Lettere accentate in `print()`.** Il testo è disegnato byte per byte nell'ordine
+  CP437 (`g16_text` in `gfx16.c`): "città" scritto in UTF-8 esce con due simboli
+  sbagliati. Conversione da UTF-8 a CP437 (à è é ì ò ù ci sono); poi, se serve, font
+  personalizzati dallo sheet.
+- **R8 — Vibrazione e luce del DS4.** `rumble(p, forte, debole, ms)` e `padlight(p,
+  colore)`: il report d'uscita del DS4 (0x11, `bt.c`) parte già, oggi solo per il colore
+  del giocatore.
+- **R9 — Suoni campionati (PCM/WAV)** nel banco, accanto alla sintesi: voci, batterie
+  vere, effetti registrati; import WAV nel Sound editor. Il formato del banco cambia nei
+  tre posti (`au_parse`, l'editor, `scripts/bmaudio.py`).
+- **R10 — Libreria di gioco comune** (`require "bmlib"`): collisioni con la mappa e tra
+  rettangoli, easing, particelle, camera che segue, macchina a stati. Oggi ogni gioco se
+  le riscrive e l'assistente le spiega soltanto (`kb/howto_physics.txt`).
+- **R11 — Flag delle tile e mappa a più livelli.** `fget`/`fset` (muro, acqua, scala) e
+  livelli sopra e sotto il personaggio; oggi la mappa è un solo strato, da CSV.
+- **R12 — Più salvataggi per cartuccia.** Oggi uno, da 32 KiB (`/bm/save/XXXXXXXX.SAV`):
+  `save(t, slot)` / `saved(slot)`.
+
+### Strumenti di sviluppo
+- **R13 — Debugger Lua in bm Code.** Punti di interruzione, passo passo, variabili
+  locali, con l'hook di debug di Lua.
+- **R14 — Profiler per funzione.** L'overlay delle prestazioni dà il totale del
+  fotogramma; questo le 10 funzioni che costano di più.
+- **R15 — Ricarica dal PC.** `bm_net.py --watch`: a ogni salvataggio di `main.lua` sul PC
+  la cartuccia torna sulla console e riparte.
+- **R16 — Modelli di gioco.** "New game" parte da uno scheletro vuoto (`TEMPLATE` in bm
+  Code, "New project" nell'SDK): modelli pronti per platform, visuale dall'alto,
+  sparatutto e 3D, con codice, sheet e mappa.
+- **R17 — Import MIDI nel Sound editor.** Un file MIDI diventa i pattern del banco.
+- **R18 — Documentazione API in inglese.** Il README è in inglese, ma `docs/API.md`,
+  `docs/GUIDA-GIOCHI.md` e la base dell'assistente sono solo in italiano.
+
+### Hardware
+- **R19 — Altri controller Bluetooth.** Oggi via Bluetooth solo il DS4 (più tastiere e
+  mouse): DualSense, Switch Pro, 8BitDo, i pad Xbox (Bluetooth LE, come `ble.c`).
+- **R20 — Telecomando della TV (HDMI-CEC).** Frecce e OK per muoversi nel menu senza pad.
+- **R21 — Audio senza HDMI.** PWM su GPIO con il filtro RC (vedi l'hardware consigliato)
+  o un DAC I2S, per i monitor senza altoparlanti.
+- **R22 — Pulsanti su GPIO e schermo piccolo.** Il Pi Zero dentro un guscio portatile
+  (pad sui GPIO, LCD DPI o SPI): una strada diversa dall'RGB30.
