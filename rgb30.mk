@@ -62,7 +62,7 @@ MBEDTLS_SRCS := $(addprefix third_party/mbedtls/library/,aes.c bignum.c bignum_c
 LWIP_SRCS := $(wildcard third_party/lwip/src/core/*.c third_party/lwip/src/core/ipv4/*.c) \
              third_party/lwip/src/netif/ethernet.c third_party/lwip/src/apps/sntp/sntp.c
 NET_SRCS := src/net/net.c src/net/netcon.c src/net/netxfer.c src/net/cartnet.c
-# the Pi's cartridges (.bm, shown with show_bm=1): the runtime unchanged,
+# the Pi's cartridges (.bm, listed for testing; show_bm=0 hides them): the runtime unchanged,
 # the Pi's drivers it calls replaced by src/rgb30/bm_port.c and bm_input.c
 BM_SRCS := $(filter-out src/bm/stress.c src/bm/roombench.c,$(wildcard src/bm/*.c)) \
            src/audio/player.c src/audio/n8snd.c src/kernel/prompts.c src/kernel/pointer.c
@@ -108,7 +108,7 @@ SD_FILES64 = $(BUILD)/kernel8.img=kernel8.img boot/rgb30/extlinux.conf=extlinux/
              $(FW64)/rtw8821c_fw.bin=bm/rtw8821c_fw.bin \
              $(wildcard $(FW64)/LICENCE.rtlwifi_firmware.txt)$(if $(wildcard $(FW64)/LICENCE.rtlwifi_firmware.txt),=bm/LICENCE.rtlwifi_firmware.txt)
 # Yharnam (the Pi's cartridge, from the claude/yharnam branch, 256x256): on
-# the SD card for testing (listed with show_bm=1) and in the QEMU tests
+# the SD card for testing (in the Games tab) and in the QEMU tests
 YHARNAM := $(BUILD)/carts/yharnam.bm
 $(YHARNAM): carts/yharnam/main.lua carts/yharnam/sheet.png carts/yharnam/cover.png scripts/mkbm.py
 	@mkdir -p $(dir $@)
@@ -128,7 +128,8 @@ image: $(BUILD)/kernel8.img $(YHARNAM)
 	gzip -9 -k -f $(DIST)/bm-rgb30.img
 	@echo "Write $(DIST)/bm-rgb30.img (or .img.gz) to a microSD card, slot TF1."
 
-# The files of the BM partition, to copy by hand onto a card made with `image`
+# The files of the BM partition, to copy onto a card made with `image`;
+# SD=dir copies them there (WSL: SD=/mnt/e for the drive E:, named BM)
 sdcard: $(BUILD)/kernel8.img $(YHARNAM)
 	@mkdir -p $(DIST)/sd/extlinux $(DIST)/sd/bm
 	cp $(BUILD)/kernel8.img $(DIST)/sd/kernel8.img
@@ -137,7 +138,8 @@ sdcard: $(BUILD)/kernel8.img $(YHARNAM)
 	cp boot/rgb30/LEGGIMI.txt $(DIST)/sd/
 	@if [ -f $(FW64)/rtl8821cs_fw.bin ]; then cp $(FW64)/rtl8821cs_*.bin $(FW64)/rtw8821c_fw.bin $(DIST)/sd/bm/; fi
 	@if [ -n "$(RGB30_CONFIG)" ]; then cp "$(RGB30_CONFIG)" $(DIST)/sd/bm/config.txt; fi
-	@echo "Copy the contents of $(DIST)/sd/ to the BM drive of the card."
+	@if [ -n "$(SD)" ]; then sh scripts/copy-sd-rgb30.sh $(DIST)/sd "$(SD)"; \
+	else echo "Copy the contents of $(DIST)/sd/ to the card's drive named BM (or: make TARGET=rgb30 sdcard SD=/mnt/<letter>)."; fi
 
 $(BUILD)/k/%.S.o: %.S
 	@mkdir -p $(dir $@)

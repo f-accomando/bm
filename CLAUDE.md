@@ -124,13 +124,14 @@ screenshot in `docs/img/`), `README_OLD.md` (il README completo, in italiano),
   `src/rgb30/` (`plat_virt.c`/`sd_virt.c` per QEMU, `rk_*.c` per la console). Gli header in comune
   con l'ARMv6 (`kernel/irq.h`, `arch/cache.h`) hanno un ramo `__aarch64__`.
 - Menu 360×360 ingrandito ×2 sul pannello (`ui.c`), schede Games / Dev / System (L1/R1; dalla
-  seriale `l`/`r`), giochi `.s16` (formato da definire), `.bm` nascosti salvo `show_bm=1`. In Dev il
-  3D Bench (`b3d_rgb30.c`: `src/bm/b3d.c` con i contatori del Cortex-A55). Nei test lo schermo si
-  legge dai pixel: il testo del menu sta sulla griglia del font 8×16 (x multipli di 8, y di 16).
+  seriale `l`/`r`), giochi `.s16` (formato da definire), `.bm` visibili per le prove (`show_bm=0`
+  li nasconde). In Dev il 3D Bench (`b3d_rgb30.c`: `src/bm/b3d.c` con i contatori del
+  Cortex-A55). Nei test lo schermo si legge dai pixel: il testo del menu sta sulla griglia del
+  font 8×16 (x multipli di 8, y di 16).
 - L'utente prova senza seriale: LED (rosso = avvio, verde a 1 Hz = vivo) e `bm/bootlog.txt`
   scritto sulla SD a ogni avvio.
-- Cartucce del Pi (`.bm`): con `show_bm=1` si avviano, per le prove. Il runtime `src/bm` è lo
-  stesso del Pi (`#ifdef BM_RGB30` solo in `bm_video_enter`: lo schermo è `fb_init_game`); i
+- Cartucce del Pi (`.bm`): per ora nel menu e avviabili, per le prove (decisione dell'utente).
+  Il runtime `src/bm` è lo stesso del Pi (`#ifdef BM_RGB30` solo in `bm_video_enter`: lo schermo è `fb_init_game`); i
   driver del Pi che chiama sono sostituiti in `src/rgb30/bm_port.c` (suono muto, niente V3D e
   DMA) e `bm_input.c` (comandi per lettera, `game_buttons=position`). Yharnam (dal branch
   `claude/yharnam`) è nell'immagine SD; test `test_bm_cartridge`.

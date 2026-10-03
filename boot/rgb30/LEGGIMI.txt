@@ -23,8 +23,8 @@ Menu: tre schede, Games (i giochi), Dev (3D Bench, prove dello schermo e dei
 tasti, boot log) e System (Bluetooth, WiFi, sistema); L1/R1 cambiano scheda.
 Il 3D Bench salva il rapporto in bm/bench.
 
-Prove: con show_bm=1 in bm/config.txt il menu mostra e avvia le cartucce .bm
-del Pi (c'e' Yharnam). Start + Select esce dal gioco.
+Prove: la scheda Games mostra e avvia le cartucce .bm del Pi (c'e' Yharnam;
+show_bm=0 in bm/config.txt le nasconde). Start + Select esce dal gioco.
 
 Non formattare e non ripartizionare la scheda: il bootloader sta fuori dalla
 partizione. Per rifarla: make TARGET=rgb30 image e riscrivi l'immagine.

@@ -215,11 +215,12 @@ def test_lua_repl(b, opts):
 
 
 def test_menu_games_and_hidden_bm(b, opts):
-    """.s16 files in bm/ are the games; .bm cartridges stay hidden unless
-    show_bm=1 in bm/config.txt."""
+    """.s16 files in bm/ are the games; the .bm cartridges are listed too,
+    for testing, unless show_bm=0 in bm/config.txt (then the Games tab says
+    how many are hidden)."""
     tmp = tempfile.mkdtemp(prefix="bm64sd-")
     sd = make_sd(tmp, {"bm/racer.s16": b"S16" + bytes(100), "bm/pong.bm": b"BMCART" + bytes(64),
-                       "bm/notes.txt": b"hello"})
+                       "bm/notes.txt": b"hello", "bm/config.txt": b"show_bm=0\n"})
     q = Qemu(os.path.join(b, "kernel.elf"), sd=sd)
     try:
         out = boot(q)
@@ -230,14 +231,22 @@ def test_menu_games_and_hidden_bm(b, opts):
         assert "racer.s16" in text.lower(), text
         assert "pong" not in text.lower(), text
         out = q.expect("\n", timeout=5).decode(errors="replace")
-        assert "(1 .bm hidden: show_bm=1" in out, out
+        assert "(1 .bm hidden by show_bm=0" in out, out
         keys(q, "l")                            # L1: round to the System tab
         text = screen_all(q.screendump())
         assert "Bluetooth" in text and "WiFi" in text and "racer" not in text.lower(), text
     finally:
         q.close()
-    sd = make_sd(tmp, {"bm/racer.s16": b"S16" + bytes(100), "bm/pong.bm": b"BMCART" + bytes(64),
-                       "bm/config.txt": b"show_bm=1\n"})
+    sd = make_sd(tmp, {"bm/pong.bm": b"BMCART" + bytes(64), "bm/config.txt": b"show_bm=0\n"})
+    q = Qemu(os.path.join(b, "kernel.elf"), sd=sd)
+    try:
+        boot(q)
+        time.sleep(0.5)
+        text = screen_all(q.screendump())
+        assert "No games yet" in text and "1 Pi cartridge (.bm) hidden by show_bm=0" in text, text
+    finally:
+        q.close()
+    sd = make_sd(tmp, {"bm/racer.s16": b"S16" + bytes(100), "bm/pong.bm": b"BMCART" + bytes(64)})
     q = Qemu(os.path.join(b, "kernel.elf"), sd=sd)
     try:
         out = boot(q)
@@ -354,14 +363,13 @@ def test_confirm_button(b, opts):
     confirm=a in bm/config.txt swaps them."""
     for config, ok, held in ((b"layout=us\n", "B", "00000020"), (b"confirm=a\n", "A", "00000010")):
         tmp = tempfile.mkdtemp(prefix="bm64sd-")
-        sd = make_sd(tmp, {"bm/config.txt": config, "bm/pong.bm": b"BMCART" + bytes(64)})
+        sd = make_sd(tmp, {"bm/config.txt": config})     # no games: Dev is one tab away
         q = Qemu(os.path.join(b, "kernel.elf"), sd=sd)
         try:
             boot(q)
             time.sleep(0.4)
             text = screen_all(q.screendump())
             assert f"Up/Down: choose   {ok}: open" in text, text
-            assert "No games yet" in text and "1 Pi cartridge (.bm) hidden: show_bm=1" in text, text
             keys(q, "rsss")                    # Dev tab: Input test
             q.send("\r")                       # confirm
             time.sleep(0.6)
@@ -374,7 +382,7 @@ def test_confirm_button(b, opts):
 
 
 def test_bm_cartridge(b, opts):
-    """A Pi cartridge on the RGB30 (show_bm=1): Yharnam, 256x256 RGB565,
+    """A Pi cartridge on the RGB30 (listed with no config): Yharnam, 256x256 RGB565,
     runs on the AArch64 kernel (QEMU shows its screen 1:1, widened to
     32 bits); the title, then the game after A; 'q' leaves and the menu's
     360x360 comes back."""
@@ -383,7 +391,7 @@ def test_bm_cartridge(b, opts):
         raise AssertionError(f"{cart} missing (make TARGET=rgb30 test builds it)")
     tmp = tempfile.mkdtemp(prefix="bm64sd-")
     with open(cart, "rb") as f:
-        sd = make_sd(tmp, {"bm/config.txt": b"show_bm=1\n", "bm/yharnam.bm": f.read()})
+        sd = make_sd(tmp, {"bm/yharnam.bm": f.read()})
     q = Qemu(os.path.join(b, "kernel.elf"), sd=sd)
     try:
         boot(q)

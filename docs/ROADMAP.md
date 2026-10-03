@@ -2608,7 +2608,8 @@ Decisione 2026-10-01 (utente): una versione **bare metal** di bm per la PowKiddy
 Menu **512×512** al centro dello schermo (formato 1:1; dal 2026-10-03 360×360 ×2, a tutto
 schermo, task 8); giochi e app
 in un formato nuovo, **`.s16`**, da definire; le cartucce `.bm` del Pi nascoste (`show_bm=1` in
-`bm/config.txt` le elenca soltanto). Tutto in [RGB30.md](RGB30.md).
+`bm/config.txt` le elenca soltanto; dal 2026-10-03, per le prove, visibili e avviabili senza
+impostazioni, `show_bm=0` le nasconde). Tutto in [RGB30.md](RGB30.md).
 
 Task:
 1. ✅ **Base a 64 bit** (`make TARGET=rgb30`, `rgb30.mk`, `src/rgb30/`): avvio come Image
@@ -2636,7 +2637,7 @@ Task:
    provare).
 7. **Cartucce del Pi per le prove** (richiesta 2026-10-03): il runtime `.bm` compilato a 64 bit
    (sostituti dei driver del Pi in `src/rgb30/bm_port.c`, comandi in `bm_input.c`), avviato dal
-   menu con `show_bm=1`; Yharnam (256×256, dal branch `claude/yharnam`) nell'immagine SD,
+   menu (visibili per le prove; `show_bm=0` le nasconde); Yharnam (256×256, dal branch `claude/yharnam`) nell'immagine SD,
    ingrandita a tutto schermo. Provata in QEMU; il suono e la GPU Mali mancano ancora.
 8. ✅ **Menu a tutto schermo con le schede** (richiesta 2026-10-03): 360×360 ingrandito ×2 sul
    pannello 720×720; schede Games / Dev / System come sul Pi (L1/R1); in Dev il **3D Bench**
