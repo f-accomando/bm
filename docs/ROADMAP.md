@@ -2125,7 +2125,7 @@ di eroi che cresce fino a 30 fps; tre pagine di report. Poi le ottimizzazioni mi
 con `tests/overbit/frames.py` (istruzioni dell'ARM per fotogramma, per funzione, con
 `qemu-arm`): driver più snello per triangolo, ombre e trasformazioni più leggere,
 particelle e anelli del Lua riscritti. Numeri, limiti e budget di un 4 contro 4 in
-`docs/LIMITI.md`.
+`docs/M33-PRIMA-DOPO.md` (sezione 7).
 
 **Per chiudere M34:** sul Pi il test `g` (passi 12 texture a tile e 13 MSAA), le righe AA
 dello stress test, il benchmark Texture Room e il benchmark di Overbit con ARM, GPU e

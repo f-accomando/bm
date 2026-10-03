@@ -181,7 +181,7 @@ triangolo senza chiamate in mezzo e il colore in 0..1 calcolato una volta per fa
 
 ## 9. Da misurare alla prossima prova
 
-- Overbit con la GPU (`docs/LIMITI.md`): le tre pagine di *Overbit > BENCHMARK* (ms
+- Overbit con la GPU (`docs/M33-PRIMA-DOPO.md`, sezione 7): le tre pagine di *Overbit > BENCHMARK* (ms
   veri di ARM, GPU e GPU+AA a ogni qualità e l'anello di eroi) da confrontare con le
   stime contate con `qemu-arm` (HIGH: ~28 ms con la GPU contro ~34 sull'ARM nello
   scontro di 10 bot). Le righe *GPU spheres* dello stress test dopo il driver del
