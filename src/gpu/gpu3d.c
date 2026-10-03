@@ -1,5 +1,6 @@
 #include "gpu3d.h"
 #include "shaders.h"
+#include "version3d.h"
 #include "v3d.h"
 #include "lib/printf.h"
 
@@ -104,7 +105,7 @@ typedef struct {
 static struct {
     int ready, failed;
     const char *status;
-    char why[160];
+    char why[192];
     uint8_t *block;
     uint8_t *tsda, *alloc, *overflow, *zbuf, *bcl, *rcl, *recs, *code;
     uint16_t *probe;
@@ -1839,7 +1840,8 @@ int gpu3d_init(void)
         return -1;
     static const char *const ms[3] = { "no", "on cleared pages", "on any page" };
     static const char *const clips[3] = { "no", "yes", "yes (Z planes)" };
-    ksnprintf(G.why, sizeof G.why, "ready (byte a = %s, texels %s, textures %s, MSAA %s, vertex shader %s, "
+    ksnprintf(G.why, sizeof G.why, "bm3d " BM3D_VERSION " ready (byte a = %s, texels %s, textures %s, MSAA %s, "
+              "vertex shader %s, "
               "clipping %s, lit models %s)", G.red_a ? "red" : "blue", G.tex_swap ? "swapped" : "in place",
               G.tformat ? "in tiles" : "in rows", ms[G.ms_ok], G.gl_ok ? (G.gl_cw ? "yes (cw)" : "yes") : "no",
               clips[G.clip_ok], G.lit_ok ? "yes" : "no");

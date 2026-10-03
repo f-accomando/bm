@@ -25,6 +25,7 @@
 #include "gfx/console.h"
 #include "gpu/gpu3d.h"
 #include "gpu/v3d.h"
+#include "gpu/version3d.h"
 #include "lib/heap.h"
 #include "lib/printf.h"
 #include "drivers/board.h"
@@ -280,7 +281,7 @@ enum {
     R_CONTROLLERS = 1, R_WIFI, R_LAYOUT, R_GRAPHICS, R_DRAW, R_GPU3D, R_AA, R_VS, R_VOLUME, R_SYSTEM,
     R_PAD1, R_PAD2, R_PAD3, R_PAD4, R_KEYBOARD, R_PAIR, R_PAIR_KBD, R_TEST, R_PROMPTS, R_FORGET,
     R_NETWORK, R_STATE, R_IP, R_TIME, R_CONSOLE, R_PASSWORD, R_CONNECT, R_BOOT,
-    R_VERSION, R_BOARD, R_UPTIME, R_MEMORY, R_CLOCKS, R_SD, R_RESTART, R_MONITOR,
+    R_VERSION, R_BOARD, R_UPTIME, R_MEMORY, R_CLOCKS, R_SD, R_DRIVER3D, R_RESTART, R_MONITOR,
 };
 
 static int popcount(unsigned v)
@@ -489,6 +490,12 @@ void home_panel(int id, home_panel_t *p)
                  temp[1] / 1000, temp[1] % 1000 / 100);
         home_row(p, MENU_ROW_INFO, R_SD, "SD card", "The card the console started from",
                  "%s", fat_describe());
+        {
+            /* the drivers' version, and the one the 3D settings reproduce */
+            const int gpu = gpu3d_on() && !gpu3d_failed() && v3d_init() == 0;
+            home_row(p, MENU_ROW_INFO, R_DRIVER3D, "3D driver", "bm3d version (block); the games' 3D now",
+                     "bm3d %s (%s), as %s", BM3D_VERSION, BM3D_BLOCK, bm3d_mode(gpu, gpu ? vs_on() : 0));
+        }
         home_row(p, MENU_ROW_ACTION, R_RESTART, "Restart", "Restarts the console", NULL);
         home_row(p, MENU_ROW_ACTION, R_MONITOR, "Open the monitor",
                  "The text console with every command", NULL);

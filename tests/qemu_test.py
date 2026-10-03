@@ -974,7 +974,7 @@ def test_home_ui(b, opts):
         screen(["Settings > System", "Version", "Board", "SD card", "FAT32"])
         shot("system")
         keys("w")                               # the list scrolls to its last rows
-        screen(["Restart", "Open the monitor"])
+        screen(["3D driver", "bm3d", "as 0.2", "Restart", "Open the monitor"])  # QEMU: the ARM's 3D
         keys("q")
         keys("wwwww")                           # System -> Controllers
         keys("\r")

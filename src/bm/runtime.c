@@ -23,6 +23,7 @@
 #include "audio/synth.h"
 #include "drivers/dma.h"
 #include "gpu/gpu3d.h"
+#include "gpu/version3d.h"
 #include "arch/cache.h"
 #include "kernel/crumbs.h"
 #include "kernel/prompts.h"
@@ -587,9 +588,10 @@ static void gpu3d_maybe(void)
         rt.r3d.backend = gpu3d_backend();
         rt.r3d.arm_hook = gpu3d_to_arm;
         if (!cur.bench)                 /* a benchmark has its own report */
-            kprintf("bm: the 3D is drawn by the GPU (%s)\n", gpu3d_status());
+            kprintf("bm: the 3D is drawn by the GPU as bm3d %s (%s)\n", bm3d_mode(1, gpu3d_vshader_on()),
+                    gpu3d_status());
     } else {
-        kprintf("bm: the 3D is drawn by the ARM: %s\n", gpu3d_status());
+        kprintf("bm: the 3D is drawn by the ARM as bm3d %s: %s\n", bm3d_mode(0, 0), gpu3d_status());
     }
 }
 
@@ -1449,11 +1451,12 @@ static int l_zclear(lua_State *L)
     return 0;
 }
 
-/* gpu3d([on, [aa, [vs]]]) -> on, aa, vs: whether the GPU draws the 3D,
+/* gpu3d([on, [aa, [vs]]]) -> on, aa, vs, version: whether the GPU draws the 3D,
  * whether with anti-aliasing (MSAA 4x, where the GPU allows it) and whether
  * its vertex shader places the corners of the models (M36, where the GPU's
  * probe drew with it): false, 1 the scenery (meshes unlit or with baked
- * light), 2 (or true) every model. With on, the 3D
+ * light), 2 (or true) every model; version: the bm3d version that reproduces
+ * (src/gpu/version3d.h: "0.2" the ARM, "2.1", "3.0", "3.2"). With on, the 3D
  * goes to the GPU (if the console has one that answers) or to the ARM from
  * here, whatever Settings > Graphics says: for benchmarks; switch between
  * frames (what was drawn so far in a frame is not in the other's depth). */
@@ -1486,7 +1489,8 @@ static int l_gpu3d(lua_State *L)
         lua_pushinteger(L, vs);
     else
         lua_pushboolean(L, 0);
-    return 3;
+    lua_pushstring(L, bm3d_mode(r->backend != NULL, vs));     /* the bm3d version reproduced */
+    return 4;
 }
 
 /* ---- collision worlds (world3d.h): boxes, rays, moving bodies */

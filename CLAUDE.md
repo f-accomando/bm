@@ -212,6 +212,11 @@ screenshot in `docs/img/`), `README_OLD.md` (il README completo, in italiano),
   renderer "GPU+VS1"/"GPU+VS" di Overbit; le prove all'avvio (`probe_gl`, `probe_clip`,
   `probe_lit`) lo spengono se il Pi non disegna come l'emulatore, che esegue gli shader
   (interprete QPU) e taglia come GL; passo 14 del test `g`.
+- **Versioni dei driver 3D**: `bm3d X.Y` (X il blocco/milestone, Y il passo) in
+  `src/gpu/version3d.h` e `docs/DRIVERS.md`; ogni passo che cambia quello che r3d o
+  gpu3d sanno fare alza la versione e aggiunge una riga alla tabella. Le impostazioni
+  riproducono le versioni vecchie (ARM 0.2, GPU 2.1, GPU+VS1 3.0, GPU+VS 3.2): così i
+  benchmark le confrontano.
 - Overbit va sulla GPU (menu "3D": GPU, GPU+AA, ARM; benchmark dei bot con `--start
   bench`, `84_bench.lua`). bmhost ha gli stub della GPU; `make bmhost-gpu` usa `gpu3d.c`
   sull'emulatore della V3D (`BMHOST_EMU_SKIP=1`: i lavori non si eseguono). Quanto costa

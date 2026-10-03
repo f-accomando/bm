@@ -8,6 +8,7 @@
 #include "drivers/timer.h"
 #include "drivers/uart.h"
 #include "gpu/gpu3d.h"
+#include "gpu/version3d.h"
 #include "lib/printf.h"
 
 #include <math.h>
@@ -455,6 +456,8 @@ void bm_stress_run(framebuffer_t *fb)
     bm_video_leave(fb, con_w, con_h);
     machine_line("after C part");
 
+    kprintf("3D rows: ARM as bm3d %s, GPU as %s, GPU+VS as %s (drivers bm3d %s, %s)\n", bm3d_mode(0, 0),
+            bm3d_mode(1, 0), bm3d_mode(1, 2), BM3D_VERSION, BM3D_BLOCK);
     kprintf("\x1b[1m%-24s%16s%16s%12s\x1b[0m\n", "test (max per frame)", "60 fps", "30 fps", "us/item");
     for (size_t t = 0; t < sizeof tests / sizeof *tests; t++) {
         if (skip[t] == 1)

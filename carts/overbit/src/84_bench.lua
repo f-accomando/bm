@@ -79,7 +79,7 @@ function Bench.start()
     Bench.renderers = { r }
     Bench.phases = { { kind = "match", r = r, q = tonumber(q) } }
   end
-  Bench.rows, Bench.rings = {}, {}
+  Bench.rows, Bench.rings, Bench.ver = {}, {}, {}
   Bench.i, Bench.done, Bench.page = 0, false, 1
   G.qauto = false
   G.bot_diff = 2
@@ -105,6 +105,7 @@ function Bench.next()
   if not ph then Bench.finish() return end
   Bench.ph = ph
   use_renderer(ph.r)
+  Bench.ver[ph.r] = select(4, gpu3d())        -- the bm3d version (nil on a runtime before it)
   Quality.set(ph.q)
   Bench.t, Bench.frames = 0, {}
   Bench.sum = { upd = 0, d3 = 0, tri = 0, vtx = 0, px = 0, fps = 0, n = 0, trimax = 0 }
@@ -226,8 +227,8 @@ local function match_done()
   log(string.format("overbit bench %s %s match %d", RNAME[ph.r], Quality.names[ph.q + 1], match_hash()))
   Bench.rows[#Bench.rows + 1] = s
   log(string.format("overbit bench %s %s: %.0f fps, %.1f ms (1%% %.1f, worst %.1f, %.0f%% over 16.7), update %.1f, "
-    .. "3D %.1f, %.0f tri (max %d), %.0f vtx, %.0f px", RNAME[ph.r], Quality.names[ph.q + 1], s.fps, s.ms, s.p99,
-    s.worst, s.over, s.upd, s.d3, s.tri, s.trimax, s.vtx, s.px))
+    .. "3D %.1f, %.0f tri (max %d), %.0f vtx, %.0f px, bm3d %s", RNAME[ph.r], Quality.names[ph.q + 1], s.fps, s.ms,
+    s.p99, s.worst, s.over, s.upd, s.d3, s.tri, s.trimax, s.vtx, s.px, Bench.ver[ph.r] or "?"))
   Bench.next()
 end
 
@@ -236,8 +237,9 @@ end
 function Bench.update()
   local c = Input.cmd
   if Bench.done then
-    if c.left_p then Bench.page = (Bench.page - 2) % 3 + 1 Snd.play("ui") end
-    if c.right_p or c.down_p then Bench.page = Bench.page % 3 + 1 Snd.play("ui") end
+    local np = Bench.npages()
+    if c.left_p then Bench.page = (Bench.page - 2) % np + 1 Snd.play("ui") end
+    if c.right_p or c.down_p then Bench.page = Bench.page % np + 1 Snd.play("ui") end
     if c.menu_p or c.jump_p then Modes.start("menu") end
     return
   end
@@ -367,30 +369,39 @@ end
 
 local function q_short(q) return Quality.names[q + 1]:sub(1, 3) end
 
+-- the match's rows a page (the rest on the next ones), and the pages: frame
+-- times, work a frame, then the rings and the drivers
+local ROWS = 11
+function Bench.npages()
+  local k = math.max(1, (#Bench.rows + ROWS - 1) // ROWS)
+  return 2 * k + 1, k
+end
+
 local function report()
   cls(0x0A0E14)
   font("6x12")
   local page = Bench.page
+  local np, k = Bench.npages()
   print("OVERBIT BENCHMARK", 4, 2, 0xFFE070)
-  print(string.format("PAGE %d/3", page), 262, 2, 0x7A8290)
+  print(string.format("PAGE %d/%d", page, np), 256, 2, 0x7A8290)
   local y = 18
-  if page == 1 then
-    print("MATCH OF 10 BOTS: FRAME TIME", 4, y, 0x7A8290)
+  if page <= 2 * k then
+    local work = page > k
+    local first = ((page - 1) % k) * ROWS
+    print(work and "MATCH OF 10 BOTS: WORK A FRAME" or "MATCH OF 10 BOTS: FRAME TIME", 4, y, 0x7A8290)
     y = y + 13
-    print("RENDER   QUAL  FPS   AVG   1%  WORST >16", 4, y, 0xFFE070)
-    for _, r in ipairs(Bench.rows) do
+    print(work and "RENDER   QUAL  LUA   3D   TRI   VTX    PX" or "RENDER   QUAL  FPS   AVG   1%  WORST >16", 4, y,
+      0xFFE070)
+    for i = first + 1, math.min(first + ROWS, #Bench.rows) do
+      local r = Bench.rows[i]
       y = y + 11
-      print(string.format("%-7s  %-3s  %4.0f %5.1f %5.1f %5.1f %3.0f%%", RNAME[r.r], q_short(r.q), r.fps, r.ms, r.p99,
-        r.worst, r.over), 4, y, r.ms <= 16.7 and 0x80FF90 or 0xFF8080)
-    end
-  elseif page == 2 then
-    print("MATCH OF 10 BOTS: WORK A FRAME", 4, y, 0x7A8290)
-    y = y + 13
-    print("RENDER   QUAL  LUA   3D   TRI   VTX    PX", 4, y, 0xFFE070)
-    for _, r in ipairs(Bench.rows) do
-      y = y + 11
-      print(string.format("%-7s  %-3s %5.1f %4.1f %5.0f %5.0f %5.0f", RNAME[r.r], q_short(r.q), r.upd, r.d3, r.tri, r.vtx,
-        r.px), 4, y, 0xD8DCE2)
+      if work then
+        print(string.format("%-7s  %-3s %5.1f %4.1f %5.0f %5.0f %5.0f", RNAME[r.r], q_short(r.q), r.upd, r.d3, r.tri,
+          r.vtx, r.px), 4, y, 0xD8DCE2)
+      else
+        print(string.format("%-7s  %-3s  %4.0f %5.1f %5.1f %5.1f %3.0f%%", RNAME[r.r], q_short(r.q), r.fps, r.ms,
+          r.p99, r.worst, r.over), 4, y, r.ms <= 16.7 and 0x80FF90 or 0xFF8080)
+      end
     end
   else
     print("STRESS: HEROES IN A RING (" .. Quality.names[RING_Q + 1] .. ")", 4, y, 0x7A8290)
@@ -416,6 +427,11 @@ local function report()
       y = y + 18
       print(string.format("GPU %.1fx FASTER THAN ARM (%s)", best, Quality.names[bq + 1]), 4, y, 0xFFE070)
     end
+    -- the drivers: the bm3d version each renderer reproduces
+    local d = {}
+    for _, r in ipairs(Bench.renderers) do d[#d + 1] = RNAME[r] .. " " .. (Bench.ver[r] or "?") end
+    y = y + 14
+    print("BM3D " .. table.concat(d, "  "), 4, y, 0x7A8290)
   end
   local px = prompt(Input.cmd.pad and "LEFT" or "left", 4, 165, true)
   px = prompt(Input.cmd.pad and "RIGHT" or "right", px + 2, 165, true)
