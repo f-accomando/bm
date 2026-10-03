@@ -674,9 +674,20 @@ Passi (2026-09-29):
      `manifest.sig`. Il Pi potrà leggere l'ultima da
      `https://github.com/f-accomando/bm/releases/latest/download/manifest.txt` (repository
      pubblico, niente JSON).
-4. **Aggiornamento dal Pi**: comando nel monitor e voce nel menu Dev: controlla l'ultima
-   release, confronta la versione, scarica, verifica SHA-256 e firma, installa come
-   `--kernel` e riavvia; le cartucce nuove vanno in `/carts`.
+4. ✅ (QEMU, `test_update`; PC, `make test-release`) **Aggiornamento dal Pi**
+   (`src/kernel/update.c`, 2026-10-03): Settings > System > *Check for updates* (e `u` nel
+   monitor) legge il manifesto dell'ultima release, ne controlla la firma, confronta la
+   versione (`release_compare`: più nuova, la stessa, più vecchia, o il kernel è una build
+   dei sorgenti) e mostra i file che cambierebbero; *Install the update* chiede conferma,
+   scarica e controlla tutto prima di scrivere (SHA-256, marchio `bmK6`/`bmK7` dei kernel),
+   tiene i kernel di prima in `/bm/backup`, aggiorna i giochi presenti sulla SD (quelli tolti
+   restano tolti: li ha il Market), `bm/ca.pem`, poi i due kernel (quello della scheda per
+   ultimo) e riavvia. `update_url=sd:/...` e `bm/release.pem` per le prove.
+   - **Da fare sul PC**: la chiave (`scripts/release-key.sh`, secret `BM_RELEASE_KEY`) e il
+     primo tag `v*`; il job `release` del CI ora installa numpy e Pillow (giochi).
+   - **Da verificare sul Pi**: il controllo e l'installazione da GitHub via WiFi (le release
+     scaricano da `release-assets.githubusercontent.com`: se manca la radice in `bm/ca.pem`
+     l'errore lo dice).
 5. **Git leggero in lettura**: cartucce da un repository (API "contents" di GitHub,
    file per file, senza archivi da decomprimere).
 6. **Git leggero in scrittura**: l'editor carica un `.bm` su un repository con un

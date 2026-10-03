@@ -30,8 +30,23 @@ typedef struct {
 /* The public key, PEM. The kernel has its own; the tests set theirs.
  * Returns 0, or -1 if it is not an EC public key (the placeholder file). */
 int release_set_key(const char *pem);
-/* 1 if this kernel can check releases. */
+/* A second key, besides the built-in one (bm/release.pem on the SD card:
+ * the tests, or releases of one's own). 0, or -1 if not a P-256 key. */
+int release_add_key(const char *pem);
+/* 1 if this kernel can check releases (either key). */
 int release_has_key(void);
+
+/* The running kernel's version (git describe: "v0.2.0", "v0.2.0-3-gabc1234",
+ * "abc1234-dirty") against a release's ("v0.3.0"). */
+enum {
+    RELEASE_NEWER,              /* the release is newer: an update */
+    RELEASE_SAME,               /* this very release */
+    RELEASE_OLDER,              /* the running one is newer */
+    RELEASE_DEV,                /* a build of the sources, not a release: the
+                                 * release can replace it, it is not "newer" */
+    RELEASE_BAD,                /* the release's version is not vX.Y.Z */
+};
+int release_compare(const char *running, const char *release);
 
 /* 0 if sig (DER) is the key's signature of the manifest's bytes. */
 int release_verify(const uint8_t *manifest, size_t len, const uint8_t *sig, size_t sig_len,

@@ -13,6 +13,7 @@
 #include "pointer.h"
 #include "sysinfo.h"
 #include "testpattern.h"
+#include "update.h"
 #include "version.h"
 #include "audio/audio.h"
 #include "bm/roombench.h"
@@ -293,6 +294,7 @@ enum {
     R_PROMPTS, R_FORGET,
     R_NETWORK, R_STATE, R_IP, R_TIME, R_CONSOLE, R_PASSWORD, R_CONNECT, R_BOOT,
     R_VERSION, R_BOARD, R_UPTIME, R_MEMORY, R_CLOCKS, R_SD, R_DRIVER3D, R_RESTART, R_MONITOR, R_PERF,
+    R_UPDATE, R_INSTALL,
 };
 
 static int popcount(unsigned v)
@@ -536,6 +538,11 @@ void home_panel(int id, home_panel_t *p)
                  temp[1] / 1000, temp[1] % 1000 / 100);
         home_row(p, MENU_ROW_INFO, R_SD, "SD card", "The card the console started from",
                  "%s", fat_describe());
+        home_row(p, MENU_ROW_ACTION, R_UPDATE, "Check for updates",
+                 "The latest release on GitHub, signed: what would change", "%s", update_state());
+        if (update_ready())
+            home_row(p, MENU_ROW_ACTION, R_INSTALL, "Install the update",
+                     "Downloads, checks, keeps the old kernels in /bm/backup, restarts", "%s", update_ready());
         {
             /* the drivers' version, and the one the 3D settings reproduce */
             const int gpu = gpu3d_on() && !gpu3d_failed() && v3d_init() == 0;
@@ -710,6 +717,21 @@ void home_act(int id, int row, int how, home_do_t *d)
         break;
     case R_MONITOR:
         if (how == 0) d->what = HOME_MONITOR;
+        break;
+    case R_UPDATE:
+        if (how == 0) { d->what = HOME_TEXT; d->text = update_check; d->wait = 1; }
+        break;
+    case R_INSTALL:
+        if (how == HOME_YES) {
+            d->what = HOME_TEXT;
+            d->text = update_install;
+            d->wait = 1;                        /* only if it fails: it restarts */
+        } else if (how == 0 && update_ready()) {
+            d->what = HOME_ASK;
+            ksnprintf(d->ask, sizeof d->ask, "Install bm %s?", update_ready());
+            ksnprintf(d->ask_detail, sizeof d->ask_detail, "The console restarts when it is done.");
+            ksnprintf(d->ask_yes, sizeof d->ask_yes, "Install");
+        }
         break;
     }
 }

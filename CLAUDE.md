@@ -524,6 +524,15 @@ screenshot in `docs/img/`), `README_OLD.md` (il README completo, in italiano),
   sull'emulatore della V3D (`BMHOST_EMU_SKIP=1`: i lavori non si eseguono). Quanto costa
   all'ARM un fotogramma della partita: `tests/overbit/frames.py` (qemu-arm, per funzione).
 
+## Aggiornamenti dal Pi (M19)
+
+- Release firmate (CI sui tag `v*`, `scripts/mkrelease.py`, chiave `keys/release-pub.pem` /
+  `scripts/release-key.sh`, secret `BM_RELEASE_KEY`); sul Pi `src/kernel/update.c`:
+  Settings > System > *Check for updates* / *Install the update*, monitor `u`. Niente si
+  scrive finché tutti i file non sono scaricati e controllati; i kernel di prima vanno in
+  `/bm/backup`; quello della scheda si scrive per ultimo. Prova: `test_update` in QEMU
+  (`update_url=sd:/release/`, `bm/release.pem`).
+
 ## Market (M25, branch `bm-store`)
 
 - Prima scheda del menu: **Market | Games | Dev | Settings** (tasti 1 2 3 4); il menu si

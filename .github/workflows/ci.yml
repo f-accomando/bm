@@ -59,10 +59,12 @@ jobs:
       - uses: actions/checkout@v4
 
       - name: Install toolchain
+        # numpy and Pillow: the games' assets (Overbit's map) are built too
         run: |
           sudo apt-get update
           sudo apt-get install -y --no-install-recommends \
-            gcc-arm-none-eabi libnewlib-arm-none-eabi binutils-arm-none-eabi make python3
+            gcc-arm-none-eabi libnewlib-arm-none-eabi binutils-arm-none-eabi make python3 \
+            python3-numpy python3-pil
 
       - name: Build and sign
         env:

@@ -3009,6 +3009,133 @@ def test_market(b, opts):
         shutil.rmtree(tmp, ignore_errors=True)
 
 
+def test_update(b, opts):
+    """M19 step 4: Settings > System > Check for updates reads a release
+    signed with a test key (here from the SD card: update_url=sd:/release/,
+    bm/release.pem), says which files would change (a game the same, one
+    changed, one not on the card, the certificates, both kernels); Install
+    asks first, downloads and checks everything, keeps the old kernel in
+    /bm/backup, writes, and the console restarts. Then the card holds the
+    release's files, is a clean FAT32 volume, and the game deleted before is
+    still not there."""
+    tmp = tempfile.mkdtemp(prefix="bm-update-")
+    try:
+        key, pub = os.path.join(tmp, "key.pem"), os.path.join(tmp, "release.pem")
+        subprocess.run(["openssl", "genpkey", "-algorithm", "EC", "-pkeyopt", "ec_paramgen_curve:P-256",
+                        "-out", key], check=True, capture_output=True)
+        subprocess.run(["openssl", "pkey", "-in", key, "-pubout", "-out", pub], check=True, capture_output=True)
+        snake2 = os.path.join(tmp, "snake.bm")
+        with open(snake2, "wb") as f:
+            f.write(mkbm.pack(b"function _draw() cls(2) end", title="Snake", author="bm"))
+        rel = os.path.join(tmp, "release")
+        k6 = os.path.join(os.path.dirname(b("kernel7.img")), "kernel.img")    # b() gives kernel7 with --kernel7
+        own = "/kernel7.img" if KERNEL7 else "/kernel.img"
+        other = "/kernel.img" if KERNEL7 else "/kernel7.img"
+        files = [(k6, "/kernel.img"), (b("kernel7.img"), "/kernel7.img"),
+                 (snake2, "/carts/snake.bm"), (b("carts/pong.bm"), "/carts/pong.bm"),
+                 (b("carts/shooter.bm"), "/carts/shooter.bm"),
+                 (os.path.join(HERE, "..", "boot", "ca.pem"), "/bm/ca.pem")]
+        args = [sys.executable, os.path.join(HERE, "..", "scripts", "mkrelease.py"), rel, "--version", "v9.9.9",
+                "--commit", "abc1234", "--key", key, "--pub", pub]
+        for src, path in files:
+            args += ["--file", f"{src}:{path}"]
+        r = subprocess.run(args, capture_output=True, text=True)
+        assert r.returncode == 0, r.stdout + r.stderr
+        old_kernel = os.path.join(tmp, "old.img")
+        with open(old_kernel, "wb") as f:
+            f.write(b"\0\0\0\0bmK6" + bytes(4088))             # an old kernel, to be kept
+        old_ca = os.path.join(tmp, "old.pem")
+        with open(old_ca, "w") as f:
+            f.write("# the certificates of before\n")
+        cfg = os.path.join(tmp, "config.txt")
+        with open(cfg, "w") as f:
+            f.write("layout=us\nwifi_boot=0\nupdate_url=sd:/release/\n")
+        img = os.path.join(tmp, "sd.img")
+        mksd.build(img, [(cfg, "bm/config.txt"), (pub, "bm/release.pem"), (old_ca, "bm/ca.pem"),
+                         (old_kernel, "kernel.img"), (b("carts/pong.bm"), "carts/pong.bm"),
+                         (b("carts/snake.bm"), "carts/snake.bm")]
+                   + [(os.path.join(rel, n), "release/" + n) for n in os.listdir(rel)])
+        q = Qemu(b("kernel.img"), ["-drive", f"if=sd,format=raw,file={img}"])
+
+        def keys(k):
+            for c in k:
+                q.send(c)
+                time.sleep(0.25)
+
+        def screen(want, tries=20):
+            for _ in range(tries):
+                _, text = settled_screen(q, lambda i, t: True, tries=1)
+                joined = "\n".join(text)
+                if all(w in joined for w in want):
+                    return joined
+                time.sleep(0.2)
+            raise AssertionError(f"want {want} on the screen:\n{joined}")
+
+        try:
+            q.expect(MENU, timeout=30)
+            time.sleep(0.5)
+            keys("4")                               # Settings, then System (the last row)
+            screen(["Settings", "Controllers", "System"])
+            keys("w")
+            keys("\r")
+            screen(["Settings > System", "Version"])
+            for _ in range(12):                     # down to Check for updates (after SD card)
+                _, text = settled_screen(q, lambda i, t: True, tries=1)
+                if any("The latest release on GitHub" in l for l in text):
+                    break
+                keys("s")
+            screen(["Check for updates", "not checked", "The latest release on GitHub"])
+            keys("\r")
+            out = q.expect("back to the menu", timeout=30).decode(errors="replace")
+            for w in ("latest release: \x1b[1mv9.9.9", "commit abc1234, signed: good",
+                      "this kernel is a build of the sources", "v9.9.9 can be installed"):
+                assert w in out, out
+            lines = {l.split()[0]: l for l in out.replace("\r", "").splitlines() if l.startswith("  /")}
+            assert lines["/kernel.img"].endswith("changed") and lines["/kernel7.img"].endswith("new"), lines
+            assert lines["/carts/snake.bm"].endswith("changed") and lines["/carts/pong.bm"].endswith("same"), lines
+            assert lines["/carts/shooter.bm"].endswith("not on the card (Market)"), lines
+            assert lines["/bm/ca.pem"].endswith("changed"), lines
+            keys("\r")                              # A: back to the panel
+            screen(["Check for updates", "v9.9.9: 4 files"])
+            keys("s")                               # the row under it: install
+            screen(["Install the update", "v9.9.9", "keeps the old kernels in /bm/backup"])
+            keys("\r")
+            screen(["Install bm v9.9.9?", "The console restarts when it is done.", "Install"])
+            if opts.shots:
+                _save_png(q.screendump(), os.path.join(opts.shots, "update-ask.png"))
+            keys("\r")
+            out = q.expect("installed: restarting", timeout=90).decode(errors="replace")
+            for w in ("all 4 files downloaded and checked", "/kernel.img kept in /bm/backup",
+                      "written /carts/snake.bm", "written /bm/ca.pem", "written /kernel7.img",
+                      "written /kernel.img"):
+                assert w in out, out
+            assert out.index("written " + other) < out.index("written " + own), "this board's kernel last"
+            q.expect(MENU, timeout=40)              # restarted
+        finally:
+            q.close()
+
+        part = os.path.join(tmp, "part.img")
+        with open(img, "rb") as f, open(part, "wb") as o:
+            f.seek(2048 * 512)
+            o.write(f.read())
+        fsck = subprocess.run(["fsck.vfat", "-n", part], capture_output=True, text=True)
+        assert fsck.returncode == 0, fsck.stdout + fsck.stderr
+        env = dict(os.environ, MTOOLS_SKIP_CHECK="1")
+
+        def read(path):
+            r = subprocess.run(["mtype", "-i", part, "::" + path], capture_output=True, env=env)
+            return r.stdout if r.returncode == 0 else None
+        assert read("/KERNEL.IMG") == open(k6, "rb").read(), "kernel.img installed"
+        assert read("/KERNEL7.IMG") == open(b("kernel7.img"), "rb").read(), "kernel7.img installed"
+        assert read("/BM/BACKUP/KERNEL.IMG") == open(old_kernel, "rb").read(), "the old kernel kept"
+        assert read("/CARTS/SNAKE.BM") == open(snake2, "rb").read(), "the changed game"
+        assert read("/CARTS/PONG.BM") == open(b("carts/pong.bm"), "rb").read(), "the same game untouched"
+        assert read("/CARTS/SHOOTER.BM") is None, "a game not on the card stays off it"
+        assert read("/BM/CA.PEM") == open(os.path.join(HERE, "..", "boot", "ca.pem"), "rb").read(), "ca.pem"
+    finally:
+        shutil.rmtree(tmp, ignore_errors=True)
+
+
 def test_publish(b, opts):
     """M25 step 6: X on a game of the SD card, "Publish to the Market": the
     folder from the file name, today's version, the license chosen with

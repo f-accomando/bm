@@ -592,6 +592,18 @@ git add keys/release-pub.pem && git commit -m "Release key" && git push
 Poi una release: `git tag v0.1.0 && git push origin v0.1.0`. In locale, per provare:
 `BM_RELEASE_KEY="$(cat ~/.bm/release-key.pem)" make release VERSION=v0.1.0` (file in `dist/release/`).
 
+
+**Aggiornare dal Pi** (M19.4): Settings > System > *Check for updates* legge l'ultima
+release (`manifest.txt` e la sua firma), dice se è più nuova del kernel che gira (un kernel
+compilato dai sorgenti, `make install`, conta come "build of the sources": la release lo può
+sostituire) e quali file cambierebbero; *Install the update* chiede conferma, scarica e
+controlla tutto (dimensione, SHA-256, il marchio `bmK6`/`bmK7` dei kernel) prima di
+scrivere qualcosa, tiene i kernel di prima in `/bm/backup` (per tornare indietro dal PC),
+aggiorna i giochi che sono sulla SD (quelli tolti restano tolti: li ha il Market),
+`bm/ca.pem`, poi `kernel7.img` e `kernel.img` (quello della scheda per ultimo) e riavvia.
+Dal monitor: `u`. Impostazioni: `update_url=` in `bm/config.txt` (predefinito
+`https://github.com/f-accomando/bm/releases`; `sd:/cartella/` per una release copiata sulla
+SD), `bm/release.pem` aggiunge una chiave. Test: `test_update` in QEMU, `make test-release`.
 ## Market (M25)
 
 La prima scheda del menu (**Market | Games | Dev | Settings**; il menu si apre su Games):
