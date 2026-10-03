@@ -2127,6 +2127,60 @@ con `tests/overbit/frames.py` (istruzioni dell'ARM per fotogramma, per funzione,
 particelle e anelli del Lua riscritti. Numeri, limiti e budget di un 4 contro 4 in
 `docs/LIMITI.md`.
 
+**Per chiudere M34:** sul Pi il test `g` (passi 12 texture a tile e 13 MSAA), le righe AA
+dello stress test, il benchmark Texture Room e il benchmark di Overbit con ARM, GPU e
+GPU+AA; la faccia con texture *e* retino sulla GPU (oggi l'unico caso che torna
+all'ARM); il flicker dei menu con il 3D sull'ARM.
+
+### Dopo M34: come si lavora (decisione 2026-10-03)
+- Il motore (`src/gpu`, `r3d.c`, shader, emulatore, benchmark) si sviluppa su
+  `3d-performance`, partito da `claude/overclone`; Overbit si sviluppa su
+  `claude/overclone`. Merge piccoli e frequenti nei due versi.
+- Ogni novità della GPU che cambia aspetto, latenza o memoria è **un'opzione**: una
+  chiave in `bm/config.txt`, una riga in *Impostazioni > Graphics* e un argomento di
+  `gpu3d()` per le cartucce e i benchmark. Il default resta quello verificato sul Pi; le
+  ottimizzazioni a pixel identici non hanno interruttore.
+- Ogni passo si misura su Overbit prima e dopo: il suo benchmark (bot, qualità,
+  renderer, anello di eroi), `tests/overbit/frames.py`, `tests/bm/herobench.c`,
+  `tests/bm/mapbench.c`, `tools/armprof.py`, `make bmhost-gpu`; e sul Pi con le foto del
+  report.
+
+## M35 — ARM e GPU insieme (M)
+Oggi a fine fotogramma l'ARM aspetta che la V3D finisca (nella scena di prova 2,1 ms su
+9,1). Obiettivo: quel tempo fuori dal fotogramma, e meno lavori per fotogramma.
+1. **Fotogramma in coda:** il lavoro del fotogramma parte e l'ARM va avanti (Lua,
+   trasformazioni del fotogramma dopo); si aspetta solo prima di toccare la stessa
+   pagina. Opzione (un fotogramma di latenza in più).
+2. **Memoria dei vertici e delle liste senza cache** (scrittura combinata): niente
+   letture di righe di cache per dati che l'ARM non rilegge. Opzione, misurata sul Pi.
+3. **Meno lavori per fotogramma** quando 3D e 2D si alternano (HUD di Overbit, editor
+   3D): il 2D dopo il 3D raccolto e disegnato in un colpo dove l'ordine lo permette.
+- **Fatto quando:** il benchmark di Overbit e lo stress test mostrano il guadagno sul Pi,
+  con l'opzione accesa e spenta.
+
+## M36 — Vertici sulla GPU (L/XL)
+Con la GPU il limite è l'ARM (~1,5–2 µs per triangolo: trasformare, illuminare,
+scartare, scrivere i vertici); la V3D da sola fa 3 milioni di triangoli/s. La mesh va
+alla GPU una volta sola (finché non cambia) e a ogni `draw3d` l'ARM manda solo matrice,
+luci e ossa; le QPU trasformano e illuminano, la V3D scarta le facce posteriori e
+taglia.
+1. **Prova sul Pi** (un passo del test `g`): un triangolo trasformato da uno shader
+   delle QPU (shader di coordinate e di vertici, VPM), confrontato con l'ARM.
+2. **Mesh piatte e Gouraud** sulla GPU, con l'emulatore che esegue gli stessi shader per
+   tipo; dove la GPU non arriva si resta sul percorso di oggi, mesh per mesh.
+3. **Luci, nebbia, lampade, texture**, poi **ossa** (l'animazione rigida di Overbit:
+   una matrice per osso).
+4. **Overbit** con i vertici sulla GPU: eroi e mappa.
+- Opzione: *vertici: ARM / GPU*.
+- **Fatto quando:** sul Pi l'anello di eroi di Overbit e le sfere dello stress test
+  crescono di almeno 2× rispetto a M34 a 60 fps.
+
+## M37 — 2D e qualità sulla GPU (M, se serve)
+- Sprite, tile e testo come quad della GPU, per i giochi con molto 2D sopra il 3D.
+- Filtro bilineare delle texture (opzione: cambia l'aspetto rispetto all'ARM).
+- Matrice unica oggetto→camera e luce nello spazio dell'oggetto: meno istruzioni per
+  vertice, pixel non più identici al bit (opzione).
+
 ## Rischi principali
 | Rischio | Mitigazione |
 |---------|-------------|
