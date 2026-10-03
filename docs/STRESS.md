@@ -43,8 +43,10 @@ effettivamente disegnati** per frame.
 
 ## Pipeline 3D (software)
 
-La GPU 3D del Pi (VideoCore IV) **non** è usata: il 3D è un rasterizzatore software
-sull'ARM (`src/bm/r3d.c`).
+Il 3D lo disegna la GPU (V3D, M33: `src/gpu/gpu3d.c`) dopo che l'ARM ha trasformato,
+illuminato e tagliato; il rasterizzatore software sull'ARM (`src/bm/r3d.c`, descritto
+qui sotto) resta con `gpu3d=0`, in QEMU, se la GPU non risponde e per quello che la GPU
+non sa ancora fare (ombre, effetti 3D, retino, texture con la luce precalcolata).
 - trasformazione per vertice in virgola mobile (VFP), camera con yaw/pitch e FOV;
 - eliminazione delle facce posteriori e degli oggetti dietro la camera (senza
   clipping sul piano vicino: un triangolo che lo attraversa viene scartato);

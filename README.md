@@ -76,7 +76,9 @@ Measured **on the Pi**: the most objects per frame, from the stress test
 | 16×16 sprites (C) | **4482** | 9255 |
 | 32×32 sprites (C) | **1513** | 3130 |
 | 2D triangles, ~170 px each | **2594** | 5368 |
-| 3D triangles drawn (z-buffer, lighting) | **1195** | 5011 |
+| 3D triangles (z-buffer, lighting), ARM rasterizer, September | **1195** | 5011 |
+| 3D triangles (spheres), ARM rasterizer after its M33 rewrite | **2700** | 8914 |
+| 3D triangles (spheres), drawn by the GPU | **7142** | 15346 |
 | 16×16 sprites, one `spr()` call each from Lua | **1829** | 3774 |
 | 3D triangles, `draw3d()` called from Lua | **1115** | 4692 |
 
