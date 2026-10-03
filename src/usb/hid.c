@@ -1,7 +1,7 @@
 /*
  * HID devices: boot-protocol keyboards (Italian or US layout), generic
  * HID gamepads (report descriptor parsed for buttons, X/Y and hat switch)
- * and Xbox 360 wired controllers.
+ * and Xbox 360 wired controllers; mice (M32) on USB and Bluetooth.
  */
 #include "hid.h"
 #include "usb.h"
@@ -60,9 +60,14 @@ static int text_mode;                   /* editors: navigation keys as codes, Es
 static int bt_ps_held[HID_PLAYERS];
 static int8_t bt_axis[HID_PLAYERS][2], pad_axis[2];     /* left stick, -127..127 */
 static int bt_analog[HID_PLAYERS], pad_analog;
+static int8_t bt_axis2[HID_PLAYERS][2], pad_axis2[2];   /* right stick (the pointer) */
+static int bt_analog2[HID_PLAYERS], pad_analog2;
 static int quit_edge;
 static int last_source;                 /* HID_SOURCE_*: what pressed something last */
 static int caps;
+/* the pointer's buttons on the pads (M32), seen pressed since its last read */
+#define PTR_BITS (HID_L2 | HID_R2 | HID_L3 | HID_R3)
+static uint32_t ptr_latch;
 
 /* key repeat for text */
 static uint8_t rep_usage, rep_mods;
@@ -459,6 +464,25 @@ int hid_stick(int slot, int8_t xy[2])
     return bt_analog[slot];
 }
 
+int hid_stick_r(int slot, int8_t xy[2])
+{
+    return hid_stick2(slot, xy);
+}
+
+int hid_stick2(int slot, int8_t xy[2])
+{
+    if (slot < 0) {
+        xy[0] = pad_axis2[0];
+        xy[1] = pad_axis2[1];
+        return pad_analog2;
+    }
+    if (slot >= HID_PLAYERS)
+        return 0;
+    xy[0] = bt_axis2[slot][0];
+    xy[1] = bt_axis2[slot][1];
+    return bt_analog2[slot];
+}
+
 int hid_usage_held(uint8_t u)
 {
     if (u >= 0xE0 && u <= 0xE7)                 /* modifiers: a bit of the first byte */
@@ -486,6 +510,15 @@ int hid_keys_held(uint8_t *out, int max)
                 out[n++] = u;
         }
     return n;
+}
+
+uint32_t hid_pointer_buttons(void)
+{
+    uint32_t b = pad_buttons | ptr_latch;
+    for (int s = 0; s < HID_PLAYERS; s++)
+        b |= bt_buttons[s];
+    ptr_latch = 0;
+    return b & PTR_BITS;
 }
 
 uint32_t hid_pad_buttons(void)
@@ -524,9 +557,13 @@ void hid_bt_report(int slot, const uint8_t *r, uint32_t len)
     bt_ps_held[slot] = ps;
     bt_buttons[slot] = b;
     bt_latched[slot] |= b;
+    ptr_latch |= b & PTR_BITS;
     bt_axis[slot][0] = ds4_axis(r[off]);
     bt_axis[slot][1] = ds4_axis(r[off + 1]);
     bt_analog[slot] = 1;
+    bt_axis2[slot][0] = ds4_axis(r[off + 2]);
+    bt_axis2[slot][1] = ds4_axis(r[off + 3]);
+    bt_analog2[slot] = 1;
 }
 
 void hid_bt_clear(int slot)
@@ -537,6 +574,8 @@ void hid_bt_clear(int slot)
     bt_ps_held[slot] = 0;
     bt_axis[slot][0] = bt_axis[slot][1] = 0;
     bt_analog[slot] = 0;
+    bt_axis2[slot][0] = bt_axis2[slot][1] = 0;
+    bt_analog2[slot] = 0;
 }
 
 int hid_last_source(void)
@@ -559,9 +598,10 @@ static struct {
     uint8_t report_id;          /* 0 = no report IDs */
     field_t buttons[16];
     int nbuttons;
-    field_t x, y, hat;
-    int32_t x_min, x_max, y_min, y_max, hat_min;
+    field_t x, y, hat, rx, ry;          /* rx, ry: the right stick */
+    int32_t x_min, x_max, y_min, y_max, hat_min, rx_min, rx_max, ry_min, ry_max;
     int have_x, have_y, have_hat;
+    int rx_usage, ry_usage;             /* Rx / Ry, else Z / Rz */
     int xbox;
     int ds4, ps_held;
 } pad;
@@ -635,6 +675,10 @@ int hid_gamepad_attach(const uint8_t *d, uint32_t len)
                         pad.y = f; pad.y_min = lmin; pad.y_max = lmax; pad.have_y = 1;
                     } else if (usage_page == 0x01 && usage == 0x39 && !pad.have_hat) {
                         pad.hat = f; pad.hat_min = lmin; pad.have_hat = 1;
+                    } else if (usage_page == 0x01 && (usage == 0x33 || (usage == 0x32 && pad.rx_usage != 0x33))) {
+                        pad.rx = f; pad.rx_min = lmin; pad.rx_max = lmax; pad.rx_usage = (int)usage;
+                    } else if (usage_page == 0x01 && (usage == 0x34 || (usage == 0x35 && pad.ry_usage != 0x34))) {
+                        pad.ry = f; pad.ry_min = lmin; pad.ry_max = lmax; pad.ry_usage = (int)usage;
                     }
                 }
             }
@@ -650,6 +694,11 @@ done:
     pad.report_id = report_id > 0 ? (uint8_t)report_id : 0;
     pad_buttons = 0;
     pad_analog = pad.have_x && pad.have_y;
+    /* a right stick: Rx and Ry, or Z and Rz (not a mix: Z alone is often
+     * the triggers) */
+    pad_analog2 = (pad.rx_usage == 0x33 && pad.ry_usage == 0x34) ||
+                  (pad.rx_usage == 0x32 && pad.ry_usage == 0x35);
+    pad_axis2[0] = pad_axis2[1] = 0;
     return (pad.nbuttons || pad.have_hat || pad.have_x) ? 0 : -1;
 }
 
@@ -658,7 +707,7 @@ void hid_xbox360_attach(void)
     memset(&pad, 0, sizeof pad);
     pad.xbox = 1;
     pad_buttons = 0;
-    pad_analog = 1;
+    pad_analog = pad_analog2 = 1;
 }
 
 void hid_ds4_attach(void)
@@ -666,7 +715,7 @@ void hid_ds4_attach(void)
     memset(&pad, 0, sizeof pad);
     pad.ds4 = 1;
     pad_buttons = 0;
-    pad_analog = 1;
+    pad_analog = pad_analog2 = 1;
 }
 
 /* DualShock 4: after the report ID, d[0..3] sticks (LX LY RX RY, 0..255,
@@ -695,6 +744,10 @@ uint32_t hid_ds4_buttons(const uint8_t *d, uint32_t len, int *ps)
     if (d[5] & 0x10) b |= HID_SELECT;           /* share */
     if (d[5] & 0x01) b |= HID_L1;
     if (d[5] & 0x02) b |= HID_R1;
+    if (d[5] & 0x04) b |= HID_L2;
+    if (d[5] & 0x08) b |= HID_R2;
+    if (d[5] & 0x40) b |= HID_L3;
+    if (d[5] & 0x80) b |= HID_R3;
     *ps = d[6] & 1;
     return b;
 }
@@ -728,6 +781,8 @@ static void gamepad_report(const uint8_t *r, uint32_t len)
         b = hid_ds4_buttons(r + off, len - (uint32_t)off, &ps);
         pad_axis[0] = ds4_axis(r[off]);
         pad_axis[1] = ds4_axis(r[off + 1]);
+        pad_axis2[0] = ds4_axis(r[off + 2]);
+        pad_axis2[1] = ds4_axis(r[off + 3]);
         if (ps && !pad.ps_held) {
             quit_edge |= HID_QUIT_PS;           /* the PS button leaves the game */
             last_source = HID_SOURCE_DS4;
@@ -742,6 +797,10 @@ static void gamepad_report(const uint8_t *r, uint32_t len)
         if (d & 0x08) b |= HID_RIGHT;
         if (d & 0x10) b |= HID_START;
         if (d & 0x20) b |= HID_SELECT;
+        if (d & 0x40) b |= HID_L3;              /* stick clicks */
+        if (d & 0x80) b |= HID_R3;
+        if (r[4] > 64) b |= HID_L2;             /* LT, RT: 0..255 */
+        if (r[5] > 64) b |= HID_R2;
         if (k & 0x10) b |= HID_A;
         if (k & 0x20) b |= HID_B;
         if (k & 0x40) b |= HID_X;
@@ -758,6 +817,11 @@ static void gamepad_report(const uint8_t *r, uint32_t len)
         if (lx > 12000) b |= HID_RIGHT;
         if (ly > 12000) b |= HID_UP;
         if (ly < -12000) b |= HID_DOWN;
+        if (len >= 14) {
+            int16_t rx = (int16_t)(r[10] | r[11] << 8), ry = (int16_t)(r[12] | r[13] << 8);
+            pad_axis2[0] = (int8_t)(rx / 258);
+            pad_axis2[1] = (int8_t)(-(ry / 258));
+        }
     } else {
         if (pad.report_id) {
             if (r[0] != pad.report_id) return;
@@ -773,7 +837,9 @@ static void gamepad_report(const uint8_t *r, uint32_t len)
             case 5: b |= HID_R1; break;
             case 8: b |= HID_SELECT; break;
             case 9: b |= HID_START; break;
-            default: if (i >= 6 && i < 8) b |= (i & 1) ? HID_B : HID_A;
+            case 10: b |= HID_L3; break;
+            case 11: b |= HID_R3; break;
+            default: if (i >= 6 && i < 8) b |= ((i & 1) ? HID_B | HID_R2 : HID_A | HID_L2);
             }
         }
         if (pad.have_x) {
@@ -794,6 +860,13 @@ static void gamepad_report(const uint8_t *r, uint32_t len)
             int32_t h = (int32_t)bits(r, len, pad.hat) - pad.hat_min;
             if (h >= 0 && h < 8) b |= dirs[h];
         }
+        if (pad_analog2) {
+            int32_t vx = (int32_t)bits(r, len, pad.rx), vy = (int32_t)bits(r, len, pad.ry);
+            if (pad.rx_min < 0) vx = sign_extend((uint32_t)vx, pad.rx.size);
+            if (pad.ry_min < 0) vy = sign_extend((uint32_t)vy, pad.ry.size);
+            pad_axis2[0] = norm_axis(vx, pad.rx_min, pad.rx_max);
+            pad_axis2[1] = norm_axis(vy, pad.ry_min, pad.ry_max);
+        }
     }
     if ((b & (HID_START | HID_SELECT)) == (HID_START | HID_SELECT) &&
         (pad_buttons & (HID_START | HID_SELECT)) != (HID_START | HID_SELECT))
@@ -802,6 +875,7 @@ static void gamepad_report(const uint8_t *r, uint32_t len)
         last_source = pad.ds4 ? HID_SOURCE_DS4 : HID_SOURCE_PAD;
     pad_buttons = b;
     latched_pad |= b;
+    ptr_latch |= b & PTR_BITS;
 }
 
 void hid_report(int kind, const uint8_t *data, uint32_t len)
@@ -810,4 +884,210 @@ void hid_report(int kind, const uint8_t *data, uint32_t len)
         keyboard_report(data, len);
     else if (kind == USB_GAMEPAD || kind == USB_XBOX360)
         gamepad_report(data, len);
+}
+
+/* ---------------------------------------------------------------- mice */
+
+/* Mouse report layout from a report descriptor: the first application
+ * collection that is a mouse (or a pointer), its buttons, X, Y, wheel and
+ * AC Pan. Offsets count per report ID, over the Input items only. */
+int hid_mouse_layout(const uint8_t *d, uint32_t len, hid_mouse_layout_t *m)
+{
+    static uint16_t off[256];
+    uint32_t page = 0, size = 0, count = 0, id = 0, umin = 0, nusages = 0;
+    uint32_t usages[16];
+    int32_t lmin = 0, lmax = 0;
+    int depth = 0, in_mouse = 0, found = 0, have_id = 0, have_range = 0;
+    memset(off, 0, sizeof off);
+    memset(m, 0, sizeof *m);
+    m->buttons_bit = m->x_bit = m->y_bit = m->wheel_bit = m->pan_bit = -1;
+    for (uint32_t i = 0; i < len;) {
+        uint8_t prefix = d[i];
+        if (prefix == 0xFE) {                   /* long item */
+            if (i + 1 >= len) break;
+            i += 3u + d[i + 1];
+            continue;
+        }
+        uint32_t sz = prefix & 3;
+        if (sz == 3) sz = 4;
+        if (i + 1 + sz > len) break;
+        uint32_t v = 0;
+        for (uint32_t b = 0; b < sz; b++) v |= (uint32_t)d[i + 1 + b] << (8 * b);
+        int32_t sv = sz ? sign_extend(v, (int)sz * 8) : 0;
+        i += 1 + sz;
+        switch (prefix & 0xFC) {
+        case 0x04: page = v; break;             /* Usage Page */
+        case 0x14: lmin = sv; break;            /* Logical Minimum */
+        case 0x24: lmax = (lmin >= 0 && sz < 4) ? (int32_t)v : sv; break;
+        case 0x74: size = v; break;             /* Report Size */
+        case 0x94: count = v; break;            /* Report Count */
+        case 0x84: id = v & 0xFF; break;        /* Report ID */
+        case 0x08:                              /* Usage */
+            if (nusages < 16) usages[nusages++] = v & 0xFFFF;
+            break;
+        case 0x18: umin = v & 0xFFFF; have_range = 1; break;   /* Usage Minimum */
+        case 0xA0:                              /* Collection */
+            depth++;
+            if (depth == 1 && v == 1 && page == 0x01 && nusages &&
+                (usages[nusages - 1] == 0x02 || usages[nusages - 1] == 0x01) && !found) {
+                in_mouse = 1;
+                found = 1;
+            }
+            break;
+        case 0xC0:                              /* End Collection */
+            if (depth > 0 && --depth == 0)
+                in_mouse = 0;
+            break;
+        case 0x80: {                            /* Input */
+            if (in_mouse && !(v & 1) && (!have_id || id == m->id)) {
+                for (uint32_t n = 0; n < count && size; n++) {
+                    uint32_t u = have_range ? umin + n : n < nusages ? usages[n] :
+                                 nusages ? usages[nusages - 1] : 0;
+                    int16_t bit = (int16_t)(off[id] + n * size);
+                    int field = 0;
+                    if (page == 0x09 && m->buttons_bit < 0 && size == 1) {
+                        m->buttons_bit = bit;
+                        m->nbuttons = (uint8_t)(count > 8 ? 8 : count);
+                        field = 1;
+                        n = count;                  /* the whole array */
+                    } else if (page == 0x01 && u == 0x30 && m->x_bit < 0 && size <= 32) {
+                        m->x_bit = bit;
+                        m->x_size = (uint8_t)size;
+                        m->x_min = lmin;
+                        m->x_max = lmax;
+                        m->absolute = !(v & 4);
+                        field = 1;
+                    } else if (page == 0x01 && u == 0x31 && m->y_bit < 0 && size <= 32) {
+                        m->y_bit = bit;
+                        m->y_size = (uint8_t)size;
+                        m->y_min = lmin;
+                        m->y_max = lmax;
+                        field = 1;
+                    } else if (page == 0x01 && u == 0x38 && m->wheel_bit < 0 && size <= 32) {
+                        m->wheel_bit = bit;
+                        m->wheel_size = (uint8_t)size;
+                        field = 1;
+                    } else if (page == 0x0C && u == 0x238 && m->pan_bit < 0 && size <= 32) {
+                        m->pan_bit = bit;
+                        m->pan_size = (uint8_t)size;
+                        field = 1;
+                    }
+                    if (field && !have_id) {
+                        m->id = (uint8_t)id;
+                        have_id = 1;
+                    }
+                }
+            }
+            off[id] = (uint16_t)(off[id] + size * count);
+            break;
+        }
+        }
+        if ((prefix & 0x0C) == 0x00) {          /* main item: clears the local ones */
+            nusages = 0;
+            have_range = 0;
+            umin = 0;
+        }
+    }
+    return found && m->x_bit >= 0 && m->y_bit >= 0;
+}
+
+void hid_mouse_boot_layout(hid_mouse_layout_t *m, uint8_t id)
+{
+    memset(m, 0, sizeof *m);
+    m->id = id;
+    m->nbuttons = 3;
+    m->buttons_bit = 0;
+    m->x_bit = 8;
+    m->y_bit = 16;
+    m->wheel_bit = 24;
+    m->pan_bit = -1;
+    m->x_size = m->y_size = m->wheel_size = 8;
+    m->x_min = m->y_min = -127;
+    m->x_max = m->y_max = 127;
+}
+
+static struct {
+    int32_t dx, dy, wheel, pan;
+    uint8_t held[HID_MICE], pressed;
+    int abs;
+    uint16_t ax, ay;
+} mice;
+
+/* a signed (relative) field, 0 when it is not in this report */
+static int32_t mouse_field(const uint8_t *r, uint32_t len, int16_t bit, uint8_t size)
+{
+    if (bit < 0 || !size || (uint32_t)bit + size > len * 8)
+        return 0;
+    field_t f = { (uint16_t)bit, size };
+    return sign_extend(bits(r, len, f), size);
+}
+
+/* an absolute field -> 0..65535 */
+static uint16_t mouse_abs(const uint8_t *r, uint32_t len, int16_t bit, uint8_t size,
+                          int32_t lo, int32_t hi)
+{
+    field_t f = { (uint16_t)bit, size };
+    int32_t v = lo < 0 ? sign_extend(bits(r, len, f), size) : (int32_t)bits(r, len, f);
+    if (hi <= lo)
+        return 0;
+    if (v < lo) v = lo;
+    if (v > hi) v = hi;
+    return (uint16_t)((int64_t)(v - lo) * 65535 / (hi - lo));
+}
+
+void hid_mouse_report(int src, const hid_mouse_layout_t *m, const uint8_t *r, uint32_t len)
+{
+    if (src < 0 || src >= HID_MICE)
+        return;
+    if (m->id) {
+        if (!len || r[0] != m->id)
+            return;
+        r++;
+        len--;
+    }
+    if (m->x_bit < 0 || (uint32_t)m->y_bit + m->y_size > len * 8)
+        return;                                 /* too short: not a motion report */
+    uint8_t b = 0;
+    if (m->buttons_bit >= 0)
+        for (int i = 0; i < m->nbuttons && i < 3; i++) {
+            field_t f = { (uint16_t)(m->buttons_bit + i), 1 };
+            if (bits(r, len, f))
+                b |= (uint8_t)(1u << i);
+        }
+    mice.pressed |= (uint8_t)(b & ~mice.held[src]);
+    mice.held[src] = b;
+    if (m->absolute) {
+        mice.ax = mouse_abs(r, len, m->x_bit, m->x_size, m->x_min, m->x_max);
+        mice.ay = mouse_abs(r, len, m->y_bit, m->y_size, m->y_min, m->y_max);
+        mice.abs = 1;
+    } else {
+        mice.dx += mouse_field(r, len, m->x_bit, m->x_size);
+        mice.dy += mouse_field(r, len, m->y_bit, m->y_size);
+    }
+    mice.wheel += mouse_field(r, len, m->wheel_bit, m->wheel_size);
+    mice.pan += mouse_field(r, len, m->pan_bit, m->pan_size);
+}
+
+void hid_mouse_clear(int src)
+{
+    if (src >= 0 && src < HID_MICE)
+        mice.held[src] = 0;
+}
+
+void hid_mouse_take(hid_mouse_t *m)
+{
+    m->dx = mice.dx;
+    m->dy = mice.dy;
+    m->wheel = mice.wheel;
+    m->pan = mice.pan;
+    m->buttons = 0;
+    for (int s = 0; s < HID_MICE; s++)
+        m->buttons |= mice.held[s];
+    m->pressed = mice.pressed;
+    m->abs = mice.abs;
+    m->ax = mice.ax;
+    m->ay = mice.ay;
+    mice.dx = mice.dy = mice.wheel = mice.pan = 0;
+    mice.pressed = 0;
+    mice.abs = 0;
 }

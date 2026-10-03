@@ -595,7 +595,8 @@ local function build_menu()
         input = { label = "author", text = proj.author, done = function(t) proj.author = t; dirty = true end }
       end },
     { "Screen: " .. proj.res, function()
-        proj.res = ({ ["640x360"] = "320x180", ["320x180"] = "256x256" })[proj.res] or "640x360"
+        local next_res = { ["640x360"] = "480x270", ["480x270"] = "320x180", ["320x180"] = "256x256" }
+        proj.res = next_res[proj.res] or "640x360"
         dirty = true
       end },
     { "Exit editor", function() if not needs_confirm("exit") then quit() end end },

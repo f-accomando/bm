@@ -1,7 +1,7 @@
 /*
- * Bluetooth on the Pi Zero W (BCM43438): up to four HID game controllers
- * (the DualShock 4 is the reference), one per player. Classic Bluetooth
- * only:
+ * Bluetooth on the Pi Zero W (BCM43438) and Zero 2 W (CYW43436): up to four
+ * HID game controllers (the DualShock 4 is the reference), one per player,
+ * and a mouse (M32). Classic Bluetooth here (ble.c does LE keyboards and mice):
  *
  *   chip up      power, 32 kHz clock, firmware patch, event mask, SSP on
  *   pairing      inquiry, Create Connection, SSP "Just Works" (no MITM),
@@ -16,7 +16,8 @@
  *
  * Each pad is an ACL link of its own, with its own L2CAP channels (channel
  * ids are per link, so every link uses the same local ones).
- * No SDP: the report format of the supported pad is known.
+ * No SDP: the report format of the supported pad is known; the mouse is
+ * switched to the boot protocol (A1 02 buttons X Y [wheel]).
  */
 #include "bt.h"
 #include "ble.h"
@@ -39,7 +40,7 @@
 #include <string.h>
 
 #define BT_FAST_BAUD 921600u       /* UART speed after the firmware patch */
-#define BT_ON_GPIO   45             /* BT_REG_ON of the BCM43438 on the Zero W */
+#define BT_ON_GPIO   (board()->bt_on_pin) /* BT_REG_ON: 45 on the Zero W, 42 on the 2 W */
 #define LPO_GPIO     43             /* GPCLK2: 32.768 kHz sleep clock */
 
 #define CM_GP2CTL    (PERIPHERAL_BASE + 0x101080)
@@ -84,6 +85,10 @@ typedef struct {
     int conf_in, conf_out;          /* their config accepted / ours accepted */
 } chan_t;
 
+/* the classic mouse has a link and a key of its own after the pads' */
+#define SLOT_MOUSE  BT_PADS
+#define BT_LINKS    (BT_PADS + 1)
+
 typedef struct {
     int used;                       /* connecting or connected */
     int connected;                  /* ACL link up */
@@ -96,16 +101,17 @@ typedef struct {
     uint32_t since;                 /* timer_ticks() of Connection Complete */
     int host_step;                  /* HOST_OPEN_MS fallback: 0 idle, 1 auth, 2 encrypt, 3 channels */
     int announced;
-    int slot;                       /* player - 1, or -1 before it has a key */
+    int slot;                       /* player - 1 (SLOT_MOUSE: the mouse), -1 before it has a key */
 } link_t;
 
 static struct {
     int started;
-    link_t link[BT_PADS];
-    int have_key[BT_PADS];
-    uint8_t key_addr[BT_PADS][6], key[BT_PADS][16];
+    link_t link[BT_LINKS];
+    int have_key[BT_LINKS];
+    uint8_t key_addr[BT_LINKS][6], key[BT_LINKS][16];
     int legacy_key;                 /* slot 0 came from the old "bt_pad" key */
     int pairing;
+    int pair_mouse;                 /* the device being paired is the mouse */
     int disc_reason;                /* last Disconnection Complete, -1 none */
 } bt;
 
@@ -169,7 +175,10 @@ static int parse_hex(const char *s, uint8_t *out, int n, char sep)
 
 static void key_name(char *out, int slot)
 {
-    ksnprintf(out, 12, "bt_pad%d", slot + 1);
+    if (slot == SLOT_MOUSE)
+        ksnprintf(out, 20, "bt_mouse_classic");
+    else
+        ksnprintf(out, 20, "bt_pad%d", slot + 1);
 }
 
 /* "bt_pad1=00:1f:e2:bf:d7:dd <32 hex digits of the link key>"; the key of
@@ -186,8 +195,8 @@ static int parse_key(const char *v, int slot)
 
 static void load_keys(void)
 {
-    char name[12];
-    for (int s = 0; s < BT_PADS; s++) {
+    char name[20];
+    for (int s = 0; s < BT_LINKS; s++) {
         key_name(name, s);
         bt.have_key[s] = parse_key(config_get(name), s);
     }
@@ -199,14 +208,14 @@ static void load_keys(void)
 static int nkeys(void)
 {
     int n = 0;
-    for (int s = 0; s < BT_PADS; s++)
+    for (int s = 0; s < BT_LINKS; s++)
         n += bt.have_key[s];
     return n;
 }
 
 static int key_slot(const uint8_t *addr)
 {
-    for (int s = 0; s < BT_PADS; s++)
+    for (int s = 0; s < BT_LINKS; s++)
         if (bt.have_key[s] && memcmp(bt.key_addr[s], addr, 6) == 0)
             return s;
     return -1;
@@ -227,8 +236,10 @@ static int slot_connected(int s);
  * the first free one, else the first whose pad is not connected. */
 static int new_slot(const uint8_t *addr)
 {
+    if (bt.pair_mouse)
+        return SLOT_MOUSE;
     int s = key_slot(addr);
-    if (s >= 0)
+    if (s >= 0 && s != SLOT_MOUSE)
         return s;
     for (s = 0; s < BT_PADS; s++)
         if (!bt.have_key[s])
@@ -250,7 +261,7 @@ static int save_key(const uint8_t *addr, const uint8_t *key)
     memcpy(bt.key_addr[s], addr, 6);
     memcpy(bt.key[s], key, 16);
     bt.have_key[s] = 1;
-    char name[12], v[72];
+    char name[20], v[72];
     if (bt.legacy_key) {                        /* the old key becomes bt_pad1 */
         if (s != 0) {
             key_line(v, 0);
@@ -270,7 +281,7 @@ static int save_key(const uint8_t *addr, const uint8_t *key)
 
 static link_t *link_by_handle(uint16_t h)
 {
-    for (int i = 0; i < BT_PADS; i++)
+    for (int i = 0; i < BT_LINKS; i++)
         if (bt.link[i].used && bt.link[i].connected && bt.link[i].handle == h)
             return &bt.link[i];
     return NULL;
@@ -278,7 +289,7 @@ static link_t *link_by_handle(uint16_t h)
 
 static link_t *link_by_addr(const uint8_t *a)
 {
-    for (int i = 0; i < BT_PADS; i++)
+    for (int i = 0; i < BT_LINKS; i++)
         if (bt.link[i].used && memcmp(bt.link[i].addr, a, 6) == 0)
             return &bt.link[i];
     return NULL;
@@ -286,7 +297,9 @@ static link_t *link_by_addr(const uint8_t *a)
 
 static void reset_link(link_t *l)
 {
-    if (l->slot >= 0)
+    if (l->slot == SLOT_MOUSE)
+        hid_mouse_clear(HID_MOUSE_BT);
+    else if (l->slot >= 0)
         hid_bt_clear(l->slot);
     l->connected = l->auth_done = l->enc = l->announced = 0;
     memset(&l->ctrl, 0, sizeof l->ctrl);
@@ -304,7 +317,7 @@ static link_t *link_open(const uint8_t *addr)
     link_t *l = link_by_addr(addr);
     if (l)
         return l;
-    for (int i = 0; i < BT_PADS; i++)
+    for (int i = 0; i < BT_LINKS; i++)
         if (!bt.link[i].used) {
             l = &bt.link[i];
             memset(l, 0, sizeof *l);
@@ -325,7 +338,7 @@ static void link_close(link_t *l)
 
 static int slot_connected(int s)
 {
-    for (int i = 0; i < BT_PADS; i++)
+    for (int i = 0; i < BT_LINKS; i++)
         if (bt.link[i].used && bt.link[i].slot == s && bt.link[i].ctrl.open && bt.link[i].intr.open)
             return 1;
     return 0;
@@ -366,17 +379,38 @@ static int reset(void)
     return hci_cmd(HCI_RESET, NULL, 0, NULL, 0, 1000000);
 }
 
+/* The firmware patch of the chip: BCM43430A1.hcd for the BCM43438 of the
+ * Zero W; the Zero 2 W's CYW43436 comes in two versions, told apart by
+ * their LMP subversion as Linux's btbcm does, with the files of Raspberry
+ * Pi OS's bluez-firmware (synaptics/). NULL: a chip we have none for. */
+static const char *patch_name(void)
+{
+    if (board()->model != BOARD_ZERO_2W)
+        return "BCM43430A1.hcd";
+    uint8_t v[8] = { 0 };
+    hci_cmd(HCI_READ_LOCAL_VERSION, NULL, 0, v, sizeof v, 500000);
+    uint16_t sub = (uint16_t)(v[6] | v[7] << 8);
+    const char *name = sub == 0x2209 ? "SYN43430A1.hcd" : sub == 0x410c ? "SYN43430B0.hcd" : NULL;
+    kprintf("bt: chip LMP subversion %04x: %s\n", sub, name ? name : "no firmware patch known");
+    return name;
+}
+
 /* The .hcd file is a list of HCI commands: opcode (2), length (1), data. */
 static int load_patch(void)
 {
     fat_entry_t e;
     uint8_t *data = NULL;
     size_t len = 0;
-    if (config_find_file("BCM43430A1.hcd", &e) == 0 || fat_find("/BCM43430A1.hcd", &e) == 0)
+    const char *name = patch_name();
+    if (!name)
+        return -1;
+    char root[24];
+    ksnprintf(root, sizeof root, "/%s", name);
+    if (config_find_file(name, &e) == 0 || fat_find(root, &e) == 0)
         fat_load(&e, &data, &len);
     if (!data) {
-        kprintf("bt: BCM43430A1.hcd not on the SD card (make firmware; make sdcard puts it\n"
-                "    in bm/): the chip runs its ROM firmware\n");
+        kprintf("bt: %s not on the SD card (make firmware; make sdcard puts it\n"
+                "    in bm/): the chip runs its ROM firmware\n", name);
         return -1;
     }
     if (hci_cmd(HCI_BCM_DOWNLOAD_MINI, NULL, 0, NULL, 0, 1000000) != 0) {
@@ -482,9 +516,9 @@ int bt_start(void)
     addr_str(as, a);
     kprintf("bt: ready, address %s, HCI %u, LMP subversion %04x, %lu baud\n", as, v[0],
             v[6] | v[7] << 8, fast);
-    ble_init(a);                                            /* LE: keyboards */
+    ble_init(a);                                            /* LE: keyboards, mice */
     bt.started = 1;
-    for (int i = 0; i < BT_PADS; i++)
+    for (int i = 0; i < BT_LINKS; i++)
         bt.link[i].used = 0;
     load_keys();
     for (int s = 0; s < BT_PADS; s++)
@@ -492,6 +526,10 @@ int bt_start(void)
             addr_str(as, bt.key_addr[s]);
             kprintf("bt: paired pad %s (player %d): press its PS button to connect\n", as, s + 1);
         }
+    if (bt.have_key[SLOT_MOUSE]) {
+        addr_str(as, bt.key_addr[SLOT_MOUSE]);
+        kprintf("bt: paired mouse %s: click it to connect\n", as);
+    }
     return 0;
 }
 
@@ -500,7 +538,7 @@ int bt_start(void)
 int bt_forget_all(void)
 {
     int n = 0;
-    for (int i = 0; i < BT_PADS; i++) {
+    for (int i = 0; i < BT_LINKS; i++) {
         link_t *l = &bt.link[i];
         if (!l->used)
             continue;
@@ -512,15 +550,17 @@ int bt_forget_all(void)
         }
         link_close(l);
     }
-    char name[12];
-    for (int s = 0; s < BT_PADS; s++) {
+    char name[20];
+    for (int s = 0; s < BT_LINKS; s++) {
         key_name(name, s);
         if (bt.have_key[s] || config_get(name))
             n++;
         bt.have_key[s] = 0;
-        hid_bt_clear(s);
+        if (s < BT_PADS)
+            hid_bt_clear(s);
         config_unset(name);
     }
+    hid_mouse_clear(HID_MOUSE_BT);
     if (config_get("bt_pad"))
         n++;
     config_unset("bt_pad");
@@ -532,30 +572,40 @@ int bt_forget_all(void)
 
 int bt_paired(void)
 {
-    char name[12];
-    for (int s = 0; s < BT_PADS; s++) {
+    char name[20];
+    for (int s = 0; s < BT_LINKS; s++) {
         key_name(name, s);
         if (config_get(name))
             return 1;
     }
-    return config_get("bt_pad") != NULL || ble_paired();
+    return config_get("bt_pad") != NULL || ble_paired(LE_KBD) || ble_paired(LE_MOUSE);
 }
 
 void bt_pair_keyboard(unsigned seconds)
 {
     if (!bt.started && bt_start() != 0)
         return;
-    ble_pair(seconds);
+    ble_pair(LE_KBD, seconds);
 }
 
 int bt_keyboard(void)
 {
-    return bt.started && ble_connected();
+    return bt.started && ble_connected(LE_KBD);
 }
 
 int bt_keyboard_paired(void)
 {
-    return ble_paired();
+    return ble_paired(LE_KBD);
+}
+
+int bt_mouse(void)
+{
+    return bt.started && (ble_connected(LE_MOUSE) || slot_connected(SLOT_MOUSE));
+}
+
+int bt_mouse_paired(void)
+{
+    return ble_paired(LE_MOUSE) || config_get("bt_mouse_classic") != NULL;
 }
 
 /* ---------------------------------------------------------------- L2CAP */
@@ -612,7 +662,7 @@ static chan_t *by_lcid(link_t *l, uint16_t lcid)
 static void send_light(link_t *l)
 {
     uint8_t p[1 + DS4_OUT_LEN];
-    if (l->slot < 0 || !l->intr.open)
+    if (l->slot < 0 || l->slot >= BT_PADS || !l->intr.open)
         return;
     memset(p, 0, sizeof p);
     p[0] = 0xA2;                                /* DATA | Output */
@@ -639,6 +689,13 @@ static void check_open(link_t *l, chan_t *c)
         addr_str(as, l->addr);
         if (l->slot < 0)
             l->slot = key_slot(l->addr);
+        if (l->slot == SLOT_MOUSE) {
+            static const uint8_t boot = 0x70;   /* HIDP SET_PROTOCOL: boot */
+            kprintf("bt: mouse %s connected, it moves the pointer\n", as);
+            l->announced = 1;
+            l2cap_send(l, l->ctrl.rcid, &boot, 1);
+            return;
+        }
         if (l->slot >= 0)
             kprintf("bt: controller %s connected (player %d)\n", as, l->slot + 1);
         else
@@ -796,6 +853,11 @@ static void handle_acl(const hci_pkt_t *p)
         handle_signaling(l, d, l2len);
     } else if (cid == l->sdp.lcid) {
         sdp_reply(l, d, l2len);
+    } else if (cid == l->intr.lcid && l2len >= 2 && d[0] == 0xA1 && l->slot == SLOT_MOUSE) {
+        static hid_mouse_layout_t boot;
+        if (!boot.nbuttons)
+            hid_mouse_boot_layout(&boot, 2);    /* A1 02 buttons X Y [wheel] */
+        hid_mouse_report(HID_MOUSE_BT, &boot, d + 1, l2len - 1u);
     } else if (cid == l->intr.lcid && l2len >= 2 && d[0] == 0xA1 && l->slot >= 0) {
         hid_bt_report(l->slot, d + 1, l2len - 1u);   /* DATA | Input, then report ID */
     }
@@ -882,7 +944,10 @@ static void handle_event(const hci_pkt_t *p)
             if (l->announced) {
                 char as[18];
                 addr_str(as, l->addr);
-                kprintf("bt: controller %s disconnected (player %d)\n", as, l->slot + 1);
+                if (l->slot == SLOT_MOUSE)
+                    kprintf("bt: mouse %s disconnected\n", as);
+                else
+                    kprintf("bt: controller %s disconnected (player %d)\n", as, l->slot + 1);
             }
             link_close(l);
             bt.disc_reason = e[3];
@@ -1011,7 +1076,7 @@ void bt_poll(void)
     static hci_pkt_t p;
     if (!bt.started)
         return;
-    for (int i = 0; i < BT_PADS; i++)
+    for (int i = 0; i < BT_LINKS; i++)
         if (bt.link[i].used)
             host_open(&bt.link[i]);
     /* everything that arrived since the last call: the buttons must be
@@ -1062,15 +1127,20 @@ static int is_pad(uint32_t cod)
     return ((cod >> 8) & 0x1F) == 5 && (cod & 0x0C) == 0x08;
 }
 
-static int inquiry(unsigned seconds, found_t *list, int max)
+/* a pointing device (a keyboard with a pointer too) */
+static int is_mouse(uint32_t cod)
+{
+    return ((cod >> 8) & 0x1F) == 5 && (cod & 0x80);
+}
+
+static int inquiry(unsigned seconds, found_t *list, int max, const char *hint)
 {
     uint8_t p[5] = { 0x33, 0x8B, 0x9E, (uint8_t)((seconds * 100 + 127) / 128), 0 };  /* GIAC */
     if (hci_cmd(HCI_INQUIRY, p, sizeof p, NULL, 0, 1000000) != 0) {
         kprintf("bt: inquiry refused\n");
         return 0;
     }
-    kprintf("bt: looking for devices for %u s (DS4: hold Share + PS until the light flashes)\n",
-            seconds);
+    kprintf("bt: looking for devices for %u s (%s)\n", seconds, hint);
     static hci_pkt_t ev;
     int n = 0;
     uint32_t t0 = timer_ticks();
@@ -1124,7 +1194,7 @@ static int pair(const found_t *f)
         return -1;
     }
     if (!(l = link_open(f->addr))) {
-        kprintf("bt: no free link for another controller\n");
+        kprintf("bt: no free link for another %s\n", bt.pair_mouse ? "mouse" : "controller");
         return -1;
     }
     kprintf("bt: pairing with %s...\n", as);
@@ -1208,7 +1278,10 @@ static int pair_steps(link_t *l, const found_t *f)
         fail(l, "HID interrupt channel not opened", 0);
         return -1;
     }
-    kprintf("bt: paired as player %d; next time just press PS on the controller\n", l->slot + 1);
+    if (l->slot == SLOT_MOUSE)
+        kprintf("bt: mouse paired; next time click it to connect\n");
+    else
+        kprintf("bt: paired as player %d; next time just press PS on the controller\n", l->slot + 1);
     return 0;
 }
 
@@ -1224,7 +1297,7 @@ void bt_scan(unsigned seconds)
         return;
     }
     found_t list[8];
-    int n = inquiry(seconds, list, 8);
+    int n = inquiry(seconds, list, 8, "DS4: hold Share + PS until the light flashes");
     for (int i = 0; i < n; i++)
         if (is_pad(list[i].cod)) {
             pair(&list[i]);
@@ -1232,6 +1305,29 @@ void bt_scan(unsigned seconds)
         }
     if (n)
         kprintf("bt: no game controller among them\n");
+}
+
+void bt_pair_mouse(unsigned seconds)
+{
+    if (!bt.started && bt_start() != 0)
+        return;
+    if (ble_pair(LE_MOUSE, seconds) != -2)
+        return;                                 /* an LE mouse: paired, or it failed */
+    if (slot_connected(SLOT_MOUSE)) {
+        kprintf("bt: the classic mouse is connected already\n");
+        return;
+    }
+    found_t list[8];
+    int n = inquiry(8, list, 8, "a classic Bluetooth mouse in pairing mode");
+    for (int i = 0; i < n; i++)
+        if (is_mouse(list[i].cod)) {
+            bt.pair_mouse = 1;
+            pair(&list[i]);
+            bt.pair_mouse = 0;
+            return;
+        }
+    if (n)
+        kprintf("bt: no mouse among them\n");
 }
 
 int bt_connected(void)
@@ -1253,7 +1349,7 @@ unsigned bt_pads(void)
 
 int bt_pad_addr(int slot, char out[18])
 {
-    for (int i = 0; i < BT_PADS; i++)
+    for (int i = 0; i < BT_LINKS; i++)
         if (bt.link[i].used && bt.link[i].slot == slot) {
             addr_str(out, bt.link[i].addr);
             return 1;

@@ -69,8 +69,8 @@ static const uint8_t *section(const uint8_t *b, uint32_t len, const char *tag, u
 
 static int kind_bit(const char *k)
 {
-    static const char *const names[] = { "api", "howto", "error", "sprite", "tip", "action" };
-    for (int i = 0; i < 6; i++)
+    static const char *const names[] = { "api", "howto", "error", "sprite", "tip", "action", "mesh" };
+    for (int i = 0; i < 7; i++)
         if (!strcmp(k, names[i]))
             return 1 << i;
     return 0;

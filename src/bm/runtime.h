@@ -16,6 +16,9 @@ typedef struct {
     uint32_t dropped;
     uint32_t lua_kb;
     uint32_t copy_us_total;     /* frame copies to the framebuffer */
+    uint32_t tris3d;            /* 3D triangles drawn in the last frame */
+    int gpu3d;                  /* the GPU drew the 3D at the end */
+    uint32_t d2_ops;            /* 2D drawn after the GPU's 3D, recorded meanwhile (M35) */
     int ok;                     /* 0 = error (message printed), 1 = ran */
 } bm_stats_t;
 
@@ -27,6 +30,11 @@ typedef struct {
  */
 void bm_play(framebuffer_t *fb, const uint8_t *data, size_t len,
               uint32_t seconds, bm_stats_t *st);
+/* For the next bm_run / bm_play only (kernel benchmarks): the screen size
+ * instead of the cartridge's (0, 0: its own), who draws the 3D (-1: the
+ * setting, 0: the ARM, 1: the GPU), and a number the cartridge reads as
+ * the global BENCH (0: none). */
+void bm_next_run(int w, int h, int gpu3d, int bench);
 /* The same; with `suspendable`, leaving with Esc / PS / Start+Select / 'q'
  * keeps the cartridge frozen in memory (BM_SUSPENDED) instead of closing
  * it (quit(), an error or the time limit still close it). Starting a

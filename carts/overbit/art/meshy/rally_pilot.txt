@@ -1,0 +1,5 @@
+# Rally (tank): the pilot out of the mech, a young racing driver
+name = rally_pilot
+height = 1.62
+prompt = Full-body 3D game character, a young woman racing driver standing in A-pose with empty hands, no weapon. A short platinum blonde bob with a turquoise streak, orange tinted sport glasses pushed up on the head, a cropped white and turquoise racing jacket with orange stripes on the sleeves, a black fitted top, turquoise joggers with white side stripes, white and orange high-top trainers, black fingerless gloves. Stylized proportions, colourful hero shooter character.
+texture = white and turquoise racing jacket with orange sleeve stripes, black top, turquoise joggers with white stripes, white and orange trainers, black gloves, orange tinted glasses, platinum blonde hair with a turquoise streak, light skin; bright stylized hand-painted game texture with clean saturated colour blocks

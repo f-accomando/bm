@@ -1,17 +1,21 @@
 #include "home.h"
 #include "carts.h"
 #include "bench.h"
+#include "b3dpi.h"
 #include "config.h"
 #include "crumbs.h"
 #include "demo.h"
 #include "dmatest.h"
+#include "gputest.h"
 #include "input.h"
 #include "monitor.h"
 #include "pager.h"
+#include "pointer.h"
 #include "sysinfo.h"
 #include "testpattern.h"
 #include "version.h"
 #include "audio/audio.h"
+#include "bm/roombench.h"
 #include "bm/runtime.h"
 #include "bm/stress.h"
 #include "bt/bt.h"
@@ -21,6 +25,9 @@
 #include "drivers/watchdog.h"
 #include "fs/fat.h"
 #include "gfx/console.h"
+#include "gpu/gpu3d.h"
+#include "gpu/v3d.h"
+#include "gpu/version3d.h"
 #include "lib/heap.h"
 #include "lib/printf.h"
 #include "drivers/board.h"
@@ -159,6 +166,24 @@ static void t_dma(framebuffer_t *fb)
     dma_test(fb);
 }
 
+static void t_gpu(framebuffer_t *fb)
+{
+    heading("GPU test");
+    gpu_test(fb);
+}
+
+static void t_bench3d(framebuffer_t *fb)
+{
+    heading("3D Bench: every 3D test with every driver");
+    bm_bench3d(fb);
+}
+
+static void t_room(framebuffer_t *fb)
+{
+    heading("Texture Room: 3D benchmark");
+    bm_room_bench(fb);
+}
+
 static void t_demo(framebuffer_t *fb)
 {
     heading("Animation demo (10 s)");
@@ -224,6 +249,10 @@ static tool_t tools[] = {
     { "Render bench", "drawing benchmark, 640x360 RGB565", MENU_ICON_TRIANGLES, 0x5A3AA0, t_render, 1, { 0 } },
     { "Stress test", "sprites, triangles and 3D, in C and in Lua", MENU_ICON_FLAME, 0xA03A3A, t_stress, 1, { 0 } },
     { "DMA test", "copies by the CPU against the DMA, step by step", MENU_ICON_ARROWS, 0x2A7A8A, t_dma, 1, { 0 } },
+    { "GPU test", "the 3D unit (V3D) step by step; ARM against GPU", MENU_ICON_TRIANGLES, 0x8A5A2A, t_gpu, 1, { 0 } },
+    { "3D Bench", "every 3D test, every driver: bars, report on the SD", MENU_ICON_GAUGE, 0x2A6A8A, t_bench3d, 1,
+      { 0 } },
+    { "Texture Room", "3D bench: crates doubled to 30 fps, ARM and GPU", MENU_ICON_GAUGE, 0x9A6A2A, t_room, 1, { 0 } },
     { "Demo", "the 60 fps animation demo, 10 s", MENU_ICON_PLAY, 0x3A8A3A, t_demo, 1, { 0 } },
     { "Test pattern", "HDMI colour bars; any button returns", MENU_ICON_BARS, 0x404050, t_pattern, 0, { 0 } },
     { "Diagnostics", "the old boot sequence: benchmarks and demos", MENU_ICON_CHECK, 0x7A6A2A, t_diag, 1, { 0 } },
@@ -259,10 +288,11 @@ void home_tool_start(int i, home_do_t *d)
 /* ---------------------------------------------------------------- settings */
 
 enum {
-    R_CONTROLLERS = 1, R_WIFI, R_LAYOUT, R_DRAW, R_VOLUME, R_SYSTEM,
-    R_PAD1, R_PAD2, R_PAD3, R_PAD4, R_KEYBOARD, R_PAIR, R_PAIR_KBD, R_TEST, R_PROMPTS, R_FORGET,
+    R_CONTROLLERS = 1, R_WIFI, R_LAYOUT, R_GRAPHICS, R_DRAW, R_GPU3D, R_AA, R_VS, R_QUEUE, R_VOLUME, R_SYSTEM,
+    R_PAD1, R_PAD2, R_PAD3, R_PAD4, R_KEYBOARD, R_MOUSE, R_PAIR, R_PAIR_KBD, R_PAIR_MOUSE, R_TEST,
+    R_PROMPTS, R_FORGET,
     R_NETWORK, R_STATE, R_IP, R_TIME, R_CONSOLE, R_PASSWORD, R_CONNECT, R_BOOT,
-    R_VERSION, R_BOARD, R_UPTIME, R_MEMORY, R_CLOCKS, R_SD, R_RESTART, R_MONITOR, R_PERF,
+    R_VERSION, R_BOARD, R_UPTIME, R_MEMORY, R_CLOCKS, R_SD, R_DRIVER3D, R_RESTART, R_MONITOR, R_PERF,
 };
 
 static int popcount(unsigned v)
@@ -288,6 +318,73 @@ int home_prompts_colour(void)
     return v && strcmp(v, "colour") == 0;
 }
 
+/* the V3D draws the 3D of the games (M33) unless gpu3d=0 */
+static int gpu3d_on(void)
+{
+    const char *on = config_get("gpu3d");
+    return !(on && strcmp(on, "0") == 0);
+}
+
+/* gpu3d_aa=1: the GPU smooths the edges of the 3D (MSAA 4x) */
+static int aa_on(void)
+{
+    const char *on = config_get("gpu3d_aa");
+    return on && strcmp(on, "1") == 0;
+}
+
+static const char *aa_choice(void)
+{
+    if (!aa_on())
+        return "Off";
+    if (gpu3d_ready() && !gpu3d_msaa())
+        return "4x: not on this GPU";
+    return "4x (MSAA)";
+}
+
+/* gpu3d_vs=1: the GPU's vertex shader places the corners of the scenery
+ * (models unlit or with baked light), 2: of every model (M36); the ARM
+ * only sends them */
+static int vs_on(void)
+{
+    const char *on = config_get("gpu3d_vs");
+    return on && on[0] >= '1' && on[0] <= '2' ? on[0] - '0' : 0;
+}
+
+static const char *vs_choice(void)
+{
+    if (!vs_on())
+        return "ARM";
+    if (gpu3d_ready() && !gpu3d_vshader())
+        return "GPU: not on this GPU";
+    return vs_on() == 1 ? "GPU: scenery" : "GPU: all models";
+}
+
+/* gpu3d_queue=1 (M35): the end of a frame's 3D starts on the GPU and the
+ * game's next _update runs meanwhile */
+static int queue_on(void)
+{
+    const char *on = config_get("gpu3d_queue");
+    return on && strcmp(on, "1") == 0;
+}
+
+static const char *queue_choice(void)
+{
+    if (!queue_on())
+        return "Off";
+    if (gpu3d_ready() && !gpu3d_queue_ok())
+        return "On: not on this GPU";
+    return "On";
+}
+
+static const char *gpu3d_choice(void)
+{
+    if (!gpu3d_on())
+        return "ARM";
+    if (v3d_init() != 0)
+        return "ARM (no GPU)";          /* QEMU */
+    return gpu3d_failed() ? "GPU: failed" : "GPU";
+}
+
 static int wifi_at_boot(void)
 {
     const char *on = config_get("wifi_boot");
@@ -310,9 +407,10 @@ void home_panel(int id, home_panel_t *p)
         home_row(p, MENU_ROW_CHOICE, R_LAYOUT, "Keyboard layout",
                  "Layout of the USB keyboard", "%s",
                  hid_layout()[0] == 'i' ? "Italian" : "US");
-        home_row(p, MENU_ROW_CHOICE, R_DRAW, "Game drawing (.bm)",
-                 "Direct on screen, or via RAM (compare: Render bench)", "%s",
-                 bm_via_ram() ? "Via RAM" : "Direct");
+        home_row(p, MENU_ROW_SUB, R_GRAPHICS, "Graphics",
+                 "Game drawing, 3D on the GPU, anti-aliasing", "%s%s%s", gpu3d_choice(),
+                 strcmp(gpu3d_choice(), "GPU") == 0 && vs_on() ? (vs_on() == 1 ? "+VS1" : "+VS") : "",
+                 strcmp(gpu3d_choice(), "GPU") == 0 && aa_on() ? ", AA 4x" : "");
         home_row(p, MENU_ROW_CHOICE, R_VOLUME, "Volume",
                  "Sound of the games and tools (games can change it in their pause menu)",
                  "%d / %d", audio_volume(), AUDIO_VOLUME_MAX);
@@ -320,6 +418,20 @@ void home_panel(int id, home_panel_t *p)
                  "Version, memory, SD card, restart", "%s", bm_version);
         break;
     }
+    case HOME_GRAPHICS:
+        ksnprintf(p->title, sizeof p->title, "Settings > Graphics");
+        home_row(p, MENU_ROW_CHOICE, R_DRAW, "Game drawing (.bm)",
+                 "Direct on screen, or via RAM (compare: Render bench)", "%s",
+                 bm_via_ram() ? "Via RAM" : "Direct");
+        home_row(p, MENU_ROW_CHOICE, R_GPU3D, "3D of the games",
+                 "Drawn by the GPU (V3D), or by the ARM", "%s", gpu3d_choice());
+        home_row(p, MENU_ROW_CHOICE, R_AA, "3D anti-aliasing",
+                 "Smooth edges of the GPU's 3D (try Dev > GPU test)", "%s", aa_choice());
+        home_row(p, MENU_ROW_CHOICE, R_VS, "3D vertices",
+                 "Who places the corners: ARM, or the GPU for the scenery or all", "%s", vs_choice());
+        home_row(p, MENU_ROW_CHOICE, R_QUEUE, "3D frame queue",
+                 "The game goes on while the GPU draws the frame before", "%s", queue_choice());
+        break;
     case HOME_CONTROLLERS: {
         ksnprintf(p->title, sizeof p->title, "Settings > Controllers");
         int local = input_local_player(), ble = input_ble_player();
@@ -346,10 +458,26 @@ void home_panel(int id, home_panel_t *p)
                  bt_keyboard() ? "Connected: it types, and plays as its own player" :
                  bt_keyboard_paired() ? "Paired: press a key on it to connect" : "None paired",
                  "%s", bt_keyboard() ? "on" : bt_keyboard_paired() ? "off" : "-");
+        {
+            unsigned mice = pointer_devices();
+            if (!pointer_enabled())
+                home_row(p, MENU_ROW_INFO, R_MOUSE, "Mouse",
+                         "mouse=off in bm/config.txt: no pointer anywhere", "off");
+            else
+                home_row(p, MENU_ROW_INFO, R_MOUSE, "Mouse",
+                         mice ? "Connected: it moves the pointer in the menu" :
+                         bt_mouse_paired() ? "Paired: move it or click to connect" :
+                         "USB or Bluetooth; the right stick of a pad moves the pointer too",
+                         "%s", mice == (POINTER_USB | POINTER_BLUETOOTH) ? "USB + Bluetooth" :
+                         mice & POINTER_USB ? "USB" : mice ? "Bluetooth on" :
+                         bt_mouse_paired() ? "Bluetooth off" : "-");
+        }
         home_row(p, MENU_ROW_ACTION, R_PAIR, "Pair a new controller",
                  "DS4: hold Share + PS until the light flashes", NULL);
         home_row(p, MENU_ROW_ACTION, R_PAIR_KBD, "Pair a keyboard",
                  "Bluetooth LE (MX Keys: hold an Easy-Switch key 3 s)", NULL);
+        home_row(p, MENU_ROW_ACTION, R_PAIR_MOUSE, "Pair a mouse",
+                 "Bluetooth LE or classic: put the mouse in pairing mode first", NULL);
         home_row(p, MENU_ROW_ACTION, R_TEST, "Test the buttons",
                  "The buttons each player holds, for 10 s", NULL);
         home_row(p, MENU_ROW_CHOICE, R_PROMPTS, "Button icons",
@@ -403,11 +531,18 @@ void home_panel(int id, home_panel_t *p)
         home_row(p, MENU_ROW_INFO, R_MEMORY, "Memory in use", "The heap of the kernel and games",
                  "%lu of %lu MiB", (uint32_t)mi.uordblks >> 20,
                  (uint32_t)((heap_end() - heap_start()) >> 20));
-        home_row(p, MENU_ROW_INFO, R_CLOCKS, "CPU", "ARM clock and chip temperature",
-                 "%lu MHz, %lu.%lu C", prop_clock_rate(CLOCK_ARM) / 1000000,
+        home_row(p, MENU_ROW_INFO, R_CLOCKS, "CPU", "Processor, clock and chip temperature",
+                 "%s, %lu MHz, %lu.%lu C", sysinfo_cpu(), prop_clock_rate(CLOCK_ARM) / 1000000,
                  temp[1] / 1000, temp[1] % 1000 / 100);
         home_row(p, MENU_ROW_INFO, R_SD, "SD card", "The card the console started from",
                  "%s", fat_describe());
+        {
+            /* the drivers' version, and the one the 3D settings reproduce */
+            const int gpu = gpu3d_on() && !gpu3d_failed() && v3d_init() == 0;
+            home_row(p, MENU_ROW_INFO, R_DRIVER3D, "3D driver", "bm3d version (block); the games' 3D now",
+                     "bm3d %s (%s), as %s", BM3D_VERSION, BM3D_BLOCK,
+                     bm3d_mode_q(gpu, gpu ? vs_on() : 0, gpu && queue_on()));
+        }
         home_row(p, MENU_ROW_CHOICE, R_PERF, "Performance overlay",
                  "Over the games: fps, ms, Lua instructions (F3 too)", "%s",
                  bm_perf() ? "On" : "Off");
@@ -438,6 +573,15 @@ static void x_pair_kbd(framebuffer_t *fb)
     bt_pair_keyboard(15);
 }
 
+static void x_pair_mouse(framebuffer_t *fb)
+{
+    (void)fb;
+    heading("Pair a mouse");
+    kprintf("Put the mouse in pairing mode (MX mice: hold the Easy-Switch button 3 s,\n"
+            "until its light blinks fast). No code is needed.\n\n");
+    bt_pair_mouse(10);
+}
+
 static void x_test(framebuffer_t *fb)
 {
     (void)fb;
@@ -464,6 +608,7 @@ void home_act(int id, int row, int how, home_do_t *d)
     case R_CONTROLLERS: d->what = HOME_OPEN; d->panel = HOME_CONTROLLERS; break;
     case R_WIFI: d->what = HOME_OPEN; d->panel = HOME_WIFI; break;
     case R_SYSTEM: d->what = HOME_OPEN; d->panel = HOME_SYSTEM; break;
+    case R_GRAPHICS: d->what = HOME_OPEN; d->panel = HOME_GRAPHICS; break;
     case R_LAYOUT:
         hid_set_layout(hid_layout()[0] == 'i' ? "us" : "it");
         config_save();
@@ -494,6 +639,31 @@ void home_act(int id, int row, int how, home_do_t *d)
         config_save();
         ksnprintf(d->note, sizeof d->note, "button icons: %s", home_prompts_colour() ? "colour" : "white");
         break;
+    case R_GPU3D:
+        config_set("gpu3d", gpu3d_on() ? "0" : "1");
+        config_save();
+        if (gpu3d_on() && gpu3d_failed())
+            ksnprintf(d->note, sizeof d->note, "GPU: %s", gpu3d_status());
+        else
+            ksnprintf(d->note, sizeof d->note, "the 3D of the next game: %s", gpu3d_choice());
+        break;
+    case R_AA:
+        config_set("gpu3d_aa", aa_on() ? "0" : "1");
+        config_save();
+        ksnprintf(d->note, sizeof d->note, "anti-aliasing of the next game: %s", aa_on() ? "4x" : "off");
+        break;
+    case R_VS: {
+        static const char *const next[3] = { "1", "2", "0" };
+        config_set("gpu3d_vs", next[vs_on()]);
+        config_save();
+        ksnprintf(d->note, sizeof d->note, "3D vertices of the next game: %s", vs_choice());
+        break;
+    }
+    case R_QUEUE:
+        config_set("gpu3d_queue", queue_on() ? "0" : "1");
+        config_save();
+        ksnprintf(d->note, sizeof d->note, "3D frame queue of the next game: %s", queue_choice());
+        break;
     case R_BOOT:
         config_set("wifi_boot", wifi_at_boot() ? "0" : "1");
         config_save();
@@ -504,6 +674,9 @@ void home_act(int id, int row, int how, home_do_t *d)
         break;
     case R_PAIR_KBD:
         if (how == 0) { d->what = HOME_TEXT; d->text = x_pair_kbd; d->wait = 1; }
+        break;
+    case R_PAIR_MOUSE:
+        if (how == 0) { d->what = HOME_TEXT; d->text = x_pair_mouse; d->wait = 1; }
         break;
     case R_TEST:
         if (how == 0) { d->what = HOME_TEXT; d->text = x_test; d->wait = 1; }
@@ -518,7 +691,7 @@ void home_act(int id, int row, int how, home_do_t *d)
         } else if (how == 0) {
             d->what = HOME_ASK;
             ksnprintf(d->ask, sizeof d->ask, "Forget all controllers?");
-            ksnprintf(d->ask_detail, sizeof d->ask_detail, "Pads and keyboard must be paired again.");
+            ksnprintf(d->ask_detail, sizeof d->ask_detail, "Pads, keyboard and mouse: pair them again.");
             ksnprintf(d->ask_yes, sizeof d->ask_yes, "Forget");
         }
         break;

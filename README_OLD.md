@@ -22,8 +22,9 @@ balenaEtcher o `dd`; collega HDMI e una **tastiera o un gamepad USB** (adattator
 sulla porta micro-USB centrale) e accendi. Il Pi si avvia in un paio di secondi sul
 **menu delle cartucce** (in 3D: ogni gioco è una piccola scheda a forma di Memory
 Stick Duo con la copertina stampata sopra e i contatti in rame sul retro): Pong,
-Snake, Star Shooter, Astro Wing (3D), Hunter's Night (gotico, 320×180 con luci), Texture Room (3D con texture),
-**nano8** (le cartucce `.p8` / `.p8.png`, vedi [nano8](#nano8-cartucce-p8-e-p8png-m23)) e le demo. Frecce per scegliere,
+Snake, Star Shooter, Astro Wing (3D), Hunter's Night (gotico, 320×180 con luci), Chaos Kitchen, Titan Clash,
+**nano8** (le cartucce `.p8` / `.p8.png`, vedi [nano8](#nano8-cartucce-p8-e-p8png-m23)) e le demo; Texture Room (3D con
+texture) è il benchmark 3D della scheda Dev. Frecce per scegliere,
 Nel menu le copertine stanno in una griglia (schede **Games** e **Dev**); frecce per
 muoversi, Invio (o A) per giocare, **L1 / R1** (Q / E sulla tastiera) per cambiare scheda.
 **Esc** (o Start+Select, o PS) torna al menu e lascia
@@ -36,8 +37,8 @@ musica dei giochi), lo **studio 3D** (modelli e animazioni), **bm Mesh** (le mes
 quelle del codice), **bm Pixel** (la pixel art dello sprite sheet) e gli strumenti del
 monitor (Lua, sistema,
 registro, test, benchmark); **Settings**, l'ultima scheda, apre
-subito il suo pannello: controller, WiFi, layout della tastiera, disegno dei giochi,
-**volume** e sistema (M27, BareMetal UI). Nei giochi **START** mette in pausa: lì si
+subito il suo pannello: controller, WiFi, layout della tastiera, grafica (disegno dei
+giochi, chi disegna il 3D, anti-aliasing), **volume** e sistema (M27, BareMetal UI). Nei giochi **START** mette in pausa: lì si
 regola anche il volume. Tutto si usa col solo controller. Nel menu **PS** torna a
 Games e chiude i pannelli; nel monitor apre il menu.
 Per scrivere un gioco: [docs/GUIDA-GIOCHI.md](docs/GUIDA-GIOCHI.md) (guida pratica) e
@@ -51,7 +52,7 @@ sulla SD) e scambiano `.glb` e `.png` con gli altri programmi. Sono pagine web s
 dipendenze: doppio clic su `sdk/studio/index.html` o `sdk/animator/index.html` (Chrome o
 Edge), oppure `make studio`.
 
-- **bm Studio**, in stile Crocotile 3D: **modelli 3D a tessere** (si posano le tessere
+- **bm Studio**: **modelli 3D a tessere** (si posano le tessere
   dello sprite sheet su una griglia, si impilano blocchi, si spostano gli angoli per tetti e
   rampe, si dipinge sul modello) e la **pixel art dello sprite sheet**. Nel gioco:
   `m = model("casa")`, poi `draw3d(m, x, y, z)`.
@@ -117,6 +118,10 @@ Risoluzioni di menu, console e giochi, e quanto costano: [docs/RISOLUZIONI.md](d
 | **M28** | Tastiera Bluetooth LE (MX Keys S): pairing con codice, HID over GATT, riconnessione | ✅ verificato sul Pi |
 | **M29** | **Pi 1 B**: stesso kernel, hub USB (split transactions), Ethernet LAN9512, immagine `bm-pi1.img` | ✅ verificato sul Pi 1 B |
 | M30 | **Assistente AI** per lo sviluppo: domande su API e codice, errori, base degli sprite; rete INT8 sulla console | base fatta (QEMU), integrazione negli editor dopo |
+| M31 | **Pi Zero 2 W**: `kernel7.img`, gli stessi sorgenti per ARMv7, una SD per tutte le schede | fatta in QEMU, da verificare sul Pi |
+| M32 | **Mouse** USB e Bluetooth (LE e classico) e puntatore: nel menu, nelle cartucce che lo chiedono (`mouse()`), anche con la levetta destra dei pad | fatto in QEMU, da provare sul Pi |
+| **M33** | **GPU e 3D più veloce**: driver V3D nostro sotto `draw3d`, rasterizzatore ARM 2×, modo 480×270, Texture Room a 640×360 e 60 fps | ✅ verificato sul Pi |
+| M34 | **GPU 2**: anti-aliasing MSAA 4×, texture in T-format, pagina pulita senza load, meno lavoro per triangolo sull'ARM | in corso (passi 1–4 da provare sul Pi) |
 
 ## Cosa fa il kernel
 
@@ -159,6 +164,8 @@ con **`b`**.
 | `Y` | input: test USB dal vivo (contatori ok/nak/err e ultimo report), poi per 10 s i tasti tenuti da ogni giocatore (P1–P4; `*` = tastiera/seriale) |
 | `L` | layout tastiera: italiano ↔ US |
 | `D` | test del DMA passo per passo (copie e riempimenti, tempi CPU contro DMA) |
+| `g` | test della GPU 3D (V3D) passo per passo: accensione, un triangolo, z-buffer, velocità, un'immagine disegnata dalla GPU, poi la stessa scena 3D da ARM e GPU affiancate con i tempi, una scena 3D-2D-3D (z-buffer conservato), texture in ordine di riga e a tile, la scena senza e con MSAA 4× (M33, M34; anche "GPU test" nella scheda Dev) |
+| `R` | **Texture Room**, benchmark 3D: la stanza con le casse raddoppiate da 8 finché tiene 30 fps, a 320×180 e poi a 640×360, con l'ARM e poi con la GPU; una riga per passo (triangoli, ms, fps) e il riepilogo delle casse a 60 e a 30 fps (M33; anche "Texture Room" nella scheda Dev) |
 | `e` | **editor** dei giochi `.bm` (codice, sprite, mappa; è anche nella scheda Dev del menu) |
 | `A` | **Sound editor**: suoni, effetti sonori e musica dei giochi `.bm` (anche nella scheda Dev) |
 | `3` | **studio 3D**: modelli e animazioni di un `.bm` (player, blocchi e tessere, ossa, keyframe; anche nella scheda Dev) |
@@ -168,7 +175,8 @@ con **`b`**.
 | `I` | **Assistant** (M30): come si scrive il codice, basi di sprite (F6 negli strumenti; anche nella scheda Dev) |
 | `a` | audio: stato dell'uscita HDMI (clock, canale DMA, costo della sintesi, volume) e una prova: le sei forme d'onda, un accordo, glide, vibrato e arpeggio |
 | `T` | Bluetooth: cerca per 8 s e **abbina il primo controller** trovato come **prossimo giocatore** (fino a 4; DS4: Share + PS finché lampeggia); la console seriale passa alla mini UART (stessi pin) |
-| `P` | Bluetooth: **dimentica tutti i pad** abbinati (chiede conferma con `y`): chiavi tolte da `bm/config.txt`, pad scollegati; poi si riabbinano con `T` |
+| `O` | Bluetooth: **abbina un mouse** (M32) in modalità abbinamento: prima cerca per 10 s un mouse Bluetooth LE, poi per 8 s uno classico; nessun codice da digitare |
+| `P` | Bluetooth: **dimentica tutti i pad**, la tastiera e il mouse abbinati (chiede conferma con `y`): chiavi tolte da `bm/config.txt`, dispositivi scollegati; poi si riabbinano con `T`, `K`, `O` |
 | `o` | **log dell'avvio**: tutto quello che il kernel ha scritto dall'accensione (primi 64 KiB), a pagine |
 | `W` | WiFi (M18): accende il chip e lo identifica, un passo per riga |
 | `E` | Ethernet (Pi 1 B / B+, M29): link, contatori dei frame, registri del chip, indirizzo IP |
@@ -220,13 +228,18 @@ viene scelta l'interfaccia tastiera, anche se il dispositivo usa i report con ID
   **tasto PS (o Share+Options) = esci**. Lo stesso decodificatore servirà per il
   Bluetooth (M12).
 
+**Mouse (M32).** Un mouse USB (anche con la tastiera, sullo stesso ricevitore o dietro un
+hub) o Bluetooth (LE, come i Logitech MX, o classico: Settings > Controllers > *Pair a
+mouse*, o `O` dal monitor) muove il **puntatore**; senza mouse lo muove la **levetta
+destra** di un pad (R2 o R3 = tasto sinistro, L2 = destro). Vedi sotto.
+
 **SD.** All'avvio il kernel legge la prima partizione **FAT32** (o FAT16) della SD
 (quella da cui si avvia il Pi) e cerca i file **`.bm`** nella
 cartella `carts/` e nella radice. Nomi lunghi supportati. `make sdcard` mette in
 `dist/carts/` i giochi (`pong.bm`, `snake.bm`, `shooter.bm`, `astrowing.bm`, `hunt.bm`,
-`kitchen.bm`, `titan.bm`, `texroom.bm`, `village.bm`); `make image` li mette nell'immagine SD. La demo
-nativa e lo stress test non sono giochi: restano nel kernel (comando `n` del monitor,
-Stress test nella scheda Dev) e `make install` li toglie dalla SD.
+`kitchen.bm`, `titan.bm`, `village.bm`, ...); `make image` li mette nell'immagine SD. La demo
+nativa, lo stress test e Texture Room non sono giochi: restano nel kernel (comando `n` del
+monitor, Stress test e Texture Room nella scheda Dev) e `make install` li toglie dalla SD.
 
 **Menu delle cartucce.** Mostra titolo e autore letti dalle cartucce (ordinate per
 titolo) e sotto il nome del file scelto. Su/giù per scegliere, Invio (o A) per giocare,
@@ -240,10 +253,13 @@ aggiungere un gioco basta copiarlo in `carts/` sulla SD dal PC.
 **Scrittura (M11).** bm scrive solo nella cartella `bm/` della SD:
 `bm/config.txt` (layout della tastiera, modo di disegno; si può modificare anche dal
 PC) e `bm/save/*.SAV` (salvataggi e record delle cartucce: `save()`/`saved()`).
+In `bm/config.txt`, `dma_zclear=0` fa pulire lo z-buffer dalla CPU invece che dal DMA
+(M33; da usare solo se un gioco 3D si blocca), `gpu3d=0` fa disegnare il 3D dei
+giochi all'ARM invece che alla GPU (M33: *Impostazioni > Graphics > 3D of the games*; se
+la GPU non risponde si torna all'ARM da soli) e `gpu3d_aa=1` accende l'anti-aliasing
+MSAA 4× del 3D sulla GPU (M34: *Impostazioni > Graphics > 3D anti-aliasing*).
 
-Limiti attuali: un solo dispositivo USB, senza hub; niente
-Bluetooth (il chip BCM43438 usa la stessa UART della console seriale e richiede
-firmware e stack HCI/L2CAP/HID: troppo per ora).
+Limiti attuali: un solo dispositivo USB (più un mouse), collegato prima dell'accensione.
 
 Stato del LED ACT:
 - **acceso fisso**: inizializzazione in corso (se resta così, blocco prima degli interrupt)
@@ -292,6 +308,28 @@ Test pattern (comando `t`):
 
 ![test pattern](docs/m0-test-pattern.png)
 
+## Mouse e puntatore (M32)
+
+- **Dove c'è**: nel menu di bm sempre; nelle app (giochi, strumenti) solo se l'app lo chiede
+  con `mouse(true)` (vedi [docs/API.md](docs/API.md)); nella console testuale no.
+- **Quando si vede**: quando qualcosa lo muove. Con un mouse collegato compare subito; con
+  la sola levetta destra appena la si muove. Nel menu i tasti e la croce lo nascondono
+  (la selezione si sposta) finché non si muove di nuovo.
+- **Nel menu**: passando sopra una copertina (o una riga di un pannello) la si sceglie; il
+  tasto sinistro fa quello che farebbe A lì (gioca, apre, cambia scheda, i pulsanti in
+  basso), il destro apre le opzioni della copertina o torna indietro; un clic fuori da un
+  pannello o da una domanda li chiude; la rotellina scorre le righe.
+- **Barra in alto**: un mouse bianco, senza numero (non è un giocatore); con un **pallino
+  blu** se è Bluetooth.
+- **Spegnerlo per tutto il sistema**: `mouse=off` in `bm/config.txt` (dal PC); non c'è una
+  voce nel menu. Di base è acceso.
+- **Bluetooth**: i mouse LE (HID over GATT, abbinamento senza codice) e quelli classici
+  (protocollo boot). Chiavi in `bm/config.txt`: `bt_mouse` e `bt_mouse_key` (LE) o
+  `bt_mouse_classic`. Il mouse si ricollega da solo quando lo si muove o si clicca; la
+  tastiera Bluetooth e il mouse restano collegati insieme.
+- **nano8**: le cartucce `.p8` che usano il mouse (`poke(0x5f2d, 1)`) seguono il puntatore
+  appena compare; prima, come sempre, la levetta sinistra, la croce o le frecce.
+
 ## Che versione ho sulla SD?
 
 La sigla nella barra azzurra in alto a sinistra (es. `bm 1b31924`) è il commit git
@@ -318,9 +356,11 @@ sudo apt install gcc-arm-none-eabi binutils-arm-none-eabi qemu-system-arm make c
 ## Build e test
 
 ```sh
-make                  # build/kernel.img + build/chainloader.img
+make                  # build/kernel.img + build/kernel7.img (Pi Zero 2 W) + build/chainloader.img
 make test             # test end-to-end in QEMU: boot, console, schermo, eccezioni, chainloader
+make test-zero2       # gli stessi test con kernel7.img in QEMU (-M raspi2b)
 make qemu             # esegue in QEMU (-M raspi0), seriale sul terminale
+make qemu7            # kernel7.img in QEMU (-M raspi2b)
 make qemu-screenshot  # esecuzione headless, salva build/screen.png
 make studio           # bm Studio e bm Animator su http://localhost:8765 (sdk/README.md)
 ```
@@ -525,14 +565,16 @@ make install            # = make sdcard, poi copia tutto sulla SD in /mnt/d
 make install SD=/mnt/e  # se la SD è montata altrove
 ```
 
-`make install` copia kernel, file di avvio, `config.txt`, cartucce e il firmware del chip
-in `bm/` (Bluetooth e WiFi); non tocca mai impostazioni e salvataggi
+`make install` copia i due kernel (`kernel.img` e `kernel7.img` del Pi Zero 2 W), file di
+avvio, `config.txt`, cartucce e il firmware dei chip in `bm/` (Bluetooth e WiFi del Zero W
+e del Zero 2 W); non tocca mai impostazioni e salvataggi
 (`bm/CONFIG.TXT`, `bm/SAVE`). Alla fine elenca cosa c'è in `bm/` sulla SD.
 
 ## Release (M19)
 
-A ogni tag `v*` il CI (`.github/workflows/ci.yml`), dopo i test, costruisce il kernel (con il
-tag come versione: `bm v0.1.0` nella barra) e i giochi e li pubblica in una release di GitHub
+A ogni tag `v*` il CI (`.github/workflows/ci.yml`), dopo i test, costruisce i kernel
+(`kernel.img` e `kernel7.img`, con il tag come versione: `bm v0.1.0` nella barra) e i giochi e
+li pubblica in una release di GitHub
 con `bm/ca.pem` e `manifest.txt`: per ogni file il nome nella release, dove va sulla SD, la
 dimensione e lo SHA-256. `manifest.sig` è la firma del manifesto (ECDSA P-256), fatta con la
 chiave privata nel secret `BM_RELEASE_KEY` del repository; la chiave pubblica
@@ -620,7 +662,7 @@ Il modo più semplice è l'immagine completa: `make firmware && make image`, poi
 1. Formatta la SD con una partizione **FAT32** (tabella MBR).
 2. `make firmware && make sdcard` (per fissare una versione del firmware: `FW_REF=<tag> make firmware`).
 3. Copia il contenuto di `dist/` nella root della SD (`cp -r dist/* /mnt/d/`):
-   `bootcode.bin  start.elf  fixup.dat  config.txt  kernel.img  carts/`
+   `bootcode.bin  start.elf  fixup.dat  config.txt  kernel.img  kernel7.img  carts/  bm/`
 4. Collega l'HDMI (mini-HDMI) *prima* di alimentare il Pi.
 
 ## Raspberry Pi 1 (B e B+, M29)
@@ -645,6 +687,37 @@ make firmware && make image-pi1   # dist/bm-pi1.img: scrivila sulla SD come bm.i
   sotto i 60 fps.
 - Il firmware di avvio (`make firmware`) e gli aggiornamenti di bm (`--kernel`, M19)
   sono gli stessi per Zero W e Pi 1.
+
+## Raspberry Pi Zero 2 W (M31)
+
+Il Zero 2 W ha un altro processore (BCM2710A1: quattro Cortex-A53) e quindi un suo kernel,
+**`kernel7.img`**: gli stessi sorgenti compilati per ARMv7 a 32 bit. `make`, `make sdcard`,
+`make install` e `make image` mettono sulla SD **tutti e due i kernel**, e `config.txt` fa
+partire quello giusto (`[pi02]` → `kernel7.img`): la stessa scheda va nel Zero W e nel
+Zero 2 W.
+
+```sh
+make firmware && make image   # dist/bm.img per Zero, Zero W e Zero 2 W
+make install                  # oppure: aggiorna la SD in /mnt/d (tutti e due i kernel)
+```
+
+- **Schermo**: la prima riga dice `Raspberry Pi Zero 2 W (BCM2710A1, revision 902120)`, la
+  seconda `Cortex-A53 from HYP` (il processore e il modo in cui il firmware l'ha avviato).
+  Nel menu, scheda System, la riga CPU dice `Cortex-A53, 1000 MHz, ...`.
+- **Un core su quattro**: gli altri tre restano fermi nello stub del firmware.
+- **LED**: il LED ACT del Zero 2 W è il GPIO 29.
+- **WiFi e Bluetooth**: il chip è un CYW43436, con un firmware diverso da quello del Zero W;
+  `make firmware` scarica anche i suoi file (`brcmfmac43436-sdio.*`, `brcmfmac43436s-sdio.*`,
+  `SYN43430A1.hcd`, `SYN43430B0.hcd`) e `make sdcard` li mette in `bm/`. Il kernel sceglie
+  quelli della versione del chip e lo scrive sullo schermo (`wifi: chip ... CYW43436`,
+  `bt: chip LMP subversion ...`).
+- **Kernel dalla rete**: `tools/bm_net.py IP --kernel build/kernel7.img` (sul Zero 2 W
+  viene scritto come `kernel7.img`); un kernel per l'altra scheda viene rifiutato senza
+  scrivere niente (all'offset 4 di ogni immagine c'è `bmK6` o `bmK7`).
+- **Chainloader seriale**: solo per le schede BCM2835 (`kernel.img`).
+- **Test**: QEMU non ha il Zero 2 W; `make test-zero2` prova `kernel7.img` in `raspi2b`
+  (un Pi 2 B: le stesse periferiche, un Cortex-A7, niente radio). Dettagli in
+  [`docs/HARDWARE.md`](docs/HARDWARE.md), sezione 8.
 
 ## Struttura
 
@@ -685,7 +758,8 @@ scripts/mkassist.py      base di conoscenza + rete -> build/assist.bin (nel kern
 scripts/trainassist.py   addestramento della rete (make ai-model, numpy)
 tests/ai/                test dell'assistente (C, Lua, esempi di codice)
 carts/demo/              cartuccia nativa demo: main.lua, sheet.png, map.csv
-carts/pong|snake|shooter|astrowing|hunt|texroom giochi demo (solo Lua)
+carts/pong|snake|shooter|astrowing|hunt giochi demo (solo Lua)
+carts/texroom/           Texture Room: il benchmark 3D della scheda Dev (nel kernel)
 carts/village/           Studio Village: main.lua, models.bm (modelli, scheletro e sheet),
                          mkmodels.js (li costruisce con gli strumenti di Studio e Animator)
 sdk/studio/              bm Studio: modelli 3D e pixel art per i .bm, sul PC (sdk/README.md)

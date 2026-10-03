@@ -1,0 +1,9 @@
+# A request for the meshy workflow (.github/workflows/meshy.yml): change
+# this file and push it, and a GitHub runner asks Meshy for the model.
+# image: an https URL of the picture, or a path in the repository.
+image=tests/ai/meshy/sample.png
+name=mech
+polycount=2000
+height=2
+flat=false
+# task=  (a Meshy task id already made, instead of a new one)

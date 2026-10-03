@@ -22,7 +22,7 @@ dentro, numeri attesi contro numeri misurati.
 | Lettura SDRAM dall'ARM | circa 4× più lenta della scrittura *(M)* | Leggere lo schermo (luci, copie) costa più che scriverlo |
 | Divisione intera | non in hardware (routine di libgcc) *(D)* | Vietata nei cicli per pixel: shift o reciproci in virgola mobile |
 | VFP (virgola mobile) | VFPv2; FDIVS ~19 cicli *(D)*; numeri denormali → eccezione se non in RunFast *(M)* | Divisioni per triangolo, non per riga né per pixel; RunFast obbligatorio |
-| GPU 3D | VideoCore IV, OpenGL ES 2.0 *(D)* | **Non usata**: driver bare metal (QPU, V3D) troppo grande; 3D in software |
+| GPU 3D | VideoCore IV (V3D: 12 QPU, TMU, z-buffer nei tile) *(D)*; 811 Mpixel/s, 3 M triangoli/s *(M)* | Niente OpenGL: un driver nostro piccolo a funzioni fisse sotto `draw3d` (M33), il default; il 3D in software resta la riserva |
 | Scaler (HVS) | ingrandisce il framebuffer fino a 1080p gratis *(M)* | Si disegna a 640×360 o 320×180 e la GPU scala |
 | Memoria | 448 MiB per l'ARM *(M)* | Non è un vincolo (sheet da 4096 px, cache, tabelle) |
 | UART Bluetooth | 921 600 baud *(M)* | 4 DS4 a 125 report/s ci stanno; oltre no |
@@ -66,7 +66,8 @@ dentro, numeri attesi contro numeri misurati.
 
 | Scelta | Alternativa scartata | Perché | Numeri |
 |---|---|---|---|
-| Rasterizzatore **software** sull'ARM | GPU VideoCore IV | Driver 3D bare metal enorme | ~1200 triangoli a 60 fps *(M, sett.)* |
+| **Backend V3D nostro** sotto `draw3d` (M33, predefinito) | OpenGL ES sulla GPU | OpenGL vuole Linux o il firmware (VCHIQ); la pipeline fissa delle cartucce basta | 182 sfere (7142 triangoli) a 60 fps *(M, 1 ott.)* |
+| Rasterizzatore **software** sull'ARM (riserva, QEMU) | — | Gira ovunque, stessi pixel nei test | 69 sfere (2679 triangoli) a 60 fps *(M, 1 ott.)*; ~1200 triangoli a settembre |
 | **Z-buffer a 16 bit** di 1/z | z a 32 bit o float | Metà banda; 1/z è lineare sullo schermo | 460 KiB da pulire per frame |
 | Flag **senza z-buffer** per pavimenti e sfondi | tutto con z | Niente lettura né scrittura dello z | Usato da Chaos Kitchen |
 | Eliminazione delle facce posteriori prima di tutto | disegnarle | ~60% dei triangoli di una sfera scartati | Stress: ~40% disegnati |
@@ -82,6 +83,11 @@ dentro, numeri attesi contro numeri misurati.
 | Cicli interni in **virgola fissa** (16.16, 24.8) | float per pixel | Somme intere più veloci, niente conversioni | — |
 | **Nebbia** per faccia | per pixel | Stesso costo del piatto | Astro Wing |
 | **Lampade** puntiformi per faccia o vertice (max 4) | luce per pixel | Costo per faccia | — |
+| Bordi dei triangoli in **virgola fissa 32.32** (M33) | `ceilf` e confronti in virgola mobile a ogni riga | Ogni confronto VFP ferma la pipeline (`vmrs`): 5 per riga | ~80 → ~60 istruzioni per riga; stessi pixel |
+| Cicli delle texture **specializzati** (M33): con/senza z, trasparenza, luce | un ciclo unico con i controlli dentro | Il clamp delle coordinate si controlla una volta per segmento di 16 pixel, la trasparenza per cella 8×8 dello sheet | 70 → 46 istruzioni per pixel con luce, 55 → 30 senza; stessi pixel |
+| Luce sulle texture con **2 moltiplicazioni** (rosso e blu insieme) | 3 | Stesso risultato | — |
+| Mesh **fuori dalla vista scartate** prima di trasformarle (M33) | trasformare tutti i vertici | Sfera d'ingombro contro i quattro bordi dello schermo e il piano vicino | Chaos Kitchen: centinaia di `draw3d` per frame |
+| **z-buffer pulito dal DMA** a fine frame (M33) | `memset` in `zclear()` | Il DMA lavora mentre gira `_update`; `zclear()` aspetta solo la fine | ~1 ms a 640×360; `dma_zclear=0` lo spegne |
 
 ## 5. Costo per pixel: piatto, Gouraud, texture
 
@@ -95,6 +101,43 @@ dentro, numeri attesi contro numeri misurati.
 - Gouraud e texture vanno bene su oggetti **piccoli o medi**, non a tutto schermo.
 - Pavimenti e sfondi grandi: piatti e senza z-buffer.
 
+**Istruzioni ARM per pixel (M33, `make count-insns`)**, contate con `qemu-arm` sulle scene
+di `tests/bm/bench3d.c` (cache e bus esclusi: è il lavoro della CPU, non il tempo):
+
+| Scena | Prima | Dopo |
+|---|---:|---:|
+| Quad piatti con z | 12,5 | 10,4 |
+| Quad piatti senza z | 3,4 | 1,2 |
+| Quad Gouraud | 35,8 | 32,7 |
+| Quad con texture e luce | 70,0 | 45,8 |
+| Quad con texture, senza luce | 55,0 | 30,2 |
+| Sfere piatte (triangoli piccoli) | 24,5 | 21,6 |
+| Sfere con texture | 94,8 | 79,9 |
+| Texture Room (8 casse) | 84,7 | 57,7 |
+
+I pixel restano identici (stessi checksum di `make bench3d`). Con il 3D sulla GPU l'ARM
+non disegna più pixel: Texture Room 0,62 milioni di istruzioni a fotogramma invece di 3,86
+(`make count-insns` con le scene `+gpu`); il confronto completo prima/dopo è in
+`docs/M33-PRIMA-DOPO.md`.
+
+**Istruzioni ARM per triangolo con la GPU (M34, passo 4)**, stesse scene con il suffisso
+`+gpu` (r3d e backend; i pixel restano identici, sull'ARM e sulla GPU):
+
+| Scena | Prima | Dopo |
+|---|---:|---:|
+| Sfere piatte | 936 | 706 (−25%) |
+| Sfere Gouraud | 1030 | 830 (−19%) |
+| Sfere con texture | 1131 | 888 (−21%) |
+| Texture Room (8 casse) | 1386 | 1109 (−20%) |
+| Stanza con 2D in mezzo | 1432 | 1130 (−21%) |
+
+Da dove: il piano vicino provato una volta per vertice (e per niente se la mesh è tutta
+davanti), niente colore RGB565 né copia della faccia quando disegna la GPU, il centro
+della faccia solo con le lampade, la banda di guardia provata una volta per mesh dalla
+sua sfera (`R3D_INSIDE`) invece che per vertice, le celle opache della texture provate
+con una tabella delle somme (4 letture invece di una per cella), il percorso del
+triangolo senza chiamate in mezzo e il colore in 0..1 calcolato una volta per faccia.
+
 ## 6. Atteso (simulazioni) e trovato (Pi)
 
 | Misura | Atteso | Trovato sul Pi | Nota |
@@ -107,12 +150,16 @@ dentro, numeri attesi contro numeri misurati.
 | Frame via RAM + DMA | DMA più veloce (3,4× sulla fascia) | Frame intero **più lento** (14,06 contro 11,85 ms) | Il guadagno sulla fascia non vale sul frame intero |
 | Stress C, sett. → 29 set. | uguale | sprite **−22%** (circa 3,5 ms fissi in più per frame), 3D **−50%**; parte Lua uguale | Da capire: lo stress ora stampa clock, temperatura, throttling e un ciclo di sola CPU |
 | Input Bluetooth, 600 report in coda | nessun ritardo | < 0,5 s (test), niente ritardo percepito | Si legge solo lo stato più recente, lavoro limitato a 4 ms |
+| Rasterizzatore di M33 sulle sfere (`qemu-arm`) | −9% di istruzioni | **2,3×** più sfere a 60 fps (31 → 70) | Il conteggio non vede le fermate della pipeline per i confronti in virgola mobile (`vmrs`) che la virgola fissa ha tolto |
+| Stress C, 29 set. → 1 ott. | disturbo all'avvio | sprite di nuovo a 4456 (settembre 4482) | Confermato: con 20 s di attesa il calo sparisce |
+| Prima prova della V3D (1 ott.) | il passo 3 passa | "no end of frame" | Errore del driver: il bit "binner senza memoria" di `PCS`, acceso fin dall'avvio, era preso per un errore; corretto e coperto da `make test-v3d` |
+| V3D dopo la correzione (1 ott., `d0c7fe8`) | "centinaia di Mpixel/s, milioni di triangoli/s" | **811 Mpixel/s**, 3,0 M triangoli/s; 182 sfere a 60 fps contro 69 dell'ARM | Il limite ora è l'ARM che prepara i vertici (~2 µs per triangolo); le texture 256×256 in ordine di riga costano 9 ns/px contro 1 |
 
 ## 7. Evitato o rimandato
 
 | Cosa | Perché | Stato |
 |---|---|---|
-| GPU 3D (VideoCore IV) | Driver enorme e poco documentato per il bare metal | Non previsto |
+| OpenGL ES sulla GPU | Vuole il firmware con VCHIQ o il driver DRM di Linux; troppo grande | Sostituito da un backend V3D a funzioni fisse (M33, in prova) |
 | Modo 32 bit | 2× banda; beneficio marginale con il dithering | Rimandato |
 | DMA per copiare i frame | Più lento della CPU sul frame intero | Solo test `D` e riempimenti |
 | Luce per pixel | Troppo costosa | Griglia 4×4 |
@@ -133,6 +180,16 @@ dentro, numeri attesi contro numeri misurati.
 | Il secondo DS4 non si connette | Il pad chiedeva SDP prima dell'HID; il rifiuto lo faceva chiudere | Server SDP minimo; la console apre i canali HID dopo 1 s |
 
 ## 9. Da misurare alla prossima prova
+
+- Overbit con la GPU (`docs/M33-PRIMA-DOPO.md`, sezione 7): le tre pagine di *Overbit > BENCHMARK* (ms
+  veri di ARM, GPU e GPU+AA a ogni qualità e l'anello di eroi) da confrontare con le
+  stime contate con `qemu-arm` (HIGH: ~28 ms con la GPU contro ~34 sull'ARM nello
+  scontro di 10 bot). Le righe *GPU spheres* dello stress test dopo il driver del
+  2026-10-03 (907 istruzioni per triangolo contro 913: poco cambia) e le righe AA.
+
+- M33: stress `s` con le righe `quad 320x180` (ns per pixel) e le due righe della
+  macchina (clock del core, interrupt); Texture Room con 8 e 32 casse dopo il
+  rasterizzatore nuovo.
 
 - Stress `s` con la riscrittura del rasterizzatore: righe 3D piatto, Gouraud e texture.
 - Righe "before" e "after C part": clock, throttling e ciclo di sola CPU.

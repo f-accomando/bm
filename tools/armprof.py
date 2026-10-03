@@ -1,0 +1,126 @@
+#!/usr/bin/env python3
+"""
+armprof.py - how many ARM instructions each function of a program executes,
+counted by QEMU (user mode): the code is the console's (ARM1176, -marm),
+only the C library around it is Linux's. A stand-in for a profiler on the
+Pi: instruction counts are not cycles (a VFP division takes ~19 cycles, a
+load that misses the cache tens), so the report also weighs every
+instruction with a rough ARM1176 cost.
+
+  armprof.py BINARY [ARGS...]          (built with arm-linux-gnueabihf-gcc -static)
+  ARMPROF_BLOCKS=20 armprof.py ...     also the 20 hottest blocks and their lines (-g)
+
+The program runs once under qemu-arm -d in_asm,exec,nochain; the log (GB
+for a few hundred million instructions) is read through a pipe while it runs.
+"""
+import collections
+import os
+import re
+import subprocess
+import sys
+import tempfile
+
+# rough costs of the ARM1176's instructions in cycles (by mnemonic prefix)
+COST = [
+    ("vdiv", 19), ("vsqrt", 19), ("vcvt", 2), ("vmul", 1), ("vadd", 1), ("vsub", 1), ("vmla", 2), ("vmls", 2),
+    ("vneg", 1), ("vabs", 1), ("vcmp", 1), ("vmrs", 2), ("vmov", 1), ("vldr", 1), ("vstr", 1), ("vpush", 2),
+    ("vpop", 2), ("vldm", 2), ("vstm", 2),
+    ("mul", 2), ("mla", 2), ("smull", 3), ("umull", 3), ("smlal", 3), ("ldm", 2), ("stm", 2), ("push", 2),
+    ("pop", 3), ("ldr", 1), ("str", 1), ("b", 1), ("bl", 2),
+]
+
+
+def cost(mn):
+    for p, c in COST:
+        if mn.startswith(p):
+            return c
+    return 1
+
+
+def main():
+    if len(sys.argv) < 2:
+        print(__doc__)
+        return 2
+    binary = sys.argv[1]
+    # the instructions of the program, from objdump: address -> mnemonic
+    dis = subprocess.run(["arm-linux-gnueabihf-objdump", "-d", "--no-show-raw-insn", binary],
+                         capture_output=True, text=True).stdout
+    mnem = {}
+    re_d = re.compile(r"^\s*([0-9a-f]+):\s+(\S+)")
+    for line in dis.splitlines():
+        m = re_d.match(line)
+        if m:
+            mnem[int(m.group(1), 16)] = m.group(2)
+    # the log goes through a pipe, read while QEMU writes it: it would take
+    # tens of GB on the disk for a few seconds of a game
+    tmp = tempfile.mkdtemp(prefix="armprof-")
+    log = os.path.join(tmp, "log")
+    os.mkfifo(log)
+    try:
+        qemu = subprocess.Popen(["qemu-arm", "-d", "in_asm,exec,nochain", "-D", log] + sys.argv[1:])
+        blocks = {}          # pc -> (symbol, n instructions, weighted cost)
+        execs = collections.Counter()
+        re_tr = re.compile(r"^Trace \d+: 0x[0-9a-f]+ \[[0-9a-f]+/([0-9a-f]+)/")
+        re_pc = re.compile(r"^0x([0-9a-f]+):")
+        sym, pc, nbytes = "", None, 0
+
+        def close():
+            if pc is not None and nbytes:
+                if pc in mnem and (pc + 4 in mnem or nbytes == 4):
+                    k = nbytes // 4                 # ARM code (the console's)
+                    blocks[pc] = (sym or "?", k, sum(cost(mnem.get(pc + 4 * i, "")) for i in range(k)))
+                else:
+                    blocks[pc] = (sym or "?", nbytes // 2, nbytes // 2)   # Thumb (the C library)
+
+        with open(log, errors="replace") as f:
+            for line in f:
+                if line.startswith("IN:"):
+                    close()
+                    sym, pc, nbytes = line[3:].strip(), None, 0
+                    continue
+                m = re_pc.match(line)
+                if m and pc is None:
+                    pc = int(m.group(1), 16)
+                    continue
+                if line.startswith("OBJD-"):
+                    nbytes += len(line.split(":", 1)[1].strip()) // 2
+                    continue
+                if line.startswith("Trace"):
+                    close()
+                    pc, nbytes = None, 0
+                    m = re_tr.match(line)
+                    if m:
+                        execs[int(m.group(1), 16)] += 1
+        close()
+        qemu.wait()
+        n = collections.Counter()
+        c = collections.Counter()
+        for p_, k in execs.items():
+            if p_ in blocks:
+                s_, ni, nc = blocks[p_]
+                n[s_] += ni * k
+                c[s_] += nc * k
+        tn, tc = sum(n.values()), sum(c.values())
+        print(f"{'function':32s} {'instructions':>14s} {'%':>6s} {'~cycles':>14s} {'%':>6s}")
+        for s_, v in c.most_common(25):
+            print(f"{s_[:32]:32s} {n[s_]:14d} {100 * n[s_] / max(1, tn):6.1f} {v:14d} {100 * v / max(1, tc):6.1f}")
+        print(f"{'total':32s} {tn:14d} {'':6s} {tc:14d}")
+        if os.environ.get("ARMPROF_BLOCKS"):
+            # the hottest blocks, with their source lines (needs -g)
+            bc = collections.Counter()
+            for p_, k in execs.items():
+                if p_ in blocks:
+                    bc[p_] = blocks[p_][2] * k
+            top = bc.most_common(int(os.environ["ARMPROF_BLOCKS"]))
+            lines = subprocess.run(["arm-linux-gnueabihf-addr2line", "-e", binary] + [hex(p_) for p_, _ in top],
+                                   capture_output=True, text=True).stdout.split("\n")
+            print(f"\n{'block':>10s} {'instr':>5s} {'runs':>9s} {'~cycles':>11s}  source")
+            for (p_, v), src in zip(top, lines):
+                print(f"{p_:10x} {blocks[p_][1]:5d} {execs[p_]:9d} {v:11d}  {blocks[p_][0][:20]} {os.path.basename(src)}")
+    finally:
+        os.unlink(log)
+        os.rmdir(tmp)
+
+
+if __name__ == "__main__":
+    sys.exit(main())

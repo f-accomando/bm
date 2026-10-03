@@ -201,6 +201,14 @@ static const cname_t colors[] = {
     { "silver", 0xC0C8D8 },
 };
 
+uint32_t spr_color_word(const char *w)
+{
+    for (unsigned k = 0; k < sizeof colors / sizeof colors[0]; k++)
+        if (!strcmp(w, colors[k].w))
+            return colors[k].rgb;
+    return SPR_NO_COLOR;
+}
+
 static uint32_t rgb(int r, int g, int b)
 {
     r = r < 0 ? 0 : r > 255 ? 255 : r;

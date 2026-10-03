@@ -16,6 +16,10 @@
 #define HID_Y       (1u << 9)
 #define HID_L1      (1u << 10)      /* shoulder buttons: the menu's tabs (not in games) */
 #define HID_R1      (1u << 11)
+#define HID_L2      (1u << 12)      /* triggers and stick clicks (M32): with the right */
+#define HID_R2      (1u << 13)      /* stick as the pointer, R2 / R3 click and L2 is the */
+#define HID_L3      (1u << 14)      /* right button; not in btn(); .bm pad() bits (shooters) */
+#define HID_R3      (1u << 15)
 
 /* report_id: the keyboard's report ID if the device may send report
  * protocol reports (first byte = ID), else 0. */
@@ -50,6 +54,48 @@ uint32_t hid_players(uint32_t out[HID_PLAYERS], int text, int local, int ble);
  * slot, or of the USB gamepad with slot -1. Returns 1 if the pad has an
  * analog stick (else xy is 0). */
 int hid_stick(int slot, int8_t xy[2]);
+/* The same for the right stick (aiming in shooters): hid_stick2. */
+int hid_stick_r(int slot, int8_t xy[2]);
+/* The right stick (M32: it moves the pointer), the same way; 0 for pads
+ * without one. */
+int hid_stick2(int slot, int8_t xy[2]);
+
+/* ---- mice (M32): USB, Bluetooth classic and Bluetooth LE */
+
+/* Where the fields of a mouse's input report are, from its report
+ * descriptor (USB) or report map (LE): bit offsets after the report ID,
+ * -1 when absent. absolute: X and Y are a position (a tablet, QEMU's
+ * usb-tablet), in x_min..x_max / y_min..y_max. */
+typedef struct {
+    uint8_t id;                     /* report ID, 0 = none */
+    uint8_t nbuttons, absolute;
+    uint8_t x_size, y_size, wheel_size, pan_size;
+    int16_t buttons_bit, x_bit, y_bit, wheel_bit, pan_bit;
+    int32_t x_min, x_max, y_min, y_max;
+} hid_mouse_layout_t;
+/* 1 if the descriptor has a mouse (or tablet) with X and Y. */
+int  hid_mouse_layout(const uint8_t *desc, uint32_t len, hid_mouse_layout_t *m);
+/* The boot protocol report: buttons, X, Y and, when the report is longer,
+ * the wheel. id: 2 on Bluetooth classic (A1 02 ...), 0 on USB. */
+void hid_mouse_boot_layout(hid_mouse_layout_t *m, uint8_t id);
+
+enum { HID_MOUSE_USB, HID_MOUSE_BT, HID_MOUSE_BLE, HID_MICE };
+/* A report of the mouse on `src`: with its report ID first when the layout
+ * has one (for LE notifications, pass a layout with id 0). */
+void hid_mouse_report(int src, const hid_mouse_layout_t *m, const uint8_t *r, uint32_t len);
+/* The mouse on `src` went away: its buttons are released. */
+void hid_mouse_clear(int src);
+
+typedef struct {
+    int32_t dx, dy;                 /* relative motion since the last call (counts) */
+    int32_t wheel, pan;             /* wheel steps: up / right positive */
+    uint8_t buttons;                /* held on any mouse: bit 0 left, 1 right, 2 middle */
+    uint8_t pressed;                /* pressed since the last call (a quick click counts) */
+    int abs;                        /* a tablet reported: ax, ay its position, 0..65535 */
+    uint16_t ax, ay;
+} hid_mouse_t;
+/* What the mice did since the last call (then cleared). */
+void hid_mouse_take(hid_mouse_t *m);
 
 /* A Bluetooth LE keyboard (HID over GATT). Its keyboard input report, as
  * found in the report map: report ID, bit offsets of the modifier byte and
@@ -73,6 +119,9 @@ int      hid_getc(void);
 uint32_t hid_buttons(void);
 /* The same without the keyboard (text mode: the keyboard types). */
 uint32_t hid_pad_buttons(void);
+/* L2 R2 L3 R3 held on the pads, or pressed since the last call (the
+ * pointer's buttons, M32); the other readers' presses are not taken. */
+uint32_t hid_pointer_buttons(void);
 /* What pressed a button or a key last, for the buttons shown on screen:
  * a keyboard (USB or Bluetooth), a DS4 (Bluetooth or USB) or another pad;
  * HID_SOURCE_NONE until something is pressed. */

@@ -38,13 +38,24 @@
  *            of each face that far inwards, so the next tile of the sheet
  *            never shows along the edges), u32 reserved (0), then per model:
  *              char[16] name (UTF-8, zero padded; unique in the section),
- *              u16 vertices (1..4096), u16 faces (1..16384), u32 reserved,
+ *              u16 vertices (1..4096), u16 faces (1..16384), u32 flags (bit 0
+ *              "lit": the light is baked in the faces, see below; else 0),
  *              vertices x { f32 x, y, z }: y up, like mesh();
  *              faces x { u16 a, b, c: 0-based vertex indices, clockwise
  *                        seen from the side that shows (as for mesh());
  *                        u16 reserved; u32 colour: 0xRRGGBB, or bit 31 set =
- *                        textured with the sprite sheet; u16 u0, v0, u1, v1,
- *                        u2, v2: texture corners in sheet pixels x 8 }.
+ *                        textured with the sprite sheet; bits 24..30 the
+ *                        material (emissive, glossy, screen-door, flat,
+ *                        level of detail: r3d.h; 0 = plain); u16 u0, v0, u1,
+ *                        v1, u2, v2: texture corners in sheet pixels x 8; in a
+ *                        "lit" model, on a face that is not textured, the
+ *                        light baked at each corner instead: u = R | G << 8,
+ *                        v = B (128 = the colour as it is, up to 255 brighter):
+ *                        such a face is drawn with that light, smoothly, and
+ *                        no light of the scene (sun, sky) but the lamps; a
+ *                        textured face of a "lit" model has its light (one
+ *                        for the whole face) in the u16 reserved: RGB 5-6-5,
+ *                        where the top value is twice the texture as it is }.
  *   9 ANIM   skeletons and animations of MESH models (made with bm Animator,
  *            sdk/animator): u16 rigs, u16 reserved, u32 reserved, then per
  *            rig:
@@ -125,9 +136,12 @@ typedef struct {
 } bm_cart_t;
 
 /* One model of a MESH section (bm_parse has already checked it). */
+#define BM_MODEL_LIT       1u              /* flags of a model: its light is baked */
+
 typedef struct {
     char name[BM_MODEL_NAME + 1];
     uint16_t nverts, nfaces;
+    uint32_t flags;                 /* BM_MODEL_LIT, or 0 */
     const uint8_t *verts;           /* nverts x 3 little-endian f32 */
     const uint8_t *faces;           /* nfaces x BM_MESH_FACE bytes */
 } bm_model_t;
@@ -155,6 +169,9 @@ float bm_mesh_inset(const uint8_t *mesh);
  * in sheet pixels. */
 void bm_model_vertex(const bm_model_t *m, int i, float xyz[3]);
 void bm_model_face(const bm_model_t *m, int f, uint16_t idx[3], uint32_t *colour, float uv[6]);
+/* The light baked at the corners of face f of a "lit" model: R G B for
+ * each corner (128 = 1; a textured face: the same at the three). */
+void bm_model_face_light(const bm_model_t *m, int f, uint8_t rgb[9]);
 
 /* One skeleton of an ANIM section, and one of its animations. */
 typedef struct {

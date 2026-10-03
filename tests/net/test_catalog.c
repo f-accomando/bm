@@ -6,7 +6,7 @@
  *   test_catalog DIR PUB OTHER_PUB [ID COVER.rgba]...
  */
 #include "net/catalog.h"
-#include "bm/n8cart.h"
+#include "bm/png.h"
 
 #include "mbedtls/entropy.h"
 #include "mbedtls/platform_time.h"
@@ -172,7 +172,7 @@ int main(int argc, char **argv)
         char *want = slurp("", argv[a + 1], &rn);
         uint8_t *rgba = NULL;
         int w = 0, h = 0;
-        int ok = png && want && n8_png_rgba((uint8_t *)png, pn, &rgba, &w, &h) == 0 && w == 128 && h == 80 &&
+        int ok = png && want && png_rgba((uint8_t *)png, pn, &rgba, &w, &h) == 0 && w == 128 && h == 80 &&
                  rn == 128 * 80 * 4 && memcmp(rgba, want, rn) == 0;
         char what[96];
         snprintf(what, sizeof what, "%s: cover.png decodes to the cartridge's cover", argv[a]);

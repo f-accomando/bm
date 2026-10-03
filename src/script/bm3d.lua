@@ -11,6 +11,9 @@
 -- update(dt), draw(), refresh(), status() and its help lines (keys).
 
 local T = {}
+-- the assistant's panel (F6, Y + X): the base of a model from a 3D recipe
+local ok_assist, assist = pcall(require, "assist")
+if not ok_assist then assist = { update = function() return false end, draw = function() end } end
 local W, H = SCREEN_W, SCREEN_H
 T.W, T.H = W, H
 
@@ -281,7 +284,7 @@ end
 
 -- back from triangles: the two halves of each tile become a tile again
 -- (as bm Studio's meshToFaces)
-function T.decode_model(mc, ac)
+function T.decode_model(mc, ac, bones)
   local nv, nf = sunpack("<I2I2", mc, 17)
   local pos = 25
   local verts = {}
@@ -301,6 +304,7 @@ function T.decode_model(mc, ac)
     local r, b, n = T.decode_rig(ac)
     if n == nv then rig, vb = r, b end
   end
+  if bones and #bones == nv then vb = bones end   -- the bones given apart (reduce_model)
   local function tri(t)
     local f = { p = { V.copy(verts[t[1]]), V.copy(verts[t[2]]), V.copy(verts[t[3]]) } }
     if t[4] & TEXTURED ~= 0 then
@@ -330,6 +334,28 @@ function T.decode_model(mc, ac)
     i = i + (merged and 2 or 1)
   end
   return faces, rig
+end
+
+-- fewer triangles for a model (the kernel's mesh_reduce, src/bm/decimate.c):
+-- its faces become the reduced triangles, the skeleton stays and the bones
+-- follow the vertices. Returns the number of triangles, or false and why.
+function T.reduce_model(m, target)
+  if not mesh_reduce then return false, "this kernel has no mesh_reduce" end
+  if m.dirty or not m.mc then
+    local ok, e = T.encode_mesh(m)
+    if not ok then return false, e end
+  end
+  if not m.mc then return false, "no faces" end
+  local mc, vb, nt = mesh_reduce(m.mc, target, m.rig and m.vb or nil)
+  if not mc then return false, vb end
+  local bones
+  if vb then
+    bones = {}
+    for i = 1, #vb do bones[i] = vb:byte(i) + 1 end
+  end
+  m.faces = T.decode_model(mc, nil, bones)
+  m.dirty = true
+  return nt
 end
 
 ----------------------------------------------------------------- the project
@@ -918,6 +944,191 @@ function T.counts(m, x, y, narrow)
   if nt > T.TRIS_60FPS then return "heavy for 60 fps (" .. T.TRIS_60FPS .. " triangles a scene)" end
 end
 
+----------------------------------------------------------------- a model from a picture
+
+-- a picture becomes a model through an image-to-3D service (picture3d,
+-- src/net/img3d.c): the pictures on the SD card to choose from, the job
+-- followed on the status line (a look every 5 seconds), then the .glb as
+-- a model: its texture goes on the sheet when the sheet is untouched,
+-- else the faces take the colours under them. Esc gives the job up.
+local pic = nil
+local PIC_PROVIDER = "meshy"
+
+local function pictures()
+  local out = {}
+  for _, dir in ipairs({ "/pics", "/" }) do
+    for _, f in ipairs(ls(dir)) do
+      local n = f.name:lower()
+      if not f.dir and (n:match("%.png$") or n:match("%.jpe?g$")) then
+        out[#out + 1] = (dir == "/" and "" or dir) .. "/" .. f.name
+      end
+    end
+  end
+  table.sort(out)
+  return out
+end
+
+local function sheet_untouched()
+  local w, h = cart_sheet()
+  for y = 0, h - 1 do
+    for x = 0, w - 1 do
+      if sget(x, y) then return false end
+    end
+  end
+  return true
+end
+
+-- the model into the project: a new model named after the picture
+local function picture_into_project(m, how, name)
+  local use_texture = m.textured and m.texture and sheet_untouched()
+  local i = T.new_model(name)
+  local model = S.models[i]
+  model.faces = T.decode_model(use_texture and m.record or m.flat or m.record)
+  if use_texture then
+    local w, h = cart_sheet()
+    if w < 256 or h < 256 then cart_sheet(math.max(w, 256), math.max(h, 256)) end
+    local tex = m.texture
+    for y = 0, 255 do
+      local base = y * 1024
+      for x = 0, 255 do
+        local r, g, b, a = tex:byte(base + x * 4 + 1, base + x * 4 + 4)
+        sset(x, y, a >= 128 and (r << 16 | g << 8 | b) or nil)
+      end
+    end
+    S.sheet_dirty = true
+  end
+  S.undo, S.redo = {}, {}
+  model.dirty = true
+  local ok, e = T.sync()
+  if not ok then
+    table.remove(S.models, i)
+    T.sync()
+    T.say("cannot take the model: " .. tostring(e), C.ERR, 400)
+    return
+  end
+  T.select_model(i)
+  S.dirty = true
+  T.refresh()
+  T.say(how .. ": the model " .. model.name .. ", " .. m.nf .. " triangles" ..
+      (use_texture and ", its texture on the sheet" or (m.textured and ", flat colours (the sheet is in use)" or "")),
+      C.ACC, 400)
+end
+
+local function picture_take(url)
+  local m, err = picture3d("take", url, { name = pic.name, faces = T.TRIS_60FPS, height = 2 })
+  if not m then T.say(PIC_PROVIDER .. ": " .. tostring(err), C.ERR, 400); return end
+  picture_into_project(m, PIC_PROVIDER, pic.name)
+end
+
+local function model_name(path)
+  local name = path:match("([^/]+)%.[^.]+$") or "model"
+  name = name:gsub("[^%w_]", ""):sub(1, 15):lower()
+  return name ~= "" and name or "model"
+end
+
+local function picture_start(path)
+  local task, err = picture3d("start", path, { provider = PIC_PROVIDER, polycount = 2000 })
+  if not task then T.say("cannot start: " .. tostring(err), C.ERR, 400); return end
+  pic = { task = task, t = 0, name = model_name(path), progress = 0, url = nil }
+  T.say(PIC_PROVIDER .. ": the job started: a few minutes for the model (Esc gives up)", C.ACC, 600)
+end
+
+-- the outline methods, made here (cutout3d, src/bm/cutout.c): the frame after
+-- the message, as the call takes a moment on the console
+local function outline_start(path, lathe)
+  pic = { local_path = path, lathe = lathe, name = model_name(path), t = 0 }
+  T.say((lathe and "lathe" or "cutout") .. ": making the model from the outline...", C.ACC, 300)
+end
+
+local function outline_take()
+  local p = pic
+  pic = nil
+  local m, err = cutout3d(p.local_path, { name = p.name, lathe = p.lathe, faces = T.TRIS_60FPS, height = 2 })
+  if not m then T.say((p.lathe and "lathe" or "cutout") .. ": " .. tostring(err), C.ERR, 400); return end
+  picture_into_project(m, p.lathe and "lathe" or "cutout", p.name)
+end
+
+-- the pictures of the SD card to choose from, for a method; false if
+-- there are none (or no key, for the service)
+local function picture_list(method)
+  if method == "meshy" then
+    local ok, why = picture3d("ready", PIC_PROVIDER)
+    if not ok then T.say(tostring(why), C.ERR, 600); return false end
+  end
+  local files = pictures()
+  if #files == 0 then T.say("no .png or .jpg pictures in /pics on the SD card", C.ERR, 400); return false end
+  local rows = {}
+  for i, f in ipairs(files) do
+    rows[i] = { f, function()
+      if method == "meshy" then picture_start(f) else outline_start(f, method == "lathe") end
+    end }
+  end
+  T.choose("a picture to make a model from (" .. method .. ")", rows, 1)
+  return true
+end
+
+-- the ways: the outline cut out or turned (here, no network), or the
+-- image-to-3D service; then the pictures
+function T.picture_chooser()
+  if not cutout3d and not picture3d then T.say("this kernel cannot make models from pictures", C.ERR, 300); return false end
+  if pic then T.say("a model is on its way already (Esc gives it up)", C.ERR, 300); return false end
+  local rows = {}
+  if cutout3d then
+    rows[#rows + 1] = { "cutout: the picture's outline with some thickness (made here)",
+                        function() picture_list("cutout") end }
+    rows[#rows + 1] = { "lathe: the outline turned around (vases, towers; made here)",
+                        function() picture_list("lathe") end }
+  end
+  if picture3d then
+    rows[#rows + 1] = { PIC_PROVIDER .. ".ai: image-to-3D service (a key in bm/config.txt)",
+                        function() picture_list("meshy") end }
+  end
+  T.choose("a model from a picture: how", rows, 1)
+  return true
+end
+
+-- each frame: a look at the job every 5 seconds; the download the frame
+-- after it is done (the message shows first: the calls block)
+function T.picture_update()
+  if not pic then return end
+  pic.t = pic.t + 1
+  if pic.local_path then
+    if pic.t >= 2 then outline_take() end
+    return
+  end
+  if pic.url then
+    local url = pic.url
+    pic = { name = pic.name }
+    picture_take(url)
+    pic = nil
+    return
+  end
+  if pic.t % 300 ~= 0 then return end
+  local st, a = picture3d("status", pic.task, PIC_PROVIDER)
+  if st == "running" then
+    pic.progress = a
+    T.say(PIC_PROVIDER .. ": " .. a .. "% of the model (Esc gives up)", C.TEXT, 320)
+  elseif st == "done" then
+    pic.url = a
+    T.say(PIC_PROVIDER .. ": downloading the model...", C.ACC, 600)
+  else
+    T.say(PIC_PROVIDER .. ": " .. tostring(a), C.ERR, 600)
+    pic = nil
+  end
+end
+
+-- Esc while a job is on its way: it is given up (the service goes on by itself)
+function T.picture_key(k)
+  if pic and not pic.url and not pic.local_path and (k == "esc" or k == "back") then
+    pic = nil
+    T.say(PIC_PROVIDER .. ": the job given up", C.DIM, 200)
+    return true
+  end
+  return false
+end
+
+function T.picture_busy() return pic ~= nil end
+
 ----------------------------------------------------------------- dialogs
 
 local input, choosing, help = nil, nil, false
@@ -1052,6 +1263,7 @@ local function build_menu()
   items[#items + 1] = { "Save as...", function() T.save_as() end }
   items[#items + 1] = { "Try the game (F5)", function() T.run_project() end }
   if A.menu then A.menu(items) end
+  if A.picture then items[#items + 1] = { "Model from picture...", function() if T.picture_chooser() then go(S.last_page or A.order[1]) end end } end
   items[#items + 1] = { "Exit " .. A.name, function() if not needs_confirm("exit") then quit() end end }
 end
 
@@ -1129,6 +1341,7 @@ local function global_key(k)
   if k == "esc" and S.page ~= "menu" and not busy then go("menu"); return true
   elseif k == "^s" then T.save_project(); return true
   elseif k == "f5" or k == "^r" then T.run_project(); return true
+  elseif k == "f6" and not busy then T.assistant(); return true
   elseif k == "^z" then T.do_undo(S.undo, S.redo, "undo"); refresh(); return true
   elseif k == "^y" then T.do_undo(S.redo, S.undo, "redo"); refresh(); return true
   elseif (k == "[" or k == "]") and S.page ~= "menu" and not busy and #S.models > 0 then
@@ -1137,6 +1350,53 @@ local function global_key(k)
     return true
   end
   return false
+end
+
+-- the assistant (F6, Y + X): a 3D recipe ("una casa rossa", "mech"...)
+-- becomes a model, with its skeleton and animations when it has them
+function T.assistant()
+  if not ok_assist or not ai or not ai.mesh then say("the assistant is not here", C.ERR); return end
+  assist.open{ mode = "mesh", on_mesh = T.take_model }
+end
+
+-- the assistant's model: into the current model if it is empty, else a new
+-- one named after the recipe; then the first page shows it
+function T.take_model(m)
+  if not m or not m.faces or #m.faces == 0 then return end
+  local cur, i = M(), nil
+  if cur and #cur.faces == 0 and not (cur.rig and #cur.rig.bones > 0) then
+    i = S.cur
+    if cur.name:match("^model%d*$") then cur.name = T.unique_name(m.gen, S.cur) end
+  else
+    i = T.new_model(m.gen)
+  end
+  local mm = S.models[i]
+  mm.faces = m.faces
+  mm.rig = nil
+  if m.bones and #m.bones > 0 then
+    mm.rig = { bones = m.bones, clips = m.clips or {} }
+  else
+    for _, f in ipairs(mm.faces) do f.b = nil end
+  end
+  mm.dirty = true
+  S.undo, S.redo = {}, {}
+  local ok, e = T.sync()
+  if not ok then
+    mm.faces, mm.rig, mm.dirty = {}, nil, true
+    T.sync()
+    say("cannot: " .. tostring(e), C.ERR)
+    return
+  end
+  S.dirty = true
+  T.select_model(i)
+  refresh()
+  go(A.order[1])
+  local pg = A.pages[A.order[1]]
+  if pg.reset then pg.reset() end              -- the camera on it
+  local nb = mm.rig and #mm.rig.bones or 0
+  say(string.format("the assistant's %s: %d faces%s, model %s", m.name or m.gen, #m.faces,
+                    nb > 0 and string.format(", %d bones, %d animations", nb, #mm.rig.clips) or "", mm.name),
+      C.ACC, 300)
 end
 
 function T.run(app)
@@ -1181,6 +1441,8 @@ function T.run(app)
     local dt = clamp(now - last_t, 0, 0.1)
     last_t = now
     read_pad()
+    if assist.update() then return end          -- the assistant has the keys
+    T.picture_update()                          -- a model on its way from a picture
 
     while true do
       local k = keyp()
@@ -1189,6 +1451,7 @@ function T.run(app)
       elseif input then input_key(k)
       elseif choosing then choose_key(k)
       elseif k == "?" then help = true
+      elseif T.picture_key(k) then
       elseif not global_key(k) then
         local pg = A.pages[S.page]
         if pg then pg.key(k) else menu_key(k) end
@@ -1210,6 +1473,7 @@ function T.run(app)
         for n, p in ipairs(list) do if p == S.page then i = n end end
         go(list[(i - 1 + (btnp(1) and 1 or -1)) % #list + 1])
       elseif btnp(5) then go("menu")
+      elseif btnp(6) then T.assistant()
       elseif btnp(4) then T.do_undo(S.undo, S.redo, "undo"); refresh()
       elseif (btnp(2) or btnp(3)) and #S.models > 0 then
         if pg and pg.pad_y then pg.pad_y(btnp(2) and -1 or 1)
@@ -1261,6 +1525,7 @@ function T.run(app)
     if choosing then draw_choose() end
     if input then draw_input() end
     if keyheld("f12") or help then draw_keys() end
+    assist.draw()                                -- the assistant's panel on top, if open
   end
 end
 

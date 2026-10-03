@@ -17,6 +17,7 @@ in sheet pixels). Layout of the section: see src/bm/bm.h.
 import json
 import math
 import struct
+import zlib
 import sys
 
 SEC_MESH, SEC_ANIM = 8, 9            # src/bm/bm.h; the first bm Studio files had 6 and 7
@@ -42,15 +43,118 @@ def encode(models, inset=0.25):
             raise ValueError(f"{m['name']}: 1 to {MAX_VERTS} vertices, not {len(v)}")
         if not 1 <= len(f) <= MAX_FACES:
             raise ValueError(f"{m['name']}: 1 to {MAX_FACES} faces, not {len(f)}")
-        out += name.ljust(NAME_LEN, b"\0") + struct.pack("<HHI", len(v), len(f), 0)
+        # a "lit" model (flags bit 0): each face that is not textured carries
+        # the light baked at its corners, (r, g, b) x 3 bytes (128 = 1), in
+        # place of the texture corners: "light" in the face, after uv
+        lit = bool(m.get("lit"))
+        out += name.ljust(NAME_LEN, b"\0") + struct.pack("<HHI", len(v), len(f), 1 if lit else 0)
         for p in v:
             out += struct.pack("<3f", *p)
-        for a, b, c, colour, uv in f:
+        for face in f:
+            a, b, c, colour, uv = face[:5]
             if max(a, b, c) >= len(v) or min(a, b, c) < 0:
                 raise ValueError(f"{m['name']}: vertex index out of range")
-            q = [max(0, min(65535, round(t * 8))) for t in (uv or (0,) * 6)]
-            out += struct.pack("<4HI6H", a, b, c, 0, colour & 0xFFFFFFFF, *q)
+            res = 0
+            if lit and not colour & 0x80000000 and len(face) > 5:
+                L = [max(0, min(255, int(x))) for x in face[5]]
+                q = []
+                for k in range(3):
+                    q += [L[k * 3] | L[k * 3 + 1] << 8, L[k * 3 + 2]]
+            else:
+                q = [max(0, min(65535, round(t * 8))) for t in (uv or (0,) * 6)]
+                if lit and len(face) > 5:
+                    # a textured face of a lit model: one light, RGB 5-6-5 with the top = 2
+                    L = face[5]
+                    lr, lg, lb = (sum(L[k * 3 + ch] for k in range(3)) / 3 for ch in range(3))
+                    res = (min(31, round(lr / 256 * 31)) << 11 | min(63, round(lg / 256 * 63)) << 5 |
+                           min(31, round(lb / 256 * 31)))
+            out += struct.pack("<4HI6H", a, b, c, res, colour & 0xFFFFFFFF, *q)
     return bytes(out)
+
+
+def encode_faces(name, faces, bones=None):
+    """a model as bm Studio keeps it (faces with corners p, colour c and the
+    bone b of each corner, 0-based; from tools/img2mesh.py or the kernel's
+    ai.mesh) -> the dict encode() takes, plus the bone of each vertex.
+    Corners of different bones stay apart (bm3d.lua encode_mesh)."""
+    verts, index, vb, tris = [], {}, [], []
+    for f in faces:
+        ids = []
+        for k, p in enumerate(f["p"]):
+            b = f.get("b", [0] * len(f["p"]))[k] if bones else 0
+            key = (round(p[0], 5), round(p[1], 5), round(p[2], 5), b)
+            i = index.get(key)
+            if i is None:
+                i = len(verts)
+                index[key] = i
+                verts.append((p[0], p[1], p[2]))
+                vb.append(b)
+            ids.append(i)
+        colour = f["c"] & 0xFFFFFF
+        for a, b_, c in ([(0, 1, 2), (0, 2, 3)] if len(ids) == 4 else [(0, 1, 2)]):
+            if len({ids[a], ids[b_], ids[c]}) == 3:
+                tris.append((ids[a], ids[b_], ids[c], colour, None))
+    return {"name": name, "verts": verts, "faces": tris}, vb
+
+
+def encode_anim(rigs):
+    """[(name, bones, vb, clips)] -> ANIM section body (bm3d.lua encode_anim):
+    bones {name, parent (0-based, -1 none), head, tail}, vb the bone of
+    each vertex of the model's MESH entry, clips {name, loop, length, keys:
+    [{t, pose: [{q, t}] }]}"""
+    out = bytearray(struct.pack("<HHI", len(rigs), 0, 0))
+    for name, bones, vb, clips in rigs:
+        nb = len(bones)
+        out += name.encode()[:NAME_LEN - 1].ljust(NAME_LEN, b"\0") + struct.pack("<HHHH", nb, len(clips), len(vb), 0)
+        for b in bones:
+            out += b["name"].encode()[:NAME_LEN - 1].ljust(NAME_LEN, b"\0")
+            out += struct.pack("<hH6f", b["parent"], 0, *b["head"], *b["tail"])
+        out += bytes(vb) + b"\0" * ((-len(vb)) % 4)
+        for c in clips:
+            out += c["name"].encode()[:NAME_LEN - 1].ljust(NAME_LEN, b"\0")
+            out += struct.pack("<HBBf", len(c["keys"]), c.get("mode", 1), 1 if c.get("loop", True) else 0, c["length"])
+            for key in c["keys"]:
+                out += struct.pack("<f", key["t"])
+                for i in range(nb):
+                    p = key["pose"][i] if i < len(key["pose"]) else {"q": (0, 0, 0, 1), "t": (0, 0, 0)}
+                    out += struct.pack("<7f", *p["q"], *p["t"])
+    return bytes(out)
+
+
+def decode_anim(body):
+    """ANIM section body -> [(name, bones, vb, clips)] as encode_anim takes them"""
+    n = struct.unpack_from("<H", body, 0)[0]
+    off, out = 8, []
+    for _ in range(n):
+        name = body[off:off + NAME_LEN].split(b"\0")[0].decode(errors="replace")
+        nb, nc, nv, _ = struct.unpack_from("<HHHH", body, off + NAME_LEN)
+        off += NAME_LEN + 8
+        bones = []
+        for _ in range(nb):
+            bname = body[off:off + NAME_LEN].split(b"\0")[0].decode(errors="replace")
+            parent, _, hx, hy, hz, tx, ty, tz = struct.unpack_from("<hH6f", body, off + NAME_LEN)
+            bones.append({"name": bname, "parent": parent, "head": (hx, hy, hz), "tail": (tx, ty, tz)})
+            off += NAME_LEN + 28
+        vb = list(body[off:off + nv])
+        off += (nv + 3) & ~3
+        clips = []
+        for _ in range(nc):
+            cname = body[off:off + NAME_LEN].split(b"\0")[0].decode(errors="replace")
+            nk, mode, flags, length = struct.unpack_from("<HBBf", body, off + NAME_LEN)
+            off += NAME_LEN + 8
+            keys = []
+            for _ in range(nk):
+                t = struct.unpack_from("<f", body, off)[0]
+                off += 4
+                pose = []
+                for _ in range(nb):
+                    q = struct.unpack_from("<7f", body, off)
+                    pose.append({"q": q[:4], "t": q[4:]})
+                    off += 28
+                keys.append({"t": t, "pose": pose})
+            clips.append({"name": cname, "mode": mode, "loop": bool(flags & 1), "length": length, "keys": keys})
+        out.append((name, bones, vb, clips))
+    return out
 
 
 def decode(body):
@@ -87,6 +191,25 @@ def cart_sections(data):
             typ = SEC_ANIM
         out.append((typ, body))
     return out
+
+
+def rewrite_cart(data, secs):
+    """the .bm file `data` with its sections replaced by `secs` ({type:
+    body}; a section not in it goes away, a new one goes last): the header
+    stays (title, author, resolution), the CRC is new"""
+    order = [t for t, _ in cart_sections(data)]
+    order += [t for t in secs if t not in order]
+    sections = [(t, secs[t]) for t in order if t in secs]
+    table, bodies = b"", b""
+    offset = 128 + 16 * len(sections)
+    for typ, body in sections:
+        table += struct.pack("<IIII", typ, offset + len(bodies), len(body), 0)
+        bodies += body + b"\0" * ((-len(body)) % 4)
+    after = table + bodies
+    header = bytearray(data[:128])
+    header[17] = len(sections)
+    struct.pack_into("<I", header, 20, zlib.crc32(after) & 0xFFFFFFFF)
+    return bytes(header) + after
 
 
 # ------------------------------------------------------------------ glTF

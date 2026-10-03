@@ -3,7 +3,7 @@
 #include "config.h"
 #include "fiber.h"
 #include "bm/bm.h"
-#include "bm/n8cart.h"
+#include "bm/png.h"
 #include "drivers/timer.h"
 #include "fs/fat.h"
 #include "lib/printf.h"
@@ -494,7 +494,7 @@ static void job_cover(int i)
     }
     uint8_t *rgba = NULL;
     int w = 0, h = 0;
-    if (d && n8_png_rgba(d, len, &rgba, &w, &h) == 0 && menu_load_cover(&s->cover, rgba, w, h) == 0) {
+    if (d && png_rgba(d, len, &rgba, &w, &h) == 0 && menu_load_cover(&s->cover, rgba, w, h) == 0) {
         s->cover_state = COVER_READY;
     } else if (++s->cover_tries >= 2 || d) {
         /* broken or unreachable: the title on a label, as for games without one */

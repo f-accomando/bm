@@ -18,13 +18,16 @@ jobs:
           sudo apt-get update
           sudo apt-get install -y --no-install-recommends \
             gcc-arm-none-eabi libnewlib-arm-none-eabi binutils-arm-none-eabi \
-            qemu-system-arm qemu-user make python3 dosfstools mtools
+            qemu-system-arm qemu-user make python3 python3-numpy python3-pil dosfstools mtools
 
       - name: Build
         run: make -j"$(nproc)" && make -j"$(nproc)" BOOT=stress
 
       - name: QEMU tests
         run: make test
+
+      - name: QEMU tests of kernel7.img (Pi Zero 2 W, in raspi2b)
+        run: make test-zero2
 
       - name: Screenshot
         if: always()
@@ -36,12 +39,13 @@ jobs:
           name: bm-images
           path: |
             build/kernel.img
+            build/kernel7.img
             build/chainloader.img
             build-stress/kernel.img
             build/screen.png
 
   release:
-    # A tag v* whose tests passed (M19): the kernel, the games and bm/ca.pem
+    # A tag v* whose tests passed (M19): the kernels, the games and bm/ca.pem
     # on a GitHub release, with manifest.txt signed by the secret
     # BM_RELEASE_KEY (scripts/release-key.sh). The Pi checks the signature
     # with keys/release-pub.pem, built into the kernel, and each file's
@@ -72,4 +76,4 @@ jobs:
         run: |
           gh release create "$GITHUB_REF_NAME" dist/release/* --verify-tag \
             --title "bm $GITHUB_REF_NAME" --generate-notes \
-            --notes "Kernel, giochi e bm/ca.pem per il Pi. manifest.txt dice dove va ogni file sulla SD, la dimensione e lo SHA-256; manifest.sig è la sua firma (ECDSA P-256), controllata dal Pi con la chiave nel kernel. A mano: python3 tools/bm_net.py IP --kernel kernel.img"
+            --notes "Kernel (kernel.img; kernel7.img per il Pi Zero 2 W), giochi e bm/ca.pem per il Pi. manifest.txt dice dove va ogni file sulla SD, la dimensione e lo SHA-256; manifest.sig è la sua firma (ECDSA P-256), controllata dal Pi con la chiave nel kernel. A mano: python3 tools/bm_net.py IP --kernel kernel.img (kernel7.img sul Zero 2 W)"

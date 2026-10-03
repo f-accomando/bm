@@ -1,0 +1,8 @@
+# Kaiju (tank): a big red mech with a sword and a shield (made in models: the
+# figure has empty fists). The pilot: kaiju_pilot
+name = kaiju_mech
+height = 3.4
+pose = none
+symmetry = on
+prompt = 3D game model of a big round red mech robot, symmetric, front view, standing with arms down, no head. A barrel-shaped round red armored body topped by a large transparent green glass dome as the cockpit, two white horns on the heavy round shoulders, thick armored forearms ending in big clenched fists, empty hands, no weapons, thick short legs with grey joints, yellow trim stripes. Clean hard-surface shapes, stylized.
+texture = bright red armor, white horns, yellow trim stripes, bright green glass dome, dark grey joints and fists; bright stylized hand-painted game texture with clean saturated colour blocks

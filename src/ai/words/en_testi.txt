@@ -1,0 +1,97 @@
+move the player
+draw the enemies
+check if the ball hits the wall
+reset the score when the game starts
+TODO: add sound
+TODO: make the boss harder after level three
+update the position of every bullet
+remove the bullets that left the screen
+if the player presses the jump button, start the jump
+only jump when the player is standing on the ground
+apply gravity to the falling objects
+clear the screen before drawing anything new
+draw the background first, then the sprites, then the score on top
+count down the timer and end the round when it reaches zero
+spawn a new enemy every two seconds
+pick a random position near the top of the screen
+slow the player down when walking through water
+play the coin sound when the player collects a coin
+add ten points to the score
+show the game over message if the player has no lives left
+wait for the player to press start
+load the level data from the table
+this part is ugly but it works, fix it later
+do not change this number, the whole level depends on it
+the paddle should stay inside the screen
+bounce the ball back when it touches the paddle
+speed up the ball a little after every hit
+the enemy turns around when it reaches the edge of the platform
+keep the camera centered on the player
+save the best score so the player can beat it next time
+FIXME: the player sometimes gets stuck inside the wall
+check every enemy against every bullet
+this loop runs once for each frame
+helper function that returns the distance between two points
+this table holds all the items the player has collected
+the first frame of the animation is the standing pose
+switch to the next frame every six ticks
+flip the sprite when the player walks to the left
+hide the menu and start the game
+this is the main loop, everything happens here
+TODO: let the player pause the game
+NOTE: the screen is small, so keep the text short
+make the door open when the player has the key
+give the player three lives at the start
+take one life away when the player touches an enemy
+the player is invincible for one second after getting hit
+blink the sprite while the player is invincible
+stop the music when the game is over
+start the music again on the title screen
+fade the screen to black between the rooms
+move the clouds slowly to the left to fake the wind
+draw the score in the top corner
+draw a heart for every life that is left
+use the second palette for the night levels
+TODO: find a better color for the water
+check the buttons at the start of every frame
+if both buttons are pressed together, do nothing
+the snake grows by one block after eating an apple
+game over if the snake hits its own tail
+place the apple somewhere that is not inside the snake
+this function is called when the level is finished
+unlock the next level and save the progress
+random numbers are not really random, they only look like it
+I am not sure why this works, but please leave it alone
+this was a bug, now it is a feature
+TODO: delete this test code before sharing the game
+temporary code, remove after testing
+version one of the enemy brain, very simple, it just walks
+the end of the file, thanks for reading
+
+A game is really just a loop. Every frame, which means every small slice of time, the computer does the same three things. First it reads the buttons to see what the player wants to do. Then it updates the world, moving the characters, checking the rules and counting the score. Finally it draws everything on the screen. When the drawing is finished, the loop starts again from the beginning. On this console the loop runs sixty times every second, so even a small mistake in your code is repeated sixty times before you can blink.
+
+Beginners often ask why the screen must be cleared at the start of every frame. The answer is that the screen does not forget. If you draw a character at one place and then draw it at another place without clearing, you will see both of them, and soon the character leaves a long smear behind it. Clearing the screen gives you a clean page, and then you draw the whole picture again, which sounds like a lot of work but is very fast for the computer.
+
+A variable is a name for a value that you want to remember. You can think of it as a small labeled box. One box might be called score and hold the number zero at the start of the game. Another box might be called player name and hold a piece of text. When something happens, such as the player collecting a coin, you take the number out of the box, add ten, and put the new number back. The label stays the same, but the content changes, and that is exactly why we call it a variable.
+
+Some variables are local and some are global. A local variable lives only inside the part of the program where you created it, for example inside one function. When that function ends, the variable disappears. A global variable can be seen from everywhere, which is convenient but also dangerous, because any part of the game can change it by accident. A good habit is to make everything local unless you really need to share it.
+
+A function is a small machine that does one job. You give it some values, it does its work, and sometimes it gives you something back. For example, a function can take the position of the player and the position of an enemy and tell you how far apart they are. Once you have written it, you can use it a hundred times without writing the same steps again. If you later find a mistake, you only fix it in one place. Good functions have short names that say what they do, like draw the player or reset the level.
+
+A table is a collection of values kept together under one name. Imagine a shopping list. It has a first item, a second item, a third item, and you can add new items at the end or cross one out. In a game you might use a table for all the enemies on the screen. Each enemy is itself a table with a position, a speed and a number of hit points. When it is time to move the enemies, you go through the list from the first to the last and update each one. When an enemy is defeated, you remove it from the list, and it vanishes from the game.
+
+Tables can also work like a dictionary, where every value has a name instead of a number. A player table might have a field called x, a field called y and a field called health. This keeps related information in one place, so you can pass the whole player to a function instead of five separate numbers. Remember that the first position of a list in Lua is number one, not zero, which surprises many people who have used other languages before.
+
+A sprite is a small picture that represents something in the game, such as the hero, a tree or a coin. The console keeps all of its sprites together in one big image called the sprite sheet, cut into little squares of the same size. To draw a sprite you only need to say which square you want and where on the screen it should appear. Animation is simply the art of showing a few different sprites one after the other, quickly enough that the eye believes the character is walking. Four or six frames are usually enough for a nice walk cycle.
+
+Every sprite has a position, and the position tells us where the top left corner of the picture is. If you want to draw a character exactly in the middle of the screen, you must subtract half of its width and half of its height, otherwise it will look a little too far to the right and a little too low. Many small bugs in beginner games come from this tiny detail.
+
+Collision detection is how the game knows that two things are touching. The simplest method is to imagine a rectangle around each object. Two rectangles overlap when the left side of each one is before the right side of the other, and the top of each one is above the bottom of the other. If all four of these statements are true at the same time, the objects collide. It is not perfect, because a round ball has empty corners, but for most games it feels fair, and it is very cheap to calculate.
+
+When a collision happens, you decide what it means. A bullet that touches an enemy removes both of them and gives the player some points. A player who touches a coin collects it. A player who touches a wall must be pushed back, otherwise he would walk straight through it. The usual trick is to move the character first, test the new place, and if it is blocked, move back to where it was. Testing the horizontal and the vertical movement separately makes the character slide smoothly along walls instead of sticking to them.
+
+Speed is just a number that is added to the position in every frame. If the speed is two, the object moves two pixels each time the loop runs. A negative speed moves it the other way. Gravity works in the same way: add a small amount to the vertical speed each frame, and the character falls faster and faster, until it lands on something solid and the vertical speed is set back to zero.
+
+Randomness makes a game feel alive. You can ask for a random number between one and ten and use it to decide where the next enemy appears, how long a power up stays on the screen, or which sound the door makes. Be careful, though. A game that is too random feels unfair, and a game with no randomness at all becomes boring after the third try.
+
+Finally, a few words of advice for new programmers. Start small. A single square that moves with the buttons is already a game, and it teaches you most of what you need. Add one thing at a time, run the program after every change, and when something breaks, you will know exactly where to look. Save your work often, give your variables honest names, and write comments for the person who will read the code next month, because that person is you.

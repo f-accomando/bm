@@ -12,4 +12,9 @@
  */
 void bm_stress_run(framebuffer_t *fb);
 
+/* Waits until the kernel has run for ms milliseconds, with a countdown:
+ * right after boot the WiFi joins its network and a paired pad comes back,
+ * and the first tests would pay for it. */
+void bm_stress_settle(uint32_t ms);
+
 #endif

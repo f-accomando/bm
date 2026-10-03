@@ -223,6 +223,26 @@ static int save(const char *p, const uint8_t *data, uint32_t len)
     return fat_write_file(dir, name, data, len);
 }
 
+/* The kernel this build starts from, and whether an image is one for it:
+ * "bmK6" (kernel.img) or "bmK7" (kernel7.img, the Pi Zero 2 W) at +4
+ * (src/boot/start.S). A kernel.img from before the mark has none, and
+ * still goes on the BCM2835 boards. */
+#ifdef BM_ZERO2
+#define KERNEL_FILE "kernel7.img"
+#define KERNEL_MARK '7'
+#else
+#define KERNEL_FILE "kernel.img"
+#define KERNEL_MARK '6'
+#endif
+
+static int kernel_fits(const uint8_t *img, uint32_t len)
+{
+    int marked = len >= 8 && memcmp(img + 4, "bmK", 3) == 0;
+    if (!marked)
+        return KERNEL_MARK == '6';
+    return img[7] == KERNEL_MARK;
+}
+
 void netxfer_poll(void)
 {
     /* a PC that went away in the middle (no FIN reached us): after 10 s of
@@ -245,8 +265,13 @@ void netxfer_poll(void)
             reply("OK");
             kprintf("net: cartridge received, starting it\n");
             reset();
+        } else if (op == 'K' && !kernel_fits(buf, size)) {
+            reply("KA");
+            kprintf("\x1b[91mnet: not a kernel for this Pi, nothing written (the Pi Zero 2 W "
+                    "takes kernel7.img, the other boards kernel.img)\x1b[0m\n");
+            reset();
         } else {
-            const char *where = op == 'K' ? "kernel.img" : path;
+            const char *where = op == 'K' ? KERNEL_FILE : path;
             int r = save(where, buf, size);
             reply(r == 0 ? "OK" : "WE");
             if (r == 0) {
