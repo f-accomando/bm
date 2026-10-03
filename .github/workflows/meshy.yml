@@ -1,0 +1,79 @@
+name: meshy
+
+# A picture becomes a model for the console through Meshy (image-to-3D),
+# from a GitHub runner that can reach api.meshy.ai: tools/meshy2mesh.py
+# with the secret MESHY_API_KEY. Run it by hand (Actions > meshy > Run
+# workflow) with a picture in the repository or an https URL. The .bm,
+# the .glb and a render go up as an artifact and onto the branch
+# meshy-out (its own history: one commit per run).
+on:
+  workflow_dispatch:
+    inputs:
+      image:
+        description: "the picture: a path in the repository, or an https URL"
+        default: tests/ai/meshy/sample.png
+        required: true
+      name:
+        description: "the model's name (up to 15 letters)"
+        default: mech
+        required: true
+      polycount:
+        description: "triangles asked of Meshy"
+        default: "2000"
+      height:
+        description: "the model's height in blocks"
+        default: "2"
+      flat:
+        description: "one colour per face instead of the texture"
+        type: boolean
+        default: false
+
+jobs:
+  meshy:
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Build meshview, install Pillow
+        run: |
+          make build/host/meshview
+          python3 -m pip install --quiet pillow
+
+      - name: Meshy
+        env:
+          MESHY_API_KEY: ${{ secrets.MESHY_API_KEY }}
+          IMAGE: ${{ inputs.image }}
+          NAME: ${{ inputs.name }}
+          POLYCOUNT: ${{ inputs.polycount }}
+          HEIGHT: ${{ inputs.height }}
+          FLAT: ${{ inputs.flat }}
+        run: |
+          test -n "$MESHY_API_KEY" || { echo "the secret MESHY_API_KEY is not set"; exit 1; }
+          mkdir -p build/meshy
+          flat=""
+          [ "$FLAT" = "true" ] && flat="--flat"
+          python3 tools/meshy2mesh.py "$IMAGE" -o "build/meshy/$NAME.bm" --name "$NAME" \
+            --polycount "$POLYCOUNT" --height "$HEIGHT" $flat
+          python3 scripts/bmmesh.py "build/meshy/$NAME.bm"
+          python3 tools/bmrender.py "build/meshy/$NAME.bm" "build/meshy/$NAME.png"
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: meshy-${{ inputs.name }}
+          path: build/meshy/*
+
+      - name: Onto the branch meshy-out
+        env:
+          NAME: ${{ inputs.name }}
+        run: |
+          git config user.name "meshy workflow"
+          git config user.email "actions@users.noreply.github.com"
+          git fetch origin meshy-out && git checkout meshy-out || git checkout --orphan meshy-out
+          git rm -rfq --cached . 2>/dev/null || true
+          mkdir -p out
+          cp build/meshy/* out/
+          git add -f out
+          git commit -qm "meshy: $NAME from ${{ inputs.image }}" || echo "nothing new"
+          git push origin meshy-out
