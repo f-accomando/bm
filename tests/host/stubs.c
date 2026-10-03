@@ -30,6 +30,8 @@
 #include "kernel/crumbs.h"
 #include "kernel/input.h"
 #include "kernel/irq.h"
+#include "kernel/pointer.h"
+#include "net/img3d.h"
 #include "usb/hid.h"
 #include "script/luavm.h"
 #include "n8lua.h"
@@ -339,6 +341,45 @@ int hid_keys_held(uint8_t *out, int max)
     for (int i = 0; i < host.nkeys && n < max; i++)
         out[n++] = host.keys[i];
     return n;
+}
+
+/* the system pointer (M32): no mouse on the PC */
+static const pointer_t no_pointer;
+int pointer_enabled(void) { return 0; }
+void pointer_env(int on, int w, int h) { (void)on; (void)w; (void)h; }
+const pointer_t *pointer_update(void) { return &no_pointer; }
+const pointer_t *pointer_get(void) { return &no_pointer; }
+void pointer_draw(uint16_t *px, uint32_t stride, int w, int h) { (void)px; (void)stride; (void)w; (void)h; }
+
+/* no image-to-3D service from bmhost (the PC tests have their own) */
+const img3d_provider_t *img3d_provider(const char *name) { (void)name; return NULL; }
+const char *img3d_provider_name(int i) { (void)i; return NULL; }
+const char *img3d_key_name(const img3d_provider_t *p) { (void)p; return "meshy_key"; }
+
+static int no_img3d(char *err, size_t errlen)
+{
+    snprintf(err, errlen, "no image-to-3D service in bmhost");
+    return -1;
+}
+
+int img3d_start(const img3d_provider_t *p, const char *key, const uint8_t *image, size_t len, const char *url,
+                int polycount, char *task, size_t tasklen, char *err, size_t errlen)
+{
+    (void)p; (void)key; (void)image; (void)len; (void)url; (void)polycount; (void)task; (void)tasklen;
+    return no_img3d(err, errlen);
+}
+
+int img3d_status(const img3d_provider_t *p, const char *key, const char *task, int *progress, char *model_url,
+                 size_t urllen, char *err, size_t errlen)
+{
+    (void)p; (void)key; (void)task; (void)progress; (void)model_url; (void)urllen;
+    return no_img3d(err, errlen);
+}
+
+int img3d_download(const char *url, size_t max, uint8_t **data, size_t *len, char *err, size_t errlen)
+{
+    (void)url; (void)max; (void)data; (void)len;
+    return no_img3d(err, errlen);
 }
 
 /* ---------------------------------------------------------------- video */

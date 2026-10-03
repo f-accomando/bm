@@ -6,10 +6,12 @@
  *
  *   n8host main.lua --root DIR [--frames N] [--exec LUA]...
  *          [--at F:pad=BITS] [--at F:keys=HEX,HEX] [--at F:exec=LUA]
- *          [--shot F:out.ppm]... [--wav out.wav] [--quiet]
+ *          [--shot F:out.ppm]... [--wav out.wav] [--video out.rgb] [--every K] [--quiet]
  *
  * F is a frame number (60 per second); the pad and keys stay as set until
  * the next --at. --exec runs Lua after _init (e.g. NANO8.Ui.play(1)).
+ * --video writes every K-th frame (default 2: the 30 frames a second of
+ * most carts) as raw 640x360 RGB24, "-" for stdout (for ffmpeg).
  * The exit status is 1 if the cart ended on an error screen.
  */
 #include <dirent.h>
@@ -18,6 +20,7 @@
 #include <string.h>
 #include <sys/stat.h>
 #include <time.h>
+#include <unistd.h>
 
 #include "bm/gfx16.h"
 #include "bm/n8lua.h"
@@ -206,11 +209,22 @@ static int l_stick(lua_State *L)
     return 2;
 }
 
+/* no pointer on the PC: mouse() is nil, the carts' mouse follows the stick */
+static int l_mouse(lua_State *L)
+{
+    if (lua_gettop(L) >= 1) {
+        lua_pushboolean(L, 1);
+        return 1;
+    }
+    return 0;
+}
+
 static const luaL_Reg api[] = {
     { "cls", l_cls }, { "rectfill", l_rectfill }, { "rect", l_rect }, { "line", l_line }, { "pset", l_pset },
     { "print", l_print }, { "time", l_time }, { "log", l_log }, { "ls", l_ls }, { "save", l_save },
     { "saved", l_saved }, { "volume", l_volume }, { "rawkeys", l_rawkeys }, { "keydown", l_keydown },
     { "keys", l_keys }, { "pad", l_pad }, { "quit", l_quit }, { "stick", l_stick }, { "timeslice", l_timeslice },
+    { "mouse", l_mouse },
     { NULL, NULL },
 };
 
@@ -281,7 +295,8 @@ int main(int argc, char **argv)
 {
     static event_t ev[256];
     int nev = 0, frames = 120, perf = 0;
-    const char *script = NULL, *wav = NULL;
+    const char *script = NULL, *wav = NULL, *video = NULL;
+    int every = 2;
     const char *execs[32];
     int nexec = 0;
     for (int i = 1; i < argc; i++) {
@@ -290,6 +305,8 @@ int main(int argc, char **argv)
         else if (!strcmp(a, "--frames") && i + 1 < argc) frames = atoi(argv[++i]);
         else if (!strcmp(a, "--exec") && i + 1 < argc && nexec < 32) execs[nexec++] = argv[++i];
         else if (!strcmp(a, "--wav") && i + 1 < argc) wav = argv[++i];
+        else if (!strcmp(a, "--video") && i + 1 < argc) video = argv[++i];
+        else if (!strcmp(a, "--every") && i + 1 < argc) every = atoi(argv[++i]) > 0 ? atoi(argv[i]) : 1;
         else if (!strcmp(a, "--quiet")) quiet = 1;
         else if (!strcmp(a, "--perf")) perf = 1;
         else if ((!strcmp(a, "--at") || !strcmp(a, "--shot")) && i + 1 < argc && nev < 256) {
@@ -348,6 +365,10 @@ int main(int argc, char **argv)
         put16le(wf, 2); put16le(wf, 16);
         fwrite("data\0\0\0\0", 1, 8, wf);
     }
+    FILE *vf = NULL;
+    if (video)
+        vf = !strcmp(video, "-") ? stdout : fopen(video, "wb");
+    static uint8_t rgb[FW * FH * 3];
     uint32_t samples = 0;
     int status = 0;
     long long peak = 0, start_at = 0;
@@ -395,7 +416,18 @@ int main(int argc, char **argv)
         for (int e = 0; e < nev; e++)
             if (ev[e].frame == frame && !strcmp(ev[e].what, "shot"))
                 write_ppm(ev[e].arg);
+        if (vf && frame % every == 0) {
+            for (int i = 0; i < FW * FH; i++) {
+                uint32_t c = g16_to_rgb24(frame_px[i]);
+                rgb[i * 3] = (uint8_t)(c >> 16);
+                rgb[i * 3 + 1] = (uint8_t)(c >> 8);
+                rgb[i * 3 + 2] = (uint8_t)c;
+            }
+            fwrite(rgb, 1, sizeof rgb, vf);
+        }
     }
+    if (vf && vf != stdout)
+        fclose(vf);
     if (wf) {
         fseek(wf, 4, SEEK_SET);
         put32le(wf, 36 + samples * 2);
@@ -407,7 +439,11 @@ int main(int argc, char **argv)
         printf("perf: %lld k Lua instructions per frame (60 Hz) on average, %lld k at most; start %lld k; "
                "%.0f us per frame on this PC, %.0f at most\n",
                (instr - start_at) / (frames - 61), peak, start_at, busy / (frames - 61), busy_peak);
-    /* report where it ended */
+    /* report where it ended (on stderr when stdout has the video) */
+    if (vf == stdout) {
+        fflush(stdout);
+        dup2(2, 1);
+    }
     run_lua(L, "local m = NANO8.Ui.mode local v = NANO8.Vm "
                "io.write('mode=', m, ' state=', tostring(v.state), ' frames=', tostring(v.frames), '\\n') "
                "if v.err then io.write('error: ', v.err.title, ': ', v.err.msg, '\\n') end "

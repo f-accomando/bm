@@ -8,7 +8,7 @@ and walk in bm Animator, then on the console the map in the SDK, the code in bm 
 and the game. The console scenes are recorded in QEMU (<code>-M raspi0</code>) with the same kernel as the Pi.
 <a href="docs/showreel.mp4">MP4 1280×720</a> · rebuilt by <code>make showreel</code></sub></p>
 
-**bm** is a games console that runs on a **Raspberry Pi Zero W** with no operating system.
+**bm** is a games console that runs on a **Raspberry Pi Zero W** (and Zero 2 W) with no operating system.
 The kernel boots straight from the SD card into a menu of games. Games are written in
 Lua, with 2D and 3D graphics, sound and up to four controllers. The tools to make them
 are part of bm: some run on the PC, others on the console itself.
@@ -18,8 +18,10 @@ are part of bm: some run on the PC, others on the console itself.
 - **One program on the SD card.** `kernel.img` (~2 MB of C, ARM assembly and Lua 5.4)
   drives the hardware itself:
   - HDMI video, and audio through HDMI;
-  - USB keyboards and gamepads;
-  - Bluetooth: up to 4 DualShock 4 pads, and BLE keyboards;
+  - USB keyboards, gamepads and mice;
+  - Bluetooth: up to 4 DualShock 4 pads, BLE keyboards and mice (LE or classic);
+  - a mouse pointer in the menu, and in the games that ask for it (the right stick of a
+    pad moves it too);
   - WiFi with HTTPS, Ethernet on the Pi 1 B;
   - the SD card, read and written as FAT32.
 - **Games are `.bm` cartridges.** One file holds the Lua code, sprite sheet, tile map,
@@ -28,6 +30,8 @@ are part of bm: some run on the PC, others on the console itself.
 - **Plays `.p8` carts too.** nano8, a built-in emulator, runs PICO-8-style `.p8` and
   `.p8.png` carts.
 - **Same kernel for the Pi 1** (A, B, A+, B+), which has the same chip.
+- **Pi Zero 2 W too:** its own build of the same sources, `kernel7.img` (ARMv7, 32-bit),
+  sits next to `kernel.img` on the same SD card; the Pi's firmware starts the right one.
 
 Why bare metal instead of Linux:
 
@@ -63,8 +67,8 @@ Hardware of the **Raspberry Pi Zero W**:
 - RAM: 512 MiB, of which **448 MiB** go to the ARM.
 - Memory bandwidth, measured: memcpy ~100 MB/s, fill ~430 MB/s. This is the real
   limit.
-- GPU: VideoCore IV. Its scaler enlarges the 640×360, 480×270 or 320×180 picture to
-  720p or 1080p for free, and our own small V3D driver draws the 3D of the games: the
+- GPU: VideoCore IV. Its scaler enlarges the 640×360, 480×270 or 320×180 picture (or a
+  256×256 square in the middle) to 720p or 1080p for free, and our own small V3D driver draws the 3D of the games: the
   ARM transforms, lights and clips, the GPU fills the pixels (811 Mpixel/s measured).
   Without it (QEMU, or `gpu3d=0`) the ARM rasterizer draws.
 
@@ -103,7 +107,7 @@ Everything a cartridge contains is made with bm's own tools. They read and write
 `sdk/animator/index.html`, or run `make studio`. Guide: [sdk/README.md](sdk/README.md).
 
 - **bm Studio**:
-  - 3D models built from tiles, in the style of Crocotile 3D: lay tiles of the sprite
+  - 3D models built from tiles: lay tiles of the sprite
     sheet on a grid, stack blocks, drag corners into roofs and ramps, paint on the model;
   - the pixel art of the sprite sheet;
   - import and export of `.glb` and `.png`.
@@ -123,10 +127,22 @@ Everything a cartridge contains is made with bm's own tools. They read and write
 
 - **SDK**: code, sprites and map, try the game and come back to the editor.
 - **bm Code**: the code editor, with tabs, two pages side by side and a small sharp
-  6×12 font.
+  6×12 font. While you type a word it shows the rest of the likeliest one and Tab writes
+  it: Lua and the API in the code, Italian or English in comments, the assistant's
+  questions in `#entry:` lines ([docs/PREDICT.md](docs/PREDICT.md)).
 - **AI assistant**: a small INT8 network that runs on the Pi. It answers questions about
-  the API and error messages, comments code, and sketches sprites. Its knowledge base is
-  in Italian for now.
+  the API and error messages, comments code, sketches sprites and, in bm Studio and bm
+  Animator (F6), builds low-poly 3D models from words: shapes, objects, people, animals
+  and machines, the characters with a skeleton and animations. Its knowledge base is in
+  Italian for now. On the PC, `tools/img2mesh.py` turns a picture into such a model
+  through the Claude API: the model writes the parts, sees them rendered and corrects them;
+  `tools/meshy2mesh.py` does the same through Meshy's image-to-3D. The console does it by
+  itself too: bm Studio's models page sends a picture from the SD card to the service and
+  takes the model back, texture and all (a key in `bm/config.txt`; the services are a
+  table, Meshy first), or makes one by itself from the picture's outline, cut out with some
+  thickness or turned on a lathe, with no network at all. A polygon reducer (quadric edge collapse, in the kernel and in
+  `tools/bmreduce.py`) fits any model to the Pi's 1200 triangles, keeping borders, colour
+  lines, texture seams and the skeleton.
 - **Sound editor**: an 8-voice synthesizer, sound effects and music patterns for the
   cartridge's sound bank.
 - **bm Studio** and **bm Animator**: the PC programs' twins, on the same files. bm Studio
@@ -182,7 +198,7 @@ local multiplayer for up to 4 players. The games on the card, all `.bm`:
   <img src="docs/img/hunt.png" width="49%" alt="Hunter's Night: gothic 2D with lights">
 </p>
 
-- **Overbit** (M31, to be tried on the Pi): a hero shooter in 3D, first person, 8 heroes with the
+- **Overbit** (M38, to be tried on the Pi): a hero shooter in 3D, first person, 8 heroes with the
   kits of Overwatch's (our own names and looks): the tanks **Rally** and **Kaiju** (two
   mechs with their pilots), **Sarge**, **Frost**, **Fuse** and **Rail** for damage, the
   supports **Orbit** and **Akari**; the map **Partenope** (light baked in, textured
@@ -223,7 +239,8 @@ make test                        # tests on the PC and end to end in QEMU
 Needs `arm-none-eabi-gcc`, Python 3, `dosfstools` and `mtools`, plus QEMU for the tests.
 
 - The full documentation, in Italian: [README_OLD.md](README_OLD.md). It covers the
-  monitor, keys, network, releases, the Pi 1, the source layout and technical notes.
+  monitor, keys, network, releases, the Pi 1, the Pi Zero 2 W, the source layout and
+  technical notes.
 - The plan: [docs/ROADMAP.md](docs/ROADMAP.md).
 
 ## License

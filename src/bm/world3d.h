@@ -1,5 +1,5 @@
 /*
- * Collision worlds for 3D cartridges (Overbit, M31): solid boxes, rays and
+ * Collision worlds for 3D cartridges (Overbit, M38): solid boxes, rays and
  * moving bodies (an upright box of radius r and height h) that slide along
  * the walls and step up small heights. Portable C, no drawing.
  */

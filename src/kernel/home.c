@@ -10,6 +10,7 @@
 #include "input.h"
 #include "monitor.h"
 #include "pager.h"
+#include "pointer.h"
 #include "sysinfo.h"
 #include "testpattern.h"
 #include "version.h"
@@ -288,9 +289,10 @@ void home_tool_start(int i, home_do_t *d)
 
 enum {
     R_CONTROLLERS = 1, R_WIFI, R_LAYOUT, R_GRAPHICS, R_DRAW, R_GPU3D, R_AA, R_VS, R_QUEUE, R_VOLUME, R_SYSTEM,
-    R_PAD1, R_PAD2, R_PAD3, R_PAD4, R_KEYBOARD, R_PAIR, R_PAIR_KBD, R_TEST, R_PROMPTS, R_FORGET,
+    R_PAD1, R_PAD2, R_PAD3, R_PAD4, R_KEYBOARD, R_MOUSE, R_PAIR, R_PAIR_KBD, R_PAIR_MOUSE, R_TEST,
+    R_PROMPTS, R_FORGET,
     R_NETWORK, R_STATE, R_IP, R_TIME, R_CONSOLE, R_PASSWORD, R_CONNECT, R_BOOT,
-    R_VERSION, R_BOARD, R_UPTIME, R_MEMORY, R_CLOCKS, R_SD, R_DRIVER3D, R_RESTART, R_MONITOR,
+    R_VERSION, R_BOARD, R_UPTIME, R_MEMORY, R_CLOCKS, R_SD, R_DRIVER3D, R_RESTART, R_MONITOR, R_PERF,
 };
 
 static int popcount(unsigned v)
@@ -456,10 +458,26 @@ void home_panel(int id, home_panel_t *p)
                  bt_keyboard() ? "Connected: it types, and plays as its own player" :
                  bt_keyboard_paired() ? "Paired: press a key on it to connect" : "None paired",
                  "%s", bt_keyboard() ? "on" : bt_keyboard_paired() ? "off" : "-");
+        {
+            unsigned mice = pointer_devices();
+            if (!pointer_enabled())
+                home_row(p, MENU_ROW_INFO, R_MOUSE, "Mouse",
+                         "mouse=off in bm/config.txt: no pointer anywhere", "off");
+            else
+                home_row(p, MENU_ROW_INFO, R_MOUSE, "Mouse",
+                         mice ? "Connected: it moves the pointer in the menu" :
+                         bt_mouse_paired() ? "Paired: move it or click to connect" :
+                         "USB or Bluetooth; the right stick of a pad moves the pointer too",
+                         "%s", mice == (POINTER_USB | POINTER_BLUETOOTH) ? "USB + Bluetooth" :
+                         mice & POINTER_USB ? "USB" : mice ? "Bluetooth on" :
+                         bt_mouse_paired() ? "Bluetooth off" : "-");
+        }
         home_row(p, MENU_ROW_ACTION, R_PAIR, "Pair a new controller",
                  "DS4: hold Share + PS until the light flashes", NULL);
         home_row(p, MENU_ROW_ACTION, R_PAIR_KBD, "Pair a keyboard",
                  "Bluetooth LE (MX Keys: hold an Easy-Switch key 3 s)", NULL);
+        home_row(p, MENU_ROW_ACTION, R_PAIR_MOUSE, "Pair a mouse",
+                 "Bluetooth LE or classic: put the mouse in pairing mode first", NULL);
         home_row(p, MENU_ROW_ACTION, R_TEST, "Test the buttons",
                  "The buttons each player holds, for 10 s", NULL);
         home_row(p, MENU_ROW_CHOICE, R_PROMPTS, "Button icons",
@@ -513,8 +531,8 @@ void home_panel(int id, home_panel_t *p)
         home_row(p, MENU_ROW_INFO, R_MEMORY, "Memory in use", "The heap of the kernel and games",
                  "%lu of %lu MiB", (uint32_t)mi.uordblks >> 20,
                  (uint32_t)((heap_end() - heap_start()) >> 20));
-        home_row(p, MENU_ROW_INFO, R_CLOCKS, "CPU", "ARM clock and chip temperature",
-                 "%lu MHz, %lu.%lu C", prop_clock_rate(CLOCK_ARM) / 1000000,
+        home_row(p, MENU_ROW_INFO, R_CLOCKS, "CPU", "Processor, clock and chip temperature",
+                 "%s, %lu MHz, %lu.%lu C", sysinfo_cpu(), prop_clock_rate(CLOCK_ARM) / 1000000,
                  temp[1] / 1000, temp[1] % 1000 / 100);
         home_row(p, MENU_ROW_INFO, R_SD, "SD card", "The card the console started from",
                  "%s", fat_describe());
@@ -525,6 +543,9 @@ void home_panel(int id, home_panel_t *p)
                      "bm3d %s (%s), as %s", BM3D_VERSION, BM3D_BLOCK,
                      bm3d_mode_q(gpu, gpu ? vs_on() : 0, gpu && queue_on()));
         }
+        home_row(p, MENU_ROW_CHOICE, R_PERF, "Performance overlay",
+                 "Over the games: fps, ms, Lua instructions (F3 too)", "%s",
+                 bm_perf() ? "On" : "Off");
         home_row(p, MENU_ROW_ACTION, R_RESTART, "Restart", "Restarts the console", NULL);
         home_row(p, MENU_ROW_ACTION, R_MONITOR, "Open the monitor",
                  "The text console with every command", NULL);
@@ -550,6 +571,15 @@ static void x_pair_kbd(framebuffer_t *fb)
     kprintf("MX Keys: hold an Easy-Switch key for 3 s, until its light blinks fast.\n"
             "Then type the code shown here on the keyboard, and Enter.\n\n");
     bt_pair_keyboard(15);
+}
+
+static void x_pair_mouse(framebuffer_t *fb)
+{
+    (void)fb;
+    heading("Pair a mouse");
+    kprintf("Put the mouse in pairing mode (MX mice: hold the Easy-Switch button 3 s,\n"
+            "until its light blinks fast). No code is needed.\n\n");
+    bt_pair_mouse(10);
 }
 
 static void x_test(framebuffer_t *fb)
@@ -588,6 +618,11 @@ void home_act(int id, int row, int how, home_do_t *d)
         bm_set_via_ram(!bm_via_ram());
         config_save();
         ksnprintf(d->note, sizeof d->note, ".bm games draw %s", bm_via_ram() ? "via RAM" : "directly");
+        break;
+    case R_PERF:
+        bm_set_perf(!bm_perf());
+        config_save();
+        ksnprintf(d->note, sizeof d->note, "performance overlay: %s", bm_perf() ? "on" : "off");
         break;
     case R_VOLUME: {
         int v = audio_volume() + (how ? how : 1);
@@ -640,6 +675,9 @@ void home_act(int id, int row, int how, home_do_t *d)
     case R_PAIR_KBD:
         if (how == 0) { d->what = HOME_TEXT; d->text = x_pair_kbd; d->wait = 1; }
         break;
+    case R_PAIR_MOUSE:
+        if (how == 0) { d->what = HOME_TEXT; d->text = x_pair_mouse; d->wait = 1; }
+        break;
     case R_TEST:
         if (how == 0) { d->what = HOME_TEXT; d->text = x_test; d->wait = 1; }
         break;
@@ -653,7 +691,7 @@ void home_act(int id, int row, int how, home_do_t *d)
         } else if (how == 0) {
             d->what = HOME_ASK;
             ksnprintf(d->ask, sizeof d->ask, "Forget all controllers?");
-            ksnprintf(d->ask_detail, sizeof d->ask_detail, "Pads and keyboard must be paired again.");
+            ksnprintf(d->ask_detail, sizeof d->ask_detail, "Pads, keyboard and mouse: pair them again.");
             ksnprintf(d->ask_yes, sizeof d->ask_yes, "Forget");
         }
         break;

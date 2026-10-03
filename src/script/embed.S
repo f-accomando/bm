@@ -52,6 +52,22 @@ bm_lib_assist:
     .incbin "src/ai/assist.lua"
 bm_lib_assist_end:
 
+/* the word completion (M30): its Lua library (require "predict") and its
+ * dictionaries, built by scripts/mkwords.py (require "words") */
+    .section .rodata
+    .balign 4
+    .globl bm_lib_predict, bm_lib_predict_end
+bm_lib_predict:
+    .incbin "src/ai/predict.lua"
+bm_lib_predict_end:
+
+    .section .rodata
+    .balign 4
+    .globl bm_lib_words, bm_lib_words_end
+bm_lib_words:
+    .incbin "words.lua"
+bm_lib_words_end:
+
     .section .rodata
     .balign 4
     .globl bm_assistant_cart, bm_assistant_cart_end

@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-brain.py - the bots' network (M31.4): it learns which tactic pays, from
+brain.py - the bots' network (M38.4): it learns which tactic pays, from
 matches the bots play on the PC (bmhost, ten bots, no drawing, logging
 every choice).
 

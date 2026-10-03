@@ -52,6 +52,7 @@ gen: slime
 title: Slime (gelatina)
 ask: crea uno slime | disegna una gelatina | slime sprite | blob | melma
 ask: nemico gelatinoso | goccia con gli occhi | budino che salta
+keys: slime, gelatina, melma
 text: Una cupola lucida con gli occhi: il nemico più semplice dei giochi di ruolo.
 
 == sprite.ghost

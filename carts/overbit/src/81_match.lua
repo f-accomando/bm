@@ -1,4 +1,4 @@
--- The match: Control on Partenope (M31.3). Two teams of five, as in
+-- The match: Control on Partenope (M38.3). Two teams of five, as in
 -- Overwatch 2's role queue (1 tank, 2 damage, 2 support); the player is one
 -- of the blue team, the other nine are bots (75_bots). The point in the square
 -- unlocks after a while; a team alone on it captures it (faster with more

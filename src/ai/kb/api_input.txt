@@ -68,6 +68,46 @@ local sx, sy = stick(1)
 x = x + sx * 3
 y = y + sy * 3
 
+== mouse
+kind: api
+name: mouse
+title: mouse([on]) - il puntatore: mouse o levetta destra
+ask: usare il mouse | posizione del mouse | dove punta il mouse | read the mouse
+ask: cursore del mouse nel gioco | mouse position | puntatore sullo schermo
+ask: cliccare con il mouse | rotellina del mouse | mouse wheel | pointer
+keys: mouse, puntatore, cursore, pointer
+see: mousep, btn, stick
+text:
+Una cartuccia ha il puntatore solo se lo chiede: mouse(true) una volta
+(mouse(true, false) senza la freccia della console). Poi mouse() dà x, y
+in pixel dello schermo, i tasti (1 sinistro, 2 destro, 4 centrale), gli
+scatti della rotellina e se si vede; nil se non c'è niente che lo muova.
+Lo muovono un mouse USB o Bluetooth o la levetta destra (R2 = clic).
+code:
+function _init() mouse(true) end
+function _update()
+  local mx, my, mb = mouse()
+  if mx and mb & 1 ~= 0 then x, y = mx, my end   -- trascina
+end
+
+== mousep
+kind: api
+name: mousep
+title: mousep([i]) - un clic del mouse (una volta sola)
+ask: clic del mouse | ho cliccato | mouse click | click once | il giocatore ha cliccato
+ask: tasto destro del mouse | right click | premere il tasto del mouse | detect a click
+ask: did the user click | cliccare su un pulsante | button clicked with the mouse
+keys: clic, click, mouse
+see: mouse, btnp
+text:
+true solo nel fotogramma in cui il tasto i del mouse viene premuto: 0
+sinistro (il default), 1 destro, 2 centrale. Serve mouse(true) prima.
+code:
+local mx, my = mouse()
+if mx and mousep() then
+  sfx(0)                           -- un clic: un suono
+end
+
 == keyp
 kind: api
 name: keyp

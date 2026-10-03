@@ -1,5 +1,5 @@
 -- bm Studio on the console: the 3D models of a .bm, built with tiles and
--- blocks (as bm Studio on the PC, in the style of Crocotile 3D).
+-- blocks (as bm Studio on the PC).
 -- F1 build (block, tile, select, vertex, paint), F2 models, Esc menu;
 -- Ctrl+S save, F5 try the game, Ctrl+Z / Ctrl+Y undo / redo, [ ] model.
 -- Hold F12 (or ?) for the keys of the page. Gamepad: Y + left/right page,
@@ -1416,7 +1416,9 @@ models_page = {
   id = "models", fkey = "f2", label = "models",
   keys = { "up/down        choose a model", "Enter          build it (F1)", "n              new model",
            "r              rename", "d              duplicate", "Del            delete (twice)",
-           "PgUp PgDn      move it up / down the list", "i              the texture margin (inset)" },
+           "PgUp PgDn      move it up / down the list", "-              fewer triangles (reduce)",
+           "m              a model from a picture (its outline, or a service)",
+           "i              the texture margin (inset)" },
 }
 
 function models_page.enter()
@@ -1471,6 +1473,24 @@ function models_page.key(k)
     S.undo, S.redo = {}, {}
     S.cur = j
     T.sync(); S.dirty = true
+  elseif k == "m" then
+    T.picture_chooser()
+  elseif k == "-" and m and m.nt and m.nt > 1 then
+    -- the reducer (src/bm/decimate.c): the triangles wanted, half by default
+    T.ask("triangles (now " .. m.nt .. "; at most " .. T.TRIS_60FPS .. " a scene at 60 fps)", tostring(m.nt // 2),
+          function(t)
+      local n = math.tointeger(tonumber(t))
+      if not n or n < 1 then say("a number of triangles", C.ERR); return end
+      if n >= m.nt then say("it has " .. m.nt .. " triangles already", C.ERR); return end
+      T.begin_edit()
+      local nt, e = T.reduce_model(m, n)
+      if not nt then table.remove(S.undo); say("cannot reduce: " .. tostring(e), C.ERR); return end
+      if T.commit() then
+        choose_model(S.cur)
+        say("reduced to " .. nt .. " triangles" .. (nt > n and " (no further without turning faces over)" or "") ..
+            "  (Ctrl+Z undoes)", C.ACC, 240)
+      end
+    end)
   elseif k == "i" then
     S.inset = ({ [0] = 0.125, [0.125] = 0.25, [0.25] = 0.5, [0.5] = 0 })[S.inset] or 0.25
     for _, mm in ipairs(S.models) do mm.dirty = true end
@@ -1520,7 +1540,8 @@ function models_page.draw()
   end
   print("texture margin " .. S.inset .. " px", W - 192, 16, C.DIM)
   T.hint({ { { "up", "down" }, "model" }, { { "enter" }, "build" }, { { "n" }, "new" }, { { "r" }, "rename" },
-           { { "d" }, "copy" }, { { "del" }, "delete" }, { { "pgup", "pgdn" }, "order" } })
+           { { "d" }, "copy" }, { { "del" }, "delete" }, { { "-" }, "reduce" }, { { "m" }, "picture" },
+           { { "pgup", "pgdn" }, "order" } })
 end
 
 end
@@ -1531,10 +1552,11 @@ T.run({
   name = "bm Studio",
   viewer = VIEWER,
   empty_model = true,
+  picture = true,
   page_list = { build, models_page },
-  keys_all = { "F1 build  F2 models  Esc menu  [ ] model",
+  keys_all = { "F1 build  F2 models  Esc menu  [ ] model  F6 assistant (a model from words)",
                "Ctrl+S save  F5 try the game  Ctrl+Z/Y undo/redo  + - zoom" },
-  keys_pad = { "pad: Y + left/right page  Y + B menu  Y + up/down model  Y + A undo",
+  keys_pad = { "pad: Y + left/right page  Y + B menu  Y + up/down model  Y + A undo  Y + X assistant",
                "build: A put  B remove  X side  Y tiles  X + pad level and turn",
                "select, vertex: A choose  B move  X all  paint: A the face's tile" },
   init = function()

@@ -1,6 +1,6 @@
--- The worlds: the training range (M31.1: a square yard at sunset with
+-- The worlds: the training range (M38.1: a square yard at sunset with
 -- walls, crates, a ramp and platforms, lit as it is drawn) and the maps
--- (M31.3: Partenope; made by carts/overbit/art/partenope.py with the light
+-- (M38.3: Partenope; made by carts/overbit/art/partenope.py with the light
 -- baked into the faces, in chunks of the ground drawn only when the camera
 -- sees them). Boxes for the collisions and the rays, in C (world3d).
 

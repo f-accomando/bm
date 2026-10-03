@@ -54,8 +54,9 @@ Una cartuccia `.bm` è un unico file che contiene:
 
 La crea `scripts/mkbm.py` (solo libreria standard di Python, nessuna dipendenza).
 Risoluzione: **640×360** (predefinita), **480×270** con `--res 480x270` (il compromesso
-per il 3D con texture) oppure **320×180** con `--res 320x180` (pixel più grossi, stile 16
-bit, e più tempo per fotogramma). Colori: `0xRRGGBB`, lo schermo è a
+per il 3D con texture), **320×180** con `--res 320x180` (pixel più grossi, stile 16
+bit, e più tempo per fotogramma) oppure **256×256** quadrata con `--res 256x256` (al centro
+dello schermo, ingrandita 4× su 1080p, bordi neri). Colori: `0xRRGGBB`, lo schermo è a
 16 bit (RGB565).
 
 ## 2. Il gioco più piccolo
@@ -111,6 +112,19 @@ local x, y = stick(1)                     -- levetta del giocatore 1, da -1 a 1
 
 `btn(i)` senza giocatore risponde a tutti i controller: va bene per i menu e i giochi a
 un giocatore. La tastiera USB è il primo giocatore che non ha un pad.
+
+**Mouse.** Un gioco ha il puntatore solo se lo chiede (lo muovono un mouse o la levetta
+destra di un pad):
+
+```lua
+function _init() mouse(true) end           -- la console disegna la freccia
+function _update()
+  local mx, my = mouse()                   -- nil se non c'è niente che lo muova
+  if mx and mousep() then                  -- clic sinistro
+    tx, ty = mx, my
+  end
+end
+```
 
 ## 3. Impacchettare e provare
 
@@ -232,7 +246,7 @@ end
   `print` alla fine.
 
 **Con bm Studio** ([sdk/README.md](../sdk/README.md)): i modelli si fanno sul PC posando
-le tessere dello sprite sheet su una griglia (in stile Crocotile 3D) e stanno nel `.bm`
+le tessere dello sprite sheet su una griglia e stanno nel `.bm`
 stesso; nel gioco `model("nome")` li dà come mesh:
 
 ```lua

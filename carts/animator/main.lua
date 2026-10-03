@@ -1345,9 +1345,9 @@ T.run({
   name = "bm Animator",
   empty_model = false,
   page_list = { play, rig_page, anim_page, sprites_page },
-  keys_all = { "F1 play  F2 rig  F3 animate  F4 sprites  Esc menu  [ ] model",
+  keys_all = { "F1 play  F2 rig  F3 animate  F4 sprites  Esc menu  [ ] model  F6 assistant",
                "Ctrl+S save  F5 try the game  Ctrl+Z/Y undo/redo  + - zoom" },
-  keys_pad = { "pad: Y + left/right page  Y + B menu  Y + up/down model  Y + A undo",
+  keys_pad = { "pad: Y + left/right page  Y + B menu  Y + up/down model  Y + A undo  Y + X assistant",
                "play: X + pad view  rig: A + pad move  B head/tail  X new bone",
                "animate: A/X + pad turn  B play  X key  sprites: A put" },
   hello = function(files)

@@ -1,4 +1,4 @@
--- Bots: the heroes nobody plays (M31.4). Three layers:
+-- Bots: the heroes nobody plays (M38.4). Three layers:
 --   1. a TACTIC every half second: go to the point, fight, fall back, flank,
 --      guard a friend, hold where it is. A small INT8 network chooses it
 --      (nnet(), trained on the PC by art/brain.py on the bots' own matches:

@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-overbit_relay.py - the relay for Overbit's matches over the internet (M31.5).
+overbit_relay.py - the relay for Overbit's matches over the internet (M38.5).
 
 On the LAN the consoles find each other and talk with broadcasts. Over the
 internet they all talk to this relay instead (a PC or a small server with a

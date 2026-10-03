@@ -135,6 +135,7 @@ kind: howto
 title: Particelle (esplosioni, scintille, fumo)
 ask: particelle | esplosione di particelle | scintille | particles effect | fumo
 ask: effetto quando un nemico muore | detriti | sangue | coriandoli
+ask: snippet per un effetto particelle | sprite particle effect | effetto particelle per uno sprite
 keys: particelle, scintille, esplosione
 see: screen_shake, sfx_examples
 text:

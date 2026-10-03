@@ -1,5 +1,6 @@
 /* ACT LED: GPIO 47 active low on the Pi Zero / Zero W, GPIO 16 active low
- * on the first Pi 1 A/B, GPIO 47 active high on the Pi 1 A+/B+ (board.c). */
+ * on the first Pi 1 A/B, GPIO 47 active high on the Pi 1 A+/B+, GPIO 29
+ * active low on the Pi Zero 2 W (board.c). */
 #include "led.h"
 #include "board.h"
 #include "gpio.h"
@@ -7,9 +8,10 @@
 
 static uint8_t led_pin, led_high;
 
-/* At the very start: GPIO 47 active low (Pi Zero / Zero W), without asking
- * the firmware (its first answers are not the board's revision on a real
- * Zero W). led_init_board() then moves it where the board has it. */
+/* At the very start: GPIO 47 active low (Pi Zero / Zero W; kernel7.img:
+ * GPIO 29, the Zero 2 W), without asking the firmware (its first answers
+ * are not the board's revision on a real Zero W). led_init_board() then
+ * moves it where the board has it. */
 static int led_ready;
 
 static void led_use(uint8_t pin, uint8_t high)
@@ -23,7 +25,7 @@ static void led_use(uint8_t pin, uint8_t high)
 void led_init(void)
 {
     if (!led_ready)
-        led_use(47, 0);
+        led_use(BOARD_LED_PIN, 0);
     led_set(0);
 }
 

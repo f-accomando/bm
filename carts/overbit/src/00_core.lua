@@ -1,4 +1,4 @@
--- Overbit: a hero shooter for bm (M31). Several files joined by build.py;
+-- Overbit: a hero shooter for bm (M38). Several files joined by build.py;
 -- this one stays at the top level: the shared locals, then every other file
 -- runs inside its own do ... end.
 --

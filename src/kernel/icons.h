@@ -1,6 +1,6 @@
 /*
  * Status icons of the menu bar (M27): keyboard, controller (DualShock 4
- * style), WiFi, Ethernet, all in the same box. Drawn once from shapes with
+ * style), mouse (M32, an outline), WiFi, Ethernet, all in the same box. Drawn once from shapes with
  * anti-aliasing (4x4 samples per pixel) into coverage masks; the player
  * number goes on a small disc over the bottom middle, with a gap cut
  * around it so the icon stays readable (white for USB, blue for
@@ -16,9 +16,13 @@
 #define ICON_H   18
 #define ICON_BH  25                 /* with the number disc below */
 
-enum { ICON_KEYBOARD, ICON_PAD, ICON_WIFI, ICON_ETHERNET, ICON_COUNT };
+enum { ICON_KEYBOARD, ICON_PAD, ICON_WIFI, ICON_ETHERNET, ICON_MOUSE, ICON_COUNT };
 
-/* `icon` with the number `num` (1..4, 0: none): three planes of ICON_W x
+/* num: the disc of the numbers without a number (the Bluetooth mouse;
+ * any icon can have it) */
+#define ICON_DOT 5
+
+/* `icon` with the number `num` (1..4, 0: none, ICON_DOT): three planes of ICON_W x
  * ICON_BH, row after row. The icon's coverage (0..255) with the gap around
  * the disc already cut, the disc's coverage, and the digit (1 on its
  * pixels, all inside the disc). The caller picks the colours: a white or

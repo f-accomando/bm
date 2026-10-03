@@ -1,5 +1,5 @@
 /*
- * UDP for the cartridges (M31.5: Overbit's matches on the network): a few
+ * UDP for the cartridges (M38.5: Overbit's matches on the network): a few
  * sockets, the packets that arrive queued until the game reads them (lwIP
  * calls back from net_poll, in the main loop). bmhost has the same
  * functions on the PC's sockets (tests/host/hostnet.c), so two bmhost can

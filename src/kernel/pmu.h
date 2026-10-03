@@ -9,7 +9,8 @@
  * the data cache misses (0x0B). Off until pmu_start(); QEMU's raspi0 has
  * no such registers (an access is an undefined instruction), so the caller
  * starts it only on a real Pi. The counters are 32 bits: differences of a
- * frame are exact (they wrap after about 4 s at 1 GHz).
+ * frame are exact (they wrap after about 4 s at 1 GHz). On the Pi Zero 2
+ * W (kernel7.img) the same three from the Cortex-A53's PMU (CP15 c9).
  */
 void pmu_start(void);
 void pmu_stop(void);

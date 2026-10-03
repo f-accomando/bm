@@ -50,8 +50,10 @@ ask: quanti fps fa il gioco | quanta memoria uso | frame rate | performance coun
 ask: millisecondi per fotogramma | numero del fotogramma | memory used | cpu time
 see: perf_measure, time
 text:
-0 KiB usati da Lua, 1 ms di CPU dell'ultimo fotogramma, 2 fps, 3 numero
-del fotogramma, 4 triangoli 3D, 5 pixel 3D.
+0 KiB usati da Lua, 1 ms dell'ultimo fotogramma, 2 fps, 3 numero del
+fotogramma, 4 triangoli 3D, 5 pixel 3D, 6 ms del disegno 3D, 7 vertici 3D,
+8 ms da inizio fotogramma, 9 1 se il 3D lo fa la GPU, 10 istruzioni Lua
+dell'ultimo fotogramma.
 code:
 print(stat(2) .. " fps  " .. stat(1) .. " ms", 8, 8, 0x80FF80)
 print(stat(0) .. " KiB", 8, 24, 0x80FF80)

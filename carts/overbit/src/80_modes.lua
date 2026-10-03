@@ -290,7 +290,7 @@ end
 
 -- ---------------------------------------------------------------- registry
 
--- the range on the map (M31.3, before the match): walk Partenope
+-- the range on the map (M38.3, before the match): walk Partenope
 local Explore = setmetatable({}, { __index = Range })
 function Explore.start()
   Range.map = true

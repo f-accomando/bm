@@ -214,7 +214,7 @@ casse massime a 60 e a 30 fps per ciascun caso.
 
 ## 7. Overbit sulla GPU (2026-10-03)
 
-Il gioco più pesante di bm con la GPU: cosa è cambiato in Overbit (M31) da quando la GPU
+Il gioco più pesante di bm con la GPU: cosa è cambiato in Overbit (M38) da quando la GPU
 disegna i suoi triangoli, quanti triangoli reggono il Pi e la GPU, quanti ne hanno i
 modelli degli eroi e quanti ne servono per un 4 contro 4. Misure del 2026-10-03, branch
 `claude/overclone` (ora dentro `3d-performance`): **prima** è `e7632bd` (Overbit prima dell'unione con la GPU, tutto

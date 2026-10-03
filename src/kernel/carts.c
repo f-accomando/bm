@@ -5,6 +5,7 @@
 #include "crumbs.h"
 #include "home.h"
 #include "menu_ui.h"
+#include "pointer.h"
 #include "bm/bm.h"
 #include "input.h"
 #include "upload.h"
@@ -753,6 +754,7 @@ void carts_menu(framebuffer_t *fb)
                 if (d_ & INPUT_DEV_BLUETOOTH)
                     v.bt |= 1u << p;
             }
+            v.mice = pointer_devices();
             /* the hints show the buttons of what was pressed last; before
              * that, player 1's keyboard or the DS4 */
             int src = hid_last_source();
@@ -861,6 +863,59 @@ void carts_menu(framebuffer_t *fb)
          * the monitor). Esc alone goes back like B; Ctrl+Esc, Start+Select
          * and q from the serial port go back a level too, and from the
          * grid to the monitor (Esc alone did that until 2026-10-01). */
+        if (dx || dy)
+            pointer_hide();                     /* the keys move the selection: no arrow */
+
+        /* the pointer (M32): moving over a cover or a row selects it, the
+         * left button does what A does there (or what is clicked: a tab, a
+         * button of the hints), the right one goes back, or opens the
+         * options of a cover; outside a panel or a question it closes them;
+         * the wheel moves by rows */
+        const pointer_t *pt = pointer_update();
+        if (gfx && pt->shown) {
+            menu_hit_t h = menu_ui_hit(pt->x, pt->y);
+            int click = pt->pressed & 1, right = pt->pressed & 2;
+            dy -= pt->wheel;
+            if (ask != ASK_NONE) {
+                if (click && h.kind == MENU_HIT_BUTTON && h.index == 'A')
+                    action = 1;
+                else if (click && h.kind == MENU_HIT_BUTTON)
+                    back = 1;
+                else if ((click && h.kind != MENU_HIT_ASK) || right)
+                    back = 1;
+            } else if (depth) {
+                int *ps_ = &stack[depth - 1].sel;
+                if (h.kind == MENU_HIT_ROW && h.index < pb.n && (pt->moved || click)) {
+                    *ps_ = h.index;
+                    action = click ? 1 : action;
+                } else if (click && h.kind == MENU_HIT_BUTTON) {
+                    action = h.index == 'A' ? 1 : action;
+                    back = h.index == 'B';
+                } else if (click && h.kind == MENU_HIT_TAB) {
+                    tabto = h.index;
+                } else if (click && h.kind == MENU_HIT_SETTINGS) {
+                    tabto = 2;
+                } else if ((click && h.kind != MENU_HIT_PANEL && h.kind != MENU_HIT_ROW) || right) {
+                    back = 1;
+                }
+            } else {
+                if (h.kind == MENU_HIT_COVER && h.index < n && ((pt->moved && h.full) || click || right))
+                    tsel[tab] = h.index;
+                if (click && h.kind == MENU_HIT_COVER && h.full)
+                    action = 1;
+                else if (click && h.kind == MENU_HIT_TAB)
+                    tabto = h.index;
+                else if (click && h.kind == MENU_HIT_SETTINGS)
+                    tabto = 2;
+                else if (click && h.kind == MENU_HIT_BUTTON && h.index == 'A')
+                    action = 1;
+                else if (click && h.kind == MENU_HIT_BUTTON && h.index == 'X')
+                    opts = 1;
+                else if (right && h.kind == MENU_HIT_COVER)
+                    opts = 1;
+            }
+        }
+
         int ps = quit & HID_QUIT_PS;
         if ((quit & HID_QUIT_KEY) && !(quit & HID_QUIT_MONITOR))
             back = 1;

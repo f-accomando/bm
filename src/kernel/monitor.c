@@ -58,7 +58,8 @@ static const char help_text[] =
             "  I  assistant: how to write code, sprite bases (M30; F6 in the tools)\n"
             "  T  Bluetooth: pair a controller as the next player (DS4: Share + PS)\n"
             "  K  Bluetooth: pair a keyboard (LE, e.g. MX Keys: hold an Easy-Switch key)\n"
-            "  P  Bluetooth: forget all paired pads and the keyboard (asks first)\n"
+            "  O  Bluetooth: pair a mouse (LE or classic; in pairing mode, no code)\n"
+            "  P  Bluetooth: forget all paired pads, the keyboard and the mouse (asks first)\n"
             "  W  WiFi: start, list the networks, join one (M18; saved in bm/config.txt)\n"
             "  E  Ethernet (Pi 1 B / B+): link, counters, chip registers\n"
             "     from the PC: tools/bm_net.py IP (console, --send/--play a cart, --kernel)\n"
@@ -226,6 +227,7 @@ void monitor_run(void)
         case 'Y': usb_live_test(5); input_live_test(10); break;
         case 'T': bt_scan(8); break;
         case 'K': bt_pair_keyboard(15); break;
+        case 'O': bt_pair_mouse(10); break;
         case 'W':
             if (wifi_start() == 0 && wifi_scan() > 0 && wifi_connect() == 0 &&
                 net_start(&net_wifi) == 0)
@@ -238,13 +240,14 @@ void monitor_run(void)
             break;
         case 'o': pager_show(klog_text()); break;
         case 'P': {
-            kprintf("forget all Bluetooth pads and the keyboard (keys removed from bm/config.txt)? y = yes\n");
+            kprintf("forget all Bluetooth pads, the keyboard and the mouse (keys removed from\n"
+                    "bm/config.txt)? y = yes\n");
             input_flush();                      /* only a key pressed after the question */
             char k = input_getc();
             if (k == 'y' || k == 'Y') {
                 int n = bt_forget_all();
-                kprintf("bt: %d device%s forgotten; pair again with T (DS4: Share + PS)\n"
-                        "    or K (keyboard)\n", n, n == 1 ? "" : "s");
+                kprintf("bt: %d device%s forgotten; pair again with T (DS4: Share + PS),\n"
+                        "    K (keyboard) or O (mouse)\n", n, n == 1 ? "" : "s");
             }
             else
                 kprintf("cancelled\n");

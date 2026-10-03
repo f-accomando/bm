@@ -2,16 +2,20 @@
 """
 End-to-end tests in QEMU (-M raspi0). Images are loaded at 0x8000 through
 -bios, exactly as the Pi firmware does. The serial port is a TCP socket.
+--kernel7: the same tests with kernel7.img (the Pi Zero 2 W's build) in
+raspi2b (a Pi 2 B: the BCM2710's peripherals, a Cortex-A7, no radio).
 
-  tests/qemu_test.py [--build build] [--update-ref] [-k name]
+  tests/qemu_test.py [--build build] [--update-ref] [-k name] [--kernel7]
 """
 import argparse
+import base64
 import hashlib
 import re
 import os
 import shutil
 import socket
 import struct
+import zlib
 import subprocess
 import sys
 import tempfile
@@ -39,19 +43,35 @@ def free_port():
         return s.getsockname()[1]
 
 
+# --kernel7: kernel7.img in raspi2b (main)
+KERNEL7 = False
+# tests that need a BCM2835 board, skipped with --kernel7
+BCM2835_ONLY = {
+    "test_pi1_board": "a Pi 1 (raspi1ap)",
+    "test_wifi_probe": "the radio chip (raspi2b is a Pi 2 B: none)",
+    "test_bt_": "the radio chip (raspi2b is a Pi 2 B: none)",
+    "test_menu_tabs": "a Bluetooth pad (the radio chip)",
+    "test_chainloader": "the serial chainloader (ARMv6)",
+}
+
+
 class Qemu:
-    def __init__(self, image, extra=(), mini_uart=False, machine="raspi0"):
+    def __init__(self, image, extra=(), mini_uart=False, machine=None):
         """mini_uart: the second serial port (the mini UART, where the
         console goes when the PL011 is given to Bluetooth) on a socket too,
-        as self.mini. machine: raspi1ap is a Pi 1 A+ (same SoC)."""
+        as self.mini. machine: raspi1ap is a Pi 1 A+ (same SoC); by
+        default raspi0, raspi2b with --kernel7."""
+        machine = machine or ("raspi2b" if KERNEL7 else "raspi0")
         self.tmp = tempfile.mkdtemp(prefix="bm-")
         self.mon_path = os.path.join(self.tmp, "mon.sock")
+        self.qmp_path = os.path.join(self.tmp, "qmp.sock")
         tcp, tcp2 = free_port(), free_port()
         self.proc = subprocess.Popen(
             [QEMU, "-M", machine, "-bios", image, "-display", "none",
              "-serial", f"tcp:127.0.0.1:{tcp},server=on,wait=on",
              "-serial", f"tcp:127.0.0.1:{tcp2},server=on,wait=on" if mini_uart else "null",
-             "-monitor", f"unix:{self.mon_path},server=on,wait=off", *extra],
+             "-monitor", f"unix:{self.mon_path},server=on,wait=off",
+             "-qmp", f"unix:{self.qmp_path},server=on,wait=off", *extra],
             stdout=subprocess.DEVNULL, stderr=subprocess.PIPE)
         self.port = bm_load.Port(f"tcp:127.0.0.1:{tcp}", 115200)
         self.mini = bm_load.Port(f"tcp:127.0.0.1:{tcp2}", 115200) if mini_uart else None
@@ -104,6 +124,35 @@ class Qemu:
             s.connect(self.mon_path)
             s.sendall(cmd.encode() + b"\n")
             time.sleep(0.5)
+
+    def input_events(self, events):
+        """QMP input-send-event: the monitor's mouse_move is relative only,
+        an absolute position (usb-tablet) needs this."""
+        import json
+        with socket.socket(socket.AF_UNIX) as s:
+            s.connect(self.qmp_path)
+            f = s.makefile("rw")
+            f.readline()
+            for cmd in ({"execute": "qmp_capabilities"},
+                        {"execute": "input-send-event", "arguments": {"events": events}}):
+                f.write(json.dumps(cmd) + "\n")
+                f.flush()
+                reply = f.readline()
+                assert '"return"' in reply, reply
+        time.sleep(0.1)
+
+    def pointer(self, x, y, w=640, h=360):
+        """The tablet to pixel (x, y) of a w x h screen (the pointer's
+        position is a fraction of the screen)."""
+        self.input_events([{"type": "abs", "data": {"axis": "x", "value": int((x + 0.5) * 32767 / w)}},
+                           {"type": "abs", "data": {"axis": "y", "value": int((y + 0.5) * 32767 / h)}}])
+
+    def click(self, button="left"):
+        """A press and a release of a mouse button (left, right, middle,
+        wheel-up, wheel-down)."""
+        for down in (True, False):
+            self.input_events([{"type": "btn", "data": {"down": down, "button": button}}])
+            time.sleep(0.1)
 
     def screendump(self):
         path = os.path.join(self.tmp, "screen.ppm")
@@ -190,7 +239,8 @@ def test_boot_banner(b, opts):
     try:
         out = q.boot()
         out += q.diagnostics()
-        for s in (b"bm\x1b[0m kernel", b"board 920092", b"screen 640x360",
+        board = b"board a21041" if KERNEL7 else b"board 920092"   # raspi2b: a Pi 2 B
+        for s in (b"bm\x1b[0m kernel", board, b"screen 640x360",
                   b"double buffer on", b"sd: no card", b"usb: nothing attached"):
             assert s in out, f"missing {s!r} in boot log"
         hz = int(re.search(rb"measured (\d+) Hz", out).group(1))
@@ -485,6 +535,38 @@ def bar_icons(img):
     return runs
 
 
+def wait_screen(q, cond, timeout=6.0):
+    """A screendump once cond(shot) holds (or the last one at the timeout):
+    after a new selection the menu blurs a cover for its background, slow
+    in QEMU on a busy PC, so a fixed sleep is not enough."""
+    deadline = time.time() + timeout
+    while True:
+        shot_ = q.screendump()
+        if cond(shot_):
+            return shot_
+        if time.time() > deadline:
+            print("    wait_screen: still not there after %.0f s" % timeout)
+            return shot_
+        time.sleep(0.2)
+
+
+def title_is(t):
+    """cond for wait_screen: the menu's title pill shows t."""
+    return lambda shot_: t in screen_text(shot_)[4]
+
+
+def wait_icons(q, n, timeout=6.0):
+    """A screendump of the menu once it is drawn (the tabs) and its bar has
+    n status icons: the first frame of the menu comes 0.5-1 s after
+    "cartridge menu", later on a busy PC."""
+    deadline = time.time() + timeout
+    while True:
+        shot_ = q.screendump()
+        if ("Games" in screen_text(shot_)[1] and len(bar_icons(shot_)) == n) or time.time() > deadline:
+            return shot_
+        time.sleep(0.2)
+
+
 def wait_bar_icons(q, ok, tries=16):
     """The menu bar once its icons are what ok(runs, img) wants: QEMU shows
     page 0 even while it is drawn, and a USB device can be announced a
@@ -652,8 +734,8 @@ def test_usb_keyboard(b, opts):
 
 def test_usb_hub(b, opts):
     """Devices behind a hub (the Pi 1 B's USB ports are all behind its
-    LAN951x): each port reset and enumerated; the keyboard wins over the
-    tablet (a gamepad) and types. QEMU's hub is full speed, so no split
+    LAN951x): each port reset and enumerated; the keyboard types, the
+    tablet is the mouse (M32). QEMU's hub is full speed, so no split
     transactions here: those need a high-speed hub (the LAN951x)."""
     hub = ["-device", "usb-hub,port=1", "-device", "usb-kbd,port=1.2",
            "-device", "usb-tablet,port=1.4"]
@@ -680,11 +762,12 @@ def test_usb_hub(b, opts):
         assert b"usb: hub 0409:55aa" in out, out
     finally:
         q.close()
-    # only the tablet behind the hub: it is the gamepad
+    # only the tablet behind the hub: the mouse, no keyboard or gamepad
     q = Qemu(b("kernel.img"), ["-device", "usb-hub,port=1", "-device", "usb-tablet,port=1.3"])
     try:
         out = q.expect(MENU, timeout=40)
-        assert b"usb: gamepad 0627:0001 'QEMU USB Tablet', full speed (hub port 3)" in out, out
+        assert b"usb: tablet (mouse) 0627:0001 'QEMU USB Tablet' (hub port 3), wheel" in out, out
+        assert b"usb: no keyboard or gamepad" not in out, out
     finally:
         q.close()
 
@@ -946,7 +1029,8 @@ def test_home_ui(b, opts):
 
         # settings: the keyboard layout changes and is saved; the submenus
         keys("3")
-        screen(["Settings", "Controllers", "WiFi and network", "Keyboard layout", "System"])
+        net = "Network" if KERNEL7 else "WiFi and network"     # raspi2b: a Pi 2 B, Ethernet only
+        screen(["Settings", "Controllers", net, "Keyboard layout", "System"])
         shot("settings")
         keys("ss")
         _, text = settled_screen(q, lambda i, t: any("< Italian >" in l or "< US >" in l for l in t))
@@ -974,20 +1058,30 @@ def test_home_ui(b, opts):
         screen(["Settings > System", "Version", "Board", "SD card", "FAT32"])
         shot("system")
         keys("w")                               # the list scrolls to its last rows
-        screen(["3D driver", "bm3d", "as 0.2", "Restart", "Open the monitor"])  # QEMU: the ARM's 3D
+        screen(["3D driver", "bm3d", "as 0.2", "Performance overlay", "Restart",  # QEMU: the ARM's 3D
+                "Open the monitor"])
+        keys("ww")                              # the dev kit's overlay: on, then off again
+        screen(["< Off >", "fps, ms, Lua instructions"])
+        keys("\r")
+        screen(["< On >", "performance overlay: on"])
+        keys("\r")
+        screen(["< Off >", "performance overlay: off"])
         keys("q")
         keys("wwwww")                           # System -> Controllers
         keys("\r")
         screen(["Settings > Controllers", "Player 1", "keyboard / USB", "Bluetooth keyboard",
-                "Pair a new controller"])
+                "Mouse"])
         keys("w")                               # the list scrolls to its last row
-        screen(["Pair a keyboard", "Forget all controllers"])
+        screen(["Pair a new controller", "Pair a keyboard", "Pair a mouse", "Forget all controllers"])
         keys("q")
         keys("s")
         keys("\r")
-        screen(["Settings > WiFi and network", "Network", "none saved", "port 3333"])
-        keys("w")                               # the list scrolls to its last row
-        screen(["Connect to a network", "Connect at boot", "< On >"])
+        if KERNEL7:
+            screen(["Settings > Network", "Ethernet", "no cable", "port 3333"])
+        else:
+            screen(["Settings > WiFi and network", "Network", "none saved", "port 3333"])
+            keys("w")                           # the list scrolls to its last row
+            screen(["Connect to a network", "Connect at boot", "< On >"])
         keys("q")
         keys("q")
         time.sleep(0.5)
@@ -1096,8 +1190,10 @@ def test_make_image(b, opts):
         q.close()
 
         # the Pi 1 image: same kernel and games, no WiFi/Bluetooth firmware
-        with open(os.path.join(fw, "BCM43430A1.hcd"), "wb") as f:
-            f.write(b"placeholder")
+        # (and no kernel7.img, the Pi Zero 2 W's)
+        for n in ("BCM43430A1.hcd", "SYN43430B0.hcd"):
+            with open(os.path.join(fw, n), "wb") as f:
+                f.write(b"placeholder")
         subprocess.run(["make", "-s", "-C", root, "image", "image-pi1", f"FW_DIR={fw}",
                         f"DIST={tmp}", f"BUILD={os.path.abspath(b('.'))}"],
                        check=True, stdout=subprocess.DEVNULL)
@@ -1106,13 +1202,16 @@ def test_make_image(b, opts):
             return subprocess.run(["mdir", "-i", f"{os.path.join(tmp, name)}@@1M", "-b", "-/", "::"],
                                   env=env, capture_output=True, text=True).stdout
         assert "::/BM/BCM43430A1.HCD" in ls("bm.img").upper(), ls("bm.img")
+        assert "::/BM/SYN43430B0.HCD" in ls("bm.img").upper(), ls("bm.img")
+        assert "::/KERNEL.IMG" in ls("bm.img").upper() and "::/KERNEL7.IMG" in ls("bm.img").upper(), ls("bm.img")
         # the carts nano8 plays, with their long names
         assert "::/carts/nano8/nanodemo.p8" in ls("bm.img"), ls("bm.img")
         assert "::/carts/nano8/starmoovalley.p8.png" in ls("bm.img"), ls("bm.img")
         pi1 = ls("bm-pi1.img")
         assert "::/KERNEL.IMG" in pi1.upper() and "BCM43430A1" not in pi1.upper(), pi1
-        q = Qemu(b("kernel.img"), ["-drive", f"if=sd,format=raw,file={os.path.join(tmp, 'bm-pi1.img')}"],
-                 machine="raspi1ap")
+        assert "KERNEL7" not in pi1.upper(), pi1
+        q = Qemu(os.path.join(os.path.dirname(b("kernel.img")), "kernel.img"),   # kernel.img even with --kernel7
+                 ["-drive", f"if=sd,format=raw,file={os.path.join(tmp, 'bm-pi1.img')}"], machine="raspi1ap")
         out = q.expect(MENU, timeout=30).decode(errors="replace")
         assert "Raspberry Pi 1 A+" in out and "; 10 cartridges" in out, out
     finally:
@@ -1509,10 +1608,10 @@ class FakeDs4Chip(FakeBtChip):
             self.configure(pad_cid, host_cid, handle)
         self.expect_light(pad_cids[1], player, handle)
 
-    def report(self, buttons=0x08, ps=0, handle=None, lx=128, ly=128, shoulders=0):
+    def report(self, buttons=0x08, ps=0, handle=None, lx=128, ly=128, shoulders=0, rx=128, ry=128):
         """DS4 reduced input report 0x01 on the host's interrupt channel;
-        shoulders: 1 = L1, 2 = R1."""
-        self.l2(0x0041, bytes([0xA1, 0x01, lx, ly, 128, 128, buttons, shoulders, ps, 0, 0]), handle)
+        shoulders: 1 = L1, 2 = R1, 4 = L2, 8 = R2."""
+        self.l2(0x0041, bytes([0xA1, 0x01, lx, ly, rx, ry, buttons, shoulders, ps, 0, 0]), handle)
 
 
 def _mini_expect(q, needle, timeout=20):
@@ -1635,7 +1734,8 @@ class FakeMxKeys(FakeDs4Chip):
 
     def __init__(self, port):
         super().__init__(port)
-        self.frames, self.rx = [], b""
+        self.frames, self.rx = [], {}                       # by LE handle
+        self.handles = {self.LE_HANDLE}
         # the GATT database: handle -> (type, value)
         db = {0x10: (0x2800, (0x1812).to_bytes(2, "little"))}
         chars = [(0x11, 0x02, 0x2A4A, bytes([0x11, 0x01, 0x00, 0x03])),
@@ -1651,13 +1751,15 @@ class FakeMxKeys(FakeDs4Chip):
         self.db, self.svc_end = db, 0x23
 
     # ---- transport
-    def _next(self, want_cmd=None, want_cid=None, timeout=60):
+    def _next(self, want_cmd=None, want_cid=None, timeout=60, handle=None):
         """Answers commands and collects L2CAP frames until the command
-        `want_cmd` or a frame on `want_cid` comes; returns its parameters."""
+        `want_cmd` or a frame on `want_cid` (of the link `handle`) comes;
+        returns its parameters."""
+        handle = handle or self.LE_HANDLE
         deadline = time.time() + timeout
         while time.time() < deadline:
-            for i, (cid, data) in enumerate(self.frames):
-                if cid == want_cid:
+            for i, (h, cid, data) in enumerate(self.frames):
+                if cid == want_cid and h == handle:
                     del self.frames[i]
                     return data
             kind, a, payload = self.packet_any()
@@ -1670,12 +1772,13 @@ class FakeMxKeys(FakeDs4Chip):
                 if a == want_cmd:
                     return payload
             else:
-                pb, data = a, payload
-                self.rx = data if pb != 1 else self.rx + data
-                if len(self.rx) >= 4 and len(self.rx) >= 4 + int.from_bytes(self.rx[:2], "little"):
-                    n = int.from_bytes(self.rx[:2], "little")
-                    self.frames.append((int.from_bytes(self.rx[2:4], "little"), self.rx[4:4 + n]))
-                    self.rx = b""
+                (h, pb), data = a, payload
+                rx = data if pb != 1 else self.rx.get(h, b"") + data
+                self.rx[h] = rx
+                if len(rx) >= 4 and len(rx) >= 4 + int.from_bytes(rx[:2], "little"):
+                    n = int.from_bytes(rx[:2], "little")
+                    self.frames.append((h, int.from_bytes(rx[2:4], "little"), rx[4:4 + n]))
+                    self.rx[h] = b""
         raise AssertionError(f"fake keyboard: timeout waiting for {want_cmd or want_cid:#x}")
 
     def packet_any(self):
@@ -1686,18 +1789,18 @@ class FakeMxKeys(FakeDs4Chip):
         assert t == 0x02, f"fake chip: packet type {t:#x}"
         hdr = self._read(4)
         h = int.from_bytes(hdr[:2], "little")
-        assert h & 0x0FFF == self.LE_HANDLE, f"ACL on handle {h & 0xFFF:#x}"
+        assert h & 0x0FFF in self.handles, f"ACL on handle {h & 0xFFF:#x}"
         data = self._read(int.from_bytes(hdr[2:4], "little"))
         assert len(data) <= 27, f"host sent {len(data)} bytes in one packet (buffers are 27)"
-        return "acl", (h >> 12) & 3, data
+        return "acl", (h & 0x0FFF, (h >> 12) & 3), data
 
-    def send_l2(self, cid, data, piece=None):
+    def send_l2(self, cid, data, piece=None, handle=None):
         frame = len(data).to_bytes(2, "little") + cid.to_bytes(2, "little") + data
         piece = piece or len(frame)
         for off in range(0, len(frame), piece):
             flag = 0x2000 if off == 0 else 0x1000
             chunk = frame[off:off + piece]
-            self.port.write(bytes([0x02]) + (self.LE_HANDLE | flag).to_bytes(2, "little")
+            self.port.write(bytes([0x02]) + ((handle or self.LE_HANDLE) | flag).to_bytes(2, "little")
                             + len(chunk).to_bytes(2, "little") + chunk)
 
     def le_meta(self, sub, params):
@@ -1706,11 +1809,11 @@ class FakeMxKeys(FakeDs4Chip):
     def advertise(self, addr, addr_type, data):
         self.le_meta(0x02, bytes([1, 0x00, addr_type]) + addr + bytes([len(data)]) + data + bytes([0xC8]))
 
-    def connect(self, addr, addr_type):
+    def connect(self, addr, addr_type, handle=None):
         p = self._next(want_cmd=0x200D)
         assert p[5] == addr_type and p[6:12] == addr, p.hex()
-        self.le_meta(0x01, bytes([0]) + self.LE_HANDLE.to_bytes(2, "little") + bytes([0, addr_type]) + addr
-                     + bytes([0x0C, 0, 0, 0, 0xC8, 0, 0]))
+        self.le_meta(0x01, bytes([0]) + (handle or self.LE_HANDLE).to_bytes(2, "little") + bytes([0, addr_type])
+                     + addr + bytes([0x0C, 0, 0, 0, 0xC8, 0, 0]))
 
     # ---- crypto (spec order: protocol bytes are least significant first)
     @staticmethod
@@ -1830,41 +1933,47 @@ class FakeMxKeys(FakeDs4Chip):
         self.send_l2(6, bytes([0x08]) + self.IRK)
         self.send_l2(6, bytes([0x09, 0]) + self.IDENTITY)
 
-    def serve_gatt(self):
-        """Answers the host's GATT client until it turns notifications on."""
+    def serve_gatt(self, db=None, svc=(0x10, None), cccd=0x17, handle=None):
+        """Answers the host's GATT client until it turns notifications on
+        (on `cccd`); db: the attributes of the HID service svc (start, end)."""
+        db = db or self.db
+        start_, end_ = svc[0], svc[1] or self.svc_end
+
+        def send(data):
+            self.send_l2(4, data, handle=handle)
         while True:
-            req = self._next(want_cid=4)
+            req = self._next(want_cid=4, handle=handle)
             op = req[0]
             if op == 0x06:                                           # find by type value
                 assert req[5:9] == bytes([0x00, 0x28, 0x12, 0x18]), req.hex()
-                self.send_l2(4, bytes([0x07, 0x10, 0x00, self.svc_end, 0x00]))
+                send(bytes([0x07]) + start_.to_bytes(2, "little") + end_.to_bytes(2, "little"))
             elif op == 0x08:                                         # read by type (chars)
                 start, end = int.from_bytes(req[1:3], "little"), int.from_bytes(req[3:5], "little")
-                hs = [h for h in sorted(self.db) if start <= h <= end and self.db[h][0] == 0x2803][:3]
+                hs = [h for h in sorted(db) if start <= h <= end and db[h][0] == 0x2803][:3]
                 if not hs:
-                    self.send_l2(4, bytes([0x01, 0x08]) + req[1:3] + bytes([0x0A]))
+                    send(bytes([0x01, 0x08]) + req[1:3] + bytes([0x0A]))
                 else:
-                    self.send_l2(4, bytes([0x09, 7]) + b"".join(h.to_bytes(2, "little") + self.db[h][1] for h in hs))
+                    send(bytes([0x09, 7]) + b"".join(h.to_bytes(2, "little") + db[h][1] for h in hs))
             elif op == 0x04:                                         # find information
                 start, end = int.from_bytes(req[1:3], "little"), int.from_bytes(req[3:5], "little")
-                hs = [h for h in sorted(self.db) if start <= h <= end][:5]
+                hs = [h for h in sorted(db) if start <= h <= end][:5]
                 if not hs:
-                    self.send_l2(4, bytes([0x01, 0x04]) + req[1:3] + bytes([0x0A]))
+                    send(bytes([0x01, 0x04]) + req[1:3] + bytes([0x0A]))
                 else:
-                    self.send_l2(4, bytes([0x05, 1]) + b"".join(
-                        h.to_bytes(2, "little") + self.db[h][0].to_bytes(2, "little") for h in hs))
+                    send(bytes([0x05, 1]) + b"".join(
+                        h.to_bytes(2, "little") + db[h][0].to_bytes(2, "little") for h in hs))
             elif op in (0x0A, 0x0C):                                 # read, read blob
                 h = int.from_bytes(req[1:3], "little")
                 off = int.from_bytes(req[3:5], "little") if op == 0x0C else 0
-                value = self.db[h][1]
+                value = db[h][1]
                 if off > len(value):
-                    self.send_l2(4, bytes([0x01, op]) + req[1:3] + bytes([0x07]))
+                    send(bytes([0x01, op]) + req[1:3] + bytes([0x07]))
                 else:
-                    self.send_l2(4, bytes([op + 1]) + value[off:off + 22])
+                    send(bytes([op + 1]) + value[off:off + 22])
             elif op == 0x12:                                         # write request
                 h = int.from_bytes(req[1:3], "little")
-                assert h == 0x17 and req[3:5] == bytes([1, 0]), f"notifications on {h:#x}"
-                self.send_l2(4, bytes([0x13]))
+                assert h == cccd and req[3:5] == bytes([1, 0]), f"notifications on {h:#x}"
+                send(bytes([0x13]))
                 return
             else:
                 raise AssertionError(f"unexpected ATT request {req.hex()}")
@@ -1887,6 +1996,402 @@ class FakeMxKeys(FakeDs4Chip):
         enc = self._next(want_cmd=0x2019)
         assert enc[12:28] == self.ltk and enc[2:12] == bytes(10), "saved key not used"
         self._event(0x08, bytes([0]) + self.LE_HANDLE.to_bytes(2, "little") + bytes([1]))
+
+
+class FakeMxMouse(FakeMxKeys):
+    """The keyboard of FakeMxKeys and an LE mouse beside it (like a Logitech
+    MX Master): it cannot type, so the pairing is Just Works (LE Secure
+    Connections), its identity key; a HID service with the mouse in report
+    ID 2 (16 buttons, X and Y of 12 bits, wheel, AC Pan) and the boot mouse
+    report; motion as notifications. Both links at the same time."""
+
+    MOUSE_LE = bytes([0x65, 0x43, 0x21, 0x0F, 0xED, 0xDC | 0xC0])     # static random
+    MOUSE_ID = bytes([0x11, 0x22, 0x33, 0x9E, 0x6D, 0x00])            # 00:6d:9e:33:22:11 public
+    MOUSE_IRK = bytes(range(0x50, 0x60))
+    MOUSE_HANDLE = 0x0041
+    MOUSE_MAP = bytes([
+        0x05, 0x01, 0x09, 0x02, 0xA1, 0x01, 0x85, 0x02, 0x09, 0x01, 0xA1, 0x00,
+        0x05, 0x09, 0x19, 0x01, 0x29, 0x10, 0x15, 0x00, 0x25, 0x01, 0x95, 0x10, 0x75, 0x01, 0x81, 0x02,
+        0x05, 0x01, 0x16, 0x01, 0xF8, 0x26, 0xFF, 0x07, 0x75, 0x0C, 0x95, 0x02, 0x09, 0x30, 0x09, 0x31,
+        0x81, 0x06, 0x15, 0x81, 0x25, 0x7F, 0x75, 0x08, 0x95, 0x01, 0x09, 0x38, 0x81, 0x06,
+        0x05, 0x0C, 0x0A, 0x38, 0x02, 0x95, 0x01, 0x81, 0x06, 0xC0, 0xC0,
+        0x06, 0x00, 0xFF, 0x09, 0x01, 0xA1, 0x01, 0x85, 0x10, 0x75, 0x08, 0x95, 0x06, 0x15, 0x00,
+        0x26, 0xFF, 0x00, 0x09, 0x01, 0x81, 0x00, 0x09, 0x01, 0x91, 0x00, 0xC0])  # vendor (HID++)
+
+    def __init__(self, port):
+        super().__init__(port)
+        self.handles.add(self.MOUSE_HANDLE)
+        db = {0x30: (0x2800, (0x1812).to_bytes(2, "little"))}
+        chars = [(0x31, 0x02, 0x2A4A, bytes([0x11, 0x01, 0x00, 0x02])),
+                 (0x33, 0x02, 0x2A4B, self.MOUSE_MAP),
+                 (0x35, 0x12, 0x2A4D, bytes(7)), (0x39, 0x12, 0x2A33, bytes(3)),
+                 (0x3C, 0x04, 0x2A4C, bytes(1)), (0x3E, 0x06, 0x2A4E, bytes([1]))]
+        for h, props, uuid, value in chars:
+            db[h] = (0x2803, bytes([props]) + (h + 1).to_bytes(2, "little") + uuid.to_bytes(2, "little"))
+            db[h + 1] = (uuid, value)
+        db.update({0x37: (0x2902, bytes(2)), 0x38: (0x2908, bytes([2, 1])), 0x3B: (0x2902, bytes(2))})
+        self.mouse_db = db
+
+    def pair_mouse(self, host_addr):
+        """Advertises as a mouse in pairing mode, is connected, pairs with
+        Just Works (SC), gives its IRK and identity address."""
+        from Crypto.PublicKey import ECC
+        h = self.MOUSE_HANDLE
+        self._next(want_cmd=0x200B)
+        self._next(want_cmd=0x200C)
+        adv = bytes([2, 0x01, 0x05, 3, 0x19, 0xC2, 0x03, 3, 0x03, 0x12, 0x18, 13, 0x09]) + b"MX Master 3S"
+        self.advertise(self.MOUSE_LE, 1, adv)
+        self.connect(self.MOUSE_LE, 1, handle=h)
+        preq = self._next(want_cid=6, handle=h)
+        assert preq[0] == 0x01, preq.hex()
+        pres = bytes([0x02, 0x03, 0x00, 0x09, 16, 0x00, 0x02])       # NoInputNoOutput, SC, bonding
+        self.send_l2(6, pres, handle=h)
+        pk = self._next(want_cid=6, handle=h)
+        assert pk[0] == 0x0C and len(pk) == 65, pk.hex()
+        pkax = pk[1:33]
+        host_pub = ECC.construct(curve="P-256", point_x=int.from_bytes(pk[1:33], "little"),
+                                 point_y=int.from_bytes(pk[33:65], "little"))
+        key = ECC.generate(curve="P-256")
+        pkbx = int(key.pointQ.x).to_bytes(32, "little")
+        pkby = int(key.pointQ.y).to_bytes(32, "little")
+        self.send_l2(6, bytes([0x0C]) + pkbx + pkby, piece=27, handle=h)
+        dh = int((host_pub.pointQ * key.d).x).to_bytes(32, "little")
+        nb = os.urandom(16)                                     # Just Works: we confirm first
+        self.send_l2(6, bytes([0x03]) + self.f4(pkbx, pkax, nb, 0), handle=h)
+        na = self._next(want_cid=6, handle=h)
+        assert na[0] == 0x04, na.hex()
+        self.send_l2(6, bytes([0x04]) + nb, handle=h)
+        a = host_addr + bytes([0])
+        b_ = self.MOUSE_LE + bytes([1])
+        mackey, ltk = self.f5(dh, na[1:], nb, a, b_)
+        ea = self._next(want_cid=6, handle=h)
+        assert ea[0] == 0x0D and ea[1:] == self.f6(mackey, na[1:], nb, bytes(16), preq[1:4], a, b_), "bad Ea"
+        self.send_l2(6, bytes([0x0D]) + self.f6(mackey, nb, na[1:], bytes(16), pres[1:4], b_, a), handle=h)
+        enc = self._next(want_cmd=0x2019)
+        assert enc[:2] == h.to_bytes(2, "little") and enc[12:28] == ltk, "host encrypts with another key"
+        self._event(0x08, bytes([0]) + h.to_bytes(2, "little") + bytes([1]))
+        self.send_l2(6, bytes([0x08]) + self.MOUSE_IRK, handle=h)
+        self.send_l2(6, bytes([0x09, 0]) + self.MOUSE_ID, handle=h)
+        self.mouse_ltk = ltk
+
+    def serve_mouse(self):
+        self.serve_gatt(self.mouse_db, (0x30, 0x3F), 0x37, self.MOUSE_HANDLE)
+
+    def move(self, dx=0, dy=0, buttons=0, wheel=0):
+        """A mouse report (ID 2): 16 buttons, X and Y of 12 bits, wheel, pan."""
+        xy = (dx & 0xFFF) | (dy & 0xFFF) << 12
+        rep = buttons.to_bytes(2, "little") + xy.to_bytes(3, "little") + bytes([wheel & 0xFF, 0])
+        self.send_l2(4, bytes([0x1B, 0x36, 0x00]) + rep, handle=self.MOUSE_HANDLE)
+
+    def mouse_come_back(self):
+        """The mouse drops its link, then advertises from a resolvable private
+        address: the host connects and encrypts with the saved key."""
+        h = self.MOUSE_HANDLE
+        self._event(0x05, bytes([0]) + h.to_bytes(2, "little") + bytes([0x08]))
+        self._next(want_cmd=0x200B)
+        self._next(want_cmd=0x200C)
+        prand = bytes([0x44, 0x55, 0x40 | 0x26])
+        rpa = self.ah(self.MOUSE_IRK, prand) + prand
+        self.advertise(rpa, 1, bytes([2, 0x01, 0x04]))
+        self.connect(rpa, 1, handle=h)
+        enc = self._next(want_cmd=0x2019)
+        assert enc[12:28] == self.mouse_ltk and enc[2:12] == bytes(10), "saved key not used"
+        self._event(0x08, bytes([0]) + h.to_bytes(2, "little") + bytes([1]))
+
+
+def test_bt_mouse(b, opts):
+    """M32 with a simulated MX Keys and MX Master: the keyboard is paired
+    ('K'), then the mouse ('O': Just Works, no code) while the keyboard
+    stays connected; the bar shows the keyboard (blue 1) and a mouse with a
+    blue dot; the mouse moves the pointer over the covers and plays one with
+    a click; Settings > Controllers says so; the keyboard still types. The
+    mouse comes back from a private address (its IRK) and moves the pointer
+    again; both bonds are in bm/config.txt."""
+    try:
+        import Crypto  # noqa: F401
+    except ImportError:
+        print("    skipped: pip install pycryptodome")
+        return
+    import re
+    tmp = tempfile.mkdtemp(prefix="bm-btmouse-")
+    img = os.path.join(tmp, "sd.img")
+    hcd = os.path.join(tmp, "BCM43430A1.hcd")
+    with open(hcd, "wb") as f:
+        f.write(bytes([0x4C, 0xFC, 4, 1, 2, 3, 4, 0x4E, 0xFC, 4, 0xFF, 0xFF, 0xFF, 0xFF]))
+    mksd.build(img, [(hcd, "bm/BCM43430A1.hcd"), (b("carts/pong.bm"), "carts/pong.bm"),
+                     (b("carts/snake.bm"), "carts/snake.bm")])
+    q = Qemu(b("kernel.img"), ["-drive", f"if=sd,format=raw,file={img}"], mini_uart=True)
+    q.mini_buf = b""
+    try:
+        q.boot()
+        q.send("K")
+        q.expect("(same pins, same speed)\r\n")
+        chip = FakeMxMouse(q.port)
+        chip.buf, q.buf = q.buf, b""
+        chip.init(reset_silent=False)
+
+        def passkey():
+            _mini_expect(q, "then Enter:")
+            text, deadline = "", time.time() + 10
+            while not re.search(r"\b\d{6}\b", text) and time.time() < deadline:
+                q.mini_buf += q.mini.read(0.05)
+                text = q.mini_buf.decode(errors="replace")
+            return int(re.search(r"\b(\d{6})\b", text).group(1))
+        chip.pair(FakeBtChip.ADDR, passkey)
+        chip.serve_gatt()
+        _mini_expect(q, "ready to type")
+        # the mouse, while the keyboard stays connected
+        time.sleep(0.3)
+        q.mini.write(b"O")
+        try:
+            chip.pair_mouse(FakeBtChip.ADDR)
+            chip.serve_mouse()
+        except AssertionError:
+            q.mini_buf += q.mini.read(0.5)
+            print(q.mini_buf.decode(errors="replace")[-3000:])
+            raise
+        out = _mini_expect(q, "it moves the pointer")
+        for s_ in ("found mouse dc:ed:0f:21:43:65 MX Master 3S (random address)",
+                   "pairing, LE Secure Connections, no code (Just Works)",
+                   "mouse 00:6d:9e:33:22:11 paired (Secure Connections, private address)",
+                   f"report map {len(FakeMxMouse.MOUSE_MAP)} bytes: mouse found, report ID 2",
+                   "mouse MX Master 3S connected"):
+            assert s_ in out, out
+        # the keyboard still types: 'i' (info)
+        time.sleep(0.3)
+        chip.keys(0x0C)
+        chip.keys()
+        _mini_expect(q, "uptime")
+        # the menu: keyboard (blue 1) and the mouse (blue dot) in the bar
+        q.mini.write(b"M")
+        _mini_expect(q, "cartridge menu")
+        shot_ = wait_icons(q, 2)
+        runs = bar_icons(shot_)
+        assert len(runs) == 2 and blue_number(shot_, runs[0]) and blue_number(shot_, runs[1]), runs
+        assert arrow_at(shot_, 320, 180), "no arrow"
+        # to the top left corner, then over the covers: 1.2 pixels per count
+        # when moving fast
+        chip.move(-2000, -2000)
+        assert arrow_at(wait_screen(q, lambda s_: arrow_at(s_, 0, 0)), 0, 0), "not in the corner"
+        chip.move(100, 100)                              # (120, 120): Pong
+        shot_ = wait_screen(q, lambda s_: arrow_at(s_, 120, 120) and title_is("Pong")(s_))
+        assert arrow_at(shot_, 120, 120) and "Pong" in screen_text(shot_)[4], screen_text(shot_)[4]
+        chip.move(120, 0)                                # (264, 120): Snake
+        assert "Snake" in screen_text(wait_screen(q, title_is("Snake")))[4]
+        # Settings > Controllers: the mouse is there
+        q.mini.write(b"3")
+        wait_screen(q, lambda s_: "Controllers" in "".join(screen_text(s_)))
+        q.mini.write(b"\r")
+        text = "\n".join(screen_text(wait_screen(q, lambda s_: "Bluetooth on" in "".join(screen_text(s_)))))
+        assert re.search(r"Mouse +Bluetooth on", text), text
+        q.mini.write(b"\x1b")                             # back to Settings, to Games
+        time.sleep(0.5)
+        q.mini.write(b"1")
+        shot_ = wait_screen(q, lambda s_: title_is("Snake")(s_) and arrow_at(s_, 264, 120))
+        assert arrow_at(shot_, 264, 120), "the arrow is not on Snake"
+        chip.move(0, 0, buttons=1)                      # a click on Snake
+        time.sleep(0.1)
+        chip.move(0, 0, buttons=0)
+        _mini_expect(q, "playing snake.bm")
+        time.sleep(0.5)
+        q.mini.write(b"q")
+        _mini_expect(q, "update+draw")
+        time.sleep(0.5)
+        # it comes back: found by its IRK, the saved key; it moves again
+        chip.mouse_come_back()
+        chip.serve_mouse()
+        _mini_expect(q, "mouse MX Master 3S connected")
+        time.sleep(0.5)
+        chip.move(-2000, -2000)
+        wait_screen(q, lambda s_: arrow_at(s_, 0, 0))
+        chip.move(100, 100)
+        shot_ = wait_screen(q, lambda s_: arrow_at(s_, 120, 120) and title_is("Pong")(s_))
+        assert arrow_at(shot_, 120, 120) and "Pong" in screen_text(shot_)[4], screen_text(shot_)[4]
+    finally:
+        q.close()
+    part = os.path.join(tmp, "part.img")
+    with open(img, "rb") as f, open(part, "wb") as o:
+        f.seek(2048 * 512)
+        o.write(f.read())
+    cfg = subprocess.run(["mtype", "-i", part, "::/BM/CONFIG.TXT"], capture_output=True, text=True,
+                         env=dict(os.environ, MTOOLS_SKIP_CHECK="1")).stdout
+    shutil.rmtree(tmp, ignore_errors=True)
+    assert "bt_mouse=00:6d:9e:33:22:11 0 " + FakeMxMouse.MOUSE_IRK.hex() in cfg, cfg
+    assert "bt_mouse_key=" + chip.mouse_ltk.hex() + " 0000 0000000000000000" in cfg, cfg
+    assert "bt_kbd=00:6d:9e:12:34:56 0 " in cfg, cfg
+
+
+class FakeClassicMouse(FakeDs4Chip):
+    """The chip plus a classic Bluetooth mouse (class 002580): bm looks for
+    an LE mouse first (nothing), then for a classic one: the inquiry finds
+    it, SSP Just Works, encryption, the HID channels; bm switches it to the
+    boot protocol (SET_PROTOCOL on the control channel), its reports are
+    A1 02 buttons X Y wheel."""
+
+    MOUSE = bytes([0x0C, 0x0B, 0x0A, 0x6D, 0x66, 0x1C])         # 1c:66:6d:0a:0b:0c
+
+    def pair_mouse(self, key, handle, cids, clock=(0x21, 0x43)):
+        while True:                                         # the LE scan: nobody
+            deadline = time.time() + 30                     # up to 11.5 s of nothing
+            while not self.buf and time.time() < deadline:
+                self.buf += self.port.read(0.05)
+            kind, op, params = self.packet()
+            assert kind == "cmd", kind
+            if op == 0x0401:
+                break
+            self._complete(op)
+        self.status(0x0401)
+        self._event(0x22, bytes([1]) + self.MOUSE + bytes([1, 0, 0x80, 0x25, 0x00, *clock, 0xC4]))
+        self._event(0x01, bytes([0]))
+        p = self.cmd(0x0405, reply="status")
+        assert p[:6] == self.MOUSE, p.hex()
+        hb = handle.to_bytes(2, "little")
+        self._event(0x03, bytes([0]) + hb + self.MOUSE + bytes([1, 0]))
+        self.cmd(0x0411, reply="status")
+        self._event(0x17, self.MOUSE)
+        self.cmd(0x040C)
+        self._event(0x31, self.MOUSE)
+        io = self.cmd(0x042B)
+        assert io == self.MOUSE + bytes([0x03, 0x00, 0x04]), io.hex()
+        self._event(0x33, self.MOUSE + (654321).to_bytes(4, "little"))
+        self.cmd(0x042C)
+        self._event(0x36, bytes([0]) + self.MOUSE)
+        self._event(0x18, self.MOUSE + key + bytes([4]))
+        self._event(0x06, bytes([0]) + hb)
+        self.cmd(0x0413, reply="status")
+        self._event(0x08, bytes([0]) + hb + bytes([1]))
+        for psm, host_cid, dev_cid in ((0x11, 0x40, cids[0]), (0x13, 0x41, cids[1])):
+            code, ident, data = self.host_sig(handle)
+            assert code == 0x02 and data == psm.to_bytes(2, "little") + host_cid.to_bytes(2, "little")
+            self.sig(0x03, ident, dev_cid.to_bytes(2, "little") + host_cid.to_bytes(2, "little") + bytes(4),
+                     handle)
+            self.configure(dev_cid, host_cid, handle)
+        kind, h, payload = self.packet()                    # SET_PROTOCOL (boot)
+        assert kind == "acl" and h == handle and int.from_bytes(payload[2:4], "little") == cids[0] \
+            and payload[4:] == bytes([0x70]), payload.hex()
+        self.l2(0x0040, bytes([0x00]), handle)              # HANDSHAKE: successful
+
+    def move(self, dx=0, dy=0, buttons=0, wheel=0):
+        self.l2(0x0041, bytes([0xA1, 0x02, buttons, dx & 0xFF, dy & 0xFF, wheel & 0xFF]))
+
+
+def test_bt_mouse_classic(b, opts):
+    """M32: a classic Bluetooth mouse ('O' finds no LE mouse, then pairs a
+    classic one: boot protocol). Alone in the bar: the mouse with a blue
+    dot; it moves the pointer and plays a cover with a click; its key is
+    bt_mouse_classic in bm/config.txt."""
+    tmp = tempfile.mkdtemp(prefix="bm-btmouse2-")
+    img = os.path.join(tmp, "sd.img")
+    hcd = os.path.join(tmp, "BCM43430A1.hcd")
+    with open(hcd, "wb") as f:
+        f.write(bytes([0x4C, 0xFC, 4, 1, 2, 3, 4, 0x4E, 0xFC, 4, 0xFF, 0xFF, 0xFF, 0xFF]))
+    mksd.build(img, [(hcd, "bm/BCM43430A1.hcd"), (b("carts/pong.bm"), "carts/pong.bm"),
+                     (b("carts/snake.bm"), "carts/snake.bm")])
+    key = bytes(range(0xC0, 0xD0))
+    q = Qemu(b("kernel.img"), ["-drive", f"if=sd,format=raw,file={img}"], mini_uart=True)
+    q.mini_buf = b""
+    try:
+        q.boot()
+        q.send("O")
+        q.expect("(same pins, same speed)\r\n")
+        chip = FakeClassicMouse(q.port)
+        chip.buf, q.buf = q.buf, b""
+        chip.init(reset_silent=False)
+        chip.pair_mouse(key, chip.HANDLE, (0x60, 0x61))
+        out = _mini_expect(q, "mouse paired; next time click it to connect", timeout=40)
+        for s_ in ("bt: no mouse in pairing mode found",
+                   "bt: found 1c:66:6d:0a:0b:0c class 002580",
+                   "bt: mouse 1c:66:6d:0a:0b:0c connected, it moves the pointer"):
+            assert s_ in out, out
+        q.mini.write(b"M")
+        _mini_expect(q, "cartridge menu")
+        shot_ = wait_icons(q, 1)
+        runs = bar_icons(shot_)
+        assert len(runs) == 1 and blue_number(shot_, runs[0]) and arrow_at(shot_, 320, 180), runs
+        for _ in range(3):                              # to the corner (8-bit motion)
+            chip.move(-127, -127)
+            time.sleep(0.2)
+        wait_screen(q, lambda s_: arrow_at(s_, 0, 0))
+        chip.move(100, 100)                             # (120, 120): Pong
+        shot_ = wait_screen(q, lambda s_: arrow_at(s_, 120, 120) and title_is("Pong")(s_))
+        assert arrow_at(shot_, 120, 120) and "Pong" in screen_text(shot_)[4], screen_text(shot_)[4]
+        chip.move(buttons=1)
+        time.sleep(0.1)
+        chip.move()
+        _mini_expect(q, "playing pong.bm")
+    finally:
+        q.close()
+    part = os.path.join(tmp, "part.img")
+    with open(img, "rb") as f, open(part, "wb") as o:
+        f.seek(2048 * 512)
+        o.write(f.read())
+    cfg = subprocess.run(["mtype", "-i", part, "::/BM/CONFIG.TXT"], capture_output=True, text=True,
+                         env=dict(os.environ, MTOOLS_SKIP_CHECK="1")).stdout
+    shutil.rmtree(tmp, ignore_errors=True)
+    assert "bt_mouse_classic=1c:66:6d:0a:0b:0c " + key.hex() in cfg, cfg
+
+
+def test_stick_pointer(b, opts):
+    """M32: without a mouse the right stick of a pad moves the pointer: in
+    the menu the arrow shows only once the stick moves; in a cartridge
+    that asks for the pointer, R2 is its left button and L2 the right one."""
+    tmp = tempfile.mkdtemp(prefix="bm-stick-")
+    img = os.path.join(tmp, "sd.img")
+    hcd = os.path.join(tmp, "BCM43430A1.hcd")
+    with open(hcd, "wb") as f:
+        f.write(bytes([0x4C, 0xFC, 4, 1, 2, 3, 4, 0x4E, 0xFC, 4, 0xFF, 0xFF, 0xFF, 0xFF]))
+    cart = os.path.join(tmp, "mouse.bm")
+    with open(cart, "wb") as f:
+        f.write(mkbm.pack(MOUSE_CART.encode(), title="Mouse test", res=(320, 180)))
+    mksd.build(img, [(hcd, "bm/BCM43430A1.hcd"), (cart, "carts/mouse.bm")])
+    q = Qemu(b("kernel.img"), ["-drive", f"if=sd,format=raw,file={img}"], mini_uart=True)
+    q.mini_buf = b""
+    try:
+        q.boot()
+        q.send("T")
+        q.expect("(same pins, same speed)\r\n")
+        chip = FakeDs4Chip(q.port)
+        chip.buf, q.buf = q.buf, b""
+        chip.init(reset_silent=False)
+        chip.pair(FakeDs4Chip.DS4, chip.KEY, chip.HANDLE, (0x70, 0x71), 1)
+        _mini_expect(q, "next time just press PS")
+        q.mini.write(b"M")
+        _mini_expect(q, "cartridge menu")
+        assert not arrow_at(wait_icons(q, 1), 320, 180), "an arrow before the stick moved"
+        chip.report(rx=255)                             # right, for a moment
+        time.sleep(0.3)
+        chip.report()
+        time.sleep(0.3)
+        shot_ = q.screendump()
+        xs = [x for x in range(321, 636) if arrow_at(shot_, x, 180)]
+        assert xs, "the arrow did not show up to the right"
+        chip.report(0x08 | 0x20)                        # cross: plays the cover
+        time.sleep(0.1)
+        chip.report()
+        _mini_expect(q, "playing mouse.bm")
+        out = _mini_expect(q, "w0 true")
+        x0 = int(re.search(r"mouse (\d+),", out).group(1))
+        chip.report(rx=0)                               # left
+        time.sleep(0.3)
+        chip.report()
+        out = _mini_expect(q, "w0 true")
+        time.sleep(0.3)
+        out += q.mini.read(0.2).decode(errors="replace")
+        xs = [int(v) for v in re.findall(r"mouse (\d+),", out)]
+        assert xs and min(xs) < x0, (x0, out)
+        chip.report(shoulders=0x08)                     # R2: the left button
+        time.sleep(0.1)
+        chip.report()
+        _mini_expect(q, " click")
+        chip.report(shoulders=0x04)                     # L2: the right one
+        time.sleep(0.1)
+        chip.report()
+        _mini_expect(q, " right")
+        chip.report(0x08, ps=1)
+        _mini_expect(q, "update+draw")
+    finally:
+        q.close()
+        shutil.rmtree(tmp, ignore_errors=True)
 
 
 def test_bt_keyboard(b, opts):
@@ -2373,7 +2878,8 @@ def test_sd_sdhc_and_usb_menu(b, opts):
         sendkeys(q, "c")                      # C is the X button: the options (M27)
         # (with the tools the info rows, Author..., are below: the panel scrolls)
         opts_row = "Open in bm Studio"
-        _, text = settled_screen(q, lambda i, t: any(opts_row in l for l in t))
+        # both rows checked below: a frame caught half drawn may have one alone
+        _, text = settled_screen(q, lambda i, t: any(opts_row in l for l in t) and any("Play" in l for l in t))
         assert any(opts_row in l for l in text) and any("Play" in l for l in text), "\n".join(text)
         sendkeys(q, "x")                      # X is the B button: back
         _, text = settled_screen(q, lambda i, t: not any(opts_row in l for l in t))
@@ -2433,29 +2939,191 @@ def test_menu_scroll(b, opts):
         shutil.rmtree(tmp, ignore_errors=True)
 
 
-def test_usb_hid_gamepad(b, opts):
-    """Generic HID parser: QEMU's usb-tablet (report descriptor with 3
-    buttons and absolute X/Y) is taken as a gamepad; button 1 = A."""
-    tmp = tempfile.mkdtemp(prefix="bm-tablet-")
+def arrow_at(img, x, y):
+    """The pointer's arrow (M32) with its tip at (x, y): on its sixth row a
+    black outline pixel, then four white ones (both sizes of the arrow)."""
+    def white(p): return min(p) > 230
+    def black(p): return max(p) < 24
+    return black(pixel(img, x, y + 5)) and all(white(pixel(img, x + i, y + 5)) for i in (1, 2, 3, 4))
+
+
+MOUSE_CARTS = ["astrowing", "hunt", "pong", "snake", "shooter"]
+# their titles, in the order of the menu
+MOUSE_TITLES = ["Astro Wing", "Hunter's Night", "Pong", "Snake", "Star Shooter"]
+
+
+def cover_xy(i):
+    """The middle of cover i of the grid (first two rows on screen)."""
+    return 40 + (i % 4) * 144 + 64, 112 + (i // 4) * 96 + 40
+
+
+def test_usb_mouse(b, opts):
+    """M32: a USB mouse next to the USB keyboard (both behind a hub; QEMU's
+    usb-tablet, moved to absolute positions over QMP). The bar shows the
+    keyboard and a white mouse without a number; the arrow is drawn where
+    the pointer is; moving over a cover selects it, the wheel moves by rows,
+    the keys hide the arrow; a click on a tab changes it, the right button
+    opens a cover's options, a click outside the panel closes it, a click
+    on a cover plays it."""
+    tmp = tempfile.mkdtemp(prefix="bm-mouse-")
     img = os.path.join(tmp, "sd.img")
-    mksd.build(img, [(b("demo.bm"), "carts/demo.bm")])
+    mksd.build(img, [(b(f"carts/{n}.bm"), f"carts/{n}.bm") for n in MOUSE_CARTS])
     q = Qemu(b("kernel.img"), ["-drive", f"if=sd,format=raw,file={img}",
-                               "-device", "usb-tablet,port=1"])
+                               "-device", "usb-hub,port=1", "-device", "usb-kbd,port=1.2",
+                               "-device", "usb-tablet,port=1.3"])
     try:
         out = q.expect("cartridge menu", timeout=90).decode(errors="replace")
-        assert "usb: gamepad 0627:0001 'QEMU USB Tablet'" in out, out
-        q.monitor("mouse_move 16384 16384")    # centre: stick released
-        # the tablet's button report also moves up once: on the first row
-        # that does nothing (the tabs are L1 / R1), A plays the cover
-        time.sleep(0.5)
-        q.monitor("mouse_button 1")
-        q.monitor("mouse_button 0")
-        q.expect("playing demo.bm", timeout=10)
+        assert "usb: port 3: if0 class 03/00/00 ep 81 mps 8" in out and " tablet" in out, out
+        assert "usb: tablet (mouse) 0627:0001 'QEMU USB Tablet' (hub port 3), wheel" in out, out
+        assert "usb: keyboard 0627:0001 'QEMU USB Keyboard'" in out, out
+        shot_ = wait_icons(q, 2)
+        runs = bar_icons(shot_)
+        assert len(runs) == 2 and not blue_number(shot_, runs[0]) and not blue_number(shot_, runs[1]), runs
+        assert runs[1][1] - runs[1][0] <= 13, runs          # the mouse: narrow, no number
+        assert arrow_at(shot_, 320, 180), "no arrow in the middle"
+        # over a cover: it is selected, its title shown
+        x, y = cover_xy(2)
+        q.pointer(x, y)
+        shot_ = wait_screen(q, lambda s_: arrow_at(s_, x, y) and title_is(MOUSE_TITLES[2])(s_))
+        assert arrow_at(shot_, x, y), "the arrow did not follow"
+        assert MOUSE_TITLES[2] in screen_text(shot_)[4], screen_text(shot_)[4]
+        # the wheel: a row down (the last cover of the shorter row)
+        q.click("wheel-down")
+        assert MOUSE_TITLES[4] in screen_text(wait_screen(q, title_is(MOUSE_TITLES[4])))[4]
+        # the keys move the selection: the arrow goes away until it moves
+        sendkeys(q, "left")
+        shot_ = wait_screen(q, lambda s_: not arrow_at(s_, x, y) and title_is(MOUSE_TITLES[3])(s_))
+        assert not arrow_at(shot_, x, y), "the arrow stayed with the keys"
+        assert MOUSE_TITLES[3] in screen_text(shot_)[4], screen_text(shot_)[4]
+
+        def click_at(px, py, button="left"):        # once the arrow is there
+            q.pointer(px, py)
+            assert arrow_at(wait_screen(q, lambda s_: arrow_at(s_, px, py)), px, py), (px, py)
+            q.click(button)
+        # a click on Dev changes the tab, on Games back
+        click_at(108, 24)
+        assert "bm SDK" in screen_text(wait_screen(q, title_is("bm SDK")))[4]
+        click_at(44, 24)
+        wait_screen(q, title_is(MOUSE_TITLES[3]))
+        # the right button on a cover: its options; a click outside closes them
+        x, y = cover_xy(1)
+        click_at(x, y, "right")
+        text = "\n".join(screen_text(wait_screen(q, lambda s_: "Open in the SDK" in "".join(screen_text(s_)))))
+        assert "Play" in text and "Open in the SDK" in text, text
+        click_at(30, 200)
+        text = "\n".join(screen_text(wait_screen(
+            q, lambda s_: "Open in the SDK" not in "".join(screen_text(s_)))))
+        assert "Open in the SDK" not in text and MOUSE_TITLES[1] in text, text
+        # a click on a cover plays it
+        click_at(*cover_xy(0))
+        q.expect("playing astrowing.bm", timeout=10)
         time.sleep(1.0)
         q.send("q")
         q.expect("update+draw", timeout=15)
+    finally:
+        q.close()
+        shutil.rmtree(tmp, ignore_errors=True)
+
+
+MOUSE_CART = r"""
+local last
+function _init()
+  log("before " .. tostring(mouse()))
+  log("enabled " .. tostring(mouse(true)))
+end
+function _update()
+  local x, y, b, w, shown = mouse()
+  local s = x and string.format("%d,%d b%d w%d %s", x, y, b, w, tostring(shown)) or "nil"
+  if mousep(0) then s = s .. " click" end
+  if mousep(1) then s = s .. " right" end
+  if s ~= last then last = s; log("mouse " .. s) end
+end
+function _draw() cls(1) end
+"""
+
+
+def test_mouse_cart(b, opts):
+    """M32: a cartridge has the pointer only when it asks (mouse(true)):
+    mouse() gives its position in the cartridge's pixels (320x180 here),
+    the buttons, the wheel; mousep() the clicks; the small arrow is drawn
+    over the frame. With mouse=off in bm/config.txt there is no pointer
+    anywhere: no icon, mouse(true) is false, mouse() nil."""
+    tmp = tempfile.mkdtemp(prefix="bm-mousecart-")
+    cart = os.path.join(tmp, "mouse.bm")
+    with open(cart, "wb") as f:
+        f.write(mkbm.pack(MOUSE_CART.encode(), title="Mouse test", res=(320, 180)))
+    img = os.path.join(tmp, "sd.img")
+    mksd.build(img, [(cart, "carts/mouse.bm")])
+    tablet = ["-drive", f"if=sd,format=raw,file={img}", "-device", "usb-tablet,port=1"]
+    q = Qemu(b("kernel.img"), tablet)
+    try:
+        q.expect("cartridge menu", timeout=90)
+        time.sleep(1.0)
+        x, y = cover_xy(0)
+        q.pointer(x, y)
+        time.sleep(0.3)
+        q.click()
+        q.expect("playing mouse.bm", timeout=10)
+        out = q.expect("enabled true", timeout=10).decode(errors="replace")
+        assert "before nil" in out, out
+        q.pointer(160, 45, 320, 180)
+        q.expect("mouse 160,45 b0 w0 true", timeout=10)
+        shot_ = q.screendump()
+        assert shot_[:2] == (320, 180) and arrow_at(shot_, 160, 45), shot_[:2]
+        q.click()
+        q.expect("mouse 160,45 b1 w0 true click", timeout=10)
+        q.click("right")
+        q.expect(" right", timeout=10)
+        q.click("wheel-up")
+        q.expect("w1 true", timeout=10)
         q.send("q")
-        q.expect("back to the monitor", timeout=10)
+        q.expect("update+draw", timeout=15)
+    finally:
+        q.close()
+    # a square cartridge (256x256 in the middle of a 480x270 screen): the
+    # arrow is in its box
+    square = os.path.join(tmp, "square.bm")
+    with open(square, "wb") as f:
+        f.write(mkbm.pack(MOUSE_CART.encode(), title="Mouse square", res=(256, 256)))
+    mksd.build(img, [(square, "carts/square.bm")])
+    q = Qemu(b("kernel.img"), tablet)
+    try:
+        q.expect("cartridge menu", timeout=90)
+        wait_icons(q, 1)
+        q.send("\r")
+        q.expect("playing square.bm", timeout=10)
+        q.expect("enabled true", timeout=10)
+        q.pointer(128, 64, 256, 256)
+        q.expect("mouse 128,64 b0 w0 true", timeout=10)
+        shot_ = wait_screen(q, lambda s_: arrow_at(s_, 112 + 128, 7 + 64))
+        assert shot_[:2] == (480, 270) and arrow_at(shot_, 112 + 128, 7 + 64), shot_[:2]
+        q.send("q")
+        q.expect("update+draw", timeout=15)
+    finally:
+        q.close()
+    # the whole console without the pointer
+    with open(os.path.join(tmp, "config.txt"), "w") as f:
+        f.write("mouse=off\n")
+    mksd.build(img, [(cart, "carts/mouse.bm"), (os.path.join(tmp, "config.txt"), "bm/config.txt")])
+    q = Qemu(b("kernel.img"), tablet)
+    try:
+        out = q.expect("cartridge menu", timeout=90).decode(errors="replace")
+        assert ", mouse off" in out, out
+        shot_ = wait_icons(q, 0)
+        assert bar_icons(shot_) == [] and not arrow_at(shot_, 320, 180), bar_icons(shot_)
+        q.pointer(*cover_xy(0))
+        time.sleep(0.3)
+        q.click()
+        time.sleep(1.0)
+        assert b"playing" not in q.buf, "the click played"
+        q.send("\r")
+        q.expect("playing mouse.bm", timeout=10)
+        q.expect("enabled false", timeout=10)
+        q.pointer(100, 100, 320, 180)
+        time.sleep(0.5)
+        q.send("q")
+        out = q.expect("update+draw", timeout=15).decode(errors="replace")
+        assert "mouse 100" not in out and "mouse nil" in out, out
     finally:
         q.close()
         shutil.rmtree(tmp, ignore_errors=True)
@@ -2796,6 +3464,427 @@ def test_studio_animator(b, opts):
             assert village == f.read(), "the village was not saved: it stays as it was"
     finally:
         shutil.rmtree(tmp, ignore_errors=True)
+
+
+def test_studio_assistant(b, opts):
+    """M30 in bm Studio and bm Animator: F6 opens the assistant in its 3D
+    mode; a request ("casa rossa") shows the recipe turning in the panel
+    and Enter makes it a model; a rigged one ("mech") brings its skeleton
+    and animations, which bm Animator plays (cart_tool on the saved file)
+    and the kernel's ANIM section holds; the Animator's own F6 adds a
+    dragon. The file is read back and checked."""
+    tmp = tempfile.mkdtemp(prefix="bm-s3dai-")
+    img = os.path.join(tmp, "sd.img")
+    mksd.build(img, [(b("carts/village.bm"), "carts/village.bm")])
+    q = Qemu(b("kernel.img"), ["-drive", f"if=sd,format=raw,file={img}"])
+
+    def keys(*ks, gap=0.3):
+        for k in ks:
+            q.send(k)
+            time.sleep(gap)
+
+    def screen(want, tries=40):
+        for _ in range(tries):
+            _, text = settled_screen(q, lambda i, t: all(any(w in l for l in t) for w in want), tries=2)
+            if all(any(w in l for l in text) for w in want):
+                return "\n".join(text)
+            time.sleep(0.25)
+        raise AssertionError(f"not on the screen: {want}\n" + "\n".join(text))
+
+    def shot(name):
+        if opts.shots:
+            img_, _ = settled_screen(q, lambda i, t: "menu" in t[0] and t[21].strip() != "", tries=20)
+            _save_png(img_, os.path.join(opts.shots, f"{name}.png"))
+
+    F2, F6 = "\x1bOQ", "\x1b[17~"
+    DOWN, ESC = "\x1b[B", "\x1b"
+    try:
+        q.expect(MENU, timeout=30)
+        time.sleep(0.5)
+        screen(["Games", "Studio Village"])
+        keys("x")
+        screen(["Open in bm Studio"])
+        keys("s", "s", "s", "s", "\r")
+        screen(["build", "models", "TOOLS", "model 1/8: ground"])
+        # a new project, then the assistant: a house from words
+        keys(ESC, gap=0.6)
+        keys(DOWN, DOWN, "\r", gap=0.4)         # New project
+        screen(["BLOCK", "cell 0,0,0"])
+        keys(F6, gap=0.6)
+        screen(["Assistant", "mesh", "type a question"])
+        for ch in "casa rossa":
+            keys(ch, gap=0.12)
+        screen(["Casa (casetta col tetto)", "faces", "3D"])
+        shot("studio-assistant")
+        keys("\r", gap=1.0)
+        screen(["the assistant's house: 35 faces, model house", "TOOLS"])
+        shot("studio-assistant-house")
+        # a rigged one: the mech, a new model with its skeleton
+        keys(F6, gap=0.6)
+        for ch in "mech":
+            keys(ch, gap=0.12)
+        screen(["Mech (robot da combattimento", "9 bones: idle walk fire"])
+        keys("\r", gap=1.5)
+        screen(["9 bones, 3 animations, model mech"])
+        keys(F2)
+        screen(["MODELS 2", "house", "mech"])
+        shot("studio-assistant-models")
+        # saved as AI.BM, then bm Animator on it: the mech's animations play
+        keys(ESC, gap=0.6)
+        for _ in range(4):
+            keys(DOWN)
+        keys("\r")
+        screen(["file name"])
+        for _ in range(8):
+            keys("\x7f", gap=0.1)
+        for ch in "AI\r":
+            keys(ch, gap=0.1)
+        screen(["saved /carts/AI.BM"])
+        keys(ESC, gap=0.6)                      # the menu goes back to the page...
+        keys(ESC, gap=0.6)                      # ...and opens again on Continue
+        screen(["Open in bm Animator"])
+        for _ in range(8):
+            keys(DOWN)
+        keys("\r", gap=1.5)
+        screen(["play", "sprites", "MODELS", "house", "mech"], tries=80)
+        keys(DOWN)
+        screen(["ANIMATIONS", "idle", "walk", "fire", "9 bones"])
+        shot("animator-assistant-mech")
+        # the Animator's own F6: a dragon, played at once
+        keys(F6, gap=0.6)
+        for ch in "drago":
+            keys(ch, gap=0.12)
+        screen(["Drago", "10 bones: idle fly walk"])
+        keys("\r", gap=1.5)
+        screen(["the assistant's dragon:", "10 bones, 3 animations, model dragon"])
+        screen(["ANIMATIONS", "fly"])
+        shot("animator-assistant-dragon")
+        keys("\x13", gap=0.8)                   # Ctrl+S
+        screen(["saved /carts/AI.BM"])
+        keys(ESC, gap=0.6)
+        keys("\x1b[A", "\r", gap=0.6)           # Exit bm Animator
+        screen(["Games"])
+    finally:
+        q.close()
+    try:
+        part = os.path.join(tmp, "part.img")
+        with open(img, "rb") as f, open(part, "wb") as o:
+            f.seek(2048 * 512)
+            o.write(f.read())
+        env = dict(os.environ, MTOOLS_SKIP_CHECK="1")
+        saved = subprocess.run(["mtype", "-i", part, "::/CARTS/AI.BM"], capture_output=True, env=env).stdout
+        secs = dict(bmmesh.cart_sections(saved))
+        models, _ = bmmesh.decode(secs[bmmesh.SEC_MESH])
+        names = [m["name"] for m in models]
+        assert names == ["house", "mech", "dragon"], names
+        assert len(models[0]["faces"]) >= 60 and len(models[1]["faces"]) >= 1000, [len(m["faces"]) for m in models]
+        anim = secs[bmmesh.SEC_ANIM]
+        assert struct.unpack_from("<H", anim)[0] == 2, "two rigs: the mech's and the dragon's"
+        nb, nc, nv = struct.unpack_from("<HHH", anim, 8 + 16)
+        assert anim[8:12] == b"mech" and (nb, nc) == (9, 3), (anim[8:24], nb, nc)
+        clip = 8 + 24 + nb * 44 + ((nv + 3) & ~3)
+        assert anim[clip:clip + 4] == b"idle", anim[clip:clip + 16]
+    finally:
+        shutil.rmtree(tmp, ignore_errors=True)
+
+
+def test_img2mesh(b, opts):
+    """tools/img2mesh.py offline (the recorded replies: the mech in the part
+    language) writes a .bm the console plays: bm Studio lists its models,
+    bm Animator plays the mech's animations from its ANIM section."""
+    tmp = tempfile.mkdtemp(prefix="bm-i2m-")
+    cart = os.path.join(tmp, "img2mesh.bm")
+    knight = os.path.join(tmp, "knight.ppm")
+    subprocess.run([b("host/meshview"), "one", "knight", knight], check=True, capture_output=True)
+    for name, rounds in (("mech", "1"), ("robot", "0")):
+        subprocess.run([sys.executable, os.path.join(HERE, "..", "tools", "img2mesh.py"), knight, "-o", cart,
+                        "--name", name, "--rounds", rounds, "--replay", os.path.join(HERE, "ai", "img2mesh", "replay"),
+                        "--work", os.path.join(tmp, name), "--meshview", b("host/meshview")],
+                       check=True, capture_output=True)
+    img = os.path.join(tmp, "sd.img")
+    mksd.build(img, [(cart, "carts/img2mesh.bm")])
+    q = Qemu(b("kernel.img"), ["-drive", f"if=sd,format=raw,file={img}"])
+
+    def keys(*ks, gap=0.3):
+        for k in ks:
+            q.send(k)
+            time.sleep(gap)
+
+    def screen(want, tries=40):
+        for _ in range(tries):
+            _, text = settled_screen(q, lambda i, t: all(any(w in l for l in t) for w in want), tries=2)
+            if all(any(w in l for l in text) for w in want):
+                return "\n".join(text)
+            time.sleep(0.25)
+        raise AssertionError(f"not on the screen: {want}\n" + "\n".join(text))
+
+    F2 = "\x1bOQ"
+    DOWN, ESC = "\x1b[B", "\x1b"
+    try:
+        q.expect(MENU, timeout=30)
+        time.sleep(0.5)
+        screen(["Games", "mech"])
+        keys("x")
+        screen(["Open in bm Studio"])
+        keys("s", "s", "s", "s", "\r", gap=0.4)
+        screen(["build", "models", "TOOLS"])
+        keys(F2)
+        screen(["MODELS 2", "mech", "robot", "662 faces 1160 tri 702 vertices", "9 bones, 3 animations"])
+        keys(ESC, gap=0.6)
+        screen(["Open in bm Animator"])
+        for _ in range(8):
+            keys(DOWN)
+        keys("\r", gap=1.5)
+        screen(["play", "ANIMATIONS", "idle", "walk", "fire", "702 vertices, 1160 triangles, 9 bones"], tries=80)
+        if opts.shots:
+            img_, _ = settled_screen(q, lambda i, t: "menu" in t[0] and t[21].strip() != "", tries=20)
+            _save_png(img_, os.path.join(opts.shots, "img2mesh-animator.png"))
+    finally:
+        q.close()
+        shutil.rmtree(tmp, ignore_errors=True)
+
+
+def test_meshy2mesh(b, opts):
+    """tools/meshy2mesh.py offline (tests/ai/check_meshy.py makes a .glb and
+    converts it): the cartridge with the textured box on its own sheet and
+    the flat pyramid plays in bm Studio, which lists both models."""
+    tmp = tempfile.mkdtemp(prefix="bm-meshy-")
+    subprocess.run([sys.executable, os.path.join(HERE, "ai", "check_meshy.py"), tmp], check=True, capture_output=True)
+    cart = os.path.join(tmp, "meshy", "meshy.bm")
+    img = os.path.join(tmp, "sd.img")
+    mksd.build(img, [(cart, "carts/meshy.bm")])
+    q = Qemu(b("kernel.img"), ["-drive", f"if=sd,format=raw,file={img}"])
+
+    def keys(*ks, gap=0.3):
+        for k in ks:
+            q.send(k)
+            time.sleep(gap)
+
+    def screen(want, tries=40):
+        for _ in range(tries):
+            _, text = settled_screen(q, lambda i, t: all(any(w in l for l in t) for w in want), tries=2)
+            if all(any(w in l for l in text) for w in want):
+                return "\n".join(text)
+            time.sleep(0.25)
+        raise AssertionError(f"not on the screen: {want}\n" + "\n".join(text))
+
+    try:
+        q.expect(MENU, timeout=30)
+        time.sleep(0.5)
+        screen(["Games", "thing"])
+        keys("x")
+        screen(["Open in bm Studio"])
+        keys("s", "s", "s", "s", "\r", gap=0.4)
+        screen(["build", "models", "TOOLS", "model 1/2: thing", "18 tri"])
+        keys("\x1bOQ")                         # F2
+        screen(["MODELS 2", "thing", "flat1"])
+        if opts.shots:
+            img_, _ = settled_screen(q, lambda i, t: "menu" in t[0] and t[21].strip() != "", tries=20)
+            _save_png(img_, os.path.join(opts.shots, "meshy-studio.png"))
+        keys("\x1b", gap=0.6)
+        keys("\x1b[A", "\r", gap=0.8)           # Exit bm Studio (nothing changed)
+        screen(["Games", "thing"])
+        keys("\r", gap=0.5)                    # play: the viewer shows the first model
+        q.expect("playing meshy.bm", timeout=20)
+        time.sleep(3.0)
+        img_, _ = settled_screen(q, lambda i, t: True, tries=1)
+        # the box drawn: its red and blue texture halves on the screen
+        w, h, px = img_
+        reds = blues = 0
+        for i in range(0, w * h * 3, 3 * 7):
+            r, g, bl = px[i], px[i + 1], px[i + 2]
+            reds += r > 120 and g < 80 and bl < 80
+            blues += bl > 120 and r < 80 and g < 80
+        assert reds > 200 and blues > 200, (reds, blues)
+        if opts.shots:
+            _save_png(img_, os.path.join(opts.shots, "meshy-viewer.png"))
+        keys("q", gap=1.0)
+        out = q.expect('bm: "thing"', timeout=20).decode(errors="replace")
+        assert "stopped with an error" not in out, out
+    finally:
+        q.close()
+        shutil.rmtree(tmp, ignore_errors=True)
+
+
+def test_mesh_reduce(b, opts):
+    """The polygon reducer on the console (src/bm/decimate.c, mesh_reduce):
+    bm Studio's models page, "-" asks the triangles; the ground of the
+    village (288 triangles) becomes 40, the counts say so, Ctrl+S writes
+    the file and it holds the reduced model; the other models stay."""
+    tmp = tempfile.mkdtemp(prefix="bm-reduce-")
+    img = os.path.join(tmp, "sd.img")
+    mksd.build(img, [(b("carts/village.bm"), "carts/village.bm")])
+    with open(b("carts/village.bm"), "rb") as f:
+        models0, _ = bmmesh.decode(dict(bmmesh.cart_sections(f.read()))[bmmesh.SEC_MESH])
+    q = Qemu(b("kernel.img"), ["-drive", f"if=sd,format=raw,file={img}"])
+
+    def keys(*ks, gap=0.3):
+        for k in ks:
+            q.send(k)
+            time.sleep(gap)
+
+    def screen(want, tries=40):
+        for _ in range(tries):
+            _, text = settled_screen(q, lambda i, t: all(any(w in l for l in t) for w in want), tries=2)
+            if all(any(w in l for l in text) for w in want):
+                return "\n".join(text)
+            time.sleep(0.25)
+        raise AssertionError(f"not on the screen: {want}\n" + "\n".join(text))
+
+    def shot(name):
+        if opts.shots:
+            img_, _ = settled_screen(q, lambda i, t: "menu" in t[0] and t[21].strip() != "", tries=20)
+            _save_png(img_, os.path.join(opts.shots, f"{name}.png"))
+
+    F2, ESC, SAVE = "\x1bOQ", "\x1b", "\x13"
+    try:
+        q.expect(MENU, timeout=30)
+        time.sleep(0.5)
+        screen(["Games", "Studio Village"])
+        keys("x")
+        screen(["Open in bm Studio"])
+        keys("s", "s", "s", "s", "\r")
+        screen(["build", "models", "TOOLS", "model 1/8: ground"])
+        keys(F2)
+        screen(["MODELS 8", "ground", "288 tri"])
+        shot("reduce-before")
+        keys("-")
+        screen(["triangles (now 288"])
+        for _ in range(6):
+            keys("\x7f", gap=0.1)
+        for ch in "40\r":
+            keys(ch, gap=0.1)
+        # a collapse takes two triangles away: 40 or 39
+        text = screen(["reduced to", "faces"])
+        got = re.search(r"reduced to (\d+) triangles", text)
+        assert got and 38 <= int(got.group(1)) <= 40, text
+        shot("reduce-after")
+        keys(SAVE, gap=0.8)
+        screen(["saved /carts/village.bm"])
+        keys(ESC, gap=0.6)
+        screen(["bm Studio", "Exit bm Studio"])
+        keys("\x1b[A", "\r", gap=0.6)
+        screen(["Games"])
+    finally:
+        q.close()
+    part = os.path.join(tmp, "part.img")
+    with open(img, "rb") as f, open(part, "wb") as o:
+        f.seek(2048 * 512)
+        o.write(f.read())
+    env = dict(os.environ, MTOOLS_SKIP_CHECK="1")
+    saved = subprocess.run(["mtype", "-i", part, "::/CARTS/VILLAGE.BM"], capture_output=True, env=env).stdout
+    models, _ = bmmesh.decode(dict(bmmesh.cart_sections(saved))[bmmesh.SEC_MESH])
+    assert [m["name"] for m in models] == [m["name"] for m in models0], [m["name"] for m in models]
+    assert 38 <= len(models[0]["faces"]) <= 40, len(models[0]["faces"])
+    assert all(f[3] == bmmesh.TEXTURED for f in models[0]["faces"]), "the ground keeps its texture"
+    for m, m0 in zip(models[1:], models0[1:]):
+        assert len(m["faces"]) == len(m0["faces"]), (m["name"], len(m["faces"]), len(m0["faces"]))
+    shutil.rmtree(tmp, ignore_errors=True)
+    print(f"mesh_reduce: the ground {len(models0[0]['faces'])} -> {len(models[0]['faces'])} triangles, saved")
+
+
+def test_picture_model(b, opts):
+    """A model from a picture on the console: bm Studio's models page, "m"
+    asks how (the outline cut out or turned, made here; or the image-to-3D
+    service) and lists the pictures of /pics. The cutout is made on the
+    ARM kernel: a red disc on white becomes the model hero with its
+    texture (the village's sheet is in use: flat colours). The service's
+    start fails at once with a clear message (QEMU has no WiFi) and
+    nothing changes."""
+    tmp = tempfile.mkdtemp(prefix="bm-pic-")
+    img = os.path.join(tmp, "sd.img")
+    pic = os.path.join(tmp, "hero.png")
+    w = h = 40
+    px = bytearray()
+    for y in range(h):
+        for x in range(w):
+            px += bytes((220, 40, 40)) if (x - 20) ** 2 + (y - 20) ** 2 < 14 ** 2 else bytes((255, 255, 255))
+    raw = b"".join(b"\0" + bytes(px[y * w * 3:(y + 1) * w * 3]) for y in range(h))
+
+    def chunk(t, body):
+        return struct.pack(">I", len(body)) + t + body + struct.pack(">I", zlib.crc32(t + body) & 0xFFFFFFFF)
+    with open(pic, "wb") as f:
+        f.write(b"\x89PNG\r\n\x1a\n" + chunk(b"IHDR", struct.pack(">IIBBBBB", w, h, 8, 2, 0, 0, 0))
+                + chunk(b"IDAT", zlib.compress(raw)) + chunk(b"IEND", b""))
+    cfg = os.path.join(tmp, "config.txt")
+    with open(cfg, "w") as f:
+        f.write("# bm settings (key=value)\nmeshy_key=msy_test_key_for_qemu\n")
+    ca = os.path.join(HERE, "..", "boot", "ca.pem")
+    mksd.build(img, [(b("carts/village.bm"), "carts/village.bm"), (pic, "pics/hero.png"), (cfg, "bm/config.txt"),
+                     (ca, "bm/ca.pem")])
+    q = Qemu(b("kernel.img"), ["-drive", f"if=sd,format=raw,file={img}"])
+
+    def keys(*ks, gap=0.3):
+        for k in ks:
+            q.send(k)
+            time.sleep(gap)
+
+    def screen(want, tries=40):
+        for _ in range(tries):
+            _, text = settled_screen(q, lambda i, t: all(any(w in l for l in t) for w in want), tries=2)
+            if all(any(w in l for l in text) for w in want):
+                return "\n".join(text)
+            time.sleep(0.25)
+        raise AssertionError(f"not on the screen: {want}\n" + "\n".join(text))
+
+    def shot(name):
+        if opts.shots:
+            img_, _ = settled_screen(q, lambda i, t: "menu" in t[0] and t[21].strip() != "", tries=20)
+            _save_png(img_, os.path.join(opts.shots, f"{name}.png"))
+
+    F2, ESC, DOWN, SAVE = "\x1bOQ", "\x1b", "\x1b[B", "\x13"
+    try:
+        q.expect(MENU, timeout=30)
+        time.sleep(0.5)
+        screen(["Games", "Studio Village"])
+        keys("x")
+        screen(["Open in bm Studio"])
+        keys("s", "s", "s", "s", "\r")
+        screen(["build", "models", "TOOLS", "model 1/8: ground"])
+        keys(F2)
+        screen(["MODELS 8", "picture"])
+        # the outline, made here: the model hero
+        keys("m")
+        screen(["cutout: the picture's outline", "lathe:", "meshy.ai:"])
+        shot("picture-ways")
+        keys("\r")
+        screen(["/pics/hero.png"])
+        keys("\r", gap=1.5)
+        text = screen(["cutout: the model hero", "MODELS 9", "hero"], tries=80)
+        assert "flat colours (the sheet is in use)" in text, text
+        shot("picture-cutout")
+        keys(SAVE, gap=0.8)
+        screen(["saved /carts/village.bm"])
+        # the service: the start fails with the reason (no network, no clock
+        # for TLS...), named after the service; nothing changes
+        keys("m")
+        screen(["meshy.ai:"])
+        keys(DOWN, DOWN, "\r")
+        screen(["/pics/hero.png"])
+        keys("\r", gap=1.0)
+        screen(["cannot start: meshy:"], tries=80)
+        screen(["MODELS 9"])
+        keys(ESC, gap=0.6)
+        screen(["Model from picture...", "Exit bm Studio"])
+        keys("\x1b[A", "\r", gap=0.6)
+        screen(["Games"])
+    finally:
+        q.close()
+    part = os.path.join(tmp, "part.img")
+    with open(img, "rb") as f, open(part, "wb") as o:
+        f.seek(2048 * 512)
+        o.write(f.read())
+    env = dict(os.environ, MTOOLS_SKIP_CHECK="1")
+    saved = subprocess.run(["mtype", "-i", part, "::/CARTS/VILLAGE.BM"], capture_output=True, env=env).stdout
+    models, _ = bmmesh.decode(dict(bmmesh.cart_sections(saved))[bmmesh.SEC_MESH])
+    hero = [m for m in models if m["name"] == "hero"]
+    assert hero and 8 <= len(hero[0]["faces"]) <= 200, [m["name"] for m in models]
+    reds = sum(1 for f in hero[0]["faces"] if f[3] >> 16 > 150 and f[3] & 0xFF < 100)
+    assert reds >= len(hero[0]["faces"]) // 2, reds                                  # the disc's red on the faces
+    ys = [v[1] for v in hero[0]["verts"]]
+    assert abs(max(ys) - 2) < 0.05 and abs(min(ys)) < 0.05, (min(ys), max(ys))
+    shutil.rmtree(tmp, ignore_errors=True)
+    print(f"picture: the cutout hero made on the console ({len(hero[0]['faces'])} triangles, red), saved; the service's message")
 
 
 def test_mesh(b, opts):
@@ -3218,7 +4307,7 @@ def test_titan(b, opts):
 
 
 def test_overbit(b, opts):
-    """M31: Overbit boots to its title (the sunset sky and the orange menu
+    """M38: Overbit boots to its title (the sunset sky and the orange menu
     bar on screen), the keyboard takes it to the training range (first
     person: Rally's white cannons in the lower corners), J held fires the
     cannons; no Lua error, frame statistics on quit."""
@@ -3296,6 +4385,79 @@ def _save_png(img, path):
     with open(path, "wb") as f:
         f.write(b"\x89PNG\r\n\x1a\n" + chunk(b"IHDR", struct.pack(">IIBBBBB", w, h, 8, 2, 0, 0, 0))
                 + chunk(b"IDAT", zlib.compress(raw)) + chunk(b"IEND", b""))
+
+
+# a square cartridge (256x256, in the middle of a 480x270 screen) lit by
+# levels as in Dank Tomb: white everywhere, one lamp in the middle
+SQUARE_CART = r"""
+local l1 = 0
+function _init()
+  fades({ { 0xFFFFFF, 0x000000, 0x404040, 0x808080, 0xFFFFFF } })
+end
+function _draw()
+  cls(0xFFFFFF)
+  dark_begin(0)
+  glow(128, 128, 60, 3)
+  dark_end()
+  if pad() & 1024 ~= 0 then l1 = 30 end
+  if l1 > 0 then l1 = l1 - 1; print("L1 HELD", 8, 48, 0xFFFF00) end
+  print("SQUARE " .. SCREEN_W .. "X" .. SCREEN_H, 8, 16, 0x00FF00)
+end
+"""
+
+
+def test_square_lights(b, opts):
+    """A 256x256 cartridge: shown in the middle of a 480x270 screen, black
+    round it; the light by levels (fades, dark_begin, glow, dark_end): the
+    lamp's middle as drawn, its edge dark; L1 from the serial line ('u');
+    the dev kit's performance overlay ('p' from the serial line, F3)"""
+    BX, BY = 112, 7                             # the 256x256 box in the 480x270 screen
+
+    def box(img):
+        w, h, px = img
+        out = bytearray()
+        for y in range(BY, BY + 256):
+            out += px[(y * w + BX) * 3:(y * w + BX + 256) * 3]
+        return 256, 256, bytes(out)
+
+    q = Qemu(b("kernel.img"))
+    try:
+        q.expect(MENU, timeout=30)
+        time.sleep(0.5)
+        assert _upload(q, mkbm.pack(SQUARE_CART.encode(), title="square", res=(256, 256)))
+        for _ in range(20):
+            time.sleep(0.25)
+            img = q.screendump()
+            if img[0] == 480 and any("SQUARE 256X256" in l for l in screen_text(box(img))):
+                break
+        assert img[0] == 480 and img[1] == 270, img[:2]
+        text = screen_text(box(img))
+        assert any("SQUARE 256X256" in l for l in text), "\n".join(text)
+        w, h, px = img
+        for x, y in ((0, 0), (479, 269), (BX - 1, 128), (BX + 256, 128), (240, BY - 1), (240, BY + 256)):
+            assert px[(y * w + x) * 3:(y * w + x) * 3 + 3] == b"\0\0\0", ("border", x, y)
+        mid = px[((BY + 128) * w + BX + 128) * 3:((BY + 128) * w + BX + 128) * 3 + 3]
+        edge = px[((BY + 240) * w + BX + 128) * 3:((BY + 240) * w + BX + 128) * 3 + 3]
+        assert min(mid) > 200 and max(edge) < 40, (mid, edge)
+        if opts.shots:
+            _save_png(img, os.path.join(opts.shots, "square-lights.png"))
+        q.send("u")                             # L1
+        time.sleep(0.3)
+        text = screen_text(box(q.screendump()))
+        assert any("L1 HELD" in l for l in text), "\n".join(text)
+        q.send("p")                             # the performance overlay
+        time.sleep(0.6)
+        text = screen_text(box(q.screendump()))
+        assert any("fps" in l and "ms" in l for l in text), "\n".join(text)
+        q.send("p")
+        time.sleep(0.6)
+        text = screen_text(box(q.screendump()))
+        assert not any("fps" in l for l in text), "\n".join(text)
+        q.send("q")
+        out = q.expect("update+draw", timeout=10).decode(errors="replace")
+        assert "stopped with an error" not in out, out
+    finally:
+        q.close()
 
 
 def _upload(q, data):
@@ -4105,6 +5267,102 @@ def test_res_480(b, opts):
         q.close()
 
 
+def test_code_completion(b, opts):
+    """bm Code's word completion (src/ai/predict.lua): while a word is typed
+    its rest appears in grey-blue and the status line says "Tab: word"; Tab
+    writes it (green until the next key) with the words of where the cursor
+    is: Lua in the code, Italian after "--", the questions to the assistant
+    after "#entry:"; in the find prompt the tab's names; in the assistant's
+    panel the question. Tab before any letter still indents."""
+    q = Qemu(b("kernel.img"))
+
+    def k(s, gap=0.05):
+        for c in re.findall(r"\x1b\[[0-9]*[~A-Z]|\x1bO[A-Z]|.", s, re.S):
+            q.send(c)
+            time.sleep(gap)
+
+    def see(words, tries=40):
+        text = []
+        for _ in range(tries):
+            text = screen_text(q.screendump(), 6, 12)
+            if all(any(w in l for l in text) for w in words):
+                return text
+            time.sleep(0.25)
+        raise AssertionError(f"not on screen: {words}\n" + "\n".join(text))
+
+    def coloured(rgb, tol=12):
+        """the pixels of about that colour on the screen"""
+        w, h, px = q.screendump()
+        want = ((rgb >> 16) & 255, (rgb >> 8) & 255, rgb & 255)
+        n = 0
+        for i in range(0, len(px), 3):
+            if all(abs(px[i + j] - want[j]) <= tol for j in range(3)):
+                n += 1
+        return n
+
+    GHOST, PRED = 0x6C8CC8, 0x50E0B0
+
+    def shot(name):
+        if opts.shots:
+            _save_png(q.screendump(), os.path.join(opts.shots, f"code-complete-{name}.png"))
+    try:
+        q.boot()
+        k("C")
+        q.expect("code: ready", timeout=15)
+        see(["keys"])
+        k("\x14", 0.4)                                      # Ctrl+T: an empty tab
+        k("f", 0.4)
+        see(["  1 function", "Tab: function"])              # f + the grey-blue rest
+        assert coloured(GHOST) > 20, "the suggestion in grey-blue"
+        shot("ghost")
+        k("\t", 0.4)
+        text = see(["  1 function"])
+        assert not any("Tab:" in l for l in text), "written: no suggestion left"
+        assert coloured(PRED) > 20, "what Tab wrote, green"
+        shot("written")
+        k(" _upd", 0.1)
+        see(["Tab: _update"])
+        k("\t", 0.3)
+        k("()\r", 0.1)
+        k("-- muovi il gioc", 0.08)                          # a comment: Italian
+        see(["Tab: gioco"])
+        k("\t", 0.3)
+        k("\r", 0.1)
+        k("if bt", 0.08)
+        see(["Tab: btnp"])
+        k("\t", 0.3)
+        see(["  1 function _update()", "  2   -- muovi il gioco", "  3   if btnp"])
+        k("\r\r#entry: come faccio a sal", 0.06)           # a request: the questions
+        see(["Tab: salvare"])
+        # Tab before a word: still the indentation
+        k("\x0c", 0.3)                                      # Ctrl+L: go to line
+        k("3\r", 0.2)
+        k("\x1b[H\x1b[H", 0.1)                              # Home twice: the first column
+        k("\t", 0.3)
+        see(["  3     if btnp"])
+        # the find: the tab's names
+        k("\x06", 0.4)                                      # Ctrl+F
+        see(["Find:"])
+        k("\b" * 20, 0.02)
+        k("_up", 0.1)
+        k("\t", 0.3)
+        see(["Find:", "_update"])
+        k("\r", 0.4)
+        # the assistant: the question
+        k("\x1b[17~", 0.6)                                  # F6
+        see(["Assistant"])
+        k("\x15", 0.2)                                      # Ctrl+U: an empty question
+        k("co", 0.2)
+        see(["? come"])
+        k("\t", 0.4)
+        k(" faccio a saltare", 0.05)
+        see(["? come faccio a saltare", "Saltare con la gravit"])
+        shot("assistant")
+        k("\x1b", 0.6)
+    finally:
+        q.close()
+
+
 def test_editor(b, opts):
     """M15: the editor makes a new game, saves it on the SD card, tries it,
     comes back; a game that stops with an error brings the editor to the
@@ -4383,24 +5641,37 @@ def main():
     ap.add_argument("--update-ref", action="store_true")
     ap.add_argument("-k", dest="filter", default="")
     ap.add_argument("--shots", default="", help="directory for screenshots of the games")
+    ap.add_argument("--kernel7", action="store_true",
+                    help="kernel7.img (Pi Zero 2 W) in raspi2b instead of kernel.img in raspi0")
     opts = ap.parse_args()
+    global KERNEL7
+    KERNEL7 = opts.kernel7
 
     def b(name):
+        if KERNEL7 and name == "kernel.img":
+            name = "kernel7.img"
         return os.path.join(opts.build, name)
 
     tests = [(n, f) for n, f in globals().items()
              if n.startswith("test_") and opts.filter in n]
-    failed = 0
+    failed = skipped = 0
     for name, fn in tests:
+        skip = KERNEL7 and next((why for t, why in BCM2835_ONLY.items() if name.startswith(t)), None)
+        if skip:
+            print(f"SKIP {name} (kernel7.img: needs {skip})", flush=True)
+            skipped += 1
+            continue
         t0 = time.time()
         try:
             fn(b, opts)
-            print(f"PASS {name} ({time.time() - t0:.1f}s)")
+            print(f"PASS {name} ({time.time() - t0:.1f}s)", flush=True)
         except Exception:
             failed += 1
-            print(f"FAIL {name}")
+            print(f"FAIL {name}", flush=True)
             traceback.print_exc()
-    print(f"\n{len(tests) - failed}/{len(tests)} passed")
+            sys.stdout.flush()
+    print(f"\n{len(tests) - skipped - failed}/{len(tests) - skipped} passed"
+          + (f" ({skipped} skipped)" if skipped else ""))
     return 1 if failed else 0
 
 

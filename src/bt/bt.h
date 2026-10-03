@@ -25,12 +25,21 @@ void bt_pair_keyboard(unsigned seconds);
 int bt_keyboard(void);
 int bt_keyboard_paired(void);
 
+/* A mouse (M32): Bluetooth LE (HID over GATT) or classic (boot protocol).
+ * Looks for one in pairing mode, LE first, then classic, and pairs it
+ * (bt_mouse, bt_mouse_key or bt_mouse_classic in bm/config.txt); then it
+ * comes back by itself. */
+void bt_pair_mouse(unsigned seconds);
+/* 1 while the mouse is connected; 1 once one is paired. */
+int bt_mouse(void);
+int bt_mouse_paired(void);
+
 /* Processes what the chip sent (connections, HID reports). Call often;
  * does nothing until bt_start. */
 void bt_poll(void);
 
-/* Forgets all pads and the keyboard (links dropped, keys removed from
- * bm/config.txt). Returns how many keys there were. */
+/* Forgets all pads, the keyboard and the mouse (links dropped, keys
+ * removed from bm/config.txt). Returns how many keys there were. */
 int bt_forget_all(void);
 
 /* 1 once a pad or a keyboard has been paired (bt_pad, bt_kbd keys in

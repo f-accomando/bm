@@ -1,5 +1,5 @@
 /*
- * Small integer networks for the cartridges (M31.4): a stack of dense
+ * Small integer networks for the cartridges (M38.4): a stack of dense
  * layers with INT8 weights and activations (the layers of nn.h), from a
  * blob that a training script writes, run from Lua:
  *

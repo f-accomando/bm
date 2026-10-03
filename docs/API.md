@@ -72,14 +72,15 @@ Se c'è un errore Lua, la cartuccia si ferma e l'errore, con la riga, appare sul
 | `_draw()` | ogni fotogramma, dopo `_update` |
 
 Globali: `SCREEN_W` e `SCREEN_H` (640 e 360; 480 e 270 con `--res 480x270`; 320 e 180 con
-`--res 320x180`).
+`--res 320x180`; 256 e 256 con `--res 256x256`).
 Lo schermo **non** viene cancellato da solo: di solito `_draw` comincia con `cls()`.
 
 Limiti: un errore o un ciclo infinito (oltre **20 milioni di istruzioni** Lua in un
 fotogramma) ferma la cartuccia senza bloccare la console. Sandbox: niente `io`, `os`,
-`load`, `dofile`; `require` carica solo le librerie incluse nel kernel (per ora
-`"assist"`, il pannello dell'assistente); ci sono `string`, `table`, `math`, `utf8`,
-`coroutine`.
+`load`, `dofile`; `require` carica solo le librerie incluse nel kernel (`"assist"`, il
+pannello dell'assistente; `"bm3d"`, quello che bm Studio e bm Animator condividono;
+`"predict"` e `"words"`, il completamento delle parole); ci sono `string`, `table`,
+`math`, `utf8`, `coroutine`.
 
 ## Colori
 
@@ -137,6 +138,25 @@ della mappa; ogni numero è una cella dello sheet).
 | `players()` | quanti giocatori hanno un controller (almeno 1) e, come secondo valore, quali: bit `n` = giocatore `n+1` (es. `3, 7` = giocatori 1, 2 e 3) |
 | `stick([p, n])` | la levetta sinistra del giocatore `p`: `x, y` tra −1 e 1 (x verso destra, y verso il basso), con zona morta; con la tastiera o un pad senza levetta vale la croce (8 direzioni). Con `n = 1` la levetta **destra** (per mirare negli sparatutto; `0, 0` senza levetta). Senza `p`: quella spinta di più |
 
+**Mouse e puntatore (M32).** Una cartuccia ha il puntatore solo se lo chiede: senza
+`mouse(true)` non c'è (nel menu di bm invece c'è sempre). Lo muovono un mouse USB o
+Bluetooth, oppure la levetta destra di un pad (R2 o R3 tasto sinistro, L2 destro); la
+console può averlo spento per tutto il sistema (`mouse=off` in `bm/config.txt`).
+
+| Funzione | Descrizione |
+|---|---|
+| `mouse(on, [freccia])` | `mouse(true)`: la cartuccia vuole il puntatore, e la console disegna la sua freccia sopra il fotogramma (`mouse(true, false)`: niente freccia, la cartuccia disegna il suo cursore); `mouse(false)` lo toglie. Restituisce `false` se la console ha il mouse spento |
+| `mouse()` | `x, y, tasti, rotellina, visibile`: la posizione in pixel dello schermo della cartuccia (senza `camera`), i tasti tenuti in bit (1 sinistro, 2 destro, 4 centrale), gli scatti della rotellina in questo fotogramma (in su positivi) e `true` se il puntatore si vede (appena qualcosa lo muove). `nil` se la cartuccia non l'ha chiesto o se non c'è niente che lo muova (né mouse né levetta destra) |
+| `mousep([i])` | `true` nel fotogramma in cui il tasto `i` viene premuto (0 sinistro, il default; 1 destro; 2 centrale) |
+
+```lua
+function _init() mouse(true) end
+function _update()
+  local x, y = mouse()
+  if x and mousep() then sfx(0) end   -- un clic
+end
+```
+
 **Più giocatori (M16).** Il controller Bluetooth *n* è il giocatore *n* (abbinati dal monitor
 con `T`, uno alla volta: ognuno prende il primo posto libero e la sua luce il colore del
 giocatore: 1 blu, 2 rosso, 3 verde, 4 rosa). La tastiera o il gamepad USB e la seriale sono
@@ -173,7 +193,7 @@ nano8) legge la tastiera tasto per tasto e i controller pulsante per pulsante:
 | `rawkeys(on)` | con `true` le tastiere smettono di fare da controller per `btn()` e `pad()`: si leggono con `keydown()`. Esc chiude comunque la cartuccia |
 | `keydown(u)` | `true` finché è premuto il tasto con l'usage USB HID `u` (USB o Bluetooth): `0x04`…`0x1D` le lettere A–Z, `0x1E`…`0x27` le cifre, `0x28` Invio, `0x2C` spazio, `0x4F`…`0x52` le frecce (destra, sinistra, giù, su), `0xE0`…`0xE7` Ctrl, Shift, Alt, GUI di sinistra e poi di destra |
 | `keys()` | gli usage dei tasti premuti adesso (`{0x1D, 0xE1}`): per "premi un tasto" |
-| `pad([p])` | i pulsanti che il giocatore `p` (1–4) tiene premuti, in bit: 1 sinistra, 2 destra, 4 su, 8 giù, 16 A, 32 B, 64 Start, 128 Select, 256 X, 512 Y, 1024 L1, 2048 R1, 4096 L2, 8192 R2, 16384 L3, 32768 R3 (grilletti e clic delle levette: DS4 e Xbox 360; sui pad generici i pulsanti 7–8 e 11–12); senza `p` quelli di tutti. I tasti della seriale contano come il controller del primo giocatore |
+| `pad([p])` | i pulsanti che il giocatore `p` (1–4) tiene premuti, in bit: 1 sinistra, 2 destra, 4 su, 8 giù, 16 A, 32 B, 64 Start, 128 Select, 256 X, 512 Y, 1024 L1, 2048 R1, 4096 L2, 8192 R2, 16384 L3, 32768 R3 (i grilletti e le levette premute: DS4 e Xbox 360; sui pad generici i pulsanti 7–8 e 11–12); senza `p` quelli di tutti. I tasti della seriale contano come il controller del primo giocatore (L1 e R1: `u` e `o` dalla seriale, Q ed E dalla tastiera USB; Select: Tab da entrambe) |
 | `lastinput()` | che cosa è stato premuto per ultimo: `"keyboard"`, `"ds4"` o `"pad"` (un altro controller); `nil` prima di ogni tasto. Serve a mostrare i tasti giusti con `prompt()` (per esempio `"enter"` o `"A"`) |
 
 ### Tempo e sistema
@@ -181,7 +201,7 @@ nano8) legge la tastiera tasto per tasto e i controller pulsante per pulsante:
 | Funzione | Descrizione |
 |---|---|
 | `time()` | secondi dall'avvio della cartuccia (con decimali) |
-| `stat(n)` | 0 KiB usati da Lua, 1 ms dell'ultimo fotogramma (`_update` + `_draw`, con il 3D della GPU), 2 fps, 3 numero del fotogramma, 4 triangoli 3D, 5 pixel 3D (0 con la GPU), 6 ms passati nel disegno 3D (da `zclear`; con la GPU la parte dell'ARM), 7 vertici 3D trasformati, 8 ms dall'inizio di questo fotogramma (per misurare le fasi), 9 `1` se il 3D lo disegna la GPU |
+| `stat(n)` | 0 KiB usati da Lua, 1 ms dell'ultimo fotogramma (`_update` + `_draw`, con il 3D della GPU), 2 fps, 3 numero del fotogramma, 4 triangoli 3D, 5 pixel 3D (0 con la GPU), 6 ms passati nel disegno 3D (da `zclear`; con la GPU la parte dell'ARM), 7 vertici 3D trasformati, 8 ms dall'inizio di questo fotogramma (per misurare le fasi), 9 `1` se il 3D lo disegna la GPU, 10 istruzioni Lua dell'ultimo fotogramma (`_update` + `_draw`, alle migliaia) |
 | `log(...)` | scrive nel log del kernel (seriale e console), non sullo schermo del gioco |
 | `quit()` | chiude la cartuccia alla fine del fotogramma |
 | `timeslice(co, [k])` | la coroutine `co` si ferma da sola dopo circa `k` mila istruzioni Lua in un fotogramma (400 se manca) e `coroutine.resume` torna `true` senza valori: un calcolo lungo prosegue nei fotogrammi successivi invece di fermare la cartuccia per il limite di istruzioni. `timeslice(nil)` lo toglie (nano8 lo usa per le sue cartucce) |
@@ -191,7 +211,7 @@ generatore quando il giocatore preme un tasto: `math.randomseed(stat(3))`.
 
 ### Rete (UDP)
 
-Per i giochi in rete (M31.5: Overbit). Pacchetti UDP fino a 1024 byte; ogni cartuccia
+Per i giochi in rete (M38.5: Overbit). Pacchetti UDP fino a 1024 byte; ogni cartuccia
 ha 2 socket, chiusi quando finisce. Gli indirizzi sono testo (`"192.168.1.23"`); `"*"` è
 il broadcast della LAN. Serve la rete della console (WiFi o cavo): senza, `udp_open`
 restituisce `nil`. In bmhost gli stessi pacchetti passano dai socket del PC
@@ -332,6 +352,9 @@ SONG=0` lo ascolta in un WAV.
 | `cart_read(percorso)` | il codice e l'intestazione di un `.bm`: `{title, author, res, lua, size}`, **senza** toccare lo sheet e la mappa di chi chiama (al contrario di `cart_load`): per editor con più file aperti |
 | `cart_write(percorso, {[lua, title, author, res, from, sections]})` | cambia **solo** il codice (e i campi dati) di un `.bm`: sprite sheet, mappa, copertina, banco di suoni e le sezioni che il kernel non conosce restano com'erano; un file con il nome lungo lo tiene. Senza `lua` il codice resta quello. Un file che non c'è diventa una cartuccia con solo il codice (nome 8.3). `from`: le altre sezioni vengono da un altro file ("salva come"); `from = false`: una cartuccia nuova, qualunque cosa ci sia nel file (il progetto nuovo di bm Studio). `sections`: `{[8] = byte MESH, [9] = byte ANIM}` (`false` le toglie), controllate prima (`false, "broken MESH section"`): così bm Mesh scrive i modelli. `sheet = true`: lo sprite sheet del progetto (`cart_load`, `sset`, `cart_sheet`) prende il posto di quello del file, come **SHEET8** quando ha al più 256 colori (altrimenti SHEET), con i colori di `palette` (`{0xRRGGBB, …}`) per primi nella sua tavolozza, così come sono e in quell'ordine (la voce trasparente della tavolozza di prima resta al suo posto); un pixel che ha ancora l'RGB565 che aveva nel file tiene i suoi 24 bit di prima (la console tiene 16 bit per pixel): cambiano solo i pixel ridisegnati. Così bm Pixel salva lo sheet |
 | `cart_meshes(percorso)` | le mesh che il **codice** di un `.bm` costruisce con `mesh()`, `mesh_sphere()` e `mesh_cube()`: `{ {name=, kind=, verts={x,y,z,…}, faces={a,b,c,colore,…}, [uv={…}]}, … }` (gli argomenti di `mesh()`, indici da 1, colore `-1` = texture) e `nil` oppure il primo errore del codice; `nil` e un messaggio se il file non si legge. Il codice gira **a parte** (uno stato Lua suo, `src/bm/meshcap.c`): il corpo del file, poi `_init`, `_update` e `_draw` una volta, con un limite di istruzioni; le altre funzioni di bm non fanno niente (niente file, schermo o suono). Il nome è quello della variabile che tiene la mesh (`M.ship` → `"ship"`; in un array `chef[2].body` → `"chef2_body"`). Per bm Mesh |
+| `mesh_reduce(record, triangoli, [ossa, [max_err]])` | **meno triangoli** per un modello della sezione MESH (`src/bm/decimate.c`: collasso degli spigoli con le quadriche di Garland-Heckbert, senza AI): `record` è la parte del modello nella sezione (come la scrive `encode_mesh` di `bm3d.lua`), `ossa` l'osso di ogni vertice (un byte ciascuno, dalla sezione ANIM), `max_err` ferma prima di un collasso più costoso (0: nessun limite). Restituisce il record con al più `triangoli` triangoli (di più solo se non si può andare oltre senza rovesciare facce), le ossa dei suoi vertici (`nil` senza `ossa`) e il numero di triangoli; `nil` e un messaggio se il record è rotto. Bordi, linee di colore e cuciture della texture restano al loro posto; i vertici restano quelli del modello. La pagina models di bm Studio (**-**); sul PC `tools/bmreduce.py` |
+| `picture3d(azione, ...)` | un'**immagine diventa un modello 3D** attraverso un servizio image-to-3D (`src/net/img3d.c`; il primo è Meshy, chiave `meshy_key=...` in `bm/config.txt` sulla SD). `picture3d("providers")` i servizi; `picture3d("ready", servizio)` `true`, o `false` e il perché (manca la chiave); `picture3d("start", immagine, {provider=, polycount=})` avvia il lavoro su un `.png`/`.jpg` della SD o su un URL https e dà l'id del lavoro (o `nil` e un messaggio); `picture3d("status", id, servizio)` → `"running", avanzamento` oppure `"done", url` del `.glb` (o `nil` e un messaggio); `picture3d("take", url, {name=, faces=, height=})` scarica il `.glb` e lo converte (`src/bm/glb.c`: posizioni unite, facce in senso orario, texture PNG o JPEG ridotta a 256×256, modello incorniciato alto `height`, ridotto a `faces` triangoli) → `{record=, flat=, texture=, nv=, nf=, textured=}`: `record` è il modello per la sezione MESH (con la texture, se c'è), `flat` lo stesso con i colori presi dalla texture, `texture` 256×256 RGBA. Le chiamate bloccano mentre la rete lavora. La pagina models di bm Studio (**m**) |
+| `cutout3d(immagine, {name=, lathe=, height=, depth=, segments=, faces=})` | un modello dal **contorno dell'immagine**, fatto sulla console senza rete né AI (`src/bm/cutout.c`): lo sfondo trasparente (o il colore degli angoli) va via, il contorno diventa un poligono semplificato e il poligono un solido: un **ritaglio** con spessore `depth` (frazione dell'altezza, 0.2: l'immagine davanti, specchiata dietro, i colori del bordo sui lati) o, con `lathe = true`, il mezzo contorno **tornito** intorno all'asse verticale in `segments` passi (vasi, torri, razzi; l'immagine proiettata davanti). `immagine`: un `.png` o `.jpg` della SD; `height` in blocchi (2); `faces` triangoli al più (1200). Dà la stessa tabella di `picture3d("take")`, o `nil` e un messaggio. La pagina models di bm Studio (**m**, le prime due voci) |
 | `cart_audio([percorso])` | il banco di suoni di un `.bm` come stringa (`false` se non ne ha) e il suo titolo; senza percorso, il banco della cartuccia che gira |
 | `cart_put_audio(percorso, banco, [titolo, lua])` | mette il banco (stringa; `nil` lo toglie) in un `.bm`, il resto del file come prima; se il file non c'è lo crea con quel titolo e quel codice. `true`, o `false` e un messaggio |
 | `audio_bank(banco)` | da ora suona questo banco (per gli editor: musica ed effetti che suonano vanno avanti); `nil`: nessuno |
@@ -357,10 +380,12 @@ Si prova da **Dev > Assistant** (o `I` dal monitor).
 | `ai.list([kinds])` | tutte le voci `{id, title, kind}` (per sfogliarle col pad) |
 | `ai.near(parola)` | il nome delle API più vicino a una parola scritta male (`"sprr"` → `"spr"`, 1), o `nil` |
 | `ai.sprite(richiesta, [{gen=, size=16, seed=1, outline=true, palette={…}}])` | la base di uno sprite: `{w, h, gen, name, seed, px = {0xRRGGBB o -1 (trasparente), …}}` riga per riga. La ricetta viene dalle parole (`"slime"`, `"astronave"`, `"moneta"`, `"erba"`…) o da `gen`; i colori (`"rosso"`, `"blue"`…) e la misura (`"8x8"`, `"32x32"`, `"piccolo"`, `"grande"`) dalle parole; un altro `seed` è una variante; con `palette` ogni pixel diventa il colore più vicino della tavolozza |
-| `ai.recipes()` | le ricette degli sprite `{id, name}` |
+| `ai.recipes()` | le ricette degli sprite `{id, name}`; `ai.recipes("mesh")` quelle 3D `{id, name, rigged}` |
+| `ai.script(testo)` | un modello scritto nel **linguaggio delle parti** (`src/ai/mesh_script.c`: `mat`, `box`, `bx`, `tube`, `cyl`, `ell`, `prism`, `wedge`, `tf`, `bone`, `use`, `side`, `mirror`, `clip`, `key`, `turn`, `shift`, una per riga): la stessa tabella di `ai.mesh`, o `nil` e l'errore (`"line 3: ..."`). È il formato che `tools/img2mesh.py` ottiene dal modello con la visione per un'immagine |
+| `ai.mesh(richiesta, [{gen=, seed=1, scale=1, rig=true}])` | la base di un **modello 3D** per bm Studio e bm Animator: `{gen, name, seed, faces = { {p = {{x,y,z}, …}, c = 0xRRGGBB, b = {osso, …}}, … }, bones = { {name, parent, head, tail}, … } o nil, clips = { {name, loop, length, mode, keys = { {t, pose = { {q, t}, … }}, … }}, … }}`, le stesse tabelle di `bm3d.lua` (un'unità = un blocco di bm Studio, il modello guarda verso −z e poggia su y = 0). La ricetta (53: forme, oggetti, persone, animali, macchine) viene dalle parole (`"casa"`, `"albero"`, `"mech"`…) o da `gen`; i colori (`"rossa"`, `"blue"`), la misura (`"piccolo"`, `"grande"`, `"enorme"`), le proporzioni (`"alto"`, `"basso"`, `"largo"`, `"sottile"`) e `"senza scheletro"` dalle parole; un altro `seed` è una variante. Persone, animali e macchine hanno lo scheletro (ogni spigolo su un osso) e le animazioni (`idle`, `walk`, `fly`, `attack`…) |
 | `ai.checksum(domanda)` | il CRC-32 delle uscite della rete per una domanda: per i test (uguale a quello del riferimento in Python) |
 
-**Reti piccole per i giochi** (M31.4: i bot di Overbit). Una rete di strati densi con pesi
+**Reti piccole per i giochi** (M38.4: i bot di Overbit). Una rete di strati densi con pesi
 e attivazioni INT8 (gli stessi conti dell'assistente, con le istruzioni SIMD dell'ARMv6),
 da una stringa che scrive uno script di addestramento (`scripts/nnetlib.py`: quantizza una
 rete di numpy, la impacchetta e dà i numeri esatti della console per i test):
@@ -375,6 +400,8 @@ rete di numpy, la impacchetta e dà i numeri esatti della console per i test):
 **Il pannello** (`require "assist"`): quello che gli strumenti aprono con un tasto
 (F6 nell'Assistant). Risponde mentre scrivi; Invio (A) passa il codice o lo sprite allo
 strumento, Esc (B) chiude, Tab (X) cambia modo; senza domanda si sfoglia tutto col pad.
+Mentre si scrive una parola della domanda il resto della più probabile appare in
+blu-grigio e Tab la scrive (il completamento, sotto).
 
 ```lua
 local assist = require "assist"
@@ -394,7 +421,7 @@ function _draw()
 end
 ```
 
-`assist.open{...}`: `mode` = `"code"` (API, esempi, errori), `"sprite"`, `"error"`
+`assist.open{...}`: `mode` = `"code"` (API, esempi, errori), `"sprite"`, `"mesh"` (le ricette 3D: il modello gira nel pannello, `on_mesh(m)` lo riceve; è il modo di bm Studio e bm Animator con F6), `"error"`
 o `"any"`; `query` (domanda già scritta), `ctx`, `error` (un messaggio d'errore: il
 pannello mostra la riga, il nome scritto male e cosa vuol dire), `size` e `palette`
 per gli sprite, `on_insert(codice)`, `on_sprite(sprite)`, `on_close()`, `x, y, w, h`
@@ -412,6 +439,15 @@ Invio su quelle righe.
 
 La base di conoscenza è in `src/ai/kb/` (formato e come riaddestrare:
 `src/ai/kb/README.md`).
+
+**Completamento delle parole** (`require "predict"`, guida in [PREDICT.md](PREDICT.md)):
+`predict.complete(testo_prima_del_cursore, {lang = "lua"})` → `nil` o
+`{prefix, word, rest, ending, list}`: la parola più probabile che inizia come quella
+scritta (`rest` è quello che manca, da mostrare in `predict.C_GHOST`; Tab sostituisce
+`prefix` con `word`). `lang`: `"it"`, `"en"`, `"lua"`, `"ask"` (le domande
+all'assistente), una miscela con i pesi (`{it = 1, ask = 2}`) o `"none"`; `words` i nomi
+del codice (`predict.count_words(righe)`), con peso `words_weight`. I dizionari si leggono
+alla prima parola, o un pezzo per fotogramma con `predict.preload({"lua", "it"})`.
 
 ### nano8 (la libreria `n8`)
 
@@ -445,6 +481,35 @@ print("vita", 4, 4, 0xFFFFFF)                -- l'HUD non viene oscurato
 
 Esempio completo: `carts/hunt` (Hunter's Night).
 
+### Luce a livelli (come in Dank Tomb)
+
+L'altra luce, quella del gioco PICO-8 *Dank Tomb*: ogni pixel ha un **livello di luce**
+(0 il più buio) e il suo colore diventa quello che una **tabella di dissolvenza** dà a
+quel livello. Le lampade fanno anelli concentrici di livelli, dal loro livello al centro
+fino a 0 al bordo; i bordi degli anelli sono mescolati con un dithering ordinato 4×4; dove
+due lampade si toccano vince la più forte. Le tabelle sono scelte dalla cartuccia: si può
+far diventare blu notte le ombre e arancioni i colori vicino alle lampade, restando sui
+colori della propria palette. Tutto in C (`g16_fade_*` in `src/bm/gfx16.c`).
+
+| Funzione | Descrizione |
+|---|---|
+| `fades(tabelle)` | le tabelle: `{ {colore, l0, l1, ...}, ... }`, per ogni colore della palette quello che diventa al livello 0 (il più buio), 1, ...; tutte le righe hanno lo stesso numero di livelli (2–16, fino a 255 colori). I colori senza tabella vengono scalati come la media delle tabelle. Restituisce il numero di livelli |
+| `dark_begin([ambiente])` | inizia il fotogramma: tutti i pixel al livello `ambiente` (predefinito 0); da qui la cartuccia disegna in RAM |
+| `glow(x, y, raggio, livello, [dither])` | una lampada in coordinate del mondo (vale `camera`): `livello` al centro, 0 a `raggio`; `dither` 0–1 (predefinito 0,5) è quanto si mescolano i bordi degli anelli (0 anelli netti, 1 sfumatura continua a retino) |
+| `dark_end()` | applica i livelli a tutto ciò che è stato disegnato; quello che disegni dopo (fiamme, scintille, HUD) resta com'è e "brilla" |
+
+```lua
+fades(TABELLE)                               -- una volta, in _init
+cls(0); map(...); spr(...)                   -- la scena alla luce piena
+dark_begin(1)                                -- notte: livello 1 dappertutto
+glow(lx, ly, 72 + math.random(2), 6)         -- un lampione
+glow(px, py, 28, 3)                          -- la poca luce attorno al giocatore
+dark_end()
+spr(FIAMMA, fx, fy)                          -- le fiamme non vengono oscurate
+```
+
+Esempio: `SQUARE_CART` in `tests/qemu_test.py` (una lampada su una cartuccia 256×256).
+
 ### 3D (software)
 
 | Funzione | Descrizione |
@@ -470,7 +535,7 @@ Esempio completo: `carts/hunt` (Hunter's Night).
 | `camera3d(x, y, z, [yaw, pitch, fov, roll])` | camera (default a z = −5, fov 60°); `roll` inclina l'inquadratura (radianti) |
 | `light3d(x, y, z, [ambiente])` | direzione della luce e luce ambiente (0–1) |
 | `zclear()` | pulisce lo z-buffer (a ogni fotogramma, prima di `draw3d`) |
-| `gpu3d([on, aa, vs, queue])` | `on, aa, vs, version, queue`: se il 3D lo disegna la GPU, se con l'MSAA 4× e se i vertici dei modelli li mette il vertex shader della GPU (M36): `vs` è `false`, `1` (lo scenario: modelli senza luce o con la luce agli angoli) o `2` (tutti, anche quelli illuminati dal sole e con le ossa; `true` vale 2); `queue` (M35): se il lavoro della GPU parte senza aspettarlo e il `_update` del fotogramma dopo gira intanto (dove la prova all'avvio l'ha visto funzionare); il 2D disegnato dopo il 3D (l'HUD) e quello del `_update` si registrano e vanno sulla pagina quando la GPU ha finito, nello stesso ordine (il risultato è lo stesso; un `_update` che disegna 3D o legge lo schermo con `pget` torna a girare dopo il fotogramma). Con gli argomenti lo cambia per questa cartuccia (un menu "3D: GPU / GPU + VS / GPU + AA / ARM" nel gioco); `on` resta `false` se la GPU non c'è (QEMU, `gpu3d=0`), `aa` se l'MSAA non si può usare e `vs` se la prova all'avvio non ha visto il vertex shader (e il suo clipping) funzionare. `version` è la versione dei driver 3D che questa scelta riproduce (`"0.2"` l'ARM, `"2.1"`, `"3.0"`, `"3.4"`, `"4.1"`: `docs/DRIVERS.md`). All'uscita torna quello delle impostazioni |
+| `gpu3d([on, aa, vs, queue])` | `on, aa, vs, version, queue`: se il 3D lo disegna la GPU, se con l'MSAA 4× e se i vertici dei modelli li mette il vertex shader della GPU (M36): `vs` è `false`, `1` (lo scenario: modelli senza luce o con la luce agli angoli) o `2` (tutti, anche quelli illuminati dal sole e con le ossa; `true` vale 2); `queue` (M35): se il lavoro della GPU parte senza aspettarlo e il `_update` del fotogramma dopo gira intanto (dove la prova all'avvio l'ha visto funzionare); il 2D disegnato dopo il 3D (l'HUD) e quello del `_update` si registrano e vanno sulla pagina quando la GPU ha finito, nello stesso ordine (il risultato è lo stesso; un `_update` che disegna 3D o legge lo schermo con `pget` torna a girare dopo il fotogramma). Con gli argomenti lo cambia per questa cartuccia (un menu "3D: GPU / GPU + VS / GPU + AA / ARM" nel gioco); `on` resta `false` se la GPU non c'è (QEMU, `gpu3d=0`) e nei giochi a 256×256 (la GPU scrive pagine intere), `aa` se l'MSAA non si può usare e `vs` se la prova all'avvio non ha visto il vertex shader (e il suo clipping) funzionare. `version` è la versione dei driver 3D che questa scelta riproduce (`"0.2"` l'ARM, `"2.1"`, `"3.0"`, `"3.4"`, `"4.1"`: `docs/DRIVERS.md`). All'uscita torna quello delle impostazioni |
 | `fog3d(colore, vicino, lontano)` | nebbia: le facce sfumano nel colore tra le due distanze; `fog3d()` la toglie |
 | `lamp3d(i, x, y, z, raggio, [k, colore])` | luce puntiforme `i` (1–4): le facce con il centro entro `raggio` diventano più chiare, fino a `k` in più (predefinito 1) al centro, del `colore` dato (bianco se manca); `lamp3d(i)` la spegne, `lamp3d()` le spegne tutte. Con `light3d` ad ambiente basso fa scene al buio con lanterne |
 | `project3d(x, y, z)` | punto del mondo → `sx, sy, profondità` sullo schermo (`nil` se è dietro la camera): per disegnare in 2D cose allineate al 3D (orizzonte, mirini, etichette) |
@@ -550,6 +615,17 @@ una luce in mano con `bone3d()`, e la sua versione a sprite pre-renderizzati).
 
 - 60 fps = **16,7 ms** per fotogramma per `_update` + `_draw` + la copia sullo schermo.
   In alto a sinistra nella demo, `stat(1)` mostra quanto ne usa la cartuccia.
+- Il **dev kit**: l'overlay delle prestazioni sopra qualsiasi gioco, in alto a destra.
+  Si accende da Settings > System > "Performance overlay" (resta salvato), con F3 sulla tastiera
+  (non mentre un editor scrive) o con `p` dalla seriale:
+
+      60fps 6.1ms ^7.5      fotogrammi al secondo; ms di _update + _draw: media e,
+                            dopo ^, il massimo dell'ultimo secondo
+      lua 9k ^10k           istruzioni Lua di un fotogramma (migliaia): media, massimo
+
+  sotto, il tempo degli ultimi 64 fotogrammi: la cima è 16,7 ms; verde sotto metà,
+  giallo fino a 16,7, rosso oltre (il fotogramma salta). Dal codice: `stat(1)`,
+  `stat(2)`, `stat(10)`. Il limite è di 20 milioni di istruzioni per chiamata.
 - Il disegno è in C: una chiamata `spr` o `rectfill` costa pochi microsecondi, ma
   ogni chiamata da Lua ha un costo fisso. Ordini di grandezza sul Pi (docs/STRESS.md):
   ~1800 sprite 16×16 chiamati da Lua a 60 fps, ~4500 dal C; ~1200 triangoli 3D.

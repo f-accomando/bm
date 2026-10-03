@@ -181,3 +181,27 @@ voglio un font più piccolo per scrivere tante righe => font
 salvare il codice senza perdere la mappa => cart_write
 come apro due file uno accanto all'altro => bm_code
 come chiedo all'assistente di modificare la funzione => entry_lines
+
+# 3d recipes (bm Studio, bm Animator)
+fammi un cubo => mesh.cube, mesh_cube
+voglio una palla 3d => mesh.sphere
+un albero per il villaggio => mesh.tree
+make me a small house => mesh.house
+una casetta rossa con il tetto => mesh.house
+torre del castello con i merli => mesh.tower
+un omino che cammina => mesh.hero, sprite.hero_side, sprite.hero
+a knight with a sword => mesh.knight
+un cane che scodinzola => mesh.dog
+un drago verde che vola => mesh.dragon
+mech rosa con il pilota => mesh.mech
+giant battle robot with cannons => mesh.mech
+una botte di legno => mesh.barrel
+forziere del tesoro => mesh.chest
+un ponte di legno sul fiume => mesh.bridge
+un pesciolino arancione => mesh.fish
+pupazzo di neve con la carota => mesh.snowman
+uno scheletro nemico => mesh.skeleton, sprite.skull
+
+# mouse (M32)
+come leggo dove è il mouse => mouse
+how do i know the player clicked => mousep, mouse

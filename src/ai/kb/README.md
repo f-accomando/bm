@@ -25,7 +25,7 @@ if btn(1) then x = x + 2 end
 | Campo | Cosa |
 |---|---|
 | `== id` | inizio della voce: lettere minuscole, cifre, `_` e `.`, unico |
-| `kind:` | `api` (una funzione), `howto` (un esempio con il codice), `error` (un messaggio d'errore di Lua), `tip` (un consiglio), `sprite` (una ricetta di sprite), `none` (domande fuori tema: non si mostrano, servono a dire "non so") |
+| `kind:` | `api` (una funzione), `howto` (un esempio con il codice), `error` (un messaggio d'errore di Lua), `tip` (un consiglio), `sprite` (una ricetta di sprite), `mesh` (una ricetta 3D: bm Studio, bm Animator), `none` (domande fuori tema: non si mostrano, servono a dire "non so") |
 | `name:` | per le `api`: il nome della funzione. Se è scritto nella domanda o è la parola sotto il cursore, la voce sale in cima (un nome che è anche una parola comune, come `tempo`, conta solo sotto il cursore o scritto come chiamata, `tempo(`: elenco in `src/ai/assist.c`) |
 | `title:` | la riga nell'elenco delle risposte |
 | `ask:` | domande che portano qui, separate da `\|`, in italiano e in inglese: sono gli esempi su cui si addestra la rete. Più sono e più varie, meglio è (6-12) |
@@ -33,7 +33,7 @@ if btn(1) then x = x + 2 end
 | `see:` | altre voci collegate (devono esistere): compaiono sotto la risposta |
 | `text:` | la spiegazione, su più righe, fino al campo successivo; le lettere accentate vanno bene (il font è CP437; `È` diventa `E'`) |
 | `code:` | il codice che "Invio" inserisce nell'editor: ASCII, righe di al massimo 72 caratteri, deve compilare con Lua 5.4 (`make test-ai` lo controlla) |
-| `gen:` | per gli `sprite`: la ricetta di `src/ai/sprite.c` (`ship`, `slime`, `coin`...) |
+| `gen:` | per gli `sprite`: la ricetta di `src/ai/sprite.c` (`ship`, `slime`, `coin`...); per i `mesh`: quella di `src/ai/mesh.c` (`cube`, `house`, `hero`, `mech`...) |
 
 ## Dopo una modifica
 

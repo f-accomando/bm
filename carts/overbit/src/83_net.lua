@@ -1,4 +1,4 @@
--- Net: matches on the network (M31.5). Lockstep: every console runs the
+-- Net: matches on the network (M38.5). Lockstep: every console runs the
 -- whole match (the same code and seed: the bots too), only the players'
 -- inputs travel. Each console sends its inputs for the frame DELAY frames
 -- ahead; the host gathers everyone's and sends, for every frame, the bundle

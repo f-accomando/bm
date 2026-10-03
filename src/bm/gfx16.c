@@ -480,3 +480,163 @@ void g16_light_apply(g16_t *g, const g16_light_t *l)
         }
     }
 }
+
+/* ---------------------------------------------------------------- fades */
+
+int g16_fade_init(g16_fade_t *f, int w, int h)
+{
+    memset(f, 0, sizeof *f);
+    f->w = w;
+    f->h = h;
+    f->lv = malloc((size_t)w * h);
+    f->index = malloc(65536);
+    f->tab = malloc(G16_FADE_LEVELS * 256 * sizeof *f->tab);
+    if (!f->lv || !f->index || !f->tab) {
+        g16_fade_free(f);
+        return -1;
+    }
+    g16_fade_reset(f, 8);
+    g16_fade_done(f);
+    return 0;
+}
+
+void g16_fade_free(g16_fade_t *f)
+{
+    free(f->lv);
+    free(f->index);
+    free(f->tab);
+    f->lv = f->index = NULL;
+    f->tab = NULL;
+}
+
+void g16_fade_reset(g16_fade_t *f, int levels)
+{
+    f->levels = levels < 2 ? 2 : levels > G16_FADE_LEVELS ? G16_FADE_LEVELS : levels;
+    f->ncol = 0;
+    memset(f->index, 255, 65536);
+}
+
+int g16_fade_colour(g16_fade_t *f, uint16_t from, const uint16_t *to)
+{
+    int i = f->index[from];
+    if (i == 255) {
+        if (f->ncol >= G16_FADE_COLOURS)
+            return -1;
+        i = f->ncol++;
+        f->index[from] = (uint8_t)i;
+        f->from[i] = from;
+    }
+    for (int k = 0; k < f->levels; k++)
+        f->tab[k * 256 + i] = to[k];
+    return 0;
+}
+
+void g16_fade_done(g16_fade_t *f)
+{
+    /* the average ratio, channel by channel, of the colours with a table */
+    for (int k = 0; k < f->levels; k++) {
+        uint32_t num[3] = { 0, 0, 0 }, den[3] = { 0, 0, 0 };
+        for (int i = 0; i < f->ncol; i++) {
+            const uint32_t c = f->from[i];
+            const uint16_t t = f->tab[k * 256 + i];
+            num[0] += t >> 11;      den[0] += (uint32_t)c >> 11;
+            num[1] += t >> 5 & 63;  den[1] += (uint32_t)c >> 5 & 63;
+            num[2] += t & 31;       den[2] += (uint32_t)c & 31;
+        }
+        for (int ch = 0; ch < 3; ch++) {
+            uint32_t m = den[ch] ? num[ch] * 256 / den[ch] : (uint32_t)(256 * (k + 1) / f->levels);
+            f->mul[k][ch] = (uint16_t)(m > 512 ? 512 : m);
+        }
+    }
+}
+
+void g16_fade_clear(g16_fade_t *f, int ambient)
+{
+    if (ambient < 0) ambient = 0;
+    if (ambient >= f->levels) ambient = f->levels - 1;
+    memset(f->lv, ambient, (size_t)f->w * f->h);
+}
+
+/* 1 - sqrt(i / 1024), x 256 */
+static uint16_t fade_root[1025];
+
+static int isqrt32(uint32_t v)
+{
+    uint32_t r = 0, bit = 1u << 30;
+    while (bit > v) bit >>= 2;
+    while (bit) {
+        if (v >= r + bit) { v -= r + bit; r = (r >> 1) + bit; }
+        else r >>= 1;
+        bit >>= 2;
+    }
+    return (int)r;
+}
+
+void g16_fade_glow(g16_fade_t *f, int x, int y, int radius, int level, int dither)
+{
+    if (radius <= 0 || level <= 0)
+        return;
+    if (!fade_root[0]) {
+        for (int i = 0; i <= 1024; i++)
+            fade_root[i] = (uint16_t)(256 - isqrt32((uint32_t)i * 65536u) / 32);  /* sqrt(i/1024) x 256 */
+    }
+    if (level >= f->levels) level = f->levels - 1;
+    if (radius > 1024) radius = 1024;
+    if (dither < 0) dither = 0;
+    if (dither > 256) dither = 256;
+    const uint32_t r2 = (uint32_t)radius * radius;
+    const uint32_t inv = (1024u << 16) / r2;       /* d2 * inv >> 16: 0..1024 */
+    int y0 = y - radius + 1, y1 = y + radius - 1;
+    if (y0 < 0) y0 = 0;
+    if (y1 >= f->h) y1 = f->h - 1;
+    /* the dither offset of each 4x4 position, in 1/256 of a level */
+    int off[4][4];
+    for (int j = 0; j < 4; j++)
+        for (int i = 0; i < 4; i++)
+            off[j][i] = 128 + (((int)bayer[j][i] + 8 - 128) * dither) / 256;
+    for (int py = y0; py <= y1; py++) {
+        const int dy = py - y;
+        const uint32_t dy2 = (uint32_t)(dy * dy);
+        if (dy2 >= r2)
+            continue;
+        const int hw = isqrt32(r2 - dy2);
+        int x0 = x - hw, x1 = x + hw;
+        if (x0 < 0) x0 = 0;
+        if (x1 >= f->w) x1 = f->w - 1;
+        uint8_t *row = f->lv + (size_t)py * f->w;
+        const int *o = off[py & 3];
+        for (int px = x0; px <= x1; px++) {
+            const int dx = px - x;
+            uint32_t t = ((uint32_t)(dx * dx) + dy2) * inv >> 16;
+            if (t > 1024) t = 1024;
+            int lv = (level * fade_root[t] + o[px & 3]) >> 8;
+            if (lv > row[px])
+                row[px] = (uint8_t)lv;
+        }
+    }
+}
+
+void g16_fade_apply(g16_t *g, const g16_fade_t *f)
+{
+    const int w = g->w < f->w ? g->w : f->w, h = g->h < f->h ? g->h : f->h;
+    for (int y = 0; y < h; y++) {
+        uint16_t *row = g->px + (uint32_t)y * g->stride;
+        const uint8_t *lv = f->lv + (size_t)y * f->w;
+        for (int x = 0; x < w; x++) {
+            const uint16_t c = row[x];
+            const int k = lv[x], i = f->index[c];
+            if (i != 255) {
+                row[x] = f->tab[k * 256 + i];
+            } else {
+                const uint16_t *m = f->mul[k];
+                uint32_t r5 = ((uint32_t)(c >> 11) * m[0]) >> 8;
+                uint32_t g6 = ((uint32_t)(c >> 5 & 63) * m[1]) >> 8;
+                uint32_t b5 = ((uint32_t)(c & 31) * m[2]) >> 8;
+                if (r5 > 31) r5 = 31;
+                if (g6 > 63) g6 = 63;
+                if (b5 > 31) b5 = 31;
+                row[x] = (uint16_t)(r5 << 11 | g6 << 5 | b5);
+            }
+        }
+    }
+}

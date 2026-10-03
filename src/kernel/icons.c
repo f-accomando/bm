@@ -89,6 +89,20 @@ static float ethernet(float x, float y)
     return d;
 }
 
+/* the outline of a shape, `t` thick, inside its edge */
+static float outline(float d, float t) { return both(d, -d - t); }
+
+static float mouse(float x, float y)
+{
+    /* filled like the other icons: an upright capsule; cut into it, the
+     * line between the buttons from the top to under the wheel and the
+     * wheel's outline (odd widths around CX: edges on whole pixels) */
+    float wheel = rrect(x, y, CX, 5.5f, 1.5f, 2.5f, 1.5f);
+    float d = rrect(x, y, CX, 9.0f, 6.5f, 9.0f, 6.5f);
+    d = cut(d, both(rrect(x, y, CX, 5.0f, 0.5f, 5.0f, 0.0f), -wheel));
+    return cut(d, outline(wheel, 1.0f));
+}
+
 /* ---------------------------------------------------------------- masks */
 
 static const uint8_t digits[4][7] = {           /* 5x7, bit 4 = left column */
@@ -102,8 +116,8 @@ static const uint8_t digits[4][7] = {           /* 5x7, bit 4 = left column */
 #define DISC_R   5.6f
 #define GAP_R    7.3f               /* cut around it */
 
-static icon_mask_t masks[ICON_COUNT][5];
-static int made[ICON_COUNT][5];
+static icon_mask_t masks[ICON_COUNT][ICON_DOT + 1];
+static int made[ICON_COUNT][ICON_DOT + 1];
 
 static float coverage(float (*f)(float, float), int x, int y)
 {
@@ -119,13 +133,14 @@ static float disc(float x, float y) { return circle(x, y, CX, DISC_Y, disc_r); }
 
 const icon_mask_t *icon_mask(int icon, int num)
 {
-    if (icon < 0 || icon >= ICON_COUNT || num < 0 || num > 4)
+    if (icon < 0 || icon >= ICON_COUNT || num < 0 || num > ICON_DOT)
         return NULL;
     icon_mask_t *m = &masks[icon][num];
     if (made[icon][num])
         return m;
     float (*f)(float, float) = icon == ICON_KEYBOARD ? keyboard : icon == ICON_PAD ? pad
-                             : icon == ICON_WIFI ? wifi : ethernet;
+                             : icon == ICON_WIFI ? wifi : icon == ICON_MOUSE ? mouse : ethernet;
+    int dot = num == ICON_DOT;                  /* the disc, no number */
     memset(m, 0, sizeof *m);
     for (int y = 0; y < ICON_BH; y++)
         for (int x = 0; x < ICON_W; x++) {
@@ -137,7 +152,7 @@ const icon_mask_t *icon_mask(int icon, int num)
                 disc_r = DISC_R;
                 m->disc[i] = (uint8_t)(coverage(disc, x, y) * 255.0f + 0.5f);
                 int dx = x - 11, dy = y - 13;             /* the digit, on whole pixels */
-                m->digit[i] = dx >= 0 && dx < 5 && dy >= 0 && dy < 7 &&
+                m->digit[i] = !dot && dx >= 0 && dx < 5 && dy >= 0 && dy < 7 &&
                               (digits[num - 1][dy] >> (4 - dx) & 1);
             }
             m->icon[i] = (uint8_t)(a * 255.0f + 0.5f);
