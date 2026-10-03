@@ -1,14 +1,15 @@
 """
 Rail - damage (the kit of Sojourn): a commander with a rail rifle.
 
-A tall officer in a long fitted coat, deep navy with gold piping and a high
-collar, over a white chest plate; dark trousers, tall boots; short dark hair
-shaved on one side, a cyan line of an implant on the temple. Her right arm
-is cybernetic: white plates and cyan light lines. The Rail Rifle: an angular
-white and navy body with two parallel prongs at the front, a cyan coil that
-glows between them.
+A tall officer: silver-white hair in a single tight braid, a cyan monocle
+visor over one eye, a long fitted coat, deep navy with gold piping and a
+high collar, over a white chest plate, one armoured shoulder pauldron,
+dark trousers, tall black boots, black gloves. The Rail Rifle: an angular
+white and navy body with two parallel prongs at the front, a cyan coil
+that glows between them.
 
-Models: rail (third person), rail_fp.
+Models: rail (third person: the Meshy figure art/meshy/rail, on this
+skeleton by meshyrig.py; the body below with --classic), rail_fp.
 """
 import math
 

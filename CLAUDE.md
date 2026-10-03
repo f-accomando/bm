@@ -119,6 +119,18 @@ screenshot in `docs/img/`), `README_OLD.md` (il README completo, in italiano),
   persona. Livelli di dettaglio: i pezzi piccoli solo al 3, le versioni povere fino al 2.
   Sistemi comuni: barriere e props (`45_proj`, `47_props`), stati (`frozen_t`,
   `rooted_t`, `slow_t`, `haste_t`, `rush_t`, `invuln_t`), `Actors.cone`, numeri delle cure.
+- **Modelli Meshy** (richiesta dell'utente): i corpi in terza persona degli eroi, dei mech e
+  dei piloti sono figure Meshy fatte dal testo con le **nostre** descrizioni
+  (`art/meshy/<nome>.txt`, `tools/meshy_text.py`; il workflow `meshy-overbit` parte da un
+  push di `art/meshy/request.txt` su 3d-performance e mette i risultati su `meshy-out`),
+  poi impacchettate (`art/meshy/pack.py`: `<nome>.mesh` con 1200 e 450 triangoli,
+  `<nome>.png`, `<nome>.rig` dal rigging di Meshy, `tools/meshy_rig.py`). `art/meshyrig.py`
+  le mette sugli scheletri degli eroi (da A-pose alla posa di riposo, un osso a vertice dal
+  rig; per i mech uno scheletro con le stesse ossa misurato sulla figura e le clip rifatte);
+  le armi e gli altri pezzi su ossa non del corpo restano procedurali. Texture 256×256 nello
+  sheet (1024×1024 a 24 bit; l'atlante della mappa in alto a sinistra). I colpi provano la
+  mesh (`hit3d`): la testa dei mech va sull'osso critico (`canopy`, `dome`).
+  `OVERBIT_CLASSIC=1 make` (o `models.py --classic`): i corpi fatti di primitive.
 - Test e reel per eroe: `build.py --hero <id>` (anche una lista per il reel), le cartucce
   `range-<eroe>.bm` di `make test-overbit`; `make overbit-reel-heroes` per il video.
 - **bmhost** (`make bmhost`, `tests/host/`): il runtime vero delle cartucce sul PC; per
@@ -215,10 +227,10 @@ screenshot in `docs/img/`), `README_OLD.md` (il README completo, in italiano),
 - **Versioni dei driver 3D**: `bm3d X.Y` (X il blocco/milestone, Y il passo) in
   `src/gpu/version3d.h` e `docs/DRIVERS.md`; ogni passo che cambia quello che r3d o
   gpu3d sanno fare alza la versione e aggiunge una riga alla tabella. Le impostazioni
-  riproducono le versioni vecchie (ARM 0.2, GPU 2.1, GPU+VS1 3.0, GPU+VS 3.3): così i
+  riproducono le versioni vecchie (ARM 0.2, GPU 2.1, GPU+VS1 3.0, GPU+VS 3.4): così i
   benchmark le confrontano.
 - **3D Bench** (`src/bm/b3d.c`, *Dev > 3D Bench*, monitor `j`, `docs/BENCH3D.md`): ogni
-  test 3D con ogni profilo (ARM 0.2, GPU 2.1, GPU+AA, GPU+VS1 3.0, GPU+VS 3.3), carico
+  test 3D con ogni profilo (ARM 0.2, GPU 2.1, GPU+AA, GPU+VS1 3.0, GPU+VS 3.4), carico
   fino a 40 ms, 60/30 fps, statistiche (istruzioni e cache miss dai contatori
   dell'ARM1176, `src/kernel/pmu.c`, solo sul Pi), grafico a barre con le misure di prima,
   report in `bm/bench` sulla SD confrontato col giro dopo. Un test nuovo per ogni

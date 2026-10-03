@@ -1,13 +1,14 @@
 """
 Orbit - support (the kit of Juno): a young explorer born on a space station.
 
-A white space suit with orange shoulder and knee pads and teal light panels,
-a clear bubble helmet over a freckled face and curly coral hair, a small
-thruster pack on the back, jet boots with glowing teal soles (she hovers).
-The Mediblaster: a compact curved blaster, white and orange, with a teal
-glowing emitter.
+Freckles, curly black hair in two puffs, a slim teal visor over the eyes
+and a small headset; a navy and silver flight suit with yellow pads, a
+small thruster pack on the back, white jet boots with glowing teal soles
+(she hovers). The Mediblaster: a compact curved blaster, white and orange,
+with a teal glowing emitter.
 
-Models: orbit (third person), orbit_fp.
+Models: orbit (third person: the Meshy figure art/meshy/orbit, on this
+skeleton by meshyrig.py; the body below with --classic), orbit_fp.
 """
 import math
 

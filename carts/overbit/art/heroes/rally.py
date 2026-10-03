@@ -1,15 +1,17 @@
 """
 Rally - tank (the kit of D.Va): a racing driver in a white mech.
 
-The mech: a glossy white shell like a sports car, a black canopy with light
-strips, two arm cannons, missile pods on the shoulders, two thrusters at
-the back, bird legs (knee forward, hock back) with claw feet; orange lights.
-The pilot: short dark hair, orange glasses, white top under a grey vest, a
-purple jacket, grey trousers with white stripes, purple trainers; a small
+The mech: a sleek white racing robot, black panels and two orange racing
+stripes down its front, the forearms its two cannons, missile pods on the
+shoulders. The pilot: short dark hair, orange-tinted glasses, a purple
+racing jacket with white stripes over a grey vest and a white top, grey
+trousers with white stripes, purple trainers, fingerless gloves; a small
 light gun.
 
-Models: rally_mech (third person), rally_pilot, rally_fp (the cockpit seen
-from inside: the two cannons), rally_pfp (the pilot's hands and gun).
+Models: rally_mech and rally_pilot (third person: the Meshy figures of
+art/meshy, by meshyrig.py: the mech on a skeleton fitted to it with these
+bones and clips; the bodies below with --classic), rally_fp (the cockpit
+seen from inside: the two cannons), rally_pfp (the pilot's hands and gun).
 """
 import math
 

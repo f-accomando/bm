@@ -221,14 +221,18 @@ $(BUILD)/carts/nano8.bm: $(BUILD)/nano8/main.lua carts/nano8/cover.png scripts/m
 # build.py; the heroes' models and animations (MESH, ANIM) made by
 # carts/overbit/art/models.py, the sounds by art/sounds.py.
 OVERBIT_SRC := $(sort $(wildcard carts/overbit/src/*.lua))
-OVERBIT_ART := $(wildcard carts/overbit/art/*.py carts/overbit/art/heroes/*.py)
+OVERBIT_ART := $(wildcard carts/overbit/art/*.py carts/overbit/art/heroes/*.py carts/overbit/art/meshy/*.mesh \
+                          carts/overbit/art/meshy/*.png carts/overbit/art/meshy/*.rig)
+# OVERBIT_CLASSIC=1: the heroes' bodies made of primitives, not the Meshy figures
+OVERBIT_MODELS_FLAGS := $(if $(OVERBIT_CLASSIC),--classic)
 title_overbit := Overbit
 $(BUILD)/overbit/main.lua: $(OVERBIT_SRC) carts/overbit/build.py $(BUILD)/overbit/models.bm
 	$(PYTHON) carts/overbit/build.py $@ --map $(BUILD)/overbit/main.map --extra $(BUILD)/overbit/21_map.lua
 
 $(BUILD)/overbit/models.bm: $(OVERBIT_ART) scripts/bmmesh.py scripts/mkbm.py $(BUILD)/host/mappvs
 	@mkdir -p $(dir $@)
-	$(PYTHON) carts/overbit/art/models.py $@ --map $(BUILD)/overbit/21_map.lua --pvs $(BUILD)/host/mappvs
+	$(PYTHON) carts/overbit/art/models.py $@ --map $(BUILD)/overbit/21_map.lua --pvs $(BUILD)/host/mappvs \
+	    $(OVERBIT_MODELS_FLAGS)
 
 # what can be seen from where on the maps (carts/overbit/art/mapbake.py)
 $(BUILD)/host/mappvs: tools/mappvs.c src/bm/r3d.c src/bm/gfx16.c src/bm/format.c src/lib/crc32.c src/bm/*.h

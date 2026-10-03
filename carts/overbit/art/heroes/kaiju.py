@@ -1,14 +1,17 @@
 """
 Kaiju - tank (the kit of D.Mon): a little monster in a big red mech.
 
-The mech, BIG RED: a round red body with white horns, a green glass dome on
-top where the pilot sits, heavy shoulders, a plasma blade on the left arm
-(green, glowing), a hexagon shield emitter with a repeater gun on the right
-arm, thick legs with grey joints, yellow trim. The pilot: a small green
-lizard monster with big eyes, a frill and a tail, holding a mini repeater.
+The mech, BIG RED: a round red body with white horns and a dome where the
+pilot sits, heavy shoulders, a plasma blade on the left arm (green,
+glowing), a hexagon shield emitter on the right arm, thick legs with grey
+joints, yellow trim. The pilot: a small green lizard monster with big
+yellow eyes, an orange frill and a long tail, in a little pilot harness,
+holding a mini repeater.
 
-Models: kaiju_mech, kaiju_pilot, kaiju_fp (the arms from the dome),
-kaiju_pfp (the claws and the mini gun).
+Models: kaiju_mech and kaiju_pilot (third person: the Meshy figures of
+art/meshy, by meshyrig.py: the mech on a skeleton fitted to it with these
+bones and clips; the bodies below with --classic), kaiju_fp (the arms from
+the dome), kaiju_pfp (the claws and the mini gun).
 """
 import math
 

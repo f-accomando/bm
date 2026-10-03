@@ -1,14 +1,16 @@
 """
 Frost - damage (the kit of Mei): a climate scientist with a cryo blaster.
 
-A cheerful young researcher in a big puffy parka, white with teal panels
-and a fur-trimmed hood down on her shoulders; dark hair in a bun held by a
-snowflake pin, round glasses, teal mittens, navy leggings, fur-topped
-boots. On her back the cryo tank, glowing ice blue; in her hands the cryo
-blaster; over her right shoulder her little helper drone, Pip, a white ball
-with a blue eye (it becomes the Blizzard).
+A cheerful young researcher: a short dark bob with a teal headband, snow
+goggles pushed up on the forehead, a long white puffy parka with teal
+panels and a grey fur collar, teal mittens, navy leggings, chunky white
+snow boots; on her back the cryo tank, glowing ice blue; in her hands the
+cryo blaster; over her right shoulder her little helper drone, Pip, a white
+ball with a blue eye (it becomes the Blizzard).
 
-Models: frost (third person), frost_fp (the blaster and the mittens).
+Models: frost (third person: the Meshy figure art/meshy/frost, on this
+skeleton by meshyrig.py; the body below with --classic), frost_fp (the
+blaster and the mittens).
 """
 import math
 

@@ -1,14 +1,15 @@
 """
 Akari - support (the kit of Kiriko): a shrine guardian with paper charms.
 
-Short black hair with one white streak and a ponytail, a white fox mask
-worn on the side of the head; a short indigo jacket with a hood down and
-white trim over a white top, a red sash tied at the waist with long ends,
-dark leggings wrapped below the knee, split-toe boots. Healing charms
-(white paper with red marks) fan out from her right hand, kunai in the
-left. Her spirit fox runs ahead for the ultimate.
+A short silver bob with a golden hairpin; a crimson haori jacket with gold
+cloud patterns over a white top, a wide black belt with paper charms
+hanging from it, dark green wide trousers, wrapped shins, wooden sandals.
+Healing charms (white paper with red marks) fan out from her right hand,
+kunai in the left. Her spirit fox runs ahead for the ultimate.
 
-Models: akari (third person), akari_fp, akari_fox (the spirit fox).
+Models: akari (third person: the Meshy figure art/meshy/akari, on this
+skeleton by meshyrig.py; the body below with --classic), akari_fp,
+akari_fox (the spirit fox).
 """
 import math
 

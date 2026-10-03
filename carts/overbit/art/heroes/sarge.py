@@ -1,12 +1,15 @@
 """
 Sarge - damage (the kit of Soldier: 76): a veteran with a pulse rifle.
 
-An old soldier, broad and tall: short grey hair, an amber visor across the
-eyes, an olive field jacket with orange chevrons on the shoulder, a dark
-chest rig, grey trousers with knee pads, black boots; a long pulse rifle,
-dark with white panels and cyan glowing strips, rockets under the barrel.
+Broad and tall, in his sixties: short grey hair and a short grey beard, an
+olive field jacket with orange chevrons on the shoulders, a dark chest rig
+with pouches, grey cargo trousers with knee pads, black boots; a long
+pulse rifle, dark with white panels and cyan glowing strips, rockets under
+the barrel.
 
-Models: sarge (third person), sarge_fp (hands and rifle seen from the eye).
+Models: sarge (third person: the Meshy figure art/meshy/sarge, on this
+skeleton by meshyrig.py; the body below with --classic), sarge_fp (hands
+and rifle seen from the eye).
 """
 import math
 

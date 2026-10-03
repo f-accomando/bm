@@ -1,16 +1,17 @@
 """
 Fuse - damage (the kit of Junkrat): a scrapyard demolitions punk.
 
-Lanky and wired: spiky orange hair singed at the tips, welding goggles
-pushed up on the forehead, a wide manic grin; a mustard tank top torn at the
-hem, a bandolier of little bombs across the chest, cargo shorts; the left
-arm is a scrap prosthesis (steel, rivets, a claw hand) and the left leg a
-peg of pipe with a spring; a scrap backpack with a gas canister. In his
-hands the Frag Launcher: an olive tube with a big drum and yellow hazard
-stripes. His ultimate is the Boom Wheel, a spiked rolling bomb.
+Lanky and wired: a tall orange mohawk, welding goggles on the forehead, a
+sleeveless work vest over a red and white striped shirt, a bandolier of
+little bombs across the chest, patched cargo trousers in heavy work boots,
+thick leather welding gauntlets, a scrap backpack with a gas canister. In
+his hands the Frag Launcher: an olive tube with a big drum and yellow
+hazard stripes. His ultimate is the Boom Wheel, a spiked rolling bomb.
 
-Models: fuse, fuse_fp, fuse_wheel (Boom Wheel), fuse_mine (Concussion Mine),
-fuse_trap (Steel Trap: jaws "open" and "shut").
+Models: fuse (third person: the Meshy figure art/meshy/fuse, on this
+skeleton by meshyrig.py; the body below with --classic), fuse_fp,
+fuse_wheel (Boom Wheel), fuse_mine (Concussion Mine), fuse_trap (Steel
+Trap: jaws "open" and "shut").
 """
 import math
 

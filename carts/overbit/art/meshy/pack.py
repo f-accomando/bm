@@ -10,10 +10,17 @@ of detail) become
               NAME and NAME_lo, their texture corners in the 256x256 picture
   NAME.png    the texture
 
-which art/meshyrig.py puts on the heroes' skeletons.
+which art/meshyrig.py puts on the heroes' skeletons; with --rig, NAME_rig.glb
+(Meshy's auto-rigging, tools/meshy_rig.py) becomes
+
+  NAME.rig    JSON: the rig's joints (name, position) and, for each vertex
+              of the rigged mesh, its position and its heaviest joint
+              (positions in tenths of a millimetre, glTF's axes)
 
   pack.py DIR [NAME...]
+  pack.py --rig DIR [NAME...]
 """
+import json
 import os
 import sys
 
@@ -38,9 +45,24 @@ def read(path):
     return models[0], sheet
 
 
+def rig(src, names):
+    sys.path.insert(0, os.path.join(HERE, ".."))
+    import meshyrig
+    for name in names:
+        path = os.path.join(src, f"{name}_rig.glb")
+        pos, owner, joints = meshyrig.read_rig_glb(path)
+        q = lambda p: [round(c * 10000) for c in p]      # noqa: E731
+        out = {"joints": [[n, q(p)] for n, p in joints], "verts": [q(p) + [o] for p, o in zip(pos, owner)]}
+        with open(os.path.join(HERE, f"{name}.rig"), "w") as f:
+            json.dump(out, f, separators=(",", ":"))
+        print(f"{name}: {len(joints)} joints, {len(pos)} vertices")
+
+
 def main():
     if len(sys.argv) < 2:
         raise SystemExit(__doc__)
+    if sys.argv[1] == "--rig":
+        return rig(sys.argv[2], sys.argv[3:] or NAMES)
     src = sys.argv[1]
     from PIL import Image
     for name in sys.argv[2:] or NAMES:
