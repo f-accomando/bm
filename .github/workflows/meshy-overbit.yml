@@ -4,7 +4,10 @@ name: meshy-overbit
 # to 3d-performance that changes carts/overbit/art/meshy/request.txt makes
 # the models it lists, one line each: the name of a spec in that folder
 # (NAME.txt: the description, the colours, the height) and optionally
-# task=ID to download a refine already paid for instead of a new one.
+# task=ID to download a refine already paid for instead of a new one,
+# or rig=ID to have Meshy rig that model (tools/meshy_rig.py: NAME_rig.glb,
+# the skeleton and the weights art/meshyrig.py puts the model on its hero
+# with).
 # Each model: Meshy's .glb and picture, the .bm (tools/meshy2mesh.py of
 # claude/bare-metal-mvp: textured on a 256x256 sheet), the same reduced to
 # 1200 triangles (_1200, tools/bmreduce.py), the renders (tools/bmrender.py);
@@ -29,10 +32,12 @@ jobs:
           for line in open("carts/overbit/art/meshy/request.txt"):
               words = line.split("#", 1)[0].split()
               if words:
-                  m = {"name": words[0], "task": ""}
+                  m = {"name": words[0], "task": "", "rig": ""}
                   for w in words[1:]:
                       if w.startswith("task="):
                           m["task"] = w[5:]
+                      if w.startswith("rig="):
+                          m["rig"] = w[4:]
                   out.append(m)
           print("models=" + json.dumps(out))
           EOF
@@ -51,6 +56,7 @@ jobs:
     env:
       NAME: ${{ matrix.m.name }}
       TASK: ${{ matrix.m.task }}
+      RIG: ${{ matrix.m.rig }}
     steps:
       - uses: actions/checkout@v4
       - uses: actions/checkout@v4
@@ -68,13 +74,17 @@ jobs:
           test -n "$MESHY_API_KEY" || { echo "the secret MESHY_API_KEY is not set"; exit 1; }
           mkdir -p out
           spec="carts/overbit/art/meshy/$NAME.txt"
-          if [ -n "$TASK" ]; then
+          if [ -n "$RIG" ]; then
+            H="$(sed -n 's/^height *= *//p' "$spec")"
+            python3 tools/meshy_rig.py --task "$RIG" --height "${H:-1.8}" -o "out/${NAME}_rig.glb"
+          elif [ -n "$TASK" ]; then
             python3 tools/meshy_text.py "$spec" -o "out/$NAME.glb" --task "$TASK"
           else
             python3 tools/meshy_text.py "$spec" -o "out/$NAME.glb"
           fi
 
       - name: To the console
+        if: matrix.m.rig == ''
         run: |
           H="$(sed -n 's/^height *= *//p' "carts/overbit/art/meshy/$NAME.txt")"
           python3 main/tools/meshy2mesh.py --glb "out/$NAME.glb" -o "out/$NAME.bm" --name "$NAME" --height "${H:-1.8}"
