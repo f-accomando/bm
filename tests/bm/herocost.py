@@ -11,7 +11,7 @@ for one frame (two frames minus one).
 For each model: 1 and 8 copies at 6 and 15 m, levels of detail 0 to 3. The
 instructions are the work of the CPU, not the time: on the Pi one of them
 took about 2.2 ns in the 3D of the stress test (cache and bus included), see
-docs/LIMITI.md. Needs arm-linux-gnueabihf-gcc and qemu-arm."""
+docs/M33-PRIMA-DOPO.md (section 7). Needs arm-linux-gnueabihf-gcc and qemu-arm."""
 import collections
 import os
 import subprocess

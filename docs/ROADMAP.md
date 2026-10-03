@@ -2125,7 +2125,7 @@ di eroi che cresce fino a 30 fps; tre pagine di report. Poi le ottimizzazioni mi
 con `tests/overbit/frames.py` (istruzioni dell'ARM per fotogramma, per funzione, con
 `qemu-arm`): driver più snello per triangolo, ombre e trasformazioni più leggere,
 particelle e anelli del Lua riscritti. Numeri, limiti e budget di un 4 contro 4 in
-`docs/LIMITI.md`.
+`docs/M33-PRIMA-DOPO.md` (sezione 7).
 
 ## Rischi principali
 | Rischio | Mitigazione |

@@ -189,7 +189,10 @@ local multiplayer for up to 4 players. The games on the card, all `.bm`:
   facades) and the **Control** mode, 5 against 5; bots with our own small INT8 network
   for their tactics, trained on the PC by letting them play; **online** matches for up to
   10 consoles (lockstep over UDP, on the LAN or through a small relay); a training range,
-  a benchmark, the reels.
+  the reels, and a benchmark where the bots play the same match on the ARM and on the GPU
+  at every quality. With the GPU (shadows, smooth light, MSAA) the ARM does 23–32% less
+  work a frame than before in the heaviest fight: numbers and limits in
+  [`docs/M33-PRIMA-DOPO.md`](docs/M33-PRIMA-DOPO.md).
 - **Astro Wing**: 3D flight.
 - **Titan Clash**: giant robots fighting, against the CPU or two players.
 - **Chaos Kitchen**: co-op cooking in 3D for 1 to 4 players.

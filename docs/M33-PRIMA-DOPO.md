@@ -1,10 +1,12 @@
-# M33 — GPU e 3D più veloce: prima e dopo
+# M33/M34 — GPU e 3D più veloce: prima e dopo
 
 Confronto tra **prima** (`9cda3c7`, 2026-09-30, l'ultimo commit prima di M33) e **dopo**
 (il branch `claude/gallant-newton-z2cugw`, 2026-10-01). Il codice di M33 è tutto
 scritto, provato sul PC e in QEMU, e **verificato sul Pi**: la GPU passa tutto il suo
 test e Texture Room HD gira a 60 fps a 640×360. Da qui la GPU è il default per il 3D dei
-giochi; l'ARM resta come riserva (sezione 4).
+giochi; l'ARM resta come riserva (sezione 4). La **sezione 7** (2026-10-03) aggiunge
+Overbit con la GPU: prima e dopo a ogni qualità, quanti triangoli reggono l'ARM e la GPU,
+i vertici e i triangoli dei modelli degli eroi e il budget di un 4 contro 4.
 
 ## 1. In breve
 
@@ -209,3 +211,277 @@ casse massime a 60 e a 30 fps per ciascun caso.
 - Rinviati: MSAA 4× (caricare la pagina in un tile multicampione non è un percorso di
   Mesa né di Linux, quindi va provato sul Pi), filtro bilineare (cambia l'aspetto delle
   texture), sprite 2D sulla GPU.
+
+## 7. Overbit sulla GPU (2026-10-03)
+
+Il gioco più pesante di bm con la GPU: cosa è cambiato in Overbit (M31) da quando la GPU
+disegna i suoi triangoli, quanti triangoli reggono il Pi e la GPU, quanti ne hanno i
+modelli degli eroi e quanti ne servono per un 4 contro 4. Misure del 2026-10-03, branch
+`claude/overclone`: **prima** è `e7632bd` (Overbit prima dell'unione con la GPU, tutto
+sull'ARM), **dopo** è questo branch con la GPU.
+
+### 7.1 In breve
+
+- **Overbit con la GPU** fa fare all'ARM il **23–32% di istruzioni in meno** a ogni
+  qualità nello scontro più pesante del benchmark (10 bot sul punto). Stima sul Pi:
+  LOW da ~36 a ~50 fps, MEDIUM da ~34 a ~45, HIGH da ~30 a ~36, ULTRA da ~25 a ~34,
+  EXTREME da ~25 a ~31.
+- **E disegna meglio**: ombre degli eroi da HIGH (prima da ULTRA), Gouraud da MEDIUM
+  (prima da HIGH), luce e nebbia sfumate sulle texture della mappa, le esplosioni che
+  illuminano i muri, z-buffer a 24 bit, MSAA 4× a scelta. HIGH con la GPU costa quanto
+  costava LOW sull'ARM.
+- **Le ottimizzazioni di oggi** valgono il 14% del fotogramma con la GPU (driver, ombre,
+  trasformazioni, particelle e anelli del Lua), quasi tutte a pixel identici.
+- **Un triangolo** di Overbit costa all'ARM ~1100 istruzioni con la GPU (~2070 prima,
+  con i pixel): ~2,8 µs con la V3D, **~6000 triangoli a 60 fps** se non ci fosse
+  altro. Senza GPU il limite sono i pixel (2700 triangoli piccoli nello stress test).
+- **Un 4 contro 4 a 60 fps** su Partenope oggi lascia agli eroi poco: simulazione,
+  Lua del disegno e mappa prendono ~15 ms dei 16,7: ~150 triangoli per eroe a 60 fps,
+  ~1900 a 30 fps (i modelli di oggi ci stanno). Per i 60 fps vanno alleggerite prima la
+  simulazione e la mappa, non gli eroi (7.7).
+- **Gli eroi** hanno ~1000 triangoli e ~750 vertici al dettaglio massimo (da 652 a
+  1394 triangoli), ~320 triangoli e ~240 vertici al minimo (da 220 a 472): tabella in 7.6.
+
+### 7.2 Come si misura
+
+Senza il Pi, il lavoro dell'ARM si conta: `tests/overbit/frames.py` compila bmhost (il
+runtime vero delle cartucce) per ARM Linux con le opzioni dell'ARM1176, lo fa girare in
+`qemu-arm` e conta le istruzioni di ogni fotogramma, per funzione e per parte (Lua, r3d,
+driver della GPU, 2D, collisioni, audio). La scena è lo scontro del benchmark di Overbit
+(`OVERBIT_BENCH_HOT`): le due squadre di 5 bot faccia a faccia sul punto, 2 s negli occhi
+di un bot e 2 s dall'alto, la stessa partita in ogni prova (stesso seme, simulazione
+identica). È il caso pesante: 10 eroi, abilità, esplosioni, particelle.
+
+- **Istruzioni → millisecondi**: 2,2 ns per istruzione, misurati sul Pi nel 3D dello
+  stress test (sfere della GPU: 936 istruzioni per triangolo ↔ 2,04 µs). È una stima:
+  sul Pi le fermate della pipeline (confronti in virgola mobile, cache) pesano più o
+  meno a seconda del codice (`docs/PRESTAZIONI.md`, sezione 6).
+- **La V3D** lavora mentre l'ARM aspetta (`v3d_run` è sincrono): al tempo dell'ARM si
+  aggiungono ~0,34 µs per triangolo (binning 2,7 ms + rendering 4,1 ms per 20 000
+  triangoli piccoli, passo 6 del test `g` sul Pi) e ~0,1 ms per lavoro (le tile della
+  pagina caricate e salvate).
+- **Il giudice resta il Pi**: il benchmark nel gioco (*Overbit > BENCHMARK*) misura i
+  tempi veri di ogni fase e li mostra in tre pagine.
+
+### 7.3 Prima e dopo
+
+Lo scontro del benchmark (10 bot sul punto; prima persona e dall'alto, 2 s l'una),
+le stesse partite al fotogramma, prima sull'ARM e dopo sulla GPU:
+
+| Qualità | | M istruzioni ARM (1ª persona / dall'alto) | V3D | ms stimati | fps stimati | triangoli | vertici |
+|---|---|---:|---:|---:|---:|---:|---:|
+| LOW | prima (ARM) | 13,06 / 12,17 | — | 27,8 | 36,0 | 3717 | 6872 |
+| | **dopo (GPU)** | **8,90 / 8,17** (−32%) | 1,4 ms | **20,2** | **49,6** | 3363 + 320 | 6304 |
+| MEDIUM | prima (ARM) | 14,01 / 12,98 | — | 29,7 | 33,7 | 4257 | 7679 |
+| | **dopo (GPU)** | **9,91 / 8,84** (−31%) | 1,6 ms | **22,2** | **45,0** | 3742 + 484 | 6919 |
+| HIGH | prima (ARM) | 16,20 / 14,28 | — | 33,5 | 29,8 | 4970 | 8889 |
+| | **dopo (GPU)** | **12,47 / 10,99** (−23%) | 2,3 ms | **28,1** | **35,5** | 4675 + 1697 | 8445 |
+| ULTRA | prima (ARM) | 19,14 / 17,13 | — | 39,9 | 25,1 | 5131 | 9115 |
+| | **dopo (GPU)** | **13,12 / 11,59** (−32%) | 2,4 ms | **29,6** | **33,8** | 4939 + 1805 | 8838 |
+| EXTREME | prima (ARM) | 19,63 / 17,15 | — | 40,5 | 24,7 | 5421 | 9571 |
+| | **dopo (GPU)** | **14,30 / 12,40** (−27%) | 2,9 ms | **32,3** | **31,0** | 5360 + 2810 | 9493 |
+
+![Lo stesso fotogramma: ARM, GPU, GPU con MSAA](img/overbit-arm-gpu-aa.png)
+
+*Lo stesso fotogramma a HIGH: ARM, GPU, GPU+AA (sopra in prima persona, sotto
+dall'alto; bmhost con la V3D emulata). Con la GPU gli eroi hanno l'ombra e i bordi
+con l'MSAA sono lisci.*
+
+- **M istruzioni ARM**: milioni di istruzioni a fotogramma (`frames.py`), la media
+  dei fotogrammi di ogni finestra; tra parentesi quante in meno di prima.
+- **V3D**: il tempo stimato della GPU (in serie con l'ARM): 0,34 µs per triangolo e
+  0,1 ms per lavoro (1,56 lavori a fotogramma).
+- **ms e fps stimati**: le istruzioni a 2,2 ns più la V3D; il fotogramma dura almeno
+  16,7 ms (60 fps). È lo scontro più pesante: nella partita normale i numeri sono più
+  bassi, e il regolatore della qualità scende di livello quando servono.
+- **Triangoli**: disegnati (`stat(4)`, media dei fotogrammi); con la GPU, dopo il "+",
+  quelli delle ombre e degli effetti, che `stat(4)` non conta. **Vertici**: trasformati
+  (`stat(7)`). Sull'ARM i pixel disegnati erano ~100 000–111 000 a fotogramma (1,8–1,9
+  volte lo schermo); con la GPU non costano all'ARM.
+- Con la GPU **HIGH**, che ora ha ombre e Gouraud, costa quanto **LOW** sull'ARM prima
+  (28,1 contro 27,8 ms); a pari livello si guadagnano 8–10 ms a fotogramma.
+- **Sull'ARM** (`gpu3d=0`, QEMU) a HIGH: 16,49 / 14,69 M istruzioni, il 2% in più di
+  prima del merge (il rasterizzatore del branch `3d-performance` è più veloce sui
+  triangoli grandi che sui piccoli di Overbit: r3d +6%), compensato in parte dal Lua di
+  oggi (−6%). Prima delle ottimizzazioni di oggi era il 4% in più.
+
+### 7.4 Cosa è cambiato
+
+**Grafica, quando disegna la GPU** (stesso gioco, stesse qualità):
+
+- **Gouraud** (la luce sfumata sui vertici degli eroi) da MEDIUM, prima da HIGH; le
+  sfumature senza il retino 4×4 dell'ARM.
+- **Ombre degli eroi** da HIGH, prima da ULTRA, fino a 40 m (prima 30), nere a retino e
+  nascoste da quello che sta davanti (z-buffer).
+- **Mappa**: la luce precalcolata e la nebbia sfumate sugli angoli di ogni faccia con
+  texture (sull'ARM la nebbia era una per faccia); le luci delle esplosioni e degli
+  spari (`lamp3d`) illuminano anche i muri con texture (sull'ARM no).
+- **z-buffer a 24 bit** (l'ARM ne ha 16): meno sfarfallio tra superfici vicine lontano.
+- **Anti-aliasing MSAA 4×** con *3D: GPU+AA* nel menu di Overbit, gratis per l'ARM.
+
+**Velocità** (misure con `frames.py` sugli stessi 2 s dello scontro, qualità HIGH, GPU;
+prima delle modifiche 14,35 M istruzioni a fotogramma, dopo 12,29 M, −14%):
+
+| Modifica | Istruzioni a fotogramma |
+|---|---:|
+| Driver: `add_tri` specializzato per tipo, banda di guardia sugli interi 12.4 | −0,35 M |
+| Ombre: ogni vertice proiettato una volta (prima tre volte per faccia, con il taglio) | −0,37 M |
+| r3d: funzioni piccole in linea, il controllo "texture a retino" dentro il ciclo | −0,2 M |
+| Ombre dal modello più semplice, il sole per osso invece che per faccia, oggetto→camera in una matrice | −0,75 M |
+| Lua: particelle in array paralleli, anelli con seno e coseno una volta per vertice | −0,4 M |
+
+In più, con la GPU gli eroi lontani passano prima al dettaglio più basso (−3% di
+triangoli nello scontro; non è nei 12,29 M qui sopra, è nelle tabelle di 7.3).
+
+I fotogrammi restano identici al pixel (confrontati con bmhost, ARM e GPU emulata,
+quattro qualità) per tutte le modifiche tranne tre, volute: le ombre dal modello più
+semplice (la stessa forma vista a 320×180), la matrice unica (1 pixel diverso su 57 600
+in 2 fotogrammi su 10) e il dettaglio degli eroi lontani (nessuna differenza visibile
+nei fotogrammi del benchmark).
+
+### 7.5 Quanti triangoli sullo schermo
+
+Il conto da fare è **per triangolo** con la GPU e **per pixel** senza.
+
+**Solo l'ARM** (stress test sul Pi, 2026-10-01): ~2700 triangoli piccoli a tinta unita
+a 60 fps (sfere), ~700 con il Gouraud, meno di 100 con le texture se coprono lo
+schermo. Il limite sono i pixel: 22 ns l'uno a tinta unita, 49 con il Gouraud, 97 con
+la texture (un quad 320×180 con texture costa da solo 5,6 ms).
+
+**Con la GPU** (stesso stress test): **~7100 triangoli** a 60 fps a tinta unita, ~6700
+con il Gouraud, ~6100 con la texture, e i pixel non contano più (200 quad a schermo
+pieno a 60 fps: la V3D riempie 811 Mpixel/s). Il limite è l'ARM che trasforma,
+illumina e scrive i vertici: ~2,0–2,3 µs per triangolo disegnato. La V3D da sola
+regge ~3 milioni di triangoli al secondo (50 000 a fotogramma), ma il suo tempo oggi si
+somma a quello dell'ARM. Per le sfere del test le modifiche di oggi cambiano poco (913
+→ 907 istruzioni per triangolo, `count_insns.py spheres+gpu`): in Overbit il guadagno
+viene dalle ombre, dai triangoli vicini al bordo della banda di guardia e dal Lua.
+
+**In Overbit** un triangolo costa di più che nelle sfere del test: luce del cielo e del
+sole, riflessi, Gouraud sugli eroi, luce precalcolata e nebbia sugli angoli della
+mappa, ombre ed effetti. Dallo scontro a HIGH, con la GPU l'ARM spende **~1100
+istruzioni per triangolo** (r3d e driver: 7,0 M istruzioni per 6400 triangoli), cioè
+~2,4 µs, più ~0,34 µs della V3D: **~2,8 µs a triangolo**. Prima, sull'ARM, un triangolo
+di Overbit costava ~2070 istruzioni (con i suoi pixel: 10,3 M per 5000 triangoli).
+
+| Il fotogramma (16,7 ms a 60 fps, 33,3 a 30) | Triangoli a 60 fps | a 30 fps |
+|---|---:|---:|
+| Solo il 3D, nient'altro | ~6000 | ~12 000 |
+| Il 3D con l'HUD e il 2D di Overbit (~1 ms) | ~5700 | ~11 700 |
+| Lo scontro di 10 bot: simulazione 6,0 ms, Lua del disegno 3,5 ms, HUD 0,9 ms | ~2300 | ~8300 |
+
+Lo scontro ne disegna ~6400 (mappa ~1800, eroi ~2600, prima persona 150, ombre ed
+effetti ~1700): per questo a HIGH sta intorno ai 35 fps. Il resto del fotogramma (la
+simulazione e il Lua che decide cosa disegnare) vale già 10,4 ms, più della metà dei
+16,7.
+
+### 7.6 I modelli degli eroi: vertici e triangoli
+
+Contati sul file dei modelli (`build/overbit/models.bm`): vertici e triangoli per
+livello di dettaglio (LOD 3 il più ricco). Il "totale" del file è più grande del LOD 3
+perché un pezzo può avere due versioni, una povera per i livelli bassi e una ricca per
+quelli alti.
+
+| Modello | Totale nel file (v / t) | LOD 3 | LOD 2 | LOD 1 | LOD 0 |
+|---|---:|---:|---:|---:|---:|
+| Rally, mech | 736 / 978 | 656 / 842 | 532 / 702 | 356 / 484 | 136 / 220 |
+| Rally, pilota | 669 / 872 | 589 / 788 | 561 / 740 | 428 / 576 | 352 / 472 |
+| Kaiju, mech | 621 / 962 | 531 / 798 | 507 / 758 | 367 / 546 | 168 / 280 |
+| Kaiju, pilota | 450 / 688 | 430 / 652 | 430 / 652 | 408 / 620 | 310 / 472 |
+| Sarge | 700 / 960 | 640 / 912 | 632 / 900 | 569 / 822 | 338 / 444 |
+| Frost | 1427 / 1654 | 1087 / 1394 | 467 / 606 | 439 / 558 | 250 / 284 |
+| Fuse | 1416 / 1574 | 1188 / 1386 | 654 / 760 | 626 / 712 | 258 / 288 |
+| Rail | 992 / 1254 | 754 / 1046 | 350 / 472 | 322 / 424 | 200 / 232 |
+| Orbit | 1220 / 1572 | 990 / 1376 | 514 / 732 | 438 / 604 | 224 / 276 |
+| Akari | 902 / 1084 | 680 / 888 | 338 / 418 | 310 / 370 | 192 / 220 |
+
+In media un eroe ha **~1000 triangoli e ~750 vertici al LOD 3**, ~670 / 500 al LOD 2,
+~570 / 430 al LOD 1 e ~320 / 240 al LOD 0. Di quelli del modello se ne disegna circa la
+metà: gli altri guardano dall'altra parte e r3d li scarta dopo un prodotto vettoriale.
+
+Le braccia e l'arma in prima persona (un solo livello): Rally 316 triangoli (264 vertici;
+il pilota 254 / 176), Kaiju 460 (394; pilota 124 / 88), Sarge 592 (482), Frost 520
+(408), Fuse 572 (496), Rail 534 (400), Orbit 396 (292), Akari 448 (328). Gli oggetti:
+la ruota di Fuse 260 al LOD 3, la mina 96, la trappola 160, la volpe di Akari 228.
+
+Quale livello si vede (`Actors.detail`): a HIGH il LOD 3 fino a 7 m, il LOD 2 fino a
+20 m (con la GPU 13 m), il LOD 1 fino a 38 m (con la GPU 25 m), poi il LOD 0; le
+distanze cambiano con la qualità (×0,45 a LOW, ×1,7 a EXTREME). L'ombra usa sempre il
+LOD 0 (il LOD 1 per gli eroi vicini a EXTREME).
+
+**Quanto costa un eroe all'ARM** (`tests/bm/herocost.py`: il modello da solo con la luce
+di Overbit e il Gouraud, a 6 m; istruzioni r3d e driver, senza la V3D):
+
+| Modello, LOD | Triangoli (disegnati) | Istruzioni, 3D sull'ARM | Istruzioni, 3D sulla GPU | GPU, per triangolo del modello |
+|---|---:|---:|---:|---:|
+| Rally mech, 3 | 842 (391) | 617 000 | 417 000 | 496 |
+| Rally mech, 1 | 484 (214) | 402 000 | 245 000 | 506 |
+| Sarge, 3 | 912 (463) | 549 000 | 470 000 | 516 |
+| Sarge, 1 | 822 (417) | 502 000 | 427 000 | 520 |
+| Frost, 3 | 1394 (690) | 824 000 | 728 000 | 522 |
+| Frost, 1 | 558 (284) | 384 000 | 336 000 | 601 |
+| Akari, 3 | 888 (447) | 537 000 | 473 000 | 533 |
+| Akari, 0 | 220 (112) | 185 000 | 157 000 | 714 |
+
+Con la GPU un eroe costa **~500–600 istruzioni per triangolo del modello** (~1,1–1,3 µs
+più ~0,17 µs di V3D): un eroe al LOD 3 da ~1000 triangoli vale ~1,2–1,4 ms. Sull'ARM a
+6 m lo stesso eroe costava il 13–65% in più (i suoi pixel); a 15 m, con pochi pixel,
+solo il 3–13% in più: la GPU vince sui pixel, non sui triangoli.
+
+### 7.7 Un 4 contro 4 a 60 fps: quanti triangoli per eroe
+
+In un 4 contro 4 si vedono al massimo 7 eroi (il proprio è in prima persona). Il
+fotogramma dello scontro misurato (GPU, HIGH), riportato a 8 bot, senza gli eroi:
+
+| Voce | ms |
+|---|---:|
+| Simulazione di 8 bot (Lua dei bot, fisica, animazioni, proiettili, particelle, suono) | 4,8 |
+| Lua del disegno (HUD, pezzi di mappa da disegnare, effetti, anelli) | ~3,0 |
+| Mappa (Partenope vista dal punto: ~1800 triangoli) | 5,0 |
+| Prima persona (150 triangoli) ed effetti (~300) | 1,3 |
+| 2D dell'HUD in C, lavori della V3D | 1,1 |
+| **Totale senza gli eroi** | **~15,2** |
+
+Il costo di un eroe, contato con `tests/bm/herocost.py` (il modello da solo, GPU,
+istruzioni dell'ARM più la V3D), è di ~1,3 µs per triangolo del modello (metà sono
+girati dall'altra parte e costano poco), più l'ombra a HIGH. Un eroe al LOD 3 (~1000
+triangoli) vale ~1,3 ms, al LOD 1 (~570) ~0,75 ms, al LOD 0 (~320) ~0,5 ms; i numeri per
+modello sono in 7.6.
+
+| Scenario (7 eroi visibili) | ms per eroe | Triangoli per modello |
+|---|---:|---:|
+| Oggi, 60 fps | ~0,2 | **~150** |
+| Oggi, 30 fps | ~2,6 | **~1900** |
+| 60 fps con simulazione e Lua del disegno a metà (parti calde in C) | ~0,8 | **~600** |
+| … e una mappa con ~1000 triangoli in vista invece di 1800 | ~1,1 | **~850** |
+| … e la V3D in parallelo all'ARM | ~1,2 | **~1000** |
+
+Le righe a 60 fps sono senza le ombre degli eroi (fino a MEDIUM): a HIGH l'ombra (dal
+modello più semplice) costa ~0,2 ms per eroe, tanto quanto tutto il budget di oggi.
+
+**In pratica**: con il gioco com'è, a 60 fps un 4v4 su Partenope regge eroi di ~150
+triangoli: è per questo che nello scontro il regolatore della qualità scende. I modelli
+di oggi (650–1400 triangoli al dettaglio massimo, 220–470 al minimo) stanno bene a 30
+fps. Per un 4v4 a 60 fps con eroi da ~600–1000 triangoli bisogna prima alleggerire il
+resto del fotogramma (7.8): la grafica degli eroi non è il collo di bottiglia, lo
+sono la simulazione in Lua e la mappa.
+
+### 7.8 Dove andare ancora
+
+- **La V3D in parallelo all'ARM.** Oggi l'ARM aspetta la fine di ogni lavoro della
+  GPU (~2–3 ms a fotogramma nello scontro). L'HUD disegnato dall'ARM sopra il 3D
+  obbliga ad aspettare: servirebbe l'HUD su un piano a parte dello scaler video
+  (HVS), che compone i piani da solo, o disegnato dalla GPU.
+- **Vertici condivisi.** Ogni triangolo scrive i suoi tre vertici nel formato della
+  V3D; con le liste indicizzate un vertice si scriverebbe una volta (eroi Gouraud,
+  ombre). In modalità NV non è un percorso usato da Mesa: va provato sul Pi con il
+  test `g`.
+- **LOD 0 più poveri.** Il livello più basso degli eroi ha 220–470 triangoli e serve
+  per le ombre e per gli eroi lontani pochi pixel: con 80–120 triangoli le ombre
+  costerebbero un terzo.
+- **La simulazione in Lua** (bot, fisica, proiettili): ~2,7 M istruzioni con 10 eroi,
+  da sola ~6 ms. Le parti più calde in C (per esempio le particelle o i raggi dei
+  bot) libererebbero tempo per il 3D.
+- **480×270 con la GPU.** Il 3D a risoluzione più alta costa all'ARM quasi uguale
+  (stessi triangoli; il riempimento lo fa la V3D a 811 Mpixel/s): serve un HUD che si
+  adatti allo schermo (oggi è disegnato per 320×180).
