@@ -470,6 +470,7 @@ Esempio completo: `carts/hunt` (Hunter's Night).
 | `camera3d(x, y, z, [yaw, pitch, fov, roll])` | camera (default a z = −5, fov 60°); `roll` inclina l'inquadratura (radianti) |
 | `light3d(x, y, z, [ambiente])` | direzione della luce e luce ambiente (0–1) |
 | `zclear()` | pulisce lo z-buffer (a ogni fotogramma, prima di `draw3d`) |
+| `gpu3d([on, aa])` | `on, aa`: se il 3D lo disegna la GPU e se con l'MSAA 4×. Con gli argomenti lo cambia per questa cartuccia (un menu "3D: GPU / GPU+AA / ARM" nel gioco); `on` resta `false` se la GPU non c'è (QEMU, `gpu3d=0`) e `aa` se l'MSAA non si può usare. All'uscita torna quello delle impostazioni |
 | `fog3d(colore, vicino, lontano)` | nebbia: le facce sfumano nel colore tra le due distanze; `fog3d()` la toglie |
 | `lamp3d(i, x, y, z, raggio, [k, colore])` | luce puntiforme `i` (1–4): le facce con il centro entro `raggio` diventano più chiare, fino a `k` in più (predefinito 1) al centro, del `colore` dato (bianco se manca); `lamp3d(i)` la spegne, `lamp3d()` le spegne tutte. Con `light3d` ad ambiente basso fa scene al buio con lanterne |
 | `project3d(x, y, z)` | punto del mondo → `sx, sy, profondità` sullo schermo (`nil` se è dietro la camera): per disegnare in 2D cose allineate al 3D (orizzonte, mirini, etichette) |
@@ -518,11 +519,13 @@ di memoria scritta e riletta per fotogramma; il primo fotogramma no): conviene
 comunque disegnare prima tutto il 3D e poi l'HUD. Lo z-buffer della GPU riparte da
 zero a ogni fotogramma, anche senza `zclear()`. `stat(9)` vale 1 quando il 3D lo fa
 la GPU. Se la GPU non risponde, il kernel torna all'ARM da solo e lo scrive nel log.
-La GPU non sa ancora fare le ombre (`draw3d` con il flag 8) e gli effetti 3D
-(`point3d`, `line3d`, `sprite3d`, che leggono lo z-buffer), le facce a retino e le
-texture dei modelli con la luce precalcolata: alla prima di queste cose la cartuccia
-passa all'ARM per il resto della partita (una riga nel log; al massimo un fotogramma
-disegnato in un ordine sbagliato).
+La GPU disegna anche le ombre (`draw3d` con il flag 8: sempre nere a retino, lo stile 1
+di `shadow3d`, sopra le cose già disegnate grazie allo z-buffer), gli effetti 3D
+(`point3d`, `line3d`, `sprite3d`), le facce a retino e le texture dei modelli con la
+luce precalcolata (la luce e la nebbia sfumate sugli angoli, anche con le `lamp3d`).
+Solo le facce **con texture e a retino** insieme non le sa fare: alla prima la
+cartuccia passa all'ARM per il resto della partita (una riga nel log; il fotogramma
+misto non si mostra).
 Un fotogramma che comincia con `cls()` costa meno alla GPU: le tile partono dal colore
 di `cls` invece di rileggere la pagina. Le texture con i lati multipli di 32 (sprite
 sheet 128×128, 256×256, …) vanno alla GPU in T-format, il formato a tile della sua

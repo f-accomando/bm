@@ -256,12 +256,15 @@ local function draw_field(a)
   local r = DISRUPT.radius * (0.92 + 0.08 * sin(G.t * 8))
   point3d(f.x, f.y, f.z, 0.3, 0x4FE8FF)
   local n = 20
+  local c0, c1 = cos(G.t * 1.3), sin(G.t * 1.3)              -- a second ring, upright and turning
+  local ca, sa = cos(G.t), sin(G.t)                         -- each corner once
   for i = 0, n - 1 do
-    local a0, a1 = 2 * pi * i / n + G.t, 2 * pi * (i + 1) / n + G.t
-    line3d(f.x + cos(a0) * r, f.y, f.z + sin(a0) * r, f.x + cos(a1) * r, f.y, f.z + sin(a1) * r, 0x4FE8FF, 1)
-    local c0, c1 = cos(G.t * 1.3), sin(G.t * 1.3)            -- a second ring, upright and turning
-    line3d(f.x + cos(a0) * r * c0, f.y + sin(a0) * r, f.z + cos(a0) * r * c1,
-      f.x + cos(a1) * r * c0, f.y + sin(a1) * r, f.z + cos(a1) * r * c1, 0x8FF4FF, 1)
+    local a1 = 2 * pi * (i + 1) / n + G.t
+    local cb, sb = cos(a1), sin(a1)
+    line3d(f.x + ca * r, f.y, f.z + sa * r, f.x + cb * r, f.y, f.z + sb * r, 0x4FE8FF, 1)
+    line3d(f.x + ca * r * c0, f.y + sa * r, f.z + ca * r * c1,
+      f.x + cb * r * c0, f.y + sb * r, f.z + cb * r * c1, 0x8FF4FF, 1)
+    ca, sa = cb, sb
   end
 end
 

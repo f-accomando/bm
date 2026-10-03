@@ -4,10 +4,16 @@
 
 Fx = { shake = 0, flash = 0, flash_rgb = 0xFFFFFF }
 
+-- particles: one array a field (indices, not a table each: the VM reads
+-- them faster), the live ones at 1..np
 local MAXP = 360
-local P = {}                  -- particles: x y z vx vy vz life age size rgb drag grav
-for i = 1, MAXP do P[i] = { age = 1, life = 0 } end
-local np = 0                  -- the live ones are P[1..np]
+local PX, PY, PZ, VX, VY, VZ = {}, {}, {}, {}, {}, {}
+local LIFE, AGE, SIZE, RGB, DRAG, GRAV = {}, {}, {}, {}, {}, {}
+for i = 1, MAXP do
+  PX[i], PY[i], PZ[i], VX[i], VY[i], VZ[i] = 0, 0, 0, 0, 0, 0
+  LIFE[i], AGE[i], SIZE[i], RGB[i], DRAG[i], GRAV[i] = 0, 1, 0, 0, 0, 0
+end
+local np = 0
 
 local MAXT = 48
 local T = {}                  -- tracers and beams: from, to, colour, width, life
@@ -20,14 +26,12 @@ local lights = {}             -- short flashes of light (lamp3d 2..4)
 -- the share of particles kept (the quality decides)
 Fx.density = 1
 
-local function spawn(x, y, z, vx, vy, vz, life, size, rgb, drag, grav, kind)
-  if np >= MAXP then return nil end
-  np = np + 1
-  local p = P[np]
-  p.x, p.y, p.z, p.vx, p.vy, p.vz = x, y, z, vx, vy, vz
-  p.life, p.age, p.size, p.size0, p.rgb = life, 0, size, size, rgb
-  p.drag, p.grav, p.kind = drag or 0, grav or 0, kind or 0
-  return p
+local function spawn(x, y, z, vx, vy, vz, life, size, rgb, drag, grav)
+  if np >= MAXP then return end
+  local i = np + 1
+  np = i
+  PX[i], PY[i], PZ[i], VX[i], VY[i], VZ[i] = x, y, z, vx, vy, vz
+  LIFE[i], AGE[i], SIZE[i], RGB[i], DRAG[i], GRAV[i] = life, 0, size, rgb, drag or 0, grav or 0
 end
 Fx.spawn = spawn
 
@@ -91,21 +95,29 @@ function Fx.number(x, y, z, n, crit, heal)
 end
 
 function Fx.update()
-  local i = 1
-  while i <= np do
-    local p = P[i]
-    p.age = p.age + DT
-    if p.age >= p.life then
-      P[i], P[np] = P[np], P[i]                  -- swap with the last one alive
-      np = np - 1
+  local px, py, pz, vx, vy, vz = PX, PY, PZ, VX, VY, VZ
+  local life, age, drag, grav = LIFE, AGE, DRAG, GRAV
+  local i, n, dt = 1, np, DT
+  while i <= n do
+    local a = age[i] + dt
+    if a >= life[i] then
+      if i < n then                               -- the last one alive takes its place
+        px[i], py[i], pz[i], vx[i], vy[i], vz[i] = px[n], py[n], pz[n], vx[n], vy[n], vz[n]
+        life[i], age[i], SIZE[i], RGB[i], drag[i], grav[i] = life[n], age[n], SIZE[n], RGB[n], drag[n], grav[n]
+      end
+      n = n - 1
     else
-      local k = 1 - p.drag * DT
-      p.vx, p.vy, p.vz = p.vx * k, (p.vy - p.grav * 9.8 * DT) * k, p.vz * k
-      p.x, p.y, p.z = p.x + p.vx * DT, p.y + p.vy * DT, p.z + p.vz * DT
-      if p.y < 0.02 then p.y, p.vy = 0.02, -p.vy * 0.3 end
+      age[i] = a
+      local k = 1 - drag[i] * dt
+      local wx, wy, wz = vx[i] * k, (vy[i] - grav[i] * 9.8 * dt) * k, vz[i] * k
+      local y = py[i] + wy * dt
+      px[i], pz[i] = px[i] + wx * dt, pz[i] + wz * dt
+      if y < 0.02 then y, wy = 0.02, -wy * 0.3 end
+      py[i], vx[i], vy[i], vz[i] = y, wx, wy, wz
       i = i + 1
     end
   end
+  np = n
   i = 1
   while i <= nt do
     local t = T[i]
@@ -152,16 +164,17 @@ Fx.fade = fade
 
 function Fx.draw()
   local cx, cy, cz = Cam.x, Cam.y, Cam.z
+  local px, py, pz, size, age, life, col = PX, PY, PZ, SIZE, AGE, LIFE, RGB
   for i = 1, np do
-    local p = P[i]
-    local dx, dy, dz = p.x - cx, p.y - cy, p.z - cz
+    local x, y, z, s = px[i], py[i], pz[i], size[i]
+    local dx, dy, dz = x - cx, y - cy, z - cz
     -- not at the eye: a big ball near the camera is a disc over the screen
     -- (at least 3 times its size away: at most ~50 pixels wide)
-    if dx * dx + dy * dy + dz * dz > max(0.36, p.size * p.size * 9) then
-      local u = p.age / p.life
-      local rgb = p.rgb
+    if dx * dx + dy * dy + dz * dz > max(0.36, s * s * 9) then
+      local u = age[i] / life[i]
+      local rgb = col[i]
       if u > 0.6 then rgb = fade(rgb, 1 - (u - 0.6) * 2) end
-      point3d(p.x, p.y, p.z, p.size * (1 - u * 0.5), rgb, u > 0.5 and 1 or 0)
+      point3d(x, y, z, s * (1 - u * 0.5), rgb, u > 0.5 and 1 or 0)
     end
   end
   for i = 1, nt do

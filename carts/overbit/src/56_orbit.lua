@@ -310,10 +310,15 @@ local function draw_ring(a)
   local rx, rz = r.nz, -r.nx                         -- the ring's own right
   local k = min(1, (RING.time - r.t) * 4)
   local rad = RING.radius * k
+  -- each corner once (the end of a segment is the start of the next)
+  local c0, s0 = cos(G.t), sin(G.t)
+  local x0, y0, z0 = r.x + rx * c0 * rad, r.y + s0 * rad, r.z + rz * c0 * rad
   for i = 0, n - 1 do
-    local a0, a1 = 2 * pi * i / n + G.t, 2 * pi * (i + 1) / n + G.t
-    line3d(r.x + rx * cos(a0) * rad, r.y + sin(a0) * rad, r.z + rz * cos(a0) * rad,
-      r.x + rx * cos(a1) * rad, r.y + sin(a1) * rad, r.z + rz * cos(a1) * rad, i % 2 == 0 and 0x3FF2D8 or 0xF28A2E, 2)
+    local a1 = 2 * pi * (i + 1) / n + G.t
+    local c1, s1 = cos(a1), sin(a1)
+    local x1, y1, z1 = r.x + rx * c1 * rad, r.y + s1 * rad, r.z + rz * c1 * rad
+    line3d(x0, y0, z0, x1, y1, z1, i % 2 == 0 and 0x3FF2D8 or 0xF28A2E, 2)
+    x0, y0, z0 = x1, y1, z1
   end
 end
 

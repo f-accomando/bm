@@ -195,12 +195,16 @@ screenshot in `docs/img/`), `README_OLD.md` (il README completo, in italiano),
   (`make test-gpu3d` le prova tutte). L'MSAA è spento di default (`gpu3d_aa=1`).
 - Numeri: nel branch `3d-performance` erano M30 e M31; qui M30 è l'assistente, M31
   Overbit e M32 il mouse (branch principale), quindi la GPU è M33 e M34.
-- Quello che il backend non sa disegnare (ombre e effetti 3D, che leggono lo z-buffer;
-  facce a retino; texture con la luce precalcolata dei modelli "lit") chiama
+- Il backend disegna anche ombre (nere a retino, con la prova dello z), effetti 3D, facce a
+  retino (shader con discard) e texture dei modelli "lit" (luce e nebbia sugli angoli,
+  shader `TEX_RGB`). Solo le facce con texture e a retino insieme chiamano
   `r3d_t.arm_hook`: la GPU disegna ciò che ha in coda e la cartuccia passa all'ARM
-  (`gpu3d_to_arm` in `runtime.c`, una riga nel log). Overbit oggi va quindi sull'ARM.
-  `stat(9)` vale 1 se il 3D lo fa la GPU. bmhost non ha la GPU (stub in
-  `tests/host/stubs.c`).
+  (`gpu3d_to_arm` in `runtime.c`, una riga nel log, il fotogramma misto non si mostra).
+  `stat(9)` vale 1 se il 3D lo fa la GPU; `gpu3d([on, aa])` lo cambia dalla cartuccia.
+- Overbit va sulla GPU (menu "3D": GPU, GPU+AA, ARM; benchmark dei bot con `--start
+  bench`, `84_bench.lua`). bmhost ha gli stub della GPU; `make bmhost-gpu` usa `gpu3d.c`
+  sull'emulatore della V3D (`BMHOST_EMU_SKIP=1`: i lavori non si eseguono). Quanto costa
+  all'ARM un fotogramma della partita: `tests/overbit/frames.py` (qemu-arm, per funzione).
 
 ## Comunicazione con l'utente
 

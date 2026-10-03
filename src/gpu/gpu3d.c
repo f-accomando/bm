@@ -419,15 +419,22 @@ static inline float unit(float v)
     return v < 0 ? 0 : v > 1 ? 1 : v;
 }
 
+/* the guard band in 12.4 plus 32768: GUARD_LO .. GUARD_LO + span */
+#define GUARD_LO ((int32_t)(32768 - 16 * GUARD))
+
 /* a corner as the shader wants it: x and y rounded to 12.4 (within the
  * guard band, so x * 16 + 32768 is positive and the cast floors), z from
  * 1/w, the colour as r3d gives it (0..1), texel coordinates scaled to 0..1;
- * the light and the fog of R3D_KIND_TEX_RGB in the colour's byte order */
-static inline void put_corner(gvert_t *o, float x, float y, float iw, float a, float b, float c, const float *l,
-                              const float *f, int kind, const tex_t *t)
+ * the light and the fog of R3D_KIND_TEX_RGB in the colour's byte order.
+ * Nonzero if x or y is out of the guard band (spans sx, sy in 12.4): then
+ * the corner is not usable (out of the 12.4 range) */
+static inline __attribute__((always_inline)) uint32_t put_corner(gvert_t *o, float x, float y, float iw, float a,
+                                                                 float b, float c, const float *l, const float *f,
+                                                                 int kind, const tex_t *t, uint32_t sx, uint32_t sy)
 {
-    o->x = (int16_t)((int32_t)(x * 16.0f + 32768.5f) - 32768);
-    o->y = (int16_t)((int32_t)(y * 16.0f + 32768.5f) - 32768);
+    const int32_t ix = (int32_t)(x * 16.0f + 32768.5f), iy = (int32_t)(y * 16.0f + 32768.5f);
+    o->x = (int16_t)(ix - 32768);
+    o->y = (int16_t)(iy - 32768);
     float z = 1.0f - R3D_NEAR * iw;     /* 0 at the near plane, towards 1 far away */
     o->z = z < 0 ? 0 : z;
     o->inv_w = iw;
@@ -449,6 +456,7 @@ static inline void put_corner(gvert_t *o, float x, float y, float iw, float a, f
             o->v[2] = unit(c);
         }
     }
+    return ((uint32_t)(ix - GUARD_LO) > sx) | ((uint32_t)(iy - GUARD_LO) > sy);
 }
 
 /* a corner made while clipping (attributes times 1/w) */
@@ -458,7 +466,7 @@ static void put(const cvert_t *c, int kind, const tex_t *t)
     const float l[3] = { c->at[3] * w, c->at[4] * w, c->at[5] * w }, f[3] = { c->at[6] * w, c->at[7] * w,
                                                                                c->at[8] * w };
     put_corner((gvert_t *)(G.verts + G.vbytes), c->x, c->y, c->iw, c->at[0] * w, c->at[1] * w, c->at[2] * w, l, f,
-               kind, t);
+               kind, t, UINT32_MAX, UINT32_MAX);
     G.vbytes += G.b_stride;
 }
 
@@ -532,25 +540,25 @@ static void add_clipped(const r3d_corner_t v[3], int kind, const tex_t *t, float
 }
 
 /* a triangle into the job (clipped to the guard band if it reaches out of
- * the range of the 12.4 coordinates; inside: r3d found it cannot) */
-static inline void add_tri(const g16_t *g, const r3d_corner_t v[3], int kind, const tex_t *t, int depth,
-                           int shader, int inside)
+ * the range of the 12.4 coordinates; inside: r3d found it cannot). Inlined
+ * in cb_tri for each kind: no test of the kind for every corner */
+static inline __attribute__((always_inline)) void add_tri(const g16_t *g, const r3d_corner_t v[3], int kind,
+                                                          const tex_t *t, int depth, int shader, int inside)
 {
     if (!batch_takes(g, shader, depth, t) && batch_for(g, shader, depth, t) != 0)
         return;
-    if (!inside) {
-        const float x0 = -GUARD, y0 = -GUARD, x1 = g->w + GUARD, y1 = g->h + GUARD;
-        int out = 0;
-        for (int i = 0; i < 3; i++)
-            out |= v[i].x < x0 || v[i].x > x1 || v[i].y < y0 || v[i].y > y1;
-        if (out) {
-            add_clipped(v, kind, t, x1, y1);
-            return;
-        }
-    }
-    uint8_t *o = G.verts + G.vbytes;    /* nearly every triangle: straight in */
+    /* nearly every triangle: straight in; the corners tell on the way if
+     * one is out of the guard band */
+    const uint32_t sx = (uint32_t)(16 * (g->w + 2 * (int)GUARD)), sy = (uint32_t)(16 * (g->h + 2 * (int)GUARD));
+    uint8_t *o = G.verts + G.vbytes;
+    uint32_t out = 0;
     for (int i = 0; i < 3; i++, o += G.b_stride)
-        put_corner((gvert_t *)o, v[i].x, v[i].y, v[i].z, v[i].a, v[i].b, v[i].c, v[i].l, v[i].f, kind, t);
+        out |= put_corner((gvert_t *)o, v[i].x, v[i].y, v[i].z, v[i].a, v[i].b, v[i].c, v[i].l, v[i].f, kind, t,
+                          sx, sy);
+    if (out && !inside) {
+        add_clipped(v, kind, t, g->w + GUARD, g->h + GUARD);   /* over the corners just written */
+        return;
+    }
     G.vbytes += 3 * G.b_stride;
     G.st.tris++;
 }

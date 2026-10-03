@@ -187,10 +187,13 @@ local function draw_point()
   local col = M.owner ~= 0 and TEAM_RGB[M.owner] or (M.phase == "setup" and 0x8A8F98 or 0xF2F2F2)
   local r = P.r
   local cap_n = M.cap_team ~= 0 and floor(M.cap * RING_N + 0.5) or 0
+  local x0, z0 = P.x + sin(0) * r, P.z + cos(0) * r        -- each corner once
   for i = 0, RING_N - 1 do
-    local a0, a1 = i / RING_N * 2 * pi, (i + 1) / RING_N * 2 * pi
+    local a1 = (i + 1) / RING_N * 2 * pi
+    local x1, z1 = P.x + sin(a1) * r, P.z + cos(a1) * r
     local c = i < cap_n and TEAM_RGB[M.cap_team] or col
-    line3d(P.x + sin(a0) * r, y, P.z + cos(a0) * r, P.x + sin(a1) * r, y, P.z + cos(a1) * r, c, 2)
+    line3d(x0, y, z0, x1, y, z1, c, 2)
+    x0, z0 = x1, z1
   end
 end
 

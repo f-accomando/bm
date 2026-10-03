@@ -342,9 +342,6 @@ int fb_init_depth(framebuffer_t *fb, uint32_t width, uint32_t height, uint32_t b
     fb->buffers = buffers;
     fb->size = fb->pitch * height;
 #ifdef BMHOST_GPU
-    /* counting the ARM's instructions (tests/overbit/frames.py): the
-     * emulated V3D takes the jobs and does not run them */
-    emu_skip = getenv("BMHOST_EMU_SKIP") != NULL;
     /* the pages where the emulated V3D reaches them (its arena) */
     pages = test_aligned_alloc(4096, (size_t)buffers * fb->size);
     if (pages) {
@@ -367,6 +364,12 @@ int fb_init(framebuffer_t *fb, uint32_t width, uint32_t height, uint32_t buffers
 
 int fb_flip(framebuffer_t *fb)
 {
+#ifdef BMHOST_GPU
+    /* counting the ARM's instructions (tests/overbit/frames.py): from the
+     * first frame shown (the GPU's probe has run) the emulated V3D takes
+     * the jobs and does not run them */
+    emu_skip = getenv("BMHOST_EMU_SKIP") != NULL;
+#endif
     if (fb->depth == 16)
         host_frame((const uint16_t *)fb->base, (int)fb->width, (int)fb->height, (int)(fb->pitch / 2));
     fb->shown = (uint32_t)((fb->base - fb->mem) / fb->size);

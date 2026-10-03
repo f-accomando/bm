@@ -22,12 +22,13 @@ local WARM, MEASURE, QUALITIES, RING, RING_LEN
 
 -- For counting instructions on the PC (tests/overbit/frames.py): only one
 -- phase (OVERBIT_BENCH_ONE = "gpu:2"), the fight at once (OVERBIT_BENCH_HOT:
--- the two teams face to face at the point, no warming up), and a stop after
--- this many seconds of the measure (OVERBIT_BENCH_STOP).
+-- the two teams face to face at the point, no warming up; a number: the
+-- seconds of the measure, 4 by default), and a stop after this many seconds
+-- of the measure (OVERBIT_BENCH_STOP).
 local function config()
   local fast = OVERBIT_BENCH_FAST
   WARM, MEASURE = fast and 8 or 24, fast and 2 or 8
-  if OVERBIT_BENCH_HOT then WARM, MEASURE = 0, 4 end
+  if OVERBIT_BENCH_HOT then WARM, MEASURE = 0, tonumber(OVERBIT_BENCH_HOT) or 4 end
   QUALITIES = fast and { 2 } or { 1, 2, 3, 4 }
   RING = fast and { 1, 4, 8 } or { 1, 2, 3, 4, 5, 6, 8, 10, 12, 14, 16, 20, 24, 28, 32 }
   RING_LEN = fast and 1 or 3

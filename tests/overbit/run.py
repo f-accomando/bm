@@ -249,10 +249,11 @@ def main():
         check(code == 0 and "overbit bench done" in log and "Lua error" not in log,
               f"bench ({tag}): runs to the end", log)
         check([r[0] for r in rows] == rs, f"bench ({tag}): the phases {' '.join(rs)}", log)
-        # the same match each time (where everyone is at the end), about the
-        # same vertices drawn
-        vtx = [int(r[1]) for r in rows]
-        check(len(hashes) == len(rs) and len(set(hashes)) == 1 and max(vtx) - min(vtx) <= max(vtx) // 100,
+        # the same match each time (where everyone is at the end); about the
+        # same vertices drawn by the GPU with and without MSAA (the ARM draws
+        # more: the GPU turns the far heroes coarser sooner, 40_actor)
+        vtx = [int(r[1]) for r in rows if r[0].startswith("GPU")]
+        check(len(hashes) == len(rs) and len(set(hashes)) == 1 and (not vtx or max(vtx) - min(vtx) <= max(vtx) // 100),
               f"bench ({tag}): the same match on every renderer", log)
         check(len(re.findall(r"overbit bench ring \S+: \d+ heroes at 60 fps", log)) == len(rs),
               f"bench ({tag}): the ring on each renderer", log)

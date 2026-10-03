@@ -2341,9 +2341,14 @@ static const luaL_Reg api[] = {
 
 /* ---------------------------------------------------------------- state */
 
+/* bmhost's profiler of the Lua (BMHOST_LUAPROF): where the count hook
+ * finds the cartridge; not in the kernel (a weak symbol left undefined) */
+extern void bm_lua_sample(lua_State *L, lua_Debug *ar) __attribute__((weak));
+
 static void hook(lua_State *L, lua_Debug *ar)
 {
-    (void)ar;
+    if (bm_lua_sample)
+        bm_lua_sample(L, ar);
     ++rt.hook_count;
     /* a coroutine given to timeslice(): it stops here and goes on next
      * frame, instead of running into the budget */

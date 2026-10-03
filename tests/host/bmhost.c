@@ -39,6 +39,7 @@
 #include <unistd.h>
 
 #include "host.h"
+#include "lua.h"
 #include "gpu/gpu3d.h"
 #include "audio/audio.h"
 #include "bm/runtime.h"
@@ -195,6 +196,66 @@ static void events(long f)
         } else if (!strcmp(cmd, "quit")) {
             host.quit_now = 1;
         }
+    }
+}
+
+/* BMHOST_LUAPROF=1: the Lua functions (and lines) the runtime's count hook
+ * finds running, every 1000 instructions of the VM, written at the end */
+#define PROF_N 4096
+static struct prof { char src[LUA_IDSIZE + 4]; int line, fline; long n; } prof[PROF_N];
+static long prof_total;
+static int prof_on = -1;
+
+void bm_lua_sample(lua_State *L, lua_Debug *ar)
+{
+    if (prof_on < 0)
+        prof_on = getenv("BMHOST_LUAPROF") != NULL;
+    if (!prof_on || run.frame < 2 || !lua_getinfo(L, "Sl", ar))
+        return;
+    prof_total++;
+    for (int k = 0; k < 2; k++) {       /* the function (line 0), and the line */
+        const int line = k ? ar->currentline : 0;
+        unsigned h = (unsigned)ar->linedefined * 31u + (unsigned)line * 7u;
+        for (const char *c = ar->short_src; *c; c++) h = h * 33u + (unsigned char)*c;
+        for (int i = 0; i < PROF_N; i++) {
+            struct prof *p = &prof[(h + (unsigned)i) % PROF_N];
+            if (!p->n) {
+                snprintf(p->src, sizeof p->src, "%s", ar->short_src);
+                p->fline = ar->linedefined;
+                p->line = line;
+            } else if (p->fline != ar->linedefined || p->line != line || strcmp(p->src, ar->short_src)) {
+                continue;
+            }
+            p->n++;
+            break;
+        }
+    }
+}
+
+static int prof_cmp(const void *a, const void *b)
+{
+    const struct prof *x = a, *y = b;
+    return (y->n > x->n) - (y->n < x->n);
+}
+
+static void prof_report(void)
+{
+    if (prof_on <= 0 || !prof_total)
+        return;
+    qsort(prof, PROF_N, sizeof prof[0], prof_cmp);
+    fprintf(stderr, "bmhost: Lua profile, %ld samples (functions, then lines)\n", prof_total);
+    for (int k = 0; k < 2; k++) {
+        int shown = 0;
+        for (int i = 0; i < PROF_N && shown < 40; i++)
+            if (prof[i].n && (prof[i].line != 0) == k) {
+                if (k)
+                    fprintf(stderr, "  %5.1f%%  %s:%d line %d\n", 100.0 * prof[i].n / prof_total, prof[i].src,
+                            prof[i].fline, prof[i].line);
+                else
+                    fprintf(stderr, "  %5.1f%%  %s:%d\n", 100.0 * prof[i].n / prof_total, prof[i].src,
+                            prof[i].fline);
+                shown++;
+            }
     }
 }
 
@@ -381,6 +442,7 @@ int main(int argc, char **argv)
     }
     if (run.video)
         fclose(run.video);
+    prof_report();
     fprintf(stderr, "bmhost: \"%s\" %ld frames, %s, a frame takes %.3f ms on this PC "
                     "(max %.3f), %u KiB of Lua, %.1f s\n",
             st.title, run.frame, st.ok ? "ok" : "ERROR",

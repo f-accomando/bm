@@ -416,11 +416,14 @@ end
 
 -- ---------------------------------------------------------------- drawing
 
--- detail level from the distance and the quality
+-- detail level from the distance and the quality; with the GPU the far
+-- ones turn coarser sooner: there a triangle costs the ARM the same however
+-- few pixels it covers (on the ARM the pixels were the cost)
 function Actors.detail(d)
   local q = G.quality
   local k = ({ 0.45, 0.65, 1, 1.3, 1.7 })[q + 1]
   if d < 7 * k then return q >= 2 and 3 or 2 end
+  if G.gpu then k = k * 0.65 end
   if d < 20 * k then return q >= 1 and 2 or 1 end
   if d < 38 * k then return 1 end
   return 0
@@ -438,10 +441,13 @@ function Actors.draw(cx, cy, cz, skip)
       local h = a.height * sc
       -- not in the view: nothing to do (its long shadow at sunset may be)
       local seen = Cam.sees(a.x, a.y + h * 0.5, a.z, h * 0.75 + a.radius)
-      -- the shadow: a coarse model (the GPU: from HIGH, farther: it costs only its triangles there)
+      -- the shadow: the coarsest model, a dithered black shape whose outline
+      -- is all that shows (EXTREME: the near ones one level finer); the GPU:
+      -- from HIGH, farther (it costs only its triangles there)
       local sd = G.gpu and 40 or 30
       if (q >= 3 or (G.gpu and q >= 2)) and d < sd and (seen or Cam.sees(a.x, a.y, a.z, h * 3)) then
-        draw3d(a.mesh, a.x, a.y, a.z, 0, a.yaw, 0, sc, (3 - min(det, 1)) * 16 + 8)
+        local sdet = (q >= 4 and det >= 2) and 1 or 0
+        draw3d(a.mesh, a.x, a.y, a.z, 0, a.yaw, 0, sc, (3 - sdet) * 16 + 8)
       end
       if seen then draw3d(a.mesh, a.x, a.y, a.z, 0, a.yaw, 0, sc, flags) end
       if a.hero.draw_extra then a.hero.draw_extra(a, d) end

@@ -1215,6 +1215,7 @@ static void shadow_apply(r3d_t *r, const int box[4])
 static void draw_shadow(r3d_t *r, const r3d_mesh_t *m, const xform_t *x, v3_t p, unsigned detail, const view_t *v)
 {
     static cv_t cv[MAX_VERTS];
+    static sv_t sv[MAX_VERTS];              /* on the screen, if in front of the near plane */
     if (!r->backend && !mask_ready(r))
         return;
     v3_t L = r->light;
@@ -1233,23 +1234,42 @@ static void draw_shadow(r3d_t *r, const r3d_mesh_t *m, const xform_t *x, v3_t p,
         w.z -= L.z * h;
         cv[i] = (cv_t){ C[0] * w.x + C[1] * w.y + C[2] * w.z, C[3] * w.x + C[4] * w.y + C[5] * w.z,
                         C[6] * w.x + C[7] * w.y + C[8] * w.z, 0, 0, 0, 0, 0 };
+        if (cv[i].z >= NEAR)
+            sv[i] = project(v, cv[i], 1.0f);
+    }
+    /* the sun in the axes of each bone: a face is lit when its normal at
+     * rest points to it, n . (N^T sun) = (N n) . sun */
+    static v3_t sun[MAX_BONES + 1];
+    const int skinned = m->bones && m->nbones > 0;
+    const int nb = skinned ? (m->nbones < MAX_BONES ? m->nbones : MAX_BONES) : 1;
+    for (int b = 0; b < nb; b++) {
+        const float *N = x->n[b];
+        sun[b] = (v3_t){ N[0] * r->light.x + N[3] * r->light.y + N[6] * r->light.z,
+                         N[1] * r->light.x + N[4] * r->light.y + N[7] * r->light.z,
+                         N[2] * r->light.x + N[5] * r->light.y + N[8] * r->light.z };
     }
     int box[4] = { r->g->w, r->g->h, 0, 0 };
     for (int t = 0; t < m->nfaces; t++) {
         if (!R3D_LOD_SHOWS(m->colors[t], detail))
             continue;
-        v3_t n = xform_dir(x, m->faces[t * 3], m->normals[t]);
-        float d = n.x * r->light.x + n.y * r->light.y + n.z * r->light.z;
-        if (d <= 0 || (m->colors[t] & R3D_SCREEN))
-            continue;                       /* only the faces the sun sees cast the shadow */
         const uint16_t *fc = m->faces + t * 3;
-        cv_t tri[3] = { cv[fc[0]], cv[fc[1]], cv[fc[2]] }, cl[4];
-        int np = clip_near(tri, cl);
-        if (np < 3)
-            continue;
+        const v3_t n = m->normals[t], sb = sun[skinned ? m->vbone[fc[0]] : 0];
+        if (n.x * sb.x + n.y * sb.y + n.z * sb.z <= 0 || (m->colors[t] & R3D_SCREEN))
+            continue;                       /* only the faces the sun sees cast the shadow */
         sv_t pts[4];
-        for (int i = 0; i < np; i++)
-            pts[i] = project(v, cl[i], 1.0f);
+        int np = 3;
+        if (cv[fc[0]].z >= NEAR && cv[fc[1]].z >= NEAR && cv[fc[2]].z >= NEAR) {
+            pts[0] = sv[fc[0]];             /* (as clip_near and project would) */
+            pts[1] = sv[fc[1]];
+            pts[2] = sv[fc[2]];
+        } else {
+            cv_t tri[3] = { cv[fc[0]], cv[fc[1]], cv[fc[2]] }, cl[4];
+            np = clip_near(tri, cl);
+            if (np < 3)
+                continue;
+            for (int i = 0; i < np; i++)
+                pts[i] = project(v, cl[i], 1.0f);
+        }
         if (r->backend) {
             /* the GPU: black on every other pixel (shadow3d(1)), where the
              * ground is not much nearer than the shadow (its depth 3.5%
@@ -1315,7 +1335,8 @@ static void light_fast(const r3d_t *r, const lamps_t *L, const shine_t *sh, v3_t
 }
 
 /* the lamps on top of a light (baked faces): by distance only */
-static void lamps_add(const lamps_t *L, float px, float py, float pz, lit_t *out)
+static inline __attribute__((always_inline)) void lamps_add(const lamps_t *L, float px, float py, float pz,
+                                                          lit_t *out)
 {
     for (int i = 0; i < L->n; i++) {
         float dx = px - L->pos[i].x, dy = py - L->pos[i].y, dz = pz - L->pos[i].z;
@@ -1329,22 +1350,14 @@ static void lamps_add(const lamps_t *L, float px, float py, float pz, lit_t *out
     }
 }
 
-/* What a mesh asks for that a backend cannot draw (NULL: nothing):
- * textured faces with screen-door */
-static const char *backend_lacks(const r3d_mesh_t *m)
-{
-    for (int t = 0; t < m->nfaces; t++)
-        if ((m->colors[t] & (R3D_SCREEN | R3D_TEXTURED)) == (R3D_SCREEN | R3D_TEXTURED) && m->uv)
-            return "textured screen-door faces";
-    return NULL;
-}
-
 /* A face with a colour at each corner (r, g, b in 0..255; c, s: its corners
  * in camera space and on the screen, nin of them in front of the near
  * plane): to the backend, or Gouraud on the ARM (one colour for a few
  * pixels). 0 if nothing of it is left after clipping. */
-static int face_colours(r3d_t *r, const view_t *v, uint16_t *zbuf, const cv_t *const c[3], const sv_t *const s[3],
-                        int nin, const float (*col)[3], float zmul, int screen, int inside)
+static inline __attribute__((always_inline)) int face_colours(r3d_t *r, const view_t *v, uint16_t *zbuf,
+                                                              const cv_t *const c[3], const sv_t *const s[3],
+                                                              int nin, const float (*col)[3], float zmul,
+                                                              int screen, int inside)
 {
     const int kind = (screen ? R3D_KIND_SCREEN : R3D_KIND_COLOUR) | inside;
     if (nin == 3) {
@@ -1406,11 +1419,6 @@ void r3d_draw_flags(r3d_t *r, const r3d_mesh_t *m, v3_t p, float rx, float ry, f
     static uint32_t vkey[MAX_VERTS];    /* ...for this face colour (computed when a face needs it) */
     if (m->nverts > MAX_VERTS)
         return;
-    if (r->backend && !(flags & R3D_SHADOW)) {
-        const char *why = backend_lacks(m);
-        if (why)
-            to_arm(r, why);
-    }
 
     view_t v;
     view_setup(r, &v);
@@ -1487,19 +1495,40 @@ void r3d_draw_flags(r3d_t *r, const r3d_mesh_t *m, v3_t p, float rx, float ry, f
     int bx0 = r->g->w, by0 = r->g->h, bx1 = 0, by1 = 0;     /* R3D_FRONT: screen box */
     int nv = 0, nfront = 0;
     const int skinned = m->bones && m->nbones > 0;
+    /* a backend: object -> camera in one matrix a bone (its pixels need not
+     * match the ARM's to the last bit; the ARM keeps its two steps) */
+    static float F[MAX_BONES + 1][12];
+    const int fused = r->backend != NULL;
+    if (fused) {
+        const int nb = skinned ? (m->nbones < MAX_BONES ? m->nbones : MAX_BONES) : 1;
+        for (int b = 0; b < nb; b++) {
+            const float *W = X.m[b];
+            for (int k = 0; k < 3; k++)
+                for (int j = 0; j < 4; j++)
+                    F[b][k * 4 + j] = C[k * 3] * W[j] + C[k * 3 + 1] * W[4 + j] + C[k * 3 + 2] * W[8 + j];
+        }
+    }
     for (int i = 0; i < m->nverts; i++) {
         if (m->vlod && !(m->vlod[i] & dbit))
             continue;                       /* no face of this level of detail needs it */
         nv++;
-        /* object -> world, relative to the camera (with its bone, if any) */
-        const float *W = X.m[skinned ? m->vbone[i] : 0];
         const v3_t o = m->verts[i];
-        const v3_t w = { W[0] * o.x + W[1] * o.y + W[2] * o.z + W[3], W[4] * o.x + W[5] * o.y + W[6] * o.z + W[7],
-                         W[8] * o.x + W[9] * o.y + W[10] * o.z + W[11] };
         cv_t *c = &cv[i];
-        c->x = C[0] * w.x + C[1] * w.y + C[2] * w.z;
-        c->y = C[3] * w.x + C[4] * w.y + C[5] * w.z;
-        c->z = C[6] * w.x + C[7] * w.y + C[8] * w.z;
+        if (fused) {
+            const float *M = F[skinned ? m->vbone[i] : 0];
+            c->x = M[0] * o.x + M[1] * o.y + M[2] * o.z + M[3];
+            c->y = M[4] * o.x + M[5] * o.y + M[6] * o.z + M[7];
+            c->z = M[8] * o.x + M[9] * o.y + M[10] * o.z + M[11];
+        } else {
+            /* object -> world, relative to the camera (with its bone, if any) */
+            const float *W = X.m[skinned ? m->vbone[i] : 0];
+            const v3_t w = { W[0] * o.x + W[1] * o.y + W[2] * o.z + W[3],
+                             W[4] * o.x + W[5] * o.y + W[6] * o.z + W[7],
+                             W[8] * o.x + W[9] * o.y + W[10] * o.z + W[11] };
+            c->x = C[0] * w.x + C[1] * w.y + C[2] * w.z;
+            c->y = C[3] * w.x + C[4] * w.y + C[5] * w.z;
+            c->z = C[6] * w.x + C[7] * w.y + C[8] * w.z;
+        }
         if (c->z >= NEAR) {
             nfront++;
             float iz = 1.0f / c->z;
@@ -1638,6 +1667,10 @@ void r3d_draw_flags(r3d_t *r, const r3d_mesh_t *m, v3_t p, float rx, float ry, f
             /* corner i: on the screen at *ps[i], texel (tu[i], tv_[i]); the
              * light gk; for a "lit" model on the backend, the light baked at
              * the corner (and the lamps) L[i] and its depth dz[i] (fog) */
+            if (screen && r->backend)
+                /* textured screen-door: the backend cannot; the ARM from
+                 * here on (this frame, mixed, is not shown) */
+                to_arm(r, "textured screen-door faces");
             const float gk = lit_grey(&k), *uv = m->uv + t * 6;
             const sv_t *ps[4] = { ss[0], ss[1], ss[2], NULL };
             float tu[4] = { uv[0], uv[2], uv[4], 0 }, tv_[4] = { uv[1], uv[3], uv[5], 0 };
@@ -1699,7 +1732,7 @@ void r3d_draw_flags(r3d_t *r, const r3d_mesh_t *m, v3_t p, float rx, float ry, f
                 continue;
             }
             if (r->backend) {
-                /* (textured screen-door faces never get here: backend_lacks) */
+                /* (textured screen-door faces never get here: to_arm above) */
                 r3d_corner_t q[4];
                 for (int i = 0; i < np; i++)
                     corner(&q[i], ps[i]->x, ps[i]->y, ps[i]->z, tu[i], tv_[i], gk);
