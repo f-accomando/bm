@@ -209,11 +209,22 @@ static int l_stick(lua_State *L)
     return 2;
 }
 
+/* no pointer on the PC: mouse() is nil, the carts' mouse follows the stick */
+static int l_mouse(lua_State *L)
+{
+    if (lua_gettop(L) >= 1) {
+        lua_pushboolean(L, 1);
+        return 1;
+    }
+    return 0;
+}
+
 static const luaL_Reg api[] = {
     { "cls", l_cls }, { "rectfill", l_rectfill }, { "rect", l_rect }, { "line", l_line }, { "pset", l_pset },
     { "print", l_print }, { "time", l_time }, { "log", l_log }, { "ls", l_ls }, { "save", l_save },
     { "saved", l_saved }, { "volume", l_volume }, { "rawkeys", l_rawkeys }, { "keydown", l_keydown },
     { "keys", l_keys }, { "pad", l_pad }, { "quit", l_quit }, { "stick", l_stick }, { "timeslice", l_timeslice },
+    { "mouse", l_mouse },
     { NULL, NULL },
 };
 

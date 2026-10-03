@@ -18,8 +18,10 @@ are part of bm: some run on the PC, others on the console itself.
 - **One program on the SD card.** `kernel.img` (~2 MB of C, ARM assembly and Lua 5.4)
   drives the hardware itself:
   - HDMI video, and audio through HDMI;
-  - USB keyboards and gamepads;
-  - Bluetooth: up to 4 DualShock 4 pads, and BLE keyboards;
+  - USB keyboards, gamepads and mice;
+  - Bluetooth: up to 4 DualShock 4 pads, BLE keyboards and mice (LE or classic);
+  - a mouse pointer in the menu, and in the games that ask for it (the right stick of a
+    pad moves it too);
   - WiFi with HTTPS, Ethernet on the Pi 1 B;
   - the SD card, read and written as FAT32.
 - **Games are `.bm` cartridges.** One file holds the Lua code, sprite sheet, tile map,
@@ -99,7 +101,7 @@ Everything a cartridge contains is made with bm's own tools. They read and write
 `sdk/animator/index.html`, or run `make studio`. Guide: [sdk/README.md](sdk/README.md).
 
 - **bm Studio**:
-  - 3D models built from tiles, in the style of Crocotile 3D: lay tiles of the sprite
+  - 3D models built from tiles: lay tiles of the sprite
     sheet on a grid, stack blocks, drag corners into roofs and ramps, paint on the model;
   - the pixel art of the sprite sheet;
   - import and export of `.glb` and `.png`.
@@ -119,7 +121,9 @@ Everything a cartridge contains is made with bm's own tools. They read and write
 
 - **SDK**: code, sprites and map, try the game and come back to the editor.
 - **bm Code**: the code editor, with tabs, two pages side by side and a small sharp
-  6×12 font.
+  6×12 font. While you type a word it shows the rest of the likeliest one and Tab writes
+  it: Lua and the API in the code, Italian or English in comments, the assistant's
+  questions in `#entry:` lines ([docs/PREDICT.md](docs/PREDICT.md)).
 - **AI assistant**: a small INT8 network that runs on the Pi. It answers questions about
   the API and error messages, comments code, sketches sprites and, in bm Studio and bm
   Animator (F6), builds low-poly 3D models from words: shapes, objects, people, animals

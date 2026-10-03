@@ -32,7 +32,7 @@ screenshot in `docs/img/`), `README_OLD.md` (il README completo, in italiano),
 ## bm Studio (sdk/studio)
 
 - Applicazione per il PC (pagina web, niente build né dipendenze) per i modelli 3D a
-  tessere (stile Crocotile 3D) e la pixel art dello sheet; legge e scrive il `.bm`
+  tessere e la pixel art dello sheet; legge e scrive il `.bm`
   (sezione MESH, tipo 8, `src/bm/bm.h`). Guida: `sdk/README.md`.
 - Numeri delle sezioni: 6 è AUDIO (banco di suoni), 8 MESH, 9 ANIM. I primi file di bm
   Studio avevano MESH 6 e ANIM 7: kernel (`format.c`), `core.js` e `bmmesh.py` li leggono
@@ -55,8 +55,8 @@ screenshot in `docs/img/`), `README_OLD.md` (il README completo, in italiano),
   (`require "bm3d"`); salvano con `cart_write` (`sections`, `sheet` solo se dipinto,
   `from = false` per un progetto nuovo). `tile_face`/`place_faces` sono il port di
   `edit.js` (le facce devono restare identiche, `check_studio3d.js`). Una pagina è un
-  blocco `do ... end` (meno di 200 locali). Il mouse (branch `claude/mouse`) verrà dopo:
-  per ora tastiera e pad. Scritte sulle righe di 16 pixel (i test in QEMU leggono lo
+  blocco `do ... end` (meno di 200 locali). Il puntatore di sistema (M32) c'è, ma non
+  lo chiedono ancora (`mouse(true)`): per ora tastiera e pad. Scritte sulle righe di 16 pixel (i test in QEMU leggono lo
   schermo). Stessa estetica delle altre app (richiesta dell'utente): pannello a sinistra
   di 168 px con liste a intestazione grigia (niente barre di icone), due righe sopra la
   vista (nome in arancio), colori di bm Mesh (`C.PT` giallo per le cose scelte, `C.HOT`
@@ -229,6 +229,35 @@ screenshot in `docs/img/`), `README_OLD.md` (il README completo, in italiano),
 - bm Code (`carts/code/main.lua`, scheda Dev): l'editor del codice; usa `cart_read` /
   `cart_write` (solo il codice), `font("6x12")` e `assist.act` per le righe `#entry:`.
   Test: `test_code_editor` in QEMU (lo schermo si legge anche col font 6x12).
+
+## Completamento delle parole (M30)
+
+- `src/ai/predict.lua` (`require "predict"`): n-gramma che finisce la parola scritta; in
+  bm Code il resto in blu-grigio, Tab lo scrive (verde fino al tasto dopo), anche in
+  Trova/Sostituisci e nella domanda del pannello (`assist.lua`). Guida `docs/PREDICT.md`.
+- Il dizionario segue il cursore (`place_at` in bm Code): codice → `"lua"` + nomi della
+  scheda; dopo `--` e nelle stringhe `"it"` / `"en"` (menu); `#entry:` e pannello
+  `{it = 1, ask = 2}`.
+- Dizionari: `scripts/mkwords.py` → `build/words.lua` (`require "words"`, nel kernel) dai
+  testi di `src/ai/words` (scritti per bm, niente testi con licenze altrui), dal Lua dei
+  giochi e dalle API della base di conoscenza.
+- `make test-predict` (in `make test`), `make predict-bench`, `make syllables`; in QEMU
+  `test_code_completion`. La scrittura col pad (accordi, modi facile/sillabe/steno) non è
+  su main: è archiviata nel branch `archive/pad-typing` (l'ultimo stato del vecchio
+  `ai-assistant`, chiuso il 2026-10-03); per riprenderla si parte da lì.
+
+## Mouse e puntatore (M32)
+
+- `src/kernel/pointer.c`: il puntatore di sistema (mouse USB/Bluetooth, levetta destra dei
+  pad). Decisioni dell'utente: si spegne per tutto il sistema solo con `mouse=off` in
+  `bm/config.txt` (nessuna voce nel menu); c'è nel menu di bm e nelle app solo se lo
+  chiedono (`mouse(true)`); nascosto se niente lo muove; icona bianca senza numero, pallino
+  blu per il Bluetooth.
+- `ble.c` tiene tastiera e mouse LE insieme: `le` punta al dispositivo in lavorazione, le
+  funzioni chiamate da `bt.c` lo scelgono (per handle) e lo rimettono com'era.
+- Test: `make test-usb`, QEMU `test_usb_mouse`, `test_mouse_cart`, `test_bt_mouse`,
+  `test_bt_mouse_classic`, `test_stick_pointer` (il tablet di QEMU si muove via QMP:
+  `Qemu.pointer()`, `Qemu.click()`).
 
 ## Comunicazione con l'utente
 

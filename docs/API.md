@@ -77,9 +77,10 @@ Lo schermo **non** viene cancellato da solo: di solito `_draw` comincia con `cls
 
 Limiti: un errore o un ciclo infinito (oltre **20 milioni di istruzioni** Lua in un
 fotogramma) ferma la cartuccia senza bloccare la console. Sandbox: niente `io`, `os`,
-`load`, `dofile`; `require` carica solo le librerie incluse nel kernel (per ora
-`"assist"`, il pannello dell'assistente); ci sono `string`, `table`, `math`, `utf8`,
-`coroutine`.
+`load`, `dofile`; `require` carica solo le librerie incluse nel kernel (`"assist"`, il
+pannello dell'assistente; `"bm3d"`, quello che bm Studio e bm Animator condividono;
+`"predict"` e `"words"`, il completamento delle parole); ci sono `string`, `table`,
+`math`, `utf8`, `coroutine`.
 
 ## Colori
 
@@ -137,6 +138,25 @@ della mappa; ogni numero è una cella dello sheet).
 | `players()` | quanti giocatori hanno un controller (almeno 1) e, come secondo valore, quali: bit `n` = giocatore `n+1` (es. `3, 7` = giocatori 1, 2 e 3) |
 | `stick([p])` | la levetta sinistra del giocatore `p`: `x, y` tra −1 e 1 (x verso destra, y verso il basso), con zona morta; con la tastiera o un pad senza levetta vale la croce (8 direzioni). Senza `p`: quella spinta di più |
 
+**Mouse e puntatore (M32).** Una cartuccia ha il puntatore solo se lo chiede: senza
+`mouse(true)` non c'è (nel menu di bm invece c'è sempre). Lo muovono un mouse USB o
+Bluetooth, oppure la levetta destra di un pad (R2 o R3 tasto sinistro, L2 destro); la
+console può averlo spento per tutto il sistema (`mouse=off` in `bm/config.txt`).
+
+| Funzione | Descrizione |
+|---|---|
+| `mouse(on, [freccia])` | `mouse(true)`: la cartuccia vuole il puntatore, e la console disegna la sua freccia sopra il fotogramma (`mouse(true, false)`: niente freccia, la cartuccia disegna il suo cursore); `mouse(false)` lo toglie. Restituisce `false` se la console ha il mouse spento |
+| `mouse()` | `x, y, tasti, rotellina, visibile`: la posizione in pixel dello schermo della cartuccia (senza `camera`), i tasti tenuti in bit (1 sinistro, 2 destro, 4 centrale), gli scatti della rotellina in questo fotogramma (in su positivi) e `true` se il puntatore si vede (appena qualcosa lo muove). `nil` se la cartuccia non l'ha chiesto o se non c'è niente che lo muova (né mouse né levetta destra) |
+| `mousep([i])` | `true` nel fotogramma in cui il tasto `i` viene premuto (0 sinistro, il default; 1 destro; 2 centrale) |
+
+```lua
+function _init() mouse(true) end
+function _update()
+  local x, y = mouse()
+  if x and mousep() then sfx(0) end   -- un clic
+end
+```
+
 **Più giocatori (M16).** Il controller Bluetooth *n* è il giocatore *n* (abbinati dal monitor
 con `T`, uno alla volta: ognuno prende il primo posto libero e la sua luce il colore del
 giocatore: 1 blu, 2 rosso, 3 verde, 4 rosa). La tastiera o il gamepad USB e la seriale sono
@@ -173,7 +193,7 @@ nano8) legge la tastiera tasto per tasto e i controller pulsante per pulsante:
 | `rawkeys(on)` | con `true` le tastiere smettono di fare da controller per `btn()` e `pad()`: si leggono con `keydown()`. Esc chiude comunque la cartuccia |
 | `keydown(u)` | `true` finché è premuto il tasto con l'usage USB HID `u` (USB o Bluetooth): `0x04`…`0x1D` le lettere A–Z, `0x1E`…`0x27` le cifre, `0x28` Invio, `0x2C` spazio, `0x4F`…`0x52` le frecce (destra, sinistra, giù, su), `0xE0`…`0xE7` Ctrl, Shift, Alt, GUI di sinistra e poi di destra |
 | `keys()` | gli usage dei tasti premuti adesso (`{0x1D, 0xE1}`): per "premi un tasto" |
-| `pad([p])` | i pulsanti che il giocatore `p` (1–4) tiene premuti, in bit: 1 sinistra, 2 destra, 4 su, 8 giù, 16 A, 32 B, 64 Start, 128 Select, 256 X, 512 Y, 1024 L1, 2048 R1; senza `p` quelli di tutti. I tasti della seriale contano come il controller del primo giocatore (L1 e R1: `u` e `o` dalla seriale, Q ed E dalla tastiera USB; Select: Tab da entrambe) |
+| `pad([p])` | i pulsanti che il giocatore `p` (1–4) tiene premuti, in bit: 1 sinistra, 2 destra, 4 su, 8 giù, 16 A, 32 B, 64 Start, 128 Select, 256 X, 512 Y, 1024 L1, 2048 R1, 4096 L2, 8192 R2, 16384 L3, 32768 R3 (i grilletti e le levette premute: DS4 e Xbox 360); senza `p` quelli di tutti. I tasti della seriale contano come il controller del primo giocatore (L1 e R1: `u` e `o` dalla seriale, Q ed E dalla tastiera USB; Select: Tab da entrambe) |
 | `lastinput()` | che cosa è stato premuto per ultimo: `"keyboard"`, `"ds4"` o `"pad"` (un altro controller); `nil` prima di ogni tasto. Serve a mostrare i tasti giusti con `prompt()` (per esempio `"enter"` o `"A"`) |
 
 ### Tempo e sistema
@@ -350,6 +370,8 @@ Si prova da **Dev > Assistant** (o `I` dal monitor).
 **Il pannello** (`require "assist"`): quello che gli strumenti aprono con un tasto
 (F6 nell'Assistant). Risponde mentre scrivi; Invio (A) passa il codice o lo sprite allo
 strumento, Esc (B) chiude, Tab (X) cambia modo; senza domanda si sfoglia tutto col pad.
+Mentre si scrive una parola della domanda il resto della più probabile appare in
+blu-grigio e Tab la scrive (il completamento, sotto).
 
 ```lua
 local assist = require "assist"
@@ -387,6 +409,15 @@ Invio su quelle righe.
 
 La base di conoscenza è in `src/ai/kb/` (formato e come riaddestrare:
 `src/ai/kb/README.md`).
+
+**Completamento delle parole** (`require "predict"`, guida in [PREDICT.md](PREDICT.md)):
+`predict.complete(testo_prima_del_cursore, {lang = "lua"})` → `nil` o
+`{prefix, word, rest, ending, list}`: la parola più probabile che inizia come quella
+scritta (`rest` è quello che manca, da mostrare in `predict.C_GHOST`; Tab sostituisce
+`prefix` con `word`). `lang`: `"it"`, `"en"`, `"lua"`, `"ask"` (le domande
+all'assistente), una miscela con i pesi (`{it = 1, ask = 2}`) o `"none"`; `words` i nomi
+del codice (`predict.count_words(righe)`), con peso `words_weight`. I dizionari si leggono
+alla prima parola, o un pezzo per fotogramma con `predict.preload({"lua", "it"})`.
 
 ### nano8 (la libreria `n8`)
 

@@ -226,6 +226,125 @@ int main(void)
     hid_report(USB_XBOX360, xb, sizeof xb);
     CHECK(hid_quit_pressed() == 0);
 
+    /* M32: the right stick and the triggers (the pointer's buttons) */
+    xb[3] = 0; xb[4] = 200; xb[2] = 0x80;                      /* LT + R3 */
+    xb[10] = 0xFF; xb[11] = 0x7F;                              /* right stick: right */
+    hid_report(USB_XBOX360, xb, sizeof xb);
+    CHECK((hid_buttons() & (HID_L2 | HID_R3)) == (HID_L2 | HID_R3));
+    CHECK(hid_stick2(-1, xy) == 1 && xy[0] > 120 && xy[1] == 0);
+    CHECK(hid_pointer_buttons() == (HID_L2 | HID_R3));
+    xb[4] = 0; xb[2] = 0;
+    hid_report(USB_XBOX360, xb, sizeof xb);
+    CHECK(hid_pointer_buttons() == 0);
+    uint8_t ds[11] = { 0x01, 128, 128, 255, 0, 0x08, 0x08 };    /* right stick up-right, R2 */
+    hid_bt_report(1, ds, sizeof ds);
+    CHECK(hid_stick2(1, xy) == 1 && xy[0] == 127 && xy[1] == -127);
+    CHECK(hid_stick(1, xy) == 1 && xy[0] == 0 && xy[1] == 0);   /* the left one stays */
+    ds[6] = 0;
+    hid_bt_report(1, ds, sizeof ds);                           /* released before the read */
+    CHECK(hid_pointer_buttons() == HID_R2);
+    CHECK(hid_pointer_buttons() == 0);
+    hid_bt_clear(1);
+    CHECK(hid_stick2(1, xy) == 0);
+    hid_buttons();
+
+    /* a generic HID gamepad (the parser of hid_gamepad_attach): 12 buttons,
+     * X Y Z Rz (0..255), a hat; Z / Rz are its right stick (M32) */
+    static const uint8_t gpad[] = {
+        0x05, 0x01, 0x09, 0x05, 0xA1, 0x01, 0x15, 0x00, 0x25, 0x01, 0x75, 0x01, 0x95, 0x0C,
+        0x05, 0x09, 0x19, 0x01, 0x29, 0x0C, 0x81, 0x02, 0x95, 0x04, 0x81, 0x01,
+        0x05, 0x01, 0x26, 0xFF, 0x00, 0x75, 0x08, 0x95, 0x04, 0x09, 0x30, 0x09, 0x31, 0x09, 0x32,
+        0x09, 0x35, 0x81, 0x02, 0x25, 0x07, 0x75, 0x04, 0x95, 0x01, 0x09, 0x39, 0x81, 0x42,
+        0x75, 0x04, 0x81, 0x01, 0xC0 };
+    CHECK(hid_gamepad_attach(gpad, sizeof gpad) == 0);
+    CHECK(hid_mouse_layout(gpad, sizeof gpad, &(hid_mouse_layout_t){ 0 }) == 0);
+    uint8_t gr[7] = { 0x01, 0x00, 128, 128, 255, 0, 2 };       /* button 1, Z right, Rz up, hat right */
+    hid_report(USB_GAMEPAD, gr, sizeof gr);
+    CHECK(hid_buttons() == (HID_A | HID_RIGHT));
+    CHECK(hid_stick2(-1, xy) == 1 && xy[0] == 127 && xy[1] == -127);
+    CHECK(hid_stick(-1, xy) == 1 && xy[0] == 0 && xy[1] == 0);
+    gr[0] = 0; gr[6] = 8;
+    hid_report(USB_GAMEPAD, gr, sizeof gr);
+    hid_buttons();
+
+    /* M32: mice. QEMU's usb-mouse: buttons, X, Y, wheel (relative, no ID) */
+    static const uint8_t qmouse[] = {
+        0x05, 0x01, 0x09, 0x02, 0xA1, 0x01, 0x09, 0x01, 0xA1, 0x00, 0x05, 0x09, 0x19, 0x01,
+        0x29, 0x03, 0x15, 0x00, 0x25, 0x01, 0x95, 0x03, 0x75, 0x01, 0x81, 0x02, 0x95, 0x01,
+        0x75, 0x05, 0x81, 0x01, 0x05, 0x01, 0x09, 0x30, 0x09, 0x31, 0x09, 0x38, 0x15, 0x81,
+        0x25, 0x7F, 0x75, 0x08, 0x95, 0x03, 0x81, 0x06, 0xC0, 0xC0 };
+    hid_mouse_layout_t ml;
+    hid_mouse_t mm;
+    CHECK(hid_mouse_layout(qmouse, sizeof qmouse, &ml) == 1);
+    CHECK(ml.id == 0 && ml.nbuttons == 3 && ml.buttons_bit == 0 && !ml.absolute);
+    CHECK(ml.x_bit == 8 && ml.y_bit == 16 && ml.wheel_bit == 24 && ml.x_size == 8);
+    CHECK(hid_is_keyboard(qmouse, sizeof qmouse, &id) == 0);
+    hid_mouse_take(&mm);
+    const uint8_t mv1[4] = { 0x01, 5, (uint8_t)-3, 1 }, mv2[4] = { 0x00, 2, 0, (uint8_t)-1 };
+    hid_mouse_report(HID_MOUSE_USB, &ml, mv1, 4);
+    hid_mouse_report(HID_MOUSE_USB, &ml, mv2, 4);             /* left pressed and released */
+    hid_mouse_take(&mm);
+    CHECK(mm.dx == 7 && mm.dy == -3 && mm.wheel == 0 && mm.buttons == 0 && mm.pressed == 1 && !mm.abs);
+    hid_mouse_take(&mm);
+    CHECK(mm.dx == 0 && mm.pressed == 0);
+
+    /* QEMU's usb-tablet: absolute X/Y 0..0x7FFF (16 bits), wheel */
+    static const uint8_t qtablet[] = {
+        0x05, 0x01, 0x09, 0x02, 0xA1, 0x01, 0x09, 0x01, 0xA1, 0x00, 0x05, 0x09, 0x19, 0x01,
+        0x29, 0x03, 0x15, 0x00, 0x25, 0x01, 0x95, 0x03, 0x75, 0x01, 0x81, 0x02, 0x95, 0x01,
+        0x75, 0x05, 0x81, 0x01, 0x05, 0x01, 0x09, 0x30, 0x09, 0x31, 0x15, 0x00, 0x26, 0xFF,
+        0x7F, 0x35, 0x00, 0x46, 0xFF, 0x7F, 0x75, 0x10, 0x95, 0x02, 0x81, 0x02, 0x05, 0x01,
+        0x09, 0x38, 0x15, 0x81, 0x25, 0x7F, 0x35, 0x00, 0x45, 0x00, 0x75, 0x08, 0x95, 0x01,
+        0x81, 0x06, 0xC0, 0xC0 };
+    CHECK(hid_mouse_layout(qtablet, sizeof qtablet, &ml) == 1);
+    CHECK(ml.absolute && ml.x_bit == 8 && ml.y_bit == 24 && ml.x_size == 16 && ml.x_max == 0x7FFF);
+    CHECK(ml.wheel_bit == 40);
+    const uint8_t tb[6] = { 0x02, 0xFF, 0x3F, 0xFF, 0x7F, 0x01 };   /* right button, middle / bottom */
+    hid_mouse_report(HID_MOUSE_USB, &ml, tb, 6);
+    hid_mouse_take(&mm);
+    CHECK(mm.abs && mm.ax > 32000 && mm.ax < 33000 && mm.ay == 65535 && mm.buttons == 2 && mm.wheel == 1);
+    hid_mouse_clear(HID_MOUSE_USB);
+    hid_mouse_take(&mm);
+    CHECK(mm.buttons == 0);
+    /* a tablet is not a gamepad any more for the USB probe: it is a mouse */
+
+    /* a Logitech-style LE report map: keyboard (ID 1), then the mouse in
+     * report ID 2 with 16 buttons, X/Y of 12 bits, wheel, AC Pan */
+    static const uint8_t logi[] = {
+        0x05, 0x01, 0x09, 0x06, 0xA1, 0x01, 0x85, 0x01, 0x05, 0x07, 0x19, 0xE0, 0x29, 0xE7,
+        0x15, 0x00, 0x25, 0x01, 0x75, 0x01, 0x95, 0x08, 0x81, 0x02, 0xC0,
+        0x05, 0x01, 0x09, 0x02, 0xA1, 0x01, 0x85, 0x02, 0x09, 0x01, 0xA1, 0x00,
+        0x05, 0x09, 0x19, 0x01, 0x29, 0x10, 0x15, 0x00, 0x25, 0x01, 0x95, 0x10, 0x75, 0x01, 0x81, 0x02,
+        0x05, 0x01, 0x16, 0x01, 0xF8, 0x26, 0xFF, 0x07, 0x75, 0x0C, 0x95, 0x02, 0x09, 0x30, 0x09, 0x31,
+        0x81, 0x06,
+        0x15, 0x81, 0x25, 0x7F, 0x75, 0x08, 0x95, 0x01, 0x09, 0x38, 0x81, 0x06,
+        0x05, 0x0C, 0x0A, 0x38, 0x02, 0x95, 0x01, 0x81, 0x06, 0xC0, 0xC0 };
+    CHECK(hid_mouse_layout(logi, sizeof logi, &ml) == 1);
+    CHECK(ml.id == 2 && ml.nbuttons == 8 && ml.buttons_bit == 0 && ml.x_bit == 16 && ml.y_bit == 28);
+    CHECK(ml.x_size == 12 && ml.wheel_bit == 40 && ml.pan_bit == 48 && !ml.absolute);
+    /* X = -2 (0xFFE), Y = +3, wheel -1, pan +1, left + middle; without
+     * the ID (an LE notification) */
+    hid_mouse_layout_t le_ = ml;
+    le_.id = 0;
+    const uint8_t lm[7] = { 0x05, 0x00, 0xFE, 0x3F, 0x00, 0xFF, 0x01 };
+    hid_mouse_report(HID_MOUSE_BLE, &le_, lm, 7);
+    hid_mouse_take(&mm);
+    CHECK(mm.dx == -2 && mm.dy == 3 && mm.wheel == -1 && mm.pan == 1 && mm.buttons == 5);
+    hid_mouse_clear(HID_MOUSE_BLE);
+    const uint8_t wrong_id[8] = { 1, 0x05, 0, 0x10 };
+    hid_mouse_report(HID_MOUSE_BLE, &ml, wrong_id, 8);         /* the keyboard's report: not ours */
+    hid_mouse_take(&mm);
+    CHECK(mm.dx == 0 && mm.buttons == 0);
+
+    /* Bluetooth classic, boot protocol: A1 02 buttons X Y [wheel] */
+    hid_mouse_boot_layout(&ml, 2);
+    const uint8_t bm3[4] = { 0x02, 0x02, 0x10, 0xF0 }, bm4[5] = { 0x02, 0x00, 0xFF, 0x01, 0x02 };
+    hid_mouse_report(HID_MOUSE_BT, &ml, bm3, 4);
+    hid_mouse_report(HID_MOUSE_BT, &ml, bm4, 5);
+    hid_mouse_take(&mm);
+    CHECK(mm.dx == 15 && mm.dy == -15 && mm.wheel == 2 && mm.pressed == 2 && mm.buttons == 0);
+    CHECK(hid_mouse_layout(desc_pad, sizeof desc_pad, &ml) == 0);    /* a gamepad is no mouse */
+
     printf("hid: %d/%d checks passed\n", checks - fails, checks);
     return fails != 0;
 }

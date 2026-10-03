@@ -41,6 +41,9 @@ function keyp() return table.remove(keys, 1) end
 function btn(i) return held[i] == true end
 function btnp(i) return pressed[i] == true end
 
+-- the completion of the question: require "predict" and its dictionaries
+local build = arg and arg[1] or "build"
+package.path = build .. "/?.lua;src/ai/?.lua;" .. package.path
 local assist = dofile("src/ai/assist.lua")
 
 local function frame()                  -- one frame: update and draw
@@ -212,6 +215,32 @@ frame()
 check(on_screen("[A]") and on_screen("[B]") and not on_screen("[enter]"), "keys: the pad's after a pad")
 last_input = nil
 assist.close()
+
+-- the completion: while a word is typed its rest in grey-blue, Tab writes
+-- it (green), and Tab without a suggestion is still the next mode
+local predict = require "predict"
+local colours = {}
+local print0 = print
+function print(s, x, y, c) colours[tostring(s)] = c; return print0(s, x, y, c) end
+inserted = nil
+assist.open{ mode = "code", on_insert = function(c) inserted = c end }
+type_("co")
+check(colours["me"] == predict.C_GHOST, "co: the rest of come, grey-blue")
+check(on_screen("word"), "the keys: Tab writes the word")
+keys = { "\t" }
+frame()
+check(on_screen("? come") or on_screen("come"), "Tab: come written")
+check(colours["come"] == predict.C_PRED, "what Tab wrote, green")
+check(on_screen("code"), "Tab with a suggestion: the mode stays")
+type_(" faccio a sal")
+check(colours["vare"] == predict.C_GHOST, "sal: salvare")
+type_("tare")
+check(on_screen("Saltare con la gravit"), "the question written with Tab, answered")
+keys = { " ", "\t" }
+frame()
+check(on_screen("sprite"), "after a space Tab is the next mode")
+assist.close()
+print = print0
 
 say(string.format("panel: %d checks, %d failed", checks, fails))
 os.exit(fails == 0 and 0 or 1)

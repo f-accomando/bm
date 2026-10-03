@@ -201,3 +201,7 @@ un ponte di legno sul fiume => mesh.bridge
 un pesciolino arancione => mesh.fish
 pupazzo di neve con la carota => mesh.snowman
 uno scheletro nemico => mesh.skeleton, sprite.skull
+
+# mouse (M32)
+come leggo dove è il mouse => mouse
+how do i know the player clicked => mousep, mouse

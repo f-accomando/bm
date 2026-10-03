@@ -809,7 +809,7 @@ salvataggio); intorno a lui strumenti specializzati, ognuno una cartuccia nella 
 **Stato (2026-10-01, sviluppato sul branch `sviluppo-sdk`, ora in `claude/bare-metal-mvp`):
 bm Studio, sul PC.** Su richiesta
 dell'utente, 22.3 (3D), parte di 22.2 (pixel art dello sheet) e di 22.5 (import/export)
-arrivano prima come applicazione per il PC, in stile Crocotile 3D (`sdk/studio`,
+arrivano prima come applicazione per il PC (`sdk/studio`,
 [sdk/README.md](../sdk/README.md)); i formati sono quelli previsti qui sotto, quindi gli
 strumenti sulla console potranno leggerli e scriverli.
 - **Formato**: sezione **MESH** del `.bm` (tipo 8, `src/bm/bm.h`; era 6 nei primi file,
@@ -902,7 +902,7 @@ divide in due, con gli stessi nomi: **bm Studio** (`carts/studio`, monitor `3`) 
 Animator** (`carts/animator`, monitor `6`), nella scheda Dev e nelle opzioni di ogni gioco;
 dal menu dell'uno si passa all'altro sullo stesso file
 ([sdk/README.md](../sdk/README.md#sulla-console-bm-studio-e-bm-animator)). Per ora tastiera
-e gamepad; il mouse (branch `claude/mouse`) in un secondo momento.
+e gamepad; il puntatore di sistema (M32, `mouse(true)`) c'è, ma Studio e Animator non lo usano ancora.
 - **bm Studio**: attrezzi block, tile (anche più tessere insieme), select (puntatore della
   tastiera sulle facce: scegli, tutte, unite; sposta, gira, capovolgi, specchia, altro
   lato, nuova tessera, gira la texture, scala, copia, cancella, in un modello nuovo),
@@ -1620,9 +1620,17 @@ Task:
    commenta/scommenta, ottimizza (API come locali), spiega; oppure inserisce un esempio
    ("crea uno snippet per un effetto di particelle") o uno sprite scritto come codice
    ("crea uno sprite slime rosso"). Non cambia niente se non è sicura; Ctrl+Z annulla.
-10. Dopo: numeri e nomi della domanda dentro il codice proposto ("muovi a velocità 3"),
-   completamento dei nomi delle API, le domande senza risposta giusta che diventano voci
-   nuove, ricette di sprite animate (più fotogrammi nello sheet).
+10. ✅ **Completamento delle parole** (2026-10-02, guida e numeri in
+   [PREDICT.md](PREDICT.md)): in bm Code, mentre si scrive una parola, il resto della più
+   probabile in blu-grigio dopo il cursore; **Tab** la scrive e resta verde fino al tasto
+   dopo. Un n-gramma (`require "predict"`, dizionari `require "words"` da
+   `scripts/mkwords.py`) che segue il punto del cursore: nel codice Lua, le API della base
+   di conoscenza e i nomi della scheda (`f` → `function`, `if bt` → `btnp`); dopo `--` e
+   nelle stringhe l'italiano o l'inglese (menu); nelle righe `#entry:` e nella domanda
+   del pannello le domande all'assistente; in Trova e Sostituisci i nomi del codice. Su
+   100 caratteri italiani 83 tasti invece di 100, sul Lua il 19% in meno, sulle domande
+   mai viste all'assistente il 26%. Con il conteggio delle sillabe dell'italiano
+   (`make syllables`).
 11. ✅ **Ricette 3D per bm Studio e bm Animator** (2026-10-02, `src/ai/mesh.c`,
    `mesh_chars.c`, `kb/meshes.txt`): 53 ricette low-poly nello stile dei blocchi della
    console, scelte dalla rete dalle parole della richiesta ("una casa rossa grande",
@@ -1741,6 +1749,10 @@ Task:
    (lecca-lecca: 48 triangoli chiusi, 2 blocchi, l'immagine davanti; tornio di 120), lo
    stand-in nel test di bm Studio, `test_picture_model` in QEMU (il disco rosso diventa il
    modello hero sul kernel ARM, salvato nel file).
+18. Dopo: numeri e nomi della domanda dentro il codice proposto ("muovi a velocità 3"),
+   le domande senza risposta giusta che diventano voci nuove, ricette di sprite animate
+   (più fotogrammi nello sheet), le parole nuove dell'utente nel dizionario del
+   completamento.
 
 Numeri: in QEMU 0,45 ms per domanda (sul PC 0,03 ms) e 1 ms per uno sprite 16x16; il
 kernel cresce di ~410 KB (rete 270 KB, voci e testi 80 KB). RAM: niente finché non si
@@ -1825,6 +1837,88 @@ Decisioni:
 
 Poi, se servono: gli altri tre core (audio, rete o rendering su un core a parte), i
 giochi più pesanti a 60 fps grazie alla CPU più veloce, misure in `docs/PRESTAZIONI.md`.
+
+## M32 — Mouse USB e Bluetooth, puntatore di sistema (M) — fatto in QEMU (2026-10-01), da provare sul Pi
+Richiesta 2026-10-01 (utente): supporto mouse **USB e Bluetooth**, anche con le **levette
+analogiche** dei pad. Decisioni:
+- il mouse si può spegnere **per tutto il sistema** ma non dall'utente: `mouse=off` in
+  `bm/config.txt`, nessuna voce nel menu; di base è acceso;
+- è attivo a seconda dell'**ambiente**: nel menu di bm sì, nelle app no, a meno che l'app
+  lo chieda (`mouse(true)`);
+- è **nascosto** se l'ambiente non lo supporta o se non c'è niente che lo muova;
+- nella barra un'**icona del mouse bianca**, senza numero (non è un giocatore), con un
+  **pallino blu** se è Bluetooth.
+
+Fatto (QEMU, test sul PC):
+- `src/usb/hid.c`: dove sono tasti, X, Y, rotellina e AC Pan nel report di un mouse, dal
+  descrittore USB o dalla mappa dei report LE (ID, campi da 12 o 16 bit), oppure il report
+  del protocollo boot; posizioni assolute (tavolette, l'`usb-tablet` di QEMU); la **levetta
+  destra** e L2 R2 L3 R3 di DS4, Xbox 360 e gamepad HID (Rx/Ry o Z/Rz). `pad()` vede i
+  nuovi bit (4096 L2 ... 32768 R3; nano8 li sa mappare).
+- `src/usb/usb.c`: un'interfaccia mouse **oltre** alla tastiera o al gamepad, sullo stesso
+  dispositivo (ricevitore con tastiera e mouse) o su un'altra porta dell'hub, col suo
+  endpoint. La decisione di M7b/M29 ("un solo dispositivo HID") diventa "uno più il
+  mouse". L'`usb-tablet` di QEMU, prima un gamepad, ora è un mouse.
+- `src/bt/ble.c`: **tastiera e mouse LE insieme** (lo stato è per dispositivo; una sola
+  scansione passiva per quelli lontani, una connessione alla volta). Il mouse si abbina
+  senza codice (Just Works, LE Secure Connections o legacy); dalla mappa dei report si
+  prende il report del mouse, altrimenti il Boot Mouse Input Report. Chiavi `bt_mouse` e
+  `bt_mouse_key`; si ricollega da solo (anche da un indirizzo privato, con l'IRK).
+- `src/bt/bt.c`: **mouse Bluetooth classico** in protocollo boot (SET_PROTOCOL sul canale
+  di controllo, report `A1 02`), un collegamento e una chiave suoi (`bt_mouse_classic`).
+  `O` dal monitor o Settings > Controllers > *Pair a mouse*: prima 10 s di ricerca LE, poi
+  8 s di ricerca classica.
+- `src/kernel/pointer.c`: il **puntatore di sistema**. La posizione è una frazione dello
+  schermo (passando dal menu 640x360 a un gioco 320x180 resta allo stesso punto); il
+  movimento è scalato come su 640x360, con accelerazione (lento preciso, veloce lontano);
+  la levetta destra con zona morta e curva (560 pixel/s al massimo); con la levetta, R2 o
+  R3 è il tasto sinistro e L2 il destro. Si vede quando c'è chi lo muove ed è "attivo":
+  un mouse appena collegato, o un movimento; nel menu i tasti e la croce lo nascondono.
+  Un clic col puntatore nascosto lo mostra soltanto. Freccia bianca bordata di nero,
+  12x20, o 8x12 sugli schermi alti meno di 288 pixel.
+- **Menu**: passando sopra una copertina intera o una riga di un pannello la si sceglie;
+  tasto sinistro = A su quello che c'è sotto (copertina, scheda, Settings, riga, i
+  pulsanti A / B / X in basso; una copertina tagliata dal bordo si sceglie soltanto),
+  destro = opzioni della copertina o indietro; un clic fuori da un pannello o da una
+  domanda li chiude; la rotellina scorre le righe. `menu_ui_hit()` dice cosa c'è sotto un
+  punto dell'ultimo fotogramma (zone registrate mentre si disegna).
+- **Barra**: icona `ICON_MOUSE` in `icons.c`, con il pallino `ICON_DOT` (blu) per il
+  Bluetooth; una per il mouse USB e una per quello Bluetooth se ci sono entrambi.
+  2026-10-02 (utente): il mouse ha la forma dell'immagine di riferimento (capsula
+  verticale, linea tra i tasti dall'alto fino sotto la rotellina, rotellina a pillola), piena
+  come le altre icone: linea e contorno della rotellina sono tagli di 1 pixel; `ICON_DOT` è lo stesso
+  disco dei numeri, in basso al centro, senza la cifra. `ICON_DOT` vale per ogni icona:
+  tastiera e controller col pallino senza numero esistono (`icon_mask(ICON_PAD, ICON_DOT)`),
+  la barra per ora non li usa.
+- **Cartucce**: `mouse(on, [freccia])`, `mouse()` → `x, y, tasti, rotellina, visibile`,
+  `mousep([i])` (docs/API.md). La freccia si disegna sulla pagina mostrata, mai nel buffer
+  della cartuccia (anche disegnando via RAM). nano8: le cartucce con `poke(0x5f2d, 1)`
+  seguono il puntatore appena compare (sopra l'immagine 128x128, senza freccia: la
+  disegnano loro). L'assistente (M30) conosce `mouse` e `mousep`.
+- Settings > Controllers: la riga **Mouse** ("USB", "Bluetooth on/off", "off" con
+  `mouse=off`) e **Pair a mouse**; *Forget all controllers* e `P` dimenticano anche il mouse.
+- Test: `make test-usb` (descrittori del mouse e del tablet di QEMU, una mappa stile
+  Logitech, il protocollo boot, levetta destra e grilletti); in QEMU `test_usb_mouse`
+  (tastiera e tablet dietro un hub: icone, freccia, passaggio sopra, rotellina, tasti che
+  la nascondono, schede, tasto destro, clic fuori, clic che gioca), `test_mouse_cart`
+  (API in un gioco 320x180 e `mouse=off`), `test_bt_mouse` (MX Keys e MX Master simulati
+  insieme: abbinamento Just Works, icone blu, puntatore, Settings, riconnessione con
+  l'IRK, chiavi), `test_bt_mouse_classic`, `test_stick_pointer` (levetta destra, R2, L2).
+  La simulazione dei dispositivi LE (`FakeMxKeys`) ora regge più collegamenti.
+
+**Da provare sul Pi** (senza seriale, tutto sullo schermo):
+- il mouse Bluetooth LE: mouse in modalità abbinamento, poi Settings > Controllers > *Pair
+  a mouse* (col DS4 o la tastiera); la schermata dice "found mouse ...", "no code (Just
+  Works)", "mouse ... connected"; nel menu l'icona del mouse col pallino blu e la freccia;
+- il puntatore nel menu: passare sulle copertine, clic per giocare, tasto destro per le
+  opzioni, rotellina; la **velocità** (da regolare se è troppo lenta o veloce);
+- spegnere e riaccendere il mouse (o muoverlo dopo un po'): si ricollega da solo, anche con
+  la MX Keys collegata;
+- la levetta destra del DS4: la freccia compare muovendola; R2 clicca;
+- `mouse=off` in `bm/config.txt`: niente freccia né icona.
+
+- **Fatto quando:** sul Pi il mouse Bluetooth LE si abbina dal menu, muove il puntatore a
+  60 fps insieme alla MX Keys e si ricollega da solo; la levetta destra fa lo stesso.
 
 ## Rischi principali
 | Rischio | Mitigazione |
