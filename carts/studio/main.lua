@@ -1417,7 +1417,7 @@ models_page = {
   keys = { "up/down        choose a model", "Enter          build it (F1)", "n              new model",
            "r              rename", "d              duplicate", "Del            delete (twice)",
            "PgUp PgDn      move it up / down the list", "-              fewer triangles (reduce)",
-           "m              a model from a picture (image-to-3D service)",
+           "m              a model from a picture (its outline, or a service)",
            "i              the texture margin (inset)" },
 }
 

@@ -1728,6 +1728,19 @@ Task:
    comando finto. Le opzioni di `run.py` di TripoSR (`--bake-texture`, `mesh.glb` in
    `0/`) e l'API di Hunyuan3D (`Hunyuan3DDiTFlowMatchingPipeline`, `Hunyuan3DPaintPipeline`)
    sono quelle dei repository alla data: da verificare al primo uso.
+17. ✅ **Un metodo nostro: dal contorno dell'immagine** (2026-10-03, `src/bm/cutout.c`,
+   niente rete né AI, gira sul Pi in meno di un secondo): lo sfondo (trasparente, o il colore
+   degli angoli) va via, il contorno diventa un poligono (spigoli delle celle di una griglia
+   di 96, i frammenti piccoli scartati, Douglas-Peucker) e il poligono un solido chiuso:
+   ritaglio con spessore (ear clipping davanti e dietro, i lati lungo il contorno; immagine
+   davanti, specchiata dietro, i colori del bordo sui lati) o tornio (il mezzo contorno
+   girato intorno all'asse in 12 passi, l'immagine proiettata davanti). Onesto sui limiti:
+   non inventa quello che non si vede, i buchi del contorno si riempiono. bm Studio, `m`:
+   la scelta del modo (cutout, lathe, meshy.ai) e poi l'immagine; `cutout3d` in Lua; sul PC
+   `tools/cutout2mesh.py` (ctypes su `libbmcutout.so`). Test: `tests/bm/run_cutout_test.py`
+   (lecca-lecca: 48 triangoli chiusi, 2 blocchi, l'immagine davanti; tornio di 120), lo
+   stand-in nel test di bm Studio, `test_picture_model` in QEMU (il disco rosso diventa il
+   modello hero sul kernel ARM, salvato nel file).
 
 Numeri: in QEMU 0,45 ms per domanda (sul PC 0,03 ms) e 1 ms per uno sprite 16x16; il
 kernel cresce di ~410 KB (rete 270 KB, voci e testi 80 KB). RAM: niente finché non si

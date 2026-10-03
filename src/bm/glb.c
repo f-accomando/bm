@@ -373,6 +373,44 @@ void glb_model_free(glb_model_t *m)
     memset(m, 0, sizeof *m);
 }
 
+int glb_pack(const char *name, const dec_mesh_t *m, const uint8_t *tex, int tw, int th, int side, glb_model_t *out)
+{
+    memset(out, 0, sizeof *out);
+    out->textured = tex != NULL;
+    if (tex) {
+        /* the texture on the sheet; the flat twin with the colours under each face */
+        out->texture = resize(tex, tw, th, side);
+        uint32_t *flat_colours = malloc((size_t)m->nf * sizeof *flat_colours);
+        if (!out->texture || !flat_colours) {
+            free(flat_colours);
+            glb_model_free(out);
+            return -1;
+        }
+        for (int f = 0; f < m->nf; f++) {
+            if (m->colour[f] != TEXTURED) {
+                flat_colours[f] = m->colour[f];
+                continue;
+            }
+            float u = 0, v = 0;
+            for (int k = 0; k < 3; k++) {
+                u += m->uv[f * 6 + k * 2] / (8.0f * side) / 3;
+                v += m->uv[f * 6 + k * 2 + 1] / (8.0f * side) / 3;
+            }
+            flat_colours[f] = sample(tex, tw, th, u, v);
+        }
+        out->flat = record(name, m, flat_colours, &out->flat_len);
+        free(flat_colours);
+    }
+    out->record = record(name, m, NULL, &out->record_len);
+    if (!out->record || (tex && !out->flat)) {
+        glb_model_free(out);
+        return -1;
+    }
+    out->nv = m->nv;
+    out->nf = m->nf;
+    return 0;
+}
+
 static uint32_t hash_pos(const float *p)
 {
     uint32_t h = 2166136261u;
@@ -424,7 +462,6 @@ int glb_to_model(const uint8_t *glb, size_t len, const char *name, const glb_opt
     int ret = -1;
     dec_mesh_t m;
     memset(&m, 0, sizeof m);
-    uint32_t *flat_colours = NULL;
     uint8_t *tex = NULL;
     int tw = 0, th = 0;
     /* the scene's nodes (or every node without a parent) */
@@ -559,41 +596,14 @@ int glb_to_model(const uint8_t *glb, size_t len, const char *name, const glb_opt
         fail(&g, "nothing left of the model");
         goto out;
     }
-    out->textured = g.any_texture;
-    if (g.any_texture) {
-        /* the texture on the sheet; the flat twin with the colours under each face */
-        out->texture = resize(tex, tw, th, side);
-        flat_colours = malloc((size_t)m.nf * sizeof *flat_colours);
-        if (!out->texture || !flat_colours) {
-            fail(&g, "no memory for the texture");
-            goto out;
-        }
-        for (int f = 0; f < m.nf; f++) {
-            if (m.colour[f] != TEXTURED) {
-                flat_colours[f] = m.colour[f];
-                continue;
-            }
-            float u = 0, v = 0;
-            for (int k = 0; k < 3; k++) {
-                u += m.uv[f * 6 + k * 2] / (8.0f * side) / 3;
-                v += m.uv[f * 6 + k * 2 + 1] / (8.0f * side) / 3;
-            }
-            flat_colours[f] = sample(tex, tw, th, u, v);
-        }
-        out->flat = record(name, &m, flat_colours, &out->flat_len);
-    }
-    out->record = record(name, &m, NULL, &out->record_len);
-    if (!out->record || (g.any_texture && !out->flat)) {
+    if (glb_pack(name, &m, g.any_texture ? tex : NULL, tw, th, side, out) < 0) {
         fail(&g, "no memory for the model");
         goto out;
     }
-    out->nv = m.nv;
-    out->nf = m.nf;
     ret = 0;
 out:
     if (ret < 0)
         glb_model_free(out);
-    free(flat_colours);
     free(tex);
     free(m.v);
     free(m.f);

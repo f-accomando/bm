@@ -35,4 +35,11 @@ int glb_to_model(const uint8_t *glb, size_t len, const char *name, const glb_opt
                  char *err, size_t errlen);
 void glb_model_free(glb_model_t *m);
 
+/* The records and the sheet texture of a mesh (decimate.h's arrays, the
+ * texture corners in sheet pixels x 8 of a side x side sheet) with its
+ * texture `tex` (w x h RGBA, or NULL): 0, or -1 without memory. For the
+ * other makers of models (cutout.c). */
+struct dec_mesh;
+int glb_pack(const char *name, const struct dec_mesh *m, const uint8_t *tex, int tw, int th, int side, glb_model_t *out);
+
 #endif

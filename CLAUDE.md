@@ -203,6 +203,20 @@ screenshot in `docs/img/`), `README_OLD.md` (il README completo, in italiano),
   `make test-bm` (il `.glb` di `tests/ai/glbfix.py`, PNG e JPEG), lo stand-in in
   `tools3d_host.lua`, `test_picture_model` in QEMU (senza rete: il messaggio). Dalla
   seriale di QEMU `p` è l'overlay delle prestazioni: non usarlo come tasto delle app.
+- **Contorno → modello, senza AI** (`src/bm/cutout.c`, C portabile): maschera (alpha, o il
+  colore degli angoli), griglia di 96 celle, via i frammenti sotto 1/50, contorni esterni
+  seguiti sugli spigoli delle celle (i buchi si riempiono), Douglas-Peucker (almeno una
+  cella), ear clipping; estrusione (`depth` frazione dell'altezza) o tornio (`segments`);
+  `face()` gira ogni triangolo perché la normale destrorsa guardi *via* dall'esterno (così
+  la console lo mostra). La texture: il riquadro dell'immagine sullo sheet, i pixel di
+  sfondo accanto alla figura prendono il colore vicino (il contorno corre sugli angoli
+  delle celle). `glb_pack()` in `glb.c` impacchetta record, gemello piatto e texture per
+  tutti e due. Kernel: `cutout3d` in `runtime.c`; bm Studio `m` → scelta del modo (cutout,
+  lathe, meshy.ai) → immagine; il calcolo va al fotogramma dopo il messaggio. PC:
+  `build/host/libbmcutout.so` (ctypes `scripts/bmcutout.py`), `tools/cutout2mesh.py`.
+  Test: `tests/bm/run_cutout_test.py` (lecca-lecca su sfondo trasparente e bianco: chiuso,
+  alto 2, l'immagine davanti nel render; il tornio chiuso e tondo) in `make test-bm`,
+  `test_picture_model` in QEMU (il ritaglio fatto sul kernel ARM e salvato).
 - **local2mesh** (`tools/local2mesh.py`): modelli aperti image-to-3D sul PC dell'utente
   (TripoSR, Hunyuan3D 2: `--install` clona e fa il venv in `~/.bm/local3d`; `--backend
   command` per qualunque strumento che scriva un `.glb`), poi `meshy2mesh.convert` e

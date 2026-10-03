@@ -355,6 +355,11 @@ local function new_env(arg_path)
     end
     error("picture3d: " .. tostring(action))
   end
+  E.cutout3d = function(path, opts)
+    PIC.cut = { path = path, opts = opts }
+    if path:find("notes") then return nil, "not a PNG or JPEG picture" end
+    return E.picture3d("take", "http://fake/model.glb", opts)
+  end
   E.mesh_reduce = function(rec, target, vb)
     local nv, nf = string.unpack("<I2I2", rec, 17)
     local keep = math.min(nf, math.max(1, target))
@@ -654,15 +659,18 @@ key("^z")
 check(cur_models()[8].nf == vnf and anim_rigs(sec[9])["villager"].nv == cur_models()[8].nv, "undo: the villager whole again")
 for _ = 1, 7 do key("up") end
 
--- a model from a picture: no key, then the job followed to the model
--- (the village's sheet is in use: flat colours); a service that fails
+-- a model from a picture: the ways (cutout and lathe here, the service);
+-- the service without a key, then the job followed to the model (the
+-- village's sheet is in use: flat colours); a service that fails
 key("m")
-check(status():find("meshy_key", 1, true) and #cur_models() == 8, "p without a key: says where the key goes")
+check(sees("cutout: the picture's outline") and sees("lathe:") and sees("meshy.ai:"), "m: the ways")
+key("down", "down", "\n")
+check(status():find("meshy_key", 1, true) and #cur_models() == 8, "the service without a key: says where the key goes")
 PIC.key = true
-key("m")
-check(sees("a picture to make a model from") and sees("/pics/hero.png") and not sees("notes.txt"), "p: the pictures of /pics")
+key("m", "down", "down", "\n")
+check(sees("a picture to make a model from (meshy)") and sees("/pics/hero.png") and not sees("notes.txt"), "the pictures of /pics")
 key("esc")
-key("m", "\n")
+key("m", "down", "down", "\n", "\n")
 check(PIC.started == "/pics/hero.png" and status():find("the job started", 1, true), "the job started on the picture")
 local announced = false
 for _ = 1, 310 do
@@ -685,10 +693,10 @@ key("esc")                                          -- the menu
 check(sees("Model from picture..."), "the menu has it too")
 key("esc")
 PIC.fail = true
-key("m", "\n")
+key("m", "down", "down", "\n", "\n")
 check(status():find("cannot start: meshy: no network", 1, true) and #cur_models() == 9, "a service that fails says so")
 PIC.fail = false
-key("m", "\n")
+key("m", "down", "down", "\n", "\n")
 key("esc")
 check(status():find("given up", 1, true), "Esc gives the job up")
 frames(600)
@@ -696,6 +704,21 @@ check(#cur_models() == 9, "no model from a job given up")
 key("f2", "del", "del")
 check(#cur_models() == 8, "hero deleted")
 PIC.key = false
+-- the outline, made here: a message first, the model the frame after
+key("m", "\n")
+check(sees("a picture to make a model from (cutout)"), "cutout: the pictures")
+key("\n")
+check(status():find("cutout: making the model", 1, true), "cutout: announced first: " .. status())
+frames(2)
+check(#cur_models() == 9 and cur_models()[9].name == "hero" and PIC.cut.opts.lathe == false and PIC.cut.opts.faces == 1200,
+      "cutout: the model hero from /pics/hero.png")
+check(status():find("cutout: the model hero, 12 triangles", 1, true), "cutout: " .. status())
+key("f2", "del", "del")
+key("m", "down", "\n", "\n")
+frames(2)
+check(#cur_models() == 9 and PIC.cut.opts.lathe == true, "lathe: the same, turned")
+key("f2", "del", "del")
+check(#cur_models() == 8, "deleted again")
 
 -- save as a copy: the sections come back the same, byte for byte (cart_write)
 menu_pick("Save as", EXIT_S)

@@ -15,6 +15,7 @@ import os
 import shutil
 import socket
 import struct
+import zlib
 import subprocess
 import sys
 import tempfile
@@ -3145,17 +3146,28 @@ def test_mesh_reduce(b, opts):
 
 
 def test_picture_model(b, opts):
-    """A model from a picture on the console (picture3d, src/net/img3d.c):
-    bm Studio's models page, "m" lists the pictures of /pics and, with the
-    key in bm/config.txt, starts the job; QEMU has no WiFi, so the start
-    fails at once with a clear message and nothing changes. Without the
-    key the message says where it goes."""
+    """A model from a picture on the console: bm Studio's models page, "m"
+    asks how (the outline cut out or turned, made here; or the image-to-3D
+    service) and lists the pictures of /pics. The cutout is made on the
+    ARM kernel: a red disc on white becomes the model hero with its
+    texture (the village's sheet is in use: flat colours). The service's
+    start fails at once with a clear message (QEMU has no WiFi) and
+    nothing changes."""
     tmp = tempfile.mkdtemp(prefix="bm-pic-")
     img = os.path.join(tmp, "sd.img")
     pic = os.path.join(tmp, "hero.png")
-    with open(pic, "wb") as f:                  # a tiny PNG
-        f.write(base64.b64decode("iVBORw0KGgoAAAANSUhEUgAAAAIAAAACCAIAAAD91JpzAAAAD0lEQVR4nGP4z8DwHwQZAB"
-                                 "u+BP8Zc9tnAAAAAElFTkSuQmCC"))
+    w = h = 40
+    px = bytearray()
+    for y in range(h):
+        for x in range(w):
+            px += bytes((220, 40, 40)) if (x - 20) ** 2 + (y - 20) ** 2 < 14 ** 2 else bytes((255, 255, 255))
+    raw = b"".join(b"\0" + bytes(px[y * w * 3:(y + 1) * w * 3]) for y in range(h))
+
+    def chunk(t, body):
+        return struct.pack(">I", len(body)) + t + body + struct.pack(">I", zlib.crc32(t + body) & 0xFFFFFFFF)
+    with open(pic, "wb") as f:
+        f.write(b"\x89PNG\r\n\x1a\n" + chunk(b"IHDR", struct.pack(">IIBBBBB", w, h, 8, 2, 0, 0, 0))
+                + chunk(b"IDAT", zlib.compress(raw)) + chunk(b"IEND", b""))
     cfg = os.path.join(tmp, "config.txt")
     with open(cfg, "w") as f:
         f.write("# bm settings (key=value)\nmeshy_key=msy_test_key_for_qemu\n")
@@ -3182,7 +3194,7 @@ def test_picture_model(b, opts):
             img_, _ = settled_screen(q, lambda i, t: "menu" in t[0] and t[21].strip() != "", tries=20)
             _save_png(img_, os.path.join(opts.shots, f"{name}.png"))
 
-    F2, ESC = "\x1bOQ", "\x1b"
+    F2, ESC, DOWN, SAVE = "\x1bOQ", "\x1b", "\x1b[B", "\x13"
     try:
         q.expect(MENU, timeout=30)
         time.sleep(0.5)
@@ -3193,23 +3205,48 @@ def test_picture_model(b, opts):
         screen(["build", "models", "TOOLS", "model 1/8: ground"])
         keys(F2)
         screen(["MODELS 8", "picture"])
+        # the outline, made here: the model hero
         keys("m")
-        screen(["/pics/hero.png"])                 # the chooser (its title row is not on a 16 px row)
-        shot("picture-chooser")
+        screen(["cutout: the picture's outline", "lathe:", "meshy.ai:"])
+        shot("picture-ways")
+        keys("\r")
+        screen(["/pics/hero.png"])
+        keys("\r", gap=1.5)
+        text = screen(["cutout: the model hero", "MODELS 9", "hero"], tries=80)
+        assert "flat colours (the sheet is in use)" in text, text
+        shot("picture-cutout")
+        keys(SAVE, gap=0.8)
+        screen(["saved /carts/village.bm"])
+        # the service: the start fails with the reason (no network, no clock
+        # for TLS...), named after the service; nothing changes
+        keys("m")
+        screen(["meshy.ai:"])
+        keys(DOWN, DOWN, "\r")
+        screen(["/pics/hero.png"])
         keys("\r", gap=1.0)
-        # QEMU has no WiFi: the start fails with the reason (no network, no
-        # clock for TLS, no root certificates...), named after the service
         screen(["cannot start: meshy:"], tries=80)
-        shot("picture-no-network")
-        screen(["MODELS 8"])
+        screen(["MODELS 9"])
         keys(ESC, gap=0.6)
         screen(["Model from picture...", "Exit bm Studio"])
         keys("\x1b[A", "\r", gap=0.6)
         screen(["Games"])
     finally:
         q.close()
+    part = os.path.join(tmp, "part.img")
+    with open(img, "rb") as f, open(part, "wb") as o:
+        f.seek(2048 * 512)
+        o.write(f.read())
+    env = dict(os.environ, MTOOLS_SKIP_CHECK="1")
+    saved = subprocess.run(["mtype", "-i", part, "::/CARTS/VILLAGE.BM"], capture_output=True, env=env).stdout
+    models, _ = bmmesh.decode(dict(bmmesh.cart_sections(saved))[bmmesh.SEC_MESH])
+    hero = [m for m in models if m["name"] == "hero"]
+    assert hero and 8 <= len(hero[0]["faces"]) <= 200, [m["name"] for m in models]
+    reds = sum(1 for f in hero[0]["faces"] if f[3] >> 16 > 150 and f[3] & 0xFF < 100)
+    assert reds >= len(hero[0]["faces"]) // 2, reds                                  # the disc's red on the faces
+    ys = [v[1] for v in hero[0]["verts"]]
+    assert abs(max(ys) - 2) < 0.05 and abs(min(ys)) < 0.05, (min(ys), max(ys))
     shutil.rmtree(tmp, ignore_errors=True)
-    print("picture3d: the chooser and a clear message without a network")
+    print(f"picture: the cutout hero made on the console ({len(hero[0]['faces'])} triangles, red), saved; the service's message")
 
 
 def test_mesh(b, opts):

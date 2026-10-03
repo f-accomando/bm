@@ -129,7 +129,8 @@ Everything a cartridge contains is made with bm's own tools. They read and write
   `tools/meshy2mesh.py` does the same through Meshy's image-to-3D. The console does it by
   itself too: bm Studio's models page sends a picture from the SD card to the service and
   takes the model back, texture and all (a key in `bm/config.txt`; the services are a
-  table, Meshy first). A polygon reducer (quadric edge collapse, in the kernel and in
+  table, Meshy first), or makes one by itself from the picture's outline, cut out with some
+  thickness or turned on a lathe, with no network at all. A polygon reducer (quadric edge collapse, in the kernel and in
   `tools/bmreduce.py`) fits any model to the Pi's 1200 triangles, keeping borders, colour
   lines, texture seams and the skeleton.
 - **Sound editor**: an 8-voice synthesizer, sound effects and music patterns for the

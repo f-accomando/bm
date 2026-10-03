@@ -22,7 +22,7 @@
 #include <stdint.h>
 
 /* A model as arrays (the MESH record, unpacked). */
-typedef struct {
+typedef struct dec_mesh {
     int nv, nf;
     float *v;           /* nv x 3 */
     uint8_t *bone;      /* nv, or NULL (no skeleton) */

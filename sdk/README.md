@@ -270,24 +270,32 @@ triangoli del Pi. Sul PC fa lo stesso `tools/bmreduce.py CART.bm --faces 1200`. 
 "Model from picture..." nel menu) fa un modello da un'immagine, vedi sotto. Il menu ha
 anche titolo e autore della cartuccia.
 
-**Un modello da un'immagine, sulla console.** bm Studio manda un'immagine a un servizio
-image-to-3D (il primo è [Meshy](https://www.meshy.ai), altri si aggiungono alla tabella in
-`src/net/img3d.c`), segue il lavoro e prende il modello: la texture va sullo sprite sheet
-del progetto se è ancora vuoto, altrimenti le facce prendono i colori della texture; il
-modello è alto 2 blocchi e ridotto a 1200 triangoli dal riduttore. Per installarlo:
+**Un modello da un'immagine, sulla console.** Pagina models, **m**: tre modi.
 
-1. La console è collegata al WiFi (Settings > Network) e sulla SD c'è `bm/ca.pem` (è nella
+- **cutout**: il contorno dell'immagine (sfondo trasparente, o il colore degli angoli)
+  diventa un ritaglio con un po' di spessore, come una figura di carta: l'immagine davanti,
+  specchiata dietro, i colori del bordo sui lati. Fatto sulla console, senza rete.
+- **lathe**: il mezzo contorno tornito intorno all'asse verticale (vasi, torri, razzi,
+  pedine), con l'immagine proiettata davanti. Anche questo senza rete.
+- **meshy.ai**: un servizio image-to-3D neurale (il primo è [Meshy](https://www.meshy.ai),
+  altri si aggiungono alla tabella in `src/net/img3d.c`): bm Studio manda l'immagine, segue
+  il lavoro e prende il modello completo, visto da ogni lato.
+
+In tutti i casi la texture va sullo sprite sheet del progetto se è ancora vuoto, altrimenti
+le facce prendono i colori della texture; il modello è alto 2 blocchi e sta nei 1200
+triangoli. Le immagini (`.png` o `.jpg`, un soggetto su sfondo pulito, meglio di fronte)
+vanno nella cartella `pics/` della SD. Per il servizio serve anche:
+
+1. La console collegata al WiFi (Settings > Network) e sulla SD `bm/ca.pem` (è nella
    `dist/`: i certificati per https).
 2. La chiave del servizio in `bm/config.txt` sulla SD, una riga: `meshy_key=msy_...` (si
    crea su meshy.ai, Settings > API keys; i modelli costano crediti).
-3. Le immagini (`.png` o `.jpg`, un soggetto su sfondo pulito, meglio di fronte) nella
-   cartella `pics/` della SD.
 
-Poi in bm Studio, pagina models, **m**: si sceglie l'immagine, il lavoro parte e la riga di
-stato dice a che punto è (uno sguardo ogni 5 secondi, un paio di minuti in tutto; Esc lo
-abbandona); alla fine il modello compare nella lista con il nome dell'immagine. Ctrl+S lo
-salva. Senza chiave o senza rete il messaggio dice cosa manca. Sul PC fa lo stesso
-`tools/meshy2mesh.py` (vedi sotto).
+Con il servizio la riga di stato dice a che punto è il lavoro (uno sguardo ogni 5 secondi,
+un paio di minuti in tutto; Esc lo abbandona); senza chiave o senza rete il messaggio dice
+cosa manca. In ogni caso alla fine il modello compare nella lista con il nome dell'immagine
+e Ctrl+S lo salva. Sul PC fanno lo stesso `tools/cutout2mesh.py hero.png -o hero.bm`
+(`--lathe`, `--depth`, `--segments`) e `tools/meshy2mesh.py` (vedi sotto).
 
 **Senza chiave né cloud, sul PC: `tools/local2mesh.py`.** Gli stessi modelli con una rete
 image-to-3D aperta che gira sul tuo computer: TripoSR (veloce, una scheda NVIDIA da 6 GB

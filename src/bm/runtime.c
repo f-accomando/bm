@@ -8,6 +8,7 @@
 #include "r3d.h"
 #include "decimate.h"
 #include "glb.h"
+#include "cutout.h"
 #include "net/img3d.h"
 #include "drivers/timer.h"
 #include "drivers/uart.h"
@@ -1643,6 +1644,7 @@ static int l_cart_write(lua_State *L);
 static int l_cart_meshes(lua_State *L);
 static int l_mesh_reduce(lua_State *L);
 static int l_picture3d(lua_State *L);
+static int l_cutout3d(lua_State *L);
 static int l_cart_sheet(lua_State *L);
 
 /* ---------------------------------------------------------------- light */
@@ -1787,7 +1789,7 @@ static const luaL_Reg api[] = {
     { "cart_save", l_cart_save }, { "cart_run", l_cart_run }, { "cart_tool", l_cart_tool }, { "cart_arg", l_cart_arg },
     { "cart_data", l_cart_data },
     { "cart_read", l_cart_read }, { "cart_write", l_cart_write }, { "cart_meshes", l_cart_meshes },
-    { "mesh_reduce", l_mesh_reduce }, { "picture3d", l_picture3d },
+    { "mesh_reduce", l_mesh_reduce }, { "picture3d", l_picture3d }, { "cutout3d", l_cutout3d },
     { "cart_sheet", l_cart_sheet },
     { "light_begin", l_light_begin }, { "light", l_light }, { "light_end", l_light_end },
     { "fades", l_fades }, { "dark_begin", l_dark_begin }, { "glow", l_glow }, { "dark_end", l_dark_end },
@@ -2842,6 +2844,82 @@ static int l_mesh_reduce(lua_State *L)
     return 3;
 }
 
+/* the model table picture3d("take") and cutout3d give */
+static void push_glb_model(lua_State *L, glb_model_t *m)
+{
+    lua_newtable(L);
+    lua_pushlstring(L, (const char *)m->record, m->record_len);
+    lua_setfield(L, -2, "record");
+    if (m->flat) {
+        lua_pushlstring(L, (const char *)m->flat, m->flat_len);
+        lua_setfield(L, -2, "flat");
+    }
+    if (m->texture) {
+        lua_pushlstring(L, (const char *)m->texture, 256 * 256 * 4);
+        lua_setfield(L, -2, "texture");
+    }
+    lua_pushinteger(L, m->nv);
+    lua_setfield(L, -2, "nv");
+    lua_pushinteger(L, m->nf);
+    lua_setfield(L, -2, "nf");
+    lua_pushboolean(L, m->textured);
+    lua_setfield(L, -2, "textured");
+}
+
+/* cutout3d(picture, {name=, lathe=, height=, depth=, segments=, faces=})
+ * -> the same table as picture3d("take"), or nil and a message: a model
+ * from the picture's outline, made here (src/bm/cutout.c, no network): a
+ * cutout with thickness `depth` (a fraction of the height) or, with
+ * lathe = true, the outline turned around the vertical axis in
+ * `segments` steps. picture: a .png / .jpg on the SD card. */
+static int l_cutout3d(lua_State *L)
+{
+    const char *picture = luaL_checkstring(L, 1);
+    const char *name = "model";
+    cutout_opts_t o = { 0, 2.0f, 0.2f, 12, 1200, 256, 0.02f };
+    if (lua_istable(L, 2)) {
+        lua_getfield(L, 2, "name");
+        if (lua_isstring(L, -1))
+            name = lua_tostring(L, -1);
+        lua_getfield(L, 2, "lathe");
+        o.lathe = lua_toboolean(L, -1);
+        lua_getfield(L, 2, "height");
+        if (lua_isnumber(L, -1))
+            o.height = (float)lua_tonumber(L, -1);
+        lua_getfield(L, 2, "depth");
+        if (lua_isnumber(L, -1))
+            o.depth = (float)lua_tonumber(L, -1);
+        lua_getfield(L, 2, "segments");
+        if (lua_isinteger(L, -1))
+            o.segments = (int)lua_tointeger(L, -1);
+        lua_getfield(L, 2, "faces");
+        if (lua_isinteger(L, -1))
+            o.max_faces = (int)lua_tointeger(L, -1);
+        lua_pop(L, 6);
+    }
+    fat_entry_t e;
+    uint8_t *data = NULL;
+    size_t len = 0;
+    memset(&e, 0, sizeof e);
+    if (fat_find(picture, &e) != 0 || e.is_dir || fat_load(&e, &data, &len) != 0) {
+        lua_pushnil(L);
+        lua_pushfstring(L, "%s: %s", picture, e.is_dir ? "a directory" : fat_error());
+        return 2;
+    }
+    glb_model_t m;
+    char err[128];
+    int r = cutout_from_file(data, len, name, &o, &m, err, sizeof err);
+    free(data);
+    if (r < 0) {
+        lua_pushnil(L);
+        lua_pushstring(L, err);
+        return 2;
+    }
+    push_glb_model(L, &m);
+    glb_model_free(&m);
+    return 1;
+}
+
 /* picture3d(action, ...): a picture becomes a 3D model through an
  * image-to-3D service (src/net/img3d.c, the .glb read by src/bm/glb.c).
  *   picture3d("providers") -> { "meshy", ... }
@@ -2985,23 +3063,7 @@ static int l_picture3d(lua_State *L)
             lua_pushstring(L, err);
             return 2;
         }
-        lua_newtable(L);
-        lua_pushlstring(L, (const char *)m.record, m.record_len);
-        lua_setfield(L, -2, "record");
-        if (m.flat) {
-            lua_pushlstring(L, (const char *)m.flat, m.flat_len);
-            lua_setfield(L, -2, "flat");
-        }
-        if (m.texture) {
-            lua_pushlstring(L, (const char *)m.texture, 256 * 256 * 4);
-            lua_setfield(L, -2, "texture");
-        }
-        lua_pushinteger(L, m.nv);
-        lua_setfield(L, -2, "nv");
-        lua_pushinteger(L, m.nf);
-        lua_setfield(L, -2, "nf");
-        lua_pushboolean(L, m.textured);
-        lua_setfield(L, -2, "textured");
+        push_glb_model(L, &m);
         glb_model_free(&m);
         return 1;
     }

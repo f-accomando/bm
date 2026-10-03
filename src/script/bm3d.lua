@@ -979,11 +979,9 @@ local function sheet_untouched()
 end
 
 -- the model into the project: a new model named after the picture
-local function picture_take(url)
-  local m, err = picture3d("take", url, { name = pic.name, faces = T.TRIS_60FPS, height = 2 })
-  if not m then T.say(PIC_PROVIDER .. ": " .. tostring(err), C.ERR, 400); return end
+local function picture_into_project(m, how, name)
   local use_texture = m.textured and m.texture and sheet_untouched()
-  local i = T.new_model(pic.name)
+  local i = T.new_model(name)
   local model = S.models[i]
   model.faces = T.decode_model(use_texture and m.record or m.flat or m.record)
   if use_texture then
@@ -1011,32 +1009,81 @@ local function picture_take(url)
   T.select_model(i)
   S.dirty = true
   T.refresh()
-  T.say(PIC_PROVIDER .. ": the model " .. model.name .. ", " .. m.nf .. " triangles" ..
+  T.say(how .. ": the model " .. model.name .. ", " .. m.nf .. " triangles" ..
       (use_texture and ", its texture on the sheet" or (m.textured and ", flat colours (the sheet is in use)" or "")),
       C.ACC, 400)
+end
+
+local function picture_take(url)
+  local m, err = picture3d("take", url, { name = pic.name, faces = T.TRIS_60FPS, height = 2 })
+  if not m then T.say(PIC_PROVIDER .. ": " .. tostring(err), C.ERR, 400); return end
+  picture_into_project(m, PIC_PROVIDER, pic.name)
+end
+
+local function model_name(path)
+  local name = path:match("([^/]+)%.[^.]+$") or "model"
+  name = name:gsub("[^%w_]", ""):sub(1, 15):lower()
+  return name ~= "" and name or "model"
 end
 
 local function picture_start(path)
   local task, err = picture3d("start", path, { provider = PIC_PROVIDER, polycount = 2000 })
   if not task then T.say("cannot start: " .. tostring(err), C.ERR, 400); return end
-  local name = path:match("([^/]+)%.[^.]+$") or "model"
-  name = name:gsub("[^%w_]", ""):sub(1, 15):lower()
-  pic = { task = task, t = 0, name = name ~= "" and name or "model", progress = 0, url = nil }
+  pic = { task = task, t = 0, name = model_name(path), progress = 0, url = nil }
   T.say(PIC_PROVIDER .. ": the job started: a few minutes for the model (Esc gives up)", C.ACC, 600)
 end
 
--- the pictures of the SD card to choose from; false if there are none,
--- no kernel support or no key
-function T.picture_chooser()
-  if not picture3d then T.say("this kernel cannot ask a service for models", C.ERR, 300); return false end
-  local ok, why = picture3d("ready", PIC_PROVIDER)
-  if not ok then T.say(tostring(why), C.ERR, 600); return false end
-  if pic then T.say(PIC_PROVIDER .. ": a job is on its way already (Esc gives it up)", C.ERR, 300); return false end
+-- the outline methods, made here (cutout3d, src/bm/cutout.c): the frame after
+-- the message, as the call takes a moment on the console
+local function outline_start(path, lathe)
+  pic = { local_path = path, lathe = lathe, name = model_name(path), t = 0 }
+  T.say((lathe and "lathe" or "cutout") .. ": making the model from the outline...", C.ACC, 300)
+end
+
+local function outline_take()
+  local p = pic
+  pic = nil
+  local m, err = cutout3d(p.local_path, { name = p.name, lathe = p.lathe, faces = T.TRIS_60FPS, height = 2 })
+  if not m then T.say((p.lathe and "lathe" or "cutout") .. ": " .. tostring(err), C.ERR, 400); return end
+  picture_into_project(m, p.lathe and "lathe" or "cutout", p.name)
+end
+
+-- the pictures of the SD card to choose from, for a method; false if
+-- there are none (or no key, for the service)
+local function picture_list(method)
+  if method == "meshy" then
+    local ok, why = picture3d("ready", PIC_PROVIDER)
+    if not ok then T.say(tostring(why), C.ERR, 600); return false end
+  end
   local files = pictures()
   if #files == 0 then T.say("no .png or .jpg pictures in /pics on the SD card", C.ERR, 400); return false end
   local rows = {}
-  for i, f in ipairs(files) do rows[i] = { f, function() picture_start(f) end } end
-  T.choose("a picture to make a model from (" .. PIC_PROVIDER .. ".ai)", rows, 1)
+  for i, f in ipairs(files) do
+    rows[i] = { f, function()
+      if method == "meshy" then picture_start(f) else outline_start(f, method == "lathe") end
+    end }
+  end
+  T.choose("a picture to make a model from (" .. method .. ")", rows, 1)
+  return true
+end
+
+-- the ways: the outline cut out or turned (here, no network), or the
+-- image-to-3D service; then the pictures
+function T.picture_chooser()
+  if not cutout3d and not picture3d then T.say("this kernel cannot make models from pictures", C.ERR, 300); return false end
+  if pic then T.say("a model is on its way already (Esc gives it up)", C.ERR, 300); return false end
+  local rows = {}
+  if cutout3d then
+    rows[#rows + 1] = { "cutout: the picture's outline with some thickness (made here)",
+                        function() picture_list("cutout") end }
+    rows[#rows + 1] = { "lathe: the outline turned around (vases, towers; made here)",
+                        function() picture_list("lathe") end }
+  end
+  if picture3d then
+    rows[#rows + 1] = { PIC_PROVIDER .. ".ai: image-to-3D service (a key in bm/config.txt)",
+                        function() picture_list("meshy") end }
+  end
+  T.choose("a model from a picture: how", rows, 1)
   return true
 end
 
@@ -1045,6 +1092,10 @@ end
 function T.picture_update()
   if not pic then return end
   pic.t = pic.t + 1
+  if pic.local_path then
+    if pic.t >= 2 then outline_take() end
+    return
+  end
   if pic.url then
     local url = pic.url
     pic = { name = pic.name }
@@ -1068,7 +1119,7 @@ end
 
 -- Esc while a job is on its way: it is given up (the service goes on by itself)
 function T.picture_key(k)
-  if pic and not pic.url and (k == "esc" or k == "back") then
+  if pic and not pic.url and not pic.local_path and (k == "esc" or k == "back") then
     pic = nil
     T.say(PIC_PROVIDER .. ": the job given up", C.DIM, 200)
     return true
