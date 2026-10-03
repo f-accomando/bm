@@ -91,8 +91,10 @@ def draw_model(px, zbuf, W, m, sheet, x0, y0, size, yaw):
                     continue
                 zbuf[i] = z
                 if textured:
-                    u = (w0 * uv[0] + w1 * uv[2] + w2 * uv[4])
-                    v = (w0 * uv[1] + w1 * uv[3] + w2 * uv[5])
+                    # perspective-correct: u/z and 1/z are linear on the screen
+                    iz = w0 / pa[2] + w1 / pb[2] + w2 / pc[2]
+                    u = (w0 * uv[0] / pa[2] + w1 * uv[2] / pb[2] + w2 * uv[4] / pc[2]) / iz
+                    v = (w0 * uv[1] / pa[2] + w1 * uv[3] / pb[2] + w2 * uv[5] / pc[2]) / iz
                     tw, th, rgba = sheet
                     tx = min(tw - 1, max(0, int(u)))
                     ty = min(th - 1, max(0, int(v)))
