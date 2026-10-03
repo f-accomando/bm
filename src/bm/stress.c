@@ -29,7 +29,8 @@ typedef struct {
     void (*setup)(void);
     void (*frame)(int n, int f);    /* draws one frame with n items */
     void (*teardown)(void);
-    int gpu;                        /* the 3D drawn by the GPU (gpu3d): 1, 2 with MSAA 4x */
+    int gpu;                        /* the 3D drawn by the GPU (gpu3d): 1, 2 with MSAA 4x, 3 with the
+                                     * vertex shader placing every model (M36) */
 } test_t;
 
 static g16_t g;
@@ -241,6 +242,9 @@ static const test_t tests[] = {
     /* anti-aliasing (MSAA 4x), where the GPU can */
     { "GPU spheres AA 4x", "obj",   1,  8000, sphere_setup, spheres3d, sphere_teardown, 2 },
     { "GPU quad AA 4x", "q",        1,  2000, quad_flat,    quads,     quad_teardown, 2 },
+    /* the vertex shader (M36): the ARM sends matrices and lights only */
+    { "GPU+VS spheres 96", "obj",   1, 16000, sphere_setup, spheres3d, sphere_teardown, 3 },
+    { "GPU+VS smooth", "obj",       1, 16000, sphere_setup, spheres3d_smooth, sphere_teardown, 3 },
 };
 #define NTESTS (int)(sizeof tests / sizeof *tests)
 
@@ -395,10 +399,16 @@ void bm_stress_run(framebuffer_t *fb)
             r3d.backend = gpu3d_backend();
             gpu3d_drop();                   /* each row from a clean state */
             gpu3d_set_msaa(T->gpu == 2);
+            gpu3d_set_vshader(T->gpu == 3 ? 2 : 0);
         }
         if (T->gpu == 2 && !gpu3d_msaa()) {
             if (T->teardown) T->teardown();
             skip[t] = 3;                    /* no MSAA on this GPU */
+            continue;
+        }
+        if (T->gpu == 3 && gpu3d_vshader() < 2) {
+            if (T->teardown) T->teardown();
+            skip[t] = 4;                    /* no vertex shader for lit models on this GPU */
             continue;
         }
         uart_puts("\n");
@@ -438,8 +448,10 @@ void bm_stress_run(framebuffer_t *fb)
         per_item[t] = count > 1 ? (samples[count - 1].ms - samples[0].ms) * 1000.0f /
                                   (samples[count - 1].n - samples[0].n) : 0;
     }
-    if (gpu)
+    if (gpu) {
         gpu3d_set_msaa(0);
+        gpu3d_set_vshader(0);
+    }
     bm_video_leave(fb, con_w, con_h);
     machine_line("after C part");
 
@@ -454,6 +466,10 @@ void bm_stress_run(framebuffer_t *fb)
         }
         if (skip[t] == 3) {
             kprintf("  no MSAA on this GPU\n");
+            continue;
+        }
+        if (skip[t] == 4) {
+            kprintf("  no vertex shader for lit models on this GPU\n");
             continue;
         }
         print_threshold(results[t][0], &tests[t]);

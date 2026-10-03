@@ -11,8 +11,9 @@ CPU, not the time on the Pi.
 
 A scene named SCENE+gpu is drawn by the GPU backend (src/gpu/gpu3d.c) on
 the V3D emulator (tests/gpu/v3d_emu.c, not counted): the ARM's share of
-the 3D with the GPU. Its counts are those of a second frame (two frames
-minus one), when the textures are already made.
+the 3D with the GPU; SCENE+vs with the vertex shader placing every model
+(M36). Its counts are those of a second frame (two frames minus one), when
+the textures (and the meshes' corners) are already made.
 
 Needs arm-linux-gnueabihf-gcc and qemu-arm (Ubuntu: gcc-arm-linux-gnueabihf,
 qemu-user)."""
@@ -28,7 +29,8 @@ ROOT = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)
 CC = "arm-linux-gnueabihf-gcc"
 CFLAGS = ["-mcpu=arm1176jzf-s", "-marm", "-mfpu=vfp", "-mfloat-abi=hard", "-O2", "-static", "-g"]
 SCENES = ["flat", "noz", "gouraud", "tex", "texunlit", "texsmooth", "spheres", "spheres_tex", "room",
-          "tex+gpu", "spheres+gpu", "spheres_tex+gpu", "room+gpu", "room2", "room2+gpu"]
+          "tex+gpu", "spheres+gpu", "spheres_tex+gpu", "room+gpu", "room2", "room2+gpu", "spheres+vs",
+          "spheres_smooth+gpu", "spheres_smooth+vs"]
 COUNTED = ("r3d.c", "gfx16.c", "gpu3d.c", "v3d_cl.c")
 SETUP = ("r3d_mesh", "r3d_init", "g16_sheet", "g16_cls", "gpu3d_init", "probe", "block_alloc")
 PCHIST = r"""
@@ -109,7 +111,7 @@ def trace(exe, hist, scene, frames):
 
 
 def run(exe, hist, scene):
-    gpu = scene.endswith("+gpu")
+    gpu = scene.endswith(("+gpu", "+vs"))
     if gpu:
         exe += "-gpu"
         two, one = trace(exe, hist, scene, 2), trace(exe, hist, scene, 1)
@@ -126,7 +128,7 @@ def main():
     args = [a for a in args if a != "--hot"]
     scenes = args or SCENES
     with tempfile.TemporaryDirectory() as tmp:
-        gpu = any(s.endswith("+gpu") for s in scenes)
+        gpu = any(s.endswith(("+gpu", "+vs")) for s in scenes)
         exe, hist = build(tmp, gpu)
         table = {}
         for e in (exe, exe + "-gpu") if gpu else (exe,):

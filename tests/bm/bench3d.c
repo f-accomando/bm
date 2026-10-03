@@ -10,7 +10,8 @@
  *
  * Built with -DBENCH_GPU (and tests/gpu/v3d_emu.c, src/gpu/gpu3d.c), a
  * scene named SCENE+gpu is drawn by the GPU backend on the V3D emulator:
- * the ARM's share of the 3D with the GPU (M33).
+ * the ARM's share of the 3D with the GPU (M33); SCENE+vs with the vertex
+ * shader placing every model (M36).
  *
  * The checksums tell whether a change to the rasterizer changes the
  * picture; the ARM instruction counts tell what it costs, per pixel and
@@ -350,9 +351,11 @@ int main(int argc, char **argv)
         else frames = atoi(argv[i]);
     }
     char name[32];
-    if (only && strlen(only) > 4 && !strcmp(only + strlen(only) - 4, "+gpu")) {
+    const size_t ol = only ? strlen(only) : 0;
+    const int vs = ol > 3 && !strcmp(only + ol - 3, "+vs");
+    if ((ol > 4 && !strcmp(only + ol - 4, "+gpu")) || vs) {
 #ifdef BENCH_GPU
-        snprintf(name, sizeof name, "%.*s", (int)(strlen(only) - 4), only);
+        snprintf(name, sizeof name, "%.*s", (int)(ol - (vs ? 3 : 4)), only);
         only = name;
         gpu = 1;
         fb = test_aligned_alloc(64, sizeof fb_ram);
@@ -363,6 +366,7 @@ int main(int argc, char **argv)
         /* count_insns traces the ARM only: the emulator's work after the
          * probe (the picture) is not needed there */
         emu_skip = getenv("BENCH_EMU_SKIP") != NULL;
+        gpu3d_set_vshader(vs ? 2 : 0);
 #else
         fprintf(stderr, "built without BENCH_GPU\n");
         return 1;

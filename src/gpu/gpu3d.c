@@ -1355,7 +1355,7 @@ void gpu3d_tiled_textures(int on)
 
 int gpu3d_vshader(void)
 {
-    return G.gl_ok;
+    return !G.gl_ok ? 0 : G.clip_ok && G.lit_ok ? 2 : 1;
 }
 
 void gpu3d_set_vshader(int on)
