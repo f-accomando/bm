@@ -2,13 +2,20 @@ name: meshy
 
 # A picture becomes a model for the console through Meshy (image-to-3D),
 # from a GitHub runner that can reach api.meshy.ai: tools/meshy2mesh.py
-# with the secret MESHY_API_KEY. Run it by hand (Actions > meshy > Run
-# workflow) with a picture in the repository or an https URL. The .bm,
-# the .glb and a render go up as an artifact and onto the branch
+# with the secret MESHY_API_KEY. Two ways to run it:
+#  - Actions > meshy > Run workflow (or the API): the inputs below;
+#  - a push that changes tests/ai/meshy/request.txt (from the GitHub app
+#    on a phone, too): the file holds image=, name=, polycount=, height=,
+#    flat= lines; the picture as an https URL or a path in the repository.
+# The .bm, the .glb and a render go up as an artifact and onto the branch
 # meshy-out (its own history: one commit per run).
 on:
   workflow_dispatch:
     inputs:
+      branch:
+        description: "the branch with the tools (checked out and run)"
+        default: claude/m30-img2mesh
+        required: true
       image:
         description: "the picture: a path in the repository, or an https URL"
         default: tests/ai/meshy/sample.png
@@ -27,14 +34,50 @@ on:
         description: "one colour per face instead of the texture"
         type: boolean
         default: false
+      task:
+        description: "a Meshy task id already made: no new task (optional)"
+        default: ""
+  push:
+    paths:
+      - tests/ai/meshy/request.txt
 
 jobs:
   meshy:
     runs-on: ubuntu-24.04
+    timeout-minutes: 60
     permissions:
       contents: write
     steps:
       - uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.branch || github.ref }}
+
+      - name: The request (the inputs, or tests/ai/meshy/request.txt on a push)
+        env:
+          IN_IMAGE: ${{ inputs.image }}
+          IN_NAME: ${{ inputs.name }}
+          IN_POLYCOUNT: ${{ inputs.polycount }}
+          IN_HEIGHT: ${{ inputs.height }}
+          IN_FLAT: ${{ inputs.flat }}
+          IN_TASK: ${{ inputs.task }}
+        run: |
+          IMAGE=tests/ai/meshy/sample.png; NAME=model; POLYCOUNT=2000; HEIGHT=2; FLAT=false; TASK=""
+          if [ "$GITHUB_EVENT_NAME" = push ]; then
+            while IFS='=' read -r k v; do
+              v="${v%%#*}"; v="$(echo "$v" | sed 's/^[[:space:]]*//;s/[[:space:]]*$//')"
+              case "$k" in
+                image) IMAGE="$v";; name) NAME="$v";; polycount) POLYCOUNT="$v";;
+                height) HEIGHT="$v";; flat) FLAT="$v";; task) TASK="$v";;
+              esac
+            done < tests/ai/meshy/request.txt
+          else
+            IMAGE="$IN_IMAGE"; NAME="$IN_NAME"; POLYCOUNT="${IN_POLYCOUNT:-2000}"; HEIGHT="${IN_HEIGHT:-2}"
+            FLAT="$IN_FLAT"; TASK="$IN_TASK"
+          fi
+          NAME="$(echo "$NAME" | tr -cd 'A-Za-z0-9_' | cut -c1-15)"; NAME="${NAME:-model}"
+          { echo "IMAGE=$IMAGE"; echo "NAME=$NAME"; echo "POLYCOUNT=$POLYCOUNT"; echo "HEIGHT=$HEIGHT";
+            echo "FLAT=$FLAT"; echo "TASK=$TASK"; } >> "$GITHUB_ENV"
+          echo "image: $IMAGE  name: $NAME  polycount: $POLYCOUNT  height: $HEIGHT  flat: $FLAT  task: ${TASK:-new}"
 
       - name: Build meshview, install Pillow
         run: |
@@ -44,36 +87,40 @@ jobs:
       - name: Meshy
         env:
           MESHY_API_KEY: ${{ secrets.MESHY_API_KEY }}
-          IMAGE: ${{ inputs.image }}
-          NAME: ${{ inputs.name }}
-          POLYCOUNT: ${{ inputs.polycount }}
-          HEIGHT: ${{ inputs.height }}
-          FLAT: ${{ inputs.flat }}
         run: |
-          test -n "$MESHY_API_KEY" || { echo "the secret MESHY_API_KEY is not set"; exit 1; }
+          test -n "$MESHY_API_KEY" || { echo "the secret MESHY_API_KEY is not set (Settings > Secrets and variables > Actions)"; exit 1; }
           mkdir -p build/meshy
           flat=""
           [ "$FLAT" = "true" ] && flat="--flat"
-          python3 tools/meshy2mesh.py "$IMAGE" -o "build/meshy/$NAME.bm" --name "$NAME" \
-            --polycount "$POLYCOUNT" --height "$HEIGHT" $flat
+          if [ -n "$TASK" ]; then
+            python3 tools/meshy2mesh.py --task "$TASK" -o "build/meshy/$NAME.bm" --name "$NAME" --height "$HEIGHT" $flat
+          else
+            python3 tools/meshy2mesh.py "$IMAGE" -o "build/meshy/$NAME.bm" --name "$NAME" \
+              --polycount "$POLYCOUNT" --height "$HEIGHT" $flat
+          fi
           python3 scripts/bmmesh.py "build/meshy/$NAME.bm"
           python3 tools/bmrender.py "build/meshy/$NAME.bm" "build/meshy/$NAME.png"
 
       - uses: actions/upload-artifact@v4
+        if: always()
         with:
-          name: meshy-${{ inputs.name }}
+          name: meshy-${{ env.NAME }}
           path: build/meshy/*
+          if-no-files-found: ignore
 
       - name: Onto the branch meshy-out
-        env:
-          NAME: ${{ inputs.name }}
+        if: success()
         run: |
           git config user.name "meshy workflow"
           git config user.email "actions@users.noreply.github.com"
-          git fetch origin meshy-out && git checkout meshy-out || git checkout --orphan meshy-out
+          if git ls-remote --exit-code --heads origin meshy-out > /dev/null; then
+            git fetch origin meshy-out && git checkout meshy-out
+          else
+            git checkout --orphan meshy-out
+          fi
           git rm -rfq --cached . 2>/dev/null || true
           mkdir -p out
           cp build/meshy/* out/
           git add -f out
-          git commit -qm "meshy: $NAME from ${{ inputs.image }}" || echo "nothing new"
+          git commit -qm "meshy: $NAME from $IMAGE" || echo "nothing new"
           git push origin meshy-out

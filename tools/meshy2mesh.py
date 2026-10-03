@@ -12,6 +12,7 @@ sampled from the texture) - the blocky style of the other models.
                       [--height 2] [--flat] [--max-tris 3000] [--grid 32]
                       (IMAGE: a file, or an https URL Meshy fetches itself)
   tools/meshy2mesh.py --glb MODEL.glb -o OUT.bm ...   (a mesh already made)
+  tools/meshy2mesh.py --task ID -o OUT.bm ...         (a Meshy task already made)
 
 OUT.bm: a new cartridge with bm Studio's viewer (textured, its own sheet)
 or an existing one with the model added or replaced (flat colours: the
@@ -43,37 +44,52 @@ SHEET = 256
 
 # ------------------------------------------------------------------ Meshy
 
-def api(method, path, key, body=None):
+def api(method, path, key, body=None, tries=6):
+    """one call to Meshy; connection errors, timeouts, 429 and 5xx are
+    retried with a backoff (tries=1 for the POST: a lost reply must not
+    make a second paid task)"""
     req = urllib.request.Request(API + path, method=method,
                                  headers={"Authorization": "Bearer " + key, "Content-Type": "application/json"},
                                  data=json.dumps(body).encode() if body is not None else None)
-    try:
-        with urllib.request.urlopen(req, timeout=60) as r:
-            return json.loads(r.read().decode())
-    except urllib.error.HTTPError as e:
-        raise SystemExit(f"meshy {method} {path}: HTTP {e.code}: {e.read().decode(errors='replace')[:300]}")
+    for n in range(tries):
+        try:
+            with urllib.request.urlopen(req, timeout=60) as r:
+                return json.loads(r.read().decode())
+        except urllib.error.HTTPError as e:
+            if (e.code != 429 and e.code < 500) or n == tries - 1:
+                raise SystemExit(f"meshy {method} {path}: HTTP {e.code}: {e.read().decode(errors='replace')[:300]}")
+            wait = float(e.headers.get("Retry-After") or 0) or 5 * 2 ** n
+        except (urllib.error.URLError, TimeoutError) as e:
+            if n == tries - 1:
+                raise SystemExit(f"meshy {method} {path}: {e}")
+            wait = 5 * 2 ** n
+        print(f"  meshy: retry in {wait:.0f} s", flush=True)
+        time.sleep(wait)
 
 
 def image_data_uri(path):
     ext = os.path.splitext(path)[1].lower()
-    media = {".png": "image/png", ".jpg": "image/jpeg", ".jpeg": "image/jpeg", ".webp": "image/webp"}.get(ext)
+    media = {".png": "image/png", ".jpg": "image/jpeg", ".jpeg": "image/jpeg"}.get(ext)
+    data = None
     if not media:
-        raise SystemExit(f"{path}: an image (png, jpg, webp)")
-    return f"data:{media};base64," + base64.standard_b64encode(open(path, "rb").read()).decode()
+        # anything else (webp, gif, ppm...) goes as a PNG, through Pillow
+        try:
+            from PIL import Image
+            import io
+            im = Image.open(path).convert("RGBA")
+            buf = io.BytesIO()
+            im.save(buf, format="PNG")
+            data, media = buf.getvalue(), "image/png"
+        except ImportError:
+            raise SystemExit(f"{path}: a png or jpg (or pip install pillow for other formats)")
+    if data is None:
+        data = open(path, "rb").read()
+    return f"data:{media};base64," + base64.standard_b64encode(data).decode()
 
 
-def meshy_image_to_3d(image, key, polycount, texture=True, symmetry="auto"):
-    """-> the task's result: model_urls, texture_urls... (SUCCEEDED).
-    image: a file, or an https URL Meshy fetches itself"""
-    url = image if re.match(r"^https?://", image) else image_data_uri(image)
-    body = {"image_url": url, "ai_model": "meshy-5", "topology": "triangle",
-            "target_polycount": polycount, "should_remesh": True, "should_texture": texture,
-            "enable_pbr": False, "symmetry_mode": symmetry}
-    r = api("POST", "/image-to-3d", key, body)
-    task = r.get("result")
-    if not task:
-        raise SystemExit(f"meshy: no task id in {r}")
-    print(f"meshy: task {task}", flush=True)
+def meshy_wait(task, key, minutes=40):
+    """polls the task until it is done: its result (model_urls...)"""
+    deadline = time.time() + minutes * 60
     while True:
         t = api("GET", f"/image-to-3d/{task}", key)
         status = t.get("status")
@@ -81,13 +97,37 @@ def meshy_image_to_3d(image, key, polycount, texture=True, symmetry="auto"):
         if status == "SUCCEEDED":
             return t
         if status in ("FAILED", "CANCELED", "EXPIRED"):
-            raise SystemExit(f"meshy: {status}: {t.get('task_error', {}).get('message', '')}")
+            raise SystemExit(f"meshy: {status}: {(t.get('task_error') or {}).get('message', '')}")
+        if time.time() > deadline:
+            raise SystemExit(f"meshy: still {status} after {minutes} minutes: later, --task {task}")
         time.sleep(5)
 
 
-def download(url, path):
-    with urllib.request.urlopen(url, timeout=120) as r, open(path, "wb") as f:
-        f.write(r.read())
+def meshy_image_to_3d(image, key, polycount, texture=True, symmetry="auto", minutes=40):
+    """-> the task's result: model_urls, texture_urls... (SUCCEEDED).
+    image: a file, or an https URL Meshy fetches itself"""
+    url = image if re.match(r"^https?://", image) else image_data_uri(image)
+    body = {"image_url": url, "ai_model": "meshy-5", "topology": "triangle",
+            "target_polycount": polycount, "should_remesh": True, "should_texture": texture,
+            "enable_pbr": False, "symmetry_mode": symmetry}
+    r = api("POST", "/image-to-3d", key, body, tries=1)
+    task = r.get("result")
+    if not task:
+        raise SystemExit(f"meshy: no task id in {r}")
+    print(f"meshy: task {task} (to pick it up again: --task {task})", flush=True)
+    return meshy_wait(task, key, minutes)
+
+
+def download(url, path, tries=6):
+    for n in range(tries):
+        try:
+            with urllib.request.urlopen(url, timeout=120) as r, open(path, "wb") as f:
+                f.write(r.read())
+            return
+        except (urllib.error.URLError, TimeoutError) as e:
+            if n == tries - 1 or (isinstance(e, urllib.error.HTTPError) and e.code != 429 and e.code < 500):
+                raise SystemExit(f"meshy: download {url}: {e}")
+            time.sleep(5 * 2 ** n)
 
 
 # ------------------------------------------------------------------ the glTF
@@ -358,6 +398,8 @@ def main():
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     ap.add_argument("image", nargs="?", help="the picture (png, jpg, webp), or its https URL")
     ap.add_argument("--glb", help="a .glb already made: no call to Meshy")
+    ap.add_argument("--task", help="a Meshy task already made (its id): wait for it and download it, no new task")
+    ap.add_argument("--wait", type=int, default=40, help="minutes to wait for Meshy (default 40)")
     ap.add_argument("-o", "--out", required=True, help="the .bm to write or to add the model to")
     ap.add_argument("--name", help="the model's name (up to 15 letters; default: from the file name)")
     ap.add_argument("--polycount", type=int, default=2000, help="triangles asked of Meshy (default 2000)")
@@ -368,9 +410,9 @@ def main():
     ap.add_argument("--no-texture", action="store_true", help="ask Meshy for the shape only (cheaper)")
     ap.add_argument("--symmetry", default="auto", choices=["auto", "on", "off"])
     a = ap.parse_args()
-    src = a.glb or a.image
+    src = a.glb or a.image or a.task
     if not src:
-        ap.error("an image, or --glb")
+        ap.error("an image, or --glb, or --task")
     stem = os.path.splitext(os.path.basename(src.split("?")[0]))[0]
     name = (a.name or re.sub(r"[^A-Za-z0-9_]", "", stem) or "model")[:15]
     if a.glb:
@@ -379,7 +421,11 @@ def main():
         key = os.environ.get("MESHY_API_KEY")
         if not key:
             raise SystemExit("MESHY_API_KEY: the key from meshy.ai, in the environment")
-        task = meshy_image_to_3d(a.image, key, a.polycount, texture=not a.no_texture, symmetry=a.symmetry)
+        if a.task:
+            task = meshy_wait(a.task, key, a.wait)
+        else:
+            task = meshy_image_to_3d(a.image, key, a.polycount, texture=not a.no_texture, symmetry=a.symmetry,
+                                     minutes=a.wait)
         url = (task.get("model_urls") or {}).get("glb")
         if not url:
             raise SystemExit(f"meshy: no glb in {task.get('model_urls')}")
