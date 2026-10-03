@@ -289,6 +289,16 @@ abbandona); alla fine il modello compare nella lista con il nome dell'immagine. 
 salva. Senza chiave o senza rete il messaggio dice cosa manca. Sul PC fa lo stesso
 `tools/meshy2mesh.py` (vedi sotto).
 
+**Senza chiave né cloud, sul PC: `tools/local2mesh.py`.** Gli stessi modelli con una rete
+image-to-3D aperta che gira sul tuo computer: TripoSR (veloce, una scheda NVIDIA da 6 GB
+o la sola CPU, lento) o Hunyuan3D 2 (meglio, NVIDIA da 12 GB in su). Una volta:
+`tools/local2mesh.py --install triposr` (clona il programma in `~/.bm/local3d`, fa un venv
+con PyTorch; i pesi arrivano da huggingface.co al primo uso, qualche GB). Poi
+`tools/local2mesh.py hero.png -o hero.bm` (`--backend hunyuan3d`, `--faces`, `--height`,
+`--flat`, `--name`): il `.glb` del modello passa per la stessa conversione di meshy2mesh,
+texture sullo sheet e riduttore. Con `--backend command --command "tool {image} --out
+{out}"` va qualunque altro strumento che scriva un `.glb`. `--check` dice cosa c'è.
+
 **bm Animator**:
 
 - F1 **play**: il player. I modelli in una lista, con vertici, triangoli e ossa; la camera

@@ -1719,6 +1719,15 @@ Task:
    `tests/bm/run_glb_test.py`, lo stand-in nel test di bm Studio, `test_picture_model` in
    QEMU. Non provato con l'API vera dalla console (questo ambiente non ha la rete): la
    stessa richiesta è quella di meshy2mesh, che ha fatto i modelli di `meshy-out`.
+16. ✅ **local2mesh: modelli aperti in locale, senza chiave** (2026-10-03,
+   `tools/local2mesh.py`): TripoSR o Hunyuan3D 2 installati da lui in `~/.bm/local3d` (git
+   clone, venv, PyTorch per CUDA se c'è `nvidia-smi`, altrimenti CPU), il `.glb` che
+   producono passa per la conversione di meshy2mesh (texture, riduttore); `--backend
+   command` per qualunque strumento. I backend veri si provano dal PC dell'utente (qui
+   niente GPU né huggingface): `tests/ai/check_local2mesh.py` prova lo script con un
+   comando finto. Le opzioni di `run.py` di TripoSR (`--bake-texture`, `mesh.glb` in
+   `0/`) e l'API di Hunyuan3D (`Hunyuan3DDiTFlowMatchingPipeline`, `Hunyuan3DPaintPipeline`)
+   sono quelle dei repository alla data: da verificare al primo uso.
 
 Numeri: in QEMU 0,45 ms per domanda (sul PC 0,03 ms) e 1 ms per uno sprite 16x16; il
 kernel cresce di ~410 KB (rete 270 KB, voci e testi 80 KB). RAM: niente finché non si

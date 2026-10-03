@@ -678,6 +678,7 @@ test-img2mesh: $(BUILD)/host/meshview
 	    --replay tests/ai/img2mesh/replay --work $(BUILD)/img2mesh/test2 --rounds 0
 	$(PYTHON) tests/ai/check_img2mesh.py $(BUILD)/img2mesh/test.bm
 	$(PYTHON) tests/ai/check_meshy.py $(BUILD)
+	$(PYTHON) tests/ai/check_local2mesh.py $(BUILD)/local2mesh
 
 # bm Studio (sdk/studio): its core in Node (the .bm, PNG and glTF it writes,
 # the editing geometry), then the same files read by the Python of the build

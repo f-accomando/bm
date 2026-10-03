@@ -203,6 +203,12 @@ screenshot in `docs/img/`), `README_OLD.md` (il README completo, in italiano),
   `make test-bm` (il `.glb` di `tests/ai/glbfix.py`, PNG e JPEG), lo stand-in in
   `tools3d_host.lua`, `test_picture_model` in QEMU (senza rete: il messaggio). Dalla
   seriale di QEMU `p` è l'overlay delle prestazioni: non usarlo come tasto delle app.
+- **local2mesh** (`tools/local2mesh.py`): modelli aperti image-to-3D sul PC dell'utente
+  (TripoSR, Hunyuan3D 2: `--install` clona e fa il venv in `~/.bm/local3d`; `--backend
+  command` per qualunque strumento che scriva un `.glb`), poi `meshy2mesh.convert` e
+  `write_cart`. Qui non si provano i backend veri (niente GPU, huggingface negato):
+  `tests/ai/check_local2mesh.py` (in `make test-img2mesh`) usa un comando finto che scrive
+  il `.glb` di `glbfix.py`.
 - Dopo aver cambiato la base di conoscenza: `make ai-model` (numpy) e commit di
   `src/ai/assist.weights`; `make test-ai` controlla C contro Python, domande di prova,
   esempi di codice e pannello.
