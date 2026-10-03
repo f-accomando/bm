@@ -177,10 +177,19 @@ screenshot in `docs/img/`), `README_OLD.md` (il README completo, in italiano),
   usarlo davvero.
 - **meshy2mesh** (`tools/meshy2mesh.py`, chiave `MESHY_API_KEY` nell'ambiente, mai nei
   file): image-to-3D di meshy.ai → `.glb` → `.bm` (texture nello sheet della cartuccia
-  nuova, colori piatti in una esistente o con `--flat`, griglia sopra `--max-tris`).
+  nuova, colori piatti in una esistente o con `--flat`, il riduttore sopra `--max-tris`).
   `--glb` converte un `.glb` qualunque. Test: `tests/ai/check_meshy.py` (in `make
   test-img2mesh`), `test_meshy2mesh` in QEMU. La rete di questo ambiente nega
   `api.meshy.ai`: la chiamata vera si prova dal PC dell'utente.
+- **Riduttore di poligoni** (`src/bm/decimate.c`, C portabile, niente AI): collasso degli
+  spigoli con le quadriche (Garland-Heckbert), mezzo spigolo (i vertici restano quelli del
+  modello, le ossa seguono), bordi, linee di colore e cuciture della texture tenuti con un
+  piano attraverso lo spigolo, nessuna faccia rovesciata. Kernel: `mesh_reduce(record,
+  triangoli, ossa)` in `runtime.c`, `T.reduce_model` in `bm3d.lua`, tasto `-` nella pagina
+  models di bm Studio. PC: `build/host/libbmdecimate.so` via ctypes (`scripts/bmdecimate.py`),
+  `tools/bmreduce.py`, e meshy2mesh sopra `--max-tris` (la griglia resta solo oltre i limiti
+  del formato). Test: `tests/bm/test_decimate.c` (in `make test-bm`), lo stand-in Lua in
+  `tools3d_host.lua`, `test_mesh_reduce` in QEMU.
 - Dopo aver cambiato la base di conoscenza: `make ai-model` (numpy) e commit di
   `src/ai/assist.weights`; `make test-ai` controlla C contro Python, domande di prova,
   esempi di codice e pannello.

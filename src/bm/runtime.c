@@ -6,6 +6,7 @@
 #include "bm.h"
 #include "gfx16.h"
 #include "r3d.h"
+#include "decimate.h"
 #include "drivers/timer.h"
 #include "drivers/uart.h"
 #include "fs/fat.h"
@@ -1638,6 +1639,7 @@ static int l_cart_data(lua_State *L);
 static int l_cart_read(lua_State *L);
 static int l_cart_write(lua_State *L);
 static int l_cart_meshes(lua_State *L);
+static int l_mesh_reduce(lua_State *L);
 static int l_cart_sheet(lua_State *L);
 
 /* ---------------------------------------------------------------- light */
@@ -1782,6 +1784,7 @@ static const luaL_Reg api[] = {
     { "cart_save", l_cart_save }, { "cart_run", l_cart_run }, { "cart_tool", l_cart_tool }, { "cart_arg", l_cart_arg },
     { "cart_data", l_cart_data },
     { "cart_read", l_cart_read }, { "cart_write", l_cart_write }, { "cart_meshes", l_cart_meshes },
+    { "mesh_reduce", l_mesh_reduce },
     { "cart_sheet", l_cart_sheet },
     { "light_begin", l_light_begin }, { "light", l_light }, { "light_end", l_light_end },
     { "fades", l_fades }, { "dark_begin", l_dark_begin }, { "glow", l_glow }, { "dark_end", l_dark_end },
@@ -2781,6 +2784,59 @@ static int l_cart_meshes(lua_State *L)
         lua_insert(L, -2);
     }
     return 2;
+}
+
+/* mesh_reduce(record, triangles, [bones, [max_err]]) -> record, bones, n
+ * or nil and a message. Fewer triangles for one model of the MESH section
+ * (src/bm/decimate.c: quadric edge collapse): `record` is the model's part
+ * of the section (as bm3d.lua's encode_mesh writes it), `bones` the bone
+ * of each vertex (one byte each, the ANIM section's), `max_err` stops
+ * before a costlier collapse (0: none). The record comes back with at most
+ * `triangles` triangles (more if nothing else can go without turning a
+ * face over), with the bones of its vertices (nil without `bones`) and
+ * the number of triangles. bm Studio's models page. */
+static int l_mesh_reduce(lua_State *L)
+{
+    size_t len = 0, vblen = 0;
+    const uint8_t *rec = (const uint8_t *)luaL_checklstring(L, 1, &len);
+    int target = (int)luaL_checkinteger(L, 2);
+    const uint8_t *vb = lua_isnoneornil(L, 3) ? NULL : (const uint8_t *)luaL_checklstring(L, 3, &vblen);
+    float max_err = (float)luaL_optnumber(L, 4, 0);
+    if (len < 24 || len > 0x1000000) {
+        lua_pushnil(L);
+        lua_pushstring(L, "broken model record");
+        return 2;
+    }
+    uint32_t nv = rec[16] | rec[17] << 8;
+    if (vb && vblen != nv) {
+        lua_pushnil(L);
+        lua_pushstring(L, "the bones do not fit the model");
+        return 2;
+    }
+    uint8_t *out = malloc(len), *vb_out = vb ? malloc(nv) : NULL;
+    if (!out || (vb && !vb_out)) {
+        free(out);
+        free(vb_out);
+        return luaL_error(L, "not enough memory for the model");
+    }
+    size_t outlen = 0;
+    int n = bm_model_reduce(rec, len, vb, target, max_err, out, &outlen, vb_out);
+    if (n < 0) {
+        free(out);
+        free(vb_out);
+        lua_pushnil(L);
+        lua_pushstring(L, n == -1 ? "broken model record" : "not enough memory for the model");
+        return 2;
+    }
+    lua_pushlstring(L, (const char *)out, outlen);
+    if (vb)
+        lua_pushlstring(L, (const char *)vb_out, out[16] | out[17] << 8);
+    else
+        lua_pushnil(L);
+    lua_pushinteger(L, n);
+    free(out);
+    free(vb_out);
+    return 3;
 }
 
 /* cart_write(path, {[lua=], [title=, author=, res=, from=, sections=,

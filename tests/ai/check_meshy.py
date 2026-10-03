@@ -159,17 +159,25 @@ assert secs2.get(2) == secs.get(2) and secs2.get(5) == secs.get(5), "the sheet s
 reds = sum(1 for f in models2[1]["faces"] if f[3] >> 16 > 200 and f[3] & 0xFF < 50)
 blues = sum(1 for f in models2[1]["faces"] if f[3] & 0xFF > 200 and f[3] >> 16 < 50)
 assert reds >= 4 and blues >= 4, (reds, blues)              # the texture sampled: red left, blue right
-# the grid: a model with too many triangles snaps to a few cells
-cart3 = os.path.join(out_dir, "grid.bm")
+# above --max-tris: the reducer (src/bm/decimate.c), the texture kept
+cart3 = os.path.join(out_dir, "reduced.bm")
 if os.path.exists(cart3):
     os.remove(cart3)
-r = subprocess.run([sys.executable, tool, "--glb", glb_path, "-o", cart3, "--name", "g", "--max-tris", "10", "--grid", "2"],
+r = subprocess.run([sys.executable, tool, "--glb", glb_path, "-o", cart3, "--name", "g", "--max-tris", "10"],
                    capture_output=True, text=True)
 assert r.returncode == 0, r.stdout + r.stderr
 models3, _ = bmmesh.decode(dict(bmmesh.cart_sections(open(cart3, "rb").read()))[8])
-assert len(models3[0]["verts"]) <= 12 and 1 <= len(models3[0]["faces"]) <= 18, (len(models3[0]["verts"]), len(models3[0]["faces"]))
-assert "painted flat" in r.stderr, r.stderr
-print("meshy2mesh: flat into an existing cartridge and the grid ok")
+assert 1 <= len(models3[0]["faces"]) <= 10, len(models3[0]["faces"])
+assert any(f[3] == bmmesh.TEXTURED for f in models3[0]["faces"]), "the texture stays through the reducer"
+assert "reduced to" in r.stderr, r.stderr
+# the grid (past the hard limits): tried on its own
+sys.path.insert(0, os.path.dirname(tool))
+import meshy2mesh  # noqa: E402
+pts3 = [(x * 0.1, y * 0.1, 0.0) for y in range(5) for x in range(5)]
+tris3 = [(y * 5 + x, y * 5 + x + 1, y * 5 + x + 5, (1, 2, 3), None, None) for y in range(4) for x in range(4)]
+gp, gf = meshy2mesh.cluster(pts3, tris3, 2)
+assert len(gp) <= 9 and 1 <= len(gf) <= len(tris3), (len(gp), len(gf))
+print("meshy2mesh: flat into an existing cartridge, the reducer and the grid ok")
 
 # a node that mirrors (scale -1 on x): glTF says its faces are already
 # clockwise in front, so the conversion must not reverse them again

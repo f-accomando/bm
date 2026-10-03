@@ -262,7 +262,12 @@ i 1200 triangoli dei 60 fps):
 
 F2 **models**: i modelli del file, con il loro aspetto; **n** nuovo, **r** rinomina, **d**
 duplica, Canc cancella (due volte), PgUp/PgDn cambiano l'ordine, **i** il margine delle
-texture. Il menu ha anche titolo e autore della cartuccia.
+texture, **-** riduce i triangoli (chiede quanti; la metà per default): il riduttore del
+kernel (`src/bm/decimate.c`, collasso degli spigoli con le quadriche) tiene bordi, linee di
+colore e cuciture della texture, lo scheletro segue i vertici, Ctrl+Z annulla. Per
+adattare un modello pesante (un `.glb` importato, un modello di meshy2mesh) ai 1200
+triangoli del Pi. Sul PC fa lo stesso `tools/bmreduce.py CART.bm --faces 1200`. Il menu
+ha anche titolo e autore della cartuccia.
 
 **bm Animator**:
 

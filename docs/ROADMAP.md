@@ -1687,6 +1687,23 @@ Task:
    (`image_url` data URI, `ai_model`, `topology`, `target_polycount`, `should_texture`,
    `model_urls.glb`, `status`) sono quelli della documentazione v1 e vanno verificati al
    primo uso. Le texture JPEG nel `.glb` chiedono Pillow (`pip install pillow`); i PNG no.
+14. ✅ **Riduttore di poligoni** (2026-10-03, `src/bm/decimate.c`, niente AI): collasso
+   degli spigoli con le quadriche di Garland-Heckbert, in C portabile (kernel e PC). Mezzo
+   spigolo: i vertici restano quelli del modello, così ogni vertice tiene il suo osso (lo
+   scheletro segue) e le facce tengono i loro angoli di texture; l'angolo che si sposta
+   prende quello delle facce che spariscono (texture continua) o la texture della faccia
+   stirata. Bordi aperti, linee di colore e cuciture della texture sono tenuti con un piano
+   attraverso lo spigolo (peso 10 i bordi, 1 le linee); una faccia non si rovescia mai
+   (prova delle normali) e uno spigolo tra due ossa va per ultimo. Il Beast di Meshy da
+   2540 a 1200 e a 500 triangoli resta riconoscibile con la texture. Console:
+   `mesh_reduce(record, triangoli, ossa)` in `runtime.c`, `T.reduce_model` in `bm3d.lua`,
+   tasto `-` nella pagina models di bm Studio (chiede quanti triangoli, la metà per default;
+   Ctrl+Z annulla). PC: `tools/bmreduce.py CART.bm --faces 1200` (ctypes su
+   `build/host/libbmdecimate.so`, `scripts/bmdecimate.py`) e meshy2mesh sopra `--max-tris`
+   (la griglia resta solo oltre i limiti del formato). Test: `tests/bm/test_decimate.c`
+   (piani, due colori, texture, cucitura, sfera chiusa, record, i modelli di village e
+   kitchen dimezzati) in `make test-bm`, lo stand-in in `tools3d_host.lua`,
+   `test_mesh_reduce` in QEMU.
 
 Numeri: in QEMU 0,45 ms per domanda (sul PC 0,03 ms) e 1 ms per uno sprite 16x16; il
 kernel cresce di ~410 KB (rete 270 KB, voci e testi 80 KB). RAM: niente finché non si

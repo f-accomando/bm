@@ -309,6 +309,35 @@ local function new_env(arg_path)
     for i, m in ipairs(mesh_models(sec[8])) do out[i] = m.name end
     return out
   end
+  -- the reducer stands in (the kernel's is C: tests/bm/test_decimate.c
+  -- tries it): the first `target` triangles stay, with the vertices they
+  -- use and their bones
+  E.mesh_reduce = function(rec, target, vb)
+    local nv, nf = string.unpack("<I2I2", rec, 17)
+    local keep = math.min(nf, math.max(1, target))
+    local used, order, verts, tris = {}, {}, {}, {}
+    for i = 1, keep do
+      local pos = 25 + nv * 12 + (i - 1) * 24
+      local a, b, c, _, col, u0, v0, u1, v1, u2, v2 = string.unpack("<I2I2I2I2I4I2I2I2I2I2I2", rec, pos)
+      local ids = {}
+      for k, v in ipairs({ a, b, c }) do
+        if not used[v] then
+          order[#order + 1] = v
+          used[v] = #order
+          verts[#verts + 1] = rec:sub(25 + v * 12, 25 + v * 12 + 11)
+        end
+        ids[k] = used[v] - 1
+      end
+      tris[i] = string.pack("<I2I2I2I2I4I2I2I2I2I2I2", ids[1], ids[2], ids[3], 0, col, u0, v0, u1, v1, u2, v2)
+    end
+    local bones
+    if vb then
+      local t = {}
+      for i, v in ipairs(order) do t[i] = vb:sub(v + 1, v + 1) end
+      bones = table.concat(t)
+    end
+    return rec:sub(1, 16) .. string.pack("<I2I2I4", #order, keep, 0) .. table.concat(verts) .. table.concat(tris), bones, keep
+  end
   E.mesh = function(v, f, uv)
     assert(#v // 3 <= 4096 and #f // 4 <= 16384, "mesh: too big")
     if uv then assert(#uv == #f // 4 * 6, "mesh: 6 uv numbers a face") end
@@ -556,6 +585,31 @@ key("f2")
 check(sees("MODELS 8") and sees("ground") and sees("villager"), "F2: the models")
 key("down")
 check(sees("faces") and sees("tri"), "a model's faces and triangles")
+
+-- the reducer: "-" asks the triangles (half of them by default); the
+-- skeleton of the villager follows its vertices; Ctrl+Z undoes
+local before = cur_models()[2].nf
+key("-")
+check(sees("triangles (now " .. before), "-: asks the triangles: " .. status())
+key("esc")
+check(cur_models()[2].nf == before, "Esc: nothing changed")
+key("-")
+type_text("10")
+check(cur_models()[2].nf == 10 and status():find("reduced to 10 triangles", 1, true), "reduced to 10: " .. status())
+check(sees("10 tri"), "the counts show 10 triangles")
+key("^z")
+check(cur_models()[2].nf == before, "undo: " .. before .. " triangles again (" .. cur_models()[2].nf .. ")")
+for _ = 1, 6 do key("down") end
+check(sees("villager") and cur_models()[8].name == "villager" and rig1 and anim_rigs(sec[9])["villager"], "the villager, rigged")
+local vnf = cur_models()[8].nf
+key("-")
+type_text("20")
+local vr = anim_rigs(sec[9])["villager"]
+check(cur_models()[8].nf == 20 and vr and vr.nv == cur_models()[8].nv, "the villager reduced to 20: its skeleton fits " ..
+      tostring(vr and vr.nv) .. " vertices")
+key("^z")
+check(cur_models()[8].nf == vnf and anim_rigs(sec[9])["villager"].nv == cur_models()[8].nv, "undo: the villager whole again")
+for _ = 1, 7 do key("up") end
 
 -- save as a copy: the sections come back the same, byte for byte (cart_write)
 menu_pick("Save as", EXIT_S)

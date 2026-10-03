@@ -17,6 +17,7 @@ in sheet pixels). Layout of the section: see src/bm/bm.h.
 import json
 import math
 import struct
+import zlib
 import sys
 
 SEC_MESH, SEC_ANIM = 8, 9            # src/bm/bm.h; the first bm Studio files had 6 and 7
@@ -172,6 +173,25 @@ def cart_sections(data):
             typ = SEC_ANIM
         out.append((typ, body))
     return out
+
+
+def rewrite_cart(data, secs):
+    """the .bm file `data` with its sections replaced by `secs` ({type:
+    body}; a section not in it goes away, a new one goes last): the header
+    stays (title, author, resolution), the CRC is new"""
+    order = [t for t, _ in cart_sections(data)]
+    order += [t for t in secs if t not in order]
+    sections = [(t, secs[t]) for t in order if t in secs]
+    table, bodies = b"", b""
+    offset = 128 + 16 * len(sections)
+    for typ, body in sections:
+        table += struct.pack("<IIII", typ, offset + len(bodies), len(body), 0)
+        bodies += body + b"\0" * ((-len(body)) % 4)
+    after = table + bodies
+    header = bytearray(data[:128])
+    header[17] = len(sections)
+    struct.pack_into("<I", header, 20, zlib.crc32(after) & 0xFFFFFFFF)
+    return bytes(header) + after
 
 
 # ------------------------------------------------------------------ glTF

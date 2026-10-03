@@ -284,7 +284,7 @@ end
 
 -- back from triangles: the two halves of each tile become a tile again
 -- (as bm Studio's meshToFaces)
-function T.decode_model(mc, ac)
+function T.decode_model(mc, ac, bones)
   local nv, nf = sunpack("<I2I2", mc, 17)
   local pos = 25
   local verts = {}
@@ -304,6 +304,7 @@ function T.decode_model(mc, ac)
     local r, b, n = T.decode_rig(ac)
     if n == nv then rig, vb = r, b end
   end
+  if bones and #bones == nv then vb = bones end   -- the bones given apart (reduce_model)
   local function tri(t)
     local f = { p = { V.copy(verts[t[1]]), V.copy(verts[t[2]]), V.copy(verts[t[3]]) } }
     if t[4] & TEXTURED ~= 0 then
@@ -333,6 +334,28 @@ function T.decode_model(mc, ac)
     i = i + (merged and 2 or 1)
   end
   return faces, rig
+end
+
+-- fewer triangles for a model (the kernel's mesh_reduce, src/bm/decimate.c):
+-- its faces become the reduced triangles, the skeleton stays and the bones
+-- follow the vertices. Returns the number of triangles, or false and why.
+function T.reduce_model(m, target)
+  if not mesh_reduce then return false, "this kernel has no mesh_reduce" end
+  if m.dirty or not m.mc then
+    local ok, e = T.encode_mesh(m)
+    if not ok then return false, e end
+  end
+  if not m.mc then return false, "no faces" end
+  local mc, vb, nt = mesh_reduce(m.mc, target, m.rig and m.vb or nil)
+  if not mc then return false, vb end
+  local bones
+  if vb then
+    bones = {}
+    for i = 1, #vb do bones[i] = vb:byte(i) + 1 end
+  end
+  m.faces = T.decode_model(mc, nil, bones)
+  m.dirty = true
+  return nt
 end
 
 ----------------------------------------------------------------- the project

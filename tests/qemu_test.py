@@ -3066,6 +3066,83 @@ def test_meshy2mesh(b, opts):
         shutil.rmtree(tmp, ignore_errors=True)
 
 
+def test_mesh_reduce(b, opts):
+    """The polygon reducer on the console (src/bm/decimate.c, mesh_reduce):
+    bm Studio's models page, "-" asks the triangles; the ground of the
+    village (288 triangles) becomes 40, the counts say so, Ctrl+S writes
+    the file and it holds the reduced model; the other models stay."""
+    tmp = tempfile.mkdtemp(prefix="bm-reduce-")
+    img = os.path.join(tmp, "sd.img")
+    mksd.build(img, [(b("carts/village.bm"), "carts/village.bm")])
+    with open(b("carts/village.bm"), "rb") as f:
+        models0, _ = bmmesh.decode(dict(bmmesh.cart_sections(f.read()))[bmmesh.SEC_MESH])
+    q = Qemu(b("kernel.img"), ["-drive", f"if=sd,format=raw,file={img}"])
+
+    def keys(*ks, gap=0.3):
+        for k in ks:
+            q.send(k)
+            time.sleep(gap)
+
+    def screen(want, tries=40):
+        for _ in range(tries):
+            _, text = settled_screen(q, lambda i, t: all(any(w in l for l in t) for w in want), tries=2)
+            if all(any(w in l for l in text) for w in want):
+                return "\n".join(text)
+            time.sleep(0.25)
+        raise AssertionError(f"not on the screen: {want}\n" + "\n".join(text))
+
+    def shot(name):
+        if opts.shots:
+            img_, _ = settled_screen(q, lambda i, t: "menu" in t[0] and t[21].strip() != "", tries=20)
+            _save_png(img_, os.path.join(opts.shots, f"{name}.png"))
+
+    F2, ESC, SAVE = "\x1bOQ", "\x1b", "\x13"
+    try:
+        q.expect(MENU, timeout=30)
+        time.sleep(0.5)
+        screen(["Games", "Studio Village"])
+        keys("x")
+        screen(["Open in bm Studio"])
+        keys("s", "s", "s", "s", "\r")
+        screen(["build", "models", "TOOLS", "model 1/8: ground"])
+        keys(F2)
+        screen(["MODELS 8", "ground", "288 tri"])
+        shot("reduce-before")
+        keys("-")
+        screen(["triangles (now 288"])
+        for _ in range(6):
+            keys("\x7f", gap=0.1)
+        for ch in "40\r":
+            keys(ch, gap=0.1)
+        # a collapse takes two triangles away: 40 or 39
+        text = screen(["reduced to", "faces"])
+        got = re.search(r"reduced to (\d+) triangles", text)
+        assert got and 38 <= int(got.group(1)) <= 40, text
+        shot("reduce-after")
+        keys(SAVE, gap=0.8)
+        screen(["saved /carts/village.bm"])
+        keys(ESC, gap=0.6)
+        screen(["bm Studio", "Exit bm Studio"])
+        keys("\x1b[A", "\r", gap=0.6)
+        screen(["Games"])
+    finally:
+        q.close()
+    part = os.path.join(tmp, "part.img")
+    with open(img, "rb") as f, open(part, "wb") as o:
+        f.seek(2048 * 512)
+        o.write(f.read())
+    env = dict(os.environ, MTOOLS_SKIP_CHECK="1")
+    saved = subprocess.run(["mtype", "-i", part, "::/CARTS/VILLAGE.BM"], capture_output=True, env=env).stdout
+    models, _ = bmmesh.decode(dict(bmmesh.cart_sections(saved))[bmmesh.SEC_MESH])
+    assert [m["name"] for m in models] == [m["name"] for m in models0], [m["name"] for m in models]
+    assert 38 <= len(models[0]["faces"]) <= 40, len(models[0]["faces"])
+    assert all(f[3] == bmmesh.TEXTURED for f in models[0]["faces"]), "the ground keeps its texture"
+    for m, m0 in zip(models[1:], models0[1:]):
+        assert len(m["faces"]) == len(m0["faces"]), (m["name"], len(m["faces"]), len(m0["faces"]))
+    shutil.rmtree(tmp, ignore_errors=True)
+    print(f"mesh_reduce: the ground {len(models0[0]['faces'])} -> {len(models[0]['faces'])} triangles, saved")
+
+
 def test_mesh(b, opts):
     """bm Mesh on the console (a game's options, "Open in bm Mesh"): it lists
     the meshes Astro Wing builds in its code (cart_meshes runs the code

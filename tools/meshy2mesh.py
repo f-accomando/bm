@@ -292,12 +292,13 @@ def convert(data, name, height, flat, max_tris, grid):
             faces.append((a, b, c, colour, image, fuv))
         else:
             faces.append((a, c, b, colour, image, (fuv[0], fuv[2], fuv[1]) if fuv else None))
-    # too many triangles for the console: the vertices snap to a grid
-    # (flat colours only: the texture would tear)
-    if len(faces) > max_tris or len(pts) > bmmesh.MAX_VERTS:
+    # past what a model can hold at all: the vertices snap to a grid (flat
+    # colours only: the texture would tear); above --max-tris, below, the
+    # reducer keeps the texture
+    if len(faces) > bmmesh.MAX_FACES or len(pts) > bmmesh.MAX_VERTS:
         if textured:
-            print(f"meshy2mesh: {len(faces)} triangles and {len(pts)} vertices: more than --max-tris {max_tris}"
-                  f" or {bmmesh.MAX_VERTS} vertices, painted flat instead", file=sys.stderr)
+            print(f"meshy2mesh: {len(faces)} triangles and {len(pts)} vertices: more than {bmmesh.MAX_FACES}"
+                  f" triangles or {bmmesh.MAX_VERTS} vertices, painted flat instead", file=sys.stderr)
             textured = False
             faces = [(a, b, c, col or (sample(decoded[im], sum(q[0] for q in fuv) / 3, sum(q[1] for q in fuv) / 3)
                                        if decoded.get(im) and fuv else (138, 138, 154)), im, fuv)
@@ -325,7 +326,14 @@ def convert(data, name, height, flat, max_tris, grid):
     else:
         for a, b, c, col, _, _ in faces:
             out_faces.append((a, b, c, col[0] << 16 | col[1] << 8 | col[2], None))
-    return {"name": name, "verts": pts, "faces": out_faces}, sheet
+    model = {"name": name, "verts": pts, "faces": out_faces}
+    if len(out_faces) > max_tris:
+        # the console's reducer (src/bm/decimate.c): seams and colour lines stay
+        import bmdecimate
+        model, _ = bmdecimate.reduce_model(model, max_tris)
+        print(f"meshy2mesh: {len(out_faces)} triangles reduced to {len(model['faces'])} (--max-tris {max_tris})",
+              file=sys.stderr)
+    return model, sheet
 
 
 def merge_positions(pts):
@@ -399,22 +407,8 @@ def write_cart(out, model, sheet, title):
                 secs[bmmesh.SEC_ANIM] = bmmesh.encode_anim(rigs)
             else:
                 del secs[bmmesh.SEC_ANIM]
-        order = [t for t, _ in bmmesh.cart_sections(data)]
-        if bmmesh.SEC_MESH not in order:
-            order.append(bmmesh.SEC_MESH)
-        sections = [(t, secs[t]) for t in order if t in secs]
-        table_size = 16 * len(sections)
-        offset = 128 + table_size
-        table, bodies = b"", b""
-        for typ, body in sections:
-            table += struct.pack("<IIII", typ, offset + len(bodies), len(body), 0)
-            bodies += body + b"\0" * ((-len(body)) % 4)
-        after = table + bodies
-        header = bytearray(data[:128])
-        header[17] = len(sections)
-        struct.pack_into("<I", header, 20, mkbm.crc32(after))
         with open(out, "wb") as f:
-            f.write(bytes(header) + after)
+            f.write(bmmesh.rewrite_cart(data, secs))
         return "added to"
     mesh = bmmesh.encode([model], 0.25)
     with open(out, "wb") as f:
