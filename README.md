@@ -125,7 +125,9 @@ Everything a cartridge contains is made with bm's own tools. They read and write
   Animator (F6), builds low-poly 3D models from words: shapes, objects, people, animals
   and machines, the characters with a skeleton and animations. Its knowledge base is in
   Italian for now. On the PC, `tools/img2mesh.py` turns a picture into such a model
-  through the Claude API: the model writes the parts, sees them rendered and corrects them.
+  through the Claude API: the model writes the parts, sees them rendered and corrects them;
+  `tools/meshy2mesh.py` does the same through Meshy's image-to-3D and cuts the mesh down
+  to the console's blocks, textured or flat.
 - **Sound editor**: an 8-voice synthesizer, sound effects and music patterns for the
   cartridge's sound bank.
 - **bm Studio** and **bm Animator**: the PC programs' twins, on the same files. bm Studio

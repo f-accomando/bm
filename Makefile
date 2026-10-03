@@ -637,7 +637,8 @@ test-ai: $(BUILD)/host/test_ai $(BUILD)/assist.bin $(BUILD)/host/luahost $(BUILD
 	$(MAKE) test-img2mesh
 
 # tools/img2mesh.py offline: the recorded replies (the mech in the part
-# language) become a .bm with the model, then one more model in it
+# language) become a .bm with the model, then one more model in it;
+# tools/meshy2mesh.py on a .glb made by the test (no call to Meshy)
 test-img2mesh: $(BUILD)/host/meshview
 	rm -rf $(BUILD)/img2mesh/test $(BUILD)/img2mesh/test.bm
 	$< one knight $(BUILD)/img2mesh/knight.ppm > /dev/null
@@ -646,6 +647,7 @@ test-img2mesh: $(BUILD)/host/meshview
 	$(PYTHON) tools/img2mesh.py $(BUILD)/img2mesh/knight.ppm -o $(BUILD)/img2mesh/test.bm --name mech2 \
 	    --replay tests/ai/img2mesh/replay --work $(BUILD)/img2mesh/test2 --rounds 0
 	$(PYTHON) tests/ai/check_img2mesh.py $(BUILD)/img2mesh/test.bm
+	$(PYTHON) tests/ai/check_meshy.py $(BUILD)
 
 # bm Studio (sdk/studio): its core in Node (the .bm, PNG and glTF it writes,
 # the editing geometry), then the same files read by the Python of the build

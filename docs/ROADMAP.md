@@ -1670,6 +1670,23 @@ Task:
    l'SDK alla lettera, da verificare al primo uso. Dopo: la stessa cosa dalla console via
    WiFi (bm Studio, F6 "da immagine": un PNG dalla SD, la chiave nelle impostazioni, una
    passata sola).
+13. ✅ **meshy2mesh: Meshy (image-to-3D neurale) → console** (2026-10-03,
+   `tools/meshy2mesh.py`). L'utente ha una chiave di meshy.ai: il tool manda l'immagine
+   all'API image-to-3D (`target_polycount`, `should_texture`), aspetta il task, scarica il
+   `.glb` e lo porta nel formato della console: nodi e trasformazioni del glTF, z
+   capovolta e facce girate (la convenzione di `r3d.c`), a terra, centrato, alto
+   `--height` blocchi; **texture** nello sheet 256×256 della cartuccia nuova (facce
+   texturate con le UV in pixel) o **colori piatti** campionati dalla texture (o dai colori
+   dei vertici) quando entra in una cartuccia esistente o con `--flat`; sopra `--max-tris`
+   i vertici si fondono su una griglia (`--grid`): il modello diventa a blocchi, come gli
+   altri. `--glb` rifà la conversione da un `.glb` già scaricato. Test:
+   `tests/ai/check_meshy.py` (un `.glb` fatto dal test: scatola texturata, piramide
+   colorata, indici 16 e 32 bit, trasformazione di nodo) in `make test-img2mesh`,
+   `test_meshy2mesh` in QEMU (la cartuccia nel viewer e in bm Studio). Non provato con
+   l'API vera: la rete di questo ambiente nega `api.meshy.ai`; i campi dell'API
+   (`image_url` data URI, `ai_model`, `topology`, `target_polycount`, `should_texture`,
+   `model_urls.glb`, `status`) sono quelli della documentazione v1 e vanno verificati al
+   primo uso. Le texture JPEG nel `.glb` chiedono Pillow (`pip install pillow`); i PNG no.
 
 Numeri: in QEMU 0,45 ms per domanda (sul PC 0,03 ms) e 1 ms per uno sprite 16x16; il
 kernel cresce di ~410 KB (rete 270 KB, voci e testi 80 KB). RAM: niente finché non si

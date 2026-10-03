@@ -3004,6 +3004,68 @@ def test_img2mesh(b, opts):
         shutil.rmtree(tmp, ignore_errors=True)
 
 
+def test_meshy2mesh(b, opts):
+    """tools/meshy2mesh.py offline (tests/ai/check_meshy.py makes a .glb and
+    converts it): the cartridge with the textured box on its own sheet and
+    the flat pyramid plays in bm Studio, which lists both models."""
+    tmp = tempfile.mkdtemp(prefix="bm-meshy-")
+    subprocess.run([sys.executable, os.path.join(HERE, "ai", "check_meshy.py"), tmp], check=True, capture_output=True)
+    cart = os.path.join(tmp, "meshy", "meshy.bm")
+    img = os.path.join(tmp, "sd.img")
+    mksd.build(img, [(cart, "carts/meshy.bm")])
+    q = Qemu(b("kernel.img"), ["-drive", f"if=sd,format=raw,file={img}"])
+
+    def keys(*ks, gap=0.3):
+        for k in ks:
+            q.send(k)
+            time.sleep(gap)
+
+    def screen(want, tries=40):
+        for _ in range(tries):
+            _, text = settled_screen(q, lambda i, t: all(any(w in l for l in t) for w in want), tries=2)
+            if all(any(w in l for l in text) for w in want):
+                return "\n".join(text)
+            time.sleep(0.25)
+        raise AssertionError(f"not on the screen: {want}\n" + "\n".join(text))
+
+    try:
+        q.expect(MENU, timeout=30)
+        time.sleep(0.5)
+        screen(["Games", "thing"])
+        keys("x")
+        screen(["Open in bm Studio"])
+        keys("s", "s", "s", "s", "\r", gap=0.4)
+        screen(["build", "models", "TOOLS", "model 1/2: thing", "18 tri"])
+        keys("\x1bOQ")                         # F2
+        screen(["MODELS 2", "thing", "flat1"])
+        if opts.shots:
+            img_, _ = settled_screen(q, lambda i, t: "menu" in t[0] and t[21].strip() != "", tries=20)
+            _save_png(img_, os.path.join(opts.shots, "meshy-studio.png"))
+        keys("\x1b", gap=0.6)
+        keys("\x1b[A", "\r", gap=0.8)           # Exit bm Studio (nothing changed)
+        screen(["Games", "thing"])
+        keys("\r", gap=0.5)                    # play: the viewer shows the first model
+        q.expect("playing meshy.bm", timeout=20)
+        time.sleep(3.0)
+        img_, _ = settled_screen(q, lambda i, t: True, tries=1)
+        # the box drawn: its red and blue texture halves on the screen
+        w, h, px = img_
+        reds = blues = 0
+        for i in range(0, w * h * 3, 3 * 7):
+            r, g, bl = px[i], px[i + 1], px[i + 2]
+            reds += r > 120 and g < 80 and bl < 80
+            blues += bl > 120 and r < 80 and g < 80
+        assert reds > 200 and blues > 200, (reds, blues)
+        if opts.shots:
+            _save_png(img_, os.path.join(opts.shots, "meshy-viewer.png"))
+        keys("q", gap=1.0)
+        out = q.expect('bm: "thing"', timeout=20).decode(errors="replace")
+        assert "stopped with an error" not in out, out
+    finally:
+        q.close()
+        shutil.rmtree(tmp, ignore_errors=True)
+
+
 def test_mesh(b, opts):
     """bm Mesh on the console (a game's options, "Open in bm Mesh"): it lists
     the meshes Astro Wing builds in its code (cart_meshes runs the code

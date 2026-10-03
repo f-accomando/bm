@@ -175,6 +175,12 @@ screenshot in `docs/img/`), `README_OLD.md` (il README completo, in italiano),
   `tests/ai/img2mesh/replay/` (risposte registrate: `make test-img2mesh` non chiama l'API),
   `test_img2mesh` in QEMU. Serve `ANTHROPIC_API_KEY` o un profilo `ant auth login` solo per
   usarlo davvero.
+- **meshy2mesh** (`tools/meshy2mesh.py`, chiave `MESHY_API_KEY` nell'ambiente, mai nei
+  file): image-to-3D di meshy.ai → `.glb` → `.bm` (texture nello sheet della cartuccia
+  nuova, colori piatti in una esistente o con `--flat`, griglia sopra `--max-tris`).
+  `--glb` converte un `.glb` qualunque. Test: `tests/ai/check_meshy.py` (in `make
+  test-img2mesh`), `test_meshy2mesh` in QEMU. La rete di questo ambiente nega
+  `api.meshy.ai`: la chiamata vera si prova dal PC dell'utente.
 - Dopo aver cambiato la base di conoscenza: `make ai-model` (numpy) e commit di
   `src/ai/assist.weights`; `make test-ai` controlla C contro Python, domande di prova,
   esempi di codice e pannello.
