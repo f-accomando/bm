@@ -14,7 +14,7 @@ typedef struct {
     long long length;           /* Content-Length, -1 if not given */
     uint32_t received;          /* body bytes */
     char type[64];              /* Content-Type */
-    char url[512];              /* after redirects */
+    char url[512];              /* after redirects (cut short if longer) */
     char error[192];            /* when the request itself failed */
 } http_info_t;
 

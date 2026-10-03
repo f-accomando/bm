@@ -682,7 +682,9 @@ Passi (2026-09-29):
    scarica e controlla tutto prima di scrivere (SHA-256, marchio `bmK6`/`bmK7` dei kernel),
    tiene i kernel di prima in `/bm/backup`, aggiorna i giochi presenti sulla SD (quelli tolti
    restano tolti: li ha il Market), `bm/ca.pem`, poi i due kernel (quello della scheda per
-   ultimo) e riavvia. `update_url=sd:/...` e `bm/release.pem` per le prove.
+   ultimo) e riavvia. `update_url=sd:/...` e `bm/release.pem` per le prove. Il client
+   HTTP segue indirizzi fino a 2 KB: GitHub manda i download delle release a link firmati
+   di circa 1 KB, che prima venivano tagliati a 400 caratteri.
    - **Da fare sul PC**: la chiave (`scripts/release-key.sh`, secret `BM_RELEASE_KEY`) e il
      primo tag `v*`; il job `release` del CI ora installa numpy e Pillow (giochi).
    - **Da verificare sul Pi**: il controllo e l'installazione da GitHub via WiFi (le release

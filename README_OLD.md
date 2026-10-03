@@ -356,7 +356,7 @@ sudo apt install gcc-arm-none-eabi binutils-arm-none-eabi qemu-system-arm make c
 ## Build e test
 
 ```sh
-make                  # build/kernel.img + build/kernel7.img (Pi Zero 2 W) + build/chainloader.img
+make                  # build/kernel.img + build/chainloader.img (ZERO2=1: anche build/kernel7.img)
 make test             # test end-to-end in QEMU: boot, console, schermo, eccezioni, chainloader
 make test-zero2       # gli stessi test con kernel7.img in QEMU (-M raspi2b)
 make qemu             # esegue in QEMU (-M raspi0), seriale sul terminale
@@ -565,7 +565,7 @@ make install            # = make sdcard, poi copia tutto sulla SD in /mnt/d
 make install SD=/mnt/e  # se la SD è montata altrove
 ```
 
-`make install` copia i due kernel (`kernel.img` e `kernel7.img` del Pi Zero 2 W), file di
+`make install` copia il kernel (`kernel.img`; con `ZERO2=1` anche `kernel7.img` del Pi Zero 2 W), file di
 avvio, `config.txt`, cartucce e il firmware dei chip in `bm/` (Bluetooth e WiFi del Zero W
 e del Zero 2 W); non tocca mai impostazioni e salvataggi
 (`bm/CONFIG.TXT`, `bm/SAVE`). Alla fine elenca cosa c'è in `bm/` sulla SD.
@@ -708,8 +708,13 @@ Il Zero 2 W ha un altro processore (BCM2710A1: quattro Cortex-A53) e quindi un s
 partire quello giusto (`[pi02]` → `kernel7.img`): la stessa scheda va nel Zero W e nel
 Zero 2 W.
 
+**Per ora la build del Zero 2 W è spenta**: `make`, `make test`, `make sdcard`, `make install`,
+`make image`, `make release` e la CI la lasciano fuori. Si riaccende con `ZERO2=1` (`make
+ZERO2=1 install`, oppure `ZERO2: "1"` in `.github/workflows/ci.yml`); `make test-zero2` la
+compila comunque.
+
 ```sh
-make firmware && make image   # dist/bm.img per Zero, Zero W e Zero 2 W
+make firmware && make ZERO2=1 image   # dist/bm.img per Zero, Zero W e Zero 2 W
 make install                  # oppure: aggiorna la SD in /mnt/d (tutti e due i kernel)
 ```
 

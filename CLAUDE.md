@@ -8,8 +8,8 @@ screenshot in `docs/img/`), `README_OLD.md` (il README completo, in italiano),
 
 ## Build e test
 
-- `make` → `build/kernel.img`, `build/kernel7.img` e `build/chainloader.img` (toolchain
-  `arm-none-eabi-gcc`).
+- `make` → `build/kernel.img` e `build/chainloader.img` (toolchain `arm-none-eabi-gcc`);
+  con `ZERO2=1` anche `build/kernel7.img` (vedi la sezione del Pi Zero 2 W).
 - `make test` → test sul PC (grafica, FAT, USB, audio, rete, giochi) + test end-to-end in
   QEMU (`-M raspi0`); `make test-zero2` gli stessi con `kernel7.img` (Pi Zero 2 W) in
   `-M raspi2b`.
@@ -111,6 +111,10 @@ screenshot in `docs/img/`), `README_OLD.md` (il README completo, in italiano),
 - Sul Zero 2 W: periferiche a 0x3F000000, avvio in HYP, un solo core (gli altri nello stub
   del firmware a 0x0: mai scrivere lì), LED sul GPIO 29 (il 47 è l'I2C dell'alimentatore),
   BT_ON GPIO 42, firmware del CYW43436 (`board.c`, `wifi.c`, `bt.c`).
+- **Per ora spenta** (decisione dell'utente, 2026-10-03): `make`, `make test`, `sdcard`,
+  `install`, `image`, `release` e la CI lasciano fuori `kernel7.img` e i suoi test.
+  `make ZERO2=1 ...` (o `ZERO2: "1"` in `.github/workflows/ci.yml`) li riaccende; `make
+  test-zero2` lo compila comunque. Il codice `BM_ZERO2` resta e deve continuare a compilare.
 - Test: `make test-zero2` (QEMU `raspi2b`), `make test-hyp` (avvio in HYP nella macchina
   `virt`). Un kernel mandato dalla rete deve essere per la scheda giusta (`bmK6`/`bmK7`
   all'offset 4, `netxfer.c`).

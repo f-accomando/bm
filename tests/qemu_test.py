@@ -45,6 +45,8 @@ def free_port():
 
 # --kernel7: kernel7.img in raspi2b (main)
 KERNEL7 = False
+# kernel7.img is built (make ZERO2=1, or --kernel7): in the SD image too
+ZERO2 = os.environ.get("ZERO2", "0") == "1"
 # tests that need a BCM2835 board, skipped with --kernel7
 BCM2835_ONLY = {
     "test_pi1_board": "a Pi 1 (raspi1ap)",
@@ -1205,7 +1207,8 @@ def test_make_image(b, opts):
                                   env=env, capture_output=True, text=True).stdout
         assert "::/BM/BCM43430A1.HCD" in ls("bm.img").upper(), ls("bm.img")
         assert "::/BM/SYN43430B0.HCD" in ls("bm.img").upper(), ls("bm.img")
-        assert "::/KERNEL.IMG" in ls("bm.img").upper() and "::/KERNEL7.IMG" in ls("bm.img").upper(), ls("bm.img")
+        assert "::/KERNEL.IMG" in ls("bm.img").upper(), ls("bm.img")
+        assert ("::/KERNEL7.IMG" in ls("bm.img").upper()) == ZERO2, ls("bm.img")
         # the carts nano8 plays, with their long names
         assert "::/carts/nano8/nanodemo.p8" in ls("bm.img"), ls("bm.img")
         assert "::/carts/nano8/starmoovalley.p8.png" in ls("bm.img"), ls("bm.img")
@@ -3029,9 +3032,14 @@ def test_update(b, opts):
             f.write(mkbm.pack(b"function _draw() cls(2) end", title="Snake", author="bm"))
         rel = os.path.join(tmp, "release")
         k6 = os.path.join(os.path.dirname(b("kernel7.img")), "kernel.img")    # b() gives kernel7 with --kernel7
+        k7 = b("kernel7.img")
+        if not ZERO2:                   # not built (make ZERO2=1): one with its mark
+            k7 = os.path.join(tmp, "kernel7.img")
+            with open(k7, "wb") as f:
+                f.write(b"\0\0\0\0bmK7" + bytes(range(256)) * 32)
         own = "/kernel7.img" if KERNEL7 else "/kernel.img"
         other = "/kernel.img" if KERNEL7 else "/kernel7.img"
-        files = [(k6, "/kernel.img"), (b("kernel7.img"), "/kernel7.img"),
+        files = [(k6, "/kernel.img"), (k7, "/kernel7.img"),
                  (snake2, "/carts/snake.bm"), (b("carts/pong.bm"), "/carts/pong.bm"),
                  (b("carts/shooter.bm"), "/carts/shooter.bm"),
                  (os.path.join(HERE, "..", "boot", "ca.pem"), "/bm/ca.pem")]
@@ -3126,7 +3134,7 @@ def test_update(b, opts):
             r = subprocess.run(["mtype", "-i", part, "::" + path], capture_output=True, env=env)
             return r.stdout if r.returncode == 0 else None
         assert read("/KERNEL.IMG") == open(k6, "rb").read(), "kernel.img installed"
-        assert read("/KERNEL7.IMG") == open(b("kernel7.img"), "rb").read(), "kernel7.img installed"
+        assert read("/KERNEL7.IMG") == open(k7, "rb").read(), "kernel7.img installed"
         assert read("/BM/BACKUP/KERNEL.IMG") == open(old_kernel, "rb").read(), "the old kernel kept"
         assert read("/CARTS/SNAKE.BM") == open(snake2, "rb").read(), "the changed game"
         assert read("/CARTS/PONG.BM") == open(b("carts/pong.bm"), "rb").read(), "the same game untouched"
@@ -3460,10 +3468,10 @@ def test_usb_mouse(b, opts):
             q.pointer(px, py)
             assert arrow_at(wait_screen(q, lambda s_: arrow_at(s_, px, py)), px, py), (px, py)
             q.click(button)
-        # a click on Dev changes the tab, on Games back
-        click_at(108, 24)
+        # a click on Dev changes the tab, on Games back (Market | Games | Dev)
+        click_at(188, 24)
         assert "bm SDK" in screen_text(wait_screen(q, title_is("bm SDK")))[4]
-        click_at(44, 24)
+        click_at(124, 24)
         wait_screen(q, title_is(MOUSE_TITLES[3]))
         # the right button on a cover: its options; a click outside closes them
         x, y = cover_xy(1)
@@ -6220,8 +6228,11 @@ def main():
     ap.add_argument("--kernel7", action="store_true",
                     help="kernel7.img (Pi Zero 2 W) in raspi2b instead of kernel.img in raspi0")
     opts = ap.parse_args()
-    global KERNEL7
+    global KERNEL7, ZERO2
     KERNEL7 = opts.kernel7
+    if KERNEL7:                         # make image puts it on the card too
+        os.environ["ZERO2"] = "1"
+        ZERO2 = True
 
     def b(name):
         if KERNEL7 and name == "kernel.img":
