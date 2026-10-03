@@ -1511,10 +1511,11 @@ void r3d_draw_flags(r3d_t *r, const r3d_mesh_t *m, v3_t p, float rx, float ry, f
                     F[b][k * 4 + j] = C[k * 3] * W[j] + C[k * 3 + 1] * W[4 + j] + C[k * 3 + 2] * W[8 + j];
         }
     }
-    /* M36: a mesh in view the GPU places itself (its vertex shader): an
-     * unlit one, or a "lit" model (light baked at its corners: the world
-     * of a map), with the fog and the lamps; the backend may say no */
-    if (fused && (unlit || m->clight) && r->backend->mesh && !skinned && !front) {
+    /* M36: a mesh the GPU places itself (its vertex shader), with its
+     * bones: unlit, a "lit" model (light baked at its corners: the world of
+     * a map), or lit by the sun and the sky (heroes), with the fog and the
+     * lamps; not the first-person layer; the backend may say no */
+    if (fused && r->backend->mesh && !front) {
         r3d_env_t env;
         env.f = v.f;
         env.cx = v.hw;
@@ -1534,7 +1535,27 @@ void r3d_draw_flags(r3d_t *r, const r3d_mesh_t *m, v3_t p, float rx, float ry, f
         env.detail = detail;
         env.unlit = unlit;
         env.inside = inside != 0;
-        if (r->backend->mesh(r->backend->ctx, r->g, m, F[0], &env, zbuf ? R3D_DEPTH_WRITE : R3D_DEPTH_NONE)) {
+        env.lit = !unlit && !m->clight;
+        env.smooth = smooth;
+        if (env.lit) {
+            const float a = r->ambient;
+            const float sky[3] = { r->sky.r, r->sky.g, r->sky.b }, ground[3] = { r->ground.r, r->ground.g, r->ground.b },
+                        sun[3] = { r->sun.r, r->sun.g, r->sun.b };
+            for (int c = 0; c < 3; c++) {
+                env.A[c] = a * (ground[c] + 0.5f * (sky[c] - ground[c]));
+                env.B[c] = 0.5f * a * (sky[c] - ground[c]);
+                env.D[c] = (1.0f - a) * sun[c];
+                env.R[c] = r->rim_k > 0 ? r->rim_k * sky[c] : 0;
+                env.S[c] = r->spec_k > 0 ? r->spec_k * sun[c] : 0;
+            }
+            env.spec_p = (float)(1 << r->spec_shift);
+            env.sun[0] = r->light.x; env.sun[1] = r->light.y; env.sun[2] = r->light.z;
+            env.view[0] = sh.V.x; env.view[1] = sh.V.y; env.view[2] = sh.V.z;
+            env.half[0] = sh.H.x; env.half[1] = sh.H.y; env.half[2] = sh.H.z;
+        }
+        const int nb = skinned ? (m->nbones < MAX_BONES ? m->nbones : MAX_BONES) : 1;
+        if (r->backend->mesh(r->backend->ctx, r->g, m, (const float (*)[12])F, (const float (*)[9])X.n, nb, &env,
+                             zbuf ? R3D_DEPTH_WRITE : R3D_DEPTH_NONE)) {
             r->tris_in += (uint32_t)m->nfaces;
             r->tris_drawn += (uint32_t)m->nfaces;   /* sent: the GPU throws the back faces away */
             return;

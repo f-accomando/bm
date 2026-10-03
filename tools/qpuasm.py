@@ -649,6 +649,144 @@ SHADERS["vs_baked"] = """
         nop                 ; nop
 """
 
+# The point of the lamps and the fog (ra20 ra21 ra22: the corner itself,
+# or the middle of a flat face, as the ARM lights it) into the camera's
+# axes (ra6 rb6 rb7, where XFORM leaves the corner), by the matrix again
+XPOINT = """
+        nop                 ; fmul r0, ra20, unif
+        nop                 ; fmul r1, ra21, unif
+        fadd r0, r0, r1     ; fmul r1, ra22, unif
+        fadd r0, r0, r1     ; nop
+        fadd ra6, r0, unif  ; nop
+        nop                 ; fmul r0, ra20, unif
+        nop                 ; fmul r1, ra21, unif
+        fadd r0, r0, r1     ; fmul r1, ra22, unif
+        fadd r0, r0, r1     ; nop
+        fadd rb6, r0, unif  ; nop
+        nop                 ; fmul r0, ra20, unif
+        nop                 ; fmul r1, ra21, unif
+        fadd r0, r0, r1     ; fmul r1, ra22, unif
+        fadd r0, r0, r1     ; nop
+        fadd rb7, r0, unif  ; nop
+"""
+
+# A dot product of the normal (ra3 ra4 rb0) with the next three uniforms
+def DOT(dst):
+    return f"""
+        nop                 ; fmul r0, ra3, unif
+        nop                 ; fmul r1, ra4, unif
+        fadd r0, r0, r1     ; fmul r1, rb0, unif
+        fadd {dst}, r0, r1  ; nop
+"""
+
+# The light of one byte of the colour: u * B + max(d, 0) * D + e^2 * R + A
+# (u, the normal's height, in ra14; max(d, 0) in r3; e^2 in r2)
+def SHADE(dst):
+    return f"""
+        nop                 ; fmul r0, ra14, unif
+        nop                 ; fmul r1, r3, unif
+        fadd r0, r0, r1     ; fmul r1, r2, unif
+        fadd r0, r0, r1     ; nop
+        fadd {dst}, r0, unif ; nop
+"""
+
+# Models lit by the sun (M36, the heroes): r3d's light_fast at each corner,
+# with the corner's normal (the vertex's for Gouraud, the face's else) in
+# the axes of its bone: sky and ground by its height, the sun, the rim
+# (1 - n.V)^2, the highlight (n.H)^p where the sun lights it, the lamps;
+# an emissive corner at full light. colour * light + highlight, the fog,
+# at most 1: the varyings of fs_colour. Attributes x y z, the normal, the
+# colour (bytes a b c), emissive (0/1), glossy and not emissive (0/1), the
+# point of the lamps and the fog: 14 words. Uniforms after the placing
+# ones: the matrix again (XPOINT), H, the sun, the up axis and V in
+# the bone's axes (3 each), p, then per byte of the colour B D R A (u * B
+# + max(d, 0) * D + e^2 * R + A), the fog (near, k, colour a b c), four
+# lamps, the highlight's colour (a b c).
+SHADERS["vs_lit"] = """
+        ldi vr_setup, 0xe01a00                          # 14 rows
+        ldi vw_setup, 0x1a00
+        nop                 ; nop
+        nop                 ; nop
+        mov ra0, vpm        ; nop
+        mov ra1, vpm        ; nop
+        mov ra2, vpm        ; nop
+        mov ra3, vpm        ; nop                       # the normal
+        mov ra4, vpm        ; nop
+        mov rb0, vpm        ; nop
+        mov rb1, vpm        ; nop                       # colour a
+        mov ra17, vpm       ; nop                       # colour b
+        mov ra7, vpm        ; nop                       # colour c
+        mov ra8, vpm        ; nop                       # emissive
+        mov rb5, vpm        ; nop                       # glossy
+        mov ra20, vpm       ; nop                       # the point of the lamps and the fog
+        mov ra21, vpm       ; nop
+        mov ra22, vpm       ; nop
+""" + XFORM + """
+        mov ra13, r4        ; nop                       # 1 / depth (the SFU works again below)
+""" + XPOINT + DOT("ra15") + DOT("ra18") + DOT("ra14") + DOT("ra19") + """
+        fmax r0, ra15, 0.00390625 ; nop                 # n.H, at least 1/256
+        mov sfu_log, r0     ; nop
+        nop                 ; nop
+        nop                 ; nop
+        nop                 ; fmul r0, r4, unif         # log2(n.H) * p
+        mov sfu_exp, r0     ; nop
+        mov.setf nop, ra18  ; nop                       # flags of d = n.sun
+        nop                 ; nop
+        mov r1, r4          ; nop                       # (n.H)^p
+        mov.ifn r1, 0       ; nop                       # none where the sun does not light it
+        mov.ifz r1, 0       ; nop
+        mov.setf nop, ra15  ; nop
+        mov.ifn r1, 0       ; nop
+        mov.ifz r1, 0       ; nop
+        nop                 ; fmul ra16, r1, rb5        # the highlight of a glossy corner
+        fmax r3, ra18, 0    ; nop                       # max(d, 0)
+        fmax r2, ra19, 0    ; nop
+        fsub r2, 1.0, r2    ; nop
+        nop                 ; fmul r2, r2, r2           # e^2: the rim
+""" + SHADE("ra5") + SHADE("rb3") + SHADE("rb4") + FOG + """
+        mov ra11, unif      ; nop                       # fog a b c
+        mov rb11, unif      ; nop
+        mov ra12, unif      ; nop
+""" + LAMP * 4 + """
+        fsub r0, 1.0, ra5   ; nop                       # emissive: full light
+        mov r1, rb3         ; fmul r0, r0, ra8
+        fadd ra5, ra5, r0   ; nop
+        fsub r1, 1.0, r1    ; nop
+        mov r2, rb4         ; fmul r1, r1, ra8
+        fadd rb3, rb3, r1   ; nop
+        fsub r2, 1.0, r2    ; nop
+        nop                 ; fmul r2, r2, ra8
+        fadd rb4, rb4, r2   ; nop
+        nop                 ; fmul r0, rb1, ra5         # colour * light + highlight
+        nop                 ; fmul r3, ra16, unif
+        fadd r0, r0, r3     ; fmul r1, ra17, rb3
+        nop                 ; fmul r3, ra16, unif
+        fadd r1, r1, r3     ; fmul r2, ra7, rb4
+        nop                 ; fmul r3, ra16, unif
+        fadd r2, r2, r3     ; nop
+        fsub r3, ra11, r0   ; nop                       # (fog - colour) * f + colour
+        nop                 ; fmul r3, r3, ra10
+        fadd r0, r0, r3     ; nop
+        fsub r3, rb11, r1   ; nop
+        nop                 ; fmul r3, r3, ra10
+        fadd r1, r1, r3     ; nop
+        fsub r3, ra12, r2   ; nop
+        nop                 ; fmul r3, r3, ra10
+        fadd r2, r2, r3     ; nop
+        fmin r0, r0, 1.0    ; nop
+        fmin r1, r1, 1.0    ; nop
+        fmin r2, r2, 1.0    ; nop
+        mov vpm, ra9        ; nop
+        mov vpm, rb9        ; nop
+        mov vpm, ra13       ; nop
+        mov vpm, r0         ; nop
+        mov vpm, r1         ; nop
+        mov vpm, r2         ; nop
+        nop                 ; nop           ; thrend
+        nop                 ; nop
+        nop                 ; nop
+"""
+
 SHADERS["cs_colour"] = """
         ldi vr_setup, 0x301a00                          # 3 rows: x y z
         ldi vw_setup, 0x1a00

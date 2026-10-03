@@ -932,7 +932,8 @@ static int step_msaa(framebuffer_t *fb)
 
 /* the scene of step 14: "lit" models as a map has them (light baked at
  * the corners): a floor from under the camera (the GPU clips it at the
- * near plane), rows of cubes, unlit spheres; fog past them, a lamp */
+ * near plane), rows of cubes, unlit spheres; spheres lit by the sun and
+ * the sky as heroes are (Gouraud, rim, highlights); fog past them, a lamp */
 static void scene_vs(g16_t *g, r3d_t *r, int gpu)
 {
     g16_cls(g, g16_rgb(30, 20, 50));
@@ -948,6 +949,13 @@ static void scene_vs(g16_t *g, r3d_t *r, int gpu)
     for (int i = 0; i < 12; i++)
         r3d_draw_flags(r, &sc_sphere, (v3_t){ -3.3f + 0.6f * (float)i, 1.8f, 3 }, 0, 0.3f * (float)i, 0, 0.25f,
                        R3D_UNLIT);
+    r3d_sky(r, 0xFFF0D0, 0x90B0FF, 0x806040);
+    r3d_shine(r, 0.6f, 16, 0.4f);
+    for (int i = 0; i < 8; i++)
+        r3d_draw_flags(r, &sc_sphere, (v3_t){ -3.2f + 0.9f * (float)i, 1.0f, 1 }, 0, 0.4f * (float)i, 0, 0.35f,
+                       i & 1 ? R3D_SMOOTH : 0);
+    r3d_shine(r, 0.6f, 16, 0);              /* as r3d_init */
+    r3d_sky(r, 0xFFFFFF, 0xFFFFFF, 0xFFFFFF);
     r3d_lamp(r, 0, 0, 0, 0, 0, 0);
     r3d_fog(r, 0, 0, 0);
     if (gpu)
@@ -993,7 +1001,7 @@ static int step_vshader(framebuffer_t *fb)
             break;
         }
         r.backend = gpu3d_backend();
-        gpu3d_set_vshader(pass);
+        gpu3d_set_vshader(pass ? 2 : 0);    /* every model */
         gpu3d_stats_t st;
         scene_vs(&g, &r, 1);                /* corners made, caches warm */
         gpu3d_take_stats(&st);

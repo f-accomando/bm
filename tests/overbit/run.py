@@ -241,7 +241,7 @@ def main():
     # then on the ARM and the GPU (bmhost-gpu: the V3D emulated), the same
     # match each time; the ring; the report
     bench = os.path.join(build, "overbit", "bench-fast.bm")
-    for host, rs in (("bmhost-bin", ["ARM"]), ("bmhost-gpu", ["ARM", "GPU", "GPU+AA"])):
+    for host, rs in (("bmhost-bin", ["ARM"]), ("bmhost-gpu", ["ARM", "GPU", "GPU+AA", "GPU+VS1", "GPU+VS"])):
         code, log = run(build, bench, 60, "", "bench-" + host, host)
         tag = "gpu" if "gpu" in host else "arm"
         rows = re.findall(r"overbit bench (\S+) HIGH: .* (\d+) vtx", log)
@@ -251,8 +251,9 @@ def main():
         check([r[0] for r in rows] == rs, f"bench ({tag}): the phases {' '.join(rs)}", log)
         # the same match each time (where everyone is at the end); about the
         # same vertices drawn by the GPU with and without MSAA (the ARM draws
-        # more: the GPU turns the far heroes coarser sooner, 40_actor)
-        vtx = [int(r[1]) for r in rows if r[0].startswith("GPU")]
+        # more: the GPU turns the far heroes coarser sooner, 40_actor; with
+        # the vertex shader the ARM transforms fewer)
+        vtx = [int(r[1]) for r in rows if r[0] in ("GPU", "GPU+AA")]
         check(len(hashes) == len(rs) and len(set(hashes)) == 1 and (not vtx or max(vtx) - min(vtx) <= max(vtx) // 100),
               f"bench ({tag}): the same match on every renderer", log)
         check(len(re.findall(r"overbit bench ring \S+: \d+ heroes at 60 fps", log)) == len(rs),

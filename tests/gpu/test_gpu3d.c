@@ -51,7 +51,9 @@ static const font_t font = { 8, 16, glyphs };
 static const char *ppm_dir;
 
 static g16_sheet_t sheet, sheet2, sheet3;
-static r3d_mesh_t sphere, quad, floor_m, cube, lit_quad, glass, lit_box;
+static r3d_mesh_t sphere, quad, floor_m, cube, lit_quad, glass, lit_box, hero;
+static float hero_bones[2][12];
+static uint8_t hero_vbone[512];
 
 /* 128x128: four 32x32 checkers in the top row (red/yellow, blue/white,
  * green/black, grey/orange); the second row: the same checkers whose
@@ -84,6 +86,41 @@ static void make_sheet(void)
             for (int cx = 0; cx < 16; cx++)
                 g16_sheet_update_cell(more[k], cx, cy);
     }
+}
+
+/* M36: a "hero": a sphere (bone 0) and a cube above it (bone 1), lit by
+ * the sun; glossy, emissive, screen-door and flat faces */
+static void make_hero(void)
+{
+    r3d_mesh_t s, c;
+    r3d_mesh_sphere(&s, 8, 12, 0x4080FF, 0xFFC040);
+    r3d_mesh_cube(&c, 0xC06040);
+    r3d_mesh_alloc(&hero, s.nverts + c.nverts, s.nfaces + c.nfaces);
+    for (int i = 0; i < s.nverts; i++) {
+        hero.verts[i] = s.verts[i];
+        hero_vbone[i] = 0;
+    }
+    for (int i = 0; i < c.nverts; i++) {
+        hero.verts[s.nverts + i] = (v3_t){ c.verts[i].x * 0.5f, c.verts[i].y * 0.5f + 1.3f, c.verts[i].z * 0.5f };
+        hero_vbone[s.nverts + i] = 1;
+    }
+    for (int f = 0; f < s.nfaces; f++) {
+        for (int k = 0; k < 3; k++)
+            hero.faces[f * 3 + k] = s.faces[f * 3 + k];
+        hero.colors[f] = s.colors[f] | (f % 3 == 0 ? R3D_GLOSSY : 0) | (f % 17 == 0 ? R3D_EMISSIVE : 0);
+    }
+    for (int f = 0; f < c.nfaces; f++) {
+        for (int k = 0; k < 3; k++)
+            hero.faces[(s.nfaces + f) * 3 + k] = (uint16_t)(s.nverts + c.faces[f * 3 + k]);
+        hero.colors[s.nfaces + f] = c.colors[f] | (f < 2 ? R3D_SCREEN : 0) | (f >= 4 && f < 8 ? R3D_FLAT : 0) |
+                                    R3D_GLOSSY;
+    }
+    hero.bones = (const float (*)[12])hero_bones;
+    hero.vbone = hero_vbone;
+    hero.nbones = 2;
+    r3d_mesh_normals(&hero);
+    r3d_mesh_free(&s);
+    r3d_mesh_free(&c);
 }
 
 static void make_meshes(void)
@@ -163,7 +200,7 @@ static void flush(r3d_t *r, g16_t *g, int gpu)
 static void s_vshader(r3d_t *r, g16_t *g, int gpu)
 {
     r3d_camera(r, 0, 0, -6, 0, 0, 60);
-    gpu3d_set_vshader(gpu);
+    gpu3d_set_vshader(gpu != 0);
     r3d_draw_flags(r, &sphere, (v3_t){ -1.6f, 0.4f, 0 }, 0.3f, 0.5f, 0, 1.2f, R3D_UNLIT);
     r3d_draw_flags(r, &cube, (v3_t){ 1.4f, -0.2f, 0.5f }, 0.4f, 0.7f, 0.2f, 1.1f, R3D_UNLIT);
     r3d_draw_flags(r, &sphere, (v3_t){ 0.2f, -0.6f, 2 }, 0, 1.0f, 0, 1.4f, R3D_UNLIT);  /* partly behind */
@@ -209,6 +246,36 @@ static void s_vshader_clip(r3d_t *r, g16_t *g, int gpu)
     gpu3d_set_vshader(0);
     r3d_lamp(r, 0, 0, 0, 0, 0, 0);
     r3d_fog(r, 0, 0, 0);
+}
+
+/* M36: models lit by the sun with two bones (the heroes of Overbit), by
+ * the vertex shader at level 2: Gouraud and flat, sky and ground, rim and
+ * highlights, a lamp on the smooth ones, the fog; one through the near
+ * plane */
+static void s_vshader_heroes(r3d_t *r, g16_t *g, int gpu)
+{
+    r3d_camera(r, 0, 0.6f, -5, 0, -0.05f, 60);
+    r3d_light(r, -0.4f, 0.7f, -0.6f, 0.35f);
+    r3d_sky(r, 0xFFF0D0, 0x90B0FF, 0x806040);
+    r3d_shine(r, 0.6f, 16, 0.5f);
+    r3d_fog(r, 0xC0A080, 4, 14);
+    r3d_lamp_rgb(r, 0, -1.6f, 0.5f, -1.2f, 2.0f, 0.9f, 0xFF8040);
+    gpu3d_set_vshader(gpu && !vs_off ? 2 : 0);
+    for (int i = 0; i < 4; i++) {
+        const float a = 0.5f * (float)i;
+        const float b0[12] = { cosf(a), 0, sinf(a), 0, 0, 1, 0, 0, -sinf(a), 0, cosf(a), 0 };
+        const float b1[12] = { 1, 0, 0, 0.2f * (float)i, 0, cosf(a), -sinf(a), 0, 0, sinf(a), cosf(a), 0 };
+        memcpy(hero_bones[0], b0, sizeof b0);
+        memcpy(hero_bones[1], b1, sizeof b1);
+        const v3_t at[4] = { { -1.8f, -0.4f, 1 }, { 0, -0.3f, 0 }, { 1.8f, -0.4f, 1.5f }, { 0.3f, 0.2f, -4.6f } };
+        r3d_draw_flags(r, &hero, at[i], 0, 0.3f * (float)i, 0, 0.7f, i == 2 ? 0 : R3D_SMOOTH);
+    }
+    flush(r, g, gpu);
+    gpu3d_set_vshader(0);
+    r3d_lamp(r, 0, 0, 0, 0, 0, 0);
+    r3d_fog(r, 0, 0, 0);
+    r3d_shine(r, 0.6f, 16, 0);              /* as r3d_init */
+    r3d_sky(r, 0xFFFFFF, 0xFFFFFF, 0xFFFFFF);
 }
 
 static void s_spheres(r3d_t *r, g16_t *g, int gpu)
@@ -363,6 +430,7 @@ static const struct { const char *name; scene_fn fn; int w, h; float limit; int 
     { "vshader", s_vshader, 640, 360, 0.02f, 1 },
     { "vshader lit", s_vshader_lit, 640, 360, 0.04f, 1 },
     { "vshader clip", s_vshader_clip, 640, 360, 0.04f, 1 },
+    { "vshader heroes", s_vshader_heroes, 640, 360, 0.04f, 1 },
 };
 #define CLEARED 7                   /* its index: no bar, no load */
 
@@ -459,7 +527,7 @@ static void run_scene(int s)
             if (s == 6)
                 CHECK(emu_stats.zstores > zstores, "3D 2D 3D: the depth was not kept");
             if (scenes[s].fn == s_vshader || scenes[s].fn == s_vshader_lit ||
-                (scenes[s].fn == s_vshader_clip && emu_clip != 1))
+                ((scenes[s].fn == s_vshader_clip || scenes[s].fn == s_vshader_heroes) && emu_clip != 1))
                 CHECK(emu_stats.glverts > glverts, "vshader: no mesh placed by the vertex shader");
             if (s == CLEARED)
                 CHECK(emu_stats.loads == loads && emu_stats.jobs > jobs, "cleared: the page was loaded");
@@ -506,10 +574,10 @@ int main(int argc, char **argv)
     CHECK(gpu3d_init() == 0, "init: %s (%s)", gpu3d_status(), emu_error);
     char want[160];
     static const char *const clips[3] = { "yes", "no", "yes (Z planes)" };
-    snprintf(want, sizeof want, "byte a = %s, texels %s, textures in %s, MSAA %s, vertex shader %s, clipping %s",
-             emu_red_a ? "red" : "blue", emu_tex_swap ? "swapped" : "in place", emu_tformat == 2 ? "rows" : "tiles",
-             emu_ms_load_one ? "on cleared pages" : "on any page", emu_cw_flip ? "yes" : "yes (cw)",
-             clips[emu_clip]);
+    snprintf(want, sizeof want, "byte a = %s, texels %s, textures in %s, MSAA %s, vertex shader %s, clipping %s, "
+             "lit models yes", emu_red_a ? "red" : "blue", emu_tex_swap ? "swapped" : "in place",
+             emu_tformat == 2 ? "rows" : "tiles", emu_ms_load_one ? "on cleared pages" : "on any page",
+             emu_cw_flip ? "yes" : "yes (cw)", clips[emu_clip]);
     CHECK(strstr(gpu3d_status(), want) != NULL, "probe: '%s', expected '%s'", gpu3d_status(), want);
     if (!gpu3d_ready()) {
         printf("gpu3d: %d/%d checks passed\n", checks - failures, checks);
@@ -517,14 +585,16 @@ int main(int argc, char **argv)
     }
     make_sheet();
     make_meshes();
+    make_hero();
     for (size_t s = 0; s < sizeof scenes / sizeof *scenes; s++)
         run_scene((int)s);
     /* M36: the same lit scenes by the GPU a triangle at a time (r3d places
      * the corners) and with the vertex shader: nearly the same pixels (the
      * clipped corners not quite where the ARM puts them) */
     uint16_t *pg[2] = { test_aligned_alloc(16, 640 * 360 * 2), test_aligned_alloc(16, 640 * 360 * 2) };
-    for (int sc = 0; sc < 2; sc++) {
-        scene_fn fn = sc ? s_vshader_clip : s_vshader_lit;
+    static const char *const sc_name[3] = { "lit", "clipped", "heroes" };
+    for (int sc = 0; sc < 3; sc++) {
+        scene_fn fn = sc == 2 ? s_vshader_heroes : sc ? s_vshader_clip : s_vshader_lit;
         for (int vsh = 0; vsh < 2; vsh++) {
             g16_t g;
             r3d_t r;
@@ -542,12 +612,12 @@ int main(int argc, char **argv)
         int differ = 0;
         for (int i = 0; i < 640 * 360; i++)
             differ += pg[0][i] != pg[1][i];
-        printf("  vertex shader against r3d's corners (%s): %.3f%% of the pixels differ\n", sc ? "clipped" : "lit",
+        printf("  vertex shader against r3d's corners (%s): %.3f%% of the pixels differ\n", sc_name[sc],
                differ * 100.0 / (640 * 360));
         CHECK(differ * 1000 < 640 * 360, "vertex shader: %d pixels differ from r3d's corners", differ);
         if (ppm_dir && sc) {
-            save(pg[0], 640, 360, "vshader clip", "nv");
-            save(pg[1], 640, 360, "vshader clip", "gl");
+            save(pg[0], 640, 360, sc_name[sc], "nv");
+            save(pg[1], 640, 360, sc_name[sc], "gl");
         }
     }
     gpu3d_stats_t st;

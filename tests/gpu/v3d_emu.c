@@ -328,11 +328,12 @@ static int qpu_run(qpu_t *q, const uint32_t *code, int max)
                     q->vw_addr = v & 255;
                     q->vw_stride = v >> 12 & 63;
                 }
-            } else if (waddr == 52) {       /* SFU reciprocal: r4, three instructions on */
+            } else if (waddr == 52 || waddr == 54 || waddr == 55) {    /* SFU: r4, three instructions on */
                 if (q->sfu_pending)
                     return err("QPU: two SFU writes at %u", (unsigned)pc, 0);
                 for (int l = 0; l < 16; l++)
-                    q->sfu_value[l] = qu(1.0f / qf(res[l]));
+                    q->sfu_value[l] = qu(waddr == 52 ? 1.0f / qf(res[l]) : waddr == 54 ? exp2f(qf(res[l]))
+                                         : log2f(qf(res[l])));
                 q->sfu_pending = 1;
                 q->sfu_at = pc;
             } else {

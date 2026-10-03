@@ -329,12 +329,13 @@ static const char *aa_choice(void)
     return "4x (MSAA)";
 }
 
-/* gpu3d_vs=1: the GPU's vertex shader places the corners of the models
- * (M36), the ARM only sends them */
+/* gpu3d_vs=1: the GPU's vertex shader places the corners of the scenery
+ * (models unlit or with baked light), 2: of every model (M36); the ARM
+ * only sends them */
 static int vs_on(void)
 {
     const char *on = config_get("gpu3d_vs");
-    return on && strcmp(on, "1") == 0;
+    return on && on[0] >= '1' && on[0] <= '2' ? on[0] - '0' : 0;
 }
 
 static const char *vs_choice(void)
@@ -343,7 +344,7 @@ static const char *vs_choice(void)
         return "ARM";
     if (gpu3d_ready() && !gpu3d_vshader())
         return "GPU: not on this GPU";
-    return "GPU";
+    return vs_on() == 1 ? "GPU: scenery" : "GPU: all models";
 }
 
 static const char *gpu3d_choice(void)
@@ -379,7 +380,7 @@ void home_panel(int id, home_panel_t *p)
                  hid_layout()[0] == 'i' ? "Italian" : "US");
         home_row(p, MENU_ROW_SUB, R_GRAPHICS, "Graphics",
                  "Game drawing, 3D on the GPU, anti-aliasing", "%s%s%s", gpu3d_choice(),
-                 strcmp(gpu3d_choice(), "GPU") == 0 && vs_on() ? "+VS" : "",
+                 strcmp(gpu3d_choice(), "GPU") == 0 && vs_on() ? (vs_on() == 1 ? "+VS1" : "+VS") : "",
                  strcmp(gpu3d_choice(), "GPU") == 0 && aa_on() ? ", AA 4x" : "");
         home_row(p, MENU_ROW_CHOICE, R_VOLUME, "Volume",
                  "Sound of the games and tools (games can change it in their pause menu)",
@@ -398,7 +399,7 @@ void home_panel(int id, home_panel_t *p)
         home_row(p, MENU_ROW_CHOICE, R_AA, "3D anti-aliasing",
                  "Smooth edges of the GPU's 3D (try Dev > GPU test)", "%s", aa_choice());
         home_row(p, MENU_ROW_CHOICE, R_VS, "3D vertices",
-                 "Who places the corners of the models: ARM, or the GPU too", "%s", vs_choice());
+                 "Who places the corners: ARM, or the GPU for the scenery or all", "%s", vs_choice());
         break;
     case HOME_CONTROLLERS: {
         ksnprintf(p->title, sizeof p->title, "Settings > Controllers");
@@ -580,11 +581,13 @@ void home_act(int id, int row, int how, home_do_t *d)
         config_save();
         ksnprintf(d->note, sizeof d->note, "anti-aliasing of the next game: %s", aa_on() ? "4x" : "off");
         break;
-    case R_VS:
-        config_set("gpu3d_vs", vs_on() ? "0" : "1");
+    case R_VS: {
+        static const char *const next[3] = { "1", "2", "0" };
+        config_set("gpu3d_vs", next[vs_on()]);
         config_save();
-        ksnprintf(d->note, sizeof d->note, "3D vertices of the next game: %s", vs_on() ? "GPU" : "ARM");
+        ksnprintf(d->note, sizeof d->note, "3D vertices of the next game: %s", vs_choice());
         break;
+    }
     case R_BOOT:
         config_set("wifi_boot", wifi_at_boot() ? "0" : "1");
         config_save();

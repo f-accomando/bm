@@ -2175,6 +2175,40 @@ taglia.
 - **Fatto quando:** sul Pi l'anello di eroi di Overbit e le sfere dello stress test
   crescono di almeno 2× rispetto a M34 a 60 fps.
 
+**Stato (2026-10-03, branch `3d-performance`; sul PC, da provare sul Pi).** Fatti i passi
+2–4 sull'emulatore, che esegue gli shader veri (interprete delle QPU) e taglia come GL:
+- shader `vs_baked` e `vs_tex_rgb` (luce agli angoli, nebbia, 4 lampade, livelli di
+  dettaglio, texture: la mappa di Overbit) e `vs_lit` (`light_fast` di r3d: cielo e
+  terra, sole, bordo, riflesso con `exp2`/`log2` della SFU, lampade e nebbia nel punto
+  dove le mette l'ARM: l'angolo, o il centro di una faccia piatta); le ossa come gruppi
+  di facce per osso con un blocco di uniform a osso (negli eroi ogni faccia sta su un
+  osso);
+- la GPU taglia le mesh che passano il piano vicino o la guard band (record con il
+  flag 4, `CLIPPER_XY/Z_SCALING`, angoli dal centro dello schermo con
+  `VIEWPORT_OFFSET`);
+- r3d: la sfera di ogni mesh centrata sul suo box (i pezzi della mappa, in coordinate
+  del mondo, erano sempre "fuori"); cache di 256 copie delle mesh;
+- prove all'avvio: `probe_gl` (bit del senso orario), `probe_clip` (piano vicino, guard
+  band, senza e con `Z_MIN_MAX`), `probe_lit` (colore di `vs_lit` contro il calcolo);
+  quello che non torna si spegne da solo;
+- opzione `gpu3d_vs` (0 ARM, 1 lo scenario, 2 tutti i modelli), *Graphics > 3D
+  vertices*, terzo argomento di `gpu3d()`, renderer GPU+VS1 e GPU+VS di Overbit (menu
+  "3D" e benchmark); passo 14 del test `g` (stessa scena con gli angoli dell'ARM e del
+  vertex shader, a confronto, con i tempi).
+
+Overbit, `tests/overbit/frames.py` (HIGH, combattimento di 10 bot, istruzioni dell'ARM
+a fotogramma), prima persona / vista dall'alto:
+- GPU (M34): 12,51 M / 11,03 M (~27,5 / 24,3 ms sul Pi);
+- GPU+VS1, lo scenario sulla GPU con il clipping: 10,45 M / 8,55 M (−16% / −22%);
+- GPU+VS, anche gli eroi: 7,20 M / 6,08 M (−42% / −45%; ~15,8 / 13,4 ms). r3d da 5,25
+  a 1,16 M, il driver da 2,13 a 0,89 M; resta soprattutto il Lua (3,9 M).
+
+Da vedere sul Pi: la riga di stato della GPU (`vertex shader yes, clipping yes, lit
+models yes`), il passo 14 del test `g`, il benchmark di Overbit con GPU+VS1 e GPU+VS (i
+µs della GPU: nella V3D il vertex shader gira di nuovo per ogni tile che il triangolo
+tocca). Restano all'ARM il primo piano (`R3D_FRONT`), le facce con texture dei modelli
+illuminati dal sole e le facce su due ossa.
+
 ## M37 — 2D e qualità sulla GPU (M, se serve)
 - Sprite, tile e testo come quad della GPU, per i giochi con molto 2D sopra il 3D.
 - Filtro bilineare delle texture (opzione: cambia l'aspetto rispetto all'ARM).

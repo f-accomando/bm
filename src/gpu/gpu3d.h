@@ -70,7 +70,9 @@ int gpu3d_tiles(void);
 /* M36: whole meshes placed by the GPU's vertex shader instead of a
  * triangle at a time by r3d. gpu3d_vshader(): the probe drew with it (1)
  * or not (0); gpu3d_set_vshader() asks for it (off until verified on the
- * Pi), gpu3d_vshader_on() if asked and possible. */
+ * Pi): 1 the meshes unlit or with baked light (a map), 2 also the models
+ * lit by the sun, with their skeletons (heroes); gpu3d_vshader_on() what
+ * was asked if possible, else 0. */
 int gpu3d_vshader(void);
 void gpu3d_set_vshader(int on);
 int gpu3d_vshader_on(void);

@@ -201,13 +201,16 @@ screenshot in `docs/img/`), `README_OLD.md` (il README completo, in italiano),
   `r3d_t.arm_hook`: la GPU disegna ciò che ha in coda e la cartuccia passa all'ARM
   (`gpu3d_to_arm` in `runtime.c`, una riga nel log, il fotogramma misto non si mostra).
   `stat(9)` vale 1 se il 3D lo fa la GPU; `gpu3d([on, aa, vs])` lo cambia dalla cartuccia.
-- M36 (in corso): le mesh senza scheletro, spente o con la luce agli angoli (`clight`), le
-  mette il **vertex shader** (`vs_baked`, `vs_tex_rgb`, `cs_colour` in `tools/qpuasm.py`;
-  copie dei vertici in `gpu3d.c`, `mesh_get`); la GPU taglia quelle che passano il piano
-  vicino (flag 4 del record, `CLIPPER_*`, `VIEWPORT_OFFSET` al centro). Spento di default:
-  chiave `gpu3d_vs`, *Graphics > 3D vertices*, renderer "GPU+VS" di Overbit; la prova
-  all'avvio (`probe_gl`, `probe_clip`) lo spegne se il Pi non disegna come l'emulatore,
-  che esegue gli shader (interprete QPU) e taglia come GL; passo 14 del test `g`.
+- M36 (in corso): le mesh le mette il **vertex shader** (`vs_baked`, `vs_tex_rgb`, `vs_lit`,
+  `cs_colour` in `tools/qpuasm.py`; copie degli angoli in `gpu3d.c`, `mesh_get`, gruppi
+  per osso con un blocco di uniform a osso). Livello 1: lo scenario (spente o con la luce
+  agli angoli, `clight`); livello 2: anche i modelli illuminati dal sole, con le ossa
+  (gli eroi: `light_fast` di r3d in `vs_lit`, che va cambiato insieme). La GPU taglia
+  quelle che passano il piano vicino (flag 4 del record, `CLIPPER_*`, `VIEWPORT_OFFSET`
+  al centro). Spento di default: chiave `gpu3d_vs` (0/1/2), *Graphics > 3D vertices*,
+  renderer "GPU+VS1"/"GPU+VS" di Overbit; le prove all'avvio (`probe_gl`, `probe_clip`,
+  `probe_lit`) lo spengono se il Pi non disegna come l'emulatore, che esegue gli shader
+  (interprete QPU) e taglia come GL; passo 14 del test `g`.
 - Overbit va sulla GPU (menu "3D": GPU, GPU+AA, ARM; benchmark dei bot con `--start
   bench`, `84_bench.lua`). bmhost ha gli stub della GPU; `make bmhost-gpu` usa `gpu3d.c`
   sull'emulatore della V3D (`BMHOST_EMU_SKIP=1`: i lavori non si eseguono). Quanto costa

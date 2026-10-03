@@ -101,6 +101,13 @@ typedef struct {
     int unlit;                  /* R3D_UNLIT: every face at full light */
     int inside;                 /* R3D_INSIDE: no corner needs clipping (else the backend
                                  * clips, or says no) */
+    /* a model lit by the sun (not unlit, no baked light): light_fast at
+     * each corner, l = A + B n.y + D max(n.sun, 0) + R (1 - max(n.view, 0))^2
+     * (r g b each) plus the lamps, the highlight S (n.half)^spec_p where
+     * the sun lights a glossy face; smooth: the vertices' normals */
+    int lit, smooth;
+    float sun[3], view[3], half[3];     /* world axes */
+    float A[3], B[3], D[3], R[3], S[3], spec_p;
 } r3d_env_t;
 
 typedef struct {
@@ -108,12 +115,13 @@ typedef struct {
     void (*tri)(void *ctx, const g16_t *g, const r3d_corner_t v[3], int kind,
                 const g16_sheet_t *tex, int depth);
     /* M36, optional: a whole mesh placed by the GPU (its vertex shader),
-     * M object -> camera (3x4 by rows); 1 if the backend took it, 0 if r3d
-     * draws it a triangle at a time. r3d asks only for meshes without
-     * skeleton, unlit or with baked light (the backend may still say no:
-     * gpu3d.c, which takes the meshes not R3D_INSIDE if the GPU clips) */
-    int (*mesh)(void *ctx, const g16_t *g, const r3d_mesh_t *m, const float M[12], const r3d_env_t *env,
-                int depth);
+     * M[b] object -> camera with bone b (3x4 by rows; one without a
+     * skeleton), N[b] its turn of the normals to world axes (3x3); 1 if
+     * the backend took it, 0 if r3d draws it a triangle at a time (the
+     * backend may say no: gpu3d.c, which takes the meshes not R3D_INSIDE
+     * if the GPU clips) */
+    int (*mesh)(void *ctx, const g16_t *g, const r3d_mesh_t *m, const float (*M)[12], const float (*N)[9],
+                int nbones, const r3d_env_t *env, int depth);
     void (*zclear)(void *ctx, const g16_t *g);      /* what follows ignores what was drawn */
     void *ctx;
     float guard;                /* pixels around the screen for R3D_INSIDE; 0: never */

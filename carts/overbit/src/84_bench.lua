@@ -35,28 +35,32 @@ local function config()
 end
 local STEPS_A_FRAME = 40                         -- match frames simulated a frame while warming up
 
-local RNAME = { arm = "ARM", gpu = "GPU", aa = "GPU+AA", vs = "GPU+VS" }
+local RNAME = { arm = "ARM", gpu = "GPU", aa = "GPU+AA", vs1 = "GPU+VS1", vs = "GPU+VS" }
+local VS = { vs1 = 1, vs = 2 }                   -- the vertex shader: the scenery, every model
 
 -- ---------------------------------------------------------------- phases
 
 -- the ARM, the GPU, the GPU with anti-aliasing, the GPU with its vertex
--- shader (where this GPU has them)
+-- shader for the scenery and for every model (where this GPU has them)
 local function renderers()
   local on0, aa0, vs0 = gpu3d()
   local list = { "arm" }
   if gpu3d(true) then
     list[#list + 1] = "gpu"
-    local _, aa = gpu3d(true, true, false)
+    local _, aa = gpu3d(true, true, 0)
     if aa then list[#list + 1] = "aa" end
-    local _, _, vs = gpu3d(true, false, true)
-    if vs then list[#list + 1] = "vs" end
+    local _, _, vs = gpu3d(true, false, 2)
+    if vs then
+      list[#list + 1] = "vs1"
+      list[#list + 1] = "vs"
+    end
   end
-  gpu3d(on0, aa0, vs0)
+  gpu3d(on0, aa0, vs0 or 0)
   return list, on0, aa0, vs0
 end
 
 local function use_renderer(r)
-  gpu3d(r ~= "arm", r == "aa", r == "vs")
+  gpu3d(r ~= "arm", r == "aa", VS[r] or 0)
 end
 
 function Bench.start()
@@ -71,7 +75,7 @@ function Bench.start()
   end
   for _, r in ipairs(list) do Bench.phases[#Bench.phases + 1] = { kind = "ring", r = r, q = RING_Q } end
   if OVERBIT_BENCH_ONE then
-    local r, q = OVERBIT_BENCH_ONE:match("(%a+):(%d)")
+    local r, q = OVERBIT_BENCH_ONE:match("(%w+):(%d)")
     Bench.renderers = { r }
     Bench.phases = { { kind = "match", r = r, q = tonumber(q) } }
   end
@@ -90,7 +94,7 @@ local function restore()
   G.bot_diff = s.diff
   G.qauto = s.qauto
   Quality.set(s.q)
-  gpu3d(s.on, s.aa, s.vs)
+  gpu3d(s.on, s.aa, s.vs or 0)
   Match.bench = nil
 end
 
