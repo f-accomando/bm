@@ -108,7 +108,15 @@ prima di accendere lo schermo e il registro si scrive tre volte (prima dello sch
 - Comandi: 18 tasti su GPIO3, levette su SARADC canale 3 con commutatore; pagina *Input test*.
 - SD: controller SDMMC0 (DesignWare MSHC) in PIO, 4 bit, 12 MHz; FAT dal codice del Pi.
 - PMIC RK817 su I2C0: spegnimento, tensione della batteria, stato di carica.
-- Menu 512×512: giochi `.s16`, strumenti (Input test, System, Bluetooth, WiFi, Boot log, Lua sulla
+- Modalità video pronte per la GPU (`src/rgb30/display.h`): ogni framebuffer ha la forma che la
+  GPU Mali-G52 vuole per disegnarci (righe allineate a 64 byte, altezza a tessere da 16 pixel,
+  pagine su confini di 64 KiB, fino a 3 pagine) nella memoria video e GPU, con il suo indirizzo
+  fisico (`fb->bus`). Il controller video ingrandisce l'immagine sul pannello: un gioco può
+  disegnare a 720×720 o a 360×360 mostrato ×2 (un quarto dei pixel per la GPU), nitido o
+  sfumato; il menu resta 512×512 1:1. Pagina **Display** nel menu: le modalità una dopo l'altra
+  con un'immagine di prova (bordi, griglia delle tessere, barre di colore). La GPU stessa (driver
+  Mali) non c'è ancora.
+- Menu 512×512: giochi `.s16`, strumenti (Input test, System, Bluetooth, WiFi, Display, Boot log, Lua sulla
   seriale, Reboot, Power off).
 - Bluetooth: RTL8821CS su UART1, protocollo H5 (`src/bt/h5.c`) e firmware Realtek
   (`src/bt/rtlbt.c`), poi lo stesso stack del Pi (controller e tastiere). H5 e firmware **provati
@@ -173,7 +181,7 @@ WPA2/WPA3 miste); non WPA3 sola, WPA1, WEP, enterprise.
 | 0x00000000 | 0x00200000 | TF-A (BL31): non mappato |
 | 0x02000000 | | dove U-Boot carica `kernel8.img` (poi si sposta) |
 | 0x10000000 | | kernel (testo, dati, bss, stack 1 MiB, tabelle MMU), poi l'heap |
-| 0x3e000000 | 0x40000000 | framebuffer (non-cacheable) |
+| 0x3c000000 | 0x40000000 | memoria video e GPU, 64 MiB (non-cacheable): framebuffer, poi ciò che legge e scrive la GPU Mali |
 | 0xfc000000 | 0xffffffff | periferiche (GIC 0xfd400000, CRU 0xfdd20000, VOP2 0xfe040000, DSI0 0xfe060000, SDMMC0 0xfe2b0000, UART2 0xfe660000, …) |
 
 ## Licenze dei file scaricati

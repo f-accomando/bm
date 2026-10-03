@@ -92,7 +92,7 @@ struct __attribute__((packed)) ramfb_cfg {
     uint32_t fourcc, flags, width, height, stride;
 };
 
-static struct { uint32_t w, h, depth; } mode;
+static plat_mode_t mode;
 static char info[96];
 
 static int ramfb_write(uintptr_t addr)
@@ -107,7 +107,7 @@ static int ramfb_write(uintptr_t addr)
     cfg.flags = 0;
     cfg.width = __builtin_bswap32(mode.w);
     cfg.height = __builtin_bswap32(mode.h);
-    cfg.stride = __builtin_bswap32(mode.w * bpp);
+    cfg.stride = __builtin_bswap32(mode.pitch ? mode.pitch : mode.w * bpp);
     dma.control = __builtin_bswap32(((uint32_t)ramfb_key << 16) | 0x08 /* select */ | 0x10 /* write */);
     dma.length = __builtin_bswap32(sizeof cfg);
     dma.address = __builtin_bswap64((uintptr_t)&cfg);
@@ -123,14 +123,14 @@ static int ramfb_write(uintptr_t addr)
     return -3;
 }
 
-int plat_display_init(uint32_t w, uint32_t h, uint32_t depth, uintptr_t addr)
+int plat_display_init(const plat_mode_t *m, uintptr_t addr)
 {
     if (ramfb_key < 0)
         ramfb_key = find_ramfb();
-    mode.w = w; mode.h = h; mode.depth = depth;
+    mode = *m;                          /* shown 1:1: ramfb does not scale */
     int r = ramfb_write(addr);
     ksnprintf(info, sizeof info, "ramfb %lux%lu %lu bpp (fw_cfg key %d): %s",
-              w, h, depth, ramfb_key, r == 0 ? "ok" : "error");
+              m->w, m->h, m->depth, ramfb_key, r == 0 ? "ok" : "error");
     return r;
 }
 

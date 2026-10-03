@@ -1,29 +1,47 @@
 /*
- * drivers/fb.h on the AArch64 build: framebuffers in a fixed region at the
- * top of RAM (plat.h), mapped non-cacheable by mmu.c like the Pi's GPU
- * memory, so whatever is drawn reaches the display controller as it is.
- * Pages are allocated one after the other; fb_init frees and starts over.
+ * drivers/fb.h on the AArch64 build: framebuffers in the display and GPU
+ * memory at the top of RAM (plat.h), mapped non-cacheable by mmu.c like
+ * the Pi's GPU memory, so whatever the CPU draws reaches the display
+ * controller (and a GPU) as it is, and the other way round. The layout of
+ * every page is one a GPU can render into (display.h). fb_init frees the
+ * pages and starts over.
  */
-#include "drivers/fb.h"
+#include "display.h"
 #include "drivers/timer.h"
-#include "plat.h"
+
+static plat_mode_t shown_mode;
 
 int fb_init(framebuffer_t *fb, uint32_t width, uint32_t height, uint32_t buffers)
 {
-    return fb_init_depth(fb, width, height, buffers, 32);
+    return fb_init_mode(fb, width, height, buffers, 32, 1, 0);
 }
 
 int fb_init_depth(framebuffer_t *fb, uint32_t width, uint32_t height,
                   uint32_t buffers, uint32_t depth)
 {
+    return fb_init_mode(fb, width, height, buffers, depth, 1, 0);
+}
+
+int fb_init_mode(framebuffer_t *fb, uint32_t width, uint32_t height, uint32_t buffers,
+                 uint32_t depth, uint32_t scale, int smooth)
+{
     if (buffers < 1 || buffers > 3)
         buffers = 1;
     if (depth != 16)
         depth = 32;
-    uint32_t pitch = width * (depth / 8);    /* the display wants it packed */
-    if (pitch & 3)
+    if (width < 16 || height < 16 || width > 4096 || height > 4096)
         return -2;
-    uint32_t page = (pitch * height + 4095) & ~4095u;
+    if (scale == 0) {                   /* as big as fits */
+        scale = PLAT_PANEL_W / width < PLAT_PANEL_H / height ? PLAT_PANEL_W / width
+                                                             : PLAT_PANEL_H / height;
+        if (scale == 0)
+            scale = 1;
+    }
+    if (scale > 8)
+        scale = 8;
+    uint32_t pitch = (width * (depth / 8) + FB_ROW_ALIGN - 1) & ~(FB_ROW_ALIGN - 1);
+    uint32_t rows = (height + FB_TILE - 1) & ~(FB_TILE - 1);
+    uint32_t page = (pitch * rows + FB_PAGE_ALIGN - 1) & ~(FB_PAGE_ALIGN - 1);
     if ((uint64_t)page * buffers > PLAT_FB_END - PLAT_FB_START)
         return -1;
     fb->width = width;
@@ -31,15 +49,25 @@ int fb_init_depth(framebuffer_t *fb, uint32_t width, uint32_t height,
     fb->pitch = pitch;
     fb->is_rgb = 0;                     /* XRGB8888: B in the low byte */
     fb->mem = (uint8_t *)(uintptr_t)PLAT_FB_START;
+    fb->bus = (uint32_t)PLAT_FB_START;  /* identity map: the physical address */
     fb->base = fb->mem;
     fb->size = page * buffers;
     fb->buffers = buffers;
     fb->shown = 0;
     fb->vsync = -1;
     fb->depth = depth;
-    for (uint32_t *p = (uint32_t *)fb->mem, *e = (uint32_t *)(fb->mem + fb->size); p < e; p++)
+    for (uint64_t *p = (uint64_t *)fb->mem, *e = (uint64_t *)(fb->mem + fb->size); p < e; p++)
         *p = 0;
-    return plat_display_init(width, height, depth, (uintptr_t)fb->mem) == 0 ? 0 : -3;
+    plat_mode_t m = { width, height, depth, pitch, scale, smooth };
+    if (plat_display_init(&m, (uintptr_t)fb->mem) != 0)
+        return -3;
+    shown_mode = m;
+    return 0;
+}
+
+const plat_mode_t *fb_mode(void)
+{
+    return &shown_mode;
 }
 
 static void fill32(uint32_t *p, uint32_t v, uint32_t n)

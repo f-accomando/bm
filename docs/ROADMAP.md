@@ -2619,6 +2619,9 @@ Task:
    attraverso lo stesso U-Boot.
 3. **Schermo**: VOP2 → DSI0 → D-PHY → pannello ST7703 + retroilluminazione PWM4 (scritto, da
    provare sulla console); LED come segnale; `bm/bootlog.txt` scritto sulla SD a ogni avvio.
+   Modalità video pronte per la GPU Mali (richiesta 2026-10-03): framebuffer con il layout delle
+   destinazioni di rendering della GPU in 64 MiB di memoria video e GPU, ingrandimento del
+   controller video (720×720 1:1, 360×360 ×2, 240×240 ×3), pagina *Display* di prova.
 4. **Comandi, SD, menu**: tasti GPIO, levette (SARADC + commutatore), SDMMC0 in PIO, PMIC RK817
    (spegnimento, batteria), menu 512×512 con `.s16` e strumenti (scritti; in QEMU il menu e la FAT
    sono provati, sulla console da provare).

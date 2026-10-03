@@ -16,7 +16,7 @@
 #define PLAT_DEV_END    0x100000000ull
 #define PLAT_GICD       0xfd400000u
 #define PLAT_GICR       0xfd460000u
-#define PLAT_FB_START   0x3e000000u     /* framebuffers: top 32 MiB, uncached */
+#define PLAT_FB_START   0x3c000000u     /* display and GPU memory: top 64 MiB, uncached */
 #define PLAT_HEAP_END   PLAT_FB_START
 #elif defined(PLAT_VIRT)
 #define PLAT_NAME       "QEMU virt"
@@ -44,11 +44,21 @@ int  plat_uart_getc(void);             /* -1: nothing waiting */
 /* status LEDs (green, red): -1 leaves one as it is */
 void plat_led(int green, int red);
 
-/* The screen. plat_display_init() shows an image of w x h pixels, depth 32
- * (XRGB8888) or 16 (RGB565), centred on the panel (720x720 on the RGB30);
- * plat_display_show() makes the buffer at `addr` the one shown, from the
- * next frame. Returns 0 on success. */
-int  plat_display_init(uint32_t w, uint32_t h, uint32_t depth, uintptr_t addr);
+/* The screen. A mode is an image in memory, w x h pixels, depth 32
+ * (XRGB8888) or 16 (RGB565), pitch bytes per row, shown `scale` times bigger
+ * (1..8, scaled by the display controller: nearest neighbour, or smooth)
+ * and centred on the panel (720x720 on the RGB30); an image bigger than
+ * the panel is scaled down to fit. QEMU shows the image 1:1.
+ * plat_display_init() sets a mode; plat_display_show() makes the buffer at
+ * `addr` the one shown, from the next frame. Returns 0 on success. */
+#define PLAT_PANEL_W    720
+#define PLAT_PANEL_H    720
+typedef struct {
+    uint32_t w, h, depth, pitch;
+    uint32_t scale;
+    int smooth;
+} plat_mode_t;
+int  plat_display_init(const plat_mode_t *m, uintptr_t addr);
 void plat_display_show(uintptr_t addr);
 /* waits for the start of the next frame (vertical blank); 0 if it cannot */
 int  plat_display_wait_vsync(void);

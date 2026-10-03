@@ -8,6 +8,7 @@
 #include "ui.h"
 #include "pad.h"
 #include "plat.h"
+#include "display.h"
 #include "drivers/fb.h"
 #include "drivers/sd.h"
 #include "drivers/timer.h"
@@ -376,15 +377,82 @@ static void page_wifi(void)
     console_suspend(1);
 }
 
-enum { T_INPUT, T_SYSTEM, T_BT, T_WIFI, T_LOG, T_LUA, T_REBOOT, T_OFF, T_COUNT };
+/* --- the display modes a game (and the GPU) can use, with a test image --- */
+
+static const struct { uint32_t w, h, scale; int smooth; } modes[] = {
+    { 720, 720, 1, 0 },             /* the panel, 1:1 */
+    { 360, 360, 2, 0 },             /* a quarter of the pixels, sharp */
+    { 360, 360, 2, 1 },             /* the same, smooth */
+    { 240, 240, 3, 0 },
+    { 512, 512, 1, 0 },             /* the menu's */
+};
+
+static void test_image(int i)
+{
+    const plat_mode_t *m = fb_mode();
+    uint32_t w = fb->width, h = fb->height;
+    gfx_clear(fb, rgb(C_BG));
+    for (uint32_t x = 0; x < w; x += FB_TILE)     /* the GPU's 16-pixel tiles */
+        gfx_rect(fb, (int)x, 0, 1, (int)h, rgb(C_HEAD));
+    for (uint32_t y = 0; y < h; y += FB_TILE)
+        gfx_rect(fb, 0, (int)y, (int)w, 1, rgb(C_HEAD));
+    static const uint32_t bars[] = { 0xffffff, 0xffff00, 0x00ffff, 0x00ff00, 0xff00ff, 0xff0000,
+                                     0x0000ff, 0x000000 };
+    uint32_t bw = w / 8;
+    for (int b = 0; b < 8; b++)
+        gfx_rect(fb, (int)(b * bw), (int)(h - 64), (int)bw, 48, rgb(bars[b]));
+    for (uint32_t k = 0; k < w && k < h; k++) {   /* diagonals: the scaling's edges */
+        gfx_rect(fb, (int)k, (int)k, 1, 1, rgb(C_ACCENT));
+        gfx_rect(fb, (int)(w - 1 - k), (int)k, 1, 1, rgb(C_ACCENT));
+    }
+    gfx_rect(fb, 0, 0, (int)w, 1, rgb(C_OK));     /* the edges: all of it visible */
+    gfx_rect(fb, 0, (int)h - 1, (int)w, 1, rgb(C_OK));
+    gfx_rect(fb, 0, 0, 1, (int)h, rgb(C_OK));
+    gfx_rect(fb, (int)w - 1, 0, 1, (int)h, rgb(C_OK));
+    textf(16, 16, C_TEXT, C_BG, "%lux%lu x%lu %s", w, h, m->scale, m->smooth ? "smooth" : "sharp");
+    textf(16, 32, C_DIM, C_BG, "pitch %lu, %lu page%s", fb->pitch, fb->buffers,
+          fb->buffers == 1 ? "" : "s");
+    textf(16, 48, C_DIM, C_BG, "at %08lx", fb->bus);
+    text(16, 80, i + 1 < (int)(sizeof modes / sizeof modes[0]) ? "A: next mode" : "A: first mode",
+         C_ACCENT, C_BG);
+    text(16, 96, "B: back", C_ACCENT, C_BG);
+    fb_show(fb, 0);
+}
+
+static void page_display(void)
+{
+    int n = (int)(sizeof modes / sizeof modes[0]);
+    kprintf("display: test of the modes\n");
+    for (int i = 0;;) {
+        int r = fb_init_mode(fb, modes[i].w, modes[i].h, 2, 32, modes[i].scale, modes[i].smooth);
+        kprintf("display: %lux%lu x%lu %s: %s\n", modes[i].w, modes[i].h, modes[i].scale,
+                modes[i].smooth ? "smooth" : "sharp", r ? "refused" : "on");
+        if (r == 0)
+            test_image(i);
+        uint32_t p;
+        while (!(p = pad_pressed()))
+            timer_delay_ms(10);
+        if (p & PAD_B)
+            break;
+        if (p & (PAD_A | PAD_RIGHT | PAD_DOWN))
+            i = (i + 1) % n;
+        else if (p & (PAD_LEFT | PAD_UP))
+            i = (i + n - 1) % n;
+    }
+    fb_init(fb, W, H, 2);                           /* the menu's mode again */
+}
+
+enum { T_INPUT, T_SYSTEM, T_BT, T_WIFI, T_DISPLAY, T_LOG, T_LUA, T_REBOOT, T_OFF, T_COUNT };
 static const char *const tool_names[T_COUNT] = {
-    "Input test", "System", "Bluetooth", "WiFi", "Boot log", "Lua (serial)", "Reboot", "Power off",
+    "Input test", "System", "Bluetooth", "WiFi", "Display", "Boot log", "Lua (serial)", "Reboot",
+    "Power off",
 };
 static const char *const tool_help[T_COUNT] = {
     "every button and both sticks, live",
     "board, memory, SD card, display",
     "controllers and keyboards",
     "network (bm/config.txt: wifi_ssid, wifi_psk)",
+    "the screen modes for games and the GPU",
     "everything printed since boot",
     "a Lua prompt on the serial port",
     "restart the console",
@@ -398,6 +466,7 @@ static void run_tool(int t)
     case T_SYSTEM: page_system(); break;
     case T_BT: page_bt(); break;
     case T_WIFI: page_wifi(); break;
+    case T_DISPLAY: page_display(); break;
     case T_LOG: page_log(); break;
     case T_LUA: serial_lua(); break;
     case T_REBOOT: kprintf("rebooting...\n"); plat_reset();

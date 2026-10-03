@@ -299,6 +299,40 @@ def test_wifi_page_without_chip(b, opts):
         q.close()
 
 
+def test_display_modes(b, opts):
+    """The Display page: the modes a game or the GPU can use, each with its
+    test image (QEMU shows the image 1:1: the screen takes its size), the
+    GPU's layout (rows of 64 bytes); B goes back to the menu's 512x512."""
+    q = Qemu(os.path.join(b, "kernel.elf"))
+    try:
+        boot(q)
+        for k in "ssss":                        # Input test, System, Bluetooth, WiFi, Display
+            q.send(k)
+            time.sleep(0.25)
+        q.send("\r")
+        q.expect("720x720 x1 sharp: on", timeout=10)
+        time.sleep(0.5)
+        img = q.screendump()
+        assert img[0] == 720 and img[1] == 720, f"screen {img[0]}x{img[1]}"
+        text = "\n".join(screen_text(img))
+        assert "720x720 x1 sharp" in text and "pitch 2880, 2 pages" in text, text
+        assert "at 3c000000" in text or "at 5e000000" in text, text
+        q.send("\r")                            # A: the next mode
+        q.expect("360x360 x2 sharp: on", timeout=10)
+        time.sleep(0.5)
+        img = q.screendump()
+        assert img[0] == 360 and img[1] == 360, f"screen {img[0]}x{img[1]}"
+        text = "\n".join(screen_text(img))
+        assert "360x360 x2 sharp" in text and "pitch 1472" in text, text   # 1440 -> 64-byte rows
+        q.send("\x7f")                          # B: back
+        time.sleep(0.8)
+        img = q.screendump()
+        assert img[0] == SCREEN and img[1] == SCREEN, f"screen {img[0]}x{img[1]}"
+        assert "Up/Down: choose" in screen_all(img)
+    finally:
+        q.close()
+
+
 def test_menu_input_page(b, opts):
     """Down to the input test, A opens it, the serial port presses buttons."""
     q = Qemu(os.path.join(b, "kernel.elf"))

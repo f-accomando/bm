@@ -36,7 +36,7 @@
 
 static struct {
     int up, failed, problem;
-    uint32_t w, h, depth;
+    uint32_t w, h, depth, out_w, out_h;     /* out: on the panel */
     char info[320];
     int pos;
 } d;
@@ -185,25 +185,48 @@ static uint16_t scale_factor(uint32_t src, uint32_t dst)
     return (uint16_t)((((src - 1) << shift) + dst - 2) / (dst - 1) - 1);
 }
 
-/* Esmart0: the image centred, or scaled to the panel when bigger */
-static void window(uint32_t w, uint32_t h, uint32_t depth, uintptr_t addr)
+/* Esmart0: the image scaled by the mode (up: nearest neighbour or smooth;
+ * down when bigger than the panel), centred (rockchip_drm_vop2.c
+ * vop2_setup_scale) */
+static void window(const plat_mode_t *m, uintptr_t addr)
 {
-    uint32_t dw = w > PANEL_W ? PANEL_W : w, dh = h > PANEL_H ? PANEL_H : h;
+    uint32_t w = m->w, h = m->h, s = m->scale ? m->scale : 1;
+    uint32_t dw = w * s, dh = h * s;
+    if (dw > PANEL_W)
+        dw = PANEL_W;
+    if (dh > PANEL_H)
+        dh = PANEL_H;
+    if (w > dw && (dw & 1))
+        dw--;                                       /* even when scaling down */
     uint32_t x = (PANEL_W - dw) / 2, y = (PANEL_H - dh) / 2;
+    /* a vertical shrink by 2 or 4 first drops lines (GT2, GT4) */
+    uint32_t sh = h, gt = 0;
+    if (h >= 4 * dh) {
+        gt = 2;
+        sh = h >> 2;
+    } else if (h >= 2 * dh) {
+        gt = 1;
+        sh = h >> 1;
+    }
+    /* modes: 0 none, 1 up, 2 down; filters up: 0 nearest, 2 bicubic (hor)
+     * or 1 bilinear (ver); down: 1 bilinear */
+    uint32_t hm = w < dw ? 1 : w > dw ? 2 : 0, vm = sh < dh ? 1 : sh > dh ? 2 : 0;
+    uint32_t hf = hm == 1 ? (m->smooth ? 2 : 0) : hm == 2 ? 1 : 0;
+    uint32_t vf = vm == 1 ? (m->smooth ? 1 : 0) : vm == 2 ? 1 : 0;
     writel(ESMART0 + 0x00, 0);
     writel(ESMART0 + 0x04, readl(ESMART0 + 0x04) & ~(1u << 31));
-    writel(ESMART0 + 0x1c, w * (depth / 8) / 4);    /* stride in words */
+    writel(ESMART0 + 0x1c, m->pitch / 4);           /* stride in words */
     writel(ESMART0 + 0x14, (uint32_t)addr);
-    uint16_t sx = scale_factor(w, dw), sy = scale_factor(h, dh);
-    writel(ESMART0 + 0x34, (uint32_t)sy << 16 | sx);
-    /* scaling down when bigger: bilinear (mode 2 = down, filter 1) */
-    writel(ESMART0 + 0x30, (sx ? (2u | 1u << 2) : 0) | (sy ? (2u << 4 | 1u << 6) : 0));
+    writel(ESMART0 + 0x34, (uint32_t)scale_factor(sh, dh) << 16 | scale_factor(w, dw));
+    writel(ESMART0 + 0x30, hm | hf << 2 | vm << 4 | vf << 6);
     writel(ESMART0 + 0xd0, 0);
     writel(ESMART0 + 0x20, (h - 1) << 16 | (w - 1));
     writel(ESMART0 + 0x24, (dh - 1) << 16 | (dw - 1));
     writel(ESMART0 + 0x28, y << 16 | x);
-    writel(ESMART0 + 0x10, depth == 16 ? 0x00001005u : 0x00000001u);
+    writel(ESMART0 + 0x10, (m->depth == 16 ? 0x00001005u : 0x00000001u) | gt << 8);
     writel(VOP + 0x000, CFG_DONE_VP1);
+    d.out_w = dw;
+    d.out_h = dh;
 }
 
 /* --- backlight: PWM4 on GPIO0_C3, 25 us period from the 24 MHz crystal --- */
@@ -219,7 +242,7 @@ static void backlight(unsigned percent)
     writel(PWM4 + 0x0c, 0x0b);                      /* enable, continuous, duty high */
 }
 
-int plat_display_init(uint32_t w, uint32_t h, uint32_t depth, uintptr_t addr)
+int plat_display_init(const plat_mode_t *m, uintptr_t addr)
 {
     if (d.failed)
         return -1;
@@ -246,7 +269,7 @@ int plat_display_init(uint32_t w, uint32_t h, uint32_t depth, uintptr_t addr)
         LOG("%s", dsi);
         plat_led(0, 1);
         d.up = 1;
-        window(w, h, depth, addr);
+        window(m, addr);
         timer_delay_ms(20);
         backlight(80);
         uint32_t st = readl(VOP + 0x0bc);
@@ -257,7 +280,7 @@ int plat_display_init(uint32_t w, uint32_t h, uint32_t depth, uintptr_t addr)
         d.problem = r != 0;
         return 0;
     }
-    window(w, h, depth, addr);
+    window(m, addr);
     return 0;
 }
 
