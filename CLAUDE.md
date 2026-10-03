@@ -164,6 +164,17 @@ screenshot in `docs/img/`), `README_OLD.md` (il README completo, in italiano),
   mech out.ppm` (una, da quattro lati e nelle pose); guardarle dopo ogni modifica.
   Una faccia si vede dal lato in senso orario: i primitivi passano per `face_out()`
   con un punto interno al solido. Un'unità = un blocco; il modello guarda verso −z.
+- **Linguaggio delle parti** (`src/ai/mesh_script.c`, una riga per primitivo, la grammatica
+  in testa al file; `ai.script(testo)` in Lua, `meshview script FILE OUT.ppm` e `meshview
+  json FILE OUT.json` sul PC). **img2mesh** (`tools/img2mesh.py`): un'immagine diventa un
+  modello: Claude (API Anthropic, `claude-opus-5-5`, SDK `anthropic`) guarda l'immagine e
+  scrive lo script, `meshview` lo costruisce e lo disegna, i render tornano al modello per
+  due giri di correzione, il `.bm` esce con MESH e ANIM (`bmmesh.encode_faces`,
+  `encode_anim`, `decode_anim`; `mkbm.pack` o le sezioni di una cartuccia esistente).
+  Esempio e test: `tests/ai/img2mesh/mech.txt` (il mech della ricetta nel linguaggio),
+  `tests/ai/img2mesh/replay/` (risposte registrate: `make test-img2mesh` non chiama l'API),
+  `test_img2mesh` in QEMU. Serve `ANTHROPIC_API_KEY` o un profilo `ant auth login` solo per
+  usarlo davvero.
 - Dopo aver cambiato la base di conoscenza: `make ai-model` (numpy) e commit di
   `src/ai/assist.weights`; `make test-ai` controlla C contro Python, domande di prova,
   esempi di codice e pannello.

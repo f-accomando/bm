@@ -6,6 +6,7 @@
  *
  *   test_ai build/assist.bin build/ai/ref.txt
  */
+#include <math.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -280,6 +281,47 @@ static void test_meshes(void)
     printf("3D recipes: %d, the mech (%d faces) in %.2f ms\n", mesh_recipes(), a.nfaces, ms);
 }
 
+/* the part language: the mech script gives the recipe's model, errors name the line */
+static void test_script(void)
+{
+    static mesh_model_t a, b;
+    static char text[1 << 16];
+    char err[128];
+    FILE *f = fopen("tests/ai/img2mesh/mech.txt", "rb");
+    if (!f) {
+        printf("tests/ai/img2mesh/mech.txt not here: the script test is skipped\n");
+        return;
+    }
+    size_t n = fread(text, 1, sizeof text - 1, f);
+    fclose(f);
+    text[n] = 0;
+    CHECK(mesh_script(text, &a, err, sizeof err) == 0, "mech script: %s", err);
+    mesh_req_t r;
+    mesh_req_init(&r, "mech");
+    mesh_make(&r, &b);
+    CHECK(a.nfaces == b.nfaces && a.nbones == b.nbones && a.nclips == b.nclips,
+          "the script makes the recipe's mech: %d faces %d bones %d clips (recipe %d %d %d)",
+          a.nfaces, a.nbones, a.nclips, b.nfaces, b.nbones, b.nclips);
+    /* the same corners, whatever the order of the faces: their sums agree */
+    double sa[3] = { 0, 0, 0 }, sb[3] = { 0, 0, 0 };
+    for (int i = 0; i < a.nfaces; i++)
+        for (int k = 0; k < a.faces[i].n; k++)
+            for (int d = 0; d < 3; d++) { sa[d] += a.faces[i].p[k][d]; sb[d] += b.faces[i].p[k][d]; }
+    CHECK(fabs(sa[0] - sb[0]) < 1 && fabs(sa[1] - sb[1]) < 1 && fabs(sa[2] - sb[2]) < 1,
+          "the script's corners are the recipe's (%g %g %g vs %g %g %g)", sa[0], sa[1], sa[2], sb[0], sb[1], sb[2]);
+    CHECK(mesh_script("mat 1 FF0000\nbx 0 0 0 1 1 1 1\n", &a, err, sizeof err) == 0 && a.nfaces == 6 && a.nbones == 0,
+          "a cube script: %s", err);
+    CHECK(mesh_script("mat 1 FF0000\nbox 0 0 0 1 1\n", &a, err, sizeof err) == -1 && !strncmp(err, "line 2:", 7),
+          "a short box: %s", err);
+    CHECK(mesh_script("mat 1 FF0000\n# nothing\n", &a, err, sizeof err) == -1 && strstr(err, "no faces"), "no faces: %s", err);
+    CHECK(mesh_script("bone a - 0 0 0 0 1 0\nuse b\nbx 0 0 0 1 1 1 1\n", &a, err, sizeof err) == -1 &&
+          strstr(err, "no such bone"), "unknown bone: %s", err);
+    CHECK(mesh_script("bone a.L - 0.5 0 0 0.5 1 0\nuse a.L\nside\nbx 0.5 0 0 1 1 1 1\nmirror a.L\nclip go 1 loop\nkey 0\nturn a.R 10 0 0\n",
+                      &a, err, sizeof err) == 0 && a.nbones == 2 && a.nfaces == 12 && !strcmp(a.bones[1].name, "a.R") &&
+          a.nclips == 1, "mirror and a clip: %s", err);
+    CHECK(a.faces[6].p[0][0] <= 0 && a.faces[6].b[0] == 1, "the mirrored faces on the mirrored bone");
+}
+
 static void sprite_sheet(const char *path)
 {
     enum { Z = 3, CW = 6 * 18 + 2 * 34 + 2 * 10, RH = 34 };
@@ -345,6 +387,7 @@ int main(int argc, char **argv)
     test_speed();
     test_sprites();
     test_meshes();
+    test_script();
 
     printf("%d checks, %d failed\n", checks, fails);
     return fails != 0;

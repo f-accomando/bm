@@ -20,6 +20,8 @@
  *                               clips = { {name, loop, length, mode, keys = {{t, pose}}} }}
  *                               as bm Studio and bm Animator keep them (bm3d.lua)
  *   list = ai.recipes("mesh")   {id, name, rigged} of every 3D recipe
+ *   m = ai.script(text)         a model written in the part language (mesh_script.c),
+ *                               the same table, or nil and the error ("line 3: ...")
  *   crc = ai.checksum(question) CRC-32 of the network's outputs (tests)
  */
 #include "lua_ai.h"
@@ -272,59 +274,15 @@ static void push_v3(lua_State *L, const float *v)
     }
 }
 
-static int l_mesh(lua_State *L)
+/* the table of a model (mesh.h) as bm3d.lua keeps it: faces with their
+ * corners, colour and bones (1-based), the bones, the animations */
+static void push_model(lua_State *L, const mesh_model_t *mp, const char *gen, const char *name, uint32_t seed)
 {
-    const char *q = luaL_checkstring(L, 1);
-    int has_opts = lua_istable(L, 2);
-    ready(L);
-    const char *gen = NULL, *title = NULL;
-    if (has_opts) {
-        lua_getfield(L, 2, "gen");
-        const char *g = lua_tostring(L, -1);
-        if (g && mesh_find(g) >= 0)
-            gen = mesh_recipe_id(mesh_find(g));
-        lua_pop(L, 1);
-    }
-    if (!gen && mesh_find(q) >= 0)
-        gen = mesh_recipe_id(mesh_find(q));
-    if (!gen) {
-        ai_hit_t hit;
-        if (ai_ask(q, NULL, AI_KIND_MESH, &hit, 1) == 1 && hit.score >= 0.15f) {
-            ai_entry_t e;
-            ai_get(hit.entry, &e);
-            if (mesh_find(e.gen) >= 0) {
-                gen = mesh_recipe_id(mesh_find(e.gen));
-                title = e.title;
-            }
-        }
-    }
-    if (!gen) {
-        lua_pushnil(L);
-        lua_pushstring(L, "no 3D recipe for that");
-        return 2;
-    }
-    mesh_req_t r;
-    mesh_req_init(&r, gen);
-    mesh_parse(q, &r);
-    if (has_opts) {
-        lua_getfield(L, 2, "seed");
-        if (!lua_isnil(L, -1)) r.seed = (uint32_t)luaL_checkinteger(L, -1);
-        lua_getfield(L, 2, "scale");
-        if (!lua_isnil(L, -1)) r.scale *= (float)luaL_checknumber(L, -1);
-        lua_getfield(L, 2, "rig");
-        if (!lua_isnil(L, -1)) r.rig = r.rig && lua_toboolean(L, -1);
-        lua_pop(L, 3);
-    }
-    /* the model is big (MESH_MAX_FACES): it lives only while the table is made */
-    mesh_model_t *mp = malloc(sizeof *mp);
-    if (!mp)
-        return luaL_error(L, "assistant: no memory for the model");
-    mesh_make(&r, mp);
 #define m (*mp)
     lua_createtable(L, 0, 7);
     field_str(L, "gen", gen);
-    field_str(L, "name", title ? title : mesh_recipe_name(mesh_find(gen)));
-    lua_pushinteger(L, r.seed);
+    field_str(L, "name", name);
+    lua_pushinteger(L, (lua_Integer)seed);
     lua_setfield(L, -2, "seed");
     lua_createtable(L, m.nfaces, 0);
     for (int i = 0; i < m.nfaces; i++) {
@@ -403,6 +361,77 @@ static int l_mesh(lua_State *L)
         lua_setfield(L, -2, "clips");
     }
 #undef m
+}
+
+static int l_mesh(lua_State *L)
+{
+    const char *q = luaL_checkstring(L, 1);
+    int has_opts = lua_istable(L, 2);
+    ready(L);
+    const char *gen = NULL, *title = NULL;
+    if (has_opts) {
+        lua_getfield(L, 2, "gen");
+        const char *g = lua_tostring(L, -1);
+        if (g && mesh_find(g) >= 0)
+            gen = mesh_recipe_id(mesh_find(g));
+        lua_pop(L, 1);
+    }
+    if (!gen && mesh_find(q) >= 0)
+        gen = mesh_recipe_id(mesh_find(q));
+    if (!gen) {
+        ai_hit_t hit;
+        if (ai_ask(q, NULL, AI_KIND_MESH, &hit, 1) == 1 && hit.score >= 0.15f) {
+            ai_entry_t e;
+            ai_get(hit.entry, &e);
+            if (mesh_find(e.gen) >= 0) {
+                gen = mesh_recipe_id(mesh_find(e.gen));
+                title = e.title;
+            }
+        }
+    }
+    if (!gen) {
+        lua_pushnil(L);
+        lua_pushstring(L, "no 3D recipe for that");
+        return 2;
+    }
+    mesh_req_t r;
+    mesh_req_init(&r, gen);
+    mesh_parse(q, &r);
+    if (has_opts) {
+        lua_getfield(L, 2, "seed");
+        if (!lua_isnil(L, -1)) r.seed = (uint32_t)luaL_checkinteger(L, -1);
+        lua_getfield(L, 2, "scale");
+        if (!lua_isnil(L, -1)) r.scale *= (float)luaL_checknumber(L, -1);
+        lua_getfield(L, 2, "rig");
+        if (!lua_isnil(L, -1)) r.rig = r.rig && lua_toboolean(L, -1);
+        lua_pop(L, 3);
+    }
+    /* the model is big (MESH_MAX_FACES): it lives only while the table is made */
+    mesh_model_t *mp = malloc(sizeof *mp);
+    if (!mp)
+        return luaL_error(L, "assistant: no memory for the model");
+    mesh_make(&r, mp);
+    push_model(L, mp, gen, title ? title : mesh_recipe_name(mesh_find(gen)), r.seed);
+    free(mp);
+    return 1;
+}
+
+/* ai.script(text): a model written in the part language (mesh_script.c),
+ * the same table as ai.mesh, or nil and the error */
+static int l_script(lua_State *L)
+{
+    const char *text = luaL_checkstring(L, 1);
+    mesh_model_t *mp = malloc(sizeof *mp);
+    if (!mp)
+        return luaL_error(L, "assistant: no memory for the model");
+    char err[128];
+    if (mesh_script(text, mp, err, sizeof err)) {
+        free(mp);
+        lua_pushnil(L);
+        lua_pushstring(L, err);
+        return 2;
+    }
+    push_model(L, mp, "script", "script", 1);
     free(mp);
     return 1;
 }
@@ -434,7 +463,7 @@ static int l_recipes(lua_State *L)
 
 static const luaL_Reg fns[] = {
     { "ask", l_ask }, { "entry", l_entry }, { "list", l_list }, { "near", l_near },
-    { "sprite", l_sprite }, { "recipes", l_recipes }, { "checksum", l_checksum }, { "mesh", l_mesh },
+    { "sprite", l_sprite }, { "recipes", l_recipes }, { "checksum", l_checksum }, { "mesh", l_mesh }, { "script", l_script },
     { NULL, NULL },
 };
 

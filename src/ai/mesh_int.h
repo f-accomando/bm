@@ -85,6 +85,10 @@ mesh_key_t *key(mesh_clip_t *k, float t);
 void turn(mesh_key_t *k, int b, float rx, float ry, float rz);
 void shift(mesh_key_t *k, int b, float x, float y, float z);
 
+/* before and after a recipe or a script (mesh.c) */
+void mesh_reset_materials(mc_t *c);
+void mesh_finish(mesh_model_t *out, float scale, float tall, float wide, int rig);
+
 /* the characters (mesh_chars.c) */
 void r_hero(mc_t *c);
 void r_knight(mc_t *c);

@@ -273,7 +273,7 @@ test-nano8: $(BUILD)/host/n8host $(BUILD)/host/n8cartinfo $(BUILD)/host/luahost 
 
 .DEFAULT_GOAL := all
 .PHONY: FORCE test-smp all clean firmware image image-pi1 sdcard install sdcard-chainloader sdcard-stress qemu qemu7 qemu-screenshot \
-        run-serial test test-bm test-ai ai-model test-usb test-audio test-fat test-kitchen test-titan test-sound test-nano8 \
+        run-serial test test-bm test-ai test-img2mesh ai-model test-usb test-audio test-fat test-kitchen test-titan test-sound test-nano8 \
         test-net test-http test-https test-release release disasm wav test-studio test-studio-ui studio test-prompts test-hyp test-zero2 \
         showreel
 
@@ -611,7 +611,7 @@ test-prompts: $(BUILD)/host/test_prompts
 
 # The assistant (M30): C features and network against the Python reference,
 # answers to the held-out questions, sprite generator
-AI_SRCS := src/ai/assist.c src/ai/nn.c src/ai/text.c src/ai/sprite.c src/ai/mesh.c src/ai/mesh_chars.c
+AI_SRCS := src/ai/assist.c src/ai/nn.c src/ai/text.c src/ai/sprite.c src/ai/mesh.c src/ai/mesh_chars.c src/ai/mesh_script.c
 $(BUILD)/host/test_ai: tests/ai/test_ai.c $(AI_SRCS) src/ai/*.h src/lib/crc32.c
 	@mkdir -p $(dir $@)
 	$(HOSTCC) -O2 -Wall -Wextra -Isrc -o $@ tests/ai/test_ai.c $(AI_SRCS) src/lib/crc32.c -lm
@@ -634,6 +634,18 @@ test-ai: $(BUILD)/host/test_ai $(BUILD)/assist.bin $(BUILD)/host/luahost $(BUILD
 	$(BUILD)/host/luahost tests/ai/check_snippets.lua $(BUILD)/ai/snippets.txt
 	$(BUILD)/host/luaai $(BUILD)/assist.bin tests/ai/panel_test.lua
 	$(BUILD)/host/luaai $(BUILD)/assist.bin tests/ai/act_test.lua
+	$(MAKE) test-img2mesh
+
+# tools/img2mesh.py offline: the recorded replies (the mech in the part
+# language) become a .bm with the model, then one more model in it
+test-img2mesh: $(BUILD)/host/meshview
+	rm -rf $(BUILD)/img2mesh/test $(BUILD)/img2mesh/test.bm
+	$< one knight $(BUILD)/img2mesh/knight.ppm > /dev/null
+	$(PYTHON) tools/img2mesh.py $(BUILD)/img2mesh/knight.ppm -o $(BUILD)/img2mesh/test.bm --name mech \
+	    --replay tests/ai/img2mesh/replay --work $(BUILD)/img2mesh/test --rounds 1
+	$(PYTHON) tools/img2mesh.py $(BUILD)/img2mesh/knight.ppm -o $(BUILD)/img2mesh/test.bm --name mech2 \
+	    --replay tests/ai/img2mesh/replay --work $(BUILD)/img2mesh/test2 --rounds 0
+	$(PYTHON) tests/ai/check_img2mesh.py $(BUILD)/img2mesh/test.bm
 
 # bm Studio (sdk/studio): its core in Node (the .bm, PNG and glTF it writes,
 # the editing geometry), then the same files read by the Python of the build

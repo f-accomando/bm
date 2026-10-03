@@ -81,6 +81,10 @@ void mesh_parse(const char *text, mesh_req_t *r);
 /* 0, or -1 for an unknown recipe */
 int mesh_make(const mesh_req_t *r, mesh_model_t *out);
 
+/* a model written in the part language (mesh_script.c): 0, or -1 with the
+ * error ("line 12: ...") in err */
+int mesh_script(const char *text, mesh_model_t *out, char *err, int errlen);
+
 /* the recipes: id, a short English name, and whether it has a skeleton */
 int mesh_recipes(void);
 const char *mesh_recipe_id(int i);

@@ -7,6 +7,9 @@
  *
  *   meshview sheet OUT.ppm                    every recipe, seeds 1-3
  *   meshview one RECIPE OUT.ppm [seed] [words] four views and the clips
+ *   meshview script IN.txt OUT.ppm            a model in the part language, the same
+ *   meshview json IN.txt OUT.json             the model of a script as JSON (tools/img2mesh.py)
+ *   meshview json RECIPE OUT.json             the same for a recipe
  */
 #include <math.h>
 #include <stdio.h>
@@ -217,9 +220,106 @@ static void save(const img_t *im, const char *path)
     fclose(f);
 }
 
+static char *read_text(const char *path)
+{
+    FILE *f = fopen(path, "rb");
+    if (!f) { perror(path); exit(2); }
+    fseek(f, 0, SEEK_END);
+    long n = ftell(f);
+    fseek(f, 0, SEEK_SET);
+    char *s = malloc((size_t)n + 1);
+    if (fread(s, 1, (size_t)n, f) != (size_t)n) { perror(path); exit(2); }
+    s[n] = 0;
+    fclose(f);
+    return s;
+}
+
+/* a script file, or a recipe's id */
+static int load(const char *what, mesh_model_t *m)
+{
+    if (mesh_find(what) >= 0) {
+        mesh_req_t r;
+        mesh_req_init(&r, what);
+        return mesh_make(&r, m);
+    }
+    char *text = read_text(what);
+    char err[128];
+    int r = mesh_script(text, m, err, sizeof err);
+    free(text);
+    if (r) fprintf(stderr, "%s: %s\n", what, err);
+    return r;
+}
+
+/* the four views and the poses of a model into an image file */
+static void views(const mesh_model_t *m, const char *path)
+{
+    enum { S = 300 };
+    int nposes = 4 * m->nclips;
+    int rows = 1 + (nposes + 3) / 4;
+    img_t im = img_new(S * 4, S * rows, 0x202830);
+    static const float yaws[4] = { 0, 0.7f, 1.5708f, 3.1416f };
+    for (int v = 0; v < 4; v++) draw_model(&im, m, v * S, 0, S, S, yaws[v], -1, 0);
+    int slot = 4;
+    for (int k = 0; k < m->nclips; k++)
+        for (int j = 0; j < 4; j++, slot++)
+            draw_model(&im, m, (slot % 4) * S, (slot / 4) * S, S, S, 0.7f, k, m->clips[k].length * (float)j / 4);
+    save(&im, path);
+}
+
+static void json(const mesh_model_t *m, const char *path)
+{
+    FILE *f = fopen(path, "wb");
+    if (!f) { perror(path); exit(2); }
+    fprintf(f, "{\"faces\": [");
+    for (int i = 0; i < m->nfaces; i++) {
+        const mesh_face_t *fc = &m->faces[i];
+        fprintf(f, "%s{\"p\": [", i ? ",\n" : "\n");
+        for (int k = 0; k < fc->n; k++)
+            fprintf(f, "%s[%g, %g, %g]", k ? ", " : "", fc->p[k][0], fc->p[k][1], fc->p[k][2]);
+        fprintf(f, "], \"c\": %u, \"b\": [", fc->c);
+        for (int k = 0; k < fc->n; k++) fprintf(f, "%s%d", k ? ", " : "", fc->b[k]);
+        fprintf(f, "]}");
+    }
+    fprintf(f, "],\n\"bones\": [");
+    for (int i = 0; i < m->nbones; i++) {
+        const mesh_bone_t *b = &m->bones[i];
+        fprintf(f, "%s{\"name\": \"%s\", \"parent\": %d, \"head\": [%g, %g, %g], \"tail\": [%g, %g, %g]}",
+                i ? ",\n" : "\n", b->name, b->parent, b->head[0], b->head[1], b->head[2], b->tail[0], b->tail[1], b->tail[2]);
+    }
+    fprintf(f, "],\n\"clips\": [");
+    for (int k = 0; k < m->nclips; k++) {
+        const mesh_clip_t *c = &m->clips[k];
+        fprintf(f, "%s{\"name\": \"%s\", \"loop\": %s, \"length\": %g, \"keys\": [", k ? ",\n" : "\n",
+                c->name, c->loop ? "true" : "false", c->length);
+        for (int j = 0; j < c->nkeys; j++) {
+            fprintf(f, "%s{\"t\": %g, \"pose\": [", j ? ", " : "", c->keys[j].t);
+            for (int b = 0; b < m->nbones; b++) {
+                const mesh_pose_t *p = &c->keys[j].pose[b];
+                fprintf(f, "%s{\"q\": [%g, %g, %g, %g], \"t\": [%g, %g, %g]}", b ? ", " : "",
+                        p->q[0], p->q[1], p->q[2], p->q[3], p->t[0], p->t[1], p->t[2]);
+            }
+            fprintf(f, "]}");
+        }
+        fprintf(f, "]}");
+    }
+    fprintf(f, "]}\n");
+    fclose(f);
+}
+
 int main(int argc, char **argv)
 {
     static mesh_model_t m;
+    if (argc >= 4 && !strcmp(argv[1], "script")) {
+        if (load(argv[2], &m)) return 1;
+        views(&m, argv[3]);
+        printf("%s: %d faces, %d bones, %d clips\n", argv[2], m.nfaces, m.nbones, m.nclips);
+        return 0;
+    }
+    if (argc >= 4 && !strcmp(argv[1], "json")) {
+        if (load(argv[2], &m)) return 1;
+        json(&m, argv[3]);
+        return 0;
+    }
     if (argc >= 3 && !strcmp(argv[1], "sheet")) {
         enum { CW = 160, RH = 160, COLS = 6 };
         int n = mesh_recipes();
@@ -258,6 +358,6 @@ int main(int argc, char **argv)
         printf("\n");
         return 0;
     }
-    fprintf(stderr, "usage: meshview sheet OUT.ppm | one RECIPE OUT.ppm [seed] [words]\n");
+    fprintf(stderr, "usage: meshview sheet OUT.ppm | one RECIPE OUT.ppm [seed] [words] | script IN.txt OUT.ppm | json IN.txt|RECIPE OUT.json\n");
     return 2;
 }

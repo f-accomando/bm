@@ -1137,38 +1137,28 @@ int mesh_find(const char *gen)
 
 static float snap(float v) { return floorf(v * 256.0f + 0.5f) / 256.0f; }
 
-int mesh_make(const mesh_req_t *r, mesh_model_t *out)
+/* the materials before a recipe or a script: grey, none chosen by words */
+void mesh_reset_materials(mc_t *c)
 {
-    int i = mesh_find(r->gen);
-    if (i < 0)
-        return -1;
-    static mc_t c;
-    memset(&c, 0, sizeof c);
-    memset(out, 0, sizeof *out);
-    c.m = out;
-    c.seed = r->seed ? r->seed : 1;
-    c.rng = c.seed * 2654435761u + 12345u;
-    for (int k = 0; k < 4; k++) mrnd(&c);
-    c.tall = r->tall > 0 ? r->tall : 1;
-    c.wide = r->wide > 0 ? r->wide : 1;
-    c.rig = r->rig;
     memset(locked, 0, sizeof locked);
-    for (int k = 0; k < NMAT; k++) c.col[k] = 0x8A8A9A;
-    for (int k = 0; k < 2; k++)
-        if (r->color[k] != MESH_NO_COLOR) {
-            c.col[k + 1] = r->color[k];
-            locked[k + 1] = 1;
-        }
-    recipes[i].fn(&c);
-    if (!r->rig) {
+    for (int k = 0; k < NMAT; k++) {
+        c->col[k] = 0x8A8A9A;
+        c->flat[k] = 0;
+    }
+}
+
+/* after a recipe or a script: the skeleton dropped if not wanted, the
+ * request's size and proportions, then a grid of 1/256 */
+void mesh_finish(mesh_model_t *out, float scale, float tall, float wide, int rig)
+{
+    if (!rig) {
         out->nbones = 0;
         out->nclips = 0;
         for (int f = 0; f < out->nfaces; f++)
             memset(out->faces[f].b, 0, 4);
     }
-    /* the request's size and proportions, then a grid of 1/256 */
-    float s = r->scale > 0 ? r->scale : 1;
-    float sx = s * c.wide, sy = s * c.tall, sz = s * c.wide;
+    float s = scale > 0 ? scale : 1;
+    float sx = s * (wide > 0 ? wide : 1), sy = s * (tall > 0 ? tall : 1), sz = sx;
     for (int f = 0; f < out->nfaces; f++)
         for (int k = 0; k < 4; k++) {
             out->faces[f].p[k][0] = snap(out->faces[f].p[k][0] * sx);
@@ -1186,5 +1176,30 @@ int mesh_make(const mesh_req_t *r, mesh_model_t *out)
                 float *t = out->clips[k].keys[j].pose[b].t;
                 t[0] *= sx; t[1] *= sy; t[2] *= sz;
             }
+}
+
+int mesh_make(const mesh_req_t *r, mesh_model_t *out)
+{
+    int i = mesh_find(r->gen);
+    if (i < 0)
+        return -1;
+    static mc_t c;
+    memset(&c, 0, sizeof c);
+    memset(out, 0, sizeof *out);
+    c.m = out;
+    c.seed = r->seed ? r->seed : 1;
+    c.rng = c.seed * 2654435761u + 12345u;
+    for (int k = 0; k < 4; k++) mrnd(&c);
+    c.tall = r->tall > 0 ? r->tall : 1;
+    c.wide = r->wide > 0 ? r->wide : 1;
+    c.rig = r->rig;
+    mesh_reset_materials(&c);
+    for (int k = 0; k < 2; k++)
+        if (r->color[k] != MESH_NO_COLOR) {
+            c.col[k + 1] = r->color[k];
+            locked[k + 1] = 1;
+        }
+    recipes[i].fn(&c);
+    mesh_finish(out, r->scale, c.tall, c.wide, r->rig);
     return 0;
 }

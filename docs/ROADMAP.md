@@ -1648,6 +1648,28 @@ Task:
    ossa e clip, variante, stesso seme stesso modello, parole), il pannello sul PC,
    `tools3d_host.lua` (F6 nel Studio con un `ai` finto), `test_studio_assistant` in QEMU.
    Dopo: texture dallo sheet, ricette composte ("un villaggio"), più varianti per ricetta.
+12. ✅ **img2mesh: un'immagine diventa un modello** (2026-10-03, `tools/img2mesh.py`,
+   `src/ai/mesh_script.c`). Richiesta dell'utente: riprodurre come strumento quello che ha
+   fatto il mech dall'immagine di D.Va, cioè un modello con la visione che scompone la
+   figura in parti e scrive la ricetta. Sul Pi non può girare: lo strumento chiama Claude
+   attraverso l'API Anthropic (`claude-opus-5-5`, pensiero adattivo, `fallbacks:
+   "default"`) e lascia al nostro motore la parte deterministica. Il **linguaggio delle
+   parti** (`mesh_script.c`: `mat`, `box`, `bx`, `tube`, `cyl`, `ell`, `prism`, `wedge`,
+   `tf`, `bone`, `use`, `side`/`mirror`, `clip`, `key`, `turn`, `shift`, una riga ciascuno,
+   errori con il numero di riga) è interpretato nel kernel (`ai.script`) e sul PC
+   (`meshview script`/`json`); il mech della ricetta scritto nel linguaggio
+   (`tests/ai/img2mesh/mech.txt`) dà lo stesso modello ed è l'esempio nel prompt. Il tool:
+   immagine e descrizione → script → `meshview` lo costruisce e disegna da quattro lati e
+   nelle pose → i render tornano al modello che corregge (due giri, di più con `--rounds`;
+   uno script che non compila torna con l'errore) → `.bm` nuovo con il viewer di bm Studio,
+   o il modello aggiunto/sostituito in una cartuccia esistente (`bmmesh.encode_faces`,
+   `encode_anim`, `decode_anim`). `--record`/`--replay` salvano e rileggono le risposte:
+   `make test-img2mesh` e `test_img2mesh` in QEMU girano senza API. Costo: una manciata di
+   centesimi per giro; serve una chiave API (`ANTHROPIC_API_KEY`) o `ant auth login`.
+   Non provato con l'API vera in questa sessione (nessuna chiave): la parte di rete segue
+   l'SDK alla lettera, da verificare al primo uso. Dopo: la stessa cosa dalla console via
+   WiFi (bm Studio, F6 "da immagine": un PNG dalla SD, la chiave nelle impostazioni, una
+   passata sola).
 
 Numeri: in QEMU 0,45 ms per domanda (sul PC 0,03 ms) e 1 ms per uno sprite 16x16; il
 kernel cresce di ~410 KB (rete 270 KB, voci e testi 80 KB). RAM: niente finché non si

@@ -2948,6 +2948,62 @@ def test_studio_assistant(b, opts):
         shutil.rmtree(tmp, ignore_errors=True)
 
 
+def test_img2mesh(b, opts):
+    """tools/img2mesh.py offline (the recorded replies: the mech in the part
+    language) writes a .bm the console plays: bm Studio lists its models,
+    bm Animator plays the mech's animations from its ANIM section."""
+    tmp = tempfile.mkdtemp(prefix="bm-i2m-")
+    cart = os.path.join(tmp, "img2mesh.bm")
+    knight = os.path.join(tmp, "knight.ppm")
+    subprocess.run([b("host/meshview"), "one", "knight", knight], check=True, capture_output=True)
+    for name, rounds in (("mech", "1"), ("robot", "0")):
+        subprocess.run([sys.executable, os.path.join(HERE, "..", "tools", "img2mesh.py"), knight, "-o", cart,
+                        "--name", name, "--rounds", rounds, "--replay", os.path.join(HERE, "ai", "img2mesh", "replay"),
+                        "--work", os.path.join(tmp, name), "--meshview", b("host/meshview")],
+                       check=True, capture_output=True)
+    img = os.path.join(tmp, "sd.img")
+    mksd.build(img, [(cart, "carts/img2mesh.bm")])
+    q = Qemu(b("kernel.img"), ["-drive", f"if=sd,format=raw,file={img}"])
+
+    def keys(*ks, gap=0.3):
+        for k in ks:
+            q.send(k)
+            time.sleep(gap)
+
+    def screen(want, tries=40):
+        for _ in range(tries):
+            _, text = settled_screen(q, lambda i, t: all(any(w in l for l in t) for w in want), tries=2)
+            if all(any(w in l for l in text) for w in want):
+                return "\n".join(text)
+            time.sleep(0.25)
+        raise AssertionError(f"not on the screen: {want}\n" + "\n".join(text))
+
+    F2 = "\x1bOQ"
+    DOWN, ESC = "\x1b[B", "\x1b"
+    try:
+        q.expect(MENU, timeout=30)
+        time.sleep(0.5)
+        screen(["Games", "mech"])
+        keys("x")
+        screen(["Open in bm Studio"])
+        keys("s", "s", "s", "s", "\r", gap=0.4)
+        screen(["build", "models", "TOOLS"])
+        keys(F2)
+        screen(["MODELS 2", "mech", "robot", "662 faces 1160 tri 702 vertices", "9 bones, 3 animations"])
+        keys(ESC, gap=0.6)
+        screen(["Open in bm Animator"])
+        for _ in range(8):
+            keys(DOWN)
+        keys("\r", gap=1.5)
+        screen(["play", "ANIMATIONS", "idle", "walk", "fire", "702 vertices, 1160 triangles, 9 bones"], tries=80)
+        if opts.shots:
+            img_, _ = settled_screen(q, lambda i, t: "menu" in t[0] and t[21].strip() != "", tries=20)
+            _save_png(img_, os.path.join(opts.shots, "img2mesh-animator.png"))
+    finally:
+        q.close()
+        shutil.rmtree(tmp, ignore_errors=True)
+
+
 def test_mesh(b, opts):
     """bm Mesh on the console (a game's options, "Open in bm Mesh"): it lists
     the meshes Astro Wing builds in its code (cart_meshes runs the code

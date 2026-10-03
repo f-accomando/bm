@@ -53,6 +53,91 @@ def encode(models, inset=0.25):
     return bytes(out)
 
 
+def encode_faces(name, faces, bones=None):
+    """a model as bm Studio keeps it (faces with corners p, colour c and the
+    bone b of each corner, 0-based; from tools/img2mesh.py or the kernel's
+    ai.mesh) -> the dict encode() takes, plus the bone of each vertex.
+    Corners of different bones stay apart (bm3d.lua encode_mesh)."""
+    verts, index, vb, tris = [], {}, [], []
+    for f in faces:
+        ids = []
+        for k, p in enumerate(f["p"]):
+            b = f.get("b", [0] * len(f["p"]))[k] if bones else 0
+            key = (round(p[0], 5), round(p[1], 5), round(p[2], 5), b)
+            i = index.get(key)
+            if i is None:
+                i = len(verts)
+                index[key] = i
+                verts.append((p[0], p[1], p[2]))
+                vb.append(b)
+            ids.append(i)
+        colour = f["c"] & 0xFFFFFF
+        for a, b_, c in ([(0, 1, 2), (0, 2, 3)] if len(ids) == 4 else [(0, 1, 2)]):
+            if len({ids[a], ids[b_], ids[c]}) == 3:
+                tris.append((ids[a], ids[b_], ids[c], colour, None))
+    return {"name": name, "verts": verts, "faces": tris}, vb
+
+
+def encode_anim(rigs):
+    """[(name, bones, vb, clips)] -> ANIM section body (bm3d.lua encode_anim):
+    bones {name, parent (0-based, -1 none), head, tail}, vb the bone of
+    each vertex of the model's MESH entry, clips {name, loop, length, keys:
+    [{t, pose: [{q, t}] }]}"""
+    out = bytearray(struct.pack("<HHI", len(rigs), 0, 0))
+    for name, bones, vb, clips in rigs:
+        nb = len(bones)
+        out += name.encode()[:NAME_LEN - 1].ljust(NAME_LEN, b"\0") + struct.pack("<HHHH", nb, len(clips), len(vb), 0)
+        for b in bones:
+            out += b["name"].encode()[:NAME_LEN - 1].ljust(NAME_LEN, b"\0")
+            out += struct.pack("<hH6f", b["parent"], 0, *b["head"], *b["tail"])
+        out += bytes(vb) + b"\0" * ((-len(vb)) % 4)
+        for c in clips:
+            out += c["name"].encode()[:NAME_LEN - 1].ljust(NAME_LEN, b"\0")
+            out += struct.pack("<HBBf", len(c["keys"]), c.get("mode", 1), 1 if c.get("loop", True) else 0, c["length"])
+            for key in c["keys"]:
+                out += struct.pack("<f", key["t"])
+                for i in range(nb):
+                    p = key["pose"][i] if i < len(key["pose"]) else {"q": (0, 0, 0, 1), "t": (0, 0, 0)}
+                    out += struct.pack("<7f", *p["q"], *p["t"])
+    return bytes(out)
+
+
+def decode_anim(body):
+    """ANIM section body -> [(name, bones, vb, clips)] as encode_anim takes them"""
+    n = struct.unpack_from("<H", body, 0)[0]
+    off, out = 8, []
+    for _ in range(n):
+        name = body[off:off + NAME_LEN].split(b"\0")[0].decode(errors="replace")
+        nb, nc, nv, _ = struct.unpack_from("<HHHH", body, off + NAME_LEN)
+        off += NAME_LEN + 8
+        bones = []
+        for _ in range(nb):
+            bname = body[off:off + NAME_LEN].split(b"\0")[0].decode(errors="replace")
+            parent, _, hx, hy, hz, tx, ty, tz = struct.unpack_from("<hH6f", body, off + NAME_LEN)
+            bones.append({"name": bname, "parent": parent, "head": (hx, hy, hz), "tail": (tx, ty, tz)})
+            off += NAME_LEN + 28
+        vb = list(body[off:off + nv])
+        off += (nv + 3) & ~3
+        clips = []
+        for _ in range(nc):
+            cname = body[off:off + NAME_LEN].split(b"\0")[0].decode(errors="replace")
+            nk, mode, flags, length = struct.unpack_from("<HBBf", body, off + NAME_LEN)
+            off += NAME_LEN + 8
+            keys = []
+            for _ in range(nk):
+                t = struct.unpack_from("<f", body, off)[0]
+                off += 4
+                pose = []
+                for _ in range(nb):
+                    q = struct.unpack_from("<7f", body, off)
+                    pose.append({"q": q[:4], "t": q[4:]})
+                    off += 28
+                keys.append({"t": t, "pose": pose})
+            clips.append({"name": cname, "mode": mode, "loop": bool(flags & 1), "length": length, "keys": keys})
+        out.append((name, bones, vb, clips))
+    return out
+
+
 def decode(body):
     """MESH section body -> (models, inset)"""
     count, inset, _ = struct.unpack_from("<HHI", body, 0)
