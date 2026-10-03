@@ -275,28 +275,29 @@ che nel progetto riceve i blocchi delle voci con `origin`).
 ### Disposizione (640×360, righe di 16 px, 80 colonne)
 
 ```
- Games   Dev  [Lib]   Settings                                   (icone della barra)
+   Games    Dev   [Lib]   Settings                               (icone della barra)
 
- <  Models   Images   Sounds   Maps   Palettes   Kits  >
+ <  [Models]   Images   Sounds   Maps   Palettes   Kits  >
 
- /bm/lib                     2   +--------------------------------------------+
-   knight              A         |                                            |
-   tower                         |                                            |
- VILLAGE.BM                 12   |          (il modello che gira)             |
- > house_a                       |                                            |
-   villager            A         |                                            |
-   well                          +--------------------------------------------+
-   ...                            villager       88 triangles, 3 clips
-                                  from VILLAGE.BM
-                                  Mario   CC-BY-4.0
+ HOUSE.BMM                    1   +------------------------------------------+
+  house                           |                                          |
+ VILLAGE.BMK                  8   |          (il modello che gira)           |
+  ground                          |                                          |
+  ...                             |                                          |
+ VILLAGE.BM                   8   +------------------------------------------+
+  ground                          villager
+  ...                             112 vertices, 168 faces, 3 clips
+ >villager                    A   from carts/village.bm
+                                  bm   CC0-1.0
                                   tags: character, village
 
- (A) Open in bm Studio   (X) Options   (Y) Animate                    (Monitor)
+                   (A) Open in bm Studio   (Y) Play   (Share+Options) Monitor
 ```
 
-- Riga 1 le schede, riga 3 i gruppi, righe 5–19 la lista (colonne 1–31, 248 px) e
-  l'anteprima (colonne 33–78), riga 21 i suggerimenti dei tasti con le icone di
-  `prompts.c`.
+- Riga 1 le schede, riga 4 i gruppi (su una barra loro), righe 6–18 la lista (colonne
+  2–31) e l'anteprima (colonne 35–76, righe 6–13), righe 14–18 i dettagli, riga 21 i
+  suggerimenti dei tasti con le icone di `prompts.c` (A solo se la risorsa è in un `.bm`,
+  Y solo per i suoni).
 - Le scritte stanno sulle righe di 16 px del font, così i test in QEMU leggono lo
   schermo.
 - Colori, barre e pannelli sono quelli di BareMetal UI (`menu_ui.c`).
