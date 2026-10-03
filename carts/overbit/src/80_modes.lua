@@ -160,7 +160,26 @@ end
 
 local Menu = { sel = 1, t = 0 }
 local ITEMS = { "PLAY: CONTROL", "PLAY ONLINE", "TRAINING RANGE", "HERO", "BOTS", "ANIMATION REEL", "QUALITY",
-                "BENCHMARK" }
+                "3D", "BENCHMARK" }
+
+-- the 3D renderer: the GPU, the GPU with anti-aliasing, the ARM (a console
+-- without a GPU, QEMU: the ARM only)
+local function renderer_name()
+  local on, aa = gpu3d()
+  return on and (aa and "GPU + AA 4X" or "GPU") or "ARM"
+end
+
+local function next_renderer()
+  local on, aa = gpu3d()
+  if on and not aa then
+    local _, ok = gpu3d(true, true)
+    if not ok then gpu3d(false, false) end
+  elseif on then
+    gpu3d(false, false)
+  elseif not gpu3d(true, false) then
+    Menu.no_gpu = true
+  end
+end
 
 G.hero_id = "rally"          -- OVERBIT_HERO (tests) in _init
 G.bot_diff = 2               -- the bots: 1 easy, 2 normal, 3 hard (Bots.SKILL)
@@ -222,6 +241,7 @@ function Menu.update()
       if G.qauto then G.qauto = false Quality.set(4)
       elseif G.quality > 0 then Quality.set(G.quality - 1)
       else G.qauto = true Quality.set(3) end
+    elseif it == "3D" then next_renderer()
     elseif it == "BENCHMARK" then Modes.start("bench") end
   end
 end
@@ -241,6 +261,7 @@ function Menu.draw()
   for i, it in ipairs(ITEMS) do
     local s = it
     if it == "QUALITY" then s = "QUALITY: " .. (G.qauto and "AUTO" or Quality.names[G.quality + 1]) end
+    if it == "3D" then s = "3D: " .. renderer_name() .. (Menu.no_gpu and " (NO GPU)" or "") end
     if it == "HERO" then s = "HERO: < " .. H[G.hero_id].name:upper() .. " >" end
     if it == "BOTS" then s = "BOTS: < " .. Bots.SKILL[G.bot_diff].name .. " >" end
     local y = 66 + (i - 1) * 13

@@ -39,6 +39,7 @@
 #include <unistd.h>
 
 #include "host.h"
+#include "gpu/gpu3d.h"
 #include "audio/audio.h"
 #include "bm/runtime.h"
 #include "drivers/fb.h"
@@ -384,5 +385,12 @@ int main(int argc, char **argv)
                     "(max %.3f), %u KiB of Lua, %.1f s\n",
             st.title, run.frame, st.ok ? "ok" : "ERROR",
             run.frame > 1 ? cpu_sum / 1000.0 / (double)(run.frame - 1) : 0.0, cpu_max / 1000.0, st.lua_kb, cpu);
+    gpu3d_stats_t g;
+    gpu3d_take_stats(&g);
+    if (g.jobs && run.frame > 0)        /* bmhost-gpu: what the emulated V3D was given */
+        fprintf(stderr, "bmhost: GPU %u jobs (%.2f a frame), %u triangles (%.0f a frame), %u jobs with the depth "
+                        "kept, %u pages cleared not loaded, %u with MSAA\n",
+                (unsigned)g.jobs, (double)g.jobs / (double)run.frame, (unsigned)g.tris,
+                (double)g.tris / (double)run.frame, (unsigned)g.zjobs, (unsigned)g.cleared, (unsigned)g.msjobs);
     return st.ok ? 0 : 1;
 }

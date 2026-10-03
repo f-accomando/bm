@@ -266,6 +266,13 @@ $(BUILD)/overbit/match-fast.bm: $(OVERBIT_SRC) carts/overbit/build.py $(BUILD)/o
 	$(PYTHON) scripts/mkbm.py -o $@ --lua $(BUILD)/overbit/match-fast.lua --title "Overbit match" --author bm \
 	    --res 320x180 --models $(BUILD)/overbit/models.bm --audio $(BUILD)/overbit/sounds.json
 
+# the benchmark in short (tests): one quality, short phases, a small ring
+$(BUILD)/overbit/bench-fast.bm: $(OVERBIT_SRC) carts/overbit/build.py $(BUILD)/overbit/models.bm $(BUILD)/overbit/sounds.json
+	$(PYTHON) carts/overbit/build.py $(BUILD)/overbit/bench-fast.lua --start bench --extra $(BUILD)/overbit/21_map.lua \
+	    --define 'OVERBIT_BENCH_FAST=true'
+	$(PYTHON) scripts/mkbm.py -o $@ --lua $(BUILD)/overbit/bench-fast.lua --title "Overbit bench" --author bm \
+	    --res 320x180 --models $(BUILD)/overbit/models.bm --audio $(BUILD)/overbit/sounds.json
+
 # two consoles on the network (tests): on the LAN, and through a relay on this PC
 $(BUILD)/overbit/net-test.bm: $(OVERBIT_SRC) carts/overbit/build.py $(BUILD)/overbit/models.bm $(BUILD)/overbit/sounds.json
 	$(PYTHON) carts/overbit/build.py $(BUILD)/overbit/net-test.lua --extra $(BUILD)/overbit/21_map.lua
@@ -277,7 +284,8 @@ $(BUILD)/overbit/net-relay.bm: $(OVERBIT_SRC) carts/overbit/build.py $(BUILD)/ov
 	$(PYTHON) scripts/mkbm.py -o $@ --lua $(BUILD)/overbit/net-relay.lua --title "Overbit" --author bm \
 	    --res 320x180 --models $(BUILD)/overbit/models.bm --audio $(BUILD)/overbit/sounds.json
 
-test-overbit: $(BUILD)/host/bmhost-bin $(BUILD)/carts/overbit.bm $(BUILD)/overbit/reel.bm $(BUILD)/overbit/bench.bm \
+test-overbit: $(BUILD)/host/bmhost-bin $(BUILD)/host/bmhost-gpu $(BUILD)/carts/overbit.bm $(BUILD)/overbit/reel.bm \
+              $(BUILD)/overbit/bench.bm $(BUILD)/overbit/bench-fast.bm \
               $(BUILD)/overbit/match-fast.bm $(BUILD)/overbit/net-test.bm $(BUILD)/overbit/net-relay.bm \
               $(foreach h,$(OVERBIT_HEROES),$(BUILD)/overbit/range-$(h).bm)
 	$(PYTHON) tests/overbit/run.py $(BUILD)

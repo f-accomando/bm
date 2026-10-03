@@ -248,7 +248,7 @@ function Match.start()
   -- quicker rules for the tests (build.py --define OVERBIT_RULES={...}); a
   -- match of ten bots filmed (OVERBIT_SPECTATE: the reel of the match)
   if OVERBIT_RULES then for k, v in pairs(OVERBIT_RULES) do RULES[k] = v end end
-  Match.spectate = OVERBIT_SPECTATE and true or false
+  Match.spectate = (OVERBIT_SPECTATE or Match.bench) and true or false
   -- a match on the network (the lobby of 83_net): the same seed, bots and
   -- seats on every console; the clock and the ids start from zero
   M.net = Match.net
@@ -343,6 +343,8 @@ local function step()
     if a.alive and in_spawn(a) and Actors.total(a) < Actors.total_max(a) then Actors.heal(a, 120 * DT) end
   end
 end
+
+Match.step = step
 
 -- a frame of a network match, when the bundle of everyone's inputs is
 -- there (at most two a console frame: one behind catches up)
@@ -488,6 +490,9 @@ local function scoreboard()
   end
   font()
 end
+
+Match.draw_point = draw_point
+Match.hud_top = hud_top
 
 -- the reel of the match: a camera that changes every few seconds, round
 -- the point from above, behind a hero, in a hero's eyes

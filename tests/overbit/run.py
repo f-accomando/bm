@@ -7,6 +7,7 @@ the benchmark, each checked in the game's log.
   tests/overbit/run.py BUILD_DIR
 """
 import os
+import re
 import subprocess
 import sys
 
@@ -23,11 +24,11 @@ def keys(*names):
     return " ".join(hex(K[n]) for n in names) if names else "none"
 
 
-def run(build, cart, seconds, script, name):
+def run(build, cart, seconds, script, name, host="bmhost-bin"):
     path = os.path.join(build, "overbit", f"test-{name}.txt")
     with open(path, "w") as f:
         f.write(script)
-    r = subprocess.run([os.path.join(build, "host", "bmhost-bin"), cart, "--seconds", str(seconds),
+    r = subprocess.run([os.path.join(build, "host", host), cart, "--seconds", str(seconds),
                         "--input", path], capture_output=True, text=True)
     log = r.stdout + r.stderr
     return r.returncode, log
@@ -236,13 +237,26 @@ def main():
             bad += 1
     check(code == 0 and len(got) == 20 and bad == 0, f"nnet: the console's outputs are the reference's ({bad} differ)", log)
 
-    # the benchmark (on the PC every step is fast: it runs to the end)
-    script = f"""
-30 keys {keys('SPACE') if False else 'none'}
-"""
-    bench = os.path.join(build, "overbit", "bench.bm")
-    code, log = run(build, bench, 40, "", "bench")
-    check(code == 0 and "heroes at 60 fps" in log, "bench: runs to the end", log)
+    # the benchmark in short: the bots' match on the ARM (bmhost has no GPU),
+    # then on the ARM and the GPU (bmhost-gpu: the V3D emulated), the same
+    # match each time; the ring; the report
+    bench = os.path.join(build, "overbit", "bench-fast.bm")
+    for host, rs in (("bmhost-bin", ["ARM"]), ("bmhost-gpu", ["ARM", "GPU", "GPU+AA"])):
+        code, log = run(build, bench, 60, "", "bench-" + host, host)
+        tag = "gpu" if "gpu" in host else "arm"
+        rows = re.findall(r"overbit bench (\S+) HIGH: .* (\d+) vtx", log)
+        hashes = re.findall(r"overbit bench \S+ HIGH match (\d+)", log)
+        check(code == 0 and "overbit bench done" in log and "Lua error" not in log,
+              f"bench ({tag}): runs to the end", log)
+        check([r[0] for r in rows] == rs, f"bench ({tag}): the phases {' '.join(rs)}", log)
+        # the same match each time (where everyone is at the end), about the
+        # same vertices drawn
+        vtx = [int(r[1]) for r in rows]
+        check(len(hashes) == len(rs) and len(set(hashes)) == 1 and max(vtx) - min(vtx) <= max(vtx) // 100,
+              f"bench ({tag}): the same match on every renderer", log)
+        check(len(re.findall(r"overbit bench ring \S+: \d+ heroes at 60 fps", log)) == len(rs),
+              f"bench ({tag}): the ring on each renderer", log)
+        check("the 3D is drawn by the ARM from here" not in log, f"bench ({tag}): no fall back to the ARM", log)
     print(f"\noverbit: {'all ok' if not fails else f'{fails} failed'}")
     return 1 if fails else 0
 

@@ -13,6 +13,7 @@ end
 
 function _update()
   G.frame = G.frame + 1
+  G.gpu = stat(9) == 1          -- the GPU draws the 3D: some things cost less (40_actor)
   Input.read()
   Dev.update()
   if Input.cmd.dev_p or Input.cmd.f1_p then G.dev = not G.dev end

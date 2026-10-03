@@ -8,6 +8,10 @@
 --  2      3 near, 2             yes      none           3/4
 --  1      2                     no       none           1/2
 --  0      1                     no       none           1/4
+--
+-- With the GPU (stat(9)) the pixels cost the ARM nothing: Gouraud from
+-- level 1 and the planar shadows from level 2 (to 40 m), only their
+-- vertices and triangles count.
 
 Quality = { names = { "LOW", "MEDIUM", "HIGH", "ULTRA", "EXTREME" } }
 

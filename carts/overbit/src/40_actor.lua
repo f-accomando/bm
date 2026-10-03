@@ -433,12 +433,14 @@ function Actors.draw(cx, cy, cz, skip)
       local d = len3(a.x - cx, a.y - cy, a.z - cz)
       local det = Actors.detail(d)
       local flags = (3 - det) * 16
-      if q >= 2 then flags = flags + 4 end           -- Gouraud
+      if q >= 2 or (G.gpu and q >= 1) then flags = flags + 4 end    -- Gouraud (the GPU: from MEDIUM)
       local sc = a.form.scale or 1
       local h = a.height * sc
       -- not in the view: nothing to do (its long shadow at sunset may be)
       local seen = Cam.sees(a.x, a.y + h * 0.5, a.z, h * 0.75 + a.radius)
-      if q >= 3 and d < 30 and (seen or Cam.sees(a.x, a.y, a.z, h * 3)) then   -- the shadow: a coarse model
+      -- the shadow: a coarse model (the GPU: from HIGH, farther: it costs only its triangles there)
+      local sd = G.gpu and 40 or 30
+      if (q >= 3 or (G.gpu and q >= 2)) and d < sd and (seen or Cam.sees(a.x, a.y, a.z, h * 3)) then
         draw3d(a.mesh, a.x, a.y, a.z, 0, a.yaw, 0, sc, (3 - min(det, 1)) * 16 + 8)
       end
       if seen then draw3d(a.mesh, a.x, a.y, a.z, 0, a.yaw, 0, sc, flags) end

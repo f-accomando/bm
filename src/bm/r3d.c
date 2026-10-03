@@ -1797,7 +1797,8 @@ static void fog_unit(const r3d_t *r, uint32_t rgb, float depth, float out[3])
         out[i] *= 1.0f / 255.0f;
 }
 
-/* a convex polygon of n corners on the screen (a fan) to the backend */
+/* a convex polygon of n corners on the screen (a fan) to the backend (not
+ * counted in tris_drawn: the effects are not triangles on the ARM) */
 static void emit_fan(r3d_t *r, const r3d_corner_t *q, int n, int kind, const g16_sheet_t *tex)
 {
     for (int i = 1; i + 1 < n; i++) {
@@ -1818,17 +1819,28 @@ uint32_t r3d_point(r3d_t *r, v3_t p, float radius, uint32_t rgb, unsigned flags)
     float rad = radius * v.f / c.z;
     if (rad < 0.5f) rad = 0.5f;
     if (r->backend) {
-        /* an octagon, tested against the depth and not writing it */
+        /* tested against the depth and not writing it: an octagon, or for a
+         * point of a few pixels a square of the same area (2 triangles, not
+         * 6: the ARM's work is per triangle) */
         float col[3];
         fog_unit(r, rgb, c.z, col);
         r3d_corner_t q[8];
-        for (int i = 0; i < 8; i++) {
-            static const float cs[8][2] = { { 1, 0 }, { 0.7071f, 0.7071f }, { 0, 1 }, { -0.7071f, 0.7071f },
-                                            { -1, 0 }, { -0.7071f, -0.7071f }, { 0, -1 }, { 0.7071f, -0.7071f } };
-            corner(&q[i], s.x + cs[i][0] * rad, s.y + cs[i][1] * rad, s.z, col[0], col[1], col[2]);
+        const int kind = flags & R3D_FX_SCREEN ? R3D_KIND_SCREEN : R3D_KIND_COLOUR;
+        if (rad < 3.0f) {
+            const float h = rad * 0.886f;       /* sqrt(pi) / 2 */
+            corner(&q[0], s.x - h, s.y - h, s.z, col[0], col[1], col[2]);
+            corner(&q[1], s.x + h, s.y - h, s.z, col[0], col[1], col[2]);
+            corner(&q[2], s.x + h, s.y + h, s.z, col[0], col[1], col[2]);
+            corner(&q[3], s.x - h, s.y + h, s.z, col[0], col[1], col[2]);
+            emit_fan(r, q, 4, kind, NULL);
+        } else {
+            for (int i = 0; i < 8; i++) {
+                static const float cs[8][2] = { { 1, 0 }, { 0.7071f, 0.7071f }, { 0, 1 }, { -0.7071f, 0.7071f },
+                                                { -1, 0 }, { -0.7071f, -0.7071f }, { 0, -1 }, { 0.7071f, -0.7071f } };
+                corner(&q[i], s.x + cs[i][0] * rad, s.y + cs[i][1] * rad, s.z, col[0], col[1], col[2]);
+            }
+            emit_fan(r, q, 8, kind, NULL);
         }
-        emit_fan(r, q, 8, flags & R3D_FX_SCREEN ? R3D_KIND_SCREEN : R3D_KIND_COLOUR, NULL);
-        r->tris_drawn += 6;
         return (uint32_t)(rad * rad * 3.1f);
     }
     int x0 = (int)(s.x - rad), x1 = (int)(s.x + rad) + 1, y0 = (int)(s.y - rad), y1 = (int)(s.y + rad) + 1;
@@ -1890,7 +1902,6 @@ uint32_t r3d_line(r3d_t *r, v3_t a, v3_t b, uint32_t rgb, int width, unsigned fl
         corner(&q[2], sb.x - nx, sb.y - ny, sb.z, col[0], col[1], col[2]);
         corner(&q[3], sa.x - nx, sa.y - ny, sa.z, col[0], col[1], col[2]);
         emit_fan(r, q, 4, flags & R3D_FX_SCREEN ? R3D_KIND_SCREEN : R3D_KIND_COLOUR, NULL);
-        r->tris_drawn += 2;
         return (uint32_t)(len * (float)width);
     }
     const uint16_t col = fog_colour(r, rgb, (ca.z + cb.z) * 0.5f);
@@ -1946,7 +1957,6 @@ uint32_t r3d_sprite(r3d_t *r, const g16_sheet_t *s, int sx, int sy, int sw, int 
         corner(&q[2], X1, Y1, sc.z, (float)(sx + sw), (float)(sy + sh), 1);
         corner(&q[3], X0, Y1, sc.z, (float)sx, (float)(sy + sh), 1);
         emit_fan(r, q, 4, R3D_KIND_TEXTURE, s);
-        r->tris_drawn += 2;
         return (uint32_t)(w * h);
     }
     int x0 = (int)(sc.x - w * 0.5f), y0 = (int)(sc.y - h * 0.5f), x1 = (int)(sc.x + w * 0.5f), y1 = (int)(sc.y + h * 0.5f);
