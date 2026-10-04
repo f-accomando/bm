@@ -29,6 +29,8 @@
  *     20 type hello\n       serial characters (\n is Enter)
  *     30 shot name          that frame as DIR/name.png
  *     40 source ds4         what lastinput() says: keyboard, ds4, pad
+ *     40 device 2 ds4       what player 2 plays with (controller()): keyboard,
+ *                           ds4, xbox, pad, builtin, none
  *     900 quit              leave the cartridge
  */
 #include <stdio.h>
@@ -42,6 +44,7 @@
 #include "lua.h"
 #include "gpu/gpu3d.h"
 #include "audio/audio.h"
+#include "kernel/input.h"
 #include "bm/runtime.h"
 #include "drivers/fb.h"
 #include "lib/crc32.h"
@@ -193,6 +196,15 @@ static void events(long f)
         } else if (!strcmp(cmd, "source")) {
             host.source = strstr(arg, "ds4") ? HID_SOURCE_DS4 : strstr(arg, "pad") ? HID_SOURCE_PAD
                         : HID_SOURCE_KEYBOARD;
+        } else if (!strcmp(cmd, "device")) {
+            char kind[16] = "";
+            sscanf(arg, "%d %15s", &p, kind);
+            if (p >= 1 && p <= 4)
+                host.dev[p - 1] = !strcmp(kind, "keyboard") ? INPUT_DEV_KEYBOARD
+                                : !strcmp(kind, "ds4") ? INPUT_DEV_PAD | INPUT_DEV_DS4
+                                : !strcmp(kind, "xbox") ? INPUT_DEV_PAD | INPUT_DEV_XBOX
+                                : !strcmp(kind, "builtin") ? INPUT_DEV_PAD | INPUT_DEV_BUILTIN
+                                : !strcmp(kind, "pad") ? INPUT_DEV_PAD : INPUT_DEV_NONE;
         } else if (!strcmp(cmd, "quit")) {
             host.quit_now = 1;
         }
@@ -364,6 +376,8 @@ int main(int argc, char **argv)
     double seconds = 10;
     char tmp_sd[] = "/tmp/bmhost-sd-XXXXXX";
     host.source = HID_SOURCE_KEYBOARD;
+    for (int p = 0; p < 4; p++)
+        host.dev[p] = -1;
     for (int i = 1; i < argc; i++) {
         const char *a = argv[i], *v = i + 1 < argc ? argv[i + 1] : NULL;
         if (!strcmp(a, "--sd") && v) host.sd = v, i++;

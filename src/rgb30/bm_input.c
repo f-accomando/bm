@@ -51,6 +51,35 @@ int input_remote_getc(void)
     return c >= 0 ? c : netcon_getc();
 }
 
+static int by_position(void)
+{
+    const char *v = config_get("game_buttons");
+    return v && !strcmp(v, "position");
+}
+
+/* player 1 is the console's own controls (and a Bluetooth pad with them) */
+int input_device(int p)
+{
+    return p == 0 ? INPUT_DEV_PAD | INPUT_DEV_BUILTIN : INPUT_DEV_NONE;
+}
+
+/* the menus' confirm button (pad_ok: B, the lower one, unless confirm=a)
+ * as the game sees it: its letter, or its place with game_buttons=position */
+uint32_t input_ok_bit(int back)
+{
+    uint32_t phys = back ? pad_back : pad_ok;
+    if (by_position())
+        return phys == PAD_B ? HID_A : HID_B;
+    return phys == PAD_B ? HID_B : HID_A;
+}
+
+uint32_t input_face_shown(uint32_t bit)
+{
+    if (!by_position())
+        return bit;
+    return bit == HID_A ? HID_B : bit == HID_B ? HID_A : bit == HID_X ? HID_Y : bit == HID_Y ? HID_X : bit;
+}
+
 static uint32_t prev_held;
 
 uint32_t input_players(uint32_t out[INPUT_PLAYERS], int text, int *quit, int *local)

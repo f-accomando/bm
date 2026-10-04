@@ -321,6 +321,22 @@ void input_stick_r(int p, float *x, float *y)
 }
 
 unsigned input_connected(void) { return 1; }
+
+/* "device P kind" in the script, else player 1 plays with what "source" says */
+int input_device(int p)
+{
+    if (p < 0 || p >= INPUT_PLAYERS)
+        return INPUT_DEV_NONE;
+    if (host.dev[p] >= 0)
+        return host.dev[p];
+    if (p != 0)
+        return INPUT_DEV_NONE;
+    return host.source == HID_SOURCE_DS4 ? INPUT_DEV_PAD | INPUT_DEV_DS4
+         : host.source == HID_SOURCE_PAD ? INPUT_DEV_PAD : INPUT_DEV_KEYBOARD;
+}
+
+uint32_t input_ok_bit(int back) { return back ? HID_B : HID_A; }
+uint32_t input_face_shown(uint32_t bit) { return bit; }
 void input_flush(void) { }
 int input_local_player(void) { return 0; }
 uint32_t hid_buttons(void) { return host.pad[0]; }

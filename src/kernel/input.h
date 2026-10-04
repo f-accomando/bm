@@ -78,7 +78,24 @@ void input_stick_r(int p, float *x, float *y);
 #define INPUT_DEV_KEYBOARD  1
 #define INPUT_DEV_PAD       2
 #define INPUT_DEV_BLUETOOTH 0x10
+/* what kind of pad (for the games' icons, controller() in Lua): the DS4's
+ * symbols, an Xbox pad's letters (A at the bottom), the console's own
+ * controls (the RGB30: A on the right, B at the bottom); none: a pad with
+ * letters as an Xbox one */
+#define INPUT_DEV_DS4       0x20
+#define INPUT_DEV_XBOX      0x40
+#define INPUT_DEV_BUILTIN   0x80
 int input_device(int p);
+
+/* The game's button (HID_A or HID_B) that says yes (back = 0) or goes back
+ * (back = 1), as the system's menus do: the DS4's cross and circle, an
+ * Xbox pad's A and B; on the RGB30 what confirm= and game_buttons= say
+ * (B, the lower one, confirms). */
+uint32_t input_ok_bit(int back);
+/* The letter a pad shows for the game's button `bit` (HID_*): the same,
+ * or its neighbour when the face buttons are taken by position (the
+ * RGB30 with game_buttons=position: the game's A is the button marked B). */
+uint32_t input_face_shown(uint32_t bit);
 /* "pads: 1 2 - -" for status lines. */
 void input_status(char *buf, unsigned size);
 

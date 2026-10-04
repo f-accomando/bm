@@ -75,6 +75,10 @@ static struct {
     uint16_t now, prev;             /* button bits this frame / last frame, any player */
     uint16_t pnow[INPUT_PLAYERS], pprev[INPUT_PLAYERS];     /* the same per player */
     uint32_t praw[INPUT_PLAYERS];   /* HID bits per player (stick() from the cross) */
+    uint32_t praw_prev[INPUT_PLAYERS];  /* ...the frame before (btnp() of a name) */
+    /* keymap(): the game's actions and their buttons (indices of button_names) */
+    struct { char name[16]; uint8_t btn[4], n; } keymap[32];
+    int nkeymap;
     int local;                      /* player of the keyboard / USB / serial, or -1 */
     uint32_t start_us, frame;
     uint32_t last_cpu_us, fps;
@@ -675,15 +679,20 @@ static void draw_prompt(const prompt_t *p, int x, int y, int scale)
         }
 }
 
-/* prompt(name, x, y [, small, scale]): a button or a key as a chip of the
- * apps' set (prompts.c), its top left at (x, y), 16 px high for 8x16 text,
- * 12 with small (by default when the font is 6x12), scale times larger
- * (1-8, as print's); returns the x after it. prompt(name [, small, scale])
- * only measures: the width and height.
+static const prompt_t *prompt_for(const char *n, int small, int player);
+
+/* prompt(name, x, y [, small, scale, player]): a button or a key as a chip
+ * of the apps' set (prompts.c), its top left at (x, y), 16 px high for 8x16
+ * text, 12 with small (by default when the font is 6x12), scale times
+ * larger (1-8, as print's); returns the x after it. prompt(name [, small,
+ * scale, player]) only measures: the width and height.
  * Upper case the pad's buttons ("A", "B", "X", "Y", "START", "L1",
  * "UPDOWN"...), shown as on the pad pressed last: a DS4 (cross, circle...)
  * until another pad is used. Lower case the keyboard's keys, with the
- * names of keyp() ("enter", "esc", "f1", "up") or one character ("s"). */
+ * names of keyp() ("enter", "esc", "f1", "up") or one character ("s").
+ * "ok", "back" and the actions of keymap() are their buttons. With player
+ * (1-4) a button as that player's controller shows it: a DS4's symbol,
+ * a pad's letter, or the keyboard's key that presses it. */
 static int l_prompt(lua_State *L)
 {
     const char *n = luaL_checkstring(L, 1);
@@ -691,7 +700,8 @@ static int l_prompt(lua_State *L)
     int small = lua_isnoneornil(L, at) ? rt.g.font->height <= 12 : lua_toboolean(L, at);
     int scale = (int)luaL_optinteger(L, at + 1, 1);
     scale = scale < 1 ? 1 : scale > 8 ? 8 : scale;
-    const prompt_t *p = find_prompt(n, small);
+    int player = (int)luaL_optinteger(L, at + 2, 0);
+    const prompt_t *p = prompt_for(n, small, player);
     if (!p)
         return luaL_argerror(L, 1, "not a button or a key");
     if (measure) {
@@ -735,6 +745,245 @@ static int l_rgb(lua_State *L)
     return 1;
 }
 
+/* The buttons by name (btn("jump"), keymap(), prompt("ok"), 2026-10-04):
+ * the pad's, how each shows on a pad (prompt()'s upper-case names) and the
+ * keyboard's key that presses it in a game (hid.c's key_button) */
+static const struct { const char *name; uint32_t hid; const char *chip, *key; } button_names[] = {
+    { "left", HID_LEFT, "LEFT", "left" }, { "right", HID_RIGHT, "RIGHT", "right" },
+    { "up", HID_UP, "UP", "up" }, { "down", HID_DOWN, "DOWN", "down" },
+    { "a", HID_A, "A", "space" }, { "b", HID_B, "B", "x" }, { "x", HID_X, "X", "c" }, { "y", HID_Y, "Y", "v" },
+    { "start", HID_START, "START", "enter" }, { "select", HID_SELECT, "SELECT", "tab" },
+    { "l1", HID_L1, "L1", "q" }, { "r1", HID_R1, "R1", "e" },
+    { "l2", HID_L2, "L2", NULL }, { "r2", HID_R2, "R2", NULL },
+    { "l3", HID_L3, "L3", NULL }, { "r3", HID_R3, "R3", NULL },
+};
+#define NBUTTONS ((int)(sizeof button_names / sizeof button_names[0]))
+#define BUTTON_OK   NBUTTONS                    /* "ok" and "back": the system's yes and back */
+#define BUTTON_BACK (NBUTTONS + 1)
+
+static int name_is(const char *a, const char *b)
+{
+    for (; *a && *b; a++, b++)
+        if ((*a | 0x20) != (*b | 0x20))
+            return 0;
+    return *a == *b;
+}
+
+/* a button's index (BUTTON_OK, BUTTON_BACK too), or -1 */
+static int button_index(const char *n)
+{
+    for (int i = 0; i < NBUTTONS; i++)
+        if (name_is(n, button_names[i].name))
+            return i;
+    if (name_is(n, "ok"))
+        return BUTTON_OK;
+    if (name_is(n, "back"))
+        return BUTTON_BACK;
+    return -1;
+}
+
+/* the index of a button for the game: "ok" and "back" are A or B */
+static int button_real(int i)
+{
+    if (i < NBUTTONS)
+        return i;
+    const uint32_t bit = input_ok_bit(i == BUTTON_BACK);
+    return bit == HID_A ? 4 : 5;                /* "a", "b" in button_names */
+}
+
+/* the HID bits of a name: a button, "ok" / "back", or an action of
+ * keymap(); 0 if it is none of them */
+static uint32_t name_mask(const char *n)
+{
+    int i = button_index(n);
+    if (i >= 0)
+        return button_names[button_real(i)].hid;
+    for (int k = 0; k < rt.nkeymap; k++)
+        if (!strcmp(rt.keymap[k].name, n)) {
+            uint32_t m = 0;
+            for (int j = 0; j < rt.keymap[k].n; j++)
+                m |= button_names[button_real(rt.keymap[k].btn[j])].hid;
+            return m;
+        }
+    return 0;
+}
+
+/* the first button of a name (for its picture), or -1 */
+static int name_button(const char *n)
+{
+    int i = button_index(n);
+    if (i >= 0)
+        return button_real(i);
+    for (int k = 0; k < rt.nkeymap; k++)
+        if (!strcmp(rt.keymap[k].name, n) && rt.keymap[k].n)
+            return button_real(rt.keymap[k].btn[0]);
+    return -1;
+}
+
+/* btn(name [, p]), btnp(name [, p]) with a name: the HID bits of the
+ * players (any of them without p) */
+static int named_button(lua_State *L, int pressed)
+{
+    const char *n = luaL_checkstring(L, 1);
+    uint32_t mask = name_mask(n);
+    if (!mask)
+        return luaL_argerror(L, 1, "not a button, \"ok\", \"back\" or an action of keymap()");
+    if (mask & (HID_X | HID_Y))
+        rt.uses_xy = 1;                         /* it asks for X or Y: they are its own */
+    uint32_t now = 0, prev = 0;
+    if (lua_isnoneornil(L, 2)) {
+        for (int p = 0; p < INPUT_PLAYERS; p++) {
+            now |= rt.praw[p];
+            prev |= rt.praw_prev[p];
+        }
+    } else {
+        int p = ival(L, 2);
+        if (p >= 1 && p <= INPUT_PLAYERS) {
+            now = rt.praw[p - 1];
+            prev = rt.praw_prev[p - 1];
+        }
+    }
+    lua_pushboolean(L, pressed ? (now & ~prev & mask) != 0 : (now & mask) != 0);
+    return 1;
+}
+
+/* keymap({action = "a" or {"a", "x"}, ...}): the game's actions on the
+ * buttons (and "ok" / "back"), read with btn("action"), btnp() and drawn
+ * with prompt("action"); the game remaps by calling it again (its options
+ * menu, saved with save()). keymap() gives the table back, keymap(nil)
+ * forgets it. */
+static int l_keymap(lua_State *L)
+{
+    if (lua_isnone(L, 1)) {
+        lua_createtable(L, 0, rt.nkeymap);
+        for (int k = 0; k < rt.nkeymap; k++) {
+            lua_createtable(L, rt.keymap[k].n, 0);
+            for (int j = 0; j < rt.keymap[k].n; j++) {
+                int b = rt.keymap[k].btn[j];
+                lua_pushstring(L, b == BUTTON_OK ? "ok" : b == BUTTON_BACK ? "back" : button_names[b].name);
+                lua_rawseti(L, -2, j + 1);
+            }
+            lua_setfield(L, -2, rt.keymap[k].name);
+        }
+        return 1;
+    }
+    rt.nkeymap = 0;
+    if (lua_isnil(L, 1))
+        return 0;
+    luaL_checktype(L, 1, LUA_TTABLE);
+    lua_pushnil(L);
+    while (lua_next(L, 1)) {
+        if (lua_type(L, -2) != LUA_TSTRING)
+            return luaL_error(L, "keymap: the actions are names (strings)");
+        const char *action = lua_tostring(L, -2);
+        if (rt.nkeymap >= (int)(sizeof rt.keymap / sizeof rt.keymap[0]))
+            return luaL_error(L, "keymap: at most %d actions", (int)(sizeof rt.keymap / sizeof rt.keymap[0]));
+        if (button_index(action) >= 0)
+            return luaL_error(L, "keymap: \"%s\" is a button's name, not an action's", action);
+        __typeof__(rt.keymap[0]) *k = &rt.keymap[rt.nkeymap];
+        memset(k, 0, sizeof *k);
+        ksnprintf(k->name, sizeof k->name, "%s", action);
+        int one = lua_type(L, -1) == LUA_TSTRING, count = one ? 1 : (int)luaL_len(L, -1);
+        if (!one)
+            luaL_checktype(L, -1, LUA_TTABLE);
+        for (int j = 0; j < count && k->n < 4; j++) {
+            if (!one)
+                lua_rawgeti(L, -1, j + 1);
+            const char *b = lua_tostring(L, -1);
+            int i = b ? button_index(b) : -1;
+            if (i < 0)
+                return luaL_error(L, "keymap: \"%s\": no button \"%s\"", action, b ? b : "?");
+            if (button_real(i) == 6 || button_real(i) == 7)
+                rt.uses_xy = 1;                 /* "x", "y" */
+            k->btn[k->n++] = (uint8_t)i;
+            if (!one)
+                lua_pop(L, 1);
+        }
+        rt.nkeymap++;
+        lua_pop(L, 1);
+    }
+    return 0;
+}
+
+/* controller([p]): what player p (1-4, the first by default) plays with:
+ * {kind = "keyboard" | "ds4" | "xbox" | "pad" | "builtin" | "none",
+ *  layout = "keyboard" | "ds4" | "xbox" | "nintendo" | "none",
+ *  bluetooth = bool, ok = "a" | "b", back = "b" | "a"} (the game's
+ * buttons that say yes and go back, as the system's menus) */
+static int l_controller(lua_State *L)
+{
+    int p = (int)luaL_optinteger(L, 1, 1);
+    int d = p >= 1 && p <= INPUT_PLAYERS ? input_device(p - 1) : INPUT_DEV_NONE;
+    int kind = d & 0x0F;
+    const char *k = "none", *layout = "none";
+    if (kind == INPUT_DEV_KEYBOARD) {
+        k = layout = "keyboard";
+    } else if (kind == INPUT_DEV_PAD) {
+        k = d & INPUT_DEV_DS4 ? "ds4" : d & INPUT_DEV_XBOX ? "xbox" : d & INPUT_DEV_BUILTIN ? "builtin" : "pad";
+        layout = d & INPUT_DEV_DS4 ? "ds4" : d & INPUT_DEV_BUILTIN ? "nintendo" : "xbox";
+    }
+    lua_createtable(L, 0, 5);
+    lua_pushstring(L, k);
+    lua_setfield(L, -2, "kind");
+    lua_pushstring(L, layout);
+    lua_setfield(L, -2, "layout");
+    lua_pushboolean(L, (d & INPUT_DEV_BLUETOOTH) != 0);
+    lua_setfield(L, -2, "bluetooth");
+    lua_pushstring(L, input_ok_bit(0) == HID_A ? "a" : "b");
+    lua_setfield(L, -2, "ok");
+    lua_pushstring(L, input_ok_bit(1) == HID_A ? "a" : "b");
+    lua_setfield(L, -2, "back");
+    return 1;
+}
+
+/* a pad's button as a chip: the DS4's symbol or the letter (find_prompt
+ * chooses by the pad pressed last; here the caller does) */
+static const prompt_t *pad_chip(const char *chip, int lettered, int small)
+{
+    for (size_t i = 0; i < sizeof pad_prompts / sizeof *pad_prompts; i++)
+        if (!strcmp(chip, pad_prompts[i].name))
+            return prompt_chip(lettered ? pad_prompts[i].pad : pad_prompts[i].ds4, small);
+    return NULL;
+}
+
+/* the chip of button b (button_names) on a device: INPUT_DEV_* flags, or
+ * -1 for the one pressed last */
+static const prompt_t *button_chip(int b, int dev, int small)
+{
+    int kb = dev < 0 ? hid_last_source() == HID_SOURCE_KEYBOARD || hid_last_source() == HID_SOURCE_NONE
+                     : (dev & 0x0F) == INPUT_DEV_KEYBOARD;
+    if (kb && button_names[b].key)
+        return find_prompt(button_names[b].key, small);
+    /* a pad with letters shows the letter the game's button is under */
+    uint32_t shown = input_face_shown(button_names[b].hid);
+    for (int i = 0; i < NBUTTONS; i++)
+        if (button_names[i].hid == shown)
+            b = i;
+    if (dev < 0 || (dev & 0x0F) != INPUT_DEV_PAD)
+        return find_prompt(button_names[b].chip, small);
+    return pad_chip(button_names[b].chip, !(dev & INPUT_DEV_DS4), small);
+}
+
+static const prompt_t *prompt_for(const char *n, int small, int player)
+{
+    int b = -1;
+    if (name_is(n, "ok") || name_is(n, "back")) {
+        b = name_button(n);
+    } else {
+        for (int k = 0; k < rt.nkeymap && b < 0; k++)
+            if (!strcmp(rt.keymap[k].name, n))
+                b = name_button(n);
+        /* a pad's button by its upper-case name, for a player */
+        for (int i = 0; b < 0 && player && i < NBUTTONS; i++)
+            if (!strcmp(n, button_names[i].chip))
+                b = i;
+    }
+    if (b < 0)
+        return find_prompt(n, small);
+    int dev = player >= 1 && player <= INPUT_PLAYERS ? input_device(player - 1) : -1;
+    return button_chip(b, dev, small);
+}
+
 /* A cartridge that never asks for X or Y gets them as A and B (square and
  * triangle keep working in the older games). */
 static void note_xy(int b)
@@ -761,6 +1010,8 @@ static int buttons(lua_State *L, uint16_t *now, uint16_t *prev)
 
 static int l_btn(lua_State *L)
 {
+    if (lua_type(L, 1) == LUA_TSTRING)
+        return named_button(L, 0);
     uint16_t now, prev;
     int b = buttons(L, &now, &prev);
     lua_pushboolean(L, b >= 0 && (now >> b & 1));
@@ -769,6 +1020,8 @@ static int l_btn(lua_State *L)
 
 static int l_btnp(lua_State *L)
 {
+    if (lua_type(L, 1) == LUA_TSTRING)
+        return named_button(L, 1);
     uint16_t now, prev;
     int b = buttons(L, &now, &prev);
     lua_pushboolean(L, b >= 0 && (now >> b & 1) && !(prev >> b & 1));
@@ -2924,6 +3177,7 @@ static const luaL_Reg api[] = {
     { "world_move", l_world_move }, { "world_floor", l_world_floor },
     { "fog3d", l_fog3d }, { "project3d", l_project3d }, { "lamp3d", l_lamp3d },
     { "zclear", l_zclear }, { "gpu3d", l_gpu3d }, { "screen", l_screen }, { "log", l_log }, { "report", l_report }, { "keyhelp", l_keyhelp }, { "quit", l_quit },
+    { "keymap", l_keymap }, { "controller", l_controller },
     { "udp_open", l_udp_open }, { "udp_send", l_udp_send }, { "udp_recv", l_udp_recv }, { "udp_close", l_udp_close },
     { "net_ip", l_net_ip }, { "net_resolve", l_net_resolve },
     { "save", l_save }, { "saved", l_saved },
@@ -3226,6 +3480,7 @@ static int poll_keys(void)
     for (int p = 0; p < INPUT_PLAYERS; p++) {
         if (p == rt.local)
             per[p] |= serial;
+        rt.praw_prev[p] = rt.praw[p];
         rt.praw[p] = per[p];
         rt.pprev[p] = rt.pnow[p];
         rt.pnow[p] = hid_to_btn(per[p]);
@@ -5450,8 +5705,10 @@ int bm_resume(framebuffer_t *fb, uint32_t seconds, bm_stats_t *st)
     input_flush();
     /* buttons still held (the A that resumed) are not new presses */
     rt.now = rt.prev = hid_to_btn(hid_buttons());
-    for (int p = 0; p < INPUT_PLAYERS; p++)
+    for (int p = 0; p < INPUT_PLAYERS; p++) {
         rt.pnow[p] = rt.pprev[p] = rt.now;
+        rt.praw_prev[p] = rt.praw[p] = hid_buttons();
+    }
     hid_text_mode(rt.text_mode);
     audio_pause(0);
     vol_start = audio_volume();

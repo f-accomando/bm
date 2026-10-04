@@ -60,8 +60,9 @@ logica. Esempi completi in `carts/`: `pong/`, `snake/`, `shooter/` (solo codice)
    - **dalla seriale** (Pi con adattatore USB-seriale):
      `python3 tools/bm_load.py /dev/ttyUSB0 --cart ciao.bm`.
 
-Ctrl+Esc (tastiera), PS o Start+Select (gamepad) chiudono la cartuccia e tornano al menu
-(se la cartuccia ha `_exit()`, prima chiedono a lei); Esc da solo, in un gioco, è Start (il
+Ctrl+Esc (tastiera), PS o Start+Select (gamepad) tornano al menu di bm lasciando il gioco
+**sospeso** (fermo in memoria: A sulla sua copertina lo riprende da dove era; se la cartuccia ha
+`_exit()`, prima chiedono a lei); Esc da solo, in un gioco, è Start (il
 suo menu). Dalla seriale Ctrl+\ fa Ctrl+Esc e `q` chiude senza chiedere. I tasti di sistema
 (una sola tabella, `src/kernel/syskeys.c`) e quelli della cartuccia si vedono tenendo F12.
 Se c'è un errore Lua, la cartuccia si ferma e l'errore, con la riga, appare sulla console.
@@ -109,7 +110,7 @@ Le coordinate sono in pixel, (0,0) in alto a sinistra; `w` e `h` sono larghezza 
 | `tri(x0, y0, x1, y1, x2, y2, c, [c1, c2])` | triangolo pieno; con tre colori (uno per vertice) il colore sfuma da un angolo all'altro (Gouraud, con dithering) |
 | `print(testo, x, y, [c, scala])` | testo con il font 8×16 (bianco se `c` manca), ingrandito `scala` volte (1–8: 2 = caratteri 16×32); restituisce la x dopo l'ultimo carattere |
 | `font([nome])` | il font di `print` da qui in poi: `"8x16"` (quello normale), `"8x14"` o `"6x12"` (106 colonne per 30 righe a 640×360: per gli strumenti con tanto testo); restituisce larghezza e altezza di un carattere del font corrente |
-| `prompt(nome, x, y, [piccolo, scala])` | un tasto disegnato come un chip colorato (il set delle app, `src/kernel/prompts.c`) con l'angolo in alto a sinistra in (x, y): alto 16 pixel accanto al testo 8×16, 12 con `piccolo` (da solo quando il font è `"6x12"`), ingrandito `scala` volte (1–8, come `print`); restituisce la x dopo il chip. In **maiuscolo** i pulsanti del pad (`"A"`, `"B"`, `"X"`, `"Y"`, `"START"`, `"SELECT"`, `"L1"`…`"R3"`, `"UP"`, `"UPDOWN"`, `"LEFTRIGHT"`, `"DPAD"`, `"LSTICK"`, `"PS"`, `"TOUCHPAD"`), disegnati come sul pad usato per ultimo: un DS4 (croce, cerchio, quadrato, triangolo, OPTIONS, SHARE) finché non se ne usa un altro, che li ha con le lettere. In **minuscolo** i tasti della tastiera, coi nomi di `keyp()` (`"enter"`, `"esc"`, `"tab"`, `"space"`, `"up"`, `"f1"`…) o un carattere (`"s"`, `"1"`, `"+"`). `prompt(nome, [piccolo, scala])` senza coordinate non disegna: restituisce larghezza e altezza |
+| `prompt(nome, x, y, [piccolo, scala])` | un tasto disegnato come un chip colorato (il set delle app, `src/kernel/prompts.c`) con l'angolo in alto a sinistra in (x, y): alto 16 pixel accanto al testo 8×16, 12 con `piccolo` (da solo quando il font è `"6x12"`), ingrandito `scala` volte (1–8, come `print`); restituisce la x dopo il chip. In **maiuscolo** i pulsanti del pad (`"A"`, `"B"`, `"X"`, `"Y"`, `"START"`, `"SELECT"`, `"L1"`…`"R3"`, `"UP"`, `"UPDOWN"`, `"LEFTRIGHT"`, `"DPAD"`, `"LSTICK"`, `"PS"`, `"TOUCHPAD"`), disegnati come sul pad usato per ultimo: un DS4 (croce, cerchio, quadrato, triangolo, OPTIONS, SHARE) finché non se ne usa un altro, che li ha con le lettere. In **minuscolo** i tasti della tastiera, coi nomi di `keyp()` (`"enter"`, `"esc"`, `"tab"`, `"space"`, `"up"`, `"f1"`…) o un carattere (`"s"`, `"1"`, `"+"`). `"ok"`, `"back"` e le azioni di `keymap()` sono il loro pulsante. Con `giocatore` (1–4, dopo `scala`: `prompt(nome, x, y, piccolo, scala, giocatore)`) il pulsante come lo mostra il controller di quel giocatore: il simbolo del DS4, la lettera di un pad o il tasto della tastiera che lo preme (`"space"` per A). `prompt(nome, [piccolo, scala, giocatore])` senza coordinate non disegna: restituisce larghezza e altezza |
 | `camera([x, y])` | sposta tutto il disegno di (−x, −y); senza argomenti la azzera |
 | `clip([x, y, w, h])` | limita il disegno al rettangolo; senza argomenti tutto lo schermo |
 
@@ -139,8 +140,10 @@ della mappa; ogni numero è una cella dello sheet).
 
 | Funzione | Descrizione |
 |---|---|
-| `btn(i, [p])` | `true` finché il tasto è premuto; senza `p` da **qualsiasi** controller, con `p` = 1–4 solo da quello del giocatore `p` |
-| `btnp(i, [p])` | `true` solo nel fotogramma in cui viene premuto (stesso `p`) |
+| `btn(i, [p])` | `true` finché il tasto è premuto; senza `p` da **qualsiasi** controller, con `p` = 1–4 solo da quello del giocatore `p`. Al posto di `i` anche un **nome** (2026-10-04): un pulsante (`"a"`, `"b"`, `"x"`, `"y"`, `"left"`…`"down"`, `"start"`, `"select"`, `"l1"`, `"r1"`, `"l2"`, `"r2"`, `"l3"`, `"r3"`), `"ok"` e `"back"` (il sì e l'indietro del sistema: croce e cerchio sul DS4, A e B su un pad Xbox, Spazio e X sulla tastiera; sulla RGB30 come dicono `confirm=` e `game_buttons=`) o un'azione di `keymap()` |
+| `btnp(i, [p])` | `true` solo nel fotogramma in cui viene premuto (stesso `p`, anche con un nome) |
+| `keymap(t)` | le **azioni** del gioco sui pulsanti: `keymap({ salta = "a", spara = {"x", "r1"}, pausa = "start", conferma = "ok" })` (fino a 32 azioni, 4 pulsanti ciascuna); poi `btn("salta", p)`, `btnp("spara")` e `prompt("salta", x, y)`. Il gioco cambia i tasti chiamandola di nuovo (il suo menu delle opzioni; li tiene con `save()`); `keymap()` restituisce la tabella, `keymap(nil)` la toglie. Un pulsante sconosciuto o un'azione col nome di un pulsante è un errore |
+| `controller([p])` | con che cosa gioca il giocatore `p` (1–4, il primo se manca): `{kind = "keyboard" / "ds4" / "xbox" / "pad" / "builtin" / "none", layout = "keyboard" / "ds4" / "xbox" / "nintendo" / "none", bluetooth = bool, ok = "a" / "b", back = "b" / "a"}`: `layout` dice come si chiamano i tasti (simboli del DS4; lettere con A in basso come Xbox; A a destra come la RGB30), `ok` e `back` quali pulsanti del gioco sono il sì e l'indietro |
 | `players()` | quanti giocatori hanno un controller (almeno 1) e, come secondo valore, quali: bit `n` = giocatore `n+1` (es. `3, 7` = giocatori 1, 2 e 3) |
 | `stick([p, n])` | la levetta sinistra del giocatore `p`: `x, y` tra −1 e 1 (x verso destra, y verso il basso), con zona morta; con la tastiera o un pad senza levetta vale la croce (8 direzioni). Con `n = 1` la levetta **destra** (per mirare negli sparatutto; `0, 0` senza levetta). Senza `p`: quella spinta di più |
 

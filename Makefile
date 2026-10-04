@@ -430,6 +430,16 @@ $(BUILD)/demo.bmau: carts/sound/demo.json scripts/bmaudio.py
 	@mkdir -p $(dir $@)
 	$(PYTHON) scripts/bmaudio.py pack $< -o $@
 
+# The games' buttons by name (2026-10-04): keymap(), btn("ok"), controller(),
+# prompt() for a player, in bmhost with an input script (players on a
+# keyboard, a DS4, an Xbox pad)
+$(BUILD)/keymap-test.bm: tests/keymap/cart.lua scripts/mkbm.py
+	$(PYTHON) scripts/mkbm.py -o $@ --lua $< --title "keymap test"
+
+test-keymap: $(BUILD)/host/bmhost-bin $(BUILD)/keymap-test.bm tests/keymap/input.txt
+	$< $(BUILD)/keymap-test.bm --input tests/keymap/input.txt --seconds 8 2>&1 | tee $(BUILD)/keymap-test.log | grep "^keymap"
+	grep -q "^keymap: \([0-9]*\)/\1 checks passed" $(BUILD)/keymap-test.log
+
 test-sound: $(BUILD)/host/luahost $(BUILD)/demo.bmau carts/sound/main.lua
 	$< tests/sound/sim.lua carts/sound/main.lua $(BUILD)/demo.bmau
 
@@ -503,7 +513,7 @@ test-queue2d: $(BUILD)/host/bmhost-gpu
 	$(PYTHON) tests/gpu/queue2d.py $(BUILD)
 
 .DEFAULT_GOAL := all
-.PHONY: FORCE test-smp test-qpu test-gpu3d test-queue2d test-b3d test-v3d bench3d count-insns all clean firmware image \
+.PHONY: FORCE test-keymap test-smp test-qpu test-gpu3d test-queue2d test-b3d test-v3d bench3d count-insns all clean firmware image \
         image-pi1 sdcard install sdcard-chainloader sdcard-stress qemu qemu7 qemu-screenshot \
         run-serial test test-bm test-res test-ai test-img2mesh ai-model test-predict predict-bench syllables test-usb test-audio \
         test-fat test-kitchen test-titan test-yharnam test-sound test-nano8 test-net test-http test-https test-release \
@@ -688,7 +698,7 @@ qemu-screenshot: $(BUILD)/kernel.img
 	./scripts/qemu-screenshot.sh $< $(BUILD)/screen.png
 
 test: all test-bm test-res test-usb test-fat test-audio test-kitchen test-titan test-yharnam test-sound test-nano8 test-net test-http test-https test-img3d \
-      test-catalog test-github test-lan \
+      test-catalog test-github test-lan test-keymap \
       test-release test-smp test-qpu test-gpu3d test-queue2d test-b3d test-v3d test-ai test-predict test-studio test-prompts \
       test-overbit $(if $(K7),test-hyp)
 	$(PYTHON) tests/qemu_test.py --build $(BUILD)

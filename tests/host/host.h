@@ -17,6 +17,7 @@ typedef struct {
     int typed_len, typed_pos;
     int quit_now;
     int source;                 /* hid_last_source() */
+    int dev[4];                 /* input_device() of each player ("device"), -1: from source */
 } host_t;
 
 extern host_t host;

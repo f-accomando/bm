@@ -205,15 +205,31 @@ uint32_t input_players(uint32_t out[INPUT_PLAYERS], int text, int *quit, int *lo
 
 int input_device(int p)
 {
-    if (bt_pads() >> p & 1)
-        return INPUT_DEV_PAD | INPUT_DEV_BLUETOOTH;
+    if (bt_pads() >> p & 1)                     /* the Bluetooth pads: DS4s */
+        return INPUT_DEV_PAD | INPUT_DEV_BLUETOOTH | INPUT_DEV_DS4;
     if (p == input_ble_player())                /* never the USB player's own */
         return INPUT_DEV_KEYBOARD | INPUT_DEV_BLUETOOTH;
     if (p != input_local_player())
         return INPUT_DEV_NONE;
-    int k = usb_info()->kind;
-    return k == USB_KEYBOARD ? INPUT_DEV_KEYBOARD
-         : k == USB_GAMEPAD || k == USB_XBOX360 ? INPUT_DEV_PAD : INPUT_DEV_NONE;
+    const usb_info_t *u = usb_info();
+    if (u->kind == USB_KEYBOARD)
+        return INPUT_DEV_KEYBOARD;
+    if (u->kind == USB_XBOX360)
+        return INPUT_DEV_PAD | INPUT_DEV_XBOX;
+    if (u->kind == USB_GAMEPAD)                 /* a DS4 on its cable: Sony's vendor id */
+        return INPUT_DEV_PAD | (u->vid == 0x054C ? INPUT_DEV_DS4 : 0);
+    return INPUT_DEV_NONE;
+}
+
+/* the Pi's pads: yes is the lower face button (cross, A), back the right one */
+uint32_t input_ok_bit(int back)
+{
+    return back ? HID_B : HID_A;
+}
+
+uint32_t input_face_shown(uint32_t bit)
+{
+    return bit;
 }
 
 unsigned input_connected(void)
