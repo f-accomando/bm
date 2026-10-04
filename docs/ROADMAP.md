@@ -2962,3 +2962,28 @@ tastiera).
   o un DAC I2S, per i monitor senza altoparlanti.
 - **R22 — Pulsanti su GPIO e schermo piccolo.** Il Pi Zero dentro un guscio portatile
   (pad sui GPIO, LCD DPI o SPI): una strada diversa dall'RGB30.
+
+### La GPU come coprocessore
+- **R23 — Programmi sulle QPU fuori dal disegno 3D** (2026-10-04). Le 12 QPU della V3D fanno
+  la stessa operazione su 16 numeri alla volta: non il Lua né il codice pieno di scelte, ma i
+  calcoli uguali su tanti dati, quando il 3D non le usa (nei giochi 2D, nel menu) o con
+  alcune QPU riservate a questi programmi nei giochi 3D. Il più utile all'ARM lo fa già M36
+  (vertici e ossa nel vertex shader). In ordine:
+  1. **Particelle sulla GPU**: una funzione di sistema per emetterle, la GPU le muove
+     (velocità, gravità, durata) e le disegna senza l'ARM; oggi sono in Lua e contate
+     (Yharnam ne lascia 40 alle fiamme, Overbit le ha ottimizzate a mano): migliaia invece
+     di centinaia, per tutti i giochi.
+  2. **Effetti a schermo intero dei giochi 2D**: il buio a livelli e i bagliori di Yharnam
+     (oggi `g16_fade_*`, pixel per pixel sull'ARM), dissolvenze, sfocature, un filtro CRT.
+  3. **Effetti audio** sul sintetizzatore (riverbero, eco, filtri) calcolati a blocchi, anche
+     per nano8.
+  4. **Tanti raggi insieme** (i colpi contro le mesh degli eroi, `hit3d`; la visibilità dei
+     bot): solo se servirà, oggi costano poco.
+
+  Non conviene per il Lua, CRC, SHA-256 e decompressione (sequenziali), il riduttore di
+  poligoni (pieno di scelte), la rete dei bot (24 ingressi, già in C), il menu a 1080p
+  (meglio lo scaler video HVS o M37). Serve nel driver il lancio di un programma QPU
+  "utente" (le code della V3D per i programmi delle QPU, fuori dal disegno); i programmi si
+  scrivono con `tools/qpuasm.py` e si provano sul PC con l'emulatore che esegue gli shader
+  (`tests/gpu/v3d_emu.c`), come quelli di M36. Esempi esterni dello stesso uso: GPU_FFT tra
+  gli esempi del Raspberry Pi, QPULib, py-videocore (reti neurali sul Pi Zero), VC4CL.
