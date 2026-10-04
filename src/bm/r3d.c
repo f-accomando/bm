@@ -804,6 +804,24 @@ void r3d_free(r3d_t *r)
     r->mask = NULL;
 }
 
+/* The screen of g changed size (screen()): a z-buffer of the new size, the
+ * shadow mask made again when needed, the same field of view. -1: no
+ * memory (the old z-buffer stays, for the old size). */
+int r3d_resize(r3d_t *r, int old_w)
+{
+    uint16_t *z = malloc((size_t)r->g->w * r->g->h * 2);
+    if (!z)
+        return -1;
+    free(r->zbuf);
+    free(r->mask);
+    r->zbuf = z;
+    r->mask = NULL;
+    memset(z, 0, (size_t)r->g->w * r->g->h * 2);
+    if (old_w > 0)
+        r->focal *= (float)r->g->w / (float)old_w;
+    return 0;
+}
+
 void r3d_zclear(r3d_t *r)
 {
     if (r->backend)

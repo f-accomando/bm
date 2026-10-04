@@ -300,16 +300,16 @@ end
 function R.draw_hud(a)
   local s = a.st
   local e = s.energy
-  local cx, cy = 160, 90
-  local n = floor(e / 100 * 20)
+  local cx, cy = LW // 2, LH // 2
+  local n = floor(e / 100 * 24)
   local col = e >= 100 and 0xFFFFFF or 0x4FE8FF
   for i = 0, n - 1 do
-    local an = -pi / 2 + i * 2 * pi / 20
-    pset(cx + floor(cos(an) * 16), cy + floor(sin(an) * 16), col)
-    pset(cx + floor(cos(an) * 17), cy + floor(sin(an) * 17), col)
+    local an = -pi / 2 + i * 2 * pi / 24
+    upset(cx + floor(cos(an) * 18), cy + floor(sin(an) * 18), col)
+    upset(cx + floor(cos(an) * 19), cy + floor(sin(an) * 19), col)
   end
   if s.over_t > 0 then
     local str = string.format("OVERCLOCK %.1f", s.over_t)
-    print(str, 160 - #str * 3, 30, 0x4FE8FF)
+    uprint(str, LW // 2 - #str * 3, 46, 0x4FE8FF)
   end
 end

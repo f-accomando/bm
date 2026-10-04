@@ -473,8 +473,8 @@ function R.draw_fp(a, cx, cy, cz, yaw, pitch, roll)
       local px, py, pz = cx + tx * cyw + z2 * syw, cy + y2, cz - tx * syw + z2 * cyw
       local sx, sy = project3d(px, py, pz)
       if sx then
-        circfill(floor(sx), floor(sy), f == MECH and 8 or 3, 0xFFE8A0)
-        circfill(floor(sx), floor(sy), f == MECH and 4 or 1, 0xFFFFFF)
+        circfill(floor(sx), floor(sy), floor((f == MECH and 8 or 3) * ZOOM), 0xFFE8A0)
+        circfill(floor(sx), floor(sy), floor((f == MECH and 4 or 1) * ZOOM), 0xFFFFFF)
       end
     end
   end

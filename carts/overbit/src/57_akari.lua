@@ -365,12 +365,12 @@ function K.draw_hud(a)
     if o then
       local sx, sy = project3d(o.x, o.y + o.height + 0.3, o.z)
       if sx then
-        local x, y = floor(sx), floor(sy)
-        tri(x - 4, y - 6, x + 4, y - 6, x, y, 0x5FE8FF)
+        local x, y = floor(sx / UI), floor(sy / UI)
+        utri(x - 4, y - 6, x + 4, y - 6, x, y, 0x5FE8FF)
       end
     end
   end
   local str = tostring(s.kunai)
-  print(str, 300 - #str * 6, 118, 0xB8C0C8)
-  line(304, 118, 310, 126, 0xB8C0C8)
+  uprint(str, LW - 20 - #str * 6, LH - 64, 0xB8C0C8)
+  uline(LW - 16, LH - 64, LW - 10, LH - 56, 0xB8C0C8)
 end

@@ -145,7 +145,7 @@ def cart(cfg, shim, headless, secs):
     sh([sys.executable, os.path.join(TOP, "carts/overbit/build.py"), lua, "--start", "bench",
         "--extra", os.path.join(TOP, "build/overbit/21_map.lua")] + d, cwd=TOP)
     sh([sys.executable, os.path.join(TOP, "scripts/mkbm.py"), "-o", bm, "--lua", lua, "--title", "Overbit bench",
-        "--author", "bm", "--res", "320x180", "--models", os.path.join(TOP, "build/overbit/models.bm"),
+        "--author", "bm", "--res", "480x270", "--models", os.path.join(TOP, "build/overbit/models.bm"),
         "--audio", os.path.join(TOP, "build/overbit/sounds.json")], cwd=TOP, stdout=subprocess.DEVNULL)
     return bm
 

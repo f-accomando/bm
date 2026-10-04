@@ -52,6 +52,14 @@ stress test, il 3D Bench, il benchmark di Overbit e il quarto valore di `gpu3d()
   disegna mentre la GPU lavora va sulla pagina del fotogramma dopo, come senza la coda; un
   `_update` che disegna 3D o legge la pagina torna a girare dopo il fotogramma (una riga
   nel log). Tutto con `gpu3d_queue=1`.
+- **4.2** (2026-10-04, M38): schermi fino a 1920×1080 (`screen()`, la risoluzione cambiata
+  dalla cartuccia tra un fotogramma e l'altro): stato dei tile, lista di rendering e
+  profondità tra i lavori dimensionati per 1080p anche con l'MSAA; la guard band degli
+  angoli in 12.4 (±2048 pixel) si stringe sugli schermi larghi (120 pixel a 1920, prima
+  1000 fissi), i triangoli che la passano li taglia l'ARM. Un `cls()` con la GPU non lo
+  disegna più l'ARM (4 MB a 1080p): il lavoro della GPU pulisce i suoi tile a quel colore;
+  l'ARM riempie la pagina solo se prima del 3D arriva del 2D, una lettura o la pagina va
+  mostrata senza 3D. Vale per tutte le modalità della GPU.
 
 ## Le modalità: versioni vecchie sul codice di oggi
 
@@ -62,6 +70,9 @@ Le impostazioni riproducono le versioni precedenti, così si confrontano sullo s
 - GPU con il vertex shader per lo scenario (`gpu3d_vs=1`): **3.0**;
 - GPU con il vertex shader per tutto (`gpu3d_vs=2`): **3.4**;
 - con il fotogramma in coda (`gpu3d_queue=1`): **4.1**.
+
+Quello che 4.2 ha aggiunto (schermi fino a 1080p, `cls()` della GPU) vale in tutte le
+modalità della GPU: non si spegne.
 
 0.1 e 1.0 non girano più: i loro numeri sono quelli misurati sul Pi allora
 (`docs/M33-PRIMA-DOPO.md`).

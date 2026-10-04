@@ -90,8 +90,10 @@ void gpu3d_set_fb(const void *mem, uint32_t size, uint32_t bus)
 {
     (void)mem; (void)size; (void)bus;
 }
+void gpu3d_set_size(int w, int h)                       { (void)w; (void)h; }
 int gpu3d_pending(void)                                 { return 0; }
 void gpu3d_page(int uniform, uint16_t c)                { (void)uniform; (void)c; }
+int gpu3d_cleared(void)                                 { return 0; }
 void gpu3d_drop(void)                                   { }
 int gpu3d_flush(const g16_t *g, int keep)               { (void)g; (void)keep; return 0; }
 int gpu3d_submit(const g16_t *g, int keep)              { (void)g; (void)keep; return 0; }

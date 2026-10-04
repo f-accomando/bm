@@ -405,7 +405,9 @@ local function edit_text(s, c)
 end
 
 local function save_cfg()
-  save({ relay = Lobby.relay_name, room = Lobby.room, use_relay = Lobby.use_relay })
+  local t = saved() or {}       -- (with the resolution, 80_modes)
+  t.relay, t.room, t.use_relay = Lobby.relay_name, Lobby.room, Lobby.use_relay
+  save(t)
 end
 
 function Lobby.update()
@@ -506,16 +508,16 @@ end
 function Lobby.draw()
   cls(0x0A0E14)
   font("6x12")
-  print("PLAY ONLINE", 8, 6, 0xFFE070)
+  uprint("PLAY ONLINE", 8, 6, 0xFFE070)
   if Lobby.err then
-    print("No network: " .. Lobby.err, 8, 30, 0xFF6060)
-    print("Connect the console to WiFi (or a cable) first.", 8, 46, 0xD8DCE2)
+    uprint("No network: " .. Lobby.err, 8, 30, 0xFF6060)
+    uprint("Connect the console to WiFi (or a cable) first.", 8, 46, 0xD8DCE2)
     font()
     return
   end
-  print("this console " .. (net_ip() or "-") .. (Net.relay and ("   relay " .. Net.relay .. " room " .. Net.room) or
+  uprint("this console " .. (net_ip() or "-") .. (Net.relay and ("   relay " .. Net.relay .. " room " .. Net.room) or
         "   on the LAN"), 8, 20, 0x7A8290)
-  if Lobby.relay_err then print(Lobby.relay_err, 220, 6, 0xFF6060) end
+  if Lobby.relay_err then uprint(Lobby.relay_err, LW - 8 - #Lobby.relay_err * 6, 6, 0xFF6060) end
   if Lobby.state == "choose" then
     for i, it in ipairs(Lobby.list or ROWS) do
       local s = it
@@ -527,21 +529,21 @@ function Lobby.draw()
       end
       if (it == "RELAY" or it == "ROOM") and Lobby.edit == it:lower() then s = s .. "_" end
       local y = 40 + (i - 1) * 14
-      if i == Lobby.sel then rectfill(6, y - 1, #s * 6 + 8, 13, Lobby.edit and 0x46B4FF or 0xF26A21) end
-      print(s, 10, y, i == Lobby.sel and 0xFFFFFF or 0xD8DCE2)
+      if i == Lobby.sel then urectfill(6, y - 1, #s * 6 + 8, 13, Lobby.edit and 0x46B4FF or 0xF26A21) end
+      uprint(s, 10, y, i == Lobby.sel and 0xFFFFFF or 0xD8DCE2)
     end
-    print(Lobby.edit and "type it, then Enter" or "the matches found appear here", 8, 166, 0x7A8290)
+    uprint(Lobby.edit and "type it, then Enter" or "the matches found appear here", 8, LH - 14, 0x7A8290)
   elseif Lobby.state == "hosting" then
-    print("HOSTING: on the other consoles, PLAY ONLINE and JOIN", 8, 38, 0xD8DCE2)
+    uprint("HOSTING: on the other consoles, PLAY ONLINE and JOIN", 8, 38, 0xD8DCE2)
     for i, p in ipairs(Lobby.players) do
       local blue = p.seat <= 5
-      print((i == 1 and "you" or "player " .. i) .. "  " .. (blue and "BLUE" or "RED"), 16, 44 + i * 12,
+      uprint((i == 1 and "you" or "player " .. i) .. "  " .. (blue and "BLUE" or "RED"), 16, 44 + i * 12,
             blue and 0x46B4FF or 0xFF4646)
     end
-    local x = prompt(Input.cmd.pad and "A" or "space", 8, 165, true)
-    print("START (bots in the empty seats)", x + 3, 165, 0x7A8290)
+    local x = uprompt(Input.cmd.pad and "A" or "space", 8, LH - 15, true)
+    uprint("START (bots in the empty seats)", x + 3, LH - 15, 0x7A8290)
   else
-    print(Lobby.state == "waiting" and "IN: waiting for the host to start" or "JOINING...", 8, 44, 0xD8DCE2)
+    uprint(Lobby.state == "waiting" and "IN: waiting for the host to start" or "JOINING...", 8, 44, 0xD8DCE2)
   end
   font()
 end

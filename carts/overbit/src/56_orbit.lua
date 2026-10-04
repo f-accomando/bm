@@ -374,13 +374,14 @@ function O.draw_hud(a)
       local sx, sy = project3d(o.x, o.y + o.height * 0.6, o.z)
       if sx then
         local c = o.team == a.team and 0x3FF2D8 or 0xFF7FD8
-        circ(floor(sx), floor(sy), 7, c)
-        circ(floor(sx), floor(sy), 8, c)
+        local r = floor(7 * ZOOM / UI)
+        ucirc(floor(sx / UI), floor(sy / UI), r, c)
+        ucirc(floor(sx / UI), floor(sy / UI), r + 1, c)
       end
     end
-    circ(160, 90, floor(TORP.cone * 160 / 0.9), 0x7FFFE8)
+    ucirc(LW // 2, LH // 2, floor(TORP.cone * LW / 2 / 0.9), 0x7FFFE8)
   end
   if s.hover_t < HOVER.time and not a.on_ground then
-    rectfill(140, 112, floor(40 * s.hover_t / HOVER.time), 2, 0x3FF2D8)
+    urectfill(LW // 2 - 20, LH // 2 + 22, floor(40 * s.hover_t / HOVER.time), 2, 0x3FF2D8)
   end
 end

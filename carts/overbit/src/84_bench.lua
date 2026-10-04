@@ -46,7 +46,8 @@ local VS = { vs1 = 1, vs = 2, q = 2 }            -- the vertex shader: the scene
 -- this GPU has them)
 local function renderers()
   local on0, aa0, vs0, _, q0 = gpu3d()
-  local list = { "arm" }
+  -- the ARM only up to 640x360: its pixels cost it (seconds a frame at 1080p)
+  local list = SW * SH <= 640 * 360 and { "arm" } or {}
   if gpu3d(true) then
     list[#list + 1] = "gpu"
     local _, aa = gpu3d(true, true, 0)
@@ -59,6 +60,7 @@ local function renderers()
     end
   end
   gpu3d(on0, aa0, vs0 or 0, q0 or false)
+  if #list == 0 then list[1] = "arm" end
   return list, on0, aa0, vs0, q0
 end
 
@@ -365,19 +367,21 @@ end
 
 local function bar(text)
   font("6x12")
-  rectfill(0, 166, 320, 14, INK)
-  print(text, 4, 167, 0xFFFFFF)
+  urectfill(0, LH - 14, LW, 14, INK)
+  uprint(text, 4, LH - 13, 0xFFFFFF)
   font()
 end
 
 local function q_short(q) return Quality.names[q + 1]:sub(1, 3) end
 
 -- the match's rows a page (the rest on the next ones), and the pages: frame
--- times, work a frame, then the rings and the drivers
-local ROWS = 11
+-- times and work a frame side by side (on a narrow screen, 320x180 or
+-- 384x216: one after the other), then the rings and the drivers
+local function rows() return (LH - 62) // 11 end
+local function wide() return LW >= 440 end
 function Bench.npages()
-  local k = math.max(1, (#Bench.rows + ROWS - 1) // ROWS)
-  return 2 * k + 1, k
+  local k = math.max(1, (#Bench.rows + rows() - 1) // rows())
+  return (wide() and 1 or 2) * k + 1, k
 end
 
 local function report()
@@ -385,39 +389,51 @@ local function report()
   font("6x12")
   local page = Bench.page
   local np, k = Bench.npages()
-  print("OVERBIT BENCHMARK", 4, 2, 0xFFE070)
-  print(string.format("PAGE %d/%d", page, np), 256, 2, 0x7A8290)
+  local x = uprint("OVERBIT BENCHMARK", 4, 2, 0xFFE070)
+  uprint(SW .. "x" .. SH, x + 12, 2, 0x7A8290)
+  local ps = string.format("PAGE %d/%d", page, np)
+  uprint(ps, LW - 4 - #ps * 6, 2, 0x7A8290)
   local y = 18
-  if page <= 2 * k then
-    local work = page > k
+  local both = wide()
+  if page <= (both and 1 or 2) * k then
+    -- frame time (green: 60 fps) on the left, the work of a frame (ms of
+    -- Lua and 3D, what was drawn) on the right; or a page of each
+    local ROWS = rows()
+    local work = not both and page > k
     local first = ((page - 1) % k) * ROWS
-    print(work and "MATCH OF 10 BOTS: WORK A FRAME" or "MATCH OF 10 BOTS: FRAME TIME", 4, y, 0x7A8290)
+    if not work then uprint("MATCH OF 10 BOTS: FRAME TIME", 4, y, 0x7A8290) end
+    if both or work then uprint(both and "WORK A FRAME" or "MATCH OF 10 BOTS: WORK A FRAME", both and 4 + 44 * 6 or 4, y,
+      0x7A8290) end
     y = y + 13
-    print(work and "RENDER   QUAL  LUA   3D   TRI   VTX    PX" or "RENDER   QUAL  FPS   AVG   1%  WORST >16", 4, y,
-      0xFFE070)
+    local head = "RENDER   QUAL  FPS   AVG    1% WORST  >16   LUA    3D   TRI   VTX     PX"
+    if work then head = "RENDER   QUAL " .. head:sub(43) end
+    uprint((both or work) and head or head:sub(1, 41), 4, y, 0xFFE070)
     for i = first + 1, math.min(first + ROWS, #Bench.rows) do
       local r = Bench.rows[i]
       y = y + 11
-      if work then
-        print(string.format("%-8s %-3s %5.1f %4.1f %5.0f %5.0f %5.0f", RNAME[r.r], q_short(r.q), r.upd, r.d3, r.tri,
-          r.vtx, r.px), 4, y, 0xD8DCE2)
-      else
-        print(string.format("%-8s %-3s  %4.0f %5.1f %5.1f %5.1f %3.0f%%", RNAME[r.r], q_short(r.q), r.fps, r.ms,
+      if not work then
+        uprint(string.format("%-8s %-3s  %4.0f %5.1f %5.1f %5.1f %3.0f%%", RNAME[r.r], q_short(r.q), r.fps, r.ms,
           r.p99, r.worst, r.over), 4, y, r.ms <= 16.7 and 0x80FF90 or 0xFF8080)
+      else
+        uprint(string.format("%-8s %-3s", RNAME[r.r], q_short(r.q)), 4, y, 0xD8DCE2)
+      end
+      if both or work then
+        uprint(string.format("%5.1f %5.1f %5.0f %5.0f %6.0f", r.upd, r.d3, r.tri, r.vtx, r.px),
+          work and 4 + 14 * 6 or 4 + 42 * 6, y, 0xD8DCE2)
       end
     end
   else
-    print("STRESS: HEROES IN A RING (" .. Quality.names[RING_Q + 1] .. ")", 4, y, 0x7A8290)
+    uprint("STRESS: HEROES IN A RING (" .. Quality.names[RING_Q + 1] .. ")", 4, y, 0x7A8290)
     for _, g in ipairs(Bench.rings) do
       y = y + 13
-      print(string.format("%-8s %2d HEROES AT 60 FPS, %2d AT 30", RNAME[g.r], g.best60, g.best30), 4, y, 0xD8DCE2)
+      uprint(string.format("%-8s %2d HEROES AT 60 FPS, %2d AT 30", RNAME[g.r], g.best60, g.best30), 4, y, 0xD8DCE2)
     end
     y = y + 18
-    print("BEST QUALITY AT 60 FPS IN THE MATCH", 4, y, 0x7A8290)
+    uprint("BEST QUALITY AT 60 FPS IN THE MATCH", 4, y, 0x7A8290)
     for _, r in ipairs(Bench.renderers) do
       y = y + 13
       local b = Bench.best[r]
-      print(string.format("%-8s %s", RNAME[r], b and Quality.names[b + 1] or "NONE"), 4, y, b and 0x80FF90 or 0xFF8080)
+      uprint(string.format("%-8s %s", RNAME[r], b and Quality.names[b + 1] or "NONE"), 4, y, b and 0x80FF90 or 0xFF8080)
     end
     -- the GPU against the ARM at the same quality
     local arm, gpu = {}, {}
@@ -428,26 +444,26 @@ local function report()
     for q, ms in pairs(gpu) do if arm[q] and arm[q] / ms > best then best, bq = arm[q] / ms, q end end
     if bq then
       y = y + 18
-      print(string.format("GPU %.1fx FASTER THAN ARM (%s)", best, Quality.names[bq + 1]), 4, y, 0xFFE070)
+      uprint(string.format("GPU %.1fx FASTER THAN ARM (%s)", best, Quality.names[bq + 1]), 4, y, 0xFFE070)
     end
     -- the drivers: the bm3d version each renderer reproduces
     local line = "BM3D"
     y = y + 14
     for _, r in ipairs(Bench.renderers) do
       local d = RNAME[r] .. " " .. (Bench.ver[r] or "?")
-      if #line + 2 + #d > 52 then                  -- 52 characters on the page
-        print(line, 4, y, 0x7A8290)
+      if #line + 2 + #d > (LW - 8) // 6 then      -- the characters on the page
+        uprint(line, 4, y, 0x7A8290)
         line, y = "    ", y + 12
       end
       line = line .. (#line > 4 and "  " or " ") .. d
     end
-    print(line, 4, y, 0x7A8290)
+    uprint(line, 4, y, 0x7A8290)
   end
-  local px = prompt(Input.cmd.pad and "LEFT" or "left", 4, 165, true)
-  px = prompt(Input.cmd.pad and "RIGHT" or "right", px + 2, 165, true)
-  print("PAGE", px + 3, 165, 0x7A8290)
-  px = prompt(Input.cmd.pad and "A" or "space", px + 36, 165, true)
-  print("MENU", px + 3, 165, 0x7A8290)
+  local px = uprompt(Input.cmd.pad and "LEFT" or "left", 4, LH - 15, true)
+  px = uprompt(Input.cmd.pad and "RIGHT" or "right", px + 2, LH - 15, true)
+  uprint("PAGE", px + 3, LH - 15, 0x7A8290)
+  px = uprompt(Input.cmd.pad and "A" or "space", px + 36, LH - 15, true)
+  uprint("MENU", px + 3, LH - 15, 0x7A8290)
   font()
 end
 
@@ -459,11 +475,11 @@ function Bench.draw()
     if Bench.warm > 0 then
       cls(0x0A0E14)
       font("6x12")
-      print("OVERBIT BENCHMARK", 4, 2, 0xFFE070)
-      print("THE BOTS PLAY UP TO THE FIGHT...", 4, 80, 0xD8DCE2)
+      uprint("OVERBIT BENCHMARK", 4, 2, 0xFFE070)
+      uprint("THE BOTS PLAY UP TO THE FIGHT...", 4, LH // 2 - 10, 0xD8DCE2)
       local done = 1 - Bench.warm / (WARM * 60)
-      rectfill(4, 96, 312, 6, 0x2A2E36)
-      rectfill(4, 96, max(1, (312 * done) // 1), 6, 0xF26A21)
+      urectfill(4, LH // 2 + 6, LW - 8, 6, 0x2A2E36)
+      urectfill(4, LH // 2 + 6, max(1, ((LW - 8) * done) // 1), 6, 0xF26A21)
       font()
       bar("PHASE " .. where)
       return

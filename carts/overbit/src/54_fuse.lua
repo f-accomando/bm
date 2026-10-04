@@ -360,8 +360,8 @@ function U.draw_hud(a)
   local w = a.st.wheel
   if not w then return end
   local str = string.format("BOOM WHEEL %.1f", max(0, w.t))
-  print(str, 160 - #str * 3, 30, 0xFFC040)
+  uprint(str, LW // 2 - #str * 3, 46, 0xFFC040)
   local k = Hud.key("fire")
-  print("detonate", 172, 44, 0xFFFFFF)
-  prompt(k, 150, 42, true)
+  uprint("detonate", LW // 2 + 12, 62, 0xFFFFFF)
+  uprompt(k, LW // 2 - 10, 60, true)
 end

@@ -191,7 +191,7 @@ function Fx.draw2d()
       local s = tostring(n.n)
       local c = n.heal and 0x60FF90 or (n.crit and 0xFF4040 or 0xFFFFFF)
       if n.age > 0.6 then c = fade(c, 1 - (n.age - 0.6) / 0.3) end
-      print(s, floor(sx) - #s * 3, floor(sy) - 6, c)
+      uprint(s, floor(sx / UI) - #s * 3, floor(sy / UI) - 6, c)
     end
   end
 end

@@ -18,8 +18,9 @@ end
 local function draw_scene(skip, extra)
   World.light()
   Fx.lamps()
-  World.draw_sky(Cam.pitch)
+  if not G.gpu then World.draw_sky(Cam.pitch) end      -- 2D: under the 3D
   zclear()
+  if G.gpu then World.draw_sky(Cam.pitch) end          -- 3D: no 2D before the 3D (20_world)
   World.draw()
   if extra then extra() end
   Props.draw()
@@ -152,7 +153,7 @@ function Range.draw()
   Fx.draw2d()
   Hud.draw(me)
   font("6x12")
-  print("TRAINING RANGE", 4, 2, 0xFFE070)
+  uprint("TRAINING RANGE", 4, 2, 0xFFE070)
   font()
 end
 
@@ -160,7 +161,7 @@ end
 
 local Menu = { sel = 1, t = 0 }
 local ITEMS = { "PLAY: CONTROL", "PLAY ONLINE", "TRAINING RANGE", "HERO", "BOTS", "ANIMATION REEL", "QUALITY",
-                "3D", "BENCHMARK" }
+                "3D", "RESOLUTION", "BENCHMARK" }
 
 -- the 3D renderer: the GPU, with its vertex shader placing every model
 -- (VS), with anti-aliasing, both, the GPU+VS with the frame queue (Q: it
@@ -187,6 +188,48 @@ local function next_renderer()
     if not r[1] then return end
     if not on2 then Menu.no_gpu = true gpu3d(false, false, 0, false) return end
     if aa2 == r[2] and (vs2 or 0) == r[3] and (q2 or false) == r[4] then return end
+  end
+end
+
+-- the resolution (screen()): the console's modes, 320x180 to 1920x1080;
+-- the ARM's only up to 640x360 (its pixels cost it, the GPU's do not). The
+-- choice is saved (save(), with the relay of 83_net) and set again at the
+-- next start (Modes.saved_res).
+local function res_modes()
+  local list = {}
+  for i = 1, 16 do
+    local w, h = screen(i)
+    if not w then break end
+    if G.gpu or w * h <= 640 * 360 then list[#list + 1] = { w, h } end
+  end
+  return list
+end
+
+local function res_set(w, h)
+  if not screen(w, h) then return end
+  local t = saved() or {}
+  t.res = w .. "x" .. h
+  save(t)
+end
+
+local function next_res(k)
+  local list = res_modes()
+  local cur = 0
+  for i, m in ipairs(list) do if m[1] == SW and m[2] == SH then cur = i end end
+  if cur == 0 then cur = k > 0 and 0 or 1 end
+  local m = list[(cur - 1 + k) % #list + 1]
+  res_set(m[1], m[2])
+end
+
+function Modes.saved_res()
+  local t = screen and saved()
+  local r = OVERBIT_RES or (t and t.res)          -- OVERBIT_RES = "960x540": tests, reels
+  if not screen or type(r) ~= "string" then return end
+  local w, h = r:match("^(%d+)x(%d+)$")
+  if not w then return end
+  w, h = tonumber(w), tonumber(h)
+  for _, m in ipairs(res_modes()) do
+    if m[1] == w and m[2] == h then screen(w, h) log(string.format("overbit resolution %dx%d", w, h)) return end
   end
 end
 
@@ -230,6 +273,10 @@ function Menu.update()
     G.bot_diff = (G.bot_diff - 1 + (c.right_p and 1 or -1)) % 3 + 1
     Snd.play("ui")
   end
+  if ITEMS[Menu.sel] == "RESOLUTION" and (c.left_p or c.right_p) then
+    next_res(c.right_p and 1 or -1)
+    Snd.play("ui")
+  end
   local a = Menu.hero
   -- the hero on the title: idle, now and then its victory pose
   Menu.vt = Menu.vt + DT
@@ -251,6 +298,7 @@ function Menu.update()
       elseif G.quality > 0 then Quality.set(G.quality - 1)
       else G.qauto = true Quality.set(3) end
     elseif it == "3D" then next_renderer()
+    elseif it == "RESOLUTION" then next_res(1)
     elseif it == "BENCHMARK" then Modes.start("bench") end
   end
 end
@@ -260,31 +308,42 @@ function Menu.draw()
   local t = Menu.t
   Cam.orbit(a.x, 1.7, a.z, pi + 0.5 + sin(t * 0.15) * 0.5, -0.06, 8.5, 55)
   draw_scene(nil)
-  -- the title
+  -- the title (smaller layout on a screen of 180 or 216 lines)
+  local small = LH < 270
   font("8x16")
   local title = "OVERBIT"
-  print(title, 160 - #title * 8 + 1, 15, 0x101418, 2)
-  print(title, 160 - #title * 8, 14, 0xFFFFFF, 2)
+  local cx = LW // 2
+  local ty = small and 4 or 18
+  uprint(title, cx - #title * 8 + 1, ty + 1, 0x101418, 2)
+  uprint(title, cx - #title * 8, ty, 0xFFFFFF, 2)
   font("6x12")
-  print("a hero shooter for bm", 160 - 21 * 3, 48, 0xFFE070)
+  uprint("a hero shooter for bm", cx - 21 * 3, small and 38 or 54, 0xFFE070)
+  local top, step = small and 54 or 80, small and 12 or 15
   for i, it in ipairs(ITEMS) do
     local s = it
     if it == "QUALITY" then s = "QUALITY: " .. (G.qauto and "AUTO" or Quality.names[G.quality + 1]) end
     if it == "3D" then s = "3D: " .. renderer_name() .. (Menu.no_gpu and " (NO GPU)" or "") end
+    if it == "RESOLUTION" then s = "RESOLUTION: < " .. SW .. "x" .. SH .. " >" end
     if it == "HERO" then s = "HERO: < " .. H[G.hero_id].name:upper() .. " >" end
     if it == "BOTS" then s = "BOTS: < " .. Bots.SKILL[G.bot_diff].name .. " >" end
-    local y = 66 + (i - 1) * 13
+    local y = top + (i - 1) * step
     local sel = i == Menu.sel
-    if sel then rectfill(8, y - 1, #s * 6 + 12, 13, 0xF26A21) end
-    print(s, 14, y, sel and 0xFFFFFF or 0xD8DCE2)
+    if sel then urectfill(10, y - 2, #s * 6 + 12, step, 0xF26A21) end
+    uprint(s, 16, y, sel and 0xFFFFFF or 0xD8DCE2)
   end
   -- the chosen hero: name, role, line
   local h = H[G.hero_id]
   local role = h.role:upper()
-  print(h.name:upper(), 316 - #h.name * 6, 128, h.rgb)
-  print(role, 316 - #role * 6, 141, 0xD8DCE2)
-  print(h.desc, 316 - #h.desc * 6, 154, 0x9AA0A8)
-  print("build " .. (OVERBIT_BUILD or "dev"), 4, 168, 0x9AA0A8)
+  local rx = LW - 8
+  if small then
+    uprint(h.name:upper(), rx - #h.name * 6, 4, h.rgb)
+    uprint(role, rx - #role * 6, 17, 0xD8DCE2)
+  else
+    uprint(h.name:upper(), rx - #h.name * 6, LH - 56, h.rgb)
+    uprint(role, rx - #role * 6, LH - 42, 0xD8DCE2)
+    uprint(h.desc, rx - #h.desc * 6, LH - 28, 0x9AA0A8)
+    uprint("build " .. (OVERBIT_BUILD or "dev"), 6, LH - 14, 0x9AA0A8)
+  end
   font()
 end
 

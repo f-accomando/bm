@@ -37,6 +37,8 @@ const r3d_backend_t *gpu3d_backend(void);
  * gave it: pages of the screen are given to the V3D with that address,
  * buffers in ARM memory (drawing via RAM) with the L2-cached alias. */
 void gpu3d_set_fb(const void *mem, uint32_t size, uint32_t bus);
+/* the screen's size (the guard band of the 12.4 corners: up to 1920x1080) */
+void gpu3d_set_size(int w, int h);
 
 int gpu3d_pending(void);            /* triangles waiting for a flush */
 
@@ -45,6 +47,9 @@ int gpu3d_pending(void);            /* triangles waiting for a flush */
  * (less memory traffic). gpu3d_page(0, 0) when anything else is drawn on
  * the page or another page is drawn on. */
 void gpu3d_page(int uniform, uint16_t c);
+/* 1 if a job has cleared the page to the colour of gpu3d_page(1, c) since
+ * the last call (a cls() the ARM did not have to draw, M39); then 0 */
+int gpu3d_cleared(void);
 void gpu3d_drop(void);              /* forgets them and the depth (the cartridge ended) */
 
 /* Draws the waiting triangles into g's page. keep: the 3D goes on in this

@@ -27,6 +27,60 @@ end
 local function grandom_seed(s) rng = (s % 4294967295) + 1 end
 local DT = 1 / 60
 
+-- The screen: the cartridge's resolution (480x270 from its header; the
+-- RESOLUTION of the menu changes it with screen(), 320x180 to 1920x1080).
+--  SW, SH    its pixels
+--  ZOOM      how many of them make one of the 320x180 the game was first
+--            drawn at: the things of the world drawn in 2D (sun, flashes)
+--  UI        how many make a pixel of the HUD and the menus: 1 up to 640x360,
+--            2 at 960x540 and 1280x720, 4 at 1920x1080 (the same size on the
+--            TV as at 480x270), drawn on a screen of LW x LH with the
+--            functions below (urectfill, uprint... in its coordinates)
+local SW, SH, ZOOM, UI, LW, LH
+local urectfill, urect, upset, uline, ucirc, ucircfill, utri, uprint, uprompt
+
+local function screen_size()
+  SW, SH = SCREEN_W or 480, SCREEN_H or 270
+  ZOOM = SW / 320
+  UI = math.max(1, SH // 270)
+  LW, LH = SW // UI, SH // UI
+  if UI == 1 then
+    urectfill, urect, upset, uline, ucirc, ucircfill, utri, uprint = rectfill, rect, pset, line, circ, circfill, tri,
+      print
+    uprompt = prompt
+    return
+  end
+  local S, H = UI, UI // 2
+  urectfill = function(x, y, w, h, c) rectfill(x * S, y * S, w * S, h * S, c) end
+  urect = function(x, y, w, h, c)                 -- edges S pixels thick
+    rectfill(x * S, y * S, w * S, S, c)
+    rectfill(x * S, (y + h - 1) * S, w * S, S, c)
+    rectfill(x * S, y * S, S, h * S, c)
+    rectfill((x + w - 1) * S, y * S, S, h * S, c)
+  end
+  upset = function(x, y, c) rectfill(x * S, y * S, S, S, c) end
+  uline = function(x0, y0, x1, y1, c)             -- S lines side by side
+    local dx, dy = abs(x1 - x0), abs(y1 - y0)
+    for k = 0, S - 1 do
+      if dx >= dy then line(x0 * S + H, y0 * S + k, x1 * S + H, y1 * S + k, c)
+      else line(x0 * S + k, y0 * S + H, x1 * S + k, y1 * S + H, c) end
+    end
+  end
+  ucirc = function(x, y, r, c)
+    for k = 0, S - 1 do circ(x * S + H, y * S + H, r * S - H + k, c) end
+  end
+  ucircfill = function(x, y, r, c) circfill(x * S + H, y * S + H, r * S + H, c) end
+  utri = function(x0, y0, x1, y1, x2, y2, c) tri(x0 * S, y0 * S, x1 * S, y1 * S, x2 * S, y2 * S, c) end
+  uprint = function(s, x, y, c, k) return print(s, x * S, y * S, c, (k or 1) * S) // S end
+  -- prompt(name, x, y, small) drawn; prompt(name [, small]) measures (in
+  -- the HUD's pixels, as before)
+  uprompt = function(n, x, y, small)
+    if type(x) ~= "number" then return prompt(n, x) end
+    return prompt(n, x * S, y * S, small, S) // S
+  end
+end
+screen_size()
+
 local function clamp(v, a, b) if v < a then return a elseif v > b then return b end return v end
 local function lerp(a, b, t) return a + (b - a) * t end
 local function approach(v, target, step)

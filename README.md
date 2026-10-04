@@ -173,7 +173,7 @@ local multiplayer for up to 4 players. The games on the card, all `.bm`:
 
 <p align="center">
   <img src="docs/img/overbit-match.gif" width="720" alt="Overbit: ten bots fight for the point on Partenope, a waterfront at sunset">
-  <br><sub><b>Overbit</b>: a hero shooter in first person at 320×180, made for 60 fps on a Pi Zero.
+  <br><sub><b>Overbit</b>: a hero shooter in first person at 480×270 (up to 1080p on the GPU), made for 60 fps on a Pi Zero.
   A Control match on <b>Partenope</b>, the waterfront of a future Naples at sunset, ten bots on the point;
   <a href="docs/img/overbit-match.mp4">MP4 with sound</a> · <code>make overbit-reel-match</code></sub>
 </p>

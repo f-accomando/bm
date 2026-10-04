@@ -5046,6 +5046,69 @@ def test_square_lights(b, opts):
         q.close()
 
 
+SCREEN_CART = r"""
+local cube, f, i = nil, 0, 0
+local MODES = { { 640, 360 }, { 1920, 1080 }, { 320, 180 }, { 960, 540 } }
+function _init()
+  cube = mesh_cube(0xE06030)
+  log("refused " .. tostring(screen(800, 600)))
+end
+function _update()
+  f = f + 1
+  if f % 40 == 0 and i < #MODES then
+    i = i + 1
+    screen(MODES[i][1], MODES[i][2])
+  end
+  if f % 40 == 2 then log(string.format("screen now %dx%d", SCREEN_W, SCREEN_H)) end
+end
+function _draw()
+  cls(0x203050)
+  camera3d(0, 1.2, -9, 0, -0.1, 60)
+  zclear()
+  draw3d(cube, 0, 0, 0, 0.3, 0.6, 0, 1)
+  print("SCREEN " .. SCREEN_W .. "X" .. SCREEN_H, 0, 0, 0xFFFFFF)
+end
+"""
+
+
+def test_screen_modes(b, opts):
+    """screen(w, h): a cartridge changes its resolution between frames
+    (640x360, 1920x1080, 320x180, 960x540): the screen has the new size,
+    SCREEN_W/SCREEN_H say it, the 3D (the ARM's here) and the 2D fill it;
+    a size not in the list is refused"""
+    q = Qemu(b("kernel.img"))
+    try:
+        q.expect(MENU, timeout=30)
+        time.sleep(0.5)
+        assert _upload(q, mkbm.pack(SCREEN_CART.encode(), title="screens", res=(480, 270)))
+        out = q.expect("refused false", timeout=30).decode(errors="replace")
+        for w, h in ((640, 360), (1920, 1080), (320, 180), (960, 540)):
+            q.expect(f"screen now {w}x{h}", timeout=60)
+            for _ in range(20):
+                img = q.screendump()
+                top = (img[0], 16, img[2][:img[0] * 16 * 3])
+                if img[:2] == (w, h) and any(f"SCREEN {w}X{h}" in l for l in screen_text(top)):
+                    break
+                time.sleep(0.3)
+            assert img[:2] == (w, h), (img[:2], w, h)
+            text = screen_text(top)
+            assert any(f"SCREEN {w}X{h}" in l for l in text), text
+            iw, ih, px = img
+            orange = sum(1 for y in range(0, ih, 4) for x in range(0, iw, 4)
+                         if px[(y * iw + x) * 3] > 150 and px[(y * iw + x) * 3 + 2] < 90)
+            corner = px[((ih - 2) * iw + iw - 2) * 3:((ih - 2) * iw + iw - 2) * 3 + 3]
+            print(f"     {w}x{h}: cube {orange} samples, corner {tuple(corner)}")
+            assert orange > (iw // 4) * (ih // 4) // 40, orange
+            assert tuple(corner) == (0x20, 0x30, 0x50) or abs(corner[2] - 0x50) < 8, corner
+            if opts.shots:
+                _save_png(img, os.path.join(opts.shots, f"screen-{w}x{h}.png"))
+        q.send("q")
+        out = q.expect("update+draw", timeout=20).decode(errors="replace")
+        assert "stopped with an error" not in out, out
+    finally:
+        q.close()
+
+
 def _upload(q, data):
     q.send("U")
     q.expect("15 s timeout\r\n")

@@ -168,6 +168,7 @@ typedef struct {
 
 int  r3d_init(r3d_t *r, g16_t *g);
 void r3d_free(r3d_t *r);
+int  r3d_resize(r3d_t *r, int old_w);   /* after the screen of r->g changed size */
 void r3d_zclear(r3d_t *r);
 void r3d_camera(r3d_t *r, float x, float y, float z, float yaw, float pitch, float fov_deg);
 void r3d_camera_roll(r3d_t *r, float roll);

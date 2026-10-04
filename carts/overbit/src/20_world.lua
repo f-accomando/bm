@@ -113,23 +113,76 @@ function World.init()
   World.build_collision()
 end
 
--- the sky: bands from the zenith to the horizon (2D, under everything)
+-- The sky: bands from the zenith to the horizon. Drawn by the ARM: in 2D,
+-- under everything, before zclear(). Drawn by the GPU: nothing in 2D may go
+-- before the 3D (the GPU would read the page back, 4 MB a frame at 1080p),
+-- so after zclear() the top colour is a cls() (the GPU's job clears its
+-- tiles to it) and the bands a wall in front of the camera, turned with it
+-- (its lines stay level on the screen, as the 2D ones), with a floor under
+-- the camera, without depth or light; the sun a point3d, the clouds quads.
 local SKY = { 0x2A3A6A, 0x3D5486, 0x5C6FA0, 0x8A84AE, 0xC08C9C, 0xF0A07A, 0xFFC27A }
+local SKY_D = 600                               -- the wall's distance
 
+-- the wall and the floor: cols from the top, up to tan(elevation) = top (the
+-- 2D bands' span in pixels over the focal length: it depends on the field
+-- of view), the ground's colour below the horizon
+local function sky_mesh(cols, top, ground)
+  local v, f, n = {}, {}, #cols
+  local D, W = SKY_D, 3 * SKY_D
+  local function quad(col, ...)                 -- four corners, clockwise seen from the camera
+    local p, k = { ... }, #v // 3
+    for i = 1, 12 do v[#v + 1] = p[i] end
+    f[#f + 1] = k + 1 f[#f + 1] = k + 2 f[#f + 1] = k + 3 f[#f + 1] = col
+    f[#f + 1] = k + 1 f[#f + 1] = k + 3 f[#f + 1] = k + 4 f[#f + 1] = col
+  end
+  local ys = {}
+  for i = 0, n do ys[i] = D * top * (1 - i / n) end
+  ys[n + 1] = -2 * D
+  for i = 1, n + 1 do
+    quad(cols[i] or ground, -W, ys[i - 1], D, W, ys[i - 1], D, W, ys[i], D, -W, ys[i], D)
+  end
+  quad(ground, -W, -2 * D, D, W, -2 * D, D, W, -2 * D, -W, -W, -2 * D, -W)      -- the floor
+  return mesh(v, f)
+end
+
+-- a mesh for each field of view in use (96 degrees in the game, 55 to 70
+-- for the cameras of the menu and the reels): span is the 2D bands' in
+-- pixels of 320x180, whose focal length is 160 / tan(fov / 2)
+local sky3d_meshes = {}
+local function draw_sky3d(kind, cols, span, ground)
+  local fov = floor(Cam.fov + 0.5)
+  local key = kind .. fov
+  local m = sky3d_meshes[key]
+  if not m then
+    m = sky_mesh(cols, span / 160 * math.tan(fov * pi / 360), ground)
+    sky3d_meshes[key] = m
+  end
+  cls(cols[1])
+  fog3d()
+  draw3d(m, Cam.x, Cam.y, Cam.z, 0, Cam.yaw, 0, 1, 1 + 2)
+end
+
+-- before zclear() on the ARM, after it on the GPU (Modes.draw_scene)
 function World.draw_sky(pitch)
   if World.kind == "map" then return World.map_sky(pitch) end
-  local h = SCREEN_H
+  if G.gpu then
+    draw_sky3d("range", SKY, 140, 0x56525E)
+    World.fog_on()
+    return
+  end
+  local h = SH
   -- the horizon on screen moves with the pitch (focal = w/2 / tan(fov/2))
   local hy = h / 2 + math.tan(pitch) * Cam.focal
   local n = #SKY
-  local top = hy - 140
-  rectfill(0, 0, SCREEN_W, max(0, floor(top)), SKY[1])
+  local span = 140 * ZOOM
+  local top = hy - span
+  rectfill(0, 0, SW, max(0, floor(top)), SKY[1])
   for i = 1, n do
-    local y0 = floor(top + (i - 1) * 140 / n)
-    local y1 = floor(top + i * 140 / n)
-    if y1 > 0 and y0 < h then rectfill(0, y0, SCREEN_W, y1 - y0, SKY[i]) end
+    local y0 = floor(top + (i - 1) * span / n)
+    local y1 = floor(top + i * span / n)
+    if y1 > 0 and y0 < h then rectfill(0, y0, SW, y1 - y0, SKY[i]) end
   end
-  if hy < h then rectfill(0, floor(hy), SCREEN_W, h - floor(hy), 0x56525E) end
+  if hy < h then rectfill(0, floor(hy), SW, h - floor(hy), 0x56525E) end
 end
 
 function World.draw()
@@ -218,7 +271,7 @@ function World.map_draw()
   local rx, rz = cos(yaw), -sin(yaw)
   local ux, uy, uz = -sin(pitch) * sin(yaw), cp, -sin(pitch) * cos(yaw)
   local th = math.tan(Cam.fov * pi / 360)
-  local tv = th * SCREEN_H / SCREEN_W
+  local tv = th * SH / SW
   local sh, sv = sqrt(1 + th * th), sqrt(1 + tv * tv)
   local q = G.quality
   local near_d = ({ 16, 22, 28, 34, 40 })[q + 1]
@@ -273,35 +326,72 @@ end
 -- streaks of cloud lit from below
 local MSKY = { 0x2A3468, 0x3E4C86, 0x5E66A0, 0x8C78A8, 0xBC84A0, 0xE69488, 0xFFB078, 0xFFCE8A }
 local SUN = { -0.78, 0.36, -0.5 }
+
+-- the clouds as quads facing the camera, at the 2D ones' places and sizes
+-- (pixels of 320x180 over its focal length, times the distance: k)
+local clouds3d = {}
+local function cloud_mesh(k)
+  local v, f = {}, {}
+  local function quad(cx, cy, cz, rx, rz, hw, y0, y1, col)
+    local n = #v // 3
+    for _, p in ipairs({ { -hw, y1 }, { hw, y1 }, { hw, y0 }, { -hw, y0 } }) do
+      v[#v + 1] = cx + rx * p[1] v[#v + 1] = cy + p[2] v[#v + 1] = cz + rz * p[1]
+    end
+    f[#f + 1] = n + 1 f[#f + 1] = n + 2 f[#f + 1] = n + 3 f[#f + 1] = col
+    f[#f + 1] = n + 1 f[#f + 1] = n + 3 f[#f + 1] = n + 4 f[#f + 1] = col
+  end
+  for i = 1, 5 do
+    local a = -2.2 + i * 0.55
+    local cx, cy, cz = sin(a) * 700, 120 + i * 18, cos(a) * 700
+    local hw = 700 * (40 + i * 9) * k
+    quad(cx, cy, cz, cos(a), -sin(a), hw, -700 * 3 * k, 0, 0xF2A8A0)
+    quad(cx, cy, cz, cos(a), -sin(a), hw * 0.7, 0, 700 * 2 * k, 0xD890A8)
+  end
+  return mesh(v, f)
+end
+
 function World.map_sky(pitch)
-  local h = SCREEN_H
+  if G.gpu then
+    draw_sky3d("map", MSKY, 150, 0x6A6E8C)
+    -- the sun (its direction, far away: discs of the 2D one's sizes)
+    local fov = floor(Cam.fov + 0.5)
+    local k = math.tan(fov * pi / 360) / 160
+    local sx, sy, sz = Cam.x + SUN[1] * 800, Cam.y + SUN[2] * 800 * 0.25, Cam.z + SUN[3] * 800
+    point3d(sx, sy, sz, 800 * 22 * k, 0xFFC890)
+    point3d(sx, sy, sz, 800 * 16 * k, 0xFFDDA8)
+    point3d(sx, sy, sz, 800 * 11 * k, 0xFFF4DC)
+    clouds3d[fov] = clouds3d[fov] or cloud_mesh(k)
+    draw3d(clouds3d[fov], Cam.x, Cam.y, Cam.z, 0, 0, 0, 1, 1 + 2)
+    return
+  end
+  local h = SH
   local hy = h / 2 + math.tan(pitch) * Cam.focal
   local n = #MSKY
-  local span = 150
+  local span = 150 * ZOOM
   local top = hy - span
-  rectfill(0, 0, SCREEN_W, max(0, floor(top)), MSKY[1])
+  rectfill(0, 0, SW, max(0, floor(top)), MSKY[1])
   for i = 1, n do
     local y0 = floor(top + (i - 1) * span / n)
     local y1 = floor(top + i * span / n)
-    if y1 > 0 and y0 < h then rectfill(0, y0, SCREEN_W, y1 - y0, MSKY[i]) end
+    if y1 > 0 and y0 < h then rectfill(0, y0, SW, y1 - y0, MSKY[i]) end
   end
-  if hy < h then rectfill(0, floor(hy), SCREEN_W, h - floor(hy), 0x6A6E8C) end
+  if hy < h then rectfill(0, floor(hy), SW, h - floor(hy), 0x6A6E8C) end
   -- the sun (its direction from the camera, far away)
   local sx, sy = project3d(Cam.x + SUN[1] * 800, Cam.y + SUN[2] * 800 * 0.25, Cam.z + SUN[3] * 800)
   if sx then
     local x, y = floor(sx), floor(sy)
-    circfill(x, y, 22, 0xFFC890)
-    circfill(x, y, 16, 0xFFDDA8)
-    circfill(x, y, 11, 0xFFF4DC)
+    circfill(x, y, floor(22 * ZOOM), 0xFFC890)
+    circfill(x, y, floor(16 * ZOOM), 0xFFDDA8)
+    circfill(x, y, floor(11 * ZOOM), 0xFFF4DC)
   end
   -- clouds: long thin streaks, warm under, at fixed headings
   for i = 1, 5 do
     local a = -2.2 + i * 0.55
     local cx2, cy2 = project3d(Cam.x + sin(a) * 700, Cam.y + 120 + i * 18, Cam.z + cos(a) * 700)
     if cx2 then
-      local w = 40 + i * 9
-      rectfill(floor(cx2 - w), floor(cy2), w * 2, 3, 0xF2A8A0)
-      rectfill(floor(cx2 - w * 0.7), floor(cy2) - 2, floor(w * 1.4), 2, 0xD890A8)
+      local w = floor((40 + i * 9) * ZOOM)
+      rectfill(floor(cx2 - w), floor(cy2), w * 2, 4, 0xF2A8A0)
+      rectfill(floor(cx2 - w * 0.7), floor(cy2) - 3, floor(w * 1.4), 3, 0xD890A8)
     end
   end
 end

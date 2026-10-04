@@ -9,12 +9,12 @@
 
 /* the memory of a job, in one block: the binner wants its own (tile
  * state, tile lists, overflow) within one 256 MiB window */
-#define JOB_TSDA     16384          /* 48 bytes per tile: 20 x 12 tiles with MSAA */
+#define JOB_TSDA     (96u << 10)    /* 48 bytes per tile: 60 x 34 tiles with MSAA (1920x1080) */
 #define JOB_ALLOC    (4u << 20)     /* tile lists */
 #define JOB_OVERFLOW (2u << 20)
-#define JOB_ZBUF     (1u << 20)     /* depth kept between jobs: 640x384, 32 bits */
+#define JOB_ZBUF     (8u << 20)     /* depth kept between jobs: up to 1920x1088, 32 bits */
 #define JOB_BCL      (256u << 10)
-#define JOB_RCL      (16u << 10)
+#define JOB_RCL      (128u << 10)   /* up to 44 bytes a tile: 2040 tiles (1080p with MSAA) */
 #define JOB_RECS     (64u << 10)    /* shader records: NV 16 bytes, GL 64 */
 #define JOB_UNIF     (256u << 10)   /* uniforms of the vertex shaders (a hero: one block a bone) */
 #define JOB_CODE     (24u << 10)    /* the shaders: 1 KiB each, 2 KiB for a vertex shader */
@@ -28,7 +28,8 @@
 
 #define TIMEOUT_US   200000
 #define BATCH_MAX    65532          /* vertices of one VERTEX_ARRAY_PRIMITIVES */
-#define GUARD        1000.0f        /* margin around the screen inside the 12.4 range */
+#define GUARD        1000.0f        /* margin around the screen inside the 12.4 range, */
+#define GUARD_END    2040           /* less on wide screens: the corners stay under 2048 */
 
 /* a vertex as the NV shader state wants it: screen x and y in 12.4,
  * z (0 near .. 1 far), 1/w, the varyings of its shader: 3 (colour, or s t
@@ -129,6 +130,7 @@ static struct {
     int split;                      /* 3D of this frame drawn before some 2D */
     int page_uniform;               /* the page is page_colour all over (gpu3d_page) */
     uint16_t page_colour;
+    int cleared;                    /* a job cleared the page to it (gpu3d_cleared) */
     int z_wanted;                   /* this cartridge draws 3D after 2D in a frame */
     /* the batch being filled */
     int b_open, b_shader, b_depth;
@@ -168,6 +170,9 @@ static struct {
     int zclear_ok;                  /* M35: the probe saw zclear() inside a job work (fs_zclear) */
     int async_now;                  /* flush_job starts the job instead of running it */
     uint32_t vp;                    /* the job's VIEWPORT_OFFSET (x, y in 12.4) */
+    int scr_w, scr_h;               /* the screen (gpu3d_set_size) */
+    float gx, gy;                   /* its guard band (pixels left and right, above and below) */
+    int32_t glo_x, glo_y;           /* where it starts in 12.4 plus 32768 */
     float clipper[2];               /* the job's CLIPPER_XY_SCALING (0: not written yet) */
     gpu3d_stats_t st;
     r3d_backend_t backend;
@@ -183,6 +188,31 @@ static void disable(const char *why)
     ksnprintf(G.why, sizeof G.why, "%s", why);
     G.status = G.why;
     kprintf("gpu3d: %s; the 3D is drawn by the ARM again\n", why);
+}
+
+/* the guard band of a job of w x h: GUARD, or what keeps the corners
+ * (absolute, 12.4) within 2048 pixels */
+static void guard_of(int w, int h)
+{
+    G.gx = GUARD_END - w < GUARD ? (float)(GUARD_END - w) : GUARD;
+    G.gy = GUARD_END - h < GUARD ? (float)(GUARD_END - h) : GUARD;
+    G.glo_x = (int32_t)(32768 - 16 * G.gx);
+    G.glo_y = (int32_t)(32768 - 16 * G.gy);
+}
+
+/* the screen's: also r3d's bound for the triangles it sends unchecked,
+ * the smaller margin with room for its rounding */
+static void set_guard(int w, int h)
+{
+    G.scr_w = w;
+    G.scr_h = h;
+    guard_of(w, h);
+    G.backend.guard = (G.gx < G.gy ? G.gx : G.gy) * 0.9f;
+}
+
+void gpu3d_set_size(int w, int h)
+{
+    set_guard(w, h);
 }
 
 void gpu3d_set_fb(const void *mem, uint32_t size, uint32_t bus)
@@ -331,6 +361,7 @@ static int tex_opaque(const tex_t *t, const r3d_corner_t v[3])
 static void job_begin(int w, int h)
 {
     job_wait();                         /* the job started last reads the same memory */
+    guard_of(w, h);
     /* MSAA where the probe allows it, never with the depth kept between
      * jobs (it would have 4 samples a pixel) */
     G.ms = G.msaa && !G.z_saved && !G.z_wanted && (G.ms_ok == 2 || (G.ms_ok == 1 && G.page_uniform));
@@ -517,9 +548,6 @@ static inline float unit(float v)
     return v < 0 ? 0 : v > 1 ? 1 : v;
 }
 
-/* the guard band in 12.4 plus 32768: GUARD_LO .. GUARD_LO + span */
-#define GUARD_LO ((int32_t)(32768 - 16 * GUARD))
-
 /* a corner as the shader wants it: x and y rounded to 12.4 (within the
  * guard band, so x * 16 + 32768 is positive and the cast floors), z from
  * 1/w, the colour as r3d gives it (0..1), texel coordinates scaled to 0..1;
@@ -555,7 +583,7 @@ static inline __attribute__((always_inline)) uint32_t put_corner(gvert_t *o, flo
             o->v[2] = unit(c);
         }
     }
-    return check ? ((uint32_t)(ix - GUARD_LO) > sx) | ((uint32_t)(iy - GUARD_LO) > sy) : 0;
+    return check ? ((uint32_t)(ix - G.glo_x) > sx) | ((uint32_t)(iy - G.glo_y) > sy) : 0;
 }
 
 /* a corner made while clipping (attributes times 1/w) */
@@ -630,9 +658,9 @@ static void add_clipped(const r3d_corner_t v[3], int kind, const tex_t *t, float
     int n = 3;
     for (int i = 0; i < 3; i++)
         p[i] = cvert(&v[i]);
-    n = clip_line(p, n, q, 0, -1, GUARD);
+    n = clip_line(p, n, q, 0, -1, G.gx);
     n = clip_line(q, n, p, 0, 1, x1);
-    n = clip_line(p, n, q, 1, -1, GUARD);
+    n = clip_line(p, n, q, 1, -1, G.gy);
     n = clip_line(q, n, p, 1, 1, y1);
     if (n < 3)
         return;
@@ -660,13 +688,13 @@ static inline __attribute__((always_inline)) void add_tri(const g16_t *g, const 
             put_corner((gvert_t *)o, v[i].x, v[i].y, v[i].z, v[i].a, v[i].b, v[i].c, v[i].l, v[i].f, kind, t, 0, 0,
                        0);
     } else {
-        const uint32_t sx = (uint32_t)(16 * (g->w + 2 * (int)GUARD)), sy = (uint32_t)(16 * (g->h + 2 * (int)GUARD));
+        const uint32_t sx = (uint32_t)(16 * (g->w + 2 * (int)G.gx)), sy = (uint32_t)(16 * (g->h + 2 * (int)G.gy));
         uint32_t out = 0;
         for (int i = 0; i < 3; i++, o += G.b_stride)
             out |= put_corner((gvert_t *)o, v[i].x, v[i].y, v[i].z, v[i].a, v[i].b, v[i].c, v[i].l, v[i].f, kind,
                               t, 1, sx, sy);
         if (out) {
-            add_clipped(v, kind, t, g->w + GUARD, g->h + GUARD);   /* over the corners just written */
+            add_clipped(v, kind, t, g->w + G.gx, g->h + G.gy);     /* over the corners just written */
             return;
         }
     }
@@ -1605,6 +1633,13 @@ void gpu3d_page(int uniform, uint16_t c)
     G.page_colour = c;
 }
 
+int gpu3d_cleared(void)
+{
+    const int c = G.cleared;
+    G.cleared = 0;
+    return c;
+}
+
 /* an RGB565 colour as the tile buffer's clear colour (bytes a b c d, red
  * in byte a or c as the probe found) */
 static uint32_t clear_of(uint16_t c)
@@ -1660,6 +1695,7 @@ static int flush_job(const g16_t *g, int store)
         disable("the GPU did not finish a frame (registers in the log)");
         return -1;
     }
+    G.cleared |= !load;
     G.z_saved = zstore;
     G.z_w = g->w;
     G.z_h = g->h;
@@ -2209,9 +2245,10 @@ int gpu3d_init(void)
     G.backend.mesh = cb_mesh;
     G.backend.shadow = cb_shadow;
     G.backend.zclear = cb_zclear;
-    G.backend.guard = GUARD * 0.9f;     /* r3d's bound, with room for its rounding */
+    set_guard(G.scr_w ? G.scr_w : 640, G.scr_h ? G.scr_h : 360);   /* r3d's bound too */
     if (probe() != 0)
         return -1;
+    set_guard(G.scr_w, G.scr_h);        /* the probe's jobs had theirs */
     static const char *const ms[3] = { "no", "on cleared pages", "on any page" };
     static const char *const clips[3] = { "no", "yes", "yes (Z planes)" };
     ksnprintf(G.why, sizeof G.why, "bm3d " BM3D_VERSION " ready (byte a = %s, texels %s, textures %s, MSAA %s, "

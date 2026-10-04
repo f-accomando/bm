@@ -572,8 +572,8 @@ function K.draw_fp(a, cx, cy, cz, yaw, pitch, roll)
       local px, py, pz = cx + tx * cyw + z2 * syw, cy + y2, cz - tx * syw + z2 * cyw
       local sx, sy = project3d(px, py, pz)
       if sx then
-        circfill(floor(sx), floor(sy), 4, 0x80FFB0)
-        circfill(floor(sx), floor(sy), 2, 0xFFFFFF)
+        circfill(floor(sx), floor(sy), floor(4 * ZOOM), 0x80FFB0)
+        circfill(floor(sx), floor(sy), floor(2 * ZOOM), 0xFFFFFF)
       end
     end
   end

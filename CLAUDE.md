@@ -192,6 +192,13 @@ screenshot in `docs/img/`), `README_OLD.md` (il README completo, in italiano),
   `rig.py` scheletri e clip, `heroes/<eroe>.py`), suoni da `art/sounds.py`.
 - Convenzioni: metri, y in alto, un personaggio guarda +z e la sua destra è +x (ossa "L" a
   −x); yaw a → avanti (sin a, 0, cos a). Facce in senso orario viste da fuori.
+- Schermo **480×270** all'avvio (`OVERBIT_RES` nel `Makefile`; era 320×180), poi la voce
+  RESOLUTION del menu (`screen()`, 320×180–1920×1080, salvata con `save()`; l'ARM fino a
+  640×360). Mai numeri fissi nel 2D: `00_core.lua` dà `SW`, `SH` (pixel), `ZOOM` (le cose
+  del mondo disegnate in 2D: sole, lampi) e l'HUD su uno schermo logico `LW`×`LH`
+  ingrandito `UI` volte con `urectfill`, `uprint`, `uprompt`... (le coordinate proiettate
+  si dividono per `UI`); `screen_size()` le rifà quando `SCREEN_W` cambia. Con la GPU il
+  cielo è 3D dopo `zclear()` (nessun 2D prima del 3D: la GPU pulisce la pagina).
 - Eroi: il kit in `src/5x_<eroe>.lua` (tabella in `H`, forme, `update`, `draw_fp`, `hud`,
   ganci `draw_extra`, `draw_hud`, `camera`, `on_lethal`...), il modello in
   `art/heroes/<eroe>.py`. Le persone usano il corpo comune (`humanoid.py`: scheletro,
@@ -536,6 +543,11 @@ screenshot in `docs/img/`), `README_OLD.md` (il README completo, in italiano),
   `r3d_t.arm_hook`: la GPU disegna ciò che ha in coda e la cartuccia passa all'ARM
   (`gpu3d_to_arm` in `runtime.c`, una riga nel log, il fotogramma misto non si mostra).
   `stat(9)` vale 1 se il 3D lo fa la GPU; `gpu3d([on, aa, vs])` lo cambia dalla cartuccia.
+- **Risoluzione della cartuccia** (`screen(w, h)`, bm3d 4.2): cambia tra due fotogrammi
+  (`screen_apply` in `runtime.c`), modi 16:9 da 320×180 a 1920×1080; `gpu3d.c` ha i buffer
+  per 1080p e la guard band che si stringe (`set_guard`); con la GPU `cls()` lo fa il
+  lavoro della GPU (`cls_settle`: l'ARM riempie solo se prima del 3D arriva del 2D, una
+  lettura o la pagina va mostrata). Prova: `test_screen_modes` in QEMU.
 - M36 (in corso): le mesh le mette il **vertex shader** (`vs_baked`, `vs_tex_rgb`, `vs_lit`,
   `cs_colour` in `tools/qpuasm.py`; copie degli angoli in `gpu3d.c`, `mesh_get`, gruppi
   per osso con un blocco di uniform a osso). Livello 1: lo scenario (spente o con la luce

@@ -1,7 +1,7 @@
 -- Cameras: first person (the eye of the local actor, its bob and shake),
 -- an orbit for the reel and the spectators, the death camera.
 
-Cam = { x = 0, y = 2, z = 0, yaw = 0, pitch = 0, roll = 0, fov = 96, focal = 144, mode = "fp", fp_fov = 96,
+Cam = { x = 0, y = 2, z = 0, yaw = 0, pitch = 0, roll = 0, fov = 96, focal = 144 * ZOOM, mode = "fp", fp_fov = 96,
         orbit_d = 6, orbit_h = 1.6, orbit_yaw = 0, orbit_pitch = -0.12 }
 
 local bob = 0
@@ -10,14 +10,14 @@ function Cam.set(x, y, z, yaw, pitch, roll, fov)
   Cam.x, Cam.y, Cam.z, Cam.yaw, Cam.pitch, Cam.roll = x, y, z, yaw, pitch, roll or 0
   Cam.fov = fov or Cam.fov
   local th = math.tan(Cam.fov * pi / 360)
-  Cam.focal = SCREEN_W * 0.5 / th
+  Cam.focal = SW * 0.5 / th
   camera3d(x, y, z, yaw, pitch, Cam.fov, Cam.roll)
   -- the axes of the view, for Cam.sees (the roll is small: ignored)
   local sp, cp, sy, cy = sin(pitch), cos(pitch), sin(yaw), cos(yaw)
   Cam.fx, Cam.fy, Cam.fz = sy * cp, sp, cy * cp
   Cam.rx, Cam.rz = cy, -sy
   Cam.ux, Cam.uy, Cam.uz = -sp * sy, cp, -sp * cy
-  local tv = th * SCREEN_H / SCREEN_W
+  local tv = th * SH / SW
   Cam.th, Cam.tv = th, tv
   Cam.sh, Cam.sv = sqrt(1 + th * th), sqrt(1 + tv * tv)
 end

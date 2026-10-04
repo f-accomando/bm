@@ -40,6 +40,13 @@ Scritto per scegliere la risoluzione del menu (M27, BareMetal UI).
   in `runtime.c`); i bordi restano neri. `SCREEN_W` e `SCREEN_H` valgono 256. Il 3D di
   questi giochi lo disegna l'ARM (la GPU scrive pagine intere, non un quadrato al centro).
 - Le copertine dei giochi nel `.bm` sono 128×80 (`BM_COVER_W`, `BM_COVER_H`).
+- **Cambio di risoluzione mentre il gioco gira** (`screen(w, h)`, 2026-10-04): la
+  cartuccia parte con quella dell'intestazione e può passare a 320×180, 384×216,
+  480×270, 640×360, 960×540, 1280×720 o 1920×1080 tra un fotogramma e l'altro. Su
+  1080p sono tutte a pixel interi (6×, 5×, 4×, 3×, 2×, 1×) tranne 1280×720 (1,5×: pixel
+  irregolari con `scaling_kernel=8`). Il framebuffer in tripla pagina a 1920×1080 è
+  12,4 MB della memoria della GPU (64 MiB). Sopra 640×360 serve la GPU: il rasterizzatore
+  dell'ARM paga ogni pixel. Overbit la offre nel menu (RESOLUTION) e la salva.
 
 ## 3. Risoluzioni possibili per il menu
 
