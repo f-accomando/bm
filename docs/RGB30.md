@@ -203,7 +203,7 @@ WPA2/WPA3 miste); non WPA3 sola, WPA1, WEP, enterprise.
   una release copiata sulla SD (le prove).
 - **Dalla rete**: `python3 tools/bm_net.py <ip> --kernel build/rgb30/kernel8.img` (la password è
   quella che *WiFi* mostra quando la console entra nella rete), oppure `./easy_install.sh`, voce
-  4, con un profilo di scheda RGB30.
+  1 ([NET] update kernel), con un profilo di scheda RGB30.
 - **Dal PC**: copiare `kernel8.img` sulla SD.
 
 ## File

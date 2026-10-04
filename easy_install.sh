@@ -6,16 +6,16 @@
 # this PC), installs the packages the build needs and fetches the Pi's
 # firmware (make firmware, into firmware/); the file keeps what it did.
 # Every time it shows the branch you are on, then a menu:
-#   1  update the kernel   kernel.img on the card (the old one in bm/backup)
-#   2  full install        make install: kernel, boot files, games, bm/
-#   3  disk image          make image (dist/bm.img), then the card erased and
-#                          formatted (FAT32, the whole card up to 31 GB) with
-#                          the image's files on it; settings, saves and your
-#                          own games are kept, unless you say no
-#   4  kernel by network   to a console on the network, without the card
-#                          (tools/bm_net.py --kernel): a saved profile (name,
-#                          IP, the 6-digit console code, the board: Pi, Pi Zero
-#                          2 W or RGB30) or a new one
+#   1  [NET] update kernel  to a console on the network, without the card
+#                           (tools/bm_net.py --kernel): a saved profile (name,
+#                           IP, the 6-digit console code, the board: Pi, Pi
+#                           Zero 2 W or RGB30) or a new one
+#   2  [SD] update kernel   kernel.img on the card (the old one in bm/backup)
+#   3  [SD] full install    make install: kernel, boot files, games, bm/
+#   4  [SD] disk image      make image (dist/bm.img), then the card erased and
+#                           formatted (FAT32, the whole card up to 31 GB) with
+#                           the image's files on it; settings, saves and your
+#                           own games are kept, unless you say no
 #   b  branch              change it, or bring it up to date (git pull)
 #   p  paths               the repository's folder, the card's drive letter
 # The same as an argument: ./easy_install.sh kernel | install | image | net [profile].
@@ -627,20 +627,20 @@ esac
 while :; do
     cat <<MENU
 
-  1  update the kernel   (kernel.img only; the old one stays in bm/backup)
-  2  full install        (kernel, boot files, games, bm/: make install)
-  3  disk image          (make image, card erased and formatted, the image's files)
-  4  kernel by network   (to a console on the network: saved profiles, or a new one)
-  b  branch              (now $BRANCH: change it or update it)
-  p  paths               (repository folder, SD card letter)
+  1  [NET] update kernel   (to a console on the network: saved profiles, or a new one)
+  2  [SD] update kernel    (kernel.img only; the old one stays in bm/backup)
+  3  [SD] full install     (kernel, boot files, games, bm/: make install)
+  4  [SD] disk image       (make image, card erased and formatted, the image's files)
+  b  branch                (now $BRANCH: change it or update it)
+  p  paths                 (repository folder, SD card letter)
   q  quit
 MENU
     read -r -p "> " c || exit 0
     case $c in
-        1) job_kernel ;;
-        2) job_install ;;
-        3) job_image ;;
-        4) job_net ;;
+        1) job_net ;;
+        2) job_kernel ;;
+        3) job_install ;;
+        4) job_image ;;
         b|B) change_branch; BRANCH=$(git rev-parse --abbrev-ref HEAD); echo "  branch      $(branch_line)" ;;
         p|P) change_paths ;;
         q|Q|"") exit 0 ;;

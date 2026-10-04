@@ -74,4 +74,9 @@
 #define MBEDTLS_KEY_EXCHANGE_ECDHE_RSA_ENABLED
 #define MBEDTLS_SSL_MAX_CONTENT_LEN 16384
 
+/* IP addresses in certificates: mbedTLS's own parser. Bare metal has no
+ * inet_pton, but a C library's headers may still define AF_INET6 (the
+ * RGB30's picolibc does with some toolchains), and mbedTLS would call it. */
+#define MBEDTLS_TEST_SW_INET_PTON
+
 #endif

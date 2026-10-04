@@ -362,13 +362,14 @@ e tiene anche cosa ha installato e l'ultima operazione), installa i pacchetti ch
 build (`apt`) e scarica il firmware del Pi (`make firmware`, in `firmware/`). Poi mostra il
 branch (e se è indietro rispetto a GitHub) e un menu:
 
-- `1` solo il kernel: `kernel.img` sulla SD, quello di prima in `bm/backup`;
-- `2` installazione completa: `make install` (kernel, file di avvio, giochi, `bm/`);
-- `3` immagine: `make image` (`dist/bm.img`), poi la SD cancellata e formattata FAT32 (tutta,
+- `1` **[NET]** kernel dalla rete (vedi sotto);
+- `2` **[SD]** solo il kernel: `kernel.img` sulla SD, quello di prima in `bm/backup`;
+- `3` **[SD]** installazione completa: `make install` (kernel, file di avvio, giochi, `bm/`);
+- `4` **[SD]** immagine: `make image` (`dist/bm.img`), poi la SD cancellata e formattata FAT32 (tutta,
   fino a 31 GB; Windows chiede i permessi di amministratore) con sopra i file dell'immagine;
   impostazioni, salvataggi e giochi tuoi (`bm/`, `carts/`) vengono copiati sul PC
   (`~/.bm/sd-backup`) e rimessi;
-- `4` kernel dalla rete, senza togliere la SD (`tools/bm_net.py --kernel`): sceglie una console
+- kernel dalla rete (`1`), senza togliere la SD (`tools/bm_net.py --kernel`): sceglie una console
   salvata o ne aggiunge una (nome, IP e "Console password" di 6 cifre, che Settings > WiFi and
   network mostra; la scheda: Pi Zero / Zero W / Pi 1 o Pi Zero 2 W); se l'IP o il codice sono
   cambiati li chiede e aggiorna il profilo; alla fine `kernel (nome): vecchio -> nuovo`. I
