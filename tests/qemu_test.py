@@ -5216,6 +5216,71 @@ end
 """
 
 
+def test_reports(b, opts):
+    """The reports (src/kernel/reports.c, 2026-10-04): Z in the monitor makes
+    one of the log, saved as bm/reports/RPT00001.TXT with its header (kernel,
+    branch, board, date, the long name with kernel and branch), the token
+    masked where the log had it (the repository may be public); with a token
+    but no network (QEMU) it waits on the card, and z says so; p (the
+    render bench) makes its own of what it printed."""
+    tmp = tempfile.mkdtemp(prefix="bm-reports-")
+    img = os.path.join(tmp, "sd.img")
+    cfg = os.path.join(tmp, "config.txt")
+    with open(cfg, "w") as f:
+        f.write("layout=us\nwifi_boot=0\ngithub_token=test-token-4242\n")
+    mksd.build(img, [(cfg, "bm/config.txt"), (b("demo.bm"), "carts/game.bm")])
+    q = Qemu(b("kernel.img"), ["-drive", f"if=sd,format=raw,file={img}"])
+    try:
+        q.expect(MENU, timeout=30)
+        time.sleep(0.5)
+        q.send("q")
+        q.expect(PROMPT)
+        q.expect("> ")
+        q.send("l")                             # the token printed: it is in the log now
+        q.expect("lua> ")
+        q.send("print('the token is ' .. 'test-token-' .. 4242)\r")
+        q.expect("the token is test-token-4242")
+        q.send("exit()\r")
+        q.expect("> ")
+        q.send("Z")
+        out = q.expect("report: on the SD card: no network", timeout=20).decode(errors="replace")
+        m = re.search(r"report: (nodate-[0-9a-f]{6}_log_\S+_\S+\.txt) saved as bm/reports/RPT00001\.TXT", out)
+        assert m, out
+        name = m.group(1)
+        q.expect("> ")
+        q.send("z")
+        out = q.expect("waiting on the SD card", timeout=20).decode(errors="replace")
+        assert "on the SD card: no network; 1 waiting" in out, out
+        q.expect("> ")
+        q.send("p")                             # the render bench: a report of its printout
+        out = q.expect("RPT00002.TXT", timeout=120).decode(errors="replace")
+        assert re.search(r"report: nodate-[0-9a-f]{6}_render_", out), out
+        q.expect("> ")
+        time.sleep(0.5)
+    finally:
+        q.close()
+    part = os.path.join(tmp, "part.img")
+    with open(img, "rb") as f, open(part, "wb") as o:
+        f.seek(2048 * 512)
+        o.write(f.read())
+    env = dict(os.environ, MTOOLS_SKIP_CHECK="1")
+    log = subprocess.run(["mtype", "-i", part, "::/BM/REPORTS/RPT00001.TXT"], capture_output=True, text=True,
+                         env=env).stdout
+    render = subprocess.run(["mtype", "-i", part, "::/BM/REPORTS/RPT00002.TXT"], capture_output=True, text=True,
+                            env=env).stdout
+    shutil.rmtree(tmp, ignore_errors=True)
+    head = log.split("\n\n", 1)[0].splitlines()
+    assert head[0] == "bm report" and "kind: log" in head and f"file: {name}" in head, log[:600]
+    kernel = next(l[8:] for l in head if l.startswith("kernel: "))
+    branch = next(l[8:] for l in head if l.startswith("branch: "))
+    assert kernel and branch and "date: unknown (no network time)" in head, head
+    assert name.endswith(f"_{kernel.lower()}.txt"), (name, kernel)
+    assert "cartridge menu" in log.split("\n\n", 1)[1], "the log's body"
+    assert "test-token-4242" not in log and "the token is ***************" in log, "the token masked"
+    assert "kind: render" in render and "Rendering benchmark" not in render.split("\n\n", 1)[0], render[:400]
+    assert "sprites" in render.split("\n\n", 1)[1], render[:800]
+
+
 def test_menu_scale(b, opts):
     """menu_scale=3 in bm/config.txt (2026-10-04): the menu at 1920x1080,
     the same layout as at 640x360, every pixel 3x3 (the ARM enlarges it;

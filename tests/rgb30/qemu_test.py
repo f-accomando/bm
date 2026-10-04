@@ -189,8 +189,11 @@ def test_screen_console(b, opts):
             assert name in text and in_menu(text), f"{name!r} not selected on the Dev tab:\n{text}"
         keys(q, "r")                            # Settings: its panel
         text = screen_all(q.screendump())
-        for needle in ("Bluetooth", "WiFi", "Updates", "System", "Reboot", "Power off"):
+        for needle in ("Bluetooth", "WiFi", "Updates", "System", "Reports", "Reboot"):
             assert needle in text, f"{needle!r} not in Settings:\n{text}"
+        keys(q, "w")                            # up from the first row: round to the last
+        text = screen_all(q.screendump())
+        assert "Power off" in text and "none" in text, text     # no reports waiting
         keys(q, "r")                            # R1 on the last tab: nothing
         assert "Power off" in screen_all(q.screendump())
         keys(q, "\x7f")                        # back: out of Settings, to Dev
@@ -236,11 +239,11 @@ def test_lua_repl(b, opts):
 
 
 def test_menu_games_and_hidden_bm(b, opts):
-    """.s16 files in bm/ are the games; the .bm cartridges are listed too,
+    """.b16 files in bm/ are the games; the .bm cartridges are listed too,
     for testing, unless show_bm=0 in bm/config.txt (then the Games tab says
     how many are hidden)."""
     tmp = tempfile.mkdtemp(prefix="bm64sd-")
-    sd = make_sd(tmp, {"bm/racer.s16": b"S16" + bytes(100), "bm/pong.bm": b"BMCART" + bytes(64),
+    sd = make_sd(tmp, {"bm/racer.b16": b"B16" + bytes(100), "bm/pong.bm": b"BMCART" + bytes(64),
                        "bm/notes.txt": b"hello", "bm/config.txt": b"show_bm=0\n"})
     q = Qemu(os.path.join(b, "kernel.elf"), sd=sd)
     try:
@@ -249,7 +252,7 @@ def test_menu_games_and_hidden_bm(b, opts):
         assert "cartridge menu: 1 games" in out, out
         time.sleep(0.5)
         text = screen_all(q.screendump())
-        assert "racer.s16" in text.lower(), text
+        assert "racer.b16" in text.lower(), text
         assert "pong" not in text.lower(), text
         out = q.expect("\n", timeout=5).decode(errors="replace")
         assert "(1 .bm hidden by show_bm=0" in out, out
@@ -267,7 +270,7 @@ def test_menu_games_and_hidden_bm(b, opts):
         assert "No games yet" in text and "1 Pi cartridge (.bm) hidden by show_bm=0" in text, text
     finally:
         q.close()
-    sd = make_sd(tmp, {"bm/racer.s16": b"S16" + bytes(100), "bm/pong.bm": b"BMCART" + bytes(64)})
+    sd = make_sd(tmp, {"bm/racer.b16": b"B16" + bytes(100), "bm/pong.bm": b"BMCART" + bytes(64)})
     q = Qemu(os.path.join(b, "kernel.elf"), sd=sd)
     try:
         out = boot(q)
@@ -276,7 +279,7 @@ def test_menu_games_and_hidden_bm(b, opts):
         text = screen_all(q.screendump())
         keys(q, "d")                            # the other cover
         text += screen_all(q.screendump())
-        assert "pong.bm" in text.lower() and "racer.s16" in text.lower(), text
+        assert "pong.bm" in text.lower() and "racer.b16" in text.lower(), text
     finally:
         q.close()
 
@@ -285,7 +288,7 @@ def test_bootlog_on_sd(b, opts):
     """The boot log goes to bm/bootlog.txt on the SD card (read back from
     the RAM disk with mtools: the FAT stays valid)."""
     tmp = tempfile.mkdtemp(prefix="bm64sd-")
-    sd = make_sd(tmp, {"bm/racer.s16": b"S16" + bytes(100)})
+    sd = make_sd(tmp, {"bm/racer.b16": b"B16" + bytes(100)})
     size = os.path.getsize(sd)
     q = Qemu(os.path.join(b, "kernel.elf"), sd=sd)
     try:
@@ -307,7 +310,7 @@ def test_bootlog_on_sd(b, opts):
     assert log.index("SD: ") < log.index("display: starting") < log.index("ready"), log
     files = subprocess.run(["mdir", "-i", part, "-b", "::/bm"], capture_output=True,
                            env=env, check=True).stdout.decode()
-    assert "racer.s16" in files.lower(), files
+    assert "racer.b16" in files.lower(), files
 
 
 def test_update_from_sd(b, opts):
@@ -513,8 +516,8 @@ def test_bm_cartridge(b, opts):
 
 def test_bench3d(b, opts):
     """The Dev tab's 3D Bench (src/bm/b3d.c) at 640x360: every test on the
-    ARM, the report on the serial port and in bm/bench on the SD card;
-    the back button returns to the menu's 360x360."""
+    ARM, the report on the serial port, in bm/bench on the SD card and in
+    bm/reports for GitHub; the back button returns to the menu's 360x360."""
     tmp = tempfile.mkdtemp(prefix="bm64sd-")
     sd = make_sd(tmp, {"bm/config.txt": b"layout=us\n"})
     size = os.path.getsize(sd)
@@ -549,6 +552,12 @@ def test_bench3d(b, opts):
     rep = subprocess.run(["mtype", "-i", f"{dump}@@{1024 * 1024}", "::/bm/bench/3D0001.TXT"],
                          capture_output=True, env=env, check=True).stdout.decode(errors="replace")
     assert rep.startswith("bm 3D Bench") and "R,spheres,ARM" in rep and "total " in rep, rep
+    # and as a report (src/kernel/reports.c): no token here, it waits on the card
+    rpt = subprocess.run(["mtype", "-i", f"{dump}@@{1024 * 1024}", "::/bm/reports/RPT00001.TXT"],
+                         capture_output=True, env=env, check=True).stdout.decode(errors="replace")
+    head = rpt.split("\n\n", 1)[0]
+    assert rpt.startswith("bm report\nkind: bench3d\n") and "board: QEMU virt" in head, rpt[:400]
+    assert "_bench3d_qemu-virt_" in head and "R,spheres,ARM" in rpt, rpt[:400]
 
 
 def test_menu_input_page(b, opts):

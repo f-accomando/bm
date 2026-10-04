@@ -35,6 +35,7 @@
 #include "arch/cache.h"
 #include "kernel/crumbs.h"
 #include "kernel/prompts.h"
+#include "kernel/reports.h"
 #include "n8lua.h"
 #include "ai/lua_ai.h"
 #include "ai/net.h"
@@ -110,6 +111,7 @@ static struct {
     uint8_t *anim;              /* copy of its ANIM section (skeletons), or NULL */
     uint32_t anim_size;
     int mouse, mouse_arrow;     /* mouse(true [, arrow]): the pointer is the cartridge's */
+    int reports;                /* report() calls in this run */
     pointer_t ptr;              /* the pointer this frame */
     int want_w, want_h;         /* screen(w, h): the resolution from the next frame */
     int cls_pending;            /* a cls() left to the GPU's next job (cls_settle) */
@@ -1967,6 +1969,28 @@ static int l_log(lua_State *L)
     return 0;
 }
 
+/* report(kind, text) - a report for whoever develops bm (src/kernel/reports.c,
+ * 2026-10-04): saved in bm/reports on the SD card with the kernel, branch,
+ * board and date, then sent to the reports' git repository if it can (a
+ * benchmark's numbers instead of a photo). At most 8 a run, 256 KiB each.
+ * true if it was saved. */
+#define REPORTS_MAX     8
+#define REPORT_MAX_LEN  (256 * 1024)
+static int l_report(lua_State *L)
+{
+    const char *kind = luaL_checkstring(L, 1);
+    size_t len;
+    const char *text = luaL_checklstring(L, 2, &len);
+    if (rt.reports >= REPORTS_MAX || len > REPORT_MAX_LEN) {
+        kprintf("report: refused (%s)\n", len > REPORT_MAX_LEN ? "over 256 KiB" : "8 in this run already");
+        lua_pushboolean(L, 0);
+        return 1;
+    }
+    rt.reports++;
+    lua_pushboolean(L, reports_text(kind, text, len) == 0);
+    return 1;
+}
+
 /* ---- the network for the games (M38.5): UDP sockets (src/net/cartnet.h).
  * Addresses as text, "192.168.1.23"; "*" is the broadcast of the LAN. */
 
@@ -2838,7 +2862,7 @@ static const luaL_Reg api[] = {
     { "world3d", l_world3d }, { "world_box", l_world_box }, { "world_ray", l_world_ray },
     { "world_move", l_world_move }, { "world_floor", l_world_floor },
     { "fog3d", l_fog3d }, { "project3d", l_project3d }, { "lamp3d", l_lamp3d },
-    { "zclear", l_zclear }, { "gpu3d", l_gpu3d }, { "screen", l_screen }, { "log", l_log }, { "quit", l_quit },
+    { "zclear", l_zclear }, { "gpu3d", l_gpu3d }, { "screen", l_screen }, { "log", l_log }, { "report", l_report }, { "quit", l_quit },
     { "udp_open", l_udp_open }, { "udp_send", l_udp_send }, { "udp_recv", l_udp_recv }, { "udp_close", l_udp_close },
     { "net_ip", l_net_ip }, { "net_resolve", l_net_resolve },
     { "save", l_save }, { "saved", l_saved },

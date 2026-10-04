@@ -172,9 +172,49 @@ const char *klog_text(void)
     return bootlog;
 }
 
+/* a report's capture (src/kernel/reports.c): what is printed, without the
+ * colours, in the caller's buffer */
+static char *cap_buf;
+static size_t cap_len, cap_size;
+static int cap_esc;
+
+void klog_capture(char *buf, size_t size)
+{
+    cap_buf = size ? buf : NULL;
+    cap_size = size;
+    cap_len = 0;
+    cap_esc = 0;
+    if (cap_buf)
+        cap_buf[0] = 0;
+}
+
+size_t klog_captured(void)
+{
+    return cap_len;
+}
+
+static void capture_putc(char c)
+{
+    if (cap_esc) {                              /* ESC [ ... letter */
+        if ((c >= 'A' && c <= 'Z') || (c >= 'a' && c <= 'z'))
+            cap_esc = 0;
+        return;
+    }
+    if (c == 0x1B) {
+        cap_esc = 1;
+        return;
+    }
+    if (c == '\r' || cap_len + 1 >= cap_size)
+        return;
+    cap_buf[cap_len++] = c;
+    cap_buf[cap_len] = 0;
+}
+
 void klog_putc(char c)
 {
     bootlog_putc(c);
+    if (cap_buf)
+        capture_putc(c);
     if (c == '\n')
         uart_putc('\r');
     uart_putc(c);

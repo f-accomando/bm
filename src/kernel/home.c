@@ -11,6 +11,7 @@
 #include "monitor.h"
 #include "pager.h"
 #include "pointer.h"
+#include "reports.h"
 #include "sysinfo.h"
 #include "testpattern.h"
 #include "update.h"
@@ -229,6 +230,7 @@ typedef struct {
     void (*run)(framebuffer_t *fb);     /* NULL: the monitor */
     int wait;
     g16_sheet_t cover;
+    const char *report;                 /* what it prints is a report of this kind (reports.h), or NULL */
 } tool_t;
 
 /* bm Code, the code editor */
@@ -238,25 +240,25 @@ static void t_code(framebuffer_t *fb)
 }
 
 static tool_t tools[] = {
-    { "Code", "code editor: tabs, two pages, small font", MENU_ICON_CODE, 0x3A4A8A, t_code, 0, { 0 } },
-    { "Assistant", "help with code and sprites; F6 in the tools", MENU_ICON_ASSIST, 0x2A6A9A, home_assistant, 0, { 0 } },
-    { "Monitor", "the text console with every command (h: help)", MENU_ICON_TERMINAL, 0x2A3A4A, NULL, 0, { 0 } },
-    { "Lua", "Lua 5.4 prompt (USB keyboard); Esc or Ctrl-D returns", MENU_ICON_LUA, 0x2A3A9A, t_lua, 0, { 0 } },
-    { "System", "board, clocks, memory, SD card, network", MENU_ICON_CHIP, 0x2A7A5A, t_system, 1, { 0 } },
-    { "Log", "everything printed since boot", MENU_ICON_LOG, 0x6A6A7A, t_log, 0, { 0 } },
-    { "Input test", "the buttons each player holds, for 10 s", MENU_ICON_PAD, 0x8A3A8A, t_input, 1, { 0 } },
-    { "Audio test", "HDMI sound status and a test tune", MENU_ICON_SOUND, 0xB05A2A, t_audio, 1, { 0 } },
-    { "CPU bench", "CPU and memory benchmark", MENU_ICON_GAUGE, 0x3A5A8A, t_cpu, 1, { 0 } },
-    { "Render bench", "drawing benchmark, 640x360 RGB565", MENU_ICON_TRIANGLES, 0x5A3AA0, t_render, 1, { 0 } },
-    { "Stress test", "sprites, triangles and 3D, in C and in Lua", MENU_ICON_FLAME, 0xA03A3A, t_stress, 1, { 0 } },
-    { "DMA test", "copies by the CPU against the DMA, step by step", MENU_ICON_ARROWS, 0x2A7A8A, t_dma, 1, { 0 } },
-    { "GPU test", "the 3D unit (V3D) step by step; ARM against GPU", MENU_ICON_TRIANGLES, 0x8A5A2A, t_gpu, 1, { 0 } },
+    { "Code", "code editor: tabs, two pages, small font", MENU_ICON_CODE, 0x3A4A8A, t_code, 0, { 0 }, NULL },
+    { "Assistant", "help with code and sprites; F6 in the tools", MENU_ICON_ASSIST, 0x2A6A9A, home_assistant, 0, { 0 }, NULL },
+    { "Monitor", "the text console with every command (h: help)", MENU_ICON_TERMINAL, 0x2A3A4A, NULL, 0, { 0 }, NULL },
+    { "Lua", "Lua 5.4 prompt (USB keyboard); Esc or Ctrl-D returns", MENU_ICON_LUA, 0x2A3A9A, t_lua, 0, { 0 }, NULL },
+    { "System", "board, clocks, memory, SD card, network", MENU_ICON_CHIP, 0x2A7A5A, t_system, 1, { 0 }, "system" },
+    { "Log", "everything printed since boot", MENU_ICON_LOG, 0x6A6A7A, t_log, 0, { 0 }, NULL },
+    { "Input test", "the buttons each player holds, for 10 s", MENU_ICON_PAD, 0x8A3A8A, t_input, 1, { 0 }, NULL },
+    { "Audio test", "HDMI sound status and a test tune", MENU_ICON_SOUND, 0xB05A2A, t_audio, 1, { 0 }, "audio" },
+    { "CPU bench", "CPU and memory benchmark", MENU_ICON_GAUGE, 0x3A5A8A, t_cpu, 1, { 0 }, "cpu" },
+    { "Render bench", "drawing benchmark, 640x360 RGB565", MENU_ICON_TRIANGLES, 0x5A3AA0, t_render, 1, { 0 }, "render" },
+    { "Stress test", "sprites, triangles and 3D, in C and in Lua", MENU_ICON_FLAME, 0xA03A3A, t_stress, 1, { 0 }, "stress" },
+    { "DMA test", "copies by the CPU against the DMA, step by step", MENU_ICON_ARROWS, 0x2A7A8A, t_dma, 1, { 0 }, "dma" },
+    { "GPU test", "the 3D unit (V3D) step by step; ARM against GPU", MENU_ICON_TRIANGLES, 0x8A5A2A, t_gpu, 1, { 0 }, "gpu" },
     { "3D Bench", "every 3D test, every driver: bars, report on the SD", MENU_ICON_GAUGE, 0x2A6A8A, t_bench3d, 1,
-      { 0 } },
-    { "Texture Room", "3D bench: crates doubled to 30 fps, ARM and GPU", MENU_ICON_GAUGE, 0x9A6A2A, t_room, 1, { 0 } },
-    { "Demo", "the 60 fps animation demo, 10 s", MENU_ICON_PLAY, 0x3A8A3A, t_demo, 1, { 0 } },
-    { "Test pattern", "HDMI colour bars; any button returns", MENU_ICON_BARS, 0x404050, t_pattern, 0, { 0 } },
-    { "Diagnostics", "the old boot sequence: benchmarks and demos", MENU_ICON_CHECK, 0x7A6A2A, t_diag, 1, { 0 } },
+      { 0 }, NULL },
+    { "Texture Room", "3D bench: crates doubled to 30 fps, ARM and GPU", MENU_ICON_GAUGE, 0x9A6A2A, t_room, 1, { 0 }, "room" },
+    { "Demo", "the 60 fps animation demo, 10 s", MENU_ICON_PLAY, 0x3A8A3A, t_demo, 1, { 0 }, "demo" },
+    { "Test pattern", "HDMI colour bars; any button returns", MENU_ICON_BARS, 0x404050, t_pattern, 0, { 0 }, NULL },
+    { "Diagnostics", "the old boot sequence: benchmarks and demos", MENU_ICON_CHECK, 0x7A6A2A, t_diag, 1, { 0 }, "diag" },
 };
 
 #define NTOOLS ((int)(sizeof tools / sizeof tools[0]))
@@ -273,6 +275,16 @@ const char *home_tool_title(int i) { return tools[i].title; }
 const char *home_tool_about(int i) { return tools[i].about; }
 const g16_sheet_t *home_tool_cover(int i) { return tools[i].cover.px ? &tools[i].cover : NULL; }
 
+/* a tool whose printout is a report: run between reports_begin and _end */
+static int reported;
+
+static void run_reported(framebuffer_t *fb)
+{
+    reports_begin(tools[reported].report);
+    tools[reported].run(fb);
+    reports_end();
+}
+
 void home_tool_start(int i, home_do_t *d)
 {
     memset(d, 0, sizeof *d);
@@ -282,7 +294,8 @@ void home_tool_start(int i, home_do_t *d)
         return;
     }
     d->what = HOME_TEXT;
-    d->text = tools[i].run;
+    d->text = tools[i].report ? run_reported : tools[i].run;
+    reported = i;
     d->wait = tools[i].wait;
 }
 
@@ -294,7 +307,7 @@ enum {
     R_PROMPTS, R_FORGET,
     R_NETWORK, R_STATE, R_IP, R_TIME, R_CONSOLE, R_PASSWORD, R_CONNECT, R_BOOT,
     R_VERSION, R_BOARD, R_UPTIME, R_MEMORY, R_CLOCKS, R_SD, R_DRIVER3D, R_RESTART, R_MONITOR, R_PERF,
-    R_UPDATE, R_INSTALL,
+    R_UPDATE, R_INSTALL, R_REPORTS, R_REPORT_LOG,
 };
 
 static int popcount(unsigned v)
@@ -550,6 +563,16 @@ void home_panel(int id, home_panel_t *p)
                      "bm3d %s (%s), as %s", BM3D_VERSION, BM3D_BLOCK,
                      bm3d_mode_q(gpu, gpu ? vs_on() : 0, gpu && queue_on()));
         }
+        {
+            static const char *const help = "The tests' reports on the SD card, to GitHub (github_token)";
+            const int n = reports_pending();
+            if (n)
+                home_row(p, MENU_ROW_ACTION, R_REPORTS, "Send the reports", help, "%d waiting", n);
+            else
+                home_row(p, MENU_ROW_ACTION, R_REPORTS, "Send the reports", help, "none waiting");
+        }
+        home_row(p, MENU_ROW_ACTION, R_REPORT_LOG, "Report the log",
+                 "Everything printed since boot, as a report (Send the reports)", NULL);
         home_row(p, MENU_ROW_CHOICE, R_PERF, "Performance overlay",
                  "Over the games: fps, ms, Lua instructions (F3 too)", "%s",
                  bm_perf() ? "On" : "Off");
@@ -604,6 +627,23 @@ static void x_connect(framebuffer_t *fb)
     if (wifi_start() == 0 && wifi_scan() > 0 && wifi_connect() == 0 && net_start(&net_wifi) == 0)
         net_wait_ip(15000);
     input_pad_keys(0);
+}
+
+/* Settings > System: the reports on the card sent; the log as a report */
+static void t_send_reports(framebuffer_t *fb)
+{
+    (void)fb;
+    heading("Send the reports");
+    int left = reports_send_pending();
+    kprintf("%s; %d waiting on the SD card\n", reports_last(), left);
+}
+
+static void t_report_log(framebuffer_t *fb)
+{
+    (void)fb;
+    heading("Report the log");
+    const char *t = klog_text();
+    reports_text("log", t, strlen(t));
 }
 
 void home_act(int id, int row, int how, home_do_t *d)
@@ -720,6 +760,12 @@ void home_act(int id, int row, int how, home_do_t *d)
         break;
     case R_UPDATE:
         if (how == 0) { d->what = HOME_TEXT; d->text = update_check; d->wait = 1; }
+        break;
+    case R_REPORTS:
+        if (how == 0) { d->what = HOME_TEXT; d->text = t_send_reports; d->wait = 1; }
+        break;
+    case R_REPORT_LOG:
+        if (how == 0) { d->what = HOME_TEXT; d->text = t_report_log; d->wait = 1; }
         break;
     case R_INSTALL:
         if (how == HOME_YES) {

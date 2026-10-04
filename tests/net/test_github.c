@@ -2,8 +2,9 @@
  * Host test of publishing to the Market (src/net/github.c) over POSIX
  * sockets, against the fake GitHub API of tests/net/run_github_test.py.
  *   test_github PORT TOKEN ID NAME CART TITLE VERSION BRANCH
- * Prints "url <pull request>" or "error <message>"; the script checks the
- * fake repositories afterwards.
+ *   test_github put PORT TOKEN REPO BRANCH PATH FILE      (a report: github_put)
+ * Prints "url <pull request or file>" or "error <message>"; the script
+ * checks the fake repositories afterwards.
  */
 #include "net/github.h"
 #include "net/http.h"
@@ -83,8 +84,31 @@ static void pause_ms(unsigned ms)
     usleep(ms * 50);            /* the fake fork is ready at once: no need to wait long */
 }
 
+static int put(char **argv)
+{
+    FILE *f = fopen(argv[7], "rb");
+    if (!f)
+        return 2;
+    static uint8_t data[1 << 20];
+    size_t len = fread(data, 1, sizeof data, f);
+    fclose(f);
+    char api[64], url[256], err[256];
+    snprintf(api, sizeof api, "http://127.0.0.1:%s", argv[2]);
+    gh_put_t p = {
+        .api = api, .token = argv[3], .repo = argv[4], .branch = argv[5], .path = argv[6],
+        .data = data, .len = len, .message = "report gpu from Pi Zero W (v1, bm-core)", .progress = progress,
+    };
+    if (github_put(&p, url, sizeof url, err, sizeof err) == 0)
+        printf("url %s\n", url);
+    else
+        printf("error %s\n", err);
+    return 0;
+}
+
 int main(int argc, char **argv)
 {
+    if (argc == 8 && !strcmp(argv[1], "put"))
+        return put(argv);
     if (argc < 9)
         return 2;
     FILE *f = fopen(argv[5], "rb");

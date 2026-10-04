@@ -26,6 +26,7 @@ KERNEL_BASE := 0x10000000
 endif
 
 VERSION := $(shell git describe --always --dirty 2>/dev/null || echo dev)
+BRANCH := $(or $(GITHUB_HEAD_REF),$(GITHUB_REF_NAME),$(shell git rev-parse --abbrev-ref HEAD 2>/dev/null),unknown)
 
 # -Wno-format: uint32_t is unsigned long on the Pi and unsigned int here; the
 # shared code prints it with %lu (kprintf ignores the l) and would warn everywhere.
@@ -72,6 +73,8 @@ NET_SRCS := src/net/net.c src/net/netcon.c src/net/netxfer.c src/net/cartnet.c
 # (manifest-rgb30.txt: kernel8.img and bm/ca.pem), the Pi's update code
 NET_SRCS += src/net/stream.c src/net/tls.c src/net/http.c src/net/http_kernel.c src/net/release.c \
             src/kernel/update.c
+# the reports to a git repository (src/kernel/reports.c, as on the Pi)
+NET_SRCS += src/net/github.c src/net/report.c src/kernel/reports.c
 # the Pi's cartridges (.bm, listed for testing; show_bm=0 hides them): the runtime unchanged,
 # the Pi's drivers it calls replaced by src/rgb30/bm_port.c and bm_input.c; the menu is
 # the Pi's (menu_ui.c, its icons) at 360x360
@@ -90,9 +93,9 @@ $(LUA_OBJS) $(MBEDTLS_OBJS) $(LWIP_OBJS): WARN := -w
 VERSION_STAMP := $(BUILD)/version.txt
 $(VERSION_STAMP): FORCE
 	@mkdir -p $(dir $@)
-	@echo '$(VERSION)' | cmp -s - $@ || echo '$(VERSION)' > $@
+	@echo '$(VERSION) $(BRANCH)' | cmp -s - $@ || echo '$(VERSION) $(BRANCH)' > $@
 $(BUILD)/k/src/kernel/version.c.o: $(VERSION_STAMP)
-$(BUILD)/k/src/kernel/version.c.o: CFLAGS += -DBM_VERSION=\"$(VERSION)\"
+$(BUILD)/k/src/kernel/version.c.o: CFLAGS += -DBM_VERSION=\"$(VERSION)\" -DBM_BRANCH=\"$(BRANCH)\"
 $(BUILD)/k/src/rgb30/bm_embed.S.o: keys/release-pub.pem
 FORCE:
 

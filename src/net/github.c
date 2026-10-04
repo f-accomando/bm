@@ -1,7 +1,8 @@
 /*
  * Publishing a game to the Market from the console (M25, step 6): a pull
  * request to the market's repository through GitHub's REST API, with the
- * user's personal token. Portable: the HTTP client and a pause from the
+ * user's personal token; and a file put on a branch (the reports,
+ * src/kernel/reports.c). Portable: the HTTP client and a pause from the
  * caller (tests/net/test_github.c runs it against a fake API).
  */
 #include "github.h"
@@ -139,7 +140,8 @@ static size_t base64(char *out, const uint8_t *d, size_t n)
 /* ---------------------------------------------------------------- the API */
 
 typedef struct {
-    const gh_publish_t *p;
+    const char *api, *token;
+    void (*progress)(const char *step);
     char *err;
     size_t err_len;
     body_t body;                /* the last answer */
@@ -149,11 +151,11 @@ typedef struct {
 static int call(gh_t *g, const char *method, const char *path, const char *json, size_t json_len)
 {
     char url[384], head[512];
-    snprintf(url, sizeof url, "%s%s", g->p->api, path);
+    snprintf(url, sizeof url, "%s%s", g->api, path);
     snprintf(head, sizeof head,
              "Authorization: Bearer %s\r\nAccept: application/vnd.github+json\r\n"
              "X-GitHub-Api-Version: 2022-11-28\r\n%s",
-             g->p->token, json ? "Content-Type: application/json\r\n" : "");
+             g->token, json ? "Content-Type: application/json\r\n" : "");
     free(g->body.buf);
     memset(&g->body, 0, sizeof g->body);
     g->body.max = 1 << 20;
@@ -185,10 +187,10 @@ static int fail(gh_t *g, const char *what, int st)
 
 static void say(gh_t *g, const char *fmt, const char *a)
 {
-    if (g->p->progress) {
+    if (g->progress) {
         char line[160];
         snprintf(line, sizeof line, fmt, a);
-        g->p->progress(line);
+        g->progress(line);
     }
 }
 
@@ -198,11 +200,11 @@ typedef struct {
     char bm_name[64], bm_sha[48], info_sha[48];
 } folder_t;
 
-static int read_folder(gh_t *g, const char *target, const char *branch, folder_t *f)
+static int read_folder(gh_t *g, const char *target, const char *branch, const char *id, folder_t *f)
 {
     memset(f, 0, sizeof *f);
     char path[256];
-    snprintf(path, sizeof path, "/repos/%s/contents/games/%s?ref=%s", target, g->p->id, branch);
+    snprintf(path, sizeof path, "/repos/%s/contents/games/%s?ref=%s", target, id, branch);
     int st = call(g, "GET", path, NULL, 0);
     if (st == 404)
         return 0;                       /* a new game */
@@ -224,12 +226,14 @@ static int read_folder(gh_t *g, const char *target, const char *branch, folder_t
     return 0;
 }
 
-static int put_file(gh_t *g, const char *target, const char *branch, const char *name,
-                    const uint8_t *data, size_t len, const char *sha)
+/* a file into a branch (contents API): `file` is its path in the
+ * repository, `sha` the blob it replaces ("" for a new file) */
+static int put_contents(gh_t *g, const char *target, const char *branch, const char *file,
+                        const uint8_t *data, size_t len, const char *sha, const char *message)
 {
-    char msg[160], esc[200];
-    snprintf(msg, sizeof msg, "%s %s: %s", g->p->title, g->p->version, name);
-    json_escape(esc, sizeof esc, msg);
+    const char *name = strrchr(file, '/') ? strrchr(file, '/') + 1 : file;
+    char esc[200];
+    json_escape(esc, sizeof esc, message);
     size_t cap = (len + 2) / 3 * 4 + 512;
     char *json = malloc(cap);
     if (!json) {
@@ -240,8 +244,8 @@ static int put_file(gh_t *g, const char *target, const char *branch, const char 
                                 esc, branch, sha[0] ? "\"sha\":\"" : "", sha, sha[0] ? "\"," : "");
     o += base64(json + o, data, len);
     o += (size_t)snprintf(json + o, cap - o, "\"}");
-    char path[256];
-    snprintf(path, sizeof path, "/repos/%s/contents/games/%s/%s", target, g->p->id, name);
+    char path[384];
+    snprintf(path, sizeof path, "/repos/%s/contents/%s", target, file);
     say(g, "sending %s", name);
     int st = call(g, "PUT", path, json, o);
     free(json);
@@ -250,9 +254,18 @@ static int put_file(gh_t *g, const char *target, const char *branch, const char 
     return st < 0 ? -1 : fail(g, name, st);
 }
 
+static int put_file(gh_t *g, const gh_publish_t *p, const char *target, const char *name,
+                    const uint8_t *data, size_t len, const char *sha)
+{
+    char msg[160], file[256];
+    snprintf(msg, sizeof msg, "%s %s: %s", p->title, p->version, name);
+    snprintf(file, sizeof file, "games/%s/%s", p->id, name);
+    return put_contents(g, target, p->branch, file, data, len, sha, msg);
+}
+
 int github_publish(const gh_publish_t *p, char *url, size_t url_len, char *err, size_t err_len)
 {
-    gh_t g = { p, err, err_len, { 0 } };
+    gh_t g = { p->api, p->token, p->progress, err, err_len, { 0 } };
     char login[64], owner[64], path[256], target[128], sha[48], json[1024];
     url[0] = 0;
     err[0] = 0;
@@ -331,12 +344,12 @@ int github_publish(const gh_publish_t *p, char *url, size_t url_len, char *err, 
     }
 
     folder_t f;
-    if (read_folder(&g, target, p->branch, &f) != 0)
+    if (read_folder(&g, target, p->branch, p->id, &f) != 0)
         goto out;
     /* an update keeps the name of the .bm already there: one .bm per folder */
     const char *name = f.bm_name[0] ? f.bm_name : p->name;
-    if (put_file(&g, target, p->branch, name, p->cart, p->cart_len, f.bm_sha) != 0 ||
-        put_file(&g, target, p->branch, "info.txt", (const uint8_t *)p->info, strlen(p->info), f.info_sha) != 0)
+    if (put_file(&g, p, target, name, p->cart, p->cart_len, f.bm_sha) != 0 ||
+        put_file(&g, p, target, "info.txt", (const uint8_t *)p->info, strlen(p->info), f.info_sha) != 0)
         goto out;
 
     say(&g, "%s", "pull request");
@@ -363,6 +376,64 @@ int github_publish(const gh_publish_t *p, char *url, size_t url_len, char *err, 
     }
     if (json_get(g.body.buf, g.body.buf + g.body.len, "html_url", url, url_len))
         snprintf(url, url_len, "https://github.com/%s/pulls", p->repo);
+    r = 0;
+out:
+    free(g.body.buf);
+    return r;
+}
+
+/* the sha of a branch's last commit; 404 if there is no such branch */
+static int branch_head(gh_t *g, const char *repo, const char *branch, char *sha, size_t n)
+{
+    char path[256];
+    snprintf(path, sizeof path, "/repos/%s/git/ref/heads/%s", repo, branch);
+    int st = call(g, "GET", path, NULL, 0);
+    if (st == 200 && json_get(g->body.buf, g->body.buf + g->body.len, "sha", sha, n)) {
+        snprintf(g->err, g->err_len, "%s: no commit in the answer", branch);
+        return -1;
+    }
+    return st;
+}
+
+int github_put(const gh_put_t *p, char *url, size_t url_len, char *err, size_t err_len)
+{
+    gh_t g = { p->api, p->token, p->progress, err, err_len, { 0 } };
+    char sha[48], json[256], base[96];
+    url[0] = 0;
+    err[0] = 0;
+    int r = -1, st = branch_head(&g, p->repo, p->branch, sha, sizeof sha);
+    if (st == 404) {
+        /* the branch is new: made from the repository's main branch */
+        char path[256];
+        snprintf(path, sizeof path, "/repos/%s", p->repo);
+        if ((st = call(&g, "GET", path, NULL, 0)) != 200) {
+            if (st >= 0) fail(&g, "the repository", st);
+            goto out;
+        }
+        if (json_get(g.body.buf, g.body.buf + g.body.len, "default_branch", base, sizeof base)) {
+            snprintf(err, err_len, "the repository: no main branch in the answer");
+            goto out;
+        }
+        if ((st = branch_head(&g, p->repo, base, sha, sizeof sha)) != 200) {
+            if (st >= 0) fail(&g, "the main branch", st);
+            goto out;
+        }
+        say(&g, "new branch %s", p->branch);
+        snprintf(path, sizeof path, "/repos/%s/git/refs", p->repo);
+        snprintf(json, sizeof json, "{\"ref\":\"refs/heads/%s\",\"sha\":\"%s\"}", p->branch, sha);
+        st = call(&g, "POST", path, json, strlen(json));
+        if (st != 201 && st != 422) {           /* 422: made meanwhile */
+            if (st >= 0) fail(&g, "the branch", st);
+            goto out;
+        }
+    } else if (st != 200) {
+        if (st >= 0) fail(&g, "the branch", st);
+        goto out;
+    }
+    if (put_contents(&g, p->repo, p->branch, p->path, p->data, p->len, "", p->message) != 0)
+        goto out;
+    if (json_get(g.body.buf, g.body.buf + g.body.len, "html_url", url, url_len))
+        snprintf(url, url_len, "https://github.com/%s/blob/%s/%s", p->repo, p->branch, p->path);
     r = 0;
 out:
     free(g.body.buf);

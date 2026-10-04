@@ -32,6 +32,8 @@ PORT    ?= /dev/ttyUSB0
 BAUD    ?= 115200
 
 VERSION := $(shell git describe --always --dirty 2>/dev/null || echo dev)
+# the branch, for the reports' names (CI checks out a commit: its variables say which)
+BRANCH := $(or $(GITHUB_HEAD_REF),$(GITHUB_REF_NAME),$(shell git rev-parse --abbrev-ref HEAD 2>/dev/null),unknown)
 
 ARCH    := -mcpu=arm1176jzf-s -marm -mfpu=vfp -mfloat-abi=hard
 # kernel7.img, the Pi Zero 2 W: ARMv7 in 32 bit (hardware divide, VFPv4 with
@@ -86,9 +88,10 @@ $(BUILD)/k7/%: SOC := -DBM_ZERO2
 VERSION_STAMP := $(BUILD)/version.txt
 $(VERSION_STAMP): FORCE
 	@mkdir -p $(dir $@)
-	@echo '$(VERSION)' | cmp -s - $@ || echo '$(VERSION)' > $@
+	@echo '$(VERSION) $(BRANCH)' | cmp -s - $@ || echo '$(VERSION) $(BRANCH)' > $@
 $(BUILD)/k/src/kernel/version.c.o $(BUILD)/k7/src/kernel/version.c.o: $(VERSION_STAMP)
-$(BUILD)/k/src/kernel/version.c.o $(BUILD)/k7/src/kernel/version.c.o: CFLAGS += -DBM_VERSION=\"$(VERSION)\"
+$(BUILD)/k/src/kernel/version.c.o $(BUILD)/k7/src/kernel/version.c.o: CFLAGS += -DBM_VERSION=\"$(VERSION)\" \
+    -DBM_BRANCH=\"$(BRANCH)\"
 FORCE:
 
 # Third-party code: its own warning policy, not ours.
@@ -772,9 +775,15 @@ $(BUILD)/host/test_lan: tests/net/test_lan.c src/net/lan.c src/net/lan.h src/net
 		third_party/mbedtls/library/sha256.c third_party/mbedtls/library/platform_util.c $(LWIP_SRCS)
 
 # Publishing to the Market from the console (M25): src/net/github.c over
-# POSIX sockets against a fake GitHub API (branch or fork, files, pull request)
-test-github: $(BUILD)/host/test_github
+# POSIX sockets against a fake GitHub API (branch or fork, files, pull request);
+# and the reports (src/kernel/reports.c): their names, a file on a branch
+test-github: $(BUILD)/host/test_github $(BUILD)/host/test_report
+	$(BUILD)/host/test_report
 	$(PYTHON) tests/net/run_github_test.py $(BUILD)/host/test_github
+
+$(BUILD)/host/test_report: tests/net/test_report.c src/net/report.c src/net/report.h
+	@mkdir -p $(dir $@)
+	$(HOSTCC) -O1 -Wall -Wextra -Isrc -o $@ tests/net/test_report.c src/net/report.c
 
 $(BUILD)/host/test_github: tests/net/test_github.c src/net/github.c src/net/github.h src/net/http.c src/net/http.h
 	@mkdir -p $(dir $@)

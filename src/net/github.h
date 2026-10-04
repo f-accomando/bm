@@ -32,6 +32,23 @@ typedef struct {
 /* 0 and the pull request's address in url, or -1 with err. */
 int github_publish(const gh_publish_t *p, char *url, size_t url_len, char *err, size_t err_len);
 
+/* A file put on a branch of a repository (the console's reports): the
+ * branch is made from the repository's main one if it is not there; the
+ * file must be new. */
+typedef struct {
+    const char *api, *token;
+    const char *repo;           /* "f-accomando/bm" */
+    const char *branch;         /* "reports" */
+    const char *path;           /* in the repository: "reports/bm-core/....txt" */
+    const uint8_t *data;
+    size_t len;
+    const char *message;        /* the commit's */
+    void (*progress)(const char *step);     /* a line for the screen, or NULL */
+} gh_put_t;
+
+/* 0 and the file's address on GitHub in url, or -1 with err. */
+int github_put(const gh_put_t *p, char *url, size_t url_len, char *err, size_t err_len);
+
 /* A Market id from a file name ("/carts/My Game.bm" -> "my-game"). */
 int github_id_from_name(const char *file, char *id, size_t n);
 

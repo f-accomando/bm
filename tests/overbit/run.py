@@ -275,6 +275,7 @@ def main():
         hashes = re.findall(r"overbit bench \S+ HIGH match (\d+)", log)
         check(code == 0 and "overbit bench done" in log and "Lua error" not in log,
               f"bench ({tag}): runs to the end", log)
+        check("bmhost: report overbit-bench" in log, f"bench ({tag}): its report (report())", log)
         check([r[0] for r in rows] == rs, f"bench ({tag}): the phases {' '.join(rs)}", log)
         # the same match each time (where everyone is at the end); about the
         # same vertices drawn by the GPU with and without MSAA (the ARM draws

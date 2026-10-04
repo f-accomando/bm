@@ -694,6 +694,9 @@ Passi (2026-09-29):
    file per file, senza archivi da decomprimere).
 6. **Git leggero in scrittura**: l'editor carica un `.bm` su un repository con un
    token personale (`github_token` in `bm/config.txt`, API "contents", PUT).
+   - In parte (2026-10-04, branch `bm-core`): i **report dei test** vanno da soli nel branch
+     `reports` di `f-accomando/bm` (`github_put` in `src/net/github.c`, `src/kernel/reports.c`;
+     nome con kernel e branch), così chi sviluppa li legge senza foto.
 
 ## M20 — Picchiaduro a robot giganti (XL) — ✅ chiusa (2026-09-30: base giocabile)
 Decisione 2026-09-28: in coda dopo M19. Concept completo dell'autore:
@@ -2747,7 +2750,8 @@ Decisione 2026-10-01 (utente): una versione **bare metal** di bm per la PowKiddy
 (Rockchip RK3566, 4 × Cortex-A55 a 64 bit, 1 GiB, schermo 720×720 MIPI-DSI, RTL8821CS).
 Menu **512×512** al centro dello schermo (formato 1:1; dal 2026-10-03 360×360 ×2, a tutto
 schermo, task 8); giochi e app
-in un formato nuovo, **`.s16`**, da definire; le cartucce `.bm` del Pi nascoste (`show_bm=1` in
+in un formato nuovo, **`.b16`** (fino al 2026-10-04 `.s16`; la cartuccia a risorse limitate per
+le console portatili, [B16.md](B16.md)), da definire; le cartucce `.bm` del Pi nascoste (`show_bm=1` in
 `bm/config.txt` le elenca soltanto; dal 2026-10-03, per le prove, visibili e avviabili senza
 impostazioni, `show_bm=0` le nasconde). Tutto in [RGB30.md](RGB30.md).
 
@@ -2765,7 +2769,7 @@ Task:
    destinazioni di rendering della GPU in 64 MiB di memoria video e GPU, ingrandimento del
    controller video (720×720 1:1, 360×360 ×2, 240×240 ×3), pagina *Display* di prova.
 4. **Comandi, SD, menu**: tasti GPIO, levette (SARADC + commutatore), SDMMC0 in PIO, PMIC RK817
-   (spegnimento, batteria), menu 512×512 con `.s16` e strumenti (in QEMU il menu e la FAT sono
+   (spegnimento, batteria), menu 512×512 con `.b16` e strumenti (in QEMU il menu e la FAT sono
    provati; sulla console i tasti vanno, 2026-10-03, e l'asse verticale delle levette è stato
    girato).
 5. **Bluetooth**: RTL8821CS su UART1 con H5 (trasporto in `src/bt/h5.c`, già sotto lo stack
@@ -2824,7 +2828,7 @@ Task:
 ## Spunti R1, R2, … (2026-10-03, da riprendere)
 Cose utili che a bm mancano, viste sullo stato del branch principale del 2026-10-03,
 escluso quello che è in sviluppo su altri branch (GPU e 3D M33–M37, Overbit e la rete UDP
-dei giochi, Market e scambio in LAN M24–M26, RGB30, `.s16`). Nessuno è deciso: l'utente li
+dei giochi, Market e scambio in LAN M24–M26, RGB30, `.b16`). Nessuno è deciso: l'utente li
 richiama per nome ("facciamo R7"), e allora si chiede il branch come per ogni sviluppo.
 Suggeriti per primi: R3, R1 con R2, R7 (sul Pi si prova senza seriale e spesso senza
 tastiera).

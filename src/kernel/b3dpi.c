@@ -7,6 +7,7 @@
 #include "b3dpi.h"
 #include "input.h"
 #include "pmu.h"
+#include "reports.h"
 #include "version.h"
 #include "bm/b3d.h"
 #include "bm/runtime.h"
@@ -82,6 +83,9 @@ static int last_report(void)
     return best;
 }
 
+static char *sent;                      /* the report, for reports.h */
+static size_t sent_len;
+
 static int save(const char *text, size_t len, char *name, size_t n)
 {
     if (fat_mkdirs(DIR) != 0)
@@ -91,6 +95,11 @@ static int save(const char *text, size_t len, char *name, size_t n)
     if (fat_write_file(DIR, file, text, len) != 0)
         return -1;
     ksnprintf(name, n, "bm/bench/%s", file);
+    free(sent);                         /* a copy for the reports, sent once the console is back */
+    sent = malloc(len);
+    if (sent)
+        memcpy(sent, text, len);
+    sent_len = sent ? len : 0;
     return 0;
 }
 
@@ -152,4 +161,9 @@ void bm_bench3d(framebuffer_t *fb)
     bm_video_leave(fb, con_w, con_h);
     kprintf("3D Bench: done (%s); the report is in bm/bench on the SD card%s\n", machine,
             err ? " (could not be saved)" : "");
+    if (sent) {                         /* and to GitHub, if it can (reports.h) */
+        reports_text("bench3d", sent, sent_len);
+        free(sent);
+        sent = NULL;
+    }
 }

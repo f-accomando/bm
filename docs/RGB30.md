@@ -10,7 +10,8 @@ Decisioni (2026-10-01, utente):
 - **bare metal vero**, come sul Pi: niente Linux; U-Boot avvia il kernel dalla SD;
 - **formato 1:1**: il menu era **512×512**, al centro del pannello senza ingrandimento; dal
   2026-10-03 (utente) è **360×360 ingrandito ×2** e riempie i 720×720 del pannello;
-- giochi e app dell'RGB30 useranno un formato nuovo, **`.s16`**, ancora da definire: il menu li
+- giochi e app dell'RGB30 useranno un formato nuovo, **`.b16`** (prima `.s16`: la cartuccia a risorse limitate per le
+  console portatili, `docs/B16.md`), ancora da definire: il menu li
   elenca ma non li avvia;
 - le cartucce **`.bm` del Pi erano nascoste** (`show_bm=1` le elencava soltanto); dal 2026-10-03
   (utente), per le prove, il menu le mostra e le avvia (`show_bm=0` in `bm/config.txt` le
@@ -131,7 +132,7 @@ prima di accendere lo schermo e il registro si scrive tre volte (prima dello sch
   sotto).
 - Menu 360×360 ingrandito ×2 (riempie il pannello): dal 2026-10-04 è **lo stesso del Pi**
   (`src/kernel/menu_ui.c`: barra con le schede a pillola e le icone, copertine 128×80, due per
-  riga, pannelli, suggerimenti dei tasti). Schede **Games** (giochi `.s16` e i `.bm`, con la loro
+  riga, pannelli, suggerimenti dei tasti). Schede **Games** (giochi `.b16` e i `.bm`, con la loro
   copertina; con `show_bm=0` dice quante cartucce sono nascoste), **Dev** (3D Bench, Render bench,
   Display, Input test, Boot log, Lua sulla seriale) e **Settings**, l'ultima, che apre il suo
   pannello (Bluetooth, WiFi, Updates, System, Reboot, Power off). Solo il controller: L1/R1 le
@@ -197,6 +198,13 @@ rete (`python3 tools/bm_net.py <ip>`: i tasti w/a/s/d, Invio, Esc arrivano al me
 seriale). Con `wifi_boot=1` la console entra nella rete da sola all'avvio (senza, solo dal menu:
 finché il WiFi dell'RGB30 è nuovo, all'avvio è spento). Reti supportate: aperte e WPA2-PSK (anche
 WPA2/WPA3 miste); non WPA3 sola, WPA1, WEP, enterprise.
+
+## Report dei test
+
+*Settings > Reports*: i report dei test (3D Bench, Render bench, il log) aspettano in
+`bm/reports` sulla SD e vanno nel branch `reports` di `f-accomando/bm` con `github_token` in
+`bm/config.txt` e il WiFi; **B** li manda, **X** fa un report del log. Il nome dice kernel,
+branch e scheda: `reports/<branch>/<data>_<tipo>_rgb30_<kernel>.txt`.
 
 ## Aggiornare bm
 

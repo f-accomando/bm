@@ -23,5 +23,10 @@ void klog_putc(char c);   /* one byte to all log outputs */
 
 /* Everything printed since boot (first 64 KiB), colour escapes removed. */
 const char *klog_text(void);
+/* What is printed from now on is also kept in buf (size bytes, NUL ended,
+ * without the colours) until klog_capture(NULL, 0); klog_captured() says
+ * how much. For the reports (src/kernel/reports.c). */
+void klog_capture(char *buf, size_t size);
+size_t klog_captured(void);
 
 #endif

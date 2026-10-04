@@ -6,5 +6,7 @@
  * kernel.img it follows "bmVER=" (bm_version_tag). */
 extern const char bm_version_tag[];
 #define bm_version (bm_version_tag + 6)
+/* the git branch it was built from ("bm-core"; in CI the pushed branch) */
+extern const char bm_branch[];
 
 #endif

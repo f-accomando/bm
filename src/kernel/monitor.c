@@ -28,6 +28,7 @@
 #include "net/http.h"
 #include "net/netxfer.h"
 #include "pager.h"
+#include "reports.h"
 #include "audio/audio.h"
 #include "dmatest.h"
 #include "gputest.h"
@@ -78,7 +79,9 @@ static const char help_text[] =
             "  t  HDMI test pattern (any key returns)\n"
             "  r  reboot (watchdog; the chainloader will ask for a new kernel)\n"
             "  X  crash tests (then u, a, b, s or f): exception screen, freeze\n"
-            "  o  everything printed since boot (scrolls like this help)\n";
+            "  o  everything printed since boot (scrolls like this help)\n"
+            "  z  send the tests' reports waiting in bm/reports (github_token; g k p D s R do one)\n"
+            "  Z  the log since boot as a report\n";
 
 static void help(void)
 {
@@ -195,14 +198,20 @@ void monitor_run(void)
         case 'U': upload_and_play(console_framebuffer()); break;
         case 'S': case 's': {
             extern const uint8_t bm_stress_cart[], bm_stress_cart_end[];
+            reports_begin("stress");
             bm_stress_run(console_framebuffer());
             kprintf("Lua part (cartridge API):\n");
             bm_stats_t bs;
             bm_play(console_framebuffer(), bm_stress_cart,
                      (size_t)(bm_stress_cart_end - bm_stress_cart), 600, &bs);
+            reports_end();
             break;
         }
-        case 'p': bm_bench_report(console_framebuffer(), 120); break;
+        case 'p':
+            reports_begin("render");
+            bm_bench_report(console_framebuffer(), 120);
+            reports_end();
+            break;
         case 'V':
             bm_set_via_ram(!bm_via_ram());
             kprintf(".bm carts draw %s\n", bm_via_ram() ? "via a RAM buffer" : "directly on screen");
@@ -216,8 +225,10 @@ void monitor_run(void)
         }
         case 'k': {
             bench_t b;
+            reports_begin("cpu");
             bench_run(&b, console_framebuffer(), "now");
             bench_print(&b, 1);
+            reports_end();
             break;
         }
         case 't': show_test_pattern(); break;
@@ -264,10 +275,16 @@ void monitor_run(void)
         case '5': carts_pixel(console_framebuffer()); break;
         case 'I': home_assistant(console_framebuffer()); break;
         case 'C': carts_code(console_framebuffer(), NULL); break;
-        case 'D': dma_test(console_framebuffer()); break;
-        case 'g': gpu_test(console_framebuffer()); break;
+        case 'D': reports_begin("dma"); dma_test(console_framebuffer()); reports_end(); break;
+        case 'g': reports_begin("gpu"); gpu_test(console_framebuffer()); reports_end(); break;
         case 'j': case 'J': bm_bench3d(console_framebuffer()); break;
-        case 'R': bm_room_bench(console_framebuffer()); break;
+        case 'R': reports_begin("room"); bm_room_bench(console_framebuffer()); reports_end(); break;
+        case 'z': {
+            int left = reports_send_pending();
+            kprintf("%s; %d waiting on the SD card\n", reports_last(), left);
+            break;
+        }
+        case 'Z': reports_text("log", klog_text(), strlen(klog_text())); break;
         case 'L':
             hid_set_layout(hid_layout()[0] == 'i' ? "us" : "it");
             kprintf("keyboard layout: %s\n", hid_layout());

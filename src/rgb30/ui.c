@@ -1,8 +1,9 @@
 /*
  * The RGB30's menu: the Pi's (src/kernel/menu_ui.c, the same drawing and
  * bar) at 360x360, shown twice as big (the whole 720x720 panel, every pixel
- * a 2x2 square), two covers a row. Tabs as on the Pi: Games (the .s16 files
- * in bm/ on the SD card, whose format is still to be defined, and for
+ * a 2x2 square), two covers a row. Tabs as on the Pi: Games (the .b16 files
+ * in bm/ on the SD card, the handhelds' cartridges with limited resources
+ * whose format is still to be defined (docs/B16.md), and for
  * testing the Pi's .bm cartridges, which run; show_bm=0 hides them), Dev
  * (the 3D Bench, the render bench, the display modes, the input test, the
  * boot log, Lua) and Settings, whose panel opens when it is the tab
@@ -35,6 +36,7 @@
 #include "bm/bm.h"
 #include "bm/runtime.h"
 #include "kernel/menu_ui.h"
+#include "kernel/reports.h"
 #include "b3d_rgb30.h"
 
 #include <stdlib.h>
@@ -184,7 +186,7 @@ static void load_cover(int i)
     }
     free(data);
     if (!games[i].cover.px)
-        menu_make_cover(&games[i].cover, games[i].title, games[i].is_bm ? "bm" : "s16");
+        menu_make_cover(&games[i].cover, games[i].title, games[i].is_bm ? "bm" : "b16");
 }
 
 static void scan_games(void)
@@ -205,11 +207,11 @@ static void scan_games(void)
         const char *dot = strrchr(e.name, '.');
         if (!dot)
             continue;
-        int is_s16 = strcasecmp(dot, ".s16") == 0;
+        int is_b16 = strcasecmp(dot, ".b16") == 0;
         int is_bm = strcasecmp(dot, ".bm") == 0;
         if (is_bm && !show_bm)
             n_hidden++;
-        if (!is_s16 && !(is_bm && show_bm))
+        if (!is_b16 && !(is_bm && show_bm))
             continue;               /* .bm: for the Pi, hidden here */
         ksnprintf(games[n_games].name, sizeof games[0].name, "%s", e.name);
         games[n_games].size = e.size;
@@ -282,7 +284,7 @@ static void page_game(int i)
     const char *lines[] = {
         l0,
         "",
-        "The .s16 format of the RGB30 is not defined yet: games will start from here once it is.",
+        "The .b16 format (cartridges with limited resources for the handhelds) is not defined yet: games will start from here once it is.",
     };
     page_message("Game", lines, 3);
 }
@@ -504,6 +506,34 @@ static void page_update(void)
     console_suspend(1);
 }
 
+/* The reports of the tests (src/kernel/reports.h), in the console: those
+ * waiting on the card sent to GitHub (github_token in bm/config.txt, the
+ * WiFi first), the boot log as one more */
+static void page_reports(void)
+{
+    fb_show(fb, 0);
+    console_suspend(0);
+    kprintf("\n\x1b[1mReports\x1b[0m: %d waiting in bm/reports; last: %s\n", reports_pending(),
+            reports_last());
+    for (;;) {
+        kprintf("\n\x1b[96m%s\x1b[0m send them  \x1b[96mX\x1b[0m the log since boot as a report  "
+                "\x1b[96m%s\x1b[0m back\n", pad_ok_name(), pad_back_name());
+        uint32_t p;
+        while (!(p = pad_pressed()))
+            timer_delay_ms(10);
+        if (p & pad_back)
+            break;
+        if (p & pad_ok) {
+            int left = reports_send_pending();
+            kprintf("%s; %d waiting on the SD card\n", reports_last(), left);
+        } else if (p & PAD_X) {
+            const char *t = klog_text();
+            reports_text("log", t, strlen(t));
+        }
+    }
+    console_suspend(1);
+}
+
 /* --- the display modes a game (and the GPU) can use, with a test image --- */
 
 static const struct { uint32_t w, h, scale; int smooth; } modes[] = {
@@ -586,8 +616,10 @@ static void page_render(void)
 {
     fb_show(fb, 0);
     console_suspend(0);
+    reports_begin("render");
     kprintf("\n\x1b[1mRender bench\x1b[0m: map, 256 sprites and text at 640x360 RGB565\n");
     bm_bench_report(fb, 120);
+    reports_end();
     kprintf("\n\x1b[96m%s\x1b[0m back\n", pad_back_name());
     wait_back();
     console_suspend(1);
@@ -623,6 +655,7 @@ static const item_t settings_items[] = {
     { "WiFi", "joins wifi_ssid of bm/config.txt", page_wifi, 0, 0 },
     { "Updates", "the latest bm from GitHub (WiFi first)", page_update, 0, 0 },
     { "System", "board, memory, SD card, battery", page_system, 0, 0 },
+    { "Reports", "the tests' reports, to GitHub", page_reports, 0, 0 },
     { "Reboot", "restart the console", do_reboot, 0, 0 },
     { "Power off", "turn the console off", do_poweroff, 0, 0 },
 };
@@ -630,6 +663,9 @@ static const item_t settings_items[] = {
 
 enum { TAB_GAMES, TAB_DEV, TAB_SETTINGS };      /* Settings: the last, its panel */
 static const char *const tab_names[] = { "Games", "Dev" };
+
+/* the reports waiting on the card, read when Settings opens (not every frame) */
+static int pending = -1;
 
 /* the menu's screen again after a page; if it cannot be had, the console
  * says why and a button tries again */
@@ -648,6 +684,7 @@ static void run_page(void (*run)(void))
     menu_ui_close(fb);
     console_suspend(1);                             /* the pages draw themselves */
     run();
+    pending = -1;
     while (pad_state())                             /* the button that left, released */
         timer_delay_ms(10);
     pad_pressed();
@@ -656,6 +693,7 @@ static void run_page(void (*run)(void))
 
 static int play_index;
 static void play_selected(void) { page_game(play_index); }
+
 
 void ui_home(framebuffer_t *f)
 {
@@ -683,7 +721,7 @@ void ui_home(framebuffer_t *f)
         if (*s < 0) *s = 0;
         for (int i = 0; i < n; i++) {
             if (shown == TAB_GAMES)
-                items[i] = (menu_item_t){ .title = games[i].title, .kind = games[i].is_bm ? "bm" : "s16",
+                items[i] = (menu_item_t){ .title = games[i].title, .kind = games[i].is_bm ? "bm" : "b16",
                                           .size = games[i].size, .cover = &games[i].cover };
             else
                 items[i] = (menu_item_t){ .title = dev_items[i].name, .kind = "tool", .cover = &dev_covers[i] };
@@ -706,7 +744,7 @@ void ui_home(framebuffer_t *f)
         v.net_wait = !net_ip();
         details[0] = note[0] = 0;
         if (shown == TAB_GAMES && n == 0) {
-            v.banner = strcmp(sd_state, "bm/") == 0 ? "No games yet: put .s16 games in bm/" : "No games yet";
+            v.banner = strcmp(sd_state, "bm/") == 0 ? "No games yet: put .b16 games in bm/" : "No games yet";
             v.a_label = "";
             if (n_hidden)
                 ksnprintf(details, sizeof details, "%d Pi cartridge%s (.bm) hidden by show_bm=0", n_hidden,
@@ -725,9 +763,15 @@ void ui_home(framebuffer_t *f)
         if (on_gear) {
             for (int i = 0; i < N_SETTINGS; i++)
                 rows[i] = (menu_row_t){ settings_items[i].name, NULL,
-                                        i < 4 ? MENU_ROW_SUB : MENU_ROW_ACTION };
+                                        settings_items[i].run == do_reboot ||
+                                        settings_items[i].run == do_poweroff ? MENU_ROW_ACTION : MENU_ROW_SUB };
             rows[0].value = bt_on ? "on" : "off";
             rows[1].value = wifi_on && wifi_linked() ? "connected" : wifi_on ? "on" : "off";
+            static char waiting[16];
+            if (pending < 0)
+                pending = reports_pending();
+            ksnprintf(waiting, sizeof waiting, pending ? "%d waiting" : "none", pending);
+            rows[4].value = waiting;
             int top = psel < MENU_PANEL_ROWS ? 0 : psel - MENU_PANEL_ROWS + 1;
             panel = (menu_panel_t){ "Settings", rows, N_SETTINGS, psel, top, settings_items[psel].help };
             v.panel = &panel;

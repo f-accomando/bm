@@ -11,6 +11,16 @@
 local Bench = {}
 local Match = Modes.list.match                   -- 81_match
 
+-- The bench's lines go to the log and, at the end, into a report (the
+-- kernel's report(), 2026-10-04): saved on the SD card and sent to the
+-- reports' git repository, instead of photos of the pages.
+local send_report = report
+local lines = {}
+local function blog(s)
+  lines[#lines + 1] = s
+  log(s)
+end
+
 local SEED = 2026
 local RULES = { unlock = 6 }                     -- the point opens soon: the fight comes earlier
 local SETTLE = 0.5                               -- seconds not counted after a change
@@ -89,7 +99,9 @@ function Bench.start()
   G.qauto = false
   G.bot_diff = 2
   for k, v in pairs(RULES) do Bench.saved.rules[k] = Match.rules[k] Match.rules[k] = v end
-  log(string.format("overbit bench start: %d phases, renderers %s", #Bench.phases, table.concat(list, " ")))
+  lines = {}
+  blog(string.format("overbit bench start: %d phases, renderers %s, screen %dx%d", #Bench.phases,
+    table.concat(list, " "), SW, SH))
   Bench.next()
 end
 
@@ -179,7 +191,7 @@ function Bench.ring_end()
   local R = Bench.ring
   local res = { r = Bench.ph.r, best60 = R.best60, best30 = R.best30, rows = R.rows }
   Bench.rings[#Bench.rings + 1] = res
-  log(string.format("overbit bench ring %s: %d heroes at 60 fps, %d at 30 fps", RNAME[res.r], res.best60, res.best30))
+  blog(string.format("overbit bench ring %s: %d heroes at 60 fps, %d at 30 fps", RNAME[res.r], res.best60, res.best30))
   Bench.next()
 end
 
@@ -229,9 +241,9 @@ local function match_done()
   local ph = Bench.ph
   local s = summary()
   s.r, s.q = ph.r, ph.q
-  log(string.format("overbit bench %s %s match %d", RNAME[ph.r], Quality.names[ph.q + 1], match_hash()))
+  blog(string.format("overbit bench %s %s match %d", RNAME[ph.r], Quality.names[ph.q + 1], match_hash()))
   Bench.rows[#Bench.rows + 1] = s
-  log(string.format("overbit bench %s %s: %.0f fps, %.1f ms (1%% %.1f, worst %.1f, %.0f%% over 16.7), update %.1f, "
+  blog(string.format("overbit bench %s %s: %.0f fps, %.1f ms (1%% %.1f, worst %.1f, %.0f%% over 16.7), update %.1f, "
     .. "3D %.1f, %.0f tri (max %d), %.0f vtx, %.0f px, bm3d %s", RNAME[ph.r], Quality.names[ph.q + 1], s.fps, s.ms,
     s.p99, s.worst, s.over, s.upd, s.d3, s.tri, s.trimax, s.vtx, s.px, Bench.ver[ph.r] or "?"))
   Bench.next()
@@ -266,7 +278,7 @@ function Bench.update()
     Bench.t = Bench.t + DT
     Match.step()
     if OVERBIT_BENCH_STOP and Bench.t >= OVERBIT_BENCH_STOP - 1e-6 then
-      log(string.format("overbit bench stop %.2f frame %d", Bench.t, Match.state.frame))
+      blog(string.format("overbit bench stop %.2f frame %d", Bench.t, Match.state.frame))
       quit()
       return
     end
@@ -297,7 +309,7 @@ function Bench.update()
       R.rows[#R.rows + 1] = s
       if s.ms <= 16.7 then R.best60 = s.n end
       if s.ms <= 33.3 then R.best30 = s.n end
-      log(string.format("overbit bench ring %s %2d heroes: %.1f ms, 3D %.1f, %.0f tri", RNAME[Bench.ph.r], s.n, s.ms,
+      blog(string.format("overbit bench ring %s %2d heroes: %.1f ms, 3D %.1f, %.0f tri", RNAME[Bench.ph.r], s.n, s.ms,
         s.d3, s.tri))
       if s.ms > 33.3 then Bench.ring_end() else Bench.ring_grow() end
     end
@@ -314,9 +326,10 @@ function Bench.finish()
   end
   for _, r in ipairs(Bench.renderers) do
     local b = Bench.best[r]
-    log(string.format("overbit bench best %s: %s", RNAME[r], b and Quality.names[b + 1] .. " at 60 fps" or "none at 60 fps"))
+    blog(string.format("overbit bench best %s: %s", RNAME[r], b and Quality.names[b + 1] .. " at 60 fps" or "none at 60 fps"))
   end
-  log("overbit bench done")
+  blog("overbit bench done")
+  if send_report then send_report("overbit-bench", table.concat(lines, "\n") .. "\n") end
 end
 
 -- ---------------------------------------------------------------- drawing

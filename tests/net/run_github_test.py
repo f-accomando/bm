@@ -4,7 +4,9 @@ src/net/github.c against a fake GitHub API served here, with the endpoints
 it uses (user, forks made in the background, merge-upstream, refs,
 contents, pulls), then the repositories are checked: the owner gets a
 branch in the market, anyone else a fork; an update keeps the name of the
-.bm already there; a bad token and a failing call give their message."""
+.bm already there; a bad token and a failing call give their message.
+Then the reports (github_put): a file on the reports branch of
+f-accomando/bm, the branch made from the main one the first time."""
 import base64
 import hashlib
 import http.server
@@ -23,6 +25,7 @@ import mkmarket  # noqa: E402
 
 TOKENS = {"tok-owner": "f-accomando", "tok-friend": "friend"}
 MARKET = "f-accomando/bm-market"
+BM = "f-accomando/bm"
 fails = 0
 
 
@@ -47,11 +50,13 @@ class Repo:
 class World:
     def __init__(self):
         self.repos = {MARKET: Repo({"README.md": b"bm Market\n",
-                                    "games/pong/pong.bm": b"old pong", "games/pong/info.txt": b"version: 1\n"})}
+                                    "games/pong/pong.bm": b"old pong", "games/pong/info.txt": b"version: 1\n"}),
+                      BM: Repo({"README.md": b"bm\n"})}
         self.pulls = []
         self.fork_wait = 0          # GETs of a new fork's ref before it exists
         self.fail_put = False
         self.calls = []
+        self.messages = []
 
 
 W = World()
@@ -101,6 +106,8 @@ class H(http.server.BaseHTTPRequestHandler):
             return self.reply(202, {"id": 9, "name": "bm-market", "full_name": fork,
                                     "owner": {"login": login}, "parent": {"full_name": MARKET}})
         repo = W.repos[full]
+        if method == "GET" and rest == "":
+            return self.reply(200, {"full_name": full, "default_branch": "main"})
         if method == "GET" and rest.startswith("/git/ref/heads/"):
             if W.fork_wait and full != MARKET:
                 W.fork_wait -= 1
@@ -146,7 +153,9 @@ class H(http.server.BaseHTTPRequestHandler):
                     return self.reply(422, {"message": "sha given for a new file"})
                 code = 200 if p in files else 201
                 files[p] = base64.b64decode(body["content"])
-                return self.reply(code, {"content": {"path": p, "sha": sha(files[p])}})
+                W.messages.append(body["message"])
+                return self.reply(code, {"content": {"path": p, "sha": sha(files[p]),
+                                                     "html_url": f"https://github.com/{full}/blob/{body['branch']}/{p}"}})
         if method == "POST" and rest == "/pulls":
             body = self.body()
             W.pulls.append(body)
@@ -235,6 +244,35 @@ W.fail_put = True
 kind, what, _ = run("tok-owner", "snake", "snake.bm", b"y", "Snake", "3", "snake-3")
 check(kind == "error" and "snake.bm: HTTP 422, Invalid request. content is too big" in what, f"PUT refused: {what}")
 W.fail_put = False
+
+# the reports: github_put on the reports branch of the bm repository
+
+
+def put(token, branch, path, data):
+    with tempfile.NamedTemporaryFile(delete=False) as f:
+        f.write(data)
+    r = subprocess.run([sys.argv[1], "put", port, token, BM, branch, path, f.name],
+                       capture_output=True, text=True, timeout=60)
+    os.remove(f.name)
+    m = re.search(r"^(url|error) (.*)$", r.stdout, re.M)
+    return (m.group(1), m.group(2), r.stdout) if m else ("crash", r.stderr, r.stdout)
+
+
+report = b"bm report\nkind: gpu\n\nstep 1 ok\n"
+path = "reports/bm-core/20261004-153012_gpu_pi-zero-w_v1.txt"
+kind, what, out = put("tok-owner", "reports", path, report)
+bm = W.repos[BM].branches
+check(kind == "url" and what == f"https://github.com/{BM}/blob/reports/{path}", f"report: its address ({what})")
+check("reports" in bm and bm["reports"].get(path) == report, "report: the reports branch made, the file in it")
+check(path not in bm["main"] and "new branch reports" in out, "report: main untouched, the branch said")
+check(W.messages[-1] == "report gpu from Pi Zero W (v1, bm-core)", "report: the commit's message")
+path2 = "reports/bm-core/20261004-153513_log_pi-zero-w_v1.txt"
+kind, what, out = put("tok-owner", "reports", path2, b"bm report\nkind: log\n\nboot\n")
+check(kind == "url" and bm["reports"].get(path2) and "new branch" not in out, "report: a second one, the branch there")
+kind, what, _ = put("tok-owner", "reports", path, b"again")
+check(kind == "error" and bm["reports"][path] == report, f"report: the same name twice refused ({what})")
+kind, what, _ = put("tok-nobody", "reports", "reports/x/y.txt", b"x")
+check(kind == "error" and "the token is not valid" in what, f"report: bad token ({what})")
 srv.shutdown()
 r = subprocess.run([sys.argv[1], "1", "tok-owner", "a", "a.bm", sys.argv[1], "A", "1", "a-1"],
                    capture_output=True, text=True, timeout=30)

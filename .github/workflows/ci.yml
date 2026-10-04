@@ -2,6 +2,8 @@ name: ci
 
 on:
   push:
+    # the consoles' test reports (src/kernel/reports.c) are not code
+    branches-ignore: [reports]
   pull_request:
 
 env:

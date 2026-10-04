@@ -158,7 +158,8 @@ screenshot in `docs/img/`), `README_OLD.md` (il README completo, in italiano),
 - Menu: **lo stesso del Pi** (`menu_ui.c`, decisione dell'utente del 2026-10-04) a 360×360
   ingrandito ×2 sul pannello, due copertine per riga; `ui.c` gli dà la vista e i tasti: schede
   Games / Dev e Settings col suo pannello (L1/R1 senza giro; dalla seriale `l`/`r`, `w a s d`,
-  Invio, Backspace), giochi `.s16` (formato da definire), `.bm` visibili per le prove
+  Invio, Backspace), giochi `.b16` (la cartuccia a risorse limitate per
+  le portatili, formato da definire: `docs/B16.md`), `.bm` visibili per le prove
   (`show_bm=0` li nasconde); le pagine dietro le voci sono ancora sulla console. In Dev il 3D Bench (`b3d_rgb30.c`: `src/bm/b3d.c` con i contatori del
   Cortex-A55). Nei test lo schermo si legge dai pixel: il testo del menu sta sulla griglia del
   font 8×16 (x multipli di 8, y di 16).
@@ -204,6 +205,26 @@ screenshot in `docs/img/`), `README_OLD.md` (il README completo, in italiano),
   indietro, `no_monitor`: niente monitor).
 - Test: Pi `test_menu_tabs`, `test_menu_scale` e quelli del menu; RGB30 tutto
   `tests/rgb30/qemu_test.py` (la scheda e il titolo scelto si leggono sulla pillola).
+
+## Report dei test (decisione dell'utente, 2026-10-04)
+
+- Quando servono i numeri di un test sul Pi o sulla RGB30, chiedere all'utente di farlo: la
+  console ne fa un **report** e lo manda via rete nel branch `reports` di `f-accomando/bm`
+  (`report_repo`, `report_branch` in `bm/config.txt`), in
+  `reports/<branch>/<data>_<tipo>_<scheda>_<kernel>.txt`; si legge con gli strumenti GitHub
+  (ref `reports`). L'intestazione dice tipo, kernel (git describe), branch (`bm_branch`,
+  `BRANCH` nel Makefile), scheda e data.
+- Serve `github_token` (un token che può scrivere i contenuti del repository) e la rete;
+  senza, i report aspettano sulla SD (`bm/reports/RPTnnnnn.TXT`) e partono con *Settings >
+  System > Send the reports* (RGB30: *Settings > Reports*) o `z` nel monitor; `Z` (o *Report
+  the log*) manda il log; `report_upload=0` solo a mano. Spediti, spariscono dalla SD.
+- Fanno un report: gli strumenti di Dev che stampano (`tool_t.report` in `home.c`: System,
+  Audio, CPU bench, Render bench, Stress test, DMA test, GPU test, Texture Room, Demo,
+  Diagnostics), i comandi `g k p D s R` del monitor, il 3D Bench (il suo, anche sulla
+  RGB30), le cartucce con `report(tipo, testo)` (Overbit: il benchmark). Codice:
+  `src/kernel/reports.c` (cattura con `klog_capture`, SD, invio), `src/net/report.c` (nome e
+  intestazione, portabile), `github_put` in `src/net/github.c`. Prove: `make test-github`
+  (anche `test_report`), QEMU `test_reports`, RGB30 `test_bench3d`.
 
 ## Icone dei tasti (bm-ui)
 
@@ -269,7 +290,8 @@ screenshot in `docs/img/`), `README_OLD.md` (il README completo, in italiano),
   `gcc-arm-linux-gnueabihf`) su `tests/bm/r3dbench.c` e `tests/bm/mapbench.c` (la mappa da
   un punto di vista); anche bmhost compilato per ARM Linux (un frame intero con il Lua).
   `BMHOST_SLOW=ms` fa scrivere a bmhost i frame più lenti. Il Pi resta il giudice: chiedere
-  all'utente le foto del benchmark e dell'overlay.
+  all'utente di fare il benchmark, i cui numeri arrivano come report nel branch `reports`
+  (sezione *Report dei test*); le foto solo per ciò che il report non ha (l'overlay).
 - La mappa (Partenope): `art/partenope.py` la costruisce con `mapgeo.py` (scatole, rampe,
   scale, pezzi di `geo.py`, quadri dell'atlante `maptex.py` con `decal`/`tex_quad`, nodi
   dei bot `nav_node`), `mapbake.py` la cuoce (facce nascoste, luce agli angoli, pezzi di
