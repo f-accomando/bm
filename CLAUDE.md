@@ -33,7 +33,8 @@ screenshot in `docs/img/`), `README_OLD.md` (il README completo, in italiano),
   in `runtime.c`): fps, ms di `_update` + `_draw`, istruzioni Lua del fotogramma
   (`stat(10)`; prima del merge con `3d-performance` era `stat(6)`, ora il tempo del 3D),
   i massimi dell'ultimo secondo e il grafico degli ultimi 64 fotogrammi. Settings > System >
-  "Performance overlay" (config `perf`), F3 (non in modalità testo), `p` dalla seriale.
+  "Performance overlay" (config `perf`), F11 (tasto di sistema, anche nelle app; era F3), `p`
+  dalla seriale.
 - Arrivati dal gioco Yharnam (branch `claude/yharnam`; il gioco va nel market): la risoluzione
   quadrata 256×256 del formato (il firmware dà 480×270, il gioco disegna nel riquadro al centro,
   `bm_video_enter` in `runtime.c`; `--res 256x256` in `mkbm.py`), la luce a livelli come in Dank

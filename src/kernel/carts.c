@@ -818,7 +818,8 @@ void carts_menu(framebuffer_t *fb)
     int sel = 0, top = 0, redraw = 1, esc = 0;
     uint32_t prev_btn = hid_buttons(), repeat_at = 0;
 
-    kprintf("\ncartridge menu: arrows or wasd, Enter plays, x options, [ ] or Tab or 1 2 3 4 change tab, q returns to the monitor\n");
+    kprintf("\ncartridge menu: arrows or wasd, Enter plays, x options, [ ] or Tab or 1-5 change tab, q returns to the monitor\n"
+            "(keyboard: Enter, Esc back, C options, Q E or 1-5 tabs, Ctrl+Esc home, Ctrl+Shift+Esc the monitor, hold F12: the keys)\n");
     input_flush();
     static menu_item_t items[MAX_CARTS + 16 + CATALOG_MAX];
     static int idx[MAX_CARTS + 16];
@@ -975,6 +976,7 @@ void carts_menu(framebuffer_t *fb)
                       : src == HID_SOURCE_NONE || src == HID_SOURCE_KEYBOARD ? MENU_PROMPTS_KEYBOARD
                       : MENU_PROMPTS_DS4;
             v.prompts_colour = home_prompts_colour();
+            v.keys_help = hid_usage_held(0x45);     /* F12 held (the system's keys) */
             int link = net_link_kind();
             v.net = link == NET_LINK_ETHERNET ? MENU_NET_ETHERNET
                   : link == NET_LINK_WIFI ? MENU_NET_WIFI : MENU_NET_NONE;
@@ -1075,11 +1077,13 @@ void carts_menu(framebuffer_t *fb)
                 action = 2;
             if (k == '\t')
                 tabto = (cur + 1) % (TAB_SETTINGS + 1);
+            if (k >= '1' && k <= '0' + TAB_SETTINGS + 1)    /* the tabs by number, as on the serial line */
+                tabto = k - '1';
         }
-        /* PS is home: Games, with every panel and question closed (never
-         * the monitor). Esc alone goes back like B; Ctrl+Esc, Start+Select
-         * and q from the serial port go back a level too, and from the
-         * grid to the monitor (Esc alone did that until 2026-10-01). */
+        /* PS (and Ctrl+Esc, the system's keys) is home: Games, with every
+         * panel and question closed (never the monitor). Esc alone goes back
+         * like B; Start+Select, Ctrl+Shift+Esc and q from the serial port go
+         * back a level too, and from the grid to the monitor. */
         if (dx || dy)
             pointer_hide();                     /* the keys move the selection: no arrow */
 
@@ -1142,7 +1146,7 @@ void carts_menu(framebuffer_t *fb)
         }
 
         int ps = quit & HID_QUIT_PS;
-        if ((quit & HID_QUIT_KEY) && !(quit & HID_QUIT_MONITOR))
+        if (((quit & HID_QUIT_KEY) && !(quit & HID_QUIT_MONITOR)) || (quit & HID_QUIT_ESC))
             back = 1;
         quit = (quit & HID_QUIT_MONITOR) != 0;
         if (ps)

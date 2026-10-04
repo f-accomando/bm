@@ -273,7 +273,7 @@ def test_console_ansi_and_status(b, opts):
         q.expect(MENU, timeout=30)
         # the menu: tabs at the top, button hints at the bottom (near white);
         # nothing pressed yet: the keyboard's keys (on the Pi keyboard and
-        # mouse come first), Enter to play, Ctrl+Esc for the monitor
+        # mouse come first), Enter to play, Ctrl+Shift+Esc for the monitor
         _, text = settled_screen(q, lambda i, t: "Monitor" in t[21])
         img = q.screendump()
         text = screen_text(img)
@@ -283,8 +283,8 @@ def test_console_ansi_and_status(b, opts):
         assert any(r > 230 and g > 230 and b > 230 for r, g, b in colours), \
             f"hint text not rendered {colours}"
         widths = [x1 - x0 for x0, x1 in prompt_spans(img, 21)]
-        assert len(widths) == 3 and widths[0] >= 34 and widths[1] >= 28 and 20 <= widths[2] <= 28, \
-            widths                                                              # Enter, Ctrl, Esc
+        assert len(widths) == 4 and widths[0] >= 34 and widths[1] >= 28 and widths[2] >= 28 and \
+            20 <= widths[3] <= 28, widths                                       # Enter, Ctrl, Shift, Esc
         if opts.shots:
             _save_png(img, os.path.join(opts.shots, "menu-hints.png"))
         q.send("q")
@@ -718,15 +718,20 @@ def test_usb_keyboard(b, opts):
         time.sleep(1.0)
         q.buf += q.port.read(0.3)
         assert b"back to the monitor" not in q.buf, q.buf.decode(errors="replace")
-        sendkeys(q, "ctrl-esc")                # Ctrl+Esc: from the menu to the monitor
+        sendkeys(q, "ctrl-shift-esc")          # Ctrl+Shift+Esc: from the menu to the monitor
         q.expect("back to the monitor", timeout=10)
         q.expect(PROMPT, timeout=10)
         q.expect("> ")
 
-        # bm: Esc quits the game
+        # a game (the system's keys): Esc is its menu (Start), Ctrl+Esc leaves it (PS)
         sendkeys(q, "n")
         time.sleep(1.5)
+        q.buf = b""
         sendkeys(q, "esc")
+        time.sleep(1.0)
+        q.buf += q.port.read(0.3)
+        assert b"update+draw" not in q.buf, "Esc left the game"
+        sendkeys(q, "ctrl-esc")
         out = q.expect("update+draw", timeout=10).decode(errors="replace")
         m = re.search(r'demo" (\d+) frames', out)
         assert m and int(m[1]) < 300, out
@@ -749,6 +754,38 @@ def test_usb_keyboard(b, opts):
         q.close()
 
 
+def holdkey(q, key, ms):
+    """A key held on the emulated USB keyboard for ms milliseconds."""
+    with socket.socket(socket.AF_UNIX) as s:
+        s.connect(q.mon_path)
+        s.sendall(f"sendkey {key} {ms}\n".encode())
+        time.sleep(0.05)
+
+
+def test_keys_help(b, opts):
+    """The system's keys (src/kernel/syskeys.c, 2026-10-04): F12 held over
+    the menu shows them with the keys' pictures, then the menu's own; let
+    go, the menu again."""
+    q = Qemu(b("kernel.img"), USB_KBD)
+    try:
+        q.expect(MENU, timeout=30)
+        time.sleep(1.0)
+        holdkey(q, "f12", 2500)
+        time.sleep(1.0)
+        img = q.screendump()
+        text = "\n".join(screen_text(img))
+        for want in ("Keys", "(F12 held)", "hold: the keys", "back to bm's menu (PS)", "the monitor", "save as",
+                     "performance overlay", "Menu", "options of the game", "read the SD card again"):
+            assert want in text, f"{want!r} not in the keys:\n{text}"
+        if opts.shots:
+            _save_png(img, os.path.join(opts.shots, "keys-help-menu.png"))
+        time.sleep(2.0)                         # let go: the menu
+        _, text = settled_screen(q, lambda i, t: not any("(F12 held)" in l for l in t))
+        assert not any("(F12 held)" in l for l in text) and any("Settings" in l for l in text), "\n".join(text)
+    finally:
+        q.close()
+
+
 def test_usb_hub(b, opts):
     """Devices behind a hub (the Pi 1 B's USB ports are all behind its
     LAN951x): each port reset and enumerated; the keyboard types, the
@@ -765,7 +802,7 @@ def test_usb_hub(b, opts):
         assert (b"usb: keyboard 0627:0001 'QEMU USB Keyboard', full speed, layout it "
                 b"(hub port 2)") in out, out
         time.sleep(0.5)
-        sendkeys(q, "ctrl-esc")                # Ctrl+Esc: from the menu to the monitor
+        sendkeys(q, "ctrl-shift-esc")          # Ctrl+Shift+Esc: from the menu to the monitor
         q.expect(PROMPT, timeout=10)
         q.expect("> ")
         sendkeys(q, "l")
@@ -3477,13 +3514,13 @@ def test_sd_sdhc_and_usb_menu(b, opts):
         out = q.expect("cartridge menu", timeout=90).decode(errors="replace")
         assert "sd: SDHC card (sdhost), FAT32, 4095 MiB, label BMSD; 1 cartridges" in out, out
         time.sleep(1.0)                       # the bar: the keyboard icon (M27)
-        shot_, runs = wait_bar_icons(q, lambda r, i: len(r) == 1 and len(prompt_spans(i, 21)) == 4)
+        shot_, runs = wait_bar_icons(q, lambda r, i: len(r) == 1 and len(prompt_spans(i, 21)) == 5)
         assert len(runs) == 1 and 20 <= runs[0][1] - runs[0][0] <= 27, runs
         assert not blue_number(shot_, runs[0]), "USB: a white number"
-        # the hints: player 1's keyboard, Enter Play, C Options, Ctrl+Esc Monitor
+        # the hints: player 1's keyboard, Enter Play, C Options, Ctrl+Shift+Esc Monitor
         widths = [x1 - x0 for x0, x1 in prompt_spans(shot_, 21)]
-        assert len(widths) == 4 and widths[0] >= 34 and widths[1] <= 16 and widths[2] >= 28 and \
-            20 <= widths[3] <= 28, widths
+        assert len(widths) == 5 and widths[0] >= 34 and widths[1] <= 16 and widths[2] >= 28 and \
+            widths[3] >= 28 and 20 <= widths[4] <= 28, widths
         sendkeys(q, "e")                      # E is R1: the Dev tab
         img_, text = settled_screen(q, lambda i, t: tabs_lit(i) == ["Dev"])
         assert tabs_lit(img_) == ["Dev"], "\n".join(text)
@@ -3502,10 +3539,10 @@ def test_sd_sdhc_and_usb_menu(b, opts):
         sendkeys(q, "ret")
         q.expect("playing game.bm", timeout=10)
         time.sleep(1.5)
-        sendkeys(q, "esc")
+        sendkeys(q, "ctrl-esc")               # Ctrl+Esc leaves the game (as PS)
         q.expect("update+draw", timeout=15)
         time.sleep(0.5)
-        sendkeys(q, "ctrl-esc")               # the menu: Ctrl+Esc to the monitor
+        sendkeys(q, "ctrl-shift-esc")         # the menu: Ctrl+Shift+Esc to the monitor
         q.expect("back to the monitor", timeout=10)
         q.expect("> ")
     finally:

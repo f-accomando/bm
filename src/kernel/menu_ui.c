@@ -3,6 +3,7 @@
 #include "icons.h"
 #include "pointer.h"
 #include "prompts.h"
+#include "syskeys.h"
 #include "bm/bm.h"
 #include "drivers/timer.h"
 #include "gfx/console.h"
@@ -602,8 +603,8 @@ static int put_prompt(const prompt_t *p, int x, int y)
 /* the buttons of the hints, for the device pressed last */
 enum { BTN_A, BTN_B, BTN_X, BTN_CHANGE, BTN_MONITOR, BTN_Y };
 
-/* up to two prompts for a button, and what goes between them */
-static int button_prompts(const menu_view_t *v, int b, const prompt_t *p[2], const char **join)
+/* up to three prompts for a button, and what goes between them */
+static int button_prompts(const menu_view_t *v, int b, const prompt_t *p[3], const char **join)
 {
     static const int ds4[3] = { PROMPT_CROSS, PROMPT_CIRCLE, PROMPT_SQUARE };
     static const int pad[3] = { PROMPT_PAD_A, PROMPT_PAD_B, PROMPT_PAD_X };
@@ -618,11 +619,12 @@ static int button_prompts(const menu_view_t *v, int b, const prompt_t *p[2], con
             p[0] = prompt_get(PROMPT_KEY_LEFT, 0);
             p[1] = prompt_get(PROMPT_KEY_RIGHT, 0);
             return 2;
-        default:                                /* the monitor: Ctrl+Esc (Esc alone: back) */
+        default:                                /* the monitor: Ctrl+Shift+Esc (the system's keys) */
             p[0] = prompt_get(PROMPT_KEY_CTRL, 0);
-            p[1] = prompt_get(PROMPT_KEY_ESC, 0);
+            p[1] = prompt_get(PROMPT_KEY_SHIFT, 0);
+            p[2] = prompt_get(PROMPT_KEY_ESC, 0);
             *join = "+";
-            return 2;
+            return 3;
         }
     }
     int ds = v->prompts != MENU_PROMPTS_PAD;
@@ -651,7 +653,7 @@ static int button_prompts(const menu_view_t *v, int b, const prompt_t *p[2], con
  * gap */
 static int hint(const menu_view_t *v, int col, int row, int b, const char *label)
 {
-    const prompt_t *p[2] = { NULL, NULL };
+    const prompt_t *p[3] = { NULL, NULL, NULL };
     const char *join;
     int n = button_prompts(v, b, p, &join);
     int x = col * 8 - 4, y = row * 16;
@@ -883,6 +885,111 @@ static void status_icons(const menu_view_t *v)
             put_icon(m, x, y0, i >= players && v->net_wait ? C_DIM : C_TEXT,
                      bt[i] ? C_BT : C_TEXT, bt[i] ? C_TEXT : C_BAR);
         x += ICON_W + (i + 1 == players ? net_gap : gap);
+    }
+}
+
+/* ---------------------------------------------------------------- F12: the keys */
+
+/* the menu's own keys on the keyboard (the system's are in syskeys.c) */
+static const struct { const char *keys, *what; } menu_keys[] = {
+    { "up down left right", "choose (or w a s d)" },
+    { "enter", "play, open, yes" },
+    { "c", "options of the game" },
+    { "v", "the Lib tab: listen" },
+    { "q / e", "the tab before, after" },
+    { "tab", "the next tab" },
+    { "1 - 5", "Market ... Settings" },
+    { "r", "read the SD card again" },
+    { "mouse", "click: play; right: back" },
+};
+
+/* a key's picture by its name ("ctrl", "f12", "s"), as the hints draw them */
+static const prompt_t *key_prompt(const char *n)
+{
+    static const struct { const char *name; int id; } named[] = {
+        { "up", PROMPT_KEY_UP }, { "down", PROMPT_KEY_DOWN }, { "left", PROMPT_KEY_LEFT },
+        { "right", PROMPT_KEY_RIGHT }, { "enter", PROMPT_KEY_ENTER }, { "esc", PROMPT_KEY_ESC },
+        { "space", PROMPT_KEY_SPACE }, { "tab", PROMPT_KEY_TAB }, { "shift", PROMPT_KEY_SHIFT },
+        { "ctrl", PROMPT_KEY_CTRL }, { "alt", PROMPT_KEY_ALT }, { "del", PROMPT_KEY_DEL },
+    };
+    for (size_t i = 0; i < sizeof named / sizeof named[0]; i++)
+        if (!strcmp(n, named[i].name))
+            return prompt_get(named[i].id, 0);
+    if (n[0] == 'f' && n[1] >= '1' && n[1] <= '9') {
+        int k = atoi(n + 1);
+        if (k >= 1 && k <= 12)
+            return prompt_get(PROMPT_KEY_F1 + k - 1, 0);
+    }
+    if (n[0] && !n[1])
+        return prompt_key(n[0] >= 'a' && n[0] <= 'z' ? n[0] - 32 : n[0]);
+    return NULL;
+}
+
+/* the keys' pictures from x on text row `row`; the x after them */
+static int key_pictures(const char *keys, int x, int row)
+{
+    for (const char *s = keys; *s;) {
+        while (*s == ' ')
+            s++;
+        char tok[16];
+        size_t n = 0;
+        while (s[n] && s[n] != ' ') {
+            if (n + 1 < sizeof tok)
+                tok[n] = s[n];
+            n++;
+        }
+        tok[n < sizeof tok ? n : sizeof tok - 1] = 0;
+        s += n;
+        if (!tok[0])
+            break;
+        const prompt_t *p = strcmp(tok, "/") && strcmp(tok, "-") ? key_prompt(tok) : NULL;
+        if (p) {
+            x = put_prompt(p, x, row * 16) + 2;
+        } else {
+            g16_text(&g, x + 2, row * 16, tok, c16(C_DIM));
+            x += 8 * (int)strlen(tok) + 4;
+        }
+    }
+    return x;
+}
+
+/* While F12 is held: the system's keys, then the menu's, with their
+ * pictures, over everything (columns on the text grid) */
+static void keys_help(void)
+{
+    g16_rectfill(&g, 0, 0, SW, SH, c16(C_BAR));
+    g16_text(&g, 2 * 8, 0, "Keys", c16(C_ACCENT));
+    g16_text(&g, 7 * 8, 0, "(F12 held)", c16(C_DIM));
+    /* the system's keys in the first column, the menu's in the next (one
+     * column: one after the other) */
+    const int cols = WIDE ? 2 : 1, colw = (SW / 8 - 2) / cols, rows = SH / 16 - 2;
+    const int nsys = syskeys_count(), nmenu = (int)(sizeof menu_keys / sizeof menu_keys[0]);
+    for (int i = 0; i < 2 + nsys + nmenu; i++) {
+        const int at = cols > 1 && i > nsys ? rows + (i - nsys - 1) : i;
+        const int c = at / rows, r = at % rows;
+        if (c >= cols)
+            break;
+        const int col = 2 + c * colw, row = 2 + r;
+        const char *keys, *what;
+        if (i == 0 || i == nsys + 1) {
+            g16_text(&g, col * 8, row * 16, i == 0 ? "bm" : "Menu", c16(0xFFB040));
+            continue;
+        }
+        if (i <= nsys) {
+            keys = syskey(i - 1)->keys;
+            what = syskey(i - 1)->what;
+        } else {
+            keys = menu_keys[i - nsys - 2].keys;
+            what = menu_keys[i - nsys - 2].what;
+        }
+        int x = key_pictures(keys, col * 8, row);
+        int tc = (x + 8 + 7) / 8;               /* the text on the grid (the tests read it) */
+        char buf[48];
+        ksnprintf(buf, sizeof buf, "%s", what);
+        int room = col + colw - 1 - tc;
+        if (room < (int)strlen(buf))
+            buf[room > 0 ? room : 0] = 0;
+        g16_text(&g, tc * 8, row * 16, buf, c16(C_TEXT));
     }
 }
 
@@ -1168,6 +1275,8 @@ void menu_ui_frame(framebuffer_t *fb, const menu_view_t *v)
         hint(v, c + 2, 12, BTN_B, "Cancel");
     }
 
+    if (v->keys_help)
+        keys_help();
     pointer_draw(g.px, g.stride, SW, SH);       /* the arrow over everything */
     if (scale > 1)
         enlarge(fb);

@@ -619,8 +619,8 @@ una luce in mano con `bone3d()`, e la sua versione a sprite pre-renderizzati).
 - 60 fps = **16,7 ms** per fotogramma per `_update` + `_draw` + la copia sullo schermo.
   In alto a sinistra nella demo, `stat(1)` mostra quanto ne usa la cartuccia.
 - Il **dev kit**: l'overlay delle prestazioni sopra qualsiasi gioco, in alto a destra.
-  Si accende da Settings > System > "Performance overlay" (resta salvato), con F3 sulla tastiera
-  (non mentre un editor scrive) o con `p` dalla seriale:
+  Si accende da Settings > System > "Performance overlay" (resta salvato), con F11 sulla tastiera (tasto di sistema, anche negli
+  strumenti; era F3) o con `p` dalla seriale:
 
       60fps 6.1ms ^7.5      fotogrammi al secondo; ms di _update + _draw: media e,
                             dopo ^, il massimo dell'ultimo secondo

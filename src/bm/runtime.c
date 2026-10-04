@@ -36,6 +36,7 @@
 #include "kernel/crumbs.h"
 #include "kernel/prompts.h"
 #include "kernel/reports.h"
+#include "kernel/syskeys.h"
 #include "n8lua.h"
 #include "ai/lua_ai.h"
 #include "ai/net.h"
@@ -54,6 +55,7 @@
 
 #define FRAME_US        16667
 #define HOLD_FRAMES     10          /* a serial key press counts as held this long */
+#define QUIT_FORCE      0x100       /* 'q' on the serial line: leaves without asking _exit() */
 #define HOOK_EVERY      1000        /* instructions between hook calls */
 #define FRAME_BUDGET    20000       /* x HOOK_EVERY = 20 M instructions per callback */
 
@@ -82,7 +84,9 @@ static struct {
     uint32_t hook_count;
     uint32_t frame_instr_k, last_instr_k;   /* Lua instructions (thousands): this frame, the last */
     int perf_key;               /* 'p' on the serial line: the dev kit's overlay on or off */
-    int f3_held;
+    int f11_held;
+    int keyhelp;                /* keyhelp(): the registry's reference of the cartridge's keys, or 0 */
+    int help_page;              /* the page of the keys shown while F12 is held */
     int esc;
     int quit;
     r3d_t r3d;
@@ -2582,6 +2586,47 @@ static int l_keyp(lua_State *L)
     return 1;
 }
 
+/* keyhelp(keys [, title]): the cartridge's own keys, shown under the
+ * system's while F12 is held (the system's keys, src/kernel/syskeys.h):
+ * a list of { "keys", "what" } ("ctrl d", "x", "shift w", "1 - 5", "a / d")
+ * and strings, the headings of its groups. The system's keys are not for
+ * the cartridge to give another meaning: one in the list is said in the log
+ * and shown in red. Returns how many of them there are. */
+static int l_keyhelp(lua_State *L)
+{
+    if (rt.keyhelp) {
+        luaL_unref(L, LUA_REGISTRYINDEX, rt.keyhelp);
+        rt.keyhelp = 0;
+    }
+    if (lua_isnoneornil(L, 1)) {
+        lua_pushinteger(L, 0);
+        return 1;
+    }
+    luaL_checktype(L, 1, LUA_TTABLE);
+    int clashes = 0;
+    const lua_Integer n = luaL_len(L, 1);
+    for (lua_Integer i = 1; i <= n; i++) {
+        if (lua_rawgeti(L, 1, i) == LUA_TTABLE) {
+            lua_rawgeti(L, -1, 1);
+            const char *k = lua_tostring(L, -1);
+            if (k && syskeys_reserved(k)) {
+                kprintf("keyhelp: \"%s\" is a system key: not for the cartridge's own use\n", k);
+                clashes++;
+            }
+            lua_pop(L, 1);
+        }
+        lua_pop(L, 1);
+    }
+    lua_newtable(L);                        /* { list, title } */
+    lua_pushvalue(L, 1);
+    lua_rawseti(L, -2, 1);
+    lua_pushstring(L, luaL_optstring(L, 2, "this cartridge"));
+    lua_rawseti(L, -2, 2);
+    rt.keyhelp = luaL_ref(L, LUA_REGISTRYINDEX);
+    lua_pushinteger(L, clashes);
+    return 1;
+}
+
 /* keyheld(name): true while a key is held on the USB keyboard: "f1".."f12",
  * "tab", "space", "enter", "esc" */
 static int l_keyheld(lua_State *L)
@@ -2862,7 +2907,7 @@ static const luaL_Reg api[] = {
     { "world3d", l_world3d }, { "world_box", l_world_box }, { "world_ray", l_world_ray },
     { "world_move", l_world_move }, { "world_floor", l_world_floor },
     { "fog3d", l_fog3d }, { "project3d", l_project3d }, { "lamp3d", l_lamp3d },
-    { "zclear", l_zclear }, { "gpu3d", l_gpu3d }, { "screen", l_screen }, { "log", l_log }, { "report", l_report }, { "quit", l_quit },
+    { "zclear", l_zclear }, { "gpu3d", l_gpu3d }, { "screen", l_screen }, { "log", l_log }, { "report", l_report }, { "keyhelp", l_keyhelp }, { "quit", l_quit },
     { "udp_open", l_udp_open }, { "udp_send", l_udp_send }, { "udp_recv", l_udp_recv }, { "udp_close", l_udp_close },
     { "net_ip", l_net_ip }, { "net_resolve", l_net_resolve },
     { "save", l_save }, { "saved", l_saved },
@@ -3113,15 +3158,19 @@ static int poll_keys(void)
             case '\r': b = BTN_START; break;
             case '\t': b = BTN_SELECT; break;
             case 'p': case 'P': rt.perf_key = 1; continue;
-            case 'q': case 'Q': return 1;
+            case 'q': case 'Q': return QUIT_FORCE;
             }
         }
         if (b >= 0)
             rt.hold[b] = HOLD_FRAMES;
     }
-    /* a lone Esc, not the start of a sequence: after 6 frames of nothing */
-    if (rt.text_mode && rt.esc == 1 && ++rt.esc_wait >= 6) {
-        text_push(0x1B);
+    /* a lone Esc, not the start of a sequence: after 6 frames of nothing;
+     * in a game it is Start, its menu (the system's keys) */
+    if (rt.esc == 1 && ++rt.esc_wait >= 6) {
+        if (rt.text_mode)
+            text_push(0x1B);
+        else
+            rt.hold[BTN_START] = HOLD_FRAMES;
         rt.esc = 0;
     }
     if (rt.esc != 1)
@@ -3129,9 +3178,23 @@ static int poll_keys(void)
     int quit = 0;
     uint32_t per[INPUT_PLAYERS];
     uint32_t pad = input_players(per, rt.text_mode || rt.raw_keys, &quit, &rt.local);
+    if (quit & HID_QUIT_ESC) {              /* Esc in a game: Start, its menu */
+        rt.hold[BTN_START] = HOLD_FRAMES;
+        quit &= ~HID_QUIT_ESC;
+    }
     if (rt.text_mode)
-        for (int k; (k = hid_getc()) >= 0;)
+        for (int k; (k = hid_getc()) >= 0;) {
+            /* the system's: F11 and F12 never reach the cartridge; while F12
+             * is held the arrows turn the pages of its keys */
+            if (k == HID_KEY_F6 + 5 || k == HID_KEY_F6 + 6)
+                continue;
+            if (hid_usage_held(0x45) && (k == HID_KEY_DOWN || k == HID_KEY_UP || k == HID_KEY_PGDN ||
+                                         k == HID_KEY_PGUP || k == HID_KEY_RIGHT || k == HID_KEY_LEFT)) {
+                rt.help_page += k == HID_KEY_DOWN || k == HID_KEY_PGDN || k == HID_KEY_RIGHT ? 1 : -1;
+                continue;
+            }
             text_push((uint8_t)k);
+        }
     uint32_t serial = 0;                    /* HID_* bits of the serial keys held */
     for (int b = 0; b < SER_COUNT; b++)
         if (rt.hold[b]) {
@@ -4837,7 +4900,7 @@ static int vol_start;                   /* the volume when the cartridge started
 /* ---------------------------------------------------------------- the dev kit */
 
 /* The performance overlay, over any game (Settings > Performance overlay,
- * F3 on a keyboard, 'p' on the serial line): its frames a second, the CPU
+ * F11 on a keyboard, a system key, 'p' on the serial line): its frames a second, the CPU
  * time of _update + _draw and the Lua instructions of a frame (the mean and,
  * after ^, the most of the last second), and the time of the last 64 frames
  * against the 16.7 ms of a frame at 60 Hz. Drawn on the 8x16 grid, top right:
@@ -4849,6 +4912,191 @@ static struct { uint16_t us10[PERF_N], k[PERF_N]; uint32_t at; } perf;
 
 void bm_set_perf(int on) { perf_on = on != 0; }
 int bm_perf(void) { return perf_on; }
+
+/* ---------------------------------------------------------------- F12: the keys */
+
+/* Ctrl+Esc, PS or Start+Select: the cartridge may ask first (_exit(): true
+ * leaves now; false: it shows its own question, and quit() leaves later) */
+static int exit_ok(lua_State *L)
+{
+    if (lua_getglobal(L, "_exit") != LUA_TFUNCTION) {
+        lua_pop(L, 1);
+        return 1;
+    }
+    if (lua_pcall(L, 0, 1, 0) != LUA_OK) {
+        kprintf("bm: _exit: %s\n", lua_tostring(L, -1));
+        lua_pop(L, 1);
+        return 1;
+    }
+    const int ok = lua_toboolean(L, -1);
+    lua_pop(L, 1);
+    return ok;
+}
+
+/* keys ("ctrl shift s", "f5 / ctrl r", "f1 - f4") as the keys' pictures
+ * from x on the row at y; the x after them (measured only, draw 0) */
+static int keys_chips(const char *keys, int x, int y, int small, int draw, uint16_t ink)
+{
+    const int fw = rt.g.font->width;
+    for (const char *p = keys; *p;) {
+        while (*p == ' ')
+            p++;
+        if (!*p)
+            break;
+        char tok[16];
+        size_t n = 0;
+        while (p[n] && p[n] != ' ') {
+            if (n + 1 < sizeof tok)
+                tok[n] = p[n];
+            n++;
+        }
+        tok[n < sizeof tok ? n : sizeof tok - 1] = 0;
+        p += n;
+        if (!strcmp(tok, "/") || !strcmp(tok, "-")) {
+            if (draw)
+                g16_text(&rt.g, x + 2, y + (small ? 0 : 0), tok, ink);
+            x += fw + 4;
+            continue;
+        }
+        const prompt_t *pr = find_prompt(tok, small);
+        if (pr) {
+            if (draw)
+                draw_prompt(pr, x, y, 1);
+            x += pr->w + 2;
+        } else {
+            if (draw)
+                g16_text(&rt.g, x, y, tok, ink);
+            x += (int)strlen(tok) * fw + 2;
+        }
+    }
+    return x;
+}
+
+/* While F12 is held: the system's keys, then the cartridge's (keyhelp()),
+ * with their pictures, in columns; more than a page: the arrows turn them.
+ * Over the frame, after the overlay of the dev kit. */
+static void keys_help(lua_State *L)
+{
+    if (!hid_usage_held(0x45)) {
+        rt.help_page = 0;
+        return;
+    }
+    g16_t *g = &rt.g;
+    const g16_t keep = *g;
+    g16_camera(g, 0, 0);
+    g16_clip(g, 0, 0, 0, 0);
+    const int small = g->w < 480;
+    g->font = small ? &font_console_6x12 : &font_console_8x16;
+    const int fw = g->font->width, rowh = g->font->height;     /* the chips are as high */
+    const int cols = g->w >= 600 ? 3 : g->w >= 360 ? 2 : 1;
+    const int colw = (g->w - 2 * fw) / cols / fw * fw;
+    const int y0 = 2 * rowh, rows = (g->h - y0 - rowh) / rowh;
+    const uint16_t ink = g16_rgb(232, 232, 236), dim = g16_rgb(150, 150, 165), head = g16_rgb(255, 176, 64);
+    const uint16_t bad = g16_rgb(255, 90, 80);
+    g16_rectfill(g, 0, 0, g->w, g->h, g16_rgb(12, 14, 22));
+
+    /* the items: the system's heading and keys, then the cartridge's */
+    int list = 0, napp = 0;
+    const char *title = "this cartridge";
+    if (rt.keyhelp) {
+        lua_rawgeti(L, LUA_REGISTRYINDEX, rt.keyhelp);
+        lua_rawgeti(L, -1, 2);
+        title = lua_tostring(L, -1);
+        lua_pop(L, 1);
+        lua_rawgeti(L, -1, 1);
+        list = lua_gettop(L);
+        napp = (int)luaL_len(L, list);
+    }
+    const int nsys = syskeys_count();
+    const int total = 1 + nsys + (napp ? 1 + napp : 0), per = rows * cols;
+    int slots = 0;                          /* as the loop below places them */
+    for (int i = 0; i < total; i++) {
+        const int heading = i == 0 || i == nsys + 1 || (i > nsys + 1 && lua_rawgeti(L, list, i - nsys - 1) == LUA_TSTRING);
+        if (i > nsys + 1)
+            lua_pop(L, 1);
+        if (i == nsys + 1 && cols > 1 && slots % rows)
+            slots += rows - slots % rows;
+        else if (heading && slots % rows == rows - 1)
+            slots++;
+        slots++;
+    }
+    const int pages = (slots + per - 1) / per;
+    if (rt.help_page < 0) rt.help_page = 0;
+    if (rt.help_page >= pages) rt.help_page = pages - 1;
+    g16_text(g, fw, 0, "Keys", head);
+    g16_text(g, 6 * fw, 0, "(F12 held)", dim);
+    if (pages > 1) {
+        char pg[24];
+        ksnprintf(pg, sizeof pg, "%d/%d", rt.help_page + 1, pages);
+        int x = g->w - fw - (int)strlen(pg) * fw;
+        g16_text(g, x, 0, pg, dim);
+        const prompt_t *dn = find_prompt("down", small), *up = find_prompt("up", small);
+        if (dn && up) {
+            draw_prompt(dn, x - fw - dn->w, 0, 1);
+            draw_prompt(up, x - fw - dn->w - 2 - up->w, 0, 1);
+        }
+    }
+    /* the places: the cartridge's keys from the top of a new column when
+     * there is one; a heading never last in its column */
+    int slot = 0;
+    for (int i = 0; i < total; i++) {
+        const int heading = i == 0 || i == nsys + 1 || (i > nsys + 1 && list &&
+                                                        lua_rawgeti(L, list, i - nsys - 1) == LUA_TSTRING);
+        if (i > nsys + 1 && list)
+            lua_pop(L, 1);
+        if (i == nsys + 1 && cols > 1 && slot % rows)
+            slot += rows - slot % rows;
+        else if (heading && slot % rows == rows - 1)
+            slot++;
+        const int page = slot / per;
+        const int c = slot % per / rows, r = slot % rows;
+        slot++;
+        if (page != rt.help_page)
+            continue;
+        const int x = fw + c * colw, y = y0 + r * rowh, right = x + colw - fw;
+        const char *keys = NULL, *what = NULL;
+        int clash = 0;
+        if (i == 0) {
+            g16_text(g, x, y, "bm", head);
+            continue;
+        } else if (i <= nsys) {
+            keys = syskey(i - 1)->keys;
+            what = syskey(i - 1)->what;
+        } else if (i == nsys + 1) {
+            g16_text(g, x, y, title ? title : "", head);
+            continue;
+        } else {
+            const int t = lua_rawgeti(L, list, i - nsys - 1);
+            if (t == LUA_TSTRING) {             /* a heading of the cartridge's */
+                g16_text(g, x, y, lua_tostring(L, -1), head);
+                lua_pop(L, 1);
+                continue;
+            }
+            if (t == LUA_TTABLE) {
+                lua_rawgeti(L, -1, 1);
+                lua_rawgeti(L, -2, 2);
+                keys = lua_tostring(L, -2);
+                what = lua_tostring(L, -1);
+                clash = keys && syskeys_reserved(keys);
+                lua_pop(L, 2);
+            }
+            lua_pop(L, 1);
+            if (!keys)
+                continue;
+        }
+        int tx = keys_chips(keys, x, y, small, 1, ink);
+        tx = (tx + fw + fw - 1) / fw * fw;      /* the text on the font's grid (the tests read it) */
+        char buf[64];
+        ksnprintf(buf, sizeof buf, "%s", what ? what : "");
+        int room = (right - tx) / fw;
+        if (room < (int)strlen(buf))
+            buf[room > 0 ? room : 0] = 0;
+        g16_text(g, tx, y, buf, clash ? bad : dim);
+    }
+    if (rt.keyhelp)
+        lua_pop(L, 2);
+    *g = keep;
+}
 
 static void perf_frame(void)
 {
@@ -4968,17 +5216,18 @@ static int run_frames(framebuffer_t *fb, lua_State *L, const char *title,
         played_at = now_us;
         if (rt.quit || played_us >= limit_us)
             break;
-        if (poll_keys()) {
+        const int q = poll_keys();
+        if ((q & QUIT_FORCE) || (q && exit_ok(L))) {
             left = 1;
             break;
         }
         audio_idle();
-        /* F3, or 'p' from the serial line: the dev kit (not while typing: the
-         * editors have their own F keys) */
-        int f3 = !rt.text_mode && hid_usage_held(0x3C);
-        if ((f3 && !rt.f3_held) || rt.perf_key)
+        /* F11, or 'p' from the serial line: the dev kit's overlay (a system
+         * key: also while typing) */
+        int f11 = hid_usage_held(0x44);
+        if ((f11 && !rt.f11_held) || rt.perf_key)
             perf_on = !perf_on;
-        rt.f3_held = f3;
+        rt.f11_held = f11;
         rt.perf_key = 0;
         /* with this frame's _update, if it ran during the last (stat(8)
          * counts as if it had run just now; its Lua instructions too) */
@@ -5021,6 +5270,7 @@ static int run_frames(framebuffer_t *fb, lua_State *L, const char *title,
         rt.last_cpu_us = timer_ticks() - t0 - early_us;
         rt.last_instr_k = instr_k;
         perf_frame();
+        keys_help(L);
         st->cpu_us_total += rt.last_cpu_us;
         if (rt.last_cpu_us > st->cpu_us_max)
             st->cpu_us_max = rt.last_cpu_us;

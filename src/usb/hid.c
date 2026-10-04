@@ -243,14 +243,25 @@ static void keyboard_boot(int k, const uint8_t *r)
         /* new key */
         last_source = HID_SOURCE_KEYBOARD;
         if (u == 0x29) {                                            /* Esc */
-            if (!text_mode)                     /* with Ctrl: the monitor, from the menu */
-                quit_edge |= HID_QUIT_KEY | (mods & 0x11 ? HID_QUIT_MONITOR : 0);
-            push(0x1B);
+            /* the system's keys (src/kernel/syskeys.h): Ctrl+Shift+Esc the
+             * monitor (as Start+Select), Ctrl+Esc back to bm's menu (as
+             * PS), Esc alone back or a game's menu (as Start) */
+            if ((mods & MOD_CTRL) && (mods & MOD_SHIFT))
+                quit_edge |= HID_QUIT_KEY | HID_QUIT_MONITOR;
+            else if (mods & MOD_CTRL)
+                quit_edge |= HID_QUIT_PS;
+            else {
+                if (!text_mode)
+                    quit_edge |= HID_QUIT_ESC;
+                push(0x1B);
+            }
             continue;
         }
         if (u == 0x39) { caps = !caps; continue; }                  /* Caps Lock */
         uint8_t c = translate(u, mods);
         if (c) {
+            if (text_mode && c >= 1 && c <= 26 && (mods & MOD_SHIFT))
+                push(HID_KEY_CTRL_SHIFT);       /* Ctrl+Shift+S: "^S" for keyp() */
             push(c);
             rep_usage = u;
             rep_mods = mods;

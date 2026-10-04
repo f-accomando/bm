@@ -147,13 +147,17 @@ int hid_keys_held(uint8_t *out, int max);
 #define HID_KEY_DEL     0xF8
 #define HID_KEY_F1      0xF9            /* .. F5 = 0xFD */
 #define HID_KEY_F6      0xE6            /* .. F12 = 0xEC (code page 437 Greek: never typed) */
-/* Once per press, then cleared: HID_QUIT_KEY for Esc or Start+Select,
- * HID_QUIT_PS for the PS / Xbox Guide button (home: never the monitor).
- * Ctrl+Esc and Start+Select add HID_QUIT_MONITOR: from the menu, they go
- * to the monitor; Esc alone goes back there, like B. */
+#define HID_KEY_CTRL_SHIFT 0xEE         /* while typing, before the Ctrl letter typed with Shift too */
+/* Once per press, then cleared (the system's keys, src/kernel/syskeys.h):
+ * HID_QUIT_KEY | HID_QUIT_MONITOR for Start+Select or Ctrl+Shift+Esc (from
+ * the menu, the monitor), HID_QUIT_PS for the PS / Xbox Guide button or
+ * Ctrl+Esc (back to bm's menu; there, home), HID_QUIT_ESC for Esc alone
+ * while the keyboard is a gamepad (the menu: back; a game: its menu, as
+ * Start). While typing (hid_text_mode) Esc alone is only a key. */
 #define HID_QUIT_KEY     1
 #define HID_QUIT_PS      2
 #define HID_QUIT_MONITOR 4
+#define HID_QUIT_ESC     8
 int      hid_quit_pressed(void);
 
 /* "it" (default) or "us" */

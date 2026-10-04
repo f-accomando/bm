@@ -101,6 +101,7 @@ typedef struct {
     int prompts_colour;         /* ...the DS4's face buttons in their colours */
     int confirm_b;              /* MENU_PROMPTS_PAD: confirm is B, back A (the RGB30) */
     int no_monitor;             /* no monitor to go to (the RGB30): no hint for it */
+    int keys_help;              /* F12 is held: the keys over everything (the system's, the menu's) */
     const char *details;        /* line under the grid (path, size) */
     const char *note;           /* last game, errors */
     const menu_panel_t *panel;  /* a submenu over the grid, or NULL */
