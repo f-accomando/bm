@@ -196,6 +196,8 @@ local multiplayer for up to 4 players. The games on the card, all `.bm`:
   <img src="docs/img/village.png" width="49%" alt="Studio Village: bm Studio models and an animated villager">
   <img src="docs/img/texroom.png" width="49%" alt="Texture Room: a textured 3D room">
   <img src="docs/img/hunt.png" width="49%" alt="Hunter's Night: gothic 2D with lights">
+  <img src="docs/img/yharnam.png" width="49%" alt="Yharnam: an endless gothic town at night, 256x256">
+  <img src="docs/img/yharnam-boss.png" width="49%" alt="Yharnam: the Butcher, one of the four bosses, in the animation viewer">
 </p>
 
 - **Overbit** (M38, to be tried on the Pi): a hero shooter in 3D, first person, 8 heroes with the
@@ -215,7 +217,25 @@ local multiplayer for up to 4 players. The games on the card, all `.bm`:
 - **Studio Village**: bm Studio models and a villager animated with bm Animator.
 - **Texture Room**: a 3D room, all textured.
 - **Hunter's Night**: gothic 2D at 320×180, with lights.
+- **Yharnam**: an endless gothic town at night, at 256×256: the streets are made while you
+  walk, lit as in Dank Tomb (light levels and fade tables), with fires and warm lamps. The
+  hunter has 27 animations in 8 directions: saw cleaver combos (folded and opened), the
+  pistol, backstep, hurt, knocked down, death. Twelve creatures roam the districts (mad
+  townsfolk, beasts, hunters, eldritch horrors) and four bosses wait in theirs, each with
+  two special attacks and two combos. The fight is Bloodborne's: stamina, quickstep and roll
+  with i-frames, lock-on, charged blows, the trick weapon transformed mid-combo, the gun
+  parry and the visceral attack, the rally. The town is walked area by area, each closed by
+  mist and ended by its boss, with two hunter's lamps to light; blood echoes from the slain
+  are dear: a little healing, a death, and at most four paths taken at the lamps, which shape
+  how the hunter fights.
 - The rest: Pong (2 players), Snake, Star Shooter, and **nano8** for `.p8` carts.
+
+**The Market**, the first tab of the menu, downloads free games from
+[f-accomando/bm-market](https://github.com/f-accomando/bm-market): a catalog signed with the
+market's key, every file checked with its SHA-256 before it touches the SD card. Games are
+published with a pull request there, also from the console with a GitHub token, and sent
+between consoles on the home network. The games of the project are all in it (details in
+Italian in [README_OLD.md](README_OLD.md#market-m25)).
 
 The console screenshots come from QEMU (`tests/qemu_test.py --shots DIR`). The bm Studio
 and bm Animator ones come from `make test-studio-ui` and `make showreel`.

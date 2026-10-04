@@ -45,6 +45,8 @@ def free_port():
 
 # --kernel7: kernel7.img in raspi2b (main)
 KERNEL7 = False
+# kernel7.img is built (make ZERO2=1, or --kernel7): in the SD image too
+ZERO2 = os.environ.get("ZERO2", "0") == "1"
 # tests that need a BCM2835 board, skipped with --kernel7
 BCM2835_ONLY = {
     "test_pi1_board": "a Pi 1 (raspi1ap)",
@@ -615,9 +617,10 @@ def scroll_thumb(img):
 
 
 def tabs_lit(img):
-    """Which tabs of the menu bar are on their light pill (M27): Games, Dev,
-    Settings, from a pixel of the pill left of each name."""
-    return [name for name, x in (("Games", 20), ("Dev", 92), ("Settings", 148))
+    """Which tabs of the menu bar are on their light pill (M27, Market since
+    M25): Market, Games, Dev, Settings, from a pixel of the pill left of
+    each name."""
+    return [name for name, x in (("Market", 20), ("Games", 100), ("Dev", 172), ("Settings", 228))
             if sum(pixel(img, x, 24)) > 600]
 
 
@@ -934,7 +937,7 @@ function _draw() cls(0x203040) print("frame " .. n, 8, 8, 0xFFFFFF) end
 def test_home_ui(b, opts):
     """M27 (BareMetal UI): the options of a cartridge (X), with the save data
     and the file deleted from the SD card (fsck clean); the settings (3)
-    and their submenus; the tools of the Dev tab on the text console and
+    and their submenus; the tools of the Dev tab (3) on the text console and
     back to the menu; the monitor as a tool."""
     tmp = tempfile.mkdtemp(prefix="bm-home-")
     img = os.path.join(tmp, "sd.img")
@@ -1029,7 +1032,7 @@ def test_home_ui(b, opts):
         assert "BBB" not in text, text
 
         # settings: the keyboard layout changes and is saved; the submenus
-        keys("3")
+        keys("4")
         net = "Network" if KERNEL7 else "WiFi and network"     # raspi2b: a Pi 2 B, Ethernet only
         screen(["Settings", "Controllers", net, "Keyboard layout", "System"])
         shot("settings")
@@ -1088,7 +1091,7 @@ def test_home_ui(b, opts):
         time.sleep(0.5)
 
         # the Dev tab: a tool on the text console, then A goes back
-        keys("2")
+        keys("3")
         screen(["bm SDK", "editor (built-in)"])
         keys("d")                               # the covers' names are on pictures: the pill
         screen(["bm Sound", "sound (built-in)"])
@@ -1157,7 +1160,7 @@ def test_make_image(b, opts):
     q = Qemu(b("kernel.img"), ["-drive", f"if=sd,format=raw,file={img}"])
     try:
         out = q.expect(MENU, timeout=30).decode(errors="replace")
-        assert "FAT32, 63 MiB, label BM; 10 cartridges" in out, out
+        assert "FAT32, 63 MiB, label BM; 11 cartridges" in out, out
         time.sleep(0.5)
         want = ("Pong", "Snake", "Star Shooter", "Chaos Kitchen", "Studio Village", "nano8")
         titles = want + ("Astro Wing", "Titan Clash", "Hunter's Night", "Overbit")
@@ -1204,7 +1207,8 @@ def test_make_image(b, opts):
                                   env=env, capture_output=True, text=True).stdout
         assert "::/BM/BCM43430A1.HCD" in ls("bm.img").upper(), ls("bm.img")
         assert "::/BM/SYN43430B0.HCD" in ls("bm.img").upper(), ls("bm.img")
-        assert "::/KERNEL.IMG" in ls("bm.img").upper() and "::/KERNEL7.IMG" in ls("bm.img").upper(), ls("bm.img")
+        assert "::/KERNEL.IMG" in ls("bm.img").upper(), ls("bm.img")
+        assert ("::/KERNEL7.IMG" in ls("bm.img").upper()) == ZERO2, ls("bm.img")
         # the carts nano8 plays, with their long names
         assert "::/carts/nano8/nanodemo.p8" in ls("bm.img"), ls("bm.img")
         assert "::/carts/nano8/starmoovalley.p8.png" in ls("bm.img"), ls("bm.img")
@@ -1214,7 +1218,7 @@ def test_make_image(b, opts):
         q = Qemu(os.path.join(os.path.dirname(b("kernel.img")), "kernel.img"),   # kernel.img even with --kernel7
                  ["-drive", f"if=sd,format=raw,file={os.path.join(tmp, 'bm-pi1.img')}"], machine="raspi1ap")
         out = q.expect(MENU, timeout=30).decode(errors="replace")
-        assert "Raspberry Pi 1 A+" in out and "; 10 cartridges" in out, out
+        assert "Raspberry Pi 1 A+" in out and "; 11 cartridges" in out, out
     finally:
         q.close()
         shutil.rmtree(tmp, ignore_errors=True)
@@ -1311,6 +1315,69 @@ def test_sd_save_and_config(b, opts):
         saves = subprocess.run(["mdir", "-b", "-i", part, "::/BM/SAVE"], capture_output=True,
                                text=True, env=env).stdout
         assert saves.count(".SAV") == 1, saves
+    finally:
+        shutil.rmtree(tmp, ignore_errors=True)
+
+
+WRITER_CART = r"""
+function _init()
+  local code = { lua = "function _draw() cls(0) end", title = "written" }
+  for _, p in ipairs({ "/kernel.img", "/bm/config.txt", "/carts/../kernel.bm", "/carts/sub/x.bm",
+                       "/carts/.x.bm", "notes.txt", "/carts/ok.bm", "ok2.bm" }) do
+    local ok, err = cart_save(p, code)
+    log("save", p, ok, err)
+  end
+  local ok, err = cart_write("/kernel.img", { lua = "x" , from = "/carts/ok.bm" })
+  log("write", ok, err)
+  ok, err = cart_put_audio("/bm/config.txt", nil)
+  log("audio", ok, err)
+  quit()
+end
+"""
+
+
+def test_cart_write_limits(b, opts):
+    """M25 (Market): a cartridge from the SD card or the Market writes only
+    .bm files in /carts; the kernel, the settings and other folders are
+    refused (the tools built into the kernel still save anywhere)."""
+    tmp = tempfile.mkdtemp(prefix="bm-wlim-")
+    img = os.path.join(tmp, "sd.img")
+    cfg = os.path.join(tmp, "config.txt")
+    with open(cfg, "w") as f:
+        f.write("layout=us\nwifi_boot=0\n")
+    mksd.build(img, [(cfg, "bm/config.txt")])
+    q = Qemu(b("kernel.img"), ["-drive", f"if=sd,format=raw,file={img}"])
+    try:
+        q.boot()
+        assert _upload(q, mkbm.pack(WRITER_CART.encode(), title="writer"))
+        out = q.expect("audio\t", timeout=20)
+        out += q.expect("\n")
+        text = out.decode(errors="replace").replace("\r", "")
+        for p in ("/kernel.img", "/bm/config.txt", "/carts/../kernel.bm", "/carts/sub/x.bm",
+                  "/carts/.x.bm", "notes.txt"):
+            assert f"save\t{p}\tfalse\t{p}: a cartridge writes only .bm files in /carts" in text, text
+        assert "save\t/carts/ok.bm\ttrue" in text, text
+        assert "save\tok2.bm\ttrue" in text, text
+        assert "write\tfalse\t/kernel.img: a cartridge writes only" in text, text
+        assert "audio\tfalse\t/bm/config.txt: a cartridge writes only" in text, text
+        q.expect("> ", timeout=10)
+    finally:
+        q.close()
+    try:
+        part = os.path.join(tmp, "part.img")
+        with open(img, "rb") as f, open(part, "wb") as o:
+            f.seek(2048 * 512)
+            o.write(f.read())
+        env = dict(os.environ, MTOOLS_SKIP_CHECK="1")
+        root = subprocess.run(["mdir", "-b", "-i", part, "::/"], capture_output=True,
+                              text=True, env=env).stdout
+        assert "KERNEL.IMG" not in root.upper() and "NOTES.TXT" not in root.upper(), root
+        cart_dir = subprocess.run(["mdir", "-b", "-i", part, "::/CARTS"], capture_output=True,
+                                  text=True, env=env).stdout.upper()
+        assert "OK.BM" in cart_dir and "OK2.BM" in cart_dir, cart_dir
+        cfg_txt = subprocess.run(["mtype", "-i", part, "::/BM/CONFIG.TXT"], capture_output=True,
+                                 text=True, env=env).stdout
+        assert "wifi_boot=0" in cfg_txt, cfg_txt
     finally:
         shutil.rmtree(tmp, ignore_errors=True)
 
@@ -2639,9 +2706,9 @@ def test_bt_forget(b, opts):
 
 
 def test_menu_tabs(b, opts):
-    """The tabs with a DS4 (M27): R1 and L1 move between Games, Dev and
-    Settings; on Settings its panel opens by itself and Dev is off; B out of
-    it goes back to Dev. Up on the first row stays on the covers. PS in the
+    """The tabs with a DS4 (M27): R1 and L1 move between Market, Games, Dev
+    and Settings (the menu opens on Games); on Settings its panel opens by
+    itself and Dev is off; B out of it goes back to Dev. Up on the first row stays on the covers. PS in the
     menu goes home (Games, panels closed), never to the monitor; PS in the
     monitor opens the games menu."""
     tmp = tempfile.mkdtemp(prefix="bm-tabs-")
@@ -2721,7 +2788,11 @@ def test_menu_tabs(b, opts):
         state(["Dev"], ["bm SDK"], gone=["Controllers"])
         press(shoulders=1)                  # L1: Games
         state(["Games"], ["bm native demo"])
+        press(shoulders=1)                  # L1: the Market, first (M25): no key in this kernel
+        state(["Market"], ["The Market needs a key"])
         press(shoulders=1)                  # L1 on the first tab: nothing
+        state(["Market"], ["The Market needs a key"])
+        press(shoulders=2)                  # R1: back to Games
         state(["Games"], ["bm native demo"])
 
         # up on the first row stays on the covers: R1 still goes to Dev
@@ -2752,6 +2823,402 @@ def test_menu_tabs(b, opts):
         _mini_expect(q, "back to the monitor")
     finally:
         q.close()
+        shutil.rmtree(tmp, ignore_errors=True)
+
+
+MARKET_GAME = r"""
+function _init() log("market game runs") quit() end
+"""
+
+
+def _market_site(tmp, b, key):
+    """A market on the SD card (market_url=sd:/market/): four games signed
+    with a test key, one of them (Broken) changed after signing."""
+    games = os.path.join(tmp, "games")
+    cover = (128, 80, bytes([200, 60, 40, 255]) * (128 * 80))       # one red
+    carts = [("mtest", "mtest.bm", mkbm.pack(MARKET_GAME.encode(), title="Market Test", author="tests",
+                                             cover=cover)),
+             ("pong", "pong.bm", open(b("carts/pong.bm"), "rb").read()),
+             ("snake", "snake.bm", open(b("carts/snake.bm"), "rb").read()),
+             ("zbroken", "broken.bm", mkbm.pack(MARKET_GAME.encode(), title="Broken", author="tests"))]
+    for gid, name, data in carts:
+        d = os.path.join(games, gid)
+        os.makedirs(d)
+        with open(os.path.join(d, name), "wb") as f:
+            f.write(data)
+        with open(os.path.join(d, "info.txt"), "w") as f:
+            f.write("version: 1.0\nlicense: MIT\nabout: A game for the test.\n")
+    site = os.path.join(tmp, "site")
+    r = subprocess.run([sys.executable, os.path.join(HERE, "..", "scripts", "mkmarket.py"), games, "-o", site,
+                        "--key", key, "--serial", "20261001120000"], capture_output=True, text=True)
+    assert r.returncode == 0, r.stdout + r.stderr
+    broken = os.path.join(site, "games", "zbroken", "broken.bm")
+    data = bytearray(open(broken, "rb").read())
+    data[-1] ^= 1                                       # not the file of the catalog any more
+    with open(broken, "wb") as f:
+        f.write(data)
+    files = []
+    for dp, _, fs in os.walk(site):
+        for f in fs:
+            src = os.path.join(dp, f)
+            files.append((src, "market/" + os.path.relpath(src, site).replace(os.sep, "/")))
+    return files
+
+
+def test_market(b, opts):
+    """M25: the Market tab, first in the menu, with a catalog in a folder of
+    the SD card (slowed down by market_delay, as a network would be): the
+    tab shows placeholders at once, the catalog and the covers arrive while
+    the menu runs, nothing loads while another tab is shown, a game
+    downloads with its progress on the cover, is checked, installed in
+    /carts and plays; a game already on the card shows as installed; a file
+    that is not the catalog's is refused; leaving the tab interrupts a
+    download."""
+    tmp = tempfile.mkdtemp(prefix="bm-market-")
+    try:
+        key = os.path.join(tmp, "key.pem")
+        pub = os.path.join(tmp, "market.pem")
+        subprocess.run(["openssl", "genpkey", "-algorithm", "EC", "-pkeyopt", "ec_paramgen_curve:P-256",
+                        "-out", key], check=True, capture_output=True)
+        subprocess.run(["openssl", "pkey", "-in", key, "-pubout", "-out", pub], check=True, capture_output=True)
+        cfg = os.path.join(tmp, "config.txt")
+        with open(cfg, "w") as f:
+            f.write("layout=us\nwifi_boot=0\nmarket_url=sd:/market/\nmarket_delay=250\n")
+        img = os.path.join(tmp, "sd.img")
+        mksd.build(img, [(cfg, "bm/config.txt"), (pub, "bm/market.pem"), (b("carts/pong.bm"), "carts/pong.bm")]
+                   + _market_site(tmp, b, key))
+        q = Qemu(b("kernel.img"), ["-drive", f"if=sd,format=raw,file={img}"])
+
+        def keys(k):
+            for c in k:
+                q.send(c)
+                time.sleep(0.25)
+
+        def screen(want, gone=(), tries=30):
+            for _ in range(tries):
+                _, text = settled_screen(q, lambda i, t: True, tries=1)
+                joined = "\n".join(text)
+                if all(w in joined for w in want) and not any(g in joined for g in gone):
+                    return joined
+                time.sleep(0.2)
+            raise AssertionError(f"want {want}, not {gone}, on the screen:\n{joined}")
+
+        def shot(name):
+            if opts.shots:
+                _save_png(q.screendump(), os.path.join(opts.shots, f"market-{name}.png"))
+
+        def is_red(img, x, y):
+            r, g_, bl = pixel(img, x, y)
+            return r > 150 and g_ < 100 and bl < 80
+
+        try:
+            q.expect(MENU, timeout=30)
+            time.sleep(0.5)
+            img_, _ = settled_screen(q, lambda i, t: tabs_lit(i) == ["Games"])
+            assert tabs_lit(img_) == ["Games"], "the menu opens on Games"
+            time.sleep(1.0)
+            assert b"market:" not in q.buf, "nothing loads before the tab is shown"
+
+            keys("1")                                   # the Market tab: placeholders first
+            screen(["Loading the Market..."])
+            img_ = q.screendump()
+            assert tabs_lit(img_) == ["Market"], tabs_lit(img_)
+            shot("loading")
+            q.expect("market: sd:/market/, no catalog saved", timeout=10)
+            q.expect("market: catalog 20261001120000, 4 games", timeout=15)
+            # the title on a placeholder while the covers come one at a time,
+            # nearest the selection first (Snake's is the third)
+            screen(["Snake"], tries=10)
+            shot("placeholders")
+            screen(["4 games, 2026-10-01"])
+            q.expect("market: cover of mtest", timeout=10)
+
+            # another tab: nothing loads; back on the Market, the covers go on
+            keys("2")
+            time.sleep(0.3)
+            q.buf = b""
+            time.sleep(2.5)
+            assert b"market: cover" not in q.buf, q.buf.decode(errors="replace")
+            keys("1")
+            q.expect("market: cover of", timeout=10)
+            # the first cover (red, 128x80 at the top left of the grid) arrives
+            for _ in range(50):
+                img_ = q.screendump()
+                if is_red(img_, 104, 150):
+                    break
+                time.sleep(0.2)
+            assert is_red(img_, 104, 150), "the cover of Market Test"
+            text = screen(["Installed"])            # Pong: on the card already
+            shot("covers")
+
+            # A on Market Test: a question, then the download with its progress
+            screen(["Market Test", "Get", "Details"])
+            keys("\r")
+            screen(["Download Market Test?", "free, license MIT", "Download", "Cancel"])
+            shot("ask")
+            keys("\r")
+            screen(["%"])                            # the badge with the percent
+            shot("download")
+            q.expect("market: games/mtest/mtest.bm -> /carts/MTEST.BM", timeout=20)
+            q.expect("market: Market Test installed", timeout=5)
+            screen(["Installed", "Play"])
+            keys("\r")                                  # A plays it
+            q.expect("market game runs", timeout=15)
+            time.sleep(1.0)
+
+            # X: the details of Pong (installed another way)
+            keys("d")
+            keys("x")
+            screen(["Market > Pong", "Play", "Download again", "Author", "Version", "1.0", "License", "MIT"])
+            shot("details")
+            keys("q")
+
+            # Broken: its file is not the catalog's
+            keys("ddd")
+            screen(["Broken"])
+            keys("\r\r")
+            q.expect("market: Broken: not the file of the catalog", timeout=20)
+            screen(["Retry"])
+
+            # Snake: leaving the tab interrupts the download
+            keys("a")
+            screen(["Snake", "Get"])
+            keys("\r\r")
+            q.expect("market: downloading games/snake/snake.bm", timeout=10)
+            keys("2")
+            q.expect("market: download of Snake interrupted", timeout=10)
+            text = screen(["Market Test"])             # the Games tab has the new game
+            assert "Snake" not in text, text
+        finally:
+            q.close()
+
+        part = os.path.join(tmp, "part.img")
+        with open(img, "rb") as f, open(part, "wb") as o:
+            f.seek(2048 * 512)
+            o.write(f.read())
+        fsck = subprocess.run(["fsck.vfat", "-n", part], capture_output=True, text=True)
+        assert fsck.returncode == 0, fsck.stdout + fsck.stderr
+        env = dict(os.environ, MTOOLS_SKIP_CHECK="1")
+        carts = subprocess.run(["mdir", "-b", "-i", part, "::/CARTS"], capture_output=True, text=True,
+                               env=env).stdout.upper()
+        assert "MTEST.BM" in carts and "SNAKE" not in carts and "BROKEN" not in carts, carts
+        cache = subprocess.run(["mdir", "-b", "-i", part, "::/BM/MARKET"], capture_output=True, text=True,
+                               env=env).stdout.upper()
+        assert "INDEX.TXT" in cache and "INDEX.SIG" in cache and "GAMES.TXT" in cache and ".PNG" in cache, cache
+        owned = subprocess.run(["mtype", "-i", part, "::/BM/MARKET/GAMES.TXT"], capture_output=True, text=True,
+                               env=env).stdout
+        assert owned.startswith("mtest ") and owned.rstrip().endswith(" /carts/MTEST.BM"), owned
+    finally:
+        shutil.rmtree(tmp, ignore_errors=True)
+
+
+def test_update(b, opts):
+    """M19 step 4: Settings > System > Check for updates reads a release
+    signed with a test key (here from the SD card: update_url=sd:/release/,
+    bm/release.pem), says which files would change (a game the same, one
+    changed, one not on the card, the certificates, both kernels); Install
+    asks first, downloads and checks everything, keeps the old kernel in
+    /bm/backup, writes, and the console restarts. Then the card holds the
+    release's files, is a clean FAT32 volume, and the game deleted before is
+    still not there."""
+    tmp = tempfile.mkdtemp(prefix="bm-update-")
+    try:
+        key, pub = os.path.join(tmp, "key.pem"), os.path.join(tmp, "release.pem")
+        subprocess.run(["openssl", "genpkey", "-algorithm", "EC", "-pkeyopt", "ec_paramgen_curve:P-256",
+                        "-out", key], check=True, capture_output=True)
+        subprocess.run(["openssl", "pkey", "-in", key, "-pubout", "-out", pub], check=True, capture_output=True)
+        snake2 = os.path.join(tmp, "snake.bm")
+        with open(snake2, "wb") as f:
+            f.write(mkbm.pack(b"function _draw() cls(2) end", title="Snake", author="bm"))
+        rel = os.path.join(tmp, "release")
+        k6 = os.path.join(os.path.dirname(b("kernel7.img")), "kernel.img")    # b() gives kernel7 with --kernel7
+        k7 = b("kernel7.img")
+        if not ZERO2:                   # not built (make ZERO2=1): one with its mark
+            k7 = os.path.join(tmp, "kernel7.img")
+            with open(k7, "wb") as f:
+                f.write(b"\0\0\0\0bmK7" + bytes(range(256)) * 32)
+        own = "/kernel7.img" if KERNEL7 else "/kernel.img"
+        other = "/kernel.img" if KERNEL7 else "/kernel7.img"
+        files = [(k6, "/kernel.img"), (k7, "/kernel7.img"),
+                 (snake2, "/carts/snake.bm"), (b("carts/pong.bm"), "/carts/pong.bm"),
+                 (b("carts/shooter.bm"), "/carts/shooter.bm"),
+                 (os.path.join(HERE, "..", "boot", "ca.pem"), "/bm/ca.pem")]
+        args = [sys.executable, os.path.join(HERE, "..", "scripts", "mkrelease.py"), rel, "--version", "v9.9.9",
+                "--commit", "abc1234", "--key", key, "--pub", pub]
+        for src, path in files:
+            args += ["--file", f"{src}:{path}"]
+        r = subprocess.run(args, capture_output=True, text=True)
+        assert r.returncode == 0, r.stdout + r.stderr
+        old_kernel = os.path.join(tmp, "old.img")
+        with open(old_kernel, "wb") as f:
+            f.write(b"\0\0\0\0bmK6" + bytes(4088))             # an old kernel, to be kept
+        old_ca = os.path.join(tmp, "old.pem")
+        with open(old_ca, "w") as f:
+            f.write("# the certificates of before\n")
+        cfg = os.path.join(tmp, "config.txt")
+        with open(cfg, "w") as f:
+            f.write("layout=us\nwifi_boot=0\nupdate_url=sd:/release/\n")
+        img = os.path.join(tmp, "sd.img")
+        mksd.build(img, [(cfg, "bm/config.txt"), (pub, "bm/release.pem"), (old_ca, "bm/ca.pem"),
+                         (old_kernel, "kernel.img"), (b("carts/pong.bm"), "carts/pong.bm"),
+                         (b("carts/snake.bm"), "carts/snake.bm")]
+                   + [(os.path.join(rel, n), "release/" + n) for n in os.listdir(rel)])
+        q = Qemu(b("kernel.img"), ["-drive", f"if=sd,format=raw,file={img}"])
+
+        def keys(k):
+            for c in k:
+                q.send(c)
+                time.sleep(0.25)
+
+        def screen(want, tries=20):
+            for _ in range(tries):
+                _, text = settled_screen(q, lambda i, t: True, tries=1)
+                joined = "\n".join(text)
+                if all(w in joined for w in want):
+                    return joined
+                time.sleep(0.2)
+            raise AssertionError(f"want {want} on the screen:\n{joined}")
+
+        try:
+            q.expect(MENU, timeout=30)
+            time.sleep(0.5)
+            keys("4")                               # Settings, then System (the last row)
+            screen(["Settings", "Controllers", "System"])
+            keys("w")
+            keys("\r")
+            screen(["Settings > System", "Version"])
+            for _ in range(12):                     # down to Check for updates (after SD card)
+                _, text = settled_screen(q, lambda i, t: True, tries=1)
+                if any("The latest release on GitHub" in l for l in text):
+                    break
+                keys("s")
+            screen(["Check for updates", "not checked", "The latest release on GitHub"])
+            keys("\r")
+            out = q.expect("back to the menu", timeout=30).decode(errors="replace")
+            for w in ("latest release: \x1b[1mv9.9.9", "commit abc1234, signed: good",
+                      "this kernel is a build of the sources", "v9.9.9 can be installed"):
+                assert w in out, out
+            lines = {l.split()[0]: l for l in out.replace("\r", "").splitlines() if l.startswith("  /")}
+            assert lines["/kernel.img"].endswith("changed") and lines["/kernel7.img"].endswith("new"), lines
+            assert lines["/carts/snake.bm"].endswith("changed") and lines["/carts/pong.bm"].endswith("same"), lines
+            assert lines["/carts/shooter.bm"].endswith("not on the card (Market)"), lines
+            assert lines["/bm/ca.pem"].endswith("changed"), lines
+            keys("\r")                              # A: back to the panel
+            screen(["Check for updates", "v9.9.9: 4 files"])
+            keys("s")                               # the row under it: install
+            screen(["Install the update", "v9.9.9", "keeps the old kernels in /bm/backup"])
+            keys("\r")
+            screen(["Install bm v9.9.9?", "The console restarts when it is done.", "Install"])
+            if opts.shots:
+                _save_png(q.screendump(), os.path.join(opts.shots, "update-ask.png"))
+            keys("\r")
+            out = q.expect("installed: restarting", timeout=90).decode(errors="replace")
+            for w in ("all 4 files downloaded and checked", "/kernel.img kept in /bm/backup",
+                      "written /carts/snake.bm", "written /bm/ca.pem", "written /kernel7.img",
+                      "written /kernel.img"):
+                assert w in out, out
+            assert out.index("written " + other) < out.index("written " + own), "this board's kernel last"
+            q.expect(MENU, timeout=40)              # restarted
+        finally:
+            q.close()
+
+        part = os.path.join(tmp, "part.img")
+        with open(img, "rb") as f, open(part, "wb") as o:
+            f.seek(2048 * 512)
+            o.write(f.read())
+        fsck = subprocess.run(["fsck.vfat", "-n", part], capture_output=True, text=True)
+        assert fsck.returncode == 0, fsck.stdout + fsck.stderr
+        env = dict(os.environ, MTOOLS_SKIP_CHECK="1")
+
+        def read(path):
+            r = subprocess.run(["mtype", "-i", part, "::" + path], capture_output=True, env=env)
+            return r.stdout if r.returncode == 0 else None
+        assert read("/KERNEL.IMG") == open(k6, "rb").read(), "kernel.img installed"
+        assert read("/KERNEL7.IMG") == open(k7, "rb").read(), "kernel7.img installed"
+        assert read("/BM/BACKUP/KERNEL.IMG") == open(old_kernel, "rb").read(), "the old kernel kept"
+        assert read("/CARTS/SNAKE.BM") == open(snake2, "rb").read(), "the changed game"
+        assert read("/CARTS/PONG.BM") == open(b("carts/pong.bm"), "rb").read(), "the same game untouched"
+        assert read("/CARTS/SHOOTER.BM") is None, "a game not on the card stays off it"
+        assert read("/BM/CA.PEM") == open(os.path.join(HERE, "..", "boot", "ca.pem"), "rb").read(), "ca.pem"
+    finally:
+        shutil.rmtree(tmp, ignore_errors=True)
+
+
+def test_publish(b, opts):
+    """M25 step 6: X on a game of the SD card, "Publish to the Market": the
+    folder from the file name, today's version, the license chosen with
+    left/right, the token from bm/config.txt; sending asks first, then runs
+    on the text console (here without a network: it says so) and A goes
+    back to the menu. Then "Send to a nearby console" (M24): without a
+    network, nobody to send to."""
+    tmp = tempfile.mkdtemp(prefix="bm-publish-")
+    try:
+        img = os.path.join(tmp, "sd.img")
+        cfg = os.path.join(tmp, "config.txt")
+        with open(cfg, "w") as f:
+            f.write("layout=us\nwifi_boot=0\ngithub_token=github_pat_test\n")
+        cart = os.path.join(tmp, "game.bm")
+        with open(cart, "wb") as f:
+            f.write(mkbm.pack(MARKET_GAME.encode(), title="My Game", author="tests"))
+        mksd.build(img, [(cfg, "bm/config.txt"), (cart, "carts/My Game.bm")])
+        q = Qemu(b("kernel.img"), ["-drive", f"if=sd,format=raw,file={img}"])
+
+        def keys(k):
+            for c in k:
+                q.send(c)
+                time.sleep(0.25)
+
+        def screen(want, gone=()):
+            for _ in range(20):
+                _, text = settled_screen(q, lambda i, t: True, tries=1)
+                joined = "\n".join(text)
+                if all(w in joined for w in want) and not any(g in joined for g in gone):
+                    return joined
+                time.sleep(0.2)
+            raise AssertionError(f"want {want}, not {gone}, on the screen:\n{joined}")
+
+        try:
+            q.expect(MENU, timeout=30)
+            time.sleep(0.5)
+            keys("x")                               # the options of My Game
+            screen(["My Game", "Play"])
+            keys("ssssssss")                        # after the seven "Open in"
+            screen(["Publish to the Market", "A pull request with your GitHub token"])
+            keys("\r")
+            screen(["Publish > My Game", "games/my-game", "License", "MIT", "GitHub token", "set",
+                    "f-accomando/bm-market", "Send the pull request"])
+            if opts.shots:
+                _save_png(q.screendump(), os.path.join(opts.shots, "publish.png"))
+            keys("ss")                              # the license: right, right, left
+            keys("d")
+            screen(["< CC-BY-4.0 >"])
+            keys("d")
+            screen(["< CC-BY-SA-4.0 >"])
+            keys("a")
+            screen(["< CC-BY-4.0 >"])
+            keys("sss")                             # Send: a question first
+            keys("\r")
+            screen(["Publish My Game?", "Pull request to the Market, license CC-BY-4.0", "Publish"])
+            keys("\r")
+            q.expect("bm Market: publishing My Game", timeout=10)
+            q.expect("games/my-game, version 1, license CC-BY-4.0, to f-accomando/bm-market", timeout=5)
+            q.expect("no network: connect in Settings > WiFi and network", timeout=5)
+            q.expect("back to the menu", timeout=5)
+            keys("\r")
+            screen(["Publish > My Game"])           # back on the panel
+
+            # M24: send to a nearby console (here no network: nobody)
+            keys("q")
+            screen(["My Game", "Publish to the Market"], gone=["Publish > My Game"])
+            keys("s")
+            screen(["Send to a nearby console", "To a console on this network with the Market tab open"])
+            keys("\r")
+            screen(["Send > My Game", "This console", "no network", "No console nearby yet"])
+            keys("s")
+            screen(["Connect in Settings > WiFi and network"])
+        finally:
+            q.close()
+    finally:
         shutil.rmtree(tmp, ignore_errors=True)
 
 
@@ -3001,10 +3468,10 @@ def test_usb_mouse(b, opts):
             q.pointer(px, py)
             assert arrow_at(wait_screen(q, lambda s_: arrow_at(s_, px, py)), px, py), (px, py)
             q.click(button)
-        # a click on Dev changes the tab, on Games back
-        click_at(108, 24)
+        # a click on Dev changes the tab, on Games back (Market | Games | Dev)
+        click_at(188, 24)
         assert "bm SDK" in screen_text(wait_screen(q, title_is("bm SDK")))[4]
-        click_at(44, 24)
+        click_at(124, 24)
         wait_screen(q, title_is(MOUSE_TITLES[3]))
         # the right button on a cover: its options; a click outside closes them
         x, y = cover_xy(1)
@@ -3250,6 +3717,122 @@ def test_village(b, opts):
         out = q.expect("update+draw", timeout=10).decode(errors="replace")
         assert "stopped with an error" not in out, out
         assert '"Studio Village"' in out, out[-300:]
+    finally:
+        q.close()
+
+
+def test_yharnam(b, opts):
+    """Yharnam: a 256x256 cartridge, shown in the middle of a 480x270
+    screen with black around it; the town made while you walk, lit by
+    levels (fades, glow). Title, the animations (the hunter's, a creature's,
+    a boss's), start (no area's name on screen, the user's wish), a dark
+    night with warm lamps and fires, no Lua error."""
+    BX, BY = 112, 7                             # the 256x256 box in the 480x270 screen
+
+    def box(img):
+        w, h, px = img
+        out = bytearray()
+        for y in range(BY, BY + 256):
+            out += px[(y * w + BX) * 3:(y * w + BX + 256) * 3]
+        return 256, 256, bytes(out)
+
+    q = Qemu(b("kernel.img"))
+    try:
+        q.expect(MENU, timeout=30)
+        time.sleep(0.5)
+        with open(b("carts/yharnam.bm"), "rb") as f:
+            assert _upload(q, f.read())
+        text = []
+        for _ in range(20):
+            time.sleep(0.25)
+            img = q.screendump()
+            if img[0] == 480:
+                text = screen_text(box(img))
+                if any("YHARNAM" in l for l in text):
+                    break
+        assert img[0] == 480 and img[1] == 270, img[:2]
+        assert any("YHARNAM" in l for l in text) and any("A: START" in l for l in text), "\n".join(text)
+        w, h, px = img
+        for x, y in ((0, 0), (479, 269), (BX - 1, 128), (BX + 256, 128), (240, BY - 1), (240, BY + 256)):
+            assert px[(y * w + x) * 3:(y * w + x) * 3 + 3] == b"\0\0\0", ("border", x, y)
+        if opts.shots:
+            _save_png(img, os.path.join(opts.shots, "yharnam-title.png"))
+        q.send("c")                             # X: the animations of the hunter
+        for _ in range(12):
+            time.sleep(0.25)
+            text = screen_text(box(q.screendump()))
+            if any("idle  S" in l for l in text):
+                break
+        assert any("idle  S" in l for l in text), "\n".join(text)
+        q.send("s")                             # the next animation
+        time.sleep(0.5)
+        text = screen_text(box(q.screendump()))
+        assert any("walk  S" in l for l in text), "\n".join(text)
+        if opts.shots:
+            _save_png(q.screendump(), os.path.join(opts.shots, "yharnam-gallery.png"))
+        q.send("v")                             # Y: the next one, the first creature
+        time.sleep(0.5)
+        text = screen_text(box(q.screendump()))
+        assert any("Townsman" in l for l in text) and any("idle  S" in l for l in text), "\n".join(text)
+        for _ in range(4):                      # ... and on to the first boss
+            q.send("v")
+            time.sleep(0.3)
+        q.send("d")                             # turned south-west: south-east, mirrored
+        time.sleep(0.6)
+        text = screen_text(box(q.screendump()))
+        assert any("The Butcher" in l for l in text), "\n".join(text)
+        if opts.shots:
+            _save_png(q.screendump(), os.path.join(opts.shots, "yharnam-boss.png"))
+        q.send("x")                             # B: back to the title
+        time.sleep(0.5)
+        q.send(" ")                             # A: start
+        time.sleep(1.5)
+        for k in "ssddwwaauok\t":               # walk, L1 lock, R1 heavy, B dodge, Select heal
+            q.send(k)
+            time.sleep(0.15)
+        for _ in range(10):
+            img = box(q.screendump())
+            text = screen_text(img)
+            cols = [tuple(img[2][i:i + 3]) for i in range(0, len(img[2]), 3)]
+            dark = sum(r + g + b < 120 for r, g, b in cols)
+            warm = sum(r > 200 and g > 120 and b < 150 for r, g, b in cols)
+            if not any("A: START" in l for l in text) and warm > 20:
+                break
+            time.sleep(0.4)
+        if opts.shots:
+            _save_png(q.screendump(), os.path.join(opts.shots, "yharnam-play.png"))
+        print(f"     yharnam: {dark} dark pixels of 65536, {warm} warm (lamps, fires)")
+        assert not any("A: START" in l for l in text), "\n".join(text)
+        assert not any(w in l for l in text for w in ("Square", "lamps")), "\n".join(text)
+        assert dark > 30000, dark               # a night, nearly dark
+        assert warm > 20, warm                  # warm lamps and fires
+        q.send("\r")                            # Start: the pause, then its controls
+        time.sleep(0.5)
+        text = screen_text(box(q.screendump()))
+        assert any("PAUSE" in l for l in text) and any("Controls" in l for l in text), "\n".join(text)
+        q.send("s")
+        time.sleep(0.3)
+        q.send(" ")
+        time.sleep(0.6)
+        text = screen_text(box(q.screendump()))
+        assert any("CONTROLS" in l for l in text) and any("lock on" in l for l in text), "\n".join(text)
+        if opts.shots:
+            _save_png(q.screendump(), os.path.join(opts.shots, "yharnam-controls.png"))
+        # the dev kit: the performance overlay ('p' from the serial line, F3 on a keyboard)
+        q.send("p")
+        time.sleep(0.6)
+        text = screen_text(box(q.screendump()))
+        assert any("fps" in l and "ms" in l for l in text), "\n".join(text)
+        if opts.shots:
+            _save_png(q.screendump(), os.path.join(opts.shots, "yharnam-perf.png"))
+        q.send("p")
+        time.sleep(0.6)
+        text = screen_text(box(q.screendump()))
+        assert not any("fps" in l for l in text), "\n".join(text)
+        q.send("q")
+        out = q.expect("update+draw", timeout=10).decode(errors="replace")
+        assert "stopped with an error" not in out, out
+        assert '"Yharnam"' in out, out[-300:]
     finally:
         q.close()
 
@@ -5645,8 +6228,11 @@ def main():
     ap.add_argument("--kernel7", action="store_true",
                     help="kernel7.img (Pi Zero 2 W) in raspi2b instead of kernel.img in raspi0")
     opts = ap.parse_args()
-    global KERNEL7
+    global KERNEL7, ZERO2
     KERNEL7 = opts.kernel7
+    if KERNEL7:                         # make image puts it on the card too
+        os.environ["ZERO2"] = "1"
+        ZERO2 = True
 
     def b(name):
         if KERNEL7 and name == "kernel.img":

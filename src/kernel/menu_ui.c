@@ -494,6 +494,60 @@ static void card(const g16_sheet_t *s, int x, int y)
     }
 }
 
+static uint32_t over(uint32_t b, uint32_t c, int a);
+
+/* A cover that has not arrived yet (the Market): the title on the plain
+ * card, on the text grid, and two bars that breathe under it. */
+static void placeholder(const menu_item_t *it, int x, int y, float t, int i)
+{
+    char lines[2][15] = { "", "" };
+    const char *p = it->title ? it->title : "";
+    for (int n = 0; n < 2 && *p; n++) {
+        while (*p == ' ') p++;
+        int len = (int)strlen(p), take = len <= 14 ? len : 14;
+        if (len > 14)
+            for (int k = 14; k > 0; k--)
+                if (p[k] == ' ') { take = k; break; }
+        memcpy(lines[n], p, (size_t)take);
+        lines[n][take] = 0;
+        p += take;
+    }
+    for (int n = 0; n < 2; n++) {
+        int ty = y + 16 + 16 * n;
+        if (lines[n][0] && ty >= GRID_TOP && ty + 16 <= GRID_BOT)
+            g16_text(&g, x + 8, ty, lines[n], dim ? c16(0x4D4D58) : c16(C_DIM));
+    }
+    if (it->badge || it->busy || it->running)
+        return;                         /* the badge is where the bars go */
+    float k = 0.5f + 0.5f * sinf(t * 3.0f - (float)i * 0.6f);
+    uint16_t bar = c16(over(0x3A3A4A, 0x5A5A70, (int)(k * 255.0f)));
+    if (dim)
+        bar = half(bar);
+    round_rect(x + 8, y + 58, 72, 6, 3, bar);
+    round_rect(x + 8, y + 68, 44, 6, 3, bar);
+}
+
+/* A pill on the lower part of a cover ("Playing", "Installed", "42%"), on
+ * the text grid; `hot`: on the accent colour. */
+static void cover_badge(int x, int y, const char *text, int hot)
+{
+    int tx = (x + 8 + 7) / 8 * 8, ty = (y + CARD_H - 20) / 16 * 16, n = (int)strlen(text);
+    if (ty < GRID_TOP || ty + 16 > GRID_BOT)
+        return;
+    uint32_t bg = hot ? C_ACCENT : 0x101014, fg = hot ? C_BAR : C_TEXT;
+    round_rect(tx - 6, ty - 2, n * 8 + 12, 20, 10, dim ? half(c16(bg)) : c16(bg));
+    g16_text(&g, tx, ty, text, dim ? c16(C_DIM) : c16(fg));
+}
+
+/* a download: a bar along the bottom of the cover */
+static void cover_progress(int x, int y, int percent)
+{
+    int w = CARD_W - 16, fill = w * (percent < 0 ? 0 : percent > 100 ? 100 : percent) / 100;
+    round_rect(x + 8, y + CARD_H - 6, w, 4, 2, c16(C_LINE));
+    if (fill > 0)
+        round_rect(x + 8, y + CARD_H - 6, fill, 4, 2, dim ? half(c16(C_ACCENT)) : c16(C_ACCENT));
+}
+
 /* text on a pill-shaped background, starting at text column `col` */
 static int pill_text(int col, int row, const char *s, uint32_t fg, uint32_t bg)
 {
@@ -817,14 +871,19 @@ void menu_ui_frame(framebuffer_t *fb, const menu_view_t *v)
         if (i == v->sel)            /* ring with a gap, like the home screens */
             round_ring(x - 6, y - 6, CARD_W + 12, CARD_H + 12, RADIUS + 6, 3,
                        dim ? c16(0x45454B) : pulse(t));
-        card(v->items[i].cover, x, y);
-        if (v->items[i].running) {
-            /* on the 8x16 text grid, in the lower part of the cover */
-            int tx = (x + 8 + 7) / 8 * 8, ty = (y + CARD_H - 20) / 16 * 16;
-            if (ty >= GRID_TOP && ty + 16 <= GRID_BOT) {
-                round_rect(tx - 6, ty - 2, 7 * 8 + 12, 20, 10, c16(0x101014));
-                g16_text(&g, tx, ty, "Playing", dim ? c16(C_DIM) : c16(C_TEXT));
-            }
+        const menu_item_t *it = &v->items[i];
+        card(it->cover, x, y);
+        if (it->loading && !it->cover)
+            placeholder(it, x, y, t, i);
+        if (it->busy) {
+            char pc[8];
+            ksnprintf(pc, sizeof pc, "%d%%", it->percent);
+            cover_badge(x, y, pc, 1);
+            cover_progress(x, y, it->percent);
+        } else if (it->running) {
+            cover_badge(x, y, "Playing", 0);
+        } else if (it->badge) {
+            cover_badge(x, y, it->badge, strcmp(it->badge, "Update") == 0);
         }
     }
     g16_clip(&g, 0, 0, 0, 0);
@@ -854,6 +913,10 @@ void menu_ui_frame(framebuffer_t *fb, const menu_view_t *v)
     /* the name of the selected cartridge, on a pill */
     if (v->panel) {
         /* the panel covers it */
+    } else if (v->banner) {
+        char buf[72];
+        ksnprintf(buf, sizeof buf, "%s", v->banner);
+        pill_text(3, TITLE_ROW, buf, C_DIM, C_PILL);
     } else if (cur && cur->title && cur->title[0]) {
         char buf[72];
         ksnprintf(buf, sizeof buf, "%s", cur->title);
@@ -891,8 +954,14 @@ void menu_ui_frame(framebuffer_t *fb, const menu_view_t *v)
         col = hint(v, 34, 21, BTN_A, "Settings");
         hint(v, col, 21, BTN_MONITOR, "Monitor");
     } else {
-        col = hint(v, 34, 21, BTN_A, cur && cur->kind && strcmp(cur->kind, "tool") == 0 ? "Open" : "Play");
-        if (v->n && v->items[v->sel].path && v->items[v->sel].path[0])
+        const char *a = v->a_label ? v->a_label
+                      : cur && cur->kind && strcmp(cur->kind, "tool") == 0 ? "Open" : "Play";
+        col = 34;
+        if (a[0])
+            col = hint(v, col, 21, BTN_A, a);
+        if (cur && cur->kind && strcmp(cur->kind, "market") == 0 && cur->title && cur->title[0])
+            col = hint(v, col, 21, BTN_X, "Details");
+        else if (v->n && v->items[v->sel].path && v->items[v->sel].path[0])
             col = hint(v, col, 21, BTN_X, "Options");
         hint(v, col, 21, BTN_MONITOR, "Monitor");
     }
@@ -920,6 +989,10 @@ void menu_ui_frame(framebuffer_t *fb, const menu_view_t *v)
 
     pointer_draw(g.px, g.stride, SW, SH);       /* the arrow over everything */
     fb_flip(fb);
+    /* what is left of the frame: the Market's work, if any (a little
+     * margin for the flip), then the wait */
+    if (v->idle && (int32_t)(deadline - 1500 - timer_ticks()) > 0)
+        v->idle(deadline - 1500);
     while ((int32_t)(timer_ticks() - deadline) < 0)
         ;
     uint32_t now = timer_ticks();

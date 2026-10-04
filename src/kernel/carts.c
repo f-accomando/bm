@@ -4,6 +4,8 @@
 #include "carts.h"
 #include "crumbs.h"
 #include "home.h"
+#include "market.h"
+#include "publish.h"
 #include "menu_ui.h"
 #include "pointer.h"
 #include "bm/bm.h"
@@ -17,6 +19,7 @@
 #include "drivers/timer.h"
 #include "drivers/uart.h"
 #include "fs/fat.h"
+#include "net/catalog.h"
 #include "gfx/console.h"
 #include "lib/printf.h"
 #include "usb/hid.h"
@@ -190,6 +193,7 @@ static void rescan(void)
             ksnprintf(c->path, sizeof c->path, "%s%s%s", c->dir, strcmp(c->dir, "/") ? "/" : "", c->name);
         load_cover(c);
     }
+    market_carts_changed();
 }
 
 void carts_init(void)
@@ -212,6 +216,39 @@ void carts_init(void)
 int carts_count(void)
 {
     return ncarts;
+}
+
+static int same_text(const char *a, const char *b)
+{
+    for (;; a++, b++) {
+        int x = *a >= 'A' && *a <= 'Z' ? *a + 32 : *a, y = *b >= 'A' && *b <= 'Z' ? *b + 32 : *b;
+        if (x != y)
+            return 0;
+        if (!x)
+            return 1;
+    }
+}
+
+/* the SD card cartridge with this path, or -1 */
+static int find_path(const char *path)
+{
+    for (int i = 0; i < nsd; i++)
+        if (same_text(carts[i].path, path))
+            return i;
+    return -1;
+}
+
+const char *carts_find_title(const char *title, const char *author)
+{
+    for (int i = 0; i < nsd; i++)
+        if (same_text(carts[i].title, title) && same_text(carts[i].author, author))
+            return carts[i].path;
+    return NULL;
+}
+
+int carts_has_path(const char *path)
+{
+    return path[0] && find_path(path) >= 0;
 }
 
 void carts_list(void)
@@ -312,7 +349,9 @@ const char *carts_tool_session(framebuffer_t *fb, const uint8_t *cart, size_t ca
         bm_set_arg(path[0] ? path : NULL, err[0] ? err : NULL);
         bm_set_arg_back(back);
         bm_stats_t st;
+        bm_set_tool(1);                 /* the tool saves where it is told */
         bm_play(fb, cart, cart_len, PLAY_SECS, &st);
+        bm_set_tool(0);                 /* the games it tries do not */
         bm_set_arg(NULL, NULL);
         if (bm_take_tool(tool, sizeof tool)) {
             unsigned i = 0;
@@ -527,16 +566,19 @@ static void draw(int sel, int top, int rows)
 
 /* ---------------------------------------------------------------- BareMetal UI */
 
-/* The two tabs of the graphical menu: games, and the development tools
- * (the SDK, then the tools of home.c). `idx` gets what tab `tab` shows: a
- * cartridge index, or -1 - n for tool n. */
+/* The tabs of the graphical menu: the Market (market.c), games, the
+ * development tools (the SDK, then the tools of home.c), and Settings. For
+ * Games and Dev `idx` gets what the tab shows: a cartridge index, or -1 - n
+ * for tool n. */
+enum { TAB_MARKET, TAB_GAMES, TAB_DEV, TAB_SETTINGS };
+
 static int tab_items(int tab, int *idx)
 {
     int n = 0;
     for (int i = 0; i < ncarts; i++)
-        if (is_dev(&carts[i]) == (tab == 1))
+        if (is_dev(&carts[i]) == (tab == TAB_DEV))
             idx[n++] = i;
-    if (tab == 1)
+    if (tab == TAB_DEV)
         for (int t = 0; t < home_tools() && n < MAX_CARTS + 16; t++)
             idx[n++] = -1 - t;
     return n;
@@ -549,9 +591,10 @@ static int is_suspended(const cart_t *c)
 
 /* The options of a cartridge (X on its cover): a panel like the settings. */
 enum { C_PLAY = 100, C_CLOSE, C_SDK, C_SOUND, C_STUDIO, C_AUTHOR, C_FILE, C_SIZE, C_TYPE, C_SAVE,
-       C_DEL_SAVE, C_DELETE, C_CODE, C_MESH, C_PIXEL, C_ANIMATOR };
+       C_DEL_SAVE, C_DELETE, C_CODE, C_MESH, C_PIXEL, C_ANIMATOR, C_PUBLISH, C_SEND };
 
 static int opt_cart;            /* the cartridge of the HOME_CART panel */
+static int opt_market;          /* the game of the HOME_MARKET panel */
 static long opt_save;           /* its save file: bytes, -1 if none */
 
 static long save_size(const cart_t *c)
@@ -588,6 +631,10 @@ static void cart_panel(home_panel_t *p)
                  "Its meshes, also those its code builds: vertices, faces; to models or to code", NULL);
         home_row(p, MENU_ROW_ACTION, C_PIXEL, "Open in bm Pixel",
                  "Its sprite sheet: pixel art, palette, animation; the rest stays as it is", NULL);
+        home_row(p, MENU_ROW_ACTION, C_PUBLISH, "Publish to the Market",
+                 "A pull request with your GitHub token: everyone can get it", NULL);
+        home_row(p, MENU_ROW_ACTION, C_SEND, "Send to a nearby console",
+                 "To a console on this network with the Market tab open", NULL);
     }
     home_row(p, MENU_ROW_INFO, C_AUTHOR, "Author", "From the cartridge header",
              "%s", c->author[0] ? c->author : "-");
@@ -622,6 +669,16 @@ static void cart_act(int row, int how, home_do_t *d)
         bm_close_suspended();
         susp_path[0] = 0;
         ksnprintf(d->note, sizeof d->note, "closed %s", c->name);
+        break;
+    case C_PUBLISH:
+        publish_setup(c->path, c->title, c->author);
+        d->what = HOME_OPEN;
+        d->panel = HOME_PUBLISH;
+        break;
+    case C_SEND:
+        market_send_setup(c->path, c->title, c->author);
+        d->what = HOME_OPEN;
+        d->panel = HOME_SEND;
         break;
     case C_DEL_SAVE:
         if (how == 0) {
@@ -663,7 +720,7 @@ static void cart_act(int row, int how, home_do_t *d)
     }
 }
 
-enum { ASK_NONE, ASK_SWITCH, ASK_PANEL };
+enum { ASK_NONE, ASK_SWITCH, ASK_PANEL, ASK_MARKET, ASK_OFFER };
 enum { GO_NONE, GO_PLAY, GO_SDK, GO_SOUND, GO_CODE, GO_STUDIO, GO_ANIMATOR, GO_MESH, GO_PIXEL, GO_TEXT, GO_UPLOAD,
        GO_NETPLAY };
 
@@ -676,16 +733,16 @@ void carts_menu(framebuffer_t *fb)
     int list_rows = (int)rows - 7;
     if (list_rows < 3)
         list_rows = 3;
-    static const char *const tabs[] = { "Games", "Dev" };
-    /* the tabs: Games (0), Dev (1) and Settings (2), whose panel opens
-     * when it is the tab (on_gear); L1 / R1 move between them */
-    int tab = 0, on_gear = 0, tsel[2] = { 0, 0 };
+    static const char *const tabs[] = { "Market", "Games", "Dev" };
+    /* the tabs: Market, Games, Dev and Settings, whose panel opens when it
+     * is the tab (on_gear); L1 / R1 move between them. Games comes first. */
+    int tab = TAB_GAMES, on_gear = 0, tsel[3] = { 0, 0, 0 };
     int sel = 0, top = 0, redraw = 1, esc = 0;
     uint32_t prev_btn = hid_buttons(), repeat_at = 0;
 
-    kprintf("\ncartridge menu: arrows or wasd, Enter plays, x options, [ ] or Tab or 1 2 3 change tab, q returns to the monitor\n");
+    kprintf("\ncartridge menu: arrows or wasd, Enter plays, x options, [ ] or Tab or 1 2 3 4 change tab, q returns to the monitor\n");
     input_flush();
-    static menu_item_t items[MAX_CARTS + 16];
+    static menu_item_t items[MAX_CARTS + 16 + CATALOG_MAX];
     static int idx[MAX_CARTS + 16];
     static home_panel_t pb;
     struct { int id, sel, top; } stack[DEPTH_MAX];
@@ -697,8 +754,25 @@ void carts_menu(framebuffer_t *fb)
     if (gfx)
         home_init();
     for (;;) {
-        int n = tab_items(tab, idx);
+        /* the Market works only while its tab is shown */
+        int on_market = gfx && tab == TAB_MARKET && !on_gear;
+        market_set_active(on_market);
+        /* nearby consoles: with the Market, or while choosing one to send to;
+         * a game they offer is a question */
+        market_lan(on_market || (gfx && depth && stack[depth - 1].id == HOME_SEND));
+        if (ask == ASK_NONE && market_offer(ask_q, sizeof ask_q, ask_d, sizeof ask_d)) {
+            ksnprintf(ask_y, sizeof ask_y, "Accept");
+            ask = ASK_OFFER;
+        } else if (ask == ASK_OFFER) {
+            char q_[64], d_[64];
+            if (!market_offer(q_, sizeof q_, d_, sizeof d_))
+                ask = ASK_NONE;                 /* the sender gave up */
+        }
+        int n = tab == TAB_MARKET ? (gfx ? market_items(items, (int)(sizeof items / sizeof *items)) : 0)
+                                  : tab_items(tab, idx);
         if (tsel[tab] >= n) tsel[tab] = n ? n - 1 : 0;
+        if (tab == TAB_MARKET)
+            market_select(tsel[tab]);
         frame++;
 
         /* the panel on top: rebuilt when it changes, and twice a second
@@ -709,6 +783,12 @@ void carts_menu(framebuffer_t *fb)
             if (built != id || frame % 30 == 0) {
                 if (id == HOME_CART)
                     cart_panel(&pb);
+                else if (id == HOME_MARKET)
+                    market_panel(opt_market, &pb);
+                else if (id == HOME_PUBLISH)
+                    publish_panel(&pb);
+                else if (id == HOME_SEND)
+                    market_send_panel(&pb);
                 else
                     home_panel(id, &pb);
                 built = id;
@@ -721,19 +801,22 @@ void carts_menu(framebuffer_t *fb)
         }
 
         if (gfx) {
-            for (int i = 0; i < n; i++) {
+            for (int i = 0; i < n && tab != TAB_MARKET; i++) {
                 if (idx[i] < 0) {
                     int t = -1 - idx[i];
-                    items[i] = (menu_item_t){ home_tool_title(t), "", "", "tool", 0,
-                                              home_tool_cover(t), 0 };
+                    items[i] = (menu_item_t){ .title = home_tool_title(t), .author = "", .path = "",
+                                              .kind = "tool", .cover = home_tool_cover(t) };
                     continue;
                 }
                 const cart_t *c = &carts[idx[i]];
-                items[i] = (menu_item_t){ c->title, c->author, c->path, "bm",
-                                          c->size, c->cover.px ? &c->cover : NULL, is_suspended(c) };
+                items[i] = (menu_item_t){ .title = c->title, .author = c->author, .path = c->path, .kind = "bm",
+                                          .size = c->size, .cover = c->cover.px ? &c->cover : NULL,
+                                          .running = is_suspended(c) };
             }
             details[0] = 0;
-            if (n && idx[tsel[tab]] < 0) {
+            if (tab == TAB_MARKET) {
+                market_details(tsel[tab], details, sizeof details);
+            } else if (n && idx[tsel[tab]] < 0) {
                 ksnprintf(details, sizeof details, "%s", home_tool_about(-1 - idx[tsel[tab]]));
             } else if (n) {
                 const cart_t *c = &carts[idx[tsel[tab]]];
@@ -741,11 +824,19 @@ void carts_menu(framebuffer_t *fb)
                           c->author[0] ? c->author : "-", "bm",
                           (c->size + 1023) / 1024, c->path);
             }
+            const char *a_label = NULL;
+            if (tab == TAB_MARKET) {
+                a_label = market_action_label(tsel[tab]);
+                if (!a_label)
+                    a_label = "";
+            }
             menu_view_t v = {
-                .tabs = tabs, .ntabs = 2, .tab = tab, .on_gear = on_gear,
+                .tabs = tabs, .ntabs = 3, .tab = tab, .on_gear = on_gear,
                 .items = items, .n = n, .sel = tsel[tab],
-                .details = details, .note = last_msg,
+                .details = details, .note = on_market ? market_status() : last_msg,
                 .panel = depth ? &mp : NULL,
+                .banner = on_market ? market_banner() : NULL,
+                .a_label = a_label, .idle = market_tick,
             };
             for (int p = 0; p < 4; p++) {
                 int d_ = input_device(p), kind = d_ & ~INPUT_DEV_BLUETOOTH;
@@ -772,7 +863,7 @@ void carts_menu(framebuffer_t *fb)
                 v.ask = ask_q;
                 v.ask_detail = "It is suspended: what was not saved is lost.";
                 v.ask_yes = "Close it";
-            } else if (ask == ASK_PANEL) {
+            } else if (ask == ASK_PANEL || ask == ASK_MARKET || ask == ASK_OFFER) {
                 v.ask = ask_q;
                 v.ask_detail = ask_d;
                 v.ask_yes = ask_y;
@@ -788,7 +879,7 @@ void carts_menu(framebuffer_t *fb)
         }
 
         int dx = 0, dy = 0, action = 0, quit = 0, back = 0, opts = 0;
-        int cur = on_gear ? 2 : tab, tabto = -1;    /* the tab to go to */
+        int cur = on_gear ? TAB_SETTINGS : tab, tabto = -1;    /* the tab to go to */
 
         /* serial */
         for (int k; (k = input_remote_getc()) >= 0; ) {
@@ -810,12 +901,13 @@ void carts_menu(framebuffer_t *fb)
             case 's': case 'S': case 'j': dy++; break;
             case 'a': case 'A': case 'h': dx--; break;
             case 'd': case 'D': case 'l': dx++; break;
-            case '\t': tabto = (cur + 1) % 3; break;
-            case '1': tabto = 0; break;
-            case '2': tabto = 1; break;
-            case '3': tabto = 2; break;
+            case '\t': tabto = (cur + 1) % 4; break;
+            case '1': tabto = TAB_MARKET; break;
+            case '2': tabto = TAB_GAMES; break;
+            case '3': tabto = TAB_DEV; break;
+            case '4': tabto = TAB_SETTINGS; break;
             case '[': tabto = cur > 0 ? cur - 1 : -1; break;       /* L1 */
-            case ']': tabto = cur < 2 ? cur + 1 : -1; break;       /* R1 */
+            case ']': tabto = cur < TAB_SETTINGS ? cur + 1 : -1; break;   /* R1 */
             case 'x': case 'X': opts = 1; break;
             case 0x7F: case 0x08: back = 1; break;
             case '\r': case '\n': case ' ': action = 1; break;
@@ -850,14 +942,14 @@ void carts_menu(framebuffer_t *fb)
             opts = 1;
         if ((pressed & HID_L1) && cur > 0)
             tabto = cur - 1;
-        if ((pressed & HID_R1) && cur < 2)
+        if ((pressed & HID_R1) && cur < TAB_SETTINGS)
             tabto = cur + 1;
         prev_btn = b;
         for (int k; (k = hid_getc()) >= 0;) {  /* text keys from the USB keyboard */
             if (k == 'r' || k == 'R')
                 action = 2;
             if (k == '\t')
-                tabto = (cur + 1) % 3;
+                tabto = (cur + 1) % 4;
         }
         /* PS is home: Games, with every panel and question closed (never
          * the monitor). Esc alone goes back like B; Ctrl+Esc, Start+Select
@@ -921,7 +1013,7 @@ void carts_menu(framebuffer_t *fb)
             back = 1;
         quit = (quit & HID_QUIT_MONITOR) != 0;
         if (ps)
-            tabto = 0;
+            tabto = TAB_GAMES;
 
         int go = GO_NONE, go_cart = -1, go_wait = 0, leave = 0;
         void (*go_text)(framebuffer_t *) = NULL;
@@ -934,7 +1026,7 @@ void carts_menu(framebuffer_t *fb)
             ask = ASK_NONE;
             depth = 0;
             built = -1;
-            on_gear = tabto == 2;
+            on_gear = tabto == TAB_SETTINGS;
             if (on_gear) {
                 stack[0].id = HOME_SETTINGS;
                 stack[0].sel = stack[0].top = 0;
@@ -954,20 +1046,40 @@ void carts_menu(framebuffer_t *fb)
             action = 0;
             dx = dy = 0;
             if (no) {
+                if (ask == ASK_OFFER)
+                    market_offer_answer(0);
                 ask = ASK_NONE;
+            } else if (yes && ask == ASK_OFFER) {
+                ask = ASK_NONE;
+                market_offer_answer(1);
             } else if (yes && ask == ASK_SWITCH) {
                 ask = ASK_NONE;
                 bm_close_suspended();
                 susp_path[0] = 0;
                 go = ask_go;
                 go_cart = ask_cart;
+            } else if (yes && ask == ASK_MARKET) {
+                ask = ASK_NONE;
+                market_get(ask_cart);
             } else if (yes && ask == ASK_PANEL) {
                 ask = ASK_NONE;
                 int id = stack[depth - 1].id;
-                if (id == HOME_CART)
+                if (id == HOME_CART) {
                     cart_act(ask_row, HOME_YES, &d);
-                else
+                } else if (id == HOME_MARKET) {
+                    int c = find_path(market_path(opt_market));
+                    if (ask_row == M_DELETE && c >= 0 && is_suspended(&carts[c])) {
+                        bm_close_suspended();
+                        susp_path[0] = 0;
+                    }
+                    market_act(opt_market, ask_row, HOME_YES, &d);
+                } else if (id == HOME_PUBLISH) {
+                    publish_act(ask_row, HOME_YES, &d);
+                } else if (id == HOME_SEND) {
+                    market_send_act(ask_row, HOME_YES, &d);
+                } else {
                     home_act(id, ask_row, HOME_YES, &d);
+                }
             }
         } else if (depth && gfx) {
             /* a panel: up/down choose, A does, left/right change a value,
@@ -995,10 +1107,28 @@ void carts_menu(framebuffer_t *fb)
                     go = g;
                     go_cart = opt_cart;
                 }
+            } else if (r && id == HOME_MARKET && action == 1 && row == M_PLAY) {
+                int c = find_path(market_path(opt_market));
+                if (c < 0) {
+                    ksnprintf(last_msg, sizeof last_msg, "%s is not on the SD card", market_path(opt_market));
+                } else if (bm_suspended(NULL, 0) && !is_suspended(&carts[c])) {
+                    ask = ASK_SWITCH;
+                    ask_go = GO_PLAY;
+                    ask_cart = c;
+                } else {
+                    go = GO_PLAY;
+                    go_cart = c;
+                }
             } else if (r && ((action == 1 && r->kind != MENU_ROW_INFO) ||
                              (dx && r->kind == MENU_ROW_CHOICE))) {
                 if (id == HOME_CART)
                     cart_act(row, action == 1 ? 0 : dx, &d);
+                else if (id == HOME_MARKET)
+                    market_act(opt_market, row, action == 1 ? 0 : dx, &d);
+                else if (id == HOME_PUBLISH)
+                    publish_act(row, action == 1 ? 0 : dx, &d);
+                else if (id == HOME_SEND)
+                    market_send_act(row, action == 1 ? 0 : dx, &d);
                 else
                     home_act(id, row, action == 1 ? 0 : dx, &d);
                 ask_row = row;
@@ -1067,8 +1197,15 @@ void carts_menu(framebuffer_t *fb)
                     s_ += dx;
                 tsel[tab] = s_;
             }
-            /* X: the options of the highlighted cartridge */
-            if (opts && !on_gear && n && idx[tsel[tab]] >= 0) {
+            /* X: the options of the highlighted cartridge, or of the
+             * Market's game */
+            if (opts && !on_gear && tab == TAB_MARKET && market_action(tsel[tab]) != MARKET_NONE) {
+                opt_market = tsel[tab];
+                stack[0].id = HOME_MARKET;
+                stack[0].sel = stack[0].top = 0;
+                depth = 1;
+                built = -1;
+            } else if (opts && !on_gear && tab != TAB_MARKET && n && idx[tsel[tab]] >= 0) {
                 opt_cart = idx[tsel[tab]];
                 opt_save = save_size(&carts[opt_cart]);
                 stack[0].id = HOME_CART;
@@ -1092,6 +1229,12 @@ void carts_menu(framebuffer_t *fb)
         }
         if (!action && netxfer_take_play(&net_buf, &net_len))
             action = 4;
+        /* a game of the Market installed or deleted: the SD card again */
+        if (market_take_changed()) {
+            rescan();
+            if (depth && stack[0].id == HOME_CART)
+                depth = 0;                      /* indices changed */
+        }
 
         if (action == 2) {
             carts_init();
@@ -1103,6 +1246,30 @@ void carts_menu(framebuffer_t *fb)
             go = GO_UPLOAD;
         } else if (action == 4) {
             go = GO_NETPLAY;
+        } else if (action == 1 && !on_gear && gfx && tab == TAB_MARKET) {
+            /* A on a game of the Market: get it (after a question), or play it */
+            int i = tsel[tab], a = market_action(i);
+            if (a == MARKET_GET || a == MARKET_UPDATE) {
+                home_do_t q;
+                market_ask(i, &q);
+                ksnprintf(ask_q, sizeof ask_q, "%s", q.ask);
+                ksnprintf(ask_d, sizeof ask_d, "%s", q.ask_detail);
+                ksnprintf(ask_y, sizeof ask_y, "%s", q.ask_yes);
+                ask = ASK_MARKET;
+                ask_cart = i;
+            } else if (a == MARKET_PLAY) {
+                int c = find_path(market_path(i));
+                if (c < 0) {
+                    ksnprintf(last_msg, sizeof last_msg, "%s is not on the SD card", market_path(i));
+                } else if (bm_suspended(NULL, 0) && !is_suspended(&carts[c])) {
+                    ask = ASK_SWITCH;
+                    ask_go = GO_PLAY;
+                    ask_cart = c;
+                } else {
+                    go = GO_PLAY;
+                    go_cart = c;
+                }
+            }
         } else if (action == 1 && !on_gear && (!gfx || n > 0)) {
             /* A plays the highlighted cover, also from the tab bar; if
              * another game is suspended, ask first */
@@ -1126,6 +1293,8 @@ void carts_menu(framebuffer_t *fb)
 
         if (go != GO_NONE) {
             ask = ASK_NONE;
+            market_set_active(0);               /* nothing loads behind a game */
+            market_lan(0);
             if (gfx)
                 menu_ui_close(fb);
             switch (go) {
@@ -1210,6 +1379,8 @@ void carts_menu(framebuffer_t *fb)
         if (!gfx)
             timer_delay_us(2000);
     }
+    market_set_active(0);
+    market_lan(0);
     if (gfx)
         menu_ui_close(fb);
     console_clear();

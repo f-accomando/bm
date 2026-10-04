@@ -40,6 +40,11 @@ const unsigned char *wifi_mac(void) { return NULL; }
 void wifi_poll(void) {}
 int wifi_recv(void *buf, int max) { (void)buf; (void)max; return 0; }
 int wifi_send(const void *eth, int len) { (void)eth; (void)len; return -1; }
+/* no fibers on the PC: net_wait_step waits as outside them */
+#include "kernel/fiber.h"
+fiber_t *fiber_current(void) { return NULL; }
+void fiber_yield(void) {}
+int fiber_cancelled(void) { return 0; }
 
 /* ---- the peer: 192.168.1.1, router and DHCP server ---- */
 static const uint8_t peer_mac[6] = { 0x02, 0, 0, 0, 0, 1 };

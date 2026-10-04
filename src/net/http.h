@@ -14,7 +14,7 @@ typedef struct {
     long long length;           /* Content-Length, -1 if not given */
     uint32_t received;          /* body bytes */
     char type[64];              /* Content-Type */
-    char url[512];              /* after redirects */
+    char url[512];              /* after redirects (cut short if longer) */
     char error[192];            /* when the request itself failed */
 } http_info_t;
 
@@ -27,6 +27,8 @@ typedef struct {
     const void *body;           /* for PUT / POST */
     size_t body_len;
     uint32_t timeout_ms;        /* per read; 0: 15 s */
+    int any_status;             /* the body of any status goes to the sink (an API's
+                                 * error messages); else only 2xx bodies do */
 } http_req_t;
 
 /* Returns the HTTP status (>= 100), or -1 with info->error set. req may be

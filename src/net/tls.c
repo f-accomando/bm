@@ -175,7 +175,10 @@ tls_t *tls_open(const char *host, uint16_t port, char *err, size_t err_len)
 #ifndef BM_HOST_TEST
     /* certificates have dates: wait a little for the network time */
     for (uint32_t t0 = timer_ticks(); !net_time() && timer_ticks() - t0 < 8000000u; )
-        net_wait_step();
+        if (net_wait_step() < 0) {
+            snprintf(err, err_len, "cancelled");
+            return NULL;
+        }
     if (!net_time()) {
         snprintf(err, err_len, "the clock is not set yet (no answer from pool.ntp.org)");
         return NULL;

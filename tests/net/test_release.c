@@ -146,6 +146,36 @@ int main(int argc, char **argv)
     snprintf(buf, sizeof buf, "bm release\nversion v1\nfile a.bm /carts/a.bm 0 %s extra\n", sha);
     check(parse_text(buf) == -1, "extra field: refused");
 
+    /* the second key, from the SD card */
+    check(release_set_key("# no key\n") == -1 && release_add_key(pub) == 0 && release_has_key() &&
+          release_verify((uint8_t *)man, ml, (uint8_t *)sig, sl, err, sizeof err) == 0,
+          "placeholder built in, the key from the SD card: good");
+    check(release_set_key(other) == 0 &&
+          release_verify((uint8_t *)man, ml, (uint8_t *)sig, sl, err, sizeof err) == 0,
+          "another key built in, the key from the SD card: good");
+    check(release_add_key("# none\n") == -1 &&
+          release_verify((uint8_t *)man, ml, (uint8_t *)sig, sl, err, sizeof err) == -1,
+          "neither key: refused");
+
+    /* versions: what git describe gives the kernel, against a release */
+    static const struct { const char *run, *rel; int want; } v[] = {
+        { "v0.1.0", "v0.2.0", RELEASE_NEWER }, { "v0.2.0", "v0.2.0", RELEASE_SAME },
+        { "v0.3.0", "v0.2.0", RELEASE_OLDER }, { "v0.9.9", "v0.10.0", RELEASE_NEWER },
+        { "v1.0.0", "v0.10.0", RELEASE_OLDER }, { "v0.2.0-3-gabc1234", "v0.2.0", RELEASE_DEV },
+        { "v0.2.0-3-gabc1234", "v0.3.0", RELEASE_NEWER }, { "v0.2.0-3-gabc1234-dirty", "v0.3.0", RELEASE_NEWER },
+        { "v0.2.0-dirty", "v0.2.0", RELEASE_DEV }, { "v0.3.0-1-g1234567", "v0.2.0", RELEASE_DEV },
+        { "15f819d", "v0.2.0", RELEASE_DEV }, { "15f819d-dirty", "v0.2.0", RELEASE_DEV },
+        { "dev", "v0.2.0", RELEASE_DEV }, { "v0.2.0", "v0.2", RELEASE_BAD },
+        { "v0.2.0", "v0.2.0-1-gabc", RELEASE_BAD }, { "v0.2.0", "latest", RELEASE_BAD },
+    };
+    int vok = 1;
+    for (unsigned i = 0; i < sizeof v / sizeof v[0]; i++)
+        if (release_compare(v[i].run, v[i].rel) != v[i].want) {
+            printf("     %s vs %s: %d, want %d\n", v[i].run, v[i].rel, release_compare(v[i].run, v[i].rel), v[i].want);
+            vok = 0;
+        }
+    check(vok, "versions: newer, same, older, development builds, bad tags");
+
     free(man);
     free(sig);
     free(pub);

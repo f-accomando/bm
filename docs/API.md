@@ -508,7 +508,7 @@ dark_end()
 spr(FIAMMA, fx, fy)                          -- le fiamme non vengono oscurate
 ```
 
-Esempio: `SQUARE_CART` in `tests/qemu_test.py` (una lampada su una cartuccia 256×256).
+Esempio completo: `carts/yharnam`; uno piccolo: `SQUARE_CART` in `tests/qemu_test.py` (una lampada su una cartuccia 256×256).
 
 ### 3D (software)
 

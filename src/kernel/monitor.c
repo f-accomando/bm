@@ -3,6 +3,7 @@
 #include "demo.h"
 #include "bm/runtime.h"
 #include "upload.h"
+#include "update.h"
 #include "bm/stress.h"
 #include "b3dpi.h"
 #include "home.h"
@@ -64,6 +65,7 @@ static const char help_text[] =
             "  E  Ethernet (Pi 1 B / B+): link, counters, chip registers\n"
             "     from the PC: tools/bm_net.py IP (console, --send/--play a cart, --kernel)\n"
             "  G  get a web address (http or https): status, size, speed, start\n"
+            "  u  update from GitHub: the latest release, then install it (asks first)\n"
             "  b  boot diagnostics: benchmarks, the bm demo, Lua boot script\n"
             "  k  CPU benchmark          p  rendering benchmark 640x360 RGB565\n"
             "  D  DMA test step by step (CPU against DMA timings)\n"
@@ -271,6 +273,7 @@ void monitor_run(void)
             kprintf("keyboard layout: %s\n", hid_layout());
             config_save();
             break;
+        case 'u': update_monitor(); break;
         case 'r':
             kprintf("rebooting...\n");
             crumbs_clean_exit();

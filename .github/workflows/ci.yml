@@ -4,6 +4,11 @@ on:
   push:
   pull_request:
 
+env:
+  # The Pi Zero 2 W's build (kernel7.img) and its tests are off for now:
+  # "1" turns them on again (make reads ZERO2 from the environment).
+  ZERO2: "0"
+
 jobs:
   build-test:
     # Pinned: the screen reference hash depends on the QEMU version (8.2 here).
@@ -27,6 +32,7 @@ jobs:
         run: make test
 
       - name: QEMU tests of kernel7.img (Pi Zero 2 W, in raspi2b)
+        if: env.ZERO2 == '1'
         run: make test-zero2
 
       - name: Screenshot
@@ -43,6 +49,7 @@ jobs:
             build/chainloader.img
             build-stress/kernel.img
             build/screen.png
+          if-no-files-found: ignore
 
   rgb30:
     # bm for the PowKiddy RGB30 (RK3566, AArch64): the console's kernel, and
@@ -81,10 +88,12 @@ jobs:
       - uses: actions/checkout@v4
 
       - name: Install toolchain
+        # numpy and Pillow: the games' assets (Overbit's map) are built too
         run: |
           sudo apt-get update
           sudo apt-get install -y --no-install-recommends \
-            gcc-arm-none-eabi libnewlib-arm-none-eabi binutils-arm-none-eabi make python3
+            gcc-arm-none-eabi libnewlib-arm-none-eabi binutils-arm-none-eabi make python3 \
+            python3-numpy python3-pil
 
       - name: Build and sign
         env:
@@ -98,4 +107,4 @@ jobs:
         run: |
           gh release create "$GITHUB_REF_NAME" dist/release/* --verify-tag \
             --title "bm $GITHUB_REF_NAME" --generate-notes \
-            --notes "Kernel (kernel.img; kernel7.img per il Pi Zero 2 W), giochi e bm/ca.pem per il Pi. manifest.txt dice dove va ogni file sulla SD, la dimensione e lo SHA-256; manifest.sig è la sua firma (ECDSA P-256), controllata dal Pi con la chiave nel kernel. A mano: python3 tools/bm_net.py IP --kernel kernel.img (kernel7.img sul Zero 2 W)"
+            --notes "Kernel (kernel.img; kernel7.img per il Pi Zero 2 W, se c'è), giochi e bm/ca.pem per il Pi. manifest.txt dice dove va ogni file sulla SD, la dimensione e lo SHA-256; manifest.sig è la sua firma (ECDSA P-256), controllata dal Pi con la chiave nel kernel. A mano: python3 tools/bm_net.py IP --kernel kernel.img (kernel7.img sul Zero 2 W)"

@@ -39,6 +39,11 @@ class H(http.server.BaseHTTPRequestHandler):
             self.send(302, b"", extra=[("Location", "/hello")])
         elif p == "/redirect-abs":
             self.send(301, b"", extra=[("Location", "http://127.0.0.1:%d/hello" % self.server.server_address[1])])
+        elif p == "/redirect-long":     # like GitHub's signed download links
+            self.send(302, b"", extra=[("Location", "http://127.0.0.1:%d/query-len?%s"
+                                        % (self.server.server_address[1], "q" * 1500))])
+        elif p.startswith("/query-len?"):
+            self.send(200, b"%d" % len(p.split("?", 1)[1]))
         elif p == "/big":
             self.send(200, BIG, "application/octet-stream")
         elif p == "/close":

@@ -353,10 +353,31 @@ sudo apt install gcc-arm-none-eabi binutils-arm-none-eabi qemu-system-arm make c
     dosfstools mtools     # per i test SD in QEMU
 ```
 
+## Dalla SD con WSL: `./easy_install.sh`
+
+Nella root del repository, da WSL: `./easy_install.sh` (o `easy_install` da qualunque
+cartella, se al primo avvio accetti di aggiungere il comando). La prima volta salva la cartella
+del repository e la lettera della SD in `.easy_install.conf` (resta sul PC: è in `.gitignore`,
+e tiene anche cosa ha installato e l'ultima operazione), installa i pacchetti che servono alla
+build (`apt`) e scarica il firmware del Pi (`make firmware`, in `firmware/`). Poi mostra il
+branch (e se è indietro rispetto a GitHub) e un menu:
+
+- `1` solo il kernel: `kernel.img` sulla SD, quello di prima in `bm/backup`;
+- `2` installazione completa: `make install` (kernel, file di avvio, giochi, `bm/`);
+- `3` immagine: `make image` (`dist/bm.img`), poi la SD cancellata e formattata FAT32 (tutta,
+  fino a 31 GB; Windows chiede i permessi di amministratore) con sopra i file dell'immagine;
+  impostazioni, salvataggi e giochi tuoi (`bm/`, `carts/`) vengono copiati sul PC
+  (`~/.bm/sd-backup`) e rimessi;
+- `b` cambia branch o aggiornalo (`git pull`); `p` cambia cartella o lettera della SD.
+
+Monta la SD (`drvfs`, con `sudo`), fa `sync`, la smonta e la espelle; come ultima riga scrive
+la versione del kernel che c'era e quella nuova (`kernel: 9603de5 -> d6eebee`). Anche
+direttamente: `./easy_install.sh kernel`, `install`, `image`.
+
 ## Build e test
 
 ```sh
-make                  # build/kernel.img + build/kernel7.img (Pi Zero 2 W) + build/chainloader.img
+make                  # build/kernel.img + build/chainloader.img (ZERO2=1: anche build/kernel7.img)
 make test             # test end-to-end in QEMU: boot, console, schermo, eccezioni, chainloader
 make test-zero2       # gli stessi test con kernel7.img in QEMU (-M raspi2b)
 make qemu             # esegue in QEMU (-M raspi0), seriale sul terminale
@@ -479,7 +500,9 @@ disegnati nel codice con `sset`), `carts/demo` (sprite sheet PNG e mappa CSV),
 `carts/kitchen` (Chaos Kitchen: gioco grande in più file Lua uniti da `build.py`, 3D,
 fino a 4 giocatori, simulatore host in `tests/kitchen/`), `carts/titan` (Titan Clash:
 picchiaduro con sprite grandi pre-renderizzati da un modello 3D, sheet 2048×3376 con
-palette, simulatore host in `tests/titan/`).
+palette, simulatore host in `tests/titan/`), `carts/yharnam` (Yharnam: città gotica infinita a
+256×256 fatta mentre si cammina, luce a livelli come in Dank Tomb, 12 nemici e 4 boss;
+grafica da `mkassets.py`, simulatore host in `tests/yharnam/`).
 
 Sandbox: niente `io`, `os`, `load`, `dofile`, `require`. Un errore o un ciclo infinito
 (oltre 20 milioni di istruzioni in un frame) ferma la cartuccia e mostra l'errore
@@ -563,7 +586,7 @@ make install            # = make sdcard, poi copia tutto sulla SD in /mnt/d
 make install SD=/mnt/e  # se la SD è montata altrove
 ```
 
-`make install` copia i due kernel (`kernel.img` e `kernel7.img` del Pi Zero 2 W), file di
+`make install` copia il kernel (`kernel.img`; con `ZERO2=1` anche `kernel7.img` del Pi Zero 2 W), file di
 avvio, `config.txt`, cartucce e il firmware dei chip in `bm/` (Bluetooth e WiFi del Zero W
 e del Zero 2 W); non tocca mai impostazioni e salvataggi
 (`bm/CONFIG.TXT`, `bm/SAVE`). Alla fine elenca cosa c'è in `bm/` sulla SD.
@@ -579,7 +602,15 @@ chiave privata nel secret `BM_RELEASE_KEY` del repository; la chiave pubblica
 (`keys/release-pub.pem`) è dentro il kernel, che controlla firma e SHA-256 prima di installare
 (`src/net/release.c`; l'aggiornamento dal Pi è il passo 4 di M19).
 
-La prima volta, dal PC (la chiave privata resta lì, in `~/.bm/release-key.pem`: tienine una copia):
+Tutto in un comando, da WSL (con la SD nel lettore): `scripts/release.sh v0.1.0` installa se
+serve la GitHub CLI (`gh`) e fa il login, crea la chiave (o tiene quella che c'è), mette il
+secret, fa commit e push della chiave pubblica, mette sulla SD un kernel con la chiave (prima
+del tag: un kernel compilato sul tag sarebbe la release stessa), crea e manda il tag e aspetta
+la CI fino alla release. Chiede prima di ogni passo che cambia qualcosa; `--sd E` per un'altra
+lettera, `--no-sd` per le release dopo la prima (il Pi si aggiorna da solo), `--dry-run` per
+vedere cosa farebbe.
+
+La prima volta a mano, dal PC (la chiave privata resta lì, in `~/.bm/release-key.pem`: tienine una copia):
 
 ```sh
 scripts/release-key.sh                          # la coppia di chiavi
@@ -589,6 +620,79 @@ git add keys/release-pub.pem && git commit -m "Release key" && git push
 
 Poi una release: `git tag v0.1.0 && git push origin v0.1.0`. In locale, per provare:
 `BM_RELEASE_KEY="$(cat ~/.bm/release-key.pem)" make release VERSION=v0.1.0` (file in `dist/release/`).
+
+
+**Aggiornare dal Pi** (M19.4): Settings > System > *Check for updates* legge l'ultima
+release (`manifest.txt` e la sua firma), dice se è più nuova del kernel che gira (un kernel
+compilato dai sorgenti, `make install`, conta come "build of the sources": la release lo può
+sostituire) e quali file cambierebbero; *Install the update* chiede conferma, scarica e
+controlla tutto (dimensione, SHA-256, il marchio `bmK6`/`bmK7` dei kernel) prima di
+scrivere qualcosa, tiene i kernel di prima in `/bm/backup` (per tornare indietro dal PC),
+aggiorna i giochi che sono sulla SD (quelli tolti restano tolti: li ha il Market),
+`bm/ca.pem`, poi `kernel7.img` e `kernel.img` (quello della scheda per ultimo) e riavvia.
+Dal monitor: `u`. Impostazioni: `update_url=` in `bm/config.txt` (predefinito
+`https://github.com/f-accomando/bm/releases`; `sd:/cartella/` per una release copiata sulla
+SD), `bm/release.pem` aggiunge una chiave. Test: `test_update` in QEMU, `make test-release`.
+## Market (M25)
+
+La prima scheda del menu (**Market | Games | Dev | Settings**; il menu si apre su Games):
+giochi gratuiti da scaricare, dal repository pubblico
+[f-accomando/bm-market](https://github.com/f-accomando/bm-market) pubblicato con GitHub Pages.
+
+- **Sul Pi**: scheda Market (L1 da Games, o `1` dalla tastiera). Compaiono subito dei
+  segnaposto, poi il catalogo e le copertine, una alla volta: il menu resta a 60 fps
+  perché il lavoro gira in una "fibra" (`src/kernel/fiber.c`) nel tempo che avanza in ogni
+  frame, e solo mentre la scheda è aperta (un'altra scheda, le impostazioni o un gioco lo
+  interrompono). A su un gioco: domanda (dimensione, licenza), download con la percentuale
+  sulla copertina, controllo, installazione in `/carts`; poi A lo avvia. X: autore,
+  versione, licenza, file, "Download again", cancellazione. Un gioco già sulla SD con lo
+  stesso titolo e autore risulta installato.
+- **Sicurezza**: il catalogo (`index.txt`) è firmato con la chiave del market (ECDSA P-256,
+  `keys/market-pub.pem` nel kernel, non quella delle release); ogni file deve avere la
+  dimensione e lo SHA-256 del catalogo prima di toccare la SD; il market scrive solo in
+  `/carts` e in `/bm/market` (cache del catalogo e delle copertine, `GAMES.TXT` con i giochi
+  installati). Le cartucce della SD scrivono solo file `.bm` in `/carts` e i loro
+  salvataggi (gli strumenti incorporati, SDK, Code, Sound, bm Studio, bm Animator, bm Mesh e bm Pixel,
+  dove vogliono).
+- **Impostazioni** in `bm/config.txt`: `market_url=` (predefinito
+  `https://f-accomando.github.io/bm-market/`; anche una cartella della SD con gli stessi
+  file, `market_url=sd:/market/`, per un catalogo senza rete); `bm/market.pem` sulla SD
+  aggiunge una chiave (un market proprio); `market_delay=` (ms) rallenta la sorgente, per i
+  test.
+- **Pubblicare un gioco**: una pull request a bm-market con `games/<id>/` (il `.bm` e
+  `info.txt` con versione, licenza obbligatoria e descrizione); vedi il README del market
+  (il modello è in `market/`). Il CI del market controlla le pull request
+  (`scripts/mkmarket.py --check`) e, dopo il merge, costruisce, firma e pubblica il catalogo.
+- **Pubblicare dal Pi**: X su un gioco della SD, *Publish to the Market*: cartella (quella
+  del catalogo se il gioco c'è già, se no dal nome del file), versione (la data), licenza
+  (sinistra/destra), poi *Send the pull request*. Serve un token personale di GitHub in
+  `bm/config.txt` (`github_token=...`, un token "fine-grained" che può scrivere i
+  repository pubblici del proprio account). Il proprietario del market apre un ramo nel
+  market; chiunque altro un fork. L'esito (e l'indirizzo della pull request) compare sulla
+  console di testo (`src/net/github.c`, `src/kernel/publish.c`; test: `make test-github`
+  contro un finto server delle API, `test_publish` in QEMU).
+- **Tra console sulla rete di casa** (M24): con la scheda Market aperta una console si
+  annuncia (UDP, porta 3335) e ascolta (TCP 3336). Da un'altra: X su un gioco della SD,
+  *Send to a nearby console*, si sceglie la console; chi riceve vede una domanda ("bm-108
+  sends Snake", con "the Market's own: checked" se quei byte sono un gioco del catalogo,
+  altrimenti "from friends only") e il gioco va in `/carts` solo se ha lo SHA-256
+  annunciato. Il nome della console è `name=` in `bm/config.txt` (se no `bm-` e l'ultimo
+  numero dell'IP). Niente P2P via internet. Test: `make test-lan` (sul PC, lwIP in loopback).
+- **I giochi del progetto** sono tutti nel market (e per ora anche nell'immagine della SD):
+  `make market-seed MARKET=../bm-market` li costruisce e aggiorna le loro cartelle.
+
+La prima volta, dal PC:
+
+```sh
+scripts/market-key.sh                                   # la coppia di chiavi del market
+gh secret set BM_MARKET_KEY -R f-accomando/bm-market < ~/.bm/market-key.pem
+git add keys/market-pub.pem && git commit -m "Market key" && git push
+```
+
+poi, nel repository del market: Settings > Pages > Source: **GitHub Actions**. Finché la
+chiave non c'è, la scheda Market dice "The Market needs a key". Test: `make test-catalog`
+(catalogo, firma e copertine sul PC) e `test_market` in QEMU (il market da una cartella
+della SD, rallentato).
 
 ## Scheda SD senza chainloader
 
@@ -633,8 +737,13 @@ Il Zero 2 W ha un altro processore (BCM2710A1: quattro Cortex-A53) e quindi un s
 partire quello giusto (`[pi02]` → `kernel7.img`): la stessa scheda va nel Zero W e nel
 Zero 2 W.
 
+**Per ora la build del Zero 2 W è spenta**: `make`, `make test`, `make sdcard`, `make install`,
+`make image`, `make release` e la CI la lasciano fuori. Si riaccende con `ZERO2=1` (`make
+ZERO2=1 install`, oppure `ZERO2: "1"` in `.github/workflows/ci.yml`); `make test-zero2` la
+compila comunque.
+
 ```sh
-make firmware && make image   # dist/bm.img per Zero, Zero W e Zero 2 W
+make firmware && make ZERO2=1 image   # dist/bm.img per Zero, Zero W e Zero 2 W
 make install                  # oppure: aggiorna la SD in /mnt/d (tutti e due i kernel)
 ```
 
@@ -681,6 +790,8 @@ src/fs/fat.c             FAT16/FAT32: lettura con nomi lunghi, scrittura 8.3, ca
 src/kernel/carts.c       elenco delle cartucce (incorporate + SD), menu e opzioni delle cartucce
 src/kernel/menu_ui.c     BareMetal UI: griglia, schede, pannelli, copertine degli strumenti
 src/kernel/home.c        strumenti della scheda Dev e pannelli delle impostazioni
+src/kernel/market.c      scheda Market (M25): catalogo, copertine, download, installazione
+src/kernel/fiber.c       fibre: lavoro su uno stack proprio che cede il controllo al menu
 src/kernel/input.c       input unificato: seriale + tastiera/gamepad USB
 src/bm/                 cartucce native: formato, grafica RGB565 (gfx16), 3D software (r3d),
                          runtime Lua, stress test
@@ -709,6 +820,10 @@ tests/kitchen/           simulatore host di Chaos Kitchen (luahost + sim.lua)
 carts/titan/             Titan Clash (M20): src/*.lua, build.py; mkrobot.py (il robot
                          pre-renderizzato), art.py e mkassets.py (sheet.png)
 tests/titan/             simulatore host di Titan Clash (sim.lua)
+carts/yharnam/           Yharnam: main.lua, mkassets.py e art/ (sdf.py: modelli 3D in pixel art;
+                         hunter.py, anims.py, rig.py, foeparts.py, foe_*.py: le creature;
+                         props.py, tiles.py, buildings.py), sheet.png, cover.png
+tests/yharnam/           simulatore host di Yharnam (sim.lua)
 carts/nano8/             nano8 (M23): src/*.lua (traduttore, API, input, ui), build.py,
                          roms/ (le cartucce .p8 incluse, CREDITS.md), mkdemo.py (Comet Catcher)
 src/bm/n8*.c             la macchina di nano8: memoria e disegno (n8.c), font (n8font.c),
@@ -720,9 +835,12 @@ scripts/mkbm.py         packer .bm (PNG e CSV, solo libreria standard Python)
 scripts/bmmesh.py        sezione MESH (modelli 3D) e file .glb di bm Studio, per mkbm.py --models
                          (con un .bm: modelli, scheletri e sheet)
 scripts/mksd.py          immagine SD (MBR + FAT32): make image e test in QEMU
+scripts/mkmarket.py      catalogo del Market: controllo, firma, copertine, --add
 scripts/mkrelease.py     file di una release e manifest.txt firmato (make release, CI sui tag v*)
 scripts/release-key.sh   coppia di chiavi delle release; la pubblica in keys/release-pub.pem
+scripts/release.sh       una release da WSL: gh, chiave, secret, kernel sulla SD, tag, attesa della CI
 src/net/release.c        verifica delle release: firma del manifesto, righe, SHA-256 dei file
+src/net/catalog.c        catalogo del Market (M25): firma con la chiave del market, record, SHA-256
 tests/bm/               test host della grafica e del formato
 src/script/luavm.c       stato Lua, allocatore con limite (64 MiB), esecuzione protetta
 src/script/repl.c        REPL: espressioni, righe di continuazione, traceback

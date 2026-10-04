@@ -110,6 +110,11 @@ int main(int argc, char **argv)
     check(st == 200 && n == 10, "redirect (absolute Location)");
     free(d);
 
+    snprintf(url, sizeof url, "%s/redirect-long", base);
+    st = http_get_buffer(url, NULL, 1 << 20, &d, &n, &info);
+    check(st == 200 && n == 4 && !memcmp(d, "1500", 4), "redirect to a 1.5 KB address, whole");
+    free(d);
+
     snprintf(url, sizeof url, "%s/missing", base);
     st = http_get_buffer(url, NULL, 1 << 20, &d, &n, &info);
     check(st == 404 && n == 0, "404: status, no body kept");

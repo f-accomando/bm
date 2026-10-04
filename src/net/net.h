@@ -30,8 +30,10 @@ int  net_wait_ip(uint32_t ms);
  * WiFi is off (at most once per millisecond otherwise). */
 void net_poll(void);
 /* One round of the network (frames, timers) and a short pause: for code
- * that waits for an answer (stream.c). */
-void net_wait_step(void);
+ * that waits for an answer (stream.c). Inside a fiber (fiber.h) the pause
+ * is the rest of the menu's frame instead; -1 if the fiber was cancelled:
+ * stop waiting. */
+int  net_wait_step(void);
 /* Seconds since 1970 (UTC) from the network (SNTP), 0 until known. */
 unsigned long net_time(void);
 /* "2026-09-29 18:04 UTC", or "unknown" */

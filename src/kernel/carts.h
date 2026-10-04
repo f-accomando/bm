@@ -15,6 +15,12 @@ void carts_init(void);
 /* Number of cartridges found (built-in + SD) after carts_init. */
 int carts_count(void);
 
+/* The path of the cartridge on the SD card with this title and author
+ * (as in the header, case ignored), or NULL (the Market). */
+const char *carts_find_title(const char *title, const char *author);
+/* 1 if a cartridge on the SD card has this path (case ignored). */
+int carts_has_path(const char *path);
+
 /* Prints the list on the console. */
 void carts_list(void);
 

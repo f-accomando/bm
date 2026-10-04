@@ -8,14 +8,20 @@ screenshot in `docs/img/`), `README_OLD.md` (il README completo, in italiano),
 
 ## Build e test
 
-- `make` → `build/kernel.img`, `build/kernel7.img` e `build/chainloader.img` (toolchain
-  `arm-none-eabi-gcc`).
+- `make` → `build/kernel.img` e `build/chainloader.img` (toolchain `arm-none-eabi-gcc`);
+  con `ZERO2=1` anche `build/kernel7.img` (vedi la sezione del Pi Zero 2 W).
 - `make test` → test sul PC (grafica, FAT, USB, audio, rete, giochi) + test end-to-end in
   QEMU (`-M raspi0`); `make test-zero2` gli stessi con `kernel7.img` (Pi Zero 2 W) in
   `-M raspi2b`.
 - L'utente prova sul Pi reale copiando `dist/kernel.img` (e `dist/kernel7.img`) sulla SD
   (WSL, `/mnt/d`), senza cavo seriale: tutto ciò che deve verificare va mostrato sullo
-  schermo.
+  schermo. Da WSL usa `./easy_install.sh` (nella root): al primo avvio salva cartella del
+  repository e lettera della SD in `.easy_install.conf` (in `.gitignore`), installa i
+  pacchetti e fa `make firmware`; poi mostra il branch e un menu: solo il kernel, `make
+  install`, o immagine (`make image`, SD cancellata e formattata FAT32 da PowerShell come
+  amministratore, i file dell'immagine sopra, impostazioni, salvataggi e giochi suoi
+  rimessi). Alla fine scrive "kernel: vecchio -> nuovo": la versione sta in `kernel.img`
+  dopo `bmVER=` (`bm_version_tag` in `src/kernel/version.c`).
 - Dev kit (richiesta dell'utente): l'overlay delle prestazioni sopra ogni `.bm` (`perf_frame`
   in `runtime.c`): fps, ms di `_update` + `_draw`, istruzioni Lua del fotogramma
   (`stat(10)`; prima del merge con `3d-performance` era `stat(6)`, ora il tempo del 3D),
@@ -111,6 +117,10 @@ screenshot in `docs/img/`), `README_OLD.md` (il README completo, in italiano),
 - Sul Zero 2 W: periferiche a 0x3F000000, avvio in HYP, un solo core (gli altri nello stub
   del firmware a 0x0: mai scrivere lì), LED sul GPIO 29 (il 47 è l'I2C dell'alimentatore),
   BT_ON GPIO 42, firmware del CYW43436 (`board.c`, `wifi.c`, `bt.c`).
+- **Per ora spenta** (decisione dell'utente, 2026-10-03): `make`, `make test`, `sdcard`,
+  `install`, `image`, `release` e la CI lasciano fuori `kernel7.img` e i suoi test.
+  `make ZERO2=1 ...` (o `ZERO2: "1"` in `.github/workflows/ci.yml`) li riaccende; `make
+  test-zero2` lo compila comunque. Il codice `BM_ZERO2` resta e deve continuare a compilare.
 - Test: `make test-zero2` (QEMU `raspi2b`), `make test-hyp` (avvio in HYP nella macchina
   `virt`). Un kernel mandato dalla rete deve essere per la scheda giusta (`bmK6`/`bmK7`
   all'offset 4, `netxfer.c`).
@@ -249,6 +259,146 @@ screenshot in `docs/img/`), `README_OLD.md` (il README completo, in italiano),
 - Non è PICO-8: nome, logo e font sono nostri (`src/bm/n8font.c`), mai quelli di Lexaloffle.
 - In `carts/nano8/roms` solo cartucce con una licenza che ne permette la ridistribuzione,
   elencate in `CREDITS.md` con il testo della licenza in `licenses/`.
+
+## Yharnam (carts/yharnam)
+
+- Gioco a 256×256: la risoluzione quadrata del formato (il firmware dà 480×270, il gioco
+  disegna nel riquadro al centro, `bm_video_enter` in `runtime.c`). Città gotica infinita
+  fatta a pezzi grandi uno schermo (16×16 tessere) fuori dallo schermo mentre si cammina
+  (`timeslice`), le strade decise solo dalle coordinate. Luce a livelli come in Dank Tomb:
+  `fades`, `dark_begin`, `glow`, `dark_end` (`g16_fade_*` in `gfx16.c`).
+- La grafica è tutta in codice: `mkassets.py` (numpy, Pillow) con `art/` (`sdf.py` rende
+  modelli 3D in pixel art: il cacciatore, gli oggetti; tessere e case in 2D) scrive
+  `sheet.png` e il blocco `-- [atlas begin]` di `main.lua`. Dopo averla cambiata:
+  rieseguirlo e fare commit di `sheet.png`. Prove: `make test-yharnam`, QEMU `test_yharnam`.
+- Ordine e caso secondo la zona (richiesta dell'utente): in città (isolati di case, piazze, pire,
+  cappelle: `urban`) gli incroci stanno sulla griglia e le strade corrono dritte, larghe 4, con un
+  viale largo 6 ogni tre (sui confini dei quartieri, mai mancante); i lampioni stanno in fila sul
+  marciapiede ogni `lsp` tessere (10; sui viali 12, su entrambi i lati sfalsati), lontani dagli
+  incroci; i vicoli sono dritti; le case sono a schiera (una fila: stessa altezza e tetto, due
+  facciate alternate, larghezze uguali, porta al centro, finestre specchiate, comignoli in coppia o
+  al centro); nelle piazze bracieri e panche in coppie specchiate, attorno alla pira un anello a
+  passo regolare. Vicino a parchi e cimiteri le strade ondeggiano e i lampioni sono sparsi; alberi
+  e cespugli a boschetti con radure (`grove`). Nell'arena di un boss un quinto degli ostacoli in
+  meno (fontane, pire, lampioni, ringhiere e bracieri restano).
+- La città (richiesta dell'utente: zone ampie, strade non affollate): il pavimento delle strade è
+  lo stesso in un quartiere di 3×3 isolati (`quarter_pave`); le varianti di una tessera vanno a
+  chiazze (`patch` in `gen`), i cortili verso erba o terra a zone grandi, poche decorazioni;
+  lampioni radi, pochi oggetti, slarghi agli incroci. La tessera 0 dello sheet è vuota: la
+  cella 0 per `map()` non si disegna (prima lasciava quadrati neri nelle strade).
+- Oggetti distruttibili (richiesta dell'utente: strade più vive e meno ingombre): barili, casse,
+  pile di casse, panche e bare (`BRK` in `main.lua`; i resti in `art/props.py`, `BROKEN`). Si
+  rompono con i colpi del cacciatore (`FOE.strike`), correndo, rotolando o con un passo rapido
+  addosso (`walk_by`), con lo sparo (`BRK.first`: il primo sulla traiettoria, se prima non c'è una
+  creatura), con i colpi e gli schianti delle creature, le palle dei fucili e le bombe, e i boss ci
+  passano attraverso. Rotti smettono di bloccare (`col.off`), restano i resti a terra, schegge
+  (particelle tipo 8 che cadono e restano un po') e polvere; restano rotti anche quando il pezzo
+  di città si rifà (`BRK.gone`) e tornano interi quando la città si ripopola (`FOE.reset`: lampada,
+  morte). Prove in `tests/yharnam/sim.lua`.
+- Il fuoco (bracieri, pire) è un ciclo di fotogrammi in pixel art (`art/fire.py`, `FIRE_ANIM`),
+  disegnato dopo la luce, più le scintille: pieno alla base, lingue che salgono. Le fiamme
+  lasciano libere 40 delle `MAXP` particelle, e solo i fuochi visti ne emettono.
+- La lampada del cacciatore (richiesta dell'utente): non una luce forte ma un'aura fredda,
+  mistica: vetro e fiamma azzurro pallido (`SPIRIT` in `art/props.py`), un bagliore tenue che
+  respira, particelle lucenti che salgono e luccicano (tipo 6; 7 fioche quando è spenta) e un
+  alone di punti che gira. Sullo schermo niente nomi dei quartieri né "lamps k/2" (richiesta
+  dell'utente): solo gli echi, e LAMP LIT quando se ne accende una.
+- Le animazioni del cacciatore (8 direzioni) sono pose chiave in `art/anims.py` (lo
+  scheletro e le sue articolazioni in `art/hunter.py`; `aim` gira il polso perché la saw
+  cleaver punti dove serve). Renderle tutte richiede circa un'ora: `mkassets.py` tiene i
+  fotogrammi in `build/yharnam-frames/` e ridisegna solo quelli cambiati. Nel gioco:
+  `HUNT[nome].d[direzione][fotogramma]`; sul titolo X mostra tutte le animazioni.
+- La saw cleaver (dalle foto e dalle immagini dell'utente, `art/hunter.py`): manico lungo e
+  sottile di cuoio ad arco ampio (`HANDLE`, `ARCH`, corda chiara alle estremità), impugnato più
+  vicino allo snodo che alla coda (`GRIP_AT`); snodo a disco con il gancio (`HOOK`); lama larga
+  (`BLADE_L`, `BLADE_W`, un po' curva: `BEND`) fasciata di bende incrociate sul ferro scuro, denti
+  su un lato, sangue secco. Proporzioni grandi come nelle immagini (lama circa un terzo
+  dell'altezza del cacciatore). Chiusa (come la miniatura dell'utente): l'arma è girata nella mano,
+  lo snodo dietro il pugno, lama e coda davanti, l'arco sopra la lama, così nei colpi la lama non
+  rientra nel corpo; aperta (come l'illustrazione): la lama oltre lo snodo, la coda del manico
+  dietro la mano; aprendola l'arma ruota nella mano (`cleaver` sotto `wield`: `wield` è dove la
+  mano punta i colpi, lo usa `aim`). Quello che resta dietro la mano è tenuto fuori dal corpo
+  ruotando l'arma sul suo asse fotogramma per fotogramma (`croll`, `anims.unclip`, misura in
+  `hunter.intrusion`: zero alle pose di guardia). La scia dei colpi parte dalla fine della lama
+  (`TIP`). Sparando, il braccio sinistro è teso e un po' alzato (`AIM` in `anims.py`).
+- Le creature (12 nemici e 4 boss, uno per tipo: villici, bestie, cacciatori, orrori) sono in
+  `art/foe_*.py`; scheletri (umanoide, quadrupede, ragno), pose chiave, `reach` per la seconda
+  mano su un'asta, `aim` e il registro `Creature` in `art/rig.py`; colori e pezzi comuni in
+  `art/foeparts.py` (lo sheet tiene al più 255 colori: riusare le rampe). Sono disegnate in 5
+  direzioni (S SE E NE N) e specchiate nel gioco per SW W NW, perciò la luce viene dall'alto
+  (`sdf.LIGHT_TOP`). Nemici: idle, walk, attack, hurt, death; boss: in più 2 attacchi speciali
+  e 2 combo di due colpi (eventi `hit`, `fire`, `throw`, `slam`, `howl`, `beam`). Nel gioco
+  `FOES` (l'atlante) e la tabella `FOE` (comparsa per quartiere, IA, colpi, boss).
+- Il combattimento come in Bloodborne (`update_play`, `FOE.strike` / `stagger` / `visceral`):
+  stamina (colpi, schivate, corsa), A colpo rapido in combo, R1 pesante (tenuto: caricato; alle
+  spalle fa barcollare), Y dopo un colpo trasforma la saw cleaver in un colpo (`trick`) e la
+  combo continua nell'altra forma, B toccato schiva (col lock-on L1 passo rapido, senza
+  capriola, fermo backstep; tenuto corre), X spara: durante la carica di un nemico è il parry
+  (barcolla), poi A è il visceral. Rally, i boss barcollano quando i colpi si sommano (poise).
+  Le due forme della saw cleaver (`BLADE`, decisione dell'utente): chiusa un po' più rapida,
+  colpi leggeri ed economici, la stamina torna prima (più DPS: kiting, tanti colpi in poco
+  tempo); aperta più lenta e pesante (più danno per colpo, soprattutto caricato: colpire al
+  momento giusto e ritirarsi).
+  L1/R1 si leggono con `pad()`; dalla seriale sono `u` e `o` (kernel), dalla tastiera Q ed E.
+- Come combattono le creature (richiesta dell'utente: non solo numero di colpi; `AI` nel blocco
+  `FOE`): ogni nemico ha uno stile (`AI.STYLE`: distanza che tiene, giri attorno al cacciatore,
+  zigzag, carica, pausa tra i colpi, caricamento lento, colpo trattenuto in alto con l'arma che
+  luccica, colpo rapido, catene, ritirata dopo il colpo, schivata dei colpi del cacciatore,
+  contrattacco quando lui è scoperto). I boss hanno tre fasi secondo la vita (`AI.BOSS`: sopra
+  due terzi, sopra un terzo, l'ultimo): semplici all'inizio, poi più rapidi, con più mosse e
+  sequenze `"a+b"`; si entra in una fase con un ruggito (il Hound ulula), un momento per colpire.
+  I valori delle creature più in là nella caccia crescono un po' (`o.agg`). `tests/yharnam/foes.lua`
+  (in `make test-yharnam`) misura ritmo, pause, caricamenti, distanza, movimento, ritirate,
+  schivate e contrattacchi di ogni creatura e di ogni fase dei boss, e controlla che tutto sia
+  leggibile (almeno 8 tick di caricamento), che non ci siano due creature uguali e che i boss
+  crescano di fase in fase.
+- La caccia (richiesta dell'utente: non si va all'infinito in una direzione): zone di `AREA` ×
+  `AREA` pezzi verso est, chiuse da un muro di nebbia (`inside`, `draw_edge`); in fondo a ogni
+  zona l'arena del boss (`boss_chunk`), ucciso il quale si apre la zona dopo (`G.open`). Due
+  lampade del cacciatore per zona (`lamp_chunk`, prop `shrine`): una a metà, una prima del boss; si
+  torna all'ultima accesa. Echi (`G.echoes`) dai nemici uccisi, da spendere con parsimonia: Select
+  (Tab) cura poco per `HEAL_COST`, la morte costa `DEATH_COST` e senza abbastanza echi la caccia è
+  perduta (stato `lost`). Per ora (decisione dell'utente) le zone sono 4: ucciso il quarto boss,
+  sparito il suo annuncio, la caccia finisce (`G.done`, stato `end`: tempo, uccisi, morti, echi;
+  A torna al titolo).
+- Una regione per zona (richiesta dell'utente; `REGION` in `main.lua`, `REGION.of(cx)`): i quartieri
+  che la fanno (pesi), il pavimento dei suoi quartieri, il tipo dell'arena del boss. 1 Yharnam
+  centrale (strade, piazze, pire; arena pira, Butcher); 2 il bosco (`wild`: `woods` e `clearing`,
+  qualche cimitero; sentieri di terra `PV_EARTH` senza cordoli, niente marciapiedi ma erba, alberi
+  e cespugli a boschetti, nelle radure un fuoco con due panche, un po' di luce di luna:
+  `AMBIENT` + 1; arena radura, Hound); 3 Cathedral Ward (cimiteri, cappelle; arena cimitero,
+  Father); 4 il quartiere proibito (cappelle; arena cappella, Watcher). Niente nemici nuovi nel
+  bosco (decisione dell'utente): `POOL.woods`/`clearing` e i `POOL[tipo .. regione]` riusano i 12.
+  Una strada tra due regioni è di quella a ovest. Gli alberi sono sprite grandi: un bosco disegna al
+  più quanto la città (più cespugli che alberi; misura: sprite pixel nel test).
+- Le vie della lampada (`PATHS`, decisione dell'utente): al massimo 4 (`SLOT_COST`), anche la
+  stessa più volte. Bilanciamento (richiesta dell'utente: build puntate su un aspetto, con
+  varianti): la prima via presa è quella del cacciatore e pesa di più; ripresa conta ogni volta
+  meno ma ancora in modo visibile (`curve`, diversa per via); le altre vie pesano circa un terzo,
+  meno quante più sono (`DISCORD`): un mix vale meno di una via seguita (`path_weights`).
+  Alla lampada un rombo per ogni volta che una via è stata presa: dorati quelli della prima.
+  Nomi evocativi e descrizioni senza numeri; gli effetti non si vedono sulle barre (stessa
+  misura): agiscono su `P.mods` (`apply_paths`). Feral Affinity: meno danno subito; Moonlit
+  Breath: stamina spesa meno e recuperata prima; Quicksilver Rite: danno della pistola, finestra
+  del parry (in tick dopo il colpo), barcollare più lungo; Serrated Oath: danno della saw
+  cleaver aperta; Hunter's Path: lama chiusa più rapida, combo prima e meno stamina per i suoi
+  colpi. `tests/yharnam/balance.lua` (in `make test-yharnam`) misura col codice del gioco colpi
+  per uccidere un cittadino e due boss, colpi subiti, colpi in 4 s, DPS, stamina e pistola per
+  ogni via e per dei mix, e controlla queste regole: rieseguirlo dopo ogni ritocco.
+- I comandi non sono sullo schermo: Start apre la pausa, con la pagina Controls (icone di
+  `prompt()` secondo `lastinput()`).
+- Video di una caccia: `make yharnam-video` (`build/yharnam-run.mp4`, serve ffmpeg). `tools/bmplay/bmplay.c`
+  fa girare la cartuccia sul PC con il disegno (`gfx16.c`, luci comprese) e il suono (`synth.c`,
+  `player.c`) della console, i tasti premuti da un bot in Lua; `yharnam_bot.lua` gioca dal titolo
+  al Butcher ucciso (strade, lampade, lotta, parry, visceral); la run è sempre la stessa (seme e
+  bot). `BOT_TRACE=1` stampa come va.
+- Lo sheet è largo 4096 (skyline, fotogrammi uguali tenuti una volta). La cache delle creature
+  dipende dal codice (non dai commenti né dagli import) di `rig.py`, `foeparts.py` e del loro
+  modulo; quella del cacciatore da `hunter.py`; tutte da `sdf.SDF_VERSION` (aumentarlo se cambia
+  il modo di disegnare). `sdf.render` valuta ogni primitiva solo dove la sua sfera può arrivare
+  (stessi pixel, da 2 a 5 volte più veloce); il render completo delle creature richiede circa
+  un'ora. Con `YH_DRAFT=1` i fotogrammi mancanti diventano segnaposto, per provare il gioco
+  intanto (non fare commit di quello sheet).
 
 ## Assistente AI (M30)
 
@@ -414,6 +564,43 @@ screenshot in `docs/img/`), `README_OLD.md` (il README completo, in italiano),
   bench`, `84_bench.lua`). bmhost ha gli stub della GPU; `make bmhost-gpu` usa `gpu3d.c`
   sull'emulatore della V3D (`BMHOST_EMU_SKIP=1`: i lavori non si eseguono). Quanto costa
   all'ARM un fotogramma della partita: `tests/overbit/frames.py` (qemu-arm, per funzione).
+
+## Aggiornamenti dal Pi (M19)
+
+- Release firmate (CI sui tag `v*`, `scripts/mkrelease.py`, chiave `keys/release-pub.pem` /
+  `scripts/release-key.sh`, secret `BM_RELEASE_KEY`; `scripts/release.sh vX.Y.Z` fa tutta la
+  procedura da WSL, anche il kernel con la chiave sulla SD prima del tag); sul Pi `src/kernel/update.c`:
+  Settings > System > *Check for updates* / *Install the update*, monitor `u`. Niente si
+  scrive finché tutti i file non sono scaricati e controllati; i kernel di prima vanno in
+  `/bm/backup`; quello della scheda si scrive per ultimo. Prova: `test_update` in QEMU
+  (`update_url=sd:/release/`, `bm/release.pem`).
+
+## Market (M25; nato nel branch `bm-store`, unito al principale il 2026-10-04)
+
+- Prima scheda del menu: **Market | Games | Dev | Settings** (tasti 1 2 3 4); il menu si
+  apre su Games. Catalogo dal repository pubblico `f-accomando/bm-market` (GitHub Pages),
+  modello in `market/`, `make market-seed MARKET=../bm-market` ci mette i giochi del progetto.
+- Decisioni dell'utente (2026-10-01): repository dedicato; tutti i giochi scaricabili (per
+  ora restano anche nell'immagine della SD); il market **non blocca il menu** e **non carica
+  niente quando la scheda non è attiva** (segnaposto finché le risorse non arrivano);
+  pubblicazione con pull request e, più avanti, token dal Pi; P2P solo in rete locale (M24).
+- `src/net/catalog.c` (portabile, `make test-catalog`): firma ECDSA P-256 con la chiave
+  del market (`keys/market-pub.pem`, `scripts/market-key.sh`; non quella delle release),
+  record, SHA-256 dei file. `scripts/mkmarket.py` fa il catalogo (stesso formato).
+- `src/kernel/market.c`: i lavori (cache, catalogo, copertine, download) girano in una
+  fibra (`src/kernel/fiber.c`, `src/arch/fiber.S`) nel tempo libero del frame
+  (`menu_view_t.idle`); `net_wait_step` cede il controllo dentro una fibra e restituisce -1
+  se è stata annullata: ogni attesa di rete nuova deve controllarlo.
+- Le cartucce non incorporate scrivono solo `.bm` in `/carts` (`write_refused` in
+  `runtime.c`); gli strumenti incorporati passano da `carts_tool_session` (`bm_set_tool`).
+- Test: `test_market` in QEMU con `market_url=sd:/market/` e `market_delay` (in QEMU non c'è
+  rete); `bm/market.pem` sulla SD aggiunge una chiave.
+- Rete locale (M24): `src/net/lan.c` (annuncio UDP 3335, TCP 3336, domanda al giocatore,
+  SHA-256; portabile, `make test-lan`), acceso da `market_lan()` solo con la scheda Market
+  o il pannello di invio aperti.
+- Pubblicazione dal Pi: `src/kernel/publish.c` (pannello nelle opzioni dei giochi) e
+  `src/net/github.c` (API REST di GitHub, portabile: `make test-github` con un finto
+  server); token `github_token`, market `market_repo`, API `github_api` in `bm/config.txt`.
 
 ## Comunicazione con l'utente
 

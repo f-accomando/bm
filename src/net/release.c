@@ -15,20 +15,32 @@
 extern const char bm_release_key[];     /* keys/release-pub.pem (embed.S) */
 #endif
 
-static mbedtls_pk_context key;
-static int key_state;                   /* 0: not read yet, 1: usable, -1: none */
+/* the key built into the kernel, and one from the SD card (bm/release.pem:
+ * the tests, or releases of one's own) */
+static mbedtls_pk_context key, extra;
+static int key_state, extra_state;      /* 0: not read yet, 1: usable, -1: none */
+
+static int read_key(mbedtls_pk_context *k, int *state, const char *pem)
+{
+    if (*state)
+        mbedtls_pk_free(k);
+    mbedtls_pk_init(k);
+    /* the PEM parser wants the terminating NUL counted */
+    int r = mbedtls_pk_parse_public_key(k, (const unsigned char *)pem, strlen(pem) + 1);
+    if (r == 0 && (!mbedtls_pk_can_do(k, MBEDTLS_PK_ECDSA) || mbedtls_pk_get_bitlen(k) != 256))
+        r = -1;
+    *state = r == 0 ? 1 : -1;
+    return r == 0 ? 0 : -1;
+}
 
 int release_set_key(const char *pem)
 {
-    if (key_state)
-        mbedtls_pk_free(&key);
-    mbedtls_pk_init(&key);
-    /* the PEM parser wants the terminating NUL counted */
-    int r = mbedtls_pk_parse_public_key(&key, (const unsigned char *)pem, strlen(pem) + 1);
-    if (r == 0 && (!mbedtls_pk_can_do(&key, MBEDTLS_PK_ECDSA) || mbedtls_pk_get_bitlen(&key) != 256))
-        r = -1;
-    key_state = r == 0 ? 1 : -1;
-    return r == 0 ? 0 : -1;
+    return read_key(&key, &key_state, pem);
+}
+
+int release_add_key(const char *pem)
+{
+    return read_key(&extra, &extra_state, pem);
 }
 
 int release_has_key(void)
@@ -37,7 +49,7 @@ int release_has_key(void)
     if (!key_state)
         release_set_key(bm_release_key);
 #endif
-    return key_state == 1;
+    return key_state == 1 || extra_state == 1;
 }
 
 int release_verify(const uint8_t *manifest, size_t len, const uint8_t *sig, size_t sig_len,
@@ -48,12 +60,58 @@ int release_verify(const uint8_t *manifest, size_t len, const uint8_t *sig, size
         return -1;
     }
     unsigned char hash[32];
-    if (mbedtls_sha256(manifest, len, hash, 0) != 0 ||
-        mbedtls_pk_verify(&key, MBEDTLS_MD_SHA256, hash, sizeof hash, sig, sig_len) != 0) {
-        snprintf(err, err_len, "the manifest is not signed with the release key");
-        return -1;
+    if (mbedtls_sha256(manifest, len, hash, 0) == 0 &&
+        ((key_state == 1 && mbedtls_pk_verify(&key, MBEDTLS_MD_SHA256, hash, sizeof hash, sig, sig_len) == 0) ||
+         (extra_state == 1 && mbedtls_pk_verify(&extra, MBEDTLS_MD_SHA256, hash, sizeof hash, sig, sig_len) == 0)))
+        return 0;
+    snprintf(err, err_len, "the manifest is not signed with the release key");
+    return -1;
+}
+
+/* "v1.2.3", "v1.2.3-4-gabc1234", "v1.2.3-dirty": the numbers, how many
+ * commits after the tag (0), and 1; 0 if not a version (a plain hash) */
+static int parse_version(const char *s, unsigned v[3], unsigned *ahead)
+{
+    *ahead = 0;
+    if (*s != 'v')
+        return 0;
+    s++;
+    for (int i = 0; i < 3; i++) {
+        if (*s < '0' || *s > '9')
+            return 0;
+        v[i] = 0;
+        while (*s >= '0' && *s <= '9')
+            v[i] = v[i] * 10 + (unsigned)(*s++ - '0');
+        if (i < 2 && *s++ != '.')
+            return 0;
     }
-    return 0;
+    if (*s == '-' && s[1] >= '0' && s[1] <= '9') {      /* git describe: -N-gHASH */
+        char *end;
+        *ahead = (unsigned)strtoul(s + 1, &end, 10);
+        if (strncmp(end, "-g", 2) != 0)
+            return 0;
+        s = end + 2;
+        while ((*s >= '0' && *s <= '9') || (*s >= 'a' && *s <= 'f'))
+            s++;
+    }
+    if (strcmp(s, "-dirty") == 0)
+        s += 6;
+    return *s == 0;
+}
+
+int release_compare(const char *running, const char *release)
+{
+    unsigned r[3], n[3], ahead, ra;
+    if (!parse_version(release, n, &ra) || ra)
+        return RELEASE_BAD;
+    if (!parse_version(running, r, &ahead))
+        return RELEASE_DEV;
+    for (int i = 0; i < 3; i++)
+        if (n[i] != r[i])
+            return n[i] > r[i] ? RELEASE_NEWER : ahead ? RELEASE_DEV : RELEASE_OLDER;
+    if (ahead || strstr(running, "-dirty"))
+        return RELEASE_DEV;                 /* built after (or beside) this release */
+    return RELEASE_SAME;
 }
 
 static int hexval(char c)

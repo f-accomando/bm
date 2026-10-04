@@ -25,7 +25,7 @@
 #include <time.h>
 
 /* ---- the kernel functions netcon.c uses */
-const char bm_version[] = "test";
+const char bm_version_tag[] = "bmVER=test";
 static const char *cfg_pw = "secret";
 static char saved_pw[40];
 const char *config_get(const char *key) { return strcmp(key, "net_password") ? NULL : cfg_pw; }
@@ -126,7 +126,7 @@ static void spin(int rounds)
 
 /* stream.c's needs (net.c) */
 uint32_t net_ip(void) { return 1; }
-void net_wait_step(void) { spin(1); }
+int net_wait_step(void) { spin(1); return 0; }
 void net_time_set(unsigned long sec) { (void)sec; }
 
 static void connect_port(client_t *c, u16_t port)

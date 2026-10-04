@@ -92,6 +92,15 @@ bm_release_key:
     .incbin "keys/release-pub.pem"
     .byte 0
 
+/* the public key that checks the Market's catalog (M25, src/net/catalog.c):
+ * PEM text, NUL-terminated; a placeholder until scripts/market-key.sh */
+    .section .rodata
+    .balign 4
+    .globl bm_market_key
+bm_market_key:
+    .incbin "keys/market-pub.pem"
+    .byte 0
+
     .section .rodata
     .balign 4
     .globl bm_studio_cart, bm_studio_cart_end
