@@ -80,6 +80,24 @@ frame()
 check(not assist.is_open(), "Enter closes")
 check(inserted and inserted:find("vy, on_ground = -7, false", 1, true), "Enter inserts the code")
 
+-- the guide mode (the SDK's project page): the guides to 2D and 3D games
+-- come first when browsing; a question finds its guide, Enter its code
+inserted = nil
+assist.open{ mode = "guide", on_insert = function(c) inserted = c end }
+frame()
+check(on_screen("Guida: cominciare un gioco con l'SDK"), "guide: the guides first when browsing")
+type_("come faccio un platform")
+check(on_screen("Guida: un platform 2D passo passo"), "guide: the platformer's guide")
+keys = { "\n" }
+frame()
+check(inserted and inserted:find("mget(x // 8, y // 8) == 2", 1, true), "guide: Enter inserts its code")
+assist.open{ mode = "guide" }
+frame()
+type_("how do i start a 3d game")
+check(on_screen("Guida: il primo gioco 3D"), "guide: the first 3D game")
+keys = { "esc" }
+frame()
+
 -- the word under the cursor comes first
 assist.open{ mode = "code", ctx = "circfill" }
 frame()

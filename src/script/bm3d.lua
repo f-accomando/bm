@@ -1294,6 +1294,8 @@ local function build_menu()
   items[#items + 1] = { "Try the game (F5)", function() T.run_project() end }
   if A.menu then A.menu(items) end
   if A.picture then items[#items + 1] = { "Model from picture...", function() if T.picture_chooser() then go(S.last_page or A.order[1]) end end } end
+  -- opened by the bm SDK on this file: the way back to it (saved first)
+  if S.from_sdk then items[#items + 1] = { "Back to bm SDK", function() T.open_in("sdk", "bm SDK") end } end
   items[#items + 1] = { "Exit " .. A.name, function() if not needs_confirm("exit") then quit() end end }
 end
 
@@ -1430,6 +1432,7 @@ function T.run(app)
     if A.init then A.init() end
     last_t = time()
     local a = cart_arg()
+    S.from_sdk = a and a.from == "sdk"
     if a and a.path and T.load_project(a.path) then
       local back = a.back and saved()
       if a.error then

@@ -277,7 +277,8 @@ nano8) legge la tastiera tasto per tasto e i controller pulsante per pulsante:
 | Funzione | Descrizione |
 |---|---|
 | `time()` | secondi dall'avvio della cartuccia (con decimali) |
-| `stat(n)` | 0 KiB usati da Lua, 1 ms dell'ultimo fotogramma (`_update` + `_draw`, con il 3D della GPU), 2 fps, 3 numero del fotogramma, 4 triangoli 3D, 5 pixel 3D (0 con la GPU), 6 ms passati nel disegno 3D (da `zclear`; con la GPU la parte dell'ARM), 7 vertici 3D trasformati, 8 ms dall'inizio di questo fotogramma (per misurare le fasi), 9 `1` se il 3D lo disegna la GPU, 10 istruzioni Lua dell'ultimo fotogramma (`_update` + `_draw`, alle migliaia) |
+| `stat(n)` | 0 KiB usati da Lua, 1 ms dell'ultimo fotogramma (`_update` + `_draw`, con il 3D della GPU), 2 fps, 3 numero del fotogramma, 4 triangoli 3D, 5 pixel 3D (0 con la GPU), 6 ms passati nel disegno 3D (da `zclear`; con la GPU la parte dell'ARM), 7 vertici 3D trasformati, 8 ms dall'inizio di questo fotogramma (per misurare le fasi), 9 `1` se il 3D lo disegna la GPU, 10 istruzioni Lua dell'ultimo fotogramma (`_update` + `_draw`, alle migliaia); il **dev kit** (2026-10-04): 11 token del codice della cartuccia (`code_tokens`), 12 i KiB di Lua più alti di questa partita, 13 KiB dei dati della cartuccia in memoria (sprite sheet, mappa, modelli e scheletri, banco di suoni, z-buffer del 3D), 14 le istruzioni Lua del fotogramma più pesante di questa partita |
+| `code_tokens(testo)` | i **token** di un pezzo di codice Lua, contati come `stat(11)`, l'overlay e il dev kit dell'SDK (`src/bm/tokens.c`): ogni nome, parola chiave, numero, stringa e operatore vale uno; commenti, spazi, `,` `.` `:` `;` `::`, le parentesi che si chiudono (`)` `]` `}`), `end` e `local` non contano, e nemmeno il segno meno davanti a un numero (`-1` è un token). Un'informazione, non un limite: bm non mette un tetto ai token (e nemmeno il `.b16`, [B16.md](B16.md) §2.4) |
 | `log(...)` | scrive nel log del kernel (seriale e console), non sullo schermo del gioco |
 | `report(tipo, testo)` | un report per chi sviluppa bm (2026-10-04): salvato in `bm/reports` sulla SD con kernel, branch, scheda e data, poi inviato al repository dei report se c'è `github_token` e la rete (`src/kernel/reports.h`); al più 8 per partita, 256 KiB l'uno; `true` se salvato |
 | `quit()` | chiude la cartuccia alla fine del fotogramma |
@@ -439,8 +440,8 @@ SONG=0` lo ascolta in un WAV.
 | `cart_put_audio(percorso, banco, [titolo, lua])` | mette il banco (stringa; `nil` lo toglie) in un `.bm`, il resto del file come prima; se il file non c'è lo crea con quel titolo e quel codice. `true`, o `false` e un messaggio |
 | `audio_bank(banco)` | da ora suona questo banco (per gli editor: musica ed effetti che suonano vanno avanti); `nil`: nessuno |
 | `audio_pattern(p, bpm, swing)` / `audio_play(v, suono, nota, [vol], [fx], [ms])` | un pattern in loop, un suono del banco su una voce (anteprime degli editor) |
-| `cart_run(percorso)` | esce, gioca quel file e poi riapre la cartuccia che l'ha chiesto, con `cart_arg()` = `{path=, error=, back=true}` (dal menu, "Open in the SDK", "... Sound editor", "... bm Studio", "... bm Animator", "... bm Mesh" o "... bm Pixel": `back=false`) |
-| `cart_tool(nome, [percorso])` | esce e apre un altro strumento della console sullo stesso file: `"studio"`, `"animator"`, `"mesh"`, `"pixel"`, `"code"`, `"sdk"`, `"sound"` (bm Studio → *Open in bm Animator*, e ritorno); lo strumento lo trova in `cart_arg()` come dal menu |
+| `cart_run(percorso)` | esce, gioca quel file e poi riapre la cartuccia che l'ha chiesto, con `cart_arg()` = `{path=, error=, back=true, run=}` (dal menu, "Open in the SDK", "... Sound editor", "... bm Studio", "... bm Animator", "... bm Mesh" o "... bm Pixel": `back=false`). `run` (2026-10-04, il dev kit) sono i numeri della partita provata: `{frames, secs, fps, ms, ms_max, slow, lua_kb, lua_peak_kb, data_kb, instr_max, tokens, tris, gpu}` (ms medi e massimi di `_update` + `_draw`, `slow` i fotogrammi oltre 16,7 ms, la memoria di Lua alla fine e al massimo, quella dei dati, le istruzioni del fotogramma più pesante, i token, i triangoli dell'ultimo fotogramma, se il 3D lo faceva la GPU); l'SDK li mostra nel suo dev kit |
+| `cart_tool(nome, [percorso])` | esce e apre un altro strumento della console sullo stesso file: `"studio"`, `"animator"`, `"mesh"`, `"pixel"`, `"code"`, `"sdk"`, `"sound"` (bm Studio → *Open in bm Animator*, e ritorno); lo strumento lo trova in `cart_arg()` come dal menu, con `from` = il nome dello strumento che l'ha aperto (`"sdk"`: i menu della suite offrono *Back to bm SDK*) |
 | `cart_data(tipo, [byte])` | le sezioni **MESH** (`tipo` 8) e **ANIM** (9) del progetto, come stringhe nel formato di `src/bm/bm.h`: senza `byte` le restituisce (`nil` se non ci sono), con `byte` le sostituisce (`nil` o `""` le toglie) → `true`, oppure `false` e il motivo. Il kernel le controlla prima; `model()`, `animate()` e `bone3d()` usano subito quelle nuove e `cart_save` le scrive. Così bm Studio e bm Animator della console modificano modelli e scheletri (con `string.pack` / `string.unpack`, nella libreria `require "bm3d"`) |
 
 ### Assistente (M30, per gli strumenti di sviluppo)
@@ -927,10 +928,18 @@ i suoi casi, anche i tasti con uno script) e `test_game_api` in QEMU.
       60fps 6.1ms ^7.5      fotogrammi al secondo; ms di _update + _draw: media e,
                             dopo ^, il massimo dell'ultimo secondo
       lua 9k ^10k           istruzioni Lua di un fotogramma (migliaia): media, massimo
+      ram 612k ^700k        memoria: il Lua di adesso più i dati (sheet, mappa,
+                            modelli, suoni, z-buffer) e, dopo ^, il massimo
+      1234 tokens           i token del codice (code_tokens)
 
   sotto, il tempo degli ultimi 64 fotogrammi: la cima è 16,7 ms; verde sotto metà,
   giallo fino a 16,7, rosso oltre (il fotogramma salta). Dal codice: `stat(1)`,
-  `stat(2)`, `stat(10)`. Il limite è di 20 milioni di istruzioni per chiamata.
+  `stat(2)`, `stat(10)`, `stat(11)`–`stat(14)`. Il limite è di 20 milioni di
+  istruzioni per chiamata. Il **dev kit dell'SDK** (F1 due volte) ha gli stessi
+  numeri per il progetto: token, le funzioni più grandi, la memoria dei dati, il file
+  contro gli 8 MiB di un `.b16` e i numeri dell'ultima prova (F5). A fine partita la
+  seriale scrive anche la riga `dev kit: Lua peak ... KiB, data ... KiB, busiest frame
+  ...k instructions, ... frames over 16.7 ms, ... tokens`.
 - Il disegno è in C: una chiamata `spr` o `rectfill` costa pochi microsecondi, ma
   ogni chiamata da Lua ha un costo fisso. Ordini di grandezza sul Pi (docs/STRESS.md):
   ~1800 sprite 16×16 chiamati da Lua a 60 fps, ~4500 dal C; ~1200 triangoli 3D.

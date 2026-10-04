@@ -28,9 +28,12 @@ local M = {}
 local C_PANEL, C_BAR, C_LINE = 0x1C2030, 0x2A3048, 0x3A4060
 local C_TEXT, C_DIM, C_ACC, C_ERR, C_SEL = 0xE0E4F0, 0x8088A0, 0xFFC050, 0xFF6060, 0x3050A0
 local C_KW, C_API, C_STR, C_NUM, C_COM = 0xFF7AB0, 0x70D0FF, 0x90E070, 0xFFB060, 0x707C98
+-- guide: how to make a 2D or a 3D game with the SDK, step by step (the
+-- SDK's project page opens the panel on them)
 local KINDS = { code = "api,howto,error,tip", sprite = "sprite", mesh = "mesh", error = "error,api,howto",
-                any = "api,howto,error,tip,sprite,mesh" }
-local TAG = { api = "API", howto = "how-to", error = "error", tip = "tip", sprite = "sprite", mesh = "3D" }
+                guide = "guide,howto,tip,api", any = "api,howto,error,tip,sprite,mesh,guide" }
+local TAG = { api = "API", howto = "how-to", error = "error", tip = "tip", sprite = "sprite", mesh = "3D",
+              guide = "guide" }
 
 local st                                 -- nil while closed
 
@@ -193,8 +196,16 @@ local function refresh()
   local q = st.q:gsub("^%s+", "")
   st.msg = nil
   if q == "" and not st.ctx then
-    -- nothing asked: everything, to browse (with the pad, too)
+    -- nothing asked: everything, to browse (with the pad, too); the mode's
+    -- first kind first (the guides before the API in the guide mode)
     st.hits = safe(ai.list, KINDS[st.mode]) or {}
+    local first = KINDS[st.mode]:match("^[^,]+")
+    local lead, rest = {}, {}
+    for _, h in ipairs(st.hits) do
+      if h.kind == first then lead[#lead + 1] = h else rest[#rest + 1] = h end
+    end
+    for _, h in ipairs(rest) do lead[#lead + 1] = h end
+    st.hits = lead
     st.us = nil
   else
     local ask = q ~= "" and q or st.ctx
@@ -318,8 +329,9 @@ local function accept()
 end
 
 local function next_mode()
-  -- code, sprite, mesh, any
-  st.mode = st.mode == "code" and "sprite" or st.mode == "sprite" and "mesh" or st.mode == "mesh" and "any" or "code"
+  -- code, sprite, mesh, guide, any
+  st.mode = st.mode == "code" and "sprite" or st.mode == "sprite" and "mesh" or st.mode == "mesh" and "guide"
+            or st.mode == "guide" and "any" or "code"
   refresh()
 end
 

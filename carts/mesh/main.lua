@@ -2059,6 +2059,14 @@ local function try_game()
   cart_run(proj.path)
 end
 
+-- opened by the bm SDK on this file: the way back to it (saved first)
+local function back_to_sdk()
+  if not proj.path then say("open a .bm first", C_ERR); return end
+  if dirty and not save_to(proj.path) then return end
+  save({ page = last_page, cur = cur })
+  cart_tool("sdk", proj.path)
+end
+
 local function save_as()
   if not proj.path then say("open a .bm first", C_ERR); return end
   ask("file name (8.3, in /carts)", proj.path:match("([^/]+)$") or "MESHES.BM", function(t)
@@ -2146,6 +2154,7 @@ end
 function _init()
   keyp()                                 -- typing on: the keyboard types
   local a = cart_arg()
+  if a and a.from == "sdk" then table.insert(MENU, #MENU, { "Back to bm SDK", back_to_sdk }) end
   if a and a.path and open_file(a.path) then
     local back = a.back and saved()
     if a.error then

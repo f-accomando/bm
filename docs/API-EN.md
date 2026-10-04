@@ -274,7 +274,8 @@ reads the keyboard key by key and the controllers button by button:
 | Function | Description |
 |---|---|
 | `time()` | seconds since the cartridge started (with decimals) |
-| `stat(n)` | 0 KiB used by Lua, 1 ms of the last frame (`_update` + `_draw`, with the GPU's 3D), 2 fps, 3 frame number, 4 3D triangles, 5 3D pixels (0 with the GPU), 6 ms spent in 3D drawing (since `zclear`; with the GPU the ARM's part), 7 3D vertices transformed, 8 ms since the start of this frame (to measure the phases), 9 `1` if the GPU draws the 3D, 10 Lua instructions of the last frame (`_update` + `_draw`, in thousands) |
+| `stat(n)` | 0 KiB used by Lua, 1 ms of the last frame (`_update` + `_draw`, with the GPU's 3D), 2 fps, 3 frame number, 4 3D triangles, 5 3D pixels (0 with the GPU), 6 ms spent in 3D drawing (since `zclear`; with the GPU the ARM's part), 7 3D vertices transformed, 8 ms since the start of this frame (to measure the phases), 9 `1` if the GPU draws the 3D, 10 Lua instructions of the last frame (`_update` + `_draw`, in thousands); the **dev kit** (2026-10-04): 11 tokens of the cartridge's code (`code_tokens`), 12 the most KiB of Lua of this run, 13 KiB of the cartridge's data in memory (sprite sheet, map, models and skeletons, sound bank, the 3D z-buffer), 14 the Lua instructions of the busiest frame of this run |
+| `code_tokens(text)` | the **tokens** of a piece of Lua code, counted as `stat(11)`, the overlay and the SDK's dev kit do (`src/bm/tokens.c`): each name, keyword, number, string and operator is one; comments, spaces, `,` `.` `:` `;` `::`, closing brackets (`)` `]` `}`), `end` and `local` do not count, nor the minus sign in front of a number (`-1` is one token). Information, not a limit: bm puts no ceiling on tokens (nor does the `.b16`, [B16.md](B16.md) §2.4) |
 | `log(...)` | writes in the kernel's log (serial line and console), not on the game's screen |
 | `report(kind, text)` | a report for the people who develop bm (2026-10-04): saved in `bm/reports` on the SD card with kernel, branch, board and date, then sent to the reports' repository if there are `github_token` and the network (`src/kernel/reports.h`); at most 8 per run, 256 KiB each; `true` if saved |
 | `quit()` | closes the cartridge at the end of the frame |
@@ -434,8 +435,8 @@ SONG=0` plays it into a WAV.
 | `cart_put_audio(path, bank, [title, lua])` | puts the bank (a string; `nil` takes it away) into a `.bm`, the rest of the file as before; if the file is not there it creates it with that title and that code. `true`, or `false` and a message |
 | `audio_bank(bank)` | from now on this bank plays (for the editors: music and effects playing go on); `nil`: none |
 | `audio_pattern(p, bpm, swing)` / `audio_play(v, sound, note, [vol], [fx], [ms])` | a pattern in a loop, a sound of the bank on a voice (the editors' previews) |
-| `cart_run(path)` | leaves, plays that file and then opens again the cartridge that asked, with `cart_arg()` = `{path=, error=, back=true}` (from the menu, "Open in the SDK", "... Sound editor", "... bm Studio", "... bm Animator", "... bm Mesh" or "... bm Pixel": `back=false`) |
-| `cart_tool(name, [path])` | leaves and opens another tool of the console on the same file: `"studio"`, `"animator"`, `"mesh"`, `"pixel"`, `"code"`, `"sdk"`, `"sound"` (bm Studio → *Open in bm Animator*, and back); the tool finds it in `cart_arg()` as from the menu |
+| `cart_run(path)` | leaves, plays that file and then opens again the cartridge that asked, with `cart_arg()` = `{path=, error=, back=true, run=}` (from the menu, "Open in the SDK", "... Sound editor", "... bm Studio", "... bm Animator", "... bm Mesh" or "... bm Pixel": `back=false`). `run` (2026-10-04, the dev kit) are the numbers of the run tried: `{frames, secs, fps, ms, ms_max, slow, lua_kb, lua_peak_kb, data_kb, instr_max, tokens, tris, gpu}` (average and top ms of `_update` + `_draw`, `slow` the frames over 16.7 ms, Lua's memory at the end and at its top, the data's, the instructions of the busiest frame, the tokens, the triangles of the last frame, whether the GPU did the 3D); the SDK shows them in its dev kit |
+| `cart_tool(name, [path])` | leaves and opens another tool of the console on the same file: `"studio"`, `"animator"`, `"mesh"`, `"pixel"`, `"code"`, `"sdk"`, `"sound"` (bm Studio → *Open in bm Animator*, and back); the tool finds it in `cart_arg()` as from the menu, with `from` = the name of the tool that opened it (`"sdk"`: the suite's menus offer *Back to bm SDK*) |
 | `cart_data(kind, [bytes])` | the project's **MESH** (`kind` 8) and **ANIM** (9) sections, as strings in the format of `src/bm/bm.h`: without `bytes` it returns them (`nil` if there are none), with `bytes` it replaces them (`nil` or `""` takes them away) → `true`, or `false` and the reason. The kernel checks them first; `model()`, `animate()` and `bone3d()` use the new ones at once and `cart_save` writes them. So bm Studio and bm Animator of the console change models and skeletons (with `string.pack` / `string.unpack`, in the library `require "bm3d"`) |
 
 ### Assistant (M30, for the development tools)
@@ -916,10 +917,18 @@ with its cases, the buttons too with a script) and `test_game_api` in QEMU.
       60fps 6.1ms ^7.5      frames a second; ms of _update + _draw: average and,
                             after ^, the top of the last second
       lua 9k ^10k           Lua instructions of a frame (thousands): average, top
+      ram 612k ^700k        memory: Lua now plus the data (sheet, map, models,
+                            sounds, z-buffer) and, after ^, the top
+      1234 tokens           the code's tokens (code_tokens)
 
   under it, the time of the last 64 frames: the top is 16.7 ms; green under half, yellow up
   to 16.7, red beyond (the frame is skipped). From the code: `stat(1)`, `stat(2)`,
-  `stat(10)`. The limit is 20 million instructions per call.
+  `stat(10)`, `stat(11)`–`stat(14)`. The limit is 20 million instructions per call. The
+  **SDK's dev kit** (F1 twice) has the same numbers for the project: tokens, the biggest
+  functions, the data's memory, the file against the 8 MiB of a `.b16` and the numbers of
+  the last try (F5). At the end of a run the serial line also writes the line `dev kit:
+  Lua peak ... KiB, data ... KiB, busiest frame ...k instructions, ... frames over 16.7 ms,
+  ... tokens`.
 - Drawing is in C: a `spr` or `rectfill` call costs a few microseconds, but every call from
   Lua has a fixed cost. Orders of magnitude on the Pi (docs/STRESS.md): ~1800 16×16 sprites
   called from Lua at 60 fps, ~4500 from C; ~1200 3D triangles.

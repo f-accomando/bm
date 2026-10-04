@@ -213,6 +213,70 @@ Limiti: ogni angolo segue **un** osso (niente pesi misti); 64 ossa per modello, 
 animazioni, 1024 keyframe per animazione; un keyframe è sempre la posa intera. I `.glb`
 con scheletro di altri programmi non si importano (i modelli fermi sì, in bm Studio).
 
+## Sulla console: bm SDK, il centro del progetto
+
+**bm SDK** (`carts/editor/main.lua`, incorporato nel kernel, scheda **Dev**; da un gioco
+**X** → *Open in the SDK*; dal monitor `e`) è il punto da cui parte un gioco e da cui si
+raggiungono gli altri programmi della suite sullo stesso file.
+
+<p>
+  <img src="../docs/img/sdk.png" width="32%" alt="bm SDK: la pagina del progetto di Studio Village">
+  <img src="../docs/img/sdk-3d.png" width="32%" alt="bm SDK: la pagina 3D con il cane dell'assistente animato">
+  <img src="../docs/img/sdk-devkit.png" width="32%" alt="bm SDK: il dev kit dopo una prova">
+</p>
+
+Ha l'aspetto di bm Studio
+e bm Animator (pannello a sinistra con le liste dai titoli grigi, due righe sopra la
+vista con il nome in arancio, i tasti in basso, i colori di bm Mesh) e usa la loro
+libreria per le liste, la vista 3D e le sezioni MESH e ANIM (`require "bm3d"`). Le pagine
+con i tasti F (Y + sinistra/destra sul gamepad), Esc il menu, **F12** tenuto i tasti.
+
+- **F1, il progetto**: a sinistra *OPEN IN* (1 bm Code, 2 bm Pixel, 3 bm Studio, 4 bm
+  Animator, 5 bm Mesh, 6 bm Sound: l'SDK salva e apre il programma sullo stesso file; nel
+  suo menu **Back to bm SDK** salva e torna) e *PROJECT* (t titolo, a autore, r schermo, b
+  target `.bm`/`.b16`, n un modello). A destra cosa c'è nel file: righe, KiB e **token**
+  del codice, le celle disegnate dello sheet, quelle della mappa, i modelli, gli
+  scheletri e le animazioni, il banco di suoni; i numeri dell'ultima prova; come chiedere
+  all'assistente.
+- **F1 di nuovo, il dev kit**: i token e le funzioni più grandi, la memoria che i dati
+  del gioco occupano mentre gira (sheet, mappa, modelli, scheletri, suoni, z-buffer: la
+  stessa somma di `stat(13)`; il Lua si aggiunge), il file salvato contro gli **8 MiB**
+  di un `.b16` ([docs/B16.md](../docs/B16.md) §8.5) e, con il target `.b16`, le righe che
+  quel formato non avrà (`math.random`, `time()`, i file...). Dopo una prova (**F5**) i
+  suoi numeri: fps, ms medi e massimi di `_update` + `_draw`, fotogrammi oltre 16,7 ms,
+  la RAM massima (Lua + dati), le istruzioni del fotogramma più pesante, i triangoli e
+  chi disegnava il 3D (`cart_arg().run`). Nei giochi gli stessi numeri vengono da F11
+  (l'overlay: fps, ms, Lua, RAM, token) e da `stat(11)`–`stat(14)`.
+- **F2, il codice**: l'editor veloce (bm Code, con le schede, è a un tasto: 1), con i
+  colori della sintassi e in verde acqua le funzioni del 3D; nella riga di stato i token.
+  Ctrl+G va all'errore dell'ultima prova, **F9** lo fa spiegare all'assistente.
+- **F3, gli sprite**: lo sprite scelto ingrandito, lo sheet, la tavolozza (spazio
+  disegna, x prende il colore, f riempie, z 8×8/16×16, Tab sceglie sullo sheet, h/v
+  specchiano, u annulla); **F3 di nuovo, la mappa** (spazio mette la tessera, Backspace
+  svuota, f riempie, Tab sceglie la tessera). Per tutti gli attrezzi: bm Pixel (2).
+- **F4, il 3D**: i modelli del progetto in un elenco e le animazioni di quello scelto;
+  il modello gira sulla griglia con l'animazione che va (su/giù il modello,
+  sinistra/destra l'animazione, spazio ferma, q/e/w/s la camera, + − lo zoom); **i**
+  scrive nel codice le righe per caricarlo (`model`) e disegnarlo (`animate`, `draw3d`)
+  e la `camera3d` della vista; Invio, a, m aprono bm Studio, bm Animator, bm Mesh.
+- **Ctrl+N, un progetto da un modello**: Empty 2D, Platform 2D (eroe, terreno, mappa con
+  piattaforme), Top-down 2D (muri e monete nella mappa), Shooter 2D (nave e nemici a
+  ondate), 3D scene (pavimento, cubi, palla con l'ombra, camera che segue), 3D with
+  models (i modelli del progetto che girano, animati). Ognuno con il codice, gli sprite e
+  la mappa che gli servono: F5 lo prova subito.
+- **F6, l'assistente**: sulla pagina del progetto le **guide** per fare un gioco 2D o 3D
+  passo passo (il modo `guide`: "come faccio un platform?", "how do I start a 3D game?";
+  Invio mette il loro codice nel codice), nel codice le funzioni e gli esempi, sugli
+  sprite una base di pixel art nella cella scelta, nel 3D un modello con lo scheletro che
+  entra nel progetto (sezioni MESH e ANIM, salvate con il resto).
+
+Il **menu** (Esc): Continue, New project (i modelli), Open, Save, Save as (nome 8.3 in
+`/carts`), Try the game, Exit. Il salvataggio usa `cart_save`: codice, sheet, mappa,
+copertina, suoni, modelli e scheletri. Prove: `tests/studio/sdk_host.lua` (in `make
+test-studio`: ogni modello di gioco gira 400 fotogrammi sulle controfigure), QEMU
+`test_editor` e `test_sdk_suite` (Studio Village: la pagina 3D, il modello
+dell'assistente salvato, bm Studio e ritorno).
+
 ## Sulla console: bm Studio e bm Animator
 
 Sulla console ci sono gli stessi due programmi, con gli stessi nomi: **bm Studio**

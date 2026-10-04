@@ -525,7 +525,7 @@ test-nano8: $(BUILD)/host/n8host $(BUILD)/host/n8cartinfo $(BUILD)/host/luahost 
 # gfx16, r3d, the sound player) and the kernel's services replaced
 # (tests/host/stubs.c): frames to PNG or raw video, sound to WAV, input from
 # a script. For the reels of the games and for tests with screenshots.
-BMHOST_RT := src/bm/runtime.c src/bm/gfx16.c src/bm/r3d.c src/bm/world3d.c src/bm/format.c src/bm/meshcap.c \
+BMHOST_RT := src/bm/runtime.c src/bm/tokens.c src/bm/gfx16.c src/bm/r3d.c src/bm/world3d.c src/bm/format.c src/bm/meshcap.c \
              src/kernel/syskeys.c \
              src/bm/require.c src/kernel/prompts.c src/gfx/font8x16.c src/gfx/font8x14.c \
              src/gfx/font6x12.c src/lib/printf.c src/lib/crc32.c src/audio/audio.c src/audio/synth.c \
@@ -957,6 +957,11 @@ $(BUILD)/host/test_meshcap: $(MESHCAP_SRCS) src/bm/*.h $(LUA_SRCS) tests/host/li
 	$(HOSTCC) -O2 -Wall -Wextra -Isrc/bm -Isrc -Ithird_party/lua -I$(BUILD) -o $@ $(MESHCAP_SRCS) tests/host/libs.S \
 	    $(LUA_SRCS) -lm
 
+# the dev kit's token counter (stat(11), code_tokens(), the SDK)
+$(BUILD)/host/test_tokens: tests/bm/test_tokens.c src/bm/tokens.c src/bm/tokens.h
+	@mkdir -p $(dir $@)
+	$(HOSTCC) -O2 -Wall -Wextra -Isrc/bm -o $@ tests/bm/test_tokens.c src/bm/tokens.c
+
 # the polygon reducer (bm Studio's reduce, tools/bmreduce.py)
 DECIMATE_SRCS := tests/bm/test_decimate.c src/bm/decimate.c src/bm/format.c src/lib/crc32.c
 $(BUILD)/host/test_decimate: $(DECIMATE_SRCS) src/bm/*.h
@@ -991,8 +996,9 @@ $(BUILD)/meshcap-test.bm: tests/bm/meshcap_cart.lua scripts/mkbm.py
 test-bm: $(BUILD)/host/test_bm $(BUILD)/demo.bm $(BUILD)/host/test_meshcap $(BUILD)/carts/astrowing.bm \
          $(BUILD)/texroom.bm $(BUILD)/carts/kitchen.bm $(BUILD)/meshcap-test.bm \
          $(BUILD)/host/test_decimate $(BUILD)/carts/village.bm $(BUILD)/host/libbmdecimate.so \
-         $(BUILD)/host/test_glb $(BUILD)/host/test_cutout $(BUILD)/host/libbmcutout.so
+         $(BUILD)/host/test_glb $(BUILD)/host/test_cutout $(BUILD)/host/libbmcutout.so $(BUILD)/host/test_tokens
 	$< $(BUILD)/demo.bm
+	$(BUILD)/host/test_tokens carts/editor/main.lua carts/pong/main.lua
 	$(BUILD)/host/test_decimate $(BUILD)/carts/village.bm $(BUILD)/carts/kitchen.bm
 	$(PYTHON) tests/bm/run_glb_test.py $(BUILD)/host/test_glb $(BUILD)/glb
 	$(PYTHON) tests/bm/run_cutout_test.py $(BUILD)/host/test_cutout $(BUILD)/cutout
@@ -1089,6 +1095,9 @@ test-studio: $(BUILD)/host/test_bm $(BUILD)/demo.bm $(BUILD)/host/luahost $(BUIL
 	$(BUILD)/host/test_meshcap src/bm/runtime.c $(BUILD)/mesh-sd/carts/astrowing.bm ship \
 	    $(BUILD)/mesh-sd/carts/village.bm "" $(BUILD)/mesh-sd/carts/meshcopy.bm ""
 	$(PYTHON) scripts/bmmesh.py $(BUILD)/mesh-sd/carts/astrowing.bm $(BUILD)/mesh-sd/carts/village.bm >/dev/null
+	rm -rf $(BUILD)/sdk-sd && mkdir -p $(BUILD)/sdk-sd/carts
+	cp $(BUILD)/carts/village.bm $(BUILD)/sdk-sd/carts/
+	$(BUILD)/host/luahost tests/studio/sdk_host.lua . $(BUILD)/sdk-sd
 	rm -rf $(BUILD)/pixel-sd && mkdir -p $(BUILD)/pixel-sd/carts
 	cp $(BUILD)/carts/village.bm $(BUILD)/demo.bm $(BUILD)/pixel-sd/carts/
 	$(BUILD)/host/luahost tests/studio/pixel_host.lua . $(BUILD)/pixel-sd

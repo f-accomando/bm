@@ -18,7 +18,8 @@
 #define AI_KIND_TIP     16
 #define AI_KIND_ACTION  32      /* something to do on the code (#entry: lines) */
 #define AI_KIND_MESH    64      /* a 3D recipe (bm Studio, bm Animator) */
-#define AI_KIND_ALL     127
+#define AI_KIND_GUIDE   128     /* how to make a game with the SDK, step by step */
+#define AI_KIND_ALL     255
 
 typedef struct {
     const char *id, *kind, *title, *name, *text, *code, *gen, *see, *keys;

@@ -44,6 +44,7 @@
 #include "net/cartnet.h"
 #include "require.h"
 #include "meshcap.h"
+#include "tokens.h"
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -95,6 +96,11 @@ static struct {
     uint32_t frame_t0;          /* when this frame's _update began */
     uint32_t hook_count;
     uint32_t frame_instr_k, last_instr_k;   /* Lua instructions (thousands): this frame, the last */
+    /* the dev kit: the tokens of the code, and the most of this run */
+    int tokens;
+    uint32_t instr_k_max;       /* Lua instructions (thousands) of the busiest frame */
+    size_t lua_peak;            /* bytes of Lua memory, seen at the end of a frame */
+    uint32_t slow_frames;       /* frames over 16.7 ms (_update + _draw) */
     int perf_key;               /* 'p' on the serial line: the dev kit's overlay on or off */
     int f11_held;
     int keyhelp;                /* keyhelp(): the registry's reference of the cartridge's keys, or 0 */
@@ -1418,12 +1424,18 @@ static int l_time(lua_State *L)
     return 1;
 }
 
+static uint32_t assets_kb(void);
+
 /* stat(n): 0 Lua KiB, 1 last frame CPU ms (update+draw), 2 fps, 3 frame number,
  *         4 3D triangles drawn and 5 3D pixels written since the last zclear()
  *         (0 with the GPU), 6 ms spent in 3D drawing (draw3d and the effects;
  *         with the GPU, the ARM's part) since then, 7 3D vertices transformed
  *         since then, 8 ms since this frame began, 9 1 if the GPU draws the 3D,
- *         10 Lua instructions of the last frame (update+draw, to the thousand) */
+ *         10 Lua instructions of the last frame (update+draw, to the thousand);
+ *         the dev kit: 11 tokens of the cartridge's code (tokens.h), 12 the
+ *         most Lua KiB of this run, 13 KiB of the cartridge's data in memory
+ *         (sprite sheet, map, models, sound bank, z-buffer), 14 the Lua
+ *         instructions of the busiest frame of this run */
 static int l_stat(lua_State *L)
 {
     switch (ival(L, 1)) {
@@ -1438,6 +1450,14 @@ static int l_stat(lua_State *L)
     case 8: lua_pushnumber(L, (timer_ticks() - rt.frame_t0) / 1000.0); break;
     case 9: lua_pushinteger(L, rt.r3d_ready && rt.r3d.backend); break;
     case 10: lua_pushinteger(L, (lua_Integer)rt.last_instr_k * 1000); break;
+    case 11: lua_pushinteger(L, rt.tokens); break;
+    case 12: {
+        size_t now = luavm_mem();
+        lua_pushinteger(L, (lua_Integer)((now > rt.lua_peak ? now : rt.lua_peak) / 1024));
+        break;
+    }
+    case 13: lua_pushinteger(L, (lua_Integer)assets_kb()); break;
+    case 14: lua_pushinteger(L, (lua_Integer)rt.instr_k_max * 1000); break;
     default: lua_pushnil(L);
     }
     return 1;
@@ -1663,6 +1683,16 @@ static int l_mesh(lua_State *L)
         m->tex = &rt.sheet;             /* live: sset() changes the texture too */
     }
     r3d_mesh_normals(m);
+    return 1;
+}
+
+/* code_tokens(src) -> the tokens of a piece of Lua code, counted as for
+ * stat(11) (tokens.h): the SDK's dev kit */
+static int l_code_tokens(lua_State *L)
+{
+    size_t n;
+    const char *s = luaL_checklstring(L, 1, &n);
+    lua_pushinteger(L, lua_tokens(s, n));
     return 1;
 }
 
@@ -3525,7 +3555,7 @@ static const luaL_Reg api[] = {
     { "prompt", l_prompt }, { "lastinput", l_lastinput },
     { "clip", l_clip }, { "rgb", l_rgb }, { "btn", l_btn }, { "btnp", l_btnp },
     { "players", l_players }, { "stick", l_stick },
-    { "time", l_time }, { "stat", l_stat }, { "tri", l_tri },
+    { "time", l_time }, { "stat", l_stat }, { "code_tokens", l_code_tokens }, { "tri", l_tri },
     { "mesh", l_mesh }, { "mesh_sphere", l_mesh_sphere }, { "mesh_cube", l_mesh_cube },
     { "model", l_model }, { "models", l_models }, { "bounds3d", l_bounds3d },
     { "animate", l_animate }, { "clips", l_clips }, { "bone3d", l_bone3d },
@@ -4055,6 +4085,22 @@ void bm_set_arg(const char *path, const char *error)
 void bm_set_arg_back(int back)
 {
     arg_back = back;
+}
+
+static bm_stats_t arg_run;
+static int arg_has_run;
+static char arg_from[16];
+
+void bm_set_arg_from(const char *tool)
+{
+    ksnprintf(arg_from, sizeof arg_from, "%s", tool ? tool : "");
+}
+
+void bm_set_arg_run(const bm_stats_t *st)
+{
+    arg_has_run = st != NULL;
+    if (st)
+        arg_run = *st;
 }
 
 static int tool_mode;
@@ -5167,6 +5213,44 @@ static int l_cart_arg(lua_State *L)
         lua_pushstring(L, arg_error);
         lua_setfield(L, -2, "error");
     }
+    if (arg_from[0]) {
+        lua_pushstring(L, arg_from);
+        lua_setfield(L, -2, "from");
+    }
+    if (arg_has_run) {
+        /* run = { frames, secs, fps, ms (mean of _update + _draw), ms_max,
+         *         slow (frames over 16.7 ms), lua_kb, lua_peak_kb, data_kb,
+         *         instr_max, tokens, tris (the last frame's 3D), gpu } */
+        const bm_stats_t *r = &arg_run;
+        lua_createtable(L, 0, 13);
+        lua_pushinteger(L, r->frames);
+        lua_setfield(L, -2, "frames");
+        lua_pushnumber(L, r->elapsed_us / 1e6);
+        lua_setfield(L, -2, "secs");
+        lua_pushnumber(L, r->elapsed_us ? r->frames * 1e6 / r->elapsed_us : 0);
+        lua_setfield(L, -2, "fps");
+        lua_pushnumber(L, r->frames ? r->cpu_us_total / 1000.0 / r->frames : 0);
+        lua_setfield(L, -2, "ms");
+        lua_pushnumber(L, r->cpu_us_max / 1000.0);
+        lua_setfield(L, -2, "ms_max");
+        lua_pushinteger(L, r->slow);
+        lua_setfield(L, -2, "slow");
+        lua_pushinteger(L, r->lua_kb);
+        lua_setfield(L, -2, "lua_kb");
+        lua_pushinteger(L, r->lua_peak_kb);
+        lua_setfield(L, -2, "lua_peak_kb");
+        lua_pushinteger(L, r->assets_kb);
+        lua_setfield(L, -2, "data_kb");
+        lua_pushinteger(L, (lua_Integer)r->instr_k_max * 1000);
+        lua_setfield(L, -2, "instr_max");
+        lua_pushinteger(L, r->tokens);
+        lua_setfield(L, -2, "tokens");
+        lua_pushinteger(L, r->tris3d);
+        lua_setfield(L, -2, "tris");
+        lua_pushboolean(L, r->gpu3d);
+        lua_setfield(L, -2, "gpu");
+        lua_setfield(L, -2, "run");
+    }
     return 1;
 }
 
@@ -5642,12 +5726,41 @@ static int vol_start;                   /* the volume when the cartridge started
  * F11 on a keyboard, a system key, 'p' on the serial line): its frames a second, the CPU
  * time of _update + _draw and the Lua instructions of a frame (the mean and,
  * after ^, the most of the last second), and the time of the last 64 frames
- * against the 16.7 ms of a frame at 60 Hz. Drawn on the 8x16 grid, top right:
+ * against the 16.7 ms of a frame at 60 Hz; the memory it uses (its Lua now
+ * and, after ^, the most of this run, plus its data: stat(0), 12, 13) and the
+ * tokens of its code (stat(11)). Drawn on the 8x16 grid, top right:
  *   60fps 6.1ms ^7.5
- *   lua 9k ^10k        */
+ *   lua 9k ^10k
+ *   ram 612k ^700k
+ *   1234 tokens        */
 #define PERF_N 64
 static int perf_on;
 static struct { uint16_t us10[PERF_N], k[PERF_N]; uint32_t at; } perf;
+
+/* KiB of the cartridge's data in memory, besides its Lua: the sprite sheet
+ * (RGB565 + alpha + the cells), the map, the models and skeletons, the sound
+ * bank and the z-buffer of the 3D (stat(13), the overlay's RAM) */
+static uint32_t assets_kb(void)
+{
+    size_t b = (size_t)rt.sheet.w * rt.sheet.h * 3;
+    b += (size_t)(rt.sheet.w / G16_CELL) * (rt.sheet.h / G16_CELL) * 2;
+    b += (size_t)rt.map.w * rt.map.h * 2;
+    b += rt.mesh_size + rt.anim_size + own_audio_len;
+    if (rt.r3d_ready && rt.r3d.zbuf)
+        b += (size_t)rt.g.w * rt.g.h * 2;
+    return (uint32_t)((b + 1023) / 1024);
+}
+
+/* "512k", "1.5M", "12M": KiB on the overlay's few columns */
+static void kib_text(char *out, size_t n, uint32_t kb)
+{
+    if (kb < 1000)
+        ksnprintf(out, n, "%luk", (unsigned long)kb);
+    else if (kb < 10240)
+        ksnprintf(out, n, "%lu.%luM", (unsigned long)(kb / 1024), (unsigned long)(kb % 1024 * 10 / 1024));
+    else
+        ksnprintf(out, n, "%luM", (unsigned long)(kb / 1024));
+}
 
 void bm_set_perf(int on) { perf_on = on != 0; }
 int bm_perf(void) { return perf_on; }
@@ -6024,13 +6137,21 @@ static void perf_frame(void)
     g16_clip(g, 0, 0, 0, 0);
     g->font = &font_console_8x16;
     const int x = g->w - 144;                     /* the text on the 8 x 16 grid (read by the tests) */
-    g16_rectfill(g, x - 4, 0, 148, 50, g16_rgb(8, 8, 16));
-    char line[32];
+    g16_rectfill(g, x - 4, 0, 148, 82, g16_rgb(8, 8, 16));
+    char line[32], now[12], top[12];
     ksnprintf(line, sizeof line, "%lufps %lu.%lums ^%lu.%lu", rt.fps, mean / 100, mean / 10 % 10,
               most / 100, most / 10 % 10);
     g16_text(g, x, 0, line, g16_rgb(232, 232, 216));
     ksnprintf(line, sizeof line, "lua %luk ^%luk", kmean, kmost);
     g16_text(g, x, 16, line, g16_rgb(200, 184, 120));
+    const size_t lua = luavm_mem();
+    const uint32_t data_kb = assets_kb();
+    kib_text(now, sizeof now, (uint32_t)(lua / 1024) + data_kb);
+    kib_text(top, sizeof top, (uint32_t)((lua > rt.lua_peak ? lua : rt.lua_peak) / 1024) + data_kb);
+    ksnprintf(line, sizeof line, "ram %s ^%s", now, top);
+    g16_text(g, x, 32, line, g16_rgb(120, 200, 232));
+    ksnprintf(line, sizeof line, "%d tokens", rt.tokens);
+    g16_text(g, x, 48, line, g16_rgb(184, 160, 232));
     /* the last 64 frames, 2 px each; the top is 16.7 ms (a frame at 60 Hz) */
     for (uint32_t j = 0; j < PERF_N && j < perf.at; j++) {
         uint32_t v = perf.us10[(perf.at - 1 - j) % PERF_N];
@@ -6038,9 +6159,9 @@ static void perf_frame(void)
         if (hgt > 14) hgt = 14;
         if (hgt < 1) hgt = 1;
         uint16_t c = v < 835 ? g16_rgb(72, 200, 96) : v < 1670 ? g16_rgb(232, 200, 64) : g16_rgb(232, 64, 48);
-        g16_rectfill(g, x + 140 - (int)j * 2, 48 - hgt, 2, hgt, c);
+        g16_rectfill(g, x + 140 - (int)j * 2, 80 - hgt, 2, hgt, c);
     }
-    g16_line(g, x - 2, 33, x + 141, 33, g16_rgb(72, 72, 96));
+    g16_line(g, x - 2, 65, x + 141, 65, g16_rgb(72, 72, 96));
     *g = keep;
 }
 
@@ -6173,6 +6294,15 @@ static int run_frames(framebuffer_t *fb, lua_State *L, const char *title,
         cls_settle();
         rt.last_cpu_us = timer_ticks() - t0 - early_us;
         rt.last_instr_k = instr_k;
+        if (instr_k > rt.instr_k_max)
+            rt.instr_k_max = instr_k;
+        if (rt.last_cpu_us > 16667)
+            rt.slow_frames++;
+        {
+            const size_t lua = luavm_mem();
+            if (lua > rt.lua_peak)
+                rt.lua_peak = lua;
+        }
         perf_frame();
         leave_draw();
         notice_draw();
@@ -6200,6 +6330,11 @@ static int run_frames(framebuffer_t *fb, lua_State *L, const char *title,
     st->frames = (uint32_t)rt.frame;
     st->elapsed_us = timer_ticks() - start;
     st->lua_kb = (uint32_t)(luavm_mem() / 1024);
+    st->lua_peak_kb = (uint32_t)((rt.lua_peak > luavm_mem() ? rt.lua_peak : luavm_mem()) / 1024);
+    st->assets_kb = assets_kb();
+    st->instr_k_max = rt.instr_k_max;
+    st->slow = rt.slow_frames;
+    st->tokens = (uint32_t)rt.tokens;
     st->gpu3d = rt.r3d_ready && rt.r3d.backend != NULL;
     st->d2_ops = d2.ops;
     st->ok = error == NULL;
@@ -6317,6 +6452,8 @@ int bm_run(framebuffer_t *fb, const uint8_t *data, size_t len,
     }
     rt.start_us = timer_ticks();
     rt.hook_count = 0;
+    rt.tokens = lua_tokens(cart.lua, cart.lua_size);
+    perf.at = 0;                        /* the overlay: this cartridge's frames only */
     chunk_reader_t rd = { cart.lua, cart.lua_size };
     if (lua_load(L, read_chunk, &rd, "=main.lua", NULL) != LUA_OK ||
         (lua_pushcfunction(L, traceback), lua_insert(L, -2), lua_pcall(L, 0, 0, -2)) != LUA_OK ||
@@ -6408,6 +6545,9 @@ void bm_print_stats(const bm_stats_t *st)
             st->cpu_us_max / 1000, st->cpu_us_max % 1000 / 10, st->lua_kb);
     if (copy)
         kprintf("     copy to screen %lu.%02lu ms per frame\n", copy / 1000, copy % 1000 / 10);
+    kprintf("     dev kit: Lua peak %lu KiB, data %lu KiB, busiest frame %luk instructions, "
+            "%lu frames over 16.7 ms, %lu tokens\n",
+            st->lua_peak_kb, st->assets_kb, st->instr_k_max, st->slow, st->tokens);
     gpu3d_stats_t g;
     gpu3d_take_stats(&g);
     if (g.jobs) {

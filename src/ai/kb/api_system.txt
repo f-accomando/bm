@@ -48,15 +48,31 @@ name: stat
 title: stat(n) - memoria, fps e tempi
 ask: quanti fps fa il gioco | quanta memoria uso | frame rate | performance counters
 ask: millisecondi per fotogramma | numero del fotogramma | memory used | cpu time
-see: perf_measure, time
+see: perf_measure, time, guide.devkit
 text:
 0 KiB usati da Lua, 1 ms dell'ultimo fotogramma, 2 fps, 3 numero del
 fotogramma, 4 triangoli 3D, 5 pixel 3D, 6 ms del disegno 3D, 7 vertici 3D,
 8 ms da inizio fotogramma, 9 1 se il 3D lo fa la GPU, 10 istruzioni Lua
-dell'ultimo fotogramma.
+dell'ultimo fotogramma. Il dev kit: 11 token del codice, 12 KiB di Lua al
+massimo, 13 KiB dei dati (sheet, mappa, modelli, suoni), 14 istruzioni del
+fotogramma più pesante.
 code:
 print(stat(2) .. " fps  " .. stat(1) .. " ms", 8, 8, 0x80FF80)
 print(stat(0) .. " KiB", 8, 24, 0x80FF80)
+
+== code_tokens
+kind: api
+name: code_tokens
+title: code_tokens(testo) - i token di un pezzo di codice
+ask: contare i token di un testo | token di una funzione | count tokens in code
+ask: quanti token è questo codice
+see: stat, guide.tokens
+text:
+I token di un pezzo di codice Lua, contati come stat(11) e il dev kit
+dell'SDK: nomi, parole chiave, numeri, stringhe e operatori; virgole,
+punti, parentesi chiuse, end e local no.
+code:
+log(code_tokens("x = x + 1") .. " token")    -- 5
 
 == log
 kind: api
