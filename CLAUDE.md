@@ -13,6 +13,12 @@ screenshot in `docs/img/`), `README_OLD.md` (il README completo, in italiano),
 - `make test` → test sul PC (grafica, FAT, USB, audio, rete, giochi) + test end-to-end in
   QEMU (`-M raspi0`); `make test-zero2` gli stessi con `kernel7.img` (Pi Zero 2 W) in
   `-M raspi2b`.
+- **Test durante lo sviluppo** (decisione dell'utente, 2026-10-04): non la suite intera.
+  Solo i test di ciò che la modifica tocca nel kernel (QEMU con `tests/qemu_test.py -k
+  <nome>`, i test sul PC del pezzo cambiato); per la GPU solo Overbit (`make
+  test-overbit`, `test_overbit`) e il 3D Bench (`make test-b3d`). I test dei giochi e gli
+  altri per ora si ignorano: se un aggiornamento tocca uno di questi, lo si attiva solo in
+  quella sessione. kernel7 (Pi Zero 2 W) si ignora del tutto per ora: né build né test.
 - L'utente prova sul Pi reale copiando `dist/kernel.img` (e `dist/kernel7.img`) sulla SD
   (WSL, `/mnt/d`), senza cavo seriale: tutto ciò che deve verificare va mostrato sullo
   schermo. Da WSL usa `./easy_install.sh` (nella root): al primo avvio salva cartella del
@@ -128,7 +134,8 @@ screenshot in `docs/img/`), `README_OLD.md` (il README completo, in italiano),
   `Makefile`, oggetti in `build/k7/`, `-DBM_ZERO2`): `build/kernel7.img`. Sulla SD stanno
   `kernel.img` e `kernel7.img`; `config.txt` sceglie (`[pi02]`). Il codice specifico va
   sotto `#ifdef BM_ZERO2` (indirizzi del SoC, `src/drivers/mmio.h`) o `#if __ARM_ARCH >= 7`
-  (istruzioni ARMv7: barriere, cache, HYP); ogni modifica deve compilare in tutti e due.
+  (istruzioni ARMv7: barriere, cache, HYP); ogni modifica deve compilare in tutti e due
+  (per ora no: kernel7 si ignora, decisione dell'utente del 2026-10-04).
 - Sul Zero 2 W: periferiche a 0x3F000000, avvio in HYP, un solo core (gli altri nello stub
   del firmware a 0x0: mai scrivere lì), LED sul GPIO 29 (il 47 è l'I2C dell'alimentatore),
   BT_ON GPIO 42, firmware del CYW43436 (`board.c`, `wifi.c`, `bt.c`).
