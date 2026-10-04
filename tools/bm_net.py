@@ -108,7 +108,9 @@ def transfer(args, op, path, name, password):
     for off in range(0, len(data), step):
         sock.sendall(data[off:off + step])
         print(f"\r{min(off + step, len(data)) * 100 // len(data):3d}%  {len(data)} bytes", end="", flush=True)
-    a = recv_answer(sock, 60)
+    # the answer comes once the file is written: a console that writes its SD
+    # card slowly (the RGB30) needs more than a minute for a kernel
+    a = recv_answer(sock, 60 + len(data) // 8192)
     dt = time.time() - t0
     print(f"\r{len(data)} bytes in {dt:.1f} s ({len(data) / 1024 / max(dt, 1e-3):.0f} KiB/s): "
           + ANSWERS.get(a, "no answer"))

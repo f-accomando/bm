@@ -200,6 +200,18 @@ kernel_version() {                              # the version in a kernel.img
     echo "${v:-unknown}"
 }
 
+rgb30_card() {                                  # the RGB30's card: U-Boot reads extlinux, starts kernel8.img
+    [ -e "$SD/extlinux/extlinux.conf" ] || [ -e "$SD/kernel8.img" ]
+}
+
+build_rgb30() {                                 # the RGB30's kernel8.img (its own compiler)
+    command -v aarch64-linux-gnu-gcc >/dev/null || {
+        ask "The RGB30's compiler is missing: install it (gcc-aarch64-linux-gnu, picolibc)?" y || die "it is needed"
+        sudo apt-get install -y gcc-aarch64-linux-gnu binutils-aarch64-linux-gnu picolibc-aarch64-linux-gnu
+    }
+    make TARGET=rgb30 -j"$(nproc)" build/rgb30/kernel8.img
+}
+
 looks_like_bm() {                               # a card with bm (or empty)
     [ -e "$SD/config.txt" ] || [ -e "$SD/bootcode.bin" ] || [ -z "$(ls -A "$SD" 2>/dev/null)" ]
 }
@@ -388,18 +400,26 @@ job_net() {
         *) die "$name: unknown board $board" ;;
     esac
     if [ "$board" = rgb30 ]; then
-        command -v aarch64-linux-gnu-gcc >/dev/null || {
-            ask "The RGB30's compiler is missing: install it (gcc-aarch64-linux-gnu, picolibc)?" y || die "it is needed"
-            sudo apt-get install -y gcc-aarch64-linux-gnu binutils-aarch64-linux-gnu picolibc-aarch64-linux-gnu
-        }
-        make TARGET=rgb30 -j"$(nproc)" "$file"
+        build_rgb30
     else
         make -j"$(nproc)" "$file"
     fi
     while :; do                                 # the IP may have changed (the router gives it)
         old=$(net_version "$ip")
         [ -z "$old" ] || break
-        warn "$name does not answer on $ip: is it on and on the same network? Settings > WiFi and network shows its IP."
+        warn "$name does not answer on $ip (port 3333, bm's network console)."
+        if ping -c 2 -W 2 "$ip" >/dev/null 2>&1; then
+            warn "  $ip answers ping: the network is there, bm's console is not (another device on that IP,"
+            warn "  or the console not connected yet)."
+        else
+            warn "  $ip does not answer ping either: the console is off the network, or the PC cannot reach it."
+        fi
+        if [ "$board" = rgb30 ]; then
+            warn "  On the RGB30: System > WiFi, X joins; the IP and the line \"net: console on port 3333,"
+            warn "  password ...\" come when it is in (wifi_boot=1 in bm/config.txt joins at every start)."
+        else
+            warn "  On the Pi: Settings > WiFi and network shows its IP once connected."
+        fi
         read -r -p "Its IP now (Enter: stop): " x || x=
         [ -n "$x" ] || die "stopped"
         ip=$x
@@ -416,6 +436,11 @@ job_net() {
     save_conf
     new=$(sed -n 's/.*running bm \([^ ]*\).*/\1/p' <<< "$out" | tail -1)
     [ -n "$new" ] || die "the kernel did not go, or the console did not come back: see above"
+    if [ "$new" = "$old" ] && [ "$(git describe --always --dirty)" != "$old" ]; then
+        warn "$name came back with the same kernel: it did not start the one sent."
+        [ "$board" != rgb30 ] || warn "An RGB30 kernel from before 2026-10-04 writes what it receives as kernel.img, which U-Boot \
+does not start: put kernel8.img on its card once (2 [SD] update kernel, with the RGB30's card in the reader)."
+    fi
     PROFILES[PICK]="$name|$ip|$code|$board|$(now) $old -> $new"
     LAST_RUN="$(now) net $name: $old -> $new"
     save_conf
@@ -434,32 +459,46 @@ finish() {                                      # the last line: old kernel -> n
     exit 0
 }
 
-job_kernel() {
+job_kernel() {                                  # the Pi's kernel.img, or the RGB30's kernel8.img on its card
     up_to_date
-    say "The kernel"
-    make -j"$(nproc)" build/kernel.img
     mount_sd
-    looks_like_bm || ask "$SD does not look like bm's card: write the kernel on it anyway?" || die "stopped"
-    local old new
-    old=$(kernel_version "$SD/kernel.img")
-    if [ -f "$SD/kernel.img" ]; then
-        mkdir -p "$SD/bm/backup"
-        cp "$SD/kernel.img" "$SD/bm/backup/kernel.img"
+    local img=kernel.img built=build/kernel.img old new
+    if rgb30_card; then
+        img=kernel8.img built=build/rgb30/kernel8.img
+        say "The RGB30's kernel (the card has extlinux/ and kernel8.img)"
+        build_rgb30
+    else
+        say "The kernel"
+        looks_like_bm || ask "$SD does not look like bm's card: write the kernel on it anyway?" || die "stopped"
+        make -j"$(nproc)" build/kernel.img
     fi
-    cp build/kernel.img "$SD/kernel.img"
+    old=$(kernel_version "$SD/$img")
+    if [ -f "$SD/$img" ]; then
+        mkdir -p "$SD/bm/backup"
+        cp "$SD/$img" "$SD/bm/backup/$img"
+    fi
+    cp "$built" "$SD/$img"
     sync
-    cmp -s build/kernel.img "$SD/kernel.img" || die "the kernel on the card is not the one built: try again"
-    new=$(kernel_version "$SD/kernel.img")
+    cmp -s "$built" "$SD/$img" || die "the kernel on the card is not the one built: try again"
+    new=$(kernel_version "$SD/$img")
     finish kernel "$old" "$new"
 }
 
 job_install() {
     up_to_date
+    mount_sd
+    local old new
+    if rgb30_card; then                         # the RGB30's partition: kernel8.img, extlinux, bm/
+        say "Full install on the RGB30's card"
+        build_rgb30
+        old=$(kernel_version "$SD/kernel8.img")
+        make TARGET=rgb30 sdcard SD="$SD"
+        new=$(kernel_version "$SD/kernel8.img")
+        finish install "$old" "$new"
+    fi
     say "Full install"
     make -j"$(nproc)"
-    mount_sd
     looks_like_bm || ask "$SD does not look like bm's card: install on it anyway?" || die "stopped"
-    local old new
     old=$(kernel_version "$SD/kernel.img")
     make install SD="$SD"
     new=$(kernel_version "$SD/kernel.img")
@@ -548,6 +587,13 @@ format_card() {                                 # erase and format, as administr
 }
 
 job_image() {
+    if [ -z "${EASY_SD_DIR:-}" ]; then mount_sd; fi
+    if rgb30_card; then
+        unmount_sd
+        die "This is the RGB30's card: its boot loader sits before the partition, and formatting would erase it.
+For the RGB30: make TARGET=rgb30 firmware image, then write dist/rgb30/bm-rgb30.img with balenaEtcher or
+Raspberry Pi Imager; 2 or 3 update its files."
+    fi
     up_to_date
     say "The disk image"
     make -j"$(nproc)"
