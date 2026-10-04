@@ -819,7 +819,7 @@ Decisione 2026-09-29: l'editor attuale diventa l'**SDK** (generico: progetto, pr
 salvataggio); intorno a lui strumenti specializzati, ognuno una cartuccia nella scheda
 **Dev**, tutti con gli stessi formati.
 
-**Stato (2026-10-01, sviluppato sul branch `sviluppo-sdk`, ora in `claude/bare-metal-mvp`):
+**Stato (2026-10-01, sviluppato sul branch `sviluppo-sdk`, ora in `baremetalcore`):
 bm Studio, sul PC.** Su richiesta
 dell'utente, 22.3 (3D), parte di 22.2 (pixel art dello sheet) e di 22.5 (import/export)
 arrivano prima come applicazione per il PC (`sdk/studio`,
@@ -2814,7 +2814,7 @@ Task:
 ---
 
 ## Spunti R1, R2, … (2026-10-03, da riprendere)
-Cose utili che a bm mancano, viste sullo stato di `claude/bare-metal-mvp` del 2026-10-03,
+Cose utili che a bm mancano, viste sullo stato del branch principale del 2026-10-03,
 escluso quello che è in sviluppo su altri branch (GPU e 3D M33–M37, Overbit e la rete UDP
 dei giochi, Market e scambio in LAN M24–M26, RGB30, `.s16`). Nessuno è deciso: l'utente li
 richiama per nome ("facciamo R7"), e allora si chiede il branch come per ogni sviluppo.

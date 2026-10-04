@@ -1,8 +1,8 @@
 name: meshy-overbit
 
 # Overbit's heroes through Meshy (text-to-3D, tools/meshy_text.py): a push
-# to claude/bare-metal-mvp that changes carts/overbit/art/meshy/request.txt
-# makes the models it lists, one line each: the name of a spec in that folder
+# to baremetalcore that changes carts/overbit/art/meshy/request.txt makes
+# the models it lists, one line each: the name of a spec in that folder
 # (NAME.txt: the description, the colours, the height) and optionally
 # task=ID to download a refine already paid for instead of a new one,
 # or rig=ID to have Meshy rig that model (tools/meshy_rig.py: NAME_rig.glb,
@@ -14,7 +14,7 @@ name: meshy-overbit
 # artifacts and onto the branch meshy-out (out/).
 on:
   push:
-    branches: [claude/bare-metal-mvp]
+    branches: [baremetalcore]
     paths: [carts/overbit/art/meshy/request.txt]
 
 jobs:

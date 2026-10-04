@@ -14,7 +14,7 @@ on:
     inputs:
       branch:
         description: "the branch with the tools (checked out and run)"
-        default: claude/bare-metal-mvp
+        default: baremetalcore
         required: true
       image:
         description: "the picture: a path in the repository, or an https URL"

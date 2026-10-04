@@ -1,5 +1,5 @@
 # The models .github/workflows/meshy-overbit.yml makes when this file
-# changes (a push to claude/bare-metal-mvp): one per line, the name of a
+# changes (a push to baremetalcore): one per line, the name of a
 # spec in this folder, optionally task=ID (a refine already made: no new
 # task) or rig=ID (Meshy rigs the model that task made: NAME_rig.glb).
 # Packed here by pack.py (NAME.mesh, NAME.png, NAME.rig). Made before and

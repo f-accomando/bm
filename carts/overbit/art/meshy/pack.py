@@ -3,7 +3,7 @@
 pack.py - the Meshy models of Overbit's heroes into this folder, from the
 files the workflow meshy-overbit put on the branch meshy-out: for each
 model NAME, NAME_1200.bm (1200 triangles) and NAME_450.bm (the same reduced
-to 450 with tools/bmreduce.py of claude/bare-metal-mvp, for the low levels
+to 450 with tools/bmreduce.py of baremetalcore, for the low levels
 of detail) become
 
   NAME.mesh   a MESH section body (scripts/bmmesh.py) with the two models,

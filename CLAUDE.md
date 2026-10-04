@@ -107,18 +107,18 @@ screenshot in `docs/img/`), `README_OLD.md` (il README completo, in italiano),
   Il vecchio nome sopravvive solo dove serve alla compatibilità (la cartella della SD e
   l'intestazione delle cartucce di prima, lette ancora; il tag di rete per i kernel
   vecchi in `tools/bm_net.py`). Il repository GitHub è `f-accomando/bm`.
-- Il branch principale è `claude/bare-metal-mvp`: quando l'utente dice "main" intende
-  quello (un branch `main` non esiste).
+- Il branch principale è `baremetalcore` (fino al 2026-10-04 `claude/bare-metal-mvp`):
+  quando l'utente dice "main" intende quello (un branch `main` non esiste).
 
 ## Branch delle sessioni
 
 - Quando una nuova sessione comincia uno sviluppo specifico (una funzione, un gioco, un
   passo di una milestone), prima di modificare i file chiedere all'utente il nome del
   branch, proponendone uno breve legato allo sviluppo (es. `claude/m19-aggiornamenti`).
-  Il branch parte da `claude/bare-metal-mvp` aggiornato e commit e push vanno lì, anche se
+  Il branch parte da `baremetalcore` aggiornato e commit e push vanno lì, anche se
   la sessione ne ha assegnato un altro.
 - Non serve chiederlo per domande, letture della roadmap o lavoro che l'utente ha già
-  indicato su un branch esistente (es. "fai commit su bare-metal-mvp").
+  indicato su un branch esistente (es. "fai commit su baremetalcore").
 - Gli spunti **R1, R2, …** (in fondo a `docs/ROADMAP.md`) sono idee non ancora decise:
   quando l'utente ne nomina uno ("facciamo R7") il significato è lì.
 
@@ -223,7 +223,7 @@ screenshot in `docs/img/`), `README_OLD.md` (il README completo, in italiano),
 - **Modelli Meshy** (richiesta dell'utente): i corpi in terza persona degli eroi, dei mech e
   dei piloti sono figure Meshy fatte dal testo con le **nostre** descrizioni
   (`art/meshy/<nome>.txt`, `tools/meshy_text.py`; il workflow `meshy-overbit` parte da un
-  push di `art/meshy/request.txt` su `claude/bare-metal-mvp` e mette i risultati su
+  push di `art/meshy/request.txt` su `baremetalcore` e mette i risultati su
   `meshy-out`), poi impacchettate (`art/meshy/pack.py`: `<nome>.mesh` con 1200 e 450 triangoli,
   `<nome>.png`, `<nome>.rig` dal rigging di Meshy, `tools/meshy_rig.py`). `art/meshyrig.py`
   le mette sugli scheletri degli eroi (da A-pose alla posa di riposo, un osso a vertice dal

@@ -19,9 +19,9 @@ concurrency:
   cancel-in-progress: false
 
 env:
-  # the branch of bm with scripts/mkmarket.py (claude/bare-metal-mvp once
-  # bm-store is merged): the repository variable BM_REF, if set
-  BM_REF: ${{ vars.BM_REF || 'bm-store' }}
+  # the branch of bm with scripts/mkmarket.py (its main branch): the
+  # repository variable BM_REF, if set
+  BM_REF: ${{ vars.BM_REF || 'baremetalcore' }}
 
 jobs:
   check:
