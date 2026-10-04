@@ -66,6 +66,13 @@ static int read_back(const char *path, const uint8_t *want, size_t len)
     return ok;
 }
 
+/* fat_load_tick: counts the clusters, stops the read at the one asked */
+static int ticks, stop_at;
+static int tick(void)
+{
+    return ++ticks == stop_at;
+}
+
 static uint8_t *slurp(const char *path, size_t *len)
 {
     FILE *f = fopen(path, "rb");
@@ -143,6 +150,40 @@ int main(int argc, char **argv)
         }
     }
     CHECK(read_back("/bm/save/snake.sav", last, last_len));
+
+    /* the start of a file (a cartridge's cover), and a read stopped half way
+     * (a fiber of the menu that has to end) */
+    {
+        fat_entry_t pe;
+        uint8_t *data;
+        size_t n;
+        CHECK(fat_find(argv[3], &pe) == 0);
+        size_t want = orig_len < 1000 ? orig_len : 1000;
+        CHECK(fat_load_part(&pe, 1000, &data, &n) == 0 && n == want && memcmp(data, orig, want) == 0);
+        free(data);
+        CHECK(fat_load_part(&pe, orig_len + 5000, &data, &n) == 0 && n == orig_len && memcmp(data, orig, n) == 0);
+        free(data);
+        uint8_t *big = pattern(70000, 4242);
+        CHECK(fat_write_file("/bm/save", "BIG.SAV", big, 70000) == 0);
+        CHECK(fat_find("/bm/save/big.sav", &pe) == 0);
+        fat_load_tick = tick;
+        ticks = 0;
+        stop_at = 0;
+        CHECK(fat_load(&pe, &data, &n) == 0 && n == 70000 && memcmp(data, big, n) == 0 && ticks > 1);
+        free(data);
+        const int clusters = ticks;
+        ticks = 0;
+        stop_at = 2;
+        CHECK(fat_load(&pe, &data, &n) != 0 && data == NULL && strcmp(fat_error(), "stopped") == 0);
+        CHECK(ticks == 2 && clusters > 2);
+        ticks = 0;
+        stop_at = 0;
+        CHECK(fat_load_part(&pe, 3000, &data, &n) == 0 && n == 3000 && memcmp(data, big, n) == 0 && ticks < clusters);
+        free(data);
+        fat_load_tick = NULL;
+        free(big);
+        CHECK(fat_delete("/bm/save/BIG.SAV") == 0);     /* run.py counts the files */
+    }
 
     /* the rest of the card is untouched, and it reads the same after a remount */
     CHECK(read_back(argv[3], orig, orig_len));

@@ -40,11 +40,18 @@ typedef struct {
 /* the group names, as the tab shows them */
 extern const char *const lib_groups[LIB_GROUPS];
 
-/* Reads every file again (after a save, a copy, a new card). */
-void lib_scan(void);
-/* The list is out of date: lib_ready() says so until lib_scan(). */
+/* The work of the tab in the menu's free time (2026-10-04: in a fiber, the
+ * menu never waits): the list is read when it is out of date, then the
+ * file of the item the preview waits for, a slice at a time until `until`. */
+void lib_tick(uint32_t until);
+/* Stops that work now (it goes on later): before the list changes, an
+ * application runs, the card is written. */
+void lib_job_stop(void);
+/* The list is out of date: lib_ready() says so until lib_tick() has read it. */
 void lib_invalidate(void);
 int lib_ready(void);
+/* While it is read: the files read and those to read. */
+void lib_progress(int *done, int *total);
 
 int lib_items(void);
 const lib_item_t *lib_item(int i);
@@ -52,20 +59,27 @@ const lib_source_t *lib_source(int s);
 int lib_sources(void);
 
 /* The file of a source, read and parsed (kept until another is opened):
- * NULL if it cannot be read. */
+ * NULL if it cannot be read. Outside the tab's fiber it stops it first. */
 const bm_cart_t *lib_open(int source);
+/* The same only if it is open already (never reads). */
+const bm_cart_t *lib_peek(int source);
 
 /* The lines under the preview of an item: its name, its numbers, where it
  * is; with_info also author and licence, and tags (INFO of the part, else
- * of the file: the file is read). */
+ * of the file) if its file is open already. */
 void lib_details(const lib_item_t *it, char lines[5][48], int with_info);
 
 /* The INFO type of an item ("model", "sprite", "song"...). */
 const char *lib_info_type(const lib_item_t *it);
 
 /* libview.c: the preview of an item in the box (menu_lib_t.preview; ctx is
- * the item), made when the item changes. */
+ * the item). What it needs is made by lib_tick (lib_view_work, in the
+ * fiber) when the item changes; until then a message. */
 void lib_preview(g16_t *g, int x, int y, int w, int h, void *ctx);
+/* 1 once the preview of the item is made (or cannot be: nothing to wait for) */
+int lib_preview_ready(const lib_item_t *it);
+int lib_view_pending(void);
+void lib_view_work(void);
 /* Y on an item: "Play" or "Stop" for the sounds (not while a game is
  * suspended: its bank waits in the player), else NULL. */
 const char *lib_play_label(const lib_item_t *it);

@@ -467,6 +467,51 @@ static void test_format(const char *path)
     free(d);
 }
 
+/* The cover read from the first bytes of a file (the menu reads only
+ * those): a cartridge built by hand, then cut short, without a cover, broken. */
+
+static void test_cover_peek(void)
+{
+    enum { CW = 3, CH = 2, COFF = BM_HEADER_SIZE + 2 * 16, CSIZE = 4 + CW * CH * 4, LOFF = COFF + CSIZE, N = LOFF + 8 };
+    static uint8_t d[N];
+    memset(d, 0, sizeof d);
+    memcpy(d, "BMCART\0\0", 8);
+    d[8] = 1;
+    d[10] = BM_HEADER_SIZE;
+    d[12] = 320 & 255; d[13] = 320 >> 8; d[14] = 180;
+    d[16] = 1;
+    d[17] = 2;                                  /* COVER, then LUA */
+    put32(d + BM_HEADER_SIZE, BM_SEC_COVER);
+    put32(d + BM_HEADER_SIZE + 4, COFF);
+    put32(d + BM_HEADER_SIZE + 8, CSIZE);
+    put32(d + BM_HEADER_SIZE + 16, BM_SEC_LUA);
+    put32(d + BM_HEADER_SIZE + 20, LOFF);
+    put32(d + BM_HEADER_SIZE + 24, 8);
+    d[COFF] = CW;
+    d[COFF + 2] = CH;
+    for (int i = 0; i < CW * CH * 4; i++)
+        d[COFF + 4 + i] = (uint8_t)(i * 7);
+    memcpy(d + LOFF, "x = 1   ", 8);
+
+    uint32_t need = 0;
+    const uint8_t *rgba = NULL;
+    int w = 0, h = 0;
+    CHECK(bm_cover_peek(d, N, &need, &rgba, &w, &h) == 1 && w == CW && h == CH && rgba == d + COFF + 4,
+          "cover from the whole file");
+    CHECK(bm_cover_peek(d, 64, &need, &rgba, &w, &h) == 0 && need == BM_HEADER_SIZE, "64 bytes: the header first");
+    CHECK(bm_cover_peek(d, BM_HEADER_SIZE, &need, &rgba, &w, &h) == 0 && need == COFF, "then the section table");
+    CHECK(bm_cover_peek(d, COFF + 4, &need, &rgba, &w, &h) == 0 && need == COFF + CSIZE, "then the cover");
+    CHECK(bm_cover_peek(d, COFF + CSIZE, &need, &rgba, &w, &h) == 1 && w == CW, "the cover without the rest");
+    d[COFF + 2] = 9;                            /* its size does not match */
+    CHECK(bm_cover_peek(d, N, &need, &rgba, &w, &h) == -1, "a broken cover");
+    d[COFF + 2] = CH;
+    put32(d + BM_HEADER_SIZE, BM_SEC_SHEET);    /* no COVER section */
+    CHECK(bm_cover_peek(d, N, &need, &rgba, &w, &h) == -1, "no cover");
+    put32(d + BM_HEADER_SIZE, BM_SEC_COVER);
+    memcpy(d, "NOTABM\0\0", 8);
+    CHECK(bm_cover_peek(d, N, &need, &rgba, &w, &h) == -1, "not a cartridge");
+}
+
 /* A SHEET8 section built by hand: palette, literal and repeated runs. */
 static uint8_t px8[4][8][4];
 
@@ -848,6 +893,7 @@ int main(int argc, char **argv)
     test_fade();
     test_3d();
     test_format(argc > 1 ? argv[1] : "build/demo.bm");
+    test_cover_peek();
     test_sheet8();
     test_mesh();
     test_pixel();

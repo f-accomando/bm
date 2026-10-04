@@ -192,15 +192,27 @@ static void load_cover(int i)
     fat_entry_t e;
     uint8_t *data = NULL;
     size_t len = 0;
-    bm_cart_t bc;
-    char err[8];
-    if (games[i].is_bm && fat_find(path, &e) == 0 && fat_load(&e, &data, &len) == 0 &&
-        bm_parse(data, len, &bc, err, sizeof err) == 0) {
-        if (bc.title[0])
-            ksnprintf(games[i].title, sizeof games[i].title, "%s", bc.title);
-        if (bc.cover_rgba)
-            menu_load_cover(&games[i].cover, bc.cover_rgba, bc.cover_w, bc.cover_h);
+    /* only the first bytes: the header, then COVER, the first section */
+    uint32_t need = 48 * 1024;
+    const uint8_t *rgba = NULL;
+    int w = 0, h = 0, r = -1;
+    for (int tries = 0; games[i].is_bm && tries < 3 && fat_find(path, &e) == 0; tries++) {
+        free(data);
+        data = NULL;
+        if (fat_load_part(&e, need, &data, &len) != 0)
+            break;
+        r = bm_cover_peek(data, len, &need, &rgba, &w, &h);
+        if (r || len >= e.size)
+            break;
     }
+    if (data && len >= BM_HEADER_SIZE && bm_is_cart(data) && data[24]) {
+        char t[49];
+        memcpy(t, data + 24, 48);
+        t[48] = 0;
+        ksnprintf(games[i].title, sizeof games[i].title, "%s", t);
+    }
+    if (r == 1)
+        menu_load_cover(&games[i].cover, rgba, w, h);
     free(data);
     if (!games[i].cover.px)
         menu_make_cover(&games[i].cover, games[i].title, games[i].is_bm ? "bm" : "b16");
@@ -263,6 +275,13 @@ static void page_message(const char *title, const char *lines[], int n)
  * ARM, no sound yet. Start + Select leaves. */
 #define PLAY_SECS (24u * 3600u)
 
+/* the reads and the CRC of a big game: the loading screen goes on */
+static int load_tick(void)
+{
+    loading_tick();
+    return 0;
+}
+
 static void play_bm(int i)
 {
     char path[80];
@@ -271,7 +290,8 @@ static void play_bm(int i)
     uint8_t *data = NULL;
     size_t len = 0;
     loading_begin(fb);                             /* the retro intro while it loads */
-    fat_load_tick = loading_tick;
+    fat_load_tick = load_tick;
+    bm_parse_tick = load_tick;
     if (fat_find(path, &e) != 0 || fat_load(&e, &data, &len) != 0) {
         loading_stop();
         const char *lines[] = { path, "", "cannot be read:", fat_error() };

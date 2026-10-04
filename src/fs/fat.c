@@ -312,9 +312,9 @@ int fat_read_head(const fat_entry_t *e, uint8_t buf[512])
     return 0;
 }
 
-void (*fat_load_tick)(void);
+int (*fat_load_tick)(void);
 
-int fat_load(const fat_entry_t *e, uint8_t **data, size_t *len)
+int fat_load_part(const fat_entry_t *e, size_t max, uint8_t **data, size_t *len)
 {
     *data = NULL;
     *len = 0;
@@ -322,8 +322,9 @@ int fat_load(const fat_entry_t *e, uint8_t **data, size_t *len)
         err = "not a file";
         return -1;
     }
+    const uint32_t size = e->size < max ? e->size : (uint32_t)max;
     uint32_t csize = vol.spc * 512;
-    uint8_t *buf = malloc(e->size ? e->size : 1);
+    uint8_t *buf = malloc(size ? size : 1);
     uint8_t *tmp = malloc(csize);
     if (!buf || !tmp) {
         free(buf);
@@ -332,12 +333,12 @@ int fat_load(const fat_entry_t *e, uint8_t **data, size_t *len)
         return -1;
     }
     uint32_t c = e->cluster, done = 0;
-    while (done < e->size) {
+    while (done < size) {
         if (is_eoc(c) || c >= vol.clusters + 2) {
             err = "broken cluster chain";
             goto fail;
         }
-        uint32_t n = e->size - done < csize ? e->size - done : csize;
+        uint32_t n = size - done < csize ? size - done : csize;
         if (n == csize) {
             if (sd_read(cluster_lba(c), vol.spc, buf + done))
                 goto io;
@@ -347,14 +348,16 @@ int fat_load(const fat_entry_t *e, uint8_t **data, size_t *len)
             memcpy(buf + done, tmp, n);
         }
         done += n;
-        if (fat_load_tick)
-            fat_load_tick();
-        if (done < e->size)
+        if (fat_load_tick && fat_load_tick()) {
+            err = "stopped";
+            goto fail;
+        }
+        if (done < size)
             c = next_cluster(c);
     }
     free(tmp);
     *data = buf;
-    *len = e->size;
+    *len = size;
     return 0;
 io:
     err = "SD read error";
@@ -362,6 +365,11 @@ fail:
     free(tmp);
     free(buf);
     return -1;
+}
+
+int fat_load(const fat_entry_t *e, uint8_t **data, size_t *len)
+{
+    return fat_load_part(e, e->size, data, len);
 }
 
 /* ---------------------------------------------------------------- lookup */

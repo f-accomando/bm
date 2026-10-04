@@ -4,9 +4,11 @@
  * colours of a palette, the steps of a sound effect, the positions of a
  * song, the envelope of an instrument; Y plays the sounds. What an item
  * needs (its file, the sheet as pixels, the mesh, the bank) is made when
- * the item changes and kept while it stays.
+ * the item changes and kept while it stays: in the Lib tab's fiber
+ * (lib_view_work), a slice at a time, while the box says it is reading.
  */
 #include "lib.h"
+#include "fiber.h"
 #include "audio/audio.h"
 #include "audio/player.h"
 #include "bm/gfx16.h"
@@ -28,6 +30,9 @@
 #define C_BAR2  0xFFB040
 
 static const lib_item_t *cur;           /* the item the things below belong to */
+static int cur_ready;                   /* 1 made, -1 cannot be shown, 0 not yet */
+static const lib_item_t *want;          /* the item the preview waits for */
+static int want_w, want_h;
 static int sheet_src = -1;              /* the source of the decoded sheet */
 static g16_sheet_t sheet;
 static r3d_mesh_t mesh;
@@ -50,6 +55,11 @@ static uint16_t c16(uint32_t rgb) { return g16_rgb24(rgb); }
 
 static void set_px(void *ctx, int x, int y, const uint8_t rgba[4])
 {
+    static unsigned n;
+    if ((++n & 4095) == 0)
+        fiber_slice();                  /* a big sheet: the menu goes on */
+    if (fiber_cancelled())
+        return;
     g16_sheet_set(ctx, x, y, g16_rgb(rgba[0], rgba[1], rgba[2]), rgba[3] >= 128);
 }
 
@@ -69,6 +79,8 @@ static int load_sheet(int src, const bm_cart_t *c)
             for (int x = 0; x < c->sheet_w; x++)
                 set_px(&sheet, x, y, c->sheet_rgba + ((size_t)y * c->sheet_w + x) * 4);
     }
+    if (fiber_cancelled())
+        return -1;                      /* half made: again next time */
     for (int cy = 0; cy < sheet.h / G16_CELL; cy++)
         for (int cx = 0; cx < sheet.w / G16_CELL; cx++)
             g16_sheet_update_cell(&sheet, cx, cy);
@@ -402,14 +414,48 @@ static void draw_kit(g16_t *g, const bm_cart_t *c, int x, int y)
     }
 }
 
+int lib_view_pending(void)
+{
+    return want && (want != cur || !cur_ready);
+}
+
+/* in the Lib tab's fiber: what the item waited for needs */
+void lib_view_work(void)
+{
+    const lib_item_t *it = want;
+    if (!it || (it == cur && cur_ready))
+        return;
+    cur_ready = 0;
+    const int r = prepare(it, want_w, want_h);
+    if (fiber_cancelled()) {            /* stopped half way: made again next time */
+        cur = NULL;
+        return;
+    }
+    cur_ready = r == 0 ? 1 : -1;
+}
+
+int lib_preview_ready(const lib_item_t *it)
+{
+    return it && it == cur && cur_ready;
+}
+
 void lib_preview(g16_t *g, int x, int y, int w, int h, void *ctx)
 {
     const lib_item_t *it = ctx;
     if (!it)
         return;
-    if (it != cur && prepare(it, w, h) != 0)
+    want = it;                          /* lib_tick makes it */
+    want_w = w;
+    want_h = h;
+    if (it != cur || cur_ready != 1) {
+        if (it != cur || !cur_ready) {
+            static const char msg[] = "reading...";
+            g16_text(g, x + (w - (int)sizeof msg * 8 + 8) / 2 / 8 * 8, y + (h - 16) / 2 / 16 * 16, msg,
+                     c16(C_DIMT));
+        }
         return;
-    const bm_cart_t *c = lib_open(it->source);
+    }
+    const bm_cart_t *c = lib_peek(it->source);
     if (!c)
         return;
     if (playing) {
@@ -516,6 +562,8 @@ void lib_stop(void)
 void lib_view_reset(void)
 {
     forget(NULL);
+    cur_ready = 0;
+    want = NULL;
     lib_stop();
     g16_sheet_free(&sheet);
     sheet_src = -1;

@@ -43,9 +43,13 @@ int fat_read_head(const fat_entry_t *e, uint8_t buf[512]);
 
 /* Reads a whole file into a malloc'd buffer (caller frees). */
 int fat_load(const fat_entry_t *e, uint8_t **data, size_t *len);
-/* called after each cluster fat_load reads, if set (the games' loading
- * screen goes on while a big file is read) */
-extern void (*fat_load_tick)(void);
+/* The same with at most the first `max` bytes (a cartridge's cover: it
+ * comes first in the file). */
+int fat_load_part(const fat_entry_t *e, size_t max, uint8_t **data, size_t *len);
+/* Called after each cluster the two read, if set: the loading screen goes
+ * on, the menu's fibers give the CPU back. Nonzero stops the read (it
+ * fails, fat_error() "stopped"). */
+extern int (*fat_load_tick)(void);
 
 /* Finds a file or directory by path ("/bm/config.txt"). Returns 0. */
 int fat_find(const char *path, fat_entry_t *e);

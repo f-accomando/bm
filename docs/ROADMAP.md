@@ -1582,6 +1582,12 @@ Poi lo **splash di caricamento delle applicazioni** (al posto del log, per ogni 
 aperto dal menu: il "bm" in pixel art che cade e atterra con un jingle, poi un circolino che gira,
 niente titolo, finché l'applicazione non è caricata; `game_intro=0` lo spegne); prova `make
 test-loading`; da sentire sul Pi: il jingle.
+Poi il **lavoro del menu in background** (fibre di M25 per tutte le schede): le copertine di Games
+e Dev arrivano dopo l'apertura del menu leggendo solo l'inizio dei file, la scheda Lib legge
+elenco, file e anteprime a fette (prima apriva tutti i `.bm` per intero di colpo); il CRC è a
+tabella, circa 5 volte più veloce (anche il caricamento dei giochi). In QEMU con tutti i giochi
+sulla SD il menu aspetta al più 3 ms; prove `make test-fat`, `make test-bm` (`bm_cover_peek`), QEMU
+`test_lib_tab`, `test_menu_tabs`. **Da provare sul Pi**: l'apertura della scheda Lib, le copertine.
 
 ## M28 — Tastiera Bluetooth LE (M) — ✅ verificata sul Pi (2026-09-30)
 Richiesta 2026-09-30: una Logitech **MX Keys S** (con tastierino). È Bluetooth **Low

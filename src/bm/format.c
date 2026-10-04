@@ -24,13 +24,25 @@ static int fail(char *err, size_t n, const char *msg)
 
 /* Walks the runs of a SHEET8 section; with `set`, draws the pixels. Returns
  * 0 if the runs give exactly w*h valid indices. */
+int (*bm_parse_tick)(void);
+
+/* the long checks give the time to the others now and then (a stop is
+ * seen by parse at its end) */
+static void slice(void)
+{
+    if (bm_parse_tick)
+        (void)bm_parse_tick();
+}
+
 static int sheet8_walk(const uint8_t *p, uint32_t size, void (*set)(void *, int, int, const uint8_t *),
                        void *ctx)
 {
     unsigned w = rd16(p), h = rd16(p + 2), ncol = rd16(p + 4);
     const uint8_t *pal = p + 8, *q = pal + ncol * 4, *end = p + size;
-    uint32_t n = (uint32_t)w * h, i = 0;
+    uint32_t n = (uint32_t)w * h, i = 0, runs = 0;
     while (i < n) {
+        if ((++runs & 1023) == 0)
+            slice();
         if (q >= end)
             return -1;
         unsigned t = *q++, run, lit = t < 128;
@@ -150,6 +162,7 @@ int bm_mesh_check(const uint8_t *p, uint32_t size)
             if (rd16(fc) >= nv || rd16(fc + 2) >= nv || rd16(fc + 4) >= nv)
                 return -1;
         off += need;
+        slice();
     }
     return off == size ? (int)count : -1;
 }
@@ -270,6 +283,7 @@ static uint32_t rig_walk(const uint8_t *p, uint32_t room, int deep)
             off += nk * keysize;
             continue;
         }
+        slice();                        /* every key of every bone is checked */
         float prev = 0;
         for (unsigned k = 0; k < nk; k++, off += keysize) {
             float t = rdf32(p + off);
@@ -300,6 +314,7 @@ int bm_anim_check(const uint8_t *p, uint32_t size)
         if (!n)
             return -1;
         off += n;
+        slice();
     }
     return off == size ? (int)count : -1;
 }
@@ -398,6 +413,38 @@ int bm_is_res(const void *head8)
     return memcmp(head8, "BMRES\0\0\0", 8) == 0;
 }
 
+int bm_cover_peek(const uint8_t *d, size_t len, uint32_t *need, const uint8_t **rgba, int *w, int *h)
+{
+    *need = BM_HEADER_SIZE;
+    if (len < BM_HEADER_SIZE)
+        return len >= 8 && !bm_is_cart(d) && !bm_is_res(d) ? -1 : 0;
+    if (!(bm_is_cart(d) || bm_is_res(d)) || rd16(d + 8) != 1 || rd16(d + 10) != BM_HEADER_SIZE)
+        return -1;
+    const unsigned count = d[17];
+    *need = BM_HEADER_SIZE + count * 16;
+    if (len < *need)
+        return 0;
+    for (unsigned i = 0; i < count; i++) {
+        const uint8_t *e = d + BM_HEADER_SIZE + i * 16;
+        const uint32_t off = rd32(e + 4), size = rd32(e + 8);
+        if (rd32(e) != BM_SEC_COVER)
+            continue;
+        if (size < 4 || off < *need || (uint64_t)off + size > 0x7FFFFFFFu)
+            return -1;
+        *need = off + size;
+        if (len < *need)
+            return 0;
+        const int cw = rd16(d + off), ch = rd16(d + off + 2);
+        if (!cw || !ch || cw > 512 || ch > 512 || 4 + (uint64_t)cw * ch * 4 != size)
+            return -1;
+        *rgba = d + off + 4;
+        *w = cw;
+        *h = ch;
+        return 1;
+    }
+    return -1;
+}
+
 /* the sections a resource file of each kind may hold (bit = type) */
 #define BIT(t) (1u << (t))
 static const uint32_t res_allowed[BM_RES_KINDS] = {
@@ -440,7 +487,15 @@ static int parse(const uint8_t *d, size_t len, bm_cart_t *c, char *err, size_t e
         return fail(err, errlen, res_ok ? "not a .bm or a resource file" : "not a .bm cartridge");
     if (rd16(d + 8) != 1 || rd16(d + 10) != BM_HEADER_SIZE)
         return fail(err, errlen, "unsupported .bm version");
-    if (crc32(d + BM_HEADER_SIZE, (uint32_t)(len - BM_HEADER_SIZE)) != rd32(d + 20))
+    uint32_t crc = 0;
+    for (size_t at = BM_HEADER_SIZE; at < len;) {       /* in pieces: a big file takes a while */
+        const uint32_t n = len - at > 65536 ? 65536 : (uint32_t)(len - at);
+        crc = crc32_update(crc, d + at, n);
+        at += n;
+        if (bm_parse_tick && bm_parse_tick())
+            return fail(err, errlen, "stopped");
+    }
+    if (crc != rd32(d + 20))
         return fail(err, errlen, "CRC mismatch");
 
     if (bm_is_res(d)) {
@@ -569,6 +624,8 @@ static int parse(const uint8_t *d, size_t len, bm_cart_t *c, char *err, size_t e
             break;      /* unknown sections are ignored (forward compatible) */
         }
     }
+    if (bm_parse_tick && bm_parse_tick())
+        return fail(err, errlen, "stopped");
     if (c->sheet_rgba && c->sheet8)
         return fail(err, errlen, "two sheets");
     for (unsigned i = 0; i < c->zones; i++) {
