@@ -524,9 +524,10 @@ BM_COLOURS = [(248, 0, 0), (0, 252, 0), (0, 0, 248), (248, 252, 248)]
 
 def bar_icons(img):
     """The status icons at the right of the menu bar (M27): the column
-    spans [x0, x1) with light pixels in rows 8-39, right of the tabs."""
+    spans [x0, x1) with light pixels in rows 8-39, right of the tabs (Settings,
+    the last, ends at x 352 since the Lib tab)."""
     runs, start = [], None
-    for x in range(330, 640):
+    for x in range(362, 640):
         lit = any(sum(pixel(img, x, y)) > 450 for y in range(8, 40))
         if lit and start is None:
             start = x
