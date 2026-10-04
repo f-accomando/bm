@@ -703,51 +703,92 @@ static void scroll_mark(int cx, int cy, int dir, uint16_t c)
 #define VALUE_END   ((PANEL_X + PANEL_W) / 8 - 3)   /* values end before this column */
 
 /* faded: a question is over it */
-static void draw_panel(const menu_panel_t *p, int faded)
+/* a list of rows in a box from x, w wide: the title, MENU_PANEL_ROWS rows
+ * (the selected one on a pill; faded: grey, the focus is elsewhere; sel < 0:
+ * none), the line of help (p->help) at the bottom; values: the rows'
+ * values (else only the ">" of a submenu) */
+static void draw_list(const menu_panel_t *p, int x0, int w, int faded, int hit, int values)
 {
-    round_rect(PANEL_X - 2, PANEL_Y - 2, PANEL_W + 4, PANEL_H + 4, 16, c16(C_LINE));
-    round_rect(PANEL_X, PANEL_Y, PANEL_W, PANEL_H, 14, c16(C_BAR));
-    zone(PANEL_X - 2, PANEL_Y - 2, PANEL_W + 4, PANEL_H + 4, MENU_HIT_PANEL, 0, 1);
+    round_rect(x0 - 2, PANEL_Y - 2, w + 4, PANEL_H + 4, 16, c16(C_LINE));
+    round_rect(x0, PANEL_Y, w, PANEL_H, 14, c16(C_BAR));
+    const int col0 = x0 / 8, label_col = col0 + 3, value_end = (x0 + w) / 8 - 3;
     char buf[72];
     ksnprintf(buf, sizeof buf, "%s", p->title ? p->title : "");
-    buf[PANEL_W / 8 - 8] = 0;
-    g16_text(&g, (PANEL_COL + 2) * 8, 4 * 16, buf, c16(C_TEXT));
-    g16_rectfill(&g, PANEL_X + 16, 88, PANEL_W - 32, 1, c16(C_LINE));
+    if (w / 8 - 4 < (int)sizeof buf)
+        buf[w / 8 - 4] = 0;
+    g16_text(&g, (col0 + 2) * 8, 4 * 16, buf, c16(faded ? C_DIM : C_TEXT));
+    g16_rectfill(&g, x0 + 16, 88, w - 32, 1, c16(C_LINE));
     for (int i = 0; i < MENU_PANEL_ROWS && p->top + i < p->n; i++) {
         const menu_row_t *r = &p->rows[p->top + i];
         int row = PANEL_ROW0 + 2 * i, y = row * 16, sel = p->top + i == p->sel;
-        zone(PANEL_X + 16, y - 8, PANEL_W - 32, 32, MENU_HIT_ROW, p->top + i, 1);
+        zone(x0 + 16, y - 8, w - 32, 32, hit, p->top + i, 1);
         if (sel)
-            round_rect(PANEL_X + 16, y - 6, PANEL_W - 32, 28, 8, faded ? c16(C_LINE) : c16(C_TAB_ON));
+            round_rect(x0 + 16, y - 6, w - 32, 28, 8, faded ? c16(C_LINE) : c16(C_TAB_ON));
         sel = sel && !faded;
         uint16_t fg = sel ? c16(C_BAR) : r->kind == MENU_ROW_INFO ? c16(C_DIM) : c16(C_TEXT);
         uint16_t fv = sel ? c16(0x4A4A56) : r->kind == MENU_ROW_INFO ? c16(C_TEXT) : c16(C_DIM);
         ksnprintf(buf, sizeof buf, "%s", r->label ? r->label : "");
         buf[30] = 0;
-        g16_text(&g, LABEL_COL * 8, y, buf, fg);
-        const char *val = r->value ? r->value : "";
-        if (r->kind == MENU_ROW_CHOICE && sel)
+        g16_text(&g, label_col * 8, y, buf, fg);
+        const char *val = values && r->value ? r->value : "";
+        if (r->kind == MENU_ROW_CHOICE && sel && values)
             ksnprintf(buf, sizeof buf, "< %s >", val);
         else if (r->kind == MENU_ROW_SUB)
             ksnprintf(buf, sizeof buf, "%s%s>", val, val[0] ? "  " : "");
         else
             ksnprintf(buf, sizeof buf, "%s", val);
-        int max = VALUE_END - LABEL_COL - (int)strlen(r->label ? r->label : "") - 2;
+        int max = value_end - label_col - (int)strlen(r->label ? r->label : "") - 2;
         if (max > 34) max = 34;
         if (max < 0) max = 0;
         if ((int)strlen(buf) > max)
             buf[max] = 0;
-        g16_text(&g, (VALUE_END - (int)strlen(buf)) * 8, y, buf, fv);
+        g16_text(&g, (value_end - (int)strlen(buf)) * 8, y, buf, fv);
     }
     if (p->top > 0)
-        scroll_mark(PANEL_X + PANEL_W - 12, 100, -1, c16(C_DIM));
+        scroll_mark(x0 + w - 12, 100, -1, c16(C_DIM));
     if (p->top + MENU_PANEL_ROWS < p->n)
-        scroll_mark(PANEL_X + PANEL_W - 12, 268, 1, c16(C_DIM));
-    g16_rectfill(&g, PANEL_X + 16, 281, PANEL_W - 32, 1, c16(C_LINE));
+        scroll_mark(x0 + w - 12, 268, 1, c16(C_DIM));
+    g16_rectfill(&g, x0 + 16, 281, w - 32, 1, c16(C_LINE));
     if (p->help) {
         ksnprintf(buf, sizeof buf, "%s", p->help);
-        buf[PANEL_W / 8 - 4] = 0;
-        g16_text(&g, (PANEL_COL + 2) * 8, 18 * 16, buf, c16(C_DIM));
+        if (w / 8 - 4 < (int)sizeof buf)
+            buf[w / 8 - 4] = 0;
+        g16_text(&g, (col0 + 2) * 8, 18 * 16, buf, c16(C_DIM));
+    }
+}
+
+static void draw_panel(const menu_panel_t *p, int faded)
+{
+    zone(PANEL_X - 2, PANEL_Y - 2, PANEL_W + 4, PANEL_H + 4, MENU_HIT_PANEL, 0, 1);
+    draw_list(p, PANEL_X, PANEL_W, faded, MENU_HIT_ROW, 1);
+}
+
+/* ---------------------------------------------------------------- the Settings page */
+
+#define C_PAGE      0x0E0E12
+#define SECTIONS_W  (25 * 8)                    /* the left column on the Pi */
+
+static void draw_page(const menu_page_t *pg, int faded)
+{
+    g16_rectfill(&g, 0, BAR_H, SW, FOOT_Y - BAR_H, c16(C_PAGE));
+    if (WIDE) {
+        /* the help of the focused list under the rows (the wide box) */
+        const int rx = 2 * 8 + SECTIONS_W + 8;
+        menu_panel_t sec = *pg->sections;
+        sec.help = NULL;
+        draw_list(&sec, 2 * 8, SECTIONS_W, faded || pg->focus != 0,
+                  pg->focus ? MENU_HIT_SECTION : MENU_HIT_ROW, 0);
+        if (pg->rows) {
+            menu_panel_t rows = *pg->rows;
+            if (!pg->focus)
+                rows.help = pg->sections->help;
+            zone(rx - 2, PANEL_Y - 2, SW - 2 * 8 - rx + 4, PANEL_H + 4, MENU_HIT_PANEL, 0, 1);
+            draw_list(&rows, rx, SW - 2 * 8 - rx, faded || pg->focus != 1,
+                      pg->focus ? MENU_HIT_ROW : MENU_HIT_PANEL, 1);
+        }
+    } else {
+        const menu_panel_t *p = pg->focus && pg->rows ? pg->rows : pg->sections;
+        draw_list(p, PANEL_X, PANEL_W, faded, MENU_HIT_ROW, 1);
     }
 }
 
@@ -1131,7 +1172,7 @@ void menu_ui_frame(framebuffer_t *fb, const menu_view_t *v)
     if (fabsf(scroll - (float)first_row) < 0.01f) scroll = (float)first_row;
 
     g16_clip(&g, 0, GRID_TOP, SW, GRID_BOT - GRID_TOP);
-    for (int i = 0; !v->lib && i < v->n; i++) {
+    for (int i = 0; !v->lib && !v->page && i < v->n; i++) {
         int row = i / cols, col = i % cols;
         int x = GRID_X0 + col * (CARD_W + GAP_X);
         int y = GRID_Y0 + (int)lroundf(((float)row - scroll) * PITCH_Y);
@@ -1160,10 +1201,12 @@ void menu_ui_frame(framebuffer_t *fb, const menu_view_t *v)
         }
     }
     g16_clip(&g, 0, 0, 0, 0);
-    if (!v->lib && v->n > 2 * cols)
+    if (!v->lib && !v->page && v->n > 2 * cols)
         scroll_bar((v->n + cols - 1) / cols, scroll);
     if (v->lib && !v->on_gear)
         draw_lib(v->lib);
+    if (v->page)
+        draw_page(v->page, v->ask != NULL);
 
     /* top bar: the tabs and Settings (the last tab: its panel; L1 / R1 move
      * between them), then the players and the network */
@@ -1198,7 +1241,7 @@ void menu_ui_frame(framebuffer_t *fb, const menu_view_t *v)
     status_icons(v);
 
     /* the name of the selected cartridge, on a pill */
-    if (v->panel || v->lib) {
+    if (v->panel || v->lib || v->page) {
         /* the panel covers it; the Lib tab has its groups there */
     } else if (v->banner) {
         char buf[72];
@@ -1224,7 +1267,7 @@ void menu_ui_frame(framebuffer_t *fb, const menu_view_t *v)
     g16_rectfill(&g, 16, FOOT_Y + 1, SW - 32, 1, c16(C_LINE));
     char buf[96];
     int shown = 0;
-    if (v->details && !v->panel) {
+    if (v->details && !v->panel && !v->page) {
         ksnprintf(buf, sizeof buf, "%s", v->details);
         buf[SW / 8 - 4] = 0;
         g16_text(&g, 2 * 8, 20 * 16, buf, c16(C_DIM));
@@ -1237,8 +1280,11 @@ void menu_ui_frame(framebuffer_t *fb, const menu_view_t *v)
         g16_text(&g, 2 * 8, (WIDE ? 21 : 20) * 16, buf, c16(C_DIM));
     }
     const int hc = WIDE ? 34 : 2;               /* where the hints start */
-    if (v->panel) {
-        const menu_row_t *r = v->panel->sel < v->panel->n ? &v->panel->rows[v->panel->sel] : NULL;
+    /* the hints of a panel, or of the Settings page's focused list */
+    const menu_panel_t *hp = v->panel ? v->panel
+                           : v->page ? (v->page->focus && v->page->rows ? v->page->rows : v->page->sections) : NULL;
+    if (hp) {
+        const menu_row_t *r = hp->sel >= 0 && hp->sel < hp->n ? &hp->rows[hp->sel] : NULL;
         col = WIDE ? 40 : hc;
         if (r && r->kind == MENU_ROW_CHOICE)
             col = hint(v, col, 21, BTN_CHANGE, "Change");

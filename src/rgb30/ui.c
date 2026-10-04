@@ -598,7 +598,8 @@ void ui_home(framebuffer_t *f)
         }
         v.details = details[0] ? details : NULL;
         v.note = note[0] ? note : NULL;
-        menu_panel_t panel;
+        menu_panel_t panel, sections;
+        menu_page_t page;
         frame++;
         if (depth) {
             /* rebuilt when it changes, and twice a second for the values
@@ -613,7 +614,10 @@ void ui_home(framebuffer_t *f)
             if (*ps < *pt) *pt = *ps;
             if (*ps >= *pt + MENU_PANEL_ROWS) *pt = *ps - MENU_PANEL_ROWS + 1;
             panel = (menu_panel_t){ pb.title, pb.rows, pb.n, *ps, *pt, pb.n ? pb.help[*ps] : NULL };
-            v.panel = &panel;
+            /* Settings is a page (the narrow screen: one list at a time) */
+            sections = panel;
+            page = (menu_page_t){ &sections, depth > 1 ? &panel : NULL, depth > 1 };
+            v.page = &page;
         }
         if (asking) {
             v.ask = ask_q;
@@ -652,6 +656,12 @@ void ui_home(framebuffer_t *f)
                 *ps = (*ps + dy + pb.n) % pb.n;
             const menu_row_t *r = pb.n ? &pb.rows[*ps] : NULL;
             int row = pb.n ? pb.ids[*ps] : 0;
+            /* right opens a section, left goes back to the sections (but
+             * changes a value on a choice), as on the Pi's page */
+            if (depth == 1 && dx > 0 && r && r->kind == MENU_ROW_SUB)
+                p |= pad_ok;
+            else if (depth > 1 && dx < 0 && (!r || r->kind != MENU_ROW_CHOICE))
+                p |= pad_back;
             if (p & pad_back) {
                 if (--depth == 0)
                     tab = TAB_DEV;

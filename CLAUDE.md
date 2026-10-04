@@ -212,6 +212,11 @@ screenshot in `docs/img/`), `README_OLD.md` (il README completo, in italiano),
   `#ifdef BM_RGB30`): Controllers, WiFi and network, Screen and sound, Updates, Reports, System,
   con dentro i comandi utili del monitor (scansione USB, prova della connessione, test pattern,
   prova del suono, il log). Un pannello nuovo o una riga nuova va lì, per tutti e due.
+  Settings è una **pagina a sé** (richiesta dell'utente), non un pannello sopra le copertine
+  (`menu_page_t`, `draw_page` in `menu_ui.c`): sul Pi le sezioni a sinistra e a destra le
+  righe della sezione (un'anteprima finché non ci si entra: destra o A entra, sinistra o B
+  torna); sulla RGB30, stretta, una lista alla volta. `home_sub_panel()` dà il pannello di
+  una sezione.
 - Test: Pi `test_menu_tabs`, `test_menu_scale`, `test_home_ui` (il giro delle Settings) e quelli
   del menu; RGB30 tutto `tests/rgb30/qemu_test.py` (la scheda e il titolo scelto si leggono
   sulla pillola).

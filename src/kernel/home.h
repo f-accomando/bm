@@ -65,6 +65,9 @@ int  home_prompts_colour(void);
  * RGB30: Controllers, WiFi and network, Screen and sound, Updates, Reports,
  * System). */
 void home_panel(int id, home_panel_t *p);
+/* The panel a row of Settings opens (0: none): the page shows it beside
+ * the sections before it is opened. */
+int  home_sub_panel(int row_id);
 /* Row `row_id` of panel `id` was chosen: how = 0 (A), -1 / +1 (left, right
  * on a choice), HOME_YES (the question was answered yes). */
 void home_act(int id, int row_id, int how, home_do_t *d);

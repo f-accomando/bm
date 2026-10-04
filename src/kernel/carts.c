@@ -857,9 +857,11 @@ void carts_menu(framebuffer_t *fb)
         /* the panel on top: rebuilt when it changes, and twice a second
          * for the values that move (pads, uptime) */
         menu_panel_t mp;
+        int rebuilt = 0;
         if (depth) {
             int id = stack[depth - 1].id;
             if (built != id || frame % 30 == 0) {
+                rebuilt = 1;
                 if (id == HOME_CART)
                     cart_panel(&pb);
                 else if (id == HOME_MARKET)
@@ -917,6 +919,30 @@ void carts_menu(framebuffer_t *fb)
                 .banner = on_market ? market_banner() : NULL,
                 .a_label = a_label, .idle = market_tick,
             };
+            /* Settings is a page: the sections on the left, the rows of the
+             * one chosen (or under the selection, as a preview) on the right */
+            static home_panel_t pside;
+            static int side_id;
+            menu_page_t page;
+            menu_panel_t sp, rp;
+            if (on_gear && depth && stack[0].id == HOME_SETTINGS) {
+                int want = depth == 1 ? (pb.n ? home_sub_panel(pb.ids[stack[0].sel]) : 0) : HOME_SETTINGS;
+                if (want && (rebuilt || side_id != want)) {
+                    home_panel(want, &pside);
+                    side_id = want;
+                }
+                if (depth == 1) {
+                    sp = mp;
+                    rp = (menu_panel_t){ pside.title, pside.rows, pside.n, -1, 0, NULL };
+                    page = (menu_page_t){ &sp, want ? &rp : NULL, 0 };
+                } else {
+                    sp = (menu_panel_t){ pside.title, pside.rows, pside.n, stack[0].sel, stack[0].top, NULL };
+                    rp = mp;
+                    page = (menu_page_t){ &sp, &rp, 1 };
+                }
+                v.page = &page;
+                v.panel = NULL;
+            }
             menu_lib_t lv;
             if (tab == TAB_LIB && !on_gear) {
                 /* the Lib tab: the files are read the frame after the
@@ -1109,6 +1135,11 @@ void carts_menu(framebuffer_t *fb)
                 if (h.kind == MENU_HIT_ROW && h.index < pb.n && (pt->moved || click)) {
                     *ps_ = h.index;
                     action = click ? 1 : action;
+                } else if (click && h.kind == MENU_HIT_SECTION && on_gear) {
+                    depth = 1;                  /* another section of the Settings page */
+                    built = -1;
+                    stack[0].sel = h.index;
+                    action = 1;
                 } else if (click && h.kind == MENU_HIT_BUTTON) {
                     action = h.index == 'A' ? 1 : action;
                     back = h.index == 'B';
@@ -1226,6 +1257,12 @@ void carts_menu(framebuffer_t *fb)
                 *ps = (*ps + dy + pb.n) % pb.n;
             const menu_row_t *r = pb.n ? &pb.rows[*ps] : NULL;
             int row = pb.n ? pb.ids[*ps] : 0;
+            /* the Settings page: right opens the section, left goes back to
+             * the sections (but changes a value on a choice) */
+            if (on_gear && depth == 1 && dx > 0 && r && r->kind == MENU_ROW_SUB)
+                action = 1;
+            else if (on_gear && depth == 2 && dx < 0 && (!r || r->kind != MENU_ROW_CHOICE))
+                back = 1;
             if (quit || back) {
                 depth--;
                 built = -1;

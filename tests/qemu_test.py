@@ -3213,7 +3213,7 @@ def test_update(b, opts):
             keys("\r")                              # A: back to the panel
             screen(["Check for updates", "v9.9.9: 4 files"])
             keys("s")                               # the row under it: install
-            screen(["Install the update", "v9.9.9", "keeps the old kernels in /bm/backup"])
+            screen(["Install the update", "v9.9.9", "Keeps the old kernels in /bm/backup"])
             keys("\r")
             screen(["Install bm v9.9.9?", "The console restarts when it is done.", "Install"])
             if opts.shots:

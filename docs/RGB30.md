@@ -134,8 +134,8 @@ prima di accendere lo schermo e il registro si scrive tre volte (prima dello sch
   (`src/kernel/menu_ui.c`: barra con le schede a pillola e le icone, copertine 128×80, due per
   riga, pannelli, suggerimenti dei tasti). Schede **Games** (giochi `.b16` e i `.bm`, con la loro
   copertina; con `show_bm=0` dice quante cartucce sono nascoste), **Dev** (3D Bench, Render bench,
-  Display, Input test, Boot log, Lua sulla seriale) e **Settings**, l'ultima, che apre il suo
-  pannello: dal 2026-10-04 le stesse sezioni del Pi (`src/kernel/settings.c`): Controllers
+  Display, Input test, Boot log, Lua sulla seriale) e **Settings**, l'ultima, una pagina a sé:
+  dal 2026-10-04 le stesse sezioni del Pi (`src/kernel/settings.c`): Controllers
   (Bluetooth, abbinare pad, tastiere e mouse, prova dei tasti, *Confirm button*, layout della
   tastiera, icone), WiFi and network (rete salvata, indirizzo, console di rete, collegarsi,
   *Test the connection*), Screen and sound (i modi dello schermo, l'overlay delle prestazioni; il

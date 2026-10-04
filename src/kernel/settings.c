@@ -414,7 +414,7 @@ void home_panel(int id, home_panel_t *p)
                  "The latest release on GitHub, signed: what would change", "%s", update_state());
         if (update_ready())
             home_row(p, MENU_ROW_ACTION, R_INSTALL, "Install the update",
-                     "Downloads, checks, keeps the old kernels in /bm/backup, restarts", "%s", update_ready());
+                     "Keeps the old kernels in /bm/backup, restarts", "%s", update_ready());
         break;
     case HOME_REPORTS:
         ksnprintf(p->title, sizeof p->title, "Settings > Reports");
@@ -492,6 +492,19 @@ void home_panel(int id, home_panel_t *p)
         break;
     }
     }
+}
+
+int home_sub_panel(int row)
+{
+    switch (row) {
+    case R_CONTROLLERS: return HOME_CONTROLLERS;
+    case R_WIFI: return HOME_WIFI;
+    case R_SCREEN: return HOME_GRAPHICS;
+    case R_UPDATES: return HOME_UPDATES;
+    case R_REPORTS_SUB: return HOME_REPORTS;
+    case R_SYSTEM: return HOME_SYSTEM;
+    }
+    return 0;
 }
 
 /* ---------------------------------------------------------------- the rows that run */
@@ -685,12 +698,10 @@ void home_act(int id, int row, int how, home_do_t *d)
     d->what = HOME_STAY;
     (void)id;
     switch (row) {
-    case R_CONTROLLERS: d->what = HOME_OPEN; d->panel = HOME_CONTROLLERS; break;
-    case R_WIFI: d->what = HOME_OPEN; d->panel = HOME_WIFI; break;
-    case R_SYSTEM: d->what = HOME_OPEN; d->panel = HOME_SYSTEM; break;
-    case R_SCREEN: d->what = HOME_OPEN; d->panel = HOME_GRAPHICS; break;
-    case R_UPDATES: d->what = HOME_OPEN; d->panel = HOME_UPDATES; break;
-    case R_REPORTS_SUB: d->what = HOME_OPEN; d->panel = HOME_REPORTS; break;
+    case R_CONTROLLERS: case R_WIFI: case R_SYSTEM: case R_SCREEN: case R_UPDATES: case R_REPORTS_SUB:
+        d->what = HOME_OPEN;
+        d->panel = home_sub_panel(row);
+        break;
     case R_LAYOUT:
         hid_set_layout(hid_layout()[0] == 'i' ? "us" : "it");
         config_save();

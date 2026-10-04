@@ -55,6 +55,16 @@ typedef struct {
     const char *help;           /* under the rows: about the selected one */
 } menu_panel_t;
 
+/* Settings as a page of its own (2026-10-04), not a panel over the covers:
+ * on the Pi the sections on the left and the chosen one's rows on the right
+ * (a preview while the sections have the focus); on the RGB30's narrow
+ * screen the focused list alone. */
+typedef struct {
+    const menu_panel_t *sections;   /* the left column (Controllers, ... System) */
+    const menu_panel_t *rows;       /* the section's rows, or NULL; sel < 0: none chosen */
+    int focus;                      /* 0: the sections, 1: the rows */
+} menu_page_t;
+
 /* The Lib tab (docs/RISORSE.md): the groups along the top, the list on
  * the left (a grey row for each file, then its resources), the preview and
  * the details on the right. */
@@ -107,6 +117,7 @@ typedef struct {
     const char *details;        /* line under the grid (path, size) */
     const char *note;           /* last game, errors */
     const menu_panel_t *panel;  /* a submenu over the grid, or NULL */
+    const menu_page_t *page;    /* Settings: a page instead of the grid, or NULL */
     const menu_lib_t *lib;      /* the Lib tab instead of the grid, or NULL */
     const char *ask;            /* a question over everything (A yes, B no), or NULL */
     const char *ask_detail;
@@ -122,9 +133,11 @@ typedef struct {
  * topmost thing: a cover (index; full = not cut by the edges of the grid),
  * a tab (index), Settings, a row of the panel (index in its rows), a
  * button of the hints (index 'A', 'B', 'X' or 'Y'), the panel or the
- * question elsewhere, a group or a row of the Lib tab (index), or nothing. */
+ * question elsewhere, a group or a row of the Lib tab (index), a section of
+ * the Settings page (index), or nothing. */
 enum { MENU_HIT_NONE, MENU_HIT_COVER, MENU_HIT_TAB, MENU_HIT_SETTINGS, MENU_HIT_ROW,
-       MENU_HIT_BUTTON, MENU_HIT_PANEL, MENU_HIT_ASK, MENU_HIT_GROUP, MENU_HIT_LIB };
+       MENU_HIT_BUTTON, MENU_HIT_PANEL, MENU_HIT_ASK, MENU_HIT_GROUP, MENU_HIT_LIB,
+       MENU_HIT_SECTION };         /* a section of the Settings page while its rows have the focus */
 typedef struct { int kind, index, full; } menu_hit_t;
 menu_hit_t menu_ui_hit(int x, int y);
 
