@@ -244,11 +244,19 @@ typedef struct {
 } bm_model_t;
 
 int bm_parse(const uint8_t *data, size_t len, bm_cart_t *c, char *err, size_t errlen);
+/* Called every 64 KiB of the CRC check, if set (the loading screen, the
+ * menu's fibers); nonzero stops the parse (it fails: "stopped"). */
+extern int (*bm_parse_tick)(void);
 /* bm_parse for a cartridge or a resource file ("BMRES": no code, the
  * sections of its kind; c->kind says which). */
 int bm_parse_any(const uint8_t *data, size_t len, bm_cart_t *c, char *err, size_t errlen);
 /* 1 if these first 8 bytes are the magic of a resource file. */
 int bm_is_res(const void *head8);
+/* The COVER from the first bytes of a file (it comes first, so the menu
+ * reads only those; no CRC: the whole file is checked when it is played).
+ * 1 with the picture, 0 if more bytes are needed (*need says how many:
+ * read that much and ask again), -1 if there is no cover or it is broken. */
+int bm_cover_peek(const uint8_t *d, size_t len, uint32_t *need, const uint8_t **rgba, int *w, int *h);
 /* Zone i (0-based) of a parsed file's SPRITES: 0, or -1 if there is none. */
 int bm_zone(const bm_cart_t *c, int i, bm_zone_t *z);
 /* Box i (0-based) of a parsed file's BOXES: 0, or -1 if there is none. */

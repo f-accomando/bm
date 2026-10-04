@@ -28,6 +28,7 @@
 #include "notice.h"
 #include "bm/loading.h"
 #include "ledstate.h"
+#include "fiber.h"
 
 #include <stdarg.h>
 #include <stdio.h>
@@ -54,6 +55,7 @@ typedef struct {
     uint32_t size;
     fat_entry_t fe;
     g16_sheet_t cover;          /* printed on the card in the menu (px NULL: none) */
+    uint8_t cover_read;         /* the covers' fiber has been at it (else a placeholder) */
     char path[FAT_NAME_MAX + 10];
     char save[32];              /* its save file (.bm), "" if none */
 } cart_t;
@@ -160,25 +162,140 @@ static int title_cmp(const void *a, const void *b)
     }
 }
 
+/* ---------------------------------------------------------------- covers in the background
+ *
+ * The menu opens at once with the titles (the Market's placeholders); the
+ * covers come in a fiber in the menu's free time (2026-10-04, the user's
+ * request: smooth with any number of games), the ones on screen first. Of
+ * a file only its first bytes are read: COVER is the first section. */
+
+/* the tabs of the graphical menu (carts_menu) */
+enum { TAB_MARKET, TAB_GAMES, TAB_DEV, TAB_LIB, TAB_SETTINGS };
+
+static fiber_job_t cover_job;
+static int cover_tab = TAB_GAMES, cover_sel = -1;      /* what the menu shows: its covers first */
+
+static int is_dev(const cart_t *c);
+
 /* The cover from the .bm COVER section, or a label with the title. */
-static void load_cover(cart_t *c)
+static void read_cover(cart_t *c)
 {
-    bm_cart_t bc;
-    char err[8];
+    const uint8_t *rgba = NULL;
+    int w = 0, h = 0, r = -1;
+    uint32_t need = 48 * 1024;          /* header, sections, an 88x88 or 128x80 cover: one read */
     uint8_t *data = NULL;
-    size_t len = c->size;
-    const uint8_t *d = c->builtin;
-    if (!d && fat_load(&c->fe, &data, &len) == 0)
-        d = data;
-    if (d && bm_parse(d, len, &bc, err, sizeof err) == 0 && bc.cover_rgba)
-        menu_load_cover(&c->cover, bc.cover_rgba, bc.cover_w, bc.cover_h);
+    if (c->builtin) {
+        r = bm_cover_peek(c->builtin, c->size, &need, &rgba, &w, &h);
+    } else {
+        for (int tries = 0; tries < 3; tries++) {
+            size_t len;
+            free(data);
+            data = NULL;
+            if (fat_load_part(&c->fe, need, &data, &len) != 0)
+                break;
+            r = bm_cover_peek(data, len, &need, &rgba, &w, &h);
+            if (r || len >= c->size)
+                break;
+        }
+    }
+    if (fiber_cancelled()) {            /* stopped half way: read it next time */
+        free(data);
+        return;
+    }
+    g16_sheet_t s = { 0 };
+    if (r == 1)
+        menu_load_cover(&s, rgba, w, h);
     free(data);
-    if (!c->cover.px)
-        menu_make_cover(&c->cover, c->title, "bm");
+    if (!s.px)
+        menu_make_cover(&s, c->title, "bm");
+    c->cover = s;
+    c->cover_read = 1;
+}
+
+/* the next cover to read: the ones of the tab shown, nearest to the
+ * selection first, then the others */
+static int next_cover(void)
+{
+    int best = -1, best_d = 1 << 30;
+    if (cover_tab == TAB_GAMES || cover_tab == TAB_DEV) {
+        const int dev = cover_tab == TAB_DEV;
+        int sel_pos = 0;
+        for (int i = 0, pos = 0; i < ncarts; i++)
+            if (is_dev(&carts[i]) == dev) {
+                if (i == cover_sel)
+                    sel_pos = pos;
+                pos++;
+            }
+        for (int i = 0, pos = 0; i < ncarts; i++) {
+            if (is_dev(&carts[i]) != dev)
+                continue;
+            const int d = pos > sel_pos ? pos - sel_pos : sel_pos - pos;
+            pos++;
+            if (!carts[i].cover_read && d < best_d) {
+                best = i;
+                best_d = d;
+            }
+        }
+    }
+    for (int i = 0; best < 0 && i < ncarts; i++)
+        if (!carts[i].cover_read)
+            best = i;
+    return best;
+}
+
+static void covers_main(void *arg)
+{
+    (void)arg;
+    int i;
+    while (!fiber_cancelled() && (i = next_cover()) >= 0) {
+        read_cover(&carts[i]);
+        fiber_slice();
+    }
+}
+
+static void covers_tick(uint32_t until)
+{
+    if (!cover_job.busy) {
+        if (next_cover() < 0 || fiber_job_start(&cover_job, 16 * 1024, covers_main, NULL) != 0)
+            return;
+    }
+    fiber_job_run(&cover_job, until);
+}
+
+/* the SD card's reads: the loading screen goes on, a fiber of the menu gives
+ * the CPU back when its time is over (and stops when asked) */
+static int sd_tick(void)
+{
+    loading_tick();
+    fiber_slice();
+    return fiber_cancelled();
+}
+
+/* the menu's free time in a frame (menu_view_t.idle): the work of the tab
+ * shown first */
+static void menu_idle(uint32_t until)
+{
+    if (cover_tab == TAB_LIB) {
+        lib_tick(until);
+        covers_tick(until);
+    } else {
+        covers_tick(until);
+        market_tick(until);
+    }
+}
+
+/* Before the list changes, an application runs or the card is written:
+ * the work in the background stops (what it held is freed) and goes on
+ * later from where it was. */
+static void background_stop(void)
+{
+    fiber_job_stop(&cover_job);
+    lib_job_stop();
 }
 
 static void rescan(void)
 {
+    background_stop();
     lib_invalidate();                   /* the Lib tab reads the files again */
     /* SD cartridges by title, then the SDK. The native demo built into
      * the kernel is not a game of the menu (monitor `n`). */
@@ -210,8 +327,7 @@ static void rescan(void)
             ksnprintf(c->path, sizeof c->path, "%s", c->name);
         else
             ksnprintf(c->path, sizeof c->path, "%s%s%s", c->dir, strcmp(c->dir, "/") ? "/" : "", c->name);
-        load_cover(c);
-    }
+    }                                   /* the covers: covers_tick, in the menu's free time */
     market_carts_changed();
 }
 
@@ -227,7 +343,8 @@ void carts_init(void)
         sd_ok = 1;
     }
     ledstate_set(LED_NO_SD, !sd_ok);
-    fat_load_tick = loading_tick;       /* a game's loading screen goes on while its file is read */
+    fat_load_tick = sd_tick;            /* the loading screen, the menu's fibers */
+    bm_parse_tick = sd_tick;
     rescan();
     if (sd_ok)
         kprintf("sd: %s card (%s), %s; %d cartridges\n", sd_is_hc() ? "SDHC" : "SD",
@@ -603,8 +720,6 @@ static void draw(int sel, int top, int rows)
  * development tools (the SDK, then the tools of home.c), and Settings. For
  * Games and Dev `idx` gets what the tab shows: a cartridge index, or -1 - n
  * for tool n. */
-enum { TAB_MARKET, TAB_GAMES, TAB_DEV, TAB_LIB, TAB_SETTINGS };
-
 static int tab_items(int tab, int *idx)
 {
     int n = 0;
@@ -743,6 +858,7 @@ static void cart_act(int row, int how, home_do_t *d)
             }
             char path[sizeof c->path];
             ksnprintf(path, sizeof path, "%s", c->path);
+            background_stop();          /* no read of it left half way */
             if (fat_delete(path) == 0) {
                 ksnprintf(d->note, sizeof d->note, "deleted %s", path);
                 d->what = HOME_BACK;
@@ -767,32 +883,35 @@ static int lib_row_item[LIB_ROWS_MAX];  /* the item of a row, -1 for a file's ro
 static char lib_counts[LIB_SOURCES_SHOWN][8];
 static int lib_nrows;
 
-/* the rows of the group: a row for each file that has some, then its items */
+/* the rows of the group: a row for each file that has some, then its items
+ * (lib.c adds the items file after file: one pass) */
 static void lib_build(void)
 {
     lib_nrows = 0;
-    int nfiles = 0;
-    for (int s = 0; s < lib_sources() && lib_nrows < LIB_ROWS_MAX; s++) {
-        int head = -1, count = 0;
-        for (int i = 0; i < lib_items() && lib_nrows < LIB_ROWS_MAX; i++) {
-            const lib_item_t *it = lib_item(i);
-            if (it->source != s || it->group != lib_group)
-                continue;
-            if (head < 0) {
-                if (nfiles >= LIB_SOURCES_SHOWN || lib_nrows + 1 >= LIB_ROWS_MAX)
-                    break;
-                head = lib_nrows++;
-                lib_rows[head] = (menu_lib_row_t){ lib_source(s)->file, lib_counts[nfiles], 1 };
-                lib_row_item[head] = -1;
-                nfiles++;
-            }
-            lib_rows[lib_nrows] = (menu_lib_row_t){ it->name, it->tag, 0 };
-            lib_row_item[lib_nrows++] = i;
-            count++;
+    int nfiles = 0, head = -1, count = 0, src = -1;
+    for (int i = 0; i < lib_items() && lib_nrows < LIB_ROWS_MAX; i++) {
+        const lib_item_t *it = lib_item(i);
+        if (it->group != lib_group)
+            continue;
+        if (it->source != src) {
+            if (head >= 0)
+                ksnprintf((char *)lib_rows[head].value, 8, "%d", count);
+            head = -1;
+            count = 0;
+            src = it->source;
+            if (nfiles >= LIB_SOURCES_SHOWN || lib_nrows + 1 >= LIB_ROWS_MAX)
+                break;
+            head = lib_nrows++;
+            lib_rows[head] = (menu_lib_row_t){ lib_source(src)->file, lib_counts[nfiles], 1 };
+            lib_row_item[head] = -1;
+            nfiles++;
         }
-        if (head >= 0)
-            ksnprintf((char *)lib_rows[head].value, 8, "%d", count);
+        lib_rows[lib_nrows] = (menu_lib_row_t){ it->name, it->tag, 0 };
+        lib_row_item[lib_nrows++] = i;
+        count++;
     }
+    if (head >= 0)
+        ksnprintf((char *)lib_rows[head].value, 8, "%d", count);
 }
 
 /* the selected row moved by dy items (never onto a file's row) */
@@ -844,7 +963,7 @@ void carts_menu(framebuffer_t *fb)
      * whose panel opens when it is the tab (on_gear); L1 / R1 move between
      * them. Games comes first. */
     int tab = TAB_GAMES, on_gear = 0, tsel[4] = { 0, 0, 0, 0 };
-    int lib_wait = 0, lib_still = 0, lib_last = -1;     /* the Lib tab: reading, the selection at rest */
+    int lib_still = 0, lib_last = -1, lib_info = 0;     /* the Lib tab: the selection at rest, its INFO shown */
     char lib_lines[5][48], lib_path[64] = "", lib_name[16] = "";
     int sel = 0, top = 0, redraw = 1, esc = 0;
     uint32_t prev_btn = hid_buttons(), repeat_at = 0;
@@ -923,8 +1042,11 @@ void carts_menu(framebuffer_t *fb)
                 const cart_t *c = &carts[idx[i]];
                 items[i] = (menu_item_t){ .title = c->title, .author = c->author, .path = c->path, .kind = "bm",
                                           .size = c->size, .cover = c->cover.px ? &c->cover : NULL,
-                                          .running = is_suspended(c) };
+                                          .loading = !c->cover_read, .running = is_suspended(c) };
             }
+            /* the covers still to read: the tab's, from the selection */
+            cover_tab = on_gear ? TAB_SETTINGS : tab;
+            cover_sel = (tab == TAB_GAMES || tab == TAB_DEV) && n && idx[tsel[tab]] >= 0 ? idx[tsel[tab]] : -1;
             details[0] = 0;
             if (tab == TAB_MARKET) {
                 market_details(tsel[tab], details, sizeof details);
@@ -948,7 +1070,7 @@ void carts_menu(framebuffer_t *fb)
                 .details = details, .note = on_market ? market_status() : last_msg,
                 .panel = depth ? &mp : NULL,
                 .banner = on_market ? market_banner() : NULL,
-                .a_label = a_label, .idle = market_tick,
+                .a_label = a_label, .idle = menu_idle,
             };
             /* Settings is a page: the sections on the left, the rows of the
              * one chosen (or under the selection, as a preview) on the right */
@@ -976,15 +1098,11 @@ void carts_menu(framebuffer_t *fb)
             }
             menu_lib_t lv;
             if (tab == TAB_LIB && !on_gear) {
-                /* the Lib tab: the files are read the frame after the
-                 * message (it takes a while on a full card) */
-                if (!lib_ready() && !lib_wait) {
-                    lib_wait = 2;
-                } else if (lib_wait && !--lib_wait) {
-                    lib_scan();
+                /* the Lib tab: the files are read in its fiber (lib_tick,
+                 * the menu's free time), the menu goes on meanwhile */
+                if (!lib_ready()) {
                     lib_last = -2;
-                }
-                if (lib_ready() && lib_last == -2) {
+                } else if (lib_last == -2) {
                     lib_build();
                     lib_move(0);
                     lib_last = -1;
@@ -992,9 +1110,22 @@ void carts_menu(framebuffer_t *fb)
                 const lib_item_t *it = lib_ready() ? lib_current() : NULL;
                 int key = it ? (int)(it - lib_item(0)) : -1;
                 lib_still = key == lib_last ? lib_still + 1 : 0;
-                lib_last = key;
-                if (lib_still == 0 || lib_still == 8) /* the INFO lines once the selection rests */
-                    lib_details(it, lib_lines, lib_still >= 8);
+                if (lib_last != -2)
+                    lib_last = key;
+                if (lib_still == 0) {
+                    lib_details(it, lib_lines, 0);
+                    lib_info = 0;
+                } else if (lib_still >= 8 && !lib_info && lib_preview_ready(it)) {
+                    lib_details(it, lib_lines, 1);  /* the INFO lines once its file is open */
+                    lib_info = 1;
+                }
+                static char reading[48];
+                int done_, total_;
+                lib_progress(&done_, &total_);
+                if (total_)
+                    ksnprintf(reading, sizeof reading, "reading the SD card: %d/%d", done_, total_);
+                else
+                    ksnprintf(reading, sizeof reading, "reading the SD card...");
                 const lib_source_t *src = it ? lib_source(it->source) : NULL;
                 static const char *const open_in[LIB_GROUPS] = {
                     "Open in bm Studio", "Open in bm Pixel", "Open in Sound", "Open in SDK", "Open in bm Pixel", NULL };
@@ -1002,8 +1133,7 @@ void carts_menu(framebuffer_t *fb)
                     .groups = lib_groups, .ngroups = LIB_GROUPS, .group = lib_group,
                     .rows = lib_rows, .n = lib_ready() ? lib_nrows : 0,
                     .sel = lib_sel[lib_group], .top = lib_top[lib_group],
-                    .empty = !lib_ready() ? "reading the SD card..." : sd_ok ? "nothing of this kind yet"
-                                                                            : "no SD card",
+                    .empty = !lib_ready() ? reading : sd_ok ? "nothing of this kind yet" : "no SD card",
                     .open = src && src->kind == BM_RES_CART ? open_in[lib_group] : NULL,
                     .play = lib_play_label(it),
                     /* the preview once the selection rests (its file is read) */
@@ -1538,6 +1668,7 @@ void carts_menu(framebuffer_t *fb)
             ask = ASK_NONE;
             market_set_active(0);               /* nothing loads behind a game */
             market_lan(0);
+            background_stop();                  /* the covers, the Lib tab: later */
             lib_stop();
             /* an application (a game, a tool): the system's splash while it
              * loads, never the log (2026-10-04); a suspended game comes back

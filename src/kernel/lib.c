@@ -1,4 +1,6 @@
 #include "lib.h"
+#include "fiber.h"
+#include "drivers/timer.h"
 #include "fs/fat.h"
 #include "lib/printf.h"
 
@@ -14,6 +16,8 @@ const char *const lib_groups[LIB_GROUPS] = { "Models", "Images", "Sounds", "Maps
 static lib_source_t sources[LIB_SOURCES];
 static lib_item_t items[LIB_ITEMS];
 static int nsources, nitems, ready;
+static int scan_done, scan_total;       /* while the list is read */
+static fiber_job_t job;                 /* the tab's work: the list, then the previews */
 
 /* the file lib_open read last */
 static int open_src = -1;
@@ -22,6 +26,8 @@ static bm_cart_t open_cart;
 
 void lib_invalidate(void)
 {
+    if (!fiber_current())
+        lib_job_stop();
     lib_view_reset();
     ready = 0;
     free(open_data);
@@ -30,6 +36,12 @@ void lib_invalidate(void)
 }
 
 int lib_ready(void) { return ready; }
+
+void lib_progress(int *done, int *total)
+{
+    *done = scan_done;
+    *total = scan_total;
+}
 int lib_items(void) { return nitems; }
 int lib_sources(void) { return nsources; }
 const lib_item_t *lib_item(int i) { return i >= 0 && i < nitems ? &items[i] : NULL; }
@@ -242,6 +254,7 @@ static void scan_dir(const char *dir, int res)
         if (res ? !res_file(e.name) : !ends_with(e.name, ".bm"))
             continue;
         add_source(dir, &e);
+        fiber_slice();
     }
 }
 
@@ -260,20 +273,26 @@ static int src_cmp(const void *a, const void *b)
     }
 }
 
-void lib_scan(void)
+/* The list, in the tab's fiber: it gives the CPU back between files and
+ * while one is read (fat_load_tick, bm_parse_tick). Stopped half way, it
+ * starts again next time. */
+static void scan_main(void *arg)
 {
-    lib_invalidate();
-    nsources = nitems = 0;
+    (void)arg;
+    const uint32_t t0 = timer_ticks();
+    nsources = nitems = scan_done = scan_total = 0;
     scan_dir("/bm/lib", 1);
     scan_dir("/bm/sounds", 0);
     scan_dir("/carts", 0);
     scan_dir("/", 0);
+    scan_total = nsources;
     /* the headers: kind, title, author (the files that are not ours go) */
     int keep = 0;
-    for (int i = 0; i < nsources; i++) {
+    for (int i = 0; i < nsources && !fiber_cancelled(); i++) {
         lib_source_t *s = &sources[i];
         fat_entry_t e;
         static uint8_t head[512] __attribute__((aligned(4)));
+        fiber_slice();
         if (fat_find(s->path, &e) != 0 || fat_read_head(&e, head) != 0 || e.size < BM_HEADER_SIZE)
             continue;
         if (bm_is_res(head))
@@ -290,7 +309,9 @@ void lib_scan(void)
             ksnprintf(s->title, sizeof s->title, "%s", s->file);
         sources[keep++] = *s;
     }
-    nsources = keep;
+    if (fiber_cancelled())
+        return;
+    nsources = scan_total = keep;
     qsort(sources, (size_t)nsources, sizeof *sources, src_cmp);
     for (int i = 0; i < nsources; i++) {
         fat_entry_t e;
@@ -298,38 +319,80 @@ void lib_scan(void)
         size_t len;
         bm_cart_t c;
         char err[64];
-        if (fat_find(sources[i].path, &e) != 0 || fat_load(&e, &data, &len) != 0)
+        scan_done = i;
+        if (fat_find(sources[i].path, &e) != 0 || fat_load(&e, &data, &len) != 0) {
+            if (fiber_cancelled())
+                return;
             continue;
+        }
         if (bm_parse_any(data, len, &c, err, sizeof err) == 0)
             file_items(i, &c);
-        else
+        else if (!fiber_cancelled())
             kprintf("lib: %s: %s\n", sources[i].path, err);
         free(data);
+        if (fiber_cancelled())
+            return;
+        fiber_slice();
     }
+    scan_done = nsources;
     ready = 1;
-    kprintf("lib: %d resources in %d files\n", nitems, nsources);
+    kprintf("lib: %d resources in %d files (%lu ms; the menu waited at most %lu ms more)\n", nitems, nsources,
+            (unsigned long)((timer_ticks() - t0) / 1000), (unsigned long)(job.longest / 1000));
+}
+
+static void view_main(void *arg)
+{
+    (void)arg;
+    lib_view_work();
+}
+
+void lib_tick(uint32_t until)
+{
+    if (!job.busy) {
+        void (*fn)(void *) = !ready ? scan_main : lib_view_pending() ? view_main : NULL;
+        if (!fn)
+            return;
+        if (fn == scan_main)
+            job.longest = 0;
+        if (fiber_job_start(&job, 32 * 1024, fn, NULL) != 0)
+            return;
+    }
+    fiber_job_run(&job, until);
+}
+
+void lib_job_stop(void)
+{
+    fiber_job_stop(&job);
 }
 
 const bm_cart_t *lib_open(int source)
 {
     if (source == open_src && open_data)
         return &open_cart;
+    if (!fiber_current())
+        lib_job_stop();                 /* it may be reading a file: one at a time */
     free(open_data);
     open_data = NULL;
     open_src = -1;
     const lib_source_t *s = lib_source(source);
     fat_entry_t e;
+    uint8_t *data;
     size_t len;
     char err[64];
-    if (!s || fat_find(s->path, &e) != 0 || fat_load(&e, &open_data, &len) != 0)
+    if (!s || fat_find(s->path, &e) != 0 || fat_load(&e, &data, &len) != 0)
         return NULL;
-    if (bm_parse_any(open_data, len, &open_cart, err, sizeof err) != 0) {
-        free(open_data);
-        open_data = NULL;
+    if (bm_parse_any(data, len, &open_cart, err, sizeof err) != 0) {
+        free(data);
         return NULL;
     }
+    open_data = data;
     open_src = source;
     return &open_cart;
+}
+
+const bm_cart_t *lib_peek(int source)
+{
+    return source == open_src && open_data ? &open_cart : NULL;
 }
 
 const char *lib_info_type(const lib_item_t *it)
@@ -371,7 +434,7 @@ void lib_details(const lib_item_t *it, char lines[5][48], int with_info)
         ksnprintf(lines[2], 48, "from %s", s->path[0] == '/' ? s->path + 1 : s->path);
     if (!with_info)
         return;
-    const bm_cart_t *c = s ? lib_open(it->source) : NULL;
+    const bm_cart_t *c = s ? lib_peek(it->source) : NULL;
     char author[33] = "", lic[24] = "", tags[40] = "";
     if (c) {
         const char *t = lib_info_type(it);

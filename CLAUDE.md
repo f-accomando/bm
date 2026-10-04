@@ -277,6 +277,20 @@ screenshot in `docs/img/`), `README_OLD.md` (il README completo, in italiano),
   righe della sezione (un'anteprima finché non ci si entra: destra o A entra, sinistra o B
   torna); sulla RGB30, stretta, una lista alla volta. `home_sub_panel()` dà il pannello di
   una sezione.
+- **Il lavoro del menu in background** (richiesta dell'utente, 2026-10-04: menu fluido con
+  tantissime app): copertine di Games e Dev e scheda Lib in fibre (`fiber_job_t`, `fiber_run`,
+  `fiber_slice` in `src/kernel/fiber.c`) nel tempo libero del fotogramma (`menu_idle` in `carts.c`,
+  prima il lavoro della scheda mostrata). Il menu si apre subito con i segnaposto (titolo e barre,
+  come il Market); di un `.bm` si legge solo l'inizio (`fat_load_part`, `bm_cover_peek`: la COVER è
+  la prima sezione), quelle a schermo per prime (`next_cover`). La Lib legge l'elenco
+  (`scan_main`, "reading the SD card: 3/11") e poi il file e l'anteprima della risorsa scelta
+  (`lib_view_work`) a fette; `lib_open` fuori dalla fibra la ferma prima. Le pause: `fat_load_tick`
+  dopo ogni cluster e `bm_parse_tick` (CRC a pezzi da 64 KiB, mesh, animazioni, SHEET8) chiamano
+  `sd_tick` (lo splash, `fiber_slice`); se restituiscono non zero la lettura si ferma ("stopped").
+  `background_stop()` ferma tutto prima di un'app, di `rescan()` e di una cancellazione. Il log della
+  Lib dice quanto il menu ha aspettato al massimo ("the menu waited at most N ms more": in QEMU 3 ms
+  con Overbit e Yharnam sulla SD). Il CRC è a tabella (`src/lib/crc32.c`, `crc32_update`). Sulla
+  RGB30 (senza fibre) le copertine leggono anch'esse solo l'inizio del file.
 - Test: Pi `test_menu_tabs`, `test_menu_scale`, `test_home_ui` (il giro delle Settings) e quelli
   del menu; RGB30 tutto `tests/rgb30/qemu_test.py` (la scheda e il titolo scelto si leggono
   sulla pillola).

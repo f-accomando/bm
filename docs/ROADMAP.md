@@ -1582,6 +1582,12 @@ Poi lo **splash di caricamento delle applicazioni** (al posto del log, per ogni 
 aperto dal menu: il "bm" in pixel art che cade e atterra con un jingle, poi un circolino che gira,
 niente titolo, finché l'applicazione non è caricata; `game_intro=0` lo spegne); prova `make
 test-loading`; da sentire sul Pi: il jingle.
+Poi il **lavoro del menu in background** (fibre di M25 per tutte le schede): le copertine di Games
+e Dev arrivano dopo l'apertura del menu leggendo solo l'inizio dei file, la scheda Lib legge
+elenco, file e anteprime a fette (prima apriva tutti i `.bm` per intero di colpo); il CRC è a
+tabella, circa 5 volte più veloce (anche il caricamento dei giochi). In QEMU con tutti i giochi
+sulla SD il menu aspetta al più 3 ms; prove `make test-fat`, `make test-bm` (`bm_cover_peek`), QEMU
+`test_lib_tab`, `test_menu_tabs`. **Da provare sul Pi**: l'apertura della scheda Lib, le copertine.
 
 ## M28 — Tastiera Bluetooth LE (M) — ✅ verificata sul Pi (2026-09-30)
 Richiesta 2026-09-30: una Logitech **MX Keys S** (con tastierino). È Bluetooth **Low
@@ -2259,7 +2265,8 @@ particelle e anelli del Lua riscritti. Numeri, limiti e budget di un 4 contro 4 
 **Per chiudere M34:** sul Pi il test `g` (passi 12 texture a tile e 13 MSAA), le righe AA
 dello stress test, il benchmark Texture Room e il benchmark di Overbit con ARM, GPU e
 GPU+AA; la faccia con texture *e* retino sulla GPU (oggi l'unico caso che torna
-all'ARM); il flicker dei menu con il 3D sull'ARM.
+all'ARM); ~~il flicker dei menu con il 3D sull'ARM~~ (non si è più visto sul Pi, riferisce
+l'utente il 2026-10-04).
 
 ### Dopo M34: come si lavora (decisione 2026-10-03)
 - **Tutto su `3d-performance`** (decisione dell'utente, 2026-10-03): il motore
@@ -2989,3 +2996,28 @@ tastiera).
   o un DAC I2S, per i monitor senza altoparlanti.
 - **R22 — Pulsanti su GPIO e schermo piccolo.** Il Pi Zero dentro un guscio portatile
   (pad sui GPIO, LCD DPI o SPI): una strada diversa dall'RGB30.
+
+### La GPU come coprocessore
+- **R23 — Programmi sulle QPU fuori dal disegno 3D** (2026-10-04). Le 12 QPU della V3D fanno
+  la stessa operazione su 16 numeri alla volta: non il Lua né il codice pieno di scelte, ma i
+  calcoli uguali su tanti dati, quando il 3D non le usa (nei giochi 2D, nel menu) o con
+  alcune QPU riservate a questi programmi nei giochi 3D. Il più utile all'ARM lo fa già M36
+  (vertici e ossa nel vertex shader). In ordine:
+  1. **Particelle sulla GPU**: una funzione di sistema per emetterle, la GPU le muove
+     (velocità, gravità, durata) e le disegna senza l'ARM; oggi sono in Lua e contate
+     (Yharnam ne lascia 40 alle fiamme, Overbit le ha ottimizzate a mano): migliaia invece
+     di centinaia, per tutti i giochi.
+  2. **Effetti a schermo intero dei giochi 2D**: il buio a livelli e i bagliori di Yharnam
+     (oggi `g16_fade_*`, pixel per pixel sull'ARM), dissolvenze, sfocature, un filtro CRT.
+  3. **Effetti audio** sul sintetizzatore (riverbero, eco, filtri) calcolati a blocchi, anche
+     per nano8.
+  4. **Tanti raggi insieme** (i colpi contro le mesh degli eroi, `hit3d`; la visibilità dei
+     bot): solo se servirà, oggi costano poco.
+
+  Non conviene per il Lua, CRC, SHA-256 e decompressione (sequenziali), il riduttore di
+  poligoni (pieno di scelte), la rete dei bot (24 ingressi, già in C), il menu a 1080p
+  (meglio lo scaler video HVS o M37). Serve nel driver il lancio di un programma QPU
+  "utente" (le code della V3D per i programmi delle QPU, fuori dal disegno); i programmi si
+  scrivono con `tools/qpuasm.py` e si provano sul PC con l'emulatore che esegue gli shader
+  (`tests/gpu/v3d_emu.c`), come quelli di M36. Esempi esterni dello stesso uso: GPU_FFT tra
+  gli esempi del Raspberry Pi, QPULib, py-videocore (reti neurali sul Pi Zero), VC4CL.

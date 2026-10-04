@@ -1,6 +1,8 @@
 #include "fiber.h"
+#include "drivers/timer.h"
 #include "lib/printf.h"
 
+#include <stdlib.h>
 #include <string.h>
 
 #define GUARD 0xF1BE5AFEu
@@ -79,4 +81,50 @@ void fiber_cancel(fiber_t *f)
 int fiber_cancelled(void)
 {
     return current && current->cancel;
+}
+
+int fiber_run(fiber_t *f, uint32_t until)
+{
+    f->until = until;
+    return fiber_resume(f);
+}
+
+void fiber_slice(void)
+{
+    fiber_t *f = current;
+    if (f && (int32_t)(timer_ticks() - f->until) >= 0)
+        fiber_yield();
+}
+
+int fiber_job_start(fiber_job_t *j, size_t stack, void (*fn)(void *), void *arg)
+{
+    if (!j->stack) {
+        if (!(j->stack = malloc(stack)))
+            return -1;
+        j->size = stack;
+    }
+    fiber_prepare(&j->f, j->stack, j->size, fn, arg);
+    j->busy = 1;
+    return 0;
+}
+
+int fiber_job_run(fiber_job_t *j, uint32_t until)
+{
+    if (!j->busy)
+        return 0;
+    j->busy = fiber_run(&j->f, until);
+    const uint32_t now = timer_ticks();
+    if ((int32_t)(now - until) > (int32_t)j->longest)
+        j->longest = now - until;
+    return j->busy;
+}
+
+void fiber_job_stop(fiber_job_t *j)
+{
+    if (!j->busy)
+        return;
+    fiber_cancel(&j->f);
+    while (fiber_run(&j->f, 0))
+        ;
+    j->busy = 0;
 }
