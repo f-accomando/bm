@@ -1,20 +1,20 @@
 name: meshy-overbit
 
 # Overbit's heroes through Meshy (text-to-3D, tools/meshy_text.py): a push
-# to 3d-performance that changes carts/overbit/art/meshy/request.txt makes
-# the models it lists, one line each: the name of a spec in that folder
+# to claude/bare-metal-mvp that changes carts/overbit/art/meshy/request.txt
+# makes the models it lists, one line each: the name of a spec in that folder
 # (NAME.txt: the description, the colours, the height) and optionally
 # task=ID to download a refine already paid for instead of a new one,
 # or rig=ID to have Meshy rig that model (tools/meshy_rig.py: NAME_rig.glb,
 # the skeleton and the weights art/meshyrig.py puts the model on its hero
 # with).
-# Each model: Meshy's .glb and picture, the .bm (tools/meshy2mesh.py of
-# claude/bare-metal-mvp: textured on a 256x256 sheet), the same reduced to
-# 1200 triangles (_1200, tools/bmreduce.py), the renders (tools/bmrender.py);
-# everything as artifacts and onto the branch meshy-out (out/).
+# Each model: Meshy's .glb and picture, the .bm (tools/meshy2mesh.py:
+# textured on a 256x256 sheet), the same reduced to 1200 triangles (_1200,
+# tools/bmreduce.py), the renders (tools/bmrender.py); everything as
+# artifacts and onto the branch meshy-out (out/).
 on:
   push:
-    branches: [3d-performance]
+    branches: [claude/bare-metal-mvp]
     paths: [carts/overbit/art/meshy/request.txt]
 
 jobs:
@@ -59,10 +59,6 @@ jobs:
       RIG: ${{ matrix.m.rig }}
     steps:
       - uses: actions/checkout@v4
-      - uses: actions/checkout@v4
-        with:
-          ref: claude/bare-metal-mvp
-          path: main
 
       - name: Pillow
         run: python3 -m pip install --quiet pillow
@@ -87,11 +83,11 @@ jobs:
         if: matrix.m.rig == ''
         run: |
           H="$(sed -n 's/^height *= *//p' "carts/overbit/art/meshy/$NAME.txt")"
-          python3 main/tools/meshy2mesh.py --glb "out/$NAME.glb" -o "out/$NAME.bm" --name "$NAME" --height "${H:-1.8}"
-          python3 main/scripts/bmmesh.py "out/$NAME.bm"
-          python3 main/tools/bmreduce.py "out/$NAME.bm" --faces 1200 -o "out/${NAME}_1200.bm"
-          python3 main/tools/bmrender.py "out/$NAME.bm" "out/$NAME.png"
-          python3 main/tools/bmrender.py "out/${NAME}_1200.bm" "out/${NAME}_1200.png"
+          python3 tools/meshy2mesh.py --glb "out/$NAME.glb" -o "out/$NAME.bm" --name "$NAME" --height "${H:-1.8}"
+          python3 scripts/bmmesh.py "out/$NAME.bm"
+          python3 tools/bmreduce.py "out/$NAME.bm" --faces 1200 -o "out/${NAME}_1200.bm"
+          python3 tools/bmrender.py "out/$NAME.bm" "out/$NAME.png"
+          python3 tools/bmrender.py "out/${NAME}_1200.bm" "out/${NAME}_1200.png"
 
       - uses: actions/upload-artifact@v4
         if: always()
@@ -127,5 +123,5 @@ jobs:
           cp ../new/* out/
           git add -f out
           names="$(cd ../new && ls *.glb 2>/dev/null | sed 's/\.glb$//' | tr '\n' ' ')"
-          git commit -qm "meshy: Overbit's ${names}from carts/overbit/art/meshy (text-to-3D, 3d-performance)" || echo "nothing new"
+          git commit -qm "meshy: Overbit's ${names}from carts/overbit/art/meshy (text-to-3D)" || echo "nothing new"
           git push origin meshy-out

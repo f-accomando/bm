@@ -202,8 +202,8 @@ screenshot in `docs/img/`), `README_OLD.md` (il README completo, in italiano),
 - **Modelli Meshy** (richiesta dell'utente): i corpi in terza persona degli eroi, dei mech e
   dei piloti sono figure Meshy fatte dal testo con le **nostre** descrizioni
   (`art/meshy/<nome>.txt`, `tools/meshy_text.py`; il workflow `meshy-overbit` parte da un
-  push di `art/meshy/request.txt` su 3d-performance e mette i risultati su `meshy-out`),
-  poi impacchettate (`art/meshy/pack.py`: `<nome>.mesh` con 1200 e 450 triangoli,
+  push di `art/meshy/request.txt` su `claude/bare-metal-mvp` e mette i risultati su
+  `meshy-out`), poi impacchettate (`art/meshy/pack.py`: `<nome>.mesh` con 1200 e 450 triangoli,
   `<nome>.png`, `<nome>.rig` dal rigging di Meshy, `tools/meshy_rig.py`). `art/meshyrig.py`
   le mette sugli scheletri degli eroi (da A-pose alla posa di riposo, un osso a vertice dal
   rig; per i mech uno scheletro con le stesse ossa misurato sulla figura e le clip rifatte);
