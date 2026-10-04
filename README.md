@@ -125,7 +125,13 @@ Everything a cartridge contains is made with bm's own tools. They read and write
 
 **On the console**, in the Dev tab, with a keyboard or a gamepad:
 
-- **SDK**: code, sprites and map, try the game and come back to the editor.
+- **bm SDK**: the hub of a project. A new game from a template (platformer, top-down,
+  shooter, 3D scene, 3D with models), the code, the sprites and the map, the 3D models and
+  animations turning with the code to draw them, and the rest of the suite (bm Code,
+  Pixel, Studio, Animator, Mesh, Sound) one key away on the same file, with a way back.
+  Its dev kit shows the tokens, the memory of the game's data, the file against the 8 MiB
+  of the future `.b16` cartridge, and the fps, ms and RAM of the last try; the assistant
+  (F6) guides you through making a 2D or a 3D game step by step.
 - **bm Code**: the code editor, with tabs, two pages side by side and a small sharp
   6×12 font. While you type a word it shows the rest of the likeliest one and Tab writes
   it: Lua and the API in the code, Italian or English in comments, the assistant's

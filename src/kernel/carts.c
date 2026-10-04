@@ -361,20 +361,30 @@ static const struct {
 const char *carts_tool_session(framebuffer_t *fb, const uint8_t *cart, size_t cart_len, const char *what,
                                const char *open)
 {
-    char path[64] = "", err[512] = "", tool[16];
-    int back = 0;
+    char path[64] = "", err[512] = "", tool[16], from[16] = "";
+    int back = 0, tried = 0;
+    bm_stats_t st;
     if (open)
         ksnprintf(path, sizeof path, "%s", open);
     for (;;) {
         crumb(what, NULL);
         bm_set_arg(path[0] ? path : NULL, err[0] ? err : NULL);
         bm_set_arg_back(back);
-        bm_stats_t st;
+        bm_set_arg_run(tried ? &st : NULL);     /* the dev kit's numbers of the game tried */
+        bm_set_arg_from(from[0] ? from : NULL);
+        tried = 0;
         bm_set_tool(1);                 /* the tool saves where it is told */
         bm_play(fb, cart, cart_len, PLAY_SECS, &st);
         bm_set_tool(0);                 /* the games it tries do not */
         bm_set_arg(NULL, NULL);
+        bm_set_arg_run(NULL);
+        bm_set_arg_from(NULL);
         if (bm_take_tool(tool, sizeof tool)) {
+            /* the tool that asks: the next one finds it in cart_arg().from */
+            from[0] = 0;
+            for (unsigned k = 0; k < sizeof tools / sizeof tools[0]; k++)
+                if (!strcmp(tools[k].what, what))
+                    ksnprintf(from, sizeof from, "%s", tools[k].name);
             unsigned i = 0;
             while (i < sizeof tools / sizeof tools[0] && strcmp(tools[i].name, tool))
                 i++;
@@ -403,6 +413,7 @@ const char *carts_tool_session(framebuffer_t *fb, const uint8_t *cart, size_t ca
         crumb("trying", path);
         bm_play(fb, data, len, PLAY_SECS, &st);
         bm_print_stats(&st);
+        tried = st.frames > 0;
         free(data);
         ksnprintf(err, sizeof err, "%s", bm_last_error());
     }

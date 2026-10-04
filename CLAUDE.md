@@ -32,9 +32,13 @@ screenshot in `docs/img/`), `README_OLD.md` (il README completo, in italiano),
 - Dev kit (richiesta dell'utente): l'overlay delle prestazioni sopra ogni `.bm` (`perf_frame`
   in `runtime.c`): fps, ms di `_update` + `_draw`, istruzioni Lua del fotogramma
   (`stat(10)`; prima del merge con `3d-performance` era `stat(6)`, ora il tempo del 3D),
-  i massimi dell'ultimo secondo e il grafico degli ultimi 64 fotogrammi. Settings > Screen and sound >
+  i massimi dell'ultimo secondo, la RAM (Lua + dati, e il massimo) e i token del codice
+  (2026-10-04) e il grafico degli ultimi 64 fotogrammi. Settings > Screen and sound >
   "Performance overlay" (config `perf`), F11 (tasto di sistema, anche nelle app; era F3), `p`
-  dalla seriale.
+  dalla seriale. `stat(11)` token (`src/bm/tokens.c`, `code_tokens()`: un'informazione, mai un
+  limite, come vuole `docs/B16.md` §2.4), `stat(12)` KiB di Lua al massimo, `stat(13)` KiB dei
+  dati (`assets_kb`), `stat(14)` il fotogramma più pesante; dopo una prova da uno strumento
+  `cart_arg().run` ha i numeri della partita (`bm_set_arg_run` in `carts_tool_session`).
 - Arrivati dal gioco Yharnam (branch `claude/yharnam`; il gioco va nel market): la risoluzione
   quadrata 256×256 del formato (il firmware dà 480×270, il gioco disegna nel riquadro al centro,
   `bm_video_enter` in `runtime.c`; `--res 256x256` in `mkbm.py`), la luce a livelli come in Dank
@@ -43,6 +47,26 @@ screenshot in `docs/img/`), `README_OLD.md` (il README completo, in italiano),
   tastiera (Q, E). Prova in QEMU: `test_square_lights`. `tools/bmplay` (`make
   build/host/bmplay`) gioca una cartuccia sul PC col disegno e il suono della console e un bot
   in Lua; `video.sh` ne fa un video.
+
+## bm SDK (carts/editor, branch `sdk-update`, 2026-10-04)
+
+- L'hub del progetto nella bm Suite (richiesta dell'utente), con l'estetica di bm Studio e bm
+  Animator e la loro libreria (`require "bm3d"`: colori, `draw_list`, `look`, `gizmo`,
+  `split_mesh`/`encode_mesh`). Pagine: F1 progetto (1-6 aprono bm Code, Pixel, Studio,
+  Animator, Mesh, Sound con `cart_tool`; titolo, autore, schermo, target `.bm`/`.b16`), F1 di
+  nuovo il dev kit (token, memoria dei dati, file contro gli 8 MiB del `.b16`, numeri
+  dell'ultima prova), F2 codice, F3 sprite e di nuovo mappa, F4 3D (modelli e animazioni,
+  `i` scrive il codice), Esc menu; Ctrl+N i modelli di gioco (`TEMPLATES`: codice, sprite e
+  mappa); F6 l'assistente nel modo della pagina (`guide` sul progetto, il modello dell'
+  assistente entra in MESH/ANIM). Salva con `cart_save` (nome 8.3).
+- `cart_arg().from` è lo strumento che ha aperto quello corrente: bm Code, Pixel, Studio,
+  Animator, Mesh e Sound aperti dall'SDK hanno *Back to bm SDK* nel menu (solo allora: i
+  menu dei test restano come prima).
+- Ogni pagina è un blocco `do ... end` che esporta in `P` (meno di 200 locali); le scritte
+  sulle righe di 16 pixel; la cornice di un dialogo non passa sulla riga del titolo (i test
+  in QEMU lo leggono).
+- Prove: `tests/studio/sdk_host.lua` (in `make test-studio`; ogni modello di gioco gira 400
+  fotogrammi), QEMU `test_editor`, `test_sdk_suite`, `test_home_ui`. Guida: `sdk/README.md`.
 
 ## bm Studio (sdk/studio)
 
@@ -643,7 +667,10 @@ screenshot in `docs/img/`), `README_OLD.md` (il README completo, in italiano),
   il `.glb` di `glbfix.py`.
 - Dopo aver cambiato la base di conoscenza: `make ai-model` (numpy) e commit di
   `src/ai/assist.weights`; `make test-ai` controlla C contro Python, domande di prova,
-  esempi di codice e pannello.
+  esempi di codice e pannello. Il tipo `guide` (2026-10-04, `kb/guide_sdk.txt`): come fare un
+  gioco 2D o 3D con l'SDK, a passi; il modo `guide` del pannello le mette prima (bit 128 di
+  `AI_KIND_*`: i tipi sono 8, il prossimo vuole un `kmask` più largo). I commenti `#` solo in
+  cima a un file della base: dopo un `text:` o un `code:` diventano parte della voce.
 - bm Code (`carts/code/main.lua`, scheda Dev): l'editor del codice; usa `cart_read` /
   `cart_write` (solo il codice), `font("6x12")` e `assist.act` per le righe `#entry:`.
   Test: `test_code_editor` in QEMU (lo schermo si legge anche col font 6x12).

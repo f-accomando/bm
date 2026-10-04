@@ -20,6 +20,12 @@ typedef struct {
     int gpu3d;                  /* the GPU drew the 3D at the end */
     uint32_t d2_ops;            /* 2D drawn after the GPU's 3D, recorded meanwhile (M35) */
     int ok;                     /* 0 = error (message printed), 1 = ran */
+    /* the dev kit (the SDK's report of a test run: cart_arg().run) */
+    uint32_t lua_peak_kb;       /* the most Lua memory seen at the end of a frame */
+    uint32_t assets_kb;         /* sprite sheet, map, models, sound bank, z-buffer */
+    uint32_t instr_k_max;       /* Lua instructions (thousands) of the busiest frame */
+    uint32_t slow;              /* frames over 16.7 ms of _update + _draw */
+    uint32_t tokens;            /* of the code (src/bm/tokens.h) */
 } bm_stats_t;
 
 /*
@@ -96,6 +102,12 @@ const char *bm_last_error(void);
 /* cart_arg().back: the editor comes back from trying a game (1), or opens
  * the file it was given from the menu (0). */
 void bm_set_arg_back(int back);
+/* cart_arg().run: the dev kit's numbers of the game just tried (frames,
+ * fps, ms, memory, tokens), or NULL for none */
+void bm_set_arg_run(const bm_stats_t *st);
+/* cart_arg().from: the tool that opened this one with cart_tool() ("sdk",
+ * "studio", ...: the menus offer the way back), or NULL */
+void bm_set_arg_from(const char *tool);
 /* The next cartridges are development tools built into the kernel (the SDK,
  * bm Code, the Sound editor, the 3D studio): cart_save, cart_write and
  * cart_put_audio write where they are told. Off (the default), as for every

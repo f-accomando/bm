@@ -26,12 +26,13 @@ ask: tasti dell'editor | come si usa l'editor | editor shortcuts | scorciatoie
 ask: come passo agli sprite | pagina della mappa | come salvo nell'editor
 ask: come provo il gioco | ctrl r | annullare | undo
 keys: editor, tasti, scorciatoie
-see: editor_run, assistant_keys
+see: editor_run, assistant_keys, guide.sdk_pages
 text:
-F1 codice, F2 sprite, F3 mappa, Esc menu (nuovo, apri, salva, salva come,
-titolo, autore, risoluzione). Ctrl+S salva, Ctrl+R (F5) prova il gioco,
+F1 il progetto (di nuovo: il dev kit), F2 codice, F3 sprite (di nuovo: la
+mappa), F4 il 3D, Esc menu (nuovo da un modello, apri, salva, salva come,
+prova). Ctrl+N un progetto nuovo, Ctrl+S salva, Ctrl+R (F5) prova il gioco,
 Ctrl+Z annulla, Ctrl+K taglia la riga, Ctrl+D la duplica, Ctrl+G va alla
-riga dell'errore. F12 tenuto: i tasti della pagina.
+riga dell'errore, F9 la fa spiegare. F12 tenuto: i tasti della pagina.
 
 == editor_run
 kind: tip
@@ -43,7 +44,8 @@ see: editor_keys, err_call_nil
 text:
 Ctrl+R (o F5) salva, gioca e torna all'editor; se il gioco si ferma con un
 errore l'editor apre la riga in rosso. Esc, Start+Select o PS escono dal
-gioco.
+gioco. Tornando, il dev kit dell'SDK (F1 F1) ha i numeri della prova: fps,
+ms, RAM, token.
 
 == sd_card
 kind: tip

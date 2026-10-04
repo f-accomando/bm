@@ -1410,6 +1410,13 @@ local function try_game()
   if dirty then save_to(proj.path, nil, run) else run() end
 end
 
+-- opened by the bm SDK on this file: the way back to it (saved first)
+local function back_to_sdk()
+  if not proj.path then say("give it a name first: Esc > Save as", C_ERR); return end
+  local function go_back() remember(); cart_tool("sdk", proj.path) end
+  if dirty then save_to(proj.path, nil, go_back) else go_back() end
+end
+
 local function open_other()
   if not dirty or confirmed("open", "unsaved changes: choose again to open another file") then open_chooser() end
 end
@@ -1468,6 +1475,7 @@ function _init()
   files_seen = s and s.files or {}
   last_t = time()
   local a = cart_arg()
+  if a and a.from == "sdk" then table.insert(MENU, #MENU, { "Back to bm SDK", back_to_sdk }) end
   if a and a.path and open_file(a.path) then
     local back = a.back and files_seen[a.path]
     if a.error then

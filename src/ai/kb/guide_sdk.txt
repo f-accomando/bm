@@ -1,0 +1,693 @@
+# Guides: how to make a 2D or a 3D game with the bm SDK, step by step.
+# The SDK's project page opens the assistant on them (F6, mode "guide");
+# Enter puts their code in the SDK's code page.
+
+== guide.sdk_start
+kind: guide
+title: Guida: cominciare un gioco con l'SDK
+ask: come comincio un gioco con l'sdk | primo gioco con bm sdk | da dove parto per fare un gioco
+ask: how do i start a game with the sdk | make my first game | nuovo progetto nell'sdk
+ask: voglio creare un videogioco | create a new game project | come si crea un gioco su bm
+ask: i passi per fare un gioco | guida per principianti | beginner guide
+keys: sdk, cominciare, progetto, guida
+see: guide.sdk_pages, guide.platformer, guide.3d_first
+text:
+1. Nell'SDK, Ctrl+N: scegli un modello (Platform 2D, Top-down 2D, Shooter
+2D, 3D scene, 3D with models). Arriva con codice, sprite e mappa pronti.
+
+2. F5 prova subito il gioco; Esc (o Ctrl+Esc) torna all'SDK.
+
+3. F2 il codice: cambia velocità, colori, testi. F3 gli sprite e la
+mappa, F4 i modelli 3D.
+
+4. Esc > Save as dà il nome al file (8.3, in /carts); poi Ctrl+S salva.
+
+5. F1 è la pagina del progetto: da lì 1-6 aprono il progetto negli altri
+programmi della suite. F1 di nuovo: il dev kit (fps, RAM, token).
+code:
+-- il gioco minimo: _init una volta, _update e _draw a ogni fotogramma
+function _init()
+  x, y = SCREEN_W / 2, SCREEN_H / 2
+end
+
+function _update()
+  if btn(0) then x = x - 2 end
+  if btn(1) then x = x + 2 end
+end
+
+function _draw()
+  cls(0x101828)
+  circfill(x, y, 10, 0xFFD050)
+end
+
+== guide.sdk_pages
+kind: guide
+title: Guida: le pagine dell'SDK e i suoi tasti
+ask: quali sono le pagine dell'sdk | come si usa l'sdk | tasti dell'sdk | sdk shortcuts
+ask: cosa fa f1 nell'sdk | dove disegno gli sprite nell'sdk | where is the map editor
+ask: how do i use the bm sdk | sdk pages | menu dell'sdk | pagina 3d dell'sdk
+keys: sdk, pagine, tasti
+see: guide.sdk_start, guide.sdk_suite
+text:
+F1 il progetto: titolo, autore, schermo, target, cosa contiene il file, gli
+altri programmi della suite (1-6). F1 di nuovo: il dev kit.
+
+F2 il codice, con i colori della sintassi (in verde acqua le funzioni 3D).
+Ctrl+G va all'errore, F9 lo fa spiegare.
+
+F3 gli sprite (spazio disegna, x prende il colore, f riempie, Tab lo
+sheet); F3 di nuovo la mappa (spazio mette la tessera, Tab la sceglie).
+
+F4 il 3D: i modelli e le animazioni del progetto che girano; i scrive il
+codice per usarli.
+
+Esc il menu: nuovo, apri, salva, salva come, prova. F5 prova, F6
+l'assistente, F12 tenuto mostra tutti i tasti.
+
+== guide.sdk_suite
+kind: guide
+title: Guida: l'SDK e gli altri programmi della bm Suite
+ask: aprire il progetto in bm studio | passare a bm pixel | bm code dall'sdk
+ask: open the project in another tool | bm suite programs | quali programmi ci sono
+ask: tornare all'sdk da bm studio | back to the sdk | lavorare con più programmi
+keys: suite, studio, pixel, animator
+see: guide.sdk_pages, guide.3d_models
+text:
+Dalla pagina del progetto (F1): 1 bm Code (il codice in schede, cerca e
+sostituisci), 2 bm Pixel (la pixel art dello sheet, tutti gli attrezzi), 3
+bm Studio (modelli 3D a tessere), 4 bm Animator (scheletri e animazioni), 5
+bm Mesh (vertici e facce), 6 bm Sound (suoni e musica).
+
+L'SDK salva prima; il programma si apre sullo stesso file. Nel suo menu
+"Back to bm SDK" salva e torna all'SDK, che rilegge il file.
+
+== guide.platformer
+kind: guide
+title: Guida: un platform 2D passo passo
+ask: come faccio un platform | fare un gioco di piattaforme | platform game step by step
+ask: gioco tipo mario | make a platformer with the sdk | personaggio che salta sulle piattaforme
+ask: guida platform 2d | un gioco a scorrimento con i salti | side scroller
+keys: platform, piattaforme, mario
+see: jump_gravity, collide_map, camera_smooth, guide.map
+text:
+1. Ctrl+N > Platform 2D: lo sprite 1 è l'eroe, il 2 il terreno, la mappa
+ha il pavimento e qualche piattaforma.
+
+2. F3 F3: disegna altre piattaforme con la tessera 2 (Tab la sceglie).
+
+3. Nel codice solid(x, y) dice se la cella sotto il punto è terreno; la
+gravità aumenta vy, il salto la mette negativa solo a terra.
+
+4. La camera segue l'eroe: camera(camx, 0) prima della mappa, camera()
+prima del testo.
+
+5. Poi: nemici (guida dei nemici), monete (pickup_tiles), suoni (sfx).
+code:
+vy = math.min(vy + 0.25, 6)                -- la gravita'
+if ground and btnp(4) then vy = -5 end     -- il salto, solo a terra
+local function solid(x, y)
+  return mget(x // 8, y // 8) == 2         -- 2: la tessera del terreno
+end
+
+== guide.topdown
+kind: guide
+title: Guida: un gioco 2D con la visuale dall'alto
+ask: gioco visto dall'alto | top down game | come zelda | rpg dall'alto
+ask: personaggio che cammina tra i muri | labirinto | make a top-down adventure
+ask: guida visuale dall'alto | raccogliere monete nella mappa | dungeon crawler
+keys: dall'alto, top, zelda, labirinto
+see: move_8dir, collide_map, pickup_tiles, guide.map
+text:
+1. Ctrl+N > Top-down 2D: muri (tessera 4) e monete (tessera 3) sono nella
+mappa, l'eroe è lo sprite 1.
+
+2. Il movimento prova prima l'asse x e poi y: così si scivola lungo i
+muri invece di fermarsi.
+
+3. Una moneta si prende guardando la cella sotto il centro dell'eroe e
+svuotandola con mset.
+
+4. Poi: nemici che inseguono (chase), una porta che si apre, più stanze
+con la camera.
+code:
+local function wall(x, y) return mget(x // 8, y // 8) == 4 end
+local function free(x, y)
+  return not (wall(x, y) or wall(x + 7, y) or
+              wall(x, y + 7) or wall(x + 7, y + 7))
+end
+if free(px + dx, py) then px = px + dx end
+if free(px, py + dy) then py = py + dy end
+
+== guide.shooter
+kind: guide
+title: Guida: uno sparatutto 2D
+ask: come faccio uno sparatutto | shoot em up | astronave che spara | space shooter
+ask: gioco con navicella e nemici | make a shooter game | ondate di nemici
+ask: guida sparatutto 2d | spaceship game | proiettili e nemici
+keys: sparatutto, astronave, shooter
+see: bullets, enemies_list, bullets_hit, spawn_waves, guide.devkit
+text:
+1. Ctrl+N > Shooter 2D: la nave (sprite 1) spara con A, i nemici (sprite 5)
+arrivano da destra a ondate.
+
+2. Proiettili e nemici stanno in liste: si aggiornano e si tolgono
+scorrendole all'indietro (table.remove).
+
+3. Un colpo è un rettangolo che tocca un nemico: lo tolgono tutti e due.
+
+4. Poi: esplosioni (particles), boss, power-up, il record (save).
+code:
+for i = #shots, 1, -1 do
+  local s = shots[i]
+  s.x = s.x + 6
+  if s.x > SCREEN_W then table.remove(shots, i) end
+end
+
+== guide.puzzle
+kind: guide
+title: Guida: un gioco a griglia (puzzle)
+ask: gioco a griglia | puzzle game | tris | sokoban | gioco con le caselle
+ask: come faccio un puzzle | match three | griglia di celle | grid based game
+ask: guida gioco a caselle | memory game | board game
+keys: griglia, puzzle, caselle
+see: grid_move, lua_tables
+text:
+1. Parti da Empty 2D (Ctrl+N). La griglia è una tabella di righe:
+grid[r][c].
+
+2. Un cursore (r, c) si muove con btnp, A cambia la casella.
+
+3. _draw disegna ogni casella come rettangolo (o sprite) a c*S, r*S.
+
+4. Dopo ogni mossa controlla la vittoria scorrendo la griglia.
+code:
+local N, S = 6, 32
+local grid = {}
+for r = 1, N do
+  grid[r] = {}
+  for c = 1, N do grid[r][c] = 0 end
+end
+local function draw_grid()
+  for r = 1, N do
+    for c = 1, N do
+      local on = grid[r][c] == 1
+      rectfill(c * S, r * S, S - 2, S - 2, on and 0xFFC050 or 0x303850)
+    end
+  end
+end
+
+== guide.sprites
+kind: guide
+title: Guida: disegnare gli sprite del gioco (SDK e bm Pixel)
+ask: come disegno gli sprite | creare la grafica del gioco | draw sprites in the sdk
+ask: pixel art del personaggio | dove si disegnano i pixel | sprite editor
+ask: guida sprite | disegnare un personaggio a pixel | animare uno sprite
+keys: sprite, disegnare, pixel
+see: spr, anim_frames, sprite_sheet, guide.sdk_suite
+text:
+1. F3: lo sprite scelto, ingrandito. Frecce e spazio disegnano, x prende un
+colore, f riempie, z passa da 8x8 a 16x16, Tab sceglie la cella sullo
+sheet.
+
+2. Nel gioco spr(n, x, y) disegna la cella n; spr(n, x, y, 2, 2) uno sprite
+16x16 (quattro celle).
+
+3. Per l'animazione metti i fotogrammi in celle vicine e cambia n col
+tempo.
+
+4. F6 sulla pagina degli sprite: l'assistente disegna la base di uno
+sprite ("slime", "moneta"). Per più attrezzi: 2 sul progetto, bm Pixel.
+code:
+local frame = 1 + (time() * 8 // 1) % 4   -- 4 fotogrammi, 8 al secondo
+spr(frame, x, y)
+
+== guide.map
+kind: guide
+title: Guida: disegnare un livello con la mappa
+ask: come disegno il livello | editor della mappa | draw a level with tiles
+ask: mappa a tessere | tilemap | dove metto i muri | creare un livello
+ask: guida mappa | level design | piattaforme nella mappa
+keys: mappa, livello, tessere
+see: map, mget, map_scroll, tile_ranges
+text:
+1. F3 F3: la mappa. Tab sceglie la tessera (una cella dello sheet), spazio
+la mette, Backspace svuota, f riempie, u annulla.
+
+2. Nel gioco map(0, 0, 0, 0, w, h) disegna w x h celle; con camera(x, y)
+prima, la mappa scorre.
+
+3. mget(cx, cy) legge una cella: decidi quali tessere sono muri, acqua,
+monete (tile_ranges) e usale nelle collisioni.
+
+4. mset cambia la mappa mentre si gioca (una moneta presa, una porta
+aperta).
+code:
+local function tile_at(x, y) return mget(x // 8, y // 8) end
+if tile_at(px + 4, py + 8) == 2 then ground = true end
+
+== guide.sound
+kind: guide
+title: Guida: suoni e musica per il gioco (bm Sound)
+ask: come metto la musica nel gioco | effetti sonori | add sound effects
+ask: suonare un effetto quando salto | music for my game | colonna sonora
+ask: guida suoni | come uso bm sound | sound editor
+keys: suoni, musica, effetti
+see: sfx, music, sfx_examples, music_loop
+text:
+1. Salva il progetto, poi 6 sulla pagina del progetto: bm Sound si apre
+sullo stesso file. Crea suoni e brani, salva, "Back to bm SDK".
+
+2. Nel gioco sfx(n) suona l'effetto n, music(n) il brano n (in loop come
+deciso nell'editor), music(-1) lo ferma.
+
+3. Un suono a ogni evento: salto, moneta, colpo, game over.
+code:
+function _init()
+  music(0)                  -- il brano 0
+end
+function _update()
+  if btnp(4) then sfx(1) end   -- il salto
+end
+
+== guide.ui
+kind: guide
+title: Guida: titolo, punteggio e game over
+ask: schermata del titolo | game over | stati del gioco | menu iniziale
+ask: come faccio il titolo e il game over | title screen and game over
+ask: guida interfaccia | mostrare il punteggio | hud del gioco
+keys: titolo, gameover, stati
+see: game_states, hud, title_menu, game_over_screen
+text:
+1. Una variabile state: "title", "play", "over". _update e _draw fanno
+cose diverse per ciascuno.
+
+2. Il punteggio si disegna per ultimo, sopra tutto, con print.
+
+3. Al game over salva il record con save, leggilo in _init con saved().
+code:
+state = state or "title"
+function _update()
+  if state == "title" and btnp(4) then state = "play" end
+  if state == "over" and btnp(4) then state = "title" end
+end
+
+== guide.3d_first
+kind: guide
+title: Guida: il primo gioco 3D
+ask: come faccio un gioco 3d | primo gioco in 3d | make a 3d game with the sdk
+ask: come comincio con il 3d | 3d per principianti | scena 3d con la telecamera
+ask: guida 3d | how do i start a 3d game | gioco tridimensionale
+keys: 3d, tridimensionale, scena
+see: camera3d, draw3d, zclear, cube_3d, guide.3d_models
+text:
+1. Ctrl+N > 3D scene: un pavimento, dei cubi, una palla con l'ombra e la
+camera che la segue.
+
+2. A ogni fotogramma: camera3d (dove guarda), light3d (la luce), zclear
+(pulisce lo z-buffer), poi draw3d per ogni oggetto.
+
+3. Le mesh si fanno in _init: mesh_cube, mesh_sphere, mesh(v, f) o i
+modelli di bm Studio con model("nome").
+
+4. Il 2D (punteggio) dopo il 3D. stat(4) dice quanti triangoli.
+code:
+function _draw()
+  cls(0x101828)
+  camera3d(0, 3, -8, 0, -0.35, 60)
+  light3d(-0.4, 0.8, -0.5, 0.45)
+  zclear()
+  draw3d(cube, 0, 0.5, 0, 0, time(), 0, 1)
+end
+
+== guide.3d_models
+kind: guide
+title: Guida: usare i modelli di bm Studio nel gioco
+ask: come uso i modelli di bm studio | caricare un modello 3d | use a model in my game
+ask: disegnare il modello che ho fatto | modello dal file | model from bm studio
+ask: guida modelli 3d | importare un modello | i modelli del progetto
+keys: modello, studio, model
+see: model, models, draw3d, guide.3d_anim
+text:
+1. Fai i modelli con bm Studio (3 sul progetto) o con l'assistente (F6
+sulla pagina 3D): finiscono nel file del gioco.
+
+2. F4 nell'SDK: i modelli girano in anteprima; i scrive nel codice le
+righe per caricarne uno e disegnarlo.
+
+3. model("nome") va chiamato una volta (in _init o fuori dalle funzioni):
+dà una mesh da disegnare con draw3d.
+
+4. bounds3d(m) dice quanto è grande: per centrarlo o metterlo a terra.
+code:
+local house = model("house")
+function _draw()
+  cls(0x8CC8F0)
+  camera3d(0, 3, -9, 0, -0.3, 60)
+  zclear()
+  draw3d(house, 0, 0, 0, 0, time() * 0.3, 0, 1)
+end
+
+== guide.3d_anim
+kind: guide
+title: Guida: un personaggio 3D animato (bm Animator)
+ask: animare un personaggio 3d | camminata del modello | animate my 3d character
+ask: scheletro e animazioni | far camminare il modello | walk animation 3d
+ask: guida animazione 3d | come uso bm animator | personaggio che corre e salta
+keys: animare, scheletro, animator
+see: animate, clips, bone3d, guide.3d_models
+text:
+1. 4 sul progetto: bm Animator dà al modello uno scheletro e le
+animazioni (camminata, salto...). F4 nell'SDK le mostra: sinistra/destra le
+sceglie.
+
+2. Nel gioco animate(m, "walk", t) mette il modello nella posa di "walk"
+al tempo t, prima di draw3d.
+
+3. Per passare da un'animazione all'altra: animate(m, "idle", t, "walk",
+t, k) con k da 0 a 1.
+
+4. bone3d(m, "hand") dice dove è la mano: per attaccarci una spada o una
+luce.
+code:
+local hero = model("hero")
+local t = 0
+function _update() t = t + 1 / 60 end
+function _draw()
+  zclear()
+  animate(hero, "walk", t)
+  draw3d(hero, 0, 0, 0)
+end
+
+== guide.3d_camera
+kind: guide
+title: Guida: la telecamera in terza persona
+ask: telecamera dietro il personaggio | camera in terza persona | third person camera
+ask: la camera segue il giocatore in 3d | camera che gira intorno | orbit camera
+ask: guida telecamera 3d | follow camera 3d | visuale da dietro
+keys: telecamera, terza, camera
+see: camera3d, fps_camera, guide.3d_world
+text:
+1. Il giocatore ha una direzione a (radianti); la camera sta dietro di
+lui, a distanza d e un po' più in alto.
+
+2. camera3d(x, y, z, yaw, pitch): yaw = a perché guardi dove guarda lui,
+pitch negativo per guardare in giù.
+
+3. Per una camera morbida avvicina la posizione a quella voluta di un
+pezzo ogni fotogramma.
+code:
+local d, h = 6, 3
+local cx = px - math.sin(a) * d
+local cz = pz - math.cos(a) * d
+camera3d(cx, py + h, cz, a, -0.35, 60)
+
+== guide.3d_world
+kind: guide
+title: Guida: collisioni e movimento nel 3D
+ask: collisioni nel 3d | muri nel gioco 3d | camminare nel livello 3d | 3d collision
+ask: il personaggio attraversa i muri | salire i gradini | world collision boxes
+ask: guida collisioni 3d | fisica 3d | sparare con un raggio
+keys: collisioni, muri, 3d
+see: world3d, world_move, world_ray, guide.3d_camera
+text:
+1. world3d() fa un mondo di collisione; world_box ci mette le scatole
+solide (muri, casse, piattaforme), una volta in _init.
+
+2. world_move(w, x, y, z, r, h, dx, dy, dz) sposta un corpo che scivola sui
+muri e sale i gradini; il flag 1 dice se è a terra.
+
+3. world_ray per i colpi e la vista: il primo punto colpito.
+code:
+local w = world3d()
+world_box(w, -5, 0, 4, 5, 2, 5)            -- un muro
+local x, y, z, f = world_move(w, px, py, pz, 0.4, 1.8, dx, vy, dz)
+px, py, pz = x, y, z
+local on_ground = f & 1 ~= 0
+
+== guide.3d_light
+kind: guide
+title: Guida: luci, cielo, nebbia e ombre nel 3D
+ask: luci nella scena 3d | nebbia | ombre 3d | atmosfera notturna 3d
+ask: come rendo più bello il 3d | lighting and fog | scena di notte con le lanterne
+ask: guida luce 3d | colori del cielo | riflessi sulle superfici
+keys: luce, nebbia, ombre, notte
+see: light3d, sky3d, fog3d, lamp3d, shadow3d
+text:
+1. light3d(x, y, z, ambiente): la direzione del sole e la luce di fondo
+(bassa per la notte).
+
+2. sky3d(sole, cielo, terreno): i colori della luce dall'alto e dal basso.
+
+3. fog3d(colore, vicino, lontano): la nebbia, dello stesso colore di cls.
+
+4. lamp3d(i, x, y, z, raggio): fino a 4 lanterne. draw3d con il flag 8
+disegna l'ombra di un oggetto sul terreno.
+code:
+cls(0x0A0C1C)
+light3d(-0.3, 0.8, -0.5, 0.18)              -- notte
+fog3d(0x0A0C1C, 10, 26)
+lamp3d(1, 3, 1.5, -3, 5, 1.2)               -- una lanterna
+zclear()
+
+== guide.3d_effects
+kind: guide
+title: Guida: effetti 3D (scintille, proiettili, esplosioni)
+ask: particelle in 3d | esplosione 3d | proiettili nel gioco 3d | 3d particles
+ask: scia di un colpo | raggio laser 3d | fumo e fuoco in 3d | sprite nel mondo 3d
+ask: guida effetti 3d | effetti speciali | spari in 3d
+keys: effetti, esplosione, particelle
+see: point3d, line3d, sprite3d, particles
+text:
+1. point3d(x, y, z, raggio, colore): un punto rotondo nel mondo (scintille,
+proiettili).
+
+2. line3d(x0, y0, z0, x1, y1, z1, colore): una linea (traccianti, laser).
+
+3. sprite3d(sx, sy, sw, sh, x, y, z, larghezza): un pezzo dello sheet
+rivolto alla camera (esplosioni, fumo, icone).
+
+4. Le particelle stanno in una lista con posizione, velocità e vita.
+code:
+for _, p in ipairs(sparks) do
+  point3d(p.x, p.y, p.z, 0.05, 0xFFC040)
+end
+line3d(gx, gy, gz, hx, hy, hz, 0x60E0FF, 2)
+
+== guide.3d_hud
+kind: guide
+title: Guida: mescolare 3D e 2D (HUD, scritte sui personaggi)
+ask: scritte sopra i personaggi 3d | hud nel gioco 3d | 2d sopra il 3d
+ask: mirino al centro | nome sopra il nemico | label over a 3d object
+ask: guida hud 3d | barra della vita in 3d | mixing 2d and 3d
+keys: hud, mirino, etichette
+see: project3d, hud, guide.3d_first
+text:
+1. Disegna prima tutto il 3D, poi il 2D (print, rectfill, spr): è anche più
+veloce con la GPU.
+
+2. project3d(x, y, z) dà la posizione sullo schermo di un punto del mondo
+(nil se è dietro la camera): ci scrivi il nome o la barra della vita.
+code:
+local sx, sy = project3d(ex, ey + 2, ez)
+if sx then
+  rectfill(sx - 10, sy, 20 * life, 3, 0x60E060)
+end
+
+== guide.3d_perf
+kind: guide
+title: Guida: un 3D veloce sul Pi
+ask: il gioco 3d è lento | troppi triangoli | 3d performance | ottimizzare il 3d
+ask: quanti triangoli posso disegnare | gpu o arm | faster 3d game
+ask: guida prestazioni 3d | ridurre i poligoni | 3d a 60 fps
+keys: triangoli, gpu, veloce, 3d
+see: guide.devkit, gpu3d, stat, perf_tips
+text:
+1. Conta i triangoli: stat(4) in un fotogramma. Sull'ARM circa 1200 a 60
+fps; la GPU del Pi molti di più (stat(9) dice se la usa).
+
+2. La pagina 3D dell'SDK mostra i triangoli di ogni modello; bm Studio li
+riduce (il tasto - nella pagina models).
+
+3. Il pavimento con draw3d(..., 1) (senza z-buffer) per primo; le cose
+lontane con meno dettaglio; la nebbia nasconde dove il mondo finisce.
+
+4. Misura con F11 in qualunque gioco: fps, ms, RAM e token.
+code:
+print(stat(4) .. " tri  " .. stat(1) .. " ms  gpu " .. stat(9), 8, 8)
+
+== guide.devkit
+kind: guide
+title: Guida: il dev kit (fps, ms, RAM e token)
+ask: quanta ram usa il mio gioco | monitor delle prestazioni | dev kit | performance monitor
+ask: quanti token ha il codice | memoria usata dal gioco | ram usage of my game
+ask: come misuro il gioco | overlay delle prestazioni | profiling del gioco
+keys: devkit, ram, token, memoria, prestazioni
+see: guide.ram, guide.tokens, stat, perf_measure
+text:
+1. In qualunque gioco F11 (o Settings > Performance overlay): fps, ms di
+_update + _draw, istruzioni Lua, RAM (adesso e il massimo) e token del
+codice, con il grafico degli ultimi fotogrammi.
+
+2. Nell'SDK F5 prova il gioco: tornando, il dev kit (F1 F1) mostra i
+numeri della prova: fps, ms medi e massimi, fotogrammi oltre 16,7 ms, RAM
+massima, istruzioni del fotogramma più pesante.
+
+3. Il dev kit mostra anche i token, le funzioni più grandi, la memoria dei
+dati (sheet, mappa, modelli, suoni) e il file contro gli 8 MiB di un .b16.
+
+4. Dal codice: stat(1) ms, stat(2) fps, stat(11) token, stat(12) KiB di Lua
+al massimo, stat(13) KiB dei dati.
+code:
+print(stat(2) .. " fps " .. stat(1) .. " ms", 8, 8, 0x80FF80)
+print(stat(12) + stat(13) .. " KiB  " .. stat(11) .. " token", 8, 24)
+
+== guide.ram
+kind: guide
+title: Guida: usare meno memoria
+ask: il gioco usa troppa memoria | ridurre la ram | not enough memory | out of memory
+ask: risparmiare memoria | tabelle che crescono | memory leak | garbage collector
+ask: guida memoria | quanta memoria ho | la ram finisce
+keys: memoria, ram, risparmiare
+see: guide.devkit, stat, perf_tips
+text:
+1. Guarda il dev kit: i dati (sheet, mappa, modelli, suoni) restano in
+memoria tutto il gioco, il Lua cresce e scende.
+
+2. Uno sheet 256x256 costa circa 200 KiB, uno 1024x1024 3 MiB: tienilo
+piccolo, togli le celle che non usi.
+
+3. Non creare tabelle nuove a ogni fotogramma: riusa quelle dei
+proiettili e delle particelle, togli quelle finite.
+
+4. stat(0) è la memoria di Lua adesso, stat(12) il massimo.
+code:
+-- riusa la tabella invece di crearne una nuova a ogni colpo
+local pool = {}
+local function new_shot()
+  local s = table.remove(pool) or {}
+  s.x, s.y, s.alive = 0, 0, true
+  return s
+end
+
+== guide.tokens
+kind: guide
+title: Guida: i token del codice
+ask: cosa sono i token | quanti token posso usare | token count | limite di token
+ask: contare i token del codice | ridurre i token | code size in tokens
+ask: perche' il dev kit conta i token | token del gioco
+keys: token, codice
+see: guide.devkit, code_tokens
+text:
+I token misurano quanto codice c'è: ogni nome, parola chiave, numero,
+stringa e operatore conta uno; le virgole, i punti, le parentesi che si
+chiudono, end e local non contano (come sulle console fantasy).
+
+Sono un'informazione, non un limite: bm non mette un tetto ai token, e
+nemmeno il .b16 lo farà (conta la memoria e il tempo per fotogramma).
+
+Li vedi nella pagina del progetto, nel dev kit, nell'overlay (F11) e con
+stat(11); code_tokens(testo) li conta per un pezzo di codice.
+code:
+print(stat(11) .. " token", 8, 8)
+
+== guide.b16
+kind: guide
+title: Guida: preparare un gioco per la RGB30 (.b16)
+ask: gioco per la rgb30 | formato b16 | cartuccia per la console portatile
+ask: prepare my game for the rgb30 | limite di 8 mb | portare il gioco sulla powkiddy
+ask: guida b16 | che cos'è il b16 | s16 cartridge
+keys: b16, rgb30, portatile, 8mb
+see: guide.devkit, guide.ram
+text:
+Il .b16 è la cartuccia a risorse limitate per le portatili come la RGB30:
+non c'è ancora, la specifica è in docs/B16.md.
+
+Le regole già note: il file al massimo 8 MiB; lo stesso gioco dà gli
+stessi pixel su ogni macchina (niente math.random di sistema né orologio:
+un tuo generatore); niente file, rete, require o load.
+
+Nell'SDK, b sulla pagina del progetto mette il target .b16: il dev kit
+mostra il file contro gli 8 MiB e le righe che il .b16 non avrà.
+code:
+-- un generatore tuo, lo stesso su ogni macchina
+local seed = 12345
+local function rnd(n)
+  seed = (seed * 1103515245 + 12345) % 2147483648
+  return seed % n
+end
+
+== guide.test
+kind: guide
+title: Guida: provare il gioco e correggere gli errori
+ask: come provo il gioco | il gioco si ferma con un errore | test my game
+ask: dove è l'errore | debug del gioco | correggere un errore | fix a bug
+ask: guida debug | il gioco non parte | trovare il problema
+keys: provare, errore, debug
+see: editor_run, log, err_call_nil
+text:
+1. F5 (Ctrl+R) salva e prova il gioco; Esc o Ctrl+Esc tornano all'SDK.
+
+2. Se il gioco si ferma con un errore, l'SDK apre il codice sulla riga in
+rosso: Ctrl+G ci va, F9 chiede all'assistente di spiegarlo.
+
+3. log(...) scrive nel registro della console (la seriale e il monitor):
+utile per vedere i valori mentre si gioca.
+code:
+log("x", x, "y", y)
+
+== guide.publish
+kind: guide
+title: Guida: pubblicare il gioco
+ask: pubblicare il gioco | mettere il gioco nel market | share my game
+ask: far giocare gli altri | copertina del gioco | publish to the market
+ask: guida pubblicazione | condividere il gioco | caricare il gioco online
+keys: pubblicare, market, condividere
+see: sd_card, guide.test
+text:
+1. Dai al gioco titolo e autore (pagina del progetto, t e a) e salvalo.
+
+2. Nel menu della console, X sulla copertina del gioco: le opzioni hanno
+la pubblicazione nel Market (serve github_token in bm/config.txt).
+
+3. In rete locale il Market manda il gioco a un'altra console.
+code:
+-- titolo e autore vengono dalla pagina del progetto (t, a)
+
+== guide.racing3d
+kind: guide
+title: Guida: un gioco di corse 3D
+ask: gioco di macchine | corse in 3d | racing game | guidare una macchina in 3d
+ask: macchina che sterza | pista 3d | kart game | come faccio un gioco di corse
+ask: guida corse 3d | auto in 3d | driving game
+keys: corse, macchina, pista
+see: guide.3d_camera, move_angle, guide.3d_first
+text:
+1. Parti da 3D scene (Ctrl+N). La macchina ha posizione, direzione a e
+velocità v.
+
+2. Sinistra/destra cambiano a, A accelera, B frena; ogni fotogramma la
+macchina avanza di v lungo (sin a, cos a).
+
+3. La camera sta dietro (guida della telecamera in terza persona); la
+pista sono pezzi di pavimento o un modello di bm Studio.
+code:
+if btn(0) then a = a - 0.04 end
+if btn(1) then a = a + 0.04 end
+if btn(4) then v = math.min(v + 0.01, 0.4) else v = v * 0.98 end
+px, pz = px + math.sin(a) * v, pz + math.cos(a) * v
+
+== guide.assistant
+kind: guide
+title: Guida: farsi aiutare dall'assistente
+ask: come uso l'assistente | cosa sa fare l'assistente | help from the assistant
+ask: l'assistente mi scrive il codice | chiedere all'ai | ask the ai for help
+ask: guida assistente | f6 nell'sdk | assistente per creare giochi
+keys: assistente, aiuto, ai
+see: assistant_keys, entry_lines, guide.sdk_start
+text:
+F6 nell'SDK: sulla pagina del progetto le guide (come questa), nel codice
+le funzioni e gli esempi, sugli sprite una base di pixel art, nel 3D un
+modello con lo scheletro.
+
+Scrivi la domanda (italiano o inglese), su/giù sceglie, Invio prende il
+codice, lo sprite o il modello. Tab cambia il tipo di risposta.

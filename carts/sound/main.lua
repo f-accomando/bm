@@ -1751,6 +1751,8 @@ local function try_game()
   if not proj.dirty then cart_run(proj.path) end
 end
 
+local from_sdk                            -- the bm SDK opened this one (cart_arg().from)
+
 local function open_menu()
   local it = ITEM[cur.page][1]
   local items = {
@@ -1779,6 +1781,12 @@ local function open_menu()
     if proj.dirty then ui.ask("Open the demo?", "The changes not saved are lost.", "Open", go) else go() end
   end }
   items[#items + 1] = { label = "Controls", note = "pad and keyboard", act = function() overlay = { kind = "help", lines = HELP } end }
+  if from_sdk and proj.path then              -- opened by the bm SDK on this file: the way back
+    items[#items + 1] = { label = "Back to bm SDK", note = "saves first", act = function()
+      save()
+      if not proj.dirty then cart_tool("sdk", proj.path) end
+    end }
+  end
   items[#items + 1] = { label = "Exit", act = function()
     if proj.dirty then ui.ask("Exit without saving?", "The changes not saved are lost.", "Exit", quit) else quit() end
   end }
@@ -1947,6 +1955,7 @@ function _init()
   keyp()                                  -- the keyboard types (piano, names)
   if keyhelp then keyhelp(KEYHELP, "Sound") end
   local a = cart_arg()
+  from_sdk = a and a.from == "sdk"
   if a and a.path and open_file(a.path) then
     if a.back then
       say(a.error and ("the game stopped: " .. a.error:sub(1, 60)) or "back from the game", a.error and C.red or C.green, 300)

@@ -984,6 +984,37 @@ gioco (*Open in bm Mesh*; monitor `4`) ([sdk/README.md](../sdk/README.md#sulla-c
   Mesh*: la lista delle 13 mesh, la nave copiata come modello (m), vertici spostati (F2,
   a, g, frecce, Invio), Ctrl+S; tempi di lettura del codice e fluidità dell'editor.
 
+**bm SDK, il centro della suite (2026-10-04, branch `sdk-update`).** Su richiesta
+dell'utente l'SDK diventa l'hub del progetto previsto in 22.0, con l'estetica delle altre
+app ([sdk/README.md](../sdk/README.md#sulla-console-bm-sdk-il-centro-del-progetto)):
+- **pagine**: F1 progetto (gli altri programmi della suite 1-6 sullo stesso file, titolo,
+  autore, schermo, target; cosa c'è nel file, misurato a pezzi con `timeslice`), F1 di
+  nuovo il **dev kit**, F2 codice, F3 sprite e di nuovo mappa, F4 **3D** (modelli e
+  animazioni del progetto che girano, il codice per usarli con `i`);
+- **la suite**: `cart_arg().from` dice chi ha aperto uno strumento; bm Code, bm Pixel, bm
+  Studio, bm Animator, bm Mesh e bm Sound aperti dall'SDK hanno *Back to bm SDK* nel
+  menu;
+- **modelli di gioco** (R16): Empty 2D, Platform 2D, Top-down 2D, Shooter 2D, 3D scene,
+  3D with models, con codice, sprite e mappa;
+- **dev kit**: `src/bm/tokens.c` conta i token (`stat(11)`, `code_tokens()`), `stat(12)`
+  la memoria di Lua più alta, `stat(13)` quella dei dati, `stat(14)` il fotogramma più
+  pesante; l'overlay (F11) ha due righe in più (RAM, token); dopo una prova l'SDK riceve
+  i numeri della partita (`cart_arg().run`) e la seriale scrive la riga `dev kit:`;
+- **.b16** (futuro): target del progetto, il file contro gli 8 MiB, le righe che il
+  formato non avrà ([B16.md](B16.md) §8.5);
+- **assistente**: il tipo di voce `guide` (28 guide per fare giochi 2D e 3D con l'SDK,
+  `src/ai/kb/guide_sdk.txt`) e 22 voci API del 3D che non conosceva (modelli,
+  animazioni, ossa, luce, effetti, mondi di collisione, `screen`); rete riaddestrata
+  (343 voci; 240 domande su 253 con la risposta giusta tra le prime tre). F6 nell'SDK
+  apre il modo giusto per la pagina (guide, codice, sprite, 3D: il modello entra nel
+  progetto).
+- **Test**: `tests/studio/sdk_host.lua` (in `make test-studio`), `test_tokens` (in `make
+  test-bm`), il modo `guide` in `tests/ai/panel_test.lua`, QEMU `test_editor` (rifatto),
+  `test_sdk_suite`.
+- **Da provare sul Pi**: la pagina del progetto e il dev kit (dopo F5), la pagina 3D con
+  Studio Village, un modello di gioco provato, 3 → bm Studio → *Back to bm SDK*, F11 in
+  un gioco (le righe RAM e token).
+
 Sotto-milestone:
 - **22.0 Base comune**:
   - formato del progetto;

@@ -166,3 +166,312 @@ in 2D cose allineate al 3D (nomi, mirini, orizzonte).
 code:
 local sx, sy = project3d(ex, ey + 1.5, ez)
 if sx then print("nemico", sx - 24, sy) end
+
+
+== model
+kind: api
+name: model
+title: model(nome) - un modello 3D del gioco (bm Studio)
+ask: caricare un modello di bm studio | prendere il modello dal file | load a model
+ask: modello 3d della cartuccia | mesh del modello | get a 3d model by name
+see: models, draw3d, animate, guide.3d_models
+text:
+Dà una mesh dal modello "nome" (o dal numero n) della sezione MESH del
+gioco, con la texture dello sheet; nil se non c'è. Ogni chiamata ne fa una
+nuova: va chiamata una volta, in _init.
+code:
+function _init()
+  house = model("house")
+end
+
+== models
+kind: api
+name: models
+title: models() - i nomi dei modelli del gioco
+ask: quali modelli ci sono | elenco dei modelli 3d | list of models
+ask: nomi dei modelli della cartuccia | quanti modelli ha il gioco
+see: model
+text:
+Restituisce i nomi dei modelli 3D del gioco, in ordine ({} se non ce ne
+sono): per sceglierli con un menu o caricarli tutti.
+code:
+local all = {}
+for _, name in ipairs(models()) do all[name] = model(name) end
+
+== animate
+kind: api
+name: animate
+title: animate(m, anim, t, [anim2, t2, k, osso]) - anima un modello
+ask: animare il modello 3d | animazione dello scheletro | play an animation
+ask: camminata del personaggio 3d | mescolare due animazioni | blend animations
+see: clips, bone3d, bone_turn, guide.3d_anim
+text:
+Mette un modello con lo scheletro (bm Animator) nella posa
+dell'animazione anim (nome o numero) al tempo t in secondi, prima di
+draw3d. Con anim2, t2, k (0..1) mescola due animazioni; con osso la
+seconda vale solo da quell'osso in giù. Restituisce la durata.
+code:
+animate(hero, "walk", t)
+draw3d(hero, x, 0, z, 0, dir, 0, 1)
+
+== clips
+kind: api
+name: clips
+title: clips(m) - le animazioni di un modello
+ask: quali animazioni ha il modello | elenco delle animazioni | list animations
+ask: durata di un'animazione | animazioni dello scheletro
+see: animate
+text:
+Restituisce {{name=, length=, loop=}, ...}: le animazioni del modello
+({} senza scheletro).
+code:
+for _, c in ipairs(clips(hero)) do log(c.name, c.length) end
+
+== bones3d
+kind: api
+name: bones3d
+title: bones3d(m) - i nomi delle ossa dello scheletro
+ask: nomi delle ossa | ossa del modello | list the bones of a skeleton
+ask: quali ossa ha lo scheletro
+see: bone3d, bone_turn
+text:
+I nomi delle ossa dello scheletro del modello, in ordine.
+code:
+log(table.concat(bones3d(hero), ", "))
+
+== bone3d
+kind: api
+name: bone3d
+title: bone3d(m, osso) - dove sta un osso (attaccare oggetti)
+ask: attaccare una spada alla mano | posizione della mano del modello | attach to a bone
+ask: dove è la testa del personaggio | luce nella mano | punta della spada
+see: animate, bones3d
+text:
+Dopo animate: x, y, z della testa dell'osso e cx, cy, cz della sua coda,
+nelle coordinate del modello (nil se l'osso non c'è). Per attaccare armi,
+luci, effetti.
+code:
+local hx, hy, hz = bone3d(hero, "hand.R")
+if hx then point3d(x + hx, hy, z + hz, 0.1, 0xFFE070) end
+
+== bone_turn
+kind: api
+name: bone_turn
+title: bone_turn(m, osso, [rx, ry, rz]) - gira un osso sopra l'animazione
+ask: girare la testa del modello | mirare in alto | turn a bone | guardare verso il giocatore
+ask: busto che segue la mira | ruotare un osso
+see: animate
+text:
+Da ora ogni animate gira anche l'osso di questi angoli (radianti): mirare
+in alto e in basso, la testa che guarda. bone_turn(m, osso) lo toglie.
+code:
+bone_turn(hero, "head", 0, look, 0)
+
+== bounds3d
+kind: api
+name: bounds3d
+title: bounds3d(m) - il box intorno a una mesh
+ask: quanto è grande il modello | dimensioni della mesh | bounding box
+ask: centrare il modello | mettere il modello a terra | size of a model
+see: model, draw3d
+text:
+x0, y0, z0, x1, y1, z1: il box intorno ai vertici, prima di spostarla e
+girarla. Per centrarla, metterla a terra, le collisioni.
+code:
+local x0, y0, z0, x1, y1, z1 = bounds3d(m)
+draw3d(m, -(x0 + x1) / 2, -y0, -(z0 + z1) / 2)
+
+== hit3d
+kind: api
+name: hit3d
+title: hit3d(m, ...) - un raggio contro le ossa (colpi alla testa)
+ask: colpire il personaggio 3d | hitbox che seguono l'animazione | headshot
+ask: il proiettile ha colpito il modello | raycast against a character
+see: world_ray, bone3d
+text:
+hit3d(m, x, y, z, ry, scala, ox, oy, oz, dx, dy, dz, [maxd]) -> t, osso:
+il raggio da o lungo d contro le ossa della mesh nella sua ultima posa,
+disegnata in (x, y, z) girata di ry. nil se manca.
+code:
+local t, bone = hit3d(foe, fx, 0, fz, fa, 1, cx, cy, cz, dx, dy, dz, 50)
+if t and bone == "head" then damage = damage * 2 end
+
+== sky3d
+kind: api
+name: sky3d
+title: sky3d(sole, cielo, terreno) - i colori della luce
+ask: colore della luce del sole | luce del cielo | ambient light colors
+ask: tramonto nel 3d | luce colorata | sky light
+see: light3d, fog3d, guide.3d_light
+text:
+I colori (0xRRGGBB) della luce del sole e della luce ambiente dall'alto e
+dal basso: le facce in su prendono il cielo, quelle in giù il terreno.
+sky3d() torna al bianco.
+code:
+sky3d(0xFFD8A0, 0x6080C0, 0x403020)    -- tramonto
+
+== shine3d
+kind: api
+name: shine3d
+title: shine3d(spec, esponente, bordo) - riflessi e luce sul bordo
+ask: superfici lucide | riflesso del sole | shiny 3d | metallo lucido
+ask: luce sul bordo delle forme | rim light
+see: sky3d
+text:
+I riflessi del sole sulle facce lucide (spec 0-2, esponente 4-64) e la
+luce sul bordo delle forme (0-1). Le facce lucide hanno il bit
+0x20000000 nel colore.
+code:
+shine3d(1.2, 24, 0.4)
+
+== shadow3d
+kind: api
+name: shadow3d
+title: shadow3d(stile) - lo stile delle ombre
+ask: ombre nere | ombra a retino | shadow style
+ask: ombra degli oggetti 3d | ombre più scure
+see: draw3d, guide.3d_light
+text:
+Le ombre di draw3d con il flag 8: 0 scuriscono quello che c'è sotto, 1
+nere a retino (più veloci, come le fa la GPU).
+code:
+shadow3d(1)
+draw3d(ball, x, y, z, 0, 0, 0, 1, 8)    -- l'ombra
+draw3d(ball, x, y, z)
+
+== point3d
+kind: api
+name: point3d
+title: point3d(x, y, z, raggio, colore, [flag]) - un punto nel mondo 3D
+ask: particelle 3d | scintille | punti nello spazio | 3d point particle
+ask: proiettile come pallino | stelle nel 3d
+see: line3d, sprite3d, guide.3d_effects
+text:
+Un punto rotondo di raggio (in unità del mondo), nascosto dalle cose più
+vicine: particelle, scintille, proiettili. flag 1: a retino.
+code:
+point3d(x, y, z, 0.08, 0xFFC040)
+
+== line3d
+kind: api
+name: line3d
+title: line3d(x0, y0, z0, x1, y1, z1, colore, [spessore, flag]) - una linea 3D
+ask: linea nel 3d | raggio laser | tracciante | 3d line
+ask: scia di un proiettile | disegnare un segmento nel mondo
+see: point3d, guide.3d_effects
+text:
+Una linea nel mondo, tagliata dal piano vicino e nascosta dalle cose più
+vicine: traccianti, raggi, laser.
+code:
+line3d(gx, gy, gz, tx, ty, tz, 0x60E0FF, 2)
+
+== sprite3d
+kind: api
+name: sprite3d
+title: sprite3d(sx, sy, sw, sh, x, y, z, larghezza, [flag]) - sprite nel 3D
+ask: sprite rivolto alla camera | billboard | esplosione nel 3d | fumo 3d
+ask: icona sopra il personaggio | albero piatto nel 3d
+see: point3d, guide.3d_effects
+text:
+Un rettangolo dello sheet rivolto alla camera, largo larghezza unità nel
+mondo e nascosto dalle cose più vicine: esplosioni, fumo, icone.
+code:
+sprite3d(0, 32, 16, 16, x, y + 2, z, 1)
+
+== gpu3d
+kind: api
+name: gpu3d
+title: gpu3d([on, aa, vs]) - il 3D sulla GPU
+ask: usare la gpu | il 3d lo fa la gpu | gpu or arm | anti aliasing
+ask: accendere la gpu | 3d più veloce con la gpu
+see: stat, guide.3d_perf
+text:
+Dice (e cambia, con gli argomenti) se il 3D lo disegna la GPU del Pi, con
+l'MSAA e con il vertex shader. In QEMU e con gpu3d=0 lo fa l'ARM. stat(9)
+vale 1 quando lo fa la GPU.
+code:
+local on, aa = gpu3d()
+print(on and "GPU" or "ARM", 8, 8)
+
+== world3d
+kind: api
+name: world3d
+title: world3d() - un mondo di collisione 3D
+ask: mondo di collisione | collisioni 3d | collision world
+ask: creare i muri del livello 3d | fisica del livello
+see: world_box, world_move, world_ray, guide.3d_world
+text:
+Un mondo di collisione vuoto: scatole solide (world_box), corpi che si
+muovono (world_move), raggi (world_ray). In C, molto più veloce del Lua.
+code:
+local w = world3d()
+world_box(w, -10, -1, -10, 10, 0, 10)    -- il pavimento
+
+== world_box
+kind: api
+name: world_box
+title: world_box(w, x0, y0, z0, x1, y1, z1, [tag]) - una scatola solida
+ask: aggiungere un muro | scatola solida | add a solid box | piattaforma 3d
+ask: ostacolo nel mondo 3d
+see: world3d, world_move
+text:
+Una scatola solida dai due angoli; restituisce il suo numero (lo dà anche
+world_ray quando la colpisce).
+code:
+world_box(w, 2, 0, 2, 4, 1, 4)    -- una cassa
+
+== world_ray
+kind: api
+name: world_ray
+title: world_ray(w, ox, oy, oz, dx, dy, dz, [maxd]) - un raggio nel mondo
+ask: raggio di collisione | cosa colpisco sparando | raycast | linea di vista
+ask: il nemico mi vede | distanza dal muro
+see: world3d, hit3d
+text:
+t, nx, ny, nz, scatola: il primo punto colpito lungo il raggio e la
+normale della faccia (scatola 0 = il terreno y = 0), o nil.
+code:
+local t = world_ray(w, x, 1.5, z, dx, 0, dz, 40)
+if t then line3d(x, 1.5, z, x + dx * t, 1.5, z + dz * t, 0xFF4040) end
+
+== world_move
+kind: api
+name: world_move
+title: world_move(w, x, y, z, r, h, dx, dy, dz) - un corpo che si muove
+ask: muovere il personaggio con le collisioni | scivolare sui muri | move with collisions
+ask: salire i gradini | il personaggio è a terra
+see: world3d, world_floor, guide.3d_world
+text:
+x, y, z, flag: un corpo (piedi in x, y, z, raggio r, altezza h) spostato di
+d, che scivola sui muri e sale i gradini. flag: 1 a terra, 2 un muro, 16
+un soffitto.
+code:
+px, py, pz, f = world_move(w, px, py, pz, 0.4, 1.8, dx, vy, dz)
+if f & 1 ~= 0 then vy = 0 end
+
+== world_floor
+kind: api
+name: world_floor
+title: world_floor(w, x, z, y, r) - l'altezza del pavimento
+ask: altezza del terreno | quanto è alto il pavimento qui | floor height
+ask: dove appoggio i piedi
+see: world_move
+text:
+L'altezza del pavimento sotto (x, z), cercando dall'altezza y in giù, per
+un corpo di raggio r.
+code:
+local fy = world_floor(w, x, z, y + 1, 0.3)
+
+== screen
+kind: api
+name: screen
+title: screen(w, h) - la risoluzione del gioco
+ask: cambiare la risoluzione | schermo più grande | change the screen resolution
+ask: gioco a 1080p | risoluzione del gioco | 320x180 o 640x360
+see: screen_size, resolution
+text:
+Cambia la risoluzione dal prossimo fotogramma (modi 16:9 da 320x180 a
+1920x1080): SCREEN_W e SCREEN_H cambiano. screen() dà quella di adesso.
+Sopra 640x360 serve la GPU.
+code:
+if screen(960, 540) then log("ora " .. SCREEN_W .. "x" .. SCREEN_H) end
