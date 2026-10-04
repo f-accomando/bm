@@ -3,7 +3,9 @@
  * screen: tabs at the top (Market, Games, Dev) and Settings after them, the covers
  * in a grid that scrolls down, moved through with the four directions;
  * the background is the blurred cover of the selected cartridge. Panels
- * (submenus) open over the grid. 640x360 RGB565.
+ * (submenus) open over the grid. RGB565, 640x360 on the Pi (1920x1080 with
+ * menu_scale=3: the same layout three times bigger) and 360x360 on the
+ * RGB30 (shown 2x): the same drawing, the columns follow the width.
  */
 #ifndef MENU_UI_H
 #define MENU_UI_H
@@ -26,7 +28,9 @@ typedef struct {
     int busy, percent;          /* downloading: a bar on the cover */
 } menu_item_t;
 
-#define MENU_COLS 4             /* covers per row */
+#define MENU_COLS 4             /* covers per row on the Pi's 640 pixels */
+/* covers per row of the open menu: 4 on the Pi, 2 on the RGB30 */
+int menu_ui_cols(void);
 
 /* A row of a panel (a submenu over the grid). */
 enum {
@@ -95,6 +99,8 @@ typedef struct {
     int net_wait;               /* ...dimmed while there is no address yet */
     int prompts;                /* MENU_PROMPTS_*: the device pressed last... */
     int prompts_colour;         /* ...the DS4's face buttons in their colours */
+    int confirm_b;              /* MENU_PROMPTS_PAD: confirm is B, back A (the RGB30) */
+    int no_monitor;             /* no monitor to go to (the RGB30): no hint for it */
     const char *details;        /* line under the grid (path, size) */
     const char *note;           /* last game, errors */
     const menu_panel_t *panel;  /* a submenu over the grid, or NULL */

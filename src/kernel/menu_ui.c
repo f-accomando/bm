@@ -1,4 +1,5 @@
 #include "menu_ui.h"
+#include "config.h"
 #include "icons.h"
 #include "pointer.h"
 #include "prompts.h"
@@ -7,13 +8,27 @@
 #include "gfx/console.h"
 #include "gfx/font.h"
 #include "lib/printf.h"
+#ifdef BM_RGB30
+#include "rgb30/display.h"
+#endif
 
 #include <math.h>
 #include <stdlib.h>
 #include <string.h>
 
-#define SW 640
-#define SH 360
+/* The layout's size (menu_ui_open): 640x360 on the Pi, 360x360 on the
+ * RGB30 (shown 2x on its 720x720 panel). The height is the same, so only
+ * the columns change: covers per row, the panel, the footer. */
+static int sw = 640, sh = 360, cols = MENU_COLS;
+#define SW sw
+#define SH sh
+#define MAX_W 640
+#define MAX_H 360
+#define WIDE (SW >= 640)                /* the Pi's layout; else the narrow one */
+/* the screen is the layout `scale` times bigger (menu_scale=3 on the Pi:
+ * 1920x1080), drawn in `frame` and enlarged at the flip */
+static int scale = 1;
+static uint16_t *frame;
 #define FRAME_US 16667
 
 /* layout: text sits on the 8x16 grid, on solid colours (the QEMU tests
@@ -25,7 +40,7 @@
 #define RADIUS      6               /* rounded corners of the covers */
 #define GAP_X       16
 #define PITCH_Y     (CARD_H + GAP_X)
-#define GRID_X0     ((SW - (MENU_COLS * CARD_W + (MENU_COLS - 1) * GAP_X)) / 2)
+#define GRID_X0     ((SW - (cols * CARD_W + (cols - 1) * GAP_X)) / 2)
 #define FOOT_Y      316             /* bottom bar, text rows 20-21 */
 #define GRID_BOT    FOOT_Y          /* grid clip */
 /* two whole rows, and the top of the next one showing as much as two
@@ -53,7 +68,7 @@ static int ready;
 static uint32_t con_w, con_h, t0, deadline;
 static float scroll;                /* first visible row, eased */
 static int first_row;
-static uint16_t *bg_cur, *bg_prev;  /* blurred covers, 640x360 */
+static uint16_t *bg_cur, *bg_prev;  /* blurred covers, SW x SH */
 static const g16_sheet_t *bg_key;   /* the cover bg_cur was made from */
 static int bg_valid, fade;
 static int dim;                     /* a panel is open: the rest at half brightness */
@@ -611,6 +626,8 @@ static int button_prompts(const menu_view_t *v, int b, const prompt_t *p[2], con
         }
     }
     int ds = v->prompts != MENU_PROMPTS_PAD;
+    if (!ds && v->confirm_b && (b == BTN_A || b == BTN_B))
+        b = b == BTN_A ? BTN_B : BTN_A;         /* confirm on B, back on A */
     switch (b) {
     case BTN_A: case BTN_B: case BTN_X:
         p[0] = ds ? prompt_get(ds4[b], v->prompts_colour) : prompt_get(pad[b], 0);
@@ -666,14 +683,15 @@ static void scroll_mark(int cx, int cy, int dir, uint16_t c)
 }
 
 /* panel geometry: text rows 4 (title), 6..16 every other one (the rows),
- * 18 (help) */
-#define PANEL_X     (10 * 8)
-#define PANEL_W     (60 * 8)
+ * 18 (help); columns 10-70 on the Pi, 2-43 on the narrow layout */
+#define PANEL_X     (WIDE ? 10 * 8 : 2 * 8)
+#define PANEL_W     (SW - 2 * PANEL_X)
 #define PANEL_Y     52
 #define PANEL_H     (310 - PANEL_Y)
 #define PANEL_ROW0  6
-#define LABEL_COL   13
-#define VALUE_END   67                          /* values end before this column */
+#define PANEL_COL   (PANEL_X / 8)
+#define LABEL_COL   (PANEL_COL + 3)
+#define VALUE_END   ((PANEL_X + PANEL_W) / 8 - 3)   /* values end before this column */
 
 /* faded: a question is over it */
 static void draw_panel(const menu_panel_t *p, int faded)
@@ -683,8 +701,8 @@ static void draw_panel(const menu_panel_t *p, int faded)
     zone(PANEL_X - 2, PANEL_Y - 2, PANEL_W + 4, PANEL_H + 4, MENU_HIT_PANEL, 0, 1);
     char buf[72];
     ksnprintf(buf, sizeof buf, "%s", p->title ? p->title : "");
-    buf[52] = 0;
-    g16_text(&g, 12 * 8, 4 * 16, buf, c16(C_TEXT));
+    buf[PANEL_W / 8 - 8] = 0;
+    g16_text(&g, (PANEL_COL + 2) * 8, 4 * 16, buf, c16(C_TEXT));
     g16_rectfill(&g, PANEL_X + 16, 88, PANEL_W - 32, 1, c16(C_LINE));
     for (int i = 0; i < MENU_PANEL_ROWS && p->top + i < p->n; i++) {
         const menu_row_t *r = &p->rows[p->top + i];
@@ -719,8 +737,8 @@ static void draw_panel(const menu_panel_t *p, int faded)
     g16_rectfill(&g, PANEL_X + 16, 281, PANEL_W - 32, 1, c16(C_LINE));
     if (p->help) {
         ksnprintf(buf, sizeof buf, "%s", p->help);
-        buf[56] = 0;
-        g16_text(&g, 12 * 8, 18 * 16, buf, c16(C_DIM));
+        buf[PANEL_W / 8 - 4] = 0;
+        g16_text(&g, (PANEL_COL + 2) * 8, 18 * 16, buf, c16(C_DIM));
     }
 }
 
@@ -870,11 +888,40 @@ static void status_icons(const menu_view_t *v)
 
 /* ---------------------------------------------------------------- screen */
 
+int menu_ui_cols(void)
+{
+    return cols;
+}
+
+/* the screen of the layout: on the RGB30 360x360 shown 2x (the display
+ * controller enlarges it); on the Pi 640x360, or 1920x1080 with
+ * menu_scale=3 in bm/config.txt (the ARM enlarges it at each flip: a try,
+ * the GPU will draw it there one day) */
+static int screen_open(framebuffer_t *fb)
+{
+#ifdef BM_RGB30
+    sw = 360;
+    scale = 1;
+    return fb_init_mode(fb, (uint32_t)sw, (uint32_t)sh, 3, 16, 2, 0);
+#else
+    const char *ms = config_get("menu_scale");
+    sw = 640;
+    scale = ms && strcmp(ms, "3") == 0 ? 3 : 1;
+    if (scale > 1 && !frame)
+        frame = malloc(MAX_W * MAX_H * 2);
+    if (scale > 1 && (!frame || fb_init_depth(fb, (uint32_t)(sw * scale), (uint32_t)(sh * scale), 3, 16) != 0))
+        scale = 1;
+    if (scale > 1)
+        return 0;
+    return fb_init_depth(fb, (uint32_t)sw, (uint32_t)sh, 3, 16);
+#endif
+}
+
 int menu_ui_open(framebuffer_t *fb)
 {
     if (!bg_cur) {
-        bg_cur = malloc(SW * SH * 2);
-        bg_prev = malloc(SW * SH * 2);
+        bg_cur = malloc(MAX_W * MAX_H * 2);
+        bg_prev = malloc(MAX_W * MAX_H * 2);
         if (!bg_cur || !bg_prev) {
             free(bg_cur); free(bg_prev);
             bg_cur = bg_prev = NULL;
@@ -884,11 +931,12 @@ int menu_ui_open(framebuffer_t *fb)
     con_w = fb->width;
     con_h = fb->height;
     console_suspend(1);
-    if (fb_init_depth(fb, SW, SH, 3, 16) != 0) {
+    if (screen_open(fb) != 0) {
         fb_init(fb, con_w, con_h, 2);
         console_suspend(0);
         return -1;
     }
+    cols = (SW - 16) / (CARD_W + GAP_X);    /* 4 at 640, 2 at 360 */
     ready = 1;
     bg_valid = 0;
     fade = 0;
@@ -918,11 +966,30 @@ static uint16_t pulse(float t)
     return g16_rgb(r, gg, b);
 }
 
+/* the layout's frame `scale` times bigger on the page (each row widened
+ * once, then copied down) */
+static void enlarge(framebuffer_t *fb)
+{
+    uint32_t stride = fb->pitch / 2;
+    for (int y = 0; y < SH; y++) {
+        uint16_t *d = (uint16_t *)fb->base + (uint32_t)(y * scale) * stride;
+        const uint16_t *s = frame + y * SW;
+        for (int x = 0; x < SW; x++)
+            for (int k = 0; k < scale; k++)
+                d[x * scale + k] = s[x];
+        for (int k = 1; k < scale; k++)
+            memcpy(d + (uint32_t)k * stride, d, (size_t)(SW * scale) * 2);
+    }
+}
+
 void menu_ui_frame(framebuffer_t *fb, const menu_view_t *v)
 {
     if (!ready)
         return;
-    g16_target(&g, (uint16_t *)fb->base, fb->pitch / 2, SW, SH, &font_console_8x16);
+    if (scale > 1)
+        g16_target(&g, frame, (uint32_t)SW, SW, SH, &font_console_8x16);
+    else
+        g16_target(&g, (uint16_t *)fb->base, fb->pitch / 2, SW, SH, &font_console_8x16);
     float t = (float)(timer_ticks() - t0) * 1e-6f;
     const menu_item_t *cur = v->sel >= 0 && v->sel < v->n ? &v->items[v->sel] : NULL;
     dim = v->panel != NULL;
@@ -942,7 +1009,7 @@ void menu_ui_frame(framebuffer_t *fb, const menu_view_t *v)
     put_background();
 
     /* grid: keep the selected row among the two fully visible ones */
-    int sel_row = v->sel / MENU_COLS;
+    int sel_row = v->sel / cols;
     if (sel_row < first_row) first_row = sel_row;
     if (sel_row > first_row + 1) first_row = sel_row - 1;
     if (first_row < 0) first_row = 0;
@@ -951,7 +1018,7 @@ void menu_ui_frame(framebuffer_t *fb, const menu_view_t *v)
 
     g16_clip(&g, 0, GRID_TOP, SW, GRID_BOT - GRID_TOP);
     for (int i = 0; !v->lib && i < v->n; i++) {
-        int row = i / MENU_COLS, col = i % MENU_COLS;
+        int row = i / cols, col = i % cols;
         int x = GRID_X0 + col * (CARD_W + GAP_X);
         int y = GRID_Y0 + (int)lroundf(((float)row - scroll) * PITCH_Y);
         if (y + CARD_H + 8 < GRID_TOP || y - 8 >= GRID_BOT)
@@ -979,8 +1046,8 @@ void menu_ui_frame(framebuffer_t *fb, const menu_view_t *v)
         }
     }
     g16_clip(&g, 0, 0, 0, 0);
-    if (!v->lib && v->n > 2 * MENU_COLS)
-        scroll_bar((v->n + MENU_COLS - 1) / MENU_COLS, scroll);
+    if (!v->lib && v->n > 2 * cols)
+        scroll_bar((v->n + cols - 1) / cols, scroll);
     if (v->lib && !v->on_gear)
         draw_lib(v->lib);
 
@@ -1010,10 +1077,14 @@ void menu_ui_frame(framebuffer_t *fb, const menu_view_t *v)
     } else if (v->banner) {
         char buf[72];
         ksnprintf(buf, sizeof buf, "%s", v->banner);
+        if (SW / 8 - 6 < (int)sizeof buf)       /* no longer than the layout */
+            buf[SW / 8 - 6] = 0;
         pill_text(3, TITLE_ROW, buf, C_DIM, C_PILL);
     } else if (cur && cur->title && cur->title[0]) {
         char buf[72];
         ksnprintf(buf, sizeof buf, "%s", cur->title);
+        if (SW / 8 - 6 < (int)sizeof buf)
+            buf[SW / 8 - 6] = 0;
         int n = (int)strlen(buf);
         round_rect(3 * 8 - 10, TITLE_ROW * 16 - 6, (n + 2) * 8 + 4, 28, 14, c16(C_LINE));
         pill_text(3, TITLE_ROW, buf, C_TEXT, C_PILL);
@@ -1026,45 +1097,52 @@ void menu_ui_frame(framebuffer_t *fb, const menu_view_t *v)
     g16_rectfill(&g, 0, FOOT_Y, SW, SH - FOOT_Y, c16(C_BAR));
     g16_rectfill(&g, 16, FOOT_Y + 1, SW - 32, 1, c16(C_LINE));
     char buf[96];
+    int shown = 0;
     if (v->details && !v->panel) {
         ksnprintf(buf, sizeof buf, "%s", v->details);
-        buf[76] = 0;
+        buf[SW / 8 - 4] = 0;
         g16_text(&g, 2 * 8, 20 * 16, buf, c16(C_DIM));
+        shown = 1;
     }
-    if (v->note && v->note[0]) {
+    /* the note left of the hints; on the narrow layout over them, if free */
+    if (v->note && v->note[0] && (WIDE || !shown)) {
         ksnprintf(buf, sizeof buf, "%s", v->note);
-        buf[30] = 0;
-        g16_text(&g, 2 * 8, 21 * 16, buf, c16(C_DIM));
+        buf[WIDE ? 30 : SW / 8 - 4] = 0;
+        g16_text(&g, 2 * 8, (WIDE ? 21 : 20) * 16, buf, c16(C_DIM));
     }
+    const int hc = WIDE ? 34 : 2;               /* where the hints start */
     if (v->panel) {
         const menu_row_t *r = v->panel->sel < v->panel->n ? &v->panel->rows[v->panel->sel] : NULL;
-        col = 40;
+        col = WIDE ? 40 : hc;
         if (r && r->kind == MENU_ROW_CHOICE)
             col = hint(v, col, 21, BTN_CHANGE, "Change");
         else if (r && r->kind != MENU_ROW_INFO)
             col = hint(v, col, 21, BTN_A, r->kind == MENU_ROW_SUB ? "Open" : "Select");
-        hint(v, col < 55 ? 55 : col, 21, BTN_B, "Back");
+        hint(v, WIDE && col < 55 ? 55 : col, 21, BTN_B, "Back");
     } else if (v->on_gear) {
-        col = hint(v, 34, 21, BTN_A, "Settings");
-        hint(v, col, 21, BTN_MONITOR, "Monitor");
+        col = hint(v, hc, 21, BTN_A, "Settings");
+        if (!v->no_monitor)
+            hint(v, col, 21, BTN_MONITOR, "Monitor");
     } else if (v->lib) {
-        col = 34;
+        col = hc;
         if (v->lib->open)
             col = hint(v, col, 21, BTN_A, v->lib->open);
         if (v->lib->play)
             col = hint(v, col, 21, BTN_Y, v->lib->play);
-        hint(v, col, 21, BTN_MONITOR, "Monitor");
+        if (!v->no_monitor)
+            hint(v, col, 21, BTN_MONITOR, "Monitor");
     } else {
         const char *a = v->a_label ? v->a_label
                       : cur && cur->kind && strcmp(cur->kind, "tool") == 0 ? "Open" : "Play";
-        col = 34;
+        col = hc;
         if (a[0])
             col = hint(v, col, 21, BTN_A, a);
         if (cur && cur->kind && strcmp(cur->kind, "market") == 0 && cur->title && cur->title[0])
             col = hint(v, col, 21, BTN_X, "Details");
         else if (v->n && v->items[v->sel].path && v->items[v->sel].path[0])
             col = hint(v, col, 21, BTN_X, "Options");
-        hint(v, col, 21, BTN_MONITOR, "Monitor");
+        if (!v->no_monitor)
+            hint(v, col, 21, BTN_MONITOR, "Monitor");
     }
 
     hints_dead = 0;
@@ -1073,22 +1151,26 @@ void menu_ui_frame(framebuffer_t *fb, const menu_view_t *v)
 
     /* a question in a panel over everything */
     if (v->ask) {
-        const int px = 12 * 8, py = 8 * 16 - 8, pw = SW - 24 * 8, ph = 5 * 16 + 16;
+        const int px = WIDE ? 12 * 8 : 2 * 8, py = 8 * 16 - 8, pw = SW - 2 * px, ph = 5 * 16 + 16;
         round_rect(px - 2, py - 2, pw + 4, ph + 4, 14, c16(C_LINE));
         round_rect(px, py, pw, ph, 12, c16(C_BAR));
         zone(px - 2, py - 2, pw + 4, ph + 4, MENU_HIT_ASK, 0, 1);
         char q[64];
         ksnprintf(q, sizeof q, "%s", v->ask);
+        q[pw / 8 - 2] = 0;
         g16_text(&g, (SW / 8 - (int)strlen(q)) / 2 * 8, 9 * 16, q, c16(C_TEXT));
         if (v->ask_detail) {
             ksnprintf(q, sizeof q, "%s", v->ask_detail);
+            q[pw / 8 - 2] = 0;
             g16_text(&g, (SW / 8 - (int)strlen(q)) / 2 * 8, 10 * 16, q, c16(C_DIM));
         }
-        int c = hint(v, 26, 12, BTN_A, v->ask_yes ? v->ask_yes : "Close it");
+        int c = hint(v, WIDE ? 26 : 4, 12, BTN_A, v->ask_yes ? v->ask_yes : "Close it");
         hint(v, c + 2, 12, BTN_B, "Cancel");
     }
 
     pointer_draw(g.px, g.stride, SW, SH);       /* the arrow over everything */
+    if (scale > 1)
+        enlarge(fb);
     fb_flip(fb);
     /* what is left of the frame: the Market's work, if any (a little
      * margin for the flip), then the wait */

@@ -968,11 +968,11 @@ void carts_menu(framebuffer_t *fb)
             }
             v.mice = pointer_devices();
             /* the hints show the buttons of what was pressed last; before
-             * that, player 1's keyboard or the DS4 */
+             * that the keyboard's: on the Pi keyboard and mouse come first
+             * (decision of 2026-10-04), the controllers after */
             int src = hid_last_source();
-            v.prompts = src == HID_SOURCE_KEYBOARD ? MENU_PROMPTS_KEYBOARD
-                      : src == HID_SOURCE_PAD ? MENU_PROMPTS_PAD
-                      : src == HID_SOURCE_NONE && v.dev[0] == MENU_DEV_KEYBOARD ? MENU_PROMPTS_KEYBOARD
+            v.prompts = src == HID_SOURCE_PAD ? MENU_PROMPTS_PAD
+                      : src == HID_SOURCE_NONE || src == HID_SOURCE_KEYBOARD ? MENU_PROMPTS_KEYBOARD
                       : MENU_PROMPTS_DS4;
             v.prompts_colour = home_prompts_colour();
             int link = net_link_kind();
@@ -1352,9 +1352,10 @@ void carts_menu(framebuffer_t *fb)
                  * change the tab), left/right along the covers, wrapping */
                 int s_ = tsel[tab];
                 if (dy) {
-                    int to = s_ + dy * MENU_COLS;
+                    int cols = menu_ui_cols();
+                    int to = s_ + dy * cols;
                     if (to >= n && dy > 0)      /* the last row may be shorter */
-                        to = (to / MENU_COLS) * MENU_COLS < n ? n - 1 : s_;
+                        to = (to / cols) * cols < n ? n - 1 : s_;
                     if (to >= 0 && to < n) s_ = to;
                 }
                 if (dx && s_ + dx >= 0 && s_ + dx < n)

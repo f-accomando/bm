@@ -110,3 +110,16 @@ Con 32 bit (XRGB8888) i byte raddoppiano: 640×360 costa ~9,2 ms di copia, 960×
 
 960×540 è l'unica alternativa realistica per avere più definizione nel solo menu, con
 le condizioni della sezione 4.
+
+## 6. Menu sui due sistemi (decisione del 2026-10-04)
+
+- Il menu è **uno solo** (`src/kernel/menu_ui.c`) per il Pi e la RGB30: stessa barra, stesse
+  copertine e pannelli. L'altezza è 360 per tutti; la larghezza decide le colonne.
+- **Pi, l'ARM disegna**: 640×360, come sopra (4 copertine per riga, 3× su 1080p).
+- **Pi, `menu_scale=3`** in `bm/config.txt`: 1920×1080 con lo stesso layout ingrandito 3×.
+  Lo ingrandisce l'ARM a ogni fotogramma (~4 MB scritti nella memoria video, come la copia
+  dello sfondo a 1080p della sezione 3): è una prova, non va a 60 fps. Il passo dopo è far
+  disegnare il menu alla GPU (M37: copertine, barre e testo come quad della V3D), e allora
+  il 1080p potrà avere anche testo e icone più fini.
+- **RGB30**: 360×360 RGB565, ingrandito 2× dal controller video sul pannello 720×720 (pixel
+  interi, nessun costo per la CPU); 2 copertine per riga.

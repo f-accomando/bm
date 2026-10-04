@@ -111,6 +111,20 @@ def screen_all(img):
     return "\n".join(screen_text(img) + screen_text_2x(img))
 
 
+def in_menu(text):
+    """The menu (the Pi's menu_ui.c at 360x360): its bar of tabs."""
+    return all(t in text for t in ("Games", "Dev", "Settings"))
+
+
+def hint_chip(img, text_rows, label):
+    """The pixels of the button's chip left of a hint's label on the footer
+    (row 21): the 3 cells before it."""
+    col = text_rows[21].index(label)
+    w = img[0]
+    return bytes(b for y in range(21 * 16, 22 * 16) for x in range(col * 8 - 24, col * 8)
+                 for b in img[2][(y * w + x) * 3:(y * w + x) * 3 + 3])
+
+
 def boot(q):
     """Boot ends in the menu."""
     out = q.expect("ready", timeout=30)
@@ -165,17 +179,24 @@ def test_screen_console(b, opts):
         img = q.screendump()
         assert img[0] == SCREEN and img[1] == SCREEN, f"screen {img[0]}x{img[1]}"
         text = screen_all(img)
-        for needle in ("Games", "Dev", "System", "No games yet", "L1/R1: tab   Up/Down: choose"):
+        for needle in ("Games", "Dev", "Settings", "No games yet"):
             assert needle in text, f"{needle!r} not on screen:\n{text}"
-        keys(q, "r")                            # R1: the Dev tab
+        # the Dev tab: two covers a row, the selected one's name on the pill
+        for k, name in (("r", "3D Bench"), ("d", "Render bench"), ("s", "Input test"), ("a", "Display"),
+                        ("s", "Boot log"), ("d", "Lua")):
+            keys(q, k)
+            text = screen_all(q.screendump())
+            assert name in text and in_menu(text), f"{name!r} not selected on the Dev tab:\n{text}"
+        keys(q, "r")                            # Settings: its panel
         text = screen_all(q.screendump())
-        for needle in ("3D Bench", "Render bench", "Display", "Input test", "Boot log"):
-            assert needle in text, f"{needle!r} not on the Dev tab:\n{text}"
-        keys(q, "r")                            # the System tab
+        for needle in ("Bluetooth", "WiFi", "Updates", "System", "Reboot", "Power off"):
+            assert needle in text, f"{needle!r} not in Settings:\n{text}"
+        keys(q, "r")                            # R1 on the last tab: nothing
+        assert "Power off" in screen_all(q.screendump())
+        keys(q, "\x7f")                        # back: out of Settings, to Dev
         text = screen_all(q.screendump())
-        for needle in ("Bluetooth", "WiFi", "System", "Reboot", "Power off"):
-            assert needle in text, f"{needle!r} not on the System tab:\n{text}"
-        keys(q, "r")                            # back round to Games
+        assert "Lua" in text and "Power off" not in text, text
+        keys(q, "l")                            # L1: Games
         assert "No games yet" in screen_all(q.screendump())
     finally:
         q.close()
@@ -232,7 +253,7 @@ def test_menu_games_and_hidden_bm(b, opts):
         assert "pong" not in text.lower(), text
         out = q.expect("\n", timeout=5).decode(errors="replace")
         assert "(1 .bm hidden by show_bm=0" in out, out
-        keys(q, "l")                            # L1: round to the System tab
+        keys(q, "rr")                           # R1 twice: Settings, its panel over the covers
         text = screen_all(q.screendump())
         assert "Bluetooth" in text and "WiFi" in text and "racer" not in text.lower(), text
     finally:
@@ -253,7 +274,9 @@ def test_menu_games_and_hidden_bm(b, opts):
         assert "cartridge menu: 2 games" in out, out
         time.sleep(0.5)
         text = screen_all(q.screendump())
-        assert "pong.bm" in text.lower(), text
+        keys(q, "d")                            # the other cover
+        text += screen_all(q.screendump())
+        assert "pong.bm" in text.lower() and "racer.s16" in text.lower(), text
     finally:
         q.close()
 
@@ -362,10 +385,10 @@ def test_bluetooth_page_without_chip(b, opts):
         time.sleep(0.5)
         text = "\n".join(screen_text(q.screendump()))
         assert "Bluetooth is off" in text, text
-        q.send("\x7f")                          # B
+        q.send("\x7f")                          # back
         time.sleep(0.6)
         text = screen_all(q.screendump())
-        assert "Up/Down: choose" in text, text
+        assert in_menu(text) and "Bluetooth" in text, text
     finally:
         q.close()
 
@@ -383,7 +406,7 @@ def test_wifi_page_without_chip(b, opts):
         assert "WiFi is off" in text, text
         q.send("\x7f")
         time.sleep(0.6)
-        assert "Up/Down: choose" in screen_all(q.screendump())
+        assert in_menu(screen_all(q.screendump()))
     finally:
         q.close()
 
@@ -395,7 +418,7 @@ def test_display_modes(b, opts):
     q = Qemu(os.path.join(b, "kernel.elf"))
     try:
         boot(q)
-        keys(q, "rss")                          # Dev tab: 3D Bench, Render bench, Display
+        keys(q, "rs")                           # Dev tab: 3D Bench, down a row: Display
         q.send("\r")
         q.expect("720x720 x1 sharp: on", timeout=10)
         time.sleep(0.5)
@@ -415,15 +438,17 @@ def test_display_modes(b, opts):
         time.sleep(0.8)
         img = q.screendump()
         assert img[0] == SCREEN and img[1] == SCREEN, f"screen {img[0]}x{img[1]}"
-        assert "Up/Down: choose" in screen_all(img)
+        assert in_menu(screen_all(img))
     finally:
         q.close()
 
 
 def test_confirm_button(b, opts):
     """B (the RGB30's lower face button) confirms and A goes back by
-    default: the menu says so and the serial port's Enter presses B;
-    confirm=a in bm/config.txt swaps them."""
+    default: the hints of the Settings panel say so (Open on one chip,
+    Back on the other, swapped by confirm=a in bm/config.txt) and the
+    serial port's Enter presses the confirm button."""
+    chips = {}
     for config, ok, held in ((b"layout=us\n", "B", "00000020"), (b"confirm=a\n", "A", "00000010")):
         tmp = tempfile.mkdtemp(prefix="bm64sd-")
         sd = make_sd(tmp, {"bm/config.txt": config})     # no games: Dev is one tab away
@@ -431,9 +456,13 @@ def test_confirm_button(b, opts):
         try:
             boot(q)
             time.sleep(0.4)
-            text = screen_all(q.screendump())
-            assert f"Up/Down: choose   {ok}: open" in text, text
-            keys(q, "rsss")                    # Dev tab: Input test
+            keys(q, "rr")                      # the Settings panel: Open and Back
+            img = q.screendump()
+            rows = screen_text(img)
+            assert "Open" in rows[21] and "Back" in rows[21], "\n".join(rows)
+            chips[ok] = (hint_chip(img, rows, "Open"), hint_chip(img, rows, "Back"))
+            assert chips[ok][0] != chips[ok][1], "the same chip for Open and Back"
+            keys(q, "\x7fsd")                  # back to Dev; down a row, right: Input test
             q.send("\r")                       # confirm
             time.sleep(0.6)
             q.send("\r")                       # Enter: the confirm button, held
@@ -442,6 +471,7 @@ def test_confirm_button(b, opts):
             assert "Input test" in text and f"held: {held}" in text, text
         finally:
             q.close()
+    assert chips["B"] == chips["A"][::-1], "confirm=a does not swap the chips of Open and Back"
 
 
 def test_bm_cartridge(b, opts):
@@ -476,7 +506,7 @@ def test_bm_cartridge(b, opts):
         time.sleep(1)
         img = q.screendump()
         assert img[0] == SCREEN and img[1] == SCREEN, f"screen {img[0]}x{img[1]}"
-        assert "Up/Down: choose" in screen_all(img)
+        assert in_menu(screen_all(img))
     finally:
         q.close()
 
@@ -509,7 +539,7 @@ def test_bench3d(b, opts):
         time.sleep(1)
         img = q.screendump()
         assert img[0] == SCREEN and img[1] == SCREEN, f"screen {img[0]}x{img[1]}"
-        assert "Up/Down: choose" in screen_all(img)
+        assert in_menu(screen_all(img))
         q.monitor(f'pmemsave {RAMDISK:#x} {size} "{dump}"',
                   until=lambda: os.path.exists(dump) and os.path.getsize(dump) == size)
         time.sleep(0.3)
@@ -526,7 +556,7 @@ def test_menu_input_page(b, opts):
     q = Qemu(os.path.join(b, "kernel.elf"))
     try:
         boot(q)
-        keys(q, "rsss")                         # Dev tab: Input test
+        keys(q, "rsd")                          # Dev tab: down a row, right: Input test
         q.send("\r")
         time.sleep(0.4)
         q.send("x")                            # X held for a moment
@@ -538,7 +568,7 @@ def test_menu_input_page(b, opts):
         q.send("\t ")                          # Select + Start: back
         time.sleep(0.6)
         text = screen_all(q.screendump())
-        assert "Up/Down: choose" in text, text
+        assert in_menu(text) and "Input test" in text, text
     finally:
         q.close()
 

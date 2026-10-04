@@ -272,7 +272,8 @@ def test_console_ansi_and_status(b, opts):
     try:
         q.expect(MENU, timeout=30)
         # the menu: tabs at the top, button hints at the bottom (near white);
-        # nothing pressed yet: the DS4's buttons, Share + Options for the monitor
+        # nothing pressed yet: the keyboard's keys (on the Pi keyboard and
+        # mouse come first), Enter to play, Ctrl+Esc for the monitor
         _, text = settled_screen(q, lambda i, t: "Monitor" in t[21])
         img = q.screendump()
         text = screen_text(img)
@@ -281,8 +282,9 @@ def test_console_ansi_and_status(b, opts):
         colours = {pixel(img, x, 21 * 16 + y) for x in range(col * 8, col * 8 + 56) for y in range(16)}
         assert any(r > 230 and g > 230 and b > 230 for r, g, b in colours), \
             f"hint text not rendered {colours}"
-        spans = prompt_spans(img, 21)
-        assert len(spans) == 3 and spans[-1][1] - spans[-1][0] >= 44, spans   # cross, Share, Options
+        widths = [x1 - x0 for x0, x1 in prompt_spans(img, 21)]
+        assert len(widths) == 3 and widths[0] >= 34 and widths[1] >= 28 and 20 <= widths[2] <= 28, \
+            widths                                                              # Enter, Ctrl, Esc
         if opts.shots:
             _save_png(img, os.path.join(opts.shots, "menu-hints.png"))
         q.send("q")
@@ -5212,6 +5214,43 @@ function _draw()
   print("SCREEN " .. SCREEN_W .. "X" .. SCREEN_H, 0, 0, 0xFFFFFF)
 end
 """
+
+
+def test_menu_scale(b, opts):
+    """menu_scale=3 in bm/config.txt (2026-10-04): the menu at 1920x1080,
+    the same layout as at 640x360, every pixel 3x3 (the ARM enlarges it;
+    the GPU will draw it there one day)."""
+    tmp = tempfile.mkdtemp(prefix="bm-scale-")
+    img = os.path.join(tmp, "sd.img")
+    cfg = os.path.join(tmp, "config.txt")
+    with open(cfg, "w") as f:
+        f.write("layout=us\nmenu_scale=3\n")
+    mksd.build(img, [(cfg, "bm/config.txt"), (b("demo.bm"), "carts/game.bm")])
+    q = Qemu(b("kernel.img"), ["-drive", f"if=sd,format=raw,file={img}"])
+    try:
+        q.expect(MENU, timeout=30)
+        for _ in range(30):
+            big = q.screendump()
+            w, h, px = big
+            small = bytes(px[((y * 3) * w + x * 3) * 3 + k] for y in range(h // 3) for x in range(w // 3)
+                          for k in range(3))
+            text = screen_text((w // 3, h // 3, small))
+            if (w, h) == (1920, 1080) and "Settings" in text[1] and "bm native demo" in text[4]:
+                break
+            time.sleep(0.3)
+        assert (w, h) == (1920, 1080), f"screen {w}x{h}"
+        assert "Games" in text[1] and "Settings" in text[1] and "bm native demo" in text[4], "\n".join(text)
+        # every 3x3 block one colour: the layout enlarged, not drawn again
+        for y in range(0, 1080, 37 * 3):
+            for x in range(0, 1920, 41 * 3):
+                block = {px[((y + j) * w + x + i) * 3:((y + j) * w + x + i) * 3 + 3] for j in range(3)
+                         for i in range(3)}
+                assert len(block) == 1, f"the 3x3 block at {x},{y}: {block}"
+        if opts.shots:
+            _save_png(big, os.path.join(opts.shots, "menu-1080.png"))
+    finally:
+        q.close()
+        shutil.rmtree(tmp, ignore_errors=True)
 
 
 def test_screen_modes(b, opts):

@@ -1,12 +1,15 @@
 /*
- * The RGB30's menu: 360x360, shown twice as big (the whole 720x720 panel,
- * every pixel a 2x2 square), in three tabs as on the Pi: Games (the .s16
- * files in bm/ on the SD card, whose format is still to be defined, and
- * for testing the Pi's .bm cartridges, which run; show_bm=0 hides them),
- * Dev (the 3D Bench, the render bench, the display modes, the input test,
- * the boot log, Lua) and System (Bluetooth, WiFi, updates from GitHub, the console's state,
- * reboot, power off).
- * L1 / R1 or left / right change tab.
+ * The RGB30's menu: the Pi's (src/kernel/menu_ui.c, the same drawing and
+ * bar) at 360x360, shown twice as big (the whole 720x720 panel, every pixel
+ * a 2x2 square), two covers a row. Tabs as on the Pi: Games (the .s16 files
+ * in bm/ on the SD card, whose format is still to be defined, and for
+ * testing the Pi's .bm cartridges, which run; show_bm=0 hides them), Dev
+ * (the 3D Bench, the render bench, the display modes, the input test, the
+ * boot log, Lua) and Settings, whose panel opens when it is the tab
+ * (Bluetooth, WiFi, updates from GitHub, the console's state, reboot, power
+ * off). The controller drives it: L1 / R1 the tabs, the D-pad the covers,
+ * B confirms and A goes back (confirm=a swaps them). The pages behind it
+ * still draw on the text console.
  */
 #include "ui.h"
 #include "pad.h"
@@ -29,7 +32,9 @@
 #include "bt/bt.h"
 #include "wifi/wifi.h"
 #include "net/net.h"
+#include "bm/bm.h"
 #include "bm/runtime.h"
+#include "kernel/menu_ui.h"
 #include "b3d_rgb30.h"
 
 #include <stdlib.h>
@@ -46,7 +51,6 @@
 #define C_TEXT      0xe8ecf2
 #define C_DIM       0x8a94a6
 #define C_ACCENT    0x3aa0ff
-#define C_SEL       0x24406a
 #define C_OK        0x4ccf6a
 #define C_WARN      0xffb13a
 #define C_BAD       0xff5a5a
@@ -91,14 +95,12 @@ static void textf(int x, int y, uint32_t fg, uint32_t bg, const char *fmt, ...)
     text(x, y, buf, fg, bg);
 }
 
-/* Layout (360x360, 45 x 22 characters): everything on the font's grid
+/* The pages (360x360, 45 x 22 characters): everything on the font's grid
  * (text at multiples of 8 x 16), which is also how the tests read it back.
- * The bar (the tabs, or a page's title) at the top, a list of rows 32
- * pixels high, a line of help, the hints at the bottom. */
+ * The page's title at the top, its lines, a line of help, the hints at the
+ * bottom. */
 #define HEAD_H      40
-#define LIST_Y      48              /* the text of the first row */
-#define ROW_H       32
-#define ROWS        8
+#define LIST_Y      48              /* the text of the first line */
 #define HELP_Y      304
 #define FOOT_Y      328
 
@@ -152,9 +154,38 @@ static void frame_end(void)
 
 /* --- games on the SD card --- */
 
-static struct { char name[56]; uint32_t size; int is_bm; } games[MAX_GAMES];
+static struct {
+    char name[56], title[48];
+    uint32_t size;
+    int is_bm;
+    g16_sheet_t cover;              /* 128x80: the .bm's COVER, or its title on a label */
+} games[MAX_GAMES];
 static int n_games, n_hidden;      /* n_hidden: .bm hidden by show_bm=0 */
 static const char *sd_state = "not read";
+
+/* a .bm's title and cover (its COVER section) as on the Pi's menu; a
+ * label with the file's name for the rest */
+static void load_cover(int i)
+{
+    char path[80];
+    ksnprintf(path, sizeof path, "/bm/%s", games[i].name);
+    ksnprintf(games[i].title, sizeof games[i].title, "%s", games[i].name);
+    fat_entry_t e;
+    uint8_t *data = NULL;
+    size_t len = 0;
+    bm_cart_t bc;
+    char err[8];
+    if (games[i].is_bm && fat_find(path, &e) == 0 && fat_load(&e, &data, &len) == 0 &&
+        bm_parse(data, len, &bc, err, sizeof err) == 0) {
+        if (bc.title[0])
+            ksnprintf(games[i].title, sizeof games[i].title, "%s", bc.title);
+        if (bc.cover_rgba)
+            menu_load_cover(&games[i].cover, bc.cover_rgba, bc.cover_w, bc.cover_h);
+    }
+    free(data);
+    if (!games[i].cover.px)
+        menu_make_cover(&games[i].cover, games[i].title, games[i].is_bm ? "bm" : "s16");
+}
 
 static void scan_games(void)
 {
@@ -185,6 +216,8 @@ static void scan_games(void)
         games[n_games].is_bm = is_bm;
         n_games++;
     }
+    for (int i = 0; i < n_games; i++)
+        load_cover(i);
 }
 
 /* --- pages --- */
@@ -560,137 +593,185 @@ static void page_render(void)
     console_suspend(1);
 }
 
-/* --- the tabs --- */
+/* --- the menu --- */
 
 typedef struct {
     const char *name, *help;
     void (*run)(void);
+    int icon;                       /* the cover, as the Pi's tools (MENU_ICON_*, colour) */
+    uint32_t rgb;
 } item_t;
 
 static void do_reboot(void)   { kprintf("rebooting...\n"); plat_reset(); }
 static void do_poweroff(void) { kprintf("power off\n"); plat_poweroff(); }
 
+/* the Dev tab, with the covers of the same tools on the Pi (home.c) */
 static const item_t dev_items[] = {
-    { "3D Bench", "every 3D test: bars, report in bm/bench", page_bench3d },
-    { "Render bench", "map, sprites and text, 640x360", page_render },
-    { "Display", "the screen modes for games and the GPU", page_display },
-    { "Input test", "every button and both sticks, live", page_input },
-    { "Boot log", "everything printed since boot", page_log },
-    { "Lua (serial)", "a Lua prompt on the serial port", serial_lua },
+    { "3D Bench", "every 3D test: bars, report in bm/bench", page_bench3d, MENU_ICON_GAUGE, 0x2A6A8A },
+    { "Render bench", "map, sprites and text, 640x360", page_render, MENU_ICON_TRIANGLES, 0x5A3AA0 },
+    { "Display", "the screen modes for games and the GPU", page_display, MENU_ICON_BARS, 0x404050 },
+    { "Input test", "every button and both sticks, live", page_input, MENU_ICON_PAD, 0x8A3A8A },
+    { "Boot log", "everything printed since boot", page_log, MENU_ICON_LOG, 0x6A6A7A },
+    { "Lua", "a Lua prompt on the serial port", serial_lua, MENU_ICON_LUA, 0x2A3A9A },
 };
-static const item_t system_items[] = {
-    { "Bluetooth", "controllers and keyboards", page_bt },
-    { "WiFi", "network (bm/config.txt: wifi_ssid, wifi_psk)", page_wifi },
-    { "Updates", "the latest bm from GitHub (WiFi first)", page_update },
-    { "System", "board, memory, SD card, battery, display", page_system },
-    { "Reboot", "restart the console", do_reboot },
-    { "Power off", "turn the console off", do_poweroff },
+#define N_DEV ((int)(sizeof dev_items / sizeof dev_items[0]))
+static g16_sheet_t dev_covers[N_DEV];
+
+/* the Settings panel */
+static const item_t settings_items[] = {
+    { "Bluetooth", "pair controllers and keyboards", page_bt, 0, 0 },
+    { "WiFi", "joins wifi_ssid of bm/config.txt", page_wifi, 0, 0 },
+    { "Updates", "the latest bm from GitHub (WiFi first)", page_update, 0, 0 },
+    { "System", "board, memory, SD card, battery", page_system, 0, 0 },
+    { "Reboot", "restart the console", do_reboot, 0, 0 },
+    { "Power off", "turn the console off", do_poweroff, 0, 0 },
 };
+#define N_SETTINGS ((int)(sizeof settings_items / sizeof settings_items[0]))
 
-enum { TAB_GAMES, TAB_DEV, TAB_SYSTEM, TAB_COUNT };
-static const char *const tab_names[TAB_COUNT] = { "Games", "Dev", "System" };
+enum { TAB_GAMES, TAB_DEV, TAB_SETTINGS };      /* Settings: the last, its panel */
+static const char *const tab_names[] = { "Games", "Dev" };
 
-static int tab_size(int t)
+/* the menu's screen again after a page; if it cannot be had, the console
+ * says why and a button tries again */
+static void menu_reopen(void)
 {
-    return t == TAB_GAMES ? n_games
-         : t == TAB_DEV ? (int)(sizeof dev_items / sizeof dev_items[0])
-         : (int)(sizeof system_items / sizeof system_items[0]);
-}
-
-static const item_t *tab_item(int t, int i)
-{
-    return t == TAB_DEV ? &dev_items[i] : &system_items[i];
-}
-
-/* the bar: "bm", then the tabs, the selected one as a pill */
-static void tab_bar(int tab)
-{
-    gfx_clear(fb, rgb(C_BG));
-    gfx_rect(fb, 0, 0, W, HEAD_H, rgb(C_HEAD));
-    text(8, 16, "bm", C_ACCENT, C_HEAD);
-    int x = 40;
-    for (int t = 0; t < TAB_COUNT; t++) {
-        int w = 8 * (int)strlen(tab_names[t]);
-        if (t == tab) {
-            gfx_rect(fb, x - 8, 10, w + 16, 28, rgb(C_ACCENT));
-            text(x, 16, tab_names[t], 0x000000, C_ACCENT);
-        } else {
-            text(x, 16, tab_names[t], C_DIM, C_HEAD);
-        }
-        x += w + 24;
+    while (menu_ui_open(fb) != 0) {
+        kprintf("menu: the screen cannot be opened; %s tries again\n", pad_ok_name());
+        while (!(pad_pressed() & pad_ok))
+            timer_delay_ms(10);
     }
 }
+
+/* a page or a game: the console's screen, then the menu again */
+static void run_page(void (*run)(void))
+{
+    menu_ui_close(fb);
+    console_suspend(1);                             /* the pages draw themselves */
+    run();
+    while (pad_state())                             /* the button that left, released */
+        timer_delay_ms(10);
+    pad_pressed();
+    menu_reopen();
+}
+
+static int play_index;
+static void play_selected(void) { page_game(play_index); }
 
 void ui_home(framebuffer_t *f)
 {
     fb = f;
     console_suspend(1);
     scan_games();
-    int tab = TAB_GAMES, sel[TAB_COUNT] = { 0 }, top[TAB_COUNT] = { 0 };
+    for (int i = 0; i < N_DEV; i++)
+        menu_make_tool_cover(&dev_covers[i], dev_items[i].name, dev_items[i].icon, dev_items[i].rgb);
     kprintf("cartridge menu: %d games", n_games);
     if (n_hidden)
         kprintf(" (%d .bm hidden by show_bm=0 in bm/config.txt)", n_hidden);
     kprintf("\n");
+    menu_reopen();
+
+    int tab = TAB_GAMES, sel[2] = { 0, 0 }, psel = 0;
+    static menu_item_t items[MAX_GAMES > N_DEV ? MAX_GAMES : N_DEV];
+    static menu_row_t rows[N_SETTINGS];
+    char details[64] = "", note[64] = "";
     for (;;) {
-        int n = tab_size(tab);
-        int *s = &sel[tab], *t = &top[tab];
+        /* the view: the tab's covers, or the Settings panel over the last tab's */
+        int on_gear = tab == TAB_SETTINGS, shown = on_gear ? TAB_DEV : tab;
+        int n = shown == TAB_GAMES ? n_games : N_DEV;
+        int *s = &sel[shown];
         if (*s >= n) *s = n - 1;
         if (*s < 0) *s = 0;
-        if (*s < *t) *t = *s;
-        if (*s >= *t + ROWS) *t = *s - ROWS + 1;
-
-        tab_bar(tab);
-        const char *help = "";
-        if (tab == TAB_GAMES && !n_games) {
-            text(8, LIST_Y, "No games yet:", C_DIM, C_BG);
-            text_wrap(LIST_Y + 16, strcmp(sd_state, "bm/") == 0 ? "put .s16 games in bm/ on the SD card"
-                                                                : sd_state, 2, C_DIM);
-            if (n_hidden) {
-                char note[96];
-                ksnprintf(note, sizeof note, "%d Pi cartridge%s (.bm) hidden by show_bm=0 in "
-                          "bm/config.txt", n_hidden, n_hidden > 1 ? "s" : "");
-                text_wrap(LIST_Y + 48, note, 3, C_TEXT);
-            }
-        }
-        for (int i = *t; i < n && i < *t + ROWS; i++) {
-            int y = LIST_Y + (i - *t) * ROW_H;
-            const char *name = tab == TAB_GAMES ? games[i].name : tab_item(tab, i)->name;
-            if (i == *s)
-                gfx_rect(fb, 0, y - 8, W, ROW_H, rgb(C_SEL));
-            gfx_rect(fb, 8, y - 4, 4, 24, rgb(tab == TAB_GAMES ? C_OK : C_ACCENT));
-            text(24, y, name, C_TEXT, i == *s ? C_SEL : C_BG);
-            if (i == *s)
-                help = tab == TAB_GAMES ? (games[i].is_bm ? "Pi cartridge: Start+Select leaves" : ".s16 game")
-                                        : tab_item(tab, i)->help;
-        }
-        text_wrap(HELP_Y, help, 1, C_DIM);
-        char hint[48];
-        ksnprintf(hint, sizeof hint, "L1/R1: tab   Up/Down: choose   %s: open", pad_ok_name());
-        footer(hint);
-        frame_end();
-
-        uint32_t p;
-        for (;;) {
-            p = pad_pressed();
-            int c = pad_serial_char();
-            if (c == '`') {
-                serial_lua();
-                p = 0;
-                break;
-            }
-            if (p)
-                break;
-            timer_delay_ms(10);
-        }
-        if (p & (PAD_L1 | PAD_LEFT)) tab = (tab + TAB_COUNT - 1) % TAB_COUNT;
-        if (p & (PAD_R1 | PAD_RIGHT)) tab = (tab + 1) % TAB_COUNT;
-        if (p & PAD_UP) (*s)--;
-        if (p & PAD_DOWN) (*s)++;
-        if ((p & pad_ok) && n > 0 && !(p & (PAD_L1 | PAD_R1 | PAD_LEFT | PAD_RIGHT))) {
-            if (tab == TAB_GAMES)
-                page_game(*s);
+        for (int i = 0; i < n; i++) {
+            if (shown == TAB_GAMES)
+                items[i] = (menu_item_t){ .title = games[i].title, .kind = games[i].is_bm ? "bm" : "s16",
+                                          .size = games[i].size, .cover = &games[i].cover };
             else
-                tab_item(tab, *s)->run();
+                items[i] = (menu_item_t){ .title = dev_items[i].name, .kind = "tool", .cover = &dev_covers[i] };
+        }
+        menu_view_t v = {
+            .tabs = tab_names, .ntabs = 2, .tab = shown, .on_gear = on_gear,
+            .items = items, .n = n, .sel = *s,
+            .prompts = MENU_PROMPTS_PAD, .confirm_b = pad_ok == PAD_B, .no_monitor = 1,
+        };
+        /* the bar: the console's own controls are player 1 (blue when a
+         * Bluetooth pad plays with them), a keyboard, the WiFi */
+        v.dev[0] = MENU_DEV_PAD;
+        if (bt_pads())
+            v.bt |= 1;
+        if (bt_keyboard()) {
+            v.dev[1] = MENU_DEV_KEYBOARD;
+            v.bt |= 2;
+        }
+        v.net = wifi_on && wifi_linked() ? MENU_NET_WIFI : MENU_NET_NONE;
+        v.net_wait = !net_ip();
+        details[0] = note[0] = 0;
+        if (shown == TAB_GAMES && n == 0) {
+            v.banner = strcmp(sd_state, "bm/") == 0 ? "No games yet: put .s16 games in bm/" : "No games yet";
+            v.a_label = "";
+            if (n_hidden)
+                ksnprintf(details, sizeof details, "%d Pi cartridge%s (.bm) hidden by show_bm=0", n_hidden,
+                          n_hidden > 1 ? "s" : "");
+            else if (strcmp(sd_state, "bm/") != 0)
+                ksnprintf(details, sizeof details, "%s", sd_state);
+        } else if (shown == TAB_GAMES) {
+            v.a_label = games[*s].is_bm ? "Play" : "Open";
+            ksnprintf(details, sizeof details, "bm/%s: %s", games[*s].name,
+                      games[*s].is_bm ? "Start+Select leaves" : "format still to define");
+        } else {
+            ksnprintf(details, sizeof details, "%s", dev_items[*s].help);
+        }
+        v.details = details[0] ? details : NULL;
+        menu_panel_t panel;
+        if (on_gear) {
+            for (int i = 0; i < N_SETTINGS; i++)
+                rows[i] = (menu_row_t){ settings_items[i].name, NULL,
+                                        i < 4 ? MENU_ROW_SUB : MENU_ROW_ACTION };
+            rows[0].value = bt_on ? "on" : "off";
+            rows[1].value = wifi_on && wifi_linked() ? "connected" : wifi_on ? "on" : "off";
+            int top = psel < MENU_PANEL_ROWS ? 0 : psel - MENU_PANEL_ROWS + 1;
+            panel = (menu_panel_t){ "Settings", rows, N_SETTINGS, psel, top, settings_items[psel].help };
+            v.panel = &panel;
+        }
+        menu_ui_frame(fb, &v);
+
+        uint32_t p = pad_pressed();
+        if (pad_serial_char() == '`') {
+            run_page(serial_lua);
+            continue;
+        }
+        /* L1 / R1: Games, Dev, Settings, no going round (as on the Pi) */
+        if ((p & PAD_L1) && tab > TAB_GAMES)
+            tab--;
+        else if ((p & PAD_R1) && tab < TAB_SETTINGS)
+            tab++;
+        else if (on_gear) {
+            if (p & PAD_UP)
+                psel = (psel + N_SETTINGS - 1) % N_SETTINGS;
+            if (p & PAD_DOWN)
+                psel = (psel + 1) % N_SETTINGS;
+            if (p & pad_back)
+                tab = TAB_DEV;                      /* out of Settings: the tab before */
+            else if (p & pad_ok)
+                run_page(settings_items[psel].run);
+        } else if (n > 0) {
+            /* the covers: left / right along the row, up / down a row (the
+             * last row may be shorter) */
+            int cols = menu_ui_cols(), to = *s;
+            if (p & PAD_LEFT) to = *s - 1;
+            if (p & PAD_RIGHT) to = *s + 1;
+            if (p & PAD_UP) to = *s - cols;
+            if (p & PAD_DOWN)
+                to = *s + cols < n ? *s + cols : (*s / cols + 1) * cols < n ? n - 1 : *s;
+            if (to >= 0 && to < n)
+                *s = to;
+            if (p & pad_ok) {
+                if (shown == TAB_GAMES) {
+                    play_index = *s;
+                    run_page(play_selected);
+                } else {
+                    run_page(dev_items[*s].run);
+                }
+            }
         }
     }
 }

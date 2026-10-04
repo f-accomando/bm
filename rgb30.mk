@@ -73,9 +73,11 @@ NET_SRCS := src/net/net.c src/net/netcon.c src/net/netxfer.c src/net/cartnet.c
 NET_SRCS += src/net/stream.c src/net/tls.c src/net/http.c src/net/http_kernel.c src/net/release.c \
             src/kernel/update.c
 # the Pi's cartridges (.bm, listed for testing; show_bm=0 hides them): the runtime unchanged,
-# the Pi's drivers it calls replaced by src/rgb30/bm_port.c and bm_input.c
+# the Pi's drivers it calls replaced by src/rgb30/bm_port.c and bm_input.c; the menu is
+# the Pi's (menu_ui.c, its icons) at 360x360
 BM_SRCS := $(filter-out src/bm/stress.c src/bm/roombench.c,$(wildcard src/bm/*.c)) \
-           src/audio/player.c src/audio/n8snd.c src/kernel/prompts.c src/kernel/pointer.c
+           src/audio/player.c src/audio/n8snd.c src/kernel/prompts.c src/kernel/pointer.c \
+           src/kernel/menu_ui.c src/kernel/icons.c
 SHARED_SRCS += $(BT_SRCS) $(MBEDTLS_SRCS) $(LWIP_SRCS) $(NET_SRCS) $(BM_SRCS)
 RGB30_SRCS := $(wildcard src/rgb30/*.c src/rgb30/*.S)
 KERNEL_SRCS := $(RGB30_SRCS) $(SHARED_SRCS) $(LUA_SRCS)

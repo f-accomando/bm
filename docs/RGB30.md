@@ -129,10 +129,15 @@ prima di accendere lo schermo e il registro si scrive tre volte (prima dello sch
   Mali) non c'è ancora.
 - Cartucce del Pi (`.bm`) nel menu e avviabili, per le prove: Yharnam nell'immagine SD (vedi
   sotto).
-- Menu 360×360 ingrandito ×2 (riempie il pannello), con tre schede come sul Pi: **Games** (giochi
-  `.s16` e i `.bm`; con `show_bm=0` dice quante cartucce sono nascoste), **Dev** (3D Bench,
-  Render bench, Display, Input test, Boot log, Lua sulla seriale), **System** (Bluetooth, WiFi,
-  System, Reboot, Power off). L1/R1 (o sinistra/destra) cambiano scheda.
+- Menu 360×360 ingrandito ×2 (riempie il pannello): dal 2026-10-04 è **lo stesso del Pi**
+  (`src/kernel/menu_ui.c`: barra con le schede a pillola e le icone, copertine 128×80, due per
+  riga, pannelli, suggerimenti dei tasti). Schede **Games** (giochi `.s16` e i `.bm`, con la loro
+  copertina; con `show_bm=0` dice quante cartucce sono nascoste), **Dev** (3D Bench, Render bench,
+  Display, Input test, Boot log, Lua sulla seriale) e **Settings**, l'ultima, che apre il suo
+  pannello (Bluetooth, WiFi, Updates, System, Reboot, Power off). Solo il controller: L1/R1 le
+  schede (senza fare il giro, come sul Pi), la croce le copertine, **B** apre e **A** torna
+  indietro (`confirm=a` li scambia, anche nei suggerimenti). Le pagine dietro le voci (Bluetooth,
+  WiFi, aggiornamenti, bench, log) sono ancora sulla console di testo.
 - **3D Bench** (scheda Dev, `src/rgb30/b3d_rgb30.c`): lo stesso banco di prova del Pi
   (`src/bm/b3d.c`), a 640×360 ingrandito sul pannello; tutte le prove 3D disegnate dall'ARM (la GPU
   Mali non ha ancora un driver: le colonne GPU restano vuote), i contatori del Cortex-A55
@@ -195,7 +200,7 @@ WPA2/WPA3 miste); non WPA3 sola, WPA1, WEP, enterprise.
 
 ## Aggiornare bm
 
-- **Dalla console** (WiFi collegato): *System > Updates* legge l'ultima release di GitHub
+- **Dalla console** (WiFi collegato): *Settings > Updates* legge l'ultima release di GitHub
   (`manifest-rgb30.txt`, firmato con la chiave delle release che sta nel kernel), dice se è più
   nuova e quali file cambiano (`kernel8.img`, `bm/ca.pem`); **B** la installa: scarica e
   controlla tutto prima di scrivere, tiene il kernel di prima in `bm/backup/kernel8.img`,

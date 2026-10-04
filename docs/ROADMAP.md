@@ -2346,6 +2346,9 @@ nuove costano all'ARM quasi quanto le vecchie (5,99 M / 5,16 M).
 
 ## M37 — 2D e qualità sulla GPU (M, se serve)
 - Sprite, tile e testo come quad della GPU, per i giochi con molto 2D sopra il 3D.
+- Il **menu a 1080p** con la GPU attiva (decisione del 2026-10-04): sfondo, copertine, barre e
+  testo come quad della V3D, a 60 fps. Oggi `menu_scale=3` lo mostra a 1920×1080 con lo stesso
+  layout ×3 ingrandito dall'ARM (una prova, lenta; `docs/RISOLUZIONI.md`, sezione 6).
 - Filtro bilineare delle texture (opzione: cambia l'aspetto rispetto all'ARM).
 - Matrice unica oggetto→camera e luce nello spazio dell'oggetto: meno istruzioni per
   vertice, pixel non più identici al bit (opzione).
@@ -2788,6 +2791,11 @@ Task:
    `bm_net.py --kernel` scrive `kernel8.img` sulla RGB30 (prima `kernel.img`, che U-Boot non
    avvia), e un Pi rifiuta un `kernel8.img`. Prova: `test_update_from_sd` in QEMU; sulla
    console da verificare via WiFi.
+10. ✅ (QEMU) **Lo stesso menu del Pi** (richiesta 2026-10-04, branch `bm-core`): `src/kernel/menu_ui.c`
+   a 360×360 ×2, due copertine per riga, schede Games / Dev e Settings col suo pannello (al
+   posto della scheda System), copertine dei `.bm` e degli strumenti come sul Pi, suggerimenti
+   coi tasti del controller (B conferma, A indietro). Le pagine dietro le voci restano sulla
+   console di testo. Prove: tutto `tests/rgb30/qemu_test.py`; sulla console da vedere.
 - **Fatto quando:** sulla RGB30 il menu appare, i tasti e le levette rispondono, un controller
   Bluetooth si accoppia e la console entra nella rete WiFi salvata in `bm/config.txt`.
 

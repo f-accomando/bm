@@ -155,9 +155,11 @@ screenshot in `docs/img/`), `README_OLD.md` (il README completo, in italiano),
 - Compilatore `aarch64-linux-gnu-gcc` + **picolibc** (non newlib); codice specifico in
   `src/rgb30/` (`plat_virt.c`/`sd_virt.c` per QEMU, `rk_*.c` per la console). Gli header in comune
   con l'ARMv6 (`kernel/irq.h`, `arch/cache.h`) hanno un ramo `__aarch64__`.
-- Menu 360×360 ingrandito ×2 sul pannello (`ui.c`), schede Games / Dev / System (L1/R1; dalla
-  seriale `l`/`r`), giochi `.s16` (formato da definire), `.bm` visibili per le prove (`show_bm=0`
-  li nasconde). In Dev il 3D Bench (`b3d_rgb30.c`: `src/bm/b3d.c` con i contatori del
+- Menu: **lo stesso del Pi** (`menu_ui.c`, decisione dell'utente del 2026-10-04) a 360×360
+  ingrandito ×2 sul pannello, due copertine per riga; `ui.c` gli dà la vista e i tasti: schede
+  Games / Dev e Settings col suo pannello (L1/R1 senza giro; dalla seriale `l`/`r`, `w a s d`,
+  Invio, Backspace), giochi `.s16` (formato da definire), `.bm` visibili per le prove
+  (`show_bm=0` li nasconde); le pagine dietro le voci sono ancora sulla console. In Dev il 3D Bench (`b3d_rgb30.c`: `src/bm/b3d.c` con i contatori del
   Cortex-A55). Nei test lo schermo si legge dai pixel: il testo del menu sta sulla griglia del
   font 8×16 (x multipli di 8, y di 16).
 - L'utente prova senza seriale: LED (rosso = avvio, verde a 1 Hz = vivo) e `bm/bootlog.txt`
@@ -177,7 +179,7 @@ screenshot in `docs/img/`), `README_OLD.md` (il README completo, in italiano),
   M18. `make TARGET=rgb30 test-wifi`: frame, WPA2 contro `tests/rgb30/wpa_vectors.h` (scritto da
   `wpa_vectors.py`, Python + `cryptography`) e tutta la stazione su un chip e access point simulati
   (`wifi_sim_test.c`, `-v` mostra la console).
-- Aggiornamenti come sul Pi: *System > Updates* (`page_update` in `ui.c`, `src/kernel/update.c`
+- Aggiornamenti come sul Pi: *Settings > Updates* (`page_update` in `ui.c`, `src/kernel/update.c`
   con `BM_RGB30`: `manifest-rgb30`, `kernel8.img` riconosciuto dall'intestazione arm64 `ARM\x64` a
   +56), HTTPS e `release.c` nella build; le fibre del Market non ci sono (`stubs.c`: la rete
   aspetta sul posto). `netxfer.c` scrive `kernel8.img`. Test `test_update_from_sd`.
@@ -187,6 +189,21 @@ screenshot in `docs/img/`), `README_OLD.md` (il README completo, in italiano),
 - Decisione dell'utente (2026-09-30): bm esegue solo i `.bm`. Il vecchio formato `.cart`
   e il suo interprete non entrano nelle build, nel kernel o nell'immagine SD; non
   reintrodurli senza una richiesta esplicita.
+
+## Menu del Pi e della RGB30 (decisioni dell'utente, 2026-10-04)
+
+- **Un solo menu**: `src/kernel/menu_ui.c` disegna il menu dei due sistemi (stessa barra,
+  stesse pillole, copertine, pannelli e colori); la larghezza decide le colonne
+  (`menu_ui_cols()`: 4 copertine per riga a 640, 2 a 360), l'altezza è 360 per tutti. Il Pi lo
+  guida da `carts.c`, la RGB30 da `src/rgb30/ui.c` (stessa `menu_view_t`).
+- **Risoluzione**: Pi 640×360 (l'ARM disegna); `menu_scale=3` in `bm/config.txt` lo porta a
+  1920×1080 con lo stesso layout ×3, ingrandito dall'ARM (lento: una prova; il 1080p vero lo
+  disegnerà la GPU, M37). RGB30 360×360 ×2, ingrandito dal controller video sul 720×720.
+- **Comandi**: sul Pi prima tastiera e mouse (i suggerimenti mostrano i tasti della tastiera
+  finché non si preme un controller); sulla RGB30 il controller (`confirm_b`: B conferma, A
+  indietro, `no_monitor`: niente monitor).
+- Test: Pi `test_menu_tabs`, `test_menu_scale` e quelli del menu; RGB30 tutto
+  `tests/rgb30/qemu_test.py` (la scheda e il titolo scelto si leggono sulla pillola).
 
 ## Icone dei tasti (bm-ui)
 
@@ -607,7 +624,7 @@ screenshot in `docs/img/`), `README_OLD.md` (il README completo, in italiano),
 
 - Release firmate (CI sui tag `v*`, `scripts/mkrelease.py`, chiave `keys/release-pub.pem` /
   `scripts/release-key.sh`, secret `BM_RELEASE_KEY`; la RGB30 ha un manifesto suo,
-  `manifest-rgb30` con `kernel8.img`, nella stessa release, e *System > Updates*;
+  `manifest-rgb30` con `kernel8.img`, nella stessa release, e *Settings > Updates*;
   `scripts/release.sh vX.Y.Z` fa tutta la
   procedura da WSL, anche il kernel con la chiave sulla SD prima del tag); sul Pi `src/kernel/update.c`:
   Settings > System > *Check for updates* / *Install the update*, monitor `u`. Niente si
