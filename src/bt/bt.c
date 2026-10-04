@@ -447,6 +447,11 @@ static int load_patch(void)
 }
 #endif
 
+int bt_started(void)
+{
+    return bt.started;
+}
+
 int bt_start(void)
 {
     if (bt.started)

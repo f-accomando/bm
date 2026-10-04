@@ -11,6 +11,8 @@
 /* Moves the console to the mini UART, starts the chip (firmware patch
  * from the SD card), turns on page scan for the paired pads. Returns 0. */
 int bt_start(void);
+/* 1 once bt_start() has brought the chip up */
+int bt_started(void);
 
 /* Searches for `seconds`; pairs the first game controller found as the
  * next free player (bt_pad1..bt_pad4 in bm/config.txt). */

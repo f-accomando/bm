@@ -135,10 +135,15 @@ prima di accendere lo schermo e il registro si scrive tre volte (prima dello sch
   riga, pannelli, suggerimenti dei tasti). Schede **Games** (giochi `.b16` e i `.bm`, con la loro
   copertina; con `show_bm=0` dice quante cartucce sono nascoste), **Dev** (3D Bench, Render bench,
   Display, Input test, Boot log, Lua sulla seriale) e **Settings**, l'ultima, che apre il suo
-  pannello (Bluetooth, WiFi, Updates, System, Reboot, Power off). Solo il controller: L1/R1 le
-  schede (senza fare il giro, come sul Pi), la croce le copertine, **B** apre e **A** torna
-  indietro (`confirm=a` li scambia, anche nei suggerimenti). Le pagine dietro le voci (Bluetooth,
-  WiFi, aggiornamenti, bench, log) sono ancora sulla console di testo.
+  pannello: dal 2026-10-04 le stesse sezioni del Pi (`src/kernel/settings.c`): Controllers
+  (Bluetooth, abbinare pad, tastiere e mouse, prova dei tasti, *Confirm button*, layout della
+  tastiera, icone), WiFi and network (rete salvata, indirizzo, console di rete, collegarsi,
+  *Test the connection*), Screen and sound (i modi dello schermo, l'overlay delle prestazioni; il
+  suono non ancora), Updates, Reports, System (versione, memoria, SD, batteria, il log, riavvio,
+  spegnimento). Solo il controller: L1/R1 le schede (senza fare il giro, come sul Pi), la croce
+  le copertine e le righe, **B** apre e **A** torna indietro (`confirm=a` li scambia, anche nei
+  suggerimenti). Le righe che lavorano (abbinare, collegarsi, aggiornare, bench, log) scrivono
+  ancora sulla console di testo.
 - **3D Bench** (scheda Dev, `src/rgb30/b3d_rgb30.c`): lo stesso banco di prova del Pi
   (`src/bm/b3d.c`), a 640×360 ingrandito sul pannello; tutte le prove 3D disegnate dall'ARM (la GPU
   Mali non ha ancora un driver: le colonne GPU restano vuote), i contatori del Cortex-A55
@@ -203,14 +208,14 @@ WPA2/WPA3 miste); non WPA3 sola, WPA1, WEP, enterprise.
 
 *Settings > Reports*: i report dei test (3D Bench, Render bench, il log) aspettano in
 `bm/reports` sulla SD e vanno nel branch `reports` di `f-accomando/bm` con `github_token` in
-`bm/config.txt` e il WiFi; **B** li manda, **X** fa un report del log. Il nome dice kernel,
+`bm/config.txt` e il WiFi; *Send the reports* li manda, *Report the log* fa un report del log. Il nome dice kernel,
 branch e scheda: `reports/<branch>/<data>_<tipo>_rgb30_<kernel>.txt`.
 
 ## Aggiornare bm
 
 - **Dalla console** (WiFi collegato): *Settings > Updates* legge l'ultima release di GitHub
   (`manifest-rgb30.txt`, firmato con la chiave delle release che sta nel kernel), dice se è più
-  nuova e quali file cambiano (`kernel8.img`, `bm/ca.pem`); **B** la installa: scarica e
+  nuova e quali file cambiano (`kernel8.img`, `bm/ca.pem`); *Install the update* la installa: scarica e
   controlla tutto prima di scrivere, tiene il kernel di prima in `bm/backup/kernel8.img`,
   scrive `kernel8.img` per ultimo e riavvia. `update_url=sd:/cartella/` in `bm/config.txt` per
   una release copiata sulla SD (le prove).

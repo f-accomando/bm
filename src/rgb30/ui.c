@@ -35,6 +35,7 @@
 #include "net/net.h"
 #include "bm/bm.h"
 #include "bm/runtime.h"
+#include "kernel/home.h"
 #include "kernel/menu_ui.h"
 #include "kernel/reports.h"
 #include "b3d_rgb30.h"
@@ -305,8 +306,9 @@ static void draw_stick(int cx, int cy, int16_t ax, int16_t ay, const char *name)
     textf(cx - 64, 256, C_DIM, C_BG, "%s %6d %6d", name, ax, ay);
 }
 
-/* every button and both sticks, live; Start + Select together to leave */
-static void page_input(void)
+/* every button and both sticks, live; Start + Select together to leave
+ * (Dev > Input test, Settings > Controllers > Test the buttons) */
+void ui_input_test(void)
 {
     uint32_t idle_since = timer_ticks();
     for (;;) {
@@ -334,44 +336,9 @@ static void page_input(void)
     pad_pressed();
 }
 
-static void page_system(void)
-{
-    char l[10][200];
-    uint64_t midr;
-    __asm__ volatile("mrs %0, midr_el1" : "=r"(midr));
-    ksnprintf(l[0], sizeof l[0], "bm %s on %s", bm_version, PLAT_NAME);
-    uint64_t f;
-    __asm__ volatile("mrs %0, cntfrq_el0" : "=r"(f));
-    ksnprintf(l[1], sizeof l[1], "CPU %s r%lup%lu, counter %lu Hz",
-              ((midr >> 4) & 0xfff) == 0xd05 ? "Cortex-A55" : "ARMv8",
-              (uint32_t)(midr >> 20) & 0xf, (uint32_t)midr & 0xf, (uint32_t)f);
-    ksnprintf(l[2], sizeof l[2], "heap %lu MiB free of %lu MiB",
-              (uint32_t)((heap_end() - heap_brk()) >> 20),
-              (uint32_t)((heap_end() - heap_start()) >> 20));
-    ksnprintf(l[3], sizeof l[3], "Lua %lu KiB (peak %lu KiB)",
-              (uint32_t)(luavm_mem() >> 10), (uint32_t)(luavm_mem_peak() >> 10));
-    ksnprintf(l[4], sizeof l[4], "uptime %lu s", tick_ms() / 1000);
-    ksnprintf(l[5], sizeof l[5], "SD (%s): %lu MiB, %s", sd_controller(),
-              sd_blocks() / 2048, sd_blocks() ? fat_describe() : sd_error());
-    ksnprintf(l[6], sizeof l[6], "games: %d in %s", n_games, sd_state);
-    int mv, charge;
-    if (plat_battery(&mv, &charge) == 0)
-        ksnprintf(l[7], sizeof l[7], "battery %d.%02d V%s", mv / 1000, (mv % 1000) / 10,
-                  charge == 2 ? ", full" : charge == 1 ? ", charging" : "");
-    else
-        ksnprintf(l[7], sizeof l[7], "battery: unknown");
-    ksnprintf(l[8], sizeof l[8], "%s", plat_display_info());
-    frame_begin("System");
-    int y = LIST_Y;
-    for (int i = 0; i < 9 && y < FOOT_Y - 8; i++)
-        y += 16 * text_wrap(y, l[i], (FOOT_Y - 8 - y) / 16, i == 0 ? C_TEXT : C_DIM);
-    footer("A/B back");
-    frame_end();
-    wait_back();
-}
-
-/* the console with everything printed since boot */
-static void page_log(void)
+/* the console with everything printed since boot (Dev > Boot log,
+ * Settings > System > Log since boot) */
+void ui_show_log(void)
 {
     fb_show(fb, 0);
     console_suspend(0);
@@ -386,152 +353,6 @@ static void serial_lua(void)
     text_wrap(y, "Type exit() or Ctrl-D there to come back.", 2, C_DIM);
     frame_end();
     ui_serial_repl();
-}
-
-/* Bluetooth, in the console (the stack reports what it does with kprintf):
- * started on the first visit; then pairing a pad or a keyboard */
-static int bt_on;
-
-static void page_bt(void)
-{
-    fb_show(fb, 0);
-    console_suspend(0);
-    if (!bt_on) {
-        kprintf("\n\x1b[1mBluetooth\x1b[0m: starting the RTL8821CS...\n");
-        bt_on = bt_start() == 0;
-    }
-    for (;;) {
-        if (bt_on)
-            kprintf("\n\x1b[96m%s\x1b[0m pair a controller (10 s)  \x1b[96mX\x1b[0m pair a keyboard (20 s)\n"
-                    "\x1b[96mY\x1b[0m forget all  \x1b[96m%s\x1b[0m back   pads: %u, %s\n",
-                    pad_ok_name(), pad_back_name(),
-                    bt_pads(), bt_keyboard() ? "keyboard connected" : "no keyboard");
-        else
-            kprintf("\nBluetooth is off (see above). \x1b[96m%s\x1b[0m try again  \x1b[96m%s\x1b[0m back\n",
-                    pad_ok_name(), pad_back_name());
-        uint32_t p;
-        while (!(p = pad_pressed()))
-            timer_delay_ms(10);
-        if (p & pad_back)
-            break;
-        if (!bt_on) {
-            if (p & pad_ok)
-                bt_on = bt_start() == 0;
-            continue;
-        }
-        if (p & pad_ok) {
-            kprintf("put the controller in pairing mode (DS4: Share + PS)\n");
-            bt_scan(10);
-        } else if (p & PAD_X) {
-            bt_pair_keyboard(20);
-        } else if (p & PAD_Y) {
-            bt_forget_all();
-        }
-    }
-    console_suspend(1);
-}
-
-/* WiFi, in the console too: the chip started on the first visit */
-static int wifi_on;
-
-static void page_wifi(void)
-{
-    fb_show(fb, 0);
-    console_suspend(0);
-    if (!wifi_on) {
-        kprintf("\n\x1b[1mWiFi\x1b[0m: starting the RTL8821CS...\n");
-        wifi_on = wifi_start() == 0;
-    }
-    for (;;) {
-        const char *ssid = config_get("wifi_ssid");
-        if (wifi_on && wifi_linked())
-            kprintf("\nconnected to \"%s\", IP %s\n", ssid ? ssid : "?", net_ip_text());
-        if (wifi_on)
-            kprintf("\n\x1b[96m%s\x1b[0m scan  \x1b[96mX\x1b[0m join %s%s%s  \x1b[96m%s\x1b[0m back\n",
-                    pad_ok_name(), ssid && ssid[0] ? "\"" : "",
-                    ssid && ssid[0] ? ssid : "(none: bm/config.txt)", ssid && ssid[0] ? "\"" : "",
-                    pad_back_name());
-        else
-            kprintf("\nWiFi is off (see above). \x1b[96m%s\x1b[0m try again  \x1b[96m%s\x1b[0m back\n",
-                    pad_ok_name(), pad_back_name());
-        uint32_t p;
-        while (!(p = pad_pressed()))
-            timer_delay_ms(10);
-        if (p & pad_back)
-            break;
-        if (!wifi_on) {
-            if (p & pad_ok)
-                wifi_on = wifi_start() == 0;
-        } else if (p & pad_ok) {
-            wifi_scan();
-        } else if (p & PAD_X) {
-            /* the address comes from DHCP, then the network console */
-            if (wifi_connect() == 0 && net_start(&net_wifi) == 0)
-                net_wait_ip(15000);
-        }
-    }
-    console_suspend(1);
-}
-
-/* Updates from GitHub, as on the Pi (src/kernel/update.c): the latest
- * release's manifest for the RGB30 (manifest-rgb30.txt, signed), what would
- * change on the card; then A installs it (kernel8.img last) and restarts.
- * The WiFi first (System > WiFi); update_url=sd:/folder/ for a release
- * copied on the card. */
-static void page_update(void)
-{
-    fb_show(fb, 0);
-    console_suspend(0);
-    update_check(fb);
-    for (;;) {
-        const char *v = update_ready();
-        if (v)
-            kprintf("\n\x1b[96m%s\x1b[0m install %s and restart  \x1b[96m%s\x1b[0m back\n",
-                    pad_ok_name(), v, pad_back_name());
-        else
-            kprintf("\n\x1b[96m%s\x1b[0m check again  \x1b[96m%s\x1b[0m back\n", pad_ok_name(),
-                    pad_back_name());
-        uint32_t p;
-        while (!(p = pad_pressed()))
-            timer_delay_ms(10);
-        if (p & pad_back)
-            break;
-        if (p & pad_ok) {
-            if (v)
-                update_install(fb);     /* restarts; back here only if it stopped */
-            else
-                update_check(fb);
-        }
-    }
-    console_suspend(1);
-}
-
-/* The reports of the tests (src/kernel/reports.h), in the console: those
- * waiting on the card sent to GitHub (github_token in bm/config.txt, the
- * WiFi first), the boot log as one more */
-static void page_reports(void)
-{
-    fb_show(fb, 0);
-    console_suspend(0);
-    kprintf("\n\x1b[1mReports\x1b[0m: %d waiting in bm/reports; last: %s\n", reports_pending(),
-            reports_last());
-    for (;;) {
-        kprintf("\n\x1b[96m%s\x1b[0m send them  \x1b[96mX\x1b[0m the log since boot as a report  "
-                "\x1b[96m%s\x1b[0m back\n", pad_ok_name(), pad_back_name());
-        uint32_t p;
-        while (!(p = pad_pressed()))
-            timer_delay_ms(10);
-        if (p & pad_back)
-            break;
-        if (p & pad_ok) {
-            int left = reports_send_pending();
-            kprintf("%s; %d waiting on the SD card\n", reports_last(), left);
-        } else if (p & PAD_X) {
-            const char *t = klog_text();
-            reports_text("log", t, strlen(t));
-        }
-    }
-    console_suspend(1);
 }
 
 /* --- the display modes a game (and the GPU) can use, with a test image --- */
@@ -577,7 +398,8 @@ static void test_image(int i)
     fb_show(fb, 0);
 }
 
-static void page_display(void)
+/* Dev > Display, Settings > Screen and sound > Screen modes */
+void ui_screen_modes(void)
 {
     int n = (int)(sizeof modes / sizeof modes[0]);
     kprintf("display: test of the modes\n");
@@ -634,38 +456,20 @@ typedef struct {
     uint32_t rgb;
 } item_t;
 
-static void do_reboot(void)   { kprintf("rebooting...\n"); plat_reset(); }
-static void do_poweroff(void) { kprintf("power off\n"); plat_poweroff(); }
-
 /* the Dev tab, with the covers of the same tools on the Pi (home.c) */
 static const item_t dev_items[] = {
     { "3D Bench", "every 3D test: bars, report in bm/bench", page_bench3d, MENU_ICON_GAUGE, 0x2A6A8A },
     { "Render bench", "map, sprites and text, 640x360", page_render, MENU_ICON_TRIANGLES, 0x5A3AA0 },
-    { "Display", "the screen modes for games and the GPU", page_display, MENU_ICON_BARS, 0x404050 },
-    { "Input test", "every button and both sticks, live", page_input, MENU_ICON_PAD, 0x8A3A8A },
-    { "Boot log", "everything printed since boot", page_log, MENU_ICON_LOG, 0x6A6A7A },
+    { "Display", "the screen modes for games and the GPU", ui_screen_modes, MENU_ICON_BARS, 0x404050 },
+    { "Input test", "every button and both sticks, live", ui_input_test, MENU_ICON_PAD, 0x8A3A8A },
+    { "Boot log", "everything printed since boot", ui_show_log, MENU_ICON_LOG, 0x6A6A7A },
     { "Lua", "a Lua prompt on the serial port", serial_lua, MENU_ICON_LUA, 0x2A3A9A },
 };
 #define N_DEV ((int)(sizeof dev_items / sizeof dev_items[0]))
 static g16_sheet_t dev_covers[N_DEV];
 
-/* the Settings panel */
-static const item_t settings_items[] = {
-    { "Bluetooth", "pair controllers and keyboards", page_bt, 0, 0 },
-    { "WiFi", "joins wifi_ssid of bm/config.txt", page_wifi, 0, 0 },
-    { "Updates", "the latest bm from GitHub (WiFi first)", page_update, 0, 0 },
-    { "System", "board, memory, SD card, battery", page_system, 0, 0 },
-    { "Reports", "the tests' reports, to GitHub", page_reports, 0, 0 },
-    { "Reboot", "restart the console", do_reboot, 0, 0 },
-    { "Power off", "turn the console off", do_poweroff, 0, 0 },
-};
-#define N_SETTINGS ((int)(sizeof settings_items / sizeof settings_items[0]))
-
 enum { TAB_GAMES, TAB_DEV, TAB_SETTINGS };      /* Settings: the last, its panel */
 static const char *const tab_names[] = { "Games", "Dev" };
-
-/* the reports waiting on the card, read when Settings opens (not every frame) */
-static int pending = -1;
 
 /* the menu's screen again after a page; if it cannot be had, the console
  * says why and a button tries again */
@@ -684,7 +488,6 @@ static void run_page(void (*run)(void))
     menu_ui_close(fb);
     console_suspend(1);                             /* the pages draw themselves */
     run();
-    pending = -1;
     while (pad_state())                             /* the button that left, released */
         timer_delay_ms(10);
     pad_pressed();
@@ -694,6 +497,28 @@ static void run_page(void (*run)(void))
 static int play_index;
 static void play_selected(void) { page_game(play_index); }
 
+/* a row of Settings that runs on the console (settings.c: home_do_t) */
+static void (*text_fn)(framebuffer_t *);
+static int text_wait, text_own;
+
+static void text_page(void)
+{
+    if (!text_own) {
+        fb_show(fb, 0);
+        console_suspend(0);
+    }
+    text_fn(fb);
+    if (text_wait) {
+        kprintf("\n\x1b[96m%s\x1b[0m or \x1b[96m%s\x1b[0m: back to the menu\n", pad_ok_name(), pad_back_name());
+        while (pad_state())                         /* the button that started it, released */
+            timer_delay_ms(10);
+        pad_pressed();
+        wait_back();
+    }
+    console_suspend(1);
+}
+
+#define DEPTH_MAX 4
 
 void ui_home(framebuffer_t *f)
 {
@@ -708,13 +533,26 @@ void ui_home(framebuffer_t *f)
     kprintf("\n");
     menu_reopen();
 
-    int tab = TAB_GAMES, sel[2] = { 0, 0 }, psel = 0;
+    int tab = TAB_GAMES, sel[2] = { 0, 0 };
     static menu_item_t items[MAX_GAMES > N_DEV ? MAX_GAMES : N_DEV];
-    static menu_row_t rows[N_SETTINGS];
-    char details[64] = "", note[64] = "";
+    /* Settings: its panels, as on the Pi (settings.c), one over the other */
+    static home_panel_t pb;
+    struct { int id, sel, top; } stack[DEPTH_MAX];
+    int depth = 0, built = -1, frame = 0, ask_row = 0, asking = 0;
+    char ask_q[64] = "", ask_d[64] = "", ask_y[16] = "";
+    char details[64] = "", note[96] = "";
     for (;;) {
-        /* the view: the tab's covers, or the Settings panel over the last tab's */
+        /* the view: the tab's covers, or the Settings panels over the last tab's */
         int on_gear = tab == TAB_SETTINGS, shown = on_gear ? TAB_DEV : tab;
+        if (on_gear && !depth) {
+            stack[0].id = HOME_SETTINGS;
+            stack[0].sel = stack[0].top = 0;
+            depth = 1;
+            built = -1;
+        } else if (!on_gear && depth) {
+            depth = 0;
+            asking = 0;
+        }
         int n = shown == TAB_GAMES ? n_games : N_DEV;
         int *s = &sel[shown];
         if (*s >= n) *s = n - 1;
@@ -740,9 +578,9 @@ void ui_home(framebuffer_t *f)
             v.dev[1] = MENU_DEV_KEYBOARD;
             v.bt |= 2;
         }
-        v.net = wifi_on && wifi_linked() ? MENU_NET_WIFI : MENU_NET_NONE;
+        v.net = wifi_linked() ? MENU_NET_WIFI : MENU_NET_NONE;
         v.net_wait = !net_ip();
-        details[0] = note[0] = 0;
+        details[0] = 0;
         if (shown == TAB_GAMES && n == 0) {
             v.banner = strcmp(sd_state, "bm/") == 0 ? "No games yet: put .b16 games in bm/" : "No games yet";
             v.a_label = "";
@@ -759,22 +597,28 @@ void ui_home(framebuffer_t *f)
             ksnprintf(details, sizeof details, "%s", dev_items[*s].help);
         }
         v.details = details[0] ? details : NULL;
+        v.note = note[0] ? note : NULL;
         menu_panel_t panel;
-        if (on_gear) {
-            for (int i = 0; i < N_SETTINGS; i++)
-                rows[i] = (menu_row_t){ settings_items[i].name, NULL,
-                                        settings_items[i].run == do_reboot ||
-                                        settings_items[i].run == do_poweroff ? MENU_ROW_ACTION : MENU_ROW_SUB };
-            rows[0].value = bt_on ? "on" : "off";
-            rows[1].value = wifi_on && wifi_linked() ? "connected" : wifi_on ? "on" : "off";
-            static char waiting[16];
-            if (pending < 0)
-                pending = reports_pending();
-            ksnprintf(waiting, sizeof waiting, pending ? "%d waiting" : "none", pending);
-            rows[4].value = waiting;
-            int top = psel < MENU_PANEL_ROWS ? 0 : psel - MENU_PANEL_ROWS + 1;
-            panel = (menu_panel_t){ "Settings", rows, N_SETTINGS, psel, top, settings_items[psel].help };
+        frame++;
+        if (depth) {
+            /* rebuilt when it changes, and twice a second for the values
+             * that move (pads, uptime, battery) */
+            int id = stack[depth - 1].id;
+            if (built != id || frame % 30 == 0) {
+                home_panel(id, &pb);
+                built = id;
+            }
+            int *ps = &stack[depth - 1].sel, *pt = &stack[depth - 1].top;
+            if (*ps >= pb.n) *ps = pb.n ? pb.n - 1 : 0;
+            if (*ps < *pt) *pt = *ps;
+            if (*ps >= *pt + MENU_PANEL_ROWS) *pt = *ps - MENU_PANEL_ROWS + 1;
+            panel = (menu_panel_t){ pb.title, pb.rows, pb.n, *ps, *pt, pb.n ? pb.help[*ps] : NULL };
             v.panel = &panel;
+        }
+        if (asking) {
+            v.ask = ask_q;
+            v.ask_detail = ask_d[0] ? ask_d : NULL;
+            v.ask_yes = ask_y;
         }
         menu_ui_frame(fb, &v);
 
@@ -783,20 +627,39 @@ void ui_home(framebuffer_t *f)
             run_page(serial_lua);
             continue;
         }
-        /* L1 / R1: Games, Dev, Settings, no going round (as on the Pi) */
-        if ((p & PAD_L1) && tab > TAB_GAMES)
+        home_do_t d;
+        d.what = -1;
+        if (asking) {
+            /* a question of a row: confirm says yes, back cancels */
+            if (p & pad_ok) {
+                asking = 0;
+                home_act(stack[depth - 1].id, ask_row, HOME_YES, &d);
+            } else if (p & pad_back) {
+                asking = 0;
+            }
+        } else if ((p & PAD_L1) && tab > TAB_GAMES) {
+            /* L1 / R1: Games, Dev, Settings, no going round (as on the Pi) */
             tab--;
-        else if ((p & PAD_R1) && tab < TAB_SETTINGS)
+        } else if ((p & PAD_R1) && tab < TAB_SETTINGS) {
             tab++;
-        else if (on_gear) {
-            if (p & PAD_UP)
-                psel = (psel + N_SETTINGS - 1) % N_SETTINGS;
-            if (p & PAD_DOWN)
-                psel = (psel + 1) % N_SETTINGS;
-            if (p & pad_back)
-                tab = TAB_DEV;                      /* out of Settings: the tab before */
-            else if (p & pad_ok)
-                run_page(settings_items[psel].run);
+        } else if (depth) {
+            /* a panel: up/down choose, confirm does, left/right change a
+             * value, back goes back one level (out of Settings: to Dev) */
+            int *ps = &stack[depth - 1].sel, id = stack[depth - 1].id;
+            int dy = (p & PAD_UP) ? -1 : (p & PAD_DOWN) ? 1 : 0;
+            int dx = (p & PAD_LEFT) ? -1 : (p & PAD_RIGHT) ? 1 : 0;
+            if (dy && pb.n)
+                *ps = (*ps + dy + pb.n) % pb.n;
+            const menu_row_t *r = pb.n ? &pb.rows[*ps] : NULL;
+            int row = pb.n ? pb.ids[*ps] : 0;
+            if (p & pad_back) {
+                if (--depth == 0)
+                    tab = TAB_DEV;
+                built = -1;
+            } else if (r && (((p & pad_ok) && r->kind != MENU_ROW_INFO) || (dx && r->kind == MENU_ROW_CHOICE))) {
+                home_act(id, row, (p & pad_ok) ? 0 : dx, &d);
+                ask_row = row;
+            }
         } else if (n > 0) {
             /* the covers: left / right along the row, up / down a row (the
              * last row may be shorter) */
@@ -815,6 +678,38 @@ void ui_home(framebuffer_t *f)
                 } else {
                     run_page(dev_items[*s].run);
                 }
+            }
+        }
+
+        /* what a row of Settings asked for */
+        if (d.what >= 0) {
+            if (d.note[0])
+                ksnprintf(note, sizeof note, "%s", d.note);
+            built = -1;
+            switch (d.what) {
+            case HOME_OPEN:
+                if (depth < DEPTH_MAX) {
+                    stack[depth].id = d.panel;
+                    stack[depth].sel = stack[depth].top = 0;
+                    depth++;
+                }
+                break;
+            case HOME_BACK:
+                if (depth > 1)
+                    depth--;
+                break;
+            case HOME_ASK:
+                asking = 1;
+                ksnprintf(ask_q, sizeof ask_q, "%s", d.ask);
+                ksnprintf(ask_d, sizeof ask_d, "%s", d.ask_detail);
+                ksnprintf(ask_y, sizeof ask_y, "%s", d.ask_yes);
+                break;
+            case HOME_TEXT:
+                text_fn = d.text;
+                text_wait = d.wait;
+                text_own = d.own;
+                run_page(text_page);
+                break;
             }
         }
     }

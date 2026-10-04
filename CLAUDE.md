@@ -32,7 +32,7 @@ screenshot in `docs/img/`), `README_OLD.md` (il README completo, in italiano),
 - Dev kit (richiesta dell'utente): l'overlay delle prestazioni sopra ogni `.bm` (`perf_frame`
   in `runtime.c`): fps, ms di `_update` + `_draw`, istruzioni Lua del fotogramma
   (`stat(10)`; prima del merge con `3d-performance` era `stat(6)`, ora il tempo del 3D),
-  i massimi dell'ultimo secondo e il grafico degli ultimi 64 fotogrammi. Settings > System >
+  i massimi dell'ultimo secondo e il grafico degli ultimi 64 fotogrammi. Settings > Screen and sound >
   "Performance overlay" (config `perf`), F11 (tasto di sistema, anche nelle app; era F3), `p`
   dalla seriale.
 - Arrivati dal gioco Yharnam (branch `claude/yharnam`; il gioco va nel market): la risoluzione
@@ -159,8 +159,8 @@ screenshot in `docs/img/`), `README_OLD.md` (il README completo, in italiano),
   con l'ARMv6 (`kernel/irq.h`, `arch/cache.h`) hanno un ramo `__aarch64__`.
 - Menu: **lo stesso del Pi** (`menu_ui.c`, decisione dell'utente del 2026-10-04) a 360×360
   ingrandito ×2 sul pannello, due copertine per riga; `ui.c` gli dà la vista e i tasti: schede
-  Games / Dev e Settings col suo pannello (L1/R1 senza giro; dalla seriale `l`/`r`, `w a s d`,
-  Invio, Backspace), giochi `.b16` (la cartuccia a risorse limitate per
+  Games / Dev e Settings con i pannelli del Pi (`settings.c`; L1/R1 senza giro; dalla seriale
+  `l`/`r`, `w a s d`, Invio, Backspace), giochi `.b16` (la cartuccia a risorse limitate per
   le portatili, formato da definire: `docs/B16.md`), `.bm` visibili per le prove
   (`show_bm=0` li nasconde); le pagine dietro le voci sono ancora sulla console. In Dev il 3D Bench (`b3d_rgb30.c`: `src/bm/b3d.c` con i contatori del
   Cortex-A55). Nei test lo schermo si legge dai pixel: il testo del menu sta sulla griglia del
@@ -205,8 +205,16 @@ screenshot in `docs/img/`), `README_OLD.md` (il README completo, in italiano),
 - **Comandi**: sul Pi prima tastiera e mouse (i suggerimenti mostrano i tasti della tastiera
   finché non si preme un controller); sulla RGB30 il controller (`confirm_b`: B conferma, A
   indietro, `no_monitor`: niente monitor).
-- Test: Pi `test_menu_tabs`, `test_menu_scale` e quelli del menu; RGB30 tutto
-  `tests/rgb30/qemu_test.py` (la scheda e il titolo scelto si leggono sulla pillola).
+- **Market a sinistra**: fuori dallo schermo, se ne vede la fine del nome, finché non è la
+  scheda; scelto, le pillole scorrono a destra (`peek_first` di `menu_view_t`, solo il Pi).
+- **Settings uguali** sui due sistemi (2026-10-04): `src/kernel/settings.c` costruisce i
+  pannelli per tutti e due (`home_panel`, `home_act`; le righe di un sistema solo sotto
+  `#ifdef BM_RGB30`): Controllers, WiFi and network, Screen and sound, Updates, Reports, System,
+  con dentro i comandi utili del monitor (scansione USB, prova della connessione, test pattern,
+  prova del suono, il log). Un pannello nuovo o una riga nuova va lì, per tutti e due.
+- Test: Pi `test_menu_tabs`, `test_menu_scale`, `test_home_ui` (il giro delle Settings) e quelli
+  del menu; RGB30 tutto `tests/rgb30/qemu_test.py` (la scheda e il titolo scelto si leggono
+  sulla pillola).
 
 ## Report dei test (decisione dell'utente, 2026-10-04)
 
@@ -218,8 +226,8 @@ screenshot in `docs/img/`), `README_OLD.md` (il README completo, in italiano),
   `BRANCH` nel Makefile), scheda e data.
 - Serve `github_token` (un token che può scrivere i contenuti del repository) e la rete;
   senza, i report aspettano sulla SD (`bm/reports/RPTnnnnn.TXT`) e partono con *Settings >
-  System > Send the reports* (RGB30: *Settings > Reports*) o `z` nel monitor; `Z` (o *Report
-  the log*) manda il log; `report_upload=0` solo a mano. Spediti, spariscono dalla SD.
+  Reports > Send the reports* (anche sulla RGB30) o `z` nel monitor; `Z` (o *Report the log*)
+  manda il log; `report_upload=0` solo a mano. Spediti, spariscono dalla SD.
 - Fanno un report: gli strumenti di Dev che stampano (`tool_t.report` in `home.c`: System,
   Audio, CPU bench, Render bench, Stress test, DMA test, GPU test, Texture Room, Demo,
   Diagnostics), i comandi `g k p D s R` del monitor, il 3D Bench (il suo, anche sulla
@@ -667,7 +675,7 @@ screenshot in `docs/img/`), `README_OLD.md` (il README completo, in italiano),
   `manifest-rgb30` con `kernel8.img`, nella stessa release, e *Settings > Updates*;
   `scripts/release.sh vX.Y.Z` fa tutta la
   procedura da WSL, anche il kernel con la chiave sulla SD prima del tag); sul Pi `src/kernel/update.c`:
-  Settings > System > *Check for updates* / *Install the update*, monitor `u`. Niente si
+  Settings > Updates > *Check for updates* / *Install the update*, monitor `u`. Niente si
   scrive finché tutti i file non sono scaricati e controllati; i kernel di prima vanno in
   `/bm/backup`; quello della scheda si scrive per ultimo. Prova: `test_update` in QEMU
   (`update_url=sd:/release/`, `bm/release.pem`).

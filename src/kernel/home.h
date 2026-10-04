@@ -1,7 +1,7 @@
 /*
  * BareMetal UI (M27): what the home menu offers besides the cartridges.
- * The development tools of the Dev tab, and the panels (submenus) of the
- * settings. The menu itself, with the cartridges and their options, is in
+ * The development tools of the Dev tab (home.c), and the panels (submenus)
+ * of the settings (settings.c, also the RGB30's). The menu itself, with the cartridges and their options, is in
  * carts.c; it draws the panels built here with menu_ui.
  */
 #ifndef HOME_H
@@ -33,7 +33,7 @@ void home_row(home_panel_t *p, int kind, int id, const char *label, const char *
  * HOME_MARKET (a game of the Market) and HOME_SEND (to a nearby console)
  * by market.c, HOME_PUBLISH (sending a game to the Market) by publish.c. */
 enum { HOME_SETTINGS = 1, HOME_CONTROLLERS, HOME_WIFI, HOME_SYSTEM, HOME_CART, HOME_GRAPHICS, HOME_MARKET,
-       HOME_PUBLISH, HOME_SEND };
+       HOME_PUBLISH, HOME_SEND, HOME_UPDATES, HOME_REPORTS };
 
 /* What a row asks of the menu. */
 enum {
@@ -53,6 +53,7 @@ typedef struct {
     char ask[64], ask_detail[64], ask_yes[16];      /* HOME_ASK */
     void (*text)(framebuffer_t *fb);                /* HOME_TEXT */
     int wait;                   /* HOME_TEXT: then "A: back to the menu" */
+    int own;                    /* HOME_TEXT: it draws its own screen, not the console (the RGB30) */
     char note[96];              /* a line for the menu's footer, if not empty */
 } home_do_t;
 
@@ -60,7 +61,9 @@ typedef struct {
  * hints white (0) or in their colours (1); kept in config.txt. */
 int  home_prompts_colour(void);
 
-/* Builds settings panel `id`. */
+/* Builds settings panel `id` (settings.c: the same tree on the Pi and the
+ * RGB30: Controllers, WiFi and network, Screen and sound, Updates, Reports,
+ * System). */
 void home_panel(int id, home_panel_t *p);
 /* Row `row_id` of panel `id` was chosen: how = 0 (A), -1 / +1 (left, right
  * on a choice), HOME_YES (the question was answered yes). */
@@ -80,5 +83,8 @@ void home_wait_back(void);
 
 /* the development assistant (M30), the Dev tab's Assistant */
 void home_assistant(framebuffer_t *fb);
+
+/* everything printed since boot, in the pager (Dev > Log, Settings > System) */
+void home_show_log(framebuffer_t *fb);
 
 #endif

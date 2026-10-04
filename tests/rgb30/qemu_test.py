@@ -187,18 +187,26 @@ def test_screen_console(b, opts):
             keys(q, k)
             text = screen_all(q.screendump())
             assert name in text and in_menu(text), f"{name!r} not selected on the Dev tab:\n{text}"
-        keys(q, "r")                            # Settings: its panel
+        keys(q, "r")                            # Settings: its panel, the Pi's sections (settings.c)
         text = screen_all(q.screendump())
-        for needle in ("Bluetooth", "WiFi", "Updates", "System", "Reports", "Reboot"):
+        for needle in ("Controllers", "WiFi and network", "Screen and sound", "Updates", "Reports", "System"):
             assert needle in text, f"{needle!r} not in Settings:\n{text}"
+        assert "none waiting" in text, text    # no reports waiting
         keys(q, "w")                            # up from the first row: round to the last
         text = screen_all(q.screendump())
-        assert "Power off" in text and "none" in text, text     # no reports waiting
+        assert "Version, memory, the log" in text, text
+        keys(q, "\r")                          # System: its rows
+        text = screen_all(q.screendump())
+        assert "Settings > System" in text and "Uptime" in text and "Cortex-A55" in text, text
+        keys(q, "w")                            # the last rows: the battery, the log, restart, power off
+        text = screen_all(q.screendump())
+        assert "Battery" in text and "Log since boot" in text and "Power off" in text, text
+        keys(q, "\x7f")                        # back: Settings
         keys(q, "r")                            # R1 on the last tab: nothing
-        assert "Power off" in screen_all(q.screendump())
+        assert "Version, memory, the log" in screen_all(q.screendump())
         keys(q, "\x7f")                        # back: out of Settings, to Dev
         text = screen_all(q.screendump())
-        assert "Lua" in text and "Power off" not in text, text
+        assert "Lua" in text and "Screen and sound" not in text, text
         keys(q, "l")                            # L1: Games
         assert "No games yet" in screen_all(q.screendump())
     finally:
@@ -258,7 +266,7 @@ def test_menu_games_and_hidden_bm(b, opts):
         assert "(1 .bm hidden by show_bm=0" in out, out
         keys(q, "rr")                           # R1 twice: Settings, its panel over the covers
         text = screen_all(q.screendump())
-        assert "Bluetooth" in text and "WiFi" in text and "racer" not in text.lower(), text
+        assert "Controllers" in text and "WiFi and network" in text and "racer" not in text.lower(), text
     finally:
         q.close()
     sd = make_sd(tmp, {"bm/pong.bm": b"BMCART" + bytes(64), "bm/config.txt": b"show_bm=0\n"})
@@ -314,7 +322,7 @@ def test_bootlog_on_sd(b, opts):
 
 
 def test_update_from_sd(b, opts):
-    """System > Updates, as on the Pi (src/kernel/update.c): a release copied
+    """Settings > Updates, as on the Pi (src/kernel/update.c): a release copied
     on the card (update_url=sd:/release/), signed with a key the card adds
     (bm/release.pem); the RGB30's manifest (manifest-rgb30: kernel8.img,
     bm/ca.pem), what changes, then A installs: the old kernel kept in
@@ -342,7 +350,10 @@ def test_update_from_sd(b, opts):
     q = Qemu(os.path.join(b, "kernel.elf"), sd=sd)
     try:
         boot(q)
-        keys(q, "rrss")                         # System tab: Bluetooth, WiFi, Updates
+        keys(q, "rrsss")                        # Settings: Controllers, WiFi, Screen, Updates
+        q.send("\r")
+        time.sleep(0.5)
+        keys(q, "s")                            # Check for updates
         q.send("\r")
         out = q.expect("can be installed", timeout=30).decode(errors="replace")
         for want in ("releases: sd:/release/", "v9.9.9", "commit abc1234, signed: good"):
@@ -351,8 +362,16 @@ def test_update_from_sd(b, opts):
         assert "newer than this kernel" in out or "a build of the sources" in out, out
         lines = {l.split()[0]: l for l in out.splitlines() if l.strip().startswith("/")}
         assert lines["/kernel8.img"].endswith("changed") and lines["/bm/ca.pem"].endswith("changed"), lines
-        q.expect("install v9.9.9 and restart", timeout=10)
+        q.expect("back to the menu", timeout=10)
         time.sleep(0.3)
+        q.send("\r")                           # back to the panel: Install the update under it
+        time.sleep(0.8)
+        keys(q, "s")
+        text = screen_all(q.screendump())
+        assert "Install the update" in text and "v9.9.9" in text, text
+        q.send("\r")                           # the question
+        time.sleep(0.5)
+        assert "Install bm v9.9.9?" in screen_all(q.screendump())
         q.send("\r")                           # confirm: install
         out = q.expect("installed: restarting", timeout=60).decode(errors="replace")
         dump = os.path.join(tmp, "after.img")
@@ -377,12 +396,17 @@ def test_update_from_sd(b, opts):
 
 
 def test_bluetooth_page_without_chip(b, opts):
-    """The Bluetooth page starts the stack; QEMU has no chip: it says so and
-    B goes back to the menu."""
+    """Settings > Controllers > Pair a new controller starts the stack; QEMU
+    has no chip: it says so and B goes back to the menu."""
     q = Qemu(os.path.join(b, "kernel.elf"))
     try:
         boot(q)
-        keys(q, "rr")                           # System tab: Bluetooth
+        keys(q, "rr")                           # Settings: Controllers
+        q.send("\r")
+        time.sleep(0.5)
+        text = screen_all(q.screendump())
+        assert "Settings > Controllers" in text and "Player 1" in text and "built in" in text, text
+        keys(q, "ssss")                         # Pair a new controller
         q.send("\r")
         q.expect("no Bluetooth controller in QEMU", timeout=10)
         time.sleep(0.5)
@@ -391,22 +415,26 @@ def test_bluetooth_page_without_chip(b, opts):
         q.send("\x7f")                          # back
         time.sleep(0.6)
         text = screen_all(q.screendump())
-        assert in_menu(text) and "Bluetooth" in text, text
+        assert in_menu(text) and "Pair a new controller" in text, text
     finally:
         q.close()
 
 
 def test_wifi_page_without_chip(b, opts):
-    """The WiFi page starts the chip; QEMU has none: it says so, B goes back."""
+    """Settings > WiFi and network > Connect to a network starts the chip;
+    QEMU has none: it says so, B goes back."""
     q = Qemu(os.path.join(b, "kernel.elf"))
     try:
         boot(q)
-        keys(q, "rrs")                          # System tab: Bluetooth, WiFi
+        keys(q, "rrs")                          # Settings: Controllers, WiFi and network
+        q.send("\r")
+        time.sleep(0.5)
+        keys(q, "ssssss")                       # Connect to a network
         q.send("\r")
         q.expect("no WiFi chip in QEMU", timeout=10)
         time.sleep(0.5)
         text = "\n".join(screen_text(q.screendump()))
-        assert "WiFi is off" in text, text
+        assert "no WiFi chip in QEMU" in text, text
         q.send("\x7f")
         time.sleep(0.6)
         assert in_menu(screen_all(q.screendump()))

@@ -1120,12 +1120,19 @@ def test_home_ui(b, opts):
         text = screen(["AAA saver"])
         assert "BBB" not in text, text
 
-        # settings: the keyboard layout changes and is saved; the submenus
+        # settings: the same sections as the RGB30's (settings.c); the
+        # keyboard layout changes and is saved; the submenus
         keys("5")
         net = "Network" if KERNEL7 else "WiFi and network"     # raspi2b: a Pi 2 B, Ethernet only
-        screen(["Settings", "Controllers", net, "Keyboard layout", "System"])
+        screen(["Settings", "Controllers", net, "Screen and sound", "Updates", "Reports", "System"])
         shot("settings")
-        keys("ss")
+        keys("\r")                              # Controllers
+        screen(["Settings > Controllers", "Player 1", "keyboard / USB", "Bluetooth keyboard",
+                "Mouse"])
+        keys("w")                               # up from the first: round to the last rows
+        screen(["Pair a mouse", "Test the buttons", "Keyboard layout", "Button icons", "Scan the USB again",
+                "Forget all controllers"])
+        keys("www")                             # the keyboard layout
         _, text = settled_screen(q, lambda i, t: any("< Italian >" in l or "< US >" in l for l in t))
         before = "Italian" if any("< Italian >" in l for l in text) else "US"
         assert before == "Italian" or any("< US >" in l for l in text), "\n".join(text)
@@ -1134,38 +1141,6 @@ def test_home_ui(b, opts):
         screen([f"< {after} >", "keyboard layout: "])
         keys("\r")                              # A changes it too: back as it was
         screen([f"< {before} >"])
-        keys("s")
-        keys("\r")                              # Graphics
-        screen(["Settings > Graphics", "Game drawing (.bm)", "3D of the games", "ARM (no GPU)",
-                "3D anti-aliasing", "Off",      # QEMU has no V3D; no anti-aliasing unless asked
-                "3D vertices"])                 # nor the vertex shader (M36)
-        keys("q")
-        keys("s")                               # the volume: left/right, saved
-        screen(["Volume", "< 10 / 10 >"])
-        keys("a")
-        screen(["< 9 / 10 >", "volume: 9 / 10"])
-        keys("d")
-        screen(["< 10 / 10 >"])
-        keys("s")
-        keys("\r")
-        screen(["Settings > System", "Version", "Board", "SD card", "FAT32"])
-        shot("system")
-        keys("w")                               # the list scrolls to its last rows
-        screen(["3D driver", "bm3d", "as 0.2", "Performance overlay", "Restart",  # QEMU: the ARM's 3D
-                "Open the monitor"])
-        keys("ww")                              # the dev kit's overlay: on, then off again
-        screen(["< Off >", "fps, ms, Lua instructions"])
-        keys("\r")
-        screen(["< On >", "performance overlay: on"])
-        keys("\r")
-        screen(["< Off >", "performance overlay: off"])
-        keys("q")
-        keys("wwwww")                           # System -> Controllers
-        keys("\r")
-        screen(["Settings > Controllers", "Player 1", "keyboard / USB", "Bluetooth keyboard",
-                "Mouse"])
-        keys("w")                               # the list scrolls to its last row
-        screen(["Pair a new controller", "Pair a keyboard", "Pair a mouse", "Forget all controllers"])
         keys("q")
         keys("s")
         keys("\r")
@@ -1174,7 +1149,45 @@ def test_home_ui(b, opts):
         else:
             screen(["Settings > WiFi and network", "Network", "none saved", "port 3333"])
             keys("w")                           # the list scrolls to its last row
-            screen(["Connect to a network", "Connect at boot", "< On >"])
+            screen(["Connect to a network", "Connect at boot", "Test the connection"])
+            keys("w")
+            screen(["Connect at boot", "< On >"])
+        keys("q")
+        keys("s")
+        keys("\r")                              # Screen and sound
+        screen(["Settings > Screen and sound", "Game drawing (.bm)", "3D of the games", "ARM (no GPU)",
+                "3D anti-aliasing", "Off",      # QEMU has no V3D; no anti-aliasing unless asked
+                "3D vertices"])                 # nor the vertex shader (M36)
+        keys("sssss")                           # the dev kit's overlay: on, then off again
+        screen(["< Off >", "fps, ms, Lua instructions"])
+        keys("\r")
+        screen(["< On >", "performance overlay: on"])
+        keys("\r")
+        screen(["< Off >", "performance overlay: off"])
+        keys("s")                               # the volume: left/right, saved
+        screen(["Volume", "< 10 / 10 >"])
+        keys("a")
+        screen(["< 9 / 10 >", "volume: 9 / 10"])
+        keys("d")
+        screen(["< 10 / 10 >"])
+        keys("ss")
+        screen(["Test pattern", "Test the sound", "HDMI sound status"])
+        keys("q")
+        keys("s")
+        keys("\r")
+        screen(["Settings > Updates", "Version", "Check for updates", "not checked"])
+        keys("q")
+        keys("s")
+        keys("\r")
+        screen(["Settings > Reports", "On the SD card", "none waiting", "Send the reports", "Report the log"])
+        keys("q")
+        keys("s")
+        keys("\r")
+        screen(["Settings > System", "Version", "Board", "SD card", "FAT32"])
+        shot("system")
+        keys("w")                               # the list scrolls to its last rows
+        screen(["3D driver", "bm3d", "as 0.2", "Log since boot", "Restart",   # QEMU: the ARM's 3D
+                "Open the monitor"])
         keys("q")
         keys("q")
         time.sleep(0.5)
@@ -2860,7 +2873,8 @@ def test_menu_tabs(b, opts):
                        for y in range(21 * 16, 22 * 16) for r, g, b_ in [pixel(img_, x, y)])
         press(buttons=0x08 | 0x20)          # A (cross): Controllers
         state(["Settings"], ["Settings > Controllers"])
-        press(buttons=0x00)                 # up twice: round to Button icons
+        press(buttons=0x00)                 # up three times: round to Button icons
+        press(buttons=0x00)
         press(buttons=0x00)
         state(["Settings"], ["Button icons", "< White >"])
         assert not red_hint(), "white button icons drawn red"
@@ -3177,16 +3191,12 @@ def test_update(b, opts):
         try:
             q.expect(MENU, timeout=30)
             time.sleep(0.5)
-            keys("5")                               # Settings, then System (the last row)
-            screen(["Settings", "Controllers", "System"])
-            keys("w")
+            keys("5")                               # Settings, then Updates
+            screen(["Settings", "Controllers", "Updates"])
+            keys("sss")
             keys("\r")
-            screen(["Settings > System", "Version"])
-            for _ in range(12):                     # down to Check for updates (after SD card)
-                _, text = settled_screen(q, lambda i, t: True, tries=1)
-                if any("The latest release on GitHub" in l for l in text):
-                    break
-                keys("s")
+            screen(["Settings > Updates", "Version"])
+            keys("s")
             screen(["Check for updates", "not checked", "The latest release on GitHub"])
             keys("\r")
             out = q.expect("back to the menu", timeout=30).decode(errors="replace")
