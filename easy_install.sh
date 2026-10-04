@@ -10,9 +10,9 @@
 #                           (tools/bm_net.py --kernel): a saved profile (name,
 #                           IP, the 6-digit console code, the board: Pi, Pi
 #                           Zero 2 W or RGB30) or a new one
-#   2  [SD] update kernel   kernel.img on the card (the old one in bm/backup)
-#   3  [SD] full install    make install: kernel, boot files, games, bm/
-#   4  [SD] disk image      make image (dist/bm.img), then the card erased and
+#   2   [SD] update kernel  kernel.img on the card (the old one in bm/backup)
+#   3   [SD] full install   make install: kernel, boot files, games, bm/
+#   4   [SD] disk image     make image (dist/bm.img), then the card erased and
 #                           formatted (FAT32, the whole card up to 31 GB) with
 #                           the image's files on it; settings, saves and your
 #                           own games are kept, unless you say no
@@ -628,9 +628,9 @@ while :; do
     cat <<MENU
 
   1  [NET] update kernel   (to a console on the network: saved profiles, or a new one)
-  2  [SD] update kernel    (kernel.img only; the old one stays in bm/backup)
-  3  [SD] full install     (kernel, boot files, games, bm/: make install)
-  4  [SD] disk image       (make image, card erased and formatted, the image's files)
+  2   [SD] update kernel   (kernel.img only; the old one stays in bm/backup)
+  3   [SD] full install    (kernel, boot files, games, bm/: make install)
+  4   [SD] disk image      (make image, card erased and formatted, the image's files)
   b  branch                (now $BRANCH: change it or update it)
   p  paths                 (repository folder, SD card letter)
   q  quit
