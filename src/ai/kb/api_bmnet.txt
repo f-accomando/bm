@@ -1,0 +1,147 @@
+# Games over the network: local net = require "bmnet". Names as "net.x".
+
+== bmnet
+kind: api
+name: bmnet
+title: require "bmnet" - giochi in rete: lobby, messaggi, lockstep
+ask: libreria per giocare in rete | multiplayer online | gioco in rete tra console
+ask: network multiplayer library | online game between consoles | bmnet
+ask: giocare con un amico su un'altra console | lan multiplayer | partita in rete
+keys: bmnet, rete, online, lobby
+see: net.open, net.host, net.update, net.frames, net.post, guide.online
+text:
+Le console si trovano sulla LAN (o su internet con un relay), una ospita
+e le altre entrano, si mandano messaggi (persi o sicuri e in ordine); le
+partite d'azione vanno in lockstep: ogni console fa girare tutto e
+viaggiano solo gli input. net.update() a ogni fotogramma dà gli eventi.
+code:
+local net = require "bmnet"
+function _init()
+  net.open({ game = "MYG1" })   -- il nome (e la versione) del gioco
+end
+
+== net.open
+kind: api
+name: net.open
+title: net.open(o) / net.close() - aprire e chiudere la rete (bmnet)
+ask: aprire la rete | connettersi | relay su internet | giocare su internet | stanza del relay
+ask: open the network | play over the internet | chiudere la connessione
+keys: open, relay, stanza, internet
+see: bmnet, online, net.host
+text:
+o.game (4 lettere: i pacchetti degli altri giochi non si vedono), o.relay
+("nome:porta", tools/overbit_relay.py: su internet; senza, la LAN),
+o.room (4 lettere), o.name. true, o false e il perché (niente rete).
+net.close() avvisa gli altri e chiude.
+code:
+local ok, why = net.open({ game = "MYG1", relay = "relay.example.org" })
+if not ok then msg = why end
+function _leave() net.close() end
+
+== net.host
+kind: api
+name: net.host
+title: net.host(o) / net.hosts() / net.join(id) - ospitare o entrare (bmnet)
+ask: ospitare una partita | entrare in una partita | elenco delle partite trovate
+ask: host a match | join a match | lobby online | cercare partite sulla lan
+keys: ospitare, entrare, host, join
+see: net.update, net.start, bmnet
+text:
+net.host{max, info} ospita (posto 1); net.hosts() le partite trovate
+{id, name, players, max, info}; net.join(id) chiede un posto (evento
+"joined"). net.peers() chi c'è, con il posto.
+code:
+if btnp("a") then net.host({ max = 4, info = "mappa 1" }) end
+local list = net.hosts()
+if #list > 0 and btnp("b") then net.join(list[1].id) end
+
+== net.update
+kind: api
+name: net.update
+title: net.update() - gli eventi della rete (bmnet)
+ask: eventi della rete | un giocatore è entrato | arriva un messaggio | network events
+ask: il giocatore si è disconnesso | la partita comincia | net update
+keys: eventi, update
+see: net.host, net.post, net.start
+text:
+Una volta in _update: legge i pacchetti e dà gli eventi del fotogramma
+{type = ...}: join, leave, joined, refused, start (seed, seat, seats,
+data), msg (from, data, sure), lost, desync, error.
+code:
+for _, e in ipairs(net.update()) do
+  if e.type == "start" then rng = lib.rng(e.seed)
+  elseif e.type == "msg" then chat[#chat + 1] = e.data end
+end
+
+== net.start
+kind: api
+name: net.start
+title: net.start(o) - chi ospita comincia la partita (bmnet)
+ask: cominciare la partita online | stesso seme per tutti | start the match
+ask: opzioni della partita a tutti | seed della partita
+keys: start, cominciare, seme
+see: net.frames, lib.rng
+text:
+Solo chi ospita: o.seed (lo stesso caso per tutti), o.delay (fotogrammi
+tra un tasto e il suo fotogramma: 4 sulla LAN, 7 col relay), o.data
+(una stringa per tutti). Tutti ricevono l'evento "start".
+code:
+if net.is_host and btnp("start") then
+  net.start({ data = "mappa=2" })
+end
+
+== net.frames
+kind: api
+name: net.frames
+title: net.input(v) e net.frames() - il lockstep (bmnet)
+ask: lockstep | stesso gioco su tutte le console | mandare i tasti in rete
+ask: sincronizzare la partita | input in rete | deterministic multiplayer
+keys: lockstep, input, frames, sincronizzare
+see: net.start, net.check, lib.rng
+text:
+net.input(v) il mio input (32 bit: net.pad(1) per tasti e levetta),
+poi per ogni fotogramma pronto inputs[posto] (false: è uscito). Il
+gioco dipende solo da quelli e dal seme: lib.rng, mai math.random.
+net.unpad(v) e net.held(v, "a") leggono un input.
+code:
+net.input(net.pad(1))
+for _, inputs in net.frames() do
+  for _, seat in ipairs(net.seats) do
+    if net.held(inputs[seat], "a") then fire(seat) end
+  end
+end
+
+== net.post
+kind: api
+name: net.post
+title: net.post(dati) / net.send(dati) - messaggi in rete (bmnet)
+ask: mandare un messaggio | chat in rete | messaggio sicuro | send a message to players
+ask: gioco a turni in rete | la mossa all'altro giocatore | messages over the network
+keys: messaggio, chat, post, send
+see: net.update, bmnet
+text:
+net.post(s, [a]) un messaggio sicuro: arriva, e nell'ordine (turni,
+chat, scelte). net.send(s, [a]) uno che si può perdere (posizioni). A
+tutti o all'id a; al più 900 byte; arrivano come eventi "msg".
+code:
+net.post("move " .. col .. " " .. row)
+for _, e in ipairs(net.update()) do
+  if e.type == "msg" then apply(e.data) end
+end
+
+== net.check
+kind: api
+name: net.check
+title: net.check(hash) - le console fanno la stessa partita? (bmnet)
+ask: desync | le console non sono uguali | controllare la sincronia | check desync
+ask: la partita va diversa sulle due console
+keys: desync, hash, check
+see: net.frames, lib.rng
+text:
+Un numero che riassume il gioco dopo il fotogramma (posizioni,
+punteggi): le console lo confrontano, una differenza è l'evento
+"desync". Ogni secondo basta.
+code:
+if net.frame % 60 == 0 then
+  net.check(score * 1000 + math.floor(px))
+end

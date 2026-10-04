@@ -239,3 +239,23 @@ dello sheet), o nil; zones() i nomi di tutte le zone.
 code:
 local _, _, w, h = zone("eroe_corre")    -- per la hitbox
 for _, n in ipairs(zones()) do log(n) end
+
+== zboxes
+kind: api
+name: zboxes
+title: zboxes(nome, [fotogramma, tipo]) - hitbox e hurtbox dei fotogrammi
+ask: hitbox dei fotogrammi | hurtbox dello sprite | zboxes | riquadri dei colpi nello sheet
+ask: dove colpisce il pugno in questo fotogramma | hitbox per ogni fotogramma
+ask: frame hitboxes from the sheet | boxes of an animation frame | collision boxes per frame
+keys: zboxes, hitbox, hurtbox, riquadri
+see: zone, lib.hits, hitbox_frames
+text:
+I riquadri dei fotogrammi di una zona (sezione BOXES: righe hurt, hit,
+body sotto la zona in mkbm.py --sprites): una lista di {x, y, w, h,
+kind, frame}, x e y dall'angolo del fotogramma. Con il fotogramma, i suoi
+e quelli di tutti i fotogrammi; tipo ne tiene uno ("hurt", "hit", "body"
+o un numero del gioco).
+code:
+for _, b in ipairs(zboxes("pugno", frame, "hit")) do
+  rect(x + b.x, y + b.y, b.w, b.h, 0xFF4040)
+end

@@ -213,3 +213,25 @@ local w = 100
 rectfill(8, 8, w, 8, 0x402020)
 rectfill(8, 8, w * hp // max_hp, 8, 0x40E040)
 rect(7, 7, w + 2, 10, 0xFFFFFF)
+
+== hitbox_frames
+kind: howto
+title: Hitbox per fotogramma da uno sprite animato (picchiaduro)
+ask: hitbox che cambiano con l'animazione | il pugno colpisce solo in un fotogramma
+ask: hitbox per ogni fotogramma | frame by frame hitboxes | attacco con fotogrammi attivi
+ask: hurtbox che seguono lo sprite | riquadri dei colpi disegnati nello sheet
+keys: fotogramma, hitbox, animazione, attivi
+see: zboxes, lib.hits, lib.box
+text:
+Nel file delle zone (mkbm.py --sprites) sotto la zona: "hurt * x y w h"
+per tutti i fotogrammi, "hit 3 x y w h" per il fotogramma attivo. Nel
+gioco H:zone mette nel mondo quelli del fotogramma disegnato, specchiati
+se guarda a sinistra; l'id dell'attacco fa colpire una volta.
+code:
+H:clear()
+H:zone(p1, "pugno", p1.frame, p1.x, p1.y, p1.face < 0,
+       { team = 1, attack = { id = p1.swing, damage = 5 } })
+H:zone(p2, "fermo", 1, p2.x, p2.y, p2.face < 0, { team = 2 })
+for _, c in ipairs(H:check()) do
+  c.to.life = c.to.life - c.hit.damage
+end

@@ -312,3 +312,16 @@ salvare il punteggio migliore => lib.store, save_progress
 numeri casuali sempre uguali con lo stesso seme => lib.rng
 togliere dalla lista i proiettili usciti dallo schermo => lib.each, bullets
 
+# hitboxes, players, network
+il pugno deve colpire il nemico una volta sola => lib.hits, hitbox_frames
+le hitbox scritte nello sheet per ogni fotogramma => zboxes, hitbox_frames
+specchiare la hitbox quando il personaggio guarda a sinistra => lib.box
+i due lottatori non devono passare uno dentro l'altro => lib.separate
+schermata dove ogni giocatore preme A per entrare => lib.party
+schermo diviso in quattro per quattro giocatori => lib.split
+il colore del giocatore due => lib.pads, controller
+giocare con un amico su un'altra console in rete => bmnet, guide.online
+ospitare una partita sulla rete di casa => net.host
+la partita deve andare uguale su tutte le console => net.frames, net.check
+mandare la mossa all'altro giocatore in un gioco a turni => net.post
+tasti con i nomi delle azioni del gioco => keymap

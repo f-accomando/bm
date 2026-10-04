@@ -142,10 +142,11 @@ local ART = {
   wall = { "ssssssss", "sSSsSSSs", "ssssssss", "SSsSSSsS", "ssssssss", "sSSsSSSs", "ssssssss", "SSsSSSsS" },
   ship = { "........", "cc......", ".cccc...", ".cwwccc.", ".cccccrr", ".cccc...", "cc......", "........" },
   foe = { "...rr...", "..rrrr..", ".rkrrkr.", "rrrrrrrr", "r.rrrr.r", "..r..r..", ".r....r.", "........" },
+  plank = { "pppppppp", "PpPPpPPp", "dpdddpdd", "........", "........", "........", "........", "........" },
 }
 local INK = { y = 0xFFD050, k = 0x202030, g = 0x5CB048, G = 0x8AD860, b = 0x8A5A30, d = 0x6A4224,
               o = 0xF0B030, Y = 0xFFF4C0, s = 0x606878, S = 0x808898, c = 0x70B8F0, w = 0xFFFFFF,
-              r = 0xE84A5A }
+              r = 0xE84A5A, p = 0xC08850, P = 0xE0B070 }
 
 local function paint(cell, rows)
   local cols = S.sheet_w // 8
@@ -183,7 +184,9 @@ end
 ]==] },
   { id = "platform", name = "Platform 2D", desc = "run and jump on the map, the camera follows",
     paint = function()
-      paint(1, ART.hero); paint(2, ART.ground)
+      paint(1, ART.hero); paint(2, ART.ground); paint(6, ART.plank)
+      fset(2, 0, true)                   -- the ground: solid (flag 0)
+      fset(6, 1, true)                   -- the planks: platforms (flag 1), from above only
       local _, ch = res_cells()
       local base = ch - 5
       for x = 0, 127 do
@@ -193,58 +196,45 @@ end
       end
       local plats = { { 12, 6, 6 }, { 24, 10, 6 }, { 40, 5, 7 }, { 52, 9, 7 }, { 80, 6, 10 }, { 95, 12, 6 } }
       for _, p in ipairs(plats) do
-        for x = p[1], p[1] + p[3] - 1 do mset(x, base - p[2], 2) end
+        for x = p[1], p[1] + p[3] - 1 do mset(x, base - p[2], 6) end
       end
       for y = 0, base + 4 do mset(127, y, 2) end
     end,
     code = [==[
--- platform: arrows run, A (space) jumps; the map: the SDK's F3 F3
--- sprite 1 is the hero, 2 the ground (the solid tile)
-local px, py, vy, ground = 64, 40, 0, false
-local camx = 0
-
-local function solid(x, y)
-  return mget(x // 8, y // 8) == 2
-end
-
-local function free(x, y)
-  return not (solid(x, y) or solid(x + 7, y) or
-              solid(x, y + 7) or solid(x + 7, y + 7))
-end
+-- platform: arrows run, A (space) jumps, down drops through a plank.
+-- Sprite 1 is the hero; what stops it are the flags of the tiles (F3,
+-- keys 0-7): 2 the ground has flag 0 (solid), 6 the planks flag 1
+-- (platform: from above only). bmlib does the rest.
+local lib = require "bmlib"
+local hero = { x = 64, y = 40, w = 8, h = 8 }
+local cam = lib.camera({ bounds = { 0, 0, 128 * 8, SCREEN_H } })
 
 function _update()
-  local vx = 0
-  if btn(0) then vx = -2 end
-  if btn(1) then vx = 2 end
-  if ground and btnp(4) then vy = -5 end
-  vy = math.min(vy + 0.25, 6)
-  if free(px + vx, py) then px = px + vx end
-  local ny = py + vy
-  ground = false
-  if vy > 0 and (solid(px, ny + 7) or solid(px + 7, ny + 7)) then
-    ny = (ny + 7) // 8 * 8 - 8
-    vy, ground = 0, true
-  elseif vy < 0 and (solid(px, ny) or solid(px + 7, ny)) then
-    ny = (ny // 8 + 1) * 8
-    vy = 0
+  hero.vx = 0
+  if btn(0) then hero.vx = -2 end
+  if btn(1) then hero.vx = 2 end
+  hero.drop = btn(3)                     -- down: through the planks
+  if hero.ground and btnp(4) then hero.vy = -5 end
+  lib.step(hero)                         -- gravity and the map: hero.ground
+  if hero.y > SCREEN_H + 64 then         -- fell: again
+    hero.x, hero.y, hero.vy = 64, 40, 0
   end
-  py = ny
-  if py > SCREEN_H + 64 then px, py, vy = 64, 40, 0 end   -- fell: again
-  camx = math.max(0, px - SCREEN_W // 2)
+  cam:follow(hero.x + 4, hero.y + 4)
 end
 
 function _draw()
   cls(0x5080C0)
-  camera(camx, 0)
-  map(0, 0, 0, 0, 128, SCREEN_H // 8 + 1)
-  spr(1, px, py)
+  cam:apply()
+  cam:map()
+  spr(1, hero.x, hero.y)
   camera()
-  print("arrows: run   A: jump", 8, 8, 0xFFFFFF)
+  print("arrows: run   A: jump   down: drop", 8, 8, 0xFFFFFF)
 end
 ]==] },
   { id = "topdown", name = "Top-down 2D", desc = "walk among walls and pick up the coins",
     paint = function()
       paint(1, ART.hero); paint(3, ART.coin); paint(4, ART.wall)
+      fset(4, 0, true)                   -- the walls: solid (flag 0)
       local cw, ch = res_cells()
       for x = 0, cw - 1 do mset(x, 2, 4); mset(x, ch - 1, 4) end
       for y = 2, ch - 1 do mset(0, y, 4); mset(cw - 1, y, 4) end
@@ -255,16 +245,11 @@ end
       end
     end,
     code = [==[
--- top-down: arrows walk, pick up the coins; walls and coins: the map
--- sprite 1 is the hero, 3 a coin, 4 a wall
-local px, py, score = 40, 48, 0
-
-local function wall(x, y) return mget(x // 8, y // 8) == 4 end
-
-local function free(x, y)
-  return not (wall(x, y) or wall(x + 7, y) or
-              wall(x, y + 7) or wall(x + 7, y + 7))
-end
+-- top-down: arrows walk, pick up the coins; walls and coins: the map.
+-- Sprite 1 is the hero, 3 a coin, 4 a wall (flag 0: solid, F3 key 0)
+local lib = require "bmlib"
+local hero = { x = 40, y = 48, w = 8, h = 8 }
+local score = 0
 
 function _update()
   local dx, dy = 0, 0
@@ -272,35 +257,39 @@ function _update()
   if btn(1) then dx = 2 end
   if btn(2) then dy = -2 end
   if btn(3) then dy = 2 end
-  if free(px + dx, py) then px = px + dx end
-  if free(px, py + dy) then py = py + dy end
-  local cx, cy = (px + 4) // 8, (py + 4) // 8
+  lib.move(hero, dx, dy)                 -- the walls stop it, it slides
+  local cx, cy = (hero.x + 4) // 8, (hero.y + 4) // 8
   if mget(cx, cy) == 3 then
     mset(cx, cy, 0)
     score = score + 1
+    note(0, 1320, 60, SQUARE, 90)
   end
 end
 
 function _draw()
   cls(0x305030)
   map(0, 0, 0, 0, SCREEN_W // 8, SCREEN_H // 8)
-  spr(1, px, py)
+  spr(1, hero.x, hero.y)
   print("coins " .. score, 8, 0, 0xFFE070)
 end
 ]==] },
   { id = "shooter", name = "Shooter 2D", desc = "fly, fire, waves of enemies, game over",
     paint = function() paint(1, ART.ship); paint(5, ART.foe) end,
     code = [==[
--- shooter: arrows fly, A (space) fires; the enemies come from the right
--- sprite 1 is the ship, 5 an enemy
+-- shooter: arrows fly, A (space) fires; the enemies come from the right.
+-- Sprite 1 is the ship, 5 an enemy
+local lib = require "bmlib"
 local ship = { x = 40, y = SCREEN_H // 2 }
 local shots, foes, t, score, over = {}, {}, 0, 0, false
+local fx = lib.particles(200)
+local cam = lib.camera({ smooth = 1 })
 
 local function restart()
   ship.y, shots, foes, score, over = SCREEN_H // 2, {}, {}, 0, false
 end
 
 function _update()
+  fx:update()
   if over then
     if btnp(4) then restart() end
     return
@@ -310,49 +299,225 @@ function _update()
   if btn(1) then ship.x = math.min(SCREEN_W // 2, ship.x + 3) end
   if btn(2) then ship.y = math.max(16, ship.y - 3) end
   if btn(3) then ship.y = math.min(SCREEN_H - 16, ship.y + 3) end
-  if btnp(4) then
-    shots[#shots + 1] = { x = ship.x + 8, y = ship.y + 3 }
-  end
+  if btnp(4) then shots[#shots + 1] = { x = ship.x + 8, y = ship.y + 3, w = 4, h = 2 } end
   if t % 40 == 0 then
-    local y = math.random(16, SCREEN_H - 24)
-    foes[#foes + 1] = { x = SCREEN_W, y = y, s = math.random(2, 4) }
+    foes[#foes + 1] = { x = SCREEN_W, y = math.random(16, SCREEN_H - 24), s = math.random(2, 4) }
   end
-  for i = #shots, 1, -1 do
-    local s = shots[i]
-    s.x = s.x + 6
-    if s.x > SCREEN_W then table.remove(shots, i) end
-  end
-  for i = #foes, 1, -1 do
-    local f = foes[i]
+  lib.each(shots, function(s) s.x = s.x + 6; return s.x < SCREEN_W end)
+  lib.each(foes, function(f)
     f.x = f.x - f.s
-    for j = #shots, 1, -1 do
-      local s = shots[j]
-      if s.x < f.x + 8 and s.x + 4 > f.x and
-         s.y < f.y + 8 and s.y + 2 > f.y then
-        table.remove(shots, j)
-        f.dead, score = true, score + 10
+    for _, s in ipairs(shots) do
+      if not s.dead and lib.hit(s, f) then            -- (w and h 8 if missing)
+        s.dead, score = true, score + 10
+        fx:burst(f.x + 4, f.y + 4, 14, { colors = { 0xFFE070, 0xE84A5A, 0x603040 } })
+        note(1, 180, 120, NOISE, 140)
+        return false
       end
     end
-    if math.abs(f.x - ship.x) < 7 and math.abs(f.y - ship.y) < 7 then
+    if lib.overlap(f.x + 1, f.y + 1, 6, 6, ship.x + 1, ship.y + 1, 6, 6) then
       over = true
+      cam:shake(6, 0.4)
+      fx:burst(ship.x + 4, ship.y + 4, 40, { speed = 3, colors = { 0xFFFFFF, 0x70B8F0 } })
     end
-    if f.dead or f.x < -8 then table.remove(foes, i) end
-  end
+    return f.x > -8
+  end)
+  lib.sweep(shots)
 end
 
 function _draw()
   cls(0x080818)
+  cam:apply()
   for i = 0, 40 do
     local x = (i * 97 - t * (1 + i % 3)) % SCREEN_W
     pset(x, i * 37 % SCREEN_H, 0x8090B0)
   end
-  spr(1, ship.x, ship.y)
+  if not over then spr(1, ship.x, ship.y) end
   for _, s in ipairs(shots) do rectfill(s.x, s.y, 4, 2, 0xFFE070) end
   for _, f in ipairs(foes) do spr(5, f.x, f.y) end
+  fx:draw()
+  camera()
   print("score " .. score, 8, 0, 0xFFFFFF)
-  if over then
-    print("game over - A plays again", SCREEN_W // 2 - 100, SCREEN_H // 2,
-          0xFF6060)
+  if over then lib.printc("game over - A plays again", SCREEN_H // 2, 0xFF6060) end
+end
+]==] },
+  { id = "versus", name = "Versus 2D", desc = "two players on one console: punches with hitboxes",
+    code = [==[
+-- versus: two fighters on one console, each with a controller; alone,
+-- the computer plays the second. Left/right walk, A punches, B jumps.
+-- The punches are hitboxes and the bodies hurtboxes (lib.hits): a punch
+-- hits once, the one hit flashes and is pushed back.
+local lib = require "bmlib"
+local FLOOR = SCREEN_H - 64
+local party = lib.party({ min = 1, max = 2 })
+local hits = lib.hits()
+local fighters, winner
+
+local function fighter(slot, pad, x)
+  return { slot = slot, pad = pad, x = x, y = FLOOR, w = 16, h = 32, vy = 0, face = 1,
+           life = 10, punch = 0, swing = 0, hurt = 0,
+           color = lib.PLAYER_COLORS[pad or 2], name = pad and "P" .. pad or "CPU" }
+end
+
+local function controls(f, o)
+  if not f.pad then                      -- the computer: closer, then a punch
+    local d = o.x - f.x
+    return d < -20, d > 20, math.abs(d) < 30 and lib.chance(0.06), lib.chance(0.01)
+  end
+  return btn("left", f.pad), btn("right", f.pad), btnp("a", f.pad), btnp("b", f.pad)
+end
+
+local function play(f, o)
+  local left, right, punch, jump = controls(f, o)
+  if f.hurt > 0 then
+    f.hurt = f.hurt - 1
+    left, right, punch = false, false, false
+  end
+  if left then f.x = f.x - 2 end
+  if right then f.x = f.x + 2 end
+  f.face = o.x > f.x and 1 or -1
+  if jump and f.y >= FLOOR then f.vy = -6 end
+  f.vy = f.vy + 0.3
+  f.y = math.min(f.y + f.vy, FLOOR)
+  f.x = lib.clamp(f.x, 0, SCREEN_W - f.w)
+  if punch and f.punch == 0 then f.punch, f.swing = 16, f.swing + 1 end
+  if f.punch > 0 then f.punch = f.punch - 1 end
+  hits:hurt(f, f.x, f.y, f.w, f.h)
+  if f.punch > 4 and f.punch < 12 then   -- the fist is out: a hitbox
+    local x = f.face > 0 and f.x + f.w or f.x - 12
+    hits:hit(f, x, f.y + 8, 12, 6, { id = f.swing, damage = 1 })
+  end
+end
+
+function _update()
+  if not fighters then
+    local who = party:update()
+    if who then
+      fighters = { fighter(1, who[1], 120), fighter(2, who[2], SCREEN_W - 136) }
+      winner = nil
+    end
+    return
+  end
+  if winner then
+    if btnp("start") then fighters, party = nil, lib.party({ min = 1, max = 2 }) end
+    return
+  end
+  hits:clear()
+  play(fighters[1], fighters[2])
+  play(fighters[2], fighters[1])
+  lib.separate(fighters[1], fighters[2])
+  for _, c in ipairs(hits:check()) do
+    c.to.life = c.to.life - c.hit.damage
+    c.to.hurt = 12
+    c.to.x = c.to.x + c.by.face * 8
+    note(2, 140, 90, NOISE, 150)
+    if c.to.life <= 0 then winner = c.by end
+  end
+end
+
+function _draw()
+  cls(0x182030)
+  rectfill(0, FLOOR + 32, SCREEN_W, SCREEN_H - FLOOR - 32, 0x30384A)
+  if not fighters then
+    lib.printc("VERSUS", 32, 0xFFD050, 3)
+    party:draw(16, 104, SCREEN_W - 32, 208)
+    return
+  end
+  for i, f in ipairs(fighters) do
+    rectfill(f.x, f.y, f.w, f.h, f.hurt % 4 > 1 and 0xFFFFFF or f.color)
+    if f.punch > 4 and f.punch < 12 then
+      rectfill(f.face > 0 and f.x + f.w or f.x - 12, f.y + 8, 12, 6, f.color)
+    end
+    local bx = i == 1 and 16 or SCREEN_W - 216
+    lib.bar(bx, 16, 200, 10, f.life, 10, f.color, 0x303846, 0xFFFFFF)
+    print(f.name, bx, 32, f.color)
+  end
+  if winner then
+    lib.printc(winner.name .. " WINS", 120, 0xFFFFFF, 3)
+    lib.printc("START: again", 176, 0x9098A8)
+  end
+end
+]==] },
+  { id = "online", name = "Online 2D", desc = "two to four consoles on the network: a lobby and lockstep",
+    code = [==[
+-- online: two to four consoles on the same network, each moves its square;
+-- A hosts a match or joins one of those found, the host starts it with
+-- Start. Lockstep (bmnet): every console runs the whole game and only the
+-- inputs travel, so the game's random numbers come from the match's seed
+-- (lib.rng), never from math.random. Over the internet: a relay, see the
+-- "relay" option of net.open (tools/overbit_relay.py).
+local net = require "bmnet"
+local lib = require "bmlib"
+local sel, msg, squares, rng = 1, "", {}, nil
+
+function _init()
+  local ok, err = net.open({ game = "MYG1", name = "Player" })  -- the game's tag
+  if not ok then msg = "no network: " .. tostring(err) end
+end
+
+function _leave() net.close() end        -- PS during the match: leaving
+
+-- one frame of the match: the same on every console
+local function step(inputs)
+  for _, seat in ipairs(net.seats) do
+    local s, v = squares[seat], inputs[seat]
+    if v == false then squares[seat] = nil end           -- that player left
+    if s and v then
+      local _, sx, sy = net.unpad(v)
+      s.x = lib.clamp(s.x + sx * 3, 0, SCREEN_W - 16)
+      s.y = lib.clamp(s.y + sy * 3, 32, SCREEN_H - 16)
+      if net.held(v, "a") and not s.a then s.color = rng:int(0x404040, 0xFFFFFF) end
+      s.a = net.held(v, "a")
+    end
+  end
+end
+
+function _update()
+  for _, e in ipairs(net.update()) do
+    if e.type == "start" then
+      rng = lib.rng(e.seed)
+      for i, seat in ipairs(e.seats) do
+        squares[seat] = { x = 40 + i * 80, y = 160, color = lib.PLAYER_COLORS[(i - 1) % 4 + 1] }
+      end
+    elseif e.type == "join" then msg = e.name .. " is in"
+    elseif e.type == "leave" then msg = "a player left"
+    elseif e.type == "lost" then msg = "the match is over: " .. e.why
+    end
+  end
+  if net.state == "lobby" then
+    local rows = net.hosts()
+    if btnp("up") then sel = math.max(1, sel - 1) end
+    if btnp("down") then sel = math.min(#rows + 1, sel + 1) end
+    sel = math.min(sel, #rows + 1)
+    if btnp("ok") then
+      if sel == 1 then net.host({ max = 4, info = "squares" }) else net.join(rows[sel - 1].id) end
+    end
+  elseif net.state == "hosting" then
+    if btnp("start") and #net.peers() >= 2 then net.start() end
+  elseif net.state == "playing" then
+    net.input(net.pad(1))
+    for _, inputs in net.frames() do step(inputs) end
+  end
+end
+
+function _draw()
+  cls(0x101828)
+  print("ONLINE  " .. net.state, 8, 8, 0xFFD050)
+  print(msg, 8, SCREEN_H - 24, 0x9098A8)
+  if net.state == "lobby" then
+    local rows = net.hosts()
+    print((sel == 1 and "> " or "  ") .. "HOST A MATCH", 16, 48, 0xFFFFFF)
+    for i, h in ipairs(rows) do
+      print((sel == i + 1 and "> " or "  ") .. "JOIN " .. h.name .. " (" .. h.players .. "/" .. h.max .. ")",
+            16, 48 + i * 20, 0xFFFFFF)
+    end
+  elseif net.state == "hosting" or net.state == "joined" or net.state == "joining" then
+    for i, p in ipairs(net.peers()) do print("seat " .. p.seat .. "  " .. p.name, 16, 48 + i * 20, 0xFFFFFF) end
+    print(net.is_host and "START: begin" or "waiting for the host", 16, 160, 0x9098A8)
+  elseif net.state == "playing" then
+    for seat, s in pairs(squares) do
+      rectfill(s.x, s.y, 16, 16, s.color)
+      if seat == net.seat then rect(s.x - 2, s.y - 2, 20, 20, 0xFFFFFF) end
+    end
   end
 end
 ]==] },

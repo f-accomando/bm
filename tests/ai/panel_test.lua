@@ -90,7 +90,7 @@ type_("come faccio un platform")
 check(on_screen("Guida: un platform 2D passo passo"), "guide: the platformer's guide")
 keys = { "\n" }
 frame()
-check(inserted and inserted:find("mget(x // 8, y // 8) == 2", 1, true), "guide: Enter inserts its code")
+check(inserted and inserted:find("lib.step(hero)", 1, true), "guide: Enter inserts its code")
 assist.open{ mode = "guide" }
 frame()
 type_("how do i start a 3d game")

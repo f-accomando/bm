@@ -299,10 +299,10 @@ local k = net:pick({ hp, dist, enemies })
 kind: api
 name: udp_send
 title: udp_open / udp_send / udp_recv - pacchetti UDP per giocare in rete
-ask: giocare in rete | multiplayer online | mandare dati a un'altra console
-ask: udp | send a packet on the network | network game | lan multiplayer
-keys: rete, udp, multiplayer, online, lan, pacchetto
-see: nnet
+ask: pacchetti udp | socket udp | mandare dati grezzi a un'altra console
+ask: udp | send a raw packet on the network | udp socket | broadcast sulla lan
+keys: udp, pacchetto, socket
+see: bmnet, nnet
 text: s = udp_open(porta) apre un socket (nil senza rete); udp_send(s, ind,
 porta, dati) manda una stringa (al massimo 1024 byte, "*" = tutta la LAN);
 udp_recv(s) dà il prossimo pacchetto e chi l'ha mandato, o nil. net_ip()

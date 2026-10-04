@@ -13,7 +13,8 @@ keys: sdk, cominciare, progetto, guida
 see: guide.sdk_pages, guide.platformer, guide.3d_first
 text:
 1. Nell'SDK, Ctrl+N: scegli un modello (Platform 2D, Top-down 2D, Shooter
-2D, 3D scene, 3D with models). Arriva con codice, sprite e mappa pronti.
+2D, Versus 2D per due giocatori, Online 2D in rete, 3D scene, 3D with
+models). Arriva con codice, sprite e mappa pronti.
 
 2. F5 prova subito il gioco; Esc (o Ctrl+Esc) torna all'SDK.
 
@@ -56,7 +57,8 @@ F2 il codice, con i colori della sintassi (in verde acqua le funzioni 3D).
 Ctrl+G va all'errore, F9 lo fa spiegare.
 
 F3 gli sprite (spazio disegna, x prende il colore, f riempie, Tab lo
-sheet); F3 di nuovo la mappa (spazio mette la tessera, Tab la sceglie).
+sheet, 0-7 i flag della tessera); F3 di nuovo la mappa (spazio mette la
+tessera, Tab la sceglie, l cambia livello, L ne aggiunge uno).
 
 F4 il 3D: i modelli e le animazioni del progetto che girano; i scrive il
 codice per usarli.
@@ -88,25 +90,28 @@ ask: come faccio un platform | fare un gioco di piattaforme | platform game step
 ask: gioco tipo mario | make a platformer with the sdk | personaggio che salta sulle piattaforme
 ask: guida platform 2d | un gioco a scorrimento con i salti | side scroller
 keys: platform, piattaforme, mario
-see: jump_gravity, collide_map, camera_smooth, guide.map
+see: jump_gravity, lib.step, tile_flags, lib.camera, guide.map
 text:
-1. Ctrl+N > Platform 2D: lo sprite 1 è l'eroe, il 2 il terreno, la mappa
-ha il pavimento e qualche piattaforma.
+1. Ctrl+N > Platform 2D: lo sprite 1 è l'eroe, il 2 il terreno (flag 0:
+solido), il 6 le assi (flag 1: piattaforma, si sale da sotto).
 
-2. F3 F3: disegna altre piattaforme con la tessera 2 (Tab la sceglie).
+2. F3: i tasti 0-7 accendono i flag della tessera scelta; F3 di nuovo,
+la mappa: disegna altre piattaforme con la tessera 2 o 6.
 
-3. Nel codice solid(x, y) dice se la cella sotto il punto è terreno; la
-gravità aumenta vy, il salto la mette negativa solo a terra.
+3. Nel codice lib.step(hero) fa gravità e mappa (bmlib): legge i flag,
+dice hero.ground; il salto mette vy negativa solo a terra.
 
-4. La camera segue l'eroe: camera(camx, 0) prima della mappa, camera()
-prima del testo.
+4. La camera di bmlib segue l'eroe: cam:apply() prima della mappa,
+camera() prima del testo.
 
 5. Poi: nemici (guida dei nemici), monete (pickup_tiles), suoni (sfx).
 code:
-vy = math.min(vy + 0.25, 6)                -- la gravita'
-if ground and btnp(4) then vy = -5 end     -- il salto, solo a terra
-local function solid(x, y)
-  return mget(x // 8, y // 8) == 2         -- 2: la tessera del terreno
+local lib = require "bmlib"
+local hero = { x = 64, y = 40, w = 8, h = 8 }
+function _update()
+  hero.vx = btn(0) and -2 or btn(1) and 2 or 0
+  if hero.ground and btnp(4) then hero.vy = -5 end
+  lib.step(hero)                      -- gravita', flag delle tessere
 end
 
 == guide.topdown
@@ -116,13 +121,13 @@ ask: gioco visto dall'alto | top down game | come zelda | rpg dall'alto
 ask: personaggio che cammina tra i muri | labirinto | make a top-down adventure
 ask: guida visuale dall'alto | raccogliere monete nella mappa | dungeon crawler
 keys: dall'alto, top, zelda, labirinto
-see: move_8dir, collide_map, pickup_tiles, guide.map
+see: move_8dir, lib.move, pickup_tiles, guide.map
 text:
-1. Ctrl+N > Top-down 2D: muri (tessera 4) e monete (tessera 3) sono nella
-mappa, l'eroe è lo sprite 1.
+1. Ctrl+N > Top-down 2D: muri (tessera 4, flag 0: solido) e monete
+(tessera 3) sono nella mappa, l'eroe è lo sprite 1.
 
-2. Il movimento prova prima l'asse x e poi y: così si scivola lungo i
-muri invece di fermarsi.
+2. lib.move(hero, dx, dy) lo ferma contro le tessere solide e lo fa
+scivolare lungo i muri invece di fermarlo.
 
 3. Una moneta si prende guardando la cella sotto il centro dell'eroe e
 svuotandola con mset.
@@ -130,13 +135,13 @@ svuotandola con mset.
 4. Poi: nemici che inseguono (chase), una porta che si apre, più stanze
 con la camera.
 code:
-local function wall(x, y) return mget(x // 8, y // 8) == 4 end
-local function free(x, y)
-  return not (wall(x, y) or wall(x + 7, y) or
-              wall(x, y + 7) or wall(x + 7, y + 7))
+local lib = require "bmlib"
+local hero = { x = 40, y = 48, w = 8, h = 8 }
+function _update()
+  local dx = btn(0) and -2 or btn(1) and 2 or 0
+  local dy = btn(2) and -2 or btn(3) and 2 or 0
+  lib.move(hero, dx, dy)             -- i muri: flag 0
 end
-if free(px + dx, py) then px = px + dx end
-if free(px, py + dy) then py = py + dy end
 
 == guide.shooter
 kind: guide
@@ -145,22 +150,88 @@ ask: come faccio uno sparatutto | shoot em up | astronave che spara | space shoo
 ask: gioco con navicella e nemici | make a shooter game | ondate di nemici
 ask: guida sparatutto 2d | spaceship game | proiettili e nemici
 keys: sparatutto, astronave, shooter
-see: bullets, enemies_list, bullets_hit, spawn_waves, guide.devkit
+see: bullets, enemies_list, lib.particles, spawn_waves, guide.devkit
 text:
 1. Ctrl+N > Shooter 2D: la nave (sprite 1) spara con A, i nemici (sprite 5)
 arrivano da destra a ondate.
 
-2. Proiettili e nemici stanno in liste: si aggiornano e si tolgono
-scorrendole all'indietro (table.remove).
+2. Proiettili e nemici stanno in liste: lib.each li aggiorna e toglie
+quelli per cui la funzione dice false.
 
-3. Un colpo è un rettangolo che tocca un nemico: lo tolgono tutti e due.
+3. Un colpo è un rettangolo che tocca un nemico (lib.hit): esplode con
+lib.particles, la camera trema con cam:shake.
 
-4. Poi: esplosioni (particles), boss, power-up, il record (save).
+4. Poi: boss, power-up, il record (lib.best).
 code:
-for i = #shots, 1, -1 do
-  local s = shots[i]
+local lib = require "bmlib"
+local fx = lib.particles(200)
+lib.each(shots, function(s)
   s.x = s.x + 6
-  if s.x > SCREEN_W then table.remove(shots, i) end
+  return s.x < SCREEN_W               -- false: via dalla lista
+end)
+fx:burst(x, y, 14, { colors = { 0xFFE070, 0xE84A5A } })
+
+== guide.versus
+kind: guide
+title: Guida: un gioco per due sulla stessa console (versus)
+ask: gioco per due giocatori | due giocatori sulla stessa console | local multiplayer
+ask: picchiaduro per due | versus game | two players one console | gioco a due
+ask: guida versus | split screen | ogni giocatore col suo controller
+keys: due, giocatori, versus, multiplayer
+see: lib.party, lib.hits, lib.split, controller
+text:
+1. Ctrl+N > Versus 2D: due lottatori; ognuno col suo controller (P1,
+P2), da solo il secondo lo fa il computer.
+
+2. lib.party è la schermata dove si entra: ok entra, indietro esce,
+Start comincia; dà i numeri dei giocatori entrati.
+
+3. btn("a", p) legge il controller del giocatore p; lib.PLAYER_COLORS i
+colori delle loro luci.
+
+4. I pugni sono hitbox e i corpi hurtbox (lib.hits): un colpo con un id
+tocca una volta sola.
+
+5. Uno schermo diviso: lib.split(2) e una camera per giocatore.
+code:
+local lib = require "bmlib"
+local party = lib.party({ min = 2 })
+local hits = lib.hits()
+-- in _update: hits:clear(), hits:hurt(...), hits:hit(...)
+for _, c in ipairs(hits:check()) do
+  c.to.life = c.to.life - c.hit.damage
+end
+
+== guide.online
+kind: guide
+title: Guida: un gioco in rete per più console
+ask: gioco in rete | giocare online | multiplayer in rete | online game
+ask: due console in rete | gioco con gli amici in rete | network game
+ask: guida online | lobby e partita | lockstep | giocare su internet
+keys: rete, online, console, lobby
+see: bmnet, net.frames, net.post, guide.versus
+text:
+1. Ctrl+N > Online 2D: ogni console muove il suo quadrato. A ospita una
+partita o entra in una trovata; chi ospita la comincia con Start.
+
+2. bmnet (require "bmnet"): net.open, net.host o net.join, net.update a
+ogni fotogramma (dà gli eventi: join, start, msg, leave, lost).
+
+3. Lockstep: ogni console fa girare tutto il gioco, viaggiano solo gli
+input. net.input(net.pad(1)), poi i fotogrammi pronti in net.frames().
+
+4. Numeri a caso solo da lib.rng(seme della partita), mai math.random.
+
+5. Su internet: un relay (tools/overbit_relay.py) e l'opzione relay.
+code:
+local net = require "bmnet"
+net.open({ game = "MYG1" })
+function _update()
+  for _, e in ipairs(net.update()) do end   -- gli eventi
+  if net.state == "playing" then
+    net.input(net.pad(1))
+    for _, inputs in net.frames() do step(inputs) end
+  end
 end
 
 == guide.puzzle

@@ -132,7 +132,7 @@ title: Due giocatori, ognuno con il suo controller
 ask: due giocatori | gioco in due | multiplayer locale | two players
 ask: secondo controller | giocatore 2 | ognuno con il suo pad | coop
 keys: giocatori, multiplayer, due
-see: btn, players
+see: btn, players, lib.party, lib.split
 text:
 btn(i, p) legge solo il controller del giocatore p. Abbina i pad dal
 monitor con T (o Settings > Controllers).

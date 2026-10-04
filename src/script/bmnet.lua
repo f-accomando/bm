@@ -223,7 +223,8 @@ local function begin(seed, delay, seats, data)
   ev({ type = "start", seed = seed, seat = net.seat, seats = seats, host = net.is_host, data = data })
 end
 
--- the host starts the match with the consoles in the room: o.seed (the
+-- the host starts the match with the consoles in the room (its event
+-- "start" comes with the next net.update(), as on the others): o.seed (the
 -- match's: the same random numbers everywhere; one by chance if missing),
 -- o.delay (frames between a press and its frame: 4 on the LAN, 7 through
 -- the relay), o.data (a string for everybody: the options chosen)
@@ -577,8 +578,11 @@ end
 -- seat, seats, host, data), "msg" (from, data, sure), "lost" (why: the
 -- host has gone), "desync" (frame), "error" (text)
 function net.update()
-  events = {}
-  if not sock then return events end
+  if not sock then
+    local out = events                  -- (the close's last events)
+    events = {}
+    return out
+  end
   clock = clock + DT
   if net.stall then net.stall = net.stall + DT end
   if relay and not relay_ip then
@@ -588,7 +592,9 @@ function net.update()
       ev({ type = "error", text = net.error })
       relay = nil
       net.close()
-      return events
+      local out = events
+      events = {}
+      return out
     elseif ip then
       relay_ip = ip
     end
@@ -642,7 +648,9 @@ function net.update()
       m.t = clock
     end
   end
-  return events
+  local out = events                    -- (with those of net.start since the last call)
+  events = {}
+  return out
 end
 
 return net

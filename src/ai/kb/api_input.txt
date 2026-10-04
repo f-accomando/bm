@@ -142,3 +142,53 @@ code:
 if keyheld("f12") then
   print("aiuto: frecce muovono, spazio salta", 8, 8)
 end
+
+== controller
+kind: api
+name: controller
+title: controller([p]) - con che cosa gioca il giocatore p
+ask: che controller ha il giocatore | il giocatore usa la tastiera o il pad | ds4 o xbox
+ask: which controller does the player use | nomi dei tasti del pad | colore del giocatore
+keys: controller, ds4, xbox, tastiera
+see: keymap, players, lib.pads
+text:
+Una tabella: kind ("keyboard", "ds4", "xbox", "pad", "builtin",
+"none"), layout (come si chiamano i tasti), bluetooth, ok e back (i tasti
+del sì e dell'indietro), color (il colore del giocatore, quello della
+luce del pad).
+code:
+local c = controller(2)
+if c.kind ~= "none" then print("P2: " .. c.kind, 8, 8, c.color) end
+
+== keymap
+kind: api
+name: keymap
+title: keymap(t) - le azioni del gioco sui tasti
+ask: azioni del gioco | tasti personalizzabili | rimappare i tasti | remap buttons
+ask: saltare con un nome invece del numero | btn con il nome dell'azione | key bindings
+keys: keymap, azioni, rimappare
+see: btn, controller
+text:
+keymap({ jump = "a", fire = {"x", "r1"} }) dà un nome alle azioni; poi
+btn("jump", p), btnp("fire") e prompt("jump", x, y). Il gioco cambia i
+tasti chiamandola di nuovo (e li tiene con save()).
+code:
+keymap({ jump = "a", fire = { "x", "r1" }, pause = "start" })
+if btnp("jump") then vy = -5 end
+
+== online
+kind: api
+name: online
+title: online(on, [nota]) - la partita è in rete: PS non sospende
+ask: partita in rete e tasto ps | non sospendere il gioco online | uscire dalla partita online
+ask: online true | leave the online match | _leave
+keys: online, sospendere, leave
+see: bmnet, net.open, callbacks
+text:
+Con online(true) PS non sospende il gioco (gli altri giocano): chiede al
+giocatore se esce; sì chiama _leave() e chiude la cartuccia. bmnet lo
+accende da sé quando la partita comincia.
+code:
+function _leave()
+  net.close()                         -- avvisa gli altri
+end

@@ -351,6 +351,21 @@ local function new_env(arg)
   E.zone = function() return nil end
   E.zspr = function(name) error("the sheet has no sprite zone \"" .. tostring(name) .. "\"") end
   E.zboxes = E.zspr
+  -- the players and the network of the templates (versus, online): one
+  -- player with the keyboard, no network
+  E.controller = function(p)
+    p = p or 1
+    return { kind = p == 1 and "keyboard" or "none", layout = p == 1 and "keyboard" or "none", bluetooth = false,
+             ok = "a", back = "b", color = ({ 0x3070FF, 0xFF3C28, 0x28D848, 0xFF38A8 })[p] }
+  end
+  E.players = function() return 1, 1 end
+  E.pad = function() return 0 end
+  E.stick = function() return 0, 0 end
+  E.net_ip = function() return nil end
+  E.udp_open = function() return nil, "no network" end
+  E.online = function() return false end
+  E.note, E.noteoff = nop, nop
+  E.SQUARE, E.TRIANGLE, E.SAW, E.NOISE, E.SINE = 0, 1, 2, 3, 4
   E.cart_data = function(t, ...)
     assert(t == 8 or t == 9, "cart_data: 8 (MESH) or 9 (ANIM)")
     if select("#", ...) == 0 then return sec[t] end
@@ -493,7 +508,7 @@ local function new_env(arg)
   E.require = function(name)
     if loaded[name] then return loaded[name] end
     local file = name == "assist" and "/src/ai/assist.lua" or name == "bm3d" and "/src/script/bm3d.lua" or
-                 name == "bmlib" and "/src/script/bmlib.lua"
+                 name == "bmlib" and "/src/script/bmlib.lua" or name == "bmnet" and "/src/script/bmnet.lua"
     if not file then error("require: no " .. name .. " here") end
     loaded[name] = assert(loadfile(ROOT .. file, "t", E))()
     return loaded[name]
@@ -587,7 +602,8 @@ check(sees("CONTENTS"), "F1 again: the project")
 
 -- each template: a new project with its code (which compiles and runs on
 -- the stand-ins), its sprites and its map
-local names = { "Empty 2D", "Platform 2D", "Top-down 2D", "Shooter 2D", "3D scene", "3D with models" }
+local names = { "Empty 2D", "Platform 2D", "Top-down 2D", "Shooter 2D", "Versus 2D", "Online 2D", "3D scene",
+                "3D with models" }
 for i, nm in ipairs(names) do
   key("^n")
   check(sees("new project from a template"), "Ctrl+N: the templates")

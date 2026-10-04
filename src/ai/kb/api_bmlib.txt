@@ -522,3 +522,125 @@ lib.each(bullets, function(b)
   return b.y > -8                    -- false: esce dalla lista
 end)
 lib.sweep(enemies)
+
+== lib.hits
+kind: api
+name: lib.hits
+title: lib.hits() - hitbox e hurtbox: chi colpisce chi (bmlib)
+ask: hitbox e hurtbox | colpi di un picchiaduro | il pugno colpisce il nemico | hitbox
+ask: un colpo che tocca una volta sola | colpire una volta per attacco | squadre amiche
+ask: fighting game hitboxes | attack hits enemy once | hurtbox of the body
+ask: danno quando la spada tocca | parti del corpo testa e corpo | lame che si scontrano
+keys: hitbox, hurtbox, colpi, colpisce
+see: lib.box, zboxes, hitbox_frames, lib.separate
+text:
+Ogni fotogramma: H:clear(), poi H:hurt(chi, x, y, w, h, {team, part}) per
+i corpi e H:hit(chi, x, y, w, h, {team, id, damage...}) per gli attacchi;
+H:check() dà i contatti {by, to, hit, part, x, y}. Un attacco con id
+colpisce ogni corpo una volta finché l'id torna a ogni fotogramma; la
+stessa squadra non si colpisce; z e depth per le corsie; clash per due
+lame. H:zone usa i riquadri dello sheet, H:draw li mostra.
+code:
+local H = lib.hits()
+H:clear()
+H:hurt(enemy, enemy.x, enemy.y, 16, 32, { team = 2 })
+H:hit(hero, hero.x + 16, hero.y + 8, 12, 6, { team = 1, id = swing })
+for _, c in ipairs(H:check()) do
+  c.to.life = c.to.life - 1
+end
+
+== lib.box
+kind: api
+name: lib.box
+title: lib.box(b, x, y, flip, w) - un riquadro del fotogramma nel mondo (bmlib)
+ask: girare la hitbox quando guarda a sinistra | hitbox specchiata | flip hitbox
+ask: riquadro dello sprite nel mondo | mirror a frame box | box of the frame in world space
+keys: specchiata, flip, riquadro
+see: lib.hits, zboxes
+text:
+Un riquadro di un fotogramma (x, y dall'angolo, w, h: zboxes o le tabelle
+del gioco) per il fotogramma disegnato a x, y; con flip specchiato sulla
+larghezza w del fotogramma. Dà x, y, w, h.
+code:
+local b = zboxes("pugno", 2, "hit")[1]
+local bx, by, bw, bh = lib.box(b, x, y, face < 0, 32)
+
+== lib.separate
+kind: api
+name: lib.separate
+title: lib.separate(a, b) - due corpi che si spingono via (bmlib)
+ask: i personaggi non si attraversano | spingere via due corpi | separare due nemici
+ask: push two bodies apart | folla che non si sovrappone | non passare attraverso l'altro
+ask: i personaggi entrano uno nell'altro | due corpi sovrapposti da spostare | i lottatori si spingono
+ask: collisione tra due personaggi che li tiene staccati | characters overlap each other
+keys: separare, spingere, attraversano, lottatori, sovrapposti, dentro
+see: lib.hits, lib.overlap
+text:
+Due corpi {x, y, w, h} che si sovrappongono si spostano lungo l'asse dove
+si toccano meno, metà ciascuno (a.fixed o b.fixed: si muove solo
+l'altro). true se si toccavano.
+code:
+for i = 1, #foes do
+  for j = i + 1, #foes do lib.separate(foes[i], foes[j]) end
+end
+
+== lib.party
+kind: api
+name: lib.party
+title: lib.party(o) - la schermata dove entrano i giocatori (bmlib)
+ask: schermata per entrare in partita | premi a per giocare giocatore 2 | join screen
+ask: scegliere quanti giocatori | lobby locale | chi gioca sulla console | press a to join
+keys: entrare, schermata, giocatori, join
+see: lib.split, two_players, controller, guide.versus
+text:
+Ognuno preme ok sul suo controller per entrare, indietro per uscire;
+Start di uno che è dentro comincia (almeno o.min, al più o.max).
+P:update() dà la lista dei giocatori entrati quando si comincia;
+P:draw(x, y, w, h) disegna una carta per posto, nei colori dei giocatori.
+code:
+local party = lib.party({ min = 2, max = 4 })
+function _update()
+  local who = party:update()          -- es. {1, 3}
+  if who then start(who) end
+end
+
+== lib.split
+kind: api
+name: lib.split
+title: lib.split(n, o) - lo schermo diviso per i giocatori (bmlib)
+ask: schermo diviso | split screen | due viste per due giocatori | quattro riquadri
+ask: una camera per giocatore | metà schermo ciascuno | split screen for four players
+keys: diviso, split, viste
+see: lib.camera, lib.party, lib.pads
+text:
+Le viste {x, y, w, h} per n giocatori: due affiancate (o.vertical una
+sopra l'altra), tre o quattro negli angoli. Una camera per giocatore con
+w e h della vista; in _draw C:apply(v) disegna solo dentro la vista, poi
+clip() e camera().
+code:
+local views = lib.split(2)
+local cams = { lib.camera({ w = views[1].w, h = views[1].h }),
+               lib.camera({ w = views[2].w, h = views[2].h }) }
+for i, v in ipairs(views) do
+  cams[i]:apply(v)
+  draw_world()
+end
+clip()
+camera()
+
+== lib.pads
+kind: api
+name: lib.pads
+title: lib.pads() e lib.PLAYER_COLORS - chi ha un controller, i loro colori
+ask: colore del giocatore | colori dei giocatori come le luci del pad | player colours
+ask: quali giocatori hanno un controller | elenco dei controller collegati
+keys: colori, giocatori, pads
+see: players, controller, lib.party
+text:
+lib.pads() dà i numeri dei giocatori con un controller ({1, 3});
+lib.PLAYER_COLORS i loro colori, quelli delle luci dei pad (1 blu, 2
+rosso, 3 verde, 4 rosa), come controller(p).color.
+code:
+for _, p in ipairs(lib.pads()) do
+  print("P" .. p, p * 60, 8, lib.PLAYER_COLORS[p])
+end
