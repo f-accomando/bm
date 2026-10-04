@@ -393,24 +393,71 @@ float bm_clip_key(const bm_clip_t *c, int nbones, int k, float (*q)[4], float (*
 
 /* ---------------------------------------------------------------- parse */
 
-int bm_parse(const uint8_t *d, size_t len, bm_cart_t *c, char *err, size_t errlen)
+int bm_is_res(const void *head8)
+{
+    return memcmp(head8, "BMRES\0\0\0", 8) == 0;
+}
+
+/* the sections a resource file of each kind may hold (bit = type) */
+#define BIT(t) (1u << (t))
+static const uint32_t res_allowed[BM_RES_KINDS] = {
+    0,
+    BIT(BM_SEC_INFO) | BIT(BM_SEC_MESH) | BIT(BM_SEC_ANIM) | BIT(BM_SEC_SHEET) | BIT(BM_SEC_SHEET8),
+    BIT(BM_SEC_INFO) | BIT(BM_SEC_SPRITES) | BIT(BM_SEC_SHEET) | BIT(BM_SEC_SHEET8),
+    BIT(BM_SEC_INFO) | BIT(BM_SEC_AUDIO),
+    BIT(BM_SEC_INFO) | BIT(BM_SEC_MAP) | BIT(BM_SEC_SHEET) | BIT(BM_SEC_SHEET8),
+    BIT(BM_SEC_INFO) | BIT(BM_SEC_SHEET8),
+    BIT(BM_SEC_INFO) | BIT(BM_SEC_MESH) | BIT(BM_SEC_ANIM) | BIT(BM_SEC_SHEET) | BIT(BM_SEC_SHEET8) |
+        BIT(BM_SEC_SPRITES) | BIT(BM_SEC_AUDIO) | BIT(BM_SEC_MAP),
+};
+#define KNOWN_SECTIONS (BIT(BM_SEC_LUA) | BIT(BM_SEC_SHEET) | BIT(BM_SEC_MAP) | BIT(BM_SEC_COVER) | \
+                        BIT(BM_SEC_SHEET8) | BIT(BM_SEC_AUDIO) | BIT(BM_SEC_OLD_ANIM) | BIT(BM_SEC_MESH) | \
+                        BIT(BM_SEC_ANIM) | BIT(BM_SEC_INFO) | BIT(BM_SEC_SPRITES))
+
+/* A SPRITES section: the number of zones, or -1 if it is broken. */
+static int sprites_check(const uint8_t *p, uint32_t size)
+{
+    if (size < 4)
+        return -1;
+    unsigned n = rd16(p);
+    if (!n || n > BM_SPRITES_MAX || size != 4 + n * BM_SPRITE_SIZE)
+        return -1;
+    for (unsigned i = 0; i < n; i++) {
+        const uint8_t *z = p + 4 + i * BM_SPRITE_SIZE;
+        if (!z[0] || !rd16(z + 20) || !rd16(z + 22) || !z[24] || z[24] > BM_FRAMES_MAX)
+            return -1;
+        for (unsigned j = 0; j < i; j++)        /* a name once */
+            if (!strncmp((const char *)z, (const char *)p + 4 + j * BM_SPRITE_SIZE, BM_MODEL_NAME))
+                return -1;
+    }
+    return (int)n;
+}
+
+static int parse(const uint8_t *d, size_t len, bm_cart_t *c, char *err, size_t errlen, int res_ok)
 {
     memset(c, 0, sizeof *c);
-    if (len < BM_HEADER_SIZE || !bm_is_cart(d))
-        return fail(err, errlen, "not a .bm cartridge");
+    if (len < BM_HEADER_SIZE || !(bm_is_cart(d) || (res_ok && bm_is_res(d))))
+        return fail(err, errlen, res_ok ? "not a .bm or a resource file" : "not a .bm cartridge");
     if (rd16(d + 8) != 1 || rd16(d + 10) != BM_HEADER_SIZE)
         return fail(err, errlen, "unsupported .bm version");
     if (crc32(d + BM_HEADER_SIZE, (uint32_t)(len - BM_HEADER_SIZE)) != rd32(d + 20))
         return fail(err, errlen, "CRC mismatch");
 
-    c->width = rd16(d + 12);
-    c->height = rd16(d + 14);
-    c->pixel_format = d[16];
-    if (!((c->width == 640 && c->height == 360) || (c->width == 480 && c->height == 270) ||
-          (c->width == 320 && c->height == 180) || (c->width == 256 && c->height == 256)))
-        return fail(err, errlen, "resolution must be 640x360, 480x270, 320x180 or 256x256");
-    if (c->pixel_format != BM_FMT_RGB565)
-        return fail(err, errlen, "pixel format not supported (only RGB565)");
+    if (bm_is_res(d)) {
+        unsigned kind = rd16(d + 12);
+        if (kind < BM_RES_MODEL || kind >= BM_RES_KINDS)
+            return fail(err, errlen, "unknown kind of resource file");
+        c->kind = (uint8_t)kind;
+    } else {
+        c->width = rd16(d + 12);
+        c->height = rd16(d + 14);
+        c->pixel_format = d[16];
+        if (!((c->width == 640 && c->height == 360) || (c->width == 480 && c->height == 270) ||
+              (c->width == 320 && c->height == 180) || (c->width == 256 && c->height == 256)))
+            return fail(err, errlen, "resolution must be 640x360, 480x270, 320x180 or 256x256");
+        if (c->pixel_format != BM_FMT_RGB565)
+            return fail(err, errlen, "pixel format not supported (only RGB565)");
+    }
     memcpy(c->title, d + 24, 48);
     memcpy(c->author, d + 72, 32);
 
@@ -423,7 +470,32 @@ int bm_parse(const uint8_t *d, size_t len, bm_cart_t *c, char *err, size_t errle
         if ((uint64_t)off + size > len)
             return fail(err, errlen, "section out of bounds");
         const uint8_t *p = d + off;
+        if (c->kind && type < 32 && (KNOWN_SECTIONS & BIT(type)) && !(res_allowed[c->kind] & BIT(type)))
+            return fail(err, errlen, type == BM_SEC_LUA ? "a resource file never holds code"
+                                                         : "a section this kind of file does not have");
         switch (type) {
+        /* in a cartridge broken INFO or SPRITES are left out (the game
+         * plays: they only describe it); a resource file is refused */
+        case BM_SEC_INFO:
+            if (size > BM_INFO_MAX) {
+                if (c->kind)
+                    return fail(err, errlen, "INFO over 16 KiB");
+                break;
+            }
+            c->info = p;
+            c->info_size = size;
+            break;
+        case BM_SEC_SPRITES: {
+            int n = sprites_check(p, size);
+            if (n < 0) {
+                if (c->kind)
+                    return fail(err, errlen, "bad sprite zones (SPRITES)");
+                break;
+            }
+            c->sprites = p;
+            c->zones = (uint16_t)n;
+            break;
+        }
         case BM_SEC_LUA:
             c->lua = (const char *)p;
             c->lua_size = size;
@@ -497,11 +569,127 @@ int bm_parse(const uint8_t *d, size_t len, bm_cart_t *c, char *err, size_t errle
             break;      /* unknown sections are ignored (forward compatible) */
         }
     }
-    if (!c->lua)
-        return fail(err, errlen, "no Lua section");
     if (c->sheet_rgba && c->sheet8)
         return fail(err, errlen, "two sheets");
+    for (unsigned i = 0; i < c->zones; i++) {
+        bm_zone_t z;
+        bm_zone(c, (int)i, &z);
+        if ((uint32_t)z.x + (uint32_t)z.w * z.frames > c->sheet_w || (uint32_t)z.y + z.h > c->sheet_h) {
+            if (c->kind)
+                return fail(err, errlen, "a sprite zone out of the sheet");
+            c->sprites = NULL;
+            c->zones = 0;
+            break;
+        }
+    }
+    switch (c->kind) {
+    case BM_RES_CART:
+        if (!c->lua)
+            return fail(err, errlen, "no Lua section");
+        break;
+    case BM_RES_MODEL:
+        if (!c->mesh) return fail(err, errlen, "a models file without MESH");
+        break;
+    case BM_RES_IMAGE:
+        if (!c->sheet_w) return fail(err, errlen, "an image file without a sheet");
+        break;
+    case BM_RES_SOUND:
+        if (!c->audio) return fail(err, errlen, "a sounds file without AUDIO");
+        break;
+    case BM_RES_MAP:
+        if (!c->map_cells || !c->sheet_w) return fail(err, errlen, "a map file without MAP and its tiles");
+        break;
+    case BM_RES_PALETTE:
+        if (!c->sheet8 || c->sheet_h != 1) return fail(err, errlen, "a palette is a SHEET8 of N x 1 pixels");
+        break;
+    default:
+        if (!c->mesh && !c->sheet_w && !c->audio && !c->map_cells)
+            return fail(err, errlen, "an empty kit");
+    }
     return 0;
+}
+
+int bm_parse(const uint8_t *data, size_t len, bm_cart_t *c, char *err, size_t errlen)
+{
+    return parse(data, len, c, err, errlen, 0);
+}
+
+int bm_parse_any(const uint8_t *data, size_t len, bm_cart_t *c, char *err, size_t errlen)
+{
+    return parse(data, len, c, err, errlen, 1);
+}
+
+int bm_zone(const bm_cart_t *c, int i, bm_zone_t *z)
+{
+    if (!c->sprites || i < 0 || i >= c->zones)
+        return -1;
+    const uint8_t *p = c->sprites + 4 + i * BM_SPRITE_SIZE;
+    memcpy(z->name, p, BM_MODEL_NAME);
+    z->name[BM_MODEL_NAME] = 0;
+    z->x = rd16(p + 16);
+    z->y = rd16(p + 18);
+    z->w = rd16(p + 20);
+    z->h = rd16(p + 22);
+    z->frames = p[24];
+    z->fps = p[25];
+    return 0;
+}
+
+/* the value of `key` on a line "key: value" of INFO text between p and
+ * end, up to the next block */
+static int info_line(const char *p, const char *end, const char *key, char *out, size_t n)
+{
+    size_t kl = strlen(key);
+    while (p < end) {
+        const char *e = memchr(p, '\n', (size_t)(end - p));
+        if (!e) e = end;
+        while (p < e && (*p == ' ' || *p == '\t')) p++;
+        if (p < e && *p == '[')
+            return 0;
+        if ((size_t)(e - p) > kl && !memcmp(p, key, kl)) {
+            const char *q = p + kl;
+            while (q < e && (*q == ' ' || *q == '\t')) q++;
+            if (q < e && *q == ':') {
+                q++;
+                while (q < e && (*q == ' ' || *q == '\t')) q++;
+                const char *v_end = e;
+                while (v_end > q && (v_end[-1] == ' ' || v_end[-1] == '\r' || v_end[-1] == '\t')) v_end--;
+                size_t m = (size_t)(v_end - q);
+                if (n) {
+                    if (m >= n) m = n - 1;
+                    memcpy(out, q, m);
+                    out[m] = 0;
+                }
+                return 1;
+            }
+        }
+        p = e + 1;
+    }
+    return 0;
+}
+
+int bm_info_get(const bm_cart_t *c, const char *type, const char *name, const char *key, char *out, size_t n)
+{
+    if (n) out[0] = 0;
+    if (!c->info || !c->info_size)
+        return 0;
+    const char *p = (const char *)c->info, *end = p + c->info_size;
+    if (type && name) {                         /* the part's block: "[type name]" */
+        size_t tl = strlen(type), nl = strlen(name);
+        for (const char *q = p; q < end;) {
+            const char *e = memchr(q, '\n', (size_t)(end - q));
+            if (!e) e = end;
+            const char *s = q;
+            while (s < e && (*s == ' ' || *s == '\t')) s++;
+            const char *t = e;
+            while (t > s && (t[-1] == ' ' || t[-1] == '\r' || t[-1] == '\t')) t--;
+            if ((size_t)(t - s) == tl + nl + 3 && s[0] == '[' && t[-1] == ']' && !memcmp(s + 1, type, tl) &&
+                s[1 + tl] == ' ' && !memcmp(s + 2 + tl, name, nl))
+                return info_line(e < end ? e + 1 : end, end, key, out, n) || info_line(p, end, key, out, n);
+            q = e + 1;
+        }
+    }
+    return info_line(p, end, key, out, n);
 }
 
 static void wr16(uint8_t *p, uint32_t v) { p[0] = (uint8_t)v; p[1] = (uint8_t)(v >> 8); }

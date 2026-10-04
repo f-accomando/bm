@@ -75,8 +75,37 @@
  *   (6 and 7 were MESH and ANIM in the first files of bm Studio: a type 6
  *   section that is not a sound bank ("BMAU") is still read as MESH, a type
  *   7 one as ANIM; they are written as 8 and 9.)
+ *   10 INFO  about the file and its parts, UTF-8 text of at most 16 KiB:
+ *            lines "key: value" (name, desc, author, license as an SPDX id,
+ *            version, tags separated by commas, origin = the SHA-256 of the
+ *            resource file it came from, date YYYY-MM-DD), then a block for
+ *            each part that has its own, opened by a line "[type name]"
+ *            (type: model, sprite, sound, sfx, song, map, palette). Unknown
+ *            keys are kept.
+ *   11 SPRITES named zones of the sheet: u16 zones (1..1024), u16 reserved,
+ *            then per zone: char[16] name (UTF-8, zero padded; unique in the
+ *            section), u16 x, y, w, h (sheet pixels, w and h >= 1), u8
+ *            frames (1..16: the next ones are the w x h boxes to the right
+ *            of the first, on the same row), u8 fps (0: still), u16 reserved.
  * Graphics are stored independently of the screen format and converted when
  * the cartridge is loaded, so the same file works if 32-bit output is added.
+ *
+ * Resource files (docs/RISORSE.md): one resource out of a cartridge, in the
+ * same container with another magic and never a LUA section. The header is
+ * the one above but for:
+ *   0   char[8]  magic "BMRES" and three zero bytes
+ *   12  u16      kind: 1 models (.bmm), 2 image (.bmi), 3 sounds (.bms),
+ *                4 map (.bmt), 5 palette (.bmc), 6 kit (.bmk)
+ *   14  u16      reserved (0)
+ *   16  u8       reserved (0)
+ *   24  char[48] the name shown (the file name is 8.3)
+ * Sections of each kind (INFO in all; the others are ignored and kept):
+ *   models   MESH, ANIM, SHEET or SHEET8 (only the cells the textures use)
+ *   image    SHEET or SHEET8, SPRITES
+ *   sounds   AUDIO
+ *   map      MAP, SHEET or SHEET8 (only the tiles the map uses)
+ *   palette  SHEET8 of N x 1 pixels: its palette is the palette
+ *   kit      any of MESH, ANIM, SHEET or SHEET8, SPRITES, AUDIO, MAP
  */
 #ifndef BM_H
 #define BM_H
@@ -96,7 +125,17 @@
 #define BM_SEC_AUDIO       6
 #define BM_SEC_MESH        8
 #define BM_SEC_ANIM        9
+#define BM_SEC_INFO        10
+#define BM_SEC_SPRITES     11
 #define BM_SEC_OLD_ANIM    7               /* the first files of bm Studio (see above) */
+#define BM_INFO_MAX        (16 * 1024)     /* bytes of an INFO section */
+#define BM_SPRITES_MAX     1024            /* zones of a SPRITES section */
+#define BM_SPRITE_SIZE     28              /* bytes of a zone */
+#define BM_FRAMES_MAX      16
+
+/* the kinds of resource file (offset 12 of a "BMRES" header) */
+enum { BM_RES_CART, BM_RES_MODEL, BM_RES_IMAGE, BM_RES_SOUND, BM_RES_MAP, BM_RES_PALETTE, BM_RES_KIT,
+       BM_RES_KINDS };
 #define BM_SHEET_MAX       4096            /* width and height of a sheet */
 #define BM_COVER_W         128
 #define BM_COVER_H         80
@@ -133,7 +172,19 @@ typedef struct {
     uint16_t models;                /* models in it */
     const uint8_t *anim;            /* ANIM section, or NULL */
     uint32_t anim_size;
+    uint8_t kind;                   /* BM_RES_CART, or the kind of a resource file */
+    const uint8_t *info;            /* INFO section (text), or NULL */
+    uint32_t info_size;
+    const uint8_t *sprites;         /* SPRITES section, or NULL */
+    uint16_t zones;                 /* zones in it */
 } bm_cart_t;
+
+/* A zone of the SPRITES section. */
+typedef struct {
+    char name[BM_MODEL_NAME + 1];
+    uint16_t x, y, w, h;            /* the first frame, sheet pixels */
+    uint8_t frames, fps;            /* the next frames: w x h boxes to the right */
+} bm_zone_t;
 
 /* One model of a MESH section (bm_parse has already checked it). */
 #define BM_MODEL_LIT       1u              /* flags of a model: its light is baked */
@@ -147,6 +198,17 @@ typedef struct {
 } bm_model_t;
 
 int bm_parse(const uint8_t *data, size_t len, bm_cart_t *c, char *err, size_t errlen);
+/* bm_parse for a cartridge or a resource file ("BMRES": no code, the
+ * sections of its kind; c->kind says which). */
+int bm_parse_any(const uint8_t *data, size_t len, bm_cart_t *c, char *err, size_t errlen);
+/* 1 if these first 8 bytes are the magic of a resource file. */
+int bm_is_res(const void *head8);
+/* Zone i (0-based) of a parsed file's SPRITES: 0, or -1 if there is none. */
+int bm_zone(const bm_cart_t *c, int i, bm_zone_t *z);
+/* A value of INFO: `key` in the block of the part "[type name]", else on
+ * the file's own lines (type NULL: only those). 1 if found, the value in
+ * out (cut to n - 1 bytes). */
+int bm_info_get(const bm_cart_t *c, const char *type, const char *name, const char *key, char *out, size_t n);
 
 /* Unpacks a SHEET8 section: set(x, y, rgba) for every pixel. Returns 0, or
  * -1 if the data is broken (bm_parse has already checked it). */

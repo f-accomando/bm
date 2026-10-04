@@ -585,7 +585,7 @@ static int put_prompt(const prompt_t *p, int x, int y)
 }
 
 /* the buttons of the hints, for the device pressed last */
-enum { BTN_A, BTN_B, BTN_X, BTN_CHANGE, BTN_MONITOR };
+enum { BTN_A, BTN_B, BTN_X, BTN_CHANGE, BTN_MONITOR, BTN_Y };
 
 /* up to two prompts for a button, and what goes between them */
 static int button_prompts(const menu_view_t *v, int b, const prompt_t *p[2], const char **join)
@@ -598,6 +598,7 @@ static int button_prompts(const menu_view_t *v, int b, const prompt_t *p[2], con
         case BTN_A: p[0] = prompt_get(PROMPT_KEY_ENTER, 0); return 1;
         case BTN_B: p[0] = prompt_get(PROMPT_KEY_ESC, 0); return 1;
         case BTN_X: p[0] = prompt_key('C'); return 1;
+        case BTN_Y: p[0] = prompt_key('V'); return 1;
         case BTN_CHANGE:
             p[0] = prompt_get(PROMPT_KEY_LEFT, 0);
             p[1] = prompt_get(PROMPT_KEY_RIGHT, 0);
@@ -613,6 +614,9 @@ static int button_prompts(const menu_view_t *v, int b, const prompt_t *p[2], con
     switch (b) {
     case BTN_A: case BTN_B: case BTN_X:
         p[0] = ds ? prompt_get(ds4[b], v->prompts_colour) : prompt_get(pad[b], 0);
+        return 1;
+    case BTN_Y:
+        p[0] = ds ? prompt_get(PROMPT_TRIANGLE, v->prompts_colour) : prompt_get(PROMPT_PAD_Y, 0);
         return 1;
     case BTN_CHANGE:
         p[0] = prompt_get(PROMPT_DPAD_LEFTRIGHT, 0);
@@ -647,7 +651,7 @@ static int hint(const menu_view_t *v, int col, int row, int b, const char *label
     int lc = (x + 4 + 7) / 8;
     g16_text(&g, lc * 8, y, label, c16(C_TEXT));
     /* the pointer (M32) clicks it: A, B, X; "Change" is A on a choice row */
-    static const char letter[] = { 'A', 'B', 'X', 'A', 0 };
+    static const char letter[] = { 'A', 'B', 'X', 'A', 0, 'Y' };
     if (!hints_dead && letter[b])
         zone(col * 8 - 8, y - 4, (lc + (int)strlen(label)) * 8 - (col * 8 - 8) + 4, 24,
              MENU_HIT_BUTTON, letter[b], 1);
@@ -717,6 +721,94 @@ static void draw_panel(const menu_panel_t *p, int faded)
         ksnprintf(buf, sizeof buf, "%s", p->help);
         buf[56] = 0;
         g16_text(&g, 12 * 8, 18 * 16, buf, c16(C_DIM));
+    }
+}
+
+/* ---------------------------------------------------------------- the Lib tab */
+
+/* geometry: the groups on text row 4, the list (columns 2-31) and the
+ * preview box (columns 35-77) on rows 6-18, the details on rows 14-18 */
+#define LIB_GROUP_ROW   4
+#define LIB_ROW0        6
+#define LIB_LIST_X      (2 * 8)
+#define LIB_LIST_W      (30 * 8)
+#define LIB_COL_END     32                      /* the list's values end before this column */
+#define LIB_BOX_X       (35 * 8)
+#define LIB_BOX_W       (42 * 8)
+#define LIB_BOX_Y       (LIB_ROW0 * 16 - 4)
+#define LIB_BOX_H       (8 * 16)
+#define LIB_INFO_ROW    14
+#define C_HEAD          0x2A2A36                /* the row of a file */
+
+static void draw_lib(const menu_lib_t *l)
+{
+    char buf[64];
+    /* the groups, on a bar of their own: the selected one on a pill like the tabs */
+    int col = 5;
+    round_rect(LIB_LIST_X - 8, LIB_GROUP_ROW * 16 - 8, SW - 2 * (LIB_LIST_X - 8), 32, 10, c16(C_BAR));
+    g16_text(&g, 2 * 8, LIB_GROUP_ROW * 16, "<", c16(C_DIM));
+    for (int i = 0; i < l->ngroups; i++) {
+        int n = (int)strlen(l->groups[i]);
+        zone(col * 8 - 8, LIB_GROUP_ROW * 16 - 6, (n + 2) * 8, 28, MENU_HIT_GROUP, i, 1);
+        if (i == l->group)
+            pill_text(col, LIB_GROUP_ROW, l->groups[i], C_BAR, C_TAB_ON);
+        else
+            g16_text(&g, col * 8, LIB_GROUP_ROW * 16, l->groups[i], c16(C_TEXT));
+        col += n + 3;
+    }
+    g16_text(&g, col * 8 - 8, LIB_GROUP_ROW * 16, ">", c16(C_DIM));
+
+    /* the list */
+    round_rect(LIB_LIST_X - 8, LIB_BOX_Y - 4, LIB_LIST_W + 16, MENU_LIB_ROWS * 16 + 16, 10, c16(C_BAR));
+    if (!l->n && l->empty) {
+        ksnprintf(buf, sizeof buf, "%s", l->empty);
+        buf[29] = 0;
+        g16_text(&g, LIB_LIST_X + 8, LIB_ROW0 * 16, buf, c16(C_DIM));
+    }
+    for (int i = 0; i < MENU_LIB_ROWS && l->top + i < l->n; i++) {
+        const menu_lib_row_t *r = &l->rows[l->top + i];
+        int y = (LIB_ROW0 + i) * 16, sel = l->top + i == l->sel;
+        uint16_t fg = c16(C_TEXT), fv = c16(C_DIM);
+        if (r->header) {
+            g16_rectfill(&g, LIB_LIST_X, y, LIB_LIST_W, 16, c16(C_HEAD));
+            fg = c16(C_DIM);
+        } else {
+            zone(LIB_LIST_X, y, LIB_LIST_W, 16, MENU_HIT_LIB, l->top + i, 1);
+            if (sel) {
+                g16_rectfill(&g, LIB_LIST_X, y, LIB_LIST_W, 16, c16(C_TAB_ON));
+                fg = c16(C_BAR);
+                fv = c16(0x4A4A56);
+            }
+        }
+        int indent = r->header ? 1 : 2;
+        ksnprintf(buf, sizeof buf, "%s", r->label ? r->label : "");
+        buf[22] = 0;
+        g16_text(&g, LIB_LIST_X + indent * 8 - 8, y, buf, fg);
+        if (r->value && r->value[0]) {
+            ksnprintf(buf, sizeof buf, "%s", r->value);
+            buf[8] = 0;
+            g16_text(&g, (LIB_COL_END - (int)strlen(buf)) * 8, y, buf, fv);
+        }
+    }
+    if (l->top > 0)                             /* in the panel's margin, above and below the rows */
+        scroll_mark(LIB_LIST_X + LIB_LIST_W - 4, LIB_ROW0 * 16 - 5, -1, c16(C_DIM));
+    if (l->top + MENU_LIB_ROWS < l->n)
+        scroll_mark(LIB_LIST_X + LIB_LIST_W - 4, (LIB_ROW0 + MENU_LIB_ROWS) * 16 + 5, 1, c16(C_DIM));
+
+    /* the preview and the details */
+    round_rect(LIB_BOX_X - 8, LIB_BOX_Y - 4, LIB_BOX_W + 16, MENU_LIB_ROWS * 16 + 16, 10, c16(C_BAR));
+    g16_rectfill(&g, LIB_BOX_X, LIB_BOX_Y, LIB_BOX_W, LIB_BOX_H, c16(C_PILL));
+    if (l->preview) {
+        g16_clip(&g, LIB_BOX_X, LIB_BOX_Y, LIB_BOX_W, LIB_BOX_H);
+        l->preview(&g, LIB_BOX_X, LIB_BOX_Y, LIB_BOX_W, LIB_BOX_H, l->ctx);
+        g16_clip(&g, 0, 0, 0, 0);
+    }
+    for (int i = 0; i < 5; i++) {
+        if (!l->lines[i] || !l->lines[i][0])
+            continue;
+        ksnprintf(buf, sizeof buf, "%s", l->lines[i]);
+        buf[42] = 0;
+        g16_text(&g, LIB_BOX_X, (LIB_INFO_ROW + i) * 16, buf, i == 0 ? c16(0xFFB040) : c16(i == 1 ? C_TEXT : C_DIM));
     }
 }
 
@@ -858,7 +950,7 @@ void menu_ui_frame(framebuffer_t *fb, const menu_view_t *v)
     if (fabsf(scroll - (float)first_row) < 0.01f) scroll = (float)first_row;
 
     g16_clip(&g, 0, GRID_TOP, SW, GRID_BOT - GRID_TOP);
-    for (int i = 0; i < v->n; i++) {
+    for (int i = 0; !v->lib && i < v->n; i++) {
         int row = i / MENU_COLS, col = i % MENU_COLS;
         int x = GRID_X0 + col * (CARD_W + GAP_X);
         int y = GRID_Y0 + (int)lroundf(((float)row - scroll) * PITCH_Y);
@@ -887,8 +979,10 @@ void menu_ui_frame(framebuffer_t *fb, const menu_view_t *v)
         }
     }
     g16_clip(&g, 0, 0, 0, 0);
-    if (v->n > 2 * MENU_COLS)
+    if (!v->lib && v->n > 2 * MENU_COLS)
         scroll_bar((v->n + MENU_COLS - 1) / MENU_COLS, scroll);
+    if (v->lib && !v->on_gear)
+        draw_lib(v->lib);
 
     /* top bar: the tabs and Settings (the last tab: its panel; L1 / R1 move
      * between them), then the players and the network */
@@ -911,8 +1005,8 @@ void menu_ui_frame(framebuffer_t *fb, const menu_view_t *v)
     status_icons(v);
 
     /* the name of the selected cartridge, on a pill */
-    if (v->panel) {
-        /* the panel covers it */
+    if (v->panel || v->lib) {
+        /* the panel covers it; the Lib tab has its groups there */
     } else if (v->banner) {
         char buf[72];
         ksnprintf(buf, sizeof buf, "%s", v->banner);
@@ -952,6 +1046,13 @@ void menu_ui_frame(framebuffer_t *fb, const menu_view_t *v)
         hint(v, col < 55 ? 55 : col, 21, BTN_B, "Back");
     } else if (v->on_gear) {
         col = hint(v, 34, 21, BTN_A, "Settings");
+        hint(v, col, 21, BTN_MONITOR, "Monitor");
+    } else if (v->lib) {
+        col = 34;
+        if (v->lib->open)
+            col = hint(v, col, 21, BTN_A, v->lib->open);
+        if (v->lib->play)
+            col = hint(v, col, 21, BTN_Y, v->lib->play);
         hint(v, col, 21, BTN_MONITOR, "Monitor");
     } else {
         const char *a = v->a_label ? v->a_label

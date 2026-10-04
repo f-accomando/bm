@@ -6,6 +6,7 @@
 #include "home.h"
 #include "market.h"
 #include "publish.h"
+#include "lib.h"
 #include "menu_ui.h"
 #include "pointer.h"
 #include "bm/bm.h"
@@ -161,6 +162,7 @@ static void load_cover(cart_t *c)
 
 static void rescan(void)
 {
+    lib_invalidate();                   /* the Lib tab reads the files again */
     /* SD cartridges by title, then the SDK. The native demo built into
      * the kernel is not a game of the menu (monitor `n`). */
     for (int i = 0; i < ncarts; i++)
@@ -570,11 +572,13 @@ static void draw(int sel, int top, int rows)
  * development tools (the SDK, then the tools of home.c), and Settings. For
  * Games and Dev `idx` gets what the tab shows: a cartridge index, or -1 - n
  * for tool n. */
-enum { TAB_MARKET, TAB_GAMES, TAB_DEV, TAB_SETTINGS };
+enum { TAB_MARKET, TAB_GAMES, TAB_DEV, TAB_LIB, TAB_SETTINGS };
 
 static int tab_items(int tab, int *idx)
 {
     int n = 0;
+    if (tab == TAB_LIB)                 /* Lib: a list of its own */
+        return 0;
     for (int i = 0; i < ncarts; i++)
         if (is_dev(&carts[i]) == (tab == TAB_DEV))
             idx[n++] = i;
@@ -720,6 +724,77 @@ static void cart_act(int row, int how, home_do_t *d)
     }
 }
 
+/* ---------------------------------------------------------------- the Lib tab */
+
+#define LIB_ROWS_MAX 2400
+#define LIB_SOURCES_SHOWN 160
+
+static int lib_group;                   /* the group shown */
+static int lib_sel[LIB_GROUPS], lib_top[LIB_GROUPS];
+static menu_lib_row_t lib_rows[LIB_ROWS_MAX];
+static int lib_row_item[LIB_ROWS_MAX];  /* the item of a row, -1 for a file's row */
+static char lib_counts[LIB_SOURCES_SHOWN][8];
+static int lib_nrows;
+
+/* the rows of the group: a row for each file that has some, then its items */
+static void lib_build(void)
+{
+    lib_nrows = 0;
+    int nfiles = 0;
+    for (int s = 0; s < lib_sources() && lib_nrows < LIB_ROWS_MAX; s++) {
+        int head = -1, count = 0;
+        for (int i = 0; i < lib_items() && lib_nrows < LIB_ROWS_MAX; i++) {
+            const lib_item_t *it = lib_item(i);
+            if (it->source != s || it->group != lib_group)
+                continue;
+            if (head < 0) {
+                if (nfiles >= LIB_SOURCES_SHOWN || lib_nrows + 1 >= LIB_ROWS_MAX)
+                    break;
+                head = lib_nrows++;
+                lib_rows[head] = (menu_lib_row_t){ lib_source(s)->file, lib_counts[nfiles], 1 };
+                lib_row_item[head] = -1;
+                nfiles++;
+            }
+            lib_rows[lib_nrows] = (menu_lib_row_t){ it->name, it->tag, 0 };
+            lib_row_item[lib_nrows++] = i;
+            count++;
+        }
+        if (head >= 0)
+            ksnprintf((char *)lib_rows[head].value, 8, "%d", count);
+    }
+}
+
+/* the selected row moved by dy items (never onto a file's row) */
+static void lib_move(int dy)
+{
+    int *sel = &lib_sel[lib_group], *top = &lib_top[lib_group];
+    if (*sel >= lib_nrows) *sel = lib_nrows - 1;
+    if (*sel < 0) *sel = 0;
+    int step = dy < 0 ? -1 : 1;
+    for (int k = dy ? (dy < 0 ? -dy : dy) : 0; k > 0; k--) {
+        int to = *sel + step;
+        while (to >= 0 && to < lib_nrows && lib_row_item[to] < 0)
+            to += step;
+        if (to < 0 || to >= lib_nrows)
+            break;
+        *sel = to;
+    }
+    while (*sel < lib_nrows && lib_row_item[*sel] < 0)     /* never on a file's row */
+        (*sel)++;
+    if (*sel >= lib_nrows) *sel = lib_nrows - 1;
+    /* the file's row above the first item shows too */
+    int want = *sel > 0 && lib_row_item[*sel - 1] < 0 ? *sel - 1 : *sel;
+    if (want < *top) *top = want;
+    if (*sel >= *top + MENU_LIB_ROWS) *top = *sel - MENU_LIB_ROWS + 1;
+    if (*top < 0) *top = 0;
+}
+
+static const lib_item_t *lib_current(void)
+{
+    int r = lib_sel[lib_group];
+    return r >= 0 && r < lib_nrows && lib_row_item[r] >= 0 ? lib_item(lib_row_item[r]) : NULL;
+}
+
 enum { ASK_NONE, ASK_SWITCH, ASK_PANEL, ASK_MARKET, ASK_OFFER };
 enum { GO_NONE, GO_PLAY, GO_SDK, GO_SOUND, GO_CODE, GO_STUDIO, GO_ANIMATOR, GO_MESH, GO_PIXEL, GO_TEXT, GO_UPLOAD,
        GO_NETPLAY };
@@ -733,10 +808,13 @@ void carts_menu(framebuffer_t *fb)
     int list_rows = (int)rows - 7;
     if (list_rows < 3)
         list_rows = 3;
-    static const char *const tabs[] = { "Market", "Games", "Dev" };
-    /* the tabs: Market, Games, Dev and Settings, whose panel opens when it
-     * is the tab (on_gear); L1 / R1 move between them. Games comes first. */
-    int tab = TAB_GAMES, on_gear = 0, tsel[3] = { 0, 0, 0 };
+    static const char *const tabs[] = { "Market", "Games", "Dev", "Lib" };
+    /* the tabs: Market, Games, Dev, Lib (docs/RISORSE.md) and Settings,
+     * whose panel opens when it is the tab (on_gear); L1 / R1 move between
+     * them. Games comes first. */
+    int tab = TAB_GAMES, on_gear = 0, tsel[4] = { 0, 0, 0, 0 };
+    int lib_wait = 0, lib_still = 0, lib_last = -1;     /* the Lib tab: reading, the selection at rest */
+    char lib_lines[5][48], lib_path[64] = "", lib_name[16] = "";
     int sel = 0, top = 0, redraw = 1, esc = 0;
     uint32_t prev_btn = hid_buttons(), repeat_at = 0;
 
@@ -831,13 +909,56 @@ void carts_menu(framebuffer_t *fb)
                     a_label = "";
             }
             menu_view_t v = {
-                .tabs = tabs, .ntabs = 3, .tab = tab, .on_gear = on_gear,
+                .tabs = tabs, .ntabs = 4, .tab = tab, .on_gear = on_gear,
                 .items = items, .n = n, .sel = tsel[tab],
                 .details = details, .note = on_market ? market_status() : last_msg,
                 .panel = depth ? &mp : NULL,
                 .banner = on_market ? market_banner() : NULL,
                 .a_label = a_label, .idle = market_tick,
             };
+            menu_lib_t lv;
+            if (tab == TAB_LIB && !on_gear) {
+                /* the Lib tab: the files are read the frame after the
+                 * message (it takes a while on a full card) */
+                if (!lib_ready() && !lib_wait) {
+                    lib_wait = 2;
+                } else if (lib_wait && !--lib_wait) {
+                    lib_scan();
+                    lib_last = -2;
+                }
+                if (lib_ready() && lib_last == -2) {
+                    lib_build();
+                    lib_move(0);
+                    lib_last = -1;
+                }
+                const lib_item_t *it = lib_ready() ? lib_current() : NULL;
+                int key = it ? (int)(it - lib_item(0)) : -1;
+                lib_still = key == lib_last ? lib_still + 1 : 0;
+                lib_last = key;
+                if (lib_still == 0 || lib_still == 8) /* the INFO lines once the selection rests */
+                    lib_details(it, lib_lines, lib_still >= 8);
+                const lib_source_t *src = it ? lib_source(it->source) : NULL;
+                static const char *const open_in[LIB_GROUPS] = {
+                    "Open in bm Studio", "Open in bm Pixel", "Open in Sound", "Open in SDK", "Open in bm Pixel", NULL };
+                lv = (menu_lib_t){
+                    .groups = lib_groups, .ngroups = LIB_GROUPS, .group = lib_group,
+                    .rows = lib_rows, .n = lib_ready() ? lib_nrows : 0,
+                    .sel = lib_sel[lib_group], .top = lib_top[lib_group],
+                    .empty = !lib_ready() ? "reading the SD card..." : sd_ok ? "nothing of this kind yet"
+                                                                            : "no SD card",
+                    .open = src && src->kind == BM_RES_CART ? open_in[lib_group] : NULL,
+                    .play = lib_play_label(it),
+                    /* the preview once the selection rests (its file is read) */
+                    .preview = it && lib_still >= 8 ? lib_preview : NULL,
+                    .ctx = (void *)it,
+                };
+                for (int i = 0; i < 5; i++)
+                    lv.lines[i] = it ? lib_lines[i] : NULL;
+                v.lib = &lv;
+                v.details = NULL;
+            } else {
+                lib_stop();                     /* a sound of the Lib tab ends with it */
+            }
             for (int p = 0; p < 4; p++) {
                 int d_ = input_device(p), kind = d_ & ~INPUT_DEV_BLUETOOTH;
                 v.dev[p] = kind == INPUT_DEV_KEYBOARD ? MENU_DEV_KEYBOARD
@@ -878,7 +999,7 @@ void carts_menu(framebuffer_t *fb)
             }
         }
 
-        int dx = 0, dy = 0, action = 0, quit = 0, back = 0, opts = 0;
+        int dx = 0, dy = 0, action = 0, quit = 0, back = 0, opts = 0, ybtn = 0;
         int cur = on_gear ? TAB_SETTINGS : tab, tabto = -1;    /* the tab to go to */
 
         /* serial */
@@ -901,13 +1022,15 @@ void carts_menu(framebuffer_t *fb)
             case 's': case 'S': case 'j': dy++; break;
             case 'a': case 'A': case 'h': dx--; break;
             case 'd': case 'D': case 'l': dx++; break;
-            case '\t': tabto = (cur + 1) % 4; break;
+            case '\t': tabto = (cur + 1) % (TAB_SETTINGS + 1); break;
             case '1': tabto = TAB_MARKET; break;
             case '2': tabto = TAB_GAMES; break;
             case '3': tabto = TAB_DEV; break;
-            case '4': tabto = TAB_SETTINGS; break;
+            case '4': tabto = TAB_LIB; break;
+            case '5': tabto = TAB_SETTINGS; break;
             case '[': tabto = cur > 0 ? cur - 1 : -1; break;       /* L1 */
             case ']': tabto = cur < TAB_SETTINGS ? cur + 1 : -1; break;   /* R1 */
+            case 'v': case 'V': ybtn = 1; break;                  /* Y */
             case 'x': case 'X': opts = 1; break;
             case 0x7F: case 0x08: back = 1; break;
             case '\r': case '\n': case ' ': action = 1; break;
@@ -940,6 +1063,8 @@ void carts_menu(framebuffer_t *fb)
             back = 1;
         if (pressed & HID_X)
             opts = 1;
+        if (pressed & HID_Y)
+            ybtn = 1;
         if ((pressed & HID_L1) && cur > 0)
             tabto = cur - 1;
         if ((pressed & HID_R1) && cur < TAB_SETTINGS)
@@ -949,7 +1074,7 @@ void carts_menu(framebuffer_t *fb)
             if (k == 'r' || k == 'R')
                 action = 2;
             if (k == '\t')
-                tabto = (cur + 1) % 4;
+                tabto = (cur + 1) % (TAB_SETTINGS + 1);
         }
         /* PS is home: Games, with every panel and question closed (never
          * the monitor). Esc alone goes back like B; Ctrl+Esc, Start+Select
@@ -986,19 +1111,27 @@ void carts_menu(framebuffer_t *fb)
                 } else if (click && h.kind == MENU_HIT_TAB) {
                     tabto = h.index;
                 } else if (click && h.kind == MENU_HIT_SETTINGS) {
-                    tabto = 2;
+                    tabto = 3;
                 } else if ((click && h.kind != MENU_HIT_PANEL && h.kind != MENU_HIT_ROW) || right) {
                     back = 1;
                 }
             } else {
                 if (h.kind == MENU_HIT_COVER && h.index < n && ((pt->moved && h.full) || click || right))
                     tsel[tab] = h.index;
+                if (h.kind == MENU_HIT_LIB && h.index < lib_nrows && (pt->moved || click))
+                    lib_sel[lib_group] = h.index;
                 if (click && h.kind == MENU_HIT_COVER && h.full)
                     action = 1;
+                else if (click && h.kind == MENU_HIT_LIB)
+                    action = 1;
+                else if (click && h.kind == MENU_HIT_GROUP)
+                    dx = h.index - lib_group;
+                else if (click && h.kind == MENU_HIT_BUTTON && h.index == 'Y')
+                    ybtn = 1;
                 else if (click && h.kind == MENU_HIT_TAB)
                     tabto = h.index;
                 else if (click && h.kind == MENU_HIT_SETTINGS)
-                    tabto = 2;
+                    tabto = 3;
                 else if (click && h.kind == MENU_HIT_BUTTON && h.index == 'A')
                     action = 1;
                 else if (click && h.kind == MENU_HIT_BUTTON && h.index == 'X')
@@ -1034,7 +1167,7 @@ void carts_menu(framebuffer_t *fb)
             } else {
                 tab = tabto;
             }
-            dx = dy = back = opts = 0;
+            dx = dy = back = opts = ybtn = 0;
             if (action == 1)
                 action = 0;
         }
@@ -1182,6 +1315,37 @@ void carts_menu(framebuffer_t *fb)
             on_gear = 0;
         if (quit || leave)
             break;
+        if (gfx && !depth && ask == ASK_NONE && tab == TAB_LIB && !on_gear) {
+            /* Lib: left/right the group, up/down the list, A opens the
+             * file of the resource in the app of its group */
+            if (dx && lib_ready()) {
+                lib_group = ((lib_group + dx) % LIB_GROUPS + LIB_GROUPS) % LIB_GROUPS;
+                lib_build();
+                lib_move(0);
+            } else if (lib_ready()) {
+                lib_move(dy);
+            }
+            const lib_item_t *it = lib_ready() ? lib_current() : NULL;
+            const lib_source_t *src = it ? lib_source(it->source) : NULL;
+            if (action == 1 && src && src->kind == BM_RES_CART && lib_group != LIB_KITS) {
+                static const int go_of[LIB_GROUPS] = { GO_STUDIO, GO_PIXEL, GO_SOUND, GO_SDK, GO_PIXEL, GO_NONE };
+                int g = go_of[lib_group];
+                if (bm_suspended(NULL, 0)) {
+                    ksnprintf(last_msg, sizeof last_msg, "close the game that is playing first");
+                } else {
+                    ksnprintf(lib_path, sizeof lib_path, "%s", src->path);
+                    ksnprintf(lib_name, sizeof lib_name, "%s", src->file);
+                    go = g;
+                    go_cart = -1;
+                }
+            } else if (action == 1 && src) {
+                ksnprintf(last_msg, sizeof last_msg, "a resource file: copy it into a game");
+            }
+            if (ybtn && it)
+                lib_play(it);
+            action = (action == 2 || action >= 3) ? action : 0;
+            dx = dy = opts = ybtn = 0;
+        }
         if (gfx && !depth && ask == ASK_NONE) {
             if (n) {
                 /* up and down along the rows (not into the tab bar: L1 / R1
@@ -1295,8 +1459,12 @@ void carts_menu(framebuffer_t *fb)
             ask = ASK_NONE;
             market_set_active(0);               /* nothing loads behind a game */
             market_lan(0);
+            lib_stop();
             if (gfx)
                 menu_ui_close(fb);
+            /* the file of a tool: a cartridge of the menu, or one of the Lib tab */
+            const char *gpath = go_cart >= 0 ? carts[go_cart].path : lib_path;
+            const char *gname = go_cart >= 0 ? carts[go_cart].name : lib_name;
             switch (go) {
             case GO_PLAY:
                 play(fb, &carts[go_cart]);
@@ -1307,9 +1475,9 @@ void carts_menu(framebuffer_t *fb)
                 bm_close_suspended();
                 susp_path[0] = 0;
                 ksnprintf(last_msg, sizeof last_msg, "last: %s on %s",
-                          editor_session(fb, carts[go_cart].path, go == GO_SDK ? bm_editor_cart : bm_sound_cart,
+                          editor_session(fb, gpath, go == GO_SDK ? bm_editor_cart : bm_sound_cart,
                                          go == GO_SDK ? bm_editor_cart_end : bm_sound_cart_end),
-                          carts[go_cart].name);
+                          gname);
                 crumb("cartridge menu", NULL);
                 depth = 0;
                 rescan();                       /* it may have saved new files */
@@ -1317,8 +1485,8 @@ void carts_menu(framebuffer_t *fb)
             case GO_CODE:
                 bm_close_suspended();
                 susp_path[0] = 0;
-                ksnprintf(last_msg, sizeof last_msg, "last: %s on %s", carts_code(fb, carts[go_cart].path),
-                          carts[go_cart].name);
+                ksnprintf(last_msg, sizeof last_msg, "last: %s on %s", carts_code(fb, gpath),
+                          gname);
                 crumb("cartridge menu", NULL);
                 depth = 0;
                 rescan();
@@ -1328,9 +1496,9 @@ void carts_menu(framebuffer_t *fb)
                 bm_close_suspended();
                 susp_path[0] = 0;
                 ksnprintf(last_msg, sizeof last_msg, "last: %s on %s",
-                          go == GO_STUDIO ? studio_session(fb, carts[go_cart].path)
-                                          : animator_session(fb, carts[go_cart].path),
-                          carts[go_cart].name);
+                          go == GO_STUDIO ? studio_session(fb, gpath)
+                                          : animator_session(fb, gpath),
+                          gname);
                 crumb("cartridge menu", NULL);
                 depth = 0;
                 rescan();
@@ -1338,8 +1506,8 @@ void carts_menu(framebuffer_t *fb)
             case GO_MESH:
                 bm_close_suspended();
                 susp_path[0] = 0;
-                ksnprintf(last_msg, sizeof last_msg, "last: %s on %s", mesh_session(fb, carts[go_cart].path),
-                          carts[go_cart].name);
+                ksnprintf(last_msg, sizeof last_msg, "last: %s on %s", mesh_session(fb, gpath),
+                          gname);
                 crumb("cartridge menu", NULL);
                 depth = 0;
                 rescan();
@@ -1347,8 +1515,8 @@ void carts_menu(framebuffer_t *fb)
             case GO_PIXEL:
                 bm_close_suspended();
                 susp_path[0] = 0;
-                ksnprintf(last_msg, sizeof last_msg, "last: %s on %s", pixel_session(fb, carts[go_cart].path),
-                          carts[go_cart].name);
+                ksnprintf(last_msg, sizeof last_msg, "last: %s on %s", pixel_session(fb, gpath),
+                          gname);
                 crumb("cartridge menu", NULL);
                 depth = 0;
                 rescan();

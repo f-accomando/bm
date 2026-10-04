@@ -1226,6 +1226,10 @@ GitHub, M26 market gratuito); il 2026-10-01 M25 e M26 sono diventati una sola mi
 il **Market** (M25), e questa ne è la parte P2P. Considerazioni iniziali del 2026-09-29.
 - **Cosa si scambia**: cartucce `.bm` (già un contenitore unico) e pacchetti di risorse
   (sprite, mesh, suoni: un `.bm` senza codice).
+- **Pacchetti di risorse** (proposta del 2026-10-03, in [RISORSE.md](RISORSE.md)): un file
+  per risorsa (contenitore `BMRES`: `.bmm` modelli, `.bmi` immagini, `.bms` suoni, `.bmt`
+  mappe, `.bmc` palette, `.bmk` kit, con la sezione INFO per nome, autore, versione e
+  licenza) e la scheda **Lib** del menu dopo Dev.
 - **Scoperta**: le console si trovano con un annuncio UDP in broadcast sulla rete di casa.
 - **Trasferimento**: via TCP (come `netxfer` di M18), tra amici sulla stessa rete;
   conferma sullo schermo di chi riceve.
@@ -1242,7 +1246,8 @@ il **Market** (M25), e questa ne è la parte P2P. Considerazioni iniziali del 20
 ## M25 — Market: giochi da GitHub (L, dopo M19) — avviata il 2026-10-01 (branch `bm-store`, unito al principale il 2026-10-04)
 Decisioni 2026-10-01 (prima in M25 "store" e M26 "market", ora una cosa sola):
 - **Tutto gratuito**: niente account, pagamenti, commissioni né licenze da sbloccare.
-- **Scheda Market**, la prima del menu: **Market | Games | Dev | Settings**. All'avvio il
+- **Scheda Market**, la prima del menu: **Market | Games | Dev | Settings** (con la scheda Lib
+  dal 2026-10-04: Market | Games | Dev | Lib | Settings). All'avvio il
   menu apre **Games**.
 - **Repository dedicato e pubblico**, `f-accomando/bm-market`. Deve essere pubblico: il Pi
   scarica senza autenticarsi (un repository privato vorrebbe un token su ogni console,

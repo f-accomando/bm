@@ -430,6 +430,17 @@ $(BUILD)/demo.bmau: carts/sound/demo.json scripts/bmaudio.py
 test-sound: $(BUILD)/host/luahost $(BUILD)/demo.bmau carts/sound/main.lua
 	$< tests/sound/sim.lua carts/sound/main.lua $(BUILD)/demo.bmau
 
+# Resource files (docs/RISORSE.md, scripts/bmres.py): models, images, sounds,
+# maps and palettes out of a .bm and back in, conversions, broken files
+test-res: $(BUILD)/carts/village.bm $(BUILD)/demo.bm $(BUILD)/sound.bm scripts/bmres.py $(BUILD)/host/test_res
+	rm -rf $(BUILD)/res && $(PYTHON) tests/res/test_bmres.py $(BUILD)/carts/village.bm $(BUILD)/demo.bm \
+	    $(BUILD)/sound.bm $(BUILD)/res
+	$(BUILD)/host/test_res $(BUILD)/res $(BUILD)/carts/village.bm
+
+$(BUILD)/host/test_res: tests/bm/test_res.c src/bm/format.c src/lib/crc32.c src/bm/bm.h
+	@mkdir -p $(dir $@)
+	$(HOSTCC) -O2 -Wall -Wextra -Isrc -o $@ tests/bm/test_res.c src/bm/format.c src/lib/crc32.c
+
 # nano8 on the PC: the loader on every cart, the translator, the API test
 # cart, then each shipped cart played for a while (tests/nano8/run.py)
 N8_HOST_SRC := src/bm/n8.c src/bm/n8font.c src/bm/n8cart.c src/bm/png.c src/bm/n8lua.c src/audio/n8snd.c \
@@ -490,7 +501,7 @@ test-queue2d: $(BUILD)/host/bmhost-gpu
 .DEFAULT_GOAL := all
 .PHONY: FORCE test-smp test-qpu test-gpu3d test-queue2d test-b3d test-v3d bench3d count-insns all clean firmware image \
         image-pi1 sdcard install sdcard-chainloader sdcard-stress qemu qemu7 qemu-screenshot \
-        run-serial test test-bm test-ai test-img2mesh ai-model test-predict predict-bench syllables test-usb test-audio \
+        run-serial test test-bm test-res test-ai test-img2mesh ai-model test-predict predict-bench syllables test-usb test-audio \
         test-fat test-kitchen test-titan test-yharnam test-sound test-nano8 test-net test-http test-https test-release \
         release disasm wav test-studio test-studio-ui studio test-prompts test-hyp test-zero2 \
         showreel bmhost bmhost-gpu test-overbit overbit-reel overbit-reel-heroes overbit-reel-match yharnam-video \
@@ -672,7 +683,7 @@ qemu7: $(BUILD)/kernel7.img
 qemu-screenshot: $(BUILD)/kernel.img
 	./scripts/qemu-screenshot.sh $< $(BUILD)/screen.png
 
-test: all test-bm test-usb test-fat test-audio test-kitchen test-titan test-yharnam test-sound test-nano8 test-net test-http test-https test-img3d \
+test: all test-bm test-res test-usb test-fat test-audio test-kitchen test-titan test-yharnam test-sound test-nano8 test-net test-http test-https test-img3d \
       test-catalog test-github test-lan \
       test-release test-smp test-qpu test-gpu3d test-queue2d test-b3d test-v3d test-ai test-predict test-studio test-prompts \
       test-overbit $(if $(K7),test-hyp)
