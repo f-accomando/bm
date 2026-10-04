@@ -193,6 +193,19 @@ seriale). Con `wifi_boot=1` la console entra nella rete da sola all'avvio (senza
 finché il WiFi dell'RGB30 è nuovo, all'avvio è spento). Reti supportate: aperte e WPA2-PSK (anche
 WPA2/WPA3 miste); non WPA3 sola, WPA1, WEP, enterprise.
 
+## Aggiornare bm
+
+- **Dalla console** (WiFi collegato): *System > Updates* legge l'ultima release di GitHub
+  (`manifest-rgb30.txt`, firmato con la chiave delle release che sta nel kernel), dice se è più
+  nuova e quali file cambiano (`kernel8.img`, `bm/ca.pem`); **B** la installa: scarica e
+  controlla tutto prima di scrivere, tiene il kernel di prima in `bm/backup/kernel8.img`,
+  scrive `kernel8.img` per ultimo e riavvia. `update_url=sd:/cartella/` in `bm/config.txt` per
+  una release copiata sulla SD (le prove).
+- **Dalla rete**: `python3 tools/bm_net.py <ip> --kernel build/rgb30/kernel8.img` (la password è
+  quella che *WiFi* mostra quando la console entra nella rete), oppure `./easy_install.sh`, voce
+  4, con un profilo di scheda RGB30.
+- **Dal PC**: copiare `kernel8.img` sulla SD.
+
 ## File
 
 - `rgb30.mk` — la build (incluso dal Makefile con `TARGET=rgb30`).

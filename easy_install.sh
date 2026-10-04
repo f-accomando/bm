@@ -14,7 +14,8 @@
 #                          own games are kept, unless you say no
 #   4  kernel by network   to a console on the network, without the card
 #                          (tools/bm_net.py --kernel): a saved profile (name,
-#                          IP, the 6-digit console code, the board) or a new one
+#                          IP, the 6-digit console code, the board: Pi, Pi Zero
+#                          2 W or RGB30) or a new one
 #   b  branch              change it, or bring it up to date (git pull)
 #   p  paths               the repository's folder, the card's drive letter
 # The same as an argument: ./easy_install.sh kernel | install | image | net [profile].
@@ -266,13 +267,15 @@ change_paths() {
 
 # ---------------------------------------------------------------- consoles on the network
 # A profile: name|IP|code|board|last. The code is the console's 6 digits
-# (Settings > WiFi and network > Console password, where the IP is too);
-# the board says which kernel it takes.
-BOARDS=(pi zero2)
+# (the Pi: Settings > WiFi and network > Console password, where the IP is
+# too; the RGB30: System > WiFi once connected); the board says which
+# kernel it takes.
+BOARDS=(pi zero2 rgb30)
 board_name() {
     case $1 in
         pi) echo "Pi Zero / Zero W / Pi 1 (kernel.img)" ;;
         zero2) echo "Pi Zero 2 W (kernel7.img)" ;;
+        rgb30) echo "PowKiddy RGB30 (kernel8.img)" ;;
         *) echo "$1" ;;
     esac
 }
@@ -296,7 +299,8 @@ list_profiles() {
 
 new_profile() {                                 # sets PICK to the new profile's index
     say "New console"
-    echo "On the console: Settings > WiFi and network shows its IP and the Console password (6 digits)."
+    echo "The console's IP and its Console password (6 digits): on the Pi in Settings > WiFi and"
+    echo "network; on the RGB30 in System > WiFi once connected (\"net: console on port 3333, password ...\")."
     local name ip code b i
     while :; do
         read -r -p "A name for it (e.g. salotto, pi1): " name || die "stopped"
@@ -380,9 +384,18 @@ job_net() {
     case $board in
         pi) file=build/kernel.img ;;
         zero2) file=build/kernel7.img ;;
+        rgb30) file=build/rgb30/kernel8.img ;;
         *) die "$name: unknown board $board" ;;
     esac
-    make -j"$(nproc)" "$file"
+    if [ "$board" = rgb30 ]; then
+        command -v aarch64-linux-gnu-gcc >/dev/null || {
+            ask "The RGB30's compiler is missing: install it (gcc-aarch64-linux-gnu, picolibc)?" y || die "it is needed"
+            sudo apt-get install -y gcc-aarch64-linux-gnu binutils-aarch64-linux-gnu picolibc-aarch64-linux-gnu
+        }
+        make TARGET=rgb30 -j"$(nproc)" "$file"
+    else
+        make -j"$(nproc)" "$file"
+    fi
     while :; do                                 # the IP may have changed (the router gives it)
         old=$(net_version "$ip")
         [ -z "$old" ] || break

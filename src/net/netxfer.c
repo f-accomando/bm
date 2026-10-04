@@ -226,8 +226,12 @@ static int save(const char *p, const uint8_t *data, uint32_t len)
 /* The kernel this build starts from, and whether an image is one for it:
  * "bmK6" (kernel.img) or "bmK7" (kernel7.img, the Pi Zero 2 W) at +4
  * (src/boot/start.S). A kernel.img from before the mark has none, and
- * still goes on the BCM2835 boards. */
-#ifdef BM_ZERO2
+ * still goes on the BCM2835 boards. The RGB30's kernel8.img is an arm64
+ * Image: "ARM\x64" at +56 (src/rgb30/start.S), the file U-Boot starts. */
+#if defined(BM_RGB30)
+#define KERNEL_FILE "kernel8.img"
+#define KERNEL_MARK '8'
+#elif defined(BM_ZERO2)
 #define KERNEL_FILE "kernel7.img"
 #define KERNEL_MARK '7'
 #else
@@ -237,6 +241,9 @@ static int save(const char *p, const uint8_t *data, uint32_t len)
 
 static int kernel_fits(const uint8_t *img, uint32_t len)
 {
+    int arm64 = len >= 64 && memcmp(img + 56, "ARM\x64", 4) == 0;
+    if (KERNEL_MARK == '8' || arm64)                /* the RGB30's, only on the RGB30 */
+        return KERNEL_MARK == '8' && arm64;
     int marked = len >= 8 && memcmp(img + 4, "bmK", 3) == 0;
     if (!marked)
         return KERNEL_MARK == '6';
@@ -267,8 +274,8 @@ void netxfer_poll(void)
             reset();
         } else if (op == 'K' && !kernel_fits(buf, size)) {
             reply("KA");
-            kprintf("\x1b[91mnet: not a kernel for this Pi, nothing written (the Pi Zero 2 W "
-                    "takes kernel7.img, the other boards kernel.img)\x1b[0m\n");
+            kprintf("\x1b[91mnet: not a kernel for this console, nothing written (the Pi Zero 2 W "
+                    "takes kernel7.img, the RGB30 kernel8.img, the other boards kernel.img)\x1b[0m\n");
             reset();
         } else {
             const char *where = op == 'K' ? KERNEL_FILE : path;

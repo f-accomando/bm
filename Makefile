@@ -599,12 +599,19 @@ image-pi1: $(BUILD)/kernel.img $(SD_CARTS)
 # The signature must match keys/release-pub.pem, the key in the kernel.
 RELEASE_DIR := $(DIST)/release
 RELEASE_PUB ?= keys/release-pub.pem
+# RGB30_KERNEL=build/rgb30/kernel8.img (made first with make TARGET=rgb30):
+# the RGB30's manifest-rgb30 (kernel8.img, bm/ca.pem) in the same release,
+# for its System > Updates
+RGB30_KERNEL ?=
 release: $(BUILD)/kernel.img $(K7) $(GAME_CARTS)
 	rm -rf $(RELEASE_DIR)
 	$(PYTHON) scripts/mkrelease.py $(RELEASE_DIR) --version $(VERSION) --commit $$(git rev-parse HEAD) \
 	    --file $(BUILD)/kernel.img:/kernel.img $(if $(K7),--file $(K7):/kernel7.img) \
 	    $(foreach c,$(GAME_CARTS),--file $(c):/carts/$(notdir $(c))) \
 	    --file boot/ca.pem:/bm/ca.pem --pub $(RELEASE_PUB) $(RELEASE_FLAGS)
+	$(if $(RGB30_KERNEL),$(PYTHON) scripts/mkrelease.py $(RELEASE_DIR) --manifest manifest-rgb30 \
+	    --version $(VERSION) --commit $$(git rev-parse HEAD) --file $(RGB30_KERNEL):/kernel8.img \
+	    --file boot/ca.pem:/bm/ca.pem --pub $(RELEASE_PUB) $(RELEASE_FLAGS))
 
 # Copies what make sdcard prepared onto a mounted SD card (SD=/mnt/d by
 # default): the kernels, boot files, config.txt, cartridges and the chip

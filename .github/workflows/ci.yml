@@ -88,18 +88,23 @@ jobs:
       - uses: actions/checkout@v4
 
       - name: Install toolchain
-        # numpy and Pillow: the games' assets (Overbit's map) are built too
+        # numpy and Pillow: the games' assets (Overbit's map) are built too;
+        # the AArch64 compiler: the RGB30's kernel8.img
         run: |
           sudo apt-get update
           sudo apt-get install -y --no-install-recommends \
             gcc-arm-none-eabi libnewlib-arm-none-eabi binutils-arm-none-eabi make python3 \
-            python3-numpy python3-pil
+            python3-numpy python3-pil gcc-aarch64-linux-gnu binutils-aarch64-linux-gnu \
+            picolibc-aarch64-linux-gnu
 
       - name: Build and sign
         env:
           BM_RELEASE_KEY: ${{ secrets.BM_RELEASE_KEY }}
-        # the kernel says the tag as its version: the Pi compares it
-        run: make -j"$(nproc)" release VERSION="$GITHUB_REF_NAME" RELEASE_FLAGS=--require-key
+        # the kernels say the tag as their version: the consoles compare it
+        run: |
+          make TARGET=rgb30 -j"$(nproc)" VERSION="$GITHUB_REF_NAME"
+          make -j"$(nproc)" release VERSION="$GITHUB_REF_NAME" RELEASE_FLAGS=--require-key \
+            RGB30_KERNEL=build/rgb30/kernel8.img
 
       - name: Publish
         env:
@@ -107,4 +112,4 @@ jobs:
         run: |
           gh release create "$GITHUB_REF_NAME" dist/release/* --verify-tag \
             --title "bm $GITHUB_REF_NAME" --generate-notes \
-            --notes "Kernel (kernel.img; kernel7.img per il Pi Zero 2 W, se c'è), giochi e bm/ca.pem per il Pi. manifest.txt dice dove va ogni file sulla SD, la dimensione e lo SHA-256; manifest.sig è la sua firma (ECDSA P-256), controllata dal Pi con la chiave nel kernel. A mano: python3 tools/bm_net.py IP --kernel kernel.img (kernel7.img sul Zero 2 W)"
+            --notes "Kernel (kernel.img; kernel7.img per il Pi Zero 2 W, se c'è; kernel8.img per la RGB30), giochi e bm/ca.pem. manifest.txt (Pi) e manifest-rgb30.txt (RGB30) dicono dove va ogni file sulla SD, la dimensione e lo SHA-256; i .sig sono le loro firme (ECDSA P-256), controllate dalla console con la chiave nel kernel. A mano: python3 tools/bm_net.py IP --kernel kernel.img (kernel7.img sul Zero 2 W, kernel8.img sulla RGB30)"

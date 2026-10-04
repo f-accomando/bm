@@ -287,6 +287,69 @@ def test_bootlog_on_sd(b, opts):
     assert "racer.s16" in files.lower(), files
 
 
+def test_update_from_sd(b, opts):
+    """System > Updates, as on the Pi (src/kernel/update.c): a release copied
+    on the card (update_url=sd:/release/), signed with a key the card adds
+    (bm/release.pem); the RGB30's manifest (manifest-rgb30: kernel8.img,
+    bm/ca.pem), what changes, then A installs: the old kernel kept in
+    bm/backup, the new one written last (read back from the RAM disk with
+    mtools before the restart, which reloads it), and the console restarts."""
+    tmp = tempfile.mkdtemp(prefix="bm64up-")
+    key, pub = os.path.join(tmp, "key.pem"), os.path.join(tmp, "pub.pem")
+    subprocess.run(["openssl", "genpkey", "-algorithm", "EC", "-pkeyopt", "ec_paramgen_curve:P-256",
+                    "-out", key], check=True, capture_output=True)
+    subprocess.run(["openssl", "pkey", "-in", key, "-pubout", "-out", pub], check=True, capture_output=True)
+    new_kernel = os.path.join(b, "kernel8.img")             # an arm64 Image, "ARM\x64" at +56
+    ca = os.path.join(HERE, "..", "..", "boot", "ca.pem")
+    rel = os.path.join(tmp, "release")
+    subprocess.run([sys.executable, os.path.join(HERE, "..", "..", "scripts", "mkrelease.py"), rel,
+                    "--manifest", "manifest-rgb30", "--version", "v9.9.9", "--commit", "abc1234",
+                    "--key", key, "--pub", pub, "--file", f"{new_kernel}:/kernel8.img",
+                    "--file", f"{ca}:/bm/ca.pem"], check=True, capture_output=True)
+    old_kernel = bytes(56) + b"ARM\x64" + bytes(4096)
+    files = {"kernel8.img": old_kernel, "bm/ca.pem": b"old certificates\n",
+             "bm/config.txt": b"update_url=sd:/release/\n", "bm/release.pem": open(pub, "rb").read()}
+    for n in os.listdir(rel):
+        files["release/" + n] = open(os.path.join(rel, n), "rb").read()
+    sd = make_sd(tmp, files)
+    size = os.path.getsize(sd)
+    q = Qemu(os.path.join(b, "kernel.elf"), sd=sd)
+    try:
+        boot(q)
+        keys(q, "rrss")                         # System tab: Bluetooth, WiFi, Updates
+        q.send("\r")
+        out = q.expect("can be installed", timeout=30).decode(errors="replace")
+        for want in ("releases: sd:/release/", "v9.9.9", "commit abc1234, signed: good"):
+            assert want in out, out
+        # a build of the sources, or a later commit than a tag (git describe)
+        assert "newer than this kernel" in out or "a build of the sources" in out, out
+        lines = {l.split()[0]: l for l in out.splitlines() if l.strip().startswith("/")}
+        assert lines["/kernel8.img"].endswith("changed") and lines["/bm/ca.pem"].endswith("changed"), lines
+        q.expect("install v9.9.9 and restart", timeout=10)
+        time.sleep(0.3)
+        q.send("\r")                           # confirm: install
+        out = q.expect("installed: restarting", timeout=60).decode(errors="replace")
+        dump = os.path.join(tmp, "after.img")
+        q.monitor(f'pmemsave {RAMDISK:#x} {size} "{dump}"',
+                  until=lambda: os.path.exists(dump) and os.path.getsize(dump) == size)
+        for want in ("all 2 files downloaded and checked", "/kernel8.img kept in /bm/backup",
+                     "written /bm/ca.pem", "written /kernel8.img"):
+            assert want in out, out
+        assert out.index("written /bm/ca.pem") < out.index("written /kernel8.img"), out
+        q.expect("ready", timeout=30)           # restarted
+    finally:
+        q.close()
+    env = dict(os.environ, MTOOLS_SKIP_CHECK="1")
+    part = f"{dump}@@{1024 * 1024}"
+
+    def read(path):
+        r = subprocess.run(["mtype", "-i", part, "::" + path], capture_output=True, env=env)
+        return r.stdout if r.returncode == 0 else None
+    assert read("/kernel8.img") == open(new_kernel, "rb").read(), "the new kernel8.img"
+    assert read("/bm/backup/kernel8.img") == old_kernel, "the old one kept"
+    assert read("/bm/ca.pem") == open(ca, "rb").read(), "the certificates"
+
+
 def test_bluetooth_page_without_chip(b, opts):
     """The Bluetooth page starts the stack; QEMU has no chip: it says so and
     B goes back to the menu."""

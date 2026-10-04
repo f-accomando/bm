@@ -4,7 +4,8 @@
  * files in bm/ on the SD card, whose format is still to be defined, and
  * for testing the Pi's .bm cartridges, which run; show_bm=0 hides them),
  * Dev (the 3D Bench, the render bench, the display modes, the input test,
- * the boot log, Lua) and System (Bluetooth, WiFi, the console's state, reboot, power off).
+ * the boot log, Lua) and System (Bluetooth, WiFi, updates from GitHub, the console's state,
+ * reboot, power off).
  * L1 / R1 or left / right change tab.
  */
 #include "ui.h"
@@ -20,6 +21,7 @@
 #include "gfx/font.h"
 #include "kernel/config.h"
 #include "kernel/tick.h"
+#include "kernel/update.h"
 #include "kernel/version.h"
 #include "lib/heap.h"
 #include "lib/printf.h"
@@ -436,6 +438,39 @@ static void page_wifi(void)
     console_suspend(1);
 }
 
+/* Updates from GitHub, as on the Pi (src/kernel/update.c): the latest
+ * release's manifest for the RGB30 (manifest-rgb30.txt, signed), what would
+ * change on the card; then A installs it (kernel8.img last) and restarts.
+ * The WiFi first (System > WiFi); update_url=sd:/folder/ for a release
+ * copied on the card. */
+static void page_update(void)
+{
+    fb_show(fb, 0);
+    console_suspend(0);
+    update_check(fb);
+    for (;;) {
+        const char *v = update_ready();
+        if (v)
+            kprintf("\n\x1b[96m%s\x1b[0m install %s and restart  \x1b[96m%s\x1b[0m back\n",
+                    pad_ok_name(), v, pad_back_name());
+        else
+            kprintf("\n\x1b[96m%s\x1b[0m check again  \x1b[96m%s\x1b[0m back\n", pad_ok_name(),
+                    pad_back_name());
+        uint32_t p;
+        while (!(p = pad_pressed()))
+            timer_delay_ms(10);
+        if (p & pad_back)
+            break;
+        if (p & pad_ok) {
+            if (v)
+                update_install(fb);     /* restarts; back here only if it stopped */
+            else
+                update_check(fb);
+        }
+    }
+    console_suspend(1);
+}
+
 /* --- the display modes a game (and the GPU) can use, with a test image --- */
 
 static const struct { uint32_t w, h, scale; int smooth; } modes[] = {
@@ -546,6 +581,7 @@ static const item_t dev_items[] = {
 static const item_t system_items[] = {
     { "Bluetooth", "controllers and keyboards", page_bt },
     { "WiFi", "network (bm/config.txt: wifi_ssid, wifi_psk)", page_wifi },
+    { "Updates", "the latest bm from GitHub (WiFi first)", page_update },
     { "System", "board, memory, SD card, battery, display", page_system },
     { "Reboot", "restart the console", do_reboot },
     { "Power off", "turn the console off", do_poweroff },

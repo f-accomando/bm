@@ -264,19 +264,22 @@ int main(void)
         file[i] = (uint8_t)(i * 7 + (i >> 8));
 
     /* mark: what start.S puts at +4 of a kernel image (kernel.img or the
-     * Pi Zero 2 W's kernel7.img); this is kernel.img's build */
-    struct { char op; const char *pw, *path; uint32_t crc_xor; const char *answer, *what, *mark; } cases[] = {
-        { 'S', "secret", "carts/pong.bm", 0, "OKOK", "file saved on the SD card", NULL },
-        { 'S', "nope", "carts/pong.bm", 0, "PW", "wrong password refused", NULL },
-        { 'S', "secret", "carts/bad.bm", 1, "OKCE", "damaged file refused", NULL },
-        { 'P', "secret", "x.bm", 0, "OKOK", "cartridge to play received", NULL },
-        { 'K', "secret", "kernel7.img", 0, "OKKA", "the Pi Zero 2 W's kernel refused", "bmK7" },
-        { 'K', "secret", "kernel.img", 0, "OKOK", "kernel received", "bmK6" },
+     * Pi Zero 2 W's kernel7.img); this is kernel.img's build. arm64: the
+     * RGB30's kernel8.img, "ARM\x64" at +56 (no bmK mark) */
+    struct { char op; const char *pw, *path; uint32_t crc_xor; const char *answer, *what, *mark; int arm64; } cases[] = {
+        { 'S', "secret", "carts/pong.bm", 0, "OKOK", "file saved on the SD card", NULL, 0 },
+        { 'S', "nope", "carts/pong.bm", 0, "PW", "wrong password refused", NULL, 0 },
+        { 'S', "secret", "carts/bad.bm", 1, "OKCE", "damaged file refused", NULL, 0 },
+        { 'P', "secret", "x.bm", 0, "OKOK", "cartridge to play received", NULL, 0 },
+        { 'K', "secret", "kernel7.img", 0, "OKKA", "the Pi Zero 2 W's kernel refused", "bmK7", 0 },
+        { 'K', "secret", "kernel8.img", 0, "OKKA", "the RGB30's kernel refused", "\x10\0\0\x14", 1 },
+        { 'K', "secret", "kernel.img", 0, "OKOK", "kernel received", "bmK6", 0 },
     };
     for (unsigned t = 0; t < sizeof cases / sizeof cases[0]; t++) {
         w_name[0] = 0;
         if (cases[t].mark)
             memcpy(file + 4, cases[t].mark, 4);
+        memcpy(file + 56, cases[t].arm64 ? "ARM\x64" : "\0\0\0\0", 4);
         client_t x;
         connect_port(&x, NETXFER_PORT);
         uint8_t h[200];

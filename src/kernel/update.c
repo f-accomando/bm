@@ -20,13 +20,27 @@
 #define DEFAULT_URL "https://github.com/f-accomando/bm/releases"
 #define BACKUP_DIR  "/bm/backup"
 
-/* this kernel's file on the SD card, and the other board's */
-#ifdef BM_ZERO2
+/* this kernel's file on the SD card, the other board's, the release's
+ * manifest for this console and where its menu has the pages */
+#if defined(BM_RGB30)
+#define OWN_KERNEL   "/kernel8.img"
+#define OTHER_KERNEL ""                 /* the Pi's kernels are not the RGB30's */
+#define MANIFEST     "manifest-rgb30"
+#define WHERE_CHECK  "System > Updates"
+#define WHERE_NET    "System > WiFi"
+#define WHERE_INSTALL "System > Updates"
+#elif defined(BM_ZERO2)
 #define OWN_KERNEL   "/kernel7.img"
 #define OTHER_KERNEL "/kernel.img"
 #else
 #define OWN_KERNEL   "/kernel.img"
 #define OTHER_KERNEL "/kernel7.img"
+#endif
+#ifndef MANIFEST
+#define MANIFEST     "manifest"
+#define WHERE_CHECK  "Settings > System > Check for updates"
+#define WHERE_NET    "Settings > WiFi and network"
+#define WHERE_INSTALL "Settings > System > Install the update"
 #endif
 
 enum { F_SKIP, F_SAME, F_NEW, F_CHANGED, F_ABSENT_GAME };
@@ -49,13 +63,17 @@ static int from_sd(void)
 
 static int is_kernel(const char *path)
 {
-    return strcmp(path, "/kernel.img") == 0 || strcmp(path, "/kernel7.img") == 0;
+    return strcmp(path, "/kernel.img") == 0 || strcmp(path, "/kernel7.img") == 0 ||
+           strcmp(path, "/kernel8.img") == 0;
 }
 
 /* the "bmK6" / "bmK7" mark at +4 (src/boot/start.S): a kernel for the board
- * its file name says */
+ * its file name says; kernel8.img (the RGB30's) is an arm64 Image, "ARM\x64"
+ * at +56 (src/rgb30/start.S) */
 static int kernel_mark_ok(const char *path, const uint8_t *d, size_t len)
 {
+    if (strcmp(path, "/kernel8.img") == 0)
+        return len >= 64 && memcmp(d + 56, "ARM\x64", 4) == 0;
     char want = strcmp(path, "/kernel7.img") == 0 ? '7' : '6';
     return len >= 8 && memcmp(d + 4, "bmK", 3) == 0 && d[7] == want;
 }
@@ -216,12 +234,12 @@ void update_check(framebuffer_t *fb)
     kprintf("  releases: %s\n", up.base);
     if (!from_sd() && !net_ip()) {
         ksnprintf(up.state, sizeof up.state, "no network");
-        kprintf("\x1b[91mno network: connect in Settings > WiFi and network\x1b[0m\n");
+        kprintf("\x1b[91mno network: connect in " WHERE_NET "\x1b[0m\n");
         return;
     }
     kprintf("  reading the latest release...\n");
-    if (fetch("latest/download/manifest.txt", "manifest.txt", 16384, NULL, &man, &ml, err, sizeof err) != 0 ||
-        fetch("latest/download/manifest.sig", "manifest.sig", 1024, NULL, &sig, &sl, err, sizeof err) != 0 ||
+    if (fetch("latest/download/" MANIFEST ".txt", MANIFEST ".txt", 16384, NULL, &man, &ml, err, sizeof err) != 0 ||
+        fetch("latest/download/" MANIFEST ".sig", MANIFEST ".sig", 1024, NULL, &sig, &sl, err, sizeof err) != 0 ||
         release_verify(man, ml, sig, sl, err, sizeof err) != 0 ||
         release_parse(man, ml, &up.rel, err, sizeof err) != 0) {
         free(man);
@@ -251,8 +269,7 @@ void update_check(framebuffer_t *fb)
         ksnprintf(up.state, sizeof up.state, "%s: %d files, %lu KiB", up.rel.version, up.n,
                   (unsigned long)((up.bytes + 1023) / 1024));
         ksnprintf(up.ready, sizeof up.ready, "%s", up.rel.version);
-        kprintf("\x1b[92m%s can be installed: Settings > System > Install %s\x1b[0m\n", up.rel.version,
-                up.rel.version);
+        kprintf("\x1b[92m%s can be installed: " WHERE_INSTALL "\x1b[0m\n", up.rel.version);
     } else {
         ksnprintf(up.state, sizeof up.state, "up to date (%s)", up.rel.version);
         kprintf("\x1b[92mnothing to install\x1b[0m\n");
@@ -282,12 +299,12 @@ void update_install(framebuffer_t *fb)
 {
     (void)fb;
     if (!up.ok || !up.ready[0]) {
-        kprintf("\x1b[91mno update checked: Settings > System > Check for updates\x1b[0m\n");
+        kprintf("\x1b[91mno update checked: " WHERE_CHECK "\x1b[0m\n");
         return;
     }
     kprintf("\n\x1b[1;96mbm update: installing %s\x1b[0m\n", up.rel.version);
     if (!from_sd() && !net_ip()) {
-        kprintf("\x1b[91mno network: connect in Settings > WiFi and network\x1b[0m\n");
+        kprintf("\x1b[91mno network: connect in " WHERE_NET "\x1b[0m\n");
         return;
     }
     uint8_t *data[RELEASE_MAX_FILES] = { 0 };
@@ -365,6 +382,7 @@ void update_install(framebuffer_t *fb)
     watchdog_reboot();
 }
 
+#ifndef BM_RGB30                        /* the RGB30 has no monitor */
 void update_monitor(void)
 {
     update_check(NULL);
@@ -377,6 +395,7 @@ void update_monitor(void)
     else
         kprintf("not installed\n");
 }
+#endif
 
 const char *update_state(void)
 {

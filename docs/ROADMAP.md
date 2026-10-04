@@ -2721,6 +2721,14 @@ Task:
    pannello 720×720; schede Games / Dev / System come sul Pi (L1/R1); in Dev il **3D Bench**
    (`src/bm/b3d.c` con i contatori del Cortex-A55, rapporto in `bm/bench`), Render bench,
    Display, Input test, Boot log, Lua. Provato in QEMU (`test_bench3d` e gli altri).
+9. ✅ (QEMU) **Aggiornamenti da GitHub e kernel dalla rete** (richiesta 2026-10-04): *System >
+   Updates* come Settings > System sul Pi (`src/kernel/update.c` con HTTPS, `release.c` e la
+   chiave delle release nel kernel della RGB30); la release ha un manifesto suo,
+   `manifest-rgb30.txt` firmato (`kernel8.img`, `bm/ca.pem`: `make release RGB30_KERNEL=...`, la
+   CI sui tag lo fa); il kernel è riconosciuto dall'intestazione arm64 (`ARM\x64` a +56).
+   `bm_net.py --kernel` scrive `kernel8.img` sulla RGB30 (prima `kernel.img`, che U-Boot non
+   avvia), e un Pi rifiuta un `kernel8.img`. Prova: `test_update_from_sd` in QEMU; sulla
+   console da verificare via WiFi.
 - **Fatto quando:** sulla RGB30 il menu appare, i tasti e le levette rispondono, un controller
   Bluetooth si accoppia e la console entra nella rete WiFi salvata in `bm/config.txt`.
 

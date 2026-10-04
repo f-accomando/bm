@@ -55,13 +55,18 @@ SHARED_SRCS := src/gfx/console.c src/gfx/draw.c src/gfx/font8x16.c src/gfx/font8
 # and AES (src/rgb30/wpa.c)
 BT_SRCS := src/bt/bt.c src/bt/ble.c src/bt/hci.c src/bt/h5.c src/bt/rtlbt.c src/bt/smp_crypto.c \
            src/usb/hid.c
-MBEDTLS_SRCS := $(addprefix third_party/mbedtls/library/,aes.c bignum.c bignum_core.c ecp.c \
-                ecp_curves.c ecdh.c constant_time.c platform_util.c platform.c sha1.c)
+# all of mbedTLS, as on the Pi: TLS for the updates from GitHub too (the
+# linker keeps what is used)
+MBEDTLS_SRCS := $(wildcard third_party/mbedtls/library/*.c)
 # the network: lwIP and the Pi's glue (DHCP, the network console, file
 # transfer) over the WiFi (src/rgb30/rtw_sta.c)
 LWIP_SRCS := $(wildcard third_party/lwip/src/core/*.c third_party/lwip/src/core/ipv4/*.c) \
              third_party/lwip/src/netif/ethernet.c third_party/lwip/src/apps/sntp/sntp.c
 NET_SRCS := src/net/net.c src/net/netcon.c src/net/netxfer.c src/net/cartnet.c
+# updates from GitHub (System > Updates): HTTPS, the signed manifest
+# (manifest-rgb30.txt: kernel8.img and bm/ca.pem), the Pi's update code
+NET_SRCS += src/net/stream.c src/net/tls.c src/net/http.c src/net/http_kernel.c src/net/release.c \
+            src/kernel/update.c
 # the Pi's cartridges (.bm, listed for testing; show_bm=0 hides them): the runtime unchanged,
 # the Pi's drivers it calls replaced by src/rgb30/bm_port.c and bm_input.c
 BM_SRCS := $(filter-out src/bm/stress.c src/bm/roombench.c,$(wildcard src/bm/*.c)) \
@@ -81,6 +86,7 @@ $(VERSION_STAMP): FORCE
 	@echo '$(VERSION)' | cmp -s - $@ || echo '$(VERSION)' > $@
 $(BUILD)/k/src/kernel/version.c.o: $(VERSION_STAMP)
 $(BUILD)/k/src/kernel/version.c.o: CFLAGS += -DBM_VERSION=\"$(VERSION)\"
+$(BUILD)/k/src/rgb30/bm_embed.S.o: keys/release-pub.pem
 FORCE:
 
 .DEFAULT_GOAL := all
@@ -103,7 +109,7 @@ firmware:
 # 16 MiB with extlinux.conf, kernel8.img and bm/. Write it with balenaEtcher,
 # Raspberry Pi Imager or Rufus; updates: copy kernel8.img onto the card.
 SD_FILES64 = $(BUILD)/kernel8.img=kernel8.img boot/rgb30/extlinux.conf=extlinux/extlinux.conf \
-             boot/rgb30/LEGGIMI.txt=LEGGIMI.txt \
+             boot/rgb30/LEGGIMI.txt=LEGGIMI.txt boot/ca.pem=bm/ca.pem \
              $(FW64)/rtl8821cs_fw.bin=bm/rtl8821cs_fw.bin $(FW64)/rtl8821cs_config.bin=bm/rtl8821cs_config.bin \
              $(FW64)/rtw8821c_fw.bin=bm/rtw8821c_fw.bin \
              $(wildcard $(FW64)/LICENCE.rtlwifi_firmware.txt)$(if $(wildcard $(FW64)/LICENCE.rtlwifi_firmware.txt),=bm/LICENCE.rtlwifi_firmware.txt)
@@ -136,6 +142,7 @@ sdcard: $(BUILD)/kernel8.img $(YHARNAM)
 	cp $(YHARNAM) $(DIST)/sd/bm/yharnam.bm
 	cp boot/rgb30/extlinux.conf $(DIST)/sd/extlinux/
 	cp boot/rgb30/LEGGIMI.txt $(DIST)/sd/
+	cp boot/ca.pem $(DIST)/sd/bm/ca.pem
 	@if [ -f $(FW64)/rtl8821cs_fw.bin ]; then cp $(FW64)/rtl8821cs_*.bin $(FW64)/rtw8821c_fw.bin $(DIST)/sd/bm/; fi
 	@if [ -n "$(RGB30_CONFIG)" ]; then cp "$(RGB30_CONFIG)" $(DIST)/sd/bm/config.txt; fi
 	@if [ -n "$(SD)" ]; then sh scripts/copy-sd-rgb30.sh $(DIST)/sd "$(SD)"; \

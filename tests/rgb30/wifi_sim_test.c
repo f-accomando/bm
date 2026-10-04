@@ -144,6 +144,11 @@ int eth_linked(void) { return 0; }
 void eth_poll(void) {}
 int eth_recv(void *buf, int max) { (void)buf; (void)max; return 0; }
 int eth_send(const void *frame, int len) { (void)frame; (void)len; return -1; }
+/* the Market's fibers (net_wait_step yields inside one): none here */
+struct fiber;
+struct fiber *fiber_current(void) { return 0; }
+void fiber_yield(void) {}
+int fiber_cancelled(void) { return 0; }
 
 /* ---------------------------------------------------------------- the chip */
 

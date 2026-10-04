@@ -10,7 +10,10 @@ SHA-256): the Pi checks it with the public key built into the kernel
       [--key FILE | BM_RELEASE_KEY=<pem> in the environment] [--pub keys/release-pub.pem]
 
 OUT gets the files under their names in the GitHub release (the base name
-of the SD path), manifest.txt and, with a key, manifest.sig (DER). With
+of the SD path), manifest.txt and, with a key, manifest.sig (DER).
+--manifest NAME writes NAME.txt and NAME.sig instead, in the same folder:
+the RGB30's (manifest-rgb30: kernel8.img, bm/ca.pem) next to the Pi's; a
+file both have must be the same file. With
 --pub the signature is checked against that public key: a secret that is
 not the pair of the key in the kernel stops here, not on the Pi.
 
@@ -63,6 +66,7 @@ def main():
     ap.add_argument("--key", help="private key file (else BM_RELEASE_KEY)")
     ap.add_argument("--require-key", action="store_true", help="fail without a key")
     ap.add_argument("--pub", help="public key the signature must match")
+    ap.add_argument("--manifest", default="manifest", help="NAME.txt and NAME.sig (default manifest)")
     a = ap.parse_args()
 
     if not a.version or any(c.isspace() for c in a.version) or len(a.version) > 31:
@@ -77,18 +81,23 @@ def main():
         if not sep or not path.startswith("/") or " " in path or len(path) > 47:
             die(f"bad --file {spec!r} (SRC:/path/on/sd)")
         name = os.path.basename(path)
-        if name in seen or name in ("manifest.txt", "manifest.sig") or len(name) > 31:
+        if name in seen or name.startswith("manifest") or len(name) > 31:
             die(f"bad or repeated file name {name!r}")
         seen.add(name)
         data = open(src, "rb").read()
-        shutil.copyfile(src, os.path.join(a.out, name))
+        dest = os.path.join(a.out, name)
+        if os.path.exists(dest) and open(dest, "rb").read() != data:
+            die(f"{name} is in {a.out} already with other contents (another manifest's file)")
+        shutil.copyfile(src, dest)
         lines.append(f"file {name} {path} {len(data)} {hashlib.sha256(data).hexdigest()}")
-    manifest = os.path.join(a.out, "manifest.txt")
+    if not a.manifest.startswith("manifest") or "/" in a.manifest:
+        die(f"bad --manifest {a.manifest!r}")
+    manifest = os.path.join(a.out, a.manifest + ".txt")
     with open(manifest, "w", newline="\n") as f:
         f.write("\n".join(lines) + "\n")
 
     key_pem = open(a.key).read() if a.key else os.environ.get("BM_RELEASE_KEY", "")
-    sig = os.path.join(a.out, "manifest.sig")
+    sig = os.path.join(a.out, a.manifest + ".sig")
     if not key_pem.strip():
         if a.require_key:
             die("no key: BM_RELEASE_KEY (a secret of the repository) or --key")
@@ -99,7 +108,7 @@ def main():
         sign(manifest, sig, key_pem)
         if a.pub and not verify(manifest, sig, a.pub):
             die(f"the signature does not match {a.pub}: the key is not the pair of the one in the kernel")
-    print(f"mkrelease: {a.version}, {len(seen)} files in {a.out}"
+    print(f"mkrelease: {a.version}, {len(seen)} files in {a.out} ({a.manifest})"
           + (", signed" if key_pem.strip() else ""))
 
 

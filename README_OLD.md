@@ -623,6 +623,10 @@ gh secret set BM_RELEASE_KEY < ~/.bm/release-key.pem   # o dal sito: Settings > 
 git add keys/release-pub.pem && git commit -m "Release key" && git push
 ```
 
+La stessa release ha anche il manifesto della RGB30, `manifest-rgb30.txt` (con `.sig`):
+`kernel8.img` e `bm/ca.pem`, per *System > Updates* della RGB30 (`make release
+RGB30_KERNEL=build/rgb30/kernel8.img`; la CI lo fa sui tag).
+
 Poi una release: `git tag v0.1.0 && git push origin v0.1.0`. In locale, per provare:
 `BM_RELEASE_KEY="$(cat ~/.bm/release-key.pem)" make release VERSION=v0.1.0` (file in `dist/release/`).
 

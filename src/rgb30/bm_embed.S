@@ -30,3 +30,12 @@ bm_lib_words_end:
 bm_texroom_cart:
 bm_texroom_cart_end:
     .byte 0
+
+/* the public key that checks the releases (src/net/release.c), as on the
+ * Pi: PEM text, NUL-terminated */
+    .section .rodata
+    .balign 4
+    .globl bm_release_key
+bm_release_key:
+    .incbin "keys/release-pub.pem"
+    .byte 0

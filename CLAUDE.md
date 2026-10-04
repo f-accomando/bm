@@ -156,6 +156,10 @@ screenshot in `docs/img/`), `README_OLD.md` (il README completo, in italiano),
   M18. `make TARGET=rgb30 test-wifi`: frame, WPA2 contro `tests/rgb30/wpa_vectors.h` (scritto da
   `wpa_vectors.py`, Python + `cryptography`) e tutta la stazione su un chip e access point simulati
   (`wifi_sim_test.c`, `-v` mostra la console).
+- Aggiornamenti come sul Pi: *System > Updates* (`page_update` in `ui.c`, `src/kernel/update.c`
+  con `BM_RGB30`: `manifest-rgb30`, `kernel8.img` riconosciuto dall'intestazione arm64 `ARM\x64` a
+  +56), HTTPS e `release.c` nella build; le fibre del Market non ci sono (`stubs.c`: la rete
+  aspetta sul posto). `netxfer.c` scrive `kernel8.img`. Test `test_update_from_sd`.
 
 ## Cartucce `.cart`: rimosse
 
@@ -569,7 +573,9 @@ screenshot in `docs/img/`), `README_OLD.md` (il README completo, in italiano),
 ## Aggiornamenti dal Pi (M19)
 
 - Release firmate (CI sui tag `v*`, `scripts/mkrelease.py`, chiave `keys/release-pub.pem` /
-  `scripts/release-key.sh`, secret `BM_RELEASE_KEY`; `scripts/release.sh vX.Y.Z` fa tutta la
+  `scripts/release-key.sh`, secret `BM_RELEASE_KEY`; la RGB30 ha un manifesto suo,
+  `manifest-rgb30` con `kernel8.img`, nella stessa release, e *System > Updates*;
+  `scripts/release.sh vX.Y.Z` fa tutta la
   procedura da WSL, anche il kernel con la chiave sulla SD prima del tag); sul Pi `src/kernel/update.c`:
   Settings > System > *Check for updates* / *Install the update*, monitor `u`. Niente si
   scrive finché tutti i file non sono scaricati e controllati; i kernel di prima vanno in

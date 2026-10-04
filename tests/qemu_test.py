@@ -3096,8 +3096,10 @@ def test_update(b, opts):
             keys("\r")
             out = q.expect("back to the menu", timeout=30).decode(errors="replace")
             for w in ("latest release: \x1b[1mv9.9.9", "commit abc1234, signed: good",
-                      "this kernel is a build of the sources", "v9.9.9 can be installed"):
+                      "v9.9.9 can be installed"):
                 assert w in out, out
+            # a build of the sources, or later than a tag (git describe): either may update
+            assert "a build of the sources" in out or "newer than this kernel" in out, out
             lines = {l.split()[0]: l for l in out.replace("\r", "").splitlines() if l.startswith("  /")}
             assert lines["/kernel.img"].endswith("changed") and lines["/kernel7.img"].endswith("new"), lines
             assert lines["/carts/snake.bm"].endswith("changed") and lines["/carts/pong.bm"].endswith("same"), lines

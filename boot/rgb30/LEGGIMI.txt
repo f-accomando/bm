@@ -4,7 +4,8 @@ bm per PowKiddy RGB30
 Questa scheda avvia bm sull'RGB30: va nello slot TF1 (quello da cui si avvia
 ROCKNIX). Accendi con il tasto di accensione (non collegando il caricatore).
 
-  kernel8.img       il kernel di bm: per aggiornarlo sostituisci questo file
+  kernel8.img       il kernel di bm: si aggiorna da System > Updates (con il
+                    WiFi), oppure sostituendo questo file
   extlinux/         le istruzioni per U-Boot (non toccare)
   bm/               giochi .s16, impostazioni (config.txt), firmware Bluetooth,
                     bootlog.txt (cosa e' successo all'ultimo avvio)
@@ -20,7 +21,8 @@ WiFi: scrivi in bm/config.txt le righe wifi_ssid=NomeRete e wifi_psk=password
 
 Tasti: B conferma, A torna indietro (confirm=a in bm/config.txt li scambia).
 Menu: tre schede, Games (i giochi), Dev (3D Bench, prove dello schermo e dei
-tasti, boot log) e System (Bluetooth, WiFi, sistema); L1/R1 cambiano scheda.
+tasti, boot log) e System (Bluetooth, WiFi, Updates, sistema); L1/R1 cambiano
+scheda.
 Il 3D Bench salva il rapporto in bm/bench.
 
 Prove: la scheda Games mostra e avvia le cartucce .bm del Pi (c'e' Yharnam;
