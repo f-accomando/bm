@@ -20,7 +20,8 @@ screenshot in `docs/img/`), `README_OLD.md` (il README completo, in italiano),
   pacchetti e fa `make firmware`; poi mostra il branch e un menu: solo il kernel, `make
   install`, o immagine (`make image`, SD cancellata e formattata FAT32 da PowerShell come
   amministratore, i file dell'immagine sopra, impostazioni, salvataggi e giochi suoi
-  rimessi). Alla fine scrive "kernel: vecchio -> nuovo": la versione sta in `kernel.img`
+  rimessi), o kernel dalla rete (`bm_net.py --kernel`) a una console dei profili salvati
+  (nome|IP|codice di 6 cifre|scheda|ultima volta, `PROFILES` nello stesso file). Alla fine scrive "kernel: vecchio -> nuovo": la versione sta in `kernel.img`
   dopo `bmVER=` (`bm_version_tag` in `src/kernel/version.c`).
 - Dev kit (richiesta dell'utente): l'overlay delle prestazioni sopra ogni `.bm` (`perf_frame`
   in `runtime.c`): fps, ms di `_update` + `_draw`, istruzioni Lua del fotogramma

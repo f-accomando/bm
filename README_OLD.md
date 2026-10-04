@@ -368,6 +368,11 @@ branch (e se è indietro rispetto a GitHub) e un menu:
   fino a 31 GB; Windows chiede i permessi di amministratore) con sopra i file dell'immagine;
   impostazioni, salvataggi e giochi tuoi (`bm/`, `carts/`) vengono copiati sul PC
   (`~/.bm/sd-backup`) e rimessi;
+- `4` kernel dalla rete, senza togliere la SD (`tools/bm_net.py --kernel`): sceglie una console
+  salvata o ne aggiunge una (nome, IP e "Console password" di 6 cifre, che Settings > WiFi and
+  network mostra; la scheda: Pi Zero / Zero W / Pi 1 o Pi Zero 2 W); se l'IP o il codice sono
+  cambiati li chiede e aggiorna il profilo; alla fine `kernel (nome): vecchio -> nuovo`. I
+  profili stanno in `.easy_install.conf` (leggibile solo da te); anche `./easy_install.sh net nome`;
 - `b` cambia branch o aggiornalo (`git pull`); `p` cambia cartella o lettera della SD.
 
 Monta la SD (`drvfs`, con `sudo`), fa `sync`, la smonta e la espelle; come ultima riga scrive

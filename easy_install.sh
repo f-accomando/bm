@@ -12,9 +12,12 @@
 #                          formatted (FAT32, the whole card up to 31 GB) with
 #                          the image's files on it; settings, saves and your
 #                          own games are kept, unless you say no
+#   4  kernel by network   to a console on the network, without the card
+#                          (tools/bm_net.py --kernel): a saved profile (name,
+#                          IP, the 6-digit console code, the board) or a new one
 #   b  branch              change it, or bring it up to date (git pull)
 #   p  paths               the repository's folder, the card's drive letter
-# The same as an argument: ./easy_install.sh kernel | install | image.
+# The same as an argument: ./easy_install.sh kernel | install | image | net [profile].
 # sudo is asked for when needed (packages, mounting the card); the card is
 # mounted, synced and unmounted (and ejected) by the script. At the end:
 # the kernel the card had -> the one it has now.
@@ -39,6 +42,7 @@ now()  { date '+%Y-%m-%d %H:%M'; }
 
 # ---------------------------------------------------------------- settings
 REPO='' DRIVE='' CREATED='' ALIAS='' PACKAGES_CHECKED='' FIRMWARE='' FIRMWARE_FETCHED='' LAST_RUN=''
+PROFILES=()                                     # name|IP|code|board|last time
 # shellcheck disable=SC1090
 [ -f "$CONF" ] && . "$CONF"
 # what the build needs (apt), after the file: this list wins over the one saved
@@ -57,7 +61,12 @@ save_conf() {
         printf 'FIRMWARE=%q\n' "$FIRMWARE"           # make firmware: the Pi's boot files, WiFi/BT
         printf 'FIRMWARE_FETCHED=%q\n' "$FIRMWARE_FETCHED"
         printf 'LAST_RUN=%q\n' "$LAST_RUN"
+        printf 'PROFILES=('                         # the consoles on the network: name|IP|code|board|last
+        local p
+        for p in "${PROFILES[@]}"; do printf '\n    %q' "$p"; done
+        printf '\n)\n'
     } > "$CONF"
+    chmod 600 "$CONF"                           # it has the consoles' codes
 }
 
 valid_drive() { [[ $1 =~ ^[A-Za-z]$ ]] && [[ ${1^^} != C ]]; }
@@ -253,6 +262,152 @@ change_paths() {
     save_conf
     ok "saved: repository $REPO, SD card $DRIVE:"
     exec "$SCRIPT"
+}
+
+# ---------------------------------------------------------------- consoles on the network
+# A profile: name|IP|code|board|last. The code is the console's 6 digits
+# (Settings > WiFi and network > Console password, where the IP is too);
+# the board says which kernel it takes.
+BOARDS=(pi zero2)
+board_name() {
+    case $1 in
+        pi) echo "Pi Zero / Zero W / Pi 1 (kernel.img)" ;;
+        zero2) echo "Pi Zero 2 W (kernel7.img)" ;;
+        *) echo "$1" ;;
+    esac
+}
+
+net_version() {                                 # the version a console on the network runs, or nothing
+    python3 -c 'import sys; sys.path.insert(0, "tools"); import bm_net; print(bm_net.console_version(sys.argv[1]) or "")' \
+        "$1" 2>/dev/null || true
+}
+
+profile_field() { local IFS='|'; local f; read -r -a f <<< "$1"; echo "${f[$2]:-}"; }
+
+list_profiles() {
+    local i p
+    for i in "${!PROFILES[@]}"; do
+        p=${PROFILES[$i]}
+        printf '  %d  %-12s %-15s %s\n' $((i + 1)) "$(profile_field "$p" 0)" "$(profile_field "$p" 1)" \
+            "$(board_name "$(profile_field "$p" 3)")"
+        [ -z "$(profile_field "$p" 4)" ] || printf '       last time: %s\n' "$(profile_field "$p" 4)"
+    done
+}
+
+new_profile() {                                 # sets PICK to the new profile's index
+    say "New console"
+    echo "On the console: Settings > WiFi and network shows its IP and the Console password (6 digits)."
+    local name ip code b i
+    while :; do
+        read -r -p "A name for it (e.g. salotto, pi1): " name || die "stopped"
+        [[ $name =~ ^[A-Za-z0-9._-]{1,16}$ ]] || { warn "letters, digits, . _ - (at most 16)"; continue; }
+        for i in "${!PROFILES[@]}"; do
+            [ "$(profile_field "${PROFILES[$i]}" 0)" != "$name" ] || { warn "$name exists already"; name=; break; }
+        done
+        [ -n "$name" ] && break
+    done
+    while :; do
+        read -r -p "Its IP (e.g. 192.168.1.108): " ip || die "stopped"
+        [[ $ip =~ ^[0-9]{1,3}(\.[0-9]{1,3}){3}$ || $ip =~ ^[A-Za-z0-9.-]+$ ]] && break
+        warn "an IP like 192.168.1.108 (or a host name)"
+    done
+    while :; do
+        read -r -p "Its Console password (6 digits): " code || die "stopped"
+        [[ $code =~ ^[0-9]{6}$ ]] && break
+        warn "the 6 digits under Console password"
+    done
+    echo "Which board?"
+    for i in "${!BOARDS[@]}"; do printf '  %d  %s\n' $((i + 1)) "$(board_name "${BOARDS[$i]}")"; done
+    while :; do
+        read -r -p "> " b || die "stopped"
+        [[ $b =~ ^[0-9]+$ ]] && [ "$b" -ge 1 ] && [ "$b" -le ${#BOARDS[@]} ] && break
+        warn "1 to ${#BOARDS[@]}"
+    done
+    local v
+    v=$(net_version "$ip")
+    if [ -n "$v" ]; then ok "$ip answers: bm $v"
+    else warn "$ip does not answer now (is it on, and on the same network as the PC?): saved anyway"; fi
+    PROFILES+=("$name|$ip|$code|${BOARDS[$((b - 1))]}|")
+    PICK=$(( ${#PROFILES[@]} - 1 ))
+    save_conf
+    ok "saved: $name"
+}
+
+pick_profile() {                                # PICK: the profile chosen ($1: a name, if given)
+    PICK=
+    local i c
+    if [ -n "${1:-}" ]; then
+        for i in "${!PROFILES[@]}"; do
+            [ "$(profile_field "${PROFILES[$i]}" 0)" = "$1" ] && PICK=$i
+        done
+        [ -n "$PICK" ] || die "no profile called $1"
+        return
+    fi
+    while [ -z "$PICK" ]; do
+        say "Consoles on the network"
+        if [ ${#PROFILES[@]} -gt 0 ]; then list_profiles; else echo "  (none saved yet)"; fi
+        echo "  n  a new one"
+        [ ${#PROFILES[@]} -eq 0 ] || echo "  d  delete one"
+        read -r -p "Which one to update (Enter: back)? " c || c=
+        case $c in
+            "") return 1 ;;
+            n|N) new_profile ;;
+            d|D)
+                read -r -p "Number to delete: " c || c=
+                if [[ $c =~ ^[0-9]+$ ]] && [ "$c" -ge 1 ] && [ "$c" -le ${#PROFILES[@]} ]; then
+                    ok "deleted: $(profile_field "${PROFILES[$((c - 1))]}" 0)"
+                    unset 'PROFILES[c-1]'
+                    PROFILES=("${PROFILES[@]}")
+                    save_conf
+                fi ;;
+            *)
+                if [[ $c =~ ^[0-9]+$ ]] && [ "$c" -ge 1 ] && [ "$c" -le ${#PROFILES[@]} ]; then
+                    PICK=$((c - 1))
+                else
+                    warn "a number, n or d"
+                fi ;;
+        esac
+    done
+}
+
+job_net() {
+    pick_profile "${1:-}" || return 0
+    local p=${PROFILES[$PICK]} name ip code board file old new out x
+    name=$(profile_field "$p" 0); ip=$(profile_field "$p" 1)
+    code=$(profile_field "$p" 2); board=$(profile_field "$p" 3)
+    up_to_date
+    say "The kernel for $name ($(board_name "$board"), $ip)"
+    case $board in
+        pi) file=build/kernel.img ;;
+        zero2) file=build/kernel7.img ;;
+        *) die "$name: unknown board $board" ;;
+    esac
+    make -j"$(nproc)" "$file"
+    while :; do                                 # the IP may have changed (the router gives it)
+        old=$(net_version "$ip")
+        [ -z "$old" ] || break
+        warn "$name does not answer on $ip: is it on and on the same network? Settings > WiFi and network shows its IP."
+        read -r -p "Its IP now (Enter: stop): " x || x=
+        [ -n "$x" ] || die "stopped"
+        ip=$x
+    done
+    echo "$name runs bm $old"
+    while :; do
+        out=$(python3 tools/bm_net.py "$ip" -p "$code" --kernel "$file" 2>&1 | tee /dev/stderr) || true
+        grep -q "wrong password" <<< "$out" || break
+        read -r -p "Not its code: the Console password now (6 digits, Enter: stop): " x || x=
+        [[ $x =~ ^[0-9]{6}$ ]] || die "stopped"
+        code=$x
+    done
+    PROFILES[PICK]="$name|$ip|$code|$board|$(profile_field "$p" 4)"     # IP and code as they work now
+    save_conf
+    new=$(sed -n 's/.*running bm \([^ ]*\).*/\1/p' <<< "$out" | tail -1)
+    [ -n "$new" ] || die "the kernel did not go, or the console did not come back: see above"
+    PROFILES[PICK]="$name|$ip|$code|$board|$(now) $old -> $new"
+    LAST_RUN="$(now) net $name: $old -> $new"
+    save_conf
+    printf '\n\033[1;92mkernel (%s): %s -> %s\033[0m\n' "$name" "$old" "$new"
+    exit 0
 }
 
 # ---------------------------------------------------------------- the jobs
@@ -451,8 +606,9 @@ case ${1:-} in
     kernel) job_kernel ;;
     install) job_install ;;
     image) job_image ;;
+    net) job_net "${2:-}" ;;
     "") ;;
-    *) die "unknown: $1 (kernel, install, image, or nothing for the menu)" ;;
+    *) die "unknown: $1 (kernel, install, image, net [profile], or nothing for the menu)" ;;
 esac
 
 while :; do
@@ -461,6 +617,7 @@ while :; do
   1  update the kernel   (kernel.img only; the old one stays in bm/backup)
   2  full install        (kernel, boot files, games, bm/: make install)
   3  disk image          (make image, card erased and formatted, the image's files)
+  4  kernel by network   (to a console on the network: saved profiles, or a new one)
   b  branch              (now $BRANCH: change it or update it)
   p  paths               (repository folder, SD card letter)
   q  quit
@@ -470,9 +627,10 @@ MENU
         1) job_kernel ;;
         2) job_install ;;
         3) job_image ;;
+        4) job_net ;;
         b|B) change_branch; BRANCH=$(git rev-parse --abbrev-ref HEAD); echo "  branch      $(branch_line)" ;;
         p|P) change_paths ;;
         q|Q|"") exit 0 ;;
-        *) warn "1, 2, 3, b, p or q" ;;
+        *) warn "1, 2, 3, 4, b, p or q" ;;
     esac
 done
