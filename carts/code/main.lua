@@ -8,6 +8,7 @@
 
 local assist = require "assist"
 local predict = require "predict"
+local pt = require "padtype"
 
 local W, H = SCREEN_W, SCREEN_H
 local key_chip = prompt                  -- the kernel's prompt(): prompt() here is the text dialog
@@ -452,6 +453,55 @@ local function comp_here(t, v)
   return comp and comp.t == t and comp.cy == v.cy and comp.cx == v.cx and comp or nil
 end
 
+-- Typing with the pad (Share, require "padtype"): it edits the tab through
+-- this host, with the words of the place the cursor is in (as the
+-- completion); its text before the cursor starts at a comment's or a
+-- string's mark, as the completion's
+local edit_key
+local pad_host = { now = time }
+function pad_host.before()
+  local t, v = current()
+  local l = t.lines[v.cy]
+  local place, from = place_at(l, v.cx)
+  local before = l:sub(1, v.cx)
+  if from then before = PLACES[place].mark .. before:sub(from) end
+  return before
+end
+function pad_host.insert(s)
+  for ch in s:gmatch(".") do edit_key(ch) end            -- end, else: back to their block
+end
+function pad_host.erase(n)                               -- n characters, over the lines
+  local t, v = current()
+  snapshot(t, v, "bs")
+  while n > 0 do
+    local l = t.lines[v.cy]
+    if v.cx > 0 then
+      local k = math.min(n, v.cx)
+      t.lines[v.cy] = l:sub(1, v.cx - k) .. l:sub(v.cx + 1)
+      v.cx, n = v.cx - k, n - k
+    elseif v.cy > 1 then
+      v.cx = #t.lines[v.cy - 1]
+      t.lines[v.cy - 1] = t.lines[v.cy - 1] .. l
+      table.remove(t.lines, v.cy)
+      v.cy, n = v.cy - 1, n - 1
+    else
+      break
+    end
+  end
+end
+function pad_host.newline() edit_key("\n") end
+function pad_host.move(dir) edit_key(dir) end
+local function pad_place()
+  local t, v = current()
+  local place = place_at(t.lines[v.cy], v.cx)
+  local p = PLACES[place]
+  pad_host.lang = p.lang or (p.prose and WORD_LANGS[words_lang] or "lua")
+  pad_host.prose = p.prose == true or place == "ask"
+  pad_host.words = place == "code" and (code_words.tab == t and code_words.words or tab_words(t)) or nil
+  pad_host.words_weight = p.weight
+  return place
+end
+
 ------------------------------------------------------------------ actions
 
 local function run_game()
@@ -612,13 +662,14 @@ local MENU = {
   { "Split screen", "F4" }, { "Font size", "F10" }, { "Find", "Ctrl+F" },
   { "Replace", "Ctrl+H" }, { "Go to line", "Ctrl+L" }, { "Assistant", "F6" },
   { "Explain the error", "F9" }, { "Word completion", "" }, { "Words in comments", "" },
-  { "Keys", "F12 held" }, { "Exit", "" },
+  { "Pad typing", "" }, { "Keys", "F12 held" }, { "Exit", "" },
 }
 
 local function open_menu()
   for _, m in ipairs(MENU) do                -- the completion's settings, on the right
     if m[1] == "Word completion" then m[2] = complete_on and "on" or "off"
-    elseif m[1] == "Words in comments" then m[2] = WORD_LANGS[words_lang] end
+    elseif m[1] == "Words in comments" then m[2] = WORD_LANGS[words_lang]
+    elseif m[1] == "Pad typing" then m[2] = "Share: " .. (pt.mode() or "off") end
   end
   overlay = { kind = "menu", sel = 1 }
 end
@@ -649,6 +700,9 @@ local function menu_choose(name)
     words_lang = words_lang % #WORD_LANGS + 1
     words_ready = false
     say("words in comments and strings: " .. WORD_LANGS[words_lang], C_ACC)
+  elseif name == "Pad typing" then
+    pt.on(not pt.mode() and "compose" or nil)
+    say(pt.mode() and "pad typing: the cross writes, the overlay shows how (Share: off)" or "pad typing off", C_ACC)
   elseif name == "Keys" then overlay = { kind = "help" }
   elseif name == "Back to bm SDK" then back_to_sdk()
   elseif name == "Exit" then quit_editor() end
@@ -707,7 +761,7 @@ do_command = function(k)
   return true
 end
 
-local function edit_key(k)
+function edit_key(k)
   local t, v = current()
   local l = t.lines[v.cy]
   local moved = true
@@ -925,6 +979,7 @@ end
 function _init()
   keyp()                                 -- typing on
   if keyhelp then keyhelp(KEYHELP, "bm Code") end
+  pt.set({ fallback = "off" })            -- Share: compose, then the pad moves again
   set_font(1)
   load_session()
   local a = cart_arg()
@@ -974,10 +1029,28 @@ function _update()
     comp = nil
     if typed and not overlay then suggest(current()) end
   end
-  if complete_on and not words_ready then
+  if (complete_on or pt.mode()) and not words_ready then
     words_ready = predict.preload({ "lua", WORD_LANGS[words_lang], "ask" })
   end
-  if not assist.is_open() then pad() end
+  if assist.is_open() then
+    pt.idle(pad_host)
+  elseif overlay then
+    pt.idle(pad_host)
+    pad()
+  else
+    pad_place()
+    local was = pt.mode()
+    if pt.update(pad_host) then
+      comp = nil
+      if btnp(8) then open_menu() end      -- Start: the menu (the typing leaves it)
+      if pt.mode() ~= was then
+        say(pt.mode() and ("pad typing: " .. pt.mode() .. "  (Share: " ..
+                           (pt.mode() == "compose" and "off)" or "compose)")) or "pad typing off", C_ACC)
+      end
+    else
+      pad()
+    end
+  end
 end
 
 ------------------------------------------------------------------ drawing
@@ -1090,6 +1163,18 @@ local function draw_pane(p, c0, ncols, r0, nrows)
       end
     end
     if c then paint(v.cx, c.rest, predict.C_GHOST) end
+    -- the pad's typing: the press waiting, the rest of its word, the
+    -- syllable still turning (underlined), what a suggestion wrote
+    if active and i == v.cy and pt.mode() then
+      local at, pd, g = v.cx, pt.pending(), pt.ghost()
+      if pd then paint(at, pd == " " and "_" or pd, pt.C_PEND); at = at + 1 end
+      if g ~= "" then paint(at, g, pt.C_GHOST) end
+      local fl, op = pt.flash(), pt.open_len()
+      if fl > 0 and fl <= v.cx then paint(v.cx - fl, l:sub(v.cx - fl + 1, v.cx), pt.C_PRED) end
+      if op > 0 and op <= v.cx and v.cx - op >= v.left then
+        line(tx + (v.cx - op - v.left) * CW, y + CH - 1, tx + (v.cx - v.left) * CW - 1, y + CH - 1, pt.C_OPEN)
+      end
+    end
     local f = comp_flash
     if f and active and i == v.cy and f.t == t and f.cy == i and f.cx == v.cx then
       paint(v.cx - f.n, l:sub(v.cx - f.n + 1, v.cx), predict.C_PRED)
@@ -1156,6 +1241,10 @@ local function draw_status(t, v)
   rectfill(0, y, W, H - y, C_BAR)
   local right = string.format("ln %d/%d col %d  %s", v.cy, #t.lines, v.cx + 1, FONTS[font_i])
   local left = (t.path or "untitled") .. (t.dirty and " *" or "")
+  if pt.mode() then
+    local lang = pad_host.lang
+    left = left .. "  PAD " .. pt.mode() .. " " .. (type(lang) == "table" and "ask" or tostring(lang))
+  end
   print(left, 0, y, C_TEXT)
   print(right, (COLS - #right) * CW, y, C_DIM)
   if status_t == 0 and entry_request(t.lines[v.cy]) then
@@ -1194,6 +1283,7 @@ local KEYHELP = {
   { "ctrl l", "go to line" },
   { "enter", "on #entry: ... #: the assistant does it" },
   "pad",
+  { "SELECT", "pad typing: on / off" },
   { "DPAD", "move" },
   { "Y DPAD", "pages, tabs" },
   { "X", "the assistant" },
@@ -1212,6 +1302,7 @@ local HELP = {
   "Assistant", "F6 ask (the word under the cursor)", "F9 explain the game's error",
   "#entry: what to do #  then Enter:", "  the assistant does it here", "",
   "Pad", "cross moves, Y+cross pages/tabs", "X assistant, Start menu",
+  "Share: pad typing (docs/PADTYPE.md)",
   "Ctrl+Esc back to bm, F12 held: keys",
 }
 
@@ -1316,6 +1407,8 @@ function _draw()
   cls(C_BG)
   draw_tabs()
   local nrows = ROWS - 2
+  local ow, oh = pt.size()
+  if pt.mode() then nrows = nrows - (oh + 4 + CH - 1) // CH end   -- the pad's overlay below the code
   if split then
     local left = (COLS - 1) // 2
     draw_pane(1, 0, left, 1, nrows)
@@ -1329,6 +1422,10 @@ function _draw()
     draw_pane(1, 0, COLS, 1, nrows)
   end
   local t, v = current()
+  if pt.mode() then
+    pt.draw((W - ow) // 2, (nrows + 1) * CH + 2)
+    font(FONTS[font_i])
+  end
   draw_status(t, v)
   if overlay then draw_overlay() end
   assist.draw()

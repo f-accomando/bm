@@ -18,7 +18,8 @@
 --   local pt = require "padtype"
 --   pt.set{ delay = 0.25, fallback = "keyboard" }   -- or "off"
 --   pt.on("compose"), pt.on(nil), pt.mode()
---   pt.update(host, [bits])   each frame: reads pad() and edits the host:
+--   pt.update(host, [bits])   each frame: reads pad() and edits the host
+--                             (pt.idle(host) the frames the host keeps it):
 --     host.before()           the text before the cursor, on its line
 --     host.insert(s), host.erase(n), host.newline(), host.move(dir)
 --     host.lang               "it", "en", "lua", "ask", a mix like
@@ -92,7 +93,7 @@ local KB = {
   { "1234567890", "qwertyuiop", "asdfghjkl'", "zxcvbnm,.?" },
   { "!\"#$%&/()=", "+-*<>[]{}_", "\133\138\130\141\149\151;:@\\", "|^~`\174\175\248\156\241\225" },
 }
-local KB_SPECIAL = { "shift", "shift", "page", "space", "space", "space", "space", "del", "del", "enter" }
+local KB_SPECIAL = { "shift", "shift", "page", "space", "space", "space", "del", "del", "enter", "enter" }
 P.KB = KB
 
 -- where each character is: { hold = triggers, tap = button, double }
@@ -770,6 +771,15 @@ function P.update(host, bits)
   end
   if st.dirty then refresh(host) end
   return true
+end
+
+-- The host has the pad this frame (a menu over the text): the press
+-- waiting goes, and the buttons held now are not pressed again later.
+function P.idle(host, bits)
+  if st.pend and host then commit(host) end
+  st.prev = bits or (pad and pad()) or 0
+  local d = st.prev & DIRS
+  st.nav, st.hold_b, st.dir_down = {}, nil, ONE_DIR[d] and d or nil
 end
 
 -- what the host shows around the cursor

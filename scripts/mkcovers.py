@@ -297,8 +297,29 @@ def nano8():
     return c
 
 
+def typing():
+    c = Canvas()
+    c.vgradient(0, H, 0x0E1220, 0x1A2238)
+    # a cross with its four consonants, the buttons with their colours
+    cx, cy = 30, 52
+    c.rect(cx - 6, cy - 20, 12, 40, 0x0A0D14)
+    c.rect(cx - 20, cy - 6, 40, 12, 0x0A0D14)
+    for (dx, dy, ch) in ((0, -15, "t"), (15, 0, "n"), (0, 15, "r"), (-15, 0, "s")):
+        c.rect(cx + dx - 6, cy + dy - 7, 12, 14, 0x2A3550)
+        c.text(ch, cx + dx - 4, cy + dy - 8, 0xFFFFFF)
+    fx = 98
+    for (dx, dy, col) in ((0, -13, 0x5EE0A0), (13, 0, 0xFF6E6E), (0, 13, 0x7AA8FF), (-13, 0, 0xF08CD8)):
+        c.circle(fx + dx, cy + dy, 5, col)
+    # the text being written: a syllable turning, the rest of the word
+    c.text("ciao", 46, 24, 0xFFFFFF)
+    c.rect(46, 40, 32, 1, 0x8FD0FF)
+    c.rect(79, 25, 2, 14, 0xFFC050)
+    c.ctext("TYPE", 2, 0xFFC050, scale=2, outline=0x000000)
+    return c
+
+
 COVERS = (("pong", pong), ("snake", snake), ("shooter", shooter), ("astrowing", astrowing),
-          ("hunt", hunt), ("editor", editor), ("sound", sound), ("nano8", nano8))
+          ("hunt", hunt), ("editor", editor), ("sound", sound), ("nano8", nano8), ("typing", typing))
 
 
 def main():

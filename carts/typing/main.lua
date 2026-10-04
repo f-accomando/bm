@@ -237,12 +237,14 @@ local function panel(x, y, w, h)
   rect(x, y, w, h, C.edge)
 end
 
+-- the texts on the font's grid (x a multiple of 8, y of 16): the tests
+-- in QEMU read the screen
 local function header(sub)
-  rectfill(0, 0, W, 22, C.panel)
-  line(0, 22, W, 22, C.edge)
+  rectfill(0, 0, W, 18, C.panel)
+  line(0, 18, W, 18, C.edge)
   font("8x16")
-  local x = print("Pad Typing", 8, 3, C.acc)
-  print(sub, x + 12, 3, C.dim)
+  local x = print("Pad Typing", 8, 0, C.acc)
+  print(sub, x + 16, 0, C.dim)
 end
 
 -- the next press, as the pad's buttons
@@ -300,7 +302,7 @@ local function draw_target(x0, y0, cols, lh, maxl)
   local cx, cy = place(lines, cur, x0, y0, lh)
   if open > 0 then
     local ox = place(lines, cur - open, x0, y0, lh)
-    line(ox, cy + 16, cx - 1, cy + 16, pt.C_OPEN)
+    line(ox, cy + 15, cx - 1, cy + 15, pt.C_OPEN)
   end
   local p = pt.pending()
   local gx = cx
@@ -339,7 +341,7 @@ local function draw_free(x0, y0, cols, lh, maxl)
   end
   if open > 0 then
     local ox = place(lines, cur - open, x0, y0, lh)
-    if ox < cx then line(ox, cy + 16, cx - 1, cy + 16, pt.C_OPEN) end
+    if ox < cx then line(ox, cy + 15, cx - 1, cy + 15, pt.C_OPEN) end
   end
   local gx = cx
   local p = pt.pending()
@@ -350,29 +352,24 @@ local function draw_free(x0, y0, cols, lh, maxl)
 end
 
 local function draw_side(y)
-  font("6x12")
-  local mode = pt.mode() or "-"
   panel(4, y, 140, 132)
-  print("mode", 10, y + 6, C.dim)
-  font("8x16")
-  print(mode, 10, y + 18, C.acc)
-  font("6x12")
+  local function value(label, v, row, c)
+    font("6x12")
+    print(label, 16, y + 2 + row * 32, C.dim)
+    font("8x16")
+    print(v, 16, y + 14 + row * 32, c or C.text)
+  end
+  value("mode", pt.mode() or "-", 0, C.acc)
   if state == "practice" then
     local secs = run.t0 and time() - run.t0 or 0
     local n = progress()
     local cpm = secs > 0.5 and n * 60 / secs or 0
-    print("time", 10, y + 42, C.dim)
-    print("chars a minute", 10, y + 70, C.dim)
-    print("presses", 10, y + 98, C.dim)
-    font("8x16")
-    print(fmt_time(secs), 10, y + 52, C.text)
-    print(tostring(math.floor(cpm + 0.5)), 10, y + 80, C.text)
     local pr = pt.presses()
-    print(pr .. (n > 0 and string.format("  %.2f", pr / n) or ""), 10, y + 108, C.text)
+    value("time", fmt_time(secs), 1)
+    value("chars a minute", tostring(math.floor(cpm + 0.5)), 2)
+    value("presses", pr .. (n > 0 and string.format("  %.2f", pr / n) or ""), 3)
   else
-    print("presses", 10, y + 42, C.dim)
-    font("8x16")
-    print(tostring(pt.presses()), 10, y + 52, C.text)
+    value("presses", tostring(pt.presses()), 1)
   end
   font("6x12")
   panel(W - 144, y, 140, 132)
@@ -382,12 +379,22 @@ local function draw_side(y)
     print(what, x, hy, C.dim)
     hy = hy + 16
   end
-  help("SELECT", pt.mode() == "keyboard" and "compose" or "keyboard")
-  help("START", "pause")
-  help("A", "space, x2: .")
-  help("B", "erase")
-  help("L1", "back")
-  help("R1", "forward")
+  if pt.mode() == "keyboard" then
+    help("SELECT", "compose")
+    help("START", "pause")
+    help("A", "the key")
+    help("X", "space")
+    help("Y", "symbols")
+    help("B", "erase")
+    help("L2", "capital")
+  else
+    help("SELECT", "keyboard")
+    help("START", "pause")
+    help("A", "space, x2: .")
+    help("B", "erase")
+    help("L1", "back")
+    help("R1", "forward")
+  end
   local x = prompt("L1", W - 138, hy, true)
   x = prompt("R1", x + 2, hy, true)
   print("hold: enter", x + 4, hy, C.dim)
@@ -396,29 +403,28 @@ end
 local function draw_menu()
   header("write with the controller")
   font("8x16")
-  print("Choose, then Start.", 40, 40, C.dim)
-  local y = 70
+  print("Choose, then Start.", 48, 32, C.dim)
+  local y = 64
   for i, item in ipairs(MENU) do
     local on = i == sel
-    if on then rectfill(32, y - 3, 400, 22, C.sel) end
+    if on then rectfill(40, y - 4, 392, 24, C.sel) end
     local label = ({ lang = "Language", mode = "Start with", delay = "Double press within",
                      text = "Text", hints = "Next press shown", start = "Start" })[item]
-    print(label, 44, y, on and C.acc or C.text)
+    print(label, 48, y, on and C.acc or C.text)
     if item ~= "start" then
       local v = menu_value(item)
-      print("< " .. v .. " >", 260, y, on and C.text or C.dim)
+      print("< " .. v .. " >", 264, y, on and C.text or C.dim)
     end
-    y = y + 26
+    y = y + 32
   end
   -- the best of each language
   font("6x12")
-  y = y + 8
-  print("best", 44, y, C.dim)
+  print("best", 48, y, C.dim)
   for i, l in ipairs(LANGS) do
     local b = best[l.id]
     local s = b and string.format("%-9s %4d chars a minute   %.2f presses a character", l.name,
                                    math.floor(b.cpm + 0.5), b.ppc) or (l.name .. "  -")
-    print(s, 44, y + 14 * i, C.text)
+    print(s, 48, y + 14 * i, C.text)
   end
   -- how compose works, in short
   local hx, hy = 450, 66
@@ -431,19 +437,19 @@ local function draw_menu()
     "A space, twice a stop", "B erase   L1 R1 move", "L1+R1 held: new line",
   }
   for i, r in ipairs(rows) do print(r, hx, hy + i * 13, C.dim) end
-  if not words_ready then print("reading the words...", 44, H - 20, C.dim) end
+  if not words_ready then print("reading the words...", 48, H - 20, C.dim) end
 end
 
 local function draw_writing()
   local sub = LANGS[cfg.lang].name .. "  -  " .. (target and ("text " .. cfg.text) or "free writing")
   header(sub)
   if target then
-    panel(8, 28, W - 16, 150)
-    draw_target(18, 36, 76, 20, 7)
-    draw_hint(18, 186)
+    panel(8, 24, W - 16, 128)
+    draw_target(16, 32, 76, 16, 7)
+    draw_hint(16, 160)
   else
-    panel(8, 28, W - 16, 176)
-    draw_free(18, 36, 76, 20, 8)
+    panel(8, 24, W - 16, 192)
+    draw_free(16, 32, 76, 16, 11)
   end
   local ow, oh = pt.size()
   local ox, oy = (W - ow) // 2, H - oh - 2
@@ -453,12 +459,12 @@ end
 
 local function draw_pause()
   draw_writing()
-  panel(220, 90, 200, 24 + #PAUSE * 22)
+  panel(216, 80, 208, 48 + #PAUSE * 32)
   font("8x16")
-  print("Pause", 236, 96, C.acc)
+  print("Pause", 232, 96, C.acc)
   for i, p in ipairs(PAUSE) do
-    local y = 98 + i * 22
-    if i == psel then rectfill(228, y - 3, 184, 20, C.sel) end
+    local y = 96 + i * 32
+    if i == psel then rectfill(224, y - 4, 192, 24, C.sel) end
     print(p, 240, y, i == psel and C.acc or C.text)
   end
 end
@@ -467,7 +473,7 @@ local function draw_result()
   header(LANGS[cfg.lang].name .. "  -  text " .. cfg.text .. " done")
   local r = result
   font("8x16")
-  print("Done!", 60, 50, C.good, 2)
+  print("Done!", 64, 48, C.good, 2)
   local rows = {
     { "time", fmt_time(r.secs) },
     { "characters a minute", tostring(math.floor(r.cpm + 0.5)), r.best_cpm },
@@ -476,13 +482,13 @@ local function draw_result()
     { "erased (circle)", tostring(r.erased) },
   }
   for i, row in ipairs(rows) do
-    local y = 100 + i * 26
-    print(row[1], 60, y, C.dim)
-    print(row[2], 300, y, C.text)
-    if row[3] then print("best!", 380, y, C.acc) end
+    local y = 80 + i * 32
+    print(row[1], 64, y, C.dim)
+    print(row[2], 304, y, C.text)
+    if row[3] then print("best!", 384, y, C.acc) end
   end
-  local y = 300
-  local x = prompt("A", 60, y) + 6
+  local y = 304
+  local x = prompt("A", 64, y) + 6
   x = print("next text", x, y, C.text) + 24
   x = prompt("Y", x, y) + 6
   x = print("again", x, y, C.text) + 24
