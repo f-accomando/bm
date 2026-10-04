@@ -742,4 +742,6 @@ screenshot in `docs/img/`), `README_OLD.md` (il README completo, in italiano),
   intero (non per i singoli passi): una lista puntata (niente tabelle, niente icone),
   una descrizione breve e lo stato di ciascuna. Le milestone chiuse non vanno nella lista
   (decisione dell'utente, 2026-10-04), tranne quelle chiuse nell'ultima sessione, barrate
-  (`~~M12 — ...~~`).
+  (`~~M12 — ...~~`). Dopo la lista, a parte, una riga **In corso** con le sole milestone su
+  cui si sta lavorando (quelle "in corso" in `docs/ROADMAP.md` o toccate nelle ultime
+  sessioni), per distinguerle da quelle aperte ma ferme o ancora da fare.
