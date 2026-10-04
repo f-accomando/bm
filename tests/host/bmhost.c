@@ -31,7 +31,8 @@
  *     40 source ds4         what lastinput() says: keyboard, ds4, pad
  *     40 device 2 ds4       what player 2 plays with (controller()): keyboard,
  *                           ds4, xbox, pad, builtin, none
- *     900 quit              leave the cartridge
+ *     900 quit              leave the cartridge (Start+Select)
+ *     900 ps                the PS button (Ctrl+Esc): online() asks first
  */
 #include <stdio.h>
 #include <stdlib.h>
@@ -206,7 +207,9 @@ static void events(long f)
                                 : !strcmp(kind, "builtin") ? INPUT_DEV_PAD | INPUT_DEV_BUILTIN
                                 : !strcmp(kind, "pad") ? INPUT_DEV_PAD : INPUT_DEV_NONE;
         } else if (!strcmp(cmd, "quit")) {
-            host.quit_now = 1;
+            host.quit_now = HID_QUIT_KEY;   /* Start+Select */
+        } else if (!strcmp(cmd, "ps")) {
+            host.quit_now = HID_QUIT_PS;    /* PS, Ctrl+Esc */
         }
     }
 }

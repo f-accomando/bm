@@ -1,0 +1,16 @@
+# tests/online/cart.lua: PS asks, B stays, Esc stays, PS again leaves
+0 source ds4
+30 ps
+40 pad 1 left
+55 pad 1 none
+60 shot asked
+70 pad 1 b
+80 pad 1 none
+90 pad 1 left
+100 pad 1 none
+120 ps
+130 keys 0x29
+135 keys none
+150 ps
+165 pad 1 left
+175 ps

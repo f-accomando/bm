@@ -203,7 +203,7 @@ def main():
         guest = f"""30 keys {keys('DOWN')}\n32 keys none\n40 keys {keys('SPACE')}\n42 keys none
 300 keys {keys('DOWN')}\n302 keys none\n305 keys {keys('DOWN')}\n307 keys none\n310 keys {keys('DOWN')}
 312 keys none\n320 keys {keys('SPACE')}\n322 keys none\n600 keys {keys('SPACE')}\n602 keys none
-640 keys {keys('W', 'D')}\n1300 keys none\n"""
+640 keys {keys('W', 'D')}\n1300 keys none\n1500 ps\n1520 keys {keys('SPACE')}\n1522 keys none\n"""
         procs = []
         for k, sc in enumerate((host, guest)):
             path = os.path.join(build, "overbit", f"test-{name}-{k}.txt")
@@ -224,6 +224,13 @@ def main():
         same = [e.replace(" You", " @6").replace(" P1", " You").replace(" @6", " P6") for e in ev[1]]
         n = min(len(ev[0]), len(same))
         check(n > 10 and ev[0][:n - 2] == same[:n - 2], f"{name}: the same match on both ({n} events)", both)
+        # the guest leaves with PS (online(): the question, Space says yes):
+        # it tells the host, whose bot takes the seat at once (not after 3 s)
+        check("bm: leave the online game?" in logs[1] and "bm: left the online game" in logs[1]
+              and "overbit net: left with PS" in logs[1], f"{name}: PS asks the guest, yes leaves", both)
+        check("overbit net seat 6 left" in logs[0] and "seat 6 gone" not in logs[0],
+              f"{name}: the host hears the guest leave", both)
+        check("bm: leave the online game?" not in logs[0], f"{name}: only the player leaving is asked", both)
 
     net_pair(os.path.join(build, "overbit", "net-test.bm"), 33, "net-lan")
     relay = subprocess.Popen([sys.executable, os.path.join(ROOT, "tools", "overbit_relay.py"), "--port", "47390",

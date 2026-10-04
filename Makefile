@@ -440,6 +440,19 @@ test-keymap: $(BUILD)/host/bmhost-bin $(BUILD)/keymap-test.bm tests/keymap/input
 	$< $(BUILD)/keymap-test.bm --input tests/keymap/input.txt --seconds 8 2>&1 | tee $(BUILD)/keymap-test.log | grep "^keymap"
 	grep -q "^keymap: \([0-9]*\)/\1 checks passed" $(BUILD)/keymap-test.log
 
+# PS in a game played online (online(), 2026-10-04): the question to the
+# player leaving over the game that goes on, back and Esc stay, PS again
+# leaves through _leave(); the screen of the question in build/online/
+$(BUILD)/online-test.bm: tests/online/cart.lua scripts/mkbm.py
+	$(PYTHON) scripts/mkbm.py -o $@ --lua $< --title "online test"
+
+test-online: $(BUILD)/host/bmhost-bin $(BUILD)/online-test.bm tests/online/input.txt
+	@mkdir -p $(BUILD)/online
+	$< $(BUILD)/online-test.bm --input tests/online/input.txt --shots $(BUILD)/online \
+	    --seconds 8 2>&1 | tee $(BUILD)/online-test.log | grep "^online"
+	grep -q "^online: \([0-9]*\)/\1 checks passed" $(BUILD)/online-test.log
+	grep -q "left the online game" $(BUILD)/online-test.log
+
 test-sound: $(BUILD)/host/luahost $(BUILD)/demo.bmau carts/sound/main.lua
 	$< tests/sound/sim.lua carts/sound/main.lua $(BUILD)/demo.bmau
 
@@ -513,7 +526,7 @@ test-queue2d: $(BUILD)/host/bmhost-gpu
 	$(PYTHON) tests/gpu/queue2d.py $(BUILD)
 
 .DEFAULT_GOAL := all
-.PHONY: FORCE test-keymap test-smp test-qpu test-gpu3d test-queue2d test-b3d test-v3d bench3d count-insns all clean firmware image \
+.PHONY: FORCE test-keymap test-online test-smp test-qpu test-gpu3d test-queue2d test-b3d test-v3d bench3d count-insns all clean firmware image \
         image-pi1 sdcard install sdcard-chainloader sdcard-stress qemu qemu7 qemu-screenshot \
         run-serial test test-bm test-res test-ai test-img2mesh ai-model test-predict predict-bench syllables test-usb test-audio \
         test-fat test-kitchen test-titan test-yharnam test-sound test-nano8 test-net test-http test-https test-release \
@@ -698,7 +711,7 @@ qemu-screenshot: $(BUILD)/kernel.img
 	./scripts/qemu-screenshot.sh $< $(BUILD)/screen.png
 
 test: all test-bm test-res test-usb test-fat test-audio test-kitchen test-titan test-yharnam test-sound test-nano8 test-net test-http test-https test-img3d \
-      test-catalog test-github test-lan test-keymap \
+      test-catalog test-github test-lan test-keymap test-online \
       test-release test-smp test-qpu test-gpu3d test-queue2d test-b3d test-v3d test-ai test-predict test-studio test-prompts \
       test-overbit $(if $(K7),test-hyp)
 	$(PYTHON) tests/qemu_test.py --build $(BUILD)

@@ -284,8 +284,16 @@ screenshot in `docs/img/`), `README_OLD.md` (il README completo, in italiano),
   `input_ok_bit()` in `bm_input.c`), `keymap()` per le azioni del gioco, `controller(p)` per il
   dispositivo e il layout di ogni giocatore (`input_device()` con `INPUT_DEV_DS4`, `_XBOX`,
   `_BUILTIN`), `prompt(..., giocatore)` con le icone del suo controller. PS (Ctrl+Esc) esce al
-  menu di bm con il gioco sospeso; per il gioco in rete (lockstep) è da decidere con l'utente.
-  Prova: `make test-keymap` (bmhost, `tests/keymap/`; il comando `device` dello script).
+  menu di bm con il gioco sospeso. Prova: `make test-keymap` (bmhost, `tests/keymap/`; il
+  comando `device` dello script).
+- **PS in una partita in rete** (decisione dell'utente, 2026-10-04): niente sospensione. Il
+  gioco dice `online(true[, nota])`; PS chiede solo al giocatore che esce, sulla sua console,
+  "Leave the match?" (uscirà dal gioco e si disconnetterà dal server), sopra il gioco che va
+  avanti senza vedere i suoi tasti (`leave_step`/`leave_draw` in `runtime.c`); sì chiama
+  `_leave()` e chiude la cartuccia, indietro resta. Overbit: `Net.begin`/`Net.close`, il Q
+  porta il posto (l'host lo dà subito a un bot) e se viene dall'host. Prove: `make
+  test-online` (bmhost, comando `ps` dello script, screenshot in `build/online/`), le partite
+  in rete di `make test-overbit` (l'ospite esce con PS).
 
 ## Overbit (M38)
 

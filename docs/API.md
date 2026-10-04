@@ -65,7 +65,10 @@ logica. Esempi completi in `carts/`: `pong/`, `snake/`, `shooter/` (solo codice)
 Ctrl+Esc (tastiera), PS o Start+Select (gamepad) tornano al menu di bm lasciando il gioco
 **sospeso** (fermo in memoria: A sulla sua copertina lo riprende da dove era; se la cartuccia ha
 `_exit()`, prima chiedono a lei); Esc da solo, in un gioco, è Start (il
-suo menu). Dalla seriale Ctrl+\ fa Ctrl+Esc e `q` chiude senza chiedere. I tasti di sistema
+suo menu). In una **partita in rete** (`online(true)`) il gioco non si sospende: al giocatore
+che esce, solo sulla sua console, il sistema chiede "Leave the match?" (uscirà dal gioco e si
+disconnetterà dal server); sì chiama `_leave()` e chiude il gioco, indietro resta.
+Dalla seriale Ctrl+\ fa Ctrl+Esc e `q` chiude senza chiedere. I tasti di sistema
 (una sola tabella, `src/kernel/syskeys.c`) e quelli della cartuccia si vedono tenendo F12.
 Se c'è un errore Lua, la cartuccia si ferma e l'errore, con la riga, appare sulla console.
 
@@ -77,6 +80,7 @@ Se c'è un errore Lua, la cartuccia si ferma e l'errore, con la riga, appare sul
 | `_update()` | ogni fotogramma (60 Hz), prima di `_draw` |
 | `_draw()` | ogni fotogramma, dopo `_update` |
 | `_exit()` | (facoltativa) Ctrl+Esc, PS o Start+Select: `true` chiude adesso; `false` resta (la cartuccia chiede, per esempio "modifiche non salvate: Ctrl+Esc di nuovo esce", e chiude dopo con `quit()` o al secondo Ctrl+Esc) |
+| `_leave()` | (facoltativa) in una partita in rete (`online(true)`), quando il giocatore conferma l'uscita: il gioco lo dice al server (o all'host), poi la cartuccia si chiude senza sospendersi |
 
 Globali: `SCREEN_W` e `SCREEN_H` (640 e 360; 480 e 270 con `--res 480x270`; 320 e 180 con
 `--res 320x180`; 256 e 256 con `--res 256x256`). La cartuccia può cambiare risoluzione
@@ -146,6 +150,7 @@ della mappa; ogni numero è una cella dello sheet).
 | `btnp(i, [p])` | `true` solo nel fotogramma in cui viene premuto (stesso `p`, anche con un nome) |
 | `keymap(t)` | le **azioni** del gioco sui pulsanti: `keymap({ salta = "a", spara = {"x", "r1"}, pausa = "start", conferma = "ok" })` (fino a 32 azioni, 4 pulsanti ciascuna); poi `btn("salta", p)`, `btnp("spara")` e `prompt("salta", x, y)`. Il gioco cambia i tasti chiamandola di nuovo (il suo menu delle opzioni; li tiene con `save()`); `keymap()` restituisce la tabella, `keymap(nil)` la toglie. Un pulsante sconosciuto o un'azione col nome di un pulsante è un errore |
 | `controller([p])` | con che cosa gioca il giocatore `p` (1–4, il primo se manca): `{kind = "keyboard" / "ds4" / "xbox" / "pad" / "builtin" / "none", layout = "keyboard" / "ds4" / "xbox" / "nintendo" / "none", bluetooth = bool, ok = "a" / "b", back = "b" / "a"}`: `layout` dice come si chiamano i tasti (simboli del DS4; lettere con A in basso come Xbox; A a destra come la RGB30), `ok` e `back` quali pulsanti del gioco sono il sì e l'indietro |
+| `online([on, nota])` | la partita si gioca in **rete** (2026-10-04): con `online(true)` PS, Ctrl+Esc e Start+Select non sospendono il gioco (gli altri continuano a giocare) ma chiedono al giocatore che esce, solo sulla sua console, "Leave the match?" (uscirà dal gioco e si disconnetterà dal server), sopra il gioco che va avanti. Finché la domanda è aperta il gioco non vede né pulsanti né levette né tasti; ok (croce sul DS4, Invio o Spazio sulla tastiera) o PS di nuovo escono: `_leave()` e la cartuccia si chiude; indietro (cerchio, Esc) resta, e i pulsanti ancora premuti tornano al gioco solo dopo essere stati lasciati. `nota`: una riga sotto la domanda (es. `"You are the host: the match ends for all."`). `online(false)` alla fine della partita; `online()` restituisce se era in rete e se la domanda è aperta (il giocatore è via) |
 | `players()` | quanti giocatori hanno un controller (almeno 1) e, come secondo valore, quali: bit `n` = giocatore `n+1` (es. `3, 7` = giocatori 1, 2 e 3) |
 | `stick([p, n])` | la levetta sinistra del giocatore `p`: `x, y` tra −1 e 1 (x verso destra, y verso il basso), con zona morta; con la tastiera o un pad senza levetta vale la croce (8 direzioni). Con `n = 1` la levetta **destra** (per mirare negli sparatutto; `0, 0` senza levetta). Senza `p`: quella spinta di più |
 

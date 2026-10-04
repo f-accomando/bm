@@ -125,6 +125,15 @@ static struct {
     int want_w, want_h;         /* screen(w, h): the resolution from the next frame */
     int cls_pending;            /* a cls() left to the GPU's next job (cls_settle) */
     uint16_t cls_colour;
+    int online;                 /* online(true): played over the network, PS asks first */
+    char online_note[64];       /* online()'s line under the question */
+    int leave_ask;              /* "Leave the match?" is open (leave_step) */
+    int leave_no;               /* Esc: its answer no */
+    int online_left;            /* yes: the game ends (not suspended) */
+    uint32_t leave_pad;         /* its buttons and keys last frame (for the presses) */
+    uint8_t leave_keys;
+    uint32_t leave_held;        /* the buttons it took: the game gets them back released */
+    uint32_t raw_all;           /* this frame's HID bits, all players and the serial line */
 } rt;
 
 #define MESH_MT "bm.mesh"
@@ -1055,7 +1064,9 @@ static int l_stick(lua_State *L)
 {
     float x = 0, y = 0;
     const int right = (int)luaL_optinteger(L, 2, 0) == 1;
-    if (lua_isnoneornil(L, 1)) {
+    if (rt.leave_ask) {
+        /* the leave question is open (online()): none of the controls */
+    } else if (lua_isnoneornil(L, 1)) {
         float best = -1;
         for (int p = 0; p < INPUT_PLAYERS; p++) {
             float px, py;
@@ -2822,7 +2833,7 @@ static int l_keyp(lua_State *L)
         rt.text_mode = 1;
         hid_text_mode(1);
     }
-    if (rt.tq_tail == rt.tq_head) {
+    if (rt.tq_tail == rt.tq_head || rt.leave_ask) {
         lua_pushnil(L);
         return 1;
     }
@@ -2928,7 +2939,7 @@ static int l_rawkeys(lua_State *L)
 static int l_keydown(lua_State *L)
 {
     lua_Integer u = luaL_checkinteger(L, 1);
-    lua_pushboolean(L, u > 0 && u < 256 && hid_usage_held((uint8_t)u));
+    lua_pushboolean(L, u > 0 && u < 256 && !rt.leave_ask && hid_usage_held((uint8_t)u));
     return 1;
 }
 
@@ -2936,7 +2947,7 @@ static int l_keydown(lua_State *L)
 static int l_keys(lua_State *L)
 {
     uint8_t u[16];
-    int n = hid_keys_held(u, 16);
+    int n = rt.leave_ask ? 0 : hid_keys_held(u, 16);
     lua_createtable(L, n, 0);
     for (int i = 0; i < n; i++) {
         lua_pushinteger(L, u[i]);
@@ -2970,8 +2981,8 @@ static int l_mouse(lua_State *L)
     }
     lua_pushinteger(L, rt.ptr.x);
     lua_pushinteger(L, rt.ptr.y);
-    lua_pushinteger(L, rt.ptr.buttons);
-    lua_pushinteger(L, rt.ptr.wheel);
+    lua_pushinteger(L, rt.leave_ask ? 0 : rt.ptr.buttons);
+    lua_pushinteger(L, rt.leave_ask ? 0 : rt.ptr.wheel);
     lua_pushboolean(L, rt.ptr.shown);
     return 5;
 }
@@ -2981,7 +2992,7 @@ static int l_mouse(lua_State *L)
 static int l_mousep(lua_State *L)
 {
     lua_Integer i = luaL_optinteger(L, 1, 0);
-    lua_pushboolean(L, rt.mouse && i >= 0 && i < 3 && (rt.ptr.pressed >> i & 1));
+    lua_pushboolean(L, rt.mouse && !rt.leave_ask && i >= 0 && i < 3 && (rt.ptr.pressed >> i & 1));
     return 1;
 }
 
@@ -3129,6 +3140,28 @@ static int l_dark_begin(lua_State *L)
     return 0;
 }
 
+/* online([on [, note]]): the game is played over the network. PS, Ctrl+Esc
+ * and Start+Select do not suspend it (the others play on) but ask the
+ * player leaving, on this console only, "Leave the match?" over the game
+ * (which sees none of the buttons while it is open): yes calls the
+ * cartridge's _leave() (it tells the server) and ends the game, back
+ * stays. note: a line under the question ("You are the host: the match
+ * ends for everyone."). Returns whether it was online and whether the
+ * question is open (the player may be away). */
+static int l_online(lua_State *L)
+{
+    const int was = rt.online;
+    if (!lua_isnone(L, 1)) {
+        rt.online = lua_toboolean(L, 1);
+        ksnprintf(rt.online_note, sizeof rt.online_note, "%s", rt.online ? luaL_optstring(L, 2, "") : "");
+        if (!rt.online)
+            rt.leave_ask = 0;                   /* (the buttons it took come back released) */
+    }
+    lua_pushboolean(L, was);
+    lua_pushboolean(L, rt.leave_ask);
+    return 2;
+}
+
 /* glow(x, y, radius, level [, dither 0..1]) - world coordinates (camera) */
 static int l_glow(lua_State *L)
 {
@@ -3177,7 +3210,7 @@ static const luaL_Reg api[] = {
     { "world_move", l_world_move }, { "world_floor", l_world_floor },
     { "fog3d", l_fog3d }, { "project3d", l_project3d }, { "lamp3d", l_lamp3d },
     { "zclear", l_zclear }, { "gpu3d", l_gpu3d }, { "screen", l_screen }, { "log", l_log }, { "report", l_report }, { "keyhelp", l_keyhelp }, { "quit", l_quit },
-    { "keymap", l_keymap }, { "controller", l_controller },
+    { "keymap", l_keymap }, { "controller", l_controller }, { "online", l_online },
     { "udp_open", l_udp_open }, { "udp_send", l_udp_send }, { "udp_recv", l_udp_recv }, { "udp_close", l_udp_close },
     { "net_ip", l_net_ip }, { "net_resolve", l_net_resolve },
     { "save", l_save }, { "saved", l_saved },
@@ -3439,7 +3472,9 @@ static int poll_keys(void)
     /* a lone Esc, not the start of a sequence: after 6 frames of nothing;
      * in a game it is Start, its menu (the system's keys) */
     if (rt.esc == 1 && ++rt.esc_wait >= 6) {
-        if (rt.text_mode)
+        if (rt.leave_ask)
+            rt.leave_no = 1;                /* the question's no */
+        else if (rt.text_mode)
             text_push(0x1B);
         else
             rt.hold[BTN_START] = HOLD_FRAMES;
@@ -3451,15 +3486,18 @@ static int poll_keys(void)
     uint32_t per[INPUT_PLAYERS];
     uint32_t pad = input_players(per, rt.text_mode || rt.raw_keys, &quit, &rt.local);
     if (quit & HID_QUIT_ESC) {              /* Esc in a game: Start, its menu */
-        rt.hold[BTN_START] = HOLD_FRAMES;
+        if (rt.leave_ask)
+            rt.leave_no = 1;
+        else
+            rt.hold[BTN_START] = HOLD_FRAMES;
         quit &= ~HID_QUIT_ESC;
     }
     if (rt.text_mode)
         for (int k; (k = hid_getc()) >= 0;) {
             /* the system's: F11 and F12 never reach the cartridge; while F12
              * is held the arrows turn the pages of its keys */
-            if (k == HID_KEY_F6 + 5 || k == HID_KEY_F6 + 6)
-                continue;
+            if (k == HID_KEY_F6 + 5 || k == HID_KEY_F6 + 6 || rt.leave_ask)
+                continue;                   /* (and the keys of the leave question) */
             if (hid_usage_held(0x45) && (k == HID_KEY_DOWN || k == HID_KEY_UP || k == HID_KEY_PGDN ||
                                          k == HID_KEY_PGUP || k == HID_KEY_RIGHT || k == HID_KEY_LEFT)) {
                 rt.help_page += k == HID_KEY_DOWN || k == HID_KEY_PGDN || k == HID_KEY_RIGHT ? 1 : -1;
@@ -3476,6 +3514,7 @@ static int poll_keys(void)
         }
     rt.ptr = *pointer_update();             /* also when unused: the motion is dropped */
     rt.prev = rt.now;
+    rt.raw_all = pad | serial;
     rt.now = hid_to_btn(pad | serial);
     for (int p = 0; p < INPUT_PLAYERS; p++) {
         if (p == rt.local)
@@ -5210,6 +5249,134 @@ static int exit_ok(lua_State *L)
     return ok;
 }
 
+/* PS, Ctrl+Esc or Start+Select in a game played online (online(true),
+ * 2026-10-04): not suspended (the others play on) but a question to the
+ * player leaving, on this console only, over the game that goes on; while
+ * it is open the game sees none of the buttons. Yes calls the cartridge's
+ * _leave() (it tells the server) and ends the game. 1: leave now. */
+static int leave_step(lua_State *L, int q)
+{
+    uint32_t held = rt.raw_all;
+    for (int p = 0; p < INPUT_PLAYERS; p++)
+        held |= rt.praw[p];
+    /* the keyboard's too (rawkeys() games): Enter, Space yes; Esc, Backspace no */
+    static const uint8_t usage[4] = { 0x28, 0x2C, 0x29, 0x2A };
+    uint8_t keys = 0;
+    for (int i = 0; i < 4; i++)
+        if (hid_usage_held(usage[i]))
+            keys |= (uint8_t)(1u << i);
+    const int was = rt.leave_ask;
+    int answer = 0;
+    if (q & QUIT_FORCE) {
+        answer = 1;
+    } else if (rt.leave_ask) {
+        const uint32_t hit = held & ~rt.leave_pad;
+        const uint8_t khit = keys & ~rt.leave_keys;
+        if (q || (hit & input_ok_bit(0)) || (khit & 3))     /* PS again: yes */
+            answer = 1;
+        else if (rt.leave_no || (hit & input_ok_bit(1)) || (khit & 12))
+            answer = -1;
+    } else if (q) {
+        if (!rt.online)
+            return exit_ok(L);
+        rt.leave_ask = 1;
+        kprintf("bm: leave the online game? (ok: yes, back: no)\n");
+    }
+    rt.leave_no = 0;
+    rt.leave_pad = held;
+    rt.leave_keys = keys;
+    if (answer > 0) {
+        if (rt.online) {
+            rt.online_left = 1;
+            if (lua_getglobal(L, "_leave") == LUA_TFUNCTION) {
+                if (lua_pcall(L, 0, 0, 0) != LUA_OK) {
+                    kprintf("bm: _leave: %s\n", lua_tostring(L, -1));
+                    lua_pop(L, 1);
+                }
+            } else {
+                lua_pop(L, 1);
+            }
+            kprintf("bm: left the online game\n");
+        }
+        rt.leave_ask = 0;
+        return 1;
+    }
+    if (answer < 0) {
+        rt.leave_ask = 0;
+        kprintf("bm: stays in the online game\n");
+    }
+    /* the buttons the question takes: none for the game while it is open
+     * (the frame of the answer too), then the ones still held until they
+     * are released */
+    rt.leave_held = was || rt.leave_ask ? held : rt.leave_held & held;
+    if (rt.leave_held) {
+        const uint32_t m = rt.leave_held;
+        rt.now = hid_to_btn(rt.raw_all & ~m);
+        for (int p = 0; p < INPUT_PLAYERS; p++) {
+            rt.praw[p] &= ~m;
+            rt.pnow[p] = hid_to_btn(rt.praw[p]);
+        }
+    }
+    return 0;
+}
+
+/* the question over the frame (after the overlay, before F12's keys) */
+static void leave_draw(void)
+{
+    if (!rt.leave_ask)
+        return;
+    g16_t *g = &rt.g;
+    const g16_t keep = *g;
+    g16_camera(g, 0, 0);
+    g16_clip(g, 0, 0, 0, 0);
+    const int small = g->h < 270, sc = g->h >= 540 ? g->h / 270 : 1;
+    g->font = small ? &font_console_6x12 : &font_console_8x16;
+    const int fw = g->font->width * sc, rowh = g->font->height * sc;
+    const char *lines[4] = { "Leave the match?", "You will leave the game and", "disconnect from the server.",
+                             rt.online_note[0] ? rt.online_note : NULL };
+    const int n = lines[3] ? 4 : 3;
+    /* the answers: the system's yes and back on the controller used last,
+     * Enter and Esc on a keyboard */
+    const int dev = input_device(rt.local >= 0 && rt.local < INPUT_PLAYERS ? rt.local : 0);
+    const int kb = hid_last_source() == HID_SOURCE_KEYBOARD || (dev & 0x0F) == INPUT_DEV_KEYBOARD;
+    const prompt_t *yes = kb ? find_prompt("enter", small) : button_chip(button_real(BUTTON_OK), dev, small);
+    const prompt_t *no = kb ? find_prompt("esc", small) : button_chip(button_real(BUTTON_BACK), dev, small);
+    int cols = 0;
+    for (int i = 0; i < n; i++) {
+        const int len = (int)strlen(lines[i]);
+        cols = len > cols ? len : cols;
+    }
+    const int maxcols = (g->w - 4 * fw) / fw;
+    cols = cols > maxcols ? maxcols : cols;
+    /* on the font's grid: the title, a row, the lines, a row, the hints */
+    const int pw = (cols + 4) * fw, ph = (n + 5) * rowh;
+    const int px = (g->w - pw) / 2 / fw * fw, py = (g->h - ph) / 2 / rowh * rowh;
+    const uint16_t ink = g16_rgb(232, 232, 236), dim = g16_rgb(150, 150, 165), head = g16_rgb(255, 176, 64);
+    g16_rectfill(g, px, py, pw, ph, g16_rgb(12, 14, 22));
+    g16_rect(g, px, py, pw, ph, head);
+    for (int i = 0; i < n; i++) {
+        char buf[64];
+        ksnprintf(buf, sizeof buf, "%s", lines[i]);
+        if ((int)strlen(buf) > cols)
+            buf[cols] = 0;
+        const int y = py + (i ? i + 2 : 1) * rowh;
+        g16_text_scaled(g, px + 2 * fw, y, buf, i == 0 ? head : i == 3 ? dim : ink, sc);
+    }
+    /* the hints, on the font's grid after each chip */
+    int x = px + 2 * fw;
+    const int y = py + (n + 3) * rowh;
+    for (int i = 0; i < 2; i++) {
+        const prompt_t *c = i ? no : yes;
+        if (c) {
+            draw_prompt(c, x, y, sc);
+            x += c->w * sc + fw / 2;
+            x = px + (x - px + fw - 1) / fw * fw;
+        }
+        x = g16_text_scaled(g, x, y, i ? "Stay" : "Leave", ink, sc) + 2 * fw;
+    }
+    *g = keep;
+}
+
 /* keys ("ctrl shift s", "f5 / ctrl r", "f1 - f4") as the keys' pictures
  * from x on the row at y; the x after them (measured only, draw 0) */
 static int keys_chips(const char *keys, int x, int y, int small, int draw, uint16_t ink)
@@ -5497,7 +5664,7 @@ static int run_frames(framebuffer_t *fb, lua_State *L, const char *title,
         if (rt.quit || played_us >= limit_us)
             break;
         const int q = poll_keys();
-        if ((q & QUIT_FORCE) || (q && exit_ok(L))) {
+        if ((q || rt.leave_ask || rt.leave_held) && leave_step(L, q)) {
             left = 1;
             break;
         }
@@ -5550,6 +5717,7 @@ static int run_frames(framebuffer_t *fb, lua_State *L, const char *title,
         rt.last_cpu_us = timer_ticks() - t0 - early_us;
         rt.last_instr_k = instr_k;
         perf_frame();
+        leave_draw();
         keys_help(L);
         st->cpu_us_total += rt.last_cpu_us;
         if (rt.last_cpu_us > st->cpu_us_max)
@@ -5578,7 +5746,7 @@ static int run_frames(framebuffer_t *fb, lua_State *L, const char *title,
     st->d2_ops = d2.ops;
     st->ok = error == NULL;
 
-    if (!error && left && suspendable) {
+    if (!error && left && suspendable && !rt.online_left) {
         audio_pause(1);                     /* music waits, the bank stays */
         susp.L = L;
         susp.active = 1;

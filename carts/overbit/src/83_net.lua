@@ -15,7 +15,7 @@
 -- and in a match, after the match's number (16 bits of its seed):
 --   I inputs: seat, last frame, KEEP records (the newest last)
 --   B bundle: last frame, seats, KEEP records for each seat
---   X check: frame, hash of the match  Q leaving
+--   X check: frame, hash of the match  Q leaving: seat, 1 for the host
 
 Net = { on = false }
 
@@ -79,10 +79,20 @@ end
 
 function Net.close()
   if sock then
-    if Net.on then send("Q", string.pack("<I2", Net.mid)) end
+    if Net.on then send("Q", string.pack("<I2BB", Net.mid, Net.seat or 0, Net.host and 1 or 0)) end
     udp_close(sock)
   end
   sock, Net.on = nil, false
+  if online then online(false) end
+end
+
+-- PS (Ctrl+Esc, Start+Select) in a match on the network: the system asks
+-- the player leaving (online()); yes calls this, then the game ends
+function _leave()
+  if Net.on then
+    log("overbit net: left with PS")
+    Net.close()
+  end
 end
 
 function Net.my_id() return my_id end
@@ -149,6 +159,8 @@ function Net.begin(info)
     mine[f] = NEUTRAL
   end
   for _, s in ipairs(Net.seats) do Net.heard[s] = 0 end
+  -- PS asks before leaving (not suspended: the others play on)
+  if online then online(true, Net.host and "You are the host: the match ends for all." or nil) end
 end
 
 -- the host: the bundles of the frames everybody has sent (a seat silent for
@@ -245,9 +257,17 @@ function Net.tick(me, c)
         Net.desync = fr
         log(string.format("overbit net desync at frame %d", fr))
       end
-    elseif typ == "Q" and not Net.host and Net.clock > 1 then
-      -- the host closed the match (a player's Q only matters to the host: silence)
-      Net.lost = Net.lost or (frames[Net.frame] == nil)
+    elseif typ == "Q" and Net.host then
+      -- a player left (PS, the menu): a bot takes the seat from now on
+      local seat = #d >= 1 and d:byte(1) or 0
+      if Net.heard[seat] and seat ~= Net.seat and not Net.left[seat] then
+        Net.left[seat] = true
+        log(string.format("overbit net seat %d left", seat))
+      end
+    elseif typ == "Q" and Net.clock > 1 then
+      -- the host closed the match (another player's Q: the host's bundles go on)
+      if #d >= 2 then Net.lost = Net.lost or d:byte(2) == 1
+      else Net.lost = Net.lost or (frames[Net.frame] == nil) end
     end
   end
   if Net.host then host_gather()

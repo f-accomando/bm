@@ -1015,6 +1015,65 @@ def test_suspend_resume(b, opts):
         shutil.rmtree(tmp, ignore_errors=True)
 
 
+ONLINE_CART = r"""
+local n = 0
+function _init() online(true, "You are the host: the match ends for all.") log("online start") end
+function _update()
+  n = n + 1
+  local _, asking = online()
+  if n % 60 == 0 then log("frame " .. n .. (asking and " asking" or "")) end
+  if btnp(5) then log("game saw B") end
+end
+function _leave() log("online leave " .. n) end
+function _draw() cls(0x203040) print("frame " .. n, 8, 8, 0xFFFFFF) end
+"""
+
+
+def test_online_leave(b, opts):
+    """PS in a game played online (online(true), 2026-10-04): not suspended
+    but "Leave the match?" over the game, which goes on; B stays (the game
+    never sees it), PS again leaves through _leave() and the game ends."""
+    tmp = tempfile.mkdtemp(prefix="bm-online-")
+    img = os.path.join(tmp, "sd.img")
+    cart = os.path.join(tmp, "online.bm")
+    with open(cart, "wb") as f:
+        f.write(mkbm.pack(ONLINE_CART.encode(), title="AAA online"))
+    mksd.build(img, [(cart, "carts/online.bm")])
+    q = Qemu(b("kernel.img"), ["-drive", f"if=sd,format=raw,file={img}"])
+    try:
+        q.expect(MENU, timeout=30)
+        time.sleep(0.5)
+        q.send("\r")
+        q.expect("online start", timeout=10)
+        q.expect("frame 60", timeout=10)
+        q.send("\x1c")                          # Ctrl+\: PS
+        q.expect("leave the online game?", timeout=10)
+        _, text = settled_screen(q, lambda i, t: any("Leave the match?" in l for l in t)
+                                 and any("disconnect from the server" in l for l in t))
+        assert any("Leave the match?" in l for l in text), "\n".join(text)
+        assert any("You will leave the game and" in l for l in text), "\n".join(text)
+        assert any("the match ends for all" in l for l in text), "\n".join(text)
+        assert any("Leave" in l and "Stay" in l for l in text), "\n".join(text)
+        out = q.expect(" asking", timeout=10).decode(errors="replace")   # the game goes on
+        q.send("x")                             # B: stays
+        out = q.expect("stays in the online game", timeout=10).decode(errors="replace")
+        time.sleep(1.5)
+        _, text = settled_screen(q, lambda i, t: not any("Leave the match?" in l for l in t))
+        assert not any("Leave the match?" in l for l in text), "\n".join(text)
+        q.send("\x1c")
+        q.expect("leave the online game?", timeout=10)
+        time.sleep(0.3)
+        q.send("\x1c")                          # PS again: yes
+        out = q.expect("left the online game", timeout=10).decode(errors="replace")
+        assert "online leave" in out and "game saw B" not in out, out
+        out = q.expect('"AAA online" ', timeout=10) + q.expect("frames", timeout=10)
+        out = out.decode(errors="replace")      # closed, with its numbers: not suspended
+        assert "suspended" not in out, out
+    finally:
+        q.close()
+        shutil.rmtree(tmp, ignore_errors=True)
+
+
 SAVER_CART = r"""
 local n = 0
 function _init() save({ n = 1 }) log("saver start") end

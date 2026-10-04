@@ -814,6 +814,8 @@ solo per la scelta dei giochi.
    - I tasti ancora premuti non contano come nuove pressioni.
    - Una sola applicazione sospesa alla volta, come sulle console.
    - `quit()`, un errore e le prove dall'SDK chiudono davvero.
+   - (2026-10-04) In una partita in rete (`online(true)`) PS non sospende: chiede al
+     giocatore se uscire e disconnettersi (M38, passo 5).
 - **Fatto quando:** sul Pi il menu è fluido a 60 fps con tutte le cartucce e un gioco
   sospeso riprende dal punto in cui era.
 
@@ -2629,10 +2631,19 @@ Passi (in quest'ordine, richiesto dall'autore):
   pubblico (UDP 47310): passa i pacchetti di una console alle altre della stessa stanza,
   come un broadcast. Nella console: RELAY (indirizzo, anche `nome:porta`) e ROOM (4
   lettere), scritti con la tastiera o con il pad e salvati.
+- **PS nella partita in rete** (decisione dell'utente, 2026-10-04): il gioco non si
+  sospende. `online(true)` del kernel: PS (Ctrl+Esc, Start+Select) chiede solo a chi esce,
+  sulla sua console, "Leave the match?" (uscirà dal gioco e si disconnetterà dal server;
+  all'host anche "the match ends for all"), sopra la partita che va avanti senza i suoi
+  tasti; sì chiama `_leave()`: il "Q" porta il posto, l'host lo dà subito a un bot (non dopo
+  3 s), e se esce l'host la partita finisce per tutti; indietro resta.
 - Test: `make test-overbit` fa giocare due bmhost insieme, sulla LAN e attraverso il
-  relay: le stesse uccisioni, catture e round su entrambi, nessuna divergenza.
+  relay: le stesse uccisioni, catture e round su entrambi, nessuna divergenza; poi l'ospite
+  esce con PS e l'host lo sente. `make test-online` (bmhost) e `test_online_leave` (QEMU)
+  provano la domanda.
 - **Da provare sul Pi**: due console sulla stessa WiFi, PLAY ONLINE: una HOST A MATCH,
-  l'altra JOIN, poi START; una foto se compare "OUT OF SYNC" o "WAITING FOR THE OTHERS".
+  l'altra JOIN, poi START; una foto se compare "OUT OF SYNC" o "WAITING FOR THE OTHERS";
+  poi PS sull'ospite: la domanda solo lì, X esce, sull'host un bot prende il posto.
 
 **Risoluzione 480×270: fatto sul PC (2026-10-03, branch `claude/overbit-480`), da provare
 sul Pi.**
