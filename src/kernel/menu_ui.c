@@ -1413,6 +1413,28 @@ void menu_ui_frame(framebuffer_t *fb, const menu_view_t *v)
         hint(v, c + 2, 12, BTN_B, "Cancel");
     }
 
+    /* the system's notice, over everything (a kernel arriving, a restart) */
+    if (v->notice) {
+        const int px = WIDE ? 12 * 8 : 2 * 8, py = 8 * 16 - 8, pw = SW - 2 * px, ph = 5 * 16 + 16;
+        round_rect(px - 2, py - 2, pw + 4, ph + 4, 14, c16(C_ACCENT));
+        round_rect(px, py, pw, ph, 12, c16(C_BAR));
+        char q[64];
+        ksnprintf(q, sizeof q, "%s", v->notice);
+        q[pw / 8 - 2] = 0;
+        g16_text(&g, (SW / 8 - (int)strlen(q)) / 2 * 8, 9 * 16, q, c16(C_TEXT));
+        if (v->notice_detail) {
+            ksnprintf(q, sizeof q, "%s", v->notice_detail);
+            q[pw / 8 - 2] = 0;
+            g16_text(&g, (SW / 8 - (int)strlen(q)) / 2 * 8, 10 * 16, q, c16(C_DIM));
+        }
+        if (v->notice_progress >= 0) {
+            const int bx = px + 16, bw = pw - 32, by = 12 * 16 + 4, fill = bw * v->notice_progress / 1000;
+            round_rect(bx, by, bw, 8, 4, c16(C_LINE));
+            if (fill > 8)
+                round_rect(bx, by, fill, 8, 4, c16(C_ACCENT));
+        }
+    }
+
     if (v->keys_help)
         keys_help();
     pointer_draw(g.px, g.stride, SW, SH);       /* the arrow over everything */

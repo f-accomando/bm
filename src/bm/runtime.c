@@ -5320,11 +5320,11 @@ static int leave_step(lua_State *L, int q)
     return 0;
 }
 
-/* the question over the frame (after the overlay, before F12's keys) */
-static void leave_draw(void)
+/* A box over the frame (after the overlay, before F12's keys): a title
+ * (orange), lines, the last one dim (a note), and either the yes / back
+ * hints (the leave question) or a progress bar (0..1000; -1 none) */
+static void sys_box(const char *const *lines, int n, int dim_last, int hints, int progress)
 {
-    if (!rt.leave_ask)
-        return;
     g16_t *g = &rt.g;
     const g16_t keep = *g;
     g16_camera(g, 0, 0);
@@ -5332,15 +5332,15 @@ static void leave_draw(void)
     const int small = g->h < 270, sc = g->h >= 540 ? g->h / 270 : 1;
     g->font = small ? &font_console_6x12 : &font_console_8x16;
     const int fw = g->font->width * sc, rowh = g->font->height * sc;
-    const char *lines[4] = { "Leave the match?", "You will leave the game and", "disconnect from the server.",
-                             rt.online_note[0] ? rt.online_note : NULL };
-    const int n = lines[3] ? 4 : 3;
     /* the answers: the system's yes and back on the controller used last,
      * Enter and Esc on a keyboard */
-    const int dev = input_device(rt.local >= 0 && rt.local < INPUT_PLAYERS ? rt.local : 0);
-    const int kb = hid_last_source() == HID_SOURCE_KEYBOARD || (dev & INPUT_DEV_KIND) == INPUT_DEV_KEYBOARD;
-    const prompt_t *yes = kb ? find_prompt("enter", small) : button_chip(button_real(BUTTON_OK), dev, small);
-    const prompt_t *no = kb ? find_prompt("esc", small) : button_chip(button_real(BUTTON_BACK), dev, small);
+    const prompt_t *yes = NULL, *no = NULL;
+    if (hints) {
+        const int dev = input_device(rt.local >= 0 && rt.local < INPUT_PLAYERS ? rt.local : 0);
+        const int kb = hid_last_source() == HID_SOURCE_KEYBOARD || (dev & INPUT_DEV_KIND) == INPUT_DEV_KEYBOARD;
+        yes = kb ? find_prompt("enter", small) : button_chip(button_real(BUTTON_OK), dev, small);
+        no = kb ? find_prompt("esc", small) : button_chip(button_real(BUTTON_BACK), dev, small);
+    }
     int cols = 0;
     for (int i = 0; i < n; i++) {
         const int len = (int)strlen(lines[i]);
@@ -5349,7 +5349,7 @@ static void leave_draw(void)
     const int maxcols = (g->w - 4 * fw) / fw;
     cols = cols > maxcols ? maxcols : cols;
     /* on the font's grid: the title, a row, the lines, a row, the hints */
-    const int pw = (cols + 4) * fw, ph = (n + 5) * rowh;
+    const int pw = (cols + 4) * fw, ph = (n + (hints || progress >= 0 ? 5 : 3)) * rowh;
     const int px = (g->w - pw) / 2 / fw * fw, py = (g->h - ph) / 2 / rowh * rowh;
     const uint16_t ink = g16_rgb(232, 232, 236), dim = g16_rgb(150, 150, 165), head = g16_rgb(255, 176, 64);
     g16_rectfill(g, px, py, pw, ph, g16_rgb(12, 14, 22));
@@ -5360,12 +5360,17 @@ static void leave_draw(void)
         if ((int)strlen(buf) > cols)
             buf[cols] = 0;
         const int y = py + (i ? i + 2 : 1) * rowh;
-        g16_text_scaled(g, px + 2 * fw, y, buf, i == 0 ? head : i == 3 ? dim : ink, sc);
+        g16_text_scaled(g, px + 2 * fw, y, buf, i == 0 ? head : dim_last && i == n - 1 ? dim : ink, sc);
+    }
+    const int y = py + (n + 3) * rowh;
+    if (progress >= 0) {
+        const int bw = pw - 4 * fw, fill = bw * (progress > 1000 ? 1000 : progress) / 1000;
+        g16_rectfill(g, px + 2 * fw, y + rowh / 4, bw, rowh / 2, g16_rgb(58, 58, 70));
+        g16_rectfill(g, px + 2 * fw, y + rowh / 4, fill, rowh / 2, head);
     }
     /* the hints, on the font's grid after each chip */
     int x = px + 2 * fw;
-    const int y = py + (n + 3) * rowh;
-    for (int i = 0; i < 2; i++) {
+    for (int i = 0; hints && i < 2; i++) {
         const prompt_t *c = i ? no : yes;
         if (c) {
             draw_prompt(c, x, y, sc);
@@ -5375,6 +5380,35 @@ static void leave_draw(void)
         x = g16_text_scaled(g, x, y, i ? "Stay" : "Leave", ink, sc) + 2 * fw;
     }
     *g = keep;
+}
+
+/* the question to the player leaving an online game */
+static void leave_draw(void)
+{
+    if (!rt.leave_ask)
+        return;
+    const char *lines[4] = { "Leave the match?", "You will leave the game and", "disconnect from the server.",
+                             rt.online_note[0] ? rt.online_note : NULL };
+    sys_box(lines, lines[3] ? 4 : 3, lines[3] != NULL, 1, -1);
+}
+
+/* the system's notice over the game (a kernel arriving, the restart
+ * counted down): from the kernel (bm_set_notice) */
+static int (*notice_fn)(char *title, char *detail, int *progress);
+
+void bm_set_notice(int (*fn)(char *title, char *detail, int *progress))
+{
+    notice_fn = fn;
+}
+
+static void notice_draw(void)
+{
+    char title[64], detail[64];
+    int progress = -1;
+    if (!notice_fn || !notice_fn(title, detail, &progress))
+        return;
+    const char *lines[2] = { title, detail };
+    sys_box(lines, 2, 0, 0, progress);
 }
 
 /* keys ("ctrl shift s", "f5 / ctrl r", "f1 - f4") as the keys' pictures
@@ -5718,6 +5752,7 @@ static int run_frames(framebuffer_t *fb, lua_State *L, const char *title,
         rt.last_instr_k = instr_k;
         perf_frame();
         leave_draw();
+        notice_draw();
         keys_help(L);
         st->cpu_us_total += rt.last_cpu_us;
         if (rt.last_cpu_us > st->cpu_us_max)

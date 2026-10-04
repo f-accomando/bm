@@ -194,13 +194,17 @@ def test_screen_console(b, opts):
         assert "none waiting" in text, text    # no reports waiting
         keys(q, "w")                            # up from the first row: round to the last
         text = screen_all(q.screendump())
+        assert "Turns the console off" in text, text    # Shut down, then Restart (2026-10-04)
+        keys(q, "w")
+        keys(q, "w")
+        text = screen_all(q.screendump())
         assert "Version, memory, the log" in text, text
         keys(q, "\r")                          # System: its rows
         text = screen_all(q.screendump())
         assert "Settings > System" in text and "Uptime" in text and "Cortex-A55" in text, text
-        keys(q, "w")                            # the last rows: the battery, the log, restart, power off
+        keys(q, "w")                            # the last rows: the battery, the log
         text = screen_all(q.screendump())
-        assert "Battery" in text and "Log since boot" in text and "Power off" in text, text
+        assert "Battery" in text and "Log since boot" in text, text
         keys(q, "\x7f")                        # back: Settings
         keys(q, "r")                            # R1 on the last tab: nothing
         assert "Version, memory, the log" in screen_all(q.screendump())
@@ -373,7 +377,8 @@ def test_update_from_sd(b, opts):
         time.sleep(0.5)
         assert "Install bm v9.9.9?" in screen_all(q.screendump())
         q.send("\r")                           # confirm: install
-        out = q.expect("installed: restarting", timeout=60).decode(errors="replace")
+        out = q.expect("Restarting in 1", timeout=60).decode(errors="replace")
+        assert "Restarting in 3" in out, out    # counted down
         dump = os.path.join(tmp, "after.img")
         q.monitor(f'pmemsave {RAMDISK:#x} {size} "{dump}"',
                   until=lambda: os.path.exists(dump) and os.path.getsize(dump) == size)

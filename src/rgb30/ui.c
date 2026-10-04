@@ -37,6 +37,8 @@
 #include "bm/runtime.h"
 #include "kernel/home.h"
 #include "kernel/menu_ui.h"
+#include "kernel/notice.h"
+#include "kernel/ledstate.h"
 #include "kernel/reports.h"
 #include "b3d_rgb30.h"
 
@@ -65,6 +67,19 @@ static framebuffer_t *fb;
 static uint32_t rgb(uint32_t c)
 {
     return fb_color(fb, (uint8_t)(c >> 16), (uint8_t)(c >> 8), (uint8_t)c);
+}
+
+/* the battery low (under 3.45 V, not charging): the LED blinks (ledstate.h);
+ * read every 10 s */
+static void battery_led(void)
+{
+    static uint32_t at;
+    if (at && timer_ticks() - at < 10000000u)
+        return;
+    at = timer_ticks() | 1;
+    int mv, charge;
+    if (plat_battery(&mv, &charge) == 0)
+        ledstate_set(LED_POWER, mv > 0 && mv < 3450 && charge == 0);
 }
 
 static void text(int x, int y, const char *s, uint32_t fg, uint32_t bg)
@@ -624,6 +639,12 @@ void ui_home(framebuffer_t *f)
             v.ask_detail = ask_d[0] ? ask_d : NULL;
             v.ask_yes = ask_y;
         }
+        static char nt[NOTICE_LEN], nd[NOTICE_LEN];
+        if (notice_now(nt, nd, &v.notice_progress)) {
+            v.notice = nt;                      /* a kernel arriving, the restart */
+            v.notice_detail = nd;
+        }
+        battery_led();
         menu_ui_frame(fb, &v);
 
         uint32_t p = pad_pressed();

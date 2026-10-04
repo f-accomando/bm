@@ -94,6 +94,7 @@ void led_blink_code(unsigned n)
 /* --- watchdog: none yet (the RK3566 has one: later) --- */
 
 void watchdog_reboot(void)      { plat_reset(); }
+void watchdog_halt(void)        { plat_poweroff(); }
 int  watchdog_arm(uint32_t ms)  { (void)ms; return -1; }
 void watchdog_pet(void)         { }
 void watchdog_stop(void)        { }

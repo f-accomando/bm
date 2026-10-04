@@ -3,6 +3,7 @@
 #include "crumbs.h"
 #include "input.h"
 #include "version.h"
+#include "ledstate.h"
 #include "drivers/timer.h"
 #include "drivers/uart.h"
 #include "drivers/watchdog.h"
@@ -312,6 +313,7 @@ void update_install(framebuffer_t *fb)
     char err[192];
     int failed = 0;
     uint32_t t0 = timer_ticks();
+    ledstate_set(LED_BUSY, 1);          /* the LED blinks slowly while it installs */
 
     /* 1. everything downloaded and checked first: nothing written yet */
     for (int i = 0; i < up.rel.nfiles && !failed; i++) {
@@ -335,6 +337,7 @@ void update_install(framebuffer_t *fb)
         for (int i = 0; i < up.rel.nfiles; i++)
             free(data[i]);
         kprintf("\x1b[91mnothing was written; the console is as it was\x1b[0m\n");
+        ledstate_set(LED_BUSY, 0);
         return;
     }
     kprintf("  all %d files downloaded and checked (%lu s)\n", up.n, (timer_ticks() - t0) / 1000000);
@@ -373,10 +376,15 @@ void update_install(framebuffer_t *fb)
         free(data[i]);
     if (failed) {
         kprintf("\x1b[91mthe update stopped; the kernels in %s are the ones of before\x1b[0m\n", BACKUP_DIR);
+        ledstate_set(LED_BUSY, 0);
         return;
     }
-    kprintf("\x1b[92m%s installed: restarting...\x1b[0m\n", up.rel.version);
-    timer_delay_ms(1500);               /* the line on the screen */
+    /* the restart, counted down on the screen (the user's request, 2026-10-04) */
+    kprintf("\x1b[92m%s installed\x1b[0m\n", up.rel.version);
+    for (int s = 3; s > 0; s--) {
+        kprintf("\x1b[1;93mRestarting in %d...\x1b[0m\n", s);
+        timer_delay_ms(1000);
+    }
     crumbs_clean_exit();
     uart_flush();
     watchdog_reboot();

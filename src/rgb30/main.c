@@ -34,6 +34,10 @@
 #include "net/net.h"
 #include "ui.h"
 #include "pad.h"
+#include "kernel/ledstate.h"
+#include "kernel/splash.h"
+#include "kernel/notice.h"
+#include "bm/runtime.h"
 
 #include "lua.h"
 #include "lauxlib.h"
@@ -48,8 +52,7 @@ static framebuffer_t fb;
 
 static void heartbeat(uint32_t tick)
 {
-    if (tick % (TICK_HZ / 2) == 0)
-        plat_led((tick / (TICK_HZ / 2)) & 1, -1);
+    ledstate_tick(tick * (1000 / TICK_HZ));     /* green on, or a slow blink (ledstate.h) */
     if (tick % (TICK_HZ / 10) == 0)
         crumb_tick(tick * (1000 / TICK_HZ));
 }
@@ -131,6 +134,7 @@ void ui_serial_repl(void)
 
 static void sd_boot(void)
 {
+    ledstate_set(LED_NO_SD, 1);         /* until it is read */
     if (sd_init() != 0) {
         kprintf("SD: %s\n", sd_error());
         return;
@@ -139,6 +143,7 @@ static void sd_boot(void)
         kprintf("SD: %lu MiB (%s), %s\n", sd_blocks() / 2048, sd_controller(), fat_error());
         return;
     }
+    ledstate_set(LED_NO_SD, 0);
     kprintf("SD: %s (%s)\n", fat_describe(), sd_controller());
     config_load();
     pad_config();                       /* confirm= */
@@ -160,15 +165,15 @@ static void save_bootlog(int say)
     }
 }
 
-/* The saved WiFi network at boot: only with wifi_boot=1 in bm/config.txt
- * while the RGB30's WiFi is new (the menu's WiFi page joins by hand);
+/* The saved WiFi network is joined at boot, as on the Pi (wifi_boot=0 in
+ * bm/config.txt turns it off, 2026-10-04: it used to wait for wifi_boot=1);
  * the address comes later, in the background. */
 static void wifi_boot(void)
 {
     const char *on = config_get("wifi_boot"), *ssid = config_get("wifi_ssid");
-    if (!on || strcmp(on, "1") != 0 || !ssid || !ssid[0])
+    if ((on && strcmp(on, "0") == 0) || !ssid || !ssid[0])
         return;
-    kprintf("wifi: joining \"%s\" (wifi_boot=1 in bm/config.txt)\n", ssid);
+    kprintf("wifi: joining \"%s\" (wifi_boot=0 in bm/config.txt: off)\n", ssid);
     if (wifi_start() == 0 && wifi_connect_saved() == 0)
         net_start(&net_wifi);
 }
@@ -196,8 +201,9 @@ void kernel_main(uintptr_t dtb)
         char title[40];
         ksnprintf(title, sizeof title, "bm %s", bm_version);
         console_set_status(title, PLAT_NAME);
+        splash_show(&fb, title);                /* the logo; the console keeps the boot's lines */
         for (const char *s = klog_text(); *s; s++)
-            console_putc(*s);                   /* what came before, on screen too */
+            console_putc(*s);                   /* what came before, in the console too */
         kprintf_set_sink(console_putc);
     }
     kprintf("display: %s%s\n", plat_display_info(), err ? " - not available" : "");
@@ -215,11 +221,15 @@ void kernel_main(uintptr_t dtb)
             (uint32_t)((uint64_t)(tick_count() - n0) * 1000000u / (timer_ticks() - t0)));
     plat_led(-1, 0);
     lua_selftest();
-    if (plat_display_problem())
+    if (plat_display_problem()) {
         plat_led(-1, 1);                    /* red stays on: see bm/bootlog.txt */
+        ledstate_set(LED_DISPLAY, 1);       /* and the green blinks slowly */
+    }
     kprintf("ready\n");
     save_bootlog(1);
     wifi_boot();
+    bm_set_notice(notice_now);              /* the games show a kernel arriving */
+    ledstate_set(LED_BOOT, 0);              /* started: green stays on if all is well */
     if (err == 0)
         ui_home(&fb);
     ui_serial_repl();               /* no screen: the serial port only */

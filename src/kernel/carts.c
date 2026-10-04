@@ -18,12 +18,15 @@
 #include "bm/runtime.h"
 #include "drivers/sd.h"
 #include "drivers/timer.h"
+#include "drivers/prop.h"
 #include "drivers/uart.h"
 #include "fs/fat.h"
 #include "net/catalog.h"
 #include "gfx/console.h"
 #include "lib/printf.h"
 #include "usb/hid.h"
+#include "notice.h"
+#include "ledstate.h"
 
 #include <stdarg.h>
 #include <stdio.h>
@@ -59,6 +62,19 @@ static int ncarts, nsd, sd_ok;
 static char last_msg[96];
 static char perf_msg[80];          /* speed of the last .bm game */
 static char susp_path[FAT_NAME_MAX + 10];   /* the cartridge frozen in memory, "" if none */
+
+/* the Pi's supply too low now (bit 0 of the firmware's GET_THROTTLED): the
+ * LED blinks while it is (ledstate.h); asked every 5 s */
+static void power_led(void)
+{
+    static uint32_t at;
+    if (at && timer_ticks() - at < 5000000u)
+        return;
+    at = timer_ticks() | 1;
+    uint32_t thr[1] = { 0 };
+    if (prop_query(PROP_GET_THROTTLED, thr, 1) == 0)
+        ledstate_set(LED_POWER, thr[0] & 1);
+}
 
 static int ends_with(const char *s, const char *ext)
 {
@@ -209,6 +225,7 @@ void carts_init(void)
     } else {
         sd_ok = 1;
     }
+    ledstate_set(LED_NO_SD, !sd_ok);
     rescan();
     if (sd_ok)
         kprintf("sd: %s card (%s), %s; %d cartridges\n", sd_is_hc() ? "SDHC" : "SD",
@@ -1003,6 +1020,12 @@ void carts_menu(framebuffer_t *fb)
                       : MENU_PROMPTS_DS4;
             v.prompts_colour = home_prompts_colour();
             v.keys_help = hid_usage_held(0x45);     /* F12 held (the system's keys) */
+            static char nt[NOTICE_LEN], nd[NOTICE_LEN];
+            if (notice_now(nt, nd, &v.notice_progress)) {
+                v.notice = nt;                      /* a kernel arriving, the restart */
+                v.notice_detail = nd;
+            }
+            power_led();
             int link = net_link_kind();
             v.net = link == NET_LINK_ETHERNET ? MENU_NET_ETHERNET
                   : link == NET_LINK_WIFI ? MENU_NET_WIFI : MENU_NET_NONE;

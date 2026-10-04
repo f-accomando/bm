@@ -1020,6 +1020,7 @@ void hid_mouse_boot_layout(hid_mouse_layout_t *m, uint8_t id)
 static struct {
     int32_t dx, dy, wheel, pan;
     uint8_t held[HID_MICE], pressed;
+    uint8_t seen;                   /* bit src: it has moved or clicked since it came */
     int abs;
     uint16_t ax, ay;
 } mice;
@@ -1075,14 +1076,26 @@ void hid_mouse_report(int src, const hid_mouse_layout_t *m, const uint8_t *r, ui
         mice.dx += mouse_field(r, len, m->x_bit, m->x_size);
         mice.dy += mouse_field(r, len, m->y_bit, m->y_size);
     }
-    mice.wheel += mouse_field(r, len, m->wheel_bit, m->wheel_size);
-    mice.pan += mouse_field(r, len, m->pan_bit, m->pan_size);
+    const int32_t wheel = mouse_field(r, len, m->wheel_bit, m->wheel_size),
+                  pan = mouse_field(r, len, m->pan_bit, m->pan_size);
+    mice.wheel += wheel;
+    mice.pan += pan;
+    if (m->absolute || b || wheel || pan || mouse_field(r, len, m->x_bit, m->x_size) ||
+        mouse_field(r, len, m->y_bit, m->y_size))
+        mice.seen |= (uint8_t)(1u << src);
+}
+
+int hid_mouse_seen(int src)
+{
+    return src >= 0 && src < HID_MICE && (mice.seen >> src & 1);
 }
 
 void hid_mouse_clear(int src)
 {
     if (src >= 0 && src < HID_MICE)
         mice.held[src] = 0;
+    if (src >= 0 && src < HID_MICE)
+        mice.seen &= (uint8_t)~(1u << src);
 }
 
 void hid_mouse_take(hid_mouse_t *m)

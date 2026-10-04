@@ -316,6 +316,13 @@ int main(void)
             tcp_close(x.pcb);
         }
         spin(600);
+        if (cases[t].op == 'K' && strcmp(cases[t].answer, "OKOK") == 0) {
+            /* the kernel is in: 3 s counted down, then the restart */
+            int secs = -1;
+            check(netxfer_kernel_state(NULL, NULL, &secs) == NETXFER_K_RESTART && secs >= 2 && secs <= 3,
+                  "  restart counted down from 3 s");
+            spin(3000);
+        }
         if (strcmp(x.got, cases[t].answer) != 0)
             printf("  got \"%s\"\n", x.got);
         check(strcmp(x.got, cases[t].answer) == 0, cases[t].what);

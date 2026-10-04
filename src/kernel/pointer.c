@@ -74,7 +74,10 @@ unsigned pointer_devices(void)
     if (!pt.enabled)
         return 0;
     unsigned m = 0;
-    if (usb_info()->mouse)
+    /* a USB mouse once it has done something: the dongle of a wireless
+     * keyboard has a mouse interface too, with no mouse behind it (the
+     * icon was there on a Pi 1 B with no mouse, 2026-10-04) */
+    if (usb_info()->mouse && hid_mouse_seen(HID_MOUSE_USB))
         m |= POINTER_USB;
     if (bt_mouse())
         m |= POINTER_BLUETOOTH;

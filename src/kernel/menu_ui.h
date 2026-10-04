@@ -126,6 +126,11 @@ typedef struct {
     const char *ask_detail;
     const char *ask_yes;        /* the label of A ("Close it", "Delete") */
     const char *banner;         /* instead of the selected title ("Loading..."), or NULL */
+    /* the system's notice over everything (notice.c: a kernel arriving, the
+     * restart counted down), or NULL; its line, and a bar (0..1000) or -1 */
+    const char *notice;
+    const char *notice_detail;
+    int notice_progress;
     const char *a_label;        /* A in the footer, instead of Play / Open; "" hides it */
     /* called while the frame waits for its time, until timer_ticks() is
      * `until` (the Market's downloads), or NULL */

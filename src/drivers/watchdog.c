@@ -4,6 +4,8 @@
 
 #define PM_BASE         (PERIPHERAL_BASE + 0x100000)
 #define PM_RSTC         (PM_BASE + 0x1C)
+#define PM_RSTS         (PM_BASE + 0x20)
+#define PM_RSTS_HALT    0x555u          /* "partition 63": the firmware stops there */
 #define PM_WDOG         (PM_BASE + 0x24)
 #define PM_PASSWORD     0x5A000000u
 #define PM_RSTC_WRCFG_CLR       0xFFFFFFCFu
@@ -55,6 +57,16 @@ void watchdog_stop(void)
     dmb();
     mmio_write(PM_RSTC, PM_PASSWORD | 0x102);   /* RESET: watchdog off */
     dmb();
+}
+
+/* The Pi has no power switch: as Linux does (bcm2835_power_off), the reset
+ * says partition 63 and the firmware halts instead of booting; the Pi
+ * stays off until its power comes back. */
+void watchdog_halt(void)
+{
+    dmb();
+    mmio_write(PM_RSTS, mmio_read(PM_RSTS) | PM_PASSWORD | PM_RSTS_HALT);
+    watchdog_reboot();
 }
 
 void watchdog_reboot(void)

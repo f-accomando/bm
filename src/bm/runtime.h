@@ -40,6 +40,12 @@ void bm_next_run(int w, int h, int gpu3d, int bench);
  * it (quit(), an error or the time limit still close it). Starting a
  * cartridge closes the suspended one first. */
 enum { BM_ENDED = 0, BM_SUSPENDED = 1 };
+/* The system's notice over a game (src/kernel/notice.c: a kernel arriving
+ * over the network, the restart counted down): 1 and its title, line (64
+ * bytes each) and progress (0..1000, -1) while there is one. The kernel
+ * gives it at boot; without one (bmhost) there is none. */
+void bm_set_notice(int (*fn)(char *title, char *detail, int *progress));
+
 int  bm_run(framebuffer_t *fb, const uint8_t *data, size_t len,
              uint32_t seconds, bm_stats_t *st, int suspendable);
 /* Continues the suspended cartridge from the frame it stopped at. */

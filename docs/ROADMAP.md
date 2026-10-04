@@ -1538,6 +1538,16 @@ nomi del pad), SDK, 3D studio, bm Code e assistente li scrivevano come testo ("F
   editor, bm Code e assistente, con la tastiera e poi col DS4 (Sound, i menu e il pannello
   passano ai pulsanti del pad).
 
+**Dopo la chiusura (2026-10-04, Pi e RGB30).** All'avvio il logo di bm (splash) mentre il kernel
+scrive nella console dietro; il LED fisso se va tutto bene e un lampeggio lento per il resto
+(avvio, SD, alimentazione o batteria, schermo, kernel o aggiornamento in arrivo); un kernel dalla
+rete mostra un riquadro con l'avanzamento (menu e giochi) e i 3 s contati prima del riavvio, come
+l'aggiornamento; Restart e Shut down sono le ultime voci di Settings (sul Pi l'arresto del
+firmware); l'icona del mouse USB solo dopo che il mouse ha fatto qualcosa (il ricevitore di una
+tastiera wireless ne dichiara uno anche senza mouse). Prove: QEMU `test_home_ui`, `test_update`,
+`test_usb_mouse`, `make test-net` (il conto alla rovescia). **Da provare sul Pi e sulla RGB30**:
+lo splash, il LED, un kernel mandato con `bm_net.py --kernel`, Shut down.
+
 ## M28 — Tastiera Bluetooth LE (M) — ✅ verificata sul Pi (2026-09-30)
 Richiesta 2026-09-30: una Logitech **MX Keys S** (con tastierino). È Bluetooth **Low
 Energy** (HID over GATT), non Bluetooth classico come il DS4: serve una parte nuova

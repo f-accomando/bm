@@ -79,9 +79,14 @@ suo indirizzo di link (0x10000000), scende a EL1 e chiama `kernel_main`.
 | LED | Significato |
 |---|---|
 | rosso acceso | avvio in corso (fermo così: il kernel si è bloccato presto) |
-| verde che lampeggia (1 Hz) | bm funziona (interrupt del timer) |
+| verde fisso | bm funziona e non c'è niente che non va (dal 2026-10-04: `src/kernel/ledstate.c`) |
+| verde che lampeggia lento (1 s acceso, 1 s spento) | altro: l'avvio non è finito, la SD manca o non si legge, la batteria è scarica (sotto 3,45 V, senza caricatore), arriva un kernel o si installa un aggiornamento |
 | rosso fisso + verde che lampeggia | lo schermo ha avuto problemi: leggere `bm/bootlog.txt` |
 | rosso che lampeggia N volte, pausa | eccezione fatale N (1 sincrona, 4 SError, 9 panic) |
+
+All'avvio lo schermo mostra il logo di bm (`src/kernel/splash.c`); quello che il kernel scrive
+va nella console (dietro), sulla seriale, in `bm/bootlog.txt` e in *Settings > System > Log since
+boot*.
 
 Se si ferma mentre accende lo schermo (`bm/bootlog.txt` finisce con `display: starting`), i LED
 fermi dicono dove:
@@ -191,7 +196,6 @@ In `bm/config.txt` sulla SD (dal PC):
 ```
 wifi_ssid=NomeDellaRete
 wifi_psk=password
-wifi_boot=1
 ```
 
 Oppure già nell'immagine: `make TARGET=rgb30 image RGB30_CONFIG=$HOME/rgb30-config.txt` mette quel
@@ -200,8 +204,8 @@ file come `bm/config.txt` (tienilo fuori dal repository: contiene la password).
 Nel menu, *WiFi*: **B** cerca le reti (elenco con segnale, canale, sicurezza), **X** entra nella
 rete di `wifi_ssid`; poi DHCP e l'indirizzo IP sullo schermo, con la password della console di
 rete (`python3 tools/bm_net.py <ip>`: i tasti w/a/s/d, Invio, Esc arrivano al menu come dalla
-seriale). Con `wifi_boot=1` la console entra nella rete da sola all'avvio (senza, solo dal menu:
-finché il WiFi dell'RGB30 è nuovo, all'avvio è spento). Reti supportate: aperte e WPA2-PSK (anche
+seriale). All'avvio la console entra da sola nella rete salvata, come il Pi (`wifi_boot=0` lo
+spegne, anche da *Settings > WiFi and network*). Reti supportate: aperte e WPA2-PSK (anche
 WPA2/WPA3 miste); non WPA3 sola, WPA1, WEP, enterprise.
 
 ## Report dei test

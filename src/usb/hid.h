@@ -96,6 +96,10 @@ typedef struct {
 } hid_mouse_t;
 /* What the mice did since the last call (then cleared). */
 void hid_mouse_take(hid_mouse_t *m);
+/* 1 once a mouse of src has moved, clicked or turned its wheel since it
+ * came (hid_mouse_clear forgets it): a receiver that only says it has a
+ * mouse (a keyboard's dongle) is no mouse yet */
+int  hid_mouse_seen(int src);
 
 /* A Bluetooth LE keyboard (HID over GATT). Its keyboard input report, as
  * found in the report map: report ID, bit offsets of the modifier byte and

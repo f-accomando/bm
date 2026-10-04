@@ -27,6 +27,8 @@ static uint32_t size, crc, got;
 static uint32_t close_at;
 static uint32_t last_rx;                /* timer_ticks() of the last bytes received */
 static int reboot_after;
+static uint32_t restart_at;             /* the restart with a new kernel (timer_ticks) */
+static int said;                        /* the tenth of a kernel, or the second, said last */
 static uint8_t *play_buf;
 static size_t play_len;
 static unsigned saves;
@@ -130,6 +132,7 @@ static void feed(const uint8_t *p, unsigned len)
                     op == 'K' ? "a new kernel" : path, size);
             st = DATA;
             got = 0;
+            said = -1;
         } else {
             uint32_t n = size - got < len ? size - got : len;
             memcpy(buf + got, p, n);
@@ -250,8 +253,36 @@ static int kernel_fits(const uint8_t *img, uint32_t len)
     return img[7] == KERNEL_MARK;
 }
 
+int netxfer_kernel_state(uint32_t *done, uint32_t *total, int *secs)
+{
+    if (reboot_after) {
+        if (secs) {
+            const int32_t left = (int32_t)(restart_at - timer_ticks());
+            *secs = left <= 0 ? 0 : (int)((left + 999999) / 1000000);
+        }
+        return NETXFER_K_RESTART;
+    }
+    if (op == 'K' && (st == DATA || st == DONE)) {
+        if (done)
+            *done = got;
+        if (total)
+            *total = size;
+        return NETXFER_K_RECEIVING;
+    }
+    return 0;
+}
+
 void netxfer_poll(void)
 {
+    /* a kernel's progress on the console, a line every tenth (the menu
+     * and the games show it in a box: notice.c) */
+    if (op == 'K' && st == DATA && size) {
+        const int tenth = (int)((uint64_t)got * 10 / size);
+        if (tenth != said) {
+            said = tenth;
+            kprintf("net: kernel %d%% (%lu of %lu KiB)\n", tenth * 10, got / 1024, size / 1024);
+        }
+    }
     /* a PC that went away in the middle (no FIN reached us): after 10 s of
      * silence the transfer is given up, so the next one is not turned away */
     if ((st == HEADER || st == DATA) && timer_ticks() - last_rx > 10000000u) {
@@ -284,7 +315,13 @@ void netxfer_poll(void)
             if (r == 0) {
                 saves++;
                 kprintf("\x1b[92mnet: saved %s on the SD card (%lu bytes)\x1b[0m\n", where, size);
-                reboot_after = op == 'K';
+                if (op == 'K') {
+                    /* not at once: 3 s, counted on the screen (the user's
+                     * request, 2026-10-04) */
+                    reboot_after = 1;
+                    restart_at = timer_ticks() + 3000000u;
+                    said = -1;
+                }
             } else {
                 kprintf("\x1b[91mnet: could not write %s (%s)\x1b[0m\n", where, fat_error());
             }
@@ -296,7 +333,15 @@ void netxfer_poll(void)
     if (st == REPLIED && timer_ticks() - close_at > 300000u) {
         drop_peer();                    /* the answer has gone out */
         st = IDLE;
-        if (reboot_after) {
+    }
+    if (reboot_after) {
+        int secs;
+        netxfer_kernel_state(NULL, NULL, &secs);
+        if (secs != said && secs) {
+            said = secs;
+            kprintf("net: restarting with the new kernel in %d s\n", secs);
+        }
+        if (!secs && st == IDLE) {
             kprintf("net: restarting with the new kernel...\n");
             timer_delay_ms(200);
             watchdog_reboot();

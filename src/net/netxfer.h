@@ -28,5 +28,11 @@ int  netxfer_take_play(uint8_t **data, size_t *len);
 int  netxfer_play_announce(void);
 /* Counts the files saved so far (the menu re-reads the SD when it changes). */
 unsigned netxfer_saves(void);
+/* A new kernel (2026-10-04): NETXFER_K_RECEIVING with the bytes in so far
+ * and its size, then NETXFER_K_RESTART with the seconds left before the
+ * restart (3, counted down; the kernel is on the SD card); 0: none. Any
+ * pointer may be NULL. */
+enum { NETXFER_K_RECEIVING = 1, NETXFER_K_RESTART };
+int  netxfer_kernel_state(uint32_t *done, uint32_t *total, int *secs);
 
 #endif

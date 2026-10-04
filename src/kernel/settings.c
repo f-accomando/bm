@@ -102,16 +102,12 @@ int home_prompts_colour(void)
     return v && strcmp(v, "colour") == 0;
 }
 
-/* Join the saved network at boot: on the Pi unless wifi_boot=0, on the
- * RGB30 (its WiFi still new) only with wifi_boot=1 */
+/* Join the saved network at boot: unless wifi_boot=0 (the Pi and the
+ * RGB30 alike since 2026-10-04) */
 static int wifi_at_boot(void)
 {
     const char *on = config_get("wifi_boot");
-#ifdef BM_RGB30
-    return on && strcmp(on, "1") == 0;
-#else
     return !(on && strcmp(on, "0") == 0);
-#endif
 }
 
 static int wireless(void)
@@ -250,7 +246,15 @@ void home_panel(int id, home_panel_t *p)
                  "The latest bm from GitHub, signed", "%s", update_ready() ? update_ready() : update_state());
         reports_row(p, MENU_ROW_SUB, R_REPORTS_SUB, "Reports", "Waiting on the SD card, to GitHub");
         home_row(p, MENU_ROW_SUB, R_SYSTEM, "System",
-                 "Version, memory, the log, restart", "%s", bm_version);
+                 "Version, memory, the log", "%s", bm_version);
+        /* the last two, on every system (the user's request, 2026-10-04) */
+        home_row(p, MENU_ROW_ACTION, R_RESTART, "Restart", "Restarts the console", NULL);
+#ifdef BM_RGB30
+        home_row(p, MENU_ROW_ACTION, R_POWEROFF, "Shut down", "Turns the console off", NULL);
+#else
+        home_row(p, MENU_ROW_ACTION, R_POWEROFF, "Shut down",
+                 "Stops the Pi: it starts again when its power is plugged back", NULL);
+#endif
         break;
     }
     case HOME_CONTROLLERS: {
@@ -482,10 +486,7 @@ void home_panel(int id, home_panel_t *p)
 #endif
         home_row(p, MENU_ROW_ACTION, R_LOG, "Log since boot",
                  "Everything printed since the console started", NULL);
-        home_row(p, MENU_ROW_ACTION, R_RESTART, "Restart", "Restarts the console", NULL);
-#ifdef BM_RGB30
-        home_row(p, MENU_ROW_ACTION, R_POWEROFF, "Power off", "Turns the console off", NULL);
-#else
+#ifndef BM_RGB30
         home_row(p, MENU_ROW_ACTION, R_MONITOR, "Open the monitor",
                  "The text console with every command", NULL);
 #endif
@@ -769,6 +770,24 @@ void home_act(int id, int row, int how, home_do_t *d)
             ask(d, "Restart the console?", "A game left suspended is closed.", "Restart");
         }
         break;
+    case R_POWEROFF:
+        if (how == HOME_YES) {
+            kprintf("shutting down\n");
+#ifdef BM_RGB30
+            plat_poweroff();
+#else
+            crumbs_clean_exit();
+            uart_flush();
+            watchdog_halt();
+#endif
+        } else if (how == 0) {
+#ifdef BM_RGB30
+            ask(d, "Shut the console down?", "A game left suspended is closed.", "Shut down");
+#else
+            ask(d, "Shut the console down?", "To start it again, plug its power back in.", "Shut down");
+#endif
+        }
+        break;
     case R_UPDATE:
         if (how == 0) text(d, x_update_check, 1, 0);
         break;
@@ -796,14 +815,6 @@ void home_act(int id, int row, int how, home_do_t *d)
         break;
     case R_MODES:
         if (how == 0) text(d, x_modes, 0, 1);
-        break;
-    case R_POWEROFF:
-        if (how == HOME_YES) {
-            kprintf("power off\n");
-            plat_poweroff();
-        } else if (how == 0) {
-            ask(d, "Turn the console off?", "A game left suspended is closed.", "Power off");
-        }
         break;
 #else
     case R_DRAW:

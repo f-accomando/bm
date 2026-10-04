@@ -44,6 +44,10 @@
 #include "wifi/wifi.h"
 #include "usb/smsc95xx.h"
 #include "drivers/board.h"
+#include "ledstate.h"
+#include "splash.h"
+#include "notice.h"
+#include "bm/runtime.h"
 
 #include <string.h>
 
@@ -68,8 +72,7 @@ static void print_palette(void)
 
 static void heartbeat(uint32_t tick)
 {
-    if (tick % (TICK_HZ / 2) == 0)
-        led_set((tick / (TICK_HZ / 2)) & 1);
+    ledstate_tick(tick * (1000 / TICK_HZ));     /* on, or a slow blink (ledstate.h) */
     if (tick % (TICK_HZ / 10) == 0) {       /* 10 Hz: freeze guard */
         watchdog_pet();
         crumb_tick(tick * (1000 / TICK_HZ));
@@ -214,6 +217,7 @@ void kernel_main(uint32_t atags)
         ksnprintf(title, sizeof title, "bm %s", bm_version);
         console_set_status(title, 0);
         kprintf_set_sink(console_putc);
+        splash_show(&fb, title);            /* the logo; the console keeps the boot's lines */
     }
 
     (void)atags;
@@ -270,6 +274,8 @@ void kernel_main(uint32_t atags)
     /* The console starts on the cartridge menu; Esc, Start+Select or 'q'
      * on the serial port go to the monitor ('B' there runs the old boot
      * diagnostics). */
+    bm_set_notice(notice_now);              /* the games show a kernel arriving */
+    ledstate_set(LED_BOOT, 0);              /* started: the LED stays on if all is well */
     carts_menu(&fb);
     monitor_run();
 }

@@ -1245,9 +1245,15 @@ def test_home_ui(b, opts):
         screen(["Settings > System", "Version", "Board", "SD card", "FAT32"])
         shot("system")
         keys("w")                               # the list scrolls to its last rows
-        screen(["3D driver", "bm3d", "as 0.2", "Log since boot", "Restart",   # QEMU: the ARM's 3D
+        screen(["3D driver", "bm3d", "as 0.2", "Log since boot",   # QEMU: the ARM's 3D
                 "Open the monitor"])
         keys("q")
+        keys("s")                               # the last two of Settings (2026-10-04)
+        screen(["System", "Restart"])
+        keys("s")
+        screen(["Restart", "Shut down"])
+        keys("w")
+        keys("w")
         keys("q")
         time.sleep(0.5)
 
@@ -3278,7 +3284,8 @@ def test_update(b, opts):
             if opts.shots:
                 _save_png(q.screendump(), os.path.join(opts.shots, "update-ask.png"))
             keys("\r")
-            out = q.expect("installed: restarting", timeout=90).decode(errors="replace")
+            out = q.expect("Restarting in 1", timeout=90).decode(errors="replace")
+            assert "v9.9.9 installed" in out and "Restarting in 3" in out, out   # counted down
             for w in ("all 4 files downloaded and checked", "/kernel.img kept in /bm/backup",
                       "written /carts/snake.bm", "written /bm/ca.pem", "written /kernel7.img",
                       "written /kernel.img"):
@@ -3738,6 +3745,11 @@ def test_usb_mouse(b, opts):
         assert "usb: port 3: if0 class 03/00/00 ep 81 mps 8" in out and " tablet" in out, out
         assert "usb: tablet (mouse) 0627:0001 'QEMU USB Tablet' (hub port 3), wheel" in out, out
         assert "usb: keyboard 0627:0001 'QEMU USB Keyboard'" in out, out
+        # its icon once it has moved (2026-10-04: a keyboard's dongle declares
+        # a mouse with none behind it)
+        time.sleep(1.0)
+        assert len(bar_icons(q.screendump())) == 1, "a mouse icon before the mouse did anything"
+        q.pointer(320, 180)
         shot_ = wait_icons(q, 2)
         runs = bar_icons(shot_)
         assert len(runs) == 2 and not blue_number(shot_, runs[0]) and not blue_number(shot_, runs[1]), runs

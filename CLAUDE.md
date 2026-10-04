@@ -165,8 +165,9 @@ screenshot in `docs/img/`), `README_OLD.md` (il README completo, in italiano),
   (`show_bm=0` li nasconde); le pagine dietro le voci sono ancora sulla console. In Dev il 3D Bench (`b3d_rgb30.c`: `src/bm/b3d.c` con i contatori del
   Cortex-A55). Nei test lo schermo si legge dai pixel: il testo del menu sta sulla griglia del
   font 8×16 (x multipli di 8, y di 16).
-- L'utente prova senza seriale: LED (rosso = avvio, verde a 1 Hz = vivo) e `bm/bootlog.txt`
-  scritto sulla SD a ogni avvio.
+- L'utente prova senza seriale: LED (rosso = avvio; verde fisso = tutto bene, verde lento =
+  altro, `ledstate.c`) e `bm/bootlog.txt` scritto sulla SD a ogni avvio. Il WiFi salvato si
+  collega all'avvio come sul Pi (`wifi_boot=0` lo spegne; prima serviva `wifi_boot=1`).
 - Cartucce del Pi (`.bm`): per ora nel menu e avviabili, per le prove (decisione dell'utente).
   Il runtime `src/bm` è lo stesso del Pi (`#ifdef BM_RGB30` solo in `bm_video_enter`: lo schermo è `fb_init_game`); i
   driver del Pi che chiama sono sostituiti in `src/rgb30/bm_port.c` (suono muto, niente V3D e
@@ -219,7 +220,7 @@ screenshot in `docs/img/`), `README_OLD.md` (il README completo, in italiano),
 - **Settings uguali** sui due sistemi (2026-10-04): `src/kernel/settings.c` costruisce i
   pannelli per tutti e due (`home_panel`, `home_act`; le righe di un sistema solo sotto
   `#ifdef BM_RGB30`): Controllers, WiFi and network, Screen and sound, Updates, Reports, System,
-  con dentro i comandi utili del monitor (scansione USB, prova della connessione, test pattern,
+  Restart, Shut down, con dentro i comandi utili del monitor (scansione USB, prova della connessione, test pattern,
   prova del suono, il log). Un pannello nuovo o una riga nuova va lì, per tutti e due.
   Settings è una **pagina a sé** (richiesta dell'utente), non un pannello sopra le copertine
   (`menu_page_t`, `draw_page` in `menu_ui.c`): sul Pi le sezioni a sinistra e a destra le
@@ -229,6 +230,31 @@ screenshot in `docs/img/`), `README_OLD.md` (il README completo, in italiano),
 - Test: Pi `test_menu_tabs`, `test_menu_scale`, `test_home_ui` (il giro delle Settings) e quelli
   del menu; RGB30 tutto `tests/rgb30/qemu_test.py` (la scheda e il titolo scelto si leggono
   sulla pillola).
+
+## Avvio, LED e avvisi di sistema (decisioni dell'utente, 2026-10-04)
+
+- **Splash**: all'avvio il logo di bm (`src/kernel/splash.c`, il "bm" del foglio
+  `art/brand/bm-suite.png` in `logo_data.c`, scritto da `scripts/mklogo.py`: rieseguirlo se il
+  foglio cambia) con la versione; la console è sospesa ma tiene le righe dell'avvio (le mostra il
+  monitor, le pagine di testo e *Log since boot*), e la seriale e `klog` le hanno tutte. Il menu
+  prende lo schermo quando si apre (`menu_ui_open`).
+- **LED** (Pi e RGB30, `src/kernel/ledstate.c`): fisso se non c'è niente che non va, lampeggio
+  lento (1 s / 1 s) per tutto il resto: avvio non finito (`LED_BOOT`), SD mancante o illeggibile,
+  alimentazione bassa (Pi: `GET_THROTTLED` bit 0, ogni 5 s dal menu; RGB30: batteria sotto 3,45 V
+  senza caricatore), schermo (RGB30), un kernel che arriva o un aggiornamento che si installa. Le
+  eccezioni fatali tengono i loro codici (`led_blink_code`). Una causa nuova è un bit in
+  `ledstate.h`.
+- **Avvisi sopra tutto** (`src/kernel/notice.c`): un kernel dalla rete (`netxfer.c`) mostra un
+  riquadro con l'avanzamento nel menu (`menu_view_t.notice`) e nei giochi (`bm_set_notice`,
+  `sys_box` in `runtime.c`), righe ogni 10% sulla console; poi **3 s contati** prima del riavvio
+  (`netxfer_kernel_state`). Anche l'aggiornamento conta 3 s ("Restarting in 3...") prima di
+  riavviare. Un riavvio che parte da solo conta sempre i 3 s.
+- **Restart e Shut down** sono le ultime voci di Settings su tutti i sistemi (`settings.c`); sul
+  Pi Shut down è l'arresto del firmware (`watchdog_halt`, la partizione 63 come Linux): resta
+  spento finché non torna la corrente.
+- L'icona del mouse USB c'è solo quando il mouse ha mosso, cliccato o girato la rotella
+  (`hid_mouse_seen`): il ricevitore di una tastiera wireless dichiara un mouse anche senza mouse
+  (Pi 1 B).
 
 ## Report dei test (decisione dell'utente, 2026-10-04)
 
