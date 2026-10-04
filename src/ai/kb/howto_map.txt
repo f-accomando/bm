@@ -8,7 +8,7 @@ ask: la telecamera segue il giocatore | livello che scorre | side scroller
 ask: disegnare solo la parte visibile della mappa
 ask: il livello scorre mentre cammino | far scorrere la mappa
 keys: scorrimento, scorre, scrolling
-see: camera, map, camera_smooth
+see: camera, map, camera_smooth, lib.camera
 text:
 camera() sul giocatore e map() solo per le celle visibili (81x46 celle
 coprono lo schermo anche a metà cella).
@@ -26,7 +26,7 @@ title: Telecamera morbida che insegue
 ask: telecamera morbida | la camera segue con ritardo | smooth camera | lerp camera
 ask: scorrimento fluido | camera che scatta
 keys: morbida, fluido, lerp
-see: map_scroll
+see: map_scroll, lib.camera
 text:
 Ogni fotogramma la camera fa un pezzo (qui il 10%) della strada verso il
 giocatore.
@@ -53,23 +53,25 @@ if mget(cx, cy) == 5 then              -- 5: la moneta nello sheet
   note(0, 1320, 60, SQUARE, 90)
 end
 
-== tile_ranges
+== tile_flags
 kind: howto
-title: Tipi di tile con gli intervalli di numeri
+title: Tipi di tile con i flag (muro, piattaforma, scala, pericolo)
 ask: quali tile sono solide | tipi di tile | muri e pavimento | tile types
 ask: tile che fanno male | acqua lava spine | proprietà delle tile
-keys: tipi, intervalli, solide
-see: collide_map
+ask: segnare quali tile sono muri | tile flags | come uso i flag delle tile
+ask: tile che bloccano il personaggio | come segno le tile solide | which tiles are walls | muro o pavimento per ogni tile
+keys: tipi, flag, solide, pericolo
+see: fget, fset, mflags, collide_map
 text:
-Un'idea che semplifica: tieni le tile dello stesso tipo in un intervallo
-dello sheet (come in Hunter's Night): 32-63 muri, 64-79 pericoli...
+Ogni tile ha 8 flag: dicono che cosa è per il gioco, così il codice non
+dipende dai numeri delle tile. Convenzione di bmlib: 0 solido (1), 1
+piattaforma (2), 2 scala (4), 3 acqua (8), 4 fa male (16). Si danno con
+mkbm.py --flags, con l'editor (tasti 0-7) o con fset.
 code:
-local function kind(t)
-  if t >= 32 and t < 64 then return "wall" end
-  if t >= 64 and t < 80 then return "danger" end
-  return "free"
-end
-if kind(mget(px // 8, py // 8)) == "danger" then lives = lives - 1 end
+fset(32, 0, true)                       -- muro
+fset(64, 4, true)                       -- spine: fanno male
+local f = mflags(px, py, 8, 8)     -- quello che tocca lo sprite
+if f & 16 ~= 0 then lives = lives - 1 end
 
 == map_in_code
 kind: howto
@@ -93,6 +95,24 @@ for y, row in ipairs(level) do
     mset(x - 1, y - 1, tiles[row:sub(x, x)] or 0)
   end
 end
+
+== map_layers
+kind: howto
+title: Livelli della mappa: cose davanti al personaggio
+ask: albero davanti al personaggio | il personaggio passa dietro | map layers
+ask: mappa a più livelli | livello sopra il giocatore | draw tiles over the player
+ask: tetti e chiome davanti | sfondo e primo piano della mappa | foreground layer
+keys: livelli, davanti, primo, piano
+see: map, mlayers, mget
+text:
+La mappa ha fino a 8 livelli della stessa misura. Disegna il livello di
+sotto, poi gli sprite, poi quello davanti. Nel .bm: mkbm.py --map
+mappa.csv --map front=davanti.csv; ogni livello si legge e scrive da sé.
+code:
+map(0, 0, 0, 0, 80, 45, "main")    -- pavimento e muri
+spr(1, px, py)
+map(0, 0, 0, 0, 80, 45, "front")   -- chiome, archi: sopra l'eroe
+if mget(cx, cy, "front") ~= 0 then hidden = true end
 
 == map_gen
 kind: howto

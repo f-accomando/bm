@@ -37,7 +37,7 @@ ask: schermata del titolo e game over | stati del gioco | game states | scene di
 ask: menu iniziale poi la partita | passare dal menu al gioco | state machine
 ask: schermata di fine partita | ricominciare dopo il game over | title screen
 keys: stati, titolo, gameover
-see: title_menu, game_over_screen
+see: title_menu, game_over_screen, lib.states
 text:
 Una variabile dice in che stato sei; _update e _draw fanno cose diverse a
 seconda dello stato.
@@ -69,7 +69,7 @@ ask: fare qualcosa ogni secondo | timer | ogni tot fotogrammi | ripetere ogni 2 
 ask: aspettare prima di fare una cosa | ritardo | delay | every n seconds | contatore
 ask: generare un nemico ogni tanto | attendere mezzo secondo
 keys: timer, ritardo, aspettare
-see: time, countdown
+see: time, countdown, lib.after
 text:
 Si conta in fotogrammi (60 al secondo): un contatore che scende a zero.
 code:
@@ -124,7 +124,7 @@ title: Mettere in pausa il gioco
 ask: mettere in pausa | pausa con start | pause the game | fermare il gioco
 ask: menu di pausa | stop temporaneo
 keys: pausa, pause
-see: btnp
+see: btnp, lib.pause
 text:
 Start da solo è libero per la pausa (Start+Select esce). In pausa
 _update non muove niente.

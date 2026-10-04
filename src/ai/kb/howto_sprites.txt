@@ -7,7 +7,7 @@ ask: animare uno sprite | animazione della camminata | animate a sprite | fotogr
 ask: sprite che si muove a scatti | cambiare immagine ogni tot | walk cycle | frames
 ask: animazione con più celle | far battere le ali
 keys: animare, animazione, fotogrammi, animate
-see: spr, face_direction
+see: spr, face_direction, lib.frame, named_sprites
 text:
 Ogni tot fotogrammi passa alla cella successiva. Qui due fotogrammi 16x16
 (celle 2 e 4), 8 fotogrammi l'uno, solo mentre cammina.
@@ -120,3 +120,23 @@ celle stanno nello sheet una accanto all'altra.
 code:
 spr(0, x, y, 2, 2)       -- 16x16: celle 0, 1, 32, 33
 spr(4, x, y, 4, 4)       -- 32x32
+
+== named_sprites
+kind: howto
+title: Sprite e animazioni per nome (le zone dello sheet)
+ask: chiamare gli sprite per nome | animazione con un nome | named sprites
+ask: non voglio ricordare le coordinate degli sprite | sprite atlas con i nomi
+ask: animazione della moneta che gira | sprite animati senza contare i frame
+keys: nome, zone, atlante
+see: zspr, zone, anim_frames
+text:
+Scrivi le zone in un file (nome x y w h fotogrammi fps, una per riga) e
+passalo a mkbm.py --sprites (nella build: sprites.txt). Poi zspr le
+disegna per nome, animate da sole.
+code:
+-- sprites.txt:  moneta 0 48 8 8 6 12
+function _draw()
+  cls(0)
+  zspr("moneta", 100, 80)
+  zspr("eroe_corre", px, py, nil, vx < 0)
+end

@@ -40,7 +40,7 @@ title: Menu con le voci da scegliere
 ask: menu del titolo | scegliere una voce con le frecce | menu with options
 ask: menu iniziale con gioca e opzioni | cursore nel menu | select menu item
 keys: menu, voci, scegliere
-see: game_states, btnp
+see: game_states, btnp, lib.menu
 text:
 Un indice della voce scelta: su e giù lo cambiano, A conferma.
 code:

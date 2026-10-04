@@ -137,7 +137,7 @@ ask: particelle | esplosione di particelle | scintille | particles effect | fumo
 ask: effetto quando un nemico muore | detriti | sangue | coriandoli
 ask: snippet per un effetto particelle | sprite particle effect | effetto particelle per uno sprite
 keys: particelle, scintille, esplosione
-see: screen_shake, sfx_examples
+see: screen_shake, sfx_examples, lib.particles
 text:
 Tanti puntini con velocità a caso che vivono pochi fotogrammi.
 code:
@@ -166,7 +166,7 @@ title: Far tremare lo schermo
 ask: far tremare lo schermo | scossa | screen shake | terremoto | impatto forte
 ask: l'esplosione fa tremare tutto | vibrazione dello schermo
 keys: tremare, scossa, shake
-see: camera, particles
+see: camera, particles, lib.camera
 text:
 Per qualche fotogramma sposta la camera a caso, sempre meno.
 code:

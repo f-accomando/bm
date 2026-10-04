@@ -48,15 +48,15 @@ ask: gioco di piattaforme | platformer | camminare sulle piattaforme della mappa
 ask: collisione con il pavimento della mappa | stare sopra i blocchi | super mario
 ask: il personaggio cade attraverso il pavimento | collisioni del platform
 keys: platform, piattaforme, mario
-see: collide_map, jump_gravity
+see: collide_map, jump_gravity, lib.step
 text:
 Prima il movimento orizzontale e la sua collisione, poi quello verticale:
 così si scivola lungo i muri. solid() dice se in un punto c'è una tile
-solida (qui le celle da 32 a 63).
+solida (con il flag 0). Più corto: lib.step di bmlib fa gravità, muri e
+piattaforme.
 code:
 local function solid(x, y)
-  local t = mget(x // 8, y // 8)
-  return t >= 32 and t < 64
+  return fget(mget(x // 8, y // 8), 0)
 end
 
 function _update()
@@ -85,7 +85,7 @@ ask: collisione tra due rettangoli | due sprite si toccano | collision between t
 ask: controllare se il giocatore tocca il nemico | aabb | hitbox | sovrapposizione
 ask: rilevare un urto | overlap check | collisioni tra sprite
 keys: collisione, toccare, hitbox, rettangoli
-see: collide_circle, bullets
+see: collide_circle, bullets, lib.overlap
 text:
 Due rettangoli si sovrappongono se nessuno dei due è tutto a sinistra,
 destra, sopra o sotto l'altro.
@@ -104,7 +104,7 @@ ask: collisione tra cerchi | palle che si toccano | circle collision | raggio di
 ask: collisione rotonda | distanza minore della somma dei raggi
 ask: two circles collide | circles overlap | sfere che si toccano
 keys: cerchi, raggio
-see: collide_rect, distance
+see: collide_rect, distance, lib.overlap
 text:
 Si toccano se la distanza tra i centri è minore della somma dei raggi
 (confronta i quadrati: niente radice).
@@ -121,7 +121,7 @@ title: Un punto dentro un rettangolo
 ask: punto dentro un rettangolo | il cursore è sopra il pulsante | point in rectangle
 ask: cliccare su un bottone | il colpo è dentro il bersaglio
 keys: punto, dentro
-see: collide_rect
+see: collide_rect, lib.overlap
 text:
 Il punto è dentro se sta tra i bordi sinistro e destro e tra quelli sopra
 e sotto.
@@ -137,19 +137,15 @@ ask: collisione con i muri | non attraversare i muri | wall collision with the t
 ask: tile solide | il personaggio passa attraverso i muri | blocchi solidi della mappa
 ask: labirinto con i muri | top down collision
 keys: muri, solide, attraversare
-see: mget, platformer, tile_ranges
+see: mflags, platformer, tile_flags, lib.move
 text:
-Prova la nuova posizione: se uno degli angoli dello sprite finisce su una
-tile solida, non muoverti. x e y separati, così si scivola lungo i muri.
+Prova la nuova posizione: se lo sprite tocca una tile solida (flag 0) non
+muoverti. x e y separati, così si scivola lungo i muri. mflags guarda
+tutte le tile sotto il rettangolo in una chiamata; lib.move di bmlib fa
+lo stesso e accosta lo sprite al muro.
 code:
-local function solid(x, y)
-  local t = mget(x // 8, y // 8)
-  return t >= 32 and t < 64
-end
-
 local function free(x, y)            -- uno sprite 8x8
-  return not (solid(x, y) or solid(x + 7, y) or
-              solid(x, y + 7) or solid(x + 7, y + 7))
+  return mflags(x, y, 8, 8) & 1 == 0
 end
 
 if free(px + dx, py) then px = px + dx end

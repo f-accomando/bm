@@ -25,7 +25,7 @@ come leggo che tile c'è sotto i piedi => mget, collide_map
 mostrare il livello fatto a tessere => map
 far scorrere il livello quando il giocatore si muove => map_scroll, camera
 la camera dovrebbe seguire l'omino in modo fluido => camera_smooth
-tile che fanno male come le spine => tile_ranges
+tile che fanno male come le spine => tile_flags, fget
 prendere le monetine sparse nel livello => pickup_tiles
 generare una grotta diversa ogni volta => map_gen
 scrivere il livello con dei caratteri nel codice => map_in_code
@@ -205,3 +205,27 @@ uno scheletro nemico => mesh.skeleton, sprite.skull
 # mouse (M32)
 come leggo dove è il mouse => mouse
 how do i know the player clicked => mousep, mouse
+
+# map layers, tile flags, named zones (R11)
+come dico che una tile è un muro => tile_flags, fset, fget
+la chioma dell'albero deve stare sopra il personaggio => map_layers
+how do i draw a second map layer => map_layers, map, mlayers
+quali tile tocca il rettangolo del giocatore => mflags, collide_map
+disegnare lo sprite della moneta per nome => zspr, named_sprites
+quanto è grande la mappa in celle => msize
+
+# bmlib (R10)
+c'è una libreria con le funzioni già pronte per i giochi => bmlib
+tenere il valore tra zero e cento => lib.clamp, clamp_screen
+platform con gravità usando bmlib => lib.step, platformer
+il nemico vede il giocatore o c'è un muro => lib.ray
+far scendere la scritta del titolo con un rimbalzo => lib.tween, lib.ease
+chiamare una funzione tra tre secondi => lib.after, timer
+una scena con dialoghi che aspettano => lib.script
+camera con la zona morta che segue l'eroe => lib.camera, camera_smooth
+schermata titolo e partita con bmlib => lib.states, game_states
+menu di pausa con il volume => lib.pause, pause
+salvare il punteggio migliore => lib.store, save_progress
+numeri casuali sempre uguali con lo stesso seme => lib.rng
+togliere dalla lista i proiettili usciti dallo schermo => lib.each, bullets
+

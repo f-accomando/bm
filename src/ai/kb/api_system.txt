@@ -122,7 +122,7 @@ name: math.random
 title: math.random - numeri casuali
 ask: numero casuale | numero a caso | random number | tirare un dado
 ask: posizione casuale | scegliere a caso | random seed | casualità diversa ogni partita
-see: rgb
+see: rgb, lib.rnd
 text:
 math.random() da 0 a 1, math.random(n) da 1 a n, math.random(a, b) da a a
 b. Per partite diverse inizializza il generatore quando il giocatore preme

@@ -65,38 +65,44 @@ spr(0, x, y)              -- la cella 0, cambiata
 == map
 kind: api
 name: map
-title: map(mx, my, [x, y, mw, mh]) - disegna la mappa a tile
+title: map(mx, my, [x, y, mw, mh, layer, mask]) - disegna la mappa a tile
 ask: disegnare la mappa | mostrare il livello | draw the tile map | tilemap
 ask: disegnare le tile | mappa del livello sullo schermo | sfondo a tessere
-see: mget, mset, camera, map_scroll
+ask: disegnare un livello della mappa | draw one map layer | solo le tile con un flag
+see: mget, mset, camera, map_scroll, map_layers, mlayers
 text:
 Disegna la mappa dalla cella (mx, my), mw x mh celle, con l'angolo in
 (x, y). Ogni cella della mappa è un numero di cella dello sheet (0 =
-vuota). Con una mappa grande disegna solo la parte visibile.
+vuota). Con una mappa grande disegna solo la parte visibile. layer: il
+livello (numero da 1 o nome, 1 se manca); mask: solo le tile che hanno uno
+di quei flag (fget).
 code:
 map(0, 0)                          -- tutta, dall'angolo
 map(0, 0, 0, 0, 80, 45)            -- 80x45 celle 8x8 = tutto lo schermo
+map(0, 0, 0, 0, 80, 45, "front")   -- il livello davanti all'eroe
 
 == mget
 kind: api
 name: mget
-title: mget(mx, my) - legge una cella della mappa
+title: mget(mx, my, [layer]) - legge una cella della mappa
 ask: leggere una cella della mappa | che tile c'è in un punto | get map tile
 ask: tile sotto il giocatore | collisione con la mappa | muro della mappa | read the map
-see: mset, map, collide_map
+see: mset, map, collide_map, fget
 text:
-Il numero della cella (mx, my) della mappa, 0 se è vuota. Da coordinate in
-pixel a celle: dividi per 8 (x // 8).
+Il numero della cella (mx, my) della mappa, 0 se è vuota (anche fuori
+dalla mappa). Da coordinate in pixel a celle: dividi per 8 (x // 8).
+layer: il livello (numero o nome). Che cosa è la tile lo dicono i suoi
+flag (fget).
 code:
 local t = mget(px // 8, py // 8)
-if t >= 32 and t < 64 then         -- le celle 32-63 sono muri
+if fget(t, 0) then                 -- il flag 0: solido
   log("muro")
 end
 
 == mset
 kind: api
 name: mset
-title: mset(mx, my, n) - cambia una cella della mappa
+title: mset(mx, my, n, [layer]) - cambia una cella della mappa
 ask: cambiare una tile della mappa | scrivere nella mappa | set map tile
 ask: aprire una porta nella mappa | togliere una moneta dalla mappa | modificare il livello
 see: mget, map, pickup_tiles
@@ -109,3 +115,127 @@ if mget(cx, cy) == 5 then          -- 5: una moneta
   mset(cx, cy, 0)
   score = score + 1
 end
+
+== fget
+kind: api
+name: fget
+title: fget(n, [f]) - i flag di una tile (muro, acqua, scala...)
+ask: flag delle tile | sapere se una tile è solida | tile flags | sprite flags
+ask: che tipo di tile è | proprietà di una tile | is this tile a wall | fget
+ask: tile che fa male | tile acqua | leggere i flag
+keys: flag, flags, solida, proprieta
+see: fset, mflags, tile_flags, mget
+text:
+Ogni tile (cella dello sheet) ha 8 flag, da 0 a 7. fget(n) li dà tutti in
+un byte, fget(n, f) solo il flag f (true o false). La convenzione di
+bmlib: 0 solido, 1 piattaforma, 2 scala, 3 acqua, 4 fa male. Vengono da
+mkbm.py --flags, dall'editor (tasti 0-7) o da fset.
+code:
+if fget(mget(cx, cy), 0) then      -- la cella è solida
+  blocked = true
+end
+local f = fget(12)                 -- tutti gli 8 flag della tile 12
+
+== fset
+kind: api
+name: fset
+title: fset(n, f, on) / fset(n, byte) - cambia i flag di una tile
+ask: impostare i flag di una tile | rendere solida una tile | set tile flag
+ask: dire che una tile è un muro | segnare le tile pericolose | fset
+ask: segnare una tile come muro | rendere una tile un ostacolo | mark a tile as solid | dire al gioco quali tile bloccano
+keys: flag, fset, solida
+see: fget, tile_flags
+text:
+Accende o spegne il flag f (0-7) della tile n; con due argomenti scrive
+tutti gli 8 flag insieme. Di solito in _init, o una volta per tutte con
+mkbm.py --flags o l'editor (tasti 0-7 sulla pagina degli sprite).
+code:
+fset(1, 0, true)                   -- la tile 1 è solida
+fset(2, 1, true)                   -- la tile 2 è una piattaforma
+fset(9, 4 | 16)                    -- scala che fa male: flag 2 e 4
+
+== mflags
+kind: api
+name: mflags
+title: mflags(x, y, [w, h, layer]) - i flag della mappa sotto un rettangolo
+ask: cosa tocca il personaggio nella mappa | collisione in pixel con la mappa
+ask: flag sotto i piedi | toccare un muro | il giocatore è a terra | mflags
+ask: what tiles does the box touch | map collision in pixels
+ask: quali tile sto toccando | tile sotto il rettangolo dello sprite | tiles under a box
+keys: mflags, collisione, piedi
+see: fget, collide_map, lib.move
+text:
+I flag di tutte le tile che il rettangolo (in pixel, la mappa disegnata a
+0, 0) tocca, messi insieme: 0 = niente. Senza w e h un punto. Una
+chiamata sola invece di tanti mget e fget.
+code:
+if mflags(px, py + 8, 8, 1) & 1 ~= 0 then   -- qualcosa di solido sotto
+  on_ground = true
+end
+if mflags(px, py, 8, 8) & 16 ~= 0 then lives = lives - 1 end
+
+== msize
+kind: api
+name: msize
+title: msize([w, h]) - la misura della mappa
+ask: quanto è grande la mappa | misura della mappa | map size | larghezza della mappa
+ask: cambiare la misura della mappa | mappa più grande | resize the map
+keys: msize, misura, mappa
+see: map, mlayers
+text:
+w, h, livelli: la mappa in celle e quanti livelli ha. Con w e h la porta a
+quella misura (tutti i livelli), le celle che ci stanno restano.
+code:
+local w, h = msize()
+local larghezza_px = w * 8
+msize(160, 45)                     -- 1280x360 pixel
+
+== mlayers
+kind: api
+name: mlayers
+title: mlayers([lista]) - i livelli della mappa
+ask: livelli della mappa | aggiungere un livello alla mappa | map layers
+ask: elenco dei livelli | rinominare un livello | togliere un livello | mlayers
+keys: livelli, layers
+see: map_layers, map, msize
+text:
+I nomi dei livelli, in ordine (il primo si disegna dietro). Con una lista
+(1-8 voci) la mappa prende quei livelli: un nome tiene il livello con quel
+nome (o ne fa uno nuovo vuoto), {nome, da} ne copia un altro.
+code:
+local nomi = mlayers()             -- { "main", "front" }
+mlayers({ "main", "front", "top" })        -- uno in più
+mlayers({ "main", { "davanti", "front" } }) -- rinominato
+
+== zspr
+kind: api
+name: zspr
+title: zspr(nome, x, y, [fotogramma, flip_x, flip_y, zoom]) - uno sprite per nome
+ask: disegnare uno sprite per nome | sprite con un nome | named sprite | zona dello sheet
+ask: animazione con i fotogrammi dello sheet | zspr | sprite animato da solo
+ask: draw a sprite by its name | animate a named sprite
+keys: zspr, nome, zona, zone
+see: zone, named_sprites, anim_frames
+text:
+Disegna la zona con quel nome dello sheet (sezione SPRITES: mkbm.py
+--sprites, bm Pixel, bmres.py). Senza fotogramma va da sola alla velocità
+della zona; restituisce il fotogramma disegnato.
+code:
+zspr("moneta", x, y)               -- animata da sola
+zspr("eroe_corre", x, y, nil, vx < 0)
+zspr("eroe_fermo", x, y, 1)        -- un fotogramma preciso
+
+== zone
+kind: api
+name: zone
+title: zone(nome) / zones() - dove sta una zona con nome dello sheet
+ask: misura di uno sprite con nome | zone dello sheet | zones | elenco degli sprite
+ask: dove sta lo sprite nello sheet | quanti fotogrammi ha
+keys: zone, zones
+see: zspr, named_sprites
+text:
+zone(nome) dà x, y, w, h, fotogrammi, fps (il primo fotogramma, in pixel
+dello sheet), o nil; zones() i nomi di tutte le zone.
+code:
+local _, _, w, h = zone("eroe_corre")    -- per la hitbox
+for _, n in ipairs(zones()) do log(n) end

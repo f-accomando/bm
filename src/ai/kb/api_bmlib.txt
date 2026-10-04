@@ -1,0 +1,524 @@
+# The games' shared library (R10): local lib = require "bmlib".
+# Names as "lib.x": the word under the cursor in code that calls it lib.
+
+== bmlib
+kind: api
+name: bmlib
+title: require "bmlib" - la libreria comune dei giochi
+ask: libreria per i giochi | funzioni pronte per i giochi | game library | bmlib
+ask: c'è una funzione già fatta | utility per i giochi | helper functions
+ask: non voglio riscrivere clamp e collisioni | libreria standard di bm
+ask: require bmlib | come uso bmlib | shared game library
+keys: bmlib, libreria, pronte, require
+see: lib.update, lib.clamp, lib.step, lib.states, lib.camera, lib.particles
+text:
+Quello che ogni gioco riscriveva: numeri, caso, collisioni con rettangoli,
+cerchi e mappa, easing e tween, timer e script, particelle, camera, stati,
+testo, menu e pausa, jingle, salvataggi, animazioni, colori, costruttore
+3D. Tempi in secondi, posizioni in pixel, velocità in pixel per
+fotogramma. lib.update() una volta in _update fa andare avanti tween,
+timer, script e jingle.
+code:
+local lib = require "bmlib"
+
+function _update()
+  lib.update()
+end
+
+== lib.update
+kind: api
+name: lib.update
+title: lib.update([dt]) - fa andare avanti tween, timer, script e jingle
+ask: i tween non si muovono | lib.after non parte | lib update
+ask: dove chiamo lib.update | i timer di bmlib non funzionano | update bmlib
+keys: update, avanti
+see: bmlib, lib.tween, lib.after
+text:
+Da chiamare una volta in _update: aggiunge 1/60 di secondo (o dt) e fa
+andare avanti tween, timer, script e jingle. lib.time è il tempo contato
+così. Senza, restano fermi.
+code:
+function _update()
+  lib.update()
+  update_game()
+end
+
+== lib.clamp
+kind: api
+name: lib.clamp
+title: lib.clamp, lib.lerp, lib.approach... - numeri (bmlib)
+ask: limitare un numero tra due valori | clamp | mid | tenere dentro lo schermo
+ask: interpolare tra due valori | lerp | avvicinarsi piano a un valore | approach
+ask: segno di un numero | arrotondare | round | wrap around | indice che gira
+ask: valore tra un minimo e un massimo | non superare un massimo | limit a value between min and max | tenere un numero nei limiti
+keys: clamp, lerp, approach, sign, round, wrap, cycle, unlerp, remap
+see: lib.dist, bmlib
+text:
+lib.clamp(v, lo, hi); lib.lerp(a, b, t) e lib.unlerp; lib.remap(v, a0,
+a1, b0, b1); lib.approach(v, meta, passo); lib.sign(v) (0 per 0);
+lib.round(v, [passo]); lib.wrap(v, lo, hi) (mondi che girano);
+lib.cycle(i, d, n) (le righe di un menu).
+code:
+px = lib.clamp(px, 0, SCREEN_W - 8)
+hp_shown = lib.approach(hp_shown, hp, 0.5)
+sel = lib.cycle(sel, 1, #items)
+x = lib.lerp(x0, x1, t)
+
+== lib.dist
+kind: api
+name: lib.dist
+title: lib.dist, lib.angle, lib.norm... - distanze e angoli (bmlib)
+ask: distanza tra due punti | angolo verso il giocatore | direction to target
+ask: normalizzare un vettore | girarsi verso il nemico | 8 direzioni | distance
+ask: velocità diagonale troppo veloce | angle between two points
+keys: distanza, angolo, norm, dir8, turn, dist2, len, angle, angdiff
+see: lib.clamp, chase, enemy_aim
+text:
+lib.dist(ax, ay, bx, by) e lib.dist2 (il quadrato); lib.len(x, y);
+lib.norm(x, y) (lungo 1, e la lunghezza); lib.angle(ax, ay, bx, by);
+lib.angdiff(a, b) e lib.turn(a, meta, passo); lib.dir8(x, y): 0-7.
+code:
+local a = lib.angle(e.x, e.y, px, py)
+e.x = e.x + math.cos(a) * 1.5
+e.y = e.y + math.sin(a) * 1.5
+local dx, dy = lib.norm(sx, sy)    -- in diagonale non piu' veloce
+
+== lib.rnd
+kind: api
+name: lib.rnd
+title: lib.rnd, lib.chance, lib.choose, lib.shuffle - il caso (bmlib)
+ask: numero decimale a caso tra due valori | scegliere un elemento a caso
+ask: mescolare una lista | probabilità del 30% | random choice | shuffle a list
+ask: random float between | random element of a table
+keys: caso, scegliere, mescolare, probabilita, chance, choose, shuffle
+see: lib.rng, random
+text:
+lib.rnd(a, b) un numero tra a e b (lib.rnd(n) tra 0 e n); lib.chance(p)
+vero con probabilità p; lib.choose(t) un elemento a caso;
+lib.shuffle(t) mescola la lista.
+code:
+local speed = lib.rnd(1, 3)
+if lib.chance(0.3) then drop_coin(x, y) end
+local kind = lib.choose({ "slime", "bat", "ghost" })
+
+== lib.rng
+kind: api
+name: lib.rng
+title: lib.rng(seme) - numeri a caso sempre uguali dallo stesso seme
+ask: generatore con il seme | mondo sempre uguale | seeded random | stesso livello ogni volta
+ask: numeri casuali ripetibili | random per il multiplayer | procedural seed
+keys: seme, seed, ripetibile
+see: lib.rnd, map_gen
+text:
+Un generatore suo: dallo stesso seme dà sempre gli stessi numeri (mondi
+generati, partite in rete). r:next() tra 0 e 1, r:range(a, b), r:int(a,
+b), r:pick(t), r:chance(p).
+code:
+local r = lib.rng(1234)
+for x = 0, 79 do
+  mset(x, 40 + r:int(0, 3), 1)
+end
+
+== lib.overlap
+kind: api
+name: lib.overlap
+title: lib.overlap, lib.hit, lib.circles - collisioni (bmlib)
+ask: collisione già pronta | due rettangoli si toccano con bmlib | lib hit
+ask: punto dentro un rettangolo | cerchio e rettangolo | aabb function
+keys: overlap, hit, collisione, inside, circles, circrect
+see: collide_rect, collide_circle, lib.move
+text:
+lib.overlap(ax, ay, aw, ah, bx, by, bw, bh); lib.hit(a, b) per tabelle con
+x, y, w, h; lib.inside(px, py, x, y, w, h); lib.circles(ax, ay, ar, bx,
+by, br); lib.circrect(cx, cy, r, x, y, w, h).
+code:
+if lib.hit(player, enemy) then lives = lives - 1 end
+if lib.circles(b.x, b.y, 3, e.x, e.y, 8) then e.dead = true end
+
+== lib.move
+kind: api
+name: lib.move
+title: lib.move(c, dx, dy) - muovere un corpo tra i muri della mappa
+ask: muoversi senza attraversare i muri | scivolare lungo i muri | move and slide
+ask: collisione con la mappa già fatta | top down con i muri | lib move
+ask: il personaggio si incastra nel muro | move with tile collision
+keys: move, muri, scivolare
+see: lib.step, collide_map, mflags, lib.tiles
+text:
+Sposta c = {x, y, w, h} di dx, dy, fermandolo contro le tile solide (flag
+0) e facendolo scivolare lungo i muri; su una piattaforma (flag 1) cade
+solo da sopra. Restituisce hx, hy: -1 / 1 dove ha urtato. lib.tiles{}
+sceglie livello, flag e se i bordi sono muri.
+code:
+lib.tiles({ edge = true })            -- fuori dalla mappa: muro
+local dx = (btn(1) and 2 or 0) - (btn(0) and 2 or 0)
+local dy = (btn(3) and 2 or 0) - (btn(2) and 2 or 0)
+local hx, hy = lib.move(hero, dx, dy)
+
+== lib.tiles
+kind: api
+name: lib.tiles
+title: lib.tiles(opz) e lib.solid - come la mappa ferma i corpi (bmlib)
+ask: quali flag sono solidi per bmlib | bordi della mappa come muri | lib tiles
+ask: c'è un muro in questo punto | solid at point | configure map collisions
+keys: tiles, solid, edge
+see: lib.move, tile_flags
+text:
+lib.tiles{layer=, solid=, platform=, edge=}: il livello della mappa, le
+maschere dei flag (1 e 2) e se fuori dalla mappa è solido.
+lib.solid(x, y, [w, h]) dice se il rettangolo tocca un muro.
+code:
+lib.tiles({ layer = "main", solid = 1, platform = 2, edge = true })
+if lib.solid(px + 8, py) then turn_back() end
+
+== lib.step
+kind: api
+name: lib.step
+title: lib.step(c) - un fotogramma di platform: gravità, muri, piattaforme
+ask: platform con bmlib | gravità e salto già fatti | platformer physics
+ask: atterrare sulle piattaforme | scendere da una piattaforma | jump through platform
+ask: il personaggio è a terra | lib step | one way platform
+keys: step, gravita, piattaforma, salto
+see: lib.move, platformer, jump_gravity
+text:
+Aggiunge la gravità a c.vy (c.gravity, 0.25; al più c.maxfall, 6), sposta
+con lib.move e azzera la velocità che urta. Poi c.ground è vero a terra.
+Con c.drop vero scende attraverso le piattaforme.
+code:
+hero.vx = (btn(1) and 2 or 0) - (btn(0) and 2 or 0)
+if hero.ground and btnp(4) then hero.vy = -5 end
+hero.drop = btn(3)
+lib.step(hero)
+
+== lib.ray
+kind: api
+name: lib.ray
+title: lib.ray(x0, y0, x1, y1, [maschera]) - linea di vista sulla mappa
+ask: il nemico vede il giocatore | linea di vista | line of sight | raycast sulla mappa
+ask: il proiettile colpisce il muro | c'è un muro in mezzo | lib ray
+keys: vista, ray, raggio
+see: lib.move, mflags
+text:
+La prima tile con un flag della maschera (solida se manca) tra due punti:
+x, y dove la linea ci entra e la sua cella; nil se la strada è libera.
+code:
+if not lib.ray(e.x, e.y, hero.x, hero.y) then
+  e.chasing = true                   -- lo vede: niente muri in mezzo
+end
+
+== lib.tween
+kind: api
+name: lib.tween
+title: lib.tween(ogg, a, secondi, [ease, fatto]) - animare dei valori
+ask: animare una posizione | tween | far entrare una scritta | easing
+ask: muovere qualcosa in mezzo secondo | ease out back | menu che scivola dentro
+ask: animare la scala di un oggetto | interpolare nel tempo
+ask: scritta che cade e rimbalza | il titolo entra dall alto | tween with bounce
+keys: tween, easing, animare
+see: lib.ease, lib.update, lib.after
+text:
+I campi di ogg vanno ai valori della tabella a in quei secondi, con la
+curva ease (un nome di lib.ease o una funzione), poi fatto(ogg). Lo fa
+andare avanti lib.update(); h:cancel() lo ferma.
+code:
+local title = { y = -40 }
+lib.tween(title, { y = 120 }, 0.8, "outbounce")
+lib.tween(coin, { y = coin.y - 20 }, 0.3, "outquad", function(c)
+  c.dead = true
+end)
+
+== lib.ease
+kind: api
+name: lib.ease
+title: lib.ease - le curve di easing (bmlib)
+ask: funzioni di easing | ease in out | rallentare alla fine | bounce elastic
+ask: curva di animazione | smoothstep | easing functions
+keys: ease, easing, curve
+see: lib.tween
+text:
+Funzioni di t da 0 a 1: linear, inquad, outquad, inoutquad, incubic,
+outcubic, inoutcubic, insine, outsine, inoutsine, inback, outback,
+inoutback, outelastic, outbounce, smooth.
+code:
+local k = lib.ease.outback(t)
+x = lib.lerp(x0, x1, k)
+
+== lib.after
+kind: api
+name: lib.after
+title: lib.after, lib.every, lib.countdown - timer in secondi (bmlib)
+ask: fare una cosa tra due secondi | ogni mezzo secondo | timer in secondi
+ask: ritardo con bmlib | every second | after delay | tempi di ricarica
+ask: cooldown di un'abilità | countdown dei campi | lib after
+ask: fare una cosa dopo qualche secondo | chiamare qualcosa più tardi | call a function later | eseguire dopo un ritardo
+keys: after, every, timer, cooldown, cancel, countdown, clear
+see: lib.script, lib.update, timer
+text:
+lib.after(s, f) chiama f tra s secondi; lib.every(s, f, [volte]) ogni s
+secondi (f che dà false si ferma); h:cancel(). lib.countdown(t, chiavi)
+fa scendere quei campi fino a 0 (i tempi di ricarica). lib.clear() li
+ferma tutti.
+code:
+lib.after(2, function() door.open = true end)
+lib.every(1.5, spawn_enemy)
+lib.countdown(hero, { "dash_cd", "hurt_t" })
+
+== lib.script
+kind: api
+name: lib.script
+title: lib.script(f) con lib.wait e lib.waitfor - scene scritte in fila
+ask: sequenza di eventi | cutscene | dialogo che aspetta | aspettare dentro una funzione
+ask: wait in a script | scene with waits | ondate di nemici in ordine | lib script
+keys: script, wait, cutscene, sequenza, waitfor
+see: lib.after, lua_coroutines
+text:
+f gira come uno script che può aspettare: lib.wait(secondi) e
+lib.waitfor(condizione). Parte subito fino alla prima attesa, poi lo
+porta avanti lib.update().
+code:
+lib.script(function()
+  say("Attento!")
+  lib.wait(1.5)
+  spawn_boss()
+  lib.waitfor(function() return boss.dead end)
+  say("Vittoria")
+end)
+
+== lib.particles
+kind: api
+name: lib.particles
+title: lib.particles([max]) - particelle pronte (bmlib)
+ask: particelle già fatte | esplosione con bmlib | sistema di particelle
+ask: scintille che cadono | polvere quando atterra | particle system | lib particles
+keys: particelle, scintille, burst, draw
+see: particles, lib.camera
+text:
+Un insieme di particelle: P:burst(x, y, n, {speed, life, colors,
+gravity...}) o P:add(...); P:update() in _update e P:draw() in _draw.
+Pieno, una nuova prende il posto della più vecchia.
+code:
+local fx = lib.particles(300)
+fx:burst(x, y, 20, { speed = 3, gravity = 0.1,
+                     colors = { 0xFFFFFF, 0xFFD050, 0xFF6020 } })
+fx:update()
+fx:draw()
+
+== lib.camera
+kind: api
+name: lib.camera
+title: lib.camera([opz]) - camera che segue, con zona morta e tremolio
+ask: camera che segue il giocatore | zona morta | dead zone | screen shake con bmlib
+ask: la camera non esce dalla mappa | camera follow | tremolio dello schermo
+ask: disegnare solo la parte visibile della mappa con la camera | lib camera
+keys: camera, segue, shake, tremolio, follow, apply
+see: camera_smooth, screen_shake, map_scroll
+text:
+cam = lib.camera{smooth=, dead={w, h}, bounds=true}; cam:follow(x, y) a
+ogni fotogramma; cam:shake(pixel, secondi); in _draw cam:apply() (fa
+camera()), cam:map() disegna le celle visibili, poi camera() per l'HUD.
+code:
+local cam = lib.camera({ bounds = true, dead = { 64, 48 } })
+cam:follow(hero.x, hero.y)          -- in _update
+cam:apply()                         -- in _draw, prima del mondo
+cam:map()
+camera()                            -- l'HUD
+
+== lib.states
+kind: api
+name: lib.states
+title: lib.states(def, [primo]) - titolo, partita, pausa, game over
+ask: macchina a stati | state machine | schermate del gioco con bmlib | scene manager
+ask: passare dal titolo al gioco | go to state | push pop di uno stato | lib states
+ask: titolo e partita come stati | cambiare schermata del gioco
+keys: stati, states, scene
+see: game_states, lib.pause
+text:
+Ogni stato è una tabella {enter, update, draw, exit}; s.t sono i secondi
+nello stato. S:go(nome) cambia stato, S:push/S:pop mettono uno stato
+sopra (una pausa); S:update() e S:draw() nelle funzioni del gioco.
+code:
+local S
+S = lib.states({
+  title = { update = function() if btnp(4) then S:go("play") end end,
+            draw = function() cls(0) print("PREMI A", 280, 170) end },
+  play = { update = update_game, draw = draw_game },
+}, "title")
+function _update() S:update() end
+function _draw() S:draw() end
+
+== lib.printc
+kind: api
+name: lib.printc
+title: lib.printc, lib.prints, lib.printo... - testo centrato e con ombra
+ask: scrivere al centro dello schermo | testo centrato | center text | ombra del testo
+ask: testo con il contorno | allineare a destra | larghezza di un testo | outline text
+ask: tempo in minuti e secondi | scritta che lampeggia | blink
+keys: centro, centrato, ombra, contorno, blink, printr, prints, printo, textw, timestr
+see: center_text, print
+text:
+lib.printc(testo, y, [c, scala]) al centro; lib.printr(testo, x, y)
+finisce in x; lib.prints con l'ombra, lib.printo con il contorno;
+lib.textw(testo) larghezza e altezza; lib.timestr(s) "m:ss";
+lib.blink() vero metà del tempo.
+code:
+lib.printc("GAME OVER", 160, 0xFF4040, 2)
+if lib.blink() then lib.printc("premi A", 200, 0xFFFFFF) end
+lib.prints("punti " .. score, 8, 8, 0xFFFFFF)
+lib.printr(lib.timestr(t), SCREEN_W - 8, 8, 0xFFFFFF)
+
+== lib.bar
+kind: api
+name: lib.bar
+title: lib.bar(x, y, w, h, v, max, [c, sfondo, bordo]) - barra della vita
+ask: barra della vita | health bar | barra di caricamento | stamina | barra dei punti
+ask: disegnare una barra piena a metà | progress bar
+keys: barra, vita, stamina
+see: hud, lib.printc
+text:
+Una barra piena per v su max, con lo sfondo e il bordo se si danno.
+code:
+lib.bar(8, 8, 100, 6, hp, hp_max, 0x40E040, 0x302020, 0xFFFFFF)
+
+== lib.menu
+kind: api
+name: lib.menu
+title: lib.menu(voci) e lib.btnr - un menu pronto, tasti che si ripetono
+ask: menu con le opzioni | lista da scegliere col pad | menu del titolo con bmlib
+ask: tasto che si ripete tenendolo | auto repeat | btnp che ripete | options menu
+ask: voci del menu con valori | menu sinistra destra per cambiare | lib menu
+keys: menu, voci, ripete, btnr
+see: title_menu, lib.pause
+text:
+M = lib.menu({ "Gioca", {label="Volume", value=..., change=...}, ...});
+M:update() muove con su e giù (ripetuti), cambia con sinistra e destra,
+restituisce la voce e "ok" quando la scegli; M:draw(x, y). lib.btnr(i)
+è btnp che si ripete tenendo il tasto.
+code:
+local M = lib.menu({ "Gioca", "Opzioni", "Esci" })
+function _update()
+  local voce, a = M:update()
+  if a == "ok" and voce == "Gioca" then start() end
+end
+function _draw() cls(0) M:draw(260, 140) end
+
+== lib.pause
+kind: api
+name: lib.pause
+title: lib.pause([opz]) - il menu di pausa pronto (RESUME, VOLUME, QUIT)
+ask: menu di pausa pronto | pausa con volume e esci | pause menu | resume quit
+ask: fermare il gioco con start e un menu | lib pause
+keys: pausa, pause, resume
+see: pause, lib.states
+text:
+Start lo apre (quando when() è vero), con RESUME, VOLUME della console, le
+tue righe e QUIT (quit()). In _update: if P:update() then return end; in
+_draw, dopo il gioco, P:draw().
+code:
+local P = lib.pause({ quit = function() state = "title" end })
+function _update()
+  if P:update() then return end
+  update_game()
+end
+function _draw() draw_game() P:draw() end
+
+== lib.jingle
+kind: api
+name: lib.jingle
+title: lib.jingle(note, [voce]) - una melodia breve (bmlib)
+ask: suonare una melodia breve | jingle di vittoria | sequenza di note | fanfara
+ask: musichetta quando prendi la moneta | play a short tune | lib jingle
+keys: jingle, melodia, note
+see: jingle, note
+text:
+note = { {nota, secondi}, ... }: Hz o un nome ("C5"), 0 o "-" una pausa.
+Suona sulla voce (3 se manca); la porta avanti lib.update().
+lib.jingling() dice se suona ancora.
+code:
+lib.jingle({ { "C5", 0.1 }, { "E5", 0.1 }, { "G5", 0.1 },
+            { "C6", 0.3 } })
+
+== lib.store
+kind: api
+name: lib.store
+title: lib.store e lib.best - salvare un valore e il record
+ask: salvare il record | high score | salvare un'impostazione | best score
+ask: salvare solo se è cambiato | leggere un valore salvato | lib best
+keys: record, salvare, store, best
+see: save, save_progress
+text:
+lib.store(k) legge un campo del salvataggio, lib.store(k, v) lo scrive
+(sulla SD solo se cambia). lib.best(k, v) tiene il record: restituisce il
+migliore e true se è nuovo.
+code:
+local best, nuovo = lib.best("record", score)
+if nuovo then lib.printc("NUOVO RECORD!", 200, 0xFFD050) end
+lib.store("volume_musica", 7)
+
+== lib.frame
+kind: api
+name: lib.frame
+title: lib.frame e lib.anim - fotogrammi di un'animazione (bmlib)
+ask: quale fotogramma mostrare | animazione a tot fps | animazione una volta sola
+ask: frame dell'animazione dal tempo | animation that plays once | lib frame
+keys: fotogramma, frame, animazione, anim
+see: anim_frames, zspr
+text:
+lib.frame(lista, fps) l'elemento che il tempo mostra, in ciclo.
+lib.anim(lista, fps, false) un'animazione sua: a:update() ogni
+fotogramma, a.done quando è finita.
+code:
+spr(lib.frame({ 16, 18, 20, 18 }, 8), x, y, 2, 2)
+local boom = lib.anim({ 40, 41, 42, 43 }, 12, false)
+spr(boom:update(), bx, by)
+
+== lib.mix
+kind: api
+name: lib.mix
+title: lib.mix e lib.shade - mescolare e scurire i colori
+ask: mescolare due colori | colore più scuro | sfumare un colore | darker color
+ask: fade to black | colore a metà tra due | lighten a color
+keys: colore, mescolare, scuro, shade
+see: rgb
+text:
+lib.mix(c1, c2, t) il colore a metà strada (t da 0 a 1); lib.shade(c, k)
+k volte più luminoso (0 nero).
+code:
+local c = lib.mix(0xFF0000, 0xFFFF00, t)
+rectfill(x, y, 8, 8, lib.shade(c, 0.5))
+
+== lib.builder
+kind: api
+name: lib.builder
+title: lib.builder() - costruire un modello 3D a pezzi (bmlib)
+ask: costruire una mesh nel codice | modello 3D a scatole | mesh builder
+ask: facce girate male | cubo con il tetto | build a 3d model from boxes
+keys: builder, mesh, scatole
+see: mesh, mesh_cube
+text:
+Pezzi convessi le cui facce si girano da sole: b:box(x0, y0, z0, x1, y1,
+z1, colore), b:piece(punti, triangoli, colore), b:tetra, b:quad, poi
+b:build() dà la mesh. I metodi si concatenano.
+code:
+local casa = lib.builder()
+  :box(-1, 0, -1, 1, 1.5, 1, 0xC0A080)
+  :box(-1.2, 1.5, -1.2, 1.2, 1.7, 1.2, 0xA03020)
+  :build()
+
+== lib.each
+kind: api
+name: lib.each
+title: lib.each e lib.sweep - aggiornare una lista e togliere gli elementi
+ask: togliere i nemici morti dalla lista | rimuovere mentre scorro la lista
+ask: remove from a table while iterating | aggiornare e cancellare i proiettili
+keys: lista, togliere, rimuovere, sweep
+see: bullets
+text:
+lib.each(lista, f) chiama f su ogni elemento e toglie quelli per cui
+restituisce false; lib.sweep(lista) toglie quelli con .dead. L'ordine
+resta.
+code:
+lib.each(bullets, function(b)
+  b.y = b.y - 4
+  return b.y > -8                    -- false: esce dalla lista
+end)
+lib.sweep(enemies)

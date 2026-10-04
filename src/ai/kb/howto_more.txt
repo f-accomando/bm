@@ -40,7 +40,7 @@ title: Una piccola melodia (jingle)
 ask: suonare una melodia | musichetta | jingle | play a tune | sequenza di note
 ask: musica di vittoria | motivetto quando vinci | melody
 keys: melodia, jingle, musichetta
-see: note, playing, music_loop
+see: note, playing, music_loop, lib.jingle
 text:
 Una tabella di note (Hz e durata): quando la voce ha finito, parte la
 successiva.
@@ -115,7 +115,7 @@ title: Salvare i progressi (livello, oggetti)
 ask: salvare il livello raggiunto | salvare la partita | save progress | continuare la partita
 ask: salvare gli oggetti raccolti | checkpoint
 keys: progressi, livello, continuare
-see: save, saved
+see: save, saved, lib.store
 text:
 Una tabella con quello che serve per ripartire; save() accetta tabelle
 dentro tabelle.
