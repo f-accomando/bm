@@ -21,7 +21,7 @@ concurrency:
 env:
   # the branch of bm with scripts/mkmarket.py (its main branch): the
   # repository variable BM_REF, if set
-  BM_REF: ${{ vars.BM_REF || 'baremetalcore' }}
+  BM_REF: ${{ vars.BM_REF || 'bm-core' }}
 
 jobs:
   check:

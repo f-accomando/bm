@@ -822,7 +822,7 @@ Decisione 2026-09-29: l'editor attuale diventa l'**SDK** (generico: progetto, pr
 salvataggio); intorno a lui strumenti specializzati, ognuno una cartuccia nella scheda
 **Dev**, tutti con gli stessi formati.
 
-**Stato (2026-10-01, sviluppato sul branch `sviluppo-sdk`, ora in `baremetalcore`):
+**Stato (2026-10-01, sviluppato sul branch `sviluppo-sdk`, ora in `bm-core`):
 bm Studio, sul PC.** Su richiesta
 dell'utente, 22.3 (3D), parte di 22.2 (pixel art dello sheet) e di 22.5 (import/export)
 arrivano prima come applicazione per il PC (`sdk/studio`,
