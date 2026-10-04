@@ -70,10 +70,11 @@ def band_at(x):
 
 
 def leg(px):
-    """the m's left leg: in the brand art it goes into the b's belly; here it
-    goes down as far as the other two (the user's request, 2026-10-04): the
-    middle leg's shape, one leg to the left, a line of shadow between it and
-    the b"""
+    """the m's left leg: in the brand art it goes behind the b's belly and
+    stops short; here it goes down as far as the other two (the user's
+    request, 2026-10-04): the middle leg's shape one leg to the left, only
+    where nothing is drawn (the b stays over the m), in the shaded colour of
+    the part of it already seen"""
     at = lambda x, y: px[y * SMALL_W + x]
     y = SMALL_H - 6                             # a row where the legs stand apart
     runs, x = [], 0
@@ -88,16 +89,15 @@ def leg(px):
         return
     (m0, m1), (r0, _) = runs[-2], runs[-1]      # the middle leg, the right one
     step = r0 - m0
-    top = next(yy for yy in range(SMALL_H) if at(m0 + 1, yy) is None and at(m0 + 1, yy + 1) is not None) + 1
-    for yy in range(top, SMALL_H):
+    for yy in range(SMALL_H):
+        # the rows where the middle leg stands alone, background on both sides
+        if not (at(m0 - 1, yy) is None and (m1 >= SMALL_W or at(m1, yy) is None)):
+            continue
         for xx in range(m0, m1):
-            if at(xx, yy) is None:
-                continue
             lx = xx - step
-            px[yy * SMALL_W + lx] = band_at(lx)
-        edge = m0 - step - 1                    # the shadow along its left side, on the b
-        if 0 <= edge and at(edge, yy) is not None and at(m0, yy) is not None:
-            px[yy * SMALL_W + edge] = tuple(round(v * 0.55) for v in band_at(edge))
+            if at(xx, yy) is None or lx < 0 or at(lx, yy) is not None:
+                continue
+            px[yy * SMALL_W + lx] = tuple(round(v * 0.62) for v in band_at(lx))
 
 
 def small():
