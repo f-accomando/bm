@@ -403,16 +403,18 @@ int bm_is_res(const void *head8)
 static const uint32_t res_allowed[BM_RES_KINDS] = {
     0,
     BIT(BM_SEC_INFO) | BIT(BM_SEC_MESH) | BIT(BM_SEC_ANIM) | BIT(BM_SEC_SHEET) | BIT(BM_SEC_SHEET8),
-    BIT(BM_SEC_INFO) | BIT(BM_SEC_SPRITES) | BIT(BM_SEC_SHEET) | BIT(BM_SEC_SHEET8),
+    BIT(BM_SEC_INFO) | BIT(BM_SEC_SPRITES) | BIT(BM_SEC_SHEET) | BIT(BM_SEC_SHEET8) | BIT(BM_SEC_FLAGS),
     BIT(BM_SEC_INFO) | BIT(BM_SEC_AUDIO),
-    BIT(BM_SEC_INFO) | BIT(BM_SEC_MAP) | BIT(BM_SEC_SHEET) | BIT(BM_SEC_SHEET8),
+    BIT(BM_SEC_INFO) | BIT(BM_SEC_MAP) | BIT(BM_SEC_LAYERS) | BIT(BM_SEC_FLAGS) | BIT(BM_SEC_SHEET) |
+        BIT(BM_SEC_SHEET8),
     BIT(BM_SEC_INFO) | BIT(BM_SEC_SHEET8),
     BIT(BM_SEC_INFO) | BIT(BM_SEC_MESH) | BIT(BM_SEC_ANIM) | BIT(BM_SEC_SHEET) | BIT(BM_SEC_SHEET8) |
-        BIT(BM_SEC_SPRITES) | BIT(BM_SEC_AUDIO) | BIT(BM_SEC_MAP),
+        BIT(BM_SEC_SPRITES) | BIT(BM_SEC_AUDIO) | BIT(BM_SEC_MAP) | BIT(BM_SEC_LAYERS) | BIT(BM_SEC_FLAGS),
 };
 #define KNOWN_SECTIONS (BIT(BM_SEC_LUA) | BIT(BM_SEC_SHEET) | BIT(BM_SEC_MAP) | BIT(BM_SEC_COVER) | \
                         BIT(BM_SEC_SHEET8) | BIT(BM_SEC_AUDIO) | BIT(BM_SEC_OLD_ANIM) | BIT(BM_SEC_MESH) | \
-                        BIT(BM_SEC_ANIM) | BIT(BM_SEC_INFO) | BIT(BM_SEC_SPRITES))
+                        BIT(BM_SEC_ANIM) | BIT(BM_SEC_INFO) | BIT(BM_SEC_SPRITES) | BIT(BM_SEC_LAYERS) | \
+                        BIT(BM_SEC_FLAGS))
 
 /* A SPRITES section: the number of zones, or -1 if it is broken. */
 static int sprites_check(const uint8_t *p, uint32_t size)
@@ -428,6 +430,27 @@ static int sprites_check(const uint8_t *p, uint32_t size)
             return -1;
         for (unsigned j = 0; j < i; j++)        /* a name once */
             if (!strncmp((const char *)z, (const char *)p + 4 + j * BM_SPRITE_SIZE, BM_MODEL_NAME))
+                return -1;
+    }
+    return (int)n;
+}
+
+/* A LAYERS section (without the map's size, checked after): the number of
+ * layers, or -1 if it is broken. */
+static int layers_check(const uint8_t *p, uint32_t size)
+{
+    if (size < 8)
+        return -1;
+    unsigned w = rd16(p), h = rd16(p + 2), n = rd16(p + 4);
+    if (!w || !h || n < 2 || n > BM_LAYERS_MAX ||
+        size != 8 + n * BM_LAYER_NAME + (uint64_t)(n - 1) * w * h * 2)
+        return -1;
+    for (unsigned i = 0; i < n; i++) {
+        const char *a = (const char *)p + 8 + i * BM_LAYER_NAME;
+        if (!a[0])
+            return -1;
+        for (unsigned j = 0; j < i; j++)        /* a name once */
+            if (!strncmp(a, (const char *)p + 8 + j * BM_LAYER_NAME, BM_LAYER_NAME))
                 return -1;
     }
     return (int)n;
@@ -531,6 +554,21 @@ static int parse(const uint8_t *d, size_t len, bm_cart_t *c, char *err, size_t e
                 return fail(err, errlen, "bad map size");
             c->map_cells = p + 4;
             break;
+        case BM_SEC_LAYERS: {
+            int n = layers_check(p, size);
+            if (n < 0)
+                return fail(err, errlen, "bad map layers (LAYERS)");
+            c->layers = p;
+            c->nlayers = (uint8_t)n;
+            break;
+        }
+        case BM_SEC_FLAGS:
+            if (size < 4 || !rd16(p) || 4 + (uint64_t)rd16(p) * rd16(p + 2) != size)
+                return fail(err, errlen, "bad tile flags (FLAGS)");
+            c->flags = p + 4;
+            c->flags_per_row = rd16(p);
+            c->flags_rows = rd16(p + 2);
+            break;
         case BM_SEC_COVER:
             if (size < 4) return fail(err, errlen, "bad cover");
             c->cover_w = rd16(p);
@@ -571,6 +609,10 @@ static int parse(const uint8_t *d, size_t len, bm_cart_t *c, char *err, size_t e
     }
     if (c->sheet_rgba && c->sheet8)
         return fail(err, errlen, "two sheets");
+    if (c->layers && (!c->map_cells || rd16(c->layers) != c->map_w || rd16(c->layers + 2) != c->map_h))
+        return fail(err, errlen, "map layers that do not fit the map");
+    if (c->map_cells && !c->layers)
+        c->nlayers = 1;
     for (unsigned i = 0; i < c->zones; i++) {
         bm_zone_t z;
         bm_zone(c, (int)i, &z);
@@ -617,6 +659,28 @@ int bm_parse(const uint8_t *data, size_t len, bm_cart_t *c, char *err, size_t er
 int bm_parse_any(const uint8_t *data, size_t len, bm_cart_t *c, char *err, size_t errlen)
 {
     return parse(data, len, c, err, errlen, 1);
+}
+
+int bm_layer(const bm_cart_t *c, int i, char name[BM_LAYER_NAME + 1], const uint8_t **cells)
+{
+    if (i < 0 || i >= c->nlayers)
+        return -1;
+    if (c->layers) {
+        memcpy(name, c->layers + 8 + i * BM_LAYER_NAME, BM_LAYER_NAME);
+        name[BM_LAYER_NAME] = 0;
+    } else {
+        strcpy(name, "main");
+    }
+    *cells = i == 0 ? c->map_cells
+                    : c->layers + 8 + c->nlayers * BM_LAYER_NAME + (size_t)(i - 1) * c->map_w * c->map_h * 2;
+    return 0;
+}
+
+uint8_t bm_cell_flags(const bm_cart_t *c, int col, int row)
+{
+    if (!c->flags || col < 0 || row < 0 || col >= c->flags_per_row || row >= c->flags_rows)
+        return 0;
+    return c->flags[(size_t)row * c->flags_per_row + col];
 }
 
 int bm_zone(const bm_cart_t *c, int i, bm_zone_t *z)

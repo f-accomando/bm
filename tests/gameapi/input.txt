@@ -1,0 +1,23 @@
+# the presses of the game API test (tests/gameapi/cart.lua): btnr, the menu, the pause
+10 pad 1 down
+40 pad 1 none
+50 pad 1 down
+52 pad 1 none
+75 pad 1 a
+77 pad 1 none
+110 pad 1 start
+112 pad 1 none
+120 pad 1 down
+122 pad 1 none
+130 pad 1 right
+132 pad 1 none
+140 pad 1 start
+142 pad 1 none
+150 shot gameapi
+210 pad 1 start
+212 pad 1 none
+220 pad 1 up
+222 pad 1 none
+225 shot pause
+230 pad 1 a
+232 pad 1 none

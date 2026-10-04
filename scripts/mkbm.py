@@ -2,7 +2,8 @@
 """
 mkbm.py - packs a native bm cartridge (.bm). Standard library only.
 
-  mkbm.py -o game.bm --lua main.lua [--sheet sheet.png [--sheet8]] [--map map.csv]
+  mkbm.py -o game.bm --lua main.lua [--sheet sheet.png [--sheet8]]
+           [--map [name=]map.csv ...] [--flags flags.csv] [--sprites zones.txt]
            [--audio bank.json|bank.bmau] [--models models.glb|pack.bm]
            [--title "My game"] [--author me]
            [--res 640x360|480x270|320x180|256x256]
@@ -11,6 +12,16 @@ sheet.png: 8-bit RGB or RGBA PNG (non-interlaced); size multiple of 8 recommende
 --sheet8:  store the sheet with a palette and runs (at most 256 colours): big
            sheets of sprites become a fraction of the size.
 map.csv:   one row of comma-separated sprite indices per line (0 = empty).
+           Given again, each --map is one more layer of the map (up to 8,
+           all of the first one's size; drawn in this order, the first at the
+           back), named by "name=" before the file ("main" without).
+--flags:   the 8 flags of the sheet's 8x8 cells (fget/fset): numbers 0-255
+           separated by commas, spaces or lines, for cells 0, 1, 2... in
+           order, and "n=flags" for cell n (then the next number is cell
+           n+1); "#" starts a comment.
+--sprites: named zones of the sheet (zspr, zone): one per line "name x y w h
+           [frames [fps]]" in sheet pixels (the frames are the w x h boxes to
+           the right of the first); "#" starts a comment.
 --audio:   the sound bank (sounds, sound effects, music): JSON or binary,
            see scripts/bmaudio.py; sfx() and music() play it.
 --models:  3D models for model(): a .glb exported by bm Studio (sdk/studio;
@@ -34,6 +45,7 @@ import bmmesh  # noqa: E402
 # files (bmmesh.cart_sections reads those as 8 and 9)
 SEC_LUA, SEC_SHEET, SEC_MAP, SEC_COVER, SEC_SHEET8, SEC_AUDIO = 1, 2, 3, 4, 5, 6
 SEC_MESH, SEC_ANIM = bmmesh.SEC_MESH, bmmesh.SEC_ANIM
+SEC_SPRITES, SEC_LAYERS, SEC_FLAGS = 11, 12, 13
 
 
 def read_png(path, data=None):
@@ -84,6 +96,104 @@ def read_map(path):
     w = max(len(r) for r in rows)
     cells = b"".join(struct.pack("<H", r[x] if x < len(r) else 0) for r in rows for x in range(w))
     return w, len(rows), cells
+
+
+LAYERS_MAX, LAYER_NAME = 8, 16
+
+
+def read_layers(specs):
+    """--map arguments ("file.csv" or "name=file.csv") -> [(name, w, h,
+    cells)]: the layers, all of the first one's size (a smaller CSV is
+    padded with empty cells)"""
+    out = []
+    for spec in specs:
+        name, path = spec.split("=", 1) if "=" in spec and not os.path.exists(spec) else ("main", spec)
+        name = name or "main"
+        if len(name.encode()) > LAYER_NAME:
+            raise SystemExit(f"--map {spec}: a layer's name is at most {LAYER_NAME} bytes")
+        if any(name == n for n, *_ in out):
+            raise SystemExit(f"--map {spec}: two layers called {name!r}")
+        w, h, cells = read_map(path)
+        if out:
+            w0, h0 = out[0][1], out[0][2]
+            if w > w0 or h > h0:
+                raise SystemExit(f"--map {spec}: {w}x{h}, bigger than the first layer ({w0}x{h0})")
+            rows = [cells[y * w * 2:(y + 1) * w * 2].ljust(w0 * 2, b"\0") for y in range(h)]
+            cells = b"".join(rows).ljust(w0 * h0 * 2, b"\0")
+            w, h = w0, h0
+        out.append((name, w, h, cells))
+    if len(out) > LAYERS_MAX:
+        raise SystemExit(f"--map: at most {LAYERS_MAX} layers")
+    return out
+
+
+def layers_section(layers):
+    """the LAYERS section (src/bm/bm.h) of 2..8 layers, or None for one
+    layer called "main" (the MAP section alone)"""
+    if len(layers) == 1 and layers[0][0] == "main":
+        return None
+    w, h = layers[0][1], layers[0][2]
+    out = struct.pack("<HHHH", w, h, len(layers), 0)
+    out += b"".join(n.encode().ljust(LAYER_NAME, b"\0") for n, *_ in layers)
+    return out + b"".join(c for *_, c in layers[1:])
+
+
+def read_flags(path):
+    """--flags file -> {cell: flags}"""
+    flags, n = {}, 0
+    for line in open(path):
+        for tok in line.split("#", 1)[0].replace(",", " ").split():
+            if "=" in tok:
+                k, v = tok.split("=", 1)
+                n = int(k, 0)
+                tok = v
+            v = int(tok, 0)
+            if not 0 <= v <= 255 or n < 0:
+                raise SystemExit(f"{path}: flags are 0-255 ({tok})")
+            if v:
+                flags[n] = v
+            n += 1
+    return flags
+
+
+def flags_section(flags, sheet_w):
+    """the FLAGS section for a sheet sheet_w pixels wide, or None"""
+    if not flags:
+        return None
+    per = max(sheet_w // 8, 1)
+    rows = max(flags) // per + 1
+    body = bytearray(per * rows)
+    for k, v in flags.items():
+        body[k] = v
+    return struct.pack("<HH", per, rows) + bytes(body)
+
+
+SPRITES_MAX, ZONE_NAME = 1024, 16
+
+
+def read_sprites(path, sheet_w=None, sheet_h=None):
+    """--sprites file -> the SPRITES section"""
+    zones = []
+    for i, line in enumerate(open(path), 1):
+        f = line.split("#", 1)[0].split()
+        if not f:
+            continue
+        if len(f) < 5 or len(f) > 7:
+            raise SystemExit(f"{path}:{i}: name x y w h [frames [fps]]")
+        name, (x, y, w, h), frames, fps = f[0], map(int, f[1:5]), int(f[5]) if len(f) > 5 else 1, \
+            int(f[6]) if len(f) > 6 else 0
+        if len(name.encode()) > ZONE_NAME or any(z[0] == name for z in zones):
+            raise SystemExit(f"{path}:{i}: {name!r}: names are unique, at most {ZONE_NAME} bytes")
+        if w < 1 or h < 1 or not 1 <= frames <= 16 or not 0 <= fps <= 255 or x < 0 or y < 0:
+            raise SystemExit(f"{path}:{i}: w, h >= 1, frames 1-16, fps 0-255")
+        if sheet_w and (x + w * frames > sheet_w or y + h > sheet_h):
+            raise SystemExit(f"{path}:{i}: {name!r} is out of the sheet ({sheet_w}x{sheet_h})")
+        zones.append((name, x, y, w, h, frames, fps))
+    if not 1 <= len(zones) <= SPRITES_MAX:
+        raise SystemExit(f"{path}: 1 to {SPRITES_MAX} zones")
+    return struct.pack("<HH", len(zones), 0) + b"".join(
+        n.encode().ljust(ZONE_NAME, b"\0") + struct.pack("<HHHHBBH", x, y, w, h, fr, fps, 0)
+        for n, x, y, w, h, fr, fps in zones)
 
 
 def crc32(b):
@@ -209,7 +319,11 @@ def sheet8_decode(body):
 
 
 def pack(lua, sheet=None, map_=None, title="", author="", res=(640, 360), cover=None, sheet_packed=False,
-         audio=None, mesh=None, extra=()):
+         audio=None, mesh=None, extra=(), layers=None, flags=None, sprites=None):
+    """map_: (w, h, cells) of one layer, or layers: [(name, w, h, cells)];
+    flags: {cell: flags} of the sheet's cells; sprites: a SPRITES section"""
+    if layers:
+        map_ = layers[0][1:]
     sections = []
     if cover:                               # first: the menu reads only the start
         w, h, rgba = cover
@@ -224,6 +338,13 @@ def pack(lua, sheet=None, map_=None, title="", author="", res=(640, 360), cover=
     if map_:
         w, h, cells = map_
         sections.append((SEC_MAP, struct.pack("<HH", w, h) + cells))
+        more = layers_section(layers) if layers else None
+        if more:
+            sections.append((SEC_LAYERS, more))
+    if flags:
+        sections.append((SEC_FLAGS, flags_section(flags, sheet[0] if sheet else 256)))
+    if sprites:
+        sections.append((SEC_SPRITES, sprites))
     if audio:
         sections.append((SEC_AUDIO, audio))
     if mesh:
@@ -254,7 +375,10 @@ def main():
     ap.add_argument("--lua", required=True)
     ap.add_argument("--sheet")
     ap.add_argument("--sheet8", action="store_true", help="store the sheet with a palette and runs")
-    ap.add_argument("--map")
+    ap.add_argument("--map", action="append", default=[],
+                    help="a layer of the map: [name=]map.csv (again: one more layer)")
+    ap.add_argument("--flags", help="the flags of the sheet's cells (fget/fset)")
+    ap.add_argument("--sprites", help="named zones of the sheet: name x y w h [frames [fps]] per line")
     ap.add_argument("--audio", help="sound bank: .json (scripts/bmaudio.py) or .bmau")
     ap.add_argument("--cover", help="picture for the menu (PNG, any size: 88x88; not square: fitted)")
     ap.add_argument("--models", help="3D models: a .glb from bm Studio, or a .bm with models")
@@ -265,7 +389,8 @@ def main():
     a = ap.parse_args()
     lua = open(a.lua, "rb").read()
     sheet = read_png(a.sheet) if a.sheet else None
-    map_ = read_map(a.map) if a.map else None
+    layers = read_layers(a.map) if a.map else None
+    flags = read_flags(a.flags) if a.flags else None
     res = tuple(int(v) for v in a.res.split("x"))
     cover = make_cover(read_png(a.cover)) if a.cover else None
     audio = bmaudio.load(a.audio) if a.audio else None
@@ -296,7 +421,9 @@ def main():
         models, inset = bmmesh.models_from_file(a.models)
         inset = a.uv_inset if a.uv_inset is not None else (inset if inset is not None else 0.25)
         mesh = bmmesh.encode(models, inset)
-    data = pack(lua, sheet, map_, a.title, a.author, res, cover, a.sheet8, audio, mesh, extra)
+    sprites = read_sprites(a.sprites, *(sheet[:2] if sheet else (256, 256))) if a.sprites else None
+    data = pack(lua, sheet, None, a.title, a.author, res, cover, a.sheet8, audio, mesh, extra, layers, flags,
+                sprites)
     open(a.output, "wb").write(data)
     print(f"{a.output}: {len(data)} bytes ({a.title or 'untitled'}, {a.res})")
 

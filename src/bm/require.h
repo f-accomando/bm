@@ -4,7 +4,8 @@
 typedef struct lua_State lua_State;
 
 /* require(name) for the Lua libraries built into the kernel (M30: "assist",
- * the assistant's panel). Only those: the sandbox still loads no files. */
+ * the assistant's panel; R10: "bmlib", what the games share). Only those:
+ * the sandbox still loads no files. */
 void bm_require_open(lua_State *L);
 
 #endif

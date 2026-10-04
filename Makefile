@@ -209,17 +209,24 @@ sheet8_yharnam := 1
 # models from bm Studio / bm Animator, sdk/: with their skeletons and
 # animations from a .bm; their sprite sheet too when there is no sheet.png),
 # res_<game> := 320x180 or 256x256, sheet8_<game> := 1 (the sheet with a
-# palette and runs: up to 256 colours, much smaller).
+# palette and runs: up to 256 colours, much smaller); the map's other layers
+# in carts/<game>/map_<name>.csv, in the order of layers_<game> := name ...
+# (R11), the flags of the tiles in flags.csv and named sprite zones in
+# sprites.txt (scripts/mkbm.py --flags, --sprites).
 .SECONDEXPANSION:
 $(BUILD)/carts/%.bm: carts/%/main.lua scripts/mkbm.py scripts/bmmesh.py \
                       $$(wildcard carts/$$*/cover.png carts/$$*/sheet.png carts/$$*/map.csv carts/$$*/models.glb \
-                                  carts/$$*/models.bm)
+                                  carts/$$*/models.bm carts/$$*/flags.csv carts/$$*/sprites.txt) \
+                      $$(patsubst %,carts/$$*/map_%.csv,$$(layers_$$*))
 	@mkdir -p $(dir $@)
 	$(PYTHON) scripts/mkbm.py -o $@ --lua $< --title "$(title_$*)" --author bm \
 	    --res $(or $(res_$*),640x360) \
 	    $(if $(wildcard carts/$*/cover.png),--cover carts/$*/cover.png) \
 	    $(if $(wildcard carts/$*/sheet.png),--sheet carts/$*/sheet.png $(if $(sheet8_$*),--sheet8)) \
 	    $(if $(wildcard carts/$*/map.csv),--map carts/$*/map.csv) \
+	    $(foreach l,$(layers_$*),--map $(l)=carts/$*/map_$(l).csv) \
+	    $(if $(wildcard carts/$*/flags.csv),--flags carts/$*/flags.csv) \
+	    $(if $(wildcard carts/$*/sprites.txt),--sprites carts/$*/sprites.txt) \
 	    $(if $(wildcard carts/$*/models.bm),--models carts/$*/models.bm,$(if $(wildcard carts/$*/models.glb),--models carts/$*/models.glb))
 
 # Chaos Kitchen (M17) is written in several Lua files, joined by its build.py
@@ -452,6 +459,25 @@ test-keymap: $(BUILD)/host/bmhost-bin $(BUILD)/keymap-test.bm tests/keymap/input
 	$< $(BUILD)/keymap-test.bm --input tests/keymap/input.txt --seconds 8 2>&1 | tee $(BUILD)/keymap-test.log | grep "^keymap"
 	grep -q "^keymap: \([0-9]*\)/\1 checks passed" $(BUILD)/keymap-test.log
 
+# The map's layers and the flags of its tiles (R11, 2026-10-04), the
+# sheet's named zones and bmlib (R10, require "bmlib"): one cartridge
+# checks them in bmhost, packed by mkbm.py from tests/gameapi/ (its
+# layers, flags and zones); a frame of it and of the pause in build/gameapi/
+GAMEAPI_SRC := tests/gameapi/cart.lua tests/gameapi/map.csv tests/gameapi/map_front.csv tests/gameapi/flags.csv \
+               tests/gameapi/sprites.txt
+$(BUILD)/gameapi/sheet.png: tests/gameapi/mksheet.py
+	@mkdir -p $(dir $@)
+	$(PYTHON) $< $@
+$(BUILD)/gameapi-test.bm: $(GAMEAPI_SRC) $(BUILD)/gameapi/sheet.png scripts/mkbm.py
+	$(PYTHON) scripts/mkbm.py -o $@ --lua tests/gameapi/cart.lua --sheet $(BUILD)/gameapi/sheet.png \
+	    --map tests/gameapi/map.csv --map front=tests/gameapi/map_front.csv --flags tests/gameapi/flags.csv \
+	    --sprites tests/gameapi/sprites.txt --title "game api test" --author tests
+test-gameapi: $(BUILD)/host/bmhost-bin $(BUILD)/gameapi-test.bm tests/gameapi/input.txt
+	@mkdir -p $(BUILD)/gameapi
+	$< $(BUILD)/gameapi-test.bm --input tests/gameapi/input.txt --seconds 8 --shots $(BUILD)/gameapi 2>&1 \
+	    | tee $(BUILD)/gameapi-test.log | grep "^gameapi"
+	grep -q "^gameapi: \([0-9]*\)/\1 checks passed" $(BUILD)/gameapi-test.log
+
 # PS in a game played online (online(), 2026-10-04): the question to the
 # player leaving over the game that goes on, back and Esc stay, PS again
 # leaves through _leave(); the screen of the question in build/online/
@@ -514,7 +540,7 @@ $(BUILD)/host/bmhost/runtime-deps: $(wildcard src/bm/*.h src/audio/*.h src/kerne
 	@mkdir -p $(dir $@) && touch $@
 $(BMHOST_OBJS): $(BUILD)/host/bmhost/runtime-deps
 $(BUILD)/host/bmhost-bin: tests/host/bmhost.c tests/host/stubs.c tests/host/hostnet.c tests/host/host.h tests/host/libs.S \
-                          $(BMHOST_OBJS) src/ai/assist.lua src/script/bm3d.lua src/ai/predict.lua $(BUILD)/words.lua
+                          $(BMHOST_OBJS) src/ai/assist.lua src/script/bm3d.lua src/script/bmlib.lua src/ai/predict.lua $(BUILD)/words.lua
 	$(HOSTCC) -O2 -g -Wall -Wextra -D_DEFAULT_SOURCE -Itests/host/shim -Isrc -Isrc/bm -Ithird_party/lua -I$(BUILD) \
 	    -o $@ tests/host/bmhost.c tests/host/stubs.c tests/host/hostnet.c tests/host/libs.S $(BMHOST_OBJS) -lm
 bmhost: $(BUILD)/host/bmhost-bin
@@ -523,7 +549,7 @@ bmhost: $(BUILD)/host/bmhost-bin
 # emulator of the tests (tests/gpu/v3d_emu.c): the frames as the GPU draws
 # them, to set them beside the ARM's (slower: the emulator is plain C)
 $(BUILD)/host/bmhost-gpu: tests/host/bmhost.c tests/host/stubs.c tests/host/hostnet.c tests/host/host.h tests/host/libs.S \
-                          $(BMHOST_OBJS) src/ai/assist.lua src/script/bm3d.lua src/ai/predict.lua $(BUILD)/words.lua \
+                          $(BMHOST_OBJS) src/ai/assist.lua src/script/bm3d.lua src/script/bmlib.lua src/ai/predict.lua $(BUILD)/words.lua \
                           src/gpu/gpu3d.c src/gpu/v3d_cl.c \
                           src/gpu/shaders.h tests/gpu/v3d_emu.c tests/gpu/v3d_emu.h
 	$(HOSTCC) -std=c11 -O2 -g -w -Isrc -Itests/gpu -Daligned_alloc=test_aligned_alloc -Dfree=test_free \
@@ -538,7 +564,7 @@ test-queue2d: $(BUILD)/host/bmhost-gpu
 	$(PYTHON) tests/gpu/queue2d.py $(BUILD)
 
 .DEFAULT_GOAL := all
-.PHONY: FORCE test-keymap test-online test-loading test-smp test-qpu test-gpu3d test-queue2d test-b3d test-v3d bench3d count-insns all clean firmware image \
+.PHONY: FORCE test-keymap test-gameapi test-online test-loading test-smp test-qpu test-gpu3d test-queue2d test-b3d test-v3d bench3d count-insns all clean firmware image \
         image-pi1 sdcard install sdcard-chainloader sdcard-stress qemu qemu7 qemu-screenshot \
         run-serial test test-bm test-res test-ai test-img2mesh ai-model test-predict predict-bench syllables test-usb test-audio \
         test-fat test-kitchen test-titan test-yharnam test-sound test-nano8 test-net test-http test-https test-release \
@@ -723,7 +749,7 @@ qemu-screenshot: $(BUILD)/kernel.img
 	./scripts/qemu-screenshot.sh $< $(BUILD)/screen.png
 
 test: all test-bm test-res test-usb test-fat test-audio test-kitchen test-titan test-yharnam test-sound test-nano8 test-net test-http test-https test-img3d \
-      test-catalog test-github test-lan test-keymap test-online test-loading \
+      test-catalog test-github test-lan test-keymap test-gameapi test-online test-loading \
       test-release test-smp test-qpu test-gpu3d test-queue2d test-b3d test-v3d test-ai test-predict test-studio test-prompts \
       test-overbit $(if $(K7),test-hyp)
 	$(PYTHON) tests/qemu_test.py --build $(BUILD)

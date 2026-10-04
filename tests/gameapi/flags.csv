@@ -1,0 +1,3 @@
+# the flags of the sheet's cells: cell 1 solid (1), then cells 2 and 3:
+# platform (2), ladder (4)
+1=1 2, 4

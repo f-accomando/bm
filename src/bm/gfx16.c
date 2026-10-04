@@ -265,7 +265,14 @@ void g16_sspr_zoom(g16_t *g, const g16_sheet_t *s, int sx, int sy, int sw, int s
 void g16_map(g16_t *g, const g16_sheet_t *s, const g16_map_t *m,
              int mx, int my, int x, int y, int mw, int mh)
 {
+    g16_map_mask(g, s, m, mx, my, x, y, mw, mh, NULL, 0);
+}
+
+void g16_map_mask(g16_t *g, const g16_sheet_t *s, const g16_map_t *m,
+                  int mx, int my, int x, int y, int mw, int mh, const uint8_t *flags, uint8_t mask)
+{
     if (!s->px || !m->cells) return;
+    if (!flags) mask = 0;
     const int per_row = s->w / G16_CELL, ncells = per_row * (s->h / G16_CELL);
     x -= g->cam_x;
     y -= g->cam_y;
@@ -276,7 +283,7 @@ void g16_map(g16_t *g, const g16_sheet_t *s, const g16_map_t *m,
             int col = mx + cx, px = x + cx * G16_CELL;
             if (col < 0 || col >= m->w || px >= g->cx1 || px + G16_CELL <= g->cx0) continue;
             int n = m->cells[row * m->w + col];
-            if (n == 0 || n >= ncells) continue;
+            if (n == 0 || n >= ncells || (mask && !(flags[n] & mask))) continue;
             blit(g, s, n % per_row * G16_CELL, n / per_row * G16_CELL, G16_CELL, G16_CELL,
                  px, py, 0, 0, s->cell_opaque[n]);
         }

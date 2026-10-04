@@ -123,6 +123,14 @@ bm_lib_bm3d:
     .incbin "src/script/bm3d.lua"
 bm_lib_bm3d_end:
 
+/* what the games share (require "bmlib", R10) */
+    .section .rodata
+    .balign 4
+    .globl bm_lib_bmlib, bm_lib_bmlib_end
+bm_lib_bmlib:
+    .incbin "src/script/bmlib.lua"
+bm_lib_bmlib_end:
+
     .section .rodata
     .balign 4
     .globl bm_mesh_cart, bm_mesh_cart_end

@@ -74,6 +74,10 @@ void g16_sspr_zoom(g16_t *g, const g16_sheet_t *s, int sx, int sy, int sw, int s
 /* Map cells [mx, mx+mw) x [my, my+mh) drawn at (x, y); cell 0 is skipped. */
 void g16_map(g16_t *g, const g16_sheet_t *s, const g16_map_t *m,
              int mx, int my, int x, int y, int mw, int mh);
+/* The same, only the cells whose tile has a flag of `mask` (flags: a byte
+ * per 8x8 cell of the sheet, fget/fset); mask 0 or flags NULL: every cell. */
+void g16_map_mask(g16_t *g, const g16_sheet_t *s, const g16_map_t *m,
+                  int mx, int my, int x, int y, int mw, int mh, const uint8_t *flags, uint8_t mask);
 /* Text with the target's font (g->font), transparent background. Returns
  * the end x. */
 int  g16_text(g16_t *g, int x, int y, const char *str, uint16_t c);

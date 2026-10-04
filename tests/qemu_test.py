@@ -5284,6 +5284,47 @@ def _save_png(img, path):
                 + chunk(b"IDAT", zlib.compress(raw)) + chunk(b"IEND", b""))
 
 
+def test_game_api(b, opts):
+    """R10 and R11 on the ARM: the cartridge of make test-gameapi (the map's
+    layers, the flags of the tiles, mflags, msize, mlayers, the sheet's
+    named zones, cart_save / cart_load / cart_write keeping them, bmlib:
+    collisions with the map, tweens, timers, scripts, particles, camera,
+    states, text, saves, the 3D builder). Without the input script of
+    bmhost it runs the checks of _init and of the first frame, then leaves:
+    every one passed, and the map drawn by layer (the floor red, the
+    platform green, the front layer's yellow tile)."""
+    cart = b("gameapi-test.bm")
+    if not os.path.exists(cart):
+        subprocess.run(["make", "-s", cart], check=True, cwd=os.path.dirname(os.path.abspath(__file__)) + "/..")
+    tmp = tempfile.mkdtemp(prefix="bm-gameapi-")
+    img = os.path.join(tmp, "sd.img")
+    mksd.build(img, [])
+    q = Qemu(b("kernel.img"), ["-drive", f"if=sd,format=raw,file={img}"])
+    try:
+        q.boot()
+        assert _upload(q, open(cart, "rb").read())
+        q.expect("received", timeout=30)
+        time.sleep(2.0)
+        w, h, px = img_ = q.screendump()
+        text = screen_text(img_)
+        assert any("game api" in l for l in text), "\n".join(text)
+
+        def at(x, y, rgb):              # the screen's RGB565, widened without the low bits
+            i = (y * w + x) * 3
+            return all(abs(px[i + k] - (rgb >> (16 - 8 * k) & 255)) <= 8 for k in range(3))
+        assert at(4, 164, 0xFF0000) and at(84, 124, 0x00FF00) and at(44, 44, 0xFFFF00), \
+            [px[(y * w + x) * 3:(y * w + x) * 3 + 3] for x, y in ((4, 164), (84, 124), (44, 44))]
+        if opts.shots:
+            _save_png(img_, os.path.join(opts.shots, "game-api.png"))
+        out = q.expect("checks passed", timeout=20).decode(errors="replace")
+        m = re.search(r"gameapi: (\d+)/(\d+) checks passed", out)
+        assert m and m.group(1) == m.group(2) and int(m.group(2)) > 100, out[-3000:]
+        assert "FAIL" not in out and "stopped with an error" not in out, out[-3000:]
+    finally:
+        q.close()
+        shutil.rmtree(tmp, ignore_errors=True)
+
+
 # a square cartridge (256x256, in the middle of a 480x270 screen) lit by
 # levels as in Dank Tomb: white everywhere, one lamp in the middle
 SQUARE_CART = r"""

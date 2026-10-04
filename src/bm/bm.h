@@ -87,6 +87,17 @@
  *            section), u16 x, y, w, h (sheet pixels, w and h >= 1), u8
  *            frames (1..16: the next ones are the w x h boxes to the right
  *            of the first, on the same row), u8 fps (0: still), u16 reserved.
+ *   12 LAYERS the map's other layers (R11, 2026-10-04; the MAP section is
+ *            layer 1, so a kernel of before draws that one): u16 w, u16 h
+ *            (the MAP's), u16 layers (2..8, layer 1 counted), u16 reserved
+ *            (0), then layers x char[16] name (UTF-8, zero padded, not empty,
+ *            unique; layer 1 first), then the cells of layers 2..n, each w*h
+ *            u16 as in MAP, row by row. Drawn in their order: 1 at the back.
+ *   13 FLAGS 8 flags for each 8x8 cell of the sheet (fget/fset, R11): u16
+ *            cells per row and u16 rows of the sheet they were written for,
+ *            then per_row*rows bytes, row by row (cell n of that sheet is
+ *            byte n); trailing rows of zeros may be left out. Read by the
+ *            cell's place, so a sheet grown since keeps them.
  * Graphics are stored independently of the screen format and converted when
  * the cartridge is loaded, so the same file works if 32-bit output is added.
  *
@@ -103,9 +114,12 @@
  *   models   MESH, ANIM, SHEET or SHEET8 (only the cells the textures use)
  *   image    SHEET or SHEET8, SPRITES
  *   sounds   AUDIO
- *   map      MAP, SHEET or SHEET8 (only the tiles the map uses)
+ *   map      MAP, LAYERS, FLAGS, SHEET or SHEET8 (only the tiles the map
+ *            uses)
  *   palette  SHEET8 of N x 1 pixels: its palette is the palette
- *   kit      any of MESH, ANIM, SHEET or SHEET8, SPRITES, AUDIO, MAP
+ *   kit      any of MESH, ANIM, SHEET or SHEET8, SPRITES, AUDIO, MAP,
+ *            LAYERS, FLAGS
+ * (an image may also hold FLAGS: the flags of its tiles)
  */
 #ifndef BM_H
 #define BM_H
@@ -127,7 +141,11 @@
 #define BM_SEC_ANIM        9
 #define BM_SEC_INFO        10
 #define BM_SEC_SPRITES     11
+#define BM_SEC_LAYERS      12
+#define BM_SEC_FLAGS       13
 #define BM_SEC_OLD_ANIM    7               /* the first files of bm Studio (see above) */
+#define BM_LAYERS_MAX      8               /* map layers, the MAP section counted */
+#define BM_LAYER_NAME      16              /* bytes of a layer's name in LAYERS */
 #define BM_INFO_MAX        (16 * 1024)     /* bytes of an INFO section */
 #define BM_SPRITES_MAX     1024            /* zones of a SPRITES section */
 #define BM_SPRITE_SIZE     28              /* bytes of a zone */
@@ -179,6 +197,10 @@ typedef struct {
     uint32_t info_size;
     const uint8_t *sprites;         /* SPRITES section, or NULL */
     uint16_t zones;                 /* zones in it */
+    const uint8_t *layers;          /* LAYERS section, or NULL (then the map has one layer) */
+    uint8_t nlayers;                /* the map's layers: 0 without a map, else 1..8 */
+    const uint8_t *flags;           /* FLAGS: the bytes, row by row, or NULL */
+    uint16_t flags_per_row, flags_rows;
 } bm_cart_t;
 
 /* A zone of the SPRITES section. */
@@ -211,6 +233,13 @@ int bm_zone(const bm_cart_t *c, int i, bm_zone_t *z);
  * the file's own lines (type NULL: only those). 1 if found, the value in
  * out (cut to n - 1 bytes). */
 int bm_info_get(const bm_cart_t *c, const char *type, const char *name, const char *key, char *out, size_t n);
+
+/* Layer i (0-based, < c->nlayers) of a parsed file's map: its name (layer 0
+ * without LAYERS: "main") and its w*h little-endian u16 cells. 0, or -1. */
+int bm_layer(const bm_cart_t *c, int i, char name[BM_LAYER_NAME + 1], const uint8_t **cells);
+/* The flags of the sheet cell at column col, row row (cells of 8x8 pixels)
+ * of a parsed file: 0 without FLAGS or outside them. */
+uint8_t bm_cell_flags(const bm_cart_t *c, int col, int row);
 
 /* Unpacks a SHEET8 section: set(x, y, rgba) for every pixel. Returns 0, or
  * -1 if the data is broken (bm_parse has already checked it). */

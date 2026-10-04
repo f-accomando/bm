@@ -24,6 +24,13 @@ bm_lib_bm3d_end:
     .byte 0
 
     .balign 4
+    .globl bm_lib_bmlib, bm_lib_bmlib_end
+bm_lib_bmlib:
+    .incbin "src/script/bmlib.lua"
+bm_lib_bmlib_end:
+    .byte 0
+
+    .balign 4
     .globl bm_lib_words, bm_lib_words_end, bm_texroom_cart, bm_texroom_cart_end
 bm_lib_words:
 bm_lib_words_end:
