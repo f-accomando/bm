@@ -987,7 +987,7 @@ void carts_menu(framebuffer_t *fb)
                 lib_stop();                     /* a sound of the Lib tab ends with it */
             }
             for (int p = 0; p < 4; p++) {
-                int d_ = input_device(p), kind = d_ & ~INPUT_DEV_BLUETOOTH;
+                int d_ = input_device(p), kind = d_ & INPUT_DEV_KIND;     /* (not the pad's model) */
                 v.dev[p] = kind == INPUT_DEV_KEYBOARD ? MENU_DEV_KEYBOARD
                          : kind == INPUT_DEV_PAD ? MENU_DEV_PAD : MENU_DEV_NONE;
                 if (d_ & INPUT_DEV_BLUETOOTH)

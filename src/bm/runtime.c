@@ -923,7 +923,7 @@ static int l_controller(lua_State *L)
 {
     int p = (int)luaL_optinteger(L, 1, 1);
     int d = p >= 1 && p <= INPUT_PLAYERS ? input_device(p - 1) : INPUT_DEV_NONE;
-    int kind = d & 0x0F;
+    int kind = d & INPUT_DEV_KIND;
     const char *k = "none", *layout = "none";
     if (kind == INPUT_DEV_KEYBOARD) {
         k = layout = "keyboard";
@@ -960,7 +960,7 @@ static const prompt_t *pad_chip(const char *chip, int lettered, int small)
 static const prompt_t *button_chip(int b, int dev, int small)
 {
     int kb = dev < 0 ? hid_last_source() == HID_SOURCE_KEYBOARD || hid_last_source() == HID_SOURCE_NONE
-                     : (dev & 0x0F) == INPUT_DEV_KEYBOARD;
+                     : (dev & INPUT_DEV_KIND) == INPUT_DEV_KEYBOARD;
     if (kb && button_names[b].key)
         return find_prompt(button_names[b].key, small);
     /* a pad with letters shows the letter the game's button is under */
@@ -968,7 +968,7 @@ static const prompt_t *button_chip(int b, int dev, int small)
     for (int i = 0; i < NBUTTONS; i++)
         if (button_names[i].hid == shown)
             b = i;
-    if (dev < 0 || (dev & 0x0F) != INPUT_DEV_PAD)
+    if (dev < 0 || (dev & INPUT_DEV_KIND) != INPUT_DEV_PAD)
         return find_prompt(button_names[b].chip, small);
     return pad_chip(button_names[b].chip, !(dev & INPUT_DEV_DS4), small);
 }
@@ -5338,7 +5338,7 @@ static void leave_draw(void)
     /* the answers: the system's yes and back on the controller used last,
      * Enter and Esc on a keyboard */
     const int dev = input_device(rt.local >= 0 && rt.local < INPUT_PLAYERS ? rt.local : 0);
-    const int kb = hid_last_source() == HID_SOURCE_KEYBOARD || (dev & 0x0F) == INPUT_DEV_KEYBOARD;
+    const int kb = hid_last_source() == HID_SOURCE_KEYBOARD || (dev & INPUT_DEV_KIND) == INPUT_DEV_KEYBOARD;
     const prompt_t *yes = kb ? find_prompt("enter", small) : button_chip(button_real(BUTTON_OK), dev, small);
     const prompt_t *no = kb ? find_prompt("esc", small) : button_chip(button_real(BUTTON_BACK), dev, small);
     int cols = 0;

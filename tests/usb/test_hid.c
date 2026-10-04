@@ -63,9 +63,28 @@ int main(void)
     const uint8_t media[9] = { 3, 0xE9, 0 };            /* other report ID: ignored */
     hid_report(USB_KEYBOARD, media, 9);
     CHECK(hid_getc() == -1);
+    /* the system's keys (src/kernel/syskeys.h): Esc alone is back (a
+     * game's Start), Ctrl+Esc is PS, Ctrl+Shift+Esc the monitor */
     const uint8_t esc[10] = { 1, 0, 0, 0x29 };          /* longer report, Esc */
     hid_report(USB_KEYBOARD, esc, 10);
-    CHECK(hid_quit_pressed() == HID_QUIT_KEY);
+    CHECK(hid_quit_pressed() == HID_QUIT_ESC);
+    drain();
+    hid_report(USB_KEYBOARD, rel, 9);
+    const uint8_t cesc[9] = { 1, 0x01, 0, 0x29 };       /* Ctrl+Esc */
+    hid_report(USB_KEYBOARD, cesc, 9);
+    CHECK(hid_quit_pressed() == HID_QUIT_PS);
+    drain();
+    hid_report(USB_KEYBOARD, rel, 9);
+    const uint8_t csesc[9] = { 1, 0x03, 0, 0x29 };      /* Ctrl+Shift+Esc */
+    hid_report(USB_KEYBOARD, csesc, 9);
+    CHECK(hid_quit_pressed() == (HID_QUIT_KEY | HID_QUIT_MONITOR));
+    drain();
+    hid_report(USB_KEYBOARD, rel, 9);
+    hid_text_mode(1);                                   /* typing: Esc is only a key */
+    hid_report(USB_KEYBOARD, esc, 10);
+    CHECK(hid_quit_pressed() == 0);
+    CHECK(hid_getc() == 0x1B);
+    hid_text_mode(0);
     drain();
     hid_report(USB_KEYBOARD, rel, 9);
     const uint8_t kq[9] = { 1, 0, 0, 0x14 };           /* Q = L1: the menu's tabs */

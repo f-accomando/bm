@@ -78,6 +78,7 @@ void input_stick_r(int p, float *x, float *y);
 #define INPUT_DEV_KEYBOARD  1
 #define INPUT_DEV_PAD       2
 #define INPUT_DEV_BLUETOOTH 0x10
+#define INPUT_DEV_KIND      0x0F    /* the bits of the kind: KEYBOARD, PAD or NONE */
 /* what kind of pad (for the games' icons, controller() in Lua): the DS4's
  * symbols, an Xbox pad's letters (A at the bottom), the console's own
  * controls (the RGB30: A on the right, B at the bottom); none: a pad with
