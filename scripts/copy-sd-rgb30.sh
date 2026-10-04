@@ -18,15 +18,42 @@ mount_hint() {
     echo "  ($letter: being the drive's letter in Windows' File Explorer), then run make again." >&2
 }
 
+# on WSL: the drives Windows sees, with their names (the RGB30's card is BM)
+windows_drives() {
+    command -v powershell.exe >/dev/null 2>&1 || return 0
+    list=$(powershell.exe -NoProfile -Command \
+        'Get-CimInstance Win32_LogicalDisk | ForEach-Object { "$($_.DeviceID) $($_.VolumeName)" }' \
+        2>/dev/null | tr -d '\r') || return 0
+    [ -n "$list" ] || return 0
+    echo "  Windows' drives now:" >&2
+    echo "$list" | sed 's/^/    /' >&2
+    bm=$(echo "$list" | awk '$2 == "BM" { print tolower(substr($1, 1, 1)); exit }')
+    if [ -z "$bm" ]; then
+        echo "  None is named BM: the RGB30's card is not in the PC (or Windows cannot read it)." >&2
+    elif [ "/mnt/$bm" = "$DIR" ]; then
+        echo "  BM is $DIR, but WSL still shows the card that was there before: mount it again:" >&2
+        letter=$(echo "$bm" | tr a-z A-Z)
+        mount_hint
+    else
+        echo "  The RGB30's card is $(echo "$bm" | tr a-z A-Z): -> make TARGET=rgb30 sdcard SD=/mnt/$bm" >&2
+    fi
+}
+
 if [ ! -d "$DIR" ] || [ -z "$(ls -A "$DIR" 2>/dev/null)" ]; then
     echo "copy-sd-rgb30: nothing at $DIR: the card is not mounted there." >&2
     mount_hint
+    windows_drives
     exit 1
 fi
 if [ ! -f "$DIR/extlinux/extlinux.conf" ]; then
-    echo "copy-sd-rgb30: $DIR is not the RGB30's card (no extlinux/extlinux.conf):" >&2
+    if [ -f "$DIR/bootcode.bin" ] || [ -f "$DIR/kernel.img" ]; then
+        echo "copy-sd-rgb30: $DIR is the Raspberry Pi's card, not the RGB30's:" >&2
+    else
+        echo "copy-sd-rgb30: $DIR is not the RGB30's card (no extlinux/extlinux.conf):" >&2
+    fi
     ls "$DIR" | head -8 | sed 's/^/    /' >&2
     echo "  Choose the drive named BM, or write dist/rgb30/bm-rgb30.img to the card first." >&2
+    windows_drives
     exit 1
 fi
 probe="$DIR/.bm-write-test"
