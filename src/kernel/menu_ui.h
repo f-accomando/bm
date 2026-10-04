@@ -156,6 +156,9 @@ int  menu_ui_open(framebuffer_t *fb);
 void menu_ui_frame(framebuffer_t *fb, const menu_view_t *v);
 /* Back to the console mode. */
 void menu_ui_close(framebuffer_t *fb);
+/* The same, the console left suspended: a game's loading screen takes the
+ * screen at once, without the log in between */
+void menu_ui_close_quiet(framebuffer_t *fb);
 
 /* A cover for cartridges without one: the title on a coloured label. */
 int  menu_make_cover(g16_sheet_t *s, const char *title, const char *kind);

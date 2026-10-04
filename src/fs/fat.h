@@ -43,6 +43,9 @@ int fat_read_head(const fat_entry_t *e, uint8_t buf[512]);
 
 /* Reads a whole file into a malloc'd buffer (caller frees). */
 int fat_load(const fat_entry_t *e, uint8_t **data, size_t *len);
+/* called after each cluster fat_load reads, if set (the games' loading
+ * screen goes on while a big file is read) */
+extern void (*fat_load_tick)(void);
 
 /* Finds a file or directory by path ("/bm/config.txt"). Returns 0. */
 int fat_find(const char *path, fat_entry_t *e);

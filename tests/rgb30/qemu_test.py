@@ -528,7 +528,8 @@ def test_bm_cartridge(b, opts):
         assert "yharnam.bm" in screen_all(q.screendump())
         q.send("\r")                            # confirm: play
         q.expect("play: /bm/yharnam.bm", timeout=10)
-        time.sleep(8)
+        q.expect("bm: loaded", timeout=30)      # the system's splash, then the game
+        time.sleep(4)
         img = q.screendump()
         assert img[0] == 256 and img[1] == 256, f"screen {img[0]}x{img[1]}"
         colours = {img[2][i:i + 3] for i in range(0, len(img[2]), 3 * 97)}

@@ -26,6 +26,7 @@
 #include "gfx/font.h"
 #include "lib/printf.h"
 #include "script/luavm.h"
+#include "loading.h"
 #include "audio/audio.h"
 #include "audio/player.h"
 #include "audio/synth.h"
@@ -3244,6 +3245,8 @@ static void hook(lua_State *L, lua_Debug *ar)
     if (bm_lua_sample)
         bm_lua_sample(L, ar);
     ++rt.hook_count;
+    if (loading_active())
+        loading_tick();                 /* _init: the loading screen goes on */
     /* a coroutine given to timeslice(): it stops here and goes on next
      * frame, instead of running into the budget */
     if (L == rt.slice_thread && rt.hook_count >= rt.slice_at && lua_isyieldable(L)) {
@@ -3536,6 +3539,9 @@ static int poll_keys(void)
 static void sheet8_set(void *ctx, int x, int y, const uint8_t rgba[4])
 {
     (void)ctx;
+    static unsigned n;
+    if ((++n & 8191) == 0)
+        loading_tick();                 /* a big sheet takes a while */
     g16_sheet_set(&rt.sheet, x, y, g16_rgb(rgba[0], rgba[1], rgba[2]), rgba[3] >= 128);
 }
 
@@ -5808,6 +5814,30 @@ static int run_frames(framebuffer_t *fb, lua_State *L, const char *title,
     return BM_ENDED;
 }
 
+/* The cartridge's code given to Lua's parser a piece at a time: the
+ * loading screen goes on while a big one compiles */
+typedef struct {
+    const char *p;
+    size_t left;
+} chunk_reader_t;
+
+static const char *read_chunk(lua_State *L, void *ud, size_t *size)
+{
+    chunk_reader_t *r = ud;
+    (void)L;
+    if (!r->left) {
+        *size = 0;
+        return NULL;
+    }
+    loading_tick();
+    const size_t n = r->left < 16384 ? r->left : 16384;
+    const char *p = r->p;
+    r->p += n;
+    r->left -= n;
+    *size = n;
+    return p;
+}
+
 int bm_run(framebuffer_t *fb, const uint8_t *data, size_t len,
             uint32_t seconds, bm_stats_t *st, int suspendable)
 {
@@ -5827,8 +5857,10 @@ int bm_run(framebuffer_t *fb, const uint8_t *data, size_t len,
     bm_next_run(0, 0, -1, 0);
     if (bm_parse(data, len, &cart, err, sizeof err) != 0) {
         kprintf("\x1b[91mbm: %s\x1b[0m\n", err);
+        loading_stop();
         return BM_ENDED;
     }
+    loading_tick();
     if (cur.w > 0 && cur.h > 0) {
         cart.width = cur.w;
         cart.height = cur.h;
@@ -5837,8 +5869,10 @@ int bm_run(framebuffer_t *fb, const uint8_t *data, size_t len,
     if (load_assets(&cart) != 0 || !(L = new_cart_state(&cart))) {
         free_assets();
         kprintf("\x1b[91mbm: out of memory\x1b[0m\n");
+        loading_stop();
         return BM_ENDED;
     }
+    loading_tick();
 
     const uint32_t con_w = fb->width, con_h = fb->height;
     if (enter_mode(fb, cart.width, cart.height) != 0) {
@@ -5846,8 +5880,10 @@ int bm_run(framebuffer_t *fb, const uint8_t *data, size_t len,
         lua_close(L);
         free_assets();
         kprintf("\x1b[91mbm: cannot set %ux%u RGB565\x1b[0m\n", cart.width, cart.height);
+        loading_stop();
         return BM_ENDED;
     }
+    loading_page(fb, &rt.g);            /* the loading screen on the game's page now */
 
     {
         char path[40];
@@ -5864,10 +5900,15 @@ int bm_run(framebuffer_t *fb, const uint8_t *data, size_t len,
     }
     rt.start_us = timer_ticks();
     rt.hook_count = 0;
-    if (luaL_loadbuffer(L, cart.lua, cart.lua_size, "=main.lua") != LUA_OK ||
+    chunk_reader_t rd = { cart.lua, cart.lua_size };
+    if (lua_load(L, read_chunk, &rd, "=main.lua", NULL) != LUA_OK ||
         (lua_pushcfunction(L, traceback), lua_insert(L, -2), lua_pcall(L, 0, 0, -2)) != LUA_OK ||
         call(L, "_init") != 0)
         error = lua_tostring(L, -1);
+    if (error)
+        loading_stop();
+    else
+        loading_end();                  /* loaded: the intro to its end, then the game */
     return run_frames(fb, L, cart.title, con_w, con_h, seconds, st,
                       error, suspendable && !cur.bench);
 }

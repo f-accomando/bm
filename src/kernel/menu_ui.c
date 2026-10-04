@@ -1175,7 +1175,7 @@ int menu_ui_open(framebuffer_t *fb)
     return 0;
 }
 
-void menu_ui_close(framebuffer_t *fb)
+static void close_menu(framebuffer_t *fb, int console)
 {
     if (!ready)
         return;
@@ -1183,7 +1183,18 @@ void menu_ui_close(framebuffer_t *fb)
     nzones = 0;
     pointer_env(0, 0, 0);
     fb_init(fb, con_w, con_h, 2);
-    console_suspend(0);
+    if (console)
+        console_suspend(0);
+}
+
+void menu_ui_close(framebuffer_t *fb)
+{
+    close_menu(fb, 1);
+}
+
+void menu_ui_close_quiet(framebuffer_t *fb)
+{
+    close_menu(fb, 0);
 }
 
 static uint16_t pulse(float t)

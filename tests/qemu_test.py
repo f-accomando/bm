@@ -938,6 +938,7 @@ def test_sd_cartridges(b, opts):
         q.send("a")
         q.send("\r")                          # SD cartridges come first, by title
         q.expect("playing Il mio gioco lungo.bm", timeout=10)
+        q.expect("bm: loaded", timeout=10)    # the system's splash, then the game
         time.sleep(1.0)
         q.send("q")
         out = q.expect("update+draw", timeout=15).decode(errors="replace")
@@ -947,6 +948,7 @@ def test_sd_cartridges(b, opts):
         assert any("Close bm native demo?" in l for l in text), "\n".join(text)
         q.send("\r")                          # the demo was suspended: close it
         q.expect("playing demo2.bm", timeout=10)
+        q.expect("bm: loaded", timeout=10)
         time.sleep(1.0)
         q.send("q")
         q.expect("update+draw", timeout=15)
@@ -1906,6 +1908,7 @@ def test_bt_pair_and_reconnect(b, opts):
             lag = time.time() - t_press
             print(f"    lag after burst: {lag:.2f} s")
             assert lag < 0.5, f"input lag {lag:.2f} s after a burst of reports"
+            _mini_expect(q, "bm: loaded")
             time.sleep(1.0)
             chip.report(0x08, ps=1)
             _mini_expect(q, "update+draw")
@@ -2428,6 +2431,7 @@ def test_bt_mouse(b, opts):
         time.sleep(0.1)
         chip.move(0, 0, buttons=0)
         _mini_expect(q, "playing snake.bm")
+        _mini_expect(q, "bm: loaded")
         time.sleep(0.5)
         q.mini.write(b"q")
         _mini_expect(q, "update+draw")
@@ -3792,6 +3796,7 @@ def test_usb_mouse(b, opts):
         # a click on a cover plays it
         click_at(*cover_xy(0))
         q.expect("playing astrowing.bm", timeout=10)
+        q.expect("bm: loaded", timeout=10)
         time.sleep(1.0)
         q.send("q")
         q.expect("update+draw", timeout=15)
@@ -3843,7 +3848,7 @@ def test_mouse_cart(b, opts):
         assert "before nil" in out, out
         q.pointer(160, 45, 320, 180)
         q.expect("mouse 160,45 b0 w0 true", timeout=10)
-        shot_ = q.screendump()
+        shot_ = wait_screen(q, lambda s_: s_[:2] == (320, 180) and arrow_at(s_, 160, 45))
         assert shot_[:2] == (320, 180) and arrow_at(shot_, 160, 45), shot_[:2]
         q.click()
         q.expect("mouse 160,45 b1 w0 true click", timeout=10)
@@ -3894,6 +3899,7 @@ def test_mouse_cart(b, opts):
         q.send("\r")
         q.expect("playing mouse.bm", timeout=10)
         q.expect("enabled false", timeout=10)
+        q.expect("bm: loaded", timeout=10)
         q.pointer(100, 100, 320, 180)
         time.sleep(0.5)
         q.send("q")

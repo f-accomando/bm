@@ -26,6 +26,7 @@
 #include "lib/printf.h"
 #include "usb/hid.h"
 #include "notice.h"
+#include "bm/loading.h"
 #include "ledstate.h"
 
 #include <stdarg.h>
@@ -226,6 +227,7 @@ void carts_init(void)
         sd_ok = 1;
     }
     ledstate_set(LED_NO_SD, !sd_ok);
+    fat_load_tick = loading_tick;       /* a game's loading screen goes on while its file is read */
     rescan();
     if (sd_ok)
         kprintf("sd: %s card (%s), %s; %d cartridges\n", sd_is_hc() ? "SDHC" : "SD",
@@ -520,6 +522,7 @@ static void play(framebuffer_t *fb, const cart_t *c)
     uint8_t *data;
     size_t len;
     if (fat_load(&c->fe, &data, &len) != 0) {
+        loading_stop();
         kprintf("\x1b[91mcannot read %s: %s\x1b[0m\n", c->name, fat_error());
         ksnprintf(last_msg, sizeof last_msg, "cannot read %s: %s", c->name, fat_error());
         return;
@@ -1525,8 +1528,18 @@ void carts_menu(framebuffer_t *fb)
             market_set_active(0);               /* nothing loads behind a game */
             market_lan(0);
             lib_stop();
-            if (gfx)
+            /* an application (a game, a tool): the system's splash while it
+             * loads, never the log (2026-10-04); a suspended game comes back
+             * at once */
+            const int app = go >= GO_PLAY && go <= GO_PIXEL;
+            const int resume = go == GO_PLAY && go_cart >= 0 && susp_path[0] &&
+                               strcmp(susp_path, carts[go_cart].path) == 0 && bm_suspended(NULL, 0);
+            if (gfx && app)
+                menu_ui_close_quiet(fb);
+            else if (gfx)
                 menu_ui_close(fb);
+            if (app && !resume)
+                loading_begin(fb);
             /* the file of a tool: a cartridge of the menu, or one of the Lib tab */
             const char *gpath = go_cart >= 0 ? carts[go_cart].path : lib_path;
             const char *gname = go_cart >= 0 ? carts[go_cart].name : lib_name;
@@ -1602,6 +1615,7 @@ void carts_menu(framebuffer_t *fb)
                 depth = 0;
                 break;
             }
+            loading_stop();                     /* an application that never got to its first frame */
             input_flush();
             prev_btn = hid_buttons();
             redraw = 1;

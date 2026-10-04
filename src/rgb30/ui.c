@@ -38,6 +38,7 @@
 #include "kernel/home.h"
 #include "kernel/menu_ui.h"
 #include "kernel/notice.h"
+#include "bm/loading.h"
 #include "kernel/ledstate.h"
 #include "kernel/reports.h"
 #include "b3d_rgb30.h"
@@ -269,7 +270,10 @@ static void play_bm(int i)
     fat_entry_t e;
     uint8_t *data = NULL;
     size_t len = 0;
+    loading_begin(fb);                             /* the retro intro while it loads */
+    fat_load_tick = loading_tick;
     if (fat_find(path, &e) != 0 || fat_load(&e, &data, &len) != 0) {
+        loading_stop();
         const char *lines[] = { path, "", "cannot be read:", fat_error() };
         page_message("Game", lines, 4);
         return;

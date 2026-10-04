@@ -238,6 +238,22 @@ screenshot in `docs/img/`), `README_OLD.md` (il README completo, in italiano),
   foglio cambia) con la versione; la console è sospesa ma tiene le righe dell'avvio (le mostra il
   monitor, le pagine di testo e *Log since boot*), e la seriale e `klog` le hanno tutte. Il menu
   prende lo schermo quando si apre (`menu_ui_open`).
+- **Caricamento delle applicazioni** (richiesta dell'utente; `src/bm/loading.c`): uno splash di
+  sistema al posto del log, lo stesso per ogni gioco e strumento (niente titolo, decisione
+  dell'utente): un'animazione retro su una tela di 160×90 ingrandita (il "bm" in pixel art di
+  `loading_logo.c`, da `mklogo.py`, con la gamba sinistra della m lunga come le altre, che cade e
+  atterra, un jingle nostro sulle voci 5-7, poi un circolino di punti che gira) finché file, asset
+  e `_init` non sono pronti, e almeno l'intro (1,8 s). La comincia il menu per ogni applicazione
+  (giochi, SDK, Sound, bm Code, bm Studio, bm Animator, bm Mesh, bm Pixel; dalla scheda Games, Dev
+  o Lib; non per un gioco sospeso che riprende): `loading_begin` nel passaggio `GO_*` di
+  `carts.c` con `menu_ui_close_quiet` per non far vedere la console, `play_bm` della RGB30; un
+  `loading_stop()` dopo, per chi non arriva al primo fotogramma. Il runtime la fa andare avanti
+  (`fat_load_tick`, gli asset, il Lua compilato a pezzi da `read_chunk`, il hook durante
+  `_init`), la porta sulla pagina del gioco dopo `enter_mode` (`loading_page`) e la chiude prima
+  del primo fotogramma (`loading_end`, che scrive `bm: loaded in ... ms, the splash over at ...`:
+  i test QEMU lo aspettano prima di premere i tasti del gioco). Senza `loading_begin` (bmhost, i
+  giochi provati dagli strumenti) niente; `game_intro=0` in `bm/config.txt` la spegne. Prova:
+  `make test-loading` (fotogrammi in `build/loading/`).
 - **LED** (Pi e RGB30, `src/kernel/ledstate.c`): fisso se non c'è niente che non va, lampeggio
   lento (1 s / 1 s) per tutto il resto: avvio non finito (`LED_BOOT`), SD mancante o illeggibile,
   alimentazione bassa (Pi: `GET_THROTTLED` bit 0, ogni 5 s dal menu; RGB30: batteria sotto 3,45 V

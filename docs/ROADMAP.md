@@ -1547,6 +1547,10 @@ firmware); l'icona del mouse USB solo dopo che il mouse ha fatto qualcosa (il ri
 tastiera wireless ne dichiara uno anche senza mouse). Prove: QEMU `test_home_ui`, `test_update`,
 `test_usb_mouse`, `make test-net` (il conto alla rovescia). **Da provare sul Pi e sulla RGB30**:
 lo splash, il LED, un kernel mandato con `bm_net.py --kernel`, Shut down.
+Poi lo **splash di caricamento delle applicazioni** (al posto del log, per ogni gioco e strumento
+aperto dal menu: il "bm" in pixel art che cade e atterra con un jingle, poi un circolino che gira,
+niente titolo, finché l'applicazione non è caricata; `game_intro=0` lo spegne); prova `make
+test-loading`; da sentire sul Pi: il jingle.
 
 ## M28 — Tastiera Bluetooth LE (M) — ✅ verificata sul Pi (2026-09-30)
 Richiesta 2026-09-30: una Logitech **MX Keys S** (con tastierino). È Bluetooth **Low

@@ -312,6 +312,8 @@ int fat_read_head(const fat_entry_t *e, uint8_t buf[512])
     return 0;
 }
 
+void (*fat_load_tick)(void);
+
 int fat_load(const fat_entry_t *e, uint8_t **data, size_t *len)
 {
     *data = NULL;
@@ -345,6 +347,8 @@ int fat_load(const fat_entry_t *e, uint8_t **data, size_t *len)
             memcpy(buf + done, tmp, n);
         }
         done += n;
+        if (fat_load_tick)
+            fat_load_tick();
         if (done < e->size)
             c = next_cluster(c);
     }
