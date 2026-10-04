@@ -4,7 +4,8 @@ Kernel bare metal per Raspberry Pi Zero W (BCM2835, ARM1176JZF-S) e, con una sec
 build (`kernel7.img`), per il Pi Zero 2 W (BCM2710A1, Cortex-A53 a 32 bit): C + assembly +
 Lua 5.4 embedded. Documentazione: `README.md` (presentazione in inglese, con showreel e
 screenshot in `docs/img/`), `README_OLD.md` (il README completo, in italiano),
-`docs/ROADMAP.md`, `docs/HARDWARE.md`.
+`docs/ROADMAP.md`, `docs/HARDWARE.md`; per chi fa giochi `docs/API-IT.md` e
+`docs/GUIDA-GIOCHI.md` (in inglese `docs/API-EN.md`, `docs/GAME-GUIDE.md`).
 
 ## Build e test
 
@@ -107,6 +108,31 @@ screenshot in `docs/img/`), `README_OLD.md` (il README completo, in italiano),
   (dalla seriale `4` è Lib, `5` Settings); gruppi con sinistra/destra, lista a sinistra, anteprima a destra; Y
   (tastiera V) suona. `src/kernel/lib.c` (elenco), `libview.c` (anteprime), `menu_ui.c`,
   `carts.c`. Test: `make test-res`, QEMU `test_lib_tab`.
+
+## API dei giochi: bmlib, livelli della mappa, flag (R10, R11; branch `game-api`)
+
+- Documentazione in due lingue (richiesta dell'utente, 2026-10-04): `docs/API-IT.md` (era
+  `docs/API.md`) e `docs/GUIDA-GIOCHI.md`, in inglese `docs/API-EN.md` e `docs/GAME-GUIDE.md`.
+  Un'API nuova o cambiata va in tutti e quattro (le due versioni hanno le stesse tabelle e gli
+  stessi esempi) e nella base dell'assistente (`src/ai/kb/`, poi `make ai-model` e commit di
+  `assist.weights`).
+- **bmlib** (`require "bmlib"`, `src/script/bmlib.lua`, nel kernel come `bm3d`: `embed.S`,
+  `require.c`, `tests/host/libs.S`, `src/rgb30/bm_embed.S`): le utilità comuni dei giochi
+  (numeri, caso, collisioni con rettangoli e mappa, tween, timer, script, particelle,
+  camera, stati, testo, menu e pausa, jingle, salvataggi, costruttore 3D). Tempi in
+  secondi (`lib.update()` in `_update`), velocità in pixel per fotogramma; non tocca le
+  globali e non copre funzioni della console (`sfx`, `slide`...). bm Mesh (`meshcap.c`)
+  carica la vera bmlib.
+- **Mappa**: fino a 8 livelli (sezione LAYERS 12; la MAP è il primo, con nome `"main"`),
+  `rt.layer[]` in `runtime.c`; **flag** delle tile (FLAGS 13, letti per posto della cella),
+  `fget`/`fset`, `mflags` (pixel), `msize`, `mlayers`, `map(..., livello, maschera)`;
+  zone con nome (SPRITES) dai giochi: `zspr`, `zone`, `zones`. Convenzione dei flag (bmlib):
+  0 solido, 1 piattaforma, 2 scala, 3 acqua, 4 fa male. `mkbm.py --map nome=file.csv`,
+  `--flags`, `--sprites`; nella build `map_<nome>.csv` (`layers_<gioco>`), `flags.csv`,
+  `sprites.txt`. L'SDK li modifica (`L`, `O`, *New map layer*, tasti `0`–`7`), `bmres.py`
+  li porta nelle risorse.
+- Prove: `make test-gameapi` (bmhost, `tests/gameapi/`), QEMU `test_game_api`,
+  `test_editor_layers`, `make test-res`, `make test-bm` (meshcap con bmlib).
 
 ## Nome
 

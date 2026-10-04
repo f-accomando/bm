@@ -2891,11 +2891,42 @@ tastiera).
 - **R9 — Suoni campionati (PCM/WAV)** nel banco, accanto alla sintesi: voci, batterie
   vere, effetti registrati; import WAV nel Sound editor. Il formato del banco cambia nei
   tre posti (`au_parse`, l'editor, `scripts/bmaudio.py`).
-- **R10 — Libreria di gioco comune** (`require "bmlib"`): collisioni con la mappa e tra
+- ✅ **R10 — Libreria di gioco comune** (`require "bmlib"`): collisioni con la mappa e tra
   rettangoli, easing, particelle, camera che segue, macchina a stati. Oggi ogni gioco se
   le riscrive e l'assistente le spiega soltanto (`kb/howto_physics.txt`).
-- **R11 — Flag delle tile e mappa a più livelli.** `fget`/`fset` (muro, acqua, scala) e
+  **Fatto** (2026-10-04, branch `game-api`, in QEMU e sul PC): `src/script/bmlib.lua`, nel
+  kernel come `bm3d` (anche in bmhost e nella build della RGB30). Dentro c'è quello che
+  un'analisi delle cartucce ha trovato riscritto in 5–10 giochi: numeri (`clamp`, `lerp`,
+  `approach`, `sign` con 0 per 0...), caso (`rnd`, `choose`, `shuffle`, `rng(seme)`
+  xorshift per i mondi e la rete), collisioni tra rettangoli e cerchi e con la mappa per i
+  flag delle tile (`lib.move` che scivola sui muri, `lib.step` per i platform con le
+  piattaforme da sotto, `lib.ray` per la linea di vista), easing e tween, timer, script con
+  `lib.wait`, particelle, camera con zona morta e tremolio, stati con push e pop, testo
+  centrato e con ombra, barre, `lib.btnr` (btnp che si ripete), menu e il menu di pausa
+  che 5 giochi copiavano, jingle, `lib.store`/`lib.best`, fotogrammi, colori e il
+  costruttore 3D di Astro Wing. Tempi in secondi con `lib.update()` in `_update`. bm Mesh
+  carica la vera bmlib (le mesh del costruttore si trovano). Prove: `make test-gameapi`
+  (bmhost, 150 controlli, anche i tasti con uno script), QEMU `test_game_api`.
+- ✅ **R11 — Flag delle tile e mappa a più livelli.** `fget`/`fset` (muro, acqua, scala) e
   livelli sopra e sotto il personaggio; oggi la mappa è un solo strato, da CSV.
+  **Fatto** (2026-10-04, branch `game-api`): sezioni LAYERS (12, fino a 8 livelli con il
+  nome; la MAP è il primo, un kernel di prima disegna quello) e FLAGS (13, 8 flag per cella
+  dello sheet, letti per posto) in `src/bm/bm.h`; `map(..., livello, maschera)`,
+  `mget`/`mset` con il livello, `fget`/`fset`, `mflags` (i flag sotto un rettangolo in
+  pixel: le collisioni in una chiamata), `msize`, `mlayers`. `mkbm.py --map nome=file.csv`
+  (ripetuto), `--flags`; nella build `map_<nome>.csv` con `layers_<gioco>`, `flags.csv`.
+  L'editor dell'SDK: `L` il livello dopo, `O` solo quello, *New map layer*, tasti `0`–`7`
+  per i flag della cella; `cart_save`/`cart_load`/`cart_write(sheet=)` li portano;
+  `scripts/bmres.py` estrae, integra e converte mappe con livelli e flag; la scheda Lib
+  mostra tutti i livelli. Prove: QEMU `test_editor_layers`, `make test-res`.
+  **Insieme** (le altre API comuni che mancavano): le zone con nome dello sheet (SPRITES,
+  che bmres.py e bm Pixel scrivono) si usano dai giochi: `zspr(nome, x, y)` (animata da
+  sola), `zone`, `zones`, `mkbm.py --sprites`; `keyheld` documentata. Documentazione:
+  `docs/API.md` è diventato `docs/API-IT.md`, con `docs/API-EN.md` e `docs/GAME-GUIDE.md` in
+  inglese; l'assistente ha le voci di tutto (185/193 domande di prova tra le prime tre).
+  Da fare, se servono: portare Hunter's Night dai numeri 32–63 ai flag; più nomi per una
+  voce dell'assistente (oggi `lib.printr` porta a `lib.printc` al secondo posto); import
+  delle mappe di Tiled (`.tmj`) con i livelli e le proprietà delle tile.
 - **R12 — Più salvataggi per cartuccia.** Oggi uno, da 32 KiB (`/bm/save/XXXXXXXX.SAV`):
   `save(t, slot)` / `saved(slot)`.
 
@@ -2910,8 +2941,11 @@ tastiera).
   Code, "New project" nell'SDK): modelli pronti per platform, visuale dall'alto,
   sparatutto e 3D, con codice, sheet e mappa.
 - **R17 — Import MIDI nel Sound editor.** Un file MIDI diventa i pattern del banco.
-- **R18 — Documentazione API in inglese.** Il README è in inglese, ma `docs/API-IT.md`,
-  `docs/GUIDA-GIOCHI.md` e la base dell'assistente sono solo in italiano.
+- **R18 — Documentazione API in inglese.** Il README è in inglese, ma `docs/API.md`,
+  `docs/GUIDA-GIOCHI.md` e la base dell'assistente sono solo in italiano. **In gran parte
+  fatto** (2026-10-04, con R10 e R11): `docs/API-EN.md` e `docs/GAME-GUIDE.md` (le versioni
+  italiane sono `docs/API-IT.md` e `docs/GUIDA-GIOCHI.md`); manca la base dell'assistente,
+  che ha le domande anche in inglese ma le spiegazioni in italiano.
 
 ### Hardware
 - **R19 — Altri controller Bluetooth.** Oggi via Bluetooth solo il DS4 (più tastiere e
