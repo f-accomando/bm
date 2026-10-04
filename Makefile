@@ -101,7 +101,8 @@ $(BUILD)/k/src/script/embed.S.o $(BUILD)/k7/src/script/embed.S.o: $(wildcard src
                                  $(BUILD)/demo.bm $(BUILD)/stress.bm $(BUILD)/editor.bm $(BUILD)/sound.bm \
                                  $(BUILD)/studio.bm $(BUILD)/animator.bm $(BUILD)/mesh.bm $(BUILD)/pixel.bm \
                                  $(BUILD)/assist.bin src/ai/assist.lua $(BUILD)/assistant.bm \
-                                 $(BUILD)/code.bm $(BUILD)/texroom.bm src/ai/predict.lua $(BUILD)/words.lua
+                                 $(BUILD)/code.bm $(BUILD)/texroom.bm src/ai/predict.lua $(BUILD)/words.lua \
+                                 src/ai/padtype.lua
 
 # The development assistant (M30): knowledge base + trained network, built
 # into the kernel. The network is trained on the PC (numpy) by `make
@@ -188,7 +189,7 @@ $(BUILD)/demo.bm: $(DEMO_BM_SRC) scripts/mkbm.py
 	    --map carts/demo/map.csv --title "bm native demo" --author bm
 
 # Demo games (Lua only, sprites drawn in code): build/carts/<name>.bm
-GAMES := pong snake shooter astrowing hunt kitchen titan village nano8 overbit yharnam
+GAMES := pong snake shooter astrowing hunt kitchen titan village nano8 overbit yharnam typing
 GAME_CARTS := $(patsubst %,$(BUILD)/carts/%.bm,$(GAMES))
 title_pong    := Pong
 title_snake   := Snake
@@ -202,6 +203,7 @@ title_nano8 := nano8
 title_village := Studio Village
 res_village := 320x180
 title_yharnam := Yharnam
+title_typing := Pad Typing
 res_yharnam := 256x256
 sheet8_yharnam := 1
 # Optional per game: carts/<game>/cover.png (printed on the cartridge in the
@@ -514,7 +516,7 @@ $(BUILD)/host/bmhost/runtime-deps: $(wildcard src/bm/*.h src/audio/*.h src/kerne
 	@mkdir -p $(dir $@) && touch $@
 $(BMHOST_OBJS): $(BUILD)/host/bmhost/runtime-deps
 $(BUILD)/host/bmhost-bin: tests/host/bmhost.c tests/host/stubs.c tests/host/hostnet.c tests/host/host.h tests/host/libs.S \
-                          $(BMHOST_OBJS) src/ai/assist.lua src/script/bm3d.lua src/ai/predict.lua $(BUILD)/words.lua
+                          $(BMHOST_OBJS) src/ai/assist.lua src/script/bm3d.lua src/ai/predict.lua $(BUILD)/words.lua src/ai/padtype.lua
 	$(HOSTCC) -O2 -g -Wall -Wextra -D_DEFAULT_SOURCE -Itests/host/shim -Isrc -Isrc/bm -Ithird_party/lua -I$(BUILD) \
 	    -o $@ tests/host/bmhost.c tests/host/stubs.c tests/host/hostnet.c tests/host/libs.S $(BMHOST_OBJS) -lm
 bmhost: $(BUILD)/host/bmhost-bin
@@ -523,7 +525,7 @@ bmhost: $(BUILD)/host/bmhost-bin
 # emulator of the tests (tests/gpu/v3d_emu.c): the frames as the GPU draws
 # them, to set them beside the ARM's (slower: the emulator is plain C)
 $(BUILD)/host/bmhost-gpu: tests/host/bmhost.c tests/host/stubs.c tests/host/hostnet.c tests/host/host.h tests/host/libs.S \
-                          $(BMHOST_OBJS) src/ai/assist.lua src/script/bm3d.lua src/ai/predict.lua $(BUILD)/words.lua \
+                          $(BMHOST_OBJS) src/ai/assist.lua src/script/bm3d.lua src/ai/predict.lua $(BUILD)/words.lua src/ai/padtype.lua \
                           src/gpu/gpu3d.c src/gpu/v3d_cl.c \
                           src/gpu/shaders.h tests/gpu/v3d_emu.c tests/gpu/v3d_emu.h
 	$(HOSTCC) -std=c11 -O2 -g -w -Isrc -Itests/gpu -Daligned_alloc=test_aligned_alloc -Dfree=test_free \
@@ -540,7 +542,7 @@ test-queue2d: $(BUILD)/host/bmhost-gpu
 .DEFAULT_GOAL := all
 .PHONY: FORCE test-keymap test-online test-loading test-smp test-qpu test-gpu3d test-queue2d test-b3d test-v3d bench3d count-insns all clean firmware image \
         image-pi1 sdcard install sdcard-chainloader sdcard-stress qemu qemu7 qemu-screenshot \
-        run-serial test test-bm test-res test-ai test-img2mesh ai-model test-predict predict-bench syllables test-usb test-audio \
+        run-serial test test-bm test-res test-ai test-img2mesh ai-model test-predict test-padtype predict-bench syllables test-usb test-audio \
         test-fat test-kitchen test-titan test-yharnam test-sound test-nano8 test-net test-http test-https test-release \
         release disasm wav test-studio test-studio-ui studio test-prompts test-hyp test-zero2 \
         showreel bmhost bmhost-gpu test-overbit overbit-reel overbit-reel-heroes overbit-reel-match yharnam-video \
@@ -724,8 +726,8 @@ qemu-screenshot: $(BUILD)/kernel.img
 
 test: all test-bm test-res test-usb test-fat test-audio test-kitchen test-titan test-yharnam test-sound test-nano8 test-net test-http test-https test-img3d \
       test-catalog test-github test-lan test-keymap test-online test-loading \
-      test-release test-smp test-qpu test-gpu3d test-queue2d test-b3d test-v3d test-ai test-predict test-studio test-prompts \
-      test-overbit $(if $(K7),test-hyp)
+      test-release test-smp test-qpu test-gpu3d test-queue2d test-b3d test-v3d test-ai test-predict test-padtype \
+      test-studio test-prompts test-overbit $(if $(K7),test-hyp)
 	$(PYTHON) tests/qemu_test.py --build $(BUILD)
 
 # The same QEMU tests with kernel7.img, the Pi Zero 2 W's, in raspi2b (the
@@ -1018,6 +1020,20 @@ $(BUILD)/host/meshview: tests/ai/meshview.c $(AI_SRCS) src/ai/*.h src/lib/crc32.
 # benchmark texts typed again with Tab
 test-predict: $(BUILD)/host/luahost $(BUILD)/words.lua
 	$(BUILD)/host/luahost tests/predict/predict_test.lua $(BUILD)
+
+# Typing with the pad (docs/PADTYPE.md): the rules of compose and of the
+# on-screen keyboard, every practice text written to the end by padtype's
+# coach (the presses a character), then Pad Typing in bmhost copying the
+# first text of each language to its result (shots in build/padtype/)
+test-padtype: $(BUILD)/host/luahost $(BUILD)/words.lua $(BUILD)/host/bmhost-bin $(BUILD)/carts/typing.bm
+	$(BUILD)/host/luahost tests/padtype/pad_test.lua $(BUILD)
+	for l in it en lua; do \
+	  mkdir -p $(BUILD)/padtype/$$l && \
+	  $(BUILD)/host/luahost tests/padtype/script.lua $(BUILD) $$l 1 $(BUILD)/padtype/$$l.txt && \
+	  $(BUILD)/host/bmhost-bin $(BUILD)/carts/typing.bm --input $(BUILD)/padtype/$$l.txt \
+	      --shots $(BUILD)/padtype/$$l --seconds 300 > $(BUILD)/padtype/$$l.log 2>&1 && \
+	  grep "typing: done" $(BUILD)/padtype/$$l.log || { tail -20 $(BUILD)/padtype/$$l.log; exit 1; }; \
+	done
 
 # Its benchmark (docs/PREDICT.md): the keys saved on the texts of 100
 # characters, then the corpus with each group left out of the dictionary
