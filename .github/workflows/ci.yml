@@ -4,6 +4,9 @@ on:
   push:
     # the consoles' test reports (src/kernel/reports.c) are not code
     branches-ignore: [reports]
+    # with a branch filter alone GitHub skips the tags: the releases (v*,
+    # the release job below) need them named
+    tags: ['v*']
   pull_request:
 
 env:
