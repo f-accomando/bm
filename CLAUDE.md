@@ -15,7 +15,13 @@ screenshot in `docs/img/`), `README_OLD.md` (il README completo, in italiano),
   `-M raspi2b`.
 - L'utente prova sul Pi reale copiando `dist/kernel.img` (e `dist/kernel7.img`) sulla SD
   (WSL, `/mnt/d`), senza cavo seriale: tutto ciò che deve verificare va mostrato sullo
-  schermo.
+  schermo. Da WSL usa `./easy_install.sh` (nella root): al primo avvio salva cartella del
+  repository e lettera della SD in `.easy_install.conf` (in `.gitignore`), installa i
+  pacchetti e fa `make firmware`; poi mostra il branch e un menu: solo il kernel, `make
+  install`, o immagine (`make image`, SD cancellata e formattata FAT32 da PowerShell come
+  amministratore, i file dell'immagine sopra, impostazioni, salvataggi e giochi suoi
+  rimessi). Alla fine scrive "kernel: vecchio -> nuovo": la versione sta in `kernel.img`
+  dopo `bmVER=` (`bm_version_tag` in `src/kernel/version.c`).
 - Dev kit (richiesta dell'utente): l'overlay delle prestazioni sopra ogni `.bm` (`perf_frame`
   in `runtime.c`): fps, ms di `_update` + `_draw`, istruzioni Lua del fotogramma
   (`stat(10)`; prima del merge con `3d-performance` era `stat(6)`, ora il tempo del 3D),

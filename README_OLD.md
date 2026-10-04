@@ -353,6 +353,27 @@ sudo apt install gcc-arm-none-eabi binutils-arm-none-eabi qemu-system-arm make c
     dosfstools mtools     # per i test SD in QEMU
 ```
 
+## Dalla SD con WSL: `./easy_install.sh`
+
+Nella root del repository, da WSL: `./easy_install.sh` (o `easy_install` da qualunque
+cartella, se al primo avvio accetti di aggiungere il comando). La prima volta salva la cartella
+del repository e la lettera della SD in `.easy_install.conf` (resta sul PC: è in `.gitignore`,
+e tiene anche cosa ha installato e l'ultima operazione), installa i pacchetti che servono alla
+build (`apt`) e scarica il firmware del Pi (`make firmware`, in `firmware/`). Poi mostra il
+branch (e se è indietro rispetto a GitHub) e un menu:
+
+- `1` solo il kernel: `kernel.img` sulla SD, quello di prima in `bm/backup`;
+- `2` installazione completa: `make install` (kernel, file di avvio, giochi, `bm/`);
+- `3` immagine: `make image` (`dist/bm.img`), poi la SD cancellata e formattata FAT32 (tutta,
+  fino a 31 GB; Windows chiede i permessi di amministratore) con sopra i file dell'immagine;
+  impostazioni, salvataggi e giochi tuoi (`bm/`, `carts/`) vengono copiati sul PC
+  (`~/.bm/sd-backup`) e rimessi;
+- `b` cambia branch o aggiornalo (`git pull`); `p` cambia cartella o lettera della SD.
+
+Monta la SD (`drvfs`, con `sudo`), fa `sync`, la smonta e la espelle; come ultima riga scrive
+la versione del kernel che c'era e quella nuova (`kernel: 9603de5 -> d6eebee`). Anche
+direttamente: `./easy_install.sh kernel`, `install`, `image`.
+
 ## Build e test
 
 ```sh

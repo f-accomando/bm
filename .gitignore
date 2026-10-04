@@ -3,3 +3,4 @@ dist/
 firmware/
 __pycache__/
 build-stress/
+.easy_install.conf

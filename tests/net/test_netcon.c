@@ -25,7 +25,7 @@
 #include <time.h>
 
 /* ---- the kernel functions netcon.c uses */
-const char bm_version[] = "test";
+const char bm_version_tag[] = "bmVER=test";
 static const char *cfg_pw = "secret";
 static char saved_pw[40];
 const char *config_get(const char *key) { return strcmp(key, "net_password") ? NULL : cfg_pw; }
