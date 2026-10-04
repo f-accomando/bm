@@ -39,7 +39,8 @@ Scritto per scegliere la risoluzione del menu (M27, BareMetal UI).
   pixel interi su 1080p) e il gioco disegna nel quadrato al centro (`bm_video_enter`
   in `runtime.c`); i bordi restano neri. `SCREEN_W` e `SCREEN_H` valgono 256. Il 3D di
   questi giochi lo disegna l'ARM (la GPU scrive pagine intere, non un quadrato al centro).
-- Le copertine dei giochi nel `.bm` sono 128×80 (`BM_COVER_W`, `BM_COVER_H`).
+- Le copertine dei giochi nel `.bm` sono quadrati di 88×88 (`BM_COVER_SIZE`, 2026-10-04; prima
+  128×80: il menu adatta qualsiasi misura).
 - **Cambio di risoluzione mentre il gioco gira** (`screen(w, h)`, 2026-10-04): la
   cartuccia parte con quella dell'intestazione e può passare a 320×180, 384×216,
   480×270, 640×360, 960×540, 1280×720 o 1920×1080 tra un fotogramma e l'altro. Su

@@ -36,17 +36,16 @@ static uint16_t *frame;
  * read the screen back) */
 #define BAR_H       48              /* top bar: rows 0-2 */
 #define TITLE_ROW   4               /* name of the selected cartridge */
-#define CARD_W      128
-#define CARD_H      80
-#define RADIUS      6               /* rounded corners of the covers */
-#define GAP_X       16
+#define CARD_W      MENU_CARD       /* squares, as the bm Suite's icons */
+#define CARD_H      MENU_CARD
+#define RADIUS      16              /* rounded corners of the covers (the icons' own) */
+#define GAP_X       12
 #define PITCH_Y     (CARD_H + GAP_X)
 #define GRID_X0     ((SW - (cols * CARD_W + (cols - 1) * GAP_X)) / 2)
 #define FOOT_Y      316             /* bottom bar, text rows 20-21 */
 #define GRID_BOT    FOOT_Y          /* grid clip */
-/* two whole rows, and the top of the next one showing as much as two
- * corner radii: there is more below */
-#define PEEK        (2 * RADIUS)
+/* two whole rows, and the top of the next one showing: there is more below */
+#define PEEK        16
 #define GRID_Y0     (GRID_BOT - PEEK - 2 * PITCH_Y)     /* first row of covers */
 #define GRID_TOP    (GRID_Y0 - 8)   /* the selection ring is 6 px out */
 /* scroll bar in the right margin, along the two whole rows */
@@ -107,13 +106,68 @@ static uint16_t c16(uint32_t rgb) { return g16_rgb24(rgb); }
 
 /* ---------------------------------------------------------------- covers */
 
+/* the box (cx, cy, cw, ch) of rgba (w wide) into out (CARD_W wide, RGB)
+ * at (dx, dy) dw x dh: each pixel the average of what falls on it */
+static void area_scale(const uint8_t *rgba, int w, int cx, int cy, int cw, int ch,
+                       uint8_t *out, int dx, int dy, int dw, int dh)
+{
+    for (int y = 0; y < dh; y++) {
+        int sy0 = cy + y * ch / dh, sy1 = cy + (y + 1) * ch / dh;
+        if (sy1 <= sy0) sy1 = sy0 + 1;
+        for (int x = 0; x < dw; x++) {
+            int sx0 = cx + x * cw / dw, sx1 = cx + (x + 1) * cw / dw;
+            if (sx1 <= sx0) sx1 = sx0 + 1;
+            uint32_t acc[3] = { 0, 0, 0 }, n = 0;
+            for (int sy = sy0; sy < sy1; sy++)
+                for (int sx = sx0; sx < sx1; sx++) {
+                    const uint8_t *p = rgba + ((size_t)sy * w + sx) * 4;
+                    acc[0] += p[0]; acc[1] += p[1]; acc[2] += p[2];
+                    n++;
+                }
+            uint8_t *o = out + ((size_t)(dy + y) * CARD_W + dx + x) * 3;
+            o[0] = (uint8_t)(acc[0] / n); o[1] = (uint8_t)(acc[1] / n); o[2] = (uint8_t)(acc[2] / n);
+        }
+    }
+}
+
 int menu_load_cover(g16_sheet_t *s, const uint8_t *rgba, int w, int h)
 {
-    if (w != BM_COVER_W || h != BM_COVER_H || g16_sheet_alloc(s, w, h) != 0)
+    if (w <= 0 || h <= 0 || w > 1024 || h > 1024)
         return -1;
-    for (int y = 0; y < h; y++)
-        for (int x = 0; x < w; x++) {
-            const uint8_t *p = rgba + ((size_t)y * w + x) * 4;
+    static uint8_t out[CARD_W * CARD_H * 3];
+    if (w * 10 >= h * 9 && h * 10 >= w * 9) {
+        area_scale(rgba, w, 0, 0, w, h, out, 0, 0, CARD_W, CARD_H);     /* (nearly) a square */
+    } else {
+        /* the middle square in 8x8 blocks, stretched smooth and darker:
+         * the rest of the card; the picture whole over it */
+        enum { LO = 8 };
+        static uint8_t lo[LO * CARD_W * 3];
+        const int c = w < h ? w : h;
+        area_scale(rgba, w, (w - c) / 2, (h - c) / 2, c, c, lo, 0, 0, LO, LO);
+        for (int y = 0; y < CARD_H; y++) {
+            float v = (y + 0.5f) * LO / CARD_H - 0.5f;
+            int j0 = v < 0 ? 0 : (int)v, j1 = j0 + 1 < LO ? j0 + 1 : LO - 1;
+            float fy = v < 0 ? 0 : v - j0;
+            for (int x = 0; x < CARD_W; x++) {
+                float u = (x + 0.5f) * LO / CARD_W - 0.5f;
+                int i0 = u < 0 ? 0 : (int)u, i1 = i0 + 1 < LO ? i0 + 1 : LO - 1;
+                float fx = u < 0 ? 0 : u - i0;
+                for (int k = 0; k < 3; k++) {
+                    float a = lo[(j0 * CARD_W + i0) * 3 + k], b = lo[(j0 * CARD_W + i1) * 3 + k];
+                    float cc = lo[(j1 * CARD_W + i0) * 3 + k], d = lo[(j1 * CARD_W + i1) * 3 + k];
+                    float top = a + (b - a) * fx, bot = cc + (d - cc) * fx;
+                    out[(y * CARD_W + x) * 3 + k] = (uint8_t)((top + (bot - top) * fy) * 0.45f);
+                }
+            }
+        }
+        const int fw = w >= h ? CARD_W : CARD_W * w / h, fh = w >= h ? CARD_H * h / w : CARD_H;
+        area_scale(rgba, w, 0, 0, w, h, out, (CARD_W - fw) / 2, (CARD_H - fh) / 2, fw, fh);
+    }
+    if (g16_sheet_alloc(s, CARD_W, CARD_H) != 0)
+        return -1;
+    for (int y = 0; y < CARD_H; y++)
+        for (int x = 0; x < CARD_W; x++) {
+            const uint8_t *p = out + (y * CARD_W + x) * 3;
             g16_sheet_set(s, x, y, g16_rgb(p[0], p[1], p[2]), 1);
         }
     return 0;
@@ -121,7 +175,7 @@ int menu_load_cover(g16_sheet_t *s, const uint8_t *rgba, int w, int h)
 
 int menu_make_cover(g16_sheet_t *s, const char *title, const char *kind)
 {
-    if (g16_sheet_alloc(s, BM_COVER_W, BM_COVER_H) != 0)
+    if (g16_sheet_alloc(s, CARD_W, CARD_H) != 0)
         return -1;
     uint32_t h = 2166136261u;
     for (const char *p = title; *p; p++)
@@ -130,32 +184,33 @@ int menu_make_cover(g16_sheet_t *s, const char *title, const char *kind)
     g16_target(&cg, s->px, (uint32_t)s->w, s->w, s->h, &font_console_8x16);
     uint32_t r = 40 + (h & 63), gg = 40 + (h >> 6 & 63), b = 70 + (h >> 12 & 95);
     for (int y = 0; y < s->h; y++) {
-        uint32_t k = 100 + (uint32_t)y * 2;
+        uint32_t k = 100 + (uint32_t)y * 160 / (uint32_t)s->h;
         g16_rectfill(&cg, 0, y, s->w, 1, g16_rgb(r * k / 160, gg * k / 160, b * k / 160));
     }
-    /* the title on up to three lines of 14 characters, split at spaces */
-    char lines[3][15] = { "", "", "" };
+    /* the title on up to four lines of 10 characters, split at spaces */
+    enum { LINE = 10 };
+    char lines[4][LINE + 1] = { "", "", "", "" };
     int n = 0;
     const char *p = title;
-    while (*p && n < 3) {
+    while (*p && n < 4) {
         while (*p == ' ') p++;
         int len = (int)strlen(p);
-        int take = len <= 14 ? len : 14;
-        if (len > 14)
-            for (int i = 14; i > 0; i--)
+        int take = len <= LINE ? len : LINE;
+        if (len > LINE)
+            for (int i = LINE; i > 0; i--)
                 if (p[i] == ' ') { take = i; break; }
         memcpy(lines[n], p, (size_t)take);
         lines[n][take] = 0;
         n++;
         p += take;
     }
-    int y0 = (s->h - n * 16) / 2 - 4;
+    int y0 = (s->h - n * 16) / 2 - 6;
     for (int i = 0; i < n; i++) {
         int x = (s->w - (int)strlen(lines[i]) * 8) / 2;
         g16_text(&cg, x + 1, y0 + i * 16 + 1, lines[i], 0);
         g16_text(&cg, x, y0 + i * 16, lines[i], g16_rgb(255, 230, 120));
     }
-    g16_text(&cg, s->w - 30, s->h - 20, kind, g16_rgb(200, 210, 230));
+    g16_text(&cg, s->w - 8 * (int)strlen(kind) - 8, s->h - 20, kind, g16_rgb(200, 210, 230));
     memset(s->alpha, 1, (size_t)s->w * s->h);
     return 0;
 }
@@ -313,23 +368,35 @@ static void draw_icon(g16_t *cg, int icon, int cx, int cy, uint16_t ink, uint16_
     }
 }
 
+/* As the bm Suite's icons: a diagonal gradient of the colour (lighter at
+ * the top left), a soft lighter band across it, the icon in white, the
+ * name under it in the small font */
 int menu_make_tool_cover(g16_sheet_t *s, const char *title, int icon, uint32_t rgb)
 {
-    if (g16_sheet_alloc(s, BM_COVER_W, BM_COVER_H) != 0)
+    if (g16_sheet_alloc(s, CARD_W, CARD_H) != 0)
         return -1;
     g16_t cg;
     g16_target(&cg, s->px, (uint32_t)s->w, s->w, s->h, &font_console_8x16);
-    uint32_t r = rgb >> 16, gg = rgb >> 8 & 255, b = rgb & 255;
-    for (int y = 0; y < s->h; y++) {                /* lighter at the top */
-        uint32_t k = 190 - (uint32_t)y;
-        g16_rectfill(&cg, 0, y, s->w, 1, g16_rgb(r * k / 160 > 255 ? 255 : r * k / 160,
-                                                  gg * k / 160 > 255 ? 255 : gg * k / 160,
-                                                  b * k / 160 > 255 ? 255 : b * k / 160));
-    }
-    draw_icon(&cg, icon, s->w / 2, 30, g16_rgb(245, 245, 250), g16_rgb(r / 3, gg / 3, b / 3));
-    int x = (s->w - (int)strlen(title) * 8) / 2;
-    g16_text(&cg, x + 1, 59, title, 0);
-    g16_text(&cg, x, 58, title, g16_rgb(255, 255, 255));
+    const int r = (int)(rgb >> 16), gg = (int)(rgb >> 8 & 255), b = (int)(rgb & 255);
+    for (int y = 0; y < s->h; y++)
+        for (int x = 0; x < s->w; x++) {
+            int d = x + y, k = 300 - d * 200 / (s->w + s->h);      /* 300 .. 100 (/200) */
+            int band = d > s->h - 10 && d < s->h + 26 ? 26 : 0;   /* the lighter band */
+            int c[3] = { r * k / 200 + band, gg * k / 200 + band, b * k / 200 + band };
+            for (int i = 0; i < 3; i++)
+                c[i] = c[i] < 0 ? 0 : c[i] > 255 ? 255 : c[i];
+            s->px[y * s->w + x] = g16_rgb((uint32_t)c[0], (uint32_t)c[1], (uint32_t)c[2]);
+        }
+    draw_icon(&cg, icon, s->w / 2, 34, g16_rgb(245, 245, 250), g16_rgb((uint32_t)r / 3, (uint32_t)gg / 3,
+                                                                       (uint32_t)b / 3));
+    cg.font = &font_console_6x12;
+    char name[16];
+    ksnprintf(name, sizeof name, "%s", title);
+    if ((int)strlen(name) * 6 > s->w - 6)
+        name[(s->w - 6) / 6] = 0;
+    int x = (s->w - (int)strlen(name) * 6) / 2;
+    g16_text(&cg, x + 1, s->h - 19, name, 0);
+    g16_text(&cg, x, s->h - 20, name, g16_rgb(255, 255, 255));
     memset(s->alpha, 1, (size_t)s->w * s->h);
     return 0;
 }
@@ -350,13 +417,17 @@ static void make_background(uint16_t *out, const g16_sheet_t *cover)
     for (int j = 0; j < LH; j++)
         for (int i = 0; i < LW; i++) {
             uint32_t r = 0, gg = 0, b = 0;
-            if (cover && cover->px && cover->w >= 128 && cover->h >= 80) {
-                for (int y = 0; y < 8; y++)
-                    for (int x = 0; x < 8; x++) {
-                        uint32_t c = g16_to_rgb24(cover->px[(j * 8 + y) * cover->w + i * 8 + x]);
+            if (cover && cover->px && cover->w >= LW && cover->h >= LH) {
+                /* the block of the cover under this one */
+                int x0 = i * cover->w / LW, x1 = (i + 1) * cover->w / LW;
+                int y0 = j * cover->h / LH, y1 = (j + 1) * cover->h / LH;
+                uint32_t n = 0;
+                for (int y = y0; y < y1; y++)
+                    for (int x = x0; x < x1; x++, n++) {
+                        uint32_t c = g16_to_rgb24(cover->px[y * cover->w + x]);
                         r += c >> 16; gg += c >> 8 & 255; b += c & 255;
                     }
-                r /= 64; gg /= 64; b /= 64;
+                r /= n; gg /= n; b /= n;
             } else {
                 r = 40; gg = 44; b = 70;
             }
@@ -517,22 +588,24 @@ static uint32_t over(uint32_t b, uint32_t c, int a);
  * card, on the text grid, and two bars that breathe under it. */
 static void placeholder(const menu_item_t *it, int x, int y, float t, int i)
 {
-    char lines[2][15] = { "", "" };
+    enum { LINE = 9 };                  /* characters a line in the card */
+    char lines[2][LINE + 1] = { "", "" };
     const char *p = it->title ? it->title : "";
     for (int n = 0; n < 2 && *p; n++) {
         while (*p == ' ') p++;
-        int len = (int)strlen(p), take = len <= 14 ? len : 14;
-        if (len > 14)
-            for (int k = 14; k > 0; k--)
+        int len = (int)strlen(p), take = len <= LINE ? len : LINE;
+        if (len > LINE)
+            for (int k = LINE; k > 0; k--)
                 if (p[k] == ' ') { take = k; break; }
         memcpy(lines[n], p, (size_t)take);
         lines[n][take] = 0;
         p += take;
     }
+    const int tx = (x + 4 + 7) / 8 * 8;         /* on the text grid */
     for (int n = 0; n < 2; n++) {
-        int ty = y + 16 + 16 * n;
+        int ty = (y + 12 + 7) / 16 * 16 + 16 * n;
         if (lines[n][0] && ty >= GRID_TOP && ty + 16 <= GRID_BOT)
-            g16_text(&g, x + 8, ty, lines[n], dim ? c16(0x4D4D58) : c16(C_DIM));
+            g16_text(&g, tx, ty, lines[n], dim ? c16(0x4D4D58) : c16(C_DIM));
     }
     if (it->badge || it->busy || it->running)
         return;                         /* the badge is where the bars go */
@@ -540,15 +613,15 @@ static void placeholder(const menu_item_t *it, int x, int y, float t, int i)
     uint16_t bar = c16(over(0x3A3A4A, 0x5A5A70, (int)(k * 255.0f)));
     if (dim)
         bar = half(bar);
-    round_rect(x + 8, y + 58, 72, 6, 3, bar);
-    round_rect(x + 8, y + 68, 44, 6, 3, bar);
+    round_rect(x + 10, y + CARD_H - 24, CARD_W - 28, 6, 3, bar);
+    round_rect(x + 10, y + CARD_H - 14, (CARD_W - 28) * 3 / 5, 6, 3, bar);
 }
 
 /* A pill on the lower part of a cover ("Playing", "Installed", "42%"), on
  * the text grid; `hot`: on the accent colour. */
 static void cover_badge(int x, int y, const char *text, int hot)
 {
-    int tx = (x + 8 + 7) / 8 * 8, ty = (y + CARD_H - 20) / 16 * 16, n = (int)strlen(text);
+    int tx = (x + 6 + 7) / 8 * 8, ty = (y + CARD_H - 20) / 16 * 16, n = (int)strlen(text);
     if (ty < GRID_TOP || ty + 16 > GRID_BOT)
         return;
     uint32_t bg = hot ? C_ACCENT : 0x101014, fg = hot ? C_BAR : C_TEXT;
@@ -1091,7 +1164,7 @@ int menu_ui_open(framebuffer_t *fb)
         console_suspend(0);
         return -1;
     }
-    cols = (SW - 16) / (CARD_W + GAP_X);    /* 4 at 640, 2 at 360 */
+    cols = (SW - 16) / (CARD_W + GAP_X);    /* 6 at 640, 3 at 360 */
     ready = 1;
     bg_valid = 0;
     fade = 0;
@@ -1276,10 +1349,10 @@ void menu_ui_frame(framebuffer_t *fb, const menu_view_t *v)
     /* the note left of the hints; on the narrow layout over them, if free */
     if (v->note && v->note[0] && (WIDE || !shown)) {
         ksnprintf(buf, sizeof buf, "%s", v->note);
-        buf[WIDE ? 30 : SW / 8 - 4] = 0;
+        buf[WIDE ? 29 : SW / 8 - 4] = 0;
         g16_text(&g, 2 * 8, (WIDE ? 21 : 20) * 16, buf, c16(C_DIM));
     }
-    const int hc = WIDE ? 34 : 2;               /* where the hints start */
+    const int hc = WIDE ? 32 : 2;               /* where the hints start */
     /* the hints of a panel, or of the Settings page's focused list */
     const menu_panel_t *hp = v->panel ? v->panel
                            : v->page ? (v->page->focus && v->page->rows ? v->page->rows : v->page->sections) : NULL;

@@ -123,9 +123,9 @@ $(BUILD)/words.lua: $(WORDS_SRC)
 	$(PYTHON) scripts/mkwords.py -o $@
 
 # bm Code, the code editor (Dev tab, monitor C)
-$(BUILD)/code.bm: carts/code/main.lua scripts/mkbm.py
+$(BUILD)/code.bm: carts/code/main.lua carts/code/icon.png scripts/mkbm.py
 	@mkdir -p $(dir $@)
-	$(PYTHON) scripts/mkbm.py -o $@ --lua $< --title "bm Code" --author bm
+	$(PYTHON) scripts/mkbm.py -o $@ --lua $< --cover carts/code/icon.png --title "bm Code" --author bm
 
 # The assistant on its own, in the Dev tab
 $(BUILD)/assistant.bm: carts/assistant/main.lua scripts/mkbm.py
@@ -133,41 +133,41 @@ $(BUILD)/assistant.bm: carts/assistant/main.lua scripts/mkbm.py
 	$(PYTHON) scripts/mkbm.py -o $@ --lua $< --title "bm assistant" --author bm
 
 # The editor (M15), built into the kernel
-$(BUILD)/editor.bm: carts/editor/main.lua carts/editor/cover.png scripts/mkbm.py
+$(BUILD)/editor.bm: carts/editor/main.lua carts/editor/icon.png scripts/mkbm.py
 	@mkdir -p $(dir $@)
-	$(PYTHON) scripts/mkbm.py -o $@ --lua $< --cover carts/editor/cover.png \
+	$(PYTHON) scripts/mkbm.py -o $@ --lua $< --cover carts/editor/icon.png \
 	    --title "bm SDK" --author bm
 
 # The Sound editor, built into the kernel: its own bank is the demo project
-$(BUILD)/sound.bm: carts/sound/main.lua carts/sound/cover.png carts/sound/demo.json scripts/mkbm.py scripts/bmaudio.py
+$(BUILD)/sound.bm: carts/sound/main.lua carts/sound/icon.png carts/sound/demo.json scripts/mkbm.py scripts/bmaudio.py
 	@mkdir -p $(dir $@)
-	$(PYTHON) scripts/mkbm.py -o $@ --lua $< --cover carts/sound/cover.png \
+	$(PYTHON) scripts/mkbm.py -o $@ --lua $< --cover carts/sound/icon.png \
 	    --audio carts/sound/demo.json --title "bm Sound" --author bm
 
 # bm Studio and bm Animator on the console (M22): the models, then their
 # skeletons and animations; their shared code is src/script/bm3d.lua. bm
 # Studio's sheet holds the starter tiles of bm Studio on the PC; the covers
 # and the sheet: carts/studio/mkassets.js.
-$(BUILD)/studio.bm: carts/studio/main.lua carts/studio/cover.png carts/studio/sheet.png scripts/mkbm.py
+$(BUILD)/studio.bm: carts/studio/main.lua carts/studio/icon.png carts/studio/sheet.png scripts/mkbm.py
 	@mkdir -p $(dir $@)
-	$(PYTHON) scripts/mkbm.py -o $@ --lua $< --cover carts/studio/cover.png \
+	$(PYTHON) scripts/mkbm.py -o $@ --lua $< --cover carts/studio/icon.png \
 	    --sheet carts/studio/sheet.png --sheet8 --title "bm Studio" --author bm
 
-$(BUILD)/animator.bm: carts/animator/main.lua carts/animator/cover.png scripts/mkbm.py
+$(BUILD)/animator.bm: carts/animator/main.lua carts/animator/icon.png scripts/mkbm.py
 	@mkdir -p $(dir $@)
-	$(PYTHON) scripts/mkbm.py -o $@ --lua $< --cover carts/animator/cover.png --title "bm Animator" --author bm
+	$(PYTHON) scripts/mkbm.py -o $@ --lua $< --cover carts/animator/icon.png --title "bm Animator" --author bm
 
 # bm Mesh: the meshes of a .bm (its models and those its code builds), on
 # the console. Its cover: carts/mesh/mkcover.js.
-$(BUILD)/mesh.bm: carts/mesh/main.lua carts/mesh/cover.png scripts/mkbm.py
+$(BUILD)/mesh.bm: carts/mesh/main.lua carts/mesh/icon.png scripts/mkbm.py
 	@mkdir -p $(dir $@)
-	$(PYTHON) scripts/mkbm.py -o $@ --lua $< --cover carts/mesh/cover.png --title "bm Mesh" --author bm
+	$(PYTHON) scripts/mkbm.py -o $@ --lua $< --cover carts/mesh/icon.png --title "bm Mesh" --author bm
 
 # bm Pixel: the pixel art of a .bm (its sprite sheet), on the console. Its
 # cover: carts/pixel/mkcover.js.
-$(BUILD)/pixel.bm: carts/pixel/main.lua carts/pixel/cover.png scripts/mkbm.py
+$(BUILD)/pixel.bm: carts/pixel/main.lua carts/pixel/icon.png scripts/mkbm.py
 	@mkdir -p $(dir $@)
-	$(PYTHON) scripts/mkbm.py -o $@ --lua $< --cover carts/pixel/cover.png --title "bm Pixel" --author bm
+	$(PYTHON) scripts/mkbm.py -o $@ --lua $< --cover carts/pixel/icon.png --title "bm Pixel" --author bm
 
 $(BUILD)/stress.bm: carts/stress/main.lua scripts/mkbm.py
 	@mkdir -p $(dir $@)

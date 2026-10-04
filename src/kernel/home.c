@@ -17,6 +17,7 @@
 #include "update.h"
 #include "version.h"
 #include "audio/audio.h"
+#include "bm/bm.h"
 #include "bm/roombench.h"
 #include "bm/runtime.h"
 #include "bm/stress.h"
@@ -221,7 +222,7 @@ static void t_code(framebuffer_t *fb)
 }
 
 static tool_t tools[] = {
-    { "Code", "code editor: tabs, two pages, small font", MENU_ICON_CODE, 0x3A4A8A, t_code, 0, { 0 }, NULL },
+    { "bm Code", "code editor: tabs, two pages, small font", MENU_ICON_CODE, 0x1E8A5A, t_code, 0, { 0 }, NULL },
     { "Assistant", "help with code and sprites; F6 in the tools", MENU_ICON_ASSIST, 0x2A6A9A, home_assistant, 0, { 0 }, NULL },
     { "Monitor", "the text console with every command (h: help)", MENU_ICON_TERMINAL, 0x2A3A4A, NULL, 0, { 0 }, NULL },
     { "Lua", "Lua 5.4 prompt (USB keyboard); Ctrl-D or exit() returns", MENU_ICON_LUA, 0x2A3A9A, t_lua, 0, { 0 }, NULL },
@@ -246,6 +247,14 @@ static tool_t tools[] = {
 
 void home_init(void)
 {
+    /* bm Code: the bm Suite's icon, the COVER of its cartridge */
+    extern const uint8_t bm_code_cart[], bm_code_cart_end[];
+    bm_cart_t bc;
+    char err[8];
+    if (!tools[0].cover.px &&
+        bm_parse(bm_code_cart, (size_t)(bm_code_cart_end - bm_code_cart), &bc, err, sizeof err) == 0 &&
+        bc.cover_rgba)
+        menu_load_cover(&tools[0].cover, bc.cover_rgba, bc.cover_w, bc.cover_h);
     for (int i = 0; i < NTOOLS; i++)
         if (!tools[i].cover.px)
             menu_make_tool_cover(&tools[i].cover, tools[i].title, tools[i].icon, tools[i].rgb);

@@ -41,8 +41,10 @@ logica. Esempi completi in `carts/`: `pong/`, `snake/`, `shooter/` (solo codice)
    Per aggiungerla alla build, metti il nome in `GAMES` nel `Makefile` e il titolo in
    una riga `title_ciao := Ciao`: `make` la crea in `build/carts/ciao.bm`.
 
-   **Copertina** (facoltativa): `--cover copertina.png`, un PNG di qualsiasi misura
-   (viene ritagliato a 16:10 e ridotto a 128×80) che il menu stampa sulla scheda. Nella
+   **Copertina** (facoltativa): `--cover copertina.png`, un PNG di qualsiasi misura che
+   il menu stampa sulla scheda: un quadrato di 88×88 (2026-10-04; prima 128×80). Un'immagine
+   quadrata viene ridotta; le altre restano intere, larghe quanto il quadrato, sopra una
+   copia sfocata e più scura di sé che riempie il resto. Nella
    build basta un file `carts/ciao/cover.png`; quelle dei giochi demo sono disegnate da
    `scripts/mkcovers.py`. Senza copertina il menu stampa il titolo.
 

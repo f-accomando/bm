@@ -362,8 +362,9 @@ Numeri, stringhe, booleani e tabelle, fino a 32 KiB, in `/bm/save/` sulla SD.
 
 ## 10. Copertina
 
-`--cover copertina.png`: un PNG di qualsiasi misura, ritagliato a 16:10 e ridotto a
-128×80, stampato sulla "scheda" del gioco nel menu. Le copertine dei giochi demo sono
+`--cover copertina.png`: un PNG di qualsiasi misura, stampato sulla "scheda" del gioco nel
+menu, un quadrato di 88×88: un'immagine quadrata viene ridotta, le altre (16:10) restano
+intere sopra una copia sfocata di sé. Le copertine dei giochi demo sono
 disegnate da `scripts/mkcovers.py`. Senza copertina il menu stampa il titolo.
 
 ## 11. Consigli

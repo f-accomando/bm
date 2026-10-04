@@ -27,7 +27,7 @@ shows and what names the save file, so two games cannot share both.
 OUT gets:
   index.txt, index.sig     the catalog and its signature (DER)
   games/<id>/<name>.bm     the cartridges
-  games/<id>/cover.png     the cover (128x80), when the cartridge has one
+  games/<id>/cover.png     the cover (88x88; 128x80 in older cartridges), when it has one
   index.html               the same catalog for a browser
 
 index.txt (what src/net/market.c reads; CP437 text, one record per game;
@@ -59,7 +59,7 @@ import bmmesh  # noqa: E402
 from mkrelease import sign, verify  # noqa: E402
 
 SEC_COVER = 4
-COVER_W, COVER_H = 128, 80
+COVER_MAX = 512                             # the menu fits any size (menu_load_cover)
 MAX_CART = 8 * 1024 * 1024          # bytes; the console downloads into memory
 MAX_GAMES = 256                     # src/net/market.h
 ID_RE = re.compile(r"^[a-z0-9][a-z0-9-]{0,22}$")
@@ -104,8 +104,8 @@ def check_cart(data):
     for typ, body in bmmesh.cart_sections(data):
         if typ == SEC_COVER and len(body) >= 4:
             w, h = struct.unpack_from("<HH", body)
-            if (w, h) == (COVER_W, COVER_H) and len(body) >= 4 + w * h * 4:
-                cover = body[4:4 + w * h * 4]
+            if 0 < w <= COVER_MAX and 0 < h <= COVER_MAX and len(body) >= 4 + w * h * 4:
+                cover = (w, h, body[4:4 + w * h * 4])
             break
     return title, author, cover
 
@@ -243,7 +243,7 @@ def page(games, serial):
         a = html.escape(g["author"].decode("cp437")) or "-"
         about = html.escape(g["info"].get("about", ""))
         lic = html.escape(g["info"].get("license", ""))
-        img = (f'<img src="games/{g["id"]}/cover.png" width="256" height="160" alt="">' if g["cover"]
+        img = (f'<img src="games/{g["id"]}/cover.png" width="176" height="176" alt="">' if g["cover"]
                else f'<div class="nocover">{t}</div>')
         rows.append(f"""<li>{img}<div><h2>{t}</h2><p class="by">{a} &middot; v{html.escape(g["version"].decode())}
  &middot; {lic} &middot; {(len(g["data"]) + 1023) // 1024} KiB</p><p>{about}</p>
@@ -258,7 +258,7 @@ main {{ max-width:880px; margin:0 auto; padding:24px 16px; }}
 h1 {{ margin:0 0 4px; }} .lead {{ color:var(--dim); margin:0 0 24px; }}
 ul {{ list-style:none; padding:0; margin:0; display:grid; gap:16px; }}
 li {{ display:flex; gap:16px; background:var(--card); border-radius:12px; padding:16px; flex-wrap:wrap; }}
-li img, .nocover {{ border-radius:8px; image-rendering:pixelated; width:256px; height:160px; }}
+li img, .nocover {{ border-radius:8px; image-rendering:pixelated; width:176px; height:176px; }}
 .nocover {{ display:flex; align-items:center; justify-content:center; background:#303040; color:#ffe678; }}
 h2 {{ margin:0; font-size:20px; }} .by {{ color:var(--dim); margin:0 0 8px; }}
 a {{ color:var(--accent); }} code {{ background:#000; padding:2px 6px; border-radius:4px; }}
@@ -285,7 +285,7 @@ def build(games, out, serial):
                   b"version " + g["version"], b"license " + g["license"], b"about " + g["about"],
                   f"file {rel} {len(g['data'])} {hashlib.sha256(g['data']).hexdigest()}".encode()]
         if g["cover"]:
-            p = png(COVER_W, COVER_H, g["cover"])
+            p = png(*g["cover"])
             with open(os.path.join(gdir, "cover.png"), "wb") as f:
                 f.write(p)
             lines.append(f"cover games/{g['id']}/cover.png {len(p)} {hashlib.sha256(p).hexdigest()}".encode())

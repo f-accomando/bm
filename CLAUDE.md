@@ -205,6 +205,15 @@ screenshot in `docs/img/`), `README_OLD.md` (il README completo, in italiano),
 - **Comandi**: sul Pi prima tastiera e mouse (i suggerimenti mostrano i tasti della tastiera
   finché non si preme un controller); sulla RGB30 il controller (`confirm_b`: B conferma, A
   indietro, `no_monitor`: niente monitor).
+- **Copertine quadrate** (2026-10-04, l'identità della bm Suite): 88×88 (`MENU_CARD`),
+  angoli di 16, 12 px tra l'una e l'altra, 6 per riga sul Pi e 3 sulla RGB30. Le icone degli
+  editor (bm Studio, Code, Animator, SDK, Sound, Mesh, Pixel) vengono dal foglio dell'utente
+  `art/brand/bm-suite.png`: `scripts/mkicons.py` le ritaglia in `carts/<app>/icon.png`, il
+  Makefile le dà a `mkbm.py --cover`. `mkbm.py` scrive la COVER a 88×88; una copertina non
+  quadrata (i giochi, 16:10) resta intera sopra una copia sfocata di sé, e il kernel fa lo
+  stesso con le copertine vecchie e quelle del Market (`menu_load_cover`). Gli strumenti
+  senza icona propria hanno copertine disegnate nello stesso stile (gradiente diagonale,
+  `menu_make_tool_cover`).
 - **Market a sinistra**: fuori dallo schermo, se ne vede la fine del nome, finché non è la
   scheda; scelto, le pillole scorrono a destra (`peek_first` di `menu_view_t`, solo il Pi).
 - **Settings uguali** sui due sistemi (2026-10-04): `src/kernel/settings.c` costruisce i

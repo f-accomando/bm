@@ -620,8 +620,8 @@ def blue_number(img, span):
 
 def scroll_thumb(img):
     """The thumb of the menu's scroll bar (more than two rows of covers):
-    (top, bottom) of its light pixels at x 619, y 112-288, or None."""
-    ys = [y for y in range(112, 288) if sum(pixel(img, 619, y)) > 600]
+    (top, bottom) of its light pixels at x 627, y 96-292, or None."""
+    ys = [y for y in range(96, 292) if sum(pixel(img, 627, y)) > 600]
     return (ys[0], ys[-1] + 1) if ys else None
 
 
@@ -782,16 +782,16 @@ def test_keys_help(b, opts):
         q.expect(MENU, timeout=30)
         time.sleep(1.0)
         holdkey(q, "f12", 2500)
-        time.sleep(1.0)
-        img = q.screendump()
-        text = "\n".join(screen_text(img))
+        img, rows = settled_screen(q, lambda i, t: any("(F12 held)" in l for l in t) and
+                                   any("read the SD card again" in l for l in t), tries=40)
+        text = "\n".join(rows)
         for want in ("Keys", "(F12 held)", "hold: the keys", "back to bm's menu (PS)", "the monitor", "save as",
                      "performance overlay", "Menu", "options of the game", "read the SD card again"):
             assert want in text, f"{want!r} not in the keys:\n{text}"
         if opts.shots:
             _save_png(img, os.path.join(opts.shots, "keys-help-menu.png"))
         time.sleep(2.0)                         # let go: the menu
-        _, text = settled_screen(q, lambda i, t: not any("(F12 held)" in l for l in t))
+        _, text = settled_screen(q, lambda i, t: not any("(F12 held)" in l for l in t), tries=40)
         assert not any("(F12 held)" in l for l in text) and any("Settings" in l for l in text), "\n".join(text)
         # in an app: the system's keys, then the app's (keyhelp()): bm Studio
         sendkeys(q, "ctrl-shift-esc")
@@ -2343,10 +2343,10 @@ def test_bt_mouse(b, opts):
         # when moving fast
         chip.move(-2000, -2000)
         assert arrow_at(wait_screen(q, lambda s_: arrow_at(s_, 0, 0)), 0, 0), "not in the corner"
-        chip.move(100, 100)                              # (120, 120): Pong
-        shot_ = wait_screen(q, lambda s_: arrow_at(s_, 120, 120) and title_is("Pong")(s_))
-        assert arrow_at(shot_, 120, 120) and "Pong" in screen_text(shot_)[4], screen_text(shot_)[4]
-        chip.move(120, 0)                                # (264, 120): Snake
+        chip.move(55, 120)                               # (66, 144): Pong
+        shot_ = wait_screen(q, lambda s_: arrow_at(s_, 66, 144) and title_is("Pong")(s_))
+        assert arrow_at(shot_, 66, 144) and "Pong" in screen_text(shot_)[4], screen_text(shot_)[4]
+        chip.move(120, 0)                                # (210, 144): Snake
         assert "Snake" in screen_text(wait_screen(q, title_is("Snake")))[4]
         # Settings > Controllers: the mouse is there
         q.mini.write(b"5")
@@ -2357,8 +2357,8 @@ def test_bt_mouse(b, opts):
         q.mini.write(b"\x1b")                             # back to Settings, to Games
         time.sleep(0.5)
         q.mini.write(b"2")
-        shot_ = wait_screen(q, lambda s_: title_is("Snake")(s_) and arrow_at(s_, 264, 120))
-        assert arrow_at(shot_, 264, 120), "the arrow is not on Snake"
+        shot_ = wait_screen(q, lambda s_: title_is("Snake")(s_) and arrow_at(s_, 210, 144))
+        assert arrow_at(shot_, 210, 144), "the arrow is not on Snake"
         chip.move(0, 0, buttons=1)                      # a click on Snake
         time.sleep(0.1)
         chip.move(0, 0, buttons=0)
@@ -2374,9 +2374,9 @@ def test_bt_mouse(b, opts):
         time.sleep(0.5)
         chip.move(-2000, -2000)
         wait_screen(q, lambda s_: arrow_at(s_, 0, 0))
-        chip.move(100, 100)
-        shot_ = wait_screen(q, lambda s_: arrow_at(s_, 120, 120) and title_is("Pong")(s_))
-        assert arrow_at(shot_, 120, 120) and "Pong" in screen_text(shot_)[4], screen_text(shot_)[4]
+        chip.move(55, 120)
+        shot_ = wait_screen(q, lambda s_: arrow_at(s_, 66, 144) and title_is("Pong")(s_))
+        assert arrow_at(shot_, 66, 144) and "Pong" in screen_text(shot_)[4], screen_text(shot_)[4]
     finally:
         q.close()
     part = os.path.join(tmp, "part.img")
@@ -2482,9 +2482,9 @@ def test_bt_mouse_classic(b, opts):
             chip.move(-127, -127)
             time.sleep(0.2)
         wait_screen(q, lambda s_: arrow_at(s_, 0, 0))
-        chip.move(100, 100)                             # (120, 120): Pong
-        shot_ = wait_screen(q, lambda s_: arrow_at(s_, 120, 120) and title_is("Pong")(s_))
-        assert arrow_at(shot_, 120, 120) and "Pong" in screen_text(shot_)[4], screen_text(shot_)[4]
+        chip.move(55, 120)                              # (66, 144): Pong
+        shot_ = wait_screen(q, lambda s_: arrow_at(s_, 66, 144) and title_is("Pong")(s_))
+        assert arrow_at(shot_, 66, 144) and "Pong" in screen_text(shot_)[4], screen_text(shot_)[4]
         chip.move(buttons=1)
         time.sleep(0.1)
         chip.move()
@@ -3050,13 +3050,13 @@ def test_market(b, opts):
             assert b"market: cover" not in q.buf, q.buf.decode(errors="replace")
             keys("1")
             q.expect("market: cover of", timeout=10)
-            # the first cover (red, 128x80 at the top left of the grid) arrives
+            # the first cover (red, 128x80: fitted in the first square of the grid) arrives
             for _ in range(50):
                 img_ = q.screendump()
-                if is_red(img_, 104, 150):
+                if is_red(img_, 70, 144):
                     break
                 time.sleep(0.2)
-            assert is_red(img_, 104, 150), "the cover of Market Test"
+            assert is_red(img_, 70, 144), "the cover of Market Test"
             text = screen(["Installed"])            # Pong: on the card already
             shot("covers")
 
@@ -3601,11 +3601,11 @@ def test_sd_sdhc_and_usb_menu(b, opts):
 
 def test_menu_scroll(b, opts):
     """Three rows of covers and two on screen: the scroll bar at the right
-    says where they are, so the row scrolled out at the top (Astro Wing and
-    Chaos Kitchen on the Pi) is not taken for gone."""
+    says where they are, so the row scrolled out at the top is not taken for
+    gone (15 cartridges: three rows of six)."""
     tmp = tempfile.mkdtemp(prefix="bm-scroll-")
     img = os.path.join(tmp, "sd.img")
-    mksd.build(img, [(b("demo.bm"), f"carts/g{i}.bm") for i in range(1, 10)])
+    mksd.build(img, [(b("demo.bm"), f"carts/g{i}.bm") for i in range(1, 16)])
     q = Qemu(b("kernel.img"), ["-drive", f"if=sd,format=raw,file={img}"])
 
     def thumb():
@@ -3648,14 +3648,16 @@ def arrow_at(img, x, y):
     return black(pixel(img, x, y + 5)) and all(white(pixel(img, x + i, y + 5)) for i in (1, 2, 3, 4))
 
 
-MOUSE_CARTS = ["astrowing", "hunt", "pong", "snake", "shooter"]
+MOUSE_CARTS = ["astrowing", "hunt", "pong", "snake", "shooter", "village", "kitchen", "titan"]
 # their titles, in the order of the menu
-MOUSE_TITLES = ["Astro Wing", "Hunter's Night", "Pong", "Snake", "Star Shooter"]
+MOUSE_TITLES = ["Astro Wing", "Chaos Kitchen", "Hunter's Night", "Pong", "Snake", "Star Shooter",
+                "Studio Village", "Titan Clash"]
 
 
 def cover_xy(i):
-    """The middle of cover i of the grid (first two rows on screen)."""
-    return 40 + (i % 4) * 144 + 64, 112 + (i // 4) * 96 + 40
+    """The middle of cover i of the grid (first two rows on screen): squares
+    of 88 every 100 pixels, six a row (2026-10-04)."""
+    return 26 + (i % 6) * 100 + 44, 100 + (i // 6) * 100 + 44
 
 
 def test_usb_mouse(b, opts):
@@ -3690,12 +3692,12 @@ def test_usb_mouse(b, opts):
         assert MOUSE_TITLES[2] in screen_text(shot_)[4], screen_text(shot_)[4]
         # the wheel: a row down (the last cover of the shorter row)
         q.click("wheel-down")
-        assert MOUSE_TITLES[4] in screen_text(wait_screen(q, title_is(MOUSE_TITLES[4])))[4]
+        assert MOUSE_TITLES[7] in screen_text(wait_screen(q, title_is(MOUSE_TITLES[7])))[4]
         # the keys move the selection: the arrow goes away until it moves
         sendkeys(q, "left")
-        shot_ = wait_screen(q, lambda s_: not arrow_at(s_, x, y) and title_is(MOUSE_TITLES[3])(s_))
+        shot_ = wait_screen(q, lambda s_: not arrow_at(s_, x, y) and title_is(MOUSE_TITLES[6])(s_))
         assert not arrow_at(shot_, x, y), "the arrow stayed with the keys"
-        assert MOUSE_TITLES[3] in screen_text(shot_)[4], screen_text(shot_)[4]
+        assert MOUSE_TITLES[6] in screen_text(shot_)[4], screen_text(shot_)[4]
 
         def click_at(px, py, button="left"):        # once the arrow is there
             q.pointer(px, py)
@@ -3706,7 +3708,7 @@ def test_usb_mouse(b, opts):
         click_at(132, 24)
         assert "bm SDK" in screen_text(wait_screen(q, title_is("bm SDK")))[4]
         click_at(68, 24)
-        wait_screen(q, title_is(MOUSE_TITLES[3]))
+        wait_screen(q, title_is(MOUSE_TITLES[6]))
         # the right button on a cover: its options; a click outside closes them
         x, y = cover_xy(1)
         click_at(x, y, "right")

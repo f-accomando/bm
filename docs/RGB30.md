@@ -131,7 +131,7 @@ prima di accendere lo schermo e il registro si scrive tre volte (prima dello sch
 - Cartucce del Pi (`.bm`) nel menu e avviabili, per le prove: Yharnam nell'immagine SD (vedi
   sotto).
 - Menu 360×360 ingrandito ×2 (riempie il pannello): dal 2026-10-04 è **lo stesso del Pi**
-  (`src/kernel/menu_ui.c`: barra con le schede a pillola e le icone, copertine 128×80, due per
+  (`src/kernel/menu_ui.c`: barra con le schede a pillola e le icone, copertine quadrate 88×88, tre per
   riga, pannelli, suggerimenti dei tasti). Schede **Games** (giochi `.b16` e i `.bm`, con la loro
   copertina; con `show_bm=0` dice quante cartucce sono nascoste), **Dev** (3D Bench, Render bench,
   Display, Input test, Boot log, Lua sulla seriale) e **Settings**, l'ultima, una pagina a sé:

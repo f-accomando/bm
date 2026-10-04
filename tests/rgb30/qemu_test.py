@@ -181,9 +181,9 @@ def test_screen_console(b, opts):
         text = screen_all(img)
         for needle in ("Games", "Dev", "Settings", "No games yet"):
             assert needle in text, f"{needle!r} not on screen:\n{text}"
-        # the Dev tab: two covers a row, the selected one's name on the pill
-        for k, name in (("r", "3D Bench"), ("d", "Render bench"), ("s", "Input test"), ("a", "Display"),
-                        ("s", "Boot log"), ("d", "Lua")):
+        # the Dev tab: three square covers a row, the selected one's name on the pill
+        for k, name in (("r", "3D Bench"), ("s", "Input test"), ("d", "Boot log"), ("d", "Lua"),
+                        ("w", "Display"), ("s", "Lua")):
             keys(q, k)
             text = screen_all(q.screendump())
             assert name in text and in_menu(text), f"{name!r} not selected on the Dev tab:\n{text}"
@@ -449,7 +449,7 @@ def test_display_modes(b, opts):
     q = Qemu(os.path.join(b, "kernel.elf"))
     try:
         boot(q)
-        keys(q, "rs")                           # Dev tab: 3D Bench, down a row: Display
+        keys(q, "rdd")                          # Dev tab: 3D Bench, Render bench, Display
         q.send("\r")
         q.expect("720x720 x1 sharp: on", timeout=10)
         time.sleep(0.5)
@@ -493,7 +493,7 @@ def test_confirm_button(b, opts):
             assert "Open" in rows[21] and "Back" in rows[21], "\n".join(rows)
             chips[ok] = (hint_chip(img, rows, "Open"), hint_chip(img, rows, "Back"))
             assert chips[ok][0] != chips[ok][1], "the same chip for Open and Back"
-            keys(q, "\x7fsd")                  # back to Dev; down a row, right: Input test
+            keys(q, "\x7fs")                   # back to Dev; down a row: Input test
             q.send("\r")                       # confirm
             time.sleep(0.6)
             q.send("\r")                       # Enter: the confirm button, held
@@ -593,7 +593,7 @@ def test_menu_input_page(b, opts):
     q = Qemu(os.path.join(b, "kernel.elf"))
     try:
         boot(q)
-        keys(q, "rsd")                          # Dev tab: down a row, right: Input test
+        keys(q, "rs")                           # Dev tab: down a row: Input test
         q.send("\r")
         time.sleep(0.4)
         q.send("x")                            # X held for a moment

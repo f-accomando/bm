@@ -21,14 +21,17 @@ typedef struct {
     const char *path;           /* file on the SD card, or the built-in name */
     const char *kind;           /* "bm", or "tool" in the Dev tab */
     uint32_t size;              /* bytes */
-    const g16_sheet_t *cover;   /* 128x80, or NULL for a plain card */
+    const g16_sheet_t *cover;   /* MENU_CARD x MENU_CARD, or NULL for a plain card */
     int running;                /* suspended in memory: a "Playing" badge */
     int loading;                /* no cover yet (the Market): a placeholder with the title */
     const char *badge;          /* a pill on the cover ("Installed"), or NULL */
     int busy, percent;          /* downloading: a bar on the cover */
 } menu_item_t;
 
-#define MENU_COLS 4             /* covers per row on the Pi's 640 pixels */
+/* the covers: squares (2026-10-04, the bm Suite's icons; 128x80 before),
+ * MENU_COLS a row on the Pi's 640 pixels, 3 on the RGB30's 360 */
+#define MENU_CARD 88
+#define MENU_COLS 6
 /* covers per row of the open menu: 4 on the Pi, 2 on the RGB30 */
 int menu_ui_cols(void);
 
@@ -151,7 +154,9 @@ void menu_ui_close(framebuffer_t *fb);
 
 /* A cover for cartridges without one: the title on a coloured label. */
 int  menu_make_cover(g16_sheet_t *s, const char *title, const char *kind);
-/* A cover from RGBA8888 pixels (the .bm COVER section). */
+/* A cover from RGBA8888 pixels (the .bm COVER section, a Market PNG), any
+ * size: a square scaled to the card; another shape (the 128x80 covers of
+ * before) whole, as wide as the card, over a blurred darker copy of it. */
 int  menu_load_cover(g16_sheet_t *s, const uint8_t *rgba, int w, int h);
 
 /* The cover of a development tool: an icon drawn over a colour, the name

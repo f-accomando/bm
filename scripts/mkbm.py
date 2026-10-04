@@ -90,22 +90,19 @@ def crc32(b):
     return zlib.crc32(b) & 0xFFFFFFFF
 
 
-COVER_W, COVER_H = 128, 80
+COVER = 88                                  # the menu's card (src/kernel/menu_ui.h MENU_CARD)
 
 
-def make_cover(img):
-    """Any picture -> 128x80 RGBA: centre crop to 16:10, then box filter."""
-    w, h, rgba = img
-    if w * COVER_H > h * COVER_W:           # too wide: crop the sides
-        cw, ch = h * COVER_W // COVER_H, h
-    else:
-        cw, ch = w, w * COVER_H // COVER_W
-    x0, y0 = (w - cw) // 2, (h - ch) // 2
+def box_scale(w, rgba, cx, cy, cw, ch, dw, dh):
+    """the box (cx, cy, cw, ch) of an RGBA picture w wide -> dw x dh RGBA,
+    each pixel the average of what falls on it"""
     out = bytearray()
-    for y in range(COVER_H):
-        sy0, sy1 = y0 + y * ch // COVER_H, y0 + max((y + 1) * ch // COVER_H, y * ch // COVER_H + 1)
-        for x in range(COVER_W):
-            sx0, sx1 = x0 + x * cw // COVER_W, x0 + max((x + 1) * cw // COVER_W, x * cw // COVER_W + 1)
+    for y in range(dh):
+        sy0 = cy + y * ch // dh
+        sy1 = max(cy + (y + 1) * ch // dh, sy0 + 1)
+        for x in range(dw):
+            sx0 = cx + x * cw // dw
+            sx1 = max(cx + (x + 1) * cw // dw, sx0 + 1)
             acc, n = [0, 0, 0, 0], 0
             for sy in range(sy0, sy1):
                 row = sy * w * 4
@@ -115,7 +112,43 @@ def make_cover(img):
                         acc[k] += rgba[i + k]
                     n += 1
             out += bytes(v // n for v in acc)
-    return COVER_W, COVER_H, bytes(out)
+    return out
+
+
+def make_cover(img):
+    """Any picture -> the COVER: 88x88 RGBA, square as the menu's cards
+    (2026-10-04; 128x80 before). A (nearly) square picture is scaled; any
+    other shape stays whole, as wide (or as high) as the card, over a
+    blurred, darker copy of its middle that fills the rest (as the menu
+    does with the covers of before)."""
+    w, h, rgba = img
+    if w * 10 >= h * 9 and h * 10 >= w * 9:
+        return COVER, COVER, bytes(box_scale(w, rgba, 0, 0, w, h, COVER, COVER))
+    c = min(w, h)
+    lo = box_scale(w, rgba, (w - c) // 2, (h - c) // 2, c, c, 8, 8)
+    out = bytearray(COVER * COVER * 4)
+    for y in range(COVER):                  # the 8x8 blocks, stretched smooth, darker
+        v = max((y + 0.5) * 8 / COVER - 0.5, 0)
+        j0 = int(v)
+        j1, fy = min(j0 + 1, 7), v - j0
+        for x in range(COVER):
+            u = max((x + 0.5) * 8 / COVER - 0.5, 0)
+            i0 = int(u)
+            i1, fx = min(i0 + 1, 7), u - i0
+            o = (y * COVER + x) * 4
+            for k in range(3):
+                a, b = lo[(j0 * 8 + i0) * 4 + k], lo[(j0 * 8 + i1) * 4 + k]
+                cc, d = lo[(j1 * 8 + i0) * 4 + k], lo[(j1 * 8 + i1) * 4 + k]
+                top, bot = a + (b - a) * fx, cc + (d - cc) * fx
+                out[o + k] = int((top + (bot - top) * fy) * 0.45)
+            out[o + 3] = 255
+    fw, fh = (COVER, COVER * h // w) if w >= h else (COVER * w // h, COVER)
+    pic = box_scale(w, rgba, 0, 0, w, h, fw, fh)
+    x0, y0 = (COVER - fw) // 2, (COVER - fh) // 2
+    for y in range(fh):
+        o = ((y0 + y) * COVER + x0) * 4
+        out[o:o + fw * 4] = pic[y * fw * 4:(y + 1) * fw * 4]
+    return COVER, COVER, bytes(out)
 
 
 def sheet8(w, h, rgba):
@@ -223,7 +256,7 @@ def main():
     ap.add_argument("--sheet8", action="store_true", help="store the sheet with a palette and runs")
     ap.add_argument("--map")
     ap.add_argument("--audio", help="sound bank: .json (scripts/bmaudio.py) or .bmau")
-    ap.add_argument("--cover", help="picture for the menu (PNG, any size: cropped to 16:10, 128x80)")
+    ap.add_argument("--cover", help="picture for the menu (PNG, any size: 88x88; not square: fitted)")
     ap.add_argument("--models", help="3D models: a .glb from bm Studio, or a .bm with models")
     ap.add_argument("--uv-inset", type=float, help="texture inset of the models, sheet pixels (default 0.25)")
     ap.add_argument("--title", default="")

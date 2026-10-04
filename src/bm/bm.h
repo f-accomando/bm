@@ -137,8 +137,10 @@
 enum { BM_RES_CART, BM_RES_MODEL, BM_RES_IMAGE, BM_RES_SOUND, BM_RES_MAP, BM_RES_PALETTE, BM_RES_KIT,
        BM_RES_KINDS };
 #define BM_SHEET_MAX       4096            /* width and height of a sheet */
-#define BM_COVER_W         128
-#define BM_COVER_H         80
+/* COVER: the picture in the menu, RGBA, up to 512x512; square since
+ * 2026-10-04 (mkbm.py writes 88x88, the menu's card), 128x80 before: the
+ * menu fits any shape (menu_load_cover) */
+#define BM_COVER_SIZE      88
 #define BM_MODEL_NAME      16              /* bytes of a model name in MESH */
 #define BM_MODEL_VERTS     4096
 #define BM_MODEL_FACES     16384
