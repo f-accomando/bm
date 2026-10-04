@@ -469,6 +469,19 @@ local function run_game()
   cart_run(t.path)
 end
 
+-- opened by the bm SDK on a file: the way back to it (the tabs saved first)
+local sdk_path
+local function back_to_sdk()
+  for _, o in ipairs(tabs) do
+    if o.dirty and o.path then
+      local ok, err = save_tab(o)
+      if not ok then say("cannot save " .. o.name .. ": " .. tostring(err), C_ERR); return end
+    end
+  end
+  save_session()
+  cart_tool("sdk", sdk_path)
+end
+
 local function open_assistant(t, v)
   assist.open{ mode = "code", ctx = word_at(t, v),
                on_insert = function(code) insert_block(t, v, code) end }
@@ -637,6 +650,7 @@ local function menu_choose(name)
     words_ready = false
     say("words in comments and strings: " .. WORD_LANGS[words_lang], C_ACC)
   elseif name == "Keys" then overlay = { kind = "help" }
+  elseif name == "Back to bm SDK" then back_to_sdk()
   elseif name == "Exit" then quit_editor() end
 end
 
@@ -914,6 +928,10 @@ function _init()
   set_font(1)
   load_session()
   local a = cart_arg()
+  if a and a.path and a.from == "sdk" then
+    sdk_path = a.path
+    table.insert(MENU, #MENU, { "Back to bm SDK", "saves first" })
+  end
   if a and a.path then
     if not find_tab(a.path) then open_file(a.path) end
     show_tab(find_tab(a.path) or 1)

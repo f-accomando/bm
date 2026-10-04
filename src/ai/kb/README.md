@@ -25,7 +25,7 @@ if btn(1) then x = x + 2 end
 | Campo | Cosa |
 |---|---|
 | `== id` | inizio della voce: lettere minuscole, cifre, `_` e `.`, unico |
-| `kind:` | `api` (una funzione), `howto` (un esempio con il codice), `error` (un messaggio d'errore di Lua), `tip` (un consiglio), `sprite` (una ricetta di sprite), `mesh` (una ricetta 3D: bm Studio, bm Animator), `none` (domande fuori tema: non si mostrano, servono a dire "non so") |
+| `kind:` | `api` (una funzione), `howto` (un esempio con il codice), `error` (un messaggio d'errore di Lua), `tip` (un consiglio), `guide` (come fare un gioco 2D o 3D con l'SDK, a passi: un paragrafo per passo, il codice facoltativo; `guide_sdk.txt`, il modo `guide` del pannello che l'SDK apre dalla pagina del progetto), `sprite` (una ricetta di sprite), `mesh` (una ricetta 3D: bm Studio, bm Animator), `action` (qualcosa da fare sul codice: le righe `#entry:`), `none` (domande fuori tema: non si mostrano, servono a dire "non so") |
 | `name:` | per le `api`: il nome della funzione. Se è scritto nella domanda o è la parola sotto il cursore, la voce sale in cima (un nome che è anche una parola comune, come `tempo`, conta solo sotto il cursore o scritto come chiamata, `tempo(`: elenco in `src/ai/assist.c`) |
 | `title:` | la riga nell'elenco delle risposte |
 | `ask:` | domande che portano qui, separate da `\|`, in italiano e in inglese: sono gli esempi su cui si addestra la rete. Più sono e più varie, meglio è (6-12) |

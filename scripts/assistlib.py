@@ -143,7 +143,7 @@ def pool_table():
 # ---------------------------------------------------------------- knowledge base
 
 FIELDS = ('kind', 'name', 'title', 'ask', 'see', 'text', 'code', 'gen', 'keys')
-KINDS = ('api', 'howto', 'error', 'sprite', 'tip', 'action', 'mesh', 'none')
+KINDS = ('api', 'howto', 'error', 'sprite', 'tip', 'action', 'mesh', 'guide', 'none')
 # a field is `key:` then a space or the end of the line (so `text:sub(1)` in
 # a code block stays code)
 _FIELD_RE = re.compile(r'^(kind|name|title|ask|see|text|code|gen|keys):(?: (.*))?$')

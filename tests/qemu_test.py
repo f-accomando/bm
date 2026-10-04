@@ -1157,9 +1157,9 @@ def test_home_ui(b, opts):
         keys("\r")
         screen(["opened /carts/saver.bm"])
         shot("sdk")
-        q.send("\x1b")                          # code -> the editor's menu
-        screen(["Exit editor"])
-        q.send("\x1b[A")                        # up: Exit editor (one sequence)
+        q.send("\x1b")                          # the project page -> the SDK's menu
+        screen(["Exit bm SDK"])
+        q.send("\x1b[A")                        # up: Exit bm SDK (one sequence)
         time.sleep(0.3)
         keys("\r")
         screen(["Games", "AAA saver", "last: SDK on saver.bm"])
@@ -6429,13 +6429,18 @@ def test_code_completion(b, opts):
 
 
 def test_editor(b, opts):
-    """M15: the editor makes a new game, saves it on the SD card, tries it,
-    comes back; a game that stops with an error brings the editor to the
-    line; the card is still a clean FAT32 volume."""
+    """M15 and the SDK update (2026-10-04): the bm SDK opens on the project
+    page (the suite's programs, the contents measured), F1 again the dev
+    kit, Ctrl+N a project from a template (Platform 2D: code, sprites and
+    map), the 2D and 3D pages, Save as, Ctrl+R tries it and the dev kit
+    brings back the run's numbers (fps, ms, RAM, tokens); a game that stops
+    with an error brings the SDK to the line; the card is still a clean
+    FAT32 volume."""
     tmp = tempfile.mkdtemp(prefix="bm-ed-")
     img = os.path.join(tmp, "sd.img")
     mksd.build(img, [(b("carts/pong.bm"), "carts/pong.bm")])
     q = Qemu(b("kernel.img"), ["-drive", f"if=sd,format=raw,file={img}"])
+    F1, F2, F3, F4 = "\x1bOP", "\x1bOQ", "\x1bOR", "\x1bOS"
 
     def k(s, gap=0.15):
         q.send(s)
@@ -6448,30 +6453,71 @@ def test_editor(b, opts):
                 return text
             time.sleep(0.25)
         raise AssertionError(f"not on screen: {word}\n" + "\n".join(text))
+
+    def shot(name):
+        if opts.shots:
+            _save_png(q.screendump(), os.path.join(opts.shots, f"sdk-{name}.png"))
     try:
         q.boot()
         k("e")
-        see("bm editor")
-        k("\x1b", 0.5)                                      # menu -> code
+        see("OPEN IN")                                      # the project page: the suite
+        see("bm Animator")
+        see("tokens")                                       # the contents, measured
+        shot("project")
+        k(F1, 0.5)                                          # F1 again: the dev kit
+        see("DATA IN MEMORY")
+        see("not tried yet")
+        shot("devkit")
+        k(F1, 0.3)
+        k("\x0e", 0.5)                                      # Ctrl+N: the templates
+        see("new project from a template")
+        k("\x1b[B", 0.3)                                    # Platform 2D
+        see("run and jump on the map")
+        shot("templates")
+        k("\r", 0.5)
+        see("new project (Platform 2D)")
+        k(F3, 0.5)                                          # the sprites: the hero in cell 1
+        see("SPRITES")
+        shot("sprites")
+        k(F3, 0.5)                                          # F3 again: the map
+        see("MAP")
+        shot("map")
+        k(F4, 0.5)                                          # 3D: no models yet
+        see("no 3D models in this project yet")
+        shot("3d")
+        k(F2, 0.5)
+        time.sleep(3)                                       # (the message of the new project goes)
         see("line 1/")
-        k("\x1b", 0.5)                                      # code -> menu
-        see("Exit editor")
+        shot("code")
+        k("\x1b", 0.5)                                      # code -> the menu
+        see("Exit bm SDK")
         for _ in range(4):
             k("\x1b[B", 0.25)                               # down to "Save as..."
         k("\r")
         see("file name")
         k("\r")                                             # MYGAME.BM
         see("saved /carts/MYGAME.BM")
+        k("\x1b", 0.5)                                      # back to the code
         k("\x12", 1)                                        # Ctrl+R: try it
         for _ in range(40):                                 # the game is on (slow hosts)
             _, text = settled_screen(q, lambda i, t: True, tries=1)
             if not any("saved /carts/MYGAME.BM" in l or "line 1/" in l for l in text):
                 break
             time.sleep(0.25)
-        time.sleep(1)
-        k("q")                                              # and back to the editor
-        out = q.expect('bm: "New game"', timeout=20).decode(errors="replace")
+        time.sleep(2)
+        k("q")                                              # and back to the SDK
+        out = q.expect('bm: "Platform 2D"', timeout=20).decode(errors="replace")
+        out += q.expect("tokens", timeout=10).decode(errors="replace")
         assert "stopped with an error" not in out, out
+        assert re.search(r"dev kit: Lua peak \d+ KiB, data \d+ KiB", out), out
+        see("back from the game:")                          # the run's numbers
+        shot("back")
+        k(F1, 0.5)
+        k(F1, 0.5)
+        see("RAM ")                                         # the dev kit: the last try
+        see(" fps")
+        shot("devkit-run")
+        k(F2, 0.5)
         time.sleep(3)
         k("\x1b[H", 0.3)
         for ch in "error('boom')\r":
@@ -6481,8 +6527,9 @@ def test_editor(b, opts):
         time.sleep(3)
         _, text = settled_screen(q, lambda i, t: any("the game stopped" in l for l in t))
         assert any("the game stopped" in l for l in text), "\n".join(text)
+        shot("error")
         k("\x1b", 0.4)
-        k("\x1b[A", 0.3)                                    # Exit editor
+        k("\x1b[A", 0.3)                                    # Exit bm SDK
         k("\r", 0.3)
         k("\r")                                             # confirm: unsaved changes
         q.expect("> ", timeout=10)
@@ -6499,6 +6546,96 @@ def test_editor(b, opts):
         saved = subprocess.run(["mtype", "-i", part, "::/CARTS/MYGAME.BM"], capture_output=True,
                                env=env).stdout
         assert saved[:8] == b"BMCART\x00\x00" and b"error('boom')" in saved, saved[:200]
+    finally:
+        shutil.rmtree(tmp, ignore_errors=True)
+
+
+def test_sdk_suite(b, opts):
+    """The SDK update (2026-10-04): the bm SDK opens Studio Village (Ctrl+O),
+    its 3D page lists the models and draws them, i writes the code for one,
+    the assistant's model (F6) joins the project and is saved with it; 3 on
+    the project page opens bm Studio on the file, whose menu has "Back to
+    bm SDK"; the SDK comes back on the project."""
+    tmp = tempfile.mkdtemp(prefix="bm-sdk-")
+    img = os.path.join(tmp, "sd.img")
+    mksd.build(img, [(b("carts/village.bm"), "carts/village.bm")])
+    q = Qemu(b("kernel.img"), ["-drive", f"if=sd,format=raw,file={img}"])
+    F1, F4, F6 = "\x1bOP", "\x1bOS", "\x1b[17~"
+
+    def k(s, gap=0.2):
+        q.send(s)
+        time.sleep(gap)
+
+    def see(word, tries=60):
+        for _ in range(tries):
+            _, text = settled_screen(q, lambda i, t: any(word in l for l in t), tries=2)
+            if any(word in l for l in text):
+                return text
+            time.sleep(0.25)
+        raise AssertionError(f"not on screen: {word}\n" + "\n".join(text))
+
+    def shot(name):
+        if opts.shots:
+            _save_png(q.screendump(), os.path.join(opts.shots, f"sdk-{name}.png"))
+    try:
+        q.boot()
+        k("e", 1)
+        see("OPEN IN")
+        k("\x0f", 0.5)                                      # Ctrl+O: the cartridges
+        see("open a cartridge")
+        k("\r", 1)
+        see("Studio Village")
+        see("8: ")                                          # the models, on the project page
+        shot("village")
+        k(F4, 1)
+        see("MODELS 8")
+        see("vertices")
+        shot("3d-models")
+        k("i", 0.5)                                         # the code for the model
+        see("draw3d")
+        shot("model-code")
+        k(F4, 0.5)
+        k(F6, 1)                                            # the assistant: a 3D recipe
+        see("Assistant")
+        for ch in "cane":
+            k(ch, 0.1)
+        time.sleep(2)
+        shot("assistant-mesh")
+        k("\r", 1)
+        see("the assistant's")
+        see("MODELS 9")
+        shot("3d-assistant")
+        k("\x13", 1)                                        # Ctrl+S
+        see("saved /carts/VILLAGE.BM")
+        k(F1, 0.5)
+        k("3", 1)                                           # bm Studio on the project
+        see("TOOLS")                                        # its build page
+        time.sleep(2)
+        k("\x1b", 1)                                        # its menu: the way back
+        see("Back to bm SDK")
+        shot("studio-back")
+        k("\x1b[A", 0.4)
+        k("\x1b[A", 0.4)
+        k("\r", 1)
+        see("back from bm Studio")
+        see("OPEN IN")
+        shot("back-from-studio")
+        q.send("\x1c")                                      # Ctrl+\ (Ctrl+Esc): leave
+        time.sleep(1)
+        q.send("\x1c")
+        q.expect("> ", timeout=20)
+    finally:
+        q.close()
+    try:
+        part = os.path.join(tmp, "part.img")
+        with open(img, "rb") as f, open(part, "wb") as o:
+            f.seek(2048 * 512)
+            o.write(f.read())
+        env = dict(os.environ, MTOOLS_SKIP_CHECK="1")
+        saved = subprocess.run(["mtype", "-i", part, "::/CARTS/VILLAGE.BM"], capture_output=True, env=env).stdout
+        secs = dict(bmmesh.cart_sections(saved))
+        import struct
+        assert struct.unpack("<H", secs[bmmesh.SEC_MESH][:2])[0] == 9, "the assistant's model saved"
     finally:
         shutil.rmtree(tmp, ignore_errors=True)
 
