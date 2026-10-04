@@ -2770,7 +2770,10 @@ il Pi non ha ancora mostrato, come in M34–M36.
   risoluzione, overclock della GPU e dell'ARM. (La risoluzione scelta nel menu dei giochi
   c'è dal 2026-10-04, M38: qui si intende cambiarla da sola per guadagnare fotogrammi.)
 
-## M40 — bm per PowKiddy RGB30 (XL) — in corso (branch `rgb30-powkiddy`)
+## M40 — bm per PowKiddy RGB30 (XL) — ✅ chiusa (2026-10-04)
+**Chiusa dall'utente il 2026-10-04** (nata nel branch `rgb30-powkiddy`, unita a `bm-core`):
+il lavoro sulla RGB30 continua su `bm-core` con il resto di bm.
+
 Decisione 2026-10-01 (utente): una versione **bare metal** di bm per la PowKiddy RGB30
 (Rockchip RK3566, 4 × Cortex-A55 a 64 bit, 1 GiB, schermo 720×720 MIPI-DSI, RTL8821CS).
 Menu **512×512** al centro dello schermo (formato 1:1; dal 2026-10-03 360×360 ×2, a tutto
