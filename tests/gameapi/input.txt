@@ -21,3 +21,15 @@
 225 shot pause
 230 pad 1 a
 232 pad 1 none
+270 device 2 ds4
+280 pad 2 a
+282 pad 2 none
+284 pad 1 a
+286 pad 1 none
+292 pad 2 b
+294 pad 2 none
+296 pad 2 a
+298 pad 2 none
+300 shot party
+304 pad 1 start
+306 pad 1 none

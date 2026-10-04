@@ -211,6 +211,35 @@ def test_image(demo, out):
           "a named zone extracted")
 
 
+def test_boxes(demo, out):
+    # zones with their hitboxes and hurtboxes (BOXES): they go with the zones
+    cart = roundtrip(demo)
+    zones = [{"name": "hero", "x": 8, "y": 0, "w": 8, "h": 8, "frames": 2, "fps": 4},
+             {"name": "coin", "x": 0, "y": 0, "w": 8, "h": 8, "frames": 1, "fps": 0}]
+    boxes = [{"zone": "hero", "frame": 0, "kind": 0, "x": 1, "y": 1, "w": 6, "h": 7},
+             {"zone": "hero", "frame": 2, "kind": 1, "x": 6, "y": -2, "w": 5, "h": 3},
+             {"zone": "coin", "frame": 1, "kind": 9, "x": 0, "y": 0, "w": 8, "h": 8}]
+    cart.put(bmres.SEC_SPRITES, bmres.sprites_encode(zones))
+    cart.put(bmres.SEC_BOXES, bmres.boxes_encode(boxes))
+    cart = roundtrip(cart)
+    check(bmres.boxes_decode(cart.get(bmres.SEC_BOXES)) == boxes, "BOXES: encoded and decoded the same")
+    check("BOXES: 3 boxes (1 hurt, 1 hit, 1 kind 9)" in bmres.describe(cart), "info: the boxes")
+    hero = roundtrip(bmres.extract_image(cart, sprites=["hero"]))
+    check(bmres.boxes_decode(hero.get(bmres.SEC_BOXES)) == boxes[:2], "an extracted zone keeps its boxes")
+    full = roundtrip(bmres.extract_image(cart))
+    check(full.get(bmres.SEC_BOXES) == cart.get(bmres.SEC_BOXES), "the whole sheet keeps every box")
+    bmres.integrate(cart, hero)
+    got = bmres.boxes_decode(cart.get(bmres.SEC_BOXES))
+    check(len(got) == 5 and got[3]["zone"] == "hero2" and got[4]["zone"] == "hero2" and got[4]["y"] == -2,
+          "added again: its boxes follow the zone's new name")
+    bad = roundtrip(cart)
+    bad.put(bmres.SEC_BOXES, bmres.boxes_encode([dict(boxes[0], zone="nobody")]))
+    raises(lambda: bmres.check(bad), "a box of a zone that is not there")
+    bad.put(bmres.SEC_BOXES, bmres.boxes_encode([dict(boxes[1], frame=3)]))
+    raises(lambda: bmres.check(bad), "a box of a frame the zone does not have")
+    bmres.write(os.path.join(out, "HERO.bmi"), hero)
+
+
 def test_sounds(sound, out):
     whole = roundtrip(bmres.extract_sounds(sound))
     check(whole.get(bmres.SEC_AUDIO) == sound.get(bmres.SEC_AUDIO), "the whole bank, byte for byte")
@@ -396,6 +425,7 @@ def main():
     test_container(village)
     test_models(village, demo, out)
     test_image(demo, out)
+    test_boxes(demo, out)
     test_sounds(sound, out)
     test_map(demo, village, out)
     test_layers_flags(village, out)

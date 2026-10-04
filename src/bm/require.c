@@ -14,6 +14,7 @@
 extern const uint8_t bm_lib_assist[], bm_lib_assist_end[];
 extern const uint8_t bm_lib_bm3d[], bm_lib_bm3d_end[];
 extern const uint8_t bm_lib_bmlib[], bm_lib_bmlib_end[];
+extern const uint8_t bm_lib_bmnet[], bm_lib_bmnet_end[];
 extern const uint8_t bm_lib_predict[], bm_lib_predict_end[];
 extern const uint8_t bm_lib_words[], bm_lib_words_end[];
 
@@ -24,6 +25,7 @@ static const struct {
     { "assist", bm_lib_assist, bm_lib_assist_end },
     { "bm3d", bm_lib_bm3d, bm_lib_bm3d_end },        /* bm Studio and bm Animator */
     { "bmlib", bm_lib_bmlib, bm_lib_bmlib_end },     /* what the games share (R10) */
+    { "bmnet", bm_lib_bmnet, bm_lib_bmnet_end },     /* games over the network */
     { "predict", bm_lib_predict, bm_lib_predict_end },  /* word completion */
     { "words", bm_lib_words, bm_lib_words_end },        /* its dictionaries */
 };
@@ -55,7 +57,7 @@ static int l_require(lua_State *L)
         lua_setfield(L, -3, name);
         return 1;
     }
-    return luaL_error(L, "module '%s' not found (built in: assist, bm3d, bmlib, predict, words)", name);
+    return luaL_error(L, "module '%s' not found (built in: assist, bm3d, bmlib, bmnet, predict, words)", name);
 }
 
 void bm_require_open(lua_State *L)

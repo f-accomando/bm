@@ -42,10 +42,10 @@ import mkbm  # noqa: E402
 MAGIC_RES = b"BMRES\0\0\0"
 MAGIC_CART = (b"BMCART\0\0", b"BM33CART")
 SEC_LUA, SEC_SHEET, SEC_MAP, SEC_COVER, SEC_SHEET8, SEC_AUDIO = 1, 2, 3, 4, 5, 6
-SEC_MESH, SEC_ANIM, SEC_INFO, SEC_SPRITES, SEC_LAYERS, SEC_FLAGS = 8, 9, 10, 11, 12, 13
+SEC_MESH, SEC_ANIM, SEC_INFO, SEC_SPRITES, SEC_LAYERS, SEC_FLAGS, SEC_BOXES = 8, 9, 10, 11, 12, 13, 14
 SEC_NAMES = {SEC_LUA: "LUA", SEC_SHEET: "SHEET", SEC_MAP: "MAP", SEC_COVER: "COVER", SEC_SHEET8: "SHEET8",
              SEC_AUDIO: "AUDIO", SEC_MESH: "MESH", SEC_ANIM: "ANIM", SEC_INFO: "INFO", SEC_SPRITES: "SPRITES",
-             SEC_LAYERS: "LAYERS", SEC_FLAGS: "FLAGS"}
+             SEC_LAYERS: "LAYERS", SEC_FLAGS: "FLAGS", SEC_BOXES: "BOXES"}
 KNOWN = set(SEC_NAMES) | {7}
 
 CART, MODEL, IMAGE, SOUND, MAP, PALETTE, KIT = range(7)
@@ -55,15 +55,17 @@ EXTENSIONS = {".bmm": MODEL, ".bmi": IMAGE, ".bms": SOUND, ".bmt": MAP, ".bmc": 
 SHEETS = {SEC_SHEET, SEC_SHEET8}
 ALLOWED = {
     MODEL: {SEC_INFO, SEC_MESH, SEC_ANIM} | SHEETS,
-    IMAGE: {SEC_INFO, SEC_SPRITES, SEC_FLAGS} | SHEETS,
+    IMAGE: {SEC_INFO, SEC_SPRITES, SEC_BOXES, SEC_FLAGS} | SHEETS,
     SOUND: {SEC_INFO, SEC_AUDIO},
     MAP: {SEC_INFO, SEC_MAP, SEC_LAYERS, SEC_FLAGS} | SHEETS,
     PALETTE: {SEC_INFO, SEC_SHEET8},
-    KIT: {SEC_INFO, SEC_MESH, SEC_ANIM, SEC_SPRITES, SEC_AUDIO, SEC_MAP, SEC_LAYERS, SEC_FLAGS} | SHEETS,
+    KIT: {SEC_INFO, SEC_MESH, SEC_ANIM, SEC_SPRITES, SEC_BOXES, SEC_AUDIO, SEC_MAP, SEC_LAYERS, SEC_FLAGS} | SHEETS,
 }
 
 INFO_MAX = 16 * 1024
 SPRITES_MAX, SPRITE_SIZE, FRAMES_MAX = 1024, 28, 16
+BOXES_MAX, BOX_SIZE = 4096, 28
+BOX_KINDS = {0: "hurt", 1: "hit", 2: "body"}
 SHEET_MAX, CELL = 4096, 8
 NAME_LEN = 16
 TEXTURED = bmmesh.TEXTURED
@@ -204,11 +206,17 @@ def check(f, where="file"):
             flags_get(f)
         if f.get(SEC_INFO) is not None:
             info_parse(f.get(SEC_INFO))
+        zones = []
         if f.get(SEC_SPRITES) is not None:
             zones = sprites_decode(f.get(SEC_SPRITES))
             for z in zones:
                 if sheet and (z["x"] + z["w"] * z["frames"] > sheet[0] or z["y"] + z["h"] > sheet[1]):
                     raise ResError(f"zone {z['name']} is out of the sheet")
+        if f.get(SEC_BOXES) is not None:
+            frames = {z["name"]: z["frames"] for z in zones}
+            for b in boxes_decode(f.get(SEC_BOXES)):
+                if b["zone"] not in frames or b["frame"] > frames[b["zone"]]:
+                    raise ResError(f"a box of zone {b['zone']!r} frame {b['frame']}, not in SPRITES")
     except ResError as e:
         raise ResError(f"{where}: {e}") from None
     except (struct.error, IndexError, ValueError, UnicodeDecodeError) as e:
@@ -354,6 +362,32 @@ def sprites_encode(zones):
     for z in zones:
         out += _fixed(z["name"], NAME_LEN) + struct.pack("<4HBBH", z["x"], z["y"], z["w"], z["h"],
                                                          z.get("frames", 1), z.get("fps", 0), 0)
+    return bytes(out)
+
+
+def boxes_decode(body):
+    """BOXES -> [{zone, frame (0: every frame), kind (0 hurt, 1 hit, 2 body, 3.. the game's), x, y, w, h}]"""
+    n = struct.unpack_from("<H", body, 0)[0]
+    if not 1 <= n <= BOXES_MAX or len(body) != 4 + BOX_SIZE * n:
+        raise ResError("bad BOXES section")
+    out = []
+    for i in range(n):
+        o = 4 + BOX_SIZE * i
+        zone = _cstr(body[o:o + NAME_LEN])
+        frame, kind, x, y, w, h = struct.unpack_from("<BBhhHH", body, o + NAME_LEN)
+        if not zone or frame > FRAMES_MAX or not w or not h:
+            raise ResError(f"bad box of {zone!r} in BOXES")
+        out.append({"zone": zone, "frame": frame, "kind": kind, "x": x, "y": y, "w": w, "h": h})
+    return out
+
+
+def boxes_encode(boxes):
+    if not 1 <= len(boxes) <= BOXES_MAX:
+        raise ResError(f"1 to {BOXES_MAX} boxes, not {len(boxes)}")
+    out = bytearray(struct.pack("<HH", len(boxes), 0))
+    for b in boxes:
+        out += _fixed(b["zone"], NAME_LEN) + struct.pack("<BBhhHHH", b["frame"], b["kind"], b["x"], b["y"],
+                                                         b["w"], b["h"], 0)
     return bytes(out)
 
 
@@ -917,6 +951,8 @@ def extract_image(src, sprites=(), rect=None, name=None, frames=1, fps=0):
         out.sections.append([src.sheet_type(), src.get(src.sheet_type())])
         if zones:
             out.sections.append([SEC_SPRITES, src.get(SEC_SPRITES)])
+            if src.get(SEC_BOXES) is not None:
+                out.sections.append([SEC_BOXES, src.get(SEC_BOXES)])
             _models_info(info_of(src), info, "sprite", [z["name"] for z in zones])
         out.name = src.name
         info_store(out, info)
@@ -944,6 +980,11 @@ def extract_image(src, sprites=(), rect=None, name=None, frames=1, fps=0):
         z["y"] += (pos[i][1] - islands[i][1]) * CELL
     sheet_set(out, W, H, out_rgba, seed=())
     out.sections.append([SEC_SPRITES, sprites_encode(pick)])
+    names = {z["name"] for z in pick}
+    boxes = [b for b in boxes_decode(src.get(SEC_BOXES)) if b["zone"] in names] \
+        if src.get(SEC_BOXES) is not None and rect is None else []
+    if boxes:                                    # the hitboxes and hurtboxes go with their zones
+        out.sections.append([SEC_BOXES, boxes_encode(boxes)])
     _models_info(info_of(src), info, "sprite", [z["name"] for z in pick])
     info_store(out, info)
     out.name = pick[0]["name"] if len(pick) == 1 else src.name
@@ -1279,17 +1320,25 @@ def integrate(cart, res, origin=None):
     if rzones:
         czones = sprites_decode(cart.get(SEC_SPRITES)) if cart.get(SEC_SPRITES) is not None else []
         taken = {z["name"] for z in czones}
+        znames = {}
         for z in rzones:
             z = dict(z)
             dx, dy = off_of(px_cells(*zone_rect(z)))
             old = z["name"]
             z["name"] = _unique(old, taken)
+            znames[old] = z["name"]
             taken.add(z["name"])
             z["x"] += dx
             z["y"] += dy
             czones.append(z)
             note("sprite", old, z["name"])
         cart.put(SEC_SPRITES, sprites_encode(czones))
+        if res.get(SEC_BOXES) is not None:      # their boxes, by the zones' new names
+            cboxes = boxes_decode(cart.get(SEC_BOXES)) if cart.get(SEC_BOXES) is not None else []
+            for b in boxes_decode(res.get(SEC_BOXES)):
+                if b["zone"] in znames:
+                    cboxes.append(dict(b, zone=znames[b["zone"]]))
+            cart.put(SEC_BOXES, boxes_encode(cboxes))
     if rmap:
         mw, mh, _ = rmap
         per = rsheet[0] // CELL
@@ -1458,6 +1507,13 @@ def describe(f):
             for z in zones:
                 fr = f", {z['frames']} frames at {z['fps']} fps" if z["frames"] > 1 else ""
                 lines.append(f"    {z['name']:16s} {z['x']},{z['y']} {z['w']}x{z['h']}{fr}")
+        elif t == SEC_BOXES:
+            boxes = boxes_decode(b)
+            kinds = {}
+            for x in boxes:
+                k = BOX_KINDS.get(x["kind"], f"kind {x['kind']}")
+                kinds[k] = kinds.get(k, 0) + 1
+            lines.append(f"  BOXES: {len(boxes)} boxes (" + ", ".join(f"{n} {k}" for k, n in kinds.items()) + ")")
         elif t == SEC_AUDIO:
             bank = bmaudio.unpack(b)
             lines.append(f"  AUDIO: {len(bank['sounds'])} sounds, {len(bank['sfx'])} sound effects, "

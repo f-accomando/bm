@@ -10,6 +10,7 @@
 #include <string.h>
 
 #include "bm/bm.h"
+#include "lib/crc32.h"
 
 static int fails, checks;
 #define CHECK(c, ...) do { checks++; if (!(c)) { fails++; printf("FAIL %s:%d: ", __FILE__, __LINE__); printf(__VA_ARGS__); printf("\n"); } } while (0)
@@ -75,6 +76,30 @@ int main(int argc, char **argv)
         CHECK(!strcmp(z.name, "flag") && z.w == 8 && z.h == 8 && z.frames == 2 && z.fps == 6,
               "FLAG.bmi: flag, 8x8, 2 frames at 6 fps (%s %dx%d %d %d)", z.name, z.w, z.h, z.frames, z.fps);
         CHECK(bm_zone(&c, 1, &z) != 0, "no second zone");
+        free(d);
+    }
+    if (open_any(dir, "HERO.bmi", &c, &d, &len) == 0) {
+        /* a zone with its hitbox and hurtbox (BOXES) */
+        bm_box_t b;
+        CHECK(c.kind == BM_RES_IMAGE && c.zones == 1 && c.nboxes == 2, "HERO.bmi: one zone, two boxes");
+        CHECK(bm_box(&c, 0, &b) == 0 && !strcmp(b.zone, "hero") && b.frame == 0 && b.kind == BM_BOX_HURT &&
+              b.x == 1 && b.y == 1 && b.w == 6 && b.h == 7, "HERO.bmi: the hurtbox of every frame");
+        CHECK(bm_box(&c, 1, &b) == 0 && b.frame == 2 && b.kind == BM_BOX_HIT && b.y == -2,
+              "HERO.bmi: the hitbox of frame 2 (y below 0)");
+        CHECK(bm_box(&c, 2, &b) != 0, "no third box");
+        /* a box of a frame the zone does not have: refused in a resource */
+        bm_cart_t cc;
+        uint32_t n = d[17];
+        for (uint32_t i = 0; i < n; i++) {
+            uint8_t *e = d + BM_HEADER_SIZE + i * 16;
+            if ((e[0] | e[1] << 8) == BM_SEC_BOXES) {
+                uint32_t off = e[4] | e[5] << 8 | e[6] << 16 | (uint32_t)e[7] << 24;
+                d[off + 4 + BM_BOX_SIZE + 16] = 3;          /* box 2: frame 3 of 2 */
+                uint32_t crc = crc32(d + BM_HEADER_SIZE, (uint32_t)(len - BM_HEADER_SIZE));
+                d[20] = (uint8_t)crc; d[21] = (uint8_t)(crc >> 8); d[22] = (uint8_t)(crc >> 16); d[23] = (uint8_t)(crc >> 24);
+            }
+        }
+        CHECK(bm_parse_any(d, len, &cc, err, sizeof err) != 0, "a box of a frame the zone does not have");
         free(d);
     }
     if (open_any(dir, "JUMP.bms", &c, &d, &len) == 0) {

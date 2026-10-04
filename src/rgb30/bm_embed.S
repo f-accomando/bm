@@ -31,6 +31,13 @@ bm_lib_bmlib_end:
     .byte 0
 
     .balign 4
+    .globl bm_lib_bmnet, bm_lib_bmnet_end
+bm_lib_bmnet:
+    .incbin "src/script/bmnet.lua"
+bm_lib_bmnet_end:
+    .byte 0
+
+    .balign 4
     .globl bm_lib_words, bm_lib_words_end, bm_texroom_cart, bm_texroom_cart_end
 bm_lib_words:
 bm_lib_words_end:

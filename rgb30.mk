@@ -98,7 +98,7 @@ $(VERSION_STAMP): FORCE
 $(BUILD)/k/src/kernel/version.c.o: $(VERSION_STAMP)
 $(BUILD)/k/src/kernel/version.c.o: CFLAGS += -DBM_VERSION=\"$(VERSION)\" -DBM_BRANCH=\"$(BRANCH)\"
 $(BUILD)/k/src/rgb30/bm_embed.S.o: keys/release-pub.pem src/ai/assist.lua src/ai/predict.lua src/script/bm3d.lua \
-                                    src/script/bmlib.lua
+                                    src/script/bmlib.lua src/script/bmnet.lua
 FORCE:
 
 .DEFAULT_GOAL := all

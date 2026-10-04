@@ -86,6 +86,21 @@ local function map_api()
   local bx, by, bw, bh, bf, bfps = zone("big")
   check(bx == 0 and by == 16 and bw == 16 and bh == 16 and bf == 1 and bfps == 0, "zone(big)")
   check(zone("none") == nil and not pcall(zspr, "none", 0, 0), "an unknown zone")
+  -- their hitboxes and hurtboxes (zboxes: the boxes under the zones)
+  local all = zboxes("coin")
+  check(#all == 2 and all[1].kind == "hurt" and all[1].frame == 0 and all[2].kind == "hit" and all[2].frame == 2,
+        "zboxes(coin): every box, with its frame")
+  local f1 = zboxes("coin", 1)
+  check(#f1 == 1 and f1[1].x == 1 and f1[1].y == 1 and f1[1].w == 6 and f1[1].h == 6,
+        "zboxes(coin, 1): the hurtbox of every frame")
+  check(#zboxes("coin", 2) == 2 and #zboxes("coin", 5) == 2, "zboxes(coin, 2): and the hitbox (5 is 2, round)")
+  local hb = zboxes("coin", nil, "hit")
+  check(#hb == 1 and hb[1].x == 4 and hb[1].w == 6 and hb[1].h == 3, "zboxes(..., hit): one kind")
+  local bb = zboxes("big", 1)
+  check(#bb == 2 and bb[1].kind == "body" and bb[1].x == -2 and bb[2].kind == 7,
+        "zboxes(big): body (x below 0) and the game's kind 7")
+  check(#zboxes("big", 1, 7) == 1 and #zboxes("big", 1, "hurt") == 0, "zboxes: the kind by number")
+  check(not pcall(zboxes, "coin", 1, "nope") and not pcall(zboxes, "none"), "zboxes: an unknown kind or zone")
 end
 
 -- drawing: the map by layer and by flags, the zones' frames
@@ -112,6 +127,21 @@ local function draw_checks()
   check(pget(15, 15) == CYAN and pget(16, 16) == 0, "zspr zoom 2")
   local f = zspr("coin", 0, 0)                 -- by the clock: 10 frames a second
   check(f == math.floor(time() * 10) % 3 + 1, "zspr animated by time()")
+  -- a camera in a player's view (lib.split): drawing stays in the view
+  cls(0)
+  local v = lib.split(4)[4]
+  local cam = lib.camera({ w = v.w, h = v.h, smooth = 1 })
+  cam:follow(500, 300, true)
+  cam:apply(v)
+  rectfill(-1000, -1000, 3000, 3000, RED)
+  pset(500, 300, WHITE)
+  clip()
+  camera()
+  local sx, sy = cam:screen(500, 300, v)
+  check(pget(4, 4) == 0 and pget(v.x + 2, v.y + 2) == RED and pget(v.x - 2, v.y + 2) == 0,
+        "camera:apply(view): clipped to the view")
+  check(pget(sx, sy) == WHITE and math.abs(sx - (v.x + v.w / 2)) <= 1 and math.abs(sy - (v.y + v.h / 2)) <= 1,
+        "camera:screen(x, y, view): the target in the view's middle")
 end
 
 -- saving: the layers, the flags and the zones go to the file and come back
@@ -130,6 +160,7 @@ local function save_checks()
   check(mget(3, 3, "extra") == 7 and mget(5, 5, "front") == 4 and mget(0, 20) == 1, "cart_load: the layers' cells")
   check(fget(5, 7) and fget(1) == 1 and fget(3) == 4, "cart_load: the flags")
   check(same(zones(), { "coin", "big" }), "cart_load: the zones")
+  check(#zboxes("coin") == 2 and zboxes("big")[1].x == -2, "cart_load: the boxes")
   -- cart_write(sheet = true) writes the flags changed since
   fset(6, 2, true)
   check(cart_write("/carts/GAPI.BM", { sheet = true }), "cart_write(sheet = true)")
@@ -368,8 +399,95 @@ end
 
 local f, phase = 0, 1
 local menu, chosen = nil, nil
-local pause
+local pause, party
 local volume0
+
+-- hitboxes and hurtboxes (lib.hits), bodies that push each other apart
+local function lib_hits()
+  local H = lib.hits()
+  local a, b, c = { n = "a" }, { n = "b" }, { n = "c" }
+  H:clear()
+  H:hurt(a, 0, 0, 16, 32, { team = 1 })
+  H:hurt(b, 20, 0, 16, 32, { team = 2, part = "body" })
+  H:hurt(c, 40, 0, 16, 32, { team = 1 })
+  H:hit(a, 14, 8, 10, 8, { team = 1, id = "punch1", damage = 5 })
+  local hs = H:check()
+  check(#hs == 1 and hs[1].kind == "hit" and hs[1].by == a and hs[1].to == b and hs[1].hit.damage == 5 and
+        hs[1].part == "body", "hits: a's punch hits b, not a itself")
+  check(hs[1].x == 22 and hs[1].y == 12, "hits: the middle of where they touch")
+  local function frame(id)
+    H:clear()
+    H:hurt(b, 20, 0, 16, 32, { team = 2 })
+    if id ~= false then H:hit(a, 14, 8, 10, 8, { team = 1, id = id }) end
+    return #H:check()
+  end
+  check(frame("punch1") == 0, "hits: an attack (id) hits a body once")
+  check(frame(false) == 0 and frame("punch1") == 1, "hits: after a frame without it, the id is a new attack")
+  check(frame(nil) == 1 and frame(nil) == 1, "hits: without id, in every frame")
+  H:clear()
+  H:hurt(c, 40, 0, 16, 32, { team = 1 })
+  H:hit(a, 38, 0, 8, 8, { team = 1 })
+  check(#H:check() == 0, "hits: not the same team")
+  H:clear()
+  H:hurt(b, 22, 0, 12, 10, { team = 2, part = "head" })
+  H:hurt(b, 20, 10, 16, 22, { team = 2, part = "body" })
+  H:hit(a, 18, 4, 10, 10, { team = 1, id = "kick" })
+  H:hit(a, 18, 12, 10, 10, { team = 1, id = "kick" })
+  hs = H:check()
+  check(#hs == 1 and hs[1].part == "head", "hits: two boxes of one attack on two parts: one contact, the first part")
+  H:clear()
+  H:hurt(b, 0, 0, 10, 10, { z = 0, depth = 4 })
+  H:hit(a, 0, 0, 10, 10, { z = 10, depth = 4 })
+  check(#H:check() == 0, "hits: another lane (z, depth)")
+  H:clear()
+  H:hurt(b, 0, 0, 10, 10, { z = 0, depth = 4 })
+  H:hit(a, 0, 0, 10, 10, { z = 3, depth = 4 })
+  check(#H:check() == 1, "hits: the same lane")
+  H:clear()
+  H:hit(a, 0, 0, 10, 10, { team = 1, clash = true })
+  H:hit(b, 5, 5, 10, 10, { team = 2, clash = true })
+  hs = H:check()
+  check(#hs == 1 and hs[1].kind == "clash" and hs[1].by == a and hs[1].to == b, "hits: two blades clash")
+  -- the boxes of the sheet (zboxes), mirrored when the sprite faces left
+  local x, y, w, h = lib.box({ x = 4, y = 0, w = 6, h = 3 }, 100, 50, false, 8)
+  local fx = lib.box({ x = 4, y = 0, w = 6, h = 3 }, 100, 50, true, 8)
+  check(x == 104 and y == 50 and w == 6 and h == 3 and fx == 98, "box: a frame's box in the world, mirrored")
+  H:clear()
+  H:zone(a, "coin", 2, 100, 50, false, { team = 1, attack = { damage = 3 } })
+  check(#H.hurts == 1 and #H.hitl == 1 and H.hitl[1].x == 104 and H.hitl[1].o.team == 1 and
+        H.hitl[1].o.damage == 3 and H.hurts[1].x == 101, "hits:zone: the boxes of the frame")
+  H:clear()
+  H:zone(a, "coin", 2, 100, 50, true)
+  check(H.hitl[1].x == 98 and H.hurts[1].x == 101, "hits:zone flipped")
+  H:clear()
+  H:zone(a, "coin", 2, 100, 50, false, { team = 1 })
+  H:zone(b, "coin", 1, 108, 50, false, { team = 2 })
+  hs = H:check()
+  check(#hs == 1 and hs[1].by == a and hs[1].to == b, "hits:zone: a's frame 2 hits b's frame 1")
+  -- separate
+  local p, q = { x = 0, y = 0, w = 10, h = 10 }, { x = 6, y = 2, w = 10, h = 10 }
+  check(lib.separate(p, q) and p.x == -2 and q.x == 8 and p.y == 0, "separate: half each, along x")
+  p.x, q.fixed = 4, true
+  check(lib.separate(p, q) and p.x == -2 and q.x == 8, "separate: a fixed body does not move")
+  check(not lib.separate({ x = 0, y = 0 }, { x = 20, y = 0 }), "separate: bodies apart")
+end
+
+-- players on one console: colours, views
+local function lib_players()
+  check(#lib.PLAYER_COLORS == 4 and controller(2).color == lib.PLAYER_COLORS[2] and
+        controller().color == lib.PLAYER_COLORS[1], "controller(p).color: the player's colour")
+  check(same(lib.pads(), { 1 }), "pads(): the players with a controller")
+  local v = lib.split(2)
+  check(#v == 2 and v[1].x == 0 and v[1].w == (SCREEN_W - 2) // 2 and v[2].x + v[2].w == SCREEN_W and
+        v[1].h == SCREEN_H, "split(2): side by side")
+  local vv = lib.split(2, { vertical = true })
+  check(vv[2].y + vv[2].h == SCREEN_H and vv[1].w == SCREEN_W and vv[1].h == (SCREEN_H - 2) // 2,
+        "split(2, vertical): one above the other")
+  local q4 = lib.split(4)
+  check(#q4 == 4 and q4[4].x + q4[4].w == SCREEN_W and q4[4].y + q4[4].h == SCREEN_H and q4[2].y == 0 and
+        #lib.split(3) == 3 and lib.split(1)[1].w == SCREEN_W and lib.split(1)[1].h == SCREEN_H,
+        "split(3, 4): the corners")
+end
 
 function _init()
   map_api()
@@ -379,9 +497,12 @@ function _init()
   lib_map()
   lib_time()
   lib_things()
+  lib_hits()
+  lib_players()
+  party = lib.party({ min = 2 })
   menu = lib.menu({ "one", { label = "two", off = true }, { label = "three", value = "3" } }, { wrap = false })
   volume0 = volume()
-  pause = lib.pause({ quit = function() chosen = "quit" end, when = function() return phase >= 4 end })
+  pause = lib.pause({ quit = function() chosen = "quit" end, when = function() return phase >= 4 and phase < 7 end })
 end
 
 local reps, held_n, down_at = 0, 0, nil
@@ -414,8 +535,22 @@ function _update()
   elseif phase == 6 and f == 260 then
     check(chosen == "quit", "pause: QUIT calls quit")
     volume(volume0)
-    log(string.format("gameapi: %d/%d checks passed", checks - fails, checks))
-    quit()
+    phase = 7
+  elseif phase == 7 then
+    -- the join screen (input.txt: player 2 gets a pad and joins, player 1
+    -- joins, 2 goes out and in again, 1 starts)
+    if f == 290 then check(same(party.list, { 2, 1 }), "party: ok joins") end
+    if f == 295 then check(same(party.list, { 1 }), "party: back goes out") end
+    if f == 302 and not party.started then
+      check(btn("start", 1) == false and same(party.list, { 1, 2 }), "party: in the order they came")
+    end
+    local who = party:update()
+    if who then
+      check(same(who, { 1, 2 }) and f >= 304 and same(lib.pads(), { 1, 2 }), "party: Start begins with the players in")
+      party.started = true
+      log(string.format("gameapi: %d/%d checks passed", checks - fails, checks))
+      quit()
+    end
   end
   if phase == 4 and f >= 100 then phase = 5 end
 end
@@ -430,7 +565,8 @@ function _draw()
   print("game api", 8, 192, 0xFFFFFF)   -- on the 16 px rows: the QEMU test reads it
   menu:draw(340, 40, { w = 200 })
   pause:draw()
-  if f > 400 then
+  if phase == 7 then party:draw(8, 216, SCREEN_W - 16, 136) end
+  if f > 500 then
     log(string.format("gameapi: %d/%d checks passed (timeout)", checks - fails, checks))
     quit()
   end

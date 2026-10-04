@@ -350,6 +350,7 @@ local function new_env(arg)
   E.zones = function() return {} end
   E.zone = function() return nil end
   E.zspr = function(name) error("the sheet has no sprite zone \"" .. tostring(name) .. "\"") end
+  E.zboxes = E.zspr
   E.cart_data = function(t, ...)
     assert(t == 8 or t == 9, "cart_data: 8 (MESH) or 9 (ANIM)")
     if select("#", ...) == 0 then return sec[t] end

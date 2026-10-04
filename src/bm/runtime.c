@@ -77,6 +77,8 @@ static struct {
     int flags_dirty;                /* fset() since the sheet came: cart_write(sheet=) writes them */
     uint8_t *zones;                 /* a copy of the cartridge's SPRITES section (zspr), or NULL */
     int nzones;
+    uint8_t *boxes;                 /* a copy of its BOXES section (zboxes), or NULL */
+    int nboxes;
     uint8_t *cell_dirty;
     int sheet_dirty;
     uint8_t hold[SER_COUNT];
@@ -839,6 +841,58 @@ static int l_zones(lua_State *L)
     return 1;
 }
 
+static const char *const box_kinds[] = { "hurt", "hit", "body" };
+
+/* zboxes(name, [frame, kind]) -> the boxes of a zone's frame (hitboxes and
+ * hurtboxes, the BOXES section): a list of {x, y, w, h, kind, frame}, x and
+ * y from the frame's top-left corner, kind "hurt", "hit", "body" or the
+ * game's number (3..255). With frame (1..frames) its boxes and those of
+ * every frame (frame 0); without, all the zone's. kind (a name or a
+ * number) keeps those of one kind. An empty list if there are none. */
+static int l_zboxes(lua_State *L)
+{
+    bm_zone_t z;
+    zone_arg(L, 1, &z);
+    int frame = 0, kind = -1;
+    if (!lua_isnoneornil(L, 2))
+        frame = (int)((luaL_checkinteger(L, 2) - 1) % z.frames + z.frames) % z.frames + 1;
+    if (lua_type(L, 3) == LUA_TSTRING) {
+        const char *k = lua_tostring(L, 3);
+        for (int i = 0; i < 3; i++)
+            if (!strcmp(k, box_kinds[i]))
+                kind = i;
+        if (kind < 0)
+            return luaL_error(L, "zboxes: kind \"%s\" (hurt, hit, body or a number)", k);
+    } else if (!lua_isnoneornil(L, 3)) {
+        kind = (int)luaL_checkinteger(L, 3);
+    }
+    bm_cart_t c;
+    memset(&c, 0, sizeof c);
+    c.boxes = rt.boxes;
+    c.nboxes = (uint16_t)rt.nboxes;
+    lua_newtable(L);
+    int n = 0;
+    for (int i = 0; i < rt.nboxes; i++) {
+        bm_box_t b;
+        bm_box(&c, i, &b);
+        if (strcmp(b.zone, z.name) || (frame && b.frame && b.frame != frame) || (kind >= 0 && b.kind != kind))
+            continue;
+        lua_createtable(L, 0, 6);
+        lua_pushinteger(L, b.x); lua_setfield(L, -2, "x");
+        lua_pushinteger(L, b.y); lua_setfield(L, -2, "y");
+        lua_pushinteger(L, b.w); lua_setfield(L, -2, "w");
+        lua_pushinteger(L, b.h); lua_setfield(L, -2, "h");
+        if (b.kind < 3)
+            lua_pushstring(L, box_kinds[b.kind]);
+        else
+            lua_pushinteger(L, b.kind);
+        lua_setfield(L, -2, "kind");
+        lua_pushinteger(L, b.frame); lua_setfield(L, -2, "frame");
+        lua_rawseti(L, -2, ++n);
+    }
+    return 1;
+}
+
 static int l_sspr(lua_State *L);
 
 /* zspr(name, x, y, [frame, flip_x, flip_y, zoom]) draws a zone: frame 1..
@@ -1245,11 +1299,15 @@ static int l_keymap(lua_State *L)
     return 0;
 }
 
+/* the players' colours: those of the pads' light bars (bt.c), bright */
+static const uint32_t player_rgb[INPUT_PLAYERS] = { 0x3070FF, 0xFF3C28, 0x28D848, 0xFF38A8 };
+
 /* controller([p]): what player p (1-4, the first by default) plays with:
  * {kind = "keyboard" | "ds4" | "xbox" | "pad" | "builtin" | "none",
  *  layout = "keyboard" | "ds4" | "xbox" | "nintendo" | "none",
- *  bluetooth = bool, ok = "a" | "b", back = "b" | "a"} (the game's
- * buttons that say yes and go back, as the system's menus) */
+ *  bluetooth = bool, ok = "a" | "b", back = "b" | "a" (the game's
+ * buttons that say yes and go back, as the system's menus), color = the
+ * player's colour (the light bar's: 1 blue, 2 red, 3 green, 4 pink)} */
 static int l_controller(lua_State *L)
 {
     int p = (int)luaL_optinteger(L, 1, 1);
@@ -1262,7 +1320,7 @@ static int l_controller(lua_State *L)
         k = d & INPUT_DEV_DS4 ? "ds4" : d & INPUT_DEV_XBOX ? "xbox" : d & INPUT_DEV_BUILTIN ? "builtin" : "pad";
         layout = d & INPUT_DEV_DS4 ? "ds4" : d & INPUT_DEV_BUILTIN ? "nintendo" : "xbox";
     }
-    lua_createtable(L, 0, 5);
+    lua_createtable(L, 0, 6);
     lua_pushstring(L, k);
     lua_setfield(L, -2, "kind");
     lua_pushstring(L, layout);
@@ -1273,6 +1331,8 @@ static int l_controller(lua_State *L)
     lua_setfield(L, -2, "ok");
     lua_pushstring(L, input_ok_bit(1) == HID_A ? "a" : "b");
     lua_setfield(L, -2, "back");
+    lua_pushinteger(L, player_rgb[(p >= 1 && p <= INPUT_PLAYERS ? p : 1) - 1]);
+    lua_setfield(L, -2, "color");
     return 1;
 }
 
@@ -3551,6 +3611,7 @@ static const luaL_Reg api[] = {
     { "spr", l_spr }, { "sspr", l_sspr }, { "map", l_map }, { "mget", l_mget }, { "mset", l_mset },
     { "fget", l_fget }, { "fset", l_fset }, { "mflags", l_mflags }, { "msize", l_msize },
     { "mlayers", l_mlayers }, { "zone", l_zone }, { "zones", l_zones }, { "zspr", l_zspr },
+    { "zboxes", l_zboxes },
     { "sget", l_sget }, { "sset", l_sset }, { "print", l_print }, { "font", l_font }, { "camera", l_camera },
     { "prompt", l_prompt }, { "lastinput", l_lastinput },
     { "clip", l_clip }, { "rgb", l_rgb }, { "btn", l_btn }, { "btnp", l_btnp },
@@ -3976,6 +4037,13 @@ static int load_assets(const bm_cart_t *c)
         memcpy(rt.zones, c->sprites, n);
         rt.nzones = c->zones;
     }
+    if (c->boxes && c->nboxes) {
+        uint32_t n = 4u + c->nboxes * BM_BOX_SIZE;
+        if (!(rt.boxes = malloc(n)))
+            return -1;
+        memcpy(rt.boxes, c->boxes, n);
+        rt.nboxes = c->nboxes;
+    }
     return 0;
 }
 
@@ -3993,6 +4061,9 @@ static void free_assets(void)
     free(rt.zones);
     rt.zones = NULL;
     rt.nzones = 0;
+    free(rt.boxes);
+    rt.boxes = NULL;
+    rt.nboxes = 0;
     free(rt.mesh);
     rt.cell_dirty = NULL;
     rt.map.cells = NULL;
@@ -4051,7 +4122,7 @@ static int extras_keep(const uint8_t *d)
         uint32_t type = rd32le(e), off = rd32le(e + 4), size = rd32le(e + 8);
         if (type == BM_SEC_LUA || type == BM_SEC_SHEET || type == BM_SEC_SHEET8 ||
             type == BM_SEC_MAP || type == BM_SEC_LAYERS || type == BM_SEC_FLAGS || type == BM_SEC_SPRITES ||
-            type == BM_SEC_COVER || !size)
+            type == BM_SEC_BOXES || type == BM_SEC_COVER || !size)
             continue;                       /* cart_save writes these from the project */
         if (type == BM_SEC_AUDIO) {
             if (size >= 4 && memcmp(d + off, "BMAU", 4) == 0)
@@ -4581,16 +4652,17 @@ static int l_cart_save(lua_State *L)
         if (rt.flags[i])
             frows = i / per + 1;
     /* cover (first: the menu reads only the start), code, sheet, map, its
-     * layers, the sound bank, the flags, the sheet's named zones, then the
-     * sections kept from the file (3D models...) */
-    enum { FIXED = 8 };
+     * layers, the sound bank, the flags, the sheet's named zones and their
+     * boxes, then the sections kept from the file (3D models...) */
+    enum { FIXED = 9 };
     const int nsec = FIXED + proj_extras;
     uint32_t sizes[FIXED + PROJ_EXTRA_MAX] = {
         proj_cover ? 4u + (uint32_t)proj_cover_w * proj_cover_h * 4 : 0, (uint32_t)lua_len, 4 + sw * sh * 4,
         4 + mw * mh * 2, named ? 8u + (uint32_t)rt.nlayers * BM_LAYER_NAME + (uint32_t)(rt.nlayers - 1) * mw * mh * 2 : 0,
-        proj_audio_len, frows ? 4 + per * frows : 0, rt.nzones ? 4u + (uint32_t)rt.nzones * BM_SPRITE_SIZE : 0 };
+        proj_audio_len, frows ? 4 + per * frows : 0, rt.nzones ? 4u + (uint32_t)rt.nzones * BM_SPRITE_SIZE : 0,
+        rt.nzones && rt.nboxes ? 4u + (uint32_t)rt.nboxes * BM_BOX_SIZE : 0 };
     uint32_t types[FIXED + PROJ_EXTRA_MAX] = { BM_SEC_COVER, BM_SEC_LUA, BM_SEC_SHEET, BM_SEC_MAP, BM_SEC_LAYERS,
-                                               BM_SEC_AUDIO, BM_SEC_FLAGS, BM_SEC_SPRITES };
+                                               BM_SEC_AUDIO, BM_SEC_FLAGS, BM_SEC_SPRITES, BM_SEC_BOXES };
     for (int i = 0; i < proj_extras; i++) {
         types[FIXED + i] = proj_extra[i].type;
         sizes[FIXED + i] = proj_extra[i].size;
@@ -4641,6 +4713,8 @@ static int l_cart_save(lua_State *L)
             memcpy(p + 4, rt.flags, per * frows);
         } else if (i == 7) {
             memcpy(p, rt.zones, sizes[i]);
+        } else if (i == 8) {
+            memcpy(p, rt.boxes, sizes[i]);
         } else {
             memcpy(p, proj_extra[i - FIXED].data, sizes[i]);
         }

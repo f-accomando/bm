@@ -21,7 +21,11 @@ map.csv:   one row of comma-separated sprite indices per line (0 = empty).
            n+1); "#" starts a comment.
 --sprites: named zones of the sheet (zspr, zone): one per line "name x y w h
            [frames [fps]]" in sheet pixels (the frames are the w x h boxes to
-           the right of the first); "#" starts a comment.
+           the right of the first); "#" starts a comment. Under a zone, its
+           hitboxes and hurtboxes (zboxes, the BOXES section): "hurt|hit|body
+           frame x y w h" or "box kind frame x y w h" (kind 3-255, the
+           game's), frame 1-16 or * (every frame), x and y from the frame's
+           top-left corner (they may stick out).
 --audio:   the sound bank (sounds, sound effects, music): JSON or binary,
            see scripts/bmaudio.py; sfx() and music() play it.
 --models:  3D models for model(): a .glb exported by bm Studio (sdk/studio;
@@ -45,7 +49,7 @@ import bmmesh  # noqa: E402
 # files (bmmesh.cart_sections reads those as 8 and 9)
 SEC_LUA, SEC_SHEET, SEC_MAP, SEC_COVER, SEC_SHEET8, SEC_AUDIO = 1, 2, 3, 4, 5, 6
 SEC_MESH, SEC_ANIM = bmmesh.SEC_MESH, bmmesh.SEC_ANIM
-SEC_SPRITES, SEC_LAYERS, SEC_FLAGS = 11, 12, 13
+SEC_SPRITES, SEC_LAYERS, SEC_FLAGS, SEC_BOXES = 11, 12, 13, 14
 
 
 def read_png(path, data=None):
@@ -171,12 +175,34 @@ def flags_section(flags, sheet_w):
 SPRITES_MAX, ZONE_NAME = 1024, 16
 
 
-def read_sprites(path, sheet_w=None, sheet_h=None):
-    """--sprites file -> the SPRITES section"""
-    zones = []
+BOX_KINDS = {"hurt": 0, "hit": 1, "body": 2}
+BOXES_MAX = 4096
+
+
+def read_sprite_file(path, sheet_w=None, sheet_h=None):
+    """--sprites file -> (the SPRITES section, the BOXES section or None)"""
+    zones, boxes = [], []
     for i, line in enumerate(open(path), 1):
         f = line.split("#", 1)[0].split()
         if not f:
+            continue
+        if f[0] in BOX_KINDS or f[0] == "box":
+            if not zones:
+                raise SystemExit(f"{path}:{i}: a box goes under its zone")
+            if f[0] == "box":
+                if len(f) != 7 or not f[1].isdigit() or not 3 <= int(f[1]) <= 255:
+                    raise SystemExit(f"{path}:{i}: box kind frame x y w h (kind 3-255)")
+                kind, f = int(f[1]), f[1:]
+            else:
+                kind = BOX_KINDS[f[0]]
+            if len(f) != 6:
+                raise SystemExit(f"{path}:{i}: {f[0]} frame x y w h (frame 1-16 or *)")
+            zname, frames = zones[-1][0], zones[-1][5]
+            fr = 0 if f[1] == "*" else int(f[1])
+            x, y, w, h = map(int, f[2:6])
+            if not 0 <= fr <= frames or w < 1 or h < 1 or not -32768 <= x <= 32767 or not -32768 <= y <= 32767:
+                raise SystemExit(f"{path}:{i}: frame 1-{frames} or *, w and h >= 1")
+            boxes.append((zname, fr, kind, x, y, w, h))
             continue
         if len(f) < 5 or len(f) > 7:
             raise SystemExit(f"{path}:{i}: name x y w h [frames [fps]]")
@@ -191,9 +217,26 @@ def read_sprites(path, sheet_w=None, sheet_h=None):
         zones.append((name, x, y, w, h, frames, fps))
     if not 1 <= len(zones) <= SPRITES_MAX:
         raise SystemExit(f"{path}: 1 to {SPRITES_MAX} zones")
-    return struct.pack("<HH", len(zones), 0) + b"".join(
+    if len(boxes) > BOXES_MAX:
+        raise SystemExit(f"{path}: at most {BOXES_MAX} boxes")
+    sprites = struct.pack("<HH", len(zones), 0) + b"".join(
         n.encode().ljust(ZONE_NAME, b"\0") + struct.pack("<HHHHBBH", x, y, w, h, fr, fps, 0)
         for n, x, y, w, h, fr, fps in zones)
+    return sprites, boxes_section(boxes)
+
+
+def boxes_section(boxes):
+    """[(zone, frame, kind, x, y, w, h)] -> the BOXES section (None if empty)"""
+    if not boxes:
+        return None
+    return struct.pack("<HH", len(boxes), 0) + b"".join(
+        z.encode().ljust(ZONE_NAME, b"\0") + struct.pack("<BBhhHHH", fr, k, x, y, w, h, 0)
+        for z, fr, k, x, y, w, h in boxes)
+
+
+def read_sprites(path, sheet_w=None, sheet_h=None):
+    """--sprites file -> the SPRITES section"""
+    return read_sprite_file(path, sheet_w, sheet_h)[0]
 
 
 def crc32(b):
@@ -319,9 +362,10 @@ def sheet8_decode(body):
 
 
 def pack(lua, sheet=None, map_=None, title="", author="", res=(640, 360), cover=None, sheet_packed=False,
-         audio=None, mesh=None, extra=(), layers=None, flags=None, sprites=None):
+         audio=None, mesh=None, extra=(), layers=None, flags=None, sprites=None, boxes=None):
     """map_: (w, h, cells) of one layer, or layers: [(name, w, h, cells)];
-    flags: {cell: flags} of the sheet's cells; sprites: a SPRITES section"""
+    flags: {cell: flags} of the sheet's cells; sprites: a SPRITES section,
+    boxes: a BOXES section (its zones' hitboxes and hurtboxes)"""
     if layers:
         map_ = layers[0][1:]
     sections = []
@@ -345,6 +389,8 @@ def pack(lua, sheet=None, map_=None, title="", author="", res=(640, 360), cover=
         sections.append((SEC_FLAGS, flags_section(flags, sheet[0] if sheet else 256)))
     if sprites:
         sections.append((SEC_SPRITES, sprites))
+    if boxes:
+        sections.append((SEC_BOXES, boxes))
     if audio:
         sections.append((SEC_AUDIO, audio))
     if mesh:
@@ -378,7 +424,8 @@ def main():
     ap.add_argument("--map", action="append", default=[],
                     help="a layer of the map: [name=]map.csv (again: one more layer)")
     ap.add_argument("--flags", help="the flags of the sheet's cells (fget/fset)")
-    ap.add_argument("--sprites", help="named zones of the sheet: name x y w h [frames [fps]] per line")
+    ap.add_argument("--sprites", help="named zones of the sheet: name x y w h [frames [fps]] per line, "
+                                      "their boxes under them: hurt|hit|body frame x y w h")
     ap.add_argument("--audio", help="sound bank: .json (scripts/bmaudio.py) or .bmau")
     ap.add_argument("--cover", help="picture for the menu (PNG, any size: 88x88; not square: fitted)")
     ap.add_argument("--models", help="3D models: a .glb from bm Studio, or a .bm with models")
@@ -421,9 +468,10 @@ def main():
         models, inset = bmmesh.models_from_file(a.models)
         inset = a.uv_inset if a.uv_inset is not None else (inset if inset is not None else 0.25)
         mesh = bmmesh.encode(models, inset)
-    sprites = read_sprites(a.sprites, *(sheet[:2] if sheet else (256, 256))) if a.sprites else None
+    sprites, boxes = read_sprite_file(a.sprites, *(sheet[:2] if sheet else (256, 256))) if a.sprites \
+        else (None, None)
     data = pack(lua, sheet, None, a.title, a.author, res, cover, a.sheet8, audio, mesh, extra, layers, flags,
-                sprites)
+                sprites, boxes)
     open(a.output, "wb").write(data)
     print(f"{a.output}: {len(data)} bytes ({a.title or 'untitled'}, {a.res})")
 

@@ -131,6 +131,14 @@ bm_lib_bmlib:
     .incbin "src/script/bmlib.lua"
 bm_lib_bmlib_end:
 
+/* games over the network (require "bmnet") */
+    .section .rodata
+    .balign 4
+    .globl bm_lib_bmnet, bm_lib_bmnet_end
+bm_lib_bmnet:
+    .incbin "src/script/bmnet.lua"
+bm_lib_bmnet_end:
+
     .section .rodata
     .balign 4
     .globl bm_mesh_cart, bm_mesh_cart_end

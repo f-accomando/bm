@@ -491,6 +491,13 @@ test-online: $(BUILD)/host/bmhost-bin $(BUILD)/online-test.bm tests/online/input
 	grep -q "^online: \([0-9]*\)/\1 checks passed" $(BUILD)/online-test.log
 	grep -q "left the online game" $(BUILD)/online-test.log
 
+# bmnet (require "bmnet", games over the network): two bmhost on this PC,
+# the lobby, sure messages with a fifth of the packets lost, a lockstep
+# match that must be the same on both, a player leaving; on the LAN and
+# through the relay (tools/overbit_relay.py)
+test-bmnet: $(BUILD)/host/bmhost-bin tests/bmnet/cart.lua tests/bmnet/run.py src/script/bmnet.lua
+	$(PYTHON) tests/bmnet/run.py $(BUILD)
+
 test-sound: $(BUILD)/host/luahost $(BUILD)/demo.bmau carts/sound/main.lua
 	$< tests/sound/sim.lua carts/sound/main.lua $(BUILD)/demo.bmau
 
@@ -540,7 +547,7 @@ $(BUILD)/host/bmhost/runtime-deps: $(wildcard src/bm/*.h src/audio/*.h src/kerne
 	@mkdir -p $(dir $@) && touch $@
 $(BMHOST_OBJS): $(BUILD)/host/bmhost/runtime-deps
 $(BUILD)/host/bmhost-bin: tests/host/bmhost.c tests/host/stubs.c tests/host/hostnet.c tests/host/host.h tests/host/libs.S \
-                          $(BMHOST_OBJS) src/ai/assist.lua src/script/bm3d.lua src/script/bmlib.lua src/ai/predict.lua $(BUILD)/words.lua
+                          $(BMHOST_OBJS) src/ai/assist.lua src/script/bm3d.lua src/script/bmlib.lua src/script/bmnet.lua src/ai/predict.lua $(BUILD)/words.lua
 	$(HOSTCC) -O2 -g -Wall -Wextra -D_DEFAULT_SOURCE -Itests/host/shim -Isrc -Isrc/bm -Ithird_party/lua -I$(BUILD) \
 	    -o $@ tests/host/bmhost.c tests/host/stubs.c tests/host/hostnet.c tests/host/libs.S $(BMHOST_OBJS) -lm
 bmhost: $(BUILD)/host/bmhost-bin
@@ -549,7 +556,7 @@ bmhost: $(BUILD)/host/bmhost-bin
 # emulator of the tests (tests/gpu/v3d_emu.c): the frames as the GPU draws
 # them, to set them beside the ARM's (slower: the emulator is plain C)
 $(BUILD)/host/bmhost-gpu: tests/host/bmhost.c tests/host/stubs.c tests/host/hostnet.c tests/host/host.h tests/host/libs.S \
-                          $(BMHOST_OBJS) src/ai/assist.lua src/script/bm3d.lua src/script/bmlib.lua src/ai/predict.lua $(BUILD)/words.lua \
+                          $(BMHOST_OBJS) src/ai/assist.lua src/script/bm3d.lua src/script/bmlib.lua src/script/bmnet.lua src/ai/predict.lua $(BUILD)/words.lua \
                           src/gpu/gpu3d.c src/gpu/v3d_cl.c \
                           src/gpu/shaders.h tests/gpu/v3d_emu.c tests/gpu/v3d_emu.h
 	$(HOSTCC) -std=c11 -O2 -g -w -Isrc -Itests/gpu -Daligned_alloc=test_aligned_alloc -Dfree=test_free \
@@ -564,7 +571,7 @@ test-queue2d: $(BUILD)/host/bmhost-gpu
 	$(PYTHON) tests/gpu/queue2d.py $(BUILD)
 
 .DEFAULT_GOAL := all
-.PHONY: FORCE test-keymap test-gameapi test-online test-loading test-smp test-qpu test-gpu3d test-queue2d test-b3d test-v3d bench3d count-insns all clean firmware image \
+.PHONY: FORCE test-keymap test-gameapi test-online test-bmnet test-loading test-smp test-qpu test-gpu3d test-queue2d test-b3d test-v3d bench3d count-insns all clean firmware image \
         image-pi1 sdcard install sdcard-chainloader sdcard-stress qemu qemu7 qemu-screenshot \
         run-serial test test-bm test-res test-ai test-img2mesh ai-model test-predict predict-bench syllables test-usb test-audio \
         test-fat test-kitchen test-titan test-yharnam test-sound test-nano8 test-net test-http test-https test-release \
@@ -749,7 +756,7 @@ qemu-screenshot: $(BUILD)/kernel.img
 	./scripts/qemu-screenshot.sh $< $(BUILD)/screen.png
 
 test: all test-bm test-res test-usb test-fat test-audio test-kitchen test-titan test-yharnam test-sound test-nano8 test-net test-http test-https test-img3d \
-      test-catalog test-github test-lan test-keymap test-gameapi test-online test-loading \
+      test-catalog test-github test-lan test-keymap test-gameapi test-online test-bmnet test-loading \
       test-release test-smp test-qpu test-gpu3d test-queue2d test-b3d test-v3d test-ai test-predict test-studio test-prompts \
       test-overbit $(if $(K7),test-hyp)
 	$(PYTHON) tests/qemu_test.py --build $(BUILD)
@@ -951,7 +958,7 @@ $(BUILD)/host/test_board7: tests/usb/test_board.c src/drivers/board.c src/driver
 
 # the meshes a cartridge builds in its code (cart_meshes(), bm Mesh)
 MESHCAP_SRCS := tests/bm/test_meshcap.c src/bm/meshcap.c src/bm/format.c src/bm/r3d.c src/lib/crc32.c
-$(BUILD)/host/test_meshcap: $(MESHCAP_SRCS) src/bm/*.h $(LUA_SRCS) tests/host/libs.S src/script/bmlib.lua \
+$(BUILD)/host/test_meshcap: $(MESHCAP_SRCS) src/bm/*.h $(LUA_SRCS) tests/host/libs.S src/script/bmlib.lua src/script/bmnet.lua \
                             $(BUILD)/words.lua
 	@mkdir -p $(dir $@)
 	$(HOSTCC) -O2 -Wall -Wextra -Isrc/bm -Isrc -Ithird_party/lua -I$(BUILD) -o $@ $(MESHCAP_SRCS) tests/host/libs.S \

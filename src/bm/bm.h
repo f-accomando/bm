@@ -98,6 +98,13 @@
  *            then per_row*rows bytes, row by row (cell n of that sheet is
  *            byte n); trailing rows of zeros may be left out. Read by the
  *            cell's place, so a sheet grown since keeps them.
+ *   14 BOXES the boxes of the frames of the SPRITES zones (hitboxes,
+ *            hurtboxes; 2026-10-04): u16 boxes (1..4096), u16 reserved (0),
+ *            then per box: char[16] zone name (a zone of SPRITES), u8 frame
+ *            (1..16; 0: every frame of the zone), u8 kind (0 hurt, 1 hit, 2
+ *            body, 3..255 the game's own), i16 x, i16 y (from the frame's
+ *            top-left corner, pixels: it may stick out), u16 w, u16 h (>= 1),
+ *            u16 reserved (0). In a cartridge broken BOXES are left out.
  * Graphics are stored independently of the screen format and converted when
  * the cartridge is loaded, so the same file works if 32-bit output is added.
  *
@@ -112,13 +119,13 @@
  *   24  char[48] the name shown (the file name is 8.3)
  * Sections of each kind (INFO in all; the others are ignored and kept):
  *   models   MESH, ANIM, SHEET or SHEET8 (only the cells the textures use)
- *   image    SHEET or SHEET8, SPRITES
+ *   image    SHEET or SHEET8, SPRITES, BOXES
  *   sounds   AUDIO
  *   map      MAP, LAYERS, FLAGS, SHEET or SHEET8 (only the tiles the map
  *            uses)
  *   palette  SHEET8 of N x 1 pixels: its palette is the palette
- *   kit      any of MESH, ANIM, SHEET or SHEET8, SPRITES, AUDIO, MAP,
- *            LAYERS, FLAGS
+ *   kit      any of MESH, ANIM, SHEET or SHEET8, SPRITES, BOXES, AUDIO,
+ *            MAP, LAYERS, FLAGS
  * (an image may also hold FLAGS: the flags of its tiles)
  */
 #ifndef BM_H
@@ -143,6 +150,7 @@
 #define BM_SEC_SPRITES     11
 #define BM_SEC_LAYERS      12
 #define BM_SEC_FLAGS       13
+#define BM_SEC_BOXES       14
 #define BM_SEC_OLD_ANIM    7               /* the first files of bm Studio (see above) */
 #define BM_LAYERS_MAX      8               /* map layers, the MAP section counted */
 #define BM_LAYER_NAME      16              /* bytes of a layer's name in LAYERS */
@@ -150,6 +158,8 @@
 #define BM_SPRITES_MAX     1024            /* zones of a SPRITES section */
 #define BM_SPRITE_SIZE     28              /* bytes of a zone */
 #define BM_FRAMES_MAX      16
+#define BM_BOXES_MAX       4096            /* boxes of a BOXES section */
+#define BM_BOX_SIZE        28              /* bytes of a box */
 
 /* the kinds of resource file (offset 12 of a "BMRES" header) */
 enum { BM_RES_CART, BM_RES_MODEL, BM_RES_IMAGE, BM_RES_SOUND, BM_RES_MAP, BM_RES_PALETTE, BM_RES_KIT,
@@ -197,6 +207,8 @@ typedef struct {
     uint32_t info_size;
     const uint8_t *sprites;         /* SPRITES section, or NULL */
     uint16_t zones;                 /* zones in it */
+    const uint8_t *boxes;           /* BOXES section (frames' hit and hurt boxes), or NULL */
+    uint16_t nboxes;                /* boxes in it */
     const uint8_t *layers;          /* LAYERS section, or NULL (then the map has one layer) */
     uint8_t nlayers;                /* the map's layers: 0 without a map, else 1..8 */
     const uint8_t *flags;           /* FLAGS: the bytes, row by row, or NULL */
@@ -209,6 +221,16 @@ typedef struct {
     uint16_t x, y, w, h;            /* the first frame, sheet pixels */
     uint8_t frames, fps;            /* the next frames: w x h boxes to the right */
 } bm_zone_t;
+
+/* A box of the BOXES section. */
+enum { BM_BOX_HURT, BM_BOX_HIT, BM_BOX_BODY };
+typedef struct {
+    char zone[BM_MODEL_NAME + 1];
+    uint8_t frame;                  /* 1..16, 0: every frame */
+    uint8_t kind;                   /* BM_BOX_*, or the game's own (3..255) */
+    int16_t x, y;                   /* from the frame's top-left corner */
+    uint16_t w, h;
+} bm_box_t;
 
 /* One model of a MESH section (bm_parse has already checked it). */
 #define BM_MODEL_LIT       1u              /* flags of a model: its light is baked */
@@ -229,6 +251,8 @@ int bm_parse_any(const uint8_t *data, size_t len, bm_cart_t *c, char *err, size_
 int bm_is_res(const void *head8);
 /* Zone i (0-based) of a parsed file's SPRITES: 0, or -1 if there is none. */
 int bm_zone(const bm_cart_t *c, int i, bm_zone_t *z);
+/* Box i (0-based) of a parsed file's BOXES: 0, or -1 if there is none. */
+int bm_box(const bm_cart_t *c, int i, bm_box_t *b);
 /* A value of INFO: `key` in the block of the part "[type name]", else on
  * the file's own lines (type NULL: only those). 1 if found, the value in
  * out (cut to n - 1 bytes). */

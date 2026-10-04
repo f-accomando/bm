@@ -815,7 +815,7 @@ do
   -- bm's API (runtime.c), and in its own colour the 3D
   local API, API3D = {}, {}
   for w in ([[cls pset pget line rect rectfill circ circfill spr sspr map mget mset fget fset mflags msize mlayers
-    zspr zone zones sget sset print font
+    zspr zone zones zboxes sget sset print font
     camera prompt lastinput clip rgb btn btnp players stick time stat code_tokens tri screen log report keyhelp
     quit keymap controller online udp_open udp_send udp_recv udp_close net_ip net_resolve save saved keyp keyheld
     rawkeys keydown keys pad mouse mousep timeslice ls cart_load cart_new cart_save cart_run cart_tool cart_arg

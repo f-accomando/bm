@@ -403,18 +403,20 @@ int bm_is_res(const void *head8)
 static const uint32_t res_allowed[BM_RES_KINDS] = {
     0,
     BIT(BM_SEC_INFO) | BIT(BM_SEC_MESH) | BIT(BM_SEC_ANIM) | BIT(BM_SEC_SHEET) | BIT(BM_SEC_SHEET8),
-    BIT(BM_SEC_INFO) | BIT(BM_SEC_SPRITES) | BIT(BM_SEC_SHEET) | BIT(BM_SEC_SHEET8) | BIT(BM_SEC_FLAGS),
+    BIT(BM_SEC_INFO) | BIT(BM_SEC_SPRITES) | BIT(BM_SEC_SHEET) | BIT(BM_SEC_SHEET8) | BIT(BM_SEC_FLAGS) |
+        BIT(BM_SEC_BOXES),
     BIT(BM_SEC_INFO) | BIT(BM_SEC_AUDIO),
     BIT(BM_SEC_INFO) | BIT(BM_SEC_MAP) | BIT(BM_SEC_LAYERS) | BIT(BM_SEC_FLAGS) | BIT(BM_SEC_SHEET) |
         BIT(BM_SEC_SHEET8),
     BIT(BM_SEC_INFO) | BIT(BM_SEC_SHEET8),
     BIT(BM_SEC_INFO) | BIT(BM_SEC_MESH) | BIT(BM_SEC_ANIM) | BIT(BM_SEC_SHEET) | BIT(BM_SEC_SHEET8) |
-        BIT(BM_SEC_SPRITES) | BIT(BM_SEC_AUDIO) | BIT(BM_SEC_MAP) | BIT(BM_SEC_LAYERS) | BIT(BM_SEC_FLAGS),
+        BIT(BM_SEC_SPRITES) | BIT(BM_SEC_AUDIO) | BIT(BM_SEC_MAP) | BIT(BM_SEC_LAYERS) | BIT(BM_SEC_FLAGS) |
+        BIT(BM_SEC_BOXES),
 };
 #define KNOWN_SECTIONS (BIT(BM_SEC_LUA) | BIT(BM_SEC_SHEET) | BIT(BM_SEC_MAP) | BIT(BM_SEC_COVER) | \
                         BIT(BM_SEC_SHEET8) | BIT(BM_SEC_AUDIO) | BIT(BM_SEC_OLD_ANIM) | BIT(BM_SEC_MESH) | \
                         BIT(BM_SEC_ANIM) | BIT(BM_SEC_INFO) | BIT(BM_SEC_SPRITES) | BIT(BM_SEC_LAYERS) | \
-                        BIT(BM_SEC_FLAGS))
+                        BIT(BM_SEC_FLAGS) | BIT(BM_SEC_BOXES))
 
 /* A SPRITES section: the number of zones, or -1 if it is broken. */
 static int sprites_check(const uint8_t *p, uint32_t size)
@@ -431,6 +433,23 @@ static int sprites_check(const uint8_t *p, uint32_t size)
         for (unsigned j = 0; j < i; j++)        /* a name once */
             if (!strncmp((const char *)z, (const char *)p + 4 + j * BM_SPRITE_SIZE, BM_MODEL_NAME))
                 return -1;
+    }
+    return (int)n;
+}
+
+/* A BOXES section (its zones are checked after): the number of boxes, or
+ * -1 if it is broken. */
+static int boxes_check(const uint8_t *p, uint32_t size)
+{
+    if (size < 4)
+        return -1;
+    unsigned n = rd16(p);
+    if (!n || n > BM_BOXES_MAX || size != 4 + n * BM_BOX_SIZE)
+        return -1;
+    for (unsigned i = 0; i < n; i++) {
+        const uint8_t *b = p + 4 + i * BM_BOX_SIZE;
+        if (!b[0] || b[16] > BM_FRAMES_MAX || !rd16(b + 22) || !rd16(b + 24))
+            return -1;
     }
     return (int)n;
 }
@@ -517,6 +536,17 @@ static int parse(const uint8_t *d, size_t len, bm_cart_t *c, char *err, size_t e
             }
             c->sprites = p;
             c->zones = (uint16_t)n;
+            break;
+        }
+        case BM_SEC_BOXES: {
+            int n = boxes_check(p, size);
+            if (n < 0) {
+                if (c->kind)
+                    return fail(err, errlen, "bad boxes (BOXES)");
+                break;
+            }
+            c->boxes = p;
+            c->nboxes = (uint16_t)n;
             break;
         }
         case BM_SEC_LUA:
@@ -621,6 +651,24 @@ static int parse(const uint8_t *d, size_t len, bm_cart_t *c, char *err, size_t e
                 return fail(err, errlen, "a sprite zone out of the sheet");
             c->sprites = NULL;
             c->zones = 0;
+            break;
+        }
+    }
+    /* every box on a frame of a zone */
+    for (unsigned i = 0; i < c->nboxes; i++) {
+        bm_box_t b;
+        bm_box(c, (int)i, &b);
+        int ok = 0;
+        for (unsigned j = 0; j < c->zones && !ok; j++) {
+            bm_zone_t z;
+            bm_zone(c, (int)j, &z);
+            ok = !strcmp(z.name, b.zone) && b.frame <= z.frames;
+        }
+        if (!ok) {
+            if (c->kind)
+                return fail(err, errlen, "a box of a zone the sheet does not have");
+            c->boxes = NULL;
+            c->nboxes = 0;
             break;
         }
     }
@@ -856,4 +904,20 @@ uint8_t *bm_rewrite_with(const uint8_t *old, size_t oldlen, const char *lua, siz
     wr32(buf + 20, crc32(buf + BM_HEADER_SIZE, (uint32_t)(total - BM_HEADER_SIZE)));
     *outlen = total;
     return buf;
+}
+
+int bm_box(const bm_cart_t *c, int i, bm_box_t *b)
+{
+    if (!c->boxes || i < 0 || i >= c->nboxes)
+        return -1;
+    const uint8_t *p = c->boxes + 4 + i * BM_BOX_SIZE;
+    memcpy(b->zone, p, BM_MODEL_NAME);
+    b->zone[BM_MODEL_NAME] = 0;
+    b->frame = p[16];
+    b->kind = p[17];
+    b->x = (int16_t)rd16(p + 18);
+    b->y = (int16_t)rd16(p + 20);
+    b->w = rd16(p + 22);
+    b->h = rd16(p + 24);
+    return 0;
 }

@@ -340,6 +340,171 @@ function lib.ray(x0, y0, x1, y1, mask)
   return nil
 end
 
+----------------------------------------------------------------- hitboxes and hurtboxes
+
+-- two bodies {x, y, w, h} that overlap are pushed apart along the axis
+-- where they overlap less, half each (a.fixed or b.fixed: only the other
+-- moves; both fixed: neither): crowds, fighters that do not pass through
+-- each other. Returns true if they touched.
+function lib.separate(a, b)
+  local aw, ah, bw, bh = a.w or 8, a.h or 8, b.w or 8, b.h or 8
+  local ox = min(a.x + aw, b.x + bw) - max(a.x, b.x)
+  local oy = min(a.y + ah, b.y + bh) - max(a.y, b.y)
+  if ox <= 0 or oy <= 0 then return false end
+  if a.fixed and b.fixed then return true end
+  local ka = b.fixed and 1 or a.fixed and 0 or 0.5
+  if ox < oy then
+    local d = a.x + aw / 2 < b.x + bw / 2 and -ox or ox
+    a.x, b.x = a.x + d * ka, b.x - d * (1 - ka)
+  else
+    local d = a.y + ah / 2 < b.y + bh / 2 and -oy or oy
+    a.y, b.y = a.y + d * ka, b.y - d * (1 - ka)
+  end
+  return true
+end
+
+-- a box of a frame (b.x, b.y from the frame's top-left corner, b.w, b.h:
+-- a box of zboxes() or of the game's own tables) in the world, for the
+-- frame drawn at x, y; flip: the frame is mirrored (facing left), fw its
+-- width. Returns x, y, w, h.
+function lib.box(b, x, y, flip, fw)
+  if flip then return x + (fw or 8) - b.x - b.w, y + b.y, b.w, b.h end
+  return x + b.x, y + b.y, b.w, b.h
+end
+
+local Hits = {}
+Hits.__index = Hits
+
+-- the hitboxes (what hurts: a punch, a sword, a bullet) and hurtboxes (where
+-- a body can be hurt) of a frame, and who hits whom. In each _update:
+-- H:clear(), then every body gives its hurtboxes (H:hurt) and every attack
+-- its hitboxes (H:hit), then H:check() gives the contacts.
+function lib.hits()
+  return setmetatable({ hurts = {}, hitl = {}, done = {}, seen = {} }, Hits)
+end
+
+-- a new frame: the boxes of the last one go; the attacks (id) not given
+-- in the last frame are over (their targets can be hit again)
+function Hits:clear()
+  for id in pairs(self.done) do
+    if not self.seen[id] then self.done[id] = nil end
+  end
+  self.seen, self.hurts, self.hitl = {}, {}, {}
+end
+
+local function opt_box(list, who, x, y, w, h, o)
+  local b = { who = who, x = x, y = y, w = w, h = h, o = o or {} }
+  list[#list + 1] = b
+  return b
+end
+
+-- a hurtbox of who (any value: the body, its table): o.team (the same team
+-- does not hurt itself), o.part (a name: "head"; give the parts that count
+-- most first), o.z and o.depth (a third dimension: the lane of a beat 'em
+-- up, the height in a top-down game)
+function Hits:hurt(who, x, y, w, h, o)
+  return opt_box(self.hurts, who, x, y, w, h, o)
+end
+
+-- a hitbox of the attacker by: o.team, o.id (an attack: it hits each body
+-- once while the same id is given frame after frame; the boxes of one
+-- attack share it; without id each hitbox hurts in every frame it touches),
+-- o.clash (two hitboxes with clash that touch make
+-- a contact "clash": blades that meet), o.z and o.depth, and everything the
+-- game wants with it (damage, knock...)
+function Hits:hit(by, x, y, w, h, o)
+  o = o or {}
+  if o.id ~= nil then self.seen[o.id] = true end
+  return opt_box(self.hitl, by, x, y, w, h, o)
+end
+
+-- the boxes of a sprite zone's frame (zboxes: hurt and hit; body and the
+-- game's own are left) for who, drawn with zspr(name, x, y, frame, flip):
+-- the hurtboxes with o (team, part...), the hitboxes with o.attack (the
+-- options of H:hit; its team: o.team if missing)
+function Hits:zone(who, name, frame, x, y, flip, o)
+  o = o or {}
+  local _, _, fw = zone(name)
+  local group = {}                      -- the frame's hitboxes: one attack
+  for _, b in ipairs(zboxes(name, frame)) do
+    local bx, by, bw, bh = lib.box(b, x, y, flip, fw)
+    if b.kind == "hurt" then
+      self:hurt(who, bx, by, bw, bh, o)
+    elseif b.kind == "hit" then
+      local a = o.attack or {}
+      if a.team == nil and o.team ~= nil then
+        local c = {}
+        for k, v in pairs(a) do c[k] = v end
+        c.team, a = o.team, c
+      end
+      self:hit(who, bx, by, bw, bh, a).group = group
+    end
+  end
+end
+
+local function touch(a, b)
+  if not lib.overlap(a.x, a.y, a.w, a.h, b.x, b.y, b.w, b.h) then return false end
+  local za, zb = a.o.z, b.o.z
+  if za and zb and abs(za - zb) > ((a.o.depth or 0) + (b.o.depth or 0)) / 2 then return false end
+  return true
+end
+
+local function foes(a, b)
+  if a.who == b.who then return false end
+  local ta, tb = a.o.team, b.o.team
+  return ta == nil or tb == nil or ta ~= tb
+end
+
+local function contact(kind, h, t)
+  local x0, y0 = max(h.x, t.x), max(h.y, t.y)
+  local x1, y1 = min(h.x + h.w, t.x + t.w), min(h.y + h.h, t.y + t.h)
+  return { kind = kind, by = h.who, to = t.who, hit = h.o, part = t.o.part, x = (x0 + x1) / 2, y = (y0 + y1) / 2 }
+end
+
+-- the contacts of this frame, in the order the hitboxes were given: a list
+-- of {kind = "hit" or "clash", by (the attacker), to (the body hurt, or the
+-- other attacker), hit (the o of H:hit), part (of the hurtbox), x, y (the
+-- middle of where they touch)}. An attack hits a body once a frame (its
+-- first box that touches) and, with an id, once until the id ends.
+function Hits:check()
+  local out, once = {}, {}
+  local hl = self.hitl
+  for i, h in ipairs(hl) do
+    local key = h.o.id
+    if key == nil then key = h.group or h end
+    local done = h.o.id ~= nil and self.done[h.o.id]
+    for _, t in ipairs(self.hurts) do
+      if foes(h, t) and touch(h, t) then
+        local k1 = once[key] or {}
+        once[key] = k1
+        if not k1[t.who] and not (done and done[t.who]) then
+          k1[t.who] = true
+          if h.o.id ~= nil then
+            done = done or {}
+            self.done[h.o.id] = done
+            done[t.who] = true
+          end
+          out[#out + 1] = contact("hit", h, t)
+        end
+      end
+    end
+    if h.o.clash then
+      for j = i + 1, #hl do
+        local g = hl[j]
+        if g.o.clash and foes(h, g) and touch(h, g) then out[#out + 1] = contact("clash", h, g) end
+      end
+    end
+  end
+  return out
+end
+
+-- the boxes of the frame, to see them while making the game: hurtboxes
+-- blue, hitboxes red (or the colours given)
+function Hits:draw(hurt_c, hit_c)
+  for _, b in ipairs(self.hurts) do rect(b.x, b.y, b.w, b.h, hurt_c or 0x40A0FF) end
+  for _, b in ipairs(self.hitl) do rect(b.x, b.y, b.w, b.h, hit_c or 0xFF4040) end
+end
+
 ----------------------------------------------------------------- easing
 
 -- functions of t in 0..1, 0 at 0 and 1 at 1
@@ -694,8 +859,10 @@ function Cam:shake(amount, secs)
 end
 
 -- camera() at the camera's place (and the shake): call it in _draw before
--- the world; returns the x, y used
-function Cam:apply()
+-- the world; returns the x, y used. With a view {x, y, w, h} (lib.split:
+-- a player's part of the screen) drawing is clipped to it and the camera's
+-- top left corner is the view's.
+function Cam:apply(view)
   self.sx, self.sy = 0, 0
   if self.shake_t > 0 then
     local k = self.shake_a * self.shake_t / self.shake_n
@@ -703,7 +870,12 @@ function Cam:apply()
     self.shake_t = self.shake_t - DT
   end
   local x, y = floor(self.x + 0.5) + self.sx, floor(self.y + 0.5) + self.sy
-  camera(x, y)
+  if view then
+    clip(view.x, view.y, view.w, view.h)
+    camera(x - view.x, y - view.y)
+  else
+    camera(x, y)
+  end
   return x, y
 end
 
@@ -721,9 +893,10 @@ function Cam:sees(x, y, w, h)
   return lib.overlap(x, y, w or 1, h or 1, self.x, self.y, sw, sh)
 end
 
--- a point of the world on the screen
-function Cam:screen(x, y)
-  return x - floor(self.x + 0.5) - self.sx, y - floor(self.y + 0.5) - self.sy
+-- a point of the world on the screen (in the view, if given)
+function Cam:screen(x, y, view)
+  local vx, vy = view and view.x or 0, view and view.y or 0
+  return x - floor(self.x + 0.5) - self.sx + vx, y - floor(self.y + 0.5) - self.sy + vy
 end
 
 ----------------------------------------------------------------- states
@@ -1018,6 +1191,111 @@ function lib.pause(o)
     rectfill(x, y, bw, bh, o.bg or 0x101418)
     lib.printc(o.title or "PAUSED", y + 4 * s, accent, s, x, bw)
     self.menu:draw(x + 4 * s, y + (ch + 10) * s, { w = bw - 8 * s - cw * s, scale = s })
+  end
+  return P
+end
+
+----------------------------------------------------------------- players on one console
+
+-- the players' colours: those of the pads' light bars (1 blue, 2 red, 3
+-- green, 4 pink), as controller(p).color
+lib.PLAYER_COLORS = { 0x3070FF, 0xFF3C28, 0x28D848, 0xFF38A8 }
+
+-- the players who have a controller now: their numbers, in order ({1, 3})
+function lib.pads()
+  local _, m = players()
+  local out = {}
+  for p = 1, 4 do
+    if m >> (p - 1) & 1 == 1 then out[#out + 1] = p end
+  end
+  return out
+end
+
+-- the screen cut into views for n players (1-4): a list of {x, y, w, h}.
+-- Two side by side (o.vertical: one above the other), three or four in
+-- the corners (with three the bottom right is free: a map, the scores);
+-- o.gap pixels between them (2), o.x, o.y, o.w, o.h the part of the screen
+-- (all of it if missing). A camera per player: lib.camera{w = v.w, h =
+-- v.h}, then in _draw C:apply(v) for each view, and clip() camera() after.
+function lib.split(n, o)
+  o = o or {}
+  local x0, y0, w, h, g = o.x or 0, o.y or 0, o.w or SCREEN_W, o.h or SCREEN_H, o.gap or 2
+  local hw, hh = (w - g) // 2, (h - g) // 2
+  if n <= 1 then return { { x = x0, y = y0, w = w, h = h } } end
+  if n == 2 then
+    if o.vertical then
+      return { { x = x0, y = y0, w = w, h = hh }, { x = x0, y = y0 + h - hh, w = w, h = hh } }
+    end
+    return { { x = x0, y = y0, w = hw, h = h }, { x = x0 + w - hw, y = y0, w = hw, h = h } }
+  end
+  local out = {}
+  for i = 1, min(n, 4) do
+    local c, r = (i - 1) % 2, (i - 1) // 2
+    out[i] = { x = x0 + c * (w - hw), y = y0 + r * (h - hh), w = hw, h = hh }
+  end
+  return out
+end
+
+-- the screen where the players of one console join a game: each presses ok
+-- on their controller to be in, back to go out; Start of a player who is
+-- in begins, with at least o.min players (1). o.max (4). P:update() in
+-- _update returns the players in (their numbers, in the order they came)
+-- when the game begins, else nil; P:draw([x, y, w, h]) draws a card for
+-- each place. P.list are the players in now.
+function lib.party(o)
+  o = o or {}
+  local P = { list = {}, min = o.min or 1, max = o.max or 4 }
+  function P:has(p)
+    for i, q in ipairs(self.list) do
+      if q == p then return i end
+    end
+    return nil
+  end
+  function P:update()
+    for p = 1, 4 do
+      local i = self:has(p)
+      if not i and #self.list < self.max and btnp("ok", p) then
+        self.list[#self.list + 1] = p
+        if o.join then o.join(p) end
+      elseif i and btnp("back", p) then
+        table.remove(self.list, i)
+        if o.leave then o.leave(p) end
+      elseif i and btnp("start", p) and #self.list >= self.min then
+        return self.list
+      end
+    end
+    return nil
+  end
+  function P:draw(x, y, w, h)
+    x, y, w, h = x or 0, y or 0, w or SCREEN_W, h or SCREEN_H
+    local _, ch = font_size()
+    local cw, chh = (w - 40) // 4, h - ch - 8          -- the cards, then the line to begin
+    for p = 1, 4 do
+      local cx = x + 8 + (p - 1) * (cw + 8)
+      local i = self:has(p)
+      local col = lib.PLAYER_COLORS[p]
+      local c = controller(p)
+      rectfill(cx, y, cw, chh, i and lib.shade(col, 0.3) or 0x161A22)
+      rect(cx, y, cw, chh, i and col or 0x303846)
+      lib.printc("P" .. p, y + ch, i and col or 0x606878, 2, cx, cw)
+      local ty = y + ch * 4
+      if i then
+        lib.printc("IN", ty, 0xFFFFFF, 1, cx, cw)
+        lib.printc(c.kind, ty + ch + 4, 0x9098A8, 1, cx, cw)
+      elseif c.kind == "none" then
+        lib.printc("no controller", ty, 0x505868, 1, cx, cw)
+      elseif #self.list < self.max and lib.blink() then
+        local pw = prompt("ok", false, 1, p)
+        local tw = lib.textw(" join")
+        local px = cx + (cw - pw - tw) // 2
+        print(" join", prompt("ok", px, ty, false, 1, p), ty, 0xFFFFFF)
+      end
+    end
+    if #self.list >= self.min then
+      lib.printc("START: play", y + h - ch, lib.blink() and 0xFFD050 or 0x9098A8, 1, x, w)
+    else
+      lib.printc((self.min - #self.list) .. " more to play", y + h - ch, 0x9098A8, 1, x, w)
+    end
   end
   return P
 end

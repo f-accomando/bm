@@ -320,7 +320,15 @@ void input_stick_r(int p, float *x, float *y)
     *y = host.rstick[p][1];
 }
 
-unsigned input_connected(void) { return 1; }
+/* player 1, and the players given a controller by "device P kind" */
+unsigned input_connected(void)
+{
+    unsigned m = 1;
+    for (int p = 1; p < INPUT_PLAYERS; p++)
+        if (host.dev[p] > 0)
+            m |= 1u << p;
+    return m;
+}
 
 /* "device P kind" in the script, else player 1 plays with what "source" says */
 int input_device(int p)

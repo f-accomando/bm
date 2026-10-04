@@ -1,3 +1,8 @@
 # name  x  y  w  h  frames fps
 coin    0  8  8  8  3      10
+# its boxes (zboxes): kind frame x y w h, frame * = every frame
+  hurt  *  1  1  6  6
+  hit   2  4  0  6  3
 big     0  16 16 16
+  body  1  -2 4  20 12
+  box 7 *  2  2  4  4
