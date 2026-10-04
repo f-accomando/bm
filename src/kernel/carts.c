@@ -1111,7 +1111,7 @@ void carts_menu(framebuffer_t *fb)
                 } else if (click && h.kind == MENU_HIT_TAB) {
                     tabto = h.index;
                 } else if (click && h.kind == MENU_HIT_SETTINGS) {
-                    tabto = 3;
+                    tabto = TAB_SETTINGS;
                 } else if ((click && h.kind != MENU_HIT_PANEL && h.kind != MENU_HIT_ROW) || right) {
                     back = 1;
                 }
@@ -1131,7 +1131,7 @@ void carts_menu(framebuffer_t *fb)
                 else if (click && h.kind == MENU_HIT_TAB)
                     tabto = h.index;
                 else if (click && h.kind == MENU_HIT_SETTINGS)
-                    tabto = 3;
+                    tabto = TAB_SETTINGS;
                 else if (click && h.kind == MENU_HIT_BUTTON && h.index == 'A')
                     action = 1;
                 else if (click && h.kind == MENU_HIT_BUTTON && h.index == 'X')
