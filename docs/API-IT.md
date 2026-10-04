@@ -1,7 +1,8 @@
 # Cartucce native `.bm`: API e prima cartuccia
 
 > Guida pratica passo per passo (sprite, mappe, modelli 3D, suono, luci, salvataggi):
-> [GUIDA-GIOCHI.md](GUIDA-GIOCHI.md).
+> [GUIDA-GIOCHI.md](GUIDA-GIOCHI.md). In inglese: [API-EN.md](API-EN.md) e
+> [GAME-GUIDE.md](GAME-GUIDE.md).
 
 Una cartuccia `.bm` è un gioco per bm scritto in **Lua 5.4**. Il kernel disegna in C
 (640×360, colore a 16 bit RGB565, 60 fotogrammi al secondo); Lua si occupa solo della
@@ -89,7 +90,8 @@ Lo schermo **non** viene cancellato da solo: di solito `_draw` comincia con `cls
 
 Limiti: un errore o un ciclo infinito (oltre **20 milioni di istruzioni** Lua in un
 fotogramma) ferma la cartuccia senza bloccare la console. Sandbox: niente `io`, `os`,
-`load`, `dofile`; `require` carica solo le librerie incluse nel kernel (`"assist"`, il
+`load`, `dofile`; `require` carica solo le librerie incluse nel kernel (`"bmlib"`, la
+libreria comune dei giochi: [sotto](#bmlib-la-libreria-comune-dei-giochi); `"assist"`, il
 pannello dell'assistente; `"bm3d"`, quello che bm Studio e bm Animator condividono;
 `"predict"` e `"words"`, il completamento delle parole); ci sono `string`, `table`,
 `math`, `utf8`, `coroutine`.
@@ -136,11 +138,69 @@ ripetute (RLE) invece di 4 byte per pixel, decodificati al caricamento (Titan Cl
 | `spr(n, x, y, [w, h, flip_x, flip_y])` | disegna la cella `n` (w×h celle, default 1×1), anche specchiata |
 | `sspr(sx, sy, sw, sh, dx, dy, [flip_x, flip_y, zoom])` | copia un rettangolo qualsiasi dello sheet; con `zoom` (predefinito 1) lo disegna ingrandito (`2`, `3`…) o rimpicciolito (`0.5`), pixel per pixel: copre `sw * zoom` × `sh * zoom` pixel |
 | `sget(x, y)` / `sset(x, y, [c])` | legge / scrive un pixel dello sheet (`nil` = trasparente) |
-| `map(mx, my, [x, y, mw, mh])` | disegna la mappa dalla cella (mx, my), mw×mh celle, a (x, y) |
-| `mget(mx, my)` / `mset(mx, my, n)` | legge / scrive una cella della mappa (0 = vuota) |
+| `zspr(nome, x, y, [fotogramma, flip_x, flip_y, zoom])` | disegna una **zona con nome** dello sheet (sotto): `fotogramma` da 1 al numero dei fotogrammi (oltre si ricomincia), oppure `nil`: quello che i suoi fps danno a `time()`, cioè l'animazione va da sola. Restituisce il fotogramma disegnato. Una zona che non c'è è un errore |
+| `zone(nome)` | `x, y, w, h, fotogrammi, fps` della zona (il primo fotogramma, in pixel dello sheet), o `nil` |
+| `zones()` | i nomi delle zone, in ordine (`{}` se non ce ne sono) |
+| `map(mx, my, [x, y, mw, mh, livello, maschera])` | disegna la mappa dalla cella (mx, my), mw×mh celle, a (x, y). `livello`: il numero (da 1) o il nome del livello (predefinito 1). `maschera`: solo le celle la cui tile ha almeno uno di quei **flag** (`fget`; 0 o niente: tutte) |
+| `mget(mx, my, [livello])` / `mset(mx, my, n, [livello])` | legge / scrive una cella della mappa (0 = vuota; fuori dalla mappa `mget` dà 0) |
+| `fget(n, [f])` | i **flag** della tile (cella dello sheet) `n`: un byte, 8 flag; con `f` (0–7) quel flag, `true` o `false` |
+| `fset(n, f, acceso)` / `fset(n, byte)` | accende o spegne il flag `f` della tile `n`; con due argomenti scrive tutti gli 8 flag insieme |
+| `mflags(x, y, [w, h, livello])` | i flag delle tile che il rettangolo tocca, **in pixel** (la mappa disegnata a 0, 0; senza `w` e `h` un punto), messi insieme (or); 0 = niente. La cella 0 e il fuori mappa non ne hanno. Per le collisioni: `mflags(x, y + h, w, 1) & 1 ~= 0` (il flag 0 sotto i piedi) |
+| `msize([w, h])` | `w, h, livelli`: la misura della mappa in celle e quanti livelli ha; con `w` e `h` tutti i livelli prendono quella misura, le celle che ci stanno restano dov'erano |
+| `mlayers([lista])` | i nomi dei livelli, in ordine (il primo si disegna dietro). Con una lista (da 1 a 8 voci) la mappa prende quei livelli: una voce è un nome (il livello con quel nome, o uno nuovo vuoto) oppure `{nome, da}` (una copia del livello `da`, numero o nome): così si aggiungono, spostano, rinominano e tolgono |
+
+**La mappa a livelli (R11, 2026-10-04).** La mappa ha da 1 a 8 **livelli** della stessa
+misura, con un nome (il primo si chiama `"main"` se non gliene si dà un altro). Si
+disegnano uno alla volta, nell'ordine che si vuole: per esempio lo sfondo, poi gli sprite,
+poi il livello che passa **davanti** al personaggio (chiome degli alberi, archi, tetti).
+
+```lua
+cls(0)
+map(0, 0, 0, 0, 80, 45, "back")     -- il pavimento
+spr(eroe, x, y)
+map(0, 0, 0, 0, 80, 45, "front")    -- le chiome sopra l'eroe
+```
+
+**I flag delle tile.** Ogni tile dello sheet ha 8 flag (0–7) che dicono cosa è per il
+gioco: muro, acqua, scala, pericolo... Le collisioni guardano i flag invece dei numeri delle
+tile. La convenzione di [bmlib](#bmlib-la-libreria-comune-dei-giochi) (ogni gioco può
+sceglierne un'altra): flag 0 **solido** (1), 1 **piattaforma** che si attraversa da sotto
+(2), 2 **scala** (4), 3 **acqua** (8), 4 **fa male** (16); 5–7 liberi.
+
+```lua
+if fget(mget(cx, cy), 0) then ... end            -- la cella è solida
+if mflags(px, py + 8, 8, 1) & 1 ~= 0 then        -- il personaggio (8x8) poggia su qualcosa
+  a_terra = true
+end
+map(0, 0, 0, 0, 80, 45, 1, 4)                    -- solo le scale
+```
+
+**Le zone con nome.** La sezione SPRITES dà un nome a dei rettangoli dello sheet, con i
+loro fotogrammi (le caselle della stessa misura a destra della prima) e la velocità
+dell'animazione. Il codice non ha più bisogno delle coordinate:
+
+```lua
+zspr("moneta", x, y)                   -- l'animazione della moneta, va da sola
+zspr("eroe_corre", x, y, f, a_sinistra)
+local _, _, w, h = zone("eroe_corre")  -- la misura, per le collisioni
+```
+
+**Da dove vengono.** Con `mkbm.py`: `--map mappa.csv` è il primo livello; ogni altro
+`--map nome=file.csv` è un livello in più (fino a 8, nell'ordine dato; un CSV più piccolo
+del primo si riempie di celle vuote); `--flags flag.csv` i flag (numeri 0–255 per le celle
+0, 1, 2... in ordine, oppure `n=flag` per la cella `n`); `--sprites zone.txt` le zone (una
+per riga: `nome x y w h [fotogrammi [fps]]`). Nella build del repository bastano i file
+`map_<nome>.csv` (in ordine con `layers_<gioco> := nome ...` nel `Makefile`), `flags.csv` e
+`sprites.txt` nella cartella del gioco. Sulla console l'editor dell'SDK cambia livello con
+`L` (`O` mostra solo quello) e ne aggiunge dal menu, e accende i flag della cella con i
+tasti `0`–`7` nella pagina degli sprite; bm Pixel e `scripts/bmres.py` fanno le zone.
+`cart_save` e `cart_load` portano livelli, flag e zone con la cartuccia. Formato: sezioni
+LAYERS (12), FLAGS (13) e SPRITES (11) in `src/bm/bm.h`; un kernel di prima disegna il
+primo livello e ignora il resto.
 
 La mappa viene da `--map mappa.csv` (una riga di numeri separati da virgole per riga
-della mappa; ogni numero è una cella dello sheet).
+della mappa; ogni numero è una cella dello sheet). Senza mappa è di 256×256 celle vuote,
+un livello solo.
 
 ### Input
 
@@ -255,7 +315,8 @@ Ogni cartuccia ha **un** salvataggio, in `/bm/save/XXXXXXXX.SAV` sulla SD (il no
 dipende da titolo e autore: cambiandoli si riparte da zero). La tabella può contenere
 numeri, stringhe, booleani e altre tabelle (niente funzioni, al massimo 32 KiB).
 Scrivere sulla SD richiede qualche millisecondo: chiama `save()` in momenti come la fine
-della partita, non a ogni fotogramma. Esempio (record di Snake):
+della partita, non a ogni fotogramma (`lib.store` e `lib.best` di [bmlib](#bmlib-la-libreria-comune-dei-giochi)
+scrivono solo quando un valore cambia). Esempio (record di Snake):
 
 ```lua
 function _init()
@@ -344,8 +405,8 @@ arp(3, "major", 40)
 ```
 
 Pong, Snake e Star Shooter in `carts/` usano le note (una funzione `jingle` di 10 righe
-per le melodie); il progetto dimostrativo del Sound editor (`carts/sound/demo.json`) ha
-effetti sonori e due brani da ascoltare e copiare.
+per le melodie; ora c'è `lib.jingle` in bmlib); il progetto dimostrativo del Sound editor
+(`carts/sound/demo.json`) ha effetti sonori e due brani da ascoltare e copiare.
 
 #### Il banco: formato e strumenti
 
@@ -360,16 +421,17 @@ SONG=0` lo ascolta in un WAV.
 
 | Funzione | Descrizione |
 |---|---|
+| `keyheld(nome)` | `true` finché è premuto il tasto `nome` di una tastiera: `"f1"`…`"f12"`, `"tab"`, `"space"`, `"enter"`, `"esc"` (bm Pixel: spazio tenuto per disegnare) |
 | `keyp()` | il prossimo tasto scritto: un carattere (`"a"`, `"\n"` Invio, `"\b"` Backspace, `"\t"`), un nome (`"up"`, `"down"`, `"left"`, `"right"`, `"home"`, `"end"`, `"pgup"`, `"pgdn"`, `"del"`, `"esc"`, `"f1"`…`"f10"`), `"^s"` per Ctrl+S o `"^S"` per Ctrl+Shift+S; `nil` se nessuno. F11 e F12 sono del sistema e non arrivano. Dalla prima chiamata la tastiera scrive e non fa più da gamepad per `btn()`, ed Esc è un tasto come gli altri (Ctrl+Esc, Start+Select e PS chiudono) |
 | `keyhelp(lista, [titolo])` | i tasti della cartuccia, mostrati sotto quelli del sistema mentre si tiene **F12** (2026-10-04): `lista` è `{ {"tasti", "cosa fanno"}, "titoletto", … }`; i tasti come in `prompt()` (minuscolo la tastiera, maiuscolo il pad), separati da spazi: `"ctrl s"`, `"shift w a s d"`, `"a / d"` (alternative), `"1 - 5"` (intervallo), `"Y LEFTRIGHT"`. Restituisce quante voci nominano un tasto che il sistema tiene per sé e la cartuccia non riceve mai (F11, F12, Ctrl+Esc, Ctrl+Shift+Esc: in rosso e nel log, vanno tolte); gli altri tasti di sistema (Esc, Ctrl+S…) si elencano quando si dice che cosa fanno lì; `keyhelp(nil)` la toglie. Chiamarla di nuovo quando la pagina cambia |
 | `ls([cartella])` | i file della SD: `{ {name=, size=, dir=}, … }` |
-| `cart_load(percorso)` | apre un `.bm`: il suo sprite sheet, la sua mappa e i suoi modelli 3D (con gli scheletri) sostituiscono quelli della cartuccia che chiama; restituisce `{title, author, res, lua, sheet_w, sheet_h, map_w, map_h, [palette]}`; `palette` sono i colori (0xRRGGBB) della tavolozza della sezione SHEET8, nel loro ordine, se lo sheet è salvato così |
-| `cart_sheet([w, h])` | larghezza e altezza dello sprite sheet del progetto; con `w` e `h` (multipli di 8, da 8 a 4096) lo porta a quella misura: i pixel che ci stanno restano dove sono, i nuovi sono trasparenti (bm Pixel) |
-| `cart_new()` | sprite sheet e mappa vuoti (256×256), niente modelli |
-| `cart_save(percorso, {title, author, res, lua})` | scrive un `.bm` con il codice dato e lo sprite sheet, la mappa, la copertina, il banco di suoni, i modelli e gli scheletri correnti (le altre sezioni del file aperto restano come erano); nome 8.3, es. `"/carts/GIOCO.BM"` |
+| `cart_load(percorso)` | apre un `.bm`: il suo sprite sheet (con i flag delle tile e le zone), la sua mappa (con i livelli) e i suoi modelli 3D (con gli scheletri) sostituiscono quelli della cartuccia che chiama; restituisce `{title, author, res, lua, sheet_w, sheet_h, map_w, map_h, layers, [palette]}`; `layers` i nomi dei livelli della mappa; `palette` sono i colori (0xRRGGBB) della tavolozza della sezione SHEET8, nel loro ordine, se lo sheet è salvato così |
+| `cart_sheet([w, h])` | larghezza e altezza dello sprite sheet del progetto; con `w` e `h` (multipli di 8, da 8 a 4096) lo porta a quella misura: i pixel che ci stanno restano dove sono, i nuovi sono trasparenti (bm Pixel); i flag restano alla loro tile |
+| `cart_new()` | sprite sheet e mappa vuoti (256×256, un livello), niente flag, zone o modelli |
+| `cart_save(percorso, {title, author, res, lua})` | scrive un `.bm` con il codice dato e lo sprite sheet, i flag delle tile, le zone, la mappa con i suoi livelli, la copertina, il banco di suoni, i modelli e gli scheletri correnti (le altre sezioni del file aperto restano come erano); nome 8.3, es. `"/carts/GIOCO.BM"` |
 | `cart_read(percorso)` | il codice e l'intestazione di un `.bm`: `{title, author, res, lua, size}`, **senza** toccare lo sheet e la mappa di chi chiama (al contrario di `cart_load`): per editor con più file aperti |
-| `cart_write(percorso, {[lua, title, author, res, from, sections]})` | cambia **solo** il codice (e i campi dati) di un `.bm`: sprite sheet, mappa, copertina, banco di suoni e le sezioni che il kernel non conosce restano com'erano; un file con il nome lungo lo tiene. Senza `lua` il codice resta quello. Un file che non c'è diventa una cartuccia con solo il codice (nome 8.3). `from`: le altre sezioni vengono da un altro file ("salva come"); `from = false`: una cartuccia nuova, qualunque cosa ci sia nel file (il progetto nuovo di bm Studio). `sections`: `{[8] = byte MESH, [9] = byte ANIM}` (`false` le toglie), controllate prima (`false, "broken MESH section"`): così bm Mesh scrive i modelli. `sheet = true`: lo sprite sheet del progetto (`cart_load`, `sset`, `cart_sheet`) prende il posto di quello del file, come **SHEET8** quando ha al più 256 colori (altrimenti SHEET), con i colori di `palette` (`{0xRRGGBB, …}`) per primi nella sua tavolozza, così come sono e in quell'ordine (la voce trasparente della tavolozza di prima resta al suo posto); un pixel che ha ancora l'RGB565 che aveva nel file tiene i suoi 24 bit di prima (la console tiene 16 bit per pixel): cambiano solo i pixel ridisegnati. Così bm Pixel salva lo sheet |
-| `cart_meshes(percorso)` | le mesh che il **codice** di un `.bm` costruisce con `mesh()`, `mesh_sphere()` e `mesh_cube()`: `{ {name=, kind=, verts={x,y,z,…}, faces={a,b,c,colore,…}, [uv={…}]}, … }` (gli argomenti di `mesh()`, indici da 1, colore `-1` = texture) e `nil` oppure il primo errore del codice; `nil` e un messaggio se il file non si legge. Il codice gira **a parte** (uno stato Lua suo, `src/bm/meshcap.c`): il corpo del file, poi `_init`, `_update` e `_draw` una volta, con un limite di istruzioni; le altre funzioni di bm non fanno niente (niente file, schermo o suono). Il nome è quello della variabile che tiene la mesh (`M.ship` → `"ship"`; in un array `chef[2].body` → `"chef2_body"`). Per bm Mesh |
+| `cart_write(percorso, {[lua, title, author, res, from, sections]})` | cambia **solo** il codice (e i campi dati) di un `.bm`: sprite sheet, mappa, copertina, banco di suoni e le sezioni che il kernel non conosce restano com'erano; un file con il nome lungo lo tiene. Senza `lua` il codice resta quello. Un file che non c'è diventa una cartuccia con solo il codice (nome 8.3). `from`: le altre sezioni vengono da un altro file ("salva come"); `from = false`: una cartuccia nuova, qualunque cosa ci sia nel file (il progetto nuovo di bm Studio). `sections`: `{[8] = byte MESH, [9] = byte ANIM}` (`false` le toglie), controllate prima (`false, "broken MESH section"`): così bm Mesh scrive i modelli. `sheet = true`: lo sprite sheet del progetto (`cart_load`, `sset`, `cart_sheet`) prende il posto di quello del file, come **SHEET8** quando ha al più 256 colori (altrimenti SHEET), con i colori di `palette` (`{0xRRGGBB, …}`) per primi nella sua tavolozza, così come sono e in quell'ordine (la voce trasparente della tavolozza di prima resta al suo posto); un pixel che ha ancora l'RGB565 che aveva nel file tiene i suoi 24 bit di prima (la console tiene 16 bit per pixel): cambiano solo i pixel ridisegnati. Così bm Pixel salva lo sheet. Se nel frattempo `fset` ha cambiato dei flag, vanno nel file anche quelli |
+| `cart_meshes(percorso)` | le mesh che il **codice** di un `.bm` costruisce con `mesh()`, `mesh_sphere()` e `mesh_cube()` (anche con il costruttore di bmlib): `{ {name=, kind=, verts={x,y,z,…}, faces={a,b,c,colore,…}, [uv={…}]}, … }` (gli argomenti di `mesh()`, indici da 1, colore `-1` = texture) e `nil` oppure il primo errore del codice; `nil` e un messaggio se il file non si legge. Il codice gira **a parte** (uno stato Lua suo, `src/bm/meshcap.c`): il corpo del file, poi `_init`, `_update` e `_draw` una volta, con un limite di istruzioni; le altre funzioni di bm non fanno niente (niente file, schermo o suono). Il nome è quello della variabile che tiene la mesh (`M.ship` → `"ship"`; in un array `chef[2].body` → `"chef2_body"`). Per bm Mesh |
 | `mesh_reduce(record, triangoli, [ossa, [max_err]])` | **meno triangoli** per un modello della sezione MESH (`src/bm/decimate.c`: collasso degli spigoli con le quadriche di Garland-Heckbert, senza AI): `record` è la parte del modello nella sezione (come la scrive `encode_mesh` di `bm3d.lua`), `ossa` l'osso di ogni vertice (un byte ciascuno, dalla sezione ANIM), `max_err` ferma prima di un collasso più costoso (0: nessun limite). Restituisce il record con al più `triangoli` triangoli (di più solo se non si può andare oltre senza rovesciare facce), le ossa dei suoi vertici (`nil` senza `ossa`) e il numero di triangoli; `nil` e un messaggio se il record è rotto. Bordi, linee di colore e cuciture della texture restano al loro posto; i vertici restano quelli del modello. La pagina models di bm Studio (**-**); sul PC `tools/bmreduce.py` |
 | `picture3d(azione, ...)` | un'**immagine diventa un modello 3D** attraverso un servizio image-to-3D (`src/net/img3d.c`; il primo è Meshy, chiave `meshy_key=...` in `bm/config.txt` sulla SD). `picture3d("providers")` i servizi; `picture3d("ready", servizio)` `true`, o `false` e il perché (manca la chiave); `picture3d("start", immagine, {provider=, polycount=})` avvia il lavoro su un `.png`/`.jpg` della SD o su un URL https e dà l'id del lavoro (o `nil` e un messaggio); `picture3d("status", id, servizio)` → `"running", avanzamento` oppure `"done", url` del `.glb` (o `nil` e un messaggio); `picture3d("take", url, {name=, faces=, height=})` scarica il `.glb` e lo converte (`src/bm/glb.c`: posizioni unite, facce in senso orario, texture PNG o JPEG ridotta a 256×256, modello incorniciato alto `height`, ridotto a `faces` triangoli) → `{record=, flat=, texture=, nv=, nf=, textured=}`: `record` è il modello per la sezione MESH (con la texture, se c'è), `flat` lo stesso con i colori presi dalla texture, `texture` 256×256 RGBA. Le chiamate bloccano mentre la rete lavora. La pagina models di bm Studio (**m**) |
 | `cutout3d(immagine, {name=, lathe=, height=, depth=, segments=, faces=})` | un modello dal **contorno dell'immagine**, fatto sulla console senza rete né AI (`src/bm/cutout.c`): lo sfondo trasparente (o il colore degli angoli) va via, il contorno diventa un poligono semplificato e il poligono un solido: un **ritaglio** con spessore `depth` (frazione dell'altezza, 0.2: l'immagine davanti, specchiata dietro, i colori del bordo sui lati) o, con `lathe = true`, il mezzo contorno **tornito** intorno all'asse verticale in `segments` passi (vasi, torri, razzi; l'immagine proiettata davanti). `immagine`: un `.png` o `.jpg` della SD; `height` in blocchi (2); `faces` triangoli al più (1200). Dà la stessa tabella di `picture3d("take")`, o `nil` e un messaggio. La pagina models di bm Studio (**m**, le prime due voci) |
@@ -577,7 +639,8 @@ local DETAIL = 0xFFFFFF | 0x02000000                 -- bianco, solo dal dettagl
 ### Mondi di collisione
 
 Scatole solide, raggi e corpi che si muovono scivolando sui muri (in C: molto più veloci
-che in Lua). Esempio completo: `carts/overbit`.
+che in Lua). Esempio completo: `carts/overbit`. Per la mappa 2D ci sono i flag delle tile
+(`mflags`) e `lib.move` / `lib.step` di bmlib.
 
 | Funzione | Descrizione |
 |---|---|
@@ -628,6 +691,230 @@ codice, orizzonte con `project3d`, nebbia, esplosioni, boss). Con i modelli di b
 `carts/village` (`model()` per ogni modello, terreno disegnato senza z-buffer, notte con
 `lamp3d` e `fog3d`; il paesano di bm Animator con `animate()`, due animazioni mescolate,
 una luce in mano con `bone3d()`, e la sua versione a sprite pre-renderizzati).
+
+## bmlib: la libreria comune dei giochi
+
+`local lib = require "bmlib"` (R10, 2026-10-04): quello che ogni gioco riscriveva da sé
+(trovato in 5–10 cartucce del repository) in una libreria sola, in Lua, nel kernel
+(`src/script/bmlib.lua`). Non tocca le variabili globali e non copre nessuna funzione della
+console. Unità: **tempi in secondi**, posizioni in pixel, velocità in **pixel per
+fotogramma**. Gli oggetti (particelle, camera, stati, menu, pausa, costruttore 3D) si usano
+con i due punti: `cam:follow(x, y)`.
+
+Tween, timer, script e jingle vanno avanti con **`lib.update()`**, da chiamare una volta
+in `_update` (aggiunge 1/60 s; `lib.update(dt)` un altro passo). `lib.time` è il tempo
+contato così.
+
+```lua
+local lib = require "bmlib"
+
+function _update()
+  lib.update()          -- tween, timer, script e jingle
+  -- ... il gioco
+end
+```
+
+### Numeri
+
+| Funzione | Descrizione |
+|---|---|
+| `lib.clamp(v, lo, hi)` | `v` tra `lo` e `hi` |
+| `lib.lerp(a, b, t)` / `lib.unlerp(a, b, v)` | da `a` (t = 0) a `b` (t = 1); il contrario: dove sta `v` tra `a` e `b` |
+| `lib.remap(v, a0, a1, b0, b1)` | `v` dall'intervallo `a0..a1` all'intervallo `b0..b1` |
+| `lib.approach(v, meta, passo)` | `v` verso `meta` di al più `passo` (barre che scendono piano, velocità che frenano) |
+| `lib.sign(v)` | −1, 0 o 1 (0 per 0) |
+| `lib.round(v, [passo])` | all'intero più vicino, o al multiplo di `passo` più vicino |
+| `lib.wrap(v, lo, hi)` | `v` riportato in `lo..hi` (`hi` escluso) girando: mondi che si richiudono |
+| `lib.cycle(i, d, n)` | l'indice `i` (1..n) spostato di `d` girando: le righe di un menu |
+| `lib.dist(ax, ay, bx, by)` / `lib.dist2(...)` | la distanza / il suo quadrato (per confrontarla con `r * r` senza radice) |
+| `lib.len(x, y)` / `lib.norm(x, y)` | la lunghezza di un vettore / il vettore lungo 1 (e la lunghezza che aveva); `0, 0, 0` per `0, 0` |
+| `lib.angle(ax, ay, bx, by)` | l'angolo da `a` a `b` in radianti (0 a destra, π/2 in giù sullo schermo) |
+| `lib.angdiff(a, b)` / `lib.turn(a, meta, passo)` | da `a` a `b` per la via più corta (−π..π) / l'angolo `a` girato verso `meta` di al più `passo` |
+| `lib.dir8(x, y)` | una delle 8 direzioni: 0 destra, 1 giù a destra, 2 giù… 7 su a destra (`nil` per `0, 0`); `lib.DIR8[d + 1]` è il vettore lungo 1 |
+| `lib.TAU` | 2π |
+
+### Numeri a caso
+
+| Funzione | Descrizione |
+|---|---|
+| `lib.rnd([a, b])` | un numero tra `a` e `b` (`b` escluso); `lib.rnd(n)`: tra 0 e `n`; `lib.rnd()`: tra 0 e 1 |
+| `lib.chance(p)` | `true` con probabilità `p` |
+| `lib.choose(t)` / `lib.shuffle(t)` | un elemento a caso della lista (`nil` se è vuota) / la lista mescolata (sul posto) |
+| `lib.rng(seme)` | un generatore suo, che dallo stesso seme dà sempre gli stessi numeri (mondi fatti da un seme, partite in rete in lockstep): `r:next()` tra 0 e 1, `r:range(a, b)`, `r:int(a, b)` (interi, compresi), `r:pick(t)`, `r:chance(p)`, `r:seed(s)` |
+
+### Collisioni
+
+| Funzione | Descrizione |
+|---|---|
+| `lib.overlap(ax, ay, aw, ah, bx, by, bw, bh)` | due rettangoli (x, y, larghezza, altezza) si toccano |
+| `lib.hit(a, b)` | lo stesso per due tabelle con `x, y, w, h` (`w` e `h` 8 se mancano) |
+| `lib.inside(px, py, x, y, w, h)` | il punto è nel rettangolo |
+| `lib.circles(ax, ay, ar, bx, by, br)` / `lib.circrect(cx, cy, r, x, y, w, h)` | due cerchi / un cerchio e un rettangolo si toccano |
+
+### La mappa: muri, piattaforme, gravità
+
+Le funzioni guardano i **flag delle tile** ([sopra](#sprite-e-mappa)): `lib.SOLID` (flag 0,
+1), `lib.PLATFORM` (flag 1, 2), `lib.LADDER` (4), `lib.WATER` (8), `lib.HURT` (16).
+
+| Funzione | Descrizione |
+|---|---|
+| `lib.tiles(opz)` | come la mappa ferma i corpi: `layer` (il livello: numero o nome, 1), `solid` e `platform` (le maschere dei flag: 1 e 2; 0 = nessuna), `edge` (`true`: fuori dalla mappa è solido). Restituisce la configurazione |
+| `lib.solid(x, y, [w, h])` | il rettangolo (o il punto) tocca qualcosa di solido |
+| `lib.move(c, dx, dy)` | sposta il corpo `c = {x, y, w, h}` (`w`, `h` 8 se mancano) di `dx, dy` fermandolo contro le tile solide e facendolo scivolare lungo i muri; su una piattaforma cade solo da sopra (e non con `c.drop`: giù attraverso). A passi più corti di una tile: non ne salta nessuna. Restituisce `hx, hy`: −1 / 1 dove ha urtato (sinistra / destra, su / giù), altrimenti 0 |
+| `lib.step(c)` | un fotogramma di un corpo con la gravità (un platform): `c.vx, c.vy` in pixel per fotogramma, `c.gravity` (`lib.GRAVITY`, 0,25) e `c.maxfall` (`lib.MAXFALL`, 6); poi `c.ground` è `true` a terra e la velocità che ha urtato è 0. Restituisce quello che dà `lib.move` |
+| `lib.ray(x0, y0, x1, y1, [maschera])` | la prima tile con un flag di `maschera` (quella solida di `lib.tiles` se manca) sul segmento: `x, y` dove il segmento ci entra e la sua cella `mx, my`; `nil` se la strada è libera (linea di vista, proiettili) |
+
+```lua
+local eroe = { x = 40, y = 40, w = 8, h = 8, vx = 0, vy = 0 }
+lib.tiles({ edge = true })                         -- i bordi della mappa sono muri
+function _update()
+  eroe.vx = (btn("right") and 2 or 0) - (btn("left") and 2 or 0)
+  if eroe.ground and btnp("a") then eroe.vy = -5 end
+  eroe.drop = btn("down")                          -- giù da una piattaforma
+  lib.step(eroe)
+end
+```
+
+### Easing, tween, timer e script
+
+`lib.ease` ha le curve da 0 a 1: `linear`, `inquad`, `outquad`, `inoutquad`, `incubic`,
+`outcubic`, `inoutcubic`, `insine`, `outsine`, `inoutsine`, `inback`, `outback`,
+`inoutback`, `outelastic`, `outbounce`, `smooth` (smoothstep).
+
+| Funzione | Descrizione |
+|---|---|
+| `lib.tween(ogg, a, secondi, [ease, fatto])` | i campi di `ogg` vanno ai valori della tabella `a` in `secondi` (`ease`: una funzione o il nome di una di `lib.ease`, lineare se manca), poi `fatto(ogg)`. Restituisce un riferimento: `h:cancel()` |
+| `lib.after(secondi, f)` | `f()` tra `secondi` |
+| `lib.every(secondi, f, [volte])` | `f()` ogni `secondi` (`volte` volte, sempre se manca); `f` che restituisce `false` si ferma |
+| `lib.script(f, ...)` | `f(...)` come uno **script che può aspettare**: `lib.wait(secondi)` (un fotogramma se manca) e `lib.waitfor(cond)` (finché `cond()` è vera). Gira subito fino alla prima attesa, poi lo porta avanti `lib.update()`: dialoghi, scene, ondate di nemici scritte in fila |
+| `lib.cancel(h)` | ferma un tween, un timer o uno script (lo stesso di `h:cancel()`) |
+| `lib.countdown(t, chiavi, [d])` | i campi `chiavi` di `t` sopra 0 scendono di `d` (1/60 se manca), senza andare sotto 0: i tempi di ricarica di un eroe (in fotogrammi con `d = 1`) |
+| `lib.clear()` | ferma tutti i tween, timer, script e jingle (un livello nuovo) |
+
+```lua
+lib.tween(scritta, { y = 80 }, 0.6, "outback")
+lib.after(2, function() porta.aperta = true end)
+lib.script(function()
+  dialogo("Chi va là?")
+  lib.wait(1.5)
+  lib.waitfor(function() return btnp("a") end)
+  dialogo("Passa pure.")
+end)
+```
+
+### Liste e particelle
+
+| Funzione | Descrizione |
+|---|---|
+| `lib.each(lista, f)` | `f(elemento, i)` per ogni elemento; quelli per cui restituisce `false` escono dalla lista (gli altri restano in ordine) |
+| `lib.sweep(lista)` | toglie gli elementi con `.dead` (in ordine) |
+| `lib.particles([max])` | un insieme di al più `max` particelle (200); pieno, una nuova prende il posto della più vecchia |
+| `P:add(x, y, vx, vy, vita, colore, [opz])` | una particella (velocità in pixel per fotogramma, vita in secondi); `opz`: `size` (raggio; 0 o 1 un pixel), `gravity`, `drag` (la parte della velocità che resta a ogni fotogramma), `colors` (una lista: il colore lungo la vita), `shrink`, `floor` (la y dove rimbalza), `bounce` (0,3) |
+| `P:burst(x, y, n, [opz])` | `n` particelle da `x, y`: `speed` (2), `angle` e `spread` (in radianti; tutto intorno se mancano), `life` (0,5 s), `color` o `colors`, e le opzioni di `:add` |
+| `P:update()` / `P:draw()` | in `_update` / in `_draw` |
+| `P:count()` / `P:clear()` | quante sono / tutte via |
+
+```lua
+local fx = lib.particles(300)
+fx:burst(x, y, 20, { speed = 3, colors = { 0xFFFFFF, 0xFFD050, 0xFF6020 }, gravity = 0.1 })
+```
+
+### Camera
+
+| Funzione | Descrizione |
+|---|---|
+| `lib.camera([opz])` | una camera 2D: `smooth` (0,15: la parte di strada che fa a ogni fotogramma; 1 = segue esatta), `dead` `{w, h}` (un riquadro in mezzo dove il bersaglio si muove senza la camera), `bounds` `{x0, y0, x1, y1}` in pixel o `true` (la mappa, `msize()`), `offset` `{x, y}`, `w`, `h` (lo schermo se mancano). Campi `x`, `y` |
+| `C:follow(x, y, [subito])` | un passo verso il punto `x, y` (al centro dello schermo); `subito`: ci va in una volta |
+| `C:shake(quanto, [secondi])` | lo schermo trema fino a `quanto` pixel, sempre meno, per `secondi` (0,3) |
+| `C:apply()` | `camera()` al posto della camera (con il tremolio): in `_draw` prima del mondo, poi `camera()` per l'HUD |
+| `C:map([livello, maschera])` | le celle della mappa che si vedono |
+| `C:sees(x, y, [w, h])` / `C:screen(x, y)` | il rettangolo si vede / dove sta un punto del mondo sullo schermo |
+
+### Stati del gioco
+
+`lib.states(def, [primo, ...])`: titolo, partita, pausa, game over come tabelle
+`{enter, update, draw, exit}`; ogni funzione riceve la sua tabella (`function play:update()`),
+che ha `t` (i secondi passati nello stato) e `name`.
+
+| Funzione | Descrizione |
+|---|---|
+| `S:go(nome, ...)` | allo stato `nome`: quelli aperti escono (`exit`), `nome` entra (`enter(...)`) |
+| `S:push(nome, ...)` / `S:pop()` | `nome` sopra quello di adesso (una pausa, un dialogo: si aggiorna solo lui, si disegnano tutti e due) / torna a quello sotto |
+| `S:update()` / `S:draw()` | in `_update` / in `_draw` (dal basso: il gioco sotto la sua pausa) |
+| `S:is(nome)`, `S.name`, `S:top()` | lo stato in cima |
+
+```lua
+local S = lib.states({
+  title = { update = function(s) if btnp("ok") then S:go("play") end end,
+            draw = function() cls(0); lib.printc("PREMI A", 160, 0xFFFFFF) end },
+  play = { enter = function(s) s.punti = 0 end,
+           update = function(s) ... end, draw = function(s) ... end },
+}, "title")
+function _update() lib.update(); S:update() end
+function _draw() S:draw() end
+```
+
+### Testo, barre e menu
+
+| Funzione | Descrizione |
+|---|---|
+| `lib.textw(testo, [scala])` | larghezza e altezza in pixel con il font di `print` di adesso (la riga più lunga) |
+| `lib.printc(testo, y, [c, scala, x, w, griglia])` | al centro dello schermo (o di `x..x + w`); `griglia`: sulle colonne del font (scritte ferme, come i menu). Restituisce la x |
+| `lib.printr(testo, x, y, [c, scala])` | che finisce in `x` (numeri allineati a destra) |
+| `lib.prints(testo, x, y, c, [ombra, scala])` / `lib.printo(...)` | con l'ombra sotto a destra / con il contorno tutto intorno (nero se manca il colore) |
+| `lib.bar(x, y, w, h, v, max, [c, sfondo, bordo])` | una barra piena per `v` su `max` (vita, stamina, caricamento) |
+| `lib.blink([periodo, t])` | `true` metà del tempo, cambia ogni `periodo` secondi (0,5): "premi A" |
+| `lib.timestr(secondi, [decimi])` | `"m:ss"` (`"h:mm:ss"` da un'ora), con i decimi `"m:ss.d"` |
+| `lib.btnr(i, [p, attesa, ritmo])` | `btnp` che si **ripete** finché il tasto è tenuto: il primo fotogramma, poi dopo `attesa` fotogrammi (15) ogni `ritmo` (4). `i` come per `btn()`. Da chiamare a ogni fotogramma |
+| `lib.menu(voci, [opz])` | una lista da scegliere: le voci sono testi o tabelle `{label=, value=, change=function(voce, d), ok=function(voce), off=true}`; `opz.p` il giocatore, `opz.wrap` (`true`) |
+| `M:update()` | su e giù (ripetuti) si spostano saltando le voci `off`, sinistra e destra chiamano `change`, ok sceglie (`ok(voce)`; restituisce la voce e `"ok"`), indietro restituisce `nil, "back"` |
+| `M:draw(x, y, [opz])` | le righe da `x, y`: `w` (larghezza: i valori a destra), `c`, `sel_c`, `bar`, `dim`, `scala`, `gap` |
+| `lib.pause([opz])` | il **menu di pausa** che ogni gioco aveva: Start (Esc) lo apre quando `opz.when()` è vera (sempre se manca); RESUME, VOLUME (quello della console: sinistra e destra), le righe di `opz.rows`, QUIT (`opz.quit()`, se c'è). `opz.color`, `opz.title`, `opz.scale` |
+| `P:update()` / `P:draw()` | in `_update`: `if pausa:update() then return end` (mentre è aperta il gioco è fermo); in `_draw`, dopo il gioco |
+
+```lua
+local pausa = lib.pause({ when = function() return S:is("play") end,
+                          quit = function() S:go("title") end })
+function _update()
+  if pausa:update() then return end
+  lib.update(); S:update()
+end
+function _draw() S:draw(); pausa:draw() end
+```
+
+### Suono, salvataggi, animazioni, colori
+
+| Funzione | Descrizione |
+|---|---|
+| `lib.jingle(note, [voce, forma, vol])` | una melodia breve sulla voce (3): `note = { {nota, secondi, [forma, vol]}, ... }`, la nota in Hz o per nome (`"C5"`), 0 o `"-"` una pausa; `lib.jingle(nil, voce)` la ferma, `lib.jingling([voce])` dice se suona ancora |
+| `lib.store([k, [v]])` | un campo del salvataggio della cartuccia (`save`/`saved`): `lib.store(k)` lo legge, `lib.store(k, v)` lo scrive (sulla SD solo se è cambiato: non a ogni fotogramma), `lib.store()` tutta la tabella |
+| `lib.best(k, v)` | il record `k`: `v` se lo batte (e lo salva), e `true` se è nuovo |
+| `lib.frame(fotogrammi, fps, [t])` | l'elemento di `fotogrammi` che il tempo `t` (`time()` se manca) mostra a `fps` al secondo, in ciclo |
+| `lib.anim(fotogrammi, fps, [ciclo])` | un'animazione sua: `a:update()` va avanti di un fotogramma e restituisce l'elemento; `a.done` quando una senza ciclo (`false`) è finita; `a:reset()` |
+| `lib.mix(c1, c2, t)` / `lib.shade(c, k)` | tra due colori `0xRRGGBB` / un colore `k` volte più luminoso (0 nero) |
+
+### 3D: il costruttore di Astro Wing
+
+`lib.builder()`: una mesh fatta di pezzi convessi; ogni faccia di un pezzo è girata verso
+l'esterno da sola, quindi l'ordine degli angoli non conta mai.
+
+| Funzione | Descrizione |
+|---|---|
+| `B:piece(punti, triangoli, [colore])` | un pezzo convesso: `punti = { {x, y, z}, ... }`, `triangoli = { {i, j, k, [colore]}, ... }` |
+| `B:box(x0, y0, z0, x1, y1, z1, colore, [sopra])` | una scatola tra due angoli; `sopra`: il colore della faccia di sopra |
+| `B:tetra(p1, p2, p3, p4, colore)` / `B:quad(p1, p2, p3, p4, colore, nx, ny, nz)` | un tetraedro / un quadrilatero piano visto dal lato `nx, ny, nz` |
+| `B:build()` | la mesh (`mesh()`); i metodi restituiscono `B`, quindi si concatenano |
+
+```lua
+local casa = lib.builder()
+  :box(-1, 0, -1, 1, 1.5, 1, 0xC0A080)
+  :piece({ { -1.1, 1.5, -1.1 }, { 1.1, 1.5, -1.1 }, { 1.1, 1.5, 1.1 }, { -1.1, 1.5, 1.1 }, { 0, 2.4, 0 } },
+         { { 1, 2, 5 }, { 2, 3, 5 }, { 3, 4, 5 }, { 4, 1, 5 }, { 1, 2, 3 }, { 1, 3, 4 } }, 0xA03020)
+  :build()
+```
+
+Prova di tutto: `make test-gameapi` (bmhost, `tests/gameapi/cart.lua`: ogni funzione con
+i suoi casi, anche i tasti con uno script) e `test_game_api` in QEMU.
 
 ## Budget e consigli
 

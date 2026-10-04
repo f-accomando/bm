@@ -1,7 +1,8 @@
 # Creare un gioco `.bm`
 
 Guida pratica: dal primo file Lua alla cartuccia sulla SD, con sprite, mappe, modelli 3D,
-suono e salvataggi. Il riferimento completo di ogni funzione è in [API.md](API.md).
+suono e salvataggi. Il riferimento completo di ogni funzione è in [API-IT.md](API-IT.md).
+In inglese: [GAME-GUIDE.md](GAME-GUIDE.md) e [API-EN.md](API-EN.md).
 
 ## 0. Sulla console: l'editor
 
@@ -11,8 +12,8 @@ monitor). Con una tastiera USB (e se vuoi un gamepad Bluetooth per disegnare):
 | Tasto | Pagina |
 |---|---|
 | **F1** | codice (Ctrl+Z annulla, Ctrl+K taglia riga, Ctrl+D duplica) |
-| **F2** | sprite: frecce, spazio disegna, `x` preleva il colore, `f` riempie, `,` `.` (o `è` `+`, o `[` `]`) colore, Tab passa al foglio, `z` 8×8/16×16, `h`/`v` specchia, `u` annulla |
-| **F3** | mappa: frecce, spazio piazza la tile, `x` la preleva, `f` riempie, `,` `.` (o `è` `+`) tile, Tab sceglie la tile |
+| **F2** | sprite: frecce, spazio disegna, `x` preleva il colore, `f` riempie, `,` `.` (o `è` `+`, o `[` `]`) colore, Tab passa al foglio, `z` 8×8/16×16, `h`/`v` specchia, `u` annulla, `0`–`7` accendono e spengono i **flag** della tile (sotto: muro, piattaforma...) |
+| **F3** | mappa: frecce, spazio piazza la tile, `x` la preleva, `f` riempie, `,` `.` (o `è` `+`) tile, Tab sceglie la tile, `l` il **livello** dopo, `o` solo quel livello; *New map layer* nel menu ne aggiunge uno |
 | **F12** (tenuto premuto) | l'elenco dei tasti della pagina |
 | **Esc** | menu: nuovo, apri, salva, salva come, titolo, autore, risoluzione, esci |
 | **Ctrl+S** / **Ctrl+R** (F5) | salva / prova il gioco (poi si torna all'editor) |
@@ -49,7 +50,9 @@ Una cartuccia `.bm` è un unico file che contiene:
 |---|---|---|
 | codice Lua (`main.lua`) | `--lua` | sì |
 | sprite sheet (PNG) | `--sheet` | no |
-| mappa a tile (CSV) | `--map` | no |
+| mappa a tile (CSV), uno per livello | `--map` (`--map nome=file.csv` per ogni livello in più) | no |
+| flag delle tile (muro, piattaforma, scala...) | `--flags` | no |
+| zone con nome dello sheet (sprite e animazioni) | `--sprites` | no |
 | copertina per il menu (PNG) | `--cover` | no |
 
 La crea `scripts/mkbm.py` (solo libreria standard di Python, nessuna dipendenza).
@@ -100,7 +103,7 @@ Pulsanti: `btn(i)` finché è premuto, `btnp(i)` solo al momento della pressione
 Esc, Start+Select o il tasto PS tornano al menu, e il gioco resta **sospeso** in memoria
 (A sulla sua copertina lo riprende). `quit()` invece chiude davvero la cartuccia. Un gioco in
 rete chiama `online(true)`: lì PS chiede al giocatore se vuole uscire dalla partita e
-disconnettersi, e se sì chiama `_leave()` (vedi `docs/API.md`).
+disconnettersi, e se sì chiama `_leave()` (vedi `docs/API-IT.md`).
 
 **Più giocatori.** Con due o più controller Bluetooth (abbinati dal monitor con `T`: il
 primo è il giocatore 1, il secondo il giocatore 2...) ogni giocatore ha i suoi tasti:
@@ -135,7 +138,8 @@ cd ~/bm
 python3 scripts/mkbm.py -o palla.bm --lua carts/palla/main.lua --title "Palla" --author "io"
 ```
 
-Opzioni: `--sheet sprite.png`, `--map mappa.csv`, `--cover copertina.png`,
+Opzioni: `--sheet sprite.png`, `--map mappa.csv` (di nuovo `--map davanti=sopra.csv` per
+un altro livello), `--flags flag.csv`, `--sprites zone.txt`, `--cover copertina.png`,
 `--res 480x270` o `--res 320x180`.
 
 **Sul Pi:** copia il file nella cartella `carts/` della SD.
@@ -154,7 +158,8 @@ budget è **16,7 ms** per fotogramma.
 `<nome>` a `GAMES` nel `Makefile` e una riga `title_<nome> := Titolo` (più
 `res_<nome> := 320x180` se serve). `make` la crea in `build/carts/<nome>.bm` e
 `make sdcard` la copia in `dist/carts/`. Nella stessa cartella vengono presi da soli
-`sheet.png`, `map.csv` e `cover.png`, se ci sono.
+`sheet.png`, `map.csv`, `flags.csv`, `sprites.txt` e `cover.png`, se ci sono; gli altri
+livelli della mappa sono `map_<nome>.csv`, nell'ordine di `layers_<gioco> := nome ...`.
 
 **Errori:** se il codice Lua sbaglia, il gioco si ferma e il messaggio con il numero di
 riga appare sulla console.
@@ -183,6 +188,28 @@ possono disegnare gli sprite senza PNG (Star Shooter li scrive come stringhe in
 Animazione: si cambia cella ogni tot fotogrammi, per esempio
 `spr(base + (frame // 8) % 2 * 2, x, y, 2, 2)`.
 
+**Sprite con un nome.** Invece delle coordinate, un nome: le **zone** dello sheet, ognuna con
+i suoi fotogrammi (caselle della stessa misura una accanto all'altra) e la sua velocità. Si
+scrivono in un file di testo, una per riga (`nome x y larghezza altezza [fotogrammi [fps]]`),
+e si passano a `mkbm.py --sprites` (nella build basta `sprites.txt` nella cartella del
+gioco):
+
+```
+# zone.txt
+eroe_fermo   0  32 16 16
+eroe_corre   16 32 16 16 4 10
+moneta       0  48 8  8  6 12
+```
+
+```lua
+zspr("moneta", x, y)                       -- si anima da sola, a 12 fotogrammi al secondo
+zspr("eroe_corre", x, y, nil, a_sinistra)  -- specchiata quando va a sinistra
+zspr("eroe_fermo", x, y, 1)                -- un fotogramma preciso
+```
+
+`zone(nome)` dà dove sta e quanto è grande (per le collisioni), `zones()` tutti i nomi.
+Le zone si fanno anche con bm Pixel sulla console e con `scripts/bmres.py`.
+
 ## 5. Mappe a tile
 
 La mappa è una griglia di numeri di cella dello sprite sheet (0 = vuoto), in un **CSV**
@@ -198,21 +225,64 @@ La mappa è una griglia di numeri di cella dello sprite sheet (0 = vuoto), in un
 ```lua
 camera(cam_x, cam_y)                                  -- scorrimento
 map(cam_x // 8, cam_y // 8, cam_x // 8 * 8, cam_y // 8 * 8, 81, 46)   -- solo la parte visibile
-local t = mget(px // 8, py // 8)                      -- la cella sotto un punto (collisioni)
+local t = mget(px // 8, py // 8)                      -- la cella sotto un punto
 mset(cx, cy, 5)                                       -- cambiare una cella (porte, oggetti presi)
 ```
 
-Senza `--map` la mappa è 256×256 vuota e si riempie con `mset`. Una mappa grande
-(Hunter's Night: 256×256 celle, 2048×2048 pixel) conviene generarla con uno script:
-vedi `carts/hunt/mkassets.py`, che produce `sheet.png` e `map.csv`.
+Senza `--map` la mappa è 256×256 vuota e si riempie con `mset` (`msize(w, h)` le dà
+un'altra misura). Una mappa grande (Hunter's Night: 256×256 celle, 2048×2048 pixel)
+conviene generarla con uno script: vedi `carts/hunt/mkassets.py`, che produce `sheet.png` e
+`map.csv`.
 
-Un'idea che semplifica le collisioni: tenere le tile solide in un intervallo di numeri
-(in Hunter's Night le celle 32–63), così basta `v >= 32 and v < 64`.
+**I flag: che cosa è ogni tile.** Ogni tile dello sheet ha 8 flag (0–7), accesi o spenti.
+Le collisioni guardano i flag, non i numeri delle tile: si possono aggiungere tile nuove
+(un muro di pietra, uno di legno) senza toccare il codice. La convenzione di bmlib:
+
+| Flag | Valore | Significato |
+|---|---|---|
+| 0 | 1 | solido: muri, pavimenti |
+| 1 | 2 | piattaforma: si attraversa da sotto, ci si poggia da sopra |
+| 2 | 4 | scala |
+| 3 | 8 | acqua |
+| 4 | 16 | fa male (spine, lava) |
+| 5–7 | | liberi per il gioco |
+
+Si scrivono in un file per `mkbm.py --flags` (nella build: `flags.csv` nella cartella del
+gioco), si accendono dall'editor (tasti `0`–`7` sulla pagina degli sprite) o dal codice:
+
+```
+# flag.csv: la tile 1 è un muro (1), le tile 2 e 3 piattaforme (2), la 9 una scala (4)
+1=1 2 2
+9=4
+```
+
+```lua
+fset(12, 0, true)                       -- anche la tile 12 è solida
+if fget(mget(cx, cy), 0) then ... end   -- la cella è solida?
+local f = mflags(x, y + 8, 8, 1)        -- i flag sotto i piedi di uno sprite 8x8 (in pixel)
+if f & 1 ~= 0 then a_terra = true end
+if f & 16 ~= 0 then danno() end
+```
+
+**I livelli.** Una mappa può avere fino a 8 livelli della stessa misura, ognuno col suo
+nome: il pavimento, le decorazioni, quello che passa **davanti** al personaggio. Si
+disegnano uno alla volta:
+
+```lua
+map(mx, my, x, y, w, h, "main")     -- dietro
+spr(eroe, ex, ey)
+map(mx, my, x, y, w, h, "front")    -- davanti: chiome, archi, tetti
+mset(cx, cy, 0, "front")            -- ogni livello si legge e si scrive da sé
+```
+
+Nel `.bm` vanno con `--map mappa.csv --map front=davanti.csv`; dal codice `mlayers()` li
+elenca, li aggiunge e li rinomina. Per i movimenti con i muri, le piattaforme e la gravità
+c'è `bmlib` (capitolo 11): `lib.move` e `lib.step` fanno tutto il lavoro.
 
 ## 6. Modelli 3D
 
-Il 3D è software (in C sull'ARM): triangoli con z-buffer, luce per faccia, nebbia,
-texture. Budget indicativo: circa 1200 triangoli disegnati a 60 fps.
+Il 3D è software (in C sull'ARM; lo disegna la GPU del Pi quando può): triangoli con
+z-buffer, luce per faccia, nebbia, texture. Budget indicativo: circa 1200 triangoli disegnati a 60 fps.
 
 **Forme pronte:** `mesh_cube(colore)`, `mesh_sphere(anelli, segmenti, c1, c2)`.
 
@@ -235,9 +305,9 @@ end
 
 - Le facce vanno date in senso **orario viste da fuori**, cioè come appaiono sullo
   schermo dal lato che si vede (quelle girate dall'altra parte non vengono disegnate).
-  bm Studio le fa già così. Astro Wing (`carts/astrowing/main.lua`) usa una piccola
-  funzione che costruisce modelli da pezzi convessi e gira le facce da sola: si può
-  copiare.
+  bm Studio le fa già così. Il costruttore di bmlib (`lib.builder()`, quello di Astro
+  Wing) fa i modelli da pezzi convessi e gira le facce da solo:
+  `lib.builder():box(-1, 0, -1, 1, 2, 1, 0xC08040):build()`.
 - **Texture:** con la terza tabella `uv` (6 numeri per faccia: u,v dei tre vertici, in
   pixel dello sprite sheet) le facce con colore `-1` prendono l'immagine dal foglio, con
   la prospettiva corretta.
@@ -333,7 +403,8 @@ arp(3, "minor", 40)                  -- un accordo arpeggiato, stile chip
 Buona abitudine: una voce per tipo di suono (arma, colpi, musica), così un effetto non
 interrompe l'altro; con `sfx(n)` la voce la sceglie la console, lasciando stare la
 musica. Il **volume** è della console: si cambia in Settings o nel menu di pausa del
-gioco (`volume()` lo legge e lo cambia; mettilo anche nella pausa del tuo gioco).
+gioco (`volume()` lo legge e lo cambia; mettilo anche nella pausa del tuo gioco: `lib.pause()`
+di bmlib lo ha). Per le melodie brevi c'è `lib.jingle`.
 
 ## 8. Luci (scene al buio)
 
@@ -360,7 +431,8 @@ end
 save({ record = record })
 ```
 
-Numeri, stringhe, booleani e tabelle, fino a 32 KiB, in `/bm/save/` sulla SD.
+Numeri, stringhe, booleani e tabelle, fino a 32 KiB, in `/bm/save/` sulla SD. Con bmlib:
+`lib.best("record", punti)` tiene il record e scrive solo quando viene battuto.
 
 ## 10. Copertina
 
@@ -369,7 +441,115 @@ menu, un quadrato di 88×88: un'immagine quadrata viene ridotta, le altre (16:10
 intere sopra una copia sfocata di sé. Le copertine dei giochi demo sono
 disegnate da `scripts/mkcovers.py`. Senza copertina il menu stampa il titolo.
 
-## 11. Consigli
+## 11. La libreria comune: bmlib
+
+Molte cose tornano in quasi tutti i giochi: limitare un numero, scegliere a caso, vedere se
+due rettangoli si toccano, far camminare un personaggio fra i muri, far seguire la camera,
+le particelle di un'esplosione, il titolo e la partita, il menu di pausa, un jingle, il
+record. Sono in **bmlib**, una libreria inclusa nella console:
+
+```lua
+local lib = require "bmlib"
+```
+
+Tempi in secondi, posizioni in pixel, velocità in pixel per fotogramma; tween, timer e
+jingle vanno avanti con `lib.update()`, una volta in `_update`. L'elenco completo è in
+[API-IT.md](API-IT.md#bmlib-la-libreria-comune-dei-giochi). Ecco un platform intero, senza
+file a parte (le tile si disegnano nel codice e la mappa si costruisce con `mset`): titolo,
+partita, salto, piattaforme, monete con le scintille, camera, pausa, record.
+
+```lua
+-- Salti: un platform con bmlib
+local lib = require "bmlib"
+
+local MURO, PIATTA, MONETA = 1, 2, 3            -- tile = celle dello sheet
+local eroe, cam, fx, S, pausa
+
+local function tile(n, c)                       -- una tile 8x8 con il bordo più scuro
+  local x0, y0 = n % 32 * 8, n // 32 * 8
+  for y = 0, 7 do
+    for x = 0, 7 do sset(x0 + x, y0 + y, (x == 0 or y == 0) and lib.shade(c, 0.6) or c) end
+  end
+end
+
+function _init()
+  tile(MURO, 0x806040); tile(PIATTA, 0x40A040); tile(MONETA, 0xFFD050)
+  fset(MURO, 0, true)                           -- flag 0: solido
+  fset(PIATTA, 1, true)                         -- flag 1: piattaforma (si sale da sotto)
+  msize(160, 45)                                -- 1280x360 pixel
+  for x = 0, 159 do mset(x, 44, MURO) end       -- il pavimento
+  for x = 10, 16 do mset(x, 38, PIATTA) end
+  for x = 22, 28 do mset(x, 32, PIATTA) end
+  mset(25, 31, MONETA); mset(60, 43, MONETA)
+  lib.tiles({ edge = true })                    -- i bordi della mappa sono muri
+  cam = lib.camera({ bounds = true, dead = { 64, 48 } })
+  fx = lib.particles(200)
+  pausa = lib.pause({ when = function() return S:is("gioco") end, quit = function() S:go("titolo") end })
+  S = lib.states({
+    titolo = {
+      update = function() if btnp("ok") then S:go("gioco") end end,
+      draw = function()
+        cls(0x102030)
+        lib.printc("SALTI", 120, 0xFFD050, 3)
+        if lib.blink() then lib.printc("premi A", 200, 0xFFFFFF) end
+        lib.printc("record " .. (lib.store("record") or 0), 240, 0x8090A0)
+      end,
+    },
+    gioco = {
+      enter = function(s)
+        eroe = { x = 40, y = 300, w = 8, h = 8, vx = 0, vy = 0 }
+        s.monete = 0
+        cam:follow(eroe.x, eroe.y, true)
+      end,
+      update = function(s)
+        eroe.vx = (btn("right") and 2 or 0) - (btn("left") and 2 or 0)
+        if eroe.ground and btnp("a") then eroe.vy = -5; note(0, 440, 60, SQUARE, 90) end
+        eroe.drop = btn("down")                 -- giù da una piattaforma
+        lib.step(eroe)                          -- gravità, muri, piattaforme
+        local cx, cy = (eroe.x + 4) // 8, (eroe.y + 4) // 8
+        if mget(cx, cy) == MONETA then          -- presa
+          mset(cx, cy, 0)
+          s.monete = s.monete + 1
+          fx:burst(cx * 8 + 4, cy * 8 + 4, 16, { colors = { 0xFFFFFF, 0xFFD050 }, gravity = 0.05 })
+          lib.jingle({ { "E5", 0.08 }, { "B5", 0.15 } })
+          lib.best("record", s.monete)          -- salvato solo se è un record
+          cam:shake(2, 0.2)
+        end
+        fx:update()
+        cam:follow(eroe.x, eroe.y)
+      end,
+      draw = function(s)
+        cls(0x203048)
+        cam:apply()                             -- la camera (e il tremolio)
+        cam:map()                               -- solo le celle che si vedono
+        rectfill(eroe.x, eroe.y, 8, 8, 0xFF6040)
+        fx:draw()
+        camera()                                -- l'HUD fermo
+        lib.prints("monete " .. s.monete, 8, 8, 0xFFFFFF)
+      end,
+    },
+  }, "titolo")
+end
+
+function _update()
+  if pausa:update() then return end             -- Start: il menu di pausa
+  lib.update()
+  S:update()
+end
+
+function _draw()
+  S:draw()
+  pausa:draw()
+end
+```
+
+Altre cose utili: `lib.script` per le scene scritte in fila (`lib.wait(1)`,
+`lib.waitfor(...)`), `lib.tween` per scritte e menu che entrano, `lib.menu` per i menu
+propri, `lib.btnr` per i tasti che si ripetono, `lib.rng(seme)` per mondi sempre uguali
+dallo stesso seme, `lib.ray` per vedere se un nemico vede l'eroe, `lib.dir8` per gli sprite
+a 8 direzioni.
+
+## 12. Consigli
 
 - **Prestazioni:** il costo sta quasi tutto nel Lua di `_update`/`_draw`; il disegno è
   in C. Evitare di creare tabelle nuove a ogni fotogramma nei cicli caldi; aggiornare
@@ -380,8 +560,10 @@ disegnate da `scripts/mkcovers.py`. Senza copertina il menu stampa il titolo.
   (il numero del fotogramma cambia a ogni partita).
 - **Debug:** `log(...)` scrive sulla console seriale; `stat(1)` è il tempo dell'ultimo
   fotogramma in ms, `stat(2)` gli fps.
+- **Non riscrivere quello che c'è:** prima di scrivere una funzione di utilità guarda in
+  bmlib (capitolo 11); l'assistente (F6) la conosce.
 
-## 12. Esempi da cui partire
+## 13. Esempi da cui partire
 
 | Gioco | Cosa mostra |
 |---|---|
@@ -394,3 +576,4 @@ disegnate da `scripts/mkcovers.py`. Senza copertina il menu stampa il titolo.
 | `carts/kitchen` | gioco grande: sorgenti in più file uniti da `build.py`, 3D con mesh costruite in codice, 1–4 giocatori (`btn(i, p)`, `players()`), salvataggi, e un simulatore host (`tests/kitchen/sim.lua`) che gioca da solo per trovare errori e misurare il costo di ogni frame |
 | `carts/village` | modelli 3D fatti con bm Studio e un paesano animato con bm Animator (`models.bm`): `model()`, `animate()` con due animazioni mescolate, `bone3d()`, terreno senza z-buffer, notte con `lamp3d` e nebbia, sprite pre-renderizzati |
 | `carts/titan` | sprite grandi pre-renderizzati (un modello 3D fatto in Python diventa pixel art a strati: un frame, tante combinazioni di equipaggiamento), sheet grande con palette (`--sheet8`), parallasse, stati di un picchiaduro con hitbox per frame, CPU avversaria |
+| `tests/gameapi/cart.lua` | ogni funzione dei livelli della mappa, dei flag delle tile, delle zone con nome e di bmlib, con i suoi casi |

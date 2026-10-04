@@ -13,7 +13,7 @@ non si chiede. È fatto con i pezzi qui sotto: motore INT8 in C con le SIMD dell
 addestramento sul PC e solo inferenza sul Pi, test bit per bit dentro `make test`, e
 l'approccio ibrido (la rete sceglie tra le voci di una base di conoscenza e tra le
 ricette di sprite, il codice classico fa il resto). Dettagli, numeri e cosa provare sul
-Pi: [docs/ROADMAP.md](docs/ROADMAP.md), M30; API in [docs/API.md](docs/API.md). Lo stesso
+Pi: [docs/ROADMAP.md](docs/ROADMAP.md), M30; API in [docs/API-IT.md](docs/API-IT.md) ([docs/API-EN.md](docs/API-EN.md) in inglese). Lo stesso
 motore servirà poi ai giochi (l'avversario CPU di Titan Clash, sotto).
 
 ## Più sensate e utili per bm

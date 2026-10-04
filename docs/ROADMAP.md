@@ -143,7 +143,7 @@ elenca solo i `.bm` e un `.cart` inviato dalla seriale o dalla rete viene rifiut
   (ondate, boss, esplosioni, sprite disegnati con `sset`).
 - `make image` → `dist/bm.img` (64 MiB, MBR + FAT32) pronto per Raspberry Pi Imager /
   balenaEtcher / `dd`.
-- Guida all'API e alla prima cartuccia: `docs/API.md`.
+- Guida all'API e alla prima cartuccia: `docs/API.md` (dal 2026-10-04 `docs/API-IT.md`, in inglese `docs/API-EN.md`).
 - Prestazioni sul Pi: l'ARM1176 legge la SDRAM circa 4 volte più lentamente di
   quanto ci scrive (`memcpy` 10,3 ms/MiB contro `memset` 2,4 ms/MiB, cache dati 16 KB),
   e la memoria video non ha cache. Per `.bm` il benchmark misura sia il disegno diretto
@@ -181,7 +181,7 @@ M9 (MVP) ─┬─ M10 audio
   duty, triangolo, dente di sega, rumore LFSR a 15 bit, ADSR lineare, somma senza
   normalizzazione). Test su host: `make test-audio`.
 - API `.bm`: `note`, `noteoff`, `freq`, `envelope`, `duty`, `playing`, `apu`
-  (docs/API.md); effetti e melodie nei tre giochi demo.
+  (docs/API-IT.md); effetti e melodie nei tre giochi demo.
 - Dopo: banche di suoni, sequencer e Sound editor (M22.4, più sotto).
 - Monitor: `a` stato dell'audio (clock, canale DMA, blocchi suonati, costo della sintesi)
   e una melodia di prova con tutte le forme d'onda. All'avvio, se l'audio funziona, due
@@ -1101,7 +1101,7 @@ Sotto-milestone:
     generale, limitatore morbido al posto del taglio, una nuova nota parte dal livello
     della voce (niente clic).
   - API: `sfx`, `music`, `sfxpos`, `tempo`, `mute`, `volume`, `hz` e nomi delle note
-    (`"C4"`), `slide`, `vibrato`, `arp` (docs/API.md).
+    (`"C4"`), `slide`, `vibrato`, `arp` (docs/API-IT.md).
   - Volume generale nelle impostazioni (Settings > Volume) e nei menu di pausa di tutti
     i giochi, salvato in `bm/config.txt`.
   - Test: `make test-audio` (sintesi e player), `make test-sound` (l'editor in un bm
@@ -1524,7 +1524,7 @@ nomi del pad), SDK, 3D studio, bm Code e assistente li scrivevano come testo ("F
 - API Lua: `prompt(nome, x, y, [piccolo])` (maiuscolo i pulsanti del pad, come sul pad
   usato per ultimo; minuscolo i tasti, coi nomi di `keyp()`), `prompt(nome)` misura,
   `lastinput()` dice se l'ultimo tasto era della tastiera, di un DS4 o di un altro pad
-  (`docs/API.md`).
+  (`docs/API-IT.md`).
 - Nelle app (non in nano8, che è un emulatore): le schede di SDK e 3D studio (F1…F4,
   Esc), le barre in basso ("hold F12 keys"), la riga dei suggerimenti del 3D studio, il
   Sound editor (coi tasti della tastiera se è quella l'ultima usata: Enter, - =, [ ],
@@ -1702,7 +1702,7 @@ Task:
    32x32"); ogni seme una variante (alcune fanno animazioni: moneta che gira, ali,
    fiamma, passi del personaggio di profilo).
 6. ✅ **Lua**: `ai.ask`, `ai.entry`, `ai.list`, `ai.near`, `ai.sprite`, `ai.recipes`
-   (docs/API.md) e `require "assist"`, il **pannello** che ogni strumento apre con un tasto:
+   (docs/API-IT.md) e `require "assist"`, il **pannello** che ogni strumento apre con un tasto:
    risponde mentre scrivi, Invio inserisce il codice o lo sprite, modalità errore (riga,
    nome scritto male, cosa vuol dire), voci collegate, "non sono sicuro"; col pad si
    sfoglia tutto. `keyp()` conosce F6–F12.
@@ -1993,7 +1993,7 @@ Fatto (QEMU, test sul PC):
   tastiera e controller col pallino senza numero esistono (`icon_mask(ICON_PAD, ICON_DOT)`),
   la barra per ora non li usa.
 - **Cartucce**: `mouse(on, [freccia])`, `mouse()` → `x, y, tasti, rotellina, visibile`,
-  `mousep([i])` (docs/API.md). La freccia si disegna sulla pagina mostrata, mai nel buffer
+  `mousep([i])` (docs/API-IT.md). La freccia si disegna sulla pagina mostrata, mai nel buffer
   della cartuccia (anche disegnando via RAM). nano8: le cartucce con `poke(0x5f2d, 1)`
   seguono il puntatore appena compare (sopra l'immagine 128x128, senza freccia: la
   disegnano loro). L'assistente (M30) conosce `mouse` e `mousep`.
@@ -2910,7 +2910,7 @@ tastiera).
   Code, "New project" nell'SDK): modelli pronti per platform, visuale dall'alto,
   sparatutto e 3D, con codice, sheet e mappa.
 - **R17 — Import MIDI nel Sound editor.** Un file MIDI diventa i pattern del banco.
-- **R18 — Documentazione API in inglese.** Il README è in inglese, ma `docs/API.md`,
+- **R18 — Documentazione API in inglese.** Il README è in inglese, ma `docs/API-IT.md`,
   `docs/GUIDA-GIOCHI.md` e la base dell'assistente sono solo in italiano.
 
 ### Hardware

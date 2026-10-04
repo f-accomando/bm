@@ -42,7 +42,8 @@ giochi, chi disegna il 3D, anti-aliasing), **volume** e sistema (M27, BareMetal 
 regola anche il volume. Tutto si usa col solo controller. Nel menu **PS** torna a
 Games e chiude i pannelli; nel monitor apre il menu.
 Per scrivere un gioco: [docs/GUIDA-GIOCHI.md](docs/GUIDA-GIOCHI.md) (guida pratica) e
-[docs/API.md](docs/API.md) (riferimento).
+[docs/API-IT.md](docs/API-IT.md) (riferimento); in inglese [docs/GAME-GUIDE.md](docs/GAME-GUIDE.md) e
+[docs/API-EN.md](docs/API-EN.md).
 
 ## bm Studio e bm Animator: le risorse sul PC
 
@@ -311,7 +312,7 @@ Test pattern (comando `t`):
 ## Mouse e puntatore (M32)
 
 - **Dove c'è**: nel menu di bm sempre; nelle app (giochi, strumenti) solo se l'app lo chiede
-  con `mouse(true)` (vedi [docs/API.md](docs/API.md)); nella console testuale no.
+  con `mouse(true)` (vedi [docs/API-IT.md](docs/API-IT.md)); nella console testuale no.
 - **Quando si vede**: quando qualcosa lo muove. Con un mouse collegato compare subito; con
   la sola levetta destra appena la si muove. Nel menu i tasti e la croce lo nascondono
   (la selezione si sposta) finché non si muove di nuovo.
@@ -464,7 +465,7 @@ suona il banco di suoni della cartuccia, la sezione **AUDIO** del `.bm`: strumen
 effetti sonori, pattern a 8 tracce e brani, con effetti sui passi (glide, bend,
 vibrato, tremolo, accordi, arpeggi, fade, retrigger). Gira nell'interrupt audio, a tempo
 anche se il gioco rallenta. Dai giochi: `sfx(n)`, `music(n)`, `volume()` e le note
-singole (`note`, `slide`, `vibrato`, `arp`), vedi [docs/API.md](docs/API.md#suono).
+singole (`note`, `slide`, `vibrato`, `arp`), vedi [docs/API-IT.md](docs/API-IT.md#suono).
 
 Il banco si fa con il **Sound editor** (scheda Dev, o `A` nel monitor), col solo pad o
 con la tastiera:
@@ -500,7 +501,7 @@ python3 scripts/mkbm.py -o gioco.bm --lua main.lua --sheet sheet.png --map map.c
 
 La cartuccia definisce `_init()`, `_update()` e `_draw()` (60 volte al secondo) e usa
 un'API in stile PICO-8: forme, sprite e mappa, testo, input (`btn`/`btnp`), tempo,
-3D software. **Riferimento completo e guida alla prima cartuccia: [docs/API.md](docs/API.md).**
+3D software. **Riferimento completo e guida alla prima cartuccia: [docs/API-IT.md](docs/API-IT.md).**
 Giochi di esempio: `carts/pong`, `carts/snake`, `carts/shooter`, `carts/astrowing` (3D), `carts/hunt` (mappa 2048×2048, luci; grafica e mappa da `mkassets.py`), `carts/texroom` (stanza 3D con texture a 320×180, ms e fps sullo schermo; texture da `mkassets.py`), `carts/village` (Studio Village: modelli 3D fatti con bm Studio e un paesano animato con bm Animator, in `models.bm`) (solo Lua, sprite
 disegnati nel codice con `sset`), `carts/demo` (sprite sheet PNG e mappa CSV),
 `carts/kitchen` (Chaos Kitchen: gioco grande in più file Lua uniti da `build.py`, 3D,
@@ -840,7 +841,7 @@ src/bm/n8*.c             la macchina di nano8: memoria e disegno (n8.c), font (n
                          cartucce .p8 / .p8.png (n8cart.c), la libreria Lua n8 (n8lua.c)
 src/audio/n8snd.c        il suono di nano8: 4 canali, effetti e musica delle cartucce
 tests/nano8/             prove di nano8 sul PC: n8host (nano8 senza Pi), api.p8, run.py
-docs/API.md              API delle cartucce .bm e guida alla prima cartuccia
+docs/API-IT.md           API delle cartucce .bm e guida alla prima cartuccia (API-EN.md in inglese)
 scripts/mkbm.py         packer .bm (PNG e CSV, solo libreria standard Python)
 scripts/bmmesh.py        sezione MESH (modelli 3D) e file .glb di bm Studio, per mkbm.py --models
                          (con un .bm: modelli, scheletri e sheet)

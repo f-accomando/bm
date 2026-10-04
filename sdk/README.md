@@ -105,7 +105,7 @@ end
 
 - `model(nome)` (o `model(n)`, dall'1) dà la mesh, `nil` se non c'è; `models()` la
   lista dei nomi; `bounds3d(m)` il box `x0, y0, z0, x1, y1, z1` (per centrare o per le
-  collisioni). Riferimento: [docs/API.md](../docs/API.md).
+  collisioni). Riferimento: [docs/API-IT.md](../docs/API-IT.md) ([API-EN.md](../docs/API-EN.md) in inglese).
 - L'origine della griglia (le tre linee colorate) va nel punto `x, y, z` di `draw3d`; un
   quadretto è una unità.
 - Le facce con texture usano lo sprite sheet della cartuccia: se il gioco cambia lo sheet

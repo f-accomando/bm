@@ -1,0 +1,927 @@
+# Native `.bm` cartridges: API and first cartridge
+
+> A step-by-step practical guide (sprites, maps, 3D models, sound, lights, saves):
+> [GAME-GUIDE.md](GAME-GUIDE.md). In Italian: [API-IT.md](API-IT.md) and
+> [GUIDA-GIOCHI.md](GUIDA-GIOCHI.md).
+
+A `.bm` cartridge is a game for bm written in **Lua 5.4**. The kernel draws in C
+(640×360, 16-bit RGB565 colour, 60 frames a second); Lua only does the logic. Complete
+examples in `carts/`: `pong/`, `snake/`, `shooter/` (code only) and `demo/` (with a PNG
+sprite sheet and a CSV map).
+
+## The first cartridge in 5 minutes
+
+1. Create `carts/hello/main.lua`:
+
+   ```lua
+   local x, y = 300, 160
+
+   function _init()                 -- once, at start
+   end
+
+   function _update()               -- 60 times a second: logic
+     if btn(0) then x = x - 3 end   -- left
+     if btn(1) then x = x + 3 end   -- right
+     if btn(2) then y = y - 3 end   -- up
+     if btn(3) then y = y + 3 end   -- down
+   end
+
+   function _draw()                 -- 60 times a second: drawing
+     cls(0x102040)                  -- dark blue background
+     circfill(x, y, 20, 0xFFD050)   -- a yellow ball
+     print("hello from bm!", 8, 8, 0xFFFFFF)
+   end
+   ```
+
+2. Pack it:
+
+   ```sh
+   python3 scripts/mkbm.py -o hello.bm --lua carts/hello/main.lua --title "Hello" --author "me"
+   ```
+
+   To add it to the build, put its name in `GAMES` in the `Makefile` and its title in a
+   line `title_hello := Hello`: `make` creates it in `build/carts/hello.bm`.
+
+   **Cover** (optional): `--cover cover.png`, a PNG of any size that the menu prints on
+   the card: an 88×88 square (2026-10-04; 128×80 before). A square picture is scaled
+   down; others stay whole, as wide as the square, over a blurred and darker copy of
+   themselves that fills the rest. In the build a file `carts/hello/cover.png` is enough;
+   those of the demo games are drawn by `scripts/mkcovers.py`. Without a cover the menu
+   prints the title.
+
+3. Try it:
+   - **on the Pi**: copy `hello.bm` into the `carts/` folder of the SD card, power on (or
+     press `R` in the menu): it appears in the menu with its title and author;
+   - **in QEMU** (without a Pi):
+
+     ```sh
+     qemu-system-arm -M raspi0 -bios build/kernel.img -serial tcp:127.0.0.1:4444,server=on,wait=off -serial null &
+     python3 tools/bm_load.py tcp:127.0.0.1:4444 --cart hello.bm
+     ```
+
+     (from the menu or the monitor: the loader sends `U`, then the cartridge);
+   - **from the serial line** (a Pi with a USB-serial adapter):
+     `python3 tools/bm_load.py /dev/ttyUSB0 --cart hello.bm`.
+
+Ctrl+Esc (keyboard), PS or Start+Select (gamepad) go back to bm's menu leaving the game
+**suspended** (still in memory: A on its cover resumes it where it was; if the cartridge has
+`_exit()`, they ask it first); Esc alone, in a game, is Start (its menu). In a **network
+match** (`online(true)`) the game is not suspended: the system asks the player who leaves,
+only on their console, "Leave the match?" (they will leave the game and disconnect from the
+server); yes calls `_leave()` and closes the game, back stays. From the serial line Ctrl+\
+is Ctrl+Esc and `q` closes without asking. The system's keys (one table,
+`src/kernel/syskeys.c`) and the cartridge's are shown while F12 is held. If there is a Lua
+error, the cartridge stops and the error, with its line, appears on the console.
+
+## Structure
+
+| Function | When |
+|---|---|
+| `_init()` | once, after loading |
+| `_update()` | every frame (60 Hz), before `_draw` |
+| `_draw()` | every frame, after `_update` |
+| `_exit()` | (optional) Ctrl+Esc, PS or Start+Select: `true` closes now; `false` stays (the cartridge asks, for example "unsaved changes: Ctrl+Esc again leaves", and closes later with `quit()` or at the second Ctrl+Esc) |
+| `_leave()` | (optional) in a network match (`online(true)`), when the player confirms leaving: the game tells the server (or the host), then the cartridge closes without being suspended |
+
+Globals: `SCREEN_W` and `SCREEN_H` (640 and 360; 480 and 270 with `--res 480x270`; 320 and
+180 with `--res 320x180`; 256 and 256 with `--res 256x256`). The cartridge can change its
+resolution while it runs with `screen(w, h)` (below): from the next frame the new sizes hold.
+The screen is **not** cleared by itself: `_draw` usually starts with `cls()`.
+
+Limits: an error or an endless loop (over **20 million Lua instructions** in one frame)
+stops the cartridge without blocking the console. Sandbox: no `io`, `os`, `load`,
+`dofile`; `require` loads only the libraries built into the kernel (`"bmlib"`, the games'
+shared library: [below](#bmlib-the-games-shared-library); `"assist"`, the assistant's
+panel; `"bm3d"`, what bm Studio and bm Animator share; `"predict"` and `"words"`, the word
+completion); there are `string`, `table`, `math`, `utf8`, `coroutine`.
+
+## Colours
+
+Colours are integers `0xRRGGBB` (e.g. `0xFF8000` orange) or `rgb(r, g, b)` with values
+0–255. The screen turns them into RGB565 (5 bits red, 6 green, 5 blue).
+
+## Reference
+
+Coordinates are in pixels, (0,0) at the top left; `w` and `h` are width and height.
+
+### Screen and shapes
+
+| Function | Description |
+|---|---|
+| `cls([c])` | fills the screen (black if `c` is missing). With the 3D on the GPU the ARM does not fill it: the GPU's job clears the page to that colour (free even at 1080p); if 2D comes before the 3D the ARM fills it as always |
+| `screen(w, h)` | the cartridge's resolution from the next frame: `true`, or `false` if it is not one of these (16:9): 320×180, 384×216, 480×270, 640×360, 960×540, 1280×720, 1920×1080 (on a 1080p TV all at whole pixels but 1280×720). `SCREEN_W` and `SCREEN_H` change when it is done; the z-buffer, the 3D camera and the light buffers follow, the font and `camera()` stay, `clip()` goes back to the whole screen. If the console cannot give it, the one before stays. `screen()` → the width and height now; `screen(i)` → the i-th of the list (from 1), or `nil`. A 256×256 cartridge keeps its screen. The ARM's rasteriser pays for every pixel: above 640×360 the GPU is needed |
+| `pset(x, y, c)` / `pget(x, y)` | writes / reads a pixel (`pget` gives `0xRRGGBB`, or `nil` off screen) |
+| `line(x0, y0, x1, y1, c)` | a line |
+| `rect(x, y, w, h, c)` / `rectfill(x, y, w, h, c)` | an empty / filled rectangle |
+| `circ(x, y, r, c)` / `circfill(x, y, r, c)` | an empty / filled circle |
+| `tri(x0, y0, x1, y1, x2, y2, c, [c1, c2])` | a filled triangle; with three colours (one per corner) the colour shades from one corner to the other (Gouraud, dithered) |
+| `print(text, x, y, [c, scale])` | text with the 8×16 font (white if `c` is missing), `scale` times bigger (1–8: 2 = 16×32 characters); returns the x after the last character |
+| `font([name])` | the font of `print` from now on: `"8x16"` (the normal one), `"8x14"` or `"6x12"` (106 columns by 30 rows at 640×360: for tools with a lot of text); returns the width and height of a character of the current font |
+| `prompt(name, x, y, [small, scale])` | a key drawn as a coloured chip (the apps' set, `src/kernel/prompts.c`) with its top left corner at (x, y): 16 pixels high beside the 8×16 text, 12 with `small` (by itself when the font is `"6x12"`), `scale` times bigger (1–8, as `print`); returns the x after the chip. In **upper case** the pad's buttons (`"A"`, `"B"`, `"X"`, `"Y"`, `"START"`, `"SELECT"`, `"L1"`…`"R3"`, `"UP"`, `"UPDOWN"`, `"LEFTRIGHT"`, `"DPAD"`, `"LSTICK"`, `"PS"`, `"TOUCHPAD"`), drawn as on the pad used last: a DS4 (cross, circle, square, triangle, OPTIONS, SHARE) until another one is used, which has them with letters. In **lower case** the keyboard's keys, with the names of `keyp()` (`"enter"`, `"esc"`, `"tab"`, `"space"`, `"up"`, `"f1"`…) or a character (`"s"`, `"1"`, `"+"`). `"ok"`, `"back"` and the actions of `keymap()` are their button. With `player` (1–4, after `scale`: `prompt(name, x, y, small, scale, player)`) the button as that player's controller shows it: the DS4's symbol, a pad's letter or the keyboard key that presses it (`"space"` for A). `prompt(name, [small, scale, player])` without coordinates does not draw: it returns the width and height |
+| `camera([x, y])` | moves all drawing by (−x, −y); without arguments it resets it |
+| `clip([x, y, w, h])` | limits drawing to the rectangle; without arguments the whole screen |
+
+### Sprites and map
+
+The **sprite sheet** is a picture divided into 8×8 cells: cell `n` is at column
+`n % (width/8)` and row `n // (width/8)`. It comes from `--sheet sheet.png` (RGB or RGBA
+PNG; alpha < 128 = transparent) or, without a PNG, it is a transparent 256×256 sheet to
+draw with `sset` (32 cells per row: see `carts/shooter`). The sheet can be up to 4096×4096
+pixels. A big sheet with at most 256 colours goes into the cartridge with
+`--sheet sheet.png --sheet8`: a palette and repeated runs (RLE) instead of 4 bytes per
+pixel, decoded at loading (Titan Clash: 2048×3376 pixels in 1.7 MB).
+
+| Function | Description |
+|---|---|
+| `spr(n, x, y, [w, h, flip_x, flip_y])` | draws cell `n` (w×h cells, default 1×1), mirrored too |
+| `sspr(sx, sy, sw, sh, dx, dy, [flip_x, flip_y, zoom])` | copies any rectangle of the sheet; with `zoom` (default 1) it draws it bigger (`2`, `3`…) or smaller (`0.5`), pixel by pixel: it covers `sw * zoom` × `sh * zoom` pixels |
+| `sget(x, y)` / `sset(x, y, [c])` | reads / writes a pixel of the sheet (`nil` = transparent) |
+| `zspr(name, x, y, [frame, flip_x, flip_y, zoom])` | draws a **named zone** of the sheet (below): `frame` from 1 to the number of frames (beyond it starts again), or `nil`: the one its fps give at `time()`, so the animation runs by itself. Returns the frame drawn. A zone that is not there is an error |
+| `zone(name)` | `x, y, w, h, frames, fps` of the zone (its first frame, in sheet pixels), or `nil` |
+| `zones()` | the names of the zones, in order (`{}` if there are none) |
+| `map(mx, my, [x, y, mw, mh, layer, mask])` | draws the map from cell (mx, my), mw×mh cells, at (x, y). `layer`: the number (from 1) or the name of the layer (default 1). `mask`: only the cells whose tile has at least one of those **flags** (`fget`; 0 or missing: all) |
+| `mget(mx, my, [layer])` / `mset(mx, my, n, [layer])` | reads / writes a cell of the map (0 = empty; outside the map `mget` gives 0) |
+| `fget(n, [f])` | the **flags** of tile (sheet cell) `n`: a byte, 8 flags; with `f` (0–7) that flag, `true` or `false` |
+| `fset(n, f, on)` / `fset(n, byte)` | turns flag `f` of tile `n` on or off; with two arguments it writes all 8 flags at once |
+| `mflags(x, y, [w, h, layer])` | the flags of the tiles the rectangle touches, **in pixels** (the map drawn at 0, 0; without `w` and `h` a point), put together (or); 0 = nothing. Cell 0 and the outside of the map have none. For collisions: `mflags(x, y + h, w, 1) & 1 ~= 0` (flag 0 under the feet) |
+| `msize([w, h])` | `w, h, layers`: the map's size in cells and how many layers it has; with `w` and `h` every layer gets that size, the cells that fit staying where they were |
+| `mlayers([list])` | the names of the layers, in order (the first is drawn at the back). With a list (1 to 8 entries) the map gets those layers: an entry is a name (the layer with that name, or a new empty one) or `{name, from}` (a copy of layer `from`, a number or a name): so they are added, moved, renamed and taken away |
+
+**The map's layers (R11, 2026-10-04).** The map has 1 to 8 **layers** of the same size,
+each with a name (the first is called `"main"` unless given another). They are drawn one
+at a time, in the order you like: for example the background, then the sprites, then the
+layer that goes **in front of** the character (tree tops, arches, roofs).
+
+```lua
+cls(0)
+map(0, 0, 0, 0, 80, 45, "back")     -- the floor
+spr(hero, x, y)
+map(0, 0, 0, 0, 80, 45, "front")    -- the tree tops over the hero
+```
+
+**The tiles' flags.** Every tile of the sheet has 8 flags (0–7) that say what it is to the
+game: wall, water, ladder, danger... Collisions look at the flags instead of the tiles'
+numbers. The convention of [bmlib](#bmlib-the-games-shared-library) (every game can choose
+another): flag 0 **solid** (1), 1 **platform** you can pass through from below (2), 2
+**ladder** (4), 3 **water** (8), 4 **hurts** (16); 5–7 free.
+
+```lua
+if fget(mget(cx, cy), 0) then ... end            -- the cell is solid
+if mflags(px, py + 8, 8, 1) & 1 ~= 0 then        -- the character (8x8) stands on something
+  on_ground = true
+end
+map(0, 0, 0, 0, 80, 45, 1, 4)                    -- only the ladders
+```
+
+**Named zones.** The SPRITES section gives names to rectangles of the sheet, with their
+frames (the boxes of the same size to the right of the first) and the animation's speed.
+The code no longer needs the coordinates:
+
+```lua
+zspr("coin", x, y)                     -- the coin's animation, it runs by itself
+zspr("hero_run", x, y, f, to_the_left)
+local _, _, w, h = zone("hero_run")    -- its size, for collisions
+```
+
+**Where they come from.** With `mkbm.py`: `--map map.csv` is the first layer; every other
+`--map name=file.csv` is one more layer (up to 8, in the order given; a CSV smaller than
+the first is filled with empty cells); `--flags flags.csv` the flags (numbers 0–255 for
+cells 0, 1, 2... in order, or `n=flags` for cell `n`); `--sprites zones.txt` the zones (one
+per line: `name x y w h [frames [fps]]`). In the repository's build the files
+`map_<name>.csv` (in order with `layers_<game> := name ...` in the `Makefile`),
+`flags.csv` and `sprites.txt` in the game's folder are enough. On the console the SDK's
+editor changes layer with `L` (`O` shows that one alone) and adds some from its menu, and
+turns the cell's flags on with keys `0`–`7` on the sprite page; bm Pixel and
+`scripts/bmres.py` make zones. `cart_save` and `cart_load` carry layers, flags and zones
+with the cartridge. Format: the LAYERS (12), FLAGS (13) and SPRITES (11) sections in
+`src/bm/bm.h`; a kernel of before draws the first layer and ignores the rest.
+
+The map comes from `--map map.csv` (one row of comma-separated numbers per row of the
+map; each number is a cell of the sheet). Without a map it is 256×256 empty cells, one
+layer.
+
+### Input
+
+| Function | Description |
+|---|---|
+| `btn(i, [p])` | `true` while the button is held; without `p` from **any** controller, with `p` = 1–4 only from player `p`'s. Instead of `i` also a **name** (2026-10-04): a button (`"a"`, `"b"`, `"x"`, `"y"`, `"left"`…`"down"`, `"start"`, `"select"`, `"l1"`, `"r1"`, `"l2"`, `"r2"`, `"l3"`, `"r3"`), `"ok"` and `"back"` (the system's yes and back: cross and circle on the DS4, A and B on an Xbox pad, Space and X on the keyboard; on the RGB30 as `confirm=` and `game_buttons=` say) or an action of `keymap()` |
+| `btnp(i, [p])` | `true` only in the frame it is pressed (the same `p`, also with a name) |
+| `keymap(t)` | the game's **actions** on the buttons: `keymap({ jump = "a", fire = {"x", "r1"}, pause = "start", confirm = "ok" })` (up to 32 actions, 4 buttons each); then `btn("jump", p)`, `btnp("fire")` and `prompt("jump", x, y)`. The game changes the keys by calling it again (its options menu; it keeps them with `save()`); `keymap()` returns the table, `keymap(nil)` takes it away. An unknown button or an action with a button's name is an error |
+| `controller([p])` | what player `p` (1–4, the first if missing) plays with: `{kind = "keyboard" / "ds4" / "xbox" / "pad" / "builtin" / "none", layout = "keyboard" / "ds4" / "xbox" / "nintendo" / "none", bluetooth = bool, ok = "a" / "b", back = "b" / "a"}`: `layout` says what the buttons are called (the DS4's symbols; letters with A at the bottom as Xbox; A on the right as the RGB30), `ok` and `back` which of the game's buttons are the yes and the back |
+| `online([on, note])` | the match is played over the **network** (2026-10-04): with `online(true)` PS, Ctrl+Esc and Start+Select do not suspend the game (the others go on playing) but ask the player who leaves, only on their console, "Leave the match?" (they will leave the game and disconnect from the server), over the game that goes on. While the question is open the game sees neither buttons nor sticks nor keys; ok (cross on the DS4, Enter or Space on the keyboard) or PS again leave: `_leave()` and the cartridge closes; back (circle, Esc) stays, and the buttons still held go back to the game only after being released. `note`: a line under the question (e.g. `"You are the host: the match ends for all."`). `online(false)` at the end of the match; `online()` returns whether it was online and whether the question is open (the player is away) |
+| `players()` | how many players have a controller (at least 1) and, as the second value, which: bit `n` = player `n+1` (e.g. `3, 7` = players 1, 2 and 3) |
+| `stick([p, n])` | player `p`'s left stick: `x, y` between −1 and 1 (x to the right, y down), with a dead zone; with the keyboard or a pad without a stick it is the cross (8 directions). With `n = 1` the **right** stick (to aim in shooters; `0, 0` without a stick). Without `p`: the one pushed most |
+
+**Mouse and pointer (M32).** A cartridge has the pointer only if it asks for it: without
+`mouse(true)` there is none (in bm's menu there always is). A USB or Bluetooth mouse moves
+it, or the right stick of a pad (R2 or R3 left button, L2 right); the console may have it
+off for the whole system (`mouse=off` in `bm/config.txt`).
+
+| Function | Description |
+|---|---|
+| `mouse(on, [arrow])` | `mouse(true)`: the cartridge wants the pointer, and the console draws its arrow over the frame (`mouse(true, false)`: no arrow, the cartridge draws its cursor); `mouse(false)` takes it away. Returns `false` if the console has the mouse off |
+| `mouse()` | `x, y, buttons, wheel, visible`: the position in pixels of the cartridge's screen (without `camera`), the buttons held as bits (1 left, 2 right, 4 middle), the wheel's clicks in this frame (up positive) and `true` if the pointer shows (as soon as something moves it). `nil` if the cartridge has not asked for it or if nothing moves it (neither mouse nor right stick) |
+| `mousep([i])` | `true` in the frame button `i` is pressed (0 left, the default; 1 right; 2 middle) |
+
+```lua
+function _init() mouse(true) end
+function _update()
+  local x, y = mouse()
+  if x and mousep() then sfx(0) end   -- a click
+end
+```
+
+**More players (M16).** Bluetooth controller *n* is player *n* (paired from the monitor
+with `T`, one at a time: each takes the first free place and its light the player's colour:
+1 blue, 2 red, 3 green, 4 pink). The USB keyboard or gamepad and the serial line are the
+first player without a pad (without Bluetooth pads: player 1); the Bluetooth keyboard (M28)
+is a player of its own, the next one without a pad (the first, if there is nothing on USB).
+One-player games use `btn(i)` without `p` and work with any controller; a game for more
+players asks `btn(i, p)` for each (example: `carts/pong`, two-player mode).
+
+| `i` | Keyboard | Gamepad | Serial |
+|---|---|---|---|
+| 0 left | ← or A | cross / stick | `a` or ← |
+| 1 right | → or D | cross / stick | `d` or → |
+| 2 up | ↑ or W | cross / stick | `w` or ↑ |
+| 3 down | ↓ or S | cross / stick | `s` or ↓ |
+| 4 **A** | space, Z, J | A / cross (DS4) | space, `j` |
+| 5 **B** | X, K | B / circle | `x`, `k` |
+| 6 **X** | C, L | X / square | `c`, `l` |
+| 7 **Y** | V, I | Y / triangle | `v`, `i` |
+| 8 **Start** | Enter | Start / Options | Enter |
+| 9 **Select** | Tab | Select / Share | — |
+
+Start+Select together (or the PS button) always close the cartridge: Start alone is free for
+the game's pause.
+
+A cartridge that never asks `btn(6)`/`btn(7)` (or `btnp`) gets X as A and Y as B: games
+with two buttons work with all four.
+
+**Keys chosen by the player.** A cartridge that lets the player choose the keys (as nano8)
+reads the keyboard key by key and the controllers button by button:
+
+| Function | Description |
+|---|---|
+| `rawkeys(on)` | with `true` the keyboards stop being controllers for `btn()` and `pad()`: they are read with `keydown()`. Ctrl+Esc still closes the cartridge |
+| `keydown(u)` | `true` while the key with USB HID usage `u` is held (USB or Bluetooth): `0x04`…`0x1D` the letters A–Z, `0x1E`…`0x27` the digits, `0x28` Enter, `0x2C` space, `0x4F`…`0x52` the arrows (right, left, down, up), `0xE0`…`0xE7` Ctrl, Shift, Alt, GUI on the left and then on the right |
+| `keys()` | the usages of the keys held now (`{0x1D, 0xE1}`): for "press a key" |
+| `pad([p])` | the buttons player `p` (1–4) holds, as bits: 1 left, 2 right, 4 up, 8 down, 16 A, 32 B, 64 Start, 128 Select, 256 X, 512 Y, 1024 L1, 2048 R1, 4096 L2, 8192 R2, 16384 L3, 32768 R3 (the triggers and the pressed sticks: DS4 and Xbox 360; on generic pads buttons 7–8 and 11–12); without `p` everybody's. The serial keys count as the first player's controller (L1 and R1: `u` and `o` from the serial line, Q and E from the USB keyboard; Select: Tab from both) |
+| `lastinput()` | what was pressed last: `"keyboard"`, `"ds4"` or `"pad"` (another controller); `nil` before any key. To show the right keys with `prompt()` (for example `"enter"` or `"A"`) |
+
+### Time and system
+
+| Function | Description |
+|---|---|
+| `time()` | seconds since the cartridge started (with decimals) |
+| `stat(n)` | 0 KiB used by Lua, 1 ms of the last frame (`_update` + `_draw`, with the GPU's 3D), 2 fps, 3 frame number, 4 3D triangles, 5 3D pixels (0 with the GPU), 6 ms spent in 3D drawing (since `zclear`; with the GPU the ARM's part), 7 3D vertices transformed, 8 ms since the start of this frame (to measure the phases), 9 `1` if the GPU draws the 3D, 10 Lua instructions of the last frame (`_update` + `_draw`, in thousands) |
+| `log(...)` | writes in the kernel's log (serial line and console), not on the game's screen |
+| `report(kind, text)` | a report for the people who develop bm (2026-10-04): saved in `bm/reports` on the SD card with kernel, branch, board and date, then sent to the reports' repository if there are `github_token` and the network (`src/kernel/reports.h`); at most 8 per run, 256 KiB each; `true` if saved |
+| `quit()` | closes the cartridge at the end of the frame |
+| `timeslice(co, [k])` | coroutine `co` stops by itself after about `k` thousand Lua instructions in a frame (400 if missing) and `coroutine.resume` returns `true` without values: a long computation goes on in the next frames instead of stopping the cartridge at the instruction limit. `timeslice(nil)` takes it away (nano8 uses it for its cartridges) |
+
+Random numbers: `math.random`. For different games at every start, seed the generator when
+the player presses a key: `math.randomseed(stat(3))`.
+
+### Network (UDP)
+
+For network games (M38.5: Overbit). UDP packets up to 1024 bytes; each cartridge has 2
+sockets, closed when it ends. Addresses are text (`"192.168.1.23"`); `"*"` is the LAN's
+broadcast. The console's network is needed (WiFi or cable): without it `udp_open` returns
+`nil`. In bmhost the same packets go through the PC's sockets (`BMHOST_NET_ID=k` for more
+consoles on the same PC, `--realtime` to play at 60 frames a second).
+
+| Function | What it does |
+|---|---|
+| `s, port = udp_open([port])` | a socket on the port (0 or nothing: any); `nil` and the reason if there is no network or free socket |
+| `udp_send(s, address, port, data)` | sends a string (at most 1024 bytes); `true` if it left (UDP: it can be lost) |
+| `data, address, port = udp_recv(s)` | the next packet that arrived, or `nil`; up to 48 wait in the queue |
+| `udp_close(s)` | closes the socket |
+| `net_ip()` | the console's address, or `nil` without a network |
+| `net_resolve(name)` | the address of a name: `nil` while it looks for it (call it again the frame after), `false` if it does not exist |
+
+### Saves
+
+| Function | Description |
+|---|---|
+| `save(t)` | saves table `t` on the SD card; `true`, or `false` and the reason (no SD card, card full...) |
+| `saved()` | the table saved last time, or `nil` |
+
+Each cartridge has **one** save, in `/bm/save/XXXXXXXX.SAV` on the SD card (the name
+depends on title and author: changing them starts again from zero). The table can hold
+numbers, strings, booleans and other tables (no functions, at most 32 KiB). Writing on the
+SD card takes a few milliseconds: call `save()` at moments like the end of a match, not in
+every frame (`lib.store` and `lib.best` of [bmlib](#bmlib-the-games-shared-library) write
+only when a value changes). Example (Snake's record):
+
+```lua
+function _init()
+  local data = saved()
+  if data then best = data.best end
+end
+-- at the end of the match
+if score > best then best = score; save({ best = best }) end
+```
+
+### Sound
+
+Audio goes out over HDMI at 48 kHz (from the monitor's speakers) and is generated in an
+interrupt: it costs nothing to your `_update`. There are two ways to use it, also together:
+
+- **the sound bank** of the cartridge (sound effects and music made with the Sound editor
+  of the Dev tab): `sfx(n)` and `music(n)`;
+- **notes** played by the code, one voice at a time: `note`, `slide`, `arp`...
+
+Eight voices (0–7). Waveforms: `SQUARE` (with `duty`), `TRIANGLE`, `SAW`, `NOISE`, `SINE`,
+`METAL` (short metallic noise: cymbals, bells). Each voice has an ADSR envelope. Pitches
+are in **Hz** (with decimals too: `261.63`) or a **note name**: `"C4"` (middle C), `"A4"`
+(440 Hz), `"F#3"`, `"Bb2"`.
+
+#### Sound effects and music (the cartridge's bank)
+
+| Function | Description |
+|---|---|
+| `sfx(n, [v], [semitones], [vol])` | plays sound effect `n` of the bank; without `v` it chooses a free voice, preferring those the music leaves empty. `semitones` transposes it (`sfx(0, nil, 12)`: an octave up), `vol` 0–1. Returns the voice, or `nil` (no bank, a number that is not there) |
+| `sfx(-1, [v])` | stops the effect of voice `v`, or all |
+| `sfxpos(v)` | the effect playing on voice `v` and its step, or `nil` |
+| `music(n, [fade_ms], [pos])` | plays song `n` from the start (or from position `pos` of its sequence), fading in over `fade_ms` |
+| `music(-1, [fade_ms])` | stops the music, fading it |
+| `music()` | while it plays: song, position, step, pattern (to keep in time); otherwise `nil` |
+| `tempo(x)` | the music goes `x` times faster (1 = as written): speed up when the game gets hard |
+| `mute(track, [on])` | turns off (`on`, the default) or back on a track of the music: layers that come and go |
+| `volume([level])` | the general volume 0–10 (with `level` it changes it). It is the console's: it holds for every game and stays in `bm/config.txt` |
+
+Track `t` of a pattern plays on voice `t`. While a sound effect uses a voice, the music's
+track on that voice is silent. A bank with a song that uses tracks 0–5 leaves voices 6 and
+7 free for the effects.
+
+```lua
+function _init()
+  music(0)                         -- song 0, looping as decided in the editor
+end
+function _update()
+  if btnp(4) then sfx(1) end       -- jump
+  if got_coin then sfx(0) end
+  if boss then tempo(1.2) end      -- faster
+  if btnp(8) then music(-1, 500) end
+end
+```
+
+#### Notes from the code
+
+| Function | Description |
+|---|---|
+| `note(v, hz, [ms], [wave], [vol])` | plays a note on voice `v` (the envelope starts again); with `ms` it ends by itself, without it it stays on until `noteoff(v)`. `hz` in Hz or a name (`"C4"`). `vol` 0–255 (default 128) |
+| `noteoff(v)` | releases the note (the release phase starts) |
+| `freq(v, hz)` | changes the pitch without starting again |
+| `slide(v, hz, [ms])` | the note slides to `hz` in `ms` (default 100): glissandos, sirens, lasers |
+| `vibrato(v, [semitones], [hz])` | a vibrato `semitones` wide (for example 0.3) at `hz` swings a second (default 6); `vibrato(v)` takes it away |
+| `arp(v, chord, [ms])` | the note runs through a chord, `ms` per note (default 50): `"major"`, `"minor"`, `"maj7"`, `"min7"`, `"7"`, `"sus2"`, `"sus4"`, `"dim"`, `"aug"`, `"power"`, `"octave"`, or a table of semitones (`{0, 4, 7, 12}`); `arp(v)` takes it away |
+| `hz(note)` | the frequency of a note: a MIDI number (60 = middle C, 69 = A 440) or a name (`hz("A4")` = 440) |
+| `envelope(v, a, d, s, r)` | the voice's envelope: attack, decay and release are times 0–255 (0 = instant, 255 = 2 s), sustain is a level 0–255. Default `1, 0, 255, 10` |
+| `duty(v, d)` | the width of the square wave, 0–255 (128 = 50%; 32–64 sounds more "nasal") |
+| `playing(v)` | `true` while the voice sounds (release included) or an effect / the music holds it |
+| `apu(v, reg, [value])` | reads or writes a raw register of the voice (16 bytes per voice: `src/audio/synth.h`; register 10 is the 1/256 of Hz) |
+
+Waveform and volume stay those of the voice's last note, so giving them once is enough. At
+the start and at the end of the cartridge the voices go off and back to their defaults.
+Several loud voices together add up: a limiter keeps them under the top, but keep the
+volumes around 100–130. Examples:
+
+```lua
+note(0, 880, 60, SQUARE, 100)          -- a 60 ms "blip"
+note(0, "C5", 60, SQUARE, 100)         -- the same with the note's name
+envelope(2, 0, 60, 0, 30)              -- an explosion that fades...
+note(2, 2500, 300, NOISE, 130)         -- ...with noise
+note(1, 1300, 300, SQUARE, 70)         -- laser: starts high...
+slide(1, 300, 250)                     -- ...and goes down
+note(3, "C4", 600, SQUARE, 90)         -- an arpeggiated major chord
+arp(3, "major", 40)
+```
+
+Pong, Snake and Star Shooter in `carts/` use notes (a 10-line `jingle` function for the
+tunes; now there is `lib.jingle` in bmlib); the Sound editor's demo project
+(`carts/sound/demo.json`) has sound effects and two songs to listen to and copy.
+
+#### The bank: format and tools
+
+The bank is the **AUDIO** section of the `.bm` (format in `src/audio/player.h`): up to 32
+sounds (instruments), 64 sound effects, 64 patterns and 8 songs. It is made with the
+**Sound editor** (Dev tab), which opens a game and saves its sounds right inside it. On the
+PC: `scripts/bmaudio.py unpack game.bm -o sounds.json` extracts it as readable JSON,
+`mkbm.py --audio sounds.json` puts it back in a cartridge, `make wav BANK=sounds.json
+SONG=0` plays it into a WAV.
+
+### Keyboard and files (for tools such as the editors)
+
+| Function | Description |
+|---|---|
+| `keyheld(name)` | `true` while key `name` of a keyboard is held: `"f1"`…`"f12"`, `"tab"`, `"space"`, `"enter"`, `"esc"` (bm Pixel: space held to draw) |
+| `keyp()` | the next key typed: a character (`"a"`, `"\n"` Enter, `"\b"` Backspace, `"\t"`), a name (`"up"`, `"down"`, `"left"`, `"right"`, `"home"`, `"end"`, `"pgup"`, `"pgdn"`, `"del"`, `"esc"`, `"f1"`…`"f10"`), `"^s"` for Ctrl+S or `"^S"` for Ctrl+Shift+S; `nil` if none. F11 and F12 are the system's and never come. From the first call the keyboard types and no longer works as a gamepad for `btn()`, and Esc is a key like the others (Ctrl+Esc, Start+Select and PS close) |
+| `keyhelp(list, [title])` | the cartridge's keys, shown under the system's while **F12** is held (2026-10-04): `list` is `{ {"keys", "what they do"}, "subtitle", … }`; keys as in `prompt()` (lower case the keyboard, upper case the pad), separated by spaces: `"ctrl s"`, `"shift w a s d"`, `"a / d"` (alternatives), `"1 - 5"` (a range), `"Y LEFTRIGHT"`. Returns how many entries name a key the system keeps for itself and the cartridge never gets (F11, F12, Ctrl+Esc, Ctrl+Shift+Esc: in red and in the log, they must go); the other system keys (Esc, Ctrl+S…) are listed when saying what they do there; `keyhelp(nil)` takes it away. Call it again when the page changes |
+| `ls([folder])` | the files of the SD card: `{ {name=, size=, dir=}, … }` |
+| `cart_load(path)` | opens a `.bm`: its sprite sheet (with the tiles' flags and the zones), its map (with its layers) and its 3D models (with the skeletons) take the place of those of the calling cartridge; returns `{title, author, res, lua, sheet_w, sheet_h, map_w, map_h, layers, [palette]}`; `layers` the names of the map's layers; `palette` the colours (0xRRGGBB) of the SHEET8 section's palette, in their order, if the sheet is saved that way |
+| `cart_sheet([w, h])` | the width and height of the project's sprite sheet; with `w` and `h` (multiples of 8, from 8 to 4096) it gets that size: the pixels that fit stay where they are, the new ones are transparent (bm Pixel); the flags stay with their tile |
+| `cart_new()` | an empty sprite sheet and map (256×256, one layer), no flags, zones or models |
+| `cart_save(path, {title, author, res, lua})` | writes a `.bm` with the code given and the current sprite sheet, tile flags, zones, map with its layers, cover, sound bank, models and skeletons (the other sections of the file opened stay as they were); an 8.3 name, e.g. `"/carts/GAME.BM"` |
+| `cart_read(path)` | the code and the header of a `.bm`: `{title, author, res, lua, size}`, **without** touching the caller's sheet and map (unlike `cart_load`): for editors with several files open |
+| `cart_write(path, {[lua, title, author, res, from, sections]})` | changes **only** the code (and the data fields) of a `.bm`: sprite sheet, map, cover, sound bank and the sections the kernel does not know stay as they were; a file with a long name keeps it. Without `lua` the code stays as it is. A file that is not there becomes a cartridge with only the code (an 8.3 name). `from`: the other sections come from another file ("save as"); `from = false`: a new cartridge, whatever the file holds (bm Studio's new project). `sections`: `{[8] = MESH bytes, [9] = ANIM bytes}` (`false` takes them away), checked first (`false, "broken MESH section"`): so bm Mesh writes the models. `sheet = true`: the project's sprite sheet (`cart_load`, `sset`, `cart_sheet`) takes the place of the file's, as **SHEET8** when it has at most 256 colours (otherwise SHEET), with the colours of `palette` (`{0xRRGGBB, …}`) first in its palette, as they are and in that order (the transparent entry of the palette of before stays in its place); a pixel that still has the RGB565 it had in the file keeps its 24 bits of before (the console keeps 16 bits per pixel): only the pixels drawn again change. So bm Pixel saves the sheet. If `fset` changed some flags meanwhile, those go into the file too |
+| `cart_meshes(path)` | the meshes the **code** of a `.bm` builds with `mesh()`, `mesh_sphere()` and `mesh_cube()` (also through bmlib's builder): `{ {name=, kind=, verts={x,y,z,…}, faces={a,b,c,colour,…}, [uv={…}]}, … }` (the arguments of `mesh()`, indices from 1, colour `-1` = texture) and `nil` or the code's first error; `nil` and a message if the file cannot be read. The code runs **apart** (a Lua state of its own, `src/bm/meshcap.c`): the file's body, then `_init`, `_update` and `_draw` once, with an instruction limit; bm's other functions do nothing (no files, screen or sound). The name is that of the variable holding the mesh (`M.ship` → `"ship"`; in an array `chef[2].body` → `"chef2_body"`). For bm Mesh |
+| `mesh_reduce(record, triangles, [bones, [max_err]])` | **fewer triangles** for a model of the MESH section (`src/bm/decimate.c`: edge collapse with Garland-Heckbert quadrics, no AI): `record` is the model's part of the section (as `encode_mesh` of `bm3d.lua` writes it), `bones` the bone of each vertex (a byte each, from the ANIM section), `max_err` stops before a costlier collapse (0: no limit). Returns the record with at most `triangles` triangles (more only if it cannot go further without flipping faces), the bones of its vertices (`nil` without `bones`) and the number of triangles; `nil` and a message if the record is broken. Borders, colour lines and texture seams stay in place; the vertices stay the model's. bm Studio's models page (**-**); on the PC `tools/bmreduce.py` |
+| `picture3d(action, ...)` | a **picture becomes a 3D model** through an image-to-3D service (`src/net/img3d.c`; the first is Meshy, key `meshy_key=...` in `bm/config.txt` on the SD card). `picture3d("providers")` the services; `picture3d("ready", service)` `true`, or `false` and why (the key is missing); `picture3d("start", picture, {provider=, polycount=})` starts the job on a `.png`/`.jpg` of the SD card or an https URL and gives the job's id (or `nil` and a message); `picture3d("status", id, service)` → `"running", progress` or `"done", url` of the `.glb` (or `nil` and a message); `picture3d("take", url, {name=, faces=, height=})` downloads the `.glb` and converts it (`src/bm/glb.c`: positions merged, faces clockwise, PNG or JPEG texture reduced to 256×256, the model framed `height` high, reduced to `faces` triangles) → `{record=, flat=, texture=, nv=, nf=, textured=}`: `record` is the model for the MESH section (with the texture, if any), `flat` the same with the colours taken from the texture, `texture` 256×256 RGBA. The calls block while the network works. bm Studio's models page (**m**) |
+| `cutout3d(picture, {name=, lathe=, height=, depth=, segments=, faces=})` | a model from the **picture's outline**, made on the console without network or AI (`src/bm/cutout.c`): the transparent background (or the corners' colour) goes, the outline becomes a simplified polygon and the polygon a solid: a **cutout** `depth` thick (a fraction of the height, 0.2: the picture in front, mirrored behind, the border's colours on the sides) or, with `lathe = true`, the half outline **turned** round the vertical axis in `segments` steps (vases, towers, rockets; the picture projected in front). `picture`: a `.png` or `.jpg` of the SD card; `height` in blocks (2); `faces` triangles at most (1200). Gives the same table as `picture3d("take")`, or `nil` and a message. bm Studio's models page (**m**, the first two entries) |
+| `cart_audio([path])` | the sound bank of a `.bm` as a string (`false` if it has none) and its title; without a path, the bank of the running cartridge |
+| `cart_put_audio(path, bank, [title, lua])` | puts the bank (a string; `nil` takes it away) into a `.bm`, the rest of the file as before; if the file is not there it creates it with that title and that code. `true`, or `false` and a message |
+| `audio_bank(bank)` | from now on this bank plays (for the editors: music and effects playing go on); `nil`: none |
+| `audio_pattern(p, bpm, swing)` / `audio_play(v, sound, note, [vol], [fx], [ms])` | a pattern in a loop, a sound of the bank on a voice (the editors' previews) |
+| `cart_run(path)` | leaves, plays that file and then opens again the cartridge that asked, with `cart_arg()` = `{path=, error=, back=true}` (from the menu, "Open in the SDK", "... Sound editor", "... bm Studio", "... bm Animator", "... bm Mesh" or "... bm Pixel": `back=false`) |
+| `cart_tool(name, [path])` | leaves and opens another tool of the console on the same file: `"studio"`, `"animator"`, `"mesh"`, `"pixel"`, `"code"`, `"sdk"`, `"sound"` (bm Studio → *Open in bm Animator*, and back); the tool finds it in `cart_arg()` as from the menu |
+| `cart_data(kind, [bytes])` | the project's **MESH** (`kind` 8) and **ANIM** (9) sections, as strings in the format of `src/bm/bm.h`: without `bytes` it returns them (`nil` if there are none), with `bytes` it replaces them (`nil` or `""` takes them away) → `true`, or `false` and the reason. The kernel checks them first; `model()`, `animate()` and `bone3d()` use the new ones at once and `cart_save` writes them. So bm Studio and bm Animator of the console change models and skeletons (with `string.pack` / `string.unpack`, in the library `require "bm3d"`) |
+
+### Assistant (M30, for the development tools)
+
+A small AI that runs on the console: it understands a question (Italian or English, also
+with typos) and answers with the entries of its knowledge base (every function of the API,
+code examples for games, Lua errors, tips) or draws the base of a sprite. It is not a
+chatbot: a tiny INT8 network chooses among the entries it knows, in less than a
+millisecond. It does nothing until you call it (no background process; knowledge base and
+network are in the kernel). Try it from **Dev > Assistant** (or `I` from the monitor).
+
+| Function | Description |
+|---|---|
+| `ai.ask(question, [{n=5, ctx=word, kinds="api,howto"}])` | the best entries, the first the most likely: `{ {id=, title=, kind=, score=}, … }`, and as the second value the microseconds taken. `ctx`: the word under the cursor (if it is a function of the API, its entry goes to the top). `kinds`: `api`, `howto`, `error`, `tip`, `sprite` |
+| `ai.entry(id)` | an entry: `{id, kind, title, name, text, code, gen, see = {id, …}}` |
+| `ai.list([kinds])` | all the entries `{id, title, kind}` (to browse them with the pad) |
+| `ai.near(word)` | the name of the API closest to a misspelt word (`"sprr"` → `"spr"`, 1), or `nil` |
+| `ai.sprite(request, [{gen=, size=16, seed=1, outline=true, palette={…}}])` | the base of a sprite: `{w, h, gen, name, seed, px = {0xRRGGBB or -1 (transparent), …}}` row by row. The recipe comes from the words (`"slime"`, `"spaceship"`, `"coin"`, `"grass"`…) or from `gen`; the colours (`"red"`, `"blu"`…) and the size (`"8x8"`, `"32x32"`, `"small"`, `"big"`) from the words; another `seed` is a variant; with `palette` each pixel becomes the closest colour of the palette |
+| `ai.recipes()` | the sprites' recipes `{id, name}`; `ai.recipes("mesh")` the 3D ones `{id, name, rigged}` |
+| `ai.script(text)` | a model written in the **parts language** (`src/ai/mesh_script.c`: `mat`, `box`, `bx`, `tube`, `cyl`, `ell`, `prism`, `wedge`, `tf`, `bone`, `use`, `side`, `mirror`, `clip`, `key`, `turn`, `shift`, one per line): the same table as `ai.mesh`, or `nil` and the error (`"line 3: ..."`). It is the format `tools/img2mesh.py` gets from the vision model for a picture |
+| `ai.mesh(request, [{gen=, seed=1, scale=1, rig=true}])` | the base of a **3D model** for bm Studio and bm Animator: `{gen, name, seed, faces = { {p = {{x,y,z}, …}, c = 0xRRGGBB, b = {bone, …}}, … }, bones = { {name, parent, head, tail}, … } or nil, clips = { {name, loop, length, mode, keys = { {t, pose = { {q, t}, … }}, … }}, … }}`, the same tables as `bm3d.lua` (one unit = one block of bm Studio, the model looks toward −z and stands on y = 0). The recipe (53: shapes, objects, people, animals, machines) comes from the words (`"house"`, `"tree"`, `"mech"`…) or from `gen`; the colours (`"red"`, `"blue"`), the size (`"small"`, `"big"`, `"huge"`), the proportions (`"tall"`, `"short"`, `"wide"`, `"thin"`) and `"no skeleton"` from the words; another `seed` is a variant. People, animals and machines have a skeleton (every corner on a bone) and animations (`idle`, `walk`, `fly`, `attack`…) |
+| `ai.checksum(question)` | the CRC-32 of the network's outputs for a question: for the tests (equal to that of the Python reference) |
+
+**Small networks for the games** (M38.4: Overbit's bots). A network of dense layers with
+INT8 weights and activations (the same maths as the assistant, with the ARMv6's SIMD
+instructions), from a string a training script writes (`scripts/nnetlib.py`: it quantises a
+numpy network, packs it and gives the console's exact numbers for the tests):
+
+| Function | What it does |
+|---|---|
+| `nnet(blob)` | the network of a "BMNN" string (format in `src/ai/net.h`; an error if it is broken), up to 8 layers of 256 |
+| `net:run(inputs, [outputs])` | the outputs (numbers) for a table of inputs; `outputs`: a table to fill instead of a new one |
+| `k, v = net:pick(inputs, [mask])` | the index (from 1) of the biggest output and its value; `mask`: a table of booleans, `false` = that output is not chosen |
+| `n_in, n_out = net:size()` | how many inputs and outputs |
+
+**The panel** (`require "assist"`): what the tools open with a key (F6 in the Assistant).
+It answers while you type; Enter (A) passes the code or the sprite to the tool, Esc (B)
+closes, Tab (X) changes mode; without a question you browse everything with the pad. While
+a word of the question is typed the rest of the most likely one appears in blue-grey and Tab
+writes it (the completion, below).
+
+```lua
+local assist = require "assist"
+
+function _update()
+  if assist.update() then return end          -- open: the keys are its own
+  local k = keyp()
+  if k == "f6" then
+    assist.open{ mode = "code", ctx = word_under_cursor,
+                 on_insert = function(code) insert_lines(code) end }
+  end
+end
+
+function _draw()
+  draw_tool()
+  assist.draw()                                -- on top, if open
+end
+```
+
+`assist.open{...}`: `mode` = `"code"` (API, examples, errors), `"sprite"`, `"mesh"` (the 3D
+recipes: the model turns in the panel, `on_mesh(m)` gets it; it is bm Studio's and bm
+Animator's mode with F6), `"error"` or `"any"`; `query` (a question already written), `ctx`,
+`error` (an error message: the panel shows the line, the misspelt name and what it means),
+`size` and `palette` for the sprites, `on_insert(code)`, `on_sprite(sprite)`, `on_close()`,
+`x, y, w, h` (default: almost the whole screen). Then `assist.update()` and `assist.draw()`
+in every frame, `assist.is_open()`, `assist.close()`.
+
+**Actions on the code** (`assist.act(request, lines, n)`): what a line `#entry: request #`
+at line `n` of `lines` (a table of strings) asks. The network chooses among the actions
+(ternary operator, comment, log, remove the logs, nil check, make local, indentation,
+rename, comment/uncomment, optimise, explain), an example to insert or a sprite written as
+code; it works on the function round the line or just below it. Returns `{lines, ok,
+message, cursor, explain}` (the new lines, without the `#entry:` line), and changes nothing
+if it is not sure enough. bm Code uses it with Enter on those lines.
+
+The knowledge base is in `src/ai/kb/` (format and how to train again:
+`src/ai/kb/README.md`).
+
+**Word completion** (`require "predict"`, guide in [PREDICT.md](PREDICT.md)):
+`predict.complete(text_before_the_cursor, {lang = "lua"})` → `nil` or
+`{prefix, word, rest, ending, list}`: the most likely word that starts as the one written
+(`rest` is what is missing, to show in `predict.C_GHOST`; Tab replaces `prefix` with
+`word`). `lang`: `"it"`, `"en"`, `"lua"`, `"ask"` (the questions to the assistant), a mix
+with weights (`{it = 1, ask = 2}`) or `"none"`; `words` the code's names
+(`predict.count_words(lines)`), weighted by `words_weight`. The dictionaries are read at the
+first word, or one piece per frame with `predict.preload({"lua", "it"})`.
+
+### nano8 (the `n8` library)
+
+Every cartridge also sees the `n8` table: the **nano8** machine (`src/bm/n8*.c`), with the
+functions of the `.p8` cartridges (`n8.spr`, `n8.map`, `n8.print`, `n8.peek`…, with their
+arguments and numbers as they want them) and those to load, start and show them
+(`n8.load`, `n8.power`, `n8.buttons`, `n8.blit`, `n8.preview`, `n8.compile`). It is made
+for `carts/nano8` (see the comment in `src/bm/n8lua.c`); a `.bm` game does not need it.
+
+### Light
+
+Dark scenes lit only by lamps, candles, torches: the frame's drawing is multiplied by a
+"light map" computed in C (a grid every 4 pixels, interpolated and slightly dithered). From
+the first `light_begin()` the cartridge draws in RAM instead of directly on the screen.
+
+| Function | Description |
+|---|---|
+| `light_begin([ambient])` | starts the frame's lights: `ambient` is the colour of the background light (`0x000000` pitch dark, `0xFFFFFF` no effect) |
+| `light(x, y, radius, colour, [intensity])` | a soft light in world coordinates (`camera` holds); more lights add up, up to 2× the brightness |
+| `light_end()` | applies the light to everything drawn; what you draw after (HUD, text) stays at full light |
+
+```lua
+cls(0); map(...); spr(...)                  -- the scene
+light_begin(0x0A0A16)                        -- dark blue night
+light(lx, ly, 50 * (0.95 + math.random() * 0.1), 0xFFB060)   -- a flickering street lamp
+light(px, py, 40, 0xFFC888, 0.9)             -- the player's lantern
+light_end()
+print("life", 4, 4, 0xFFFFFF)                -- the HUD is not darkened
+```
+
+Complete example: `carts/hunt` (Hunter's Night).
+
+### Light by levels (as in Dank Tomb)
+
+The other light, that of the PICO-8 game *Dank Tomb*: each pixel has a **light level** (0
+the darkest) and its colour becomes the one a **fade table** gives at that level. Lamps
+make concentric rings of levels, from their level in the middle down to 0 at the edge; the
+rings' edges are mixed with a 4×4 ordered dither; where two lamps meet the stronger wins.
+The tables are chosen by the cartridge: shadows can turn night blue and colours near the
+lamps orange, staying on the colours of its own palette. All in C (`g16_fade_*` in
+`src/bm/gfx16.c`).
+
+| Function | Description |
+|---|---|
+| `fades(tables)` | the tables: `{ {colour, l0, l1, ...}, ... }`, for each colour of the palette what it becomes at level 0 (the darkest), 1, ...; all rows have the same number of levels (2–16, up to 255 colours). The colours without a table are scaled as the average of the tables. Returns the number of levels |
+| `dark_begin([ambient])` | starts the frame: every pixel at level `ambient` (default 0); from here the cartridge draws in RAM |
+| `glow(x, y, radius, level, [dither])` | a lamp in world coordinates (`camera` holds): `level` in the middle, 0 at `radius`; `dither` 0–1 (default 0.5) is how much the rings' edges mix (0 sharp rings, 1 a continuous dithered shade) |
+| `dark_end()` | applies the levels to everything drawn; what you draw after (flames, sparks, HUD) stays as it is and "shines" |
+
+```lua
+fades(TABLES)                                -- once, in _init
+cls(0); map(...); spr(...)                   -- the scene at full light
+dark_begin(1)                                -- night: level 1 everywhere
+glow(lx, ly, 72 + math.random(2), 6)         -- a street lamp
+glow(px, py, 28, 3)                          -- the little light round the player
+dark_end()
+spr(FLAME, fx, fy)                           -- the flames are not darkened
+```
+
+Complete example: `carts/yharnam`; a small one: `SQUARE_CART` in `tests/qemu_test.py` (a lamp on a 256×256 cartridge).
+
+### 3D (software)
+
+| Function | Description |
+|---|---|
+| `mesh(v, f, [uv])` | a mesh from tables: `v` = {x,y,z, x,y,z, …}, `f` = {a,b,c,colour, …} (indices from 1; a face shows from the side where its vertices appear **clockwise**). With `uv` (6 numbers per face: u,v of the three vertices in sprite sheet pixels) the faces with colour `-1` have the sprite sheet's **texture** (perspective correct, transparent pixels stay empty). The colour can have the **material bits** (table below) |
+| `mesh_sphere([r, segments, c1, c2])`, `mesh_cube([c])` | ready-made meshes |
+| `model(name)` / `model(n)` | a **3D model of the cartridge** (made with [bm Studio](../sdk/README.md), MESH section) as a mesh, with the sprite sheet's texture; `n` counts from 1; `nil` if it is not there. Every call builds a new mesh: do it in `_init`. A model with **baked light** (MESH's "lit" bit, `src/bm/bm.h`: the light of each corner of the faces, made by a script, as Overbit's map) is drawn smooth with that light, without sun or sky but with the lamps (`lamp3d`) and the fog: it costs less than computed light; its textured faces (windows, signs) have one light per face, coloured, and the fog |
+| `models()` | the names of the cartridge's models, in order (`{}` if it has none) |
+| `bounds3d(m)` | `x0, y0, z0, x1, y1, z1`: the box round a mesh's vertices, in its coordinates (before moving, turning and scaling it with `draw3d`): to centre it, for collisions |
+| `animate(m, [anim, t, anim2, t2, k, bone])` | **skeletal animation**: a model with a skeleton from [bm Animator](../sdk/README.md#bm-animator) takes the pose of animation `anim` (name or number) at time `t` in seconds (looping, if the animation loops); with `anim2, t2` it blends two animations (`k` from 0, the first only, to 1, the second only: to go from one to the other); with `bone` the second holds only for that bone and those under it (a torso that shoots on running legs); without an animation the rest pose. Returns the animation's length. An error if the mesh has no skeleton or the animation is not there. The bones move the vertices while the mesh is drawn (rigid skinning): `animate` costs only the bones |
+| `bone_turn(m, bone, [rx, ry, rz])` | from now on every `animate` also turns the bone by these angles (radians, x then y then z, in the parent's frame) over the animation: aiming up and down, legs that follow the walking direction. `bone_turn(m, bone)` takes it away |
+| `bones3d(m)` | the names of the skeleton's bones, in order |
+| `hit3d(m, x, y, z, ry, scale, ox, oy, oz, dx, dy, dz, [maxd])` | `t, bone`: the ray from `o` along `d` against the mesh's bones in the last pose, drawn at (x, y, z) turned by `ry` and scaled; each bone is a capsule from head to tail as wide as its vertices. The closest hit within `maxd` (`t` in units of `d`), or `nil`: hitboxes that follow the animation (headshot: bone `"head"`) |
+| `clips(m)` | a model's animations: `{ {name=, length=, loop=}, ... }` (`{}` without a skeleton) |
+| `bone3d(m, bone)` | `x, y, z, cx, cy, cz`: where a bone's head and tail (name or number) are in the last pose, in the model's coordinates (as `bounds3d`); `nil` if the bone is not there. To attach objects to the hands (the head), a sword's tip (the tail), lights, effects |
+| `draw3d(m, x, y, z, [rx, ry, rz, scale, flags])` | draws a mesh with z-buffer and per-face light. `flags`: 1 = no z-buffer (neither test nor write: floors and backgrounds drawn first, faster), 2 = no light (flat colours), 4 = **smooth** (Gouraud: light computed at the vertices and shaded over the face, dithered; faces sharing the same vertex indices look like a curved surface, for sharp edges use separate vertices or the "flat" bit), 8 = the mesh's **shadow** on the plane `y` of the point (along the sun: it darkens what is already there, the mesh is not drawn), 16, 32, 48 = **level of detail** 2, 1, 0 (only that level's faces, see the material bits; without: 3, all), 64 = **in front** (first-person weapons and arms: the z-buffer under it is cleared, precise depths from 0.1 units); they add up |
+| `sky3d(sun, sky, ground)` | colours (0xRRGGBB) of the sun's light and of the ambient light coming from above and below (faces turned up take the sky, those turned down the ground); `sky3d()` goes back to white |
+| `shine3d(spec, exponent, rim)` | the sun's reflections on glossy faces (`spec` 0–2, `exponent` 4–64: higher, smaller) and light on the shapes' rim (`rim` 0–1) |
+| `shadow3d(style)` | the shadows of `draw3d` with flag 8: 0 darken (default), 1 dithered black (without reading the screen) |
+| `point3d(x, y, z, radius, colour, [flags])` | a round point of that radius in the world, behind the closer things (it does not write the z-buffer): particles, sparks, bullets. `flags` 1 = every other pixel. Returns the pixels |
+| `line3d(x0, y0, z0, x1, y1, z1, colour, [width, flags])` | a 3D line, cut by the near plane and hidden by the closer things: tracers, beams |
+| `sprite3d(sx, sy, sw, sh, x, y, z, width, [flags])` | a rectangle of the sprite sheet facing the camera, `width` units wide in the world, hidden by the closer things: explosions, smoke, icons over the characters |
+| `camera3d(x, y, z, [yaw, pitch, fov, roll])` | the camera (default at z = −5, fov 60°); `roll` tilts the view (radians) |
+| `light3d(x, y, z, [ambient])` | the light's direction and the ambient light (0–1) |
+| `zclear()` | clears the z-buffer (every frame, before `draw3d`) |
+| `gpu3d([on, aa, vs, queue])` | `on, aa, vs, version, queue`: whether the GPU draws the 3D, whether with 4× MSAA and whether the GPU's vertex shader places the models' vertices (M36): `vs` is `false`, `1` (the scenery: models without light or with light at the corners) or `2` (all, also those lit by the sun and with bones; `true` is 2); `queue` (M35): whether the GPU's job starts without waiting for it and the next frame's `_update` runs meanwhile (where the boot test saw it work); the 2D drawn after the 3D (the HUD) and that of the `_update` are recorded and go on the page when the GPU is done, in the same order (the result is the same; an `_update` that draws 3D or reads the screen with `pget` goes back to running after the frame). With arguments it changes it for this cartridge (a "3D: GPU / GPU + VS / GPU + AA / ARM" menu in the game); `on` stays `false` if there is no GPU (QEMU, `gpu3d=0`) and in 256×256 games (the GPU writes whole pages), `aa` if MSAA cannot be used and `vs` if the boot test did not see the vertex shader (and its clipping) work. `version` is the version of the 3D drivers this choice reproduces (`"0.2"` the ARM, `"2.1"`, `"3.0"`, `"3.4"`, `"4.1"`: `docs/DRIVERS.md`). At the end it goes back to the settings' |
+| `fog3d(colour, near, far)` | fog: the faces fade into the colour between the two distances; `fog3d()` takes it away |
+| `lamp3d(i, x, y, z, radius, [k, colour])` | point light `i` (1–4): the faces with their centre within `radius` get brighter, up to `k` more (default 1) in the middle, of the `colour` given (white if missing); `lamp3d(i)` turns it off, `lamp3d()` all. With `light3d` at a low ambient it makes dark scenes with lanterns |
+| `project3d(x, y, z)` | a point of the world → `sx, sy, depth` on the screen (`nil` if it is behind the camera): to draw in 2D things lined up with the 3D (horizon, sights, labels) |
+
+**Material bits** in a face's colour (of `mesh()` and of the models; 0 = the usual face):
+
+| Bit | Value | Effect |
+|---|---|---|
+| 30 | `0x40000000` | **emissive**: a flat colour, without light (lights, screens, energy) |
+| 29 | `0x20000000` | **glossy**: the sun's reflection (`shine3d`) |
+| 28 | `0x10000000` | **screen door**: every other pixel, what is behind shows (shields, glass) |
+| 27 | `0x08000000` | **flat**: also in a smooth drawing (flag 4) it takes the light of its plane; sharp edges can share vertices |
+| 24–26 | | **level of detail**: bits 24–25 a level `k` (0–3); bit 26 at 0 the face shows from `k` up (a detail), at 1 below `k` (a simple version) |
+
+```lua
+local SHIELD = 0x40C8FF | 0x40000000 | 0x10000000   -- light blue, emissive, screen door
+local DETAIL = 0xFFFFFF | 0x02000000                 -- white, only from detail 2 up
+```
+
+### Collision worlds
+
+Solid boxes, rays and bodies that move sliding on the walls (in C: much faster than in
+Lua). Complete example: `carts/overbit`. For the 2D map there are the tiles' flags
+(`mflags`) and bmlib's `lib.move` / `lib.step`.
+
+| Function | Description |
+|---|---|
+| `world3d()` | an empty collision world |
+| `world_box(w, x0, y0, z0, x1, y1, z1, [tag])` | a solid box; returns its number |
+| `world_ray(w, ox, oy, oz, dx, dy, dz, [maxd, ground])` | `t, nx, ny, nz, box`: the first point hit along the ray (the face's normal; box 0 = the ground `y = 0`, which counts unless `ground` is `false`), or `nil` |
+| `world_move(w, x, y, z, r, h, dx, dy, dz, [step, on_ground])` | `x, y, z, flags`: a body (feet at `x, y, z`, radius `r`, height `h`) moved by `d`, sliding on the walls and climbing steps up to `step` (0.45) if it was on the ground. `flags`: 1 on the ground, 2 a wall (4 along x, 8 along z), 16 a ceiling |
+| `world_floor(w, x, z, y, r, [step])` | the floor's height under `(x, z)` |
+
+Triangles that cross the plane near the camera are cut, not dropped: floors and big objects
+stay whole even when they pass by the camera.
+
+**3D on the GPU (M33).** The Pi's GPU (V3D) draws the triangles; with *Settings > Graphics
+> 3D of the games* on `ARM` (`gpu3d=0` in `bm/config.txt`), and in QEMU, the ARM draws
+them. The same functions, no change in the cartridges. The ARM goes on transforming,
+lighting and clipping; the GPU fills the pixels with a 24-bit z-buffer, shading without
+dithering and textures with the nearest texel. The waiting 3D is drawn before every 2D
+drawing that follows it, before `pget`, `sset` and at the end of the frame. If a cartridge
+draws more 3D after the 2D in the same frame, from the next frame the GPU keeps the
+z-buffer between the two parts (about 1 MB of memory written and read again per frame; not
+the first frame): it is still better to draw all the 3D first and then the HUD. The GPU's
+z-buffer starts from zero every frame, even without `zclear()`. `stat(9)` is 1 when the GPU
+does the 3D. If the GPU does not answer, the kernel goes back to the ARM by itself and
+writes it in the log. The GPU also draws the shadows (`draw3d` with flag 8: always dithered
+black, `shadow3d`'s style 1, over the things already drawn thanks to the z-buffer), the 3D
+effects (`point3d`, `line3d`, `sprite3d`), the screen-door faces and the textures of the
+models with baked light (light and fog shaded at the corners, also with the `lamp3d`s).
+Only the faces **textured and screen door** together it cannot do: at the first one the
+cartridge goes to the ARM for the rest of the run (a line in the log; the mixed frame is not
+shown). A frame that starts with `cls()` costs the GPU less: the tiles start from the colour
+of `cls` instead of reading the page again. Textures with sides that are multiples of 32
+(128×128 sprite sheets, 256×256, …) go to the GPU in T-format, the tiled format of its
+cache, faster to read.
+
+**Anti-aliasing (M34).** *Settings > Graphics > 3D anti-aliasing: 4x* (`gpu3d_aa=1` in
+`bm/config.txt`) makes the GPU draw the 3D with 4× MSAA: four samples per pixel, the
+average at the end of the tile, triangles' edges without steps. Nothing changes in the
+cartridges. It holds only where the GPU bears it (the boot test says *4x: not on this GPU*
+otherwise) and only in the jobs without a kept z-buffer: cartridges that draw 3D, then 2D,
+then more 3D in the same frame stay without anti-aliasing (the 4-sample z-buffer cannot be
+saved). If the test finds the GPU cannot load the page again into the 4 samples, MSAA is
+used only in the frames that start with `cls()`. On the ARM there is no anti-aliasing.
+Complete example: `carts/astrowing` (Star Fox-style flight: models built in code, horizon
+with `project3d`, fog, explosions, boss). With bm Studio's models: `carts/village`
+(`model()` for each model, terrain drawn without z-buffer, night with `lamp3d` and
+`fog3d`; bm Animator's villager with `animate()`, two animations blended, a light in hand
+with `bone3d()`, and its version as pre-rendered sprites).
+
+## bmlib: the games' shared library
+
+`local lib = require "bmlib"` (R10, 2026-10-04): what every game wrote again by itself
+(found in 5–10 cartridges of the repository) in a single library, in Lua, in the kernel
+(`src/script/bmlib.lua`). It does not touch the global variables and hides no function of
+the console. Units: **times in seconds**, positions in pixels, speeds in **pixels per
+frame**. Objects (particles, camera, states, menu, pause, 3D builder) are used with a
+colon: `cam:follow(x, y)`.
+
+Tweens, timers, scripts and jingles go on with **`lib.update()`**, to call once in
+`_update` (it adds 1/60 s; `lib.update(dt)` another step). `lib.time` is the time counted
+that way.
+
+```lua
+local lib = require "bmlib"
+
+function _update()
+  lib.update()          -- tweens, timers, scripts and jingles
+  -- ... the game
+end
+```
+
+### Numbers
+
+| Function | Description |
+|---|---|
+| `lib.clamp(v, lo, hi)` | `v` between `lo` and `hi` |
+| `lib.lerp(a, b, t)` / `lib.unlerp(a, b, v)` | from `a` (t = 0) to `b` (t = 1); the reverse: where `v` is between `a` and `b` |
+| `lib.remap(v, a0, a1, b0, b1)` | `v` from the range `a0..a1` to the range `b0..b1` |
+| `lib.approach(v, target, step)` | `v` toward `target` by at most `step` (bars that go down slowly, speeds that brake) |
+| `lib.sign(v)` | −1, 0 or 1 (0 for 0) |
+| `lib.round(v, [step])` | to the nearest integer, or to the nearest multiple of `step` |
+| `lib.wrap(v, lo, hi)` | `v` brought back into `lo..hi` (`hi` excluded) going round: worlds that wrap |
+| `lib.cycle(i, d, n)` | index `i` (1..n) moved by `d` going round: the rows of a menu |
+| `lib.dist(ax, ay, bx, by)` / `lib.dist2(...)` | the distance / its square (to compare it with `r * r` without the root) |
+| `lib.len(x, y)` / `lib.norm(x, y)` | the length of a vector / the vector 1 long (and the length it had); `0, 0, 0` for `0, 0` |
+| `lib.angle(ax, ay, bx, by)` | the angle from `a` to `b` in radians (0 to the right, π/2 down on the screen) |
+| `lib.angdiff(a, b)` / `lib.turn(a, target, step)` | from `a` to `b` the shortest way (−π..π) / angle `a` turned toward `target` by at most `step` |
+| `lib.dir8(x, y)` | one of 8 directions: 0 right, 1 down-right, 2 down… 7 up-right (`nil` for `0, 0`); `lib.DIR8[d + 1]` is the vector 1 long |
+| `lib.TAU` | 2π |
+
+### Random numbers
+
+| Function | Description |
+|---|---|
+| `lib.rnd([a, b])` | a number between `a` and `b` (`b` excluded); `lib.rnd(n)`: between 0 and `n`; `lib.rnd()`: between 0 and 1 |
+| `lib.chance(p)` | `true` with probability `p` |
+| `lib.choose(t)` / `lib.shuffle(t)` | a random element of the list (`nil` if it is empty) / the list shuffled (in place) |
+| `lib.rng(seed)` | a generator of its own, which always gives the same numbers from the same seed (worlds made from a seed, lockstep network matches): `r:next()` between 0 and 1, `r:range(a, b)`, `r:int(a, b)` (integers, both included), `r:pick(t)`, `r:chance(p)`, `r:seed(s)` |
+
+### Collisions
+
+| Function | Description |
+|---|---|
+| `lib.overlap(ax, ay, aw, ah, bx, by, bw, bh)` | two rectangles (x, y, width, height) touch |
+| `lib.hit(a, b)` | the same for two tables with `x, y, w, h` (`w` and `h` 8 if missing) |
+| `lib.inside(px, py, x, y, w, h)` | the point is in the rectangle |
+| `lib.circles(ax, ay, ar, bx, by, br)` / `lib.circrect(cx, cy, r, x, y, w, h)` | two circles / a circle and a rectangle touch |
+
+### The map: walls, platforms, gravity
+
+The functions look at the **tiles' flags** ([above](#sprites-and-map)): `lib.SOLID` (flag
+0, 1), `lib.PLATFORM` (flag 1, 2), `lib.LADDER` (4), `lib.WATER` (8), `lib.HURT` (16).
+
+| Function | Description |
+|---|---|
+| `lib.tiles(opt)` | how the map stops the bodies: `layer` (the layer: number or name, 1), `solid` and `platform` (the flags' masks: 1 and 2; 0 = none), `edge` (`true`: outside the map is solid). Returns the configuration |
+| `lib.solid(x, y, [w, h])` | the rectangle (or the point) touches something solid |
+| `lib.move(b, dx, dy)` | moves body `b = {x, y, w, h}` (`w`, `h` 8 if missing) by `dx, dy`, stopping it against the solid tiles and sliding it along the walls; it falls on a platform only from above (and not with `b.drop`: down through it). In steps shorter than a tile: it never jumps one. Returns `hx, hy`: −1 / 1 where it hit (left / right, up / down), otherwise 0 |
+| `lib.step(b)` | one frame of a body with gravity (a platformer): `b.vx, b.vy` in pixels per frame, `b.gravity` (`lib.GRAVITY`, 0.25) and `b.maxfall` (`lib.MAXFALL`, 6); then `b.ground` is `true` on the ground and the speed that hit is 0. Returns what `lib.move` gives |
+| `lib.ray(x0, y0, x1, y1, [mask])` | the first tile with a flag of `mask` (`lib.tiles`' solid one if missing) on the segment: `x, y` where the segment enters it and its cell `mx, my`; `nil` if the way is free (line of sight, bullets) |
+
+```lua
+local hero = { x = 40, y = 40, w = 8, h = 8, vx = 0, vy = 0 }
+lib.tiles({ edge = true })                         -- the map's borders are walls
+function _update()
+  hero.vx = (btn("right") and 2 or 0) - (btn("left") and 2 or 0)
+  if hero.ground and btnp("a") then hero.vy = -5 end
+  hero.drop = btn("down")                          -- down from a platform
+  lib.step(hero)
+end
+```
+
+### Easing, tweens, timers and scripts
+
+`lib.ease` has the curves from 0 to 1: `linear`, `inquad`, `outquad`, `inoutquad`,
+`incubic`, `outcubic`, `inoutcubic`, `insine`, `outsine`, `inoutsine`, `inback`, `outback`,
+`inoutback`, `outelastic`, `outbounce`, `smooth` (smoothstep).
+
+| Function | Description |
+|---|---|
+| `lib.tween(obj, to, secs, [ease, done])` | the fields of `obj` go to the values of table `to` in `secs` seconds (`ease`: a function or the name of one of `lib.ease`, linear if missing), then `done(obj)`. Returns a handle: `h:cancel()` |
+| `lib.after(secs, f)` | `f()` in `secs` seconds |
+| `lib.every(secs, f, [times])` | `f()` every `secs` seconds (`times` times, for ever if missing); `f` returning `false` stops it |
+| `lib.script(f, ...)` | `f(...)` as a **script that can wait**: `lib.wait(secs)` (a frame if missing) and `lib.waitfor(cond)` (until `cond()` is true). It runs at once up to its first wait, then `lib.update()` takes it on: dialogues, cutscenes, waves of enemies written in a row |
+| `lib.cancel(h)` | stops a tween, a timer or a script (the same as `h:cancel()`) |
+| `lib.countdown(t, keys, [d])` | the fields `keys` of `t` above 0 go down by `d` (1/60 if missing), not under 0: a hero's cool-downs (in frames with `d = 1`) |
+| `lib.clear()` | stops every tween, timer, script and jingle (a new level) |
+
+```lua
+lib.tween(title, { y = 80 }, 0.6, "outback")
+lib.after(2, function() door.open = true end)
+lib.script(function()
+  say("Who goes there?")
+  lib.wait(1.5)
+  lib.waitfor(function() return btnp("a") end)
+  say("You may pass.")
+end)
+```
+
+### Lists and particles
+
+| Function | Description |
+|---|---|
+| `lib.each(list, f)` | `f(item, i)` for each item; those for which it returns `false` leave the list (the others keep their order) |
+| `lib.sweep(list)` | takes away the items with `.dead` (in order) |
+| `lib.particles([max])` | a pool of at most `max` particles (200); when it is full a new one takes the place of the oldest |
+| `P:add(x, y, vx, vy, life, colour, [opt])` | one particle (speeds in pixels per frame, life in seconds); `opt`: `size` (radius; 0 or 1 a pixel), `gravity`, `drag` (the part of the speed kept every frame), `colors` (a list: the colour through its life), `shrink`, `floor` (the y where it bounces), `bounce` (0.3) |
+| `P:burst(x, y, n, [opt])` | `n` particles from `x, y`: `speed` (2), `angle` and `spread` (in radians; all round if missing), `life` (0.5 s), `color` or `colors`, and the options of `:add` |
+| `P:update()` / `P:draw()` | in `_update` / in `_draw` |
+| `P:count()` / `P:clear()` | how many there are / all away |
+
+```lua
+local fx = lib.particles(300)
+fx:burst(x, y, 20, { speed = 3, colors = { 0xFFFFFF, 0xFFD050, 0xFF6020 }, gravity = 0.1 })
+```
+
+### Camera
+
+| Function | Description |
+|---|---|
+| `lib.camera([opt])` | a 2D camera: `smooth` (0.15: the part of the way it goes every frame; 1 = it sticks to the target), `dead` `{w, h}` (a box in the middle where the target moves without the camera), `bounds` `{x0, y0, x1, y1}` in pixels or `true` (the map, `msize()`), `offset` `{x, y}`, `w`, `h` (the screen if missing). Fields `x`, `y` |
+| `C:follow(x, y, [snap])` | one step toward point `x, y` (in the middle of the screen); `snap`: there at once |
+| `C:shake(amount, [secs])` | the screen shakes up to `amount` pixels, less and less, for `secs` seconds (0.3) |
+| `C:apply()` | `camera()` at the camera's place (with the shake): in `_draw` before the world, then `camera()` for the HUD |
+| `C:map([layer, mask])` | the cells of the map that show |
+| `C:sees(x, y, [w, h])` / `C:screen(x, y)` | the rectangle shows / where a point of the world is on the screen |
+
+### Game states
+
+`lib.states(defs, [first, ...])`: title, match, pause, game over as tables
+`{enter, update, draw, exit}`; each function gets its table (`function play:update()`),
+which has `t` (the seconds spent in the state) and `name`.
+
+| Function | Description |
+|---|---|
+| `S:go(name, ...)` | to state `name`: the open ones leave (`exit`), `name` enters (`enter(...)`) |
+| `S:push(name, ...)` / `S:pop()` | `name` over the one now (a pause, a dialogue: only it updates, both draw) / back to the one under it |
+| `S:update()` / `S:draw()` | in `_update` / in `_draw` (from the bottom: the game under its pause) |
+| `S:is(name)`, `S.name`, `S:top()` | the state on top |
+
+```lua
+local S = lib.states({
+  title = { update = function(s) if btnp("ok") then S:go("play") end end,
+            draw = function() cls(0); lib.printc("PRESS A", 160, 0xFFFFFF) end },
+  play = { enter = function(s) s.score = 0 end,
+           update = function(s) ... end, draw = function(s) ... end },
+}, "title")
+function _update() lib.update(); S:update() end
+function _draw() S:draw() end
+```
+
+### Text, bars and menus
+
+| Function | Description |
+|---|---|
+| `lib.textw(text, [scale])` | width and height in pixels with the font of `print` now (the longest line) |
+| `lib.printc(text, y, [c, scale, x, w, grid])` | in the middle of the screen (or of `x..x + w`); `grid`: on the font's columns (text that stays still, as the menus). Returns the x |
+| `lib.printr(text, x, y, [c, scale])` | ending at `x` (numbers aligned to the right) |
+| `lib.prints(text, x, y, c, [shadow, scale])` / `lib.printo(...)` | with a shadow under it to the right / with an outline all round (black if the colour is missing) |
+| `lib.bar(x, y, w, h, v, max, [c, back, border])` | a bar filled for `v` of `max` (life, stamina, loading) |
+| `lib.blink([period, t])` | `true` half of the time, changing every `period` seconds (0.5): "press A" |
+| `lib.timestr(secs, [tenths])` | `"m:ss"` (`"h:mm:ss"` from an hour), with tenths `"m:ss.d"` |
+| `lib.btnr(i, [p, delay, rate])` | `btnp` that **repeats** while the button is held: the first frame, then after `delay` frames (15) every `rate` (4). `i` as for `btn()`. Call it in every frame |
+| `lib.menu(items, [opt])` | a list to choose from: the items are texts or tables `{label=, value=, change=function(item, d), ok=function(item), off=true}`; `opt.p` the player, `opt.wrap` (`true`) |
+| `M:update()` | up and down (repeating) move, skipping the `off` items, left and right call `change`, ok chooses (`ok(item)`; it returns the item and `"ok"`), back returns `nil, "back"` |
+| `M:draw(x, y, [opt])` | the rows from `x, y`: `w` (width: the values on the right), `c`, `sel_c`, `bar`, `dim`, `scale`, `gap` |
+| `lib.pause([opt])` | the **pause menu** every game had: Start (Esc) opens it when `opt.when()` is true (always if missing); RESUME, VOLUME (the console's: left and right), the rows of `opt.rows`, QUIT (`opt.quit()`, if given). `opt.color`, `opt.title`, `opt.scale` |
+| `P:update()` / `P:draw()` | in `_update`: `if pause:update() then return end` (while it is open the game stands still); in `_draw`, after the game |
+
+```lua
+local pause = lib.pause({ when = function() return S:is("play") end,
+                          quit = function() S:go("title") end })
+function _update()
+  if pause:update() then return end
+  lib.update(); S:update()
+end
+function _draw() S:draw(); pause:draw() end
+```
+
+### Sound, saves, animations, colours
+
+| Function | Description |
+|---|---|
+| `lib.jingle(notes, [voice, wave, vol])` | a short tune on the voice (3): `notes = { {note, secs, [wave, vol]}, ... }`, the note in Hz or by name (`"C5"`), 0 or `"-"` a rest; `lib.jingle(nil, voice)` stops it, `lib.jingling([voice])` says whether it still plays |
+| `lib.store([k, [v]])` | a field of the cartridge's save (`save`/`saved`): `lib.store(k)` reads it, `lib.store(k, v)` writes it (on the SD card only if it changed: not in every frame), `lib.store()` the whole table |
+| `lib.best(k, v)` | record `k`: `v` if it beats it (and saves it), and `true` if it is new |
+| `lib.frame(frames, fps, [t])` | the element of `frames` that time `t` (`time()` if missing) shows at `fps` a second, looping |
+| `lib.anim(frames, fps, [loop])` | an animation of its own: `a:update()` moves on by a frame and returns the element; `a.done` when one that does not loop (`false`) is over; `a:reset()` |
+| `lib.mix(c1, c2, t)` / `lib.shade(c, k)` | between two `0xRRGGBB` colours / a colour `k` times brighter (0 black) |
+
+### 3D: Astro Wing's builder
+
+`lib.builder()`: a mesh made of convex pieces; each face of a piece is turned outwards by
+itself, so the order of the corners never matters.
+
+| Function | Description |
+|---|---|
+| `B:piece(points, triangles, [colour])` | a convex piece: `points = { {x, y, z}, ... }`, `triangles = { {i, j, k, [colour]}, ... }` |
+| `B:box(x0, y0, z0, x1, y1, z1, colour, [top])` | a box between two corners; `top`: the colour of its top face |
+| `B:tetra(p1, p2, p3, p4, colour)` / `B:quad(p1, p2, p3, p4, colour, nx, ny, nz)` | a tetrahedron / a flat quad seen from the side `nx, ny, nz` |
+| `B:build()` | the mesh (`mesh()`); the methods return `B`, so they chain |
+
+```lua
+local house = lib.builder()
+  :box(-1, 0, -1, 1, 1.5, 1, 0xC0A080)
+  :piece({ { -1.1, 1.5, -1.1 }, { 1.1, 1.5, -1.1 }, { 1.1, 1.5, 1.1 }, { -1.1, 1.5, 1.1 }, { 0, 2.4, 0 } },
+         { { 1, 2, 5 }, { 2, 3, 5 }, { 3, 4, 5 }, { 4, 1, 5 }, { 1, 2, 3 }, { 1, 3, 4 } }, 0xA03020)
+  :build()
+```
+
+Tests of it all: `make test-gameapi` (bmhost, `tests/gameapi/cart.lua`: every function
+with its cases, the buttons too with a script) and `test_game_api` in QEMU.
+
+## Budget and tips
+
+- 60 fps = **16.7 ms** per frame for `_update` + `_draw` + the copy to the screen. At the
+  top left of the demo, `stat(1)` shows how much the cartridge uses.
+- The **dev kit**: the performance overlay over any game, at the top right. It is turned on
+  from Settings > Screen and sound > "Performance overlay" (it stays saved), with F11 on the
+  keyboard (a system key, also in the tools; it was F3) or with `p` from the serial line:
+
+      60fps 6.1ms ^7.5      frames a second; ms of _update + _draw: average and,
+                            after ^, the top of the last second
+      lua 9k ^10k           Lua instructions of a frame (thousands): average, top
+
+  under it, the time of the last 64 frames: the top is 16.7 ms; green under half, yellow up
+  to 16.7, red beyond (the frame is skipped). From the code: `stat(1)`, `stat(2)`,
+  `stat(10)`. The limit is 20 million instructions per call.
+- Drawing is in C: a `spr` or `rectfill` call costs a few microseconds, but every call from
+  Lua has a fixed cost. Orders of magnitude on the Pi (docs/STRESS.md): ~1800 16×16 sprites
+  called from Lua at 60 fps, ~4500 from C; ~1200 3D triangles.
+- Avoid creating new tables in every frame if not needed (less work for the GC).
+- Text is in 8×16 cells: for well aligned writing use x multiples of 8 and y of 16.

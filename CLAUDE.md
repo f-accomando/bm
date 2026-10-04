@@ -321,7 +321,7 @@ screenshot in `docs/img/`), `README_OLD.md` (il README completo, in italiano),
   bm Studio e bm Animator (`A.help`, `help`/`help_pad` delle pagine, `T.keyhelp`).
 - Prove: QEMU `test_keys_help` (menu e bm Studio), le prove sul PC delle app
   (`tools3d_host.lua`, `mesh_host.lua`, `pixel_host.lua`, `tests/sound/sim.lua`).
-- **I tasti dei giochi** (richiesta dell'utente, `docs/API.md`): `btn`/`btnp` anche per nome,
+- **I tasti dei giochi** (richiesta dell'utente, `docs/API-IT.md`): `btn`/`btnp` anche per nome,
   `"ok"` e `"back"` come i menu del sistema (DS4: croce sì, cerchio indietro; RGB30:
   `input_ok_bit()` in `bm_input.c`), `keymap()` per le azioni del gioco, `controller(p)` per il
   dispositivo e il layout di ogni giocatore (`input_device()` con `INPUT_DEV_DS4`, `_XBOX`,
