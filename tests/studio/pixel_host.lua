@@ -138,6 +138,8 @@ E.btn = function(i) return pad[i] == true end
 E.btnp = function(i) return pad[i] == true and not padprev[i] end
 E.keyp = function() return table.remove(keyq, 1) end
 E.keyheld = function(n) return n == "space" and space_held end
+local keyhelp_list, keyhelp_title
+E.keyhelp = function(list, title) keyhelp_list, keyhelp_title = list, title; return 0 end
 E.save = function(t) saved_t = t; return true end
 E.saved = function() return saved_t end
 E.cart_arg = function() return nil end
@@ -572,9 +574,19 @@ check(ok and err, "the viewer is Lua")
 key("f5")
 check(ran == "/carts/NEWSPR.BM", "F5: the game runs")
 
-key("?")
-check(sees("pencil, eraser, fill"), "?: the keys")
-key("x")
+-- F12 held: the keys of the page (keyhelp(), the kernel draws them)
+local function in_help(keys, what)
+  for _, e in ipairs(keyhelp_list or {}) do
+    if type(e) == "table" and e[1] == keys and e[2]:find(what, 1, true) then return true end
+  end
+  return false
+end
+key("f1")
+check(keyhelp_title == "bm Pixel" and in_help("b / e / g / i", "pencil, eraser, fill") and in_help("Y A", "undo"),
+      "keyhelp: the keys of the draw page, the pad's")
+key("f3")
+check(in_help("e", "edit: R G B") and not in_help("p", "play"), "keyhelp: the palette's")
+check(E._exit() == true, "_exit: nothing to save, it leaves")
 
 io.write(string.format("bm Pixel: %d/%d checks passed\n", checks - fails, checks))
 os.exit(fails == 0 and 0 or 1)

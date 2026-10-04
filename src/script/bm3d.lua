@@ -1131,7 +1131,7 @@ function T.picture_busy() return pic ~= nil end
 
 ----------------------------------------------------------------- dialogs
 
-local input, choosing, help = nil, nil, false
+local input, choosing = nil, nil
 local confirm_t, confirm_what = 0, nil
 
 -- a line of text: done(text) on Enter
@@ -1211,6 +1211,35 @@ end
 
 local items, msel = {}, 1
 
+-- The keys shown while F12 is held, under the system's (the kernel's
+-- keyhelp(), 2026-10-04): the pages and the models (all the apps of bm3d),
+-- the app's (A.help), the page's (its help), the pad's (bm3d's Y + ...,
+-- A.help_pad, the page's help_pad). Entries { "keys", "what" }: keyboard
+-- keys in lower case ("ctrl d", "shift w", "a / d"), the pad's buttons in
+-- upper case; a string is a heading.
+function T.keyhelp()
+  if not keyhelp then return end                -- a kernel before them
+  local list = {}
+  local function add(t) for _, e in ipairs(t or {}) do list[#list + 1] = e end end
+  for _, id in ipairs(A.order) do list[#list + 1] = { A.pages[id].fkey, A.pages[id].label } end
+  list[#list + 1] = { "[ / ]", "the model before / after" }
+  add(A.help)
+  local pg = A.pages[S.page]
+  if pg and pg.help then
+    list[#list + 1] = pg.label
+    add(pg.help)
+  elseif S.page == "menu" then
+    list[#list + 1] = "menu"
+    add({ { "up / down", "choose" }, { "enter", "select" } })
+  end
+  list[#list + 1] = "pad"
+  add({ { "Y LEFTRIGHT", "page" }, { "Y B", "menu" }, { "Y UPDOWN", "model" }, { "Y A", "undo" },
+        { "Y X", "assistant" } })
+  add(A.help_pad)
+  if pg then add(pg.help_pad) end
+  keyhelp(list, A.name)
+end
+
 local function go(p)
   if not A.pages[p] and p ~= "menu" then p = A.order[1] end
   if p ~= "menu" then S.last_page = p
@@ -1218,6 +1247,7 @@ local function go(p)
   S.page = p
   local pg = A.pages[p]
   if pg and pg.enter then pg.enter() end
+  T.keyhelp()
 end
 T.go = go
 
@@ -1260,7 +1290,7 @@ local function build_menu()
     items[#items + 1] = { "New project", function() if not needs_confirm("new") then A.new_project() end end }
   end
   items[#items + 1] = { "Save   (Ctrl+S)", function() T.save_project() end }
-  items[#items + 1] = { "Save as...", function() T.save_as() end }
+  items[#items + 1] = { "Save as...   (Ctrl+Shift+S)", function() T.save_as() end }
   items[#items + 1] = { "Try the game (F5)", function() T.run_project() end }
   if A.menu then A.menu(items) end
   if A.picture then items[#items + 1] = { "Model from picture...", function() if T.picture_chooser() then go(S.last_page or A.order[1]) end end } end
@@ -1302,30 +1332,9 @@ local function draw_menu()
   for _, id in ipairs(A.order) do chip(A.pages[id].fkey, A.pages[id].label) end
   chip("f5", "try the game")
   y = y + 16
-  local kx = snap(prompt("f12", x, y) + 3)
-  kx = print("(held) or", kx, y, C.DIM) + 4
-  T.chip_hint("?", nil, "keys", kx, y)
+  T.chip_hint("f12", nil, "held: the keys", x, y)
   if A.menu_info then A.menu_info(x, y + 32) end
   T.hint({ { { "up", "down" }, "choose" }, { { "enter" }, "select" }, { { "esc" }, "back" } })
-end
-
------------------------------------------------------------------ keys help
-
-local function draw_keys()
-  local list = {}
-  for _, l in ipairs(A.keys_all) do list[#list + 1] = l end
-  list[#list + 1] = ""
-  local pg = A.pages[S.page]
-  for _, l in ipairs(pg and pg.keys or { "up/down        choose", "Enter          select", "Esc            back" }) do
-    list[#list + 1] = l
-  end
-  list[#list + 1] = ""
-  for _, l in ipairs(A.keys_pad) do list[#list + 1] = l end
-  local h = (#list + 2) * 16
-  local y0 = max(16, (H - h) // 32 * 16)
-  rectfill(16, y0, W - 32, h, C.PANEL)
-  rect(16, y0, W - 32, h, C.ACC)
-  for i, l in ipairs(list) do print(l, 32, y0 + i * 16, i <= #A.keys_all and C.ACC or C.TEXT) end
 end
 
 ----------------------------------------------------------------- main
@@ -1338,8 +1347,16 @@ local function global_key(k)
   for _, id in ipairs(A.order) do
     if k == A.pages[id].fkey then go(id); return true end
   end
+  -- the system's keys (the kernel's syskeys.c)
   if k == "esc" and S.page ~= "menu" and not busy then go("menu"); return true
   elseif k == "^s" then T.save_project(); return true
+  elseif k == "^S" then T.save_as(); return true
+  elseif k == "^o" and not busy then
+    if not needs_confirm("open") then T.open_chooser() end
+    return true
+  elseif k == "^n" and not busy and A.new_project then
+    if not needs_confirm("new") then A.new_project() end
+    return true
   elseif k == "f5" or k == "^r" then T.run_project(); return true
   elseif k == "f6" and not busy then T.assistant(); return true
   elseif k == "^z" then T.do_undo(S.undo, S.redo, "undo"); refresh(); return true
@@ -1433,6 +1450,15 @@ function T.run(app)
     end
   end
 
+  -- Ctrl+Esc or PS (the system's keys): back to bm's menu; with unsaved
+  -- changes it asks first, and the same again leaves without saving
+  function _exit()
+    if S.dirty and T.confirm("exit", "unsaved changes: Ctrl+Esc again leaves without saving") then
+      return false
+    end
+    return true
+  end
+
   function _update()
     S.frame = S.frame + 1
     if S.msg_t > 0 then S.msg_t = S.msg_t - 1 end
@@ -1447,10 +1473,8 @@ function T.run(app)
     while true do
       local k = keyp()
       if not k then break end
-      if help then help = false
-      elseif input then input_key(k)
+      if input then input_key(k)
       elseif choosing then choose_key(k)
-      elseif k == "?" then help = true
       elseif T.picture_key(k) then
       elseif not global_key(k) then
         local pg = A.pages[S.page]
@@ -1518,13 +1542,11 @@ function T.run(app)
     elseif pg and pg.status then status = pg.status()
     else status = M() and ("model " .. S.cur .. "/" .. #S.models .. ": " .. M().name) or "" end
     print(status:sub(1, 79), 0, STATUS_Y, (S.msg_t > 0 and S.msg_c) or C.TEXT)
-    if #status <= 62 then                  -- room on the right: F12 or ? for the keys
-      local kx = print("or", snap(prompt("f12", 524, STATUS_Y) + 3), STATUS_Y, C.DIM) + 4
-      T.chip_hint("?", nil, "keys", kx, STATUS_Y)
+    if #status <= 62 then                  -- room on the right: F12 held for the keys
+      T.chip_hint("f12", nil, "held: keys", 528, STATUS_Y)
     end
     if choosing then draw_choose() end
     if input then draw_input() end
-    if keyheld("f12") or help then draw_keys() end
     assist.draw()                                -- the assistant's panel on top, if open
   end
 end

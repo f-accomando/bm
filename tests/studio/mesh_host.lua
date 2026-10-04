@@ -154,6 +154,8 @@ E.btn = function(i) return pad[i] == true end
 E.btnp = function(i) return pad[i] == true and not padprev[i] end
 E.keyp = function() return table.remove(keyq, 1) end
 E.keyheld = function() return false end
+local keyhelp_list, keyhelp_title
+E.keyhelp = function(list, title) keyhelp_list, keyhelp_title = list, title; return 0 end
 E.save = function(t) saved_t = t; return true end
 E.saved = function() return saved_t end
 E.cart_arg = function() return nil end
@@ -664,13 +666,25 @@ local cp = file("meshcopy.bm")
 check(cp and section(cp, 8) == section(v1, 8) and section(cp, 9) == section(v1, 9) and section(cp, 5) == section(v1, 5),
       "the copy has the same models, skeletons and sheet")
 
-key("?")
-check(sees("copy as a model: mesh -> model"), "?: the keys of the list")
-key("x")
-check(not sees("copy as a model: mesh -> model"), "any key closes them")
-key("f2", "?")
-check(sees("extrude faces"), "?: the keys of the edit page")
-key("x")
+-- F12 held: the keys of the page (keyhelp(), the kernel draws them)
+local function in_help(keys, what)
+  for _, e in ipairs(keyhelp_list or {}) do
+    if type(e) == "table" and e[1] == keys and e[2]:find(what, 1, true) then return true end
+  end
+  return false
+end
+key("f1")
+check(keyhelp_title == "bm Mesh" and in_help("m", "copy as a model") and in_help("Y LEFTRIGHT", "page"),
+      "keyhelp: the keys of the list, the pad's")
+key("f2")
+check(in_help("x / d", "extrude faces") and not in_help("m", "copy as a model"), "keyhelp: the keys of the edit page")
+-- Ctrl+Esc: with nothing to save it leaves at once; with changes it asks first
+check(E._exit() == true, "_exit: nothing to save, it leaves")
+key("f1", "n")
+local asked = E._exit() == false
+frames(1)
+check(asked and sees("Ctrl+Esc again"), "_exit: unsaved changes, it asks")
+check(E._exit() == true, "_exit: again, it leaves")
 
 io.write(string.format("bm Mesh: %d/%d checks passed\n", checks - fails, checks))
 os.exit(fails == 0 and 0 or 1)

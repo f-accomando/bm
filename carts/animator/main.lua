@@ -115,10 +115,25 @@ local pl_clips = {}
 
 play = {
   id = "play", fkey = "f1", label = "play",
-  keys = { "up/down        model", "left/right     animation", "space          play / pause",
-           ", .            a frame back / on", "< >            slower / faster", "a d / w s      turn / tilt the view",
-           "+ -            zoom", "o              spin  k bones  l light", "b              mix with the next animation",
-           "z              frame the model" },
+  -- the keys while F12 is held (bm3d's T.keyhelp)
+  help = {
+    { "up / down", "model" },
+    { "left / right", "animation" },
+    { "space", "play / pause" },
+    { ", / .", "a frame back / on" },
+    { "< / >", "slower / faster" },
+    { "a / d", "turn the view" },
+    { "w / s", "tilt" },
+    { "+ / -", "zoom" },
+    { "o / k / l", "spin / bones / light" },
+    { "b", "mix with the next animation" },
+    { "z", "frame the model" },
+  },
+  help_pad = {
+    { "A", "play / pause" },
+    { "B / X", "bones / spin" },
+    { "X DPAD", "the view" },
+  },
 }
 
 function play.reset()
@@ -296,12 +311,35 @@ end
 
 rig_page = {
   id = "rig", fkey = "f2", label = "rig",
-  keys = { "up/down        bone", "w a s d r f    move its end (W A S D R F fine)", "Tab            head / tail",
-           "n              new bone (child of this one)", "x  Del         delete the bone",
-           "m              mirror the bone and its children (.L / .R)", "Enter  p       rename, parent",
-           "k  K           auto skin: rigid parts, smooth", "v              skin: the faces and their bones",
-           "skin:  arrows a face  space choose  c joined  a assign",
-           "       PgUp PgDn the bone  k K auto (the chosen faces)", "q e  + -       turn the view, zoom" },
+  help = {
+    { "up / down", "bone" },
+    { "w a s d r f", "move its end" },
+    { "shift w a s d r f", "move it a little" },
+    { "tab", "head / tail" },
+    { "n", "new bone (child of this one)" },
+    { "x / del", "delete the bone" },
+    { "m", "mirror it and its children (.L / .R)" },
+    { "enter / p", "rename / parent" },
+    { "k / shift k", "auto skin: rigid parts / smooth" },
+    { "v", "skin: the faces and their bones" },
+    { "q / e", "turn the view" },
+    { "+ / -", "zoom" },
+    { "z", "frame the model" },
+    "skin (v)",
+    { "up down left right", "a face" },
+    { "space", "choose" },
+    { "c / a", "all joined / assign to the bone" },
+    { "pgup / pgdn", "the bone" },
+    { "backspace", "choose none" },
+    { "k / shift k", "auto (the chosen faces)" },
+  },
+  help_pad = {
+    { "UPDOWN", "bone" },
+    { "A DPAD", "move its end" },
+    { "X UPDOWN", "nearer / farther" },
+    { "B / X", "head or tail / new bone" },
+    { "A / B / X", "skin: choose / assign / done" },
+  },
 }
 
 function rig_page.reset()
@@ -720,14 +758,37 @@ local function snap_t(t) return round(t * FPS) / FPS end
 
 anim_page = {
   id = "anim", fkey = "f3", label = "animate",
-  keys = { "up/down        bone      left/right a frame (Home End)", "space          play / stop",
-           "w/s a/d q/e    turn the bone 15 deg (W.. 5 deg); g turn / move",
-           "k  x           add / delete the keyframe here", ", .            the keyframe before / after",
-           "( )            move the keyframe a frame earlier / later",
-           "c  v  r  m     copy / paste the pose, rest bone, mirror pose",
-           "l  i  < >      loop, ease (linear smooth step), length", "o              onion: the poses before and after",
-           "n  Ctrl+D  Enter  new, duplicate, rename the animation", "PgUp PgDn      the animation; Bksp x2 delete it",
-           "Alt + arrows  + -  z   the view, zoom, the model" },
+  help = {
+    { "up / down", "bone" },
+    { "left / right", "a frame back / on" },
+    { "home / end", "the start / the end" },
+    { "space", "play / stop" },
+    { "w s / a d / q e", "turn the bone 15 degrees" },
+    { "shift w s a d q e", "turn it 5 degrees" },
+    { "g", "turn / move" },
+    { "k / x", "add / delete the keyframe here" },
+    { ", / .", "the keyframe before / after" },
+    { "( / )", "move the keyframe a frame earlier / later" },
+    { "ctrl c / ctrl v", "copy / paste the pose" },
+    { "r / m", "rest bone / mirror the pose" },
+    { "l / i", "loop / ease (linear, smooth, step)" },
+    { "< / >", "shorter / longer" },
+    { "o", "onion: the poses before and after" },
+    { "n / ctrl d", "new / duplicate animation" },
+    { "enter", "rename the animation" },
+    { "pgup / pgdn", "the animation" },
+    { "backspace", "delete the animation (twice)" },
+    { "+ / -", "zoom" },
+    { "alt up down left right", "orbit" },
+    { "z", "frame the model" },
+  },
+  help_pad = {
+    { "A DPAD", "turn the bone" },
+    { "X LEFTRIGHT", "turn it around z" },
+    { "X UPDOWN", "the animation" },
+    { "B", "play / stop" },
+    { "X", "keyframe" },
+  },
 }
 
 function anim_page.reset()
@@ -880,8 +941,8 @@ function anim_page.key(k)
     if not i then say("no keyframe here", C.DIM, 60)
     elseif #c.keys == 1 then say("the last keyframe stays", C.DIM, 60)
     else T.begin_edit(); table.remove(c.keys, i); T.commit_anim() end
-  elseif k == "c" then an.copied = sample(r, c, an.t); say("pose copied", C.ACC, 60)
-  elseif k == "v" and an.copied then T.begin_edit(); set_pose(c, an.copied)
+  elseif k == "^c" then an.copied = sample(r, c, an.t); say("pose copied", C.ACC, 60)
+  elseif k == "^v" and an.copied then T.begin_edit(); set_pose(c, an.copied)
   elseif k == "m" then T.begin_edit(); set_pose(c, mirror_pose(r, c)); say("pose mirrored", C.ACC, 60)
   elseif k == "r" then
     T.begin_edit()
@@ -1256,9 +1317,14 @@ end
 
 sprites_page = {
   id = "sprites", fkey = "f4", label = "sprites",
-  keys = { "up/down        a setting", "left/right     change it", "Enter          put the sprites in the sheet",
-           "the preview turns: each direction in turn; the sheet is saved",
-           "with the models (Ctrl+S); bm Pixel draws on them" },
+  help = {
+    { "up / down", "a setting" },
+    { "left / right", "change it" },
+    { "enter", "put the sprites in the sheet (saved with ctrl s)" },
+  },
+  help_pad = {
+    { "A", "put the sprites in the sheet" },
+  },
 }
 
 function sprites_page.reset() sp.clip = 1; sp.last = nil end
@@ -1345,11 +1411,6 @@ T.run({
   name = "bm Animator",
   empty_model = false,
   page_list = { play, rig_page, anim_page, sprites_page },
-  keys_all = { "F1 play  F2 rig  F3 animate  F4 sprites  Esc menu  [ ] model  F6 assistant",
-               "Ctrl+S save  F5 try the game  Ctrl+Z/Y undo/redo  + - zoom" },
-  keys_pad = { "pad: Y + left/right page  Y + B menu  Y + up/down model  Y + A undo  Y + X assistant",
-               "play: X + pad view  rig: A + pad move  B head/tail  X new bone",
-               "animate: A/X + pad turn  B play  X key  sprites: A put" },
   hello = function(files)
     return files and "open a .bm with 3D models (made in bm Studio)" or "no .bm files: make models in bm Studio"
   end,

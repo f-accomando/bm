@@ -150,6 +150,12 @@ class Qemu:
         self.input_events([{"type": "abs", "data": {"axis": "x", "value": int((x + 0.5) * 32767 / w)}},
                            {"type": "abs", "data": {"axis": "y", "value": int((y + 0.5) * 32767 / h)}}])
 
+    def key(self, name, down):
+        """A key of the USB keyboard pressed or let go (QMP, a qcode such as
+        "f12"): the monitor's sendkey queues the next key after the release,
+        this one holds a key while others are typed."""
+        self.input_events([{"type": "key", "data": {"down": down, "key": {"type": "qcode", "data": name}}}])
+
     def click(self, button="left"):
         """A press and a release of a mouse button (left, right, middle,
         wheel-up, wheel-down)."""
@@ -765,7 +771,8 @@ def holdkey(q, key, ms):
 def test_keys_help(b, opts):
     """The system's keys (src/kernel/syskeys.c, 2026-10-04): F12 held over
     the menu shows them with the keys' pictures, then the menu's own; let
-    go, the menu again."""
+    go, the menu again. In an app (bm Studio) the same, then the app's
+    (keyhelp()); Ctrl+Esc leaves it."""
     q = Qemu(b("kernel.img"), USB_KBD)
     try:
         q.expect(MENU, timeout=30)
@@ -782,6 +789,36 @@ def test_keys_help(b, opts):
         time.sleep(2.0)                         # let go: the menu
         _, text = settled_screen(q, lambda i, t: not any("(F12 held)" in l for l in t))
         assert not any("(F12 held)" in l for l in text) and any("Settings" in l for l in text), "\n".join(text)
+        # in an app: the system's keys, then the app's (keyhelp()): bm Studio
+        sendkeys(q, "ctrl-shift-esc")
+        q.expect(PROMPT, timeout=10)
+        q.expect("> ")
+        q.send("3")
+        time.sleep(4.0)
+        q.key("f12", True)
+        time.sleep(1.0)
+        img = q.screendump()
+        text = "\n".join(screen_text(img))
+        for want in ("(F12 held)", "back to bm's menu (PS)", "bm Studio", "the model before / after",
+                     "models", "assistant"):
+            assert want in text, f"{want!r} not in bm Studio's keys:\n{text}"
+        if opts.shots:
+            _save_png(img, os.path.join(opts.shots, "keys-help-studio.png"))
+        sendkeys(q, "f1")                       # F1 with F12 held: the build page's keys
+        time.sleep(1.0)
+        text = "\n".join(screen_text(q.screendump()))
+        assert "1/" in text and "a level up / down" in text, text
+        sendkeys(q, "down")                     # the next page of them
+        time.sleep(1.0)
+        img = q.screendump()
+        text = "\n".join(screen_text(img))
+        assert "2/" in text and "pgup" not in text.lower(), text
+        if opts.shots:
+            _save_png(img, os.path.join(opts.shots, "keys-help-studio-2.png"))
+        q.key("f12", False)
+        time.sleep(1.0)
+        sendkeys(q, "ctrl-esc")                 # Ctrl+Esc: back where it came from
+        q.expect("> ", timeout=10)
     finally:
         q.close()
 
@@ -5947,8 +5984,9 @@ def test_assistant(b, opts):
     """M30: the development assistant (monitor A, the Dev tab's Assistant):
     a question typed on the serial line, answered while typing, Enter
     inserts the code; F7 and a request draw a sprite into the sheet; F8
-    times the network on this CPU; Esc leaves. The tools open the same
-    panel (require "assist") with F6."""
+    times the network on this CPU; Esc closes the panel, Ctrl+Esc (Ctrl+\
+    on the serial line) leaves. The tools open the same panel (require
+    "assist") with F6."""
     q = Qemu(b("kernel.img"))
 
     def k(s, gap=0.05):
@@ -6004,7 +6042,9 @@ def test_assistant(b, opts):
         shot("error")
         k("\x1b", 0.5)                                     # Esc closes the panel
         see(["bm assistant", "sprite", "speed"])          # its bar: the keys as chips
-        k("\x1b", 0.5)                                     # Esc: back to the monitor
+        k("\x1b", 1.0)                                     # Esc: nothing to go back to
+        see(["bm assistant", "speed", "exit"])            # still here (Ctrl+Esc exits)
+        k("\x1c", 0.5)                                     # Ctrl+\ (Ctrl+Esc): back to the monitor
         out = q.expect("> ", timeout=10).decode(errors="replace")
         assert "error" not in out, out
     finally:

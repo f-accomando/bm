@@ -568,6 +568,18 @@ local function quit_editor()
   end)
 end
 
+-- Ctrl+Esc or PS (the system's keys): back to bm's menu; with changes not
+-- saved it asks as Exit does, and Ctrl+Esc again keeps them for next time
+function _exit()
+  local dirty = 0
+  for _, t in ipairs(tabs) do if t.dirty then dirty = dirty + 1 end end
+  if dirty == 0 or (overlay and overlay.leaving) then save_session(); return true end
+  quit_editor()
+  if overlay then overlay.leaving = true end
+  say("Ctrl+Esc again: the changes are kept for next time", C_ACC)
+  return false
+end
+
 local function open_files()
   local items = { { label = "+ New cartridge...", new = true } }
   for _, dir in ipairs({ "/carts", "/" }) do
@@ -583,11 +595,11 @@ end
 
 local MENU = {
   { "New cartridge", "Ctrl+N" }, { "Open...", "Ctrl+O" }, { "Save", "Ctrl+S" },
-  { "Save as...", "" }, { "Close tab", "Ctrl+W" }, { "Run the game", "F5" },
+  { "Save as...", "Ctrl+Shift+S" }, { "Close tab", "Ctrl+W" }, { "Run the game", "F5" },
   { "Split screen", "F4" }, { "Font size", "F10" }, { "Find", "Ctrl+F" },
   { "Replace", "Ctrl+H" }, { "Go to line", "Ctrl+L" }, { "Assistant", "F6" },
   { "Explain the error", "F9" }, { "Word completion", "" }, { "Words in comments", "" },
-  { "Keys", "F1" }, { "Exit", "" },
+  { "Keys", "F12 held" }, { "Exit", "" },
 }
 
 local function open_menu()
@@ -633,8 +645,7 @@ end
 -- commands that do not depend on the text: the same from the menu
 do_command = function(k)
   local t, v = current()
-  if k == "f1" then overlay = { kind = "help" }
-  elseif k == "f2" then show_tab((panes[focus].tab - 2) % #tabs + 1)
+  if k == "f2" then show_tab((panes[focus].tab - 2) % #tabs + 1)
   elseif k == "f3" then show_tab(panes[focus].tab % #tabs + 1)
   elseif k == "f4" then
     split = not split
@@ -651,7 +662,9 @@ do_command = function(k)
   elseif k == "f5" or k == "^r" then run_game()
   elseif k == "f6" then open_assistant(t, v)
   elseif k == "f9" then explain_error(t, v)
+  -- the system's keys (the kernel's syskeys.c)
   elseif k == "^s" then save_current()
+  elseif k == "^S" then save_as(t)
   elseif k == "^o" then open_files()
   elseif k == "^n" then new_cart()
   elseif k == "^t" then show_tab(new_tab(nil, ""))
@@ -897,6 +910,7 @@ end
 
 function _init()
   keyp()                                 -- typing on
+  if keyhelp then keyhelp(KEYHELP, "bm Code") end
   set_font(1)
   load_session()
   local a = cart_arg()
@@ -1105,7 +1119,7 @@ local function draw_tabs()
       if panes[1].tab == i then label = label .. "1 " end
       if panes[2].tab == i then label = label .. "2 " end
     end
-    if x + #label > COLS - 10 then
+    if x + #label > COLS - 17 then
       print("...", x * CW, 0, C_DIM)
       break
     end
@@ -1114,9 +1128,9 @@ local function draw_tabs()
     print(label, x * CW, 0, on and 0xFFFFFF or C_DIM)
     x = x + #label + 1
   end
-  local lx = (COLS - 5) * CW                         -- "keys" on the last columns, its key before
-  key_chip("f1", lx - 3 - key_chip("f1", CH < 16), 0, CH < 16)
-  print("keys", lx, 0, C_DIM)
+  local lx = (COLS - 11) * CW                        -- "held: keys" on the last columns, F12 before
+  key_chip("f12", lx - 3 - key_chip("f12", CH < 16), 0, CH < 16)
+  print("held: keys", lx, 0, C_DIM)
 end
 
 local function draw_status(t, v)
@@ -1143,8 +1157,33 @@ local function draw_status(t, v)
   end
 end
 
+-- the keys while F12 is held, under the system's (keyhelp(), the kernel
+-- shows them): keyboard keys in lower case, the pad's buttons in upper case
+local KEYHELP = {
+  { "ctrl w", "close the tab" },
+  { "ctrl t", "a new empty tab" },
+  { "f2 / f3", "the tab before / after" },
+  { "f4", "two pages side by side" },
+  { "f7", "the other page" },
+  { "f10", "font 6x12 / 8x14 / 8x16" },
+  { "f9", "explain the game's error" },
+  { "ctrl b", "start a selection" },
+  { "ctrl k / ctrl d", "cut / duplicate the line" },
+  { "tab / ctrl u", "indent / unindent" },
+  { "tab", "after a word: the grey-blue rest" },
+  { "ctrl g", "find the next" },
+  { "ctrl h", "replace all" },
+  { "ctrl l", "go to line" },
+  { "enter", "on #entry: ... #: the assistant does it" },
+  "pad",
+  { "DPAD", "move" },
+  { "Y DPAD", "pages, tabs" },
+  { "X", "the assistant" },
+  { "START", "the menu" },
+}
+
 local HELP = {
-  "Files", "Ctrl+N new cartridge", "Ctrl+O open", "Ctrl+S save", "Esc menu (save as...)",
+  "Files", "Ctrl+N new cartridge", "Ctrl+O open", "Ctrl+S save", "Ctrl+Shift+S save as",
   "Ctrl+W close tab", "F5 / Ctrl+R run, then back here", "",
   "Tabs and pages", "Ctrl+T new empty tab", "F2 / F3 previous / next tab", "F4 two pages side by side",
   "F7 the other page", "F10 font 6x12 / 8x14 / 8x16", "",
@@ -1155,6 +1194,7 @@ local HELP = {
   "Assistant", "F6 ask (the word under the cursor)", "F9 explain the game's error",
   "#entry: what to do #  then Enter:", "  the assistant does it here", "",
   "Pad", "cross moves, Y+cross pages/tabs", "X assistant, Start menu",
+  "Ctrl+Esc back to bm, F12 held: keys",
 }
 
 local function draw_box(c0, r0, cols, rows, title)

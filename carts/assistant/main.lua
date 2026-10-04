@@ -37,6 +37,23 @@ local function on_sprite(s)
   log("assistant: sprite " .. s.gen .. " " .. s.w .. "x" .. s.h)
 end
 
+-- the keys while F12 is held, under the system's (keyhelp(), the kernel
+-- shows them); Esc closes the panel, Ctrl+Esc leaves (the system's keys)
+local KEYHELP = {
+  { "f7", "a sprite" },
+  { "f8", "the speed test" },
+  { "f9", "an error, explained" },
+  { "ctrl a", "ask, for code" },
+  "the panel",
+  { "up / down", "the answers" },
+  { "left / right", "another sprite, the text" },
+  { "enter", "take it" },
+  { "tab", "the word's rest; the kind (empty)" },
+  { "esc", "close it" },
+  "pad",
+  { "A", "ask, take it" },
+}
+
 local function open(mode)
   assist.open{ mode = mode, on_insert = on_insert, on_sprite = on_sprite, size = 16 }
 end
@@ -73,6 +90,7 @@ local function speed_test()
 end
 
 function _init()
+  if keyhelp then keyhelp(KEYHELP, "bm assistant") end
   log("assistant: ready, " .. #ai.list() .. " entries, " .. #ai.recipes() .. " sprite recipes")
   -- the network on this CPU, bit for bit (tests/qemu_test.py checks it)
   log(string.format("assistant: checksum %08x", ai.checksum("come muovo il personaggio con le frecce")))
@@ -90,7 +108,7 @@ function _update()
       -- what an editor will do with the red line of a game that stopped
       assist.open{ error = "main.lua:12: attempt to call a nil value (global 'sprr')",
                    on_insert = on_insert }
-    elseif k == "esc" then quit() end
+    end                                  -- Esc: nothing to go back to (Ctrl+Esc leaves)
     k = keyp()
   end
   if btnp(4) then open("any") end
@@ -110,15 +128,18 @@ function _draw()
   rectfill(0, 0, W, 16, C_BAR)
   print("bm assistant", 8, 0, C_ACC)
   -- the keys, as chips on the right
-  local keys = { { "f6", "ask" }, { "f7", "sprite" }, { "f8", "speed" }, { "f9", "error" }, { "esc", "exit" } }
-  local x = W - 8                        -- right to left: each label on its column, its key before
+  local keys = { { { "f6" }, "ask" }, { { "f7" }, "sprite" }, { { "f8" }, "speed" }, { { "f9" }, "error" },
+                 { { "ctrl", "esc" }, "exit" } }
+  local x = W - 8                        -- right to left: each label on its column, its keys before
   for i = #keys, 1, -1 do
     local k = keys[i]
     local lx = x - #k[2] * 8
-    local kx = lx - 3 - prompt(k[1])
+    local kw = 0
+    for _, n in ipairs(k[1]) do kw = kw + prompt(n) + 1 end
+    local kx = lx - 2 - kw
     print(k[2], lx, 0, C_DIM)
-    prompt(k[1], kx, 0)
-    x = kx // 8 * 8 - 8
+    for _, n in ipairs(k[1]) do kx = prompt(n, kx, 0) + 1 end
+    x = (lx - 2 - kw) // 8 * 8 - 8
   end
   -- text on the 8x16 cells (x a multiple of 8, y of 16)
   -- the code the panel inserted

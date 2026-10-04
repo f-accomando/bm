@@ -88,6 +88,7 @@ static struct {
     int keyhelp;                /* keyhelp(): the registry's reference of the cartridge's keys, or 0 */
     int help_page;              /* the page of the keys shown while F12 is held */
     int esc;
+    int serial_quit;            /* Ctrl+\ on the serial line: Ctrl+Esc (the cartridge's _exit() asks) */
     int quit;
     r3d_t r3d;
     int r3d_ready;
@@ -2558,7 +2559,8 @@ static int l_audio_play(lua_State *L)
 
 /* keyp(): the next key typed, as text ("a", "\n", "\b", "\t"), a name
  * ("up", "down", "left", "right", "home", "end", "pgup", "pgdn", "del",
- * "esc", "f1".."f12") or "^s" for Ctrl+S; nil if none. The first call
+ * "esc", "f1".."f10") or "^s" for Ctrl+S, "^S" for Ctrl+Shift+S; nil if
+ * none. F11, F12 and Ctrl+Esc are the system's (they never come). The first call
  * turns on typing: the keyboard stops being a gamepad for btn(), Esc no
  * longer leaves the cartridge (Start+Select and PS still do). */
 static int l_keyp(lua_State *L)
@@ -2575,6 +2577,20 @@ static int l_keyp(lua_State *L)
     static const char *const nav[] = { "up", "down", "left", "right", "home", "end", "pgup", "pgdn",
                                        "del", "f1", "f2", "f3", "f4", "f5" };
     char buf[4];
+    if (c == HID_KEY_CTRL_SHIFT) {          /* Ctrl+Shift+S: "^S" (the next code is the Ctrl letter) */
+        if (rt.tq_tail == rt.tq_head) {
+            lua_pushnil(L);
+            return 1;
+        }
+        c = rt.tq[rt.tq_tail++];
+        if (c >= 1 && c <= 26) {
+            buf[0] = '^';
+            buf[1] = (char)('A' + c - 1);
+            buf[2] = 0;
+            lua_pushstring(L, buf);
+            return 1;
+        }
+    }
     if (c >= HID_KEY_UP && c <= HID_KEY_F1 + 4) lua_pushstring(L, nav[c - HID_KEY_UP]);
     else if (c >= HID_KEY_F6 && c <= HID_KEY_F6 + 6) lua_pushfstring(L, "f%d", c - HID_KEY_F6 + 6);
     else if (c == 0x1B) lua_pushstring(L, "esc");
@@ -3110,6 +3126,7 @@ static void serial_text(char c)
         return;
     }
     if (c == 0x1B) { rt.esc = 1; return; }
+    if (c == 0x1C) { rt.serial_quit = 1; return; }  /* Ctrl+\: Ctrl+Esc on the serial line */
     if (c == '\n') return;                  /* terminals send \r or \r\n */
     if (c == 0x08) c = 0x7F;
     if ((uint8_t)c >= HID_KEY_F6 && (uint8_t)c <= HID_KEY_F6 + 6)
@@ -3159,6 +3176,7 @@ static int poll_keys(void)
             case '\t': b = BTN_SELECT; break;
             case 'p': case 'P': rt.perf_key = 1; continue;
             case 'q': case 'Q': return QUIT_FORCE;
+            case 0x1C: rt.serial_quit = 1; continue;    /* Ctrl+\: Ctrl+Esc (asks _exit()) */
             }
         }
         if (b >= 0)
@@ -3211,6 +3229,10 @@ static int poll_keys(void)
         rt.praw[p] = per[p];
         rt.pprev[p] = rt.pnow[p];
         rt.pnow[p] = hid_to_btn(per[p]);
+    }
+    if (rt.serial_quit) {
+        rt.serial_quit = 0;
+        quit |= HID_QUIT_PS;
     }
     return quit;
 }
@@ -4938,7 +4960,8 @@ static int exit_ok(lua_State *L)
 static int keys_chips(const char *keys, int x, int y, int small, int draw, uint16_t ink)
 {
     const int fw = rt.g.font->width;
-    for (const char *p = keys; *p;) {
+    int first = 1;
+    for (const char *p = keys; *p; first = 0) {
         while (*p == ' ')
             p++;
         if (!*p)
@@ -4952,7 +4975,12 @@ static int keys_chips(const char *keys, int x, int y, int small, int draw, uint1
         }
         tok[n < sizeof tok ? n : sizeof tok - 1] = 0;
         p += n;
-        if (!strcmp(tok, "/") || !strcmp(tok, "-")) {
+        /* "/" between alternatives, "-" between the ends of a range ("1 - 5");
+         * a "-" first or last is the key ("+ / -") */
+        const char *rest = p;
+        while (*rest == ' ')
+            rest++;
+        if (!strcmp(tok, "/") || (!strcmp(tok, "-") && !first && *rest)) {
             if (draw)
                 g16_text(&rt.g, x + 2, y + (small ? 0 : 0), tok, ink);
             x += fw + 4;
@@ -4988,7 +5016,7 @@ static void keys_help(lua_State *L)
     const int small = g->w < 480;
     g->font = small ? &font_console_6x12 : &font_console_8x16;
     const int fw = g->font->width, rowh = g->font->height;     /* the chips are as high */
-    const int cols = g->w >= 600 ? 3 : g->w >= 360 ? 2 : 1;
+    const int cols = g->w >= 960 ? 3 : g->w >= 360 ? 2 : 1;
     const int colw = (g->w - 2 * fw) / cols / fw * fw;
     const int y0 = 2 * rowh, rows = (g->h - y0 - rowh) / rowh;
     const uint16_t ink = g16_rgb(232, 232, 236), dim = g16_rgb(150, 150, 165), head = g16_rgb(255, 176, 64);
@@ -5009,89 +5037,86 @@ static void keys_help(lua_State *L)
     }
     const int nsys = syskeys_count();
     const int total = 1 + nsys + (napp ? 1 + napp : 0), per = rows * cols;
-    int slots = 0;                          /* as the loop below places them */
-    for (int i = 0; i < total; i++) {
-        const int heading = i == 0 || i == nsys + 1 || (i > nsys + 1 && lua_rawgeti(L, list, i - nsys - 1) == LUA_TSTRING);
-        if (i > nsys + 1)
-            lua_pop(L, 1);
-        if (i == nsys + 1 && cols > 1 && slots % rows)
-            slots += rows - slots % rows;
-        else if (heading && slots % rows == rows - 1)
-            slots++;
-        slots++;
-    }
-    const int pages = (slots + per - 1) / per;
-    if (rt.help_page < 0) rt.help_page = 0;
-    if (rt.help_page >= pages) rt.help_page = pages - 1;
-    g16_text(g, fw, 0, "Keys", head);
-    g16_text(g, 6 * fw, 0, "(F12 held)", dim);
-    if (pages > 1) {
-        char pg[24];
-        ksnprintf(pg, sizeof pg, "%d/%d", rt.help_page + 1, pages);
-        int x = g->w - fw - (int)strlen(pg) * fw;
-        g16_text(g, x, 0, pg, dim);
-        const prompt_t *dn = find_prompt("down", small), *up = find_prompt("up", small);
-        if (dn && up) {
-            draw_prompt(dn, x - fw - dn->w, 0, 1);
-            draw_prompt(up, x - fw - dn->w - 2 - up->w, 0, 1);
-        }
-    }
     /* the places: the cartridge's keys from the top of a new column when
-     * there is one; a heading never last in its column */
-    int slot = 0;
-    for (int i = 0; i < total; i++) {
-        const int heading = i == 0 || i == nsys + 1 || (i > nsys + 1 && list &&
-                                                        lua_rawgeti(L, list, i - nsys - 1) == LUA_TSTRING);
-        if (i > nsys + 1 && list)
-            lua_pop(L, 1);
-        if (i == nsys + 1 && cols > 1 && slot % rows)
-            slot += rows - slot % rows;
-        else if (heading && slot % rows == rows - 1)
-            slot++;
-        const int page = slot / per;
-        const int c = slot % per / rows, r = slot % rows;
-        slot++;
-        if (page != rt.help_page)
-            continue;
-        const int x = fw + c * colw, y = y0 + r * rowh, right = x + colw - fw;
-        const char *keys = NULL, *what = NULL;
-        int clash = 0;
-        if (i == 0) {
-            g16_text(g, x, y, "bm", head);
-            continue;
-        } else if (i <= nsys) {
-            keys = syskey(i - 1)->keys;
-            what = syskey(i - 1)->what;
-        } else if (i == nsys + 1) {
-            g16_text(g, x, y, title ? title : "", head);
-            continue;
-        } else {
-            const int t = lua_rawgeti(L, list, i - nsys - 1);
-            if (t == LUA_TSTRING) {             /* a heading of the cartridge's */
-                g16_text(g, x, y, lua_tostring(L, -1), head);
-                lua_pop(L, 1);
-                continue;
+     * there is one; a heading never last in its column; a key whose words
+     * do not fit beside it takes two rows (the words under it) */
+    int slots = 0;
+    for (int pass = 0; pass < 2; pass++) {
+        const int pages = (slots + per - 1) / per;
+        if (pass == 1) {
+            if (rt.help_page < 0) rt.help_page = 0;
+            if (rt.help_page >= pages) rt.help_page = pages - 1;
+            g16_text(g, fw, 0, "Keys", head);
+            g16_text(g, 6 * fw, 0, "(F12 held)", dim);
+            if (pages > 1) {
+                char pg[24];
+                ksnprintf(pg, sizeof pg, "%d/%d", rt.help_page + 1, pages);
+                int x = g->w - fw - (int)strlen(pg) * fw;
+                g16_text(g, x, 0, pg, dim);
+                const prompt_t *dn = find_prompt("down", small), *up = find_prompt("up", small);
+                if (dn && up) {
+                    draw_prompt(dn, x - fw - dn->w, 0, 1);
+                    draw_prompt(up, x - fw - dn->w - 2 - up->w, 0, 1);
+                }
             }
-            if (t == LUA_TTABLE) {
-                lua_rawgeti(L, -1, 1);
-                lua_rawgeti(L, -2, 2);
-                keys = lua_tostring(L, -2);
-                what = lua_tostring(L, -1);
-                clash = keys && syskeys_reserved(keys);
-                lua_pop(L, 2);
-            }
-            lua_pop(L, 1);
-            if (!keys)
-                continue;
         }
-        int tx = keys_chips(keys, x, y, small, 1, ink);
-        tx = (tx + fw + fw - 1) / fw * fw;      /* the text on the font's grid (the tests read it) */
-        char buf[64];
-        ksnprintf(buf, sizeof buf, "%s", what ? what : "");
-        int room = (right - tx) / fw;
-        if (room < (int)strlen(buf))
-            buf[room > 0 ? room : 0] = 0;
-        g16_text(g, tx, y, buf, clash ? bad : dim);
+        int slot = 0;
+        for (int i = 0; i < total; i++) {
+            const char *keys = NULL, *what = NULL, *text = NULL;
+            int clash = 0;
+            if (i == 0) {
+                text = "bm";
+            } else if (i <= nsys) {
+                keys = syskey(i - 1)->keys;
+                what = syskey(i - 1)->what;
+            } else if (i == nsys + 1) {
+                text = title ? title : "";
+            } else {
+                /* the strings stay valid: the list (on the stack) holds them */
+                const int t = lua_rawgeti(L, list, i - nsys - 1);
+                if (t == LUA_TSTRING) {
+                    text = lua_tostring(L, -1);
+                } else if (t == LUA_TTABLE) {
+                    lua_rawgeti(L, -1, 1);
+                    lua_rawgeti(L, -2, 2);
+                    keys = lua_tostring(L, -2);
+                    what = lua_tostring(L, -1);
+                    lua_pop(L, 2);
+                    clash = keys && syskeys_reserved(keys);
+                }
+                lua_pop(L, 1);
+                if (!text && !keys)
+                    continue;
+            }
+            int tx = 0, two = 0;
+            if (keys) {
+                tx = keys_chips(keys, 0, 0, small, 0, ink);
+                tx = (tx + fw + fw - 1) / fw * fw;      /* the words on the font's grid (the tests read them) */
+                two = tx + (int)strlen(what ? what : "") * fw > colw - fw;
+            }
+            if (i == nsys + 1 && cols > 1 && slot % rows)
+                slot += rows - slot % rows;
+            else if ((text || two) && slot % rows == rows - 1)
+                slot++;
+            const int page = slot / per, c = slot % per / rows, r = slot % rows;
+            slot += 1 + two;
+            if (pass == 0 || page != rt.help_page)
+                continue;
+            const int x = fw + c * colw, y = y0 + r * rowh, right = x + colw - fw;
+            if (text) {
+                g16_text(g, x, y, text, head);
+                continue;
+            }
+            keys_chips(keys, x, y, small, 1, ink);
+            const int wx = two ? x + 2 * fw : x + tx, wy = two ? y + rowh : y;
+            char buf[64];
+            ksnprintf(buf, sizeof buf, "%s", what ? what : "");
+            int room = (right - wx) / fw;
+            if (room < (int)strlen(buf))
+                buf[room > 0 ? room : 0] = 0;
+            g16_text(g, wx, wy, buf, clash ? bad : dim);
+        }
+        slots = slot;
     }
     if (rt.keyhelp)
         lua_pop(L, 2);

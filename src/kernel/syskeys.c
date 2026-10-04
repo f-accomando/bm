@@ -6,24 +6,24 @@
 #include <string.h>
 
 static const syskey_t keys[] = {
-    { "f12", "hold: the keys" },
-    { "esc", "menu, or back" },
-    { "ctrl esc", "back to bm's menu (PS)" },
-    { "ctrl shift esc", "the monitor" },
-    { "f1 - f4", "the pages" },
-    { "f5 / ctrl r", "try the game" },
-    { "f6", "the assistant" },
-    { "f11", "performance overlay" },
-    { "ctrl s", "save" },
-    { "ctrl shift s", "save as" },
-    { "ctrl o", "open" },
-    { "ctrl n", "new" },
-    { "ctrl z", "undo" },
-    { "ctrl y", "redo" },
-    { "ctrl x", "cut" },
-    { "ctrl c", "copy" },
-    { "ctrl v", "paste" },
-    { "ctrl f", "find" },
+    { "f12", "hold: the keys", 1 },
+    { "esc", "menu, or back", 0 },
+    { "ctrl esc", "back to bm's menu (PS)", 1 },
+    { "ctrl shift esc", "the monitor", 1 },
+    { "f1 - f4", "the pages", 0 },
+    { "f5 / ctrl r", "try the game", 0 },
+    { "f6", "the assistant", 0 },
+    { "f11", "performance overlay", 1 },
+    { "ctrl s", "save", 0 },
+    { "ctrl shift s", "save as", 0 },
+    { "ctrl o", "open", 0 },
+    { "ctrl n", "new", 0 },
+    { "ctrl z", "undo", 0 },
+    { "ctrl y", "redo", 0 },
+    { "ctrl x", "cut", 0 },
+    { "ctrl c", "copy", 0 },
+    { "ctrl v", "paste", 0 },
+    { "ctrl f", "find", 0 },
 };
 
 int syskeys_count(void)
@@ -55,16 +55,21 @@ static int same(const char *a, size_t an, const char *b)
     return 1;
 }
 
-int syskeys_reserved(const char *k)
+/* keys (one alternative) equal to one of the kernel's own */
+static int kernel_key(const char *k, size_t kn)
 {
+    char one[32];
+    if (kn >= sizeof one)
+        return 0;
+    memcpy(one, k, kn);
+    one[kn] = 0;
     for (int i = 0; i < syskeys_count(); i++) {
-        const char *s = keys[i].keys;
-        if (strstr(s, " - "))                   /* the pages: the tools name them */
+        if (!keys[i].kernel)
             continue;
-        for (;;) {
+        for (const char *s = keys[i].keys;;) {
             const char *bar = strstr(s, " / ");
             size_t n = bar ? (size_t)(bar - s) : strlen(s);
-            if (same(s, n, k))
+            if (same(s, n, one))
                 return 1;
             if (!bar)
                 break;
@@ -72,4 +77,16 @@ int syskeys_reserved(const char *k)
         }
     }
     return 0;
+}
+
+int syskeys_reserved(const char *k)
+{
+    for (;;) {
+        const char *bar = strstr(k, " / ");
+        if (kernel_key(k, bar ? (size_t)(bar - k) : strlen(k)))
+            return 1;
+        if (!bar)
+            return 0;
+        k = bar + 3;
+    }
 }

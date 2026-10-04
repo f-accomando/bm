@@ -52,6 +52,8 @@ env.btnp = function(i) return (pad[i] and not pad_prev[i]) or false end
 env.keyp = function() return table.remove(keys, 1) end
 local f12 = false
 env.keyheld = function(k) return k == "f12" and f12 end
+local keyhelp_list, keyhelp_title
+env.keyhelp = function(list, title) keyhelp_list, keyhelp_title = list, title; return 0 end
 
 -- the SD card
 local files = {
@@ -304,7 +306,8 @@ check(files["/bm/sounds/MINE.BM"] and files["/bm/sounds/MINE.BM"].bank, "a new s
 -- 10. random input: nothing stops the editor
 math.randomseed(7)
 local K = { "up", "down", "left", "right", "\n", "\b", " ", "f1", "f2", "f3", "f4", "\t", "z", "q", "x", "-", "=",
-            "[", "]", ";", "'", "k", "l", "o", "p", "_", "+", ",", ".", "pgup", "pgdn", "esc", "^z", "^c", "^v" }
+            "[", "]", ";", "'", "k", "l", "o", "p", "_", "+", ",", ".", "pgup", "pgdn", "esc", "^z", "^c", "^v",
+            "i", "^n", "^S" }
 for i = 1, 6000 do
   for b2 = 0, 9 do pad[b2] = math.random() < (b2 == 9 and 0.03 or 0.12) end
   if math.random() < 0.2 then keys[#keys + 1] = K[math.random(#K)] end
@@ -316,10 +319,17 @@ for b2 = 0, 9 do pad[b2] = false end
 run(5)
 check(last_bank and parse(last_bank), "after random input the bank is still a valid bank")
 
+-- F12 held: the kernel shows the keys keyhelp() gave it
+local function in_help(keys)
+  for _, e in ipairs(keyhelp_list or {}) do if type(e) == "table" and e[1] == keys then return true end end
+  return false
+end
+check(keyhelp_title == "Sound" and in_help("i") and in_help("SELECT LEFTRIGHT"), "keyhelp: the keys and the pad's")
+
 -- no globals made by mistake
 local stray = {}
 for k in pairs(env) do
-  if not api[k] and k ~= "_init" and k ~= "_update" and k ~= "_draw" then stray[#stray + 1] = k end
+  if not api[k] and k ~= "_init" and k ~= "_update" and k ~= "_draw" and k ~= "_exit" then stray[#stray + 1] = k end
 end
 check(#stray == 0, "no stray globals: " .. table.concat(stray, " "))
 

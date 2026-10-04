@@ -242,6 +242,22 @@ screenshot in `docs/img/`), `README_OLD.md` (il README completo, in italiano),
   dialogo): lì si chiama `key_chip`. `make test-prompts` disegna i due set in
   `build/prompts/`: guardarli dopo ogni modifica.
 
+## Tasti di sistema (2026-10-04, tastiera; il pad dopo)
+
+- Una sola tabella, `src/kernel/syskeys.c` (decisione dell'utente: tasti di sistema
+  universali, quelli delle app non li usano per altro): **F12 tenuto** mostra i tasti
+  (sistema, poi quelli del menu o dell'app, con le icone; niente tasto `?`), **Esc** menu
+  dell'app o un livello indietro (nei giochi è Start), **Ctrl+Esc** torna al menu di bm (=
+  PS del DS4; Ctrl+\ dalla seriale), Ctrl+Shift+Esc il monitor, F1–F4 le pagine, F5 /
+  Ctrl+R prova il gioco, F6 l'assistente, **F11** l'overlay delle prestazioni, Ctrl+S /
+  Ctrl+Shift+S / Ctrl+O / Ctrl+N, Ctrl+Z / Ctrl+Y, Ctrl+X / C / V, Ctrl+F.
+- Le app danno i loro con `keyhelp(lista, titolo)` (minuscolo la tastiera, maiuscolo il
+  pad; in rosso e nel log le voci con un tasto che il kernel tiene per sé: F11, F12, Ctrl+Esc) e chiedono prima di
+  uscire con `_exit()` (modifiche non salvate: Ctrl+Esc di nuovo esce). bm3d lo fa per
+  bm Studio e bm Animator (`A.help`, `help`/`help_pad` delle pagine, `T.keyhelp`).
+- Prove: QEMU `test_keys_help` (menu e bm Studio), le prove sul PC delle app
+  (`tools3d_host.lua`, `mesh_host.lua`, `pixel_host.lua`, `tests/sound/sim.lua`).
+
 ## Overbit (M38)
 
 - Sparatutto a eroi in 3D (`carts/overbit`; motore GPU e gioco cresciuti nel branch

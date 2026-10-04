@@ -34,6 +34,7 @@ local BEGIN, END = "-- [bm Mesh begin]", "-- [bm Mesh end]"
 local floor, abs, sqrt, sin, cos = math.floor, math.abs, math.sqrt, math.sin, math.cos
 local max, min, pi = math.max, math.min, math.pi
 local spack, sunpack = string.pack, string.unpack
+local ok_assist, assist = pcall(require, "assist")   -- F6: the assistant's 3D recipes
 
 local function clamp(v, a, b) if v < a then return a elseif v > b then return b end return v end
 local function round(v) return floor(v + 0.5) end
@@ -618,7 +619,6 @@ end
 -- the overlays: a list to choose from, a line to type, a question
 local pick = nil             -- { title, rows = { {label, fn}, ... }, sel }
 local input = nil            -- { label, text, done }
-local help = false
 local confirm_t, confirm_what = 0, nil
 
 -- the keys as chips (prompt(), the look of all the Dev apps): the labels
@@ -1953,10 +1953,87 @@ end
 local msel = 1
 local last_page = "list"
 
+-- the keys while F12 is held, under the system's (keyhelp(), the kernel
+-- shows them): keyboard keys in lower case, the pad's buttons in upper case
+local HELP = {
+  all = {
+    { "f1 / f2", "list / edit" },
+    { "f3", "the commands" },
+    { "[ / ]", "the previous / next mesh" },
+  },
+  list = {
+    { "up / down", "the mesh" },
+    { "home / end", "the first / last" },
+    { "enter", "edit it" },
+    { "m", "copy as a model: mesh -> model" },
+    { "c", "copy as code: model -> mesh_name()" },
+    { "r / d", "rename / duplicate" },
+    { "del", "delete" },
+    { "n", "a new model (a cube; f3: plane, sphere)" },
+    { "q / e", "turn the view" },
+    { "w / s", "tilt" },
+    { "+ / -", "zoom" },
+    { "space", "spin" },
+    { "f", "frame it" },
+  },
+  edit = {
+    { "up down left right", "the pointer" },
+    { "n / b", "on the next / previous one" },
+    { "home", "the pointer to the middle" },
+    { "space / enter", "choose (add) / only this" },
+    { "a", "all, none" },
+    { "tab / l", "vertices or faces / all linked" },
+    { "g / r / t", "move / rotate / scale" },
+    { "x / d", "extrude faces / duplicate (then move)" },
+    { "m / shift m", "mirror left-right / copy across 0" },
+    { "j", "new face on 3-4 vertices" },
+    { "k / shift k", "merge / weld equal vertices" },
+    { "u / i", "subdivide / turn over" },
+    { "del", "delete" },
+    { "p / o / c", "paint / take the colour / palette" },
+    { "q / e", "turn the view" },
+    { "w / s", "tilt" },
+    { "+ / -", "zoom" },
+    { "f", "frame the chosen ones" },
+    { "1 / 3 / 7 / 0", "front / side / top / the view" },
+    { ", / .", "the step" },
+    "move, rotate, scale (g r t)",
+    { "up down left right", "change" },
+    { "pgup / pgdn", "nearer / farther" },
+    { "x / y / z / n", "only on that axis, the normal" },
+    { "enter / esc", "done / cancel" },
+  },
+  pad = {
+    { "Y LEFTRIGHT", "page" },
+    { "Y B", "menu" },
+    { "Y A", "undo" },
+    { "Y UPDOWN", "mesh" },
+    { "X", "the commands (tap)" },
+    { "X DPAD", "turn the view" },
+    { "X A / X B", "zoom" },
+    { "A", "edit (list); choose (edit)" },
+    { "B", "choose none" },
+    { "DPAD", "the pointer; change (tools)" },
+  },
+}
+
+local function mesh_keyhelp(p)
+  if not keyhelp then return end                -- a kernel before them
+  local list = {}
+  local function add(t) for _, e in ipairs(t) do list[#list + 1] = e end end
+  add(HELP.all)
+  if HELP[p] then list[#list + 1] = p; add(HELP[p])
+  else list[#list + 1] = "menu"; add({ { "up / down", "choose" }, { "enter", "select" } }) end
+  list[#list + 1] = "pad"
+  add(HELP.pad)
+  keyhelp(list, "bm Mesh")
+end
+
 go = function(p)
   if p == "menu" then if page ~= "menu" then msel = 1 end
   else last_page = p end
   page = p
+  mesh_keyhelp(p)
 end
 
 reset_pages = function()
@@ -1982,20 +2059,53 @@ local function try_game()
   cart_run(proj.path)
 end
 
+local function save_as()
+  if not proj.path then say("open a .bm first", C_ERR); return end
+  ask("file name (8.3, in /carts)", proj.path:match("([^/]+)$") or "MESHES.BM", function(t)
+    if not t:upper():match("%.BM$") then t = t .. ".BM" end
+    local to = short_path("/carts/" .. t)
+    local from = proj.path
+    code_dirty = true                    -- the new file gets all the code
+    if save_to(to, from) then go("list") end
+  end)
+end
+
+local function open_other()
+  if not dirty or confirmed("open", "unsaved changes: choose again to open another file") then open_chooser() end
+end
+
+-- the assistant's model (F6, pad Y + X): a new model; its skeleton stays
+-- out (bm Studio and bm Animator take it with the skeleton)
+local function take_model(m)
+  if not m or not m.faces or #m.faces == 0 then return end
+  if not proj.path then say("open a .bm first: Esc > Open", C_ERR); return end
+  local it = { kind = "model", name = unique_name("model", m.gen or m.name or "model"), v = {}, f = {}, dirty = true }
+  local at = {}
+  local function vi(p)
+    local key = string.format("%.4f %.4f %.4f", p[1], p[2], p[3])
+    if not at[key] then it.v[#it.v + 1] = { p[1], p[2], p[3] }; at[key] = #it.v end
+    return at[key]
+  end
+  for _, f in ipairs(m.faces) do
+    for k = 2, #f.p - 1 do it.f[#it.f + 1] = { vi(f.p[1]), vi(f.p[k]), vi(f.p[k + 1]), f.c } end
+  end
+  dirty = true
+  select_item(insert_item(it))
+  go("list")
+  say(string.format("the assistant's %s: model %s, %d faces (F2 edits it)", m.name or m.gen or "model", it.name, #it.f),
+      C_ACC, 300)
+end
+
+local function assistant()
+  if not ok_assist or not ai or not ai.mesh then say("the assistant is not here", C_ERR); return end
+  assist.open{ mode = "mesh", on_mesh = take_model }
+end
+
 local MENU = {
   { "Continue", function() go(last_page) end },
-  { "Open...", function() if not dirty or confirmed("open", "unsaved changes: choose again to open another file") then open_chooser() end end },
+  { "Open...   (Ctrl+O)", open_other },
   { "Save   (Ctrl+S)", function() save_to(proj.path) end },
-  { "Save as...", function()
-      if not proj.path then say("open a .bm first", C_ERR); return end
-      ask("file name (8.3, in /carts)", proj.path:match("([^/]+)$") or "MESHES.BM", function(t)
-        if not t:upper():match("%.BM$") then t = t .. ".BM" end
-        local to = short_path("/carts/" .. t)
-        local from = proj.path
-        code_dirty = true                    -- the new file gets all the code
-        if save_to(to, from) then go("list") end
-      end)
-    end },
+  { "Save as...   (Ctrl+Shift+S)", save_as },
   { "Try the game (F5)", try_game },
   { "Exit bm Mesh", function() if not dirty or confirmed("exit", "unsaved changes: choose again to exit") then quit() end end },
 }
@@ -2024,49 +2134,11 @@ local function draw_menu()
   print("C " .. n.code .. " code meshes (mesh_ functions)", x, 112, KIND_C.code)
   print("G " .. n.game .. " built by the game's code", x, 128, KIND_C.game)
   chip_hint("f5", nil, "try the game", chip_hint("f2", nil, "edit", chip_hint("f1", nil, "list", x, 160), 160), 160)
-  local kx = snap(prompt("f12", x, 176) + 3)
-  kx = print("(held) or", kx, 176, C_DIM) + 4
-  chip_hint("?", nil, "keys", kx, 176)
+  chip_hint("f12", nil, "held: the keys", x, 176)
   print("the models: as bm Studio and bm", x, 208, C_DIM)
   print("Animator (skeletons kept); the", x, 224, C_DIM)
   print("code: as bm Studio's Lua, for bm Code", x, 240, C_DIM)
   hint({ { { "up", "down" }, "choose" }, { { "enter" }, "select" }, { { "esc" }, "back" } })
-end
-
------------------------------------------------------------------ keys help
-
-local KEYS = {
-  all = { "F1 list  F2 edit  Esc menu  Ctrl+S save  F5 try the game  F3 commands",
-          "Ctrl+Z / Ctrl+Y undo / redo  [ ] the previous / next mesh" },
-  list = { "up/down        the mesh", "Enter          edit it (F2)", "m              copy as a model: mesh -> model",
-           "c              copy as code: model -> mesh_name()", "r  d  Del      rename, duplicate, delete",
-           "n              a new model (a cube; F3: plane, sphere)", "q e / w s      turn / tilt the view  + - zoom",
-           "space          spin", "G: the game's code builds it; editing it makes a model" },
-  edit = { "arrows / n b   the pointer / on the next, previous one", "space  Enter   choose (add) / only this    a all, none",
-           "Tab  l         vertices or faces / all linked", "g r t          move, rotate, scale: arrows PgUp PgDn",
-           "  x y z n      ...only on that axis, the normal; Enter Esc", "x  d           extrude faces, duplicate (then move)",
-           "m  M           mirror left-right / copy across 0", "j  k  K        new face, merge, weld equal vertices",
-           "u  i  Del      subdivide, turn over, delete", "p  o  c        paint, take the colour, palette",
-           "q e w s + -    view; f frame; 1 3 7 0 views; , . step" },
-  menu = { "up/down        choose", "Enter          select", "Esc            back" },
-  pad = { "pad: Y + left/right page  Y + B menu  Y + A undo  Y + up/down mesh",
-          "list: A edit  X tap commands  X + pad view",
-          "edit: pad pointer  A choose  B none  X tap commands  X + pad view",
-          "tools: pad change  A done  B cancel  X tap axis" },
-}
-
-local function draw_keys()
-  local list = {}
-  for _, l in ipairs(KEYS.all) do list[#list + 1] = l end
-  list[#list + 1] = ""
-  for _, l in ipairs(KEYS[page] or {}) do list[#list + 1] = l end
-  list[#list + 1] = ""
-  for _, l in ipairs(KEYS.pad) do list[#list + 1] = l end
-  local h = (#list + 2) * 16
-  local y0 = max(16, (H - h) // 32 * 16)
-  rectfill(16, y0, W - 32, h, C_PANEL)
-  rect(16, y0, W - 32, h, C_ACC)
-  for i, l in ipairs(list) do print(l, 32, y0 + i * 16, i <= #KEYS.all and C_ACC or C_TEXT) end
 end
 
 ----------------------------------------------------------------- main
@@ -2099,7 +2171,12 @@ local function global_key(k)
   elseif k == "f2" then if I() then go("edit") end; return true
   elseif k == "f3" then if page == "edit" then edit_actions() elseif page == "list" then list_actions() end; return true
   elseif k == "esc" and page ~= "menu" and not (page == "edit" and (ed.tool or ed.pal)) then go("menu"); return true
+  -- the system's keys (the kernel's syskeys.c)
   elseif k == "^s" then save_to(proj.path); return true
+  elseif k == "^S" then save_as(); return true
+  elseif k == "^o" and not ed.tool then open_other(); return true
+  elseif k == "^n" and not ed.tool then new_shape("cube"); return true
+  elseif k == "f6" and not ed.tool then assistant(); return true
   elseif k == "f5" or k == "^r" then try_game(); return true
   elseif k == "^z" or k == "^y" then
     if ed.tool then edit_key("esc")            -- undo in a tool: the tool goes
@@ -2116,19 +2193,24 @@ end
 
 local PAGES = { "list", "edit", "menu" }
 
+-- Ctrl+Esc or PS (the system's keys): back to bm's menu; with unsaved
+-- changes it asks first, and the same again leaves without saving
+function _exit()
+  return not dirty or confirmed("exit", "unsaved changes: Ctrl+Esc again leaves without saving")
+end
+
 function _update()
   frame = frame + 1
   if msg_t > 0 then msg_t = msg_t - 1 end
   if confirm_t > 0 then confirm_t = confirm_t - 1 end
   read_pad()
+  if ok_assist and assist.update() then return end   -- the assistant has the keys
 
   while true do
     local k = keyp()
     if not k then break end
-    if help then help = false
-    elseif input then input_key(k)
+    if input then input_key(k)
     elseif pick then pick_key(k)
-    elseif k == "?" then help = true
     elseif not global_key(k) then
       if page == "list" then list_key(k)
       elseif page == "edit" then edit_key(k)
@@ -2149,6 +2231,7 @@ function _update()
       local p = PAGES[(i - 1 + (btnp(1) and 1 or -1)) % #PAGES + 1]
       if p ~= "edit" or I() then go(p) end
     elseif btnp(5) then go("menu")
+    elseif btnp(6) then assistant()
     elseif btnp(4) then do_undo(undo, redo, "undo")
     elseif (btnp(2) or btnp(3)) and #items > 0 then
       cur = (cur - 1 + (btnp(3) and 1 or -1)) % #items + 1
@@ -2190,11 +2273,10 @@ function _draw()
   elseif page == "menu" then status = "up/down choose, Enter select"
   else status = I() and ("mesh " .. cur .. "/" .. #items .. ": " .. I().name .. " (" .. KIND_L[I().kind] .. ")") or "" end
   print(status:sub(1, 79), 0, STATUS_Y, (msg_t > 0 and msg_c) or C_TEXT)
-  if #status <= 62 then                  -- room on the right: F12 or ? for the keys
-    local kx = print("or", snap(prompt("f12", 524, STATUS_Y) + 3), STATUS_Y, C_DIM) + 4
-    chip_hint("?", nil, "keys", kx, STATUS_Y)
+  if #status <= 62 then                  -- room on the right: F12 held for the keys
+    chip_hint("f12", nil, "held: keys", 528, STATUS_Y)
   end
   if pick then draw_pick() end
   if input then draw_input() end
-  if keyheld("f12") or help then draw_keys() end
+  if ok_assist then assist.draw() end    -- the assistant's panel on top, if open
 end

@@ -186,6 +186,24 @@ local function segments(l)
   return s
 end
 
+local clip_lines = nil       -- Ctrl+X / Ctrl+C: whole lines
+
+-- the assistant's code (F6): under the cursor's line (instead of it, when empty)
+local ok_assist, assist = pcall(require, "assist")
+local function insert_code(code)
+  snapshot("assist")
+  last_edit = nil
+  local indent = lines[cy]:match("^ *")
+  local new = {}
+  for line in (code:gsub("\n$", "") .. "\n"):gmatch("(.-)\n") do new[#new + 1] = indent .. line end
+  local at = cy + 1
+  if lines[cy]:match("^%s*$") then table.remove(lines, cy); at = cy end
+  for i, l in ipairs(new) do table.insert(lines, at + i - 1, l) end
+  cy, cx = at, #indent
+  dirty = true
+  say(#new .. " lines from the assistant (Ctrl+Z takes them away)")
+end
+
 local function code_key(k)
   local l = lines[cy]
   if k == "up" then cy = cy - 1
@@ -226,11 +244,23 @@ local function code_key(k)
   elseif k == "^z" then
     local u = table.remove(undo)
     if u then lines, cx, cy = u.lines, u.cx, u.cy; last_edit = nil; dirty = true; say("undo") end
-  elseif k == "^k" then
+  elseif k == "^k" or k == "^x" then                -- cut the line (Ctrl+V puts it back)
     snapshot("kill")
+    clip_lines = { l }
     if #lines > 1 then table.remove(lines, cy) else lines[1] = "" end
     last_edit = nil
     dirty = true
+  elseif k == "^c" then
+    clip_lines = { l }
+    say("line copied: Ctrl+V puts it above the cursor")
+  elseif k == "^v" then
+    if clip_lines then
+      snapshot("paste")
+      for i, c in ipairs(clip_lines) do table.insert(lines, cy + i - 1, c) end
+      cy = cy + #clip_lines
+      last_edit = nil
+      dirty = true
+    end
   elseif k == "^d" then
     snapshot("dup")
     table.insert(lines, cy + 1, l)
@@ -548,11 +578,11 @@ local files, fsel, choosing = nil, 1, false
 local input = nil                        -- { label, text, done }
 local confirm_t, confirm_what = 0, nil
 
-local function needs_confirm(what)
+local function needs_confirm(what, text)
   if not dirty then return false end
   if confirm_what == what and confirm_t > 0 then return false end
   confirm_what, confirm_t = what, 150
-  say("unsaved changes: choose again to confirm", C_ERR)
+  say(text or "unsaved changes: choose again to confirm", C_ERR)
   return true
 end
 
@@ -569,24 +599,34 @@ local function list_files()
   return out
 end
 
+local function open_other()
+  if needs_confirm("open") then return end
+  page = "menu"
+  files, fsel, choosing = list_files(), 1, true
+  if #files == 0 then choosing = false; say("no .bm files on the SD card", C_ERR) end
+end
+
+local function new_other()
+  if not needs_confirm("new") then new_project(); page = "code" end
+end
+
+local function save_as()
+  page = "menu"
+  input = { label = "file name (8.3, in /carts)", text = proj.save and proj.save:match("([^/]+)$") or "MYGAME.BM",
+            done = function(t)
+              if not t:upper():match("%.BM$") then t = t .. ".BM" end
+              proj.save = short_path("/carts/" .. t)
+              save_project()
+            end }
+end
+
 local function build_menu()
   items = {
     { "Continue", function() page = "code" end },
-    { "New project", function() if not needs_confirm("new") then new_project(); page = "code" end end },
-    { "Open...", function()
-        if needs_confirm("open") then return end
-        files, fsel, choosing = list_files(), 1, true
-        if #files == 0 then choosing = false; say("no .bm files on the SD card", C_ERR) end
-      end },
+    { "New project   (Ctrl+N)", new_other },
+    { "Open...   (Ctrl+O)", open_other },
     { "Save   (Ctrl+S)", function() if not proj.save then say("no name yet: use Save as", C_ERR) else save_project() end end },
-    { "Save as...", function()
-        input = { label = "file name (8.3, in /carts)", text = proj.save and proj.save:match("([^/]+)$") or "MYGAME.BM",
-                  done = function(t)
-                    if not t:upper():match("%.BM$") then t = t .. ".BM" end
-                    proj.save = short_path("/carts/" .. t)
-                    save_project()
-                  end }
-      end },
+    { "Save as...   (Ctrl+Shift+S)", save_as },
     { "Try it (Ctrl+R)", function() run_project() end },
     { "Title: " .. proj.title, function()
         input = { label = "title", text = proj.title, done = function(t) proj.title = t; dirty = true end }
@@ -638,8 +678,7 @@ local function draw_menu()
     if i == msel and not choosing and not input then rectfill(24, y, 300, 16, C_SEL) end
     print(it[1], 32, y, C_TEXT)
   end
-  local hx = print("hold", 344, 64, C_DIM) + 4
-  print("to see the keys", snap(prompt("f12", hx, 64) + 3), 64, C_DIM)
+  chip_hint("f12", nil, "held: the keys", 344, 64)
   if choosing then
     rectfill(40, 40, 560, 280, C_PANEL)
     rect(40, 40, 560, 280, C_ACC)
@@ -682,24 +721,103 @@ function _init()
   end
 end
 
+-- Ctrl+Esc or PS (the system's keys): back to bm's menu; with unsaved
+-- changes it asks first, and the same again leaves without saving
+function _exit()
+  return not needs_confirm("exit", "unsaved changes: Ctrl+Esc again leaves without saving")
+end
+
 local function global_key(k)
   if k == "f1" then page = "code"; return true
   elseif k == "f2" then page = "sprite"; return true
   elseif k == "f3" then page = "map"; return true
   elseif k == "f4" or (k == "esc" and page ~= "menu") then page = "menu"; return true
-  elseif k == "^s" then if proj.save then save_project() else page = "menu"; say("choose Save as", C_ERR) end; return true
+  -- the system's keys (the kernel's syskeys.c)
+  elseif k == "^s" then if proj.save then save_project() else save_as() end; return true
+  elseif k == "^S" then save_as(); return true
+  elseif k == "^o" then open_other(); return true
+  elseif k == "^n" then new_other(); return true
   elseif k == "^r" or k == "f5" then run_project(); return true
+  elseif k == "f6" then
+    if not ok_assist or not ai then say("the assistant is not here", C_ERR); return true end
+    page = "code"
+    assist.open{ mode = "code", on_insert = insert_code }
+    return true
   end
   return false
 end
 
 local PAGES = { "code", "sprite", "map", "menu" }
 
+-- the keys while F12 is held, under the system's (keyhelp(), the kernel
+-- shows them): keyboard keys in lower case, the pad's buttons in upper case
+local HELP = {
+  all = {
+    { "f1 / f2 / f3", "code / sprites / map" },
+    { "f4", "the menu" },
+  },
+  code = {
+    { "up down left right", "move" },
+    { "home / end", "the start / end of the line" },
+    { "pgup / pgdn", "a page up / down" },
+    { "tab", "two spaces" },
+    { "ctrl x / ctrl k", "cut the line" },
+    { "ctrl c / ctrl v", "copy the line / put it above" },
+    { "ctrl d", "duplicate the line" },
+    { "ctrl g", "go to the error" },
+  },
+  sprite = {
+    { "up down left right", "move" },
+    { "space / backspace", "draw / erase" },
+    { "x", "pick the colour" },
+    { "f", "fill" },
+    { ", / .", "colour before / after" },
+    { "tab", "choose on the sheet" },
+    { "z", "8x8 / 16x16" },
+    { "h / v", "flip" },
+    { "ctrl c / ctrl v", "copy, paste" },
+    { "u", "undo" },
+  },
+  map = {
+    { "up down left right", "move" },
+    { "pgup / pgdn", "move a page" },
+    { "space / backspace", "place the tile / clear the cell" },
+    { "x", "pick the tile" },
+    { "f", "fill" },
+    { ", / .", "tile before / after" },
+    { "tab", "choose the tile" },
+    { "u", "undo" },
+  },
+  pad = {
+    { "A / B", "draw / pick" },
+    { "X", "next" },
+    { "Y", "the sheet, the tiles" },
+    { "Y LEFTRIGHT", "page" },
+    { "Y B", "menu" },
+  },
+}
+
+local help_page
+local function sdk_keyhelp(p)
+  if not keyhelp then return end                -- a kernel before them
+  local list = {}
+  local function add(t) for _, e in ipairs(t) do list[#list + 1] = e end end
+  add(HELP.all)
+  local name = ({ sprite = "sprites" })[p] or p
+  if HELP[p] then list[#list + 1] = name; add(HELP[p])
+  else list[#list + 1] = "menu"; add({ { "up / down", "choose" }, { "enter", "select" } }) end
+  list[#list + 1] = "pad"
+  add(HELP.pad)
+  keyhelp(list, "SDK")
+end
+
 function _update()
   frame = frame + 1
   if msg_t > 0 then msg_t = msg_t - 1 end
   if confirm_t > 0 then confirm_t = confirm_t - 1 end
   read_pad()
+  if help_page ~= page then help_page = page; sdk_keyhelp(page) end
+  if ok_assist and assist.update() then return end   -- the assistant has the keys
   stroke = stroke and (btn(4) or false)
   if m_stroke and not btn(4) then m_undo[#m_undo + 1] = m_stroke; m_stroke = nil end
 
@@ -762,35 +880,6 @@ local function watch_y()
   y_was = y
 end
 
-local KEYS = {
-  all = { "F1 code   F2 sprites   F3 map   Esc or F4 menu", "Ctrl+S save   Ctrl+R or F5 try the game" },
-  code = { "arrows Home End PgUp PgDn   move", "Tab            two spaces", "Ctrl+Z         undo",
-           "Ctrl+K         cut the line", "Ctrl+D         duplicate the line", "Ctrl+G         go to the error" },
-  sprite = { "arrows         move", "space          draw     Backspace  erase", "x              pick the colour",
-             "f              fill", ", or [ or \138   colour before", ". or ] or +   colour after",
-             "Tab            choose on the sheet", "z              8x8 / 16x16", "h / v          flip",
-             "Ctrl+C Ctrl+V  copy, paste", "u or Ctrl+Z    undo" },
-  map = { "arrows PgUp PgDn   move", "space          place the tile", "Backspace      clear the cell",
-          "x              pick the tile", "f              fill", ", . \138 +      tile before / after",
-          "Tab            choose the tile", "u or Ctrl+Z    undo" },
-  menu = { "up/down        choose", "Enter          select", "Esc            back" },
-  pad = { "gamepad: A draw  B pick  X next  Y sheet/tiles", "Y + left/right page   Y + B menu" },
-}
-
-local function draw_keys()
-  local list = {}
-  for _, l in ipairs(KEYS.all) do list[#list + 1] = l end
-  list[#list + 1] = ""
-  for _, l in ipairs(KEYS[page] or {}) do list[#list + 1] = l end
-  list[#list + 1] = ""
-  for _, l in ipairs(KEYS.pad) do list[#list + 1] = l end
-  local h = (#list + 2) * 16
-  local y0 = (H - h) // 32 * 16
-  rectfill(64, y0, 512, h, C_PANEL)
-  rect(64, y0, 512, h, C_ACC)
-  for i, l in ipairs(list) do print(l, 80, y0 + i * 16, i <= #KEYS.all and C_ACC or C_TEXT) end
-end
-
 function _draw()
   watch_y()
   cls(C_BG)
@@ -824,12 +913,11 @@ function _draw()
   elseif page == "map" then status = picking and "choosing a tile" or
     string.format("(%d,%d) = %d   tile %d", mx, my, mget(mx, my), tile)
   else status = "up/down choose, Enter select" end
-  if keyheld("f12") then draw_keys() end
   local sy = 16 + ROWS * 16
   print(status:sub(1, #status < 58 and 57 or 79), 0, sy,
         (msg_t > 0 and msg_c) or (err_text and page == "code" and C_ERR) or C_TEXT)
-  if #status < 58 then                   -- room on the right: hold F12 for the keys
-    local hx = print("hold", 464, sy, C_DIM) + 4
-    print("keys", snap(prompt("f12", hx, sy) + 3), sy, C_DIM)
+  if #status < 58 then                   -- room on the right: F12 held for the keys
+    chip_hint("f12", nil, "held: keys", 528, sy)
   end
+  if ok_assist then assist.draw() end    -- the assistant's panel on top, if open
 end

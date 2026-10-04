@@ -45,6 +45,17 @@ static void count(b3d_count_t *c)
 
 static int key(void)
 {
+    /* the USB keyboard's arrows and Esc come as a pad's (input_buttons) */
+    static uint32_t prev;
+    int quit = 0;
+    const uint32_t b = input_buttons(&quit), e = b & ~prev;
+    prev = b;
+    if (quit || (e & HID_B))
+        return B3D_KEY_BACK;
+    if (e & (HID_LEFT | HID_UP | HID_L1))
+        return B3D_KEY_LEFT;
+    if (e & (HID_RIGHT | HID_DOWN | HID_R1 | HID_A))
+        return B3D_KEY_RIGHT;
     const int k = input_key();
     switch (k) {
     case HID_KEY_LEFT: case HID_KEY_PGUP: case HID_KEY_UP: case 'a': case 'A':

@@ -86,7 +86,7 @@ local undo, redo = {}, {}
 local anim = { frames = 4, fps = 8, onion = false, play = true, t = 0 }
 local grid, mirror = true, false
 local clip_b = nil                   -- the clipboard: {w, h, px}
-local pick, input, help = nil, nil, false
+local pick, input = nil, nil
 local confirm_t, confirm_what = 0, nil
 local files_seen = {}                -- per file: sprite, size, animation (save())
 local busy = nil                     -- {text, fn, wait}: a save, after a frame that says so
@@ -1291,11 +1291,87 @@ end
 local msel = 1
 local last_page = "draw"
 
+-- the keys while F12 is held, under the system's (keyhelp(), the kernel
+-- shows them): keyboard keys in lower case, the pad's buttons in upper case
+local HELP = {
+  all = {
+    { "f1 / f2 / f3", "draw / sheet / palette" },
+    { "tab", "the commands" },
+  },
+  draw = {
+    { "up down left right", "the pointer" },
+    { "space", "draw (held: a stroke)" },
+    { "b / e / g / i", "pencil, eraser, fill, colour from the sprite" },
+    { "l / u / shift u", "line, rectangle (filled)" },
+    { "o / shift o", "oval (filled)" },
+    { "m", "select" },
+    { ", / .", "colour back / on" },
+    { "x", "the colour before" },
+    { "1 - 9 / 0", "the first ten colours" },
+    { "ctrl c / ctrl x / ctrl v", "copy, cut, paste" },
+    { "del", "clear (the selection or all)" },
+    { "h / v / r", "flip, turn" },
+    { "shift w a s d", "shift the sprite" },
+    { "enter", "lift the selection to move it" },
+    { "y / t / k", "mirror drawing, grid, onion skin" },
+    { "+ / -", "frames of the animation" },
+    { "< / >", "speed" },
+    { "p", "play" },
+    { "z", "sprite size" },
+    { "pgup / pgdn", "the sprite before / after" },
+  },
+  sheet = {
+    { "up down left right", "the sprite" },
+    { "pgup / pgdn", "8 rows" },
+    { "enter", "draw it" },
+    { "z", "sprite size" },
+    { "+ / -", "zoom" },
+    { "ctrl c / ctrl v", "copy, paste here" },
+    { "del", "clear" },
+    { "shift r", "the sheet's size (keeps what fits)" },
+  },
+  palette = {
+    { "up down left right", "the colour" },
+    { "enter", "draw with it" },
+    { "e", "edit: R G B" },
+    { "a / del", "add, remove" },
+    { "[ / ]", "move it" },
+    { "s / f", "sort, from the sheet" },
+    { "1 / 2", "the SDK's, bm Studio's" },
+    { "x / shift x", "replace the drawing colour (sprite / sheet)" },
+  },
+  pad = {
+    { "Y LEFTRIGHT", "page" },
+    { "Y B", "menu" },
+    { "Y A", "undo" },
+    { "Y UPDOWN", "sprite" },
+    { "DPAD", "the pointer" },
+    { "A", "draw (held)" },
+    { "B", "colour from the sprite / cancel" },
+    { "X LEFTRIGHT", "colour" },
+    { "X UPDOWN", "tool" },
+    { "X", "the commands (tap)" },
+  },
+}
+
+local function pixel_keyhelp(p)
+  if not keyhelp then return end                -- a kernel before them
+  local list = {}
+  local function add(t) for _, e in ipairs(t) do list[#list + 1] = e end end
+  add(HELP.all)
+  if HELP[p] then list[#list + 1] = p; add(HELP[p])
+  else list[#list + 1] = "menu"; add({ { "up / down", "choose" }, { "enter", "select" } }) end
+  list[#list + 1] = "pad"
+  add(HELP.pad)
+  keyhelp(list, "bm Pixel")
+end
+
 go = function(p)
   if p == "menu" then if page ~= "menu" then msel = 1 end
   else last_page = p end
   page = p
   if p == "palette" then pal_reset() end
+  pixel_keyhelp(p)
 end
 
 reset_pages = function()
@@ -1334,12 +1410,20 @@ local function try_game()
   if dirty then save_to(proj.path, nil, run) else run() end
 end
 
+local function open_other()
+  if not dirty or confirmed("open", "unsaved changes: choose again to open another file") then open_chooser() end
+end
+
+local function new_other()
+  if not dirty or confirmed("new", "unsaved changes: choose again for a new sheet") then new_sheet(); go("draw") end
+end
+
 local MENU = {
   { "Continue", function() go(last_page) end },
-  { "Open...", function() if not dirty or confirmed("open", "unsaved changes: choose again to open another file") then open_chooser() end end },
-  { "New sheet", function() if not dirty or confirmed("new", "unsaved changes: choose again for a new sheet") then new_sheet(); go("draw") end end },
+  { "Open...   (Ctrl+O)", open_other },
+  { "New sheet   (Ctrl+N)", new_other },
   { "Save   (Ctrl+S)", save_now },
-  { "Save as...", save_as },
+  { "Save as...   (Ctrl+Shift+S)", save_as },
   { "Try the game (F5)", try_game },
   { "Sheet size...", function() go("sheet"); shp.resize() end },
   { "Exit bm Pixel", function() if not dirty or confirmed("exit", "unsaved changes: choose again to exit") then remember(); quit() end end },
@@ -1367,54 +1451,11 @@ local function draw_menu()
   print("sprite " .. sprite_index() .. ", " .. rs .. "x" .. rs, x, 112, C_TEXT)
   chip_hint("f3", nil, "palette", chip_hint("f2", nil, "sheet", chip_hint("f1", nil, "draw", x, 144), 144), 144)
   chip_hint("f5", nil, "try the game", x, 160)
-  local kx = snap(prompt("f12", x, 176) + 3)
-  kx = print("(held) or", kx, 176, C_DIM) + 4
-  chip_hint("?", nil, "keys", kx, 176)
+  chip_hint("f12", nil, "held: the keys", x, 176)
   print("the sheet as the SDK, bm Studio, bm", x, 208, C_DIM)
   print("Animator and the games read it; the", x, 224, C_DIM)
   print("palette is saved with it (SHEET8)", x, 240, C_DIM)
   hint({ { { "up", "down" }, "choose" }, { { "enter" }, "select" }, { { "esc" }, "back" } })
-end
-
------------------------------------------------------------------ keys help
-
-local KEYS = {
-  all = { "F1 draw  F2 sheet  F3 palette  Esc menu  Ctrl+S save  F5 try the game",
-          "Ctrl+Z / Ctrl+Y undo / redo  F6 assistant  Tab (or X tap) commands" },
-  draw = { "arrows / space    the pointer / draw (hold space: a stroke)",
-           "b e g i           pencil, eraser, fill, colour from the sprite",
-           "l u U o O m       line, rectangle (filled), oval (filled), select",
-           ", .  x  1-9 0     colour back / on, the one before, the first ten",
-           "Ctrl+C X V  Del   copy, cut, paste, clear (the selection or all)",
-           "h v r  W A S D    flip, turn; shift the sprite (Shift+w a s d)",
-           "Enter             lift the selection to move it",
-           "y  t  k           mirror drawing, grid, onion skin",
-           "+ -  < >  p       frames of the animation, speed, play",
-           "z  PgUp PgDn      sprite size, the sprite before / after" },
-  sheet = { "arrows            the sprite (PgUp/PgDn 8 rows)", "Enter             draw it",
-            "z  + -            sprite size, zoom", "Ctrl+C Ctrl+V Del copy, paste here, clear",
-            "R                 the sheet's size (keeps what fits)" },
-  palette = { "arrows            the colour", "Enter             draw with it", "e                 edit: R G B",
-              "a  Del  [ ]       add, remove, move", "s  f  1  2        sort, from the sheet, SDK, Studio",
-              "x  X              replace the drawing colour (sprite / sheet)" },
-  menu = { "up/down           choose", "Enter             select", "Esc               back" },
-  pad = { "pad: Y + left/right page  Y + B menu  Y + A undo  Y + up/down sprite",
-          "draw: pad pointer  A draw (hold)  B colour from the sprite / cancel",
-          "X + left/right colour  X + up/down tool  X tap commands" },
-}
-
-local function draw_keys()
-  local list = {}
-  for _, l in ipairs(KEYS.all) do list[#list + 1] = l end
-  list[#list + 1] = ""
-  for _, l in ipairs(KEYS[page] or {}) do list[#list + 1] = l end
-  list[#list + 1] = ""
-  for _, l in ipairs(KEYS.pad) do list[#list + 1] = l end
-  local h = (#list + 2) * 16
-  local y0 = max(16, (H - h) // 32 * 16)
-  rectfill(16, y0, W - 32, h, C_PANEL)
-  rect(16, y0, W - 32, h, C_ACC)
-  for i, l in ipairs(list) do print(l, 32, y0 + i * 16, i <= #KEYS.all and C_ACC or C_TEXT) end
 end
 
 ----------------------------------------------------------------- main
@@ -1456,18 +1497,30 @@ local function global_key(k)
     return true
   elseif k == "esc" and page ~= "menu" and not (page == "draw" and (dp.float or dp.anchor or dp.sel)) and
          not (page == "palette" and pp.edit) then go("menu"); return true
+  -- the system's keys (the kernel's syskeys.c)
   elseif k == "^s" then save_now(); return true
+  elseif k == "^S" then save_as(); return true
+  elseif k == "^o" then open_other(); return true
+  elseif k == "^n" then new_other(); return true
   elseif k == "f5" or k == "^r" then try_game(); return true
   elseif k == "^z" then
     if page == "draw" and dp.float then draw_key("esc") else do_undo(undo, redo, "undo") end
     return true
   elseif k == "^y" then do_undo(redo, undo, "redo"); return true
-  elseif k == "f6" and page == "draw" then draw_key("f6"); return true
+  elseif k == "f6" then go("draw"); draw_key("f6"); return true
   end
   return false
 end
 
 local PAGES = { "draw", "sheet", "palette", "menu" }
+
+-- Ctrl+Esc or PS (the system's keys): back to bm's menu; with unsaved
+-- changes it asks first, and the same again leaves without saving
+function _exit()
+  if dirty and not confirmed("exit", "unsaved changes: Ctrl+Esc again leaves without saving") then return false end
+  remember()
+  return true
+end
 
 function _update()
   frame = frame + 1
@@ -1491,10 +1544,8 @@ function _update()
   while true do
     local k = keyp()
     if not k then break end
-    if help then help = false
-    elseif input then input_key(k)
+    if input then input_key(k)
     elseif pick then pick_key(k)
-    elseif k == "?" then help = true
     elseif not global_key(k) then
       if page == "draw" then draw_key(k)
       elseif page == "sheet" then sheet_key(k)
@@ -1515,6 +1566,7 @@ function _update()
       for n, p in ipairs(PAGES) do if p == page then i = n end end
       go(PAGES[(i - 1 + (btnp(1) and 1 or -1)) % #PAGES + 1])
     elseif btnp(5) then go("menu")
+    elseif btnp(6) then go("draw"); draw_key("f6")
     elseif btnp(4) then do_undo(undo, redo, "undo")
     elseif btnp(2) then draw_key("pgup")
     elseif btnp(3) then draw_key("pgdn") end
@@ -1556,13 +1608,11 @@ function _draw()
   elseif page == "menu" then status = "up/down choose, Enter select"
   else status = string.format("sprite %d  %s  colour %s", sprite_index(), tool, colour_name(colour())) end
   print(status:sub(1, 79), 0, STATUS_Y, (msg_t > 0 and msg_c) or C_TEXT)
-  if #status <= 62 then                  -- room on the right: F12 or ? for the keys
-    local kx = print("or", snap(prompt("f12", 524, STATUS_Y) + 3), STATUS_Y, C_DIM) + 4
-    chip_hint("?", nil, "keys", kx, STATUS_Y)
+  if #status <= 62 then                  -- room on the right: F12 held for the keys
+    chip_hint("f12", nil, "held: keys", 528, STATUS_Y)
   end
   if pick then draw_pick() end
   if input then draw_input() end
-  if keyheld("f12") or help then draw_keys() end
   if busy then                           -- the text on the columns and rows of the font
     local w = #busy.text * 8 + 32
     local x = (W - w) // 16 * 8

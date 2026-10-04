@@ -65,7 +65,7 @@ void home_row(home_panel_t *p, int kind, int id, const char *label, const char *
 
 void home_wait_back(void)
 {
-    kprintf("\n\x1b[93mA, Enter or Esc: back to the menu\x1b[0m\n");
+    kprintf("\n\x1b[93mA, Esc or any key: back to the menu\x1b[0m\n");
     input_flush();
     uint32_t prev = hid_buttons();
     for (;;) {
@@ -111,7 +111,7 @@ static void t_system(framebuffer_t *fb)
 static void t_log(framebuffer_t *fb)
 {
     (void)fb;
-    heading("Log: everything printed since boot (up/down, B quits)");
+    heading("Log: everything printed since boot (up/down, Esc quits)");
     const char *text = klog_text();
     uint32_t cols, rows, lines = 0;
     console_size(&cols, &rows);
@@ -243,7 +243,7 @@ static tool_t tools[] = {
     { "Code", "code editor: tabs, two pages, small font", MENU_ICON_CODE, 0x3A4A8A, t_code, 0, { 0 }, NULL },
     { "Assistant", "help with code and sprites; F6 in the tools", MENU_ICON_ASSIST, 0x2A6A9A, home_assistant, 0, { 0 }, NULL },
     { "Monitor", "the text console with every command (h: help)", MENU_ICON_TERMINAL, 0x2A3A4A, NULL, 0, { 0 }, NULL },
-    { "Lua", "Lua 5.4 prompt (USB keyboard); Esc or Ctrl-D returns", MENU_ICON_LUA, 0x2A3A9A, t_lua, 0, { 0 }, NULL },
+    { "Lua", "Lua 5.4 prompt (USB keyboard); Ctrl-D or exit() returns", MENU_ICON_LUA, 0x2A3A9A, t_lua, 0, { 0 }, NULL },
     { "System", "board, clocks, memory, SD card, network", MENU_ICON_CHIP, 0x2A7A5A, t_system, 1, { 0 }, "system" },
     { "Log", "everything printed since boot", MENU_ICON_LOG, 0x6A6A7A, t_log, 0, { 0 }, NULL },
     { "Input test", "the buttons each player holds, for 10 s", MENU_ICON_PAD, 0x8A3A8A, t_input, 1, { 0 }, NULL },

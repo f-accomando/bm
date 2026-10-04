@@ -603,7 +603,7 @@ function M.draw()
   local pad = li == "ds4" or li == "pad"
   local list
   if e and (e.kind == "sprite" or e.kind == "mesh") then
-    list = { { "enter", "A", "use" }, { { "<", ">" }, "LEFTRIGHT", "variant" },
+    list = { { "enter", "A", "use" }, { { "left", "right" }, "LEFTRIGHT", "variant" },
              { { "up", "down" }, "UPDOWN", "choose" }, { "tab", "X", (st.comp and not pad) and "word" or "mode" },
              { "esc", "B", "close" } }
   else

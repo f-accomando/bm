@@ -346,11 +346,12 @@ end
 local DIRS = { u = "UP", d = "DOWN", l = "LEFT", r = "RIGHT", ud = "UPDOWN", lr = "LEFTRIGHT" }
 local KEYS_OF = {
   A = { "enter" }, Aud = { "-", "=" }, Alr = { "_", "+" }, Yud = { "[", "]" }, Ylr = { ";", "'" },
-  B = { "esc" }, Bud = { "k", "l" }, Blr = { "o", "p" }, X = { "backspace" }, START = { "space" },
+  B = { "esc" }, Bud = { "k", "l" }, Blr = { "o", "p" }, X = { "backspace" }, Y = { "i" }, START = { "space" },
   SELECT = { "esc" },
 }
 local function hint_keys(btn, dir)
-  local k = lastinput() == "keyboard" and KEYS_OF[btn .. (dir or "")]
+  local src = lastinput()
+  local k = src ~= "pad" and src ~= "ds4" and KEYS_OF[btn .. (dir or "")]
   return k or (dir and { btn, DIRS[dir] } or { btn })
 end
 function ui.hint(x, y, btn, dir, label) return ui.chips(hint_keys(btn, dir), label, x, y) end
@@ -1324,7 +1325,7 @@ local function draw_overlay()
     ui.hint(hx + 8, y + 92, "B", nil, "cancel")
   elseif o.kind == "help" then
     local lines = o.lines
-    local x, y = draw_panel(600, #lines * 16 + 40, "CONTROLS", C.cyan)
+    local x, y = draw_panel(624, #lines * 16 + 40, "CONTROLS", C.cyan)
     for i, l in ipairs(lines) do print(l, x + 12, y + 20 + i * 16, i == 1 and C.yellow or C.text) end
   else
     local n = #o.items
@@ -1688,16 +1689,67 @@ local HELP = {
   "B + up/dn  effect                     k l        effect",
   "B + l/r    amount of the effect       o p        amount",
   "X          clear the step             Backspace  clear",
-  "Y          listen                     Z S X D C V... Q 2 W 3 E...  piano",
+  "Y          listen, insert a copy      i          listen, insert",
   "START      play / stop                Space      play / stop",
-  "SELECT + l/r  page                    F1-F4 Tab  page    , .  octave",
+  "SELECT + l/r  page                    F1-F4 Tab  page",
   "SELECT + up/dn  the next sound,       PgUp PgDn  next sound, pattern...",
-  "                pattern, song...      Ctrl+S save  Ctrl+Z undo  Ctrl+O open",
-  "SELECT     this menu                  Ctrl+C Ctrl+V copy, paste  Ctrl+E export",
-  "START + SELECT together leave the editor: save first (SELECT > Save)",
+  "                pattern, song...      Z S X.. Q 2 W..  piano  , . octave",
+  "SELECT     this menu                  Ctrl+S save  Ctrl+O open  F5 try",
+  "START + SELECT together leave the     Ctrl+C Ctrl+V copy, paste",
+  "editor (as Ctrl+Esc)                  F12 held: all the keys",
+}
+
+-- the keys while F12 is held, under the system's (keyhelp(), the kernel
+-- shows them): keyboard keys in lower case, the pad's buttons in upper case
+local KEYHELP = {
+  { "f1 - f4 / tab", "sounds, sfx, pattern, song / the next page" },
+  { "up down left right", "move" },
+  { "enter", "add / remove, choose" },
+  { "- / =", "note or value -1 / +1" },
+  { "shift - / shift =", "octave or value -10 / +10" },
+  { "[ / ]", "the sound of the step" },
+  { "; / '", "the volume of the step" },
+  { "k / l", "effect" },
+  { "o / p", "amount of the effect" },
+  { "backspace", "clear the step" },
+  { "i", "listen, insert a copy (the pad's Y)" },
+  { "z s x d c v g b h n j m", "piano" },
+  { "q 2 w 3 e r 5 t 6 y 7 u", "piano, an octave up" },
+  { ", / .", "the piano's octave" },
+  { "space", "play / stop" },
+  { "pgup / pgdn", "the next sound, pattern, song" },
+  { "ctrl e", "export to a game" },
+  "pad",
+  { "DPAD", "move" },
+  { "A", "add / remove, choose" },
+  { "A UPDOWN / A LEFTRIGHT", "note or value / octave" },
+  { "Y UPDOWN / Y LEFTRIGHT", "sound / volume of the step" },
+  { "B UPDOWN / B LEFTRIGHT", "effect / amount" },
+  { "X", "clear the step" },
+  { "Y", "listen, insert a copy" },
+  { "START", "play / stop" },
+  { "SELECT LEFTRIGHT", "page" },
+  { "SELECT UPDOWN", "the next sound, pattern, song" },
+  { "SELECT", "the menu" },
 }
 
 local function play_toggle() P[cur.page].play() end
+
+local function open_other()
+  local function go() pick_file("open: edit its sounds", { game = true, pack = true }, function(e) open_file(e.path) end) end
+  if proj.dirty then ui.ask("Open another file?", "The changes not saved are lost.", "Open", go) else go() end
+end
+
+local function new_project()
+  local function go() use_bank(B.blank(), nil, "", false); say("new project", C.green) end
+  if proj.dirty then ui.ask("Start a new project?", "The changes not saved are lost.", "New", go) else go() end
+end
+
+local function try_game()
+  if not (proj.path and proj.is_game) then say("open a game first (Ctrl+O)", C.red); return end
+  save()
+  if not proj.dirty then cart_run(proj.path) end
+end
 
 local function open_menu()
   local it = ITEM[cur.page][1]
@@ -1705,29 +1757,20 @@ local function open_menu()
     { label = music() and "Stop" or "Play", note = "START", act = play_toggle },
     { label = "Undo", note = "Ctrl+Z", act = undo_last, off = #undo == 0 },
     { label = "Save", note = proj.path and ("into " .. short_name(proj.path)) or "Ctrl+S: a new pack", act = save },
-    { label = "Save as a new sound pack...", act = ask_pack_name },
-    { label = "Open a game or a sound pack...", act = function()
-        local function go() pick_file("open: edit its sounds", { game = true, pack = true }, function(e) open_file(e.path) end) end
-        if proj.dirty then ui.ask("Open another file?", "The changes not saved are lost.", "Open", go) else go() end
-      end },
+    { label = "Save as a new sound pack...", note = "Ctrl+Shift+S", act = ask_pack_name },
+    { label = "Open a game or a sound pack...", note = "Ctrl+O", act = open_other },
     { label = "Import from...", note = "a sound, a song...", act = function()
         pick_file("import from", { game = true, pack = true }, import_from)
       end },
     { label = "Export to a game...", act = function() pick_file("export to", { game = true }, export_to) end },
   }
   if proj.path and proj.is_game then
-    items[#items + 1] = { label = "Try it in the game", note = "saves first", act = function()
-      save()
-      if not proj.dirty then cart_run(proj.path) end
-    end }
+    items[#items + 1] = { label = "Try it in the game", note = "F5, saves first", act = try_game }
   end
   items[#items + 1] = { label = "Copy this " .. it, note = "Ctrl+C", act = item_copy }
   items[#items + 1] = { label = "Paste over this " .. it, note = "Ctrl+V", act = item_paste, off = not clip[cur.page] }
   items[#items + 1] = { label = "Clear this " .. it, act = item_clear }
-  items[#items + 1] = { label = "New project", act = function()
-    local function go() use_bank(B.blank(), nil, "", false); say("new project", C.green) end
-    if proj.dirty then ui.ask("Start a new project?", "The changes not saved are lost.", "New", go) else go() end
-  end }
+  items[#items + 1] = { label = "New project", note = "Ctrl+N", act = new_project }
   items[#items + 1] = { label = "The demo project", note = "sounds and songs", act = function()
     local function go()
       local b = B.parse(cart_audio() or "")
@@ -1735,7 +1778,7 @@ local function open_menu()
     end
     if proj.dirty then ui.ask("Open the demo?", "The changes not saved are lost.", "Open", go) else go() end
   end }
-  items[#items + 1] = { label = "Controls", note = "F12", act = function() overlay = { kind = "help", lines = HELP } end }
+  items[#items + 1] = { label = "Controls", note = "pad and keyboard", act = function() overlay = { kind = "help", lines = HELP } end }
   items[#items + 1] = { label = "Exit", act = function()
     if proj.dirty then ui.ask("Exit without saving?", "The changes not saved are lost.", "Exit", quit) else quit() end
   end }
@@ -1755,11 +1798,13 @@ local function draw_top()
   print("SOUND", 38, 8, C.text)
   local x = 100
   for i, t in ipairs(TABS) do
-    local w = #t * 8 + 30
+    local fk = "f" .. i                               -- its key, as a chip
+    local lx = snap(x + 4 + prompt(fk) + 2)
+    local w = lx + #t * 8 + 6 - x
     local on = cur.page == i
     ui.box(x, 5, w, 22, on and PAGE_C[i] or C.panel)
-    print(tostring(i), x + 6, 8, on and C.dark or C.faint)
-    print(t, x + 20, 8, on and C.dark or C.dim)
+    prompt(fk, x + 4, 8)
+    print(t, lx, 8, on and C.dark or C.dim)
     x = x + w + 6
   end
   print("OCT " .. octave, 412, 8, C.faint)
@@ -1855,17 +1900,22 @@ local function global_key(k)
   elseif k == "\t" then goto_page(cur.page + 1)
   elseif k == "esc" then open_menu()
   elseif k == " " then play_toggle()
+  -- the system's keys (the kernel's syskeys.c)
   elseif k == "^s" then save()
+  elseif k == "^S" then ask_pack_name()
+  elseif k == "^n" then new_project()
+  elseif k == "f5" or k == "^r" then try_game()
   elseif k == "^z" then undo_last()
   elseif k == "^c" then item_copy()
   elseif k == "^v" then item_paste()
-  elseif k == "^o" then open_menu(); overlay.items[5].act()
+  elseif k == "^o" then open_other()
   elseif k == "^e" then pick_file("export to", { game = true }, export_to)
   elseif k == "up" then page.move(0, -1)
   elseif k == "down" then page.move(0, 1)
   elseif k == "left" then page.move(-1, 0)
   elseif k == "right" then page.move(1, 0)
   elseif k == "\n" then begin_edit(); page.tap("A")
+  elseif k == "i" then begin_edit(); page.tap("Y")      -- the pad's Y
   elseif k == "\b" or k == "del" then begin_edit(); page.clear()
   elseif k == "pgup" then page.item(-1)
   elseif k == "pgdn" then page.item(1)
@@ -1884,8 +1934,18 @@ end
 
 ----------------------------------------------------------------- main
 
+-- Ctrl+Esc or PS (the system's keys): back to bm's menu; with unsaved
+-- changes it asks first, and the same again leaves without saving
+function _exit()
+  if not proj.dirty or (overlay and overlay.leaving) then return true end
+  ui.ask("Exit without saving?", "The changes are lost. Ctrl+Esc again: exit.", "Exit", quit)
+  overlay.leaving = true
+  return false
+end
+
 function _init()
   keyp()                                  -- the keyboard types (piano, names)
+  if keyhelp then keyhelp(KEYHELP, "Sound") end
   local a = cart_arg()
   if a and a.path and open_file(a.path) then
     if a.back then
@@ -1923,7 +1983,5 @@ function _draw()
   P[cur.page].draw()
   draw_top()
   draw_bottom()
-  if keyheld("f12") and not overlay then overlay = { kind = "help", lines = HELP, held = true } end
-  if overlay and overlay.held and not keyheld("f12") then overlay = nil end
   if overlay then draw_overlay() end
 end

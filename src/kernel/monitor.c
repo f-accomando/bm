@@ -40,7 +40,7 @@
 #include <string.h>
 
 static const char help_text[] =
-            "commands (games: arrows/wasd, space = A; q or Esc quits):\n"
+            "commands (games: arrows/wasd, space = A, Esc their menu; Ctrl+Esc or q leaves):\n"
             "  M  cartridge menu, or PS on a pad (SD: / and /carts; else built-in demos)\n"
             "  f  list cartridges        F  re-read the SD card\n"
             "  n  built-in native demo.bm\n"

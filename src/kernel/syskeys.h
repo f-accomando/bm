@@ -13,14 +13,17 @@ typedef struct {
     const char *keys;           /* the keys' names (prompt()), a space between: "ctrl shift s";
                                  * "/" between alternatives, "-" a range ("f1 - f4") */
     const char *what;
+    int kernel;                 /* 1: the kernel's own (F11, F12, Ctrl+Esc...), never the tool's;
+                                 * 0: each tool does it, with this meaning (Esc, Ctrl+S...) */
 } syskey_t;
 
 /* the list, in the order it is shown */
 int syskeys_count(void);
 const syskey_t *syskey(int i);
 
-/* 1 if keys ("ctrl s", "f11", "esc") are a system key that a tool must not
- * give another meaning (F1-F4, the pages, are the tools' own) */
+/* 1 if one of keys ("f11", "ctrl c / ctrl esc") is a key the kernel keeps
+ * for itself, that never reaches a tool: a tool's list of keys must not name
+ * it. The others (Esc, Ctrl+S...) a tool lists when it says what they do there. */
 int syskeys_reserved(const char *keys);
 
 #endif

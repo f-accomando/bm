@@ -186,6 +186,7 @@ end
 ----------------------------------------------------------------- a program on the "console"
 
 local E, texts, sel_rows, keyq, pad, padprev, frame, saved_t, quitted, draws
+local keyhelp_list, keyhelp_title
 local cam = { x = 0, y = 0, z = -5, yaw = 0, pitch = 0, f = 320 / math.tan(math.rad(30)) }
 local clipbox, drawn_box = nil, nil
 
@@ -233,6 +234,7 @@ local function new_env(arg_path)
   E.btnp = function(i) return pad[i] == true and not padprev[i] end
   E.keyp = function() return table.remove(keyq, 1) end
   E.keyheld = function() return false end
+  E.keyhelp = function(list, title) keyhelp_list, keyhelp_title = list, title; return 0 end
   E.save = function(t) saved_t = t; return true end
   E.saved = function() return saved_t end
   E.cart_arg = function() return arg_path and { path = arg_path } or nil end
@@ -956,6 +958,17 @@ key("^z")
 -- an animation: a turn at 0.25 s is a keyframe
 key("f3")
 check(sees("no animations yet"), "animate: no animations yet")
+-- F12 held: the page's keys after the pages', the pad's last
+local function in_help(keys, heading)
+  local seen = heading == nil
+  for _, e in ipairs(keyhelp_list or {}) do
+    if e == heading then seen = true end
+    if seen and type(e) == "table" and e[1] == keys then return true end
+  end
+  return false
+end
+check(keyhelp_title == "bm Animator" and in_help("f3") and in_help("ctrl c / ctrl v", "animate")
+      and in_help("Y LEFTRIGHT", "pad"), "keyhelp: the pages, the page's keys, the pad")
 key("n")
 check(#rig1().clips == 1 and rig1().clips[1].keys == 1, "n: an animation with one keyframe")
 key("right", "right", "right")
@@ -970,6 +983,8 @@ key(")")
 check(rig1().clips[1].times[2] > 0.3, ") : the keyframe a frame later")
 key("(")
 check(math.abs(rig1().clips[1].times[2] - 0.25) < 1e-5, "( : back")
+key("^c")
+check(sees("pose copied"), "Ctrl+C: the pose copied")
 key("o")
 check(sees("onion"), "o: onion skin")
 key("o", ">")

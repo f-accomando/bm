@@ -60,7 +60,10 @@ logica. Esempi completi in `carts/`: `pong/`, `snake/`, `shooter/` (solo codice)
    - **dalla seriale** (Pi con adattatore USB-seriale):
      `python3 tools/bm_load.py /dev/ttyUSB0 --cart ciao.bm`.
 
-Esc (tastiera) o Start+Select (gamepad) chiudono la cartuccia e tornano al menu.
+Ctrl+Esc (tastiera), PS o Start+Select (gamepad) chiudono la cartuccia e tornano al menu
+(se la cartuccia ha `_exit()`, prima chiedono a lei); Esc da solo, in un gioco, è Start (il
+suo menu). Dalla seriale Ctrl+\ fa Ctrl+Esc e `q` chiude senza chiedere. I tasti di sistema
+(una sola tabella, `src/kernel/syskeys.c`) e quelli della cartuccia si vedono tenendo F12.
 Se c'è un errore Lua, la cartuccia si ferma e l'errore, con la riga, appare sulla console.
 
 ## Struttura
@@ -70,6 +73,7 @@ Se c'è un errore Lua, la cartuccia si ferma e l'errore, con la riga, appare sul
 | `_init()` | una volta, dopo il caricamento |
 | `_update()` | ogni fotogramma (60 Hz), prima di `_draw` |
 | `_draw()` | ogni fotogramma, dopo `_update` |
+| `_exit()` | (facoltativa) Ctrl+Esc, PS o Start+Select: `true` chiude adesso; `false` resta (la cartuccia chiede, per esempio "modifiche non salvate: Ctrl+Esc di nuovo esce", e chiude dopo con `quit()` o al secondo Ctrl+Esc) |
 
 Globali: `SCREEN_W` e `SCREEN_H` (640 e 360; 480 e 270 con `--res 480x270`; 320 e 180 con
 `--res 320x180`; 256 e 256 con `--res 256x256`). La cartuccia può cambiare risoluzione
@@ -192,7 +196,7 @@ nano8) legge la tastiera tasto per tasto e i controller pulsante per pulsante:
 
 | Funzione | Descrizione |
 |---|---|
-| `rawkeys(on)` | con `true` le tastiere smettono di fare da controller per `btn()` e `pad()`: si leggono con `keydown()`. Esc chiude comunque la cartuccia |
+| `rawkeys(on)` | con `true` le tastiere smettono di fare da controller per `btn()` e `pad()`: si leggono con `keydown()`. Ctrl+Esc chiude comunque la cartuccia |
 | `keydown(u)` | `true` finché è premuto il tasto con l'usage USB HID `u` (USB o Bluetooth): `0x04`…`0x1D` le lettere A–Z, `0x1E`…`0x27` le cifre, `0x28` Invio, `0x2C` spazio, `0x4F`…`0x52` le frecce (destra, sinistra, giù, su), `0xE0`…`0xE7` Ctrl, Shift, Alt, GUI di sinistra e poi di destra |
 | `keys()` | gli usage dei tasti premuti adesso (`{0x1D, 0xE1}`): per "premi un tasto" |
 | `pad([p])` | i pulsanti che il giocatore `p` (1–4) tiene premuti, in bit: 1 sinistra, 2 destra, 4 su, 8 giù, 16 A, 32 B, 64 Start, 128 Select, 256 X, 512 Y, 1024 L1, 2048 R1, 4096 L2, 8192 R2, 16384 L3, 32768 R3 (i grilletti e le levette premute: DS4 e Xbox 360; sui pad generici i pulsanti 7–8 e 11–12); senza `p` quelli di tutti. I tasti della seriale contano come il controller del primo giocatore (L1 e R1: `u` e `o` dalla seriale, Q ed E dalla tastiera USB; Select: Tab da entrambe) |
@@ -346,7 +350,8 @@ SONG=0` lo ascolta in un WAV.
 
 | Funzione | Descrizione |
 |---|---|
-| `keyp()` | il prossimo tasto scritto: un carattere (`"a"`, `"\n"` Invio, `"\b"` Backspace, `"\t"`), un nome (`"up"`, `"down"`, `"left"`, `"right"`, `"home"`, `"end"`, `"pgup"`, `"pgdn"`, `"del"`, `"esc"`, `"f1"`…`"f12"`) o `"^s"` per Ctrl+S; `nil` se nessuno. Dalla prima chiamata la tastiera scrive e non fa più da gamepad per `btn()`, ed Esc non chiude la cartuccia (Start+Select e PS sì) |
+| `keyp()` | il prossimo tasto scritto: un carattere (`"a"`, `"\n"` Invio, `"\b"` Backspace, `"\t"`), un nome (`"up"`, `"down"`, `"left"`, `"right"`, `"home"`, `"end"`, `"pgup"`, `"pgdn"`, `"del"`, `"esc"`, `"f1"`…`"f10"`), `"^s"` per Ctrl+S o `"^S"` per Ctrl+Shift+S; `nil` se nessuno. F11 e F12 sono del sistema e non arrivano. Dalla prima chiamata la tastiera scrive e non fa più da gamepad per `btn()`, ed Esc è un tasto come gli altri (Ctrl+Esc, Start+Select e PS chiudono) |
+| `keyhelp(lista, [titolo])` | i tasti della cartuccia, mostrati sotto quelli del sistema mentre si tiene **F12** (2026-10-04): `lista` è `{ {"tasti", "cosa fanno"}, "titoletto", … }`; i tasti come in `prompt()` (minuscolo la tastiera, maiuscolo il pad), separati da spazi: `"ctrl s"`, `"shift w a s d"`, `"a / d"` (alternative), `"1 - 5"` (intervallo), `"Y LEFTRIGHT"`. Restituisce quante voci nominano un tasto che il sistema tiene per sé e la cartuccia non riceve mai (F11, F12, Ctrl+Esc, Ctrl+Shift+Esc: in rosso e nel log, vanno tolte); gli altri tasti di sistema (Esc, Ctrl+S…) si elencano quando si dice che cosa fanno lì; `keyhelp(nil)` la toglie. Chiamarla di nuovo quando la pagina cambia |
 | `ls([cartella])` | i file della SD: `{ {name=, size=, dir=}, … }` |
 | `cart_load(percorso)` | apre un `.bm`: il suo sprite sheet, la sua mappa e i suoi modelli 3D (con gli scheletri) sostituiscono quelli della cartuccia che chiama; restituisce `{title, author, res, lua, sheet_w, sheet_h, map_w, map_h, [palette]}`; `palette` sono i colori (0xRRGGBB) della tavolozza della sezione SHEET8, nel loro ordine, se lo sheet è salvato così |
 | `cart_sheet([w, h])` | larghezza e altezza dello sprite sheet del progetto; con `w` e `h` (multipli di 8, da 8 a 4096) lo porta a quella misura: i pixel che ci stanno restano dove sono, i nuovi sono trasparenti (bm Pixel) |
