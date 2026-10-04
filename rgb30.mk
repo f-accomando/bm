@@ -33,7 +33,12 @@ VERSION := $(shell git describe --always --dirty 2>/dev/null || echo dev)
 # are for Linux programs: off for a kernel. Outline atomics need getauxval.
 ARCH    := -mcpu=cortex-a55 -mno-outline-atomics -mbranch-protection=none \
            -fno-pie -fno-stack-protector -U_FORTIFY_SOURCE
-COMMON  := $(ARCH) --specs=picolibc.specs -std=c11 -O2 -Wall -Wextra -g -Isrc -Isrc/rgb30 \
+# Only picolibc's headers and the compiler's own: Ubuntu's AArch64 cross
+# compiler also searches glibc's (libc6-dev-arm64-cross, which apt installs
+# with it) and the PC's /usr/include, which are not a kernel's (mbedTLS
+# found sys/socket.h there, and it clashed with picolibc's types)
+SYSINC  := -nostdinc -isystem $(shell $(CC) -print-file-name=include)
+COMMON  := $(ARCH) --specs=picolibc.specs $(SYSINC) -std=c11 -O2 -Wall -Wextra -g -Isrc -Isrc/rgb30 \
            -ffunction-sections -fdata-sections $(PLAT_DEF) -DBM_RGB30 \
            -Wno-format
 CFLAGS   = $(COMMON) -D_DEFAULT_SOURCE -Ithird_party/lua \
