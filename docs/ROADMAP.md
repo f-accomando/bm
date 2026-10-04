@@ -2265,7 +2265,8 @@ particelle e anelli del Lua riscritti. Numeri, limiti e budget di un 4 contro 4 
 **Per chiudere M34:** sul Pi il test `g` (passi 12 texture a tile e 13 MSAA), le righe AA
 dello stress test, il benchmark Texture Room e il benchmark di Overbit con ARM, GPU e
 GPU+AA; la faccia con texture *e* retino sulla GPU (oggi l'unico caso che torna
-all'ARM); il flicker dei menu con il 3D sull'ARM.
+all'ARM); ~~il flicker dei menu con il 3D sull'ARM~~ (non si è più visto sul Pi, riferisce
+l'utente il 2026-10-04).
 
 ### Dopo M34: come si lavora (decisione 2026-10-03)
 - **Tutto su `3d-performance`** (decisione dell'utente, 2026-10-03): il motore
