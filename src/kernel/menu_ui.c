@@ -68,6 +68,7 @@ static g16_t g;
 static int ready;
 static uint32_t con_w, con_h, t0, deadline;
 static float scroll;                /* first visible row, eased */
+static float tab_shift;             /* the tabs' x, eased: < 0 while the first one hides */
 static int first_row;
 static uint16_t *bg_cur, *bg_prev;  /* blurred covers, SW x SH */
 static const g16_sheet_t *bg_key;   /* the cover bg_cur was made from */
@@ -564,13 +565,19 @@ static void cover_progress(int x, int y, int percent)
         round_rect(x + 8, y + CARD_H - 6, fill, 4, 2, dim ? half(c16(C_ACCENT)) : c16(C_ACCENT));
 }
 
-/* text on a pill-shaped background, starting at text column `col` */
-static int pill_text(int col, int row, const char *s, uint32_t fg, uint32_t bg)
+/* text on a pill-shaped background, starting at pixel x */
+static void pill_at(int x, int row, const char *s, uint32_t fg, uint32_t bg)
 {
     int n = (int)strlen(s);
-    round_rect(col * 8 - 8, row * 16 - 4, (n + 2) * 8, 24, 12, c16(bg));
-    g16_text(&g, col * 8, row * 16, s, c16(fg));
-    return col + n + 2;
+    round_rect(x - 8, row * 16 - 4, (n + 2) * 8, 24, 12, c16(bg));
+    g16_text(&g, x, row * 16, s, c16(fg));
+}
+
+/* the same at text column `col` */
+static int pill_text(int col, int row, const char *s, uint32_t fg, uint32_t bg)
+{
+    pill_at(col * 8, row, s, fg, bg);
+    return col + (int)strlen(s) + 2;
 }
 
 /* colour c over b by a (0..255), 0xRRGGBB */
@@ -1161,21 +1168,33 @@ void menu_ui_frame(framebuffer_t *fb, const menu_view_t *v)
     /* top bar: the tabs and Settings (the last tab: its panel; L1 / R1 move
      * between them), then the players and the network */
     g16_rectfill(&g, 0, 0, SW, BAR_H, c16(C_BAR));
+    /* the first tab (the Market) off the screen at the left, the end of its
+     * name showing, unless it is the tab: then all of them slide right */
+    {
+        float to = 0;
+        if (v->peek_first && v->ntabs > 1 && (v->tab != 0 || v->on_gear))
+            to = -8.0f * (float)(strlen(v->tabs[0]) + 1);
+        tab_shift += (to - tab_shift) * 0.3f;
+        if (fabsf(tab_shift - to) < 0.5f)
+            tab_shift = to;                     /* at rest on the font's columns */
+    }
+    const int ox = (int)lroundf(tab_shift);
     int col = 3;
     for (int i = 0; i < v->ntabs; i++) {
-        int n = (int)strlen(v->tabs[i]);
-        zone(col * 8 - 8, 4, (n + 2) * 8, 40, MENU_HIT_TAB, i, 1);
+        int n = (int)strlen(v->tabs[i]), x = col * 8 + ox;
+        int zx = x - 8 < 0 ? 0 : x - 8, zw = x - 8 + (n + 2) * 8 - zx;
+        zone(zx, 4, zw, 40, MENU_HIT_TAB, i, 1);
         if (i == v->tab && !v->on_gear)
-            pill_text(col, 1, v->tabs[i], C_BAR, C_TAB_ON);
+            pill_at(x, 1, v->tabs[i], C_BAR, C_TAB_ON);
         else
-            g16_text(&g, col * 8, 16, v->tabs[i], c16(C_DIM));
+            g16_text(&g, x, 16, v->tabs[i], c16(C_DIM));
         col += n + 4;
     }
-    zone(col * 8 - 8, 4, 10 * 8, 40, MENU_HIT_SETTINGS, 0, 1);
+    zone(col * 8 + ox - 8, 4, 10 * 8, 40, MENU_HIT_SETTINGS, 0, 1);
     if (v->on_gear)
-        pill_text(col, 1, "Settings", C_BAR, C_TAB_ON);
+        pill_at(col * 8 + ox, 1, "Settings", C_BAR, C_TAB_ON);
     else
-        g16_text(&g, col * 8, 16, "Settings", c16(C_DIM));
+        g16_text(&g, col * 8 + ox, 16, "Settings", c16(C_DIM));
     status_icons(v);
 
     /* the name of the selected cartridge, on a pill */

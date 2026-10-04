@@ -628,8 +628,12 @@ def scroll_thumb(img):
 def tabs_lit(img):
     """Which tabs of the menu bar are on their light pill (M27, Market since
     M25, Lib after Dev): Market, Games, Dev, Lib, Settings, from a pixel of
-    the pill left of each name."""
-    return [name for name, x in (("Market", 20), ("Games", 100), ("Dev", 172), ("Lib", 228), ("Settings", 284))
+    the pill left of each name. The Market waits off the screen at the left
+    (2026-10-04): on it the tabs are where they were, elsewhere 7 columns
+    to the left."""
+    if sum(pixel(img, 20, 24)) > 600:
+        return ["Market"]
+    return [name for name, x in (("Games", 44), ("Dev", 116), ("Lib", 172), ("Settings", 228))
             if sum(pixel(img, x, 24)) > 600]
 
 
@@ -794,25 +798,23 @@ def test_keys_help(b, opts):
         q.expect(PROMPT, timeout=10)
         q.expect("> ")
         q.send("3")
-        time.sleep(4.0)
+        _, text = settled_screen(q, lambda i, t: any("bm Studio" in l for l in t), tries=60)
+
+        def help_shows(*words, tries=40):
+            img_, t_ = settled_screen(q, lambda i, t: all(any(w in l for l in t) for w in words), tries=tries)
+            joined = "\n".join(t_)
+            for w in words:
+                assert w in joined, f"{w!r} not in bm Studio's keys:\n{joined}"
+            return img_
         q.key("f12", True)
-        time.sleep(1.0)
-        img = q.screendump()
-        text = "\n".join(screen_text(img))
-        for want in ("(F12 held)", "back to bm's menu (PS)", "bm Studio", "the model before / after",
-                     "models", "assistant"):
-            assert want in text, f"{want!r} not in bm Studio's keys:\n{text}"
+        img = help_shows("(F12 held)", "back to bm's menu (PS)", "bm Studio", "the model before / after",
+                         "models", "assistant")
         if opts.shots:
             _save_png(img, os.path.join(opts.shots, "keys-help-studio.png"))
         sendkeys(q, "f1")                       # F1 with F12 held: the build page's keys
-        time.sleep(1.0)
-        text = "\n".join(screen_text(q.screendump()))
-        assert "1/" in text and "a level up / down" in text, text
+        help_shows("1/", "a level up / down")
         sendkeys(q, "down")                     # the next page of them
-        time.sleep(1.0)
-        img = q.screendump()
-        text = "\n".join(screen_text(img))
-        assert "2/" in text and "pgup" not in text.lower(), text
+        img = help_shows("2/", "the faces from behind")
         if opts.shots:
             _save_png(img, os.path.join(opts.shots, "keys-help-studio-2.png"))
         q.key("f12", False)
@@ -3689,10 +3691,11 @@ def test_usb_mouse(b, opts):
             q.pointer(px, py)
             assert arrow_at(wait_screen(q, lambda s_: arrow_at(s_, px, py)), px, py), (px, py)
             q.click(button)
-        # a click on Dev changes the tab, on Games back (Market | Games | Dev)
-        click_at(188, 24)
+        # a click on Dev changes the tab, on Games back (Market | Games | Dev;
+        # the Market off the screen at the left)
+        click_at(132, 24)
         assert "bm SDK" in screen_text(wait_screen(q, title_is("bm SDK")))[4]
-        click_at(124, 24)
+        click_at(68, 24)
         wait_screen(q, title_is(MOUSE_TITLES[3]))
         # the right button on a cover: its options; a click outside closes them
         x, y = cover_xy(1)

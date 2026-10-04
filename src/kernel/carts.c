@@ -910,7 +910,7 @@ void carts_menu(framebuffer_t *fb)
                     a_label = "";
             }
             menu_view_t v = {
-                .tabs = tabs, .ntabs = 4, .tab = tab, .on_gear = on_gear,
+                .tabs = tabs, .ntabs = 4, .tab = tab, .on_gear = on_gear, .peek_first = 1,
                 .items = items, .n = n, .sel = tsel[tab],
                 .details = details, .note = on_market ? market_status() : last_msg,
                 .panel = depth ? &mp : NULL,

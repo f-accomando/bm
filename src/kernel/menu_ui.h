@@ -89,6 +89,8 @@ enum { MENU_PROMPTS_DS4, MENU_PROMPTS_KEYBOARD, MENU_PROMPTS_PAD };
 typedef struct {
     const char *const *tabs;    /* tab names */
     int ntabs, tab;             /* current tab */
+    int peek_first;             /* the first tab (the Market) waits off the screen at the left,
+                                 * a little of its name showing, until it is the tab */
     int on_gear;                /* Settings is the tab (its panel is open): Games and Dev off */
     const menu_item_t *items;   /* of the current tab */
     int n, sel;
