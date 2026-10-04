@@ -2,8 +2,9 @@
 -- the suite open on the same file (1-6 on the project page: bm Code, bm
 -- Pixel, bm Studio, bm Animator, bm Mesh, bm Sound) and come back to it.
 --
--- F1 project (F1 again: the dev kit), F2 code, F3 2D (sprites; F3 again:
--- the map), F4 3D (models, animations, their code), Esc menu. Ctrl+N a new
+-- F1 project (F1 again: the dev kit), F2 code, F3 2D (sprites, with the
+-- flags of their tiles on 0-7; F3 again: the map, its layers on l / L), F4
+-- 3D (models, animations, their code), Esc menu. Ctrl+N a new
 -- project from a template (2D and 3D), Ctrl+S save, F5 (Ctrl+R) try it: the
 -- dev kit keeps the numbers of the run (fps, ms, memory, tokens). F6 the
 -- assistant: guides to 2D and 3D games on the project page, code, sprites
@@ -640,12 +641,22 @@ local function measure()
   I.ncells = cols * rows
   coroutine.yield()
   local mc = 0
-  for y = 0, S.map_h - 1 do
-    for x = 0, S.map_w - 1 do
-      if mget(x, y) ~= 0 then mc = mc + 1 end
+  I.layers = #mlayers()
+  for l = 1, I.layers do
+    for y = 0, S.map_h - 1 do
+      for x = 0, S.map_w - 1 do
+        if mget(x, y, l) ~= 0 then mc = mc + 1 end
+      end
     end
+    coroutine.yield()
   end
   I.map_used = mc
+  -- the tiles with flags, the named zones (zspr)
+  local fl = 0
+  if cols * rows <= 16384 then
+    for c = 0, cols * rows - 1 do if fget(c) ~= 0 then fl = fl + 1 end end
+  end
+  I.flagged, I.zones = fl, #zones()
   coroutine.yield()
   -- the models and their skeletons (the sections the kernel holds)
   local mesh, anim = cart_data(8), cart_data(9)
@@ -679,7 +690,7 @@ local function measure()
   -- the data in memory while the game runs (stat(13) counts the same)
   local w, h = S.proj.res:match("(%d+)x(%d+)")
   I.sheet_kb = (S.sheet_w * S.sheet_h * 3 + cols * rows * 2) / 1024
-  I.map_kb = S.map_w * S.map_h * 2 / 1024
+  I.map_kb = S.map_w * S.map_h * 2 * I.layers / 1024
   I.uses3d = false
   for _, l in ipairs(S.lines) do if l:find("draw3d%(") then I.uses3d = true; break end end
   I.zbuf_kb = I.uses3d and tonumber(w) * tonumber(h) * 2 / 1024 or 0
@@ -803,7 +814,8 @@ do
   for w in ("and break do else elseif end false for function goto if in local nil not or repeat return then true until while"):gmatch("%S+") do KEYWORDS[w] = true end
   -- bm's API (runtime.c), and in its own colour the 3D
   local API, API3D = {}, {}
-  for w in ([[cls pset pget line rect rectfill circ circfill spr sspr map mget mset sget sset print font
+  for w in ([[cls pset pget line rect rectfill circ circfill spr sspr map mget mset fget fset mflags msize mlayers
+    zspr zone zones sget sset print font
     camera prompt lastinput clip rgb btn btnp players stick time stat code_tokens tri screen log report keyhelp
     quit keymap controller online udp_open udp_send udp_recv udp_close net_ip net_resolve save saved keyp keyheld
     rawkeys keydown keys pad mouse mousep timeslice ls cart_load cart_new cart_save cart_run cart_tool cart_arg
@@ -838,7 +850,8 @@ do
       elseif c:match("[%a_]") then
         j = (l:find("[^%w_]", i) or n + 1) - 1
         local w = l:sub(i, j)
-        col = KEYWORDS[w] and C_KW or API3D[w] and C_3D or API[w] and C_API or C.TEXT
+        col = KEYWORDS[w] and C_KW or API3D[w] and C_3D or API[w] and C_API or
+              (i > 4 and l:sub(i - 4, i - 1) == "lib.") and C_API or C.TEXT   -- bmlib's
       else j, col = i, C_PUN end
       if j > n then j = n end
       s[#s + 1] = { i, l:sub(i, j), col }
@@ -1106,6 +1119,20 @@ do
     if k < 1 or k > #PALETTE then transparent = true else transparent = false; color = PALETTE[k] end
   end
 
+  -- the flags of the chosen cells (fget/fset: 16x16, the four), 0-7
+  local FLAG_C = { [0] = 0xE04040, 0x40C040, 0x4080F0, 0x40D0E0, 0xE040E0, 0xE0A040, 0xA0A0A0, 0xFFFFFF }
+  local function sel_cells()
+    local out, cols = {}, cells_per_row()
+    for j = 0, size - 1 do for i = 0, size - 1 do out[#out + 1] = sel + j * cols + i end end
+    return out
+  end
+
+  local function flags_text()
+    local t = {}
+    for f = 0, 7 do t[#t + 1] = fget(sel, f) and tostring(f) or "." end
+    return table.concat(t)
+  end
+
   local function move_sel(dx, dy)
     local cols, rows = cells_per_row(), S.sheet_h // 8
     local x, y = sel % cols + dx * size, sel // cols + dy * size
@@ -1139,6 +1166,12 @@ do
       clip_px = { n = n, pix = {} }
       for j = 0, n - 1 do for i = 0, n - 1 do clip_px.pix[j * n + i] = sget(sx + i, sy + j) end end
       say("copied " .. n .. "x" .. n)
+    elseif a:match("^flag%d$") then
+      local f = tonumber(a:sub(5))
+      local on = not fget(sel, f)
+      for _, c in ipairs(sel_cells()) do fset(c, f, on) end
+      touched()
+      say(string.format("flag %d %s (fget(%d, %d))", f, on and "on" or "off", sel, f))
     elseif a == "paste" and clip_px then
       save_sel_undo()
       local sx, sy = sel_xy()
@@ -1209,13 +1242,21 @@ do
     rectfill(SX, 272, 20, 16, 0x000000)
     if transparent then checker(SX + 1, 273, 18, 14, 4) else rectfill(SX + 1, 273, 18, 14, color) end
     print(transparent and "transparent" or string.format("#%06X", color), SX + 32, 272, C.TEXT)
+    -- the flags of the cell: what the tile is to the game (bmlib's convention)
+    print("FLAGS", SX, 288, C.DIM)
+    for f = 0, 7 do
+      local x = SX + 48 + f * 24
+      if fget(sel, f) then rectfill(x - 4, 288, 16, 16, FLAG_C[f]) else rect(x - 4, 288, 16, 16, C.BAR) end
+      print(tostring(f), x, 288, fget(sel, f) and 0x000000 or C.DIM)
+    end
+    print("0 wall 1 plat. 2 ladder 3 water 4 hurt", SX, 304, C.DIM)
     hint({ { "space", "A", "draw" }, { "x", "B", "pick" }, { "f", nil, "fill" }, { "tab", "Y", "sheet" },
-           { "z", nil, "8/16" }, { ",", "X", "colour" }, { "f6", nil, "assistant" } })
+           { "z", nil, "8/16" }, { ",", "X", "colour" }, { "0", nil, "flags" }, { "f6", nil, "assistant" } })
   end
 
   local function status()
-    return string.format("cell %d  %dx%d  (%d,%d)  %s", sel, size * 8, size * 8, px, py,
-                         transparent and "transparent" or string.format("#%06X", color))
+    return string.format("cell %d  %dx%d  (%d,%d)  %s  flags %s", sel, size * 8, size * 8, px, py,
+                         transparent and "transparent" or string.format("#%06X", color), flags_text())
   end
 
   P.sprite = { act = act, draw = draw, status = status, put_sprite = put_sprite,
@@ -1230,26 +1271,46 @@ end
 do
   local mx, my, vx0, vy0 = 0, 0, 0, 0    -- cursor cell, top-left cell of the view
   local tile, picking = 1, false
+  local layer, only, show_flags = 1, false, false   -- the layer edited; drawn alone; the flags over it
   local m_undo, m_stroke = {}, nil
   local VIEW_Y = 48
   local VIEW_CW, VIEW_CH = W // 8, (HINT_Y - VIEW_Y) // 8
 
   local function set_cell(x, y, v)
-    local old = mget(x, y)
+    local old = mget(x, y, layer)
     if old == v then return end
-    if m_stroke then m_stroke[#m_stroke + 1] = { x, y, old } end
-    mset(x, y, v)
+    if m_stroke then m_stroke[#m_stroke + 1] = { x, y, old, layer } end
+    mset(x, y, v, layer)
     touched()
   end
 
+  -- the next layer; add: a new one after the last (up to 8)
+  local function next_layer(add)
+    local names = mlayers()
+    if add then
+      if #names >= 8 then say("a map has at most 8 layers", C.ERR); return end
+      local k = #names + 1
+      local taken = {}
+      for _, n in ipairs(names) do taken[n] = true end
+      while taken["layer" .. k] do k = k + 1 end
+      names[#names + 1] = "layer" .. k
+      mlayers(names)
+      layer = #names
+      touched()
+    else
+      layer = layer % #names + 1
+    end
+    say(string.format("map layer %d/%d: %s   (map(..., \"%s\"))", layer, #names, names[layer], names[layer]), C.ACC)
+  end
+
   local function map_fill(x0, y0)
-    local target = mget(x0, y0)
+    local target = mget(x0, y0, layer)
     if target == tile then return end
     local stack, count = { { x0, y0 } }, 0
     while #stack > 0 and count < 20000 do
       local p = table.remove(stack)
       local x, y = p[1], p[2]
-      if x >= 0 and y >= 0 and x < S.map_w and y < S.map_h and mget(x, y) == target then
+      if x >= 0 and y >= 0 and x < S.map_w and y < S.map_h and mget(x, y, layer) == target then
         set_cell(x, y, tile)
         count = count + 1
         stack[#stack + 1] = { x + 1, y }; stack[#stack + 1] = { x - 1, y }
@@ -1281,12 +1342,16 @@ do
     elseif a == "pgup" then my = my - VIEW_CH elseif a == "pgdn" then my = my + VIEW_CH
     elseif a == "paint" then m_stroke = m_stroke or {}; set_cell(mx, my, tile)
     elseif a == "erase" then m_stroke = {}; set_cell(mx, my, 0); end_stroke()
-    elseif a == "pick" then tile = mget(mx, my)
+    elseif a == "pick" then tile = mget(mx, my, layer)
     elseif a == "fill" then m_stroke = {}; map_fill(mx, my); end_stroke()
+    elseif a == "layer" then next_layer()
+    elseif a == "newlayer" then next_layer(true)
+    elseif a == "only" then only = not only; say(only and "this layer only" or "every layer")
+    elseif a == "flags" then show_flags = not show_flags; say(show_flags and "the flags of the tiles (fget)" or "flags hidden")
     elseif a == "next" then tile = tile + 1 elseif a == "prev" then tile = max(0, tile - 1)
     elseif a == "undo" then
       local u = table.remove(m_undo)
-      if u then for i = #u, 1, -1 do mset(u[i][1], u[i][2], u[i][3]) end; touched(); say("undo") end
+      if u then for i = #u, 1, -1 do mset(u[i][1], u[i][2], u[i][3], u[i][4]) end; touched(); say("undo") end
     elseif a == "focus" then picking = true end
     mx = clamp(mx, 0, S.map_w - 1)
     my = clamp(my, 0, S.map_h - 1)
@@ -1297,12 +1362,33 @@ do
   local function draw()
     rectfill(0, VIEW_Y, W, HINT_Y - VIEW_Y, 0x000000)
     clip(0, VIEW_Y, W, HINT_Y - VIEW_Y)
-    map(vx0, vy0, 0, VIEW_Y, VIEW_CW, VIEW_CH)
+    local names = mlayers()
+    if layer > #names then layer = 1 end
+    if only then
+      map(vx0, vy0, 0, VIEW_Y, VIEW_CW, VIEW_CH, layer)
+    else
+      for l = 1, #names do map(vx0, vy0, 0, VIEW_Y, VIEW_CW, VIEW_CH, l) end
+    end
+    if show_flags then                     -- the collisions: a frame in the colour of each flag
+      local FC = { 0xE04040, 0x40C040, 0x4080F0, 0x40D0E0, 0xE040E0 }
+      for cy = 0, VIEW_CH - 1 do
+        for cx = 0, VIEW_CW - 1 do
+          local f = fget(mget(vx0 + cx, vy0 + cy, layer))
+          if f ~= 0 then
+            for k = 0, 4 do
+              if f >> k & 1 == 1 then rect(cx * 8 + k, VIEW_Y + cy * 8 + k, 8 - 2 * k, 8 - 2 * k, FC[k + 1]); break end
+            end
+          end
+        end
+      end
+    end
     local x, y = (mx - vx0) * 8, VIEW_Y + (my - vy0) * 8
     rect(x - 1, y - 1, 10, 10, (S.frame // 10) % 2 == 0 and 0xFFFFFF or C.ACC)
     clip()
-    strip(0, "MAP", string.format("(%d,%d) = %d   tile %d   map(%d, %d)", mx, my, mget(mx, my), tile, vx0, vy0),
-          picking and "choosing the tile: arrows, then Enter" or "F3 again: the sprites   tab: choose the tile")
+    strip(0, "MAP", string.format("(%d,%d) = %d   tile %d   layer %d/%d %s", mx, my, mget(mx, my, layer), tile, layer,
+                                  #names, names[layer]),
+          picking and "choosing the tile: arrows, then Enter" or
+          "F3 again: the sprites   tab: the tile   l / L: next / new layer   c: flags")
     rectfill(W - 28, 20, 8, 8, 0x000000)
     spr(tile, W - 28, 20)
     if picking then
@@ -1318,18 +1404,25 @@ do
       rect(ox + tx - scx - 1, oy + ty - scy - 1, 10, 10, C.ACC)
     end
     hint({ { "space", "A", "place" }, { "backspace", nil, "clear" }, { "x", "B", "pick" }, { "f", nil, "fill" },
-           { "tab", "Y", "tiles" }, { ",", "X", "tile" }, { "u", nil, "undo" } })
+           { "tab", "Y", "tiles" }, { ",", "X", "tile" }, { "l", nil, "layer" }, { "c", nil, "flags" },
+           { "u", nil, "undo" } })
   end
 
   local function status()
-    return picking and "choosing a tile" or string.format("(%d,%d) = %d   tile %d", mx, my, mget(mx, my), tile)
+    local names = mlayers()
+    return picking and "choosing a tile" or string.format("(%d,%d) = %d  tile %d  layer %d/%d %s", mx, my,
+                                                          mget(mx, my, layer), tile, layer, #names, names[layer] or "")
   end
 
   P.map = { act = act, draw = draw, status = status, end_stroke = end_stroke,
+            new_layer = function() next_layer(true) end,
             stroking = function() return m_stroke ~= nil end,
             state = function() return { mx = mx, my = my } end,
             restore = function(t) if t then mx, my = t.mx or 0, t.my or 0; act("none") end end,
-            reset = function() mx, my, vx0, vy0, m_undo, m_stroke, picking = 0, 0, 0, 0, {}, nil, false end }
+            reset = function()
+              mx, my, vx0, vy0, m_undo, m_stroke, picking = 0, 0, 0, 0, {}, nil, false
+              layer, only, show_flags = 1, false, false
+            end }
 end
 
 ----------------------------------------------------------------- 3D page
@@ -1653,11 +1746,13 @@ do
                                        I.tokens or "?"), "F2  1")
       row_at(80, "sprites", string.format("%dx%d, %s of %d cells drawn", S.sheet_w, S.sheet_h,
                                           I.cells and tostring(I.cells) or "?", I.ncells), "F3  2")
-      row_at(96, "map", string.format("%dx%d, %d cells", S.map_w, S.map_h, I.map_used), "F3")
+      row_at(96, "map", string.format("%dx%d, %d layer%s, %d cells", S.map_w, S.map_h, I.layers,
+                                      I.layers == 1 and "" or "s", I.map_used), "F3")
       row_at(112, "models", #I.models == 0 and "none" or (#I.models .. ": " .. table.concat(I.models, ", ")), "F4  3")
       row_at(128, "animation", I.rigs == 0 and "none" or string.format("%d skeleton%s, %d animation%s", I.rigs,
              I.rigs == 1 and "" or "s", I.clips, I.clips == 1 and "" or "s"), "F4  4")
       row_at(144, "sound", I.has_audio and ("bank " .. kib(I.audio_kb)) or "no bank", "6")
+      row_at(160, "tiles", string.format("%d with flags, %d named zones", I.flagged, I.zones), "F3")
     end
     print("LAST TRY", INFO_X, 176, C.DIM)
     local a, b = try_lines()
@@ -1765,6 +1860,7 @@ do
       { "Save   (Ctrl+S)", function() if S.proj.save then save_project() else save_as() end end },
       { "Save as...   (Ctrl+Shift+S)", function() save_as() end },
       { "Try the game (F5)", run_project },
+      { "New map layer (" .. #mlayers() .. "/8)", function() S.d2view = "map"; show("d2"); P.map.new_layer() end },
       { "Exit bm SDK", function() if not needs_confirm("exit") then quit() end end },
     }
   end
@@ -1876,11 +1972,11 @@ local function page_key(k)
   elseif S.page == "menu" then P.menu.key(k)
   elseif S.page == "d3" then P.d3.key(k)
   elseif S.d2view == "sprite" then
-    local a = SPRITE_KEYS[k]
+    local a = SPRITE_KEYS[k] or (k:match("^[0-7]$") and "flag" .. k)
     if a and a ~= "pgup" and a ~= "pgdn" then P.sprite.act(a) end
     if k ~= " " then P.sprite.stop() end
   else
-    local a = SPRITE_KEYS[k]
+    local a = SPRITE_KEYS[k] or ({ l = "layer", L = "newlayer", o = "only", c = "flags" })[k]
     if a then P.map.act(a) end
     if k ~= " " then P.map.end_stroke() end
   end
@@ -1930,6 +2026,7 @@ local HELP = {
     { "h / v", "flip" },
     { "ctrl c / ctrl v", "copy, paste" },
     { "u", "undo" },
+    { "0 - 7", "a flag of the cell (fget): 0 wall, 1 platform, 2 ladder..." },
   },
   map = {
     { "up down left right", "move" },
@@ -1940,6 +2037,9 @@ local HELP = {
     { ", / .", "tile before / after" },
     { "tab", "choose the tile" },
     { "u", "undo" },
+    { "l / shift l", "the next layer / a new one" },
+    { "o", "this layer only / every layer" },
+    { "c", "show the flags of the tiles" },
   },
   d3 = {
     { "up / down", "the model" },

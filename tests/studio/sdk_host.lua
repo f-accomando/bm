@@ -173,7 +173,8 @@ local on_sd = { ["/carts"] = { "village.bm" } }
 local function host(path) return SD .. path:lower() end
 local sec = {}                -- the project's MESH (8) and ANIM (9)
 local sheet = { w = 256, h = 256, px = {} }
-local mapc = {}               -- the map: [y * 4096 + x] = cell
+local mapc = {}               -- the map: [y * 4096 + x] = cell (layer 1)
+local lnames, mlay, flg = { "main" }, {}, {}   -- the layers' names, layers 2.., the tiles' flags
 local ran, tooled, saves, last_save = nil, nil, 0, nil
 
 local function add_file(path)
@@ -290,14 +291,65 @@ local function new_env(arg)
     if x < 0 or y < 0 or x >= sheet.w or y >= sheet.h then return end
     sheet.px[y * sheet.w + x] = c
   end
-  E.mget = function(x, y)
+  -- the map's layers and the tiles' flags (R11), as the kernel's
+  local function lay(l)
+    if l == nil or l == 1 or l == lnames[1] then return mapc end
+    if type(l) == "string" then
+      for i, n in ipairs(lnames) do if n == l then return mlay[i] end end
+      error("the map has no layer \"" .. l .. "\"")
+    end
+    return assert(mlay[l], "the map has no layer " .. tostring(l))
+  end
+  E.mget = function(x, y, l)
     assert(math.type(x) == "integer" or x == math.floor(x), "mget: a cell")
-    return mapc[math.floor(y) * 4096 + math.floor(x)] or 0
+    return lay(l)[math.floor(y) * 4096 + math.floor(x)] or 0
   end
-  E.mset = function(x, y, v)
+  E.mset = function(x, y, v, l)
     assert(type(v) == "number", "mset: a number")
-    mapc[y * 4096 + x] = v ~= 0 and v or nil
+    lay(l)[y * 4096 + x] = v ~= 0 and v or nil
   end
+  E.mlayers = function(list)
+    if list then
+      assert(#list >= 1 and #list <= 8, "mlayers: 1 to 8 layers")
+      local old = {}
+      for i, n in ipairs(lnames) do old[n] = i == 1 and mapc or mlay[i] end
+      local nn, nl = {}, {}
+      for i, e in ipairs(list) do
+        local name, from = e, e
+        if type(e) == "table" then name, from = e[1], e[2] end
+        nn[i], nl[i] = name, (type(from) == "string" and old[from]) or {}
+      end
+      lnames, mlay, mapc = nn, nl, nl[1]
+    end
+    return table.move(lnames, 1, #lnames, 1, {})
+  end
+  E.msize = function() return 256, 256, #lnames end
+  E.fget = function(n, f)
+    local v = flg[n] or 0
+    if f == nil then return v end
+    return v >> f & 1 == 1
+  end
+  E.fset = function(n, f, on)
+    if on == nil then flg[n] = f & 255; return end
+    local bit = 1 << f
+    flg[n] = on and (flg[n] or 0) | bit or (flg[n] or 0) & ~bit
+  end
+  E.mflags = function(x, y, w, h, l)
+    local c0, r0 = math.floor(x / 8), math.floor(y / 8)
+    local c1 = (w or 0) > 0 and math.ceil((x + w) / 8) - 1 or c0
+    local r1 = (h or 0) > 0 and math.ceil((y + h) / 8) - 1 or r0
+    local out = 0
+    for r = math.max(r0, 0), math.min(r1, 255) do
+      for c = math.max(c0, 0), math.min(c1, 255) do
+        local n = lay(l)[r * 4096 + c] or 0
+        if n > 0 then out = out | (flg[n] or 0) end
+      end
+    end
+    return out
+  end
+  E.zones = function() return {} end
+  E.zone = function() return nil end
+  E.zspr = function(name) error("the sheet has no sprite zone \"" .. tostring(name) .. "\"") end
   E.cart_data = function(t, ...)
     assert(t == 8 or t == 9, "cart_data: 8 (MESH) or 9 (ANIM)")
     if select("#", ...) == 0 then return sec[t] end
@@ -362,7 +414,7 @@ local function new_env(arg)
   E.cart_load = function(path)
     local data = read_file(host(path))
     if not data then return nil, "no such file" end
-    sec, mapc = {}, {}
+    sec, mapc, lnames, mlay, flg = {}, {}, { "main" }, {}, {}
     local lua = ""
     for _, s in ipairs(sections_of(data)) do
       local t = s[1]
@@ -383,7 +435,9 @@ local function new_env(arg)
              res = string.unpack("<I2", data, 13) == 320 and "320x180" or "640x360", lua = lua,
              sheet_w = w, sheet_h = h, map_w = 256, map_h = 256 }
   end
-  E.cart_new = function() sec, mapc, sheet = {}, {}, { w = 256, h = 256, px = {} } end
+  E.cart_new = function()
+    sec, mapc, sheet, lnames, mlay, flg = {}, {}, { w = 256, h = 256, px = {} }, { "main" }, {}, {}
+  end
   -- cart_save as the kernel's: the code, the sheet, the map, the models
   E.cart_save = function(path, t)
     assert(type(t.lua) == "string", "cart_save: the code")
@@ -437,7 +491,8 @@ local function new_env(arg)
   }
   E.require = function(name)
     if loaded[name] then return loaded[name] end
-    local file = name == "assist" and "/src/ai/assist.lua" or name == "bm3d" and "/src/script/bm3d.lua"
+    local file = name == "assist" and "/src/ai/assist.lua" or name == "bm3d" and "/src/script/bm3d.lua" or
+                 name == "bmlib" and "/src/script/bmlib.lua"
     if not file then error("require: no " .. name .. " here") end
     loaded[name] = assert(loadfile(ROOT .. file, "t", E))()
     return loaded[name]
@@ -577,10 +632,24 @@ check(sees("SPRITES") and sees("spr(1, x, y)"), "F3: the sprites, on the templat
 check(sheet.px[9] == nil, "the hero's first row starts transparent")
 key("right", " ")
 check(sheet.px[9] == 0xFFFFFF, "space draws a pixel")
+key("1")
+check(E.fget(1, 1) and status():find("flag 1 on (fget(1, 1))", 1, true), "1: flag 1 of the cell: " .. status())
+check(sees("FLAGS") and sees("0 wall 1 plat. 2 ladder"), "the flags under the palette")
+key("1")
+check(not E.fget(1, 1), "1 again: off")
+key("0")
 key("f3")
-check(sees("MAP") and sees("tile 1"), "F3 again: the map")
+check(sees("MAP") and sees("tile 1") and sees("layer 1/1 main"), "F3 again: the map, on its first layer")
 key(" ")
 check(mapc[0] == 1, "space places the tile")
+key("L")
+check(#E.mlayers() == 2 and status():find("map layer 2/2: layer2", 1, true), "L: a new layer: " .. status())
+key("right", " ")
+check(E.mget(1, 0, 2) == 1 and E.mget(1, 0) == 0, "space places the tile on layer 2")
+key("l")
+check(status():find("map layer 1/2: main", 1, true), "l: the next layer: " .. status())
+key("c")
+check(status():find("flags of the tiles", 1, true) or sees("flags of the tiles"), "c: the flags over the map")
 key("f3")
 check(sees("SPRITES"), "F3 again: the sprites")
 
