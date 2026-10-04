@@ -6544,6 +6544,87 @@ def test_editor(b, opts):
         shutil.rmtree(tmp, ignore_errors=True)
 
 
+def test_editor_layers(b, opts):
+    """R11 in the SDK: 1 on the sprite page sets flag 1 of the cell, the
+    menu's "New map layer" adds a layer and the map page edits it, Ctrl+S
+    saves the cartridge with its LAYERS and FLAGS sections, read back by
+    mkbm/bm.h's rules."""
+    tmp = tempfile.mkdtemp(prefix="bm-edl-")
+    img = os.path.join(tmp, "sd.img")
+    mksd.build(img, [])
+    q = Qemu(b("kernel.img"), ["-drive", f"if=sd,format=raw,file={img}"])
+    F2, F3 = "\x1bOQ", "\x1bOR"
+
+    def k(s, gap=0.2):
+        q.send(s)
+        time.sleep(gap)
+
+    def see(word, tries=40):
+        for _ in range(tries):
+            _, text = settled_screen(q, lambda i, t: any(word in l for l in t), tries=2)
+            if any(word in l for l in text):
+                return text
+            time.sleep(0.25)
+        raise AssertionError(f"not on screen: {word}\n" + "\n".join(text))
+    try:
+        q.boot()
+        k("e")
+        see("bm editor")
+        for _ in range(4):
+            k("\x1b[B", 0.25)                               # down to "Save as..."
+        k("\r")
+        see("file name")
+        k("\r")                                             # MYGAME.BM
+        see("saved /carts/MYGAME.BM")
+        k(F2, 0.5)
+        k("\x1b[C", 0.3)                                    # cell 2 (16x16: cells 2, 3, 34, 35)
+        k("\t", 0.3)                                        # the sheet: the cursor moves the cell
+        k("\x1b[C", 0.3)
+        k("\t", 0.3)
+        k("1")
+        see("flags . 1 . .")
+        k("\x1b", 0.5)                                      # the menu, still on "Save as..."
+        for _ in range(2):
+            k("\x1b[B", 0.25)                               # down to "New map layer"
+        k("\r")
+        see("layer 2/2 layer2")
+        k("\x1b[C", 0.2)
+        k("\x1b[B", 0.2)
+        k("\x1b[B", 0.2)
+        k(" ")                                              # tile 1 at (1, 2) of layer 2
+        see("(1,2) = 1  tile 1  layer 2/2")
+        k("l")
+        see("(1,2) = 0  tile 1  layer 1/2 main")
+        k("\x13", 1)                                        # Ctrl+S
+        see("saved /carts/MYGAME.BM")
+    finally:
+        q.close()
+    try:
+        part = os.path.join(tmp, "part.img")
+        with open(img, "rb") as f, open(part, "wb") as o:
+            f.seek(2048 * 512)
+            o.write(f.read())
+        env = dict(os.environ, MTOOLS_SKIP_CHECK="1")
+        data = subprocess.run(["mtype", "-i", part, "::/CARTS/MYGAME.BM"], capture_output=True, env=env).stdout
+        assert data[:8] == b"BMCART\x00\x00", data[:16]
+        secs = {}
+        for i in range(data[17]):
+            t, off, size, _ = struct.unpack_from("<IIII", data, 128 + i * 16)
+            secs[t] = data[off:off + size]
+        lay = secs[12]
+        w, h, n = struct.unpack_from("<HHH", lay, 0)
+        assert (w, h, n) == (256, 256, 2), (w, h, n)
+        assert lay[8:24].rstrip(b"\0") == b"main" and lay[24:40].rstrip(b"\0") == b"layer2", lay[8:40]
+        cells = lay[8 + 2 * 16:]
+        assert struct.unpack_from("<H", cells, (2 * w + 1) * 2)[0] == 1, "tile 1 at (1, 2) of layer 2"
+        per, rows = struct.unpack_from("<HH", secs[13], 0)
+        fl = secs[13][4:]
+        assert per == 32 and [c for c in range(len(fl)) if fl[c]] == [2, 3, 34, 35] and fl[2] == 2, \
+            (per, rows, list(fl[:40]))
+    finally:
+        shutil.rmtree(tmp, ignore_errors=True)
+
+
 def test_bm_upload_errors(b, opts):
     q = Qemu(b("kernel.img"))
     try:

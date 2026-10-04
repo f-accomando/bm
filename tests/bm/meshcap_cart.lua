@@ -1,10 +1,12 @@
--- A cartridge for test_meshcap: meshes in a table, in an array and in a
--- local of a function; then it overwrites what the name search uses and
+-- A cartridge for test_meshcap: meshes in a table (one made by bmlib's
+-- builder), in an array and in a local of a function; then it overwrites what the name search uses and
 -- stops with an error. The meshes made before the error come back, with
 -- their names, and the error with its line.
 
+local lib = require "bmlib"
 local parts = {}
 parts.wheel = mesh({ 0, 0, 0, 1, 0, 0, 0, 1, 0 }, { 1, 2, 3, 0xFF0000 })
+parts.crate = lib.builder():box(0, 0, 0, 1, 1, 1, 0x806040):build()     -- bmlib's builder (R10)
 local cars = { { body = mesh({ 0, 0, 0, 2, 0, 0, 0, 2, 0 }, { 1, 3, 2, 0x00FF00 }) } }
 local gem
 function _init()

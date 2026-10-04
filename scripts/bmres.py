@@ -42,9 +42,10 @@ import mkbm  # noqa: E402
 MAGIC_RES = b"BMRES\0\0\0"
 MAGIC_CART = (b"BMCART\0\0", b"BM33CART")
 SEC_LUA, SEC_SHEET, SEC_MAP, SEC_COVER, SEC_SHEET8, SEC_AUDIO = 1, 2, 3, 4, 5, 6
-SEC_MESH, SEC_ANIM, SEC_INFO, SEC_SPRITES = 8, 9, 10, 11
+SEC_MESH, SEC_ANIM, SEC_INFO, SEC_SPRITES, SEC_LAYERS, SEC_FLAGS = 8, 9, 10, 11, 12, 13
 SEC_NAMES = {SEC_LUA: "LUA", SEC_SHEET: "SHEET", SEC_MAP: "MAP", SEC_COVER: "COVER", SEC_SHEET8: "SHEET8",
-             SEC_AUDIO: "AUDIO", SEC_MESH: "MESH", SEC_ANIM: "ANIM", SEC_INFO: "INFO", SEC_SPRITES: "SPRITES"}
+             SEC_AUDIO: "AUDIO", SEC_MESH: "MESH", SEC_ANIM: "ANIM", SEC_INFO: "INFO", SEC_SPRITES: "SPRITES",
+             SEC_LAYERS: "LAYERS", SEC_FLAGS: "FLAGS"}
 KNOWN = set(SEC_NAMES) | {7}
 
 CART, MODEL, IMAGE, SOUND, MAP, PALETTE, KIT = range(7)
@@ -54,11 +55,11 @@ EXTENSIONS = {".bmm": MODEL, ".bmi": IMAGE, ".bms": SOUND, ".bmt": MAP, ".bmc": 
 SHEETS = {SEC_SHEET, SEC_SHEET8}
 ALLOWED = {
     MODEL: {SEC_INFO, SEC_MESH, SEC_ANIM} | SHEETS,
-    IMAGE: {SEC_INFO, SEC_SPRITES} | SHEETS,
+    IMAGE: {SEC_INFO, SEC_SPRITES, SEC_FLAGS} | SHEETS,
     SOUND: {SEC_INFO, SEC_AUDIO},
-    MAP: {SEC_INFO, SEC_MAP} | SHEETS,
+    MAP: {SEC_INFO, SEC_MAP, SEC_LAYERS, SEC_FLAGS} | SHEETS,
     PALETTE: {SEC_INFO, SEC_SHEET8},
-    KIT: {SEC_INFO, SEC_MESH, SEC_ANIM, SEC_SPRITES, SEC_AUDIO, SEC_MAP} | SHEETS,
+    KIT: {SEC_INFO, SEC_MESH, SEC_ANIM, SEC_SPRITES, SEC_AUDIO, SEC_MAP, SEC_LAYERS, SEC_FLAGS} | SHEETS,
 }
 
 INFO_MAX = 16 * 1024
@@ -196,6 +197,11 @@ def check(f, where="file"):
             bmaudio.unpack(f.get(SEC_AUDIO))
         if f.get(SEC_MAP) is not None:
             map_get(f)
+            layers_get(f)
+        elif f.get(SEC_LAYERS) is not None:
+            raise ResError("map layers without a map")
+        if f.get(SEC_FLAGS) is not None:
+            flags_get(f)
         if f.get(SEC_INFO) is not None:
             info_parse(f.get(SEC_INFO))
         if f.get(SEC_SPRITES) is not None:
@@ -602,6 +608,71 @@ def map_body(w, h, cells):
     return struct.pack(f"<HH{w * h}H", w, h, *cells)
 
 
+LAYERS_MAX = 8
+
+
+def layers_get(f):
+    """the map's layers: [(name, cells)], layer 1 (MAP) first; "main"
+    without LAYERS"""
+    mw, mh, cells = map_get(f)
+    body = f.get(SEC_LAYERS)
+    if body is None:
+        return [("main", cells)]
+    w, h, n = struct.unpack_from("<HHH", body, 0)
+    if (w, h) != (mw, mh) or not 2 <= n <= LAYERS_MAX or len(body) != 8 + n * NAME_LEN + (n - 1) * w * h * 2:
+        raise ResError("bad map layers (LAYERS)")
+    names = [_cstr(body[8 + i * NAME_LEN:8 + (i + 1) * NAME_LEN]) for i in range(n)]
+    if not all(names) or len(set(names)) != n:
+        raise ResError("map layers without a name, or two with the same")
+    out, q = [(names[0], cells)], 8 + n * NAME_LEN
+    for i in range(1, n):
+        out.append((names[i], list(struct.unpack_from(f"<{w * h}H", body, q))))
+        q += w * h * 2
+    return out
+
+
+def layers_body(w, h, layers):
+    """the LAYERS section of [(name, cells)], or None for one layer "main\""""
+    if len(layers) == 1 and layers[0][0] == "main":
+        return None
+    out = struct.pack("<HHHH", w, h, len(layers), 0) + b"".join(n.encode()[:NAME_LEN].ljust(NAME_LEN, b"\0") for n, _ in layers)
+    return out + b"".join(struct.pack(f"<{w * h}H", *c) for _, c in layers[1:])
+
+
+def map_put(f, w, h, layers):
+    """MAP and LAYERS of a file from [(name, cells)]"""
+    f.put(SEC_MAP, map_body(w, h, layers[0][1]))
+    more = layers_body(w, h, layers)
+    f.drop(SEC_LAYERS)
+    if more:
+        f.sections.append([SEC_LAYERS, more])
+
+
+def flags_get(f):
+    """FLAGS -> {(cx, cy): flags} by the cell's place"""
+    body = f.get(SEC_FLAGS)
+    if body is None:
+        return {}
+    per, rows = struct.unpack_from("<HH", body, 0)
+    if not per or len(body) != 4 + per * rows:
+        raise ResError("bad tile flags (FLAGS)")
+    return {(i % per, i // per): v for i, v in enumerate(body[4:]) if v}
+
+
+def flags_put(f, flags, sw):
+    """FLAGS of {(cx, cy): flags} for a sheet sw pixels wide (none: away)"""
+    f.drop(SEC_FLAGS)
+    per = max(sw // CELL, 1)
+    flags = {k: v for k, v in flags.items() if v and k[0] < per}
+    if not flags:
+        return
+    rows = max(cy for _, cy in flags) + 1
+    body = bytearray(per * rows)
+    for (cx, cy), v in flags.items():
+        body[cy * per + cx] = v
+    f.sections.append([SEC_FLAGS, struct.pack("<HH", per, rows) + bytes(body)])
+
+
 # ------------------------------------------------------------------ islands of the sheet
 
 def uv_cells(uv, sw, sh):
@@ -690,9 +761,10 @@ def used_cells(f, sw, sh):
             used |= {(r[0] + i, r[1] + j) for i in range(r[2]) for j in range(r[3])}
     if f.get(SEC_MAP) is not None:
         per = sw // CELL
-        for n in map_get(f)[2]:
-            if n:
-                used.add((n % per, n // per))
+        for _, cells in layers_get(f):
+            for n in cells:
+                if n:
+                    used.add((n % per, n // per))
     return used
 
 
@@ -974,9 +1046,11 @@ def extract_map(src):
     if not sheet:
         raise ResError("the cartridge has a map but no sheet")
     sw, sh, rgba = sheet
-    mw, mh, cells = map_get(src)
+    mw, mh, _ = map_get(src)
+    layers = layers_get(src)
+    flags = flags_get(src)
     per, ncells = sw // CELL, (sw // CELL) * (sh // CELL)
-    tiles = sorted({n for n in cells if 0 < n < ncells})
+    tiles = sorted({n for _, cells in layers for n in cells if 0 < n < ncells})
     PER = 16                                     # the tiles' sheet: 128 pixels wide, from cell 1
     tmap = {n: i + 1 for i, n in enumerate(tiles)}
     rows = -(-(len(tiles) + 1) // PER)
@@ -984,8 +1058,9 @@ def extract_map(src):
     for n, m in tmap.items():
         blit(rgba, sw, n % per * CELL, n // per * CELL, out_rgba, PER * CELL, m % PER * CELL, m // PER * CELL, CELL, CELL)
     out = File(MAP, name=src.name, author=src.author)
-    out.sections.append([SEC_MAP, map_body(mw, mh, [tmap.get(n, 0) for n in cells])])
+    map_put(out, mw, mh, [(name, [tmap.get(n, 0) for n in cells]) for name, cells in layers])
     sheet_set(out, PER * CELL, rows * CELL, out_rgba, seed=())
+    flags_put(out, {(m % PER, m // PER): flags.get((n % per, n // per), 0) for n, m in tmap.items()}, PER * CELL)
     info = {"file": [], "items": []}
     _models_info(info_of(src), info, "map", ["map"])
     info_store(out, info)
@@ -1139,6 +1214,8 @@ def integrate(cart, res, origin=None):
     rmesh = mesh_parse(res.get(SEC_MESH)) if res.get(SEC_MESH) is not None else None
     rzones = sprites_decode(res.get(SEC_SPRITES)) if res.get(SEC_SPRITES) is not None else []
     rmap = map_get(res) if res.get(SEC_MAP) is not None else None
+    rlayers = layers_get(res) if rmap else []
+    rflags = flags_get(res)
     if rmap and cart.get(SEC_MAP) is not None:
         raise ResError("the cartridge has a map already")
     if rsheet:
@@ -1153,7 +1230,8 @@ def integrate(cart, res, origin=None):
         rects += [px_cells(*zone_rect(z)) for z in rzones]
         if rmap:
             per = rw // CELL
-            rects += [(n % per, n // per, 1, 1) for n in sorted(set(rmap[2])) if 0 < n < per * (rh // CELL)]
+            used = sorted({n for _, cells in rlayers for n in cells})
+            rects += [(n % per, n // per, 1, 1) for n in used if 0 < n < per * (rh // CELL)]
     islands = merge_rects(rects)
     csheet = sheet_get(cart)
     if islands and not csheet:
@@ -1213,17 +1291,29 @@ def integrate(cart, res, origin=None):
             note("sprite", old, z["name"])
         cart.put(SEC_SPRITES, sprites_encode(czones))
     if rmap:
-        mw, mh, cells = rmap
+        mw, mh, _ = rmap
         per = rsheet[0] // CELL
-        out = []
-        for n in cells:
-            if 0 < n < per * (rsheet[1] // CELL):
-                dx, dy = off_of((n % per, n // per, 1, 1))
-                out.append((n // per + dy // CELL) * cw_cells + n % per + dx // CELL)
-            else:
-                out.append(0)
-        cart.put(SEC_MAP, map_body(mw, mh, out))
+        layers = []
+        for name, cells in rlayers:
+            out = []
+            for n in cells:
+                if 0 < n < per * (rsheet[1] // CELL):
+                    dx, dy = off_of((n % per, n // per, 1, 1))
+                    out.append((n // per + dy // CELL) * cw_cells + n % per + dx // CELL)
+                else:
+                    out.append(0)
+            layers.append((name, out))
+        map_put(cart, mw, mh, layers)
         note("map", "map", "map")
+    if rflags and islands:                       # the flags go with their cells
+        cflags = flags_get(cart)
+        for (cx, cy), v in rflags.items():
+            for i, r in enumerate(islands):
+                if r[0] <= cx < r[0] + r[2] and r[1] <= cy < r[1] + r[3]:
+                    dx, dy = offs[i]
+                    cflags[(cx + dx // CELL, cy + dy // CELL)] = v
+                    break
+        flags_put(cart, cflags, cw_cells * CELL)
     if res.get(SEC_AUDIO) is not None:
         body, new = _merge_audio(cart.get(SEC_AUDIO), res.get(SEC_AUDIO))
         cart.put(SEC_AUDIO, body)
@@ -1322,12 +1412,21 @@ def convert(src, dst, tiles=None, name=None):
         return f
     if a == ".bmt" and b == ".csv":
         f = read(src)
-        mw, mh, cells = map_get(f)
-        with open(dst, "w", encoding="utf-8") as o:
-            for y in range(mh):
-                o.write(",".join(str(n) for n in cells[y * mw:(y + 1) * mw]) + "\n")
+        mw, mh, _ = map_get(f)
+        stem_dst = os.path.splitext(dst)[0]
+        for i, (lname, cells) in enumerate(layers_get(f)):     # layer 1 in dst, the others beside it
+            with open(dst if i == 0 else f"{stem_dst}_{lname}.csv", "w", encoding="utf-8") as o:
+                for y in range(mh):
+                    o.write(",".join(str(n) for n in cells[y * mw:(y + 1) * mw]) + "\n")
         w, h, rgba = sheet_get(f)
-        png_write(os.path.splitext(dst)[0] + ".png", w, h, rgba)
+        png_write(stem_dst + ".png", w, h, rgba)
+        flags = flags_get(f)
+        if flags:                                # as mkbm.py --flags reads them
+            with open(stem_dst + "_flags.csv", "w", encoding="utf-8") as o:
+                o.write("# the flags of the tiles: cell=flags\n")
+                o.write(" ".join(f"{cy * (w // CELL) + cx}={v}" for (cx, cy), v in sorted(flags.items(),
+                                                                                         key=lambda e: e[0][::-1])))
+                o.write("\n")
         return None
     raise ResError(f"no conversion from {a} to {b}")
 
@@ -1369,6 +1468,11 @@ def describe(f):
         elif t == SEC_MAP:
             mw, mh, _ = map_get(f)
             lines.append(f"  MAP: {mw}x{mh}")
+        elif t == SEC_LAYERS:
+            lines.append("  LAYERS: " + ", ".join(n for n, _ in layers_get(f)))
+        elif t == SEC_FLAGS:
+            fl = flags_get(f)
+            lines.append(f"  FLAGS: {len(fl)} cells with flags")
         elif t == SEC_INFO:
             info = info_parse(b)
             lines.append(f"  INFO: {len(info['file'])} lines, {len(info['items'])} parts")

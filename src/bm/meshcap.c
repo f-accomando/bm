@@ -320,8 +320,27 @@ static int cap_lib_index(lua_State *G)
     return 1;
 }
 
+/* bmlib (R10) is plain Lua over bm's functions, here the stand-ins: the
+ * real one, so the meshes of its builder are found (lib.builder():box(...)
+ * :build() calls mesh()); weak, for the tests that do not link it */
+extern const uint8_t bm_lib_bmlib[] __attribute__((weak));
+extern const uint8_t bm_lib_bmlib_end[] __attribute__((weak));
+
 static int cap_require(lua_State *G)
 {
+    if (!strcmp(luaL_optstring(G, 1, ""), "bmlib") && bm_lib_bmlib && bm_lib_bmlib_end) {
+        lua_getfield(G, LUA_REGISTRYINDEX, "bm.capture.bmlib");
+        if (!lua_isnil(G, -1))
+            return 1;
+        lua_pop(G, 1);
+        if (luaL_loadbuffer(G, (const char *)bm_lib_bmlib, (size_t)(bm_lib_bmlib_end - bm_lib_bmlib), "=bmlib") !=
+            LUA_OK)
+            return lua_error(G);
+        lua_call(G, 0, 1);
+        lua_pushvalue(G, -1);
+        lua_setfield(G, LUA_REGISTRYINDEX, "bm.capture.bmlib");
+        return 1;
+    }
     lua_newtable(G);
     lua_createtable(G, 0, 1);
     lua_pushcfunction(G, cap_lib_index);

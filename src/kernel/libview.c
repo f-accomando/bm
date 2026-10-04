@@ -137,7 +137,8 @@ static int load_mesh(const bm_cart_t *c, int i)
     return 0;
 }
 
-/* the map at the size of the box: each pixel from its tile */
+/* the map at the size of the box: each pixel from its tile, on the top
+ * layer that has one there (R11: layer 1 at the back) */
 static int load_map(const bm_cart_t *c, int bw, int bh)
 {
     int mw = c->map_w * G16_CELL, mh = c->map_h * G16_CELL;
@@ -152,19 +153,27 @@ static int load_map(const bm_cart_t *c, int bw, int bh)
     if (!map_px || !map_on)
         return -1;
     int per = sheet.w / G16_CELL, ncells = per * (sheet.h / G16_CELL);
+    const uint8_t *layer[BM_LAYERS_MAX];
+    char name[BM_LAYER_NAME + 1];
+    int nl = 0;
+    while (nl < c->nlayers && bm_layer(c, nl, name, &layer[nl]) == 0)
+        nl++;
     for (int y = 0; y < map_h; y++) {
         int sy = (int)(y / k);
         for (int x = 0; x < map_w; x++) {
             int sx = (int)(x / k);
-            const uint8_t *p = c->map_cells + 2 * ((size_t)(sy / G16_CELL) * c->map_w + sx / G16_CELL);
-            int n = p[0] | p[1] << 8;
             int i = y * map_w + x;
             map_on[i] = 0;
-            if (n <= 0 || n >= ncells)
-                continue;
-            uint32_t s = (uint32_t)(n / per * G16_CELL + sy % G16_CELL) * sheet.w + n % per * G16_CELL + sx % G16_CELL;
-            map_px[i] = sheet.px[s];
-            map_on[i] = sheet.alpha[s];
+            for (int l = nl - 1; l >= 0 && !map_on[i]; l--) {
+                const uint8_t *p = layer[l] + 2 * ((size_t)(sy / G16_CELL) * c->map_w + sx / G16_CELL);
+                int n = p[0] | p[1] << 8;
+                if (n <= 0 || n >= ncells)
+                    continue;
+                uint32_t s = (uint32_t)(n / per * G16_CELL + sy % G16_CELL) * sheet.w + n % per * G16_CELL +
+                             sx % G16_CELL;
+                map_px[i] = sheet.px[s];
+                map_on[i] = sheet.alpha[s];
+            }
         }
     }
     return 0;

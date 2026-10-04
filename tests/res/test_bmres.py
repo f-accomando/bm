@@ -259,6 +259,62 @@ def test_map(demo, village, out):
     bmres.write(os.path.join(out, "DEMO.bmt"), res)
 
 
+def layer_pixels(f, i):
+    """layer i drawn: the pixels of every cell's tile, and the flags of the tile"""
+    w, h, rgba = bmres.sheet_get(f)
+    flags = bmres.flags_get(f)
+    per, n = w // 8, (w // 8) * (h // 8)
+    return [(block((w, h, rgba), c % per * 8, c // per * 8, 8, 8), flags.get((c % per, c // per), 0))
+            if 0 < c < n else None for c in bmres.layers_get(f)[i][1]]
+
+
+def layered_cart():
+    """a cartridge with two layers and the flags of its tiles (R11)"""
+    cols = [(255, 0, 0), (0, 255, 0), (0, 0, 255), (255, 255, 0), (0, 255, 255), (255, 0, 255), (255, 255, 255)]
+    rgba = bytearray(32 * 16 * 4)
+    for c in range(1, 8):
+        for y in range(8):
+            for x in range(8):
+                o = 4 * ((c // 4 * 8 + y) * 32 + c % 4 * 8 + x)
+                rgba[o:o + 4] = bytes(cols[c - 1]) + bytes([255 if (x + y) % 3 else 0])
+    layers = [("main", 3, 2, struct.pack("<6H", 1, 2, 0, 0, 3, 1)), ("front", 3, 2, struct.pack("<6H", 0, 0, 4, 5, 0, 0))]
+    return bmres.load(mkbm.pack(b"-- layered", (32, 16, bytes(rgba)), title="layered", layers=layers,
+                                flags={1: 1, 4: 6, 7: 9}))
+
+
+def test_layers_flags(village, out):
+    src = layered_cart()
+    check([n for n, _ in bmres.layers_get(src)] == ["main", "front"], "mkbm: two layers")
+    check(bmres.flags_get(src) == {(1, 0): 1, (0, 1): 6, (3, 1): 9}, "mkbm: the flags by the cell's place")
+    res = roundtrip(bmres.extract_map(src))
+    check([n for n, _ in bmres.layers_get(res)] == ["main", "front"], "the .bmt keeps the layers")
+    check(all(layer_pixels(res, i) == layer_pixels(src, i) for i in (0, 1)),
+          "each layer draws the same in the .bmt, its tiles with their flags")
+    check(len(bmres.flags_get(res)) == 2, "only the flags of the tiles the map uses")
+    cart = empty_cart()
+    bmres.integrate(cart, res)
+    check(sections(roundtrip(cart), (bmres.SEC_INFO, bmres.SEC_LUA)) == sections(res),
+          "layers and flags: the same in an empty project")
+    cart = roundtrip(village)
+    bmres.integrate(cart, res)
+    cart = roundtrip(cart)
+    check(all(layer_pixels(cart, i) == layer_pixels(src, i) for i in (0, 1)),
+          "the layers draw the same in another cartridge, the flags moved with their tiles")
+    bmres.write(os.path.join(out, "LAYERS.bmt"), res)
+    bmres.convert(os.path.join(out, "LAYERS.bmt"), os.path.join(out, "layers.csv"))
+    check(os.path.exists(os.path.join(out, "layers_front.csv")), ".bmt -> .csv: the other layer beside")
+    w = bmres.sheet_get(res)[0] // 8
+    fl = mkbm.read_flags(os.path.join(out, "layers_flags.csv"))
+    check(fl == {cy * w + cx: v for (cx, cy), v in bmres.flags_get(res).items()},
+          ".bmt -> .csv: the flags as mkbm.py --flags reads them")
+    bad = roundtrip(src)
+    bad.drop(bmres.SEC_MAP)
+    raises(lambda: bmres.check(bad), "LAYERS without a map")
+    bad = roundtrip(src)
+    bad.put(bmres.SEC_LAYERS, bad.get(bmres.SEC_LAYERS)[:-2])
+    raises(lambda: bmres.check(bad), "LAYERS of the wrong size")
+
+
 def test_palette(village, demo, out):
     pal = roundtrip(bmres.extract_palette(village))
     cols = [c for c in bmres.sheet8_palette(village.get(bmres.SEC_SHEET8)) if c[3] >= 128]
@@ -342,6 +398,7 @@ def main():
     test_image(demo, out)
     test_sounds(sound, out)
     test_map(demo, village, out)
+    test_layers_flags(village, out)
     test_palette(village, demo, out)
     test_kit(village)
     test_convert(demo, sound, out)
