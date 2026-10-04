@@ -740,5 +740,6 @@ screenshot in `docs/img/`), `README_OLD.md` (il README completo, in italiano),
 
 - Riportare la **lista delle milestone** solo quando una milestone è completata per
   intero (non per i singoli passi): una lista puntata (niente tabelle, niente icone),
-  una descrizione breve e lo stato di ciascuna; le milestone completate barrate
+  una descrizione breve e lo stato di ciascuna. Le milestone chiuse non vanno nella lista
+  (decisione dell'utente, 2026-10-04), tranne quelle chiuse nell'ultima sessione, barrate
   (`~~M12 — ...~~`).
