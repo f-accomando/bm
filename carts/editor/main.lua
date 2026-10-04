@@ -1015,8 +1015,9 @@ do
       elseif c:match("[%a_]") then
         j = (l:find("[^%w_]", i) or n + 1) - 1
         local w = l:sub(i, j)
+        local pre = i > 4 and l:sub(i - 4, i - 1)
         col = KEYWORDS[w] and C_KW or API3D[w] and C_3D or API[w] and C_API or
-              (i > 4 and l:sub(i - 4, i - 1) == "lib.") and C_API or C.TEXT   -- bmlib's
+              (pre == "lib." or pre == "net.") and C_API or C.TEXT   -- bmlib's, bmnet's
       else j, col = i, C_PUN end
       if j > n then j = n end
       s[#s + 1] = { i, l:sub(i, j), col }
