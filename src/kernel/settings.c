@@ -119,6 +119,13 @@ static int wireless(void)
 #endif
 }
 
+/* the dev kit's overlay: Settings > Screen and sound */
+static const char *perf_name(void)
+{
+    static const char *const n[3] = { "Off", "Simple", "Detailed" };
+    return n[bm_perf()];
+}
+
 #ifndef BM_RGB30
 /* what plays as the first player without a pad (the USB one) */
 static const char *local_devices(void)
@@ -398,7 +405,7 @@ void home_panel(int id, home_panel_t *p)
 #endif
         home_row(p, MENU_ROW_CHOICE, R_PERF, "Performance overlay",
                  "Over the games: fps, ms, Lua instructions (F11 too)", "%s",
-                 bm_perf() ? "On" : "Off");
+                 perf_name());
 #ifdef BM_RGB30
         home_row(p, MENU_ROW_INFO, R_SOUND, "Sound", "The RGB30's speaker and headphones", "not yet");
 #else
@@ -709,9 +716,9 @@ void home_act(int id, int row, int how, home_do_t *d)
         ksnprintf(d->note, sizeof d->note, "keyboard layout: %s", hid_layout());
         break;
     case R_PERF:
-        bm_set_perf(!bm_perf());
+        bm_set_perf((bm_perf() + 1) % 3);       /* simple, detailed, off */
         config_save();
-        ksnprintf(d->note, sizeof d->note, "performance overlay: %s", bm_perf() ? "on" : "off");
+        ksnprintf(d->note, sizeof d->note, "performance overlay: %s", perf_name());
         break;
     case R_PROMPTS:
         config_set("prompts", home_prompts_colour() ? "white" : "colour");

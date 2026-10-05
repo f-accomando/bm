@@ -303,7 +303,10 @@ nano8) legge la tastiera tasto per tasto e i controller pulsante per pulsante:
 | Funzione | Descrizione |
 |---|---|
 | `time()` | secondi dall'avvio della cartuccia (con decimali) |
-| `stat(n)` | 0 KiB usati da Lua, 1 ms dell'ultimo fotogramma (`_update` + `_draw`, con il 3D della GPU), 2 fps, 3 numero del fotogramma, 4 triangoli 3D, 5 pixel 3D (0 con la GPU), 6 ms passati nel disegno 3D (da `zclear`; con la GPU la parte dell'ARM), 7 vertici 3D trasformati, 8 ms dall'inizio di questo fotogramma (per misurare le fasi), 9 `1` se il 3D lo disegna la GPU, 10 istruzioni Lua dell'ultimo fotogramma (`_update` + `_draw`, alle migliaia); il **dev kit** (2026-10-04): 11 token del codice della cartuccia (`code_tokens`), 12 i KiB di Lua più alti di questa partita, 13 KiB dei dati della cartuccia in memoria (sprite sheet, mappa, modelli e scheletri, banco di suoni, z-buffer del 3D), 14 le istruzioni Lua del fotogramma più pesante di questa partita |
+| `stat(n)` | 0 KiB usati da Lua, 1 ms dell'ultimo fotogramma (`_update` + `_draw`, con il 3D della GPU), 2 fps, 3 numero del fotogramma, 4 triangoli 3D, 5 pixel 3D (0 con la GPU), 6 ms passati nel disegno 3D (da `zclear`; con la GPU la parte dell'ARM), 7 vertici 3D trasformati, 8 ms dall'inizio di questo fotogramma (per misurare le fasi), 9 `1` se il 3D lo disegna la GPU, 10 istruzioni Lua dell'ultimo fotogramma (`_update` + `_draw`, alle migliaia); il **dev kit** (2026-10-04): 11 token del codice della cartuccia (`code_tokens`), 12 i KiB di Lua più alti di questa partita, 13 KiB dei dati della cartuccia in memoria (sprite sheet, mappa, modelli e scheletri, banco di suoni, z-buffer del 3D), 14 le istruzioni Lua del fotogramma più pesante di questa partita; 15 quanti `_update` sono girati prima di questo `_draw` (1; di più con `frameskip`) |
+| `frameskip([n])` | il tempo del gioco a 60 `_update` al secondo qualunque sia il costo di `_draw` (2026-10-05): quando un fotogramma dura più di 1/60 s, prima del `_draw` dopo girano fino a `n` `_update` (i fotogrammi in mezzo non si disegnano), così un gioco che avanza di 1/60 s a ogni `_update` non rallenta; oltre `n` il tempo si lascia andare (il gioco rallenta piuttosto che non disegnare mai). `1` (il default) è un `_update` per fotogramma, come prima; al massimo 8. Restituisce il valore di prima. Un tasto premuto conta una volta in `btnp()` (e `mousep()`, la rotella) per quanti `_update` lo vedano; `btn()` resta tenuto. Overbit usa `frameskip(4)` (il suo benchmark `1`) |
+| `devkit([modo])` | l'overlay del dev kit: `0` spento, `1` semplice, `2` dettagliato; con un modo mostra quella pagina (un tasto del gioco per lui, per esempio Select sul pad: F11 è della tastiera). Restituisce il modo di prima |
+| `devinfo(riga, ...)` | fino a 4 righe del gioco nella pagina dettagliata del dev kit (la sua qualità, i suoi attori...), di 18 caratteri; `devinfo()` nessuna. Va chiamata di nuovo quando cambiano (Overbit a ogni fotogramma mentre la pagina dettagliata è aperta) |
 | `code_tokens(testo)` | i **token** di un pezzo di codice Lua, contati come `stat(11)`, l'overlay e il dev kit dell'SDK (`src/bm/tokens.c`): ogni nome, parola chiave, numero, stringa e operatore vale uno; commenti, spazi, `,` `.` `:` `;` `::`, le parentesi che si chiudono (`)` `]` `}`), `end` e `local` non contano, e nemmeno il segno meno davanti a un numero (`-1` è un token). Un'informazione, non un limite: bm non mette un tetto ai token (e nemmeno il `.b16`, [B16.md](B16.md) §2.4) |
 | `log(...)` | scrive nel log del kernel (seriale e console), non sullo schermo del gioco |
 | `report(tipo, testo)` | un report per chi sviluppa bm (2026-10-04): salvato in `bm/reports` sulla SD con kernel, branch, scheda e data, poi inviato al repository dei report se c'è `github_token` e la rete (`src/kernel/reports.h`); al più 8 per partita, 256 KiB l'uno; `true` se salvato |
@@ -1106,8 +1109,10 @@ console, un giocatore che esce; sulla LAN e attraverso il relay.
 - 60 fps = **16,7 ms** per fotogramma per `_update` + `_draw` + la copia sullo schermo.
   In alto a sinistra nella demo, `stat(1)` mostra quanto ne usa la cartuccia.
 - Il **dev kit**: l'overlay delle prestazioni sopra qualsiasi gioco, in alto a destra.
-  Si accende da Settings > Screen and sound > "Performance overlay" (resta salvato), con F11 sulla tastiera (tasto di sistema, anche negli
-  strumenti; era F3) o con `p` dalla seriale:
+  Si accende da Settings > Screen and sound > "Performance overlay" (Off, Simple, Detailed:
+  resta salvato), con F11 sulla tastiera (tasto di sistema, anche negli strumenti; era F3),
+  con `p` dalla seriale o con `devkit(modo)` dal gioco: una volta la pagina semplice, di
+  nuovo quella dettagliata, di nuovo spento. La pagina semplice:
 
       60fps 6.1ms ^7.5      fotogrammi al secondo; ms di _update + _draw: media e,
                             dopo ^, il massimo dell'ultimo secondo
@@ -1117,9 +1122,20 @@ console, un giocatore che esce; sulla LAN e attraverso il relay.
       1234 tokens           i token del codice (code_tokens)
 
   sotto, il tempo degli ultimi 64 fotogrammi: la cima è 16,7 ms; verde sotto metà,
-  giallo fino a 16,7, rosso oltre (il fotogramma salta). Dal codice: `stat(1)`,
-  `stat(2)`, `stat(10)`, `stat(11)`–`stat(14)`. Il limite è di 20 milioni di
-  istruzioni per chiamata. Il **dev kit dell'SDK** (F1 due volte) ha gli stessi
+  giallo fino a 16,7, rosso oltre (il fotogramma salta). La pagina dettagliata aggiunge
+  l'ultimo fotogramma nelle sue fasi e il 3D:
+
+      update 5.8ms x2       tutti i suoi _update (x2: ne sono girati due, frameskip)
+      draw   17.4ms         il suo _draw
+      3D     13.3ms         le chiamate 3D (stat(6))
+      gpu 9.1ms 2 jobs      il lavoro della GPU (con l'ARM: px, i pixel che ha disegnato)
+      tri 3620 vtx 5699     triangoli disegnati, vertici messi
+      bm3d 2.1 GPU          il driver 3D (ARM, GPU, GPU+AA)
+      quality HIGH          le righe del gioco (devinfo)
+
+  Sugli schermi grandi è più grande (×2 da 1280 di larghezza, ×3 a 1920). Dal codice:
+  `stat(1)`, `stat(2)`, `stat(6)`, `stat(10)`, `stat(11)`–`stat(15)`, `devkit()`. Il
+  limite è di 20 milioni di istruzioni per chiamata. Il **dev kit dell'SDK** (F1 due volte) ha gli stessi
   numeri per il progetto: token, le funzioni più grandi, la memoria dei dati, il file
   contro gli 8 MiB di un `.b16` e i numeri dell'ultima prova (F5). A fine partita la
   seriale scrive anche la riga `dev kit: Lua peak ... KiB, data ... KiB, busiest frame

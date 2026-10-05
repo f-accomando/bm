@@ -702,7 +702,11 @@ with `BMHOST_NET_ID=0` and `1` are two consoles (`make test-bmnet`).
 
 - **Performance:** the cost is almost all in the Lua of `_update`/`_draw`; the drawing is
   in C. Avoid creating new tables in every frame in hot loops; update only the enemies near
-  the camera; draw only the part of the map that shows.
+  the camera; draw only the part of the map that shows. F11 twice shows the dev kit's
+  detailed page: how long `_update`, `_draw` and the 3D took in the last frame.
+- **Heavy frames:** a game that moves 1/60 s per `_update` slows down when a frame costs
+  more than 16.7 ms. `frameskip(4)` in `_init` keeps its time: up to 4 `_update` before each
+  `_draw`, the frames in between not drawn (a heavy 3D game, like Overbit).
 - **Numbers:** Lua has integers and decimals; for screen positions use `math.floor` or `//`
   when you need whole pixels.
 - **Randomness:** `math.randomseed(stat(3))` when the player presses a button (the frame

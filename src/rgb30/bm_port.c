@@ -109,6 +109,7 @@ int gpu3d_vshader(void)                                 { return 0; }
 void gpu3d_set_vshader(int on)                          { (void)on; }
 int gpu3d_vshader_on(void)                              { return 0; }
 void gpu3d_take_stats(gpu3d_stats_t *s)                 { memset(s, 0, sizeof *s); }
+void gpu3d_peek_stats(gpu3d_stats_t *s)                 { memset(s, 0, sizeof *s); }
 int v3d_init(void)                                      { return -1; }
 const char *v3d_status(void)                            { return "no V3D (RGB30: Mali-G52)"; }
 

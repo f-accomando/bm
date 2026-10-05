@@ -96,6 +96,11 @@ static struct {
     uint32_t present_us;        /* last copy of the frame to the framebuffer */
     uint32_t us3d;              /* time in 3D drawing since the last zclear() */
     uint32_t frame_t0;          /* when this frame's _update began */
+    int skip_max;               /* frameskip(n): up to n _update before a _draw (0, 1: one) */
+    uint32_t updates;           /* the _update that ran before this frame's _draw (stat(15)) */
+    uint32_t update_us, draw_us;    /* this frame's: all its _update, its _draw (the dev kit) */
+    char devinfo[4][19];        /* devinfo(): the game's lines on the dev kit's detailed page */
+    int ndevinfo;
     uint32_t hook_count;
     uint32_t frame_instr_k, last_instr_k;   /* Lua instructions (thousands): this frame, the last */
     /* the dev kit: the tokens of the code, and the most of this run */
@@ -1518,8 +1523,25 @@ static int l_stat(lua_State *L)
     }
     case 13: lua_pushinteger(L, (lua_Integer)assets_kb()); break;
     case 14: lua_pushinteger(L, (lua_Integer)rt.instr_k_max * 1000); break;
+    case 15: lua_pushinteger(L, rt.updates); break;
     default: lua_pushnil(L);
     }
+    return 1;
+}
+
+/* frameskip([n]) -> the old n: the game's time at 60 _update a second
+ * whatever its _draw costs. When a frame takes longer than 1/60 s, up to n
+ * _update run before the next _draw (the frames not drawn are skipped), so
+ * a game that moves 1/60 s per _update does not slow down; 1 (the default)
+ * is one _update a frame, as before. stat(15): how many ran this frame. */
+static int l_frameskip(lua_State *L)
+{
+    const int old = rt.skip_max > 1 ? rt.skip_max : 1;
+    if (!lua_isnoneornil(L, 1)) {
+        int n = ival(L, 1);
+        rt.skip_max = n < 1 ? 1 : n > 8 ? 8 : n;
+    }
+    lua_pushinteger(L, old);
     return 1;
 }
 
@@ -3439,6 +3461,10 @@ static int l_timeslice(lua_State *L)
     return 0;
 }
 
+/* the dev kit's overlay (defined with it) */
+static int l_devkit(lua_State *L);
+static int l_devinfo(lua_State *L);
+
 /* cartridge files, for the editor (defined after the asset loader) */
 static int l_ls(lua_State *L);
 static int l_cart_load(lua_State *L);
@@ -3616,7 +3642,8 @@ static const luaL_Reg api[] = {
     { "prompt", l_prompt }, { "lastinput", l_lastinput },
     { "clip", l_clip }, { "rgb", l_rgb }, { "btn", l_btn }, { "btnp", l_btnp },
     { "players", l_players }, { "stick", l_stick },
-    { "time", l_time }, { "stat", l_stat }, { "code_tokens", l_code_tokens }, { "tri", l_tri },
+    { "time", l_time }, { "stat", l_stat }, { "frameskip", l_frameskip }, { "devkit", l_devkit },
+    { "devinfo", l_devinfo }, { "code_tokens", l_code_tokens }, { "tri", l_tri },
     { "mesh", l_mesh }, { "mesh_sphere", l_mesh_sphere }, { "mesh_cube", l_mesh_cube },
     { "model", l_model }, { "models", l_models }, { "bounds3d", l_bounds3d },
     { "animate", l_animate }, { "clips", l_clips }, { "bone3d", l_bone3d },
@@ -3949,6 +3976,20 @@ static int poll_keys(void)
         quit |= HID_QUIT_PS;
     }
     return quit;
+}
+
+/* Before a second _update in the same frame (frameskip()): the buttons
+ * held stay held, but what was pressed this frame (btnp, mousep, the
+ * wheel) counts once */
+static void input_repeat(void)
+{
+    rt.prev = rt.now;
+    for (int p = 0; p < INPUT_PLAYERS; p++) {
+        rt.pprev[p] = rt.pnow[p];
+        rt.praw_prev[p] = rt.praw[p];
+    }
+    rt.ptr.pressed = rt.ptr.released = 0;
+    rt.ptr.wheel = rt.ptr.pan = rt.ptr.moved = 0;
 }
 
 /* ---------------------------------------------------------------- loading */
@@ -5797,19 +5838,33 @@ static int vol_start;                   /* the volume when the cartridge started
 /* ---------------------------------------------------------------- the dev kit */
 
 /* The performance overlay, over any game (Settings > Performance overlay,
- * F11 on a keyboard, a system key, 'p' on the serial line): its frames a second, the CPU
- * time of _update + _draw and the Lua instructions of a frame (the mean and,
- * after ^, the most of the last second), and the time of the last 64 frames
- * against the 16.7 ms of a frame at 60 Hz; the memory it uses (its Lua now
- * and, after ^, the most of this run, plus its data: stat(0), 12, 13) and the
- * tokens of its code (stat(11)). Drawn on the 8x16 grid, top right:
+ * F11 on a keyboard, a system key, 'p' on the serial line, devkit() from the
+ * game): F11 once the simple page, again the detailed one, again off.
+ * Simple: its frames a second, the CPU time of _update + _draw and the Lua
+ * instructions of a frame (the mean and, after ^, the most of the last
+ * second), and the time of the last 64 frames against the 16.7 ms of a frame
+ * at 60 Hz; the memory it uses (its Lua now and, after ^, the most of this
+ * run, plus its data: stat(0), 12, 13) and the tokens of its code
+ * (stat(11)). Detailed, below: the last frame in its phases (its _update,
+ * how many when frameskip() skips frames, its _draw, the 3D: stat(6)), the
+ * GPU's work (ms and jobs) or the pixels the ARM drew, the triangles and
+ * vertices, the 3D driver, and the game's own lines (devinfo()). On the 8x16
+ * grid, top right, bigger on the big screens (x2 from 1280 wide, x3 at 1920):
  *   60fps 6.1ms ^7.5
  *   lua 9k ^10k
  *   ram 612k ^700k
- *   1234 tokens        */
+ *   1234 tokens
+ *   (the graph)
+ *   update 2.1ms
+ *   draw   3.8ms
+ *   3D     2.5ms
+ *   gpu 1.9ms 1 job
+ *   tri 3620 vtx 5699
+ *   bm3d 2.1 GPU       */
 #define PERF_N 64
-static int perf_on;
+static int perf_on;                     /* 0 off, 1 simple, 2 detailed */
 static struct { uint16_t us10[PERF_N], k[PERF_N]; uint32_t at; } perf;
+static gpu3d_stats_t perf_gpu;          /* the GPU's totals at the last frame (the detailed page) */
 
 /* KiB of the cartridge's data in memory, besides its Lua: the sprite sheet
  * (RGB565 + alpha + the cells), the map, the models and skeletons, the sound
@@ -5836,8 +5891,36 @@ static void kib_text(char *out, size_t n, uint32_t kb)
         ksnprintf(out, n, "%luM", (unsigned long)(kb / 1024));
 }
 
-void bm_set_perf(int on) { perf_on = on != 0; }
+void bm_set_perf(int level) { perf_on = level < 0 ? 0 : level > 2 ? 2 : level; }
 int bm_perf(void) { return perf_on; }
+
+/* devkit([mode]) -> the dev kit's overlay: 0 off, 1 simple, 2 detailed; a
+ * mode shows that page (a game's own key for it, e.g. Select on a pad: F11
+ * is the keyboard's) */
+static int l_devkit(lua_State *L)
+{
+    const int old = perf_on;
+    if (!lua_isnoneornil(L, 1))
+        bm_set_perf(ival(L, 1));
+    lua_pushinteger(L, old);
+    return 1;
+}
+
+/* devinfo(line, ...): up to 4 lines of the game on the dev kit's detailed
+ * page (its quality, its actors...), 18 characters each; devinfo() none */
+static int l_devinfo(lua_State *L)
+{
+    int n = lua_gettop(L);
+    if (n > 4)
+        n = 4;
+    rt.ndevinfo = 0;
+    for (int i = 1; i <= n; i++) {
+        const char *t = luaL_tolstring(L, i, NULL);
+        ksnprintf(rt.devinfo[rt.ndevinfo++], sizeof rt.devinfo[0], "%s", t);
+        lua_pop(L, 1);
+    }
+    return 0;
+}
 
 /* ---------------------------------------------------------------- F12: the keys */
 
@@ -6189,6 +6272,64 @@ static void keys_help(lua_State *L)
     *g = keep;
 }
 
+/* "12.3ms" and the like: tenths of a millisecond from microseconds */
+static void ms_text(char *out, size_t n, uint32_t us)
+{
+    ksnprintf(out, n, "%lu.%lums", (unsigned long)(us / 1000), (unsigned long)(us / 100 % 10));
+}
+
+/* a count in a few columns: 3620, 12k */
+static void count_text(char *out, size_t n, uint32_t v)
+{
+    if (v < 10000)
+        ksnprintf(out, n, "%lu", (unsigned long)v);
+    else
+        ksnprintf(out, n, "%luk", (unsigned long)(v / 1000));
+}
+
+/* the detailed page's lines, under the simple one */
+static int perf_detail(char lines[][24])
+{
+    int n = 0;
+    char a[16], b[16];
+    ms_text(a, sizeof a, rt.update_us);
+    if (rt.updates > 1)
+        ksnprintf(lines[n++], 24, "update %s x%lu", a, (unsigned long)rt.updates);
+    else
+        ksnprintf(lines[n++], 24, "update %s", a);
+    ms_text(a, sizeof a, rt.draw_us);
+    ksnprintf(lines[n++], 24, "draw   %s", a);
+    ms_text(a, sizeof a, rt.us3d);
+    ksnprintf(lines[n++], 24, "3D     %s", a);
+    const int gpu = rt.r3d_ready && rt.r3d.backend;
+    if (gpu) {
+        gpu3d_stats_t st;
+        gpu3d_peek_stats(&st);
+        const int fresh = st.jobs >= perf_gpu.jobs && st.bin_us + st.render_us >= perf_gpu.bin_us + perf_gpu.render_us;
+        const uint32_t jobs = fresh ? st.jobs - perf_gpu.jobs : st.jobs;
+        const uint32_t us = fresh ? st.bin_us + st.render_us - perf_gpu.bin_us - perf_gpu.render_us
+                                  : st.bin_us + st.render_us;
+        perf_gpu = st;
+        ms_text(b, sizeof b, us);
+        ksnprintf(lines[n++], 24, "gpu %s %lu job%s", b, (unsigned long)jobs, jobs == 1 ? "" : "s");
+    } else if (rt.r3d_ready) {
+        count_text(a, sizeof a, rt.r3d.pixels);
+        ksnprintf(lines[n++], 24, "px %s", a);
+    }
+    if (rt.r3d_ready) {
+        count_text(a, sizeof a, rt.r3d.tris_drawn);
+        count_text(b, sizeof b, rt.r3d.verts);
+        ksnprintf(lines[n++], 24, "tri %s vtx %s", a, b);
+    }
+    if (rt.r3d_ready)
+        ksnprintf(lines[n++], 24, "bm3d %s %s",
+                  bm3d_mode_q(gpu, gpu ? gpu3d_vshader_on() : 0, gpu && gpu3d_queue()),
+                  !gpu ? "ARM" : gpu3d_msaa_on() ? "GPU+AA" : "GPU");
+    for (int i = 0; i < rt.ndevinfo; i++)
+        ksnprintf(lines[n++], 24, "%s", rt.devinfo[i]);
+    return n;
+}
+
 static void perf_frame(void)
 {
     uint32_t i = perf.at++ % PERF_N;
@@ -6205,27 +6346,31 @@ static void perf_frame(void)
         if (perf.k[k] > kmost) kmost = perf.k[k];
     }
     uint32_t mean = sum / n, kmean = ksum / n;
+    char more[11][24];
+    const int nmore = perf_on == 2 ? perf_detail(more) : 0;
     g16_t *g = &rt.g;
     const g16_t keep = *g;
     g16_camera(g, 0, 0);
     g16_clip(g, 0, 0, 0, 0);
     g->font = &font_console_8x16;
-    const int x = g->w - 144;                     /* the text on the 8 x 16 grid (read by the tests) */
-    g16_rectfill(g, x - 4, 0, 148, 82, g16_rgb(8, 8, 16));
+    /* x2 from 1280 wide, x3 at 1920: the same size on a TV as at 640 */
+    const int z = g->w >= 1280 ? g->w / 640 : 1;
+    const int x = g->w - 144 * z;                 /* the text on the 8 x 16 grid (read by the tests) */
+    g16_rectfill(g, x - 4 * z, 0, 148 * z, (nmore ? 98 + 16 * nmore : 82) * z, g16_rgb(8, 8, 16));
     char line[32], now[12], top[12];
     ksnprintf(line, sizeof line, "%lufps %lu.%lums ^%lu.%lu", rt.fps, mean / 100, mean / 10 % 10,
               most / 100, most / 10 % 10);
-    g16_text(g, x, 0, line, g16_rgb(232, 232, 216));
+    g16_text_scaled(g, x, 0, line, g16_rgb(232, 232, 216), z);
     ksnprintf(line, sizeof line, "lua %luk ^%luk", kmean, kmost);
-    g16_text(g, x, 16, line, g16_rgb(200, 184, 120));
+    g16_text_scaled(g, x, 16 * z, line, g16_rgb(200, 184, 120), z);
     const size_t lua = luavm_mem();
     const uint32_t data_kb = assets_kb();
     kib_text(now, sizeof now, (uint32_t)(lua / 1024) + data_kb);
     kib_text(top, sizeof top, (uint32_t)((lua > rt.lua_peak ? lua : rt.lua_peak) / 1024) + data_kb);
     ksnprintf(line, sizeof line, "ram %s ^%s", now, top);
-    g16_text(g, x, 32, line, g16_rgb(120, 200, 232));
+    g16_text_scaled(g, x, 32 * z, line, g16_rgb(120, 200, 232), z);
     ksnprintf(line, sizeof line, "%d tokens", rt.tokens);
-    g16_text(g, x, 48, line, g16_rgb(184, 160, 232));
+    g16_text_scaled(g, x, 48 * z, line, g16_rgb(184, 160, 232), z);
     /* the last 64 frames, 2 px each; the top is 16.7 ms (a frame at 60 Hz) */
     for (uint32_t j = 0; j < PERF_N && j < perf.at; j++) {
         uint32_t v = perf.us10[(perf.at - 1 - j) % PERF_N];
@@ -6233,9 +6378,16 @@ static void perf_frame(void)
         if (hgt > 14) hgt = 14;
         if (hgt < 1) hgt = 1;
         uint16_t c = v < 835 ? g16_rgb(72, 200, 96) : v < 1670 ? g16_rgb(232, 200, 64) : g16_rgb(232, 64, 48);
-        g16_rectfill(g, x + 140 - (int)j * 2, 80 - hgt, 2, hgt, c);
+        g16_rectfill(g, x + (140 - (int)j * 2) * z, (80 - hgt) * z, 2 * z, hgt * z, c);
     }
-    g16_line(g, x - 2, 65, x + 141, 65, g16_rgb(72, 72, 96));
+    g16_rectfill(g, x - 2 * z, 65 * z, 144 * z, z, g16_rgb(72, 72, 96));
+    /* the detailed page: from the next row of the grid (96) */
+    for (int k = 0; k < nmore; k++) {
+        more[k][18] = 0;                            /* the box's 18 columns */
+        const uint16_t c = k < 3 ? g16_rgb(232, 232, 216) : k < nmore - rt.ndevinfo ? g16_rgb(160, 200, 160)
+                                                                                    : g16_rgb(255, 224, 112);
+        g16_text_scaled(g, x, (96 + 16 * k) * z, more[k], c, z);
+    }
     *g = keep;
 }
 
@@ -6309,6 +6461,8 @@ static int run_frames(framebuffer_t *fb, lua_State *L, const char *title,
      * does the microsecond counter */
     uint64_t played_us = 0, limit_us = (uint64_t)seconds * 1000000u;
     uint32_t played_at = start;
+    uint32_t lag = 0, lag_at = start;       /* frameskip(): the time not yet run by an _update */
+    int fresh = 0;                          /* the keys read and not yet seen by an _update */
     while (!error) {
         uint32_t now_us = timer_ticks();
         played_us += now_us - played_at;
@@ -6316,6 +6470,7 @@ static int run_frames(framebuffer_t *fb, lua_State *L, const char *title,
         if (rt.quit || played_us >= limit_us)
             break;
         const int q = poll_keys();
+        fresh = 1;
         if ((q || rt.leave_ask || rt.leave_held) && leave_step(L, q)) {
             left = 1;
             break;
@@ -6325,20 +6480,56 @@ static int run_frames(framebuffer_t *fb, lua_State *L, const char *title,
          * key: also while typing) */
         int f11 = hid_usage_held(0x44);
         if ((f11 && !rt.f11_held) || rt.perf_key)
-            perf_on = !perf_on;
+            perf_on = (perf_on + 1) % 3;    /* simple, detailed, off */
         rt.f11_held = f11;
         rt.perf_key = 0;
+        /* frameskip(n): the 1/60 s that went by since the last frame, each
+         * an _update (up to n; past n the time is let go: the game slows
+         * down rather than never drawing) */
+        int ups = 1;
+        {
+            const uint32_t t = timer_ticks();
+            lag += t - lag_at;
+            lag_at = t;
+            if (rt.skip_max > 1) {
+                ups = (int)(lag / FRAME_US);
+                if (ups < 1)
+                    ups = 1;
+                if (ups >= rt.skip_max) {
+                    ups = rt.skip_max;
+                    lag = 0;
+                }
+                lag = lag > (uint32_t)ups * FRAME_US ? lag - (uint32_t)ups * FRAME_US : 0;
+            } else {
+                lag = 0;
+            }
+        }
         /* with this frame's _update, if it ran during the last (stat(8)
          * counts as if it had run just now; its Lua instructions too) */
         const uint32_t t0 = timer_ticks() - early_us;
         rt.frame_t0 = t0;
+        rt.update_us = early_us;
         early_us = 0;
         if (!updated)
             rt.frame_instr_k = 0;
-        if ((!updated && call(L, "_update") != 0) || call(L, "_draw") != 0) {
+        rt.updates = (uint32_t)ups;
+        for (int u = updated; u < ups && !error; u++) {
+            const uint32_t tu = timer_ticks();
+            if (!fresh)
+                input_repeat();             /* what was pressed counts once */
+            fresh = 0;
+            if (call(L, "_update") != 0)
+                error = lua_tostring(L, -1);
+            rt.update_us += timer_ticks() - tu;
+        }
+        if (error)
+            break;
+        const uint32_t td = timer_ticks();
+        if (call(L, "_draw") != 0) {
             error = lua_tostring(L, -1);
             break;
         }
+        rt.draw_us = timer_ticks() - td;
         updated = 0;
         rt.frame++;                         /* (before the next _update, if it runs early) */
         const uint32_t instr_k = rt.frame_instr_k;
@@ -6351,6 +6542,9 @@ static int run_frames(framebuffer_t *fb, lua_State *L, const char *title,
             rt.frame_instr_k = 0;
             d2_early(1);
             rt.early = 1;
+            if (!fresh)
+                input_repeat();
+            fresh = 0;
             const int err = call(L, "_update");
             rt.early = 0;
             if (err != 0) {

@@ -55,10 +55,46 @@ fotogramma, 4 triangoli 3D, 5 pixel 3D, 6 ms del disegno 3D, 7 vertici 3D,
 8 ms da inizio fotogramma, 9 1 se il 3D lo fa la GPU, 10 istruzioni Lua
 dell'ultimo fotogramma. Il dev kit: 11 token del codice, 12 KiB di Lua al
 massimo, 13 KiB dei dati (sheet, mappa, modelli, suoni), 14 istruzioni del
-fotogramma più pesante.
+fotogramma più pesante, 15 quanti _update prima di questo _draw.
 code:
 print(stat(2) .. " fps  " .. stat(1) .. " ms", 8, 8, 0x80FF80)
 print(stat(0) .. " KiB", 8, 24, 0x80FF80)
+
+== frameskip
+kind: api
+name: frameskip
+title: frameskip(n) - il tempo del gioco anche quando il disegno è lento
+ask: il gioco rallenta quando gli fps scendono | il gioco va al rallentatore | frame skip
+ask: saltare fotogrammi | update più volte del draw | game slows down when fps drop
+ask: tempo del gioco costante | fixed timestep
+see: stat, guide.devkit, perf_tips
+text:
+Un gioco che avanza di 1/60 s a ogni _update rallenta quando un fotogramma
+costa più di 16,7 ms. frameskip(n): prima di ogni _draw girano fino a n
+_update, quanti ne servono per il tempo passato (i fotogrammi in mezzo non
+si disegnano). 1 è il default (uno per fotogramma). btnp() conta un tasto
+una volta sola; stat(15) dice quanti _update sono girati.
+code:
+function _init()
+  frameskip(4)   -- fino a 4 _update per ogni _draw
+end
+
+== devkit
+kind: api
+name: devkit
+title: devkit(modo) e devinfo(...) - l'overlay delle prestazioni dal gioco
+ask: accendere il dev kit dal gioco | overlay delle prestazioni con il pad | show the performance overlay
+ask: righe mie nel dev kit | aggiungere informazioni al dev kit | devinfo
+see: guide.devkit, stat, frameskip
+text:
+devkit() dà il modo dell'overlay: 0 spento, 1 semplice, 2 dettagliato
+(ogni fase del fotogramma, la GPU, i triangoli); devkit(modo) lo cambia,
+per esempio con Select sul pad (F11 è della tastiera). devinfo(riga, ...)
+mette fino a 4 righe del gioco nella pagina dettagliata.
+code:
+local enemies = {}
+if btnp(9) then devkit((devkit() + 1) % 3) end   -- Select
+if devkit() == 2 then devinfo("nemici " .. #enemies) end
 
 == code_tokens
 kind: api

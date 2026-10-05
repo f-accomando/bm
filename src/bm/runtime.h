@@ -82,8 +82,9 @@ uint32_t bm_video_present(framebuffer_t *fb, g16_t *g);
 void bm_set_via_ram(int on);
 int  bm_via_ram(void);
 /* The dev kit: the performance overlay over the games (fps, ms, Lua
- * instructions, the time of the last frames); F3 or 'p' toggles it too. */
-void bm_set_perf(int on);
+ * instructions, the time of the last frames): 0 off, 1 simple, 2 detailed
+ * (each phase of the frame, the GPU); F11 or 'p' goes round them too. */
+void bm_set_perf(int level);
 int  bm_perf(void);
 /* 1 while the running cartridge draws into a RAM buffer (lights). */
 int  bm_video_uses_ram(void);

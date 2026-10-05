@@ -1773,6 +1773,11 @@ void gpu3d_take_stats(gpu3d_stats_t *s)
     memset(&G.st, 0, sizeof G.st);
 }
 
+void gpu3d_peek_stats(gpu3d_stats_t *s)
+{
+    *s = G.st;
+}
+
 /* ---------------------------------------------------------------- init */
 
 static uint8_t *block_alloc(void)

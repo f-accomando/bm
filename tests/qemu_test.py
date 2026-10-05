@@ -1245,12 +1245,14 @@ def test_home_ui(b, opts):
         screen(["Settings > Screen and sound", "Game drawing (.bm)", "3D of the games", "ARM (no GPU)",
                 "3D anti-aliasing", "Off",      # QEMU has no V3D; no anti-aliasing unless asked
                 "3D vertices"])                 # nor the vertex shader (M36)
-        keys("sssss")                           # the dev kit's overlay: on, then off again
+        keys("sssss")                           # the dev kit's overlay: simple, detailed, off again
         screen(["< Off >", "fps, ms, Lua instructions"])
         keys("\r")
-        screen(["< On >", "performance overlay: on"])
+        screen(["< Simple >", "performance overlay: Simple"])
         keys("\r")
-        screen(["< Off >", "performance overlay: off"])
+        screen(["< Detailed >", "performance overlay: Detailed"])
+        keys("\r")
+        screen(["< Off >", "performance overlay: Off"])
         keys("s")                               # the volume: left/right, saved
         screen(["Volume", "< 10 / 10 >"])
         keys("a")
@@ -4160,13 +4162,21 @@ def test_yharnam(b, opts):
         assert any("CONTROLS" in l for l in text) and any("lock on" in l for l in text), "\n".join(text)
         if opts.shots:
             _save_png(q.screendump(), os.path.join(opts.shots, "yharnam-controls.png"))
-        # the dev kit: the performance overlay ('p' from the serial line, F3 on a keyboard)
+        # the dev kit: the performance overlay ('p' from the serial line, F11 on a
+        # keyboard): simple, detailed (the frame's phases), off
         q.send("p")
         time.sleep(0.6)
         text = screen_text(box(q.screendump()))
         assert any("fps" in l and "ms" in l for l in text), "\n".join(text)
+        assert not any("update" in l for l in text), "\n".join(text)
         if opts.shots:
             _save_png(q.screendump(), os.path.join(opts.shots, "yharnam-perf.png"))
+        q.send("p")
+        time.sleep(0.6)
+        text = screen_text(box(q.screendump()))
+        assert any("update" in l and "ms" in l for l in text) and any("draw" in l for l in text), "\n".join(text)
+        if opts.shots:
+            _save_png(q.screendump(), os.path.join(opts.shots, "yharnam-perf-detailed.png"))
         q.send("p")
         time.sleep(0.6)
         text = screen_text(box(q.screendump()))
@@ -5412,11 +5422,15 @@ def test_square_lights(b, opts):
         time.sleep(0.3)
         text = screen_text(box(q.screendump()))
         assert any("L1 HELD" in l for l in text), "\n".join(text)
-        q.send("p")                             # the performance overlay
+        q.send("p")                             # the performance overlay: simple
         time.sleep(0.6)
         text = screen_text(box(q.screendump()))
         assert any("fps" in l and "ms" in l for l in text), "\n".join(text)
-        q.send("p")
+        q.send("p")                             # detailed: the frame's phases
+        time.sleep(0.6)
+        text = screen_text(box(q.screendump()))
+        assert any("update" in l for l in text) and any("draw" in l for l in text), "\n".join(text)
+        q.send("p")                             # off
         time.sleep(0.6)
         text = screen_text(box(q.screendump()))
         assert not any("fps" in l for l in text), "\n".join(text)
@@ -5585,6 +5599,65 @@ def test_screen_modes(b, opts):
             assert tuple(corner) == (0x20, 0x30, 0x50) or abs(corner[2] - 0x50) < 8, corner
             if opts.shots:
                 _save_png(img, os.path.join(opts.shots, f"screen-{w}x{h}.png"))
+        q.send("q")
+        out = q.expect("update+draw", timeout=20).decode(errors="replace")
+        assert "stopped with an error" not in out, out
+    finally:
+        q.close()
+
+
+FRAMESKIP_CART = r"""
+local ups, draws, presses, held = 0, 0, 0, 0
+local t0, u0, d0
+function _init()
+  log("frameskip was " .. frameskip(4) .. ", now " .. frameskip())
+end
+function _update()
+  ups = ups + 1
+  if btnp(4) then presses = presses + 1 end
+  if btn(4) then held = held + 1 end
+end
+function _draw()
+  draws = draws + 1
+  local t = time()
+  while time() - t < 0.04 do end        -- a frame that costs 40 ms
+  cls(1)
+  print("draws " .. draws .. " updates " .. ups, 8, 8, 7)
+  if draws == 10 then t0, u0, d0 = time(), ups, draws log("frameskip measuring") end
+  if draws == 60 then
+    log(string.format("frameskip draws %d updates %d in %.2f s, stat15 %d, presses %d held %d",
+                      draws - d0, ups - u0, time() - t0, stat(15), presses, held))
+  end
+end
+"""
+
+
+def test_frameskip(b, opts):
+    """frameskip(n): a _draw that costs 40 ms, and the game's time still goes
+    at 60 _update a second (up to 4 before each _draw; stat(15) says how
+    many); a button pressed counts once in btnp() however many _update see
+    it (btn() stays held)"""
+    q = Qemu(b("kernel.img"))
+    try:
+        q.expect(MENU, timeout=30)
+        time.sleep(0.5)
+        assert _upload(q, mkbm.pack(FRAMESKIP_CART.encode(), title="frameskip"))
+        out = q.expect("frameskip measuring", timeout=30).decode(errors="replace")
+        assert "frameskip was 1, now 4" in out, out[-400:]
+        q.send("j")                             # A, held 10 frames from the serial line
+        out = q.expect("frameskip draws", timeout=60).decode(errors="replace")
+        out += q.expect("\n", timeout=5).decode(errors="replace")
+        m = re.search(r"frameskip draws (\d+) updates (\d+) in ([\d.]+) s, stat15 (\d+), presses (\d+) held (\d+)",
+                      out)
+        assert m, out[-400:]
+        draws, ups, secs, last, presses, held = (int(m.group(1)), int(m.group(2)), float(m.group(3)),
+                                                 int(m.group(4)), int(m.group(5)), int(m.group(6)))
+        print(f"     {draws} draws, {ups} updates in {secs:.2f} s (game time {ups / 60:.2f} s), "
+              f"last frame {last}, A pressed {presses}, held {held} updates")
+        assert ups >= 2 * draws, (ups, draws)
+        assert 2 <= last <= 4, last
+        assert abs(ups / 60 - secs) < 0.25 * secs, (ups, secs)
+        assert presses == 1 and held > 10, (presses, held)
         q.send("q")
         out = q.expect("update+draw", timeout=20).decode(errors="replace")
         assert "stopped with an error" not in out, out

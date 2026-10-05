@@ -111,5 +111,7 @@ typedef struct {
 
 /* totals since the last call, then zeroed */
 void gpu3d_take_stats(gpu3d_stats_t *s);
+/* the same totals, left as they are (the dev kit's overlay) */
+void gpu3d_peek_stats(gpu3d_stats_t *s);
 
 #endif

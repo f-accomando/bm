@@ -365,6 +365,10 @@ local MODES = { range = Range, menu = Menu, explore = Explore }
 Modes.list = MODES
 
 function Modes.start(name)
+  -- the game's time at 60 _update a second: when a frame costs more than
+  -- 1/60 s up to 4 _update run before the next _draw (frames skipped, the
+  -- match does not slow down); the benchmark measures one _update a frame
+  frameskip(name == "bench" and 1 or 4)
   G.mode = name
   Modes.cur = MODES[name]
   if Modes.cur.start then Modes.cur.start() end

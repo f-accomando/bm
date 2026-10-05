@@ -301,7 +301,10 @@ reads the keyboard key by key and the controllers button by button:
 | Function | Description |
 |---|---|
 | `time()` | seconds since the cartridge started (with decimals) |
-| `stat(n)` | 0 KiB used by Lua, 1 ms of the last frame (`_update` + `_draw`, with the GPU's 3D), 2 fps, 3 frame number, 4 3D triangles, 5 3D pixels (0 with the GPU), 6 ms spent in 3D drawing (since `zclear`; with the GPU the ARM's part), 7 3D vertices transformed, 8 ms since the start of this frame (to measure the phases), 9 `1` if the GPU draws the 3D, 10 Lua instructions of the last frame (`_update` + `_draw`, in thousands); the **dev kit** (2026-10-04): 11 tokens of the cartridge's code (`code_tokens`), 12 the most KiB of Lua of this run, 13 KiB of the cartridge's data in memory (sprite sheet, map, models and skeletons, sound bank, the 3D z-buffer), 14 the Lua instructions of the busiest frame of this run |
+| `stat(n)` | 0 KiB used by Lua, 1 ms of the last frame (`_update` + `_draw`, with the GPU's 3D), 2 fps, 3 frame number, 4 3D triangles, 5 3D pixels (0 with the GPU), 6 ms spent in 3D drawing (since `zclear`; with the GPU the ARM's part), 7 3D vertices transformed, 8 ms since the start of this frame (to measure the phases), 9 `1` if the GPU draws the 3D, 10 Lua instructions of the last frame (`_update` + `_draw`, in thousands); the **dev kit** (2026-10-04): 11 tokens of the cartridge's code (`code_tokens`), 12 the most KiB of Lua of this run, 13 KiB of the cartridge's data in memory (sprite sheet, map, models and skeletons, sound bank, the 3D z-buffer), 14 the Lua instructions of the busiest frame of this run; 15 how many `_update` ran before this `_draw` (1; more with `frameskip`) |
+| `frameskip([n])` | the game's time at 60 `_update` a second whatever `_draw` costs (2026-10-05): when a frame takes longer than 1/60 s, up to `n` `_update` run before the next `_draw` (the frames in between are not drawn), so a game that moves 1/60 s per `_update` does not slow down; past `n` the time is let go (the game slows rather than never drawing). `1` (the default) is one `_update` a frame, as before; at most 8. Returns the old value. A button pressed counts once in `btnp()` (and `mousep()`, the wheel) however many `_update` see it; `btn()` stays held. Overbit uses `frameskip(4)` (its benchmark `1`) |
+| `devkit([mode])` | the dev kit's overlay: `0` off, `1` simple, `2` detailed; with a mode it shows that page (a game's own key for it, e.g. Select on a pad: F11 is the keyboard's). Returns the old mode |
+| `devinfo(line, ...)` | up to 4 lines of the game on the dev kit's detailed page (its quality, its actors...), 18 characters each; `devinfo()` none. Call it again when they change (Overbit every frame while the detailed page is shown) |
 | `code_tokens(text)` | the **tokens** of a piece of Lua code, counted as `stat(11)`, the overlay and the SDK's dev kit do (`src/bm/tokens.c`): each name, keyword, number, string and operator is one; comments, spaces, `,` `.` `:` `;` `::`, closing brackets (`)` `]` `}`), `end` and `local` do not count, nor the minus sign in front of a number (`-1` is one token). Information, not a limit: bm puts no ceiling on tokens (nor does the `.b16`, [B16.md](B16.md) §2.4) |
 | `log(...)` | writes in the kernel's log (serial line and console), not on the game's screen |
 | `report(kind, text)` | a report for the people who develop bm (2026-10-04): saved in `bm/reports` on the SD card with kernel, branch, board and date, then sent to the reports' repository if there are `github_token` and the network (`src/kernel/reports.h`); at most 8 per run, 256 KiB each; `true` if saved |
@@ -1096,8 +1099,10 @@ consoles, a player leaving; on the LAN and through the relay.
 - 60 fps = **16.7 ms** per frame for `_update` + `_draw` + the copy to the screen. At the
   top left of the demo, `stat(1)` shows how much the cartridge uses.
 - The **dev kit**: the performance overlay over any game, at the top right. It is turned on
-  from Settings > Screen and sound > "Performance overlay" (it stays saved), with F11 on the
-  keyboard (a system key, also in the tools; it was F3) or with `p` from the serial line:
+  from Settings > Screen and sound > "Performance overlay" (Off, Simple, Detailed: it stays
+  saved), with F11 on the keyboard (a system key, also in the tools; it was F3), with `p`
+  from the serial line or with `devkit(mode)` from the game: once the simple page, again
+  the detailed one, again off. The simple page:
 
       60fps 6.1ms ^7.5      frames a second; ms of _update + _draw: average and,
                             after ^, the top of the last second
@@ -1107,8 +1112,20 @@ consoles, a player leaving; on the LAN and through the relay.
       1234 tokens           the code's tokens (code_tokens)
 
   under it, the time of the last 64 frames: the top is 16.7 ms; green under half, yellow up
-  to 16.7, red beyond (the frame is skipped). From the code: `stat(1)`, `stat(2)`,
-  `stat(10)`, `stat(11)`–`stat(14)`. The limit is 20 million instructions per call. The
+  to 16.7, red beyond (the frame is skipped). The detailed page adds the last frame in its
+  phases and the 3D:
+
+      update 5.8ms x2       all its _update (x2: two ran, frameskip)
+      draw   17.4ms         its _draw
+      3D     13.3ms         the 3D calls (stat(6))
+      gpu 9.1ms 2 jobs      the GPU's work (with the ARM: px, the pixels it drew)
+      tri 3620 vtx 5699     triangles drawn, vertices placed
+      bm3d 2.1 GPU          the 3D driver (ARM, GPU, GPU+AA)
+      quality HIGH          the game's lines (devinfo)
+
+  On the big screens it is bigger (x2 from 1280 wide, x3 at 1920). From the code:
+  `stat(1)`, `stat(2)`, `stat(6)`, `stat(10)`, `stat(11)`–`stat(15)`, `devkit()`. The
+  limit is 20 million instructions per call. The
   **SDK's dev kit** (F1 twice) has the same numbers for the project: tokens, the biggest
   functions, the data's memory, the file against the 8 MiB of a `.b16` and the numbers of
   the last try (F5). At the end of a run the serial line also writes the line `dev kit:
