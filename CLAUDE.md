@@ -56,7 +56,8 @@ screenshot in `docs/img/`), `README_OLD.md` (il README completo, in italiano),
   quella **dettagliata** (ms di tutti gli `_update` e quanti, `_draw`, 3D, GPU e lavori o pixel
   dell'ARM, triangoli e vertici, driver bm3d, le righe del gioco con `devinfo()`), di nuovo
   spento; ×2 da 1280 di larghezza, ×3 a 1920. `devkit([modo])` lo legge e lo cambia dal gioco
-  (Overbit: Select, Tab, F1). Settings > Screen and sound > "Performance overlay" Off / Simple /
+  (Overbit: Select, Tab, F1); F11, `p` e `devkit()` valgono per la partita, ogni gioco parte e
+  riprende come dice Settings (`perf_user`, prova QEMU `test_devkit_per_run`). Settings > Screen and sound > "Performance overlay" Off / Simple /
   Detailed (config `perf` 0/1/2), F11 (tasto di sistema, anche nelle app; era F3), `p` dalla
   seriale. `frameskip(n)` (2026-10-05): il tempo del gioco a 60 `_update` al secondo, fino a n
   `_update` prima di un `_draw` lento (`btnp` conta una volta; `stat(15)`; prova QEMU

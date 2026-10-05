@@ -5862,7 +5862,8 @@ static int vol_start;                   /* the volume when the cartridge started
  *   tri 3620 vtx 5699
  *   bm3d 2.1 GPU       */
 #define PERF_N 64
-static int perf_on;                     /* 0 off, 1 simple, 2 detailed */
+static int perf_on;                     /* 0 off, 1 simple, 2 detailed: now */
+static int perf_user;                   /* the same in Settings (config perf): each run starts with it */
 static struct { uint16_t us10[PERF_N], k[PERF_N]; uint32_t at; } perf;
 static gpu3d_stats_t perf_gpu;          /* the GPU's totals at the last frame (the detailed page) */
 
@@ -5891,17 +5892,22 @@ static void kib_text(char *out, size_t n, uint32_t kb)
         ksnprintf(out, n, "%luM", (unsigned long)(kb / 1024));
 }
 
-void bm_set_perf(int level) { perf_on = level < 0 ? 0 : level > 2 ? 2 : level; }
-int bm_perf(void) { return perf_on; }
+static int perf_level(int level) { return level < 0 ? 0 : level > 2 ? 2 : level; }
+
+/* Settings' choice: every game and tool starts (or resumes) with it. F11,
+ * 'p' and devkit() change the overlay of the run only: one game that turned
+ * it on (Overbit's Select) left it on in the next ones (2026-10-05). */
+void bm_set_perf(int level) { perf_on = perf_user = perf_level(level); }
+int bm_perf(void) { return perf_user; }
 
 /* devkit([mode]) -> the dev kit's overlay: 0 off, 1 simple, 2 detailed; a
- * mode shows that page (a game's own key for it, e.g. Select on a pad: F11
- * is the keyboard's) */
+ * mode shows that page in this run (a game's own key for it, e.g. Select on
+ * a pad: F11 is the keyboard's) */
 static int l_devkit(lua_State *L)
 {
     const int old = perf_on;
     if (!lua_isnoneornil(L, 1))
-        bm_set_perf(ival(L, 1));
+        perf_on = perf_level(ival(L, 1));
     lua_pushinteger(L, old);
     return 1;
 }
@@ -6722,6 +6728,7 @@ int bm_run(framebuffer_t *fb, const uint8_t *data, size_t len,
     rt.hook_count = 0;
     rt.tokens = lua_tokens(cart.lua, cart.lua_size);
     perf.at = 0;                        /* the overlay: this cartridge's frames only */
+    perf_on = perf_user;                /* and as Settings has it */
     chunk_reader_t rd = { cart.lua, cart.lua_size };
     if (lua_load(L, read_chunk, &rd, "=main.lua", NULL) != LUA_OK ||
         (lua_pushcfunction(L, traceback), lua_insert(L, -2), lua_pcall(L, 0, 0, -2)) != LUA_OK ||
@@ -6778,6 +6785,7 @@ int bm_resume(framebuffer_t *fb, uint32_t seconds, bm_stats_t *st)
     hid_text_mode(rt.text_mode);
     audio_pause(0);
     vol_start = audio_volume();
+    perf_on = perf_user;                /* the overlay as Settings has it, as at the start */
     kprintf("bm: \"%s\" resumed\n", susp.title);
     return run_frames(fb, L, susp.title, con_w, con_h, seconds, st, NULL, 1);
 }

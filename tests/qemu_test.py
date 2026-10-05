@@ -5674,6 +5674,36 @@ def test_frameskip(b, opts):
         q.close()
 
 
+DEVKIT_CART = r"""
+function _init()
+  log("devkit was " .. devkit(2) .. ", now " .. devkit())
+end
+function _update() end
+function _draw() cls(1) end
+"""
+
+
+def test_devkit_per_run(b, opts):
+    """devkit() turns the overlay on for its own run only: the next game
+    starts as Settings says (off), not as the last one left it (Overbit's
+    Select left it on in every game after, 2026-10-05)"""
+    q = Qemu(b("kernel.img"))
+    try:
+        q.expect(MENU, timeout=30)
+        time.sleep(0.5)
+        for _ in range(2):
+            assert _upload(q, mkbm.pack(DEVKIT_CART.encode(), title="devkit"))
+            out = q.expect("devkit was ", timeout=30).decode(errors="replace")
+            out += q.expect("\n", timeout=5).decode(errors="replace")
+            assert "devkit was 0, now 2" in out, out[-300:]
+            time.sleep(0.3)
+            q.send("q")
+            q.expect("update+draw", timeout=20)
+            time.sleep(0.5)
+    finally:
+        q.close()
+
+
 def _upload(q, data):
     q.send("U")
     q.expect("15 s timeout\r\n")
