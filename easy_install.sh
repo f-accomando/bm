@@ -19,13 +19,19 @@
 #   5  [NET] send a file    a game (.bm, into /carts: the menu shows it at once),
 #                           a resource (.bmm .bmi .bms ..., into /bm/lib) or any
 #                           file to a console's SD card (tools/bm_net.py --send)
+#   6  [NET] monitor        a console's monitor on this PC (tools/bm_net.py): its
+#                           keys and commands; Ctrl-Q leaves
+#   7  [NET] config         a console's bm/config.txt (bm_net.py --config): the
+#                           settings shown (tokens and passwords hidden), keys set
+#                           (github_token for the reports, WiFi...) or removed
+#   8   [SD] config         the same on the card in the reader
 #   r  release              a new version on GitHub (scripts/release.sh --no-sd:
 #                           the tag, the CI tests it and publishes it); the
 #                           consoles take it from Settings > Updates
 #   b  branch              change it, or bring it up to date (git pull)
 #   p  paths               the repository's folder, the card's drive letter
 # The same as an argument: ./easy_install.sh kernel | install | image | net [profile]
-# | send FILE [profile] | release [vX.Y.Z].
+# | send FILE [profile] | monitor [profile] | config [profile] | config-sd | release [vX.Y.Z].
 # sudo is asked for when needed (packages, mounting the card); the card is
 # mounted, synced and unmounted (and ejected) by the script. At the end:
 # the kernel the card had -> the one it has now.
@@ -532,6 +538,191 @@ job_send() {
     fi
 }
 
+# a console's monitor on this PC (tools/bm_net.py): its keys and the
+# commands of its monitor; Ctrl-Q (or Enter ~ .) leaves
+job_monitor() {
+    PICK_Q="Which one to open"
+    pick_profile "${1:-}" || return 0
+    local p=${PROFILES[$PICK]} name ip code board old x rc
+    name=$(profile_field "$p" 0); ip=$(profile_field "$p" 1)
+    code=$(profile_field "$p" 2); board=$(profile_field "$p" 3)
+    reach_console
+    while :; do
+        say "The monitor of $name ($ip, bm $old): Ctrl-Q leaves"
+        rc=0
+        python3 tools/bm_net.py "$ip" -p "$code" || rc=$?
+        [ "$rc" != 0 ] || break
+        read -r -p "It did not let you in? The Console password now (6 digits, Enter: stop): " x || x=
+        [[ $x =~ ^[0-9]{6}$ ]] || break
+        code=$x
+    done
+    PROFILES[PICK]="$name|$ip|$code|$board|$(profile_field "$p" 4)"     # IP and code as they work now
+    save_conf
+}
+
+# ---------------------------------------------------------------- a console's settings
+# bm/config.txt: "key=value" lines (src/kernel/config.c); the ones you may want
+config_keys() {
+    cat <<'KEYS'
+  github_token   a GitHub token: the tests' reports go to the reports branch (and the Market)
+  report_upload  0: the reports wait on the card, sent from Settings > Reports
+  wifi_ssid      the WiFi network (Settings > WiFi and network saves it); wifi_psk its password
+  wifi_boot      0: no WiFi at the start
+  net_password   the Console password, 6 digits (from the console's next start)
+  layout         it or us: the keyboard           volume   0 to 10
+  game_intro     0: no loading splash             perf     1: the performance overlay
+  gpu3d          0: the 3D on the ARM (gpu3d_aa, gpu3d_vs, gpu3d_queue: the GPU's options)
+  menu_scale     3: the Pi's menu at 1920x1080    mouse    off: no pointer anywhere
+  confirm        a: A confirms (RGB30)            show_bm  0: no .bm in the RGB30's menu
+KEYS
+}
+
+# the changes typed, into KV: key=value sets a key, key= removes it, a key
+# alone asks for its value (hidden as it is typed if it is a secret)
+config_lines() {
+    KV=()
+    local l k v
+    echo "Changes, one a line: key=value sets a key, key= removes it, a key alone asks for its value"
+    echo "(not shown as you type it for a token, a password, a key); ? the keys; Enter: done."
+    while :; do
+        read -r -p "> " l || l=
+        [ -n "$l" ] || break
+        if [ "$l" = "?" ]; then config_keys; continue; fi
+        if [[ $l =~ ^[A-Za-z0-9_]{1,23}$ ]]; then
+            k=$l
+            if [[ $k =~ (_token|_psk|_password|_key)$ ]]; then
+                read -r -s -p "$k (hidden): " v || v=
+                echo
+            else
+                read -r -p "$k: " v || v=
+            fi
+            l="$k=$v"
+        fi
+        if [[ ! $l =~ ^[A-Za-z0-9_]{1,23}= ]]; then
+            warn "key=value (the key: letters, digits and _, at most 23)"
+            continue
+        fi
+        v=${l#*=}
+        if [ "$(printf %s "$v" | wc -c)" -gt 127 ]; then
+            warn "at most 127 characters"
+            continue
+        fi
+        if [[ $l == net_password=?* ]] && [[ ! $v =~ ^[0-9]{6}$ ]]; then
+            warn "net_password: 6 digits (the profiles and the console's page expect them)"
+            continue
+        fi
+        KV+=("$l")
+    done
+}
+
+# a console's bm/config.txt over the network (bm_net.py --config): shown,
+# then the changes typed go
+job_config() {
+    PICK_Q="Whose settings"
+    pick_profile "${1:-}" || return 0
+    local p=${PROFILES[$PICK]} name ip code board old out rc kv KV
+    name=$(profile_field "$p" 0); ip=$(profile_field "$p" 1)
+    code=$(profile_field "$p" 2); board=$(profile_field "$p" 3)
+    reach_console
+    say "bm/config.txt of $name ($ip, bm $old)"
+    rc=0
+    net_do --config || rc=$?
+    PROFILES[PICK]="$name|$ip|$code|$board|$(profile_field "$p" 4)"     # IP and code as they work now
+    save_conf
+    if [ "$rc" != 0 ]; then
+        if grep -q "newer kernel" <<< "$out"; then
+            warn "1 [NET] update kernel first, then 7 again (or 8 with its card in the reader)"
+        fi
+        return 0
+    fi
+    config_lines
+    [ ${#KV[@]} -gt 0 ] || return 0
+    rc=0
+    net_do --config "${KV[@]}" || rc=$?
+    if [ "$rc" != 0 ]; then
+        warn "not changed as asked: see above"
+        return 0
+    fi
+    for kv in "${KV[@]}"; do
+        if [[ $kv == net_password=?* ]]; then
+            warn "$name takes the new Console password at its next start: the profile has it now (until then"
+            warn "the old one is asked for)"
+            code=${kv#*=}
+        fi
+    done
+    PROFILES[PICK]="$name|$ip|$code|$board|$(now) config: ${#KV[@]} changed"
+    LAST_RUN="$(now) config of $name: ${#KV[@]} changed"
+    save_conf
+    ok "bm/config.txt of $name changed"
+}
+
+# sd_config FILE [key=value ...]: the changes written into FILE (the other
+# lines and the comments as they are; key= removes the key), then the
+# settings shown, the secrets hidden
+sd_config() {
+    python3 - "$@" <<'PY'
+import re, sys
+path, changes = sys.argv[1], sys.argv[2:]
+try:
+    with open(path, encoding="utf-8", errors="surrogateescape") as f:
+        lines = f.read().splitlines()
+except FileNotFoundError:
+    lines = []
+if changes:
+    lines = lines or ["# bm settings (key=value)"]
+    for c in changes:
+        k, v = c.split("=", 1)
+        at = [i for i, l in enumerate(lines) if not l.startswith("#") and l.split("=", 1)[0] == k and "=" in l]
+        if v and at:
+            lines[at.pop(0)] = c
+        elif v:
+            lines.append(c)
+        for i in reversed(at):
+            del lines[i]
+    with open(path, "w", encoding="utf-8", errors="surrogateescape", newline="\n") as f:
+        f.write("\n".join(lines) + "\n")
+shown = 0
+for l in lines:
+    l = l.rstrip("\r ")
+    if not l or l.startswith("#") or "=" not in l:
+        continue
+    k, v = l.split("=", 1)
+    print(f"  {k}=(hidden, {len(v)} characters)" if re.search(r"(_token|_psk|_password|_key)$", k) else f"  {l}")
+    shown += 1
+if not shown:
+    print("  (no settings: the console's defaults)")
+PY
+}
+
+# bm/config.txt on the card in the reader: the console reads it at its next start
+job_config_sd() {
+    mount_sd
+    local d=$SD/bm f KV
+    if ! looks_like_bm && ! rgb30_card && [ ! -d "$d" ] && [ ! -d "$SD/bm33" ]; then
+        ask "$SD does not look like bm's card: write bm/config.txt on it anyway?" || { unmount_sd; return 0; }
+    fi
+    f=$(find "$d" -maxdepth 1 -iname config.txt 2>/dev/null | head -1) || true
+    if [ -z "$f" ]; then                        # the folder of before the rename, still read
+        f=$(find "$SD/bm33" -maxdepth 1 -iname config.txt 2>/dev/null | head -1) || true
+        [ -n "$f" ] || f=$d/config.txt
+    fi
+    say "${f#"$SD"/} on the card ($DRIVE:)"
+    sd_config "$f"
+    config_lines
+    if [ ${#KV[@]} -gt 0 ]; then
+        mkdir -p "$(dirname "$f")"
+        echo "now:"
+        sd_config "$f" "${KV[@]}"
+        sync
+        LAST_RUN="$(now) config on the card: ${#KV[@]} changed"
+        save_conf
+        ok "written: the console reads it at its next start"
+    fi
+    unmount_sd
+    eject
+    [ -n "${EASY_SD_DIR:-}" ] || ok "You can take the card out of the reader."
+}
+
 # a release on GitHub: scripts/release.sh VERSION --no-sd makes the tag, the
 # CI tests it and publishes the release; the consoles (the Pi, the RGB30)
 # take it from Settings > Updates
@@ -782,10 +973,13 @@ case ${1:-} in
     image) job_image ;;
     net) job_net "${2:-}" ;;
     send) job_send "${2:-}" "${3:-}"; exit 0 ;;
+    monitor) job_monitor "${2:-}"; exit 0 ;;
+    config) job_config "${2:-}"; exit 0 ;;
+    config-sd) job_config_sd; exit 0 ;;
     release) job_release "${2:-}"; exit 0 ;;
     "") ;;
-    *) die "unknown: $1 (kernel, install, image, net [profile], send FILE [profile], release [vX.Y.Z], \
-or nothing for the menu)" ;;
+    *) die "unknown: $1 (kernel, install, image, net [profile], send FILE [profile], monitor [profile], \
+config [profile], config-sd, release [vX.Y.Z], or nothing for the menu)" ;;
 esac
 
 while :; do
@@ -796,6 +990,9 @@ while :; do
   3   [SD] full install    (kernel, boot files, games, bm/: make install)
   4   [SD] disk image      (make image, card erased and formatted, the image's files)
   5  [NET] send a file     (a game or a file to a console's SD card: bm_net.py --send)
+  6  [NET] monitor         (a console's monitor here: its keys and commands; Ctrl-Q leaves)
+  7  [NET] config          (a console's bm/config.txt: shown, keys set or removed)
+  8   [SD] config          (bm/config.txt on the card in the reader)
   r  release               (a new version on GitHub: release.sh --no-sd; the consoles update)
   b  branch                (now $BRANCH: change it or update it)
   p  paths                 (repository folder, SD card letter)
@@ -808,10 +1005,13 @@ MENU
         3) job_install ;;
         4) job_image ;;
         5) job_send ;;
+        6) job_monitor ;;
+        7) job_config ;;
+        8) job_config_sd ;;
         r|R) job_release ;;
         b|B) change_branch; BRANCH=$(git rev-parse --abbrev-ref HEAD); echo "  branch      $(branch_line)" ;;
         p|P) change_paths ;;
         q|Q|"") exit 0 ;;
-        *) warn "1, 2, 3, 4, 5, r, b, p or q" ;;
+        *) warn "1 to 8, r, b, p or q" ;;
     esac
 done

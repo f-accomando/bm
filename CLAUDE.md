@@ -31,7 +31,11 @@ screenshot in `docs/img/`), `README_OLD.md` (il README completo, in italiano),
   (nome|IP|codice di 6 cifre|scheda|ultima volta, `PROFILES` nello stesso file), o un file a
   una console (5, `bm_net.py --send`: un `.bm` in `/carts`, che il suo menu mostra subito, una
   risorsa in `/bm/lib`; nome 8.3 proposto), o una release (r, `scripts/release.sh vX.Y.Z
-  --no-sd`, la versione dopo l'ultimo tag proposta; i comandi `send FILE [profilo]` e `release`). Alla fine scrive "kernel: vecchio -> nuovo": la versione sta in `kernel.img`
+  --no-sd`, la versione dopo l'ultimo tag proposta; i comandi `send FILE [profilo]` e `release`), o il monitor
+  di una console (6, `bm_net.py`; `monitor [profilo]`), o il suo `bm/config.txt` (7 dalla rete, `bm_net.py
+  --config`: le chiavi coi segreti nascosti, `chiave=valore` cambia, `chiave=` toglie; il comando `C` di
+  `netxfer.c`, `config_merge` in `config.c`, valori fino a 127 caratteri; 8 sulla SD; `config [profilo]`,
+  `config-sd`; prove in `make test-net`). Alla fine scrive "kernel: vecchio -> nuovo": la versione sta in `kernel.img`
   dopo `bmVER=` (`bm_version_tag` in `src/kernel/version.c`).
 - Dev kit (richiesta dell'utente): l'overlay delle prestazioni sopra ogni `.bm` (`perf_frame`
   in `runtime.c`): fps, ms di `_update` + `_draw`, istruzioni Lua del fotogramma

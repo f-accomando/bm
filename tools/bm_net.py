@@ -13,6 +13,8 @@ Standard library only (Linux / macOS / WSL).
   bm_net.py IP --kernel build/kernel.img written as kernel.img, then reboot
   bm_net.py IP --kernel build/kernel7.img   the same on a Pi Zero 2 W (kernel7.img)
   bm_net.py IP --kernel build/rgb30/kernel8.img   the same on the RGB30 (kernel8.img)
+  bm_net.py IP --config                 the console's bm/config.txt (secrets hidden)
+  bm_net.py IP --config report_upload=0 game_intro=   a key set, one removed
 
 The password is the one shown on the Pi's screen after 'W' (net_password in
 bm/config.txt). In the console keys go to the Pi one by one, as on its
@@ -36,6 +38,7 @@ XFER_PORT = 3334
 ANSWERS = {b"OK": "ok", b"PW": "wrong password", b"SZ": "file too big (or no memory)",
            b"BH": "bad request", b"CE": "damaged in transit (crc)",
            b"WE": "could not write on the SD card",
+           b"KV": "not key=value lines: nothing changed",
            b"KA": "not a kernel for this console (the Pi Zero 2 W takes build/kernel7.img, "
                   "the RGB30 build/rgb30/kernel8.img, the other boards build/kernel.img)"}
 QUIT_KEYS = (b"\x11", b"\x1d")  # Ctrl-Q, Ctrl-]
@@ -71,17 +74,9 @@ def recv_answer(sock, timeout):
     return data
 
 
-def transfer(args, op, path, name, password):
-    try:
-        with open(path, "rb") as f:
-            data = f.read()
-    except OSError as e:
-        print(f"{path}: {e.strerror} (the games are in build/carts/, e.g. build/carts/pong.bm)")
-        return 1
-    if op == b"S" and not re.fullmatch(r"[A-Za-z0-9_~$!#%&'()@^{}-]{1,8}(\.[A-Za-z0-9_~$!#%&'()@^{}-]{1,3})?", name):
-        print(f"'{name}' is not an 8.3 name (at most 8 letters, dot, 3): use --name")
-        return 1
-    dest = (args.to.strip("/") + "/" if args.to.strip("/") else "") + name if op == b"S" else name
+def open_request(args, op, dest, data, password):
+    """The request sent to the transfer port: the socket and the console's
+    first answer (OK: the data can go)."""
     pw = password.encode()
     rest = (op + bytes([len(pw)]) + pw + bytes([len(dest)]) + dest.encode()
             + struct.pack("<II", len(data), zlib.crc32(data) & 0xFFFFFFFF))
@@ -99,6 +94,21 @@ def transfer(args, op, path, name, password):
             break
         sock.close()
         time.sleep(0.3)
+    return sock, a
+
+
+def transfer(args, op, path, name, password):
+    try:
+        with open(path, "rb") as f:
+            data = f.read()
+    except OSError as e:
+        print(f"{path}: {e.strerror} (the games are in build/carts/, e.g. build/carts/pong.bm)")
+        return 1
+    if op == b"S" and not re.fullmatch(r"[A-Za-z0-9_~$!#%&'()@^{}-]{1,8}(\.[A-Za-z0-9_~$!#%&'()@^{}-]{1,3})?", name):
+        print(f"'{name}' is not an 8.3 name (at most 8 letters, dot, 3): use --name")
+        return 1
+    dest = (args.to.strip("/") + "/" if args.to.strip("/") else "") + name if op == b"S" else name
+    sock, a = open_request(args, op, dest, data, password)
     if a != b"OK":
         print("refused:", ANSWERS.get(a, a or "no answer"))
         return 1
@@ -118,6 +128,80 @@ def transfer(args, op, path, name, password):
     if a == b"OK" and op == b"K":
         return wait_reboot(args.host)
     return 0 if a == b"OK" else 1
+
+
+def recv_exact(sock, n, timeout):
+    sock.settimeout(timeout)
+    data = b""
+    try:
+        while len(data) < n:
+            chunk = sock.recv(n - len(data))
+            if not chunk:
+                break
+            data += chunk
+    except (socket.timeout, ConnectionResetError):
+        pass
+    return data
+
+
+# a setting: the key letters, digits and _ (at most 23), the value one line
+# of at most 127 bytes ("key=" removes the key); as src/kernel/config.c
+KEY_VALUE = re.compile(r"([A-Za-z0-9_]{1,23})=([^\x00-\x1f\x7f]*)")
+SECRET = re.compile(r".*(_token|_psk|_password|_key)$")
+
+
+def config(args, password):
+    """--config: the changes sent (C), the settings after them shown"""
+    changes = []
+    for kv in args.config:
+        m = KEY_VALUE.fullmatch(kv.rstrip(" "))
+        if not m or len(m.group(2).encode()) > 127:
+            print(f"'{kv}' is not key=value (the key: letters, digits, _, at most 23; the value: "
+                  "one line, at most 127 characters)")
+            return 1
+        changes.append((m.group(1), m.group(2)))
+    data = "".join(f"{k}={v}\n" for k, v in changes).encode() if changes else b"#\n"
+    sock, a = open_request(args, b"C", "bm/config.txt", data, password)
+    if a == b"BH":
+        print("refused: this console's kernel does not take settings from the network yet: "
+              "send it a newer kernel first (--kernel)")
+        return 1
+    if a != b"OK":
+        print("refused:", ANSWERS.get(a, a or "no answer"))
+        return 1
+    sock.sendall(data)
+    a = recv_answer(sock, 20)
+    if a != b"OK":
+        sock.close()
+        print("refused:", ANSWERS.get(a, a or "no answer"))
+        return 1
+    head = recv_exact(sock, 4, 10)
+    text = recv_exact(sock, struct.unpack("<I", head)[0], 10).decode(errors="replace") if len(head) == 4 else ""
+    sock.close()
+    now = {}
+    for line in text.splitlines():
+        k, _, v = line.partition("=")
+        now[k] = v
+    print("bm/config.txt on the console:")
+    for k, v in now.items():
+        print(f"  {k}={v}")
+    if not now:
+        print("  (empty)")
+    wrong = []
+    for k, v in changes:
+        if not v and k in now:
+            wrong.append(f"{k} still there")
+        elif v and k not in now:
+            wrong.append(f"{k} missing (no room for more keys?)")
+        elif v and not SECRET.match(k) and now[k] != v:
+            wrong.append(f"{k}={now[k]}, not {v}")
+    if wrong:
+        print("not as asked: " + "; ".join(wrong))
+        return 1
+    if changes:
+        print(f"settings changed: {len(changes)} (some count from the console's next start: WiFi, "
+              "the network console's code, the GPU)")
+    return 0
 
 
 def console_version(host):
@@ -161,7 +245,13 @@ def main():
     ap.add_argument("--kernel", metavar="FILE",
                     help="write the kernel (kernel.img; kernel7.img on a Pi Zero 2 W, kernel8.img on "
                          "the RGB30) and restart the console")
+    ap.add_argument("--config", nargs="*", metavar="KEY=VALUE",
+                    help="the console's bm/config.txt: shown (secrets hidden), KEY=VALUE sets a key, "
+                         "KEY= removes it")
     args = ap.parse_args()
+
+    if args.config is not None:
+        return config(args, args.password or getpass.getpass("password: "))
 
     jobs = [(b"S", args.send), (b"P", args.play), (b"K", args.kernel)]
     jobs = [(op, f) for op, f in jobs if f]

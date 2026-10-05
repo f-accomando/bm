@@ -782,9 +782,17 @@ $(BUILD)/host/test_fat: tests/fs/test_fat.c src/fs/fat.c src/fs/fat.h src/driver
 
 # Network console on lwIP's loopback interface (the WiFi chip is not in QEMU),
 # then lwIP on the Pi 1 B's Ethernet with a simulated LAN9512 and a DHCP peer
-test-net: $(BUILD)/host/test_netcon $(BUILD)/host/test_ethnet
+test-net: $(BUILD)/host/test_netcon $(BUILD)/host/test_ethnet $(BUILD)/host/test_config
 	$(BUILD)/host/test_netcon
 	$(BUILD)/host/test_ethnet
+	$(BUILD)/host/test_config
+	$(PYTHON) tests/net/check_bm_net_config.py
+
+# bm/config.txt (src/kernel/config.c): the file, and the settings from the PC
+# (netxfer's C, bm_net.py --config, easy_install.sh)
+$(BUILD)/host/test_config: tests/kernel/test_config.c src/kernel/config.c src/kernel/config.h src/lib/printf.c
+	@mkdir -p $(dir $@)
+	$(HOSTCC) -O1 -Wall -Wextra -Isrc -o $@ tests/kernel/test_config.c src/kernel/config.c src/lib/printf.c
 
 $(BUILD)/host/test_ethnet: tests/net/test_ethnet.c src/net/net.c src/net/net.h src/net/cartnet.c src/net/cartnet.h \
                            src/kernel/fiber.h src/usb/smsc95xx.c src/usb/smsc95xx.h tests/usb/lan9512_sim.c \

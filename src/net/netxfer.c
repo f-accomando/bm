@@ -1,9 +1,12 @@
 /*
  * The transfer server: the receive callback fills a header, then a
  * buffer; the SD card is written from netxfer_poll, outside lwIP.
+ * S saves a file, P plays a cartridge, K writes the kernel, C changes
+ * bm/config.txt ("key=value" lines; the answer has the settings after).
  */
 #include "netxfer.h"
 #include "netcon.h"
+#include "kernel/config.h"
 #include "drivers/timer.h"
 #include "drivers/watchdog.h"
 #include "fs/fat.h"
@@ -16,6 +19,8 @@
 #include <string.h>
 
 #define MAX_SIZE (32u << 20)
+#define CONFIG_MAX (16u << 10)          /* the lines of a C */
+#define CONFIG_REPLY (8u << 10)         /* the settings after it: under TCP_SND_BUF */
 
 static struct tcp_pcb *listener, *peer;
 static enum { IDLE, HEADER, DATA, DONE, REPLIED } st;
@@ -39,6 +44,19 @@ static void reply(const char *two)
         tcp_write(peer, two, 2, TCP_WRITE_FLAG_COPY);
         tcp_output(peer);
     }
+}
+
+/* the answer and a length-prefixed text after it (C) */
+static void reply_text(const char *two, const char *text, uint32_t len)
+{
+    if (!peer)
+        return;
+    const uint8_t n[4] = { (uint8_t)len, (uint8_t)(len >> 8), (uint8_t)(len >> 16), (uint8_t)(len >> 24) };
+    tcp_write(peer, two, 2, TCP_WRITE_FLAG_COPY | TCP_WRITE_FLAG_MORE);
+    tcp_write(peer, n, 4, TCP_WRITE_FLAG_COPY | (len ? TCP_WRITE_FLAG_MORE : 0));
+    if (len)
+        tcp_write(peer, text, (u16_t)len, TCP_WRITE_FLAG_COPY);
+    tcp_output(peer);
 }
 
 static void fail(const char *two)
@@ -79,7 +97,7 @@ static int parse_header(void)
     unsigned n = 6;
     if (hdr_len < n)
         return 1;
-    if (memcmp(hdr, "BMXF", 4) != 0 || (hdr[4] != 'S' && hdr[4] != 'P' && hdr[4] != 'K'))
+    if (memcmp(hdr, "BMXF", 4) != 0 || (hdr[4] != 'S' && hdr[4] != 'P' && hdr[4] != 'K' && hdr[4] != 'C'))
         return -1;
     unsigned pl = hdr[5];
     n += pl + 1;
@@ -123,13 +141,13 @@ static void feed(const uint8_t *p, unsigned len)
                 fail(r == -2 ? "PW" : "BH");
                 return;
             }
-            if (size == 0 || size > MAX_SIZE || !(buf = malloc(size))) {
+            if (size == 0 || size > (op == 'C' ? CONFIG_MAX : MAX_SIZE) || !(buf = malloc(size))) {
                 fail("SZ");
                 return;
             }
             reply("OK");
             kprintf("net: receiving %s (%lu bytes)...\n",
-                    op == 'K' ? "a new kernel" : path, size);
+                    op == 'K' ? "a new kernel" : op == 'C' ? "settings" : path, size);
             st = DATA;
             got = 0;
             said = -1;
@@ -302,6 +320,20 @@ void netxfer_poll(void)
             buf = NULL;
             reply("OK");
             kprintf("net: cartridge received, starting it\n");
+            reset();
+        } else if (op == 'C') {
+            char *list = malloc(CONFIG_REPLY);
+            const int r = list ? config_merge((const char *)buf, size, list, CONFIG_REPLY) : -2;
+            if (r == -2) {
+                reply("SZ");
+            } else if (r < 0) {
+                reply("KV");
+                kprintf("\x1b[91mnet: settings refused (not key=value lines), nothing changed\x1b[0m\n");
+            } else {
+                reply_text("OK", list, (uint32_t)strlen(list));
+                kprintf("\x1b[92mnet: settings from the PC: %d changed in bm/config.txt\x1b[0m\n", r);
+            }
+            free(list);
             reset();
         } else if (op == 'K' && !kernel_fits(buf, size)) {
             reply("KA");

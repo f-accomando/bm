@@ -31,6 +31,16 @@ static char saved_pw[40];
 const char *config_get(const char *key) { return strcmp(key, "net_password") ? NULL : cfg_pw; }
 void config_set(const char *key, const char *value) { (void)key; snprintf(saved_pw, sizeof saved_pw, "%s", value); }
 void config_save(void) {}
+/* netxfer's C: the lines it got; "bad" in them is a wrong line */
+static char merged[256];
+int config_merge(const char *text, size_t len, char *out, size_t out_len)
+{
+    snprintf(merged, sizeof merged, "%.*s", (int)len, text);
+    if (strstr(merged, "bad"))
+        return -1;
+    snprintf(out, out_len, "layout=it\ngithub_token=(hidden, 3 characters)\n");
+    return 1;
+}
 static uint32_t fake_us;                /* advanced by spin() */
 uint32_t timer_ticks(void) { return fake_us; }
 void timer_delay_ms(uint32_t ms) { fake_us += ms * 1000; }
@@ -262,6 +272,44 @@ int main(void)
     static uint8_t file[100000];
     for (unsigned i = 0; i < sizeof file; i++)
         file[i] = (uint8_t)(i * 7 + (i >> 8));
+
+    /* C: settings from the PC, the answer has them after */
+    for (int bad = 0; bad < 2; bad++) {
+        const char *lines = bad ? "bad line\n" : "github_token=abc\nlayout=it\n";
+        const char *list = "layout=it\ngithub_token=(hidden, 3 characters)\n";
+        client_t x;
+        connect_port(&x, NETXFER_PORT);
+        uint8_t h[64];
+        unsigned n = 0;
+        uint32_t sz = (uint32_t)strlen(lines), c = crc32(lines, sz);
+        memcpy(h, "BMXFC\x06secret\x0d" "bm/config.txt", 26); n = 26;
+        memcpy(h + n, &sz, 4); n += 4;
+        memcpy(h + n, &c, 4); n += 4;
+        tcp_write(x.pcb, h, (u16_t)n, TCP_WRITE_FLAG_COPY);
+        tcp_output(x.pcb);
+        spin(50);
+        check(x.len == 2 && memcmp(x.got, "OK", 2) == 0, bad ? "settings: wrong lines, the header taken" :
+              "settings: the header taken");
+        tcp_write(x.pcb, lines, (u16_t)sz, TCP_WRITE_FLAG_COPY);
+        tcp_output(x.pcb);
+        spin(100);
+        check(strcmp(merged, lines) == 0, "  the lines reach config_merge");
+        if (bad) {
+            check(x.len == 4 && memcmp(x.got + 2, "KV", 2) == 0, "  wrong lines: KV");
+        } else {
+            uint32_t ll = (uint32_t)strlen(list), got_ll;
+            memcpy(&got_ll, x.got + 4, 4);
+            check(x.len == 8 + ll && memcmp(x.got + 2, "OK", 2) == 0 && got_ll == ll &&
+                  memcmp(x.got + 8, list, ll) == 0, "  OK, then the length and the settings after");
+        }
+        if (x.pcb && !x.closed) {
+            tcp_recv(x.pcb, NULL);
+            tcp_err(x.pcb, NULL);
+            tcp_arg(x.pcb, NULL);
+            tcp_close(x.pcb);
+        }
+        spin(600);
+    }
 
     /* mark: what start.S puts at +4 of a kernel image (kernel.img or the
      * Pi Zero 2 W's kernel7.img); this is kernel.img's build. arm64: the
