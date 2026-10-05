@@ -1,0 +1,11 @@
+bm report
+kind: render
+kernel: v0.2.1
+branch: v0.2.1
+board: RGB30
+date: unknown (no network time)
+file: nodate-2097ce_render_rgb30_v0.2.1.txt
+
+
+Render bench: map, 256 sprites and text at 640x360 RGB565
+bm bench (map + 256 sprites): direct 4.90 ms, via RAM 7.30 ms
