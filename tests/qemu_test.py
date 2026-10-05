@@ -1975,6 +1975,11 @@ def test_bt_pair_and_reconnect(b, opts):
             time.sleep(0.2)
             chip.report(0x08)
             _mini_expect(q, "playing snake.bm")
+            # the pad drops: the log says why (the report of the log is all
+            # the user has to go on)
+            chip._event(0x05, bytes([0]) + chip.HANDLE.to_bytes(2, "little") + bytes([0x08]))
+            _mini_expect(q, "bt: controller 1c:66:6d:01:02:03 (player 1) disconnected after ")
+            _mini_expect(q, "radio link lost (distance, WiFi, battery) (reason 08)")
         finally:
             q.close()
     finally:

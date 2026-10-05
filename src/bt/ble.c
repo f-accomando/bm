@@ -1289,9 +1289,11 @@ static void connected(const uint8_t *e)
 static void link_down(uint8_t reason)
 {
     if (le->announced) {
-        kprintf("bt: %s disconnected (reason %02x)\n", kind_name(), reason);
+        kprintf("bt: %s disconnected after %u ms: %s (reason %02x)\n", kind_name(), (unsigned)since_ms(),
+                hci_reason(reason), reason);
     } else if (!pairing_me()) {
-        trace("%s link lost (reason %02x)", kind_name(), reason);
+        trace("%s link lost after %u ms: %s (reason %02x)", kind_name(), (unsigned)since_ms(),
+              hci_reason(reason), reason);
     }
     if (le->kind == LE_MOUSE)
         hid_mouse_clear(HID_MOUSE_BLE);

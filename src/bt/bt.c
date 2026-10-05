@@ -960,13 +960,23 @@ static void handle_event(const hci_pkt_t *p)
     }
     case 0x05:                                  /* Disconnection Complete */
         if (l) {
-            if (l->announced) {
+            /* the reason always, also for a paired pad that dropped before
+             * its channels opened: the log says who closed it and why */
+            int slot = l->slot >= 0 ? l->slot : key_slot(l->addr);
+            if (l->announced || slot >= 0) {
                 char as[18];
                 addr_str(as, l->addr);
-                if (l->slot == SLOT_MOUSE)
-                    kprintf("bt: mouse %s disconnected\n", as);
+                unsigned ms = (unsigned)((timer_ticks() - l->since) / 1000u);
+                const char *what = l->announced ? "disconnected" : "dropped before its channels opened";
+                if (slot == SLOT_MOUSE)
+                    kprintf("bt: mouse %s %s after %u ms: %s (reason %02x)\n", as, what, ms,
+                            hci_reason(e[3]), e[3]);
+                else if (slot >= 0)
+                    kprintf("bt: controller %s (player %d) %s after %u ms: %s (reason %02x)\n", as,
+                            slot + 1, what, ms, hci_reason(e[3]), e[3]);
                 else
-                    kprintf("bt: controller %s disconnected (player %d)\n", as, l->slot + 1);
+                    kprintf("bt: controller %s (not paired) %s after %u ms: %s (reason %02x)\n", as,
+                            what, ms, hci_reason(e[3]), e[3]);
             }
             link_close(l);
             bt.disc_reason = e[3];

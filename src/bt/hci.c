@@ -152,3 +152,23 @@ void hci_acl_send_pb(uint16_t handle, int pb, const void *data, uint16_t len)
                        (uint8_t)len, (uint8_t)(len >> 8) };
     tr->write(HCI_ACL, hdr, 4, data, len);
 }
+
+const char *hci_reason(uint8_t reason)
+{
+    switch (reason) {
+    case 0x05: return "it refused the saved key: pair it again";
+    case 0x06: return "it has no key for this console: pair it again";
+    case 0x08: return "radio link lost (distance, WiFi, battery)";
+    case 0x13: return "it closed the link (switched off, or another console)";
+    case 0x14: return "it closed the link (low resources)";
+    case 0x15: return "it is switching off";
+    case 0x16: return "bm closed the link";
+    case 0x1A: return "it does not support what bm asked";
+    case 0x22: return "no answer from it (LMP timeout)";
+    case 0x28: return "it took too long to answer";
+    case 0x3B: return "it refused the connection parameters";
+    case 0x3D: return "encryption failed (MIC)";
+    case 0x3E: return "the connection did not start";
+    default:   return "reason not known";
+    }
+}
