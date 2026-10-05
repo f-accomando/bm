@@ -24,7 +24,7 @@ SEC_MESH, SEC_ANIM = 8, 9            # src/bm/bm.h; the first bm Studio files ha
 SEC_AUDIO, SEC_OLD_ANIM = 6, 7
 TEXTURED = 0x80000000
 NAME_LEN = 16
-MAX_VERTS, MAX_FACES, MAX_MODELS = 4096, 16384, 256
+MAX_VERTS, MAX_FACES, MAX_MODELS = 65535, 65535, 256      # M39: 4096 and 16384 before
 
 
 def encode(models, inset=0.25):

@@ -69,11 +69,19 @@ int gpu3d_flush(const g16_t *g, int keep);
  * and not waited for yet. */
 int gpu3d_submit(const g16_t *g, int keep);
 int gpu3d_sync(void);
+/* M39: gpu3d_sync() if the started job draws on the page at px (the ARM is
+ * about to touch it), else nothing: the job of another page goes on (its
+ * memory, the meshes and textures it reads are waited for by the driver) */
+int gpu3d_sync_page(const void *px);
 int gpu3d_inflight(void);
 void gpu3d_set_queue(int on);
 int gpu3d_queue(void);                  /* on: asked for and possible */
 int gpu3d_queue_ok(void);               /* the probe saw a started job end right */
 int gpu3d_zclear_ok(void);              /* the probe saw zclear() inside a job work (with the queue) */
+/* M39: gpu3d_set_queue(2): the queue and two jobs in flight, each in its
+ * own memory: the ARM fills the next frame's job while the GPU draws this
+ * one (bm3d 5.1). gpu3d_queue2(): asked for and possible. */
+int gpu3d_queue2(void);
 
 /* M35, step 2: the memory of the jobs (lists, records, uniforms, vertices)
  * uncached, the ARM's writes merged by the write buffer, no cache line read
@@ -99,6 +107,12 @@ void gpu3d_tiled_textures(int on);
  * gpu3d_bilinear() what was asked. */
 void gpu3d_set_bilinear(int on);
 int gpu3d_bilinear(void);
+
+/* M39: opaque sheets as RGB565 textures in T-format (gpu3d_tex16=1), where
+ * the probe learned the layout: half the memory, half the TMU's reads, the
+ * same colours. gpu3d_tex16(): asked for and possible. */
+void gpu3d_set_tex16(int on);
+int gpu3d_tex16(void);
 int gpu3d_tiles(void);
 
 /* M36: whole meshes placed by the GPU's vertex shader instead of a
@@ -144,6 +158,8 @@ typedef struct {
     uint32_t queued;                /* jobs started and waited for later (M35) */
     uint32_t zinjob;                /* zclear() inside a job (M35) */
     uint32_t quads2d;               /* 2D drawn by the GPU over the 3D (M37) */
+    uint32_t glverts;               /* corners the vertex shader is given (M39: indexed, once each) */
+    uint32_t overlapped;            /* jobs filled while the one before was drawn (M39, two blocks) */
 } gpu3d_stats_t;
 
 /* totals since the last call, then zeroed */

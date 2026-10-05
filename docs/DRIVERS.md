@@ -116,6 +116,29 @@ stress test, il 3D Bench, il benchmark di Overbit e il quarto valore di `gpu3d()
   I pixel non sono più identici al bit (in `bench3d` cambiano solo le scene con la
   mappa); `count_insns`: −2,2% sfere, −3,6% Gouraud, −2,6% stanza nel lavoro per
   triangolo dell'ARM. Spento, il percorso è quello di prima (stessi checksum).
+- **5.0** (2026-10-05, M39): **mesh più grandi e indicizzate**. Un modello, una `mesh()` e
+  r3d arrivano a 65535 vertici e 65535 facce (prima 4096 e 16384: un modello da 10 000
+  triangoli andava spezzato; `bm.h`, `mkbm`/`bmmesh.py`, bm Studio, bm Mesh). Sulla GPU i
+  gruppi di una mesh tengono una volta sola gli angoli uguali parola per parola e li
+  disegnano con indici a 16 bit (`INDEXED_PRIMITIVE_LIST`): la V3D mette una volta un
+  angolo che sta su più facce (le figure lisce, le mappe con la luce per vertice). Una
+  prova all'avvio (`probe_index`, un quadrato di due triangoli con due angoli in comune)
+  lo spegne se non torna (`indexed no` nella riga di stato). Test `big` e `big_logic` del
+  3D Bench: modelli da 10 080 triangoli su una mappa da 14 112.
+- **5.1** (2026-10-05, M39): **due lavori in volo** (`gpu3d_queue=2`, *3D frame queue: On, 2
+  jobs*): la memoria di un lavoro in due blocchi, il lavoro dopo si riempie nell'altro
+  mentre la GPU disegna quello di prima (una volta sola si aspetta, quando parte). La
+  profondità tra i lavori, gli shader e la prova restano nel primo blocco. L'ARM aspetta la
+  GPU prima di toccare una pagina solo se è quella del lavoro in volo (`gpu3d_sync_page`).
+  L'emulatore ora esegue un lavoro avviato quando lo si aspetta, come la V3D: memoria
+  riusata sotto un lavoro o una pagina toccata prima di aspettarlo darebbero un'immagine
+  sbagliata. Profilo GPU+VS+Q2 del 3D Bench (`queue`, `split`).
+- **5.2** (2026-10-05, M39): **texture a 16 bit**: uno sheet tutto opaco va alla GPU come
+  RGB565 in T-format (`gpu3d_tex16=1`, *3D textures: ..., 16-bit*): metà memoria e metà
+  letture della TMU, gli stessi colori. Il layout (tile da 4 KiB di 64×32 texel) lo impara
+  la prova all'avvio come per le texture a 32 bit: una texture 128×64 dove la parola *i*
+  vale *i* e torna sulla pagina come sé stessa (o con rosso e blu scambiati). Gli sheet con
+  pixel trasparenti restano a 32 bit. Profilo GPU+T16 del 3D Bench.
 
 ## Le modalità: versioni vecchie sul codice di oggi
 
@@ -127,7 +150,9 @@ Le impostazioni riproducono le versioni precedenti, così si confrontano sullo s
 - GPU con il vertex shader per tutto (`gpu3d_vs=2`): **3.4**;
 - con il fotogramma in coda (`gpu3d_queue=1`): **4.1** (con o senza vertex shader);
 - con la memoria dei lavori senza cache (`gpu3d_wc=1`): **4.5**;
-- con il 2D sopra il 3D nel lavoro (`gpu3d_2d=1`): **4.8**.
+- con il 2D sopra il 3D nel lavoro (`gpu3d_2d=1`): **4.8**;
+- con due lavori in volo (`gpu3d_queue=2`): **5.1**;
+- con le texture a 16 bit (`gpu3d_tex16=1`): **5.2**.
 
 Quello che 4.2, 4.3, 4.4 e 4.6 hanno aggiunto (schermi fino a 1080p, `cls()` della GPU, il
 record GL in byte, niente early z dopo uno `zclear()` nel lavoro, 8 texture in un lavoro)

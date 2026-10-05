@@ -289,7 +289,8 @@ static void flush3d(int keep)
 {
     /* (a frame started on the GPU, M35: waited for, the page has it) */
     if (rt.r3d.backend &&
-        (((gpu3d_pending() || !keep) && gpu3d_flush(&rt.g, keep) != 0) || gpu3d_sync() != 0 || gpu3d_failed()))
+        (((gpu3d_pending() || !keep) && gpu3d_flush(&rt.g, keep) != 0) || gpu3d_sync_page(rt.g.px) != 0 ||
+         gpu3d_failed()))
         rt.r3d.backend = NULL;          /* the GPU failed: the ARM draws the 3D again */
     if (!d2.on)
         return;
@@ -1744,11 +1745,14 @@ static void gpu3d_maybe(void)
         const char *vs = config_get("gpu3d_vs");
         gpu3d_set_vshader(vs ? atoi(vs) : 0);           /* vertex shader: Settings (0, 1, 2) */
         const char *q = config_get("gpu3d_queue");
-        gpu3d_set_queue(q && strcmp(q, "1") == 0);      /* the frame in the queue (M35): Settings */
+        gpu3d_set_queue(q && (q[0] == '1' || q[0] == '2') ? q[0] - '0' : 0);  /* the frame in the queue (M35),
+                                                                                 two jobs in flight (M39) */
         const char *wc = config_get("gpu3d_wc");
         gpu3d_set_wc(wc && strcmp(wc, "1") == 0);       /* the jobs' memory uncached (M35): Settings */
         const char *bf = config_get("gpu3d_filter");
         gpu3d_set_bilinear(bf && strcmp(bf, "1") == 0); /* textures filtered (M37): Settings */
+        const char *t16 = config_get("gpu3d_tex16");
+        gpu3d_set_tex16(t16 && strcmp(t16, "1") == 0);  /* opaque textures in 16 bits (M39): Settings */
         const char *g2 = config_get("gpu3d_2d");
         rt.gpu2d = g2 && strcmp(g2, "1") == 0;          /* the 2D over the 3D in the job (M37): Settings */
         rt.r3d.backend = gpu3d_backend();
@@ -1869,8 +1873,8 @@ static int l_mesh(lua_State *L)
     luaL_checktype(L, 1, LUA_TTABLE);
     luaL_checktype(L, 2, LUA_TTABLE);
     int nv = (int)(luaL_len(L, 1) / 3), nf = (int)(luaL_len(L, 2) / 4);
-    luaL_argcheck(L, nv > 0 && nv <= 4096, 1, "1 to 4096 vertices");
-    luaL_argcheck(L, nf > 0 && nf <= 16384, 2, "1 to 16384 faces");
+    luaL_argcheck(L, nv > 0 && nv <= 65535, 1, "1 to 65535 vertices");
+    luaL_argcheck(L, nf > 0 && nf <= 65535, 2, "1 to 65535 faces");
     r3d_mesh_t *m = new_mesh(L);
     if (r3d_mesh_alloc(m, nv, nf) != 0)
         return luaL_error(L, "not enough memory for the mesh");
@@ -2669,7 +2673,7 @@ static int l_gpu3d(lua_State *L)
         if (!lua_isnoneornil(L, 3))
             gpu3d_set_vshader(lua_isboolean(L, 3) ? 2 * lua_toboolean(L, 3) : (int)luaL_checkinteger(L, 3));
         if (!lua_isnoneornil(L, 4))
-            gpu3d_set_queue(lua_toboolean(L, 4));
+            gpu3d_set_queue(lua_isinteger(L, 4) ? (int)lua_tointeger(L, 4) : lua_toboolean(L, 4));
     }
     lua_pushboolean(L, r->backend != NULL);
     lua_pushboolean(L, r->backend != NULL && gpu3d_msaa_on());

@@ -12,12 +12,14 @@
  * ARM alone is 0.2, the GPU without its vertex shader 2.1, with it for the
  * scenery 3.0, for every model 3.4, with the frame in the queue 4.1, with
  * the jobs' memory uncached 4.5 (gpu3d_wc: the 3D Bench's GPU+WC), with
- * the 2D over the 3D in the job 4.8 (gpu3d_2d: GPU+2D). 0.1
+ * the 2D over the 3D in the job 4.8 (gpu3d_2d: GPU+2D), with two jobs in
+ * flight 5.1 (gpu3d_queue=2: GPU+VS+Q2), with 16-bit textures 5.2
+ * (gpu3d_tex16: GPU+T16). 0.1
  * and 1.0 no longer run: the 3D Bench shows the numbers measured on the Pi
  * with them.
  */
-#define BM3D_VERSION "4.9"
-#define BM3D_BLOCK   "M37"
+#define BM3D_VERSION "5.2"
+#define BM3D_BLOCK   "M39"
 
 typedef struct {
     const char *version, *block, *date, *what;
@@ -47,6 +49,9 @@ static inline const bm3d_version_t *bm3d_versions(int *n)
         { "4.7", "M34", "2026-10-05", "textured screen-door faces on the GPU too (the last case left to the ARM)" },
         { "4.8", "M37", "2026-10-05", "2D over the 3D in the GPU's job, pixel for pixel; textures filtered (options)" },
         { "4.9", "M37", "2026-10-05", "the ARM's 3D: one matrix a model, lit in its own axes (option r3d_fast)" },
+        { "5.0", "M39", "2026-10-05", "meshes up to 65535 vertices; indexed: a shared corner shaded once" },
+        { "5.1", "M39", "2026-10-05", "two jobs in flight: a job filled while the one before is drawn (option)" },
+        { "5.2", "M39", "2026-10-05", "opaque textures as RGB565 in tiles, layout learned by the probe (option)" },
     };
     *n = (int)(sizeof v / sizeof v[0]);
     return v;

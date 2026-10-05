@@ -1041,7 +1041,7 @@ static int clip_near(const cv_t in[3], cv_t out[4])
     return n;
 }
 
-#define MAX_VERTS 4096
+#define MAX_VERTS 65535                 /* a mesh's (M39, bm3d 5.0: 4096 before) */
 /* triangles smaller than this (twice the area, in pixels) are drawn in one
  * colour: below it the setup of the colour gradients costs more than the
  * pixels, and a gradient over a dozen pixels does not show */

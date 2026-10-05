@@ -605,6 +605,143 @@ SHADERS = {
     """,
 }
 
+# M39: the textured shaders with a thread switch: while the TMU fetches
+# the texel the QPU runs the other thread (the record's flag 0 lets two
+# fragment shaders share a QPU). After the switch (two delay slots) the
+# accumulators are lost, so what the end needs is in the register file
+# (rb1, ra1); the texel is read after it, as Mesa's rules want
+# (check_threaded). The last (only) switch is lthrsw.
+SHADERS["fs_tex_lit_t"] = """
+        nop                 ; nop
+        nop                 ; nop
+        mov r3, ra15        ; nop                       # W
+        mov r0, vary        ; nop                       # s
+        fmul r0, r0, r3     ; nop
+        fadd r0, r0, r5     ; nop
+        mov r1, vary        ; nop                       # t
+        fmul r1, r1, r3     ; nop
+        fadd r1, r1, r5     ; nop
+        mov t0t, r1         ; nop
+        mov t0s, r0         ; nop                       # starts the lookup
+        mov r2, vary        ; nop                       # k
+        fmul r2, r2, r3     ; nop
+        fadd r2, r2, r5     ; nop           ; lthrsw    # the other thread, after two more
+        nop                 ; mov rb1.8888, r2          # k in the four bytes, kept
+        nop                 ; nop
+        nop                 ; nop           ; sbwait
+        mov tlb_z, rb15     ; nop
+        nop                 ; nop           ; ldtmu0    # r4 = texel
+        v8muld r0, r4, rb1  ; nop                       # texel * k
+        mov tlbc, r0        ; nop           ; thrend
+        nop                 ; nop
+        nop                 ; nop           ; sbdone
+"""
+
+SHADERS["fs_tex_rgb_t"] = """
+        nop                 ; nop
+        nop                 ; nop
+        mov r0, vary        ; nop                       # s
+        fmul r0, r0, ra15   ; nop
+        fadd r0, r0, r5     ; nop
+        mov r1, vary        ; nop                       # t
+        fmul r1, r1, ra15   ; nop
+        fadd r1, r1, r5     ; nop
+        mov t0t, r1         ; nop
+        mov t0s, r0         ; nop                       # starts the lookup
+        mov r0, vary        ; nop                       # light, byte a
+        fmul r0, r0, ra15   ; nop
+        fadd r0, r0, r5     ; nop
+        mov r1, vary        ; mov r2.8a, r0             # light, byte b
+        fmul r1, r1, ra15   ; nop
+        fadd r1, r1, r5     ; nop
+        mov r0, vary        ; mov r2.8b, r1             # light, byte c
+        fmul r0, r0, ra15   ; nop
+        fadd r0, r0, r5     ; nop
+        mov r1, vary        ; mov r2.8c, r0             # fog, byte a
+        fmul r1, r1, ra15   ; nop
+        fadd r1, r1, r5     ; nop
+        mov r0, vary        ; mov r3.8a, r1             # fog, byte b
+        fmul r0, r0, ra15   ; nop
+        fadd r0, r0, r5     ; nop
+        mov r1, vary        ; mov r3.8b, r0             # fog, byte c
+        fmul r1, r1, ra15   ; nop
+        fadd r1, r1, r5     ; nop
+        nop                 ; mov r3.8c, r1
+        nop                 ; mov r2.8d, 1.0            # the texel's alpha stays
+        nop                 ; mov r3.8d, 0
+        mov ra1, r2         ; mov rb1, r3   ; lthrsw    # light and fog, kept; the other thread after two more
+        nop                 ; nop
+        nop                 ; nop
+        nop                 ; nop           ; sbwait
+        mov tlb_z, rb15     ; nop
+        nop                 ; nop           ; ldtmu0    # r4 = texel
+        v8muld r0, r4, ra1  ; nop                       # texel * light / 2
+        v8adds r0, r0, r0   ; nop                       # * 2
+        v8adds r0, r0, rb1  ; nop                       # + fog
+        mov tlbc, r0        ; nop           ; thrend
+        nop                 ; nop
+        nop                 ; nop           ; sbdone
+"""
+
+
+def check_threaded(name, code):
+    """Mesa's rules for a fragment shader with thread switches (vc4_qpu_
+    validate.c): no switch with the scoreboard locked (after sbwait or a
+    TLB write), none after lthrsw nor while one is queued, every texel read
+    (ldtmu) after a switch that came after its request, and no accumulator
+    read after a switch before it is written again"""
+    TLB = (WADDR["tlb_z"], WADDR["tlbc"], WADDR["tlbc_ms"], WADDR["tlb_alpha"], WADDR["tlb_stencil"])
+    tmu_s = (WADDR["t0s"], WADDR["t1s"])
+    locked = last = False
+    queued_until = -1
+    pending = before = 0                # texel requests since the last switch, and before it
+    lost = set()                        # accumulators not written since the switch took place
+    switch_at = None
+    for i, ((lo, hi), text) in enumerate(code):
+        sig = hi >> 28
+        if switch_at is not None and i == switch_at:
+            if before:
+                raise SyntaxError(f"{name}: switch with texels of the switch before still to read")
+            before, pending = pending, 0
+            lost = {0, 1, 2, 3, 5}
+            switch_at = None
+        waddr_add, waddr_mul = hi >> 6 & 63, hi & 63
+        if sig == SIGNALS["sbwait"] or waddr_add in TLB or waddr_mul in TLB:
+            locked = True
+        if sig not in (13, 14):
+            add_a, add_b, mul_a, mul_b = lo >> 9 & 7, lo >> 6 & 7, lo >> 3 & 7, lo & 7
+            op_add, op_mul = lo >> 24 & 31, lo >> 29 & 7
+            used = ([add_a, add_b] if op_add else []) + ([mul_a, mul_b] if op_mul else [])
+            for m in used:
+                if m in lost:
+                    raise SyntaxError(f"{name}: r{m} read at {i} after the thread switch ({text})")
+        if sig in (SIGNALS["thrsw"], SIGNALS["lthrsw"]):
+            if locked:
+                raise SyntaxError(f"{name}: thread switch at {i} with the scoreboard locked")
+            if last:
+                raise SyntaxError(f"{name}: thread switch at {i} after lthrsw")
+            if i < queued_until:
+                raise SyntaxError(f"{name}: thread switch at {i} with one queued")
+            last = sig == SIGNALS["lthrsw"]
+            queued_until = switch_at = i + 3
+        if sig in (SIGNALS["ldtmu0"], SIGNALS["ldtmu1"]):
+            if not before:
+                raise SyntaxError(f"{name}: texel read at {i} with nothing from before the switch")
+            before -= 1
+            lost.discard(4)
+        for w in (waddr_add, waddr_mul):
+            if w in tmu_s:
+                pending += 1
+            if 32 <= w <= 35:
+                lost.discard(w - 32)
+            if w == 37:
+                lost.discard(5)
+        if sig == 14:                       # load immediate: its destination
+            lost.discard(waddr_add - 32) if 32 <= waddr_add <= 35 else None
+    if not last:
+        raise SyntaxError(f"{name}: no lthrsw")
+
+
 # Vertex and coordinate shaders for the GL shader state (M36): the V3D
 # reads the vertices of a mesh, the QPUs place them. The VCD puts word k of
 # the attributes of 16 vertices in row k of the VPM; a read of "vpm" gives
@@ -1383,7 +1520,9 @@ def self_test():
             if len(got) != len(words):
                 print(f"reference {i}: {len(got)} words, expected {len(words)}")
     for name, src in SHADERS.items():
-        assemble(src)
+        code = assemble(src)
+        if name.endswith("_t"):
+            check_threaded(name, code)
     print("qpuasm: " + ("ok" if ok else "FAILED"))
     return ok
 

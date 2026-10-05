@@ -178,11 +178,11 @@ static const char *vs_choice(void)
 }
 
 /* gpu3d_queue=1 (M35): the end of a frame's 3D starts on the GPU and the
- * game's next _update runs meanwhile */
+ * game's next _update runs meanwhile; 2 (M39): and two jobs in flight */
 static int queue_on(void)
 {
     const char *on = config_get("gpu3d_queue");
-    return on && strcmp(on, "1") == 0;
+    return on && (on[0] == '1' || on[0] == '2') ? on[0] - '0' : 0;
 }
 
 static const char *queue_choice(void)
@@ -191,7 +191,7 @@ static const char *queue_choice(void)
         return "Off";
     if (gpu3d_ready() && !gpu3d_queue_ok())
         return "On: not on this GPU";
-    return "On";
+    return queue_on() == 2 ? "On, 2 jobs" : "On";
 }
 
 /* gpu3d_2d=1 (M37): the 2D over the 3D drawn by the GPU in its job */
@@ -435,8 +435,9 @@ void home_panel(int id, home_panel_t *p)
                  "Drawn by the ARM after the GPU, or by the GPU in the same job", "%s",
                  gpu2d_on() ? "GPU" : "ARM");
         home_row(p, MENU_ROW_CHOICE, R_FILTER, "3D textures",
-                 "The nearest texel as the ARM, or filtered by the GPU (smoother)", "%s",
-                 filter_on() ? "Bilinear" : "Nearest");
+                 "Nearest texel or filtered (smoother); 16-bit: opaque ones in half the memory", "%s",
+                 filter_on() ? (config_on("gpu3d_tex16") ? "Bilinear, 16-bit" : "Bilinear")
+                             : (config_on("gpu3d_tex16") ? "Nearest, 16-bit" : "Nearest"));
         home_row(p, MENU_ROW_CHOICE, R_WC, "3D job memory",
                  "Cached, or uncached with the ARM's writes merged (compare: 3D Bench)", "%s",
                  wc_on() ? "Uncached" : "Cached");
@@ -900,21 +901,28 @@ void home_act(int id, int row, int how, home_do_t *d)
         ksnprintf(d->note, sizeof d->note, "3D vertices of the next game: %s", vs_choice());
         break;
     }
-    case R_QUEUE:
-        config_set("gpu3d_queue", queue_on() ? "0" : "1");
+    case R_QUEUE: {
+        static const char *const next[3] = { "1", "2", "0" };
+        config_set("gpu3d_queue", next[queue_on()]);
         config_save();
         ksnprintf(d->note, sizeof d->note, "3D frame queue of the next game: %s", queue_choice());
         break;
+    }
     case R_2D:
         config_set("gpu3d_2d", gpu2d_on() ? "0" : "1");
         config_save();
         ksnprintf(d->note, sizeof d->note, "2D over the 3D of the next game: %s", gpu2d_on() ? "GPU" : "ARM");
         break;
-    case R_FILTER:
-        config_set("gpu3d_filter", filter_on() ? "0" : "1");
+    case R_FILTER: {
+        /* nearest, bilinear, nearest 16-bit, bilinear 16-bit (M37, M39) */
+        const int k = (filter_on() + 2 * config_on("gpu3d_tex16") + 1) & 3;
+        config_set("gpu3d_filter", k & 1 ? "1" : "0");
+        config_set("gpu3d_tex16", k & 2 ? "1" : "0");
         config_save();
-        ksnprintf(d->note, sizeof d->note, "3D textures of the next game: %s", filter_on() ? "bilinear" : "nearest");
+        ksnprintf(d->note, sizeof d->note, "3D textures of the next game: %s%s", k & 1 ? "bilinear" : "nearest",
+                  k & 2 ? ", 16-bit" : "");
         break;
+    }
     case R_WC:
         config_set("gpu3d_wc", wc_on() ? "0" : "1");
         config_save();

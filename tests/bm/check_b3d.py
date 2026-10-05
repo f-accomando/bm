@@ -7,7 +7,7 @@ import sys
 
 TESTS = ["spheres", "spheres_smooth", "spheres_tex", "spheres_unlit", "spheres_baked", "spheres_shine", "heroes",
          "heroes_tex", "heroes_skin", "heroes_shadow", "clip", "tiny", "draws", "quad_flat", "quad_smooth", "quad_tex", "quad_alpha",
-         "quad_screen", "quad_texscreen", "texswap", "split", "match", "queue", "bilinear", "gpu2d"]
+         "quad_screen", "quad_texscreen", "texswap", "split", "match", "queue", "bilinear", "gpu2d", "big", "big_logic"]
 FUTURE = []
 
 

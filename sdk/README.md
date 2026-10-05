@@ -58,7 +58,7 @@ modelli sulla console, così si prova subito sul Pi.
   posteriori nascoste si vede come sul Pi (la stessa convenzione della console: una
   faccia si vede da un lato solo). "Colours of the console" mostra i colori RGB565.
 - La barra in basso conta facce, triangoli e angoli del modello e avvisa quando è
-  pesante per i 60 fps (circa 1200 triangoli per scena) o supera i 4096 angoli.
+  pesante per i 60 fps (circa 1200 triangoli per scena) o supera i 65535 angoli.
 
 **Pagina Pixel** (`Tab`): lo sprite sheet a tutto schermo, con matita (`B`), gomma (`E`),
 riempimento (`G`), contagocce (`I`, o clic destro), linea (`L`), rettangolo (`U`),
@@ -123,7 +123,8 @@ strumenti di bm Studio da `mkmodels.js`; `models.glb` si apre nello Studio).
 
 ## Limiti
 
-- Un modello ha al massimo **4096 angoli** e 16384 triangoli (oltre, lo Studio non salva);
+- Un modello ha al massimo **65535 angoli** e 65535 triangoli (oltre, lo Studio non salva; fino
+  al 2026-10-05 erano 4096 e 16384, e un kernel di prima rifiuta un modello più grande);
   la console disegna circa **1200 triangoli a 60 fps** per scena.
 - Pixel pieni o trasparenti (alfa < 128 = trasparente), come per gli sprite.
 - Le texture che si ripetono (uv fuori da 0..1) non ci sono: bm allunga il bordo.

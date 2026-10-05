@@ -150,7 +150,7 @@ async function testFiles(out) {
 
   // limits the kernel would refuse
   const many = { name: 'big', faces: [] };
-  for (let i = 0; i < 1100; i++) many.faces.push({ p: [[i, 0, 0], [i, 1, 0], [i + 0.5, 1, 0], [i + 0.5, 0, 0]], uv: [[0, 0], [0, 0], [0, 0], [0, 0]], c: 1 });
+  for (let i = 0; i < 17000; i++) many.faces.push({ p: [[i, 0, 0], [i, 1, 0], [i + 0.5, 1, 0], [i + 0.5, 0, 0]], uv: [[0, 0], [0, 0], [0, 0], [0, 0]], c: 1 });
   check(BM.checkProject({ ...p, models: [many] }).some(s => s.includes('vertices')), 'too many vertices found');
   check(BM.checkProject({ ...p, models: [{ name: 'a', faces: src }, { name: 'a', faces: src }] }).length === 1, 'two models with one name');
   check(BM.checkProject({ ...p, models: [{ name: 'a_very_long_name', faces: src }] }).length === 1, 'name too long');

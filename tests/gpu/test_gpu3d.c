@@ -782,9 +782,11 @@ int main(int argc, char **argv)
     CHECK(gpu3d_init() == 0, "init: %s (%s)", gpu3d_status(), emu_error);
     char want[200];
     static const char *const clips[3] = { "yes", "no", "yes (Z planes)" };
-    snprintf(want, sizeof want, "byte a = %s, texels %s, textures in %s, MSAA %s, vertex shader %s, clipping %s, "
+    snprintf(want, sizeof want, "byte a = %s, texels %s, textures in %s, MSAA %s, 16-bit textures %s, vertex shader %s, "
+             "indexed yes, clipping %s, "
              "lit models yes, queue yes, zclear in job %s", emu_red_a ? "red" : "blue", emu_tex_swap ? "swapped" : "in place",
              emu_tformat == 2 ? "rows" : "tiles", emu_ms_load_one ? "on cleared pages" : "on any page",
+             emu_tformat == 2 ? "no" : "yes",
              emu_vpm_words ? (emu_cw_flip ? "yes (VPM in words)" : "yes (cw, VPM in words)")
                            : emu_cw_flip ? "yes" : "yes (cw)", clips[emu_clip], emu_hang_zclear ? "no" : "yes");
     CHECK(strstr(gpu3d_status(), want) != NULL, "probe: '%s', expected '%s'", gpu3d_status(), want);
@@ -845,6 +847,30 @@ int main(int argc, char **argv)
             save(pg[1], 640, 360, sc_name[sc], "gl");
         }
     }
+    /* M39: opaque sheets as RGB565 textures: the same pixels as 32-bit */
+    {
+        uint16_t *q[2] = { test_aligned_alloc(16, 640 * 360 * 2), test_aligned_alloc(16, 640 * 360 * 2) };
+        for (int k = 0; k < 2; k++) {
+            g16_t g;
+            r3d_t r;
+            g16_target(&g, q[k], 640, 640, 360, &font);
+            g16_cls(&g, g16_rgb(30, 20, 50));
+            r3d_init(&r, &g);
+            r.backend = gpu3d_backend();
+            gpu3d_drop();
+            r3d_zclear(&r);
+            gpu3d_set_tex16(k);
+            s_sheets10(&r, &g, 1);
+            CHECK(!k || gpu3d_tex16() == (emu_tformat != 2), "16-bit textures: not on");
+            gpu3d_set_tex16(0);
+            r3d_free(&r);
+        }
+        int differ = 0;
+        for (int i = 0; i < 640 * 360; i++)
+            differ += q[0][i] != q[1][i];
+        printf("  RGB565 textures: %d pixels differ from 32-bit ones\n", differ);
+        CHECK(differ == 0, "16-bit textures: %d pixels differ", differ);
+    }
     /* M37: the textures filtered (bilinear): the same scene changes, but
      * only a little (the magnified floor smooths its squares' edges) */
     {
@@ -888,6 +914,54 @@ int main(int argc, char **argv)
         printf("  enlarged %dx%d %d times by the GPU: %d pixels differ\n", FW, FH, K, differ);
         CHECK(differ == 0, "enlarge: %d pixels differ from the nearest", differ);
     }
+    /* M39: two jobs in flight (gpu3d_set_queue(2)): a frame's job started
+     * and not waited for, the next frame's filled in the other block on
+     * another page meanwhile, then both: the pictures of one at a time (the
+     * emulator runs a started job when it is waited for: memory the driver
+     * reused under it would show) */
+    {
+        gpu3d_stats_t s0;
+        gpu3d_take_stats(&s0);
+        static const int sc[3] = { 0, 1, 8 };           /* spheres, textures, overbit */
+        uint16_t *one[3], *two[3];
+        for (int pass = 0; pass < 2; pass++) {
+            for (int k = 0; k < 3; k++) {
+                const int si = sc[k], w = scenes[si].w, h = scenes[si].h;
+                uint16_t *pgk = test_aligned_alloc(16, (size_t)w * h * 2);
+                (pass ? two : one)[k] = pgk;
+                g16_t g;
+                r3d_t r;
+                g16_target(&g, pgk, (uint32_t)w, w, h, &font);
+                g16_cls(&g, g16_rgb(30, 20, 50));
+                r3d_init(&r, &g);
+                r.backend = gpu3d_backend();
+                if (k == 0)
+                    gpu3d_drop();
+                r3d_zclear(&r);
+                gpu3d_set_queue(pass ? 2 : 0);
+                use_queue = pass;
+                if (pass) {
+                    scenes[si].fn(&r, &g, 0);       /* the triangles into the job, ... */
+                    CHECK(gpu3d_submit(&g, 0) == 0, "two jobs: submit %s", emu_error);   /* ... started */
+                } else {
+                    scenes[si].fn(&r, &g, 1);
+                }
+                use_queue = 0;
+                r3d_free(&r);
+            }
+            CHECK(gpu3d_sync() == 0, "two jobs: %s", emu_error);
+            gpu3d_set_queue(0);
+        }
+        int differ = 0;
+        for (int k = 0; k < 3; k++)
+            for (int i = 0; i < scenes[sc[k]].w * scenes[sc[k]].h; i++)
+                differ += one[k][i] != two[k][i];
+        gpu3d_take_stats(&s0);
+        printf("  two jobs in flight: %u jobs filled while the one before was drawn, %d pixels differ from one job "
+               "at a time\n", s0.overlapped, differ);
+        CHECK(differ == 0 && gpu3d_queue2() == 0 && s0.overlapped >= 2, "two jobs in flight: %d pixels differ, %u "
+              "overlapped", differ, s0.overlapped);
+    }
     /* M35: every scene again with its end started on the V3D (semaphores,
      * gpu3d_submit) and waited for, its zclear()s inside the job (fs_zclear):
      * the same pixels */
@@ -928,6 +1002,9 @@ int main(int argc, char **argv)
     st.jobs += st0.jobs;
     st.tris += st0.tris;
     CHECK(st.jobs >= 5, "%u jobs", st.jobs);
+    printf("  vertex shader: %u corners shaded for %u indexed (M39)\n", emu_stats.glverts, emu_stats.glindexed);
+    CHECK(emu_stats.glindexed > 0 && emu_stats.glverts < emu_stats.glindexed, "indexed meshes: %u shaded for %u",
+          emu_stats.glverts, emu_stats.glindexed);
     printf("gpu3d: %u jobs, %u triangles; %d/%d checks passed\n", st.jobs, st.tris, checks - failures, checks);
     return failures ? 1 : 0;
 }

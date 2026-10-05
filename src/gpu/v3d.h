@@ -89,6 +89,8 @@ void v3d_cl_f32(v3d_cl_t *cl, float v);
 #define V3D_STORE_MS_TILE_BUFFER_EOF    25
 #define V3D_STORE_TILE_BUFFER_GENERAL   28
 #define V3D_LOAD_TILE_BUFFER_GENERAL    29
+#define V3D_INDEXED_PRIMITIVE_LIST      32      /* mode | type, count, indices' address, max index */
+#define V3D_INDEX_U16                   0x10    /* its type: 16-bit indices */
 #define V3D_VERTEX_ARRAY_PRIMITIVES     33
 #define V3D_NV_SHADER_STATE             65
 #define V3D_GL_SHADER_STATE             64      /* the record's address | its number of attributes */

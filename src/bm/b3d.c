@@ -44,7 +44,7 @@ static g16_t *g;
 
 /* ---------------------------------------------------------------- profiles */
 
-enum { PF_ARM, PF_GPU, PF_AA, PF_VS1, PF_VS, PF_VSQ, PF_Q, PF_WC, PF_2D, NPROF };
+enum { PF_ARM, PF_GPU, PF_AA, PF_VS1, PF_VS, PF_VSQ, PF_Q, PF_WC, PF_2D, PF_VSQ2, PF_T16, NPROF };
 #define M_ARM (1u << PF_ARM)
 #define M_GPU (1u << PF_GPU)
 #define M_AA  (1u << PF_AA)
@@ -54,20 +54,24 @@ enum { PF_ARM, PF_GPU, PF_AA, PF_VS1, PF_VS, PF_VSQ, PF_Q, PF_WC, PF_2D, NPROF }
 #define M_Q   (1u << PF_Q)              /* the queue without the vertex shader (M35, bm3d 4.4) */
 #define M_WC  (1u << PF_WC)             /* the GPU with the jobs' memory uncached (M35, bm3d 4.5) */
 #define M_2D  (1u << PF_2D)             /* the GPU with the 2D over the 3D in its job (M37, bm3d 4.8) */
+#define M_VSQ2 (1u << PF_VSQ2)          /* GPU+VS+Q with two jobs in flight (M39, bm3d 5.1) */
+#define M_T16 (1u << PF_T16)            /* the GPU with opaque textures in 16 bits (M39, bm3d 5.2) */
 #define M_ALL (M_ARM | M_GPU | M_VS1 | M_VS)
 #define M_LIT (M_ARM | M_GPU | M_VS)    /* models lit by the sun: VS1 is the GPU for them */
 
 /* queue (M35): the end of each frame started on the GPU, the ARM's work of
  * the frame (the test's `work`) done meanwhile */
-static const struct { const char *name; int gpu, aa, vs, queue, wc, two_d; } prof[NPROF] = {
-    { "ARM", 0, 0, 0, 0, 0, 0 }, { "GPU", 1, 0, 0, 0, 0, 0 }, { "GPU+AA", 1, 1, 0, 0, 0, 0 },
-    { "GPU+VS1", 1, 0, 1, 0, 0, 0 }, { "GPU+VS", 1, 0, 2, 0, 0, 0 }, { "GPU+VS+Q", 1, 0, 2, 1, 0, 0 },
-    { "GPU+Q", 1, 0, 0, 1, 0, 0 }, { "GPU+WC", 1, 0, 0, 0, 1, 0 }, { "GPU+2D", 1, 0, 0, 0, 0, 1 },
+static const struct { const char *name; int gpu, aa, vs, queue, wc, two_d, t16; } prof[NPROF] = {
+    { "ARM", 0, 0, 0, 0, 0, 0, 0 }, { "GPU", 1, 0, 0, 0, 0, 0, 0 }, { "GPU+AA", 1, 1, 0, 0, 0, 0, 0 },
+    { "GPU+VS1", 1, 0, 1, 0, 0, 0, 0 }, { "GPU+VS", 1, 0, 2, 0, 0, 0, 0 }, { "GPU+VS+Q", 1, 0, 2, 1, 0, 0, 0 },
+    { "GPU+Q", 1, 0, 0, 1, 0, 0, 0 }, { "GPU+WC", 1, 0, 0, 0, 1, 0, 0 }, { "GPU+2D", 1, 0, 0, 0, 0, 1, 0 },
+    { "GPU+VS+Q2", 1, 0, 2, 2, 0, 0, 0 }, { "GPU+T16", 1, 0, 0, 0, 0, 0, 1 },
 };
 
 static const char *prof_version(int p)
 {
-    return prof[p].two_d ? "4.8" : prof[p].wc ? "4.5" : bm3d_mode_q(prof[p].gpu, prof[p].vs, prof[p].queue);
+    return prof[p].t16 ? "5.2" : prof[p].queue == 2 ? "5.1" : prof[p].two_d ? "4.8" : prof[p].wc ? "4.5"
+         : bm3d_mode_q(prof[p].gpu, prof[p].vs, prof[p].queue);
 }
 
 /* M37: the profile draws the 2D over the 3D on the GPU, in its job */
@@ -356,6 +360,46 @@ static void spheres_shine(int n, int f)
 }
 
 /* the sphere back as made */
+/* M39: big meshes: a model of 10 080 triangles (a smooth sphere, 5112
+ * vertices: more than the 4096 of a mesh before bm3d 5.0) and a "lit" map
+ * of 14 112 (a textured grid, its light baked at each vertex, the same for
+ * every face on it, as a real map's) */
+static r3d_mesh_t bigm, bigmap;
+
+static void big_setup(void)
+{
+    r3d_mesh_sphere(&bigm, 70, 72, 0x4080FF, 0xFFC040);
+    make_tile(&bigmap, 84, 0x80A060);
+    textured(&bigmap, &sheet[0]);
+    bigmap.clight = malloc((size_t)bigmap.nfaces * 9);
+    if (bigmap.clight)
+        for (int t = 0; t < bigmap.nfaces; t++)
+            for (int k = 0; k < 3; k++) {
+                const int v = bigmap.faces[t * 3 + k];
+                for (int c = 0; c < 3; c++)
+                    bigmap.clight[t * 9 + k * 3 + c] = (uint8_t)(100 + (v * 37 + c * 11) % 80);
+            }
+    r3d_mesh_normals(&bigmap);
+}
+
+static void big_free(void)
+{
+    r3d_mesh_free(&bigm);
+    r3d_mesh_free(&bigmap);
+}
+
+/* the map under n big models (2 is the question: "34 000 triangles?") */
+static void big(int n, int f)
+{
+    cls3d();
+    r3d_camera(&R, 0, 3, -9, 0, -0.25f, 60);
+    scene_light();
+    r3d_draw_flags(&R, &bigmap, (v3_t){ 0, -1.2f, 6 }, 0, 0.1f, 0, 24, 0);
+    for (int i = 0; i < n; i++)
+        r3d_draw_flags(&R, &bigm, (v3_t){ -3.0f + 2.0f * (float)(i % 4), 0.4f * (float)(i / 4), (float)(i / 4) * 1.5f },
+                       (float)f * 0.02f, (float)f * 0.03f + (float)i, 0, 1.0f, R3D_SMOOTH);
+}
+
 static void sp_undo(void)
 {
     r3d_mesh_free(&sphere);
@@ -595,13 +639,14 @@ typedef struct {
 static const test_t tests[] = {
     { "spheres", "spheres, 96 faces, flat", "spheres", 1, 8000, M_LIT | M_AA | M_WC, sp_flat, spheres, sp_undo, NULL, 0, 0 },
     { "spheres_smooth", "spheres, Gouraud", "spheres", 1, 8000, M_LIT, sp_smooth, spheres, sp_undo, NULL, 0, 0 },
-    { "spheres_tex", "spheres, textured", "spheres", 1, 8000, M_ARM | M_GPU, sp_tex, spheres, sp_undo, NULL, 0, 0 },
+    { "spheres_tex", "spheres, textured", "spheres", 1, 8000, M_ARM | M_GPU | M_T16, sp_tex, spheres, sp_undo, NULL, 0,
+      0 },
     { "spheres_unlit", "spheres, unlit", "spheres", 1, 8000, M_ALL, sp_unlit, spheres, sp_undo, NULL, 0, 0 },
     { "spheres_baked", "spheres, baked light", "spheres", 1, 8000, M_ALL, sp_baked, spheres, sp_undo, NULL, 0, 0 },
     { "spheres_shine", "spheres, sky, rim, gloss, 4 lamps, fog", "spheres", 1, 8000, M_LIT, sp_shine,
       spheres_shine, sp_undo, NULL, 0, 0 },
     { "heroes", "heroes: 16 bones, 1536 faces", "heroes", 1, 512, M_LIT | M_WC, NULL, heroes, NULL, NULL, 0, 0 },
-    { "heroes_tex", "heroes, textured", "heroes", 1, 512, M_LIT, NULL, heroes_tex, NULL, NULL, 0, 0 },
+    { "heroes_tex", "heroes, textured", "heroes", 1, 512, M_LIT | M_T16, NULL, heroes_tex, NULL, NULL, 0, 0 },
     { "heroes_skin", "heroes, textured skins (as the Meshy ones)", "heroes", 1, 512, M_LIT, NULL, heroes_skin, NULL,
       NULL, 0, 0 },
     { "heroes_shadow", "heroes with shadows on a floor", "heroes", 1, 512, M_LIT, NULL, heroes_shadow, NULL, NULL,
@@ -611,19 +656,26 @@ static const test_t tests[] = {
     { "draws", "draw calls: a cube each", "draws", 1, 40000, M_LIT | M_WC, NULL, draws, NULL, NULL, 0, 0 },
     { "quad_flat", "fill: quads 320x180, flat", "quads", 1, 4000, M_LIT | M_AA, q_flat, quads, q_free, NULL, 1, 0 },
     { "quad_smooth", "fill: quads, Gouraud", "quads", 1, 4000, M_LIT, q_smooth, quads, q_free, NULL, 1, 0 },
-    { "quad_tex", "fill: quads, textured", "quads", 1, 4000, M_ARM | M_GPU | M_WC, q_tex, quads, q_free, NULL, 1, 0 },
+    { "quad_tex", "fill: quads, textured", "quads", 1, 4000, M_ARM | M_GPU | M_WC | M_T16, q_tex, quads, q_free, NULL, 1,
+      0 },
     { "quad_alpha", "fill: quads, texels with holes", "quads", 1, 4000, M_ARM | M_GPU, q_alpha, quads, q_free, NULL,
       1, 0 },
     { "quad_screen", "fill: quads, screen-door", "quads", 1, 4000, M_ARM | M_GPU, q_screen, quads, q_free, NULL, 1, 0 },
     { "quad_texscreen", "fill: quads, textured screen-door", "quads", 1, 4000, M_ARM | M_GPU, q_texscreen, quads, q_free,
       NULL, 1, 0 },
     { "texswap", "three textures in turn", "quads", 1, 8000, M_ARM | M_GPU, q_tex, texswap, q_free, NULL, 0, 0 },
-    { "split", "3D then 2D, again and again", "rounds", 1, 400, M_LIT | M_Q | M_2D, NULL, split, NULL, NULL, 0, 0 },
-    { "match", "a match: map, heroes, shadows, HUD", "heroes", 1, 256, M_ALL | M_AA | M_Q | M_WC | M_2D, NULL, match, NULL, NULL, 0,
+    { "split", "3D then 2D, again and again", "rounds", 1, 400, M_LIT | M_Q | M_2D | M_VSQ | M_VSQ2, NULL, split, NULL,
+      NULL, 0, 0 },
+    { "match", "a match: map, heroes, shadows, HUD", "heroes", 1, 256, M_ALL | M_AA | M_Q | M_WC | M_2D | M_T16, NULL, match, NULL, NULL, 0,
       0 },
-    { "queue", "spheres and 4M instructions of logic", "spheres", 1, 8000, M_GPU | M_Q | M_VS | M_VSQ, sp_smooth, spheres,
+    { "queue", "spheres and 4M instructions of logic", "spheres", 1, 8000, M_GPU | M_Q | M_VS | M_VSQ | M_VSQ2, sp_smooth,
+      spheres,
       sp_undo,
       NULL, 0, 1300 },
+    { "big", "big meshes: models of 10 080 triangles on a map of 14 112", "models", 1, 64, M_ALL | M_VSQ | M_Q,
+      big_setup, big, big_free, NULL, 0, 0 },
+    { "big_logic", "the same and 4M instructions of logic", "models", 1, 64, M_ALL | M_VSQ | M_Q, big_setup, big,
+      big_free, NULL, 0, 1300 },
     { "gpu2d", "sprites and text over the 3D", "sprites", 4, 8000, M_ARM | M_GPU | M_2D, NULL, gpu2d_scene, NULL, NULL,
       0, 0 },
     { "bilinear", "fill: quads, textures filtered (bilinear)", "quads", 1, 4000, M_GPU, q_bilinear, quads,
@@ -740,6 +792,9 @@ static void ramp(int ti, int pf)
         gpu3d_set_wc(prof[pf].wc);
         if (prof[pf].wc && !gpu3d_wc())
             return;                     /* the MMU did not change it: no row */
+        gpu3d_set_tex16(prof[pf].t16);
+        if (prof[pf].t16 && !gpu3d_tex16())
+            return;                     /* the probe did not learn the layout: no row */
     } else {
         R.backend = NULL;
     }
@@ -816,6 +871,7 @@ static void ramp(int ti, int pf)
     gpu3d_set_msaa(0);
     gpu3d_set_vshader(0);
     gpu3d_set_wc(0);
+    gpu3d_set_tex16(0);
     cur_2d = 0;
     r->ran = ns > 0;
     r->nsamples = ns;
@@ -991,7 +1047,7 @@ static void read_prev(void)
 #define C_HW    g16_rgb(255, 90, 90)
 
 static const uint16_t prof_col[NPROF] = { 0xFC00 /* orange */, 0x2D7F, 0x8C1F, 0x07F0, 0x07E0, 0xFFE0, 0xF81F, 0x7BEF,
-                                         0xFD20 };
+                                         0xFD20, 0xAFE5, 0x5D7F };
 
 static void text(int x, int y, uint16_t c, const char *fmt, ...) __attribute__((format(printf, 4, 5)));
 static void text(int x, int y, uint16_t c, const char *fmt, ...)
@@ -1121,8 +1177,8 @@ static void page_info(const char *saved)
     const bm3d_version_t *v = bm3d_versions(&n);
     text(0, 18, C_HEAD, "Drivers: bm3d %s (%s); kernel %s", BM3D_VERSION, BM3D_BLOCK, P->kernel ? P->kernel : "?");
     int y = 34;
-    /* the last seven versions (the page holds no more), the older in a line */
-    const int i0 = n > 7 ? n - 7 : 0;
+    /* the last six versions (the page holds no more), the older in a line */
+    const int i0 = n > 6 ? n - 6 : 0;
     if (i0) {
         text(0, y, C_DIM, "%s to %s: docs/DRIVERS.md", v[0].version, v[i0 - 1].version);
         y += LH;
@@ -1139,6 +1195,8 @@ static void page_info(const char *saved)
          "the ARM goes on while the GPU draws)%s", gpu3d_queue_ok() ? "" : ", not on this GPU");
     y += LH;
     text(0, y, C_TEXT, "GPU+WC: jobs' memory uncached (M35, 4.5); GPU+2D: the 2D over the 3D in its job (M37, 4.8)");
+    y += LH;
+    text(0, y, C_TEXT, "GPU+VS+Q2: two jobs in flight (M39, 5.1); GPU+T16: opaque textures in 16 bits (M39, 5.2)");
     y += LH;
     text(0, y, C_DIM, "0.1 and 1.0 no longer run: their bars are the numbers the Pi gave then (docs/M33-PRIMA-DOPO.md)");
     y += LH + 6;

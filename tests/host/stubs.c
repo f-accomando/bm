@@ -506,10 +506,14 @@ void gpu3d_peek_stats(gpu3d_stats_t *s) { memset(s, 0, sizeof *s); }
 int gpu3d_submit(const g16_t *g, int keep) { (void)g; (void)keep; return 0; }
 int gpu3d_inflight(void) { return 0; }
 int gpu3d_sync(void) { return 0; }
+int gpu3d_sync_page(const void *px) { (void)px; return 0; }
+int gpu3d_queue2(void) { return 0; }
 void gpu3d_set_queue(int on) { (void)on; }
 int gpu3d_queue(void) { return 0; }
 void gpu3d_set_wc(int on) { (void)on; }
 void gpu3d_set_bilinear(int on) { (void)on; }
+void gpu3d_set_tex16(int on) { (void)on; }
+int gpu3d_tex16(void) { return 0; }
 int gpu3d_rect2d(const g16_t *g, int x0, int y0, int x1, int y1, uint16_t c)
 {
     (void)g; (void)x0; (void)y0; (void)x1; (void)y1; (void)c;

@@ -322,6 +322,78 @@ static const uint32_t fs_zclear[16] __attribute__((aligned(8))) = {
     0x009e7000, 0x500009e7,     /* nop                 ; nop           ; sbdone */
 };
 
+static const uint32_t fs_tex_lit_t[46] __attribute__((aligned(8))) = {
+    0x009e7000, 0x100009e7,     /* nop                 ; nop */
+    0x009e7000, 0x100009e7,     /* nop                 ; nop */
+    0x153e7d80, 0x100208e7,     /* mov r3, ra15        ; nop */
+    0x158e7d80, 0x10020827,     /* mov r0, vary        ; nop */
+    0x209e7003, 0x100049e0,     /* fmul r0, r0, r3     ; nop */
+    0x019e7140, 0x10020827,     /* fadd r0, r0, r5     ; nop */
+    0x158e7d80, 0x10020867,     /* mov r1, vary        ; nop */
+    0x209e700b, 0x100049e1,     /* fmul r1, r1, r3     ; nop */
+    0x019e7340, 0x10020867,     /* fadd r1, r1, r5     ; nop */
+    0x159e7240, 0x10020e67,     /* mov t0t, r1         ; nop */
+    0x159e7000, 0x10020e27,     /* mov t0s, r0         ; nop */
+    0x158e7d80, 0x100208a7,     /* mov r2, vary        ; nop */
+    0x209e7013, 0x100049e2,     /* fmul r2, r2, r3     ; nop */
+    0x019e7540, 0x600208a7,     /* fadd r2, r2, r5     ; nop           ; lthrsw */
+    0x809e7012, 0x113049c1,     /* nop                 ; mov rb1.8888, r2 */
+    0x009e7000, 0x100009e7,     /* nop                 ; nop */
+    0x009e7000, 0x400009e7,     /* nop                 ; nop           ; sbwait */
+    0x159cffc0, 0x10020b27,     /* mov tlb_z, rb15     ; nop */
+    0x009e7000, 0xa00009e7,     /* nop                 ; nop           ; ldtmu0 */
+    0x609c1027, 0x100049e0,     /* v8muld r0, r4, rb1  ; nop */
+    0x159e7000, 0x30020ba7,     /* mov tlbc, r0        ; nop           ; thrend */
+    0x009e7000, 0x100009e7,     /* nop                 ; nop */
+    0x009e7000, 0x500009e7,     /* nop                 ; nop           ; sbdone */
+};
+
+static const uint32_t fs_tex_rgb_t[86] __attribute__((aligned(8))) = {
+    0x009e7000, 0x100009e7,     /* nop                 ; nop */
+    0x009e7000, 0x100009e7,     /* nop                 ; nop */
+    0x158e7d80, 0x10020827,     /* mov r0, vary        ; nop */
+    0x203e7006, 0x100049e0,     /* fmul r0, r0, ra15   ; nop */
+    0x019e7140, 0x10020827,     /* fadd r0, r0, r5     ; nop */
+    0x158e7d80, 0x10020867,     /* mov r1, vary        ; nop */
+    0x203e700e, 0x100049e1,     /* fmul r1, r1, ra15   ; nop */
+    0x019e7340, 0x10020867,     /* fadd r1, r1, r5     ; nop */
+    0x159e7240, 0x10020e67,     /* mov t0t, r1         ; nop */
+    0x159e7000, 0x10020e27,     /* mov t0s, r0         ; nop */
+    0x158e7d80, 0x10020827,     /* mov r0, vary        ; nop */
+    0x203e7006, 0x100049e0,     /* fmul r0, r0, ra15   ; nop */
+    0x019e7140, 0x10020827,     /* fadd r0, r0, r5     ; nop */
+    0x958e7d80, 0x11424862,     /* mov r1, vary        ; mov r2.8a, r0 */
+    0x203e700e, 0x100049e1,     /* fmul r1, r1, ra15   ; nop */
+    0x019e7340, 0x10020867,     /* fadd r1, r1, r5     ; nop */
+    0x958e7d89, 0x11524822,     /* mov r0, vary        ; mov r2.8b, r1 */
+    0x203e7006, 0x100049e0,     /* fmul r0, r0, ra15   ; nop */
+    0x019e7140, 0x10020827,     /* fadd r0, r0, r5     ; nop */
+    0x958e7d80, 0x11624862,     /* mov r1, vary        ; mov r2.8c, r0 */
+    0x203e700e, 0x100049e1,     /* fmul r1, r1, ra15   ; nop */
+    0x019e7340, 0x10020867,     /* fadd r1, r1, r5     ; nop */
+    0x958e7d89, 0x11424823,     /* mov r0, vary        ; mov r3.8a, r1 */
+    0x203e7006, 0x100049e0,     /* fmul r0, r0, ra15   ; nop */
+    0x019e7140, 0x10020827,     /* fadd r0, r0, r5     ; nop */
+    0x958e7d80, 0x11524863,     /* mov r1, vary        ; mov r3.8b, r0 */
+    0x203e700e, 0x100049e1,     /* fmul r1, r1, ra15   ; nop */
+    0x019e7340, 0x10020867,     /* fadd r1, r1, r5     ; nop */
+    0x809e7009, 0x116049e3,     /* nop                 ; mov r3.8c, r1 */
+    0x809e003f, 0xd17049e2,     /* nop                 ; mov r2.8d, 1.0 */
+    0x809c003f, 0xd17049e3,     /* nop                 ; mov r3.8d, 0 */
+    0x959e749b, 0x60024041,     /* mov ra1, r2         ; mov rb1, r3   ; lthrsw */
+    0x009e7000, 0x100009e7,     /* nop                 ; nop */
+    0x009e7000, 0x100009e7,     /* nop                 ; nop */
+    0x009e7000, 0x400009e7,     /* nop                 ; nop           ; sbwait */
+    0x159cffc0, 0x10020b27,     /* mov tlb_z, rb15     ; nop */
+    0x009e7000, 0xa00009e7,     /* nop                 ; nop           ; ldtmu0 */
+    0x60067026, 0x100049e0,     /* v8muld r0, r4, ra1  ; nop */
+    0xc09e7000, 0x100049e0,     /* v8adds r0, r0, r0   ; nop */
+    0xc09c1007, 0x100049e0,     /* v8adds r0, r0, rb1  ; nop */
+    0x159e7000, 0x30020ba7,     /* mov tlbc, r0        ; nop           ; thrend */
+    0x009e7000, 0x100009e7,     /* nop                 ; nop */
+    0x009e7000, 0x500009e7,     /* nop                 ; nop           ; sbdone */
+};
+
 static const uint32_t vs_tex_rgb[246] __attribute__((aligned(8))) = {
     0x00801a00, 0xe0020c67,     /* ldi vr_setup, 0x801a00 */
     0x00001a00, 0xe0021c67,     /* ldi vw_setup, 0x1a00 */

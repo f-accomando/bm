@@ -175,7 +175,7 @@ E.project3d = function(x, y, z)
   return 320 + x1 * cam.f / z2, 180 - y2 * cam.f / z2, z2
 end
 E.mesh = function(v, f, uv)
-  assert(#v // 3 >= 1 and #v // 3 <= 4096 and #f // 4 >= 1 and #f // 4 <= 16384, "mesh: 1 to 4096 vertices, 1 to 16384 faces")
+  assert(#v // 3 >= 1 and #v // 3 <= 65535 and #f // 4 >= 1 and #f // 4 <= 65535, "mesh: 1 to 65535 vertices, 1 to 65535 faces")
   for i = 1, #f // 4 do
     for k = 1, 3 do assert(f[i * 4 - 4 + k] >= 1 and f[i * 4 - 4 + k] <= #v // 3, "mesh: a vertex out of range") end
     assert(f[i * 4] ~= -1 or uv, "mesh: a textured face with no uv")

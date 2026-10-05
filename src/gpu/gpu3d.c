@@ -22,12 +22,17 @@
 #define PROBE_W      64
 #define PROBE_H      64
 #define JOB_PROBE    (PROBE_W * PROBE_H * 2)
-#define PROBE_TEX    (PROBE_W * PROBE_H * 4 + 4096)
+#define PROBE_TEX    (PROBE_W * PROBE_H * 4 + 4096)    /* (also 128 x 64 texels of 16 bits) */
 #define JOB_BLOCK    (JOB_TSDA + JOB_ALLOC + JOB_OVERFLOW + JOB_ZBUF + JOB_BCL + JOB_RCL + JOB_RECS + JOB_UNIF + JOB_CODE + \
                       JOB_VERTS + JOB_PROBE + PROBE_TEX)
 /* the block in whole sections of 1 MiB, which the MMU can map uncached
  * (gpu3d_set_wc, M35) without touching any other memory */
 #define JOB_SECTIONS ((JOB_BLOCK + 0xFFFFFu) & ~0xFFFFFu)
+/* M39: the second block of the memory of a job (two jobs in flight): what
+ * a job writes and the binner reads; the depth kept between jobs, the
+ * shaders and the probe's buffers stay in the first */
+#define JOB2_BLOCK   (JOB_TSDA + JOB_ALLOC + JOB_OVERFLOW + JOB_BCL + JOB_RCL + JOB_RECS + JOB_UNIF + JOB_VERTS)
+#define JOB2_SECTIONS ((JOB2_BLOCK + 0xFFFFFu) & ~0xFFFFFu)
 
 #define TIMEOUT_US   200000
 #define BATCH_MAX    65532          /* vertices of one VERTEX_ARRAY_PRIMITIVES */
@@ -93,6 +98,7 @@ typedef struct {
     int cw, ch;                     /* the sheet's cells */
     uint32_t *holes;                /* (cw+1) x (ch+1): cells not opaque above and left of each corner */
     uint32_t used;                  /* when a job last took it (G.tick), for the least recent */
+    int bits16;                     /* M39: RGB565 texels (an opaque sheet, gpu3d_tex16) */
 } tex_t;
 
 /* M35: up to 8 sheets in a job (bm3d 4.6; 2 before: a third ended the
@@ -110,13 +116,16 @@ typedef struct {
     uint8_t vs, fs, lamps, lods;        /* shaders, lamps on, levels of detail that show it */
     uint8_t bone, bone2;                /* its matrix (the faces of a group are on one bone; with
                                          * GV_LIT_TEX2 each corner on bone or bone2) */
-    uint32_t first, n;                  /* its first byte in the corners, its corners */
+    uint32_t first, n;                  /* its first byte in the corners, its corners (3 a face) */
+    uint32_t nv, ifirst;                /* M39, indexed: its different corners (0: not indexed, the
+                                         * n corners one after the other), its first index */
 } ggroup_t;
 typedef struct {
     const r3d_mesh_t *m;
     uint32_t version;
     int unlit, smooth;                  /* as drawn: no light; the vertices' normals (GV_LIT) */
     uint8_t *corners;                   /* NULL: not a mesh the GPU takes */
+    uint16_t *idx;                      /* M39: the groups' indices (NULL: not indexed) */
     ggroup_t *g;                        /* its groups, sorted by bone */
     int ngroups;
     const tex_t *tex;                   /* its texture (textured faces), at version tex_version */
@@ -127,7 +136,7 @@ typedef struct {
 static struct {
     int ready, failed;
     const char *status;
-    char why[192];
+    char why[256];
     uint8_t *block;
     uint8_t *tsda, *alloc, *overflow, *zbuf, *bcl, *rcl, *recs, *code;
     uint16_t *probe;
@@ -160,6 +169,10 @@ static struct {
     int ms, tile;                   /* the job: MSAA, tile size */
     int t_rev;                      /* odd rows of 4 KiB tiles run right to left */
     uint16_t t_inner[2][1024];      /* word of each texel in its tile: even, odd rows of tiles */
+    int tf16, t16_rev, t16_swap;    /* M39: RGB565 in T-format learned (tiles of 64x32), odd rows
+                                     * reversed, red and blue swapped in the texel */
+    uint16_t t16_inner[2][2048];    /* texel of each place in its tile (as t_inner) */
+    int tex16_on;                   /* RGB565 textures asked for (gpu3d_set_tex16) */
     int ia;                         /* varying of the colour's first value: 0, or 2 (red_a 0) */
     const uint8_t *fb_mem;          /* the framebuffer and its bus address */
     uint32_t fb_size, fb_bus;
@@ -171,6 +184,7 @@ static struct {
     gmesh_t gm[NMESH];
     uint16_t hint[MESH_HINTS];      /* the slot a mesh had last, by its address */
     int gl_ok;                      /* the probe drew with the vertex shader */
+    int idx_ok;                     /* M39: the probe drew indexed meshes (corners shared) */
     int gl_cw;                      /* CONFIGURATION_BITS clockwise bit for r3d's front faces */
     int gl_on;                      /* asked for (gpu3d_set_vshader): 1 meshes unlit or with baked
                                      * light, 2 also the models lit by the sun (heroes) */
@@ -182,10 +196,15 @@ static struct {
     int zclear_ok;                  /* M35: the probe saw zclear() inside a job work (fs_zclear) */
     int zc;                         /* a zclear() quad in the open job: no early z after it */
     int wc, wc_on;                  /* M35: the block uncached (writes merged); asked for */
+    uint8_t *block2;                /* M39: the second block (gpu3d_set_queue(2)) */
+    int cur, inflight_blk;          /* the block the job being filled uses, the started job's */
+    const void *inflight_px;        /* the page the started job draws on */
+    int queue2;                     /* two jobs in flight asked for */
     int vpm_bytes;                  /* the GL records' VPM offsets and sizes in bytes (as Mesa), else in
                                      * words: the probe learns it (bm3d 4.3) */
     char plog[640];                 /* what the probes saw (the GPU test's report) */
     int async_now;                  /* flush_job starts the job instead of running it */
+    const void *async_px;           /* (its page) */
     uint32_t vp;                    /* the job's VIEWPORT_OFFSET (x, y in 12.4) */
     int scr_w, scr_h;               /* the screen (gpu3d_set_size) */
     float gx, gy;                   /* its guard band (pixels left and right, above and below) */
@@ -286,6 +305,25 @@ static uint32_t t_word(int x, int y, int w)
     return (uint32_t)(ty * tpr + tx) * 1024u + G.t_inner[ty & 1][(y & 31) * 32 + (x & 31)];
 }
 
+/* M39: the 16-bit place of texel (x, y) in an RGB565 T-format texture w
+ * wide (a multiple of 64): tiles of 4 KiB, 64 x 32 texels, laid out as the
+ * probe learned */
+static uint32_t t16_word(int x, int y, int w)
+{
+    const int tpr = w / 64, ty = y / 32;
+    int tx = x / 64;
+    if ((ty & 1) && G.t16_rev)
+        tx = tpr - 1 - tx;
+    return (uint32_t)(ty * tpr + tx) * 2048u + G.t16_inner[ty & 1][(y & 31) * 64 + (x & 63)];
+}
+
+/* an RGB565 colour as the TMU's RGB565 texel: as it is, or red and blue
+ * swapped (the probe found which gives it back on the page) */
+static uint16_t texel16_of(uint16_t c)
+{
+    return G.t16_swap ? (uint16_t)((c & 31) << 11 | (c & 0x07E0) | c >> 11) : c;
+}
+
 /* the texture of a sheet, made again when the sheet changed: T-format
  * (RGBA8888 in tiles) when the probe learned it and the sides are
  * multiples of 32, else RGBA32R (rows); NULL if it cannot be one (larger
@@ -333,7 +371,20 @@ static const tex_t *tex_get(const g16_t *g, const g16_sheet_t *s)
     }
     const uint32_t n = (uint32_t)s->w * (uint32_t)s->h;
     const int tiled = G.tformat && !G.tformat_off && s->w % 32 == 0 && s->h % 32 == 0;
-    if (tiled) {
+    /* M39: an opaque sheet as RGB565 in T-format (half the memory and the
+     * TMU's reads; the colours exactly the sheet's) where the probe learned
+     * that layout and gpu3d_tex16 asks for it */
+    int opaque_all = 1;
+    for (int i = 0; i < cw * ch && opaque_all; i++)
+        opaque_all = s->cell_opaque[i] != 0;
+    const int bits16 = G.tex16_on && G.tf16 && !G.tformat_off && opaque_all && s->w % 64 == 0 && s->h % 32 == 0;
+    t->bits16 = bits16;
+    if (bits16) {
+        uint16_t *t16 = (uint16_t *)t->texels;
+        for (int y = 0; y < s->h; y++)
+            for (int x = 0; x < s->w; x++)
+                t16[t16_word(x, y, s->w)] = texel16_of(s->px[(uint32_t)y * (uint32_t)s->w + (uint32_t)x]);
+    } else if (tiled) {
         for (int y = 0; y < s->h; y++)
             for (int x = 0; x < s->w; x++) {
                 const uint32_t i = (uint32_t)y * (uint32_t)s->w + (uint32_t)x;
@@ -347,7 +398,7 @@ static const tex_t *tex_get(const g16_t *g, const g16_sheet_t *s)
      * (16: low bits 0 here, bit 4 in P1); P1: type bit 4, height and width
      * (2048 is 0), nearest texel when magnified and minified, clamp in s
      * and t */
-    t->params = t->texels + n;
+    t->params = t->texels + (bits16 ? (n + 1) / 2 : n);
     /* the cells that are not opaque, summed over areas: any box of cells
      * is checked in four reads (tex_opaque) */
     t->cw = cw;
@@ -363,8 +414,8 @@ static const tex_t *tex_get(const g16_t *g, const g16_sheet_t *s)
             row[x + 1] = above[x + 1] + run;
         }
     }
-    t->params[0] = v3d_bus(t->texels) & ~0xFFFu;
-    t->params[1] = (tiled ? 0 : 1u << 31) | (uint32_t)(s->h & 2047) << 20 | (uint32_t)(s->w & 2047) << 8 |
+    t->params[0] = (v3d_bus(t->texels) & ~0xFFFu) | (bits16 ? 4u << 4 : 0);     /* type 4: RGB565 */
+    t->params[1] = (tiled || bits16 ? 0 : 1u << 31) | (uint32_t)(s->h & 2047) << 20 | (uint32_t)(s->w & 2047) << 8 |
                    (G.bilinear ? 0 : 1u << 7 | 1u << 4) | 1u << 2 | 1u;     /* M37: linear (0) or nearest */
     t->params[2] = t->params[0];        /* the same, always the nearest texel: 2D (M37) */
     t->params[3] = t->params[1] | 1u << 7 | 1u << 4;
@@ -402,9 +453,48 @@ static int tex_opaque(const tex_t *t, const r3d_corner_t v[3])
 
 /* ---------------------------------------------------------------- the job */
 
+/* the job memory of block k (0: in G.block, 1: in G.block2) */
+static void use_block(int k)
+{
+    uint8_t *b = k ? G.block2 : G.block;
+    G.cur = k;
+    G.tsda = b;
+    G.alloc = G.tsda + JOB_TSDA;
+    G.overflow = G.alloc + JOB_ALLOC;
+    G.bcl = G.overflow + JOB_OVERFLOW + (k ? 0 : JOB_ZBUF);     /* (the first block has the depth there) */
+    G.rcl = G.bcl + JOB_BCL;
+    G.recs = G.rcl + JOB_RCL;
+    G.unif = (uint32_t *)(G.recs + JOB_RECS);
+    G.verts = k ? (uint8_t *)G.unif + JOB_UNIF : G.code + JOB_CODE;
+}
+
+/* M39: the second block, made the first time two jobs in flight are asked
+ * for (its sections uncached as the first's); 0, or -1 */
+static int block2_make(void)
+{
+    if (G.block2)
+        return 0;
+    G.block2 = aligned_alloc(1u << 20, JOB2_SECTIONS);
+    if (G.block2 && (v3d_bus(G.block2) >> 28) != (v3d_bus(G.block2 + JOB2_SECTIONS - 1) >> 28)) {
+        free(G.block2);                 /* (across 256 MiB: the binner's memory must not be) */
+        G.block2 = NULL;
+    }
+    if (G.block2 && G.wc)
+        v3d_uncached(G.block2, JOB2_SECTIONS, 1);
+    return G.block2 ? 0 : -1;
+}
+
 static void job_begin(int w, int h)
 {
-    job_wait();                         /* the job started last reads the same memory */
+    /* the job started last reads its memory: with two blocks (M39) this
+     * job takes the other one and the GPU goes on, else it is waited for */
+    if (G.inflight && G.inflight_blk == G.cur) {
+        if (G.queue2 && block2_make() == 0) {
+            use_block(G.cur ^ 1);
+            G.st.overlapped++;
+        } else
+            job_wait();
+    }
     guard_of(w, h);
     /* MSAA where the probe allows it, never with the depth kept between
      * jobs (it would have 4 samples a pixel) */
@@ -1032,12 +1122,22 @@ static int mesh_build(const g16_t *g, gmesh_t *e, const r3d_mesh_t *m, int unlit
         bytes += count[i] * vshaders[key[i] >> 12 & 15].words * 4u;
     uint8_t *b = aligned_alloc(16, (bytes + 15) & ~15u);
     ggroup_t *gs = malloc((size_t)(nkeys > 0 ? nkeys : 1) * sizeof *gs);
-    if (!b || !gs) {
+    /* M39: indexed, the corners that are the same word for word kept once
+     * (16-bit indices: a group of up to 65535 different corners) */
+    const int indexed = G.idx_ok;
+    uint16_t *ix = indexed ? aligned_alloc(16, ((size_t)m->nfaces * 6 + 15) & ~(size_t)15) : NULL;
+    uint32_t hsize = 64;
+    while (indexed && hsize < (uint32_t)m->nfaces * 6)
+        hsize *= 2;
+    uint32_t *htab = indexed ? malloc(hsize * sizeof *htab) : NULL;
+    if (!b || !gs || (indexed && (!ix || !htab))) {
         free(b);
         free(gs);
+        free(ix);
+        free(htab);
         return 0;
     }
-    uint32_t at = 0;
+    uint32_t at = 0, iat = 0;
     for (int j = 0; j < nkeys; j++) {
         const int i = order[j];
         ggroup_t *gr = &gs[j];
@@ -1049,17 +1149,54 @@ static int mesh_build(const g16_t *g, gmesh_t *e, const r3d_mesh_t *m, int unlit
         gr->lods = (uint8_t)(key[i] & 15);
         gr->first = at;
         gr->n = count[i];
-        const uint32_t stride = vshaders[gr->vs].words * 4u;
+        gr->nv = 0;
+        gr->ifirst = iat;
+        const uint32_t stride = vshaders[gr->vs].words * 4u, words = stride / 4;
         float *o = (float *)(b + at);
-        for (int f = 0; f < m->nfaces; f++) {
-            if (gidx[f] != i)
-                continue;
-            for (int k = 0; k < 3; k++, o += stride / 4)
-                put_mesh_corner(o, m, f, k, gr->vs, !gr->lamps, t, smooth, gr->bone);
+        if (indexed) {
+            memset(htab, 0, hsize * sizeof *htab);
+            float c[16];
+            uint32_t nv = 0;
+            for (int f = 0; f < m->nfaces; f++) {
+                if (gidx[f] != i)
+                    continue;
+                for (int k = 0; k < 3; k++) {
+                    put_mesh_corner(c, m, f, k, gr->vs, !gr->lamps, t, smooth, gr->bone);
+                    uint32_t h = 2166136261u;
+                    for (uint32_t w = 0; w < words; w++) {
+                        uint32_t u;
+                        memcpy(&u, &c[w], 4);
+                        h = (h ^ u) * 16777619u;
+                    }
+                    h &= hsize - 1;
+                    while (htab[h] && memcmp(o + (htab[h] - 1) * words, c, stride))
+                        h = (h + 1) & (hsize - 1);
+                    if (!htab[h]) {
+                        if (nv == 65535) {
+                            free(b); free(gs); free(ix); free(htab);
+                            return 0;           /* (never with the format's 65535 vertices a model) */
+                        }
+                        memcpy(o + nv * words, c, stride);
+                        htab[h] = ++nv;
+                    }
+                    ix[iat++] = (uint16_t)(htab[h] - 1);
+                }
+            }
+            gr->nv = nv;
+            at += (nv * stride + 15) & ~15u;
+        } else {
+            for (int f = 0; f < m->nfaces; f++) {
+                if (gidx[f] != i)
+                    continue;
+                for (int k = 0; k < 3; k++, o += stride / 4)
+                    put_mesh_corner(o, m, f, k, gr->vs, !gr->lamps, t, smooth, gr->bone);
+            }
+            at += count[i] * stride;
         }
-        at += count[i] * stride;
     }
+    free(htab);
     e->corners = b;
+    e->idx = ix;
     e->g = gs;
     e->ngroups = nkeys;
     e->tex = t;
@@ -1104,8 +1241,10 @@ static gmesh_t *mesh_get(const g16_t *g, const r3d_mesh_t *m, int unlit, int smo
     if (e->corners && job_wait() != 0)  /* a job started last may read them (M35) */
         return NULL;
     free(e->corners);
+    free(e->idx);
     free(e->g);
     e->corners = NULL;
+    e->idx = NULL;
     e->g = NULL;
     e->m = m;
     e->version = m->version;
@@ -1259,6 +1398,27 @@ static void gl_uniforms(gunif_t *u, const ggroup_t *gr, const float M[12], const
     u->vs_u = vs;
 }
 
+/* the triangles of group gr (its GL record given): its corners one after
+ * the other, or (M39) its different corners by 16-bit indices, which the
+ * V3D shades once for every face they are on (its vertex cache) */
+static void gl_prims(const gmesh_t *e, const ggroup_t *gr)
+{
+    if (gr->nv) {
+        v3d_cl_u8(&G.cl, V3D_INDEXED_PRIMITIVE_LIST);
+        v3d_cl_u8(&G.cl, 4 | V3D_INDEX_U16);
+        v3d_cl_u32(&G.cl, gr->n);
+        v3d_cl_u32(&G.cl, v3d_bus(e->idx + gr->ifirst));
+        v3d_cl_u32(&G.cl, gr->nv - 1);
+        G.st.glverts += gr->nv;
+    } else {
+        v3d_cl_u8(&G.cl, V3D_VERTEX_ARRAY_PRIMITIVES);
+        v3d_cl_u8(&G.cl, 4);
+        v3d_cl_u32(&G.cl, gr->n);
+        v3d_cl_u32(&G.cl, 0);
+        G.st.glverts += gr->n;
+    }
+}
+
 /* a size or an offset in the VPM of a GL record (attributes' total size,
  * an attribute's VPM offset) from bytes: bytes, as Mesa writes them ("byte
  * offsets for the start of the vertex attributes 0-7, and the total size"
@@ -1351,10 +1511,7 @@ static int gl_draw(const g16_t *g, gmesh_t *e, const ggroup_t *gr, gunif_t *u, c
     r[48] = (uint8_t)(stride - head - 1); r[49] = (uint8_t)stride; r[50] = vpm_size(head); r[51] = 0;
     v3d_cl_u8(&G.cl, V3D_GL_SHADER_STATE);
     v3d_cl_u32(&G.cl, v3d_bus(r) | 2);
-    v3d_cl_u8(&G.cl, V3D_VERTEX_ARRAY_PRIMITIVES);
-    v3d_cl_u8(&G.cl, 4);
-    v3d_cl_u32(&G.cl, gr->n);
-    v3d_cl_u32(&G.cl, 0);
+    gl_prims(e, gr);
     e->job = G.job_no;
     if (e->tex && e->tex >= G.tex && e->tex < G.tex + NTEX)
         G.tex_used[e->tex - G.tex] = 1;
@@ -1490,10 +1647,7 @@ static int cb_shadow(void *ctx, const g16_t *g, const r3d_mesh_t *m, const float
         r[40] = two ? 15 : 11; r[41] = (uint8_t)stride; r[42] = 0; r[43] = 0;
         v3d_cl_u8(&G.cl, V3D_GL_SHADER_STATE);
         v3d_cl_u32(&G.cl, v3d_bus(r) | 1);
-        v3d_cl_u8(&G.cl, V3D_VERTEX_ARRAY_PRIMITIVES);
-        v3d_cl_u8(&G.cl, 4);
-        v3d_cl_u32(&G.cl, gr->n);
-        v3d_cl_u32(&G.cl, 0);
+        gl_prims(e, gr);
         e->job = G.job_no;
         G.gldraws++;
         G.st.tris += gr->n / 3;
@@ -1812,6 +1966,8 @@ static uint32_t rcl_build(uint32_t fb, int w, int h, int bin, int load, uint32_t
 
 static int run(int bin, uint32_t rcl_end)
 {
+    if (job_wait() != 0)                /* (a job of the other block, M39) */
+        return -1;
     uint32_t bus_us = 0, rus = 0;
     v3d_set_overflow(v3d_bus(G.overflow), JOB_OVERFLOW);    /* the GPU test sets its own */
     int err = v3d_run(bin ? v3d_bus(G.bcl) : 0, bin ? v3d_bus(G.cl.p) : 0, v3d_bus(G.rcl), rcl_end,
@@ -1855,10 +2011,14 @@ static int job_wait(void)
 
 static int run_async(uint32_t rcl_end)
 {
+    if (job_wait() != 0)                /* the V3D runs one job at a time */
+        return -1;
     v3d_set_overflow(v3d_bus(G.overflow), JOB_OVERFLOW);
     if (v3d_start(v3d_bus(G.bcl), v3d_bus(G.cl.p), v3d_bus(G.rcl), rcl_end) != 0)
         return -1;
     G.inflight = 1;
+    G.inflight_blk = G.cur;
+    G.inflight_px = G.async_px;
     G.st.jobs++;
     G.st.queued++;
     return 0;
@@ -1867,6 +2027,11 @@ static int run_async(uint32_t rcl_end)
 int gpu3d_sync(void)
 {
     return job_wait();
+}
+
+int gpu3d_sync_page(const void *px)
+{
+    return G.inflight && G.inflight_px != px ? 0 : job_wait();
 }
 
 int gpu3d_pending(void)
@@ -1900,6 +2065,8 @@ static void wc_apply(void)
         return;
     job_wait();
     const int n = v3d_uncached(G.block, JOB_SECTIONS, G.wc_on);
+    if (G.block2)
+        v3d_uncached(G.block2, JOB2_SECTIONS, G.wc_on);
     G.wc = G.wc_on && n > 0;
 }
 
@@ -1929,6 +2096,23 @@ int gpu3d_msaa_on(void)
  * mixed) or the nearest texel, as the ARM draws them; the textures made so
  * far are made again with the other parameters (a slot the waiting job
  * reads is drawn first, tex_get) */
+/* M39: opaque sheets as RGB565 textures (half the memory and the TMU's
+ * reads), where the probe learned their layout; the textures made so far
+ * are made again */
+void gpu3d_set_tex16(int on)
+{
+    if (G.tex16_on == !!on)
+        return;
+    G.tex16_on = !!on;
+    for (int i = 0; i < NTEX; i++)
+        G.tex[i].version = ~G.tex[i].version;
+}
+
+int gpu3d_tex16(void)
+{
+    return G.tf16 && G.tex16_on;
+}
+
 void gpu3d_set_bilinear(int on)
 {
     if (G.bilinear == !!on)
@@ -2014,6 +2198,7 @@ static int flush_job(const g16_t *g, int store)
         return -1;
     }
     const int async = G.async_now;
+    G.async_px = g->px;
     if (async)
         v3d_cl_u8(&G.cl, V3D_INCREMENT_SEMAPHORE);  /* the rendering waits on it (M35) */
     v3d_cl_u8(&G.cl, V3D_FLUSH);        /* ends the tile lists */
@@ -2090,9 +2275,19 @@ int gpu3d_inflight(void)
     return G.inflight;
 }
 
+/* on: 0 off, 1 the frame in the queue (bm3d 4.1), 2 and two jobs in
+ * flight (M39, bm3d 5.1: the second block made here) */
 void gpu3d_set_queue(int on)
 {
-    G.queue_on = on;
+    G.queue_on = on != 0;
+    G.queue2 = on == 2;
+    if (G.queue2 && G.ready)
+        block2_make();
+}
+
+int gpu3d_queue2(void)
+{
+    return G.queue_ok && G.queue_on && G.queue2 && G.block2 != NULL;
 }
 
 int gpu3d_queue(void)
@@ -2157,6 +2352,92 @@ static int probe_ms(void)
     if (run(0, rcl_build(bus, PROBE_W, PROBE_H, 0, 1, clear_of(0xF800), 0, 0, 1, 0)) != 0)
         return 1;
     return G.probe[10 * PROBE_W + 10] == 0x07E0 && G.probe[PROBE_W * PROBE_H - 1] == 0x07E0 ? 2 : 1;
+}
+
+/* M39: the layout of RGB565 textures in T-format. A 128 x 64 texture whose
+ * 16-bit word i holds i (as RGB565: it comes back on the page as itself,
+ * or with red and blue swapped) is drawn in two halves on the probe's
+ * buffer: for each texel, the word the TMU read. 1 if it is a layout of
+ * tiles of 4 KiB (64 x 32 texels) in rows, learned into t16_inner and
+ * t16_rev; 0 if not (the textures stay 32-bit) */
+static int tformat16_learn(const g16_t *pg)
+{
+    enum { TW = 128, TH = 64 };
+    static uint16_t seen[TW * TH];      /* the word read at each texel */
+    static tex_t pt;
+    uint16_t *t16 = (uint16_t *)G.probe_tex;
+    for (int i = 0; i < TW * TH; i++)
+        t16[i] = (uint16_t)i;
+    pt.texels = G.probe_tex;
+    pt.w = TW;
+    pt.h = TH;
+    pt.params = G.probe_tex + TW * TH / 2;
+    pt.inv_w = 1.0f / TW;
+    pt.inv_h = 1.0f / TH;
+    pt.params[0] = (v3d_bus(pt.texels) & ~0xFFFu) | 4u << 4;  /* RGB565, T-format */
+    pt.params[1] = (uint32_t)TH << 20 | (uint32_t)TW << 8 | 1u << 7 | 1u << 4 | 1u << 2 | 1u;
+    for (int half = 0; half < 2; half++) {
+        static const float q[4][2] = { { 0, 0 }, { PROBE_W, 0 }, { PROBE_W, PROBE_H }, { 0, PROBE_H } };
+        r3d_corner_t v[4];
+        for (int i = 0; i < 4; i++)
+            v[i] = (r3d_corner_t){ q[i][0], q[i][1], 1.0f, q[i][0] + (float)(half * 64), q[i][1], 1.0f,
+                                   { 0, 0, 0 }, { 0, 0, 0 } };
+        const r3d_corner_t a[3] = { v[0], v[1], v[2] }, b[3] = { v[0], v[2], v[3] };
+        memset(G.probe, 0, JOB_PROBE);
+        add_tri(pg, a, R3D_KIND_TEXTURE, &pt, 0, SH_TEX, 0);
+        add_tri(pg, b, R3D_KIND_TEXTURE, &pt, 0, SH_TEX, 0);
+        if (gpu3d_flush(pg, 0) != 0)
+            return 0;
+        for (int y = 0; y < TH; y++)
+            for (int x = 0; x < 64; x++)
+                seen[y * TW + half * 64 + x] = G.probe[y * PROBE_W + x];
+    }
+    /* each word once: as it is, or with red and blue swapped */
+    static uint8_t once[TW * TH / 8];
+    for (int swap = 0; swap < 2; swap++) {
+        memset(once, 0, sizeof once);
+        int ok = 1;
+        for (int i = 0; i < TW * TH && ok; i++) {
+            const uint16_t c = seen[i], w = swap ? (uint16_t)((c & 31) << 11 | (c & 0x07E0) | c >> 11) : c;
+            ok = w < TW * TH && !(once[w / 8] >> (w % 8) & 1);
+            if (ok)
+                once[w / 8] |= (uint8_t)(1u << (w % 8));
+        }
+        if (!ok)
+            continue;
+        if (swap)
+            for (int i = 0; i < TW * TH; i++)
+                seen[i] = (uint16_t)((seen[i] & 31) << 11 | (seen[i] & 0x07E0) | seen[i] >> 11);
+        G.t16_swap = swap;
+        int pos[2][2];
+        for (int ty = 0; ty < 2; ty++)
+            for (int tx = 0; tx < 2; tx++) {
+                pos[ty][tx] = seen[ty * 32 * TW + tx * 64] / 2048;
+                for (int y = 0; y < 32; y++)
+                    for (int x = 0; x < 64; x++)
+                        if (seen[(ty * 32 + y) * TW + tx * 64 + x] / 2048 != pos[ty][tx])
+                            return 0;   /* a tile is not 4 KiB in one piece */
+            }
+        if (pos[0][0] != 0 || pos[0][1] != 1)
+            return 0;
+        if (pos[1][0] == 2 && pos[1][1] == 3)
+            G.t16_rev = 0;
+        else if (pos[1][0] == 3 && pos[1][1] == 2)
+            G.t16_rev = 1;
+        else
+            return 0;
+        for (int row = 0; row < 2; row++)
+            for (int y = 0; y < 32; y++)
+                for (int x = 0; x < 64; x++) {
+                    const int i = (row * 32 + y) * TW + x;
+                    const uint16_t a = (uint16_t)(seen[i] % 2048), b = (uint16_t)(seen[i + 64] % 2048);
+                    if (a != b)
+                        return 0;       /* the two tiles of a row laid out differently */
+                    G.t16_inner[row][y * 64 + x] = a;
+                }
+        return 1;
+    }
+    return 0;
 }
 
 /* G.probe holds, for each texel of a 64x64 T-format texture, the word the
@@ -2293,6 +2574,56 @@ static int probe_gl(const g16_t *pg)
         }
     }
     G.vpm_bytes = 1;
+    return 0;
+}
+
+/* M39: a quad of two triangles sharing two corners, drawn by indices
+ * (INDEXED_PRIMITIVE_LIST): its four different corners shaded once. 1 if
+ * both triangles are where they should be, else 0 (the meshes go as their
+ * corners one after the other, as before) */
+static int probe_index(const g16_t *pg)
+{
+    static r3d_mesh_t m;
+    static v3_t v[4], n[2];
+    static uint16_t f[6] = { 0, 1, 2, 0, 2, 3 };
+    static uint32_t c[2] = { 0xFF0000, 0xFF0000 };
+    static const float s[4][2] = { { 8, 8 }, { 56, 8 }, { 56, 56 }, { 8, 56 } };
+    for (int i = 0; i < 4; i++)
+        v[i] = (v3_t){ (s[i][0] - 32) / 16.0f, (32 - s[i][1]) / 16.0f, 0 };
+    n[0] = n[1] = (v3_t){ 0, 0, -1 };
+    m.nverts = 4;
+    m.nfaces = 2;
+    m.verts = v;
+    m.faces = f;
+    m.colors = c;
+    m.normals = n;
+    m.version = 0xFFFFFFFCu;
+    const float M[12] = { 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 2 };
+    r3d_env_t env;
+    memset(&env, 0, sizeof env);
+    env.f = env.cx = env.cy = 32;
+    env.unlit = 1;
+    env.inside = 1;
+    G.idx_ok = 1;
+    memset(G.probe, 0, JOB_PROBE);
+    gmesh_t *e = mesh_get(pg, &m, 1, 0);
+    gunif_t u = { .job = 0, .bone = -1 };
+    char line[120];
+    if (!e || e->ngroups != 1 || e->g[0].nv != 4) {
+        ksnprintf(line, sizeof line, "indexed probe: mesh %s, %lu corners", e ? "made" : "not made",
+                  e ? (unsigned long)e->g[0].nv : 0ul);
+        plog(line);
+        return 0;
+    }
+    if (gl_draw(pg, e, &e->g[0], &u, M, I3, M, I3, &env, R3D_DEPTH_WRITE) != 0 || gpu3d_flush(pg, 0) != 0) {
+        plog("indexed probe: the job did not end");
+        return 0;
+    }
+    const uint16_t a = G.probe[20 * PROBE_W + 44], b = G.probe[44 * PROBE_W + 20], out = G.probe[4 * PROBE_W + 4];
+    if (a == 0xF800 && b == 0xF800 && out == 0)
+        return 1;
+    ksnprintf(line, sizeof line, "indexed probe: %04x %04x %04x (expected f800 f800 0000)", a, b, out);
+    plog(line);
     return 0;
 }
 
@@ -2587,8 +2918,13 @@ static int probe(void)
     if (gpu3d_flush(&pg, 0) != 0)
         return -1;
     G.tformat = tformat_learn();
+    G.tf16 = G.tformat ? tformat16_learn(&pg) : 0;
+    if (G.tformat && !G.tf16)
+        plog("RGB565 textures in T-format: not learned (the textures stay 32-bit)");
     G.ms_ok = probe_ms();
+    G.idx_ok = 0;                       /* the vertex shader's probe draws corners in a row */
     G.gl_ok = soft(probe_gl(&pg), "the vertex shader's probe");
+    G.idx_ok = G.gl_ok && !G.failed ? soft(probe_index(&pg), "the indexed meshes' probe") : 0;
     G.clip_ok = G.gl_ok && !G.failed ? soft(probe_clip(&pg), "the clipping probe") : 0;
     G.lit_ok = G.gl_ok && !G.failed ? soft(probe_lit(&pg), "the lit models' probe") : 0;
     G.queue_ok = !G.failed ? soft(probe_queue(&pg), "the queue's probe") : 0;
@@ -2616,16 +2952,9 @@ int gpu3d_init(void)
         return -1;
     }
     G.block = b;
-    G.tsda = b;
-    G.alloc = G.tsda + JOB_TSDA;
-    G.overflow = G.alloc + JOB_ALLOC;
-    G.zbuf = G.overflow + JOB_OVERFLOW;
-    G.bcl = G.zbuf + JOB_ZBUF;
-    G.rcl = G.bcl + JOB_BCL;
-    G.recs = G.rcl + JOB_RCL;
-    G.unif = (uint32_t *)(G.recs + JOB_RECS);
-    G.code = G.recs + JOB_RECS + JOB_UNIF;
-    G.verts = G.code + JOB_CODE;
+    G.zbuf = b + JOB_TSDA + JOB_ALLOC + JOB_OVERFLOW;
+    G.code = G.zbuf + JOB_ZBUF + JOB_BCL + JOB_RCL + JOB_RECS + JOB_UNIF;
+    use_block(0);
     G.probe = (uint16_t *)(G.verts + JOB_VERTS);
     G.probe_tex = (uint32_t *)(((uintptr_t)G.probe + JOB_PROBE + 4095) & ~(uintptr_t)4095);
     for (int i = 0; i < SH_COUNT; i++)
@@ -2651,12 +2980,13 @@ int gpu3d_init(void)
     static const char *const ms[3] = { "no", "on cleared pages", "on any page" };
     static const char *const clips[3] = { "no", "yes", "yes (Z planes)" };
     ksnprintf(G.why, sizeof G.why, "bm3d " BM3D_VERSION " ready (byte a = %s, texels %s, textures %s, MSAA %s, "
-              "vertex shader %s, "
+              "16-bit textures %s, vertex shader %s, indexed %s, "
               "clipping %s, lit models %s, queue %s, zclear in job %s)", G.red_a ? "red" : "blue",
               G.tex_swap ? "swapped" : "in place", G.tformat ? "in tiles" : "in rows", ms[G.ms_ok],
+              G.tf16 ? "yes" : "no",
               G.gl_ok ? (G.vpm_bytes ? (G.gl_cw ? "yes (cw)" : "yes") : (G.gl_cw ? "yes (cw, VPM in words)"
                                                                                  : "yes (VPM in words)")) : "no",
-              clips[G.clip_ok], G.lit_ok ? "yes" : "no",
+              G.idx_ok ? "yes" : "no", clips[G.clip_ok], G.lit_ok ? "yes" : "no",
               G.queue_ok ? "yes" : "no", G.zclear_ok ? "yes" : "no");
     G.status = G.why;
     G.ready = 1;

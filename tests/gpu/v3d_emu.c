@@ -696,23 +696,43 @@ static int bin(uint32_t start, uint32_t end)
             glclip = rd16(glrec) >> 2 & 1;
             p += 4;
             break;
+        case 32:                                                /* INDEXED_PRIMITIVE_LIST (M39) */
         case 33: {                                              /* VERTEX_ARRAY_PRIMITIVES */
-            uint32_t n = rd32(p + 1), first = rd32(p + 5);
+            const int indexed = id == 32;
+            uint32_t n = rd32(p + 1), first = indexed ? 0 : rd32(p + 5), maxi = indexed ? rd32(p + 9) : 0;
+            const uint16_t *ix = indexed ? ptr(rd32(p + 5)) : NULL;
             if (!started || (!rec && !glrec) || depth_func < 0 || clip[0] < 0)
                 return err("primitives before the state (started %u, record %u)", started, rec || glrec);
-            if (p[0] != 4 || n % 3 || n > 65535)
-                return err("primitives: mode %u, %u vertices", p[0], n);
+            if ((p[0] & 15) != 4 || n % 3 || n > 65535 || (indexed && (p[0] >> 4) != 1) || (!indexed && p[0] != 4))
+                return err("primitives: mode %02x, %u vertices", p[0], n);
+            if (indexed && (!glrec || !ix || (rd32(p + 5) & 1) || maxi > 65535))
+                return err("indexed primitives: GL only, 16-bit indices in memory (at %08x, max %u)", rd32(p + 5),
+                           maxi);
             if (glrec) {
                 const int sh = shader_of(ptr(rd32(glrec + 4))), nvary = glrec[3];
                 if (sh < 0 || nvary > 8)
                     return err("GL record: fragment shader at %08x, %u varyings", rd32(glrec + 4), nvary);
-                if (n > glcap) {
-                    glcap = n;
+                const uint32_t nshade = indexed ? maxi + 1 : n;     /* the corners shaded */
+                if (nshade + n > glcap) {
+                    glcap = nshade + n;
                     glv = realloc(glv, glcap * sizeof *glv);
                     glc = realloc(glc, glcap * sizeof *glc);
                 }
-                if (gl_vertices(glrec, glattr, first, n, nvary, glv, glc) != 0)
+                if (gl_vertices(glrec, glattr, first, nshade, nvary, glv, glc) != 0)
                     return -1;
+                if (indexed) {
+                    /* each index's corner in a row after the shaded ones,
+                     * then the triangles of the list as for an array */
+                    for (uint32_t i = 0; i < n; i++) {
+                        if (ix[i] > maxi)
+                            return err("index %u above the maximum %u", ix[i], maxi);
+                        glv[nshade + i] = glv[ix[i]];
+                        memcpy(glc[nshade + i], glc[ix[i]], sizeof glc[0]);
+                    }
+                    memmove(glv, glv + nshade, n * sizeof *glv);
+                    memmove(glc, glc + nshade, n * sizeof *glc);
+                    emu_stats.glindexed += n;
+                }
                 if (glclip && (!xy_set || !z_set))
                     return err("GL clipping without CLIPPER_XY_SCALING (%u) or CLIPPER_Z_SCALING (%u)", xy_set, z_set);
                 for (uint32_t i = 0; i < n; i++) {
@@ -762,7 +782,7 @@ static int bin(uint32_t start, uint32_t end)
                 }
                 emu_stats.prims += n / 3;
                 emu_stats.batches++;
-                p += 9;
+                p += indexed ? 13 : 9;
                 break;
             }
             int sh = shader_of(ptr(rd32(rec + 4)));
@@ -872,6 +892,26 @@ static uint8_t unit8(float f)
 }
 
 static uint32_t t_index(int x, int y, int w);
+static uint32_t t16_index(int x, int y, int w);
+
+/* a texel of the texture at (x, y) as bytes a b c d: RGBA32R in rows,
+ * RGBA8888 in T-format, or (M39) RGB565 in T-format, its top five bits in
+ * byte c and its low five in byte a, alpha full; bytes a and c swapped with
+ * emu_tex_swap */
+static uint32_t texel_at(const uint32_t *tex, int type, int x, int y, int w)
+{
+    uint32_t t;
+    if (type == 4) {
+        const uint16_t v = ((const uint16_t *)tex)[t16_index(x, y, w)];
+        const uint32_t hi = v >> 11, g = v >> 5 & 63, lo = v & 31;
+        t = 0xFF000000u | (hi << 3 | hi >> 2) << 16 | (g << 2 | g >> 4) << 8 | (lo << 3 | lo >> 2);
+    } else {
+        t = type == 16 ? tex[y * w + x] : tex[t_index(x, y, w)];
+    }
+    if (emu_tex_swap)
+        t = (t & 0xFF00FF00u) | (t >> 16 & 0xFF) | (t & 0xFF) << 16;
+    return t;
+}
 
 /* v8muld: a * b / 255, as the QPU rounds it */
 static uint8_t muld(uint32_t a, uint32_t b)
@@ -912,9 +952,7 @@ static void shade(const eprim_t *pr, const float *va, uint8_t *out, int *discard
             int x = x0 + (k & 1), y = y0 + (k >> 1);
             x = x < 0 ? 0 : x >= w ? w - 1 : x;
             y = y < 0 ? 0 : y >= h ? h - 1 : y;
-            uint32_t t = type == 16 ? tex[y * w + x] : tex[t_index(x, y, w)];
-            if (emu_tex_swap)
-                t = (t & 0xFF00FF00u) | (t >> 16 & 0xFF) | (t & 0xFF) << 16;
+            const uint32_t t = texel_at(tex, type, x, y, w);
             const float wk = ((k & 1) ? ax : 1 - ax) * ((k >> 1) ? ay : 1 - ay);
             for (int i = 0; i < 4; i++)
                 acc[i] += wk * (float)(t >> (8 * i) & 255);
@@ -925,10 +963,7 @@ static void shade(const eprim_t *pr, const float *va, uint8_t *out, int *discard
         int tx = (int)floorf(va[0] * (float)w), ty = (int)floorf(va[1] * (float)h);
         tx = tx < 0 ? 0 : tx >= w ? w - 1 : tx;                 /* clamp */
         ty = ty < 0 ? 0 : ty >= h ? h - 1 : ty;
-        uint32_t t = type == 16 ? tex[ty * w + tx]         /* RGBA32R: raster order */
-                   : tex[t_index(tx, ty, w)];              /* RGBA8888: T-format */
-        if (emu_tex_swap)
-            t = (t & 0xFF00FF00u) | (t >> 16 & 0xFF) | (t & 0xFF) << 16;
+        const uint32_t t = texel_at(tex, type, tx, ty, w);
         c[0] = (uint8_t)t; c[1] = (uint8_t)(t >> 8); c[2] = (uint8_t)(t >> 16); c[3] = (uint8_t)(t >> 24);
     }
     if (pr->shader == SH_TEXT) {        /* M37: the colour where the glyph's texel is opaque */
@@ -980,6 +1015,25 @@ static uint32_t t_index(int x, int y, int w)
     const int sub = emu_tformat ? plain[sy][sx] : (ty & 1 ? odd : even)[sy][sx];
     return (uint32_t)(ty * tpr + tx) * 1024u + (uint32_t)sub * 256u +
            (uint32_t)((y / 4 & 3) * 4 + (x / 4 & 3)) * 16u + (uint32_t)((y & 3) * 4 + (x & 3));
+}
+
+/* the 16-bit place of texel (x, y) in an RGB565 T-format texture (M39), as
+ * the emulator lays it out: tiles of 4 KiB, 64 x 32 texels, in rows, odd
+ * rows right to left; in a tile four 1 KiB subtiles of 32 x 16 in a C (or
+ * a reversed C, or raster with emu_tformat 1); in a subtile 4 x 4 utiles of
+ * 8 x 4 texels, raster */
+static uint32_t t16_index(int x, int y, int w)
+{
+    static const uint8_t even[2][2] = { { 0, 3 }, { 1, 2 } }, odd[2][2] = { { 2, 1 }, { 3, 0 } },
+                         plain[2][2] = { { 0, 1 }, { 2, 3 } };
+    const int tpr = (w + 63) / 64, ty = y / 32;
+    int tx = x / 64;
+    if (ty & 1)
+        tx = tpr - 1 - tx;
+    const int sx = x / 32 & 1, sy = y / 16 & 1;
+    const int sub = emu_tformat ? plain[sy][sx] : (ty & 1 ? odd : even)[sy][sx];
+    return (uint32_t)(ty * tpr + tx) * 2048u + (uint32_t)sub * 512u +
+           (uint32_t)((y / 4 & 3) * 4 + (x / 8 & 3)) * 32u + (uint32_t)((y & 3) * 8 + (x & 7));
 }
 
 static float edge(const evert_t *a, const evert_t *b, float x, float y)
@@ -1257,10 +1311,14 @@ static int render(uint32_t start, uint32_t end, int have_bin)
     return 0;
 }
 
+static int async_busy;
+
 int v3d_run(uint32_t bin_start, uint32_t bin_end, uint32_t rnd, uint32_t rnd_end, uint32_t timeout_us,
             uint32_t *bin_us, uint32_t *rnd_us)
 {
     (void)timeout_us;
+    if (async_busy && !emu_async)
+        return err("v3d_run with a started job not waited for (the V3D runs one at a time)", 0, 0);
     if (bin_us) *bin_us = 1;
     if (rnd_us) *rnd_us = 1;
     emu_stats.jobs++;
@@ -1278,9 +1336,11 @@ int v3d_run(uint32_t bin_start, uint32_t bin_end, uint32_t rnd, uint32_t rnd_end
     return r;
 }
 
-/* M35: the emulator runs a started job at once; v3d_wait gives its
- * result. emu_stats.async counts them. */
-static int async_busy, async_err;
+/* M35: a started job; the emulator runs it when it is waited for (M39:
+ * so a driver that wrote the memory the job reads, or drew on its page,
+ * before waiting for it gets a wrong picture, as on the V3D).
+ * emu_stats.async counts them. */
+static uint32_t async_bin, async_bin_end, async_rnd, async_rnd_end;
 
 int v3d_start(uint32_t bin_start, uint32_t bin_end, uint32_t rnd, uint32_t rnd_end)
 {
@@ -1288,9 +1348,10 @@ int v3d_start(uint32_t bin_start, uint32_t bin_end, uint32_t rnd, uint32_t rnd_e
         err("v3d_start with a job still running", 0, 0);
         return -1;
     }
-    emu_async = 1;
-    async_err = v3d_run(bin_start, bin_end, rnd, rnd_end, 0, NULL, NULL);
-    emu_async = 0;
+    async_bin = bin_start;
+    async_bin_end = bin_end;
+    async_rnd = rnd;
+    async_rnd_end = rnd_end;
     async_busy = 1;
     emu_stats.async++;
     return 0;
@@ -1298,7 +1359,7 @@ int v3d_start(uint32_t bin_start, uint32_t bin_end, uint32_t rnd, uint32_t rnd_e
 
 int v3d_busy(void)
 {
-    return 0;
+    return async_busy;
 }
 
 int v3d_wait(uint32_t timeout_us, uint32_t *bin_us, uint32_t *rnd_us)
@@ -1309,5 +1370,8 @@ int v3d_wait(uint32_t timeout_us, uint32_t *bin_us, uint32_t *rnd_us)
     if (!async_busy)
         return 0;
     async_busy = 0;
-    return async_err;
+    emu_async = 1;
+    const int r = v3d_run(async_bin, async_bin_end, async_rnd, async_rnd_end, 0, NULL, NULL);
+    emu_async = 0;
+    return r;
 }
