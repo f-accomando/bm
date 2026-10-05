@@ -1,0 +1,62 @@
+bm report
+kind: log
+kernel: v0.2.3-17-g54d60b9
+branch: bm-core
+board: Pi Zero W
+date: unknown (no network time)
+file: nodate-b6f8b6_log_pi-zero-w_v0.2.3-17-g54d60b9.txt
+
+
+bm kernel v0.2.3-17-g54d60b9 - Raspberry Pi Zero W (BCM2835, revision 9000c1)
+board 9000c1, ARM 1000 MHz, core 250 MHz, RAM 448+64 MiB (ARM+GPU), 45.4 C
+ARM1176 from SVC, MMU+caches on, heap 441 MiB, UART 48000000 Hz
+the Pi froze last time and the watchdog restarted it:
+  doing: cartridge menu, frame 0, 313 s after boot
+watchdog: not available, no freeze guard (loaded 196608, after 20 ms 196608)
+IRQ on: timer 1000 Hz (measured 1000 Hz), double buffer on
+audio: HDMI 48 kHz
+usb: if0 class 03/00/00 ep 81 mps 16 every 8ms, report desc 83
+usb: if1 class 03/01/01 ep 82 mps 16 every 8ms, report desc 182 keyboard (report id)
+usb: if2 class 03/00/00 ep 85 mps 64 every 2ms, report desc 27
+usb: keyboard 05ac:0267 'Magic Keyboard', full speed, layout it
+sd: SDHC card (sdhost), FAT32, 7591 MiB, label BOOTFS; 12 cartridges
+config: /bm/config.txt, layout us, .bm drawing direct, volume 10/10
+bt: the serial console moves to the mini UART (same pins, same speed)
+bt: 32 kHz clock already on
+bt: power-cycling the chip (GPIO45)
+bt: firmware patch loaded (121 records, 30049 bytes)
+bt: ready, address b8:27:eb:62:7c:08, HCI 7, LMP subversion 2209, 921600 baud
+bt: paired pad 00:1f:e2:bf:d7:dd (player 1): press its PS button to connect
+
+cartridge menu: arrows or wasd, Enter plays, x options, [ ] or Tab or 1-5 change tab, q returns to the monitor
+(keyboard: Enter, Esc back, C options, Q E or 1-5 tabs, Ctrl+Esc home, Ctrl+Shift+Esc the monitor, hold F12: the keys)
+bm > Pair a new controller
+
+DS4: hold Share + PS until the light flashes quickly.
+
+bt: looking for devices for 8 s (DS4: hold Share + PS until the light flashes)
+bt: found 00:1f:e2:bf:d7:dd class 002508 (gamepad)
+bt: 1 device found
+bt: pairing with 00:1f:e2:bf:d7:dd...
+bt:   <- connection complete (03) 00 0c 00 dd
+bt:   <- max slots change (1b) 0c 00 05 00
+bt:   <- link key request (17) dd d7 bf e2
+bt:   <- authentication complete (06) 00 0c 00 00
+bt:   <- encryption change (08) 00 0c 00 01
+bt:   <- L2CAP connect response (03) 40 00 40 00 01 00
+bt:   <- L2CAP connect response (03) 40 00 40 00 00 00
+bt:   <- L2CAP config response (05) 40 00 00 00 00 00
+bt:   <- L2CAP config request (04) 40 00 00 00 01 02
+bt:   <- L2CAP connect response (03) 41 00 41 00 01 00
+bt:   <- L2CAP connect response (03) 41 00 41 00 00 00
+bt:   <- L2CAP config response (05) 41 00 00 00 00 00
+bt:   <- L2CAP config request (04) 41 00 00 00 01 02
+bt: controller 00:1f:e2:bf:d7:dd connected (player 1)
+bt: paired as player 1; next time just press PS on the controller
+
+A, Esc or any key: back to the menu
+bt: controller 00:1f:e2:bf:d7:dd (player 1) disconnected after 1679 ms: it closed the link (switched off, or another console) (reason 13)
+back to the monitor
+
+type 'h' for help
+> Z
