@@ -923,8 +923,13 @@ screenshot in `docs/img/`), `README_OLD.md` (il README completo, in italiano),
   fibra (`src/kernel/fiber.c`, `src/arch/fiber.S`) nel tempo libero del frame
   (`menu_view_t.idle`); `net_wait_step` cede il controllo dentro una fibra e restituisce -1
   se è stata annullata: ogni attesa di rete nuova deve controllarlo.
-- Le cartucce non incorporate scrivono solo `.bm` in `/carts` (`write_refused` in
-  `runtime.c`); gli strumenti incorporati passano da `carts_tool_session` (`bm_set_tool`).
+- Le cartucce non incorporate scrivono solo `.bm` **nuovi** in `/carts` (`write_refused` in
+  `runtime.c`) e non usano `picture3d` (le chiavi della console); gli strumenti incorporati
+  passano da `carts_tool_session` (`bm_set_tool`). Rete (`udp_open`) e `report()`: la prima volta
+  la console chiede al giocatore (`perm_question` in `runtime.c`, acceso dal kernel con
+  `bm_permissions(1)`, spento in bmhost), risposta in `bm/config.txt` (`allow_<salvataggio>`);
+  prova QEMU `test_permissions` (decisioni dell'utente, 2026-10-05). Un `.bm` non ha limiti di
+  dimensione: solo i 100 MiB per file di GitHub (`CATALOG_MAX_FILE`).
 - Test: `test_market` in QEMU con `market_url=sd:/market/` e `market_delay` (in QEMU non c'è
   rete); `bm/market.pem` sulla SD aggiunge una chiave.
 - Rete locale (M24): `src/net/lan.c` (annuncio UDP 3335, TCP 3336, domanda al giocatore,

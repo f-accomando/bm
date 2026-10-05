@@ -5715,6 +5715,71 @@ def test_devkit_per_run(b, opts):
         q.close()
 
 
+PERMIT_CART = r"""
+function _init()
+  log("report1", report("test", "hello"))
+  log("report2", report("test", "again"))
+  quit()
+end
+"""
+
+
+def test_permissions(b, opts):
+    """The first time a game uses report() (or the network) the player is
+    asked, over the game stopped in its call; the answer stays in
+    bm/config.txt for that game (allow_<save name>): asked once, kept
+    across runs, a no refused (report() false) without asking again
+    (decision of the user, 2026-10-05)"""
+    tmp = tempfile.mkdtemp(prefix="bm-perm-")
+    img = os.path.join(tmp, "sd.img")
+    cfg = os.path.join(tmp, "config.txt")
+    with open(cfg, "w") as f:
+        f.write("layout=us\nwifi_boot=0\n")
+    mksd.build(img, [(cfg, "bm/config.txt")])
+    q = Qemu(b("kernel.img"), ["-drive", f"if=sd,format=raw,file={img}"])
+    try:
+        q.boot()
+
+        def run(title, key):
+            assert _upload(q, mkbm.pack(PERMIT_CART.encode(), title=title))
+            out = b""
+            if key:
+                out += q.expect("asks to send a report (ok: allow, back: no)", timeout=30)
+                time.sleep(0.3)
+                if opts.shots:
+                    _save_png(q.screendump(), os.path.join(opts.shots, f"permission-{title}.png"))
+                q.send(key)
+            out += q.expect("report2\t", timeout=30)
+            out += q.expect("\n", timeout=5)
+            text = out.decode(errors="replace").replace("\r", "")
+            q.expect("> ", timeout=20)
+            time.sleep(0.3)
+            return text
+
+        text = run("permit", "j")                   # A: allow
+        assert "bm: allowed" in text and "report1\ttrue" in text and "report2\ttrue" in text, text
+        text = run("deny", "k")                     # B: no
+        assert "bm: not allowed" in text and "report1\tfalse" in text and "report2\tfalse" in text, text
+        text = run("permit", None)                  # kept: not asked again
+        assert "asks to send" not in text and "report1\ttrue" in text, text
+        text = run("deny", None)
+        assert "asks to send" not in text and "report1\tfalse" in text, text
+    finally:
+        q.close()
+    try:
+        part = os.path.join(tmp, "part.img")
+        with open(img, "rb") as f, open(part, "wb") as o:
+            f.seek(2048 * 512)
+            o.write(f.read())
+        env = dict(os.environ, MTOOLS_SKIP_CHECK="1")
+        txt = subprocess.run(["mtype", "-i", part, "::/BM/CONFIG.TXT"], capture_output=True,
+                             text=True, env=env).stdout
+        assert re.search(r"allow_[0-9A-F]{8}=report=yes \(permit\)", txt), txt
+        assert re.search(r"allow_[0-9A-F]{8}=report=no \(deny\)", txt), txt
+    finally:
+        shutil.rmtree(tmp, ignore_errors=True)
+
+
 def _upload(q, data):
     q.send("U")
     q.expect("15 s timeout\r\n")

@@ -229,6 +229,7 @@ void kernel_main(uintptr_t dtb)
     save_bootlog(1);
     wifi_boot();
     bm_set_notice(notice_now);              /* the games show a kernel arriving */
+    bm_permissions(1);                      /* a game's network and reports: the player says */
     ledstate_set(LED_BOOT, 0);              /* started: green stays on if all is well */
     if (err == 0)
         ui_home(&fb);

@@ -275,6 +275,7 @@ void kernel_main(uint32_t atags)
      * on the serial port go to the monitor ('B' there runs the old boot
      * diagnostics). */
     bm_set_notice(notice_now);              /* the games show a kernel arriving */
+    bm_permissions(1);                      /* a game's network and reports: the player says */
     ledstate_set(LED_BOOT, 0);              /* started: the LED stays on if all is well */
     carts_menu(&fb);
     monitor_run();

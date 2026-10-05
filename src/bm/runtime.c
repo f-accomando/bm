@@ -2682,6 +2682,8 @@ static int l_log(lua_State *L)
  * true if it was saved. */
 #define REPORTS_MAX     8
 #define REPORT_MAX_LEN  (256 * 1024)
+enum { PERM_NET, PERM_REPORT };
+static int perm_allowed(int what);
 static int l_report(lua_State *L)
 {
     const char *kind = luaL_checkstring(L, 1);
@@ -2689,6 +2691,10 @@ static int l_report(lua_State *L)
     const char *text = luaL_checklstring(L, 2, &len);
     if (rt.reports >= REPORTS_MAX || len > REPORT_MAX_LEN) {
         kprintf("report: refused (%s)\n", len > REPORT_MAX_LEN ? "over 256 KiB" : "8 in this run already");
+        lua_pushboolean(L, 0);
+        return 1;
+    }
+    if (!perm_allowed(PERM_REPORT)) {               /* the player said no */
         lua_pushboolean(L, 0);
         return 1;
     }
@@ -2716,6 +2722,11 @@ static int l_udp_open(lua_State *L)
     if (!cartnet_ip()) {
         lua_pushnil(L);
         lua_pushstring(L, "no network");
+        return 2;
+    }
+    if (!perm_allowed(PERM_NET)) {
+        lua_pushnil(L);
+        lua_pushstring(L, "the player did not allow this game the network");
         return 2;
     }
     int sk = cartnet_open((uint16_t)port);
@@ -6040,7 +6051,9 @@ static int leave_step(lua_State *L, int q)
 
 /* A box over the frame (after the overlay, before F12's keys): a title
  * (orange), lines, the last one dim (a note), and either the yes / back
- * hints (the leave question) or a progress bar (0..1000; -1 none) */
+ * hints of a question (their words: "Leave" "Stay"...) or a progress bar
+ * (0..1000; -1 none) */
+static const char *box_yes = "Leave", *box_no = "Stay";
 static void sys_box(const char *const *lines, int n, int dim_last, int hints, int progress)
 {
     g16_t *g = &rt.g;
@@ -6095,7 +6108,7 @@ static void sys_box(const char *const *lines, int n, int dim_last, int hints, in
             x += c->w * sc + fw / 2;
             x = px + (x - px + fw - 1) / fw * fw;
         }
-        x = g16_text_scaled(g, x, y, i ? "Stay" : "Leave", ink, sc) + 2 * fw;
+        x = g16_text_scaled(g, x, y, i ? box_no : box_yes, ink, sc) + 2 * fw;
     }
     *g = keep;
 }
@@ -6107,7 +6120,132 @@ static void leave_draw(void)
         return;
     const char *lines[4] = { "Leave the match?", "You will leave the game and", "disconnect from the server.",
                              rt.online_note[0] ? rt.online_note : NULL };
+    box_yes = "Leave";
+    box_no = "Stay";
     sys_box(lines, lines[3] ? 4 : 3, lines[3] != NULL, 1, -1);
+}
+
+/* ---------------------------------------------------------------- permissions
+ * What a game may do out of the console (decision of the user, 2026-10-05):
+ * the network (online games: any address, the internet too) and the reports
+ * (sent to GitHub with the console's github_token). The first time a game
+ * asks for one, the game stops and the player answers; the answer stays in
+ * bm/config.txt, allow_<its save name>=net=yes,report=no (Title): remove
+ * the line to be asked again. bm's own tools are not asked, nor is anyone
+ * when the kernel has not turned the question on (bmhost, the tests on the
+ * PC: as before). */
+static int perm_ask;                    /* the kernel asks (bm_permissions) */
+static framebuffer_t *perm_fb;          /* the screen of the run */
+static char perm_title[49];             /* the game asking */
+
+void bm_permissions(int on) { perm_ask = on; }
+
+static const char *const perm_names[2] = { "net=", "report=" };
+
+static void perm_key(char *key, size_t n)
+{
+    char stem[16];
+    ksnprintf(stem, sizeof stem, "%s", rt.save_name);
+    char *dot = strchr(stem, '.');
+    if (dot)
+        *dot = 0;
+    ksnprintf(key, n, "allow_%s", stem);
+}
+
+/* the answer kept: 1 yes, 0 no, -1 never asked */
+static int perm_get(int what)
+{
+    char key[32];
+    perm_key(key, sizeof key);
+    const char *v = config_get(key), *p = v ? strstr(v, perm_names[what]) : NULL;
+    if (!p)
+        return -1;
+    return strncmp(p + strlen(perm_names[what]), "yes", 3) == 0;
+}
+
+static void perm_set(int what, int yes)
+{
+    char key[32], v[100];
+    perm_key(key, sizeof key);
+    int other = perm_get(!what);
+    int net = what == PERM_NET ? yes : other, rep = what == PERM_REPORT ? yes : other;
+    int o = 0;
+    v[0] = 0;
+    if (net >= 0)
+        o += ksnprintf(v + o, sizeof v - (size_t)o, "net=%s", net ? "yes" : "no");
+    if (rep >= 0)
+        o += ksnprintf(v + o, sizeof v - (size_t)o, "%sreport=%s", o ? "," : "", rep ? "yes" : "no");
+    ksnprintf(v + o, sizeof v - (size_t)o, " (%s)", perm_title);
+    config_set(key, v);
+    config_save();
+}
+
+/* The question, over the game stopped in its call: 1 allowed */
+static int perm_question(int what)
+{
+    const char *lines[5];
+    lines[0] = perm_title[0] ? perm_title : "This game";
+    if (what == PERM_NET) {
+        lines[1] = "wants to use the network:";
+        lines[2] = "online games, with other consoles";
+        lines[3] = "or a server on the internet.";
+    } else {
+        lines[1] = "wants to send a report to your";
+        lines[2] = "GitHub repository, with the";
+        lines[3] = "console's github_token.";
+    }
+    lines[4] = "The answer stays in bm/config.txt";
+    kprintf("bm: %s %s (ok: allow, back: no)\n", lines[0], what == PERM_NET ? "asks for the network"
+                                                                         : "asks to send a report");
+    sync3d();                               /* nothing of the GPU's left to land on the page */
+    static const uint8_t usage[4] = { 0x28, 0x2C, 0x29, 0x2A };   /* Enter, Space; Esc, Backspace */
+    uint32_t prev = ~0u;                    /* what is held now is not an answer */
+    uint8_t kprev = 0xFF;
+    int answer = 0;
+    rt.leave_ask = 1;                       /* Esc: no (poll_keys), not Start */
+    rt.leave_no = 0;
+    while (!answer) {
+        const int q = poll_keys();
+        uint32_t held = rt.raw_all;
+        for (int p = 0; p < INPUT_PLAYERS; p++)
+            held |= rt.praw[p];
+        uint8_t keys = 0;
+        for (int i = 0; i < 4; i++)
+            if (hid_usage_held(usage[i]))
+                keys |= (uint8_t)(1u << i);
+        const uint32_t hit = held & ~prev;
+        const uint8_t khit = keys & (uint8_t)~kprev;
+        if ((hit & input_ok_bit(0)) || (khit & 3))
+            answer = 1;
+        else if ((q & QUIT_FORCE) || rt.leave_no || (hit & input_ok_bit(1)) || (khit & 12))
+            answer = -1;
+        prev = held;
+        kprev = keys;
+        box_yes = "Allow";
+        box_no = "No";
+        sys_box(lines, 5, 1, 1, -1);
+        if (perm_fb)
+            bm_video_present(perm_fb, &rt.g);
+        audio_idle();
+        timer_delay_ms(16);
+        rt.leave_held = held;               /* the button of the answer is not the game's */
+    }
+    rt.leave_ask = 0;
+    rt.leave_no = 0;
+    kprintf("bm: %s\n", answer > 0 ? "allowed" : "not allowed");
+    return answer > 0;
+}
+
+static int perm_allowed(int what)
+{
+    if (tool_mode || !perm_ask)
+        return 1;
+    int s = perm_get(what);
+    if (s < 0) {
+        s = perm_question(what);
+        perm_set(what, s);
+    }
+    return s;
 }
 
 /* the system's notice over the game (a kernel arriving, the restart
@@ -6711,6 +6849,8 @@ int bm_run(framebuffer_t *fb, const uint8_t *data, size_t len,
         cart.height = cur.h;
     }
     memcpy(st->title, cart.title, sizeof st->title);
+    perm_fb = fb;
+    ksnprintf(perm_title, sizeof perm_title, "%s", cart.title);
     if (load_assets(&cart) != 0 || !(L = new_cart_state(&cart))) {
         free_assets();
         kprintf("\x1b[91mbm: out of memory\x1b[0m\n");
@@ -6773,6 +6913,8 @@ int bm_resume(framebuffer_t *fb, uint32_t seconds, bm_stats_t *st)
         return BM_ENDED;
     memset(st, 0, sizeof *st);
     memcpy(st->title, susp.title, sizeof st->title);
+    perm_fb = fb;
+    ksnprintf(perm_title, sizeof perm_title, "%s", susp.title);
     lua_State *L = susp.L;
     susp.active = 0;
     susp.L = NULL;

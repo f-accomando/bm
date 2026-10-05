@@ -1386,8 +1386,10 @@ Passi:
    - Permessi delle cartucce (decisione dell'utente, 2026-10-05): un gioco scrive solo `.bm`
      **nuovi** in `/carts` (cambiare un `.bm` che c'è, cioè un altro gioco, è degli strumenti
      di bm) e non usa i servizi con le chiavi della console (`picture3d`, la chiave Meshy):
-     `test_cart_write_limits`. Da decidere: `report()` (manda con il `github_token`) e la
-     rete UDP (serve ai giochi online, `bmnet`). Nessun limite di dimensione per i `.bm`
+     `test_cart_write_limits`. La rete UDP (giochi online, `bmnet`) e `report()` (manda con il
+     `github_token`): la prima volta che un gioco li usa la console chiede al giocatore, sopra
+     il gioco fermo nella chiamata; la risposta resta in `bm/config.txt` (`allow_<salvataggio>`,
+     via la riga per essere richiesti): `test_permissions`. Nessun limite di dimensione per i `.bm`
      (decisione dell'utente): solo i 100 MiB per file di GitHub; i limiti saranno del `.b16`.
 6. ✅ (PC, `make test-github`; QEMU, `test_publish`) **Pubblicazione dal Pi**: X su un
    gioco della SD, *Publish to the Market* (`src/kernel/publish.c`): cartella (del catalogo
