@@ -4,6 +4,7 @@
  * reports in DIR as on the SD card, every page of results as DIR/page-NN.ppm.
  *
  *   b3d_host DIR [--full] [-v]     B3D_EMU_SKIP=1: the V3D's jobs not run
+ *   b3d_host --selftest            the ramp's arithmetic
  *
  * make test-b3d runs it twice: the second run must read the first's
  * report (its "last" bars and the comparison of the summary).
@@ -145,8 +146,40 @@ static void shown(int i)
     fclose(f);
 }
 
+/* --selftest: how the ramp's steps become loads (b3d_median, b3d_load_at),
+ * with the frame slowed by something else that the Pi's report of
+ * 2026-10-05 showed (quad_flat: 25 quads fit, 33 not, 44 fit again) */
+static int selftest(void)
+{
+    int bad = 0;
+#define EXPECT(c) do { if (!(c)) { printf("FAIL %s\n", #c); bad++; } } while (0)
+    float f1[6] = { 12, 12.5f, 95, 12.2f, 12.1f, 12.4f };    /* one frame 95 ms */
+    EXPECT(b3d_median(f1, 6) > 12.1f && b3d_median(f1, 6) < 12.5f);
+    float f2[1] = { 30 };
+    EXPECT(b3d_median(f2, 1) == 30);
+    const float n[5] = { 19, 25, 33, 44, 58 };
+    const float spike[5] = { 9, 11, 24, 13.1f, 21 };
+    const float l60 = b3d_load_at(n, spike, 5, 16.667f);
+    EXPECT(l60 > 44 && l60 < 58);                           /* not 28.7 */
+    const float even[5] = { 9, 11, 14, 17, 21 };
+    const float e60 = b3d_load_at(n, even, 5, 16.667f);
+    EXPECT(e60 > 33 && e60 < 44);
+    const float slow[3] = { 20, 30, 45 };
+    EXPECT(b3d_load_at(n, slow, 3, 16.667f) == -1);
+    EXPECT(b3d_load_at(n, slow, 3, 33.333f) > 25 && b3d_load_at(n, slow, 3, 33.333f) < 33);
+    const float fast[3] = { 2, 3, 4 };
+    EXPECT(b3d_load_at(n, fast, 3, 16.667f) == 33);         /* never over: the last */
+    const float first[3] = { 40, 5, 6 };                    /* the first step slowed */
+    EXPECT(b3d_load_at(n, first, 3, 16.667f) == 33);
+#undef EXPECT
+    printf("b3d selftest: %s\n", bad ? "FAILED" : "ok (median of a step, the last step that fits)");
+    return bad != 0;
+}
+
 int main(int argc, char **argv)
 {
+    if (argc == 2 && !strcmp(argv[1], "--selftest"))
+        return selftest();
     if (argc < 2) {
         fprintf(stderr, "usage: b3d_host DIR [--full] [-v]\n");
         return 2;

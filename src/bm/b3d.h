@@ -54,4 +54,13 @@ typedef struct {
  * each page once); 0, or -1 if the report could not be saved */
 int b3d_run(const b3d_platform_t *p);
 
+/* how a ramp's steps become a load (here for the PC's test): the middle of
+ * a step's frame times (v sorted in place), so one frame slowed by
+ * something else (the network printing, a report) does not move the step;
+ * and the load that fits `limit` ms, from the last step that fits (a slow
+ * step before it was slowed by something else, as the heavier step that
+ * fits after it shows) towards the step after it; -1 if none fits */
+float b3d_median(float *v, int count);
+float b3d_load_at(const float *n, const float *ms, int count, float limit);
+
 #endif

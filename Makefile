@@ -1234,6 +1234,7 @@ $(BUILD)/host/b3d_host: tests/bm/b3d_host.c src/bm/b3d.c src/bm/b3d.h tests/gpu/
 	    src/gpu/v3d_cl.c src/bm/r3d.c src/bm/gfx16.c src/gfx/font8x16.c src/gfx/font6x12.c $@-gpu3d.o -lm
 
 test-b3d: $(BUILD)/host/b3d_host
+	$< --selftest
 	rm -rf $(BUILD)/b3d && mkdir -p $(BUILD)/b3d
 	$< $(BUILD)/b3d
 	$< $(BUILD)/b3d

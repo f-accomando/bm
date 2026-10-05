@@ -20,8 +20,13 @@ riprodurre (`docs/DRIVERS.md`):
 Un profilo che la GPU non sa fare (le prove all'avvio lo hanno spento) non ha la riga.
 A ogni passo `n` cresce di un terzo finché un fotogramma supera i **40 ms**; i carichi a
 **60 fps** (16,7 ms) e a **30 fps** (33,3 ms) sono interpolati tra due passi. Ogni passo
-misura 6 fotogrammi dopo uno di riscaldamento (texture, copie degli angoli, cache). Il
-tempo di un fotogramma comprende la copia sullo schermo, come nello stress test.
+misura 6 fotogrammi dopo uno di riscaldamento (texture, copie degli angoli, cache) e vale
+il fotogramma **di mezzo** (la mediana; i contatori sono la media): un fotogramma rallentato
+da altro, come la rete che stampa durante una riga del monitor, non sposta il passo. Il carico
+parte dall'**ultimo** passo sotto il limite: un passo lento prima di uno più pesante che ci
+sta era stato rallentato da altro (sul Pi, il 2026-10-05, `quad_flat` con la GPU: 25 quad sì,
+33 no, 44 sì, e il report diceva 28,7). Il tempo di un fotogramma comprende la copia sullo
+schermo, come nello stress test.
 
 Le sfere e i quad sono le scene dello stress test, alla stessa risoluzione (640×360): così
 i numeri del Pi con i driver di prima sono le barre storiche.

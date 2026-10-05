@@ -6,8 +6,10 @@
  * drivers (src/gpu/version3d.h): the ARM (0.2), the GPU (2.1), with MSAA,
  * with the vertex shader for the scenery (3.0) and for every model (3.4).
  * For each test and profile n grows by about a third until a frame takes
- * more than LIMIT_MS; the loads at 60 and 30 fps are interpolated, and the
- * work of the last step under 60 fps is kept for the report.
+ * more than LIMIT_MS (a step's time: the middle of its 6 frames); the loads
+ * at 60 and 30 fps are interpolated from the last step under them (a slow
+ * step before a heavier one that fits was slowed by something else), and
+ * the work of the last step under 60 fps is kept for the report.
  *
  * The sphere and quad scenes are those of the stress test (src/bm/
  * stress.c), at the same 640x360: the numbers the Pi gave with the drivers
@@ -770,11 +772,33 @@ static void overlay(const test_t *t, int pf, int n, float ms, int i)
     g16_text(g, 0, 0, line, 0xFFFF);
 }
 
-static float lerp_n(const sample_t *a, const sample_t *b, float limit)
+float b3d_median(float *v, int count)
 {
-    if (b->ms <= a->ms)
-        return (float)a->n;
-    return (float)a->n + (limit - a->ms) / (b->ms - a->ms) * (float)(b->n - a->n);
+    for (int i = 1; i < count; i++)
+        for (int j = i; j > 0 && v[j - 1] > v[j]; j--) {
+            const float t = v[j];
+            v[j] = v[j - 1];
+            v[j - 1] = t;
+        }
+    if (count <= 0)
+        return 0;
+    return count & 1 ? v[count / 2] : 0.5f * (v[count / 2 - 1] + v[count / 2]);
+}
+
+float b3d_load_at(const float *n, const float *ms, int count, float limit)
+{
+    int last = -1;
+    for (int i = 0; i < count; i++)
+        if (ms[i] <= limit)
+            last = i;
+    if (last < 0)
+        return -1;                      /* even the lightest step is too slow */
+    if (last == count - 1)
+        return n[last];                 /* never over it: at least the last */
+    const int i = last;
+    if (ms[i + 1] <= ms[i])
+        return n[i];
+    return n[i] + (limit - ms[i]) / (ms[i + 1] - ms[i]) * (n[i + 1] - n[i]);
 }
 
 static void ramp(int ti, int pf)
@@ -822,6 +846,7 @@ static void ramp(int ti, int pf)
             gpu3d_flush(g, 0);
         gpu3d_set_queue(prof[pf].queue);
         gpu3d_take_stats(&st);
+        float fms[8];
         for (int f = 1; f <= frames; f++) {
             b3d_count_t c0, c1;
             counts(&c0);
@@ -846,6 +871,7 @@ static void ramp(int ti, int pf)
             const uint32_t show = P->present();
             const float ms = (float)(u1 - u0 + show) / 1000.0f;
             a.ms += ms;
+            fms[f - 1] = ms;
             if (ms > a.worst)
                 a.worst = ms;
             a.instr += (float)(c1.instr - c0.instr);
@@ -856,7 +882,8 @@ static void ramp(int ti, int pf)
         gpu3d_set_queue(0);
         gpu3d_take_stats(&st);
         const float k = 1.0f / (float)frames;
-        a.ms *= k; a.instr *= k; a.wait_instr *= k; a.dmiss *= k; a.cycles *= k;
+        a.ms = b3d_median(fms, frames);     /* the counters below: the mean */
+        a.instr *= k; a.wait_instr *= k; a.dmiss *= k; a.cycles *= k;
         a.tris_in *= k; a.tris *= k; a.verts *= k; a.pixels *= k;
         a.gpu_ms = (float)(st.bin_us + st.render_us) * k / 1000.0f;
         a.wait_ms = a.gpu_ms;           /* the ARM waits for every job (with the queue: at most) */
@@ -890,20 +917,13 @@ static void ramp(int ti, int pf)
         return;
     r->over = s[ns - 1].ms <= LIMIT_MS;
     r->last_n = s[ns - 1].n;
-    const float lim[2] = { MS60, MS30 };
-    float *out[2] = { &r->n60, &r->n30 };
-    for (int k = 0; k < 2; k++) {
-        if (s[0].ms > lim[k]) {
-            *out[k] = -1;               /* even the first step is too slow */
-            continue;
-        }
-        *out[k] = (float)s[ns - 1].n;   /* never reached: at least the last */
-        for (int i = 1; i < ns; i++)
-            if (s[i].ms > lim[k]) {
-                *out[k] = lerp_n(&s[i - 1], &s[i], lim[k]);
-                break;
-            }
+    float sn[64], sms[64];
+    for (int i = 0; i < ns; i++) {
+        sn[i] = (float)s[i].n;
+        sms[i] = s[i].ms;
     }
+    r->n60 = b3d_load_at(sn, sms, ns, MS60);
+    r->n30 = b3d_load_at(sn, sms, ns, MS30);
     r->at = s[0];
     for (int i = 0; i < ns; i++)
         if (s[i].ms <= MS60)
