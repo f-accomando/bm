@@ -144,8 +144,12 @@ def cart(cfg, shim, headless, secs, res=None):
          "--define", f"OVERBIT_BENCH_STOP={SETTLE + secs:g}"]
     if shim:
         d += ["--define", "gpu3d=gpu3d or function() return false, false end"]
-    # a runtime from before bm3d 5.5 (--root) has no visible3d: everything seen
-    d += ["--define", "visible3d=visible3d or function() return true end"]
+    # a runtime from before (--root): what it does not have yet does nothing
+    # (visible3d: everything seen; frameskip, devkit, devinfo: the dev kit)
+    d += ["--define", "visible3d=visible3d or function() return true end",
+          "--define", "frameskip=frameskip or function() return 1 end",
+          "--define", "devkit=devkit or function() return 0 end",
+          "--define", "devinfo=devinfo or function() end"]
     if res:
         d += ["--define", f'OVERBIT_RES="{res}"']
     if headless:
