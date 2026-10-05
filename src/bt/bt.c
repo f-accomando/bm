@@ -113,6 +113,7 @@ typedef struct {
     int slot;                       /* player - 1 (SLOT_MOUSE: the mouse), -1 before it has a key */
     uint32_t reports;               /* input reports since it connected */
     uint8_t report_id;              /* the last one's id (0x01 short, 0x11 full) */
+    int battery;                    /* DS4: 0-10 (11 charging), +16 on the cable; -1 not known */
 } link_t;
 
 static struct {
@@ -323,6 +324,7 @@ static void reset_link(link_t *l)
     l->host_step = 0;
     l->reports = 0;
     l->report_id = 0;
+    l->battery = -1;
 }
 
 /* A link for this address: the existing one, or a free entry. */
@@ -884,8 +886,12 @@ static void handle_acl(const hci_pkt_t *p)
     if (l2len + 8u > p->len)
         return;                                 /* fragments are not expected */
     if (cid == l->intr.lcid && l2len >= 2 && d[0] == 0xA1) {
+        if (d[1] == 0x11 && l2len >= 34)            /* the DS4's status byte: battery, cable */
+            l->battery = d[33] & 0x1F;
         if (!l->reports++)
             trace(l, "<- first input report %02x (%u bytes)", d[1], l2len);
+        else if (l->reports == 2 && l->battery >= 0)
+            trace(l, "<- battery %d/10%s", l->battery & 15, l->battery & 16 ? ", on the cable" : "");
         else if (d[1] != l->report_id)
             trace(l, "<- input report %02x now (%lu so far)", d[1], (unsigned long)l->reports);
         l->report_id = d[1];
@@ -998,10 +1004,14 @@ static void handle_event(const hci_pkt_t *p)
                 if (slot == SLOT_MOUSE)
                     kprintf("bt: mouse %s %s after %u ms: %s (reason %02x)\n", as, what, ms,
                             hci_reason(e[3]), e[3]);
-                else if (slot >= 0)
-                    kprintf("bt: controller %s (player %d) %s after %u ms, %lu input reports (last %02x): "
-                            "%s (reason %02x)\n", as, slot + 1, what, ms, (unsigned long)l->reports,
-                            l->report_id, hci_reason(e[3]), e[3]);
+                else if (slot >= 0) {
+                    char bat[16] = "?";
+                    if (l->battery >= 0)
+                        ksnprintf(bat, sizeof bat, "%d/10", l->battery & 15);
+                    kprintf("bt: controller %s (player %d) %s after %u ms, %lu input reports (last %02x, "
+                            "battery %s): %s (reason %02x)\n", as, slot + 1, what, ms,
+                            (unsigned long)l->reports, l->report_id, bat, hci_reason(e[3]), e[3]);
+                }
                 else
                     kprintf("bt: controller %s (not paired) %s after %u ms: %s (reason %02x)\n", as,
                             what, ms, hci_reason(e[3]), e[3]);
