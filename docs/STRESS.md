@@ -174,6 +174,41 @@ GPU, le texture con i lati multipli di 32 vanno in T-format (la texture 256×256
 ne approfitta: da confrontare con i 9 ns/px qui sopra) e due righe nuove misurano
 l'MSAA 4×.
 
+### Misura del 2026-10-05 (kernel v0.2.0, bm3d 4.2)
+
+Report `stress` nel branch `reports`. ARM 1000 MHz, core 250 (massimo 400), V3D 250, SDRAM
+400 MHz, 47,6 → 52,9 °C, nessun throttling, interrupt 0,5% (1188/s). Le righe 3D: ARM come
+bm3d 0.2, GPU come 2.1; le righe GPU+VS mancano perché la prova del vertex shader all'avvio
+non è passata (`vertex shader no`, `docs/ROADMAP.md`, M36).
+
+| Test | Pi 60 fps | Pi 30 fps | µs/oggetto |
+|---|---:|---:|---:|
+| sprites 16×16 (C) | 4454 | 9200 | 3,51 |
+| sprites 32×32 (C) | 1501 | 3108 | 10,37 |
+| triangles 2D ~170px | 4726 | 9777 | 3,29 |
+| 3D spheres 96 (C) | 63 (2451 tri) | 201 (7910 tri) | 128,01 |
+| 3D smooth (Gouraud) | 25 (990 tri) | 99 (3846 tri) | 212,54 |
+| 3D textured | <1 | 50 (1910 tri) | 259,37 |
+| quad 320×180 flat | 11 | 25 | 22 ns/px |
+| quad 320×180 no z | 52 | 113 | 5 ns/px |
+| quad 320×180 Gouraud | 6 | 13 | 41 ns/px |
+| quad 320×180 texture | 3 | 6 | 81 ns/px |
+| GPU spheres 96 | **207** (8131 tri) | 433 (17115 tri) | 73,02 |
+| GPU smooth (Gouraud) | 159 (6224 tri) | 334 (13178 tri) | 94,38 |
+| GPU textured | 165 (6465 tri) | 347 (13675 tri) | 90,64 |
+| GPU quad flat | 203 | 428 | 1 ns/px |
+| GPU quad Gouraud | 199 | 419 | 1 ns/px |
+| GPU quad texture | **91** | 193 | **3 ns/px** |
+| GPU spheres AA 4x | 204 (8043 tri) | 429 (16963 tri) | 73,53 |
+| GPU quad AA 4x | 199 | 420 | 1 ns/px |
+| sprites 16×16 (Lua) | 1990 | 4110 | 7,85 |
+| 3D spheres 96 (Lua) | 193 (7559 tri) | 393 (15499 tri) | 82,41 |
+
+Con la GPU le sfere passano da 182 a 207 (73 µs a sfera invece di 80: meno lavoro dell'ARM
+per triangolo, M34) e la texture 256×256 dei quad da 9 a 3 ns per pixel (le tile); l'MSAA
+costa quasi niente. Le sfere da Lua ora vanno sulla GPU (193). Sull'ARM, rispetto al
+1° ottobre, le sfere piatte calano (70 → 63) e Gouraud sale (18 → 25).
+
 ## Come eseguirlo sul Pi
 
 ```sh

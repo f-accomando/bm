@@ -2279,6 +2279,24 @@ GPU+AA; la faccia con texture *e* retino sulla GPU (oggi l'unico caso che torna
 all'ARM); ~~il flicker dei menu con il 3D sull'ARM~~ (non si è più visto sul Pi, riferisce
 l'utente il 2026-10-04).
 
+**Sul Pi (2026-10-05, kernel v0.2.0; report `gpu`, `stress`, `room` e `bench3d` nel branch
+`reports`).** ARM 1000 MHz, core 250, V3D 250, SDRAM 400 MHz, 45–53 °C, nessun throttling.
+- Test `g`: passano i passi 1–13 e 15 (il 14 è saltato: vertex shader spento, M36). Passo 12:
+  texture a tile 1286 µs contro 1506 in ordine di riga (1,2×), stessa immagine (`textures in
+  tiles`). Passo 13: MSAA su ogni pagina (`MSAA on any page`), 1421 µs contro 1313 (+8%),
+  6,3% dei pixel smussati. Passi 6 e 7 come il 1° ottobre: 2,98 milioni di triangoli e
+  811 Mpixel al secondo.
+- Stress test: GPU spheres **207** a 60 fps (il 1° ottobre 182; 73 µs a sfera, prima 80), GPU
+  smooth 159 (170), GPU textured 165 (156); GPU quad texture **3 ns per pixel** (prima 9: le
+  tile), 91 quad a 60 fps (28). Con l'MSAA quasi niente in meno: sfere 204, quad 199.
+- Benchmark Texture Room: con la GPU **512 casse** (2199 triangoli) a 60 fps sia a 320×180
+  sia a 640×360, 1024 a 30 fps; con l'ARM 64 a 320×180, meno di 8 a 640×360 (16 a 30 fps).
+- Benchmark di Overbit con GPU e GPU+AA: fatto a 1920×1080 (sezione M38), quindi senza l'ARM.
+- Il **criterio di chiusura è raggiunto**: passi 12 e 13, righe AA, costo per triangolo
+  dell'ARM sceso (80 → 73 µs a sfera, 182 → 207 sfere). Della lista qui sopra restano la
+  faccia con texture e retino sulla GPU e il benchmark di Overbit con l'ARM (a 640×360 o
+  meno).
+
 ### Dopo M34: come si lavora (decisione 2026-10-03)
 - **Tutto su `3d-performance`** (decisione dell'utente, 2026-10-03): il motore
   (`src/gpu`, `r3d.c`, shader, emulatore, benchmark) e Overbit. `claude/overclone` è
@@ -2335,6 +2353,15 @@ persona, il lavoro avviato e aspettato dopo, contro l'ARM, e scrive quanti lavor
 partiti e quanti `zclear()` sono rimasti nel lavoro. Una prova all'avvio di una cosa
 facoltativa (vertex shader, clipping, coda, zclear) che blocca la V3D spegne solo quella,
 se dopo uno sfondo pieno la GPU risponde ancora. Resta il passo 2.
+
+**Sul Pi (2026-10-05, v0.2.0):** la prova della coda passa (`queue yes`) e il passo 15 del
+test `g` disegna come l'ARM con il lavoro avviato e aspettato dopo; lo `zclear()` nel lavoro
+invece **no** (`zclear in job no`: le braccia in prima persona chiudono il lavoro come
+prima). Il guadagno non si è ancora potuto misurare: il renderer GPU+VS+Q di Overbit e il
+test `queue` del 3D Bench vogliono anche il vertex shader, spento sul Pi (M36). Prossimi
+passi: la coda senza vertex shader (un profilo GPU+Q nel 3D Bench e un renderer in
+Overbit), misurabile subito; perché la prova dello `zclear()` fallisce (le righe `gpu3d:`
+del log dall'avvio).
 
 ## M36 — Vertici sulla GPU (L/XL)
 Con la GPU il limite è l'ARM (~1,5–2 µs per triangolo: trasformare, illuminare,
@@ -2411,6 +2438,15 @@ prima persona / vista dall'alto): GPU 15,01 M / 11,88 M istruzioni dell'ARM a fo
 (~33,0 / 26,1 ms sul Pi: r3d illumina e mette tre volte più angoli), GPU+VS 6,41 M /
 5,71 M (~14,1 / 12,6 ms; r3d 0,27 M, il driver 0,85 M): con il vertex shader le figure
 nuove costano all'ARM quasi quanto le vecchie (5,99 M / 5,16 M).
+
+**Sul Pi (2026-10-05, v0.2.0 e v0.2.3): il vertex shader è spento.** La riga di stato dice
+`vertex shader no, clipping no, lit models no`: la prova all'avvio (`probe_gl`) non è
+passata, quindi tutto resta sul percorso dell'ARM (bm3d 2.1). Il passo 14 del test `g` è
+saltato, lo stress test non ha le righe GPU+VS, il 3D Bench non ha i profili GPU+VS1 e
+GPU+VS, Overbit non ha GPU+VS1, GPU+VS e GPU+VS+Q. Cosa ha disegnato la V3D lo scrive il log
+all'avvio della GPU (righe `gpu3d: vertex shader probe: ...`): serve un report del log
+(*Report the log*, `Z`) fatto dopo il test `g`. Poi correggere lo shader o il record, e
+l'emulatore insieme (lì la prova passa).
 
 ## M37 — 2D e qualità sulla GPU (M, se serve)
 - Sprite, tile e testo come quad della GPU, per i giochi con molto 2D sopra il 3D.
@@ -2758,6 +2794,22 @@ sul Pi.**
   migliore per gli schermi grandi), una foto dell'overlay (Select) in partita a ciascuna
   e il benchmark a 1080p. Il costo che resta: la GPU scrive la pagina (4 MB a 1080p) e
   riempie 510 tile, l'ARM disegna l'HUD ingrandito.
+- **Sul Pi (2026-10-05, v0.2.3, renderer GPU: il vertex shader è spento, M36).** Il
+  benchmark a 1920×1080 (report `overbit-bench`): GPU MEDIUM 22 fps (44,9 ms: update 7,7,
+  3D 22,0; 4164 triangoli), HIGH 20, ULTRA 19, EXTREME 18 (56,5 ms, 3D 29,3; 5244
+  triangoli); con l'MSAA 2–3 fps in meno. Anello di eroi: 1 a 60 fps, 8 a 30 (un eroe solo
+  14,8 ms, di cui 3,5 di 3D). Le foto dell'overlay in partita (10 attori):
+  - 480×270, LOW auto: sul punto 44 fps (23,2 ms: update 5,8, 3D 13,3; 3620 triangoli);
+    dallo spawn verso la strada 41 fps (3D 13,8; 4091 triangoli);
+  - 960×540: sul punto, EXTREME, 28 fps (33,7 ms: update 6,4, 3D 18,1; 3621 triangoli);
+    nella strada 25 fps (40,4 ms);
+  - 1920×1080, LOW auto: dallo spawn 22 fps (40,0 ms: update 8,6, 3D 25,9; 4083 triangoli).
+
+  Con gli stessi triangoli il 3D passa da 13 ms a 480×270 a 26 ms a 1080p: senza la coda
+  l'ARM aspetta la GPU, che a 1080p riempie 510 tile e scrive 4 MB. Il Lua del gioco resta
+  6–9 ms. A 480×270 la partita va a 41–44 fps (il primo benchmark a 320×180 dava 29–37 fps
+  con la GPU); nessuna risoluzione arriva a 60 fps. Servono il vertex shader (M36) e la coda
+  (M35), poi M39.
 
 ## M39 — GPU 3: verso il limite della V3D (L/XL)
 Dove siamo (2026-10-03, stime dal PC per le versioni 3.0–4.1): il riempimento è all'80%
@@ -2819,6 +2871,25 @@ il Pi non ha ancora mostrato, come in M34–M36.
   risoluzione, overclock della GPU e dell'ARM. (La risoluzione scelta nel menu dei giochi
   c'è dal 2026-10-04, M38: qui si intende cambiarla da sola per guadagnare fotogrammi.)
 
+**Misure di partenza sul Pi (2026-10-05, kernel v0.2.0, report `bench3d`, copia in
+`docs/bench/`): solo ARM 0.2, GPU 2.1 e GPU+AA**, perché i profili col vertex shader mancano
+(M36). Carico a 60 fps, ARM / GPU:
+- sfere: `spheres` 72 / 209 (GPU+AA 206), `spheres_smooth` 22 / 163, `spheres_tex` <1 (54 a
+  30 fps) / 166, `spheres_unlit` 78 / 244, `spheres_baked` 26 / 195, `spheres_shine` 21 / 113;
+- eroi: `heroes` 3,9 / 6,4, `heroes_tex` 3,5 / 6,0, `heroes_skin` 3,4 / 6,0,
+  `heroes_shadow` <1 / 3,4;
+- `clip` 18 / 827, `tiny` 14 / 20, `draws` 453 / 1229;
+- riempimento: `quad_flat` 12 / 203, `quad_smooth` 6 / 200, `quad_tex` 3,4 / 121,
+  `quad_alpha` 3,5 / 115, `quad_screen` 14 / 184;
+- `texswap` **89 / 7,8**, `split` **14 / 5,6**, `match` <1 / <1 (a 30 fps 1,5 / 5,3).
+
+Con la GPU l'ARM resta il limite dove i vertici sono tanti (`heroes`, `match`: 5–6 milioni di
+istruzioni a fotogramma). Due casi vanno peggio che sull'ARM: `texswap` (tre texture a turno:
+la GPU ne tiene due e la terza chiude il lavoro) e `split` (ogni 2D tra due 3D chiude il
+lavoro: 5 lavori a fotogramma). Si aggiungono ai passi: più texture in un lavoro, e meno
+lavori quando 3D e 2D si alternano (M35, passo 3). Il report sulla SD fa da "report di prima"
+per il prossimo giro.
+
 ## M40 — bm per PowKiddy RGB30 (XL) — ✅ chiusa (2026-10-04)
 **Chiusa dall'utente il 2026-10-04** (nata nel branch `rgb30-powkiddy`, unita a `bm-core`):
 il lavoro sulla RGB30 continua su `bm-core` con il resto di bm.
@@ -2879,6 +2950,14 @@ Task:
    console di testo. Prove: tutto `tests/rgb30/qemu_test.py`; sulla console da vedere.
 - **Fatto quando:** sulla RGB30 il menu appare, i tasti e le levette rispondono, un controller
   Bluetooth si accoppia e la console entra nella rete WiFi salvata in `bm/config.txt`.
+
+**Sulla console (2026-10-05, kernel v0.2.1).** Il WiFi funziona: RTL8821CS, WPA2 (CCMP),
+DHCP, ora dalla rete, la console sulla porta 3333 (report `log`); i report arrivano su GitHub
+via HTTPS. 3D Bench solo ARM (Cortex-A55; copia in `docs/bench/`), carico a 60 fps contro
+l'ARM del Pi Zero W: `spheres` 180 (72), `spheres_smooth` 100 (22), `heroes` 8,6 (3,9),
+`heroes_shadow` 2,3 (<1), `clip` 450 (18), `draws` 900 (453), `quad_flat` 16 (12),
+`quad_tex` 8,0 (3,4), `match` 1,3 (<1; 8,1 a 30 fps). Render bench: mappa e 256 sprite 4,90
+ms disegnando diretto, 7,30 ms via RAM (sul Pi 8,58 e 11,85).
 
 ## Rischi principali
 | Rischio | Mitigazione |

@@ -1891,8 +1891,11 @@ static int probe_gl(const g16_t *pg)
         gmesh_t *e = mesh_get(pg, &m, 1, 0);
         gunif_t u = { .job = 0, .bone = -1 };
         if (!e || e->ngroups != 1 || gl_draw(pg, e, &e->g[0], &u, M, I3, M, I3, &env, R3D_DEPTH_WRITE) != 0 ||
-            gpu3d_flush(pg, 0) != 0)
+            gpu3d_flush(pg, 0) != 0) {
+            kprintf("gpu3d: vertex shader probe: not drawn (mesh %s, groups %d, clockwise bit %d)\n",
+                    e ? "made" : "not made", e ? e->ngroups : 0, cw);
             return 0;
+        }
         const uint16_t left = G.probe[20 * PROBE_W + 10], right = G.probe[20 * PROBE_W + 40],
                        in = G.probe[40 * PROBE_W + 10], out = G.probe[40 * PROBE_W + 20];
         if (left == 0xF800 && right == 0 && in == 0xF800 && out == 0)
@@ -1902,6 +1905,7 @@ static int probe_gl(const g16_t *pg)
             return 0;
         }
     }
+    kprintf("gpu3d: vertex shader probe: only the green triangle with either clockwise bit\n");
     return 0;
 }
 
