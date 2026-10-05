@@ -16,9 +16,16 @@
 #                           formatted (FAT32, the whole card up to 31 GB) with
 #                           the image's files on it; settings, saves and your
 #                           own games are kept, unless you say no
+#   5  [NET] send a file    a game (.bm, into /carts: the menu shows it at once),
+#                           a resource (.bmm .bmi .bms ..., into /bm/lib) or any
+#                           file to a console's SD card (tools/bm_net.py --send)
+#   r  release              a new version on GitHub (scripts/release.sh --no-sd:
+#                           the tag, the CI tests it and publishes it); the
+#                           consoles take it from Settings > Updates
 #   b  branch              change it, or bring it up to date (git pull)
 #   p  paths               the repository's folder, the card's drive letter
-# The same as an argument: ./easy_install.sh kernel | install | image | net [profile].
+# The same as an argument: ./easy_install.sh kernel | install | image | net [profile]
+# | send FILE [profile] | release [vX.Y.Z].
 # sudo is asked for when needed (packages, mounting the card); the card is
 # mounted, synced and unmounted (and ejected) by the script. At the end:
 # the kernel the card had -> the one it has now.
@@ -364,7 +371,7 @@ pick_profile() {                                # PICK: the profile chosen ($1: 
         if [ ${#PROFILES[@]} -gt 0 ]; then list_profiles; else echo "  (none saved yet)"; fi
         echo "  n  a new one"
         [ ${#PROFILES[@]} -eq 0 ] || echo "  d  delete one"
-        read -r -p "Which one to update (Enter: back)? " c || c=
+        read -r -p "${PICK_Q:-Which one to update} (Enter: back)? " c || c=
         case $c in
             "") return 1 ;;
             n|N) new_profile ;;
@@ -386,27 +393,13 @@ pick_profile() {                                # PICK: the profile chosen ($1: 
     done
 }
 
-job_net() {
-    pick_profile "${1:-}" || return 0
-    local p=${PROFILES[$PICK]} name ip code board file old new out x
-    name=$(profile_field "$p" 0); ip=$(profile_field "$p" 1)
-    code=$(profile_field "$p" 2); board=$(profile_field "$p" 3)
-    up_to_date
-    say "The kernel for $name ($(board_name "$board"), $ip)"
-    case $board in
-        pi) file=build/kernel.img ;;
-        zero2) file=build/kernel7.img ;;
-        rgb30) file=build/rgb30/kernel8.img ;;
-        *) die "$name: unknown board $board" ;;
-    esac
-    if [ "$board" = rgb30 ]; then
-        build_rgb30
-    else
-        make -j"$(nproc)" "$file"
-    fi
-    while :; do                                 # the IP may have changed (the router gives it)
+# the console answers on $ip, the caller's (it may have changed: the router
+# gives it); sets the caller's old to the version it runs
+reach_console() {
+    local x
+    while :; do
         old=$(net_version "$ip")
-        [ -z "$old" ] || break
+        [ -z "$old" ] || return 0
         warn "$name does not answer on $ip (port 3333, bm's network console)."
         if ping -c 2 -W 2 "$ip" >/dev/null 2>&1; then
             warn "  $ip answers ping: the network is there, bm's console is not (another device on that IP,"
@@ -424,14 +417,44 @@ job_net() {
         [ -n "$x" ] || die "stopped"
         ip=$x
     done
-    echo "$name runs bm $old"
+}
+
+# tools/bm_net.py on the caller's ip with its code (asked again if it is not
+# the console's); sets the caller's out, returns bm_net's status
+net_do() {
+    local x rc
     while :; do
-        out=$(python3 tools/bm_net.py "$ip" -p "$code" --kernel "$file" 2>&1 | tee /dev/stderr) || true
-        grep -q "wrong password" <<< "$out" || break
+        rc=0
+        out=$(python3 tools/bm_net.py "$ip" -p "$code" "$@" 2>&1 | tee /dev/stderr) || rc=$?
+        grep -q "wrong password" <<< "$out" || return "$rc"
         read -r -p "Not its code: the Console password now (6 digits, Enter: stop): " x || x=
         [[ $x =~ ^[0-9]{6}$ ]] || die "stopped"
         code=$x
     done
+}
+
+job_net() {
+    PICK_Q="Which one to update"
+    pick_profile "${1:-}" || return 0
+    local p=${PROFILES[$PICK]} name ip code board file old new out
+    name=$(profile_field "$p" 0); ip=$(profile_field "$p" 1)
+    code=$(profile_field "$p" 2); board=$(profile_field "$p" 3)
+    up_to_date
+    say "The kernel for $name ($(board_name "$board"), $ip)"
+    case $board in
+        pi) file=build/kernel.img ;;
+        zero2) file=build/kernel7.img ;;
+        rgb30) file=build/rgb30/kernel8.img ;;
+        *) die "$name: unknown board $board" ;;
+    esac
+    if [ "$board" = rgb30 ]; then
+        build_rgb30
+    else
+        make -j"$(nproc)" "$file"
+    fi
+    reach_console
+    echo "$name runs bm $old"
+    net_do --kernel "$file" || true
     PROFILES[PICK]="$name|$ip|$code|$board|$(profile_field "$p" 4)"     # IP and code as they work now
     save_conf
     new=$(sed -n 's/.*running bm \([^ ]*\).*/\1/p' <<< "$out" | tail -1)
@@ -445,6 +468,98 @@ does not start: put kernel8.img on its card once (2 [SD] update kernel, with the
     LAST_RUN="$(now) net $name: $old -> $new"
     save_conf
     printf '\n\033[1;92mkernel (%s): %s -> %s\033[0m\n' "$name" "$old" "$new"
+    exit 0
+}
+
+short_name() {                                  # an 8.3 name for the SD card (PONG.BM): the file's if it is one
+    local b=$1 stem ext
+    if [[ $b =~ ^[A-Za-z0-9_-]{1,8}(\.[A-Za-z0-9_-]{1,3})?$ ]]; then echo "$b"; return; fi
+    stem=${b%.*}; ext=
+    [ "$stem" = "$b" ] || ext=${b##*.}
+    stem=$(tr -cd 'A-Za-z0-9_-' <<< "$stem"); ext=$(tr -cd 'A-Za-z0-9_-' <<< "$ext")
+    stem=${stem:0:8}; ext=${ext:0:3}
+    [ -n "$stem" ] || stem=FILE
+    stem=${stem^^}; ext=${ext^^}
+    echo "$stem${ext:+.$ext}"
+}
+
+# a file on a console's SD card (tools/bm_net.py --send): a game goes into
+# /carts and the console's menu shows it at once, a resource into /bm/lib
+job_send() {
+    local file=${1:-} base n83 to x p name ip code board out old rc
+    if [ -z "$file" ]; then
+        say "Send a file to a console"
+        echo "A game (.bm), a resource (.bmm .bmi .bms .bmt .bmc .bmk) or any file. Built here:"
+        ls build/carts/*.bm 2>/dev/null | sed 's/^/  /' || echo "  (none: make builds them in build/carts/)"
+        read -e -r -p "File (Tab completes; Enter: back): " file || file=
+        [ -n "$file" ] || return 0
+    fi
+    file=${file/#\~/$HOME}
+    if [ ! -f "$file" ] && [[ $file == build/carts/*.bm ]]; then
+        make "$file" || true                    # a game of the repository not built yet
+    fi
+    [ -f "$file" ] || { warn "$file: no such file"; return 0; }
+    base=$(basename "$file")
+    n83=$(short_name "$base")
+    if [ "$n83" != "$base" ]; then
+        read -r -p "The SD card wants an 8.3 name (8 letters, dot, 3) [$n83]: " x || x=
+        n83=${x:-$n83}
+    fi
+    case ${base,,} in
+        *.bmm|*.bmi|*.bms|*.bmt|*.bmc|*.bmk) to=/bm/lib ;;
+        *) to=/carts ;;
+    esac
+    read -r -p "Folder on the SD card [$to]: " x || x=
+    to=${x:-$to}
+    PICK_Q="Which one to send it to"
+    pick_profile "${2:-}" || return 0
+    p=${PROFILES[$PICK]}
+    name=$(profile_field "$p" 0); ip=$(profile_field "$p" 1)
+    code=$(profile_field "$p" 2); board=$(profile_field "$p" 3)
+    reach_console
+    say "$base -> $name ($ip): $to/$n83"
+    rc=0
+    net_do --send "$file" --to "$to" --name "$n83" || rc=$?
+    PROFILES[PICK]="$name|$ip|$code|$board|$(profile_field "$p" 4)"     # IP and code as they work now
+    save_conf
+    if [ "$rc" = 0 ]; then
+        LAST_RUN="$(now) sent $n83 to $name"
+        save_conf
+        ok "sent: $to/$n83 on $name"
+        [[ ${n83,,} != *.bm ]] || [ "$to" != /carts ] || ok "the game is in its menu now (Games, or Dev for a tool)"
+    else
+        warn "not sent: see above"
+    fi
+}
+
+# a release on GitHub: scripts/release.sh VERSION --no-sd makes the tag, the
+# CI tests it and publishes the release; the consoles (the Pi, the RGB30)
+# take it from Settings > Updates
+job_release() {
+    local v=${1:-} last next minor
+    say "A release on GitHub"
+    last=$(git ls-remote --tags --refs origin 'v*' 2>/dev/null | sed 's|.*refs/tags/||' | sort -V | tail -1)
+    echo "  the latest one: ${last:-none yet}"
+    echo "  from:           $BRANCH at $(git rev-parse --short HEAD) ($(git log -1 --format=%s | cut -c1-50))"
+    if [ "$BRANCH" != bm-core ] && ! ask "The releases come from bm-core, this is $BRANCH: go on anyway?"; then
+        return 0
+    fi
+    if [ -z "$v" ]; then
+        if [[ $last =~ ^v([0-9]+)\.([0-9]+)\.([0-9]+)$ ]]; then
+            next="v${BASH_REMATCH[1]}.${BASH_REMATCH[2]}.$((BASH_REMATCH[3] + 1))"
+            minor="v${BASH_REMATCH[1]}.$((BASH_REMATCH[2] + 1)).0"
+            echo "  $next for fixes, $minor for new things"
+        else
+            next=v0.1.0
+        fi
+        read -r -p "Version [$next]: " v || v=
+        v=${v:-$next}
+    fi
+    [[ $v =~ ^v[0-9]+\.[0-9]+\.[0-9]+$ ]] || { warn "a version is vX.Y.Z (e.g. $next)"; return 0; }
+    echo "scripts/release.sh asks before every step that changes GitHub (the secret, a push, the tag)."
+    scripts/release.sh "$v" --no-sd || { warn "the release stopped: see above"; return 0; }
+    LAST_RUN="$(now) release $v"
+    save_conf
     exit 0
 }
 
@@ -666,8 +781,11 @@ case ${1:-} in
     install) job_install ;;
     image) job_image ;;
     net) job_net "${2:-}" ;;
+    send) job_send "${2:-}" "${3:-}"; exit 0 ;;
+    release) job_release "${2:-}"; exit 0 ;;
     "") ;;
-    *) die "unknown: $1 (kernel, install, image, net [profile], or nothing for the menu)" ;;
+    *) die "unknown: $1 (kernel, install, image, net [profile], send FILE [profile], release [vX.Y.Z], \
+or nothing for the menu)" ;;
 esac
 
 while :; do
@@ -677,6 +795,8 @@ while :; do
   2   [SD] update kernel   (kernel.img only; the old one stays in bm/backup)
   3   [SD] full install    (kernel, boot files, games, bm/: make install)
   4   [SD] disk image      (make image, card erased and formatted, the image's files)
+  5  [NET] send a file     (a game or a file to a console's SD card: bm_net.py --send)
+  r  release               (a new version on GitHub: release.sh --no-sd; the consoles update)
   b  branch                (now $BRANCH: change it or update it)
   p  paths                 (repository folder, SD card letter)
   q  quit
@@ -687,9 +807,11 @@ MENU
         2) job_kernel ;;
         3) job_install ;;
         4) job_image ;;
+        5) job_send ;;
+        r|R) job_release ;;
         b|B) change_branch; BRANCH=$(git rev-parse --abbrev-ref HEAD); echo "  branch      $(branch_line)" ;;
         p|P) change_paths ;;
         q|Q|"") exit 0 ;;
-        *) warn "1, 2, 3, 4, b, p or q" ;;
+        *) warn "1, 2, 3, 4, 5, r, b, p or q" ;;
     esac
 done
