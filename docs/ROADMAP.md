@@ -616,7 +616,7 @@ Decisione 2026-09-28: versioni "leggere", in coda dopo M17.
 9. Poi: aggiornamento del kernel da GitHub (M19), rete nelle cartucce.
 
 
-## M19 — HTTPS: aggiornamenti e "git leggero" (L)
+## M19 — HTTPS: aggiornamenti e "git leggero" (L) — ✅ chiusa (2026-10-05)
 - **TLS**: mbedTLS (licenza Apache 2.0) sopra lwIP; certificati radice essenziali sulla
   SD.
 - **Aggiornamenti da internet**: il Pi controlla le release di GitHub del progetto,
@@ -661,7 +661,8 @@ Passi (2026-09-29):
      hardware, acceso solo alla prima richiesta, scarta i primi numeri (riscaldamento) e ci
      metteva più dei 200 ms concessi; prima lo accendeva il Bluetooth LE. Ora parte all'avvio
      del kernel e la prima lettura aspetta fino a 3 s.
-3. 🛠 (manca la chiave: `scripts/release-key.sh`) **Release**: GitHub Actions costruisce
+3. ✅ (2026-10-04/05: la chiave nel secret `BM_RELEASE_KEY`, le release v0.1.0, v0.2.1 e v0.2.3
+   pubblicate dalla CI con il manifesto firmato) **Release**: GitHub Actions costruisce
    `kernel.img` e le cartucce a ogni tag `v*`, le allega alla release con un manifesto
    (versione, SHA-256, firma ECDSA P-256 con una chiave nei secret del repository; la chiave
    pubblica è nel kernel).
@@ -694,13 +695,28 @@ Passi (2026-09-29):
    - **Da verificare sul Pi**: il controllo e l'installazione da GitHub via WiFi (le release
      scaricano da `release-assets.githubusercontent.com`: se manca la radice in `bm/ca.pem`
      l'errore lo dice).
-5. **Git leggero in lettura**: cartucce da un repository (API "contents" di GitHub,
-   file per file, senza archivi da decomprimere).
+   - ✅ Sul Pi (2026-10-05): gira il kernel v0.2.3 costruito dalla CI per la release (i report
+     del Pi dicono kernel e branch `v0.2.3`); anche la RGB30 ha preso la v0.2.1 della release.
+     Sulla RGB30 il riavvio dopo l'installazione lasciava lo schermo nero: corretto nel codice
+     (`plat_reset`, spegne schermo e WiFi prima), da riprovare sulla console (sezione M40).
+5. ~~**Git leggero in lettura**: cartucce da un repository (API "contents" di GitHub,
+   file per file, senza archivi da decomprimere).~~ Sostituito dal Market (M25): catalogo
+   firmato da GitHub Pages, download e SHA-256 dei giochi.
 6. **Git leggero in scrittura**: l'editor carica un `.bm` su un repository con un
    token personale (`github_token` in `bm/config.txt`, API "contents", PUT).
    - In parte (2026-10-04, branch `bm-core`): i **report dei test** vanno da soli nel branch
      `reports` di `f-accomando/bm` (`github_put` in `src/net/github.c`, `src/kernel/reports.c`;
      nome con kernel e branch), così chi sviluppa li legge senza foto.
+   - ✅ Sul Pi e sulla RGB30 (2026-10-05): nove report arrivati nel branch `reports` con il
+     token in `bm/config.txt` (PUT dell'API "contents" via HTTPS). Un gioco dal Pi a un
+     repository è la pubblicazione nel Market (`src/kernel/publish.c`, pull request a
+     `f-accomando/bm-market`): la sua prova sul Pi resta in M25.
+
+**Chiusa il 2026-10-05** (decisione dell'utente): HTTPS, ora di rete, release firmate e
+aggiornamento dal menu funzionano sul Pi; la scrittura su GitHub con un token (i report)
+funziona sul Pi e sulla RGB30. Restano fuori: la pull request di un gioco verso il Market
+(da provare sul Pi, M25), il riavvio della RGB30 dopo un aggiornamento (M40, corretto nel
+codice, da riprovare), SSH e git completo (non servono).
 
 ## M20 — Picchiaduro a robot giganti (XL) — ✅ chiusa (2026-09-30: base giocabile)
 Decisione 2026-09-28: in coda dopo M19. Concept completo dell'autore:
