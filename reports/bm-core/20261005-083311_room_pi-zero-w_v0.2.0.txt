@@ -1,0 +1,45 @@
+bm report
+kind: room
+kernel: v0.2.0
+branch: bm-core
+board: Pi Zero W
+date: 2026-10-05 08:33:11
+file: 20261005-083311_room_pi-zero-w_v0.2.0.txt
+
+Texture Room: crates doubled from 8 while it keeps 30 fps, 2 s each
+(ms: update + draw of a frame, the GPU's work included)
+              crates  triangles
+ARM 320x180        8        455       8.2 ms    59.9 fps
+ARM 320x180       16        489      10.6 ms    59.9 fps
+ARM 320x180       32        563      13.5 ms    59.9 fps
+ARM 320x180       64        661      15.9 ms    59.1 fps
+ARM 320x180      128        863      20.9 ms    45.9 fps
+ARM 320x180      256       1340      25.7 ms    37.9 fps
+ARM 320x180      512       2252      34.5 ms    28.4 fps
+ARM 640x360        8        458      22.5 ms    42.7 fps
+ARM 640x360       16        488      27.6 ms    35.4 fps
+ARM 640x360       32        551      39.5 ms    24.8 fps
+GPU 320x180        8        455       2.4 ms    59.9 fps
+GPU 320x180       16        489       2.7 ms    59.9 fps
+GPU 320x180       32        563       3.2 ms    59.9 fps
+GPU 320x180       64        663       3.8 ms    59.9 fps
+GPU 320x180      128        867       4.9 ms    59.9 fps
+GPU 320x180      256       1317       7.5 ms    59.9 fps
+GPU 320x180      512       2199      12.7 ms    59.9 fps
+GPU 320x180     1024       3876      22.3 ms    43.4 fps
+GPU 320x180     2048       7489      42.1 ms    23.3 fps
+GPU 640x360        8        455       3.1 ms    59.9 fps
+GPU 640x360       16        489       3.5 ms    59.9 fps
+GPU 640x360       32        563       4.1 ms    59.9 fps
+GPU 640x360       64        663       4.8 ms    59.9 fps
+GPU 640x360      128        867       6.1 ms    59.9 fps
+GPU 640x360      256       1317       8.7 ms    59.9 fps
+GPU 640x360      512       2199      13.6 ms    59.9 fps
+GPU 640x360     1024       3884      23.1 ms    41.6 fps
+GPU 640x360     2048       7507      43.6 ms    22.6 fps
+most crates (triangles)  at 60 fps          at 30 fps
+ARM 320x180               64 (661)         256 (1340)
+ARM 640x360                     <8           16 (488)
+GPU 320x180             512 (2199)        1024 (3876)
+GPU 640x360             512 (2199)        1024 (3884)
+Texture Room benchmark done
