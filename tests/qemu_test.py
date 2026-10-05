@@ -1972,6 +1972,9 @@ def test_bt_pair_and_reconnect(b, opts):
             chip.reconnect(pad, FakeDs4Chip.KEY, chip.HANDLE, (0x50, 0x51), 1)
             _mini_expect(q, "bt: controller 1c:66:6d:01:02:03 connected (player 1)")
             chip.report(0x08 | 0x20)
+            # its first seconds are in the log: the light sent, the reports
+            _mini_expect(q, "-> output report 11 (light 00 20 80")
+            _mini_expect(q, "<- first input report 01")
             time.sleep(0.2)
             chip.report(0x08)
             _mini_expect(q, "playing snake.bm")
@@ -1979,6 +1982,7 @@ def test_bt_pair_and_reconnect(b, opts):
             # the user has to go on)
             chip._event(0x05, bytes([0]) + chip.HANDLE.to_bytes(2, "little") + bytes([0x08]))
             _mini_expect(q, "bt: controller 1c:66:6d:01:02:03 (player 1) disconnected after ")
+            _mini_expect(q, "input reports (last ")
             _mini_expect(q, "radio link lost (distance, WiFi, battery) (reason 08)")
         finally:
             q.close()

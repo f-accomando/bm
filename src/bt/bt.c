@@ -65,6 +65,11 @@
  * opened by us (some pads ask SDP first and then wait for the host) */
 #define HOST_OPEN_MS      1000
 
+/* every event and signal of a link is in the log for this long after it
+ * connected, also once it works: a pad that drops in its first seconds
+ * shows what it asked for (2026-10-05: a DS4 closed after 1-4 s) */
+#define TRACE_MS          10000
+
 /* L2CAP signaling codes */
 #define L2_CMD_REJECT   0x01
 #define L2_CONN_REQ     0x02
@@ -106,6 +111,8 @@ typedef struct {
     int host_step;                  /* HOST_OPEN_MS fallback: 0 idle, 1 auth, 2 encrypt, 3 channels */
     int announced;
     int slot;                       /* player - 1 (SLOT_MOUSE: the mouse), -1 before it has a key */
+    uint32_t reports;               /* input reports since it connected */
+    uint8_t report_id;              /* the last one's id (0x01 short, 0x11 full) */
 } link_t;
 
 static struct {
@@ -129,7 +136,8 @@ static const uint8_t led_rgb[BT_PADS][3] = {
 
 static int tracing(const link_t *l)
 {
-    return bt.pairing || (l && l->connected && !l->announced);
+    return bt.pairing || (l && l->connected &&
+                          (!l->announced || timer_ticks() - l->since < TRACE_MS * 1000u));
 }
 
 /* ---------------------------------------------------------------- helpers */
@@ -313,6 +321,8 @@ static void reset_link(link_t *l)
     l->intr.lcid = CID_INTERRUPT;
     l->sdp.lcid = CID_SDP;
     l->host_step = 0;
+    l->reports = 0;
+    l->report_id = 0;
 }
 
 /* A link for this address: the existing one, or a free entry. */
@@ -697,6 +707,8 @@ static void send_light(link_t *l)
     r[75] = (uint8_t)(crc >> 8);
     r[76] = (uint8_t)(crc >> 16);
     r[77] = (uint8_t)(crc >> 24);
+    trace(l, "-> output report 11 (light %02x %02x %02x, reports every %d ms)", r[8], r[9], r[10],
+          DS4_POLL_MS);
     l2cap_send(l, l->intr.rcid, p, sizeof p);
 }
 
@@ -853,7 +865,10 @@ static void sdp_reply(link_t *l, const uint8_t *d, uint16_t len)
     }
     r[3] = (uint8_t)(n >> 8);
     r[4] = (uint8_t)n;
-    trace(l, "SDP request %02x answered (no records)", d[0]);
+    trace(l, "SDP request %02x answered (no records): %02x %02x %02x %02x %02x %02x %02x %02x %02x %02x",
+          d[0], len > 5 ? d[5] : 0, len > 6 ? d[6] : 0, len > 7 ? d[7] : 0, len > 8 ? d[8] : 0,
+          len > 9 ? d[9] : 0, len > 10 ? d[10] : 0, len > 11 ? d[11] : 0, len > 12 ? d[12] : 0,
+          len > 13 ? d[13] : 0, len > 14 ? d[14] : 0);
     l2cap_send(l, l->sdp.rcid, r, (uint16_t)(5 + n));
 }
 
@@ -868,6 +883,18 @@ static void handle_acl(const hci_pkt_t *p)
     const uint8_t *d = p->data + 8;
     if (l2len + 8u > p->len)
         return;                                 /* fragments are not expected */
+    if (cid == l->intr.lcid && l2len >= 2 && d[0] == 0xA1) {
+        if (!l->reports++)
+            trace(l, "<- first input report %02x (%u bytes)", d[1], l2len);
+        else if (d[1] != l->report_id)
+            trace(l, "<- input report %02x now (%lu so far)", d[1], (unsigned long)l->reports);
+        l->report_id = d[1];
+    } else if (cid == l->ctrl.lcid) {
+        trace(l, "<- HID control %02x %02x %02x %02x (%u bytes)", d[0], l2len > 1 ? d[1] : 0,
+              l2len > 2 ? d[2] : 0, l2len > 3 ? d[3] : 0, l2len);
+    } else if (cid != CID_SIGNALING && cid != l->sdp.lcid) {
+        trace(l, "<- data on channel %04x (%u bytes)", cid, l2len);
+    }
     if (cid == CID_SIGNALING) {
         handle_signaling(l, d, l2len);
     } else if (cid == l->sdp.lcid) {
@@ -972,8 +999,9 @@ static void handle_event(const hci_pkt_t *p)
                     kprintf("bt: mouse %s %s after %u ms: %s (reason %02x)\n", as, what, ms,
                             hci_reason(e[3]), e[3]);
                 else if (slot >= 0)
-                    kprintf("bt: controller %s (player %d) %s after %u ms: %s (reason %02x)\n", as,
-                            slot + 1, what, ms, hci_reason(e[3]), e[3]);
+                    kprintf("bt: controller %s (player %d) %s after %u ms, %lu input reports (last %02x): "
+                            "%s (reason %02x)\n", as, slot + 1, what, ms, (unsigned long)l->reports,
+                            l->report_id, hci_reason(e[3]), e[3]);
                 else
                     kprintf("bt: controller %s (not paired) %s after %u ms: %s (reason %02x)\n", as,
                             what, ms, hci_reason(e[3]), e[3]);
