@@ -1158,7 +1158,8 @@ Sotto-milestone:
   - Test: `make test-audio` (sintesi e player), `make test-sound` (l'editor in un bm
     finto: il banco demo torna identico byte per byte, input casuale), in QEMU
     `test_audio_bank`, `test_volume_saved`, `test_sound_editor`.
-  - Da fare: WAV/MIDI (22.5), uscita stereo, editor delle forme d'onda.
+  - WAV/MIDI, uscita stereo, editor delle forme d'onda: spostati tra gli spunti (R25,
+    2026-10-05).
   - **Da verificare sul Pi** (tutto a schermo): Dev → *Audio test* (sei forme d'onda,
     accordo, glide, vibrato, arpeggio); Dev → *Sound*: parte sulla pagina SONG, START
     suona il brano DEMO (batteria, basso, arpeggio, melodia) a tempo anche mentre si
@@ -1169,27 +1170,13 @@ Sotto-milestone:
   - PNG ↔ sheet (con riduzione a ≤256 colori), OBJ/GLB → MESH, file Lua ↔ progetto,
     WAV/MIDI dove ha senso;
   - dalla SD, e con M18 dal PC via WiFi.
+  - Fatto: un'immagine diventa un modello sulla console (ritaglio, tornio, Meshy: `.glb` →
+    MESH), i file dal PC arrivano via WiFi (`bm_net.py --send`). Resta in M22 il PNG dalla
+    SD nello sheet (bm Pixel); WAV/MIDI vanno in R25.
 - **22.6 Da 3D a sprite**: come `carts/titan/mkrobot.py` ma sul Pi. Si parte da un
   modello con scheletro e pose, si scelgono viste e dimensione; poi cel shading, contorni,
   riduzione della tavolozza, fotogrammi nello sheet con hitbox e hurtbox.
-- **22.7 Sprite stacking** (decisione 2026-09-29, come i layer di Aseprite):
-  - un oggetto è una pila di **fette** 2D (un layer per altezza), disegnate in pixel art;
-  - sovrapposte con un piccolo scarto verticale e ruotate, danno l'illusione di un volume
-    3D, girabile su x, y, z;
-  - editor: fette in griglia e sovrapposte, onion skin della fetta sotto, anteprima che
-    gira dal vivo.
-  
-  In gioco, disegno in C con due livelli di costo:
-  - **solo rotazione z** (lo stacking classico, visto dall'alto): N fette ruotate e
-    spostate, economico;
-  - **x, y, z libere**: la pila diventa un volume di voxel disegnato punto per punto
-    dalla faccia visibile (per esempio 32×32×32), più costoso.
-  
-  API: `stack(sx, sy, w, h, n, x, y, [rz, rx, ry, scala])`.
-  
-  Legami con gli altri strumenti:
-  - le fette sono sprite dello sheet (22.2 con i layer);
-  - un volume può diventare MESH (22.3) o fotogrammi pre-renderizzati con 22.6.
+- ~~**22.7 Sprite stacking**~~: spostato tra gli spunti (R24, 2026-10-05).
 
 Considerazioni:
 - **Contenitore unico: il `.bm` stesso** (come le cartucce PICO-8): codice, sheet,
@@ -1208,6 +1195,23 @@ Considerazioni:
   - l'SDK perde le sue pagine codice/sprite quando arrivano 22.1 e 22.2, e resta hub e
     impostazioni del progetto.
 - Ordine proposto: 22.0 → 22.1 → 22.2 → 22.4 → 22.5 → 22.3 → 22.6 → 22.7.
+
+**Stato e chiusura (2026-10-05, decisione dell'utente).**
+- **Fatto quando:** sul Pi un gioco fatto dall'inizio alla fine con la suite (codice, sprite,
+  un modello 3D e un suono), provato e salvato.
+- Fatto in QEMU e sul PC: 22.0 (l'SDK come centro della suite, `bm3d`, F12 e `keyhelp`, i
+  modelli di gioco), 22.1 (bm Code), 22.2 (bm Pixel), 22.3 (bm Studio e bm Mesh sulla console,
+  riduttore, modello da un'immagine), 22.4 (Sound editor), 22.6 (la pagina sprites di bm
+  Animator).
+- Resta nel codice: più file per progetto in bm Code (22.1), un PNG dalla SD nello sheet in
+  bm Pixel (22.5). Lo sprite stacking (22.7) e WAV/MIDI con lo stereo (22.4, 22.5) sono gli
+  spunti R24 e R25. Nessuno strumento della suite usa ancora il puntatore (M32).
+- **Da provare sul Pi**, a schermo: l'SDK (pagina del progetto, dev kit dopo F5, un modello
+  di gioco, *Back to bm SDK*); bm Code (il font 6x12, apri, modifica, Ctrl+S, F5 con un errore,
+  F9, `#entry:` e Ctrl+Z); bm Pixel (dipingere lo sheet di un gioco e provarlo); bm Studio e bm
+  Animator (Studio Village → *Open in bm Studio*, attrezzi, salvataggio, F5; rig, animazione,
+  sprites); bm Mesh (Astro Wing → *Open in bm Mesh*); Dev → *Audio test* e il Sound editor
+  (START suona il DEMO, salvataggio in un gioco, volume); Studio Village nella scheda Games.
 
 ## M23 — Emulatore di cartucce `.p8` / `.p8.png` (stile PICO-8) (L/XL)
 Decisione 2026-09-29: in coda. Scritto da zero in C sul runtime di bm (non il port di
@@ -3162,6 +3166,16 @@ tastiera).
   italiano e rinominato) e `docs/GAME-GUIDE.md` (le versioni italiane sono `docs/API-IT.md` e
   `docs/GUIDA-GIOCHI.md`); manca la base dell'assistente,
   che ha le domande anche in inglese ma le spiegazioni in italiano.
+- **R24 — Sprite stacking** (era 22.7 di M22, 2026-10-05). Un oggetto è una pila di fette 2D
+  (un layer per altezza, come in Aseprite) sovrapposte con un piccolo scarto e ruotate:
+  l'illusione di un volume 3D. Editor con le fette in griglia e sovrapposte, onion skin,
+  anteprima che gira. In gioco due costi: solo rotazione z (lo stacking classico, N fette
+  ruotate) o x, y, z libere (un volume di voxel, più caro). API `stack(sx, sy, w, h, n, x, y,
+  [rz, rx, ry, scala])`; le fette sono sprite dello sheet, un volume può diventare MESH o
+  fotogrammi (bm Animator, sprites).
+- **R25 — Suoni da e verso il PC** (era in 22.4 e 22.5 di M22, 2026-10-05). Nel Sound editor:
+  WAV (campioni brevi) e MIDI (note di un brano) importati ed esportati, l'uscita stereo e un
+  editor delle forme d'onda.
 
 ### Hardware
 - **R19 — Altri controller Bluetooth.** Oggi via Bluetooth solo il DS4 (più tastiere e
