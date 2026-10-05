@@ -48,9 +48,16 @@ screenshot in `docs/img/`), `README_OLD.md` (il README completo, in italiano),
   in `runtime.c`): fps, ms di `_update` + `_draw`, istruzioni Lua del fotogramma
   (`stat(10)`; prima del merge con `3d-performance` era `stat(6)`, ora il tempo del 3D),
   i massimi dell'ultimo secondo, la RAM (Lua + dati, e il massimo) e i token del codice
-  (2026-10-04) e il grafico degli ultimi 64 fotogrammi. Settings > Screen and sound >
-  "Performance overlay" (config `perf`), F11 (tasto di sistema, anche nelle app; era F3), `p`
-  dalla seriale. `stat(11)` token (`src/bm/tokens.c`, `code_tokens()`: un'informazione, mai un
+  (2026-10-04) e il grafico degli ultimi 64 fotogrammi. Un solo overlay per tutti (2026-10-05,
+  richiesta dell'utente: quello di Overbit è tolto): F11 una volta la pagina semplice, di nuovo
+  quella **dettagliata** (ms di tutti gli `_update` e quanti, `_draw`, 3D, GPU e lavori o pixel
+  dell'ARM, triangoli e vertici, driver bm3d, le righe del gioco con `devinfo()`), di nuovo
+  spento; ×2 da 1280 di larghezza, ×3 a 1920. `devkit([modo])` lo legge e lo cambia dal gioco
+  (Overbit: Select, Tab, F1). Settings > Screen and sound > "Performance overlay" Off / Simple /
+  Detailed (config `perf` 0/1/2), F11 (tasto di sistema, anche nelle app; era F3), `p` dalla
+  seriale. `frameskip(n)` (2026-10-05): il tempo del gioco a 60 `_update` al secondo, fino a n
+  `_update` prima di un `_draw` lento (`btnp` conta una volta; `stat(15)`; prova QEMU
+  `test_frameskip`); Overbit usa 4, il suo benchmark 1. `stat(11)` token (`src/bm/tokens.c`, `code_tokens()`: un'informazione, mai un
   limite, come vuole `docs/B16.md` §2.4), `stat(12)` KiB di Lua al massimo, `stat(13)` KiB dei
   dati (`assets_kb`), `stat(14)` il fotogramma più pesante; dopo una prova da uno strumento
   `cart_arg().run` ha i numeri della partita (`bm_set_arg_run` in `carts_tool_session`).
@@ -264,10 +271,13 @@ screenshot in `docs/img/`), `README_OLD.md` (il README completo, in italiano),
   M18. `make TARGET=rgb30 test-wifi`: frame, WPA2 contro `tests/rgb30/wpa_vectors.h` (scritto da
   `wpa_vectors.py`, Python + `cryptography`) e tutta la stazione su un chip e access point simulati
   (`wifi_sim_test.c`, `-v` mostra la console).
-- Aggiornamenti come sul Pi: *Settings > Updates* (`page_update` in `ui.c`, `src/kernel/update.c`
+- Aggiornamenti come sul Pi: *Settings > Updates* (le righe in `settings.c`, `src/kernel/update.c`
   con `BM_RGB30`: `manifest-rgb30`, `kernel8.img` riconosciuto dall'intestazione arm64 `ARM\x64` a
   +56), HTTPS e `release.c` nella build; le fibre del Market non ci sono (`stubs.c`: la rete
-  aspetta sul posto). `netxfer.c` scrive `kernel8.img`. Test `test_update_from_sd`.
+  aspetta sul posto). `netxfer.c` scrive `kernel8.img`. Test `test_update_from_sd`. Ogni riavvio
+  (aggiornamento, Restart, kernel dalla rete) passa da `plat_reset()` (`plat_rk3566.c`): prima
+  spegne schermo, WiFi e LED (dopo un riavvio la console restava accesa a schermo nero,
+  2026-10-05), poi PSCI e, se torna, il reset globale del CRU; come leggerlo in `docs/RGB30.md`.
 
 ## Cartucce `.cart`: rimosse
 

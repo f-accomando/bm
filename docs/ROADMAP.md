@@ -2810,6 +2810,13 @@ sul Pi.**
   6–9 ms. A 480×270 la partita va a 41–44 fps (il primo benchmark a 320×180 dava 29–37 fps
   con la GPU); nessuna risoluzione arriva a 60 fps. Servono il vertex shader (M36) e la coda
   (M35), poi M39.
+- **Il tempo della partita e il dev kit (2026-10-05, richiesta dell'utente).** Sotto i 60 fps
+  Overbit andava al rallentatore: ogni `_update` muove la partita di 1/60 s e ne girava uno a
+  fotogramma (a 22 fps il 37% della velocità). Ora `frameskip(4)` (API nuova del runtime):
+  fino a 4 `_update` prima di ogni `_draw`, la partita al tempo vero fino a 15 fotogrammi
+  disegnati al secondo; il benchmark resta a uno. L'overlay di Overbit è tolto: quello del
+  sistema ha una pagina dettagliata (F11 due volte, o Select, Tab, F1 nel gioco) con le fasi
+  del fotogramma, la GPU e le righe di Overbit (`devinfo`: qualità, regolatore, attori).
 
 ## M39 — GPU 3: verso il limite della V3D (L/XL)
 Dove siamo (2026-10-03, stime dal PC per le versioni 3.0–4.1): il riempimento è all'80%
@@ -2958,6 +2965,28 @@ l'ARM del Pi Zero W: `spheres` 180 (72), `spheres_smooth` 100 (22), `heroes` 8,6
 `heroes_shadow` 2,3 (<1), `clip` 450 (18), `draws` 900 (453), `quad_flat` 16 (12),
 `quad_tex` 8,0 (3,4), `match` 1,3 (<1; 8,1 a 30 fps). Render bench: mappa e 256 sprite 4,90
 ms disegnando diretto, 7,30 ms via RAM (sul Pi 8,58 e 11,85).
+
+## M41 — RGB30: la GPU Mali e Overbit in `.b16` (XL)
+Richiesta dell'utente (2026-10-05): lo stesso banco di prova della GPU del Pi anche sulla
+RGB30, con Overbit come gioco di misura, sviluppato insieme al driver della sua GPU
+(Mali-G52, Bifrost). Oggi sulla RGB30 il 3D lo fa l'ARM (Cortex-A55: nel 3D Bench 2,5 volte
+le sfere dell'ARM del Pi, M40) e il 3D Bench ha le colonne GPU vuote.
+1. **Overbit in `.b16`**: per ora un `.bm` con l'estensione diversa (il formato vero è da
+   definire, `docs/B16.md`), nell'immagine della RGB30. Due risoluzioni quadrate, scelte
+   nel menu RESOLUTION come quelle 16:9 sul Pi: **360×360** (ingrandita ×2 dal controller
+   video, come il menu) e **720×720** (il pannello pixel per pixel). Servono `screen()` con
+   i modi quadrati della RGB30 (righe a 64 byte e tessere da 16 della memoria video,
+   `fb_init_mode`), e in Overbit HUD, menu, cielo e campo visivo per lo schermo 1:1 (`SW`,
+   `SH`, `LW`×`LH` e `UI` di `00_core.lua`).
+2. **Le misure con l'ARM**: il benchmark di Overbit (bot e anello di eroi) alle due
+   risoluzioni, con il report come sul Pi; il 3D Bench resta quello di oggi.
+3. **Il driver Mali, a passi come M33–M36**: prima i triangoli preparati dall'ARM e
+   disegnati dalla GPU, poi i vertici sulla GPU (vertex shader), poi la coda; per ogni
+   passo una prova all'avvio che spegne ciò che non torna, un profilo nel 3D Bench e un
+   renderer in Overbit, misurati con le stesse due risoluzioni.
+- **Fatto quando:** sulla RGB30 Overbit `.b16` gira a 360×360 e a 720×720 e il suo
+  benchmark manda il report, prima con l'ARM e poi con la GPU Mali; il 3D Bench della
+  RGB30 ha le righe GPU.
 
 ## Rischi principali
 | Rischio | Mitigazione |
