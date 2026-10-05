@@ -68,6 +68,16 @@ int fat_write_file(const char *dir, const char *name, const void *data, size_t l
 /* Replaces the content of an existing file ("/carts/astrowing.bm", long
  * names too), as safely as fat_write_file. */
 int fat_replace(const char *path, const void *data, size_t len);
+/* Called after each piece the two write (a cluster, or a run of them), if
+ * set: a long write keeps the
+ * network alive (a kernel from the PC). Nonzero stops the write before
+ * anything points at the new data (it fails, fat_error() "stopped"). */
+extern int (*fat_write_tick)(void);
+/* Whole clusters (up to 32 KiB of them next to each other) in one SD
+ * command, read back and compared, instead of one sector at a time (a kernel took the RGB30 more than a minute); a
+ * cluster that comes back different turns it off for good. On by default
+ * on the RGB30, off on the Pi. Returns what it was. */
+int fat_write_runs(int on);
 
 /* Deletes a file ("/carts/Il mio gioco.bm", long names too; not a
  * directory). The directory entry goes first, then the clusters are

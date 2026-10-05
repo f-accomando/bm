@@ -673,6 +673,40 @@ int fat_mkdirs(const char *path)
     return 0;
 }
 
+int (*fat_write_tick)(void);
+#ifdef BM_RGB30
+static int runs = 1;
+#else
+static int runs;
+#endif
+
+int fat_write_runs(int on)
+{
+    int was = runs;
+    runs = on;
+    return was;
+}
+
+#define RUN_SECTORS 64                  /* a run of clusters next to each other: 32 KiB */
+
+/* Sectors in one command, read back into check and compared; if it fails
+ * or differs, one sector at a time (from now on, too). */
+static int write_run(uint32_t lba, uint32_t count, const uint8_t *src, uint8_t *check)
+{
+    if (sec_lba - lba < count)
+        sec_lba = ~0u;                          /* the cached sector is in it */
+    if (sd_write(lba, count, src) == 0 && sd_read(lba, count, check) == 0 &&
+        memcmp(src, check, count * 512) == 0)
+        return 0;
+    runs = 0;
+    kprintf("\x1b[91mfat: %lu sectors in one write came back wrong: one sector at a time "
+            "from now on\x1b[0m\n", (unsigned long)count);
+    for (uint32_t s = 0; s < count; s++)
+        if (write_sector(lba + s, src + s * 512))
+            return -1;
+    return 0;
+}
+
 /* The data into free clusters, then the directory entry: the existing
  * `old` (its clusters released last), or a new entry `n83` in `dc`. */
 static int store(const fat_entry_t *old, uint32_t dc, const uint8_t n83[11], const void *data, size_t len)
@@ -680,25 +714,42 @@ static int store(const fat_entry_t *old, uint32_t dc, const uint8_t n83[11], con
     uint32_t csize = vol.spc * 512;
     uint32_t n = (uint32_t)((len + csize - 1) / csize);
     uint32_t *list = n ? malloc(n * sizeof *list) : NULL;
+    const uint32_t run_max = vol.spc > RUN_SECTORS ? vol.spc : RUN_SECTORS;
+    uint8_t *check = runs && n > 1 ? malloc(run_max * 512) : NULL;     /* without it: sectors */
     if (n && !list) {
         err = "out of memory";
+        free(check);
         return -1;
     }
     int rc = -1;
     if (fsinfo_unknown() || (n && pick_free(list, n)))
         goto out;
 
-    /* 1. the data, into free clusters */
+    /* 1. the data, into free clusters: full ones next to each other in one
+     * write (with runs), the rest a sector at a time */
     const uint8_t *p = data;
-    for (uint32_t i = 0; i < n; i++) {
+    for (uint32_t i = 0, k; i < n; i += k) {
         uint32_t chunk = len - (size_t)i * csize < csize ? (uint32_t)(len - (size_t)i * csize) : csize;
-        for (uint32_t s = 0; s < vol.spc; s++) {
-            uint32_t o = s * 512;
-            memset(wbuf, 0, 512);
-            if (o < chunk)
-                memcpy(wbuf, p + (size_t)i * csize + o, chunk - o < 512 ? chunk - o : 512);
-            if (write_sector(cluster_lba(list[i]) + s, wbuf))
+        k = 1;
+        if (chunk == csize && check && runs) {
+            while (i + k < n && list[i + k] == list[i] + k && (k + 1) * vol.spc <= run_max &&
+                   len - (size_t)(i + k) * csize >= csize)
+                k++;
+            if (write_run(cluster_lba(list[i]), k * vol.spc, p + (size_t)i * csize, check))
                 goto out;
+        } else {
+            for (uint32_t s = 0; s < vol.spc; s++) {
+                uint32_t o = s * 512;
+                memset(wbuf, 0, 512);
+                if (o < chunk)
+                    memcpy(wbuf, p + (size_t)i * csize + o, chunk - o < 512 ? chunk - o : 512);
+                if (write_sector(cluster_lba(list[i]) + s, wbuf))
+                    goto out;
+            }
+        }
+        if (fat_write_tick && fat_write_tick()) {
+            err = "stopped";                    /* nothing points at the clusters yet */
+            goto out;
         }
     }
     /* 2. the chain */
@@ -731,6 +782,7 @@ static int store(const fat_entry_t *old, uint32_t dc, const uint8_t n83[11], con
     rc = 0;
 out:
     free(list);
+    free(check);
     return rc;
 }
 

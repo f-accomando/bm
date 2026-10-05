@@ -17,7 +17,8 @@
 #include <string.h>
 
 static FILE *img;
-static uint32_t writes;
+static uint32_t writes, runs;           /* sectors written; writes of more than one */
+static int corrupt;                     /* a card that gets a write of several sectors wrong */
 
 int sd_read(uint32_t lba, uint32_t count, void *buf)
 {
@@ -27,10 +28,28 @@ int sd_read(uint32_t lba, uint32_t count, void *buf)
 int sd_write(uint32_t lba, uint32_t count, const void *buf)
 {
     writes += count;
+    static uint8_t bad[128 * 512];
+    if (count > 1) {
+        runs++;
+        if (corrupt && count <= 128) {
+            memcpy(bad, buf, count * 512);
+            bad[count * 512 - 1] ^= 0x5a;
+            buf = bad;
+        }
+    }
     return fseek(img, (long)lba * 512, SEEK_SET) || fwrite(buf, 512, count, img) != count ? -1 : 0;
 }
 
 const char *sd_error(void) { return "image"; }
+
+int kprintf(const char *fmt, ...)
+{
+    va_list ap;
+    va_start(ap, fmt);
+    int n = vprintf(fmt, ap);
+    va_end(ap);
+    return n;
+}
 
 int ksnprintf(char *buf, size_t size, const char *fmt, ...)
 {
@@ -224,6 +243,39 @@ int main(int argc, char **argv)
         CHECK(fat_write_file("/bm/save", name, p, 5000) == 0);
         free(p);
     }
+
+    /* whole clusters in one write (the RGB30's kernel took more than a
+     * minute a sector at a time), each read back; fat_write_tick after
+     * every cluster, a nonzero one stops the write with the old file kept;
+     * a card that gets a run wrong is written a sector at a time from then
+     * on, and the file is still right */
+    CHECK(fat_write_runs(1) == 0);              /* off by default (not the RGB30) */
+    uint8_t *k1 = pattern(200000, 4242), *k2 = pattern(200000, 99), *k3 = pattern(150001, 7);
+    fat_write_tick = tick;
+    ticks = stop_at = 0;
+    runs = 0;
+    CHECK(fat_write_file("/", "kernel8.img", k1, 200000) == 0);
+    CHECK(read_back("/kernel8.img", k1, 200000));
+    CHECK(runs > 0 && ticks > 1);
+    printf("fat: a 200000-byte file in %d pieces, %u of several sectors\n", ticks, (unsigned)runs);
+    ticks = 0;
+    stop_at = 3;
+    CHECK(fat_write_file("/", "kernel8.img", k2, 200000) != 0);
+    CHECK(strcmp(fat_error(), "stopped") == 0);
+    CHECK(read_back("/kernel8.img", k1, 200000));
+    ticks = stop_at = 0;
+    corrupt = 1;
+    CHECK(fat_write_file("/", "kernel8.img", k3, 150001) == 0);
+    CHECK(read_back("/kernel8.img", k3, 150001));
+    CHECK(fat_write_runs(0) == 0);              /* the wrong run turned them off */
+    corrupt = 0;
+    runs = 0;
+    CHECK(fat_write_file("/", "kernel8.img", k2, 200000) == 0);
+    CHECK(read_back("/kernel8.img", k2, 200000) && runs == 0);
+    fat_write_tick = NULL;
+    free(k1);
+    free(k2);
+    free(k3);
 
     /* for run.py: the last save file and the config, to compare with mtools */
     FILE *f = fopen("snake.expected", "wb");

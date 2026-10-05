@@ -134,6 +134,12 @@ int net_start(const net_link_t *l)
 static void poll_now(void)
 {
     static uint8_t buf[1536];
+    static int depth;
+    /* once from inside itself (an SD write that keeps the network going,
+     * netxfer.c), never deeper */
+    if (depth > 1)
+        return;
+    depth++;
     dp->poll();
     int n;
     /* bounded: a busy network must not hold up a game's frame (the
@@ -162,6 +168,7 @@ static void poll_now(void)
     show_ip();
     netcon_poll();
     netxfer_poll();
+    depth--;
 }
 
 int net_wait_step(void)

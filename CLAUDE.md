@@ -288,7 +288,12 @@ screenshot in `docs/img/`), `README_OLD.md` (il README completo, in italiano),
 - WiFi: port di rtw88 (`src/rgb30/rtw*.c`, BSD-3-Clause), WPA2 in software (`wpa.c`), lwIP di
   M18. `make TARGET=rgb30 test-wifi`: frame, WPA2 contro `tests/rgb30/wpa_vectors.h` (scritto da
   `wpa_vectors.py`, Python + `cryptography`) e tutta la stazione su un chip e access point simulati
-  (`wifi_sim_test.c`, `-v` mostra la console).
+  (`wifi_sim_test.c`, `-v` mostra la console). I beacon persi mentre nessuno chiamava `wifi_poll`
+  (una scrittura lunga) non contano come rete sparita (`last_poll`). Un file dalla rete
+  (`netxfer.c`, stato `WRITING`) tiene viva la rete mentre la SD scrive (`fat_write_tick` →
+  `net_poll`); la FAT scrive fino a 32 KiB di cluster vicini in un comando, riletti e confrontati
+  (`fat_write_runs`: acceso sulla RGB30, dove un kernel a settori richiedeva più di un minuto;
+  spento sul Pi); `bm_net.py --kernel` senza risposta guarda comunque che versione gira dopo.
 - Aggiornamenti come sul Pi: *Settings > Updates* (le righe in `settings.c`, `src/kernel/update.c`
   con `BM_RGB30`: `manifest-rgb30`, `kernel8.img` riconosciuto dall'intestazione arm64 `ARM\x64` a
   +56), HTTPS e `release.c` nella build; le fibre del Market non ci sono (`stubs.c`: la rete

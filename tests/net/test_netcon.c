@@ -51,9 +51,16 @@ static char w_dir[80], w_name[40];
 static uint8_t *w_data;
 static size_t w_len;
 static int reboots;
+static int writing, write_again, polls_in_write;
+int (*fat_write_tick)(void);
 int fat_mkdirs(const char *path) { (void)path; return 0; }
 int fat_write_file(const char *dir, const char *name, const void *data, size_t len)
 {
+    write_again |= writing;
+    writing = 1;
+    for (int i = 0; i < 4 && fat_write_tick; i++)     /* the clusters of a long write */
+        fat_write_tick();
+    writing = 0;
     snprintf(w_dir, sizeof w_dir, "%s", dir);
     snprintf(w_name, sizeof w_name, "%s", name);
     free(w_data);
@@ -63,12 +70,22 @@ int fat_write_file(const char *dir, const char *name, const void *data, size_t l
     return 0;
 }
 const char *fat_error(void) { return "test"; }
+/* net.c's poll from inside a write (fat_write_tick): the servers run
+ * again, and must not start the write a second time */
+void net_poll(void)
+{
+    polls_in_write++;
+    netcon_poll();
+    netxfer_poll();
+}
 static int fails;
 static void check(int ok, const char *what);
 /* the kernel transfer is the last case: the reboot ends the test */
 void watchdog_reboot(void)
 {
     reboots++;
+    check(polls_in_write >= 4 && !write_again && !fat_write_tick,
+          "the network polled while the files were written, no write started again from inside");
     check(strcmp(w_dir, "/") == 0 && strcmp(w_name, "kernel.img") == 0 && w_len == 100000,
           "kernel received, written as /kernel.img, then reboot");
     printf(fails ? "\n%d FAILED\n" : "\nnetcon: all passed\n", fails);

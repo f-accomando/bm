@@ -36,8 +36,9 @@ def check(ok, what):
 class Console:
     """The transfer port of a console: settings in a dict, as config.c keeps them"""
 
-    def __init__(self, knows_c=True):
+    def __init__(self, knows_c=True, lose_answer=None):
         self.knows_c = knows_c
+        self.lose_answer = lose_answer      # a NetConsole: the kernel written, its answer lost
         self.settings = {"layout": "it", "wifi_ssid": "Casa", "github_token": "ghp_" + "x" * 36}
         self.got = []
         self.srv = socket.socket()
@@ -82,6 +83,9 @@ class Console:
             c.sendall(b"CE")
             return
         self.got.append((op, path, data))
+        if op == b"K" and self.lose_answer:
+            self.lose_answer.version = "v0.0.1-new"     # written, restarted: no answer reached the PC
+            return
         if op != b"C":
             c.sendall(b"OK")
             return
@@ -113,6 +117,7 @@ class NetConsole:
 
     def __init__(self, focus):
         self.focus = focus
+        self.version = "v0.0.0-test"
         self.keys = b""
         self.srv = socket.socket()
         self.srv.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
@@ -131,7 +136,7 @@ class NetConsole:
             c.close()
 
     def one(self, c):
-        c.sendall(b"bm v0.0.0-test network console\r\npassword: ")
+        c.sendall(b"bm " + self.version.encode() + b" network console\r\npassword: ")
         got = b""
         while b"\r\n" not in got:
             chunk = c.recv(64)
@@ -214,6 +219,16 @@ def main():
     app = NetConsole("the application (Ctrl-\\ back to the menu)")
     rc, out = run(app, job=("-P", str(app.port), "--line", "gpu"))
     check(rc == 2 and "back to the menu first" in out and app.keys == b"", "--line in a game: nothing sent")
+    # a kernel whose answer is lost (the RGB30 dropped its WiFi after a long
+    # SD write): what the console runs afterwards says whether it went
+    net = NetConsole("the menu (test)")
+    lost = Console(lose_answer=net)
+    bm_net.PORT = net.port
+    rc, out = run(lost, job=("--kernel", __file__))
+    check(rc == 0 and "the answer was lost" in out and "running bm v0.0.1-new" in out,
+          "--kernel without an answer: the console's new version found")
+    bm_net.PORT = 3333
+
     before = NetConsole(None)
     rc, out = run(before, job=("-P", str(before.port), "--line", "send"))
     check(rc == 0 and "does not say where the keys go" in out and "the line is done" in out,

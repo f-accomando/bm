@@ -115,6 +115,7 @@ def transfer(args, op, path, name, password):
         print(f"'{name}' is not an 8.3 name (at most 8 letters, dot, 3): use --name")
         return 1
     dest = (args.to.strip("/") + "/" if args.to.strip("/") else "") + name if op == b"S" else name
+    before = console_version(args.host) if op == b"K" else None
     sock, a = open_request(args, op, dest, data, password)
     if a != b"OK":
         print("refused:", ANSWERS.get(a, a or "no answer"))
@@ -134,6 +135,11 @@ def transfer(args, op, path, name, password):
     sock.close()
     if a == b"OK" and op == b"K":
         return wait_reboot(args.host)
+    if not a and op == b"K":
+        # the answer can be lost while the kernel is written all the same
+        # (the RGB30 used to drop its WiFi after a long write): what it runs says
+        print("the answer was lost: the console may have written the kernel all the same")
+        return wait_reboot(args.host, before)
     return 0 if a == b"OK" else 1
 
 
@@ -222,20 +228,23 @@ def console_version(host):
     return m.group(1) if m else None
 
 
-def wait_reboot(host, limit=120):
-    """After --kernel: the Pi goes away, then comes back; prints the version."""
-    print("waiting for the Pi to restart...", end="", flush=True)
+def wait_reboot(host, before=None, limit=120):
+    """After --kernel: the console goes away, then comes back; prints the
+    version. With before (the version before the kernel was sent), another
+    version is also a console that came back (it may have restarted while
+    nobody looked)."""
+    print("waiting for the console to restart...", end="", flush=True)
     t0 = time.time()
     went_down = False
     while time.time() - t0 < limit:
         v = console_version(host)
         if v is None:
             went_down = True
-        elif went_down:
+        elif went_down or (before and v != before):
             print(f"\rback after {time.time() - t0:.0f} s, running bm {v}      ")
             return 0
         time.sleep(2)
-    print("\rthe Pi " + ("did not come back" if went_down else "did not restart")
+    print("\rthe console " + ("did not come back" if went_down else "did not restart")
           + f" within {limit} s: look at its screen")
     return 1
 
