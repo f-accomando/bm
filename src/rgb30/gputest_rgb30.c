@@ -65,25 +65,37 @@ int rgb30_gpu_result(const mali_info_t **in)
     return probed ? result : 1;
 }
 
-void rgb30_gpu_test(framebuffer_t *fb)
+void rgb30_gpu_test(framebuffer_t *fb, const char *back)
 {
-    (void)fb;
     reports_begin("gpu");
     kprintf("\n\x1b[1mGPU test\x1b[0m: the Mali-G52, step by step (bm3d " BM3D_VERSION ", M41)\n");
 #ifdef PLAT_RK3566
-    const mali_hw_t hw = {
+    /* the page shown, for the square the GPU clears (XRGB8888 only) */
+    const uint32_t page = fb->buffers ? fb->size / fb->buffers : 0, off = fb->shown * page;
+    static mali_hw_t hw;
+    hw = (mali_hw_t){
         .rd = rd, .wr = wr, .us = us, .log = log_line, .supply_mv = supply_mv,
         .mem = (uint8_t *)(uintptr_t)PLAT_GPU_START, .mem_pa = PLAT_GPU_START, .mem_size = 4u << 20,
         .map_pa = PLAT_FB_START, .map_size = (uint32_t)(PLAT_FB_END - PLAT_FB_START),
+        .screen = fb->depth == 32 ? fb->mem + off : NULL, .screen_pa = fb->depth == 32 ? fb->bus + off : 0,
+        .screen_w = fb->width, .screen_h = fb->height, .screen_pitch = fb->pitch,
     };
     result = mali_probe(&hw, &info);
     probed = 1;
     if (result == MALI_OK)
-        kprintf("\x1b[92mmali: every step done\x1b[0m: the GPU runs jobs (no drawing yet)\n");
+        kprintf("\x1b[92mmali: every step done\x1b[0m: the GPU runs jobs and clears tiles (no triangles yet)\n");
     else
         kprintf("\x1b[91mmali: stopped at step %d\x1b[0m (the lines above say why)\n", -result);
-#else
-    kprintf("mali: no Mali on " PLAT_NAME ": nothing to test\n");
-#endif
     reports_end();
+    if (back)
+        kprintf("\n\x1b[96m%s\x1b[0m back\n", back);
+    if (result == MALI_OK)
+        mali_square(&hw, 0x40d060);     /* drawn again over the text: the last thing on the screen */
+#else
+    (void)fb;
+    kprintf("mali: no Mali on " PLAT_NAME ": nothing to test\n");
+    reports_end();
+    if (back)
+        kprintf("\n\x1b[96m%s\x1b[0m back\n", back);
+#endif
 }

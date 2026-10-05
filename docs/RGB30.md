@@ -151,8 +151,9 @@ prima di accendere lo schermo e il registro si scrive tre volte (prima dello sch
   accensione di L2, core e tiler, spazio di indirizzi 0 con le tabelle "Mali LPAE" (64 MiB della
   memoria video e GPU visti 1:1), un lavoro WRITE_VALUE sullo slot 1 e una catena di due. Ogni
   attesa ha un limite; il primo passo che non torna ferma la prova e dice perché (lo stato del
-  lavoro, un errore dell'MMU con il suo indirizzo). Niente disegno ancora: il prossimo passo è un
-  lavoro di frammenti che pulisce un framebuffer. **Provato sul PC** con una GPU, un CRU e un PMU
+  lavoro, un errore dell'MMU con il suo indirizzo). Poi (bm3d 6.1) un lavoro di frammenti senza
+  disegni che pulisce una superficie di 64×64 (controllata pixel per pixel) e un **quadrato verde
+  in alto a destra** dello schermo: se si vede, la GPU ha scritto i pixel. Niente triangoli ancora. **Provato sul PC** con una GPU, un CRU e un PMU
   simulati (`make TARGET=rgb30 test-mali`); in QEMU la pagina dice che la GPU non c'è
   (`test_gpu_test`); **da provare sulla console.**
 - Cartucce del Pi (`.bm`) nel menu e avviabili, per le prove: Yharnam nell'immagine SD (vedi

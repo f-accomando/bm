@@ -15,6 +15,9 @@
  *              RK3568)
  *   job        a WRITE_VALUE job on job slot 1, then a chain of two (the
  *              second waits for the first)
+ *   fragment   (bm3d 6.1) a FRAGMENT job on job slot 0 with no draw: the
+ *              tiles cleared to a colour and written to a surface (no
+ *              shader, no tiler), then a square on the screen
  *
  * Every wait has a timeout and every step writes a line; the first step
  * that fails ends the probe (nothing after it touches the GPU). The GPU's
@@ -38,6 +41,9 @@ typedef struct {
     uint32_t mem_size;                  /* at least 2 MiB */
     uint64_t map_pa;                    /* what the GPU sees, 1:1: from map_pa, map_size */
     uint32_t map_size;                  /* bytes (2 MiB blocks; must hold mem) */
+    uint8_t *screen;                    /* the page shown (XRGB8888), for a square the GPU clears: */
+    uint64_t screen_pa;                 /* its physical address (inside the map); 0: none */
+    uint32_t screen_w, screen_h, screen_pitch;
 } mali_hw_t;
 
 /* the registers' places on the RK3566 */
@@ -48,7 +54,7 @@ typedef struct {
 /* the probe's steps; mali_probe() returns MALI_OK or the one that failed */
 enum {
     MALI_OK = 0, MALI_E_POWER = -1, MALI_E_ID = -2, MALI_E_RESET = -3, MALI_E_CORES = -4, MALI_E_MMU = -5,
-    MALI_E_JOB = -6, MALI_E_CHAIN = -7, MALI_E_MEMORY = -8, MALI_E_SUPPLY = -9,
+    MALI_E_JOB = -6, MALI_E_CHAIN = -7, MALI_E_MEMORY = -8, MALI_E_SUPPLY = -9, MALI_E_FRAGMENT = -10,
 };
 
 typedef struct {
@@ -56,12 +62,18 @@ typedef struct {
     uint64_t shader_present, tiler_present, l2_present;
     uint32_t as_present, js_present, mmu_features, core_features, l2_features, thread_max;
     uint32_t js_status, job_header;     /* of the first job: JS_STATUS, exception status written back */
-    uint32_t job_us, chain_us;          /* how long the jobs took */
+    uint32_t job_us, chain_us, frag_us; /* how long the jobs took */
+    uint32_t frag_pixel;                /* a pixel the fragment job wrote */
     int supply_mv;                      /* vdd_gpu as the PMIC said (-1 unknown) */
     int step;                           /* the last step reached (MALI_OK: all) */
 } mali_info_t;
 
 int mali_probe(const mali_hw_t *hw, mali_info_t *info);
+
+/* after a probe that went through (same hw): the GPU clears a 64 x 64
+ * square of rgb at the top right of the screen; 0, 1 if its pixels are not
+ * there, -1 */
+int mali_square(const mali_hw_t *hw, uint32_t rgb);
 
 /* the name of an exception status (JS_STATUS, AS_FAULTSTATUS & 0xff) */
 const char *mali_exception(uint32_t code);

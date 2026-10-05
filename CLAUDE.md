@@ -271,10 +271,15 @@ screenshot in `docs/img/`), `README_OLD.md` (il README completo, in italiano),
   livello 3, permessi a 6-7, MEMATTR 0x888d88, TRANSCFG 0) sui 64 MiB da 0x3c000000; la memoria
   della GPU sono gli ultimi 4 MiB (`PLAT_GPU_START`, fuori dai framebuffer). Lavori: intestazione di
   32 byte (parola 4: bit 0 descrittori a 64 bit, tipo ai bit 1-7, indice ai 16-31; parola 5 le
-  dipendenze; 6-7 il prossimo), WRITE_VALUE con indirizzo, tipo 6 (32 bit) e valore. Nessun disegno
-  ancora. Prova sul PC `make TARGET=rgb30 test-mali` (GPU simulata), QEMU `test_gpu_test`.
+  dipendenze; 6-7 il prossimo), WRITE_VALUE con indirizzo, tipo 6 (32 bit) e valore. bm3d 6.1: un
+  lavoro di frammenti (slot 0) senza tiler né shader pulisce una superficie e il quadrato verde in
+  alto a destra della pagina (`mali_square`, ridisegnato per ultimo); il descrittore del
+  framebuffer v7 (128 byte, poi il render target di 64) e il puntatore con il bit 0 a 1. Niente
+  triangoli ancora. Prova sul PC `make TARGET=rgb30 test-mali` (GPU simulata), QEMU `test_gpu_test`.
   Riferimenti: i sorgenti di Linux (panfrost, pm-domains, clk-rk3568, rk808-regulator, dts
-  rk356x) letti con un clone parziale; mai copiarne il codice (GPL).
+  rk356x) letti con un clone parziale, mai copiarne il codice (GPL); le strutture della GPU da
+  Mesa (`src/panfrost/genxml/v7.xml`, MIT), dal sorgente nell'archivio di Ubuntu (gitlab di
+  freedesktop non è raggiungibile da qui).
 - Schermo: modalità pronte per la GPU Mali (`src/rgb30/display.h`, `fb_init_mode`): righe a 64
   byte, tessere da 16, pagine su 64 KiB nella memoria video e GPU (0x3c000000, 64 MiB), il
   controller video ingrandisce sul pannello 720×720. Pagina *Display* nel menu.

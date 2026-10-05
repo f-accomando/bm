@@ -178,6 +178,13 @@ stress test, il 3D Bench, il benchmark di Overbit e il quarto valore di `gpu3d()
   manager (WRITE_VALUE e una catena di due). Non disegna ancora: il 3D della RGB30 resta dell'ARM
   e il 3D Bench lo dice nella riga della macchina. Prove sul PC con una GPU simulata
   (`make TARGET=rgb30 test-mali`).
+- **6.1** (2026-10-05, M41): **la Mali scrive pixel**: un lavoro di frammenti sullo slot 0 senza
+  disegni (niente tiler, niente shader) pulisce le tessere di 16×16 e le scrive attraverso il
+  render target: il descrittore del framebuffer di Bifrost (v7) com'è in Mesa (parametri,
+  posizioni dei campioni, un render target R8G8B8A8 scritto lineare con i canali girati per
+  l'XRGB8888 dello schermo, i pixel "puliti" scritti). Prima una superficie di 64×64 controllata
+  pixel per pixel, poi un quadrato verde in alto a destra dello schermo della pagina *GPU test*,
+  ridisegnato per ultimo sopra il testo: se si vede, la GPU ha disegnato.
 
 ## Le modalità: versioni vecchie sul codice di oggi
 

@@ -479,8 +479,7 @@ static void page_gputest(void)
 {
     fb_show(fb, 0);
     console_suspend(0);
-    rgb30_gpu_test(fb);
-    kprintf("\n\x1b[96m%s\x1b[0m back\n", pad_back_name());
+    rgb30_gpu_test(fb, pad_back_name());
     wait_back();
     console_suspend(1);
 }

@@ -382,25 +382,26 @@ static void job_write(uint8_t *p, int index, int dep, uint64_t next, uint64_t ad
     put64(p + 48, value);
 }
 
-/* the chain from head on job slot 1; 0 done, -1 failed (lines said) */
-static int run(uint64_t head, uint32_t *us, uint32_t *status, const char *what)
+/* the chain from head on job slot js (0 fragment, 1 the others); 0 done,
+ * -1 failed (lines said) */
+static int run_on(int js, uint64_t head, uint32_t *us, uint32_t *status, const char *what)
 {
     gw(JOB_INT_CLEAR, 0xffffffffu);
     gw(MMU_INT_CLEAR, 0xffffffffu);
-    gw(JS(1, JS_HEAD_NEXT), (uint32_t)head);
-    gw(JS(1, JS_HEAD_NEXT) + 4, (uint32_t)(head >> 32));
-    gw(JS(1, JS_AFFINITY_NEXT), gr(GPU_SHADER_PRESENT));
-    gw(JS(1, JS_AFFINITY_NEXT) + 4, gr(GPU_SHADER_PRESENT + 4));
-    gw(JS(1, JS_CONFIG_NEXT), 0 /* AS 0 */ | JS_CFG_THREAD_PRI(8) | JS_CFG_START_FLUSH_CLEAN_INV |
-                              JS_CFG_END_FLUSH_CLEAN_INV);
+    gw(JS(js, JS_HEAD_NEXT), (uint32_t)head);
+    gw(JS(js, JS_HEAD_NEXT) + 4, (uint32_t)(head >> 32));
+    gw(JS(js, JS_AFFINITY_NEXT), gr(GPU_SHADER_PRESENT));
+    gw(JS(js, JS_AFFINITY_NEXT) + 4, gr(GPU_SHADER_PRESENT + 4));
+    gw(JS(js, JS_CONFIG_NEXT), 0 /* AS 0 */ | JS_CFG_THREAD_PRI(8) | JS_CFG_START_FLUSH_CLEAN_INV |
+                               JS_CFG_END_FLUSH_CLEAN_INV);
     const uint32_t t0 = H->us();
-    gw(JS(1, JS_COMMAND_NEXT), JS_CMD_START);
-    const uint32_t done = 1u << 1, failed = 1u << 17;
+    gw(JS(js, JS_COMMAND_NEXT), JS_CMD_START);
+    const uint32_t done = 1u << js, failed = 1u << (16 + js);
     uint32_t raw = 0;
     while (!((raw = gr(JOB_INT_RAWSTAT)) & (done | failed)) && H->us() - t0 < 100000)
         ;
     *us = H->us() - t0;
-    *status = gr(JS(1, JS_STATUS));
+    *status = gr(JS(js, JS_STATUS));
     const uint32_t mmu_raw = gr(MMU_INT_RAWSTAT);
     gw(JOB_INT_CLEAR, done | failed);
     if (raw & done && !(raw & failed))
@@ -419,6 +420,11 @@ static int run(uint64_t head, uint32_t *us, uint32_t *status, const char *what)
         say();
     }
     return -1;
+}
+
+static int run(uint64_t head, uint32_t *us, uint32_t *status, const char *what)
+{
+    return run_on(1, head, us, status, what);
 }
 
 static int jobs(mali_info_t *in)
@@ -477,6 +483,146 @@ static int supply(mali_info_t *in)
     return 0;
 }
 
+/* --- a fragment job with no draw (bm3d 6.1) ---
+ * The framebuffer descriptor of Bifrost (v7): its parameters (64 bytes,
+ * then 64 of padding), then a render target of 64 bytes; no ZS/CRC
+ * extension, no tiler (no primitive: every tile is only cleared), no frame
+ * shader. The render target: the tile buffer R8G8B8A8, written back
+ * linear as R8G8B8A8 with the channels turned to the screen's XRGB8888
+ * (B G R in bytes 0-2, 0 in byte 3), clean tiles written (a cleared tile
+ * is "clean"). Tiles of 16 x 16 pixels. */
+enum { JOB_FRAGMENT = 9 };
+#define FBD_SIZE        128
+#define RT_SIZE         64
+#define TILE_SHIFT      4
+#define TIE_MINUS_180_IN_0_OUT 2
+#define ZFMT_D24        1
+#define CBUF_R8G8B8A8   1
+#define COLOR_R8G8B8A8  19
+#define BLOCK_LINEAR    2
+#define SWZ(r, g, b, a) ((uint32_t)(r) | (uint32_t)(g) << 3 | (uint32_t)(b) << 6 | (uint32_t)(a) << 9)
+
+static void put32(uint8_t *p, uint32_t v)
+{
+    memcpy(p, &v, 4);
+}
+
+/* the sample positions of one sample (1/256 of a pixel, the middle) */
+static void samples(uint8_t *p)
+{
+    memset(p, 0, 256);
+    put32(p, 128u | 128u << 16);
+    put32(p + 32 * 4, 128u | 128u << 16);   /* the origin */
+}
+
+/* a framebuffer descriptor and its render target at f: w x h pixels at
+ * base (row stride, the colour 0xRRGGBB) */
+static void fbd(uint8_t *f, uint64_t samples_pa, uint32_t w, uint32_t h, uint64_t base, uint32_t stride, uint32_t rgb)
+{
+    memset(f, 0, FBD_SIZE + RT_SIZE);
+    put64(f + 16, samples_pa);                              /* sample locations */
+    put32(f + 32, (w - 1) | (h - 1) << 16);                 /* width, height */
+    put32(f + 40, (w - 1) | (h - 1) << 16);                 /* bound max (min 0, 0) */
+    put32(f + 44, 0u /* 1 sample */ | TIE_MINUS_180_IN_0_OUT << 6 | 8u << 9 /* 16 x 16 */ |
+                      0u << 19 /* 1 target */ | 1u << 24 /* 1 KiB of colour a tile */);
+    put32(f + 48, ZFMT_D24 << 16);
+    uint8_t *rt = f + FBD_SIZE;
+    put32(rt, CBUF_R8G8B8A8 << 26);
+    put32(rt + 4, 1u /* write */ | COLOR_R8G8B8A8 << 3 | BLOCK_LINEAR << 8 | 1u << 15 /* dither */ |
+                  SWZ(2, 1, 0, 4) << 16 | 1u << 31 /* clean pixels written */);
+    put64(rt + 32, base);
+    put32(rt + 40, stride);
+    put32(rt + 44, stride * h);
+    const uint32_t c = (rgb >> 16 & 255) | (rgb & 0xff00) | (rgb & 255) << 16 | 0xffu << 24;   /* R G B A */
+    for (int i = 0; i < 4; i++)
+        put32(rt + 48 + 4 * i, c);
+}
+
+/* a fragment job at j over w x h pixels with the descriptor at fbd_pa */
+static void job_fragment(uint8_t *j, uint32_t w, uint32_t h, uint64_t fbd_pa)
+{
+    job_header(j, JOB_FRAGMENT, 1, 0, 0);
+    memset(j + 32, 0, 32);
+    put32(j + 32, 0);
+    put32(j + 36, ((w - 1) >> TILE_SHIFT) | ((h - 1) >> TILE_SHIFT) << 16);
+    put64(j + 40, fbd_pa | 1u);                             /* multi-target, 1 target, no extension */
+}
+
+#define MEM_FJOB        0x3800
+#define MEM_FBD         0x3900
+#define MEM_SAMPLES     0x3a00
+#define MEM_SURF        0x10000
+#define SURF            64                                  /* 64 x 64 pixels */
+
+/* a 64 x 64 square of rgb cleared by the GPU at the top right of the
+ * screen: 0, 1 if the job ended but the pixels are not there, -1 */
+static int square(uint32_t rgb)
+{
+    uint8_t *m = H->mem;
+    const uint64_t pa = H->mem_pa;
+    const uint32_t x0 = (H->screen_w - 80) & ~15u, y0 = 16;
+    const uint64_t base = H->screen_pa + (uint64_t)y0 * H->screen_pitch + x0 * 4;
+    fbd(m + MEM_FBD, pa + MEM_SAMPLES, SURF, SURF, base, H->screen_pitch, rgb);
+    job_fragment(m + MEM_FJOB, SURF, SURF, pa + MEM_FBD);
+    uint32_t us, st;
+    if (run_on(0, pa + MEM_FJOB, &us, &st, "a square on the screen") != 0)
+        return -1;
+    uint32_t px;
+    memcpy(&px, H->screen + (size_t)(y0 + 32) * H->screen_pitch + (x0 + 32) * 4, 4);
+    return (px & 0xffffff) == (rgb & 0xffffff) ? 0 : 1;
+}
+
+static int fragment(mali_info_t *in)
+{
+    uint8_t *m = H->mem;
+    const uint64_t pa = H->mem_pa;
+    volatile uint32_t *s = (volatile uint32_t *)(void *)(m + MEM_SURF);
+    for (int i = 0; i < SURF * SURF + 64; i++)
+        s[i] = 0xdeadbeefu;
+    samples(m + MEM_SAMPLES);
+    const uint32_t rgb = 0x20c060;
+    fbd(m + MEM_FBD, pa + MEM_SAMPLES, SURF, SURF, pa + MEM_SURF, SURF * 4, rgb);
+    job_fragment(m + MEM_FJOB, SURF, SURF, pa + MEM_FBD);
+    uint32_t st;
+    if (run_on(0, pa + MEM_FJOB, &in->frag_us, &st, "a fragment job (a clear)") != 0)
+        return MALI_E_FRAGMENT;
+    int wrong = 0, past = 0;
+    for (int i = 0; i < SURF * SURF; i++)
+        wrong += (s[i] & 0xffffff) != rgb;
+    for (int i = SURF * SURF; i < SURF * SURF + 64; i++)
+        past += s[i] != 0xdeadbeefu;
+    in->frag_pixel = s[SURF * 17 + 5];
+    if (wrong || past) {
+        ksnprintf(line, sizeof line, "mali: a fragment job (a clear): it ended, but %d of %d pixels are not %06x "
+                  "(one is %08x) and %d words past the surface changed", wrong, SURF * SURF, (unsigned)rgb,
+                  (unsigned)in->frag_pixel, past);
+        say();
+        return MALI_E_FRAGMENT;
+    }
+    ksnprintf(line, sizeof line, "mali: a fragment job (a clear): done in %u us, %dx%d pixels of %06x (%08x)",
+              (unsigned)in->frag_us, SURF, SURF, (unsigned)rgb, (unsigned)in->frag_pixel);
+    say();
+    /* the same on the screen: a square at the top right */
+    if (H->screen_pa && H->screen && H->screen_w >= 128 && H->screen_h >= 96) {
+        const int r = square(0x40d060);
+        ksnprintf(line, sizeof line, "mali: a square on the screen (top right, green): %s",
+                  r == 0 ? "drawn by the GPU" : r > 0 ? "the job ended, the pixels are not there" : "failed");
+        say();
+        if (r != 0)
+            return MALI_E_FRAGMENT;
+    }
+    return MALI_OK;
+}
+
+static int probed_ok;
+
+int mali_square(const mali_hw_t *hw, uint32_t rgb)
+{
+    if (!probed_ok || hw != H)
+        return -1;
+    return square(rgb);
+}
+
 int mali_probe(const mali_hw_t *hw, mali_info_t *info)
 {
     static mali_info_t dummy;
@@ -489,8 +635,9 @@ int mali_probe(const mali_hw_t *hw, mali_info_t *info)
     }
     int r = MALI_E_POWER;
     if (power() == 0 && (r = MALI_E_ID, identify(in) == 0) && (r = MALI_E_RESET, reset() == 0) &&
-        (r = MALI_E_CORES, cores(in) == 0) && (r = MALI_E_MMU, mmu() == 0))
-        r = jobs(in);
+        (r = MALI_E_CORES, cores(in) == 0) && (r = MALI_E_MMU, mmu() == 0) && (r = jobs(in)) == MALI_OK)
+        r = fragment(in);
+    probed_ok = r == MALI_OK;
     in->step = r;
     return r;
 }

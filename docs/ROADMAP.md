@@ -3085,11 +3085,13 @@ le sfere dell'ARM del Pi, M40) e il 3D Bench ha le colonne GPU vuote.
 (i passi 1 e 2, Overbit in `.b16`, non sono driver: restano da fare). bm3d 6.0: *Dev > GPU
 test* sulla RGB30 accende la Mali-G52 (vdd_gpu, orologi e dominio PD_GPU, reset, core), mappa
 la memoria video e GPU con l'MMU (tabelle Mali LPAE) e fa girare lavori del job manager
-(WRITE_VALUE, una catena di due), con una riga a schermo per passo e il report `gpu`; provato su
-una GPU simulata (`make TARGET=rgb30 test-mali`), **da provare sulla console**. Prossimi passi,
-dopo il report della console: un lavoro di frammenti che pulisce un framebuffer (descrittore
-del framebuffer e del tiler), poi i triangoli preparati dall'ARM (posizioni e varying scritti
-dall'ARM, un lavoro del tiler) con un fragment shader Bifrost minimo, poi il vertex shader.
+(WRITE_VALUE, una catena di due), con una riga a schermo per passo e il report `gpu`; bm3d 6.1:
+un lavoro di frammenti senza disegni pulisce una superficie e un quadrato verde sullo schermo
+(descrittori di Bifrost v7 presi da Mesa, MIT). Provato su una GPU simulata (`make TARGET=rgb30
+test-mali`), **da provare sulla console**. Prossimi passi, dopo il report della console: i
+triangoli preparati dall'ARM (posizioni e varying scritti dall'ARM, un lavoro del tiler con il
+suo contesto e lo heap) con un fragment shader Bifrost minimo (`ISA.xml` di Mesa), poi il vertex
+shader.
 
 ## Rischi principali
 | Rischio | Mitigazione |

@@ -5,8 +5,9 @@
 #include "mali.h"
 
 /* Dev > GPU test (M41): the Mali probed, its lines on the console and in a
- * report */
-void rgb30_gpu_test(framebuffer_t *fb);
+ * report, then the line saying how to go back (back: the button's name)
+ * and, if every step went through, the GPU's square over the text */
+void rgb30_gpu_test(framebuffer_t *fb, const char *back);
 
 /* the last test's result (MALI_OK or the step that failed; 1: not run)
  * and what it found */
