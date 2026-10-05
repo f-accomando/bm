@@ -13,8 +13,9 @@
  * card with the same files (market_url=sd:/market/): either way it must
  * be signed with the Market key (keys/market-pub.pem, built in, or
  * bm/market.pem on the SD card for a market of one's own) and every file
- * must have the size and SHA-256 the catalog says. Games go into /carts;
- * the cache and the list of installed games into /bm/market.
+ * must have the size and SHA-256 the catalog says. Games go into /carts
+ * (on the RGB30 into /bm, and only its .b16 games are listed); the cache
+ * and the list of installed games into /bm/market.
  */
 #ifndef MARKET_H
 #define MARKET_H

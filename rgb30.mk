@@ -55,7 +55,8 @@ LUA_SRCS := $(wildcard third_party/lua/*.c)
 SHARED_SRCS := src/gfx/console.c src/gfx/draw.c src/gfx/font8x16.c src/gfx/font8x14.c \
                src/gfx/font6x12.c src/lib/printf.c src/lib/crc32.c \
                src/script/luavm.c src/script/lib_bm.c \
-               src/kernel/version.c src/kernel/crumbs.c src/kernel/config.c src/fs/fat.c
+               src/kernel/version.c src/kernel/crumbs.c src/kernel/config.c src/fs/fat.c \
+           src/kernel/fiber.c
 # Bluetooth: the Pi's stack (HCI, L2CAP, HID, BLE + SMP) over H5 to the
 # Realtek chip; SMP's elliptic curves come from mbedTLS, and WPA2's SHA-1
 # and AES (src/rgb30/wpa.c)

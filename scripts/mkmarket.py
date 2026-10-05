@@ -26,7 +26,8 @@ shows and what names the save file, so two games cannot share both.
 
 OUT gets:
   index.txt, index.sig     the catalog and its signature (DER)
-  games/<id>/<name>.bm     the cartridges
+  games/<id>/<name>.bm     the cartridges (or <name>.b16: the handhelds' ones,
+                           the same container, at most 8 MiB; the RGB30 lists only these)
   games/<id>/cover.png     the cover (88x88; 128x80 in older cartridges), when it has one
   index.html               the same catalog for a browser
 
@@ -61,9 +62,11 @@ from mkrelease import sign, verify  # noqa: E402
 SEC_COVER = 4
 COVER_MAX = 512                             # the menu fits any size (menu_load_cover)
 MAX_CART = 100 << 20                # GitHub refuses bigger files: its limit, not bm's (a .bm has none)
+MAX_B16 = 8 << 20                   # a .b16's ceiling (docs/B16.md §0, §5.1)
+CART_EXT = (".bm", ".b16")          # the .b16: the same container, the handhelds' profile
 MAX_GAMES = 256                     # src/net/market.h
 ID_RE = re.compile(r"^[a-z0-9][a-z0-9-]{0,22}$")
-FILE_RE = re.compile(r"^[A-Za-z0-9_-][A-Za-z0-9._-]{0,39}\.bm$")
+FILE_RE = re.compile(r"^[A-Za-z0-9_-][A-Za-z0-9._-]{0,39}\.(bm|b16)$")
 VERSION_RE = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._-]{0,14}$")
 LIMITS = {"license": 40, "about": 120}
 
@@ -108,6 +111,13 @@ def check_cart(data):
                 cover = (w, h, body[4:4 + w * h * 4])
             break
     return title, author, cover
+
+
+def check_b16(name, data):
+    """a .b16 (the handhelds' cartridge) within its ceiling, 8 MiB; the rest
+    of its profile (docs/B16.md §0) is not checked yet"""
+    if name.lower().endswith(".b16") and len(data) > MAX_B16:
+        raise ValueError(f"{len(data)} bytes, more than a .b16's 8 MiB")
 
 
 def png(w, h, rgba):
@@ -182,9 +192,9 @@ def read_game(games, gid):
     if not ID_RE.match(gid):
         raise ValueError("the folder name is the id: a-z, 0-9 and '-', at most 23")
     d = os.path.join(games, gid)
-    carts = [n for n in sorted(os.listdir(d)) if n.lower().endswith(".bm")]
+    carts = [n for n in sorted(os.listdir(d)) if n.lower().endswith(CART_EXT)]
     if len(carts) != 1:
-        raise ValueError(f"exactly one .bm file, found {len(carts)}")
+        raise ValueError(f"exactly one cartridge (.bm or .b16), found {len(carts)}")
     name = carts[0]
     if not FILE_RE.match(name):
         raise ValueError(f"{name}: file names with A-Z, a-z, 0-9, '.', '_' and '-', at most 43")
@@ -199,6 +209,7 @@ def read_game(games, gid):
     data = open(os.path.join(d, name), "rb").read()
     try:
         title, author, cover = check_cart(data)
+        check_b16(name, data)
     except ValueError as e:
         raise ValueError(f"{name}: {e}")
     return {
@@ -303,6 +314,7 @@ def add(games, path, gid, version, lic, about):
     data = open(path, "rb").read()
     try:
         title, author, _ = check_cart(data)
+        check_b16(path, data)
     except ValueError as e:
         die(f"{path}: {e}")
     gid = gid or re.sub(r"[^a-z0-9-]+", "-", os.path.splitext(os.path.basename(path))[0].lower()).strip("-")[:23]
@@ -311,7 +323,7 @@ def add(games, path, gid, version, lic, about):
     d = os.path.join(games, gid)
     os.makedirs(d, exist_ok=True)
     name = os.path.basename(path)
-    old = [n for n in os.listdir(d) if n.lower().endswith(".bm")]
+    old = [n for n in os.listdir(d) if n.lower().endswith(CART_EXT)]
     info_path = os.path.join(d, "info.txt")
     info = read_info(info_path) if os.path.exists(info_path) else {}
     same = old == [name] and open(os.path.join(d, name), "rb").read() == data

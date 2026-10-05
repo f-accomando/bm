@@ -73,9 +73,12 @@ with tempfile.TemporaryDirectory() as tmp:
          "# a comment\nversion: 0.9-beta\nlicense: CC-BY-4.0\n")
     game(games, "plain", "plain.bm", mkbm.pack(code, title="Plain", author="x"),
          "version: 3\nlicense: BM Community License 1.0\nabout: No cover.\n")
+    # a .b16, the handhelds' cartridge: the same container (docs/B16.md §0)
+    game(games, "pocket", "pocket.b16", mkbm.pack(code, title="Pocket", author="x"),
+         "version: 1\nlicense: MIT\nabout: For the RGB30.\n")
 
     r = mkmarket(games, "--check")
-    check(r.returncode == 0 and "3 games, all right" in r.stdout, "--check: three good games")
+    check(r.returncode == 0 and "4 games, all right" in r.stdout, "--check: four good games, a .b16 too")
 
     out = os.path.join(tmp, "site")
     keytmp = os.path.join(tmp, "keytmp")          # where the key is written for openssl
@@ -87,9 +90,12 @@ with tempfile.TemporaryDirectory() as tmp:
         print(r.stdout + r.stderr)
     check(os.listdir(keytmp) == [], "mkmarket: no copy of the key left behind")
     files = sorted(os.path.relpath(os.path.join(dp, f), out) for dp, _, fs in os.walk(out) for f in fs)
-    check(files == ["games/plain/plain.bm", "games/pong-2/Pong_2.bm", "games/pong-2/cover.png",
-                    "games/snake/cover.png", "games/snake/snake.bm", "index.html", "index.sig", "index.txt"],
+    check(files == ["games/plain/plain.bm", "games/pocket/pocket.b16", "games/pong-2/Pong_2.bm",
+                    "games/pong-2/cover.png", "games/snake/cover.png", "games/snake/snake.bm", "index.html",
+                    "index.sig", "index.txt"],
           "mkmarket: the files GitHub Pages serves")
+    index = open(os.path.join(out, "index.txt"), encoding="cp437").read()
+    check("file games/pocket/pocket.b16 " in index, "index.txt: the .b16's file, its extension kept")
     page = open(os.path.join(out, "index.html"), encoding="utf-8").read()
     check("Snake" in page and "games/snake/snake.bm" in page and "è la à" in page,
           "index.html: the games, with the accents of info.txt")
@@ -123,7 +129,9 @@ with tempfile.TemporaryDirectory() as tmp:
     refused("x", "x.bm", bytes(damaged), ok_info, "damaged", "damaged cartridge: refused")
     refused("x", "x.bm", b"PNG...", ok_info, "not a .bm", "not a cartridge: refused")
     refused("x", "x y.bm", good, ok_info, "file names", "a space in the file name: refused")
-    refused("x", "", None, None, "exactly one .bm", "a folder without a cartridge: refused")
+    refused("x", "", None, None, "exactly one cartridge", "a folder without a cartridge: refused")
+    refused("x", "x.b16", mkbm.pack(code + b"--" + os.urandom(9 << 20).hex().encode()[:9 << 20], title="Huge"),
+            ok_info, "more than a .b16's 8 MiB", "a .b16 over 8 MiB: refused")
     refused("x", "x.bm", mkbm.pack(code), ok_info, "no title", "no title: refused")
     refused("x", "x.bm", good, ok_info + "about: " + "a" * 121 + "\n", "about", "about too long: refused")
 

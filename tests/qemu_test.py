@@ -3094,6 +3094,47 @@ def _market_site(tmp, b, key):
     return files
 
 
+B16_GAME = r"""
+function _init() log("the b16 runs") end
+function _draw() cls(1) print("pocket", 8, 8, 7) end
+"""
+
+
+def test_b16_on_pi(b, opts):
+    """A .b16 (the handhelds' cartridge: the same container, docs/B16.md
+    §0) is listed on the Pi with the .bm and plays the same way (the user,
+    2026-10-05)"""
+    tmp = tempfile.mkdtemp(prefix="bm-b16-")
+    try:
+        cfg = os.path.join(tmp, "config.txt")
+        with open(cfg, "w") as f:
+            f.write("layout=us\nwifi_boot=0\n")
+        cart = os.path.join(tmp, "pocket.b16")
+        with open(cart, "wb") as f:
+            f.write(mkbm.pack(B16_GAME.encode(), title="Pocket", author="tests"))
+        img = os.path.join(tmp, "sd.img")
+        mksd.build(img, [(cfg, "bm/config.txt"), (cart, "carts/pocket.b16")])
+        q = Qemu(b("kernel.img"), ["-drive", f"if=sd,format=raw,file={img}"])
+        try:
+            q.expect(MENU, timeout=30)
+            time.sleep(0.5)
+            q.send("q")                                 # the monitor: the list of cartridges
+            q.expect("> ", timeout=10)
+            q.send("F")
+            out = q.expect("pocket.b16", timeout=10).decode(errors="replace")
+            out += q.expect("\n", timeout=5).decode(errors="replace")
+            assert re.search(r"b16 +\d+ +/carts/pocket.b16", out), out[-300:]
+            q.send("M")
+            q.expect(MENU, timeout=20)
+            time.sleep(0.8)
+            q.send("\r")                                # the first game: the only one
+            q.expect("the b16 runs", timeout=30)
+        finally:
+            q.close()
+    finally:
+        shutil.rmtree(tmp, ignore_errors=True)
+
+
 def test_market(b, opts):
     """M25: the Market tab, first in the menu, with a catalog in a folder of
     the SD card (slowed down by market_delay, as a network would be): the

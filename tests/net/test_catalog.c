@@ -131,8 +131,11 @@ int main(int argc, char **argv)
         return 1;
     }
     check(strcmp(c.serial, "20261001120000") == 0, "serial");
-    check(c.n == 3, "three games");
+    check(c.n == 4, "four games");
     const catalog_game_t *snake = find(&c, "snake"), *pong = find(&c, "pong-2"), *plain = find(&c, "plain");
+    const catalog_game_t *pocket = find(&c, "pocket");
+    check(pocket && strcmp(pocket->file.path, "games/pocket/pocket.b16") == 0,
+          "pocket: a .b16, read as any other file");
     check(snake && strcmp(snake->title, "Snake") == 0 && strcmp(snake->author, "bm") == 0 &&
           strcmp(snake->version, "1.2") == 0 && strcmp(snake->license, "MIT") == 0,
           "snake: title and author from the header, version and license from info.txt");
