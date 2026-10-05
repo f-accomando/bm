@@ -2,23 +2,26 @@
 
 A practical guide: from the first Lua file to the cartridge on the SD card, with sprites,
 maps, 3D models, sound and saves. The complete reference of every function is in
-[API-EN.md](API-EN.md). In Italian: [GUIDA-GIOCHI.md](GUIDA-GIOCHI.md) and
+[API.md](API.md). In Italian: [GUIDA-GIOCHI.md](GUIDA-GIOCHI.md) and
 [API-IT.md](API-IT.md).
 
-## 0. On the console: the editor
+## 0. On the console: the bm SDK
 
-Without a PC: in the cartridges' menu the last item is **bm editor** (up arrow from the
-first; also `e` from the monitor). With a USB keyboard (and, if you like, a Bluetooth
-gamepad to draw):
+Without a PC: in the menu's **Dev** tab there is the **bm SDK** (also `e` from the
+monitor), the hub of the bm Suite. With a USB keyboard (and, if you like, a gamepad):
 
 | Key | Page |
 |---|---|
-| **F1** | code (Ctrl+Z undoes, Ctrl+K cuts a line, Ctrl+D duplicates) |
-| **F2** | sprites: arrows, space draws, `x` picks the colour, `f` fills, `,` `.` (or `[` `]`) colour, Tab goes to the sheet, `z` 8×8/16×16, `h`/`v` mirror, `u` undoes, `0`–`7` turn the tile's **flags** on and off (below: wall, platform...) |
-| **F3** | map: arrows, space places the tile, `x` picks it, `f` fills, `,` `.` tile, Tab chooses the tile, `l` the next **layer**, `o` that layer alone; *New map layer* in the menu adds one |
+| **F1** | the project: title, author, screen, target (`.bm` or `.b16`), what the file holds (code and tokens, sprites, flags, zones, map layers, models, sounds) and the suite's other programs (`1`–`6`: bm Code, bm Pixel, bm Studio, bm Animator, bm Mesh, bm Sound). **F1 again**: the dev kit (fps, ms, RAM and tokens of the last try) |
+| **F2** | the code (Ctrl+X or Ctrl+K cuts the line, Ctrl+C / Ctrl+V, Ctrl+D duplicates, Ctrl+G goes to the error, F9 the assistant explains it) |
+| **F3** | the sprites: arrows, space draws, `x` picks the colour, `f` fills, `,` `.` colour, Tab chooses on the sheet, `z` 8×8/16×16, `h`/`v` mirror, `u` undoes, `0`–`7` turn the tile's **flags** on and off (below: wall, platform...). **F3 again**: the map: space places the tile, `x` picks it, `f` fills, Tab chooses the tile, `l` the next **layer**, Shift+L adds one (also *New map layer* in the menu), `o` that layer alone, `c` shows the flags |
+| **F4** | 3D: the project's models and animations, turning; `i` writes the code that draws them, Enter opens them in bm Studio |
+| **Ctrl+N** | a new project from a template: Empty 2D, Platform 2D, Top-down 2D, Shooter 2D, Versus 2D (two players on one console, punches with hitboxes), Online 2D (a lobby and a match over the network), 3D scene, 3D with models |
+| **F5** / **Ctrl+R** | try the game (Esc or Ctrl+Esc back to the SDK; the try's numbers go to the dev kit) |
+| **F6** | the assistant (from the project page: the step-by-step guides) |
 | **F12** (held) | the list of the page's keys |
-| **Esc** | menu: new, open, save, save as, title, author, resolution, exit |
-| **Ctrl+S** / **Ctrl+R** (F5) | save / try the game (then back to the editor) |
+| **Esc** | the menu: new, open, save, save as, try, exit |
+| **Ctrl+S** | save |
 
 **bm Code**: in the Dev tab there is also **Code**, the editor of the code alone: more
 cartridges in tabs, two pages side by side (F4), a small sharp font (6x12: many lines), F5
@@ -28,16 +31,16 @@ function #` followed by Enter asks the assistant to do it.
 
 **Assistant** (M30): in the Dev tab, **Assistant** answers questions like "how do I make
 the character jump" or "attempt to call a nil value" with the explanation and the code
-ready, and draws the base of a sprite ("red slime", "coin", "grass tile"). It is used by
-itself for now; later it will open with F6 inside the editor.
+ready, and draws the base of a sprite ("red slime", "coin", "grass tile"). In the SDK, bm
+Studio and bm Animator it opens with F6.
 
-If the game stops with an error, the editor goes back to the line in red (Ctrl+G finds it
+If the game stops with an error, the SDK goes back to the line in red (Ctrl+G finds it
 again). Games are saved in `/carts` with an 8.3 name (e.g. `MYGAME.BM`) and appear in the
-menu. Everything else in this guide holds for the editor too.
+menu. Everything else in this guide holds for the SDK too.
 
 **On the PC**, for 3D models and pixel art: **bm Studio**; for skeletons, animations and
 pre-rendered sprites: **bm Animator** ([sdk/README.md](../sdk/README.md)). They are web
-pages that open and save `.bm` files (also right on the SD card). The console's editor,
+pages that open and save `.bm` files (also right on the SD card). The console's SDK,
 when it saves, keeps the models and the animations. **On the console**, in the Dev tab,
 there are **bm Studio** and **bm Animator** with the same names (X on a game's cover,
 *Open in bm Studio* / *Open in bm Animator*): they build with blocks and tiles, choose and
@@ -104,7 +107,7 @@ Buttons: `btn(i)` while it is held, `btnp(i)` only when it is pressed.
 Esc, Start+Select or the PS button go back to the menu, and the game stays **suspended** in
 memory (A on its cover resumes it). `quit()` instead really closes the cartridge. A network
 game calls `online(true)`: there PS asks the player whether to leave the match and
-disconnect, and if so it calls `_leave()` (see `docs/API-EN.md`).
+disconnect, and if so it calls `_leave()` (see `docs/API.md`).
 
 **More players.** With two or more Bluetooth controllers (paired from the monitor with `T`:
 the first is player 1, the second player 2...) each player has their own buttons:
@@ -209,6 +212,17 @@ zspr("hero_still", x, y, 1)                -- one precise frame
 
 `zone(name)` gives where it is and how big (for collisions), `zones()` all the names. Zones
 are also made with bm Pixel on the console and with `scripts/bmres.py`.
+
+**Hitboxes and hurtboxes per frame.** Under a zone you write its boxes: `hurt` where the
+character can be hit, `hit` where its blow hurts, `body` the room it takes, with the frame
+(`*` for every frame) and the rectangle from the frame's corner. The game reads them with
+`zboxes(name, frame)`; chapter 12 uses them for a fighting game:
+
+```
+punch        0  64 32 32 4 12
+  hurt  *    8  2 16 30         # the body, in every frame
+  hit   3    24 10 10  6        # the fist comes out in frame 3
+```
 
 ## 5. Tile maps
 
@@ -450,7 +464,7 @@ local lib = require "bmlib"
 
 Times in seconds, positions in pixels, speeds in pixels per frame; tweens, timers and
 jingles go on with `lib.update()`, once in `_update`. The complete list is in
-[API-EN.md](API-EN.md#bmlib-the-games-shared-library). Here is a whole platformer, with no
+[API.md](API.md#bmlib-the-games-shared-library). Here is a whole platformer, with no
 other files (the tiles are drawn in the code and the map is built with `mset`): title,
 match, jumps, platforms, coins with sparks, camera, pause, record.
 
@@ -545,7 +559,146 @@ own menus, `lib.btnr` for buttons that repeat, `lib.rng(seed)` for worlds that a
 the same from the same seed, `lib.ray` to see whether an enemy sees the hero, `lib.dir8`
 for 8-direction sprites.
 
-## 12. Tips
+## 12. Hits: hitboxes and hurtboxes
+
+In a fighting or action game every frame has boxes: the **hurtboxes** (where one can be
+hit) and the **hitboxes** (where a blow hurts). `lib.hits()` gathers them in every frame
+and says who hits whom; an attack with an `id` hits each body only once, even if the
+hitbox stays out for several frames, and the same `team` does not hit itself. The boxes
+come from the code or from the sheet (chapter 4).
+
+```lua
+local lib = require "bmlib"
+local H = lib.hits()
+local p1 = { x = 100, y = 280, w = 16, h = 32, face = 1, life = 10, swing = 0, punch = 0 }
+local p2 = { x = 300, y = 280, w = 16, h = 32, face = -1, life = 10 }
+
+function _update()
+  if btnp("a", 1) and p1.punch == 0 then p1.punch, p1.swing = 16, p1.swing + 1 end
+  if p1.punch > 0 then p1.punch = p1.punch - 1 end
+  H:clear()
+  H:hurt(p2, p2.x, p2.y, p2.w, p2.h, { team = 2 })
+  if p1.punch > 4 and p1.punch < 12 then                  -- the fist is out
+    H:hit(p1, p1.x + 16, p1.y + 8, 12, 6, { team = 1, id = p1.swing, damage = 1 })
+  end
+  for _, c in ipairs(H:check()) do
+    c.to.life = c.to.life - c.hit.damage                   -- once per punch
+    c.to.x = c.to.x + 8 * c.by.face                        -- pushed back
+  end
+  lib.separate(p1, p2)                                     -- they do not pass through
+end
+```
+
+With the sheet's boxes one line per fighter is enough:
+`H:zone(f, "punch", f.frame, f.x, f.y, f.face < 0, { team = 1, attack = { id = f.swing } })`
+puts in the world those of the frame drawn, mirrored when it faces left. `H:draw()` shows
+them while you make the game. More options: `part` (the head counts double), `z` and
+`depth` (the lanes of a beat 'em up), `clash` (two swords that meet).
+
+## 13. Players on one console
+
+Every controller is a player (1–4): `btn("a", p)`, `stick(p)`, `controller(p)` (what they
+use, and `color`, the colour of their pad's light). bmlib has the screen where they join
+and the split screen; the SDK's *Versus 2D* template is a whole game.
+
+```lua
+local lib = require "bmlib"
+local party = lib.party({ min = 2, max = 4 })
+local heroes, views
+
+function _update()
+  if not heroes then
+    local who = party:update()               -- ok joins, back leaves, Start begins
+    if who then
+      heroes, views = {}, lib.split(#who)
+      for i, p in ipairs(who) do
+        heroes[i] = { p = p, x = 40 * i, y = 100, color = lib.PLAYER_COLORS[p],
+                      cam = lib.camera({ w = views[i].w, h = views[i].h }) }
+      end
+    end
+    return
+  end
+  for _, h in ipairs(heroes) do
+    local sx, sy = stick(h.p)
+    h.x, h.y = h.x + sx * 2, h.y + sy * 2
+    h.cam:follow(h.x, h.y)
+  end
+end
+
+function _draw()
+  cls(0x101418)
+  if not heroes then party:draw(16, 80, SCREEN_W - 32, 200) return end
+  for i, v in ipairs(views) do
+    heroes[i].cam:apply(v)                   -- each view has its camera
+    map(0, 0, 0, 0, 160, 90)
+    for _, h in ipairs(heroes) do rectfill(h.x, h.y, 8, 8, h.color) end
+  end
+  clip()
+  camera()
+end
+```
+
+Without a split screen (one arena) you draw everything once and the camera follows the
+middle of the players.
+
+## 14. Games over the network
+
+`bmnet` (`local net = require "bmnet"`) lets several consoles play: on the home network
+they find each other by themselves, over the internet they go through a relay
+(`tools/overbit_relay.py` on a PC or a small server, with the `relay` option of
+`net.open`). One console **hosts** the match, the others see it in `net.hosts()` and
+**join**; the host **starts** it. The SDK's *Online 2D* template is the place to start.
+
+For action games the match runs in **lockstep**: every console runs the whole game and
+only the inputs travel. For the consoles to stay the same the game must depend only on
+the inputs and the match's seed: random numbers with `lib.rng(seed)`, never
+`math.random`; no `time()` in the simulation; the drawing, instead, may differ.
+
+```lua
+local net = require "bmnet"
+local lib = require "bmlib"
+local rng, ships = nil, {}
+
+function _init() net.open({ game = "SHP1" }) end    -- the game's name (and version)
+function _leave() net.close() end                   -- PS during the match: leaving
+
+local function step(inputs)                         -- one frame, the same everywhere
+  for _, seat in ipairs(net.seats) do
+    local s, v = ships[seat], inputs[seat]
+    if s and v then
+      local _, sx, sy = net.unpad(v)
+      s.x, s.y = s.x + sx * 3, s.y + sy * 3
+      if net.held(v, "a") then s.color = rng:int(0, 0xFFFFFF) end
+    end
+  end
+end
+
+function _update()
+  for _, e in ipairs(net.update()) do
+    if e.type == "start" then
+      rng = lib.rng(e.seed)
+      for i, seat in ipairs(e.seats) do ships[seat] = { x = 60 * i, y = 160, color = 0xFFFFFF } end
+    end
+  end
+  if net.state == "lobby" then
+    if btnp("a") then net.host({ max = 4 }) end
+    local found = net.hosts()
+    if btnp("b") and found[1] then net.join(found[1].id) end
+  elseif net.state == "hosting" and btnp("start") then
+    net.start()
+  elseif net.state == "playing" then
+    net.input(net.pad(1))                           -- my buttons, for everybody
+    for _, inputs in net.frames() do step(inputs) end
+  end
+end
+```
+
+For turn-based games, chat or choices the **sure messages** are enough: `net.post(text)`
+always arrives, and in order, as a `"msg"` event. `net.check(hash)` every second checks
+that the consoles play the same match (a `"desync"` event if not). On the PC two `bmhost`
+with `BMHOST_NET_ID=0` and `1` are two consoles (`make test-bmnet`).
+
+## 15. Tips
 
 - **Performance:** the cost is almost all in the Lua of `_update`/`_draw`; the drawing is
   in C. Avoid creating new tables in every frame in hot loops; update only the enemies near
@@ -559,7 +712,7 @@ for 8-direction sprites.
 - **Do not write again what is there:** before writing a helper function look in bmlib
   (chapter 11); the assistant (F6) knows it.
 
-## 13. Examples to start from
+## 16. Examples to start from
 
 | Game | What it shows |
 |---|---|
@@ -572,4 +725,6 @@ for 8-direction sprites.
 | `carts/kitchen` | a big game: sources in several files joined by `build.py`, 3D with meshes built in code, 1–4 players (`btn(i, p)`, `players()`), saves, and a host simulator (`tests/kitchen/sim.lua`) that plays by itself to find errors and measure the cost of each frame |
 | `carts/village` | 3D models made with bm Studio and a villager animated with bm Animator (`models.bm`): `model()`, `animate()` with two animations blended, `bone3d()`, terrain without z-buffer, night with `lamp3d` and fog, pre-rendered sprites |
 | `carts/titan` | big pre-rendered sprites (a 3D model made in Python becomes layered pixel art: one frame, many combinations of equipment), a big sheet with a palette (`--sheet8`), parallax, the states of a fighting game with per-frame hitboxes, a CPU opponent |
-| `tests/gameapi/cart.lua` | every function of the map's layers, the tiles' flags, the named zones and bmlib, with its cases |
+| the SDK's templates (Ctrl+N) | *Platform 2D*, *Top-down 2D* and *Shooter 2D* with bmlib and the tiles' flags; *Versus 2D*: two players on one console, punches with hitboxes and hurtboxes; *Online 2D*: a lobby and lockstep with bmnet |
+| `tests/gameapi/cart.lua` | every function of the map's layers, the tiles' flags, the named zones and their boxes, bmlib (hits, the players' screen and the split screen too), with its cases |
+| `tests/bmnet/cart.lua` | bmnet between two consoles: the lobby, sure messages with lost packets, a lockstep match, a player leaving |

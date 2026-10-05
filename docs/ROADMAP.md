@@ -143,7 +143,7 @@ elenca solo i `.bm` e un `.cart` inviato dalla seriale o dalla rete viene rifiut
   (ondate, boss, esplosioni, sprite disegnati con `sset`).
 - `make image` → `dist/bm.img` (64 MiB, MBR + FAT32) pronto per Raspberry Pi Imager /
   balenaEtcher / `dd`.
-- Guida all'API e alla prima cartuccia: `docs/API.md` (dal 2026-10-04 `docs/API-IT.md`, in inglese `docs/API-EN.md`).
+- Guida all'API e alla prima cartuccia: `docs/API.md` (in inglese; in italiano `docs/API-IT.md`).
 - Prestazioni sul Pi: l'ARM1176 legge la SDRAM circa 4 volte più lentamente di
   quanto ci scrive (`memcpy` 10,3 ms/MiB contro `memset` 2,4 ms/MiB, cache dati 16 KB),
   e la memoria video non ha cache. Per `.bm` il benchmark misura sia il disegno diretto
@@ -2956,20 +2956,49 @@ tastiera).
   `mget`/`mset` con il livello, `fget`/`fset`, `mflags` (i flag sotto un rettangolo in
   pixel: le collisioni in una chiamata), `msize`, `mlayers`. `mkbm.py --map nome=file.csv`
   (ripetuto), `--flags`; nella build `map_<nome>.csv` con `layers_<gioco>`, `flags.csv`.
-  L'editor dell'SDK: `L` il livello dopo, `O` solo quello, *New map layer*, tasti `0`–`7`
-  per i flag della cella; `cart_save`/`cart_load`/`cart_write(sheet=)` li portano;
-  `scripts/bmres.py` estrae, integra e converte mappe con livelli e flag; la scheda Lib
-  mostra tutti i livelli. Prove: QEMU `test_editor_layers`, `make test-res`.
+  L'SDK (dopo il suo aggiornamento): nella pagina della mappa `l` il livello dopo, Shift+L
+  uno nuovo (anche *New map layer* nel menu), `o` solo quello, `c` i flag sopra la mappa;
+  tasti `0`–`7` per i flag della cella nella pagina degli sprite;
+  `cart_save`/`cart_load`/`cart_write(sheet=)` li portano; `scripts/bmres.py` estrae,
+  integra e converte mappe con livelli e flag; la scheda Lib mostra tutti i livelli. Prove:
+  QEMU `test_sdk_layers`, `make test-res`.
   **Insieme** (le altre API comuni che mancavano): le zone con nome dello sheet (SPRITES,
   che bmres.py e bm Pixel scrivono) si usano dai giochi: `zspr(nome, x, y)` (animata da
   sola), `zone`, `zones`, `mkbm.py --sprites`; `keyheld` documentata. Documentazione:
-  `docs/API.md` è diventato `docs/API-IT.md`, con `docs/API-EN.md` e `docs/GAME-GUIDE.md` in
-  inglese; l'assistente ha le voci di tutto (185/193 domande di prova tra le prime tre).
+  `docs/API.md` è diventato `docs/API-IT.md`, con la versione inglese (`docs/API.md` dopo
+  l'allineamento) e `docs/GAME-GUIDE.md`; l'assistente ha le voci di tutto (185/193 domande
+  di prova tra le prime tre).
   Da fare, se servono: portare Hunter's Night dai numeri 32–63 ai flag; più nomi per una
   voce dell'assistente (oggi `lib.printr` porta a `lib.printc` al secondo posto); import
   delle mappe di Tiled (`.tmj`) con i livelli e le proprietà delle tile.
 - **R12 — Più salvataggi per cartuccia.** Oggi uno, da 32 KiB (`/bm/save/XXXXXXXX.SAV`):
   `save(t, slot)` / `saved(slot)`.
+- ✅ **Hitbox e hurtbox** (richiesta dell'utente, 2026-10-04, branch `game-api`; erano
+  rimaste da fare in M22.6 e nei giochi ognuno le scriveva da sé, come Titan Clash). Sezione
+  **BOXES** (14) del `.bm`: i riquadri dei fotogrammi delle zone di SPRITES (`hurt`, `hit`,
+  `body` o un tipo del gioco, per un fotogramma o per tutti); `zboxes(nome, [fotogramma,
+  tipo])` nel runtime; `mkbm.py --sprites` li legge dalle righe sotto la zona, `bmres.py` li
+  porta con le loro zone, `cart_save` li scrive. In bmlib `lib.hits()` (le hurtbox e le
+  hitbox del fotogramma, `H:check()` i contatti: squadre, un colpo per attacco con `id`,
+  parti, corsie con `z`/`depth`, lame che si scontrano; `H:zone` dai riquadri dello sheet,
+  specchiati), `lib.box`, `lib.separate`. Prove: `make test-gameapi`, `make test-res`, QEMU
+  `test_game_api`. Da fare: bm Animator (Sprites) e bm Pixel che li disegnano sui
+  fotogrammi; i riquadri dalle ossa quando un modello diventa sprite (M22.6).
+- ✅ **Più giocatori sulla stessa console e in rete** (richiesta dell'utente, 2026-10-04,
+  branch `game-api`). Sulla stessa console: `controller(p).color` (il colore della luce del
+  pad), in bmlib `lib.PLAYER_COLORS`, `lib.pads()`, `lib.party()` (la schermata dove si
+  entra: ok, indietro, Start), `lib.split(n)` (lo schermo diviso; `camera:apply(vista)`).
+  In rete: la libreria **bmnet** (`require "bmnet"`, `src/script/bmnet.lua`, nel kernel, in
+  bmhost e sulla RGB30): il protocollo di Overbit per ogni gioco: LAN o relay
+  (`tools/overbit_relay.py`), lobby (host, join, l'elenco), messaggi persi o sicuri e in
+  ordine, lockstep con gli input a 32 bit raccolti da chi ospita (`net.input`,
+  `net.frames`, `net.pad`), controllo della sincronia (`net.check`), uscita con `_leave`.
+  Modelli dell'SDK *Versus 2D* (due giocatori, pugni con le hitbox) e *Online 2D* (lobby e
+  lockstep); i modelli di prima usano bmlib e i flag. Prove: `make test-bmnet` (due bmhost,
+  un quinto dei pacchetti persi, LAN e relay), `make test-gameapi`, QEMU `test_editor`,
+  `test_sdk_layers`. **Da provare sul Pi**: due console in rete con *Online 2D* (e con il
+  relay), due pad con *Versus 2D*. Da fare: Overbit sopra bmnet (oggi ha la sua copia del
+  protocollo).
 
 ### Strumenti di sviluppo
 - **R13 — Debugger Lua in bm Code.** Punti di interruzione, passo passo, variabili
@@ -2981,11 +3010,15 @@ tastiera).
 - **R16 — Modelli di gioco.** "New game" parte da uno scheletro vuoto (`TEMPLATE` in bm
   Code, "New project" nell'SDK): modelli pronti per platform, visuale dall'alto,
   sparatutto e 3D, con codice, sheet e mappa.
+  **Nell'SDK fatto** (con il suo aggiornamento e il branch `game-api`, 2026-10-04): Ctrl+N
+  dà Empty 2D, Platform 2D, Top-down 2D, Shooter 2D (con bmlib e i flag delle tile), Versus
+  2D (due giocatori, hitbox), Online 2D (bmnet), 3D scene, 3D with models; resta bm Code.
 - **R17 — Import MIDI nel Sound editor.** Un file MIDI diventa i pattern del banco.
 - **R18 — Documentazione API in inglese.** Il README è in inglese, ma `docs/API.md`,
   `docs/GUIDA-GIOCHI.md` e la base dell'assistente sono solo in italiano. **In gran parte
-  fatto** (2026-10-04, con R10 e R11): `docs/API-EN.md` e `docs/GAME-GUIDE.md` (le versioni
-  italiane sono `docs/API-IT.md` e `docs/GUIDA-GIOCHI.md`); manca la base dell'assistente,
+  fatto** (2026-10-04, con R10 e R11): `docs/API.md` (era `docs/API-EN.md`, allineato a quello
+  italiano e rinominato) e `docs/GAME-GUIDE.md` (le versioni italiane sono `docs/API-IT.md` e
+  `docs/GUIDA-GIOCHI.md`); manca la base dell'assistente,
   che ha le domande anche in inglese ma le spiegazioni in italiano.
 
 ### Hardware

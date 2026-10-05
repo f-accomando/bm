@@ -6591,6 +6591,83 @@ def test_editor(b, opts):
         shutil.rmtree(tmp, ignore_errors=True)
 
 
+def test_sdk_layers(b, opts):
+    """R11 in the bm SDK: a new Platform 2D project (its ground solid and its
+    planks platforms by the tiles' flags), 4 on the sprite page sets flag 4
+    of the cell, Shift+L on the map page adds a layer and space places a tile
+    on it, Ctrl+S saves the cartridge with its LAYERS and FLAGS sections,
+    read back by bm.h's rules."""
+    tmp = tempfile.mkdtemp(prefix="bm-sdl-")
+    img = os.path.join(tmp, "sd.img")
+    mksd.build(img, [])
+    q = Qemu(b("kernel.img"), ["-drive", f"if=sd,format=raw,file={img}"])
+    F3 = "\x1bOR"
+
+    def k(s, gap=0.2):
+        q.send(s)
+        time.sleep(gap)
+
+    def see(word, tries=40):
+        for _ in range(tries):
+            _, text = settled_screen(q, lambda i, t: any(word in l for l in t), tries=2)
+            if any(word in l for l in text):
+                return text
+            time.sleep(0.25)
+        raise AssertionError(f"not on screen: {word}\n" + "\n".join(text))
+    try:
+        q.boot()
+        k("e")
+        see("OPEN IN")
+        k("\x0e", 0.5)                                      # Ctrl+N: the templates
+        see("new project from a template")
+        k("\x1b[B", 0.3)                                    # Platform 2D
+        k("\r", 0.5)
+        see("new project (Platform 2D)")
+        k(F3, 0.5)                                          # the sprites, on cell 1
+        see("SPRITES")
+        k("4")
+        see("flag 4 on")
+        k(F3, 0.5)                                          # the map
+        see("layer 1/1 main")
+        k("L")
+        see("map layer 2/2: layer2")
+        k("\x1b[C", 0.2)
+        k(" ")                                              # tile 1 at (1, 0) of layer 2
+        k("\x13", 1)                                        # Ctrl+S: no name yet, Save as
+        see("file name")
+        k("\r")
+        see("saved /carts/")
+    finally:
+        q.close()
+    try:
+        part = os.path.join(tmp, "part.img")
+        with open(img, "rb") as f, open(part, "wb") as o:
+            f.seek(2048 * 512)
+            o.write(f.read())
+        env = dict(os.environ, MTOOLS_SKIP_CHECK="1")
+        names = subprocess.run(["mdir", "-b", "-i", part, "::/CARTS"], capture_output=True, env=env,
+                               text=True).stdout.split()
+        assert names, "no cartridge saved"
+        data = subprocess.run(["mtype", "-i", part, names[0]], capture_output=True, env=env).stdout
+        assert data[:8] == b"BMCART\x00\x00", data[:16]
+        secs = {}
+        for i in range(data[17]):
+            t, off, size, _ = struct.unpack_from("<IIII", data, 128 + i * 16)
+            secs[t] = data[off:off + size]
+        lay = secs[12]
+        w, h, n = struct.unpack_from("<HHH", lay, 0)
+        assert (w, h, n) == (256, 256, 2), (w, h, n)
+        assert lay[8:24].rstrip(b"\0") == b"main" and lay[24:40].rstrip(b"\0") == b"layer2", lay[8:40]
+        cells = lay[8 + 2 * 16:]
+        assert struct.unpack_from("<H", cells, 1 * 2)[0] == 1, "tile 1 at (1, 0) of layer 2"
+        per, rows = struct.unpack_from("<HH", secs[13], 0)
+        fl = secs[13][4:]
+        assert per == 32 and fl[1] == 16 and fl[2] == 1 and fl[6] == 2, (per, rows, list(fl[:8]))
+        assert "lib.step(hero)" in secs[1].decode(), "the template's code on bmlib"
+    finally:
+        shutil.rmtree(tmp, ignore_errors=True)
+
+
 def test_sdk_suite(b, opts):
     """The SDK update (2026-10-04): the bm SDK opens Studio Village (Ctrl+O),
     its 3D page lists the models and draws them, i writes the code for one,

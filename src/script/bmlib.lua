@@ -1,6 +1,6 @@
 -- bmlib: the library the games share (R10, 2026-10-04): local lib = require "bmlib"
 --
--- What every game used to write again (docs/API-IT.md, docs/API-EN.md,
+-- What every game used to write again (docs/API.md, docs/API-IT.md,
 -- "bmlib"): math and random numbers, collisions between rectangles and
 -- circles and with the map (by the flags of its tiles, fget/fset), easing
 -- and tweens, timers and scripts, particles, a camera that follows, states

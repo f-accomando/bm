@@ -5,7 +5,7 @@ build (`kernel7.img`), per il Pi Zero 2 W (BCM2710A1, Cortex-A53 a 32 bit): C + 
 Lua 5.4 embedded. Documentazione: `README.md` (presentazione in inglese, con showreel e
 screenshot in `docs/img/`), `README_OLD.md` (il README completo, in italiano),
 `docs/ROADMAP.md`, `docs/HARDWARE.md`; per chi fa giochi `docs/API-IT.md` e
-`docs/GUIDA-GIOCHI.md` (in inglese `docs/API-EN.md`, `docs/GAME-GUIDE.md`).
+`docs/GUIDA-GIOCHI.md` (in inglese `docs/API.md`, `docs/GAME-GUIDE.md`).
 
 ## Build e test
 
@@ -133,10 +133,11 @@ screenshot in `docs/img/`), `README_OLD.md` (il README completo, in italiano),
   (tastiera V) suona. `src/kernel/lib.c` (elenco), `libview.c` (anteprime), `menu_ui.c`,
   `carts.c`. Test: `make test-res`, QEMU `test_lib_tab`.
 
-## API dei giochi: bmlib, livelli della mappa, flag (R10, R11; branch `game-api`)
+## API dei giochi: bmlib, mappa, flag, hitbox, più giocatori, bmnet (R10, R11; branch `game-api`)
 
-- Documentazione in due lingue (richiesta dell'utente, 2026-10-04): `docs/API-IT.md` (era
-  `docs/API.md`) e `docs/GUIDA-GIOCHI.md`, in inglese `docs/API-EN.md` e `docs/GAME-GUIDE.md`.
+- Documentazione in due lingue (richiesta dell'utente, 2026-10-04): `docs/API.md` (inglese;
+  era `docs/API-EN.md`) e `docs/GAME-GUIDE.md`, in italiano `docs/API-IT.md` e
+  `docs/GUIDA-GIOCHI.md`.
   Un'API nuova o cambiata va in tutti e quattro (le due versioni hanno le stesse tabelle e gli
   stessi esempi) e nella base dell'assistente (`src/ai/kb/`, poi `make ai-model` e commit di
   `assist.weights`).
@@ -153,10 +154,26 @@ screenshot in `docs/img/`), `README_OLD.md` (il README completo, in italiano),
   zone con nome (SPRITES) dai giochi: `zspr`, `zone`, `zones`. Convenzione dei flag (bmlib):
   0 solido, 1 piattaforma, 2 scala, 3 acqua, 4 fa male. `mkbm.py --map nome=file.csv`,
   `--flags`, `--sprites`; nella build `map_<nome>.csv` (`layers_<gioco>`), `flags.csv`,
-  `sprites.txt`. L'SDK li modifica (`L`, `O`, *New map layer*, tasti `0`–`7`), `bmres.py`
-  li porta nelle risorse.
-- Prove: `make test-gameapi` (bmhost, `tests/gameapi/`), QEMU `test_game_api`,
-  `test_editor_layers`, `make test-res`, `make test-bm` (meshcap con bmlib).
+  `sprites.txt`. L'SDK li modifica (mappa: `l`, Shift+L, `o`, `c`, *New map layer*;
+  sprite: tasti `0`–`7`), `bmres.py` li porta nelle risorse.
+- **Hitbox e hurtbox** (richiesta dell'utente): sezione BOXES (14, i riquadri dei
+  fotogrammi delle zone: `hurt`, `hit`, `body`, tipi del gioco), `zboxes()` nel runtime,
+  righe sotto la zona in `sprites.txt`; in bmlib `lib.hits()` (`H:clear`, `H:hurt`,
+  `H:hit` con `id`/`team`, `H:zone`, `H:check`), `lib.box`, `lib.separate`.
+- **Più giocatori** sulla stessa console: `controller(p).color`, `lib.PLAYER_COLORS`,
+  `lib.pads`, `lib.party` (la schermata dove si entra), `lib.split` e `camera:apply(vista)`.
+  In bmhost `device P kind` nello script collega il giocatore P (`players()`).
+- **bmnet** (`require "bmnet"`, `src/script/bmnet.lua`, incorporata come bmlib): il
+  protocollo di rete di Overbit per tutti i giochi (LAN o relay `tools/overbit_relay.py`,
+  lobby, `net.send`/`net.post`, lockstep `net.input`/`net.frames`, `net.check`); gli eventi
+  arrivano da `net.update()` (anche quello di `net.start` di chi ospita, al giro dopo). Le
+  regole del lockstep sono quelle di Overbit (sezione *Overbit*, "Rete").
+- Modelli dell'SDK (`TEMPLATES` in `carts/editor/main.lua`): Platform, Top-down e Shooter
+  con bmlib e `fset` nel `paint`; Versus 2D e Online 2D. `tests/studio/sdk_host.lua` li
+  compila e li fa girare sugli stand-in (bmnet senza rete).
+- Prove: `make test-gameapi` (bmhost, `tests/gameapi/`), `make test-bmnet` (due bmhost),
+  QEMU `test_game_api`, `test_sdk_layers`, `test_editor`, `make test-res`, `make test-bm`
+  (meshcap con bmlib), `make test-studio` (sdk_host).
 
 ## Nome
 

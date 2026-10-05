@@ -247,7 +247,8 @@ The console screenshots come from QEMU (`tests/qemu_test.py --shots DIR`). The b
 and bm Animator ones come from `make test-studio-ui` and `make showreel`.
 
 To write a game, see the guide [docs/GAME-GUIDE.md](docs/GAME-GUIDE.md) and the reference
-[docs/API-EN.md](docs/API-EN.md), with the shared game library `require "bmlib"`. Both are
+[docs/API.md](docs/API.md), with the shared game library `require "bmlib"` and the network
+library `require "bmnet"`. Both are
 also in Italian ([docs/GUIDA-GIOCHI.md](docs/GUIDA-GIOCHI.md), [docs/API-IT.md](docs/API-IT.md)),
 like the rest of the documentation.
 

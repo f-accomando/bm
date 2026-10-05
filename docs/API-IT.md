@@ -1,7 +1,7 @@
 # Cartucce native `.bm`: API e prima cartuccia
 
 > Guida pratica passo per passo (sprite, mappe, modelli 3D, suono, luci, salvataggi):
-> [GUIDA-GIOCHI.md](GUIDA-GIOCHI.md). In inglese: [API-EN.md](API-EN.md) e
+> [GUIDA-GIOCHI.md](GUIDA-GIOCHI.md). In inglese: [API.md](API.md) e
 > [GAME-GUIDE.md](GAME-GUIDE.md).
 
 Una cartuccia `.bm` è un gioco per bm scritto in **Lua 5.4**. Il kernel disegna in C
@@ -141,6 +141,7 @@ ripetute (RLE) invece di 4 byte per pixel, decodificati al caricamento (Titan Cl
 | `zspr(nome, x, y, [fotogramma, flip_x, flip_y, zoom])` | disegna una **zona con nome** dello sheet (sotto): `fotogramma` da 1 al numero dei fotogrammi (oltre si ricomincia), oppure `nil`: quello che i suoi fps danno a `time()`, cioè l'animazione va da sola. Restituisce il fotogramma disegnato. Una zona che non c'è è un errore |
 | `zone(nome)` | `x, y, w, h, fotogrammi, fps` della zona (il primo fotogramma, in pixel dello sheet), o `nil` |
 | `zones()` | i nomi delle zone, in ordine (`{}` se non ce ne sono) |
+| `zboxes(nome, [fotogramma, tipo])` | le **hitbox e hurtbox** dei fotogrammi di una zona (sezione BOXES, 2026-10-04): una lista di `{x, y, w, h, kind, frame}`, `x` e `y` dall'angolo in alto a sinistra del fotogramma (possono uscirne), `kind` `"hurt"` (dove si viene colpiti), `"hit"` (dove si colpisce), `"body"` (l'ingombro del corpo) o un numero del gioco (3–255), `frame` 0 per un riquadro di tutti i fotogrammi. Con `fotogramma` (da 1; oltre si ricomincia) i suoi e quelli di tutti; senza, tutti quelli della zona. `tipo` (un nome o un numero) ne tiene uno solo. `{}` se non ce ne sono; una zona che non c'è è un errore |
 | `map(mx, my, [x, y, mw, mh, livello, maschera])` | disegna la mappa dalla cella (mx, my), mw×mh celle, a (x, y). `livello`: il numero (da 1) o il nome del livello (predefinito 1). `maschera`: solo le celle la cui tile ha almeno uno di quei **flag** (`fget`; 0 o niente: tutte) |
 | `mget(mx, my, [livello])` / `mset(mx, my, n, [livello])` | legge / scrive una cella della mappa (0 = vuota; fuori dalla mappa `mget` dà 0) |
 | `fget(n, [f])` | i **flag** della tile (cella dello sheet) `n`: un byte, 8 flag; con `f` (0–7) quel flag, `true` o `false` |
@@ -185,18 +186,40 @@ zspr("eroe_corre", x, y, f, a_sinistra)
 local _, _, w, h = zone("eroe_corre")  -- la misura, per le collisioni
 ```
 
+**Hitbox e hurtbox dei fotogrammi.** Sotto una zona, nel file delle zone, i suoi riquadri:
+`hurt` dove il personaggio può essere colpito, `hit` dove il suo colpo fa male, `body`
+l'ingombro (per non attraversarsi), con il fotogramma (da 1, o `*` per tutti) e il
+rettangolo dall'angolo del fotogramma. Il gioco li legge con `zboxes` e li mette nel mondo
+(anche specchiati) con [`lib.hits`](#hitbox-e-hurtbox) di bmlib:
+
+```
+# nome  x  y  w  h  fotogrammi fps
+pugno   0  64 32 32 4 12
+  hurt  *  8  2 16 30        # il corpo, in tutti i fotogrammi
+  hit   3  24 10 10  6       # il pugno, solo nel fotogramma 3
+```
+
+```lua
+for _, b in ipairs(zboxes("pugno", f, "hit")) do
+  rect(x + b.x, y + b.y, b.w, b.h, 0xFF4040)     -- per vederli mentre si fa il gioco
+end
+```
+
 **Da dove vengono.** Con `mkbm.py`: `--map mappa.csv` è il primo livello; ogni altro
 `--map nome=file.csv` è un livello in più (fino a 8, nell'ordine dato; un CSV più piccolo
 del primo si riempie di celle vuote); `--flags flag.csv` i flag (numeri 0–255 per le celle
 0, 1, 2... in ordine, oppure `n=flag` per la cella `n`); `--sprites zone.txt` le zone (una
-per riga: `nome x y w h [fotogrammi [fps]]`). Nella build del repository bastano i file
+per riga: `nome x y w h [fotogrammi [fps]]`, sotto una zona i suoi riquadri: `hurt`, `hit`
+o `body fotogramma x y w h`, oppure `box tipo fotogramma x y w h` per un tipo del gioco; i
+nomi `hurt`, `hit`, `body` e `box` non sono zone). Nella build del repository bastano i file
 `map_<nome>.csv` (in ordine con `layers_<gioco> := nome ...` nel `Makefile`), `flags.csv` e
-`sprites.txt` nella cartella del gioco. Sulla console l'editor dell'SDK cambia livello con
-`L` (`O` mostra solo quello) e ne aggiunge dal menu, e accende i flag della cella con i
-tasti `0`–`7` nella pagina degli sprite; bm Pixel e `scripts/bmres.py` fanno le zone.
-`cart_save` e `cart_load` portano livelli, flag e zone con la cartuccia. Formato: sezioni
-LAYERS (12), FLAGS (13) e SPRITES (11) in `src/bm/bm.h`; un kernel di prima disegna il
-primo livello e ignora il resto.
+`sprites.txt` nella cartella del gioco. Sulla console nella pagina della mappa dell'SDK `l`
+passa al livello dopo, Shift+L ne aggiunge uno (anche dal menu, *New map layer*), `o`
+mostra solo quello, `c` i flag delle tile; nella pagina degli sprite i tasti `0`–`7`
+accendono i flag della cella; bm Pixel e `scripts/bmres.py` fanno le zone (`bmres.py`
+porta i riquadri con le loro zone). `cart_save` e `cart_load` portano livelli, flag, zone
+e riquadri con la cartuccia. Formato: sezioni LAYERS (12), FLAGS (13), SPRITES (11) e
+BOXES (14) in `src/bm/bm.h`; un kernel di prima disegna il primo livello e ignora il resto.
 
 La mappa viene da `--map mappa.csv` (una riga di numeri separati da virgole per riga
 della mappa; ogni numero è una cella dello sheet). Senza mappa è di 256×256 celle vuote,
@@ -209,7 +232,7 @@ un livello solo.
 | `btn(i, [p])` | `true` finché il tasto è premuto; senza `p` da **qualsiasi** controller, con `p` = 1–4 solo da quello del giocatore `p`. Al posto di `i` anche un **nome** (2026-10-04): un pulsante (`"a"`, `"b"`, `"x"`, `"y"`, `"left"`…`"down"`, `"start"`, `"select"`, `"l1"`, `"r1"`, `"l2"`, `"r2"`, `"l3"`, `"r3"`), `"ok"` e `"back"` (il sì e l'indietro del sistema: croce e cerchio sul DS4, A e B su un pad Xbox, Spazio e X sulla tastiera; sulla RGB30 come dicono `confirm=` e `game_buttons=`) o un'azione di `keymap()` |
 | `btnp(i, [p])` | `true` solo nel fotogramma in cui viene premuto (stesso `p`, anche con un nome) |
 | `keymap(t)` | le **azioni** del gioco sui pulsanti: `keymap({ salta = "a", spara = {"x", "r1"}, pausa = "start", conferma = "ok" })` (fino a 32 azioni, 4 pulsanti ciascuna); poi `btn("salta", p)`, `btnp("spara")` e `prompt("salta", x, y)`. Il gioco cambia i tasti chiamandola di nuovo (il suo menu delle opzioni; li tiene con `save()`); `keymap()` restituisce la tabella, `keymap(nil)` la toglie. Un pulsante sconosciuto o un'azione col nome di un pulsante è un errore |
-| `controller([p])` | con che cosa gioca il giocatore `p` (1–4, il primo se manca): `{kind = "keyboard" / "ds4" / "xbox" / "pad" / "builtin" / "none", layout = "keyboard" / "ds4" / "xbox" / "nintendo" / "none", bluetooth = bool, ok = "a" / "b", back = "b" / "a"}`: `layout` dice come si chiamano i tasti (simboli del DS4; lettere con A in basso come Xbox; A a destra come la RGB30), `ok` e `back` quali pulsanti del gioco sono il sì e l'indietro |
+| `controller([p])` | con che cosa gioca il giocatore `p` (1–4, il primo se manca): `{kind = "keyboard" / "ds4" / "xbox" / "pad" / "builtin" / "none", layout = "keyboard" / "ds4" / "xbox" / "nintendo" / "none", bluetooth = bool, ok = "a" / "b", back = "b" / "a"}`: `layout` dice come si chiamano i tasti (simboli del DS4; lettere con A in basso come Xbox; A a destra come la RGB30), `ok` e `back` quali pulsanti del gioco sono il sì e l'indietro, `color` il colore del giocatore (quello della luce del suo pad: 1 blu, 2 rosso, 3 verde, 4 rosa) |
 | `online([on, nota])` | la partita si gioca in **rete** (2026-10-04): con `online(true)` PS, Ctrl+Esc e Start+Select non sospendono il gioco (gli altri continuano a giocare) ma chiedono al giocatore che esce, solo sulla sua console, "Leave the match?" (uscirà dal gioco e si disconnetterà dal server), sopra il gioco che va avanti. Finché la domanda è aperta il gioco non vede né pulsanti né levette né tasti; ok (croce sul DS4, Invio o Spazio sulla tastiera) o PS di nuovo escono: `_leave()` e la cartuccia si chiude; indietro (cerchio, Esc) resta, e i pulsanti ancora premuti tornano al gioco solo dopo essere stati lasciati. `nota`: una riga sotto la domanda (es. `"You are the host: the match ends for all."`). `online(false)` alla fine della partita; `online()` restituisce se era in rete e se la domanda è aperta (il giocatore è via) |
 | `players()` | quanti giocatori hanno un controller (almeno 1) e, come secondo valore, quali: bit `n` = giocatore `n+1` (es. `3, 7` = giocatori 1, 2 e 3) |
 | `stick([p, n])` | la levetta sinistra del giocatore `p`: `x, y` tra −1 e 1 (x verso destra, y verso il basso), con zona morta; con la tastiera o un pad senza levetta vale la croce (8 direzioni). Con `n = 1` la levetta **destra** (per mirare negli sparatutto; `0, 0` senza levetta). Senza `p`: quella spinta di più |
@@ -240,7 +263,10 @@ il primo giocatore senza pad (senza pad Bluetooth: il giocatore 1); la tastiera 
 (M28) è un giocatore a sé, il successivo senza pad (il primo, se non c'è niente di USB).
 I giochi a un giocatore
 usano `btn(i)` senza `p` e funzionano con qualsiasi controller; un gioco a più giocatori
-chiede `btn(i, p)` per ciascuno (esempio: `carts/pong`, modalità 2 giocatori).
+chiede `btn(i, p)` per ciascuno (esempio: `carts/pong`, modalità 2 giocatori). bmlib ha la
+schermata dove i giocatori entrano (`lib.party`), lo schermo diviso (`lib.split`) e i
+colori (`lib.PLAYER_COLORS`): [Più giocatori sulla stessa console](#più-giocatori-sulla-stessa-console);
+il modello *Versus 2D* dell'SDK li usa.
 
 | `i` | Tastiera | Gamepad | Seriale |
 |---|---|---|---|
@@ -289,7 +315,9 @@ generatore quando il giocatore preme un tasto: `math.randomseed(stat(3))`.
 
 ### Rete (UDP)
 
-Per i giochi in rete (M38.5: Overbit). Pacchetti UDP fino a 1024 byte; ogni cartuccia
+Per i giochi in rete (M38.5: Overbit). Per un gioco conviene la libreria
+[bmnet](#bmnet-i-giochi-in-rete) (lobby, messaggi sicuri, lockstep) che usa queste
+funzioni. Pacchetti UDP fino a 1024 byte; ogni cartuccia
 ha 2 socket, chiusi quando finisce. Gli indirizzi sono testo (`"192.168.1.23"`); `"*"` è
 il broadcast della LAN. Serve la rete della console (WiFi o cavo): senza, `udp_open`
 restituisce `nil`. In bmhost gli stessi pacchetti passano dai socket del PC
@@ -426,10 +454,10 @@ SONG=0` lo ascolta in un WAV.
 | `keyp()` | il prossimo tasto scritto: un carattere (`"a"`, `"\n"` Invio, `"\b"` Backspace, `"\t"`), un nome (`"up"`, `"down"`, `"left"`, `"right"`, `"home"`, `"end"`, `"pgup"`, `"pgdn"`, `"del"`, `"esc"`, `"f1"`…`"f10"`), `"^s"` per Ctrl+S o `"^S"` per Ctrl+Shift+S; `nil` se nessuno. F11 e F12 sono del sistema e non arrivano. Dalla prima chiamata la tastiera scrive e non fa più da gamepad per `btn()`, ed Esc è un tasto come gli altri (Ctrl+Esc, Start+Select e PS chiudono) |
 | `keyhelp(lista, [titolo])` | i tasti della cartuccia, mostrati sotto quelli del sistema mentre si tiene **F12** (2026-10-04): `lista` è `{ {"tasti", "cosa fanno"}, "titoletto", … }`; i tasti come in `prompt()` (minuscolo la tastiera, maiuscolo il pad), separati da spazi: `"ctrl s"`, `"shift w a s d"`, `"a / d"` (alternative), `"1 - 5"` (intervallo), `"Y LEFTRIGHT"`. Restituisce quante voci nominano un tasto che il sistema tiene per sé e la cartuccia non riceve mai (F11, F12, Ctrl+Esc, Ctrl+Shift+Esc: in rosso e nel log, vanno tolte); gli altri tasti di sistema (Esc, Ctrl+S…) si elencano quando si dice che cosa fanno lì; `keyhelp(nil)` la toglie. Chiamarla di nuovo quando la pagina cambia |
 | `ls([cartella])` | i file della SD: `{ {name=, size=, dir=}, … }` |
-| `cart_load(percorso)` | apre un `.bm`: il suo sprite sheet (con i flag delle tile e le zone), la sua mappa (con i livelli) e i suoi modelli 3D (con gli scheletri) sostituiscono quelli della cartuccia che chiama; restituisce `{title, author, res, lua, sheet_w, sheet_h, map_w, map_h, layers, [palette]}`; `layers` i nomi dei livelli della mappa; `palette` sono i colori (0xRRGGBB) della tavolozza della sezione SHEET8, nel loro ordine, se lo sheet è salvato così |
+| `cart_load(percorso)` | apre un `.bm`: il suo sprite sheet (con i flag delle tile, le zone e i loro riquadri), la sua mappa (con i livelli) e i suoi modelli 3D (con gli scheletri) sostituiscono quelli della cartuccia che chiama; restituisce `{title, author, res, lua, sheet_w, sheet_h, map_w, map_h, layers, [palette]}`; `layers` i nomi dei livelli della mappa; `palette` sono i colori (0xRRGGBB) della tavolozza della sezione SHEET8, nel loro ordine, se lo sheet è salvato così |
 | `cart_sheet([w, h])` | larghezza e altezza dello sprite sheet del progetto; con `w` e `h` (multipli di 8, da 8 a 4096) lo porta a quella misura: i pixel che ci stanno restano dove sono, i nuovi sono trasparenti (bm Pixel); i flag restano alla loro tile |
-| `cart_new()` | sprite sheet e mappa vuoti (256×256, un livello), niente flag, zone o modelli |
-| `cart_save(percorso, {title, author, res, lua})` | scrive un `.bm` con il codice dato e lo sprite sheet, i flag delle tile, le zone, la mappa con i suoi livelli, la copertina, il banco di suoni, i modelli e gli scheletri correnti (le altre sezioni del file aperto restano come erano); nome 8.3, es. `"/carts/GIOCO.BM"` |
+| `cart_new()` | sprite sheet e mappa vuoti (256×256, un livello), niente flag, zone, riquadri o modelli |
+| `cart_save(percorso, {title, author, res, lua})` | scrive un `.bm` con il codice dato e lo sprite sheet, i flag delle tile, le zone con i loro riquadri, la mappa con i suoi livelli, la copertina, il banco di suoni, i modelli e gli scheletri correnti (le altre sezioni del file aperto restano come erano); nome 8.3, es. `"/carts/GIOCO.BM"` |
 | `cart_read(percorso)` | il codice e l'intestazione di un `.bm`: `{title, author, res, lua, size}`, **senza** toccare lo sheet e la mappa di chi chiama (al contrario di `cart_load`): per editor con più file aperti |
 | `cart_write(percorso, {[lua, title, author, res, from, sections]})` | cambia **solo** il codice (e i campi dati) di un `.bm`: sprite sheet, mappa, copertina, banco di suoni e le sezioni che il kernel non conosce restano com'erano; un file con il nome lungo lo tiene. Senza `lua` il codice resta quello. Un file che non c'è diventa una cartuccia con solo il codice (nome 8.3). `from`: le altre sezioni vengono da un altro file ("salva come"); `from = false`: una cartuccia nuova, qualunque cosa ci sia nel file (il progetto nuovo di bm Studio). `sections`: `{[8] = byte MESH, [9] = byte ANIM}` (`false` le toglie), controllate prima (`false, "broken MESH section"`): così bm Mesh scrive i modelli. `sheet = true`: lo sprite sheet del progetto (`cart_load`, `sset`, `cart_sheet`) prende il posto di quello del file, come **SHEET8** quando ha al più 256 colori (altrimenti SHEET), con i colori di `palette` (`{0xRRGGBB, …}`) per primi nella sua tavolozza, così come sono e in quell'ordine (la voce trasparente della tavolozza di prima resta al suo posto); un pixel che ha ancora l'RGB565 che aveva nel file tiene i suoi 24 bit di prima (la console tiene 16 bit per pixel): cambiano solo i pixel ridisegnati. Così bm Pixel salva lo sheet. Se nel frattempo `fset` ha cambiato dei flag, vanno nel file anche quelli |
 | `cart_meshes(percorso)` | le mesh che il **codice** di un `.bm` costruisce con `mesh()`, `mesh_sphere()` e `mesh_cube()` (anche con il costruttore di bmlib): `{ {name=, kind=, verts={x,y,z,…}, faces={a,b,c,colore,…}, [uv={…}]}, … }` (gli argomenti di `mesh()`, indici da 1, colore `-1` = texture) e `nil` oppure il primo errore del codice; `nil` e un messaggio se il file non si legge. Il codice gira **a parte** (uno stato Lua suo, `src/bm/meshcap.c`): il corpo del file, poi `_init`, `_update` e `_draw` una volta, con un limite di istruzioni; le altre funzioni di bm non fanno niente (niente file, schermo o suono). Il nome è quello della variabile che tiene la mesh (`M.ship` → `"ship"`; in un array `chef[2].body` → `"chef2_body"`). Per bm Mesh |
@@ -776,6 +804,41 @@ function _update()
 end
 ```
 
+### Hitbox e hurtbox
+
+Le **hurtbox** sono dove un corpo può essere colpito, le **hitbox** dove un attacco fa male
+(un pugno, una spada, un proiettile). Un mondo di colpi le raccoglie a ogni fotogramma e
+dice chi colpisce chi: le squadre, un colpo solo per attacco, le parti del corpo, le corsie
+dei picchiaduro a scorrimento, le lame che si scontrano. I riquadri si danno nel codice o
+vengono dallo sheet (`zboxes`, [sopra](#sprite-e-mappa)).
+
+| Funzione | Descrizione |
+|---|---|
+| `lib.hits()` | un mondo di colpi `H` (tabelle `H.hurts`, `H.hitl`: i riquadri del fotogramma) |
+| `H:clear()` | un fotogramma nuovo, da chiamare in `_update` prima dei riquadri: quelli di prima vanno; gli attacchi (`id`) che non sono tornati nel fotogramma passato sono finiti |
+| `H:hurt(chi, x, y, w, h, [opz])` | una hurtbox di `chi` (un valore qualsiasi: la tabella del corpo). `team` (la stessa squadra non si colpisce), `part` (un nome: `"head"`; prima le parti che contano di più), `z` e `depth` (una terza dimensione: la corsia, l'altezza) |
+| `H:hit(chi, x, y, w, h, [opz])` | una hitbox dell'attaccante `chi`: `team`, `id` (un attacco: colpisce ogni corpo **una volta** finché lo stesso `id` torna fotogramma dopo fotogramma; i riquadri di un attacco lo condividono; senza `id` fa male a ogni fotogramma che tocca), `clash` (due hitbox con `clash` che si toccano danno un contatto `"clash"`), `z`, `depth` e tutto quello che serve al gioco (`damage`, `knock`...) |
+| `H:zone(chi, nome, fotogramma, x, y, [flip, opz])` | i riquadri del fotogramma di una zona (`zboxes`: `hurt` e `hit`) per lo sprite disegnato con `zspr(nome, x, y, fotogramma, flip)`: le hurtbox con `opz` (`team`, `part`), le hitbox con `opz.attack` (le opzioni di `H:hit`; la squadra di `opz` se manca) |
+| `H:check()` | i contatti del fotogramma, nell'ordine delle hitbox: `{kind = "hit" o "clash", by (l'attaccante), to (il corpo colpito, o l'altro attaccante), hit (le opzioni di H:hit), part, x, y (il centro di dove si toccano)}`. Un attacco colpisce un corpo una volta per fotogramma (il primo riquadro che tocca) |
+| `H:draw([c_hurt, c_hit])` | i riquadri, per vederli mentre si fa il gioco (blu e rosso) |
+| `lib.box(b, x, y, [flip, w])` | un riquadro di un fotogramma (`b.x`, `b.y` dall'angolo, `b.w`, `b.h`) nel mondo, per il fotogramma disegnato a `x, y`; con `flip` specchiato sulla larghezza `w` del fotogramma: `x, y, w, h` |
+| `lib.separate(a, b)` | due corpi `{x, y, w, h}` che si sovrappongono si spostano lungo l'asse dove si toccano meno, metà ciascuno (`a.fixed` o `b.fixed`: solo l'altro); `true` se si toccavano. Per i lottatori che non si attraversano, le folle |
+
+```lua
+local H = lib.hits()
+
+function _update()
+  H:clear()
+  for _, f in ipairs(fighters) do
+    H:zone(f, f.anim, f.frame, f.x, f.y, f.face < 0,
+           { team = f.team, attack = { id = f.swing, damage = 5 } })
+  end
+  for _, c in ipairs(H:check()) do
+    c.to.life = c.to.life - c.hit.damage    -- c.by ha colpito c.to
+  end
+end
+```
+
 ### Easing, tween, timer e script
 
 `lib.ease` ha le curve da 0 a 1: `linear`, `inquad`, `outquad`, `inoutquad`, `incubic`,
@@ -827,9 +890,9 @@ fx:burst(x, y, 20, { speed = 3, colors = { 0xFFFFFF, 0xFFD050, 0xFF6020 }, gravi
 | `lib.camera([opz])` | una camera 2D: `smooth` (0,15: la parte di strada che fa a ogni fotogramma; 1 = segue esatta), `dead` `{w, h}` (un riquadro in mezzo dove il bersaglio si muove senza la camera), `bounds` `{x0, y0, x1, y1}` in pixel o `true` (la mappa, `msize()`), `offset` `{x, y}`, `w`, `h` (lo schermo se mancano). Campi `x`, `y` |
 | `C:follow(x, y, [subito])` | un passo verso il punto `x, y` (al centro dello schermo); `subito`: ci va in una volta |
 | `C:shake(quanto, [secondi])` | lo schermo trema fino a `quanto` pixel, sempre meno, per `secondi` (0,3) |
-| `C:apply()` | `camera()` al posto della camera (con il tremolio): in `_draw` prima del mondo, poi `camera()` per l'HUD |
+| `C:apply([vista])` | `camera()` al posto della camera (con il tremolio): in `_draw` prima del mondo, poi `camera()` per l'HUD. Con una vista `{x, y, w, h}` (`lib.split`) il disegno resta nella vista (`clip`) e l'angolo della camera è il suo: dopo le viste, `clip()` e `camera()` |
 | `C:map([livello, maschera])` | le celle della mappa che si vedono |
-| `C:sees(x, y, [w, h])` / `C:screen(x, y)` | il rettangolo si vede / dove sta un punto del mondo sullo schermo |
+| `C:sees(x, y, [w, h])` / `C:screen(x, y, [vista])` | il rettangolo si vede / dove sta un punto del mondo sullo schermo (nella vista) |
 
 ### Stati del gioco
 
@@ -883,6 +946,48 @@ end
 function _draw() S:draw(); pausa:draw() end
 ```
 
+### Più giocatori sulla stessa console
+
+`btn(i, p)`, `stick(p)` e `controller(p)` leggono il giocatore `p` ([Input](#input)); bmlib
+aggiunge la schermata dove si entra, lo schermo diviso e i colori. Il modello *Versus 2D*
+dell'SDK è un esempio completo.
+
+| Funzione | Descrizione |
+|---|---|
+| `lib.PLAYER_COLORS` | i colori dei giocatori, quelli delle luci dei pad: 1 blu, 2 rosso, 3 verde, 4 rosa (come `controller(p).color`) |
+| `lib.pads()` | i numeri dei giocatori che hanno un controller ora, in ordine (`{1, 3}`) |
+| `lib.party([opz])` | la schermata dove i giocatori di una console entrano: ognuno preme ok sul suo controller per entrare, indietro per uscire; Start di uno che è dentro comincia, con almeno `min` giocatori (1); `max` (4); `join(p)`, `leave(p)`: funzioni chiamate quando uno entra o esce. `P:update()` in `_update` restituisce i giocatori entrati (i loro numeri, nell'ordine in cui sono arrivati) quando si comincia, se no `nil`; `P:draw([x, y, w, h])` una carta per posto, nel colore del giocatore, con il suo controller e il tasto per entrare; `P.list` chi è dentro ora |
+| `lib.split(n, [opz])` | lo schermo diviso in viste `{x, y, w, h}` per `n` giocatori (1–4): due affiancate (`vertical`: una sopra l'altra), tre o quattro negli angoli (con tre quello in basso a destra resta libero: una mappa, i punti); `gap` pixel tra l'una e l'altra (2); `x, y, w, h` la parte dello schermo (tutto se mancano) |
+
+```lua
+local party = lib.party({ min = 2 })
+local views, cams
+
+function _update()
+  if not views then
+    local who = party:update()               -- es. {1, 2}
+    if who then
+      views, cams = lib.split(#who), {}
+      for i, v in ipairs(views) do cams[i] = lib.camera({ w = v.w, h = v.h }) end
+    end
+    return
+  end
+  -- ... cams[i]:follow(eroe[i].x, eroe[i].y)
+end
+
+function _draw()
+  cls(0)
+  if not views then party:draw(16, 80, SCREEN_W - 32, 200) return end
+  for i, v in ipairs(views) do
+    cams[i]:apply(v)
+    cams[i]:map()
+    disegna_mondo()
+  end
+  clip()
+  camera()
+end
+```
+
 ### Suono, salvataggi, animazioni, colori
 
 | Funzione | Descrizione |
@@ -916,6 +1021,76 @@ local casa = lib.builder()
 
 Prova di tutto: `make test-gameapi` (bmhost, `tests/gameapi/cart.lua`: ogni funzione con
 i suoi casi, anche i tasti con uno script) e `test_game_api` in QEMU.
+
+## bmnet: i giochi in rete
+
+`local net = require "bmnet"` (2026-10-04): quello che fa il codice di rete di Overbit, per
+ogni gioco. Le console si trovano sulla **LAN** (broadcast UDP) o su **internet** con un
+relay (`tools/overbit_relay.py`: una stanza passa ogni pacchetto alle altre console, come un
+broadcast); una **ospita** la partita e le altre **entrano**; si mandano **messaggi** (che
+possono perdersi, o sicuri e in ordine) e, per i giochi d'azione, la partita va in
+**lockstep**: ogni console fa girare tutto il gioco con lo stesso seme e viaggiano solo gli
+input dei giocatori; un fotogramma gira quando gli input di tutti per quel fotogramma sono
+arrivati (chi ospita li raccoglie e li manda a tutti). Il modello *Online 2D* dell'SDK è un
+esempio completo; i pacchetti sono descritti in testa a `src/script/bmnet.lua`.
+
+| Funzione | Descrizione |
+|---|---|
+| `net.open([opz])` | apre la rete: `game` (4 caratteri, il gioco e la sua versione: i pacchetti degli altri giochi non si vedono), `port` (47320, la stessa su tutte le console), `relay` (`"nome"` o `"nome:porta"`, 47310: su internet; senza, la LAN), `room` (4 caratteri, `"PLAY"`: le console di una stanza si vedono sul relay), `name` (il nome del giocatore). `true`, o `false` e il motivo (niente rete) |
+| `net.close()` | esce: gli altri lo sanno (nella partita chi ospita dà il posto a nessuno, l'input del posto diventa `false`; se esce chi ospita la partita finisce per tutti), il socket si chiude. Da chiamare anche da `_leave()` |
+| `net.host([opz])` | questa console ospita una partita: `max` giocatori (2–8, 4), `info` (una riga che gli altri vedono nell'elenco). È il posto 1 |
+| `net.hosts()` | le partite trovate negli ultimi 3 secondi: `{id, name, players, max, info}`, per id |
+| `net.join(id)` | chiede un posto alla console `id`: l'evento `"joined"` quando dice sì, `"refused"` se è piena o è già cominciata |
+| `net.peers()` | le console della stanza o della partita: `{id, name, seat, me}`, per posto |
+| `net.start([opz])` | (chi ospita) comincia la partita con chi c'è: `seed` (lo stesso caso su tutte le console; uno a caso se manca), `delay` (fotogrammi tra un tasto e il suo fotogramma: 4 sulla LAN, 7 col relay), `data` (una stringa per tutti: le opzioni scelte). Tutti ricevono l'evento `"start"` (anche chi ospita, al `net.update()` dopo) |
+| `net.update()` | una volta in ogni `_update`: i pacchetti arrivati, gli annunci della lobby, i messaggi sicuri da ripetere. Restituisce gli **eventi** del fotogramma, una lista di `{type = ...}`: `"join"` (`id, name, seat`), `"leave"` (`seat, id`), `"joined"` (`seat`), `"refused"`, `"start"` (`seed, seat, seats, host, data`), `"msg"` (`from, data, sure`), `"lost"` (`why`: chi ospita non c'è più), `"desync"` (`frame`), `"error"` (`text`) |
+| `net.send(dati, [a])` | un messaggio (una stringa fino a 900 byte) a tutti o alla console `a` (un id): può perdersi o arrivare dopo uno più nuovo (le posizioni) |
+| `net.post(dati, [a])` | un messaggio **sicuro**: ripetuto finché non arriva, e ogni console riceve quelli di un'altra nell'ordine in cui sono partiti (la chat, un turno, una scelta) |
+| `net.input(v)` | (lockstep) il mio input per il fotogramma `net.frame + delay`: un intero di 32 bit (`net.pad(1)`). Una volta in ogni `_update` della partita, prima di `net.frames()` |
+| `net.frames()` | i fotogrammi della partita che possono girare ora: `for f, inputs in net.frames() do ... end`, `inputs[posto]` l'input di quel posto (`false` quando il suo giocatore è uscito). Uno, due quando la console è indietro; nessuno se manca un input (`net.stall`: secondi dall'ultimo) |
+| `net.check(hash)` | un numero che riassume il gioco dopo il fotogramma appena girato (posizioni, punti): le console lo confrontano e una differenza è l'evento `"desync"`. Ogni secondo basta |
+| `net.pad([p])` / `net.unpad(v)` | i 16 pulsanti di `pad(p)` e la levetta sinistra (8 bit per asse) in 32 bit / di nuovo pulsanti, `x`, `y` (−1..1) |
+| `net.held(v, pulsante)` | un pulsante (`"a"`, `"left"`... come `pad()`) premuto in un input di `net.pad` |
+
+Campi: `net.state` (`"off"`, `"lobby"`, `"hosting"`, `"joining"`, `"joined"`, `"playing"`,
+`"lost"`), `net.me` (il mio id), `net.seat`, `net.seats` (i posti della partita),
+`net.is_host`, `net.frame` (il prossimo fotogramma), `net.seed`, `net.delay`, `net.data`,
+`net.error`.
+
+**Le regole del lockstep.** Il gioco della partita dipende **solo** dagli input dei
+fotogrammi e dal seme: numeri a caso con `lib.rng(seme)` (mai `math.random`, `time()` o
+`stat()`), niente che venga dalla console (la camera, la qualità) dentro la simulazione,
+niente stato del gioco cambiato in `_draw`. Il disegno può essere diverso su ogni console.
+Due giocatori sulla stessa console in una partita in rete mettono i loro input nello stesso
+numero (16 bit ciascuno). `online(true)` lo accende `bmnet` all'inizio della partita: PS
+chiede prima di uscire e chiama `_leave()`.
+
+```lua
+local net = require "bmnet"
+local lib = require "bmlib"
+local rng
+
+function _init() net.open({ game = "MYG1" }) end
+function _leave() net.close() end
+
+function _update()
+  for _, e in ipairs(net.update()) do
+    if e.type == "start" then rng = lib.rng(e.seed) end
+  end
+  if net.state == "lobby" and btnp("a") then net.host({ max = 2 }) end
+  if net.state == "hosting" and btnp("start") then net.start() end
+  if net.state == "playing" then
+    net.input(net.pad(1))
+    for _, inputs in net.frames() do passo(inputs) end   -- il gioco, uguale ovunque
+  end
+end
+```
+
+**Provarlo sul PC.** Due `bmhost` sullo stesso PC sono due console: `BMHOST_NET_ID=0` e
+`BMHOST_NET_ID=1`, con `--realtime`; il relay gira con `tools/overbit_relay.py --port N`.
+`make test-bmnet` lo fa: lobby, messaggi sicuri con un quinto dei pacchetti persi
+(`loss = 0.2` in `net.open`, solo per le prove), una partita in lockstep uguale sulle due
+console, un giocatore che esce; sulla LAN e attraverso il relay.
 
 ## Budget e consigli
 

@@ -66,7 +66,7 @@ elenca. Il codice Lua come risorsa non è compreso: per ora resta fuori.
 | Estensione | Risorsa | Sezioni | Sulla console | Sul PC |
 |---|---|---|---|---|
 | `.bmm` | modelli 3D | MESH, ANIM (se animati), SHEET8 o SHEET (le texture) | bm Studio, bm Mesh, bm Animator | bm Studio, bm Animator, `bmmesh.py`; da e verso `.glb` |
-| `.bmi` | immagini e sprite | SHEET8 o SHEET, SPRITES | bm Pixel, bm editor, bm Studio (tessere) | bm Studio; da e verso `.png` |
+| `.bmi` | immagini e sprite | SHEET8 o SHEET, SPRITES, BOXES (i riquadri delle zone), FLAGS | bm Pixel, bm editor, bm Studio (tessere) | bm Studio; da e verso `.png` |
 | `.bms` | suoni | AUDIO | bm Sound | `bmaudio.py`; da e verso `.json`, verso `.wav` |
 | `.bmt` | mappa a tessere | MAP, SHEET8 o SHEET (le tessere) | bm editor | da e verso `.csv` + `.png` |
 | `.bmc` | palette | SHEET8 di N×1 pixel | bm Pixel, bm Studio (pittura) | da e verso `.hex`, `.gpl` |
@@ -82,6 +82,8 @@ In ogni file c'è anche INFO.
 
 ### `.bmi`: immagini e sprite
 - Lo sheet (o un suo pezzo) e la sezione SPRITES con le zone che hanno un nome.
+- BOXES con le hitbox e hurtbox dei fotogrammi delle zone (2026-10-04): viaggiano con la
+  loro zona (estratta, aggiunta con un nome nuovo).
 - Senza SPRITES l'immagine intera è una sola voce.
 - Un'immagine può diventare anche la copertina di un `.bm` o le tessere di bm Studio.
 
@@ -184,8 +186,27 @@ per zona, 28 byte:
   (come in bm Pixel finché la fila non va a capo): una zona si sposta nello sheet
   intera, senza che i fotogrammi cambino ordine.
 - Può stare anche nel `.bm` di un gioco: gli sprite prendono un nome, e i fotogrammi e
-  la velocità che oggi bm Pixel tiene nel suo salvataggio passano lì. Un'eventuale
-  `spr("nome")` nei giochi è un'altra decisione, fuori da questa proposta.
+  la velocità che oggi bm Pixel tiene nel suo salvataggio passano lì. I giochi le
+  disegnano con `zspr(nome, x, y)` (R11, 2026-10-04).
+
+### BOXES (14)
+I riquadri dei fotogrammi delle zone di SPRITES: hitbox, hurtbox (2026-10-04).
+
+```
+u16 riquadri (1..4096), u16 riservato (0)
+per riquadro, 28 byte:
+  char[16] zona (il nome di una zona di SPRITES)
+  u8  fotogramma     1..16, 0 = tutti i fotogrammi della zona
+  u8  tipo           0 hurt, 1 hit, 2 body, 3..255 del gioco
+  i16 x, y           dall'angolo in alto a sinistra del fotogramma (possono uscirne)
+  u16 w, h           ≥ 1
+  u16 riservato (0)
+```
+
+- In un `.bm` dei riquadri rotti (o di una zona che non c'è) si ignorano; un file di
+  risorsa con riquadri così si rifiuta.
+- I giochi li leggono con `zboxes(nome, [fotogramma, tipo])`; `mkbm.py --sprites` li
+  scrive dalle righe `hurt|hit|body fotogramma x y w h` sotto la zona.
 
 ## 6. Estrazione e integrazione
 

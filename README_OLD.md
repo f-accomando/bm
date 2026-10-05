@@ -43,7 +43,7 @@ regola anche il volume. Tutto si usa col solo controller. Nel menu **PS** torna 
 Games e chiude i pannelli; nel monitor apre il menu.
 Per scrivere un gioco: [docs/GUIDA-GIOCHI.md](docs/GUIDA-GIOCHI.md) (guida pratica) e
 [docs/API-IT.md](docs/API-IT.md) (riferimento); in inglese [docs/GAME-GUIDE.md](docs/GAME-GUIDE.md) e
-[docs/API-EN.md](docs/API-EN.md).
+[docs/API.md](docs/API.md).
 
 ## bm Studio e bm Animator: le risorse sul PC
 
@@ -841,7 +841,7 @@ src/bm/n8*.c             la macchina di nano8: memoria e disegno (n8.c), font (n
                          cartucce .p8 / .p8.png (n8cart.c), la libreria Lua n8 (n8lua.c)
 src/audio/n8snd.c        il suono di nano8: 4 canali, effetti e musica delle cartucce
 tests/nano8/             prove di nano8 sul PC: n8host (nano8 senza Pi), api.p8, run.py
-docs/API-IT.md           API delle cartucce .bm e guida alla prima cartuccia (API-EN.md in inglese)
+docs/API-IT.md           API delle cartucce .bm e guida alla prima cartuccia (API.md in inglese)
 scripts/mkbm.py         packer .bm (PNG e CSV, solo libreria standard Python)
 scripts/bmmesh.py        sezione MESH (modelli 3D) e file .glb di bm Studio, per mkbm.py --models
                          (con un .bm: modelli, scheletri e sheet)

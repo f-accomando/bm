@@ -139,6 +139,7 @@ pixel, decoded at loading (Titan Clash: 2048×3376 pixels in 1.7 MB).
 | `zspr(name, x, y, [frame, flip_x, flip_y, zoom])` | draws a **named zone** of the sheet (below): `frame` from 1 to the number of frames (beyond it starts again), or `nil`: the one its fps give at `time()`, so the animation runs by itself. Returns the frame drawn. A zone that is not there is an error |
 | `zone(name)` | `x, y, w, h, frames, fps` of the zone (its first frame, in sheet pixels), or `nil` |
 | `zones()` | the names of the zones, in order (`{}` if there are none) |
+| `zboxes(name, [frame, kind])` | the **hitboxes and hurtboxes** of the frames of a zone (the BOXES section, 2026-10-04): a list of `{x, y, w, h, kind, frame}`, `x` and `y` from the frame's top left corner (they may stick out), `kind` `"hurt"` (where it can be hit), `"hit"` (where it hurts), `"body"` (the room the body takes) or a number of the game (3–255), `frame` 0 for a box of every frame. With `frame` (from 1; past the last it starts again) its boxes and those of every frame; without, all the zone's. `kind` (a name or a number) keeps one kind. `{}` if there are none; a zone that is not there is an error |
 | `map(mx, my, [x, y, mw, mh, layer, mask])` | draws the map from cell (mx, my), mw×mh cells, at (x, y). `layer`: the number (from 1) or the name of the layer (default 1). `mask`: only the cells whose tile has at least one of those **flags** (`fget`; 0 or missing: all) |
 | `mget(mx, my, [layer])` / `mset(mx, my, n, [layer])` | reads / writes a cell of the map (0 = empty; outside the map `mget` gives 0) |
 | `fget(n, [f])` | the **flags** of tile (sheet cell) `n`: a byte, 8 flags; with `f` (0–7) that flag, `true` or `false` |
@@ -183,18 +184,41 @@ zspr("hero_run", x, y, f, to_the_left)
 local _, _, w, h = zone("hero_run")    -- its size, for collisions
 ```
 
+**Hitboxes and hurtboxes of the frames.** Under a zone, in the zones file, its boxes:
+`hurt` where the character can be hit, `hit` where its blow hurts, `body` the room it
+takes (so that bodies do not pass through each other), with the frame (from 1, or `*` for
+every frame) and the rectangle from the frame's corner. The game reads them with `zboxes`
+and puts them in the world (mirrored too) with bmlib's [`lib.hits`](#hitboxes-and-hurtboxes):
+
+```
+# name  x  y  w  h  frames fps
+punch   0  64 32 32 4 12
+  hurt  *  8  2 16 30        # the body, in every frame
+  hit   3  24 10 10  6       # the fist, only in frame 3
+```
+
+```lua
+for _, b in ipairs(zboxes("punch", f, "hit")) do
+  rect(x + b.x, y + b.y, b.w, b.h, 0xFF4040)     -- to see them while making the game
+end
+```
+
 **Where they come from.** With `mkbm.py`: `--map map.csv` is the first layer; every other
 `--map name=file.csv` is one more layer (up to 8, in the order given; a CSV smaller than
 the first is filled with empty cells); `--flags flags.csv` the flags (numbers 0–255 for
 cells 0, 1, 2... in order, or `n=flags` for cell `n`); `--sprites zones.txt` the zones (one
-per line: `name x y w h [frames [fps]]`). In the repository's build the files
+per line: `name x y w h [frames [fps]]`, under a zone its boxes: `hurt`, `hit` or `body
+frame x y w h`, or `box kind frame x y w h` for a kind of the game; the names `hurt`,
+`hit`, `body` and `box` are not zones). In the repository's build the files
 `map_<name>.csv` (in order with `layers_<game> := name ...` in the `Makefile`),
-`flags.csv` and `sprites.txt` in the game's folder are enough. On the console the SDK's
-editor changes layer with `L` (`O` shows that one alone) and adds some from its menu, and
-turns the cell's flags on with keys `0`–`7` on the sprite page; bm Pixel and
-`scripts/bmres.py` make zones. `cart_save` and `cart_load` carry layers, flags and zones
-with the cartridge. Format: the LAYERS (12), FLAGS (13) and SPRITES (11) sections in
-`src/bm/bm.h`; a kernel of before draws the first layer and ignores the rest.
+`flags.csv` and `sprites.txt` in the game's folder are enough. On the console, on the
+SDK's map page `l` goes to the next layer, Shift+L adds one (also from the menu, *New map
+layer*), `o` shows that one alone, `c` the flags of the tiles; on the sprite page keys
+`0`–`7` turn the cell's flags on; bm Pixel and `scripts/bmres.py` make zones (`bmres.py`
+carries the boxes with their zones). `cart_save` and `cart_load` carry layers, flags, zones
+and boxes with the cartridge. Format: the LAYERS (12), FLAGS (13), SPRITES (11) and BOXES
+(14) sections in `src/bm/bm.h`; a kernel of before draws the first layer and ignores the
+rest.
 
 The map comes from `--map map.csv` (one row of comma-separated numbers per row of the
 map; each number is a cell of the sheet). Without a map it is 256×256 empty cells, one
@@ -207,7 +231,7 @@ layer.
 | `btn(i, [p])` | `true` while the button is held; without `p` from **any** controller, with `p` = 1–4 only from player `p`'s. Instead of `i` also a **name** (2026-10-04): a button (`"a"`, `"b"`, `"x"`, `"y"`, `"left"`…`"down"`, `"start"`, `"select"`, `"l1"`, `"r1"`, `"l2"`, `"r2"`, `"l3"`, `"r3"`), `"ok"` and `"back"` (the system's yes and back: cross and circle on the DS4, A and B on an Xbox pad, Space and X on the keyboard; on the RGB30 as `confirm=` and `game_buttons=` say) or an action of `keymap()` |
 | `btnp(i, [p])` | `true` only in the frame it is pressed (the same `p`, also with a name) |
 | `keymap(t)` | the game's **actions** on the buttons: `keymap({ jump = "a", fire = {"x", "r1"}, pause = "start", confirm = "ok" })` (up to 32 actions, 4 buttons each); then `btn("jump", p)`, `btnp("fire")` and `prompt("jump", x, y)`. The game changes the keys by calling it again (its options menu; it keeps them with `save()`); `keymap()` returns the table, `keymap(nil)` takes it away. An unknown button or an action with a button's name is an error |
-| `controller([p])` | what player `p` (1–4, the first if missing) plays with: `{kind = "keyboard" / "ds4" / "xbox" / "pad" / "builtin" / "none", layout = "keyboard" / "ds4" / "xbox" / "nintendo" / "none", bluetooth = bool, ok = "a" / "b", back = "b" / "a"}`: `layout` says what the buttons are called (the DS4's symbols; letters with A at the bottom as Xbox; A on the right as the RGB30), `ok` and `back` which of the game's buttons are the yes and the back |
+| `controller([p])` | what player `p` (1–4, the first if missing) plays with: `{kind = "keyboard" / "ds4" / "xbox" / "pad" / "builtin" / "none", layout = "keyboard" / "ds4" / "xbox" / "nintendo" / "none", bluetooth = bool, ok = "a" / "b", back = "b" / "a"}`: `layout` says what the buttons are called (the DS4's symbols; letters with A at the bottom as Xbox; A on the right as the RGB30), `ok` and `back` which of the game's buttons are the yes and the back, `color` the player's colour (that of their pad's light: 1 blue, 2 red, 3 green, 4 pink) |
 | `online([on, note])` | the match is played over the **network** (2026-10-04): with `online(true)` PS, Ctrl+Esc and Start+Select do not suspend the game (the others go on playing) but ask the player who leaves, only on their console, "Leave the match?" (they will leave the game and disconnect from the server), over the game that goes on. While the question is open the game sees neither buttons nor sticks nor keys; ok (cross on the DS4, Enter or Space on the keyboard) or PS again leave: `_leave()` and the cartridge closes; back (circle, Esc) stays, and the buttons still held go back to the game only after being released. `note`: a line under the question (e.g. `"You are the host: the match ends for all."`). `online(false)` at the end of the match; `online()` returns whether it was online and whether the question is open (the player is away) |
 | `players()` | how many players have a controller (at least 1) and, as the second value, which: bit `n` = player `n+1` (e.g. `3, 7` = players 1, 2 and 3) |
 | `stick([p, n])` | player `p`'s left stick: `x, y` between −1 and 1 (x to the right, y down), with a dead zone; with the keyboard or a pad without a stick it is the cross (8 directions). With `n = 1` the **right** stick (to aim in shooters; `0, 0` without a stick). Without `p`: the one pushed most |
@@ -237,7 +261,10 @@ with `T`, one at a time: each takes the first free place and its light the playe
 first player without a pad (without Bluetooth pads: player 1); the Bluetooth keyboard (M28)
 is a player of its own, the next one without a pad (the first, if there is nothing on USB).
 One-player games use `btn(i)` without `p` and work with any controller; a game for more
-players asks `btn(i, p)` for each (example: `carts/pong`, two-player mode).
+players asks `btn(i, p)` for each (example: `carts/pong`, two-player mode). bmlib has the
+screen where the players join (`lib.party`), the split screen (`lib.split`) and the
+colours (`lib.PLAYER_COLORS`): [Players on one console](#players-on-one-console); the SDK's
+*Versus 2D* template uses them.
 
 | `i` | Keyboard | Gamepad | Serial |
 |---|---|---|---|
@@ -286,7 +313,9 @@ the player presses a key: `math.randomseed(stat(3))`.
 
 ### Network (UDP)
 
-For network games (M38.5: Overbit). UDP packets up to 1024 bytes; each cartridge has 2
+For network games (M38.5: Overbit). A game is better off with the
+[bmnet](#bmnet-games-over-the-network) library (lobby, sure messages, lockstep), which uses
+these functions. UDP packets up to 1024 bytes; each cartridge has 2
 sockets, closed when it ends. Addresses are text (`"192.168.1.23"`); `"*"` is the LAN's
 broadcast. The console's network is needed (WiFi or cable): without it `udp_open` returns
 `nil`. In bmhost the same packets go through the PC's sockets (`BMHOST_NET_ID=k` for more
@@ -421,10 +450,10 @@ SONG=0` plays it into a WAV.
 | `keyp()` | the next key typed: a character (`"a"`, `"\n"` Enter, `"\b"` Backspace, `"\t"`), a name (`"up"`, `"down"`, `"left"`, `"right"`, `"home"`, `"end"`, `"pgup"`, `"pgdn"`, `"del"`, `"esc"`, `"f1"`…`"f10"`), `"^s"` for Ctrl+S or `"^S"` for Ctrl+Shift+S; `nil` if none. F11 and F12 are the system's and never come. From the first call the keyboard types and no longer works as a gamepad for `btn()`, and Esc is a key like the others (Ctrl+Esc, Start+Select and PS close) |
 | `keyhelp(list, [title])` | the cartridge's keys, shown under the system's while **F12** is held (2026-10-04): `list` is `{ {"keys", "what they do"}, "subtitle", … }`; keys as in `prompt()` (lower case the keyboard, upper case the pad), separated by spaces: `"ctrl s"`, `"shift w a s d"`, `"a / d"` (alternatives), `"1 - 5"` (a range), `"Y LEFTRIGHT"`. Returns how many entries name a key the system keeps for itself and the cartridge never gets (F11, F12, Ctrl+Esc, Ctrl+Shift+Esc: in red and in the log, they must go); the other system keys (Esc, Ctrl+S…) are listed when saying what they do there; `keyhelp(nil)` takes it away. Call it again when the page changes |
 | `ls([folder])` | the files of the SD card: `{ {name=, size=, dir=}, … }` |
-| `cart_load(path)` | opens a `.bm`: its sprite sheet (with the tiles' flags and the zones), its map (with its layers) and its 3D models (with the skeletons) take the place of those of the calling cartridge; returns `{title, author, res, lua, sheet_w, sheet_h, map_w, map_h, layers, [palette]}`; `layers` the names of the map's layers; `palette` the colours (0xRRGGBB) of the SHEET8 section's palette, in their order, if the sheet is saved that way |
+| `cart_load(path)` | opens a `.bm`: its sprite sheet (with the tiles' flags, the zones and their boxes), its map (with its layers) and its 3D models (with the skeletons) take the place of those of the calling cartridge; returns `{title, author, res, lua, sheet_w, sheet_h, map_w, map_h, layers, [palette]}`; `layers` the names of the map's layers; `palette` the colours (0xRRGGBB) of the SHEET8 section's palette, in their order, if the sheet is saved that way |
 | `cart_sheet([w, h])` | the width and height of the project's sprite sheet; with `w` and `h` (multiples of 8, from 8 to 4096) it gets that size: the pixels that fit stay where they are, the new ones are transparent (bm Pixel); the flags stay with their tile |
-| `cart_new()` | an empty sprite sheet and map (256×256, one layer), no flags, zones or models |
-| `cart_save(path, {title, author, res, lua})` | writes a `.bm` with the code given and the current sprite sheet, tile flags, zones, map with its layers, cover, sound bank, models and skeletons (the other sections of the file opened stay as they were); an 8.3 name, e.g. `"/carts/GAME.BM"` |
+| `cart_new()` | an empty sprite sheet and map (256×256, one layer), no flags, zones, boxes or models |
+| `cart_save(path, {title, author, res, lua})` | writes a `.bm` with the code given and the current sprite sheet, tile flags, zones with their boxes, map with its layers, cover, sound bank, models and skeletons (the other sections of the file opened stay as they were); an 8.3 name, e.g. `"/carts/GAME.BM"` |
 | `cart_read(path)` | the code and the header of a `.bm`: `{title, author, res, lua, size}`, **without** touching the caller's sheet and map (unlike `cart_load`): for editors with several files open |
 | `cart_write(path, {[lua, title, author, res, from, sections]})` | changes **only** the code (and the data fields) of a `.bm`: sprite sheet, map, cover, sound bank and the sections the kernel does not know stay as they were; a file with a long name keeps it. Without `lua` the code stays as it is. A file that is not there becomes a cartridge with only the code (an 8.3 name). `from`: the other sections come from another file ("save as"); `from = false`: a new cartridge, whatever the file holds (bm Studio's new project). `sections`: `{[8] = MESH bytes, [9] = ANIM bytes}` (`false` takes them away), checked first (`false, "broken MESH section"`): so bm Mesh writes the models. `sheet = true`: the project's sprite sheet (`cart_load`, `sset`, `cart_sheet`) takes the place of the file's, as **SHEET8** when it has at most 256 colours (otherwise SHEET), with the colours of `palette` (`{0xRRGGBB, …}`) first in its palette, as they are and in that order (the transparent entry of the palette of before stays in its place); a pixel that still has the RGB565 it had in the file keeps its 24 bits of before (the console keeps 16 bits per pixel): only the pixels drawn again change. So bm Pixel saves the sheet. If `fset` changed some flags meanwhile, those go into the file too |
 | `cart_meshes(path)` | the meshes the **code** of a `.bm` builds with `mesh()`, `mesh_sphere()` and `mesh_cube()` (also through bmlib's builder): `{ {name=, kind=, verts={x,y,z,…}, faces={a,b,c,colour,…}, [uv={…}]}, … }` (the arguments of `mesh()`, indices from 1, colour `-1` = texture) and `nil` or the code's first error; `nil` and a message if the file cannot be read. The code runs **apart** (a Lua state of its own, `src/bm/meshcap.c`): the file's body, then `_init`, `_update` and `_draw` once, with an instruction limit; bm's other functions do nothing (no files, screen or sound). The name is that of the variable holding the mesh (`M.ship` → `"ship"`; in an array `chef[2].body` → `"chef2_body"`). For bm Mesh |
@@ -765,6 +794,41 @@ function _update()
 end
 ```
 
+### Hitboxes and hurtboxes
+
+**Hurtboxes** are where a body can be hit, **hitboxes** where an attack hurts (a punch, a
+sword, a bullet). A world of hits gathers them in every frame and says who hits whom:
+teams, one hit per attack, the parts of the body, the lanes of a beat 'em up, blades that
+clash. The boxes are given in the code or come from the sheet (`zboxes`,
+[above](#sprites-and-map)).
+
+| Function | Description |
+|---|---|
+| `lib.hits()` | a world of hits `H` (tables `H.hurts`, `H.hitl`: the frame's boxes) |
+| `H:clear()` | a new frame, to call in `_update` before the boxes: those of before go; the attacks (`id`) that did not come back in the last frame are over |
+| `H:hurt(who, x, y, w, h, [opt])` | a hurtbox of `who` (any value: the body's table). `team` (the same team does not hit itself), `part` (a name: `"head"`; the parts that count most first), `z` and `depth` (a third dimension: the lane, the height) |
+| `H:hit(who, x, y, w, h, [opt])` | a hitbox of the attacker `who`: `team`, `id` (an attack: it hits each body **once** while the same `id` comes back frame after frame; the boxes of one attack share it; without `id` it hurts in every frame it touches), `clash` (two hitboxes with `clash` that touch make a `"clash"` contact), `z`, `depth` and whatever the game needs (`damage`, `knock`...) |
+| `H:zone(who, name, frame, x, y, [flip, opt])` | the boxes of a zone's frame (`zboxes`: `hurt` and `hit`) for the sprite drawn with `zspr(name, x, y, frame, flip)`: the hurtboxes with `opt` (`team`, `part`), the hitboxes with `opt.attack` (the options of `H:hit`; the team of `opt` if missing) |
+| `H:check()` | the contacts of the frame, in the order of the hitboxes: `{kind = "hit" or "clash", by (the attacker), to (the body hit, or the other attacker), hit (the options of H:hit), part, x, y (the middle of where they touch)}`. An attack hits a body once a frame (its first box that touches) |
+| `H:draw([hurt_c, hit_c])` | the boxes, to see them while making the game (blue and red) |
+| `lib.box(b, x, y, [flip, w])` | a box of a frame (`b.x`, `b.y` from the corner, `b.w`, `b.h`) in the world, for the frame drawn at `x, y`; with `flip` mirrored over the frame's width `w`: `x, y, w, h` |
+| `lib.separate(a, b)` | two bodies `{x, y, w, h}` that overlap move apart along the axis where they overlap less, half each (`a.fixed` or `b.fixed`: only the other); `true` if they touched. For fighters that do not pass through each other, crowds |
+
+```lua
+local H = lib.hits()
+
+function _update()
+  H:clear()
+  for _, f in ipairs(fighters) do
+    H:zone(f, f.anim, f.frame, f.x, f.y, f.face < 0,
+           { team = f.team, attack = { id = f.swing, damage = 5 } })
+  end
+  for _, c in ipairs(H:check()) do
+    c.to.life = c.to.life - c.hit.damage    -- c.by hit c.to
+  end
+end
+```
+
 ### Easing, tweens, timers and scripts
 
 `lib.ease` has the curves from 0 to 1: `linear`, `inquad`, `outquad`, `inoutquad`,
@@ -816,9 +880,9 @@ fx:burst(x, y, 20, { speed = 3, colors = { 0xFFFFFF, 0xFFD050, 0xFF6020 }, gravi
 | `lib.camera([opt])` | a 2D camera: `smooth` (0.15: the part of the way it goes every frame; 1 = it sticks to the target), `dead` `{w, h}` (a box in the middle where the target moves without the camera), `bounds` `{x0, y0, x1, y1}` in pixels or `true` (the map, `msize()`), `offset` `{x, y}`, `w`, `h` (the screen if missing). Fields `x`, `y` |
 | `C:follow(x, y, [snap])` | one step toward point `x, y` (in the middle of the screen); `snap`: there at once |
 | `C:shake(amount, [secs])` | the screen shakes up to `amount` pixels, less and less, for `secs` seconds (0.3) |
-| `C:apply()` | `camera()` at the camera's place (with the shake): in `_draw` before the world, then `camera()` for the HUD |
+| `C:apply([view])` | `camera()` at the camera's place (with the shake): in `_draw` before the world, then `camera()` for the HUD. With a view `{x, y, w, h}` (`lib.split`) the drawing stays in the view (`clip`) and the camera's corner is the view's: after the views, `clip()` and `camera()` |
 | `C:map([layer, mask])` | the cells of the map that show |
-| `C:sees(x, y, [w, h])` / `C:screen(x, y)` | the rectangle shows / where a point of the world is on the screen |
+| `C:sees(x, y, [w, h])` / `C:screen(x, y, [view])` | the rectangle shows / where a point of the world is on the screen (in the view) |
 
 ### Game states
 
@@ -872,6 +936,48 @@ end
 function _draw() S:draw(); pause:draw() end
 ```
 
+### Players on one console
+
+`btn(i, p)`, `stick(p)` and `controller(p)` read player `p` ([Input](#input)); bmlib adds
+the screen where they join, the split screen and the colours. The SDK's *Versus 2D*
+template is a whole example.
+
+| Function | Description |
+|---|---|
+| `lib.PLAYER_COLORS` | the players' colours, those of the pads' lights: 1 blue, 2 red, 3 green, 4 pink (as `controller(p).color`) |
+| `lib.pads()` | the numbers of the players who have a controller now, in order (`{1, 3}`) |
+| `lib.party([opt])` | the screen where the players of one console join: each presses ok on their controller to be in, back to go out; Start of a player who is in begins, with at least `min` players (1); `max` (4); `join(p)`, `leave(p)`: functions called when one comes or goes. `P:update()` in `_update` returns the players in (their numbers, in the order they came) when the game begins, else `nil`; `P:draw([x, y, w, h])` a card for each place, in the player's colour, with their controller and the key to join; `P.list` who is in now |
+| `lib.split(n, [opt])` | the screen cut into views `{x, y, w, h}` for `n` players (1–4): two side by side (`vertical`: one above the other), three or four in the corners (with three the bottom right stays free: a map, the scores); `gap` pixels between them (2); `x, y, w, h` the part of the screen (all of it if missing) |
+
+```lua
+local party = lib.party({ min = 2 })
+local views, cams
+
+function _update()
+  if not views then
+    local who = party:update()               -- e.g. {1, 2}
+    if who then
+      views, cams = lib.split(#who), {}
+      for i, v in ipairs(views) do cams[i] = lib.camera({ w = v.w, h = v.h }) end
+    end
+    return
+  end
+  -- ... cams[i]:follow(hero[i].x, hero[i].y)
+end
+
+function _draw()
+  cls(0)
+  if not views then party:draw(16, 80, SCREEN_W - 32, 200) return end
+  for i, v in ipairs(views) do
+    cams[i]:apply(v)
+    cams[i]:map()
+    draw_world()
+  end
+  clip()
+  camera()
+end
+```
+
 ### Sound, saves, animations, colours
 
 | Function | Description |
@@ -905,6 +1011,76 @@ local house = lib.builder()
 
 Tests of it all: `make test-gameapi` (bmhost, `tests/gameapi/cart.lua`: every function
 with its cases, the buttons too with a script) and `test_game_api` in QEMU.
+
+## bmnet: games over the network
+
+`local net = require "bmnet"` (2026-10-04): what Overbit's network code does, for every
+game. The consoles find each other on the **LAN** (UDP broadcasts) or over the
+**internet** through a relay (`tools/overbit_relay.py`: a room passes every packet to the
+other consoles, as a broadcast would); one **hosts** the match and the others **join**;
+they send **messages** (that may be lost, or sure and in order) and, for action games,
+the match runs in **lockstep**: every console runs the whole game with the same seed and
+only the players' inputs travel; a frame runs when everybody's inputs for it are there
+(the host gathers them and sends them to all). The SDK's *Online 2D* template is a whole
+example; the packets are described at the top of `src/script/bmnet.lua`.
+
+| Function | Description |
+|---|---|
+| `net.open([opt])` | opens the network: `game` (4 characters, the game and its version: the packets of other games are not seen), `port` (47320, the same on every console), `relay` (`"name"` or `"name:port"`, 47310: over the internet; without, the LAN), `room` (4 characters, `"PLAY"`: the consoles of a room see each other on the relay), `name` (the player's name). `true`, or `false` and why (no network) |
+| `net.close()` | leaves: the others know (in a match the seat's input becomes `false`; when the host leaves the match ends for all), the socket closes. Call it from `_leave()` too |
+| `net.host([opt])` | this console hosts a match: `max` players (2–8, 4), `info` (a line the others see in the list). It is seat 1 |
+| `net.hosts()` | the matches found in the last 3 seconds: `{id, name, players, max, info}`, by id |
+| `net.join(id)` | asks console `id` for a seat: the event `"joined"` when it says yes, `"refused"` if it is full or has begun |
+| `net.peers()` | the consoles in the room or the match: `{id, name, seat, me}`, by seat |
+| `net.start([opt])` | (the host) starts the match with those in: `seed` (the same random numbers on every console; one by chance if missing), `delay` (frames between a press and its frame: 4 on the LAN, 7 through the relay), `data` (a string for everybody: the options chosen). Everybody gets the event `"start"` (the host too, at the next `net.update()`) |
+| `net.update()` | once in each `_update`: the packets that came, the lobby's announcements, the sure messages to send again. Returns the frame's **events**, a list of `{type = ...}`: `"join"` (`id, name, seat`), `"leave"` (`seat, id`), `"joined"` (`seat`), `"refused"`, `"start"` (`seed, seat, seats, host, data`), `"msg"` (`from, data, sure`), `"lost"` (`why`: the host has gone), `"desync"` (`frame`), `"error"` (`text`) |
+| `net.send(data, [to])` | a message (a string up to 900 bytes) to everybody or to console `to` (an id): it may be lost or come after a newer one (positions) |
+| `net.post(data, [to])` | a **sure** message: repeated until it arrives, and each console gets another's in the order they left (chat, a turn, a choice) |
+| `net.input(v)` | (lockstep) my input for frame `net.frame + delay`: a 32-bit whole number (`net.pad(1)`). Once in each `_update` of the match, before `net.frames()` |
+| `net.frames()` | the frames of the match that can run now: `for f, inputs in net.frames() do ... end`, `inputs[seat]` that seat's input (`false` once its player has left). One, two when the console is behind; none while an input is missing (`net.stall`: seconds since the last) |
+| `net.check(hash)` | a number that sums up the game after the frame just run (positions, scores): the consoles compare them and a difference is the event `"desync"`. Every second is enough |
+| `net.pad([p])` / `net.unpad(v)` | the 16 buttons of `pad(p)` and the left stick (8 bits each way) in 32 bits / back to buttons, `x`, `y` (−1..1) |
+| `net.held(v, button)` | a button (`"a"`, `"left"`... as `pad()`) held in an input of `net.pad` |
+
+Fields: `net.state` (`"off"`, `"lobby"`, `"hosting"`, `"joining"`, `"joined"`,
+`"playing"`, `"lost"`), `net.me` (my id), `net.seat`, `net.seats` (the match's seats),
+`net.is_host`, `net.frame` (the next frame), `net.seed`, `net.delay`, `net.data`,
+`net.error`.
+
+**The rules of lockstep.** The match's game depends **only** on the frames' inputs and the
+seed: random numbers with `lib.rng(seed)` (never `math.random`, `time()` or `stat()`),
+nothing of the console (the camera, the quality) inside the simulation, no game state
+changed in `_draw`. The drawing may differ on every console. Two players on the same
+console in a network match put their inputs in the same number (16 bits each).
+`online(true)` is turned on by `bmnet` when the match begins: PS asks before leaving and
+calls `_leave()`.
+
+```lua
+local net = require "bmnet"
+local lib = require "bmlib"
+local rng
+
+function _init() net.open({ game = "MYG1" }) end
+function _leave() net.close() end
+
+function _update()
+  for _, e in ipairs(net.update()) do
+    if e.type == "start" then rng = lib.rng(e.seed) end
+  end
+  if net.state == "lobby" and btnp("a") then net.host({ max = 2 }) end
+  if net.state == "hosting" and btnp("start") then net.start() end
+  if net.state == "playing" then
+    net.input(net.pad(1))
+    for _, inputs in net.frames() do step(inputs) end   -- the game, the same everywhere
+  end
+end
+```
+
+**Trying it on the PC.** Two `bmhost` on the same PC are two consoles: `BMHOST_NET_ID=0`
+and `BMHOST_NET_ID=1`, with `--realtime`; the relay runs with `tools/overbit_relay.py
+--port N`. `make test-bmnet` does it: the lobby, sure messages with a fifth of the packets
+lost (`loss = 0.2` in `net.open`, for tests only), a lockstep match the same on both
+consoles, a player leaving; on the LAN and through the relay.
 
 ## Budget and tips
 
