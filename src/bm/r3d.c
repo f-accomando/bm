@@ -994,6 +994,20 @@ static void view_setup(const r3d_t *r, view_t *v)
     cache.ok = 1;
 }
 
+/* M39: 1 if a sphere can be in view (as a mesh's bounding sphere before
+ * its vertices are transformed) */
+int r3d_visible(const r3d_t *r, v3_t p, float rad)
+{
+    view_t v;
+    view_setup(r, &v);
+    const float *C = v.c;
+    const float wx = p.x - r->cam_pos.x, wy = p.y - r->cam_pos.y, wz = p.z - r->cam_pos.z;
+    const float cx = C[0] * wx + C[1] * wy + C[2] * wz, cy = C[3] * wx + C[4] * wy + C[5] * wz,
+                cz = C[6] * wx + C[7] * wy + C[8] * wz;
+    return !(cz + rad < NEAR || v.f * fabsf(cx) - v.hw * cz > rad * v.side ||
+             v.f * fabsf(cy) - v.hh * cz > rad * v.top);
+}
+
 int r3d_project(const r3d_t *r, v3_t p, float *sx, float *sy, float *depth)
 {
     view_t v;

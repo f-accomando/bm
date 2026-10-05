@@ -326,6 +326,10 @@ end
 - **Fog:** `fog3d(colour, near, far)` fades the far objects.
 - **Projection:** `project3d(x, y, z)` gives the screen position of a 3D point, to draw on it
   in 2D (horizon, sights, names).
+- **What can be seen:** `visible3d(x, y, z, r)` says if a sphere can be on the screen; with
+  the map's visibility given once by `pvs3d{...}` (cells on the ground and the pieces seen
+  from each, as Overbit's map) also if a wall hides it. Characters skipped this way cost
+  nothing: `if visible3d(e.x, e.y + 1, e.z, 1.5) then draw3d(e.mesh, ...) end`.
 - 2D and 3D mix: a background with `rectfill`/`map`, models with `draw3d`, the HUD with
   `print` at the end.
 

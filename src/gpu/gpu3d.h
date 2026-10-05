@@ -113,6 +113,20 @@ int gpu3d_bilinear(void);
  * same colours. gpu3d_tex16(): asked for and possible. */
 void gpu3d_set_tex16(int on);
 int gpu3d_tex16(void);
+
+/* M39: the opaque textured faces shaded with two threads a QPU
+ * (gpu3d_fs2=1), where the probe saw them draw the same pixels: one thread
+ * runs while the other waits for its texel. gpu3d_fs2(): asked for and
+ * possible. */
+void gpu3d_set_fs2(int on);
+int gpu3d_fs2(void);
+
+/* M39: the draws of opaque meshes by the vertex shader written into the
+ * job nearest first (gpu3d_sort=1): the GPU's early z throws away the
+ * pixels they hide before shading them. The same picture but where two
+ * faces have the same depth. */
+void gpu3d_set_sort(int on);
+int gpu3d_sort(void);
 int gpu3d_tiles(void);
 
 /* M36: whole meshes placed by the GPU's vertex shader instead of a
@@ -160,6 +174,7 @@ typedef struct {
     uint32_t quads2d;               /* 2D drawn by the GPU over the 3D (M37) */
     uint32_t glverts;               /* corners the vertex shader is given (M39: indexed, once each) */
     uint32_t overlapped;            /* jobs filled while the one before was drawn (M39, two blocks) */
+    uint32_t sorted;                /* mesh draws moved by the nearest-first order (M39) */
 } gpu3d_stats_t;
 
 /* totals since the last call, then zeroed */

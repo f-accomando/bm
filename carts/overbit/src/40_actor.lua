@@ -439,8 +439,10 @@ function Actors.draw(cx, cy, cz, skip)
       if q >= 2 or (G.gpu and q >= 1) then flags = flags + 4 end    -- Gouraud (the GPU: from MEDIUM)
       local sc = a.form.scale or 1
       local h = a.height * sc
-      -- not in the view: nothing to do (its long shadow at sunset may be)
-      local seen = Cam.sees(a.x, a.y + h * 0.5, a.z, h * 0.75 + a.radius)
+      -- not in the view, or behind the walls of the map the camera does not
+      -- see past (visible3d): nothing to do (its long shadow at sunset may be)
+      local seen = Cam.sees(a.x, a.y + h * 0.5, a.z, h * 0.75 + a.radius) and
+                   (World.kind ~= "map" or visible3d(a.x, a.y + h * 0.5, a.z, h * 0.75 + a.radius))
       -- the shadow: the coarsest model, a dithered black shape whose outline
       -- is all that shows (EXTREME: the near ones one level finer); the GPU:
       -- from HIGH, farther (it costs only its triangles there)

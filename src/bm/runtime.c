@@ -79,6 +79,7 @@ static struct {
     int nzones;
     uint8_t *boxes;                 /* a copy of its BOXES section (zboxes), or NULL */
     int nboxes;
+    struct pvs *pvs;                /* M39: the map's visibility given by pvs3d(), or NULL */
     uint8_t *cell_dirty;
     int sheet_dirty;
     uint8_t hold[SER_COUNT];
@@ -1753,6 +1754,10 @@ static void gpu3d_maybe(void)
         gpu3d_set_bilinear(bf && strcmp(bf, "1") == 0); /* textures filtered (M37): Settings */
         const char *t16 = config_get("gpu3d_tex16");
         gpu3d_set_tex16(t16 && strcmp(t16, "1") == 0);  /* opaque textures in 16 bits (M39): Settings */
+        const char *fs2 = config_get("gpu3d_fs2");
+        gpu3d_set_fs2(fs2 && strcmp(fs2, "1") == 0);    /* two-thread pixel shaders (M39): Settings */
+        const char *so = config_get("gpu3d_sort");
+        gpu3d_set_sort(so && strcmp(so, "1") == 0);     /* opaque meshes nearest first (M39): Settings */
         const char *g2 = config_get("gpu3d_2d");
         rt.gpu2d = g2 && strcmp(g2, "1") == 0;          /* the 2D over the 3D in the job (M37): Settings */
         rt.r3d.backend = gpu3d_backend();
@@ -2581,6 +2586,123 @@ static int l_fog3d(lua_State *L)
     else
         r3d_fog(r3d(L), (uint32_t)luaL_checkinteger(L, 1), fnum(L, 2, 10), fnum(L, 3, 100));
     return 0;
+}
+
+/* M39: the precomputed visibility of a map (pvs3d): a grid of cells on
+ * the ground, for each the pieces of the map seen from it (their numbers,
+ * from 1), and the pieces' boxes on the ground; one block of memory */
+struct pvs {
+    float x0, z0, cell, max_y;
+    int nx, nz, npieces;
+    float *box;                         /* x0 z0 x1 z1 a piece */
+    uint32_t *at;                       /* nx * nz + 1: where each cell's pieces start in ids */
+    uint8_t *ids;
+};
+
+/* pvs3d{x0 =, z0 =, cell =, nx =, nz =, max_y =, sets = {...}, boxes = {...}}:
+ * sets has a string a cell (row by row along x), each byte a piece seen from
+ * it; boxes six numbers a piece (x0 y0 z0 x1 y1 z1). pvs3d() forgets it. */
+static int l_pvs3d(lua_State *L)
+{
+    free(rt.pvs);
+    rt.pvs = NULL;
+    if (lua_isnoneornil(L, 1))
+        return 0;
+    luaL_checktype(L, 1, LUA_TTABLE);
+    float f[4];
+    int n[2];
+    static const char *const fk[4] = { "x0", "z0", "cell", "max_y" }, *const nk[2] = { "nx", "nz" };
+    for (int i = 0; i < 4; i++) {
+        lua_getfield(L, 1, fk[i]);
+        f[i] = (float)luaL_checknumber(L, -1);
+        lua_pop(L, 1);
+    }
+    for (int i = 0; i < 2; i++) {
+        lua_getfield(L, 1, nk[i]);
+        n[i] = (int)luaL_checkinteger(L, -1);
+        lua_pop(L, 1);
+    }
+    if (n[0] <= 0 || n[1] <= 0 || n[0] > 4096 || n[1] > 4096 || n[0] * n[1] > 1 << 16 || !(f[2] > 0))
+        return luaL_error(L, "pvs3d: a grid of %d x %d cells of %f", n[0], n[1], (double)f[2]);
+    lua_getfield(L, 1, "sets");
+    lua_getfield(L, 1, "boxes");
+    luaL_checktype(L, -2, LUA_TTABLE);
+    luaL_checktype(L, -1, LUA_TTABLE);
+    const int cells = n[0] * n[1], np = (int)(lua_rawlen(L, -1) / 6);
+    size_t ids = 0;
+    for (int i = 0; i < cells; i++) {
+        lua_rawgeti(L, -2, i + 1);
+        size_t len = 0;
+        if (lua_type(L, -1) == LUA_TSTRING)
+            lua_tolstring(L, -1, &len);
+        ids += len;
+        lua_pop(L, 1);
+    }
+    struct pvs *p = malloc(sizeof *p + (size_t)np * 4 * sizeof(float) + (size_t)(cells + 1) * 4 + ids);
+    if (!p)
+        return luaL_error(L, "pvs3d: no memory");
+    p->x0 = f[0]; p->z0 = f[1]; p->cell = f[2]; p->max_y = f[3];
+    p->nx = n[0]; p->nz = n[1]; p->npieces = np;
+    p->box = (float *)(p + 1);
+    p->at = (uint32_t *)(p->box + 4 * np);
+    p->ids = (uint8_t *)(p->at + cells + 1);
+    for (int i = 0; i < np; i++) {
+        static const int k[4] = { 1, 3, 4, 6 };     /* x0 z0 x1 z1 of x0 y0 z0 x1 y1 z1 */
+        for (int j = 0; j < 4; j++) {
+            lua_rawgeti(L, -1, i * 6 + k[j]);
+            p->box[i * 4 + j] = (float)lua_tonumber(L, -1);
+            lua_pop(L, 1);
+        }
+    }
+    uint32_t at = 0;
+    for (int i = 0; i < cells; i++) {
+        p->at[i] = at;
+        lua_rawgeti(L, -2, i + 1);
+        size_t len = 0;
+        const char *str = lua_type(L, -1) == LUA_TSTRING ? lua_tolstring(L, -1, &len) : NULL;
+        if (str)
+            memcpy(p->ids + at, str, len);
+        at += (uint32_t)len;
+        lua_pop(L, 1);
+    }
+    p->at[cells] = at;
+    lua_pop(L, 2);
+    rt.pvs = p;
+    return 0;
+}
+
+/* piece i's box on the ground reaches the disc (x, z, r) */
+static int pvs_touches(const struct pvs *p, int i, float x, float z, float r)
+{
+    const float *b = p->box + 4 * i;
+    const float dx = x < b[0] ? b[0] - x : x > b[2] ? x - b[2] : 0, dz = z < b[1] ? b[1] - z : z > b[3] ? z - b[3] : 0;
+    return dx * dx + dz * dz <= r * r;
+}
+
+/* visible3d(x, y, z, r) -> false if a sphere cannot be seen: out of the
+ * camera's view, or (with pvs3d) on pieces of the map the camera's cell
+ * does not see. Off the map's pieces: seen. */
+static int l_visible3d(lua_State *L)
+{
+    r3d_t *r = r3d(L);
+    const v3_t c = { fnum(L, 1, 0), fnum(L, 2, 0), fnum(L, 3, 0) };
+    const float rad = fnum(L, 4, 1);
+    int seen = r3d_visible(r, c, rad);
+    const struct pvs *p = rt.pvs;
+    if (seen && p && r->cam_pos.y < p->max_y) {
+        const int i = (int)floorf((r->cam_pos.x - p->x0) / p->cell), j = (int)floorf((r->cam_pos.z - p->z0) / p->cell);
+        if (i >= 0 && i < p->nx && j >= 0 && j < p->nz) {
+            const uint32_t a = p->at[j * p->nx + i], b = p->at[j * p->nx + i + 1];
+            int in_seen = 0, on_map = 0;
+            for (uint32_t k = a; k < b && !in_seen; k++)
+                in_seen = p->ids[k] >= 1 && p->ids[k] <= p->npieces && pvs_touches(p, p->ids[k] - 1, c.x, c.z, rad);
+            for (int k = 0; k < p->npieces && !in_seen && !on_map; k++)
+                on_map = pvs_touches(p, k, c.x, c.z, rad);
+            seen = in_seen || !on_map;
+        }
+    }
+    lua_pushboolean(L, seen);
+    return 1;
 }
 
 /* project3d(x, y, z) -> screen x, y and depth, or nil behind the camera */
@@ -3797,7 +3919,7 @@ static const luaL_Reg api[] = {
     { "bone_turn", l_bone_turn }, { "bones3d", l_bones3d }, { "hit3d", l_hit3d },
     { "world3d", l_world3d }, { "world_box", l_world_box }, { "world_ray", l_world_ray },
     { "world_move", l_world_move }, { "world_floor", l_world_floor },
-    { "fog3d", l_fog3d }, { "project3d", l_project3d }, { "lamp3d", l_lamp3d },
+    { "fog3d", l_fog3d }, { "project3d", l_project3d }, { "visible3d", l_visible3d }, { "pvs3d", l_pvs3d }, { "lamp3d", l_lamp3d },
     { "zclear", l_zclear }, { "gpu3d", l_gpu3d }, { "screen", l_screen }, { "log", l_log }, { "report", l_report }, { "keyhelp", l_keyhelp }, { "quit", l_quit },
     { "keymap", l_keymap }, { "controller", l_controller }, { "online", l_online },
     { "udp_open", l_udp_open }, { "udp_send", l_udp_send }, { "udp_recv", l_udp_recv }, { "udp_close", l_udp_close },
@@ -4257,6 +4379,8 @@ static void free_assets(void)
     free(rt.anim);
     rt.anim = NULL;
     rt.anim_size = 0;
+    free(rt.pvs);
+    rt.pvs = NULL;
 }
 
 /* ---------------------------------------------------------------- editor */

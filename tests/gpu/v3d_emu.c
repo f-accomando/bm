@@ -29,6 +29,7 @@ int emu_red_a = 1, emu_tex_swap = 0;
 int emu_tformat = 0;                    /* the order of the 1 KiB subtiles of a T-format tile */
 int emu_ms_load_one = 0;                /* MSAA: a colour load fills sample 0 only (else all 4) */
 int emu_skip = 0;                       /* jobs only counted, not run (ARM instruction counts) */
+int emu_no_threads = 0;                 /* M39: jobs with two-thread fragment shaders do not end */
 int emu_hang_zclear = 0;                /* a job with fs_zclear does not end */
 int emu_cw_flip = 0;                    /* GL: the V3D calls the other orientation clockwise */
 int emu_clip = 0;                       /* GL clipping: 0 as GL (near plane, guard band), 1 none (the
@@ -592,7 +593,25 @@ static int shader_of(const uint8_t *code)
     if (!memcmp(code, fs_tex_lit_screen, sizeof fs_tex_lit_screen)) return SH_TEX_SCREEN;
     if (!memcmp(code, fs_tex_rgb_screen, sizeof fs_tex_rgb_screen)) return SH_TEX_RGB_SCREEN;
     if (!memcmp(code, fs_text, sizeof fs_text)) return SH_TEXT;
+    if (!memcmp(code, fs_tex_lit_t, sizeof fs_tex_lit_t)) return SH_TEX;       /* M39: two threads */
+    if (!memcmp(code, fs_tex_rgb_t, sizeof fs_tex_rgb_t)) return SH_TEX_RGB;
     return -1;
+}
+
+/* M39: a fragment shader with thread switches; a record that says it
+ * single-threaded (flag 0) is an error, and emu_no_threads: a GPU on which
+ * they do not work (the job does not end) */
+static int threaded_check(const uint8_t *rec)
+{
+    const uint8_t *code = ptr(rd32(rec + 4));
+    if (memcmp(code, fs_tex_lit_t, sizeof fs_tex_lit_t) && memcmp(code, fs_tex_rgb_t, sizeof fs_tex_rgb_t))
+        return 0;
+    if (rec[0] & 1)
+        return err("a fragment shader with thread switches in a record that says it single-threaded", 0, 0);
+    if (emu_no_threads)
+        return err("two-thread fragment shader: the job does not end (emu_no_threads)", 0, 0);
+    emu_stats.threaded++;
+    return 0;
 }
 
 /* M35: the binner's semaphore (INCREMENT_SEMAPHORE at the end of the
@@ -710,6 +729,8 @@ static int bin(uint32_t start, uint32_t end)
                            maxi);
             if (glrec) {
                 const int sh = shader_of(ptr(rd32(glrec + 4))), nvary = glrec[3];
+                if (threaded_check(glrec) != 0)
+                    return -1;
                 if (sh < 0 || nvary > 8)
                     return err("GL record: fragment shader at %08x, %u varyings", rd32(glrec + 4), nvary);
                 const uint32_t nshade = indexed ? maxi + 1 : n;     /* the corners shaded */
@@ -788,6 +809,8 @@ static int bin(uint32_t start, uint32_t end)
             int sh = shader_of(ptr(rd32(rec + 4)));
             if (sh < 0)
                 return err("unknown shader at %08x", rd32(rec + 4), 0);
+            if (threaded_check(rec) != 0)
+                return -1;
             const int colour = sh == SH_COLOUR || sh == SH_SCREEN || sh == SH_ZCLEAR,
                       rgb = sh == SH_TEX_RGB || sh == SH_TEX_RGB_ALPHA || sh == SH_TEX_RGB_SCREEN;
             int stride = rec[1], nvary = rec[3];

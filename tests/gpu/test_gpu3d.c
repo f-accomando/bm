@@ -306,6 +306,22 @@ static void s_vshader_lit(r3d_t *r, g16_t *g, int gpu)
     r3d_fog(r, 0, 0, 0);
 }
 
+/* M39: "lit" boxes in a row from far to near, each hiding most of the one
+ * before: drawn as the scene says or nearest first (gpu3d_set_sort) */
+static void s_far_to_near(r3d_t *r, g16_t *g, int gpu)
+{
+    r3d_camera(r, 0, 0.5f, -5, 0, -0.1f, 60);
+    r3d_light(r, -0.3f, 0.8f, 0.4f, 0.4f);
+    r3d_fog(r, 0xC0A080, 3, 14);
+    gpu3d_set_vshader(gpu != 0);
+    for (int i = 0; i < 8; i++)
+        r3d_draw_flags(r, &lit_box, (v3_t){ 0.15f * (float)(i & 1), 0, 9.0f - (float)i }, 0.4f, 0.7f + 0.1f * (float)i,
+                       0, 1.6f, 0);
+    flush(r, g, gpu);
+    gpu3d_set_vshader(0);
+    r3d_fog(r, 0, 0, 0);
+}
+
 /* M36: meshes the GPU clips: a "lit" floor under the camera and a wall
  * beside it, both reaching behind it (the near plane, the guard band),
  * and a lamp. The fog starts past them: the GPU blends the corners' fog
@@ -775,18 +791,20 @@ int main(int argc, char **argv)
     emu_clip = argc > 6 ? atoi(argv[6]) : 0;
     emu_hang_zclear = getenv("EMU_HANG_ZCLEAR") != NULL;     /* the probe's job does not end */
     emu_vpm_words = getenv("EMU_VPM_WORDS") != NULL;         /* GL records in words: the probe tries bytes first */
+    emu_no_threads = getenv("EMU_NO_THREADS") != NULL;       /* the two-thread shaders' probe: its job does not end */
     ppm_dir = argc > 7 ? argv[7] : NULL;
     printf("gpu3d on the emulator: byte a = %s, texels %s, T-format %d, MSAA load %s\n",
            emu_red_a ? "red" : "blue", emu_tex_swap ? "swapped" : "in place", emu_tformat,
            emu_ms_load_one ? "one sample" : "all samples");
     CHECK(gpu3d_init() == 0, "init: %s (%s)", gpu3d_status(), emu_error);
-    char want[200];
+    char want[320];
     static const char *const clips[3] = { "yes", "no", "yes (Z planes)" };
-    snprintf(want, sizeof want, "byte a = %s, texels %s, textures in %s, MSAA %s, 16-bit textures %s, vertex shader %s, "
+    snprintf(want, sizeof want, "byte a = %s, texels %s, textures in %s, MSAA %s, 16-bit textures %s, "
+             "two-thread shaders %s, vertex shader %s, "
              "indexed yes, clipping %s, "
              "lit models yes, queue yes, zclear in job %s", emu_red_a ? "red" : "blue", emu_tex_swap ? "swapped" : "in place",
              emu_tformat == 2 ? "rows" : "tiles", emu_ms_load_one ? "on cleared pages" : "on any page",
-             emu_tformat == 2 ? "no" : "yes",
+             emu_tformat == 2 ? "no" : "yes", emu_no_threads ? "no" : "yes",
              emu_vpm_words ? (emu_cw_flip ? "yes (VPM in words)" : "yes (cw, VPM in words)")
                            : emu_cw_flip ? "yes" : "yes (cw)", clips[emu_clip], emu_hang_zclear ? "no" : "yes");
     CHECK(strstr(gpu3d_status(), want) != NULL, "probe: '%s', expected '%s'", gpu3d_status(), want);
@@ -870,6 +888,80 @@ int main(int argc, char **argv)
             differ += q[0][i] != q[1][i];
         printf("  RGB565 textures: %d pixels differ from 32-bit ones\n", differ);
         CHECK(differ == 0, "16-bit textures: %d pixels differ", differ);
+    }
+    /* M39: the opaque meshes nearest first: the same picture, fewer
+     * pixels shaded (the early z throws away those of the boxes behind) */
+    {
+        uint16_t *q[2] = { test_aligned_alloc(16, 640 * 360 * 2), test_aligned_alloc(16, 640 * 360 * 2) };
+        uint32_t shaded[2], moved = 0;
+        for (int k = 0; k < 2; k++) {
+            g16_t g;
+            r3d_t r;
+            g16_target(&g, q[k], 640, 640, 360, &font);
+            g16_cls(&g, g16_rgb(30, 20, 50));
+            r3d_init(&r, &g);
+            r.backend = gpu3d_backend();
+            gpu3d_drop();
+            r3d_zclear(&r);
+            gpu3d_set_sort(k);
+            gpu3d_stats_t st;
+            gpu3d_take_stats(&st);
+            const uint32_t p0 = emu_stats.pixels;
+            s_far_to_near(&r, &g, 1);
+            shaded[k] = emu_stats.pixels - p0;
+            gpu3d_take_stats(&st);
+            if (k)
+                moved = st.sorted;
+            gpu3d_set_sort(0);
+            r3d_free(&r);
+        }
+        int differ = 0;
+        for (int i = 0; i < 640 * 360; i++)
+            differ += q[0][i] != q[1][i];
+        printf("  nearest first: %u pixels shaded instead of %u, %u draws moved, %d pixels differ\n", shaded[1],
+               shaded[0], moved, differ);
+        CHECK(differ == 0 && moved >= 7 && shaded[1] * 2 < shaded[0],
+              "nearest first: %d pixels differ, %u draws moved, %u pixels shaded against %u", differ, moved,
+              shaded[1], shaded[0]);
+        test_free(q[0]);
+        test_free(q[1]);
+    }
+    /* M39: the textured faces' shaders with two threads: the same pixels
+     * (sheets, a lit quad in the fog, textured heroes by the vertex shader) */
+    {
+        uint16_t *q[2] = { test_aligned_alloc(16, 640 * 360 * 2), test_aligned_alloc(16, 640 * 360 * 2) };
+        static const scene_fn fns[3] = { s_sheets10, s_overbit, s_vshader_heroes_tex };
+        int differ = 0;
+        uint32_t threaded = 0;
+        for (int f = 0; f < 3; f++)
+            for (int k = 0; k < 2; k++) {
+                g16_t g;
+                r3d_t r;
+                g16_target(&g, q[k], 640, 640, 360, &font);
+                g16_cls(&g, g16_rgb(30, 20, 50));
+                r3d_init(&r, &g);
+                r.backend = gpu3d_backend();
+                gpu3d_drop();
+                r3d_zclear(&r);
+                gpu3d_set_fs2(k);
+                const uint32_t t0 = emu_stats.threaded;
+                fns[f](&r, &g, 1);
+                if (k)
+                    threaded += emu_stats.threaded - t0;
+                else
+                    CHECK(emu_stats.threaded == t0, "two-thread shaders: drawn while off");
+                CHECK(!k || gpu3d_fs2() == !emu_no_threads, "two-thread shaders: on %d", gpu3d_fs2());
+                gpu3d_set_fs2(0);
+                r3d_free(&r);
+                if (k)
+                    for (int i = 0; i < 640 * 360; i++)
+                        differ += q[0][i] != q[1][i];
+            }
+        printf("  two-thread shaders: %u batches with them, %d pixels differ\n", threaded, differ);
+        CHECK(differ == 0 && (emu_no_threads ? threaded == 0 : threaded >= 3),
+              "two-thread shaders: %d pixels differ, %u batches", differ, threaded);
+        test_free(q[0]);
+        test_free(q[1]);
     }
     /* M37: the textures filtered (bilinear): the same scene changes, but
      * only a little (the magnified floor smooths its squares' edges) */

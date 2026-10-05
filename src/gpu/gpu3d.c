@@ -53,7 +53,7 @@ typedef struct {
 #define VMAX_BYTES ((uint32_t)JOB_VERTS - 21u * (uint32_t)VSTRIDE(8))   /* room for a clipped triangle */
 
 enum { SH_COLOUR, SH_TEX, SH_TEX_ALPHA, SH_SCREEN, SH_TEX_RGB, SH_TEX_RGB_ALPHA, SH_ZCLEAR, SH_TEX_SCREEN,
-       SH_TEX_RGB_SCREEN, SH_TEX2D, SH_TEXT, SH_COUNT };
+       SH_TEX_RGB_SCREEN, SH_TEX2D, SH_TEXT, SH_TEX_T, SH_TEX_RGB_T, SH_COUNT };
 #define DEPTH_ZCLEAR 3                  /* after R3D_DEPTH_*: always passes, writes (fs_zclear) */
 /* the vertex shaders of meshes (M36); GV_LIT_TEX2: faces on two bones (a skin) */
 enum { GV_BAKED, GV_TEX_RGB, GV_LIT, GV_LIT_TEX, GV_LIT_TEX2, GV_COUNT };
@@ -83,6 +83,8 @@ static const struct { const uint32_t *code; size_t size; uint8_t uniforms, varyi
     { fs_tex_rgb_screen, sizeof fs_tex_rgb_screen, 2, 8, 1, 0 },
     { fs_tex_lit_alpha, sizeof fs_tex_lit_alpha, 2, 3, 1, 1 },  /* M37: sprites (k = 1) */
     { fs_text, sizeof fs_text, 2, 5, 1, 1 },                    /* M37: text */
+    { fs_tex_lit_t, sizeof fs_tex_lit_t, 2, 3, 0, 0 },          /* M39: SH_TEX, SH_TEX_RGB with two threads */
+    { fs_tex_rgb_t, sizeof fs_tex_rgb_t, 2, 8, 0, 0 },
 };
 
 /* a sprite sheet as a texture: RGBA32R (raster order, 32 bits a texel) in
@@ -136,7 +138,7 @@ typedef struct {
 static struct {
     int ready, failed;
     const char *status;
-    char why[256];
+    char why[320];
     uint8_t *block;
     uint8_t *tsda, *alloc, *overflow, *zbuf, *bcl, *rcl, *recs, *code;
     uint16_t *probe;
@@ -173,6 +175,11 @@ static struct {
                                      * reversed, red and blue swapped in the texel */
     uint16_t t16_inner[2][2048];    /* texel of each place in its tile (as t_inner) */
     int tex16_on;                   /* RGB565 textures asked for (gpu3d_set_tex16) */
+    int fs2_ok, fs2_on;             /* M39: the probe saw the two-thread shaders draw as the others;
+                                     * asked for (gpu3d_set_fs2) */
+    int sort_on;                    /* M39: the opaque meshes front to back (gpu3d_set_sort) */
+    int nsort;                      /* draws held back in sort_buf */
+    uint32_t sort_used;             /* their bytes */
     int ia;                         /* varying of the colour's first value: 0, or 2 (red_a 0) */
     const uint8_t *fb_mem;          /* the framebuffer and its bus address */
     uint32_t fb_size, fb_bus;
@@ -523,6 +530,8 @@ static void job_begin(int w, int h)
     G.vbytes = 0;
     G.gldraws = 0;
     G.zc = 0;
+    G.nsort = 0;
+    G.sort_used = 0;
     G.job_no++;
     G.unif_next = G.unif;
     G.rec_next = G.recs;
@@ -595,9 +604,69 @@ static void config(int faces, uint16_t cfg)
     }
 }
 
+/* M39: the draws of meshes that test and write the depth held back in a
+ * list of their own, each with its whole state, and written into the job
+ * nearest first at the next draw of another kind or at the job's end: the
+ * V3D's early z then throws away the pixels hidden by what came before
+ * them instead of shading them. Faces with the depth tested and written
+ * give the same picture in any order (but where two have the same depth;
+ * the groups of a mesh keep their order). */
+#define SORT_MAX   256
+#define SORT_BYTES (24u << 10)
+static uint8_t sort_buf[SORT_BYTES];
+static struct { uint16_t at, len; float key; } sortq[SORT_MAX];
+
+/* the state written last unknown: the next packets write it all */
+static void state_forget(void)
+{
+    G.cfg = -1;
+    G.clip[0] = G.clip[1] = G.clip[2] = G.clip[3] = -1;
+    G.vp = 0xFFFFFFFFu;
+    G.clipper[0] = G.clipper[1] = -1;
+}
+
+/* the draws held back into the job, nearest first */
+static void sort_flush(void)
+{
+    if (!G.nsort)
+        return;
+    static uint16_t ord[SORT_MAX];
+    for (int i = 0; i < G.nsort; i++) {
+        int j = i;
+        for (; j > 0 && sortq[ord[j - 1]].key > sortq[i].key; j--)
+            ord[j] = ord[j - 1];
+        ord[j] = (uint16_t)i;
+    }
+    for (int i = 0; i < G.nsort; i++) {
+        const int k = ord[i];
+        if (G.cl.p + sortq[k].len > G.cl.end) {
+            G.cl.overflow = 1;
+            break;
+        }
+        memcpy(G.cl.p, sort_buf + sortq[k].at, sortq[k].len);
+        G.cl.p += sortq[k].len;
+        G.st.sorted += k != i;
+    }
+    G.nsort = 0;
+    G.sort_used = 0;
+    state_forget();                     /* the last draw written is not the last made */
+}
+
+/* M39: the shader whose code a record points to: the opaque textured
+ * ones with two threads where asked for and the probe saw them work (a
+ * thread waits for its texel while the other runs: the QPU is not idle
+ * during the TMU's reads) */
+static inline int fs_code(int shader)
+{
+    if (G.fs2_on && G.fs2_ok)
+        return shader == SH_TEX ? SH_TEX_T : shader == SH_TEX_RGB ? SH_TEX_RGB_T : shader;
+    return shader;
+}
+
 /* 0, or -1 if the job is full */
 static int batch_open(const g16_t *g, int shader, int depth, const tex_t *t)
 {
+    sort_flush();
     if (G.rec_next + 16 > G.recs + JOB_RECS || G.cl.p + 64 > G.cl.end)
         return -1;
     G.b_start = G.cl.p;
@@ -623,7 +692,7 @@ static int batch_open(const g16_t *g, int shader, int depth, const tex_t *t)
     r[1] = (uint8_t)stride;
     r[2] = shaders[shader].uniforms;
     r[3] = shaders[shader].varyings;
-    uint32_t a = v3d_bus(G.code + 1024 * shader);
+    uint32_t a = v3d_bus(G.code + 1024 * fs_code(shader));
     memcpy(r + 4, &a, 4);
     a = t ? v3d_bus(t->params + (shaders[shader].near ? 2 : 0)) : 0;
     memcpy(r + 8, &a, 4);
@@ -1440,14 +1509,25 @@ static int gl_draw(const g16_t *g, gmesh_t *e, const ggroup_t *gr, gunif_t *u, c
         return -1;
     job_for(g);
     batch_close();
-    if (G.rec_next + 64 > G.recs + JOB_RECS || G.cl.p + 128 > G.cl.end ||
+    const int fs = gr->fs;
+    /* M39: a mesh's draw that writes the depth held back, to be written
+     * nearest first (pixels thrown away by its shader too: what is left
+     * of it still takes the nearest place) */
+    const int held = G.sort_on && depth == R3D_DEPTH_WRITE && !env->front;
+    if (!held || G.nsort == SORT_MAX || G.sort_used + 192 > SORT_BYTES)
+        sort_flush();
+    if (G.rec_next + 64 > G.recs + JOB_RECS || G.cl.p + 128 + G.sort_used > G.cl.end ||
         G.unif_next + GL_UNIF_MAX > G.unif + JOB_UNIF / 4) {
         if (flush_job(g, 1) != 0)
             return -1;
         job_begin(g->w, g->h);
     }
+    v3d_cl_t cl = G.cl;
+    if (held) {
+        v3d_cl_init(&G.cl, sort_buf + G.sort_used, SORT_BYTES - G.sort_used);
+        state_forget();                 /* the draw carries all of its state */
+    }
     clip_window(g);
-    const int fs = gr->fs;
     const uint16_t cfg = depth == R3D_DEPTH_NONE ? V3D_CFG_DEPTH(7)
                        : depth == R3D_DEPTH_TEST ? V3D_CFG_DEPTH(1)
                        : shaders[fs].discard ? V3D_CFG_DEPTH(1) | V3D_CFG_Z_UPDATE
@@ -1494,7 +1574,7 @@ static int gl_draw(const g16_t *g, gmesh_t *e, const ggroup_t *gr, gunif_t *u, c
     uint32_t a;
     r[0] = clipping ? 4 : 0;
     r[3] = shaders[fs].varyings;
-    a = v3d_bus(G.code + 1024 * fs); memcpy(r + 4, &a, 4);
+    a = v3d_bus(G.code + 1024 * fs_code(fs)); memcpy(r + 4, &a, 4);
     a = gr->vs == GV_TEX_RGB || gr->vs == GV_LIT_TEX || two ? v3d_bus(e->tex->params) : 0; memcpy(r + 8, &a, 4);
     /* the first attribute: x y z (and w on two bones), the coordinate
      * shader's too */
@@ -1512,6 +1592,14 @@ static int gl_draw(const g16_t *g, gmesh_t *e, const ggroup_t *gr, gunif_t *u, c
     v3d_cl_u8(&G.cl, V3D_GL_SHADER_STATE);
     v3d_cl_u32(&G.cl, v3d_bus(r) | 2);
     gl_prims(e, gr);
+    if (held) {
+        sortq[G.nsort].at = (uint16_t)G.sort_used;
+        sortq[G.nsort].len = (uint16_t)(G.cl.p - (sort_buf + G.sort_used));
+        sortq[G.nsort].key = M[11];     /* the depth of the bone's origin */
+        G.sort_used += sortq[G.nsort].len;
+        G.nsort++;
+        G.cl = cl;
+    }
     e->job = G.job_no;
     if (e->tex && e->tex >= G.tex && e->tex < G.tex + NTEX)
         G.tex_used[e->tex - G.tex] = 1;
@@ -1575,6 +1663,7 @@ static int cb_shadow(void *ctx, const g16_t *g, const r3d_mesh_t *m, const float
             return 0;
         job_for(g);
         batch_close();
+        sort_flush();
         if (G.rec_next + 64 > G.recs + JOB_RECS || G.cl.p + 128 > G.cl.end ||
             G.unif_next + 100 > G.unif + JOB_UNIF / 4) {
             if (flush_job(g, 1) != 0)
@@ -2113,6 +2202,27 @@ int gpu3d_tex16(void)
     return G.tf16 && G.tex16_on;
 }
 
+/* M39: the opaque textured faces' shaders with two threads (gpu3d_fs2=1) */
+void gpu3d_set_fs2(int on)
+{
+    G.fs2_on = !!on;
+}
+
+int gpu3d_fs2(void)
+{
+    return G.fs2_ok && G.fs2_on;
+}
+
+void gpu3d_set_sort(int on)
+{
+    G.sort_on = !!on;
+}
+
+int gpu3d_sort(void)
+{
+    return G.sort_on;
+}
+
 void gpu3d_set_bilinear(int on)
 {
     if (G.bilinear == !!on)
@@ -2188,6 +2298,7 @@ static int flush_job(const g16_t *g, int store)
     if (!G.open)
         return G.failed ? -1 : 0;
     batch_close();
+    sort_flush();
     G.open = 0;
     if (G.failed)
         return -1;
@@ -2824,6 +2935,49 @@ static int probe_zclear(const g16_t *pg)
     return 0;
 }
 
+/* M39: the two-thread shaders against the others: quads with the probe's
+ * texture (any layout: the same both times), dimmed (SH_TEX) and with light
+ * and fog (SH_TEX_RGB), drawn with each; 1 if every pixel is the same */
+static int probe_fs2(const g16_t *pg, const tex_t *pt)
+{
+    static uint16_t ref[PROBE_W * PROBE_H];
+    static const float q[4][2] = { { 0, 0 }, { PROBE_W, 0 }, { PROBE_W, PROBE_H }, { 0, PROBE_H } };
+    r3d_corner_t v[4];
+    for (int i = 0; i < 4; i++)
+        v[i] = (r3d_corner_t){ q[i][0], q[i][1], 1.0f - 0.2f * (float)i, q[i][0] * 0.9f + 3, q[i][1] * 0.8f + 5,
+                               0.4f + 0.15f * (float)i, { 0.9f, 0.3f + 0.1f * (float)i, 0.6f },
+                               { 0.05f * (float)i, 0.1f, 0.0f } };
+    const r3d_corner_t a[3] = { v[0], v[1], v[2] }, b[3] = { v[0], v[2], v[3] };
+    for (int rgb = 0; rgb < 2; rgb++) {
+        const int kind = rgb ? R3D_KIND_TEX_RGB : R3D_KIND_TEXTURE, sh = rgb ? SH_TEX_RGB : SH_TEX;
+        for (int two = 0; two < 2; two++) {
+            G.fs2_ok = G.fs2_on = two;
+            memset(G.probe, 0, JOB_PROBE);
+            add_tri(pg, a, kind, pt, 0, sh, 0);
+            add_tri(pg, b, kind, pt, 0, sh, 0);
+            const int r = gpu3d_flush(pg, 0);
+            G.fs2_ok = G.fs2_on = 0;
+            if (r != 0 || G.failed)
+                return 0;
+            if (!two) {
+                memcpy(ref, G.probe, sizeof ref);
+                continue;
+            }
+            int differ = 0;
+            for (int i = 0; i < PROBE_W * PROBE_H; i++)
+                differ += G.probe[i] != ref[i];
+            if (differ) {
+                char line[120];
+                ksnprintf(line, sizeof line, "the two-thread shaders: %d pixels of %s differ (they stay off)", differ,
+                          rgb ? "fs_tex_rgb" : "fs_tex_lit");
+                plog(line);
+                return 0;
+            }
+        }
+    }
+    return 1;
+}
+
 /* After a probe of something optional (the vertex shader, its clipping,
  * the queue, zclear() in a job): if the GPU failed in it (a job that did
  * not end), only that is off, as long as a clear still runs; else the GPU
@@ -2929,6 +3083,7 @@ static int probe(void)
     G.lit_ok = G.gl_ok && !G.failed ? soft(probe_lit(&pg), "the lit models' probe") : 0;
     G.queue_ok = !G.failed ? soft(probe_queue(&pg), "the queue's probe") : 0;
     G.zclear_ok = !G.failed ? soft(probe_zclear(&pg), "the probe of zclear() in a job") : 0;
+    G.fs2_ok = !G.failed ? soft(probe_fs2(&pg, &pt), "the two-thread shaders' probe") : 0;
     if (G.failed)
         return -1;
     memset(&G.st, 0, sizeof G.st);
@@ -2980,10 +3135,10 @@ int gpu3d_init(void)
     static const char *const ms[3] = { "no", "on cleared pages", "on any page" };
     static const char *const clips[3] = { "no", "yes", "yes (Z planes)" };
     ksnprintf(G.why, sizeof G.why, "bm3d " BM3D_VERSION " ready (byte a = %s, texels %s, textures %s, MSAA %s, "
-              "16-bit textures %s, vertex shader %s, indexed %s, "
+              "16-bit textures %s, two-thread shaders %s, vertex shader %s, indexed %s, "
               "clipping %s, lit models %s, queue %s, zclear in job %s)", G.red_a ? "red" : "blue",
               G.tex_swap ? "swapped" : "in place", G.tformat ? "in tiles" : "in rows", ms[G.ms_ok],
-              G.tf16 ? "yes" : "no",
+              G.tf16 ? "yes" : "no", G.fs2_ok ? "yes" : "no",
               G.gl_ok ? (G.vpm_bytes ? (G.gl_cw ? "yes (cw)" : "yes") : (G.gl_cw ? "yes (cw, VPM in words)"
                                                                                  : "yes (VPM in words)")) : "no",
               G.idx_ok ? "yes" : "no", clips[G.clip_ok], G.lit_ok ? "yes" : "no",

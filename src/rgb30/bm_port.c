@@ -107,6 +107,10 @@ void gpu3d_set_wc(int on)                               { (void)on; }
 void gpu3d_set_bilinear(int on)                         { (void)on; }
 void gpu3d_set_tex16(int on)                            { (void)on; }
 int gpu3d_tex16(void)                                   { return 0; }
+void gpu3d_set_fs2(int on)                              { (void)on; }
+int gpu3d_fs2(void)                                     { return 0; }
+void gpu3d_set_sort(int on)                             { (void)on; }
+int gpu3d_sort(void)                                    { return 0; }
 int gpu3d_enlarge(const uint16_t *src, int w, int h, int scale, const g16_t *page)
 {
     (void)src; (void)w; (void)h; (void)scale; (void)page;

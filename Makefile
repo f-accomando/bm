@@ -1255,6 +1255,7 @@ test-gpu3d: $(BUILD)/host/test_gpu3d
 	$< 1 0 2 0 0 0
 	EMU_HANG_ZCLEAR=1 $< 1 0 0 0 0 0
 	EMU_VPM_WORDS=1 $< 0 1 0 0 1 0
+	EMU_NO_THREADS=1 $< 1 0 0 0 0 0
 
 # QPU shaders (M33): the assembler against shaders run on a Pi, and
 # src/gpu/shaders.h up to date with the sources in tools/qpuasm.py

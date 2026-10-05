@@ -139,6 +139,32 @@ stress test, il 3D Bench, il benchmark di Overbit e il quarto valore di `gpu3d()
   la prova all'avvio come per le texture a 32 bit: una texture 128×64 dove la parola *i*
   vale *i* e torna sulla pagina come sé stessa (o con rosso e blu scambiati). Gli sheet con
   pixel trasparenti restano a 32 bit. Profilo GPU+T16 del 3D Bench.
+- **5.3** (2026-10-05, M39): **shader dei pixel a due thread** (`gpu3d_fs2=1`, *3D pixel
+  shaders: Two threads*): le facce con texture opache (`fs_tex_lit`, `fs_tex_rgb`) hanno una
+  versione `_t` che chiede il texel, passa la QPU all'altro thread (`lthrsw`) e lo legge al
+  ritorno: mentre la TMU legge, la QPU colora i pixel dell'altro thread invece di aspettare.
+  `qpuasm.py` controlla le regole di Mesa (`vc4_qpu_validate`: nessun cambio col
+  scoreboard preso, accumulatori persi dopo il cambio, texel letti dopo un cambio). La
+  prova all'avvio (`probe_fs2`) disegna gli stessi quadrati con i due shader e li tiene
+  solo se i pixel sono identici (`two-thread shaders yes` nella riga di stato); un lavoro
+  che non finisce li spegne e il resto va avanti. Profilo GPU+FS2 del 3D Bench
+  (`spheres_tex`, `heroes_tex`, `quad_tex`, `match`).
+- **5.4** (2026-10-05, M39): **ordine di disegno** (`gpu3d_sort=1`, *3D draw order: Nearest
+  first*): i disegni delle mesh del vertex shader che provano e scrivono lo z si mettono da
+  parte (ognuno con tutto il suo stato) e vanno nel lavoro dal più vicino al più lontano
+  (la profondità dell'origine dell'osso) al primo disegno di un altro tipo (triangoli di
+  r3d, ombre, 2D, `zclear()`) o alla fine del lavoro: lo z anticipato della V3D scarta i
+  pixel nascosti invece di colorarli. Stessa immagine (tranne dove due facce hanno la
+  stessa profondità; i gruppi di una mesh restano nel loro ordine). Nell'emulatore otto
+  scatole dal lontano al vicino: 99 960 pixel colorati invece di 416 546, 0 pixel diversi.
+  Profilo GPU+VS+S del 3D Bench (`spheres`, `heroes`, `match`, `big`, `big_logic`).
+- **5.5** (2026-10-05, M39): **cosa si vede, anche per gli attori**: `visible3d(x, y, z, r)`
+  dice se una sfera può stare sullo schermo (la prova di r3d sui modelli, `r3d_visible`) e,
+  con la visibilità precalcolata della mappa data da `pvs3d{...}` (celle sul terreno, i
+  pezzi visti da ognuna, le scatole dei pezzi), se la cella della camera vede un pezzo su
+  cui sta. Overbit la dà alla partenza della mappa e non disegna gli eroi dietro i muri
+  (prima solo quelli fuori dall'inquadratura); le ombre restano (al tramonto escono dai
+  muri). Vale anche sull'ARM e sulla RGB30. Prove in `make test-gameapi`.
 
 ## Le modalità: versioni vecchie sul codice di oggi
 
@@ -152,7 +178,9 @@ Le impostazioni riproducono le versioni precedenti, così si confrontano sullo s
 - con la memoria dei lavori senza cache (`gpu3d_wc=1`): **4.5**;
 - con il 2D sopra il 3D nel lavoro (`gpu3d_2d=1`): **4.8**;
 - con due lavori in volo (`gpu3d_queue=2`): **5.1**;
-- con le texture a 16 bit (`gpu3d_tex16=1`): **5.2**.
+- con le texture a 16 bit (`gpu3d_tex16=1`): **5.2**;
+- con gli shader dei pixel a due thread (`gpu3d_fs2=1`): **5.3**;
+- con le mesh dalla più vicina (`gpu3d_sort=1`, con il vertex shader): **5.4**.
 
 Quello che 4.2, 4.3, 4.4 e 4.6 hanno aggiunto (schermi fino a 1080p, `cls()` della GPU, il
 record GL in byte, niente early z dopo uno `zclear()` nel lavoro, 8 texture in un lavoro)

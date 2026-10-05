@@ -37,6 +37,10 @@ def main():
             need |= {"GPU+Q", "GPU+2D"}
         if t == "gpu2d":
             need |= {"GPU+2D"}
+        if t in ("spheres_tex", "heroes_tex", "quad_tex", "match"):
+            need |= {"GPU+T16", "GPU+FS2"}
+        if t in ("spheres", "heroes", "match", "big", "big_logic"):
+            need |= {"GPU+VS+S"}
         check(need <= profs, f"{t}: {' '.join(sorted(profs))}")
     for t in FUTURE:
         check(any(l.startswith(f"F,{t},") for l in lines), f"{t}: shown as not developed yet")
@@ -48,7 +52,7 @@ def main():
           "GPU+VS: r3d places fewer vertices than GPU")
     check(all(float(r[4]) >= 0 or r[4] == "-1" for r in rows), "loads at 60 fps")
     pages = sorted(f for f in os.listdir(d) if f.startswith("page-"))
-    check(len(pages) == 2 + len(TESTS) + len(FUTURE), f"{len(pages)} pages drawn")
+    check(len(pages) == 3 + len(TESTS) + len(FUTURE), f"{len(pages)} pages drawn")
     print(f"b3d: {'all ok' if not fails else f'{fails} failed'}")
     return 1 if fails else 0
 

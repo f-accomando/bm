@@ -44,7 +44,7 @@ static g16_t *g;
 
 /* ---------------------------------------------------------------- profiles */
 
-enum { PF_ARM, PF_GPU, PF_AA, PF_VS1, PF_VS, PF_VSQ, PF_Q, PF_WC, PF_2D, PF_VSQ2, PF_T16, NPROF };
+enum { PF_ARM, PF_GPU, PF_AA, PF_VS1, PF_VS, PF_VSQ, PF_Q, PF_WC, PF_2D, PF_VSQ2, PF_T16, PF_FS2, PF_VSS, NPROF };
 #define M_ARM (1u << PF_ARM)
 #define M_GPU (1u << PF_GPU)
 #define M_AA  (1u << PF_AA)
@@ -56,21 +56,25 @@ enum { PF_ARM, PF_GPU, PF_AA, PF_VS1, PF_VS, PF_VSQ, PF_Q, PF_WC, PF_2D, PF_VSQ2
 #define M_2D  (1u << PF_2D)             /* the GPU with the 2D over the 3D in its job (M37, bm3d 4.8) */
 #define M_VSQ2 (1u << PF_VSQ2)          /* GPU+VS+Q with two jobs in flight (M39, bm3d 5.1) */
 #define M_T16 (1u << PF_T16)            /* the GPU with opaque textures in 16 bits (M39, bm3d 5.2) */
+#define M_FS2 (1u << PF_FS2)            /* the GPU with two-thread pixel shaders (M39, bm3d 5.3) */
+#define M_VSS (1u << PF_VSS)            /* GPU+VS with the meshes nearest first (M39, bm3d 5.4) */
 #define M_ALL (M_ARM | M_GPU | M_VS1 | M_VS)
 #define M_LIT (M_ARM | M_GPU | M_VS)    /* models lit by the sun: VS1 is the GPU for them */
 
 /* queue (M35): the end of each frame started on the GPU, the ARM's work of
  * the frame (the test's `work`) done meanwhile */
-static const struct { const char *name; int gpu, aa, vs, queue, wc, two_d, t16; } prof[NPROF] = {
-    { "ARM", 0, 0, 0, 0, 0, 0, 0 }, { "GPU", 1, 0, 0, 0, 0, 0, 0 }, { "GPU+AA", 1, 1, 0, 0, 0, 0, 0 },
-    { "GPU+VS1", 1, 0, 1, 0, 0, 0, 0 }, { "GPU+VS", 1, 0, 2, 0, 0, 0, 0 }, { "GPU+VS+Q", 1, 0, 2, 1, 0, 0, 0 },
-    { "GPU+Q", 1, 0, 0, 1, 0, 0, 0 }, { "GPU+WC", 1, 0, 0, 0, 1, 0, 0 }, { "GPU+2D", 1, 0, 0, 0, 0, 1, 0 },
-    { "GPU+VS+Q2", 1, 0, 2, 2, 0, 0, 0 }, { "GPU+T16", 1, 0, 0, 0, 0, 0, 1 },
+static const struct { const char *name; int gpu, aa, vs, queue, wc, two_d, t16, fs2, sort; } prof[NPROF] = {
+    { "ARM", 0, 0, 0, 0, 0, 0, 0, 0, 0 }, { "GPU", 1, 0, 0, 0, 0, 0, 0, 0, 0 }, { "GPU+AA", 1, 1, 0, 0, 0, 0, 0, 0, 0 },
+    { "GPU+VS1", 1, 0, 1, 0, 0, 0, 0, 0, 0 }, { "GPU+VS", 1, 0, 2, 0, 0, 0, 0, 0, 0 },
+    { "GPU+VS+Q", 1, 0, 2, 1, 0, 0, 0, 0, 0 }, { "GPU+Q", 1, 0, 0, 1, 0, 0, 0, 0, 0 },
+    { "GPU+WC", 1, 0, 0, 0, 1, 0, 0, 0, 0 }, { "GPU+2D", 1, 0, 0, 0, 0, 1, 0, 0, 0 },
+    { "GPU+VS+Q2", 1, 0, 2, 2, 0, 0, 0, 0, 0 }, { "GPU+T16", 1, 0, 0, 0, 0, 0, 1, 0, 0 },
+    { "GPU+FS2", 1, 0, 0, 0, 0, 0, 0, 1, 0 }, { "GPU+VS+S", 1, 0, 2, 0, 0, 0, 0, 0, 1 },
 };
 
 static const char *prof_version(int p)
 {
-    return prof[p].t16 ? "5.2" : prof[p].queue == 2 ? "5.1" : prof[p].two_d ? "4.8" : prof[p].wc ? "4.5"
+    return prof[p].sort ? "5.4" : prof[p].fs2 ? "5.3" : prof[p].t16 ? "5.2" : prof[p].queue == 2 ? "5.1" : prof[p].two_d ? "4.8" : prof[p].wc ? "4.5"
          : bm3d_mode_q(prof[p].gpu, prof[p].vs, prof[p].queue);
 }
 
@@ -637,16 +641,16 @@ typedef struct {
 } test_t;
 
 static const test_t tests[] = {
-    { "spheres", "spheres, 96 faces, flat", "spheres", 1, 8000, M_LIT | M_AA | M_WC, sp_flat, spheres, sp_undo, NULL, 0, 0 },
+    { "spheres", "spheres, 96 faces, flat", "spheres", 1, 8000, M_LIT | M_AA | M_WC | M_VSS, sp_flat, spheres, sp_undo, NULL, 0, 0 },
     { "spheres_smooth", "spheres, Gouraud", "spheres", 1, 8000, M_LIT, sp_smooth, spheres, sp_undo, NULL, 0, 0 },
-    { "spheres_tex", "spheres, textured", "spheres", 1, 8000, M_ARM | M_GPU | M_T16, sp_tex, spheres, sp_undo, NULL, 0,
+    { "spheres_tex", "spheres, textured", "spheres", 1, 8000, M_ARM | M_GPU | M_T16 | M_FS2, sp_tex, spheres, sp_undo, NULL, 0,
       0 },
     { "spheres_unlit", "spheres, unlit", "spheres", 1, 8000, M_ALL, sp_unlit, spheres, sp_undo, NULL, 0, 0 },
     { "spheres_baked", "spheres, baked light", "spheres", 1, 8000, M_ALL, sp_baked, spheres, sp_undo, NULL, 0, 0 },
     { "spheres_shine", "spheres, sky, rim, gloss, 4 lamps, fog", "spheres", 1, 8000, M_LIT, sp_shine,
       spheres_shine, sp_undo, NULL, 0, 0 },
-    { "heroes", "heroes: 16 bones, 1536 faces", "heroes", 1, 512, M_LIT | M_WC, NULL, heroes, NULL, NULL, 0, 0 },
-    { "heroes_tex", "heroes, textured", "heroes", 1, 512, M_LIT | M_T16, NULL, heroes_tex, NULL, NULL, 0, 0 },
+    { "heroes", "heroes: 16 bones, 1536 faces", "heroes", 1, 512, M_LIT | M_WC | M_VSS, NULL, heroes, NULL, NULL, 0, 0 },
+    { "heroes_tex", "heroes, textured", "heroes", 1, 512, M_LIT | M_T16 | M_FS2, NULL, heroes_tex, NULL, NULL, 0, 0 },
     { "heroes_skin", "heroes, textured skins (as the Meshy ones)", "heroes", 1, 512, M_LIT, NULL, heroes_skin, NULL,
       NULL, 0, 0 },
     { "heroes_shadow", "heroes with shadows on a floor", "heroes", 1, 512, M_LIT, NULL, heroes_shadow, NULL, NULL,
@@ -656,7 +660,7 @@ static const test_t tests[] = {
     { "draws", "draw calls: a cube each", "draws", 1, 40000, M_LIT | M_WC, NULL, draws, NULL, NULL, 0, 0 },
     { "quad_flat", "fill: quads 320x180, flat", "quads", 1, 4000, M_LIT | M_AA, q_flat, quads, q_free, NULL, 1, 0 },
     { "quad_smooth", "fill: quads, Gouraud", "quads", 1, 4000, M_LIT, q_smooth, quads, q_free, NULL, 1, 0 },
-    { "quad_tex", "fill: quads, textured", "quads", 1, 4000, M_ARM | M_GPU | M_WC | M_T16, q_tex, quads, q_free, NULL, 1,
+    { "quad_tex", "fill: quads, textured", "quads", 1, 4000, M_ARM | M_GPU | M_WC | M_T16 | M_FS2, q_tex, quads, q_free, NULL, 1,
       0 },
     { "quad_alpha", "fill: quads, texels with holes", "quads", 1, 4000, M_ARM | M_GPU, q_alpha, quads, q_free, NULL,
       1, 0 },
@@ -666,15 +670,15 @@ static const test_t tests[] = {
     { "texswap", "three textures in turn", "quads", 1, 8000, M_ARM | M_GPU, q_tex, texswap, q_free, NULL, 0, 0 },
     { "split", "3D then 2D, again and again", "rounds", 1, 400, M_LIT | M_Q | M_2D | M_VSQ | M_VSQ2, NULL, split, NULL,
       NULL, 0, 0 },
-    { "match", "a match: map, heroes, shadows, HUD", "heroes", 1, 256, M_ALL | M_AA | M_Q | M_WC | M_2D | M_T16, NULL, match, NULL, NULL, 0,
+    { "match", "a match: map, heroes, shadows, HUD", "heroes", 1, 256, M_ALL | M_AA | M_Q | M_WC | M_2D | M_T16 | M_FS2 | M_VSS, NULL, match, NULL, NULL, 0,
       0 },
     { "queue", "spheres and 4M instructions of logic", "spheres", 1, 8000, M_GPU | M_Q | M_VS | M_VSQ | M_VSQ2, sp_smooth,
       spheres,
       sp_undo,
       NULL, 0, 1300 },
-    { "big", "big meshes: models of 10 080 triangles on a map of 14 112", "models", 1, 64, M_ALL | M_VSQ | M_Q,
+    { "big", "big meshes: models of 10 080 triangles on a map of 14 112", "models", 1, 64, M_ALL | M_VSQ | M_Q | M_VSS,
       big_setup, big, big_free, NULL, 0, 0 },
-    { "big_logic", "the same and 4M instructions of logic", "models", 1, 64, M_ALL | M_VSQ | M_Q, big_setup, big,
+    { "big_logic", "the same and 4M instructions of logic", "models", 1, 64, M_ALL | M_VSQ | M_Q | M_VSS, big_setup, big,
       big_free, NULL, 0, 1300 },
     { "gpu2d", "sprites and text over the 3D", "sprites", 4, 8000, M_ARM | M_GPU | M_2D, NULL, gpu2d_scene, NULL, NULL,
       0, 0 },
@@ -795,6 +799,10 @@ static void ramp(int ti, int pf)
         gpu3d_set_tex16(prof[pf].t16);
         if (prof[pf].t16 && !gpu3d_tex16())
             return;                     /* the probe did not learn the layout: no row */
+        gpu3d_set_fs2(prof[pf].fs2);
+        if (prof[pf].fs2 && !gpu3d_fs2())
+            return;                     /* the probe saw them differ: no row */
+        gpu3d_set_sort(prof[pf].sort);
     } else {
         R.backend = NULL;
     }
@@ -872,6 +880,8 @@ static void ramp(int ti, int pf)
     gpu3d_set_vshader(0);
     gpu3d_set_wc(0);
     gpu3d_set_tex16(0);
+    gpu3d_set_fs2(0);
+    gpu3d_set_sort(0);
     cur_2d = 0;
     r->ran = ns > 0;
     r->nsamples = ns;
@@ -1047,7 +1057,7 @@ static void read_prev(void)
 #define C_HW    g16_rgb(255, 90, 90)
 
 static const uint16_t prof_col[NPROF] = { 0xFC00 /* orange */, 0x2D7F, 0x8C1F, 0x07F0, 0x07E0, 0xFFE0, 0xF81F, 0x7BEF,
-                                         0xFD20, 0xAFE5, 0x5D7F };
+                                         0xFD20, 0xAFE5, 0x5D7F, 0xB5B6, 0x4FFF };
 
 static void text(int x, int y, uint16_t c, const char *fmt, ...) __attribute__((format(printf, 4, 5)));
 static void text(int x, int y, uint16_t c, const char *fmt, ...)
@@ -1100,16 +1110,24 @@ static void bar(int y, const char *label, uint16_t col, float n60, float n30, fl
          n30 < 0 && n60 >= 0 ? "?" : num(b, n30, over, last), c);
 }
 
-static int pages(void) { return 2 + NTESTS; }
+static int pages(void) { return 3 + NTESTS; }     /* the summary in two, the drivers, one a test */
 
-static void page_summary(void)
+/* the profiles' short names, for the summary's columns (a legend under it) */
+static const char *const prof_short[NPROF] = { "ARM", "GPU", "AA", "VS1", "VS", "VSQ", "Q", "WC", "2D", "VSQ2", "T16",
+                                               "FS2", "VSS" };
+#define SX 96                           /* the summary: the profiles' columns from x SX, SW pixels each */
+#define SW 30
+#define S_BEST (SX + SW * NPROF + 6)
+#define S_ROWS 15                       /* tests on the summary's first page */
+
+static void page_summary(int part)
 {
-    text(0, 18, C_HEAD, "Summary: the loads at 60 fps of each driver; the best against the ARM (bm3d 0.2) and the "
-                        "last report");
+    text(0, 18, C_HEAD, "Summary%s: the loads at 60 fps of each driver; the best against the ARM (bm3d 0.2) and "
+                        "the last report", part ? " (2)" : "");
     text(0, 34, C_DIM, "test");
     for (int pf = 0; pf < NPROF; pf++)
-        text(100 + 46 * pf, 34, prof_col[pf], "%7s", prof[pf].name);
-    text(380, 34, C_DIM, "best      x ARM  x last fits 60");
+        text(SX + SW * pf, 34, prof_col[pf], "%5s", prof_short[pf]);
+    text(S_BEST, 34, C_DIM, "best  x ARM x last fits");
     int y = 48;
     float gsum[NPROF] = { 0 };
     int gn[NPROF] = { 0 };
@@ -1123,52 +1141,68 @@ static void page_summary(void)
                 strcat(fut, b);
             continue;
         }
-        char id[24];
-        text(0, y, C_TEXT, "%s", cut(id, t->id, 16));
+        /* the mean against the ARM: every test */
+        const result_t *arm = &res[ti][PF_ARM];
         int best = -1;
         for (int pf = 0; pf < NPROF; pf++) {
             const result_t *r = &res[ti][pf];
-            char b[16];
-            if (r->ran) {
-                text(100 + 46 * pf, y, r->n60 >= 1 ? prof_col[pf] : C_BAD, "%7s", num(b, r->n60, r->over, r->last_n));
-                if (best < 0 || r->n60 > res[ti][best].n60)
-                    best = pf;
-            } else {
-                text(100 + 46 * pf, y, C_DIM, "      -");
+            if (!r->ran)
+                continue;
+            if (best < 0 || r->n60 > res[ti][best].n60)
+                best = pf;
+            if (pf && arm->ran && arm->n60 > 0 && r->n60 > 0) {
+                gsum[pf] += logf(r->n60 / arm->n60);
+                gn[pf]++;
             }
         }
-        const result_t *arm = &res[ti][PF_ARM];
+        if (part ? ti < S_ROWS : ti >= S_ROWS)
+            continue;                   /* a row of the other page */
+        char id[24];
+        text(0, y, C_TEXT, "%s", cut(id, t->id, 15));
+        for (int pf = 0; pf < NPROF; pf++) {
+            const result_t *r = &res[ti][pf];
+            char b[16];
+            if (r->ran)
+                text(SX + SW * pf, y, r->n60 >= 1 ? prof_col[pf] : C_BAD, "%5s", num(b, r->n60, r->over, r->last_n));
+            else
+                text(SX + SW * pf, y, C_DIM, "    -");
+        }
         if (best >= 0) {
             const float b = res[ti][best].n60;
-            text(380, y, prof_col[best], "%s", prof[best].name);
+            text(S_BEST, y, prof_col[best], "%s", prof_short[best]);
             if (arm->ran && arm->n60 > 0 && b > 0) {
                 const float k = b / arm->n60;
-                text(432, y, C_GOOD, "%4d.%dx", (int)k, (int)(k * 10) % 10);
-                for (int pf = 1; pf < NPROF; pf++)
-                    if (res[ti][pf].ran && res[ti][pf].n60 > 0) {
-                        gsum[pf] += logf(res[ti][pf].n60 / arm->n60);
-                        gn[pf]++;
-                    }
+                text(S_BEST + 24, y, C_GOOD, "%4d.%dx", (int)k, (int)(k * 10) % 10);
             }
             if (prev[ti][best].have && prev[ti][best].n60 > 0 && b > 0) {
                 const float k = b / prev[ti][best].n60;
-                text(486, y, k >= 0.97f ? C_GOOD : C_BAD, "%2d.%02dx", (int)k, (int)(k * 100) % 100);
+                text(S_BEST + 72, y, k >= 0.97f ? C_GOOD : C_BAD, "%2d.%02dx", (int)k, (int)(k * 100) % 100);
             }
-            text(546, y, b >= 1 ? C_GOOD : C_BAD, "%s", b >= 1 ? "yes" : "no");
+            text(S_BEST + 114, y, b >= 1 ? C_GOOD : C_BAD, "%s", b >= 1 ? "yes" : "no");
         }
         y += LH;
     }
-    text(0, y, C_HEAD, "mean against the ARM:");
-    for (int pf = 1; pf < NPROF; pf++)
+    y += 6;
+    if (!part) {
+        text(0, y, C_DIM, "more on the next page; then the drivers and a page for each test");
+        return;
+    }
+    /* six a line */
+    text(0, y, C_HEAD, "mean against ARM:");
+    for (int pf = 1, k = 0; pf < NPROF; pf++)
         if (gn[pf]) {
-            const float k = expf(gsum[pf] / (float)gn[pf]);
-            text(138 + 102 * (pf - 1), y, prof_col[pf], "%s %d.%dx", prof[pf].name, (int)k, (int)(k * 10) % 10);
+            const float m = expf(gsum[pf] / (float)gn[pf]);
+            text(108 + 88 * (k % 6), y + LH * (k / 6), prof_col[pf], "%-4s %d.%dx", prof_short[pf], (int)m,
+                 (int)(m * 10) % 10);
+            k++;
         }
+    y += 2 * LH + 6;
+    text(0, y, C_DIM, "AA VS1 VS VSQ Q WC 2D VSQ2 T16 FS2 VSS: GPU+AA, GPU+VS1... (the profiles: the next page)");
     y += LH;
-    if (prev_name[0])
-        text(0, y, C_DIM, "later: %s; against %s", fut, prev_name);
+    if (fut[0])
+        text(0, y, C_DIM, "later: %s; %s%s", fut, prev_name[0] ? "against " : "the first report", prev_name);
     else
-        text(0, y, C_DIM, "later: %s; the first report", fut);
+        text(0, y, C_DIM, "%s%s", prev_name[0] ? "against " : "the first report", prev_name);
 }
 
 static void page_info(const char *saved)
@@ -1177,8 +1211,8 @@ static void page_info(const char *saved)
     const bm3d_version_t *v = bm3d_versions(&n);
     text(0, 18, C_HEAD, "Drivers: bm3d %s (%s); kernel %s", BM3D_VERSION, BM3D_BLOCK, P->kernel ? P->kernel : "?");
     int y = 34;
-    /* the last six versions (the page holds no more), the older in a line */
-    const int i0 = n > 6 ? n - 6 : 0;
+    /* the last five versions (the page holds no more), the older in a line */
+    const int i0 = n > 5 ? n - 5 : 0;
     if (i0) {
         text(0, y, C_DIM, "%s to %s: docs/DRIVERS.md", v[0].version, v[i0 - 1].version);
         y += LH;
@@ -1198,6 +1232,9 @@ static void page_info(const char *saved)
     y += LH;
     text(0, y, C_TEXT, "GPU+VS+Q2: two jobs in flight (M39, 5.1); GPU+T16: opaque textures in 16 bits (M39, 5.2)");
     y += LH;
+    text(0, y, C_TEXT, "GPU+FS2: textured faces' pixel shaders with two threads (M39, 5.3); GPU+VS+S: meshes "
+                       "nearest first (5.4)");
+    y += LH;
     text(0, y, C_DIM, "0.1 and 1.0 no longer run: their bars are the numbers the Pi gave then (docs/M33-PRIMA-DOPO.md)");
     y += LH + 6;
     char w[110];
@@ -1206,18 +1243,18 @@ static void page_info(const char *saved)
     text(0, y, C_DIM, "date: %s", P->date && P->date[0] ? P->date : "unknown (no network time)");
     y += LH;
     {
-        /* the GPU's status: on two lines where it is long (after a comma) */
+        /* the GPU's status: on more lines where it is long (after a comma) */
         const char *st = gpu3d_status();
-        size_t n = strlen(st), at = n;
-        if (n > 105)
-            for (at = 104; at > 40 && !(st[at] == ' ' && st[at - 1] == ','); at--)
-                ;
-        ksnprintf(w, sizeof w, "%.*s", (int)(at < sizeof w ? at : sizeof w - 1), st);
-        text(0, y, C_DIM, "%s", w);
-        y += LH;
-        if (at < n) {
-            text(0, y, C_DIM, "  %s", cut(w, st + at + 1, 103));
+        for (int line = 0; *st && line < 3; line++) {
+            const size_t room = line ? 103 : 105, n = strlen(st);
+            size_t at = n;
+            if (n > room)
+                for (at = room - 1; at > 40 && !(st[at] == ' ' && st[at - 1] == ','); at--)
+                    ;
+            ksnprintf(w, sizeof w, "%s%.*s", line ? "  " : "", (int)(at < sizeof w - 3 ? at : sizeof w - 3), st);
+            text(0, y, C_DIM, "%s", w);
             y += LH;
+            st += at < n ? at + 1 : n;
         }
     }
     if (P->counting)
@@ -1315,12 +1352,12 @@ static void draw_page(int i, const char *saved)
     g16_cls(g, g16_rgb(10, 14, 20));
     text(0, 2, C_HEAD, "bm 3D Bench  bm3d %s (%s)", BM3D_VERSION, BM3D_BLOCK);
     text(W - 11 * CW, 2, C_DIM, "page %2d/%d", i + 1, pages());
-    if (i == 0)
-        page_summary();
-    else if (i == 1)
+    if (i < 2)
+        page_summary(i);
+    else if (i == 2)
         page_info(saved);
     else
-        page_test(i - 2);
+        page_test(i - 3);
     const char *back = P->back ? P->back : "B";
     text(W - (26 + (int)strlen(back)) * CW, H - LH, C_DIM, "left/right: pages, %s: back", back);
     g->font = f;

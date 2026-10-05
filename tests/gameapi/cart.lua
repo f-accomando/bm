@@ -489,8 +489,35 @@ local function lib_players()
         "split(3, 4): the corners")
 end
 
+---------------------------------------------------------------- 3D visibility (M39)
+
+-- visible3d: the camera's view, then the map's visibility of pvs3d (two
+-- cells along x: from the first the pieces 1 and 2, from the second 3)
+local function vis3d()
+  camera3d(0, 1, -10, 0, 0, 60)
+  check(visible3d(0, 1, 0, 1) and not visible3d(0, 1, -20, 1) and not visible3d(100, 1, 0, 1) and
+        visible3d(6, 1, 0, 1), "visible3d: in front, behind, far to the side, at the edge")
+  pvs3d({ x0 = -20, z0 = -20, cell = 20, nx = 2, nz = 2, max_y = 50,
+          sets = { "\1\2", "\3", "", "" },
+          boxes = { -20, 0, -20, -10, 5, 20,   -10, 0, -20, 0, 5, 20,   0, 0, -20, 20, 5, 20 } })
+  -- the camera at (0, 1, -10): the cell (1, 0) of x0 = -20, z0 = -20 is (-20 + 20 .. 0, ...)
+  camera3d(-5, 1, -10, 0, 0, 90)
+  check(visible3d(-5, 1, 0, 0.5) and visible3d(-15, 1, 5, 0.5), "visible3d: on the pieces the cell sees")
+  check(not visible3d(10, 1, 10, 0.5), "visible3d: on a piece the cell does not see")
+  check(visible3d(-0.2, 1, 5, 0.5), "visible3d: a sphere reaching a piece the cell sees")
+  check(visible3d(5, 1, 40, 0.5), "visible3d: off the pieces, seen")
+  camera3d(5, 1, -10, 0, 0, 90)
+  check(visible3d(10, 1, 10, 0.5) and not visible3d(-5, 1, 5, 0.5), "visible3d: from the other cell")
+  camera3d(5, 60, -10, 0, 0, 90)
+  check(visible3d(-5, 57, 5, 0.5), "visible3d: the camera above max_y: the view alone")
+  camera3d(5, 1, -10, 0, 0, 90)
+  pvs3d()
+  check(visible3d(-5, 1, 5, 0.5), "pvs3d(): forgotten")
+end
+
 function _init()
   map_api()
+  vis3d()
   save_checks()
   lib_math()
   lib_collide()

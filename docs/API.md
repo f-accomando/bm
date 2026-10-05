@@ -654,6 +654,8 @@ Complete example: `carts/yharnam`; a small one: `SQUARE_CART` in `tests/qemu_tes
 | `fog3d(colour, near, far)` | fog: the faces fade into the colour between the two distances; `fog3d()` takes it away |
 | `lamp3d(i, x, y, z, radius, [k, colour])` | point light `i` (1–4): the faces with their centre within `radius` get brighter, up to `k` more (default 1) in the middle, of the `colour` given (white if missing); `lamp3d(i)` turns it off, `lamp3d()` all. With `light3d` at a low ambient it makes dark scenes with lanterns |
 | `project3d(x, y, z)` | a point of the world → `sx, sy, depth` on the screen (`nil` if it is behind the camera): to draw in 2D things lined up with the 3D (horizon, sights, labels) |
+| `visible3d(x, y, z, r)` | `false` if a sphere (centre, radius) cannot be seen: behind the camera, beyond an edge of the screen, or (after `pvs3d`) on pieces of the map that the camera's cell does not see. To skip the characters and effects hidden by the walls before drawing them (bm3d 5.5) |
+| `pvs3d(t)` | the map's precomputed visibility for `visible3d`: `t = { x0, z0, cell, nx, nz, max_y, sets, boxes }`, a grid of `nx`×`nz` cells of side `cell` on the ground from (`x0`, `z0`); `sets` a string a cell (row by row along x), each byte the number (from 1) of a piece seen from it; `boxes` six numbers a piece (`x0 y0 z0 x1 y1 z1`). With the camera above `max_y` or out of the grid only the view counts; a sphere off every piece is seen. `pvs3d()` forgets it |
 
 **Material bits** in a face's colour (of `mesh()` and of the models; 0 = the usual face):
 

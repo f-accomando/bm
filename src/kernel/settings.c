@@ -85,7 +85,7 @@ enum {
     R_VERSION, R_BOARD, R_UPTIME, R_MEMORY, R_CLOCKS, R_SD, R_DRIVER3D, R_RESTART, R_MONITOR, R_PERF,
     R_UPDATE, R_INSTALL, R_REPORTS, R_REPORT_LOG,
     R_UPDATES, R_REPORTS_SUB, R_WAITING, R_USB, R_NETTEST, R_ETH, R_PATTERN, R_AUDIO, R_LOG, R_BT,
-    R_CONFIRM, R_MODES, R_SOUND, R_BATTERY, R_POWEROFF, R_WC, R_FILTER, R_2D, R_FAST3D,
+    R_CONFIRM, R_MODES, R_SOUND, R_BATTERY, R_POWEROFF, R_WC, R_FILTER, R_2D, R_FAST3D, R_FS2, R_SORT,
 };
 
 static int popcount(unsigned v)
@@ -441,6 +441,12 @@ void home_panel(int id, home_panel_t *p)
         home_row(p, MENU_ROW_CHOICE, R_WC, "3D job memory",
                  "Cached, or uncached with the ARM's writes merged (compare: 3D Bench)", "%s",
                  wc_on() ? "Uncached" : "Cached");
+        home_row(p, MENU_ROW_CHOICE, R_FS2, "3D pixel shaders",
+                 "Two threads: a QPU shades while the other waits for its texel", "%s",
+                 config_on("gpu3d_fs2") ? "Two threads" : "One thread");
+        home_row(p, MENU_ROW_CHOICE, R_SORT, "3D draw order",
+                 "Nearest first: the GPU skips the hidden pixels (vertex shader)", "%s",
+                 config_on("gpu3d_sort") ? "Nearest first" : "As the game");
 #endif
         home_row(p, MENU_ROW_CHOICE, R_FAST3D, "3D on the ARM",
                  "Exact as before, or fast: one matrix a model, light in its axes", "%s",
@@ -927,6 +933,18 @@ void home_act(int id, int row, int how, home_do_t *d)
         config_set("gpu3d_wc", wc_on() ? "0" : "1");
         config_save();
         ksnprintf(d->note, sizeof d->note, "3D job memory of the next game: %s", wc_on() ? "uncached" : "cached");
+        break;
+    case R_FS2:
+        config_set("gpu3d_fs2", config_on("gpu3d_fs2") ? "0" : "1");
+        config_save();
+        ksnprintf(d->note, sizeof d->note, "3D pixel shaders of the next game: %s",
+                  config_on("gpu3d_fs2") ? "two threads" : "one thread");
+        break;
+    case R_SORT:
+        config_set("gpu3d_sort", config_on("gpu3d_sort") ? "0" : "1");
+        config_save();
+        ksnprintf(d->note, sizeof d->note, "3D draw order of the next game: %s",
+                  config_on("gpu3d_sort") ? "nearest first" : "as the game");
         break;
     case R_USB:
         if (how == 0) text(d, x_usb, 1, 0);

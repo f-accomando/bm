@@ -869,8 +869,18 @@ screenshot in `docs/img/`), `README_OLD.md` (il README completo, in italiano),
   `src/gpu/version3d.h` e `docs/DRIVERS.md`; ogni passo che cambia quello che r3d o
   gpu3d sanno fare alza la versione e aggiunge una riga alla tabella. Le impostazioni
   riproducono le versioni vecchie (ARM 0.2, GPU 2.1, GPU+VS1 3.0, GPU+VS 3.4, coda 4.1,
-  memoria senza cache 4.5, 2D nel lavoro 4.8): così i benchmark le confrontano. Branch
-  `bm3d-driver` (2026-10-05): bm3d 4.9.
+  memoria senza cache 4.5, 2D nel lavoro 4.8, due lavori in volo 5.1, texture a 16 bit 5.2,
+  shader a due thread 5.3, mesh dalla più vicina 5.4): così i benchmark le confrontano.
+  Branch `bm3d-driver` (2026-10-05): bm3d 5.5 (M39).
+- **M39 (bm3d 5.x, branch `bm3d-driver`)**: mesh fino a 65535 vertici e indicizzate
+  (`INDEXED_PRIMITIVE_LIST`, `probe_index`); due blocchi di memoria dei lavori
+  (`gpu3d_queue=2`: l'emulatore esegue un lavoro avviato solo quando lo si aspetta); texture
+  opache RGB565 (`gpu3d_tex16`, layout imparato da `tformat16_learn`); shader dei pixel a due
+  thread (`fs_*_t` in `qpuasm.py`, che controlla le regole di Mesa, `gpu3d_fs2`, `probe_fs2`);
+  le mesh che scrivono lo z messe da parte e scritte dalla più vicina (`gpu3d_sort`,
+  `sort_flush` prima di ogni altro pacchetto); `visible3d`/`pvs3d` (Overbit: gli eroi dietro i
+  muri). Ogni opzione ha una riga in *Settings > Screen and sound* e un profilo nel 3D Bench
+  (il riassunto è su due pagine con i nomi brevi dei profili).
 - **Cose della V3D imparate dal Pi** (branch `bm3d-driver`, 2026-10-05): nel record GL la
   dimensione degli attributi e gli offset nella VPM sono in **byte** (come Mesa; in parole il
   Pi non disegnava niente: la prova li impara, l'emulatore li legge in byte e vuole che lo

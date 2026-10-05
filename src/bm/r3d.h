@@ -195,6 +195,10 @@ void r3d_lamp_rgb(r3d_t *r, int i, float x, float y, float z, float radius, floa
 /* World point -> screen. Returns 0 if it is behind the camera. */
 int r3d_project(const r3d_t *r, v3_t p, float *sx, float *sy, float *depth);
 
+/* M39: 0 if a sphere (centre p, radius rad) is out of the camera's view:
+ * behind it or beyond an edge of the screen. */
+int r3d_visible(const r3d_t *r, v3_t p, float rad);
+
 /* Draws a mesh at position p, rotated by (rx, ry, rz) radians, scaled. */
 void r3d_draw(r3d_t *r, const r3d_mesh_t *m, v3_t p, float rx, float ry, float rz, float scale);
 /* The same with flags: R3D_NOZ ignores the z-buffer (no test, no write:

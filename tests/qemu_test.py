@@ -1245,12 +1245,16 @@ def test_home_ui(b, opts):
         screen(["Settings > Screen and sound", "Game drawing (.bm)", "3D of the games", "ARM (no GPU)",
                 "3D anti-aliasing", "Off",      # QEMU has no V3D; no anti-aliasing unless asked
                 "3D vertices"])                 # nor the vertex shader (M36)
-        keys("sssss")                           # the GPU's options of bm3d 4.5-4.9 (M35, M37): off
+        keys("sssss")                           # the GPU's options of bm3d 4.5-5.3 (M35, M37, M39): off
         screen(["2D over the 3D", "< ARM >"])
         keys("s")
         screen(["3D textures", "< Nearest >"])
         keys("s")
         screen(["3D job memory", "< Cached >"])
+        keys("s")
+        screen(["3D pixel shaders", "< One thread >"])  # M39
+        keys("s")
+        screen(["3D draw order", "< As the game >"])
         keys("s")
         screen(["3D on the ARM", "< Exact >"])
         keys("s")                               # the dev kit's overlay: simple, detailed, off again

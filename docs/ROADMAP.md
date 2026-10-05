@@ -2965,6 +2965,31 @@ lavoro: 5 lavori a fotogramma). Si aggiungono ai passi: più texture in un lavor
 lavori quando 3D e 2D si alternano (M35, passo 3). Il report sulla SD fa da "report di prima"
 per il prossimo giro.
 
+**Stato (2026-10-05, branch `bm3d-driver`, bm3d 5.0–5.5; tutto spento di default, da
+verificare sul Pi):**
+- passo 1: il test `big` e `big_logic` del 3D Bench ci sono (modelli da 10 080 triangoli su una
+  mappa da 14 112); mancano le misure sul Pi con i profili del vertex shader (4.3: prima la VPM
+  in parole non disegnava);
+- passo 2: **fatto in parte** (5.0): angoli uguali tenuti una volta per gruppo, primitive
+  indicizzate a 16 bit con la prova all'avvio; restano l'ordine per la cache dei vertici e gli
+  attributi a 16 e 8 bit;
+- passo 3: **fatto** (5.0): 65535 vertici e facce in `.bm`, r3d, `mesh()`, bm Studio, bm Mesh;
+- passo 4: **fatto** (5.1, `gpu3d_queue=2`): due blocchi di memoria, il lavoro dopo si riempie
+  mentre la GPU disegna; il passo che manca è nel runtime (mostrare il fotogramma uno dopo,
+  perché anche il `_draw` vada insieme alla GPU);
+- passo 5: **fatto in parte** (5.2, `gpu3d_tex16`): RGB565 per gli sheet opachi, layout imparato
+  dalla prova; restano RGBA5551/4444 per i ritagli, ETC1 e le mipmap;
+- passo 6: **fatto** (5.3, `gpu3d_fs2`): `fs_tex_lit_t`, `fs_tex_rgb_t`, regole controllate da
+  `qpuasm.py`, prova all'avvio che confronta i pixel;
+- passo 7: **fatto** (5.4, `gpu3d_sort`): le mesh che scrivono lo z dalla più vicina dentro il
+  lavoro (nell'emulatore 4,2 volte meno pixel colorati con otto scatole in fila);
+- passo 8: **fatto** (5.5): `visible3d`, `pvs3d`, usati da Overbit per gli eroi;
+- passo 9: **fatto** in M35 (4.5, `gpu3d_wc`);
+- passo 10: fuori da questo blocco (non è un driver: il Lua dei giochi).
+Da provare sul Pi: test `g` (la riga di stato dice cosa le prove hanno visto: `indexed`,
+`16-bit textures`, `two-thread shaders`), 3D Bench con i profili GPU+VS+Q2, GPU+T16, GPU+FS2,
+GPU+VS+S, e il benchmark di Overbit con le opzioni accese.
+
 ## M40 — bm per PowKiddy RGB30 (XL) — ✅ chiusa (2026-10-04)
 **Chiusa dall'utente il 2026-10-04** (nata nel branch `rgb30-powkiddy`, unita a `bm-core`):
 il lavoro sulla RGB30 continua su `bm-core` con il resto di bm.
