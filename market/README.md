@@ -62,8 +62,9 @@ python3 ../bm/scripts/mkmarket.py games --add my-game.bm --version 1.0 --license
 - The console checks the signature with the Market key built into its
   kernel (`keys/market-pub.pem` in bm), then each file with its SHA-256,
   before it writes anything to the SD card. Every game runs in bm's sandbox:
-  Lua only; it writes only its own save and new `.bm` files in `/carts`
-  (never one that is there, another game); it cannot read the console's
+  Lua only; it writes only its own save and new `.bm` files in `/carts`,
+  changed again only while it runs (never one that was there, another
+  game); it cannot read the console's
   settings, so never its keys or passwords, nor use the services that spend
   them. Online games talk over the network (UDP), as the console's own do.
 - The repository is public on purpose: the consoles download without an
