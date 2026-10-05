@@ -365,9 +365,14 @@ screenshot in `docs/img/`), `README_OLD.md` (il README completo, in italiano),
   (ref `reports`). L'intestazione dice tipo, kernel (git describe), branch (`bm_branch`,
   `BRANCH` nel Makefile), scheda e data.
 - Serve `github_token` (un token che può scrivere i contenuti del repository) e la rete;
-  senza, i report aspettano sulla SD (`bm/reports/RPTnnnnn.TXT`) e partono con *Settings >
-  Reports > Send the reports* (anche sulla RGB30) o `z` nel monitor; `Z` (o *Report the log*)
-  manda il log; `report_upload=0` solo a mano. Spediti, spariscono dalla SD.
+  senza, i report aspettano sulla SD (`bm/reports/RPTnnnnn.TXT`) e partono **da soli** appena
+  la console è in rete (richiesta dell'utente, 2026-10-04: `reports_auto_due` in `reports.c`;
+  sul Pi in una fibra di `menu_idle`, solo in Games, Dev e Lib senza pannelli aperti, fermata
+  prima del Market e delle Settings perché il DNS di `stream.c` è uno solo; sulla RGB30 dal
+  menu, sul posto); se GitHub rifiuta riprovano dopo 15 minuti. A mano: *Settings > Reports >
+  Send the reports* (anche sulla RGB30) o `z` nel monitor; `Z` (o *Report the log*) manda il
+  log; `report_upload=0` solo a mano. Spediti, spariscono dalla SD. Prova sul PC: `make
+  test-github` (`tests/kernel/test_reports.c`: SD, GitHub, rete e orologio finti).
 - Fanno un report: gli strumenti di Dev che stampano (`tool_t.report` in `home.c`: System,
   Audio, CPU bench, Render bench, Stress test, DMA test, GPU test, Texture Room, Demo,
   Diagnostics), i comandi `g k p D s R` del monitor, il 3D Bench (il suo, anche sulla

@@ -848,9 +848,18 @@ $(BUILD)/host/test_lan: tests/net/test_lan.c src/net/lan.c src/net/lan.h src/net
 # Publishing to the Market from the console (M25): src/net/github.c over
 # POSIX sockets against a fake GitHub API (branch or fork, files, pull request);
 # and the reports (src/kernel/reports.c): their names, a file on a branch
-test-github: $(BUILD)/host/test_github $(BUILD)/host/test_report
+test-github: $(BUILD)/host/test_github $(BUILD)/host/test_report $(BUILD)/host/test_reports
 	$(BUILD)/host/test_report
+	$(BUILD)/host/test_reports
 	$(PYTHON) tests/net/run_github_test.py $(BUILD)/host/test_github
+
+# the reports waiting that go by themselves (src/kernel/reports.c), with a
+# fake SD card, GitHub, network and clock
+$(BUILD)/host/test_reports: tests/kernel/test_reports.c src/kernel/reports.c src/kernel/reports.h src/net/report.c \
+                            src/lib/printf.c
+	@mkdir -p $(dir $@)
+	$(HOSTCC) -O1 -Wall -Wextra -Isrc -o $@ tests/kernel/test_reports.c src/kernel/reports.c src/net/report.c \
+		src/lib/printf.c
 
 $(BUILD)/host/test_report: tests/net/test_report.c src/net/report.c src/net/report.h
 	@mkdir -p $(dir $@)

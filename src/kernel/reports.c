@@ -5,6 +5,8 @@
  */
 #include "reports.h"
 #include "config.h"
+#include "fiber.h"
+#include "drivers/timer.h"
 #include "version.h"
 #include "drivers/rng.h"
 #include "fs/fat.h"
@@ -88,9 +90,31 @@ static void progress(const char *step)
     kprintf("report: %s\n", step);
 }
 
+/* reports_auto_due: the address it last saw, a try to make, the last failed one */
+#define RETRY_US (15u * 60u * 1000000u)
+static uint32_t auto_ip, auto_at;
+static int auto_check, auto_failed, put_tried;
+
 /* a report on the card to GitHub; 0 sent (and gone from the card) */
+static int send_one(const char *path, int quiet);
+
 static int send(const char *path, int quiet)
 {
+    const int rc = send_one(path, quiet);
+    if (rc == 0)
+        return 0;
+    if (!put_tried || fiber_cancelled()) {
+        auto_check = 1;                 /* no network or token yet, or stopped: at the next chance */
+    } else {
+        auto_failed = 1;                /* GitHub said no: again in a while */
+        auto_at = timer_ticks();
+    }
+    return rc;
+}
+
+static int send_one(const char *path, int quiet)
+{
+    put_tried = 0;
     const char *token = config_get("github_token");
     if (!token || !token[0]) {
         ksnprintf(last, sizeof last, "on the SD card: no github_token in bm/config.txt");
@@ -121,6 +145,7 @@ static int send(const char *path, int quiet)
         .repo = cfg("report_repo", "f-accomando/bm"), .branch = cfg("report_branch", "reports"),
         .path = repo_path, .data = data, .len = len, .message = msg, .progress = quiet ? NULL : progress,
     };
+    put_tried = 1;
     int rc = github_put(&p, url, sizeof url, err, sizeof err);
     free(data);
     if (rc != 0) {
@@ -259,5 +284,30 @@ int reports_send_pending(void)
     scan(&left);
     if (!left && !strncmp(last, "none", 4))
         ksnprintf(last, sizeof last, "none waiting");
+    if (!left)
+        auto_failed = 0;
     return left;
+}
+
+int reports_auto_due(void)
+{
+    const char *up = config_get("report_upload"), *token = config_get("github_token");
+    if ((up && !strcmp(up, "0")) || !token || !token[0])
+        return 0;
+    const uint32_t ip = net_ip();
+    if (!ip) {
+        auto_ip = 0;
+        return 0;
+    }
+    if (ip != auto_ip) {                /* the network came (back) */
+        auto_ip = ip;
+        auto_check = 1;
+    } else if (auto_failed && timer_ticks() - auto_at > RETRY_US) {
+        auto_failed = 0;
+        auto_check = 1;
+    }
+    if (!auto_check)
+        return 0;
+    auto_check = 0;
+    return reports_pending() > 0;
 }

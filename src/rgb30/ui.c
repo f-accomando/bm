@@ -592,6 +592,13 @@ void ui_home(framebuffer_t *f)
             depth = 0;
             asking = 0;
         }
+        /* the tests' reports waiting on the SD card go once the console is
+         * on the network (reports_auto_due; no fibers here: a moment's wait,
+         * from the covers only, not in Settings) */
+        if (!on_gear && !asking && reports_auto_due()) {
+            reports_send_pending();
+            ksnprintf(note, sizeof note, "report %s", reports_last());
+        }
         int n = shown == TAB_GAMES ? n_games : N_DEV;
         int *s = &sel[shown];
         if (*s >= n) *s = n - 1;

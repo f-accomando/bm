@@ -8,7 +8,8 @@
  * bm/config.txt: github_token (a personal token that can write the
  * repository's contents), report_repo (f-accomando/bm), report_branch
  * (reports), report_upload=0 to keep them on the SD card until they are
- * sent by hand. Without network or token they wait on the card.
+ * sent by hand. Without network or token they wait on the card, and go by
+ * themselves once the console is on the network (reports_auto_due).
  */
 #ifndef REPORTS_H
 #define REPORTS_H
@@ -28,6 +29,12 @@ int reports_text(const char *kind, const char *text, size_t len);
 int reports_send_pending(void);
 /* How many wait on the SD card. */
 int reports_pending(void);
+/* The reports waiting go by themselves (2026-10-04, the user's request):
+ * 1 when it is time to send them now with reports_send_pending (some wait,
+ * a github_token, report_upload not 0, an address: the network just came,
+ * or 15 minutes after a failed try). Cheap: call it every frame of the
+ * menu, where the network is free. */
+int reports_auto_due(void);
 /* What became of the last one ("sent: reports/...", "on the SD card: no
  * network"), for the menu. */
 const char *reports_last(void);

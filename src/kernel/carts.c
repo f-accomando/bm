@@ -29,6 +29,7 @@
 #include "bm/loading.h"
 #include "ledstate.h"
 #include "fiber.h"
+#include "reports.h"
 
 #include <stdarg.h>
 #include <stdio.h>
@@ -271,10 +272,38 @@ static int sd_tick(void)
     return fiber_cancelled();
 }
 
+/* The tests' reports waiting on the SD card go by themselves once the
+ * console is on the network (reports_auto_due), in a fiber, only where
+ * the network is free: Games, Dev and Lib, no panel open (the Market,
+ * Settings and the options of a game use it themselves). */
+static fiber_job_t report_job;
+static int reports_free;                /* the menu is where they may go (carts_menu) */
+static int reports_note;                /* the job ended: its word for the menu's note */
+
+static void reports_main(void *arg)
+{
+    (void)arg;
+    reports_send_pending();
+    if (!fiber_cancelled())
+        reports_note = 1;
+}
+
+static void reports_tick(uint32_t until)
+{
+    if (!report_job.busy &&
+        (!reports_auto_due() || fiber_job_start(&report_job, 128 * 1024, reports_main, NULL) != 0))
+        return;
+    /* the network's waits give the CPU back at once: on until the frame's time is over */
+    while (report_job.busy && (int32_t)(until - timer_ticks()) > 0)
+        fiber_job_run(&report_job, until);
+}
+
 /* the menu's free time in a frame (menu_view_t.idle): the work of the tab
  * shown first */
 static void menu_idle(uint32_t until)
 {
+    if (!reports_free)                  /* before the Market's fiber: one at a time on the network */
+        fiber_job_stop(&report_job);    /* (cancelled: it goes again later) */
     if (cover_tab == TAB_LIB) {
         lib_tick(until);
         covers_tick(until);
@@ -282,6 +311,8 @@ static void menu_idle(uint32_t until)
         covers_tick(until);
         market_tick(until);
     }
+    if (reports_free)
+        reports_tick(until);
 }
 
 /* Before the list changes, an application runs or the card is written:
@@ -291,6 +322,7 @@ static void background_stop(void)
 {
     fiber_job_stop(&cover_job);
     lib_job_stop();
+    fiber_job_stop(&report_job);
 }
 
 static void rescan(void)
@@ -1046,6 +1078,11 @@ void carts_menu(framebuffer_t *fb)
             }
             /* the covers still to read: the tab's, from the selection */
             cover_tab = on_gear ? TAB_SETTINGS : tab;
+            reports_free = !on_gear && !depth && ask == ASK_NONE && tab != TAB_MARKET;
+            if (reports_note) {                 /* the reports sent in the background */
+                reports_note = 0;
+                ksnprintf(last_msg, sizeof last_msg, "report %s", reports_last());
+            }
             cover_sel = (tab == TAB_GAMES || tab == TAB_DEV) && n && idx[tsel[tab]] >= 0 ? idx[tsel[tab]] : -1;
             details[0] = 0;
             if (tab == TAB_MARKET) {
