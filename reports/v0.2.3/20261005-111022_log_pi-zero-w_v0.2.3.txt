@@ -1,0 +1,1420 @@
+bm report
+kind: log
+kernel: v0.2.3
+branch: v0.2.3
+board: Pi Zero W
+date: 2026-10-05 11:10:22
+file: 20261005-111022_log_pi-zero-w_v0.2.3.txt
+
+
+bm kernel v0.2.3 - Raspberry Pi Zero W (BCM2835, revision 9000c1)
+board 9000c1, ARM 1000 MHz, core 250 MHz, RAM 448+64 MiB (ARM+GPU), 42.7 C
+ARM1176 from SVC, MMU+caches on, heap 441 MiB, UART 48000000 Hz
+watchdog: not available, no freeze guard (loaded 196608, after 20 ms 196608)
+IRQ on: timer 1000 Hz (measured 1000 Hz), double buffer on
+audio: HDMI 48 kHz
+usb: if0 class 03/00/00 ep 81 mps 16 every 8ms, report desc 83
+usb: if1 class 03/01/01 ep 82 mps 16 every 8ms, report desc 182 keyboard (report id)
+usb: if2 class 03/00/00 ep 85 mps 64 every 2ms, report desc 27
+usb: keyboard 05ac:0267 'Magic Keyboard', full speed, layout it
+sd: SDHC card (sdhost), FAT32, 7591 MiB, label BOOTFS; 11 cartridges
+config: /bm/config.txt, layout it, .bm drawing direct, volume 10/10
+bt: the serial console moves to the mini UART (same pins, same speed)
+bt: 32 kHz clock already on
+bt: power-cycling the chip (GPIO45)
+bt: firmware patch loaded (121 records, 30049 bytes)
+bt: ready, address b8:27:eb:62:7c:08, HCI 7, LMP subversion 2209, 921600 baud
+bt: paired keyboard fe:06:5e:68:3b:03: press a key on it to connect
+bt: paired mouse df:0e:42:84:a7:2a: move it or click to connect
+bt: paired pad 00:1f:e2:bf:d7:dd (player 1): press its PS button to connect
+
+cartridge menu: arrows or wasd, Enter plays, x options, [ ] or Tab or 1-5 change tab, q returns to the monitor
+(keyboard: Enter, Esc back, C options, Q E or 1-5 tabs, Ctrl+Esc home, Ctrl+Shift+Esc the monitor, hold F12: the keys)
+bm > Report the log
+
+report: nodate-202386_log_pi-zero-w_v0.2.3.txt saved as bm/reports/RPT00005.TXT
+report: on the SD card: no network
+
+A, Esc or any key: back to the menu
+bm > Send the reports
+
+report: on the SD card: no network
+on the SD card: no network; 5 waiting on the SD card
+
+A, Esc or any key: back to the menu
+bm > Connect to a network (B cancels)
+
+wifi: 32 kHz clock already on
+wifi: power on (WL_REG_ON = GPIO41)
+wifi: controller at 400 kHz, base clock (Hz) 0bebc200
+wifi: CMD5 OCR 20ffff00
+wifi: chip ready, functions 00000002
+wifi: CMD3 address 00000001
+wifi: CMD7 selected 00001e00
+wifi: CCCR/SDIO revision 00000032
+wifi: 4-bit bus
+wifi: clock 25 MHz
+wifi: block sizes: function 1 64, function 2 512
+wifi: function 1 ready
+wifi: backplane clock (ALP) on
+wifi: chip 43430 (a9a6) rev 1: BCM43430/43438, ok
+wifi: cores: ARM 18003/18103, RAM 18004/18104, SDIO 18002 (rev 21), D11 18101
+wifi: chip RAM 512 KiB
+wifi: firmware 389 KiB written and checked in 107 ms
+wifi: board settings (NVRAM) 676 bytes
+wifi: chip ARM started
+wifi: fast clock (HT) on
+wifi: function 2 ready
+wifi: firmware: wl0: Jul 19 2021 03:24:18 version 7.45.98 (TOB) (56df937 CY) FWID 01-8e14b897 
+wifi: MAC b8:27:eb:9d:83:f7
+wifi: regulatory data (CLM) 4733 bytes loaded
+wifi: radio up
+wifi: scanning...
+wifi: 5 networks
+   1   -55 dBm  ch  1  WPA2  FASTWEB-36AB12
+   2   -72 dBm  ch  6  WPA2  Wind3 HUB - ED4188
+   3   -83 dBm  ch  1  WPA2  Samsung Fridge_E50AJTRB006V
+   4   -83 dBm  ch  9  WPA2  FASTWEB-325YFF
+   5   -84 dBm  ch  6  WPA2  Wind3 HUB - ED4188_EXT
+wifi: saved network "FASTWEB-36AB12" is in range
+wifi: joining "FASTWEB-36AB12" (WPA2)...
+wifi: associated
+wifi: password accepted, keys set
+wifi: connected to "FASTWEB-36AB12" 
+net: asking for an address (DHCP)...
+net: IP 192.168.1.108 (gateway 192.168.1.254, name bm)
+net: console on port 3333, password ******
+     from the PC: python3 tools/bm_net.py 192.168.1.108
+
+A, Esc or any key: back to the menu
+net: time 2026-10-05 10:23 UTC
+bm > Send the reports
+
+tls: 21 root certificates
+report: sending 20261005-082943_bench3d_pi-zero-w_v0.2.0.txt
+report: sent to f-accomando/bm, branch reports: reports/bm-core/20261005-082943_bench3d_pi-zero-w_v0.2.0.txt
+report: sending 20261005-083036_gpu_pi-zero-w_v0.2.0.txt
+report: sent to f-accomando/bm, branch reports: reports/bm-core/20261005-083036_gpu_pi-zero-w_v0.2.0.txt
+report: sending 20261005-083208_stress_pi-zero-w_v0.2.0.txt
+report: sent to f-accomando/bm, branch reports: reports/bm-core/20261005-083208_stress_pi-zero-w_v0.2.0.txt
+report: sending 20261005-083311_room_pi-zero-w_v0.2.0.txt
+report: sent to f-accomando/bm, branch reports: reports/bm-core/20261005-083311_room_pi-zero-w_v0.2.0.txt
+report: sending nodate-202386_log_pi-zero-w_v0.2.3.txt
+report: sent to f-accomando/bm, branch reports: reports/v0.2.3/nodate-202386_log_pi-zero-w_v0.2.3.txt
+sent: reports/v0.2.3/nodate-202386_log_pi-zero-w_v0.2.3.txt; 0 waiting on the SD card
+
+A, Esc or any key: back to the menu
+
+playing overbit.bm
+gpu3d: vertex shader probe: 0000 0000 0000 0000 (clockwise bit 0)
+gpu3d: zclear() inside a job gave 07e0 07e0 (expected 001f 07e0): a zclear() ends the job
+bm: the 3D is drawn by the GPU as bm3d 2.1 (bm3d 4.2 ready (byte a = red, texels in place, textures in tiles, MSAA on any page, vertex shader no, clipping no, lit models no, queue yes, zclear in job no))
+overbit build b75a1d9
+bm: loaded in 2499 ms, the splash over at 2499 ms
+overbit quality up to 4 (6.8 ms)
+overbit map pt: 96 chunks, 131 boxes
+overbit round 1
+overbit match start: rally
+overbit hyper ring Orbit
+overbit hyper ring Orbit
+overbit quality down to 3 (16.7 ms)
+overbit quality down to 2 (26.2 ms)
+overbit torpedoes Orbit 4
+overbit torpedoes Orbit 4
+overbit disruptor Rail
+overbit disruptor Rail
+overbit quality down to 1 (28.7 ms)
+overbit quality down to 0 (28.3 ms)
+overbit rail Rail 100
+overbit rail Rail 100
+overbit suzu Akari
+overbit rail Rail 100
+overbit rail Rail 100
+overbit barrier broken Kaiju
+overbit quality up to 1 (7.9 ms)
+overbit quality down to 0 (16.0 ms)
+overbit quality up to 1 (5.1 ms)
+bm: screen 640x360
+bm: screen 960x540
+bm: screen 1280x720
+bm: screen 1920x1080
+overbit quality down to 0 (16.1 ms)
+overbit round 1
+overbit match start: rally
+overbit hyper ring Orbit
+overbit hyper ring Orbit
+overbit disruptor Rail
+overbit torpedoes Orbit 4
+overbit torpedoes Orbit 4
+overbit rail Rail 100
+overbit rail Rail 100
+overbit biotic field Sarge
+overbit suzu Akari
+overbit eject You (mech destroyed)
+overbit bench start: 10 phases, renderers gpu aa, screen 1920x1080
+overbit round 1
+overbit match start: rally
+overbit hyper ring Orbit
+overbit hyper ring Orbit
+overbit torpedoes Orbit 4
+overbit torpedoes Orbit 4
+overbit disruptor Rail
+overbit rail Rail 100
+overbit point open
+overbit rail Rail 100
+overbit mine Fuse
+overbit mine Fuse
+overbit mine Fuse
+overbit mine Fuse
+overbit kill Fuse > Frost
+overbit rail Rail 100
+overbit kill Akari > Fuse
+overbit swift step Akari > Rally
+overbit kill Fuse > Akari
+overbit rail Rail 100
+overbit eject Rally (mech destroyed)
+overbit mine Fuse
+overbit torpedoes Orbit 4
+overbit torpedoes Orbit 4
+overbit hyper ring Orbit
+overbit kill Rally > Orbit
+overbit kill Fuse > Rally
+overbit point team 1
+overbit rail Rail 100
+overbit disruptor Rail
+overbit kill Fuse > Frost
+overbit mine Fuse
+overbit suzu Akari
+overbit mine Fuse
+overbit mine Fuse
+overbit suzu Akari
+overbit torpedoes Orbit 4
+overbit torpedoes Orbit 4
+overbit kill Fuse > Akari
+overbit hyper ring Orbit
+overbit kill Rail > Akari
+overbit rail Rail 100
+overbit hyper ring Orbit
+overbit kill Rally > Fuse
+overbit kill Rail > Fuse
+overbit bench GPU MEDIUM match 276656
+overbit bench GPU MEDIUM: 22 fps, 44.9 ms (1% 50.1, worst 51.7, 100% over 16.7), update 7.7, 3D 22.0, 4164 tri (max 4705), 6368 vtx, 0 px, bm3d 2.1
+overbit round 1
+overbit match start: rally
+overbit hyper ring Orbit
+overbit hyper ring Orbit
+overbit torpedoes Orbit 4
+overbit torpedoes Orbit 4
+overbit disruptor Rail
+overbit rail Rail 100
+overbit point open
+overbit rail Rail 100
+overbit mine Fuse
+overbit mine Fuse
+overbit mine Fuse
+overbit mine Fuse
+overbit kill Fuse > Frost
+overbit rail Rail 100
+overbit kill Akari > Fuse
+overbit swift step Akari > Rally
+overbit kill Fuse > Akari
+overbit rail Rail 100
+overbit eject Rally (mech destroyed)
+overbit mine Fuse
+overbit torpedoes Orbit 4
+overbit torpedoes Orbit 4
+overbit hyper ring Orbit
+overbit kill Rally > Orbit
+overbit kill Fuse > Rally
+overbit point team 1
+overbit rail Rail 100
+overbit disruptor Rail
+overbit kill Fuse > Frost
+overbit mine Fuse
+overbit suzu Akari
+overbit mine Fuse
+overbit mine Fuse
+overbit suzu Akari
+overbit torpedoes Orbit 4
+overbit torpedoes Orbit 4
+overbit kill Fuse > Akari
+overbit hyper ring Orbit
+overbit kill Rail > Akari
+overbit rail Rail 100
+overbit hyper ring Orbit
+overbit kill Rally > Fuse
+overbit kill Rail > Fuse
+overbit bench GPU HIGH match 276656
+overbit bench GPU HIGH: 20 fps, 49.9 ms (1% 55.5, worst 57.4, 100% over 16.7), update 8.0, 3D 26.1, 4393 tri (max 4814), 6687 vtx, 0 px, bm3d 2.1
+overbit round 1
+overbit match start: rally
+overbit hyper ring Orbit
+overbit hyper ring Orbit
+overbit torpedoes Orbit 4
+overbit torpedoes Orbit 4
+overbit disruptor Rail
+overbit rail Rail 100
+overbit point open
+overbit rail Rail 100
+overbit mine Fuse
+overbit mine Fuse
+overbit mine Fuse
+overbit mine Fuse
+overbit kill Fuse > Frost
+overbit rail Rail 100
+overbit kill Akari > Fuse
+overbit swift step Akari > Rally
+overbit kill Fuse > Akari
+overbit rail Rail 100
+overbit eject Rally (mech destroyed)
+overbit mine Fuse
+overbit torpedoes Orbit 4
+overbit torpedoes Orbit 4
+overbit hyper ring Orbit
+overbit kill Rally > Orbit
+overbit kill Fuse > Rally
+overbit point team 1
+overbit rail Rail 100
+overbit disruptor Rail
+overbit kill Fuse > Frost
+overbit mine Fuse
+overbit suzu Akari
+overbit mine Fuse
+overbit mine Fuse
+overbit suzu Akari
+overbit torpedoes Orbit 4
+overbit torpedoes Orbit 4
+overbit kill Fuse > Akari
+overbit hyper ring Orbit
+overbit kill Rail > Akari
+overbit rail Rail 100
+overbit hyper ring Orbit
+overbit kill Rally > Fuse
+overbit kill Rail > Fuse
+overbit bench GPU ULTRA match 276656
+overbit bench GPU ULTRA: 19 fps, 54.5 ms (1% 61.6, worst 62.6, 100% over 16.7), update 8.2, 3D 27.8, 4849 tri (max 5738), 7268 vtx, 0 px, bm3d 2.1
+overbit round 1
+overbit match start: rally
+overbit hyper ring Orbit
+overbit hyper ring Orbit
+overbit torpedoes Orbit 4
+overbit torpedoes Orbit 4
+overbit disruptor Rail
+overbit rail Rail 100
+overbit point open
+overbit rail Rail 100
+overbit mine Fuse
+overbit mine Fuse
+overbit mine Fuse
+overbit mine Fuse
+overbit kill Fuse > Frost
+overbit rail Rail 100
+overbit kill Akari > Fuse
+overbit swift step Akari > Rally
+overbit kill Fuse > Akari
+overbit rail Rail 100
+overbit eject Rally (mech destroyed)
+overbit mine Fuse
+overbit torpedoes Orbit 4
+overbit torpedoes Orbit 4
+overbit hyper ring Orbit
+overbit kill Rally > Orbit
+overbit kill Fuse > Rally
+overbit point team 1
+overbit rail Rail 100
+overbit disruptor Rail
+overbit kill Fuse > Frost
+overbit mine Fuse
+overbit suzu Akari
+overbit mine Fuse
+overbit mine Fuse
+overbit suzu Akari
+overbit torpedoes Orbit 4
+overbit torpedoes Orbit 4
+overbit kill Fuse > Akari
+overbit hyper ring Orbit
+overbit kill Rail > Akari
+overbit rail Rail 100
+overbit hyper ring Orbit
+overbit kill Rally > Fuse
+overbit kill Rail > Fuse
+overbit bench GPU EXTREME match 276656
+overbit bench GPU EXTREME: 18 fps, 56.5 ms (1% 63.2, worst 64.2, 100% over 16.7), update 8.2, 3D 29.3, 5244 tri (max 5776), 7781 vtx, 0 px, bm3d 2.1
+overbit round 1
+overbit match start: rally
+overbit hyper ring Orbit
+overbit hyper ring Orbit
+overbit torpedoes Orbit 4
+overbit torpedoes Orbit 4
+overbit disruptor Rail
+overbit rail Rail 100
+overbit point open
+overbit rail Rail 100
+overbit mine Fuse
+overbit mine Fuse
+overbit mine Fuse
+overbit mine Fuse
+overbit kill Fuse > Frost
+overbit rail Rail 100
+overbit kill Akari > Fuse
+overbit swift step Akari > Rally
+overbit kill Fuse > Akari
+overbit rail Rail 100
+overbit eject Rally (mech destroyed)
+overbit mine Fuse
+overbit torpedoes Orbit 4
+overbit torpedoes Orbit 4
+overbit hyper ring Orbit
+overbit kill Rally > Orbit
+overbit kill Fuse > Rally
+overbit point team 1
+overbit rail Rail 100
+overbit disruptor Rail
+overbit kill Fuse > Frost
+overbit mine Fuse
+overbit suzu Akari
+overbit mine Fuse
+overbit mine Fuse
+overbit suzu Akari
+overbit torpedoes Orbit 4
+overbit torpedoes Orbit 4
+overbit kill Fuse > Akari
+overbit hyper ring Orbit
+overbit kill Rail > Akari
+overbit rail Rail 100
+overbit hyper ring Orbit
+overbit kill Rally > Fuse
+overbit kill Rail > Fuse
+overbit bench GPU+AA MEDIUM match 276656
+overbit bench GPU+AA MEDIUM: 20 fps, 50.1 ms (1% 55.6, worst 56.5, 100% over 16.7), update 7.7, 3D 22.9, 4164 tri (max 4705), 6368 vtx, 0 px, bm3d 2.1
+overbit round 1
+overbit match start: rally
+overbit hyper ring Orbit
+overbit hyper ring Orbit
+overbit torpedoes Orbit 4
+overbit torpedoes Orbit 4
+overbit disruptor Rail
+overbit rail Rail 100
+overbit point open
+overbit rail Rail 100
+overbit mine Fuse
+overbit mine Fuse
+overbit mine Fuse
+overbit mine Fuse
+overbit kill Fuse > Frost
+overbit rail Rail 100
+overbit kill Akari > Fuse
+overbit swift step Akari > Rally
+overbit kill Fuse > Akari
+overbit rail Rail 100
+overbit eject Rally (mech destroyed)
+overbit mine Fuse
+overbit torpedoes Orbit 4
+overbit torpedoes Orbit 4
+overbit hyper ring Orbit
+overbit kill Rally > Orbit
+overbit kill Fuse > Rally
+overbit point team 1
+overbit rail Rail 100
+overbit disruptor Rail
+overbit kill Fuse > Frost
+overbit mine Fuse
+overbit suzu Akari
+overbit mine Fuse
+overbit mine Fuse
+overbit suzu Akari
+overbit torpedoes Orbit 4
+overbit torpedoes Orbit 4
+overbit kill Fuse > Akari
+overbit hyper ring Orbit
+overbit kill Rail > Akari
+overbit rail Rail 100
+overbit hyper ring Orbit
+overbit kill Rally > Fuse
+overbit kill Rail > Fuse
+overbit bench GPU+AA HIGH match 276656
+overbit bench GPU+AA HIGH: 18 fps, 55.1 ms (1% 60.8, worst 62.1, 100% over 16.7), update 8.0, 3D 26.9, 4393 tri (max 4814), 6687 vtx, 0 px, bm3d 2.1
+overbit round 1
+overbit match start: rally
+overbit hyper ring Orbit
+overbit hyper ring Orbit
+overbit torpedoes Orbit 4
+overbit torpedoes Orbit 4
+overbit disruptor Rail
+overbit rail Rail 100
+overbit point open
+overbit rail Rail 100
+overbit mine Fuse
+overbit mine Fuse
+overbit mine Fuse
+overbit mine Fuse
+overbit kill Fuse > Frost
+overbit rail Rail 100
+overbit kill Akari > Fuse
+overbit swift step Akari > Rally
+overbit kill Fuse > Akari
+overbit rail Rail 100
+overbit eject Rally (mech destroyed)
+overbit mine Fuse
+overbit torpedoes Orbit 4
+overbit torpedoes Orbit 4
+overbit hyper ring Orbit
+overbit kill Rally > Orbit
+overbit kill Fuse > Rally
+overbit point team 1
+overbit rail Rail 100
+overbit disruptor Rail
+overbit kill Fuse > Frost
+overbit mine Fuse
+overbit suzu Akari
+overbit mine Fuse
+overbit mine Fuse
+overbit suzu Akari
+overbit torpedoes Orbit 4
+overbit torpedoes Orbit 4
+overbit kill Fuse > Akari
+overbit hyper ring Orbit
+overbit kill Rail > Akari
+overbit rail Rail 100
+overbit hyper ring Orbit
+overbit kill Rally > Fuse
+overbit kill Rail > Fuse
+overbit bench GPU+AA ULTRA match 276656
+overbit bench GPU+AA ULTRA: 18 fps, 57.4 ms (1% 64.8, worst 66.8, 100% over 16.7), update 8.2, 3D 28.7, 4849 tri (max 5738), 7268 vtx, 0 px, bm3d 2.1
+overbit round 1
+overbit match start: rally
+overbit hyper ring Orbit
+overbit hyper ring Orbit
+overbit torpedoes Orbit 4
+overbit torpedoes Orbit 4
+overbit disruptor Rail
+overbit rail Rail 100
+overbit point open
+overbit rail Rail 100
+overbit mine Fuse
+overbit mine Fuse
+overbit mine Fuse
+overbit mine Fuse
+overbit kill Fuse > Frost
+overbit rail Rail 100
+overbit kill Akari > Fuse
+overbit swift step Akari > Rally
+overbit kill Fuse > Akari
+overbit rail Rail 100
+overbit eject Rally (mech destroyed)
+overbit mine Fuse
+overbit torpedoes Orbit 4
+overbit torpedoes Orbit 4
+overbit hyper ring Orbit
+overbit kill Rally > Orbit
+overbit kill Fuse > Rally
+overbit point team 1
+overbit rail Rail 100
+overbit disruptor Rail
+overbit kill Fuse > Frost
+overbit mine Fuse
+overbit suzu Akari
+overbit mine Fuse
+overbit mine Fuse
+overbit suzu Akari
+overbit torpedoes Orbit 4
+overbit torpedoes Orbit 4
+overbit kill Fuse > Akari
+overbit hyper ring Orbit
+overbit kill Rail > Akari
+overbit rail Rail 100
+overbit hyper ring Orbit
+overbit kill Rally > Fuse
+overbit kill Rail > Fuse
+overbit bench GPU+AA EXTREME match 276656
+overbit bench GPU+AA EXTREME: 17 fps, 59.0 ms (1% 66.5, worst 67.9, 100% over 16.7), update 8.1, 3D 30.2, 5244 tri (max 5776), 7781 vtx, 0 px, bm3d 2.1
+overbit bench ring GPU  1 heroes: 14.8 ms, 3D 3.5, 664 tri
+overbit bench ring GPU  2 heroes: 18.4 ms, 3D 6.2, 1376 tri
+overbit bench ring GPU  3 heroes: 19.0 ms, 3D 6.4, 1281 tri
+overbit bench ring GPU  4 heroes: 22.3 ms, 3D 9.1, 2042 tri
+overbit eject Camera (mech destroyed)
+overbit bench ring GPU  5 heroes: 26.5 ms, 3D 11.9, 2752 tri
+overbit kill H3 > Camera
+overbit bench ring GPU  6 heroes: 26.8 ms, 3D 12.0, 2572 tri
+overbit bench ring GPU  8 heroes: 30.4 ms, 3D 14.5, 3110 tri
+overbit bench ring GPU 10 heroes: 37.9 ms, 3D 20.5, 4723 tri
+overbit bench ring GPU: 1 heroes at 60 fps, 8 at 30 fps
+overbit bench ring GPU+AA  1 heroes: 15.6 ms, 3D 3.5, 666 tri
+overbit bench ring GPU+AA  2 heroes: 19.7 ms, 3D 6.3, 1375 tri
+overbit bench ring GPU+AA  3 heroes: 17.6 ms, 3D 6.4, 1285 tri
+overbit bench ring GPU+AA  4 heroes: 21.6 ms, 3D 9.3, 2051 tri
+overbit bench ring GPU+AA  5 heroes: 25.1 ms, 3D 12.0, 2770 tri
+overbit bench ring GPU+AA  6 heroes: 25.8 ms, 3D 12.0, 2591 tri
+overbit bench ring GPU+AA  8 heroes: 29.4 ms, 3D 14.5, 3106 tri
+overbit bench ring GPU+AA 10 heroes: 37.1 ms, 3D 20.5, 4727 tri
+overbit bench ring GPU+AA: 1 heroes at 60 fps, 8 at 30 fps
+overbit bench best GPU: none at 60 fps
+overbit bench best GPU+AA: none at 60 fps
+overbit bench done
+report: 20261005-103133_overbit-bench_pi-zero-w_v0.2.3.txt saved as bm/reports/RPT00001.TXT
+report: sending 20261005-103133_overbit-bench_pi-zero-w_v0.2.3.txt
+report: sent to f-accomando/bm, branch reports: reports/v0.2.3/20261005-103133_overbit-bench_pi-zero-w_v0.2.3.txt
+overbit bench start: 10 phases, renderers gpu aa, screen 1920x1080
+overbit round 1
+overbit match start: rally
+overbit hyper ring Orbit
+overbit hyper ring Orbit
+overbit torpedoes Orbit 4
+overbit torpedoes Orbit 4
+overbit disruptor Rail
+overbit rail Rail 100
+overbit point open
+overbit rail Rail 100
+overbit mine Fuse
+overbit mine Fuse
+bm: "Overbit" suspended (A on its cover resumes it)
+bm: "Overbit" 12758 frames, 25.6 fps, 7260 dropped
+     update+draw avg 36.84 ms (221% of frame), max 2215.14 ms, Lua 1545 KiB
+     dev kit: Lua peak 1932 KiB, data 9100 KiB, busiest frame 1754k instructions, 9131 frames over 16.7 ms, 67611 tokens
+     GPU 3D 15351 jobs, 3608 triangles a frame, 9.80 ms a frame (bin 7%), max job 16030 us
+market: nearby consoles: listening as bm-108
+market: https://f-accomando.github.io/bm-market/, no catalog saved, no key
+
+resuming overbit.bm
+bm: "Overbit" resumed
+overbit mine Fuse
+overbit mine Fuse
+overbit kill Fuse > Frost
+overbit rail Rail 100
+overbit kill Akari > Fuse
+overbit swift step Akari > Rally
+overbit kill Fuse > Akari
+overbit rail Rail 100
+overbit eject Rally (mech destroyed)
+overbit mine Fuse
+overbit torpedoes Orbit 4
+overbit torpedoes Orbit 4
+overbit hyper ring Orbit
+overbit kill Rally > Orbit
+overbit kill Fuse > Rally
+overbit point team 1
+bm: screen 1280x720
+bm: screen 960x540
+bm: screen 640x360
+bm: screen 480x270
+overbit quality up to 1 (8.1 ms)
+overbit quality up to 2 (8.4 ms)
+overbit quality up to 3 (10.6 ms)
+overbit quality up to 4 (10.7 ms)
+overbit round 1
+overbit match start: rally
+overbit quality down to 3 (16.7 ms)
+overbit hyper ring Orbit
+overbit hyper ring Orbit
+overbit quality down to 2 (28.4 ms)
+overbit quality down to 1 (25.5 ms)
+overbit disruptor Rail
+overbit torpedoes Orbit 4
+overbit torpedoes Orbit 4
+overbit quality down to 0 (24.7 ms)
+overbit rail Rail 100
+overbit quality up to 1 (7.2 ms)
+overbit quality up to 2 (8.2 ms)
+overbit quality up to 3 (10.8 ms)
+overbit quality up to 4 (10.6 ms)
+overbit round 1
+overbit match start: rally
+overbit quality down to 3 (16.7 ms)
+overbit hyper ring Orbit
+overbit hyper ring Orbit
+overbit quality down to 2 (27.6 ms)
+overbit quality down to 1 (27.7 ms)
+overbit torpedoes Orbit 4
+overbit torpedoes Orbit 4
+overbit quality down to 0 (31.3 ms)
+overbit suzu Akari
+overbit quality up to 1 (7.9 ms)
+bm: screen 640x360
+bm: screen 960x540
+overbit quality down to 0 (20.1 ms)
+overbit resolution 640x360 (the ARM draws)
+bm: screen 640x360
+overbit quality up to 1 (9.4 ms)
+overbit quality down to 0 (16.8 ms)
+bm: screen 960x540
+overbit round 1
+overbit match start: rally
+overbit hyper ring Orbit
+overbit hyper ring Orbit
+overbit disruptor Rail
+overbit torpedoes Orbit 4
+overbit torpedoes Orbit 4
+overbit disruptor Rail
+overbit suzu Akari
+overbit rail Rail 100
+overbit rail Rail 100
+overbit rail Rail 100
+overbit rail Rail 100
+overbit rail Rail 100
+overbit barrier broken Kaiju
+overbit eject You (mech destroyed)
+overbit round 1
+overbit match start: rally
+overbit hyper ring Orbit
+overbit hyper ring Orbit
+overbit torpedoes Orbit 4
+overbit torpedoes Orbit 4
+overbit disruptor Rail
+overbit suzu Akari
+overbit biotic field Sarge
+overbit suzu Akari
+overbit rail Rail 100
+overbit biotic field Sarge
+overbit rail Rail 115
+overbit kill Rail > Sarge
+overbit rail Rail 100
+bm: "Overbit" suspended (A on its cover resumes it)
+bm: "Overbit" 21929 frames, 111.7 fps, 1960 dropped
+     update+draw avg 6.96 ms (41% of frame), max 389.75 ms, Lua 1711 KiB
+     dev kit: Lua peak 1932 KiB, data 6063 KiB, busiest frame 1754k instructions, 11990 frames over 16.7 ms, 67611 tokens
+     GPU 3D 9966 jobs, 1060 triangles a frame, 0.82 ms a frame (bin 18%), max job 11363 us
+
+resuming overbit.bm
+bm: "Overbit" resumed
+bm: screen 640x360
+overbit round 1
+overbit match start: rally
+overbit hyper ring Orbit
+overbit hyper ring Orbit
+overbit torpedoes Orbit 4
+overbit torpedoes Orbit 4
+overbit disruptor Rail
+overbit rail Rail 100
+overbit suzu Akari
+overbit rail Rail 100
+overbit eject You (mech destroyed)
+overbit hyper ring Orbit
+overbit torpedoes Orbit 4
+overbit torpedoes Orbit 4
+overbit hyper ring Orbit
+overbit disruptor Rail
+overbit rail Rail 100
+overbit suzu Akari
+overbit biotic field Sarge
+overbit point open
+overbit tactical visor Sarge
+overbit mine Fuse
+overbit barrier broken Kaiju
+overbit eject Kaiju (mech destroyed)
+overbit mine Fuse
+overbit swift step Akari > Kaiju
+overbit kill Sarge > Akari
+overbit rail Rail 100
+overbit kill Sarge > Orbit
+overbit cryo-freeze Frost
+overbit kill Sarge > Frost
+overbit rail Rail 100
+overbit kill Sarge > Kaiju
+overbit suzu Akari
+overbit kill Sarge > Rail
+overbit torpedoes Orbit 1
+overbit point team 1
+overbit pit stop You
+overbit hyper ring Orbit
+overbit hyper ring Orbit
+overbit torpedoes Orbit 4
+overbit kill Sarge > Akari
+overbit disruptor Rail
+overbit torpedoes Orbit 4
+overbit swift step Akari > Orbit
+overbit biotic field Sarge
+overbit rail Rail 100
+overbit suzu Akari
+overbit tactical visor Sarge
+overbit cryo-freeze Frost
+overbit mine Fuse
+overbit mine Fuse
+overbit rail Rail 100
+overbit kitsune rush Akari
+overbit ice wall Frost
+overbit kill Fuse > Frost
+bm: "Overbit" suspended (A on its cover resumes it)
+bm: "Overbit" 25487 frames, 250.2 fps, 2121 dropped
+     update+draw avg 3.73 ms (22% of frame), max 175.15 ms, Lua 1218 KiB
+     dev kit: Lua peak 2014 KiB, data 5500 KiB, busiest frame 1754k instructions, 14643 frames over 16.7 ms, 67611 tokens
+     GPU 3D 6262 jobs, 740 triangles a frame, 0.47 ms a frame (bin 22%), max job 4536 us
+
+resuming overbit.bm
+bm: "Overbit" resumed
+overbit bench start: 15 phases, renderers arm gpu aa, screen 640x360
+overbit round 1
+overbit match start: rally
+overbit hyper ring Orbit
+overbit hyper ring Orbit
+overbit torpedoes Orbit 4
+overbit torpedoes Orbit 4
+overbit disruptor Rail
+overbit rail Rail 100
+overbit point open
+overbit rail Rail 100
+overbit mine Fuse
+overbit mine Fuse
+overbit mine Fuse
+overbit mine Fuse
+overbit kill Fuse > Frost
+overbit rail Rail 100
+overbit kill Akari > Fuse
+overbit swift step Akari > Rally
+overbit kill Fuse > Akari
+overbit rail Rail 100
+overbit eject Rally (mech destroyed)
+overbit mine Fuse
+bm: screen 960x540
+bm: screen 640x360
+bm: screen 480x270
+overbit bench start: 15 phases, renderers arm gpu aa, screen 480x270
+overbit round 1
+overbit match start: rally
+overbit hyper ring Orbit
+overbit hyper ring Orbit
+overbit torpedoes Orbit 4
+overbit torpedoes Orbit 4
+overbit disruptor Rail
+overbit rail Rail 100
+overbit point open
+overbit rail Rail 100
+overbit mine Fuse
+overbit mine Fuse
+overbit mine Fuse
+overbit mine Fuse
+overbit kill Fuse > Frost
+overbit rail Rail 100
+overbit kill Akari > Fuse
+overbit swift step Akari > Rally
+overbit kill Fuse > Akari
+overbit rail Rail 100
+overbit eject Rally (mech destroyed)
+overbit mine Fuse
+overbit torpedoes Orbit 4
+overbit torpedoes Orbit 4
+overbit hyper ring Orbit
+overbit kill Rally > Orbit
+overbit kill Fuse > Rally
+overbit point team 1
+overbit rail Rail 100
+overbit disruptor Rail
+overbit kill Fuse > Frost
+overbit mine Fuse
+overbit suzu Akari
+overbit mine Fuse
+overbit mine Fuse
+overbit suzu Akari
+overbit torpedoes Orbit 4
+overbit torpedoes Orbit 4
+overbit kill Fuse > Akari
+overbit hyper ring Orbit
+overbit kill Rail > Akari
+overbit rail Rail 100
+overbit hyper ring Orbit
+overbit kill Rally > Fuse
+overbit kill Rail > Fuse
+overbit bench ARM MEDIUM match 276656
+overbit bench ARM MEDIUM: 22 fps, 46.3 ms (1% 53.0, worst 54.1, 100% over 16.7), update 7.4, 3D 34.0, 4346 tri (max 4758), 6575 vtx, 265708 px, bm3d 0.2
+overbit round 1
+overbit match start: rally
+overbit hyper ring Orbit
+overbit hyper ring Orbit
+overbit torpedoes Orbit 4
+overbit torpedoes Orbit 4
+overbit disruptor Rail
+overbit rail Rail 100
+overbit point open
+overbit rail Rail 100
+overbit mine Fuse
+overbit mine Fuse
+overbit mine Fuse
+overbit mine Fuse
+overbit kill Fuse > Frost
+overbit rail Rail 100
+overbit kill Akari > Fuse
+overbit swift step Akari > Rally
+overbit kill Fuse > Akari
+overbit rail Rail 100
+overbit eject Rally (mech destroyed)
+overbit mine Fuse
+overbit torpedoes Orbit 4
+overbit torpedoes Orbit 4
+overbit hyper ring Orbit
+overbit kill Rally > Orbit
+overbit kill Fuse > Rally
+overbit point team 1
+overbit rail Rail 100
+overbit disruptor Rail
+overbit kill Fuse > Frost
+overbit mine Fuse
+overbit suzu Akari
+overbit mine Fuse
+overbit mine Fuse
+overbit suzu Akari
+overbit torpedoes Orbit 4
+overbit torpedoes Orbit 4
+overbit kill Fuse > Akari
+overbit hyper ring Orbit
+overbit kill Rail > Akari
+overbit rail Rail 100
+overbit hyper ring Orbit
+overbit kill Rally > Fuse
+overbit kill Rail > Fuse
+overbit bench ARM HIGH match 276656
+overbit bench ARM HIGH: 20 fps, 50.2 ms (1% 58.0, worst 59.0, 100% over 16.7), update 7.7, 3D 37.3, 5086 tri (max 5710), 7528 vtx, 266060 px, bm3d 0.2
+overbit round 1
+overbit match start: rally
+overbit hyper ring Orbit
+overbit hyper ring Orbit
+overbit torpedoes Orbit 4
+overbit torpedoes Orbit 4
+overbit disruptor Rail
+overbit rail Rail 100
+overbit point open
+overbit rail Rail 100
+overbit mine Fuse
+overbit mine Fuse
+overbit mine Fuse
+overbit mine Fuse
+overbit kill Fuse > Frost
+overbit rail Rail 100
+overbit kill Akari > Fuse
+overbit swift step Akari > Rally
+overbit kill Fuse > Akari
+overbit rail Rail 100
+overbit eject Rally (mech destroyed)
+overbit mine Fuse
+overbit torpedoes Orbit 4
+overbit torpedoes Orbit 4
+overbit hyper ring Orbit
+overbit kill Rally > Orbit
+overbit kill Fuse > Rally
+overbit point team 1
+overbit rail Rail 100
+overbit disruptor Rail
+overbit kill Fuse > Frost
+overbit mine Fuse
+overbit suzu Akari
+overbit mine Fuse
+overbit mine Fuse
+overbit suzu Akari
+overbit torpedoes Orbit 4
+overbit torpedoes Orbit 4
+overbit kill Fuse > Akari
+overbit hyper ring Orbit
+overbit kill Rail > Akari
+overbit rail Rail 100
+overbit hyper ring Orbit
+overbit kill Rally > Fuse
+overbit kill Rail > Fuse
+overbit bench ARM ULTRA match 276656
+overbit bench ARM ULTRA: 19 fps, 54.2 ms (1% 59.9, worst 61.8, 100% over 16.7), update 7.8, 3D 40.9, 5413 tri (max 6487), 7956 vtx, 267053 px, bm3d 0.2
+overbit round 1
+overbit match start: rally
+overbit hyper ring Orbit
+overbit hyper ring Orbit
+overbit torpedoes Orbit 4
+overbit torpedoes Orbit 4
+overbit disruptor Rail
+overbit rail Rail 100
+overbit point open
+overbit rail Rail 100
+overbit mine Fuse
+overbit mine Fuse
+overbit mine Fuse
+overbit mine Fuse
+overbit kill Fuse > Frost
+overbit rail Rail 100
+overbit kill Akari > Fuse
+overbit swift step Akari > Rally
+overbit kill Fuse > Akari
+overbit rail Rail 100
+overbit eject Rally (mech destroyed)
+overbit mine Fuse
+overbit torpedoes Orbit 4
+overbit torpedoes Orbit 4
+overbit hyper ring Orbit
+overbit kill Rally > Orbit
+overbit kill Fuse > Rally
+overbit point team 1
+overbit rail Rail 100
+overbit disruptor Rail
+overbit kill Fuse > Frost
+overbit mine Fuse
+overbit suzu Akari
+overbit mine Fuse
+overbit mine Fuse
+overbit suzu Akari
+overbit torpedoes Orbit 4
+overbit torpedoes Orbit 4
+overbit kill Fuse > Akari
+overbit hyper ring Orbit
+overbit kill Rail > Akari
+overbit rail Rail 100
+overbit hyper ring Orbit
+overbit kill Rally > Fuse
+overbit kill Rail > Fuse
+overbit bench ARM EXTREME match 276656
+overbit bench ARM EXTREME: 18 fps, 57.5 ms (1% 65.9, worst 74.9, 100% over 16.7), update 7.8, 3D 44.2, 6365 tri (max 7230), 8927 vtx, 267105 px, bm3d 0.2
+overbit round 1
+overbit match start: rally
+overbit hyper ring Orbit
+overbit hyper ring Orbit
+overbit torpedoes Orbit 4
+overbit torpedoes Orbit 4
+overbit disruptor Rail
+overbit rail Rail 100
+overbit point open
+overbit rail Rail 100
+overbit mine Fuse
+overbit mine Fuse
+overbit mine Fuse
+overbit mine Fuse
+overbit kill Fuse > Frost
+overbit rail Rail 100
+overbit kill Akari > Fuse
+overbit swift step Akari > Rally
+overbit kill Fuse > Akari
+overbit rail Rail 100
+overbit eject Rally (mech destroyed)
+overbit mine Fuse
+overbit torpedoes Orbit 4
+overbit torpedoes Orbit 4
+overbit hyper ring Orbit
+overbit kill Rally > Orbit
+overbit kill Fuse > Rally
+overbit point team 1
+overbit rail Rail 100
+overbit disruptor Rail
+overbit kill Fuse > Frost
+overbit mine Fuse
+overbit suzu Akari
+overbit mine Fuse
+overbit mine Fuse
+overbit suzu Akari
+overbit torpedoes Orbit 4
+overbit torpedoes Orbit 4
+overbit kill Fuse > Akari
+overbit hyper ring Orbit
+overbit kill Rail > Akari
+overbit rail Rail 100
+overbit hyper ring Orbit
+overbit kill Rally > Fuse
+overbit kill Rail > Fuse
+overbit bench GPU MEDIUM match 276656
+overbit bench GPU MEDIUM: 35 fps, 28.2 ms (1% 35.2, worst 37.0, 100% over 16.7), update 7.4, 3D 15.4, 4164 tri (max 4705), 6368 vtx, 0 px, bm3d 2.1
+overbit round 1
+overbit match start: rally
+overbit hyper ring Orbit
+overbit hyper ring Orbit
+overbit torpedoes Orbit 4
+overbit torpedoes Orbit 4
+overbit disruptor Rail
+overbit rail Rail 100
+overbit point open
+overbit rail Rail 100
+overbit mine Fuse
+overbit mine Fuse
+overbit mine Fuse
+overbit mine Fuse
+overbit kill Fuse > Frost
+overbit rail Rail 100
+overbit kill Akari > Fuse
+overbit swift step Akari > Rally
+overbit kill Fuse > Akari
+overbit rail Rail 100
+overbit eject Rally (mech destroyed)
+overbit mine Fuse
+overbit torpedoes Orbit 4
+overbit torpedoes Orbit 4
+overbit hyper ring Orbit
+overbit kill Rally > Orbit
+overbit kill Fuse > Rally
+overbit point team 1
+overbit rail Rail 100
+overbit disruptor Rail
+overbit kill Fuse > Frost
+overbit mine Fuse
+overbit suzu Akari
+overbit mine Fuse
+overbit mine Fuse
+overbit suzu Akari
+overbit torpedoes Orbit 4
+overbit torpedoes Orbit 4
+overbit kill Fuse > Akari
+overbit hyper ring Orbit
+overbit kill Rail > Akari
+overbit rail Rail 100
+overbit hyper ring Orbit
+overbit kill Rally > Fuse
+overbit kill Rail > Fuse
+overbit bench GPU HIGH match 276656
+overbit bench GPU HIGH: 30 fps, 32.8 ms (1% 40.2, worst 41.6, 100% over 16.7), update 7.6, 3D 19.1, 4393 tri (max 4814), 6687 vtx, 0 px, bm3d 2.1
+overbit round 1
+overbit match start: rally
+overbit hyper ring Orbit
+overbit hyper ring Orbit
+overbit torpedoes Orbit 4
+overbit torpedoes Orbit 4
+overbit disruptor Rail
+overbit rail Rail 100
+overbit point open
+overbit rail Rail 100
+overbit mine Fuse
+overbit mine Fuse
+overbit mine Fuse
+overbit mine Fuse
+overbit kill Fuse > Frost
+overbit rail Rail 100
+overbit kill Akari > Fuse
+overbit swift step Akari > Rally
+overbit kill Fuse > Akari
+overbit rail Rail 100
+overbit eject Rally (mech destroyed)
+overbit mine Fuse
+overbit torpedoes Orbit 4
+overbit torpedoes Orbit 4
+overbit hyper ring Orbit
+overbit kill Rally > Orbit
+overbit kill Fuse > Rally
+overbit point team 1
+overbit rail Rail 100
+overbit disruptor Rail
+overbit kill Fuse > Frost
+overbit mine Fuse
+overbit suzu Akari
+overbit mine Fuse
+overbit mine Fuse
+overbit suzu Akari
+overbit torpedoes Orbit 4
+overbit torpedoes Orbit 4
+overbit kill Fuse > Akari
+overbit hyper ring Orbit
+overbit kill Rail > Akari
+overbit rail Rail 100
+overbit hyper ring Orbit
+overbit kill Rally > Fuse
+overbit kill Rail > Fuse
+overbit bench GPU ULTRA match 276656
+overbit bench GPU ULTRA: 29 fps, 34.7 ms (1% 42.1, worst 43.5, 100% over 16.7), update 7.8, 3D 20.6, 4849 tri (max 5738), 7268 vtx, 0 px, bm3d 2.1
+overbit round 1
+overbit match start: rally
+overbit hyper ring Orbit
+overbit hyper ring Orbit
+overbit torpedoes Orbit 4
+overbit torpedoes Orbit 4
+overbit disruptor Rail
+overbit rail Rail 100
+overbit point open
+overbit rail Rail 100
+overbit mine Fuse
+overbit mine Fuse
+overbit mine Fuse
+overbit mine Fuse
+overbit kill Fuse > Frost
+overbit rail Rail 100
+overbit kill Akari > Fuse
+overbit swift step Akari > Rally
+overbit kill Fuse > Akari
+overbit rail Rail 100
+overbit eject Rally (mech destroyed)
+overbit mine Fuse
+overbit torpedoes Orbit 4
+overbit torpedoes Orbit 4
+overbit hyper ring Orbit
+overbit kill Rally > Orbit
+overbit kill Fuse > Rally
+overbit point team 1
+overbit rail Rail 100
+overbit disruptor Rail
+overbit kill Fuse > Frost
+overbit mine Fuse
+overbit suzu Akari
+overbit mine Fuse
+overbit mine Fuse
+overbit suzu Akari
+overbit torpedoes Orbit 4
+overbit torpedoes Orbit 4
+overbit kill Fuse > Akari
+overbit hyper ring Orbit
+overbit kill Rail > Akari
+overbit rail Rail 100
+overbit hyper ring Orbit
+overbit kill Rally > Fuse
+overbit kill Rail > Fuse
+overbit bench GPU EXTREME match 276656
+overbit bench GPU EXTREME: 28 fps, 36.1 ms (1% 43.0, worst 44.3, 100% over 16.7), update 7.7, 3D 22.0, 5244 tri (max 5776), 7781 vtx, 0 px, bm3d 2.1
+overbit round 1
+overbit match start: rally
+overbit hyper ring Orbit
+overbit hyper ring Orbit
+overbit torpedoes Orbit 4
+overbit torpedoes Orbit 4
+overbit disruptor Rail
+overbit rail Rail 100
+overbit point open
+overbit rail Rail 100
+overbit mine Fuse
+overbit mine Fuse
+overbit mine Fuse
+overbit mine Fuse
+overbit kill Fuse > Frost
+overbit rail Rail 100
+overbit kill Akari > Fuse
+overbit swift step Akari > Rally
+overbit kill Fuse > Akari
+overbit rail Rail 100
+overbit eject Rally (mech destroyed)
+overbit mine Fuse
+overbit torpedoes Orbit 4
+overbit torpedoes Orbit 4
+overbit hyper ring Orbit
+overbit kill Rally > Orbit
+overbit kill Fuse > Rally
+overbit point team 1
+overbit rail Rail 100
+overbit disruptor Rail
+overbit kill Fuse > Frost
+overbit mine Fuse
+overbit suzu Akari
+overbit mine Fuse
+overbit mine Fuse
+overbit suzu Akari
+overbit torpedoes Orbit 4
+overbit torpedoes Orbit 4
+overbit kill Fuse > Akari
+overbit hyper ring Orbit
+overbit kill Rail > Akari
+overbit rail Rail 100
+overbit hyper ring Orbit
+overbit kill Rally > Fuse
+overbit kill Rail > Fuse
+overbit bench GPU+AA MEDIUM match 276656
+overbit bench GPU+AA MEDIUM: 34 fps, 28.5 ms (1% 35.6, worst 37.3, 100% over 16.7), update 7.3, 3D 15.6, 4164 tri (max 4705), 6368 vtx, 0 px, bm3d 2.1
+overbit round 1
+overbit match start: rally
+overbit hyper ring Orbit
+overbit hyper ring Orbit
+overbit torpedoes Orbit 4
+overbit torpedoes Orbit 4
+overbit disruptor Rail
+overbit rail Rail 100
+overbit point open
+overbit rail Rail 100
+overbit mine Fuse
+overbit mine Fuse
+overbit mine Fuse
+overbit mine Fuse
+overbit kill Fuse > Frost
+overbit rail Rail 100
+overbit kill Akari > Fuse
+overbit swift step Akari > Rally
+overbit kill Fuse > Akari
+overbit rail Rail 100
+overbit eject Rally (mech destroyed)
+overbit mine Fuse
+overbit torpedoes Orbit 4
+overbit torpedoes Orbit 4
+overbit hyper ring Orbit
+overbit kill Rally > Orbit
+overbit kill Fuse > Rally
+overbit point team 1
+overbit rail Rail 100
+overbit disruptor Rail
+overbit kill Fuse > Frost
+overbit mine Fuse
+overbit suzu Akari
+overbit mine Fuse
+overbit mine Fuse
+overbit suzu Akari
+overbit torpedoes Orbit 4
+overbit torpedoes Orbit 4
+overbit kill Fuse > Akari
+overbit hyper ring Orbit
+overbit kill Rail > Akari
+overbit rail Rail 100
+overbit hyper ring Orbit
+overbit kill Rally > Fuse
+overbit kill Rail > Fuse
+overbit bench GPU+AA HIGH match 276656
+overbit bench GPU+AA HIGH: 30 fps, 33.2 ms (1% 40.4, worst 44.0, 100% over 16.7), update 7.6, 3D 19.4, 4393 tri (max 4814), 6687 vtx, 0 px, bm3d 2.1
+overbit round 1
+overbit match start: rally
+overbit hyper ring Orbit
+overbit hyper ring Orbit
+overbit torpedoes Orbit 4
+overbit torpedoes Orbit 4
+overbit disruptor Rail
+overbit rail Rail 100
+overbit point open
+overbit rail Rail 100
+overbit mine Fuse
+overbit mine Fuse
+overbit mine Fuse
+overbit mine Fuse
+overbit kill Fuse > Frost
+overbit rail Rail 100
+overbit kill Akari > Fuse
+overbit swift step Akari > Rally
+overbit kill Fuse > Akari
+overbit rail Rail 100
+overbit eject Rally (mech destroyed)
+overbit mine Fuse
+overbit torpedoes Orbit 4
+overbit torpedoes Orbit 4
+overbit hyper ring Orbit
+overbit kill Rally > Orbit
+overbit kill Fuse > Rally
+overbit point team 1
+overbit rail Rail 100
+overbit disruptor Rail
+overbit kill Fuse > Frost
+overbit mine Fuse
+overbit suzu Akari
+overbit mine Fuse
+overbit mine Fuse
+overbit suzu Akari
+overbit torpedoes Orbit 4
+overbit torpedoes Orbit 4
+overbit kill Fuse > Akari
+overbit hyper ring Orbit
+overbit kill Rail > Akari
+overbit rail Rail 100
+overbit hyper ring Orbit
+overbit kill Rally > Fuse
+overbit kill Rail > Fuse
+overbit bench GPU+AA ULTRA match 276656
+overbit bench GPU+AA ULTRA: 28 fps, 35.3 ms (1% 42.6, worst 44.3, 100% over 16.7), update 7.8, 3D 20.9, 4849 tri (max 5738), 7268 vtx, 0 px, bm3d 2.1
+overbit round 1
+overbit match start: rally
+overbit hyper ring Orbit
+overbit hyper ring Orbit
+overbit torpedoes Orbit 4
+overbit torpedoes Orbit 4
+overbit disruptor Rail
+overbit rail Rail 100
+overbit point open
+overbit rail Rail 100
+overbit mine Fuse
+overbit mine Fuse
+overbit mine Fuse
+overbit mine Fuse
+overbit kill Fuse > Frost
+overbit rail Rail 100
+overbit kill Akari > Fuse
+overbit swift step Akari > Rally
+overbit kill Fuse > Akari
+overbit rail Rail 100
+overbit eject Rally (mech destroyed)
+overbit mine Fuse
+overbit torpedoes Orbit 4
+overbit torpedoes Orbit 4
+overbit hyper ring Orbit
+overbit kill Rally > Orbit
+overbit kill Fuse > Rally
+overbit point team 1
+overbit rail Rail 100
+overbit disruptor Rail
+overbit kill Fuse > Frost
+overbit mine Fuse
+overbit suzu Akari
+overbit mine Fuse
+overbit mine Fuse
+overbit suzu Akari
+overbit torpedoes Orbit 4
+overbit torpedoes Orbit 4
+overbit kill Fuse > Akari
+overbit hyper ring Orbit
+overbit kill Rail > Akari
+overbit rail Rail 100
+overbit hyper ring Orbit
+overbit kill Rally > Fuse
+overbit kill Rail > Fuse
+overbit bench GPU+AA EXTREME match 276656
+overbit bench GPU+AA EXTREME: 27 fps, 36.8 ms (1% 43.5, worst 44.7, 100% over 16.7), update 7.7, 3D 22.3, 5244 tri (max 5776), 7781 vtx, 0 px, bm3d 2.1
+overbit bench ring ARM  1 heroes: 5.7 ms, 3D 3.8, 646 tri
+overbit bench ring ARM  2 heroes: 10.8 ms, 3D 8.5, 1359 tri
+overbit bench ring ARM  3 heroes: 13.4 ms, 3D 10.6, 2092 tri
+overbit bench ring ARM  4 heroes: 16.1 ms, 3D 13.0, 2798 tri
+overbit eject Camera (mech destroyed)
+overbit bench ring ARM  5 heroes: 17.6 ms, 3D 13.6, 2734 tri
+overbit kill H3 > Camera
+overbit bench ring ARM  6 heroes: 20.4 ms, 3D 16.2, 3383 tri
+overbit bench ring ARM  8 heroes: 26.3 ms, 3D 21.4, 4811 tri
+overbit bench ring ARM 10 heroes: 30.4 ms, 3D 24.9, 5502 tri
+overbit bench ring ARM 12 heroes: 37.7 ms, 3D 31.2, 6968 tri
+overbit bench ring ARM: 4 heroes at 60 fps, 10 at 30 fps
+overbit bench ring GPU  1 heroes: 5.1 ms, 3D 3.2, 664 tri
+overbit bench ring GPU  2 heroes: 8.5 ms, 3D 5.8, 1378 tri
+overbit bench ring GPU  3 heroes: 9.0 ms, 3D 5.9, 1284 tri
+overbit bench ring GPU  4 heroes: 12.6 ms, 3D 8.6, 2048 tri
+overbit bench ring GPU  5 heroes: 15.6 ms, 3D 11.1, 2766 tri
+overbit bench ring GPU  6 heroes: 16.2 ms, 3D 11.1, 2589 tri
+overbit bench ring GPU  8 heroes: 19.7 ms, 3D 13.5, 3107 tri
+overbit bench ring GPU 10 heroes: 26.6 ms, 3D 19.2, 4725 tri
+overbit bench ring GPU 12 heroes: 30.9 ms, 3D 21.9, 5330 tri
+overbit eject Camera (mech destroyed)
+overbit bench ring GPU 14 heroes: 35.1 ms, 3D 24.8, 5972 tri
+overbit bench ring GPU: 6 heroes at 60 fps, 12 at 30 fps
+overbit bench ring GPU+AA  1 heroes: 5.3 ms, 3D 3.2, 664 tri
+overbit bench ring GPU+AA  2 heroes: 8.6 ms, 3D 5.7, 1374 tri
+overbit bench ring GPU+AA  3 heroes: 9.1 ms, 3D 5.9, 1283 tri
+overbit bench ring GPU+AA  4 heroes: 12.4 ms, 3D 8.5, 2053 tri
+overbit eject Camera (mech destroyed)
+overbit bench ring GPU+AA  5 heroes: 16.3 ms, 3D 11.2, 2754 tri
+overbit kill H3 > Camera
+overbit bench ring GPU+AA  6 heroes: 16.2 ms, 3D 11.1, 2583 tri
+overbit bench ring GPU+AA  8 heroes: 19.7 ms, 3D 13.5, 3107 tri
+overbit bench ring GPU+AA 10 heroes: 26.8 ms, 3D 19.2, 4732 tri
+overbit bench ring GPU+AA 12 heroes: 30.6 ms, 3D 21.8, 5325 tri
+overbit bench ring GPU+AA 14 heroes: 35.0 ms, 3D 24.8, 5978 tri
+overbit bench ring GPU+AA: 6 heroes at 60 fps, 12 at 30 fps
+overbit bench best ARM: none at 60 fps
+overbit bench best GPU: none at 60 fps
+overbit bench best GPU+AA: none at 60 fps
+overbit bench done
+report: 20261005-105853_overbit-bench_pi-zero-w_v0.2.3.txt saved as bm/reports/RPT00001.TXT
+report: sending 20261005-105853_overbit-bench_pi-zero-w_v0.2.3.txt
+report: sent to f-accomando/bm, branch reports: reports/v0.2.3/20261005-105853_overbit-bench_pi-zero-w_v0.2.3.txt
+bm: "Overbit" suspended (A on its cover resumes it)
+bm: "Overbit" 40577 frames, 77.2 fps, 8473 dropped
+     update+draw avg 11.79 ms (70% of frame), max 2326.07 ms, Lua 1280 KiB
+     dev kit: Lua peak 2101 KiB, data 5304 KiB, busiest frame 1754k instructions, 24092 frames over 16.7 ms, 67611 tokens
+     GPU 3D 11707 jobs, 1188 triangles a frame, 0.48 ms a frame (bin 33%), max job 3367 us
+bm > Test pattern
+
+HDMI test pattern shown
+bm: "Overbit" closed, memory freed
+
+playing kitchen.bm
+bm: the 3D is drawn by the GPU as bm3d 2.1 (bm3d 4.2 ready (byte a = red, texels in place, textures in tiles, MSAA on any page, vertex shader no, clipping no, lit models no, queue yes, zclear in job no))
+bm: loaded in 399 ms, the splash over at 1800 ms
+kitchen 1-1 x1: 6.1 ms avg, 7.6 max, 60 fps, 746 triangles
+kitchen 1-1 x1: 6.2 ms avg, 9.0 max, 60 fps, 769 triangles
+kitchen 1-1 x1: 6.3 ms avg, 9.0 max, 60 fps, 783 triangles
+kitchen 1-1 x1: 6.5 ms avg, 9.4 max, 60 fps, 787 triangles
+kitchen 1-1 x1: 6.9 ms avg, 9.6 max, 60 fps, 803 triangles
+kitchen 1-1 x1: 7.1 ms avg, 9.9 max, 60 fps, 781 triangles
+kitchen 1-1 x1: 6.9 ms avg, 9.7 max, 60 fps, 781 triangles
+kitchen 1-1 x1: 7.0 ms avg, 9.8 max, 60 fps, 798 triangles
+kitchen 1-1 x1: 7.1 ms avg, 9.9 max, 60 fps, 797 triangles
+kitchen 1-1 x1: 7.2 ms avg, 10.1 max, 60 fps, 744 triangles
+kitchen 1-1 x1: 6.9 ms avg, 10.0 max, 60 fps, 809 triangles
+kitchen 1-1 x1: 7.1 ms avg, 9.9 max, 60 fps, 817 triangles
+kitchen 1-1 x1: 7.3 ms avg, 10.2 max, 60 fps, 718 triangles
+kitchen 1-1 x1: 6.8 ms avg, 9.7 max, 60 fps, 810 triangles
+kitchen 1-1 x1: 7.3 ms avg, 10.0 max, 60 fps, 766 triangles
+kitchen endless x1: 6.4 ms avg, 8.2 max, 60 fps, 805 triangles
+kitchen 1-2 x1: 6.2 ms avg, 8.1 max, 60 fps, 823 triangles
+bm: "Chaos Kitchen" suspended (A on its cover resumes it)
+bm: "Chaos Kitchen" 19433 frames, 59.8 fps, 11 dropped
+     update+draw avg 6.41 ms (38% of frame), max 169.02 ms, Lua 1472 KiB
+     dev kit: Lua peak 1618 KiB, data 966 KiB, busiest frame 207k instructions, 11 frames over 16.7 ms, 59492 tokens
+     GPU 3D 15952 jobs, 635 triangles a frame, 0.98 ms a frame (bin 9%), max job 1418 us
+bm: "Chaos Kitchen" closed, memory freed
+lib: 194 resources in 11 files (20282 ms; the menu waited at most 495 ms more)
+market: nearby consoles: listening as bm-108
+back to the monitor
+
+type 'h' for help
+> Z
