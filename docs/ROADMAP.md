@@ -517,6 +517,10 @@ Dopo: variazioni di lancio per cuoco.
   restano a tinta unita (costano meno) con uno zoccolo scuro alla base dei muri.
   Opzione **KITCHEN: TEXTURED / FLAT** per tornare ai colori pieni se sul Pi non
   bastano i 60 fps. Da misurare sul Pi.
+- **Sul Pi (2026-10-05, foto dell'overlay del dev kit, 3D sulla GPU):** 1-1 (Tomato Soup), un
+  cuoco, TEXTURED, 640×360: **60 fps, 6,1 ms** a fotogramma (il massimo dell'ultimo secondo
+  6,3), 5 mila istruzioni Lua, RAM 2,0 MB (massimo 2,3), 59 492 token. Il 29 settembre, con il
+  3D sull'ARM, 14,1 ms e 54 fps. Restano il mondo 3 e il mondo 6 con 2+ giocatori.
 
 ## M18 — WiFi e console di rete (L/XL) — ✅ chiusa (2026-09-30)
 Decisione 2026-09-28: versioni "leggere", in coda dopo M17.

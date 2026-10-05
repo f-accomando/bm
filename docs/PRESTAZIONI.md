@@ -144,7 +144,7 @@ triangolo senza chiamate in mezzo e il colore in 0..1 calcolato una volta per fa
 |---|---|---|---|
 | QEMU come previsione | "QEMU ~2× più lento del Pi" (sprite, 3D piatto) | Vero per sprite (2133 → 4482) e 3D piatto (602 → 1195 triangoli) | QEMU non simula cache né bus |
 | Gouraud / texture in QEMU | 3 sfere a 60 fps | **< 1** sfera | QEMU sottostima il costo per pixel sul Pi: non prevede i lavori pesanti sui pixel |
-| Chaos Kitchen 1-1 | 15–17 ms in QEMU → "~8 ms sul Pi" | **14,1 ms, 54 fps** | Molti triangoli piccoli: pesava il costo per triangolo (divisioni e `ceilf` per riga), ora tolto |
+| Chaos Kitchen 1-1 | 15–17 ms in QEMU → "~8 ms sul Pi" | **14,1 ms, 54 fps**; il 2026-10-05, 3D sulla GPU: **6,1 ms, 60 fps** | Molti triangoli piccoli: pesava il costo per triangolo (divisioni e `ceilf` per riga), ora tolto |
 | Titan Clash | — | **11,6 ms, 61 fps** | Solo sprite e fondali: il 2D grande regge |
 | Astro Wing | 60 fps | **59,9 fps**, 6,34 ms (max 12,57) | Dopo la correzione RunFast |
 | Frame via RAM + DMA | DMA più veloce (3,4× sulla fascia) | Frame intero **più lento** (14,06 contro 11,85 ms) | Il guadagno sulla fascia non vale sul frame intero |
@@ -191,5 +191,6 @@ triangolo senza chiamate in mezzo e il colore in 0..1 calcolato una volta per fa
 - Overbit con l'ARM a 640×360 o meno (il benchmark a 1080p lo salta) e, quando il vertex
   shader va, con GPU+VS1, GPU+VS e GPU+VS+Q.
 
-- Chaos Kitchen 1-1 e mondo 6 con Select: obiettivo stabile a 60 fps.
+- Chaos Kitchen: il mondo 3 e il mondo 6 con 2+ giocatori (l'1-1 con un cuoco fa 60 fps,
+  6,1 ms).
 - Due DS4 insieme: abbinamento, luce, Pong a 2.
