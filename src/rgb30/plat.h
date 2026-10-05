@@ -76,6 +76,21 @@ void plat_sticks(int16_t axes[4]);
  * 0 not charging, 1 charging, 2 full) */
 int plat_battery(int *mv, int *charge);
 
+/* the charge (0..100) of the RGB30's Li-ion cell from its voltage: a
+ * table, linear in between, 0 at 3.45 V (the LED's low battery); on the
+ * charger the voltage reads higher, an indication only */
+static inline int battery_percent(int mv)
+{
+    static const short v[] = { 3450, 3610, 3690, 3730, 3770, 3800, 3840, 3870, 3950, 4020, 4110, 4180 };
+    static const short pc[] = { 0, 5, 10, 20, 30, 40, 50, 60, 70, 80, 90, 100 };
+    if (mv <= v[0])
+        return 0;
+    for (int i = 1; i < (int)(sizeof v / sizeof v[0]); i++)
+        if (mv < v[i])
+            return pc[i - 1] + (pc[i] - pc[i - 1]) * (mv - v[i - 1]) / (v[i] - v[i - 1]);
+    return 100;
+}
+
 /* PSCI through TF-A (SMC) on the RGB30, QEMU's PSCI (HVC) in the tests */
 /* the display off (before a restart; the RGB30's panel and backlight) */
 void plat_display_off(void);

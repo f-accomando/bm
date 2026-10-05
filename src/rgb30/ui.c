@@ -1,10 +1,11 @@
 /*
  * The RGB30's menu: the Pi's (src/kernel/menu_ui.c, the same drawing and
  * bar) at 360x360, shown twice as big (the whole 720x720 panel, every pixel
- * a 2x2 square), two covers a row. Tabs as on the Pi: Games (the .b16 files
- * in bm/ on the SD card, the handhelds' cartridges with limited resources
- * whose format is still to be defined (docs/B16.md), and for
- * testing the Pi's .bm cartridges, which run; show_bm=0 hides them), Dev
+ * a 2x2 square), two covers a row. Tabs as on the Pi: Market (the catalog's
+ * .b16 games, src/kernel/market.c in fibers as on the Pi; they go to bm/),
+ * Games (the .b16 files in bm/ on the SD card, the handhelds' cartridges:
+ * the .bm container, docs/B16.md §0, they play; and for testing the Pi's
+ * .bm cartridges, which run; show_bm=0 hides them), Dev
  * (the 3D Bench, the render bench, the display modes, the input test, the
  * boot log, Lua) and Settings, whose panel opens when it is the tab
  * (Bluetooth, WiFi, updates from GitHub, the console's state, reboot, power
@@ -41,6 +42,9 @@
 #include "bm/loading.h"
 #include "kernel/ledstate.h"
 #include "kernel/reports.h"
+#include "kernel/carts.h"
+#include "kernel/market.h"
+#include "net/catalog.h"
 #include "b3d_rgb30.h"
 
 #include <stdlib.h>
@@ -62,6 +66,7 @@
 #define C_BAD       0xff5a5a
 
 #define MAX_GAMES   64
+#define CATALOG_ITEMS (CATALOG_MAX > MAX_GAMES ? CATALOG_MAX : MAX_GAMES)
 
 static framebuffer_t *fb;
 
@@ -72,15 +77,23 @@ static uint32_t rgb(uint32_t c)
 
 /* the battery low (under 3.45 V, not charging): the LED blinks (ledstate.h);
  * read every 10 s */
-static void battery_led(void)
+/* the battery, read every 10 s: the LED (low: under 3.45 V off the
+ * charger) and the icon of the bar */
+static int batt_known, batt_pct, batt_charging;
+
+static void battery_check(void)
 {
     static uint32_t at;
     if (at && timer_ticks() - at < 10000000u)
         return;
     at = timer_ticks() | 1;
     int mv, charge;
-    if (plat_battery(&mv, &charge) == 0)
-        ledstate_set(LED_POWER, mv > 0 && mv < 3450 && charge == 0);
+    batt_known = plat_battery(&mv, &charge) == 0 && mv > 0;
+    if (!batt_known)
+        return;
+    ledstate_set(LED_POWER, mv < 3450 && charge == 0);
+    batt_pct = charge == 2 ? 100 : battery_percent(mv);      /* full: four bars */
+    batt_charging = charge == 1;
 }
 
 static void text(int x, int y, const char *s, uint32_t fg, uint32_t bg)
@@ -174,7 +187,7 @@ static void frame_end(void)
 /* --- games on the SD card --- */
 
 static struct {
-    char name[56], title[48];
+    char name[56], title[48], author[33];
     uint32_t size;
     int is_bm;
     g16_sheet_t cover;              /* 128x80: the .bm's COVER, or its title on a label */
@@ -189,6 +202,7 @@ static void load_cover(int i)
     char path[80];
     ksnprintf(path, sizeof path, "/bm/%s", games[i].name);
     ksnprintf(games[i].title, sizeof games[i].title, "%s", games[i].name);
+    games[i].author[0] = 0;
     fat_entry_t e;
     uint8_t *data = NULL;
     size_t len = 0;
@@ -196,7 +210,7 @@ static void load_cover(int i)
     uint32_t need = 48 * 1024;
     const uint8_t *rgba = NULL;
     int w = 0, h = 0, r = -1;
-    for (int tries = 0; games[i].is_bm && tries < 3 && fat_find(path, &e) == 0; tries++) {
+    for (int tries = 0; tries < 3 && fat_find(path, &e) == 0; tries++) {
         free(data);
         data = NULL;
         if (fat_load_part(&e, need, &data, &len) != 0)
@@ -210,6 +224,9 @@ static void load_cover(int i)
         memcpy(t, data + 24, 48);
         t[48] = 0;
         ksnprintf(games[i].title, sizeof games[i].title, "%s", t);
+        memcpy(t, data + 72, 32);
+        t[32] = 0;
+        ksnprintf(games[i].author, sizeof games[i].author, "%s", t);
     }
     if (r == 1)
         menu_load_cover(&games[i].cover, rgba, w, h);
@@ -220,6 +237,8 @@ static void load_cover(int i)
 
 static void scan_games(void)
 {
+    for (int i = 0; i < n_games; i++)
+        g16_sheet_free(&games[i].cover);
     n_games = n_hidden = 0;
     fat_dir_t d;
     fat_entry_t e;
@@ -249,6 +268,39 @@ static void scan_games(void)
     }
     for (int i = 0; i < n_games; i++)
         load_cover(i);
+}
+
+/* what the Market asks of the games on the card (carts.h, as carts.c on the
+ * Pi): its paths are /bm/NAME */
+static int same_ci(const char *a, const char *b)
+{
+    return strcasecmp(a, b) == 0;
+}
+
+const char *carts_find_title(const char *title, const char *author)
+{
+    static char path[80];
+    for (int i = 0; i < n_games; i++)
+        if (same_ci(games[i].title, title) && same_ci(games[i].author, author)) {
+            ksnprintf(path, sizeof path, "/bm/%s", games[i].name);
+            return path;
+        }
+    return NULL;
+}
+
+static int game_of_path(const char *path)
+{
+    if (strncasecmp(path, "/bm/", 4) != 0)
+        return -1;
+    for (int i = 0; i < n_games; i++)
+        if (same_ci(games[i].name, path + 4))
+            return i;
+    return -1;
+}
+
+int carts_has_path(const char *path)
+{
+    return path[0] && game_of_path(path) >= 0;
 }
 
 /* --- pages --- */
@@ -313,20 +365,11 @@ static void play_bm(int i)
     }
 }
 
+/* a .b16 is the .bm container (docs/B16.md §0, 2026-10-05): it plays the
+ * same way; its profile's limits are not applied yet */
 static void page_game(int i)
 {
-    if (games[i].is_bm) {
-        play_bm(i);
-        return;
-    }
-    char l0[64];
-    ksnprintf(l0, sizeof l0, "%s (%lu bytes)", games[i].name, games[i].size);
-    const char *lines[] = {
-        l0,
-        "",
-        "The .b16 format (cartridges with limited resources for the handhelds) is not defined yet: games will start from here once it is.",
-    };
-    page_message("Game", lines, 3);
+    play_bm(i);
 }
 
 static void draw_button(int x, int y, const char *name, int on)
@@ -507,8 +550,14 @@ static const item_t dev_items[] = {
 #define N_DEV ((int)(sizeof dev_items / sizeof dev_items[0]))
 static g16_sheet_t dev_covers[N_DEV];
 
-enum { TAB_GAMES, TAB_DEV, TAB_SETTINGS };      /* Settings: the last, its panel */
-static const char *const tab_names[] = { "Games", "Dev" };
+/* Market first, off the screen at the left until it is the tab (as on the
+ * Pi); Settings the last, its panel */
+enum { TAB_MARKET, TAB_GAMES, TAB_DEV, TAB_SETTINGS };
+static const char *const tab_names[] = { "Market", "Games", "Dev" };
+
+/* the questions over the menu: a row of Settings, a download of the
+ * Market, a row of a Market game's details, a game a nearby console sends */
+enum { ASK_NONE, ASK_ROW, ASK_MARKET, ASK_MOPT, ASK_OFFER };
 
 /* the menu's screen again after a page; if it cannot be had, the console
  * says why and a button tries again */
@@ -524,6 +573,7 @@ static void menu_reopen(void)
 /* a page or a game: the console's screen, then the menu again */
 static void run_page(void (*run)(void))
 {
+    market_set_active(0);                           /* its work stops first, as on the Pi */
     menu_ui_close(fb);
     console_suspend(1);                             /* the pages draw themselves */
     run();
@@ -535,6 +585,18 @@ static void run_page(void (*run)(void))
 
 static int play_index;
 static void play_selected(void) { page_game(play_index); }
+
+/* a game of the Market, installed in bm/: plays from the card */
+static void play_market(int i, char *note, size_t n)
+{
+    const int g = game_of_path(market_path(i));
+    if (g < 0) {
+        ksnprintf(note, n, "%s is not on the SD card", market_path(i));
+        return;
+    }
+    play_index = g;
+    run_page(play_selected);
+}
 
 /* a row of Settings that runs on the console (settings.c: home_do_t) */
 static void (*text_fn)(framebuffer_t *);
@@ -572,12 +634,15 @@ void ui_home(framebuffer_t *f)
     kprintf("\n");
     menu_reopen();
 
-    int tab = TAB_GAMES, sel[2] = { 0, 0 };
-    static menu_item_t items[MAX_GAMES > N_DEV ? MAX_GAMES : N_DEV];
+    int tab = TAB_GAMES, sel[3] = { 0, 0, 0 };
+    static menu_item_t items[CATALOG_ITEMS];
+    /* a Market game's details (X): its panel over the covers */
+    static home_panel_t mpb;
+    int mopt = -1, mopt_sel = 0, ask_game = 0;
     /* Settings: its panels, as on the Pi (settings.c), one over the other */
     static home_panel_t pb;
     struct { int id, sel, top; } stack[DEPTH_MAX];
-    int depth = 0, built = -1, frame = 0, ask_row = 0, asking = 0;
+    int depth = 0, built = -1, frame = 0, ask_row = 0, asking = ASK_NONE;
     char ask_q[64] = "", ask_d[64] = "", ask_y[16] = "";
     char details[64] = "", note[96] = "";
     for (;;) {
@@ -590,20 +655,42 @@ void ui_home(framebuffer_t *f)
             built = -1;
         } else if (!on_gear && depth) {
             depth = 0;
-            asking = 0;
+            asking = ASK_NONE;
+        }
+        /* the Market works only while its tab is shown; the nearby consoles
+         * hear this one only then (M24) */
+        const int on_market = tab == TAB_MARKET && !on_gear;
+        market_set_active(on_market);
+        market_lan(on_market);
+        if (!on_market)
+            mopt = -1;
+        if (asking == ASK_NONE && market_offer(ask_q, sizeof ask_q, ask_d, sizeof ask_d)) {
+            ksnprintf(ask_y, sizeof ask_y, "Accept");
+            asking = ASK_OFFER;
+        } else if (asking == ASK_OFFER) {
+            char q_[64], d_[64];
+            if (!market_offer(q_, sizeof q_, d_, sizeof d_))
+                asking = ASK_NONE;          /* the sender gave up */
+        }
+        /* a game of the Market installed or deleted: the card again */
+        if (market_take_changed()) {
+            scan_games();
+            market_carts_changed();
         }
         /* the tests' reports waiting on the SD card go once the console is
          * on the network (reports_auto_due; no fibers here: a moment's wait,
          * from the covers only, not in Settings) */
-        if (!on_gear && !asking && reports_auto_due()) {
+        if (!on_gear && !asking && !on_market && reports_auto_due()) {
             reports_send_pending();
             ksnprintf(note, sizeof note, "report %s", reports_last());
         }
-        int n = shown == TAB_GAMES ? n_games : N_DEV;
+        int n = shown == TAB_MARKET ? market_items(items, CATALOG_ITEMS) : shown == TAB_GAMES ? n_games : N_DEV;
         int *s = &sel[shown];
         if (*s >= n) *s = n - 1;
         if (*s < 0) *s = 0;
-        for (int i = 0; i < n; i++) {
+        if (shown == TAB_MARKET)
+            market_select(*s);
+        for (int i = 0; i < n && shown != TAB_MARKET; i++) {
             if (shown == TAB_GAMES)
                 items[i] = (menu_item_t){ .title = games[i].title, .kind = games[i].is_bm ? "bm" : "b16",
                                           .size = games[i].size, .cover = &games[i].cover };
@@ -611,9 +698,10 @@ void ui_home(framebuffer_t *f)
                 items[i] = (menu_item_t){ .title = dev_items[i].name, .kind = "tool", .cover = &dev_covers[i] };
         }
         menu_view_t v = {
-            .tabs = tab_names, .ntabs = 2, .tab = shown, .on_gear = on_gear,
+            .tabs = tab_names, .ntabs = 3, .tab = shown, .on_gear = on_gear, .peek_first = 1,
             .items = items, .n = n, .sel = *s,
             .prompts = MENU_PROMPTS_PAD, .confirm_b = pad_ok == PAD_B, .no_monitor = 1,
+            .idle = on_market ? market_tick : NULL,
         };
         /* the bar: the console's own controls are player 1 (blue when a
          * Bluetooth pad plays with them), a keyboard, the WiFi */
@@ -627,7 +715,13 @@ void ui_home(framebuffer_t *f)
         v.net = wifi_linked() ? MENU_NET_WIFI : MENU_NET_NONE;
         v.net_wait = !net_ip();
         details[0] = 0;
-        if (shown == TAB_GAMES && n == 0) {
+        if (shown == TAB_MARKET) {
+            market_details(*s, details, sizeof details);
+            v.banner = market_banner();
+            v.a_label = market_action_label(*s);
+            if (!v.a_label)
+                v.a_label = "";
+        } else if (shown == TAB_GAMES && n == 0) {
             v.banner = strcmp(sd_state, "bm/") == 0 ? "No games yet: put .b16 games in bm/" : "No games yet";
             v.a_label = "";
             if (n_hidden)
@@ -636,15 +730,22 @@ void ui_home(framebuffer_t *f)
             else if (strcmp(sd_state, "bm/") != 0)
                 ksnprintf(details, sizeof details, "%s", sd_state);
         } else if (shown == TAB_GAMES) {
-            v.a_label = games[*s].is_bm ? "Play" : "Open";
-            ksnprintf(details, sizeof details, "bm/%s: %s", games[*s].name,
-                      games[*s].is_bm ? "Start+Select leaves" : "format still to define");
+            v.a_label = "Play";
+            ksnprintf(details, sizeof details, "bm/%s: Start+Select leaves", games[*s].name);
         } else {
             ksnprintf(details, sizeof details, "%s", dev_items[*s].help);
         }
         v.details = details[0] ? details : NULL;
-        v.note = note[0] ? note : NULL;
-        menu_panel_t panel, sections;
+        v.note = on_market ? market_status() : note[0] ? note : NULL;
+        menu_panel_t panel, sections, mpanel;
+        if (mopt >= 0) {
+            market_panel(mopt, &mpb);
+            if (mopt_sel >= mpb.n) mopt_sel = mpb.n ? mpb.n - 1 : 0;
+            mpanel = (menu_panel_t){ mpb.title, mpb.rows, mpb.n, mopt_sel,
+                                     mopt_sel >= MENU_PANEL_ROWS ? mopt_sel - MENU_PANEL_ROWS + 1 : 0,
+                                     mpb.n ? mpb.help[mopt_sel] : NULL };
+            v.panel = &mpanel;
+        }
         menu_page_t page;
         frame++;
         if (depth) {
@@ -665,7 +766,7 @@ void ui_home(framebuffer_t *f)
             page = (menu_page_t){ &sections, depth > 1 ? &panel : NULL, depth > 1 };
             v.page = &page;
         }
-        if (asking) {
+        if (asking != ASK_NONE) {
             v.ask = ask_q;
             v.ask_detail = ask_d[0] ? ask_d : NULL;
             v.ask_yes = ask_y;
@@ -675,7 +776,10 @@ void ui_home(framebuffer_t *f)
             v.notice = nt;                      /* a kernel arriving, the restart */
             v.notice_detail = nd;
         }
-        battery_led();
+        battery_check();
+        v.battery = batt_known;
+        v.battery_pct = batt_pct;
+        v.charging = batt_charging;
         menu_ui_frame(fb, &v);
 
         uint32_t p = pad_pressed();
@@ -686,18 +790,59 @@ void ui_home(framebuffer_t *f)
         home_do_t d;
         d.what = -1;
         if (asking) {
-            /* a question of a row: confirm says yes, back cancels */
-            if (p & pad_ok) {
-                asking = 0;
+            /* a question: confirm says yes, back cancels */
+            const int kind = asking;
+            if (p & (pad_ok | pad_back))
+                asking = ASK_NONE;
+            if ((p & pad_ok) && kind == ASK_ROW) {
                 home_act(stack[depth - 1].id, ask_row, HOME_YES, &d);
-            } else if (p & pad_back) {
-                asking = 0;
+            } else if ((p & pad_ok) && kind == ASK_MARKET) {
+                market_get(ask_game);
+            } else if ((p & pad_ok) && kind == ASK_MOPT) {
+                home_do_t md;
+                market_act(mopt, ask_row, HOME_YES, &md);
+                if (md.note[0])
+                    ksnprintf(note, sizeof note, "%s", md.note);
+                if (md.what == HOME_BACK)
+                    mopt = -1;
+            } else if (kind == ASK_OFFER && (p & (pad_ok | pad_back))) {
+                market_offer_answer((p & pad_ok) != 0);
             }
-        } else if ((p & PAD_L1) && tab > TAB_GAMES) {
-            /* L1 / R1: Games, Dev, Settings, no going round (as on the Pi) */
+        } else if ((p & PAD_L1) && tab > TAB_MARKET) {
+            /* L1 / R1: Market, Games, Dev, Settings, no going round (as on the Pi) */
             tab--;
+            mopt = -1;
         } else if ((p & PAD_R1) && tab < TAB_SETTINGS) {
             tab++;
+            mopt = -1;
+        } else if (mopt >= 0) {
+            /* a Market game's details: up/down choose, confirm does, back closes */
+            int dy = (p & PAD_UP) ? -1 : (p & PAD_DOWN) ? 1 : 0;
+            if (dy && mpb.n)
+                mopt_sel = (mopt_sel + dy + mpb.n) % mpb.n;
+            if (p & pad_back) {
+                mopt = -1;
+            } else if ((p & pad_ok) && mpb.n && mpb.rows[mopt_sel].kind != MENU_ROW_INFO) {
+                const int row = mpb.ids[mopt_sel], game = mopt;
+                if (row == M_PLAY) {
+                    mopt = -1;
+                    play_market(game, note, sizeof note);
+                } else {
+                    home_do_t md;
+                    market_act(game, row, 0, &md);
+                    if (md.note[0])
+                        ksnprintf(note, sizeof note, "%s", md.note);
+                    if (md.what == HOME_ASK) {
+                        asking = ASK_MOPT;
+                        ask_row = row;
+                        ksnprintf(ask_q, sizeof ask_q, "%s", md.ask);
+                        ksnprintf(ask_d, sizeof ask_d, "%s", md.ask_detail);
+                        ksnprintf(ask_y, sizeof ask_y, "%s", md.ask_yes);
+                    } else if (md.what == HOME_BACK) {
+                        mopt = -1;
+                    }
+                }
+            }
         } else if (depth) {
             /* a panel: up/down choose, confirm does, left/right change a
              * value, back goes back one level (out of Settings: to Dev) */
@@ -733,7 +878,24 @@ void ui_home(framebuffer_t *f)
                 to = *s + cols < n ? *s + cols : (*s / cols + 1) * cols < n ? n - 1 : *s;
             if (to >= 0 && to < n)
                 *s = to;
-            if (p & pad_ok) {
+            if (shown == TAB_MARKET) {
+                /* X: a game's details; confirm: get it (after a question) or play it */
+                const int a = market_action(*s);
+                if ((p & PAD_X) && a != MARKET_NONE) {
+                    mopt = *s;
+                    mopt_sel = 0;
+                } else if ((p & pad_ok) && (a == MARKET_GET || a == MARKET_UPDATE)) {
+                    home_do_t q;
+                    market_ask(*s, &q);
+                    ksnprintf(ask_q, sizeof ask_q, "%s", q.ask);
+                    ksnprintf(ask_d, sizeof ask_d, "%s", q.ask_detail);
+                    ksnprintf(ask_y, sizeof ask_y, "%s", q.ask_yes);
+                    asking = ASK_MARKET;
+                    ask_game = *s;
+                } else if ((p & pad_ok) && a == MARKET_PLAY) {
+                    play_market(*s, note, sizeof note);
+                }
+            } else if (p & pad_ok) {
                 if (shown == TAB_GAMES) {
                     play_index = *s;
                     run_page(play_selected);
@@ -761,7 +923,7 @@ void ui_home(framebuffer_t *f)
                     depth--;
                 break;
             case HOME_ASK:
-                asking = 1;
+                asking = ASK_ROW;
                 ksnprintf(ask_q, sizeof ask_q, "%s", d.ask);
                 ksnprintf(ask_d, sizeof ask_d, "%s", d.ask_detail);
                 ksnprintf(ask_y, sizeof ask_y, "%s", d.ask_yes);

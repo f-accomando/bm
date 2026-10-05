@@ -251,10 +251,19 @@ screenshot in `docs/img/`), `README_OLD.md` (il README completo, in italiano),
   con l'ARMv6 (`kernel/irq.h`, `arch/cache.h`) hanno un ramo `__aarch64__`.
 - Menu: **lo stesso del Pi** (`menu_ui.c`, decisione dell'utente del 2026-10-04) a 360×360
   ingrandito ×2 sul pannello, due copertine per riga; `ui.c` gli dà la vista e i tasti: schede
-  Games / Dev e Settings con i pannelli del Pi (`settings.c`; L1/R1 senza giro; dalla seriale
-  `l`/`r`, `w a s d`, Invio, Backspace), giochi `.b16` (la cartuccia a risorse limitate per
-  le portatili, formato da definire: `docs/B16.md`), `.bm` visibili per le prove
-  (`show_bm=0` li nasconde); le pagine dietro le voci sono ancora sulla console. In Dev il 3D Bench (`b3d_rgb30.c`: `src/bm/b3d.c` con i contatori del
+  Market / Games / Dev e Settings con i pannelli del Pi (`settings.c`; L1/R1 senza giro; dalla
+  seriale `l`/`r`, `w a s d`, Invio, Backspace, `x` i dettagli di un gioco del Market), giochi
+  `.b16` (la cartuccia delle portatili, il contenitore del `.bm` con il suo profilo:
+  `docs/B16.md` §0; si giocano), `.bm` visibili per le prove (`show_bm=0` li nasconde); le
+  pagine dietro le voci sono ancora sulla console. **Market** (decisione dell'utente,
+  2026-10-05): lo stesso `market.c` del Pi nelle fibre (`src/rgb30/fiber.S`, AArch64), solo i
+  `.b16` del catalogo, scaricati in `bm/` (`GAMES_DIR`); `carts_find_title`/`carts_has_path`
+  in `ui.c`; test `test_market_b16`. Sulla barra la **batteria** (richiesta dell'utente): 4
+  tacche dal 75%, rossa sotto il 10%, il fulmine sul caricatore (`icon_battery` in `icons.c`,
+  `battery_percent` in `plat.h`, la carica anche in *Settings > System*); in QEMU
+  `test_battery=mV[,stato]` in `bm/config.txt` (`plat_virt.c`), test `test_battery_icon`. Le
+  schede non passano sotto le icone (sullo schermo stretto Settings si affaccia a destra
+  quando il Market è la scheda). In Dev il 3D Bench (`b3d_rgb30.c`: `src/bm/b3d.c` con i contatori del
   Cortex-A55). Nei test lo schermo si legge dai pixel: il testo del menu sta sulla griglia del
   font 8×16 (x multipli di 8, y di 16).
 - L'utente prova senza seriale: LED (rosso = avvio; verde fisso = tutto bene, verde lento =
@@ -277,8 +286,8 @@ screenshot in `docs/img/`), `README_OLD.md` (il README completo, in italiano),
   (`wifi_sim_test.c`, `-v` mostra la console).
 - Aggiornamenti come sul Pi: *Settings > Updates* (le righe in `settings.c`, `src/kernel/update.c`
   con `BM_RGB30`: `manifest-rgb30`, `kernel8.img` riconosciuto dall'intestazione arm64 `ARM\x64` a
-  +56), HTTPS e `release.c` nella build; le fibre del Market non ci sono (`stubs.c`: la rete
-  aspetta sul posto). `netxfer.c` scrive `kernel8.img`. Test `test_update_from_sd`. Ogni riavvio
+  +56), HTTPS e `release.c` nella build; nelle fibre del Market la rete cede il
+  controllo come sul Pi (`net_wait_step`). `netxfer.c` scrive `kernel8.img`. Test `test_update_from_sd`. Ogni riavvio
   (aggiornamento, Restart, kernel dalla rete) passa da `plat_reset()` (`plat_rk3566.c`): prima
   spegne schermo, WiFi e LED (dopo un riavvio la console restava accesa a schermo nero,
   2026-10-05), poi PSCI e, se torna, il reset globale del CRU; come leggerlo in `docs/RGB30.md`.
@@ -335,7 +344,7 @@ screenshot in `docs/img/`), `README_OLD.md` (il README completo, in italiano),
   `background_stop()` ferma tutto prima di un'app, di `rescan()` e di una cancellazione. Il log della
   Lib dice quanto il menu ha aspettato al massimo ("the menu waited at most N ms more": in QEMU 3 ms
   con Overbit e Yharnam sulla SD). Il CRC è a tabella (`src/lib/crc32.c`, `crc32_update`). Sulla
-  RGB30 (senza fibre) le copertine leggono anch'esse solo l'inizio del file.
+  RGB30 (le fibre solo per il Market) le copertine leggono anch'esse solo l'inizio del file.
 - Test: Pi `test_menu_tabs`, `test_menu_scale`, `test_home_ui` (il giro delle Settings) e quelli
   del menu; RGB30 tutto `tests/rgb30/qemu_test.py` (la scheda e il titolo scelto si leggono
   sulla pillola).
@@ -908,7 +917,8 @@ screenshot in `docs/img/`), `README_OLD.md` (il README completo, in italiano),
 ## Market (M25; nato nel branch `bm-store`, unito al principale il 2026-10-04)
 
 - Prima scheda del menu: **Market | Games | Dev | Lib | Settings** (tasti 1–5); il menu si
-  apre su Games. Catalogo dal repository pubblico `f-accomando/bm-market` (GitHub Pages),
+  apre su Games. Sulla RGB30 Market | Games | Dev | Settings e solo i `.b16` (il Pi mostra `.bm`
+  e `.b16`, che girano uguali). Catalogo dal repository pubblico `f-accomando/bm-market` (GitHub Pages),
   modello in `market/`, `make market-seed MARKET=../bm-market` ci mette i giochi del progetto
   (`scripts/market.sh`, `easy_install` m, fa anche la preparazione e il push; un gioco nuovo
   vuole la sua riga in `market/about.txt`, la licenza è obbligatoria).

@@ -112,6 +112,9 @@ typedef struct {
     unsigned mice;              /* POINTER_USB / POINTER_BLUETOOTH: a mouse icon each */
     int net;                    /* MENU_NET_*: the link's icon... */
     int net_wait;               /* ...dimmed while there is no address yet */
+    int battery;                /* a battery (the RGB30): its icon at the right end... */
+    int battery_pct;            /* ...its charge, 0..100 (red when low)... */
+    int charging;               /* ...and the bolt on the charger */
     int prompts;                /* MENU_PROMPTS_*: the device pressed last... */
     int prompts_colour;         /* ...the DS4's face buttons in their colours */
     int confirm_b;              /* MENU_PROMPTS_PAD: confirm is B, back A (the RGB30) */

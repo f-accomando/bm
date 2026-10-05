@@ -76,6 +76,8 @@ NET_SRCS += src/net/stream.c src/net/tls.c src/net/http.c src/net/http_kernel.c 
             src/kernel/update.c
 # the reports to a git repository (src/kernel/reports.c, as on the Pi)
 NET_SRCS += src/net/github.c src/net/report.c src/kernel/reports.c
+# the Market (its .b16 games) and the nearby consoles, in fibers as on the Pi
+NET_SRCS += src/net/catalog.c src/net/lan.c src/kernel/market.c
 # the Pi's cartridges (.bm, listed for testing; show_bm=0 hides them): the runtime unchanged,
 # the Pi's drivers it calls replaced by src/rgb30/bm_port.c and bm_input.c; the menu is
 # the Pi's (menu_ui.c, its icons) at 360x360
@@ -98,7 +100,7 @@ $(VERSION_STAMP): FORCE
 	@echo '$(VERSION) $(BRANCH)' | cmp -s - $@ || echo '$(VERSION) $(BRANCH)' > $@
 $(BUILD)/k/src/kernel/version.c.o: $(VERSION_STAMP)
 $(BUILD)/k/src/kernel/version.c.o: CFLAGS += -DBM_VERSION=\"$(VERSION)\" -DBM_BRANCH=\"$(BRANCH)\"
-$(BUILD)/k/src/rgb30/bm_embed.S.o: keys/release-pub.pem src/ai/assist.lua src/ai/predict.lua src/script/bm3d.lua \
+$(BUILD)/k/src/rgb30/bm_embed.S.o: keys/release-pub.pem keys/market-pub.pem src/ai/assist.lua src/ai/predict.lua src/script/bm3d.lua \
                                     src/script/bmlib.lua src/script/bmnet.lua src/ai/padtype.lua
 FORCE:
 

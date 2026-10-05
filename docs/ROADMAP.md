@@ -1410,6 +1410,13 @@ Passi:
      consoles: listening as bm-108").
    - **Da verificare sul Pi**: due console sulla stessa rete (Pi Zero W e Pi 1 B) si
      vedono e si mandano un gioco.
+8. ✅ (QEMU, `test_market_b16`, RGB30) **Il Market sulla RGB30** (richiesta dell'utente,
+   2026-10-05, branch `claude/rgb30-market`): la scheda Market nel menu della RGB30, prima e
+   fuori dallo schermo come sul Pi, con lo stesso `market.c` nelle fibre (le fibre a 64 bit:
+   `src/rgb30/fiber.S`) e la rete locale; del catalogo solo i `.b16` (scelta dell'utente: il
+   Pi mostra `.bm` e `.b16`, che girano uguali), scaricati in `bm/` e giocati da lì.
+   `mkmarket.py` accetta i `.b16` (fino a 8 MiB); `test_b16_on_pi` sul Pi.
+   - **Da verificare sulla RGB30**: il catalogo vero (oggi senza `.b16`: arriveranno con M42).
 
 - **Fatto quando:** dalla scheda Market del Pi si sceglie un gioco del catalogo, si
   scarica senza che il menu si fermi, si verifica, si installa e si gioca; un gioco
@@ -3012,6 +3019,12 @@ l'ARM del Pi Zero W: `spheres` 180 (72), `spheres_smooth` 100 (22), `heroes` 8,6
 `heroes_shadow` 2,3 (<1), `clip` 450 (18), `draws` 900 (453), `quad_flat` 16 (12),
 `quad_tex` 8,0 (3,4), `match` 1,3 (<1; 8,1 a 30 fps). Render bench: mappa e 256 sprite 4,90
 ms disegnando diretto, 7,30 ms via RAM (sul Pi 8,58 e 11,85).
+
+**Dopo la chiusura (2026-10-05, branch `claude/rgb30-market`).** La scheda Market (M25, passo
+8) e la **batteria sulla barra** (richiesta dell'utente): quattro tacche dal 75%, rossa sotto il
+10%, il fulmine sul caricatore, la carica dalla tensione del RK817 (`battery_percent`) anche in
+*Settings > System*; le schede non passano più sotto le icone. Prove: `test_battery_icon`
+(QEMU, `test_battery=` in `bm/config.txt`); sulla console da vedere.
 
 ## M41 — RGB30: la GPU Mali e Overbit in `.b16` (XL)
 Richiesta dell'utente (2026-10-05): lo stesso banco di prova della GPU del Pi anche sulla
