@@ -701,9 +701,46 @@ screenshot in `docs/img/`), `README_OLD.md` (il README completo, in italiano),
   testi di `src/ai/words` (scritti per bm, niente testi con licenze altrui), dal Lua dei
   giochi e dalle API della base di conoscenza.
 - `make test-predict` (in `make test`), `make predict-bench`, `make syllables`; in QEMU
-  `test_code_completion`. La scrittura col pad (accordi, modi facile/sillabe/steno) non è
-  su main: è archiviata nel branch `archive/pad-typing` (l'ultimo stato del vecchio
-  `ai-assistant`, chiuso il 2026-10-03); per riprenderla si parte da lì.
+  `test_code_completion`. La vecchia scrittura ad accordi (modi facile/sillabe/steno) è
+  archiviata nel branch `archive/pad-typing`; quella di adesso è la sezione dopo.
+
+## Scrittura col pad (branch `assistive-typing`, 2026-10-05)
+
+- `src/ai/padtype.lua` (`require "padtype"`, nel kernel, in bmhost e nella RGB30), guida
+  `docs/PADTYPE.md`. Regole dell'utente (le tabelle `CROSS`, `FACE`, `KB` in cima al file
+  si cambiano lì): **composizione rapida** con solo su/giù/destra/sinistra (le diagonali
+  non scrivono); una freccia aspetta X ms (`delay`, 250) la sua doppia, che dà la
+  consonante gemella (↑ t, ↑↑ d; mai la stessa due volte); la predizione completa la
+  sillaba (consonante + doppia + h + vocali dal dizionario di `predict`); □ / △ la girano
+  (poi la consonante sola, a e i o u, le accentate per ultime); L2, R2, L2+R2 altri
+  livelli; L1 / R1 indietro / avanti, L1 + R1 tenuti a capo; ✕ spazio, ✕✕ punto, ○
+  cancella l'ultima cosa scritta, R2 + ✕ □ △ le tre parole; L3 maiuscola, R3 la tastiera
+  per un carattere. **Share** passa alla **tastiera su schermo** (un tasto alla volta con
+  la croce) e torna (`fallback = "off"`: spegne, come in bm Code). L'**overlay** del
+  controller (`pt.draw`, 340×132) mostra le sillabe delle frecce, i tasti del livello
+  tenuto e le parole.
+- Consonanti per frequenza come inizio di sillaba (it ½, en ¼, Lua ¼: n t r s l c d p il
+  69%), la doppia gemella (t/d, n/m, r/l, s/c), una famiglia per direzione nei livelli;
+  L2+R2 i numeri (0 è ○, il 9 è l'8 girato con □: anche le cifre girano).
+- `pt.coach(host, testo)`: il prossimo tasto per scrivere un testo (l'esercizio e i test);
+  `pt.text_host(lang)`: un host su una stringa (in Lua rientra dopo `then`/`do`/`{`, e
+  `end`/`else`/`until` tornano indietro). Nel codice `pt.align` confronta come se `end`
+  fosse già rientrato.
+- **bm Code**: Share accende e spegne (anche il menu, *Pad typing*); `pad_host` modifica la
+  scheda con `edit_key` (la cancellazione è esatta, anche tra le righe), la lingua segue
+  `place_at`; overlay sotto il codice, `PAD compose lua` nella riga di stato, al cursore la
+  pressione che aspetta (gialla), la sillaba che gira (azzurra, niente sottolineature: i
+  test leggono lo schermo), il resto della parola (blu-grigio). `pt.idle` quando un menu ha
+  il pad.
+- **Pad Typing** (`carts/typing`, scheda Games, copertina in `scripts/mkcovers.py`):
+  esercizio in italiano, inglese, Lua (otto testi a lingua in `pt.TEXTS`, o scrittura
+  libera), il prossimo tasto sotto il testo, caratteri al minuto e pressioni a carattere
+  contro i record (`save()`). I testi sulla griglia del font 8×16.
+- Test: `make test-padtype` (in `make test`: le regole, tutti i testi scritti fino in fondo
+  dal dattilografo simulato, it 1,09 / en 1,06 / Lua 1,33 pressioni a carattere contro
+  3,7–4,0 della tastiera su schermo; poi Pad Typing in bmhost con `tests/padtype/script.lua`,
+  fotogrammi in `build/padtype/`), QEMU `test_pad_typing` (DS4 simulato: Pad Typing e Share
+  in bm Code). Dopo aver cambiato `padtype.lua` va ricompilato bmhost (lo incorpora).
 
 ## Mouse e puntatore (M32)
 

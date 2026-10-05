@@ -15,6 +15,7 @@ extern const uint8_t bm_lib_assist[], bm_lib_assist_end[];
 extern const uint8_t bm_lib_bm3d[], bm_lib_bm3d_end[];
 extern const uint8_t bm_lib_predict[], bm_lib_predict_end[];
 extern const uint8_t bm_lib_words[], bm_lib_words_end[];
+extern const uint8_t bm_lib_padtype[], bm_lib_padtype_end[];
 
 static const struct {
     const char *name;
@@ -24,6 +25,7 @@ static const struct {
     { "bm3d", bm_lib_bm3d, bm_lib_bm3d_end },        /* bm Studio and bm Animator */
     { "predict", bm_lib_predict, bm_lib_predict_end },  /* word completion */
     { "words", bm_lib_words, bm_lib_words_end },        /* its dictionaries */
+    { "padtype", bm_lib_padtype, bm_lib_padtype_end },  /* typing with the pad */
 };
 
 #define LOADED "bm.loaded"
@@ -53,7 +55,7 @@ static int l_require(lua_State *L)
         lua_setfield(L, -3, name);
         return 1;
     }
-    return luaL_error(L, "module '%s' not found (built in: assist, bm3d, predict, words)", name);
+    return luaL_error(L, "module '%s' not found (built in: assist, bm3d, predict, words, padtype)", name);
 }
 
 void bm_require_open(lua_State *L)

@@ -97,7 +97,7 @@ $(VERSION_STAMP): FORCE
 	@echo '$(VERSION) $(BRANCH)' | cmp -s - $@ || echo '$(VERSION) $(BRANCH)' > $@
 $(BUILD)/k/src/kernel/version.c.o: $(VERSION_STAMP)
 $(BUILD)/k/src/kernel/version.c.o: CFLAGS += -DBM_VERSION=\"$(VERSION)\" -DBM_BRANCH=\"$(BRANCH)\"
-$(BUILD)/k/src/rgb30/bm_embed.S.o: keys/release-pub.pem
+$(BUILD)/k/src/rgb30/bm_embed.S.o: keys/release-pub.pem src/ai/padtype.lua
 FORCE:
 
 .DEFAULT_GOAL := all
