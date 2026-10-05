@@ -753,6 +753,24 @@ static int bin(uint32_t start, uint32_t end)
                     memmove(glv, glv + nshade, n * sizeof *glv);
                     memmove(glc, glc + nshade, n * sizeof *glc);
                     emu_stats.glindexed += n;
+                    /* a model of the VCD's cache of shaded corners (16, first in first out):
+                     * the corners shaded again for this draw's order of indices (M39) */
+                    uint16_t fifo[16];
+                    int nf = 0, head = 0;
+                    for (uint32_t i = 0; i < n; i++) {
+                        int hit = 0;
+                        for (int k = 0; k < nf && !hit; k++)
+                            hit = fifo[k] == ix[i];
+                        if (hit)
+                            continue;
+                        emu_stats.vmiss++;
+                        if (nf < 16)
+                            fifo[nf++] = ix[i];
+                        else {
+                            fifo[head] = ix[i];
+                            head = (head + 1) % 16;
+                        }
+                    }
                 }
                 if (glclip && (!xy_set || !z_set))
                     return err("GL clipping without CLIPPER_XY_SCALING (%u) or CLIPPER_Z_SCALING (%u)", xy_set, z_set);

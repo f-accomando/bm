@@ -123,8 +123,9 @@ int gpu3d_fs2(void);
 
 /* M39: the draws of opaque meshes by the vertex shader written into the
  * job nearest first (gpu3d_sort=1): the GPU's early z throws away the
- * pixels they hide before shading them. The same picture but where two
- * faces have the same depth. */
+ * pixels they hide before shading them; and the triangles of each mesh in
+ * the order that reuses the GPU's cache of shaded corners. The same
+ * picture but where two faces have the same depth. */
 void gpu3d_set_sort(int on);
 int gpu3d_sort(void);
 int gpu3d_tiles(void);
@@ -175,6 +176,7 @@ typedef struct {
     uint32_t glverts;               /* corners the vertex shader is given (M39: indexed, once each) */
     uint32_t overlapped;            /* jobs filled while the one before was drawn (M39, two blocks) */
     uint32_t sorted;                /* mesh draws moved by the nearest-first order (M39) */
+    uint32_t vcached;               /* triangles put in the vertex cache's order (M39) */
 } gpu3d_stats_t;
 
 /* totals since the last call, then zeroed */

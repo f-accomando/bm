@@ -445,7 +445,7 @@ void home_panel(int id, home_panel_t *p)
                  "Two threads: a QPU shades while the other waits for its texel", "%s",
                  config_on("gpu3d_fs2") ? "Two threads" : "One thread");
         home_row(p, MENU_ROW_CHOICE, R_SORT, "3D draw order",
-                 "Nearest first: the GPU skips the hidden pixels (vertex shader)", "%s",
+                 "Nearest first, triangles in cache order: the GPU skips work (vertex shader)", "%s",
                  config_on("gpu3d_sort") ? "Nearest first" : "As the game");
 #endif
         home_row(p, MENU_ROW_CHOICE, R_FAST3D, "3D on the ARM",

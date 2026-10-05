@@ -42,6 +42,7 @@
 #include "kernel/ledstate.h"
 #include "kernel/reports.h"
 #include "b3d_rgb30.h"
+#include "gputest_rgb30.h"
 
 #include <stdlib.h>
 
@@ -473,6 +474,17 @@ static void page_bench3d(void)
     pad_pressed();
 }
 
+/* Dev > GPU test (M41): the Mali step by step */
+static void page_gputest(void)
+{
+    fb_show(fb, 0);
+    console_suspend(0);
+    rgb30_gpu_test(fb);
+    kprintf("\n\x1b[96m%s\x1b[0m back\n", pad_back_name());
+    wait_back();
+    console_suspend(1);
+}
+
 static void page_render(void)
 {
     fb_show(fb, 0);
@@ -503,6 +515,7 @@ static const item_t dev_items[] = {
     { "Input test", "every button and both sticks, live", ui_input_test, MENU_ICON_PAD, 0x8A3A8A },
     { "Boot log", "everything printed since boot", ui_show_log, MENU_ICON_LOG, 0x6A6A7A },
     { "Lua", "a Lua prompt on the serial port", serial_lua, MENU_ICON_LUA, 0x2A3A9A },
+    { "GPU test", "the Mali-G52 step by step: power, MMU, jobs", page_gputest, MENU_ICON_CHIP, 0x8A5A2A },
 };
 #define N_DEV ((int)(sizeof dev_items / sizeof dev_items[0]))
 static g16_sheet_t dev_covers[N_DEV];

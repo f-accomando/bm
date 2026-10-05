@@ -4,6 +4,7 @@
 #include "v3d.h"
 #include "lib/printf.h"
 
+#include <math.h>
 #include <stdlib.h>
 #include <string.h>
 
@@ -1103,6 +1104,127 @@ static void put_mesh_corner(float *o, const r3d_mesh_t *m, int f, int k, int vs,
  * and the sky, or not at all) and textured faces (with baked light, or lit
  * by the sun); with a skeleton, the corners of a face on one bone; no
  * textured screen-door; unlit: every face at full light */
+/* M39 (gpu3d_sort): a group's triangles in the order that reuses the
+ * V3D's cache of shaded corners best (Tom Forsyth's linear-speed vertex
+ * cache optimisation, for a cache of VC_SIZE), then its corners (words
+ * each, at o) renumbered in the order of their first use, so that the VCD
+ * also reads them in order. Nothing if there is no memory. */
+#define VC_SIZE 32
+static float vc_score(int pos, uint32_t live)
+{
+    if (!live)
+        return -1.0f;
+    float sc = 0;
+    if (pos >= 0)
+        sc = pos < 3 ? 0.75f : powf(1.0f - (float)(pos - 3) / (VC_SIZE - 3), 1.5f);
+    return sc + 2.0f / sqrtf((float)live);
+}
+
+static void vcache_order(uint16_t *ix, uint32_t nt, uint32_t nv, float *o, uint32_t words)
+{
+    if (nt < 2 || nv < 4)
+        return;
+    uint32_t *start = calloc(nv + 1, sizeof *start), *adj = malloc((size_t)nt * 3 * sizeof *adj);
+    uint32_t *live = calloc(nv, sizeof *live);
+    int8_t *pos = malloc(nv);
+    float *vsc = malloc(nv * sizeof *vsc), *tsc = malloc(nt * sizeof *tsc);
+    uint8_t *done = calloc(nt, 1);
+    uint16_t *out = malloc((size_t)nt * 3 * sizeof *out), *renum = malloc(nv * sizeof *renum);
+    float *tmp = malloc((size_t)nv * words * sizeof *tmp);
+    if (!start || !adj || !live || !pos || !vsc || !tsc || !done || !out || !renum || !tmp)
+        goto end;
+    for (uint32_t i = 0; i < nt * 3; i++)
+        start[ix[i] + 1]++;
+    for (uint32_t v = 0; v < nv; v++) {
+        live[v] = start[v + 1];
+        start[v + 1] += start[v];
+    }
+    {
+        uint32_t *fill = malloc(nv * sizeof *fill);
+        if (!fill)
+            goto end;
+        memcpy(fill, start, nv * sizeof *fill);
+        for (uint32_t t = 0; t < nt; t++)
+            for (int k = 0; k < 3; k++)
+                adj[fill[ix[t * 3 + k]]++] = t;
+        free(fill);
+    }
+    memset(pos, -1, nv);
+    for (uint32_t v = 0; v < nv; v++)
+        vsc[v] = vc_score(-1, live[v]);
+    for (uint32_t t = 0; t < nt; t++)
+        tsc[t] = vsc[ix[t * 3]] + vsc[ix[t * 3 + 1]] + vsc[ix[t * 3 + 2]];
+    uint32_t cache[VC_SIZE + 3], ncache = 0, cursor = 0, nout = 0;
+    int64_t best = -1;
+    while (nout < nt) {
+        if (best < 0) {                 /* nothing near: the next triangle not drawn */
+            while (done[cursor])
+                cursor++;
+            best = cursor;
+        }
+        const uint32_t t = (uint32_t)best;
+        done[t] = 1;
+        uint32_t c[VC_SIZE + 3], n = 0;
+        for (int k = 0; k < 3; k++) {
+            const uint16_t v = ix[t * 3 + k];
+            out[nout * 3 + (uint32_t)k] = v;
+            c[n++] = v;
+            live[v]--;
+            for (uint32_t a = start[v]; a < start[v + 1]; a++)  /* t off the corner's list */
+                if (adj[a] == t) {
+                    adj[a] = adj[start[v] + live[v]];
+                    adj[start[v] + live[v]] = t;
+                    break;
+                }
+        }
+        nout++;
+        /* the cache: these three first, then what was in it */
+        for (uint32_t i = 0; i < ncache; i++)
+            if (cache[i] != c[0] && cache[i] != c[1] && cache[i] != c[2])
+                c[n++] = cache[i];
+        for (uint32_t i = VC_SIZE; i < n; i++)
+            pos[c[i]] = -1;             /* out of the cache */
+        ncache = n < VC_SIZE ? n : VC_SIZE;
+        memcpy(cache, c, ncache * sizeof *cache);
+        /* the scores of the corners in the cache and of their triangles */
+        best = -1;
+        float bs = -1;
+        for (uint32_t i = 0; i < ncache; i++) {
+            pos[cache[i]] = (int8_t)i;
+            vsc[cache[i]] = vc_score((int)i, live[cache[i]]);
+        }
+        for (uint32_t i = 0; i < ncache; i++) {
+            const uint32_t v = cache[i];
+            for (uint32_t a = start[v]; a < start[v] + live[v]; a++) {
+                const uint32_t u = adj[a];
+                const float sc = vsc[ix[u * 3]] + vsc[ix[u * 3 + 1]] + vsc[ix[u * 3 + 2]];
+                tsc[u] = sc;
+                if (sc > bs) {
+                    bs = sc;
+                    best = u;
+                }
+            }
+        }
+    }
+    /* the corners in the order of their first use */
+    for (uint32_t v = 0; v < nv; v++)
+        renum[v] = 0xffff;
+    uint32_t next = 0;
+    for (uint32_t i = 0; i < nt * 3; i++)
+        if (renum[out[i]] == 0xffff)
+            renum[out[i]] = (uint16_t)next++;
+    memcpy(tmp, o, (size_t)nv * words * sizeof *tmp);
+    for (uint32_t v = 0; v < nv; v++)
+        if (renum[v] != 0xffff)
+            memcpy(o + (size_t)renum[v] * words, tmp + (size_t)v * words, words * sizeof *tmp);
+    for (uint32_t i = 0; i < nt * 3; i++)
+        ix[i] = renum[out[i]];
+    G.st.vcached += nt;
+end:
+    free(start); free(adj); free(live); free(pos); free(vsc); free(tsc); free(done); free(out); free(renum);
+    free(tmp);
+}
+
 static int mesh_build(const g16_t *g, gmesh_t *e, const r3d_mesh_t *m, int unlit, int smooth)
 {
     const int skinned = m->bones && m->nbones > 0, lit = !unlit && !m->clight;
@@ -1252,6 +1374,8 @@ static int mesh_build(const g16_t *g, gmesh_t *e, const r3d_mesh_t *m, int unlit
                 }
             }
             gr->nv = nv;
+            if (G.sort_on)
+                vcache_order(ix + gr->ifirst, gr->n / 3, nv, o, words);
             at += (nv * stride + 15) & ~15u;
         } else {
             for (int f = 0; f < m->nfaces; f++) {
@@ -2215,7 +2339,11 @@ int gpu3d_fs2(void)
 
 void gpu3d_set_sort(int on)
 {
+    if (G.sort_on == !!on)
+        return;
     G.sort_on = !!on;
+    for (int i = 0; i < NMESH; i++)     /* their triangles in the other order: made again */
+        G.gm[i].version ^= 0x80000000u;
 }
 
 int gpu3d_sort(void)

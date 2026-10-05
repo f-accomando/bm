@@ -165,6 +165,19 @@ stress test, il 3D Bench, il benchmark di Overbit e il quarto valore di `gpu3d()
   cui sta. Overbit la dà alla partenza della mappa e non disegna gli eroi dietro i muri
   (prima solo quelli fuori dall'inquadratura); le ombre restano (al tramonto escono dai
   muri). Vale anche sull'ARM e sulla RGB30. Prove in `make test-gameapi`.
+- **5.6** (2026-10-05, M39): con la stessa opzione (*3D draw order: Nearest first*) i triangoli di
+  ogni gruppo di una mesh indicizzata vanno nell'ordine che riusa di più la cache degli angoli
+  già colorati della V3D (l'ottimizzazione lineare di Tom Forsyth per una cache di 32), e gli
+  angoli si rinumerano nell'ordine del primo uso (la VCD li legge di fila). Nell'emulatore, che
+  ora ha un modello della cache (16, FIFO): una griglia di 1800 triangoli in ordine sparso passa
+  da 2,96 a 0,69 angoli colorati per triangolo, stessi pixel. Cambiare l'opzione rifà le copie
+  delle mesh.
+- **6.0** (2026-10-05, M41): **la GPU Mali-G52 della RGB30**, primo passo (`src/rgb30/mali.c`,
+  *Dev > GPU test*): vdd_gpu, orologi e dominio di alimentazione PD_GPU, identità, reset,
+  accensione dei core, MMU (spazio 0, tabelle Mali LPAE come panfrost sull'RK3568) e lavori del job
+  manager (WRITE_VALUE e una catena di due). Non disegna ancora: il 3D della RGB30 resta dell'ARM
+  e il 3D Bench lo dice nella riga della macchina. Prove sul PC con una GPU simulata
+  (`make TARGET=rgb30 test-mali`).
 
 ## Le modalità: versioni vecchie sul codice di oggi
 
@@ -180,7 +193,8 @@ Le impostazioni riproducono le versioni precedenti, così si confrontano sullo s
 - con due lavori in volo (`gpu3d_queue=2`): **5.1**;
 - con le texture a 16 bit (`gpu3d_tex16=1`): **5.2**;
 - con gli shader dei pixel a due thread (`gpu3d_fs2=1`): **5.3**;
-- con le mesh dalla più vicina (`gpu3d_sort=1`, con il vertex shader): **5.4**.
+- con le mesh dalla più vicina e i triangoli nell'ordine della cache (`gpu3d_sort=1`, con il
+  vertex shader): **5.4** e **5.6**.
 
 Quello che 4.2, 4.3, 4.4 e 4.6 hanno aggiunto (schermi fino a 1080p, `cls()` della GPU, il
 record GL in byte, niente early z dopo uno `zclear()` nel lavoro, 8 texture in un lavoro)

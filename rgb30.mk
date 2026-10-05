@@ -102,7 +102,7 @@ $(BUILD)/k/src/rgb30/bm_embed.S.o: keys/release-pub.pem src/ai/assist.lua src/ai
 FORCE:
 
 .DEFAULT_GOAL := all
-.PHONY: all test test-bt test-wifi qemu clean firmware image sdcard FORCE
+.PHONY: all test test-bt test-wifi test-mali qemu clean firmware image sdcard FORCE
 
 all: $(BUILD)/kernel8.img
 ifeq ($(PLAT),rk3566)
@@ -182,7 +182,7 @@ qemu:
 	$(QEMU64) -M virt,gic-version=3 -cpu cortex-a55 -m 512M -device ramfb -nic none \
 	    -kernel build/rgb30-virt/kernel.elf -serial stdio -display none
 
-test: test-bt test-wifi
+test: test-bt test-wifi test-mali
 	$(MAKE) -f rgb30.mk PLAT=virt all build/rgb30-virt/carts/yharnam.bm
 	$(PYTHON) tests/rgb30/qemu_test.py --build build/rgb30-virt
 
@@ -218,6 +218,14 @@ build/rgb30-host/wifi_sim_test: tests/rgb30/wifi_sim_test.c $(WIFI_SIM_SRCS) src
 	$(HOSTCC) -O1 -g -w -fsanitize=address,undefined -DPLAT_RK3566 -DBM_HOST_TEST -Isrc -Isrc/rgb30 \
 	    -Isrc/net -Ithird_party/lwip/src/include -Ithird_party/mbedtls/include \
 	    -DMBEDTLS_CONFIG_FILE='"bm_mbedtls.h"' -o $@ tests/rgb30/wifi_sim_test.c $(WIFI_SIM_SRCS)
+
+# M41: the Mali probe (mali.c) on a simulated G52, CRU and PMU
+build/rgb30-host/mali_test: tests/rgb30/mali_test.c src/rgb30/mali.c src/rgb30/mali.h
+	@mkdir -p $(dir $@)
+	$(HOSTCC) -O1 -Wall -Wextra -Isrc -o $@ tests/rgb30/mali_test.c src/rgb30/mali.c
+
+test-mali: build/rgb30-host/mali_test
+	build/rgb30-host/mali_test
 
 test-wifi: build/rgb30-host/rtw_frame_test build/rgb30-host/wpa_test build/rgb30-host/wifi_sim_test
 	build/rgb30-host/rtw_frame_test

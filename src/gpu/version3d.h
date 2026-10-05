@@ -15,12 +15,13 @@
  * the 2D over the 3D in the job 4.8 (gpu3d_2d: GPU+2D), with two jobs in
  * flight 5.1 (gpu3d_queue=2: GPU+VS+Q2), with 16-bit textures 5.2
  * (gpu3d_tex16: GPU+T16), with two-thread pixel shaders 5.3 (gpu3d_fs2:
- * GPU+FS2), with the meshes nearest first 5.4 (gpu3d_sort: GPU+VS+S). 0.1
+ * GPU+FS2), with the meshes nearest first 5.4 and their
+ * triangles in the vertex cache's order 5.6 (gpu3d_sort: GPU+VS+S). 0.1
  * and 1.0 no longer run: the 3D Bench shows the numbers measured on the Pi
  * with them.
  */
-#define BM3D_VERSION "5.5"
-#define BM3D_BLOCK   "M39"
+#define BM3D_VERSION "6.0"
+#define BM3D_BLOCK   "M41"
 
 typedef struct {
     const char *version, *block, *date, *what;
@@ -56,6 +57,8 @@ static inline const bm3d_version_t *bm3d_versions(int *n)
         { "5.3", "M39", "2026-10-05", "textured faces shaded with two threads a QPU, checked by the probe (option)" },
         { "5.4", "M39", "2026-10-05", "the meshes' draws nearest first: early z skips the hidden pixels (option)" },
         { "5.5", "M39", "2026-10-05", "visible3d and pvs3d: characters hidden by the map skipped (Overbit)" },
+        { "5.6", "M39", "2026-10-05", "each mesh's triangles in the vertex cache's order (with the draw order option)" },
+        { "6.0", "M41", "2026-10-05", "RGB30: the Mali-G52 powered, mapped, running jobs (GPU test); no drawing yet" },
     };
     *n = (int)(sizeof v / sizeof v[0]);
     return v;

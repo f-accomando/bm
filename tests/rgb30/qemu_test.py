@@ -594,6 +594,28 @@ def test_bench3d(b, opts):
     assert "_bench3d_qemu-virt_" in head and "R,spheres,ARM" in rpt, rpt[:400]
 
 
+def test_gpu_test(b, opts):
+    """Dev > GPU test (M41): on QEMU's virt there is no Mali, the page says
+    so and nothing touches the GPU's registers; back returns to the menu."""
+    q = Qemu(os.path.join(b, "kernel.elf"))
+    try:
+        boot(q)
+        keys(q, "r")                            # Dev tab: 3D Bench
+        keys(q, "ss")                           # the third row: GPU test
+        text = screen_all(q.screendump())
+        assert "GPU test" in text and in_menu(text), text
+        q.send("\r")
+        q.expect("no Mali on QEMU virt", timeout=20)
+        time.sleep(0.5)
+        text = screen_all(q.screendump())
+        assert "GPU test" in text and "no Mali on QEMU virt" in text, text
+        q.send("\x7f")                          # A: back
+        time.sleep(1.5)
+        assert in_menu(screen_all(q.screendump()))
+    finally:
+        q.close()
+
+
 def test_menu_input_page(b, opts):
     """The Dev tab's input test: the serial port presses buttons."""
     q = Qemu(os.path.join(b, "kernel.elf"))

@@ -54,7 +54,7 @@ int fb_init_mode(framebuffer_t *fb, uint32_t width, uint32_t height, uint32_t bu
     uint32_t pitch = (width * (depth / 8) + FB_ROW_ALIGN - 1) & ~(FB_ROW_ALIGN - 1);
     uint32_t rows = (height + FB_TILE - 1) & ~(FB_TILE - 1);
     uint32_t page = (pitch * rows + FB_PAGE_ALIGN - 1) & ~(FB_PAGE_ALIGN - 1);
-    if ((uint64_t)page * buffers > PLAT_FB_END - PLAT_FB_START)
+    if ((uint64_t)page * buffers > PLAT_GPU_START - PLAT_FB_START)
         return -1;
     fb->width = width;
     fb->height = height;

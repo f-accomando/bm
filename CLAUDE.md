@@ -264,6 +264,17 @@ screenshot in `docs/img/`), `README_OLD.md` (il README completo, in italiano),
 - Tasti: **B conferma, A torna indietro** (decisione dell'utente; `confirm=a` li scambia):
   nell'interfaccia si usano `pad_ok` / `pad_back` e `pad_ok_name()` / `pad_back_name()` (`pad.h`),
   mai `PAD_A` / `PAD_B` per conferma e indietro.
+- **GPU Mali-G52** (M41, bm3d 6.0): `src/rgb30/mali.c` (portabile: registri e orologio da
+  `mali_hw_t`), *Dev > GPU test* (`gputest_rgb30.c`, report `gpu`), solo quando lo si chiede:
+  vdd_gpu (RK817 DCDC2) prima di tutto, poi CRU/PMU del dominio PD_GPU (offset del PMU come
+  `pd_vo_on` in `rk_display.c`), reset, core, MMU con tabelle Mali LPAE (foglie di tipo 1 anche al
+  livello 3, permessi a 6-7, MEMATTR 0x888d88, TRANSCFG 0) sui 64 MiB da 0x3c000000; la memoria
+  della GPU sono gli ultimi 4 MiB (`PLAT_GPU_START`, fuori dai framebuffer). Lavori: intestazione di
+  32 byte (parola 4: bit 0 descrittori a 64 bit, tipo ai bit 1-7, indice ai 16-31; parola 5 le
+  dipendenze; 6-7 il prossimo), WRITE_VALUE con indirizzo, tipo 6 (32 bit) e valore. Nessun disegno
+  ancora. Prova sul PC `make TARGET=rgb30 test-mali` (GPU simulata), QEMU `test_gpu_test`.
+  Riferimenti: i sorgenti di Linux (panfrost, pm-domains, clk-rk3568, rk808-regulator, dts
+  rk356x) letti con un clone parziale; mai copiarne il codice (GPL).
 - Schermo: modalità pronte per la GPU Mali (`src/rgb30/display.h`, `fb_init_mode`): righe a 64
   byte, tessere da 16, pagine su 64 KiB nella memoria video e GPU (0x3c000000, 64 MiB), il
   controller video ingrandisce sul pannello 720×720. Pagina *Display* nel menu.
@@ -878,7 +889,8 @@ screenshot in `docs/img/`), `README_OLD.md` (il README completo, in italiano),
   opache RGB565 (`gpu3d_tex16`, layout imparato da `tformat16_learn`); shader dei pixel a due
   thread (`fs_*_t` in `qpuasm.py`, che controlla le regole di Mesa, `gpu3d_fs2`, `probe_fs2`);
   le mesh che scrivono lo z messe da parte e scritte dalla più vicina (`gpu3d_sort`,
-  `sort_flush` prima di ogni altro pacchetto); `visible3d`/`pvs3d` (Overbit: gli eroi dietro i
+  `sort_flush` prima di ogni altro pacchetto), con i triangoli nell'ordine della cache dei
+  vertici (`vcache_order`, l'emulatore ha una cache FIFO di 16); `visible3d`/`pvs3d` (Overbit: gli eroi dietro i
   muri). Ogni opzione ha una riga in *Settings > Screen and sound* e un profilo nel 3D Bench
   (il riassunto è su due pagine con i nomi brevi dei profili).
 - **Cose della V3D imparate dal Pi** (branch `bm3d-driver`, 2026-10-05): nel record GL la

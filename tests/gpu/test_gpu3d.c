@@ -54,6 +54,7 @@ static g16_sheet_t sheet, sheet2, sheet3;
 static g16_sheet_t sheets10[10];        /* more sheets than the backend keeps in a job (8) */
 static r3d_mesh_t sphere, quad, floor_m, cube, lit_quad, glass, lit_box, hero, hero_tex, hero_skin;
 static r3d_mesh_t quad_s, lit_quad_s, lit_box_s;     /* M34: textured screen-door faces */
+static r3d_mesh_t grid_shuffled;        /* M39: a grid whose faces come in no order */
 static const r3d_mesh_t *hero_m = &hero;     /* the hero of s_vshader_heroes */
 static float hero_bones[2][12];
 static uint8_t hero_vbone[512];
@@ -173,8 +174,37 @@ static void make_hero(void)
     r3d_mesh_free(&c);
 }
 
+/* 30 x 30 squares facing the camera, one colour, the faces shuffled */
+static void make_grid(void)
+{
+    enum { N = 30 };
+    r3d_mesh_alloc(&grid_shuffled, (N + 1) * (N + 1), 2 * N * N);
+    for (int y = 0; y <= N; y++)
+        for (int x = 0; x <= N; x++)
+            grid_shuffled.verts[y * (N + 1) + x] = (v3_t){ (float)x / N * 4 - 2, (float)y / N * 3 - 1.5f, 0 };
+    for (int y = 0, f = 0; y < N; y++)
+        for (int x = 0; x < N; x++, f += 2) {
+            const uint16_t a = (uint16_t)(y * (N + 1) + x), b = (uint16_t)(a + 1), c = (uint16_t)(a + N + 1),
+                           d = (uint16_t)(c + 1);
+            const uint16_t t[6] = { a, b, c, b, d, c };     /* clockwise seen from -z */
+            memcpy(grid_shuffled.faces + f * 3, t, sizeof t);
+            grid_shuffled.colors[f] = grid_shuffled.colors[f + 1] = 0x80C0FF;
+        }
+    uint32_t r = 12345;
+    for (int f = grid_shuffled.nfaces - 1; f > 0; f--) {
+        r = r * 1103515245u + 12345u;
+        const int g = (int)((r >> 8) % (uint32_t)(f + 1));
+        uint16_t tmp[3];
+        memcpy(tmp, grid_shuffled.faces + f * 3, sizeof tmp);
+        memcpy(grid_shuffled.faces + f * 3, grid_shuffled.faces + g * 3, sizeof tmp);
+        memcpy(grid_shuffled.faces + g * 3, tmp, sizeof tmp);
+    }
+    r3d_mesh_normals(&grid_shuffled);
+}
+
 static void make_meshes(void)
 {
+    make_grid();
     r3d_mesh_sphere(&sphere, 10, 16, 0x4080FF, 0xFFC040);
     r3d_mesh_cube(&cube, 0x60C060);
     r3d_mesh_t *q[2] = { &quad, &floor_m };
@@ -320,6 +350,16 @@ static void s_far_to_near(r3d_t *r, g16_t *g, int gpu)
     flush(r, g, gpu);
     gpu3d_set_vshader(0);
     r3d_fog(r, 0, 0, 0);
+}
+
+/* M39: the grid of shuffled faces, unlit, by the vertex shader */
+static void s_grid(r3d_t *r, g16_t *g, int gpu)
+{
+    r3d_camera(r, 0, 0, -5, 0, 0, 60);
+    gpu3d_set_vshader(gpu != 0);
+    r3d_draw_flags(r, &grid_shuffled, (v3_t){ 0, 0, 0 }, 0, 0, 0, 1, R3D_UNLIT);
+    flush(r, g, gpu);
+    gpu3d_set_vshader(0);
 }
 
 /* M36: meshes the GPU clips: a "lit" floor under the camera and a wall
@@ -923,6 +963,38 @@ int main(int argc, char **argv)
         CHECK(differ == 0 && moved >= 7 && shaded[1] * 2 < shaded[0],
               "nearest first: %d pixels differ, %u draws moved, %u pixels shaded against %u", differ, moved,
               shaded[1], shaded[0]);
+        test_free(q[0]);
+        test_free(q[1]);
+    }
+    /* M39: a grid of shuffled faces in the vertex cache's order: the same
+     * picture, fewer corners shaded again (a cache of 16 in the emulator) */
+    {
+        uint16_t *q[2] = { test_aligned_alloc(16, 640 * 360 * 2), test_aligned_alloc(16, 640 * 360 * 2) };
+        uint32_t miss[2];
+        for (int k = 0; k < 2; k++) {
+            g16_t g;
+            r3d_t r;
+            g16_target(&g, q[k], 640, 640, 360, &font);
+            g16_cls(&g, g16_rgb(30, 20, 50));
+            r3d_init(&r, &g);
+            r.backend = gpu3d_backend();
+            gpu3d_drop();
+            r3d_zclear(&r);
+            gpu3d_set_sort(k);
+            const uint32_t m0 = emu_stats.vmiss;
+            s_grid(&r, &g, 1);
+            miss[k] = emu_stats.vmiss - m0;
+            gpu3d_set_sort(0);
+            r3d_free(&r);
+        }
+        int differ = 0;
+        for (int i = 0; i < 640 * 360; i++)
+            differ += q[0][i] != q[1][i];
+        const int nt = grid_shuffled.nfaces;
+        printf("  vertex cache order: %.2f corners shaded a triangle instead of %.2f, %d pixels differ\n",
+               (double)miss[1] / nt, (double)miss[0] / nt, differ);
+        CHECK(differ == 0 && miss[1] * 2 < miss[0] && miss[1] < (uint32_t)nt, "vertex cache order: %u against %u, %d "
+              "pixels differ", miss[1], miss[0], differ);
         test_free(q[0]);
         test_free(q[1]);
     }

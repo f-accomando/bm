@@ -2970,9 +2970,9 @@ verificare sul Pi):**
 - passo 1: il test `big` e `big_logic` del 3D Bench ci sono (modelli da 10 080 triangoli su una
   mappa da 14 112); mancano le misure sul Pi con i profili del vertex shader (4.3: prima la VPM
   in parole non disegnava);
-- passo 2: **fatto in parte** (5.0): angoli uguali tenuti una volta per gruppo, primitive
-  indicizzate a 16 bit con la prova all'avvio; restano l'ordine per la cache dei vertici e gli
-  attributi a 16 e 8 bit;
+- passo 2: **fatto in parte** (5.0, 5.6): angoli uguali tenuti una volta per gruppo, primitive
+  indicizzate a 16 bit con la prova all'avvio, triangoli nell'ordine della cache dei vertici
+  (Forsyth, con `gpu3d_sort`); restano gli attributi a 16 e 8 bit;
 - passo 3: **fatto** (5.0): 65535 vertici e facce in `.bm`, r3d, `mesh()`, bm Studio, bm Mesh;
 - passo 4: **fatto** (5.1, `gpu3d_queue=2`): due blocchi di memoria, il lavoro dopo si riempie
   mentre la GPU disegna; il passo che manca è nel runtime (mostrare il fotogramma uno dopo,
@@ -3080,6 +3080,16 @@ le sfere dell'ARM del Pi, M40) e il 3D Bench ha le colonne GPU vuote.
 - **Fatto quando:** sulla RGB30 Overbit `.b16` gira a 360×360 e a 720×720 e il suo
   benchmark manda il report, prima con l'ARM e poi con la GPU Mali; il 3D Bench della
   RGB30 ha le righe GPU.
+
+**Stato (2026-10-05, branch `bm3d-driver`):** passo 3 cominciato, solo la parte del driver
+(i passi 1 e 2, Overbit in `.b16`, non sono driver: restano da fare). bm3d 6.0: *Dev > GPU
+test* sulla RGB30 accende la Mali-G52 (vdd_gpu, orologi e dominio PD_GPU, reset, core), mappa
+la memoria video e GPU con l'MMU (tabelle Mali LPAE) e fa girare lavori del job manager
+(WRITE_VALUE, una catena di due), con una riga a schermo per passo e il report `gpu`; provato su
+una GPU simulata (`make TARGET=rgb30 test-mali`), **da provare sulla console**. Prossimi passi,
+dopo il report della console: un lavoro di frammenti che pulisce un framebuffer (descrittore
+del framebuffer e del tiler), poi i triangoli preparati dall'ARM (posizioni e varying scritti
+dall'ARM, un lavoro del tiler) con un fragment shader Bifrost minimo, poi il vertex shader.
 
 ## Rischi principali
 | Rischio | Mitigazione |
