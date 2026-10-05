@@ -1,13 +1,11 @@
 /*
  * What the .bm runtime (src/bm) asks of the Pi that the RGB30 does not
- * have yet, so that the Pi's cartridges run here unchanged: the sound
- * (silent: the RK817's codec has no driver yet), the V3D (the 3D is drawn
- * by the ARM, as on the Pi without its GPU), the DMA engine (the CPU
- * copies), the firmware's clock queries, the services of the image-to-3D
- * tools, the development assistant's network. The controls come from
- * rgb30/bm_input.c.
+ * have yet, so that the Pi's cartridges run here unchanged: the V3D (the
+ * 3D is drawn by the ARM, as on the Pi without its GPU), the DMA engine
+ * (the CPU copies), the firmware's clock queries, the services of the
+ * image-to-3D tools, the development assistant's network. The controls
+ * come from rgb30/bm_input.c, the sound from audio.c (rk_audio.c).
  */
-#include "audio/audio.h"
 #include "gpu/gpu3d.h"
 #include "gpu/v3d.h"
 #include "drivers/dma.h"
@@ -19,65 +17,6 @@
 #include "lauxlib.h"
 
 #include <string.h>
-
-/* --- sound: every call accepted, nothing heard --- */
-
-static uint8_t regs[128];
-
-volatile uint8_t *audio_regs(void)                      { return regs; }
-void audio_reset(void)                                  { memset(regs, 0, sizeof regs); }
-void audio_note(unsigned ch, float freq, uint32_t ms, int wave, int vol)
-{
-    (void)ch; (void)freq; (void)ms; (void)wave; (void)vol;
-}
-void audio_note_off(unsigned ch)                        { (void)ch; }
-void audio_freq(unsigned ch, float freq)                { (void)ch; (void)freq; }
-void audio_envelope(unsigned ch, int a, int d, int s, int r)
-{
-    (void)ch; (void)a; (void)d; (void)s; (void)r;
-}
-void audio_duty(unsigned ch, int duty)                  { (void)ch; (void)duty; }
-int  audio_busy(unsigned ch)                            { (void)ch; return 0; }
-void audio_slide(unsigned ch, float hz, uint32_t ms)    { (void)ch; (void)hz; (void)ms; }
-void audio_vibrato(unsigned ch, float semitones, float rate_hz)
-{
-    (void)ch; (void)semitones; (void)rate_hz;
-}
-void audio_arp(unsigned ch, const int8_t *semis, int n, uint32_t ms)
-{
-    (void)ch; (void)semis; (void)n; (void)ms;
-}
-int  audio_bank(const uint8_t *data, size_t len, char *err, size_t errlen)
-{
-    (void)data; (void)len; (void)err; (void)errlen;
-    return 0;
-}
-int  audio_sfx(int n, int ch, int transpose, float vol)
-{
-    (void)n; (void)transpose; (void)vol;
-    return ch < 0 ? 0 : ch;
-}
-void audio_sfx_stop(int ch)                             { (void)ch; }
-int  audio_sfx_pos(int ch, int *step)                   { (void)ch; (void)step; return -1; }
-void audio_music(int song, int order, int fade_ms)      { (void)song; (void)order; (void)fade_ms; }
-void audio_music_pattern(int pat, int bpm, int swing, int step)
-{
-    (void)pat; (void)bpm; (void)swing; (void)step;
-}
-void audio_music_stop(int fade_ms)                      { (void)fade_ms; }
-int  audio_music_pos(int *song, int *order, int *step, int *pat)
-{
-    (void)song; (void)order; (void)step; (void)pat;
-    return 0;                                           /* no music playing */
-}
-void audio_tempo(float scale)                           { (void)scale; }
-void audio_mute(int track, int on)                      { (void)track; (void)on; }
-void audio_play(int ch, int sound, int note, int vol, int fx, uint32_t ms)
-{
-    (void)ch; (void)sound; (void)note; (void)vol; (void)fx; (void)ms;
-}
-void audio_pause(int on)                                { (void)on; }
-void audio_idle(void)                                   { }
 
 /* --- the V3D: absent, so r3d draws on the ARM --- */
 

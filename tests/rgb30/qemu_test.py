@@ -7,6 +7,7 @@ PLAT=virt (PL011 serial port, ramfb screen, GICv3, generic timer).
 """
 import argparse
 import os
+import re
 import socket
 import subprocess
 import sys
@@ -754,6 +755,75 @@ def test_battery_icon(b, opts):
     assert low[1] > 0 and low[0] == 0, low                                         # red, empty
     assert plug[2] > 0 and not full[2] and not mid[2] and not plug[1], plug        # the bolt
     assert "Battery" in mid[3] and "61%, 3.88 V" in mid[3], mid[3]
+
+
+TONE_CART = r"""
+local t = 0
+function _init() note(0, 440, 0, 4, 200) end    -- a sine, held
+function _update()
+  t = t + 1
+  if t == 170 then noteoff(0) end
+  if t == 200 then log("tone done") quit() end
+end
+function _draw() cls(1) end
+"""
+
+
+def test_sound(b, opts):
+    """The RGB30's sound (the user, 2026-10-05): the Pi's synthesizer and
+    player (src/audio/audio.c) through the console's output; in QEMU the
+    sink of src/rgb30/virt_audio.c takes 48 kHz as the I2S does and says
+    what it heard. A cartridge's held sine is heard at 440 Hz; the volume
+    keys (+ and -, here from the serial port) show their bar, bring it to
+    5/10 and the same tone comes out at a quarter of the peak (the gain is
+    the square of the level); the level is saved in bm/config.txt;
+    Settings > Screen and sound has the Sound, Volume and Test the sound
+    rows."""
+    tmp = tempfile.mkdtemp(prefix="bm64snd-")
+    sd = make_sd(tmp, {"bm/config.txt": b"game_intro=0\n",
+                       "bm/tone.bm": mkbm.pack(TONE_CART.encode(), title="Tone", author="tests")})
+    size = os.path.getsize(sd)
+    dump = os.path.join(tmp, "after.img")
+
+    def tone():
+        q.send("\r")                            # Games: the only one
+        out = q.expect("tone done", timeout=30).decode(errors="replace")
+        heard = [(int(hz), int(pk), int(rate)) for hz, pk, rate in
+                 re.findall(r"audio: heard (\d+) Hz, peak (\d+), (\d+) samples/s", out)]
+        pure = [h for h in heard if 438 <= h[0] <= 442]
+        assert pure, out[-2000:]
+        assert all(40000 <= h[2] <= 56000 for h in pure), pure         # 48 kHz, as the I2S
+        time.sleep(1.0)
+        return max(h[1] for h in pure)
+
+    q = Qemu(os.path.join(b, "kernel.elf"), sd=sd)
+    try:
+        out = boot(q)
+        assert "audio: QEMU sink, 48 kHz" in out, out
+        time.sleep(0.5)
+        full = tone()
+        for _ in range(5):
+            keys(q, "-", pause=0.15)            # the volume key, five times
+        q.expect("volume: 5 / 10", timeout=5)
+        text = screen_all(q.screendump())
+        assert "Volume" in text and "5 / 10" in text, text      # the bar over the menu
+        time.sleep(2.5)                         # the keys at rest: saved
+        quarter = tone()
+        assert 0.2 * full <= quarter <= 0.3 * full, (full, quarter)
+        keys(q, "rr")                           # Settings; down to Screen and sound
+        keys(q, "ss\r")
+        text = screen_all(q.screendump())
+        for want in ("Sound", "Volume", "5 / 10", "Test the sound"):
+            assert want in text, f"{want!r} not in Screen and sound:\n{text}"
+        q.monitor(f'pmemsave {RAMDISK:#x} {size} "{dump}"',
+                  until=lambda: os.path.exists(dump) and os.path.getsize(dump) == size)
+        time.sleep(0.3)
+    finally:
+        q.close()
+    env = dict(os.environ, MTOOLS_SKIP_CHECK="1")
+    cfg = subprocess.run(["mtype", "-i", f"{dump}@@{1024 * 1024}", "::/bm/config.txt"], capture_output=True,
+                         env=env, check=True).stdout.decode(errors="replace")
+    assert "volume=5" in cfg, cfg
 
 
 TESTS = [v for k, v in sorted(globals().items()) if k.startswith("test_")]

@@ -38,6 +38,7 @@
 #include "kernel/splash.h"
 #include "kernel/notice.h"
 #include "bm/runtime.h"
+#include "audio/audio.h"
 
 #include "lua.h"
 #include "lauxlib.h"
@@ -220,6 +221,14 @@ void kernel_main(uintptr_t dtb)
     kprintf("IRQ on: timer %lu Hz (measured %lu Hz)\n", tick_hz(),
             (uint32_t)((uint64_t)(tick_count() - n0) * 1000000u / (timer_ticks() - t0)));
     plat_led(-1, 0);
+    /* the sound: the RK817's codec on the console, QEMU's sink in the tests */
+    if (audio_init() == 0) {
+        kprintf("audio: %s\n", audio_status());
+        audio_note(0, 523, 90, 1, 110);         /* short chime, as on the Pi: sound works */
+        audio_note(1, 784, 160, 1, 90);
+    } else {
+        kprintf("audio: off - %s\n", audio_status());
+    }
     lua_selftest();
     if (plat_display_problem()) {
         plat_led(-1, 1);                    /* red stays on: see bm/bootlog.txt */

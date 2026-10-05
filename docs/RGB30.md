@@ -158,8 +158,8 @@ prima di accendere lo schermo e il registro si scrive tre volte (prima dello sch
   dal 2026-10-04 le stesse sezioni del Pi (`src/kernel/settings.c`): Controllers
   (Bluetooth, abbinare pad, tastiere e mouse, prova dei tasti, *Confirm button*, layout della
   tastiera, icone), WiFi and network (rete salvata, indirizzo, console di rete, collegarsi,
-  *Test the connection*), Screen and sound (i modi dello schermo, l'overlay delle prestazioni; il
-  suono non ancora), Updates, Reports, System (versione, memoria, SD, batteria, il log, riavvio,
+  *Test the connection*), Screen and sound (i modi dello schermo, l'overlay delle prestazioni, il
+  suono: Sound, Volume, *Test the sound*), Updates, Reports, System (versione, memoria, SD, batteria, il log, riavvio,
   spegnimento). Solo il controller: L1/R1 le schede (senza fare il giro, come sul Pi), la croce
   le copertine e le righe, **B** apre e **A** torna indietro (`confirm=a` li scambia, anche nei
   suggerimenti). A destra della barra solo la rete e la **batteria** (dal 2026-10-05; niente icone
@@ -190,13 +190,35 @@ prima di accendere lo schermo e il registro si scrive tre volte (prima dello sch
   access point simulati, DHCP e ping compresi (`make TARGET=rgb30 test-wifi`); **da provare sulla
   console.**
 
+## Il suono
+
+Dal 2026-10-05 (branch `claude/rgb30-audio`) la RGB30 suona come il Pi: lo stesso sintetizzatore
+a 8 voci, i banchi dei giochi, la musica, gli effetti e nano8 (`src/audio/audio.c`). L'uscita è
+`src/rgb30/rk_audio.c`: l'I2S1 del RK3566 manda 48 kHz a 16 bit al codec dentro il RK817 (il
+chip della batteria), che suona dalle **cuffie** o dall'**altoparlante**: quando si infilano le
+cuffie la console passa a loro da sola, e le cuffie sono mono. I valori vengono da Linux
+(device tree `rk3566-powkiddy-rk2023.dtsi`, driver `rockchip_i2s_tdm.c` e `rk817_codec.c`).
+
+- **Volume**: i tasti **+** e **−** sul lato, ovunque (menu, pagine, giochi): una barra
+  "Volume" sopra lo schermo per un momento; tenuti continuano. Il livello si salva in
+  `bm/config.txt` (`volume=`, 0–10, come sul Pi) quando i tasti restano fermi per 2 s. Anche
+  *Settings > Screen and sound > Volume*.
+- **All'avvio** un suonino di due note, come sul Pi: se si sente, il suono va.
+- **Se non si sente niente**: *Settings > Screen and sound*: la riga *Sound* dice `on` o `off`
+  e, scelta, il perché sotto; *Test the sound* scrive lo stato, i contatori dell'I2S
+  (interrupt, pezzi, buchi) e il MCLK (deve essere 12288000 Hz), poi suona la melodia di prova
+  (le sei forme d'onda, un accordo, glissando, vibrato, arpeggio). Una foto di quella pagina
+  basta per capire dove si ferma.
+- Prove sul PC: `make TARGET=rgb30 test-audio` (il driver su un chip simulato) e
+  `test_sound` in QEMU (una sink che prende i 48 kHz al posto dell'I2S e dice che nota sente).
+
 ## Cartucce del Pi (`.bm`) per le prove
 
 Per le prove (decisione dell'utente, 2026-10-03: "per il momento") la scheda Games elenca le
 cartucce `.bm` di `bm/` e le **avvia**, senza impostazioni; `show_bm=0` in `bm/config.txt` le
 nasconde. Il runtime è quello del Pi (`src/bm`), lo stesso codice compilato a
-64 bit; quello che del Pi non c'è lo sostituiscono `src/rgb30/bm_port.c` (suono muto per ora, il
-3D disegnato dall'ARM, niente DMA) e `src/rgb30/bm_input.c` (i comandi). Nell'immagine SD c'è
+64 bit; quello che del Pi non c'è lo sostituiscono `src/rgb30/bm_port.c` (il 3D disegnato
+dall'ARM, niente DMA) e `src/rgb30/bm_input.c` (i comandi); il suono è quello del Pi (sotto). Nell'immagine SD c'è
 **Yharnam** (256×256, dal branch `claude/yharnam`).
 
 - Schermo: la cartuccia disegna alla sua risoluzione e il controller video la ingrandisce fino a
