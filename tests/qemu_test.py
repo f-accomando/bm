@@ -53,7 +53,7 @@ BCM2835_ONLY = {
     "test_wifi_probe": "the radio chip (raspi2b is a Pi 2 B: none)",
     "test_bt_": "the radio chip (raspi2b is a Pi 2 B: none)",
     "test_menu_tabs": "a Bluetooth pad (the radio chip)",
-    "test_stick_pointer": "a Bluetooth pad (the radio chip)",
+    "test_pad_no_pointer": "a Bluetooth pad (the radio chip)",
     "test_chainloader": "the serial chainloader (ARMv6)",
 }
 
@@ -2640,11 +2640,13 @@ def test_bt_mouse_classic(b, opts):
     assert "bt_mouse_classic=1c:66:6d:0a:0b:0c " + key.hex() in cfg, cfg
 
 
-def test_stick_pointer(b, opts):
-    """M32: without a mouse the right stick of a pad moves the pointer: in
-    the menu the arrow shows only once the stick moves; in a cartridge
-    that asks for the pointer, R2 is its left button and L2 the right one."""
-    tmp = tempfile.mkdtemp(prefix="bm-stick-")
+def test_pad_no_pointer(b, opts):
+    """Only a mouse moves the pointer (the user, 2026-10-05; M32 had the
+    right stick and R2 / L2 move and click it): with a DS4 paired, the
+    right stick and the triggers show no arrow in the menu, and in a
+    cartridge that asks for the pointer mouse() stays nil and nothing
+    clicks."""
+    tmp = tempfile.mkdtemp(prefix="bm-padptr-")
     img = os.path.join(tmp, "sd.img")
     hcd = os.path.join(tmp, "BCM43430A1.hcd")
     with open(hcd, "wb") as f:
@@ -2655,6 +2657,10 @@ def test_stick_pointer(b, opts):
     mksd.build(img, [(hcd, "bm/BCM43430A1.hcd"), (cart, "carts/mouse.bm")])
     q = Qemu(b("kernel.img"), ["-drive", f"if=sd,format=raw,file={img}"], mini_uart=True)
     q.mini_buf = b""
+
+    def no_arrow(shot_):
+        return not any(arrow_at(shot_, x, 180) for x in range(300, 636))
+
     try:
         q.boot()
         q.send("T")
@@ -2666,36 +2672,31 @@ def test_stick_pointer(b, opts):
         _mini_expect(q, "next time just press PS")
         q.mini.write(b"M")
         _mini_expect(q, "cartridge menu")
-        assert not arrow_at(wait_icons(q, 1), 320, 180), "an arrow before the stick moved"
-        chip.report(rx=255)                             # right, for a moment
+        assert no_arrow(wait_icons(q, 1)), "an arrow with only a pad"
+        chip.report(rx=255)                             # the right stick, right
         time.sleep(0.3)
+        chip.report(shoulders=0x08)                     # R2, then L2
+        time.sleep(0.1)
+        chip.report(shoulders=0x04)
+        time.sleep(0.1)
         chip.report()
         time.sleep(0.3)
-        shot_ = q.screendump()
-        xs = [x for x in range(321, 636) if arrow_at(shot_, x, 180)]
-        assert xs, "the arrow did not show up to the right"
+        assert no_arrow(q.screendump()), "the stick or the triggers showed the arrow"
         chip.report(0x08 | 0x20)                        # cross: plays the cover
         time.sleep(0.1)
         chip.report()
         _mini_expect(q, "playing mouse.bm")
-        out = _mini_expect(q, "w0 true")
-        x0 = int(re.search(r"mouse (\d+),", out).group(1))
-        chip.report(rx=0)                               # left
+        _mini_expect(q, "mouse nil")                    # asked for, nothing moves it
+        chip.report(rx=0)
         time.sleep(0.3)
-        chip.report()
-        out = _mini_expect(q, "w0 true")
-        time.sleep(0.3)
-        out += q.mini.read(0.2).decode(errors="replace")
-        xs = [int(v) for v in re.findall(r"mouse (\d+),", out)]
-        assert xs and min(xs) < x0, (x0, out)
-        chip.report(shoulders=0x08)                     # R2: the left button
+        chip.report(shoulders=0x08)
+        time.sleep(0.1)
+        chip.report(shoulders=0x04)
         time.sleep(0.1)
         chip.report()
-        _mini_expect(q, " click")
-        chip.report(shoulders=0x04)                     # L2: the right one
-        time.sleep(0.1)
-        chip.report()
-        _mini_expect(q, " right")
+        time.sleep(0.5)
+        out = (q.mini_buf + q.mini.read(0.3)).decode(errors="replace")
+        assert "mouse " not in out and " click" not in out, out
         chip.report(0x08, ps=1)
         _mini_expect(q, "update+draw")
     finally:

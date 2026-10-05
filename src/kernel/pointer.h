@@ -1,15 +1,14 @@
 /*
  * The pointer (M32): one arrow on the screen, moved by a mouse (USB,
- * Bluetooth classic or Bluetooth LE) or by the right stick of a pad.
+ * Bluetooth classic or Bluetooth LE). Never by a controller (the user,
+ * 2026-10-05: the right stick and R2 showed it as if a mouse were there).
  *
  * - The whole system can go without it: mouse=off in bm/config.txt (there
  *   is no menu entry: the user does not turn it off). On by default.
  * - It belongs to the screen in front: the menu always has it, a
  *   cartridge only when it asks (mouse(true)); elsewhere it is not there.
- * - It is hidden when nothing can move it, and with only a stick until
- *   the stick moves; the menu hides it again when the keys or the cross
- *   move the selection (any motion brings it back).
- * - With a stick: R2 or R3 is the left button, L2 the right one.
+ * - It is hidden when no mouse is there; the menu hides it again when the
+ *   keys or the cross move the selection (any motion brings it back).
  */
 #ifndef POINTER_H
 #define POINTER_H
@@ -33,10 +32,10 @@ typedef struct {
     int wheel, pan;             /* steps this frame: up / right positive */
     int moved;                  /* it moved this frame */
     int shown;                  /* on screen: enabled, wanted, something moves it, active */
-    int available;              /* a mouse is connected, or a pad with a right stick */
+    int available;              /* a mouse is connected */
 } pointer_t;
 
-/* Once per frame, by the screen that has it: the mice and the sticks since
+/* Once per frame, by the screen that has it: the mice since
  * the last call. Also when nobody has it (the motion is dropped). */
 const pointer_t *pointer_update(void);
 const pointer_t *pointer_get(void);

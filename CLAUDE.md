@@ -830,15 +830,17 @@ screenshot in `docs/img/`), `README_OLD.md` (il README completo, in italiano),
 
 ## Mouse e puntatore (M32)
 
-- `src/kernel/pointer.c`: il puntatore di sistema (mouse USB/Bluetooth, levetta destra dei
-  pad). Decisioni dell'utente: si spegne per tutto il sistema solo con `mouse=off` in
-  `bm/config.txt` (nessuna voce nel menu); c'è nel menu di bm e nelle app solo se lo
-  chiedono (`mouse(true)`); nascosto se niente lo muove; icona bianca senza numero, pallino
-  blu per il Bluetooth.
+- `src/kernel/pointer.c`: il puntatore di sistema (mouse USB/Bluetooth). Decisioni
+  dell'utente: si spegne per tutto il sistema solo con `mouse=off` in `bm/config.txt`
+  (nessuna voce nel menu); c'è nel menu di bm e nelle app solo se lo chiedono
+  (`mouse(true)`); nascosto se non c'è un mouse; icona bianca senza numero, pallino blu per
+  il Bluetooth. **Solo un mouse lo muove** (2026-10-05): un controller non lo fa mai
+  comparire (prima la levetta destra e R2/L2 lo muovevano e cliccavano); la levetta destra
+  resta ai giochi (`stick(p, 1)`).
 - `ble.c` tiene tastiera e mouse LE insieme: `le` punta al dispositivo in lavorazione, le
   funzioni chiamate da `bt.c` lo scelgono (per handle) e lo rimettono com'era.
 - Test: `make test-usb`, QEMU `test_usb_mouse`, `test_mouse_cart`, `test_bt_mouse`,
-  `test_bt_mouse_classic`, `test_stick_pointer` (il tablet di QEMU si muove via QMP:
+  `test_bt_mouse_classic`, `test_pad_no_pointer` (il tablet di QEMU si muove via QMP:
   `Qemu.pointer()`, `Qemu.click()`).
 
 ## GPU (M33)

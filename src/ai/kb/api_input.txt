@@ -71,7 +71,7 @@ y = y + sy * 3
 == mouse
 kind: api
 name: mouse
-title: mouse([on]) - il puntatore: mouse o levetta destra
+title: mouse([on]) - il puntatore del mouse
 ask: usare il mouse | posizione del mouse | dove punta il mouse | read the mouse
 ask: cursore del mouse nel gioco | mouse position | puntatore sullo schermo
 ask: cliccare con il mouse | rotellina del mouse | mouse wheel | pointer
@@ -82,7 +82,7 @@ Una cartuccia ha il puntatore solo se lo chiede: mouse(true) una volta
 (mouse(true, false) senza la freccia della console). Poi mouse() dà x, y
 in pixel dello schermo, i tasti (1 sinistro, 2 destro, 4 centrale), gli
 scatti della rotellina e se si vede; nil se non c'è niente che lo muova.
-Lo muovono un mouse USB o Bluetooth o la levetta destra (R2 = clic).
+Lo muove solo un mouse USB o Bluetooth (un controller no).
 code:
 function _init() mouse(true) end
 function _update()

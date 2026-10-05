@@ -60,14 +60,11 @@ static int text_mode;                   /* editors: navigation keys as codes, Es
 static int bt_ps_held[HID_PLAYERS];
 static int8_t bt_axis[HID_PLAYERS][2], pad_axis[2];     /* left stick, -127..127 */
 static int bt_analog[HID_PLAYERS], pad_analog;
-static int8_t bt_axis2[HID_PLAYERS][2], pad_axis2[2];   /* right stick (the pointer) */
+static int8_t bt_axis2[HID_PLAYERS][2], pad_axis2[2];   /* right stick (stick(p, 1)) */
 static int bt_analog2[HID_PLAYERS], pad_analog2;
 static int quit_edge;
 static int last_source;                 /* HID_SOURCE_*: what pressed something last */
 static int caps;
-/* the pointer's buttons on the pads (M32), seen pressed since its last read */
-#define PTR_BITS (HID_L2 | HID_R2 | HID_L3 | HID_R3)
-static uint32_t ptr_latch;
 
 /* key repeat for text */
 static uint8_t rep_usage, rep_mods;
@@ -523,15 +520,6 @@ int hid_keys_held(uint8_t *out, int max)
     return n;
 }
 
-uint32_t hid_pointer_buttons(void)
-{
-    uint32_t b = pad_buttons | ptr_latch;
-    for (int s = 0; s < HID_PLAYERS; s++)
-        b |= bt_buttons[s];
-    ptr_latch = 0;
-    return b & PTR_BITS;
-}
-
 uint32_t hid_pad_buttons(void)
 {
     uint32_t b = pad_buttons | latched_pad | bt_all();
@@ -568,7 +556,6 @@ void hid_bt_report(int slot, const uint8_t *r, uint32_t len)
     bt_ps_held[slot] = ps;
     bt_buttons[slot] = b;
     bt_latched[slot] |= b;
-    ptr_latch |= b & PTR_BITS;
     bt_axis[slot][0] = ds4_axis(r[off]);
     bt_axis[slot][1] = ds4_axis(r[off + 1]);
     bt_analog[slot] = 1;
@@ -886,7 +873,6 @@ static void gamepad_report(const uint8_t *r, uint32_t len)
         last_source = pad.ds4 ? HID_SOURCE_DS4 : HID_SOURCE_PAD;
     pad_buttons = b;
     latched_pad |= b;
-    ptr_latch |= b & PTR_BITS;
 }
 
 void hid_report(int kind, const uint8_t *data, uint32_t len)

@@ -307,7 +307,7 @@ void home_panel(int id, home_panel_t *p)
                 home_row(p, MENU_ROW_INFO, R_MOUSE, "Mouse",
                          mice ? "Connected: it moves the pointer in the menu" :
                          bt_mouse_paired() ? "Paired: move it or click to connect" :
-                         "USB or Bluetooth; the right stick of a pad moves the pointer too",
+                         "USB or Bluetooth: only a mouse moves the pointer",
                          "%s", mice == (POINTER_USB | POINTER_BLUETOOTH) ? "USB + Bluetooth" :
                          mice & POINTER_USB ? "USB" : mice ? "Bluetooth on" :
                          bt_mouse_paired() ? "Bluetooth off" : "-");

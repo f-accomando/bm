@@ -177,7 +177,6 @@ int main(void)
     }
     bt[8] = 0; bt[5] = bt[6] = 128;
     hid_report(USB_GAMEPAD, bt, 78);
-    hid_pointer_buttons();                                     /* the pointer's latch: L2 R2 L3 R3 seen */
 
     /* press and release between two reads: seen once, then gone */
     hid_ds4_attach();
@@ -256,24 +255,21 @@ int main(void)
     hid_report(USB_XBOX360, xb, sizeof xb);
     CHECK(hid_quit_pressed() == 0);
 
-    /* M32: the right stick and the triggers (the pointer's buttons) */
+    /* the right stick (stick(p, 1)) and the triggers */
     xb[3] = 0; xb[4] = 200; xb[2] = 0x80;                      /* LT + R3 */
     xb[10] = 0xFF; xb[11] = 0x7F;                              /* right stick: right */
     hid_report(USB_XBOX360, xb, sizeof xb);
     CHECK((hid_buttons() & (HID_L2 | HID_R3)) == (HID_L2 | HID_R3));
     CHECK(hid_stick2(-1, xy) == 1 && xy[0] > 120 && xy[1] == 0);
-    CHECK(hid_pointer_buttons() == (HID_L2 | HID_R3));
     xb[4] = 0; xb[2] = 0;
     hid_report(USB_XBOX360, xb, sizeof xb);
-    CHECK(hid_pointer_buttons() == 0);
+    CHECK((hid_buttons() & (HID_L2 | HID_R3)) == 0);
     uint8_t ds[11] = { 0x01, 128, 128, 255, 0, 0x08, 0x08 };    /* right stick up-right, R2 */
     hid_bt_report(1, ds, sizeof ds);
     CHECK(hid_stick2(1, xy) == 1 && xy[0] == 127 && xy[1] == -127);
     CHECK(hid_stick(1, xy) == 1 && xy[0] == 0 && xy[1] == 0);   /* the left one stays */
     ds[6] = 0;
-    hid_bt_report(1, ds, sizeof ds);                           /* released before the read */
-    CHECK(hid_pointer_buttons() == HID_R2);
-    CHECK(hid_pointer_buttons() == 0);
+    hid_bt_report(1, ds, sizeof ds);
     hid_bt_clear(1);
     CHECK(hid_stick2(1, xy) == 0);
     hid_buttons();

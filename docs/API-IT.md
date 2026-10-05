@@ -238,8 +238,8 @@ un livello solo.
 | `stick([p, n])` | la levetta sinistra del giocatore `p`: `x, y` tra −1 e 1 (x verso destra, y verso il basso), con zona morta; con la tastiera o un pad senza levetta vale la croce (8 direzioni). Con `n = 1` la levetta **destra** (per mirare negli sparatutto; `0, 0` senza levetta). Senza `p`: quella spinta di più |
 
 **Mouse e puntatore (M32).** Una cartuccia ha il puntatore solo se lo chiede: senza
-`mouse(true)` non c'è (nel menu di bm invece c'è sempre). Lo muovono un mouse USB o
-Bluetooth, oppure la levetta destra di un pad (R2 o R3 tasto sinistro, L2 destro); la
+`mouse(true)` non c'è (nel menu di bm invece c'è sempre). Lo muove solo un mouse USB o
+Bluetooth: un controller non lo fa mai comparire (la sua levetta destra è `stick(p, 1)`); la
 console può averlo spento per tutto il sistema (`mouse=off` in `bm/config.txt`).
 
 | Funzione | Descrizione |

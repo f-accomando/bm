@@ -120,7 +120,7 @@ Risoluzioni di menu, console e giochi, e quanto costano: [docs/RISOLUZIONI.md](d
 | **M29** | **Pi 1 B**: stesso kernel, hub USB (split transactions), Ethernet LAN9512, immagine `bm-pi1.img` | ✅ verificato sul Pi 1 B |
 | M30 | **Assistente AI** per lo sviluppo: domande su API e codice, errori, base degli sprite; rete INT8 sulla console | ✅ chiusa (2026-10-05) |
 | M31 | **Pi Zero 2 W**: `kernel7.img`, gli stessi sorgenti per ARMv7, una SD per tutte le schede | ✅ chiusa (2026-10-05; spenta nelle build) |
-| M32 | **Mouse** USB e Bluetooth (LE e classico) e puntatore: nel menu, nelle cartucce che lo chiedono (`mouse()`), anche con la levetta destra dei pad | ✅ chiusa (2026-10-05) |
+| M32 | **Mouse** USB e Bluetooth (LE e classico) e puntatore: nel menu, nelle cartucce che lo chiedono (`mouse()`); solo col mouse, mai coi controller (2026-10-05) | ✅ chiusa (2026-10-05) |
 | **M33** | **GPU e 3D più veloce**: driver V3D nostro sotto `draw3d`, rasterizzatore ARM 2×, modo 480×270, Texture Room a 640×360 e 60 fps | ✅ verificato sul Pi |
 | M34 | **GPU 2**: anti-aliasing MSAA 4×, texture in T-format, pagina pulita senza load, meno lavoro per triangolo sull'ARM | in corso (passi 1–4 da provare sul Pi) |
 
@@ -231,8 +231,8 @@ viene scelta l'interfaccia tastiera, anche se il dispositivo usa i report con ID
 
 **Mouse (M32).** Un mouse USB (anche con la tastiera, sullo stesso ricevitore o dietro un
 hub) o Bluetooth (LE, come i Logitech MX, o classico: Settings > Controllers > *Pair a
-mouse*, o `O` dal monitor) muove il **puntatore**; senza mouse lo muove la **levetta
-destra** di un pad (R2 o R3 = tasto sinistro, L2 = destro). Vedi sotto.
+mouse*, o `O` dal monitor) muove il **puntatore**; i controller no (2026-10-05: la levetta
+destra e R2 lo facevano comparire come se ci fosse un mouse). Vedi sotto.
 
 **SD.** All'avvio il kernel legge la prima partizione **FAT32** (o FAT16) della SD
 (quella da cui si avvia il Pi) e cerca i file **`.bm`** nella
@@ -313,8 +313,8 @@ Test pattern (comando `t`):
 
 - **Dove c'è**: nel menu di bm sempre; nelle app (giochi, strumenti) solo se l'app lo chiede
   con `mouse(true)` (vedi [docs/API-IT.md](docs/API-IT.md)); nella console testuale no.
-- **Quando si vede**: quando qualcosa lo muove. Con un mouse collegato compare subito; con
-  la sola levetta destra appena la si muove. Nel menu i tasti e la croce lo nascondono
+- **Quando si vede**: quando c'è un mouse, e compare appena lo si collega; un controller non
+  lo fa mai comparire (2026-10-05). Nel menu i tasti e la croce lo nascondono
   (la selezione si sposta) finché non si muove di nuovo.
 - **Nel menu**: passando sopra una copertina (o una riga di un pannello) la si sceglie; il
   tasto sinistro fa quello che farebbe A lì (gioca, apre, cambia scheda, i pulsanti in

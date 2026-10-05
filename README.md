@@ -20,8 +20,8 @@ are part of bm: some run on the PC, others on the console itself.
   - HDMI video, and audio through HDMI;
   - USB keyboards, gamepads and mice;
   - Bluetooth: up to 4 DualShock 4 pads, BLE keyboards and mice (LE or classic);
-  - a mouse pointer in the menu, and in the games that ask for it (the right stick of a
-    pad moves it too);
+  - a mouse pointer in the menu, and in the games that ask for it (only a mouse moves
+    it, never a controller);
   - WiFi with HTTPS, Ethernet on the Pi 1 B;
   - the SD card, read and written as FAT32.
 - **Games are `.bm` cartridges.** One file holds the Lua code, sprite sheet, tile map,

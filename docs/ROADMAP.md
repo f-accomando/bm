@@ -2141,7 +2141,8 @@ Fatto (QEMU, test sul PC):
   la nascondono, schede, tasto destro, clic fuori, clic che gioca), `test_mouse_cart`
   (API in un gioco 320x180 e `mouse=off`), `test_bt_mouse` (MX Keys e MX Master simulati
   insieme: abbinamento Just Works, icone blu, puntatore, Settings, riconnessione con
-  l'IRK, chiavi), `test_bt_mouse_classic`, `test_stick_pointer` (levetta destra, R2, L2).
+  l'IRK, chiavi), `test_bt_mouse_classic`, `test_stick_pointer` (levetta destra, R2, L2; dal
+  2026-10-05 `test_pad_no_pointer`: i controller non lo muovono più).
   La simulazione dei dispositivi LE (`FakeMxKeys`) ora regge più collegamenti.
 
 **Da provare sul Pi** (senza seriale, tutto sullo schermo):
@@ -2158,10 +2159,17 @@ Fatto (QEMU, test sul PC):
 - **Fatto quando:** sul Pi il mouse Bluetooth LE si abbina dal menu, muove il puntatore a
   60 fps insieme alla MX Keys e si ricollega da solo; la levetta destra fa lo stesso.
 
-**Chiusa il 2026-10-05** (decisione dell'utente): mouse USB, mouse Bluetooth LE e classico e
-la levetta destra dei pad muovono il puntatore di sistema in QEMU, nel menu e nelle cartucce
-che lo chiedono. Restano fuori: la prova sul Pi descritta sopra e il puntatore negli
-strumenti della suite (nessuno lo chiede ancora).
+**Chiusa il 2026-10-05** (decisione dell'utente): mouse USB e mouse Bluetooth LE e classico
+muovono il puntatore di sistema in QEMU, nel menu e nelle cartucce che lo chiedono. Restano
+fuori: la prova sul Pi descritta sopra e il puntatore negli strumenti della suite (nessuno lo
+chiede ancora).
+
+**Dopo la chiusura (2026-10-05, richiesta dell'utente):** un controller collegato faceva
+comparire la freccia nel menu e nelle app come se ci fosse un mouse (la levetta destra la
+muoveva, R2 e L2 cliccavano). Ora solo un mouse muove il puntatore: `pointer.c` non legge più
+i pad (via `hid_pointer_buttons`), la levetta destra resta ai giochi (`stick(p, 1)`). Prova:
+`test_pad_no_pointer` in QEMU (DS4 abbinato: niente freccia nel menu, `mouse()` nil nella
+cartuccia che lo chiede, nessun clic).
 
 ## M33 — GPU e 3D più veloce (L/XL) — ✅ verificata sul Pi (2026-10-01)
 Decisione 2026-09-30, dopo l'analisi delle prestazioni 3D: il rasterizzatore software ha

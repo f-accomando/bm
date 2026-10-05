@@ -237,9 +237,9 @@ layer.
 | `stick([p, n])` | player `p`'s left stick: `x, y` between −1 and 1 (x to the right, y down), with a dead zone; with the keyboard or a pad without a stick it is the cross (8 directions). With `n = 1` the **right** stick (to aim in shooters; `0, 0` without a stick). Without `p`: the one pushed most |
 
 **Mouse and pointer (M32).** A cartridge has the pointer only if it asks for it: without
-`mouse(true)` there is none (in bm's menu there always is). A USB or Bluetooth mouse moves
-it, or the right stick of a pad (R2 or R3 left button, L2 right); the console may have it
-off for the whole system (`mouse=off` in `bm/config.txt`).
+`mouse(true)` there is none (in bm's menu there always is). Only a USB or Bluetooth mouse
+moves it: a controller never shows it (its right stick is `stick(p, 1)`); the console may
+have it off for the whole system (`mouse=off` in `bm/config.txt`).
 
 | Function | Description |
 |---|---|

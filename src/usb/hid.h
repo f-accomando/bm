@@ -56,8 +56,8 @@ uint32_t hid_players(uint32_t out[HID_PLAYERS], int text, int local, int ble);
 int hid_stick(int slot, int8_t xy[2]);
 /* The same for the right stick (aiming in shooters): hid_stick2. */
 int hid_stick_r(int slot, int8_t xy[2]);
-/* The right stick (M32: it moves the pointer), the same way; 0 for pads
- * without one. */
+/* The right stick, the same way (stick(p, 1); it does not move the
+ * pointer: only a mouse does); 0 for pads without one. */
 int hid_stick2(int slot, int8_t xy[2]);
 
 /* ---- mice (M32): USB, Bluetooth classic and Bluetooth LE */
@@ -123,9 +123,6 @@ int      hid_getc(void);
 uint32_t hid_buttons(void);
 /* The same without the keyboard (text mode: the keyboard types). */
 uint32_t hid_pad_buttons(void);
-/* L2 R2 L3 R3 held on the pads, or pressed since the last call (the
- * pointer's buttons, M32); the other readers' presses are not taken. */
-uint32_t hid_pointer_buttons(void);
 /* What pressed a button or a key last, for the buttons shown on screen:
  * a keyboard (USB or Bluetooth), a DS4 (Bluetooth or USB) or another pad;
  * HID_SOURCE_NONE until something is pressed. */

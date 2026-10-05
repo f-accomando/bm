@@ -3413,7 +3413,8 @@ static int l_keys(lua_State *L)
  * frame unless arrow is false; returns false when the console has it off
  * (mouse=off in bm/config.txt). mouse() -> x, y, buttons (1 left, 2 right,
  * 4 middle), wheel steps this frame (up positive), shown; nil when the
- * cartridge did not ask or nothing can move it (no mouse, no right stick). */
+ * cartridge did not ask or nothing can move it (no mouse: a controller never
+ * moves it). */
 static int l_mouse(lua_State *L)
 {
     if (lua_gettop(L) >= 1) {
