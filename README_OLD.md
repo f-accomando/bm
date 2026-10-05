@@ -107,20 +107,20 @@ Risoluzioni di menu, console e giochi, e quanto costano: [docs/RISOLUZIONI.md](d
 | **M16** | Multiplayer locale: fino a 4 controller Bluetooth, `btn(i, giocatore)`, Pong a 2 | ✅ |
 | **M17** | **Chaos Kitchen**: cucina cooperativa in 3D per 1–4 giocatori (campagna, infinita, pratica) | ✅ |
 | **M18** | WiFi, console di rete con password, invio di kernel e cartucce dal PC | ✅ verificato sul Pi |
-| M19 | HTTPS: aggiornamenti da GitHub, "git leggero" (archivi e API con token) | |
+| M19 | HTTPS: aggiornamenti da GitHub, "git leggero" (archivi e API con token) | ✅ chiusa (2026-10-05) |
 | **M20** | **Titan Clash**: picchiaduro 2D a robot giganti; prima base giocabile (1 robot, armatura leggera/pesante, spada o cannoni, hangar, contro CPU o in 2) | ✅ base giocabile |
 | **M21** | Menu "home" a griglia (Games / Dev) e giochi sospesi in memoria | ✅ |
-| M22 | SDK e strumenti dedicati: codice, pixel art, 3D, musica, import/export, 3D→sprite, sprite stacking | 22.1 codice (**bm Code**: tab, due pagine, font 6x12) e 22.4 musica ed effetti (Sound editor) ✅ in QEMU; **bm Studio** e **bm Animator** sul PC (3D, pixel art, import/export, animazione, 3D→sprite); sulla console lo **studio 3D** (player e versione semplificata), **bm Mesh** (vertici e facce, mesh ↔ modello) e **bm Pixel** (22.2 pixel art: attrezzi, tavolozze, animazione) ✅ in QEMU; il resto in coda |
-| M23 | Emulatore di cartucce `.p8` / `.p8.png` (stile PICO-8): **nano8** | tutto tranne i numeri 16.16, provato nel PC e in QEMU, da provare sul Pi |
-| M24 | Scambio in rete locale tra console (P2P) | in coda |
-| M25 | Store su GitHub: catalogo, download verificati, pubblicazione dall'SDK | in coda |
-| M26 | Market gratuito, legato allo store di M25 | in coda |
+| M22 | SDK e strumenti dedicati: codice, pixel art, 3D, musica, import/export, 3D→sprite, sprite stacking | ✅ chiusa (2026-10-05) |
+| M23 | Emulatore di cartucce `.p8` / `.p8.png` (stile PICO-8): **nano8** | ✅ chiusa (2026-10-05) |
+| M24 | Scambio in rete locale tra console (P2P) | ✅ chiusa con M25 (2026-10-05) |
+| M25 | Store su GitHub: catalogo, download verificati, pubblicazione dall'SDK | ✅ chiusa (2026-10-05): il **Market** |
+| M26 | Market gratuito, legato allo store di M25 | unita a M25 (2026-10-01) |
 | **M27** | **BareMetal UI**: sottomenu, opzioni delle cartucce, strumenti nella scheda Dev, impostazioni | ✅ chiusa: task 1–4 verificati sul Pi |
 | **M28** | Tastiera Bluetooth LE (MX Keys S): pairing con codice, HID over GATT, riconnessione | ✅ verificato sul Pi |
 | **M29** | **Pi 1 B**: stesso kernel, hub USB (split transactions), Ethernet LAN9512, immagine `bm-pi1.img` | ✅ verificato sul Pi 1 B |
-| M30 | **Assistente AI** per lo sviluppo: domande su API e codice, errori, base degli sprite; rete INT8 sulla console | base fatta (QEMU), integrazione negli editor dopo |
-| M31 | **Pi Zero 2 W**: `kernel7.img`, gli stessi sorgenti per ARMv7, una SD per tutte le schede | fatta in QEMU, da verificare sul Pi |
-| M32 | **Mouse** USB e Bluetooth (LE e classico) e puntatore: nel menu, nelle cartucce che lo chiedono (`mouse()`), anche con la levetta destra dei pad | fatto in QEMU, da provare sul Pi |
+| M30 | **Assistente AI** per lo sviluppo: domande su API e codice, errori, base degli sprite; rete INT8 sulla console | ✅ chiusa (2026-10-05) |
+| M31 | **Pi Zero 2 W**: `kernel7.img`, gli stessi sorgenti per ARMv7, una SD per tutte le schede | ✅ chiusa (2026-10-05; spenta nelle build) |
+| M32 | **Mouse** USB e Bluetooth (LE e classico) e puntatore: nel menu, nelle cartucce che lo chiedono (`mouse()`), anche con la levetta destra dei pad | ✅ chiusa (2026-10-05) |
 | **M33** | **GPU e 3D più veloce**: driver V3D nostro sotto `draw3d`, rasterizzatore ARM 2×, modo 480×270, Texture Room a 640×360 e 60 fps | ✅ verificato sul Pi |
 | M34 | **GPU 2**: anti-aliasing MSAA 4×, texture in T-format, pagina pulita senza load, meno lavoro per triangolo sull'ARM | in corso (passi 1–4 da provare sul Pi) |
 

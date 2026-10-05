@@ -839,7 +839,7 @@ solo per la scelta dei giochi.
 - **Fatto quando:** sul Pi il menu è fluido a 60 fps con tutte le cartucce e un gioco
   sospeso riprende dal punto in cui era.
 
-## M22 — SDK e strumenti dedicati (XL)
+## M22 — SDK e strumenti dedicati (XL) — ✅ chiusa (2026-10-05)
 Decisione 2026-09-29: l'editor attuale diventa l'**SDK** (generico: progetto, prova,
 salvataggio); intorno a lui strumenti specializzati, ognuno una cartuccia nella scheda
 **Dev**, tutti con gli stessi formati.
@@ -1213,7 +1213,13 @@ Considerazioni:
   sprites); bm Mesh (Astro Wing → *Open in bm Mesh*); Dev → *Audio test* e il Sound editor
   (START suona il DEMO, salvataggio in un gioco, volume); Studio Village nella scheda Games.
 
-## M23 — Emulatore di cartucce `.p8` / `.p8.png` (stile PICO-8) (L/XL)
+**Chiusa il 2026-10-05** (decisione dell'utente): la suite gira sul PC e in QEMU (l'SDK al
+centro, bm Code, bm Pixel, bm Studio e bm Mesh sulla console, il Sound editor, la pagina
+sprites di bm Animator). Restano fuori: le prove sul Pi elencate sopra, più file per progetto
+in bm Code, un PNG dalla SD in bm Pixel (22.5), lo sprite stacking e WAV/MIDI (spunti R24 e
+R25), il puntatore negli strumenti (M32).
+
+## M23 — Emulatore di cartucce `.p8` / `.p8.png` (stile PICO-8) (L/XL) — ✅ chiusa (2026-10-05)
 Decisione 2026-09-29: in coda. Scritto da zero in C sul runtime di bm (non il port di
 fake-08, in C++). Nessun nome, logo o font di PICO-8 (prodotto di Lexaloffle): nome e
 font nostri; le cartucce del forum sono per lo più CC BY-NC-SA (uso non commerciale).
@@ -1288,7 +1294,11 @@ Stato (2026-10-01): tutto nel PC e in QEMU, **da provare sul Pi**.
   salva (`cartdata`) ritrovato dopo l'uscita; con F11 due volte il peso di un fotogramma della
   cartuccia più pesante.
 
-## M24 — Scambio in rete locale tra console (M) — parte del Market (M25) — fatto in M25.7 (2026-10-01), da verificare sul Pi
+**Chiusa il 2026-10-05** (decisione dell'utente): nano8 gira sul PC e in QEMU (caricatore,
+dialetto, macchina, grafica, input, audio, salvataggi). Restano fuori: la prova sul Pi
+descritta sopra, i numeri 16.16 (un limite noto) e il mouse delle cartucce (spunto R26).
+
+## M24 — Scambio in rete locale tra console (M) — parte del Market (M25) — ✅ chiusa (2026-10-05)
 Decisione 2026-09-30: M24 originale diviso in tre (M24 rete locale, M25 store su
 GitHub, M26 market gratuito); il 2026-10-01 M25 e M26 sono diventati una sola milestone,
 il **Market** (M25), e questa ne è la parte P2P. Considerazioni iniziali del 2026-09-29.
@@ -1311,7 +1321,11 @@ il **Market** (M25), e questa ne è la parte P2P. Considerazioni iniziali del 20
 - **Fatto quando:** due console sulla stessa rete si vedono nel Market e una manda un
   gioco all'altra, che lo verifica con il catalogo.
 
-## M25 — Market: giochi da GitHub (L, dopo M19) — avviata il 2026-10-01 (branch `bm-store`, unito al principale il 2026-10-04)
+**Chiusa il 2026-10-05** con M25 (decisione dell'utente): annuncio, domanda al giocatore e
+controllo con lo SHA-256 provati sul PC e in QEMU; sul Pi la console si annuncia. Resta fuori:
+la prova con due console sulla stessa rete.
+
+## M25 — Market: giochi da GitHub (L, dopo M19) — ✅ chiusa (2026-10-05)
 Decisioni 2026-10-01 (prima in M25 "store" e M26 "market", ora una cosa sola):
 - **Tutto gratuito**: niente account, pagamenti, commissioni né licenze da sbloccare.
 - **Scheda Market**, la prima del menu: **Market | Games | Dev | Settings** (con la scheda Lib
@@ -1421,6 +1435,15 @@ Passi:
 - **Fatto quando:** dalla scheda Market del Pi si sceglie un gioco del catalogo, si
   scarica senza che il menu si fermi, si verifica, si installa e si gioca; un gioco
   pubblicato con una pull request compare nel Market dopo il merge.
+
+**Chiusa il 2026-10-05** (decisione dell'utente; nata nel branch `bm-store` il 2026-10-01,
+unita al principale il 2026-10-04): il Market è in linea (`f-accomando/bm-market`, catalogo
+firmato su GitHub Pages); sul Pi il catalogo arriva con la firma giusta e i giochi si scaricano
+e si giocano; la RGB30 ha la sua scheda Market con i soli `.b16`; i giochi girano nella sandbox
+(scritture limitate, niente chiavi della console, la domanda per la rete e i report). Restano
+fuori: sul Pi la pubblicazione con una pull request, le copertine e i 60 fps durante i
+download, lo scambio fra due console (M24); sulla RGB30 il catalogo vero con i primi `.b16`
+(M42).
 
 ## M26 — unita a M25 (2026-10-01)
 Il "market gratuito legato allo store" e lo store su GitHub sono la stessa cosa: vedi M25.
@@ -1751,7 +1774,7 @@ con il MAC; `eth: link up, 100 Mbit/s full duplex` dopo qualche secondo col cavo
 `net: IP ...`; `ping` dal PC; `tools/bm_net.py IP`; una tastiera su una porta USB
 (`usb: keyboard ... (hub port 2, split)`) che scrive nel menu e nei giochi.
 
-## M30 — Assistente AI per lo sviluppo (L) — base fatta in QEMU (2026-10-01), integrazione quando le app sono pronte
+## M30 — Assistente AI per lo sviluppo (L) — ✅ chiusa (2026-10-05)
 Decisione 2026-10-01 (dopo [AI.md](../AI.md)): la prima AI di bm è un **assistente per
 gli strumenti di sviluppo**, non per i giochi: mentre si scrive un gioco si richiama con
 un tasto per chiedere come si scrive qualcosa, o per avere la base di uno sprite. Si
@@ -1986,7 +2009,13 @@ codice inserito, sprite nello sheet, test di velocità, F9), `make ai-model` per
   con F6 (e col pad), il codice entra al cursore e lo sprite nella cella; il menu e
   l'editor restano a 60 fps; i test in QEMU coprono l'integrazione.
 
-## M31 — Raspberry Pi Zero 2 W (L) — fatta in QEMU (2026-10-02), da verificare sul Pi
+**Chiusa il 2026-10-05** (decisione dell'utente): l'assistente è nelle app della suite (bm
+Code, SDK, bm Studio, bm Animator: F6), con le ricette 3D, img2mesh, meshy2mesh, il riduttore,
+i modelli da un'immagine e dal contorno, il completamento delle parole e la scrittura col pad;
+sul Pi F8 risponde subito. Restano fuori: le prove sul Pi elencate sopra (F6 nelle app e col
+pad, la scrittura col pad con un DS4).
+
+## M31 — Raspberry Pi Zero 2 W (L) — ✅ chiusa (2026-10-05)
 Richiesta 2026-10-02: una versione di bm per il **Pi Zero 2 W**. Il Zero 2 W ha un altro
 SoC, il BCM2710A1 (RP3A0: quattro Cortex-A53, le periferiche del BCM2835 a un altro
 indirizzo), quindi non può avviare `kernel.img` (ARMv6).
@@ -2042,7 +2071,12 @@ Decisioni:
 Poi, se servono: gli altri tre core (audio, rete o rendering su un core a parte), i
 giochi più pesanti a 60 fps grazie alla CPU più veloce, misure in `docs/PRESTAZIONI.md`.
 
-## M32 — Mouse USB e Bluetooth, puntatore di sistema (M) — fatto in QEMU (2026-10-01), da provare sul Pi
+**Chiusa il 2026-10-05** (decisione dell'utente): `kernel7.img` funziona in QEMU (`raspi2b`,
+avvio in HYP nella macchina `virt`); dal 2026-10-03 è spento nelle build (`make ZERO2=1` lo
+riaccende) e il codice `BM_ZERO2` continua a compilare. Resta fuori: la prova sul Pi Zero 2 W
+descritta sopra.
+
+## M32 — Mouse USB e Bluetooth, puntatore di sistema (M) — ✅ chiusa (2026-10-05)
 Richiesta 2026-10-01 (utente): supporto mouse **USB e Bluetooth**, anche con le **levette
 analogiche** dei pad. Decisioni:
 - il mouse si può spegnere **per tutto il sistema** ma non dall'utente: `mouse=off` in
@@ -2123,6 +2157,11 @@ Fatto (QEMU, test sul PC):
 
 - **Fatto quando:** sul Pi il mouse Bluetooth LE si abbina dal menu, muove il puntatore a
   60 fps insieme alla MX Keys e si ricollega da solo; la levetta destra fa lo stesso.
+
+**Chiusa il 2026-10-05** (decisione dell'utente): mouse USB, mouse Bluetooth LE e classico e
+la levetta destra dei pad muovono il puntatore di sistema in QEMU, nel menu e nelle cartucce
+che lo chiedono. Restano fuori: la prova sul Pi descritta sopra e il puntatore negli
+strumenti della suite (nessuno lo chiede ancora).
 
 ## M33 — GPU e 3D più veloce (L/XL) — ✅ verificata sul Pi (2026-10-01)
 Decisione 2026-09-30, dopo l'analisi delle prestazioni 3D: il rasterizzatore software ha
