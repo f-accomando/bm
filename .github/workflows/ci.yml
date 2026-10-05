@@ -15,9 +15,43 @@ env:
   ZERO2: "0"
 
 jobs:
-  build-test:
-    # Pinned: the screen reference hash depends on the QEMU version (8.2 here).
+  # A tag on a commit whose tests already passed on a branch (bm-core, before
+  # the tag): the release goes at once, the tests are not run again.
+  tested:
+    if: startsWith(github.ref, 'refs/tags/v')
     runs-on: ubuntu-24.04
+    permissions:
+      actions: read
+    outputs:
+      tested: ${{ steps.find.outputs.tested }}
+    steps:
+      - id: find
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          # this workflow's successful push runs of the same commit, not those
+          # of a tag (head_branch v...); an API error means "not tested"
+          n=$(gh api -X GET "repos/$GITHUB_REPOSITORY/actions/workflows/ci.yml/runs" \
+                -f head_sha="$GITHUB_SHA" -f event=push -f status=success \
+                --jq '[.workflow_runs[] | select(.head_branch | test("^v[0-9]") | not)] | length' || echo 0)
+          echo "successful runs of $GITHUB_SHA on a branch: $n"
+          echo "tested=$([ "${n:-0}" -gt 0 ] && echo true || echo false)" >> "$GITHUB_OUTPUT"
+
+  # The tests on the PC (make test-host), on two machines: Overbit's take
+  # half the time (5 min), the others the other half.
+  host:
+    needs: tested
+    if: ${{ !cancelled() && needs.tested.outputs.tested != 'true' }}
+    name: host (${{ matrix.part }})
+    runs-on: ubuntu-24.04
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - part: overbit
+            make: test-overbit
+          - part: the others
+            make: test-host HOST_SKIP=test-overbit
     steps:
       - uses: actions/checkout@v5
         with:
@@ -31,21 +65,55 @@ jobs:
             qemu-system-arm qemu-user make python3 python3-numpy python3-pil dosfstools mtools
 
       - name: Build
-        run: make -j"$(nproc)" && make -j"$(nproc)" BOOT=stress
+        run: make -j"$(nproc)"
+
+      - name: Tests on the PC
+        run: make ${{ matrix.make }}
+
+  # The tests in QEMU (make test-qemu), in four groups of about 6 minutes on
+  # four machines at once (tests/qemu_test.py --shard).
+  qemu:
+    needs: tested
+    if: ${{ !cancelled() && needs.tested.outputs.tested != 'true' }}
+    name: qemu (${{ matrix.shard }}/4)
+    # Pinned: the screen reference hash depends on the QEMU version (8.2 here).
+    runs-on: ubuntu-24.04
+    strategy:
+      fail-fast: false
+      matrix:
+        shard: [1, 2, 3, 4]
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
+
+      - name: Install toolchain and QEMU
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends \
+            gcc-arm-none-eabi libnewlib-arm-none-eabi binutils-arm-none-eabi \
+            qemu-system-arm qemu-user make python3 python3-numpy python3-pil dosfstools mtools
+
+      - name: Build
+        run: make -j"$(nproc)"
+
+      - name: Build the stress kernel
+        if: matrix.shard == 1
+        run: make -j"$(nproc)" BOOT=stress
 
       - name: QEMU tests
-        run: make test
+        run: make test-qemu SHARD=${{ matrix.shard }}/4
 
       - name: QEMU tests of kernel7.img (Pi Zero 2 W, in raspi2b)
         if: env.ZERO2 == '1'
-        run: make test-zero2
+        run: make test-zero2 SHARD=${{ matrix.shard }}/4
 
       - name: Screenshot
-        if: always()
+        if: always() && matrix.shard == 1
         run: make qemu-screenshot || true
 
       - uses: actions/upload-artifact@v6
-        if: always()
+        if: always() && matrix.shard == 1
         with:
           name: bm-images
           path: |
@@ -59,6 +127,8 @@ jobs:
   rgb30:
     # bm for the PowKiddy RGB30 (RK3566, AArch64): the console's kernel, and
     # the same kernel for QEMU's virt machine with its tests (rgb30.mk)
+    needs: tested
+    if: ${{ !cancelled() && needs.tested.outputs.tested != 'true' }}
     runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@v5
@@ -83,9 +153,13 @@ jobs:
     # on a GitHub release, with manifest.txt signed by the secret
     # BM_RELEASE_KEY (scripts/release-key.sh). The Pi checks the signature
     # with keys/release-pub.pem, built into the kernel, and each file's
-    # SHA-256 before installing it.
-    needs: build-test
-    if: startsWith(github.ref, 'refs/tags/v')
+    # SHA-256 before installing it. All the tests passed here, or on a
+    # branch before the tag (the job tested).
+    needs: [tested, host, qemu, rgb30]
+    if: >-
+      ${{ !cancelled() && startsWith(github.ref, 'refs/tags/v') &&
+      (needs.tested.outputs.tested == 'true' ||
+      (needs.host.result == 'success' && needs.qemu.result == 'success' && needs.rgb30.result == 'success')) }}
     runs-on: ubuntu-24.04
     permissions:
       contents: write

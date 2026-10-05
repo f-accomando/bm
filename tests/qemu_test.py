@@ -57,6 +57,32 @@ BCM2835_ONLY = {
     "test_chainloader": "the serial chainloader (ARMv6)",
 }
 
+# --shard K/N: the tests split into N groups of about the same time (the CI
+# runs them on N machines at once). Seconds on the CI (2026-10-05) of the
+# tests over 20 s; the others count 5. A test missing here only makes the
+# groups less even.
+SLOW = {
+    "test_overbit": 79, "test_yharnam": 76, "test_chainloader": 70, "test_studio_animator": 61,
+    "test_home_ui": 56, "test_stress_monitor": 48, "test_pad_typing": 48, "test_lib_tab": 46,
+    "test_kitchen": 45, "test_studio_assistant": 44, "test_editor": 39, "test_code_completion": 38,
+    "test_titan": 36, "test_games": 34, "test_picture_model": 32, "test_menu_tabs": 31,
+    "test_sdk_suite": 29, "test_pixel_big": 26, "test_mouse_cart": 23, "test_market": 23,
+    "test_code_editor": 23, "test_update": 22, "test_room_bench": 22, "test_bm_boot_demo": 22,
+    "test_nano8": 20, "test_meshy2mesh": 20,
+}
+
+
+def shard(tests, k, n):
+    """Group k (1..n) of n: the longest tests first, each to the group with
+    the least time so far; inside a group the order of the file."""
+    load, mine = [0] * n, set()
+    for i, (name, _) in sorted(enumerate(tests), key=lambda t: (-SLOW.get(t[1][0], 5), t[0])):
+        g = load.index(min(load))
+        load[g] += SLOW.get(name, 5)
+        if g == k - 1:
+            mine.add(i)
+    return [t for i, t in enumerate(tests) if i in mine]
+
 
 class Qemu:
     def __init__(self, image, extra=(), mini_uart=False, machine=None):
@@ -7130,7 +7156,13 @@ def main():
     ap.add_argument("--shots", default="", help="directory for screenshots of the games")
     ap.add_argument("--kernel7", action="store_true",
                     help="kernel7.img (Pi Zero 2 W) in raspi2b instead of kernel.img in raspi0")
+    ap.add_argument("--shard", default="", metavar="K/N",
+                    help="only group K of N, about the same time each (the CI's machines)")
     opts = ap.parse_args()
+    if opts.shard:
+        m = re.fullmatch(r"(\d+)/(\d+)", opts.shard)
+        if not m or not 1 <= int(m.group(1)) <= int(m.group(2)):
+            ap.error("--shard K/N with 1 <= K <= N")
     global KERNEL7, ZERO2
     KERNEL7 = opts.kernel7
     if KERNEL7:                         # make image puts it on the card too
@@ -7144,6 +7176,11 @@ def main():
 
     tests = [(n, f) for n, f in globals().items()
              if n.startswith("test_") and opts.filter in n]
+    if opts.shard:
+        k, n = map(int, opts.shard.split("/"))
+        tests = shard(tests, k, n)
+        print(f"group {k} of {n}: {len(tests)} tests, about "
+              f"{sum(SLOW.get(t, 5) for t, _ in tests) / 60:.0f} min on the CI", flush=True)
     failed = skipped = 0
     for name, fn in tests:
         skip = KERNEL7 and next((why for t, why in BCM2835_ONLY.items() if name.startswith(t)), None)

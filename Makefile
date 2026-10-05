@@ -579,7 +579,7 @@ test-queue2d: $(BUILD)/host/bmhost-gpu
         test-fat test-kitchen test-titan test-yharnam test-sound test-nano8 test-net test-http test-https test-release \
         release disasm wav test-studio test-studio-ui studio test-prompts test-hyp test-zero2 \
         showreel bmhost bmhost-gpu test-overbit overbit-reel overbit-reel-heroes overbit-reel-match yharnam-video \
-        test-catalog test-github test-lan market-seed
+        test-catalog test-github test-lan market-seed test-host test-qemu
 
 all: $(BUILD)/kernel.img $(K7) $(BUILD)/chainloader.img $(GAME_CARTS)
 
@@ -757,17 +757,30 @@ qemu7: $(BUILD)/kernel7.img
 qemu-screenshot: $(BUILD)/kernel.img
 	./scripts/qemu-screenshot.sh $< $(BUILD)/screen.png
 
-test: all test-bm test-res test-usb test-fat test-audio test-kitchen test-titan test-yharnam test-sound test-nano8 test-net test-http test-https test-img3d \
+# make test: the tests on the PC, then those in QEMU. The CI runs them on
+# several machines at once: make test-host HOST_SKIP="..." (the PC's, but
+# those named), make test-qemu SHARD=K/N (group K of N of the QEMU tests).
+HOST_TESTS := test-bm test-res test-usb test-fat test-audio test-kitchen test-titan test-yharnam test-sound test-nano8 test-net test-http test-https test-img3d \
       test-catalog test-github test-lan test-keymap test-gameapi test-online test-bmnet test-loading \
       test-release test-smp test-qpu test-gpu3d test-queue2d test-b3d test-v3d test-ai test-predict test-padtype \
       test-studio test-prompts test-overbit $(if $(K7),test-hyp)
-	$(PYTHON) tests/qemu_test.py --build $(BUILD)
+# what the QEMU tests read besides `all` (made by the PC's tests too)
+QEMU_DEPS := $(BUILD)/host/meshview $(BUILD)/studio-test.bm
+QEMU_TESTS = $(PYTHON) tests/qemu_test.py --build $(BUILD) $(if $(SHARD),--shard $(SHARD))
+
+test: all $(HOST_TESTS) $(QEMU_DEPS)
+	$(QEMU_TESTS)
+
+test-host: $(filter-out $(HOST_SKIP),$(HOST_TESTS))
+
+test-qemu: all $(QEMU_DEPS)
+	$(QEMU_TESTS)
 
 # The same QEMU tests with kernel7.img, the Pi Zero 2 W's, in raspi2b (the
 # BCM2710's peripherals); those of the BCM2835 boards alone are skipped
 test-zero2: export ZERO2 = 1
-test-zero2: all $(BUILD)/kernel7.img test-hyp
-	$(PYTHON) tests/qemu_test.py --build $(BUILD) --kernel7
+test-zero2: all $(BUILD)/kernel7.img test-hyp $(QEMU_DEPS)
+	$(QEMU_TESTS) --kernel7
 
 $(BUILD)/host/test_bm: tests/bm/test_bm.c src/bm/gfx16.c src/bm/r3d.c src/bm/format.c src/lib/crc32.c src/bm/*.h
 	@mkdir -p $(dir $@)
@@ -1151,6 +1164,13 @@ test-studio: $(BUILD)/host/test_bm $(BUILD)/demo.bm $(BUILD)/host/luahost $(BUIL
 	    $(BUILD)/host/test_bm $(BUILD)/demo.bm $(BUILD)/studio-test.bm $(BUILD)/studio-test-anim.bm \
 	        $(BUILD)/studio3d-sd/carts/blocks.bm; \
 	else echo "test-studio: node not found, skipped"; fi
+
+# bm Studio's test cartridges (and studio-test-anim.bm), for the QEMU tests:
+# test-studio writes them too; without Node they are not made and those
+# tests say "skipped"
+$(BUILD)/studio-test.bm: tests/studio/test_core.js $(wildcard sdk/studio/js/*.js)
+	@if command -v node >/dev/null 2>&1; then node tests/studio/test_core.js $@; \
+	else echo "$@: node not found, not made"; fi
 
 # The same in a browser (Playwright + Chromium, not needed by `make test`):
 # bm Studio and bm Animator with the mouse, saving; screenshots in build/studio/

@@ -14,6 +14,13 @@ screenshot in `docs/img/`), `README_OLD.md` (il README completo, in italiano),
 - `make test` → test sul PC (grafica, FAT, USB, audio, rete, giochi) + test end-to-end in
   QEMU (`-M raspi0`); `make test-zero2` gli stessi con `kernel7.img` (Pi Zero 2 W) in
   `-M raspi2b`.
+- La CI (`.github/workflows/ci.yml`, 2026-10-05) divide `make test` su sei macchine insieme:
+  i test sul PC con `make test-host` (`HOST_SKIP=test-overbit`: Overbit va su una a sé) e
+  quelli in QEMU in quattro gruppi con `make test-qemu SHARD=K/4` (`--shard` di
+  `tests/qemu_test.py`: i tempi dei test oltre 20 s sono in `SLOW`, un test nuovo così lento va
+  aggiunto lì; `QEMU_DEPS` sono i file dei test sul PC che leggono anche quelli in QEMU). Un tag
+  `v*` su un commit già verde su un branch fa la release subito, senza rifare i test (job
+  `tested`).
 - **Test durante lo sviluppo** (decisione dell'utente, 2026-10-04): non la suite intera.
   Solo i test di ciò che la modifica tocca nel kernel (QEMU con `tests/qemu_test.py -k
   <nome>`, i test sul PC del pezzo cambiato); per la GPU solo Overbit (`make
