@@ -1376,9 +1376,11 @@ Passi:
      perso), un gioco scaricato che parte.
 5. 🛠 **Repository del market**: modello in `market/` (README con le regole, workflow che
    controlla le pull request e pubblica il catalogo firmato con GitHub Pages, descrizioni
-   dei giochi), `make market-seed`. Manca: creare `f-accomando/bm-market` (pubblico), la
-   chiave (`scripts/market-key.sh`, secret `BM_MARKET_KEY`) e Pages con sorgente "GitHub
-   Actions".
+   dei giochi), `make market-seed`. `f-accomando/bm-market` c'è (pubblico, vuoto). Manca
+   la preparazione, che fa `scripts/market.sh` (`easy_install` m, 2026-10-05: chiave, secret
+   `BM_MARKET_KEY`, chiave pubblica su `bm-core`, Pages dal workflow, i 12 giochi del
+   progetto, il catalogo riletto da GitHub Pages; provato sul PC con un GitHub finto), poi
+   un kernel con la chiave sul Pi.
 6. ✅ (PC, `make test-github`; QEMU, `test_publish`) **Pubblicazione dal Pi**: X su un
    gioco della SD, *Publish to the Market* (`src/kernel/publish.c`): cartella (del catalogo
    se il gioco c'è già, se no dal nome del file), versione (la data), licenza a scelta,

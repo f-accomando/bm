@@ -11,6 +11,6 @@ titan: BM Community License 1.0 | Titan Clash: giant robots fight in 3D at 60 fp
 texroom: BM Community License 1.0 | A room in 3D with textures everywhere: what the textured rasterizer does at 60 fps.
 village: BM Community License 1.0 | A little village made with bm Studio, and a villager animated with bm Animator.
 nano8: BM Community License 1.0, games MIT/CC0 | Plays .p8 cartridges; inside: Piconian (CC0), Bon Planto, Boo is missing!, Pico8Platformer (MIT).
-yharnam: BM Community License 1.0 | An endless gothic town at night, 256x256: Bloodborne's fight, twelve creatures and four bosses, area by area.
 overbit: BM Community License 1.0 | A hero shooter in 3D on the GPU: heroes with their own kits, mechs and their pilots.
-yharnam: BM Community License 1.0 | An endless gothic town at night, built while you walk; hunt the beasts by lamplight.
+yharnam: BM Community License 1.0 | An endless gothic town at night, built while you walk: hunt the beasts by lamplight, area by area.
+typing: BM Community License 1.0 | Write with the controller: practice in Italian, English or Lua, and beat your own records.

@@ -69,16 +69,20 @@ python3 ../bm/scripts/mkmarket.py games --add my-game.bm --version 1.0 --license
 
 ## Setting it up (once)
 
+In bm, `scripts/market.sh` (or `./easy_install.sh market` from WSL) does
+all of this, asking before each step, and then puts bm's games here. By
+hand:
+
 1. In bm: `scripts/market-key.sh` makes the key pair; commit
-   `keys/market-pub.pem` and build the kernel.
+   `keys/market-pub.pem` to `bm-core` and build the kernel.
 2. Here: Settings > Secrets and variables > Actions > New repository
    secret `BM_MARKET_KEY`, the whole private key file (or
    `gh secret set BM_MARKET_KEY -R f-accomando/bm-market < ~/.bm/market-key.pem`).
 3. Settings > Pages > Source: **GitHub Actions**.
-4. Until `bm-store` is merged into bm's main branch, the variable `BM_REF`
-   (Settings > Secrets and variables > Actions > Variables) can name the
-   branch of bm whose `scripts/mkmarket.py` the workflow uses; it is
-   `bm-store` when not set.
+4. The workflow takes `scripts/mkmarket.py` and the public key from bm's
+   main branch, `bm-core`; the variable `BM_REF` (Settings > Secrets and
+   variables > Actions > Variables) can name another branch.
 
-The games of the bm project come from bm itself: `make market-seed
-MARKET=../bm-market` there builds them and updates their folders here.
+The games of the bm project come from bm itself: `scripts/market.sh` there
+(or `make market-seed MARKET=../bm-market`, then commit and push here)
+builds them and updates their folders.

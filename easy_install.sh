@@ -28,10 +28,15 @@
 #   r  release              a new version on GitHub (scripts/release.sh --no-sd:
 #                           the tag, the CI tests it and publishes it); the
 #                           consoles take it from Settings > Updates
+#   m  market               the project's games in the bm Market (scripts/market.sh):
+#                           the first time also the key, the secret, the public
+#                           key on bm-core and GitHub Pages; the market's clone
+#                           is bm-market next to this repository
 #   b  branch              change it, or bring it up to date (git pull)
 #   p  paths               the repository's folder, the card's drive letter
 # The same as an argument: ./easy_install.sh kernel | install | image | net [profile]
-# | send FILE [profile] | monitor [profile] | config [profile] | config-sd | release [vX.Y.Z].
+# | send FILE [profile] | monitor [profile] | config [profile] | config-sd | release [vX.Y.Z]
+# | market.
 # sudo is asked for when needed (packages, mounting the card); the card is
 # mounted, synced and unmounted (and ejected) by the script. At the end:
 # the kernel the card had -> the one it has now.
@@ -754,6 +759,18 @@ job_release() {
     exit 0
 }
 
+# the bm Market: scripts/market.sh sets it up the first time (the key, the
+# secret, GitHub Pages) and puts the project's games in it, every time
+job_market() {
+    say "The bm Market"
+    echo "  the market's clone: $(dirname "$REPO")/bm-market"
+    echo "scripts/market.sh asks before every step that changes GitHub (the secret, Pages, a push)."
+    scripts/market.sh --market "$(dirname "$REPO")/bm-market" || { warn "the market stopped: see above"; return 0; }
+    LAST_RUN="$(now) market"
+    save_conf
+    exit 0
+}
+
 # ---------------------------------------------------------------- the jobs
 finish() {                                      # the last line: old kernel -> new one
     LAST_RUN="$(now) $1: $2 -> $3"
@@ -977,9 +994,10 @@ case ${1:-} in
     config) job_config "${2:-}"; exit 0 ;;
     config-sd) job_config_sd; exit 0 ;;
     release) job_release "${2:-}"; exit 0 ;;
+    market) job_market; exit 0 ;;
     "") ;;
     *) die "unknown: $1 (kernel, install, image, net [profile], send FILE [profile], monitor [profile], \
-config [profile], config-sd, release [vX.Y.Z], or nothing for the menu)" ;;
+config [profile], config-sd, release [vX.Y.Z], market, or nothing for the menu)" ;;
 esac
 
 while :; do
@@ -994,6 +1012,7 @@ while :; do
   7  [NET] config          (a console's bm/config.txt: shown, keys set or removed)
   8   [SD] config          (bm/config.txt on the card in the reader)
   r  release               (a new version on GitHub: release.sh --no-sd; the consoles update)
+  m  market                (the games in the bm Market: market.sh; the first time its setup)
   b  branch                (now $BRANCH: change it or update it)
   p  paths                 (repository folder, SD card letter)
   q  quit
@@ -1009,9 +1028,10 @@ MENU
         7) job_config ;;
         8) job_config_sd ;;
         r|R) job_release ;;
+        m|M) job_market ;;
         b|B) change_branch; BRANCH=$(git rev-parse --abbrev-ref HEAD); echo "  branch      $(branch_line)" ;;
         p|P) change_paths ;;
         q|Q|"") exit 0 ;;
-        *) warn "1 to 8, r, b, p or q" ;;
+        *) warn "1 to 8, r, m, b, p or q" ;;
     esac
 done
