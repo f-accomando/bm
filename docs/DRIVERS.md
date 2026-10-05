@@ -185,6 +185,14 @@ stress test, il 3D Bench, il benchmark di Overbit e il quarto valore di `gpu3d()
   l'XRGB8888 dello schermo, i pixel "puliti" scritti). Prima una superficie di 64×64 controllata
   pixel per pixel, poi un quadrato verde in alto a destra dello schermo della pagina *GPU test*,
   ridisegnato per ultimo sopra il testo: se si vede, la GPU ha disegnato.
+- **6.2** (2026-10-05, M39): sul Pi il 3D Bench si è fermato nel test `match` con GPU+FS2 (la
+  GPU non ha finito il lavoro): gli shader che non cambiano thread erano detti "a più thread"
+  nel record (bm3d 2.0–5.3, innocuo finché nessuno cambiava thread), mentre uno shader a più
+  thread deve fare LTHRSW una volta prima di finire (Mesa, `vc4_program.c`). Ora il bit 0 del
+  record ("single-threaded") è acceso per tutti tranne `fs_tex_lit_t` e `fs_tex_rgb_t`, come in
+  Mesa; l'emulatore rifiuta un record che dica a più thread uno shader senza cambi, e la prova
+  all'avvio degli shader a due thread mette nello stesso lavoro anche shader a un thread. Sul
+  Pi GPU+FS2 aveva dato +22% in `quad_tex` (148 quad contro 121).
 
 ## Le modalità: versioni vecchie sul codice di oggi
 

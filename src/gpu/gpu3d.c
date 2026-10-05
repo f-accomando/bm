@@ -664,6 +664,17 @@ static inline int fs_code(int shader)
     return shader;
 }
 
+/* the record's flag byte for the fragment shader: "single-threaded" (bit
+ * 0) unless its code switches threads, as Mesa's vc4 does. A shader said
+ * threaded must execute LTHRSW once before it ends: bm3d 2.0-5.3 said so
+ * of every shader, harmless until shaders that do switch shared a frame
+ * with them (the Pi hung in the 3D Bench's match with GPU+FS2,
+ * 2026-10-05) */
+static inline uint8_t fs_flags(int code)
+{
+    return code == SH_TEX_T || code == SH_TEX_RGB_T ? 0 : 1;
+}
+
 /* 0, or -1 if the job is full */
 static int batch_open(const g16_t *g, int shader, int depth, const tex_t *t)
 {
@@ -689,7 +700,7 @@ static int batch_open(const g16_t *g, int shader, int depth, const tex_t *t)
     G.rec_next += 16;
     const uint32_t stride = VSTRIDE(shaders[shader].varyings);
     G.vbytes = (G.vbytes + 3) & ~3u;
-    r[0] = 0;
+    r[0] = fs_flags(fs_code(shader));
     r[1] = (uint8_t)stride;
     r[2] = shaders[shader].uniforms;
     r[3] = shaders[shader].varyings;
@@ -1696,7 +1707,7 @@ static int gl_draw(const g16_t *g, gmesh_t *e, const ggroup_t *gr, gunif_t *u, c
     G.rec_next += 64;
     memset(r, 0, 64);
     uint32_t a;
-    r[0] = clipping ? 4 : 0;
+    r[0] = (uint8_t)((clipping ? 4 : 0) | fs_flags(fs_code(fs)));
     r[3] = shaders[fs].varyings;
     a = v3d_bus(G.code + 1024 * fs_code(fs)); memcpy(r + 4, &a, 4);
     a = gr->vs == GV_TEX_RGB || gr->vs == GV_LIT_TEX || two ? v3d_bus(e->tex->params) : 0; memcpy(r + 8, &a, 4);
@@ -1847,7 +1858,7 @@ static int cb_shadow(void *ctx, const g16_t *g, const r3d_mesh_t *m, const float
         G.rec_next += 64;
         memset(r, 0, 64);
         uint32_t a;
-        r[0] = 4;                               /* clipping */
+        r[0] = 4 | fs_flags(SH_SCREEN);         /* clipping; single-threaded */
         r[3] = shaders[SH_SCREEN].varyings;
         a = v3d_bus(G.code + 1024 * SH_SCREEN); memcpy(r + 4, &a, 4);
         r[14] = 1; r[15] = vpm_size(two ? 16 : 12);
@@ -3082,6 +3093,10 @@ static int probe_fs2(const g16_t *pg, const tex_t *pt)
             G.fs2_ok = G.fs2_on = two;
             memset(G.probe, 0, JOB_PROBE);
             add_tri(pg, a, kind, pt, 0, sh, 0);
+            /* single-threaded shaders in the same job, as in a game (the
+             * Pi hung on that mix when their records said them threaded) */
+            add_tri(pg, b, R3D_KIND_TEXTURE, pt, 0, SH_TEX_ALPHA, 0);
+            add_tri(pg, a, R3D_KIND_COLOUR, NULL, R3D_DEPTH_TEST, SH_COLOUR, 0);
             add_tri(pg, b, kind, pt, 0, sh, 0);
             const int r = gpu3d_flush(pg, 0);
             G.fs2_ok = G.fs2_on = 0;

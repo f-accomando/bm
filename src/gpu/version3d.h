@@ -20,7 +20,7 @@
  * and 1.0 no longer run: the 3D Bench shows the numbers measured on the Pi
  * with them.
  */
-#define BM3D_VERSION "6.1"
+#define BM3D_VERSION "6.2"
 #define BM3D_BLOCK   "M41"
 
 typedef struct {
@@ -60,6 +60,7 @@ static inline const bm3d_version_t *bm3d_versions(int *n)
         { "5.6", "M39", "2026-10-05", "each mesh's triangles in the vertex cache's order (with the draw order option)" },
         { "6.0", "M41", "2026-10-05", "RGB30: the Mali-G52 powered, mapped, running jobs (GPU test); no drawing yet" },
         { "6.1", "M41", "2026-10-05", "RGB30: a Mali fragment job clears tiles into a surface and on the screen" },
+        { "6.2", "M39", "2026-10-05", "V3D: shaders without thread switches said single-threaded (GPU+FS2 hung)" },
     };
     *n = (int)(sizeof v / sizeof v[0]);
     return v;

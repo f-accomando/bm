@@ -604,8 +604,14 @@ static int shader_of(const uint8_t *code)
 static int threaded_check(const uint8_t *rec)
 {
     const uint8_t *code = ptr(rd32(rec + 4));
-    if (memcmp(code, fs_tex_lit_t, sizeof fs_tex_lit_t) && memcmp(code, fs_tex_rgb_t, sizeof fs_tex_rgb_t))
+    if (memcmp(code, fs_tex_lit_t, sizeof fs_tex_lit_t) && memcmp(code, fs_tex_rgb_t, sizeof fs_tex_rgb_t)) {
+        /* no thread switch: the record must say single-threaded (a threaded
+         * shader must execute LTHRSW once before it ends; the Pi hung with
+         * these mixed with the two-thread ones, 2026-10-05) */
+        if (!(rec[0] & 1))
+            return err("a fragment shader without thread switches in a record that says it threaded", 0, 0);
         return 0;
+    }
     if (rec[0] & 1)
         return err("a fragment shader with thread switches in a record that says it single-threaded", 0, 0);
     if (emu_no_threads)
