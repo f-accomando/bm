@@ -1527,10 +1527,12 @@ function _init()
     local ok, err = cart_save(p, code)
     log("save", p, ok, err)
   end
-  local ok, err = cart_save("/carts/ok.bm", code)   -- there now: a game does not change it
+  local ok, err = cart_save("/carts/ok.bm", code)   -- made by this run: it can change it
   log("again", ok, err)
   ok, err = cart_write("ok2.bm", { lua = "x" })
   log("change", ok, err)
+  ok, err = cart_write("/carts/other.bm", { lua = "x" })  -- there before: another game
+  log("other", ok, err)
   ok, err = picture3d("ready", "meshy")
   log("picture", ok, err)
   ok, err = cart_write("/kernel.img", { lua = "x" , from = "/carts/ok.bm" })
@@ -1542,10 +1544,20 @@ end
 """
 
 
+LATER_CART = r"""
+function _init()
+  local ok, err = cart_write("/carts/ok.bm", { lua = "x" })   -- made by a run before
+  log("later", ok, err)
+  quit()
+end
+"""
+
+
 def test_cart_write_limits(b, opts):
     """M25 (Market): a cartridge from the SD card or the Market writes only
-    new .bm files in /carts (not one that is there: another game); the
-    kernel, the settings and other folders are refused, and so are the
+    new .bm files in /carts, and changes only the ones it made in the same
+    run (not one that is there: another game; nor its own in a later run);
+    the kernel, the settings and other folders are refused, and so are the
     picture services with the user's keys (the tools built into the kernel
     still save anywhere and use them)."""
     tmp = tempfile.mkdtemp(prefix="bm-wlim-")
@@ -1553,7 +1565,10 @@ def test_cart_write_limits(b, opts):
     cfg = os.path.join(tmp, "config.txt")
     with open(cfg, "w") as f:
         f.write("layout=us\nwifi_boot=0\n")
-    mksd.build(img, [(cfg, "bm/config.txt")])
+    other = os.path.join(tmp, "other.bm")
+    with open(other, "wb") as f:
+        f.write(mkbm.pack(b"function _draw() end", title="other"))
+    mksd.build(img, [(cfg, "bm/config.txt"), (other, "carts/other.bm")])
     q = Qemu(b("kernel.img"), ["-drive", f"if=sd,format=raw,file={img}"])
     try:
         q.boot()
@@ -1566,11 +1581,15 @@ def test_cart_write_limits(b, opts):
             assert f"save\t{p}\tfalse\t{p}: a cartridge writes only .bm files in /carts" in text, text
         assert "save\t/carts/ok.bm\ttrue" in text, text
         assert "save\tok2.bm\ttrue" in text, text
-        assert "again\tfalse\t/carts/ok.bm: a cartridge cannot change a .bm that is there" in text, text
-        assert "change\tfalse\tok2.bm: a cartridge cannot change a .bm that is there" in text, text
+        assert "again\ttrue" in text and "change\ttrue" in text, text
+        assert "other\tfalse\t/carts/other.bm: a cartridge cannot change a .bm that is there" in text, text
         assert "picture\tnil\tthe picture services are for bm's tools only" in text, text
         assert "write\tfalse\t/kernel.img: a cartridge writes only" in text, text
         assert "audio\tfalse\t/bm/config.txt: a cartridge writes only" in text, text
+        q.expect("> ", timeout=10)
+        assert _upload(q, mkbm.pack(LATER_CART.encode(), title="later"))
+        out = q.expect("later\t", timeout=20) + q.expect("\n")
+        assert b"later\tfalse\t/carts/ok.bm: a cartridge cannot change" in out, out
         q.expect("> ", timeout=10)
     finally:
         q.close()
@@ -3016,10 +3035,10 @@ def test_menu_tabs(b, opts):
         state(["Dev"], ["bm SDK"])
         press(shoulders=1)                  # L1: Games
         state(["Games"], ["bm native demo"])
-        press(shoulders=1)                  # L1: the Market, first (M25): no key in this kernel
-        state(["Market"], ["The Market needs a key"])
+        press(shoulders=1)                  # L1: the Market, first (M25): QEMU has no network
+        state(["Market"], ["No network: connect in Settings"])
         press(shoulders=1)                  # L1 on the first tab: nothing
-        state(["Market"], ["The Market needs a key"])
+        state(["Market"], ["No network: connect in Settings"])
         press(shoulders=2)                  # R1: back to Games
         state(["Games"], ["bm native demo"])
 

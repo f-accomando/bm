@@ -50,6 +50,7 @@
 #include <stdlib.h>
 #include <math.h>
 #include <string.h>
+#include <strings.h>
 
 #include "lauxlib.h"
 #include "lua.h"
@@ -4237,6 +4238,10 @@ void bm_set_tool(int on)
  * built into the kernel; for the others (SD card, Market) only .bm files in
  * /carts, never the kernel, the settings or another folder. Returns 0, or
  * -1 with a message on the Lua stack (false, message). */
+#define MADE_MAX 16
+static char made[MADE_MAX][16];         /* the .bm files this run made (names in /carts) */
+static int n_made;
+
 static int write_refused(lua_State *L, const char *path)
 {
     if (tool_mode)
@@ -4252,17 +4257,22 @@ static int write_refused(lua_State *L, const char *path)
         lua_pushfstring(L, "%s: a cartridge writes only .bm files in /carts", path);
         return -1;
     }
-    /* and only new ones: a game does not change another (one from the
-     * Market could rewrite the code of every game on the card, 2026-10-05);
-     * bm's own tools can */
+    /* and only new ones, or the ones it made in this run: a game does not
+     * change another (one from the Market could rewrite the code of every
+     * game on the card, 2026-10-05); bm's own tools can */
     char full[96];
     fat_entry_t e;
     ksnprintf(full, sizeof full, "/carts/%s", name);
     if (fat_find(full, &e) == 0) {
+        for (int i = 0; i < n_made; i++)
+            if (strcasecmp(made[i], name) == 0)
+                return 0;
         lua_pushboolean(L, 0);
         lua_pushfstring(L, "%s: a cartridge cannot change a .bm that is there already (bm's tools can)", path);
         return -1;
     }
+    if (n_made < MADE_MAX && n < sizeof made[0])
+        ksnprintf(made[n_made++], sizeof made[0], "%s", name);
     return 0;
 }
 
@@ -6832,6 +6842,7 @@ int bm_run(framebuffer_t *fb, const uint8_t *data, size_t len,
     bm_close_suspended();              /* one cartridge in memory at a time */
     memset(st, 0, sizeof *st);
     memset(&rt, 0, sizeof rt);
+    n_made = 0;
     free(proj_cover);                  /* no project open yet (cart_load) */
     proj_cover = NULL;
     extras_free();
