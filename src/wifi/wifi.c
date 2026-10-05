@@ -1166,5 +1166,16 @@ int wifi_connect_saved(void)
     const char *sec = config_get("wifi_security");
     if (!w.up || !ssid || !ssid[0])
         return -1;
+    /* A scan first, as "Connect to a network" does: the firmware's own
+     * search inside the join, right after the radio came up, did not find
+     * the network at boot (status 3) on the Pi, while a scan always did
+     * (2026-10-05). The network seen gives its security too; one not seen
+     * (hidden, or the scan missed it) is joined straight away. */
+    if (wifi_scan() > 0)
+        for (int i = 0; i < nnets; i++)
+            if (strcmp(nets[i].ssid, ssid) == 0) {
+                kprintf("wifi: saved network \"%s\" is in range\n", ssid);
+                return join(ssid, psk, nets[i].security);
+            }
     return join(ssid, psk, sec && sec[0] ? sec : "WPA2");
 }
