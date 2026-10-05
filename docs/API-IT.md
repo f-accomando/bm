@@ -305,11 +305,11 @@ nano8) legge la tastiera tasto per tasto e i controller pulsante per pulsante:
 | `time()` | secondi dall'avvio della cartuccia (con decimali) |
 | `stat(n)` | 0 KiB usati da Lua, 1 ms dell'ultimo fotogramma (`_update` + `_draw`, con il 3D della GPU), 2 fps, 3 numero del fotogramma, 4 triangoli 3D, 5 pixel 3D (0 con la GPU), 6 ms passati nel disegno 3D (da `zclear`; con la GPU la parte dell'ARM), 7 vertici 3D trasformati, 8 ms dall'inizio di questo fotogramma (per misurare le fasi), 9 `1` se il 3D lo disegna la GPU, 10 istruzioni Lua dell'ultimo fotogramma (`_update` + `_draw`, alle migliaia); il **dev kit** (2026-10-04): 11 token del codice della cartuccia (`code_tokens`), 12 i KiB di Lua più alti di questa partita, 13 KiB dei dati della cartuccia in memoria (sprite sheet, mappa, modelli e scheletri, banco di suoni, z-buffer del 3D), 14 le istruzioni Lua del fotogramma più pesante di questa partita; 15 quanti `_update` sono girati prima di questo `_draw` (1; di più con `frameskip`) |
 | `frameskip([n])` | il tempo del gioco a 60 `_update` al secondo qualunque sia il costo di `_draw` (2026-10-05): quando un fotogramma dura più di 1/60 s, prima del `_draw` dopo girano fino a `n` `_update` (i fotogrammi in mezzo non si disegnano), così un gioco che avanza di 1/60 s a ogni `_update` non rallenta; oltre `n` il tempo si lascia andare (il gioco rallenta piuttosto che non disegnare mai). `1` (il default) è un `_update` per fotogramma, come prima; al massimo 8. Restituisce il valore di prima. Un tasto premuto conta una volta in `btnp()` (e `mousep()`, la rotella) per quanti `_update` lo vedano; `btn()` resta tenuto. Overbit usa `frameskip(4)` (il suo benchmark `1`) |
-| `devkit([modo])` | l'overlay del dev kit: `0` spento, `1` semplice, `2` dettagliato; con un modo mostra quella pagina (un tasto del gioco per lui, per esempio Select sul pad: F11 è della tastiera). Restituisce il modo di prima |
+| `devkit([modo])` | l'overlay del dev kit: `0` spento, `1` semplice, `2` dettagliato; con un modo mostra quella pagina (un tasto del gioco per lui, per esempio Select sul pad: F11 è della tastiera), solo in questa partita: ogni gioco parte come dice Settings. Restituisce il modo di prima |
 | `devinfo(riga, ...)` | fino a 4 righe del gioco nella pagina dettagliata del dev kit (la sua qualità, i suoi attori...), di 18 caratteri; `devinfo()` nessuna. Va chiamata di nuovo quando cambiano (Overbit a ogni fotogramma mentre la pagina dettagliata è aperta) |
 | `code_tokens(testo)` | i **token** di un pezzo di codice Lua, contati come `stat(11)`, l'overlay e il dev kit dell'SDK (`src/bm/tokens.c`): ogni nome, parola chiave, numero, stringa e operatore vale uno; commenti, spazi, `,` `.` `:` `;` `::`, le parentesi che si chiudono (`)` `]` `}`), `end` e `local` non contano, e nemmeno il segno meno davanti a un numero (`-1` è un token). Un'informazione, non un limite: bm non mette un tetto ai token (e nemmeno il `.b16`, [B16.md](B16.md) §2.4) |
 | `log(...)` | scrive nel log del kernel (seriale e console), non sullo schermo del gioco |
-| `report(tipo, testo)` | un report per chi sviluppa bm (2026-10-04): salvato in `bm/reports` sulla SD con kernel, branch, scheda e data, poi inviato al repository dei report se c'è `github_token` e la rete (`src/kernel/reports.h`); al più 8 per partita, 256 KiB l'uno; `true` se salvato |
+| `report(tipo, testo)` | un report per chi sviluppa bm (2026-10-04): salvato in `bm/reports` sulla SD con kernel, branch, scheda e data, poi inviato al repository dei report se c'è `github_token` e la rete (`src/kernel/reports.h`); al più 8 per partita, 256 KiB l'uno; `true` se salvato. La prima volta che un gioco la chiama la console lo chiede al giocatore (la risposta resta in `bm/config.txt`, `allow_...`): dopo un no, `false` |
 | `quit()` | chiude la cartuccia alla fine del fotogramma |
 | `timeslice(co, [k])` | la coroutine `co` si ferma da sola dopo circa `k` mila istruzioni Lua in un fotogramma (400 se manca) e `coroutine.resume` torna `true` senza valori: un calcolo lungo prosegue nei fotogrammi successivi invece di fermare la cartuccia per il limite di istruzioni. `timeslice(nil)` lo toglie (nano8 lo usa per le sue cartucce) |
 
@@ -329,7 +329,7 @@ al secondo).
 
 | Funzione | Cosa fa |
 |---|---|
-| `s, porta = udp_open([porta])` | un socket sulla porta (0 o niente: una qualsiasi); `nil` e il motivo se non c'è rete o socket libero |
+| `s, porta = udp_open([porta])` | un socket sulla porta (0 o niente: una qualsiasi); `nil` e il motivo se non c'è rete o socket libero. La prima volta che un gioco ne apre uno, la console chiede al giocatore se può usare la rete (la risposta resta in `bm/config.txt`); dopo un no, `nil` e il motivo |
 | `udp_send(s, indirizzo, porta, dati)` | manda una stringa (al massimo 1024 byte); `true` se è partita (UDP: può perdersi) |
 | `dati, indirizzo, porta = udp_recv(s)` | il prossimo pacchetto arrivato, o `nil`; ne restano in coda fino a 48 |
 | `udp_close(s)` | chiude il socket |
@@ -1114,7 +1114,8 @@ console, un giocatore che esce; sulla LAN e attraverso il relay.
   Si accende da Settings > Screen and sound > "Performance overlay" (Off, Simple, Detailed:
   resta salvato), con F11 sulla tastiera (tasto di sistema, anche negli strumenti; era F3),
   con `p` dalla seriale o con `devkit(modo)` dal gioco: una volta la pagina semplice, di
-  nuovo quella dettagliata, di nuovo spento. La pagina semplice:
+  nuovo quella dettagliata, di nuovo spento. F11, `p` e `devkit()` valgono per la partita:
+  ogni gioco parte (e riprende) come dice Settings. La pagina semplice:
 
       60fps 6.1ms ^7.5      fotogrammi al secondo; ms di _update + _draw: media e,
                             dopo ^, il massimo dell'ultimo secondo

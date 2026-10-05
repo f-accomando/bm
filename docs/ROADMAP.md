@@ -616,7 +616,7 @@ Decisione 2026-09-28: versioni "leggere", in coda dopo M17.
 9. Poi: aggiornamento del kernel da GitHub (M19), rete nelle cartucce.
 
 
-## M19 — HTTPS: aggiornamenti e "git leggero" (L)
+## M19 — HTTPS: aggiornamenti e "git leggero" (L) — ✅ chiusa (2026-10-05)
 - **TLS**: mbedTLS (licenza Apache 2.0) sopra lwIP; certificati radice essenziali sulla
   SD.
 - **Aggiornamenti da internet**: il Pi controlla le release di GitHub del progetto,
@@ -661,7 +661,8 @@ Passi (2026-09-29):
      hardware, acceso solo alla prima richiesta, scarta i primi numeri (riscaldamento) e ci
      metteva più dei 200 ms concessi; prima lo accendeva il Bluetooth LE. Ora parte all'avvio
      del kernel e la prima lettura aspetta fino a 3 s.
-3. 🛠 (manca la chiave: `scripts/release-key.sh`) **Release**: GitHub Actions costruisce
+3. ✅ (2026-10-04/05: la chiave nel secret `BM_RELEASE_KEY`, le release v0.1.0, v0.2.1 e v0.2.3
+   pubblicate dalla CI con il manifesto firmato) **Release**: GitHub Actions costruisce
    `kernel.img` e le cartucce a ogni tag `v*`, le allega alla release con un manifesto
    (versione, SHA-256, firma ECDSA P-256 con una chiave nei secret del repository; la chiave
    pubblica è nel kernel).
@@ -694,13 +695,28 @@ Passi (2026-09-29):
    - **Da verificare sul Pi**: il controllo e l'installazione da GitHub via WiFi (le release
      scaricano da `release-assets.githubusercontent.com`: se manca la radice in `bm/ca.pem`
      l'errore lo dice).
-5. **Git leggero in lettura**: cartucce da un repository (API "contents" di GitHub,
-   file per file, senza archivi da decomprimere).
+   - ✅ Sul Pi (2026-10-05): gira il kernel v0.2.3 costruito dalla CI per la release (i report
+     del Pi dicono kernel e branch `v0.2.3`); anche la RGB30 ha preso la v0.2.1 della release.
+     Sulla RGB30 il riavvio dopo l'installazione lasciava lo schermo nero: corretto nel codice
+     (`plat_reset`, spegne schermo e WiFi prima), da riprovare sulla console (sezione M40).
+5. ~~**Git leggero in lettura**: cartucce da un repository (API "contents" di GitHub,
+   file per file, senza archivi da decomprimere).~~ Sostituito dal Market (M25): catalogo
+   firmato da GitHub Pages, download e SHA-256 dei giochi.
 6. **Git leggero in scrittura**: l'editor carica un `.bm` su un repository con un
    token personale (`github_token` in `bm/config.txt`, API "contents", PUT).
    - In parte (2026-10-04, branch `bm-core`): i **report dei test** vanno da soli nel branch
      `reports` di `f-accomando/bm` (`github_put` in `src/net/github.c`, `src/kernel/reports.c`;
      nome con kernel e branch), così chi sviluppa li legge senza foto.
+   - ✅ Sul Pi e sulla RGB30 (2026-10-05): nove report arrivati nel branch `reports` con il
+     token in `bm/config.txt` (PUT dell'API "contents" via HTTPS). Un gioco dal Pi a un
+     repository è la pubblicazione nel Market (`src/kernel/publish.c`, pull request a
+     `f-accomando/bm-market`): la sua prova sul Pi resta in M25.
+
+**Chiusa il 2026-10-05** (decisione dell'utente): HTTPS, ora di rete, release firmate e
+aggiornamento dal menu funzionano sul Pi; la scrittura su GitHub con un token (i report)
+funziona sul Pi e sulla RGB30. Restano fuori: la pull request di un gioco verso il Market
+(da provare sul Pi, M25), il riavvio della RGB30 dopo un aggiornamento (M40, corretto nel
+codice, da riprovare), SSH e git completo (non servono).
 
 ## M20 — Picchiaduro a robot giganti (XL) — ✅ chiusa (2026-09-30: base giocabile)
 Decisione 2026-09-28: in coda dopo M19. Concept completo dell'autore:
@@ -1142,7 +1158,8 @@ Sotto-milestone:
   - Test: `make test-audio` (sintesi e player), `make test-sound` (l'editor in un bm
     finto: il banco demo torna identico byte per byte, input casuale), in QEMU
     `test_audio_bank`, `test_volume_saved`, `test_sound_editor`.
-  - Da fare: WAV/MIDI (22.5), uscita stereo, editor delle forme d'onda.
+  - WAV/MIDI, uscita stereo, editor delle forme d'onda: spostati tra gli spunti (R25,
+    2026-10-05).
   - **Da verificare sul Pi** (tutto a schermo): Dev → *Audio test* (sei forme d'onda,
     accordo, glide, vibrato, arpeggio); Dev → *Sound*: parte sulla pagina SONG, START
     suona il brano DEMO (batteria, basso, arpeggio, melodia) a tempo anche mentre si
@@ -1153,27 +1170,13 @@ Sotto-milestone:
   - PNG ↔ sheet (con riduzione a ≤256 colori), OBJ/GLB → MESH, file Lua ↔ progetto,
     WAV/MIDI dove ha senso;
   - dalla SD, e con M18 dal PC via WiFi.
+  - Fatto: un'immagine diventa un modello sulla console (ritaglio, tornio, Meshy: `.glb` →
+    MESH), i file dal PC arrivano via WiFi (`bm_net.py --send`). Resta in M22 il PNG dalla
+    SD nello sheet (bm Pixel); WAV/MIDI vanno in R25.
 - **22.6 Da 3D a sprite**: come `carts/titan/mkrobot.py` ma sul Pi. Si parte da un
   modello con scheletro e pose, si scelgono viste e dimensione; poi cel shading, contorni,
   riduzione della tavolozza, fotogrammi nello sheet con hitbox e hurtbox.
-- **22.7 Sprite stacking** (decisione 2026-09-29, come i layer di Aseprite):
-  - un oggetto è una pila di **fette** 2D (un layer per altezza), disegnate in pixel art;
-  - sovrapposte con un piccolo scarto verticale e ruotate, danno l'illusione di un volume
-    3D, girabile su x, y, z;
-  - editor: fette in griglia e sovrapposte, onion skin della fetta sotto, anteprima che
-    gira dal vivo.
-  
-  In gioco, disegno in C con due livelli di costo:
-  - **solo rotazione z** (lo stacking classico, visto dall'alto): N fette ruotate e
-    spostate, economico;
-  - **x, y, z libere**: la pila diventa un volume di voxel disegnato punto per punto
-    dalla faccia visibile (per esempio 32×32×32), più costoso.
-  
-  API: `stack(sx, sy, w, h, n, x, y, [rz, rx, ry, scala])`.
-  
-  Legami con gli altri strumenti:
-  - le fette sono sprite dello sheet (22.2 con i layer);
-  - un volume può diventare MESH (22.3) o fotogrammi pre-renderizzati con 22.6.
+- ~~**22.7 Sprite stacking**~~: spostato tra gli spunti (R24, 2026-10-05).
 
 Considerazioni:
 - **Contenitore unico: il `.bm` stesso** (come le cartucce PICO-8): codice, sheet,
@@ -1192,6 +1195,23 @@ Considerazioni:
   - l'SDK perde le sue pagine codice/sprite quando arrivano 22.1 e 22.2, e resta hub e
     impostazioni del progetto.
 - Ordine proposto: 22.0 → 22.1 → 22.2 → 22.4 → 22.5 → 22.3 → 22.6 → 22.7.
+
+**Stato e chiusura (2026-10-05, decisione dell'utente).**
+- **Fatto quando:** sul Pi un gioco fatto dall'inizio alla fine con la suite (codice, sprite,
+  un modello 3D e un suono), provato e salvato.
+- Fatto in QEMU e sul PC: 22.0 (l'SDK come centro della suite, `bm3d`, F12 e `keyhelp`, i
+  modelli di gioco), 22.1 (bm Code), 22.2 (bm Pixel), 22.3 (bm Studio e bm Mesh sulla console,
+  riduttore, modello da un'immagine), 22.4 (Sound editor), 22.6 (la pagina sprites di bm
+  Animator).
+- Resta nel codice: più file per progetto in bm Code (22.1), un PNG dalla SD nello sheet in
+  bm Pixel (22.5). Lo sprite stacking (22.7) e WAV/MIDI con lo stereo (22.4, 22.5) sono gli
+  spunti R24 e R25. Nessuno strumento della suite usa ancora il puntatore (M32).
+- **Da provare sul Pi**, a schermo: l'SDK (pagina del progetto, dev kit dopo F5, un modello
+  di gioco, *Back to bm SDK*); bm Code (il font 6x12, apri, modifica, Ctrl+S, F5 con un errore,
+  F9, `#entry:` e Ctrl+Z); bm Pixel (dipingere lo sheet di un gioco e provarlo); bm Studio e bm
+  Animator (Studio Village → *Open in bm Studio*, attrezzi, salvataggio, F5; rig, animazione,
+  sprites); bm Mesh (Astro Wing → *Open in bm Mesh*); Dev → *Audio test* e il Sound editor
+  (START suona il DEMO, salvataggio in un gioco, volume); Studio Village nella scheda Games.
 
 ## M23 — Emulatore di cartucce `.p8` / `.p8.png` (stile PICO-8) (L/XL)
 Decisione 2026-09-29: in coda. Scritto da zero in C sul runtime di bm (non il port di
@@ -1259,6 +1279,14 @@ Stato (2026-10-01): tutto nel PC e in QEMU, **da provare sul Pi**.
   sul Pi Zero.
 - **Fatto quando:** un gioco senza suono gira dalla SD (primo traguardo), poi con audio
   e numeri 16.16.
+- **Chiusura (2026-10-05, decisione dell'utente).** I numeri 16.16 escono dal criterio: restano
+  un limite noto (i double di Lua arrotondati come l'originale; diverso solo l'overflow oltre
+  ±32767). Il mouse vero per le cartucce che lo chiedono (`poke(0x5f2d, 1)`, ora che c'è il
+  puntatore di M32) è lo spunto R26. Si chiude con la prova sul Pi, a schermo: la lista di
+  nano8 con le anteprime; Comet Catcher con pad e tastiera, con il suono; una delle cartucce
+  incluse con il menu di pausa (ingrandimento 2× o a tutta altezza, *Controls*); un gioco che
+  salva (`cartdata`) ritrovato dopo l'uscita; con F11 due volte il peso di un fotogramma della
+  cartuccia più pesante.
 
 ## M24 — Scambio in rete locale tra console (M) — parte del Market (M25) — fatto in M25.7 (2026-10-01), da verificare sul Pi
 Decisione 2026-09-30: M24 originale diviso in tre (M24 rete locale, M25 store su
@@ -1316,7 +1344,8 @@ Decisioni 2026-10-01 (prima in M25 "store" e M26 "market", ora una cosa sola):
   - il Market scrive solo in `/carts` (i giochi) e in `/bm/market` (la cache);
   - le cartucce della SD scrivono solo file `.bm` in `/carts` e i loro salvataggi: prima
     `cart_save` e `cart_write` accettavano qualunque percorso (anche `/kernel.img`);
-  - le cartucce Lua non hanno funzioni di rete né `io`/`os`; il codice ARM nativo (M13)
+  - le cartucce Lua non hanno `io`/`os` (la rete UDP sì, dal 2026-10, per i giochi online:
+    `bmnet`); il codice ARM nativo (M13)
     non ci sarà mai nel Market.
 - **Licenze**: il campo licenza è obbligatorio. La BM Community License vale per bm e per
   i giochi del progetto, non per i contenuti degli utenti; attenzione a CC BY-NC-SA (uso
@@ -1342,15 +1371,26 @@ Passi:
    (Download again, Delete); uscire dalla scheda interrompe il lavoro. Sorgente:
    `market_url` (HTTPS) o una cartella della SD (`sd:/market/`, usata dal test in QEMU, dove
    non c'è rete); `bm/market.pem` aggiunge una chiave.
-   - **Da verificare sul Pi**: catalogo e copertine da GitHub Pages via WiFi (certificati
-     di `f-accomando.github.io`: se manca una radice in `bm/ca.pem` l'errore lo dice), menu
-     a 60 fps durante i download (l'handshake TLS è calcolo puro: forse qualche frame
-     perso), un gioco scaricato che parte.
-5. 🛠 **Repository del market**: modello in `market/` (README con le regole, workflow che
-   controlla le pull request e pubblica il catalogo firmato con GitHub Pages, descrizioni
-   dei giochi), `make market-seed`. Manca: creare `f-accomando/bm-market` (pubblico), la
-   chiave (`scripts/market-key.sh`, secret `BM_MARKET_KEY`) e Pages con sorgente "GitHub
-   Actions".
+   - Sul Pi (2026-10-05, kernel `54d60b9`): il catalogo arriva da GitHub Pages via WiFi e la
+     firma torna con la chiave nel kernel ("catalog saved on the SD card", niente "no key").
+   - **Da verificare sul Pi**: le copertine, un gioco scaricato che parte, il menu a 60 fps
+     durante i download (l'handshake TLS è calcolo puro: forse qualche frame perso).
+5. ✅ (2026-10-05) **Repository del market**: modello in `market/` (README con le regole,
+   workflow che controlla le pull request e pubblica il catalogo firmato con GitHub Pages,
+   descrizioni dei giochi), `make market-seed`. `f-accomando/bm-market` è in linea con i 12
+   giochi del progetto: la preparazione l'ha fatta `scripts/market.sh` (`easy_install` m:
+   chiave, secret `BM_MARKET_KEY`, chiave pubblica su `bm-core`, Pages dal workflow, i
+   giochi, il catalogo riletto da GitHub Pages; le volte dopo solo i giochi). Due errori
+   trovati al primo giro vero: Pad Typing senza licenza in `market/about.txt` e Pages
+   spento letto come "costruito da un branch" (404).
+   - Permessi delle cartucce (decisione dell'utente, 2026-10-05): un gioco scrive solo `.bm`
+     **nuovi** in `/carts` e cambia solo quelli fatti nella stessa partita (cambiare un `.bm` che
+     c'era, cioè un altro gioco, è degli strumenti di bm) e non usa i servizi con le chiavi della console (`picture3d`, la chiave Meshy):
+     `test_cart_write_limits`. La rete UDP (giochi online, `bmnet`) e `report()` (manda con il
+     `github_token`): la prima volta che un gioco li usa la console chiede al giocatore, sopra
+     il gioco fermo nella chiamata; la risposta resta in `bm/config.txt` (`allow_<salvataggio>`,
+     via la riga per essere richiesti): `test_permissions`. Nessun limite di dimensione per i `.bm`
+     (decisione dell'utente): solo i 100 MiB per file di GitHub; i limiti saranno del `.b16`.
 6. ✅ (PC, `make test-github`; QEMU, `test_publish`) **Pubblicazione dal Pi**: X su un
    gioco della SD, *Publish to the Market* (`src/kernel/publish.c`): cartella (del catalogo
    se il gioco c'è già, se no dal nome del file), versione (la data), licenza a scelta,
@@ -1366,8 +1406,17 @@ Passi:
    gioco solo con lo SHA-256 annunciato; se i byte sono un gioco del catalogo vale come
    scaricato dal market ("checked"), se no "from friends only". Una console occupata
    risponde "busy"; uscire dalla scheda chiude tutto.
+   - Sul Pi (2026-10-05): con la scheda Market aperta la console si annuncia ("nearby
+     consoles: listening as bm-108").
    - **Da verificare sul Pi**: due console sulla stessa rete (Pi Zero W e Pi 1 B) si
      vedono e si mandano un gioco.
+8. ✅ (QEMU, `test_market_b16`, RGB30) **Il Market sulla RGB30** (richiesta dell'utente,
+   2026-10-05, branch `claude/rgb30-market`): la scheda Market nel menu della RGB30, prima e
+   fuori dallo schermo come sul Pi, con lo stesso `market.c` nelle fibre (le fibre a 64 bit:
+   `src/rgb30/fiber.S`) e la rete locale; del catalogo solo i `.b16` (scelta dell'utente: il
+   Pi mostra `.bm` e `.b16`, che girano uguali), scaricati in `bm/` e giocati da lì.
+   `mkmarket.py` accetta i `.b16` (fino a 8 MiB); `test_b16_on_pi` sul Pi.
+   - **Da verificare sulla RGB30**: il catalogo vero (oggi senza `.b16`: arriveranno con M42).
 
 - **Fatto quando:** dalla scheda Market del Pi si sceglie un gioco del catalogo, si
   scarica senza che il menu si fermi, si verifica, si installa e si gioca; un gioco
@@ -3059,6 +3108,13 @@ l'ARM del Pi Zero W: `spheres` 180 (72), `spheres_smooth` 100 (22), `heroes` 8,6
 `quad_tex` 8,0 (3,4), `match` 1,3 (<1; 8,1 a 30 fps). Render bench: mappa e 256 sprite 4,90
 ms disegnando diretto, 7,30 ms via RAM (sul Pi 8,58 e 11,85).
 
+**Dopo la chiusura (2026-10-05, branch `claude/rgb30-market`).** La scheda Market (M25, passo
+8) e la **batteria sulla barra** (richiesta dell'utente): quattro tacche dal 75%, rossa sotto il
+10%, il fulmine sul caricatore (sulla barra della RGB30 solo WiFi e batteria: niente icone di
+controller, mouse e tastiere, decisione dell'utente), la carica dalla tensione del RK817 (`battery_percent`) anche in
+*Settings > System*; le schede non passano più sotto le icone. Prove: `test_battery_icon`
+(QEMU, `test_battery=` in `bm/config.txt`); sulla console da vedere.
+
 ## M41 — RGB30: la GPU Mali e Overbit in `.b16` (XL)
 Richiesta dell'utente (2026-10-05): lo stesso banco di prova della GPU del Pi anche sulla
 RGB30, con Overbit come gioco di misura, sviluppato insieme al driver della sua GPU
@@ -3088,10 +3144,27 @@ la memoria video e GPU con l'MMU (tabelle Mali LPAE) e fa girare lavori del job 
 (WRITE_VALUE, una catena di due), con una riga a schermo per passo e il report `gpu`; bm3d 6.1:
 un lavoro di frammenti senza disegni pulisce una superficie e un quadrato verde sullo schermo
 (descrittori di Bifrost v7 presi da Mesa, MIT). Provato su una GPU simulata (`make TARGET=rgb30
-test-mali`), **da provare sulla console**. Prossimi passi, dopo il report della console: i
+test-mali`) e sulla console (report `gpu` del 2026-10-05: tutti i passi, il quadrato verde). Prossimi passi, dopo il report della console: i
 triangoli preparati dall'ARM (posizioni e varying scritti dall'ARM, un lavoro del tiler con il
 suo contesto e lo heap) con un fragment shader Bifrost minimo (`ISA.xml` di Mesa), poi il vertex
 shader.
+
+## M42 — Il profilo `.b16` (L)
+Decisioni dell'utente del 2026-10-05, in [B16.md](B16.md) §0: un ambiente limitato come
+PICO-8, uguale sul Pi e sulla RGB30. Lo stesso contenitore dei `.bm` con il campo del
+profilo; schermo 360×360 o 720×720 fisso; 256 colori; Lua 4 MiB, grafica a banchi da
+1024×1024, 8 voci, salvataggio 64 KiB; CPU a budget fisso (istruzioni Lua e costo dei
+disegni) a 60 fps che scende da sola a 30; 3D con un tetto di triangoli; pad stile SNES;
+niente file, `rnd()` con seme; 8 MiB; nessun limite di token.
+1. Il campo del profilo nel contenitore, `mkbm.py --b16`, i controlli (lettore e
+   impacchettatore) e il menu: il Pi mostra `.bm` e `.b16`, la RGB30 solo `.b16`.
+2. Il runtime nel profilo: schermo fisso, tavolozza, memoria, sandbox, banchi grafici.
+3. La CPU a budget: costi dei disegni, misura sul Pi, 60 → 30 fps da soli, la percentuale nel
+   dev kit.
+4. L'SDK: il target `.b16` salva un `.b16` vero (oggi solo i promemoria del dev kit, §8.5).
+5. Yharnam in `.b16` (360×360, sheet a banchi), poi Overbit (M41).
+- **Fatto quando:** Yharnam `.b16` gira uguale sul Pi e sulla RGB30 nel profilo, con la CPU
+  che scende a 30 fps negli stessi punti sulle due console.
 
 ## Rischi principali
 | Rischio | Mitigazione |
@@ -3246,6 +3319,20 @@ tastiera).
   italiano e rinominato) e `docs/GAME-GUIDE.md` (le versioni italiane sono `docs/API-IT.md` e
   `docs/GUIDA-GIOCHI.md`); manca la base dell'assistente,
   che ha le domande anche in inglese ma le spiegazioni in italiano.
+- **R24 — Sprite stacking** (era 22.7 di M22, 2026-10-05). Un oggetto è una pila di fette 2D
+  (un layer per altezza, come in Aseprite) sovrapposte con un piccolo scarto e ruotate:
+  l'illusione di un volume 3D. Editor con le fette in griglia e sovrapposte, onion skin,
+  anteprima che gira. In gioco due costi: solo rotazione z (lo stacking classico, N fette
+  ruotate) o x, y, z libere (un volume di voxel, più caro). API `stack(sx, sy, w, h, n, x, y,
+  [rz, rx, ry, scala])`; le fette sono sprite dello sheet, un volume può diventare MESH o
+  fotogrammi (bm Animator, sprites).
+- **R25 — Suoni da e verso il PC** (era in 22.4 e 22.5 di M22, 2026-10-05). Nel Sound editor:
+  WAV (campioni brevi) e MIDI (note di un brano) importati ed esportati, l'uscita stereo e un
+  editor delle forme d'onda.
+- **R26 — Il mouse vero in nano8** (era in M23, 2026-10-05). Le cartucce `.p8` che chiedono il
+  mouse (`poke(0x5f2d, 1)`) hanno oggi un cursore mosso da levetta, croce o frecce: con il
+  puntatore di sistema di M32 (`mouse(true)`) il mouse USB o Bluetooth, i suoi tasti e la
+  rotella (`stat(32)`–`stat(36)`).
 
 ### Hardware
 - **R19 — Altri controller Bluetooth.** Oggi via Bluetooth solo il DS4 (più tastiere e

@@ -1539,7 +1539,15 @@ function _init()
     local ok, err = cart_save(p, code)
     log("save", p, ok, err)
   end
-  local ok, err = cart_write("/kernel.img", { lua = "x" , from = "/carts/ok.bm" })
+  local ok, err = cart_save("/carts/ok.bm", code)   -- made by this run: it can change it
+  log("again", ok, err)
+  ok, err = cart_write("ok2.bm", { lua = "x" })
+  log("change", ok, err)
+  ok, err = cart_write("/carts/other.bm", { lua = "x" })  -- there before: another game
+  log("other", ok, err)
+  ok, err = picture3d("ready", "meshy")
+  log("picture", ok, err)
+  ok, err = cart_write("/kernel.img", { lua = "x" , from = "/carts/ok.bm" })
   log("write", ok, err)
   ok, err = cart_put_audio("/bm/config.txt", nil)
   log("audio", ok, err)
@@ -1548,16 +1556,31 @@ end
 """
 
 
+LATER_CART = r"""
+function _init()
+  local ok, err = cart_write("/carts/ok.bm", { lua = "x" })   -- made by a run before
+  log("later", ok, err)
+  quit()
+end
+"""
+
+
 def test_cart_write_limits(b, opts):
     """M25 (Market): a cartridge from the SD card or the Market writes only
-    .bm files in /carts; the kernel, the settings and other folders are
-    refused (the tools built into the kernel still save anywhere)."""
+    new .bm files in /carts, and changes only the ones it made in the same
+    run (not one that is there: another game; nor its own in a later run);
+    the kernel, the settings and other folders are refused, and so are the
+    picture services with the user's keys (the tools built into the kernel
+    still save anywhere and use them)."""
     tmp = tempfile.mkdtemp(prefix="bm-wlim-")
     img = os.path.join(tmp, "sd.img")
     cfg = os.path.join(tmp, "config.txt")
     with open(cfg, "w") as f:
         f.write("layout=us\nwifi_boot=0\n")
-    mksd.build(img, [(cfg, "bm/config.txt")])
+    other = os.path.join(tmp, "other.bm")
+    with open(other, "wb") as f:
+        f.write(mkbm.pack(b"function _draw() end", title="other"))
+    mksd.build(img, [(cfg, "bm/config.txt"), (other, "carts/other.bm")])
     q = Qemu(b("kernel.img"), ["-drive", f"if=sd,format=raw,file={img}"])
     try:
         q.boot()
@@ -1570,8 +1593,15 @@ def test_cart_write_limits(b, opts):
             assert f"save\t{p}\tfalse\t{p}: a cartridge writes only .bm files in /carts" in text, text
         assert "save\t/carts/ok.bm\ttrue" in text, text
         assert "save\tok2.bm\ttrue" in text, text
+        assert "again\ttrue" in text and "change\ttrue" in text, text
+        assert "other\tfalse\t/carts/other.bm: a cartridge cannot change a .bm that is there" in text, text
+        assert "picture\tnil\tthe picture services are for bm's tools only" in text, text
         assert "write\tfalse\t/kernel.img: a cartridge writes only" in text, text
         assert "audio\tfalse\t/bm/config.txt: a cartridge writes only" in text, text
+        q.expect("> ", timeout=10)
+        assert _upload(q, mkbm.pack(LATER_CART.encode(), title="later"))
+        out = q.expect("later\t", timeout=20) + q.expect("\n")
+        assert b"later\tfalse\t/carts/ok.bm: a cartridge cannot change" in out, out
         q.expect("> ", timeout=10)
     finally:
         q.close()
@@ -1984,9 +2014,18 @@ def test_bt_pair_and_reconnect(b, opts):
             chip.reconnect(pad, FakeDs4Chip.KEY, chip.HANDLE, (0x50, 0x51), 1)
             _mini_expect(q, "bt: controller 1c:66:6d:01:02:03 connected (player 1)")
             chip.report(0x08 | 0x20)
+            # its first seconds are in the log: the light sent, the reports
+            _mini_expect(q, "-> output report 11 (light 00 20 80")
+            _mini_expect(q, "<- first input report 01")
             time.sleep(0.2)
             chip.report(0x08)
             _mini_expect(q, "playing snake.bm")
+            # the pad drops: the log says why (the report of the log is all
+            # the user has to go on)
+            chip._event(0x05, bytes([0]) + chip.HANDLE.to_bytes(2, "little") + bytes([0x08]))
+            _mini_expect(q, "bt: controller 1c:66:6d:01:02:03 (player 1) disconnected after ")
+            _mini_expect(q, "input reports (last ")
+            _mini_expect(q, "radio link lost (distance, WiFi, battery) (reason 08)")
         finally:
             q.close()
     finally:
@@ -3008,10 +3047,10 @@ def test_menu_tabs(b, opts):
         state(["Dev"], ["bm SDK"])
         press(shoulders=1)                  # L1: Games
         state(["Games"], ["bm native demo"])
-        press(shoulders=1)                  # L1: the Market, first (M25): no key in this kernel
-        state(["Market"], ["The Market needs a key"])
+        press(shoulders=1)                  # L1: the Market, first (M25): QEMU has no network
+        state(["Market"], ["No network: connect in Settings"])
         press(shoulders=1)                  # L1 on the first tab: nothing
-        state(["Market"], ["The Market needs a key"])
+        state(["Market"], ["No network: connect in Settings"])
         press(shoulders=2)                  # R1: back to Games
         state(["Games"], ["bm native demo"])
 
@@ -3084,6 +3123,47 @@ def _market_site(tmp, b, key):
             src = os.path.join(dp, f)
             files.append((src, "market/" + os.path.relpath(src, site).replace(os.sep, "/")))
     return files
+
+
+B16_GAME = r"""
+function _init() log("the b16 runs") end
+function _draw() cls(1) print("pocket", 8, 8, 7) end
+"""
+
+
+def test_b16_on_pi(b, opts):
+    """A .b16 (the handhelds' cartridge: the same container, docs/B16.md
+    §0) is listed on the Pi with the .bm and plays the same way (the user,
+    2026-10-05)"""
+    tmp = tempfile.mkdtemp(prefix="bm-b16-")
+    try:
+        cfg = os.path.join(tmp, "config.txt")
+        with open(cfg, "w") as f:
+            f.write("layout=us\nwifi_boot=0\n")
+        cart = os.path.join(tmp, "pocket.b16")
+        with open(cart, "wb") as f:
+            f.write(mkbm.pack(B16_GAME.encode(), title="Pocket", author="tests"))
+        img = os.path.join(tmp, "sd.img")
+        mksd.build(img, [(cfg, "bm/config.txt"), (cart, "carts/pocket.b16")])
+        q = Qemu(b("kernel.img"), ["-drive", f"if=sd,format=raw,file={img}"])
+        try:
+            q.expect(MENU, timeout=30)
+            time.sleep(0.5)
+            q.send("q")                                 # the monitor: the list of cartridges
+            q.expect("> ", timeout=10)
+            q.send("F")
+            out = q.expect("pocket.b16", timeout=10).decode(errors="replace")
+            out += q.expect("\n", timeout=5).decode(errors="replace")
+            assert re.search(r"b16 +\d+ +/carts/pocket.b16", out), out[-300:]
+            q.send("M")
+            q.expect(MENU, timeout=20)
+            time.sleep(0.8)
+            q.send("\r")                                # the first game: the only one
+            q.expect("the b16 runs", timeout=30)
+        finally:
+            q.close()
+    finally:
+        shutil.rmtree(tmp, ignore_errors=True)
 
 
 def test_market(b, opts):
@@ -5709,6 +5789,101 @@ def test_frameskip(b, opts):
         assert "stopped with an error" not in out, out
     finally:
         q.close()
+
+
+DEVKIT_CART = r"""
+function _init()
+  log("devkit was " .. devkit(2) .. ", now " .. devkit())
+end
+function _update() end
+function _draw() cls(1) end
+"""
+
+
+def test_devkit_per_run(b, opts):
+    """devkit() turns the overlay on for its own run only: the next game
+    starts as Settings says (off), not as the last one left it (Overbit's
+    Select left it on in every game after, 2026-10-05)"""
+    q = Qemu(b("kernel.img"))
+    try:
+        q.expect(MENU, timeout=30)
+        time.sleep(0.5)
+        for _ in range(2):
+            assert _upload(q, mkbm.pack(DEVKIT_CART.encode(), title="devkit"))
+            out = q.expect("devkit was ", timeout=30).decode(errors="replace")
+            out += q.expect("\n", timeout=5).decode(errors="replace")
+            assert "devkit was 0, now 2" in out, out[-300:]
+            time.sleep(0.3)
+            q.send("q")
+            q.expect("update+draw", timeout=20)
+            time.sleep(0.5)
+    finally:
+        q.close()
+
+
+PERMIT_CART = r"""
+function _init()
+  log("report1", report("test", "hello"))
+  log("report2", report("test", "again"))
+  quit()
+end
+"""
+
+
+def test_permissions(b, opts):
+    """The first time a game uses report() (or the network) the player is
+    asked, over the game stopped in its call; the answer stays in
+    bm/config.txt for that game (allow_<save name>): asked once, kept
+    across runs, a no refused (report() false) without asking again
+    (decision of the user, 2026-10-05)"""
+    tmp = tempfile.mkdtemp(prefix="bm-perm-")
+    img = os.path.join(tmp, "sd.img")
+    cfg = os.path.join(tmp, "config.txt")
+    with open(cfg, "w") as f:
+        f.write("layout=us\nwifi_boot=0\n")
+    mksd.build(img, [(cfg, "bm/config.txt")])
+    q = Qemu(b("kernel.img"), ["-drive", f"if=sd,format=raw,file={img}"])
+    try:
+        q.boot()
+
+        def run(title, key):
+            assert _upload(q, mkbm.pack(PERMIT_CART.encode(), title=title))
+            out = b""
+            if key:
+                out += q.expect("asks to send a report (ok: allow, back: no)", timeout=30)
+                time.sleep(0.3)
+                if opts.shots:
+                    _save_png(q.screendump(), os.path.join(opts.shots, f"permission-{title}.png"))
+                q.send(key)
+            out += q.expect("report2\t", timeout=30)
+            out += q.expect("\n", timeout=5)
+            text = out.decode(errors="replace").replace("\r", "")
+            q.expect("> ", timeout=20)
+            time.sleep(0.3)
+            return text
+
+        text = run("permit", "j")                   # A: allow
+        assert "bm: allowed" in text and "report1\ttrue" in text and "report2\ttrue" in text, text
+        text = run("deny", "k")                     # B: no
+        assert "bm: not allowed" in text and "report1\tfalse" in text and "report2\tfalse" in text, text
+        text = run("permit", None)                  # kept: not asked again
+        assert "asks to send" not in text and "report1\ttrue" in text, text
+        text = run("deny", None)
+        assert "asks to send" not in text and "report1\tfalse" in text, text
+    finally:
+        q.close()
+    try:
+        part = os.path.join(tmp, "part.img")
+        with open(img, "rb") as f, open(part, "wb") as o:
+            f.seek(2048 * 512)
+            o.write(f.read())
+        env = dict(os.environ, MTOOLS_SKIP_CHECK="1")
+        txt = subprocess.run(["mtype", "-i", part, "::/BM/CONFIG.TXT"], capture_output=True,
+                             text=True, env=env).stdout
+        assert re.search(r"allow_[0-9A-F]{8}=report=yes \(permit\)", txt), txt
+        assert re.search(r"allow_[0-9A-F]{8}=report=no \(deny\)", txt), txt
+    finally:
+        shutil.rmtree(tmp, ignore_errors=True)
 
 
 def _upload(q, data):

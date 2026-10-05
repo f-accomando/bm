@@ -103,6 +103,42 @@ static float mouse(float x, float y)
     return cut(d, outline(wheel, 1.0f));
 }
 
+/* a polygon's signed distance (its edges; inside by the crossings) */
+static float poly(float x, float y, const float *p, int n)
+{
+    float d = 1e9f;
+    int in = 0;
+    for (int i = 0, j = n - 1; i < n; j = i++) {
+        float ax = p[2 * j], ay = p[2 * j + 1], bx = p[2 * i], by = p[2 * i + 1];
+        float e = capsule(x, y, ax, ay, bx, by, 0.0f);
+        if (e < d)
+            d = e;
+        if ((ay > y) != (by > y) && x < (bx - ax) * (y - ay) / (by - ay) + ax)
+            in = !in;
+    }
+    return in ? -d : d;
+}
+
+/* the battery (the RGB30): an outline with its terminal at the right, up
+ * to four bars of charge inside; on the charger a bolt instead of the
+ * bars, the outline cut around it */
+static int batt_bars, batt_bolt;
+
+static float battery(float x, float y)
+{
+    static const float bolt[] = { 16.0f, 0.0f, 7.5f, 10.5f, 12.0f, 10.5f,
+                                  10.0f, 18.0f, 18.5f, 7.0f, 14.0f, 7.0f };
+    float d = outline(rrect(x, y, 12.5f, 9.0f, 10.5f, 6.0f, 2.5f), 2.0f);     /* x 2..23, y 3..15 */
+    d = un(d, rrect(x, y, 24.0f, 9.0f, 1.0f, 3.0f, 0.5f));
+    if (batt_bolt) {
+        float b = poly(x, y, bolt, 6);
+        return un(cut(d, b - 1.5f), b);
+    }
+    for (int k = 0; k < batt_bars; k++)
+        d = un(d, rrect(x, y, 6.5f + 4.0f * k, 9.0f, 1.5f, 3.0f, 0.0f));
+    return d;
+}
+
 /* ---------------------------------------------------------------- masks */
 
 static const uint8_t digits[4][7] = {           /* 5x7, bit 4 = left column */
@@ -158,5 +194,24 @@ const icon_mask_t *icon_mask(int icon, int num)
             m->icon[i] = (uint8_t)(a * 255.0f + 0.5f);
         }
     made[icon][num] = 1;
+    return m;
+}
+
+const icon_mask_t *icon_battery(int bars, int charging)
+{
+    static icon_mask_t bm[5][2];
+    static int done[5][2];
+    bars = bars < 0 ? 0 : bars > 4 ? 4 : bars;
+    charging = charging != 0;
+    icon_mask_t *m = &bm[bars][charging];
+    if (done[bars][charging])
+        return m;
+    batt_bars = bars;
+    batt_bolt = charging;
+    memset(m, 0, sizeof *m);
+    for (int y = 0; y < ICON_H; y++)
+        for (int x = 0; x < ICON_W; x++)
+            m->icon[y * ICON_W + x] = (uint8_t)(coverage(battery, x, y) * 255.0f + 0.5f);
+    done[bars][charging] = 1;
     return m;
 }

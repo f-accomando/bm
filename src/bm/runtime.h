@@ -51,6 +51,10 @@ enum { BM_ENDED = 0, BM_SUSPENDED = 1 };
  * bytes each) and progress (0..1000, -1) while there is one. The kernel
  * gives it at boot; without one (bmhost) there is none. */
 void bm_set_notice(int (*fn)(char *title, char *detail, int *progress));
+/* The first time a game uses the network or report(), the player is asked
+ * (the answer kept in bm/config.txt): the kernel turns it on; off, every
+ * game may (bmhost, the tests on the PC). */
+void bm_permissions(int on);
 
 int  bm_run(framebuffer_t *fb, const uint8_t *data, size_t len,
              uint32_t seconds, bm_stats_t *st, int suspendable);

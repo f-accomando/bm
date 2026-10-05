@@ -19,9 +19,3 @@ void eth_poll(void)                         { }
 int  eth_recv(void *buf, int max)           { (void)buf; (void)max; return 0; }
 int  eth_send(const void *frame, int len)   { (void)frame; (void)len; return -1; }
 
-/* the Pi's fibers (the Market's jobs, src/kernel/fiber.c): none on the
- * RGB30, so net_wait_step always polls the network in place */
-#include "kernel/fiber.h"
-fiber_t *fiber_current(void)        { return 0; }
-void fiber_yield(void)              { }
-int  fiber_cancelled(void)          { return 0; }

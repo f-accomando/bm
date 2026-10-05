@@ -137,7 +137,9 @@ static void scan_dir(const char *path)
     while (ncarts < MAX_CARTS && fat_readdir(&d, &e)) {
         if (e.is_dir || e.name[0] == '.')
             continue;
-        if (!ends_with(e.name, ".bm"))
+        /* .b16, the handhelds' cartridge, is the same container on the Pi
+         * and runs the same way (the user, 2026-10-05) */
+        if (!ends_with(e.name, ".bm") && !ends_with(e.name, ".b16"))
             continue;
         cart_t *c = &carts[ncarts++];
         memset(c, 0, sizeof *c);
@@ -209,7 +211,7 @@ static void read_cover(cart_t *c)
         menu_load_cover(&s, rgba, w, h);
     free(data);
     if (!s.px)
-        menu_make_cover(&s, c->title, "bm");
+        menu_make_cover(&s, c->title, ends_with(c->name, ".b16") ? "b16" : "bm");
     c->cover = s;
     c->cover_read = 1;
 }
@@ -425,7 +427,7 @@ int carts_has_path(const char *path)
 void carts_list(void)
 {
     for (int i = 0; i < ncarts; i++)
-        kprintf("  %2d  %-4s %7lu  %s%s%s  \"%s\"\n", i + 1, "bm",
+        kprintf("  %2d  %-4s %7lu  %s%s%s  \"%s\"\n", i + 1, ends_with(carts[i].name, ".b16") ? "b16" : "bm",
                 carts[i].size, carts[i].dir, carts[i].dir[0] && strcmp(carts[i].dir, "/") ? "/" : "",
                 carts[i].name, carts[i].title);
 }
@@ -1080,7 +1082,7 @@ void carts_menu(framebuffer_t *fb)
                     continue;
                 }
                 const cart_t *c = &carts[idx[i]];
-                items[i] = (menu_item_t){ .title = c->title, .author = c->author, .path = c->path, .kind = "bm",
+                items[i] = (menu_item_t){ .title = c->title, .author = c->author, .path = c->path, .kind = ends_with(c->name, ".b16") ? "b16" : "bm",
                                           .size = c->size, .cover = c->cover.px ? &c->cover : NULL,
                                           .loading = !c->cover_read, .running = is_suspended(c) };
             }
@@ -1100,7 +1102,7 @@ void carts_menu(framebuffer_t *fb)
             } else if (n) {
                 const cart_t *c = &carts[idx[tsel[tab]]];
                 ksnprintf(details, sizeof details, "%s   %s   %lu KiB   %s",
-                          c->author[0] ? c->author : "-", "bm",
+                          c->author[0] ? c->author : "-", ends_with(c->name, ".b16") ? "b16" : "bm",
                           (c->size + 1023) / 1024, c->path);
             }
             const char *a_label = NULL;

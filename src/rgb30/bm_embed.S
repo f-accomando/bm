@@ -60,3 +60,12 @@ bm_texroom_cart_end:
 bm_release_key:
     .incbin "keys/release-pub.pem"
     .byte 0
+
+/* the Market's key (src/net/catalog.c), as on the Pi: its own Market tab
+ * shows the catalog's .b16 games */
+    .section .rodata
+    .balign 4
+    .globl bm_market_key
+bm_market_key:
+    .incbin "keys/market-pub.pem"
+    .byte 0

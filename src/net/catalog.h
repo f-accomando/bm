@@ -14,7 +14,9 @@
 
 #define CATALOG_MAX     256             /* games */
 #define CATALOG_MAX_LEN (256 * 1024)    /* bytes of index.txt */
-#define CATALOG_MAX_FILE (8u * 1024 * 1024)   /* a cartridge (scripts/mkmarket.py) */
+/* a file of the catalog: GitHub refuses files over 100 MiB, its limit and not
+ * bm's (a .bm has none; the .b16 will have its own, docs/B16.md) */
+#define CATALOG_MAX_FILE (100u << 20)
 
 typedef struct {
     char path[96];              /* under the catalog's address: games/snake/snake.bm */

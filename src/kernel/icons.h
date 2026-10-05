@@ -1,6 +1,7 @@
 /*
  * Status icons of the menu bar (M27): keyboard, controller (DualShock 4
- * style), mouse (M32, an outline), WiFi, Ethernet, all in the same box. Drawn once from shapes with
+ * style), mouse (M32, an outline), WiFi, Ethernet, the battery (the
+ * RGB30), all in the same box. Drawn once from shapes with
  * anti-aliasing (4x4 samples per pixel) into coverage masks; the player
  * number goes on a small disc over the bottom middle, with a gap cut
  * around it so the icon stays readable (white for USB, blue for
@@ -34,5 +35,9 @@ typedef struct {
 } icon_mask_t;
 
 const icon_mask_t *icon_mask(int icon, int num);
+
+/* The battery (the RGB30's bar): its outline with `bars` (0..4) of charge
+ * inside, or a bolt instead when `charging`; no disc. */
+const icon_mask_t *icon_battery(int bars, int charging);
 
 #endif

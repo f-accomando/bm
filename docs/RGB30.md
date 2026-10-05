@@ -160,7 +160,10 @@ prima di accendere lo schermo e il registro si scrive tre volte (prima dello sch
   sotto).
 - Menu 360×360 ingrandito ×2 (riempie il pannello): dal 2026-10-04 è **lo stesso del Pi**
   (`src/kernel/menu_ui.c`: barra con le schede a pillola e le icone, copertine quadrate 88×88, tre per
-  riga, pannelli, suggerimenti dei tasti). Schede **Games** (giochi `.b16` e i `.bm`, con la loro
+  riga, pannelli, suggerimenti dei tasti). Schede **Market** (dal 2026-10-05, la prima, fuori
+  dallo schermo a sinistra finché non è la scheda: lo stesso Market del Pi, ma solo i giochi
+  `.b16` del catalogo; B chiede e scarica, il gioco va in `bm/` e si gioca da lì, X i dettagli:
+  gioca, scarica di nuovo, cancella), **Games** (giochi `.b16` e i `.bm`, con la loro
   copertina; con `show_bm=0` dice quante cartucce sono nascoste), **Dev** (3D Bench, Render bench,
   Display, Input test, Boot log, Lua sulla seriale, GPU test) e **Settings**, l'ultima, una pagina a sé:
   dal 2026-10-04 le stesse sezioni del Pi (`src/kernel/settings.c`): Controllers
@@ -170,7 +173,12 @@ prima di accendere lo schermo e il registro si scrive tre volte (prima dello sch
   suono non ancora), Updates, Reports, System (versione, memoria, SD, batteria, il log, riavvio,
   spegnimento). Solo il controller: L1/R1 le schede (senza fare il giro, come sul Pi), la croce
   le copertine e le righe, **B** apre e **A** torna indietro (`confirm=a` li scambia, anche nei
-  suggerimenti). Le righe che lavorano (abbinare, collegarsi, aggiornare, bench, log) scrivono
+  suggerimenti). A destra della barra solo la rete e la **batteria** (dal 2026-10-05; niente icone
+  di controller, mouse e tastiere, decisione dell'utente): quattro
+  tacche dal 75% in su, una in meno ogni 25%, vuota e rossa sotto il 10%, un fulmine sul
+  caricatore; la carica viene dalla tensione (0% a 3,45 V, quando il LED avvisa, 100% a 4,18 V),
+  scritta anche in *Settings > System > Battery*. Sul caricatore la tensione sale: lì la
+  percentuale è solo un'indicazione. Le righe che lavorano (abbinare, collegarsi, aggiornare, bench, log) scrivono
   ancora sulla console di testo.
 - **3D Bench** (scheda Dev, `src/rgb30/b3d_rgb30.c`): lo stesso banco di prova del Pi
   (`src/bm/b3d.c`), a 640×360 ingrandito sul pannello; tutte le prove 3D disegnate dall'ARM (la GPU

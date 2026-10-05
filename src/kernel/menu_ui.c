@@ -508,8 +508,8 @@ static int corner_inset(int r, int dy)
 static void hspan(int x0, int x1, int y, uint16_t c)       /* [x0, x1), clipped */
 {
     if (y < g.cy0 || y >= g.cy1) return;
-    if (x0 < 0) x0 = 0;
-    if (x1 > SW) x1 = SW;
+    if (x0 < g.cx0) x0 = g.cx0;
+    if (x1 > g.cx1) x1 = g.cx1;
     uint16_t *p = g.px + (uint32_t)y * g.stride;
     for (int x = x0; x < x1; x++)
         p[x] = c;
@@ -973,10 +973,15 @@ static void put_icon(const icon_mask_t *m, int x0, int y0, uint32_t ink, uint32_
 
 /* right-aligned: a keyboard or a controller with its number for each
  * player, the mice (M32: no number, a blue dot on Bluetooth), then WiFi or
- * Ethernet when the console is on a network */
-static void status_icons(const menu_view_t *v)
+ * Ethernet when the console is on a network, and the battery (the RGB30:
+ * four bars, the last from 75%; red under 10%, unless on the charger) */
+#define C_LOW       0xFF5A5A
+#define BATTERY     99              /* not an icon of icon_mask: icon_battery */
+
+/* draws them; returns where they begin (SW: none) */
+static int status_icons(const menu_view_t *v)
 {
-    int icon[7], num[7], bt[7], n = 0;
+    int icon[8], num[8], bt[8], n = 0;
     for (int p = 0; p < 4; p++)
         if (v->dev[p] != MENU_DEV_NONE) {
             icon[n] = v->dev[p] == MENU_DEV_KEYBOARD ? ICON_KEYBOARD : ICON_PAD;
@@ -999,16 +1004,28 @@ static void status_icons(const menu_view_t *v)
         bt[n] = 0;
         num[n++] = 0;
     }
+    if (v->battery) {
+        icon[n] = BATTERY;
+        bt[n] = 0;
+        num[n++] = 0;
+    }
     const int gap = 8, net_gap = 16, y0 = 12;
     int w = n * ICON_W + (n > 1 ? (n - 1) * gap : 0) + (players && players < n ? net_gap - gap : 0);
     int x = SW - 16 - w;
+    const int pct = v->battery_pct, low = pct < 10 && !v->charging, left = n ? x : SW;
     for (int i = 0; i < n; i++) {
-        const icon_mask_t *m = icon_mask(icon[i], num[i]);
-        if (m)                      /* white number for USB, blue for Bluetooth */
-            put_icon(m, x, y0, i >= players && v->net_wait ? C_DIM : C_TEXT,
-                     bt[i] ? C_BT : C_TEXT, bt[i] ? C_TEXT : C_BAR);
+        if (icon[i] == BATTERY)
+            put_icon(icon_battery(pct >= 75 ? 4 : pct >= 50 ? 3 : pct >= 25 ? 2 : pct >= 10 ? 1 : 0, v->charging),
+                     x, y0, low ? C_LOW : C_TEXT, C_TEXT, C_BAR);
+        else {
+            const icon_mask_t *m = icon_mask(icon[i], num[i]);
+            if (m)                  /* white number for USB, blue for Bluetooth */
+                put_icon(m, x, y0, i >= players && v->net_wait ? C_DIM : C_TEXT,
+                         bt[i] ? C_BT : C_TEXT, bt[i] ? C_TEXT : C_BAR);
+        }
         x += ICON_W + (i + 1 == players ? net_gap : gap);
     }
+    return left;
 }
 
 /* ---------------------------------------------------------------- F12: the keys */
@@ -1319,6 +1336,10 @@ void menu_ui_frame(framebuffer_t *fb, const menu_view_t *v)
             tab_shift = to;                     /* at rest on the font's columns */
     }
     const int ox = (int)lroundf(tab_shift);
+    /* the tabs stop short of the icons (the RGB30's narrow bar: Settings
+     * peeks at the right while the Market is the tab), closer there */
+    const int icons_x = status_icons(v), sep = SW < 480 ? 3 : 4;
+    g16_clip(&g, 0, 0, icons_x - 8, BAR_H);
     int col = 3;
     for (int i = 0; i < v->ntabs; i++) {
         int n = (int)strlen(v->tabs[i]), x = col * 8 + ox;
@@ -1328,14 +1349,14 @@ void menu_ui_frame(framebuffer_t *fb, const menu_view_t *v)
             pill_at(x, 1, v->tabs[i], C_BAR, C_TAB_ON);
         else
             g16_text(&g, x, 16, v->tabs[i], c16(C_DIM));
-        col += n + 4;
+        col += n + sep;
     }
     zone(col * 8 + ox - 8, 4, 10 * 8, 40, MENU_HIT_SETTINGS, 0, 1);
     if (v->on_gear)
         pill_at(col * 8 + ox, 1, "Settings", C_BAR, C_TAB_ON);
     else
         g16_text(&g, col * 8 + ox, 16, "Settings", c16(C_DIM));
-    status_icons(v);
+    g16_clip(&g, 0, 0, 0, 0);
 
     /* the name of the selected cartridge, on a pill */
     if (v->panel || v->lib || v->page) {

@@ -21,7 +21,8 @@ openssl pkey -in "$KEY" -pubout -out "$PUB"
 echo "$PUB: public key, built into the kernel"
 cat <<MSG
 
-Next:
+Next (scripts/market.sh does all of it, and puts the games in the Market:
+./easy_install.sh market, or m in its menu):
   1. the secret, with the GitHub CLI:  gh secret set BM_MARKET_KEY -R f-accomando/bm-market < $KEY
      or on github.com: f-accomando/bm-market > Settings > Secrets and variables >
      Actions > New repository secret, name BM_MARKET_KEY, value: the whole file

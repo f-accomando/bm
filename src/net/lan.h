@@ -23,7 +23,7 @@
 #define LAN_HELLO_PORT 3335
 #define LAN_PORT       3336
 #define LAN_MAX_PEERS  8
-#define LAN_MAX_SIZE   (8u << 20)
+#define LAN_MAX_SIZE   (100u << 20)    /* as the Market's files (catalog.h): a .bm has no limit of its own */
 
 typedef struct {
     uint32_t ip;                /* network order */

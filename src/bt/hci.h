@@ -64,6 +64,10 @@ void hci_acl_send_pb(uint16_t handle, int pb, const void *data, uint16_t len);
 /* Drops the queue (after a reset). */
 void hci_flush(void);
 
+/* Why a link closed (the reason of Disconnection Complete), in a few words
+ * for the log: who closed it and what to do. */
+const char *hci_reason(uint8_t reason);
+
 /* The transport under the HCI layer: H4 on the Bluetooth UART by default
  * (the Pi's Broadcom chip); the RGB30's Realtek chip speaks H5, the
  * three-wire UART protocol (bt/h5.c). */

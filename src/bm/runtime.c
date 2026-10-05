@@ -50,6 +50,7 @@
 #include <stdlib.h>
 #include <math.h>
 #include <string.h>
+#include <strings.h>
 
 #include "lauxlib.h"
 #include "lua.h"
@@ -2948,6 +2949,8 @@ static int l_log(lua_State *L)
  * true if it was saved. */
 #define REPORTS_MAX     8
 #define REPORT_MAX_LEN  (256 * 1024)
+enum { PERM_NET, PERM_REPORT };
+static int perm_allowed(int what);
 static int l_report(lua_State *L)
 {
     const char *kind = luaL_checkstring(L, 1);
@@ -2955,6 +2958,10 @@ static int l_report(lua_State *L)
     const char *text = luaL_checklstring(L, 2, &len);
     if (rt.reports >= REPORTS_MAX || len > REPORT_MAX_LEN) {
         kprintf("report: refused (%s)\n", len > REPORT_MAX_LEN ? "over 256 KiB" : "8 in this run already");
+        lua_pushboolean(L, 0);
+        return 1;
+    }
+    if (!perm_allowed(PERM_REPORT)) {               /* the player said no */
         lua_pushboolean(L, 0);
         return 1;
     }
@@ -2982,6 +2989,11 @@ static int l_udp_open(lua_State *L)
     if (!cartnet_ip()) {
         lua_pushnil(L);
         lua_pushstring(L, "no network");
+        return 2;
+    }
+    if (!perm_allowed(PERM_NET)) {
+        lua_pushnil(L);
+        lua_pushstring(L, "the player did not allow this game the network");
         return 2;
     }
     int sk = cartnet_open((uint16_t)port);
@@ -4494,6 +4506,10 @@ void bm_set_tool(int on)
  * built into the kernel; for the others (SD card, Market) only .bm files in
  * /carts, never the kernel, the settings or another folder. Returns 0, or
  * -1 with a message on the Lua stack (false, message). */
+#define MADE_MAX 16
+static char made[MADE_MAX][16];         /* the .bm files this run made (names in /carts) */
+static int n_made;
+
 static int write_refused(lua_State *L, const char *path)
 {
     if (tool_mode)
@@ -4504,11 +4520,28 @@ static int write_refused(lua_State *L, const char *path)
     size_t n = strlen(name);
     int ok = name[0] && name[0] != '.' && !strchr(name, '/') && !strchr(name, '\\') &&
              n > 3 && (name[n - 3] == '.') && (name[n - 2] | 32) == 'b' && (name[n - 1] | 32) == 'm';
-    if (ok)
-        return 0;
-    lua_pushboolean(L, 0);
-    lua_pushfstring(L, "%s: a cartridge writes only .bm files in /carts", path);
-    return -1;
+    if (!ok) {
+        lua_pushboolean(L, 0);
+        lua_pushfstring(L, "%s: a cartridge writes only .bm files in /carts", path);
+        return -1;
+    }
+    /* and only new ones, or the ones it made in this run: a game does not
+     * change another (one from the Market could rewrite the code of every
+     * game on the card, 2026-10-05); bm's own tools can */
+    char full[96];
+    fat_entry_t e;
+    ksnprintf(full, sizeof full, "/carts/%s", name);
+    if (fat_find(full, &e) == 0) {
+        for (int i = 0; i < n_made; i++)
+            if (strcasecmp(made[i], name) == 0)
+                return 0;
+        lua_pushboolean(L, 0);
+        lua_pushfstring(L, "%s: a cartridge cannot change a .bm that is there already (bm's tools can)", path);
+        return -1;
+    }
+    if (n_made < MADE_MAX && n < sizeof made[0])
+        ksnprintf(made[n_made++], sizeof made[0], "%s", name);
+    return 0;
 }
 
 int bm_take_tool(char *name, size_t n)
@@ -5287,6 +5320,13 @@ static int l_picture3d(lua_State *L)
 {
     const char *action = luaL_checkstring(L, 1);
     char err[160];
+    /* the services go out with the user's keys (meshy_key): bm's own tools
+     * only, never a game (one from the Market could spend them, 2026-10-05) */
+    if (!tool_mode && strcmp(action, "providers") != 0) {
+        lua_pushnil(L);
+        lua_pushstring(L, "the picture services are for bm's tools only");
+        return 2;
+    }
     if (strcmp(action, "providers") == 0) {
         lua_newtable(L);
         for (int i = 0; img3d_provider_name(i); i++) {
@@ -6130,7 +6170,8 @@ static int vol_start;                   /* the volume when the cartridge started
  *   tri 3620 vtx 5699
  *   bm3d 2.1 GPU       */
 #define PERF_N 64
-static int perf_on;                     /* 0 off, 1 simple, 2 detailed */
+static int perf_on;                     /* 0 off, 1 simple, 2 detailed: now */
+static int perf_user;                   /* the same in Settings (config perf): each run starts with it */
 static struct { uint16_t us10[PERF_N], k[PERF_N]; uint32_t at; } perf;
 static gpu3d_stats_t perf_gpu;          /* the GPU's totals at the last frame (the detailed page) */
 
@@ -6159,17 +6200,22 @@ static void kib_text(char *out, size_t n, uint32_t kb)
         ksnprintf(out, n, "%luM", (unsigned long)(kb / 1024));
 }
 
-void bm_set_perf(int level) { perf_on = level < 0 ? 0 : level > 2 ? 2 : level; }
-int bm_perf(void) { return perf_on; }
+static int perf_level(int level) { return level < 0 ? 0 : level > 2 ? 2 : level; }
+
+/* Settings' choice: every game and tool starts (or resumes) with it. F11,
+ * 'p' and devkit() change the overlay of the run only: one game that turned
+ * it on (Overbit's Select) left it on in the next ones (2026-10-05). */
+void bm_set_perf(int level) { perf_on = perf_user = perf_level(level); }
+int bm_perf(void) { return perf_user; }
 
 /* devkit([mode]) -> the dev kit's overlay: 0 off, 1 simple, 2 detailed; a
- * mode shows that page (a game's own key for it, e.g. Select on a pad: F11
- * is the keyboard's) */
+ * mode shows that page in this run (a game's own key for it, e.g. Select on
+ * a pad: F11 is the keyboard's) */
 static int l_devkit(lua_State *L)
 {
     const int old = perf_on;
     if (!lua_isnoneornil(L, 1))
-        bm_set_perf(ival(L, 1));
+        perf_on = perf_level(ival(L, 1));
     lua_pushinteger(L, old);
     return 1;
 }
@@ -6283,7 +6329,9 @@ static int leave_step(lua_State *L, int q)
 
 /* A box over the frame (after the overlay, before F12's keys): a title
  * (orange), lines, the last one dim (a note), and either the yes / back
- * hints (the leave question) or a progress bar (0..1000; -1 none) */
+ * hints of a question (their words: "Leave" "Stay"...) or a progress bar
+ * (0..1000; -1 none) */
+static const char *box_yes = "Leave", *box_no = "Stay";
 static void sys_box(const char *const *lines, int n, int dim_last, int hints, int progress)
 {
     g16_t *g = &rt.g;
@@ -6338,7 +6386,7 @@ static void sys_box(const char *const *lines, int n, int dim_last, int hints, in
             x += c->w * sc + fw / 2;
             x = px + (x - px + fw - 1) / fw * fw;
         }
-        x = g16_text_scaled(g, x, y, i ? "Stay" : "Leave", ink, sc) + 2 * fw;
+        x = g16_text_scaled(g, x, y, i ? box_no : box_yes, ink, sc) + 2 * fw;
     }
     *g = keep;
 }
@@ -6350,7 +6398,132 @@ static void leave_draw(void)
         return;
     const char *lines[4] = { "Leave the match?", "You will leave the game and", "disconnect from the server.",
                              rt.online_note[0] ? rt.online_note : NULL };
+    box_yes = "Leave";
+    box_no = "Stay";
     sys_box(lines, lines[3] ? 4 : 3, lines[3] != NULL, 1, -1);
+}
+
+/* ---------------------------------------------------------------- permissions
+ * What a game may do out of the console (decision of the user, 2026-10-05):
+ * the network (online games: any address, the internet too) and the reports
+ * (sent to GitHub with the console's github_token). The first time a game
+ * asks for one, the game stops and the player answers; the answer stays in
+ * bm/config.txt, allow_<its save name>=net=yes,report=no (Title): remove
+ * the line to be asked again. bm's own tools are not asked, nor is anyone
+ * when the kernel has not turned the question on (bmhost, the tests on the
+ * PC: as before). */
+static int perm_ask;                    /* the kernel asks (bm_permissions) */
+static framebuffer_t *perm_fb;          /* the screen of the run */
+static char perm_title[49];             /* the game asking */
+
+void bm_permissions(int on) { perm_ask = on; }
+
+static const char *const perm_names[2] = { "net=", "report=" };
+
+static void perm_key(char *key, size_t n)
+{
+    char stem[16];
+    ksnprintf(stem, sizeof stem, "%s", rt.save_name);
+    char *dot = strchr(stem, '.');
+    if (dot)
+        *dot = 0;
+    ksnprintf(key, n, "allow_%s", stem);
+}
+
+/* the answer kept: 1 yes, 0 no, -1 never asked */
+static int perm_get(int what)
+{
+    char key[32];
+    perm_key(key, sizeof key);
+    const char *v = config_get(key), *p = v ? strstr(v, perm_names[what]) : NULL;
+    if (!p)
+        return -1;
+    return strncmp(p + strlen(perm_names[what]), "yes", 3) == 0;
+}
+
+static void perm_set(int what, int yes)
+{
+    char key[32], v[100];
+    perm_key(key, sizeof key);
+    int other = perm_get(!what);
+    int net = what == PERM_NET ? yes : other, rep = what == PERM_REPORT ? yes : other;
+    int o = 0;
+    v[0] = 0;
+    if (net >= 0)
+        o += ksnprintf(v + o, sizeof v - (size_t)o, "net=%s", net ? "yes" : "no");
+    if (rep >= 0)
+        o += ksnprintf(v + o, sizeof v - (size_t)o, "%sreport=%s", o ? "," : "", rep ? "yes" : "no");
+    ksnprintf(v + o, sizeof v - (size_t)o, " (%s)", perm_title);
+    config_set(key, v);
+    config_save();
+}
+
+/* The question, over the game stopped in its call: 1 allowed */
+static int perm_question(int what)
+{
+    const char *lines[5];
+    lines[0] = perm_title[0] ? perm_title : "This game";
+    if (what == PERM_NET) {
+        lines[1] = "wants to use the network:";
+        lines[2] = "online games, with other consoles";
+        lines[3] = "or a server on the internet.";
+    } else {
+        lines[1] = "wants to send a report to your";
+        lines[2] = "GitHub repository, with the";
+        lines[3] = "console's github_token.";
+    }
+    lines[4] = "The answer stays in bm/config.txt";
+    kprintf("bm: %s %s (ok: allow, back: no)\n", lines[0], what == PERM_NET ? "asks for the network"
+                                                                         : "asks to send a report");
+    sync3d();                               /* nothing of the GPU's left to land on the page */
+    static const uint8_t usage[4] = { 0x28, 0x2C, 0x29, 0x2A };   /* Enter, Space; Esc, Backspace */
+    uint32_t prev = ~0u;                    /* what is held now is not an answer */
+    uint8_t kprev = 0xFF;
+    int answer = 0;
+    rt.leave_ask = 1;                       /* Esc: no (poll_keys), not Start */
+    rt.leave_no = 0;
+    while (!answer) {
+        const int q = poll_keys();
+        uint32_t held = rt.raw_all;
+        for (int p = 0; p < INPUT_PLAYERS; p++)
+            held |= rt.praw[p];
+        uint8_t keys = 0;
+        for (int i = 0; i < 4; i++)
+            if (hid_usage_held(usage[i]))
+                keys |= (uint8_t)(1u << i);
+        const uint32_t hit = held & ~prev;
+        const uint8_t khit = keys & (uint8_t)~kprev;
+        if ((hit & input_ok_bit(0)) || (khit & 3))
+            answer = 1;
+        else if ((q & QUIT_FORCE) || rt.leave_no || (hit & input_ok_bit(1)) || (khit & 12))
+            answer = -1;
+        prev = held;
+        kprev = keys;
+        box_yes = "Allow";
+        box_no = "No";
+        sys_box(lines, 5, 1, 1, -1);
+        if (perm_fb)
+            bm_video_present(perm_fb, &rt.g);
+        audio_idle();
+        timer_delay_ms(16);
+        rt.leave_held = held;               /* the button of the answer is not the game's */
+    }
+    rt.leave_ask = 0;
+    rt.leave_no = 0;
+    kprintf("bm: %s\n", answer > 0 ? "allowed" : "not allowed");
+    return answer > 0;
+}
+
+static int perm_allowed(int what)
+{
+    if (tool_mode || !perm_ask)
+        return 1;
+    int s = perm_get(what);
+    if (s < 0) {
+        s = perm_question(what);
+        perm_set(what, s);
+    }
+    return s;
 }
 
 /* the system's notice over the game (a kernel arriving, the restart
@@ -6937,6 +7110,7 @@ int bm_run(framebuffer_t *fb, const uint8_t *data, size_t len,
     bm_close_suspended();              /* one cartridge in memory at a time */
     memset(st, 0, sizeof *st);
     memset(&rt, 0, sizeof rt);
+    n_made = 0;
     free(proj_cover);                  /* no project open yet (cart_load) */
     proj_cover = NULL;
     extras_free();
@@ -6954,6 +7128,8 @@ int bm_run(framebuffer_t *fb, const uint8_t *data, size_t len,
         cart.height = cur.h;
     }
     memcpy(st->title, cart.title, sizeof st->title);
+    perm_fb = fb;
+    ksnprintf(perm_title, sizeof perm_title, "%s", cart.title);
     if (load_assets(&cart) != 0 || !(L = new_cart_state(&cart))) {
         free_assets();
         kprintf("\x1b[91mbm: out of memory\x1b[0m\n");
@@ -6990,6 +7166,7 @@ int bm_run(framebuffer_t *fb, const uint8_t *data, size_t len,
     rt.hook_count = 0;
     rt.tokens = lua_tokens(cart.lua, cart.lua_size);
     perf.at = 0;                        /* the overlay: this cartridge's frames only */
+    perf_on = perf_user;                /* and as Settings has it */
     chunk_reader_t rd = { cart.lua, cart.lua_size };
     if (lua_load(L, read_chunk, &rd, "=main.lua", NULL) != LUA_OK ||
         (lua_pushcfunction(L, traceback), lua_insert(L, -2), lua_pcall(L, 0, 0, -2)) != LUA_OK ||
@@ -7015,6 +7192,8 @@ int bm_resume(framebuffer_t *fb, uint32_t seconds, bm_stats_t *st)
         return BM_ENDED;
     memset(st, 0, sizeof *st);
     memcpy(st->title, susp.title, sizeof st->title);
+    perm_fb = fb;
+    ksnprintf(perm_title, sizeof perm_title, "%s", susp.title);
     lua_State *L = susp.L;
     susp.active = 0;
     susp.L = NULL;
@@ -7046,6 +7225,7 @@ int bm_resume(framebuffer_t *fb, uint32_t seconds, bm_stats_t *st)
     hid_text_mode(rt.text_mode);
     audio_pause(0);
     vol_start = audio_volume();
+    perf_on = perf_user;                /* the overlay as Settings has it, as at the start */
     kprintf("bm: \"%s\" resumed\n", susp.title);
     return run_frames(fb, L, susp.title, con_w, con_h, seconds, st, NULL, 1);
 }

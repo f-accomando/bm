@@ -524,11 +524,12 @@ void home_panel(int id, home_panel_t *p)
         {
             int mv, charge;
             if (plat_battery(&mv, &charge) == 0)
-                home_row(p, MENU_ROW_INFO, R_BATTERY, "Battery", "Its voltage, and the charger",
-                         "%d.%02d V%s", mv / 1000, mv % 1000 / 10,
+                home_row(p, MENU_ROW_INFO, R_BATTERY, "Battery", "Its charge, its voltage, and the charger",
+                         "%d%%, %d.%02d V%s", battery_percent(mv), mv / 1000, mv % 1000 / 10,
                          charge == 2 ? ", full" : charge == 1 ? ", charging" : "");
             else
-                home_row(p, MENU_ROW_INFO, R_BATTERY, "Battery", "Its voltage, and the charger", "unknown");
+                home_row(p, MENU_ROW_INFO, R_BATTERY, "Battery", "Its charge, its voltage, and the charger",
+                         "unknown");
         }
 #else
         {

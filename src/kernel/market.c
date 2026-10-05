@@ -21,6 +21,11 @@
 #include <string.h>
 
 #define BASE_URL    "https://f-accomando.github.io/bm-market/"
+#ifdef BM_RGB30
+#define GAMES_DIR   "/bm"                       /* where the RGB30's menu reads its games */
+#else
+#define GAMES_DIR   "/carts"
+#endif
 #define CACHE_DIR   "/bm/market"
 #define STACK_SIZE  (128 * 1024)                /* TLS, and the interrupts on top */
 #define REFRESH_US  (10u * 60 * 1000000)        /* the catalog again after 10 minutes */
@@ -322,8 +327,29 @@ static void refresh_slots(void)
 
 /* A new catalog replaces the one in memory; covers that did not change
  * are kept. */
+/* a .b16, the handhelds' cartridge (docs/B16.md), by its file's name */
+static int is_b16(const char *path)
+{
+    size_t n = strlen(path);
+    return n > 4 && path[n - 4] == '.' && (path[n - 3] | 32) == 'b' && path[n - 2] == '1' && path[n - 1] == '6';
+}
+
+static const char *kind_of(const catalog_game_t *g)
+{
+    return is_b16(g->file.path) ? "b16" : "bm";
+}
+
 static void adopt(catalog_t *nc)
 {
+#ifdef BM_RGB30
+    /* the RGB30 plays only the .b16 games (the user's choice, 2026-10-05):
+     * the others are not in its Market */
+    int k = 0;
+    for (int i = 0; i < nc->n; i++)
+        if (is_b16(nc->games[i].file.path))
+            nc->games[k++] = nc->games[i];
+    nc->n = k;
+#endif
     slot_t *ns = calloc(nc->n ? (size_t)nc->n : 1, sizeof *ns);
     if (!ns) {
         catalog_free(nc);
@@ -339,7 +365,7 @@ static void adopt(catalog_t *nc)
                 ns[i].cover_state = COVER_READY;
                 break;
             }
-        if (!g->cover.size && menu_make_cover(&ns[i].cover, g->title, "bm") == 0)
+        if (!g->cover.size && menu_make_cover(&ns[i].cover, g->title, kind_of(g)) == 0)
             ns[i].cover_state = COVER_READY;
     }
     for (int j = 0; j < cat.n; j++)
@@ -498,7 +524,7 @@ static void job_cover(int i)
         s->cover_state = COVER_READY;
     } else if (++s->cover_tries >= 2 || d) {
         /* broken or unreachable: the title on a label, as for games without one */
-        if (menu_make_cover(&s->cover, g->title, "bm") == 0)
+        if (menu_make_cover(&s->cover, g->title, kind_of(g)) == 0)
             s->cover_state = COVER_READY;
     } else {
         s->cover_state = COVER_WAIT;
@@ -534,9 +560,9 @@ static int find(const char *id)
     return -1;
 }
 
-/* where a new game goes: /carts/SNAKE.BM from the id, another name if
- * that one is taken */
-static int new_path(const char *id, char *name, size_t n)
+/* where a new game goes: /carts/SNAKE.BM from the id (a .b16 SNAKE.B16;
+ * on the RGB30 in /bm), another name if that one is taken */
+static int new_path(const char *id, const char *ext, char *name, size_t n)
 {
     char stem[9];
     int k = 0;
@@ -549,11 +575,11 @@ static int new_path(const char *id, char *name, size_t n)
             char s7[8];
             memcpy(s7, stem, 7);
             s7[7] = 0;                          /* ksnprintf has no precision */
-            ksnprintf(name, n, "%s%d.BM", s7, t);
+            ksnprintf(name, n, "%s%d%s", s7, t, ext);
         } else {
-            ksnprintf(name, n, "%s.BM", stem);
+            ksnprintf(name, n, "%s%s", stem, ext);
         }
-        ksnprintf(path, sizeof path, "/carts/%s", name);
+        ksnprintf(path, sizeof path, GAMES_DIR "/%s", name);
         fat_entry_t e;
         if (fat_find(path, &e) != 0)
             return 0;
@@ -594,9 +620,9 @@ static void job_get(int i)
     if (s->path[0]) {
         ksnprintf(path, sizeof path, "%s", s->path);
         ok = fat_replace(path, d, len) == 0;
-    } else if (new_path(g->id, name, sizeof name) == 0) {
-        ksnprintf(path, sizeof path, "/carts/%s", name);
-        ok = fat_mkdirs("/carts") == 0 && fat_write_file("/carts", name, d, len) == 0;
+    } else if (new_path(g->id, is_b16(g->file.path) ? ".B16" : ".BM", name, sizeof name) == 0) {
+        ksnprintf(path, sizeof path, GAMES_DIR "/%s", name);
+        ok = fat_mkdirs(GAMES_DIR) == 0 && fat_write_file(GAMES_DIR, name, d, len) == 0;
     } else {
         ok = 0;
     }
@@ -991,9 +1017,9 @@ static void keep_received(uint8_t *d, size_t len, const lan_offer_t *o)
             ksnprintf(id, sizeof id, "%s", cat.games[g].id);
         else if (github_id_from_name(o->title, id, sizeof id) != 0)
             ksnprintf(id, sizeof id, "game");
-        if (new_path(id, name, sizeof name) == 0) {
-            ksnprintf(path, sizeof path, "/carts/%s", name);
-            ok = fat_mkdirs("/carts") == 0 && fat_write_file("/carts", name, d, len) == 0;
+        if (new_path(id, g >= 0 && is_b16(cat.games[g].file.path) ? ".B16" : ".BM", name, sizeof name) == 0) {
+            ksnprintf(path, sizeof path, GAMES_DIR "/%s", name);
+            ok = fat_mkdirs(GAMES_DIR) == 0 && fat_write_file(GAMES_DIR, name, d, len) == 0;
         }
     }
     free(d);

@@ -76,6 +76,27 @@ static int json_get(const char *js, const char *end, const char *key, char *out,
     return -1;
 }
 
+/* The number value of the first "key" in js[0..end): 0, or -1 if none. */
+static int json_num(const char *js, const char *end, const char *key, unsigned long *out)
+{
+    size_t kl = strlen(key);
+    for (const char *p = js; p + kl + 2 < end; p++) {
+        if (*p != '"' || strncmp(p + 1, key, kl) != 0 || p[kl + 1] != '"')
+            continue;
+        const char *q = p + kl + 2;
+        while (q < end && (*q == ' ' || *q == ':' || *q == '\n' || *q == '\r' || *q == '\t'))
+            q++;
+        if (q >= end || *q < '0' || *q > '9')
+            return -1;
+        unsigned long v = 0;
+        for (; q < end && *q >= '0' && *q <= '9'; q++)
+            v = v * 10 + (unsigned long)(*q - '0');
+        *out = v;
+        return 0;
+    }
+    return -1;
+}
+
 /* The next object of an array: [*start, *stop) and 1, or 0 at the end. */
 static int json_next(const char **p, const char *end, const char **start, const char **stop)
 {
@@ -145,6 +166,7 @@ typedef struct {
     char *err;
     size_t err_len;
     body_t body;                /* the last answer */
+    int status;                 /* its HTTP status, -1 none */
 } gh_t;
 
 /* A call: the status (the answer in g->body), or -1 with the error. */
@@ -163,6 +185,7 @@ static int call(gh_t *g, const char *method, const char *path, const char *json,
                        .timeout_ms = json_len > 65536 ? 90000 : 20000, .any_status = 1 };
     http_info_t info;
     int st = http_request(url, &req, to_body, &g->body, &info);
+    g->status = st;
     if (st < 0) {
         snprintf(g->err, g->err_len, "%s %s: %s", method, path, info.error);
         return -1;
@@ -178,6 +201,15 @@ static int fail(gh_t *g, const char *what, int st)
     char msg[160] = "";
     if (g->body.buf)
         json_get(g->body.buf, g->body.buf + g->body.len, "message", msg, sizeof msg);
+    /* one line: GitHub's "Invalid request.\n\n\"sha\" wasn't supplied."
+     * showed only as "Invalid request." on the console */
+    size_t o = 0;
+    for (size_t i = 0; msg[i]; i++) {
+        char c = msg[i] == '\n' || msg[i] == '\r' || msg[i] == '\t' ? ' ' : msg[i];
+        if (c != ' ' || (o && msg[o - 1] != ' '))
+            msg[o++] = c;
+    }
+    msg[o] = 0;
     if (st == 401)
         snprintf(g->err, g->err_len, "the token is not valid (github_token in bm/config.txt)");
     else
@@ -265,7 +297,7 @@ static int put_file(gh_t *g, const gh_publish_t *p, const char *target, const ch
 
 int github_publish(const gh_publish_t *p, char *url, size_t url_len, char *err, size_t err_len)
 {
-    gh_t g = { p->api, p->token, p->progress, err, err_len, { 0 } };
+    gh_t g = { p->api, p->token, p->progress, err, err_len, { 0 }, -1 };
     char login[64], owner[64], path[256], target[128], sha[48], json[1024];
     url[0] = 0;
     err[0] = 0;
@@ -395,9 +427,23 @@ static int branch_head(gh_t *g, const char *repo, const char *branch, char *sha,
     return st;
 }
 
+/* 1 if the branch has p's file already, with p's size (its answer in
+ * g->body); 0 if not, or if GitHub cannot say */
+static int already_there(gh_t *g, const gh_put_t *p)
+{
+    char path[384];
+    unsigned long size;
+    snprintf(path, sizeof path, "/repos/%s/contents/%s?ref=%s", p->repo, p->path, p->branch);
+    if (call(g, "GET", path, NULL, 0) != 200 ||
+        json_num(g->body.buf, g->body.buf + g->body.len, "size", &size) != 0 || size != p->len)
+        return 0;
+    say(g, "%s was there already", strrchr(p->path, '/') ? strrchr(p->path, '/') + 1 : p->path);
+    return 1;
+}
+
 int github_put(const gh_put_t *p, char *url, size_t url_len, char *err, size_t err_len)
 {
-    gh_t g = { p->api, p->token, p->progress, err, err_len, { 0 } };
+    gh_t g = { p->api, p->token, p->progress, err, err_len, { 0 }, -1 };
     char sha[48], json[256], base[96];
     url[0] = 0;
     err[0] = 0;
@@ -430,8 +476,17 @@ int github_put(const gh_put_t *p, char *url, size_t url_len, char *err, size_t e
         if (st >= 0) fail(&g, "the branch", st);
         goto out;
     }
-    if (put_contents(&g, p->repo, p->branch, p->path, p->data, p->len, "", p->message) != 0)
-        goto out;
+    if (put_contents(&g, p->repo, p->branch, p->path, p->data, p->len, "", p->message) != 0) {
+        /* 422 ("sha" wasn't supplied): the file is there already. A send
+         * that reached GitHub but whose answer did not reach the console
+         * (the connection dropped, the menu stopped the work): it kept the
+         * file and sends it again, refused every time, and the files after
+         * it waited behind it. The names are unique (a random tag or the
+         * second): the same name with the same size is this file, sent. */
+        if (g.status != 422 || !already_there(&g, p))
+            goto out;
+        err[0] = 0;
+    }
     if (json_get(g.body.buf, g.body.buf + g.body.len, "html_url", url, url_len))
         snprintf(url, url_len, "https://github.com/%s/blob/%s/%s", p->repo, p->branch, p->path);
     r = 0;

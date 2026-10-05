@@ -692,7 +692,11 @@ giochi gratuiti da scaricare, dal repository pubblico
 - **I giochi del progetto** sono tutti nel market (e per ora anche nell'immagine della SD):
   `make market-seed MARKET=../bm-market` li costruisce e aggiorna le loro cartelle.
 
-La prima volta, dal PC:
+La prima volta, dal PC: `./easy_install.sh market` (o `m` nel suo menu; è
+`scripts/market.sh`) fa tutto, chiedendo prima di ogni passo che cambia GitHub: la chiave,
+il secret, la chiave pubblica su `bm-core`, GitHub Pages, poi i giochi del progetto nel
+clone `../bm-market`, commit, push, il workflow aspettato e il catalogo riletto da
+<https://f-accomando.github.io/bm-market/>. Le volte dopo aggiorna solo i giochi. A mano:
 
 ```sh
 scripts/market-key.sh                                   # la coppia di chiavi del market

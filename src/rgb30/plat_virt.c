@@ -7,6 +7,7 @@
 #include "plat.h"
 #include "io.h"
 #include "lib/printf.h"
+#include "kernel/config.h"
 
 #include <stdlib.h>
 #include <string.h>
@@ -180,11 +181,19 @@ int plat_display_problem(void)
     return 0;
 }
 
+/* no battery in QEMU; for the tests bm/config.txt can give one:
+ * test_battery=mV[,charger state] */
 int plat_battery(int *mv, int *charge)
 {
+    const char *t = config_get("test_battery");
     *mv = -1;
     *charge = -1;
-    return -1;
+    if (!t)
+        return -1;
+    *mv = (int)strtol(t, NULL, 10);
+    const char *c = strchr(t, ',');
+    *charge = c ? (int)strtol(c + 1, NULL, 10) : 0;
+    return 0;
 }
 
 /* --- PSCI --- */

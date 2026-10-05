@@ -131,8 +131,11 @@ int main(int argc, char **argv)
         return 1;
     }
     check(strcmp(c.serial, "20261001120000") == 0, "serial");
-    check(c.n == 3, "three games");
+    check(c.n == 4, "four games");
     const catalog_game_t *snake = find(&c, "snake"), *pong = find(&c, "pong-2"), *plain = find(&c, "plain");
+    const catalog_game_t *pocket = find(&c, "pocket");
+    check(pocket && strcmp(pocket->file.path, "games/pocket/pocket.b16") == 0,
+          "pocket: a .b16, read as any other file");
     check(snake && strcmp(snake->title, "Snake") == 0 && strcmp(snake->author, "bm") == 0 &&
           strcmp(snake->version, "1.2") == 0 && strcmp(snake->license, "MIT") == 0,
           "snake: title and author from the header, version and license from info.txt");
@@ -218,8 +221,11 @@ int main(int argc, char **argv)
              "file https://x.org/a.bm 10 %s\n", sha);
     check(parse_text(buf) == -1, "another server's address: refused");
     snprintf(buf, sizeof buf, "bm market\nserial 1\ngame a\ntitle T\nversion 1\nlicense MIT\n"
+             "file games/a/a.bm 199999999 %s\n", sha);
+    check(parse_text(buf) == -1, "a file over GitHub's 100 MiB: refused");
+    snprintf(buf, sizeof buf, "bm market\nserial 1\ngame a\ntitle T\nversion 1\nlicense MIT\n"
              "file games/a/a.bm 99999999 %s\n", sha);
-    check(parse_text(buf) == -1, "a cartridge over 8 MiB: refused");
+    check(parse_text(buf) == 0, "a cartridge of 95 MiB: a .bm has no limit of its own");
     snprintf(buf, sizeof buf, "bm market\nserial 1\ngame a\ntitle T\nversion 1\nlicense MIT\n"
              "file games/a/a.bm 10 %.63s\n", sha);
     check(parse_text(buf) == -1, "short SHA-256: refused");

@@ -21,6 +21,7 @@ from qemu_test import read_ppm, screen_text, pixel, free_port  # noqa: E402
 import bm_load  # noqa: E402
 sys.path.insert(0, os.path.join(HERE, "..", "..", "scripts"))
 import mksd  # noqa: E402
+import mkbm  # noqa: E402
 
 QEMU = os.environ.get("QEMU64", "qemu-system-aarch64")
 SCREEN = 360           # the menu (made as big as the 720x720 panel on the console)
@@ -636,6 +637,145 @@ def test_menu_input_page(b, opts):
         assert in_menu(text) and "Input test" in text, text
     finally:
         q.close()
+
+
+B16_GAME = r"""
+function _init() log("the b16 runs") end
+function _draw() cls(1) print("pocket", 8, 8, 7) end
+"""
+
+
+def test_market_b16(b, opts):
+    """The Market tab, as on the Pi (src/kernel/market.c in fibers, the
+    AArch64 ones of src/rgb30/fiber.S), with a catalog on the SD card
+    (market_url=sd:/market/, slowed by market_delay): first, off the screen
+    until it is the tab, nothing loads before; of the catalog only the .b16
+    (the user's choice for the RGB30); one downloads after a question, goes
+    to bm/ as POCKET.B16, plays, and the Games tab has it."""
+    tmp = tempfile.mkdtemp(prefix="bm64mk-")
+    key, pub = os.path.join(tmp, "key.pem"), os.path.join(tmp, "pub.pem")
+    subprocess.run(["openssl", "genpkey", "-algorithm", "EC", "-pkeyopt", "ec_paramgen_curve:P-256",
+                    "-out", key], check=True, capture_output=True)
+    subprocess.run(["openssl", "pkey", "-in", key, "-pubout", "-out", pub], check=True, capture_output=True)
+    games = os.path.join(tmp, "games")
+    for gid, name, title in (("pocket", "pocket.b16", "Pocket"), ("bigpi", "bigpi.bm", "Big Pi Game")):
+        os.makedirs(os.path.join(games, gid))
+        with open(os.path.join(games, gid, name), "wb") as f:
+            f.write(mkbm.pack(B16_GAME.encode(), title=title, author="tests"))
+        with open(os.path.join(games, gid, "info.txt"), "w") as f:
+            f.write("version: 1.0\nlicense: MIT\nabout: A game for the test.\n")
+    site = os.path.join(tmp, "site")
+    r = subprocess.run([sys.executable, os.path.join(HERE, "..", "..", "scripts", "mkmarket.py"), games,
+                        "-o", site, "--key", key, "--serial", "20261005120000"], capture_output=True, text=True)
+    assert r.returncode == 0, r.stdout + r.stderr
+    files = {"bm/config.txt": b"market_url=sd:/market/\nmarket_delay=100\n", "bm/market.pem": open(pub, "rb").read()}
+    for dp, _, fs in os.walk(site):
+        for f in fs:
+            src = os.path.join(dp, f)
+            files["market/" + os.path.relpath(src, site).replace(os.sep, "/")] = open(src, "rb").read()
+    sd = make_sd(tmp, files)
+    size = os.path.getsize(sd)
+    dump = os.path.join(tmp, "after.img")
+
+    def screen(want, gone=(), tries=40):
+        for _ in range(tries):
+            text = screen_all(q.screendump())
+            if all(w in text for w in want) and not any(g in text for g in gone):
+                return text
+            time.sleep(0.2)
+        raise AssertionError(f"want {want}, not {gone}, on the screen:\n{text}")
+
+    q = Qemu(os.path.join(b, "kernel.elf"), sd=sd)
+    try:
+        boot(q)
+        time.sleep(1.0)
+        assert b"market:" not in q.buf, "nothing loads before the tab is shown"
+        text = screen_all(q.screendump())
+        assert "Games" in text and "Market" not in text, text      # off the screen at the left
+        keys(q, "l")                            # L1 from Games: the Market
+        q.expect("market: catalog 20261005120000", timeout=20)
+        text = screen(["Market", "Pocket"])
+        assert "Big Pi Game" not in text, text  # the .bm is for the Pi
+        keys(q, "\r")                           # confirm: a question first
+        screen(["Download Pocket?", "free, license MIT"])
+        keys(q, "\r")
+        q.expect("market: games/pocket/pocket.b16 -> /bm/POCKET.B16", timeout=20)
+        q.expect("market: Pocket installed", timeout=5)
+        screen(["Installed", "Play"])
+        keys(q, "x")                            # X: its details
+        screen(["Market > Pocket", "Play", "Version", "1.0", "License", "MIT"])
+        keys(q, "\x7f")                         # back: closed
+        screen(["Installed"], gone=["Market > Pocket"])
+        keys(q, "\r")                           # confirm: plays it, from the card
+        q.expect("play: /bm/POCKET.B16", timeout=10)
+        q.expect("the b16 runs", timeout=30)
+        q.expect("bm: loaded", timeout=10)     # the system's splash, then the game
+        time.sleep(1.0)
+        q.send("q")
+        q.expect("fps", timeout=10)
+        time.sleep(1.0)
+        keys(q, "r")                            # the Games tab: the new game
+        screen(["Pocket", "Play"])
+        q.monitor(f'pmemsave {RAMDISK:#x} {size} "{dump}"',
+                  until=lambda: os.path.exists(dump) and os.path.getsize(dump) == size)
+        time.sleep(0.3)
+    finally:
+        q.close()
+    env = dict(os.environ, MTOOLS_SKIP_CHECK="1")
+    part = f"{dump}@@{1024 * 1024}"
+    listing = subprocess.run(["mdir", "-i", part, "-b", "::/bm"], capture_output=True,
+                             env=env, check=True).stdout.decode().upper()
+    assert "POCKET.B16" in listing and "BIGPI" not in listing, listing
+    owned = subprocess.run(["mtype", "-i", part, "::/bm/market/GAMES.TXT"], capture_output=True,
+                           env=env, check=True).stdout.decode()
+    assert owned.startswith("pocket ") and owned.rstrip().endswith(" /bm/POCKET.B16"), owned
+
+
+def test_battery_icon(b, opts):
+    """The battery at the right end of the bar (the user, 2026-10-05): four
+    bars from 75%, fewer below, red under 10%, a bolt on the charger (over
+    the outline's top); Settings > System says the charge. Nothing else on
+    the bar without a network: no icons of controllers, mice and keyboards
+    on the RGB30 (the user, 2026-10-05). QEMU has no battery:
+    test_battery=mV[,charger] in bm/config.txt gives one (plat_virt.c)."""
+    x0, x1, y0 = SCREEN - 16 - 27, SCREEN - 16, 12        # menu_ui.c: status_icons
+
+    def look(config, settings=False):
+        tmp = tempfile.mkdtemp(prefix="bm64bat-")
+        q = Qemu(os.path.join(b, "kernel.elf"), sd=make_sd(tmp, {"bm/config.txt": config}))
+        try:
+            boot(q)
+            time.sleep(0.5)
+            img = q.screendump()
+            white = red = top = 0
+            for y in range(y0, y0 + 25):                # left of it: no icon (the pad was there)
+                for x in range(x0 - 72, x0 - 4):
+                    r, g_, bl = pixel(img, x, y)
+                    assert not (r > 200 and g_ > 200 and bl > 200), f"an icon at {x},{y} ({config})"
+            for y in range(y0, y0 + 18):
+                for x in range(x0, x1):
+                    r, g_, bl = pixel(img, x, y)
+                    white += r > 200 and g_ > 200 and bl > 200
+                    red += r > 200 and g_ < 120 and bl < 120
+                    top += y < y0 + 3 and r > 200
+            text = ""
+            if settings:
+                keys(q, "rr")                   # Settings; up from the first row: Shut down,
+                keys(q, "www\r")                # Restart, System
+                keys(q, "w")                    # its last rows: the battery, the log
+                text = screen_all(q.screendump())
+            return white, red, top, text
+        finally:
+            q.close()
+
+    full = look(b"test_battery=4150\n")
+    mid = look(b"test_battery=3880\n", settings=True)
+    low = look(b"test_battery=3600\n")
+    plug = look(b"test_battery=3900,1\n")
+    assert full[0] > mid[0] > 0 and not full[1] and not mid[1], (full, mid)       # bars
+    assert low[1] > 0 and low[0] == 0, low                                         # red, empty
+    assert plug[2] > 0 and not full[2] and not mid[2] and not plug[1], plug        # the bolt
+    assert "Battery" in mid[3] and "61%, 3.88 V" in mid[3], mid[3]
 
 
 TESTS = [v for k, v in sorted(globals().items()) if k.startswith("test_")]

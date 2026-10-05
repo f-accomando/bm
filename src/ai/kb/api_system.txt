@@ -339,7 +339,8 @@ ask: pacchetti udp | socket udp | mandare dati grezzi a un'altra console
 ask: udp | send a raw packet on the network | udp socket | broadcast sulla lan
 keys: udp, pacchetto, socket
 see: bmnet, nnet
-text: s = udp_open(porta) apre un socket (nil senza rete); udp_send(s, ind,
+text: s = udp_open(porta) apre un socket (nil senza rete, o se il giocatore non
+lo permette: la prima volta la console glielo chiede); udp_send(s, ind,
 porta, dati) manda una stringa (al massimo 1024 byte, "*" = tutta la LAN);
 udp_recv(s) dà il prossimo pacchetto e chi l'ha mandato, o nil. net_ip()
 l'indirizzo della console. Overbit gioca in lockstep: viaggiano solo i

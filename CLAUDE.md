@@ -38,7 +38,10 @@ screenshot in `docs/img/`), `README_OLD.md` (il README completo, in italiano),
   (nome|IP|codice di 6 cifre|scheda|ultima volta, `PROFILES` nello stesso file), o un file a
   una console (5, `bm_net.py --send`: un `.bm` in `/carts`, che il suo menu mostra subito, una
   risorsa in `/bm/lib`; nome 8.3 proposto), o una release (r, `scripts/release.sh vX.Y.Z
-  --no-sd`, la versione dopo l'ultimo tag proposta; i comandi `send FILE [profilo]` e `release`), o il monitor
+  --no-sd`, la versione dopo l'ultimo tag proposta; i comandi `send FILE [profilo]` e `release`), o il Market (m, `scripts/market.sh`: la
+  prima volta chiave, secret `BM_MARKET_KEY`, chiave pubblica su `bm-core` e Pages; ogni volta
+  `make market-seed` nel clone `../bm-market`, commit, push, il workflow e il catalogo riletto;
+  comando `market`), o il monitor
   di una console (6, `bm_net.py`; `monitor [profilo]`; dopo la password la console dice dove vanno
   i tasti, `netcon_focus`: il menu non li ripete, un `:` nel menu porta la riga al monitor; `line
   "gpu; b3d; send" [profilo]` la manda con `bm_net.py --line` e ne mostra l'uscita), o il suo `bm/config.txt` (7 dalla rete, `bm_net.py
@@ -55,7 +58,8 @@ screenshot in `docs/img/`), `README_OLD.md` (il README completo, in italiano),
   quella **dettagliata** (ms di tutti gli `_update` e quanti, `_draw`, 3D, GPU e lavori o pixel
   dell'ARM, triangoli e vertici, driver bm3d, le righe del gioco con `devinfo()`), di nuovo
   spento; ×2 da 1280 di larghezza, ×3 a 1920. `devkit([modo])` lo legge e lo cambia dal gioco
-  (Overbit: Select, Tab, F1). Settings > Screen and sound > "Performance overlay" Off / Simple /
+  (Overbit: Select, Tab, F1); F11, `p` e `devkit()` valgono per la partita, ogni gioco parte e
+  riprende come dice Settings (`perf_user`, prova QEMU `test_devkit_per_run`). Settings > Screen and sound > "Performance overlay" Off / Simple /
   Detailed (config `perf` 0/1/2), F11 (tasto di sistema, anche nelle app; era F3), `p` dalla
   seriale. `frameskip(n)` (2026-10-05): il tempo del gioco a 60 `_update` al secondo, fino a n
   `_update` prima di un `_draw` lento (`btnp` conta una volta; `stat(15)`; prova QEMU
@@ -249,10 +253,20 @@ screenshot in `docs/img/`), `README_OLD.md` (il README completo, in italiano),
   con l'ARMv6 (`kernel/irq.h`, `arch/cache.h`) hanno un ramo `__aarch64__`.
 - Menu: **lo stesso del Pi** (`menu_ui.c`, decisione dell'utente del 2026-10-04) a 360×360
   ingrandito ×2 sul pannello, due copertine per riga; `ui.c` gli dà la vista e i tasti: schede
-  Games / Dev e Settings con i pannelli del Pi (`settings.c`; L1/R1 senza giro; dalla seriale
-  `l`/`r`, `w a s d`, Invio, Backspace), giochi `.b16` (la cartuccia a risorse limitate per
-  le portatili, formato da definire: `docs/B16.md`), `.bm` visibili per le prove
-  (`show_bm=0` li nasconde); le pagine dietro le voci sono ancora sulla console. In Dev il 3D Bench (`b3d_rgb30.c`: `src/bm/b3d.c` con i contatori del
+  Market / Games / Dev e Settings con i pannelli del Pi (`settings.c`; L1/R1 senza giro; dalla
+  seriale `l`/`r`, `w a s d`, Invio, Backspace, `x` i dettagli di un gioco del Market), giochi
+  `.b16` (la cartuccia delle portatili, il contenitore del `.bm` con il suo profilo:
+  `docs/B16.md` §0; si giocano), `.bm` visibili per le prove (`show_bm=0` li nasconde); le
+  pagine dietro le voci sono ancora sulla console. **Market** (decisione dell'utente,
+  2026-10-05): lo stesso `market.c` del Pi nelle fibre (`src/rgb30/fiber.S`, AArch64), solo i
+  `.b16` del catalogo, scaricati in `bm/` (`GAMES_DIR`); `carts_find_title`/`carts_has_path`
+  in `ui.c`; test `test_market_b16`. Sulla barra solo il WiFi e la **batteria** (richieste
+  dell'utente, 2026-10-05: niente icone di controller, mouse e tastiere): 4
+  tacche dal 75%, rossa sotto il 10%, il fulmine sul caricatore (`icon_battery` in `icons.c`,
+  `battery_percent` in `plat.h`, la carica anche in *Settings > System*); in QEMU
+  `test_battery=mV[,stato]` in `bm/config.txt` (`plat_virt.c`), test `test_battery_icon`. Le
+  schede non passano sotto le icone (sullo schermo stretto Settings si affaccia a destra
+  quando il Market è la scheda). In Dev il 3D Bench (`b3d_rgb30.c`: `src/bm/b3d.c` con i contatori del
   Cortex-A55). Nei test lo schermo si legge dai pixel: il testo del menu sta sulla griglia del
   font 8×16 (x multipli di 8, y di 16).
 - L'utente prova senza seriale: LED (rosso = avvio; verde fisso = tutto bene, verde lento =
@@ -296,8 +310,8 @@ screenshot in `docs/img/`), `README_OLD.md` (il README completo, in italiano),
   spento sul Pi); `bm_net.py --kernel` senza risposta guarda comunque che versione gira dopo.
 - Aggiornamenti come sul Pi: *Settings > Updates* (le righe in `settings.c`, `src/kernel/update.c`
   con `BM_RGB30`: `manifest-rgb30`, `kernel8.img` riconosciuto dall'intestazione arm64 `ARM\x64` a
-  +56), HTTPS e `release.c` nella build; le fibre del Market non ci sono (`stubs.c`: la rete
-  aspetta sul posto). `netxfer.c` scrive `kernel8.img`. Test `test_update_from_sd`. Ogni riavvio
+  +56), HTTPS e `release.c` nella build; nelle fibre del Market la rete cede il
+  controllo come sul Pi (`net_wait_step`). `netxfer.c` scrive `kernel8.img`. Test `test_update_from_sd`. Ogni riavvio
   (aggiornamento, Restart, kernel dalla rete) passa da `plat_reset()` (`plat_rk3566.c`): prima
   spegne schermo, WiFi e LED (dopo un riavvio la console restava accesa a schermo nero,
   2026-10-05), poi PSCI e, se torna, il reset globale del CRU; come leggerlo in `docs/RGB30.md`.
@@ -354,7 +368,7 @@ screenshot in `docs/img/`), `README_OLD.md` (il README completo, in italiano),
   `background_stop()` ferma tutto prima di un'app, di `rescan()` e di una cancellazione. Il log della
   Lib dice quanto il menu ha aspettato al massimo ("the menu waited at most N ms more": in QEMU 3 ms
   con Overbit e Yharnam sulla SD). Il CRC è a tabella (`src/lib/crc32.c`, `crc32_update`). Sulla
-  RGB30 (senza fibre) le copertine leggono anch'esse solo l'inizio del file.
+  RGB30 (le fibre solo per il Market) le copertine leggono anch'esse solo l'inizio del file.
 - Test: Pi `test_menu_tabs`, `test_menu_scale`, `test_home_ui` (il giro delle Settings) e quelli
   del menu; RGB30 tutto `tests/rgb30/qemu_test.py` (la scheda e il titolo scelto si leggono
   sulla pillola).
@@ -962,8 +976,11 @@ screenshot in `docs/img/`), `README_OLD.md` (il README completo, in italiano),
 ## Market (M25; nato nel branch `bm-store`, unito al principale il 2026-10-04)
 
 - Prima scheda del menu: **Market | Games | Dev | Lib | Settings** (tasti 1–5); il menu si
-  apre su Games. Catalogo dal repository pubblico `f-accomando/bm-market` (GitHub Pages),
-  modello in `market/`, `make market-seed MARKET=../bm-market` ci mette i giochi del progetto.
+  apre su Games. Sulla RGB30 Market | Games | Dev | Settings e solo i `.b16` (il Pi mostra `.bm`
+  e `.b16`, che girano uguali). Catalogo dal repository pubblico `f-accomando/bm-market` (GitHub Pages),
+  modello in `market/`, `make market-seed MARKET=../bm-market` ci mette i giochi del progetto
+  (`scripts/market.sh`, `easy_install` m, fa anche la preparazione e il push; un gioco nuovo
+  vuole la sua riga in `market/about.txt`, la licenza è obbligatoria).
 - Decisioni dell'utente (2026-10-01): repository dedicato; tutti i giochi scaricabili (per
   ora restano anche nell'immagine della SD); il market **non blocca il menu** e **non carica
   niente quando la scheda non è attiva** (segnaposto finché le risorse non arrivano);
@@ -975,8 +992,13 @@ screenshot in `docs/img/`), `README_OLD.md` (il README completo, in italiano),
   fibra (`src/kernel/fiber.c`, `src/arch/fiber.S`) nel tempo libero del frame
   (`menu_view_t.idle`); `net_wait_step` cede il controllo dentro una fibra e restituisce -1
   se è stata annullata: ogni attesa di rete nuova deve controllarlo.
-- Le cartucce non incorporate scrivono solo `.bm` in `/carts` (`write_refused` in
-  `runtime.c`); gli strumenti incorporati passano da `carts_tool_session` (`bm_set_tool`).
+- Le cartucce non incorporate scrivono solo `.bm` **nuovi** in `/carts`, e cambiano solo quelli
+  fatti nella stessa partita (`write_refused` e `made` in `runtime.c`) e non usano `picture3d` (le chiavi della console); gli strumenti incorporati
+  passano da `carts_tool_session` (`bm_set_tool`). Rete (`udp_open`) e `report()`: la prima volta
+  la console chiede al giocatore (`perm_question` in `runtime.c`, acceso dal kernel con
+  `bm_permissions(1)`, spento in bmhost), risposta in `bm/config.txt` (`allow_<salvataggio>`);
+  prova QEMU `test_permissions` (decisioni dell'utente, 2026-10-05). Un `.bm` non ha limiti di
+  dimensione: solo i 100 MiB per file di GitHub (`CATALOG_MAX_FILE`).
 - Test: `test_market` in QEMU con `market_url=sd:/market/` e `market_delay` (in QEMU non c'è
   rete); `bm/market.pem` sulla SD aggiunge una chiave.
 - Rete locale (M24): `src/net/lan.c` (annuncio UDP 3335, TCP 3336, domanda al giocatore,

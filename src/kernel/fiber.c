@@ -29,6 +29,18 @@ void fiber_prepare(fiber_t *f, void *stack, size_t size, void (*fn)(void *), voi
     f->arg = arg;
     for (size_t i = 0; i < 16 && i < size / 4; i++)
         f->stack[i] = GUARD;
+#ifdef __aarch64__
+    /* the RGB30 (src/rgb30/fiber.S): x19-x30, d8-d15, fpcr, pad */
+    uint64_t *sp = (uint64_t *)((uintptr_t)((uint8_t *)stack + size) & ~(uintptr_t)15) - 22;
+    memset(sp, 0, 22 * 8);
+    uint64_t fpcr;
+    __asm__ volatile("mrs %0, fpcr" : "=r"(fpcr));
+    sp[20] = fpcr;
+    sp[0] = (uint64_t)(uintptr_t)f;             /* x19: the argument */
+    sp[1] = (uint64_t)(uintptr_t)fiber_main;    /* x20: the function */
+    sp[11] = (uint64_t)(uintptr_t)fiber_start;  /* x30 */
+    f->sp = (uint32_t *)sp;
+#else
     /* the frame fiber_switch pops (fiber.S): fpscr, pad, d8-d15, r4-r12, lr */
     uint32_t *sp = (uint32_t *)((uintptr_t)((uint8_t *)stack + size) & ~7u) - 28;
     memset(sp, 0, 28 * 4);
@@ -39,6 +51,7 @@ void fiber_prepare(fiber_t *f, void *stack, size_t size, void (*fn)(void *), voi
     sp[19] = (uint32_t)(uintptr_t)fiber_main;   /* r5: the function */
     sp[27] = (uint32_t)(uintptr_t)fiber_start;  /* lr */
     f->sp = sp;
+#endif
 }
 
 int fiber_resume(fiber_t *f)
