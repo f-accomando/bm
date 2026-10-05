@@ -1164,16 +1164,14 @@ local function draw_pane(p, c0, ncols, r0, nrows)
     end
     if c then paint(v.cx, c.rest, predict.C_GHOST) end
     -- the pad's typing: the press waiting, the rest of its word, the
-    -- syllable still turning (underlined), what a suggestion wrote
+    -- syllable still turning (light blue), what a suggestion wrote
     if active and i == v.cy and pt.mode() then
       local at, pd, g = v.cx, pt.pending(), pt.ghost()
       if pd then paint(at, pd == " " and "_" or pd, pt.C_PEND); at = at + 1 end
       if g ~= "" then paint(at, g, pt.C_GHOST) end
       local fl, op = pt.flash(), pt.open_len()
       if fl > 0 and fl <= v.cx then paint(v.cx - fl, l:sub(v.cx - fl + 1, v.cx), pt.C_PRED) end
-      if op > 0 and op <= v.cx and v.cx - op >= v.left then
-        line(tx + (v.cx - op - v.left) * CW, y + CH - 1, tx + (v.cx - v.left) * CW - 1, y + CH - 1, pt.C_OPEN)
-      end
+      if op > 0 and op <= v.cx then paint(v.cx - op, l:sub(v.cx - op + 1, v.cx), pt.C_OPEN) end
     end
     local f = comp_flash
     if f and active and i == v.cy and f.t == t and f.cy == i and f.cx == v.cx then

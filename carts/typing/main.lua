@@ -288,7 +288,7 @@ local function draw_target(x0, y0, cols, lh, maxl)
       local x = x0 + (k - ln[1]) * 8
       local ch, col = target:sub(k, k), C.todo
       if k <= n then
-        col = (k > n - flash and k <= #typed) and pt.C_PRED or C.text
+        col = (k > #typed - open) and pt.C_OPEN or (k > n - flash and k <= #typed) and pt.C_PRED or C.text
       elseif k <= #typed then
         ch = typed:sub(k, k)
         if ch == " " or ch == "\n" then ch = "_" end
@@ -298,12 +298,8 @@ local function draw_target(x0, y0, cols, lh, maxl)
       if ch ~= " " then print(ch, x, y, col) end
     end
   end
-  -- around the cursor: the press waiting, the syllable turning, the ghost
+  -- after the cursor: the press waiting, the rest of the word
   local cx, cy = place(lines, cur, x0, y0, lh)
-  if open > 0 then
-    local ox = place(lines, cur - open, x0, y0, lh)
-    line(ox, cy + 15, cx - 1, cy + 15, pt.C_OPEN)
-  end
   local p = pt.pending()
   local gx = cx
   if p then
@@ -316,7 +312,7 @@ local function draw_target(x0, y0, cols, lh, maxl)
     rectfill(gx, cy, #g * 8, 16, C.bg)
     print(g, gx, cy, pt.C_GHOST)
   end
-  if (time() * 2) % 2 < 1.4 then rectfill(cx - 1, cy, 2, 16, C.acc) end
+  if (time() * 2) % 2 < 1.4 then rectfill(cx, cy, 2, 16, C.acc) end
 end
 
 -- free writing: the text and its cursor
@@ -339,16 +335,16 @@ local function draw_free(x0, y0, cols, lh, maxl)
     local fx = place(lines, cur - flash, x0, y0, lh)
     if fx < cx then print(text:sub(cur - flash, cur - 1), fx, cy, pt.C_PRED) end
   end
-  if open > 0 then
+  if open > 0 and host.cursor() >= open then
     local ox = place(lines, cur - open, x0, y0, lh)
-    if ox < cx then line(ox, cy + 15, cx - 1, cy + 15, pt.C_OPEN) end
+    if ox < cx then print(text:sub(cur - open, cur - 1), ox, cy, pt.C_OPEN) end
   end
   local gx = cx
   local p = pt.pending()
   if p then print(p == " " and "_" or p, gx, cy, pt.C_PEND); gx = gx + 8 end
   local g = pt.ghost()
   if g ~= "" then print(g, gx, cy, pt.C_GHOST) end
-  if (time() * 2) % 2 < 1.4 then rectfill(cx - 1, cy, 2, 16, C.acc) end
+  if (time() * 2) % 2 < 1.4 then rectfill(cx, cy, 2, 16, C.acc) end
 end
 
 local function draw_side(y)

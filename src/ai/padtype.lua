@@ -31,7 +31,8 @@
 --   pt.draw(x, y)             the overlay, pt.size() wide and high
 --   pt.ghost()                the rest of the first suggestion (C_GHOST)
 --   pt.flash()                chars the last suggestion wrote (C_PRED)
---   pt.open_len()             chars of the syllable still turning (C_OPEN)
+--   pt.open_len()             chars of the syllable still turning (C_OPEN,
+--                             before the cursor)
 --   pt.pending()              the press waiting for its double (C_PEND)
 --   pt.coach(host, target)    the next press to write target (practice)
 --   pt.text_host(lang)        a host over a string (practice, tests)
