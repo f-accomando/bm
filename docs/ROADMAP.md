@@ -1927,7 +1927,8 @@ codice inserito, sprite nello sheet, test di velocità, F9), `make ai-model` per
   inserisce il codice nel riquadro "code";
 - F7, "slime rosso" (o "astronave blu 32x32"), destra/sinistra per le varianti, Invio:
   lo sprite nel riquadro "sprites";
-- F8: domande al secondo e tempo di uno sprite sul Pi vero;
+- F8: domande al secondo e tempo di uno sprite sul Pi vero; ✅ sul Pi (2026-10-05): la risposta
+  e lo sprite arrivano subito ("immediato", riferisce l'utente);
 - F9: un errore d'esempio ("attempt to call a nil value (global 'sprr')"): la riga, "did
   you mean spr?" e la spiegazione, come farà l'editor con la riga rossa;
 - col solo DS4: A apre, su/giù sfogliano, A inserisce, X cambia modo, B chiude.
