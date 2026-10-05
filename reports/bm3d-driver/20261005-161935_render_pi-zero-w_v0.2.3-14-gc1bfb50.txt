@@ -1,0 +1,11 @@
+bm report
+kind: render
+kernel: v0.2.3-14-gc1bfb50
+branch: bm3d-driver
+board: Pi Zero W
+date: 2026-10-05 16:19:35
+file: 20261005-161935_render_pi-zero-w_v0.2.3-14-gc1bfb50.txt
+
+bm > Rendering benchmark, 640x360 RGB565
+
+bm bench (map + 256 sprites): direct 8.07 ms, via RAM 11.79 ms
