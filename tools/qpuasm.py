@@ -684,6 +684,185 @@ SHADERS["fs_tex_rgb_t"] = """
 """
 
 
+# bm3d 6.3: the other 3D shaders with two threads too (fill rate: bm3d 6.2
+# made the ones without a switch single-threaded, as Mesa does, and the
+# quads lost 8-14% on the Pi). Without a texture the switch comes once the
+# colour is in the register file (rb1), before the scoreboard; with one, as
+# fs_tex_lit_t and fs_tex_rgb_t. A small immediate takes raddr b: never in
+# the instruction that reads rb1.
+SHADERS["fs_colour_t"] = """
+        nop                 ; nop
+        nop                 ; nop
+        mov r3, ra15        ; nop                       # W
+        mov r0, vary        ; nop
+        fmul r0, r0, r3     ; nop
+        fadd r0, r0, r5     ; mov r1, vary
+        fmul r1, r1, r3     ; nop
+        fadd r1, r1, r5     ; mov r2, vary
+        fmul r2, r2, r3     ; nop
+        fadd r2, r2, r5     ; mov r3.8a, r0
+        nop                 ; mov r3.8b, r1
+        nop                 ; mov r3.8c, r2
+        nop                 ; mov r3.8d, 1.0
+        mov rb1, r3         ; nop           ; lthrsw    # the colour, kept; the other thread after two more
+        nop                 ; nop
+        nop                 ; nop
+        nop                 ; nop           ; sbwait
+        mov tlb_z, rb15     ; nop
+        mov tlbc, rb1       ; nop           ; thrend
+        nop                 ; nop
+        nop                 ; nop           ; sbdone
+"""
+
+SHADERS["fs_colour_screen_t"] = """
+        nop                 ; nop
+        nop                 ; nop
+        mov r3, ra15        ; nop                       # W
+        mov r0, vary        ; nop
+        fmul r0, r0, r3     ; nop
+        fadd r0, r0, r5     ; mov r1, vary
+        fmul r1, r1, r3     ; nop
+        fadd r1, r1, r5     ; mov r2, vary
+        fmul r2, r2, r3     ; nop
+        fadd r2, r2, r5     ; mov r3.8a, r0
+        nop                 ; mov r3.8b, r1
+        nop                 ; mov r3.8c, r2
+        nop                 ; mov r3.8d, 1.0
+        mov rb1, r3         ; nop           ; lthrsw
+        nop                 ; nop
+        nop                 ; nop
+        add r0, x_coord, y_coord ; nop
+        and.setf nop, r0, 1 ; nop                       # Z: x + y even
+        nop                 ; nop           ; sbwait
+        mov.ifz tlb_z, rb15 ; nop
+        mov.ifz tlbc, rb1   ; nop           ; thrend
+        nop                 ; nop
+        nop                 ; nop           ; sbdone
+"""
+
+SHADERS["fs_tex_lit_alpha_t"] = """
+        nop                 ; nop
+        nop                 ; nop
+        mov r3, ra15        ; nop                       # W
+        mov r0, vary        ; nop                       # s
+        fmul r0, r0, r3     ; nop
+        fadd r0, r0, r5     ; nop
+        mov r1, vary        ; nop                       # t
+        fmul r1, r1, r3     ; nop
+        fadd r1, r1, r5     ; nop
+        mov t0t, r1         ; nop
+        mov t0s, r0         ; nop                       # starts the lookup
+        mov r2, vary        ; nop                       # k
+        fmul r2, r2, r3     ; nop
+        fadd r2, r2, r5     ; nop           ; lthrsw
+        nop                 ; mov rb1.8888, r2          # k in the four bytes, kept
+        nop                 ; nop
+        nop                 ; nop           ; sbwait
+        nop                 ; nop           ; ldtmu0    # r4 = texel
+        shr r2, r4, 15      ; nop
+        shr.setf nop, r2, 9 ; nop                       # Z: alpha is 0
+        nop                 ; v8muld r0, r4, rb1        # texel * k
+        mov.ifnz tlb_z, rb15 ; nop
+        mov.ifnz tlbc, r0   ; nop           ; thrend
+        nop                 ; nop
+        nop                 ; nop           ; sbdone
+"""
+
+SHADERS["fs_tex_lit_screen_t"] = """
+        nop                 ; nop
+        nop                 ; nop
+        mov r3, ra15        ; nop                       # W
+        mov r0, vary        ; nop                       # s
+        fmul r0, r0, r3     ; nop
+        fadd r0, r0, r5     ; nop
+        mov r1, vary        ; nop                       # t
+        fmul r1, r1, r3     ; nop
+        fadd r1, r1, r5     ; nop
+        mov t0t, r1         ; nop
+        mov t0s, r0         ; nop                       # starts the lookup
+        mov r2, vary        ; nop                       # k
+        fmul r2, r2, r3     ; nop
+        fadd r2, r2, r5     ; nop           ; lthrsw
+        nop                 ; mov rb1.8888, r2          # k in the four bytes, kept
+        nop                 ; nop
+        add r3, x_coord, y_coord ; nop
+        and r3, r3, 1       ; nop
+        sub r3, r3, 1       ; nop                       # the mask: -1 on the even pixels, else 0
+        nop                 ; nop           ; sbwait
+        nop                 ; nop           ; ldtmu0    # r4 = texel
+        shr r2, r4, 15      ; nop
+        shr r2, r2, 9       ; nop                       # alpha
+        and.setf nop, r2, r3 ; v8muld r0, r4, rb1       # Z: odd pixel or transparent texel; texel * k
+        mov.ifnz tlb_z, rb15 ; nop
+        mov.ifnz tlbc, r0   ; nop           ; thrend
+        nop                 ; nop
+        nop                 ; nop           ; sbdone
+"""
+
+RGB_LIGHT_FOG = """
+        nop                 ; nop
+        nop                 ; nop
+        mov r0, vary        ; nop                       # s
+        fmul r0, r0, ra15   ; nop
+        fadd r0, r0, r5     ; nop
+        mov r1, vary        ; nop                       # t
+        fmul r1, r1, ra15   ; nop
+        fadd r1, r1, r5     ; nop
+        mov t0t, r1         ; nop
+        mov t0s, r0         ; nop                       # starts the lookup
+        mov r0, vary        ; nop                       # light, byte a
+        fmul r0, r0, ra15   ; nop
+        fadd r0, r0, r5     ; nop
+        mov r1, vary        ; mov r2.8a, r0             # light, byte b
+        fmul r1, r1, ra15   ; nop
+        fadd r1, r1, r5     ; nop
+        mov r0, vary        ; mov r2.8b, r1             # light, byte c
+        fmul r0, r0, ra15   ; nop
+        fadd r0, r0, r5     ; nop
+        mov r1, vary        ; mov r2.8c, r0             # fog, byte a
+        fmul r1, r1, ra15   ; nop
+        fadd r1, r1, r5     ; nop
+        mov r0, vary        ; mov r3.8a, r1             # fog, byte b
+        fmul r0, r0, ra15   ; nop
+        fadd r0, r0, r5     ; nop
+        mov r1, vary        ; mov r3.8b, r0             # fog, byte c
+        fmul r1, r1, ra15   ; nop
+        fadd r1, r1, r5     ; nop
+        nop                 ; mov r3.8c, r1
+        nop                 ; mov r2.8d, 1.0
+        nop                 ; mov r3.8d, 0
+        mov ra1, r2         ; mov rb1, r3   ; lthrsw    # light and fog, kept
+        nop                 ; nop
+        nop                 ; nop
+"""
+
+SHADERS["fs_tex_rgb_alpha_t"] = RGB_LIGHT_FOG + """
+        nop                 ; nop           ; sbwait
+        nop                 ; nop           ; ldtmu0    # r4 = texel
+        shr r1, r4, 15      ; v8muld r0, r4, ra1        # texel * light / 2
+        shr.setf nop, r1, 9 ; v8adds r0, r0, r0         # Z: alpha is 0; * 2
+        v8adds r0, r0, rb1  ; nop                       # + fog
+        mov.ifnz tlb_z, rb15 ; nop
+        mov.ifnz tlbc, r0   ; nop           ; thrend
+        nop                 ; nop
+        nop                 ; nop           ; sbdone
+"""
+
+SHADERS["fs_tex_rgb_screen_t"] = RGB_LIGHT_FOG + """
+        add r1, x_coord, y_coord ; nop
+        and r1, r1, 1       ; nop
+        sub ra2, r1, 1      ; nop                       # the mask: -1 on the even pixels, else 0
+        nop                 ; nop           ; sbwait
+        nop                 ; nop           ; ldtmu0    # r4 = texel
+        shr r1, r4, 15      ; v8muld r0, r4, ra1        # texel * light / 2
+        shr r1, r1, 9       ; v8adds r0, r0, r0         # alpha; * 2
+        and.setf nop, r1, ra2 ; v8adds r0, r0, rb1      # Z: odd pixel or transparent texel; + fog
+        mov.ifnz tlb_z, rb15 ; nop
+        mov.ifnz tlbc, r0   ; nop           ; thrend
+        nop                 ; nop
+        nop                 ; nop           ; sbdone
+"""
+
 def check_threaded(name, code):
     """Mesa's rules for a fragment shader with thread switches (vc4_qpu_
     validate.c): no switch with the scoreboard locked (after sbwait or a
@@ -1508,6 +1687,168 @@ def same(got, words):
     return True
 
 
+# bm3d 6.3: a fragment shader run for one pixel on its encoded words, to
+# check that a two-thread shader (name_t) writes what its one-thread
+# original writes: the same depth and colour, or neither, for random
+# pixels, whatever the thread switch leaves in the accumulators and flags.
+# The subset of the fragment shaders: varyings (VP, C into r5), W and Z
+# (ra15, rb15), x_coord / y_coord, the ALU ops, the colour packs of the mul
+# ALU, small immediates, the TMU (t0t, then t0s; ldtmu0), loadc, the TLB.
+def _f(u):
+    return struct.unpack("<f", struct.pack("<I", u & 0xFFFFFFFF))[0]
+
+
+def _u(f):
+    return struct.unpack("<I", struct.pack("<f", f))[0]
+
+
+def _bytes(fn, a, b):
+    return sum(max(0, min(255, fn(a >> k & 255, b >> k & 255))) << k for k in (0, 8, 16, 24))
+
+
+def fs_run(code, px, rng):
+    """one pixel: {"z": value or None, "c": value or None}"""
+    acc = [rng.getrandbits(32) for _ in range(6)]
+    ra, rb = [rng.getrandbits(32) for _ in range(32)], [rng.getrandbits(32) for _ in range(32)]
+    ra[15], rb[15] = _u(px["w"]), px["z"]
+    flag_z, flag_n = rng.random() < 0.5, rng.random() < 0.5
+    vary = list(px["vary"])
+    texels, t_latch, out = [], None, {"z": None, "c": None}
+    clobber_at, end_at, wrote = -1, -1, set()
+    for pc, ((lo, hi), text) in enumerate(code):
+        if pc == clobber_at:                # the other thread ran: accumulators and flags lost
+            for k in (0, 1, 2, 3, 5):
+                acc[k] = rng.getrandbits(32)
+            flag_z, flag_n = rng.random() < 0.5, rng.random() < 0.5
+        sig = hi >> 28
+        if hi >> 25 & 7:
+            raise SyntaxError(f"fs_run: unpack at {pc} ({text})")
+        pm, pack = hi >> 24 & 1, hi >> 20 & 15
+        cond_add, cond_mul, sf, ws = hi >> 17 & 7, hi >> 14 & 7, hi >> 13 & 1, hi >> 12 & 1
+        waddr_add, waddr_mul = hi >> 6 & 63, hi & 63
+        now_wrote = set()
+        if sig == 14:
+            res_add = res_mul = lo
+            op_add = op_mul = -1
+        else:
+            op_add, op_mul = lo >> 24 & 31, lo >> 29 & 7
+            raddr_a, raddr_b = lo >> 18 & 63, lo >> 12 & 63
+            muxes = [lo >> 9 & 7, lo >> 6 & 7, lo >> 3 & 7, lo & 7]
+            used = (muxes[:2] if op_add else []) + (muxes[2:] if op_mul else [])
+            va = vb = 0
+            if 6 in used:
+                if raddr_a < 32:
+                    if ("a", raddr_a) in wrote:
+                        raise SyntaxError(f"fs_run: ra{raddr_a} read at {pc} right after its write ({text})")
+                    va = ra[raddr_a]
+                elif raddr_a == 35:
+                    vp, c = vary.pop(0)
+                    va, acc[5] = _u(vp), _u(c)
+                elif raddr_a == 41:
+                    va = px["x"]
+                elif raddr_a != 39:
+                    raise SyntaxError(f"fs_run: read address A {raddr_a} at {pc}")
+            if 7 in used:
+                if sig == 13:
+                    n = raddr_b
+                    vb = n if n < 16 else (n - 32) & 0xFFFFFFFF if n < 32 else _u(2.0 ** (n - 32)) if n < 40 \
+                        else _u(2.0 ** (n - 48))
+                elif raddr_b < 32:
+                    if ("b", raddr_b) in wrote:
+                        raise SyntaxError(f"fs_run: rb{raddr_b} read at {pc} right after its write ({text})")
+                    vb = rb[raddr_b]
+                elif raddr_b == 35:
+                    vp, c = vary.pop(0)
+                    vb, acc[5] = _u(vp), _u(c)
+                elif raddr_b == 41:
+                    vb = px["y"]
+                elif raddr_b != 39:
+                    raise SyntaxError(f"fs_run: read address B {raddr_b} at {pc}")
+            src = lambda m: acc[m] if m < 6 else va if m == 6 else vb
+            a, b, c_, d = (src(m) for m in muxes)
+            ADD = {0: lambda: 0, 1: lambda: _u(_f(a) + _f(b)), 2: lambda: _u(_f(a) - _f(b)),
+                   12: lambda: (a + b) & 0xFFFFFFFF, 13: lambda: (a - b) & 0xFFFFFFFF,
+                   14: lambda: a >> (b & 31), 17: lambda: (a << (b & 31)) & 0xFFFFFFFF,
+                   20: lambda: a & b, 21: lambda: a | b, 22: lambda: a ^ b,
+                   30: lambda: _bytes(lambda x, y: x + y, a, b), 31: lambda: _bytes(lambda x, y: x - y, a, b)}
+            MUL = {0: lambda: 0, 1: lambda: _u(_f(c_) * _f(d)),
+                   3: lambda: _bytes(lambda x, y: (x * y + 127) // 255, c_, d),
+                   4: lambda: _bytes(min, c_, d), 5: lambda: _bytes(max, c_, d),
+                   6: lambda: _bytes(lambda x, y: x + y, c_, d), 7: lambda: _bytes(lambda x, y: x - y, c_, d)}
+            if op_add not in ADD or op_mul not in MUL:
+                raise SyntaxError(f"fs_run: op {op_add}/{op_mul} at {pc} ({text})")
+            res_add, res_mul = ADD[op_add](), MUL[op_mul]()
+            if sf:
+                r = res_add if op_add else res_mul
+                flag_z, flag_n = r == 0, bool(r >> 31)
+        for alu, waddr, cond, res in ((0, waddr_add, cond_add, res_add), (1, waddr_mul, cond_mul, res_mul)):
+            if cond == 0 or waddr == 39:
+                continue
+            if cond not in (1, 2, 3, 4, 5):
+                raise SyntaxError(f"fs_run: condition {cond} at {pc}")
+            if not (cond == 1 or (cond == 2 and flag_z) or (cond == 3 and not flag_z) or
+                    (cond == 4 and flag_n) or (cond == 5 and not flag_n)):
+                continue
+            def packed(old):
+                if pm and alu == 0 or pack == 0:
+                    return res              # pm: the pack is the mul ALU's
+                if not pm:
+                    raise SyntaxError(f"fs_run: regfile pack at {pc} ({text})")
+                byte = max(0, min(255, int(round(_f(res) * 255.0)))) if _f(res) == _f(res) else 0
+                if pack == 3:
+                    return byte * 0x01010101
+                k = 8 * (pack - 4)
+                return (old & ~(255 << k) & 0xFFFFFFFF) | byte << k
+            file_a = (alu == 0) != bool(ws)
+            if waddr < 32:
+                regs = ra if file_a else rb
+                regs[waddr] = packed(regs[waddr])
+                now_wrote.add(("a" if file_a else "b", waddr))
+            elif 32 <= waddr <= 35:
+                acc[waddr - 32] = packed(acc[waddr - 32])
+            elif waddr == 37:
+                acc[5] = res
+            elif waddr == WADDR["tlb_z"]:
+                out["z"] = res
+            elif waddr == WADDR["tlbc"]:
+                out["c"] = res
+            elif waddr == WADDR["t0t"]:
+                t_latch = res
+            elif waddr == WADDR["t0s"]:
+                h = (res * 2654435761 ^ (t_latch or 0) * 40503) & 0xFFFFFFFF
+                texels.append(h if px["opaque"] else h & 0x00FFFFFF)
+            else:
+                raise SyntaxError(f"fs_run: write address {waddr} at {pc} ({text})")
+        wrote = now_wrote
+        if sig in (SIGNALS["thrsw"], SIGNALS["lthrsw"]):
+            clobber_at = pc + 3
+        elif sig == SIGNALS["ldtmu0"]:
+            acc[4] = texels.pop(0)
+        elif sig == SIGNALS["loadc"]:
+            acc[4] = px["tile"]
+        elif sig == SIGNALS["thrend"]:
+            end_at = pc + 2
+        if pc == end_at:
+            return out
+    raise SyntaxError("fs_run: no thrend")
+
+
+def check_same_writes(name, code, base, base_code, n=300):
+    """name (two threads) against base (one): the same TLB writes"""
+    import random
+    rng = random.Random(name)
+    for i in range(n):
+        px = {"w": rng.uniform(0.5, 2.0), "z": rng.getrandbits(24), "x": rng.randrange(640),
+              "y": rng.randrange(360), "tile": rng.getrandbits(32), "opaque": rng.random() < 0.6,
+              "vary": [(rng.uniform(-0.2, 1.2), rng.uniform(-0.1, 0.1)) for _ in range(8)]}
+        want = fs_run(base_code, px, random.Random(i))
+        for seed in (1000 + i, 5000 + i):           # whatever the other thread leaves
+            got = fs_run(code, px, random.Random(seed))
+            if got != want:
+                raise SyntaxError(f"{name}: pixel {i} writes {got}, {base} writes {want}")
+    return n
+
+
 def self_test():
     ok = True
     for i, (src, words) in enumerate(REFERENCE):
@@ -1519,10 +1860,14 @@ def self_test():
                     print(f"reference {i}: word {k}: got {g:08x}, expected {w:08x}")
             if len(got) != len(words):
                 print(f"reference {i}: {len(got)} words, expected {len(words)}")
+    pixels = 0
     for name, src in SHADERS.items():
         code = assemble(src)
         if name.endswith("_t"):
             check_threaded(name, code)
+            base = name[:-2]
+            pixels += check_same_writes(name, code, base, assemble(SHADERS[base]))
+    print(f"qpuasm: two-thread shaders write as their originals ({pixels} pixels)")
     print("qpuasm: " + ("ok" if ok else "FAILED"))
     return ok
 

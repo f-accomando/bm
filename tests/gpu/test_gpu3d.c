@@ -731,7 +731,7 @@ static void run_scene(int s)
         r3d_zclear(&r);
         uint32_t prims = emu_stats.prims, batches = emu_stats.batches, jobs = emu_stats.jobs,
                  zstores = emu_stats.zstores, loads = emu_stats.loads, msframes = emu_stats.msframes,
-                 glverts = emu_stats.glverts;
+                 glverts = emu_stats.glverts, ms_early = emu_stats.ms_early;
         if (pass)
             gpu3d_drop();               /* each scene as a new cartridge */
         gpu3d_set_msaa(pass == 2);
@@ -764,6 +764,11 @@ static void run_scene(int s)
                 }
             printf("  %-12s MSAA %s: %.2f%% of the pixels smoothed, %d of %d blocks moved\n", scenes[s].name,
                    emu_stats.msframes > msframes ? "on" : "off", frac * 100, moved, blocks);
+            /* early z kept where the MSAA job clears the page (HW-2905 is
+             * about a load: the emulator refuses early z there) */
+            if (s == CLEARED)
+                CHECK(emu_stats.ms_early > ms_early, "%s: no early z in an MSAA job that clears the page",
+                      scenes[s].name);
             if (expect)
                 CHECK(emu_stats.msframes > msframes && frac > 0.0005f && moved * 100 <= blocks,
                       "%s: MSAA %u frames, %.2f%% of the pixels changed, %d blocks moved", scenes[s].name,

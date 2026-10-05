@@ -595,7 +595,28 @@ static int shader_of(const uint8_t *code)
     if (!memcmp(code, fs_text, sizeof fs_text)) return SH_TEXT;
     if (!memcmp(code, fs_tex_lit_t, sizeof fs_tex_lit_t)) return SH_TEX;       /* M39: two threads */
     if (!memcmp(code, fs_tex_rgb_t, sizeof fs_tex_rgb_t)) return SH_TEX_RGB;
+    if (!memcmp(code, fs_colour_t, sizeof fs_colour_t)) return SH_COLOUR;      /* bm3d 6.3 */
+    if (!memcmp(code, fs_colour_screen_t, sizeof fs_colour_screen_t)) return SH_SCREEN;
+    if (!memcmp(code, fs_tex_lit_alpha_t, sizeof fs_tex_lit_alpha_t)) return SH_TEX_ALPHA;
+    if (!memcmp(code, fs_tex_lit_screen_t, sizeof fs_tex_lit_screen_t)) return SH_TEX_SCREEN;
+    if (!memcmp(code, fs_tex_rgb_alpha_t, sizeof fs_tex_rgb_alpha_t)) return SH_TEX_RGB_ALPHA;
+    if (!memcmp(code, fs_tex_rgb_screen_t, sizeof fs_tex_rgb_screen_t)) return SH_TEX_RGB_SCREEN;
     return -1;
+}
+
+/* the fragment shaders with a thread switch (lthrsw) */
+static int switches_threads(const uint8_t *code)
+{
+    static const struct { const uint32_t *code; size_t size; } t[] = {
+        { fs_tex_lit_t, sizeof fs_tex_lit_t }, { fs_tex_rgb_t, sizeof fs_tex_rgb_t },
+        { fs_colour_t, sizeof fs_colour_t }, { fs_colour_screen_t, sizeof fs_colour_screen_t },
+        { fs_tex_lit_alpha_t, sizeof fs_tex_lit_alpha_t }, { fs_tex_lit_screen_t, sizeof fs_tex_lit_screen_t },
+        { fs_tex_rgb_alpha_t, sizeof fs_tex_rgb_alpha_t }, { fs_tex_rgb_screen_t, sizeof fs_tex_rgb_screen_t },
+    };
+    for (size_t i = 0; i < sizeof t / sizeof t[0]; i++)
+        if (!memcmp(code, t[i].code, t[i].size))
+            return 1;
+    return 0;
 }
 
 /* M39: a fragment shader with thread switches; a record that says it
@@ -604,7 +625,7 @@ static int shader_of(const uint8_t *code)
 static int threaded_check(const uint8_t *rec)
 {
     const uint8_t *code = ptr(rd32(rec + 4));
-    if (memcmp(code, fs_tex_lit_t, sizeof fs_tex_lit_t) && memcmp(code, fs_tex_rgb_t, sizeof fs_tex_rgb_t)) {
+    if (!switches_threads(code)) {
         /* no thread switch: the record must say single-threaded (a threaded
          * shader must execute LTHRSW once before it ends; the Pi hung with
          * these mixed with the two-thread ones, 2026-10-05) */
@@ -1318,6 +1339,8 @@ static int render(uint32_t start, uint32_t end, int have_bin)
                  * early z tracking may hold the previous tile's values */
                 if (ms && tile_loaded && (prims[n].early & 1))
                     return err("early z in an MSAA frame that loads its tiles (HW-2905)", 0, 0);
+                if (ms && (prims[n].early & 1))
+                    emu_stats.ms_early++;
             }
             draw_tile(tx, ty, fw, fh);
             p += 4;

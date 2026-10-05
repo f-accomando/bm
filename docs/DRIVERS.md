@@ -193,6 +193,18 @@ stress test, il 3D Bench, il benchmark di Overbit e il quarto valore di `gpu3d()
   Mesa; l'emulatore rifiuta un record che dica a più thread uno shader senza cambi, e la prova
   all'avvio degli shader a due thread mette nello stesso lavoro anche shader a un thread. Sul
   Pi GPU+FS2 aveva dato +22% in `quad_tex` (148 quad contro 121).
+- **6.3** (2026-10-05, M39): i report del Pi hanno mostrato che la 6.2 costa: i test di
+  riempimento senza texture hanno perso l'8–14% (`quad_smooth` 198 → 171, `quad_screen`
+  184 → 160), e Overbit a 1920×1080 andava più piano che con v0.2.3 (3D 22,0 → 29,9 ms; con
+  l'MSAA 22,9 → 42,4). Due cose: con **GPU+FS2** ora hanno due thread anche gli altri shader del
+  3D (`fs_colour_t`, `fs_colour_screen_t`, `fs_tex_lit_alpha_t`, `fs_tex_lit_screen_t`,
+  `fs_tex_rgb_alpha_t`, `fs_tex_rgb_screen_t`: il colore nel register file, poi `lthrsw` prima
+  dello scoreboard), controllati da `qpuasm.py`, che li fa girare pixel per pixel accanto agli
+  originali (stesse scritture di colore e profondità, qualunque cosa l'altro thread lasci) e
+  dalla prova all'avvio, che li mette tutti in un lavoro; e con l'**MSAA** l'early z resta nei
+  lavori che puliscono la pagina (HW-2905 riguarda solo un lavoro che la carica: la 6.2 lo
+  toglieva sempre, v0.2.3 mai). Il resto è come la 6.2: senza FS2 gli shader restano a un
+  thread.
 
 ## Le modalità: versioni vecchie sul codice di oggi
 

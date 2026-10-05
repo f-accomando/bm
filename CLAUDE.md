@@ -908,12 +908,14 @@ screenshot in `docs/img/`), `README_OLD.md` (il README completo, in italiano),
   riproducono le versioni vecchie (ARM 0.2, GPU 2.1, GPU+VS1 3.0, GPU+VS 3.4, coda 4.1,
   memoria senza cache 4.5, 2D nel lavoro 4.8, due lavori in volo 5.1, texture a 16 bit 5.2,
   shader a due thread 5.3, mesh dalla più vicina 5.4): così i benchmark le confrontano.
-  Branch `bm3d-driver` (2026-10-05): bm3d 5.5 (M39).
+  Branch `bm3d-driver` (2026-10-05): bm3d 6.3 (M39, M41).
 - **M39 (bm3d 5.x, branch `bm3d-driver`)**: mesh fino a 65535 vertici e indicizzate
   (`INDEXED_PRIMITIVE_LIST`, `probe_index`); due blocchi di memoria dei lavori
   (`gpu3d_queue=2`: l'emulatore esegue un lavoro avviato solo quando lo si aspetta); texture
   opache RGB565 (`gpu3d_tex16`, layout imparato da `tformat16_learn`); shader dei pixel a due
-  thread (`fs_*_t` in `qpuasm.py`, che controlla le regole di Mesa, `gpu3d_fs2`, `probe_fs2`);
+  thread (`fs_*_t` in `qpuasm.py`, che controlla le regole di Mesa e li fa girare pixel per pixel
+  accanto agli originali, `fs_run`: stesse scritture; dalla 6.3 tutti gli shader del 3D, perché a
+  un thread il riempimento perdeva l'8–14%; `gpu3d_fs2`, `probe_fs2`);
   le mesh che scrivono lo z messe da parte e scritte dalla più vicina (`gpu3d_sort`,
   `sort_flush` prima di ogni altro pacchetto), con i triangoli nell'ordine della cache dei
   vertici (`vcache_order`, l'emulatore ha una cache FIFO di 16); `visible3d`/`pvs3d` (Overbit: gli eroi dietro i
@@ -924,7 +926,9 @@ screenshot in `docs/img/`), `README_OLD.md` (il README completo, in italiano),
   Pi non disegnava niente: la prova li impara, l'emulatore li legge in byte e vuole che lo
   shader legga ogni parola caricata); l'**early z** ha una sua profondità che solo le
   primitive con *early z updates* scrivono, quindi dopo uno `zclear()` nel lavoro niente early
-  z, e mai con l'MSAA (HW-2905; l'emulatore fa l'early z così). Quello che le prove
+  z, e con l'MSAA solo nei lavori che puliscono la pagina (HW-2905 riguarda un lavoro che la
+  carica; la 6.2 lo toglieva sempre e Overbit con AA a 1080p perdeva un terzo; l'emulatore
+  rifiuta l'early z in un lavoro MSAA che carica). Quello che le prove
   facoltative vedono (`gpu3d_probe_log()`) va nel report del test `g` e del 3D Bench.
 - **Opzioni del branch `bm3d-driver`** (spente finché il Pi non le prova): `gpu3d_wc=1` la
   memoria dei lavori senza cache (`v3d_uncached`, `mmu_set_cached`), `gpu3d_2d=1` il 2D sopra

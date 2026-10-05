@@ -394,6 +394,210 @@ static const uint32_t fs_tex_rgb_t[86] __attribute__((aligned(8))) = {
     0x009e7000, 0x500009e7,     /* nop                 ; nop           ; sbdone */
 };
 
+static const uint32_t fs_colour_t[42] __attribute__((aligned(8))) = {
+    0x009e7000, 0x100009e7,     /* nop                 ; nop */
+    0x009e7000, 0x100009e7,     /* nop                 ; nop */
+    0x153e7d80, 0x100208e7,     /* mov r3, ra15        ; nop */
+    0x158e7d80, 0x10020827,     /* mov r0, vary        ; nop */
+    0x209e7003, 0x100049e0,     /* fmul r0, r0, r3     ; nop */
+    0x818e7176, 0x10024821,     /* fadd r0, r0, r5     ; mov r1, vary */
+    0x209e700b, 0x100049e1,     /* fmul r1, r1, r3     ; nop */
+    0x818e7376, 0x10024862,     /* fadd r1, r1, r5     ; mov r2, vary */
+    0x209e7013, 0x100049e2,     /* fmul r2, r2, r3     ; nop */
+    0x819e7540, 0x114248a3,     /* fadd r2, r2, r5     ; mov r3.8a, r0 */
+    0x809e7009, 0x115049e3,     /* nop                 ; mov r3.8b, r1 */
+    0x809e7012, 0x116049e3,     /* nop                 ; mov r3.8c, r2 */
+    0x809e003f, 0xd17049e3,     /* nop                 ; mov r3.8d, 1.0 */
+    0x159e76c0, 0x60021067,     /* mov rb1, r3         ; nop           ; lthrsw */
+    0x009e7000, 0x100009e7,     /* nop                 ; nop */
+    0x009e7000, 0x100009e7,     /* nop                 ; nop */
+    0x009e7000, 0x400009e7,     /* nop                 ; nop           ; sbwait */
+    0x159cffc0, 0x10020b27,     /* mov tlb_z, rb15     ; nop */
+    0x159c1fc0, 0x30020ba7,     /* mov tlbc, rb1       ; nop           ; thrend */
+    0x009e7000, 0x100009e7,     /* nop                 ; nop */
+    0x009e7000, 0x500009e7,     /* nop                 ; nop           ; sbdone */
+};
+
+static const uint32_t fs_colour_screen_t[46] __attribute__((aligned(8))) = {
+    0x009e7000, 0x100009e7,     /* nop                 ; nop */
+    0x009e7000, 0x100009e7,     /* nop                 ; nop */
+    0x153e7d80, 0x100208e7,     /* mov r3, ra15        ; nop */
+    0x158e7d80, 0x10020827,     /* mov r0, vary        ; nop */
+    0x209e7003, 0x100049e0,     /* fmul r0, r0, r3     ; nop */
+    0x818e7176, 0x10024821,     /* fadd r0, r0, r5     ; mov r1, vary */
+    0x209e700b, 0x100049e1,     /* fmul r1, r1, r3     ; nop */
+    0x818e7376, 0x10024862,     /* fadd r1, r1, r5     ; mov r2, vary */
+    0x209e7013, 0x100049e2,     /* fmul r2, r2, r3     ; nop */
+    0x819e7540, 0x114248a3,     /* fadd r2, r2, r5     ; mov r3.8a, r0 */
+    0x809e7009, 0x115049e3,     /* nop                 ; mov r3.8b, r1 */
+    0x809e7012, 0x116049e3,     /* nop                 ; mov r3.8c, r2 */
+    0x809e003f, 0xd17049e3,     /* nop                 ; mov r3.8d, 1.0 */
+    0x159e76c0, 0x60021067,     /* mov rb1, r3         ; nop           ; lthrsw */
+    0x009e7000, 0x100009e7,     /* nop                 ; nop */
+    0x009e7000, 0x100009e7,     /* nop                 ; nop */
+    0x0ca69dc0, 0x10020827,     /* add r0, x_coord, y_coord ; nop */
+    0x149c11c0, 0xd00229e7,     /* and.setf nop, r0, 1 ; nop */
+    0x009e7000, 0x400009e7,     /* nop                 ; nop           ; sbwait */
+    0x159cffc0, 0x10040b27,     /* mov.ifz tlb_z, rb15 ; nop */
+    0x159c1fc0, 0x30040ba7,     /* mov.ifz tlbc, rb1   ; nop           ; thrend */
+    0x009e7000, 0x100009e7,     /* nop                 ; nop */
+    0x009e7000, 0x500009e7,     /* nop                 ; nop           ; sbdone */
+};
+
+static const uint32_t fs_tex_lit_alpha_t[50] __attribute__((aligned(8))) = {
+    0x009e7000, 0x100009e7,     /* nop                 ; nop */
+    0x009e7000, 0x100009e7,     /* nop                 ; nop */
+    0x153e7d80, 0x100208e7,     /* mov r3, ra15        ; nop */
+    0x158e7d80, 0x10020827,     /* mov r0, vary        ; nop */
+    0x209e7003, 0x100049e0,     /* fmul r0, r0, r3     ; nop */
+    0x019e7140, 0x10020827,     /* fadd r0, r0, r5     ; nop */
+    0x158e7d80, 0x10020867,     /* mov r1, vary        ; nop */
+    0x209e700b, 0x100049e1,     /* fmul r1, r1, r3     ; nop */
+    0x019e7340, 0x10020867,     /* fadd r1, r1, r5     ; nop */
+    0x159e7240, 0x10020e67,     /* mov t0t, r1         ; nop */
+    0x159e7000, 0x10020e27,     /* mov t0s, r0         ; nop */
+    0x158e7d80, 0x100208a7,     /* mov r2, vary        ; nop */
+    0x209e7013, 0x100049e2,     /* fmul r2, r2, r3     ; nop */
+    0x019e7540, 0x600208a7,     /* fadd r2, r2, r5     ; nop           ; lthrsw */
+    0x809e7012, 0x113049c1,     /* nop                 ; mov rb1.8888, r2 */
+    0x009e7000, 0x100009e7,     /* nop                 ; nop */
+    0x009e7000, 0x400009e7,     /* nop                 ; nop           ; sbwait */
+    0x009e7000, 0xa00009e7,     /* nop                 ; nop           ; ldtmu0 */
+    0x0e9cf9c0, 0xd00208a7,     /* shr r2, r4, 15      ; nop */
+    0x0e9c95c0, 0xd00229e7,     /* shr.setf nop, r2, 9 ; nop */
+    0x609c1027, 0x100049e0,     /* nop                 ; v8muld r0, r4, rb1 */
+    0x159cffc0, 0x10060b27,     /* mov.ifnz tlb_z, rb15 ; nop */
+    0x159e7000, 0x30060ba7,     /* mov.ifnz tlbc, r0   ; nop           ; thrend */
+    0x009e7000, 0x100009e7,     /* nop                 ; nop */
+    0x009e7000, 0x500009e7,     /* nop                 ; nop           ; sbdone */
+};
+
+static const uint32_t fs_tex_lit_screen_t[56] __attribute__((aligned(8))) = {
+    0x009e7000, 0x100009e7,     /* nop                 ; nop */
+    0x009e7000, 0x100009e7,     /* nop                 ; nop */
+    0x153e7d80, 0x100208e7,     /* mov r3, ra15        ; nop */
+    0x158e7d80, 0x10020827,     /* mov r0, vary        ; nop */
+    0x209e7003, 0x100049e0,     /* fmul r0, r0, r3     ; nop */
+    0x019e7140, 0x10020827,     /* fadd r0, r0, r5     ; nop */
+    0x158e7d80, 0x10020867,     /* mov r1, vary        ; nop */
+    0x209e700b, 0x100049e1,     /* fmul r1, r1, r3     ; nop */
+    0x019e7340, 0x10020867,     /* fadd r1, r1, r5     ; nop */
+    0x159e7240, 0x10020e67,     /* mov t0t, r1         ; nop */
+    0x159e7000, 0x10020e27,     /* mov t0s, r0         ; nop */
+    0x158e7d80, 0x100208a7,     /* mov r2, vary        ; nop */
+    0x209e7013, 0x100049e2,     /* fmul r2, r2, r3     ; nop */
+    0x019e7540, 0x600208a7,     /* fadd r2, r2, r5     ; nop           ; lthrsw */
+    0x809e7012, 0x113049c1,     /* nop                 ; mov rb1.8888, r2 */
+    0x009e7000, 0x100009e7,     /* nop                 ; nop */
+    0x0ca69dc0, 0x100208e7,     /* add r3, x_coord, y_coord ; nop */
+    0x149c17c0, 0xd00208e7,     /* and r3, r3, 1       ; nop */
+    0x0d9c17c0, 0xd00208e7,     /* sub r3, r3, 1       ; nop */
+    0x009e7000, 0x400009e7,     /* nop                 ; nop           ; sbwait */
+    0x009e7000, 0xa00009e7,     /* nop                 ; nop           ; ldtmu0 */
+    0x0e9cf9c0, 0xd00208a7,     /* shr r2, r4, 15      ; nop */
+    0x0e9c95c0, 0xd00208a7,     /* shr r2, r2, 9       ; nop */
+    0x749c14e7, 0x100269e0,     /* and.setf nop, r2, r3 ; v8muld r0, r4, rb1 */
+    0x159cffc0, 0x10060b27,     /* mov.ifnz tlb_z, rb15 ; nop */
+    0x159e7000, 0x30060ba7,     /* mov.ifnz tlbc, r0   ; nop           ; thrend */
+    0x009e7000, 0x100009e7,     /* nop                 ; nop */
+    0x009e7000, 0x500009e7,     /* nop                 ; nop           ; sbdone */
+};
+
+static const uint32_t fs_tex_rgb_alpha_t[86] __attribute__((aligned(8))) = {
+    0x009e7000, 0x100009e7,     /* nop                 ; nop */
+    0x009e7000, 0x100009e7,     /* nop                 ; nop */
+    0x158e7d80, 0x10020827,     /* mov r0, vary        ; nop */
+    0x203e7006, 0x100049e0,     /* fmul r0, r0, ra15   ; nop */
+    0x019e7140, 0x10020827,     /* fadd r0, r0, r5     ; nop */
+    0x158e7d80, 0x10020867,     /* mov r1, vary        ; nop */
+    0x203e700e, 0x100049e1,     /* fmul r1, r1, ra15   ; nop */
+    0x019e7340, 0x10020867,     /* fadd r1, r1, r5     ; nop */
+    0x159e7240, 0x10020e67,     /* mov t0t, r1         ; nop */
+    0x159e7000, 0x10020e27,     /* mov t0s, r0         ; nop */
+    0x158e7d80, 0x10020827,     /* mov r0, vary        ; nop */
+    0x203e7006, 0x100049e0,     /* fmul r0, r0, ra15   ; nop */
+    0x019e7140, 0x10020827,     /* fadd r0, r0, r5     ; nop */
+    0x958e7d80, 0x11424862,     /* mov r1, vary        ; mov r2.8a, r0 */
+    0x203e700e, 0x100049e1,     /* fmul r1, r1, ra15   ; nop */
+    0x019e7340, 0x10020867,     /* fadd r1, r1, r5     ; nop */
+    0x958e7d89, 0x11524822,     /* mov r0, vary        ; mov r2.8b, r1 */
+    0x203e7006, 0x100049e0,     /* fmul r0, r0, ra15   ; nop */
+    0x019e7140, 0x10020827,     /* fadd r0, r0, r5     ; nop */
+    0x958e7d80, 0x11624862,     /* mov r1, vary        ; mov r2.8c, r0 */
+    0x203e700e, 0x100049e1,     /* fmul r1, r1, ra15   ; nop */
+    0x019e7340, 0x10020867,     /* fadd r1, r1, r5     ; nop */
+    0x958e7d89, 0x11424823,     /* mov r0, vary        ; mov r3.8a, r1 */
+    0x203e7006, 0x100049e0,     /* fmul r0, r0, ra15   ; nop */
+    0x019e7140, 0x10020827,     /* fadd r0, r0, r5     ; nop */
+    0x958e7d80, 0x11524863,     /* mov r1, vary        ; mov r3.8b, r0 */
+    0x203e700e, 0x100049e1,     /* fmul r1, r1, ra15   ; nop */
+    0x019e7340, 0x10020867,     /* fadd r1, r1, r5     ; nop */
+    0x809e7009, 0x116049e3,     /* nop                 ; mov r3.8c, r1 */
+    0x809e003f, 0xd17049e2,     /* nop                 ; mov r2.8d, 1.0 */
+    0x809c003f, 0xd17049e3,     /* nop                 ; mov r3.8d, 0 */
+    0x959e749b, 0x60024041,     /* mov ra1, r2         ; mov rb1, r3   ; lthrsw */
+    0x009e7000, 0x100009e7,     /* nop                 ; nop */
+    0x009e7000, 0x100009e7,     /* nop                 ; nop */
+    0x009e7000, 0x400009e7,     /* nop                 ; nop           ; sbwait */
+    0x009e7000, 0xa00009e7,     /* nop                 ; nop           ; ldtmu0 */
+    0x6e04f9e6, 0xd0024860,     /* shr r1, r4, 15      ; v8muld r0, r4, ra1 */
+    0xce9c93c0, 0xd00269e0,     /* shr.setf nop, r1, 9 ; v8adds r0, r0, r0 */
+    0xc09c1007, 0x100049e0,     /* v8adds r0, r0, rb1  ; nop */
+    0x159cffc0, 0x10060b27,     /* mov.ifnz tlb_z, rb15 ; nop */
+    0x159e7000, 0x30060ba7,     /* mov.ifnz tlbc, r0   ; nop           ; thrend */
+    0x009e7000, 0x100009e7,     /* nop                 ; nop */
+    0x009e7000, 0x500009e7,     /* nop                 ; nop           ; sbdone */
+};
+
+static const uint32_t fs_tex_rgb_screen_t[92] __attribute__((aligned(8))) = {
+    0x009e7000, 0x100009e7,     /* nop                 ; nop */
+    0x009e7000, 0x100009e7,     /* nop                 ; nop */
+    0x158e7d80, 0x10020827,     /* mov r0, vary        ; nop */
+    0x203e7006, 0x100049e0,     /* fmul r0, r0, ra15   ; nop */
+    0x019e7140, 0x10020827,     /* fadd r0, r0, r5     ; nop */
+    0x158e7d80, 0x10020867,     /* mov r1, vary        ; nop */
+    0x203e700e, 0x100049e1,     /* fmul r1, r1, ra15   ; nop */
+    0x019e7340, 0x10020867,     /* fadd r1, r1, r5     ; nop */
+    0x159e7240, 0x10020e67,     /* mov t0t, r1         ; nop */
+    0x159e7000, 0x10020e27,     /* mov t0s, r0         ; nop */
+    0x158e7d80, 0x10020827,     /* mov r0, vary        ; nop */
+    0x203e7006, 0x100049e0,     /* fmul r0, r0, ra15   ; nop */
+    0x019e7140, 0x10020827,     /* fadd r0, r0, r5     ; nop */
+    0x958e7d80, 0x11424862,     /* mov r1, vary        ; mov r2.8a, r0 */
+    0x203e700e, 0x100049e1,     /* fmul r1, r1, ra15   ; nop */
+    0x019e7340, 0x10020867,     /* fadd r1, r1, r5     ; nop */
+    0x958e7d89, 0x11524822,     /* mov r0, vary        ; mov r2.8b, r1 */
+    0x203e7006, 0x100049e0,     /* fmul r0, r0, ra15   ; nop */
+    0x019e7140, 0x10020827,     /* fadd r0, r0, r5     ; nop */
+    0x958e7d80, 0x11624862,     /* mov r1, vary        ; mov r2.8c, r0 */
+    0x203e700e, 0x100049e1,     /* fmul r1, r1, ra15   ; nop */
+    0x019e7340, 0x10020867,     /* fadd r1, r1, r5     ; nop */
+    0x958e7d89, 0x11424823,     /* mov r0, vary        ; mov r3.8a, r1 */
+    0x203e7006, 0x100049e0,     /* fmul r0, r0, ra15   ; nop */
+    0x019e7140, 0x10020827,     /* fadd r0, r0, r5     ; nop */
+    0x958e7d80, 0x11524863,     /* mov r1, vary        ; mov r3.8b, r0 */
+    0x203e700e, 0x100049e1,     /* fmul r1, r1, ra15   ; nop */
+    0x019e7340, 0x10020867,     /* fadd r1, r1, r5     ; nop */
+    0x809e7009, 0x116049e3,     /* nop                 ; mov r3.8c, r1 */
+    0x809e003f, 0xd17049e2,     /* nop                 ; mov r2.8d, 1.0 */
+    0x809c003f, 0xd17049e3,     /* nop                 ; mov r3.8d, 0 */
+    0x959e749b, 0x60024041,     /* mov ra1, r2         ; mov rb1, r3   ; lthrsw */
+    0x009e7000, 0x100009e7,     /* nop                 ; nop */
+    0x009e7000, 0x100009e7,     /* nop                 ; nop */
+    0x0ca69dc0, 0x10020867,     /* add r1, x_coord, y_coord ; nop */
+    0x149c13c0, 0xd0020867,     /* and r1, r1, 1       ; nop */
+    0x0d9c13c0, 0xd00200a7,     /* sub ra2, r1, 1      ; nop */
+    0x009e7000, 0x400009e7,     /* nop                 ; nop           ; sbwait */
+    0x009e7000, 0xa00009e7,     /* nop                 ; nop           ; ldtmu0 */
+    0x6e04f9e6, 0xd0024860,     /* shr r1, r4, 15      ; v8muld r0, r4, ra1 */
+    0xce9c93c0, 0xd0024860,     /* shr r1, r1, 9       ; v8adds r0, r0, r0 */
+    0xd4081387, 0x100269e0,     /* and.setf nop, r1, ra2 ; v8adds r0, r0, rb1 */
+    0x159cffc0, 0x10060b27,     /* mov.ifnz tlb_z, rb15 ; nop */
+    0x159e7000, 0x30060ba7,     /* mov.ifnz tlbc, r0   ; nop           ; thrend */
+    0x009e7000, 0x100009e7,     /* nop                 ; nop */
+    0x009e7000, 0x500009e7,     /* nop                 ; nop           ; sbdone */
+};
+
 static const uint32_t vs_tex_rgb[246] __attribute__((aligned(8))) = {
     0x00801a00, 0xe0020c67,     /* ldi vr_setup, 0x801a00 */
     0x00001a00, 0xe0021c67,     /* ldi vw_setup, 0x1a00 */

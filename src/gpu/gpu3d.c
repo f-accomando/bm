@@ -18,7 +18,7 @@
 #define JOB_RCL      (128u << 10)   /* up to 44 bytes a tile: 2040 tiles (1080p with MSAA) */
 #define JOB_RECS     (64u << 10)    /* shader records: NV 16 bytes, GL 64 */
 #define JOB_UNIF     (256u << 10)   /* uniforms of the vertex shaders (a hero: one block a bone) */
-#define JOB_CODE     (32u << 10)    /* the shaders: 1 KiB each, 2 KiB for a vertex shader */
+#define JOB_CODE     (40u << 10)    /* the shaders: 1 KiB each, 2 KiB for a vertex shader */
 #define JOB_VERTS    (4u << 20)
 #define PROBE_W      64
 #define PROBE_H      64
@@ -54,7 +54,8 @@ typedef struct {
 #define VMAX_BYTES ((uint32_t)JOB_VERTS - 21u * (uint32_t)VSTRIDE(8))   /* room for a clipped triangle */
 
 enum { SH_COLOUR, SH_TEX, SH_TEX_ALPHA, SH_SCREEN, SH_TEX_RGB, SH_TEX_RGB_ALPHA, SH_ZCLEAR, SH_TEX_SCREEN,
-       SH_TEX_RGB_SCREEN, SH_TEX2D, SH_TEXT, SH_TEX_T, SH_TEX_RGB_T, SH_COUNT };
+       SH_TEX_RGB_SCREEN, SH_TEX2D, SH_TEXT, SH_TEX_T, SH_TEX_RGB_T,
+       SH_COLOUR_T, SH_SCREEN_T, SH_TEX_ALPHA_T, SH_TEX_SCREEN_T, SH_TEX_RGB_ALPHA_T, SH_TEX_RGB_SCREEN_T, SH_COUNT };
 #define DEPTH_ZCLEAR 3                  /* after R3D_DEPTH_*: always passes, writes (fs_zclear) */
 /* the vertex shaders of meshes (M36); GV_LIT_TEX2: faces on two bones (a skin) */
 enum { GV_BAKED, GV_TEX_RGB, GV_LIT, GV_LIT_TEX, GV_LIT_TEX2, GV_COUNT };
@@ -86,6 +87,12 @@ static const struct { const uint32_t *code; size_t size; uint8_t uniforms, varyi
     { fs_text, sizeof fs_text, 2, 5, 1, 1 },                    /* M37: text */
     { fs_tex_lit_t, sizeof fs_tex_lit_t, 2, 3, 0, 0 },          /* M39: SH_TEX, SH_TEX_RGB with two threads */
     { fs_tex_rgb_t, sizeof fs_tex_rgb_t, 2, 8, 0, 0 },
+    { fs_colour_t, sizeof fs_colour_t, 0, 3, 0, 0 },          /* bm3d 6.3: the others with two threads */
+    { fs_colour_screen_t, sizeof fs_colour_screen_t, 0, 3, 1, 0 },
+    { fs_tex_lit_alpha_t, sizeof fs_tex_lit_alpha_t, 2, 3, 1, 0 },
+    { fs_tex_lit_screen_t, sizeof fs_tex_lit_screen_t, 2, 3, 1, 0 },
+    { fs_tex_rgb_alpha_t, sizeof fs_tex_rgb_alpha_t, 2, 8, 1, 0 },
+    { fs_tex_rgb_screen_t, sizeof fs_tex_rgb_screen_t, 2, 8, 1, 0 },
 };
 
 /* a sprite sheet as a texture: RGBA32R (raster order, 32 bits a texel) in
@@ -591,10 +598,13 @@ static void config(int faces, uint16_t cfg)
 {
     /* early z: never after a zclear() quad in the job (its depth, written
      * farther by the shader, is not the early test's: what comes after
-     * would be thrown away, as the Pi showed on 2026-10-05), never with
-     * MSAA (Mesa, HW-2905: after a load the early z tracking may hold the
-     * previous tile's values) */
-    if (G.zc || G.ms)
+     * would be thrown away, as the Pi showed on 2026-10-05), and with MSAA
+     * not in a job that loads the page (Mesa, HW-2905: after a full
+     * resolution load the early z tracking may hold the previous tile's
+     * values). Whether it loads is known now: what changes the page
+     * (gpu3d_page(0)) comes after a flush; v0.2.3 kept it in every MSAA job,
+     * bm3d 6.2 in none (Overbit at 1080p with AA lost a third) */
+    if (G.zc || (G.ms && !G.page_uniform))
         cfg &= (uint16_t)~(V3D_CFG_EARLY_Z | V3D_CFG_EARLY_Z_UPDATE);
     const int key = (faces | (G.ms ? V3D_CFG_MSAA4 : 0)) << 16 | cfg;
     if (G.cfg != key) {
@@ -659,9 +669,19 @@ static void sort_flush(void)
  * during the TMU's reads) */
 static inline int fs_code(int shader)
 {
-    if (G.fs2_on && G.fs2_ok)
-        return shader == SH_TEX ? SH_TEX_T : shader == SH_TEX_RGB ? SH_TEX_RGB_T : shader;
-    return shader;
+    if (!G.fs2_on || !G.fs2_ok)
+        return shader;
+    switch (shader) {
+    case SH_TEX: return SH_TEX_T;
+    case SH_TEX_RGB: return SH_TEX_RGB_T;
+    case SH_COLOUR: return SH_COLOUR_T;         /* bm3d 6.3 */
+    case SH_SCREEN: return SH_SCREEN_T;
+    case SH_TEX_ALPHA: return SH_TEX_ALPHA_T;
+    case SH_TEX_SCREEN: return SH_TEX_SCREEN_T;
+    case SH_TEX_RGB_ALPHA: return SH_TEX_RGB_ALPHA_T;
+    case SH_TEX_RGB_SCREEN: return SH_TEX_RGB_SCREEN_T;
+    default: return shader;                     /* zclear, 2D: one thread */
+    }
 }
 
 /* the record's flag byte for the fragment shader: "single-threaded" (bit
@@ -672,7 +692,7 @@ static inline int fs_code(int shader)
  * 2026-10-05) */
 static inline uint8_t fs_flags(int code)
 {
-    return code == SH_TEX_T || code == SH_TEX_RGB_T ? 0 : 1;
+    return code >= SH_TEX_T ? 0 : 1;            /* the _T shaders are the last ones */
 }
 
 /* 0, or -1 if the job is full */
@@ -3093,10 +3113,14 @@ static int probe_fs2(const g16_t *pg, const tex_t *pt)
             G.fs2_ok = G.fs2_on = two;
             memset(G.probe, 0, JOB_PROBE);
             add_tri(pg, a, kind, pt, 0, sh, 0);
-            /* single-threaded shaders in the same job, as in a game (the
-             * Pi hung on that mix when their records said them threaded) */
-            add_tri(pg, b, R3D_KIND_TEXTURE, pt, 0, SH_TEX_ALPHA, 0);
+            /* every shader FS2 changes (bm3d 6.3), mixed in one job as in a
+             * game, and one that stays single-threaded (the Pi hung on such
+             * a mix when the records said them all threaded) */
+            add_tri(pg, b, kind, pt, 0, rgb ? SH_TEX_RGB_ALPHA : SH_TEX_ALPHA, 0);
             add_tri(pg, a, R3D_KIND_COLOUR, NULL, R3D_DEPTH_TEST, SH_COLOUR, 0);
+            add_tri(pg, b, R3D_KIND_SCREEN, NULL, R3D_DEPTH_TEST, SH_SCREEN, 0);
+            add_tri(pg, a, kind, pt, R3D_DEPTH_TEST, rgb ? SH_TEX_RGB_SCREEN : SH_TEX_SCREEN, 0);
+            add_tri(pg, b, R3D_KIND_TEXTURE, pt, R3D_DEPTH_TEST, SH_TEX2D, 0);
             add_tri(pg, b, kind, pt, 0, sh, 0);
             const int r = gpu3d_flush(pg, 0);
             G.fs2_ok = G.fs2_on = 0;
@@ -3111,8 +3135,9 @@ static int probe_fs2(const g16_t *pg, const tex_t *pt)
                 differ += G.probe[i] != ref[i];
             if (differ) {
                 char line[120];
-                ksnprintf(line, sizeof line, "the two-thread shaders: %d pixels of %s differ (they stay off)", differ,
-                          rgb ? "fs_tex_rgb" : "fs_tex_lit");
+                ksnprintf(line, sizeof line, "the two-thread shaders: %d pixels differ with %s (they stay off)", differ,
+                          rgb ? "fs_tex_rgb and its alpha and screen-door shaders"
+                              : "fs_tex_lit, fs_colour and their alpha and screen-door shaders");
                 plog(line);
                 return 0;
             }
