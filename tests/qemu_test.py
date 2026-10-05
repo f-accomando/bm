@@ -3099,8 +3099,8 @@ def test_market(b, opts):
 
             keys("1")                                   # the Market tab: placeholders first
             screen(["Loading the Market..."])
-            img_ = q.screendump()
-            assert tabs_lit(img_) == ["Market"], tabs_lit(img_)
+            lit = img_tabs(q, ["Market"])       # the pills slide in: a frame may be half drawn
+            assert lit == ["Market"], lit
             shot("loading")
             q.expect("market: sd:/market/, no catalog saved", timeout=10)
             q.expect("market: catalog 20261001120000, 4 games", timeout=15)
