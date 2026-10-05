@@ -1344,7 +1344,8 @@ Decisioni 2026-10-01 (prima in M25 "store" e M26 "market", ora una cosa sola):
   - il Market scrive solo in `/carts` (i giochi) e in `/bm/market` (la cache);
   - le cartucce della SD scrivono solo file `.bm` in `/carts` e i loro salvataggi: prima
     `cart_save` e `cart_write` accettavano qualunque percorso (anche `/kernel.img`);
-  - le cartucce Lua non hanno funzioni di rete né `io`/`os`; il codice ARM nativo (M13)
+  - le cartucce Lua non hanno `io`/`os` (la rete UDP sì, dal 2026-10, per i giochi online:
+    `bmnet`); il codice ARM nativo (M13)
     non ci sarà mai nel Market.
 - **Licenze**: il campo licenza è obbligatorio. La BM Community License vale per bm e per
   i giochi del progetto, non per i contenuti degli utenti; attenzione a CC BY-NC-SA (uso
@@ -1382,10 +1383,12 @@ Passi:
    giochi, il catalogo riletto da GitHub Pages; le volte dopo solo i giochi). Due errori
    trovati al primo giro vero: Pad Typing senza licenza in `market/about.txt` e Pages
    spento letto come "costruito da un branch" (404).
-   - Da decidere prima dei giochi di altri: oggi una cartuccia scaricata può riscrivere il
-     codice degli altri `.bm` in `/carts` (`cart_write`), mandare report col `github_token`
-     della console (`report()`), usare la chiave Meshy (`picture3d`) e l'UDP verso
-     qualunque indirizzo (la rete serve a `bmnet`; il README del market dice "no network").
+   - Permessi delle cartucce (decisione dell'utente, 2026-10-05): un gioco scrive solo `.bm`
+     **nuovi** in `/carts` (cambiare un `.bm` che c'è, cioè un altro gioco, è degli strumenti
+     di bm) e non usa i servizi con le chiavi della console (`picture3d`, la chiave Meshy):
+     `test_cart_write_limits`. Da decidere: `report()` (manda con il `github_token`) e la
+     rete UDP (serve ai giochi online, `bmnet`). Nessun limite di dimensione per i `.bm`
+     (decisione dell'utente): solo i 100 MiB per file di GitHub; i limiti saranno del `.b16`.
 6. ✅ (PC, `make test-github`; QEMU, `test_publish`) **Pubblicazione dal Pi**: X su un
    gioco della SD, *Publish to the Market* (`src/kernel/publish.c`): cartella (del catalogo
    se il gioco c'è già, se no dal nome del file), versione (la data), licenza a scelta,

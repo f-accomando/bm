@@ -38,7 +38,7 @@ games/my-game/info.txt       version, license, about
   console shows and what names the save file, so keep them the same across
   versions, and two games cannot share both.
 - **Updating a game**: the same folder, the new `.bm`, a new `version`.
-- At most 8 MiB per cartridge.
+- A `.bm` has no size limit of its own; GitHub refuses files over 100 MiB.
 
 The check of the pull request (`mkmarket.py --check`) says what is wrong.
 Once the pull request is merged the catalog is built again, signed and
@@ -61,9 +61,11 @@ python3 ../bm/scripts/mkmarket.py games --add my-game.bm --version 1.0 --license
   GitHub Pages.
 - The console checks the signature with the Market key built into its
   kernel (`keys/market-pub.pem` in bm), then each file with its SHA-256,
-  before it writes anything to the SD card. Games written by others run in
-  bm's sandbox: Lua only, no network, and they can write only `.bm` files in
-  `/carts` and their own save.
+  before it writes anything to the SD card. Every game runs in bm's sandbox:
+  Lua only; it writes only its own save and new `.bm` files in `/carts`
+  (never one that is there, another game); it cannot read the console's
+  settings, so never its keys or passwords, nor use the services that spend
+  them. Online games talk over the network (UDP), as the console's own do.
 - The repository is public on purpose: the consoles download without an
   account, and authors propose games from their forks.
 

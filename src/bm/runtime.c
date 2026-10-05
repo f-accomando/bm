@@ -4236,11 +4236,23 @@ static int write_refused(lua_State *L, const char *path)
     size_t n = strlen(name);
     int ok = name[0] && name[0] != '.' && !strchr(name, '/') && !strchr(name, '\\') &&
              n > 3 && (name[n - 3] == '.') && (name[n - 2] | 32) == 'b' && (name[n - 1] | 32) == 'm';
-    if (ok)
-        return 0;
-    lua_pushboolean(L, 0);
-    lua_pushfstring(L, "%s: a cartridge writes only .bm files in /carts", path);
-    return -1;
+    if (!ok) {
+        lua_pushboolean(L, 0);
+        lua_pushfstring(L, "%s: a cartridge writes only .bm files in /carts", path);
+        return -1;
+    }
+    /* and only new ones: a game does not change another (one from the
+     * Market could rewrite the code of every game on the card, 2026-10-05);
+     * bm's own tools can */
+    char full[96];
+    fat_entry_t e;
+    ksnprintf(full, sizeof full, "/carts/%s", name);
+    if (fat_find(full, &e) == 0) {
+        lua_pushboolean(L, 0);
+        lua_pushfstring(L, "%s: a cartridge cannot change a .bm that is there already (bm's tools can)", path);
+        return -1;
+    }
+    return 0;
 }
 
 int bm_take_tool(char *name, size_t n)
@@ -5019,6 +5031,13 @@ static int l_picture3d(lua_State *L)
 {
     const char *action = luaL_checkstring(L, 1);
     char err[160];
+    /* the services go out with the user's keys (meshy_key): bm's own tools
+     * only, never a game (one from the Market could spend them, 2026-10-05) */
+    if (!tool_mode && strcmp(action, "providers") != 0) {
+        lua_pushnil(L);
+        lua_pushstring(L, "the picture services are for bm's tools only");
+        return 2;
+    }
     if (strcmp(action, "providers") == 0) {
         lua_newtable(L);
         for (int i = 0; img3d_provider_name(i); i++) {

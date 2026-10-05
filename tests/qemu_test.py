@@ -1527,7 +1527,13 @@ function _init()
     local ok, err = cart_save(p, code)
     log("save", p, ok, err)
   end
-  local ok, err = cart_write("/kernel.img", { lua = "x" , from = "/carts/ok.bm" })
+  local ok, err = cart_save("/carts/ok.bm", code)   -- there now: a game does not change it
+  log("again", ok, err)
+  ok, err = cart_write("ok2.bm", { lua = "x" })
+  log("change", ok, err)
+  ok, err = picture3d("ready", "meshy")
+  log("picture", ok, err)
+  ok, err = cart_write("/kernel.img", { lua = "x" , from = "/carts/ok.bm" })
   log("write", ok, err)
   ok, err = cart_put_audio("/bm/config.txt", nil)
   log("audio", ok, err)
@@ -1538,8 +1544,10 @@ end
 
 def test_cart_write_limits(b, opts):
     """M25 (Market): a cartridge from the SD card or the Market writes only
-    .bm files in /carts; the kernel, the settings and other folders are
-    refused (the tools built into the kernel still save anywhere)."""
+    new .bm files in /carts (not one that is there: another game); the
+    kernel, the settings and other folders are refused, and so are the
+    picture services with the user's keys (the tools built into the kernel
+    still save anywhere and use them)."""
     tmp = tempfile.mkdtemp(prefix="bm-wlim-")
     img = os.path.join(tmp, "sd.img")
     cfg = os.path.join(tmp, "config.txt")
@@ -1558,6 +1566,9 @@ def test_cart_write_limits(b, opts):
             assert f"save\t{p}\tfalse\t{p}: a cartridge writes only .bm files in /carts" in text, text
         assert "save\t/carts/ok.bm\ttrue" in text, text
         assert "save\tok2.bm\ttrue" in text, text
+        assert "again\tfalse\t/carts/ok.bm: a cartridge cannot change a .bm that is there" in text, text
+        assert "change\tfalse\tok2.bm: a cartridge cannot change a .bm that is there" in text, text
+        assert "picture\tnil\tthe picture services are for bm's tools only" in text, text
         assert "write\tfalse\t/kernel.img: a cartridge writes only" in text, text
         assert "audio\tfalse\t/bm/config.txt: a cartridge writes only" in text, text
         q.expect("> ", timeout=10)
