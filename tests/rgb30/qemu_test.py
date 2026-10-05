@@ -712,9 +712,10 @@ def test_market_b16(b, opts):
 def test_battery_icon(b, opts):
     """The battery at the right end of the bar (the user, 2026-10-05): four
     bars from 75%, fewer below, red under 10%, a bolt on the charger (over
-    the outline's top); Settings > System says the charge. QEMU has no
-    battery: test_battery=mV[,charger] in bm/config.txt gives one
-    (plat_virt.c)."""
+    the outline's top); Settings > System says the charge. Nothing else on
+    the bar without a network: no icons of controllers, mice and keyboards
+    on the RGB30 (the user, 2026-10-05). QEMU has no battery:
+    test_battery=mV[,charger] in bm/config.txt gives one (plat_virt.c)."""
     x0, x1, y0 = SCREEN - 16 - 27, SCREEN - 16, 12        # menu_ui.c: status_icons
 
     def look(config, settings=False):
@@ -725,6 +726,10 @@ def test_battery_icon(b, opts):
             time.sleep(0.5)
             img = q.screendump()
             white = red = top = 0
+            for y in range(y0, y0 + 25):                # left of it: no icon (the pad was there)
+                for x in range(x0 - 72, x0 - 4):
+                    r, g_, bl = pixel(img, x, y)
+                    assert not (r > 200 and g_ > 200 and bl > 200), f"an icon at {x},{y} ({config})"
             for y in range(y0, y0 + 18):
                 for x in range(x0, x1):
                     r, g_, bl = pixel(img, x, y)

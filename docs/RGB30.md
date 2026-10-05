@@ -162,7 +162,8 @@ prima di accendere lo schermo e il registro si scrive tre volte (prima dello sch
   suono non ancora), Updates, Reports, System (versione, memoria, SD, batteria, il log, riavvio,
   spegnimento). Solo il controller: L1/R1 le schede (senza fare il giro, come sul Pi), la croce
   le copertine e le righe, **B** apre e **A** torna indietro (`confirm=a` li scambia, anche nei
-  suggerimenti). A destra della barra il pad, la rete e la **batteria** (dal 2026-10-05): quattro
+  suggerimenti). A destra della barra solo la rete e la **batteria** (dal 2026-10-05; niente icone
+  di controller, mouse e tastiere, decisione dell'utente): quattro
   tacche dal 75% in su, una in meno ogni 25%, vuota e rossa sotto il 10%, un fulmine sul
   caricatore; la carica viene dalla tensione (0% a 3,45 V, quando il LED avvisa, 100% a 4,18 V),
   scritta anche in *Settings > System > Battery*. Sul caricatore la tensione sale: lì la

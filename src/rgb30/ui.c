@@ -703,15 +703,8 @@ void ui_home(framebuffer_t *f)
             .prompts = MENU_PROMPTS_PAD, .confirm_b = pad_ok == PAD_B, .no_monitor = 1,
             .idle = on_market ? market_tick : NULL,
         };
-        /* the bar: the console's own controls are player 1 (blue when a
-         * Bluetooth pad plays with them), a keyboard, the WiFi */
-        v.dev[0] = MENU_DEV_PAD;
-        if (bt_pads())
-            v.bt |= 1;
-        if (bt_keyboard()) {
-            v.dev[1] = MENU_DEV_KEYBOARD;
-            v.bt |= 2;
-        }
+        /* the bar: the WiFi and the battery only; no icons of the
+         * controllers, mice and keyboards (the user, 2026-10-05) */
         v.net = wifi_linked() ? MENU_NET_WIFI : MENU_NET_NONE;
         v.net_wait = !net_ip();
         details[0] = 0;

@@ -3022,7 +3022,8 @@ ms disegnando diretto, 7,30 ms via RAM (sul Pi 8,58 e 11,85).
 
 **Dopo la chiusura (2026-10-05, branch `claude/rgb30-market`).** La scheda Market (M25, passo
 8) e la **batteria sulla barra** (richiesta dell'utente): quattro tacche dal 75%, rossa sotto il
-10%, il fulmine sul caricatore, la carica dalla tensione del RK817 (`battery_percent`) anche in
+10%, il fulmine sul caricatore (sulla barra della RGB30 solo WiFi e batteria: niente icone di
+controller, mouse e tastiere, decisione dell'utente), la carica dalla tensione del RK817 (`battery_percent`) anche in
 *Settings > System*; le schede non passano più sotto le icone. Prove: `test_battery_icon`
 (QEMU, `test_battery=` in `bm/config.txt`); sulla console da vedere.
 

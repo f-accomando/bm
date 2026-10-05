@@ -258,7 +258,8 @@ screenshot in `docs/img/`), `README_OLD.md` (il README completo, in italiano),
   pagine dietro le voci sono ancora sulla console. **Market** (decisione dell'utente,
   2026-10-05): lo stesso `market.c` del Pi nelle fibre (`src/rgb30/fiber.S`, AArch64), solo i
   `.b16` del catalogo, scaricati in `bm/` (`GAMES_DIR`); `carts_find_title`/`carts_has_path`
-  in `ui.c`; test `test_market_b16`. Sulla barra la **batteria** (richiesta dell'utente): 4
+  in `ui.c`; test `test_market_b16`. Sulla barra solo il WiFi e la **batteria** (richieste
+  dell'utente, 2026-10-05: niente icone di controller, mouse e tastiere): 4
   tacche dal 75%, rossa sotto il 10%, il fulmine sul caricatore (`icon_battery` in `icons.c`,
   `battery_percent` in `plat.h`, la carica anche in *Settings > System*); in QEMU
   `test_battery=mV[,stato]` in `bm/config.txt` (`plat_virt.c`), test `test_battery_icon`. Le
