@@ -937,3 +937,7 @@ screenshot in `docs/img/`), `README_OLD.md` (il README completo, in italiano),
   (`~~M12 — ...~~`). Dopo la lista, a parte, una riga **In corso** con le sole milestone su
   cui si sta lavorando (quelle "in corso" in `docs/ROADMAP.md` o toccate nelle ultime
   sessioni), per distinguerle da quelle aperte ma ferme o ancora da fare.
+- Quando l'utente chiede le milestone (decisione dell'utente, 2026-10-05) la lista è **sempre
+  in versione breve**, come sopra: per ciascuna numero, nome, una descrizione di una riga e lo
+  stato. Solo se ne chiede **una sola** (es. "com'è M36?") quella va in dettaglio: cosa è
+  fatto, cosa manca, le misure sul Pi e i prossimi passi.
