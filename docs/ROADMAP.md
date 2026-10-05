@@ -1370,17 +1370,22 @@ Passi:
    (Download again, Delete); uscire dalla scheda interrompe il lavoro. Sorgente:
    `market_url` (HTTPS) o una cartella della SD (`sd:/market/`, usata dal test in QEMU, dove
    non c'è rete); `bm/market.pem` aggiunge una chiave.
-   - **Da verificare sul Pi**: catalogo e copertine da GitHub Pages via WiFi (certificati
-     di `f-accomando.github.io`: se manca una radice in `bm/ca.pem` l'errore lo dice), menu
-     a 60 fps durante i download (l'handshake TLS è calcolo puro: forse qualche frame
-     perso), un gioco scaricato che parte.
-5. 🛠 **Repository del market**: modello in `market/` (README con le regole, workflow che
-   controlla le pull request e pubblica il catalogo firmato con GitHub Pages, descrizioni
-   dei giochi), `make market-seed`. `f-accomando/bm-market` c'è (pubblico, vuoto). Manca
-   la preparazione, che fa `scripts/market.sh` (`easy_install` m, 2026-10-05: chiave, secret
-   `BM_MARKET_KEY`, chiave pubblica su `bm-core`, Pages dal workflow, i 12 giochi del
-   progetto, il catalogo riletto da GitHub Pages; provato sul PC con un GitHub finto), poi
-   un kernel con la chiave sul Pi.
+   - Sul Pi (2026-10-05, kernel `54d60b9`): il catalogo arriva da GitHub Pages via WiFi e la
+     firma torna con la chiave nel kernel ("catalog saved on the SD card", niente "no key").
+   - **Da verificare sul Pi**: le copertine, un gioco scaricato che parte, il menu a 60 fps
+     durante i download (l'handshake TLS è calcolo puro: forse qualche frame perso).
+5. ✅ (2026-10-05) **Repository del market**: modello in `market/` (README con le regole,
+   workflow che controlla le pull request e pubblica il catalogo firmato con GitHub Pages,
+   descrizioni dei giochi), `make market-seed`. `f-accomando/bm-market` è in linea con i 12
+   giochi del progetto: la preparazione l'ha fatta `scripts/market.sh` (`easy_install` m:
+   chiave, secret `BM_MARKET_KEY`, chiave pubblica su `bm-core`, Pages dal workflow, i
+   giochi, il catalogo riletto da GitHub Pages; le volte dopo solo i giochi). Due errori
+   trovati al primo giro vero: Pad Typing senza licenza in `market/about.txt` e Pages
+   spento letto come "costruito da un branch" (404).
+   - Da decidere prima dei giochi di altri: oggi una cartuccia scaricata può riscrivere il
+     codice degli altri `.bm` in `/carts` (`cart_write`), mandare report col `github_token`
+     della console (`report()`), usare la chiave Meshy (`picture3d`) e l'UDP verso
+     qualunque indirizzo (la rete serve a `bmnet`; il README del market dice "no network").
 6. ✅ (PC, `make test-github`; QEMU, `test_publish`) **Pubblicazione dal Pi**: X su un
    gioco della SD, *Publish to the Market* (`src/kernel/publish.c`): cartella (del catalogo
    se il gioco c'è già, se no dal nome del file), versione (la data), licenza a scelta,
@@ -1396,6 +1401,8 @@ Passi:
    gioco solo con lo SHA-256 annunciato; se i byte sono un gioco del catalogo vale come
    scaricato dal market ("checked"), se no "from friends only". Una console occupata
    risponde "busy"; uscire dalla scheda chiude tutto.
+   - Sul Pi (2026-10-05): con la scheda Market aperta la console si annuncia ("nearby
+     consoles: listening as bm-108").
    - **Da verificare sul Pi**: due console sulla stessa rete (Pi Zero W e Pi 1 B) si
      vedono e si mandano un gioco.
 
