@@ -1,0 +1,39 @@
+bm report
+kind: stress
+kernel: v0.2.0
+branch: bm-core
+board: Pi Zero W
+date: 2026-10-05 08:32:08
+file: 20261005-083208_stress_pi-zero-w_v0.2.0.txt
+
+stress test: 640x360 RGB565, 20 frames per step, draw + copy to screen
+before: ARM 1000 MHz, core 250 (max 400), V3D 250, SDRAM 400 MHz, 47.6 C
+  throttled 00000, loop 18.10 ms, irq 0.5% (1188/s; DMA 0.5%, timer 0.0%)
+after C part: ARM 1000 MHz, core 250 (max 400), V3D 250, SDRAM 400 MHz, 52.9 C
+  throttled 00000, loop 18.10 ms, irq 0.5% (1188/s; DMA 0.5%, timer 0.0%)
+3D rows: ARM as bm3d 0.2, GPU as 2.1, GPU+VS as 3.4 (drivers bm3d 4.2, M38)
+test (max per frame)              60 fps          30 fps     us/item
+sprites 16x16 (C)                   4454            9200      3.51 spr
+sprites 32x32 (C)                   1501            3108     10.37 spr
+triangles 2D ~170px                 4726            9777      3.29 tri
+3D spheres 96 (C)          63 (2451 tri)  201 (7910 tri)    128.01 obj
+3D smooth (Gouraud)         25 (990 tri)   99 (3846 tri)    212.54 obj
+3D textured                           <1   50 (1910 tri)    259.37 obj
+quad 320x180 flat                     11              25   1251.84 q  22 ns/px
+quad 320x180 no z                     52             113    276.26 q   5 ns/px
+quad 320x180 Gouraud                   6              13   2373.96 q  41 ns/px
+quad 320x180 texture                   3               6   4686.13 q  81 ns/px
+GPU spheres 96            207 (8131 tri) 433 (17115 tri)     73.02 obj
+GPU smooth (Gouraud)      159 (6224 tri) 334 (13178 tri)     94.38 obj
+GPU textured              165 (6465 tri) 347 (13675 tri)     90.64 obj
+GPU quad flat                        203             428     74.23 q   1 ns/px
+GPU quad Gouraud                     199             419     75.74 q   1 ns/px
+GPU quad texture                      91             193    163.25 q   3 ns/px
+GPU spheres AA 4x         204 (8043 tri) 429 (16963 tri)     73.53 obj
+GPU quad AA 4x                       199             420     75.44 q   1 ns/px
+GPU+VS spheres 96         no vertex shader for lit models on this GPU
+GPU+VS smooth             no vertex shader for lit models on this GPU
+Lua part (cartridge API):
+bm: the 3D is drawn by the GPU as bm3d 2.1 (bm3d 4.2 ready (byte a = red, texels in place, textures in tiles, MSAA on any page, vertex shader no, clipping no, lit models no, queue yes, zclear in job no))
+sprites 16x16 (Lua)                 1990            4110      7.85 spr
+3D spheres 96 (Lua)       193 (7559 tri) 393 (15499 tri)     82.41 obj
