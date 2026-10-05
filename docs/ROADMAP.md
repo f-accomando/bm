@@ -1279,6 +1279,14 @@ Stato (2026-10-01): tutto nel PC e in QEMU, **da provare sul Pi**.
   sul Pi Zero.
 - **Fatto quando:** un gioco senza suono gira dalla SD (primo traguardo), poi con audio
   e numeri 16.16.
+- **Chiusura (2026-10-05, decisione dell'utente).** I numeri 16.16 escono dal criterio: restano
+  un limite noto (i double di Lua arrotondati come l'originale; diverso solo l'overflow oltre
+  ±32767). Il mouse vero per le cartucce che lo chiedono (`poke(0x5f2d, 1)`, ora che c'è il
+  puntatore di M32) è lo spunto R26. Si chiude con la prova sul Pi, a schermo: la lista di
+  nano8 con le anteprime; Comet Catcher con pad e tastiera, con il suono; una delle cartucce
+  incluse con il menu di pausa (ingrandimento 2× o a tutta altezza, *Controls*); un gioco che
+  salva (`cartdata`) ritrovato dopo l'uscita; con F11 due volte il peso di un fotogramma della
+  cartuccia più pesante.
 
 ## M24 — Scambio in rete locale tra console (M) — parte del Market (M25) — fatto in M25.7 (2026-10-01), da verificare sul Pi
 Decisione 2026-09-30: M24 originale diviso in tre (M24 rete locale, M25 store su
@@ -3176,6 +3184,10 @@ tastiera).
 - **R25 — Suoni da e verso il PC** (era in 22.4 e 22.5 di M22, 2026-10-05). Nel Sound editor:
   WAV (campioni brevi) e MIDI (note di un brano) importati ed esportati, l'uscita stereo e un
   editor delle forme d'onda.
+- **R26 — Il mouse vero in nano8** (era in M23, 2026-10-05). Le cartucce `.p8` che chiedono il
+  mouse (`poke(0x5f2d, 1)`) hanno oggi un cursore mosso da levetta, croce o frecce: con il
+  puntatore di sistema di M32 (`mouse(true)`) il mouse USB o Bluetooth, i suoi tasti e la
+  rotella (`stat(32)`–`stat(36)`).
 
 ### Hardware
 - **R19 — Altri controller Bluetooth.** Oggi via Bluetooth solo il DS4 (più tastiere e
