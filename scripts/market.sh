@@ -144,7 +144,8 @@ fi
 PAGES=0
 pages() {                                       # GitHub Pages from the workflow; 1 when on
     local t
-    t=$(gh api "repos/$MREPO/pages" --jq .build_type 2>/dev/null || true)
+    # not on: gh answers 404, and prints GitHub's message where the answer goes
+    t=$(gh api "repos/$MREPO/pages" --jq .build_type 2>/dev/null) || t=
     case $t in
         workflow) PAGES=1 ;;
         "")
