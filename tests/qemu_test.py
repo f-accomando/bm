@@ -1329,10 +1329,13 @@ def test_make_image(b, opts):
     q = Qemu(b("kernel.img"), ["-drive", f"if=sd,format=raw,file={img}"])
     try:
         out = q.expect(MENU, timeout=30).decode(errors="replace")
-        assert "FAT32, 63 MiB, label BM; 11 cartridges" in out, out
+        # a cartridge for each of the Makefile's GAMES (a new game: one more)
+        with open(os.path.join(root, "Makefile")) as f:
+            games = re.search(r"^GAMES\s*:=(.*)$", f.read(), re.M).group(1).split()
+        assert f"FAT32, 63 MiB, label BM; {len(games)} cartridges" in out, out
         time.sleep(0.5)
         want = ("Pong", "Snake", "Star Shooter", "Chaos Kitchen", "Studio Village", "nano8")
-        titles = want + ("Astro Wing", "Titan Clash", "Hunter's Night", "Overbit")
+        titles = want + ("Astro Wing", "Titan Clash", "Hunter's Night", "Overbit", "Yharnam", "Pad Typing")
 
         def chosen(t):                         # the name of the chosen cover (row 4)
             return next((n for n in titles if len(t) > 4 and n in t[4]), None)
@@ -1387,7 +1390,7 @@ def test_make_image(b, opts):
         q = Qemu(os.path.join(os.path.dirname(b("kernel.img")), "kernel.img"),   # kernel.img even with --kernel7
                  ["-drive", f"if=sd,format=raw,file={os.path.join(tmp, 'bm-pi1.img')}"], machine="raspi1ap")
         out = q.expect(MENU, timeout=30).decode(errors="replace")
-        assert "Raspberry Pi 1 A+" in out and "; 11 cartridges" in out, out
+        assert "Raspberry Pi 1 A+" in out and f"; {len(games)} cartridges" in out, out
     finally:
         q.close()
         shutil.rmtree(tmp, ignore_errors=True)
