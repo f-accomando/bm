@@ -1,0 +1,39 @@
+bm report
+kind: overbit-bench
+kernel: v0.2.3-44-gd2bec65
+branch: bm3d-driver
+board: Pi Zero W
+date: 2026-10-05 22:22:14
+file: 20261005-222214_overbit-bench_pi-zero-w_v0.2.3-44-gd2bec65.txt
+
+overbit bench start: 10 phases, renderers gpu aa, screen 1920x1080
+overbit bench GPU MEDIUM match 276656
+overbit bench GPU MEDIUM: 16 fps, 62.6 ms (1% 69.6, worst 70.2, 100% over 16.7), update 7.5, 3D 31.0, 4164 tri (max 4705), 6368 vtx, 0 px, bm3d 2.1
+overbit bench GPU HIGH match 276656
+overbit bench GPU HIGH: 15 fps, 67.8 ms (1% 75.2, worst 76.0, 100% over 16.7), update 7.8, 3D 35.0, 4393 tri (max 4814), 6687 vtx, 0 px, bm3d 2.1
+overbit bench GPU ULTRA match 276656
+overbit bench GPU ULTRA: 15 fps, 70.0 ms (1% 79.5, worst 80.9, 100% over 16.7), update 8.0, 3D 36.8, 4849 tri (max 5738), 7268 vtx, 0 px, bm3d 2.1
+overbit bench GPU EXTREME match 276656
+overbit bench GPU EXTREME: 14 fps, 71.8 ms (1% 81.8, worst 84.5, 100% over 16.7), update 8.0, 3D 38.4, 5244 tri (max 5776), 7781 vtx, 0 px, bm3d 2.1
+overbit bench GPU+AA MEDIUM match 276656
+overbit bench GPU+AA MEDIUM: 15 fps, 66.0 ms (1% 75.9, worst 76.8, 100% over 16.7), update 7.6, 3D 32.1, 4164 tri (max 4705), 6368 vtx, 0 px, bm3d 2.1
+overbit bench GPU+AA HIGH match 276656
+overbit bench GPU+AA HIGH: 14 fps, 71.3 ms (1% 81.1, worst 81.8, 100% over 16.7), update 7.9, 3D 36.2, 4393 tri (max 4814), 6687 vtx, 0 px, bm3d 2.1
+overbit bench GPU+AA ULTRA match 276656
+overbit bench GPU+AA ULTRA: 14 fps, 73.4 ms (1% 85.7, worst 87.2, 100% over 16.7), update 8.0, 3D 37.9, 4849 tri (max 5738), 7268 vtx, 0 px, bm3d 2.1
+overbit bench GPU+AA EXTREME match 276656
+overbit bench GPU+AA EXTREME: 14 fps, 75.2 ms (1% 87.2, worst 87.7, 100% over 16.7), update 8.0, 3D 39.6, 5244 tri (max 5776), 7782 vtx, 0 px, bm3d 2.1
+overbit bench ring GPU  1 heroes: 26.7 ms, 3D 3.6, 664 tri
+overbit bench ring GPU  2 heroes: 30.0 ms, 3D 6.4, 1376 tri
+overbit bench ring GPU  3 heroes: 29.3 ms, 3D 6.5, 1281 tri
+overbit bench ring GPU  4 heroes: 33.0 ms, 3D 9.4, 2042 tri
+overbit bench ring GPU  5 heroes: 37.7 ms, 3D 12.3, 2752 tri
+overbit bench ring GPU: 0 heroes at 60 fps, 4 at 30 fps
+overbit bench ring GPU+AA  1 heroes: 28.4 ms, 3D 3.6, 665 tri
+overbit bench ring GPU+AA  2 heroes: 30.3 ms, 3D 6.4, 1376 tri
+overbit bench ring GPU+AA  3 heroes: 30.5 ms, 3D 6.5, 1280 tri
+overbit bench ring GPU+AA  4 heroes: 34.3 ms, 3D 9.4, 2044 tri
+overbit bench ring GPU+AA: 0 heroes at 60 fps, 3 at 30 fps
+overbit bench best GPU: none at 60 fps
+overbit bench best GPU+AA: none at 60 fps
+overbit bench done
