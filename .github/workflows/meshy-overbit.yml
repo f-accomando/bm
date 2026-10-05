@@ -23,7 +23,7 @@ jobs:
     outputs:
       models: ${{ steps.list.outputs.models }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
       - id: list
         run: |
           python3 - >> "$GITHUB_OUTPUT" <<'EOF'
@@ -58,7 +58,7 @@ jobs:
       TASK: ${{ matrix.m.task }}
       RIG: ${{ matrix.m.rig }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
 
       - name: Pillow
         run: python3 -m pip install --quiet pillow
@@ -89,7 +89,7 @@ jobs:
           python3 tools/bmrender.py "out/$NAME.bm" "out/$NAME.png"
           python3 tools/bmrender.py "out/${NAME}_1200.bm" "out/${NAME}_1200.png"
 
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v6
         if: always()
         with:
           name: meshy-${{ matrix.m.name }}
@@ -105,7 +105,7 @@ jobs:
     permissions:
       contents: write
     steps:
-      - uses: actions/download-artifact@v4
+      - uses: actions/download-artifact@v7
         with:
           pattern: meshy-*
           path: new

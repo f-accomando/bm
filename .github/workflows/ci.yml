@@ -19,7 +19,7 @@ jobs:
     # Pinned: the screen reference hash depends on the QEMU version (8.2 here).
     runs-on: ubuntu-24.04
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
         with:
           fetch-depth: 0
 
@@ -44,7 +44,7 @@ jobs:
         if: always()
         run: make qemu-screenshot || true
 
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v6
         if: always()
         with:
           name: bm-images
@@ -61,7 +61,7 @@ jobs:
     # the same kernel for QEMU's virt machine with its tests (rgb30.mk)
     runs-on: ubuntu-24.04
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
         with:
           fetch-depth: 0
 
@@ -90,7 +90,7 @@ jobs:
     permissions:
       contents: write
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
 
       - name: Install toolchain
         # numpy and Pillow: the games' assets (Overbit's map) are built too;
