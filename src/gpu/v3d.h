@@ -52,6 +52,14 @@ int v3d_start(uint32_t bin, uint32_t bin_end, uint32_t rnd, uint32_t rnd_end);
 int v3d_busy(void);
 int v3d_wait(uint32_t timeout_us, uint32_t *bin_us, uint32_t *rnd_us);
 
+/* M35: the 1 MiB sections wholly inside [p, p + size) of ARM memory made
+ * uncached (on: the ARM's writes go out through the write buffer, merged,
+ * with no line read first and no line of other data pushed out of the
+ * cache) or cached again; the number of sections changed (0: none, as on
+ * the PC). For the memory of the jobs, which the ARM writes and the V3D
+ * reads. */
+int v3d_uncached(void *p, uint32_t size, int on);
+
 /* Registers of the last failed job (or now), one line each. */
 void v3d_dump(char *buf, size_t n);
 

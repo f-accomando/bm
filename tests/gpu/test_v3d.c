@@ -68,6 +68,7 @@ int prop_query(uint32_t tag, uint32_t *vals, unsigned n) { (void)tag; (void)vals
 uint32_t timer_ticks(void) { return now += 50; }
 void timer_delay_ms(uint32_t ms) { now += ms * 1000; }
 void dcache_clean_invalidate_all(void) {}
+int mmu_set_cached(const void *start, uint32_t size, int cached) { (void)start; (void)size; (void)cached; return 0; }
 
 int kprintf(const char *fmt, ...)
 {

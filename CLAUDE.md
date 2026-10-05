@@ -868,8 +868,24 @@ screenshot in `docs/img/`), `README_OLD.md` (il README completo, in italiano),
 - **Versioni dei driver 3D**: `bm3d X.Y` (X il blocco/milestone, Y il passo) in
   `src/gpu/version3d.h` e `docs/DRIVERS.md`; ogni passo che cambia quello che r3d o
   gpu3d sanno fare alza la versione e aggiunge una riga alla tabella. Le impostazioni
-  riproducono le versioni vecchie (ARM 0.2, GPU 2.1, GPU+VS1 3.0, GPU+VS 3.4, coda 4.1): così i
-  benchmark le confrontano.
+  riproducono le versioni vecchie (ARM 0.2, GPU 2.1, GPU+VS1 3.0, GPU+VS 3.4, coda 4.1,
+  memoria senza cache 4.5, 2D nel lavoro 4.8): così i benchmark le confrontano. Branch
+  `bm3d-driver` (2026-10-05): bm3d 4.9.
+- **Cose della V3D imparate dal Pi** (branch `bm3d-driver`, 2026-10-05): nel record GL la
+  dimensione degli attributi e gli offset nella VPM sono in **byte** (come Mesa; in parole il
+  Pi non disegnava niente: la prova li impara, l'emulatore li legge in byte e vuole che lo
+  shader legga ogni parola caricata); l'**early z** ha una sua profondità che solo le
+  primitive con *early z updates* scrivono, quindi dopo uno `zclear()` nel lavoro niente early
+  z, e mai con l'MSAA (HW-2905; l'emulatore fa l'early z così). Quello che le prove
+  facoltative vedono (`gpu3d_probe_log()`) va nel report del test `g` e del 3D Bench.
+- **Opzioni del branch `bm3d-driver`** (spente finché il Pi non le prova): `gpu3d_wc=1` la
+  memoria dei lavori senza cache (`v3d_uncached`, `mmu_set_cached`), `gpu3d_2d=1` il 2D sopra
+  il 3D come quad nel lavoro della GPU (`gpu3d_rect2d`, `gpu3d_blit2d`, `gpu3d_text2d`,
+  `gpu2d()` in `runtime.c`: solo quello che la GPU fa pixel per pixel come gfx16, il resto
+  chiude il lavoro come prima), `gpu3d_filter=1` texture bilineari, `r3d_fast=1` (l'ARM: una
+  matrice e la luce nel modello). Profili del 3D Bench GPU+Q, GPU+WC, GPU+2D; passo 16 del
+  test `g`; le facce con texture e retino le fa la GPU (`tex_screen`); 8 texture in un
+  lavoro; il menu con `menu_scale=3` lo ingrandisce la GPU (`gpu3d_enlarge`).
 - **Fotogramma in coda (M35, `gpu3d_queue`, spento di default)**: il lavoro della GPU parte e
   l'ARM va avanti (il `_update` dopo). Il 2D disegnato mentre la GPU ha un lavoro sulla
   pagina si registra (`draw2d()`/`d2` in `runtime.c`) e va sulla pagina dopo, nello stesso

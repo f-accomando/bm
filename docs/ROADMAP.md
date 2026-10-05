@@ -2199,7 +2199,7 @@ texture contro 1), il costo per triangolo dell'ARM (~2 µs, ora il limite); per 
 filtro bilineare (cambia l'aspetto delle texture rispetto all'ARM) e gli sprite 2D
 sulla GPU.
 
-## M34 — GPU 2: anti-aliasing, texture a tile, meno lavoro per l'ARM (L) — in corso
+## M34 — GPU 2: anti-aliasing, texture a tile, meno lavoro per l'ARM (L) — ✅ chiusa (2026-10-05)
 Il seguito di M33 (decisione 2026-10-01): con la GPU il 3D è limitato dall'ARM (~2 µs
 per triangolo) e, con le texture, dalla lettura in ordine di riga (9 ns per pixel contro
 1). In più la GPU sa fare l'anti-aliasing che l'ARM non può permettersi.
@@ -2302,6 +2302,15 @@ l'utente il 2026-10-04).
   faccia con texture e retino sulla GPU e il benchmark di Overbit con l'ARM (a 640×360 o
   meno).
 
+**Chiusa (2026-10-05, branch `bm3d-driver`, bm3d 4.7).** L'ultimo caso che passava il
+fotogramma all'ARM, la faccia con texture *e* retino, ora la disegna la GPU
+(`fs_tex_lit_screen`, `fs_tex_rgb_screen`, anche nelle mesh del vertex shader): il backend
+dichiara `tex_screen` e `arm_hook` non scatta più con la GPU. Test `quad_texscreen` del 3D
+Bench, scena `tex screen` di `make test-gpu3d` (l'ARM e la GPU emulata danno la stessa
+immagine). Il benchmark di Overbit con l'ARM è una misura, non un pezzo del driver: resta
+da fare sul Pi con la risoluzione a 640×360 (il benchmark lo include da solo fino a quella
+risoluzione).
+
 ### Dopo M34: come si lavora (decisione 2026-10-03)
 - **Tutto su `3d-performance`** (decisione dell'utente, 2026-10-03): il motore
   (`src/gpu`, `r3d.c`, shader, emulatore, benchmark) e Overbit. `claude/overclone` è
@@ -2367,6 +2376,27 @@ test `queue` del 3D Bench vogliono anche il vertex shader, spento sul Pi (M36). 
 passi: la coda senza vertex shader (un profilo GPU+Q nel 3D Bench e un renderer in
 Overbit), misurabile subito; perché la prova dello `zclear()` fallisce (le righe `gpu3d:`
 del log dall'avvio).
+
+**2026-10-05, branch `bm3d-driver` (bm3d 4.4–4.6, 4.8; sul PC, da provare sul Pi).**
+- **Lo `zclear()` nel lavoro (4.4).** Il log del Pi diceva `zclear() inside a job gave 07e0
+  07e0 (expected 001f 07e0)`: il colore restava, ma il blu disegnato dopo, più lontano del
+  verde, era scartato. È l'**early z**: la V3D tiene una sua idea della profondità, scritta
+  solo dalle primitive con *early z updates*; il quadrato di `fs_zclear` riporta lontana la
+  profondità dallo shader, l'early z resta al verde e scarta quello che viene dopo. Ora dopo
+  uno `zclear()` nel lavoro le primitive vanno senza early z (la prova dello z resta, nel
+  tile buffer, in ordine), e niente early z con l'MSAA (Mesa, HW-2905). L'emulatore fa
+  l'early z così: con il codice di prima dà esattamente `07e0 07e0` come il Pi.
+- **La coda senza vertex shader**: profilo GPU+Q nel 3D Bench (`queue`, `split`, `match`) e
+  renderer GPU+Q in Overbit (menu "3D" e benchmark).
+- **Passo 2, la memoria dei lavori senza cache (4.5)**: opzione `gpu3d_wc=1` (*Settings >
+  Screen and sound > 3D job memory*), il blocco a sezioni da 1 MiB rimappato dall'MMU
+  (`mmu_set_cached`); profilo GPU+WC del 3D Bench per confrontarla sul Pi.
+- **Passo 3, meno lavori (4.6, 4.8)**: 8 texture in un lavoro invece di 2 (`texswap` non
+  chiude più il lavoro con la terza), e il 2D sopra il 3D nel lavoro della GPU (M37,
+  `gpu3d_2d=1`: un HUD tra il 3D non lo chiude più; `split` con GPU+2D è un lavoro solo).
+- **Da provare sul Pi:** test `g` (passo 15: `zclear in job yes`; passo 16: il 2D nel
+  lavoro); il 3D Bench con i profili GPU+Q, GPU+WC, GPU+2D e il test `texswap`; il
+  benchmark di Overbit con GPU+Q.
 
 ## M36 — Vertici sulla GPU (L/XL)
 Con la GPU il limite è l'ARM (~1,5–2 µs per triangolo: trasformare, illuminare,
@@ -2453,7 +2483,20 @@ all'avvio della GPU (righe `gpu3d: vertex shader probe: ...`): serve un report d
 (*Report the log*, `Z`) fatto dopo il test `g`. Poi correggere lo shader o il record, e
 l'emulatore insieme (lì la prova passa).
 
-## M37 — 2D e qualità sulla GPU (M, se serve)
+**La causa (2026-10-05, branch `bm3d-driver`, bm3d 4.3).** Il report del log del Pi (v0.2.3)
+diceva `vertex shader probe: 0000 0000 0000 0000`: nessun triangolo. Nel record GL la
+dimensione totale degli attributi e la posizione di ognuno nella VPM sono in **byte** (Mesa:
+"byte offsets for the start of the vertex attributes 0-7, and the total size", e la lettura
+fittizia di una parola vale 4); bm le scriveva in parole da 32 bit, e l'emulatore le leggeva
+allo stesso modo, quindi la prova passava solo lì. Ora il record è in byte, l'emulatore li
+legge in byte e controlla che lo shader legga ogni parola caricata (come il simulatore di
+Broadcom); la prova all'avvio prova i byte e poi le parole (un lavoro che non finisce
+esclude solo quella strada, l'emulatore ha la variante in parole: `EMU_VPM_WORDS`). Quello
+che le prove facoltative vedono va nel report del test `g` (riga "the probes") e del 3D
+Bench (riga `probes`). **Da provare sul Pi:** la riga di stato (`vertex shader yes`), il
+passo 14 del test `g`, i profili GPU+VS1/GPU+VS/GPU+VS+Q del 3D Bench, Overbit con GPU+VS.
+
+## M37 — 2D e qualità sulla GPU (M, se serve) — fatta sul PC (2026-10-05), da provare sul Pi
 - Sprite, tile e testo come quad della GPU, per i giochi con molto 2D sopra il 3D.
 - Il **menu a 1080p** con la GPU attiva (decisione del 2026-10-04): sfondo, copertine, barre e
   testo come quad della V3D, a 60 fps. Oggi `menu_scale=3` lo mostra a 1920×1080 con lo stesso
@@ -2461,6 +2504,26 @@ l'emulatore insieme (lì la prova passa).
 - Filtro bilineare delle texture (opzione: cambia l'aspetto rispetto all'ARM).
 - Matrice unica oggetto→camera e luce nello spazio dell'oggetto: meno istruzioni per
   vertice, pixel non più identici al bit (opzione).
+
+**Stato (2026-10-05, branch `bm3d-driver`, bm3d 4.8–4.9; sul PC).**
+- **2D sulla GPU (4.8, `gpu3d_2d=1`, *2D over the 3D*):** `rectfill`, `rect`, `pset`, righe
+  dritte, `spr`, `sspr` (anche girati, zoom interi), `map()` e `print` diventano quad nel lavoro
+  del 3D, pixel per pixel come gfx16 (`make test-gpu3d` scena `2D on GPU`: 0 pixel diversi
+  senza il 3D; `make test-queue2d`: gli stessi fotogrammi con l'opzione, con e senza coda). Il
+  resto (cerchi, righe oblique, triangoli, `prompt`, zoom non interi) chiude il lavoro come
+  prima. 3D Bench: profilo GPU+2D (`split`, `match`) e il test `gpu2d`; test `g` passo 16.
+- **Il menu a 1080p (`menu_scale=3`):** il layout 640×360 lo ingrandisce la GPU (`gpu3d_enlarge`:
+  la pagina come texture, ×3 al texel più vicino, un lavoro a fotogramma) invece dell'ARM e dei
+  suoi 4 MB scritti a fotogramma; senza GPU l'ARM come prima (una riga nel log dice chi).
+  Quad nativi a 1080p (copertine più nitide) restano un passo dopo, se serve.
+- **Texture filtrate (4.8, `gpu3d_filter=1`, *3D textures: Bilinear*)**: test `bilinear` del 3D
+  Bench; il 2D resta al texel più vicino.
+- **Matrice unica e luce nel modello sull'ARM (4.9, `r3d_fast=1`, *3D on the ARM: Fast*)**:
+  anche sulla RGB30; −2–4% del lavoro per triangolo dell'ARM (`count_insns`); spento, i
+  checksum di `bench3d` restano quelli di prima.
+- **Da provare sul Pi:** il passo 16 del test `g` (lo stesso HUD dall'ARM e dalla GPU: i pixel
+  uguali), il 3D Bench (GPU+2D, `gpu2d`, `bilinear`), il menu con `menu_scale=3` (la riga
+  `menu: 1920x1080, the layout enlarged by the GPU` nel log, e l'overlay).
 
 ## M38 — Overbit: sparatutto a eroi in 3D (XL) — fatta sul PC (2026-10-03), da provare sul Pi
 Richiesta dell'autore (2026-10-02): un clone di Overwatch in `.bm`, **8 eroi** (2 tank,

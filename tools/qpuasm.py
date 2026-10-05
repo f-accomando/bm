@@ -474,6 +474,121 @@ SHADERS = {
         nop                 ; nop
         nop                 ; nop           ; sbdone
     """,
+    # M34, the last case left to the ARM: textured faces with screen-door
+    # transparency, texel * k drawn on the pixels with x + y even only and
+    # where the texel is not transparent (alpha, byte d, not 0): the mask
+    # ((x + y) & 1) - 1 is all ones on the even pixels, so alpha & mask is
+    # not 0 only where both hold; early z off
+    "fs_tex_lit_screen": """
+        nop                 ; nop
+        nop                 ; nop
+        mov r3, ra15        ; nop                       # W
+        mov r0, vary        ; nop                       # s
+        fmul r0, r0, r3     ; nop
+        fadd r0, r0, r5     ; nop
+        mov r1, vary        ; nop                       # t
+        fmul r1, r1, r3     ; nop
+        fadd r1, r1, r5     ; nop
+        mov t0t, r1         ; nop
+        mov t0s, r0         ; nop                       # starts the lookup
+        mov r2, vary        ; nop                       # k
+        fmul r2, r2, r3     ; nop
+        fadd r2, r2, r5     ; nop
+        nop                 ; mov r1.8888, r2           # k in the four bytes
+        add r3, x_coord, y_coord ; nop
+        and r3, r3, 1       ; nop
+        sub r3, r3, 1       ; nop                       # the mask: -1 on the even pixels, else 0
+        nop                 ; nop           ; sbwait
+        nop                 ; nop           ; ldtmu0   # r4 = texel
+        shr r2, r4, 15      ; v8muld r0, r4, r1         # texel * k
+        shr r2, r2, 9       ; nop                       # alpha
+        and.setf nop, r2, r3 ; nop                      # Z: odd pixel or transparent texel
+        mov.ifnz tlb_z, rb15 ; nop
+        mov.ifnz tlbc, r0   ; nop           ; thrend
+        nop                 ; nop
+        nop                 ; nop           ; sbdone
+    """,
+    # the same for the faces of fs_tex_rgb (a map's, the heroes'): texel *
+    # light * 2 + fog on the even pixels where the texel is not transparent
+    "fs_tex_rgb_screen": """
+        nop                 ; nop
+        nop                 ; nop
+        mov r0, vary        ; nop                       # s
+        fmul r0, r0, ra15   ; nop
+        fadd r0, r0, r5     ; nop
+        mov r1, vary        ; nop                       # t
+        fmul r1, r1, ra15   ; nop
+        fadd r1, r1, r5     ; nop
+        mov t0t, r1         ; nop
+        mov t0s, r0         ; nop                       # starts the lookup
+        mov r0, vary        ; nop                       # light, byte a
+        fmul r0, r0, ra15   ; nop
+        fadd r0, r0, r5     ; nop
+        mov r1, vary        ; mov r2.8a, r0             # light, byte b
+        fmul r1, r1, ra15   ; nop
+        fadd r1, r1, r5     ; nop
+        mov r0, vary        ; mov r2.8b, r1             # light, byte c
+        fmul r0, r0, ra15   ; nop
+        fadd r0, r0, r5     ; nop
+        mov r1, vary        ; mov r2.8c, r0             # fog, byte a
+        fmul r1, r1, ra15   ; nop
+        fadd r1, r1, r5     ; nop
+        mov r0, vary        ; mov r3.8a, r1             # fog, byte b
+        fmul r0, r0, ra15   ; nop
+        fadd r0, r0, r5     ; nop
+        mov r1, vary        ; mov r3.8b, r0             # fog, byte c
+        fmul r1, r1, ra15   ; nop
+        fadd r1, r1, r5     ; nop
+        nop                 ; mov r3.8c, r1
+        nop                 ; mov r2.8d, 1.0
+        nop                 ; mov r3.8d, 0
+        add r1, x_coord, y_coord ; nop
+        and r1, r1, 1       ; nop
+        sub ra1, r1, 1      ; nop                       # the mask: -1 on the even pixels, else 0
+        nop                 ; nop           ; sbwait
+        nop                 ; nop           ; ldtmu0    # r4 = texel
+        shr r1, r4, 15      ; v8muld r0, r4, r2         # texel * light / 2
+        shr r1, r1, 9       ; v8adds r0, r0, r0         # alpha; * 2
+        and.setf nop, r1, ra1 ; v8adds r0, r0, r3       # Z: odd pixel or transparent texel; + fog
+        mov.ifnz tlb_z, rb15 ; nop
+        mov.ifnz tlbc, r0   ; nop           ; thrend
+        nop                 ; nop
+        nop                 ; nop           ; sbdone
+    """,
+    # M37, 2D on the GPU: text, the glyph's texel (white, alpha 0 where the
+    # glyph is not lit) and the colour of the varyings (3): the colour where
+    # the texel is opaque, nothing elsewhere (s, t, then the colour)
+    "fs_text": """
+        nop                 ; nop
+        nop                 ; nop
+        mov r0, vary        ; nop                       # s
+        fmul r0, r0, ra15   ; nop
+        fadd r0, r0, r5     ; nop
+        mov r1, vary        ; nop                       # t
+        fmul r1, r1, ra15   ; nop
+        fadd r1, r1, r5     ; nop
+        mov t0t, r1         ; nop
+        mov t0s, r0         ; nop                       # starts the lookup
+        mov r0, vary        ; nop                       # colour, byte a
+        fmul r0, r0, ra15   ; nop
+        fadd r0, r0, r5     ; nop
+        mov r1, vary        ; mov r3.8a, r0             # byte b
+        fmul r1, r1, ra15   ; nop
+        fadd r1, r1, r5     ; nop
+        mov r2, vary        ; mov r3.8b, r1             # byte c
+        fmul r2, r2, ra15   ; nop
+        fadd r2, r2, r5     ; nop
+        nop                 ; mov r3.8c, r2
+        nop                 ; mov r3.8d, 1.0
+        nop                 ; nop           ; sbwait
+        nop                 ; nop           ; ldtmu0    # r4 = texel
+        shr r1, r4, 15      ; nop
+        shr.setf nop, r1, 9 ; nop                       # Z: the glyph is not lit there
+        mov.ifnz tlb_z, rb15 ; nop
+        mov.ifnz tlbc, r3   ; nop           ; thrend
+        nop                 ; nop
+        nop                 ; nop           ; sbdone
+    """,
     # zclear() inside a job (M35): a quad over the page at depth 1 (no
     # varyings) writes the far depth and gives each pixel back its colour
     # (the colour load signal reads the tile buffer into r4), so the 3D

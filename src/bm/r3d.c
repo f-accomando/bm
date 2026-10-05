@@ -1311,6 +1311,8 @@ static void draw_shadow(r3d_t *r, const r3d_mesh_t *m, const xform_t *x, v3_t p,
  * small next to its distance), so no square root per vertex. */
 typedef struct {
     v3_t V, H;                  /* towards the camera; half way between it and the sun */
+    v3_t L, U;                  /* light_obj (M37, r3d_t.fast): the sun and the up axis; all four in
+                                 * the object's axes, its normals not turned */
 } shine_t;
 
 static void light_fast(const r3d_t *r, const lamps_t *L, const shine_t *sh, v3_t n, float px, float py, float pz,
@@ -1318,6 +1320,47 @@ static void light_fast(const r3d_t *r, const lamps_t *L, const shine_t *sh, v3_t
 {
     const float d = n.x * r->light.x + n.y * r->light.y + n.z * r->light.z;
     const float dd = d > 0 ? d : 0, a = r->ambient, t = 0.5f + 0.5f * n.y, ka = (1.0f - a) * dd;
+    out->l.r = a * (r->ground.r + (r->sky.r - r->ground.r) * t) + ka * r->sun.r;
+    out->l.g = a * (r->ground.g + (r->sky.g - r->ground.g) * t) + ka * r->sun.g;
+    out->l.b = a * (r->ground.b + (r->sky.b - r->ground.b) * t) + ka * r->sun.b;
+    out->s.r = out->s.g = out->s.b = 0;
+    for (int i = 0; i < L->n; i++) {
+        float dx = px - L->pos[i].x, dy = py - L->pos[i].y, dz = pz - L->pos[i].z;
+        float d2 = dx * dx + dy * dy + dz * dz;
+        if (d2 < L->r2[i]) {
+            float k = L->k[i] * (1.0f - d2 / L->r2[i]);
+            out->l.r += k * L->c[i].r;
+            out->l.g += k * L->c[i].g;
+            out->l.b += k * L->c[i].b;
+        }
+    }
+    if (r->rim_k > 0) {
+        float nv = n.x * sh->V.x + n.y * sh->V.y + n.z * sh->V.z, e = 1.0f - (nv > 0 ? nv : 0);
+        float k = r->rim_k * e * e;
+        out->l.r += k * r->sky.r;
+        out->l.g += k * r->sky.g;
+        out->l.b += k * r->sky.b;
+    }
+    if (glossy && d > 0 && r->spec_k > 0) {
+        float nh = n.x * sh->H.x + n.y * sh->H.y + n.z * sh->H.z;
+        if (nh > 0) {
+            for (int i = 0; i < r->spec_shift; i++)
+                nh *= nh;
+            float k = nh * r->spec_k;
+            out->s.r = k * r->sun.r;
+            out->s.g = k * r->sun.g;
+            out->s.b = k * r->sun.b;
+        }
+    }
+}
+
+/* M37 (r3d_t.fast): light_fast with the normal in the object's axes, the
+ * sun, up, V and H turned into them once a draw (sh) */
+static void light_obj(const r3d_t *r, const lamps_t *L, const shine_t *sh, v3_t n, float px, float py, float pz,
+                       int glossy, lit_t *out)
+{
+    const float d = n.x * sh->L.x + n.y * sh->L.y + n.z * sh->L.z, ny = n.x * sh->U.x + n.y * sh->U.y + n.z * sh->U.z;
+    const float dd = d > 0 ? d : 0, a = r->ambient, t = 0.5f + 0.5f * ny, ka = (1.0f - a) * dd;
     out->l.r = a * (r->ground.r + (r->sky.r - r->ground.r) * t) + ka * r->sun.r;
     out->l.g = a * (r->ground.g + (r->sky.g - r->ground.g) * t) + ka * r->sun.g;
     out->l.b = a * (r->ground.b + (r->sky.b - r->ground.b) * t) + ka * r->sun.b;
@@ -1531,9 +1574,24 @@ void r3d_draw_flags(r3d_t *r, const r3d_mesh_t *m, v3_t p, float rx, float ry, f
     int nv = 0, nfront = 0;
     const int skinned = m->bones && m->nbones > 0;
     /* a backend: object -> camera in one matrix a bone (its pixels need not
-     * match the ARM's to the last bit; the ARM keeps its two steps) */
+     * match the ARM's to the last bit; the ARM keeps its two steps, but with
+     * r->fast, M37) */
     static float F[MAX_BONES + 1][12];
-    const int fused = r->backend != NULL;
+    const int fused = r->backend != NULL || r->fast;
+    /* M37, r->fast: a model without bones lit in its own axes (the sun, up,
+     * V and H turned back once, its normals not turned at all) */
+    shine_t sho;
+    const int objlight = r->fast && !skinned;
+    if (objlight) {
+        const float *N = X.n[0];
+        const v3_t up = { 0, 1, 0 };
+        const v3_t *w[4] = { &r->light, &up, &sh.V, &sh.H };
+        v3_t *o[4] = { &sho.L, &sho.U, &sho.V, &sho.H };
+        for (int k = 0; k < 4; k++)
+            *o[k] = (v3_t){ N[0] * w[k]->x + N[3] * w[k]->y + N[6] * w[k]->z,
+                            N[1] * w[k]->x + N[4] * w[k]->y + N[7] * w[k]->z,
+                            N[2] * w[k]->x + N[5] * w[k]->y + N[8] * w[k]->z };
+    }
     if (fused) {
         const int nb = skinned ? (m->nbones < MAX_BONES ? m->nbones : MAX_BONES) : 1;
         for (int b = 0; b < nb; b++) {
@@ -1547,7 +1605,7 @@ void r3d_draw_flags(r3d_t *r, const r3d_mesh_t *m, v3_t p, float rx, float ry, f
      * bones: unlit, a "lit" model (light baked at its corners: the world of
      * a map), or lit by the sun and the sky (heroes), with the fog and the
      * lamps; the backend may say no */
-    if (fused && r->backend->mesh) {
+    if (r->backend && r->backend->mesh) {
         r3d_env_t env;
         env.f = v.f;
         env.cx = v.hw;
@@ -1634,7 +1692,7 @@ void r3d_draw_flags(r3d_t *r, const r3d_mesh_t *m, v3_t p, float rx, float ry, f
             by1 = r->g->h;
         }
         if (smooth) {
-            vn[i] = xform_dir(&X, i, m->vnormals[i]);
+            vn[i] = objlight ? m->vnormals[i] : xform_dir(&X, i, m->vnormals[i]);
             vkey[i] = 0xFFFFFFFFu;          /* no colour yet */
         }
     }
@@ -1717,6 +1775,8 @@ void r3d_draw_flags(r3d_t *r, const r3d_mesh_t *m, v3_t p, float rx, float ry, f
                     lit_t L;
                     if (emissive)
                         L = full;
+                    else if (objlight)
+                        light_obj(r, &lamps, &sho, vn[i], cv[i].x, cv[i].y, cv[i].z, glossy, &L);
                     else
                         light_fast(r, &lamps, &sh, vn[i], cv[i].x, cv[i].y, cv[i].z, glossy, &L);
                     float ff = 0;
@@ -1741,25 +1801,30 @@ void r3d_draw_flags(r3d_t *r, const r3d_mesh_t *m, v3_t p, float rx, float ry, f
         if (!emissive && !m->clight && !(textured && smooth && !(rgb & R3D_FLAT))) {
             const float *N = X.n[skinned ? m->vbone[fc[0]] : 0];
             const v3_t n0 = m->normals[t];
-            const v3_t n = { N[0] * n0.x + N[1] * n0.y + N[2] * n0.z, N[3] * n0.x + N[4] * n0.y + N[5] * n0.z,
-                             N[6] * n0.x + N[7] * n0.y + N[8] * n0.z };
+            const v3_t n = objlight ? n0 : (v3_t){ N[0] * n0.x + N[1] * n0.y + N[2] * n0.z,
+                                                    N[3] * n0.x + N[4] * n0.y + N[5] * n0.z,
+                                                    N[6] * n0.x + N[7] * n0.y + N[8] * n0.z };
             float mx = 0, my = 0, mz = 0;
             if (lamps.n) {                  /* the middle, for the lamps */
                 mx = (c0->x + c1->x + c2->x) * (1.0f / 3.0f);
                 my = (c0->y + c1->y + c2->y) * (1.0f / 3.0f);
                 mz = (c0->z + c1->z + c2->z) * (1.0f / 3.0f);
             }
-            light_fast(r, &lamps, &sh, n, mx, my, mz, glossy, &k);
+            if (objlight)
+                light_obj(r, &lamps, &sho, n, mx, my, mz, glossy, &k);
+            else
+                light_fast(r, &lamps, &sh, n, mx, my, mz, glossy, &k);
         }
         if (textured) {
             /* corner i: on the screen at *ps[i], texel (tu[i], tv_[i]); the
              * light gk[i] (Gouraud: the sun at each corner, grey, as
              * vs_lit_tex); for a "lit" model on the backend, the light baked
              * at the corner (and the lamps) L[i] and its depth dz[i] (fog) */
-            if (screen && r->backend)
+            if (screen && r->backend && !r->backend->tex_screen)
                 /* textured screen-door: the backend cannot; the ARM from
                  * here on (this frame, mixed, is not shown) */
                 to_arm(r, "textured screen-door faces");
+            const int tscreen = screen && r->backend ? R3D_TEX_SCREEN : 0;
             const float *uv = m->uv + t * 6;
             float gk[4];
             gk[0] = gk[1] = gk[2] = gk[3] = lit_grey(&k);
@@ -1770,7 +1835,10 @@ void r3d_draw_flags(r3d_t *r, const r3d_mesh_t *m, v3_t p, float rx, float ry, f
                     if (vkey[vi] != key) {
                         vkey[vi] = key;
                         lit_t Lv;
-                        light_fast(r, &lamps, &sh, vn[vi], cv[vi].x, cv[vi].y, cv[vi].z, 0, &Lv);
+                        if (objlight)
+                            light_obj(r, &lamps, &sho, vn[vi], cv[vi].x, cv[vi].y, cv[vi].z, 0, &Lv);
+                        else
+                            light_fast(r, &lamps, &sh, vn[vi], cv[vi].x, cv[vi].y, cv[vi].z, 0, &Lv);
                         vc[vi][0] = lit_grey(&Lv);
                     }
                     gk[i] = vc[vi][0];
@@ -1834,16 +1902,15 @@ void r3d_draw_flags(r3d_t *r, const r3d_mesh_t *m, v3_t p, float rx, float ry, f
                     q[i].l[0] = L[i][0] * kl; q[i].l[1] = L[i][1] * kl; q[i].l[2] = L[i][2] * kl;
                     q[i].f[0] = fr * ff; q[i].f[1] = fg * ff; q[i].f[2] = fb * ff;
                 }
-                emit(r, q, np, R3D_KIND_TEX_RGB | inside, m->tex, zbuf == NULL);
+                emit(r, q, np, R3D_KIND_TEX_RGB | inside | tscreen, m->tex, zbuf == NULL);
                 r->tris_drawn++;
                 continue;
             }
             if (r->backend) {
-                /* (textured screen-door faces never get here: to_arm above) */
                 r3d_corner_t q[4];
                 for (int i = 0; i < np; i++)
                     corner(&q[i], ps[i]->x, ps[i]->y, ps[i]->z, tu[i], tv_[i], gk[i]);
-                emit(r, q, np, R3D_KIND_TEXTURE | inside, m->tex, zbuf == NULL);
+                emit(r, q, np, R3D_KIND_TEXTURE | inside | tscreen, m->tex, zbuf == NULL);
                 r->tris_drawn++;
                 continue;
             }

@@ -85,7 +85,7 @@ enum {
     R_VERSION, R_BOARD, R_UPTIME, R_MEMORY, R_CLOCKS, R_SD, R_DRIVER3D, R_RESTART, R_MONITOR, R_PERF,
     R_UPDATE, R_INSTALL, R_REPORTS, R_REPORT_LOG,
     R_UPDATES, R_REPORTS_SUB, R_WAITING, R_USB, R_NETTEST, R_ETH, R_PATTERN, R_AUDIO, R_LOG, R_BT,
-    R_CONFIRM, R_MODES, R_SOUND, R_BATTERY, R_POWEROFF,
+    R_CONFIRM, R_MODES, R_SOUND, R_BATTERY, R_POWEROFF, R_WC, R_FILTER, R_2D, R_FAST3D,
 };
 
 static int popcount(unsigned v)
@@ -194,6 +194,28 @@ static const char *queue_choice(void)
     return "On";
 }
 
+/* gpu3d_2d=1 (M37): the 2D over the 3D drawn by the GPU in its job */
+static int gpu2d_on(void)
+{
+    const char *on = config_get("gpu3d_2d");
+    return on && strcmp(on, "1") == 0;
+}
+
+/* gpu3d_filter=1 (M37): the GPU's textures filtered (bilinear) */
+static int filter_on(void)
+{
+    const char *on = config_get("gpu3d_filter");
+    return on && strcmp(on, "1") == 0;
+}
+
+/* gpu3d_wc=1 (M35): the memory of the GPU's jobs uncached, the ARM's
+ * writes merged */
+static int wc_on(void)
+{
+    const char *on = config_get("gpu3d_wc");
+    return on && strcmp(on, "1") == 0;
+}
+
 static const char *gpu3d_choice(void)
 {
     if (!gpu3d_on())
@@ -203,6 +225,13 @@ static const char *gpu3d_choice(void)
     return gpu3d_failed() ? "GPU: failed" : "GPU";
 }
 #endif
+
+/* a key of bm/config.txt set to 1 */
+static int config_on(const char *key)
+{
+    const char *v = config_get(key);
+    return v && strcmp(v, "1") == 0;
+}
 
 /* the network's state in a word or an address */
 static const char *net_word(void)
@@ -402,7 +431,19 @@ void home_panel(int id, home_panel_t *p)
                  "Who places the corners: ARM, or the GPU for the scenery or all", "%s", vs_choice());
         home_row(p, MENU_ROW_CHOICE, R_QUEUE, "3D frame queue",
                  "The game goes on while the GPU draws the frame before", "%s", queue_choice());
+        home_row(p, MENU_ROW_CHOICE, R_2D, "2D over the 3D",
+                 "Drawn by the ARM after the GPU, or by the GPU in the same job", "%s",
+                 gpu2d_on() ? "GPU" : "ARM");
+        home_row(p, MENU_ROW_CHOICE, R_FILTER, "3D textures",
+                 "The nearest texel as the ARM, or filtered by the GPU (smoother)", "%s",
+                 filter_on() ? "Bilinear" : "Nearest");
+        home_row(p, MENU_ROW_CHOICE, R_WC, "3D job memory",
+                 "Cached, or uncached with the ARM's writes merged (compare: 3D Bench)", "%s",
+                 wc_on() ? "Uncached" : "Cached");
 #endif
+        home_row(p, MENU_ROW_CHOICE, R_FAST3D, "3D on the ARM",
+                 "Exact as before, or fast: one matrix a model, light in its axes", "%s",
+                 config_on("r3d_fast") ? "Fast" : "Exact");
         home_row(p, MENU_ROW_CHOICE, R_PERF, "Performance overlay",
                  "Over the games: fps, ms, Lua instructions (F11 too)", "%s",
                  perf_name());
@@ -864,6 +905,21 @@ void home_act(int id, int row, int how, home_do_t *d)
         config_save();
         ksnprintf(d->note, sizeof d->note, "3D frame queue of the next game: %s", queue_choice());
         break;
+    case R_2D:
+        config_set("gpu3d_2d", gpu2d_on() ? "0" : "1");
+        config_save();
+        ksnprintf(d->note, sizeof d->note, "2D over the 3D of the next game: %s", gpu2d_on() ? "GPU" : "ARM");
+        break;
+    case R_FILTER:
+        config_set("gpu3d_filter", filter_on() ? "0" : "1");
+        config_save();
+        ksnprintf(d->note, sizeof d->note, "3D textures of the next game: %s", filter_on() ? "bilinear" : "nearest");
+        break;
+    case R_WC:
+        config_set("gpu3d_wc", wc_on() ? "0" : "1");
+        config_save();
+        ksnprintf(d->note, sizeof d->note, "3D job memory of the next game: %s", wc_on() ? "uncached" : "cached");
+        break;
     case R_USB:
         if (how == 0) text(d, x_usb, 1, 0);
         break;
@@ -880,5 +936,11 @@ void home_act(int id, int row, int how, home_do_t *d)
         if (how == 0) d->what = HOME_MONITOR;
         break;
 #endif
+    case R_FAST3D:
+        config_set("r3d_fast", config_on("r3d_fast") ? "0" : "1");
+        config_save();
+        ksnprintf(d->note, sizeof d->note, "3D on the ARM of the next game: %s",
+                  config_on("r3d_fast") ? "fast" : "exact");
+        break;
     }
 }

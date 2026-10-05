@@ -10,12 +10,14 @@
  *
  * The settings reproduce older versions on today's code (the "mode"): the
  * ARM alone is 0.2, the GPU without its vertex shader 2.1, with it for the
- * scenery 3.0, for every model 3.4, with the frame in the queue 4.1. 0.1
+ * scenery 3.0, for every model 3.4, with the frame in the queue 4.1, with
+ * the jobs' memory uncached 4.5 (gpu3d_wc: the 3D Bench's GPU+WC), with
+ * the 2D over the 3D in the job 4.8 (gpu3d_2d: GPU+2D). 0.1
  * and 1.0 no longer run: the 3D Bench shows the numbers measured on the Pi
  * with them.
  */
-#define BM3D_VERSION "4.2"
-#define BM3D_BLOCK   "M38"
+#define BM3D_VERSION "4.9"
+#define BM3D_BLOCK   "M37"
 
 typedef struct {
     const char *version, *block, *date, *what;
@@ -38,6 +40,13 @@ static inline const bm3d_version_t *bm3d_versions(int *n)
         { "4.0", "M35", "2026-10-03", "the frame in the queue: the GPU draws while the game's next update runs" },
         { "4.1", "M35", "2026-10-03", "2D after 3D recorded while the GPU draws, zclear() inside the job" },
         { "4.2", "M38", "2026-10-04", "screens up to 1920x1080 (screen()), cls() cleared by the GPU's job" },
+        { "4.3", "M36", "2026-10-05", "the vertex shader's VPM offsets in bytes, as the V3D wants; the probe learns it" },
+        { "4.4", "M35", "2026-10-05", "no early z after a zclear() in the job nor with MSAA; the queue without VS" },
+        { "4.5", "M35", "2026-10-05", "the jobs' memory uncached, the ARM's writes merged (option)" },
+        { "4.6", "M35", "2026-10-05", "up to 8 textures in a job (2 before: a third ended it)" },
+        { "4.7", "M34", "2026-10-05", "textured screen-door faces on the GPU too (the last case left to the ARM)" },
+        { "4.8", "M37", "2026-10-05", "2D over the 3D in the GPU's job, pixel for pixel; textures filtered (options)" },
+        { "4.9", "M37", "2026-10-05", "the ARM's 3D: one matrix a model, lit in its own axes (option r3d_fast)" },
     };
     *n = (int)(sizeof v / sizeof v[0]);
     return v;

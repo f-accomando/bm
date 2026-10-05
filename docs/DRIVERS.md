@@ -60,6 +60,62 @@ stress test, il 3D Bench, il benchmark di Overbit e il quarto valore di `gpu3d()
   disegna più l'ARM (4 MB a 1080p): il lavoro della GPU pulisce i suoi tile a quel colore;
   l'ARM riempie la pagina solo se prima del 3D arriva del 2D, una lettura o la pagina va
   mostrata senza 3D. Vale per tutte le modalità della GPU.
+- **4.3** (2026-10-05, M36): il vertex shader che sul Pi non disegnava niente (prova
+  all'avvio `0000 0000 0000 0000`). Nel record GL la dimensione degli attributi e la loro
+  posizione nella VPM sono in **byte**, come le scrive Mesa ("byte offsets for the start of
+  the vertex attributes 0-7, and the total size", `vc4_context.h`); 3.0–4.2 le scrivevano in
+  parole da 32 bit, e anche l'emulatore le leggeva così. Ora l'emulatore le legge in byte e
+  controlla, come il simulatore di Broadcom, che lo shader legga ogni parola caricata; la
+  prova all'avvio prova i byte e poi le parole (un lavoro che non finisce esclude solo quella
+  strada) e dice quale ha disegnato. Quello che le prove facoltative vedono finisce nel
+  report del test `g` e del 3D Bench (`gpu3d_probe_log()`).
+- **4.4** (2026-10-05, M35): lo `zclear()` nel lavoro, che sul Pi lasciava il colore ma
+  perdeva il 3D dopo (`07e0 07e0`). Lo z anticipato (*early z*) della V3D tiene una sua idea
+  della profondità, scritta solo dalle primitive con *early z updates*: il quadrato di
+  `fs_zclear` riporta la profondità lontana dallo shader, l'early z non lo sa e scarta quello
+  che viene dopo. Dopo uno `zclear()` nel lavoro le primitive vanno senza early z (la prova
+  dello z resta, nel tile buffer, in ordine); l'emulatore ora fa l'early z così e ripete
+  esattamente i pixel del Pi. Niente early z neanche con l'MSAA (Mesa, HW-2905: dopo un load
+  il tracciamento dell'early z può tenere i valori del tile prima). Il quadrato scrive una
+  profondità appena sotto 1 (0xFFFFF0). La coda anche senza vertex shader: profilo GPU+Q
+  del 3D Bench, renderer GPU+Q di Overbit.
+- **4.5** (2026-10-05, M35): la memoria dei lavori (liste, record, uniform, vertici) senza
+  cache: l'ARM la scrive una volta e non la rilegge, e con la cache *write-allocate* ogni
+  riga scritta veniva prima letta dalla memoria e spingeva fuori le righe del Lua e di r3d.
+  Senza cache le scritture escono unite dal write buffer. Il blocco è allocato a sezioni
+  intere da 1 MiB che l'MMU rimappa (`mmu_set_cached`, `v3d_uncached`). Opzione
+  `gpu3d_wc=1` (*Settings > Screen and sound > 3D job memory*), spenta finché il Pi non
+  mostra che conviene: il 3D Bench la confronta con il profilo GPU+WC.
+- **4.6** (2026-10-05, M35): fino a 8 texture in un lavoro (prima 2: con la terza il lavoro
+  si chiudeva, e il test `texswap` del 3D Bench andava più piano sulla GPU che sull'ARM);
+  le copie delle texture si rimpiazzano dalla meno usata, mai una che il lavoro aperto
+  legge se ce n'è un'altra.
+- **4.7** (2026-10-05, M34): le facce con texture *e* retino sulla GPU (`fs_tex_lit_screen`,
+  `fs_tex_rgb_screen`: il texel sui pixel con x + y pari, dove non è trasparente), anche
+  nelle mesh del vertex shader: era l'ultimo caso che passava il fotogramma all'ARM
+  (`r3d_t.arm_hook`, il backend ora dichiara `tex_screen`). Test `quad_texscreen` del 3D
+  Bench, scena `tex screen` di `make test-gpu3d`.
+- **4.8** (2026-10-05, M37): il **2D sopra il 3D nel lavoro della GPU** (`gpu3d_2d=1`,
+  *Settings > Screen and sound > 2D over the 3D*): rettangoli, `rect`, `pset`, righe
+  orizzontali e verticali, sprite (`spr`, `sspr`, anche girati e ingranditi di un numero
+  intero), le celle di `map()` e il testo di `print` (glifi da una texture del font,
+  `fs_text`) diventano quad nello stesso lavoro, senza prova né scrittura dello z: il 3D
+  dopo li copre dove è più vicino del 3D di prima, come sull'ARM. Pixel per pixel come
+  gfx16 (il texel al centro del pixel, il colore RGB565 che torna uguale dal tile buffer;
+  `make test-gpu3d` scena `2D on GPU`, `make test-queue2d` con l'opzione: gli stessi
+  fotogrammi). Quello che la GPU non fa uguale (cerchi, righe oblique, triangoli,
+  `prompt`, zoom non interi) chiude il lavoro e lo disegna l'ARM come prima. Un HUD tra il
+  3D e il 3D non chiude più il lavoro: profilo GPU+2D del 3D Bench (`split`, `match`,
+  `gpu2d`), passo 16 del test `g` (lo stesso HUD dall'ARM e dalla GPU, i pixel uguali).
+  Poi le **texture filtrate** (bilineare, `gpu3d_filter=1`, *3D textures*): cambia
+  l'aspetto rispetto all'ARM (e sui bordi delle zone di uno sheet il colore della zona
+  accanto); il 2D resta al texel più vicino. Test `bilinear` del 3D Bench.
+- **4.9** (2026-10-05, M37): il 3D dell'**ARM** con una matrice sola oggetto→camera e la
+  luce nello spazio del modello (sole, alto, V e H girati una volta per modello senza
+  ossa, le normali non girate): `r3d_fast=1`, *3D on the ARM: Fast*; anche sulla RGB30.
+  I pixel non sono più identici al bit (in `bench3d` cambiano solo le scene con la
+  mappa); `count_insns`: −2,2% sfere, −3,6% Gouraud, −2,6% stanza nel lavoro per
+  triangolo dell'ARM. Spento, il percorso è quello di prima (stessi checksum).
 
 ## Le modalità: versioni vecchie sul codice di oggi
 
@@ -69,10 +125,13 @@ Le impostazioni riproducono le versioni precedenti, così si confrontano sullo s
 - GPU senza vertex shader (`gpu3d_vs=0`): **2.1** (con `gpu3d_aa=1` anche l'MSAA);
 - GPU con il vertex shader per lo scenario (`gpu3d_vs=1`): **3.0**;
 - GPU con il vertex shader per tutto (`gpu3d_vs=2`): **3.4**;
-- con il fotogramma in coda (`gpu3d_queue=1`): **4.1**.
+- con il fotogramma in coda (`gpu3d_queue=1`): **4.1** (con o senza vertex shader);
+- con la memoria dei lavori senza cache (`gpu3d_wc=1`): **4.5**;
+- con il 2D sopra il 3D nel lavoro (`gpu3d_2d=1`): **4.8**.
 
-Quello che 4.2 ha aggiunto (schermi fino a 1080p, `cls()` della GPU) vale in tutte le
-modalità della GPU: non si spegne.
+Quello che 4.2, 4.3, 4.4 e 4.6 hanno aggiunto (schermi fino a 1080p, `cls()` della GPU, il
+record GL in byte, niente early z dopo uno `zclear()` nel lavoro, 8 texture in un lavoro)
+vale in tutte le modalità della GPU: non si spegne.
 
 0.1 e 1.0 non girano più: i loro numeri sono quelli misurati sul Pi allora
 (`docs/M33-PRIMA-DOPO.md`).

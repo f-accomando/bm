@@ -374,6 +374,7 @@ int main(int argc, char **argv)
     }
     g16_target(&g, fb, 640, 640, 360, &font);
     r3d_init(&r, &g);
+    r.fast = getenv("R3D_FAST") != NULL;    /* M37: one matrix, light in the object's axes */
 #ifdef BENCH_GPU
     if (gpu)
         r.backend = gpu3d_backend();

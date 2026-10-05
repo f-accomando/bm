@@ -476,6 +476,8 @@ int main(int argc, char **argv)
                         "a frame recorded meanwhile, %.2f zclear() a frame inside a job\n",
                 (double)g.queued / (double)run.frame, (double)st.d2_ops / (double)run.frame,
                 (double)g.zinjob / (double)run.frame);
+    if (g.quads2d && run.frame > 0)     /* M37: the 2D over the 3D in the GPU's job */
+        fprintf(stderr, "bmhost: 2D on the GPU: %.1f quads a frame\n", (double)g.quads2d / (double)run.frame);
     if (g.glmeshes && run.frame > 0)
         fprintf(stderr, "bmhost: vertex shader: %.0f meshes and %.0f triangles a frame\n",
                 (double)g.glmeshes / (double)run.frame, (double)g.gltris / (double)run.frame);

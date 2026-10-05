@@ -981,6 +981,128 @@ static void scene_vs(g16_t *g, r3d_t *r, int gpu)
 }
 
 
+/* the scene of step 16 (M37): the 3D of step 10, a HUD over it (bars,
+ * sprites of the sheet, flipped and twice as big, text in two sizes),
+ * then a cube in front, partly over the HUD; the HUD drawn by the ARM
+ * after the GPU's job (gpu2d 0) or by the GPU in it (1) */
+static void scene_2d(g16_t *g, r3d_t *r, int gpu2d)
+{
+    g16_cls(g, g16_rgb(30, 20, 50));
+    if (r->backend)
+        gpu3d_page(1, g16_rgb(30, 20, 50));
+    scene_3d(r);
+    if (!gpu2d)
+        gpu3d_flush(g, 1);
+    static const struct { int16_t x, y, w, h; uint16_t c; } bars[] = {
+        { 8, 300, 200, 40, 0x2945 }, { 430, 300, 200, 40, 0x2945 }, { 12, 304, 150, 12, 0xF800 },
+        { 434, 304, 120, 12, 0x07FF }, { 316, 176, 8, 8, 0xFFFF },
+    };
+    for (unsigned i = 0; i < sizeof bars / sizeof bars[0]; i++)
+        if (!gpu2d || !gpu3d_rect2d(g, bars[i].x, bars[i].y, bars[i].x + bars[i].w, bars[i].y + bars[i].h, bars[i].c))
+            g16_rectfill(g, bars[i].x, bars[i].y, bars[i].w, bars[i].h, bars[i].c);
+    for (int i = 0; i < 6; i++) {
+        const int sx = (i % 4) * 32, sy = i < 4 ? 32 : 0, x = 20 + i * 70, y = 20, fx = i & 1, zoom = i == 5 ? 2 : 1;
+        if (!gpu2d || !gpu3d_blit2d(g, &sc_sheet, sx, sy, 32, 32, x, y, zoom, fx, 0)) {
+            if (zoom == 1)
+                g16_sspr(g, &sc_sheet, sx, sy, 32, 32, x, y, fx, 0);
+            else
+                g16_sspr_zoom(g, &sc_sheet, sx, sy, 32, 32, x, y, fx, 0, (float)zoom);
+        }
+    }
+    if (!gpu2d || !gpu3d_text2d(g, 16, 322, "HP 250/250  AMMO 30", 0xFFFF, 1))
+        g16_text(g, 16, 322, "HP 250/250  AMMO 30", 0xFFFF);
+    if (!gpu2d || !gpu3d_text2d(g, 440, 318, "ROUND 2", 0xFFE0, 2))
+        g16_text_scaled(g, 440, 318, "ROUND 2", 0xFFE0, 2);
+    r3d_draw_flags(r, &sc_cube, (v3_t){ -2.6f, -0.9f, -2.5f }, 0.2f, 0.6f, 0, 0.5f, 0);
+    gpu3d_flush(g, 0);
+}
+
+/* 16 (M37): the HUD over the 3D drawn by the GPU in its job against the
+ * ARM after the job: the same pixels, one job less */
+static int step_gpu2d(framebuffer_t *fb)
+{
+    step("16 2D over the 3D in the GPU's job (M37)");
+    if (gpu3d_init() != 0) {
+        fail(gpu3d_status());
+        return -1;
+    }
+    gpu3d_drop();
+    gpu3d_set_msaa(0);
+    uint16_t *pg[2] = { aligned_alloc(64, W * H * 2), aligned_alloc(64, W * H * 2) };
+    uint32_t us[2] = { 0, 0 }, jobs[2] = { 0, 0 }, quads = 0;
+    int err = !pg[0] || !pg[1] || scene_init() != 0;
+    for (int pass = 0; pass < 2 && !err; pass++) {
+        g16_t g;
+        r3d_t r;
+        g16_target(&g, pg[pass], W, W, H, &font_console_8x16);
+        if (r3d_init(&r, &g) != 0) {
+            err = 1;
+            break;
+        }
+        r.backend = gpu3d_backend();
+        gpu3d_stats_t st;
+        scene_2d(&g, &r, pass);             /* textures made, caches warm */
+        gpu3d_take_stats(&st);
+        const uint32_t t0 = timer_ticks();
+        scene_2d(&g, &r, pass);
+        us[pass] = timer_ticks() - t0;
+        gpu3d_take_stats(&st);
+        jobs[pass] = st.jobs;
+        if (pass)
+            quads = st.quads2d;
+        if (gpu3d_failed())
+            err = 2;
+        r3d_free(&r);
+        gpu3d_drop();
+    }
+    if (err) {
+        fail(err == 2 ? gpu3d_status() : "no memory for the scene");
+    } else {
+        int differ = 0;
+        for (int i = 0; i < W * H; i++)
+            differ += pg[0][i] != pg[1][i];
+        if (differ || !quads) {
+            char why[100];
+            ksnprintf(why, sizeof why, "%d pixels differ, %lu quads in the job", differ, quads);
+            fail(why);
+        } else {
+            kprintf("ok  ARM's 2D %lu us in %lu jobs, GPU's %lu us in %lu jobs (%lu quads), the same pixels\n", us[0],
+                    jobs[0], us[1], jobs[1], quads);
+        }
+        if (fb->depth == 32 && fb->width >= W && fb->height >= H) {
+            kprintf("  the picture: the HUD by the ARM on the left, by the GPU on the right (a key or 10 s)\n");
+            timer_delay_ms(40);
+            fb_fill_rect(fb, 0, 0, W, H, fb_color(fb, 0, 0, 0));
+            for (int y = 0; y < H / 2; y++)
+                for (int x = 0; x < W; x++) {
+                    const uint16_t *src = pg[x >= W / 2] + (y * 2) * W + (x % (W / 2)) * 2;
+                    uint32_t c = g16_to_rgb24(*src);
+                    fb_putpixel(fb, (uint32_t)x, (uint32_t)(y + H / 4), fb_color(fb, (uint8_t)(c >> 16),
+                                (uint8_t)(c >> 8), (uint8_t)c));
+                }
+            uint32_t t0 = timer_ticks();
+            input_flush();
+            while (timer_ticks() - t0 < 10000000u && input_key() < 0)
+                ;
+            console_suspend(1);
+            console_suspend(0);
+        }
+    }
+    scene_free();
+    free(pg[0]);
+    free(pg[1]);
+    return err ? -1 : 0;
+}
+
+/* what the start-up probes of the optional things saw (vertex shader,
+ * clipping, lit models, queue, zclear() in a job), for the report */
+static void probe_lines(void)
+{
+    const char *p = gpu3d_probe_log();
+    if (p && *p)
+        kprintf("    the probes: %s\n", p);
+}
+
 /* 15 (M35): the frame queue: the job started (semaphores) and waited for
  * later, the first-person layer's zclear() inside it (fs_zclear), as the
  * ARM draws */
@@ -1128,6 +1250,9 @@ void gpu_test(framebuffer_t *fb)
         step_vshader(fb);
     if (ok && gpu3d_ready())
         step_queue(fb);
+    if (ok && gpu3d_ready())
+        step_gpu2d(fb);
+    probe_lines();
     if (gpu3d_ready())
         gpu3d_drop();                       /* the games start from a clean state */
     kprintf(failed ? "GPU test \x1b[91mfailed\x1b[0m: a photo of these lines helps\n" : "GPU test passed\n");

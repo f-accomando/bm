@@ -146,6 +146,7 @@ static struct {
     int want_w, want_h;         /* screen(w, h): the resolution from the next frame */
     int cls_pending;            /* a cls() left to the GPU's next job (cls_settle) */
     uint16_t cls_colour;
+    int gpu2d;                  /* M37: the 2D over the 3D drawn by the GPU in its job (gpu3d_2d=1) */
     int online;                 /* online(true): played over the network, PS asks first */
     char online_note[64];       /* online()'s line under the question */
     int leave_ask;              /* "Leave the match?" is open (leave_step) */
@@ -361,6 +362,119 @@ static void d2_early(int begin)
     }
 }
 
+/* M37: the 2D over the 3D drawn by the GPU in the frame's job, where it
+ * draws it as the ARM does (gpu3d_2d=1): while the job is open (3D waits
+ * in it) and nothing is recorded for after it. Then no job ends for a HUD
+ * and a frame of 3D, 2D, 3D, 2D is one job. 1 if the GPU took op (its
+ * arguments v as the records keep them), else 0: the ARM draws it as
+ * before (draw2d), after the job. */
+static int gpu2d_open(void)
+{
+    return rt.gpu2d && rt.r3d.backend && !d2.on && !rt.early && gpu3d_pending();
+}
+
+/* sspr's source rectangle inside the sheet, as gfx16 cuts it */
+static int sheet_rect(int *sx, int *sy, int *sw, int *sh)
+{
+    if (*sx < 0 || *sy < 0 || *sw <= 0 || *sh <= 0 || !rt.sheet.px)
+        return 0;
+    if (*sx + *sw > rt.sheet.w) *sw = rt.sheet.w - *sx;
+    if (*sy + *sh > rt.sheet.h) *sh = rt.sheet.h - *sy;
+    return *sw > 0 && *sh > 0;
+}
+
+static int gpu2d(int op, const int32_t *v)
+{
+    if (!gpu2d_open())
+        return 0;
+    const g16_t *g = &rt.g;
+    const int cx = g->cam_x, cy = g->cam_y;
+    switch (op) {
+    case D2_RECTFILL:
+        if (v[2] <= 0 || v[3] <= 0)
+            return 1;
+        return gpu3d_rect2d(g, v[0] - cx, v[1] - cy, v[0] - cx + v[2], v[1] - cy + v[3], (uint16_t)v[4]);
+    case D2_RECT: {
+        if (v[2] <= 0 || v[3] <= 0)
+            return 1;
+        const int x = v[0] - cx, y = v[1] - cy, w = v[2], h = v[3];
+        const uint16_t c = (uint16_t)v[4];
+        return gpu3d_rect2d(g, x, y, x + w, y + 1, c) && gpu3d_rect2d(g, x, y + h - 1, x + w, y + h, c) &&
+               gpu3d_rect2d(g, x, y + 1, x + 1, y + h - 1, c) && gpu3d_rect2d(g, x + w - 1, y + 1, x + w, y + h - 1, c);
+    }
+    case D2_PSET:
+        return gpu3d_rect2d(g, v[0] - cx, v[1] - cy, v[0] - cx + 1, v[1] - cy + 1, (uint16_t)v[2]);
+    case D2_LINE:
+        if (v[1] == v[3]) {             /* a row, both ends in */
+            const int a = v[0] < v[2] ? v[0] : v[2], b = v[0] < v[2] ? v[2] : v[0];
+            return gpu3d_rect2d(g, a - cx, v[1] - cy, b - cx + 1, v[1] - cy + 1, (uint16_t)v[4]);
+        }
+        if (v[0] == v[2]) {             /* a column: Bresenham plots each row once */
+            const int a = v[1] < v[3] ? v[1] : v[3], b = v[1] < v[3] ? v[3] : v[1];
+            return gpu3d_rect2d(g, v[0] - cx, a - cy, v[0] - cx + 1, b - cy + 1, (uint16_t)v[4]);
+        }
+        return 0;
+    case D2_SPR: {
+        if (!rt.sheet.px || v[0] < 0)
+            return 1;
+        const int per_row = rt.sheet.w / G16_CELL;
+        int sx = v[0] % per_row * G16_CELL, sy = v[0] / per_row * G16_CELL, sw = v[3] * G16_CELL,
+            sh = v[4] * G16_CELL;
+        if (!sheet_rect(&sx, &sy, &sw, &sh))
+            return 1;
+        return gpu3d_blit2d(g, &rt.sheet, sx, sy, sw, sh, v[1] - cx, v[2] - cy, 1, v[5], v[6]);
+    }
+    case D2_SSPR: {
+        int sx = v[0], sy = v[1], sw = v[2], sh = v[3];
+        if (!sheet_rect(&sx, &sy, &sw, &sh))
+            return 1;
+        return gpu3d_blit2d(g, &rt.sheet, sx, sy, sw, sh, v[4] - cx, v[5] - cy, 1, v[6], v[7]);
+    }
+    case D2_SSPR_ZOOM: {
+        float zoom;
+        memcpy(&zoom, v + 8, sizeof zoom);
+        int sx = v[0], sy = v[1], sw = v[2], sh = v[3];
+        if (!(zoom > 0.0f) || zoom > 4096.0f || !sheet_rect(&sx, &sy, &sw, &sh))
+            return 1;
+        /* whole zooms only: the GPU's texel at a pixel's middle is gfx16's
+         * then (other zooms round their steps another way) */
+        const int dw = (int)((float)sw * zoom + 0.5f), dh = (int)((float)sh * zoom + 0.5f), k = dw / sw;
+        if (dw <= 0 || dh <= 0)
+            return 1;
+        if (k < 1 || dw != k * sw || dh != k * sh)
+            return 0;
+        return gpu3d_blit2d(g, &rt.sheet, sx, sy, sw, sh, v[4] - cx, v[5] - cy, k, v[6], v[7]);
+    }
+    case D2_MAP: {
+        /* g16_map_mask's cells, each a sprite */
+        const uint16_t *cells = rt.layer[v[6]];
+        const uint8_t mask = rt.flags ? (uint8_t)v[7] : 0;
+        if (!rt.sheet.px || !cells)
+            return 1;
+        const int per_row = rt.sheet.w / G16_CELL, ncells = per_row * (rt.sheet.h / G16_CELL);
+        const int x = v[2] - cx, y = v[3] - cy;
+        for (int my = 0; my < v[5]; my++) {
+            const int row = v[1] + my, py = y + my * G16_CELL;
+            if (row < 0 || row >= rt.map.h || py >= g->cy1 || py + G16_CELL <= g->cy0)
+                continue;
+            for (int mx = 0; mx < v[4]; mx++) {
+                const int c = v[0] + mx, px = x + mx * G16_CELL;
+                if (c < 0 || c >= rt.map.w || px >= g->cx1 || px + G16_CELL <= g->cx0)
+                    continue;
+                const int n = cells[row * rt.map.w + c];
+                if (n == 0 || n >= ncells || (mask && !(rt.flags[n] & mask)))
+                    continue;
+                if (!gpu3d_blit2d(g, &rt.sheet, n % per_row * G16_CELL, n / per_row * G16_CELL, G16_CELL, G16_CELL,
+                                  px, py, 1, 0, 0))
+                    return 0;           /* the ARM draws it all again after the job: the same pixels */
+            }
+        }
+        return 1;
+    }
+    }
+    return 0;
+}
+
 /* Before 2D on the page: 1 if it is to be recorded (n words of arguments
  * at *a, after the op): the GPU has 3D for the page and the queue is on,
  * so the 3D is started and the 2D waits for it. Else 0, the 3D waiting
@@ -465,6 +579,8 @@ static void shape2d(lua_State *L, int op, int n)
     for (int i = 0; i < n - 1; i++)
         v[i] = ival(L, i + 1);
     v[n - 1] = col(L, n, 0xFFFFFF);
+    if (gpu2d(op, v))
+        return;
     if (draw2d(op, (uint32_t)n, &a)) {
         memcpy(a, v, (size_t)n * sizeof *v);
         return;
@@ -503,6 +619,8 @@ static int l_spr(lua_State *L)
                            lua_toboolean(L, 7) };
     int32_t *a;
     sheet_commit();
+    if (gpu2d(D2_SPR, v))
+        return 0;
     if (draw2d(D2_SPR, 7, &a))
         memcpy(a, v, sizeof v);
     else
@@ -519,6 +637,11 @@ static int l_sspr(lua_State *L)
     const float zoom = (float)luaL_optnumber(L, 9, 1);
     int32_t *a;
     sheet_commit();
+    int32_t z[9];
+    memcpy(z, v, sizeof v);
+    memcpy(z + 8, &zoom, sizeof zoom);
+    if (gpu2d(zoom == 1 ? D2_SSPR : D2_SSPR_ZOOM, z))
+        return 0;
     if (zoom == 1) {
         if (draw2d(D2_SSPR, 8, &a))
             memcpy(a, v, sizeof v);
@@ -570,6 +693,8 @@ static int l_map(lua_State *L)
                            oval(L, 6, rt.map.h), layer_arg(L, 7), oval(L, 8, 0) & 255 };
     int32_t *a;
     sheet_commit();
+    if (gpu2d(D2_MAP, v))
+        return 0;
     if (draw2d(D2_MAP, 8, &a)) {
         memcpy(a, v, sizeof v);
     } else {
@@ -964,6 +1089,13 @@ static int l_print(lua_State *L)
     size_t len;
     const char *s = luaL_tolstring(L, 1, &len);
     int32_t *a;
+    if (gpu2d_open() && gpu3d_text2d(&rt.g, x, y, s, c, scale)) {
+        g16_t m = rt.g;                 /* where it ends, as drawn (M37: the GPU drew it) */
+        m.cx0 = m.cy0 = 0x40000000;
+        m.cx1 = m.cy1 = -0x40000000;
+        lua_pushinteger(L, g16_text_scaled(&m, x, y, s, c, scale));
+        return 1;
+    }
     if (draw2d(D2_TEXT, 4 + (uint32_t)(len + 4) / 4, &a)) {
         a[0] = x; a[1] = y; a[2] = c; a[3] = scale;
         memcpy(a + 4, s, len + 1);
@@ -1613,6 +1745,12 @@ static void gpu3d_maybe(void)
         gpu3d_set_vshader(vs ? atoi(vs) : 0);           /* vertex shader: Settings (0, 1, 2) */
         const char *q = config_get("gpu3d_queue");
         gpu3d_set_queue(q && strcmp(q, "1") == 0);      /* the frame in the queue (M35): Settings */
+        const char *wc = config_get("gpu3d_wc");
+        gpu3d_set_wc(wc && strcmp(wc, "1") == 0);       /* the jobs' memory uncached (M35): Settings */
+        const char *bf = config_get("gpu3d_filter");
+        gpu3d_set_bilinear(bf && strcmp(bf, "1") == 0); /* textures filtered (M37): Settings */
+        const char *g2 = config_get("gpu3d_2d");
+        rt.gpu2d = g2 && strcmp(g2, "1") == 0;          /* the 2D over the 3D in the job (M37): Settings */
         rt.r3d.backend = gpu3d_backend();
         rt.r3d.arm_hook = gpu3d_to_arm;
         if (!cur.bench)                 /* a benchmark has its own report */
@@ -1629,6 +1767,8 @@ static r3d_t *r3d(lua_State *L)
         if (r3d_init(&rt.r3d, &rt.g) != 0)
             luaL_error(L, "not enough memory for the z-buffer");
         rt.r3d_ready = 1;
+        const char *fast = config_get("r3d_fast");
+        rt.r3d.fast = fast && strcmp(fast, "1") == 0;   /* M37: one matrix, light in the object's axes */
         gpu3d_maybe();
     }
     if (rt.cls_pending && !rt.r3d.backend)

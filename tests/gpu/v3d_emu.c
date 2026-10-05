@@ -33,6 +33,8 @@ int emu_hang_zclear = 0;                /* a job with fs_zclear does not end */
 int emu_cw_flip = 0;                    /* GL: the V3D calls the other orientation clockwise */
 int emu_clip = 0;                       /* GL clipping: 0 as GL (near plane, guard band), 1 none (the
                                          * flag ignored), 2 the near plane only with Z_MIN_MAX given */
+int emu_vpm_words = 0;                  /* GL records: the attributes' VPM offsets and total size in
+                                         * 32-bit words (else in bytes, as Mesa writes them) */
 emu_stats_t emu_stats;
 char emu_error[256];
 
@@ -85,6 +87,15 @@ const char *v3d_status(void) { return "emulated"; }
 uint32_t v3d_ident(int i) { return i == 0 ? 0x02443356u : 0; }
 void v3d_set_overflow(uint32_t bus, uint32_t size) { overflow_bus = bus; overflow_size = size; }
 
+int emu_uncached = 0;
+
+int v3d_uncached(void *p, uint32_t size, int on)
+{
+    (void)p;
+    emu_uncached = on;                  /* nothing changes here: the PC has no such mapping */
+    return (int)(size >> 20);
+}
+
 void v3d_dump(char *buf, size_t n)
 {
     snprintf(buf, n, "emulator: %s\n", emu_error);
@@ -120,6 +131,7 @@ typedef struct {
     int nunif, unif_at;
     uint32_t (*vpm)[16];
     int vr_addr, vr_left, vr_stride, vw_addr, vw_stride;
+    int vr_count;                       /* rows read */
     int wrote_a, wrote_b;               /* regfile registers the last instruction wrote (-1 none) */
     int sfu_at;                         /* the instruction that wrote the SFU, -1 */
     int sfu_pending;
@@ -240,6 +252,7 @@ static int qpu_run(qpu_t *q, const uint32_t *code, int max)
                 memcpy(vrow, q->vpm[q->vr_addr], sizeof vrow);
                 q->vr_addr += q->vr_stride;
                 q->vr_left--;
+                q->vr_count++;
             }
             for (int l = 0; l < 16; l++) {
                 if (use_a)
@@ -355,7 +368,8 @@ static int qpu_run(qpu_t *q, const uint32_t *code, int max)
 
 /* ---------------------------------------------------------------- binning */
 
-enum { SH_COLOUR, SH_TEX, SH_TEX_ALPHA, SH_SCREEN, SH_TEX_RGB, SH_TEX_RGB_ALPHA, SH_ZCLEAR };
+enum { SH_COLOUR, SH_TEX, SH_TEX_ALPHA, SH_SCREEN, SH_TEX_RGB, SH_TEX_RGB_ALPHA, SH_ZCLEAR, SH_TEX_SCREEN,
+       SH_TEX_RGB_SCREEN, SH_TEXT };
 
 typedef struct { float x, y, z, iw, v[8]; } evert_t;
 
@@ -364,6 +378,7 @@ typedef struct {
     int shader, nvary;
     const uint32_t *params;
     int depth_func, z_update;
+    int early;                          /* CONFIGURATION_BITS: bit 0 early z, bit 1 its updates */
     int oversample;                     /* CONFIGURATION_BITS: 1 = 4x (MSAA) */
     int clip[4];
 } eprim_t;
@@ -385,14 +400,22 @@ static int gl_vertices(const uint8_t *rec, int nattr, uint32_t first, uint32_t n
         const uint32_t cnt = n - b < 16 ? n - b : 16;
         for (int s = 0; s < 2; s++) {           /* the vertex shader, then the coordinate shader */
             memset(vpm, 0, sizeof vpm);
-            if (size[s] > QPU_VPM_ROWS)
-                return err("GL record: %u words of attributes", (unsigned)size[s], 0);
+            /* the total size and the offsets: bytes (Mesa: "byte offsets for
+             * the start of the vertex attributes 0-7, and the total size"),
+             * or words with emu_vpm_words */
+            const int unit = emu_vpm_words ? 1 : 4;
+            if (size[s] % unit || size[s] / unit > QPU_VPM_ROWS)
+                return err("GL record: %u (units of %u bytes) of attributes", (unsigned)size[s], (unsigned)unit);
+            const uint32_t rows = (uint32_t)size[s] / (uint32_t)unit;
             for (int a = 0; a < nattr; a++) {
                 const uint8_t *at = rec + 36 + 8 * a;
                 if (!(sel[s] >> a & 1))
                     continue;
-                const uint32_t base = rd32(at), bytes = at[4] + 1u, stride = at[5], off = at[6 + s];
-                if (bytes % 4 || off + bytes / 4 > (uint32_t)size[s])
+                const uint32_t base = rd32(at), bytes = at[4] + 1u, stride = at[5];
+                if (at[6 + s] % unit)
+                    return err("GL attribute at VPM offset %u (units of %u bytes)", at[6 + s], (unsigned)unit);
+                const uint32_t off = at[6 + s] / (uint32_t)unit;
+                if (bytes % 4 || off + bytes / 4 > rows)
                     return err("GL attribute: %u bytes at word %u", bytes, off);
                 for (uint32_t l = 0; l < cnt; l++) {
                     const uint8_t *src = ptr(base + (first + b + l) * stride);
@@ -408,6 +431,12 @@ static int gl_vertices(const uint8_t *rec, int nattr, uint32_t first, uint32_t n
             q.vpm = vpm;
             if (qpu_run(&q, code[s], 512) != 0)
                 return -1;
+            /* as Broadcom's simulator (Mesa's emit_stub_vpm_read): every
+             * attribute word loaded is read by the shader */
+            if ((uint32_t)q.vr_count != rows)
+                return err(s ? "GL: the coordinate shader read %u VPM rows, the record loads %u"
+                             : "GL: the vertex shader read %u VPM rows, the record loads %u",
+                           (unsigned)q.vr_count, rows);
             if (s == 0) {
                 memcpy(vs_out, vpm, sizeof vpm);
                 continue;
@@ -560,6 +589,9 @@ static int shader_of(const uint8_t *code)
     if (!memcmp(code, fs_tex_rgb, sizeof fs_tex_rgb)) return SH_TEX_RGB;
     if (!memcmp(code, fs_tex_rgb_alpha, sizeof fs_tex_rgb_alpha)) return SH_TEX_RGB_ALPHA;
     if (!memcmp(code, fs_zclear, sizeof fs_zclear)) return SH_ZCLEAR;
+    if (!memcmp(code, fs_tex_lit_screen, sizeof fs_tex_lit_screen)) return SH_TEX_SCREEN;
+    if (!memcmp(code, fs_tex_rgb_screen, sizeof fs_tex_rgb_screen)) return SH_TEX_RGB_SCREEN;
+    if (!memcmp(code, fs_text, sizeof fs_text)) return SH_TEXT;
     return -1;
 }
 
@@ -575,7 +607,7 @@ static int bin(uint32_t start, uint32_t end)
     if (!p || !e || e < p)
         return err("binning list %08x..%08x outside memory", start, end);
     nprims = 0;
-    int cfg_seen = 0, started = 0, flushed = 0, depth_func = -1, z_update = 0, oversample = 0, faces = 3;
+    int cfg_seen = 0, started = 0, flushed = 0, depth_func = -1, z_update = 0, oversample = 0, faces = 3, early = 0;
     int clip[4] = { -1, 0, 0, 0 };
     const uint8_t *rec = NULL, *glrec = NULL;
     int glattr = 0, glclip = 0, xy_set = 0, z_set = 0;
@@ -642,6 +674,7 @@ static int bin(uint32_t start, uint32_t end)
             faces = p[0] & 7;
             depth_func = rd16(p + 1) >> 4 & 7;
             z_update = rd16(p + 1) >> 7 & 1;
+            early = rd16(p + 1) >> 8 & 3;
             oversample = p[0] >> 6 & 3;
             p += 3;
             break;
@@ -722,6 +755,7 @@ static int bin(uint32_t start, uint32_t end)
                         pr->params = params;
                         pr->depth_func = depth_func;
                         pr->z_update = z_update;
+                        pr->early = early;
                         pr->oversample = oversample;
                         memcpy(pr->clip, clip, sizeof clip);
                     }
@@ -735,11 +769,12 @@ static int bin(uint32_t start, uint32_t end)
             if (sh < 0)
                 return err("unknown shader at %08x", rd32(rec + 4), 0);
             const int colour = sh == SH_COLOUR || sh == SH_SCREEN || sh == SH_ZCLEAR,
-                      rgb = sh == SH_TEX_RGB || sh == SH_TEX_RGB_ALPHA;
+                      rgb = sh == SH_TEX_RGB || sh == SH_TEX_RGB_ALPHA || sh == SH_TEX_RGB_SCREEN;
             int stride = rec[1], nvary = rec[3];
             if (sh == SH_ZCLEAR && emu_hang_zclear)
                 return err("fs_zclear: the job does not end (emu_hang_zclear)", 0, 0);
-            if (nvary != (rgb ? 8 : sh == SH_ZCLEAR ? 0 : 3) || stride != 12 + 4 * nvary || rec[2] != (colour ? 0 : 2))
+            if (nvary != (rgb ? 8 : sh == SH_ZCLEAR ? 0 : sh == SH_TEXT ? 5 : 3) || stride != 12 + 4 * nvary ||
+                rec[2] != (colour ? 0 : 2))
                 return err("shader record: stride %u, varyings %u", stride, nvary);
             const uint8_t *vb = ptr(rd32(rec + 12));
             const uint32_t *params = colour ? NULL : ptr(rd32(rec + 8));
@@ -773,6 +808,7 @@ static int bin(uint32_t start, uint32_t end)
                 pr->params = params;
                 pr->depth_func = depth_func;
                 pr->z_update = z_update;
+                pr->early = early;
                 pr->oversample = oversample;
                 memcpy(pr->clip, clip, sizeof clip);
             }
@@ -796,6 +832,13 @@ static int bin(uint32_t start, uint32_t end)
  * pixels of 4 samples (sample s of pixel (x, y) at (y * 32 + x) * 4 + s) */
 static uint8_t tcol[64 * 64][4];
 static uint32_t tz[64 * 64];
+/* the early z test's own idea of the depth (as the FEP keeps it): set by
+ * clears and depth loads, then written only by primitives with early z
+ * updates; primitives with early z are thrown away when they are not
+ * nearer than it, before their shader. So a depth the shader writes
+ * farther (fs_zclear) leaves it nearer than the depth buffer: what comes
+ * after with early z is lost (the Pi, 2026-10-05). */
+static uint32_t tez[64 * 64];
 static int ms, TS = 64, NS = 1;         /* the frame's mode, tile size, samples */
 static uint32_t clear_col, clear_z;
 
@@ -803,7 +846,7 @@ static void tile_clear(void)
 {
     for (int i = 0; i < 64 * 64; i++) {
         memcpy(tcol[i], &clear_col, 4);
-        tz[i] = clear_z;
+        tz[i] = tez[i] = clear_z;
     }
 }
 
@@ -856,16 +899,49 @@ static void shade(const eprim_t *pr, const float *va, uint8_t *out, int *discard
     if (!w) w = 2048;
     if (!h) h = 2048;
     const uint32_t *tex = ptr(p0 & ~0xFFFu);
-    int tx = (int)floorf(va[0] * (float)w), ty = (int)floorf(va[1] * (float)h);
-    tx = tx < 0 ? 0 : tx >= w ? w - 1 : tx;                     /* clamp */
-    ty = ty < 0 ? 0 : ty >= h ? h - 1 : ty;
     const int type = (int)(p0 >> 4 & 15) | (int)(p1 >> 31) << 4;
-    uint32_t t = type == 16 ? tex[ty * w + tx]             /* RGBA32R: raster order */
-               : tex[t_index(tx, ty, w)];                  /* RGBA8888: T-format */
-    if (emu_tex_swap)
-        t = (t & 0xFF00FF00u) | (t >> 16 & 0xFF) | (t & 0xFF) << 16;
-    uint8_t c[4] = { (uint8_t)t, (uint8_t)(t >> 8), (uint8_t)(t >> 16), (uint8_t)(t >> 24) };
-    if (pr->shader == SH_TEX_RGB || pr->shader == SH_TEX_RGB_ALPHA) {
+    uint8_t c[4];
+    if (!(p1 >> 7 & 1) && !(p1 >> 4 & 7)) {
+        /* M37: bilinear (MAGFILT and MINFILT linear): the four texels
+         * around the point, clamped at the edges */
+        const float fx = va[0] * (float)w - 0.5f, fy = va[1] * (float)h - 0.5f;
+        const int x0 = (int)floorf(fx), y0 = (int)floorf(fy);
+        const float ax = fx - (float)x0, ay = fy - (float)y0;
+        float acc[4] = { 0, 0, 0, 0 };
+        for (int k = 0; k < 4; k++) {
+            int x = x0 + (k & 1), y = y0 + (k >> 1);
+            x = x < 0 ? 0 : x >= w ? w - 1 : x;
+            y = y < 0 ? 0 : y >= h ? h - 1 : y;
+            uint32_t t = type == 16 ? tex[y * w + x] : tex[t_index(x, y, w)];
+            if (emu_tex_swap)
+                t = (t & 0xFF00FF00u) | (t >> 16 & 0xFF) | (t & 0xFF) << 16;
+            const float wk = ((k & 1) ? ax : 1 - ax) * ((k >> 1) ? ay : 1 - ay);
+            for (int i = 0; i < 4; i++)
+                acc[i] += wk * (float)(t >> (8 * i) & 255);
+        }
+        for (int i = 0; i < 4; i++)
+            c[i] = (uint8_t)(acc[i] + 0.5f);
+    } else {
+        int tx = (int)floorf(va[0] * (float)w), ty = (int)floorf(va[1] * (float)h);
+        tx = tx < 0 ? 0 : tx >= w ? w - 1 : tx;                 /* clamp */
+        ty = ty < 0 ? 0 : ty >= h ? h - 1 : ty;
+        uint32_t t = type == 16 ? tex[ty * w + tx]         /* RGBA32R: raster order */
+                   : tex[t_index(tx, ty, w)];              /* RGBA8888: T-format */
+        if (emu_tex_swap)
+            t = (t & 0xFF00FF00u) | (t >> 16 & 0xFF) | (t & 0xFF) << 16;
+        c[0] = (uint8_t)t; c[1] = (uint8_t)(t >> 8); c[2] = (uint8_t)(t >> 16); c[3] = (uint8_t)(t >> 24);
+    }
+    if (pr->shader == SH_TEXT) {        /* M37: the colour where the glyph's texel is opaque */
+        out[0] = unit8(va[2]); out[1] = unit8(va[3]); out[2] = unit8(va[4]); out[3] = 255;
+        if (c[3] == 0)
+            *discard = 1;
+        return;
+    }
+    /* the textured screen-door shaders (M34): the even pixels, opaque texels */
+    const int screen = pr->shader == SH_TEX_SCREEN || pr->shader == SH_TEX_RGB_SCREEN;
+    if (screen && (((px + py) & 1) || c[3] == 0))
+        *discard = 1;
+    if (pr->shader == SH_TEX_RGB || pr->shader == SH_TEX_RGB_ALPHA || pr->shader == SH_TEX_RGB_SCREEN) {
         /* texel * light / 2, * 2, + fog: bytes a b c (light d = 1, fog d = 0) */
         for (int i = 0; i < 4; i++) {
             const uint8_t m = muld(c[i], i < 3 ? unit8(va[2 + i]) : 255);
@@ -951,6 +1027,12 @@ static void draw_tile(int tx, int ty, int fw, int fh)
                     float zs = w0 * v[0].z + w1 * v[1].z + w2 * v[2].z;
                     uint32_t zz = (uint32_t)(zs <= 0 ? 0 : zs >= 1 ? 0xFFFFFF : zs * 16777215.0f);
                     const int i = pix + s;
+                    if (pr->early & 1) {        /* early z: less than, as the frame's direction */
+                        if (!(zz < tez[i]))
+                            continue;
+                        if (pr->early & 2)
+                            tez[i] = zz;
+                    }
                     int pass = pr->depth_func == 7 || (pr->depth_func == 1 && zz < tz[i]) ||
                                (pr->depth_func == 3 && zz <= tz[i]);
                     if (!pass)
@@ -1007,6 +1089,7 @@ static int render(uint32_t start, uint32_t end, int have_bin)
     uint16_t *fb = NULL;
     int fw = 0, fh = 0, tx = -1, ty = -1, load = 0, zload = 0, eof = 0, have_cfg = 0, tiles = 0;
     int loaded = 0;                     /* a load took place: a store before the next load */
+    int tile_loaded = 0;                /* the colour was loaded for this tile */
     int waited = 0;                     /* WAIT_ON_SEMAPHORE seen */
     uint32_t load_addr = 0, zload_addr = 0;
     ms = 0, TS = 64, NS = 1;
@@ -1074,6 +1157,7 @@ static int render(uint32_t start, uint32_t end, int have_bin)
                     }
                 load = 0;
                 loaded = 1;
+                tile_loaded = 1;
             }
             if (zload) {
                 const uint32_t *src = zbuf_at(zload_addr, fw, fh);
@@ -1083,7 +1167,7 @@ static int render(uint32_t start, uint32_t end, int have_bin)
                     for (int x = 0; x < 64; x++) {
                         int X = tx * 64 + x, Y = ty * 64 + y;
                         if (X < fw && Y < fh)
-                            tz[y * 64 + x] = src[toff(X, Y, fw)] >> 8;
+                            tz[y * 64 + x] = tez[y * 64 + x] = src[toff(X, Y, fw)] >> 8;
                     }
                 zload = 0;
                 loaded = 1;
@@ -1113,7 +1197,7 @@ static int render(uint32_t start, uint32_t end, int have_bin)
                 if (!(bits & 1u << 13))
                     memcpy(tcol[i], &clear_col, 4);
                 if (!(bits & 1u << 14))
-                    tz[i] = clear_z;
+                    tz[i] = tez[i] = clear_z;
             }
             loaded = 0;
             p += 6;
@@ -1125,10 +1209,15 @@ static int render(uint32_t start, uint32_t end, int have_bin)
             uint32_t a = rd32(p);
             if (!have_bin || a != bin_alloc + (uint32_t)(ty * bin_tx + tx) * 32)
                 return err("branch to %08x for tile %u", a, (unsigned)(ty * 100 + tx));
-            for (int n = 0; n < nprims; n++)
+            for (int n = 0; n < nprims; n++) {
                 if (prims[n].oversample != ms)
                     return err("a primitive rasterised %ux, the frame is %ux", prims[n].oversample ? 4 : 1,
                                ms ? 4 : 1);
+                /* Mesa, HW-2905: after a full-resolution load with MSAA the
+                 * early z tracking may hold the previous tile's values */
+                if (ms && tile_loaded && (prims[n].early & 1))
+                    return err("early z in an MSAA frame that loads its tiles (HW-2905)", 0, 0);
+            }
             draw_tile(tx, ty, fw, fh);
             p += 4;
             break;
@@ -1154,6 +1243,7 @@ static int render(uint32_t start, uint32_t end, int have_bin)
             tile_clear();
             tiles++;
             loaded = 0;
+            tile_loaded = 0;
             eof = id == 25;
             break;
         default:

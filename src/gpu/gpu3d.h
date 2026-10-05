@@ -75,6 +75,13 @@ int gpu3d_queue(void);                  /* on: asked for and possible */
 int gpu3d_queue_ok(void);               /* the probe saw a started job end right */
 int gpu3d_zclear_ok(void);              /* the probe saw zclear() inside a job work (with the queue) */
 
+/* M35, step 2: the memory of the jobs (lists, records, uniforms, vertices)
+ * uncached, the ARM's writes merged by the write buffer, no cache line read
+ * for them (gpu3d_wc=1, off until the Pi shows it pays). gpu3d_wc(): it is
+ * (the MMU changed it). */
+void gpu3d_set_wc(int on);
+int gpu3d_wc(void);
+
 /* Anti-aliasing (MSAA 4x) for the next jobs, where the probe allows it:
  * gpu3d_msaa() is 0 (no MSAA), 1 (on pages of one colour: cleared, not
  * loaded) or 2 (on any page). Never in a job that keeps the depth. */
@@ -86,6 +93,12 @@ int gpu3d_msaa_on(void);            /* asked for and possible (on any page) */
  * rows (0); the textures made so far are made again. gpu3d_tiles(): the
  * probe learned T-format. */
 void gpu3d_tiled_textures(int on);
+
+/* M37: the GPU's textures filtered (bilinear) instead of the nearest texel
+ * as the ARM draws them (gpu3d_filter=1: it changes how they look);
+ * gpu3d_bilinear() what was asked. */
+void gpu3d_set_bilinear(int on);
+int gpu3d_bilinear(void);
 int gpu3d_tiles(void);
 
 /* M36: whole meshes placed by the GPU's vertex shader instead of a
@@ -98,6 +111,29 @@ int gpu3d_vshader(void);
 void gpu3d_set_vshader(int on);
 int gpu3d_vshader_on(void);
 
+/* What the start-up probes of the optional things saw (the vertex
+ * shader's, the clipping's, the queue's, zclear() in a job), "" when all
+ * went as expected; the GPU test puts it in its report. */
+const char *gpu3d_probe_log(void);
+
+/* M37: 2D over the 3D in the same job, drawn by the GPU pixel for pixel as
+ * the ARM draws it (no depth test or write): a rectangle [x0, x1) x [y0,
+ * y1) of the page (after the camera, cut to g's clip rectangle); the
+ * rectangle (sx, sy, sw, sh) of a sheet at (dx, dy), zoom times bigger,
+ * transparent texels left out (g16_sspr); text as g16_text (scale 1) or
+ * g16_text_scaled, in g's font. 1 if the GPU took it, 0 if it cannot (the
+ * ARM draws it, after the job). */
+int gpu3d_rect2d(const g16_t *g, int x0, int y0, int x1, int y1, uint16_t c);
+int gpu3d_blit2d(const g16_t *g, const g16_sheet_t *s, int sx, int sy, int sw, int sh, int dx, int dy, int zoom,
+                 int flip_x, int flip_y);
+int gpu3d_text2d(const g16_t *g, int x, int y, const char *str, uint16_t c, int scale);
+
+/* M37: the w x h RGB565 frame src scale times bigger on page (as many
+ * pixels as w * scale x h * scale; the menu at 1920x1080 from its
+ * 640x360 layout), the nearest pixel, by the GPU: 0, or -1 (then the ARM
+ * enlarges it) */
+int gpu3d_enlarge(const uint16_t *src, int w, int h, int scale, const g16_t *page);
+
 typedef struct {
     uint32_t jobs, tris, bin_us, render_us, max_us;
     uint32_t zjobs;                 /* jobs that loaded or stored the depth */
@@ -107,6 +143,7 @@ typedef struct {
     uint32_t gltris;                /* their triangles (in tris too) */
     uint32_t queued;                /* jobs started and waited for later (M35) */
     uint32_t zinjob;                /* zclear() inside a job (M35) */
+    uint32_t quads2d;               /* 2D drawn by the GPU over the 3D (M37) */
 } gpu3d_stats_t;
 
 /* totals since the last call, then zeroed */

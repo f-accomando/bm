@@ -1,5 +1,6 @@
 #include "v3d.h"
 #include "arch/cache.h"
+#include "arch/mmu.h"
 #include "drivers/mmio.h"
 #include "drivers/prop.h"
 #include "drivers/timer.h"
@@ -290,6 +291,11 @@ int v3d_wait(uint32_t timeout_us, uint32_t *bin_us, uint32_t *rnd_us)
     }
     dcache_clean_invalidate_all();
     return err;
+}
+
+int v3d_uncached(void *p, uint32_t size, int on)
+{
+    return mmu_set_cached(p, size, !on);
 }
 
 void v3d_dump(char *buf, size_t n)

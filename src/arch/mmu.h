@@ -20,4 +20,11 @@ void mmu_init(uint32_t arm_mem_end, uint32_t ram_end);
 
 int mmu_enabled(void);
 
+/* The 1 MiB sections wholly inside [start, start + size) of the cached ARM
+ * memory made normal uncached (writes merged in the write buffer: for
+ * buffers the ARM writes and another master reads, M35) or cached again
+ * (cached != 0). The data cache of the range is cleaned and invalidated
+ * first, the TLBs after. The number of sections changed. */
+int mmu_set_cached(const void *start, uint32_t size, int cached);
+
 #endif

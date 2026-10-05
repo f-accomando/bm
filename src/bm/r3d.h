@@ -81,8 +81,10 @@ typedef struct { float x, y, z, a, b, c; float l[3], f[3]; } r3d_corner_t;
 /* R3D_KIND_SCREEN: a colour on the pixels with x + y even only (screen-door).
  * R3D_INSIDE, added to the kind: the mesh's bounding sphere is in front of
  * the near plane and its corners are no farther than the backend's guard
- * from the screen (rounding aside), so the backend need not check them */
-enum { R3D_KIND_COLOUR, R3D_KIND_TEXTURE, R3D_KIND_SCREEN, R3D_KIND_TEX_RGB, R3D_INSIDE = 4 };
+ * from the screen (rounding aside), so the backend need not check them.
+ * R3D_TEX_SCREEN, added to R3D_KIND_TEXTURE or R3D_KIND_TEX_RGB: a textured
+ * screen-door face (only to a backend with tex_screen) */
+enum { R3D_KIND_COLOUR, R3D_KIND_TEXTURE, R3D_KIND_SCREEN, R3D_KIND_TEX_RGB, R3D_INSIDE = 4, R3D_TEX_SCREEN = 8 };
 
 /* the depth of a backend triangle: tested and written, neither (R3D_NOZ),
  * or tested only (3D effects, shadows) */
@@ -132,6 +134,8 @@ typedef struct {
     void (*zclear)(void *ctx, const g16_t *g);      /* what follows ignores what was drawn */
     void *ctx;
     float guard;                /* pixels around the screen for R3D_INSIDE; 0: never */
+    int tex_screen;             /* draws textured screen-door faces (R3D_TEX_SCREEN, M34); else
+                                 * they go to the ARM */
 } r3d_backend_t;
 
 typedef struct { float r, g, b; } r3d_rgb_t;
@@ -153,15 +157,18 @@ typedef struct {
     uint32_t fog_rgb;           /* faces fade to this colour ... */
     float fog_near, fog_far;    /* ... between these depths (off if far <= near) */
     int shadow_style;           /* 0 darken, 1 dither */
+    int fast;                   /* M37: object -> camera in one matrix and a model without bones lit
+                                 * in its own axes, also on the ARM (fewer instructions a vertex;
+                                 * the pixels not bit for bit as before): r3d_fast=1 */
     /* statistics of the last frame (reset by r3d_zclear); pixels are
      * counted by the software rasterizer only */
     uint32_t tris_in, tris_drawn, pixels, verts;
     const r3d_backend_t *backend;   /* NULL: the software rasterizer */
     /* called (with arm_ctx) when a draw needs the software rasterizer
-     * while a backend is set: shadows and 3D effects (they read the
-     * z-buffer), screen-door faces, textures with baked light. It draws
-     * what the backend holds; then r3d sets backend to NULL and the ARM
-     * draws from there on. */
+     * while a backend is set (textured screen-door faces for a backend
+     * without tex_screen: since bm3d 4.7 the GPU's has it). It draws what
+     * the backend holds; then r3d sets backend to NULL and the ARM draws
+     * from there on. */
     void (*arm_hook)(void *ctx, const char *why);
     void *arm_ctx;
 } r3d_t;

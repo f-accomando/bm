@@ -46,12 +46,14 @@ int ksnprintf(char *buf, size_t size, const char *fmt, ...)
     return n;
 }
 
-static uint8_t glyphs[256 * 16];
+static uint8_t glyphs[256 * 16];         /* a pattern a glyph (M37's text) */
 static const font_t font = { 8, 16, glyphs };
 static const char *ppm_dir;
 
 static g16_sheet_t sheet, sheet2, sheet3;
+static g16_sheet_t sheets10[10];        /* more sheets than the backend keeps in a job (8) */
 static r3d_mesh_t sphere, quad, floor_m, cube, lit_quad, glass, lit_box, hero, hero_tex, hero_skin;
+static r3d_mesh_t quad_s, lit_quad_s, lit_box_s;     /* M34: textured screen-door faces */
 static const r3d_mesh_t *hero_m = &hero;     /* the hero of s_vshader_heroes */
 static float hero_bones[2][12];
 static uint8_t hero_vbone[512];
@@ -87,6 +89,17 @@ static void make_sheet(void)
         for (int cy = 0; cy < 16; cy++)
             for (int cx = 0; cx < 16; cx++)
                 g16_sheet_update_cell(more[k], cx, cy);
+    }
+    for (int k = 0; k < 10; k++) {
+        g16_sheet_alloc(&sheets10[k], 64, 64);
+        for (int i = 0; i < 64 * 64; i++) {
+            const int x = i % 64, y = i / 64;
+            const uint32_t c = ((x / 8) ^ (y / 8)) & 1 ? 0x101010u * (uint32_t)(k + 4) : 0xF04000u + 0x1814u * (uint32_t)k;
+            g16_sheet_set(&sheets10[k], x, y, g16_rgb24(c), 1);
+        }
+        for (int cy = 0; cy < 8; cy++)
+            for (int cx = 0; cx < 8; cx++)
+                g16_sheet_update_cell(&sheets10[k], cx, cy);
     }
 }
 
@@ -219,6 +232,30 @@ static void make_meshes(void)
     }
     lit_box.tex = &sheet;
     r3d_mesh_normals(&lit_box);
+    /* M34: the same with their textured faces screen-door (the second row
+     * of the sheet: transparent texels too) */
+    const r3d_mesh_t *src[3] = { &quad, &lit_quad, &lit_box };
+    r3d_mesh_t *dst[3] = { &quad_s, &lit_quad_s, &lit_box_s };
+    for (int k = 0; k < 3; k++) {
+        r3d_mesh_alloc(dst[k], src[k]->nverts, src[k]->nfaces);
+        memcpy(dst[k]->verts, src[k]->verts, (size_t)src[k]->nverts * sizeof *dst[k]->verts);
+        memcpy(dst[k]->faces, src[k]->faces, (size_t)src[k]->nfaces * 3 * sizeof *dst[k]->faces);
+        memcpy(dst[k]->colors, src[k]->colors, (size_t)src[k]->nfaces * sizeof *dst[k]->colors);
+        r3d_mesh_alloc_uv(dst[k]);
+        memcpy(dst[k]->uv, src[k]->uv, (size_t)src[k]->nfaces * 6 * sizeof *dst[k]->uv);
+        for (int f = 0; f < src[k]->nfaces; f++)
+            if (dst[k]->colors[f] & R3D_TEXTURED) {
+                dst[k]->colors[f] |= R3D_SCREEN;
+                for (int i = 1; i < 6; i += 2)
+                    dst[k]->uv[f * 6 + i] += k == 0 ? 0 : 32;      /* the row with holes */
+            }
+        if (src[k]->clight) {
+            dst[k]->clight = malloc((size_t)src[k]->nfaces * 9);
+            memcpy(dst[k]->clight, src[k]->clight, (size_t)src[k]->nfaces * 9);
+        }
+        dst[k]->tex = &sheet;
+        r3d_mesh_normals(dst[k]);
+    }
 }
 
 /* ---------------------------------------------------------------- scenes */
@@ -417,6 +454,20 @@ static void s_sheets(r3d_t *r, g16_t *g, int gpu)
 }
 static void s_full(r3d_t *r, g16_t *g, int gpu) { many(r, g, gpu, 700); }
 
+/* ten sheets in turn: more than a job keeps (8), so two jobs */
+static void s_sheets10(r3d_t *r, g16_t *g, int gpu)
+{
+    r3d_camera(r, 0, 0, -6, 0, 0, 60);
+    r3d_light(r, 0, 0, -1, 0.6f);
+    for (int i = 0; i < 10; i++) {
+        quad.tex = &sheets10[i];
+        r3d_draw_flags(r, &quad, (v3_t){ -3.2f + 0.7f * (float)(i % 5), i < 5 ? 0.7f : -0.7f, 0 }, 0, 0.1f, 0,
+                       0.5f, 0);
+    }
+    quad.tex = &sheet;
+    flush(r, g, gpu);
+}
+
 /* 3D, 2D over it, then 3D partly behind the first: the first part's depth
  * must hide the second. Two frames: the first teaches the backend that
  * this cartridge needs its depth kept between jobs. */
@@ -466,6 +517,85 @@ static void s_overbit(r3d_t *r, g16_t *g, int gpu)
     flush(r, g, gpu);
 }
 
+/* M34: textured screen-door faces over a sphere: a plain textured quad, a
+ * quad of a "lit" model (light baked, fog), a "lit" box through the vertex
+ * shader (vsh), all on the GPU (they went to the ARM before) */
+static void s_tex_screen(r3d_t *r, g16_t *g, int gpu)
+{
+    r3d_camera(r, 0, 0.3f, -5, 0, -0.05f, 60);
+    r3d_light(r, -0.3f, 0.8f, -0.4f, 0.4f);
+    r3d_draw_flags(r, &sphere, (v3_t){ 0, 0, 3 }, 0, 0, 0, 2.2f, R3D_SMOOTH);
+    r3d_draw_flags(r, &quad_s, (v3_t){ -1.8f, 0.6f, 0 }, 0, 0.3f, 0, 0.9f, 0);
+    r3d_fog(r, 0xC0A080, 3, 12);
+    r3d_draw_flags(r, &lit_quad_s, (v3_t){ 0.3f, 0.8f, 0.5f }, 0, -0.2f, 0, 0.9f, 0);
+    gpu3d_set_vshader(gpu != 0);
+    r3d_draw_flags(r, &lit_box_s, (v3_t){ 1.5f, -0.6f, 0.5f }, 0.4f, 0.7f, 0, 0.9f, 0);
+    r3d_fog(r, 0, 0, 0);
+    if (gpu)
+        CHECK(r->backend != NULL, "tex screen: the textured screen-door faces went to the ARM");
+    flush(r, g, gpu);
+    gpu3d_set_vshader(0);
+}
+
+/* M37: 2D over the 3D in the same job: rectangles, sprites (flipped, at
+ * twice their size), text (in lines, scaled), under a camera and a clip
+ * rectangle, then 3D partly behind it. The ARM draws the same with gfx16:
+ * the 2D pixel for pixel, the 3D after it hiding it where it is nearer. */
+static int g2d;                         /* the 2D drawn by the GPU */
+static void rect2d(g16_t *g, int x, int y, int w, int h, uint16_t c)
+{
+    if (g2d)
+        CHECK(gpu3d_rect2d(g, x - g->cam_x, y - g->cam_y, x - g->cam_x + w, y - g->cam_y + h, c), "rect2d");
+    else
+        g16_rectfill(g, x, y, w, h, c);
+}
+
+static void spr2d(g16_t *g, int sx, int sy, int sw, int sh, int dx, int dy, int fx, int fy, int zoom)
+{
+    if (g2d)
+        CHECK(gpu3d_blit2d(g, &sheet, sx, sy, sw, sh, dx - g->cam_x, dy - g->cam_y, zoom, fx, fy), "blit2d");
+    else if (zoom == 1)
+        g16_sspr(g, &sheet, sx, sy, sw, sh, dx, dy, fx, fy);
+    else
+        g16_sspr_zoom(g, &sheet, sx, sy, sw, sh, dx, dy, fx, fy, (float)zoom);
+}
+
+static void text2d(g16_t *g, int x, int y, const char *t, uint16_t c, int scale)
+{
+    if (g2d)
+        CHECK(gpu3d_text2d(g, x, y, t, c, scale), "text2d");
+    else
+        g16_text_scaled(g, x, y, t, c, scale);
+}
+
+static void s_2d(r3d_t *r, g16_t *g, int gpu)
+{
+    r3d_camera(r, 0, 0, -6, 0, 0, 60);
+    r3d_light(r, -0.4f, 0.7f, -0.6f, 0.3f);
+    r3d_draw_flags(r, &sphere, (v3_t){ -0.5f, 0, 1 }, 0, 0.3f, 0, 1.6f, R3D_SMOOTH);
+    g2d = gpu;
+    g->cam_x = 7;
+    g->cam_y = -5;
+    g->cx0 = 16; g->cy0 = 20; g->cx1 = 600; g->cy1 = 330;
+    rect2d(g, 0, 0, 200, 40, g16_rgb(20, 60, 200));              /* cut by the clip rectangle */
+    rect2d(g, 300, 150, 90, 60, g16_rgb(250, 120, 30));
+    rect2d(g, 590, 300, 50, 50, g16_rgb(60, 220, 90));           /* out on the right and below */
+    spr2d(g, 0, 32, 32, 32, 40, 60, 0, 0, 1);                    /* transparent texels */
+    spr2d(g, 0, 32, 32, 32, 80, 60, 1, 0, 1);                    /* flipped */
+    spr2d(g, 32, 0, 32, 32, 120, 60, 0, 1, 1);
+    spr2d(g, 64, 32, 32, 32, 170, 50, 1, 1, 2);                  /* twice as big */
+    spr2d(g, 96, 0, 24, 16, 8, 200, 0, 0, 3);                    /* three times, cut on the left */
+    text2d(g, 40, 120, "HUD 250/250\nline two", g16_rgb(255, 255, 255), 1);
+    text2d(g, 300, 240, "BIG\nA", g16_rgb(255, 230, 40), 2);
+    g->cam_x = g->cam_y = 0;
+    g->cx0 = g->cy0 = 0; g->cx1 = g->w; g->cy1 = g->h;
+    g2d = 0;
+    /* the 3D after the 2D: in front of the sphere, partly over the 2D */
+    r3d_draw_flags(r, &cube, (v3_t){ 1.2f, 0.4f, -0.5f }, 0.3f, 0.6f, 0, 1.0f, 0);
+    r3d_draw_flags(r, &sphere, (v3_t){ -0.7f, 0.2f, 3 }, 0, 0, 0, 1.2f, 0);     /* behind the first */
+    flush(r, g, gpu);
+}
+
 /* the 3D effects, tested against the depth of a cube: points, lines, a
  * sprite with transparent texels */
 static void s_effects(r3d_t *r, g16_t *g, int gpu)
@@ -501,6 +631,9 @@ static const struct { const char *name; scene_fn fn; int w, h; float limit; int 
     { "vshader heroes", s_vshader_heroes, 640, 360, 0.04f, 1 },
     { "vshader textured", s_vshader_heroes_tex, 640, 360, 0.04f, 1 },
     { "vshader skin", s_vshader_skin, 640, 360, 0.04f, 1 },
+    { "10 sheets", s_sheets10, 640, 360, 0.02f, 0 },
+    { "tex screen", s_tex_screen, 640, 360, 0.03f, 0 },
+    { "2D on GPU", s_2d, 640, 360, 0.02f, 0 },
 };
 #define CLEARED 7                   /* its index: no bar, no load */
 
@@ -589,7 +722,9 @@ static void run_scene(int s)
             if (s == 3)
                 CHECK(emu_stats.batches - batches >= 2, "many: one batch");
             if (s == 4)
-                CHECK(emu_stats.jobs - jobs >= 2, "3 sheets: one job");
+                CHECK(emu_stats.jobs - jobs == 1, "3 sheets: %u jobs (8 sheets fit in one)", emu_stats.jobs - jobs);
+            if (scenes[s].fn == s_sheets10)
+                CHECK(emu_stats.jobs - jobs >= 2, "10 sheets: one job");
             if (s == 5) {
                 CHECK(emu_stats.jobs - jobs >= 2, "full job: one job");
                 CHECK(emu_stats.zstores > zstores, "full job: the depth was not kept between jobs");
@@ -639,6 +774,7 @@ int main(int argc, char **argv)
     emu_cw_flip = argc > 5 ? atoi(argv[5]) : 0;
     emu_clip = argc > 6 ? atoi(argv[6]) : 0;
     emu_hang_zclear = getenv("EMU_HANG_ZCLEAR") != NULL;     /* the probe's job does not end */
+    emu_vpm_words = getenv("EMU_VPM_WORDS") != NULL;         /* GL records in words: the probe tries bytes first */
     ppm_dir = argc > 7 ? argv[7] : NULL;
     printf("gpu3d on the emulator: byte a = %s, texels %s, T-format %d, MSAA load %s\n",
            emu_red_a ? "red" : "blue", emu_tex_swap ? "swapped" : "in place", emu_tformat,
@@ -649,12 +785,15 @@ int main(int argc, char **argv)
     snprintf(want, sizeof want, "byte a = %s, texels %s, textures in %s, MSAA %s, vertex shader %s, clipping %s, "
              "lit models yes, queue yes, zclear in job %s", emu_red_a ? "red" : "blue", emu_tex_swap ? "swapped" : "in place",
              emu_tformat == 2 ? "rows" : "tiles", emu_ms_load_one ? "on cleared pages" : "on any page",
-             emu_cw_flip ? "yes" : "yes (cw)", clips[emu_clip], emu_hang_zclear ? "no" : "yes");
+             emu_vpm_words ? (emu_cw_flip ? "yes (VPM in words)" : "yes (cw, VPM in words)")
+                           : emu_cw_flip ? "yes" : "yes (cw)", clips[emu_clip], emu_hang_zclear ? "no" : "yes");
     CHECK(strstr(gpu3d_status(), want) != NULL, "probe: '%s', expected '%s'", gpu3d_status(), want);
     if (!gpu3d_ready()) {
         printf("gpu3d: %d/%d checks passed\n", checks - failures, checks);
         return 1;
     }
+    for (int i = 0; i < 256 * 16; i++)
+        glyphs[i] = (uint8_t)((i / 16) * 37 + (i % 16) * 11 + ((i % 16) & 1 ? 0x81 : 0x18));
     make_sheet();
     make_meshes();
     make_hero();
@@ -705,6 +844,49 @@ int main(int argc, char **argv)
             save(pg[0], 640, 360, sc_name[sc], "nv");
             save(pg[1], 640, 360, sc_name[sc], "gl");
         }
+    }
+    /* M37: the textures filtered (bilinear): the same scene changes, but
+     * only a little (the magnified floor smooths its squares' edges) */
+    {
+        uint16_t *q[2] = { test_aligned_alloc(16, 640 * 360 * 2), test_aligned_alloc(16, 640 * 360 * 2) };
+        for (int k = 0; k < 2; k++) {
+            g16_t g;
+            r3d_t r;
+            g16_target(&g, q[k], 640, 640, 360, &font);
+            g16_cls(&g, g16_rgb(30, 20, 50));
+            r3d_init(&r, &g);
+            r.backend = gpu3d_backend();
+            gpu3d_drop();
+            r3d_zclear(&r);
+            gpu3d_set_bilinear(k);
+            s_textures(&r, &g, 1);
+            gpu3d_set_bilinear(0);
+            r3d_free(&r);
+        }
+        int differ = 0;
+        for (int i = 0; i < 640 * 360; i++)
+            differ += q[0][i] != q[1][i];
+        printf("  bilinear textures: %.2f%% of the pixels differ from the nearest texel\n", differ * 100.0 / (640 * 360));
+        CHECK(differ > 200 && differ < 640 * 360 / 4, "bilinear: %d pixels differ from the nearest texel", differ);
+        save(q[1], 640, 360, "textures", "bilinear");
+    }
+    /* M37: a frame enlarged by the GPU (the menu at 1080p): 3 times, the
+     * nearest pixel, as the ARM enlarges it */
+    {
+        enum { FW = 160, FH = 90, K = 3 };
+        static uint16_t src[FW * FH];
+        for (int i = 0; i < FW * FH; i++)
+            src[i] = (uint16_t)(i * 2654435761u >> 16);
+        uint16_t *big = test_aligned_alloc(64, FW * K * FH * K * 2);
+        g16_t pg;
+        g16_target(&pg, big, FW * K, FW * K, FH * K, &font);
+        CHECK(gpu3d_enlarge(src, FW, FH, K, &pg) == 0, "enlarge: %s (%s)", gpu3d_status(), emu_error);
+        int differ = 0;
+        for (int y = 0; y < FH * K; y++)
+            for (int x = 0; x < FW * K; x++)
+                differ += big[y * FW * K + x] != src[(y / K) * FW + x / K];
+        printf("  enlarged %dx%d %d times by the GPU: %d pixels differ\n", FW, FH, K, differ);
+        CHECK(differ == 0, "enlarge: %d pixels differ from the nearest", differ);
     }
     /* M35: every scene again with its end started on the V3D (semaphores,
      * gpu3d_submit) and waited for, its zclear()s inside the job (fs_zclear):
