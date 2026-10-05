@@ -3035,6 +3035,23 @@ le sfere dell'ARM del Pi, M40) e il 3D Bench ha le colonne GPU vuote.
   benchmark manda il report, prima con l'ARM e poi con la GPU Mali; il 3D Bench della
   RGB30 ha le righe GPU.
 
+## M42 — Il profilo `.b16` (L)
+Decisioni dell'utente del 2026-10-05, in [B16.md](B16.md) §0: un ambiente limitato come
+PICO-8, uguale sul Pi e sulla RGB30. Lo stesso contenitore dei `.bm` con il campo del
+profilo; schermo 360×360 o 720×720 fisso; 256 colori; Lua 4 MiB, grafica a banchi da
+1024×1024, 8 voci, salvataggio 64 KiB; CPU a budget fisso (istruzioni Lua e costo dei
+disegni) a 60 fps che scende da sola a 30; 3D con un tetto di triangoli; pad stile SNES;
+niente file, `rnd()` con seme; 8 MiB; nessun limite di token.
+1. Il campo del profilo nel contenitore, `mkbm.py --b16`, i controlli (lettore e
+   impacchettatore) e il menu: il Pi mostra `.bm` e `.b16`, la RGB30 solo `.b16`.
+2. Il runtime nel profilo: schermo fisso, tavolozza, memoria, sandbox, banchi grafici.
+3. La CPU a budget: costi dei disegni, misura sul Pi, 60 → 30 fps da soli, la percentuale nel
+   dev kit.
+4. L'SDK: il target `.b16` salva un `.b16` vero (oggi solo i promemoria del dev kit, §8.5).
+5. Yharnam in `.b16` (360×360, sheet a banchi), poi Overbit (M41).
+- **Fatto quando:** Yharnam `.b16` gira uguale sul Pi e sulla RGB30 nel profilo, con la CPU
+  che scende a 30 fps negli stessi punti sulle due console.
+
 ## Rischi principali
 | Rischio | Mitigazione |
 |---------|-------------|
