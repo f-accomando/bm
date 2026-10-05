@@ -1,0 +1,97 @@
+bm report
+kind: log
+kernel: v0.2.3-17-g54d60b9
+branch: bm-core
+board: Pi Zero W
+date: unknown (no network time)
+file: nodate-844119_log_pi-zero-w_v0.2.3-17-g54d60b9.txt
+
+
+bm kernel v0.2.3-17-g54d60b9 - Raspberry Pi Zero W (BCM2835, revision 9000c1)
+board 9000c1, ARM 1000 MHz, core 250 MHz, RAM 448+64 MiB (ARM+GPU), 35.7 C
+ARM1176 from SVC, MMU+caches on, heap 441 MiB, UART 48000000 Hz
+the Pi froze last time and the watchdog restarted it:
+  doing: boot, frame 0, 77 s after boot
+watchdog: not available, no freeze guard (loaded 196608, after 20 ms 196608)
+IRQ on: timer 1000 Hz (measured 1000 Hz), double buffer on
+audio: HDMI 48 kHz
+usb: if0 class 03/00/00 ep 81 mps 16 every 8ms, report desc 83
+usb: if1 class 03/01/01 ep 82 mps 16 every 8ms, report desc 182 keyboard (report id)
+usb: if2 class 03/00/00 ep 85 mps 64 every 2ms, report desc 27
+usb: keyboard 05ac:0267 'Magic Keyboard', full speed, layout it
+sd: SDHC card (sdhost), FAT32, 7591 MiB, label BOOTFS; 12 cartridges
+config: /bm/config.txt, layout it, .bm drawing direct, volume 10/10
+bt: the serial console moves to the mini UART (same pins, same speed)
+bt: 32 kHz clock already on
+bt: power-cycling the chip (GPIO45)
+bt: firmware patch loaded (121 records, 30049 bytes)
+bt: ready, address b8:27:eb:62:7c:08, HCI 7, LMP subversion 2209, 921600 baud
+bt: paired pad 00:1f:e2:bf:d7:dd (player 1): press its PS button to connect
+wifi: joining the saved network (wifi_boot=0 in bm/config.txt: off)
+wifi: 32 kHz clock already on
+wifi: power on (WL_REG_ON = GPIO41)
+wifi: controller at 400 kHz, base clock (Hz) 0bebc200
+wifi: CMD5 OCR 20ffff00
+wifi: chip ready, functions 00000002
+wifi: CMD3 address 00000001
+wifi: CMD7 selected 00001e00
+wifi: CCCR/SDIO revision 00000032
+wifi: 4-bit bus
+wifi: clock 25 MHz
+wifi: block sizes: function 1 64, function 2 512
+wifi: function 1 ready
+wifi: backplane clock (ALP) on
+wifi: chip 43430 (a9a6) rev 1: BCM43430/43438, ok
+wifi: cores: ARM 18003/18103, RAM 18004/18104, SDIO 18002 (rev 21), D11 18101
+wifi: chip RAM 512 KiB
+wifi: firmware 389 KiB written and checked in 107 ms
+wifi: board settings (NVRAM) 676 bytes
+wifi: chip ARM started
+wifi: fast clock (HT) on
+wifi: function 2 ready
+wifi: firmware: wl0: Jul 19 2021 03:24:18 version 7.45.98 (TOB) (56df937 CY) FWID 01-8e14b897 
+wifi: MAC b8:27:eb:9d:83:f7
+wifi: regulatory data (CLM) 4733 bytes loaded
+wifi: radio up
+wifi: joining "FASTWEB-36AB12" (WPA2)...
+wifi: could not join (status 3: network not found)
+
+cartridge menu: arrows or wasd, Enter plays, x options, [ ] or Tab or 1-5 change tab, q returns to the monitor
+(keyboard: Enter, Esc back, C options, Q E or 1-5 tabs, Ctrl+Esc home, Ctrl+Shift+Esc the monitor, hold F12: the keys)
+bm > Pair a new controller
+
+DS4: hold Share + PS until the light flashes quickly.
+
+bt: looking for devices for 8 s (DS4: hold Share + PS until the light flashes)
+bt: found 00:1f:e2:bf:d7:dd class 002508 (gamepad)
+bt: 1 device found
+bt: pairing with 00:1f:e2:bf:d7:dd...
+bt:   <- connection complete (03) 00 0c 00 dd
+bt:   <- max slots change (1b) 0c 00 05 00
+bt:   <- link key request (17) dd d7 bf e2
+bt:   <- authentication complete (06) 00 0c 00 00
+bt:   <- encryption change (08) 00 0c 00 01
+bt:   <- L2CAP connect response (03) 40 00 40 00 01 00
+bt:   <- L2CAP connect response (03) 40 00 40 00 00 00
+bt:   <- L2CAP config response (05) 40 00 00 00 00 00
+bt:   <- L2CAP config request (04) 40 00 00 00 01 02
+bt:   <- L2CAP connect response (03) 41 00 41 00 01 00
+bt:   <- L2CAP connect response (03) 41 00 41 00 00 00
+bt:   <- L2CAP config response (05) 41 00 00 00 00 00
+bt:   <- L2CAP config request (04) 41 00 00 00 01 02
+bt: controller 00:1f:e2:bf:d7:dd connected (player 1)
+bt: paired as player 1; next time just press PS on the controller
+
+A, Esc or any key: back to the menu
+bt: controller 00:1f:e2:bf:d7:dd (player 1) disconnected after 1412 ms: it closed the link (switched off, or another console) (reason 13)
+bm > Report the log
+
+report: nodate-f59491_log_pi-zero-w_v0.2.3-17-g54d60b9.txt saved as bm/reports/RPT00001.TXT
+report: on the SD card: no network
+
+A, Esc or any key: back to the menu
+market: https://f-accomando.github.io/bm-market/, catalog saved on the SD card
+back to the monitor
+
+type 'h' for help
+> Z
