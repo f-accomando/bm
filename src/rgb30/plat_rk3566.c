@@ -7,6 +7,10 @@
 #include "plat.h"
 #include "io.h"
 #include "rk_pmic.h"
+#include "rk_wlbt.h"
+
+#define CRU             0xfdd20000u
+#define CRU_GLB_SRST_FST 0xd4           /* the chip's first global soft reset (0xfdb9) */
 
 #define UART2           0xfe660000u
 #define UART_THR        0x00
@@ -48,15 +52,33 @@ static void psci(uint32_t fn)
     __asm__ volatile("smc #0" : "+r"(x0) :: "x1", "x2", "x3", "memory");
 }
 
+/* The screen, its backlight and the WiFi module off before the chip
+ * restarts or the power goes: a restart of the chip alone keeps the PMIC's
+ * rails and the PMU's GPIO as bm left them, and the next start should find
+ * them as after power-on (the console used to stay on with a black screen
+ * after an update's restart, 2026-10-05). The LEDs off too: if the screen
+ * stays black, red on says bm started again (see docs/RGB30.md). */
+static void quiet(void)
+{
+    plat_display_off();
+    wlbt_power_off();
+    plat_led(0, 0);
+}
+
 void plat_reset(void)
 {
+    quiet();
     psci(0x84000009u);          /* SYSTEM_RESET */
+    /* still here: the firmware did not restart; the chip's own global
+     * soft reset, as Linux's clock driver does */
+    writel(CRU + CRU_GLB_SRST_FST, 0xfdb9u);
     for (;;)
         __asm__ volatile("wfe");
 }
 
 void plat_poweroff(void)
 {
+    quiet();
     rk817_power_off();          /* the PMIC cuts the power */
     psci(0x84000008u);          /* SYSTEM_OFF, if it did not */
     for (;;)

@@ -354,4 +354,11 @@ int rk_dsi_init(char *log, unsigned size)
     return bad ? -1 : 0;
 #undef LOG
 }
+
+void rk_dsi_off(void)
+{
+    rk_gpio_output(PANEL_RESET, 0);
+    timer_delay_ms(10);
+    rk_gpio_output(PANEL_POWER, 0);
+}
 #endif

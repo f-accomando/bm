@@ -309,4 +309,18 @@ const char *plat_display_info(void)
 {
     return d.pos ? d.info : "display not started";
 }
+
+/* Before a restart: the backlight's pin back to a plain GPIO, low, and the
+ * panel off. A restart of the chip alone (PSCI) leaves the PMU's GPIO as
+ * they were, so the panel would stay powered and lit into the next start;
+ * off, the next start finds it as after power-on. */
+void plat_display_off(void)
+{
+    if (d.up)
+        writel(PWM4 + 0x0c, 0);                     /* (its clock is on) */
+    writel(PMUGRF + 0x10, 0xf0000000u);             /* GPIO0_C3 = gpio */
+    rk_gpio_output(rk_pin(0, 'C', 3), 0);
+    rk_dsi_off();
+    d.up = 0;
+}
 #endif

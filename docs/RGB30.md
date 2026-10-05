@@ -98,6 +98,18 @@ fermi dicono dove:
 | nessuno | collegamento DSI, D-PHY o comandi al pannello (`rk_dsi_init`) |
 | solo rosso | dominio di alimentazione del video, oppure finestra e retroilluminazione |
 
+**Dopo un riavvio** (un aggiornamento, *Restart*, un kernel dalla rete; 2026-10-05): prima di
+riavviare bm spegne retroilluminazione, pannello e modulo WiFi e i due LED (`quiet()` in
+`plat_rk3566.c`), poi chiede il riavvio al firmware (PSCI SYSTEM_RESET) e, se il firmware torna
+indietro, fa il reset globale del chip (`CRU_GLB_SRST_FST`, come Linux). Un riavvio del solo chip
+lascia i binari del PMIC e i GPIO del PMU come erano: spenti prima, il pannello riparte come
+dall'accensione. Se lo schermo resta nero dopo il riavvio:
+- LED spenti: bm non è ripartito (fermo nel firmware o in U-Boot), oppure è fermo nel DSI
+  (tabella qui sopra): lo dice `bm/bootlog.txt`, da leggere sul PC **prima** di riaccendere (ogni
+  avvio lo riscrive). La prima riga è la versione dell'avvio che l'ha scritto: se è ancora quella
+  di prima, bm non è ripartito;
+- rosso acceso, o le altre combinazioni della tabella: bm è ripartito e si è fermato lì.
+
 Lo schermo: il bordo intorno a un'immagine più piccola del pannello (un gioco con `bm_scale=int`)
 è il colore di sfondo del controller video (lo stesso blu-grigio scuro del menu). Tutto uniforme blu-grigio = pannello acceso ma finestra non
 funzionante; nero = collegamento DSI o pannello; niente del tutto = retroilluminazione.

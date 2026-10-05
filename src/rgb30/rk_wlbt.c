@@ -32,6 +32,16 @@ void wlbt_power_on(void)
     powered = 1;
 }
 
+void wlbt_power_off(void)
+{
+    if (!powered)
+        return;
+    rk_gpio_set(WL_REG_ON, 0);
+    rk_gpio_set(VCC_WIFI, 0);
+    rk817_clk32k_wifi(0);
+    powered = 0;
+}
+
 void wlbt_wifi_reset(void)
 {
     wlbt_power_on();

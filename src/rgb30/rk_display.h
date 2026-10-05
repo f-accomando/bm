@@ -7,5 +7,7 @@
 /* DSI0 + D-PHY + ST7703 panel, with the VOP already streaming; a short
  * report goes to log. 0 ok, -1 panel commands failed, -2 no PHY lock. */
 int rk_dsi_init(char *log, unsigned size);
+/* the panel in reset and its power off (before a restart) */
+void rk_dsi_off(void);
 
 #endif

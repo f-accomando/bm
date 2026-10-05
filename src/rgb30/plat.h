@@ -77,6 +77,8 @@ void plat_sticks(int16_t axes[4]);
 int plat_battery(int *mv, int *charge);
 
 /* PSCI through TF-A (SMC) on the RGB30, QEMU's PSCI (HVC) in the tests */
+/* the display off (before a restart; the RGB30's panel and backlight) */
+void plat_display_off(void);
 void plat_reset(void) __attribute__((noreturn));
 void plat_poweroff(void) __attribute__((noreturn));
 
