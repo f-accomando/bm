@@ -135,6 +135,10 @@ class H(http.server.BaseHTTPRequestHandler):
             if method == "GET":
                 ref = re.search(r"ref=([^&]+)", query)
                 files = repo.branches[ref.group(1) if ref else "main"]
+                if p in files:                      # a file: its record
+                    return self.reply(200, {"name": p.rsplit("/", 1)[-1], "path": p, "sha": sha(files[p]),
+                                            "size": len(files[p]), "type": "file",
+                                            "html_url": f"https://github.com/{full}/blob/{ref.group(1)}/{p}"})
                 inside = sorted(f for f in files if f.startswith(p + "/"))
                 if not inside:
                     return self.reply(404, {"message": "Not Found"})
@@ -147,6 +151,8 @@ class H(http.server.BaseHTTPRequestHandler):
                 files = repo.branches.get(body.get("branch"))
                 if files is None:
                     return self.reply(404, {"message": "Branch not found"})
+                if p in files and "sha" not in body:   # as GitHub answers it
+                    return self.reply(422, {"message": "Invalid request.\n\n\"sha\" wasn't supplied."})
                 if p in files and body.get("sha") != sha(files[p]):
                     return self.reply(409, {"message": f"{p} does not match"})
                 if p not in files and "sha" in body:
@@ -270,7 +276,15 @@ path2 = "reports/bm-core/20261004-153513_log_pi-zero-w_v1.txt"
 kind, what, out = put("tok-owner", "reports", path2, b"bm report\nkind: log\n\nboot\n")
 check(kind == "url" and bm["reports"].get(path2) and "new branch" not in out, "report: a second one, the branch there")
 kind, what, _ = put("tok-owner", "reports", path, b"again")
-check(kind == "error" and bm["reports"][path] == report, f"report: the same name twice refused ({what})")
+check(kind == "error" and "wasn't supplied" in what and bm["reports"][path] == report,
+      f"report: the same name with other bytes refused ({what})")
+# the same report again (its first send reached GitHub, the answer did not
+# reach the console): already there, so sent, and the file untouched
+n_msgs = len(W.messages)
+kind, what, out = put("tok-owner", "reports", path, report)
+check(kind == "url" and what == f"https://github.com/{BM}/blob/reports/{path}" and "was there already" in out
+      and bm["reports"][path] == report and len(W.messages) == n_msgs,
+      f"report: sent again, already there ({kind} {what})")
 kind, what, _ = put("tok-nobody", "reports", "reports/x/y.txt", b"x")
 check(kind == "error" and "the token is not valid" in what, f"report: bad token ({what})")
 srv.shutdown()
