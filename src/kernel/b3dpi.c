@@ -141,6 +141,11 @@ static int load_last(char **text, char *name, size_t n)
 
 void bm_bench3d(framebuffer_t *fb)
 {
+    bm_bench3d_part(fb, NULL, NULL, 0);
+}
+
+void bm_bench3d_part(framebuffer_t *fb, const char *tests, const char *profiles, int no_wait)
+{
     const uint32_t con_w = fb->width, con_h = fb->height;
     bm_stress_settle(20000);            /* as the stress test: the boot's work done */
     static char machine[160];
@@ -165,6 +170,7 @@ void bm_bench3d(framebuffer_t *fb)
         .g = &page, .us = us, .present = present, .count = count, .counting = real, .key = key,
         .log = log_line, .save = save, .load_last = load_last, .kernel = bm_version, .machine = machine,
         .date = net_time() ? net_time_text() : "",
+        .only_tests = tests, .only_profiles = profiles, .no_wait = no_wait,
     };
     const int err = b3d_run(&p);
     input_pad_keys(0);

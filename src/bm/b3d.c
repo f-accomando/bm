@@ -986,6 +986,9 @@ static void report(void)
     put("probes %s\n", gpu3d_probe_log()[0] ? gpu3d_probe_log() : "none");
     put("counters %s\n", P->counting ? pmu_name() : "none");
     put("previous %s\n", prev_name[0] ? prev_name : "none");
+    if (P->only_tests || P->only_profiles)      /* a part of the bench, from the monitor's line */
+        put("only tests %s, profiles %s\n", P->only_tests ? P->only_tests : "all",
+            P->only_profiles ? P->only_profiles : "all");
     put("columns R,test,profile,version,n60,n30,over,ms,worst,tris_in,tris,verts,pixels,gltris,jobs,gpu_ms,"
         "instr,wait_instr,dmiss,cycles,secs\n");
     char a[16], b[16], c[16], d[16], e[16], f[16];
@@ -1365,6 +1368,29 @@ static void draw_page(int i, const char *saved)
 
 /* ---------------------------------------------------------------- run */
 
+/* name is in the comma list (NULL: everything is) */
+static int listed(const char *list, const char *name)
+{
+    if (!list || !*list)
+        return 1;
+    const size_t n = strlen(name);
+    for (const char *s = list; *s;) {
+        const char *e = strchr(s, ',');
+        const size_t len = e ? (size_t)(e - s) : strlen(s);
+        if (len == n && !strncmp(s, name, n))
+            return 1;
+        if (!e)
+            break;
+        s = e + 1;
+    }
+    return 0;
+}
+
+static int prof_listed(int pf)
+{
+    return listed(P->only_profiles, prof[pf].name) || listed(P->only_profiles, prof_short[pf]);
+}
+
 int b3d_run(const b3d_platform_t *plat)
 {
     P = plat;
@@ -1380,7 +1406,8 @@ int b3d_run(const b3d_platform_t *plat)
     const uint32_t t0 = P->us();
     for (int ti = 0; ti < NTESTS; ti++)
         for (int pf = 0; pf < NPROF; pf++)
-            if (!tests[ti].future && (tests[ti].profiles >> pf & 1))
+            if (!tests[ti].future && (tests[ti].profiles >> pf & 1) && listed(P->only_tests, tests[ti].id) &&
+                prof_listed(pf))
                 ramp(ti, pf);
     R.backend = NULL;
     meshes_free();
@@ -1416,6 +1443,12 @@ int b3d_run(const b3d_platform_t *plat)
             if (++page == pages())
                 break;
             continue;
+        }
+        if (P->no_wait) {                       /* from a script: the summary a moment, then on */
+            const uint32_t t1 = P->us();
+            while (P->us() - t1 < 3000000u && P->key() != B3D_KEY_BACK)
+                ;
+            break;
         }
         int k;
         while ((k = P->key()) == B3D_KEY_NONE)

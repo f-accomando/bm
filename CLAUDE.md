@@ -920,6 +920,13 @@ screenshot in `docs/img/`), `README_OLD.md` (il README completo, in italiano),
   `sync3d()` se legge la pagina), una che cambia ciò che il 2D registrato legge (sheet,
   mappa) chiama prima `flush3d(1)`/`sync3d()`. `zclear()` resta nel lavoro (`fs_zclear`).
   `make test-queue2d` confronta i fotogrammi con la coda accesa e spenta.
+- **Riga di comandi del monitor** (`:` in `monitor.c`, richiesta dell'utente 2026-10-05: una
+  stringa da mandargli invece di tante impostazioni): comandi separati da `;`, `gpu` (test `g`),
+  `b3d tests=a,b profiles=P,Q` (una parte del 3D Bench, senza aspettare le pagine:
+  `bm_bench3d_part`, `only_tests`/`only_profiles`/`no_wait` di `b3d_platform_t`; i profili col
+  nome o quello breve), `set chiave=valore` (fino al riavvio; `save` li tiene), `render`, `room`,
+  `log`, `send`, `reboot`; una parola sconosciuta ferma la riga. Prova QEMU `test_monitor_line`.
+  Dal PC: monitor della console (`easy_install.sh` 6) e incollare la riga.
 - **3D Bench** (`src/bm/b3d.c`, *Dev > 3D Bench*, monitor `j`, `docs/BENCH3D.md`): ogni
   test 3D con ogni profilo (ARM 0.2, GPU 2.1, GPU+AA, GPU+VS1 3.0, GPU+VS 3.4), carico
   fino a 40 ms, 60/30 fps, statistiche (istruzioni e cache miss dai contatori

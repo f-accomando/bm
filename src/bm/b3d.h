@@ -45,6 +45,9 @@ typedef struct {
     const char *date;                   /* the network's time, or "" */
     int quick;                          /* a few steps, one frame each (the PC's test) */
     void (*page_shown)(int page);       /* a page of results is on the screen (the PC's test) */
+    const char *only_tests;             /* NULL, or the tests to run: ids, commas between */
+    const char *only_profiles;          /* NULL, or the profiles: names (GPU+FS2) or short (FS2) */
+    int no_wait;                        /* the summary shown 3 s, no key waited for (a script) */
 } b3d_platform_t;
 
 /* runs the bench, then shows the pages until B3D_KEY_BACK (in quick mode,

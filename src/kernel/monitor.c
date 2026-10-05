@@ -81,7 +81,13 @@ static const char help_text[] =
             "  X  crash tests (then u, a, b, s or f): exception screen, freeze\n"
             "  o  everything printed since boot (scrolls like this help)\n"
             "  z  send the tests' reports waiting in bm/reports (github_token; g k p D s R do one)\n"
-            "  Z  the log since boot as a report\n";
+            "  Z  the log since boot as a report\n"
+            "  :  a line of commands, ';' between them, run one after the other:\n"
+            "       gpu                       the GPU test (g), its report\n"
+            "       b3d tests=a,b profiles=P  the 3D Bench, all or a part (GPU+FS2 or FS2...)\n"
+            "       set key=value ...         bm/config.txt keys until a restart (save: kept)\n"
+            "       render  room  log  send  reboot\n"
+            "     e.g. :gpu; b3d tests=match,quad_tex profiles=GPU,FS2; send\n";
 
 static void help(void)
 {
@@ -159,6 +165,125 @@ static void net_get_test(void)
     }
     kprintf("net: time %s\n", net_time_text());
     free(data);
+}
+
+/* ':' a line of commands for the tests (2026-10-05: one string sent to the
+ * user instead of many settings): ';' between commands, key=value after
+ * them; each says what it does, a word not known stops the line */
+static char *arg(char *words, const char *key)
+{
+    const size_t n = strlen(key);
+    for (char *w = words; w && *w;) {
+        while (*w == ' ')
+            w++;
+        if (!strncmp(w, key, n) && w[n] == '=')
+            return w + n + 1;
+        w = strchr(w, ' ');
+    }
+    return NULL;
+}
+
+/* the value of key=... in words, up to the next space, into buf */
+static const char *argv_copy(char *words, const char *key, char *buf, size_t n)
+{
+    const char *v = arg(words, key);
+    if (!v)
+        return NULL;
+    size_t i = 0;
+    while (v[i] && v[i] != ' ' && i + 1 < n) {
+        buf[i] = v[i];
+        i++;
+    }
+    buf[i] = 0;
+    return buf;
+}
+
+static int line_command(char *c)
+{
+    while (*c == ' ')
+        c++;
+    char *end = c + strlen(c);
+    while (end > c && end[-1] == ' ')
+        *--end = 0;
+    if (!*c)
+        return 0;
+    char *rest = strchr(c, ' ');
+    if (rest)
+        *rest++ = 0;
+    else
+        rest = end;
+    kprintf("\x1b[96m: %s %s\x1b[0m\n", c, rest);
+    if (!strcmp(c, "gpu")) {
+        reports_begin("gpu");
+        gpu_test(console_framebuffer());
+        reports_end();
+    } else if (!strcmp(c, "b3d")) {
+        static char tests[160], profiles[160];
+        const char *t = argv_copy(rest, "tests", tests, sizeof tests);
+        const char *p = argv_copy(rest, "profiles", profiles, sizeof profiles);
+        bm_bench3d_part(console_framebuffer(), t, p, 1);
+    } else if (!strcmp(c, "set")) {
+        for (char *w = rest; w && *w;) {
+            while (*w == ' ')
+                w++;
+            char *sp = strchr(w, ' ');
+            if (sp)
+                *sp = 0;
+            char *eq = strchr(w, '=');
+            if (eq && eq > w) {
+                *eq = 0;
+                config_set(w, eq + 1);
+                kprintf("set %s=%s (until a restart; save keeps it)\n", w, eq + 1);
+            } else if (*w) {
+                kprintf("set: '%s' is not key=value\n", w);
+                return -1;
+            }
+            w = sp ? sp + 1 : NULL;
+        }
+    } else if (!strcmp(c, "save")) {
+        config_save();
+        kprintf("bm/config.txt saved\n");
+    } else if (!strcmp(c, "render")) {
+        reports_begin("render");
+        bm_bench_report(console_framebuffer(), 120);
+        reports_end();
+    } else if (!strcmp(c, "room")) {
+        reports_begin("room");
+        bm_room_bench(console_framebuffer());
+        reports_end();
+    } else if (!strcmp(c, "log")) {
+        reports_text("log", klog_text(), strlen(klog_text()));
+    } else if (!strcmp(c, "send")) {
+        const int left = reports_send_pending();
+        kprintf("%s; %d waiting on the SD card\n", reports_last(), left);
+    } else if (!strcmp(c, "reboot")) {
+        kprintf("rebooting...\n");
+        crumbs_clean_exit();
+        uart_flush();
+        watchdog_reboot();
+    } else {
+        kprintf("'%s': not a command of the line (gpu, b3d, set, save, render, room, log, send, reboot)\n", c);
+        return -1;
+    }
+    return 0;
+}
+
+static void line_commands(void)
+{
+    static char line[480];
+    kprintf(":");
+    if (input_read_line(line, sizeof line, 0) <= 0)
+        return;
+    crumb("monitor line", line);
+    for (char *c = line; c;) {
+        char *semi = strchr(c, ';');
+        if (semi)
+            *semi = 0;
+        if (line_command(c) != 0)
+            break;
+        c = semi ? semi + 1 : NULL;
+    }
+    kprintf("the line is done\n");
 }
 
 void monitor_run(void)
@@ -317,6 +442,7 @@ void monitor_run(void)
         case '\r': case '\n': break;
         case 0x1B: break;               /* Esc alone: already at the monitor */
         case 'G': net_get_test(); break;
+        case ':': line_commands(); break;
         case INPUT_NET_PLAY: {                  /* bm_net.py --play */
             uint8_t *buf;
             size_t len;

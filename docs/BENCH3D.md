@@ -89,6 +89,20 @@ driver, data se c'è la rete, macchina, stato della GPU) e una riga CSV per test
 dopo legge l'ultimo report e lo confronta (tacche bianche, colonna "x last"). Per
 tenerne la storia nel repository, copiarli in `docs/bench/`.
 
+## Una parte, dal monitor
+
+La riga di comandi del monitor (`:`) fa girare solo alcuni test e profili, senza aspettare
+sulle pagine, e può mettere in fila altri comandi:
+
+```
+:gpu; b3d tests=match,quad_tex profiles=GPU,FS2; send
+```
+
+`tests=` prende gli id dei test (`spheres`, `match`, `quad_tex`…), `profiles=` i nomi dei
+profili (`GPU+FS2`) o quelli brevi del riassunto (`FS2`); senza, tutto. Il report dice la parte
+(`only tests …, profiles …`). `set chiave=valore` cambia una chiave di `bm/config.txt` fino al
+riavvio (per provare un gioco), `save` la tiene.
+
 ## Sul PC
 
 `make test-b3d` fa due giri brevi sull'emulatore della V3D (pochi passi, un fotogramma
