@@ -553,6 +553,15 @@ with weights (`{it = 1, ask = 2}`) or `"none"`; `words` the code's names
 (`predict.count_words(lines)`), weighted by `words_weight`. The dictionaries are read at the
 first word, or one piece per frame with `predict.preload({"lua", "it"})`.
 
+**Typing with the pad** (`require "padtype"`, guide in [PADTYPE.md](PADTYPE.md)): quick
+composing (the cross writes consonants, the prediction finishes the syllable, □ and △ turn
+it, a press waits for its double, L2 / R2 / L2+R2 more levels, R2 + ✕ □ △ the words) and
+the on-screen keyboard; Share goes from one to the other. `pt.update(host)` every frame
+reads `pad()` and changes the text through the host (`before`, `insert`, `erase`,
+`newline`, `move`, `lang`; `pt.text_host(lang)` makes one on a string), `pt.draw(x, y)`
+draws the controller's overlay (`pt.size()`), `pt.coach(host, text)` gives the next button
+to write a text. bm Code and the Pad Typing cartridge use it.
+
 ### nano8 (the `n8` library)
 
 Every cartridge also sees the `n8` table: the **nano8** machine (`src/bm/n8*.c`), with the

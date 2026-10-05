@@ -234,6 +234,11 @@ local multiplayer for up to 4 players. The games on the card, all `.bm`:
   mist and ended by its boss, with two hunter's lamps to light; blood echoes from the slain
   are dear: a little healing, a death, and at most four paths taken at the lamps, which shape
   how the hunter fights.
+- **Pad Typing**: practice writing Italian, English or Lua with the controller alone. The
+  cross writes consonants and the prediction finishes the syllable (square and triangle
+  turn it), R2 takes a whole word; an overlay of the pad shows what each button writes;
+  Share switches to an on-screen keyboard. The same typing works in bm Code
+  ([docs/PADTYPE.md](docs/PADTYPE.md)).
 - The rest: Pong (2 players), Snake, Star Shooter, and **nano8** for `.p8` carts.
 
 **The Market**, the first tab of the menu, downloads free games from

@@ -17,6 +17,7 @@ extern const uint8_t bm_lib_bmlib[], bm_lib_bmlib_end[];
 extern const uint8_t bm_lib_bmnet[], bm_lib_bmnet_end[];
 extern const uint8_t bm_lib_predict[], bm_lib_predict_end[];
 extern const uint8_t bm_lib_words[], bm_lib_words_end[];
+extern const uint8_t bm_lib_padtype[], bm_lib_padtype_end[];
 
 static const struct {
     const char *name;
@@ -28,6 +29,7 @@ static const struct {
     { "bmnet", bm_lib_bmnet, bm_lib_bmnet_end },     /* games over the network */
     { "predict", bm_lib_predict, bm_lib_predict_end },  /* word completion */
     { "words", bm_lib_words, bm_lib_words_end },        /* its dictionaries */
+    { "padtype", bm_lib_padtype, bm_lib_padtype_end },  /* typing with the pad */
 };
 
 #define LOADED "bm.loaded"
@@ -57,7 +59,7 @@ static int l_require(lua_State *L)
         lua_setfield(L, -3, name);
         return 1;
     }
-    return luaL_error(L, "module '%s' not found (built in: assist, bm3d, bmlib, bmnet, predict, words)", name);
+    return luaL_error(L, "module '%s' not found (built in: assist, bm3d, bmlib, bmnet, predict, words, padtype)", name);
 }
 
 void bm_require_open(lua_State *L)

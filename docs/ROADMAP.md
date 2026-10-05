@@ -1888,7 +1888,18 @@ Task:
    (lecca-lecca: 48 triangoli chiusi, 2 blocchi, l'immagine davanti; tornio di 120), lo
    stand-in nel test di bm Studio, `test_picture_model` in QEMU (il disco rosso diventa il
    modello hero sul kernel ARM, salvato nel file).
-18. Dopo: numeri e nomi della domanda dentro il codice proposto ("muovi a velocità 3"),
+18. ✅ **Scrittura col pad** (2026-10-05, branch `assistive-typing`, guida in
+   [PADTYPE.md](PADTYPE.md); riprende `archive/pad-typing` con le regole nuove
+   dell'utente): `require "padtype"`. Composizione rapida: la croce (solo quattro
+   direzioni) scrive le consonanti, la predizione finisce la sillaba, □ e △ la girano;
+   una pressione aspetta la sua doppia (↑ t, ↑↑ d), L2 / R2 / L2+R2 altri livelli (lettere,
+   parole, numeri e codice); ✕ spazio, ✕✕ punto, ○ cancella, L1 / R1 si muovono, L1 + R1
+   a capo. Share passa alla tastiera su schermo. Overlay del controller con le sillabe delle
+   frecce e le tre parole di R2. In bm Code (Share) e nella cartuccia **Pad Typing**
+   (esercizio e misura in italiano, inglese, Lua). 1,09 pressioni a carattere in italiano,
+   1,06 in inglese, 1,33 in Lua (tastiera su schermo 3,7–4,0). Test: `make test-padtype`,
+   `test_pad_typing` in QEMU. Da provare sul Pi con un DS4 (l'attesa per la doppia).
+19. Dopo: numeri e nomi della domanda dentro il codice proposto ("muovi a velocità 3"),
    le domande senza risposta giusta che diventano voci nuove, ricette di sprite animate
    (più fotogrammi nello sheet), le parole nuove dell'utente nel dizionario del
    completamento.
@@ -2906,7 +2917,9 @@ tastiera).
   salvate come adesso (`wifi_ssid`, `wifi_psk`, `wifi_security`).
 - **R2 — Tastiera a schermo.** Una griglia di lettere guidata dal pad, servizio del kernel
   chiamabile anche dalle cartucce (es. `textinput(titolo, testo)`): password del WiFi,
-  nomi dei file, Market. Più semplice della scrittura ad accordi di `archive/pad-typing`.
+  nomi dei file, Market. La tastiera e la composizione ci sono già come libreria Lua
+  (`require "padtype"`, M30 passo 18, 2026-10-05): manca il servizio del kernel per gli
+  schermi in C (WiFi, nomi dei file).
 - **R3 — Log su SD e visibile dal menu.** `log()`, i messaggi del kernel e il traceback
   dell'ultimo errore di una cartuccia vanno solo sulla seriale. Le ultime righe in
   `bm/log.txt` e una pagina "Log" in Settings > System: dal Pi si vede quello che oggi si

@@ -17,6 +17,13 @@ bm_lib_predict_end:
     .byte 0
 
     .balign 4
+    .globl bm_lib_padtype, bm_lib_padtype_end
+bm_lib_padtype:
+    .incbin "src/ai/padtype.lua"
+bm_lib_padtype_end:
+    .byte 0
+
+    .balign 4
     .globl bm_lib_bm3d, bm_lib_bm3d_end
 bm_lib_bm3d:
     .incbin "src/script/bm3d.lua"

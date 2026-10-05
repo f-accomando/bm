@@ -558,6 +558,15 @@ all'assistente), una miscela con i pesi (`{it = 1, ask = 2}`) o `"none"`; `words
 del codice (`predict.count_words(righe)`), con peso `words_weight`. I dizionari si leggono
 alla prima parola, o un pezzo per fotogramma con `predict.preload({"lua", "it"})`.
 
+**Scrittura col pad** (`require "padtype"`, guida in [PADTYPE.md](PADTYPE.md)): la
+composizione rapida (la croce scrive consonanti, la predizione finisce la sillaba, □ e △
+la girano, una pressione aspetta la sua doppia, L2 / R2 / L2+R2 altri livelli, R2 + ✕ □ △
+le parole) e la tastiera su schermo; Share passa dall'una all'altra. `pt.update(host)`
+ogni fotogramma legge `pad()` e modifica il testo attraverso l'host (`before`, `insert`,
+`erase`, `newline`, `move`, `lang`; `pt.text_host(lang)` ne fa uno su una stringa),
+`pt.draw(x, y)` disegna l'overlay del controller (`pt.size()`), `pt.coach(host, testo)`
+dà il prossimo tasto per scrivere un testo. La usano bm Code e la cartuccia Pad Typing.
+
 ### nano8 (la libreria `n8`)
 
 Ogni cartuccia vede anche la tabella `n8`: la macchina di **nano8** (`src/bm/n8*.c`), con le

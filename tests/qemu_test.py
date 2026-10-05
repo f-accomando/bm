@@ -3099,8 +3099,8 @@ def test_market(b, opts):
 
             keys("1")                                   # the Market tab: placeholders first
             screen(["Loading the Market..."])
-            img_ = q.screendump()
-            assert tabs_lit(img_) == ["Market"], tabs_lit(img_)
+            lit = img_tabs(q, ["Market"])       # the pills slide in: a frame may be half drawn
+            assert lit == ["Market"], lit
             shot("loading")
             q.expect("market: sd:/market/, no catalog saved", timeout=10)
             q.expect("market: catalog 20261001120000, 4 games", timeout=15)
@@ -6465,6 +6465,170 @@ def test_code_completion(b, opts):
         see(["? come faccio a saltare", "Saltare con la gravit"])
         shot("assistant")
         k("\x1b", 0.6)
+    finally:
+        q.close()
+
+
+def test_pad_typing(b, opts):
+    """Typing with the pad (src/ai/padtype.lua) with a simulated DS4. Pad
+    Typing from the Games tab, free writing in compose: up writes t and the
+    prediction its syllable after the wait, up up quickly d, circle erases
+    the syllable; L2 + R2 the numbers, triangle turns the digit, cross twice
+    a full stop; Share the on-screen keyboard (cross writes its key) and
+    back; R2 + cross a word; L1 + R1 held a new line; Start the pause. A
+    text of the practice shows the next press. bm Code: Share turns the
+    typing on (the status line says PAD) and off."""
+    tmp = tempfile.mkdtemp(prefix="bm-padtype-")
+    img = os.path.join(tmp, "sd.img")
+    hcd = os.path.join(tmp, "BCM43430A1.hcd")
+    with open(hcd, "wb") as f:
+        f.write(bytes([0x4C, 0xFC, 4, 1, 2, 3, 4, 0x4E, 0xFC, 4, 0xFF, 0xFF, 0xFF, 0xFF]))
+    pad, key = FakeDs4Chip.DS4, FakeDs4Chip.KEY
+    cfg = os.path.join(tmp, "config.txt")
+    with open(cfg, "w") as f:
+        f.write(f"layout=it\nbt_pad=1c:66:6d:01:02:03 {key.hex()}\n")
+    mksd.build(img, [(hcd, "bm/BCM43430A1.hcd"), (cfg, "bm/config.txt"),
+                     (b("carts/typing.bm"), "carts/typing.bm")])
+    q = Qemu(b("kernel.img"), ["-drive", f"if=sd,format=raw,file={img}"], mini_uart=True)
+    q.mini_buf = b""
+    HAT = {None: 8, "up": 0, "right": 2, "down": 4, "left": 6}
+    SQU, CRO, CIR, TRI = 0x10, 0x20, 0x40, 0x80
+    L1, R1, L2, R2, SHARE, START = 0x01, 0x02, 0x04, 0x08, 0x10, 0x20
+
+    def tap(hat=None, face=0, sh=0, hold=0.12, gap=0.3):
+        chip.report(HAT[hat] | face, shoulders=sh)
+        time.sleep(hold)
+        chip.report(0x08)
+        time.sleep(gap)
+
+    def double(hat=None, face=0, sh=0):         # two presses well inside the wait
+        tap(hat, face, sh, 0.06, 0.06)
+        tap(hat, face, sh, 0.06, 0.3)
+
+    def see(words, gone=(), cw=8, ch=16, tries=40):
+        text = []
+        for _ in range(tries):
+            text = screen_text(q.screendump(), cw, ch)
+            if all(any(w in l for l in text) for w in words) and not any(g in l for l in text for g in gone):
+                return text
+            time.sleep(0.25)
+        shot("fail")
+        raise AssertionError(f"not on screen: {words} (or still: {gone})\n" + "\n".join(text))
+
+    def row(n):                                  # a line of the free writing (x 16, y 32 + 16 n)
+        r = screen_text(q.screendump())[2 + n][2:78].rstrip()
+        return r[:-1].rstrip() if r.endswith("?") else r   # the cursor, when it is lit
+
+    def wait_row(n, ok, what, tries=30):
+        r = ""
+        for _ in range(tries):
+            r = row(n)
+            if ok(r):
+                return r
+            time.sleep(0.2)
+        shot("fail")
+        raise AssertionError(f"{what}: [{r}]\n" + "\n".join(screen_text(q.screendump())))
+
+    def shot(name):
+        if opts.shots:
+            _save_png(q.screendump(), os.path.join(opts.shots, f"padtype-{name}.png"))
+
+    try:
+        q.expect("(same pins, same speed)\r\n", timeout=30)
+        chip = FakeDs4Chip(q.port)
+        chip.buf, q.buf = q.buf, b""
+        chip.init(reset_silent=False)
+        _mini_expect(q, "cartridge menu")
+        chip.reconnect(pad, key, 0x0B, (0x50, 0x51), 1)
+        _mini_expect(q, "bt: controller 1c:66:6d:01:02:03 connected (player 1)")
+        time.sleep(0.5)
+        see(["Pad Typing"])
+        tap(face=CRO)                            # the first cover of Games
+        _mini_expect(q, "typing: ready", timeout=40)
+        see(["Language", "< Italiano >", "Start with"])
+        # the menu: the longest wait (600 ms, QEMU is slow), free writing
+        tap("down")
+        tap("down")
+        for _ in range(5):
+            tap("right")
+        tap("down")
+        tap("left")
+        see(["< 600 ms >", "< free writing >"])
+        shot("menu")
+        tap(sh=START)
+        _mini_expect(q, "typing: Italiano, free, compose, 600 ms")
+        see(["compose", "free writing"])
+        # up: t, and after the wait the prediction finishes its syllable
+        tap("up", gap=1.2)
+        r = wait_row(0, lambda s: s.startswith("T"), "up: T and its syllable")
+        shot("syllable")
+        tap(face=CIR, gap=0.5)
+        wait_row(0, lambda s: s == "", "circle: the syllable goes")
+        double("up")
+        wait_row(0, lambda s: s.startswith("D"), "up up quickly: D")
+        tap(face=CIR, gap=0.5)
+        wait_row(0, lambda s: s == "", "circle: it goes")
+        # L2 + R2: the numbers; circle there is 0, triangle turns the digit
+        tap("up", sh=L2 | R2, gap=1.2)
+        wait_row(0, lambda s: s == "1", "L2 + R2 + up: 1")
+        tap(face=CIR, sh=L2 | R2)
+        tap(face=TRI, gap=0.5)
+        wait_row(0, lambda s: s == "19", "0 turned back: 9")
+        double(face=CRO)                         # cross twice: a full stop and a space
+        wait_row(0, lambda s: s == "19.", "cross twice: a full stop")
+        # Share: the on-screen keyboard, its cross writes the key (q, a capital)
+        tap(sh=SHARE, gap=0.5)
+        see(["keyboard"])
+        shot("keyboard")
+        tap(face=CRO, gap=0.5)
+        wait_row(0, lambda s: s.startswith("19. Q"), "the keyboard's key")
+        tap(sh=SHARE, gap=0.5)
+        see(["compose"])
+        tap(face=CRO, sh=R2, gap=0.6)            # R2 + cross: the first word
+        r = wait_row(0, lambda s: s.startswith("19. Q") and len(s) >= 8, "R2 + cross: a word")
+        # L1 + R1 held: a new line, its first letter a capital
+        chip.report(0x08, shoulders=L1 | R1)
+        time.sleep(0.8)
+        chip.report(0x08)
+        time.sleep(0.3)
+        tap("right", gap=1.2)
+        wait_row(1, lambda s: s.startswith("N") or s.startswith("M"), "a new line, then right: N")
+        shot("free")
+        # Start: the pause; Menu, then the first text of the practice
+        tap(sh=START, gap=0.5)
+        see(["Pause", "Continue", "Next text"])
+        for _ in range(3):
+            tap("down")
+        tap(face=CRO, gap=0.5)
+        see(["Language", "< free writing >"])
+        tap("right")
+        see(["< text 1 of 8 >"])
+        tap(sh=START)
+        _mini_expect(q, "typing: Italiano, text 1, compose, 600 ms")
+        see(["Ciao Marco", "next:"])
+        shot("practice")
+        chip.report(0x08, ps=1)                  # PS: back to bm's menu, the cart suspended
+        _mini_expect(q, "update+draw")
+        chip.report(0x08)
+        time.sleep(0.3)
+        q.mini.write(b"q")
+        _mini_expect(q, "back to the monitor")
+
+        # bm Code: Share turns the typing on, the numbers, Share off
+        q.mini.write(b"C")
+        _mini_expect(q, "code: ready", timeout=30)
+        see(["keys"], cw=6, ch=12)
+        q.mini.write(b"\x14")                    # Ctrl+T: an empty tab
+        time.sleep(0.5)
+        tap(sh=SHARE, gap=0.5)
+        see(["PAD compose lua"], cw=6, ch=12)
+        tap("up", sh=L2 | R2)
+        tap("right", sh=L2 | R2)
+        tap("down", sh=L2 | R2, gap=1.0)
+        see(["  1 123"], cw=6, ch=12)
+        shot("code")
+        tap(sh=SHARE, gap=0.5)
+        see(["  1 123"], gone=["PAD compose"], cw=6, ch=12)
     finally:
         q.close()
 
