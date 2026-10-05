@@ -2558,7 +2558,7 @@ l'emulatore insieme (lì la prova passa).
 - Matrice unica oggetto→camera e luce nello spazio dell'oggetto: meno istruzioni per
   vertice, pixel non più identici al bit (opzione).
 
-## M38 — Overbit: sparatutto a eroi in 3D (XL) — fatta sul PC (2026-10-03), da provare sul Pi
+## M38 — Overbit: sparatutto a eroi in 3D (XL) — ✅ chiusa (2026-10-05)
 Richiesta dell'autore (2026-10-02): un clone di Overwatch in `.bm`, **8 eroi** (2 tank,
 4 DPS, 2 supporto), 3D in prima persona, **una mappa**, multiplayer online, dev kit, la
 nostra AI per il gioco da soli. Lo scopo è **spingere la grafica** del Pi Zero al limite:
@@ -2918,6 +2918,14 @@ sul Pi.**
   disegnati al secondo; il benchmark resta a uno. L'overlay di Overbit è tolto: quello del
   sistema ha una pagina dettagliata (F11 due volte, o Select, Tab, F1 nel gioco) con le fasi
   del fotogramma, la GPU e le righe di Overbit (`devinfo`: qualità, regolatore, attori).
+
+**Chiusa il 2026-10-05** (decisione dell'utente): Overbit c'è tutto (8 eroi con i modelli
+Meshy, la mappa Partenope e la modalità Controllo, i bot con la rete INT8, la partita in rete
+in lockstep, la risoluzione da 320×180 a 1920×1080, il benchmark) e gira sul Pi con la GPU:
+41–44 fps in partita a 480×270, 22 fps a 1080p, la partita al tempo vero sotto i 60 fps
+(`frameskip`). Restano fuori: i 60 fps, che vanno ai driver (vertex shader M36, coda M35,
+poi M39); la partita in rete tra due console provata sul Pi; Overbit in `.b16` sulla RGB30
+(M41).
 
 ## M39 — GPU 3: verso il limite della V3D (L/XL)
 Dove siamo (2026-10-03, stime dal PC per le versioni 3.0–4.1): il riempimento è all'80%
