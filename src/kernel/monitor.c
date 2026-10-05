@@ -27,6 +27,7 @@
 #include "net/net.h"
 #include "net/http.h"
 #include "net/netxfer.h"
+#include "net/netcon.h"
 #include "pager.h"
 #include "reports.h"
 #include "audio/audio.h"
@@ -87,7 +88,9 @@ static const char help_text[] =
             "       b3d tests=a,b profiles=P  the 3D Bench, all or a part (GPU+FS2 or FS2...)\n"
             "       set key=value ...         bm/config.txt keys until a restart (save: kept)\n"
             "       render  room  log  send  reboot\n"
-            "     e.g. :gpu; b3d tests=match,quad_tex profiles=GPU,FS2; send\n";
+            "     e.g. :gpu; b3d tests=match,quad_tex profiles=GPU,FS2; send\n"
+            "     (from the menu too: the ':' takes the line to the monitor; from the PC\n"
+            "     tools/bm_net.py IP --line \"...\" or easy_install.sh line \"...\")\n";
 
 static void help(void)
 {
@@ -291,6 +294,7 @@ void monitor_run(void)
     kprintf("\ntype 'h' for help\n");
 
     for (;;) {
+        netcon_focus("the monitor ('h' for help, M the menu)", "> ");
         kprintf("> ");
         crumb("monitor, waiting for a key", NULL);
         int c = input_getc_home();              /* PS on a controller: INPUT_HOME */

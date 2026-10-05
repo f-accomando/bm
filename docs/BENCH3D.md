@@ -103,6 +103,12 @@ profili (`GPU+FS2`) o quelli brevi del riassunto (`FS2`); senza, tutto. Il repor
 (`only tests …, profiles …`). `set chiave=valore` cambia una chiave di `bm/config.txt` fino al
 riavvio (per provare un gioco), `save` la tiene.
 
+La riga si scrive anche nel menu: il `:` la porta al monitor. Dal PC: `./easy_install.sh line
+"gpu; b3d; send"` (o `tools/bm_net.py IP --line "..."`) la manda e mostra quello che la console
+scrive finché non dice `the line is done`; nel monitor di easy_install (6) si incolla `:gpu;
+b3d; send` e Invio. La console dice al PC dove vanno i tasti (il menu, che non li ripete, o il
+monitor).
+
 ## Sul PC
 
 `make test-b3d` fa due giri brevi sull'emulatore della V3D (pochi passi, un fotogramma

@@ -15,10 +15,15 @@ Standard library only (Linux / macOS / WSL).
   bm_net.py IP --kernel build/rgb30/kernel8.img   the same on the RGB30 (kernel8.img)
   bm_net.py IP --config                 the console's bm/config.txt (secrets hidden)
   bm_net.py IP --config report_upload=0 game_intro=   a key set, one removed
+  bm_net.py IP --line "gpu; b3d; send"  a monitor line run (from the menu or the
+                                        monitor), its output shown until it is done
 
 The password is the one shown on the Pi's screen after 'W' (net_password in
 bm/config.txt). In the console keys go to the Pi one by one, as on its
-keyboard; Ctrl-Q (or Ctrl-], or Enter ~ . as in ssh) quits. Plain text: use it on the home network only.
+keyboard, to what has them (the console says which: the menu takes them
+without echo, the monitor echoes; in the menu a line typed after ':' goes to
+the monitor); Ctrl-Q (or Ctrl-], or Enter ~ . as in ssh) quits. Plain text:
+use it on the home network only.
 Files on the SD card need 8.3 names (PONG.BM, not chaos_kitchen.bm):
 --name sets another one.
 """
@@ -45,11 +50,13 @@ QUIT_KEYS = (b"\x11", b"\x1d")  # Ctrl-Q, Ctrl-]
 
 
 def read_until(sock, markers, timeout=5.0):
-    """What arrives until one of the markers, the end or the timeout."""
+    """What arrives until one of the markers (or markers(data) is true),
+    the end or the timeout."""
+    done = markers if callable(markers) else lambda d: any(m in d for m in markers)
     data = b""
     sock.settimeout(timeout)
     try:
-        while not any(m in data for m in markers):
+        while not done(data):
             chunk = sock.recv(4096)
             if not chunk:
                 break
@@ -233,6 +240,45 @@ def wait_reboot(host, limit=120):
     return 1
 
 
+# the end of the login: the monitor's prompt, the password asked again, the
+# goodbye, or the line saying what takes the keys (a kernel of 2026-10-05 on)
+FOCUS = re.compile(rb"the keys go to ([^\r\n]*)\r\n")
+
+
+def logged_in(data):
+    return any(m in data for m in (b"> ", b"password: ", b"bye")) or FOCUS.search(data) is not None
+
+
+def run_line(sock, line, answer):
+    """--line: ':' + the line sent; what the console prints shown until the
+    line is done (or the console goes away: reboot)"""
+    m = FOCUS.search(answer)
+    where = m.group(1).decode(errors="replace") if m else ""
+    if where.startswith("the buttons"):
+        print("\n[bm_net] this console has no monitor (its keys are its buttons): no line to run")
+        return 2
+    if where.startswith("the application") or where.startswith("a page"):
+        print(f"\n[bm_net] the keys go to {where}: back to the menu first (Ctrl-Esc on the console)")
+        return 2
+    if not m:
+        print("\n[bm_net] this kernel does not say where the keys go: the line works from its "
+              "monitor ('q' in the menu first)")
+    sock.sendall(b":" + line.encode() + b"\r")
+    seen = b""
+    sock.settimeout(None)
+    while True:
+        data = sock.recv(4096)
+        if not data:
+            print("\n[bm_net] the console closed the connection")
+            return 0
+        sys.stdout.write(data.decode(errors="replace"))
+        sys.stdout.flush()
+        seen = (seen + data)[-64:]
+        if b"the line is done" in seen:
+            print()
+            return 0
+
+
 def main():
     ap = argparse.ArgumentParser(description=__doc__.split("\n")[1])
     ap.add_argument("host")
@@ -245,6 +291,9 @@ def main():
     ap.add_argument("--kernel", metavar="FILE",
                     help="write the kernel (kernel.img; kernel7.img on a Pi Zero 2 W, kernel8.img on "
                          "the RGB30) and restart the console")
+    ap.add_argument("--line", metavar="LINE",
+                    help="run a monitor line (commands separated by ';': gpu, b3d tests=... "
+                         "profiles=..., set key=value, send...) and show its output")
     ap.add_argument("--config", nargs="*", metavar="KEY=VALUE",
                     help="the console's bm/config.txt: shown (secrets hidden), KEY=VALUE sets a key, "
                          "KEY= removes it")
@@ -260,24 +309,33 @@ def main():
         pw = args.password or getpass.getpass("password: ")
         return transfer(args, op, path, args.name or os.path.basename(path), pw)
 
-    import termios
-    import tty
     sock = socket.create_connection((args.host, args.port), timeout=5)
     greeting = read_until(sock, [b"password: "])
     sys.stdout.write(greeting.decode(errors="replace").replace("password: ", ""))
     sys.stdout.flush()
     pw = args.password or getpass.getpass("password: ")
     sock.sendall(pw.encode() + b"\r\n")
-    answer = read_until(sock, [b"> ", b"password: ", b"bye"])
+    answer = read_until(sock, logged_in)
     sys.stdout.write(answer.decode(errors="replace"))
     sys.stdout.flush()
     if b"ok - " not in answer:
         return 1
+    if args.line is not None:
+        try:
+            return run_line(sock, args.line, answer)
+        except KeyboardInterrupt:
+            print("\n[bm_net] stopped here (the console goes on with the line)")
+            return 130
+        finally:
+            sock.close()
+
+    import termios
+    import tty
 
     fd = sys.stdin.fileno()
     old = termios.tcgetattr(fd)
     tty.setraw(fd)
-    print("(Ctrl-Q or Enter ~ . to leave)\r")
+    print("(Ctrl-Q or Enter ~ . to leave; in the menu a monitor line starts with ':')\r")
     last_enter, tilde = True, False
     try:
         while True:

@@ -5482,7 +5482,8 @@ def test_monitor_line(b, opts):
     """The monitor's ':' line (2026-10-05): commands one after the other,
     ';' between them; set changes a key until a restart, b3d runs a part of
     the 3D Bench without waiting on its pages, a word not known stops the
-    line and says so."""
+    line and says so. Typed in the menu (as bm_net.py --line does it, or a
+    paste in easy_install's monitor), the ':' takes the line to the monitor."""
     tmp = tempfile.mkdtemp(prefix="bm-line-")
     img = os.path.join(tmp, "sd.img")
     cfg = os.path.join(tmp, "config.txt")
@@ -5493,12 +5494,8 @@ def test_monitor_line(b, opts):
     try:
         q.expect(MENU, timeout=30)
         time.sleep(0.5)
-        q.send("q")
-        q.expect(PROMPT)
-        q.expect("> ")
-        q.send(":")
-        q.expect(":")
-        q.send("set gpu3d_fs2=1 gpu3d_sort=1; b3d tests=spheres,quad_flat profiles=ARM; nope; send\r")
+        q.send(":set gpu3d_fs2=1 gpu3d_sort=1; b3d tests=spheres,quad_flat profiles=ARM; nope; send\r")
+        q.expect("back to the monitor", timeout=10)
         q.expect("set gpu3d_fs2=1 (until a restart", timeout=10)
         q.expect("set gpu3d_sort=1", timeout=10)
         out = q.expect("3D Bench: done", timeout=240).decode(errors="replace")

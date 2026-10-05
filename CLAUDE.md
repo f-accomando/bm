@@ -39,7 +39,9 @@ screenshot in `docs/img/`), `README_OLD.md` (il README completo, in italiano),
   una console (5, `bm_net.py --send`: un `.bm` in `/carts`, che il suo menu mostra subito, una
   risorsa in `/bm/lib`; nome 8.3 proposto), o una release (r, `scripts/release.sh vX.Y.Z
   --no-sd`, la versione dopo l'ultimo tag proposta; i comandi `send FILE [profilo]` e `release`), o il monitor
-  di una console (6, `bm_net.py`; `monitor [profilo]`), o il suo `bm/config.txt` (7 dalla rete, `bm_net.py
+  di una console (6, `bm_net.py`; `monitor [profilo]`; dopo la password la console dice dove vanno
+  i tasti, `netcon_focus`: il menu non li ripete, un `:` nel menu porta la riga al monitor; `line
+  "gpu; b3d; send" [profilo]` la manda con `bm_net.py --line` e ne mostra l'uscita), o il suo `bm/config.txt` (7 dalla rete, `bm_net.py
   --config`: le chiavi coi segreti nascosti, `chiave=valore` cambia, `chiave=` toglie; il comando `C` di
   `netxfer.c`, `config_merge` in `config.c`, valori fino a 127 caratteri; 8 sulla SD; `config [profilo]`,
   `config-sd`; prove in `make test-net`). Alla fine scrive "kernel: vecchio -> nuovo": la versione sta in `kernel.img`
@@ -925,8 +927,9 @@ screenshot in `docs/img/`), `README_OLD.md` (il README completo, in italiano),
   `b3d tests=a,b profiles=P,Q` (una parte del 3D Bench, senza aspettare le pagine:
   `bm_bench3d_part`, `only_tests`/`only_profiles`/`no_wait` di `b3d_platform_t`; i profili col
   nome o quello breve), `set chiave=valore` (fino al riavvio; `save` li tiene), `render`, `room`,
-  `log`, `send`, `reboot`; una parola sconosciuta ferma la riga. Prova QEMU `test_monitor_line`.
-  Dal PC: monitor della console (`easy_install.sh` 6) e incollare la riga.
+  `log`, `send`, `reboot`; una parola sconosciuta ferma la riga; anche dal menu (il `:` porta la
+  riga al monitor, `input_unget`). Prova QEMU `test_monitor_line` (dal menu). Dal PC:
+  `./easy_install.sh line "gpu; b3d; send"` o il monitor della console (6) e incollare `:...`.
 - **3D Bench** (`src/bm/b3d.c`, *Dev > 3D Bench*, monitor `j`, `docs/BENCH3D.md`): ogni
   test 3D con ogni profilo (ARM 0.2, GPU 2.1, GPU+AA, GPU+VS1 3.0, GPU+VS 3.4), carico
   fino a 40 ms, 60/30 fps, statistiche (istruzioni e cache miss dai contatori

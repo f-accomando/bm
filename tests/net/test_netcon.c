@@ -187,10 +187,20 @@ int main(void)
     check(!netcon_active(), "not logged in");
 
     a.len = 0; a.got[0] = 0;
+    netcon_focus("the menu (test keys)", NULL);     /* what takes the keys: told at login */
     send_str(&a, "secret\r\n");                     /* as bm_net.py sends it */
     check(strstr(a.got, "ok - ") != NULL, "right password accepted");
     check(netcon_active(), "logged in");
     check(netcon_getc() < 0, "the \\n after the password is no key (it played a game in the menu)");
+    check(strstr(a.got, "the keys go to the menu (test keys)\r\n") && !strstr(a.got, "> "),
+          "the login says what takes the keys (the menu: no prompt)");
+    netcon_focus("the monitor (test)", "> ");
+    netcon_focus("the monitor (test)", "> ");       /* the same again: said once */
+    spin(20);
+    {
+        const char *f = strstr(a.got, "[the keys go to the monitor (test)]\r\n");
+        check(f && !strstr(f + 1, "[the keys go to the monitor"), "a change of what takes the keys, said once");
+    }
 
     kprintf("hello\nworld\n");
     spin(20);

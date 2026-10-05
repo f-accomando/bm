@@ -19,6 +19,9 @@ void input_pad_keys(int mode);
  * console (bm_net.py); -1 if none. Menus and games read them as text. */
 int input_remote_getc(void);
 int input_remote_ready(void);
+/* A remote key given back: the next input_key / input_remote_getc returns
+ * it (the menu hands a ':' to the monitor, the rest of the line behind it). */
+void input_unget(int c);
 /* After a remote Esc: does more follow within 30 ms (an arrow key)? */
 int input_remote_follows(void);
 /* After an Esc from input_getc: if a terminal sequence follows (an arrow,
