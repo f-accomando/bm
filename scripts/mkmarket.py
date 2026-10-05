@@ -60,7 +60,7 @@ from mkrelease import sign, verify  # noqa: E402
 
 SEC_COVER = 4
 COVER_MAX = 512                             # the menu fits any size (menu_load_cover)
-MAX_CART = 8 * 1024 * 1024          # bytes; the console downloads into memory
+MAX_CART = 100 << 20                # GitHub refuses bigger files: its limit, not bm's (a .bm has none)
 MAX_GAMES = 256                     # src/net/market.h
 ID_RE = re.compile(r"^[a-z0-9][a-z0-9-]{0,22}$")
 FILE_RE = re.compile(r"^[A-Za-z0-9_-][A-Za-z0-9._-]{0,39}\.bm$")
@@ -86,7 +86,7 @@ def check_cart(data):
     if len(data) < 128 or data[:8] not in (b"BMCART\0\0", b"BM33CART"):
         raise ValueError("not a .bm cartridge")
     if len(data) > MAX_CART:
-        raise ValueError(f"{len(data)} bytes, more than {MAX_CART}")
+        raise ValueError(f"{len(data)} bytes, more than GitHub takes in a file ({MAX_CART})")
     crc = struct.unpack_from("<I", data, 20)[0]
     if zlib.crc32(data[128:]) & 0xFFFFFFFF != crc:
         raise ValueError("damaged (the CRC of the header does not match)")

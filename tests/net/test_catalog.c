@@ -218,8 +218,11 @@ int main(int argc, char **argv)
              "file https://x.org/a.bm 10 %s\n", sha);
     check(parse_text(buf) == -1, "another server's address: refused");
     snprintf(buf, sizeof buf, "bm market\nserial 1\ngame a\ntitle T\nversion 1\nlicense MIT\n"
+             "file games/a/a.bm 199999999 %s\n", sha);
+    check(parse_text(buf) == -1, "a file over GitHub's 100 MiB: refused");
+    snprintf(buf, sizeof buf, "bm market\nserial 1\ngame a\ntitle T\nversion 1\nlicense MIT\n"
              "file games/a/a.bm 99999999 %s\n", sha);
-    check(parse_text(buf) == -1, "a cartridge over 8 MiB: refused");
+    check(parse_text(buf) == 0, "a cartridge of 95 MiB: a .bm has no limit of its own");
     snprintf(buf, sizeof buf, "bm market\nserial 1\ngame a\ntitle T\nversion 1\nlicense MIT\n"
              "file games/a/a.bm 10 %.63s\n", sha);
     check(parse_text(buf) == -1, "short SHA-256: refused");

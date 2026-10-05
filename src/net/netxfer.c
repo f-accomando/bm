@@ -18,7 +18,7 @@
 #include <stdlib.h>
 #include <string.h>
 
-#define MAX_SIZE (32u << 20)
+#define MAX_SIZE (100u << 20)           /* a .bm has no limit: as the Market's files (catalog.h) */
 #define CONFIG_MAX (16u << 10)          /* the lines of a C */
 #define CONFIG_REPLY (8u << 10)         /* the settings after it: under TCP_SND_BUF */
 
