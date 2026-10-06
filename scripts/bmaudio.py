@@ -21,22 +21,45 @@ The text form is JSON. Every step is a short string, "NOTE [SOUND [VOL [FX]]]":
   {
     "sounds":   [{"name": "KICK", "wave": "sine", "duty": 128, "vol": 230,
                   "adsr": [0, 25, 0, 10], "pitch": 24, "pitch_time": 6,
-                  "vibrato": [0, 0], "detune": 0}],
+                  "vibrato": [0, 0], "detune": 0},
+                 {"name": "BASS", "wave": "saw", "adsr": [0, 30, 120, 10],
+                  "cutoff": 90, "resonance": 140, "fenv": 40, "fdecay": 20}],
     "sfx":      [{"name": "JUMP", "ms": 30, "loop": [0, 0],
                   "steps": ["C4 1", "E4 1", "G4 1 200 bend+5"]}],
     "patterns": [{"steps": 16, "tracks": {"0": ["C2 0", ".", ...], "3": [...]}}],
     "songs":    [{"name": "THEME", "bpm": 120, "swing": 0, "loop": 0,
-                  "order": [0, 1, 0, 2]}]
+                  "echo": 3, "room": 140, "order": [0, 1, 0, 2]}]
   }
+
+The tone of a sound (version 2, registers 11..31 of the voice, synth.h;
+every key optional, 0 if missing, the room 40):
+  "cutoff" 0 none, 1..255 = 20 Hz..20 kHz   "resonance" 0..255
+  "filter" "lp" "bp" "hp" "notch"           "keytrack" true: follows the note
+  "fenv" -128..127 (1/16 octave)            "fdecay" 0..255 (as the ADSR)
+  "pan" -127..127                           "noise", "drive" 0..255
+  "reverb", "echo" 0..255 (the sends)       "lfo" [rate, cutoff, duty] 0..255
+  "mod1", "mod2", "moddecay", "feedback" 0..255: the wave's own settings
+  (fm: ratio x/16, depth x/32, its fade, feedback; pluck: brightness,
+  sustain; supersaw: spread; organ: four drawbars, a nibble each)
+A song's "echo" is the echo's time in steps (0: as it is), "room" the
+room's size 1..255 (0: as it is).
 """
 import argparse
 import json
 import struct
 import sys
 
-MAGIC, VERSION = b"BMAU", 1
+MAGIC, VERSION = b"BMAU", 2
 SEC_AUDIO = 6
-WAVES = ["square", "triangle", "saw", "noise", "sine", "metal"]
+WAVES = ["square", "triangle", "saw", "noise", "sine", "metal", "fm", "pluck", "supersaw", "organ"]
+FILTERS = ["lp", "bp", "hp", "notch"]
+TONE = 21                   # registers 11..31
+ROOM_SEND = 40              # the room of a sound with no tone of its own (AU_ROOM_SEND)
+# the tone's keys: name, register - 11, signed
+TONE_KEYS = [("cutoff", 0, False), ("resonance", 1, False), ("fenv", 3, True), ("fdecay", 4, False),
+             ("pan", 5, True), ("mod1", 6, False), ("mod2", 7, False), ("moddecay", 8, False),
+             ("noise", 9, False), ("drive", 10, False), ("reverb", 11, False), ("echo", 12, False),
+             ("feedback", 16, False)]
 FX = ["-", "glide", "bend+", "bend-", "vib", "trem", "chord", "arp", "fadeout", "fadein",
       "retrig", "delay", "cut"]
 NAMES = ["C", "C#", "D", "D#", "E", "F", "F#", "G", "G#", "A", "A#", "B"]
@@ -118,6 +141,39 @@ def name8(s):
     return b + b"\0" * (8 - len(b))
 
 
+def tone_bytes(s):
+    """a sound's tone keys -> the 21 register bytes"""
+    t = bytearray(TONE)
+    t[11] = ROOM_SEND
+    for key, i, signed in TONE_KEYS:
+        if key in s:
+            v = int(s[key])
+            if not (-128 <= v <= 127 if signed else 0 <= v <= 255):
+                raise ValueError(f"{key} out of range: {v}")
+            t[i] = v & 255
+    f = s.get("filter", "lp")
+    t[2] = (FILTERS.index(f) if isinstance(f, str) else int(f) & 3) | (4 if s.get("keytrack") else 0)
+    lfo = s.get("lfo", [0, 0, 0])
+    t[13:16] = bytes(int(x) for x in lfo[:3])
+    return bytes(t)
+
+
+def tone_keys(t):
+    """the 21 register bytes -> the keys that are not the plain tone"""
+    out = {}
+    for key, i, signed in TONE_KEYS:
+        v = t[i] - 256 if signed and t[i] > 127 else t[i]
+        if v != (ROOM_SEND if key == "reverb" else 0):
+            out[key] = v
+    if t[2] & 3:
+        out["filter"] = FILTERS[t[2] & 3]
+    if t[2] & 4:
+        out["keytrack"] = True
+    if any(t[13:16]):
+        out["lfo"] = list(t[13:16])
+    return out
+
+
 def pack(bank):
     """the JSON dict -> the AUDIO section bytes"""
     sounds, sfx = bank.get("sounds", []), bank.get("sfx", [])
@@ -134,6 +190,7 @@ def pack(bank):
         out += name8(s.get("name", ""))
         out += struct.pack("<7BbBBBb4x", wave, s.get("duty", 128), s.get("vol", 200), a, d, su, r,
                            s.get("pitch", 0), s.get("pitch_time", 0), vd, vr, s.get("detune", 0))
+        out += tone_bytes(s) + b"\0" * 3
     for x in sfx:
         steps = [parse_step(t) for t in x["steps"]]
         if not 1 <= len(steps) <= 32:
@@ -164,24 +221,29 @@ def pack(bank):
             raise ValueError("a song has 1 to 64 positions")
         loop = s.get("loop", 0)
         out += name8(s.get("name", "")) + bytes([s.get("bpm", 120), s.get("swing", 0), len(order),
-                                                 255 if loop is None else loop, 0, 0, 0, 0]) + bytes(order)
+                                                 255 if loop is None else loop, s.get("echo", 0),
+                                                 s.get("room", 0), 0, 0]) + bytes(order)
     return bytes(out)
 
 
 def unpack(data):
     """the AUDIO section bytes -> the JSON dict"""
-    if data[:4] != MAGIC or data[4] != VERSION:
-        raise ValueError("not a version 1 sound bank")
+    if data[:4] != MAGIC or data[4] not in (1, VERSION):
+        raise ValueError("not a version 1 or 2 sound bank")
+    version = data[4]
     ns, nx, np_, ng = data[5:9]
     off = 16
     name = lambda b: b.split(b"\0")[0].decode("ascii", "replace")
     bank = {"sounds": [], "sfx": [], "patterns": [], "songs": []}
     for _ in range(ns):
         f = struct.unpack_from("<8s7BbBBBb4x", data, off)
-        off += 24
-        bank["sounds"].append({"name": name(f[0]), "wave": WAVES[f[1]] if f[1] < len(WAVES) else f[1],
-                               "duty": f[2], "vol": f[3], "adsr": list(f[4:8]), "pitch": f[8],
-                               "pitch_time": f[9], "vibrato": [f[10], f[11]], "detune": f[12]})
+        snd = {"name": name(f[0]), "wave": WAVES[f[1]] if f[1] < len(WAVES) else f[1],
+               "duty": f[2], "vol": f[3], "adsr": list(f[4:8]), "pitch": f[8],
+               "pitch_time": f[9], "vibrato": [f[10], f[11]], "detune": f[12]}
+        if version >= 2:
+            snd.update(tone_keys(data[off + 24:off + 24 + TONE]))
+        off += 24 if version == 1 else 48
+        bank["sounds"].append(snd)
     for _ in range(nx):
         nm, ms, n, ls, le = struct.unpack_from("<8sHBBB3x", data, off)
         off += 16
@@ -198,10 +260,15 @@ def unpack(data):
                 off += 4 * n
         bank["patterns"].append({"steps": n, "tracks": tracks})
     for _ in range(ng):
-        nm, bpm, swing, n, loop = struct.unpack_from("<8s4B", data, off)
+        nm, bpm, swing, n, loop, echo, room = struct.unpack_from("<8s6B", data, off)
         off += 16
-        bank["songs"].append({"name": name(nm), "bpm": bpm, "swing": swing,
-                              "loop": None if loop == 255 else loop, "order": list(data[off:off + n])})
+        song = {"name": name(nm), "bpm": bpm, "swing": swing, "loop": None if loop == 255 else loop}
+        if version >= 2 and echo:
+            song["echo"] = echo
+        if version >= 2 and room:
+            song["room"] = room
+        song["order"] = list(data[off:off + n])
+        bank["songs"].append(song)
         off += n
     return bank
 

@@ -3,8 +3,9 @@
 -- code), the cartridges read and written in place: only their code changes,
 -- sprites, map and cover stay as they are. The assistant on F6, and lines
 -- "#entry: what you want #" that it carries out. While a word is typed its
--- rest appears in grey-blue: Tab writes it (require "predict"). F1: every
--- key.
+-- rest appears in grey-blue: Tab writes it (require "predict"). Ctrl+Enter
+-- plays the code as music (require "riff", docs/RIFF.md) and lights up the
+-- words of the notes sounding, Ctrl+. stops it. F1: every key.
 
 local assist = require "assist"
 local predict = require "predict"
@@ -18,6 +19,7 @@ local C_TEXT, C_DIM, C_ACC, C_ERR, C_OK = 0xE0E4F0, 0x6A7290, 0xFFC050, 0xFF6464
 local C_SEL, C_CUR, C_ERRBG, C_GUT, C_GUTCUR = 0x2E4A8A, 0x1C2131, 0x4A1C24, 0x485068, 0xA8B0C8
 local C_BP = 0xA02C34                      -- a breakpoint's line number (F8)
 local C_KW, C_API, C_STR, C_NUM, C_COM = 0xFF7AB0, 0x70D0FF, 0x90E070, 0xFFB060, 0x6A7690
+local C_RIFF, C_RIFFBG = 0xFFF0A0, 0x6A4E10       -- the words of the notes sounding
 
 local TEMPLATE = [[
 -- my game
@@ -546,6 +548,123 @@ local function pad_place()
   return place
 end
 
+------------------------------------------------------------------ music (riff)
+
+-- Ctrl+Enter: the code as music (require "riff"): the riff.code [[ ... ]]
+-- block under the cursor (or the first) in a game, else the whole tab.
+-- Every global given a pattern plays (drums = s "kick*4"); the words of
+-- the notes sounding light up while the text is as it was played.
+local riff                    -- the library, loaded the first time (false: none)
+local live                    -- what plays: {t, first, last, lines (a copy), starts (offsets of its lines), col}
+local live_marks = {}         -- line -> { {from col, to col}, ... } of the notes sounding now
+
+local function riff_lib()
+  if riff == nil then
+    local ok, m = pcall(require, "riff")
+    riff = ok and m or false
+  end
+  return riff or nil
+end
+
+-- the riff code to play: its text, its first line, the column it starts
+-- at, its last line
+local function riff_source(t, v)
+  local blocks = {}
+  local i = 1
+  while i <= #t.lines do
+    local l = t.lines[i]
+    local at = l:find("code%s*%(?%s*%[%[")
+    if at and not l:sub(1, at):find("%-%-") then
+      local col = l:find("%[%[", at) + 2
+      local j, close = i, l:find("%]%]", col)
+      while not close and j < #t.lines do
+        j = j + 1
+        close = t.lines[j]:find("%]%]")
+      end
+      blocks[#blocks + 1] = { i, col, j, close or (#t.lines[j] + 1) }
+      i = j + 1
+    else
+      i = i + 1
+    end
+  end
+  local b = blocks[1]
+  for _, x in ipairs(blocks) do
+    if v.cy >= x[1] and v.cy <= x[3] then b = x end
+  end
+  if not b then return table.concat(t.lines, "\n"), 1, 1, #t.lines end
+  local first, col, last, close = b[1], b[2], b[3], b[4]
+  local parts = {}
+  for k = first, last do
+    local l = t.lines[k]
+    if k == first and k == last then l = l:sub(col, close - 1)
+    elseif k == first then l = l:sub(col)
+    elseif k == last then l = l:sub(1, close - 1) end
+    parts[#parts + 1] = l
+  end
+  return table.concat(parts, "\n"), first, col, last
+end
+
+local function riff_stop(quiet)
+  local R = riff_lib()
+  if R then R.hush() end
+  live, live_marks = nil, {}
+  if not quiet then say("music stopped", C_ACC) end
+end
+
+local function riff_play(t, v)
+  local R = riff_lib()
+  if not R then say("riff is not on this console", C_ERR) return end
+  local src, first, col, last = riff_source(t, v)
+  t.err = nil
+  local ok, err = R.code(src, "riff")
+  if not ok then
+    err = tostring(err)
+    local n = tonumber(err:match("^riff:(%d+):"))
+    if n then t.err = { line = first + n - 1, msg = err } end
+    say(err:gsub("^riff:%d+: ", ""), C_ERR, 600)
+    return
+  end
+  local lines, starts, off = {}, {}, 0
+  for k = first, last do
+    lines[#lines + 1] = t.lines[k]
+    starts[#starts + 1] = off
+    off = off + #t.lines[k] - (k == first and col - 1 or 0) + 1
+  end
+  live = { t = t, first = first, last = last, lines = lines, starts = starts, col = col }
+  local names = R.playing()
+  if #names == 0 then
+    say("nothing plays: give a pattern to a name (drums = s \"kick*4\")", C_ACC, 600)
+  else
+    say("playing: " .. table.concat(names, " ") .. "   (Ctrl+. stops)", C_OK, 600)
+  end
+  log("code: riff " .. table.concat(names, " "))
+end
+
+-- every frame: the notes ahead into the queue, the errors, the words lit
+local function riff_frame()
+  if not live then return end
+  local R = riff
+  R.update()
+  for _, e in ipairs(R.errors()) do say("riff: " .. e, C_ERR, 600) end
+  if #R.playing() == 0 then live, live_marks = nil, {} return end
+  live_marks = {}
+  local t = live.t
+  for k = live.first, live.last do
+    if t.lines[k] ~= live.lines[k - live.first + 1] then return end     -- changed: no lights
+  end
+  local starts = live.starts
+  for _, l in ipairs(R.active()) do
+    local a, b = l[1], l[2]
+    local k = #starts
+    while k > 1 and starts[k] > a do k = k - 1 end
+    local line = live.first + k - 1
+    local base = k == 1 and live.col - 1 or 0
+    local m = live_marks[line] or {}
+    m[#m + 1] = { base + a - starts[k], base + b - starts[k] }
+    live_marks[line] = m
+  end
+end
+
 ------------------------------------------------------------------ actions
 
 local function run_game(stop)
@@ -559,6 +678,7 @@ local function run_game(stop)
   end
   t.err = nil
   save_session()
+  riff_stop(true)
   local breaks = bp_list(t)
   log("code: run " .. t.path .. (#breaks > 0 and " (breakpoints " .. table.concat(breaks, " ") .. ")" or "")
       .. (stop and ", stopping at the first line" or ""))
@@ -708,7 +828,8 @@ local MENU = {
   { "Breakpoint", "F8" }, { "Debug from the start", "" }, { "Clear breakpoints", "" },
   { "Split screen", "F4" }, { "Font size", "F10" }, { "Find", "Ctrl+F" },
   { "Replace", "Ctrl+H" }, { "Go to line", "Ctrl+L" }, { "Assistant", "F6" },
-  { "Explain the error", "F9" }, { "Word completion", "" }, { "Words in comments", "" },
+  { "Explain the error", "F9" }, { "Play the music (riff)", "Ctrl+Enter" }, { "Stop the music", "Ctrl+." },
+  { "Word completion", "" }, { "Words in comments", "" },
   { "Pad typing", "" }, { "Keys", "F12 held" }, { "Exit", "" },
 }
 
@@ -744,6 +865,8 @@ local function menu_choose(name)
   elseif name == "Go to line" then do_command("^l")
   elseif name == "Assistant" then open_assistant(t, v)
   elseif name == "Explain the error" then explain_error(t, v)
+  elseif name == "Play the music (riff)" then riff_play(t, v)
+  elseif name == "Stop the music" then riff_stop()
   elseif name == "Word completion" then
     complete_on = not complete_on
     comp = nil
@@ -783,6 +906,8 @@ do_command = function(k)
   elseif k == "f8" then toggle_break(t, v)
   elseif k == "f6" then open_assistant(t, v)
   elseif k == "f9" then explain_error(t, v)
+  elseif k == "^\n" then riff_play(t, v)
+  elseif k == "^." then riff_stop()
   -- the system's keys (the kernel's syskeys.c)
   elseif k == "^s" then save_current()
   elseif k == "^S" then save_as(t)
@@ -1068,6 +1193,7 @@ end
 function _update()
   frame = frame + 1
   if status_t > 0 then status_t = status_t - 1 end
+  riff_frame()
   if assist.update() then return end
   local k = keyp()
   local typed
@@ -1240,6 +1366,18 @@ local function draw_pane(p, c0, ncols, r0, nrows)
       end
     end
     if c then paint(v.cx, c.rest, predict.C_GHOST) end
+    -- riff: the words of the notes sounding
+    local lit = live and live.t == t and live_marks[i]
+    if lit then
+      for _, m in ipairs(lit) do
+        for cx = m[1], m[2] - 1 do
+          if cx >= v.left and cx < v.left + tcols and cx < #l then
+            rectfill(tx + (cx - v.left) * CW, y, CW, CH, C_RIFFBG)
+            print(l:sub(cx + 1, cx + 1), tx + (cx - v.left) * CW, y, C_RIFF)
+          end
+        end
+      end
+    end
     -- the pad's typing: the press waiting, the rest of its word, the
     -- syllable still turning (light blue), what a suggestion wrote
     if active and i == v.cy and pt.mode() then
@@ -1320,6 +1458,7 @@ local function draw_status(t, v)
     local lang = pad_host.lang
     left = left .. "  PAD " .. pt.mode() .. " " .. (type(lang) == "table" and "ask" or tostring(lang))
   end
+  if live then left = left .. "  MUSIC " .. #riff.playing() end
   print(left, 0, y, C_TEXT)
   print(right, (COLS - #right) * CW, y, C_DIM)
   if status_t == 0 and entry_request(t.lines[v.cy]) then
@@ -1350,6 +1489,8 @@ local KEYHELP = {
   { "f10", "font 6x12 / 8x14 / 8x16" },
   { "f9", "explain the game's error" },
   { "f8", "breakpoint: the game stops on the line" },
+  { "ctrl enter", "play the code as music (riff)" },
+  { "ctrl .", "stop the music" },
   { "ctrl b", "start a selection" },
   { "ctrl k / ctrl d", "cut / duplicate the line" },
   { "tab / ctrl u", "indent / unindent" },
@@ -1379,6 +1520,8 @@ local HELP = {
   "Ctrl+F find, Ctrl+G next", "Ctrl+H replace all", "Ctrl+L go to line", "",
   "Assistant", "F6 ask (the word under the cursor)", "F9 explain the game's error",
   "#entry: what to do #  then Enter:", "  the assistant does it here", "",
+  "Music (riff, docs/RIFF.md)", "Ctrl+Enter play the tab, or the", "  riff.code [[ ]] under the cursor",
+  "Ctrl+. stop the music", "",
   "Pad", "cross moves, Y+cross pages/tabs", "X assistant, Start menu",
   "Share: pad typing (docs/PADTYPE.md)",
   "Ctrl+Esc back to bm, F12 held: keys",

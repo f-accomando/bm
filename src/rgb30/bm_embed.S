@@ -45,6 +45,13 @@ bm_lib_bmnet_end:
     .byte 0
 
     .balign 4
+    .globl bm_lib_riff, bm_lib_riff_end
+bm_lib_riff:
+    .incbin "src/script/riff.lua"
+bm_lib_riff_end:
+    .byte 0
+
+    .balign 4
     .globl bm_lib_words, bm_lib_words_end, bm_texroom_cart, bm_texroom_cart_end
 bm_lib_words:
 bm_lib_words_end:

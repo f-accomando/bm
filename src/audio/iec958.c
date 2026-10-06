@@ -29,9 +29,8 @@ void iec958_encode(iec958_t *e, const int16_t *in, uint32_t *out, unsigned n)
 {
     unsigned frame = e->frame;
     for (unsigned i = 0; i < n; i++) {
-        uint32_t w = iec958_subframe(e, (int32_t)in[i] * 256, frame);
-        out[2 * i] = w;
-        out[2 * i + 1] = w;
+        out[2 * i] = iec958_subframe(e, (int32_t)in[2 * i] * 256, frame);
+        out[2 * i + 1] = iec958_subframe(e, (int32_t)in[2 * i + 1] * 256, frame);
         if (++frame == IEC958_FRAMES_PER_BLOCK)
             frame = 0;
     }

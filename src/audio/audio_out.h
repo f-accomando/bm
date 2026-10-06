@@ -19,8 +19,9 @@ void audio_out_print(void);
  * has to say outside its interrupt (QEMU's sink: what it heard). */
 void audio_out_idle(void);
 
-/* n mono samples at AUDIO_RATE: the player and the voices move by n. For
- * the outputs' interrupts (it is IRQ-safe with the rest of audio.h). */
+/* n stereo frames at AUDIO_RATE (2n samples, left first): the player and
+ * the voices move by n. For the outputs' interrupts (it is IRQ-safe with
+ * the rest of audio.h). */
 void audio_render(int16_t *out, unsigned n);
 
 #endif

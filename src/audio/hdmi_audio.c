@@ -91,7 +91,7 @@ typedef struct {
 
 static dma_cb_t cbs[2] __attribute__((aligned(32)));
 static uint32_t bufs[2][AUDIO_CHUNK * 2] __attribute__((aligned(32)));
-static int16_t pcm[AUDIO_CHUNK];
+static int16_t pcm[AUDIO_CHUNK * 2];      /* left, right */
 
 static iec958_t iec;
 static unsigned dma_ch;

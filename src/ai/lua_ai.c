@@ -23,11 +23,24 @@
  *   m = ai.script(text)         a model written in the part language (mesh_script.c),
  *                               the same table, or nil and the error ("line 3: ...")
  *   crc = ai.checksum(question) CRC-32 of the network's outputs (tests)
+ *   p = ai.music(request, [{gen=, seed=1, key=0..11, minor=, bpm=, bars=, inst=,
+ *                           context = {notes = {midi...}, bars = {bar of each...}}}])
+ *                               music for bm Sound (music.h): {gen, name, kind
+ *                               (beat base bass arp melody sfx), bpm, swing, key,
+ *                               minor, meter, bars, echo, room, chords = {"Am"...},
+ *                               instruments = {"kick", ...}, patterns = {{len, tracks =
+ *                               {[0..7] = {step...}}}}, sfx = {ms, loop = {a, b},
+ *                               steps = {step...}}}; a step is note | inst << 8 |
+ *                               vol << 16 | fx << 24 (inst 0-based in instruments);
+ *                               the context's notes give the key and the chords
+ *   list = ai.recipes("music")  {id, name} of every music recipe
  */
 #include "lua_ai.h"
 #include "assist.h"
 #include "sprite.h"
 #include "mesh.h"
+#include "music.h"
+#include "lua_music.h"
 #include "drivers/timer.h"
 #include "lib/crc32.h"
 
@@ -444,6 +457,8 @@ static int l_script(lua_State *L)
 static int l_recipes(lua_State *L)
 {
     const char *what = luaL_optstring(L, 1, "sprite");
+    if (!strcmp(what, "music"))
+        return ai_lua_music_recipes(L);
     if (!strcmp(what, "mesh")) {
         lua_createtable(L, mesh_recipes(), 0);
         for (int i = 0; i < mesh_recipes(); i++) {
@@ -485,14 +500,30 @@ static int l_lang(lua_State *L)
     return 2;
 }
 
+/* ai.music's recipe from the words: the best music entry of the network */
+static const char *music_pick(lua_State *L, const char *q)
+{
+    ready(L);
+    ai_hit_t hit;
+    if (ai_ask(q, NULL, AI_KIND_MUSIC, &hit, 1) == 1 && hit.score >= 0.15f) {
+        ai_entry_t e;
+        ai_get(hit.entry, &e);
+        if (mus_find(e.gen) >= 0)
+            return mus_recipe_id(mus_find(e.gen));
+    }
+    return NULL;
+}
+
 static const luaL_Reg fns[] = {
     { "lang", l_lang }, { "ask", l_ask }, { "entry", l_entry }, { "list", l_list }, { "near", l_near },
     { "sprite", l_sprite }, { "recipes", l_recipes }, { "checksum", l_checksum }, { "mesh", l_mesh }, { "script", l_script },
+    { "music", ai_lua_music }, { "music_recipes", ai_lua_music_recipes },
     { NULL, NULL },
 };
 
 void ai_lua_open(lua_State *L)
 {
+    ai_music_pick = music_pick;
     luaL_newlib(L, fns);
     lua_setglobal(L, "ai");
 }

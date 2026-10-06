@@ -31,7 +31,7 @@ static struct {
     const uint32_t *ent;        /* NFIELDS string offsets per entry */
     const char *strs;
     uint32_t nstrs;
-    uint8_t kmask[MAX_ENTRIES];
+    uint16_t kmask[MAX_ENTRIES];
 } ai;
 
 static uint32_t rd32(const uint8_t *p)
@@ -69,8 +69,8 @@ static const uint8_t *section(const uint8_t *b, uint32_t len, const char *tag, u
 
 static int kind_bit(const char *k)
 {
-    static const char *const names[] = { "api", "howto", "error", "sprite", "tip", "action", "mesh", "guide" };
-    for (int i = 0; i < 8; i++)
+    static const char *const names[] = { "api", "howto", "error", "sprite", "tip", "action", "mesh", "guide", "music" };
+    for (int i = 0; i < 9; i++)
         if (!strcmp(k, names[i]))
             return 1 << i;
     return 0;
@@ -129,7 +129,7 @@ int ai_open(const void *blob, uint32_t len)
     for (int i = 0; i < ai.nent * NFIELDS; i++)
         if (ai.ent[i] >= ai.nstrs) return -4;
     for (int i = 0; i < ai.nent; i++)
-        ai.kmask[i] = (uint8_t)kind_bit(ai.strs + ai.ent[i * NFIELDS + 1]);
+        ai.kmask[i] = (uint16_t)kind_bit(ai.strs + ai.ent[i * NFIELDS + 1]);
     ai.open = 1;
     return 0;
 }
@@ -303,9 +303,10 @@ static int in_list(const char *list, const char *w)
     return 0;
 }
 
-/* API names that are also everyday words of the questions ("tempo": time):
+/* API names that are also everyday words of the questions ("tempo": time,
+ * "play a sound"):
  * they count only under the cursor or written as a call, "tempo(" */
-static const char *const plain_names = "tempo";
+static const char *const plain_names = "tempo,play,tone,echo,retro";
 
 int ai_ask(const char *q, const char *ctx, unsigned kinds, ai_hit_t *hits, int max)
 {

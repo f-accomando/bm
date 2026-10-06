@@ -126,6 +126,53 @@ env.audio_play = function(v, s, n, vol, fx, ms)
 end
 local mutes = {}
 env.mute = function(t, on) mutes[t] = on end
+-- two of the instruments (src/audio/presets.c), as instruments() and instrument() give them
+local INSTR = {
+  epiano = { name = "epiano", kind = "keys", about = "electric piano (FM)", wave = 6, duty = 128, vol = 130,
+             a = 0, d = 150, s = 70, r = 60, pitch = 0, ptime = 0, vdepth = 0, vrate = 0, detune = 0,
+             tone = { 0, 0, 0, 0, 0, 0, 16, 80, 70, 0, 0, 80, 0, 0, 0, 0, 0, 0, 0, 0, 0 } },
+  kick = { name = "kick", kind = "drum", about = "808 kick", wave = 4, duty = 128, vol = 230,
+           a = 0, d = 70, s = 0, r = 30, pitch = 30, ptime = 5, vdepth = 0, vrate = 0, detune = 0,
+           tone = { 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 10, 0, 0, 0, 0, 0, 0, 0, 0, 0 } },
+}
+env.instruments = function() return { INSTR.kick, INSTR.epiano } end
+env.instrument = function(n) return INSTR[n] end
+local plays = 0
+env.play = function(v, name, note) assert(INSTR[name], "play: an instrument"); plays = plays + 1; return v end
+-- the music assistant: ai.music's pieces (src/ai/lua_music.c) and a panel
+-- that hands one over at once, after its preview (src/ai/assist.lua)
+local function word(n, i, v, fx) return n | i << 8 | v << 16 | (fx or 0) << 24 end
+local PIECES = {
+  base = { gen = "base.pop", name = "pop backing", kind = "base", bpm = 110, swing = 0, key = 7, minor = false,
+           meter = 16, bars = 8, echo = 0, room = 110, seed = 1, chords = { "G", "D", "Em", "C" },
+           instruments = { "kick", "epiano" },
+           patterns = { { len = 64, tracks = { [0] = { word(36, 0, 230) }, [4] = { word(64, 1, 200) } } },
+                        { len = 64, tracks = { [0] = { word(36, 0, 230) } } } } },
+  melody = { gen = "melody.calm", name = "calm melody", kind = "melody", bpm = 84, swing = 0, key = 0,
+             minor = false, meter = 16, bars = 4, echo = 0, room = 100, seed = 1, chords = { "C" },
+             instruments = { "epiano" }, patterns = { { len = 64, tracks = { [6] = { word(72, 0, 225), 0, word(128, 0, 0) } } } } },
+  sfx = { gen = "sfx.coin", name = "coin", kind = "sfx", seed = 3, chords = {}, instruments = { "kick" }, patterns = {},
+          sfx = { ms = 50, loop = { 0, 0 }, steps = { word(83, 0, 230), word(88, 0, 230), word(128, 0, 0) } } },
+}
+local asked, previewed = {}, 0
+env.ai = { music = function(q) return PIECES[q] end }
+local panel
+local fake_assist = {
+  open = function(o) panel = o end,
+  is_open = function() return panel ~= nil end,
+  update = function()
+    local o = panel
+    panel = nil
+    local piece = PIECES[asked.next]
+    o.on_preview(piece)
+    previewed = previewed + 1
+    o.on_close()
+    o.on_music(piece)
+    return true
+  end,
+  draw = function() end,
+}
+env.require = function(name) if name == "assist" then return fake_assist end error("no module " .. name) end
 
 local api = {}
 for k in pairs(env) do api[k] = true end
@@ -136,9 +183,16 @@ chunk()
 
 local function parse(d)
   local b = { sounds = {}, sfx = {}, pats = {}, songs = {} }
-  local ns, nx, np, ng = d:byte(6, 9)
+  local ver, ns, nx, np, ng = d:byte(5, 9)
   local pos = 17
-  for i = 1, ns do b.sounds[i] = d:sub(pos, pos + 7):match("^[^%z]*"); pos = pos + 24 end
+  for i = 1, ns do
+    b.sounds[i] = d:sub(pos, pos + 7):match("^[^%z]*")
+    b.waves = b.waves or {}
+    b.waves[i] = d:byte(pos + 8)
+    b.tones = b.tones or {}
+    b.tones[i] = ver >= 2 and { d:byte(pos + 24, pos + 44) } or nil
+    pos = pos + (ver >= 2 and 48 or 24)
+  end
   for i = 1, nx do
     local name, ms, len, ls, le
     name, ms, len, ls, le, pos = string.unpack("<c8HBBBxxx", d, pos)
@@ -159,9 +213,10 @@ local function parse(d)
     b.pats[i] = { len = len, tracks = tracks }
   end
   for i = 1, ng do
-    local name, bpm, swing, n, loop
-    name, bpm, swing, n, loop, pos = string.unpack("<c8BBBBxxxx", d, pos)
-    b.songs[i] = { name = name:match("^[^%z]*"), bpm = bpm, order = { d:byte(pos, pos + n - 1) } }
+    local name, bpm, swing, n, loop, echo, room
+    name, bpm, swing, n, loop, echo, room, pos = string.unpack("<c8BBBBBBxx", d, pos)
+    b.songs[i] = { name = name:match("^[^%z]*"), bpm = bpm, echo = echo, room = room,
+                   order = { d:byte(pos, pos + n - 1) } }
     pos = pos + n
   end
   check(pos == #d + 1, "the bank has no bytes left over")
@@ -263,6 +318,39 @@ check(b.sounds[1] == "BOOM", "the sound is renamed with the name editor")
 type_keys("down")
 hold_then(A, R)
 
+-- 5b. down past the first group: FILTER (the cutoff, the filter envelope),
+-- then WAVE & SPACE (the place); each is a byte of the sound's tone
+type_keys("down", "down", "down", "down")            -- past DETUNE: CUTOFF
+type_keys("+")
+b = parse(last_bank)
+check(b.tones[1] and b.tones[1][1] == 12, "the cutoff is the tone's first byte (+12)")
+type_keys("right", "=")                               -- FILT ENV +1
+b = parse(last_bank)
+check(b.tones[1][4] == 1, "the filter envelope is the tone's fourth byte")
+type_keys("down", "down", "down", "down", "-")        -- WAVE & SPACE: PAN, one to the left
+b = parse(last_bank)
+check(b.tones[1][6] == 255, "the place is a signed byte (-1)")
+check(b.tones[1][12] == 40, "a sound has a little room by default")
+
+-- 5c. the menu's Instrument...: the list plays each one, A puts it in the sound
+type_keys("esc", "pgup", "pgup", "down", "down", "down", "down", "down", "down", "down", "\n")
+local before = plays
+type_keys("down")                                     -- epiano: heard while chosen
+check(plays > before, "the instrument list plays what it is on")
+type_keys("\n")
+b = parse(last_bank)
+check(b.waves[1] == 6 and b.tones[1][7] == 16 and b.tones[1][8] == 80, "the instrument fills the sound (FM, its ratio and depth)")
+check(b.sounds[1] == "BOOM", "a named sound keeps its name")
+
+-- 5d. the song's echo (in steps) and room
+type_keys("f4", "up", "right", "right", "right", "right", "=")
+b = parse(last_bank)
+check(b.songs[1].echo == 1, "the song's echo, in steps")
+type_keys("right", "=")
+b = parse(last_bank)
+check(b.songs[1].room == 16, "the song's room")
+type_keys("down")
+
 -- 6. the sound effect page: steps with the piano, length follows
 type_keys("f2", "pgdn", "pgdn", "pgdn", "pgdn", "pgdn", "pgdn", "pgdn", "pgdn", "pgdn")   -- sfx 9: empty
 type_keys("q", "w", "e", "r")
@@ -302,6 +390,41 @@ menu_item(4)
 type_keys("\n")                           -- Save as a new sound pack...
 type_keys("\b", "\b", "\b", "\b", "\b", "\b", "\b", "\b", "M", "I", "N", "E", "\n")
 check(files["/bm/sounds/MINE.BM"] and files["/bm/sounds/MINE.BM"].bank, "a new sound pack is written")
+
+-- 9b. the assistant (F6): a backing track into new patterns and a song of its
+-- own, a melody over the pattern on the page, a sound effect into a free slot
+local function compose_with(kind)
+  asked.next = kind
+  type_keys("f6")
+  run(2)
+end
+compose_with("base")
+b = parse(last_bank)
+local song = b.songs[#b.songs]
+check(song and song.name == "POP BACK", "the backing track has a song of its own")
+check(song.bpm == 110 and #song.order == 2, "its tempo, its two patterns")
+local p1 = b.pats[song.order[1] + 1]
+check(p1 and p1.len == 64 and p1.tracks[0] and p1.tracks[0][1][1] == 36, "its kick in the new pattern")
+local kick_slot = p1.tracks[0][1][2]
+check(b.sounds[kick_slot + 1] == "KICK", "its instrument became a sound of the bank")
+check(previewed == 1, "it was played before it went in")
+local nsongs = #b.songs
+type_keys("^z")
+b = parse(last_bank)
+check(#b.songs == nsongs - 1, "Ctrl+Z takes the backing track back")
+type_keys("f3")
+compose_with("melody")
+b = parse(last_bank)
+local found = false
+for _, pt in ipairs(b.pats) do
+  local tr = pt.tracks[6]
+  if tr and tr[1][1] == 72 then found = true end
+end
+check(found, "the melody went on track 6 of the pattern on the page")
+compose_with("sfx")
+b = parse(last_bank)
+local coin = b.sfx[#b.sfx]
+check(coin and coin.name == "COIN" and coin.steps[1][1] == 83 and coin.steps[3][1] == 128, "the coin into a free sound effect")
 
 -- 10. random input: nothing stops the editor
 math.randomseed(7)

@@ -63,7 +63,7 @@ BCM2835_ONLY = {
 # groups less even.
 SLOW = {
     "test_overbit": 79, "test_yharnam": 76, "test_chainloader": 70, "test_studio_animator": 61,
-    "test_home_ui": 56, "test_stress_monitor": 48, "test_pad_typing": 48, "test_lib_tab": 46,
+    "test_home_ui": 66, "test_stress_monitor": 48, "test_pad_typing": 48, "test_lib_tab": 46,
     "test_kitchen": 45, "test_studio_assistant": 44, "test_editor": 39, "test_code_completion": 38,
     "test_titan": 36, "test_games": 34, "test_picture_model": 32, "test_menu_tabs": 31,
     "test_sdk_suite": 29, "test_monitor_line": 29, "test_pixel_big": 26, "test_mouse_cart": 23, "test_market": 23,
@@ -1274,6 +1274,12 @@ def test_home_ui(b, opts):
         screen(["< 9 / 10 >", "volume: 9 / 10"])
         keys("d")
         screen(["< 10 / 10 >"])
+        keys("s")                               # the sound style: hi-fi, 8-bit (M46), saved
+        screen(["Sound style", "< Hi-fi >"])
+        keys("\r")
+        screen(["< 8-bit >", "sound: 8-bit"])
+        keys("\r")
+        screen(["< Hi-fi >", "sound: hi-fi"])
         keys("ss")
         screen(["Test pattern", "Test the sound", "HDMI sound status"])
         keys("q")
@@ -6009,8 +6015,22 @@ function _init()
       apu(2, 2), apu(2, 6), apu(5, 4), apu(2, 9))
   noteoff(2)
   log("off", apu(2, 9), type(playing(0)), TRIANGLE, SAW)
-  log("bad", select(2, pcall(note, 8, 440)), select(2, pcall(apu, 0, 16)))
+  log("bad", select(2, pcall(note, 8, 440)), select(2, pcall(apu, 0, 32)))
   log("nobank", sfx(0), music())
+  tone(3, {wave = "saw", cutoff = 1000, res = 0.5, pan = -1, reverb = 0, attack = 100})
+  log("tone", apu(3, 2), apu(3, 11), apu(3, 12), apu(3, 16), apu(3, 22), apu(3, 5))
+  tone(4, "epiano")
+  log("preset", apu(4, 2), FM, PLUCK, SUPERSAW, ORGAN, #instruments() > 30, instruments("drum")[1].name)
+  local pv = play(nil, "kick", "C2", 200)
+  log("play", pv, playing(pv))
+  log("fx", math.floor(reverb(0.8) * 100 + 0.5), math.floor(echo(250) + 0.5), retro(), retro(true), retro(false))
+  log("badtone", select(2, pcall(tone, 0, "nothing")), select(2, pcall(tone, 0, {bogus = 1})))
+  -- notes at a time on the sound's clock (play_at, riff's scheduler)
+  local t0 = audio_time()
+  log("at", play_at(t0 + 0.5, "snare", "D3", 100, 0.8, 7), play_at(t0 + 0.6, {s = "kick", cutoff = 500}, 36),
+      play_voices(), select(2, pcall(play_at, t0, "nothing")))
+  play_cancel(7)
+  log("atcancel", play_voices(), play_voices(1, 2), audio_time() >= t0)
   quit()
 end
 """
@@ -6182,7 +6202,9 @@ def test_sound_editor(b, opts):
         pack = subprocess.run(["mtype", "-i", part, "::/BM/SOUNDS/DEMO.BM"], capture_output=True, env=env).stdout
         demo = bmaudio.unpack(bmaudio.extract(pack))
         assert demo["patterns"][0]["tracks"]["5"][0].startswith("C5"), demo["patterns"][0]
-        assert len(demo["songs"]) == 2 and demo["songs"][0]["name"] == "DEMO", demo["songs"]
+        assert len(demo["songs"]) == 3 and demo["songs"][0]["name"] == "DEMO", demo["songs"]
+        hifi = demo["songs"][2]                             # the new voices' song: its echo and room
+        assert hifi["name"] == "HIFI" and hifi.get("echo") == 3 and hifi.get("room") == 120, hifi
     finally:
         shutil.rmtree(tmp, ignore_errors=True)
     # the game with its bank runs as before
@@ -6194,6 +6216,70 @@ def test_sound_editor(b, opts):
         q.send("q")
         out = q.expect("> ", timeout=15).decode(errors="replace")
         assert "sound bank not loaded" not in out and "stopped with an error" not in out, out
+    finally:
+        q.close()
+
+
+def test_sound_assistant(b, opts):
+    """The music assistant in bm Sound (F6, src/ai/music.c): a lo-fi backing
+    track for the words goes into new patterns with a song of its own, then
+    a coin into a free sound effect; the kernel's network chose them."""
+    q = Qemu(b("kernel.img"))
+
+    def k(s, gap=0.25):
+        q.send(s)
+        time.sleep(gap)
+    try:
+        q.boot()
+        k("A", 3)                                           # bm Sound, on the demo
+        k("\x1b[17~", 1.5)                                  # F6: the assistant
+        for ch in "base lofi in re":
+            k(ch, 0.08)
+        time.sleep(0.8)
+        if opts.shots:
+            _save_png(q.screendump(), os.path.join(opts.shots, "sound-assistant.png"))
+        k("\r", 1)
+        out = q.expect("sound: assistant: base.lofi", timeout=20).decode(errors="replace")
+        out += q.expect("\n").decode(errors="replace")
+        assert "into song 3" in out, out                    # the demo has songs 0, 1 and 2
+        k("\x1b[17~", 1.5)
+        for ch in "effetto moneta":
+            k(ch, 0.08)
+        time.sleep(0.8)
+        k("\r", 1)
+        out = q.expect("sound: assistant: sfx.coin", timeout=20).decode(errors="replace")
+        out += q.expect("\n").decode(errors="replace")
+        assert "into sound effect 08" in out, out           # after the demo's eight
+    finally:
+        q.close()
+
+
+def test_sound_riff(b, opts):
+    """bm Sound's Riff... (F7, require "riff"): the first example (four on
+    the floor) plays live, an arpeggio from the examples too, then
+    Ctrl+Enter puts four bars of it into the bank as a song of its own."""
+    q = Qemu(b("kernel.img"))
+
+    def k(s, gap=0.25):
+        q.send(s)
+        time.sleep(gap)
+    try:
+        q.boot()
+        k("A", 3)                                           # bm Sound, on the demo
+        k("\x1b[18~", 1.5)                                  # F7: Riff...
+        k("\r", 1)
+        q.expect('sound: riff s "kick*4, ~ snare, hat*8"', timeout=10)
+        for _ in range(3):
+            k("\x1b[B", 0.3)                                # down: the arpeggio
+        k("\r", 1)
+        q.expect('sound: riff chord "<Am F C G>"', timeout=10)
+        time.sleep(1)
+        if opts.shots:
+            _save_png(q.screendump(), os.path.join(opts.shots, "sound-riff.png"))
+        k("\x1b[28~", 1)                                    # Ctrl+Enter: into the bank
+        out = q.expect("sound: riff into song", timeout=10).decode(errors="replace")
+        out += q.expect("\n").decode(errors="replace")
+        assert "into song 3, 1 patterns, 120 BPM" in out, out   # the demo has songs 0, 1 and 2
     finally:
         q.close()
 
@@ -6213,10 +6299,22 @@ def test_audio(b, opts):
         out += q.expect("\n").decode(errors="replace")
         assert "apu\t440\t0\t64\t1200\t3\t60\t77\t1" in out, out
         assert "off\t0\tboolean\t1\t2" in out, out
-        assert "bad\t" in out and "voice 0..7" in out and "register 0..15" in out, out
+        assert "bad\t" in out and "voice 0..7" in out and "register 0..31" in out, out
         out = q.expect("nobank\t", timeout=5).decode(errors="replace")
         out += q.expect("\n").decode(errors="replace")
         assert "nobank\tnil\tnil" in out, out
+        # the tone in plain units, the instruments, play(), room, echo, retro
+        out = q.expect("badtone\t", timeout=5).decode(errors="replace")
+        out += q.expect("\n").decode(errors="replace")
+        assert "tone\t2\t145\t128\t129\t0\t13" in out, out
+        assert "preset\t6\t6\t7\t8\t9\ttrue\tkick" in out, out
+        assert "play\t7\ttrue" in out, out
+        assert "fx\t80\t250\tfalse\ttrue\tfalse" in out, out
+        assert 'no instrument called "nothing"' in out and 'bad key or value "bogus"' in out, out
+        out = q.expect("atcancel\t", timeout=5).decode(errors="replace")
+        out += q.expect("\n").decode(errors="replace")
+        assert "at\ttrue\ttrue\t2\t" in out and out.count('no instrument called "nothing"') >= 1, out
+        assert "atcancel\t1\t1\ttrue" in out, out
         q.expect("> ", timeout=10)
     finally:
         q.close()
@@ -6894,6 +6992,73 @@ def test_res_480(b, opts):
         assert (w, h) == (480, 270), (w, h)
         q.send("q")
         q.expect("> ", timeout=10)
+    finally:
+        q.close()
+
+
+def test_riff_code(b, opts):
+    """riff in bm Code (require "riff", M46): in an empty tab two patterns
+    given to names, Ctrl+Enter (ESC [ 28 ~ on the serial line) plays them on
+    the sound's clock: the status line says MUSIC 2, the words of the notes
+    sounding light up; a mistake marks its line and says why, the music goes
+    on; Ctrl+. (ESC [ 29 ~) stops it."""
+    q = Qemu(b("kernel.img"))
+
+    def k(s, gap=0.04):
+        for c in re.findall(r"\x1b\[[0-9]*[~A-Z]|\x1bO[A-Z]|.", s, re.S):
+            q.send(c)
+            time.sleep(gap)
+
+    def see(words, tries=40):
+        text = []
+        for _ in range(tries):
+            text = screen_text(q.screendump(), 6, 12)
+            if all(any(w in l for l in text) for w in words):
+                return text
+            time.sleep(0.25)
+        raise AssertionError(f"not on screen: {words}\n" + "\n".join(text))
+
+    def coloured(rgb, tol=10):
+        w, h, px = q.screendump()
+        want = ((rgb >> 16) & 255, (rgb >> 8) & 255, rgb & 255)
+        n = 0
+        for i in range(0, len(px), 3):
+            if all(abs(px[i + j] - want[j]) <= tol for j in range(3)):
+                n += 1
+        return n
+
+    def shot(name):
+        if opts.shots:
+            _save_png(q.screendump(), os.path.join(opts.shots, f"riff-{name}.png"))
+    try:
+        q.boot()
+        k("C")
+        q.expect("code: ready", timeout=15)
+        see(["keys"])
+        k("\x14", 0.4)                                      # Ctrl+T: an empty tab
+        k('drums = s "kick*4, ~ snare, hat*8"\r')
+        k('bass = note "<c2 a1 f1 g1>" :s "acid" :lpf(800)')
+        see(["  2 bass"])
+        k("\x1b[28~", 0.3)                                  # Ctrl+Enter
+        q.expect("code: riff drums bass", timeout=10)
+        see(["MUSIC 2"])
+        lit = 0
+        for _ in range(12):                                 # the words of the notes sounding, lit
+            lit = max(lit, coloured(0x6A4E10))
+            if lit > 40:
+                break
+            time.sleep(0.15)
+        shot("playing")
+        assert lit > 40, f"the words of the notes are lit ({lit} pixels)"
+        k("\r")
+        k('oops = note "zz"')
+        k("\x1b[28~", 0.3)
+        text = see(["zz"])
+        assert any("MUSIC 2" in l for l in text), "the mistake leaves the music playing"
+        shot("mistake")
+        k("\x1b[29~", 0.3)                                  # Ctrl+.
+        text = see(["music stopped"])
+        assert not any("MUSIC" in l for l in text), "\n".join(text)
     finally:
         q.close()
 

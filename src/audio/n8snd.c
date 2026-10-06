@@ -542,8 +542,11 @@ void n8snd_mix(int16_t *out, unsigned n, float gain)
                 }
             }
         }
-        int v = out[i] + (int)(s * gain * 0.55f * 32767.0f);
-        out[i] = (int16_t)(v > 32767 ? 32767 : v < -32768 ? -32768 : v);
+        int add = (int)(s * gain * 0.55f * 32767.0f);
+        for (int c = 0; c < 2; c++) {
+            int v = out[2 * i + c] + add;
+            out[2 * i + c] = (int16_t)(v > 32767 ? 32767 : v < -32768 ? -32768 : v);
+        }
     }
 }
 

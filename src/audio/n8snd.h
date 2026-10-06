@@ -21,7 +21,8 @@ void n8snd_sfx(int n, int ch, int offset, int length);
 void n8snd_music(int n, int fade_ms, int mask);
 /* stat(16..26, 46..57) */
 int  n8snd_stat(int n);
-/* Adds n samples to out (mono, 16 bits), scaled by gain (0..1). */
+/* Adds n frames to out (stereo, 16 bits, left first: the same on both),
+ * scaled by gain (0..1). */
 void n8snd_mix(int16_t *out, unsigned n, float gain);
 /* A paused game: no sound, positions kept. */
 void n8snd_pause(int on);
