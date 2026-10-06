@@ -15,11 +15,15 @@
 --   end
 --
 -- Modes: "code" (API, how-to, errors), "sprite" (sprite recipes), "mesh"
--- (3D recipes: bm Studio, bm Animator), "error" (an error message: what it
--- means, a typo), "any". It answers while you type; Enter (A) hands the
--- code to on_insert, the sprite to on_sprite ({w, h, px = {0xRRGGBB or -1,
--- ...}}) or the 3D model to on_mesh (ai.mesh's table: faces, bones, clips;
--- shown turning in the panel), Esc (B) closes. Nothing runs while it is
+-- (3D recipes: bm Studio, bm Animator), "music" (rhythms, backing tracks,
+-- bass lines, arpeggios, melodies, sound effects: bm Sound), "error" (an
+-- error message: what it means, a typo), "any". It answers while you type;
+-- Enter (A) hands the code to on_insert, the sprite to on_sprite ({w, h, px
+-- = {0xRRGGBB or -1, ...}}), the 3D model to on_mesh (ai.mesh's table:
+-- faces, bones, clips; shown turning in the panel) or the music to
+-- on_music (ai.music's table; on_preview(it) each time it changes, for the
+-- tool to play it; context = {notes, bars}: what is there already), Esc (B)
+-- closes. Nothing runs while it is
 -- closed. While a word of the question is typed, the completion
 -- (require "predict") shows the rest in grey-blue: Tab writes it.
 
@@ -30,10 +34,12 @@ local C_TEXT, C_DIM, C_ACC, C_ERR, C_SEL = 0xE0E4F0, 0x8088A0, 0xFFC050, 0xFF606
 local C_KW, C_API, C_STR, C_NUM, C_COM = 0xFF7AB0, 0x70D0FF, 0x90E070, 0xFFB060, 0x707C98
 -- guide: how to make a 2D or a 3D game with the SDK, step by step (the
 -- SDK's project page opens the panel on them)
-local KINDS = { code = "api,howto,error,tip", sprite = "sprite", mesh = "mesh", error = "error,api,howto",
-                guide = "guide,howto,tip,api", any = "api,howto,error,tip,sprite,mesh,guide" }
+local KINDS = { code = "api,howto,error,tip", sprite = "sprite", mesh = "mesh", music = "music",
+                error = "error,api,howto", guide = "guide,howto,tip,api",
+                any = "api,howto,error,tip,sprite,mesh,music,guide" }
 local TAG = { api = "API", howto = "how-to", error = "error", tip = "tip", sprite = "sprite", mesh = "3D",
-              guide = "guide" }
+              guide = "guide", music = "music" }
+local NOTES = { "C", "C#", "D", "Eb", "E", "F", "F#", "G", "Ab", "A", "Bb", "B" }
 
 local st                                 -- nil while closed
 
@@ -159,9 +165,24 @@ local function choose(i)
   if st.sel >= st.top + st.list_rows then st.top = st.sel - st.list_rows + 1 end
   local hit = st.hits[st.sel]
   st.entry = safe(ai.entry, hit.id)
-  st.scroll, st.lines, st.sprite, st.model, st.pmesh = 0, {}, nil, nil, nil
+  st.scroll, st.lines, st.sprite, st.model, st.pmesh, st.music = 0, {}, nil, nil, nil, nil
   local e = st.entry
   if not e then return end
+  if e.kind == "music" then
+    st.music = safe(ai.music, st.q ~= "" and st.q or e.gen, { gen = e.gen, seed = st.seed, context = st.context })
+    local m = st.music
+    if m then
+      local info = m.kind == "sfx" and string.format("%d steps of %d ms", #m.sfx.steps, m.sfx.ms)
+                   or string.format("%s %s, %d BPM, %d bars", NOTES[m.key + 1], m.minor and "minor" or "major", m.bpm, m.bars)
+      st.lines[#st.lines + 1] = { t = info }
+      if #m.chords > 0 then st.lines[#st.lines + 1] = { t = table.concat(m.chords, " "), dim = true } end
+      st.lines[#st.lines + 1] = { t = table.concat(m.instruments, " "), dim = true }
+      st.lines[#st.lines + 1] = { t = "" }
+    end
+    wrap(e.text or "", st.cols // 2 - 1, st.lines)
+    if m and st.on_preview then st.on_preview(m) end
+    return
+  end
   if e.kind == "mesh" then
     st.model = safe(ai.mesh, st.q ~= "" and st.q or e.gen, { gen = e.gen, seed = st.seed })
     st.pmesh, st.pbox = preview_mesh(st.model)
@@ -250,6 +271,7 @@ function M.open(o)
     mode = KINDS[o.mode or "any"] and (o.mode or "any") or "any",
     q = o.query or "", ctx = o.ctx ~= "" and o.ctx or nil,
     on_insert = o.on_insert, on_sprite = o.on_sprite, on_mesh = o.on_mesh, on_close = o.on_close,
+    on_music = o.on_music, on_preview = o.on_preview, context = o.context,
     palette = o.palette, size = o.size or 16, seed = 1,
     x = o.x, y = o.y, w = o.w, h = o.h,
     hits = {}, sel = 1, top = 1, scroll = 0, lines = {}, frame = 0,
@@ -294,6 +316,14 @@ local function act()
     else
       st.msg = "this tool takes no 3D models"
     end
+  elseif e.kind == "music" then
+    if st.music and st.on_music then
+      local m, cb = st.music, st.on_music
+      M.close()
+      cb(m)
+    else
+      st.msg = "this tool takes no music (bm Sound does)"
+    end
   elseif e.code ~= "" and st.on_insert then
     local code, cb = e.code, st.on_insert
     M.close()
@@ -304,7 +334,7 @@ local function act()
 end
 
 local function variant(d)
-  if st.entry and (st.entry.kind == "sprite" or st.entry.kind == "mesh") then
+  if st.entry and (st.entry.kind == "sprite" or st.entry.kind == "mesh" or st.entry.kind == "music") then
     st.seed = math.max(1, st.seed + d)
     choose(st.sel)
   else
@@ -329,9 +359,9 @@ local function accept()
 end
 
 local function next_mode()
-  -- code, sprite, mesh, guide, any
-  st.mode = st.mode == "code" and "sprite" or st.mode == "sprite" and "mesh" or st.mode == "mesh" and "guide"
-            or st.mode == "guide" and "any" or "code"
+  -- code, sprite, mesh, music, guide, any
+  st.mode = st.mode == "code" and "sprite" or st.mode == "sprite" and "mesh" or st.mode == "mesh" and "music"
+            or st.mode == "music" and "guide" or st.mode == "guide" and "any" or "code"
   refresh()
 end
 
@@ -475,6 +505,43 @@ local function draw_model(x, y, size)
   clip()
 end
 
+-- the music: its first pattern as a piano roll (a colour for each track),
+-- or the sound effect's steps
+local TRACK_C = { 0xF2701D, 0xF2C230, 0x35C46E, 0x2EC8D2, 0x3C8CE7, 0xA472F2, 0xF0609E, 0xDDE0E6 }
+local function draw_music(m, x, y, w, h)
+  rectfill(x, y, w, h, 0x2A3048)
+  rect(x, y, w, h, C_LINE)
+  if not m then return end
+  local rows = {}
+  if m.kind == "sfx" then
+    rows[0] = m.sfx.steps
+  else
+    local p = m.patterns[1]
+    for t = 0, 7 do if p.tracks[t] then rows[t] = p.tracks[t] end end
+  end
+  local lo, hi, len = 127, 1, 1
+  for _, r in pairs(rows) do
+    len = math.max(len, #r)
+    for _, v in ipairs(r) do
+      local n = v & 255
+      if n > 0 and n < 128 then lo, hi = math.min(lo, n), math.max(hi, n) end
+    end
+  end
+  if hi < lo then return end
+  local span = math.max(12, hi - lo + 1)
+  local cw = (w - 4) / len
+  for t, r in pairs(rows) do
+    local c = TRACK_C[t + 1]
+    for i, v in ipairs(r) do
+      local n = v & 255
+      if n > 0 and n < 128 then
+        local yy = y + 2 + math.floor((hi - n) * (h - 6) / span)
+        rectfill(x + 2 + math.floor((i - 1) * cw), yy, math.max(1, math.floor(cw)), 2, c)
+      end
+    end
+  end
+end
+
 local function checker(x, y, w, h, s)
   rectfill(x, y, w, h, 0x5A606C)
   for j = 0, h // s - 1 do
@@ -548,7 +615,18 @@ function M.draw()
   local dy = ly + st.list_rows * fh
   line(x + 4, dy - 1, x + w - 5, dy - 1, C_LINE)
   local e = st.entry
-  if e and e.kind == "mesh" then
+  if e and e.kind == "music" then
+    local bh = st.detail_rows * fh - fh
+    local bw = math.min(w // 2 - 2 * fw, bh * 3) // fw * fw
+    draw_music(st.music, tx, dy + 4, bw, bh)
+    local ix = tx + bw + 2 * fw
+    local cols = st.cols - bw // fw - 2
+    print(((st.music and st.music.name or e.title) .. "  #" .. st.seed):sub(1, cols), ix, dy, C_TEXT)
+    for k = 1, math.min(#st.lines, st.detail_rows - 1) do
+      local l = st.lines[k]
+      print(l.t:sub(1, cols), ix, dy + k * fh, l.dim and C_DIM or C_TEXT)
+    end
+  elseif e and e.kind == "mesh" then
     local box = st.detail_rows * fh - fh
     local m = st.model
     rectfill(tx, dy + 4, box, box, 0x2A3048)
@@ -614,7 +692,7 @@ function M.draw()
   local li = lastinput()
   local pad = li == "ds4" or li == "pad"
   local list
-  if e and (e.kind == "sprite" or e.kind == "mesh") then
+  if e and (e.kind == "sprite" or e.kind == "mesh" or e.kind == "music") then
     list = { { "enter", "A", "use" }, { { "left", "right" }, "LEFTRIGHT", "variant" },
              { { "up", "down" }, "UPDOWN", "choose" }, { "tab", "X", (st.comp and not pad) and "word" or "mode" },
              { "esc", "B", "close" } }

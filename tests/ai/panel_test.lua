@@ -260,5 +260,35 @@ check(on_screen("sprite"), "after a space Tab is the next mode")
 assist.close()
 print = print0
 
+-- music (bm Sound): the recipe for the words, played as it changes (on_preview),
+-- a variant to the right, Enter hands it over; over the notes already there
+-- it follows their key
+local music, previews = nil, 0
+assist.open{ mode = "music", on_music = function(m) music = m end, on_preview = function() previews = previews + 1 end }
+type_("ritmo rock")
+check(on_screen("Rock beat"), "music: a rock beat for the words")
+check(on_screen("BPM"), "music: its tempo and key")
+local before = previews
+keys = { "right" }
+frame()
+check(on_screen("#2") and previews > before, "music: right, variant 2, played")
+keys = { "\n" }
+frame()
+check(music and music.kind == "beat" and music.gen == "beat.rock" and music.seed == 2 and #music.patterns == 1,
+      "music handed over: the rock beat, variant 2")
+check(music and music.patterns[1].tracks[0] and #music.patterns[1].tracks[0] == 64, "music: the kick's track, 64 steps")
+assist.open{ mode = "music", on_music = function(m) music = m end,
+             context = { notes = { 57, 60, 64, 53, 57, 60, 48, 52, 55, 43, 47, 50 }, bars = { 0, 0, 0, 1, 1, 1, 2, 2, 2, 3, 3, 3 } } }
+type_("una melodia malinconica")
+keys = { "\n" }
+frame()
+check(music and music.kind == "melody" and music.chords[1] == "Am" and music.chords[2] == "F",
+      "music: a melody over the chords that are there (Am F)")
+assist.open{ mode = "music", on_music = function(m) music = m end }
+type_("effetto moneta")
+keys = { "\n" }
+frame()
+check(music and music.kind == "sfx" and music.sfx and #music.sfx.steps >= 2, "music: the coin, a sound effect")
+
 say(string.format("panel: %d checks, %d failed", checks, fails))
 os.exit(fails == 0 and 0 or 1)

@@ -139,6 +139,40 @@ env.instruments = function() return { INSTR.kick, INSTR.epiano } end
 env.instrument = function(n) return INSTR[n] end
 local plays = 0
 env.play = function(v, name, note) assert(INSTR[name], "play: an instrument"); plays = plays + 1; return v end
+-- the music assistant: ai.music's pieces (src/ai/lua_music.c) and a panel
+-- that hands one over at once, after its preview (src/ai/assist.lua)
+local function word(n, i, v, fx) return n | i << 8 | v << 16 | (fx or 0) << 24 end
+local PIECES = {
+  base = { gen = "base.pop", name = "pop backing", kind = "base", bpm = 110, swing = 0, key = 7, minor = false,
+           meter = 16, bars = 8, echo = 0, room = 110, seed = 1, chords = { "G", "D", "Em", "C" },
+           instruments = { "kick", "epiano" },
+           patterns = { { len = 64, tracks = { [0] = { word(36, 0, 230) }, [4] = { word(64, 1, 200) } } },
+                        { len = 64, tracks = { [0] = { word(36, 0, 230) } } } } },
+  melody = { gen = "melody.calm", name = "calm melody", kind = "melody", bpm = 84, swing = 0, key = 0,
+             minor = false, meter = 16, bars = 4, echo = 0, room = 100, seed = 1, chords = { "C" },
+             instruments = { "epiano" }, patterns = { { len = 64, tracks = { [6] = { word(72, 0, 225), 0, word(128, 0, 0) } } } } },
+  sfx = { gen = "sfx.coin", name = "coin", kind = "sfx", seed = 3, chords = {}, instruments = { "kick" }, patterns = {},
+          sfx = { ms = 50, loop = { 0, 0 }, steps = { word(83, 0, 230), word(88, 0, 230), word(128, 0, 0) } } },
+}
+local asked, previewed = {}, 0
+env.ai = { music = function(q) return PIECES[q] end }
+local panel
+local fake_assist = {
+  open = function(o) panel = o end,
+  is_open = function() return panel ~= nil end,
+  update = function()
+    local o = panel
+    panel = nil
+    local piece = PIECES[asked.next]
+    o.on_preview(piece)
+    previewed = previewed + 1
+    o.on_close()
+    o.on_music(piece)
+    return true
+  end,
+  draw = function() end,
+}
+env.require = function(name) if name == "assist" then return fake_assist end error("no module " .. name) end
 
 local api = {}
 for k in pairs(env) do api[k] = true end
@@ -356,6 +390,41 @@ menu_item(4)
 type_keys("\n")                           -- Save as a new sound pack...
 type_keys("\b", "\b", "\b", "\b", "\b", "\b", "\b", "\b", "M", "I", "N", "E", "\n")
 check(files["/bm/sounds/MINE.BM"] and files["/bm/sounds/MINE.BM"].bank, "a new sound pack is written")
+
+-- 9b. the assistant (F6): a backing track into new patterns and a song of its
+-- own, a melody over the pattern on the page, a sound effect into a free slot
+local function compose_with(kind)
+  asked.next = kind
+  type_keys("f6")
+  run(2)
+end
+compose_with("base")
+b = parse(last_bank)
+local song = b.songs[#b.songs]
+check(song and song.name == "POP BACK", "the backing track has a song of its own")
+check(song.bpm == 110 and #song.order == 2, "its tempo, its two patterns")
+local p1 = b.pats[song.order[1] + 1]
+check(p1 and p1.len == 64 and p1.tracks[0] and p1.tracks[0][1][1] == 36, "its kick in the new pattern")
+local kick_slot = p1.tracks[0][1][2]
+check(b.sounds[kick_slot + 1] == "KICK", "its instrument became a sound of the bank")
+check(previewed == 1, "it was played before it went in")
+local nsongs = #b.songs
+type_keys("^z")
+b = parse(last_bank)
+check(#b.songs == nsongs - 1, "Ctrl+Z takes the backing track back")
+type_keys("f3")
+compose_with("melody")
+b = parse(last_bank)
+local found = false
+for _, pt in ipairs(b.pats) do
+  local tr = pt.tracks[6]
+  if tr and tr[1][1] == 72 then found = true end
+end
+check(found, "the melody went on track 6 of the pattern on the page")
+compose_with("sfx")
+b = parse(last_bank)
+local coin = b.sfx[#b.sfx]
+check(coin and coin.name == "COIN" and coin.steps[1][1] == 83 and coin.steps[3][1] == 128, "the coin into a free sound effect")
 
 -- 10. random input: nothing stops the editor
 math.randomseed(7)

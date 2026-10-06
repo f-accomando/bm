@@ -6063,6 +6063,40 @@ def test_sound_editor(b, opts):
         q.close()
 
 
+def test_sound_assistant(b, opts):
+    """The music assistant in bm Sound (F6, src/ai/music.c): a lo-fi backing
+    track for the words goes into new patterns with a song of its own, then
+    a coin into a free sound effect; the kernel's network chose them."""
+    q = Qemu(b("kernel.img"))
+
+    def k(s, gap=0.25):
+        q.send(s)
+        time.sleep(gap)
+    try:
+        q.boot()
+        k("A", 3)                                           # bm Sound, on the demo
+        k("\x1b[17~", 1.5)                                  # F6: the assistant
+        for ch in "base lofi in re":
+            k(ch, 0.08)
+        time.sleep(0.8)
+        if opts.shots:
+            _save_png(q.screendump(), os.path.join(opts.shots, "sound-assistant.png"))
+        k("\r", 1)
+        out = q.expect("sound: assistant: base.lofi", timeout=20).decode(errors="replace")
+        out += q.expect("\n").decode(errors="replace")
+        assert "into song 3" in out, out                    # the demo has songs 0, 1 and 2
+        k("\x1b[17~", 1.5)
+        for ch in "effetto moneta":
+            k(ch, 0.08)
+        time.sleep(0.8)
+        k("\r", 1)
+        out = q.expect("sound: assistant: sfx.coin", timeout=20).decode(errors="replace")
+        out += q.expect("\n").decode(errors="replace")
+        assert "into sound effect 08" in out, out           # after the demo's eight
+    finally:
+        q.close()
+
+
 def test_audio(b, opts):
     """M10: without HDMI audio (QEMU) the console says why and stays silent;
     the .bm sound API writes the APU-layout registers."""

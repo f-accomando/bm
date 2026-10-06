@@ -1955,6 +1955,8 @@ local HELP = {
   "SELECT     this menu                  Ctrl+S save  Ctrl+O open  F5 try",
   "START + SELECT together leave the     Ctrl+C Ctrl+V copy, paste",
   "editor (as Ctrl+Esc)                  F12 held: all the keys",
+  "F6 (or the menu): the assistant writes beats, backing tracks, bass lines,",
+  "arpeggios, melodies and sound effects for the words (\"base lofi in re\").",
   "SOUNDS: down past the last row goes to FILTER, then WAVE & SPACE;",
   "the menu's Instrument... puts a ready-made sound in (it plays as you choose).",
 }
@@ -1979,6 +1981,7 @@ local KEYHELP = {
   { "space", "play / stop" },
   { "pgup / pgdn", "the next sound, pattern, song" },
   { "ctrl e", "export to a game" },
+  { "f6", "the assistant: beats, backing tracks, melodies, sound effects" },
   "pad",
   { "DPAD", "move" },
   { "A", "add / remove, choose" },
@@ -1992,6 +1995,195 @@ local KEYHELP = {
   { "SELECT UPDOWN", "the next sound, pattern, song" },
   { "SELECT", "the menu" },
 }
+
+----------------------------------------------------------------- the assistant (F6)
+
+-- ai.music (src/ai/music.c) in the assistant's panel (require "assist",
+-- mode "music"): rhythms, backing tracks, bass lines, arpeggios, melodies
+-- and sound effects; each one heard while it is chosen, A puts it in the
+-- bank. Rhythms and backing tracks go into new patterns with a song of
+-- their own; bass lines, arpeggios and melodies over the pattern on the
+-- page (they follow its key and chords); a sound effect into the first
+-- free slot. Their instruments become sounds of the bank (the ones with
+-- the same name are used again).
+
+local assist_lib = false
+local function assist_mod()
+  if assist_lib == false then
+    local ok, m = pcall(require, "assist")
+    assist_lib = ok and type(m) == "table" and m or nil
+  end
+  return assist_lib
+end
+
+local SOUND_FIELDS = { "wave", "duty", "vol", "a", "d", "s", "r", "pitch", "ptime", "vdepth", "vrate", "detune" }
+
+-- the bank's sound for an instrument: the one with its name, or a free one
+local function sound_for(b, name, put)
+  local up = name8(name)
+  for i = 1, B.NSOUND do if b.sounds[i].name == up then return i - 1 end end
+  local p = instrument and instrument(name)
+  if not p then return nil end
+  for i = 1, B.NSOUND do
+    local s = b.sounds[i]
+    if B.sound_empty(s) then
+      for _, k in ipairs(SOUND_FIELDS) do put(s, k, p[k]) end
+      put(s, "tone", B.copy(p.tone))
+      put(s, "name", up)
+      return i - 1
+    end
+  end
+  return nil
+end
+
+-- the notes of the patterns from the one on the page, as ai.music's
+-- context (16 steps to a bar)
+local function context_notes(npats)
+  local notes, bars, off = {}, {}, 0
+  for k = 0, npats - 1 do
+    local p = bank.pats[(cur.pat + k) % B.NPAT + 1]
+    for t = 1, 8 do
+      local tr = p.tracks[t]
+      if tr then
+        for i = 1, p.len do
+          local n = s_note(tr[i] or 0)
+          if n > 0 and n < 128 and #notes < 500 then
+            notes[#notes + 1] = n
+            bars[#bars + 1] = (off + i - 1) // 16
+          end
+        end
+      end
+    end
+    off = off + p.len
+  end
+  return { notes = notes, bars = bars }
+end
+
+-- the piece into a bank (put: set, undone with Ctrl+Z, or a plain write
+-- on a copy for the preview); what it made: {sfx =}, {song =, pat =} or {pat =}
+local function merge(b, piece, put)
+  local map = {}
+  for i, name in ipairs(piece.instruments) do
+    local s = sound_for(b, name, put)
+    if not s then return nil, "no free sound for " .. name:upper() end
+    map[i - 1] = s
+  end
+  local function conv(w)
+    local note, inst, vol, fx = w & 255, w >> 8 & 255, w >> 16 & 255, w >> 24 & 255
+    if note == 0 and fx == 0 then return 0 end
+    if note >= 128 then return mk(128, 0, 255, 0) end
+    return mk(note, map[inst] or 0, vol, fx)
+  end
+  if piece.kind == "sfx" then
+    for i = 1, B.NSFX do
+      local x = b.sfx[i]
+      if B.sfx_empty(x) then
+        local steps = {}
+        for k, w in ipairs(piece.sfx.steps) do steps[k] = conv(w) end
+        put(x, "name", name8(piece.name))
+        put(x, "ms", piece.sfx.ms)
+        put(x, "len", #steps)
+        put(x, "ls", piece.sfx.loop[1])
+        put(x, "le", piece.sfx.loop[2])
+        put(x, "steps", steps)
+        return { sfx = i - 1 }
+      end
+    end
+    return nil, "no free sound effect"
+  end
+  if piece.kind == "beat" or piece.kind == "base" then
+    local free = {}
+    for i = 1, B.NPAT do
+      if #free < #piece.patterns and B.pat_empty(b.pats[i]) then free[#free + 1] = i - 1 end
+    end
+    if #free < #piece.patterns then return nil, "not enough free patterns" end
+    local g
+    for i = 1, B.NSONG do if not g and B.song_empty(b.songs[i]) then g = i - 1 end end
+    if not g then return nil, "no free song" end
+    for k, pp in ipairs(piece.patterns) do
+      local tracks = {}
+      for t, steps in pairs(pp.tracks) do
+        local tr = {}
+        for i = 1, pp.len do tr[i] = conv(steps[i] or 0) end
+        tracks[t + 1] = tr
+      end
+      put(b.pats[free[k] + 1], "len", pp.len)
+      put(b.pats[free[k] + 1], "tracks", tracks)
+    end
+    local song = b.songs[g + 1]
+    put(song, "name", name8(piece.name))
+    put(song, "bpm", piece.bpm)
+    put(song, "swing", piece.swing)
+    put(song, "loop", 0)
+    put(song, "echo", piece.echo)
+    put(song, "room", piece.room)
+    put(song, "order", free)
+    return { song = g, pat = free[1] }
+  end
+  -- a bass line, an arpeggio, a melody: its tracks over the patterns from the one on the page
+  for k, pp in ipairs(piece.patterns) do
+    local p = b.pats[(cur.pat + k - 1) % B.NPAT + 1]
+    local len = math.max(B.pat_empty(p) and 0 or p.len, pp.len)
+    local tracks = B.copy(p.tracks)
+    for t, steps in pairs(pp.tracks) do
+      local tr = {}
+      for i = 1, len do tr[i] = conv(steps[i] or 0) end
+      tracks[t + 1] = tr
+    end
+    put(p, "len", len)
+    put(p, "tracks", tracks)
+  end
+  return { pat = cur.pat }
+end
+
+local preview_due                         -- {piece, frames}: played when the choice rests
+
+local function play_piece(piece)
+  local tmp = B.copy(bank)
+  local res = merge(tmp, piece, function(t, k, v) t[k] = v end)
+  if not res then return end
+  audio_bank(B.pack(tmp))
+  if res.sfx then
+    sfx(res.sfx, PREVIEW_VOICE)
+  elseif res.song then
+    music(res.song)
+  else
+    audio_pattern(res.pat, piece.bpm, piece.swing)
+  end
+end
+
+local function compose()
+  local a = assist_mod()
+  if not (a and ai and ai.music) then say("the music assistant is not on this console", C.red) return end
+  music(-1)
+  a.open{
+    mode = "music", context = context_notes(4),
+    on_preview = function(piece) preview_due = { piece = piece, t = 10 } end,
+    on_close = function()
+      preview_due = nil
+      music(-1)
+      sfx(-1)
+      bank_changed = true                 -- the bank as it is again
+    end,
+    on_music = function(piece)
+      begin_edit()
+      local res, err = merge(bank, piece, set)
+      if not res then say("assistant: " .. err, C.red, 300) return end
+      if res.sfx then
+        cur.page, cur.sfx = 2, res.sfx
+      elseif res.song then
+        cur.page, cur.song, cur.pat = 4, res.song, res.pat
+      else
+        cur.page = 3
+        learn_tracks()
+      end
+      local where = res.sfx and string.format("sound effect %02d", res.sfx)
+                    or res.song and string.format("song %d", res.song) or string.format("pattern %02d", res.pat)
+      say(string.format("assistant: %s into %s (Ctrl+Z takes it back)", piece.name, where), C.green, 300)
+      note_log("assistant: " .. piece.gen .. " #" .. piece.seed .. " into " .. where)
+    end,
+  }
+end
 
 local function play_toggle() P[cur.page].play() end
 
@@ -2029,6 +2221,7 @@ local function open_menu()
   if cur.page == 1 and instruments then
     items[#items + 1] = { label = "Instrument...", note = "a ready-made sound", act = choose_preset }
   end
+  items[#items + 1] = { label = "Compose with the assistant...", note = "F6: beats, melodies, sfx", act = compose }
   if proj.path and proj.is_game then
     items[#items + 1] = { label = "Try it in the game", note = "F5, saves first", act = try_game }
   end
@@ -2181,6 +2374,7 @@ local function global_key(k)
   elseif k == "^v" then item_paste()
   elseif k == "^o" then open_other()
   elseif k == "^e" then pick_file("export to", { game = true }, export_to)
+  elseif k == "f6" then compose()
   elseif k == "up" then page.move(0, -1)
   elseif k == "down" then page.move(0, 1)
   elseif k == "left" then page.move(-1, 0)
@@ -2236,6 +2430,18 @@ end
 function _update()
   frame = frame + 1
   if msg_t > 0 then msg_t = msg_t - 1 end
+  local a = assist_lib or nil
+  if a and a.is_open() then
+    if preview_due then
+      preview_due.t = preview_due.t - 1
+      if preview_due.t <= 0 then
+        local piece = preview_due.piece
+        preview_due = nil
+        play_piece(piece)
+      end
+    end
+    if a.update() then return end
+  end
   read_pad()
   while true do
     local k = keyp()
@@ -2256,4 +2462,5 @@ function _draw()
   draw_top()
   draw_bottom()
   if overlay then draw_overlay() end
+  if assist_lib and assist_lib.is_open() then assist_lib.draw() end
 end

@@ -112,6 +112,12 @@ const au_preset_t au_presets[] = {
       SYNTH_SQUARE, 128, 120, 1, 0, 255, 10, 0, 0, 0, 0, T(FLAGS) = SYNTH_FLAG_RAW),
     P("chiptri", "lead", "the 8-bit triangle",
       SYNTH_TRIANGLE, 128, 160, 1, 0, 255, 10, 0, 0, 0, 0, T(FLAGS) = SYNTH_FLAG_RAW),
+    P("chipkick", "drum", "the 8-bit kick: a triangle falling fast",
+      SYNTH_TRIANGLE, 128, 230, 0, 30, 0, 20, 24, 4, 0, 0, T(FLAGS) = SYNTH_FLAG_RAW),
+    P("chipsnr", "drum", "the 8-bit snare: noise",
+      SYNTH_NOISE, 128, 170, 0, 18, 0, 14, 0, 0, 0, 0, T(FLAGS) = SYNTH_FLAG_RAW),
+    P("chiphat", "drum", "the 8-bit hi-hat: metal noise",
+      SYNTH_METAL, 128, 90, 0, 5, 0, 4, 0, 0, 0, 0, T(FLAGS) = SYNTH_FLAG_RAW),
     /* effects */
     P("laser", "fx", "laser: falling two octaves",
       SYNTH_SQUARE, 128, 140, 0, 20, 0, 10, 24, 20, 0, 0, T(CUTOFF) = 211, T(REVERB) = 40),

@@ -578,6 +578,7 @@ test-queue2d: $(BUILD)/host/bmhost-gpu
 .PHONY: FORCE test-keymap test-gameapi test-online test-bmnet test-loading test-smp test-qpu test-gpu3d test-queue2d test-b3d test-v3d bench3d count-insns all clean firmware image \
         image-pi1 sdcard install sdcard-chainloader sdcard-stress qemu qemu7 qemu-screenshot \
         run-serial test test-bm test-res test-ai test-img2mesh ai-model test-predict test-padtype predict-bench syllables test-usb test-audio \
+        test-music music-model \
         test-fat test-kitchen test-titan test-yharnam test-sound test-nano8 test-net test-http test-https test-release \
         release disasm wav test-studio test-studio-ui studio test-prompts test-hyp test-zero2 \
         showreel bmhost bmhost-gpu test-overbit overbit-reel overbit-reel-heroes overbit-reel-match yharnam-video \
@@ -762,7 +763,7 @@ qemu-screenshot: $(BUILD)/kernel.img
 # make test: the tests on the PC, then those in QEMU. The CI runs them on
 # several machines at once: make test-host HOST_SKIP="..." (the PC's, but
 # those named), make test-qemu SHARD=K/N (group K of N of the QEMU tests).
-HOST_TESTS := test-bm test-res test-usb test-fat test-audio test-kitchen test-titan test-yharnam test-sound test-nano8 test-net test-http test-https test-img3d \
+HOST_TESTS := test-bm test-res test-usb test-fat test-audio test-music test-kitchen test-titan test-yharnam test-sound test-nano8 test-net test-http test-https test-img3d \
       test-catalog test-github test-lan test-keymap test-gameapi test-online test-bmnet test-loading \
       test-release test-smp test-qpu test-gpu3d test-queue2d test-b3d test-v3d test-ai test-predict test-padtype \
       test-studio test-prompts test-overbit $(if $(K7),test-hyp)
@@ -950,6 +951,23 @@ $(BUILD)/host/test_http: tests/net/test_http.c src/net/http.c src/net/http.h
 test-audio: $(BUILD)/host/test_audio
 	$<
 
+# The music assistant (src/ai/music.c): the melody network against the
+# Python reference, every recipe, the words of the requests. `make
+# music-model` trains the network again (numpy) from src/ai/melodies.txt:
+# then commit src/ai/music_net.c. MUSIC_WAV=dir also writes examples.
+test-music: $(BUILD)/host/test_music
+	$(PYTHON) scripts/trainmusic.py --check
+	$< $(MUSIC_WAV)
+
+$(BUILD)/host/test_music: tests/ai/test_music.c src/ai/music.c src/ai/music_net.c src/ai/nn.c src/audio/presets.c \
+                          src/audio/player.c src/audio/synth.c src/ai/*.h src/audio/*.h
+	@mkdir -p $(dir $@)
+	$(HOSTCC) -O2 -Wall -Wextra -Isrc -o $@ tests/ai/test_music.c src/ai/music.c src/ai/music_net.c src/ai/nn.c \
+	    src/audio/presets.c src/audio/player.c src/audio/synth.c -lm
+
+music-model:
+	$(PYTHON) scripts/trainmusic.py
+
 $(BUILD)/host/test_audio: tests/audio/test_audio.c src/audio/synth.c src/audio/player.c src/audio/iec958.c src/audio/*.h
 	@mkdir -p $(dir $@)
 	$(HOSTCC) -O2 -Wall -Wextra -Isrc -o $@ tests/audio/test_audio.c src/audio/synth.c src/audio/player.c src/audio/iec958.c -lm
@@ -1066,15 +1084,16 @@ test-prompts: $(BUILD)/host/test_prompts
 
 # The assistant (M30): C features and network against the Python reference,
 # answers to the held-out questions, sprite generator
-AI_SRCS := src/ai/assist.c src/ai/nn.c src/ai/text.c src/ai/sprite.c src/ai/mesh.c src/ai/mesh_chars.c src/ai/mesh_script.c
+AI_SRCS := src/ai/assist.c src/ai/nn.c src/ai/text.c src/ai/sprite.c src/ai/mesh.c src/ai/mesh_chars.c src/ai/mesh_script.c \
+           src/ai/music.c src/ai/music_net.c
 $(BUILD)/host/test_ai: tests/ai/test_ai.c $(AI_SRCS) src/ai/*.h src/lib/crc32.c
 	@mkdir -p $(dir $@)
 	$(HOSTCC) -O2 -Wall -Wextra -Isrc -o $@ tests/ai/test_ai.c $(AI_SRCS) src/lib/crc32.c -lm
 
 # Lua for the PC with the `ai` table: the panel's tests
-$(BUILD)/host/luaai: tests/ai/luaai.c src/ai/lua_ai.c $(AI_SRCS) src/ai/*.h src/lib/crc32.c $(LUA_SRCS)
+$(BUILD)/host/luaai: tests/ai/luaai.c src/ai/lua_ai.c src/ai/lua_music.c $(AI_SRCS) src/ai/*.h src/lib/crc32.c $(LUA_SRCS)
 	@mkdir -p $(dir $@)
-	$(HOSTCC) -O2 -w -DBM_HOST_TEST -Isrc -Ithird_party/lua -o $@ tests/ai/luaai.c src/ai/lua_ai.c \
+	$(HOSTCC) -O2 -w -DBM_HOST_TEST -Isrc -Ithird_party/lua -o $@ tests/ai/luaai.c src/ai/lua_ai.c src/ai/lua_music.c \
 		$(AI_SRCS) src/lib/crc32.c $(LUA_SRCS) -lm
 
 # The 3D recipes drawn on the PC: build/ai/meshes.ppm (every recipe) and
