@@ -225,6 +225,12 @@ static int line_command(char *c)
         const char *t = argv_copy(rest, "tests", tests, sizeof tests);
         const char *p = argv_copy(rest, "profiles", profiles, sizeof profiles);
         bm_bench3d_part(console_framebuffer(), t, p, 1);
+    } else if (!strcmp(c, "play")) {
+        /* a game by name, after the set of its flags (overbit_bench=...) */
+        if (!*rest || carts_play_title(console_framebuffer(), rest) != 0) {
+            kprintf("play: no game '%s' on this console\n", rest);
+            return -1;
+        }
     } else if (!strcmp(c, "set")) {
         for (char *w = rest; w && *w;) {
             while (*w == ' ')
@@ -265,7 +271,7 @@ static int line_command(char *c)
         uart_flush();
         watchdog_reboot();
     } else {
-        kprintf("'%s': not a command of the line (gpu, b3d, set, save, render, room, log, send, reboot)\n", c);
+        kprintf("'%s': not a command of the line (gpu, b3d, play, set, save, render, room, log, send, reboot)\n", c);
         return -1;
     }
     return 0;

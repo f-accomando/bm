@@ -3239,6 +3239,39 @@ static int l_save(lua_State *L)
 
 /* saved([slot]): the saved table, or nil. (Not "load": that is Lua's code
  * loader, which the sandbox removes.) */
+static char perm_title[49];             /* the game asking */
+
+/* cart_config(key [, value]) -> the text of the key in bm/config.txt, or nil.
+ * Only keys that start with the game's first title word in lower case and "_" (Overbit:
+ * overbit_bench): the flags a game takes from the monitor line
+ * ("set overbit_bench=1080 ; play overbit") or from easy_install. With a
+ * value the key is changed and saved ("" clears it). */
+static int l_cart_config(lua_State *L)
+{
+    const char *key = luaL_checkstring(L, 1);
+    char pre[56];
+    size_t o = 0;
+    for (const char *t = perm_title; *t && *t != ' ' && o < 40; t++)     /* the first word: "Overbit kaiju" is overbit_ */
+        if ((*t >= 'a' && *t <= 'z') || (*t >= '0' && *t <= '9'))
+            pre[o++] = *t;
+        else if (*t >= 'A' && *t <= 'Z')
+            pre[o++] = (char)(*t + 32);
+    pre[o++] = '_';
+    pre[o] = 0;
+    if (strncmp(key, pre, o) != 0)
+        return luaL_error(L, "cart_config: the keys of this game start with '%s'", pre);
+    if (lua_gettop(L) >= 2) {
+        config_set(key, luaL_checkstring(L, 2));
+        config_save();
+    }
+    const char *v = config_get(key);
+    if (v && *v)
+        lua_pushstring(L, v);
+    else
+        lua_pushnil(L);
+    return 1;
+}
+
 static int l_saved(lua_State *L)
 {
     int slot = save_slot(L, 1);
@@ -4337,7 +4370,7 @@ static const luaL_Reg api[] = {
     { "doc_list", l_doc_list }, { "doc_read", l_doc_read }, { "doc_write", l_doc_write }, { "doc_delete", l_doc_delete },
     { "keyp", l_keyp }, { "keyheld", l_keyheld }, { "rawkeys", l_rawkeys }, { "keydown", l_keydown },
     { "keys", l_keys }, { "pad", l_pad }, { "mouse", l_mouse }, { "mousep", l_mousep }, { "timeslice", l_timeslice }, { "ls", l_ls }, { "cart_load", l_cart_load }, { "cart_new", l_cart_new },
-    { "cart_save", l_cart_save }, { "cart_run", l_cart_run }, { "cart_tool", l_cart_tool }, { "cart_arg", l_cart_arg },
+    { "cart_save", l_cart_save }, { "cart_run", l_cart_run }, { "cart_tool", l_cart_tool }, { "cart_arg", l_cart_arg }, { "cart_config", l_cart_config },
     { "cart_data", l_cart_data },
     { "cart_read", l_cart_read }, { "cart_write", l_cart_write }, { "cart_meshes", l_cart_meshes },
     { "mesh_reduce", l_mesh_reduce }, { "picture3d", l_picture3d }, { "cutout3d", l_cutout3d },
@@ -6936,7 +6969,6 @@ static void leave_draw(void)
  * PC: as before). */
 static int perm_ask;                    /* the kernel asks (bm_permissions) */
 static framebuffer_t *perm_fb;          /* the screen of the run */
-static char perm_title[49];             /* the game asking */
 
 void bm_permissions(int on) { perm_ask = on; }
 

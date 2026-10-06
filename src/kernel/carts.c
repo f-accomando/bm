@@ -698,6 +698,33 @@ static void play(framebuffer_t *fb, const cart_t *c)
     crumb("cartridge menu", NULL);
 }
 
+static int lower_prefix(const char *s, const char *p, size_t n)
+{
+    for (size_t i = 0; i < n; i++) {
+        char a = s[i], b = p[i];
+        if (a >= 'A' && a <= 'Z') a += 32;
+        if (b >= 'A' && b <= 'Z') b += 32;
+        if (a != b || !a)
+            return 0;
+    }
+    return 1;
+}
+
+/* The monitor line's play NAME: a game of the SD card or a built-in one by
+ * its title or file name (the start of it is enough). 0, or -1 if none. */
+int carts_play_title(framebuffer_t *fb, const char *name)
+{
+    size_t n = strlen(name);
+    for (int i = 0; n && i < nsd; i++) {
+        const cart_t *c = &carts[i];
+        if (!is_dev(c) && (lower_prefix(c->title, name, n) || lower_prefix(c->name, name, n))) {
+            play(fb, c);
+            return 0;
+        }
+    }
+    return -1;
+}
+
 /* ---------------------------------------------------------------- menu */
 
 static void out(const char *s)

@@ -507,6 +507,28 @@ screenshot in `docs/img/`), `README_OLD.md` (il README completo, in italiano),
   test-online` (bmhost, comando `ps` dello script, screenshot in `build/online/`), le partite
   in rete di `make test-overbit` (l'ospite esce con PS).
 
+## Overbit: profilo grafico, benchmark a flag, `.b16` (branch `claude/overbit-update`, 2026-10-06)
+
+- **Niente opzioni grafiche nel titolo** (richiesta dell'utente): solo due schermi, **1080p** (lo
+  disegna la GPU) e **640×360** (il massimo dell'ARM, e il ripiego); qualità 0–4 e renderer li sceglie
+  il gioco (`src/85_quality.lua`). Scala dal più pesante: 1080p a qualità 4..1, poi 640×360 a 4..0;
+  il governatore (60 fps) scende di un livello, cambia schermo solo dopo 3 s di fotogrammi lunghi,
+  e sale solo di qualità (lo schermo non ballonzola). Quello che regge 20 s di partita è salvato con
+  `save()` (`res`, `q`, `r`) e diventa il default del prossimo avvio (`Quality.load` / `Quality.start`);
+  senza salvataggio: lo schermo più grande della console (RGB30: i suoi quadrati, stessa regola).
+- **Benchmark** (`src/84_bench.lua`, circa un minuto): *BENCHMARK* nel titolo = la **calibrazione**
+  (dalla scala dall'alto, il primo passo che regge 60 fps si ferma e diventa il default, salvato);
+  con i **flag** misura una matrice (schermi × renderer × qualità), manda il report e esce da solo.
+  Flag `chiave:valore` separati da `/`, liste da `+` (`res:1080+640/gpu:vs+gpu/q:4+3/secs:4/warm:10/
+  ring:1/save:1/stay:1`; una riga di config non ha `,` né `;`). Dal monitor: `set overbit_bench=FLAGS ;
+  play overbit` (il comando `play` della riga, `carts_play_title`); da WSL `./easy_install.sh bench
+  [FLAGS] [profilo]`. Il gioco li legge con `cart_config("overbit_bench")` (API nuova, `docs/API.md`) e li
+  azzera. Righe del report: fps, ms (medio, 1%, peggiore, % oltre 16,7), Lua, 3D, triangoli, vertici,
+  pixel, istruzioni Lua, KiB di Lua. Prove: `make test-overbit` (`bench-fast` con flag, `bench-cal`).
+- **`overbit.b16`** (`make build/carts/overbit.b16`): lo stesso contenitore, script senza righe di
+  commento né vuote (`build.py --minify`), sotto gli 8 MiB; `market-seed` manda al Market questo
+  (`MARKET_B16`). Il formato quadrato 360/720 del profilo `.b16` non c'è ancora (M41).
+
 ## Overbit (M38)
 
 - Sparatutto a eroi in 3D (`carts/overbit`; motore GPU e gioco cresciuti nel branch

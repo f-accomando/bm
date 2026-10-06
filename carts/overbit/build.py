@@ -41,6 +41,21 @@ def build(extra=()):
     return "".join(out), spans
 
 
+def minify(text):
+    """a line that is only a comment, or blank, goes (no source has a long
+    string or a --[[ comment: build checks); the code is the same"""
+    import re
+    if re.search(r"\[=*\[", text):
+        raise SystemExit("build.py --minify: a long string or comment ([[ ]]) is in the code")
+    keep = []
+    for ln in text.split("\n"):
+        t = ln.strip()
+        if not t or (t.startswith("--") and not t.startswith("--[")):
+            continue
+        keep.append(ln)
+    return "\n".join(keep) + "\n"
+
+
 def where(spans, n):
     for first, last, name in spans:
         if first <= n <= last:
@@ -55,6 +70,8 @@ def main():
     ap.add_argument("--start", help="the mode at start (tests, reels): menu, range, match, explore, reel, bench")
     ap.add_argument("--hero", help="the hero chosen at start (tests): rally, kaiju, ...")
     ap.add_argument("--quality", type=int, help="a fixed quality level 0..4 (benchmarks)")
+    ap.add_argument("--minify", action="store_true",
+                    help="the release (.b16): no comment-only lines or blank ones (the map's lines no longer match)")
     ap.add_argument("--define", action="append", default=[], help="NAME=lua value, a global set after the code (tests)")
     ap.add_argument("--extra", action="append", default=[],
                     help="a generated file to join too, in name order with the others (the map: 21_map.lua)")
@@ -64,6 +81,8 @@ def main():
     # log: the first 7 hex digits of the sources' SHA-1, so the same game
     # always has the same tag and any change gives a new one
     tag = hashlib.sha1(text.encode("utf-8")).hexdigest()[:7]
+    if a.minify:
+        text = minify(text)
     text += f'OVERBIT_BUILD = "{tag}"\n'
     if a.start:
         text += f'OVERBIT_START = "{a.start}"\n'

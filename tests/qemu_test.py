@@ -68,7 +68,7 @@ SLOW = {
     "test_home_ui": 66, "test_stress_monitor": 48, "test_pad_typing": 48, "test_lib_tab": 46,
     "test_kitchen": 45, "test_studio_assistant": 44, "test_editor": 39, "test_code_completion": 38,
     "test_titan": 36, "test_games": 34, "test_picture_model": 32, "test_menu_tabs": 31,
-    "test_sdk_suite": 29, "test_monitor_line": 29, "test_pixel_big": 26, "test_mouse_cart": 23, "test_market": 23,
+    "test_sdk_suite": 29, "test_monitor_line": 29, "test_overbit_flags": 60, "test_pixel_big": 26, "test_mouse_cart": 23, "test_market": 23,
     "test_code_editor": 23, "test_update": 22, "test_room_bench": 22, "test_bm_boot_demo": 22,
     "test_nano8": 20, "test_meshy2mesh": 20, "test_crash_report": 100,
 }
@@ -5586,6 +5586,32 @@ def test_monitor_line(b, opts):
         q.expect("> ")
         q.send("l")                             # the key is set for now
         q.expect("lua> ")
+    finally:
+        q.close()
+
+
+def test_overbit_flags(b, opts):
+    """Overbit's benchmark by flags (2026-10-06): the monitor line `set
+    overbit_bench=FLAGS ; play overbit` (cart_config, the line's play) runs a
+    short matrix of its own, sends the report and leaves; the game's key is
+    read once (cleared), a key of another game is refused."""
+    tmp = tempfile.mkdtemp(prefix="bm-obflags-")
+    img = os.path.join(tmp, "sd.img")
+    cfg = os.path.join(tmp, "config.txt")
+    with open(cfg, "w") as f:
+        f.write("layout=us\nwifi_boot=0\nallow_B062FC69=report=yes (Overbit)\n")   # (report() asks the first time)
+    mksd.build(img, [(cfg, "bm/config.txt"), (b("carts/overbit.bm"), "carts/overbit.bm")])
+    q = Qemu(b("kernel.img"), ["-drive", f"if=sd,format=raw,file={img}"])
+    try:
+        q.expect(MENU, timeout=30)
+        time.sleep(0.5)
+        q.send(":set overbit_bench=res:640/gpu:arm/q:0/secs:1/warm:2/save:0 ; play overbit ; play nonexistent\r")
+        q.expect("set overbit_bench=", timeout=10)
+        out = q.expect("overbit bench start: 1 phases (matrix)", timeout=120).decode(errors="replace")
+        out = q.expect("overbit bench done", timeout=300).decode(errors="replace")
+        assert "overbit bench ARM 640x360 LOW" in out, out[-1500:]
+        out = q.expect("the line is done", timeout=60).decode(errors="replace")
+        assert "play: no game 'nonexistent'" in out, out[-1500:]
     finally:
         q.close()
 
