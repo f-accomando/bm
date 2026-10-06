@@ -1,0 +1,541 @@
+bm report
+kind: log
+kernel: v0.2.3-52-g2fb7db3
+branch: bm3d-driver
+board: RGB30
+date: 2026-10-06 11:31:53
+file: 20261006-113153_log_rgb30_v0.2.3-52-g2fb7db3.txt
+
+
+bm kernel v0.2.3-52-g2fb7db3 - RGB30 (AArch64)
+CPU: Cortex-A55 r2p0, EL1, counter 24000000 Hz
+RAM: kernel at 10000000, heap 693 MiB, framebuffers at 3c000000; device tree at 3cf17000
+SD: FAT32, 240 MiB, label BM (sdmmc0)
+config: /bm/config.txt, layout it, .bm drawing direct, volume 5/10
+display: starting
+display: VPLL set, dclk 36562 kHz, VOP 40158023; DSI version 3133302a, PHY locked, panel on, errors 0 80
+IRQ on: timer 1000 Hz (measured 1000 Hz)
+Lua: Lua 5.4, 2^10 = 1024.0
+Lua: fib(25) = 75025 in 50 ms
+ready
+boot log saved to bm/bootlog.txt
+wifi: joining "FASTWEB-36AB12" (wifi_boot=0 in bm/config.txt: off)
+wifi: powering the RTL8821CS (GPIO0_A0, 32 kHz from the RK817, WL_REG_ON GPIO4_A2)
+wifi: SDIO card ready (sdmmc2, 4-bit, function 1, 512-byte blocks)
+wifi: chip cut 14, firmware 24.11.0 running, RFE 2, package 0
+wifi: MAC address 98:03:cf:e5:60:a1
+wifi: radio tables loaded (2907 writes, RFE 2, antenna shared with Bluetooth)
+wifi: radio on (2.4 GHz, channel 1)
+wifi: joining "FASTWEB-36AB12" (WPA2, channel 1, -78 dBm)...
+wifi: PMK computed (33 ms)
+wifi: IQ calibration done (140 ms, fail mask 00)
+wifi: authenticated
+wifi: associated, AID 19
+wifi: WPA2 keys in (pairwise CCMP, group CCMP, key 1)
+net: asking for an address (DHCP)...
+cartridge menu: 1 games
+net: IP 192.168.1.233 (gateway 192.168.1.254, name bm)
+net: console on port 3333, password ******
+     from the PC: python3 tools/bm_net.py 192.168.1.233
+net: time 2026-10-06 11:29 UTC
+b3d spheres ARM n=1 5.25 ms worst 5.34, 24 tri, 56 vtx, 5656122 instr, GPU 0.00 ms, 0 jobs, core 0 GPU 0 MHz
+b3d spheres ARM n=2 3.83 ms worst 3.84, 63 tri, 112 vtx, 4151752 instr, GPU 0.00 ms, 0 jobs, core 0 GPU 0 MHz
+b3d spheres ARM n=3 4.65 ms worst 4.66, 98 tri, 168 vtx, 4810166 instr, GPU 0.00 ms, 0 jobs, core 0 GPU 0 MHz
+b3d spheres ARM n=4 5.74 ms worst 5.76, 130 tri, 224 vtx, 5753383 instr, GPU 0.00 ms, 0 jobs, core 0 GPU 0 MHz
+b3d spheres ARM n=5 4.36 ms worst 4.39, 175 tri, 280 vtx, 4505190 instr, GPU 0.00 ms, 0 jobs, core 0 GPU 0 MHz
+b3d spheres ARM n=6 4.79 ms worst 4.81, 213 tri, 336 vtx, 4839859 instr, GPU 0.00 ms, 0 jobs, core 0 GPU 0 MHz
+b3d spheres ARM n=8 5.83 ms worst 5.87, 285 tri, 448 vtx, 5689713 instr, GPU 0.00 ms, 0 jobs, core 0 GPU 0 MHz
+b3d spheres ARM n=10 5.08 ms worst 5.10, 366 tri, 560 vtx, 4991199 instr, GPU 0.00 ms, 0 jobs, core 0 GPU 0 MHz
+b3d spheres ARM n=13 6.07 ms worst 6.08, 482 tri, 728 vtx, 5749909 instr, GPU 0.00 ms, 0 jobs, core 0 GPU 0 MHz
+b3d spheres ARM n=17 5.93 ms worst 5.98, 640 tri, 952 vtx, 5577243 instr, GPU 0.00 ms, 0 jobs, core 0 GPU 0 MHz
+b3d spheres ARM n=22 7.12 ms worst 7.18, 825 tri, 1232 vtx, 6478299 instr, GPU 0.00 ms, 0 jobs, core 0 GPU 0 MHz
+b3d spheres ARM n=29 7.42 ms worst 7.43, 1111 tri, 1624 vtx, 6586661 instr, GPU 0.00 ms, 0 jobs, core 0 GPU 0 MHz
+b3d spheres ARM n=38 7.96 ms worst 7.97, 1454 tri, 2128 vtx, 6893015 instr, GPU 0.00 ms, 0 jobs, core 0 GPU 0 MHz
+b3d spheres ARM n=50 8.89 ms worst 8.91, 1933 tri, 2800 vtx, 7516287 instr, GPU 0.00 ms, 0 jobs, core 0 GPU 0 MHz
+b3d spheres ARM n=66 10.12 ms worst 10.13, 2540 tri, 3696 vtx, 8295948 instr, GPU 0.00 ms, 0 jobs, core 0 GPU 0 MHz
+b3d spheres ARM n=88 11.99 ms worst 12.02, 3443 tri, 4928 vtx, 9549974 instr, GPU 0.00 ms, 0 jobs, core 0 GPU 0 MHz
+b3d spheres ARM n=117 14.32 ms worst 14.35, 4562 tri, 6552 vtx, 11131539 instr, GPU 0.00 ms, 0 jobs, core 0 GPU 0 MHz
+b3d spheres ARM n=156 16.61 ms worst 16.64, 6105 tri, 8736 vtx, 12569463 instr, GPU 0.00 ms, 0 jobs, core 0 GPU 0 MHz
+b3d spheres ARM n=208 19.92 ms worst 19.95, 8157 tri, 11648 vtx, 14716684 instr, GPU 0.00 ms, 0 jobs, core 0 GPU 0 MHz
+b3d spheres ARM n=277 24.72 ms worst 24.77, 10897 tri, 15512 vtx, 17911796 instr, GPU 0.00 ms, 0 jobs, core 0 GPU 0 MHz
+b3d spheres ARM n=369 30.55 ms worst 30.63, 14559 tri, 20664 vtx, 21676960 instr, GPU 0.00 ms, 0 jobs, core 0 GPU 0 MHz
+b3d spheres ARM n=492 38.43 ms worst 38.49, 19437 tri, 27552 vtx, 26859958 instr, GPU 0.00 ms, 0 jobs, core 0 GPU 0 MHz
+b3d spheres ARM n=656 49.04 ms worst 49.06, 25937 tri, 36736 vtx, 33838956 instr, GPU 0.00 ms, 0 jobs, core 0 GPU 0 MHz
+b3d spheres_smooth ARM n=1 7.52 ms worst 7.66, 24 tri, 56 vtx, 8059005 instr, GPU 0.00 ms, 0 jobs, core 0 GPU 0 MHz
+b3d spheres_smooth ARM n=2 5.16 ms worst 5.18, 63 tri, 112 vtx, 5521581 instr, GPU 0.00 ms, 0 jobs, core 0 GPU 0 MHz
+b3d spheres_smooth ARM n=3 6.46 ms worst 6.47, 98 tri, 168 vtx, 6679739 instr, GPU 0.00 ms, 0 jobs, core 0 GPU 0 MHz
+b3d spheres_smooth ARM n=4 8.28 ms worst 8.31, 130 tri, 224 vtx, 8371947 instr, GPU 0.00 ms, 0 jobs, core 0 GPU 0 MHz
+b3d spheres_smooth ARM n=5 6.05 ms worst 6.09, 175 tri, 280 vtx, 6211806 instr, GPU 0.00 ms, 0 jobs, core 0 GPU 0 MHz
+b3d spheres_smooth ARM n=6 6.76 ms worst 6.80, 213 tri, 336 vtx, 6832996 instr, GPU 0.00 ms, 0 jobs, core 0 GPU 0 MHz
+b3d spheres_smooth ARM n=8 8.46 ms worst 8.51, 285 tri, 448 vtx, 8358693 instr, GPU 0.00 ms, 0 jobs, core 0 GPU 0 MHz
+b3d spheres_smooth ARM n=10 7.26 ms worst 7.30, 366 tri, 560 vtx, 7160987 instr, GPU 0.00 ms, 0 jobs, core 0 GPU 0 MHz
+b3d spheres_smooth ARM n=13 8.88 ms worst 8.92, 482 tri, 728 vtx, 8558288 instr, GPU 0.00 ms, 0 jobs, core 0 GPU 0 MHz
+b3d spheres_smooth ARM n=17 8.68 ms worst 8.79, 640 tri, 952 vtx, 8297447 instr, GPU 0.00 ms, 0 jobs, core 0 GPU 0 MHz
+b3d spheres_smooth ARM n=22 10.64 ms worst 10.75, 825 tri, 1232 vtx, 9970416 instr, GPU 0.00 ms, 0 jobs, core 0 GPU 0 MHz
+b3d spheres_smooth ARM n=29 11.02 ms worst 11.04, 1111 tri, 1624 vtx, 10115105 instr, GPU 0.00 ms, 0 jobs, core 0 GPU 0 MHz
+b3d spheres_smooth ARM n=38 11.84 ms worst 11.86, 1454 tri, 2128 vtx, 10634229 instr, GPU 0.00 ms, 0 jobs, core 0 GPU 0 MHz
+b3d spheres_smooth ARM n=50 13.29 ms worst 13.32, 1933 tri, 2800 vtx, 11707096 instr, GPU 0.00 ms, 0 jobs, core 0 GPU 0 MHz
+b3d spheres_smooth ARM n=66 15.01 ms worst 15.03, 2540 tri, 3696 vtx, 12914576 instr, GPU 0.00 ms, 0 jobs, core 0 GPU 0 MHz
+b3d spheres_smooth ARM n=88 17.69 ms worst 17.74, 3443 tri, 4928 vtx, 14848860 instr, GPU 0.00 ms, 0 jobs, core 0 GPU 0 MHz
+b3d spheres_smooth ARM n=117 21.11 ms worst 21.17, 4562 tri, 6552 vtx, 17339286 instr, GPU 0.00 ms, 0 jobs, core 0 GPU 0 MHz
+b3d spheres_smooth ARM n=156 23.56 ms worst 23.62, 6105 tri, 8736 vtx, 18700212 instr, GPU 0.00 ms, 0 jobs, core 0 GPU 0 MHz
+b3d spheres_smooth ARM n=208 26.96 ms worst 26.98, 8157 tri, 11648 vtx, 20567638 instr, GPU 0.00 ms, 0 jobs, core 0 GPU 0 MHz
+b3d spheres_smooth ARM n=277 32.03 ms worst 32.06, 10897 tri, 15512 vtx, 23599972 instr, GPU 0.00 ms, 0 jobs, core 0 GPU 0 MHz
+b3d spheres_smooth ARM n=369 37.47 ms worst 37.63, 14559 tri, 20664 vtx, 26501652 instr, GPU 0.00 ms, 0 jobs, core 0 GPU 0 MHz
+b3d spheres_smooth ARM n=492 45.92 ms worst 46.04, 19437 tri, 27552 vtx, 31648452 instr, GPU 0.00 ms, 0 jobs, core 0 GPU 0 MHz
+b3d spheres_tex ARM n=1 12.30 ms worst 12.53, 24 tri, 56 vtx, 11102912 instr, GPU 0.00 ms, 0 jobs, core 0 GPU 0 MHz
+b3d spheres_tex ARM n=2 7.72 ms worst 7.77, 63 tri, 112 vtx, 7093109 instr, GPU 0.00 ms, 0 jobs, core 0 GPU 0 MHz
+b3d spheres_tex ARM n=3 9.94 ms worst 9.99, 98 tri, 168 vtx, 8807768 instr, GPU 0.00 ms, 0 jobs, core 0 GPU 0 MHz
+b3d spheres_tex ARM n=4 13.25 ms worst 13.30, 130 tri, 224 vtx, 11394483 instr, GPU 0.00 ms, 0 jobs, core 0 GPU 0 MHz
+b3d spheres_tex ARM n=5 9.18 ms worst 9.26, 175 tri, 280 vtx, 8014055 instr, GPU 0.00 ms, 0 jobs, core 0 GPU 0 MHz
+b3d spheres_tex ARM n=6 10.38 ms worst 10.44, 213 tri, 336 vtx, 8910770 instr, GPU 0.00 ms, 0 jobs, core 0 GPU 0 MHz
+b3d spheres_tex ARM n=8 13.31 ms worst 13.37, 285 tri, 448 vtx, 11157346 instr, GPU 0.00 ms, 0 jobs, core 0 GPU 0 MHz
+b3d spheres_tex ARM n=10 11.02 ms worst 11.08, 366 tri, 560 vtx, 9233881 instr, GPU 0.00 ms, 0 jobs, core 0 GPU 0 MHz
+b3d spheres_tex ARM n=13 13.75 ms worst 13.81, 482 tri, 728 vtx, 11232700 instr, GPU 0.00 ms, 0 jobs, core 0 GPU 0 MHz
+b3d spheres_tex ARM n=17 13.27 ms worst 13.45, 640 tri, 952 vtx, 10737824 instr, GPU 0.00 ms, 0 jobs, core 0 GPU 0 MHz
+b3d spheres_tex ARM n=22 16.50 ms worst 16.70, 825 tri, 1232 vtx, 13094411 instr, GPU 0.00 ms, 0 jobs, core 0 GPU 0 MHz
+b3d spheres_tex ARM n=29 16.75 ms worst 16.84, 1111 tri, 1624 vtx, 13087602 instr, GPU 0.00 ms, 0 jobs, core 0 GPU 0 MHz
+b3d spheres_tex ARM n=38 17.76 ms worst 17.84, 1454 tri, 2128 vtx, 13671946 instr, GPU 0.00 ms, 0 jobs, core 0 GPU 0 MHz
+b3d spheres_tex ARM n=50 20.02 ms worst 20.10, 1933 tri, 2800 vtx, 15150270 instr, GPU 0.00 ms, 0 jobs, core 0 GPU 0 MHz
+b3d spheres_tex ARM n=66 22.24 ms worst 22.35, 2540 tri, 3696 vtx, 16644002 instr, GPU 0.00 ms, 0 jobs, core 0 GPU 0 MHz
+b3d spheres_tex ARM n=88 26.29 ms worst 26.39, 3443 tri, 4928 vtx, 19368280 instr, GPU 0.00 ms, 0 jobs, core 0 GPU 0 MHz
+b3d spheres_tex ARM n=117 31.40 ms worst 31.51, 4562 tri, 6552 vtx, 22825830 instr, GPU 0.00 ms, 0 jobs, core 0 GPU 0 MHz
+b3d spheres_tex ARM n=156 34.83 ms worst 34.97, 6105 tri, 8736 vtx, 25090828 instr, GPU 0.00 ms, 0 jobs, core 0 GPU 0 MHz
+b3d spheres_tex ARM n=208 40.26 ms worst 40.35, 8157 tri, 11648 vtx, 28721894 instr, GPU 0.00 ms, 0 jobs, core 0 GPU 0 MHz
+b3d spheres_unlit ARM n=1 5.24 ms worst 5.33, 24 tri, 56 vtx, 5653341 instr, GPU 0.00 ms, 0 jobs, core 0 GPU 0 MHz
+b3d spheres_unlit ARM n=2 3.81 ms worst 3.83, 63 tri, 112 vtx, 4144454 instr, GPU 0.00 ms, 0 jobs, core 0 GPU 0 MHz
+b3d spheres_unlit ARM n=3 4.63 ms worst 4.63, 98 tri, 168 vtx, 4799046 instr, GPU 0.00 ms, 0 jobs, core 0 GPU 0 MHz
+b3d spheres_unlit ARM n=4 5.71 ms worst 5.74, 130 tri, 224 vtx, 5738518 instr, GPU 0.00 ms, 0 jobs, core 0 GPU 0 MHz
+b3d spheres_unlit ARM n=5 4.32 ms worst 4.34, 175 tri, 280 vtx, 4485237 instr, GPU 0.00 ms, 0 jobs, core 0 GPU 0 MHz
+b3d spheres_unlit ARM n=6 4.74 ms worst 4.76, 213 tri, 336 vtx, 4815621 instr, GPU 0.00 ms, 0 jobs, core 0 GPU 0 MHz
+b3d spheres_unlit ARM n=8 5.77 ms worst 5.79, 285 tri, 448 vtx, 5657132 instr, GPU 0.00 ms, 0 jobs, core 0 GPU 0 MHz
+b3d spheres_unlit ARM n=10 5.01 ms worst 5.02, 366 tri, 560 vtx, 4949381 instr, GPU 0.00 ms, 0 jobs, core 0 GPU 0 MHz
+b3d spheres_unlit ARM n=13 5.96 ms worst 5.98, 482 tri, 728 vtx, 5694879 instr, GPU 0.00 ms, 0 jobs, core 0 GPU 0 MHz
+b3d spheres_unlit ARM n=17 5.78 ms worst 5.84, 640 tri, 952 vtx, 5504169 instr, GPU 0.00 ms, 0 jobs, core 0 GPU 0 MHz
+b3d spheres_unlit ARM n=22 6.93 ms worst 6.99, 825 tri, 1232 vtx, 6384233 instr, GPU 0.00 ms, 0 jobs, core 0 GPU 0 MHz
+b3d spheres_unlit ARM n=29 7.18 ms worst 7.19, 1111 tri, 1624 vtx, 6460044 instr, GPU 0.00 ms, 0 jobs, core 0 GPU 0 MHz
+b3d spheres_unlit ARM n=38 7.65 ms worst 7.66, 1454 tri, 2128 vtx, 6727230 instr, GPU 0.00 ms, 0 jobs, core 0 GPU 0 MHz
+b3d spheres_unlit ARM n=50 8.48 ms worst 8.50, 1933 tri, 2800 vtx, 7295936 instr, GPU 0.00 ms, 0 jobs, core 0 GPU 0 MHz
+b3d spheres_unlit ARM n=66 9.59 ms worst 9.60, 2540 tri, 3696 vtx, 8006446 instr, GPU 0.00 ms, 0 jobs, core 0 GPU 0 MHz
+b3d spheres_unlit ARM n=88 11.28 ms worst 11.31, 3443 tri, 4928 vtx, 9157676 instr, GPU 0.00 ms, 0 jobs, core 0 GPU 0 MHz
+b3d spheres_unlit ARM n=117 13.39 ms worst 13.41, 4562 tri, 6552 vtx, 10611761 instr, GPU 0.00 ms, 0 jobs, core 0 GPU 0 MHz
+b3d spheres_unlit ARM n=156 15.37 ms worst 15.40, 6105 tri, 8736 vtx, 11873982 instr, GPU 0.00 ms, 0 jobs, core 0 GPU 0 MHz
+b3d spheres_unlit ARM n=208 18.29 ms worst 18.32, 8157 tri, 11648 vtx, 13787278 instr, GPU 0.00 ms, 0 jobs, core 0 GPU 0 MHz
+b3d spheres_unlit ARM n=277 22.57 ms worst 22.61, 10897 tri, 15512 vtx, 16670279 instr, GPU 0.00 ms, 0 jobs, core 0 GPU 0 MHz
+b3d spheres_unlit ARM n=369 27.68 ms worst 27.75, 14559 tri, 20664 vtx, 20018312 instr, GPU 0.00 ms, 0 jobs, core 0 GPU 0 MHz
+b3d spheres_unlit ARM n=492 34.63 ms worst 34.67, 19437 tri, 27552 vtx, 24645644 instr, GPU 0.00 ms, 0 jobs, core 0 GPU 0 MHz
+b3d spheres_unlit ARM n=656 43.97 ms worst 43.99, 25937 tri, 36736 vtx, 30884102 instr, GPU 0.00 ms, 0 jobs, core 0 GPU 0 MHz
+b3d spheres_baked ARM n=1 7.51 ms worst 7.65, 24 tri, 56 vtx, 8054708 instr, GPU 0.00 ms, 0 jobs, core 0 GPU 0 MHz
+b3d spheres_baked ARM n=2 5.14 ms worst 5.15, 63 tri, 112 vtx, 5512023 instr, GPU 0.00 ms, 0 jobs, core 0 GPU 0 MHz
+b3d spheres_baked ARM n=3 6.41 ms worst 6.43, 98 tri, 168 vtx, 6665149 instr, GPU 0.00 ms, 0 jobs, core 0 GPU 0 MHz
+b3d spheres_baked ARM n=4 8.22 ms worst 8.25, 130 tri, 224 vtx, 8352618 instr, GPU 0.00 ms, 0 jobs, core 0 GPU 0 MHz
+b3d spheres_baked ARM n=5 5.97 ms worst 6.01, 175 tri, 280 vtx, 6186379 instr, GPU 0.00 ms, 0 jobs, core 0 GPU 0 MHz
+b3d spheres_baked ARM n=6 6.67 ms worst 6.71, 213 tri, 336 vtx, 6801900 instr, GPU 0.00 ms, 0 jobs, core 0 GPU 0 MHz
+b3d spheres_baked ARM n=8 8.34 ms worst 8.39, 285 tri, 448 vtx, 8317031 instr, GPU 0.00 ms, 0 jobs, core 0 GPU 0 MHz
+b3d spheres_baked ARM n=10 7.11 ms worst 7.14, 366 tri, 560 vtx, 7109028 instr, GPU 0.00 ms, 0 jobs, core 0 GPU 0 MHz
+b3d spheres_baked ARM n=13 8.69 ms worst 8.72, 482 tri, 728 vtx, 8489663 instr, GPU 0.00 ms, 0 jobs, core 0 GPU 0 MHz
+b3d spheres_baked ARM n=17 8.44 ms worst 8.54, 640 tri, 952 vtx, 8208045 instr, GPU 0.00 ms, 0 jobs, core 0 GPU 0 MHz
+b3d spheres_baked ARM n=22 10.33 ms worst 10.44, 825 tri, 1232 vtx, 9854539 instr, GPU 0.00 ms, 0 jobs, core 0 GPU 0 MHz
+b3d spheres_baked ARM n=29 10.61 ms worst 10.64, 1111 tri, 1624 vtx, 9961320 instr, GPU 0.00 ms, 0 jobs, core 0 GPU 0 MHz
+b3d spheres_baked ARM n=38 11.31 ms worst 11.33, 1454 tri, 2128 vtx, 10431804 instr, GPU 0.00 ms, 0 jobs, core 0 GPU 0 MHz
+b3d spheres_baked ARM n=50 12.61 ms worst 12.63, 1933 tri, 2800 vtx, 11439898 instr, GPU 0.00 ms, 0 jobs, core 0 GPU 0 MHz
+b3d spheres_baked ARM n=66 14.12 ms worst 14.14, 2540 tri, 3696 vtx, 12561706 instr, GPU 0.00 ms, 0 jobs, core 0 GPU 0 MHz
+b3d spheres_baked ARM n=88 16.51 ms worst 16.56, 3443 tri, 4928 vtx, 14377879 instr, GPU 0.00 ms, 0 jobs, core 0 GPU 0 MHz
+b3d spheres_baked ARM n=117 19.56 ms worst 19.61, 4562 tri, 6552 vtx, 16712370 instr, GPU 0.00 ms, 0 jobs, core 0 GPU 0 MHz
+b3d spheres_baked ARM n=156 21.52 ms worst 21.57, 6105 tri, 8736 vtx, 17863420 instr, GPU 0.00 ms, 0 jobs, core 0 GPU 0 MHz
+b3d spheres_baked ARM n=208 24.28 ms worst 24.29, 8157 tri, 11648 vtx, 19452968 instr, GPU 0.00 ms, 0 jobs, core 0 GPU 0 MHz
+b3d spheres_baked ARM n=277 28.51 ms worst 28.55, 10897 tri, 15512 vtx, 22112948 instr, GPU 0.00 ms, 0 jobs, core 0 GPU 0 MHz
+b3d spheres_baked ARM n=369 32.84 ms worst 32.97, 14559 tri, 20664 vtx, 24520006 instr, GPU 0.00 ms, 0 jobs, core 0 GPU 0 MHz
+b3d spheres_baked ARM n=492 39.82 ms worst 39.91, 19437 tri, 27552 vtx, 29004744 instr, GPU 0.00 ms, 0 jobs, core 0 GPU 0 MHz
+b3d spheres_baked ARM n=656 50.00 ms worst 50.01, 25937 tri, 36736 vtx, 35901112 instr, GPU 0.00 ms, 0 jobs, core 0 GPU 0 MHz
+b3d spheres_shine ARM n=1 7.54 ms worst 7.68, 24 tri, 56 vtx, 8066522 instr, GPU 0.00 ms, 0 jobs, core 0 GPU 0 MHz
+b3d spheres_shine ARM n=2 5.21 ms worst 5.23, 63 tri, 112 vtx, 5543363 instr, GPU 0.00 ms, 0 jobs, core 0 GPU 0 MHz
+b3d spheres_shine ARM n=3 6.53 ms worst 6.55, 98 tri, 168 vtx, 6712910 instr, GPU 0.00 ms, 0 jobs, core 0 GPU 0 MHz
+b3d spheres_shine ARM n=4 8.38 ms worst 8.40, 130 tri, 224 vtx, 8416080 instr, GPU 0.00 ms, 0 jobs, core 0 GPU 0 MHz
+b3d spheres_shine ARM n=5 6.16 ms worst 6.21, 175 tri, 280 vtx, 6269721 instr, GPU 0.00 ms, 0 jobs, core 0 GPU 0 MHz
+b3d spheres_shine ARM n=6 6.90 ms worst 6.94, 213 tri, 336 vtx, 6903527 instr, GPU 0.00 ms, 0 jobs, core 0 GPU 0 MHz
+b3d spheres_shine ARM n=8 8.65 ms worst 8.70, 285 tri, 448 vtx, 8452181 instr, GPU 0.00 ms, 0 jobs, core 0 GPU 0 MHz
+b3d spheres_shine ARM n=10 7.49 ms worst 7.53, 366 tri, 560 vtx, 7279665 instr, GPU 0.00 ms, 0 jobs, core 0 GPU 0 MHz
+b3d spheres_shine ARM n=13 9.18 ms worst 9.23, 482 tri, 728 vtx, 8714206 instr, GPU 0.00 ms, 0 jobs, core 0 GPU 0 MHz
+b3d spheres_shine ARM n=17 9.07 ms worst 9.19, 640 tri, 952 vtx, 8501815 instr, GPU 0.00 ms, 0 jobs, core 0 GPU 0 MHz
+b3d spheres_shine ARM n=22 11.15 ms worst 11.27, 825 tri, 1232 vtx, 10233220 instr, GPU 0.00 ms, 0 jobs, core 0 GPU 0 MHz
+b3d spheres_shine ARM n=29 11.70 ms worst 11.72, 1111 tri, 1624 vtx, 10469527 instr, GPU 0.00 ms, 0 jobs, core 0 GPU 0 MHz
+b3d spheres_shine ARM n=38 12.72 ms worst 12.74, 1454 tri, 2128 vtx, 11095310 instr, GPU 0.00 ms, 0 jobs, core 0 GPU 0 MHz
+b3d spheres_shine ARM n=50 14.46 ms worst 14.49, 1933 tri, 2800 vtx, 12317500 instr, GPU 0.00 ms, 0 jobs, core 0 GPU 0 MHz
+b3d spheres_shine ARM n=66 16.52 ms worst 16.56, 2540 tri, 3696 vtx, 13716075 instr, GPU 0.00 ms, 0 jobs, core 0 GPU 0 MHz
+b3d spheres_shine ARM n=88 19.74 ms worst 19.78, 3443 tri, 4928 vtx, 15926774 instr, GPU 0.00 ms, 0 jobs, core 0 GPU 0 MHz
+b3d spheres_shine ARM n=117 23.79 ms worst 23.84, 4562 tri, 6552 vtx, 18759248 instr, GPU 0.00 ms, 0 jobs, core 0 GPU 0 MHz
+b3d spheres_shine ARM n=156 27.14 ms worst 27.21, 6105 tri, 8736 vtx, 20603218 instr, GPU 0.00 ms, 0 jobs, core 0 GPU 0 MHz
+b3d spheres_shine ARM n=208 31.77 ms worst 31.79, 8157 tri, 11648 vtx, 23113488 instr, GPU 0.00 ms, 0 jobs, core 0 GPU 0 MHz
+b3d spheres_shine ARM n=277 38.36 ms worst 38.40, 10897 tri, 15512 vtx, 26974702 instr, GPU 0.00 ms, 0 jobs, core 0 GPU 0 MHz
+b3d spheres_shine ARM n=369 45.96 ms worst 46.11, 14559 tri, 20664 vtx, 31014308 instr, GPU 0.00 ms, 0 jobs, core 0 GPU 0 MHz
+b3d heroes ARM n=1 3.10 ms worst 3.11, 631 tri, 896 vtx, 3244146 instr, GPU 0.00 ms, 0 jobs, core 0 GPU 0 MHz
+b3d heroes ARM n=2 4.96 ms worst 4.96, 1258 tri, 1792 vtx, 4469583 instr, GPU 0.00 ms, 0 jobs, core 0 GPU 0 MHz
+b3d heroes ARM n=3 7.30 ms worst 7.31, 1885 tri, 2688 vtx, 6060143 instr, GPU 0.00 ms, 0 jobs, core 0 GPU 0 MHz
+b3d heroes ARM n=4 9.61 ms worst 9.62, 2515 tri, 3584 vtx, 7620048 instr, GPU 0.00 ms, 0 jobs, core 0 GPU 0 MHz
+b3d heroes ARM n=5 11.89 ms worst 11.89, 3140 tri, 4480 vtx, 9176951 instr, GPU 0.00 ms, 0 jobs, core 0 GPU 0 MHz
+b3d heroes ARM n=6 14.22 ms worst 14.24, 3766 tri, 5376 vtx, 10749652 instr, GPU 0.00 ms, 0 jobs, core 0 GPU 0 MHz
+b3d heroes ARM n=8 17.27 ms worst 17.31, 5028 tri, 7168 vtx, 12738516 instr, GPU 0.00 ms, 0 jobs, core 0 GPU 0 MHz
+b3d heroes ARM n=10 21.00 ms worst 21.01, 6292 tri, 8960 vtx, 15173560 instr, GPU 0.00 ms, 0 jobs, core 0 GPU 0 MHz
+b3d heroes ARM n=13 26.72 ms worst 26.74, 8186 tri, 11648 vtx, 18939958 instr, GPU 0.00 ms, 0 jobs, core 0 GPU 0 MHz
+b3d heroes ARM n=17 33.42 ms worst 33.44, 10715 tri, 15232 vtx, 23308780 instr, GPU 0.00 ms, 0 jobs, core 0 GPU 0 MHz
+b3d heroes ARM n=22 42.12 ms worst 42.15, 13859 tri, 19712 vtx, 28901192 instr, GPU 0.00 ms, 0 jobs, core 0 GPU 0 MHz
+b3d heroes_tex ARM n=1 2.86 ms worst 2.88, 631 tri, 896 vtx, 3115081 instr, GPU 0.00 ms, 0 jobs, core 0 GPU 0 MHz
+b3d heroes_tex ARM n=2 5.00 ms worst 5.01, 1258 tri, 1792 vtx, 4599884 instr, GPU 0.00 ms, 0 jobs, core 0 GPU 0 MHz
+b3d heroes_tex ARM n=3 8.08 ms worst 8.09, 1885 tri, 2688 vtx, 6805716 instr, GPU 0.00 ms, 0 jobs, core 0 GPU 0 MHz
+b3d heroes_tex ARM n=4 11.15 ms worst 11.16, 2515 tri, 3584 vtx, 8995118 instr, GPU 0.00 ms, 0 jobs, core 0 GPU 0 MHz
+b3d heroes_tex ARM n=5 14.20 ms worst 14.21, 3140 tri, 4480 vtx, 11165384 instr, GPU 0.00 ms, 0 jobs, core 0 GPU 0 MHz
+b3d heroes_tex ARM n=6 17.22 ms worst 17.24, 3766 tri, 5376 vtx, 13316836 instr, GPU 0.00 ms, 0 jobs, core 0 GPU 0 MHz
+b3d heroes_tex ARM n=8 20.31 ms worst 20.32, 5028 tri, 7168 vtx, 15423672 instr, GPU 0.00 ms, 0 jobs, core 0 GPU 0 MHz
+b3d heroes_tex ARM n=10 24.80 ms worst 24.82, 6292 tri, 8960 vtx, 18535172 instr, GPU 0.00 ms, 0 jobs, core 0 GPU 0 MHz
+b3d heroes_tex ARM n=13 32.00 ms worst 32.02, 8186 tri, 11648 vtx, 23554032 instr, GPU 0.00 ms, 0 jobs, core 0 GPU 0 MHz
+b3d heroes_tex ARM n=17 39.54 ms worst 39.55, 10715 tri, 15232 vtx, 28719336 instr, GPU 0.00 ms, 0 jobs, core 0 GPU 0 MHz
+b3d heroes_tex ARM n=22 49.73 ms worst 49.78, 13859 tri, 19712 vtx, 35698376 instr, GPU 0.00 ms, 0 jobs, core 0 GPU 0 MHz
+b3d heroes_skin ARM n=1 2.87 ms worst 2.88, 640 tri, 896 vtx, 3122325 instr, GPU 0.00 ms, 0 jobs, core 0 GPU 0 MHz
+b3d heroes_skin ARM n=2 5.08 ms worst 5.10, 1269 tri, 1792 vtx, 4671804 instr, GPU 0.00 ms, 0 jobs, core 0 GPU 0 MHz
+b3d heroes_skin ARM n=3 8.23 ms worst 8.25, 1906 tri, 2688 vtx, 6922411 instr, GPU 0.00 ms, 0 jobs, core 0 GPU 0 MHz
+b3d heroes_skin ARM n=4 11.28 ms worst 11.31, 2542 tri, 3584 vtx, 9100481 instr, GPU 0.00 ms, 0 jobs, core 0 GPU 0 MHz
+b3d heroes_skin ARM n=5 14.38 ms worst 14.39, 3176 tri, 4480 vtx, 11311064 instr, GPU 0.00 ms, 0 jobs, core 0 GPU 0 MHz
+b3d heroes_skin ARM n=6 17.41 ms worst 17.46, 3804 tri, 5376 vtx, 13473400 instr, GPU 0.00 ms, 0 jobs, core 0 GPU 0 MHz
+b3d heroes_skin ARM n=8 20.51 ms worst 20.55, 5078 tri, 7168 vtx, 15600216 instr, GPU 0.00 ms, 0 jobs, core 0 GPU 0 MHz
+b3d heroes_skin ARM n=10 24.99 ms worst 25.09, 6353 tri, 8960 vtx, 18700308 instr, GPU 0.00 ms, 0 jobs, core 0 GPU 0 MHz
+b3d heroes_skin ARM n=13 32.12 ms worst 32.21, 8239 tri, 11648 vtx, 23672464 instr, GPU 0.00 ms, 0 jobs, core 0 GPU 0 MHz
+b3d heroes_skin ARM n=17 39.52 ms worst 39.64, 10781 tri, 15232 vtx, 28778624 instr, GPU 0.00 ms, 0 jobs, core 0 GPU 0 MHz
+b3d heroes_skin ARM n=22 49.74 ms worst 49.78, 13921 tri, 19712 vtx, 35767248 instr, GPU 0.00 ms, 0 jobs, core 0 GPU 0 MHz
+b3d heroes_shadow ARM n=1 14.52 ms worst 14.59, 1835 tri, 1246 vtx, 12208178 instr, GPU 0.00 ms, 0 jobs, core 0 GPU 0 MHz
+b3d heroes_shadow ARM n=2 17.54 ms worst 17.56, 3217 tri, 2142 vtx, 14118038 instr, GPU 0.00 ms, 0 jobs, core 0 GPU 0 MHz
+b3d heroes_shadow ARM n=3 20.95 ms worst 20.96, 4600 tri, 3038 vtx, 16376667 instr, GPU 0.00 ms, 0 jobs, core 0 GPU 0 MHz
+b3d heroes_shadow ARM n=4 24.34 ms worst 24.37, 5987 tri, 3934 vtx, 18603400 instr, GPU 0.00 ms, 0 jobs, core 0 GPU 0 MHz
+b3d heroes_shadow ARM n=5 27.72 ms worst 27.74, 7366 tri, 4830 vtx, 20825056 instr, GPU 0.00 ms, 0 jobs, core 0 GPU 0 MHz
+b3d heroes_shadow ARM n=6 31.09 ms worst 31.11, 8748 tri, 5726 vtx, 23038036 instr, GPU 0.00 ms, 0 jobs, core 0 GPU 0 MHz
+b3d heroes_shadow ARM n=8 35.65 ms worst 35.67, 11521 tri, 7518 vtx, 25917956 instr, GPU 0.00 ms, 0 jobs, core 0 GPU 0 MHz
+b3d heroes_shadow ARM n=10 41.20 ms worst 41.22, 14298 tri, 9310 vtx, 29457104 instr, GPU 0.00 ms, 0 jobs, core 0 GPU 0 MHz
+b3d clip ARM n=1 1.86 ms worst 1.86, 24 tri, 25 vtx, 2475429 instr, GPU 0.00 ms, 0 jobs, core 0 GPU 0 MHz
+b3d clip ARM n=2 1.86 ms worst 1.86, 24 tri, 25 vtx, 2475671 instr, GPU 0.00 ms, 0 jobs, core 0 GPU 0 MHz
+b3d clip ARM n=3 1.86 ms worst 1.86, 24 tri, 25 vtx, 2475916 instr, GPU 0.00 ms, 0 jobs, core 0 GPU 0 MHz
+b3d clip ARM n=4 2.61 ms worst 2.73, 56 tri, 75 vtx, 3072136 instr, GPU 0.00 ms, 0 jobs, core 0 GPU 0 MHz
+b3d clip ARM n=5 2.61 ms worst 2.72, 56 tri, 75 vtx, 3072344 instr, GPU 0.00 ms, 0 jobs, core 0 GPU 0 MHz
+b3d clip ARM n=6 8.45 ms worst 8.57, 88 tri, 100 vtx, 7960077 instr, GPU 0.00 ms, 0 jobs, core 0 GPU 0 MHz
+b3d clip ARM n=8 8.46 ms worst 8.59, 88 tri, 125 vtx, 7965013 instr, GPU 0.00 ms, 0 jobs, core 0 GPU 0 MHz
+b3d clip ARM n=10 9.55 ms worst 9.56, 120 tri, 150 vtx, 8839187 instr, GPU 0.00 ms, 0 jobs, core 0 GPU 0 MHz
+b3d clip ARM n=13 9.55 ms worst 9.56, 120 tri, 150 vtx, 8840366 instr, GPU 0.00 ms, 0 jobs, core 0 GPU 0 MHz
+b3d clip ARM n=17 10.28 ms worst 10.32, 184 tri, 225 vtx, 9399716 instr, GPU 0.00 ms, 0 jobs, core 0 GPU 0 MHz
+b3d clip ARM n=22 11.91 ms worst 11.93, 248 tri, 300 vtx, 10641748 instr, GPU 0.00 ms, 0 jobs, core 0 GPU 0 MHz
+b3d clip ARM n=29 11.99 ms worst 12.00, 280 tri, 333 vtx, 10709504 instr, GPU 0.00 ms, 0 jobs, core 0 GPU 0 MHz
+b3d clip ARM n=38 12.78 ms worst 12.78, 376 tri, 445 vtx, 11276032 instr, GPU 0.00 ms, 0 jobs, core 0 GPU 0 MHz
+b3d clip ARM n=50 13.33 ms worst 13.35, 472 tri, 545 vtx, 11677747 instr, GPU 0.00 ms, 0 jobs, core 0 GPU 0 MHz
+b3d clip ARM n=66 13.86 ms worst 13.87, 600 tri, 695 vtx, 12057578 instr, GPU 0.00 ms, 0 jobs, core 0 GPU 0 MHz
+b3d clip ARM n=88 14.29 ms worst 14.33, 701 tri, 825 vtx, 12360324 instr, GPU 0.00 ms, 0 jobs, core 0 GPU 0 MHz
+b3d clip ARM n=117 15.08 ms worst 15.09, 978 tri, 1141 vtx, 12925434 instr, GPU 0.00 ms, 0 jobs, core 0 GPU 0 MHz
+b3d clip ARM n=156 15.82 ms worst 15.83, 1298 tri, 1525 vtx, 13447096 instr, GPU 0.00 ms, 0 jobs, core 0 GPU 0 MHz
+b3d clip ARM n=208 16.50 ms worst 16.53, 1650 tri, 1950 vtx, 13947911 instr, GPU 0.00 ms, 0 jobs, core 0 GPU 0 MHz
+b3d clip ARM n=277 17.19 ms worst 17.25, 2072 tri, 2445 vtx, 14446751 instr, GPU 0.00 ms, 0 jobs, core 0 GPU 0 MHz
+b3d clip ARM n=369 17.85 ms worst 17.91, 2520 tri, 2979 vtx, 14928378 instr, GPU 0.00 ms, 0 jobs, core 0 GPU 0 MHz
+b3d clip ARM n=492 18.98 ms worst 18.99, 3378 tri, 4000 vtx, 15748460 instr, GPU 0.00 ms, 0 jobs, core 0 GPU 0 MHz
+b3d clip ARM n=656 19.83 ms worst 19.90, 4141 tri, 4895 vtx, 16395728 instr, GPU 0.00 ms, 0 jobs, core 0 GPU 0 MHz
+b3d clip ARM n=874 21.23 ms worst 21.32, 5432 tri, 6429 vtx, 17431168 instr, GPU 0.00 ms, 0 jobs, core 0 GPU 0 MHz
+b3d clip ARM n=1165 23.21 ms worst 23.24, 7389 tri, 8741 vtx, 18911256 instr, GPU 0.00 ms, 0 jobs, core 0 GPU 0 MHz
+b3d clip ARM n=1553 25.23 ms worst 25.26, 9426 tri, 11137 vtx, 20419804 instr, GPU 0.00 ms, 0 jobs, core 0 GPU 0 MHz
+b3d clip ARM n=2070 27.86 ms worst 27.93, 12344 tri, 14579 vtx, 22439244 instr, GPU 0.00 ms, 0 jobs, core 0 GPU 0 MHz
+b3d clip ARM n=2760 31.84 ms worst 31.95, 16845 tri, 19879 vtx, 25485044 instr, GPU 0.00 ms, 0 jobs, core 0 GPU 0 MHz
+b3d clip ARM n=3680 36.41 ms worst 36.56, 22045 tri, 26000 vtx, 29020718 instr, GPU 0.00 ms, 0 jobs, core 0 GPU 0 MHz
+b3d tiny ARM n=1 2.33 ms worst 2.33, 512 tri, 289 vtx, 2795385 instr, GPU 0.00 ms, 0 jobs, core 0 GPU 0 MHz
+b3d tiny ARM n=2 2.91 ms worst 2.91, 1024 tri, 578 vtx, 3198338 instr, GPU 0.00 ms, 0 jobs, core 0 GPU 0 MHz
+b3d tiny ARM n=3 3.36 ms worst 3.36, 1536 tri, 867 vtx, 3512271 instr, GPU 0.00 ms, 0 jobs, core 0 GPU 0 MHz
+b3d tiny ARM n=4 3.81 ms worst 3.81, 2048 tri, 1156 vtx, 3826113 instr, GPU 0.00 ms, 0 jobs, core 0 GPU 0 MHz
+b3d tiny ARM n=5 4.42 ms worst 4.44, 2560 tri, 1445 vtx, 4253035 instr, GPU 0.00 ms, 0 jobs, core 0 GPU 0 MHz
+b3d tiny ARM n=6 4.90 ms worst 4.92, 3072 tri, 1734 vtx, 4589986 instr, GPU 0.00 ms, 0 jobs, core 0 GPU 0 MHz
+b3d tiny ARM n=8 5.78 ms worst 5.78, 4096 tri, 2312 vtx, 5204161 instr, GPU 0.00 ms, 0 jobs, core 0 GPU 0 MHz
+b3d tiny ARM n=10 6.96 ms worst 6.99, 5120 tri, 2890 vtx, 6024428 instr, GPU 0.00 ms, 0 jobs, core 0 GPU 0 MHz
+b3d tiny ARM n=13 8.30 ms worst 8.36, 6656 tri, 3757 vtx, 6977801 instr, GPU 0.00 ms, 0 jobs, core 0 GPU 0 MHz
+b3d tiny ARM n=17 10.49 ms worst 10.57, 8704 tri, 4913 vtx, 8482840 instr, GPU 0.00 ms, 0 jobs, core 0 GPU 0 MHz
+b3d tiny ARM n=22 12.72 ms worst 12.80, 11264 tri, 6358 vtx, 10054579 instr, GPU 0.00 ms, 0 jobs, core 0 GPU 0 MHz
+b3d tiny ARM n=29 16.35 ms worst 16.40, 14848 tri, 8381 vtx, 12571966 instr, GPU 0.00 ms, 0 jobs, core 0 GPU 0 MHz
+b3d tiny ARM n=38 20.74 ms worst 20.86, 19456 tri, 10982 vtx, 15670844 instr, GPU 0.00 ms, 0 jobs, core 0 GPU 0 MHz
+b3d tiny ARM n=50 26.63 ms worst 26.86, 25600 tri, 14450 vtx, 19805632 instr, GPU 0.00 ms, 0 jobs, core 0 GPU 0 MHz
+b3d tiny ARM n=66 34.37 ms worst 34.59, 33792 tri, 19074 vtx, 25229224 instr, GPU 0.00 ms, 0 jobs, core 0 GPU 0 MHz
+b3d tiny ARM n=88 44.20 ms worst 44.39, 44032 tri, 24854 vtx, 32053910 instr, GPU 0.00 ms, 0 jobs, core 0 GPU 0 MHz
+b3d draws ARM n=1 4.56 ms worst 4.63, 2 tri, 8 vtx, 5113224 instr, GPU 0.00 ms, 0 jobs, core 0 GPU 0 MHz
+b3d draws ARM n=2 3.25 ms worst 3.27, 11 tri, 16 vtx, 3755724 instr, GPU 0.00 ms, 0 jobs, core 0 GPU 0 MHz
+b3d draws ARM n=3 4.05 ms worst 4.06, 17 tri, 24 vtx, 4468156 instr, GPU 0.00 ms, 0 jobs, core 0 GPU 0 MHz
+b3d draws ARM n=4 4.67 ms worst 4.72, 22 tri, 32 vtx, 5049154 instr, GPU 0.00 ms, 0 jobs, core 0 GPU 0 MHz
+b3d draws ARM n=5 3.58 ms worst 3.60, 28 tri, 40 vtx, 3966882 instr, GPU 0.00 ms, 0 jobs, core 0 GPU 0 MHz
+b3d draws ARM n=6 3.96 ms worst 3.99, 34 tri, 48 vtx, 4310277 instr, GPU 0.00 ms, 0 jobs, core 0 GPU 0 MHz
+b3d draws ARM n=8 4.62 ms worst 4.66, 45 tri, 64 vtx, 4868207 instr, GPU 0.00 ms, 0 jobs, core 0 GPU 0 MHz
+b3d draws ARM n=10 3.93 ms worst 3.97, 56 tri, 80 vtx, 4240141 instr, GPU 0.00 ms, 0 jobs, core 0 GPU 0 MHz
+b3d draws ARM n=13 4.55 ms worst 4.60, 73 tri, 104 vtx, 4767654 instr, GPU 0.00 ms, 0 jobs, core 0 GPU 0 MHz
+b3d draws ARM n=17 4.24 ms worst 4.26, 96 tri, 136 vtx, 4453076 instr, GPU 0.00 ms, 0 jobs, core 0 GPU 0 MHz
+b3d draws ARM n=22 4.90 ms worst 4.93, 122 tri, 176 vtx, 5007295 instr, GPU 0.00 ms, 0 jobs, core 0 GPU 0 MHz
+b3d draws ARM n=29 4.86 ms worst 4.90, 168 tri, 232 vtx, 4925185 instr, GPU 0.00 ms, 0 jobs, core 0 GPU 0 MHz
+b3d draws ARM n=38 4.95 ms worst 4.97, 217 tri, 304 vtx, 4936113 instr, GPU 0.00 ms, 0 jobs, core 0 GPU 0 MHz
+b3d draws ARM n=50 5.10 ms worst 5.14, 285 tri, 400 vtx, 5032791 instr, GPU 0.00 ms, 0 jobs, core 0 GPU 0 MHz
+b3d draws ARM n=66 5.46 ms worst 5.48, 383 tri, 528 vtx, 5283489 instr, GPU 0.00 ms, 0 jobs, core 0 GPU 0 MHz
+b3d draws ARM n=88 6.00 ms worst 6.03, 511 tri, 704 vtx, 5657365 instr, GPU 0.00 ms, 0 jobs, core 0 GPU 0 MHz
+b3d draws ARM n=117 6.51 ms worst 6.57, 681 tri, 936 vtx, 6018080 instr, GPU 0.00 ms, 0 jobs, core 0 GPU 0 MHz
+b3d draws ARM n=156 7.04 ms worst 7.08, 913 tri, 1248 vtx, 6337676 instr, GPU 0.00 ms, 0 jobs, core 0 GPU 0 MHz
+b3d draws ARM n=208 7.67 ms worst 7.72, 1223 tri, 1664 vtx, 6734027 instr, GPU 0.00 ms, 0 jobs, core 0 GPU 0 MHz
+b3d draws ARM n=277 8.74 ms worst 8.83, 1633 tri, 2216 vtx, 7441192 instr, GPU 0.00 ms, 0 jobs, core 0 GPU 0 MHz
+b3d draws ARM n=369 10.03 ms worst 10.13, 2066 tri, 2792 vtx, 8259807 instr, GPU 0.00 ms, 0 jobs, core 0 GPU 0 MHz
+b3d draws ARM n=492 11.87 ms worst 11.99, 2777 tri, 3752 vtx, 9474485 instr, GPU 0.00 ms, 0 jobs, core 0 GPU 0 MHz
+b3d draws ARM n=656 14.30 ms worst 14.38, 3712 tri, 4992 vtx, 11086186 instr, GPU 0.00 ms, 0 jobs, core 0 GPU 0 MHz
+b3d draws ARM n=874 17.22 ms worst 17.30, 4655 tri, 6272 vtx, 12986896 instr, GPU 0.00 ms, 0 jobs, core 0 GPU 0 MHz
+b3d draws ARM n=1165 21.20 ms worst 21.45, 6083 tri, 8184 vtx, 15626191 instr, GPU 0.00 ms, 0 jobs, core 0 GPU 0 MHz
+b3d draws ARM n=1553 26.50 ms worst 26.72, 8160 tri, 10944 vtx, 19112492 instr, GPU 0.00 ms, 0 jobs, core 0 GPU 0 MHz
+b3d draws ARM n=2070 33.38 ms worst 33.56, 10952 tri, 14784 vtx, 23650918 instr, GPU 0.00 ms, 0 jobs, core 0 GPU 0 MHz
+b3d draws ARM n=2760 41.68 ms worst 41.74, 13731 tri, 18424 vtx, 29108448 instr, GPU 0.00 ms, 0 jobs, core 0 GPU 0 MHz
+b3d quad_flat ARM n=1 2.75 ms worst 2.76, 2 tri, 4 vtx, 3339858 instr, GPU 0.00 ms, 0 jobs, core 0 GPU 0 MHz
+b3d quad_flat ARM n=2 3.67 ms worst 3.67, 4 tri, 8 vtx, 4220853 instr, GPU 0.00 ms, 0 jobs, core 0 GPU 0 MHz
+b3d quad_flat ARM n=3 4.59 ms worst 4.59, 6 tri, 12 vtx, 5101815 instr, GPU 0.00 ms, 0 jobs, core 0 GPU 0 MHz
+b3d quad_flat ARM n=4 5.50 ms worst 5.51, 8 tri, 16 vtx, 5982807 instr, GPU 0.00 ms, 0 jobs, core 0 GPU 0 MHz
+b3d quad_flat ARM n=5 6.43 ms worst 6.43, 10 tri, 20 vtx, 6863771 instr, GPU 0.00 ms, 0 jobs, core 0 GPU 0 MHz
+b3d quad_flat ARM n=6 7.33 ms worst 7.34, 12 tri, 24 vtx, 7744764 instr, GPU 0.00 ms, 0 jobs, core 0 GPU 0 MHz
+b3d quad_flat ARM n=8 9.18 ms worst 9.18, 16 tri, 32 vtx, 9506688 instr, GPU 0.00 ms, 0 jobs, core 0 GPU 0 MHz
+b3d quad_flat ARM n=10 11.00 ms worst 11.01, 20 tri, 40 vtx, 11268679 instr, GPU 0.00 ms, 0 jobs, core 0 GPU 0 MHz
+b3d quad_flat ARM n=13 13.75 ms worst 13.77, 26 tri, 52 vtx, 13911594 instr, GPU 0.00 ms, 0 jobs, core 0 GPU 0 MHz
+b3d quad_flat ARM n=17 17.41 ms worst 17.44, 34 tri, 68 vtx, 17435540 instr, GPU 0.00 ms, 0 jobs, core 0 GPU 0 MHz
+b3d quad_flat ARM n=22 22.00 ms worst 22.01, 44 tri, 88 vtx, 21840420 instr, GPU 0.00 ms, 0 jobs, core 0 GPU 0 MHz
+b3d quad_flat ARM n=29 28.42 ms worst 28.45, 58 tri, 116 vtx, 28008124 instr, GPU 0.00 ms, 0 jobs, core 0 GPU 0 MHz
+b3d quad_flat ARM n=38 36.68 ms worst 36.71, 76 tri, 152 vtx, 35937296 instr, GPU 0.00 ms, 0 jobs, core 0 GPU 0 MHz
+b3d quad_flat ARM n=50 47.68 ms worst 47.70, 100 tri, 200 vtx, 46509616 instr, GPU 0.00 ms, 0 jobs, core 0 GPU 0 MHz
+b3d quad_smooth ARM n=1 3.37 ms worst 3.37, 2 tri, 4 vtx, 3994321 instr, GPU 0.00 ms, 0 jobs, core 0 GPU 0 MHz
+b3d quad_smooth ARM n=2 4.89 ms worst 4.90, 4 tri, 8 vtx, 5529747 instr, GPU 0.00 ms, 0 jobs, core 0 GPU 0 MHz
+b3d quad_smooth ARM n=3 6.42 ms worst 6.43, 6 tri, 12 vtx, 7065171 instr, GPU 0.00 ms, 0 jobs, core 0 GPU 0 MHz
+b3d quad_smooth ARM n=4 7.95 ms worst 7.96, 8 tri, 16 vtx, 8600628 instr, GPU 0.00 ms, 0 jobs, core 0 GPU 0 MHz
+b3d quad_smooth ARM n=5 9.48 ms worst 9.49, 10 tri, 20 vtx, 10136055 instr, GPU 0.00 ms, 0 jobs, core 0 GPU 0 MHz
+b3d quad_smooth ARM n=6 11.01 ms worst 11.02, 12 tri, 24 vtx, 11671479 instr, GPU 0.00 ms, 0 jobs, core 0 GPU 0 MHz
+b3d quad_smooth ARM n=8 14.06 ms worst 14.08, 16 tri, 32 vtx, 14742359 instr, GPU 0.00 ms, 0 jobs, core 0 GPU 0 MHz
+b3d quad_smooth ARM n=10 17.12 ms worst 17.12, 20 tri, 40 vtx, 17813184 instr, GPU 0.00 ms, 0 jobs, core 0 GPU 0 MHz
+b3d quad_smooth ARM n=13 21.71 ms worst 21.73, 26 tri, 52 vtx, 22419484 instr, GPU 0.00 ms, 0 jobs, core 0 GPU 0 MHz
+b3d quad_smooth ARM n=17 27.84 ms worst 27.85, 34 tri, 68 vtx, 28561248 instr, GPU 0.00 ms, 0 jobs, core 0 GPU 0 MHz
+b3d quad_smooth ARM n=22 35.46 ms worst 35.47, 44 tri, 88 vtx, 36238288 instr, GPU 0.00 ms, 0 jobs, core 0 GPU 0 MHz
+b3d quad_smooth ARM n=29 46.16 ms worst 46.17, 58 tri, 116 vtx, 46987232 instr, GPU 0.00 ms, 0 jobs, core 0 GPU 0 MHz
+b3d quad_tex ARM n=1 4.35 ms worst 4.36, 2 tri, 4 vtx, 4537949 instr, GPU 0.00 ms, 0 jobs, core 0 GPU 0 MHz
+b3d quad_tex ARM n=2 6.86 ms worst 6.87, 4 tri, 8 vtx, 6617036 instr, GPU 0.00 ms, 0 jobs, core 0 GPU 0 MHz
+b3d quad_tex ARM n=3 9.38 ms worst 9.40, 6 tri, 12 vtx, 8696151 instr, GPU 0.00 ms, 0 jobs, core 0 GPU 0 MHz
+b3d quad_tex ARM n=4 11.91 ms worst 11.92, 8 tri, 16 vtx, 10775264 instr, GPU 0.00 ms, 0 jobs, core 0 GPU 0 MHz
+b3d quad_tex ARM n=5 14.42 ms worst 14.43, 10 tri, 20 vtx, 12854351 instr, GPU 0.00 ms, 0 jobs, core 0 GPU 0 MHz
+b3d quad_tex ARM n=6 16.93 ms worst 16.94, 12 tri, 24 vtx, 14933375 instr, GPU 0.00 ms, 0 jobs, core 0 GPU 0 MHz
+b3d quad_tex ARM n=8 21.98 ms worst 21.98, 16 tri, 32 vtx, 19091600 instr, GPU 0.00 ms, 0 jobs, core 0 GPU 0 MHz
+b3d quad_tex ARM n=10 27.00 ms worst 27.03, 20 tri, 40 vtx, 23249772 instr, GPU 0.00 ms, 0 jobs, core 0 GPU 0 MHz
+b3d quad_tex ARM n=13 34.55 ms worst 34.57, 26 tri, 52 vtx, 29486934 instr, GPU 0.00 ms, 0 jobs, core 0 GPU 0 MHz
+b3d quad_tex ARM n=17 44.63 ms worst 44.65, 34 tri, 68 vtx, 37803456 instr, GPU 0.00 ms, 0 jobs, core 0 GPU 0 MHz
+b3d quad_alpha ARM n=1 4.29 ms worst 4.30, 2 tri, 4 vtx, 4479884 instr, GPU 0.00 ms, 0 jobs, core 0 GPU 0 MHz
+b3d quad_alpha ARM n=2 6.74 ms worst 6.74, 4 tri, 8 vtx, 6499652 instr, GPU 0.00 ms, 0 jobs, core 0 GPU 0 MHz
+b3d quad_alpha ARM n=3 9.18 ms worst 9.20, 6 tri, 12 vtx, 8518058 instr, GPU 0.00 ms, 0 jobs, core 0 GPU 0 MHz
+b3d quad_alpha ARM n=4 11.63 ms worst 11.64, 8 tri, 16 vtx, 10537744 instr, GPU 0.00 ms, 0 jobs, core 0 GPU 0 MHz
+b3d quad_alpha ARM n=5 14.09 ms worst 14.10, 10 tri, 20 vtx, 12560095 instr, GPU 0.00 ms, 0 jobs, core 0 GPU 0 MHz
+b3d quad_alpha ARM n=6 16.53 ms worst 16.53, 12 tri, 24 vtx, 14578500 instr, GPU 0.00 ms, 0 jobs, core 0 GPU 0 MHz
+b3d quad_alpha ARM n=8 21.43 ms worst 21.43, 16 tri, 32 vtx, 18615282 instr, GPU 0.00 ms, 0 jobs, core 0 GPU 0 MHz
+b3d quad_alpha ARM n=10 26.32 ms worst 26.34, 20 tri, 40 vtx, 22652060 instr, GPU 0.00 ms, 0 jobs, core 0 GPU 0 MHz
+b3d quad_alpha ARM n=13 33.67 ms worst 33.69, 26 tri, 52 vtx, 28712404 instr, GPU 0.00 ms, 0 jobs, core 0 GPU 0 MHz
+b3d quad_alpha ARM n=17 43.46 ms worst 43.47, 34 tri, 68 vtx, 36791196 instr, GPU 0.00 ms, 0 jobs, core 0 GPU 0 MHz
+b3d quad_screen ARM n=1 2.37 ms worst 2.37, 2 tri, 4 vtx, 2906541 instr, GPU 0.00 ms, 0 jobs, core 0 GPU 0 MHz
+b3d quad_screen ARM n=2 2.90 ms worst 2.90, 4 tri, 8 vtx, 3354093 instr, GPU 0.00 ms, 0 jobs, core 0 GPU 0 MHz
+b3d quad_screen ARM n=3 3.42 ms worst 3.43, 6 tri, 12 vtx, 3801769 instr, GPU 0.00 ms, 0 jobs, core 0 GPU 0 MHz
+b3d quad_screen ARM n=4 3.96 ms worst 3.97, 8 tri, 16 vtx, 4249383 instr, GPU 0.00 ms, 0 jobs, core 0 GPU 0 MHz
+b3d quad_screen ARM n=5 4.49 ms worst 4.49, 10 tri, 20 vtx, 4696997 instr, GPU 0.00 ms, 0 jobs, core 0 GPU 0 MHz
+b3d quad_screen ARM n=6 5.02 ms worst 5.04, 12 tri, 24 vtx, 5144612 instr, GPU 0.00 ms, 0 jobs, core 0 GPU 0 MHz
+b3d quad_screen ARM n=8 6.08 ms worst 6.09, 16 tri, 32 vtx, 6039871 instr, GPU 0.00 ms, 0 jobs, core 0 GPU 0 MHz
+b3d quad_screen ARM n=10 7.15 ms worst 7.16, 20 tri, 40 vtx, 6935131 instr, GPU 0.00 ms, 0 jobs, core 0 GPU 0 MHz
+b3d quad_screen ARM n=13 8.74 ms worst 8.75, 26 tri, 52 vtx, 8277941 instr, GPU 0.00 ms, 0 jobs, core 0 GPU 0 MHz
+b3d quad_screen ARM n=17 10.87 ms worst 10.88, 34 tri, 68 vtx, 10068398 instr, GPU 0.00 ms, 0 jobs, core 0 GPU 0 MHz
+b3d quad_screen ARM n=22 13.52 ms worst 13.56, 44 tri, 88 vtx, 12306534 instr, GPU 0.00 ms, 0 jobs, core 0 GPU 0 MHz
+b3d quad_screen ARM n=29 17.23 ms worst 17.25, 58 tri, 116 vtx, 15440798 instr, GPU 0.00 ms, 0 jobs, core 0 GPU 0 MHz
+b3d quad_screen ARM n=38 22.02 ms worst 22.04, 76 tri, 152 vtx, 19469652 instr, GPU 0.00 ms, 0 jobs, core 0 GPU 0 MHz
+b3d quad_screen ARM n=50 28.40 ms worst 28.43, 100 tri, 200 vtx, 24841636 instr, GPU 0.00 ms, 0 jobs, core 0 GPU 0 MHz
+b3d quad_screen ARM n=66 36.89 ms worst 36.93, 132 tri, 264 vtx, 32004454 instr, GPU 0.00 ms, 0 jobs, core 0 GPU 0 MHz
+b3d quad_screen ARM n=88 48.57 ms worst 48.59, 176 tri, 352 vtx, 41853000 instr, GPU 0.00 ms, 0 jobs, core 0 GPU 0 MHz
+b3d quad_texscreen ARM n=1 3.86 ms worst 3.86, 2 tri, 4 vtx, 4508932 instr, GPU 0.00 ms, 0 jobs, core 0 GPU 0 MHz
+b3d quad_texscreen ARM n=2 5.89 ms worst 5.90, 4 tri, 8 vtx, 6557977 instr, GPU 0.00 ms, 0 jobs, core 0 GPU 0 MHz
+b3d quad_texscreen ARM n=3 7.91 ms worst 7.92, 6 tri, 12 vtx, 8606030 instr, GPU 0.00 ms, 0 jobs, core 0 GPU 0 MHz
+b3d quad_texscreen ARM n=4 9.93 ms worst 9.94, 8 tri, 16 vtx, 10655074 instr, GPU 0.00 ms, 0 jobs, core 0 GPU 0 MHz
+b3d quad_texscreen ARM n=5 11.95 ms worst 11.96, 10 tri, 20 vtx, 12706074 instr, GPU 0.00 ms, 0 jobs, core 0 GPU 0 MHz
+b3d quad_texscreen ARM n=6 13.98 ms worst 14.01, 12 tri, 24 vtx, 14754158 instr, GPU 0.00 ms, 0 jobs, core 0 GPU 0 MHz
+b3d quad_texscreen ARM n=8 18.02 ms worst 18.04, 16 tri, 32 vtx, 18850360 instr, GPU 0.00 ms, 0 jobs, core 0 GPU 0 MHz
+b3d quad_texscreen ARM n=10 22.06 ms worst 22.08, 20 tri, 40 vtx, 22946494 instr, GPU 0.00 ms, 0 jobs, core 0 GPU 0 MHz
+b3d quad_texscreen ARM n=13 28.13 ms worst 28.16, 26 tri, 52 vtx, 29094624 instr, GPU 0.00 ms, 0 jobs, core 0 GPU 0 MHz
+b3d quad_texscreen ARM n=17 36.23 ms worst 36.26, 34 tri, 68 vtx, 37290868 instr, GPU 0.00 ms, 0 jobs, core 0 GPU 0 MHz
+b3d quad_texscreen ARM n=22 46.33 ms worst 46.34, 44 tri, 88 vtx, 47537916 instr, GPU 0.00 ms, 0 jobs, core 0 GPU 0 MHz
+b3d texswap ARM n=1 9.12 ms worst 9.14, 2 tri, 4 vtx, 8602556 instr, GPU 0.00 ms, 0 jobs, core 0 GPU 0 MHz
+b3d texswap ARM n=2 5.57 ms worst 5.58, 4 tri, 8 vtx, 5517835 instr, GPU 0.00 ms, 0 jobs, core 0 GPU 0 MHz
+b3d texswap ARM n=3 7.49 ms worst 7.50, 6 tri, 12 vtx, 7066139 instr, GPU 0.00 ms, 0 jobs, core 0 GPU 0 MHz
+b3d texswap ARM n=4 9.39 ms worst 9.40, 8 tri, 16 vtx, 8614443 instr, GPU 0.00 ms, 0 jobs, core 0 GPU 0 MHz
+b3d texswap ARM n=5 5.95 ms worst 5.98, 10 tri, 20 vtx, 5713974 instr, GPU 0.00 ms, 0 jobs, core 0 GPU 0 MHz
+b3d texswap ARM n=6 6.80 ms worst 6.82, 12 tri, 24 vtx, 6412813 instr, GPU 0.00 ms, 0 jobs, core 0 GPU 0 MHz
+b3d texswap ARM n=8 8.42 ms worst 8.44, 16 tri, 32 vtx, 7656022 instr, GPU 0.00 ms, 0 jobs, core 0 GPU 0 MHz
+b3d texswap ARM n=10 6.56 ms worst 6.61, 20 tri, 40 vtx, 6094468 instr, GPU 0.00 ms, 0 jobs, core 0 GPU 0 MHz
+b3d texswap ARM n=13 7.97 ms worst 8.00, 26 tri, 52 vtx, 7187029 instr, GPU 0.00 ms, 0 jobs, core 0 GPU 0 MHz
+b3d texswap ARM n=17 7.05 ms worst 7.09, 34 tri, 68 vtx, 6400563 instr, GPU 0.00 ms, 0 jobs, core 0 GPU 0 MHz
+b3d texswap ARM n=22 8.56 ms worst 8.59, 44 tri, 88 vtx, 7531361 instr, GPU 0.00 ms, 0 jobs, core 0 GPU 0 MHz
+b3d texswap ARM n=29 8.36 ms worst 8.40, 58 tri, 116 vtx, 7277107 instr, GPU 0.00 ms, 0 jobs, core 0 GPU 0 MHz
+b3d texswap ARM n=38 8.31 ms worst 8.37, 76 tri, 152 vtx, 7175079 instr, GPU 0.00 ms, 0 jobs, core 0 GPU 0 MHz
+b3d texswap ARM n=50 8.47 ms worst 8.50, 100 tri, 200 vtx, 7238753 instr, GPU 0.00 ms, 0 jobs, core 0 GPU 0 MHz
+b3d texswap ARM n=66 9.08 ms worst 9.10, 132 tri, 264 vtx, 7597573 instr, GPU 0.00 ms, 0 jobs, core 0 GPU 0 MHz
+b3d texswap ARM n=88 9.93 ms worst 9.97, 176 tri, 352 vtx, 8145420 instr, GPU 0.00 ms, 0 jobs, core 0 GPU 0 MHz
+b3d texswap ARM n=117 10.58 ms worst 10.62, 234 tri, 468 vtx, 8488913 instr, GPU 0.00 ms, 0 jobs, core 0 GPU 0 MHz
+b3d texswap ARM n=156 11.01 ms worst 11.06, 312 tri, 624 vtx, 8780938 instr, GPU 0.00 ms, 0 jobs, core 0 GPU 0 MHz
+b3d texswap ARM n=208 11.72 ms worst 11.75, 416 tri, 832 vtx, 9217778 instr, GPU 0.00 ms, 0 jobs, core 0 GPU 0 MHz
+b3d texswap ARM n=277 12.45 ms worst 12.49, 554 tri, 1108 vtx, 9719882 instr, GPU 0.00 ms, 0 jobs, core 0 GPU 0 MHz
+b3d texswap ARM n=369 12.95 ms worst 12.98, 698 tri, 1396 vtx, 9977038 instr, GPU 0.00 ms, 0 jobs, core 0 GPU 0 MHz
+b3d texswap ARM n=492 13.44 ms worst 13.49, 938 tri, 1876 vtx, 10485971 instr, GPU 0.00 ms, 0 jobs, core 0 GPU 0 MHz
+b3d texswap ARM n=656 15.07 ms worst 15.13, 1248 tri, 2496 vtx, 11247767 instr, GPU 0.00 ms, 0 jobs, core 0 GPU 0 MHz
+b3d texswap ARM n=874 15.92 ms worst 15.95, 1568 tri, 3136 vtx, 12172331 instr, GPU 0.00 ms, 0 jobs, core 0 GPU 0 MHz
+b3d texswap ARM n=1165 17.33 ms worst 17.36, 2046 tri, 4092 vtx, 13218183 instr, GPU 0.00 ms, 0 jobs, core 0 GPU 0 MHz
+b3d texswap ARM n=1553 19.71 ms worst 19.73, 2736 tri, 5472 vtx, 14454575 instr, GPU 0.00 ms, 0 jobs, core 0 GPU 0 MHz
+b3d texswap ARM n=2070 21.72 ms worst 21.75, 3696 tri, 7392 vtx, 16166674 instr, GPU 0.00 ms, 0 jobs, core 0 GPU 0 MHz
+b3d texswap ARM n=2760 25.03 ms worst 25.06, 4794 tri, 9588 vtx, 18269288 instr, GPU 0.00 ms, 0 jobs, core 0 GPU 0 MHz
+b3d texswap ARM n=3680 28.64 ms worst 28.66, 6270 tri, 12540 vtx, 20844724 instr, GPU 0.00 ms, 0 jobs, core 0 GPU 0 MHz
+b3d texswap ARM n=4906 33.97 ms worst 34.03, 8442 tri, 16884 vtx, 24514972 instr, GPU 0.00 ms, 0 jobs, core 0 GPU 0 MHz
+b3d texswap ARM n=6541 39.82 ms worst 39.88, 10650 tri, 21300 vtx, 28156084 instr, GPU 0.00 ms, 0 jobs, core 0 GPU 0 MHz
+b3d split ARM n=1 2.51 ms worst 2.51, 150 tri, 224 vtx, 2948659 instr, GPU 0.00 ms, 0 jobs, core 0 GPU 0 MHz
+b3d split ARM n=2 3.15 ms worst 3.16, 298 tri, 448 vtx, 3428900 instr, GPU 0.00 ms, 0 jobs, core 0 GPU 0 MHz
+b3d split ARM n=3 3.82 ms worst 3.83, 449 tri, 672 vtx, 3921317 instr, GPU 0.00 ms, 0 jobs, core 0 GPU 0 MHz
+b3d split ARM n=4 4.47 ms worst 4.48, 602 tri, 896 vtx, 4397364 instr, GPU 0.00 ms, 0 jobs, core 0 GPU 0 MHz
+b3d split ARM n=5 5.12 ms worst 5.13, 748 tri, 1120 vtx, 4878209 instr, GPU 0.00 ms, 0 jobs, core 0 GPU 0 MHz
+b3d split ARM n=6 5.76 ms worst 5.77, 900 tri, 1344 vtx, 5349494 instr, GPU 0.00 ms, 0 jobs, core 0 GPU 0 MHz
+b3d split ARM n=8 7.07 ms worst 7.08, 1202 tri, 1792 vtx, 6306785 instr, GPU 0.00 ms, 0 jobs, core 0 GPU 0 MHz
+b3d split ARM n=10 8.38 ms worst 8.40, 1504 tri, 2240 vtx, 7272126 instr, GPU 0.00 ms, 0 jobs, core 0 GPU 0 MHz
+b3d split ARM n=13 10.34 ms worst 10.35, 1949 tri, 2912 vtx, 8674330 instr, GPU 0.00 ms, 0 jobs, core 0 GPU 0 MHz
+b3d split ARM n=17 12.90 ms worst 12.92, 2542 tri, 3808 vtx, 10483940 instr, GPU 0.00 ms, 0 jobs, core 0 GPU 0 MHz
+b3d split ARM n=22 16.10 ms worst 16.14, 3283 tri, 4928 vtx, 12746136 instr, GPU 0.00 ms, 0 jobs, core 0 GPU 0 MHz
+b3d split ARM n=29 20.58 ms worst 20.60, 4325 tri, 6496 vtx, 15879594 instr, GPU 0.00 ms, 0 jobs, core 0 GPU 0 MHz
+b3d split ARM n=38 26.32 ms worst 26.37, 5668 tri, 8512 vtx, 19906670 instr, GPU 0.00 ms, 0 jobs, core 0 GPU 0 MHz
+b3d split ARM n=50 33.86 ms worst 33.92, 7473 tri, 11200 vtx, 25208128 instr, GPU 0.00 ms, 0 jobs, core 0 GPU 0 MHz
+b3d split ARM n=66 43.61 ms worst 43.65, 9861 tri, 14784 vtx, 32121340 instr, GPU 0.00 ms, 0 jobs, core 0 GPU 0 MHz
+b3d match ARM n=1 17.74 ms worst 17.82, 4198 tri, 3542 vtx, 14293176 instr, GPU 0.00 ms, 0 jobs, core 0 GPU 0 MHz
+b3d match ARM n=2 20.58 ms worst 20.58, 5587 tri, 4438 vtx, 16079111 instr, GPU 0.00 ms, 0 jobs, core 0 GPU 0 MHz
+b3d match ARM n=3 23.37 ms worst 23.39, 6973 tri, 5334 vtx, 17823324 instr, GPU 0.00 ms, 0 jobs, core 0 GPU 0 MHz
+b3d match ARM n=4 26.12 ms worst 26.14, 8357 tri, 6230 vtx, 19540946 instr, GPU 0.00 ms, 0 jobs, core 0 GPU 0 MHz
+b3d match ARM n=5 28.85 ms worst 28.87, 9741 tri, 7126 vtx, 21254300 instr, GPU 0.00 ms, 0 jobs, core 0 GPU 0 MHz
+b3d match ARM n=6 31.60 ms worst 31.63, 11132 tri, 8022 vtx, 22961824 instr, GPU 0.00 ms, 0 jobs, core 0 GPU 0 MHz
+b3d match ARM n=8 37.00 ms worst 37.05, 13905 tri, 9814 vtx, 26360236 instr, GPU 0.00 ms, 0 jobs, core 0 GPU 0 MHz
+b3d match ARM n=10 41.89 ms worst 41.91, 16683 tri, 11606 vtx, 29400320 instr, GPU 0.00 ms, 0 jobs, core 0 GPU 0 MHz
+b3d mix ARM n=1 9.05 ms worst 9.20, 2083 tri, 1879 vtx, 7774297 instr, GPU 0.00 ms, 0 jobs, core 0 GPU 0 MHz
+b3d mix ARM n=2 12.91 ms worst 13.09, 3515 tri, 2816 vtx, 10284815 instr, GPU 0.00 ms, 0 jobs, core 0 GPU 0 MHz
+b3d mix ARM n=3 16.86 ms worst 16.98, 4950 tri, 3753 vtx, 12753703 instr, GPU 0.00 ms, 0 jobs, core 0 GPU 0 MHz
+b3d mix ARM n=4 20.18 ms worst 20.33, 6375 tri, 4690 vtx, 14752732 instr, GPU 0.00 ms, 0 jobs, core 0 GPU 0 MHz
+b3d mix ARM n=5 23.95 ms worst 24.07, 7802 tri, 5627 vtx, 17142976 instr, GPU 0.00 ms, 0 jobs, core 0 GPU 0 MHz
+b3d mix ARM n=6 27.66 ms worst 27.82, 9236 tri, 6564 vtx, 19503208 instr, GPU 0.00 ms, 0 jobs, core 0 GPU 0 MHz
+b3d mix ARM n=8 34.36 ms worst 34.49, 12093 tri, 8438 vtx, 23716324 instr, GPU 0.00 ms, 0 jobs, core 0 GPU 0 MHz
+b3d mix ARM n=10 40.23 ms worst 40.41, 14956 tri, 10312 vtx, 27284908 instr, GPU 0.00 ms, 0 jobs, core 0 GPU 0 MHz
+b3d big ARM n=1 41.70 ms worst 41.78, 18488 tri, 12337 vtx, 28629356 instr, GPU 0.00 ms, 0 jobs, core 0 GPU 0 MHz
+b3d big_logic ARM n=1 46.48 ms worst 46.57, 18488 tri, 12337 vtx, 33830112 instr, GPU 0.00 ms, 0 jobs, core 0 GPU 0 MHz
+b3d gpu2d ARM n=4 3.26 ms worst 3.28, 227 tri, 336 vtx, 3536199 instr, GPU 0.00 ms, 0 jobs, core 0 GPU 0 MHz
+b3d gpu2d ARM n=5 3.26 ms worst 3.27, 227 tri, 336 vtx, 3538577 instr, GPU 0.00 ms, 0 jobs, core 0 GPU 0 MHz
+b3d gpu2d ARM n=6 3.26 ms worst 3.27, 227 tri, 336 vtx, 3540893 instr, GPU 0.00 ms, 0 jobs, core 0 GPU 0 MHz
+b3d gpu2d ARM n=8 3.28 ms worst 3.28, 227 tri, 336 vtx, 3551059 instr, GPU 0.00 ms, 0 jobs, core 0 GPU 0 MHz
+b3d gpu2d ARM n=10 3.28 ms worst 3.28, 227 tri, 336 vtx, 3555691 instr, GPU 0.00 ms, 0 jobs, core 0 GPU 0 MHz
+b3d gpu2d ARM n=13 3.29 ms worst 3.30, 227 tri, 336 vtx, 3568204 instr, GPU 0.00 ms, 0 jobs, core 0 GPU 0 MHz
+b3d gpu2d ARM n=17 3.31 ms worst 3.31, 227 tri, 336 vtx, 3582940 instr, GPU 0.00 ms, 0 jobs, core 0 GPU 0 MHz
+b3d gpu2d ARM n=22 3.33 ms worst 3.33, 227 tri, 336 vtx, 3600085 instr, GPU 0.00 ms, 0 jobs, core 0 GPU 0 MHz
+b3d gpu2d ARM n=29 3.36 ms worst 3.36, 227 tri, 336 vtx, 3627365 instr, GPU 0.00 ms, 0 jobs, core 0 GPU 0 MHz
+b3d gpu2d ARM n=38 3.40 ms worst 3.40, 227 tri, 336 vtx, 3659246 instr, GPU 0.00 ms, 0 jobs, core 0 GPU 0 MHz
+b3d gpu2d ARM n=50 3.45 ms worst 3.45, 227 tri, 336 vtx, 3703671 instr, GPU 0.00 ms, 0 jobs, core 0 GPU 0 MHz
+b3d gpu2d ARM n=66 3.52 ms worst 3.52, 227 tri, 336 vtx, 3762894 instr, GPU 0.00 ms, 0 jobs, core 0 GPU 0 MHz
+b3d gpu2d ARM n=88 3.61 ms worst 3.61, 227 tri, 336 vtx, 3847081 instr, GPU 0.00 ms, 0 jobs, core 0 GPU 0 MHz
+b3d gpu2d ARM n=117 3.73 ms worst 3.73, 227 tri, 336 vtx, 3953017 instr, GPU 0.00 ms, 0 jobs, core 0 GPU 0 MHz
+b3d gpu2d ARM n=156 3.89 ms worst 3.89, 227 tri, 336 vtx, 4098681 instr, GPU 0.00 ms, 0 jobs, core 0 GPU 0 MHz
+b3d gpu2d ARM n=208 4.11 ms worst 4.11, 227 tri, 336 vtx, 4291087 instr, GPU 0.00 ms, 0 jobs, core 0 GPU 0 MHz
+b3d gpu2d ARM n=277 4.40 ms worst 4.40, 227 tri, 336 vtx, 4545031 instr, GPU 0.00 ms, 0 jobs, core 0 GPU 0 MHz
+b3d gpu2d ARM n=369 4.78 ms worst 4.79, 227 tri, 336 vtx, 4885510 instr, GPU 0.00 ms, 0 jobs, core 0 GPU 0 MHz
+b3d gpu2d ARM n=492 5.29 ms worst 5.29, 227 tri, 336 vtx, 5341994 instr, GPU 0.00 ms, 0 jobs, core 0 GPU 0 MHz
+b3d gpu2d ARM n=656 5.98 ms worst 5.98, 227 tri, 336 vtx, 5948805 instr, GPU 0.00 ms, 0 jobs, core 0 GPU 0 MHz
+b3d gpu2d ARM n=874 6.88 ms worst 6.89, 227 tri, 336 vtx, 6752654 instr, GPU 0.00 ms, 0 jobs, core 0 GPU 0 MHz
+b3d gpu2d ARM n=1165 8.09 ms worst 8.13, 227 tri, 336 vtx, 7830872 instr, GPU 0.00 ms, 0 jobs, core 0 GPU 0 MHz
+b3d gpu2d ARM n=1553 9.71 ms worst 9.72, 227 tri, 336 vtx, 9266590 instr, GPU 0.00 ms, 0 jobs, core 0 GPU 0 MHz
+b3d gpu2d ARM n=2070 11.86 ms worst 11.89, 227 tri, 336 vtx, 11178285 instr, GPU 0.00 ms, 0 jobs, core 0 GPU 0 MHz
+b3d gpu2d ARM n=2760 14.74 ms worst 14.77, 227 tri, 336 vtx, 13734238 instr, GPU 0.00 ms, 0 jobs, core 0 GPU 0 MHz
+b3d gpu2d ARM n=3680 18.58 ms worst 18.61, 227 tri, 336 vtx, 17138462 instr, GPU 0.00 ms, 0 jobs, core 0 GPU 0 MHz
+b3d gpu2d ARM n=4906 23.65 ms worst 23.69, 227 tri, 336 vtx, 21672252 instr, GPU 0.00 ms, 0 jobs, core 0 GPU 0 MHz
+b3d gpu2d ARM n=6541 30.50 ms worst 30.60, 227 tri, 336 vtx, 27723624 instr, GPU 0.00 ms, 0 jobs, core 0 GPU 0 MHz
+bm 3D Bench
+kernel v0.2.3-52-g2fb7db3
+drivers bm3d 6.6 (M36)
+date 2026-10-06 11:29 UTC
+machine RGB30, Cortex-A55, the 3D on the ARM (Mali: not tested (Dev > GPU test))
+gpu no GPU driver on the RGB30 yet
+probes none
+counters Cortex-A55 PMU
+previous bm/bench/3D0014.TXT
+columns R,test,profile,version,n60,n30,over,ms,worst,tris_in,tris,verts,pixels,gltris,jobs,gpu_ms,instr,wait_instr,dmiss,cycles,secs,tris60,drawn60,core_mhz,gpu_mhz
+R,spheres,ARM,0.2,156.9,412.3,0,16.6,16.6,14976,6105,8736,152915,0,0.0,0.0,12569463,0,12620,13551388,3,15060,6140,0,0
+R,spheres_smooth,ARM,0.2,79.6,298.0,0,15.0,15.0,6336,2540,3696,153944,0,0.0,0.0,12914576,0,14711,12249554,3,7639,3097,0,0
+R,spheres_tex,ARM,0.2,26.6,138.9,0,16.5,16.7,2112,825,1232,162937,0,0.0,0.0,13094411,0,25567,13472714,3,2550,1012,0,0
+R,spheres_unlit,ARM,0.2,178.9,468.9,0,15.4,15.4,14976,6105,8736,152915,0,0.0,0.0,11873982,0,11880,12546135,3,17178,7010,0,0
+R,spheres_baked,ARM,0.2,89.5,377.5,0,16.5,16.6,8448,3443,4928,166485,0,0.0,0.0,14377879,0,11877,13481958,3,8588,3499,0,0
+R,spheres_shine,ARM,0.2,66.9,224.3,0,16.5,16.6,6336,2540,3696,153944,0,0.0,0.0,13716075,0,14684,13491544,3,6427,2579,0,0
+R,heroes,ARM,0.2,7.6,16.9,0,14.2,14.2,9216,3766,5376,63742,0,0.0,0.0,10749652,0,16547,11602164,2,11673,4776,0,0
+R,heroes_tex,ARM,0.2,5.8,13.7,0,14.2,14.2,7680,3140,4480,46283,0,0.0,0.0,11165384,0,16733,11589344,2,8931,3650,0,0
+R,heroes_skin,ARM,0.2,5.8,13.7,0,14.4,14.4,7680,3176,4480,48094,0,0.0,0.0,11311064,0,16693,11720588,2,8837,3650,0,0
+R,heroes_shadow,ARM,0.2,1.7,6.0,0,14.5,14.6,3584,1835,1246,145478,0,0.0,0.0,12208178,0,24652,11860596,1,5766,2817,0,0
+R,clip,ARM,0.2,223.9,3059.6,1,16.5,16.5,8320,1650,1950,173489,0,0.0,0.0,13947911,0,30951,13473724,4,8954,1748,0,0
+R,tiny,ARM,0.2,29.6,63.8,0,16.4,16.4,14848,14848,8381,8951,0,0.0,0.0,12571966,0,4691,13338972,2,15175,15175,0,0
+R,draws,ARM,0.2,832.6,2065.0,0,14.3,14.4,7872,3712,4992,147702,0,0.0,0.0,11086186,0,10137,11664232,3,9991,4477,0,0
+R,quad_flat,ARM,0.2,16.2,34.3,0,13.8,13.8,26,26,52,748800,0,0.0,0.0,13911594,0,13277,11226130,2,32,32,0,0
+R,quad_smooth,ARM,0.2,9.7,20.6,0,14.1,14.1,16,16,32,460800,0,0.0,0.0,14742359,0,10348,11480738,2,19,19,0,0
+R,quad_tex,ARM,0.2,5.9,12.5,0,14.4,14.4,10,10,20,288000,0,0.0,0.0,12854351,0,10095,11773083,1,12,12,0,0
+R,quad_alpha,ARM,0.2,6.1,12.9,0,16.5,16.5,12,12,24,323120,0,0.0,0.0,14578500,0,11410,13491176,1,12,12,0,0
+R,quad_screen,ARM,0.2,27.9,59.3,0,13.5,13.6,44,44,88,633600,0,0.0,0.0,12306534,0,22775,11036958,2,56,56,0,0
+R,quad_texscreen,ARM,0.2,7.3,15.6,0,13.0,14.0,12,12,24,161560,0,0.0,0.0,14754158,0,11142,11414171,2,15,15,0,0
+R,texswap,ARM,0.2,1026.5,4757.6,1,15.9,15.0,1748,1568,3136,137772,0,0.0,0.0,12172331,0,31558,12998480,4,2053,1818,0,0
+R,split,ARM,0.2,22.9,49.1,0,16.1,16.1,8448,3283,4928,254939,0,0.0,0.0,12746136,0,19471,13144647,2,8785,3414,0,0
+R,match,ARM,0.2,-1,6.6,0,17.7,17.8,7808,4198,3542,142521,0,0.0,0.0,14293176,0,30304,14489271,2,7335,3944,0,0
+R,mix,ARM,0.2,2.9,7.7,0,12.9,13.1,7840,3515,2816,65822,0,0.0,0.0,10284815,0,17932,10546542,1,10802,4878,0,0
+R,big,ARM,0.2,-1,-1,0,41.7,41.8,24192,18488,12337,158503,0,0.0,0.0,28629356,0,104183,34033464,0,9667,7388,0,0
+R,big_logic,ARM,0.2,-1,-1,0,46.5,46.6,24192,18488,12337,158503,0,0.0,0.0,33830112,0,104111,37933432,0,8673,6628,0,0
+R,gpu2d,ARM,0.2,3221.6,6541.0,1,14.7,14.8,576,227,336,43826,0,0.0,0.0,13734238,0,19940,12031536,3,576,227,0,0
+score 419 (bm3d 6.6 as the games get it, 24 of 24 tests), GPU bm3d 2.1 0, ARM bm3d 0.2 419; 1000: bm3d 2.1 at its best on the Pi Zero W
+columns S,driver,version,score,tests,full
+S,games,6.6,419,24,1
+S,GPU,2.1,0,0,0
+S,ARM,0.2,419,24,1
+triangles at 60 fps 10802 in the mix (4878 drawn), the most 17178 (spheres_unlit)
+total 66 s
+wifi: link lost: the network sent us away (reason 7, not authenticated or associated)
+net: address lost
+3D Bench: done (RGB30, Cortex-A55, the 3D on the ARM (Mali: not tested (Dev > GPU test))); the report is in bm/bench on the SD card
+report: 20261006-113021_bench3d_rgb30_v0.2.3-52-g2fb7db3.txt saved as bm/reports/RPT00001.TXT
+report: on the SD card: no network
+bm > Send the reports
+
+report: on the SD card: no network
+on the SD card: no network; 1 waiting on the SD card
+
+B or A: back to the menu
+bm > Send the reports
+
+report: on the SD card: no network
+on the SD card: no network; 1 waiting on the SD card
+
+B or A: back to the menu
+bm > Connect to a network (B cancels)
+
+wifi: scanning channels 1-13...
+wifi: frames per channel: 2 1 0 0 0 0 0 0 0 0 0 0 1
+wifi: 1 probe responses to our MAC: transmitting works
+wifi: 3 networks
+   1   -84 dBm  ch  1  WPA2  FASTWEB-36AB12
+   2  -106 dBm  ch  1  WPA2  Wind3 HUB - ED4188
+   3  -106 dBm  ch 13  WPA2  (hidden)
+wifi: joining "FASTWEB-36AB12" (WPA2, channel 1, -84 dBm)...
+wifi: PMK computed (33 ms)
+wifi: IQ calibration done (20 ms, fail mask 00)
+wifi: authenticated
+wifi: associated, AID 24
+wifi: WPA2 keys in (pairwise CCMP, group CCMP, key 1)
+net: asking for an address (DHCP)...
+net: IP 192.168.1.233 (gateway 192.168.1.254, name bm)
+net: console on port 3333, password ******
+     from the PC: python3 tools/bm_net.py 192.168.1.233
+
+B or A: back to the menu
+bm > Send the reports
+
+tls: 21 root certificates
+report: sending 20261006-113021_bench3d_rgb30_v0.2.3-52-g2fb7db3.txt
+report: sent to f-accomando/bm, branch reports: reports/bm3d-driver/20261006-113021_bench3d_rgb30_v0.2.3-52-g2fb7db3.txt
+sent: reports/bm3d-driver/20261006-113021_bench3d_rgb30_v0.2.3-52-g2fb7db3.txt; 0 waiting on the SD card
+
+B or A: back to the menu
+bm > Report the log
+
