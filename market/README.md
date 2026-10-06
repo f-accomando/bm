@@ -66,7 +66,9 @@ python3 ../bm/scripts/mkmarket.py games --add my-game.bm --version 1.0 --license
   changed again only while it runs (never one that was there, another
   game); it cannot read the console's
   settings, so never its keys or passwords, nor use the services that spend
-  them. Online games talk over the network (UDP), as the console's own do.
+  them. The network (UDP, for online games), a report to the console's
+  repository and the player's documents in `/docs` (an app like bm Write)
+  only after the player says yes: the console asks the first time.
 - The repository is public on purpose: the consoles download without an
   account, and authors propose games from their forks.
 
