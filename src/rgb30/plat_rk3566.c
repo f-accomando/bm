@@ -8,6 +8,7 @@
 #include "io.h"
 #include "rk_pmic.h"
 #include "rk_wlbt.h"
+#include "rk_audio.h"
 
 #define CRU             0xfdd20000u
 #define CRU_GLB_SRST_FST 0xd4           /* the chip's first global soft reset (0xfdb9) */
@@ -52,7 +53,7 @@ static void psci(uint32_t fn)
     __asm__ volatile("smc #0" : "+r"(x0) :: "x1", "x2", "x3", "memory");
 }
 
-/* The screen, its backlight and the WiFi module off before the chip
+/* The sound, the screen, its backlight and the WiFi module off before the chip
  * restarts or the power goes: a restart of the chip alone keeps the PMIC's
  * rails and the PMU's GPIO as bm left them, and the next start should find
  * them as after power-on (the console used to stay on with a black screen
@@ -60,6 +61,7 @@ static void psci(uint32_t fn)
  * stays black, red on says bm started again (see docs/RGB30.md). */
 static void quiet(void)
 {
+    rk_audio_off();                 /* the amplifier off first: no pop */
     plat_display_off();
     wlbt_power_off();
     plat_led(0, 0);

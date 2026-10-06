@@ -519,6 +519,17 @@ void n8lua_close(void) { }
 void ai_lua_open(lua_State *L) { (void)L; }
 void n8snd_pause(int on) { (void)on; }
 
+/* No sound output on the PC (src/audio/audio_out.h): audio_idle() moves
+ * the player and the voices from the frames, as in QEMU */
+int audio_out_start(const char **status)
+{
+    *status = "no audio output on the PC";
+    return -1;
+}
+
+void audio_out_print(void) { }
+void audio_out_idle(void) { }
+
 /* The last stage of the console's audio render (src/audio/audio.c): the
  * mixed samples of the synthesizer, which go to the WAV file. */
 void n8snd_mix(int16_t *out, unsigned n, float gain)

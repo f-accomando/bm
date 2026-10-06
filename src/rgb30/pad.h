@@ -39,6 +39,10 @@ void pad_config(void);
 /* Buttons held now (hardware and serial). Reads the serial port: a
  * character that is not a pad key is kept for pad_serial_char(). */
 uint32_t pad_state(void);
+
+/* volume.c: the + and - keys in held change the volume (beep: the menu's
+ * short beep at the new level; not in the games) */
+void volume_keys(uint32_t held, int beep);
 /* Buttons pressed since the previous call (edges), with key repeat on the
  * D-pad after 400 ms. */
 uint32_t pad_pressed(void);

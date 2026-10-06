@@ -43,6 +43,7 @@
 #include "kernel/ledstate.h"
 #include "kernel/reports.h"
 #include "kernel/carts.h"
+#include "audio/audio.h"
 #include "kernel/market.h"
 #include "net/catalog.h"
 #include "b3d_rgb30.h"
@@ -769,6 +770,7 @@ void ui_home(framebuffer_t *f)
             v.notice = nt;                      /* a kernel arriving, the restart */
             v.notice_detail = nd;
         }
+        audio_idle();                           /* the output's news (QEMU's sink: what it heard) */
         battery_check();
         v.battery = batt_known;
         v.battery_pct = batt_pct;

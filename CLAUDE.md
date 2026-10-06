@@ -264,7 +264,8 @@ screenshot in `docs/img/`), `README_OLD.md` (il README completo, in italiano),
   in `ui.c`; test `test_market_b16`. Sulla barra solo il WiFi e la **batteria** (richieste
   dell'utente, 2026-10-05: niente icone di controller, mouse e tastiere): 4
   tacche dal 75%, rossa sotto il 10%, il fulmine sul caricatore (`icon_battery` in `icons.c`,
-  `battery_percent` in `plat.h`, la carica anche in *Settings > System*); in QEMU
+  `battery_percent` in `plat.h`, la carica anche in *Settings > System*); il **suono** come sul
+  Pi (`rk_audio.c`, sezione *Audio*; tasti + e − del volume ovunque); in QEMU
   `test_battery=mV[,stato]` in `bm/config.txt` (`plat_virt.c`), test `test_battery_icon`. Le
   schede non passano sotto le icone (sullo schermo stretto Settings si affaccia a destra
   quando il Market è la scheda). In Dev il 3D Bench (`b3d_rgb30.c`: `src/bm/b3d.c` con i contatori del
@@ -275,7 +276,7 @@ screenshot in `docs/img/`), `README_OLD.md` (il README completo, in italiano),
   collega all'avvio come sul Pi (`wifi_boot=0` lo spegne; prima serviva `wifi_boot=1`).
 - Cartucce del Pi (`.bm`): per ora nel menu e avviabili, per le prove (decisione dell'utente).
   Il runtime `src/bm` è lo stesso del Pi (`#ifdef BM_RGB30` solo in `bm_video_enter`: lo schermo è `fb_init_game`); i
-  driver del Pi che chiama sono sostituiti in `src/rgb30/bm_port.c` (suono muto, niente V3D e
+  driver del Pi che chiama sono sostituiti in `src/rgb30/bm_port.c` (niente V3D e
   DMA) e `bm_input.c` (comandi per lettera, `game_buttons=position`). Yharnam (dal branch
   `claude/yharnam`) è nell'immagine SD; test `test_bm_cartridge`.
 - Tasti: **B conferma, A torna indietro** (decisione dell'utente; `confirm=a` li scambia):
@@ -542,6 +543,13 @@ screenshot in `docs/img/`), `README_OLD.md` (il README completo, in italiano),
 - Sintetizzatore `src/audio/synth.c`; player dei banchi di suoni `src/audio/player.c`
   (sezione AUDIO del `.bm`, formato descritto in `player.h`); Sound editor
   `carts/sound/main.lua`, incorporato nel kernel come l'SDK.
+- `src/audio/audio.c` è il cuore comune (voci, banchi, note, volume, `audio_render`); l'uscita
+  è a parte (`audio_out.h`, 2026-10-05): `hdmi_audio.c` sul Pi (HDMI e DMA), sulla RGB30
+  `src/rgb30/rk_audio.c` (I2S1 e il codec del RK817, la FIFO riempita dal suo interrupt, valori
+  di Linux; prova sul PC `make TARGET=rgb30 test-audio`, `tests/rgb30/audio_sim_test.c`) e in
+  QEMU `virt_audio.c` (una sink sul timer virtuale che scrive "audio: heard N Hz", test
+  `test_sound`), in bmhost uno stub (`audio_idle` muove il player). Tasti + e − della RGB30:
+  `src/rgb30/volume.c` (barra con `notice_flash` in `notice.c`, `volume=` salvato).
 - Il formato del banco esiste in tre posti: C (`au_parse`), Lua (l'editor) e Python
   (`scripts/bmaudio.py`). Se cambia, cambiarlo in tutti e tre: `make test-sound`
   controlla che il banco demo torni identico byte per byte.

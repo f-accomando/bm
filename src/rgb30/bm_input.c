@@ -85,7 +85,9 @@ static uint32_t prev_held;
 uint32_t input_players(uint32_t out[INPUT_PLAYERS], int text, int *quit, int *local)
 {
     (void)text;
-    uint32_t held = to_hid(plat_buttons()) | hid_buttons();
+    const uint32_t own = plat_buttons();
+    volume_keys(own, 0);                    /* + and -: the volume, in the games too */
+    uint32_t held = to_hid(own) | hid_buttons();
     const uint32_t leave = HID_START | HID_SELECT;
     if ((held & leave) == leave && (prev_held & leave) != leave)
         *quit |= HID_QUIT_KEY;

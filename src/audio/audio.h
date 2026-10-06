@@ -1,9 +1,11 @@
 /*
  * Sound output: the 8-voice synthesizer (synth.h) and the player of the
- * cartridges' sound banks (player.h), played through HDMI (the BCM2835
- * MAI audio FIFO fed by DMA, 48 kHz). Both run in the DMA interrupt, one
- * chunk of 256 samples (5.3 ms) at a time, in blocks of 64 samples, so the
- * sound never waits for a game's main loop.
+ * cartridges' sound banks (player.h), played through the console's output
+ * at 48 kHz (audio_out.h: HDMI on the Pi, the MAI audio FIFO fed by DMA;
+ * on the RGB30 the I2S and the RK817's codec, its FIFO fed by an
+ * interrupt). Both run in the output's interrupt, a chunk of samples (256,
+ * 5.3 ms) at a time, in blocks of 64 samples, so the sound never waits
+ * for a game's main loop.
  *
  * Each voice is driven by 16 bytes of registers (synth.h): .bm games can
  * read and write them with apu(), the player and the note helpers write
@@ -16,15 +18,15 @@
 #include <stdint.h>
 
 #define AUDIO_RATE          48000
-#define AUDIO_CHUNK         256         /* samples per DMA buffer */
+#define AUDIO_CHUNK         256         /* samples per buffer of the output */
 #define AUDIO_VOLUME_MAX    10
 
-/* Detects HDMI audio and starts the output (silence). 0 = running;
- * otherwise audio_status() says why not (e.g. no HDMI audio in QEMU). */
+/* Starts the output (silence). 0 = running; otherwise audio_status() says
+ * why not (e.g. no HDMI audio in QEMU's raspi0). */
 int audio_init(void);
 int audio_ready(void);
 const char *audio_status(void);
-void audio_print(void);                 /* status, clocks, DMA counters */
+void audio_print(void);                 /* status, the output's clocks and counters */
 
 volatile uint8_t *audio_regs(void);     /* the 128 register bytes */
 

@@ -82,7 +82,8 @@ NET_SRCS += src/net/catalog.c src/net/lan.c src/kernel/market.c
 # the Pi's drivers it calls replaced by src/rgb30/bm_port.c and bm_input.c; the menu is
 # the Pi's (menu_ui.c, its icons) at 360x360
 BM_SRCS := $(filter-out src/bm/stress.c src/bm/roombench.c,$(wildcard src/bm/*.c)) \
-           src/audio/player.c src/audio/n8snd.c src/kernel/prompts.c src/kernel/pointer.c \
+           src/audio/audio.c src/audio/synth.c src/audio/player.c src/audio/n8snd.c \
+           src/kernel/prompts.c src/kernel/pointer.c \
            src/kernel/menu_ui.c src/kernel/icons.c src/kernel/syskeys.c src/kernel/settings.c \
            src/kernel/ledstate.c src/kernel/notice.c src/kernel/splash.c src/kernel/logo_data.c
 SHARED_SRCS += $(BT_SRCS) $(MBEDTLS_SRCS) $(LWIP_SRCS) $(NET_SRCS) $(BM_SRCS)
@@ -105,7 +106,7 @@ $(BUILD)/k/src/rgb30/bm_embed.S.o: keys/release-pub.pem keys/market-pub.pem src/
 FORCE:
 
 .DEFAULT_GOAL := all
-.PHONY: all test test-bt test-wifi qemu clean firmware image sdcard FORCE
+.PHONY: all test test-bt test-wifi test-audio qemu clean firmware image sdcard FORCE
 
 all: $(BUILD)/kernel8.img
 ifeq ($(PLAT),rk3566)
@@ -185,7 +186,7 @@ qemu:
 	$(QEMU64) -M virt,gic-version=3 -cpu cortex-a55 -m 512M -device ramfb -nic none \
 	    -kernel build/rgb30-virt/kernel.elf -serial stdio -display none
 
-test: test-bt test-wifi
+test: test-bt test-wifi test-audio
 	$(MAKE) -f rgb30.mk PLAT=virt all build/rgb30-virt/carts/yharnam.bm
 	$(PYTHON) tests/rgb30/qemu_test.py --build build/rgb30-virt
 
@@ -221,6 +222,17 @@ build/rgb30-host/wifi_sim_test: tests/rgb30/wifi_sim_test.c $(WIFI_SIM_SRCS) src
 	$(HOSTCC) -O1 -g -w -fsanitize=address,undefined -DPLAT_RK3566 -DBM_HOST_TEST -Isrc -Isrc/rgb30 \
 	    -Isrc/net -Ithird_party/lwip/src/include -Ithird_party/mbedtls/include \
 	    -DMBEDTLS_CONFIG_FILE='"bm_mbedtls.h"' -o $@ tests/rgb30/wifi_sim_test.c $(WIFI_SIM_SRCS)
+
+# the sound driver (src/rgb30/rk_audio.c) on a simulated CRU, I2S and RK817
+build/rgb30-host/audio_sim_test: tests/rgb30/audio_sim_test.c src/rgb30/rk_audio.c src/lib/printf.c \
+                                 src/rgb30/*.h src/audio/*.h
+	@mkdir -p $(dir $@)
+	$(HOSTCC) -O1 -g -Wall -Wextra -Wno-format -fsanitize=address,undefined -DPLAT_RK3566 -DBM_HOST_TEST \
+	    -Itests/host/shim -Isrc -Isrc/rgb30 -o $@ tests/rgb30/audio_sim_test.c src/rgb30/rk_audio.c src/lib/printf.c
+
+test-audio: build/rgb30-host/audio_sim_test
+	build/rgb30-host/audio_sim_test 1188
+	build/rgb30-host/audio_sim_test 1200
 
 test-wifi: build/rgb30-host/rtw_frame_test build/rgb30-host/wpa_test build/rgb30-host/wifi_sim_test
 	build/rgb30-host/rtw_frame_test

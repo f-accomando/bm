@@ -24,6 +24,7 @@
 #include "net/net.h"
 #include "usb/hid.h"
 #include "wifi/wifi.h"
+#include "audio/audio.h"
 #ifdef BM_RGB30
 #include "rgb30/pad.h"
 #include "rgb30/plat.h"
@@ -33,7 +34,6 @@
 #include "input.h"
 #include "sysinfo.h"
 #include "testpattern.h"
-#include "audio/audio.h"
 #include "drivers/board.h"
 #include "drivers/prop.h"
 #include "drivers/uart.h"
@@ -407,7 +407,13 @@ void home_panel(int id, home_panel_t *p)
                  "Over the games: fps, ms, Lua instructions (F11 too)", "%s",
                  perf_name());
 #ifdef BM_RGB30
-        home_row(p, MENU_ROW_INFO, R_SOUND, "Sound", "The RGB30's speaker and headphones", "not yet");
+        /* the speaker, or the headphones (the console switches by itself) */
+        home_row(p, MENU_ROW_INFO, R_SOUND, "Sound", audio_status(), "%s", audio_ready() ? "on" : "off");
+        home_row(p, MENU_ROW_CHOICE, R_VOLUME, "Volume",
+                 "Sound of the games and tools (the + and - keys too)",
+                 "%d / %d", audio_volume(), AUDIO_VOLUME_MAX);
+        home_row(p, MENU_ROW_ACTION, R_AUDIO, "Test the sound",
+                 "The sound's state and a test tune", NULL);
 #else
         home_row(p, MENU_ROW_CHOICE, R_VOLUME, "Volume",
                  "Sound of the games and tools (games can change it in their pause menu)",
@@ -607,6 +613,13 @@ static void x_nettest(framebuffer_t *fb)
     free(data);
 }
 
+static void x_audio(framebuffer_t *fb)
+{
+    (void)fb;
+    heading("Test the sound");
+    audio_test();
+}
+
 static void x_log(framebuffer_t *fb)
 {
 #ifdef BM_RGB30
@@ -648,12 +661,6 @@ static void x_pattern(framebuffer_t *fb)
     kprintf("HDMI test pattern shown\n");
 }
 
-static void x_audio(framebuffer_t *fb)
-{
-    (void)fb;
-    heading("Test the sound");
-    audio_test();
-}
 #else
 static void x_modes(framebuffer_t *fb)
 {
@@ -814,6 +821,19 @@ void home_act(int id, int row, int how, home_do_t *d)
             ask(d, q, "The console restarts when it is done.", "Install");
         }
         break;
+    case R_VOLUME: {
+        int v = audio_volume() + (how ? how : 1);
+        if (how == 0 && v > AUDIO_VOLUME_MAX)
+            v = 0;                              /* A goes round */
+        audio_set_volume(v);
+        config_save();
+        audio_note(0, 880, 70, 4, 140);         /* a beep at the new volume */
+        ksnprintf(d->note, sizeof d->note, "volume: %d / %d", audio_volume(), AUDIO_VOLUME_MAX);
+        break;
+    }
+    case R_AUDIO:
+        if (how == 0) text(d, x_audio, 1, 0);
+        break;
 #ifdef BM_RGB30
     case R_CONFIRM:
         config_set("confirm", pad_ok == PAD_A ? "b" : "a");
@@ -830,16 +850,6 @@ void home_act(int id, int row, int how, home_do_t *d)
         config_save();
         ksnprintf(d->note, sizeof d->note, ".bm games draw %s", bm_via_ram() ? "via RAM" : "directly");
         break;
-    case R_VOLUME: {
-        int v = audio_volume() + (how ? how : 1);
-        if (how == 0 && v > AUDIO_VOLUME_MAX)
-            v = 0;                              /* A goes round */
-        audio_set_volume(v);
-        config_save();
-        audio_note(0, 880, 70, 4, 140);         /* a beep at the new volume */
-        ksnprintf(d->note, sizeof d->note, "volume: %d / %d", audio_volume(), AUDIO_VOLUME_MAX);
-        break;
-    }
     case R_GPU3D:
         config_set("gpu3d", gpu3d_on() ? "0" : "1");
         config_save();
@@ -873,9 +883,6 @@ void home_act(int id, int row, int how, home_do_t *d)
         break;
     case R_PATTERN:
         if (how == 0) text(d, x_pattern, 0, 0);
-        break;
-    case R_AUDIO:
-        if (how == 0) text(d, x_audio, 1, 0);
         break;
     case R_MONITOR:
         if (how == 0) d->what = HOME_MONITOR;

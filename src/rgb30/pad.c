@@ -126,7 +126,9 @@ uint32_t pad_state(void)
         }
     bt_poll();
     net_poll();
-    return held | plat_buttons() | from_hid(hid_buttons());
+    held |= plat_buttons() | from_hid(hid_buttons());
+    volume_keys(held, 1);
+    return held;
 }
 
 uint32_t pad_pressed(void)

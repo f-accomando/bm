@@ -3046,7 +3046,8 @@ Task:
 7. **Cartucce del Pi per le prove** (richiesta 2026-10-03): il runtime `.bm` compilato a 64 bit
    (sostituti dei driver del Pi in `src/rgb30/bm_port.c`, comandi in `bm_input.c`), avviato dal
    menu (visibili per le prove; `show_bm=0` le nasconde); Yharnam (256×256, dal branch `claude/yharnam`) nell'immagine SD,
-   ingrandita a tutto schermo. Provata in QEMU; il suono e la GPU Mali mancano ancora.
+   ingrandita a tutto schermo. Provata in QEMU; il suono c'è dal 2026-10-05 (vedi sotto), la
+   GPU Mali manca ancora.
 8. ✅ **Menu a tutto schermo con le schede** (richiesta 2026-10-03): 360×360 ingrandito ×2 sul
    pannello 720×720; schede Games / Dev / System come sul Pi (L1/R1); in Dev il **3D Bench**
    (`src/bm/b3d.c` con i contatori del Cortex-A55, rapporto in `bm/bench`), Render bench,
@@ -3081,6 +3082,23 @@ ms disegnando diretto, 7,30 ms via RAM (sul Pi 8,58 e 11,85).
 controller, mouse e tastiere, decisione dell'utente), la carica dalla tensione del RK817 (`battery_percent`) anche in
 *Settings > System*; le schede non passano più sotto le icone. Prove: `test_battery_icon`
 (QEMU, `test_battery=` in `bm/config.txt`); sulla console da vedere.
+
+**Il suono (2026-10-05, branch `claude/rgb30-audio`, richiesta dell'utente).** Lo stesso
+sintetizzatore e player del Pi: `src/audio/audio.c` è ora il cuore comune (voci, banchi, note,
+volume) e l'uscita è a parte (`audio_out.h`: `hdmi_audio.c` sul Pi, `src/rgb30/rk_audio.c` sulla
+RGB30, `virt_audio.c` in QEMU). Sulla console l'I2S1 del RK3566 (il TDM usato come I2S, 48 kHz
+16 bit, le uscite da TX) manda al codec del RK817, che con il suo amplificatore delle cuffie
+suona dalle cuffie o dall'altoparlante (lo scambio lo fa la console da sola). Valori di Linux
+(`rockchip_i2s_tdm.c`, `rk817_codec.c`, `rk8xx-core.c`, `clk-rk3568.c`, `io-domain.c`): MCLK
+12,288 MHz dal GPLL col divisore frazionario, pin GPIO1_A2/A3/A5/A7, vccio1 a 3,3 V, il codec
+acceso nell'ordine del DAPM. Niente DMA: l'interrupt della FIFO (SPI 53) la riempie da un pezzo
+di 256 campioni come l'interrupt DMA del Pi. Tasti + e − del volume ovunque (menu, pagine,
+giochi) con una barra sopra lo schermo (`notice_flash`), salvato in `volume=`; *Settings >
+Screen and sound*: Sound, Volume, Test the sound (stato, contatori dell'I2S, MCLK, la melodia
+di prova); il suonino d'avvio come sul Pi. Prove: `make TARGET=rgb30 test-audio` (il driver su
+CRU, I2S e RK817 simulati: MCLK, 48 kHz, ogni campione in ordine, nessun buco, l'ordine del
+codec), QEMU `test_sound` (440 Hz sentiti dalla sink, il volume a un quarto, `volume=5`).
+✅ **Verificato sulla RGB30** (2026-10-06, l'utente: "audio funziona"); unito al principale.
 
 ## M41 — RGB30: la GPU Mali e Overbit in `.b16` (XL)
 Richiesta dell'utente (2026-10-05): lo stesso banco di prova della GPU del Pi anche sulla

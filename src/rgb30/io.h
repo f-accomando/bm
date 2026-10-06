@@ -8,6 +8,11 @@
 
 #include <stdint.h>
 
+#ifdef BM_HOST_TEST
+/* the tests on the PC: the registers of a simulated chip (tests/rgb30/) */
+uint32_t readl(uintptr_t a);
+void writel(uintptr_t a, uint32_t v);
+#else
 static inline uint32_t readl(uintptr_t a)
 {
     return *(volatile uint32_t *)a;
@@ -17,6 +22,7 @@ static inline void writel(uintptr_t a, uint32_t v)
 {
     *(volatile uint32_t *)a = v;
 }
+#endif
 
 static inline void setbits(uintptr_t a, uint32_t bits)   { writel(a, readl(a) | bits); }
 static inline void clrbits(uintptr_t a, uint32_t bits)   { writel(a, readl(a) & ~bits); }
