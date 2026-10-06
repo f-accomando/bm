@@ -269,6 +269,8 @@ up_to_date() {                                  # before a build: the branch as 
 
 change_branch() {
     say "Branch"
+    local was
+    was=$(git hash-object "$SCRIPT" 2>/dev/null)
     # every branch on GitHub (whatever the clone's refspec), the ones deleted
     # there gone here too: without --prune they stayed in the list for ever
     git fetch -q --prune origin '+refs/heads/*:refs/remotes/origin/*' 2>/dev/null ||
@@ -297,6 +299,11 @@ change_branch() {
     # without tracking (a plain git pull refused it)
     git branch -q --set-upstream-to="origin/$b" 2>/dev/null || true
     git pull -q --ff-only origin "$b" || warn "git pull failed: $b is not where GitHub has it"
+    # this script came with the branch: the new one at once, not the copy in memory
+    if [ "$(git hash-object "$SCRIPT" 2>/dev/null)" != "$was" ]; then
+        ok "easy_install.sh changed with $b: starting the new one"
+        exec bash "$SCRIPT"
+    fi
 }
 
 change_paths() {
