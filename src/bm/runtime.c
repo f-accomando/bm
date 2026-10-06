@@ -39,6 +39,7 @@
 #include "kernel/reports.h"
 #include "kernel/syskeys.h"
 #include "n8lua.h"
+#include "ai/assist.h"
 #include "ai/lua_ai.h"
 #include "ai/net.h"
 #include "net/cartnet.h"
@@ -3868,6 +3869,15 @@ static lua_State *new_cart_state(const bm_cart_t *c)
     luaL_requiref(L, "n8", luaopen_n8, 1);      /* the nano8 machine (carts/nano8) */
     lua_pop(L, 1);
     ai_lua_open(L);             /* the assistant (M30): idle until asked */
+    {
+        /* its language (R18): assist_lang=it or en fixes it; auto (the
+         * default) follows the questions, from the language last used */
+        const char *al = config_get("assist_lang");
+        if (al && (!strcmp(al, "it") || !strcmp(al, "en")))
+            ai_set_lang(!strcmp(al, "en") ? AI_LANG_EN : AI_LANG_IT, 0);
+        else if (!ai_lang_follows())
+            ai_set_lang(ai_lang(), 1);
+    }
     nnet_lua_open(L);           /* small INT8 networks of the carts (M38.4) */
     bm_require_open(L);         /* require "assist": libraries in the kernel */
     static const char *const waves[SYNTH_WAVES] = { "SQUARE", "TRIANGLE", "SAW", "NOISE", "SINE", "METAL" };

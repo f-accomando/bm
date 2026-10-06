@@ -115,6 +115,9 @@ static void module(lua_State *L, const char *name)
 }
 
 void ai_lua_open(lua_State *L)                          { module(L, "ai"); }
+void ai_set_lang(int lang, int follow)                  { (void)lang; (void)follow; }
+int ai_lang(void)                                       { return 0; }
+int ai_lang_follows(void)                               { return 1; }
 void nnet_lua_open(lua_State *L)                        { module(L, "nnet"); }
 
 /* --- USB: the RGB30's port is not driven (no USB mouse or pad) --- */

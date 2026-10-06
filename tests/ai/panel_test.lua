@@ -94,7 +94,13 @@ check(inserted and inserted:find("lib.step(hero)", 1, true), "guide: Enter inser
 assist.open{ mode = "guide" }
 frame()
 type_("how do i start a 3d game")
-check(on_screen("Guida: il primo gioco 3D"), "guide: the first 3D game")
+-- R18: an English question, the answers in English (EN on the title bar);
+-- Ctrl+E back to Italian, which stays (the questions no longer choose)
+check(on_screen("Guide: your first 3D game"), "guide: the first 3D game, in English")
+check(on_screen("  EN"), "EN on the title bar")
+keys = { "^e" }
+frame()
+check(on_screen("Guida: il primo gioco 3D") and on_screen("  IT"), "Ctrl+E: in Italian")
 keys = { "esc" }
 frame()
 

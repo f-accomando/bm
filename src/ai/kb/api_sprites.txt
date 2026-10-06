@@ -4,6 +4,7 @@
 kind: api
 name: spr
 title: spr(n, x, y, [w, h, flip_x, flip_y]) - disegna uno sprite
+title_en: spr(n, x, y, [w, h, flip_x, flip_y]) - draws a sprite
 ask: come disegno uno sprite | disegnare uno sprite sullo schermo | draw a sprite
 ask: mostrare un'immagine dello sprite sheet | sprite 16x16 | sprite specchiato
 ask: girare lo sprite a sinistra | flip sprite | disegnare il personaggio | show an image
@@ -13,6 +14,11 @@ Disegna la cella n dello sprite sheet (celle 8x8, numerate da sinistra a
 destra e dall'alto in basso) in x, y. w e h dicono quante celle (2, 2 =
 uno sprite 16x16); flip_x e flip_y lo specchiano. I pixel trasparenti non
 vengono disegnati.
+text_en:
+Draws cell n of the sprite sheet (8x8 cells, numbered from left to right
+and from top to bottom) at x, y. w and h say how many cells (2, 2 = a
+16x16 sprite); flip_x and flip_y mirror it. Transparent pixels are not
+drawn.
 code:
 spr(1, x, y)                 -- la cella 1, 8x8
 spr(4, x, y, 2, 2)           -- 16x16 dalla cella 4
@@ -22,6 +28,7 @@ spr(4, x, y, 2, 2, true)     -- specchiato: guarda a sinistra
 kind: api
 name: sspr
 title: sspr(sx, sy, sw, sh, dx, dy, [flip_x, flip_y]) - un rettangolo dello sheet
+title_en: sspr(sx, sy, sw, sh, dx, dy, [flip_x, flip_y]) - a rectangle of the sheet
 ask: disegnare una parte qualsiasi dello sprite sheet | sprite di dimensioni strane
 ask: copiare un rettangolo dello sheet | draw part of the sprite sheet | sprite 24x24
 ask: sprite non multiplo di 8 | sfondo grande dallo sheet | blit
@@ -29,6 +36,10 @@ see: spr
 text:
 Copia il rettangolo dello sheet che parte da (sx, sy), largo sw e alto sh
 pixel, sullo schermo in (dx, dy). Per sprite che non sono a celle 8x8.
+text_en:
+Copies the rectangle of the sheet that starts at (sx, sy), sw pixels wide
+and sh pixels high, to the screen at (dx, dy). For sprites that are not
+made of 8x8 cells.
 code:
 sspr(0, 64, 24, 32, x, y)          -- uno sprite 24x32
 sspr(0, 128, 256, 64, 0, 296)      -- una striscia di sfondo
@@ -37,11 +48,15 @@ sspr(0, 128, 256, 64, 0, 296)      -- una striscia di sfondo
 kind: api
 name: sget
 title: sget(x, y) - legge un pixel dello sprite sheet
+title_en: sget(x, y) - reads a pixel of the sprite sheet
 ask: leggere un pixel dello sprite sheet | colore di un pixel dello sheet | get sheet pixel
 ask: copiare uno sprite pixel per pixel | read the sprite sheet
 see: sset, pget
 text:
 Il colore 0xRRGGBB del pixel (x, y) dello sheet, o nil se è trasparente.
+text_en:
+The 0xRRGGBB colour of pixel (x, y) of the sheet, or nil if it is
+transparent.
 code:
 local c = sget(8, 0)
 if c == nil then log("trasparente") end
@@ -50,6 +65,7 @@ if c == nil then log("trasparente") end
 kind: api
 name: sset
 title: sset(x, y, [c]) - scrive un pixel dello sprite sheet
+title_en: sset(x, y, [c]) - writes a pixel of the sprite sheet
 ask: disegnare uno sprite dal codice | modificare lo sprite sheet | write to the sprite sheet
 ask: creare uno sprite senza png | sprite da una stringa | cambiare colore a uno sprite
 ask: rendere trasparente un pixel | sprite generati nel codice | set sheet pixel
@@ -57,6 +73,10 @@ see: sget, sprite_from_string
 text:
 Cambia un pixel dello sheet: con c il colore, senza c diventa trasparente.
 Così si disegnano sprite senza PNG o si modificano durante il gioco.
+text_en:
+Changes a pixel of the sheet: with c the colour, without c it becomes
+transparent. This way you draw sprites without a PNG or change them
+during the game.
 code:
 sset(0, 0, 0xFF0000)      -- rosso
 sset(1, 0)                -- trasparente
@@ -66,6 +86,7 @@ spr(0, x, y)              -- la cella 0, cambiata
 kind: api
 name: map
 title: map(mx, my, [x, y, mw, mh, layer, mask]) - disegna la mappa a tile
+title_en: map(mx, my, [x, y, mw, mh, layer, mask]) - draws the tile map
 ask: disegnare la mappa | mostrare il livello | draw the tile map | tilemap
 ask: disegnare le tile | mappa del livello sullo schermo | sfondo a tessere
 ask: disegnare un livello della mappa | draw one map layer | solo le tile con un flag
@@ -76,6 +97,12 @@ Disegna la mappa dalla cella (mx, my), mw x mh celle, con l'angolo in
 vuota). Con una mappa grande disegna solo la parte visibile. layer: il
 livello (numero da 1 o nome, 1 se manca); mask: solo le tile che hanno uno
 di quei flag (fget).
+text_en:
+Draws the map from cell (mx, my), mw x mh cells, with the corner at
+(x, y). Each cell of the map is a cell number of the sheet (0 = empty).
+With a big map it draws only the visible part. layer: the layer (a
+number from 1 or a name, 1 if missing); mask: only the tiles that have
+one of those flags (fget).
 code:
 map(0, 0)                          -- tutta, dall'angolo
 map(0, 0, 0, 0, 80, 45)            -- 80x45 celle 8x8 = tutto lo schermo
@@ -85,6 +112,7 @@ map(0, 0, 0, 0, 80, 45, "front")   -- il livello davanti all'eroe
 kind: api
 name: mget
 title: mget(mx, my, [layer]) - legge una cella della mappa
+title_en: mget(mx, my, [layer]) - reads a cell of the map
 ask: leggere una cella della mappa | che tile c'è in un punto | get map tile
 ask: tile sotto il giocatore | collisione con la mappa | muro della mappa | read the map
 see: mset, map, collide_map, fget
@@ -93,6 +121,11 @@ Il numero della cella (mx, my) della mappa, 0 se è vuota (anche fuori
 dalla mappa). Da coordinate in pixel a celle: dividi per 8 (x // 8).
 layer: il livello (numero o nome). Che cosa è la tile lo dicono i suoi
 flag (fget).
+text_en:
+The number of cell (mx, my) of the map, 0 if it is empty (also outside
+the map). From pixel coordinates to cells: divide by 8 (x // 8).
+layer: the layer (a number or a name). Its flags (fget) say what the
+tile is.
 code:
 local t = mget(px // 8, py // 8)
 if fget(t, 0) then                 -- il flag 0: solido
@@ -103,12 +136,16 @@ end
 kind: api
 name: mset
 title: mset(mx, my, n, [layer]) - cambia una cella della mappa
+title_en: mset(mx, my, n, [layer]) - changes a cell of the map
 ask: cambiare una tile della mappa | scrivere nella mappa | set map tile
 ask: aprire una porta nella mappa | togliere una moneta dalla mappa | modificare il livello
 see: mget, map, pickup_tiles
 text:
 Mette la cella n dello sheet nella cella (mx, my) della mappa (0 la
 svuota): porte che si aprono, oggetti raccolti, livelli generati.
+text_en:
+Puts cell n of the sheet in cell (mx, my) of the map (0 empties it):
+doors that open, items picked up, generated levels.
 code:
 local cx, cy = px // 8, py // 8
 if mget(cx, cy) == 5 then          -- 5: una moneta
@@ -120,6 +157,7 @@ end
 kind: api
 name: fget
 title: fget(n, [f]) - i flag di una tile (muro, acqua, scala...)
+title_en: fget(n, [f]) - the flags of a tile (wall, water, ladder...)
 ask: flag delle tile | sapere se una tile è solida | tile flags | sprite flags
 ask: che tipo di tile è | proprietà di una tile | is this tile a wall | fget
 ask: tile che fa male | tile acqua | leggere i flag
@@ -130,6 +168,11 @@ Ogni tile (cella dello sheet) ha 8 flag, da 0 a 7. fget(n) li dà tutti in
 un byte, fget(n, f) solo il flag f (true o false). La convenzione di
 bmlib: 0 solido, 1 piattaforma, 2 scala, 3 acqua, 4 fa male. Vengono da
 mkbm.py --flags, dall'editor (tasti 0-7) o da fset.
+text_en:
+Each tile (cell of the sheet) has 8 flags, from 0 to 7. fget(n) gives
+them all in a byte, fget(n, f) only flag f (true or false). The bmlib
+convention: 0 solid, 1 platform, 2 ladder, 3 water, 4 hurts. They come
+from mkbm.py --flags, from the editor (keys 0-7) or from fset.
 code:
 if fget(mget(cx, cy), 0) then      -- la cella è solida
   blocked = true
@@ -140,6 +183,7 @@ local f = fget(12)                 -- tutti gli 8 flag della tile 12
 kind: api
 name: fset
 title: fset(n, f, on) / fset(n, byte) - cambia i flag di una tile
+title_en: fset(n, f, on) / fset(n, byte) - changes the flags of a tile
 ask: impostare i flag di una tile | rendere solida una tile | set tile flag
 ask: dire che una tile è un muro | segnare le tile pericolose | fset
 ask: segnare una tile come muro | rendere una tile un ostacolo | mark a tile as solid | dire al gioco quali tile bloccano
@@ -149,6 +193,10 @@ text:
 Accende o spegne il flag f (0-7) della tile n; con due argomenti scrive
 tutti gli 8 flag insieme. Di solito in _init, o una volta per tutte con
 mkbm.py --flags o l'editor (tasti 0-7 sulla pagina degli sprite).
+text_en:
+Turns flag f (0-7) of tile n on or off; with two arguments it writes
+all 8 flags at once. Usually in _init, or once and for all with mkbm.py
+--flags or the editor (keys 0-7 on the sprite page).
 code:
 fset(1, 0, true)                   -- la tile 1 è solida
 fset(2, 1, true)                   -- la tile 2 è una piattaforma
@@ -158,6 +206,7 @@ fset(9, 4 | 16)                    -- scala che fa male: flag 2 e 4
 kind: api
 name: mflags
 title: mflags(x, y, [w, h, layer]) - i flag della mappa sotto un rettangolo
+title_en: mflags(x, y, [w, h, layer]) - the map flags under a rectangle
 ask: cosa tocca il personaggio nella mappa | collisione in pixel con la mappa
 ask: flag sotto i piedi | toccare un muro | il giocatore è a terra | mflags
 ask: what tiles does the box touch | map collision in pixels
@@ -168,6 +217,10 @@ text:
 I flag di tutte le tile che il rettangolo (in pixel, la mappa disegnata a
 0, 0) tocca, messi insieme: 0 = niente. Senza w e h un punto. Una
 chiamata sola invece di tanti mget e fget.
+text_en:
+The flags of all the tiles the rectangle (in pixels, the map drawn at
+0, 0) touches, put together: 0 = nothing. Without w and h, a point. One
+single call instead of many mget and fget.
 code:
 if mflags(px, py + 8, 8, 1) & 1 ~= 0 then   -- qualcosa di solido sotto
   on_ground = true
@@ -178,6 +231,7 @@ if mflags(px, py, 8, 8) & 16 ~= 0 then lives = lives - 1 end
 kind: api
 name: msize
 title: msize([w, h]) - la misura della mappa
+title_en: msize([w, h]) - the size of the map
 ask: quanto è grande la mappa | misura della mappa | map size | larghezza della mappa
 ask: cambiare la misura della mappa | mappa più grande | resize the map
 keys: msize, misura, mappa
@@ -185,6 +239,9 @@ see: map, mlayers
 text:
 w, h, livelli: la mappa in celle e quanti livelli ha. Con w e h la porta a
 quella misura (tutti i livelli), le celle che ci stanno restano.
+text_en:
+w, h, layers: the map in cells and how many layers it has. With w and h
+it gets that size (all the layers); the cells that fit stay.
 code:
 local w, h = msize()
 local larghezza_px = w * 8
@@ -194,6 +251,7 @@ msize(160, 45)                     -- 1280x360 pixel
 kind: api
 name: mlayers
 title: mlayers([lista]) - i livelli della mappa
+title_en: mlayers([list]) - the layers of the map
 ask: livelli della mappa | aggiungere un livello alla mappa | map layers
 ask: elenco dei livelli | rinominare un livello | togliere un livello | mlayers
 keys: livelli, layers
@@ -202,6 +260,10 @@ text:
 I nomi dei livelli, in ordine (il primo si disegna dietro). Con una lista
 (1-8 voci) la mappa prende quei livelli: un nome tiene il livello con quel
 nome (o ne fa uno nuovo vuoto), {nome, da} ne copia un altro.
+text_en:
+The names of the layers, in order (the first is drawn at the back). With
+a list (1-8 entries) the map gets those layers: a name keeps the layer
+with that name (or makes a new empty one), {name, from} copies another.
 code:
 local nomi = mlayers()             -- { "main", "front" }
 mlayers({ "main", "front", "top" })        -- uno in più
@@ -211,6 +273,7 @@ mlayers({ "main", { "davanti", "front" } }) -- rinominato
 kind: api
 name: zspr
 title: zspr(nome, x, y, [fotogramma, flip_x, flip_y, zoom]) - uno sprite per nome
+title_en: zspr(name, x, y, [frame, flip_x, flip_y, zoom]) - a sprite by name
 ask: disegnare uno sprite per nome | sprite con un nome | named sprite | zona dello sheet
 ask: animazione con i fotogrammi dello sheet | zspr | sprite animato da solo
 ask: draw a sprite by its name | animate a named sprite
@@ -220,6 +283,10 @@ text:
 Disegna la zona con quel nome dello sheet (sezione SPRITES: mkbm.py
 --sprites, bm Pixel, bmres.py). Senza fotogramma va da sola alla velocità
 della zona; restituisce il fotogramma disegnato.
+text_en:
+Draws the zone of the sheet with that name (SPRITES section: mkbm.py
+--sprites, bm Pixel, bmres.py). Without a frame it runs by itself at the
+zone's speed; it returns the frame drawn.
 code:
 zspr("moneta", x, y)               -- animata da sola
 zspr("eroe_corre", x, y, nil, vx < 0)
@@ -229,6 +296,7 @@ zspr("eroe_fermo", x, y, 1)        -- un fotogramma preciso
 kind: api
 name: zone
 title: zone(nome) / zones() - dove sta una zona con nome dello sheet
+title_en: zone(name) / zones() - where a named zone of the sheet is
 ask: misura di uno sprite con nome | zone dello sheet | zones | elenco degli sprite
 ask: dove sta lo sprite nello sheet | quanti fotogrammi ha
 keys: zone, zones
@@ -236,6 +304,9 @@ see: zspr, named_sprites
 text:
 zone(nome) dà x, y, w, h, fotogrammi, fps (il primo fotogramma, in pixel
 dello sheet), o nil; zones() i nomi di tutte le zone.
+text_en:
+zone(name) gives x, y, w, h, frames, fps (the first frame, in sheet
+pixels), or nil; zones() the names of all the zones.
 code:
 local _, _, w, h = zone("eroe_corre")    -- per la hitbox
 for _, n in ipairs(zones()) do log(n) end
@@ -244,6 +315,7 @@ for _, n in ipairs(zones()) do log(n) end
 kind: api
 name: zboxes
 title: zboxes(nome, [fotogramma, tipo]) - hitbox e hurtbox dei fotogrammi
+title_en: zboxes(name, [frame, kind]) - hitboxes and hurtboxes of the frames
 ask: hitbox dei fotogrammi | hurtbox dello sprite | zboxes | riquadri dei colpi nello sheet
 ask: dove colpisce il pugno in questo fotogramma | hitbox per ogni fotogramma
 ask: frame hitboxes from the sheet | boxes of an animation frame | collision boxes per frame
@@ -255,6 +327,12 @@ body sotto la zona in mkbm.py --sprites): una lista di {x, y, w, h,
 kind, frame}, x e y dall'angolo del fotogramma. Con il fotogramma, i suoi
 e quelli di tutti i fotogrammi; tipo ne tiene uno ("hurt", "hit", "body"
 o un numero del gioco).
+text_en:
+The boxes of the frames of a zone (BOXES section: hurt, hit, body lines
+under the zone in mkbm.py --sprites): a list of {x, y, w, h, kind,
+frame}, x and y from the corner of the frame. With the frame, its boxes
+and those of every frame; kind keeps one kind ("hurt", "hit", "body" or
+a number of the game).
 code:
 for _, b in ipairs(zboxes("pugno", frame, "hit")) do
   rect(x + b.x, y + b.y, b.w, b.h, 0xFF4040)

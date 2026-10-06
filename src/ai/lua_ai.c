@@ -88,6 +88,11 @@ static int l_ask(lua_State *L)
     if (n < 1) n = 1;
     if (n > 20) n = 20;
     ready(L);
+    if (ai_lang_follows()) {            /* the answers in the question's language (R18) */
+        const int l = ai_lang_of(q);
+        if (l >= 0)
+            ai_set_lang(l, 1);
+    }
     ai_hit_t hits[20];
     uint32_t t0 = timer_ticks();
     int k = ai_ask(q, ctx, kinds, hits, n);
@@ -98,7 +103,7 @@ static int l_ask(lua_State *L)
         ai_get(hits[i].entry, &e);
         lua_createtable(L, 0, 4);
         field_str(L, "id", e.id);
-        field_str(L, "title", e.title);
+        field_str(L, "title", ai_title(&e));
         field_str(L, "kind", e.kind);
         lua_pushnumber(L, hits[i].score);
         lua_setfield(L, -2, "score");
@@ -120,9 +125,9 @@ static int l_entry(lua_State *L)
     lua_createtable(L, 0, 9);
     field_str(L, "id", e.id);
     field_str(L, "kind", e.kind);
-    field_str(L, "title", e.title);
+    field_str(L, "title", ai_title(&e));
     field_str(L, "name", e.name);
-    field_str(L, "text", e.text);
+    field_str(L, "text", ai_text(&e));
     field_str(L, "code", e.code);
     field_str(L, "gen", e.gen);
     lua_newtable(L);
@@ -151,7 +156,7 @@ static int l_list(lua_State *L)
             continue;
         lua_createtable(L, 0, 3);
         field_str(L, "id", e.id);
-        field_str(L, "title", e.title);
+        field_str(L, "title", ai_title(&e));
         field_str(L, "kind", e.kind);
         lua_rawseti(L, -2, ++n);
     }
@@ -196,7 +201,7 @@ static int l_sprite(lua_State *L)
             ai_get(hit.entry, &e);
             if (spr_find(e.gen) >= 0) {
                 gen = spr_recipe_id(spr_find(e.gen));
-                title = e.title;
+                title = ai_title(&e);
             }
         }
     }
@@ -385,7 +390,7 @@ static int l_mesh(lua_State *L)
             ai_get(hit.entry, &e);
             if (mesh_find(e.gen) >= 0) {
                 gen = mesh_recipe_id(mesh_find(e.gen));
-                title = e.title;
+                title = ai_title(&e);
             }
         }
     }
@@ -461,8 +466,27 @@ static int l_recipes(lua_State *L)
     return 1;
 }
 
+/* ai.lang([l]) -> "it" or "en", and whether it follows the questions:
+ * "it", "en" fix the language of the answers, "auto" lets the questions
+ * choose it (R18; bm/config.txt assist_lang) */
+static int l_lang(lua_State *L)
+{
+    if (lua_isstring(L, 1)) {
+        const char *l = lua_tostring(L, 1);
+        if (!strcmp(l, "en") || !strcmp(l, "it"))
+            ai_set_lang(!strcmp(l, "en") ? AI_LANG_EN : AI_LANG_IT, 0);
+        else if (!strcmp(l, "auto"))
+            ai_set_lang(ai_lang(), 1);
+        else
+            return luaL_argerror(L, 1, "\"it\", \"en\" or \"auto\"");
+    }
+    lua_pushstring(L, ai_lang() == AI_LANG_EN ? "en" : "it");
+    lua_pushboolean(L, ai_lang_follows());
+    return 2;
+}
+
 static const luaL_Reg fns[] = {
-    { "ask", l_ask }, { "entry", l_entry }, { "list", l_list }, { "near", l_near },
+    { "lang", l_lang }, { "ask", l_ask }, { "entry", l_entry }, { "list", l_list }, { "near", l_near },
     { "sprite", l_sprite }, { "recipes", l_recipes }, { "checksum", l_checksum }, { "mesh", l_mesh }, { "script", l_script },
     { NULL, NULL },
 };

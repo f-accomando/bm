@@ -3,6 +3,7 @@
 == game_skeleton
 kind: howto
 title: Lo scheletro di un gioco completo
+title_en: The skeleton of a complete game
 ask: da dove comincio un gioco | gioco vuoto da cui partire | template di un gioco
 ask: struttura minima di un gioco | game template | starting point for a game
 ask: primo gioco | nuovo gioco da zero | esempio completo minimo
@@ -11,6 +12,9 @@ see: callbacks, game_states
 text:
 Variabili in _init (così una nuova partita riparte da capo), logica in
 _update, disegno in _draw.
+text_en:
+Variables in _init (so a new game starts over from the beginning), logic
+in _update, drawing in _draw.
 code:
 function _init()
   px, py = 320, 180
@@ -33,6 +37,7 @@ end
 == game_states
 kind: howto
 title: Stati del gioco: titolo, partita, game over
+title_en: Game states: title, play, game over
 ask: schermata del titolo e game over | stati del gioco | game states | scene diverse
 ask: menu iniziale poi la partita | passare dal menu al gioco | state machine
 ask: schermata di fine partita | ricominciare dopo il game over | title screen
@@ -41,6 +46,9 @@ see: title_menu, game_over_screen, lib.states
 text:
 Una variabile dice in che stato sei; _update e _draw fanno cose diverse a
 seconda dello stato.
+text_en:
+A variable says which state you are in; _update and _draw do different
+things depending on the state.
 code:
 state = "title"
 
@@ -65,6 +73,7 @@ end
 == timer
 kind: howto
 title: Un timer: fare qualcosa ogni N secondi
+title_en: A timer: doing something every N seconds
 ask: fare qualcosa ogni secondo | timer | ogni tot fotogrammi | ripetere ogni 2 secondi
 ask: aspettare prima di fare una cosa | ritardo | delay | every n seconds | contatore
 ask: generare un nemico ogni tanto | attendere mezzo secondo
@@ -72,6 +81,8 @@ keys: timer, ritardo, aspettare
 see: time, countdown, lib.after
 text:
 Si conta in fotogrammi (60 al secondo): un contatore che scende a zero.
+text_en:
+You count in frames (60 per second): a counter that goes down to zero.
 code:
 local spawn_t = 0
 
@@ -86,6 +97,7 @@ end
 == countdown
 kind: howto
 title: Conto alla rovescia sullo schermo
+title_en: A countdown on the screen
 ask: conto alla rovescia | tempo che scade | countdown timer | tempo limite del livello
 ask: mostrare i secondi rimasti | gioco a tempo | time limit
 ask: tempo che diminuisce | secondi che calano
@@ -94,6 +106,9 @@ see: timer, time
 text:
 time() dà i secondi dall'avvio: il tempo rimasto è il limite meno quanto
 è passato dall'inizio del livello.
+text_en:
+time() gives the seconds since start-up: the time left is the limit minus
+how much has passed since the level began.
 code:
 local limit, start = 60, time()
 
@@ -106,6 +121,7 @@ end
 == blink
 kind: howto
 title: Far lampeggiare qualcosa
+title_en: Making something blink
 ask: testo che lampeggia | far lampeggiare lo sprite | blink | intermittente
 ask: scritta premi start che lampeggia | flashing text | sprite che sfarfalla
 keys: lampeggiare, blink
@@ -113,6 +129,8 @@ see: invincible
 text:
 Con il numero del fotogramma: visibile per 30 fotogrammi, invisibile per
 altri 30.
+text_en:
+With the frame number: visible for 30 frames, invisible for another 30.
 code:
 if (stat(3) // 30) % 2 == 0 then
   print("PREMI START", 272, 300, 0xFFFFFF)
@@ -121,6 +139,7 @@ end
 == pause
 kind: howto
 title: Mettere in pausa il gioco
+title_en: Pausing the game
 ask: mettere in pausa | pausa con start | pause the game | fermare il gioco
 ask: menu di pausa | stop temporaneo
 keys: pausa, pause
@@ -128,6 +147,9 @@ see: btnp, lib.pause
 text:
 Start da solo è libero per la pausa (Start+Select esce). In pausa
 _update non muove niente.
+text_en:
+Start on its own is free for the pause (Start+Select quits). While paused,
+_update moves nothing.
 code:
 paused = false
 
@@ -145,6 +167,7 @@ end
 == restart
 kind: howto
 title: Ricominciare la partita
+title_en: Restarting the game
 ask: ricominciare da capo | reset del gioco | restart the game | nuova partita
 ask: azzerare punteggio e vite | riavviare il livello
 keys: ricominciare, reset, restart
@@ -152,6 +175,9 @@ see: game_states
 text:
 Metti tutto lo stato della partita in una funzione e chiamala sia da _init
 sia quando si ricomincia.
+text_en:
+Put all the state of the game in a function and call it both from _init
+and when the player starts again.
 code:
 function new_game()
   px, py, score, lives = 320, 180, 0, 3
@@ -167,6 +193,7 @@ end
 == perf_measure
 kind: howto
 title: Misurare fps e tempo per fotogramma
+title_en: Measuring fps and time per frame
 ask: il gioco va lento | misurare le prestazioni | quanti fps | is my game fast enough
 ask: rallentamenti | lag | ottimizzare | quanti millisecondi usa | performance
 keys: lento, fps, prestazioni
@@ -174,6 +201,9 @@ see: stat, perf_tips
 text:
 stat(1) è il tempo dell'ultimo fotogramma in ms (il budget è 16,7), stat(2)
 gli fps. Stampali in un angolo mentre provi.
+text_en:
+stat(1) is the time of the last frame in ms (the budget is 16.7), stat(2)
+the fps. Print them in a corner while you test.
 code:
 function _draw()
   draw_game()
@@ -183,11 +213,14 @@ end
 == frame_count
 kind: howto
 title: Contare i fotogrammi
+title_en: Counting frames
 ask: numero del fotogramma | contare i frame | frame counter | quanti fotogrammi sono passati
 keys: fotogramma, frame
 see: stat, anim_frames
 text:
 stat(3) è il numero del fotogramma; oppure un tuo contatore in _update.
+text_en:
+stat(3) is the frame number; or use your own counter in _update.
 code:
 t = (t or 0) + 1
 if t % 60 == 0 then log("un altro secondo") end

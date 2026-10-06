@@ -3,6 +3,7 @@
 == map_scroll
 kind: howto
 title: Mappa grande che scorre con il giocatore
+title_en: A big map that scrolls with the player
 ask: mappa più grande dello schermo | scorrimento della mappa | scrolling map
 ask: la telecamera segue il giocatore | livello che scorre | side scroller
 ask: disegnare solo la parte visibile della mappa
@@ -12,6 +13,9 @@ see: camera, map, camera_smooth, lib.camera
 text:
 camera() sul giocatore e map() solo per le celle visibili (81x46 celle
 coprono lo schermo anche a metà cella).
+text_en:
+camera() on the player and map() only for the visible cells (81x46 cells
+cover the screen even at half a cell).
 code:
 local cx = math.max(0, px - SCREEN_W // 2)
 local cy = math.max(0, py - SCREEN_H // 2)
@@ -23,6 +27,7 @@ camera()
 == camera_smooth
 kind: howto
 title: Telecamera morbida che insegue
+title_en: A smooth camera that follows
 ask: telecamera morbida | la camera segue con ritardo | smooth camera | lerp camera
 ask: scorrimento fluido | camera che scatta
 keys: morbida, fluido, lerp
@@ -30,6 +35,8 @@ see: map_scroll, lib.camera
 text:
 Ogni fotogramma la camera fa un pezzo (qui il 10%) della strada verso il
 giocatore.
+text_en:
+Every frame the camera covers a piece (here 10%) of the way to the player.
 code:
 camx = camx + (px - SCREEN_W / 2 - camx) * 0.1
 camy = camy + (py - SCREEN_H / 2 - camy) * 0.1
@@ -38,6 +45,7 @@ camera(math.floor(camx), math.floor(camy))
 == pickup_tiles
 kind: howto
 title: Raccogliere oggetti dalla mappa (monete)
+title_en: Picking up items from the map (coins)
 ask: raccogliere le monete | prendere un oggetto dalla mappa | collect coins
 ask: togliere la moneta quando la tocco | oggetti da raccogliere | pickups
 keys: raccogliere, monete, coins
@@ -45,6 +53,9 @@ see: mset, mget
 text:
 Guarda la cella sotto il centro del giocatore: se è una moneta, svuotala
 con mset e dai i punti.
+text_en:
+Look at the cell under the centre of the player: if it is a coin, empty it
+with mset and give the points.
 code:
 local cx, cy = (px + 4) // 8, (py + 4) // 8
 if mget(cx, cy) == 5 then              -- 5: la moneta nello sheet
@@ -56,6 +67,7 @@ end
 == tile_flags
 kind: howto
 title: Tipi di tile con i flag (muro, piattaforma, scala, pericolo)
+title_en: Tile types with flags (wall, platform, ladder, danger)
 ask: quali tile sono solide | tipi di tile | muri e pavimento | tile types
 ask: tile che fanno male | acqua lava spine | proprietà delle tile
 ask: segnare quali tile sono muri | tile flags | come uso i flag delle tile
@@ -67,6 +79,11 @@ Ogni tile ha 8 flag: dicono che cosa è per il gioco, così il codice non
 dipende dai numeri delle tile. Convenzione di bmlib: 0 solido (1), 1
 piattaforma (2), 2 scala (4), 3 acqua (8), 4 fa male (16). Si danno con
 mkbm.py --flags, con l'editor (tasti 0-7) o con fset.
+text_en:
+Each tile has 8 flags: they say what it is to the game, so the code does
+not depend on the numbers of the tiles. The bmlib convention: 0 solid (1),
+1 platform (2), 2 ladder (4), 3 water (8), 4 hurts (16). You set them with
+mkbm.py --flags, with the editor (keys 0-7) or with fset.
 code:
 fset(32, 0, true)                       -- muro
 fset(64, 4, true)                       -- spine: fanno male
@@ -76,12 +93,15 @@ if f & 16 ~= 0 then lives = lives - 1 end
 == map_in_code
 kind: howto
 title: Scrivere un livello nel codice (con mset)
+title_en: Writing a level in the code (with mset)
 ask: livello scritto nel codice | mappa da stringhe | creare la mappa senza csv
 ask: disegnare il livello con i caratteri | level from text
 keys: livello, stringhe, mset
 see: mset, map
 text:
 Ogni carattere è una tile: # muro (cella 32), o moneta (cella 5).
+text_en:
+Each character is a tile: # wall (cell 32), o coin (cell 5).
 code:
 local level = {
   "##########",
@@ -99,6 +119,7 @@ end
 == map_layers
 kind: howto
 title: Livelli della mappa: cose davanti al personaggio
+title_en: Map layers: things in front of the character
 ask: albero davanti al personaggio | il personaggio passa dietro | map layers
 ask: mappa a più livelli | livello sopra il giocatore | draw tiles over the player
 ask: tetti e chiome davanti | sfondo e primo piano della mappa | foreground layer
@@ -108,6 +129,10 @@ text:
 La mappa ha fino a 8 livelli della stessa misura. Disegna il livello di
 sotto, poi gli sprite, poi quello davanti. Nel .bm: mkbm.py --map
 mappa.csv --map front=davanti.csv; ogni livello si legge e scrive da sé.
+text_en:
+The map has up to 8 layers of the same size. Draw the layer below, then
+the sprites, then the one in front. In the .bm: mkbm.py --map mappa.csv
+--map front=davanti.csv; each layer is read and written on its own.
 code:
 map(0, 0, 0, 0, 80, 45, "main")    -- pavimento e muri
 spr(1, px, py)
@@ -117,6 +142,7 @@ if mget(cx, cy, "front") ~= 0 then hidden = true end
 == map_gen
 kind: howto
 title: Generare una mappa a caso (grotte)
+title_en: Generating a random map (caves)
 ask: generare una mappa casuale | livello procedurale | random cave | dungeon generato
 ask: mappa diversa ogni partita | generazione procedurale
 keys: generare, procedurale, casuale
@@ -124,6 +150,9 @@ see: mset, map_in_code
 text:
 Riempi a caso, poi qualche passo di "automa cellulare": una cella diventa
 muro se intorno ci sono tanti muri. Viene una grotta.
+text_en:
+Fill it at random, then a few steps of "cellular automaton": a cell
+becomes a wall if there are many walls around it. You get a cave.
 code:
 local W, H = 80, 45
 for y = 0, H - 1 do

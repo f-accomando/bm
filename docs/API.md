@@ -506,9 +506,10 @@ network are in the kernel). Try it from **Dev > Assistant** (or `I` from the mon
 
 | Function | Description |
 |---|---|
-| `ai.ask(question, [{n=5, ctx=word, kinds="api,howto"}])` | the best entries, the first the most likely: `{ {id=, title=, kind=, score=}, … }`, and as the second value the microseconds taken. `ctx`: the word under the cursor (if it is a function of the API, its entry goes to the top). `kinds`: `api`, `howto`, `error`, `tip`, `sprite` |
+| `ai.ask(question, [{n=5, ctx=word, kinds="api,howto"}])` | the best entries, the first the most likely: `{ {id=, title=, kind=, score=}, … }`, and as the second value the microseconds taken. Titles and texts are in the language of the answers (`ai.lang()`), which follows the question's. `ctx`: the word under the cursor (if it is a function of the API, its entry goes to the top). `kinds`: `api`, `howto`, `error`, `tip`, `sprite` |
 | `ai.entry(id)` | an entry: `{id, kind, title, name, text, code, gen, see = {id, …}}` |
 | `ai.list([kinds])` | all the entries `{id, title, kind}` (to browse them with the pad) |
+| `ai.lang([language])` | the language of the answers (R18): `"it"` or `"en"`, and whether it follows the questions (`true`); `"it"`/`"en"` fix it, `"auto"` makes it follow the language of each question again. It starts from `assist_lang` in `bm/config.txt` (`it`, `en`, `auto`: the default, from the language used last). In the panel Ctrl+E changes it; the language is on the title bar |
 | `ai.near(word)` | the name of the API closest to a misspelt word (`"sprr"` → `"spr"`, 1), or `nil` |
 | `ai.sprite(request, [{gen=, size=16, seed=1, outline=true, palette={…}}])` | the base of a sprite: `{w, h, gen, name, seed, px = {0xRRGGBB or -1 (transparent), …}}` row by row. The recipe comes from the words (`"slime"`, `"spaceship"`, `"coin"`, `"grass"`…) or from `gen`; the colours (`"red"`, `"blu"`…) and the size (`"8x8"`, `"32x32"`, `"small"`, `"big"`) from the words; another `seed` is a variant; with `palette` each pixel becomes the closest colour of the palette |
 | `ai.recipes()` | the sprites' recipes `{id, name}`; `ai.recipes("mesh")` the 3D ones `{id, name, rigged}` |

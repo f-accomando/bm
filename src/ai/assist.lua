@@ -351,6 +351,7 @@ function M.key(k)
   elseif k == "\b" then
     if st.q ~= "" then st.q = st.q:sub(1, -2); refresh(); suggest() end
   elseif k == "^u" then st.q = ""; st.ctx = nil; refresh()
+  elseif k == "^e" and ai.lang then ai.lang(ai.lang() == "en" and "it" or "en"); refresh()
   elseif k == "\t" then
     -- the suggestion, or the next mode: code, sprite, any
     if comp then st.comp = comp; accept() else next_mode() end
@@ -495,8 +496,10 @@ function M.draw()
   -- title
   rectfill(x, y, w, fh, C_BAR)
   print("Assistant", tx, y, C_ACC)
-  local right = st.mode
-  if st.us then right = string.format("%s  %.1f ms", st.mode, st.us / 1000) end
+  -- the mode, the language of the answers (Ctrl+E changes it; it follows
+  -- the questions until then: R18), the time of the last answer
+  local right = st.mode .. (ai.lang and "  " .. ai.lang():upper() or "")
+  if st.us then right = string.format("%s  %.1f ms", right, st.us / 1000) end
   print(right, x + w - fw - #right * fw, y, C_DIM)
   -- question
   local qy = y + fh

@@ -511,9 +511,10 @@ Si prova da **Dev > Assistant** (o `I` dal monitor).
 
 | Funzione | Descrizione |
 |---|---|
-| `ai.ask(domanda, [{n=5, ctx=parola, kinds="api,howto"}])` | le voci migliori, la prima è la più probabile: `{ {id=, title=, kind=, score=}, … }`, e come secondo valore i microsecondi impiegati. `ctx`: la parola sotto il cursore (se è una funzione delle API, la sua voce va in cima). `kinds`: `api`, `howto`, `error`, `tip`, `sprite` |
+| `ai.ask(domanda, [{n=5, ctx=parola, kinds="api,howto"}])` | le voci migliori, la prima è la più probabile: `{ {id=, title=, kind=, score=}, … }`, e come secondo valore i microsecondi impiegati. Titoli e testi sono nella lingua delle risposte (`ai.lang()`), che segue quella della domanda. `ctx`: la parola sotto il cursore (se è una funzione delle API, la sua voce va in cima). `kinds`: `api`, `howto`, `error`, `tip`, `sprite` |
 | `ai.entry(id)` | una voce: `{id, kind, title, name, text, code, gen, see = {id, …}}` |
 | `ai.list([kinds])` | tutte le voci `{id, title, kind}` (per sfogliarle col pad) |
+| `ai.lang([lingua])` | la lingua delle risposte (R18): `"it"` o `"en"`, e se segue le domande (`true`); `"it"`/`"en"` la fissano, `"auto"` la fa seguire di nuovo la lingua di ogni domanda. Si parte da `assist_lang` di `bm/config.txt` (`it`, `en`, `auto`: il predefinito, dalla lingua usata per ultima). Nel pannello Ctrl+E la cambia; la lingua è nella barra del titolo |
 | `ai.near(parola)` | il nome delle API più vicino a una parola scritta male (`"sprr"` → `"spr"`, 1), o `nil` |
 | `ai.sprite(richiesta, [{gen=, size=16, seed=1, outline=true, palette={…}}])` | la base di uno sprite: `{w, h, gen, name, seed, px = {0xRRGGBB o -1 (trasparente), …}}` riga per riga. La ricetta viene dalle parole (`"slime"`, `"astronave"`, `"moneta"`, `"erba"`…) o da `gen`; i colori (`"rosso"`, `"blue"`…) e la misura (`"8x8"`, `"32x32"`, `"piccolo"`, `"grande"`) dalle parole; un altro `seed` è una variante; con `palette` ogni pixel diventa il colore più vicino della tavolozza |
 | `ai.recipes()` | le ricette degli sprite `{id, name}`; `ai.recipes("mesh")` quelle 3D `{id, name, rigged}` |

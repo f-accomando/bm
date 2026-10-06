@@ -23,8 +23,21 @@
 
 typedef struct {
     const char *id, *kind, *title, *name, *text, *code, *gen, *see, *keys;
+    const char *title_en, *text_en;     /* the English (R18), "" if none */
     unsigned kmask;             /* AI_KIND_*, 0 for "none" (off-topic examples) */
 } ai_entry_t;
+
+/* The language of the answers (R18): Italian or English; following, the
+ * panel's questions change it (ai_lang_of). ai_title and ai_text give the
+ * entry's in that language (the Italian when there is no English). */
+#define AI_LANG_IT      0
+#define AI_LANG_EN      1
+void ai_set_lang(int lang, int follow);
+int  ai_lang(void);
+int  ai_lang_follows(void);
+int  ai_lang_of(const char *q);         /* AI_LANG_*, or -1 if it cannot say */
+const char *ai_title(const ai_entry_t *e);
+const char *ai_text(const ai_entry_t *e);
 
 typedef struct {
     int entry;

@@ -786,6 +786,10 @@ screenshot in `docs/img/`), `README_OLD.md` (il README completo, in italiano),
   `write_cart`. Qui non si provano i backend veri (niente GPU, huggingface negato):
   `tests/ai/check_local2mesh.py` (in `make test-img2mesh`) usa un comando finto che scrive
   il `.glb` di `glbfix.py`.
+- **In due lingue** (R18, 2026-10-06): ogni voce ha `title_en:` e `text_en:` (obbligatori,
+  `make test-ai` li conta); il pannello risponde nella lingua della domanda (`ai_lang_of`),
+  Ctrl+E la cambia, `assist_lang=it|en|auto` in `bm/config.txt`, `ai.lang()`. Una voce nuova
+  si scrive nelle due lingue.
 - Dopo aver cambiato la base di conoscenza: `make ai-model` (numpy) e commit di
   `src/ai/assist.weights`; `make test-ai` controlla C contro Python, domande di prova,
   esempi di codice e pannello. Il tipo `guide` (2026-10-04, `kb/guide_sdk.txt`): come fare un

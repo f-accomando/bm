@@ -142,17 +142,18 @@ def pool_table():
 
 # ---------------------------------------------------------------- knowledge base
 
-FIELDS = ('kind', 'name', 'title', 'ask', 'see', 'text', 'code', 'gen', 'keys')
+FIELDS = ('kind', 'name', 'title', 'title_en', 'ask', 'see', 'text', 'text_en', 'code', 'gen', 'keys')
 KINDS = ('api', 'howto', 'error', 'sprite', 'tip', 'action', 'mesh', 'guide', 'none')
 # a field is `key:` then a space or the end of the line (so `text:sub(1)` in
 # a code block stays code)
-_FIELD_RE = re.compile(r'^(kind|name|title|ask|see|text|code|gen|keys):(?: (.*))?$')
+_FIELD_RE = re.compile(r'^(kind|name|title_en|title|ask|see|text_en|text|code|gen|keys):(?: (.*))?$')
 
 
 class Entry:
     def __init__(self, eid, where):
         self.id, self.where = eid, where
         self.kind = self.name = self.title = self.text = self.code = self.gen = ''
+        self.title_en = self.text_en = ''          # the English (R18): the panel answers in it
         self.ask, self.see, self.keys = [], [], []
 
     def phrases(self):
@@ -197,12 +198,12 @@ def parse_kb(paths):
                     cur.ask += [p.strip() for p in val.split('|') if p.strip()]
                 elif key in ('see', 'keys'):
                     getattr(cur, key).extend(v.strip() for v in val.split(',') if v.strip())
-                elif key in ('text', 'code'):
+                elif key in ('text', 'text_en', 'code'):
                     setattr(cur, key, val + '\n' if val else '')
                 else:
                     setattr(cur, key, val.strip())
                 continue
-            if field in ('text', 'code'):
+            if field in ('text', 'text_en', 'code'):
                 setattr(cur, field, getattr(cur, field) + line + '\n')
             elif field == 'ask' and line.startswith('  '):
                 cur.ask += [p.strip() for p in line.split('|') if p.strip()]
@@ -211,19 +212,25 @@ def parse_kb(paths):
     for e in entries:
         # the text is prose: its lines are joined (the panel wraps it to its
         # width); a blank line starts a new paragraph
-        paras = re.split(r'\n\s*\n', e.text.strip('\n'))
-        e.text = '\n'.join(' '.join(l.strip() for l in p.split('\n')) for p in paras)
+        for fld in ('text', 'text_en'):
+            paras = re.split(r'\n\s*\n', getattr(e, fld).strip('\n'))
+            setattr(e, fld, '\n'.join(' '.join(l.strip() for l in p.split('\n')) for p in paras))
         e.code = e.code.strip('\n')
         if e.kind not in KINDS:
             raise ValueError('%s: kind %r (one of %s)' % (e.where, e.kind, ', '.join(KINDS)))
         if e.kind != 'none' and not e.title:
             raise ValueError('%s: no title' % e.where)
+        # in two languages (R18): the panel answers in the question's
+        if e.kind != 'none' and not e.title_en:
+            raise ValueError('%s: no title_en (the English title)' % e.where)
+        if e.text and not e.text_en:
+            raise ValueError('%s: no text_en (the English text)' % e.where)
         if e.kind in ('sprite', 'mesh') and not e.gen:
             raise ValueError('%s: a %s entry needs gen:' % (e.where, e.kind))
         for s in e.see:
             if s not in seen:
                 raise ValueError('%s: see %r: no such entry' % (e.where, s))
-        for fld in ('title', 'text', 'code'):
+        for fld in ('title', 'title_en', 'text', 'text_en', 'code'):
             to_cp437(getattr(e, fld), e.where)
         for ln in e.code.split('\n'):
             if len(ln) > 72:
@@ -346,9 +353,9 @@ def entry_net(entries, classes, net):
 
 # ---------------------------------------------------------------- BMAI file
 
-BMAI_VERSION = 1
-# entry string fields, in the order of the ENTR records
-ENTRY_FIELDS = ('id', 'kind', 'title', 'name', 'text', 'code', 'gen', 'see', 'keys')
+BMAI_VERSION = 2
+# entry string fields, in the order of the ENTR records (2: the English, R18)
+ENTRY_FIELDS = ('id', 'kind', 'title', 'name', 'text', 'code', 'gen', 'see', 'keys', 'title_en', 'text_en')
 
 
 def build_bmai(entries, net, hidden, classes):
@@ -379,7 +386,8 @@ def build_bmai(entries, net, hidden, classes):
     entr = bytearray(struct.pack('<I', nent))
     for e in entries:
         vals = dict(id=e.id, kind=e.kind, title=e.title, name=e.name, text=e.text, code=e.code,
-                    gen=e.gen, see=','.join(e.see), keys=','.join(e.keys))
+                    gen=e.gen, see=','.join(e.see), keys=','.join(e.keys), title_en=e.title_en,
+                    text_en=e.text_en)
         entr += struct.pack('<%dI' % len(ENTRY_FIELDS), *(s(vals[f]) for f in ENTRY_FIELDS))
     stop = bytearray(struct.pack('<I', len(STOPWORDS)))
     for w in STOPWORDS:

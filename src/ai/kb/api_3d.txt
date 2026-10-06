@@ -4,12 +4,17 @@
 kind: api
 name: light_begin
 title: light_begin([ambiente]) - inizia le luci (scene al buio)
+title_en: light_begin([ambient]) - starts the lights (dark scenes)
 ask: scena al buio con le luci | notte | illuminazione 2d | dark scene with lights
 ask: torcia nel buio | lampione | luce ambiente | lighting
 see: light, light_end, night_scene
 text:
 Inizia le luci del fotogramma: ambiente è il colore della luce di fondo
 (0x000000 buio pesto, 0xFFFFFF nessun effetto). Dopo vengono light() e
+light_end().
+text_en:
+Starts the frame's lights: ambient is the colour of the background light
+(0x000000 pitch dark, 0xFFFFFF no effect). Then come light() and
 light_end().
 code:
 cls(0); map(0, 0); spr(1, px, py)
@@ -21,11 +26,15 @@ light_end()
 kind: api
 name: light
 title: light(x, y, raggio, colore, [intensità]) - una luce morbida
+title_en: light(x, y, radius, colour, [intensity]) - a soft light
 ask: aggiungere una luce | luce che tremola | candela | fiamma | point light 2d
 see: light_begin, light_end
 text:
 Una luce morbida in coordinate del mondo (vale camera). Più luci si
 sommano. Una fiamma che tremola: raggio per 0.95 + math.random() * 0.1.
+text_en:
+A soft light in world coordinates (camera holds). More lights add up.
+A flickering flame: radius times 0.95 + math.random() * 0.1.
 code:
 light(lx, ly, 50 * (0.95 + math.random() * 0.1), 0xFFB060)
 
@@ -33,11 +42,15 @@ light(lx, ly, 50 * (0.95 + math.random() * 0.1), 0xFFB060)
 kind: api
 name: light_end
 title: light_end() - applica le luci
+title_en: light_end() - applies the lights
 ask: applicare le luci | finire le luci | apply lights | hud sopra le luci
 see: light_begin
 text:
 Applica le luci a tutto ciò che è stato disegnato; quello che disegni dopo
 (HUD, testi) resta a piena luce.
+text_en:
+Applies the lights to everything drawn so far; what you draw after
+(HUD, text) stays at full light.
 code:
 light_end()
 print("vita " .. hp, 8, 8)          -- l'HUD non viene oscurato
@@ -46,13 +59,19 @@ print("vita " .. hp, 8, 8)          -- l'HUD non viene oscurato
 kind: api
 name: mesh
 title: mesh(v, f, [uv]) - un modello 3D da tabelle
+title_en: mesh(v, f, [uv]) - a 3D model from tables
 ask: creare un modello 3d | mesh da vertici e facce | make a 3d model | poligoni
 ask: piramide 3d | oggetto tridimensionale | 3d model from tables | texture 3d
 see: draw3d, mesh_cube, cube_3d
 text:
 v = {x,y,z, x,y,z, ...}, f = {a,b,c,colore, ...} con indici da 1. Le facce
-vanno date in senso antiorario viste da fuori. Con uv (6 numeri per faccia,
+vanno date in senso orario viste da fuori. Con uv (6 numeri per faccia,
 in pixel dello sheet) le facce con colore -1 hanno la texture.
+text_en:
+v = {x,y,z, x,y,z, ...}, f = {a,b,c,colour, ...} with indices from 1. The
+faces must be given clockwise as seen from outside. With uv (6
+numbers per face, in sprite sheet pixels) the faces with colour -1 have
+the texture.
 code:
 piramide = mesh(
   { 0,1,0,  -1,-1,-1,  1,-1,-1,  1,-1,1,  -1,-1,1 },
@@ -63,10 +82,13 @@ piramide = mesh(
 kind: api
 name: mesh_cube
 title: mesh_cube([c]), mesh_sphere([r, seg, c1, c2]) - forme pronte
+title_en: mesh_cube([c]), mesh_sphere([r, seg, c1, c2]) - ready-made shapes
 ask: cubo 3d pronto | sfera 3d | palla 3d | ready made cube | 3d sphere
 see: mesh, draw3d
 text:
 Un cubo di lato 2 (da -1 a 1) e una sfera; da disegnare con draw3d.
+text_en:
+A cube with side 2 (from -1 to 1) and a sphere; to draw with draw3d.
 code:
 cubo = mesh_cube(0x40A0FF)
 palla = mesh_sphere(1, 12, 0xFFD050, 0xC09030)
@@ -75,6 +97,7 @@ palla = mesh_sphere(1, 12, 0xFFD050, 0xC09030)
 kind: api
 name: draw3d
 title: draw3d(m, x, y, z, [rx, ry, rz, scala, flag]) - disegna un modello 3D
+title_en: draw3d(m, x, y, z, [rx, ry, rz, scale, flags]) - draws a 3D model
 ask: disegnare un modello 3d | ruotare un oggetto 3d | draw a 3d mesh | render 3d
 ask: oggetto che gira | posizione e rotazione 3d | scala del modello
 see: camera3d, zclear, mesh
@@ -82,6 +105,10 @@ text:
 Disegna la mesh m in (x, y, z) ruotata di rx, ry, rz (radianti) e scalata.
 flag: 1 senza z-buffer (pavimenti disegnati per primi), 2 senza luce, 4
 liscia (Gouraud); si sommano. Prima, a ogni fotogramma, zclear().
+text_en:
+Draws the mesh m at (x, y, z) turned by rx, ry, rz (radians) and scaled.
+flags: 1 no z-buffer (floors drawn first), 2 no light, 4 smooth
+(Gouraud); they add up. Before that, every frame, zclear().
 code:
 function _draw()
   cls(0)
@@ -94,12 +121,16 @@ end
 kind: api
 name: camera3d
 title: camera3d(x, y, z, [yaw, pitch, fov, roll]) - la telecamera 3D
+title_en: camera3d(x, y, z, [yaw, pitch, fov, roll]) - the 3D camera
 ask: telecamera 3d | punto di vista 3d | 3d camera | prima persona | first person
 ask: ruotare la visuale 3d | field of view
 see: draw3d, fps_camera
 text:
 Posizione e direzione della camera (predefinita a z = -5, fov 60 gradi);
 yaw gira a destra e sinistra, pitch su e giù, roll inclina.
+text_en:
+Position and direction of the camera (default at z = -5, fov 60
+degrees); yaw turns left and right, pitch up and down, roll tilts.
 code:
 camera3d(px, 1.6, pz, yaw, 0, 70)
 
@@ -107,10 +138,13 @@ camera3d(px, 1.6, pz, yaw, 0, 70)
 kind: api
 name: light3d
 title: light3d(x, y, z, [ambiente]) - direzione della luce 3D
+title_en: light3d(x, y, z, [ambient]) - direction of the 3D light
 ask: luce nella scena 3d | direzione del sole 3d | 3d lighting | ombreggiatura
 see: lamp3d, draw3d
 text:
 La direzione della luce e la luce ambiente (0-1).
+text_en:
+The light's direction and the ambient light (0-1).
 code:
 light3d(-0.4, 0.8, -0.5, 0.3)
 
@@ -118,11 +152,15 @@ light3d(-0.4, 0.8, -0.5, 0.3)
 kind: api
 name: lamp3d
 title: lamp3d(i, x, y, z, raggio, [k]) - luci puntiformi 3D
+title_en: lamp3d(i, x, y, z, radius, [k]) - 3D point lights
 ask: lanterna 3d | luce puntiforme 3d | point light 3d | torcia in 3d
 see: light3d
 text:
 Luce puntiforme i (1-4): le facce vicine diventano più chiare. lamp3d(i)
 la spegne, lamp3d() le spegne tutte.
+text_en:
+Point light i (1-4): the faces nearby get brighter. lamp3d(i) turns it
+off, lamp3d() turns them all off.
 code:
 light3d(0, 1, 0, 0.1)            -- quasi buio
 lamp3d(1, px, 2, pz, 6, 1.2)     -- la lanterna del giocatore
@@ -131,11 +169,15 @@ lamp3d(1, px, 2, pz, 6, 1.2)     -- la lanterna del giocatore
 kind: api
 name: zclear
 title: zclear() - pulisce lo z-buffer
+title_en: zclear() - clears the z-buffer
 ask: pulire lo z buffer | modelli 3d che si sovrappongono male | depth buffer
 see: draw3d
 text:
 A ogni fotogramma, prima di draw3d: altrimenti restano le profondità del
 fotogramma prima e i modelli spariscono a pezzi.
+text_en:
+Every frame, before draw3d: otherwise the depths of the frame before
+stay and the models disappear in pieces.
 code:
 cls(0)
 zclear()
@@ -144,11 +186,15 @@ zclear()
 kind: api
 name: fog3d
 title: fog3d(colore, vicino, lontano) - nebbia
+title_en: fog3d(colour, near, far) - fog
 ask: nebbia 3d | oggetti lontani che sfumano | fog | foschia | distanza visibile
 see: draw3d
 text:
 Le facce sfumano nel colore tra le due distanze; fog3d() la toglie. Usa lo
 stesso colore di cls() per un orizzonte pulito.
+text_en:
+The faces fade into the colour between the two distances; fog3d() takes
+it away. Use the same colour as cls() for a clean horizon.
 code:
 cls(0x203040)
 fog3d(0x203040, 10, 40)
@@ -157,12 +203,16 @@ fog3d(0x203040, 10, 40)
 kind: api
 name: project3d
 title: project3d(x, y, z) - da punto 3D a punto sullo schermo
+title_en: project3d(x, y, z) - from a 3D point to a point on the screen
 ask: posizione sullo schermo di un punto 3d | mirino in 3d | etichetta sopra un oggetto 3d
 ask: project 3d point to screen | da 3d a 2d
 see: draw3d
 text:
 sx, sy, profondità sullo schermo (nil se è dietro la camera): per disegnare
 in 2D cose allineate al 3D (nomi, mirini, orizzonte).
+text_en:
+sx, sy, depth on the screen (nil if it is behind the camera): to draw in
+2D things lined up with the 3D (names, sights, horizon).
 code:
 local sx, sy = project3d(ex, ey + 1.5, ez)
 if sx then print("nemico", sx - 24, sy) end
@@ -172,6 +222,7 @@ if sx then print("nemico", sx - 24, sy) end
 kind: api
 name: model
 title: model(nome) - un modello 3D del gioco (bm Studio)
+title_en: model(name) - a 3D model of the game (bm Studio)
 ask: caricare un modello di bm studio | prendere il modello dal file | load a model
 ask: modello 3d della cartuccia | mesh del modello | get a 3d model by name
 see: models, draw3d, animate, guide.3d_models
@@ -179,6 +230,10 @@ text:
 Dà una mesh dal modello "nome" (o dal numero n) della sezione MESH del
 gioco, con la texture dello sheet; nil se non c'è. Ogni chiamata ne fa una
 nuova: va chiamata una volta, in _init.
+text_en:
+Gives a mesh from the model "name" (or number n) of the game's MESH
+section, with the sprite sheet's texture; nil if it is not there. Each
+call makes a new one: call it once, in _init.
 code:
 function _init()
   house = model("house")
@@ -188,12 +243,16 @@ end
 kind: api
 name: models
 title: models() - i nomi dei modelli del gioco
+title_en: models() - the names of the game's models
 ask: quali modelli ci sono | elenco dei modelli 3d | list of models
 ask: nomi dei modelli della cartuccia | quanti modelli ha il gioco
 see: model
 text:
 Restituisce i nomi dei modelli 3D del gioco, in ordine ({} se non ce ne
 sono): per sceglierli con un menu o caricarli tutti.
+text_en:
+Returns the names of the game's 3D models, in order ({} if there are
+none): to choose them with a menu or to load them all.
 code:
 local all = {}
 for _, name in ipairs(models()) do all[name] = model(name) end
@@ -202,6 +261,7 @@ for _, name in ipairs(models()) do all[name] = model(name) end
 kind: api
 name: animate
 title: animate(m, anim, t, [anim2, t2, k, osso]) - anima un modello
+title_en: animate(m, anim, t, [anim2, t2, k, bone]) - animates a model
 ask: animare il modello 3d | animazione dello scheletro | play an animation
 ask: camminata del personaggio 3d | mescolare due animazioni | blend animations
 see: clips, bone3d, bone_turn, guide.3d_anim
@@ -210,6 +270,11 @@ Mette un modello con lo scheletro (bm Animator) nella posa
 dell'animazione anim (nome o numero) al tempo t in secondi, prima di
 draw3d. Con anim2, t2, k (0..1) mescola due animazioni; con osso la
 seconda vale solo da quell'osso in giù. Restituisce la durata.
+text_en:
+Puts a model with a skeleton (bm Animator) in the pose of animation
+anim (name or number) at time t in seconds, before draw3d. With anim2,
+t2, k (0..1) it blends two animations; with bone the second holds only
+from that bone down. Returns the length.
 code:
 animate(hero, "walk", t)
 draw3d(hero, x, 0, z, 0, dir, 0, 1)
@@ -218,12 +283,16 @@ draw3d(hero, x, 0, z, 0, dir, 0, 1)
 kind: api
 name: clips
 title: clips(m) - le animazioni di un modello
+title_en: clips(m) - the animations of a model
 ask: quali animazioni ha il modello | elenco delle animazioni | list animations
 ask: durata di un'animazione | animazioni dello scheletro
 see: animate
 text:
 Restituisce {{name=, length=, loop=}, ...}: le animazioni del modello
 ({} senza scheletro).
+text_en:
+Returns {{name=, length=, loop=}, ...}: the model's animations ({}
+without a skeleton).
 code:
 for _, c in ipairs(clips(hero)) do log(c.name, c.length) end
 
@@ -231,11 +300,14 @@ for _, c in ipairs(clips(hero)) do log(c.name, c.length) end
 kind: api
 name: bones3d
 title: bones3d(m) - i nomi delle ossa dello scheletro
+title_en: bones3d(m) - the names of the skeleton's bones
 ask: nomi delle ossa | ossa del modello | list the bones of a skeleton
 ask: quali ossa ha lo scheletro
 see: bone3d, bone_turn
 text:
 I nomi delle ossa dello scheletro del modello, in ordine.
+text_en:
+The names of the bones of the model's skeleton, in order.
 code:
 log(table.concat(bones3d(hero), ", "))
 
@@ -243,6 +315,7 @@ log(table.concat(bones3d(hero), ", "))
 kind: api
 name: bone3d
 title: bone3d(m, osso) - dove sta un osso (attaccare oggetti)
+title_en: bone3d(m, bone) - where a bone is (attaching objects)
 ask: attaccare una spada alla mano | posizione della mano del modello | attach to a bone
 ask: dove è la testa del personaggio | luce nella mano | punta della spada
 see: animate, bones3d
@@ -250,6 +323,10 @@ text:
 Dopo animate: x, y, z della testa dell'osso e cx, cy, cz della sua coda,
 nelle coordinate del modello (nil se l'osso non c'è). Per attaccare armi,
 luci, effetti.
+text_en:
+After animate: x, y, z of the bone's head and cx, cy, cz of its tail, in
+the model's coordinates (nil if the bone is not there). To attach
+weapons, lights, effects.
 code:
 local hx, hy, hz = bone3d(hero, "hand.R")
 if hx then point3d(x + hx, hy, z + hz, 0.1, 0xFFE070) end
@@ -258,12 +335,17 @@ if hx then point3d(x + hx, hy, z + hz, 0.1, 0xFFE070) end
 kind: api
 name: bone_turn
 title: bone_turn(m, osso, [rx, ry, rz]) - gira un osso sopra l'animazione
+title_en: bone_turn(m, bone, [rx, ry, rz]) - turns a bone over the animation
 ask: girare la testa del modello | mirare in alto | turn a bone | guardare verso il giocatore
 ask: busto che segue la mira | ruotare un osso
 see: animate
 text:
 Da ora ogni animate gira anche l'osso di questi angoli (radianti): mirare
 in alto e in basso, la testa che guarda. bone_turn(m, osso) lo toglie.
+text_en:
+From now on every animate also turns the bone by these angles (radians):
+aiming up and down, a head that looks around. bone_turn(m, bone) takes
+it away.
 code:
 bone_turn(hero, "head", 0, look, 0)
 
@@ -271,12 +353,16 @@ bone_turn(hero, "head", 0, look, 0)
 kind: api
 name: bounds3d
 title: bounds3d(m) - il box intorno a una mesh
+title_en: bounds3d(m) - the box around a mesh
 ask: quanto è grande il modello | dimensioni della mesh | bounding box
 ask: centrare il modello | mettere il modello a terra | size of a model
 see: model, draw3d
 text:
 x0, y0, z0, x1, y1, z1: il box intorno ai vertici, prima di spostarla e
 girarla. Per centrarla, metterla a terra, le collisioni.
+text_en:
+x0, y0, z0, x1, y1, z1: the box around the vertices, before moving and
+turning the mesh. To centre it, to put it on the ground, for collisions.
 code:
 local x0, y0, z0, x1, y1, z1 = bounds3d(m)
 draw3d(m, -(x0 + x1) / 2, -y0, -(z0 + z1) / 2)
@@ -285,6 +371,7 @@ draw3d(m, -(x0 + x1) / 2, -y0, -(z0 + z1) / 2)
 kind: api
 name: hit3d
 title: hit3d(m, ...) - un raggio contro le ossa (colpi alla testa)
+title_en: hit3d(m, ...) - a ray against the bones (headshots)
 ask: colpire il personaggio 3d | hitbox che seguono l'animazione | headshot
 ask: il proiettile ha colpito il modello | raycast against a character
 see: world_ray, bone3d
@@ -292,6 +379,10 @@ text:
 hit3d(m, x, y, z, ry, scala, ox, oy, oz, dx, dy, dz, [maxd]) -> t, osso:
 il raggio da o lungo d contro le ossa della mesh nella sua ultima posa,
 disegnata in (x, y, z) girata di ry. nil se manca.
+text_en:
+hit3d(m, x, y, z, ry, scale, ox, oy, oz, dx, dy, dz, [maxd]) -> t, bone:
+the ray from o along d against the mesh's bones in its last pose, drawn
+at (x, y, z) turned by ry. nil if it misses.
 code:
 local t, bone = hit3d(foe, fx, 0, fz, fa, 1, cx, cy, cz, dx, dy, dz, 50)
 if t and bone == "head" then damage = damage * 2 end
@@ -300,6 +391,7 @@ if t and bone == "head" then damage = damage * 2 end
 kind: api
 name: sky3d
 title: sky3d(sole, cielo, terreno) - i colori della luce
+title_en: sky3d(sun, sky, ground) - the colours of the light
 ask: colore della luce del sole | luce del cielo | ambient light colors
 ask: tramonto nel 3d | luce colorata | sky light
 see: light3d, fog3d, guide.3d_light
@@ -307,6 +399,10 @@ text:
 I colori (0xRRGGBB) della luce del sole e della luce ambiente dall'alto e
 dal basso: le facce in su prendono il cielo, quelle in giù il terreno.
 sky3d() torna al bianco.
+text_en:
+The colours (0xRRGGBB) of the sun's light and of the ambient light from
+above and from below: faces turned up take the sky, those turned down
+the ground. sky3d() goes back to white.
 code:
 sky3d(0xFFD8A0, 0x6080C0, 0x403020)    -- tramonto
 
@@ -314,6 +410,7 @@ sky3d(0xFFD8A0, 0x6080C0, 0x403020)    -- tramonto
 kind: api
 name: shine3d
 title: shine3d(spec, esponente, bordo) - riflessi e luce sul bordo
+title_en: shine3d(spec, exponent, rim) - reflections and rim light
 ask: superfici lucide | riflesso del sole | shiny 3d | metallo lucido
 ask: luce sul bordo delle forme | rim light
 see: sky3d
@@ -321,6 +418,10 @@ text:
 I riflessi del sole sulle facce lucide (spec 0-2, esponente 4-64) e la
 luce sul bordo delle forme (0-1). Le facce lucide hanno il bit
 0x20000000 nel colore.
+text_en:
+The sun's reflections on glossy faces (spec 0-2, exponent 4-64) and the
+light on the rim of the shapes (0-1). Glossy faces have the bit
+0x20000000 in their colour.
 code:
 shine3d(1.2, 24, 0.4)
 
@@ -328,12 +429,16 @@ shine3d(1.2, 24, 0.4)
 kind: api
 name: shadow3d
 title: shadow3d(stile) - lo stile delle ombre
+title_en: shadow3d(style) - the style of the shadows
 ask: ombre nere | ombra a retino | shadow style
 ask: ombra degli oggetti 3d | ombre più scure
 see: draw3d, guide.3d_light
 text:
 Le ombre di draw3d con il flag 8: 0 scuriscono quello che c'è sotto, 1
 nere a retino (più veloci, come le fa la GPU).
+text_en:
+The shadows of draw3d with flag 8: 0 darken what is underneath, 1
+dithered black (faster, as the GPU makes them).
 code:
 shadow3d(1)
 draw3d(ball, x, y, z, 0, 0, 0, 1, 8)    -- l'ombra
@@ -343,12 +448,16 @@ draw3d(ball, x, y, z)
 kind: api
 name: point3d
 title: point3d(x, y, z, raggio, colore, [flag]) - un punto nel mondo 3D
+title_en: point3d(x, y, z, radius, colour, [flags]) - a point in the 3D world
 ask: particelle 3d | scintille | punti nello spazio | 3d point particle
 ask: proiettile come pallino | stelle nel 3d
 see: line3d, sprite3d, guide.3d_effects
 text:
 Un punto rotondo di raggio (in unità del mondo), nascosto dalle cose più
 vicine: particelle, scintille, proiettili. flag 1: a retino.
+text_en:
+A round point of that radius (in world units), hidden by the closer
+things: particles, sparks, bullets. flags 1: dithered.
 code:
 point3d(x, y, z, 0.08, 0xFFC040)
 
@@ -356,12 +465,16 @@ point3d(x, y, z, 0.08, 0xFFC040)
 kind: api
 name: line3d
 title: line3d(x0, y0, z0, x1, y1, z1, colore, [spessore, flag]) - una linea 3D
+title_en: line3d(x0, y0, z0, x1, y1, z1, colour, [width, flags]) - a 3D line
 ask: linea nel 3d | raggio laser | tracciante | 3d line
 ask: scia di un proiettile | disegnare un segmento nel mondo
 see: point3d, guide.3d_effects
 text:
 Una linea nel mondo, tagliata dal piano vicino e nascosta dalle cose più
 vicine: traccianti, raggi, laser.
+text_en:
+A line in the world, cut by the near plane and hidden by the closer
+things: tracers, beams, lasers.
 code:
 line3d(gx, gy, gz, tx, ty, tz, 0x60E0FF, 2)
 
@@ -369,12 +482,16 @@ line3d(gx, gy, gz, tx, ty, tz, 0x60E0FF, 2)
 kind: api
 name: sprite3d
 title: sprite3d(sx, sy, sw, sh, x, y, z, larghezza, [flag]) - sprite nel 3D
+title_en: sprite3d(sx, sy, sw, sh, x, y, z, width, [flags]) - a sprite in 3D
 ask: sprite rivolto alla camera | billboard | esplosione nel 3d | fumo 3d
 ask: icona sopra il personaggio | albero piatto nel 3d
 see: point3d, guide.3d_effects
 text:
 Un rettangolo dello sheet rivolto alla camera, largo larghezza unità nel
 mondo e nascosto dalle cose più vicine: esplosioni, fumo, icone.
+text_en:
+A rectangle of the sprite sheet facing the camera, width units wide in
+the world and hidden by the closer things: explosions, smoke, icons.
 code:
 sprite3d(0, 32, 16, 16, x, y + 2, z, 1)
 
@@ -382,6 +499,7 @@ sprite3d(0, 32, 16, 16, x, y + 2, z, 1)
 kind: api
 name: gpu3d
 title: gpu3d([on, aa, vs]) - il 3D sulla GPU
+title_en: gpu3d([on, aa, vs]) - the 3D on the GPU
 ask: usare la gpu | il 3d lo fa la gpu | gpu or arm | anti aliasing
 ask: accendere la gpu | 3d più veloce con la gpu
 see: stat, guide.3d_perf
@@ -389,6 +507,10 @@ text:
 Dice (e cambia, con gli argomenti) se il 3D lo disegna la GPU del Pi, con
 l'MSAA e con il vertex shader. In QEMU e con gpu3d=0 lo fa l'ARM. stat(9)
 vale 1 quando lo fa la GPU.
+text_en:
+Says (and changes, with the arguments) whether the Pi's GPU draws the
+3D, with MSAA and with the vertex shader. In QEMU and with gpu3d=0 the
+ARM does it. stat(9) is 1 when the GPU does it.
 code:
 local on, aa = gpu3d()
 print(on and "GPU" or "ARM", 8, 8)
@@ -397,12 +519,16 @@ print(on and "GPU" or "ARM", 8, 8)
 kind: api
 name: world3d
 title: world3d() - un mondo di collisione 3D
+title_en: world3d() - a 3D collision world
 ask: mondo di collisione | collisioni 3d | collision world
 ask: creare i muri del livello 3d | fisica del livello
 see: world_box, world_move, world_ray, guide.3d_world
 text:
 Un mondo di collisione vuoto: scatole solide (world_box), corpi che si
 muovono (world_move), raggi (world_ray). In C, molto più veloce del Lua.
+text_en:
+An empty collision world: solid boxes (world_box), bodies that move
+(world_move), rays (world_ray). In C, much faster than Lua.
 code:
 local w = world3d()
 world_box(w, -10, -1, -10, 10, 0, 10)    -- il pavimento
@@ -411,12 +537,16 @@ world_box(w, -10, -1, -10, 10, 0, 10)    -- il pavimento
 kind: api
 name: world_box
 title: world_box(w, x0, y0, z0, x1, y1, z1, [tag]) - una scatola solida
+title_en: world_box(w, x0, y0, z0, x1, y1, z1, [tag]) - a solid box
 ask: aggiungere un muro | scatola solida | add a solid box | piattaforma 3d
 ask: ostacolo nel mondo 3d
 see: world3d, world_move
 text:
 Una scatola solida dai due angoli; restituisce il suo numero (lo dà anche
 world_ray quando la colpisce).
+text_en:
+A solid box from its two corners; returns its number (world_ray gives
+it too when it hits the box).
 code:
 world_box(w, 2, 0, 2, 4, 1, 4)    -- una cassa
 
@@ -424,12 +554,16 @@ world_box(w, 2, 0, 2, 4, 1, 4)    -- una cassa
 kind: api
 name: world_ray
 title: world_ray(w, ox, oy, oz, dx, dy, dz, [maxd]) - un raggio nel mondo
+title_en: world_ray(w, ox, oy, oz, dx, dy, dz, [maxd]) - a ray in the world
 ask: raggio di collisione | cosa colpisco sparando | raycast | linea di vista
 ask: il nemico mi vede | distanza dal muro
 see: world3d, hit3d
 text:
 t, nx, ny, nz, scatola: il primo punto colpito lungo il raggio e la
 normale della faccia (scatola 0 = il terreno y = 0), o nil.
+text_en:
+t, nx, ny, nz, box: the first point hit along the ray and the normal of
+the face (box 0 = the ground y = 0), or nil.
 code:
 local t = world_ray(w, x, 1.5, z, dx, 0, dz, 40)
 if t then line3d(x, 1.5, z, x + dx * t, 1.5, z + dz * t, 0xFF4040) end
@@ -438,6 +572,7 @@ if t then line3d(x, 1.5, z, x + dx * t, 1.5, z + dz * t, 0xFF4040) end
 kind: api
 name: world_move
 title: world_move(w, x, y, z, r, h, dx, dy, dz) - un corpo che si muove
+title_en: world_move(w, x, y, z, r, h, dx, dy, dz) - a body that moves
 ask: muovere il personaggio con le collisioni | scivolare sui muri | move with collisions
 ask: salire i gradini | il personaggio è a terra
 see: world3d, world_floor, guide.3d_world
@@ -445,6 +580,10 @@ text:
 x, y, z, flag: un corpo (piedi in x, y, z, raggio r, altezza h) spostato di
 d, che scivola sui muri e sale i gradini. flag: 1 a terra, 2 un muro, 16
 un soffitto.
+text_en:
+x, y, z, flags: a body (feet at x, y, z, radius r, height h) moved by d,
+that slides on the walls and climbs steps. flags: 1 on the ground, 2 a
+wall, 16 a ceiling.
 code:
 px, py, pz, f = world_move(w, px, py, pz, 0.4, 1.8, dx, vy, dz)
 if f & 1 ~= 0 then vy = 0 end
@@ -453,12 +592,16 @@ if f & 1 ~= 0 then vy = 0 end
 kind: api
 name: world_floor
 title: world_floor(w, x, z, y, r) - l'altezza del pavimento
+title_en: world_floor(w, x, z, y, r) - the height of the floor
 ask: altezza del terreno | quanto è alto il pavimento qui | floor height
 ask: dove appoggio i piedi
 see: world_move
 text:
 L'altezza del pavimento sotto (x, z), cercando dall'altezza y in giù, per
 un corpo di raggio r.
+text_en:
+The height of the floor under (x, z), searching from height y down, for
+a body of radius r.
 code:
 local fy = world_floor(w, x, z, y + 1, 0.3)
 
@@ -466,6 +609,7 @@ local fy = world_floor(w, x, z, y + 1, 0.3)
 kind: api
 name: screen
 title: screen(w, h) - la risoluzione del gioco
+title_en: screen(w, h) - the resolution of the game
 ask: cambiare la risoluzione | schermo più grande | change the screen resolution
 ask: gioco a 1080p | risoluzione del gioco | 320x180 o 640x360
 see: screen_size, resolution
@@ -473,5 +617,9 @@ text:
 Cambia la risoluzione dal prossimo fotogramma (modi 16:9 da 320x180 a
 1920x1080): SCREEN_W e SCREEN_H cambiano. screen() dà quella di adesso.
 Sopra 640x360 serve la GPU.
+text_en:
+Changes the resolution from the next frame (16:9 modes from 320x180 to
+1920x1080): SCREEN_W and SCREEN_H change. screen() gives the current
+one. Above 640x360 the GPU is needed.
 code:
 if screen(960, 540) then log("ora " .. SCREEN_W .. "x" .. SCREEN_H) end

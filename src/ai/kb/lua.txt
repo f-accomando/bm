@@ -3,6 +3,7 @@
 == lua_tables
 kind: howto
 title: Lua: liste e tabelle
+title_en: Lua: lists and tables
 ask: come si usa una tabella | creare una lista | aggiungere un elemento alla lista
 ask: lua table | array in lua | togliere un elemento | lunghezza della lista
 ask: table.insert e table.remove | dizionario | chiave e valore
@@ -11,6 +12,9 @@ see: lua_loops, enemies_list
 text:
 Una tabella fa da lista (indici da 1) e da dizionario (chiavi). #t è la
 lunghezza della lista.
+text_en:
+A table works as a list (indexes from 1) and as a dictionary (keys). The
+length of the list is #t.
 code:
 local list = { 10, 20, 30 }
 list[#list + 1] = 40           -- aggiungi in fondo
@@ -23,6 +27,7 @@ log(#list, p.x, p["y"])
 == lua_loops
 kind: howto
 title: Lua: cicli for, while, ipairs, pairs
+title_en: Lua: for and while loops, ipairs, pairs
 ask: ciclo for | ripetere un'operazione | scorrere una lista | for loop in lua
 ask: ipairs e pairs | while | ciclo all'indietro | repeat until | iterate
 keys: ciclo, for, while, ripetere
@@ -30,6 +35,9 @@ see: lua_tables
 text:
 for numerico (anche all'indietro), ipairs per le liste, pairs per tutte
 le chiavi, while finché vale una condizione.
+text_en:
+Numeric for (backwards too), ipairs for lists, pairs for all the keys,
+while as long as a condition holds.
 code:
 for i = 1, 10 do log(i) end
 for i = 10, 1, -1 do log(i) end            -- all'indietro
@@ -41,6 +49,7 @@ while n < 5 do n = n + 1 end
 == lua_functions
 kind: howto
 title: Lua: funzioni
+title_en: Lua: functions
 ask: come si scrive una funzione | definire una funzione | function in lua
 ask: parametri e valori restituiti | restituire più valori | return
 keys: funzione, function, return
@@ -48,6 +57,9 @@ see: lua_local
 text:
 Le funzioni possono restituire più valori. local function è visibile solo
 nel file (e dalla riga dopo).
+text_en:
+Functions can return more than one value. A local function is visible
+only in the file (and from the next line on).
 code:
 local function add(a, b)
   return a + b
@@ -63,6 +75,7 @@ local lo, hi = minmax(7, 3)
 == lua_local
 kind: howto
 title: Lua: variabili locali e globali
+title_en: Lua: local and global variables
 ask: local o globale | variabile locale | quando usare local | global variable
 ask: la variabile è nil in un'altra funzione | scope delle variabili
 keys: local, globale, variabile
@@ -71,6 +84,10 @@ text:
 Senza local una variabile è globale: la vedono tutte le funzioni. Con
 local esiste solo nel blocco (funzione, if, for). Le local sono più
 veloci: usale per le cose del fotogramma.
+text_en:
+Without local a variable is global: all the functions see it. With
+local it exists only in its block (function, if, for). Locals are
+faster: use them for the work of every frame.
 code:
 score = 0                  -- globale
 local speed = 2            -- locale al file
@@ -81,6 +98,7 @@ end
 == lua_strings
 kind: howto
 title: Lua: stringhe e numeri nel testo
+title_en: Lua: strings and numbers in text
 ask: unire due stringhe | concatenare | numero in una stringa | string format
 ask: formattare un numero con gli zeri | due decimali | tostring | tonumber
 ask: lunghezza di una stringa | prendere un pezzo di stringa | sub
@@ -89,6 +107,9 @@ see: print
 text:
 .. unisce; string.format formatta (%d intero, %05d con gli zeri, %.2f due
 decimali); s:sub(i, j) un pezzo; #s la lunghezza.
+text_en:
+.. joins; string.format formats (%d integer, %05d with zeros, %.2f two
+decimals); s:sub(i, j) a piece; #s the length.
 code:
 local s = "punti: " .. score
 local t = string.format("%05d", score)       -- 00042
@@ -99,6 +120,7 @@ local n = tonumber("42") + 1
 == lua_math
 kind: howto
 title: Lua: matematica utile (arrotondare, min, max, seno)
+title_en: Lua: useful maths (rounding, min, max, sine)
 ask: arrotondare un numero | parte intera | divisione intera | math floor
 ask: valore assoluto | minimo e massimo | seno e coseno | pi greco
 ask: numero tra due valori | clamp | interpolazione lerp
@@ -107,6 +129,9 @@ see: lua_strings, distance
 text:
 // è la divisione intera, % il resto; math.floor, math.abs, math.min,
 math.max, math.sin/cos (radianti), math.pi, math.sqrt.
+text_en:
+// is integer division, % the remainder; math.floor, math.abs, math.min,
+math.max, math.sin/cos (radians), math.pi, math.sqrt.
 code:
 local cell = x // 8                       -- divisione intera
 local r = math.floor(v + 0.5)             -- arrotonda
@@ -117,6 +142,7 @@ local y = 100 + math.sin(time() * 2) * 20 -- su e giu'
 == lua_if
 kind: howto
 title: Lua: condizioni if, and, or, not
+title_en: Lua: if conditions, and, or, not
 ask: come si scrive un if | condizione | else if | operatori logici | and or not
 ask: diverso da | uguale a | confrontare due numeri | operatore ternario
 keys: if, condizione, else
@@ -124,6 +150,10 @@ see: lua_loops
 text:
 elseif in una parola; ~= vuol dire diverso; nil e false sono falsi, tutto
 il resto (anche 0) è vero. "a and b or c" fa da operatore ternario.
+text_en:
+elseif is one word; ~= means not equal; nil and false are false,
+everything else (0 too) is true. "a and b or c" works as a ternary
+operator.
 code:
 if hp <= 0 then
   state = "over"
@@ -138,6 +168,7 @@ if not paused and x ~= 0 then log("si muove") end
 == lua_objects
 kind: howto
 title: Lua: oggetti con metodi (classi)
+title_en: Lua: objects with methods (classes)
 ask: classi in lua | oggetti con metodi | programmazione a oggetti | metatable
 ask: creare tanti nemici dello stesso tipo | object oriented | self
 keys: classe, oggetto, metodo, self
@@ -145,6 +176,9 @@ see: enemies_list
 text:
 Una tabella fa da classe: setmetatable dà ai nuovi oggetti i suoi metodi;
 con i due punti (e:update()) il metodo riceve l'oggetto come self.
+text_en:
+A table works as a class: setmetatable gives new objects its methods;
+with the colon (e:update()) the method gets the object as self.
 code:
 local Enemy = {}
 Enemy.__index = Enemy
@@ -163,6 +197,7 @@ e:update()
 == lua_coroutines
 kind: howto
 title: Lua: sequenze con le coroutine (scene, cutscene)
+title_en: Lua: sequences with coroutines (scenes, cutscenes)
 ask: sequenza di azioni nel tempo | cutscene | aspettare dentro una funzione
 ask: coroutine | script di una scena | fare una cosa dopo l'altra | wait
 ask: eventi in sequenza con attese | prima una cosa poi un'altra con una pausa
@@ -171,6 +206,9 @@ see: timer
 text:
 Una coroutine si ferma con yield e riparte al fotogramma dopo: si scrive
 una sequenza come una storia, con le attese dentro.
+text_en:
+A coroutine stops with yield and starts again on the next frame: you
+write a sequence like a story, with the waits inside.
 code:
 local function wait(frames)
   for i = 1, frames do coroutine.yield() end
@@ -189,12 +227,15 @@ end
 == lua_sort
 kind: howto
 title: Lua: ordinare una lista
+title_en: Lua: sorting a list
 ask: ordinare una lista | table sort | classifica ordinata | sort by score
 ask: ordinare dal più grande al più piccolo
 keys: ordinare, sort
 see: draw_order
 text:
 table.sort ordina sul posto; con una funzione scegli l'ordine.
+text_en:
+table.sort sorts in place; with a function you choose the order.
 code:
 table.sort(scores, function(a, b) return a.points > b.points end)
 for i = 1, math.min(5, #scores) do

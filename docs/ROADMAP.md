@@ -3378,12 +3378,18 @@ tastiera).
   dà Empty 2D, Platform 2D, Top-down 2D, Shooter 2D (con bmlib e i flag delle tile), Versus
   2D (due giocatori, hitbox), Online 2D (bmnet), 3D scene, 3D with models; resta bm Code.
 - **R17 — Import MIDI nel Sound editor.** Un file MIDI diventa i pattern del banco.
-- **R18 — Documentazione API in inglese.** Il README è in inglese, ma `docs/API.md`,
+- ✅ **R18 — Documentazione API in inglese.** Il README è in inglese, ma `docs/API.md`,
   `docs/GUIDA-GIOCHI.md` e la base dell'assistente sono solo in italiano. **In gran parte
   fatto** (2026-10-04, con R10 e R11): `docs/API.md` (era `docs/API-EN.md`, allineato a quello
   italiano e rinominato) e `docs/GAME-GUIDE.md` (le versioni italiane sono `docs/API-IT.md` e
   `docs/GUIDA-GIOCHI.md`); manca la base dell'assistente,
   che ha le domande anche in inglese ma le spiegazioni in italiano.
+  **Fatto** (2026-10-06, branch `claude/dev-tools`): ogni voce di `src/ai/kb` ha `title_en:`
+  e `text_en:` (BMAI versione 2; la rete si addestra come prima sulle `ask:`, già nelle due
+  lingue: con i titoli inglesi tra le frasi le domande di prova andavano peggio);
+  il pannello risponde nella lingua della domanda (`ai_lang_of` in `assist.c`), Ctrl+E la
+  cambia, la lingua è nella barra del titolo; `assist_lang=it|en|auto` in `bm/config.txt`,
+  `ai.lang()` dal Lua. `make test-ai` controlla che ogni voce abbia il suo inglese.
 - **R24 — Sprite stacking** (era 22.7 di M22): diventato la milestone **M43** (2026-10-06).
 - **R25 — Suoni da e verso il PC** (era in 22.4 e 22.5 di M22, 2026-10-05). Nel Sound editor:
   WAV (campioni brevi) e MIDI (note di un brano) importati ed esportati, l'uscita stereo e un
