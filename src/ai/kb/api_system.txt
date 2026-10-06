@@ -134,6 +134,24 @@ punti, parentesi chiuse, end e local no.
 code:
 log(code_tokens("x = x + 1") .. " token")    -- 5
 
+== breakpoint
+kind: api
+name: breakpoint
+title: breakpoint() e F8 - il debugger di bm Code
+ask: debugger | fermare il gioco su una riga | punto di interruzione | breakpoint
+ask: vedere le variabili mentre il gioco gira | eseguire passo passo | step by step
+ask: stop the game on a line | inspect variables | debug step by step
+see: log, cart_run
+text:
+In bm Code F8 mette un punto di interruzione sulla riga e F5 prova il
+gioco: si ferma lì e mostra il codice, le variabili e la pila. F10 la riga
+dopo, F8 dentro una chiamata, Shift+F8 fuori dalla funzione, F5 continua,
+Esc ferma il gioco e torna sulla riga (pad: A, X, Y, Start, Select).
+breakpoint("perché") nel codice ferma il gioco provato da bm Code o
+dall'SDK; negli altri casi non fa niente.
+code:
+if hp < 0 then breakpoint("vita sotto zero") end
+
 == log
 kind: api
 name: log

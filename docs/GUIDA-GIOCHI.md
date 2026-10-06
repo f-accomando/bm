@@ -722,6 +722,11 @@ con `BMHOST_NET_ID=0` e `1` sono due console (`make test-bmnet`).
   il 3D nell'ultimo fotogramma. F11 tre volte, la pagina delle **funzioni**: le dieci che
   costano di più (ms per fotogramma: il loro tempo e con quelle che chiamano); si
   comincia a ottimizzare dalla prima.
+- **Debugger** (bm Code): F8 mette un punto di interruzione sulla riga, F5 prova il gioco
+  che si ferma lì e mostra le variabili e la pila; F10 la riga dopo, F8 dentro una
+  chiamata, Shift+F8 fuori, F5 continua, Esc ferma (si torna sulla riga). Dal codice
+  `breakpoint("perché")` ferma il gioco quando lo provi da bm Code o dall'SDK; `log()`
+  scrive i valori sulla seriale senza fermarlo.
 - **Fotogrammi pesanti:** un gioco che avanza di 1/60 s a ogni `_update` rallenta quando
   un fotogramma costa più di 16,7 ms. `frameskip(4)` in `_init` gli tiene il tempo: fino a
   4 `_update` prima di ogni `_draw`, i fotogrammi in mezzo non disegnati (un gioco 3D

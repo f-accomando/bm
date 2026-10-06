@@ -3347,8 +3347,17 @@ tastiera).
   protocollo).
 
 ### Strumenti di sviluppo
-- **R13 — Debugger Lua in bm Code.** Punti di interruzione, passo passo, variabili
+- ✅ **R13 — Debugger Lua in bm Code.** Punti di interruzione, passo passo, variabili
   locali, con l'hook di debug di Lua.
+  **Fatto** (2026-10-06, branch `claude/dev-tools`): in bm Code F8 mette o toglie un punto
+  di interruzione (il numero della riga in rosso; seguono le righe quando se ne aggiungono o
+  tolgono; salvati nella sessione), F5 prova il gioco con `cart_run(path, {breaks =, stop
+  =})`, il menu ha *Debug from the start* e *Clear breakpoints*. Il debugger è nel runtime
+  (il gioco gira in uno stato Lua suo): l'hook delle righe solo nelle sessioni con righe o un
+  passo da fare, la pausa dentro l'hook sopra lo schermo del gioco (rimesso com'era dopo):
+  il codice attorno alla riga, le variabili (locali, poi upvalue), la pila; F10/A la riga
+  dopo, F8/X dentro, Shift+F8/Y fuori, F5/Start continua, Esc/Select ferma (bm Code torna
+  sulla riga). `breakpoint([perché])` dal codice. Prove: QEMU `test_debugger`.
 - ✅ **R14 — Profiler per funzione.** L'overlay delle prestazioni dà il totale del
   fotogramma; questo le 10 funzioni che costano di più.
   **Fatto** (2026-10-06, branch `claude/dev-tools`): la terza pagina del dev kit (F11 tre

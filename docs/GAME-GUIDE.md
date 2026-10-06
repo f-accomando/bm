@@ -716,6 +716,11 @@ with `BMHOST_NET_ID=0` and `1` are two consoles (`make test-bmnet`).
   detailed page: how long `_update`, `_draw` and the 3D took in the last frame. F11 three
   times, the **functions** page: the ten that cost the most (ms a frame: their own time and
   with what they call); start optimising from the first.
+- **Debugger** (bm Code): F8 puts a breakpoint on the line, F5 tries the game, which stops
+  there and shows the variables and the stack; F10 the next line, F8 into a call, Shift+F8
+  out, F5 goes on, Esc stops (back on the line). From the code `breakpoint("why")` stops the
+  game when you try it from bm Code or the SDK; `log()` writes values on the serial line
+  without stopping it.
 - **Heavy frames:** a game that moves 1/60 s per `_update` slows down when a frame costs
   more than 16.7 ms. `frameskip(4)` in `_init` keeps its time: up to 4 `_update` before each
   `_draw`, the frames in between not drawn (a heavy 3D game, like Overbit).
