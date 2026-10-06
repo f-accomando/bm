@@ -927,6 +927,19 @@ screenshot in `docs/img/`), `README_OLD.md` (il README completo, in italiano),
 
 ## Market (M25; nato nel branch `bm-store`, unito al principale il 2026-10-04)
 
+- **Le app si distribuiscono dal Market** (decisione dell'utente, 2026-10-06): i giochi e le app
+  di `GAMES` nel `Makefile` (`carts/`) arrivano alle console da `f-accomando/bm-market`; le copie
+  in questo repository (`carts/`, `build/carts`, l'immagine della SD) servono solo per le prove e
+  lo sviluppo. Quando una modifica a un'app arriva su `bm-core`, l'app va aggiornata anche nel
+  Market: `make market-seed MARKET=<clone di bm-market>` (una cartuccia con gli stessi byte resta
+  com'era, le altre prendono la versione del giorno), commit e push sul branch principale di
+  `bm-market`, il cui workflow controlla i giochi, firma il catalogo e lo pubblica (da WSL
+  `scripts/market.sh`, o `easy_install` m, fa tutto). Dalla sessione: `add_repo` per
+  `f-accomando/bm-market`, la clonazione accanto a questo repository, e dire all'utente quali app
+  sono cambiate. Un'app nuova vuole la sua riga in `market/about.txt` (licenza obbligatoria) e il
+  suo posto in `GAMES`. Gli strumenti della scheda Dev (SDK, bm Code, bm Studio...) sono nel kernel
+  e si aggiornano con lui, non dal Market.
+
 - Prima scheda del menu: **Market | Games | Dev | Lib | Settings** (tasti 1–5); il menu si
   apre su Games. Sulla RGB30 Market | Games | Dev | Settings e solo i `.b16` (il Pi mostra `.bm`
   e `.b16`, che girano uguali). Catalogo dal repository pubblico `f-accomando/bm-market` (GitHub Pages),
