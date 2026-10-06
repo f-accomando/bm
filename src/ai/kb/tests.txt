@@ -108,6 +108,10 @@ che strumenti pronti ci sono => instruments
 mettere un po' di eco e riverbero alla musica => reverb
 voglio il suono grezzo delle console a 8 bit => retro
 generare una melodia nel codice del gioco => ai_music
+voglio scrivere la musica a pattern come in strudel => riff, riff_code
+una nota esattamente in tempo anche se il gioco rallenta => play_at
+cosa significa <c e g> nella stringa del ritmo => riff_mini
+come sento la musica mentre la scrivo in bm code => riff_live, riff_code
 
 # saves, players, system
 salvare il punteggio più alto => high_score, save

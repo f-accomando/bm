@@ -769,6 +769,43 @@ function _draw() cls(1) end
 """
 
 
+RIFF_CART = r"""
+local R = require "riff"
+local t = 0
+function _init()
+  R.setcpm(60)
+  -- a sine A4 held for the whole of each cycle, on the sound's clock
+  R.play("tone", R.note "a4" :wave("sine") :sustain(1) :room(0) :legato(1))
+end
+function _update()
+  t = t + 1
+  R.update()
+  if t == 170 then R.hush() end
+  if t == 200 then log("riff done") quit() end
+end
+function _draw() cls(1) end
+"""
+
+
+def test_riff(b, opts):
+    """riff (require "riff", M43) on the RGB30: a pattern of one A4 a cycle,
+    queued with play_at, comes out of the console's output at 440 Hz."""
+    tmp = tempfile.mkdtemp(prefix="bm64riff-")
+    sd = make_sd(tmp, {"bm/config.txt": b"game_intro=0\n",
+                       "bm/riff.bm": mkbm.pack(RIFF_CART.encode(), title="Riff", author="tests")})
+    q = Qemu(os.path.join(b, "kernel.elf"), sd=sd)
+    try:
+        boot(q)
+        time.sleep(0.5)
+        q.send("\r")
+        out = q.expect("riff done", timeout=30).decode(errors="replace")
+        heard = [int(hz) for hz in re.findall(r"audio: heard (\d+) Hz", out)]
+        assert any(436 <= h <= 444 for h in heard), out[-2000:]
+        assert "riff:" not in out.replace("riff done", ""), out[-2000:]
+    finally:
+        q.close()
+
+
 def test_sound(b, opts):
     """The RGB30's sound (the user, 2026-10-05): the Pi's synthesizer and
     player (src/audio/audio.c) through the console's output; in QEMU the

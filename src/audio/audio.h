@@ -69,6 +69,19 @@ void audio_play(int ch, int sound, int note, int vol, int fx, uint32_t ms);
  * envelope and vibrato included: the voice, or -1. */
 int  audio_play_sound(int ch, const au_sound_t *s, int note, int vol, uint32_t ms);
 
+/* Notes at a time (the pattern language): the clock in samples (48 kHz)
+ * since the sound started, a note queued for a time on it (player_at:
+ * 0, or -1 when the queue is full), the notes of a tag forgotten and
+ * released (0: all), the voices they may use (bit v; 0: all), how many
+ * wait. */
+uint64_t audio_clock(void);
+int  audio_at(uint64_t when, const au_sound_t *s, int note, int vol, uint32_t len, int tag);
+void audio_at_cancel(int tag);
+void audio_at_voices(uint8_t mask);
+int  audio_at_waiting(int tag);
+/* the cartridge's bank (NULL: none), for the names of its sounds */
+const au_bank_t *audio_bank_now(void);
+
 /* The sound of a voice for note(): registers 2..8 (wave, duty, volume,
  * envelope) and 11..31 (the tone) of `regs`, a whole voice's 32 bytes;
  * audio_tone_get reads them. */

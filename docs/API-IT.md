@@ -454,12 +454,16 @@ voci nuove).
 | Funzione | Descrizione |
 |---|---|
 | `tone(v, suono)` | il timbro della voce per le `note()` che seguono: il nome di uno **strumento pronto** (`"epiano"`, `"pluck"`, `"pad"`, `"kick"`… `instruments()` li elenca) o una tabella in unità semplici (sotto). `tone(v)` torna alla quadra di una voce nuova |
-| `play([v], suono, [nota], [ms], [vol])` | suona uno strumento come lo suona la musica, con il suo inviluppo dell'altezza e il vibrato (la cassa che scende, il laser): un nome, una tabella come quella di `tone()` (più `pitch` semitoni da cui partire, `ptime` ms per arrivare, `vib` cent, `vibhz`, `detune` cent) o un suono del banco (un numero). `nota`: numero MIDI o nome (`"C4"`, predefinito 60), `ms` 0 = tenuta fino a `noteoff`, `vol` 0–1; senza `v` una voce libera. Restituisce la voce |
+| `play([v], suono, [nota], [ms], [vol])` | suona uno strumento come lo suona la musica, con il suo inviluppo dell'altezza e il vibrato (la cassa che scende, il laser): un nome, una tabella come quella di `tone()` (più `pitch` semitoni da cui partire, `ptime` ms per arrivare, `vib` cent, `vibhz`, `detune` cent) o un suono del banco (un numero; un nome è prima un suono del banco con quel nome, poi uno strumento pronto). `nota`: numero MIDI o nome (`"C4"`, predefinito 60), `ms` 0 = tenuta fino a `noteoff`, `vol` 0–1; senza `v` una voce libera. Restituisce la voce |
 | `instruments([tipo])` | gli strumenti pronti: `{ {name=, kind=, about=}, … }`; `tipo`: `"drum"`, `"bass"`, `"keys"`, `"pad"`, `"pluck"`, `"lead"`, `"fx"` |
 | `instrument(nome)` | uno strumento con tutti i suoi valori, come bm Sound tiene un suono (`wave`, `a`, `d`, `s`, `r`, `pitch`, `tone` = i 21 byte del timbro…), o `nil` |
 | `reverb([grandezza], [smorzo], [livello])` | l'ambiente dove suonano le voci (0–1: da una stanza piccola a una sala, da brillante a sordo, quanto si sente); restituisce i tre valori. Ogni voce ci manda quanto dice il suo `reverb` (predefinito poco: 0.16) |
 | `echo([ms], [ritorno], [livello])` | l'eco a ping-pong (sinistra, destra): il tempo tra le ripetizioni (al più 680 ms), quanto torna (0–0.95), quanto si sente; restituisce i tre valori. Ci va quanto dice l'`echo` di ogni voce |
 | `retro([on])` | tutte le voci **8-bit** come nelle prime versioni (onde ingenue, inviluppi dritti, niente ambiente né eco) finché il gioco gira; restituisce se lo sono (anche le Settings lo possono chiedere) |
+| `audio_time()` | l'orologio del suono in secondi (va avanti con i campioni suonati) |
+| `play_at(t, suono, [nota], [ms], [vol], [tag])` | una nota al tempo `t` di `audio_time()`: la fa partire l'interrupt del suono, entro 1,3 ms, qualunque sia il frame rate. `suono` come quello di `play()`, `ms` quanto è tenuta (predefinito 250), `vol` 0–1, `tag` 1–255 (un gruppo per `play_cancel`, predefinito 1). La voce si sceglie quando parte (una libera, una coda, la nota più vecchia di `play_at`; mai quelle di un brano o di un effetto). `true`, o `false` se la coda (160 note) è piena. È quello che usa riff |
+| `play_cancel([tag])` | dimentica le note di `play_at` che aspettano con quel `tag` (senza: tutte) e rilascia quelle che suonano |
+| `play_voices([v, …])` | le voci che `play_at` può prendere (senza: tutte e 8); restituisce quante note aspettano |
 
 Le chiavi di `tone()` (tutte facoltative; quelle che mancano restano come sono):
 
@@ -498,7 +502,7 @@ retro(true)                                         -- il suono 8-bit di una vol
 `hat`, `openhat`, `tom`, `rim`, `crash`, `cowbell`, `shaker` (e `chipkick`, `chipsnr`,
 `chiphat` a 8 bit); bassi `bass`, `acid`, `sub`, `fmbass`, `pickbass`; tastiere `epiano`,
 `organ`, `bell`, `marimba`, `glock`; pad `pad`, `strings`, `warm`, `glass`; corde
-`pluck`, `guitar`, `harp`; lead `lead`, `sawlead`, `flute`, `brass`, `chip`, `chiptri`;
+`pluck`, `guitar`, `harp`; lead `lead`, `sawlead`, `flute`, `brass`, `triangle`, `chip`, `chiptri`;
 effetti `laser`, `blip`, `boom`, `wind`. Gli stessi nel menu *Instrument...* di bm Sound.
 
 #### Il banco: formato e strumenti
@@ -1097,6 +1101,74 @@ local casa = lib.builder()
 
 Prova di tutto: `make test-gameapi` (bmhost, `tests/gameapi/cart.lua`: ogni funzione con
 i suoi casi, anche i tasti con uno script) e `test_game_api` in QEMU.
+
+## riff: la musica in pattern
+
+`local R = require "riff"` (2026-10-06, guida completa in [RIFF.md](RIFF.md)): ritmi e
+melodie scritti in una riga, come in TidalCycles e Strudel, suonati in tempo
+dall'interrupt del suono (`play_at`) con gli strumenti pronti e i suoni del banco per
+nome. Il tempo si conta in **cicli** (una battuta di quattro tempi; 2 s all'inizio).
+
+```lua
+local R = require "riff"
+
+function _init()
+  R.setcpm(30)
+  R.play("drums", R.s "kick*4, ~ snare, hat*8")
+  R.play("bass", R.note "<c2 a1 f1 g1>" :s "acid" :lpf(R.sine:range(300, 1800):slow(4)))
+end
+
+function _update()
+  R.update()                      -- ogni fotogramma: le note dei prossimi istanti in coda
+end
+```
+
+| Mini-notazione | Cosa fa |
+|---|---|
+| `a b c d` | una sequenza nel ciclo |
+| `~` `-` | pausa |
+| `[a b]` | un gruppo in una parte |
+| `a, b` | insieme |
+| `<a b>` | una per ciclo |
+| `a*2`, `a/2` | più veloce, più lenta (anche `a*<2 4>`) |
+| `a!3`, `a@3`, `a _ _` | ripetuta, più lunga |
+| `a?`, `a?0.3` | a caso |
+| `a(3,8,2)` | ritmo euclideo |
+| `{a b c}%4` | polimetro |
+| `a \| b` | una delle due, ogni ciclo |
+| `kick:2` | variante (due semitoni sopra) |
+
+| Funzione | Descrizione |
+|---|---|
+| `R.s(p)`, `R.note(p)`, `R.n(p)`, `R.chord(p)` | strumenti, note (`c4` = 60, l'ottava 3 se manca), gradi di una scala, accordi (`"<Am F C G7>"`) |
+| `R.seq`, `R.cat`, `R.stack`, `R.timecat`, `R.arrange`, `R.run(n)` | in sequenza, un ciclo ciascuno, insieme, con i pesi, sezioni di più cicli, `0..n-1` |
+| `R.sine`, `R.cosine`, `R.saw`, `R.tri`, `R.square`, `R.rand`, `R.perlin`, `R.irand(n)`, `R.choose(…)` | segnali 0..1 |
+| `:fast`, `:slow`, `:early`, `:late`, `:rev`, `:ply`, `:iter`, `:palindrome` | il tempo |
+| `:every(n, f)`, `:lastOf`, `:sometimes(f)`, `:often`, `:rarely`, `:degradeBy(x)`, `:someCycles` | cambi ogni tanto, a caso |
+| `:euclid(k, n, r)`, `:struct(p)`, `:mask(p)`, `:segment(n)`, `:chunk(n, f)`, `:linger(x)`, `:swing(n)` | struttura |
+| `:off(t, f)`, `:superimpose(f)`, `:layer(…)`, `:jux(f)` | strati, sinistra e destra |
+| `:add`, `:sub`, `:mul`, `+`, `:transpose`, `:scale("C:minor")`, `:arp("updown")`, `:range(a, b)` | note e numeri |
+| `:s`, `:gain`, `:legato`, `:lpf`, `:hpf`, `:bpf`, `:res`, `:pan`, `:room`, `:delay`, `:attack`, `:decay`, `:sustain`, `:release`, `:shape`, `:vib`, `:fm`, `:raw`, `:tone{…}` | il suono di ogni nota (unità di `tone()`) |
+| `R.play(nome, p)`, `R.stop(nome)`, `R.hush()`, `R.update()` | suonare (con un nome), fermare, da chiamare in `_update` |
+| `R.setcps(x)`, `R.setcpm(x)`, `R.bpm(x)` | la velocità |
+| `R.code(testo)` | codice dal vivo: le funzioni di riff sono globali, ogni globale con un pattern suona con quel nome, quelli di prima non più nominati si fermano; `true` o `nil` e l'errore |
+| `R.bake(p, {cycles=, steps=16})`, `R.piece(t)` | il pattern come pezzo per il banco (la forma di `ai.music`), un pezzo di `ai.music` come pattern |
+| `R.playing()`, `R.get([nome])`, `R.errors()`, `R.active()`, `R.voices(v, …)` | i nomi che suonano, i loro pattern, gli errori, dove sono scritte le note che suonano, le voci che può usare |
+
+```lua
+R.code [[
+setcpm(28)
+local verse = chord "<Am F C G>"
+pad   = verse :s "pad" :room(.6) :gain(.7)
+arp   = verse :s "pluck" :arp("updown") :fast(4)
+drums = s "kick ~ ~ kick, ~ snare, hat*8?" :every(4, fast(2))
+]]
+```
+
+In **bm Code** Ctrl+Invio suona il codice (la scheda, o il blocco `riff.code [[ ]]` sotto
+il cursore) e accende le parole delle note che suonano, Ctrl+. ferma; in **bm Sound** F7
+(*Riff...*) suona una riga e Ctrl+Invio la mette nel banco come brano. Prove: `make
+test-riff`, QEMU `test_riff_code`, `test_sound_riff`.
 
 ## bmnet: i giochi in rete
 

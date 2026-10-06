@@ -3152,7 +3152,7 @@ bm Sound e un assistente che scriva ritmi, basi, arpeggi, melodie ed effetti cla
    ambiente (FDN a 8 linee) ed eco a ping-pong, compressore e limitatore leggeri. Il suono
    di prima resta identico campione per campione (`retro`, Settings *Sound style*, config
    `sound=8bit`). Sul Pi: 4,2% della CPU con 8 voci e l'ambiente (armprof).
-2. **Strumenti** ✅: 41 pronti (`src/audio/presets.c`), `tone`, `play`, `instruments`,
+2. **Strumenti** ✅: 42 pronti (`src/audio/presets.c`), `tone`, `play`, `instruments`,
    `instrument`, `reverb`, `echo`, `retro` dal Lua; banco versione 2 (suoni da 48 byte col
    timbro, eco e ambiente del brano) in C, Lua e Python.
 3. **bm Sound** ✅: gruppi FILTER e WAVE & SPACE nella pagina SOUNDS, *Instrument...* con
@@ -3163,10 +3163,16 @@ bm Sound e un assistente che scriva ritmi, basi, arpeggi, melodie ed effetti cla
    `scripts/trainmusic.py` su `src/ai/melodies.txt`: 43% del passo e 65% della durata
    su melodie mai viste). Nel pannello il modo `music` (F6 in bm Sound), `ai.music` dal
    codice (sulla RGB30 la ricetta la scelgono le parole).
-5. **Un linguaggio di pattern** (richiesta dell'utente: come Strudel, in Lua): ritmi e
-   melodie scritti in una riga, compatibile con i `.bm`, gli strumenti, bm Sound e bm Code.
+5. **riff, un linguaggio di pattern** ✅ (richiesta dell'utente: come Strudel, in Lua;
+   `docs/RIFF.md`): `require "riff"` nei `.bm` (Pi e RGB30), mini-notazione e funzioni di
+   Tidal/Strudel, le note in coda a tempo nel player (`play_at`, entro 1,3 ms qualunque sia
+   il frame rate; ~700 istruzioni Lua a fotogramma), gli strumenti pronti e i suoni del
+   banco per nome; in bm Code Ctrl+Invio suona e accende le parole delle note, Ctrl+.
+   ferma; in bm Sound F7 la suona e la mette nel banco come brano; `R.piece` suona i pezzi
+   dell'assistente.
 - **Da verificare sul Pi e sulla RGB30**: Dev → *Audio test* (la battuta di strumenti), bm
-  Sound → brano HIFI, F6 → "ritmo rock", Settings → *Sound style* 8-bit e ritorno.
+  Sound → brano HIFI, F6 → "ritmo rock", Settings → *Sound style* 8-bit e ritorno; bm Code
+  → Ctrl+T, un riff, Ctrl+Invio (tempo stabile, parole accese), bm Sound → F7.
 - **Fatto quando:** i giochi suonano puliti sulle due console, quelli vecchi possono
   restare 8 bit, e il linguaggio di pattern suona da un gioco e da bm Code.
 

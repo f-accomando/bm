@@ -458,6 +458,17 @@ test-loading: $(BUILD)/host/test_loading
 	@mkdir -p $(BUILD)/loading
 	$< $(BUILD)/loading
 
+# riff (require "riff", the language of patterns for music, M43): the
+# mini-notation, the functions, the scheduler on the sound's clock, the
+# live code and the bake, in bmhost; the sound in build/riff/riff.wav
+$(BUILD)/riff-test.bm: tests/riff/cart.lua scripts/mkbm.py
+	$(PYTHON) scripts/mkbm.py -o $@ --lua $< --title "riff test"
+
+test-riff: $(BUILD)/host/bmhost-bin $(BUILD)/riff-test.bm
+	@mkdir -p $(BUILD)/riff
+	$< $(BUILD)/riff-test.bm --seconds 7 --wav $(BUILD)/riff/riff.wav 2>&1 | tee $(BUILD)/riff-test.log | grep "^riff"
+	grep -q "^riff: \([0-9]*\)/\1 checks passed" $(BUILD)/riff-test.log
+
 test-keymap: $(BUILD)/host/bmhost-bin $(BUILD)/keymap-test.bm tests/keymap/input.txt
 	$< $(BUILD)/keymap-test.bm --input tests/keymap/input.txt --seconds 8 2>&1 | tee $(BUILD)/keymap-test.log | grep "^keymap"
 	grep -q "^keymap: \([0-9]*\)/\1 checks passed" $(BUILD)/keymap-test.log
@@ -551,7 +562,8 @@ $(BUILD)/host/bmhost/runtime-deps: $(wildcard src/bm/*.h src/audio/*.h src/kerne
 	@mkdir -p $(dir $@) && touch $@
 $(BMHOST_OBJS): $(BUILD)/host/bmhost/runtime-deps
 $(BUILD)/host/bmhost-bin: tests/host/bmhost.c tests/host/stubs.c tests/host/hostnet.c tests/host/host.h tests/host/libs.S \
-                          $(BMHOST_OBJS) src/ai/assist.lua src/script/bm3d.lua src/script/bmlib.lua src/script/bmnet.lua src/ai/predict.lua $(BUILD)/words.lua src/ai/padtype.lua
+                          $(BMHOST_OBJS) src/ai/assist.lua src/script/bm3d.lua src/script/bmlib.lua src/script/bmnet.lua src/ai/predict.lua $(BUILD)/words.lua src/ai/padtype.lua \
+                          src/script/riff.lua
 	$(HOSTCC) -O2 -g -Wall -Wextra -D_DEFAULT_SOURCE -Itests/host/shim -Isrc -Isrc/bm -Ithird_party/lua -I$(BUILD) \
 	    -o $@ tests/host/bmhost.c tests/host/stubs.c tests/host/hostnet.c tests/host/libs.S $(BMHOST_OBJS) -lm
 bmhost: $(BUILD)/host/bmhost-bin
@@ -763,7 +775,7 @@ qemu-screenshot: $(BUILD)/kernel.img
 # make test: the tests on the PC, then those in QEMU. The CI runs them on
 # several machines at once: make test-host HOST_SKIP="..." (the PC's, but
 # those named), make test-qemu SHARD=K/N (group K of N of the QEMU tests).
-HOST_TESTS := test-bm test-res test-usb test-fat test-audio test-music test-kitchen test-titan test-yharnam test-sound test-nano8 test-net test-http test-https test-img3d \
+HOST_TESTS := test-bm test-res test-usb test-fat test-audio test-music test-riff test-kitchen test-titan test-yharnam test-sound test-nano8 test-net test-http test-https test-img3d \
       test-catalog test-github test-lan test-keymap test-gameapi test-online test-bmnet test-loading \
       test-release test-smp test-qpu test-gpu3d test-queue2d test-b3d test-v3d test-ai test-predict test-padtype \
       test-studio test-prompts test-overbit $(if $(K7),test-hyp)

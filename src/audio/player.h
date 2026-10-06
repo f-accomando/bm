@@ -170,6 +170,8 @@ typedef struct {
     uint32_t mod_arp_len;
     uint8_t bank_tone;          /* the tone registers are a bank sound's */
     uint8_t own_sound;          /* the note's sound is player_t.own[voice] */
+    uint8_t at_tag;             /* a note of player_at (its tag, 1..255), 0 none */
+    uint32_t at_serial;         /* its order of start (to steal the oldest) */
 } au_voice_t;
 
 typedef struct {
@@ -181,6 +183,17 @@ typedef struct {
     uint32_t serial;            /* order of start (to steal the oldest) */
 } au_sfxch_t;
 
+/* A note waiting for its time (player_at): the pattern language plans
+ * its notes a little ahead and the player starts them on time, within a
+ * block of 64 samples (1.3 ms), whatever the game's frame rate. */
+#define AU_AT_MAX       160
+typedef struct {
+    uint64_t when;              /* player_t.clock */
+    uint32_t len;               /* samples to the release */
+    uint8_t note, vol, tag;     /* tag 0: a free slot */
+    au_sound_t s;
+} au_at_t;
+
 typedef struct {
     au_bank_t *bank;            /* NULL: no bank */
     volatile uint8_t *regs;
@@ -190,6 +203,10 @@ typedef struct {
     au_sfxch_t sfx[AU_TRACKS];
     au_sound_t own[AU_TRACKS];  /* the sounds of player_play_sound */
     uint32_t serial;
+    uint64_t clock;             /* samples played since player_init */
+    au_at_t at[AU_AT_MAX];
+    uint64_t at_next;           /* the earliest `when` waiting (UINT64_MAX: none) */
+    uint8_t at_mask;            /* the voices player_at may take (0: all) */
     struct {
         int8_t song;            /* -1 none, -2 one pattern looping (the editor) */
         uint8_t pat;            /* the pattern of a -2 loop */
@@ -243,6 +260,21 @@ void player_release(player_t *p, int voice);
  * one) as a step would play it, pitch envelope and vibrato included;
  * released after ms (0: held). Returns the voice, or -1. */
 int  player_play_sound(player_t *p, int voice, const au_sound_t *s, int note, int vol, uint32_t ms);
+
+/* Notes at a time on the player's clock (samples since player_init):
+ * the sound is copied, the voice is chosen when the note starts, among
+ * the voices of player_at_voices (a free one, a tail, or the oldest note
+ * of player_at; never one of a song or of an effect), and the note is
+ * released after len samples. tag 1..255 groups them (a pattern). 0, or -1
+ * if the queue is full or the note is not 1..127. A time already gone
+ * plays at the next block. */
+uint64_t player_clock(const player_t *p);
+int  player_at(player_t *p, uint64_t when, const au_sound_t *s, int note, int vol, uint32_t len, int tag);
+/* The notes of a tag (0: every tag) forgotten, and released if they sound. */
+void player_at_cancel(player_t *p, int tag);
+/* bit v: player_at may use voice v (0: every voice) */
+void player_at_voices(player_t *p, uint8_t mask);
+int  player_at_waiting(const player_t *p, int tag);
 
 /* The Lua notes: note(), noteoff(), freq() and the helpers. */
 void player_lua_note(player_t *p, int voice, float hz, uint32_t ms);

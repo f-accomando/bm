@@ -645,6 +645,7 @@ void player_init(player_t *p, uint32_t rate, volatile uint8_t *regs, synth_t *sy
     p->m.song = -1;
     p->m.tempo = 1.0f;
     p->m.level = 1.0f;
+    p->at_next = UINT64_MAX;
 }
 
 void player_set_bank(player_t *p, au_bank_t *b)
@@ -676,8 +677,12 @@ void player_stop_all(player_t *p)
         v->sound = -1;
         v->gate_left = v->delay_left = 0;
         v->mods = 0;
+        v->at_tag = 0;
         clear_fx(v);
     }
+    for (int i = 0; i < AU_AT_MAX; i++)
+        p->at[i].tag = 0;
+    p->at_next = UINT64_MAX;
     p->m.song = -1;
     p->m.paused = 0;
     p->m.mute = 0;
@@ -686,8 +691,13 @@ void player_stop_all(player_t *p)
     p->m.fade = 0;
 }
 
+static void at_due(player_t *p, uint64_t end);
+
 void player_advance(player_t *p, unsigned n)
 {
+    if (p->at_next < p->clock + n)
+        at_due(p, p->clock + n);
+    p->clock += n;
     for (int ch = 0; ch < AU_TRACKS; ch++) {
         au_sfxch_t *c = &p->sfx[ch];
         if (c->n < 0)
@@ -717,7 +727,8 @@ void player_advance(player_t *p, unsigned n)
 
 /* ---------------------------------------------------------------- API */
 
-static int pick_voice(const player_t *p)
+/* the voices the music plays now (bit t: track t) */
+static uint8_t song_tracks(const player_t *p)
 {
     uint8_t song = 0;
     if (music_on(p)) {
@@ -731,6 +742,12 @@ static int pick_voice(const player_t *p)
         }
         song &= (uint8_t)~p->m.mute;
     }
+    return song;
+}
+
+static int pick_voice(const player_t *p)
+{
+    uint8_t song = song_tracks(p);
     for (int ch = AU_TRACKS - 1; ch >= 0; ch--)          /* silent, not the song's */
         if (p->v[ch].owner == AU_OWN_NONE && idle(p, ch) && !(song >> ch & 1))
             return ch;
@@ -912,22 +929,145 @@ void player_play(player_t *p, int voice, int sound, int note, int vol, int fx, u
     p->v[voice].gate_left = ms ? ms * p->rate / 1000u + 64u : 0;
 }
 
+/* a sound of its own on a voice, released after len samples (0: held) */
+static void play_own(player_t *p, int voice, const au_sound_t *s, int note, int vol, uint32_t len)
+{
+    p->sfx[voice].n = -1;
+    p->own[voice] = *s;
+    au_step_t e = { (uint8_t)note, 0, (uint8_t)(vol < 0 ? 0 : vol > 255 ? 255 : vol), 0 };
+    start_note(p, voice, &e, 1.0f, len ? len : p->rate / 8u, AU_OWN_SFX);
+    p->v[voice].own_sound = 1;
+    p->v[voice].at_tag = 0;
+    sound_regs(vr(p, voice), &p->own[voice]);
+    update_voice(p, voice);
+    /* one block more: the gate would drop before the synth saw it */
+    p->v[voice].gate_left = len ? len + 64u : 0;
+}
+
 int player_play_sound(player_t *p, int voice, const au_sound_t *s, int note, int vol, uint32_t ms)
 {
     if (voice < 0)
         voice = pick_voice(p);
     if (voice < 0 || voice >= AU_TRACKS || note < 1 || note > 127)
         return -1;
-    p->sfx[voice].n = -1;
-    p->own[voice] = *s;
-    au_step_t e = { (uint8_t)note, 0, (uint8_t)(vol < 0 ? 0 : vol > 255 ? 255 : vol), 0 };
-    uint32_t len = ms ? ms * p->rate / 1000u : p->rate / 8u;
-    start_note(p, voice, &e, 1.0f, len, AU_OWN_SFX);
-    p->v[voice].own_sound = 1;
-    sound_regs(vr(p, voice), &p->own[voice]);
-    update_voice(p, voice);
-    p->v[voice].gate_left = ms ? ms * p->rate / 1000u + 64u : 0;
+    play_own(p, voice, s, note, vol, ms ? ms * p->rate / 1000u : 0);
     return voice;
+}
+
+/* ---------------------------------------------------------------- notes at a time */
+
+uint64_t player_clock(const player_t *p)
+{
+    return p->clock;
+}
+
+static void at_recount(player_t *p)
+{
+    uint64_t next = UINT64_MAX;
+    for (int i = 0; i < AU_AT_MAX; i++)
+        if (p->at[i].tag && p->at[i].when < next)
+            next = p->at[i].when;
+    p->at_next = next;
+}
+
+int player_at(player_t *p, uint64_t when, const au_sound_t *s, int note, int vol, uint32_t len, int tag)
+{
+    if (note < 1 || note > 127 || tag < 1 || tag > 255)
+        return -1;
+    for (int i = 0; i < AU_AT_MAX; i++) {
+        au_at_t *a = &p->at[i];
+        if (a->tag)
+            continue;
+        a->when = when;
+        a->len = len ? len : 1;
+        a->note = (uint8_t)note;
+        a->vol = (uint8_t)(vol < 0 ? 0 : vol > 255 ? 255 : vol);
+        a->s = *s;
+        a->tag = (uint8_t)tag;
+        if (when < p->at_next)
+            p->at_next = when;
+        return 0;
+    }
+    return -1;
+}
+
+/* the voice for a note of player_at: a silent one, a tail, the oldest
+ * note of player_at already released, the oldest still held */
+static int pick_at_voice(const player_t *p)
+{
+    uint8_t mask = p->at_mask ? p->at_mask : 0xff;
+    uint8_t free = (uint8_t)(mask & ~song_tracks(p));
+    for (int ch = AU_TRACKS - 1; ch >= 0; ch--)
+        if ((free >> ch & 1) && p->v[ch].owner == AU_OWN_NONE && idle(p, ch))
+            return ch;
+    for (int ch = AU_TRACKS - 1; ch >= 0; ch--)
+        if ((free >> ch & 1) && p->v[ch].owner == AU_OWN_NONE)
+            return ch;
+    for (int held = 0; held < 2; held++) {
+        int best = -1;
+        for (int ch = 0; ch < AU_TRACKS; ch++) {
+            const au_voice_t *v = &p->v[ch];
+            if (!(free >> ch & 1) || v->owner != AU_OWN_SFX || !v->own_sound || !v->at_tag)
+                continue;
+            if (!held && v->gate_left)
+                continue;
+            if (best < 0 || (int32_t)(v->at_serial - p->v[best].at_serial) < 0)
+                best = ch;
+        }
+        if (best >= 0)
+            return best;
+    }
+    return -1;
+}
+
+static void at_due(player_t *p, uint64_t end)
+{
+    for (;;) {
+        int k = -1;
+        for (int i = 0; i < AU_AT_MAX; i++)
+            if (p->at[i].tag && p->at[i].when < end && (k < 0 || p->at[i].when < p->at[k].when))
+                k = i;
+        if (k < 0)
+            break;
+        au_at_t *a = &p->at[k];
+        int ch = pick_at_voice(p);
+        if (ch >= 0) {
+            play_own(p, ch, &a->s, a->note, a->vol, a->len);
+            p->v[ch].at_tag = a->tag;
+            p->v[ch].at_serial = ++p->serial;
+        }
+        a->tag = 0;
+    }
+    at_recount(p);
+}
+
+void player_at_cancel(player_t *p, int tag)
+{
+    for (int i = 0; i < AU_AT_MAX; i++)
+        if (p->at[i].tag && (!tag || p->at[i].tag == tag))
+            p->at[i].tag = 0;
+    at_recount(p);
+    for (int ch = 0; ch < AU_TRACKS; ch++) {
+        au_voice_t *v = &p->v[ch];
+        if (v->at_tag && (!tag || v->at_tag == tag) && v->owner == AU_OWN_SFX && v->own_sound) {
+            gate_off(p, ch);
+            v->gate_left = 0;
+            v->at_tag = 0;
+        }
+    }
+}
+
+void player_at_voices(player_t *p, uint8_t mask)
+{
+    p->at_mask = mask;
+}
+
+int player_at_waiting(const player_t *p, int tag)
+{
+    int n = 0;
+    for (int i = 0; i < AU_AT_MAX; i++)
+        n += p->at[i].tag && (!tag || p->at[i].tag == tag);
+    return n;
 }
 
 void player_release(player_t *p, int voice)

@@ -4,6 +4,8 @@
 
 #include <string.h>
 
+const au_bank_t *(*au_lua_bank)(void);
+
 static void preset_regs(lua_State *L, const char *name, uint8_t *regs)
 {
     int p = au_preset_find(name);
@@ -28,7 +30,7 @@ static void table_regs(lua_State *L, int idx, uint8_t *regs)
         }
         const char *k = lua_tostring(L, -2);
         int ok = 0;
-        if (!strcmp(k, "preset") || !strcmp(k, "pitch") || !strcmp(k, "ptime") || !strcmp(k, "vib") ||
+        if (!strcmp(k, "preset") || !strcmp(k, "s") || !strcmp(k, "pitch") || !strcmp(k, "ptime") || !strcmp(k, "vib") ||
             !strcmp(k, "vibhz") || !strcmp(k, "detune") || !strcmp(k, "name")) {
             ok = 1;
         } else if (!strcmp(k, "bars") && lua_istable(L, -1)) {
@@ -76,20 +78,56 @@ static int clampi(lua_Number v, int lo, int hi)
     return x < lo ? lo : x > hi ? hi : x;
 }
 
+static int same_name(const char *a, const char *b)
+{
+    for (; *a && *b; a++, b++) {
+        char x = *a >= 'A' && *a <= 'Z' ? (char)(*a + 32) : *a;
+        char y = *b >= 'A' && *b <= 'Z' ? (char)(*b + 32) : *b;
+        if (x != y)
+            return 0;
+    }
+    return !*a && !*b;
+}
+
+/* the sound called (or numbered) as the value at idx: the bank's, else a
+ * preset; raises an error if there is none */
+static const au_sound_t *named_sound(lua_State *L, int idx)
+{
+    const au_bank_t *b = au_lua_bank ? au_lua_bank() : 0;
+    if (lua_type(L, idx) == LUA_TNUMBER) {
+        lua_Integer n = lua_tointeger(L, idx);
+        if (!b || n < 0 || n >= b->nsounds)
+            luaL_error(L, "no sound %d in the bank", (int)n);
+        return &b->sound[n];
+    }
+    const char *name = lua_tostring(L, idx);
+    if (!name)
+        luaL_error(L, "a sound's name or number");
+    for (int i = 0; b && i < b->nsounds; i++)
+        if (same_name(b->sound[i].name, name))
+            return &b->sound[i];
+    int p = au_preset_find(name);
+    if (p < 0)
+        luaL_error(L, "no instrument called \"%s\" (instruments() lists them)", name);
+    return &au_presets[p].s;
+}
+
 void au_lua_sound(lua_State *L, int idx, au_sound_t *s)
 {
     idx = lua_absindex(L, idx);
     uint8_t regs[SYNTH_VOICE_BYTES];
     memset(s, 0, sizeof *s);
     au_voice_default(regs);
-    if (lua_type(L, idx) == LUA_TSTRING) {
-        int p = au_preset_find(lua_tostring(L, idx));
-        if (p < 0)
-            luaL_error(L, "no instrument called \"%s\" (instruments() lists them)", lua_tostring(L, idx));
-        *s = au_presets[p].s;
+    if (lua_type(L, idx) == LUA_TSTRING || lua_type(L, idx) == LUA_TNUMBER) {
+        *s = *named_sound(L, idx);
         return;
     }
     luaL_checktype(L, idx, LUA_TTABLE);
+    if (lua_getfield(L, idx, "s") != LUA_TNIL) {
+        *s = *named_sound(L, -1);
+        au_sound_regs(s, regs);
+    }
+    lua_pop(L, 1);
     if (lua_getfield(L, idx, "preset") == LUA_TSTRING) {
         int p = au_preset_find(lua_tostring(L, -1));
         if (p < 0)

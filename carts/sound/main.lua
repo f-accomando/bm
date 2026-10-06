@@ -1478,6 +1478,7 @@ P[4] = {
 ----------------------------------------------------------------- overlays
 
 local NAME_CHARS = " ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789-_!."
+local riff_key, riff_pad, riff_draw, riff_open, riff_frame     -- the Riff... dialog (after merge)
 
 -- an 8-character name, with the pad (up/down letters) or the keyboard
 function ui.ask_name(label, text, done)
@@ -1517,6 +1518,8 @@ local function overlay_key(k)
     elseif k == "esc" or k == "n" then overlay = nil end
   elseif o.kind == "help" then
     overlay = nil
+  elseif o.kind == "riff" then
+    riff_key(o, k)
   else
     local n = #o.items
     local was = o.sel
@@ -1537,6 +1540,7 @@ end
 local function overlay_pad()
   local o = overlay
   local k
+  if o.kind == "riff" then riff_pad(o) return end
   if o.kind == "name" then
     if btnp(6) then o.chars[o.pos] = " " end
     k = rep[2] and "up" or rep[3] and "down" or rep[0] and "left" or rep[1] and "right" or
@@ -1581,6 +1585,8 @@ local function draw_overlay()
     print(o.detail or "", x + 16, y + 44, C.text)
     local hx = ui.hint(x + 16, y + 92, "A", nil, o.yes)
     ui.hint(hx + 8, y + 92, "B", nil, "cancel")
+  elseif o.kind == "riff" then
+    riff_draw(o)
   elseif o.kind == "help" then
     local lines = o.lines
     local x, y = draw_panel(624, #lines * 16 + 40, "CONTROLS", C.cyan)
@@ -1959,6 +1965,8 @@ local HELP = {
   "arpeggios, melodies and sound effects for the words (\"base lofi in re\").",
   "SOUNDS: down past the last row goes to FILTER, then WAVE & SPACE;",
   "the menu's Instrument... puts a ready-made sound in (it plays as you choose).",
+  "F7 Riff...: a pattern in a line (s \"kick*4, ~ snare\"), Enter plays it,",
+  "Ctrl+Enter puts its bars into the bank as a song (docs/RIFF.md).",
 }
 
 -- the keys while F12 is held, under the system's (keyhelp(), the kernel
@@ -1982,6 +1990,7 @@ local KEYHELP = {
   { "pgup / pgdn", "the next sound, pattern, song" },
   { "ctrl e", "export to a game" },
   { "f6", "the assistant: beats, backing tracks, melodies, sound effects" },
+  { "f7", "riff: a pattern in a line, played, then into the bank" },
   "pad",
   { "DPAD", "move" },
   { "A", "add / remove, choose" },
@@ -2185,6 +2194,172 @@ local function compose()
   }
 end
 
+----------------------------------------------------------------- riff
+
+-- Riff... (F7): a pattern in a line (require "riff", docs/RIFF.md), with
+-- the bank's sounds by name and the ready-made instruments; Enter plays it
+-- live (the words of the notes sounding light up), Ctrl+Enter puts some
+-- bars of it into the bank as a song. The pad: up/down the examples,
+-- left/right the bars, A plays, X into the bank, B closes.
+do
+  local riff_lib
+  local function riff_mod()
+    if riff_lib == nil then
+      local ok, m = pcall(require, "riff")
+      riff_lib = ok and m or false
+    end
+    return riff_lib or nil
+  end
+
+  local RIFF_EX = {
+    { "four on the floor", 's "kick*4, ~ snare, hat*8"' },
+    { "boom bap", 's "kick ~ ~ kick, ~ snare, [~ hat]*4" :swing(4)' },
+    { "acid bass", 'note "<c2 c2 eb2 g1>*4" :s "acid" :lpf(sine:range(300, 1800):slow(4))' },
+    { "arpeggio", 'chord "<Am F C G>" :s "epiano" :arp("updown") :fast(4)' },
+    { "melody", 'n "0 2 4 <7 6> 4 2 1 ~" :scale("A:minor") :s "pluck"' },
+    { "chords", 'chord "<Am F C G>" :s "pad" :room(.6)' },
+    { "Euclid", 's "kick(3,8), hat(7,16), ~ clap"' },
+    { "chip tune", 'note "c4 e4 g4 c5" :s "chip" :every(4, rev) :fast(2)' },
+  }
+  local RIFF_PREFIX = "riff = "
+
+  -- a line with an assignment plays as it is, an expression as "riff"
+  local function riff_source(text)
+    if text:match("^%s*[%a_][%w_]*%s*=[^=]") then return text, 0 end
+    return RIFF_PREFIX .. text, #RIFF_PREFIX
+  end
+
+  function riff_open()
+    if not riff_mod() then say("riff is not on this console", C.red) return end
+    music(-1)
+    sfx(-1)
+    local t = RIFF_EX[1][2]
+    overlay = { kind = "riff", text = t, cx = #t, ex = 1, bars = 4, msg = "Enter plays it", msg_c = C.dim }
+  end
+
+  local function riff_play(o)
+    local R = riff_mod()
+    local src, off = riff_source(o.text)
+    local ok, err = R.code(src, "riff")
+    o.off = off
+    if ok then
+      o.on = true
+      o.msg, o.msg_c = "playing   Ctrl+Enter: " .. o.bars .. " bars into the bank", C.green
+      note_log("riff " .. o.text)
+    else
+      o.msg, o.msg_c = (tostring(err):gsub("^riff:%d+: ", "")), C.red
+    end
+  end
+
+  local function riff_stop(o)
+    riff_mod().hush()
+    o.on = false
+    o.msg, o.msg_c = "stopped", C.dim
+  end
+
+  local function riff_bank(o)
+    local R = riff_mod()
+    if not o.on then riff_play(o) end
+    if not o.on then return end
+    local piece = R.bake(R.get(), { cycles = o.bars, steps = 16, name = "RIFF" })
+    R.hush()
+    overlay = nil
+    begin_edit()
+    local res, err = merge(bank, piece, set)
+    if not res then say("riff: " .. err, C.red, 300) return end
+    cur.page, cur.song, cur.pat = 4, res.song, res.pat
+    say(string.format("riff: %d bars into song %d (Ctrl+Z takes it back)", o.bars, res.song), C.green, 300)
+    note_log(string.format("riff into song %d, %d patterns, %d BPM", res.song, #piece.patterns, piece.bpm))
+  end
+
+  local function riff_bars(o, d)
+    o.bars = d > 0 and math.min(16, o.bars * 2) or math.max(1, o.bars // 2)
+    if o.on then o.msg = "playing   Ctrl+Enter: " .. o.bars .. " bars into the bank" end
+  end
+
+  function riff_key(o, k)
+    if k == "esc" then riff_mod().hush(); overlay = nil
+    elseif k == "\n" then riff_play(o)
+    elseif k == "^\n" then riff_bank(o)
+    elseif k == "^." then riff_stop(o)
+    elseif k == "\t" then riff_bars(o, o.bars == 16 and -16 or 1)
+    elseif k == "up" or k == "down" then
+      o.ex = (o.ex - 1 + (k == "up" and -1 or 1)) % #RIFF_EX + 1
+      o.text, o.cx = RIFF_EX[o.ex][2], #RIFF_EX[o.ex][2]
+      if o.on then riff_play(o) end
+    elseif k == "left" then o.cx = math.max(0, o.cx - 1)
+    elseif k == "right" then o.cx = math.min(#o.text, o.cx + 1)
+    elseif k == "home" then o.cx = 0
+    elseif k == "end" then o.cx = #o.text
+    elseif k == "\b" then
+      if o.cx > 0 then o.text, o.cx = o.text:sub(1, o.cx - 1) .. o.text:sub(o.cx + 1), o.cx - 1 end
+    elseif k == "del" then o.text = o.text:sub(1, o.cx) .. o.text:sub(o.cx + 2)
+    elseif #k == 1 and k:byte() >= 32 and #o.text < 200 then
+      o.text, o.cx = o.text:sub(1, o.cx) .. k .. o.text:sub(o.cx + 1), o.cx + 1
+    end
+  end
+
+  function riff_pad(o)
+    if rep[2] then riff_key(o, "up")
+    elseif rep[3] then riff_key(o, "down")
+    elseif rep[0] then riff_bars(o, -1)
+    elseif rep[1] then riff_bars(o, 1)
+    elseif btnp(4) then riff_play(o)
+    elseif btnp(6) then riff_bank(o)
+    elseif btnp(5) or btnp(9) then riff_mod().hush(); overlay = nil end
+  end
+
+  -- every frame while it is open: the notes ahead, the errors
+  function riff_frame()
+    local o = overlay
+    if not (o and o.kind == "riff" and o.on) then return end
+    local R = riff_mod()
+    R.update()
+    for _, e in ipairs(R.errors()) do o.msg, o.msg_c, o.on = e, C.red, false end
+  end
+
+  local RIFF_COLS = 72
+  function riff_draw(o)
+    local x, y = draw_panel(600, 196, "RIFF  -  a pattern in a line", C.orange)
+    print(string.format("example %d/%d: %s", o.ex, #RIFF_EX, RIFF_EX[o.ex][1]), x + 12, y + 36, C.dim)
+    ui.textr(o.bars .. " bars", x + 588, y + 36, C.yellow)
+    -- the line, lit where the notes sounding were written
+    local lit = {}
+    if o.on then
+      for _, l in ipairs(riff_mod().active()) do
+        for c = l[1] - o.off, l[2] - o.off - 1 do lit[c] = true end
+      end
+    end
+    local first = math.max(0, o.cx - RIFF_COLS + 1)
+    local fx, fy = x + 12, y + 60
+    ui.box(fx - 4, fy - 3, RIFF_COLS * 8 + 8, 22, C.dark)
+    for c = first, math.min(#o.text, first + RIFF_COLS) - 1 do
+      local cx = fx + (c - first) * 8
+      if lit[c] then rectfill(cx, fy, 8, 16, C.orange) end
+      print(o.text:sub(c + 1, c + 1), cx, fy, lit[c] and C.dark or C.text)
+    end
+    if (frame // 30) % 2 == 0 then rectfill(fx + (o.cx - first) * 8, fy, 2, 16, C.yellow) end
+    print(o.msg:sub(1, 72), x + 12, y + 92, o.msg_c)
+    local li = lastinput()
+    local kb, hx = li ~= "pad" and li ~= "ds4", x + 12
+    if kb then
+      hx = ui.chips({ "enter" }, "play", hx, y + 124)
+      hx = ui.chips({ "ctrl", "enter" }, "into the bank", hx, y + 124)
+      hx = ui.chips({ "ctrl", "." }, "stop", hx, y + 124)
+      hx = x + 12
+      hx = ui.chips({ "tab" }, "bars", hx, y + 156)
+      hx = ui.chips({ "up", "down" }, "examples", hx, y + 156)
+      ui.chips({ "esc" }, "close", hx, y + 156)
+    else
+      hx = ui.chips({ "A" }, "play", hx, y + 124)
+      hx = ui.chips({ "X" }, "into the bank", hx, y + 124)
+      ui.chips({ "B" }, "close", hx, y + 124)
+      hx = ui.chips({ "UPDOWN" }, "examples", x + 12, y + 156)
+      ui.chips({ "LEFTRIGHT" }, "bars", hx, y + 156)
+    end
+  end
+end
+
 local function play_toggle() P[cur.page].play() end
 
 local function open_other()
@@ -2222,6 +2397,7 @@ local function open_menu()
     items[#items + 1] = { label = "Instrument...", note = "a ready-made sound", act = choose_preset }
   end
   items[#items + 1] = { label = "Compose with the assistant...", note = "F6: beats, melodies, sfx", act = compose }
+  items[#items + 1] = { label = "Riff...", note = "F7: a pattern in a line", act = riff_open }
   if proj.path and proj.is_game then
     items[#items + 1] = { label = "Try it in the game", note = "F5, saves first", act = try_game }
   end
@@ -2375,6 +2551,7 @@ local function global_key(k)
   elseif k == "^o" then open_other()
   elseif k == "^e" then pick_file("export to", { game = true }, export_to)
   elseif k == "f6" then compose()
+  elseif k == "f7" then riff_open()
   elseif k == "up" then page.move(0, -1)
   elseif k == "down" then page.move(0, 1)
   elseif k == "left" then page.move(-1, 0)
@@ -2443,6 +2620,7 @@ function _update()
     if a.update() then return end
   end
   read_pad()
+  riff_frame()
   while true do
     local k = keyp()
     if not k then break end

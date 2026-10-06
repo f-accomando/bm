@@ -336,3 +336,103 @@ sola: tone(v, {raw = true}).
 code:
 retro(true)
 note(0, "C5", 100, SQUARE, 80)
+
+== play_at
+kind: api
+name: play_at
+title: play_at(t, suono, [nota, ms, vol, tag]) - una nota a un tempo preciso
+ask: suonare una nota a un tempo preciso | nota in tempo senza ritardi
+ask: play a note at an exact time | sequencer preciso dal codice
+ask: musica che non rallenta col gioco | audio_time orologio del suono
+keys: tempo, preciso, orologio, coda
+see: play, riff
+text:
+Mette in coda una nota per il tempo t di audio_time() (secondi):
+la fa partire l'interrupt del suono, entro 1,3 ms, anche se il gioco
+rallenta. suono come in play(); tag 1-255 raggruppa le note per
+play_cancel(tag). La voce si sceglie quando parte (play_voices).
+code:
+local t = audio_time()
+for i = 0, 3 do
+  play_at(t + i * 0.25, "kick", "C2", 100)
+end
+
+== riff
+kind: api
+name: riff
+title: require "riff" - musica in pattern, come Strudel
+ask: scrivere un ritmo in una riga come strudel | musica a pattern come tidal
+ask: live coding della musica | strudel su bm | pattern musicali in lua
+ask: write music as patterns like strudel | drum pattern in one line
+ask: mini notazione dei ritmi | sequencer a pattern | algorave
+keys: riff, strudel, tidal, pattern, mininotazione
+see: riff_code, riff_mini, play_at
+text:
+Ritmi e melodie scritti in una stringa (mini-notazione) e cambiati
+da funzioni concatenate con i due punti; R.play(nome, p) li suona,
+R.update() in _update li tiene in tempo. Strumenti pronti e suoni del
+banco per nome; le unita' sono quelle di tone(). Guida: docs/RIFF.md.
+code:
+local R = require "riff"
+R.play("drums", R.s "kick*4, ~ snare, hat*8")
+R.play("bass", R.note "<c2 a1 f1 g1>" :s "acid" :lpf(800))
+function _update() R.update() end
+
+== riff_code
+kind: api
+name: riff.code
+title: riff.code(testo) - musica dal vivo, una globale per pattern
+ask: codice musicale dal vivo | cambiare la musica mentre suona
+ask: riff code | tante tracce di musica con un nome
+ask: live code music while it plays | suonare piu' pattern insieme
+keys: riff, dal vivo, live
+see: riff, riff_live
+text:
+Esegue un pezzo di Lua dove note, s, chord, stack, sine, setcpm...
+sono globali: ogni globale con un pattern suona con quel nome (_nome
+no), quelle di prima non piu' nominate si fermano. true, o nil e
+l'errore (la musica continua). In bm Code: Ctrl+Invio.
+code:
+local R = require "riff"
+R.code [[
+setcpm(30)
+drums = s "kick ~ ~ kick, ~ snare, hat*8?"
+arp = chord "<Am F C G>" :s "pluck" :arp("updown") :fast(4)
+]]
+
+== riff_mini
+kind: howto
+title: La mini-notazione di riff: ~ [ ] < > * / ! @ ? ( )
+ask: come si scrive un ritmo nella stringa | cosa vuol dire <a b> e [a b]
+ask: ritmo euclideo 3 su 8 | pausa nel pattern | mini-notation syntax
+ask: suonare una nota ogni ciclo diversa | hat*8 cosa fa
+ask: il significato dei simboli nella stringa del ritmo | parentesi angolari nel pattern
+ask: what do the brackets mean in a riff string | note diverse a ogni giro
+keys: mininotazione, euclideo, pausa, ciclo
+see: riff, riff_code
+text:
+Una stringa e' un ciclo diviso in parti: "a b c d". ~ pausa, [a b]
+un gruppo in una parte, a,b insieme, <a b> una per ciclo, a*2 piu'
+veloce, a/2 piu' lenta, a!3 ripetuta, a@3 piu' lunga, a? a caso,
+a(3,8) euclideo, {a b c}%4 polimetro, a|b una delle due.
+code:
+local R = require "riff"
+R.play("beat", R.s "kick(3,8), [~ hat]*4, ~ <snare clap>")
+R.play("mel", R.n "0 [2 4] <7 6> ~" :scale("C:minor") :s "pluck")
+
+== riff_live
+kind: howto
+title: Suonare la musica dal vivo in bm Code (Ctrl+Invio)
+ask: sentire la musica mentre scrivo il codice | suonare il codice in bm code
+ask: ctrl invio suona | fermare la musica in bm code | live coding bm code
+ask: play the code as music in the editor
+keys: dal vivo, ctrl, invio, suona
+see: riff_code, riff
+text:
+In bm Code Ctrl+Invio suona la scheda (in un gioco il blocco
+riff.code [[ ]] sotto il cursore): le parole delle note si accendono
+mentre suonano, un errore segna la riga e la musica continua.
+Ctrl+. ferma. In bm Sound F7 mette un riff nel banco come brano.
+code:
+drums = s "kick*4, ~ snare, hat*8"
+bass = note "<c2 eb2 g1 bb1>" :s "acid" :lpf(sine:range(300, 1800))

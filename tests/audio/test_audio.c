@@ -767,11 +767,78 @@ static void test_iec958(void)
     CHECK(!(out[2 * 24] & 0x40000000u));
 }
 
+/* notes at a time (player_at, the pattern language): on time within a
+ * block, in order, on the voices allowed, the oldest stolen, cancelled */
+static void test_at(void)
+{
+    fresh(NULL);
+    au_sound_t sq = { "SQ", SYNTH_SQUARE, 128, 255, 0, 0, 255, 0, 0, 0, 0, 0, 0, { 0 } };
+    au_tone_default(pregs);
+    for (int i = 0; i < AU_TONE; i++)
+        sq.tone[i] = pregs[SYNTH_CUTOFF + i];
+    sq.tone[SYNTH_FLAGS - SYNTH_CUTOFF] |= SYNTH_FLAG_RAW;
+    CHECK(player_clock(&pl) == 0);
+    /* 1000 samples on, 2400 long: silent before, A4 from the block it falls in */
+    CHECK(player_at(&pl, 1000, &sq, 69, 255, 2400, 1) == 0);
+    CHECK(player_at_waiting(&pl, 0) == 1 && player_at_waiting(&pl, 2) == 0);
+    run(buf, 4800);
+    CHECK(player_clock(&pl) == 4800);
+    int on = onset(buf, 0, 4800, 1000);
+    CHECK(on >= 960 && on <= 1024);
+    CHECK(peak(buf, 960) == 0);
+    CHECK(fabs(freq_at(buf, 1200, 1920) - 440.0) < 30.0);
+    CHECK(peak(buf + 3600, 1200) == 0);                 /* released at 3400 */
+    CHECK(player_at_waiting(&pl, 0) == 0);
+    /* a time gone plays at once; bad notes and tags refused */
+    CHECK(player_at(&pl, 10, &sq, 60, 255, 480, 1) == 0);
+    CHECK(player_at(&pl, 10, &sq, 0, 255, 480, 1) == -1 && player_at(&pl, 10, &sq, 60, 255, 480, 0) == -1);
+    run(buf, 64);
+    CHECK(pl.v[7].at_tag == 1 && pl.v[7].owner == AU_OWN_SFX);
+
+    /* the voices allowed: 2 and 5; three notes at once: the third takes
+     * the oldest of the two */
+    fresh(NULL);
+    player_at_voices(&pl, 1u << 2 | 1u << 5);
+    CHECK(player_at(&pl, 100, &sq, 60, 255, 9600, 3) == 0);
+    CHECK(player_at(&pl, 200, &sq, 64, 255, 9600, 3) == 0);
+    run(buf, 512);
+    CHECK(pl.v[5].at_tag == 3 && pl.v[2].at_tag == 3 && pl.v[7].owner == AU_OWN_NONE);
+    CHECK(fabs(pl.v[5].note - 60) < 0.01f && fabs(pl.v[2].note - 64) < 0.01f);
+    CHECK(player_at(&pl, 600, &sq, 67, 255, 9600, 4) == 0);
+    run(buf, 512);
+    CHECK(pl.v[5].at_tag == 4 && fabs(pl.v[5].note - 67) < 0.01f && fabs(pl.v[2].note - 64) < 0.01f);
+    /* cancel tag 3: its waiting notes forgotten, its sounding one released */
+    CHECK(player_at(&pl, 5000, &sq, 72, 255, 480, 3) == 0 && player_at(&pl, 5000, &sq, 74, 255, 480, 4) == 0);
+    player_at_cancel(&pl, 3);
+    CHECK(player_at_waiting(&pl, 3) == 0 && player_at_waiting(&pl, 4) == 1);
+    CHECK(!(pregs[2 * SYNTH_VOICE_BYTES + SYNTH_CONTROL] & SYNTH_GATE));
+    CHECK(pregs[5 * SYNTH_VOICE_BYTES + SYNTH_CONTROL] & SYNTH_GATE);
+    player_at_cancel(&pl, 0);
+    CHECK(player_at_waiting(&pl, 0) == 0 && !(pregs[5 * SYNTH_VOICE_BYTES + SYNTH_CONTROL] & SYNTH_GATE));
+
+    /* in time order whatever the order of queueing; the queue's end */
+    fresh(NULL);
+    player_at_voices(&pl, 1u << 0);
+    CHECK(player_at(&pl, 300, &sq, 72, 255, 64, 1) == 0);
+    CHECK(player_at(&pl, 100, &sq, 60, 255, 64, 1) == 0);
+    run(buf, 200);
+    CHECK(fabs(pl.v[0].note - 60) < 0.01f);
+    run(buf, 200);
+    CHECK(fabs(pl.v[0].note - 72) < 0.01f);
+    int queued = 0;
+    for (int i = 0; i < AU_AT_MAX + 5; i++)
+        queued += player_at(&pl, 100000 + (uint64_t)i, &sq, 60, 255, 64, 1) == 0;
+    CHECK(queued == AU_AT_MAX);
+    player_stop_all(&pl);
+    CHECK(player_at_waiting(&pl, 0) == 0 && pl.at_next == UINT64_MAX);
+}
+
 int main(void)
 {
     test_synth();
     test_clean();
     test_player();
+    test_at();
     test_bank2();
     test_iec958();
     printf("audio: %d/%d checks passed\n", checks - fails, checks);

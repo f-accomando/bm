@@ -111,6 +111,7 @@ void audio_reset(void)
 {
     uint32_t s = irq_save();
     player_stop_all(&player);
+    player_at_voices(&player, 0);
     for (unsigned ch = 0; ch < SYNTH_VOICES; ch++)
         au_voice_default(voice(ch));    /* no filter, in the middle, a little room */
     float gain = synth.gain;
@@ -297,6 +298,46 @@ int audio_play_sound(int ch, const au_sound_t *snd, int note, int vol, uint32_t 
     return v;
 }
 
+uint64_t audio_clock(void)
+{
+    uint32_t s = irq_save();
+    uint64_t t = player_clock(&player);
+    irq_restore(s);
+    return t;
+}
+
+int audio_at(uint64_t when, const au_sound_t *snd, int note, int vol, uint32_t len, int tag)
+{
+    uint32_t s = irq_save();
+    int r = player_at(&player, when, snd, note, vol, len, tag);
+    irq_restore(s);
+    return r;
+}
+
+void audio_at_cancel(int tag)
+{
+    uint32_t s = irq_save();
+    player_at_cancel(&player, tag);
+    irq_restore(s);
+}
+
+void audio_at_voices(uint8_t mask)
+{
+    uint32_t s = irq_save();
+    player_at_voices(&player, mask);
+    irq_restore(s);
+}
+
+int audio_at_waiting(int tag)
+{
+    return player_at_waiting(&player, tag);
+}
+
+const au_bank_t *audio_bank_now(void)
+{
+    return bank_now >= 0 ? &banks[bank_now] : NULL;
+}
+
 void audio_tone(unsigned ch, const uint8_t *regs)
 {
     ch %= SYNTH_VOICES;
@@ -360,6 +401,7 @@ void audio_pause(int on)
     uint32_t s = irq_save();
     player_music_pause(&player, on);
     if (on) {
+        player_at_cancel(&player, 0);
         player_sfx_stop(&player, -1);
         for (unsigned ch = 0; ch < SYNTH_VOICES; ch++) {
             player_lua_off(&player, (int)ch);

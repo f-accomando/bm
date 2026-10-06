@@ -108,6 +108,8 @@ const au_preset_t au_presets[] = {
     P("brass", "lead", "brass: the filter opens as it swells",
       SYNTH_SAW, 128, 150, 10, 60, 180, 30, 0, 0, 8, 50, T(CUTOFF) = 110, T(RESONANCE) = 30, T(FENV) = 40,
       T(FDECAY) = 50, T(REVERB) = 70),
+    P("triangle", "lead", "a plain triangle: a riff's sound when it names none",
+      SYNTH_TRIANGLE, 128, 170, 1, 0, 255, 19, 0, 0, 0, 0, T(REVERB) = 40),
     P("chip", "lead", "the 8-bit square of the first versions",
       SYNTH_SQUARE, 128, 120, 1, 0, 255, 10, 0, 0, 0, 0, T(FLAGS) = SYNTH_FLAG_RAW),
     P("chiptri", "lead", "the 8-bit triangle",

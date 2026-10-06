@@ -562,7 +562,7 @@ screenshot in `docs/img/`), `README_OLD.md` (il README completo, in italiano),
   `test_audio.c` girano in retro. Il VFP del Pi è in RunFast (niente denormali); i buffer
   del blocco stanno in `synth_t` (l'interrupt usa lo stack SVC). Costo sul Pi (armprof):
   4,2% con 8 voci e l'ambiente.
-- **Strumenti pronti** `src/audio/presets.c` (41, gli stessi in bm Sound, *Instrument...*);
+- **Strumenti pronti** `src/audio/presets.c` (42, gli stessi in bm Sound, *Instrument...*);
   dal Lua `tone`, `play`, `instruments`, `instrument`, `reverb`, `echo`, `retro`
   (`lua_tone.c`, condiviso da runtime, bmhost e bmplay). **Banco versione 2**: suoni da 48
   byte (`tone[21]`), byte 12/13 del brano eco (passi) e ambiente; la versione 1 si legge
@@ -575,6 +575,23 @@ screenshot in `docs/img/`), `README_OLD.md` (il README completo, in italiano),
   tradizionali o scritte per bm; `make music-model`, poi commit di `music_net.c`): il C
   dà le stesse uscite del Python (`make test-music`). `ai.music`/`ai.music_recipes` anche
   sulla RGB30 (senza la rete dell'assistente: `mus_guess` dalle parole).
+- **riff** (M43, richiesta dell'utente: un linguaggio di pattern come Strudel, in Lua;
+  guida `docs/RIFF.md`): `src/script/riff.lua` (`require "riff"`, incorporata come bmlib:
+  `embed.S`, `require.c`, `tests/host/libs.S`, `src/rgb30/bm_embed.S`). Mini-notazione,
+  pattern come funzioni da un intervallo di cicli agli eventi (alla Tidal, tempi in float
+  con `EPS`), controlli con le unità di `tone()` (non quelle di Strudel), scale, accordi.
+  `R.update()` in `_update` chiede ~0,2 s avanti (pezzi di 1/8 di ciclo) e mette le note in
+  coda con **`play_at`**: la coda è nel player (`player_at`, 160 note, `at_next`; la voce
+  si sceglie alla partenza, mai quelle di un brano o di un effetto), l'orologio è
+  `player_t.clock` (`audio_time()`). `R.code(testo)` compila con il loader di testo che
+  `require.c` dà solo a riff (`l_loadtext`, modo `"t"`: la sandbox non ha `load`); ogni
+  globale con un pattern suona col suo nome. Nomi negli strumenti: prima i suoni del banco
+  (`au_lua_bank` in `lua_tone.c`), poi i preset (`triangle` è quello senza nome). bm Code:
+  Ctrl+Invio (`"^\n"` di `keyp`, `HID_KEY_CTRL_ENTER`; seriale `ESC [ 28 ~`) e Ctrl+.
+  (`"^."`, `ESC [ 29 ~`), parole accese con `R.active()`; bm Sound: F7 *Riff...*,
+  `R.bake` nella forma di `ai.music` e `merge`. Prove: `make test-riff`
+  (`tests/riff/cart.lua`, anche gli esempi dei documenti), `make test-audio` (`test_at`),
+  QEMU `test_riff_code`, `test_sound_riff`, `test_audio`.
 
 ## nano8 (M23)
 

@@ -454,6 +454,26 @@ musica. Il **volume** è della console: si cambia in Settings o nel menu di paus
 gioco (`volume()` lo legge e lo cambia; mettilo anche nella pausa del tuo gioco: `lib.pause()`
 di bmlib lo ha). Per le melodie brevi c'è `lib.jingle`.
 
+**La musica scritta in una riga: riff** (`require "riff"`, guida in [RIFF.md](RIFF.md)),
+come in Strudel: un ritmo è una stringa, le funzioni la cambiano, l'interrupt del suono la
+suona in tempo.
+
+```lua
+local R = require "riff"
+R.code [[
+setcpm(30)
+drums = s "kick*4, ~ snare, hat*8"
+bass  = note "<c2 a1 f1 g1>*2" :s "acid" :lpf(800)
+lead  = n "0 2 4 <7 6>" :scale("A:minor") :s "pluck" :sometimes(add(12))
+]]
+function _update() R.update() end      -- ogni fotogramma
+```
+
+In **bm Code** scrivila e premi **Ctrl+Invio**: suona subito e le parole delle note si
+accendono mentre suonano; cambia una parola e Ctrl+Invio di nuovo, **Ctrl+.** ferma. In
+**bm Sound** **F7** suona una riga e **Ctrl+Invio** la mette nel banco come brano, da
+usare poi con `music()`.
+
 ## 8. Luci (scene al buio)
 
 ```lua

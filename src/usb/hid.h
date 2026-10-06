@@ -148,6 +148,8 @@ int hid_keys_held(uint8_t *out, int max);
 #define HID_KEY_DEL     0xF8
 #define HID_KEY_F1      0xF9            /* .. F5 = 0xFD */
 #define HID_KEY_F6      0xE6            /* .. F12 = 0xEC (code page 437 Greek: never typed) */
+#define HID_KEY_CTRL_ENTER 0xED         /* while typing: Ctrl+Enter (the pattern language plays) */
+#define HID_KEY_CTRL_DOT   0xEF         /* while typing: Ctrl+. (it stops) */
 #define HID_KEY_CTRL_SHIFT 0xEE         /* while typing, before the Ctrl letter typed with Shift too */
 /* Once per press, then cleared (the system's keys, src/kernel/syskeys.h):
  * HID_QUIT_KEY | HID_QUIT_MONITOR for Start+Select or Ctrl+Shift+Esc (from

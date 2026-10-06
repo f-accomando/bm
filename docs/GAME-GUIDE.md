@@ -451,6 +451,26 @@ another; with `sfx(n)` the console chooses the voice, leaving the music alone. T
 reads and changes it; put it in your game's pause too: `lib.pause()` of bmlib has it). For
 short tunes there is `lib.jingle`.
 
+**Music written in a line: riff** (`require "riff"`, guide in [RIFF.md](RIFF.md), in
+Italian), as in Strudel: a rhythm is a string, functions change it, the sound's interrupt
+plays it on time.
+
+```lua
+local R = require "riff"
+R.code [[
+setcpm(30)
+drums = s "kick*4, ~ snare, hat*8"
+bass  = note "<c2 a1 f1 g1>*2" :s "acid" :lpf(800)
+lead  = n "0 2 4 <7 6>" :scale("A:minor") :s "pluck" :sometimes(add(12))
+]]
+function _update() R.update() end      -- every frame
+```
+
+In **bm Code** write it and press **Ctrl+Enter**: it plays at once and the words of the
+notes light up as they sound; change a word and Ctrl+Enter again, **Ctrl+.** stops. In
+**bm Sound** **F7** plays a line and **Ctrl+Enter** puts it into the bank as a song, to use
+with `music()`.
+
 ## 8. Lights (dark scenes)
 
 ```lua
