@@ -1,0 +1,22 @@
+bm report
+kind: gpu
+kernel: v0.2.3-43-gebc152e
+branch: bm3d-driver
+board: RGB30
+date: 2026-10-05 21:32:31
+file: 20261005-213231_gpu_rgb30_v0.2.3-43-gebc152e.txt
+
+
+GPU test: the Mali-G52, step by step (bm3d 6.2, M41)
+mali: supply: vdd_gpu 900 mV
+mali: power: PD_GPU turned on, clocks on (gates 0000 -> 0000, CLKSEL_CON6 4191: parent 2, divider 2, clk_gpu_src)
+mali: GPU_ID 74021000: Mali-G52 r1p0, 1 shader core (00000001), L2 00000001, tiler 00000001, address spaces ff, job slots 07
+mali: MMU 35-bit addresses, 40-bit physical; 768 threads a core
+mali: reset: soft
+mali: cores: L2, 1 shader core and the tiler powered on
+mali: mmu: address space 0 on, 64 MiB at 3c000000 1:1 (Mali LPAE, tables at 3fc00000)
+mali: a WRITE_VALUE job: done in 5 us, the word written (JS_STATUS 00 OK, header 01 DONE)
+mali: a chain of two jobs: done in 5 us
+mali: a fragment job (a clear): done in 14 us, 64x64 pixels of 20c060 (0020c060)
+mali: a square on the screen (top right, green): drawn by the GPU
+mali: every step done: the GPU runs jobs and clears tiles (no triangles yet)
