@@ -376,8 +376,10 @@ da lì nel `.bm`; per un gioco del repository basta mettere `models.glb` nella s
 
 ## 7. Suono
 
-L'audio esce dall'HDMI: otto voci di sintesi (0–7), sei forme d'onda (`SQUARE`,
-`TRIANGLE`, `SAW`, `NOISE`, `SINE`, `METAL`) con inviluppo ADSR. Due strade, anche
+L'audio esce in stereo (dall'HDMI sul Pi, dalle cuffie o dall'altoparlante sulla RGB30):
+otto voci di sintesi (0–7), dieci forme d'onda (`SQUARE`, `TRIANGLE`, `SAW`, `NOISE`,
+`SINE`, `METAL`, e le nuove `FM`, `PLUCK`, `SUPERSAW`, `ORGAN`) con inviluppo ADSR, filtro,
+ambiente ed eco; il suono 8-bit di una volta con `retro(true)`. Due strade, anche
 insieme.
 
 **Effetti e musica fatti con il Sound editor** (scheda **Dev** del menu). È il modo più
@@ -386,12 +388,33 @@ comodo: si compongono col pad o con la tastiera e si salvano dentro il gioco.
 1. Nel menu, sul gioco: **X** → *Open in the Sound editor* (oppure Dev → Sound, poi
    *Open...* dal menu dell'editor, SELECT).
 2. Pagina **SOUNDS**: gli strumenti (prova *KICK*, *BASS*, *LEAD* del progetto demo).
+   Scendendo oltre l'ultima riga: **FILTER** (taglio, risonanza, il suo inviluppo, LFO,
+   drive) e **WAVE & SPACE** (le regolazioni di FM, corda, supersaw e organo; posto,
+   ambiente, eco). Dal menu, *Instrument...* mette in un suono uno strumento pronto
+   (piano elettrico, corda, pad, cassa 808...), che si sente mentre lo scegli.
 3. Pagina **SFX**: gli effetti per il gioco, una nota per passo (A aggiunge, A + su/giù
    cambia la nota, START ascolta).
 4. Pagina **PATTERN**: 8 tracce × 16 passi, come una drum machine; **SONG**: l'ordine
    dei pattern.
 5. **Save** (SELECT → Save, o Ctrl+S): i suoni finiscono nel `.bm`. *Try it in the
    game* lo avvia e torna all'editor.
+
+**L'assistente compone** (in bm Sound **F6**, o dal menu *Compose with the
+assistant...*): scrivi che cosa ti serve e lui lo prepara, lo fa sentire mentre lo scegli
+e con A lo mette nel banco; a sinistra e a destra le varianti, Ctrl+Z lo toglie.
+
+- **Ritmi**: "ritmo rock", "beat house", "batteria trap", "valzer", "beat 8 bit".
+- **Basi** (batteria, basso e accordi, con un brano tutto loro): "base lofi in re", "musica
+  del dungeon", "base per il boss", "base chiptune veloce".
+- **Bassi e arpeggi** sopra il pattern che hai: "walking bass", "arpeggio trance".
+- **Melodie**, scritte da una piccola rete neurale addestrata su melodie tradizionali e su
+  melodie scritte per bm: "melodia triste con la chitarra", "tema eroico", "melodia 8 bit";
+  sopra una base ne seguono tonalità e accordi.
+- **Effetti classici**: moneta, salto, laser, sparo, esplosione, power-up, colpo, morte,
+  vittoria, game over, porta, passi, teletrasporto, cura...
+
+Le parole scelgono anche tonalità ("in la minore"), tempo ("120 bpm", "lento"), lunghezza
+("8 battute") e strumento ("con il piano"). Dal codice: `ai.music("ritmo funk")`.
 
 Nel codice bastano due funzioni:
 
@@ -413,6 +436,16 @@ note(1, 1300, 300, SQUARE, 70)       -- un laser che parte alto...
 slide(1, 300, 250)                   -- ...e scende
 note(3, "C4", 500, SQUARE, 90)
 arp(3, "minor", 40)                  -- un accordo arpeggiato, stile chip
+```
+
+**Strumenti pronti dal codice**: `tone(v, "epiano")` dà alla voce il timbro di uno
+strumento per le `note()` che seguono; `play(nil, "kick", "C2")` suona uno strumento come
+la musica (con la sua caduta d'altezza); una tabella cambia solo quello che dice:
+
+```lua
+tone(0, { preset = "lead", cutoff = 1200, res = 0.6, echo = 0.3 })
+play(nil, { wave = "noise", cutoff = 600, fenv = -2, fdecay = 400, decay = 500, sustain = 0 }, "C3")
+reverb(0.9, 0.6, 1)                  -- una navata enorme
 ```
 
 Buona abitudine: una voce per tipo di suono (arma, colpi, musica), così un effetto non

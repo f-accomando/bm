@@ -1259,6 +1259,12 @@ def test_home_ui(b, opts):
         screen(["< 9 / 10 >", "volume: 9 / 10"])
         keys("d")
         screen(["< 10 / 10 >"])
+        keys("s")                               # the sound style: hi-fi, 8-bit (M43), saved
+        screen(["Sound style", "< Hi-fi >"])
+        keys("\r")
+        screen(["< 8-bit >", "sound: 8-bit"])
+        keys("\r")
+        screen(["< Hi-fi >", "sound: hi-fi"])
         keys("ss")
         screen(["Test pattern", "Test the sound", "HDMI sound status"])
         keys("q")

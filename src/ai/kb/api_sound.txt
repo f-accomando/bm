@@ -234,7 +234,105 @@ title: apu(v, reg, [valore]) - registri grezzi del sintetizzatore
 ask: registri del sintetizzatore | accesso diretto all'audio | raw audio registers
 see: note
 text:
-Legge o scrive un registro grezzo (16 byte per voce: src/audio/synth.h).
-Di solito bastano note, slide, envelope e duty.
+Legge o scrive un registro grezzo (32 byte per voce, 0-31:
+src/audio/synth.h; dall'11 il timbro: filtro, posto, ambiente, eco, LFO).
+Di solito bastano note, tone, envelope e duty.
 code:
 local vol = apu(0, 5)
+
+== tone
+kind: api
+name: tone
+title: tone(v, suono) - il timbro della voce: strumenti pronti e filtro
+ask: suonare le note con il pianoforte | cambiare strumento a una voce
+ask: un suono meno 8 bit | suono più morbido | filtro passa basso | cutoff
+ask: strumento pronto per note | electric piano sound | change the instrument
+ask: basso con il filtro risonante | suono a destra o a sinistra | pan stereo
+keys: timbro, strumento, filtro, cutoff, risonanza, pan, stereo
+see: play, instruments, reverb, note
+text:
+Il timbro della voce v per le note() che seguono: il nome di uno strumento
+pronto ("epiano", "pluck", "pad", "bass", "kick"...: instruments()) o una
+tabella con le chiavi che cambiano: preset, wave, attack, decay, sustain,
+release (ms), cutoff (Hz), res, filter ("lp", "bp", "hp"), fenv, fdecay,
+pan (-1 sinistra, 1 destra), reverb, echo, drive, lfo, wah, raw (8 bit).
+tone(v) torna alla voce di partenza.
+code:
+tone(0, "epiano")
+note(0, "E4", 400)
+tone(1, { preset = "bass", cutoff = 300, res = 0.7, pan = -0.3 })
+note(1, "E2", 300)
+
+== play
+kind: api
+name: play
+title: play([v], suono, [nota, ms, vol]) - suonare uno strumento
+ask: suonare uno strumento pronto | suonare la cassa della batteria
+ask: play an instrument | suono di batteria dal codice | rullante e charleston
+ask: suonare un suono del banco con un'altra nota | colpo di cassa
+keys: strumento, batteria, cassa, rullante
+see: tone, instruments, sfx
+text:
+Suona uno strumento come lo suona la musica, con il suo inviluppo
+dell'altezza e il vibrato (la cassa che scende, il laser): un nome, una
+tabella come quella di tone() (più pitch, ptime, vib) o un suono del banco
+(un numero). nota: MIDI o nome ("C4"), ms 0 = tenuta fino a noteoff, vol
+0-1. Senza v sceglie una voce libera; restituisce la voce.
+code:
+play(nil, "kick", "C2")
+play(nil, "snare", "D3", 0, 0.8)
+local v = play(nil, "pad", "A3", 0)
+-- dopo: noteoff(v)
+
+== instruments
+kind: api
+name: instruments
+title: instruments([tipo]), instrument(nome) - gli strumenti pronti
+ask: elenco degli strumenti | quali strumenti ci sono | list the instruments
+ask: strumenti di batteria disponibili | i preset del sintetizzatore
+keys: strumenti, preset, elenco
+see: tone, play
+text:
+instruments() gli strumenti pronti {name, kind, about}; tipo: "drum",
+"bass", "keys", "pad", "pluck", "lead", "fx". instrument(nome) tutti i
+valori di uno (wave, a, d, s, r, pitch, tone...), come bm Sound li tiene.
+code:
+for _, i in ipairs(instruments("drum")) do
+  log(i.name, i.about)
+end
+
+== reverb
+kind: api
+name: reverb
+title: reverb([grandezza, smorzo, livello]), echo([ms, ritorno, livello])
+ask: aggiungere il riverbero | suono in una cattedrale | ambiente della musica
+ask: add reverb | eco del suono | echo delay | eco a tempo con la musica
+ask: suono in una grotta | suono che rimbomba in una sala
+keys: riverbero, ambiente, eco, sala, grotta
+see: tone, retro
+text:
+reverb: l'ambiente delle voci (0-1: da una stanza piccola a una sala,
+da brillante a sordo, quanto si sente). echo: l'eco a ping-pong, ms tra
+le ripetizioni (fino a 680), quanto torna (0-0.95), quanto si sente.
+Quanto ci manda ogni voce lo dicono reverb ed echo di tone().
+code:
+reverb(0.8, 0.5, 1)            -- una cattedrale
+echo(375, 0.4, 1)              -- a tempo a 80 BPM
+tone(2, { preset = "lead", echo = 0.5 })
+
+== retro
+kind: api
+name: retro
+title: retro([on]) - il suono 8-bit di una volta
+ask: suono 8 bit come le vecchie console | suono chiptune | old 8-bit sound
+ask: togliere il riverbero da tutto | suono grezzo e retro
+keys: 8bit, chiptune, retro
+see: tone, reverb
+text:
+retro(true): tutte le voci 8-bit come nelle prime versioni (onde
+ingenue, inviluppi dritti, niente ambiente né eco) finché il gioco gira;
+retro(false) torna al suono pulito. Restituisce se lo sono. Per una voce
+sola: tone(v, {raw = true}).
+code:
+retro(true)
+note(0, "C5", 100, SQUARE, 80)

@@ -101,6 +101,13 @@ la musica deve andare più veloce col boss => tempo
 nota con il vibrato => vibrato
 suonare un accordo di do maggiore arpeggiato => arp
 abbassa il volume => volume
+voglio che le note suonino come un pianoforte elettrico => tone
+il suono è troppo 8 bit, lo voglio più morbido => tone, retro
+far suonare la cassa e il rullante dal codice => play
+che strumenti pronti ci sono => instruments
+mettere un po' di eco e riverbero alla musica => reverb
+voglio il suono grezzo delle console a 8 bit => retro
+generare una melodia nel codice del gioco => ai_music
 
 # saves, players, system
 salvare il punteggio più alto => high_score, save

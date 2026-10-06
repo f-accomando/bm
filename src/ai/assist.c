@@ -227,9 +227,10 @@ static int in_list(const char *list, const char *w)
     return 0;
 }
 
-/* API names that are also everyday words of the questions ("tempo": time):
+/* API names that are also everyday words of the questions ("tempo": time,
+ * "play a sound"):
  * they count only under the cursor or written as a call, "tempo(" */
-static const char *const plain_names = "tempo";
+static const char *const plain_names = "tempo,play,tone,echo,retro";
 
 int ai_ask(const char *q, const char *ctx, unsigned kinds, ai_hit_t *hits, int max)
 {

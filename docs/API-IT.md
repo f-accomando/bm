@@ -361,8 +361,12 @@ if score > best then best = score; save({ best = best }) end
 
 ### Suono
 
-L'audio esce dall'HDMI a 48 kHz (dagli altoparlanti del monitor) ed è generato in un
-interrupt: non costa nulla al tuo `_update`. Ci sono due modi di usarlo, anche insieme:
+L'audio esce in **stereo** a 48 kHz (sul Pi dall'HDMI, gli altoparlanti del monitor; sulla
+RGB30 dalle cuffie o dall'altoparlante) ed è generato in un interrupt: non costa nulla al
+tuo `_update`. Il sintetizzatore è **hi-fi** (2026-10-06): onde senza aliasing, inviluppi
+esponenziali, filtro risonante, ambiente (riverbero) ed eco, un compressore leggero
+sull'uscita; la voce **8-bit** di prima resta (`retro(true)`, l'opzione `raw` di `tone()`,
+o *Settings > Screen and sound > Sound style*). Ci sono due modi di usarlo, anche insieme:
 
 - **il banco di suoni** della cartuccia (effetti sonori e musica fatti con il Sound
   editor della scheda Dev): `sfx(n)` e `music(n)`;
@@ -370,7 +374,11 @@ interrupt: non costa nulla al tuo `_update`. Ci sono due modi di usarlo, anche i
 
 Otto voci (0–7). Forme d'onda: `SQUARE` (quadra, con `duty`), `TRIANGLE`, `SAW` (dente
 di sega), `NOISE` (rumore), `SINE` (seno), `METAL` (rumore corto e metallico: piatti,
-campanelli). Ogni voce ha un inviluppo ADSR. Le altezze sono in **Hz** (anche con la
+campanelli), `FM` (due seni, uno piega l'altro: piano elettrico, campane, bassi, ottoni),
+`PLUCK` (una corda pizzicata: chitarre, arpe), `SUPERSAW` (tre denti di sega un po'
+stonati: pad, lead larghi), `ORGAN` (quattro armoniche: organi, flauti). Ogni voce ha un
+inviluppo ADSR, un filtro, un posto tra sinistra e destra e quanto va nell'ambiente e
+nell'eco (`tone()`). Le altezze sono in **Hz** (anche con la
 virgola: `261.63`) oppure un **nome di nota**: `"C4"` (do centrale), `"A4"` (440 Hz),
 `"F#3"`, `"Bb2"`.
 
@@ -418,7 +426,7 @@ end
 | `envelope(v, a, d, s, r)` | inviluppo della voce: attack, decay e release sono tempi 0–255 (0 = istantaneo, 255 = 2 s), sustain è un livello 0–255. Predefinito `1, 0, 255, 10` |
 | `duty(v, d)` | larghezza dell'onda quadra, 0–255 (128 = 50%; 32–64 suona più "nasale") |
 | `playing(v)` | `true` finché la voce suona (release compreso) o un effetto / la musica la tiene |
-| `apu(v, reg, [valore])` | legge o scrive un registro grezzo della voce (16 byte per voce: `src/audio/synth.h`; il registro 10 sono i 1/256 di Hz) |
+| `apu(v, reg, [valore])` | legge o scrive un registro grezzo della voce (32 byte per voce, 0–31: `src/audio/synth.h`; il registro 10 sono i 1/256 di Hz, dall'11 il timbro: filtro, posto, ambiente, eco, LFO) |
 
 Forma e volume restano quelli dell'ultima nota della voce, quindi basta darli una volta.
 All'avvio e all'uscita della cartuccia le voci si spengono e tornano ai valori
@@ -438,12 +446,67 @@ arp(3, "major", 40)
 
 Pong, Snake e Star Shooter in `carts/` usano le note (una funzione `jingle` di 10 righe
 per le melodie; ora c'è `lib.jingle` in bmlib); il progetto dimostrativo del Sound editor
-(`carts/sound/demo.json`) ha effetti sonori e due brani da ascoltare e copiare.
+(`carts/sound/demo.json`) ha effetti sonori e tre brani da ascoltare e copiare (HIFI usa le
+voci nuove).
+
+#### Strumenti, timbro, ambiente
+
+| Funzione | Descrizione |
+|---|---|
+| `tone(v, suono)` | il timbro della voce per le `note()` che seguono: il nome di uno **strumento pronto** (`"epiano"`, `"pluck"`, `"pad"`, `"kick"`… `instruments()` li elenca) o una tabella in unità semplici (sotto). `tone(v)` torna alla quadra di una voce nuova |
+| `play([v], suono, [nota], [ms], [vol])` | suona uno strumento come lo suona la musica, con il suo inviluppo dell'altezza e il vibrato (la cassa che scende, il laser): un nome, una tabella come quella di `tone()` (più `pitch` semitoni da cui partire, `ptime` ms per arrivare, `vib` cent, `vibhz`, `detune` cent) o un suono del banco (un numero). `nota`: numero MIDI o nome (`"C4"`, predefinito 60), `ms` 0 = tenuta fino a `noteoff`, `vol` 0–1; senza `v` una voce libera. Restituisce la voce |
+| `instruments([tipo])` | gli strumenti pronti: `{ {name=, kind=, about=}, … }`; `tipo`: `"drum"`, `"bass"`, `"keys"`, `"pad"`, `"pluck"`, `"lead"`, `"fx"` |
+| `instrument(nome)` | uno strumento con tutti i suoi valori, come bm Sound tiene un suono (`wave`, `a`, `d`, `s`, `r`, `pitch`, `tone` = i 21 byte del timbro…), o `nil` |
+| `reverb([grandezza], [smorzo], [livello])` | l'ambiente dove suonano le voci (0–1: da una stanza piccola a una sala, da brillante a sordo, quanto si sente); restituisce i tre valori. Ogni voce ci manda quanto dice il suo `reverb` (predefinito poco: 0.16) |
+| `echo([ms], [ritorno], [livello])` | l'eco a ping-pong (sinistra, destra): il tempo tra le ripetizioni (al più 680 ms), quanto torna (0–0.95), quanto si sente; restituisce i tre valori. Ci va quanto dice l'`echo` di ogni voce |
+| `retro([on])` | tutte le voci **8-bit** come nelle prime versioni (onde ingenue, inviluppi dritti, niente ambiente né eco) finché il gioco gira; restituisce se lo sono (anche le Settings lo possono chiedere) |
+
+Le chiavi di `tone()` (tutte facoltative; quelle che mancano restano come sono):
+
+| Chiave | Valore |
+|---|---|
+| `preset` | uno strumento pronto da cui partire |
+| `wave` | `"square"`, `"triangle"`, `"saw"`, `"noise"`, `"sine"`, `"metal"`, `"fm"`, `"pluck"`, `"supersaw"`, `"organ"` |
+| `vol`, `duty`, `sustain` | 0–1 |
+| `attack`, `decay`, `release` | ms (fino a 2000) |
+| `cutoff` | il **filtro**: Hz (0 = nessun filtro) |
+| `res`, `filter` | risonanza 0–1; `"lp"` passa-basso, `"bp"` passa-banda, `"hp"` passa-alto, `"notch"` |
+| `keytrack` | `true`: il taglio segue la nota (al do centrale è quello dato) |
+| `fenv`, `fdecay` | l'inviluppo del filtro: ottave che lo aprono (anche negative), ms per richiudersi |
+| `lfo`, `wah`, `pwm` | un'oscillazione lenta (Hz) che muove il filtro (`wah` ottave) e la larghezza della quadra (`pwm` 0–1) |
+| `drive`, `noise` | saturazione morbida prima del filtro, rumore bianco aggiunto (0–1) |
+| `pan` | −1 sinistra, 0 centro, 1 destra |
+| `reverb`, `echo` | quanto la voce manda nell'ambiente e nell'eco (0–1) |
+| `ratio`, `depth`, `mdecay`, `feedback` | FM: rapporto del modulatore (1, 2, 3.5…), profondità (radianti, 0–8), in quanti ms si spegne, retroazione 0–1 |
+| `bright`, `ring` | PLUCK: brillantezza della corda e quanto suona (0–1) |
+| `spread` | SUPERSAW: quanto sono stonati i tre denti di sega (0–1) |
+| `bars` | ORGAN: i quattro registri `{8, 6, 3, 2}` (0–15) |
+| `raw` | `true`: questa voce è 8-bit |
+
+```lua
+tone(0, "epiano")                                   -- un piano elettrico per note()
+note(0, "E4", 400)
+tone(1, { preset = "bass", cutoff = 300, res = 0.7 })   -- un basso più cupo e risonante
+play(nil, "kick", "C2")                             -- la cassa, su una voce libera
+play(nil, { wave = "noise", cutoff = 900, fenv = -2, fdecay = 300, decay = 400, sustain = 0 }, "C3")
+reverb(0.8, 0.5, 1)                                 -- una cattedrale (Yharnam)
+echo(375, 0.4, 1)                                   -- un'eco a tempo a 80 BPM
+retro(true)                                         -- il suono 8-bit di una volta
+```
+
+**Strumenti pronti** (`src/audio/presets.c`): batteria `kick`, `punch`, `snare`, `clap`,
+`hat`, `openhat`, `tom`, `rim`, `crash`, `cowbell`, `shaker` (e `chipkick`, `chipsnr`,
+`chiphat` a 8 bit); bassi `bass`, `acid`, `sub`, `fmbass`, `pickbass`; tastiere `epiano`,
+`organ`, `bell`, `marimba`, `glock`; pad `pad`, `strings`, `warm`, `glass`; corde
+`pluck`, `guitar`, `harp`; lead `lead`, `sawlead`, `flute`, `brass`, `chip`, `chiptri`;
+effetti `laser`, `blip`, `boom`, `wind`. Gli stessi nel menu *Instrument...* di bm Sound.
 
 #### Il banco: formato e strumenti
 
-Il banco è la sezione **AUDIO** del `.bm` (formato in `src/audio/player.h`): fino a 32
-suoni (strumenti), 64 effetti sonori, 64 pattern e 8 brani. Si crea con il **Sound
+Il banco è la sezione **AUDIO** del `.bm` (formato in `src/audio/player.h`, versione 2;
+la 1 si legge ancora): fino a 32 suoni (strumenti, ciascuno con il suo timbro: filtro,
+posto, ambiente, eco, LFO), 64 effetti sonori, 64 pattern e 8 brani (ciascuno con l'eco a
+tempo, in passi, e la grandezza dell'ambiente). Si crea con il **Sound
 editor** (scheda Dev), che apre un gioco e ne salva i suoni direttamente dentro.
 Sul PC: `scripts/bmaudio.py unpack gioco.bm -o suoni.json` lo estrae in JSON leggibile,
 `mkbm.py --audio suoni.json` lo rimette in una cartuccia, `make wav BANK=suoni.json
@@ -494,6 +557,7 @@ Si prova da **Dev > Assistant** (o `I` dal monitor).
 | `ai.sprite(richiesta, [{gen=, size=16, seed=1, outline=true, palette={…}}])` | la base di uno sprite: `{w, h, gen, name, seed, px = {0xRRGGBB o -1 (trasparente), …}}` riga per riga. La ricetta viene dalle parole (`"slime"`, `"astronave"`, `"moneta"`, `"erba"`…) o da `gen`; i colori (`"rosso"`, `"blue"`…) e la misura (`"8x8"`, `"32x32"`, `"piccolo"`, `"grande"`) dalle parole; un altro `seed` è una variante; con `palette` ogni pixel diventa il colore più vicino della tavolozza |
 | `ai.recipes()` | le ricette degli sprite `{id, name}`; `ai.recipes("mesh")` quelle 3D `{id, name, rigged}` |
 | `ai.script(testo)` | un modello scritto nel **linguaggio delle parti** (`src/ai/mesh_script.c`: `mat`, `box`, `bx`, `tube`, `cyl`, `ell`, `prism`, `wedge`, `tf`, `bone`, `use`, `side`, `mirror`, `clip`, `key`, `turn`, `shift`, una per riga): la stessa tabella di `ai.mesh`, o `nil` e l'errore (`"line 3: ..."`). È il formato che `tools/img2mesh.py` ottiene dal modello con la visione per un'immagine |
+| `ai.music(richiesta, [{gen=, seed=1, key=, minor=, bpm=, bars=, inst=, context=}])` | **musica** per un banco di suoni (`src/ai/music.c`): ritmi, basi (batteria, basso e accordi), linee di basso, arpeggi, melodie ed effetti sonori classici, 87 ricette. Le parole scelgono la ricetta (`"ritmo rock"`, `"base lofi"`, `"melodia triste"`, `"effetto moneta"`), la tonalità (`"in la minore"`, `"C major"`), il tempo (`"120 bpm"`, `"veloce"`), la lunghezza (`"8 battute"`) e lo strumento (`"con il piano"`, `"8 bit"`); un altro `seed` è una variante. Le melodie le scrive una piccola rete addestrata su melodie tradizionali e scritte per bm. `context = {notes = {…}, bars = {…}}`: le note che ci sono già (MIDI) e la battuta di ognuna: melodie, arpeggi e bassi ne prendono la tonalità e gli accordi. Restituisce `{gen, name, kind, bpm, swing, key, minor, meter, bars, echo, room, seed, chords = {"Am", …}, instruments = {"kick", …}, patterns = { {len, tracks = {[0..7] = {passo, …}}} }, sfx = {ms, loop = {a, b}, steps = {passo, …}}}`; un passo è `nota \| strumento << 8 \| vol << 16 \| fx << 24` (strumento: indice da 0 in `instruments`). Anche sulla RGB30, dove la ricetta la scelgono le parole senza la rete. `ai.music_recipes()` le elenca |
 | `ai.mesh(richiesta, [{gen=, seed=1, scale=1, rig=true}])` | la base di un **modello 3D** per bm Studio e bm Animator: `{gen, name, seed, faces = { {p = {{x,y,z}, …}, c = 0xRRGGBB, b = {osso, …}}, … }, bones = { {name, parent, head, tail}, … } o nil, clips = { {name, loop, length, mode, keys = { {t, pose = { {q, t}, … }}, … }}, … }}`, le stesse tabelle di `bm3d.lua` (un'unità = un blocco di bm Studio, il modello guarda verso −z e poggia su y = 0). La ricetta (53: forme, oggetti, persone, animali, macchine) viene dalle parole (`"casa"`, `"albero"`, `"mech"`…) o da `gen`; i colori (`"rossa"`, `"blue"`), la misura (`"piccolo"`, `"grande"`, `"enorme"`), le proporzioni (`"alto"`, `"basso"`, `"largo"`, `"sottile"`) e `"senza scheletro"` dalle parole; un altro `seed` è una variante. Persone, animali e macchine hanno lo scheletro (ogni spigolo su un osso) e le animazioni (`idle`, `walk`, `fly`, `attack`…) |
 | `ai.checksum(domanda)` | il CRC-32 delle uscite della rete per una domanda: per i test (uguale a quello del riferimento in Python) |
 
