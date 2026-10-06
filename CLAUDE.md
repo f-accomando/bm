@@ -997,14 +997,17 @@ screenshot in `docs/img/`), `README_OLD.md` (il README completo, in italiano),
   Sul Pi disegna solo con il clipper **sempre acceso** come Mesa (`gl_clip_all`, 6.5: senza,
   `ERRSTAT` dava *VPM write range*); la prova scrive i registri d'errore della V3D
   (`v3d_errors`) nel log delle prove (riga `probes` dei report). Sul Pi (2026-10-06): sfere 4×,
-  eroi 11×, scena `mix` 9× rispetto a bm3d 2.1.
+  eroi 11×, scena `mix` 9× rispetto a bm3d 2.1; score 2601 con la 6.6. La cache delle copie delle
+  mesh ha un posto per mesh e sheet (`mesh_is`, 6.7: prima ogni cambio di texture chiudeva il
+  lavoro); le facce con texture illuminate dal sole vanno a `fs_tex_lit` (s, t, k grigia come
+  l'ARM), quelle con la luce agli angoli e la nebbia a `fs_tex_rgb`.
 - **Versioni dei driver 3D**: `bm3d X.Y` (X il blocco/milestone, Y il passo) in
   `src/gpu/version3d.h` e `docs/DRIVERS.md`; ogni passo che cambia quello che r3d o
   gpu3d sanno fare alza la versione e aggiunge una riga alla tabella. Le impostazioni
   riproducono le versioni vecchie (ARM 0.2, GPU 2.1, GPU+VS1 3.0, GPU+VS 3.4, coda 4.1,
   memoria senza cache 4.5, 2D nel lavoro 4.8, due lavori in volo 5.1, texture a 16 bit 5.2,
   shader a due thread 5.3, mesh dalla più vicina 5.4): così i benchmark le confrontano.
-  Branch `bm3d-driver` (2026-10-06): bm3d 6.6 (M36, M39, M41).
+  Branch `bm3d-driver` (2026-10-06): bm3d 6.7 (M36, M39, M41).
 - **M39 (bm3d 5.x, branch `bm3d-driver`)**: mesh fino a 65535 vertici e indicizzate
   (`INDEXED_PRIMITIVE_LIST`, `probe_index`); due blocchi di memoria dei lavori
   (`gpu3d_queue=2`: l'emulatore esegue un lavoro avviato solo quando lo si aspetta); texture

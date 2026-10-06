@@ -236,6 +236,16 @@ stress test, il 3D Bench, il benchmark di Overbit e il quarto valore di `gpu3d()
   vale 2 se manca; `gpu3d_vs=0` lo spegne); il 3D Bench ha il profilo **GPU+VS+FS2** (il driver
   dei giochi della 6.6: vertex shader e shader con texture a due thread) in ogni test della GPU, e
   lo score usa quello.
+- **6.7** (2026-10-06, M36): il primo 3D Bench con il vertex shader di default (`v0.2.3-52`, score
+  2601, 78 412 triangoli a 60 fps nella `mix`) ha mostrato due cose che costavano. `texswap` (tre
+  texture a turno) da 1436 a 6,6 quad: la cache delle mesh della GPU aveva un posto per mesh, e la
+  stessa mesh con un'altra texture rifaceva la sua copia degli angoli, disegnando prima il lavoro
+  aperto: un lavoro a quad. Ora un posto per mesh **e** sheet (`mesh_is`): una copia per texture,
+  un lavoro a fotogramma (prova `vshader sheets` di `make test-gpu3d`). E i quad con texture a
+  metà (`quad_tex` 148 → 76): `vs_lit_tex` e `vs_lit_tex2` calcolano la luce grigia come l'ARM ma
+  la mandavano come tre colori uguali e tre zeri di nebbia, gli otto varying di `fs_tex_rgb`; ora
+  mandano s, t, k a `fs_tex_lit` (`SH_TEX`, `SH_TEX_ALPHA`, `SH_TEX_SCREEN`), come il percorso
+  NV. Le mesh con la luce agli angoli e la nebbia (le mappe) restano su `fs_tex_rgb`.
 
 ## Le modalità: versioni vecchie sul codice di oggi
 

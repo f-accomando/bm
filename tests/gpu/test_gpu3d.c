@@ -510,6 +510,16 @@ static void s_sheets(r3d_t *r, g16_t *g, int gpu)
 }
 static void s_full(r3d_t *r, g16_t *g, int gpu) { many(r, g, gpu, 700); }
 
+/* bm3d 6.7: the same, the vertex shader placing the quad: a copy of its
+ * corners for each sheet (one copy made again at each sheet drew the job
+ * before every quad: the 3D Bench's texswap 1436 -> 6.6 quads on the Pi) */
+static void s_vshader_sheets(r3d_t *r, g16_t *g, int gpu)
+{
+    gpu3d_set_vshader(gpu ? 2 : 0);
+    s_sheets(r, g, gpu);
+    gpu3d_set_vshader(0);
+}
+
 /* ten sheets in turn: more than a job keeps (8), so two jobs */
 static void s_sheets10(r3d_t *r, g16_t *g, int gpu)
 {
@@ -688,6 +698,7 @@ static const struct { const char *name; scene_fn fn; int w, h; float limit; int 
     { "vshader textured", s_vshader_heroes_tex, 640, 360, 0.04f, 1 },
     { "vshader skin", s_vshader_skin, 640, 360, 0.04f, 1 },
     { "10 sheets", s_sheets10, 640, 360, 0.02f, 0 },
+    { "vshader sheets", s_vshader_sheets, 640, 360, 0.02f, 0 },
     { "tex screen", s_tex_screen, 640, 360, 0.03f, 0 },
     { "2D on GPU", s_2d, 640, 360, 0.02f, 0 },
 };
@@ -786,6 +797,10 @@ static void run_scene(int s)
                 CHECK(emu_stats.jobs - jobs == 1, "3 sheets: %u jobs (8 sheets fit in one)", emu_stats.jobs - jobs);
             if (scenes[s].fn == s_sheets10)
                 CHECK(emu_stats.jobs - jobs >= 2, "10 sheets: one job");
+            if (scenes[s].fn == s_vshader_sheets)
+                CHECK(emu_stats.jobs - jobs == 1 && emu_stats.glverts > glverts,
+                      "vshader sheets: %u jobs (one), %u corners by the vertex shader", emu_stats.jobs - jobs,
+                      emu_stats.glverts - glverts);
             if (s == 5) {
                 CHECK(emu_stats.jobs - jobs >= 2, "full job: one job");
                 CHECK(emu_stats.zstores > zstores, "full job: the depth was not kept between jobs");

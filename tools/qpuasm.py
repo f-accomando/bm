@@ -1185,8 +1185,10 @@ SHADERS["vs_lit"] = """
 
 # Textured faces of models lit by the sun (Overbit's Meshy heroes): the
 # light of vs_lit at the corner without its highlight, grey as r3d's
-# lit_grey ((r + g + b) / 3, at most 1) and halved, no fog (as the ARM's
-# textured faces): the varyings of fs_tex_rgb. Attributes x y z, the
+# lit_grey ((r + g + b) / 3, at most 1), no fog (as the ARM's textured
+# faces): the varyings of fs_tex_lit, s t k, as the ARM sends them (bm3d
+# 6.7; before, the eight of fs_tex_rgb, the grey three times and no fog
+# three times: the GPU's pixels cost twice). Attributes x y z, the
 # normal, s t, emissive (0/1), the point of the lamps: 12 words. The
 # uniforms of vs_lit (H, p, the fog's colour and the highlight's read or
 # left unused).
@@ -1237,19 +1239,13 @@ SHADERS["vs_lit_tex"] = """
         ldi r1, 0x3eaaaaab                              # 1/3
         fadd r0, r0, rb4    ; nop
         nop                 ; fmul r0, r0, r1
-        fmin r0, r0, 1.0    ; nop                       # at most 1
-        nop                 ; fmul r0, r0, 0.5          # halved: fs_tex_rgb doubles it
+        fmin r0, r0, 1.0    ; nop                       # at most 1: k of fs_tex_lit
         mov vpm, ra9        ; nop                       # screen x, y
         mov vpm, rb9        ; nop                       # z
         mov vpm, ra13       ; nop                       # 1 / w
         mov vpm, rb1        ; nop                       # s
         mov vpm, ra17       ; nop                       # t
-        mov vpm, r0         ; nop                       # light a b c
-        mov vpm, r0         ; nop
-        mov vpm, r0         ; nop
-        mov vpm, 0          ; nop                       # fog a b c: none
-        mov vpm, 0          ; nop
-        mov vpm, 0          ; nop
+        mov vpm, r0         ; nop                       # k
         nop                 ; nop           ; thrend
         nop                 ; nop
         nop                 ; nop
@@ -1384,19 +1380,13 @@ SHADERS["vs_lit_tex2"] = """
         ldi r1, 0x3eaaaaab                              # 1/3
         fadd r0, r0, rb4    ; nop
         nop                 ; fmul r0, r0, r1
-        fmin r0, r0, 1.0    ; nop                       # at most 1
-        nop                 ; fmul r0, r0, 0.5          # halved: fs_tex_rgb doubles it
+        fmin r0, r0, 1.0    ; nop                       # at most 1: k of fs_tex_lit
         mov vpm, ra9        ; nop                       # screen x, y
         mov vpm, rb9        ; nop                       # z
         mov vpm, ra13       ; nop                       # 1 / w
         mov vpm, rb1        ; nop                       # s
         mov vpm, ra17       ; nop                       # t
-        mov vpm, r0         ; nop                       # light a b c
-        mov vpm, r0         ; nop
-        mov vpm, r0         ; nop
-        mov vpm, 0          ; nop                       # fog a b c: none
-        mov vpm, 0          ; nop
-        mov vpm, 0          ; nop
+        mov vpm, r0         ; nop                       # k
         nop                 ; nop           ; thrend
         nop                 ; nop
         nop                 ; nop
