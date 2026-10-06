@@ -31,6 +31,7 @@
 #include "ledstate.h"
 #include "fiber.h"
 #include "reports.h"
+#include "config.h"
 
 #include <stdarg.h>
 #include <stdio.h>
@@ -1025,6 +1026,10 @@ void carts_menu(framebuffer_t *fb)
     if (list_rows < 3)
         list_rows = 3;
     static const char *const tabs[] = { "Market", "Games", "Dev", "Lib" };
+    /* the Lib tab is off for now (the user's decision, 2026-10-06):
+     * lib_tab=1 in bm/config.txt shows it again; L1 / R1 and Tab go past it */
+    const char *lib_key = config_get("lib_tab");
+    const int lib_on = lib_key && lib_key[0] == '1';
     /* the tabs: Market, Games, Dev, Lib (docs/RISORSE.md) and Settings,
      * whose panel opens when it is the tab (on_gear); L1 / R1 move between
      * them. Games comes first. */
@@ -1137,7 +1142,7 @@ void carts_menu(framebuffer_t *fb)
                     a_label = "";
             }
             menu_view_t v = {
-                .tabs = tabs, .ntabs = 4, .tab = tab, .on_gear = on_gear, .peek_first = 1,
+                .tabs = tabs, .ntabs = lib_on ? 4 : 3, .tab = tab, .on_gear = on_gear, .peek_first = 1,
                 .items = items, .n = n, .sel = tsel[tab],
                 .details = details, .note = on_market ? market_status() : last_msg,
                 .panel = depth ? &mp : NULL,
@@ -1294,7 +1299,7 @@ void carts_menu(framebuffer_t *fb)
             case '1': tabto = TAB_MARKET; break;
             case '2': tabto = TAB_GAMES; break;
             case '3': tabto = TAB_DEV; break;
-            case '4': tabto = TAB_LIB; break;
+            case '4': tabto = lib_on ? TAB_LIB : -1; break;
             case '5': tabto = TAB_SETTINGS; break;
             case '[': tabto = cur > 0 ? cur - 1 : -1; break;       /* L1 */
             case ']': tabto = cur < TAB_SETTINGS ? cur + 1 : -1; break;   /* R1 */
@@ -1350,7 +1355,7 @@ void carts_menu(framebuffer_t *fb)
             if (k == '\t')
                 tabto = (cur + 1) % (TAB_SETTINGS + 1);
             if (k >= '1' && k <= '0' + TAB_SETTINGS + 1)    /* the tabs by number, as on the serial line */
-                tabto = k - '1';
+                tabto = k - '1' == TAB_LIB && !lib_on ? -1 : k - '1';
         }
         /* PS (and Ctrl+Esc, the system's keys) is home: Games, with every
          * panel and question closed (never the monitor). Esc alone goes back
@@ -1434,6 +1439,8 @@ void carts_menu(framebuffer_t *fb)
         home_do_t d;
         d.what = -1;
 
+        if (tabto == TAB_LIB && !lib_on)    /* past the Lib, off for now */
+            tabto = cur == TAB_DEV ? TAB_SETTINGS : cur == TAB_SETTINGS ? TAB_DEV : -1;
         /* another tab: whatever panel is open closes (a question waits for
          * its answer, except for PS); Settings opens its panel */
         if (gfx && tabto >= 0 && (ask == ASK_NONE || ps)) {

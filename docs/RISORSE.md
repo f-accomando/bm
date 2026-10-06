@@ -242,6 +242,8 @@ che nel progetto riceve i blocchi delle voci con `origin`).
 ## 7. La scheda Lib
 
 ### Posto e comandi
+- **Per ora nascosta** (decisione dell'utente, 2026-10-06): `lib_tab=1` in `bm/config.txt` la
+  rimette.
 - Le schede diventano **Market · Games · Dev · Lib · Settings** (il Market, M25, è arrivato
   dopo). L1/R1 (sulla tastiera `[` `]` o Tab) passano da una all'altra come oggi; nel menu
   di testo e dalla seriale i tasti `1`–`5`.

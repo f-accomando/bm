@@ -651,22 +651,24 @@ def scroll_thumb(img):
     return (ys[0], ys[-1] + 1) if ys else None
 
 
-def tabs_lit(img):
+def tabs_lit(img, lib=False):
     """Which tabs of the menu bar are on their light pill (M27, Market since
     M25, Lib after Dev): Market, Games, Dev, Lib, Settings, from a pixel of
     the pill left of each name. The Market waits off the screen at the left
     (2026-10-04): on it the tabs are where they were, elsewhere 7 columns
-    to the left."""
+    to the left. The Lib tab is off for now (2026-10-06; lib=True: lib_tab=1
+    in bm/config.txt shows it): Settings takes its place."""
     if sum(pixel(img, 20, 24)) > 600:
         return ["Market"]
-    return [name for name, x in (("Games", 44), ("Dev", 116), ("Lib", 172), ("Settings", 228))
-            if sum(pixel(img, x, 24)) > 600]
+    places = (("Games", 44), ("Dev", 116), ("Lib", 172), ("Settings", 228)) if lib else \
+        (("Games", 44), ("Dev", 116), ("Settings", 172))
+    return [name for name, x in places if sum(pixel(img, x, 24)) > 600]
 
 
-def img_tabs(q, want=None):
+def img_tabs(q, want=None, lib=False):
     """the tabs lit on the screen (a few tries for `want`: a frame may be half drawn)"""
     for _ in range(8):
-        lit = tabs_lit(q.screendump())
+        lit = tabs_lit(q.screendump(), lib)
         if want is None or lit == want:
             break
         time.sleep(0.2)
@@ -2969,9 +2971,10 @@ def test_bt_forget(b, opts):
 
 
 def test_menu_tabs(b, opts):
-    """The tabs with a DS4 (M27): R1 and L1 move between Market, Games, Dev,
-    Lib and Settings (the menu opens on Games); on Settings its panel opens by
-    itself and Lib is off; B out of it goes back to Lib. Up on the first row
+    """The tabs with a DS4 (M27): R1 and L1 move between Market, Games, Dev
+    and Settings (the menu opens on Games; the Lib tab is off for now,
+    2026-10-06, and R1 goes past it); on Settings its panel opens by itself;
+    B out of it goes back to Dev. Up on the first row
     stays on the covers. PS in the
     menu goes home (Games, panels closed), never to the monitor; PS in the
     monitor opens the games menu."""
@@ -3019,10 +3022,8 @@ def test_menu_tabs(b, opts):
 
         press(shoulders=2)                  # R1: Dev
         state(["Dev"], ["bm SDK"])
-        press(shoulders=2)                  # R1: Lib
-        state(["Lib"], ["Models", "Images"])
-        press(shoulders=2)                  # R1: Settings, its panel open, Lib off
-        state(["Settings"], ["Controllers", "WiFi and network"])
+        press(shoulders=2)                  # R1: Settings (past the Lib, off for now), its panel open
+        state(["Settings"], ["Controllers", "WiFi and network"], gone=["Models"])
         if opts.shots:
             _save_png(q.screendump(), os.path.join(opts.shots, "home-tabs-settings.png"))
 
@@ -3058,10 +3059,8 @@ def test_menu_tabs(b, opts):
         state(["Settings"], ["Controllers", "WiFi and network"], gone=["Button icons"])
         press(shoulders=2)                  # R1 on the last tab: nothing
         state(["Settings"], ["Controllers"])
-        press(buttons=0x08 | 0x40)          # B (circle): out of Settings, back to Lib
-        state(["Lib"], ["Models"], gone=["Controllers"])
-        press(shoulders=1)                  # L1: Dev
-        state(["Dev"], ["bm SDK"])
+        press(buttons=0x08 | 0x40)          # B (circle): out of Settings, back to Dev
+        state(["Dev"], ["bm SDK"], gone=["Controllers"])
         press(shoulders=1)                  # L1: Games
         state(["Games"], ["bm native demo"])
         press(shoulders=1)                  # L1: the Market, first (M25): QEMU has no network
@@ -3544,12 +3543,16 @@ def test_lib_tab(b, opts):
     list of the files with their resources (the resource files of /bm/lib,
     then the games), the details of the selected one (author, licence and
     tags from INFO once the selection rests); A on a game's model opens it
-    in bm Studio, and back in the menu the tab is there again."""
+    in bm Studio, and back in the menu the tab is there again. The tab is
+    off for now (2026-10-06): lib_tab=1 in bm/config.txt shows it."""
     import bmres
     tmp = tempfile.mkdtemp(prefix="bm-lib-")
     img = os.path.join(tmp, "sd.img")
     village, demo, sound = (bmres.read(b(p)) for p in ("carts/village.bm", "demo.bm", "sound.bm"))
-    files = []
+    cfg = os.path.join(tmp, "config.txt")
+    with open(cfg, "w") as f:
+        f.write("lib_tab=1\n")
+    files = [(cfg, "bm/config.txt")]
 
     def res(name, f):
         path = os.path.join(tmp, name)
@@ -3609,7 +3612,7 @@ def test_lib_tab(b, opts):
         q.expect("lib: ", timeout=20)
         text = screen(["Models", "Images", "Sounds", "Maps", "Palettes", "Kits", "HOUSE.BMM", "house",
                        "VILLAGE.BMK", "123 vertices, 180 faces", "from bm/lib/HOUSE.BMM"])
-        assert img_tabs(q, ["Lib"]) == ["Lib"], img_tabs(q)
+        assert img_tabs(q, ["Lib"], lib=True) == ["Lib"], img_tabs(q, lib=True)
         # the INFO lines and the preview once the selection rests: the house turns
         screen(["bm   CC0-1.0", "tags: building, village"])
         a = drawn()
@@ -3659,7 +3662,7 @@ def test_lib_tab(b, opts):
         screen(["Models", "VILLAGE.BM", "from carts/village.bm", "last: bm Studio on VILLAGE.BM"])
         keys("5")
         screen(["Controllers"])
-        assert img_tabs(q, ["Settings"]) == ["Settings"], img_tabs(q)
+        assert img_tabs(q, ["Settings"], lib=True) == ["Settings"], img_tabs(q, lib=True)
     finally:
         q.close()
         shutil.rmtree(tmp, ignore_errors=True)

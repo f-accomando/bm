@@ -169,6 +169,10 @@ screenshot in `docs/img/`), `README_OLD.md` (il README completo, in italiano),
   (dalla seriale `4` è Lib, `5` Settings); gruppi con sinistra/destra, lista a sinistra, anteprima a destra; Y
   (tastiera V) suona. `src/kernel/lib.c` (elenco), `libview.c` (anteprime), `menu_ui.c`,
   `carts.c`. Test: `make test-res`, QEMU `test_lib_tab`.
+- **Per ora la scheda Lib è nascosta** (decisione dell'utente, 2026-10-06): `lib_tab=1` in
+  `bm/config.txt` la rimette (`lib_on` in `carts_menu`); senza, L1/R1 e Tab la saltano, `4` non
+  fa niente e la Lib non legge la SD. `test_lib_tab` la accende; `tabs_lit(img, lib=)` dei test
+  sa dove sono le pillole nei due casi.
 
 ## API dei giochi: bmlib, mappa, flag, hitbox, più giocatori, bmnet (R10, R11; branch `game-api`)
 
