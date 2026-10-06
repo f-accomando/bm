@@ -97,6 +97,11 @@ int v3d_uncached(void *p, uint32_t size, int on)
     return (int)(size >> 20);
 }
 
+void v3d_errors(char *buf, size_t n)
+{
+    snprintf(buf, n, "ERRSTAT 00001000 DBGE 00000000 FDBGO 00000000 FDBGB 00000000 FDBGR 00000000 FDBGS 00000000");
+}
+
 void v3d_dump(char *buf, size_t n)
 {
     snprintf(buf, n, "emulator: %s\n", emu_error);

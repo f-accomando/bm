@@ -106,7 +106,20 @@ La prima pagina alla fine (richiesta dell'utente, 2026-10-06). Due numeri:
 Sotto, una barra per test: il suo rapporto contro bm3d 2.1 (la tacca è 1×) e il profilo che
 è il driver lì. Il report ha le righe `score ...`, `S,driver,versione,score,test,intero` (il
 giro dopo legge `S,games`) e `triangles at 60 fps ...`; ogni riga `R` ha in fondo `tris60` e
-`drawn60`.
+`drawn60`. Le ombre contano come triangoli (una mesh disegnata di nuovo, schiacciata: r3d le conta
+dal kernel `v0.2.3-51`; il primo report con lo score, il `-50`, le lasciava fuori).
+
+## I clock
+
+La riga `machine` dice i clock dell'ARM, del core e della V3D (quello chiesto, il massimo che il
+firmware permette e quello misurato) e della SDRAM; a ogni passo il bench rilegge il clock
+**misurato** del core e della V3D (`GET_CLOCK_RATE_MEASURED`, fuori dal tempo del passo) e le righe
+`R` li hanno in fondo (`core_mhz`, `gpu_mhz`, del passo a 60 fps), anche le righe `b3d` del log.
+Servono a capire perché i quad del profilo GPU a volte vanno a metà velocità o meno nello stesso
+giro (`quad_flat` 175 in un giro, 91 o 70 in un altro, con gli stessi driver). Sul Pi Zero W
+`enable_uart=1` di `boot/config.txt` tiene il core a 250 MHz (la seriale), e anche la V3D si è
+vista a 250; `v3d_clock=max` in `bm/config.txt` le chiede all'avvio il massimo del firmware (una
+prova, spenta di default).
 
 ## Le pagine alla fine
 

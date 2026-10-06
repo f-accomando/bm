@@ -33,6 +33,12 @@ static uint32_t us(void) { return timer_ticks(); }
 
 static uint32_t present(void) { return bm_video_present(fbp, &page); }
 
+static void clocks(uint32_t *core, uint32_t *gpu)
+{
+    *core = prop_clock_measured(CLOCK_CORE) / 1000000;
+    *gpu = prop_clock_measured(CLOCK_V3D) / 1000000;
+}
+
 static void count(b3d_count_t *c)
 {
     pmu_t p;
@@ -148,14 +154,16 @@ void bm_bench3d_part(framebuffer_t *fb, const char *tests, const char *profiles,
 {
     const uint32_t con_w = fb->width, con_h = fb->height;
     bm_stress_settle(20000);            /* as the stress test: the boot's work done */
-    static char machine[160];
+    static char machine[200];
     uint32_t temp[2] = { 0, 0 }, thr[1] = { 0 };
     prop_query(PROP_GET_TEMPERATURE, temp, 2);
     prop_query(PROP_GET_THROTTLED, thr, 1);
-    ksnprintf(machine, sizeof machine, "ARM %lu MHz, core %lu, V3D %lu, SDRAM %lu MHz, %lu.%lu C, throttled %05lx",
+    ksnprintf(machine, sizeof machine, "ARM %lu MHz, core %lu (max %lu), V3D %lu (max %lu, measured %lu), "
+              "SDRAM %lu MHz, %lu.%lu C, throttled %05lx",
               prop_clock_rate(CLOCK_ARM) / 1000000, prop_clock_rate(CLOCK_CORE) / 1000000,
-              prop_clock_rate(CLOCK_V3D) / 1000000, prop_clock_rate(CLOCK_SDRAM) / 1000000, temp[1] / 1000,
-              temp[1] / 100 % 10, thr[0]);
+              prop_clock_max(CLOCK_CORE) / 1000000, prop_clock_rate(CLOCK_V3D) / 1000000,
+              prop_clock_max(CLOCK_V3D) / 1000000, prop_clock_measured(CLOCK_V3D) / 1000000,
+              prop_clock_rate(CLOCK_SDRAM) / 1000000, temp[1] / 1000, temp[1] / 100 % 10, thr[0]);
     fbp = fb;
     if (bm_video_enter(fb, 640, 360, &page) != 0) {
         kprintf("3D Bench: cannot set the video mode\n");
@@ -170,7 +178,7 @@ void bm_bench3d_part(framebuffer_t *fb, const char *tests, const char *profiles,
         .g = &page, .us = us, .present = present, .count = count, .counting = real, .key = key,
         .log = log_line, .save = save, .load_last = load_last, .kernel = bm_version, .machine = machine,
         .date = net_time() ? net_time_text() : "",
-        .only_tests = tests, .only_profiles = profiles, .no_wait = no_wait,
+        .only_tests = tests, .only_profiles = profiles, .no_wait = no_wait, .clocks = real ? clocks : NULL,
     };
     const int err = b3d_run(&p);
     input_pad_keys(0);

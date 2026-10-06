@@ -50,6 +50,9 @@ typedef struct {
     const char *only_tests;             /* NULL, or the tests to run: ids, commas between */
     const char *only_profiles;          /* NULL, or the profiles: names (GPU+FS2) or short (FS2) */
     int no_wait;                        /* the summary shown 3 s, no key waited for (a script) */
+    /* the core's and the GPU's clocks now, measured, in MHz (NULL: unknown):
+     * after each step, out of its time */
+    void (*clocks)(uint32_t *core_mhz, uint32_t *gpu_mhz);
 } b3d_platform_t;
 
 /* runs the bench, then shows the pages until B3D_KEY_BACK (in quick mode,

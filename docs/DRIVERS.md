@@ -215,6 +215,19 @@ stress test, il 3D Bench, il benchmark di Overbit e il quarto valore di `gpu3d()
   (prima lo prendevano al quinto passo e lo tenevano mentre calcolavano il colore: i pixel
   sovrapposti si mettevano in fila, e in alcuni giri del 3D Bench i quad a colore andavano da
   2 a 4 volte più piano per tutto un test).
+- **6.5** (2026-10-06, M36): il primo report con lo score (`v0.2.3-50`) dice che con il driver
+  di default il limite è l'ARM (negli eroi la GPU lavora 1,2 ms su 16,5; nella scena `mix` 1–2 ms
+  su 13,5), quindi la leva è il **vertex shader**, che sul Pi non ha mai disegnato. La prova
+  all'avvio ora, dopo i due modi di prima (VPM in byte e in parole), prova anche **come Mesa**: il
+  clipper acceso in ogni disegno e la sua scala scritta (Mesa non lo spegne mai; noi solo per le
+  mesh dentro la guard band). Se così disegna, i disegni GL restano così (`gl_clip_all`, "vertex
+  shader yes (clipper always on)" nello stato). In ogni caso scrive nel log della prova i registri
+  d'errore della V3D (`ERRSTAT`, `DBGE`, `FDBGO`, `FDBGB`, `FDBGR`, `FDBGS`, `v3d_errors`) prima
+  della prova e dopo il primo disegno di ogni modo che non lascia niente: gli errori della VPM e
+  del front end dicono dove si ferma. E r3d conta le ombre tra i triangoli (prima no: i triangoli
+  a 60 fps della scena `mix` del `-50`, 6053, non avevano le ombre). Il 3D Bench scrive a ogni
+  passo il clock misurato di core e V3D: la 6.4 non ha tolto i quad lenti (`quad_flat` 91 nel
+  `-50`, 175 nel `-46`).
 
 ## Le modalità: versioni vecchie sul codice di oggi
 

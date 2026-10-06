@@ -901,14 +901,16 @@ screenshot in `docs/img/`), `README_OLD.md` (il README completo, in italiano),
   al centro). Spento di default: chiave `gpu3d_vs` (0/1/2), *Graphics > 3D vertices*,
   renderer "GPU+VS1"/"GPU+VS" di Overbit; le prove all'avvio (`probe_gl`, `probe_clip`,
   `probe_lit`) lo spengono se il Pi non disegna come l'emulatore, che esegue gli shader
-  (interprete QPU) e taglia come GL; passo 14 del test `g`.
+  (interprete QPU) e taglia come GL; passo 14 del test `g`. Sul Pi non ha mai disegnato: dalla
+  6.5 `probe_gl` prova anche il clipper sempre acceso come Mesa (`gl_clip_all`) e scrive i
+  registri d'errore della V3D (`v3d_errors`) nel log delle prove (riga `probes` dei report).
 - **Versioni dei driver 3D**: `bm3d X.Y` (X il blocco/milestone, Y il passo) in
   `src/gpu/version3d.h` e `docs/DRIVERS.md`; ogni passo che cambia quello che r3d o
   gpu3d sanno fare alza la versione e aggiunge una riga alla tabella. Le impostazioni
   riproducono le versioni vecchie (ARM 0.2, GPU 2.1, GPU+VS1 3.0, GPU+VS 3.4, coda 4.1,
   memoria senza cache 4.5, 2D nel lavoro 4.8, due lavori in volo 5.1, texture a 16 bit 5.2,
   shader a due thread 5.3, mesh dalla più vicina 5.4): così i benchmark le confrontano.
-  Branch `bm3d-driver` (2026-10-06): bm3d 6.4 (M39, M41).
+  Branch `bm3d-driver` (2026-10-06): bm3d 6.5 (M36, M39, M41).
 - **M39 (bm3d 5.x, branch `bm3d-driver`)**: mesh fino a 65535 vertici e indicizzate
   (`INDEXED_PRIMITIVE_LIST`, `probe_index`); due blocchi di memoria dei lavori
   (`gpu3d_queue=2`: l'emulatore esegue un lavoro avviato solo quando lo si aspetta); texture
@@ -964,8 +966,10 @@ screenshot in `docs/img/`), `README_OLD.md` (il README completo, in italiano),
   resta a 640×360): media geometrica dei carichi a 60 fps di 24 test contro bm3d 2.1 al meglio
   sul Pi Zero W (`score_ref`, 1000), del driver come lo hanno i giochi (`drv_row`: GPU+FS2,
   GPU, ARM; cambiarla quando cambia il default), e i triangoli a fotogramma a 60 fps della
-  scena `mix` (tutto insieme). Un test nuovo entra nello score con la sua riga in `score_ref`
-  dopo il primo numero del Pi. `make test-b3d` lo prova sul PC (`b3d_host --tests= --frames`).
+  scena `mix` (tutto insieme; le ombre contano come triangoli). Un test nuovo entra nello score
+  con la sua riga in `score_ref` dopo il primo numero del Pi. A ogni passo il clock misurato di
+  core e V3D (`clocks` di `b3d_platform_t`, `prop_clock_measured`); `v3d_clock=max` in
+  `bm/config.txt` alza la V3D all'avvio (prova: `enable_uart=1` tiene il core a 250). `make test-b3d` lo prova sul PC (`b3d_host --tests= --frames`).
 - Overbit va sulla GPU (menu "3D": GPU, GPU+AA, ARM; benchmark dei bot con `--start
   bench`, `84_bench.lua`). bmhost ha gli stub della GPU; `make bmhost-gpu` usa `gpu3d.c`
   sull'emulatore della V3D (`BMHOST_EMU_SKIP=1`: i lavori non si eseguono). Quanto costa

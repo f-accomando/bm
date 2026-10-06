@@ -215,7 +215,10 @@ static struct {
     int queue2;                     /* two jobs in flight asked for */
     int vpm_bytes;                  /* the GL records' VPM offsets and sizes in bytes (as Mesa), else in
                                      * words: the probe learns it (bm3d 4.3) */
-    char plog[640];                 /* what the probes saw (the GPU test's report) */
+    int gl_clip_all;                /* every GL draw with the clipper on and its scaling written (as
+                                     * Mesa, which never turns it off): the probe tries it if the
+                                     * draws without it leave nothing */
+    char plog[1024];                /* what the probes saw (the GPU test's report) */
     int async_now;                  /* flush_job starts the job instead of running it */
     const void *async_px;           /* (its page) */
     uint32_t vp;                    /* the job's VIEWPORT_OFFSET (x, y in 12.4) */
@@ -1688,7 +1691,7 @@ static int gl_draw(const g16_t *g, gmesh_t *e, const ggroup_t *gr, gunif_t *u, c
      * made by the clipper: Xc / Wc times the half width (Xc = x f / (w/2),
      * Wc = depth), y down the screen, Zs = Zc / Wc + 1 (Zc = -NEAR) */
     viewport((int)(env->cx * 16.0f), (int)(env->cy * 16.0f));
-    const int clipping = !env->inside;
+    const int clipping = !env->inside || G.gl_clip_all;
     if (clipping && (G.clipper[0] != env->cx || G.clipper[1] != env->cy)) {
         v3d_cl_u8(&G.cl, V3D_CLIPPER_XY_SCALING);
         v3d_cl_f32(&G.cl, env->cx * 16.0f);
@@ -2771,8 +2774,12 @@ static int recover(void)
  * clockwise bit; points inside and outside the red one check where the
  * shader placed it. Tried with the GL record's VPM offsets and sizes in
  * bytes (as Mesa), then in words (bm3d 3.0-4.2: on the Pi nothing was
- * drawn); a job that does not end only rules its way out. 1 if all of it
- * holds, else 0 (the meshes stay on the ARM's path). */
+ * drawn); then both again with the clipper on and its scaling written for
+ * every draw, as Mesa does (on the Pi up to 6.4 nothing was drawn either
+ * way, 2026-10-06); a job that does not end only rules its way out. The
+ * V3D's error registers before and after the first draw of each way that
+ * leaves nothing go to the log. 1 if all of it holds, else 0 (the meshes
+ * stay on the ARM's path). */
 static int probe_gl(const g16_t *pg)
 {
     static r3d_mesh_t m;
@@ -2797,49 +2804,69 @@ static int probe_gl(const g16_t *pg)
     env.f = env.cx = env.cy = 32;
     env.unlit = 1;
     env.inside = 1;
-    char line[160];
-    for (int bytes = 1; bytes >= 0; bytes--) {
-        const char *unit = bytes ? "bytes" : "words";
-        G.vpm_bytes = bytes;
-        for (int cw = 0; cw < 2; cw++) {
-            G.gl_cw = cw;
-            memset(G.probe, 0, JOB_PROBE);
-            gmesh_t *e = mesh_get(pg, &m, 1, 0);
-            gunif_t u = { .job = 0, .bone = -1 };
-            if (!e || e->ngroups != 1) {
-                ksnprintf(line, sizeof line, "vertex shader probe: mesh %s, groups %d", e ? "made" : "not made",
-                          e ? e->ngroups : 0);
-                plog(line);
-                return 0;
-            }
-            if (gl_draw(pg, e, &e->g[0], &u, M, I3, M, I3, &env, R3D_DEPTH_WRITE) != 0 || gpu3d_flush(pg, 0) != 0) {
-                ksnprintf(line, sizeof line, "vertex shader probe (VPM in %s): the job did not end", unit);
-                plog(line);
-                if (recover() != 0)
+    char line[160], regs[128];
+    v3d_errors(regs, sizeof regs);
+    ksnprintf(line, sizeof line, "before the vertex shader probe: %s", regs);
+    plog(line);
+    /* first as bm3d 3.0-6.4 (the clipper only for meshes that need it),
+     * then as Mesa: the clipper on for every draw, its scaling written;
+     * the V3D's error registers after the first draw of each way that
+     * left nothing (what the VPM and the front end saw) */
+    for (int mesa = 0; mesa < 2; mesa++) {
+        G.gl_clip_all = mesa;
+        G.clipper[0] = G.clipper[1] = -1;
+        int told = 0;
+        for (int bytes = 1; bytes >= 0; bytes--) {
+            const char *unit = bytes ? (mesa ? "bytes, clipper on" : "bytes") : (mesa ? "words, clipper on" : "words");
+            G.vpm_bytes = bytes;
+            for (int cw = 0; cw < 2; cw++) {
+                G.gl_cw = cw;
+                memset(G.probe, 0, JOB_PROBE);
+                gmesh_t *e = mesh_get(pg, &m, 1, 0);
+                gunif_t u = { .job = 0, .bone = -1 };
+                if (!e || e->ngroups != 1) {
+                    ksnprintf(line, sizeof line, "vertex shader probe: mesh %s, groups %d", e ? "made" : "not made",
+                              e ? e->ngroups : 0);
+                    plog(line);
                     return 0;
-                break;                  /* the other unit */
-            }
-            const uint16_t left = G.probe[20 * PROBE_W + 10], right = G.probe[20 * PROBE_W + 40],
-                           in = G.probe[40 * PROBE_W + 10], out = G.probe[40 * PROBE_W + 20];
-            if (left == 0xF800 && right == 0 && in == 0xF800 && out == 0) {
-                ksnprintf(line, sizeof line, "vertex shader probe: drawn (VPM in %s, clockwise bit %d)", unit, cw);
-                plog(line);
-                return 1;               /* red only, where it should be */
-            }
-            if (!(left == 0 && right == 0x07E0)) {
-                ksnprintf(line, sizeof line, "vertex shader probe (VPM in %s): %04x %04x %04x %04x (clockwise bit %d)",
-                          unit, left, right, in, out, cw);
-                plog(line);
-                break;
-            }
-            if (cw) {
-                ksnprintf(line, sizeof line, "vertex shader probe (VPM in %s): only the green triangle with either "
-                          "clockwise bit", unit);
-                plog(line);
+                }
+                if (gl_draw(pg, e, &e->g[0], &u, M, I3, M, I3, &env, R3D_DEPTH_WRITE) != 0 || gpu3d_flush(pg, 0) != 0) {
+                    ksnprintf(line, sizeof line, "vertex shader probe (VPM in %s): the job did not end", unit);
+                    plog(line);
+                    if (recover() != 0)
+                        return 0;
+                    break;                  /* the other unit */
+                }
+                const uint16_t left = G.probe[20 * PROBE_W + 10], right = G.probe[20 * PROBE_W + 40],
+                               in = G.probe[40 * PROBE_W + 10], out = G.probe[40 * PROBE_W + 20];
+                if (left == 0xF800 && right == 0 && in == 0xF800 && out == 0) {
+                    ksnprintf(line, sizeof line, "vertex shader probe: drawn (VPM in %s, clockwise bit %d)", unit, cw);
+                    plog(line);
+                    return 1;               /* red only, where it should be */
+                }
+                if (!told && left == 0 && right == 0) {
+                    v3d_errors(regs, sizeof regs);
+                    ksnprintf(line, sizeof line, "after a vertex shader draw that left nothing: %s", regs);
+                    plog(line);
+                    told = 1;
+                }
+                if (!(left == 0 && right == 0x07E0)) {
+                    ksnprintf(line, sizeof line, "vertex shader probe (VPM in %s): %04x %04x %04x %04x (clockwise bit %d)",
+                              unit, left, right, in, out, cw);
+                    plog(line);
+                    break;
+                }
+                if (cw) {
+                    ksnprintf(line, sizeof line, "vertex shader probe (VPM in %s): only the green triangle with either "
+                              "clockwise bit", unit);
+                    plog(line);
+                }
             }
         }
     }
     G.vpm_bytes = 1;
+    G.gl_clip_all = 0;
+    G.clipper[0] = G.clipper[1] = -1;
     return 0;
 }
 
@@ -3299,13 +3326,13 @@ int gpu3d_init(void)
     static const char *const ms[3] = { "no", "on cleared pages", "on any page" };
     static const char *const clips[3] = { "no", "yes", "yes (Z planes)" };
     ksnprintf(G.why, sizeof G.why, "bm3d " BM3D_VERSION " ready (byte a = %s, texels %s, textures %s, MSAA %s, "
-              "16-bit textures %s, two-thread shaders %s, vertex shader %s, indexed %s, "
+              "16-bit textures %s, two-thread shaders %s, vertex shader %s%s, indexed %s, "
               "clipping %s, lit models %s, queue %s, zclear in job %s)", G.red_a ? "red" : "blue",
               G.tex_swap ? "swapped" : "in place", G.tformat ? "in tiles" : "in rows", ms[G.ms_ok],
               G.tf16 ? "yes" : "no", G.fs2_ok ? "yes" : "no",
               G.gl_ok ? (G.vpm_bytes ? (G.gl_cw ? "yes (cw)" : "yes") : (G.gl_cw ? "yes (cw, VPM in words)"
                                                                                  : "yes (VPM in words)")) : "no",
-              G.idx_ok ? "yes" : "no", clips[G.clip_ok], G.lit_ok ? "yes" : "no",
+              G.gl_ok && G.gl_clip_all ? " (clipper always on)" : "", G.idx_ok ? "yes" : "no", clips[G.clip_ok], G.lit_ok ? "yes" : "no",
               G.queue_ok ? "yes" : "no", G.zclear_ok ? "yes" : "no");
     G.status = G.why;
     G.ready = 1;

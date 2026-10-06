@@ -53,7 +53,7 @@ def main():
     check(all(int(vs[t][11]) < int(gpu[t][11]) or int(gpu[t][11]) == 0 for t in ("spheres", "heroes", "heroes_tex", "heroes_skin") if t in vs),
           "GPU+VS: r3d places fewer vertices than GPU")
     check(all(float(r[4]) >= 0 or r[4] == "-1" for r in rows), "loads at 60 fps")
-    check(all(len(r) == 23 and int(r[21]) >= int(r[22]) >= 0 for r in rows), "triangles at 60 fps: given, drawn")
+    check(all(len(r) == 25 and int(r[21]) >= int(r[22]) >= 0 for r in rows), "triangles at 60 fps: given, drawn")
     # the score: the three drivers, every test of the score in it (the emulator runs them all)
     score = {r[1]: r for r in (l.split(",") for l in lines if l.startswith("S,"))}
     check(set(score) == {"games", "GPU", "ARM"} and all(int(r[3]) > 0 and r[5] == "1" for r in score.values()),

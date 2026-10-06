@@ -805,6 +805,7 @@ typedef struct {
     float jobs;
     float instr, wait_instr, dmiss, cycles;  /* the ARM's counters, a frame */
     float tris_in, tris, verts, pixels, gltris;
+    uint32_t core_mhz, gpu_mhz;         /* measured after the step's frames (0: unknown) */
 } sample_t;
 
 typedef struct {
@@ -955,12 +956,15 @@ static void ramp(int ti, int pf)
         a.wait_ms = a.gpu_ms;           /* the ARM waits for every job (with the queue: at most) */
         a.jobs = (float)st.jobs * k;
         a.gltris = (float)st.gltris * k;
+        if (P->clocks)
+            P->clocks(&a.core_mhz, &a.gpu_mhz);
         s[ns++] = a;
-        char line[160];
+        char line[192];
         ksnprintf(line, sizeof line, "b3d %s %s n=%d %d.%02d ms worst %d.%02d, %d tri, %d vtx, %lu instr, "
-                  "GPU %d.%02d ms, %d jobs", t->id, prof[pf].name, n, (int)a.ms, (int)(a.ms * 100) % 100,
-                  (int)a.worst, (int)(a.worst * 100) % 100, (int)a.tris, (int)a.verts, (unsigned long)a.instr,
-                  (int)a.gpu_ms, (int)(a.gpu_ms * 100) % 100, (int)a.jobs);
+                  "GPU %d.%02d ms, %d jobs, core %lu GPU %lu MHz", t->id, prof[pf].name, n, (int)a.ms,
+                  (int)(a.ms * 100) % 100, (int)a.worst, (int)(a.worst * 100) % 100, (int)a.tris, (int)a.verts,
+                  (unsigned long)a.instr, (int)a.gpu_ms, (int)(a.gpu_ms * 100) % 100, (int)a.jobs,
+                  (unsigned long)a.core_mhz, (unsigned long)a.gpu_mhz);
         if (P->log)
             P->log(line);
         if (a.ms > LIMIT_MS || P->us() - t0 > RAMP_US || (R.backend && gpu3d_failed()))
@@ -1197,7 +1201,7 @@ static void report(void)
         put("only tests %s, profiles %s\n", P->only_tests ? P->only_tests : "all",
             P->only_profiles ? P->only_profiles : "all");
     put("columns R,test,profile,version,n60,n30,over,ms,worst,tris_in,tris,verts,pixels,gltris,jobs,gpu_ms,"
-        "instr,wait_instr,dmiss,cycles,secs,tris60,drawn60\n");
+        "instr,wait_instr,dmiss,cycles,secs,tris60,drawn60,core_mhz,gpu_mhz\n");
     char a[16], b[16], c[16], d[16], e[16], f[16];
     for (int ti = 0; ti < NTESTS; ti++) {
         const test_t *t = &tests[ti];
@@ -1210,11 +1214,12 @@ static void report(void)
             if (!r->ran)
                 continue;
             const sample_t *s = &r->at;
-            put("R,%s,%s,%s,%s,%s,%d,%s,%s,%d,%d,%d,%d,%d,%s,%s,%lu,%lu,%lu,%lu,%d,%d,%d\n", t->id, prof[pf].name,
+            put("R,%s,%s,%s,%s,%s,%d,%s,%s,%d,%d,%d,%d,%d,%s,%s,%lu,%lu,%lu,%lu,%d,%d,%d,%lu,%lu\n", t->id, prof[pf].name,
                 prof_version(pf), f1(a, r->n60), f1(b, r->n30), r->over, f1(c, s->ms), f1(d, s->worst),
                 (int)s->tris_in, (int)s->tris, (int)s->verts, (int)s->pixels, (int)s->gltris, f1(e, s->jobs),
                 f1(f, s->gpu_ms), (unsigned long)s->instr, (unsigned long)s->wait_instr, (unsigned long)s->dmiss,
-                (unsigned long)s->cycles, (int)r->secs, (int)(r->tris60 + 0.5f), (int)(r->drawn60 + 0.5f));
+                (unsigned long)s->cycles, (int)r->secs, (int)(r->tris60 + 0.5f), (int)(r->drawn60 + 0.5f),
+                (unsigned long)s->core_mhz, (unsigned long)s->gpu_mhz);
         }
     }
     /* the score (its S lines read by the next run) and the triangles at 60 fps */

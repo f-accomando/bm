@@ -298,6 +298,14 @@ int v3d_uncached(void *p, uint32_t size, int on)
     return mmu_set_cached(p, size, !on);
 }
 
+void v3d_errors(char *buf, size_t n)
+{
+    dmb();
+    ksnprintf(buf, n, "ERRSTAT %08lx DBGE %08lx FDBGO %08lx FDBGB %08lx FDBGR %08lx FDBGS %08lx", rd(V3D_ERRSTAT),
+              rd(V3D_DBGE), rd(V3D_FDBGO), rd(V3D_FDBGB), rd(V3D_FDBGR), rd(V3D_FDBGS));
+    dmb();
+}
+
 void v3d_dump(char *buf, size_t n)
 {
     if (!snapped)

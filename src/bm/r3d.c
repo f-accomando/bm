@@ -1302,6 +1302,7 @@ static void draw_shadow(r3d_t *r, const r3d_mesh_t *m, const xform_t *x, v3_t p,
             for (int i = 0; i < np; i++)
                 pts[i] = project(v, cl[i], 1.0f);
         }
+        r->tris_drawn++;
         if (r->backend) {
             /* the GPU: black on every other pixel (shadow3d(1)), where the
              * ground is not much nearer than the shadow (its depth 3.5%
@@ -1529,6 +1530,7 @@ void r3d_draw_flags(r3d_t *r, const r3d_mesh_t *m, v3_t p, float rx, float ry, f
     xform_setup(&X, r, m, R, p, scale);
     const unsigned detail = 3u - (flags >> 4 & 3u), dbit = 1u << detail;
     if (flags & R3D_SHADOW) {
+        r->tris_in += (uint32_t)m->nfaces;  /* a shadow is the mesh drawn again, flattened */
         if (r->backend && r->backend->shadow) {
             v3_t L = r->light;
             if (L.y < 0.25f) L.y = 0.25f;   /* as draw_shadow */
@@ -1540,8 +1542,10 @@ void r3d_draw_flags(r3d_t *r, const r3d_mesh_t *m, v3_t p, float rx, float ry, f
             env.detail = detail;
             const int nb = m->bones && m->nbones > 0 ? (m->nbones < MAX_BONES ? m->nbones : MAX_BONES) : 1;
             if (r->backend->shadow(r->backend->ctx, r->g, m, (const float (*)[12])X.m, nb, v.c, L,
-                                   p.y - r->cam_pos.y, &env))
+                                   p.y - r->cam_pos.y, &env)) {
+                r->tris_drawn += (uint32_t)m->nfaces;   /* sent: the GPU throws the back faces away */
                 return;
+            }
         }
         draw_shadow(r, m, &X, p, detail, &v);
         return;

@@ -63,6 +63,11 @@ int v3d_uncached(void *p, uint32_t size, int on);
 /* Registers of the last failed job (or now), one line each. */
 void v3d_dump(char *buf, size_t n);
 
+/* The error and debug registers now, as "ERRSTAT x DBGE x FDBGO x FDBGB x
+ * FDBGR x FDBGS x" (the VPM's and the front end's errors: what a vertex
+ * shader that draws nothing left behind) */
+void v3d_errors(char *buf, size_t n);
+
 /* ---------------------------------------------------------------- lists */
 
 typedef struct {
