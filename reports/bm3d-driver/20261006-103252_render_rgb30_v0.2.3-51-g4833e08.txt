@@ -1,0 +1,11 @@
+bm report
+kind: render
+kernel: v0.2.3-51-g4833e08
+branch: bm3d-driver
+board: RGB30
+date: 2026-10-06 10:32:52
+file: 20261006-103252_render_rgb30_v0.2.3-51-g4833e08.txt
+
+
+Render bench: map, 256 sprites and text at 640x360 RGB565
+bm bench (map + 256 sprites): direct 5.12 ms, via RAM 7.57 ms
