@@ -14,6 +14,7 @@ SECTIONS
     .text : {
         KEEP(*(.text.boot))
         *(.text .text.*)
+        __text_end = .;     /* the crash screen's return addresses */
     }
 
     .rodata : ALIGN(8) {

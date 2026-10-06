@@ -68,7 +68,7 @@ SLOW = {
     "test_titan": 36, "test_games": 34, "test_picture_model": 32, "test_menu_tabs": 31,
     "test_sdk_suite": 29, "test_monitor_line": 29, "test_pixel_big": 26, "test_mouse_cart": 23, "test_market": 23,
     "test_code_editor": 23, "test_update": 22, "test_room_bench": 22, "test_bm_boot_demo": 22,
-    "test_nano8": 20, "test_meshy2mesh": 20,
+    "test_nano8": 20, "test_meshy2mesh": 20, "test_crash_report": 100,
 }
 
 
@@ -5693,6 +5693,53 @@ def test_reports(b, opts):
     assert "test-token-4242" not in log and "the token is ***************" in log, "the token masked"
     assert "kind: render" in render and "Rendering benchmark" not in render.split("\n\n", 1)[0], render[:400]
     assert "sprites" in render.split("\n\n", 1)[1], render[:800]
+
+
+def test_crash_report(b, opts):
+    """A crash becomes a report (2026-10-06: on the Pi without a serial
+    cable): the red screen shows who called (the return addresses on the
+    stack), after 60 s the watchdog restarts the Pi, which keeps its memory,
+    and the next boot saves the crash as a report with the lines printed
+    before it (src/kernel/crumbs.c). Not in the first 20 s of a boot."""
+    tmp = tempfile.mkdtemp(prefix="bm-crash-")
+    img = os.path.join(tmp, "sd.img")
+    cfg = os.path.join(tmp, "config.txt")
+    with open(cfg, "w") as f:
+        f.write("layout=us\nwifi_boot=0\n")
+    mksd.build(img, [(cfg, "bm/config.txt"), (b("demo.bm"), "carts/game.bm")])
+    q = Qemu(b("kernel.img"), ["-drive", f"if=sd,format=raw,file={img}"])
+    try:
+        q.expect(MENU, timeout=30)
+        time.sleep(0.5)
+        q.send("q")
+        q.expect(PROMPT)
+        q.expect("> ")
+        time.sleep(21)                          # past the first 20 s of the boot
+        q.send("X")
+        q.expect("other keys cancel")
+        q.send("a")
+        out = q.expect("Restarting in 60 s", timeout=20).decode(errors="replace")
+        assert re.search(r"called from:( [0-9a-f]{8})+", out), out
+        q.expect("the last run ended in a crash: saved as a report", timeout=120)
+        out = q.expect("RPT00001.TXT", timeout=30).decode(errors="replace")
+        assert re.search(r"report: nodate-[0-9a-f]{6}_crash_", out), out
+        q.expect(MENU, timeout=30)
+    finally:
+        q.close()
+    part = os.path.join(tmp, "part.img")
+    with open(img, "rb") as f, open(part, "wb") as o:
+        f.seek(2048 * 512)
+        o.write(f.read())
+    env = dict(os.environ, MTOOLS_SKIP_CHECK="1")
+    rep = subprocess.run(["mtype", "-i", part, "::/BM/REPORTS/RPT00001.TXT"], capture_output=True, text=True,
+                         env=env).stdout
+    shutil.rmtree(tmp, ignore_errors=True)
+    head, body = rep.split("\n\n", 1)
+    assert "kind: crash" in head.splitlines(), rep[:600]
+    assert body.startswith('a crash (the red screen) while: monitor command "X"'), body[:300]
+    assert "--- the last lines printed ---" in body and "*** EXCEPTION: Data abort ***" in body, body[-1500:]
+    assert body.index("cartridge menu") < body.index("*** EXCEPTION"), "the lines before the crash"
+    assert "DFAR=00008001" in body and "called from:" in body, body[-800:]
 
 
 def test_menu_scale(b, opts):

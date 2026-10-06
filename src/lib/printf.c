@@ -149,6 +149,12 @@ void kprintf_set_tap(void (*tap)(char c))
 static char bootlog[BOOTLOG_SIZE];
 static unsigned bootlog_len;
 static int bootlog_esc;
+static void (*log_ring)(char c);
+
+void klog_set_ring(void (*ring)(char c))
+{
+    log_ring = ring;
+}
 
 static void bootlog_putc(char c)
 {
@@ -161,7 +167,11 @@ static void bootlog_putc(char c)
         bootlog_esc = 1;
         return;
     }
-    if (c == '\r' || bootlog_len + 1 >= BOOTLOG_SIZE)
+    if (c == '\r')
+        return;
+    if (log_ring)
+        log_ring(c);
+    if (bootlog_len + 1 >= BOOTLOG_SIZE)
         return;
     bootlog[bootlog_len++] = c;
     bootlog[bootlog_len] = 0;

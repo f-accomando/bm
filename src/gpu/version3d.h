@@ -20,7 +20,7 @@
  * and 1.0 no longer run: the 3D Bench shows the numbers measured on the Pi
  * with them.
  */
-#define BM3D_VERSION "6.7"
+#define BM3D_VERSION "6.8"
 #define BM3D_BLOCK   "M36"
 
 typedef struct {
@@ -66,6 +66,7 @@ static inline const bm3d_version_t *bm3d_versions(int *n)
         { "6.5", "M36", "2026-10-06", "vertex shader probe: also with the clipper on as Mesa, V3D errors logged; shadows counted" },
         { "6.6", "M36", "2026-10-06", "the vertex shader on by default (every model), as the Pi drew it with the clipper on" },
         { "6.7", "M36", "2026-10-06", "vertex shader: a mesh's copy for each texture; sun-lit textures with three varyings" },
+        { "6.8", "M36", "2026-10-06", "vertex shader: a mesh's corners no longer written past their copy (the heap broken)" },
     };
     *n = (int)(sizeof v / sizeof v[0]);
     return v;

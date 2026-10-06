@@ -1347,9 +1347,14 @@ static int mesh_build(const g16_t *g, gmesh_t *e, const r3d_mesh_t *m, int unlit
     uint32_t bytes = 0;
     for (int f = 0; f < m->nfaces; f++)
         count[gidx[f]] += 3;
+    /* each group on 16 bytes, as the indexed copy below starts them (bm3d
+     * 6.8: the room was the corners' alone, and a mesh of flat faces on
+     * more groups, every corner different, was written up to 12 bytes a
+     * group past the end, over the heap; found looking for the broken
+     * heap of Overbit on the Pi, not yet known to be its cause) */
     for (int i = 0; i < nkeys; i++)
-        bytes += count[i] * vshaders[key[i] >> 12 & 15].words * 4u;
-    uint8_t *b = aligned_alloc(16, (bytes + 15) & ~15u);
+        bytes += (count[i] * vshaders[key[i] >> 12 & 15].words * 4u + 15) & ~15u;
+    uint8_t *b = aligned_alloc(16, bytes);
     ggroup_t *gs = malloc((size_t)(nkeys > 0 ? nkeys : 1) * sizeof *gs);
     /* M39: indexed, the corners that are the same word for word kept once
      * (16-bit indices: a group of up to 65535 different corners) */

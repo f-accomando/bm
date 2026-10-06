@@ -445,6 +445,13 @@ screenshot in `docs/img/`), `README_OLD.md` (il README completo, in italiano),
   Send the reports* (anche sulla RGB30) o `z` nel monitor; `Z` (o *Report the log*) manda il
   log; `report_upload=0` solo a mano. Spediti, spariscono dalla SD. Prova sul PC: `make
   test-github` (`tests/kernel/test_reports.c`: SD, GitHub, rete e orologio finti).
+- **Crash e blocchi** (2026-10-06, i crash visti senza seriale): la schermata rossa dice anche
+  `called from:` (le parole dello stack che sono indirizzi di ritorno: `arm-none-eabi-addr2line -f -e
+  build/kernel.elf` sul kernel di quella versione) e dopo 60 s il watchdog riavvia il Pi (non nei
+  primi 20 s di un avvio); le ultime 4 KiB stampate stanno in `.noinit` (`ring` in `crumbs.c`,
+  `klog_set_ring`), così l'avvio dopo un crash o un blocco del watchdog fa un report `crash` o
+  `freeze` con quelle righe (`crumbs_last` in `main.c`), che parte da solo. Si perde se manca la
+  corrente. Prova QEMU `test_crash_report`.
 - Fanno un report: gli strumenti di Dev che stampano (`tool_t.report` in `home.c`: System,
   Audio, CPU bench, Render bench, Stress test, DMA test, GPU test, Texture Room, Demo,
   Diagnostics), i comandi `g k p D s R` del monitor, il 3D Bench (il suo, anche sulla
@@ -1000,14 +1007,18 @@ screenshot in `docs/img/`), `README_OLD.md` (il README completo, in italiano),
   eroi 11×, scena `mix` 9× rispetto a bm3d 2.1; score 2601 con la 6.6. La cache delle copie delle
   mesh ha un posto per mesh e sheet (`mesh_is`, 6.7: prima ogni cambio di texture chiudeva il
   lavoro); le facce con texture illuminate dal sole vanno a `fs_tex_lit` (s, t, k grigia come
-  l'ARM), quelle con la luce agli angoli e la nebbia a `fs_tex_rgb`.
+  l'ARM), quelle con la luce agli angoli e la nebbia a `fs_tex_rgb`. Score 3506 con la 6.7. La
+  copia indicizzata comincia ogni gruppo su 16 byte: lo spazio va contato così (6.8: prima le mesh
+  piatte su più gruppi scrivevano fino a 12 byte a gruppo oltre la copia, sull'heap; trovato
+  cercando l'heap rotto di Overbit sul Pi, non ancora provato che fosse quello). L'emulatore ha 16 byte di guardia dopo
+  ogni blocco (`test_arena_overruns` in `test_gpu3d`, scena `vshader groups`).
 - **Versioni dei driver 3D**: `bm3d X.Y` (X il blocco/milestone, Y il passo) in
   `src/gpu/version3d.h` e `docs/DRIVERS.md`; ogni passo che cambia quello che r3d o
   gpu3d sanno fare alza la versione e aggiunge una riga alla tabella. Le impostazioni
   riproducono le versioni vecchie (ARM 0.2, GPU 2.1, GPU+VS1 3.0, GPU+VS 3.4, coda 4.1,
   memoria senza cache 4.5, 2D nel lavoro 4.8, due lavori in volo 5.1, texture a 16 bit 5.2,
   shader a due thread 5.3, mesh dalla più vicina 5.4): così i benchmark le confrontano.
-  Branch `bm3d-driver` (2026-10-06): bm3d 6.7 (M36, M39, M41).
+  Branch `bm3d-driver` (2026-10-06): bm3d 6.8 (M36, M39, M41).
 - **M39 (bm3d 5.x, branch `bm3d-driver`)**: mesh fino a 65535 vertici e indicizzate
   (`INDEXED_PRIMITIVE_LIST`, `probe_index`); due blocchi di memoria dei lavori
   (`gpu3d_queue=2`: l'emulatore esegue un lavoro avviato solo quando lo si aspetta); texture
