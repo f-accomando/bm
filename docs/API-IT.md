@@ -340,12 +340,18 @@ al secondo).
 
 | Funzione | Descrizione |
 |---|---|
-| `save(t)` | salva la tabella `t` sulla SD; `true`, oppure `false` e il motivo (niente SD, scheda piena...) |
-| `saved()` | la tabella salvata l'ultima volta, oppure `nil` |
+| `save(t, [slot])` | salva la tabella `t` sulla SD, nello slot 1–8 (predefinito 1); `true`, oppure `false` e il motivo (niente SD, scheda piena...) |
+| `saved([slot])` | la tabella salvata l'ultima volta in quello slot (predefinito 1), oppure `nil` |
+| `saves()` | gli slot usati, `{[slot] = byte}` (es. `{[1] = 40, [3] = 212}`), e quanti ce ne sono (8): per la pagina "carica partita" |
+| `delsave([slot])` | svuota lo slot (predefinito 1); `true`, oppure `false` e il motivo (`"nothing saved in slot 3"`) |
 
-Ogni cartuccia ha **un** salvataggio, in `/bm/save/XXXXXXXX.SAV` sulla SD (il nome
-dipende da titolo e autore: cambiandoli si riparte da zero). La tabella può contenere
-numeri, stringhe, booleani e altre tabelle (niente funzioni, al massimo 32 KiB).
+Ogni cartuccia ha **8 slot** di salvataggio, ognuno una tabella fino a 32 KiB, in
+`/bm/save/` sulla SD: lo slot 1 è `XXXXXXXX.SAV` (quello di sempre: `save(t)` e `saved()`
+senza slot), gli altri `XXXXXXXX.S02` ... `.S08`. Il nome dipende da titolo e autore:
+cambiandoli si riparte da zero. Un uso comune: lo slot 1 per impostazioni e record (lo usa
+anche `lib.store`), gli altri per le partite. Una tabella può contenere numeri, stringhe,
+booleani e altre tabelle (niente funzioni). Le opzioni del gioco nel menu (X sulla
+copertina) mostrano i byte di tutti gli slot e *Delete the save data* li cancella tutti.
 Scrivere sulla SD richiede qualche millisecondo: chiama `save()` in momenti come la fine
 della partita, non a ogni fotogramma (`lib.store` e `lib.best` di [bmlib](#bmlib-la-libreria-comune-dei-giochi)
 scrivono solo quando un valore cambia). Esempio (record di Snake):
@@ -357,6 +363,21 @@ function _init()
 end
 -- a fine partita
 if score > best then best = score; save({ best = best }) end
+```
+
+Tre partite, con la pagina per scegliere (gli slot 2, 3 e 4):
+
+```lua
+local function slots()                  -- le righe della pagina "carica partita"
+  local used, rows = saves(), {}
+  for i = 1, 3 do
+    local p = used[i + 1] and saved(i + 1)
+    rows[i] = p and ("Partita " .. i .. ": livello " .. p.level) or ("Partita " .. i .. ": vuota")
+  end
+  return rows
+end
+function save_game(i) save({ level = level, hp = hp }, i + 1) end
+function load_game(i) local p = saved(i + 1) if p then level, hp = p.level, p.hp end end
 ```
 
 ### Suono

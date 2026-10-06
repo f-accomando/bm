@@ -779,14 +779,39 @@ enum { C_PLAY = 100, C_CLOSE, C_SDK, C_SOUND, C_STUDIO, C_AUTHOR, C_FILE, C_SIZE
 
 static int opt_cart;            /* the cartridge of the HOME_CART panel */
 static int opt_market;          /* the game of the HOME_MARKET panel */
-static long opt_save;           /* its save file: bytes, -1 if none */
+static long opt_save;           /* its save slots: bytes in all, -1 if none */
+static int opt_slots;           /* how many slots it uses */
 
 static long save_size(const cart_t *c)
 {
-    fat_entry_t e;
-    if (!sd_ok || !c->save[0] || fat_find(c->save, &e) != 0)
-        return -1;
-    return (long)e.size;
+    long bytes = -1;
+    opt_slots = 0;
+    for (int slot = 1; sd_ok && c->save[0] && slot <= BM_SAVE_SLOTS; slot++) {
+        char path[sizeof c->save];
+        fat_entry_t e;
+        bm_save_slot(c->save, slot, path, sizeof path);
+        if (fat_find(path, &e) == 0) {
+            bytes = (bytes < 0 ? 0 : bytes) + (long)e.size;
+            opt_slots++;
+        }
+    }
+    return bytes;
+}
+
+/* every slot of the cartridge: 0, or -1 and the first error in note */
+static int save_delete(const cart_t *c, char *note, size_t n)
+{
+    int err = 0;
+    for (int slot = 1; c->save[0] && slot <= BM_SAVE_SLOTS; slot++) {
+        char path[sizeof c->save];
+        fat_entry_t e;
+        bm_save_slot(c->save, slot, path, sizeof path);
+        if (fat_find(path, &e) == 0 && fat_delete(path) != 0 && !err) {
+            ksnprintf(note, n, "cannot delete %s: %s", path, fat_error());
+            err = -1;
+        }
+    }
+    return err;
 }
 
 static void cart_panel(home_panel_t *p)
@@ -827,8 +852,10 @@ static void cart_panel(home_panel_t *p)
     home_row(p, MENU_ROW_INFO, C_SIZE, "Size", "The whole cartridge",
              "%lu KiB", (c->size + 1023) / 1024);
     home_row(p, MENU_ROW_INFO, C_TYPE, "Type", "Lua 5.4 on bm", "%s", "bm (native)");
-    char v[24];
-    if (opt_save >= 0)
+    char v[40];
+    if (opt_save >= 0 && opt_slots > 1)
+        ksnprintf(v, sizeof v, "%ld bytes in %d slots", opt_save, opt_slots);
+    else if (opt_save >= 0)
         ksnprintf(v, sizeof v, "%ld bytes", opt_save);
     else
         ksnprintf(v, sizeof v, "none");
@@ -871,10 +898,8 @@ static void cart_act(int row, int how, home_do_t *d)
             ksnprintf(d->ask_detail, sizeof d->ask_detail, "Records and progress start again.");
             ksnprintf(d->ask_yes, sizeof d->ask_yes, "Delete");
         } else if (how == HOME_YES) {
-            if (fat_delete(c->save) == 0)
+            if (save_delete(c, d->note, sizeof d->note) == 0)
                 ksnprintf(d->note, sizeof d->note, "save data deleted");
-            else
-                ksnprintf(d->note, sizeof d->note, "cannot delete %s: %s", c->save, fat_error());
             kprintf("menu: %s\n", d->note);
             opt_save = save_size(c);
         }

@@ -193,6 +193,9 @@ screenshot in `docs/img/`), `README_OLD.md` (il README completo, in italiano),
   lobby, `net.send`/`net.post`, lockstep `net.input`/`net.frames`, `net.check`); gli eventi
   arrivano da `net.update()` (anche quello di `net.start` di chi ospita, al giro dopo). Le
   regole del lockstep sono quelle di Overbit (sezione *Overbit*, "Rete").
+- **Salvataggi** (R12, 2026-10-06): 8 slot per cartuccia (`save(t, slot)`, `saved(slot)`,
+  `saves()`, `delsave(slot)`); lo slot 1 è `XXXXXXXX.SAV` di prima, gli altri `.S02`–`.S08`
+  (`bm_save_slot`); il menu li conta e li cancella tutti insieme (`save_size` in `carts.c`).
 - Modelli dell'SDK (`TEMPLATES` in `carts/editor/main.lua`): Platform, Top-down e Shooter
   con bmlib e `fset` nel `paint`; Versus 2D e Online 2D. `tests/studio/sdk_host.lua` li
   compila e li fa girare sugli stand-in (bmnet senza rete).

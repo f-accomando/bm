@@ -444,6 +444,16 @@ save({ record = record })
 Numbers, strings, booleans and tables, up to 32 KiB, in `/bm/save/` on the SD card. With
 bmlib: `lib.best("record", score)` keeps the record and writes only when it is beaten.
 
+More games in progress: the **slots** from 1 to 8, each a table of its own. Without a slot
+it is 1 (records and settings there); `saves()` says which are in use, `delsave(slot)`
+empties one:
+
+```lua
+save({ level = level, hp = hp }, 2)              -- the game in slot 2
+local p = saved(2)                                -- and loaded back (nil if empty)
+if saves()[3] then print("slot 3: game saved", 8, 8, 7) end
+```
+
 ## 10. Cover
 
 `--cover cover.png`: a PNG of any size, printed on the game's "card" in the menu, an 88×88

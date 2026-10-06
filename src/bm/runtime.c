@@ -2805,17 +2805,28 @@ static int l_net_resolve(lua_State *L)
     return 1;
 }
 
-/* ---- save() / saved(): one table per cartridge in /bm/save, as Lua
- * source ("return {...}") read back in an empty environment: data only. */
+/* ---- save() / saved(): tables of a cartridge in /bm/save, as Lua source
+ * ("return {...}") read back in an empty environment: data only. Up to
+ * SAVE_SLOTS slots (R12): slot 1 is the file of before ("1A2B3C4D.SAV"),
+ * the others "1A2B3C4D.S02" ... ".S08". */
 
 #define SAVE_DIR   "/bm/save"
 #define SAVE_MAX   (32 * 1024)
+#define SAVE_SLOTS BM_SAVE_SLOTS
 
 void bm_save_path(const char *title, const char *author, char *out, size_t n)
 {
     char id[96];
     int len = ksnprintf(id, sizeof id, "%s\n%s", title, author);
     ksnprintf(out, n, "%s/%08lX.SAV", SAVE_DIR, crc32(id, (uint32_t)len));
+}
+
+void bm_save_slot(const char *path, int slot, char *out, size_t n)
+{
+    ksnprintf(out, n, "%s", path);
+    char *dot = strrchr(out, '.');
+    if (slot > 1 && dot && (size_t)(dot - out) + 5 <= n - 1)
+        ksnprintf(dot, 5, ".S%02d", slot);
 }
 
 /* The text is built in a fixed buffer: a luaL_Buffer cannot be used here,
@@ -2911,15 +2922,41 @@ static void ser(lua_State *L, int idx, int depth)
     sb_chr(L, '}');
 }
 
-/* save(t): true, or false and a message (no SD card, card full...) */
+/* the slot argument at idx (1 when absent) */
+static int save_slot(lua_State *L, int idx)
+{
+    lua_Integer slot = luaL_optinteger(L, idx, 1);
+    luaL_argcheck(L, slot >= 1 && slot <= SAVE_SLOTS, idx, "a save slot is 1 to 8");
+    return (int)slot;
+}
+
+/* the file of a slot in SAVE_DIR: "1A2B3C4D.SAV", "1A2B3C4D.S02"... */
+static void slot_name(int slot, char out[16])
+{
+    bm_save_slot(rt.save_name, slot, out, 16);
+}
+
+/* the slot's file on the card (in /bm, or the folder of before the rename) */
+static int slot_find(int slot, fat_entry_t *e)
+{
+    char name[16], path[40];
+    slot_name(slot, name);
+    ksnprintf(path, sizeof path, "save/%s", name);
+    return config_find_file(path, e);
+}
+
+/* save(t, [slot]): true, or false and a message (no SD card, card full...) */
 static int l_save(lua_State *L)
 {
     luaL_checktype(L, 1, LUA_TTABLE);
+    int slot = save_slot(L, 2);
     lua_settop(L, 1);
     sb.n = 0;
     sb_str(L, "return ");
     ser(L, 1, 0);
-    if (fat_mkdirs(SAVE_DIR) != 0 || fat_write_file(SAVE_DIR, rt.save_name, sb.p, sb.n) != 0) {
+    char name[16];
+    slot_name(slot, name);
+    if (fat_mkdirs(SAVE_DIR) != 0 || fat_write_file(SAVE_DIR, name, sb.p, sb.n) != 0) {
         lua_pushboolean(L, 0);
         lua_pushstring(L, fat_error());
         return 2;
@@ -2928,16 +2965,15 @@ static int l_save(lua_State *L)
     return 1;
 }
 
-/* saved(): the saved table, or nil. (Not "load": that is Lua's code loader,
- * which the sandbox removes.) */
+/* saved([slot]): the saved table, or nil. (Not "load": that is Lua's code
+ * loader, which the sandbox removes.) */
 static int l_saved(lua_State *L)
 {
-    char path[40];
+    int slot = save_slot(L, 1);
     fat_entry_t e;
     uint8_t *data;
     size_t len;
-    ksnprintf(path, sizeof path, "save/%s", rt.save_name);
-    if (config_find_file(path, &e) != 0 || e.size > SAVE_MAX || fat_load(&e, &data, &len) != 0) {
+    if (slot_find(slot, &e) != 0 || e.size > SAVE_MAX || fat_load(&e, &data, &len) != 0) {
         lua_pushnil(L);
         return 1;
     }
@@ -2953,6 +2989,44 @@ static int l_saved(lua_State *L)
         lua_pushnil(L);
         return 1;
     }
+    return 1;
+}
+
+/* saves(): {[slot] = bytes} of the slots in use, and how many slots there
+ * are (8): for a "load game" page */
+static int l_saves(lua_State *L)
+{
+    lua_newtable(L);
+    for (int slot = 1; slot <= SAVE_SLOTS; slot++) {
+        fat_entry_t e;
+        if (slot_find(slot, &e) == 0 && !e.is_dir) {
+            lua_pushinteger(L, (lua_Integer)e.size);
+            lua_rawseti(L, -2, slot);
+        }
+    }
+    lua_pushinteger(L, SAVE_SLOTS);
+    return 2;
+}
+
+/* delsave([slot]): true when the slot was emptied, or false and why */
+static int l_delsave(lua_State *L)
+{
+    int slot = save_slot(L, 1);
+    char name[16], path[48];
+    slot_name(slot, name);
+    ksnprintf(path, sizeof path, "%s/%s", SAVE_DIR, name);
+    fat_entry_t e;
+    if (fat_find(path, &e) != 0) {
+        lua_pushboolean(L, 0);
+        lua_pushfstring(L, "nothing saved in slot %d", slot);
+        return 2;
+    }
+    if (fat_delete(path) != 0) {
+        lua_pushboolean(L, 0);
+        lua_pushstring(L, fat_error());
+        return 2;
+    }
+    lua_pushboolean(L, 1);
     return 1;
 }
 
@@ -3671,7 +3745,7 @@ static const luaL_Reg api[] = {
     { "keymap", l_keymap }, { "controller", l_controller }, { "online", l_online },
     { "udp_open", l_udp_open }, { "udp_send", l_udp_send }, { "udp_recv", l_udp_recv }, { "udp_close", l_udp_close },
     { "net_ip", l_net_ip }, { "net_resolve", l_net_resolve },
-    { "save", l_save }, { "saved", l_saved },
+    { "save", l_save }, { "saved", l_saved }, { "saves", l_saves }, { "delsave", l_delsave },
     { "keyp", l_keyp }, { "keyheld", l_keyheld }, { "rawkeys", l_rawkeys }, { "keydown", l_keydown },
     { "keys", l_keys }, { "pad", l_pad }, { "mouse", l_mouse }, { "mousep", l_mousep }, { "timeslice", l_timeslice }, { "ls", l_ls }, { "cart_load", l_cart_load }, { "cart_new", l_cart_new },
     { "cart_save", l_cart_save }, { "cart_run", l_cart_run }, { "cart_tool", l_cart_tool }, { "cart_arg", l_cart_arg },

@@ -337,15 +337,21 @@ consoles on the same PC, `--realtime` to play at 60 frames a second).
 
 | Function | Description |
 |---|---|
-| `save(t)` | saves table `t` on the SD card; `true`, or `false` and the reason (no SD card, card full...) |
-| `saved()` | the table saved last time, or `nil` |
+| `save(t, [slot])` | saves table `t` on the SD card, in slot 1–8 (default 1); `true`, or `false` and the reason (no SD card, card full...) |
+| `saved([slot])` | the table saved last time in that slot (default 1), or `nil` |
+| `saves()` | the slots in use, `{[slot] = bytes}` (e.g. `{[1] = 40, [3] = 212}`), and how many there are (8): for a "load game" page |
+| `delsave([slot])` | empties the slot (default 1); `true`, or `false` and the reason (`"nothing saved in slot 3"`) |
 
-Each cartridge has **one** save, in `/bm/save/XXXXXXXX.SAV` on the SD card (the name
-depends on title and author: changing them starts again from zero). The table can hold
-numbers, strings, booleans and other tables (no functions, at most 32 KiB). Writing on the
-SD card takes a few milliseconds: call `save()` at moments like the end of a match, not in
-every frame (`lib.store` and `lib.best` of [bmlib](#bmlib-the-games-shared-library) write
-only when a value changes). Example (Snake's record):
+Each cartridge has **8 save slots**, each a table of up to 32 KiB, in `/bm/save/` on the SD
+card: slot 1 is `XXXXXXXX.SAV` (the one of always: `save(t)` and `saved()` without a slot),
+the others `XXXXXXXX.S02` ... `.S08`. The name depends on title and author: changing them
+starts again from zero. A common use: slot 1 for settings and records (`lib.store` uses it
+too), the others for the games in progress. A table can hold numbers, strings, booleans and
+other tables (no functions). The game's options in the menu (X on the cover) show the bytes
+of all the slots and *Delete the save data* deletes them all. Writing on the SD card takes a
+few milliseconds: call `save()` at moments like the end of a match, not in every frame
+(`lib.store` and `lib.best` of [bmlib](#bmlib-the-games-shared-library) write only when a
+value changes). Example (Snake's record):
 
 ```lua
 function _init()
@@ -354,6 +360,21 @@ function _init()
 end
 -- at the end of the match
 if score > best then best = score; save({ best = best }) end
+```
+
+Three games in progress, with the page to choose one (slots 2, 3 and 4):
+
+```lua
+local function slots()                  -- the rows of the "load game" page
+  local used, rows = saves(), {}
+  for i = 1, 3 do
+    local p = used[i + 1] and saved(i + 1)
+    rows[i] = p and ("Game " .. i .. ": level " .. p.level) or ("Game " .. i .. ": empty")
+  end
+  return rows
+end
+function save_game(i) save({ level = level, hp = hp }, i + 1) end
+function load_game(i) local p = saved(i + 1) if p then level, hp = p.level, p.hp end end
 ```
 
 ### Sound

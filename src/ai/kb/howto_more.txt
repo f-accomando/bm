@@ -115,10 +115,10 @@ title: Salvare i progressi (livello, oggetti)
 ask: salvare il livello raggiunto | salvare la partita | save progress | continuare la partita
 ask: salvare gli oggetti raccolti | checkpoint
 keys: progressi, livello, continuare
-see: save, saved, lib.store
+see: save, saved, saves, lib.store
 text:
 Una tabella con quello che serve per ripartire; save() accetta tabelle
-dentro tabelle.
+dentro tabelle. Per più partite usa gli slot: save(t, 2), saved(2).
 code:
 save({ level = level, hp = hp,
        items = { key = has_key, coins = coins } })

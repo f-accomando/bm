@@ -3293,8 +3293,14 @@ tastiera).
   Da fare, se servono: portare Hunter's Night dai numeri 32–63 ai flag; più nomi per una
   voce dell'assistente (oggi `lib.printr` porta a `lib.printc` al secondo posto); import
   delle mappe di Tiled (`.tmj`) con i livelli e le proprietà delle tile.
-- **R12 — Più salvataggi per cartuccia.** Oggi uno, da 32 KiB (`/bm/save/XXXXXXXX.SAV`):
+- ✅ **R12 — Più salvataggi per cartuccia.** Oggi uno, da 32 KiB (`/bm/save/XXXXXXXX.SAV`):
   `save(t, slot)` / `saved(slot)`.
+  **Fatto** (2026-10-06, branch `claude/dev-tools`): 8 slot da 32 KiB, lo slot 1 è il file di
+  prima (`save(t)` e `saved()` senza slot non cambiano), gli altri `XXXXXXXX.S02` ... `.S08`
+  (`bm_save_slot` in `runtime.c`); `saves()` dà `{[slot] = byte}` e il numero degli slot,
+  `delsave(slot)` ne svuota uno. Le opzioni del gioco nel menu mostrano i byte di tutti gli
+  slot ("N bytes in K slots") e *Delete the save data* li cancella tutti. Prove: `make
+  test-gameapi`, QEMU `test_home_ui` (due slot, cancellati dal menu).
 - ✅ **Hitbox e hurtbox** (richiesta dell'utente, 2026-10-04, branch `game-api`; erano
   rimaste da fare in M22.6 e nei giochi ognuno le scriveva da sé, come Titan Clash). Sezione
   **BOXES** (14) del `.bm`: i riquadri dei fotogrammi delle zone di SPRITES (`hurt`, `hit`,

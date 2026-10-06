@@ -1104,7 +1104,7 @@ def test_online_leave(b, opts):
 
 SAVER_CART = r"""
 local n = 0
-function _init() save({ n = 1 }) log("saver start") end
+function _init() save({ n = 1 }) save({ level = 2 }, 2) log("saver start") end
 function _update() n = n + 1 end
 function _draw() cls(0x203040) print("frame " .. n, 8, 8, 0xFFFFFF) end
 """
@@ -1166,6 +1166,7 @@ def test_home_ui(b, opts):
         shot("options")
         keys("ww")                              # up from the first row: the last ones
         screen(["Delete the save data", "Records and progress start again"])
+        screen(["Save data", "bytes in 2 slots"])     # save(t) and save(t, 2): R12
         keys("\r")
         screen(["Delete the save data?", "Delete", "Cancel"])
         shot("ask")
@@ -1335,7 +1336,7 @@ def test_home_ui(b, opts):
         assert "saver" in carts.lower() and "cancellare" not in carts, carts
         saves = subprocess.run(["mdir", "-i", part, "::/BM/SAVE"], capture_output=True,
                                text=True, env=env).stdout
-        assert not re.search(r"^[0-9A-F]{8}\s+SAV", saves, re.M), saves
+        assert not re.search(r"^[0-9A-F]{8}\s+(SAV|S02)", saves, re.M), saves
     finally:
         shutil.rmtree(tmp, ignore_errors=True)
 

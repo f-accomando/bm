@@ -449,6 +449,15 @@ save({ record = record })
 Numeri, stringhe, booleani e tabelle, fino a 32 KiB, in `/bm/save/` sulla SD. Con bmlib:
 `lib.best("record", punti)` tiene il record e scrive solo quando viene battuto.
 
+Più partite: gli **slot** da 1 a 8, ognuno una tabella sua. Senza slot è l'1 (lì record e
+impostazioni); `saves()` dice quali sono usati, `delsave(slot)` ne svuota uno:
+
+```lua
+save({ livello = livello, vita = vita }, 2)      -- la partita nello slot 2
+local p = saved(2)                                -- e ricaricata (nil se vuoto)
+if saves()[3] then print("slot 3: partita salvata", 8, 8, 7) end
+```
+
 ## 10. Copertina
 
 `--cover copertina.png`: un PNG di qualsiasi misura, stampato sulla "scheda" del gioco nel

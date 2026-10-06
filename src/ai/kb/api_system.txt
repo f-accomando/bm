@@ -141,14 +141,15 @@ if btnp(8) and game_over then quit() end    -- Start
 == save
 kind: api
 name: save
-title: save(t) - salva una tabella sulla SD
+title: save(t, [slot]) - salva una tabella sulla SD
 ask: salvare sulla sd | salvare i dati | save data | salvare il record
 ask: memorizzare il punteggio | salvare le impostazioni | persist | savegame
-see: saved, high_score
+ask: salvare la partita nello slot 2 | save the game in a slot
+see: saved, saves, high_score
 text:
-Salva la tabella t (numeri, stringhe, booleani, tabelle; fino a 32 KiB):
-true, oppure false e il motivo. Un salvataggio per cartuccia. Scrivere sulla
-SD richiede qualche ms: salva a fine partita, non a ogni fotogramma.
+Salva la tabella t (numeri, stringhe, booleani, tabelle; fino a 32 KiB)
+nello slot 1-8 (senza slot: l'1): true, oppure false e il motivo. Scrivere
+sulla SD richiede qualche ms: salva a fine partita, non a ogni fotogramma.
 code:
 local ok, why = save({ best = best, level = level })
 if not ok then log("salvataggio fallito: " .. why) end
@@ -156,17 +157,52 @@ if not ok then log("salvataggio fallito: " .. why) end
 == saved
 kind: api
 name: saved
-title: saved() - la tabella salvata l'ultima volta
+title: saved([slot]) - la tabella salvata l'ultima volta
 ask: caricare il salvataggio | leggere i dati salvati | load saved data
 ask: recuperare il record | load game | caricare la partita
-see: save, high_score
+see: save, saves, high_score
 text:
-La tabella salvata l'ultima volta con save(), oppure nil se non c'è.
+La tabella salvata l'ultima volta con save() in quello slot (senza slot:
+l'1), oppure nil se non c'è.
 code:
 function _init()
   local d = saved()
   best = d and d.best or 0
 end
+
+== saves
+kind: api
+name: saves
+title: saves() - gli slot di salvataggio usati
+ask: più salvataggi | più partite salvate | slot di salvataggio
+ask: pagina carica partita | quali slot sono usati | save slots
+ask: scegliere quale partita continuare | partite salvate da scegliere
+ask: multiple save files | load game menu | list the saves | pick a saved game
+see: save, saved, delsave
+text:
+Ogni cartuccia ha 8 slot. saves() dà {[slot] = byte} degli slot usati, e
+quanti slot ci sono (8): per la pagina che sceglie la partita. Lo slot 1 è
+quello di save(t) senza slot (record e impostazioni).
+code:
+local used = saves()
+for i = 2, 4 do
+  local p = used[i] and saved(i)
+  print(p and ("livello " .. p.level) or "vuoto", 8, i * 10, 7)
+end
+
+== delsave
+kind: api
+name: delsave
+title: delsave([slot]) - svuota uno slot di salvataggio
+ask: cancellare un salvataggio | cancellare la partita salvata
+ask: svuotare lo slot | togliere un salvataggio dallo slot | eliminare i dati salvati
+ask: delete a save | erase the saved game | clear a save slot
+see: saves, save
+text:
+Svuota lo slot (senza slot: l'1): true, oppure false e il motivo ("nothing
+saved in slot 3"). Le opzioni del gioco nel menu cancellano tutti gli slot.
+code:
+if btnp("x") then delsave(slot) end
 
 == random
 kind: api
