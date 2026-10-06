@@ -156,26 +156,21 @@ def main():
     check("overbit hero You kaiju" in log, "match: Kaiju chosen in the spawn room", log)
     check("overbit point open" in log, "match: the point opens", log)
 
-    # the resolution (screen()): RESOLUTION in the menu with the arrows (on
-    # the GPU's emulator: up to 1920x1080), saved on the SD card and set
-    # again at the next start; the range at 960x540 (the HUD at 2x)
-    sd = os.path.join(build, "overbit", "test-res-sd")
+    # no graphics options in the title; the calibration (BENCHMARK, or the
+    # flags): the first step of the ladder that holds 60 fps is saved on the
+    # SD card and is the default of the next start. On the ARM (bmhost has no
+    # GPU) the ladder is 640x360 only.
+    sd = os.path.join(build, "overbit", "test-cal-sd")
     shutil.rmtree(sd, ignore_errors=True)
     os.makedirs(sd)
-    lines, f = [], 30
-    for k in ["DOWN"] * 8 + ["RIGHT", "RIGHT"] + ["UP"] * 6 + ["SPACE"]:
-        lines += [f"{f} keys {keys(k)}", f"{f + 2} keys none"]
-        f += 24
-    code, log = run(build, cart, 9, "\n".join(lines) + "\n", "res-menu", "bmhost-gpu", ["--sd", sd])
-    check(code == 0 and "stopped with an error" not in log, "resolution: no Lua error", log)
-    check("bm: screen 640x360" in log and "bm: screen 960x540" in log, "resolution: 640x360, then 960x540 from the menu",
-          log)
-    code, log = run(build, cart, 1, "", "res-again", "bmhost-gpu", ["--sd", sd])
-    check("overbit resolution 960x540" in log and "bm: screen 960x540" in log, "resolution: saved, set again at the start",
-          log)
-    code, log = run(build, cart, 1, "", "res-arm", "bmhost-bin", ["--sd", sd])
-    check("overbit resolution" not in log and "bm: screen" not in log,
-          "resolution: 960x540 not set when the ARM draws (up to 640x360)", log)
+    code, log = run(build, os.path.join(build, "overbit", "bench-cal.bm"), 60, "", "cal", "bmhost-bin", ["--sd", sd])
+    check(code == 0 and "stopped with an error" not in log and "overbit bench done" in log, "calibration: runs to the end", log)
+    check("calibration" in log and "overbit default 640x360 quality" in log, "calibration: the default saved (640x360 on the ARM)", log)
+    check("bm: screen 480x270" not in log.split("overbit bench done")[-1], "calibration: the screen is not put back over the default", log)
+    code, log = run(build, cart, 1, "", "cal-again", "bmhost-bin", ["--sd", sd])
+    check("overbit screen 640x360" in log and "bm: screen 640x360" in log, "calibration: the default is set again at the start", log)
+    code, log = run(build, cart, 1, "", "no-save", "bmhost-bin")
+    check("overbit screen 640x360" in log, "defaults: the best screen of the console when none is saved", log)
     code, log = run(build, os.path.join(build, "overbit", "range-1080.bm"), 3,
                     f"30 keys {keys('J')}\n150 keys none\n", "range-1080", "bmhost-gpu")
     check(code == 0 and "stopped with an error" not in log and "bm: screen 1920x1080" in log,
@@ -278,8 +273,8 @@ def main():
     for host, rs in (("bmhost-bin", ["ARM"]), ("bmhost-gpu", ["ARM", "GPU", "GPU+AA", "GPU+Q", "GPU+VS1", "GPU+VS", "GPU+VS+Q"])):
         code, log = run(build, bench, 60, "", "bench-" + host, host)
         tag = "gpu" if "gpu" in host else "arm"
-        rows = re.findall(r"overbit bench (\S+) HIGH: .* (\d+) vtx", log)
-        hashes = re.findall(r"overbit bench \S+ HIGH match (\d+)", log)
+        rows = re.findall(r"overbit bench (\S+) \d+x\d+ HIGH: .* (\d+) vtx", log)
+        hashes = re.findall(r"overbit bench \S+ \d+x\d+ HIGH match (\d+)", log)
         check(code == 0 and "overbit bench done" in log and "Lua error" not in log,
               f"bench ({tag}): runs to the end", log)
         check("bmhost: report overbit-bench" in log, f"bench ({tag}): its report (report())", log)

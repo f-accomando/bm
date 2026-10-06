@@ -160,80 +160,11 @@ end
 -- ---------------------------------------------------------------- the title menu
 
 local Menu = { sel = 1, t = 0 }
-local ITEMS = { "PLAY: CONTROL", "PLAY ONLINE", "TRAINING RANGE", "HERO", "BOTS", "ANIMATION REEL", "QUALITY",
-                "3D", "RESOLUTION", "BENCHMARK" }
+local ITEMS = { "PLAY: CONTROL", "PLAY ONLINE", "TRAINING RANGE", "HERO", "BOTS", "ANIMATION REEL", "BENCHMARK" }
 
--- the 3D renderer: the GPU, with its vertex shader placing every model
--- (VS), with anti-aliasing, both, the GPU and the GPU+VS with the frame
--- queue (Q: it draws while the next frame's _update runs), the ARM (a
--- console without a GPU, QEMU: the ARM only; a choice this GPU cannot do
--- is skipped)
-local RENDERERS = { { true, false, 0, false }, { true, false, 2, false }, { true, true, 0, false },
-                    { true, true, 2, false }, { true, false, 0, true }, { true, false, 2, true },
-                    { false, false, 0, false } }
-
-local function renderer_name()
-  local on, aa, vs, _, q = gpu3d()
-  if not on then return "ARM" end
-  return "GPU" .. (vs == 1 and " + VS1" or vs and " + VS" or "") .. (aa and " + AA 4X" or "") .. (q and " + Q" or "")
-end
-
-local function next_renderer()
-  local on, aa, vs, _, q = gpu3d()
-  local cur = #RENDERERS
-  for i, r in ipairs(RENDERERS) do
-    if r[1] == on and r[2] == (aa or false) and r[3] == (vs or 0) and r[4] == (q or false) then cur = i end
-  end
-  for k = 1, #RENDERERS do
-    local r = RENDERERS[(cur + k - 1) % #RENDERERS + 1]
-    local on2, aa2, vs2, _, q2 = gpu3d(r[1], r[2], r[3], r[4])
-    if not r[1] then return end
-    if not on2 then Menu.no_gpu = true gpu3d(false, false, 0, false) return end
-    if aa2 == r[2] and (vs2 or 0) == r[3] and (q2 or false) == r[4] then return end
-  end
-end
-
--- the resolution (screen()): the console's modes, 320x180 to 1920x1080;
--- the ARM's only up to 640x360 (its pixels cost it, the GPU's do not). The
--- choice is saved (save(), with the relay of 83_net) and set again at the
--- next start (Modes.saved_res).
-local function res_modes()
-  local list = {}
-  for i = 1, 16 do
-    local w, h = screen(i)
-    if not w then break end
-    if G.gpu or w * h <= 640 * 360 then list[#list + 1] = { w, h } end
-  end
-  return list
-end
-
-local function res_set(w, h)
-  if not screen(w, h) then return end
-  local t = saved() or {}
-  t.res = w .. "x" .. h
-  save(t)
-end
-
-local function next_res(k)
-  local list = res_modes()
-  local cur = 0
-  for i, m in ipairs(list) do if m[1] == SW and m[2] == SH then cur = i end end
-  if cur == 0 then cur = k > 0 and 0 or 1 end
-  local m = list[(cur - 1 + k) % #list + 1]
-  res_set(m[1], m[2])
-end
-
-function Modes.saved_res()
-  local t = screen and saved()
-  local r = OVERBIT_RES or (t and t.res)          -- OVERBIT_RES = "960x540": tests, reels
-  if not screen or type(r) ~= "string" then return end
-  local w, h = r:match("^(%d+)x(%d+)$")
-  if not w then return end
-  w, h = tonumber(w), tonumber(h)
-  for _, m in ipairs(res_modes()) do
-    if m[1] == w and m[2] == h then screen(w, h) log(string.format("overbit resolution %dx%d", w, h)) return end
-  end
-end
+-- There are no graphics options here: the screen (1080p, or 640x360 where
+-- the ARM draws), the quality and the renderer are the game's own (85_quality:
+-- the governor keeps 60 fps and saves what holds; BENCHMARK finds them again).
 
 G.hero_id = "rally"          -- OVERBIT_HERO (tests) in _init
 G.bot_diff = 2               -- the bots: 1 easy, 2 normal, 3 hard (Bots.SKILL)
@@ -275,10 +206,6 @@ function Menu.update()
     G.bot_diff = (G.bot_diff - 1 + (c.right_p and 1 or -1)) % 3 + 1
     Snd.play("ui")
   end
-  if ITEMS[Menu.sel] == "RESOLUTION" and (c.left_p or c.right_p) then
-    next_res(c.right_p and 1 or -1)
-    Snd.play("ui")
-  end
   local a = Menu.hero
   -- the hero on the title: idle, now and then its victory pose
   Menu.vt = Menu.vt + DT
@@ -295,12 +222,6 @@ function Menu.update()
     elseif it == "HERO" then next_hero(1)
     elseif it == "BOTS" then G.bot_diff = G.bot_diff % 3 + 1
     elseif it == "ANIMATION REEL" then Modes.start("reel")
-    elseif it == "QUALITY" then
-      if G.qauto then G.qauto = false Quality.set(4)
-      elseif G.quality > 0 then Quality.set(G.quality - 1)
-      else G.qauto = true Quality.set(3) end
-    elseif it == "3D" then next_renderer()
-    elseif it == "RESOLUTION" then next_res(1)
     elseif it == "BENCHMARK" then Modes.start("bench") end
   end
 end
@@ -323,9 +244,6 @@ function Menu.draw()
   local top, step = small and 54 or 80, small and 12 or 15
   for i, it in ipairs(ITEMS) do
     local s = it
-    if it == "QUALITY" then s = "QUALITY: " .. (G.qauto and "AUTO" or Quality.names[G.quality + 1]) end
-    if it == "3D" then s = "3D: " .. renderer_name() .. (Menu.no_gpu and " (NO GPU)" or "") end
-    if it == "RESOLUTION" then s = "RESOLUTION: < " .. SW .. "x" .. SH .. " >" end
     if it == "HERO" then s = "HERO: < " .. H[G.hero_id].name:upper() .. " >" end
     if it == "BOTS" then s = "BOTS: < " .. Bots.SKILL[G.bot_diff].name .. " >" end
     local y = top + (i - 1) * step
