@@ -192,7 +192,8 @@ prima di accendere lo schermo e il registro si scrive tre volte (prima dello sch
 
 ## Il suono
 
-Dal 2026-10-05 (branch `claude/rgb30-audio`) la RGB30 suona come il Pi: lo stesso sintetizzatore
+Dal 2026-10-05 (branch `claude/rgb30-audio`, verificato sulla console e unito il 2026-10-06) la
+RGB30 suona come il Pi: lo stesso sintetizzatore
 a 8 voci, i banchi dei giochi, la musica, gli effetti e nano8 (`src/audio/audio.c`). L'uscita è
 `src/rgb30/rk_audio.c`: l'I2S1 del RK3566 manda 48 kHz a 16 bit al codec dentro il RK817 (il
 chip della batteria), che suona dalle **cuffie** o dall'**altoparlante**: quando si infilano le

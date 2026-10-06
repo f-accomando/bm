@@ -3097,8 +3097,8 @@ giochi) con una barra sopra lo schermo (`notice_flash`), salvato in `volume=`; *
 Screen and sound*: Sound, Volume, Test the sound (stato, contatori dell'I2S, MCLK, la melodia
 di prova); il suonino d'avvio come sul Pi. Prove: `make TARGET=rgb30 test-audio` (il driver su
 CRU, I2S e RK817 simulati: MCLK, 48 kHz, ogni campione in ordine, nessun buco, l'ordine del
-codec), QEMU `test_sound` (440 Hz sentiti dalla sink, il volume a un quarto, `volume=5`);
-sulla console da sentire.
+codec), QEMU `test_sound` (440 Hz sentiti dalla sink, il volume a un quarto, `volume=5`).
+✅ **Verificato sulla RGB30** (2026-10-06, l'utente: "audio funziona"); unito al principale.
 
 ## M41 — RGB30: la GPU Mali e Overbit in `.b16` (XL)
 Richiesta dell'utente (2026-10-05): lo stesso banco di prova della GPU del Pi anche sulla
