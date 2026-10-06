@@ -9,10 +9,10 @@
  * little endian:
  *
  *   0   char[4] "BMAU"
- *   4   u8      version (1)
+ *   4   u8      version (2; 1 is read too: its sounds have no tone)
  *   5   u8      sounds (0..32), 6 u8 sfx (0..64), 7 u8 patterns (0..64),
  *   8   u8      songs (0..8), 9..15 reserved (0)
- *   16  sounds, 24 bytes each:
+ *   16  sounds, 48 bytes each (24 in version 1):
  *         0 char[8] name (ASCII, zero-padded)
  *         8 wave, 9 duty, 10 volume, 11 attack, 12 decay, 13 sustain,
  *        14 release (as the synth registers, synth.h)
@@ -20,6 +20,10 @@
  *        16 u8 ...and glides to it in this x 10 ms (0: no pitch envelope)
  *        17 u8 vibrato depth (cents), 18 u8 vibrato rate (x 0.1 Hz)
  *        19 s8 detune (cents), 20..23 reserved
+ *        24..44 the tone: registers 11..31 of the voice as they are
+ *        (filter, place, the wave's own settings, noise, drive, the room
+ *        and echo sends, the LFO; synth.h), 45..47 reserved. A version 1
+ *        sound has the plain tone with AU_ROOM_SEND in the room.
  *   then the sound effects, 16 + 4 x steps bytes each:
  *         0 char[8] name, 8 u16 step length (ms, 1..2000), 10 u8 steps
  *        (1..32), 11 u8 loop start, 12 u8 loop end (end > start: steps
@@ -32,8 +36,9 @@
  *   then the songs, 16 + length bytes each:
  *         0 char[8] name, 8 u8 tempo (BPM, a step is a 16th note), 9 u8
  *        swing (0..100), 10 u8 length (1..64), 11 u8 loop (the position
- *        played after the last one; 255: the song stops), 12..15 reserved,
- *        16 the pattern of each position
+ *        played after the last one; 255: the song stops), 12 u8 the echo's
+ *        time in steps (0: as it is), 13 u8 the room's size (0: as it is),
+ *        14..15 reserved, 16 the pattern of each position
  *
  *   A step is 4 bytes: note (0 nothing new, the note goes on; 1..127 a
  *   MIDI note, 60 = C4, 69 = A4 440 Hz; 128 off: the note is released),
@@ -54,7 +59,10 @@
 #include "synth.h"
 
 #define AU_MAGIC        "BMAU"
-#define AU_VERSION      1
+#define AU_VERSION      2
+#define AU_SOUND_BYTES  48          /* 24 in version 1 */
+#define AU_TONE         (SYNTH_VOICE_BYTES - SYNTH_CUTOFF)    /* registers 11..31 */
+#define AU_ROOM_SEND    40          /* the room of a sound with no tone of its own */
 #define AU_SOUNDS       32
 #define AU_SFX          64
 #define AU_PATTERNS     64
@@ -98,6 +106,7 @@ typedef struct {
     uint8_t pitch_time;
     uint8_t vib_depth, vib_rate;
     int8_t detune;
+    uint8_t tone[AU_TONE];      /* registers 11..31 */
 } au_sound_t;
 
 typedef struct {
@@ -115,6 +124,7 @@ typedef struct {
 typedef struct {
     char name[9];
     uint8_t bpm, swing, len, loop;
+    uint8_t echo, room;         /* echo time in steps, room size (0: as it is) */
     uint8_t order[AU_SONG_LEN];
     uint8_t tracks;             /* tracks with notes in its patterns */
 } au_song_t;
@@ -158,6 +168,8 @@ typedef struct {
     int8_t mod_arp[8];
     uint8_t mod_arp_n;
     uint32_t mod_arp_len;
+    uint8_t bank_tone;          /* the tone registers are a bank sound's */
+    uint8_t own_sound;          /* the note's sound is player_t.own[voice] */
 } au_voice_t;
 
 typedef struct {
@@ -176,6 +188,7 @@ typedef struct {
     uint32_t rate;
     au_voice_t v[AU_TRACKS];
     au_sfxch_t sfx[AU_TRACKS];
+    au_sound_t own[AU_TRACKS];  /* the sounds of player_play_sound */
     uint32_t serial;
     struct {
         int8_t song;            /* -1 none, -2 one pattern looping (the editor) */
@@ -226,6 +239,10 @@ void player_mute(player_t *p, int track, int on);
  * the editor); released after ms (0: held until player_release). */
 void player_play(player_t *p, int voice, int sound, int note, int vol, int fx, uint32_t ms);
 void player_release(player_t *p, int voice);
+/* Any sound (a preset, a sound of another bank) on a voice (-1: a free
+ * one) as a step would play it, pitch envelope and vibrato included;
+ * released after ms (0: held). Returns the voice, or -1. */
+int  player_play_sound(player_t *p, int voice, const au_sound_t *s, int note, int vol, uint32_t ms);
 
 /* The Lua notes: note(), noteoff(), freq() and the helpers. */
 void player_lua_note(player_t *p, int voice, float hz, uint32_t ms);
@@ -236,6 +253,12 @@ void player_vibrato(player_t *p, int voice, float semitones, float rate_hz);
 void player_arp(player_t *p, int voice, const int8_t *semis, int n, uint32_t ms);
 /* 1 while the voice sounds or a sequence holds it */
 int  player_busy(const player_t *p, int voice);
+
+/* The plain tone (AU_ROOM_SEND in the room) into a voice's registers. */
+void au_tone_default(volatile uint8_t *voice_regs);
+/* A voice as the console starts it: gate off, square at half duty and half
+ * volume, attack 8 ms, sustain full, release 80 ms, the plain tone. */
+void au_voice_default(volatile uint8_t *voice_regs);
 
 /* MIDI note <-> Hz */
 float au_note_hz(float note);

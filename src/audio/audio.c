@@ -10,6 +10,7 @@
 #include "n8snd.h"
 #include "synth.h"
 #include "player.h"
+#include "presets.h"
 #include "drivers/timer.h"
 #include "kernel/irq.h"
 #include "lib/printf.h"
@@ -22,6 +23,7 @@ static au_bank_t banks[2];          /* the one playing, and the one a new bank i
 static int bank_now = -1;           /* -1: no bank */
 static volatile uint8_t own_regs[SYNTH_REG_BYTES];
 static int volume = AUDIO_VOLUME_MAX;
+static int retro;                   /* AUDIO_RETRO_* */
 static uint32_t idle_t;             /* audio_idle(): the last time it ran */
 
 static int ready;
@@ -39,8 +41,8 @@ static void render(int16_t *out, unsigned n)
     for (unsigned k = 0; k < n; k += BLOCK) {
         unsigned m = n - k < BLOCK ? n - k : BLOCK;
         player_advance(&player, m);
-        synth_render(&synth, own_regs, out + k, m);
-        n8snd_mix(out + k, m, synth.gain);
+        synth_render(&synth, own_regs, out + 2 * k, m);
+        n8snd_mix(out + 2 * k, m, synth.gain);
     }
 }
 
@@ -109,19 +111,13 @@ void audio_reset(void)
 {
     uint32_t s = irq_save();
     player_stop_all(&player);
-    for (unsigned ch = 0; ch < SYNTH_VOICES; ch++) {
-        volatile uint8_t *v = voice(ch);
-        for (unsigned i = 0; i < SYNTH_VOICE_BYTES; i++)
-            v[i] = 0;
-        v[SYNTH_DUTY] = 128;
-        v[SYNTH_VOLUME] = 128;
-        v[SYNTH_ATTACK] = 1;            /* 8 ms: no click */
-        v[SYNTH_SUSTAIN] = 255;
-        v[SYNTH_RELEASE] = 10;          /* 80 ms */
-    }
+    for (unsigned ch = 0; ch < SYNTH_VOICES; ch++)
+        au_voice_default(voice(ch));    /* no filter, in the middle, a little room */
     float gain = synth.gain;
     synth_init(&synth, AUDIO_RATE);
     synth.gain = gain;
+    retro &= ~AUDIO_RETRO_GAME;
+    synth.retro = retro != 0;
     irq_restore(s);
 }
 
@@ -293,6 +289,71 @@ void audio_play(int ch, int sound, int note, int vol, int fx, uint32_t ms)
     irq_restore(s);
 }
 
+int audio_play_sound(int ch, const au_sound_t *snd, int note, int vol, uint32_t ms)
+{
+    uint32_t s = irq_save();
+    int v = player_play_sound(&player, ch, snd, note, vol, ms);
+    irq_restore(s);
+    return v;
+}
+
+void audio_tone(unsigned ch, const uint8_t *regs)
+{
+    ch %= SYNTH_VOICES;
+    uint32_t s = irq_save();
+    volatile uint8_t *v = voice(ch);
+    for (unsigned i = SYNTH_WAVEFORM; i <= SYNTH_RELEASE; i++)
+        v[i] = regs[i];
+    for (unsigned i = SYNTH_CUTOFF; i < SYNTH_VOICE_BYTES; i++)
+        v[i] = regs[i];
+    player.v[ch].bank_tone = 0;         /* the game's own: a note keeps it */
+    irq_restore(s);
+}
+
+void audio_tone_get(unsigned ch, uint8_t *regs)
+{
+    volatile uint8_t *v = voice(ch % SYNTH_VOICES);
+    for (unsigned i = 0; i < SYNTH_VOICE_BYTES; i++)
+        regs[i] = v[i];
+}
+
+void audio_room(float size, float damp, float wet)
+{
+    uint32_t s = irq_save();
+    synth_room(&synth, size, damp, wet);
+    irq_restore(s);
+}
+
+void audio_echo(float ms, float feedback, float wet)
+{
+    uint32_t s = irq_save();
+    synth_echo(&synth, ms, feedback, wet);
+    irq_restore(s);
+}
+
+void audio_fx_get(float room[3], float echo[3])
+{
+    room[0] = synth.room_size;
+    room[1] = synth.room_damp;
+    room[2] = synth.room_wet;
+    echo[0] = (float)synth.echo_len * 1000.0f / AUDIO_RATE;
+    echo[1] = synth.echo_fb;
+    echo[2] = synth.echo_wet;
+}
+
+void audio_retro(int who, int on)
+{
+    uint32_t s = irq_save();
+    retro = on ? retro | who : retro & ~who;
+    synth.retro = retro != 0;
+    irq_restore(s);
+}
+
+int audio_retro_on(void)
+{
+    return retro != 0;
+}
+
 void audio_pause(int on)
 {
     n8snd_pause(on);
@@ -328,7 +389,7 @@ int audio_volume(void)
  * with the sound. */
 void audio_idle(void)
 {
-    static int16_t scratch[1024];
+    static int16_t scratch[1024];      /* 512 stereo frames */
     if (ready) {
         audio_out_idle();
         return;
@@ -345,7 +406,7 @@ void audio_idle(void)
     if (n > AUDIO_RATE / 10)
         n = AUDIO_RATE / 10;            /* a long pause is not caught up */
     while (n) {
-        uint32_t m = n < sizeof scratch / 2 ? n : sizeof scratch / 2;
+        uint32_t m = n < sizeof scratch / 4 ? n : sizeof scratch / 4;
         render(scratch, m);
         n -= m;
     }
@@ -358,12 +419,11 @@ void audio_test(void)
     audio_print();
     if (!ready)
         return;
-    static const char *const names[] = { "square", "triangle", "saw", "noise", "sine", "metal" };
     static const uint16_t tune[] = { 262, 330, 392, 523 };     /* C E G C */
     audio_reset();
     kprintf("  volume %d/10\n", volume);
     for (int w = 0; w < SYNTH_WAVES; w++) {
-        kprintf("  %-8s ", names[w]);
+        kprintf("  %-8s ", au_wave_names[w]);
         for (int i = 0; i < 4; i++) {
             uint32_t f = w == SYNTH_NOISE || w == SYNTH_METAL ? tune[i] * 16u : tune[i];
             audio_note(0, (float)f, 180, w, 160);
@@ -390,6 +450,22 @@ void audio_test(void)
     audio_note(0, 262, 900, SYNTH_SQUARE, 100);
     audio_arp(0, major, 4, 60);
     timer_delay_ms(1100);
+    audio_reset();
+    /* a bar of the instruments: drums, bass, piano and string together */
+    kprintf("  instruments: kick, hat, snare, bass, epiano, pluck\n");
+    static const char *const kit[] = { "kick", "hat", "snare", "hat" };
+    for (int step = 0; step < 8; step++) {
+        audio_play_sound(0, &au_presets[au_preset_find(kit[step & 3])].s, 48, 230, 120);
+        if (step % 2 == 0)
+            audio_play_sound(1, &au_presets[au_preset_find("bass")].s, step & 4 ? 41 : 36, 230, 200);
+        if (step == 0 || step == 4) {
+            audio_play_sound(2, &au_presets[au_preset_find("epiano")].s, step ? 65 : 64, 200, 500);
+            audio_play_sound(3, &au_presets[au_preset_find("epiano")].s, step ? 69 : 67, 200, 500);
+        }
+        audio_play_sound(4, &au_presets[au_preset_find("pluck")].s, 72 + major[step & 3], 160, 150);
+        timer_delay_ms(250);
+    }
+    timer_delay_ms(800);
     audio_reset();
     audio_print();
 }

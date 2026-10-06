@@ -531,7 +531,7 @@ void audio_out_print(void) { }
 void audio_out_idle(void) { }
 
 /* The last stage of the console's audio render (src/audio/audio.c): the
- * mixed samples of the synthesizer, which go to the WAV file. */
+ * mixed stereo frames of the synthesizer, which go to the WAV file. */
 void n8snd_mix(int16_t *out, unsigned n, float gain)
 {
     (void)gain;

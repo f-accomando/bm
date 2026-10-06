@@ -30,6 +30,8 @@
 #include "audio/audio.h"
 #include "audio/player.h"
 #include "audio/synth.h"
+#include "audio/presets.h"
+#include "audio/lua_tone.h"
 #include "drivers/dma.h"
 #include "gpu/gpu3d.h"
 #include "gpu/version3d.h"
@@ -3068,13 +3070,13 @@ static int l_playing(lua_State *L)
     return 1;
 }
 
-/* apu(ch, reg, [value]): raw register byte, the synthesizer's layout (synth.h) */
+/* apu(ch, reg, [value]): raw register byte 0..31, the synthesizer's layout (synth.h) */
 static int l_apu(lua_State *L)
 {
     unsigned ch = voice_arg(L);
     lua_Integer reg = luaL_checkinteger(L, 2);
-    luaL_argcheck(L, reg >= 0 && reg < 16, 2, "register 0..15");
-    volatile uint8_t *r = audio_regs() + ch * 16 + reg;
+    luaL_argcheck(L, reg >= 0 && reg < SYNTH_VOICE_BYTES, 2, "register 0..31");
+    volatile uint8_t *r = audio_regs() + ch * SYNTH_VOICE_BYTES + reg;
     if (lua_gettop(L) >= 3) {
         *r = (uint8_t)luaL_checkinteger(L, 3);
         return 0;
@@ -3266,6 +3268,111 @@ static int l_audio_play(lua_State *L)
                (int)luaL_optinteger(L, 4, 255), (int)luaL_optinteger(L, 5, 0),
                (uint32_t)luaL_optinteger(L, 6, 400));
     return 0;
+}
+
+/* tone(ch, [sound]): the sound of the voice for note(): an instrument's
+ * name ("epiano", "pluck", "kick"... instruments() lists them) or a table
+ * in plain units ({wave = "saw", cutoff = 800, res = 0.6, attack = 5,
+ * release = 300, reverb = 0.3, pan = -0.5, preset = "bass", ...});
+ * tone(ch) puts back the plain square of a fresh voice */
+static int l_tone(lua_State *L)
+{
+    unsigned ch = voice_arg(L);
+    uint8_t regs[SYNTH_VOICE_BYTES];
+    if (lua_isnoneornil(L, 2))
+        au_voice_default(regs);
+    else {
+        audio_tone_get(ch, regs);
+        au_lua_tone(L, 2, regs);
+    }
+    audio_tone(ch, regs);
+    return 0;
+}
+
+/* a note for play(): a MIDI number (60 = C4) or a name ("C4", "F#3") */
+static int midi_arg(lua_State *L, int i)
+{
+    if (lua_type(L, i) == LUA_TSTRING) {
+        float m = 0;
+        if (!note_name(lua_tostring(L, i), &m))
+            luaL_argerror(L, i, "a note name like \"C4\", \"F#3\" or \"Bb2\"");
+        return (int)(m + 0.5f);
+    }
+    return (int)luaL_optinteger(L, i, 60);
+}
+
+/* play([voice], sound, [note], [ms], [vol]): an instrument as the music
+ * plays it, its pitch envelope and vibrato included: a name (instruments()),
+ * a table as tone()'s (with pitch, ptime, vib, vibhz, detune) or a sound of
+ * the cartridge's bank (a number). voice nil: a free one; ms 0: held until
+ * noteoff(); vol 0..1. Returns the voice, or nil. */
+static int l_play(lua_State *L)
+{
+    int ch = lua_isnoneornil(L, 1) ? -1 : (int)(luaL_checkinteger(L, 1) % SYNTH_VOICES);
+    int note = midi_arg(L, 3);
+    lua_Integer ms = luaL_optinteger(L, 4, 400);
+    int vol = (int)(luaL_optnumber(L, 5, 1.0) * 255.0 + 0.5);
+    luaL_argcheck(L, note >= 1 && note <= 127, 3, "a note from 1 to 127");
+    int v;
+    if (lua_type(L, 2) == LUA_TNUMBER) {
+        if (ch < 0)
+            ch = 7;
+        audio_play(ch, (int)lua_tointeger(L, 2), note, vol, 0, ms > 0 ? (uint32_t)ms : 0);
+        v = ch;
+    } else {
+        au_sound_t snd;
+        au_lua_sound(L, 2, &snd);
+        v = audio_play_sound(ch, &snd, note, vol, ms > 0 ? (uint32_t)ms : 0);
+    }
+    if (v < 0)
+        lua_pushnil(L);
+    else
+        lua_pushinteger(L, v);
+    return 1;
+}
+
+/* reverb([size], [damp], [wet]): the room every voice sends to (0..1
+ * each: a small room .. a hall, bright .. dull, how much is heard);
+ * returns the three as they are now */
+static int l_reverb(lua_State *L)
+{
+    float room[3], echo[3];
+    audio_fx_get(room, echo);
+    if (!lua_isnoneornil(L, 1))
+        audio_room((float)luaL_checknumber(L, 1), (float)luaL_optnumber(L, 2, room[1]),
+                   (float)luaL_optnumber(L, 3, room[2]));
+    audio_fx_get(room, echo);
+    lua_pushnumber(L, room[0]);
+    lua_pushnumber(L, room[1]);
+    lua_pushnumber(L, room[2]);
+    return 3;
+}
+
+/* echo([ms], [feedback], [wet]): the echo's time (at most 680 ms), how
+ * much of each repeat comes back (0..0.95) and how much is heard */
+static int l_echo(lua_State *L)
+{
+    float room[3], echo[3];
+    audio_fx_get(room, echo);
+    if (!lua_isnoneornil(L, 1))
+        audio_echo((float)luaL_checknumber(L, 1), (float)luaL_optnumber(L, 2, echo[1]),
+                   (float)luaL_optnumber(L, 3, echo[2]));
+    audio_fx_get(room, echo);
+    lua_pushnumber(L, echo[0]);
+    lua_pushnumber(L, echo[1]);
+    lua_pushnumber(L, echo[2]);
+    return 3;
+}
+
+/* retro([on]): every voice the 8-bit chip of the first versions (no
+ * room, no echo) while the game runs; returns whether it is (Settings
+ * can ask for it too) */
+static int l_retro(lua_State *L)
+{
+    if (!lua_isnoneornil(L, 1))
+        audio_retro(AUDIO_RETRO_GAME, lua_toboolean(L, 1));
+    lua_pushboolean(L, audio_retro_on());
+    return 1;
 }
 
 /* ---------------------------------------------------------------- keys */
@@ -3686,6 +3793,8 @@ static const luaL_Reg api[] = {
     { "hz", l_hz }, { "slide", l_slide }, { "vibrato", l_vibrato }, { "arp", l_arp },
     { "sfx", l_sfx }, { "sfxpos", l_sfxpos }, { "music", l_music }, { "tempo", l_tempo },
     { "mute", l_mute }, { "volume", l_volume },
+    { "tone", l_tone }, { "play", l_play }, { "instruments", au_lua_instruments },
+    { "reverb", l_reverb }, { "echo", l_echo }, { "retro", l_retro },
     { "audio_bank", l_audio_bank }, { "audio_pattern", l_audio_pattern }, { "audio_play", l_audio_play },
     { "cart_audio", l_cart_audio }, { "cart_put_audio", l_cart_put_audio },
     { NULL, NULL },
@@ -3769,7 +3878,8 @@ static lua_State *new_cart_state(const bm_cart_t *c)
     ai_lua_open(L);             /* the assistant (M30): idle until asked */
     nnet_lua_open(L);           /* small INT8 networks of the carts (M38.4) */
     bm_require_open(L);         /* require "assist": libraries in the kernel */
-    static const char *const waves[SYNTH_WAVES] = { "SQUARE", "TRIANGLE", "SAW", "NOISE", "SINE", "METAL" };
+    static const char *const waves[SYNTH_WAVES] = { "SQUARE", "TRIANGLE", "SAW", "NOISE", "SINE", "METAL",
+                                                    "FM", "PLUCK", "SUPERSAW", "ORGAN" };
     for (int w = 0; w < SYNTH_WAVES; w++) {
         lua_pushinteger(L, w);
         lua_setglobal(L, waves[w]);

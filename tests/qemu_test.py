@@ -5864,8 +5864,16 @@ function _init()
       apu(2, 2), apu(2, 6), apu(5, 4), apu(2, 9))
   noteoff(2)
   log("off", apu(2, 9), type(playing(0)), TRIANGLE, SAW)
-  log("bad", select(2, pcall(note, 8, 440)), select(2, pcall(apu, 0, 16)))
+  log("bad", select(2, pcall(note, 8, 440)), select(2, pcall(apu, 0, 32)))
   log("nobank", sfx(0), music())
+  tone(3, {wave = "saw", cutoff = 1000, res = 0.5, pan = -1, reverb = 0, attack = 100})
+  log("tone", apu(3, 2), apu(3, 11), apu(3, 12), apu(3, 16), apu(3, 22), apu(3, 5))
+  tone(4, "epiano")
+  log("preset", apu(4, 2), FM, PLUCK, SUPERSAW, ORGAN, #instruments() > 30, instruments("drum")[1].name)
+  local pv = play(nil, "kick", "C2", 200)
+  log("play", pv, playing(pv))
+  log("fx", math.floor(reverb(0.8) * 100 + 0.5), math.floor(echo(250) + 0.5), retro(), retro(true), retro(false))
+  log("badtone", select(2, pcall(tone, 0, "nothing")), select(2, pcall(tone, 0, {bogus = 1})))
   quit()
 end
 """
@@ -6068,10 +6076,18 @@ def test_audio(b, opts):
         out += q.expect("\n").decode(errors="replace")
         assert "apu\t440\t0\t64\t1200\t3\t60\t77\t1" in out, out
         assert "off\t0\tboolean\t1\t2" in out, out
-        assert "bad\t" in out and "voice 0..7" in out and "register 0..15" in out, out
+        assert "bad\t" in out and "voice 0..7" in out and "register 0..31" in out, out
         out = q.expect("nobank\t", timeout=5).decode(errors="replace")
         out += q.expect("\n").decode(errors="replace")
         assert "nobank\tnil\tnil" in out, out
+        # the tone in plain units, the instruments, play(), room, echo, retro
+        out = q.expect("badtone\t", timeout=5).decode(errors="replace")
+        out += q.expect("\n").decode(errors="replace")
+        assert "tone\t2\t145\t128\t129\t0\t13" in out, out
+        assert "preset\t6\t6\t7\t8\t9\ttrue\tkick" in out, out
+        assert "play\t7\ttrue" in out, out
+        assert "fx\t80\t250\tfalse\ttrue\tfalse" in out, out
+        assert 'no instrument called "nothing"' in out and 'bad key or value "bogus"' in out, out
         q.expect("> ", timeout=10)
     finally:
         q.close()

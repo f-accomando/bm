@@ -17,6 +17,8 @@
 #include <stddef.h>
 #include <stdint.h>
 
+#include "player.h"
+
 #define AUDIO_RATE          48000
 #define AUDIO_CHUNK         256         /* samples per buffer of the output */
 #define AUDIO_VOLUME_MAX    10
@@ -63,6 +65,28 @@ void audio_tempo(float scale);
 void audio_mute(int track, int on);
 /* A sound of the bank as a step plays it (the editor's previews). */
 void audio_play(int ch, int sound, int note, int vol, int fx, uint32_t ms);
+/* Any sound (a preset of presets.h) on a voice (-1: a free one), pitch
+ * envelope and vibrato included: the voice, or -1. */
+int  audio_play_sound(int ch, const au_sound_t *s, int note, int vol, uint32_t ms);
+
+/* The sound of a voice for note(): registers 2..8 (wave, duty, volume,
+ * envelope) and 11..31 (the tone) of `regs`, a whole voice's 32 bytes;
+ * audio_tone_get reads them. */
+void audio_tone(unsigned ch, const uint8_t *regs);
+void audio_tone_get(unsigned ch, uint8_t *regs);
+
+/* The room (size, damping, level 0..1) and the echo (ms, feedback,
+ * level); audio_reset() puts back the usual ones. */
+void audio_room(float size, float damp, float wet);
+void audio_echo(float ms, float feedback, float wet);
+void audio_fx_get(float room[3], float echo[3]);
+
+/* Every voice the 8-bit chip of the first versions, no room nor echo:
+ * asked by the game (until audio_reset) or by the player (Settings). */
+#define AUDIO_RETRO_GAME    1
+#define AUDIO_RETRO_USER    2
+void audio_retro(int who, int on);
+int  audio_retro_on(void);
 /* A game left (suspended): music paused and every voice released; 0
  * goes on from there. */
 void audio_pause(int on);

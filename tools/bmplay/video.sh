@@ -15,7 +15,7 @@ SIZE=$("$BMPLAY" "$CART" --size)
 W=${SIZE%x*} H=${SIZE#*x}
 "$BMPLAY" "$CART" --bot "$BOT" --seed "$SEED" --video - --every 2 2>/dev/null |
   ffmpeg -hide_banner -loglevel error -y -f rawvideo -pix_fmt rgb24 -s "${W}x${H}" -r 30 -i - \
-    -f s16le -ar 48000 -ac 1 -i "$TMP/sound.raw" \
+    -f s16le -ar 48000 -ac 2 -i "$TMP/sound.raw" \
     -vf "scale=$((W * SCALE)):$((H * SCALE)):flags=neighbor" -c:v libx264 -preset slow -crf 18 -pix_fmt yuv420p \
     -c:a aac -b:a 128k -shortest -movflags +faststart "$OUT"
 echo "video: $OUT"

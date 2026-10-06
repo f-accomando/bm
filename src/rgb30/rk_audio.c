@@ -62,8 +62,8 @@
 #define FIFO_MAX    63                  /* probed at start: the words the TX FIFO takes (6-bit level) */
 #define THRESHOLD   16
 
-static int16_t pcm[AUDIO_CHUNK];
-static unsigned pos = AUDIO_CHUNK;      /* next sample of pcm[] to send */
+static int16_t pcm[AUDIO_CHUNK * 2];   /* left, right */
+static unsigned pos = AUDIO_CHUNK;      /* next frame of pcm[] to send */
 static unsigned fifo_words;
 static volatile uint32_t irqs, chunks, underruns, words;
 static uint32_t gpll_hz, mclk_hz, frac_n, frac_d;
@@ -227,8 +227,9 @@ static void feed(void)
             pos = 0;
             chunks++;
         }
-        uint16_t s = (uint16_t)pcm[pos++];
-        w(I2S_TXDR, (uint32_t)s << 16 | s);             /* left low, right high */
+        uint16_t left = (uint16_t)pcm[2 * pos], right = (uint16_t)pcm[2 * pos + 1];
+        pos++;
+        w(I2S_TXDR, (uint32_t)right << 16 | left);      /* left low, right high */
         level++;
         words++;
     }

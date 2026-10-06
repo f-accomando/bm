@@ -5,8 +5,9 @@
  * Checked against Linux's values (rockchip_i2s_tdm.c, rk817_codec.c,
  * rk8xx-core.c, clk-rk3568.c): the 12.288 MHz MCLK from the GPLL, 48 kHz
  * frames, the pins and the I/O voltage, the codec's headphone path powered
- * in DAPM's order, every sample of audio_render() out once and in order,
- * no underrun, and the power down.
+ * in DAPM's order, every frame of audio_render() out once and in order
+ * (left in the low half of the word, right in the high), no underrun, and
+ * the power down.
  *
  *   build/rgb30-host/audio_sim_test [GPLL MHz]     (1188 or 1200)
  */
@@ -226,13 +227,17 @@ void irq_enable(unsigned irq) { CHECK(irq == 32 + 53); irq_on = 1; }
 void irq_disable(unsigned irq) { (void)irq; irq_on = 0; }
 void uart_putc(char c) { putchar(c); }
 
-/* audio.c: a ramp, so every sample is known */
+/* audio.c: a ramp on the left, the same plus 0x4000 on the right, so
+ * every sample is known and the channels told apart */
 static int16_t next_sample;
 static unsigned rendered;
 void audio_render(int16_t *out, unsigned n)
 {
-    for (unsigned i = 0; i < n; i++)
-        out[i] = next_sample++;
+    for (unsigned i = 0; i < n; i++) {
+        out[2 * i] = next_sample;
+        out[2 * i + 1] = (int16_t)(next_sample + 0x4000);
+        next_sample++;
+    }
     rendered += n;
 }
 
@@ -296,7 +301,7 @@ int main(int argc, char **argv)
 
     /* the FIFO's size was found by filling it (the extra words dropped) */
     CHECK(overflows == 63 - DEPTH);
-    /* one second of sound: every sample once, in order, L = R, no underrun */
+    /* one second of sound: every frame once, in order, left and right in their places, no underrun */
     unsigned out0 = n_out, under0 = underruns, over0 = overflows;
     uint64_t t0 = now_ns;
     for (int i = 0; i < 1000; i++)
@@ -313,7 +318,7 @@ int main(int argc, char **argv)
             !((out_words[i - 1] & 0xffff) == 0 && (out_words[i] & 0xffff) == 0))
             ordered = 0;
     for (unsigned i = 0; i < n_out; i++)
-        if ((out_words[i] & 0xffff) != out_words[i] >> 16)
+        if ((uint16_t)((out_words[i] & 0xffff) + 0x4000) != out_words[i] >> 16 && out_words[i])
             stereo = 0;
     CHECK(ordered);
     CHECK(stereo);

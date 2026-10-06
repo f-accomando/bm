@@ -30,8 +30,28 @@ const uint8_t au_chord_len[AU_CHORDS] = { 2, 3, 3, 3, 3, 4, 4, 4, 3, 3, 2, 3, 4,
 
 /* the sound of a note whose sound is not in the bank */
 static const au_sound_t default_sound = {
-    "", SYNTH_SQUARE, 128, 200, 1, 0, 255, 10, 0, 0, 0, 0, 0
+    "", SYNTH_SQUARE, 128, 200, 1, 0, 255, 10, 0, 0, 0, 0, 0,
+    { [SYNTH_REVERB - SYNTH_CUTOFF] = AU_ROOM_SEND }
 };
+
+void au_tone_default(volatile uint8_t *r)
+{
+    for (int i = SYNTH_CUTOFF; i < SYNTH_VOICE_BYTES; i++)
+        r[i] = 0;
+    r[SYNTH_REVERB] = AU_ROOM_SEND;
+}
+
+void au_voice_default(volatile uint8_t *r)
+{
+    for (int i = 0; i < SYNTH_CUTOFF; i++)
+        r[i] = 0;
+    r[SYNTH_DUTY] = 128;
+    r[SYNTH_VOLUME] = 128;
+    r[SYNTH_ATTACK] = 1;                /* 8 ms: no click */
+    r[SYNTH_SUSTAIN] = 255;
+    r[SYNTH_RELEASE] = 10;              /* 80 ms */
+    au_tone_default(r);
+}
 
 /* ---------------------------------------------------------------- parse */
 
@@ -65,8 +85,9 @@ int au_parse(const uint8_t *d, size_t len, au_bank_t *b, char *err, size_t errle
     memset(b, 0, sizeof *b);
     if (len < 16 || memcmp(d, AU_MAGIC, 4) != 0)
         return fail(err, errlen, "not a sound bank");
-    if (d[4] != AU_VERSION)
+    if (d[4] != 1 && d[4] != AU_VERSION)
         return fail(err, errlen, "unsupported sound bank version");
+    size_t sound_bytes = d[4] == 1 ? 24 : AU_SOUND_BYTES;
     if (d[5] > AU_SOUNDS || d[6] > AU_SFX || d[7] > AU_PATTERNS || d[8] > AU_SONGS)
         return fail(err, errlen, "too many items in the sound bank");
     b->nsounds = d[5];
@@ -75,8 +96,8 @@ int au_parse(const uint8_t *d, size_t len, au_bank_t *b, char *err, size_t errle
     b->nsongs = d[8];
     size_t off = 16;
 
-    for (int i = 0; i < b->nsounds; i++, off += 24) {
-        if (off + 24 > len)
+    for (int i = 0; i < b->nsounds; i++, off += sound_bytes) {
+        if (off + sound_bytes > len)
             return fail(err, errlen, "sound bank truncated (sounds)");
         const uint8_t *p = d + off;
         au_sound_t *s = &b->sound[i];
@@ -93,6 +114,10 @@ int au_parse(const uint8_t *d, size_t len, au_bank_t *b, char *err, size_t errle
         s->vib_depth = p[17];
         s->vib_rate = p[18];
         s->detune = (int8_t)p[19];
+        if (sound_bytes == 24)
+            s->tone[SYNTH_REVERB - SYNTH_CUTOFF] = AU_ROOM_SEND;
+        else
+            memcpy(s->tone, p + 24, AU_TONE);
     }
     for (int i = 0; i < b->nsfx; i++) {
         if (off + 16 > len)
@@ -144,6 +169,10 @@ int au_parse(const uint8_t *d, size_t len, au_bank_t *b, char *err, size_t errle
         s->swing = p[9] > 100 ? 100 : p[9];
         s->len = p[10];
         s->loop = p[11];
+        if (d[4] >= 2) {
+            s->echo = p[12] > 16 ? 16 : p[12];
+            s->room = p[13];
+        }
         if (s->len < 1 || s->len > AU_SONG_LEN)
             return fail(err, errlen, "bad song in the bank");
         if (s->loop >= s->len)
@@ -196,10 +225,12 @@ static void write_hz(volatile uint8_t *r, float hz)
     r[SYNTH_FREQ_FRAC] = (uint8_t)f;
 }
 
-static const au_sound_t *sound_of(const player_t *p, int s)
+static const au_sound_t *sound_of(const player_t *p, const au_voice_t *v)
 {
-    if (p->bank && s >= 0 && s < p->bank->nsounds)
-        return &p->bank->sound[s];
+    if (v->own_sound)
+        return &p->own[v - p->v];
+    if (p->bank && v->sound >= 0 && v->sound < p->bank->nsounds)
+        return &p->bank->sound[v->sound];
     return &default_sound;
 }
 
@@ -270,7 +301,7 @@ static float fx_level(const player_t *p, const au_voice_t *v)
 static void update_voice(player_t *p, int ch)
 {
     au_voice_t *v = &p->v[ch];
-    const au_sound_t *s = sound_of(p, v->sound);
+    const au_sound_t *s = sound_of(p, v);
     volatile uint8_t *r = vr(p, ch);
     float semi = v->note + s->detune * 0.01f + fx_pitch(p, v);
     float t = (float)v->t;
@@ -332,6 +363,20 @@ static void set_fx(au_voice_t *v, uint8_t fx, uint32_t step_len, float prev_note
         v->fx = 0;
 }
 
+/* a sound's wave, duty, envelope and tone into a voice (the volume is
+ * update_voice's) */
+static void sound_regs(volatile uint8_t *r, const au_sound_t *s)
+{
+    r[SYNTH_WAVEFORM] = s->wave;
+    r[SYNTH_DUTY] = s->duty;
+    r[SYNTH_ATTACK] = s->attack;
+    r[SYNTH_DECAY] = s->decay;
+    r[SYNTH_SUSTAIN] = s->sustain;
+    r[SYNTH_RELEASE] = s->release;
+    for (int i = 0; i < AU_TONE; i++)
+        r[SYNTH_CUTOFF + i] = s->tone[i];
+}
+
 static void start_note(player_t *p, int ch, const au_step_t *e, float vol_scale, uint32_t step_len,
                        uint8_t owner)
 {
@@ -341,6 +386,7 @@ static void start_note(player_t *p, int ch, const au_step_t *e, float vol_scale,
     float prev = v->note;
     v->owner = owner;
     v->sound = (int8_t)(e->sound < AU_SOUNDS ? e->sound : 0);
+    v->own_sound = 0;
     v->note = e->note;
     v->vol = e->vol * (1.0f / 255.0f) * vol_scale;
     v->t = 0;
@@ -349,13 +395,8 @@ static void start_note(player_t *p, int ch, const au_step_t *e, float vol_scale,
     v->delay_left = 0;
     v->mods = 0;
     set_fx(v, e->fx, step_len, prev, sounding);
-    const au_sound_t *s = sound_of(p, v->sound);
-    r[SYNTH_WAVEFORM] = s->wave;
-    r[SYNTH_DUTY] = s->duty;
-    r[SYNTH_ATTACK] = s->attack;
-    r[SYNTH_DECAY] = s->decay;
-    r[SYNTH_SUSTAIN] = s->sustain;
-    r[SYNTH_RELEASE] = s->release;
+    sound_regs(r, sound_of(p, v));
+    v->bank_tone = 1;
     update_voice(p, ch);
     r[SYNTH_CONTROL] |= SYNTH_GATE;
     synth_retrigger(p->synth, (unsigned)ch);
@@ -787,6 +828,12 @@ void player_music(player_t *p, int song, int order, int fade_ms)
     p->m.song = (int8_t)song;
     p->m.order = (uint8_t)(order >= 0 && order < p->bank->song[song].len ? order : 0);
     music_start(p, fade_ms);
+    const au_song_t *s = &p->bank->song[song];
+    if (s->echo)                        /* the echo on the beat: steps of a 16th note */
+        synth_echo(p->synth, (float)s->echo * 15000.0f / (s->bpm ? s->bpm : 120), p->synth->echo_fb,
+                   p->synth->echo_wet);
+    if (s->room)
+        synth_room(p->synth, s->room / 255.0f, p->synth->room_damp, p->synth->room_wet);
 }
 
 void player_music_pattern(player_t *p, int pat, int bpm, int swing, int step)
@@ -865,6 +912,24 @@ void player_play(player_t *p, int voice, int sound, int note, int vol, int fx, u
     p->v[voice].gate_left = ms ? ms * p->rate / 1000u + 64u : 0;
 }
 
+int player_play_sound(player_t *p, int voice, const au_sound_t *s, int note, int vol, uint32_t ms)
+{
+    if (voice < 0)
+        voice = pick_voice(p);
+    if (voice < 0 || voice >= AU_TRACKS || note < 1 || note > 127)
+        return -1;
+    p->sfx[voice].n = -1;
+    p->own[voice] = *s;
+    au_step_t e = { (uint8_t)note, 0, (uint8_t)(vol < 0 ? 0 : vol > 255 ? 255 : vol), 0 };
+    uint32_t len = ms ? ms * p->rate / 1000u : p->rate / 8u;
+    start_note(p, voice, &e, 1.0f, len, AU_OWN_SFX);
+    p->v[voice].own_sound = 1;
+    sound_regs(vr(p, voice), &p->own[voice]);
+    update_voice(p, voice);
+    p->v[voice].gate_left = ms ? ms * p->rate / 1000u + 64u : 0;
+    return voice;
+}
+
 void player_release(player_t *p, int voice)
 {
     if (voice >= 0 && voice < AU_TRACKS) {
@@ -888,6 +953,10 @@ void player_lua_note(player_t *p, int voice, float hz, uint32_t ms)
     v->t = 0;
     v->note = au_hz_note(hz);
     write_hz(r, hz);
+    if (v->bank_tone) {                 /* a bank sound's filter and sends do not stay */
+        au_tone_default(r);
+        v->bank_tone = 0;
+    }
     /* at least one block, or the gate would drop before the synth saw it */
     v->gate_left = ms ? ms * p->rate / 1000u + 64u : 0;
     r[SYNTH_CONTROL] |= SYNTH_GATE;

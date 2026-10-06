@@ -416,7 +416,8 @@ test-titan: $(BUILD)/host/luahost $(BUILD)/titan/main.lua
 # make yharnam-video: a hunt played by tools/bmplay/yharnam_bot.lua, from the
 # title to the Butcher slain (build/yharnam-run.mp4; needs ffmpeg)
 BMPLAY_SRCS := tools/bmplay/bmplay.c src/bm/gfx16.c src/bm/format.c src/lib/crc32.c src/gfx/font8x16.c \
-               src/gfx/font8x14.c src/gfx/font6x12.c src/audio/synth.c src/audio/player.c
+               src/gfx/font8x14.c src/gfx/font6x12.c src/audio/synth.c src/audio/player.c \
+               src/audio/presets.c src/audio/lua_tone.c
 $(BUILD)/host/bmplay: $(BMPLAY_SRCS) src/bm/*.h src/audio/*.h $(LUA_SRCS)
 	@mkdir -p $(dir $@)
 	$(HOSTCC) -O2 -Wall -Wextra -Isrc -Ithird_party/lua -o $@ $(BMPLAY_SRCS) $(LUA_SRCS) -lm
@@ -538,7 +539,8 @@ BMHOST_RT := src/bm/runtime.c src/bm/tokens.c src/bm/gfx16.c src/bm/r3d.c src/bm
              src/kernel/syskeys.c \
              src/bm/require.c src/kernel/prompts.c src/gfx/font8x16.c src/gfx/font8x14.c \
              src/gfx/font6x12.c src/lib/printf.c src/lib/crc32.c src/audio/audio.c src/audio/synth.c \
-             src/audio/player.c src/ai/net.c src/ai/nn.c src/bm/decimate.c src/bm/cutout.c \
+             src/audio/player.c src/audio/presets.c src/audio/lua_tone.c src/ai/net.c src/ai/nn.c \
+             src/bm/decimate.c src/bm/cutout.c \
              src/bm/glb.c src/bm/json.c src/bm/png.c src/bm/jpeg.c src/bm/loading.c src/bm/loading_logo.c
 BMHOST_LUA := $(filter-out third_party/lua/lua.c third_party/lua/luac.c,$(LUA_SRCS))
 BMHOST_OBJS := $(patsubst %,$(BUILD)/host/bmhost/%.o,$(BMHOST_RT) $(BMHOST_LUA))

@@ -25,10 +25,10 @@ local C = {
   red = 0xE8463A, yellow = 0xF2C230, purple = 0xA472F2, cyan = 0x2EC8D2, pink = 0xF0609E,
 }
 local TRACK_C = { C.orange, C.yellow, C.green, C.cyan, C.blue, C.purple, C.pink, C.white }
-local WAVE_C = { C.blue, C.green, C.orange, C.white, C.cyan, C.yellow }
+local WAVE_C = { C.blue, C.green, C.orange, C.white, C.cyan, C.yellow, C.pink, C.purple, C.red, C.green }
 local PAGE_C = { C.blue, C.green, C.orange, C.purple }
 
-local WAVES = { "SQUARE", "TRIANGLE", "SAW", "NOISE", "SINE", "METAL" }
+local WAVES = { "SQUARE", "TRIANGLE", "SAW", "NOISE", "SINE", "METAL", "FM", "PLUCK", "SUPERSAW", "ORGAN" }
 local NOTE = { "C", "C#", "D", "D#", "E", "F", "F#", "G", "G#", "A", "A#", "B" }
 local CHORDS = { "OCTAVE", "MAJOR", "MINOR", "SUS2", "SUS4", "MAJ7", "MIN7", "DOM7", "DIM", "AUG",
                  "POWER", "POWER+8", "MAJOR+8", "MINOR+8", "OCT DOWN", "2 OCTAVES" }
@@ -76,14 +76,24 @@ local function s_fx(s) return s >> 24 & 255 end
 
 local B = {}
 B.NSOUND, B.NSFX, B.NPAT, B.NSONG = 32, 64, 64, 8
+-- the tone of a sound: registers 11..31 of the voice (src/audio/synth.h),
+-- tone[1] is register 11; the plain one has a little room (AU_ROOM_SEND)
+B.TONE, B.ROOM_SEND = 21, 40
+local function tone_default()
+  local t = {}
+  for i = 1, B.TONE do t[i] = 0 end
+  t[22 - 10] = B.ROOM_SEND
+  return t
+end
+B.tone_default = tone_default
 
 function B.sound()
   return { name = "", wave = 0, duty = 128, vol = 200, a = 1, d = 0, s = 255, r = 10,
-           pitch = 0, ptime = 0, vdepth = 0, vrate = 0, detune = 0 }
+           pitch = 0, ptime = 0, vdepth = 0, vrate = 0, detune = 0, tone = tone_default() }
 end
 function B.sfx() return { name = "", ms = 60, len = 8, ls = 0, le = 0, steps = {} } end
 function B.pat() return { len = 16, tracks = {} } end
-function B.song() return { name = "", bpm = 120, swing = 0, loop = 0, order = {} } end
+function B.song() return { name = "", bpm = 120, swing = 0, loop = 0, echo = 0, room = 0, order = {} } end
 
 function B.new()
   local b = { sounds = {}, sfx = {}, pats = {}, songs = {} }
@@ -109,6 +119,7 @@ function B.sound_empty(s)
   local d = B.sound()
   if s.name ~= "" then return false end
   for _, k in ipairs(SOUND_KEYS) do if s[k] ~= d[k] then return false end end
+  for i = 1, B.TONE do if s.tone[i] ~= d.tone[i] then return false end end
   return true
 end
 function B.sfx_empty(x)
@@ -136,20 +147,21 @@ end
 local function name8(s) return (s:upper():gsub("[^%w%-_ !%.]", ""):sub(1, 8)) end
 local function unname(s) return (s:match("^[^%z]*")) end
 
-local PSOUND = "<c8BBBBBBBbBBBbxxxx"
+local PSOUND = "<c8BBBBBBBbBBBbxxxx"   -- then the tone, 21 bytes, and 3 reserved
 local PSFX = "<c8HBBBxxx"
-local PSONG = "<c8BBBBxxxx"
+local PSONG = "<c8BBBBBBxx"
 
 function B.pack(b)
   local ns = last_used(b.sounds, B.sound_empty)
   local nx = last_used(b.sfx, B.sfx_empty)
   local np = last_used(b.pats, B.pat_empty)
   local ng = last_used(b.songs, B.song_empty)
-  local out = { "BMAU", string.pack("<BBBBBxxxxxxx", 1, ns, nx, np, ng) }
+  local out = { "BMAU", string.pack("<BBBBBxxxxxxx", 2, ns, nx, np, ng) }
   for i = 1, ns do
     local s = b.sounds[i]
     out[#out + 1] = string.pack(PSOUND, name8(s.name), s.wave, s.duty, s.vol, s.a, s.d, s.s, s.r,
                                 s.pitch, s.ptime, s.vdepth, s.vrate, s.detune)
+    out[#out + 1] = string.char(table.unpack(s.tone, 1, B.TONE)) .. "\0\0\0"
   end
   for i = 1, nx do
     local x = b.sfx[i]
@@ -176,7 +188,7 @@ function B.pack(b)
     local order = #s.order > 0 and s.order or { 0 }
     local loop = s.loop
     if loop ~= 255 and loop >= #order then loop = 0 end
-    out[#out + 1] = string.pack(PSONG, name8(s.name), s.bpm, s.swing, #order, loop)
+    out[#out + 1] = string.pack(PSONG, name8(s.name), s.bpm, s.swing, #order, loop, s.echo or 0, s.room or 0)
     for k = 1, #order do out[#out + 1] = string.char(order[k]) end
   end
   return table.concat(out)
@@ -185,7 +197,7 @@ end
 function B.parse(data)
   if type(data) ~= "string" or #data < 16 or data:sub(1, 4) ~= "BMAU" then return nil, "not a sound bank" end
   local ver, ns, nx, np, ng = data:byte(5, 9)
-  if ver ~= 1 then return nil, "unsupported sound bank version" end
+  if ver ~= 1 and ver ~= 2 then return nil, "unsupported sound bank version" end
   local b = B.new()
   local ok, err = pcall(function()
     local pos = 17
@@ -195,7 +207,11 @@ function B.parse(data)
       name, s.wave, s.duty, s.vol, s.a, s.d, s.s, s.r, s.pitch, s.ptime, s.vdepth, s.vrate, s.detune, pos =
         string.unpack(PSOUND, data, pos)
       s.name = unname(name)
-      if s.wave > 5 then s.wave = 0 end
+      if s.wave >= #WAVES then s.wave = 0 end
+      if ver >= 2 then
+        s.tone = { data:byte(pos, pos + B.TONE - 1) }
+        pos = pos + 24
+      end
     end
     for i = 1, nx do
       local x = b.sfx[i]
@@ -219,8 +235,10 @@ function B.parse(data)
     for i = 1, ng do
       local s = b.songs[i]
       local name, n
-      name, s.bpm, s.swing, n, s.loop, pos = string.unpack(PSONG, data, pos)
+      local echo, room
+      name, s.bpm, s.swing, n, s.loop, echo, room, pos = string.unpack(PSONG, data, pos)
       s.name = unname(name)
+      if ver >= 2 then s.echo, s.room = math.min(echo, 16), room end
       for k = 1, n do s.order[k] = data:byte(pos + k - 1) end
       pos = pos + n
     end

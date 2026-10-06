@@ -45,26 +45,26 @@ int main(int argc, char **argv)
     else
         player_music(&pl, n, 0, 0);
     uint32_t total = (uint32_t)(secs * RATE);
-    int16_t *pcm = malloc(total * 2 + 128);
+    int16_t *pcm = malloc(total * 4 + 256);     /* stereo */
     int peak = 0, clipped = 0;
     for (uint32_t k = 0; k < total; k += 64) {
         player_advance(&pl, 64);
-        synth_render(&syn, regs, pcm + k, 64);
+        synth_render(&syn, regs, pcm + 2 * k, 64);
     }
-    for (uint32_t i = 0; i < total; i++) {
+    for (uint32_t i = 0; i < total * 2; i++) {
         int a = abs(pcm[i]);
         if (a > peak) peak = a;
         clipped += a > 27800;            /* above the limiter's knee */
     }
     FILE *o = fopen(argv[2], "wb");
     if (!o) { perror(argv[2]); return 1; }
-    fwrite("RIFF", 1, 4, o); put32(o, 36 + total * 2); fwrite("WAVEfmt ", 1, 8, o);
-    put32(o, 16); put16(o, 1); put16(o, 1); put32(o, RATE); put32(o, RATE * 2); put16(o, 2); put16(o, 16);
-    fwrite("data", 1, 4, o); put32(o, total * 2);
-    fwrite(pcm, 2, total, o);
+    fwrite("RIFF", 1, 4, o); put32(o, 36 + total * 4); fwrite("WAVEfmt ", 1, 8, o);
+    put32(o, 16); put16(o, 1); put16(o, 2); put32(o, RATE); put32(o, RATE * 4); put16(o, 4); put16(o, 16);
+    fwrite("data", 1, 4, o); put32(o, total * 4);
+    fwrite(pcm, 4, total, o);
     fclose(o);
     printf("%s: %.1f s, peak %d%%, %.2f%% of samples in the limiter\n", argv[2], secs, peak * 100 / 32767,
-           clipped * 100.0 / total);
+           clipped * 100.0 / (total * 2));
     free(pcm);
     return 0;
 }

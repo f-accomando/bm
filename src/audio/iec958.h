@@ -20,10 +20,11 @@ typedef struct {
 /* Consumer, PCM, 24-bit samples at `rate` (48000, 44100 or 32000). */
 void iec958_init(iec958_t *e, uint32_t rate);
 
-/* One 16-bit mono sample -> two identical subframes (left, right). */
+/* One 24-bit sample -> its subframe in frame `frame` of the block. */
 uint32_t iec958_subframe(const iec958_t *e, int32_t sample24, unsigned frame);
 
-/* n mono samples -> 2n subframes, continuing the block position. */
+/* n stereo frames (2n samples, left first) -> 2n subframes, continuing
+ * the block position. */
 void iec958_encode(iec958_t *e, const int16_t *in, uint32_t *out, unsigned n);
 
 #endif

@@ -136,9 +136,14 @@ chunk()
 
 local function parse(d)
   local b = { sounds = {}, sfx = {}, pats = {}, songs = {} }
-  local ns, nx, np, ng = d:byte(6, 9)
+  local ver, ns, nx, np, ng = d:byte(5, 9)
   local pos = 17
-  for i = 1, ns do b.sounds[i] = d:sub(pos, pos + 7):match("^[^%z]*"); pos = pos + 24 end
+  for i = 1, ns do
+    b.sounds[i] = d:sub(pos, pos + 7):match("^[^%z]*")
+    b.tones = b.tones or {}
+    b.tones[i] = ver >= 2 and { d:byte(pos + 24, pos + 44) } or nil
+    pos = pos + (ver >= 2 and 48 or 24)
+  end
   for i = 1, nx do
     local name, ms, len, ls, le
     name, ms, len, ls, le, pos = string.unpack("<c8HBBBxxx", d, pos)
@@ -159,9 +164,10 @@ local function parse(d)
     b.pats[i] = { len = len, tracks = tracks }
   end
   for i = 1, ng do
-    local name, bpm, swing, n, loop
-    name, bpm, swing, n, loop, pos = string.unpack("<c8BBBBxxxx", d, pos)
-    b.songs[i] = { name = name:match("^[^%z]*"), bpm = bpm, order = { d:byte(pos, pos + n - 1) } }
+    local name, bpm, swing, n, loop, echo, room
+    name, bpm, swing, n, loop, echo, room, pos = string.unpack("<c8BBBBBBxx", d, pos)
+    b.songs[i] = { name = name:match("^[^%z]*"), bpm = bpm, echo = echo, room = room,
+                   order = { d:byte(pos, pos + n - 1) } }
     pos = pos + n
   end
   check(pos == #d + 1, "the bank has no bytes left over")
