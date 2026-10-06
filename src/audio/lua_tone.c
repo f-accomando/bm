@@ -114,6 +114,37 @@ void au_lua_sound(lua_State *L, int idx, au_sound_t *s)
     s->detune = (int8_t)clampi(opt_field(L, idx, "detune", s->detune), -100, 100);
 }
 
+int au_lua_instrument(lua_State *L)
+{
+    int i = au_preset_find(luaL_checkstring(L, 1));
+    if (i < 0) {
+        lua_pushnil(L);
+        return 1;
+    }
+    const au_preset_t *p = &au_presets[i];
+    const au_sound_t *s = &p->s;
+    lua_createtable(L, 0, 16);
+    lua_pushstring(L, s->name); lua_setfield(L, -2, "name");
+    lua_pushstring(L, p->kind); lua_setfield(L, -2, "kind");
+    lua_pushstring(L, p->about); lua_setfield(L, -2, "about");
+    static const char *const keys[] = { "wave", "duty", "vol", "a", "d", "s", "r", "ptime", "vdepth", "vrate" };
+    const int vals[] = { s->wave, s->duty, s->vol, s->attack, s->decay, s->sustain, s->release, s->pitch_time,
+                         s->vib_depth, s->vib_rate };
+    for (int k = 0; k < 10; k++) {
+        lua_pushinteger(L, vals[k]);
+        lua_setfield(L, -2, keys[k]);
+    }
+    lua_pushinteger(L, s->pitch); lua_setfield(L, -2, "pitch");
+    lua_pushinteger(L, s->detune); lua_setfield(L, -2, "detune");
+    lua_createtable(L, AU_TONE, 0);
+    for (int k = 0; k < AU_TONE; k++) {
+        lua_pushinteger(L, s->tone[k]);
+        lua_rawseti(L, -2, k + 1);
+    }
+    lua_setfield(L, -2, "tone");
+    return 1;
+}
+
 int au_lua_instruments(lua_State *L)
 {
     const char *kind = luaL_optstring(L, 1, NULL);

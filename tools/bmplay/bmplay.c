@@ -373,6 +373,7 @@ static const luaL_Reg api[] = {
     { "stat", l_stat }, { "log", l_log }, { "quit", l_quit }, { "timeslice", l_nothing },
     { "note", l_note }, { "noteoff", l_noteoff }, { "freq", l_freq }, { "envelope", l_envelope },
     { "duty", l_duty }, { "tone", l_tone }, { "play", l_play }, { "instruments", au_lua_instruments },
+    { "instrument", au_lua_instrument },
     { "reverb", l_reverb }, { "echo", l_echo }, { "retro", l_retro }, { "fades", l_fades }, { "dark_begin", l_dark_begin }, { "glow", l_glow },
     { "dark_end", l_dark_end }, { NULL, NULL },
 };

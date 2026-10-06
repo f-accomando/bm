@@ -99,6 +99,8 @@ static void apply(void)
         bm_set_perf(atoi(v));             /* 0 off, 1 simple, 2 detailed */
     if ((v = config_get("volume")) && v[0] >= '0' && v[0] <= '9')
         audio_set_volume(atoi(v));
+    if ((v = config_get("sound")))
+        audio_retro(AUDIO_RETRO_USER, strcmp(v, "8bit") == 0);    /* hifi (the default) or 8bit */
     pointer_config();
 }
 

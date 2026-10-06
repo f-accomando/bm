@@ -126,6 +126,19 @@ env.audio_play = function(v, s, n, vol, fx, ms)
 end
 local mutes = {}
 env.mute = function(t, on) mutes[t] = on end
+-- two of the instruments (src/audio/presets.c), as instruments() and instrument() give them
+local INSTR = {
+  epiano = { name = "epiano", kind = "keys", about = "electric piano (FM)", wave = 6, duty = 128, vol = 130,
+             a = 0, d = 150, s = 70, r = 60, pitch = 0, ptime = 0, vdepth = 0, vrate = 0, detune = 0,
+             tone = { 0, 0, 0, 0, 0, 0, 16, 80, 70, 0, 0, 80, 0, 0, 0, 0, 0, 0, 0, 0, 0 } },
+  kick = { name = "kick", kind = "drum", about = "808 kick", wave = 4, duty = 128, vol = 230,
+           a = 0, d = 70, s = 0, r = 30, pitch = 30, ptime = 5, vdepth = 0, vrate = 0, detune = 0,
+           tone = { 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 10, 0, 0, 0, 0, 0, 0, 0, 0, 0 } },
+}
+env.instruments = function() return { INSTR.kick, INSTR.epiano } end
+env.instrument = function(n) return INSTR[n] end
+local plays = 0
+env.play = function(v, name, note) assert(INSTR[name], "play: an instrument"); plays = plays + 1; return v end
 
 local api = {}
 for k in pairs(env) do api[k] = true end
@@ -140,6 +153,8 @@ local function parse(d)
   local pos = 17
   for i = 1, ns do
     b.sounds[i] = d:sub(pos, pos + 7):match("^[^%z]*")
+    b.waves = b.waves or {}
+    b.waves[i] = d:byte(pos + 8)
     b.tones = b.tones or {}
     b.tones[i] = ver >= 2 and { d:byte(pos + 24, pos + 44) } or nil
     pos = pos + (ver >= 2 and 48 or 24)
@@ -268,6 +283,39 @@ b = parse(last_bank)
 check(b.sounds[1] == "BOOM", "the sound is renamed with the name editor")
 type_keys("down")
 hold_then(A, R)
+
+-- 5b. down past the first group: FILTER (the cutoff, the filter envelope),
+-- then WAVE & SPACE (the place); each is a byte of the sound's tone
+type_keys("down", "down", "down", "down")            -- past DETUNE: CUTOFF
+type_keys("+")
+b = parse(last_bank)
+check(b.tones[1] and b.tones[1][1] == 12, "the cutoff is the tone's first byte (+12)")
+type_keys("right", "=")                               -- FILT ENV +1
+b = parse(last_bank)
+check(b.tones[1][4] == 1, "the filter envelope is the tone's fourth byte")
+type_keys("down", "down", "down", "down", "-")        -- WAVE & SPACE: PAN, one to the left
+b = parse(last_bank)
+check(b.tones[1][6] == 255, "the place is a signed byte (-1)")
+check(b.tones[1][12] == 40, "a sound has a little room by default")
+
+-- 5c. the menu's Instrument...: the list plays each one, A puts it in the sound
+type_keys("esc", "pgup", "pgup", "down", "down", "down", "down", "down", "down", "down", "\n")
+local before = plays
+type_keys("down")                                     -- epiano: heard while chosen
+check(plays > before, "the instrument list plays what it is on")
+type_keys("\n")
+b = parse(last_bank)
+check(b.waves[1] == 6 and b.tones[1][7] == 16 and b.tones[1][8] == 80, "the instrument fills the sound (FM, its ratio and depth)")
+check(b.sounds[1] == "BOOM", "a named sound keeps its name")
+
+-- 5d. the song's echo (in steps) and room
+type_keys("f4", "up", "right", "right", "right", "right", "=")
+b = parse(last_bank)
+check(b.songs[1].echo == 1, "the song's echo, in steps")
+type_keys("right", "=")
+b = parse(last_bank)
+check(b.songs[1].room == 16, "the song's room")
+type_keys("down")
 
 -- 6. the sound effect page: steps with the piano, length follows
 type_keys("f2", "pgdn", "pgdn", "pgdn", "pgdn", "pgdn", "pgdn", "pgdn", "pgdn", "pgdn")   -- sfx 9: empty

@@ -6045,7 +6045,9 @@ def test_sound_editor(b, opts):
         pack = subprocess.run(["mtype", "-i", part, "::/BM/SOUNDS/DEMO.BM"], capture_output=True, env=env).stdout
         demo = bmaudio.unpack(bmaudio.extract(pack))
         assert demo["patterns"][0]["tracks"]["5"][0].startswith("C5"), demo["patterns"][0]
-        assert len(demo["songs"]) == 2 and demo["songs"][0]["name"] == "DEMO", demo["songs"]
+        assert len(demo["songs"]) == 3 and demo["songs"][0]["name"] == "DEMO", demo["songs"]
+        hifi = demo["songs"][2]                             # the new voices' song: its echo and room
+        assert hifi["name"] == "HIFI" and hifi.get("echo") == 3 and hifi.get("room") == 120, hifi
     finally:
         shutil.rmtree(tmp, ignore_errors=True)
     # the game with its bank runs as before

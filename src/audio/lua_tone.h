@@ -24,4 +24,9 @@ void au_lua_sound(lua_State *L, int idx, au_sound_t *s);
 /* instruments([kind]): a list of {name =, kind =, about =} */
 int au_lua_instruments(lua_State *L);
 
+/* instrument(name): the whole preset as bm Sound keeps a sound: {name,
+ * kind, about, wave, duty, vol, a, d, s, r, pitch, ptime, vdepth, vrate,
+ * detune, tone = {21 register bytes}}; nil if there is none */
+int au_lua_instrument(lua_State *L);
+
 #endif

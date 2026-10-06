@@ -3793,7 +3793,7 @@ static const luaL_Reg api[] = {
     { "hz", l_hz }, { "slide", l_slide }, { "vibrato", l_vibrato }, { "arp", l_arp },
     { "sfx", l_sfx }, { "sfxpos", l_sfxpos }, { "music", l_music }, { "tempo", l_tempo },
     { "mute", l_mute }, { "volume", l_volume },
-    { "tone", l_tone }, { "play", l_play }, { "instruments", au_lua_instruments },
+    { "tone", l_tone }, { "play", l_play }, { "instruments", au_lua_instruments }, { "instrument", au_lua_instrument },
     { "reverb", l_reverb }, { "echo", l_echo }, { "retro", l_retro },
     { "audio_bank", l_audio_bank }, { "audio_pattern", l_audio_pattern }, { "audio_play", l_audio_play },
     { "cart_audio", l_cart_audio }, { "cart_put_audio", l_cart_put_audio },
