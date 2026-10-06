@@ -106,32 +106,30 @@ screenshot in `docs/img/`), `README_OLD.md` (il README completo, in italiano),
 - Prove: `tests/studio/sdk_host.lua` (in `make test-studio`; ogni modello di gioco gira 400
   fotogrammi), QEMU `test_editor`, `test_sdk_suite`, `test_home_ui`. Guida: `sdk/README.md`.
 
-## bm Studio (sdk/studio)
+## bm Studio, bm Animator, bm Mesh, bm Pixel (gli strumenti 3D e 2D della console)
 
-- Applicazione per il PC (pagina web, niente build né dipendenze) per i modelli 3D a
-  tessere e la pixel art dello sheet; legge e scrive il `.bm`
-  (sezione MESH, tipo 8, `src/bm/bm.h`). Guida: `sdk/README.md`.
-- Numeri delle sezioni: 6 è AUDIO (banco di suoni), 8 MESH, 9 ANIM. I primi file di bm
-  Studio avevano MESH 6 e ANIM 7: kernel (`format.c`), `core.js` e `bmmesh.py` li leggono
+- **Solo sulla console** (decisione dell'utente, 2026-10-06): le versioni per il PC (pagine
+  web in JavaScript, `sdk/studio` e `sdk/animator`) sono state tolte, con i loro test e i
+  generatori JS degli asset (gli asset restano: `carts/village/models.bm`,
+  `carts/studio/sheet.png`, le copertine). Non reintrodurle senza una richiesta esplicita. Guida
+  degli strumenti: `sdk/README.md`; sul PC restano gli script (`mkbm.py --models`,
+  `bmmesh.py`, `bmres.py`, `tools/*2mesh.py`, `bmreduce.py`).
+- Numeri delle sezioni: 6 è AUDIO (banco di suoni), 8 MESH, 9 ANIM (`src/bm/bm.h`). I primi
+  file di bm Studio avevano MESH 6 e ANIM 7: kernel (`format.c`) e `bmmesh.py` li leggono
   ancora (un 6 senza la firma `BMAU` è MESH); si scrivono sempre 8 e 9.
-- `sdk/studio/js/core.js`, `tiles.js`, `edit.js` girano anche in Node (`make test-studio`);
-  l'interfaccia si prova con Playwright (`make test-studio-ui`, screenshot in
-  `build/studio/`). In questo ambiente: `/opt/node22/lib/node_modules/playwright`.
 - Convenzione dei vertici: una faccia si vede dal lato da cui appare in senso orario
   (`r3d.c`); verso glTF la z cambia segno e l'ordine dei vertici si inverte.
-- **bm Animator** (`sdk/animator`, usa i file di `sdk/studio/js`): scheletri e animazioni
-  nella sezione ANIM (tipo 9); `rig.js` e `animate()` in `runtime.c` fanno gli stessi
-  conti (cambiarli insieme). `sprites.js` (3D→sprite) è un rasterizzatore software.
-- **bm Studio e bm Animator della console** (decisione dell'utente: gli stessi nomi dei
-  programmi per il PC). `carts/studio/main.lua` (monitor `3`: build con block, tile,
+- Scheletri e animazioni nella sezione ANIM (tipo 9): `animate()` in `runtime.c` e la posa di
+  una clip in `carts/animator/main.lua` fanno gli stessi conti (cambiarli insieme).
+- **bm Studio e bm Animator**: `carts/studio/main.lua` (monitor `3`: build con block, tile,
   select, vertex, paint; pagina models) e `carts/animator/main.lua` (monitor `6`: play,
   rig, animate, sprites), incorporate, scheda Dev, opzioni "Open in bm Studio" / "Open in
   bm Animator"; si passano lo stesso file con `cart_tool(nome, path)`. Il codice comune
   (MESH/ANIM con `string.pack`, progetto, annulla, menu, dialoghi, schede, `nav()` per il
   puntatore della tastiera) è la libreria del kernel `src/script/bm3d.lua`
   (`require "bm3d"`); salvano con `cart_write` (`sections`, `sheet` solo se dipinto,
-  `from = false` per un progetto nuovo). `tile_face`/`place_faces` sono il port di
-  `edit.js` (le facce devono restare identiche, `check_studio3d.js`). Una pagina è un
+  `from = false` per un progetto nuovo). `tile_face`/`place_faces` fanno le facce delle
+  tessere e dei blocchi (`tests/studio/check_files.py` controlla quelle di BLOCKS.BM). Una pagina è un
   blocco `do ... end` (meno di 200 locali). Il puntatore di sistema (M32) c'è, ma non
   lo chiedono ancora (`mouse(true)`): per ora tastiera e pad. Scritte sulle righe di 16 pixel (i test in QEMU leggono lo
   schermo). Stessa estetica delle altre app (richiesta dell'utente): pannello a sinistra
@@ -147,14 +145,14 @@ screenshot in `docs/img/`), `README_OLD.md` (il README completo, in italiano),
   (`cart_meshes()`, `src/bm/meshcap.c`: il codice gira in uno stato Lua a parte con le API
   sostituite; i nomi dalle variabili). Salva con `cart_write(path, {sections=, lua=})`;
   lo scheletro di un modello segue i vertici (`vb`). Prove: `tests/studio/mesh_host.lua`,
-  `check_mesh.js`, `test_meshcap` (in `make test-bm`/`test-studio`), QEMU `test_mesh`.
+  `check_files.py`, `test_meshcap` (in `make test-bm`/`test-studio`), QEMU `test_mesh`.
 - **bm Pixel** (`carts/pixel/main.lua`, incorporata, scheda Dev, monitor `5`, opzioni "Open
   in bm Pixel"): la pixel art dello sprite sheet del progetto (`sget`/`sset`, `sspr` con
   zoom, `cart_sheet(w, h)` per la misura). Salva con `cart_write(path, {sheet = true,
   palette = ...})`: solo lo sheet cambia nel file, come SHEET8 con la tavolozza per prima
   (`sheet_section` in `runtime.c`, `bm_sheet8_pack` in `format.c`); i pixel non ridisegnati
   tengono i loro 24 bit. Attenzione in Lua: `cond and nil or x` dà sempre `x`. Prove:
-  `tests/studio/pixel_host.lua`, `check_pixel.js` (in `make test-studio`), QEMU `test_pixel`.
+  `tests/studio/pixel_host.lua`, `check_files.py` (in `make test-studio`), QEMU `test_pixel`.
 
 ## Risorse e scheda Lib (`docs/RISORSE.md`)
 
@@ -169,6 +167,10 @@ screenshot in `docs/img/`), `README_OLD.md` (il README completo, in italiano),
   (dalla seriale `4` è Lib, `5` Settings); gruppi con sinistra/destra, lista a sinistra, anteprima a destra; Y
   (tastiera V) suona. `src/kernel/lib.c` (elenco), `libview.c` (anteprime), `menu_ui.c`,
   `carts.c`. Test: `make test-res`, QEMU `test_lib_tab`.
+- **Per ora la scheda Lib è nascosta** (decisione dell'utente, 2026-10-06): `lib_tab=1` in
+  `bm/config.txt` la rimette (`lib_on` in `carts_menu`); senza, L1/R1 e Tab la saltano, `4` non
+  fa niente e la Lib non legge la SD. `test_lib_tab` la accende; `tabs_lit(img, lib=)` dei test
+  sa dove sono le pillole nei due casi.
 
 ## API dei giochi: bmlib, mappa, flag, hitbox, più giocatori, bmnet (R10, R11; branch `game-api`)
 
@@ -445,6 +447,13 @@ screenshot in `docs/img/`), `README_OLD.md` (il README completo, in italiano),
   Send the reports* (anche sulla RGB30) o `z` nel monitor; `Z` (o *Report the log*) manda il
   log; `report_upload=0` solo a mano. Spediti, spariscono dalla SD. Prova sul PC: `make
   test-github` (`tests/kernel/test_reports.c`: SD, GitHub, rete e orologio finti).
+- **Crash e blocchi** (2026-10-06, i crash visti senza seriale): la schermata rossa dice anche
+  `called from:` (le parole dello stack che sono indirizzi di ritorno: `arm-none-eabi-addr2line -f -e
+  build/kernel.elf` sul kernel di quella versione) e dopo 60 s il watchdog riavvia il Pi (non nei
+  primi 20 s di un avvio); le ultime 4 KiB stampate stanno in `.noinit` (`ring` in `crumbs.c`,
+  `klog_set_ring`), così l'avvio dopo un crash o un blocco del watchdog fa un report `crash` o
+  `freeze` con quelle righe (`crumbs_last` in `main.c`), che parte da solo. Si perde se manca la
+  corrente. Prova QEMU `test_crash_report`.
 - Fanno un report: gli strumenti di Dev che stampano (`tool_t.report` in `home.c`: System,
   Audio, CPU bench, Render bench, Stress test, DMA test, GPU test, Texture Room, Demo,
   Diagnostics), i comandi `g k p D s R` del monitor, il 3D Bench (il suo, anche sulla
@@ -1019,14 +1028,21 @@ screenshot in `docs/img/`), `README_OLD.md` (il README completo, in italiano),
   Sul Pi disegna solo con il clipper **sempre acceso** come Mesa (`gl_clip_all`, 6.5: senza,
   `ERRSTAT` dava *VPM write range*); la prova scrive i registri d'errore della V3D
   (`v3d_errors`) nel log delle prove (riga `probes` dei report). Sul Pi (2026-10-06): sfere 4×,
-  eroi 11×, scena `mix` 9× rispetto a bm3d 2.1.
+  eroi 11×, scena `mix` 9× rispetto a bm3d 2.1; score 2601 con la 6.6. La cache delle copie delle
+  mesh ha un posto per mesh e sheet (`mesh_is`, 6.7: prima ogni cambio di texture chiudeva il
+  lavoro); le facce con texture illuminate dal sole vanno a `fs_tex_lit` (s, t, k grigia come
+  l'ARM), quelle con la luce agli angoli e la nebbia a `fs_tex_rgb`. Score 3506 con la 6.7. La
+  copia indicizzata comincia ogni gruppo su 16 byte: lo spazio va contato così (6.8: prima le mesh
+  piatte su più gruppi scrivevano fino a 12 byte a gruppo oltre la copia, sull'heap; trovato
+  cercando l'heap rotto di Overbit sul Pi, non ancora provato che fosse quello). L'emulatore ha 16 byte di guardia dopo
+  ogni blocco (`test_arena_overruns` in `test_gpu3d`, scena `vshader groups`).
 - **Versioni dei driver 3D**: `bm3d X.Y` (X il blocco/milestone, Y il passo) in
   `src/gpu/version3d.h` e `docs/DRIVERS.md`; ogni passo che cambia quello che r3d o
   gpu3d sanno fare alza la versione e aggiunge una riga alla tabella. Le impostazioni
   riproducono le versioni vecchie (ARM 0.2, GPU 2.1, GPU+VS1 3.0, GPU+VS 3.4, coda 4.1,
   memoria senza cache 4.5, 2D nel lavoro 4.8, due lavori in volo 5.1, texture a 16 bit 5.2,
   shader a due thread 5.3, mesh dalla più vicina 5.4): così i benchmark le confrontano.
-  Branch `bm3d-driver` (2026-10-06): bm3d 6.6 (M36, M39, M41).
+  Branch `bm3d-driver` (2026-10-06): bm3d 6.8 (M36, M39, M41).
 - **M39 (bm3d 5.x, branch `bm3d-driver`)**: mesh fino a 65535 vertici e indicizzate
   (`INDEXED_PRIMITIVE_LIST`, `probe_index`); due blocchi di memoria dei lavori
   (`gpu3d_queue=2`: l'emulatore esegue un lavoro avviato solo quando lo si aspetta); texture

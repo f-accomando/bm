@@ -34,6 +34,7 @@ void bm_set_perf(int on) { perf = on; }
 int bm_perf(void) { return perf; }
 void audio_set_volume(int level) { volume = level < 0 ? 0 : level > 10 ? 10 : level; }
 int audio_volume(void) { return volume; }
+void audio_retro(int who, int on) { (void)who; (void)on; }
 void pointer_config(void) {}
 int pointer_enabled(void) { return 1; }
 

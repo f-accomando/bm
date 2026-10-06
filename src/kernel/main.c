@@ -37,6 +37,7 @@
 #include "bt/bt.h"
 #include "audio/audio.h"
 #include "crumbs.h"
+#include "reports.h"
 #include "drivers/watchdog.h"
 #include "drivers/dma.h"
 #include "version.h"
@@ -268,6 +269,15 @@ void kernel_main(uint32_t atags)
         const char *vc = config_get("v3d_clock");
         if (vc && vc[0] == 'm')
             kprintf("v3d: clock %lu MHz (v3d_clock=max)\n", prop_clock_set_max(CLOCK_V3D) / 1000000);
+    }
+    {
+        /* the boot before ended in a crash or a freeze: a report, with the
+         * lines printed before it; it goes by itself once on the network */
+        const char *kind;
+        size_t n;
+        const char *t = crumbs_last(&kind, &n);
+        if (t)
+            reports_text(kind, t, n);
     }
     if (bt_paired() && board()->wireless)
         bt_start();             /* a paired pad can come back with its PS button */

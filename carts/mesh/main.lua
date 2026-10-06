@@ -1,5 +1,5 @@
 -- bm Mesh: the 3D meshes of a .bm, on the console.
--- Reads the models of the MESH section (bm Studio, on the PC and the console) and the
+-- Reads the models of the MESH section (bm Studio, bm Animator) and the
 -- meshes the game builds in its own code (mesh(), mesh_sphere(),
 -- mesh_cube(): cart_meshes() runs the code apart and keeps them), edits
 -- their vertices and faces and writes them back into the .bm:

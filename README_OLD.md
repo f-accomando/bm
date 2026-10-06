@@ -45,29 +45,24 @@ Per scrivere un gioco: [docs/GUIDA-GIOCHI.md](docs/GUIDA-GIOCHI.md) (guida prati
 [docs/API-IT.md](docs/API-IT.md) (riferimento); in inglese [docs/GAME-GUIDE.md](docs/GAME-GUIDE.md) e
 [docs/API.md](docs/API.md).
 
-## bm Studio e bm Animator: le risorse sul PC
+## Le risorse dei giochi: gli strumenti della console
 
-Due applicazioni per il PC ([sdk/README.md](sdk/README.md)) fanno le risorse delle
-cartucce. Lavorano direttamente sul `.bm` (lo aprono e lo salvano al suo posto, anche
-sulla SD) e scambiano `.glb` e `.png` con gli altri programmi. Sono pagine web senza
-dipendenze: doppio clic su `sdk/studio/index.html` o `sdk/animator/index.html` (Chrome o
-Edge), oppure `make studio`.
+Le risorse delle cartucce si fanno sulla console, nella scheda **Dev**, con la tastiera o il
+gamepad, direttamente sul `.bm` ([sdk/README.md](sdk/README.md)):
 
 - **bm Studio**: **modelli 3D a tessere** (si posano le tessere
   dello sprite sheet su una griglia, si impilano blocchi, si spostano gli angoli per tetti e
-  rampe, si dipinge sul modello) e la **pixel art dello sprite sheet**. Nel gioco:
-  `m = model("casa")`, poi `draw3d(m, x, y, z)`.
+  rampe, si dipinge sul modello). Nel gioco: `m = model("casa")`, poi `draw3d(m, x, y, z)`.
 - **bm Animator**: **scheletro** (ossa e pelle), **animazioni a keyframe** sulla linea del
   tempo, riprodotte dalla console con `animate(m, "walk", t)` (**animazione scheletrica**),
-  e le animazioni **pre-renderizzate in sprite** (da 1 a 8 direzioni) nello sprite sheet.
+  e le animazioni **pre-renderizzate in sprite** nello sprite sheet.
 
-Esempio: *Studio Village* (`carts/village`): i modelli dello Studio e un paesano animato.
+Esempio: *Studio Village* (`carts/village`): i modelli a tessere e un paesano animato.
 
-Sulla console, nella scheda **Dev**, lo **studio 3D** ne è la versione semplificata, sugli
-stessi file: un **player** dei modelli e delle animazioni (con lo scheletro e il misto di
-due animazioni) e gli attrezzi essenziali per **costruire** a blocchi e tessere, fare lo
-**scheletro** e **animare** a keyframe, con la tastiera o il gamepad
-([sdk/README.md](sdk/README.md#sulla-console-lo-studio-3d)). **bm Mesh**, sempre nella
+Hanno un **player** dei modelli e delle animazioni (con lo scheletro e il misto di due
+animazioni) e gli attrezzi per **costruire** a blocchi e tessere, fare lo **scheletro** e
+**animare** a keyframe
+([sdk/README.md](sdk/README.md#sulla-console-bm-studio-e-bm-animator)). **bm Mesh**, sempre nella
 scheda Dev, modifica vertici e facce di tutte le mesh di un `.bm`, anche quelle che il
 codice del gioco costruisce con `mesh()` (le navi di Astro Wing): le copia come modelli
 (da mesh a modello) o come funzioni `mesh_nome()` nel codice (da modello a mesh)
@@ -390,13 +385,11 @@ make test-zero2       # gli stessi test con kernel7.img in QEMU (-M raspi2b)
 make qemu             # esegue in QEMU (-M raspi0), seriale sul terminale
 make qemu7            # kernel7.img in QEMU (-M raspi2b)
 make qemu-screenshot  # esecuzione headless, salva build/screen.png
-make studio           # bm Studio e bm Animator su http://localhost:8765 (sdk/README.md)
 ```
 
-`make test` comprende anche `make test-studio` (bm Studio e bm Animator in Node: i file
-che scrivono, letti anche dal Python della build e dal parser del kernel; saltato senza
-Node). `make test-studio-ui` prova le due applicazioni in un browser vero (Playwright +
-Chromium).
+`make test` comprende anche `make test-studio` (bm Studio, bm Animator, bm Mesh, bm Pixel e
+l'SDK della console sul PC: i file che scrivono, letti anche dal Python della build e dal
+parser del kernel).
 
 La CI GitHub Actions (`.github/workflows/ci.yml`) esegue build e `make test` a ogni push.
 Se modifichi di proposito il test pattern: `python3 tests/qemu_test.py --update-ref`.
@@ -821,14 +814,11 @@ tests/ai/                test dell'assistente (C, Lua, esempi di codice)
 carts/demo/              cartuccia nativa demo: main.lua, sheet.png, map.csv
 carts/pong|snake|shooter|astrowing|hunt giochi demo (solo Lua)
 carts/texroom/           Texture Room: il benchmark 3D della scheda Dev (nel kernel)
-carts/village/           Studio Village: main.lua, models.bm (modelli, scheletro e sheet),
-                         mkmodels.js (li costruisce con gli strumenti di Studio e Animator)
-sdk/studio/              bm Studio: modelli 3D e pixel art per i .bm, sul PC (sdk/README.md)
-sdk/animator/            bm Animator: scheletri, animazioni, sprite pre-renderizzati
-carts/studio3d/          lo studio 3D della console (scheda Dev): player, blocchi, ossa, keyframe
+carts/village/           Studio Village: main.lua, models.bm (modelli, scheletro e sheet)
+carts/studio/, carts/animator/  bm Studio e bm Animator (scheda Dev): modelli, blocchi, ossa, keyframe
 carts/mesh/              bm Mesh (scheda Dev): le mesh di un .bm, anche quelle del codice; mesh <-> modello
 carts/pixel/             bm Pixel (scheda Dev): la pixel art dello sprite sheet, tavolozza, animazione
-tests/studio/            test di bm Studio, bm Animator e dello studio 3D: Node, Playwright, Lua sul PC
+tests/studio/            test di bm Studio, bm Animator, bm Mesh, bm Pixel e dell'SDK: Lua sul PC, Python
 carts/kitchen/           Chaos Kitchen (M17): src/*.lua, build.py, mkassets.py,
                          models/*.glb e import_chefs.py (modelli 3D degli chef)
 tests/kitchen/           simulatore host di Chaos Kitchen (luahost + sim.lua)

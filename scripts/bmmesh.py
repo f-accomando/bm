@@ -1,8 +1,8 @@
 #!/usr/bin/env python3
 """
 bmmesh.py - the MESH section of a .bm cartridge (3D models), read and
-written, and the glTF binary files (.glb) that bm Studio (sdk/studio)
-exports. Standard library only; used by mkbm.py --models and the tests.
+written, and glTF binary files (.glb). Standard library only; used by
+mkbm.py --models and the tests.
 
 A model is a dict:
   { "name": "house",

@@ -25,6 +25,8 @@ import traceback
 HERE = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, os.path.join(HERE, "..", "tools"))
 sys.path.insert(0, os.path.join(HERE, "..", "scripts"))
+sys.path.insert(0, os.path.join(HERE, "studio"))
+import anim_figure  # noqa: E402
 import bm_load  # noqa: E402
 import bmmesh  # noqa: E402
 import mkbm  # noqa: E402
@@ -68,7 +70,7 @@ SLOW = {
     "test_titan": 36, "test_games": 34, "test_picture_model": 32, "test_menu_tabs": 31,
     "test_sdk_suite": 29, "test_monitor_line": 29, "test_overbit_flags": 60, "test_pixel_big": 26, "test_mouse_cart": 23, "test_market": 23,
     "test_code_editor": 23, "test_update": 22, "test_room_bench": 22, "test_bm_boot_demo": 22,
-    "test_nano8": 20, "test_meshy2mesh": 20,
+    "test_nano8": 20, "test_meshy2mesh": 20, "test_crash_report": 100,
 }
 
 
@@ -651,22 +653,24 @@ def scroll_thumb(img):
     return (ys[0], ys[-1] + 1) if ys else None
 
 
-def tabs_lit(img):
+def tabs_lit(img, lib=False):
     """Which tabs of the menu bar are on their light pill (M27, Market since
     M25, Lib after Dev): Market, Games, Dev, Lib, Settings, from a pixel of
     the pill left of each name. The Market waits off the screen at the left
     (2026-10-04): on it the tabs are where they were, elsewhere 7 columns
-    to the left."""
+    to the left. The Lib tab is off for now (2026-10-06; lib=True: lib_tab=1
+    in bm/config.txt shows it): Settings takes its place."""
     if sum(pixel(img, 20, 24)) > 600:
         return ["Market"]
-    return [name for name, x in (("Games", 44), ("Dev", 116), ("Lib", 172), ("Settings", 228))
-            if sum(pixel(img, x, 24)) > 600]
+    places = (("Games", 44), ("Dev", 116), ("Lib", 172), ("Settings", 228)) if lib else \
+        (("Games", 44), ("Dev", 116), ("Settings", 172))
+    return [name for name, x in places if sum(pixel(img, x, 24)) > 600]
 
 
-def img_tabs(q, want=None):
+def img_tabs(q, want=None, lib=False):
     """the tabs lit on the screen (a few tries for `want`: a frame may be half drawn)"""
     for _ in range(8):
-        lit = tabs_lit(q.screendump())
+        lit = tabs_lit(q.screendump(), lib)
         if want is None or lit == want:
             break
         time.sleep(0.2)
@@ -2969,9 +2973,10 @@ def test_bt_forget(b, opts):
 
 
 def test_menu_tabs(b, opts):
-    """The tabs with a DS4 (M27): R1 and L1 move between Market, Games, Dev,
-    Lib and Settings (the menu opens on Games); on Settings its panel opens by
-    itself and Lib is off; B out of it goes back to Lib. Up on the first row
+    """The tabs with a DS4 (M27): R1 and L1 move between Market, Games, Dev
+    and Settings (the menu opens on Games; the Lib tab is off for now,
+    2026-10-06, and R1 goes past it); on Settings its panel opens by itself;
+    B out of it goes back to Dev. Up on the first row
     stays on the covers. PS in the
     menu goes home (Games, panels closed), never to the monitor; PS in the
     monitor opens the games menu."""
@@ -3019,10 +3024,8 @@ def test_menu_tabs(b, opts):
 
         press(shoulders=2)                  # R1: Dev
         state(["Dev"], ["bm SDK"])
-        press(shoulders=2)                  # R1: Lib
-        state(["Lib"], ["Models", "Images"])
-        press(shoulders=2)                  # R1: Settings, its panel open, Lib off
-        state(["Settings"], ["Controllers", "WiFi and network"])
+        press(shoulders=2)                  # R1: Settings (past the Lib, off for now), its panel open
+        state(["Settings"], ["Controllers", "WiFi and network"], gone=["Models"])
         if opts.shots:
             _save_png(q.screendump(), os.path.join(opts.shots, "home-tabs-settings.png"))
 
@@ -3058,10 +3061,8 @@ def test_menu_tabs(b, opts):
         state(["Settings"], ["Controllers", "WiFi and network"], gone=["Button icons"])
         press(shoulders=2)                  # R1 on the last tab: nothing
         state(["Settings"], ["Controllers"])
-        press(buttons=0x08 | 0x40)          # B (circle): out of Settings, back to Lib
-        state(["Lib"], ["Models"], gone=["Controllers"])
-        press(shoulders=1)                  # L1: Dev
-        state(["Dev"], ["bm SDK"])
+        press(buttons=0x08 | 0x40)          # B (circle): out of Settings, back to Dev
+        state(["Dev"], ["bm SDK"], gone=["Controllers"])
         press(shoulders=1)                  # L1: Games
         state(["Games"], ["bm native demo"])
         press(shoulders=1)                  # L1: the Market, first (M25): QEMU has no network
@@ -3544,12 +3545,16 @@ def test_lib_tab(b, opts):
     list of the files with their resources (the resource files of /bm/lib,
     then the games), the details of the selected one (author, licence and
     tags from INFO once the selection rests); A on a game's model opens it
-    in bm Studio, and back in the menu the tab is there again."""
+    in bm Studio, and back in the menu the tab is there again. The tab is
+    off for now (2026-10-06): lib_tab=1 in bm/config.txt shows it."""
     import bmres
     tmp = tempfile.mkdtemp(prefix="bm-lib-")
     img = os.path.join(tmp, "sd.img")
     village, demo, sound = (bmres.read(b(p)) for p in ("carts/village.bm", "demo.bm", "sound.bm"))
-    files = []
+    cfg = os.path.join(tmp, "config.txt")
+    with open(cfg, "w") as f:
+        f.write("lib_tab=1\n")
+    files = [(cfg, "bm/config.txt")]
 
     def res(name, f):
         path = os.path.join(tmp, name)
@@ -3609,7 +3614,7 @@ def test_lib_tab(b, opts):
         q.expect("lib: ", timeout=20)
         text = screen(["Models", "Images", "Sounds", "Maps", "Palettes", "Kits", "HOUSE.BMM", "house",
                        "VILLAGE.BMK", "123 vertices, 180 faces", "from bm/lib/HOUSE.BMM"])
-        assert img_tabs(q, ["Lib"]) == ["Lib"], img_tabs(q)
+        assert img_tabs(q, ["Lib"], lib=True) == ["Lib"], img_tabs(q, lib=True)
         # the INFO lines and the preview once the selection rests: the house turns
         screen(["bm   CC0-1.0", "tags: building, village"])
         a = drawn()
@@ -3659,7 +3664,7 @@ def test_lib_tab(b, opts):
         screen(["Models", "VILLAGE.BM", "from carts/village.bm", "last: bm Studio on VILLAGE.BM"])
         keys("5")
         screen(["Controllers"])
-        assert img_tabs(q, ["Settings"]) == ["Settings"], img_tabs(q)
+        assert img_tabs(q, ["Settings"], lib=True) == ["Settings"], img_tabs(q, lib=True)
     finally:
         q.close()
         shutil.rmtree(tmp, ignore_errors=True)
@@ -4304,51 +4309,6 @@ def test_yharnam(b, opts):
         out = q.expect("update+draw", timeout=10).decode(errors="replace")
         assert "stopped with an error" not in out, out
         assert '"Yharnam"' in out, out[-300:]
-    finally:
-        q.close()
-
-
-def test_studio_cart(b, opts):
-    """A cartridge written by bm Studio (make test-studio: tests/studio/
-    test_core.js) plays on the console: the model viewer that a new project
-    gets as its code shows the models (bounds3d, model, models), with the
-    sections the kernel does not know left alone."""
-    path = b("studio-test.bm")
-    if not os.path.exists(path):
-        print("     skipped: no build/studio-test.bm (make test-studio needs Node)")
-        return
-    q = Qemu(b("kernel.img"))
-    try:
-        q.expect(MENU, timeout=30)
-        time.sleep(0.5)
-        # first the one with a skeleton: the viewer plays its animations (X: the next one)
-        with open(b("studio-test-anim.bm"), "rb") as f:
-            assert _upload(q, f.read())
-        time.sleep(1.5)
-        q.send("c")
-        time.sleep(0.5)
-        q.send("q")
-        out = q.expect("update+draw", timeout=10).decode(errors="replace")
-        assert "stopped with an error" not in out, out
-        time.sleep(0.5)
-        with open(path, "rb") as f:
-            assert _upload(q, f.read())
-        time.sleep(2.5)
-        for _ in range(10):
-            w, h, px = q.screendump()
-            cols = [tuple(px[(y * w + x) * 3:(y * w + x) * 3 + 3]) for y in range(0, h, 2) for x in range(0, w, 2)]
-            bg = sum(abs(r - 0x1C) < 12 and abs(g - 0x20) < 12 and abs(b_ - 0x30) < 12 for r, g, b_ in cols)
-            grass = sum(g > 70 and g > r + 15 and g > b_ + 15 for r, g, b_ in cols)
-            if grass > 50 and bg > len(cols) // 3:
-                break
-            time.sleep(0.5)
-        print(f"     studio cart: background {bg}, grass {grass} of {len(cols)}")
-        assert grass > 50 and bg > len(cols) // 3, (grass, bg)
-        q.send("d")                             # the next model
-        time.sleep(0.5)
-        q.send("q")
-        out = q.expect("update+draw", timeout=10).decode(errors="replace")
-        assert "stopped with an error" not in out, out
     finally:
         q.close()
 
@@ -5721,6 +5681,53 @@ def test_reports(b, opts):
     assert "sprites" in render.split("\n\n", 1)[1], render[:800]
 
 
+def test_crash_report(b, opts):
+    """A crash becomes a report (2026-10-06: on the Pi without a serial
+    cable): the red screen shows who called (the return addresses on the
+    stack), after 60 s the watchdog restarts the Pi, which keeps its memory,
+    and the next boot saves the crash as a report with the lines printed
+    before it (src/kernel/crumbs.c). Not in the first 20 s of a boot."""
+    tmp = tempfile.mkdtemp(prefix="bm-crash-")
+    img = os.path.join(tmp, "sd.img")
+    cfg = os.path.join(tmp, "config.txt")
+    with open(cfg, "w") as f:
+        f.write("layout=us\nwifi_boot=0\n")
+    mksd.build(img, [(cfg, "bm/config.txt"), (b("demo.bm"), "carts/game.bm")])
+    q = Qemu(b("kernel.img"), ["-drive", f"if=sd,format=raw,file={img}"])
+    try:
+        q.expect(MENU, timeout=30)
+        time.sleep(0.5)
+        q.send("q")
+        q.expect(PROMPT)
+        q.expect("> ")
+        time.sleep(21)                          # past the first 20 s of the boot
+        q.send("X")
+        q.expect("other keys cancel")
+        q.send("a")
+        out = q.expect("Restarting in 60 s", timeout=20).decode(errors="replace")
+        assert re.search(r"called from:( [0-9a-f]{8})+", out), out
+        q.expect("the last run ended in a crash: saved as a report", timeout=120)
+        out = q.expect("RPT00001.TXT", timeout=30).decode(errors="replace")
+        assert re.search(r"report: nodate-[0-9a-f]{6}_crash_", out), out
+        q.expect(MENU, timeout=30)
+    finally:
+        q.close()
+    part = os.path.join(tmp, "part.img")
+    with open(img, "rb") as f, open(part, "wb") as o:
+        f.seek(2048 * 512)
+        o.write(f.read())
+    env = dict(os.environ, MTOOLS_SKIP_CHECK="1")
+    rep = subprocess.run(["mtype", "-i", part, "::/BM/REPORTS/RPT00001.TXT"], capture_output=True, text=True,
+                         env=env).stdout
+    shutil.rmtree(tmp, ignore_errors=True)
+    head, body = rep.split("\n\n", 1)
+    assert "kind: crash" in head.splitlines(), rep[:600]
+    assert body.startswith('a crash (the red screen) while: monitor command "X"'), body[:300]
+    assert "--- the last lines printed ---" in body and "*** EXCEPTION: Data abort ***" in body, body[-1500:]
+    assert body.index("cartridge menu") < body.index("*** EXCEPTION"), "the lines before the crash"
+    assert "DFAR=00008001" in body and "called from:" in body, body[-800:]
+
+
 def test_menu_scale(b, opts):
     """menu_scale=3 in bm/config.txt (2026-10-04): the menu at 1920x1080,
     the same layout as at 640x360, every pixel 3x3 (the ARM enlarges it;
@@ -6574,16 +6581,10 @@ end
 
 
 def test_animation(b, opts):
-    """bm Animator: a model with a skeleton (ANIM, written by the Studio's
-    core in make test-studio) moves on the console: animate() poses it
-    (an arm turns up around its shoulder), clips() lists the animations,
-    bone3d() follows a bone, two clips mix."""
-    path = b("studio-test-anim.bm")
-    if not os.path.exists(path):
-        print("     skipped: no build/studio-test-anim.bm (make test-studio needs Node)")
-        return
-    secs = dict(bmmesh.cart_sections(open(path, "rb").read()))
-    cart = mkbm.pack(ANIM_CART.encode(), title="anim test", mesh=secs[bmmesh.SEC_MESH], extra=[(bmmesh.SEC_ANIM, secs[bmmesh.SEC_ANIM])])
+    """bm Animator: a model with a skeleton (ANIM) moves on the console:
+    animate() poses it (an arm turns up around its shoulder), clips() lists
+    the animations, bone3d() follows a bone, two clips mix."""
+    cart = anim_figure.cart(ANIM_CART.encode(), title="anim test")
     q = Qemu(b("kernel.img"))
     try:
         q.boot()

@@ -20,13 +20,9 @@ function loadPlaywright() {
 
 const OUT = path.resolve(process.argv[2] || 'build/showreel/cards');
 const STEPS = [
-  ['1', 'Pixel art', 'bm Studio'],
-  ['2', '3D model', 'bm Studio'],
-  ['3', 'Skeleton', 'bm Animator'],
-  ['4', 'Animation', 'bm Animator'],
-  ['5', 'Map', 'SDK, on the console'],
-  ['6', 'Code with the AI assistant', 'bm Code, on the console'],
-  ['7', 'Play', 'on the console'],
+  ['1', 'Map', 'SDK, on the console'],
+  ['2', 'Code with the AI assistant', 'bm Code, on the console'],
+  ['3', 'Play', 'on the console'],
 ];
 
 const CSS = `
@@ -66,15 +62,15 @@ const CSS = `
   await shot(`<div class="card">
       <div class="logo"><span class="badge">bm</span><span class="name">BareMetal</span></div>
       <div class="big">A game from scratch, with bm alone</div>
-      <div class="sub">a villager drawn, modelled, animated and programmed<br>with bm's own tools, all the way to the game on the console</div>
+      <div class="sub">a map painted and a game programmed for a villager<br>with bm's own tools, on the console itself</div>
       <div class="steps">${STEPS.map(s => `<span>${s[0]} · ${s[1]}</span>`).join('')}</div>
     </div>`, 'title.png');
   await shot(`<div class="card">
       <div class="logo"><span class="badge">bm</span><span class="name">BareMetal</span></div>
-      <div class="sub">a bare-metal fantasy console for the Raspberry Pi Zero W:<br>games in Lua, 2D and 3D graphics, editors on the PC and on the console</div>
+      <div class="sub">a bare-metal fantasy console for the Raspberry Pi Zero W:<br>games in Lua, 2D and 3D graphics, the editors on the console itself</div>
       <div class="url">github.com/f-accomando/bm</div>
     </div>`, 'end.png');
-  // two places: bottom left on the PC applications, top right on the console
+  // two places: bottom left, top right (the console's scenes)
   for (const [n, t1, t2] of STEPS)
     for (const [cls, suffix] of [['', ''], [' tr', '-tr']])
       await shot(`<div class="cap${cls}"><div class="num">${n}</div><div><div class="t1">${t1}</div><div class="t2">${t2}</div></div></div>`, `step${n}${suffix}.png`);

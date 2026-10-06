@@ -1,13 +1,12 @@
 #!/usr/bin/env python3
 """
-The showreel, put together: the scenes recorded by web.js (bm Studio, bm
-Animator) and console.py (the SDK, bm Code, the game in QEMU), sped up
-where it is work and at its own speed where it moves, with the cards of
-cards.js, as an MP4 and a GIF.
+The showreel, put together: the scenes recorded by console.py (the SDK, bm
+Code, the game in QEMU), sped up where it is work and at its own speed where
+it moves, with the cards of cards.js, as an MP4 and a GIF.
 
   python3 tools/showreel/assemble.py SHOWREEL_DIR OUT.mp4 OUT.gif
 
-SHOWREEL_DIR has web/, console/ and cards/. Needs ffmpeg.
+SHOWREEL_DIR has console/ and cards/. Needs ffmpeg.
 """
 import bisect
 import json
@@ -23,16 +22,11 @@ W, H = 1280, 720
 # None = real time, caption, caption place)
 SCENES = [
     ("card", "title.png", 1.3),
-    ("web", "pixel", "model", 3.0, "step1", ""),
-    ("web", "model", "rig", 3.6, "step2", ""),
-    ("web", "rig", "animate", 2.7, "step3", ""),
-    ("web", "animate", "animate-play", 1.6, "step4", ""),
-    ("web", "animate-play", 2.4, None, "step4", ""),
-    ("console", "map", "map-end", 2.4, "step5", "-tr"),
-    ("console", "code", "code-edit", 2.2, "step6", "-tr"),
-    ("console", "code-edit", "code-ai", 2.4, "step6", "-tr"),
-    ("console", "code-ai", "run", 1.8, "step6", "-tr"),
-    ("console", "play", "play-end", 4.4, "step7", "-tr"),
+    ("console", "map", "map-end", 2.4, "step1", "-tr"),
+    ("console", "code", "code-edit", 2.2, "step2", "-tr"),
+    ("console", "code-edit", "code-ai", 2.4, "step2", "-tr"),
+    ("console", "code-ai", "run", 1.8, "step2", "-tr"),
+    ("console", "play", "play-end", 4.4, "step3", "-tr"),
     ("card", "end.png", 2.0),
 ]
 
@@ -68,7 +62,7 @@ def main():
     tmp = os.path.join(base, "segments")
     shutil.rmtree(tmp, ignore_errors=True)
     os.makedirs(tmp)
-    srcs = {"web": load(os.path.join(base, "web")), "console": load(os.path.join(base, "console"))}
+    srcs = {"console": load(os.path.join(base, "console"))}
     cards = os.path.join(base, "cards")
     parts, total = [], 0.0
     for i, sc in enumerate(SCENES):

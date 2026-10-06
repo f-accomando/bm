@@ -871,8 +871,11 @@ def test_sound(b, opts):
         assert 0.2 * full <= quarter <= 0.3 * full, (full, quarter)
         keys(q, "rr")                           # Settings; down to Screen and sound
         keys(q, "ss\r")
+        # its rows longer than the screen since Sound style and 3D on the ARM:
+        # six down to the last, Test the sound, the list scrolling with it
+        keys(q, "ssssss")
         text = screen_all(q.screendump())
-        for want in ("Sound", "Volume", "5 / 10", "Test the sound"):
+        for want in ("Sound", "Volume", "5 / 10", "Sound style", "Test the sound"):
             assert want in text, f"{want!r} not in Screen and sound:\n{text}"
         q.monitor(f'pmemsave {RAMDISK:#x} {size} "{dump}"',
                   until=lambda: os.path.exists(dump) and os.path.getsize(dump) == size)

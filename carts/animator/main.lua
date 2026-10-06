@@ -1,5 +1,5 @@
 -- bm Animator on the console: the skeletons and animations of the 3D
--- models of a .bm (as bm Animator on the PC). F1 play (the player), F2 rig
+-- models of a .bm. F1 play (the player), F2 rig
 -- (bones and skin), F3 animate (keyframes), F4 sprites (an animation drawn
 -- into the sprite sheet), Esc menu; Ctrl+S save, F5 try the game,
 -- Ctrl+Z / Ctrl+Y undo / redo, [ ] model. Hold F12 (or ?) for the keys.
@@ -54,7 +54,7 @@ local function unique_bone(r, name, skip)
   return name
 end
 
--- "arm.L" <-> "arm.R", "leftLeg" <-> "rightLeg"... (rig.js mirrorName)
+-- "arm.L" <-> "arm.R", "leftLeg" <-> "rightLeg"... (the names bm Animator mirrors)
 local function mirror_name(n)
   local pairs_ = { { "%.L$", ".R" }, { "%.R$", ".L" }, { "_L$", "_R" }, { "_R$", "_L" }, { "^L_", "R_" }, { "^R_", "L_" },
                    { "Left", "Right" }, { "left", "right" }, { "Right", "Left" }, { "right", "left" } }
@@ -286,7 +286,7 @@ end
 
 -- the corners to their nearest bones: each face whole (rigid parts, as on
 -- the PS1) or each corner (the mesh stretches at the joints); only the
--- chosen faces, if some are (rig.js autoSkin)
+-- chosen faces, if some are
 local function auto_skin(m, smooth, list)
   for _, f in ipairs(list or m.faces) do
     f.b = {}
@@ -701,7 +701,7 @@ local function ease(mode, u)
   return u
 end
 
--- the pose of a clip at time t (rig.js samplePose; the kernel does the same)
+-- the pose of a clip at time t (as the kernel's animate() in runtime.c)
 local function sample(r, c, t)
   local n, keys = #r.bones, c.keys
   local L = c.length > 0 and c.length or 1
@@ -1420,7 +1420,7 @@ T.run({
   menu_info = function(x, y)
     print("the models are bm Studio's:", x, y, C.DIM)
     print("menu: Open in bm Studio", x, y + 16, C.DIM)
-    print("the same files as bm Studio", x, y + 48, C.DIM)
-    print("and bm Animator on the PC", x, y + 64, C.DIM)
+    print("the same files as bm Mesh,", x, y + 48, C.DIM)
+    print("bm Pixel and the bm SDK", x, y + 64, C.DIM)
   end,
 })

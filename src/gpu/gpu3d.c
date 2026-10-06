@@ -130,6 +130,8 @@ typedef struct {
 } ggroup_t;
 typedef struct {
     const r3d_mesh_t *m;
+    const void *sheet;                  /* the sheet it was drawn with (m->tex then): a slot a sheet, so a
+                                         * mesh drawn with textures in turn keeps a copy for each */
     uint32_t version;
     int unlit, smooth;                  /* as drawn: no light; the vertices' normals (GV_LIT) */
     uint8_t *corners;                   /* NULL: not a mesh the GPU takes */
@@ -1305,7 +1307,13 @@ static int mesh_build(const g16_t *g, gmesh_t *e, const r3d_mesh_t *m, int unlit
                 v[k].b = m->uv[f * 6 + k * 2 + 1];
             }
             vs = !lit ? GV_TEX_RGB : bone2 != bone ? GV_LIT_TEX2 : GV_LIT_TEX;
-            fs = (c & R3D_SCREEN) ? SH_TEX_RGB_SCREEN : tex_opaque(t, v) ? SH_TEX_RGB : SH_TEX_RGB_ALPHA;
+            /* the light baked at the corners and the fog: the eight varyings
+             * of fs_tex_rgb; lit by the sun: grey, s t k as the ARM's, the
+             * three of fs_tex_lit (bm3d 6.7: a pixel cost about twice) */
+            if (!lit)
+                fs = (c & R3D_SCREEN) ? SH_TEX_RGB_SCREEN : tex_opaque(t, v) ? SH_TEX_RGB : SH_TEX_RGB_ALPHA;
+            else
+                fs = (c & R3D_SCREEN) ? SH_TEX_SCREEN : tex_opaque(t, v) ? SH_TEX : SH_TEX_ALPHA;
         } else {
             vs = GV_BAKED;
             fs = (c & R3D_SCREEN) ? SH_SCREEN : SH_COLOUR;
@@ -1339,9 +1347,14 @@ static int mesh_build(const g16_t *g, gmesh_t *e, const r3d_mesh_t *m, int unlit
     uint32_t bytes = 0;
     for (int f = 0; f < m->nfaces; f++)
         count[gidx[f]] += 3;
+    /* each group on 16 bytes, as the indexed copy below starts them (bm3d
+     * 6.8: the room was the corners' alone, and a mesh of flat faces on
+     * more groups, every corner different, was written up to 12 bytes a
+     * group past the end, over the heap; found looking for the broken
+     * heap of Overbit on the Pi, not yet known to be its cause) */
     for (int i = 0; i < nkeys; i++)
-        bytes += count[i] * vshaders[key[i] >> 12 & 15].words * 4u;
-    uint8_t *b = aligned_alloc(16, (bytes + 15) & ~15u);
+        bytes += (count[i] * vshaders[key[i] >> 12 & 15].words * 4u + 15) & ~15u;
+    uint8_t *b = aligned_alloc(16, bytes);
     ggroup_t *gs = malloc((size_t)(nkeys > 0 ? nkeys : 1) * sizeof *gs);
     /* M39: indexed, the corners that are the same word for word kept once
      * (16-bit indices: a group of up to 65535 different corners) */
@@ -1427,19 +1440,28 @@ static int mesh_build(const g16_t *g, gmesh_t *e, const r3d_mesh_t *m, int unlit
     return 1;
 }
 
+/* the slot is the one of m drawn this way with this sheet */
+static int mesh_is(const gmesh_t *x, const r3d_mesh_t *m, int unlit, int smooth)
+{
+    return x->m == m && x->sheet == (const void *)m->tex && x->unlit == unlit && x->smooth == smooth;
+}
+
 /* the cached corners of m (made again if it or its texture changed), or
  * NULL; a slot the waiting job still reads is drawn first */
 static gmesh_t *mesh_get(const g16_t *g, const r3d_mesh_t *m, int unlit, int smooth)
 {
-    /* a slot for each way it is drawn (unlit or not, Gouraud or flat) */
-    uint16_t *h = &G.hint[(((uintptr_t)m >> 4) + (uintptr_t)(unlit * 2 + smooth) * 131) % MESH_HINTS];
-    gmesh_t *e = G.gm[*h].m == m && G.gm[*h].unlit == unlit && G.gm[*h].smooth == smooth ? &G.gm[*h] : NULL;
+    /* a slot for each way it is drawn (unlit or not, Gouraud or flat) and
+     * each sheet: a mesh drawn with three textures in turn (bm3d 6.7) made
+     * its one copy again at each, and the job drawn before each time */
+    uint16_t *h = &G.hint[(((uintptr_t)m >> 4) + ((uintptr_t)m->tex >> 4) * 7 + (uintptr_t)(unlit * 2 + smooth) * 131) %
+                          MESH_HINTS];
+    gmesh_t *e = mesh_is(&G.gm[*h], m, unlit, smooth) ? &G.gm[*h] : NULL;
     if (!e) {
         /* the least used slot, one the open job does not read if any */
         gmesh_t *old = NULL;
         for (int i = 0; i < NMESH; i++) {
             gmesh_t *x = &G.gm[i];
-            if (x->m == m && x->unlit == unlit && x->smooth == smooth) {
+            if (mesh_is(x, m, unlit, smooth)) {
                 e = x;
                 break;
             }
@@ -1451,10 +1473,10 @@ static gmesh_t *mesh_get(const g16_t *g, const r3d_mesh_t *m, int unlit, int smo
         if (!e)
             e = old;
         *h = (uint16_t)(e - G.gm);
-        if (e->m != m || e->unlit != unlit || e->smooth != smooth)
+        if (!mesh_is(e, m, unlit, smooth))
             e->m = NULL;                /* made below */
     }
-    if (e->m == m && e->version == m->version && e->unlit == unlit && e->smooth == smooth &&
+    if (mesh_is(e, m, unlit, smooth) && e->version == m->version &&
         (!e->tex || (e->tex->sheet == m->tex && e->tex->version == e->tex_version))) {
         e->used = ++G.tick;
         return e->corners ? e : NULL;
@@ -1470,6 +1492,7 @@ static gmesh_t *mesh_get(const g16_t *g, const r3d_mesh_t *m, int unlit, int smo
     e->idx = NULL;
     e->g = NULL;
     e->m = m;
+    e->sheet = m->tex;
     e->version = m->version;
     e->unlit = unlit;
     e->smooth = smooth;
@@ -1810,7 +1833,8 @@ static int cb_shadow(void *ctx, const g16_t *g, const r3d_mesh_t *m, const float
     uint32_t job = 0, *cs = NULL, *vs = NULL;
     for (int i = 0; i < e->ngroups; i++) {
         const ggroup_t *gr = &e->g[i];
-        if (!(gr->lods >> env->detail & 1) || gr->fs == SH_SCREEN || gr->fs == SH_TEX_RGB_SCREEN)
+        if (!(gr->lods >> env->detail & 1) || gr->fs == SH_SCREEN || gr->fs == SH_TEX_RGB_SCREEN ||
+            gr->fs == SH_TEX_SCREEN)
             continue;
         const int two = TWO_BONES(gr->vs);
         if (G.failed)

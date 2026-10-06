@@ -1017,7 +1017,7 @@ static const uint32_t vs_lit[420] __attribute__((aligned(8))) = {
     0x009e7000, 0x100009e7,     /* nop                 ; nop */
 };
 
-static const uint32_t vs_lit_tex[370] __attribute__((aligned(8))) = {
+static const uint32_t vs_lit_tex[358] __attribute__((aligned(8))) = {
     0x00c01a00, 0xe0020c67,     /* ldi vr_setup, 0xc01a00 */
     0x00001a00, 0xe0021c67,     /* ldi vw_setup, 0x1a00 */
     0x009e7000, 0x100009e7,     /* nop                 ; nop */
@@ -1188,18 +1188,12 @@ static const uint32_t vs_lit_tex[370] __attribute__((aligned(8))) = {
     0x019c41c0, 0x10020827,     /* fadd r0, r0, rb4    ; nop */
     0x209e7001, 0x100049e0,     /* nop                 ; fmul r0, r0, r1 */
     0x039e01c0, 0xd0020827,     /* fmin r0, r0, 1.0    ; nop */
-    0x209ef007, 0xd00049e0,     /* nop                 ; fmul r0, r0, 0.5 */
     0x15267d80, 0x10020c27,     /* mov vpm, ra9        ; nop */
     0x159c9fc0, 0x10020c27,     /* mov vpm, rb9        ; nop */
     0x15367d80, 0x10020c27,     /* mov vpm, ra13       ; nop */
     0x159c1fc0, 0x10020c27,     /* mov vpm, rb1        ; nop */
     0x15467d80, 0x10020c27,     /* mov vpm, ra17       ; nop */
     0x159e7000, 0x10020c27,     /* mov vpm, r0         ; nop */
-    0x159e7000, 0x10020c27,     /* mov vpm, r0         ; nop */
-    0x159e7000, 0x10020c27,     /* mov vpm, r0         ; nop */
-    0x159c0fc0, 0xd0020c27,     /* mov vpm, 0          ; nop */
-    0x159c0fc0, 0xd0020c27,     /* mov vpm, 0          ; nop */
-    0x159c0fc0, 0xd0020c27,     /* mov vpm, 0          ; nop */
     0x009e7000, 0x300009e7,     /* nop                 ; nop           ; thrend */
     0x009e7000, 0x100009e7,     /* nop                 ; nop */
     0x009e7000, 0x100009e7,     /* nop                 ; nop */
@@ -1286,7 +1280,7 @@ static const uint32_t cs_colour2[156] __attribute__((aligned(8))) = {
     0x009e7000, 0x100009e7,     /* nop                 ; nop */
 };
 
-static const uint32_t vs_lit_tex2[414] __attribute__((aligned(8))) = {
+static const uint32_t vs_lit_tex2[402] __attribute__((aligned(8))) = {
     0x00b01a00, 0xe0020c67,     /* ldi vr_setup, 0xb01a00 */
     0x00001a00, 0xe0021c67,     /* ldi vw_setup, 0x1a00 */
     0x009e7000, 0x100009e7,     /* nop                 ; nop */
@@ -1479,18 +1473,12 @@ static const uint32_t vs_lit_tex2[414] __attribute__((aligned(8))) = {
     0x019c41c0, 0x10020827,     /* fadd r0, r0, rb4    ; nop */
     0x209e7001, 0x100049e0,     /* nop                 ; fmul r0, r0, r1 */
     0x039e01c0, 0xd0020827,     /* fmin r0, r0, 1.0    ; nop */
-    0x209ef007, 0xd00049e0,     /* nop                 ; fmul r0, r0, 0.5 */
     0x15267d80, 0x10020c27,     /* mov vpm, ra9        ; nop */
     0x159c9fc0, 0x10020c27,     /* mov vpm, rb9        ; nop */
     0x15367d80, 0x10020c27,     /* mov vpm, ra13       ; nop */
     0x159c1fc0, 0x10020c27,     /* mov vpm, rb1        ; nop */
     0x15467d80, 0x10020c27,     /* mov vpm, ra17       ; nop */
     0x159e7000, 0x10020c27,     /* mov vpm, r0         ; nop */
-    0x159e7000, 0x10020c27,     /* mov vpm, r0         ; nop */
-    0x159e7000, 0x10020c27,     /* mov vpm, r0         ; nop */
-    0x159c0fc0, 0xd0020c27,     /* mov vpm, 0          ; nop */
-    0x159c0fc0, 0xd0020c27,     /* mov vpm, 0          ; nop */
-    0x159c0fc0, 0xd0020c27,     /* mov vpm, 0          ; nop */
     0x009e7000, 0x300009e7,     /* nop                 ; nop           ; thrend */
     0x009e7000, 0x100009e7,     /* nop                 ; nop */
     0x009e7000, 0x100009e7,     /* nop                 ; nop */

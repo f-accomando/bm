@@ -36,6 +36,9 @@ int emu_clip = 0;                       /* GL clipping: 0 as GL (near plane, gua
                                          * flag ignored), 2 the near plane only with Z_MIN_MAX given */
 int emu_vpm_words = 0;                  /* GL records: the attributes' VPM offsets and total size in
                                          * 32-bit words (else in bytes, as Mesa writes them) */
+int emu_need_clip = 0;                  /* GL records without the clipper's flag draw nothing, as on
+                                         * the Pi (ERRSTAT: VPM write range): the driver goes the way
+                                         * of the Pi, the clipper always on (gl_clip_all, bm3d 6.5) */
 emu_stats_t emu_stats;
 char emu_error[256];
 
@@ -45,15 +48,41 @@ char emu_error[256];
 static uint8_t *arena;
 static size_t arena_used;
 
+/* 16 bytes of 0xA5 after every block: test_arena_overruns finds a
+ * block written past its end (bm3d 6.7: the indexed corners of a mesh,
+ * on the Pi the heap broken and a data abort in free) */
+#define GUARD 16
+#define MAX_BLOCKS 16384
+static struct { uint8_t *p; size_t n; } blocks[MAX_BLOCKS];
+static int nblocks;
+
 void *test_aligned_alloc(size_t align, size_t size)
 {
     if (!arena)
         arena = aligned_alloc(4096, ARENA);
     size_t at = (arena_used + align - 1) & ~(align - 1);
-    if (at + size > ARENA)
+    if (at + size + GUARD > ARENA)
         return NULL;
-    arena_used = at + size;
+    arena_used = at + size + GUARD;
+    memset(arena + at + size, 0xA5, GUARD);
+    if (nblocks < MAX_BLOCKS) {
+        blocks[nblocks].p = arena + at;
+        blocks[nblocks++].n = size;
+    }
     return arena + at;
+}
+
+int test_arena_overruns(void)
+{
+    int bad = 0;
+    for (int i = 0; i < nblocks; i++)
+        for (int k = 0; k < GUARD; k++)
+            if (blocks[i].p[blocks[i].n + k] != 0xA5) {
+                fprintf(stderr, "v3d_emu: a block of %zu bytes written past its end (+%d)\n", blocks[i].n, k);
+                bad++;
+                break;
+            }
+    return bad;
 }
 
 void test_free(void *p)
@@ -756,6 +785,10 @@ static int bin(uint32_t start, uint32_t end)
             if (indexed && (!glrec || !ix || (rd32(p + 5) & 1) || maxi > 65535))
                 return err("indexed primitives: GL only, 16-bit indices in memory (at %08x, max %u)", rd32(p + 5),
                            maxi);
+            if (glrec && emu_need_clip && !glclip) {
+                p += indexed ? 13 : 9;          /* nothing drawn, as the Pi */
+                break;
+            }
             if (glrec) {
                 const int sh = shader_of(ptr(rd32(glrec + 4))), nvary = glrec[3];
                 if (threaded_check(glrec) != 0)

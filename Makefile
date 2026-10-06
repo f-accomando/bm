@@ -147,8 +147,8 @@ $(BUILD)/sound.bm: carts/sound/main.lua carts/sound/icon.png carts/sound/demo.js
 
 # bm Studio and bm Animator on the console (M22): the models, then their
 # skeletons and animations; their shared code is src/script/bm3d.lua. bm
-# Studio's sheet holds the starter tiles of bm Studio on the PC; the covers
-# and the sheet: carts/studio/mkassets.js.
+# Studio's sheet holds the starter tiles (made by the PC version, removed on
+# 2026-10-06: the PNG stays).
 $(BUILD)/studio.bm: carts/studio/main.lua carts/studio/icon.png carts/studio/sheet.png scripts/mkbm.py
 	@mkdir -p $(dir $@)
 	$(PYTHON) scripts/mkbm.py -o $@ --lua $< --cover carts/studio/icon.png \
@@ -159,13 +159,12 @@ $(BUILD)/animator.bm: carts/animator/main.lua carts/animator/icon.png scripts/mk
 	$(PYTHON) scripts/mkbm.py -o $@ --lua $< --cover carts/animator/icon.png --title "bm Animator" --author bm
 
 # bm Mesh: the meshes of a .bm (its models and those its code builds), on
-# the console. Its cover: carts/mesh/mkcover.js.
+# the console.
 $(BUILD)/mesh.bm: carts/mesh/main.lua carts/mesh/icon.png scripts/mkbm.py
 	@mkdir -p $(dir $@)
 	$(PYTHON) scripts/mkbm.py -o $@ --lua $< --cover carts/mesh/icon.png --title "bm Mesh" --author bm
 
-# bm Pixel: the pixel art of a .bm (its sprite sheet), on the console. Its
-# cover: carts/pixel/mkcover.js.
+# bm Pixel: the pixel art of a .bm (its sprite sheet), on the console.
 $(BUILD)/pixel.bm: carts/pixel/main.lua carts/pixel/icon.png scripts/mkbm.py
 	@mkdir -p $(dir $@)
 	$(PYTHON) scripts/mkbm.py -o $@ --lua $< --cover carts/pixel/icon.png --title "bm Pixel" --author bm
@@ -637,7 +636,7 @@ test-queue2d: $(BUILD)/host/bmhost-gpu
         run-serial test test-bm test-res test-ai test-img2mesh ai-model test-predict test-padtype predict-bench syllables test-usb test-audio \
         test-music music-model \
         test-fat test-kitchen test-titan test-yharnam test-sound test-nano8 test-net test-http test-https test-release \
-        release disasm wav test-studio test-studio-ui studio test-prompts test-hyp test-zero2 \
+        release disasm wav test-studio test-prompts test-hyp test-zero2 \
         showreel bmhost bmhost-gpu test-overbit overbit-reel overbit-reel-heroes overbit-reel-match yharnam-video \
         test-catalog test-github test-lan market-seed test-host test-qemu
 
@@ -825,7 +824,7 @@ HOST_TESTS := test-bm test-res test-usb test-fat test-audio test-music test-riff
       test-release test-smp test-qpu test-gpu3d test-queue2d test-b3d test-v3d test-ai test-predict test-padtype \
       test-studio test-prompts test-overbit $(if $(K7),test-hyp)
 # what the QEMU tests read besides `all` (made by the PC's tests too)
-QEMU_DEPS := $(BUILD)/host/meshview $(BUILD)/studio-test.bm
+QEMU_DEPS := $(BUILD)/host/meshview
 QEMU_TESTS = $(PYTHON) tests/qemu_test.py --build $(BUILD) $(if $(SHARD),--shard $(SHARD))
 
 test: all $(HOST_TESTS) $(QEMU_DEPS)
@@ -1215,9 +1214,9 @@ test-img2mesh: $(BUILD)/host/meshview
 	$(PYTHON) tests/ai/check_meshy.py $(BUILD)
 	$(PYTHON) tests/ai/check_local2mesh.py $(BUILD)/local2mesh
 
-# bm Studio (sdk/studio): its core in Node (the .bm, PNG and glTF it writes,
-# the editing geometry), then the same files read by the Python of the build
-# and by the kernel's parser. Skipped without Node.
+# The console's bm Studio, bm Animator, bm Mesh, bm Pixel and the SDK on the
+# PC (luahost), then the files they wrote read by the Python of the build
+# (tests/studio/check_files.py) and by the kernel's parser.
 test-studio: $(BUILD)/host/test_bm $(BUILD)/demo.bm $(BUILD)/host/luahost $(BUILD)/carts/village.bm \
              $(BUILD)/carts/astrowing.bm $(BUILD)/host/test_meshcap
 	rm -rf $(BUILD)/studio3d-sd && mkdir -p $(BUILD)/studio3d-sd/carts
@@ -1236,47 +1235,20 @@ test-studio: $(BUILD)/host/test_bm $(BUILD)/demo.bm $(BUILD)/host/luahost $(BUIL
 	cp $(BUILD)/carts/village.bm $(BUILD)/demo.bm $(BUILD)/pixel-sd/carts/
 	$(BUILD)/host/luahost tests/studio/pixel_host.lua . $(BUILD)/pixel-sd
 	$(BUILD)/host/test_meshcap src/bm/runtime.c $(BUILD)/pixel-sd/carts/village.bm "" $(BUILD)/pixel-sd/carts/newspr.bm ""
-	@if command -v node >/dev/null 2>&1; then \
-	    node tests/studio/test_core.js $(BUILD)/studio-test.bm && \
-	    $(PYTHON) tests/studio/check_cart.py $(BUILD)/studio-test.bm && \
-	    node tests/studio/check_studio3d.js $(BUILD)/studio3d-sd $(BUILD)/carts/village.bm && \
-	    node tests/studio/check_mesh.js $(BUILD)/mesh-sd $(BUILD)/carts/village.bm && \
-	    node tests/studio/check_pixel.js $(BUILD)/pixel-sd $(BUILD)/carts/village.bm && \
-	    $(BUILD)/host/test_bm $(BUILD)/demo.bm $(BUILD)/studio-test.bm $(BUILD)/studio-test-anim.bm \
-	        $(BUILD)/studio3d-sd/carts/blocks.bm; \
-	else echo "test-studio: node not found, skipped"; fi
+	$(PYTHON) tests/studio/check_files.py $(BUILD)/studio3d-sd $(BUILD)/mesh-sd $(BUILD)/pixel-sd $(BUILD)/carts/village.bm
+	$(PYTHON) tests/studio/anim_figure.py $(BUILD)/anim-figure.bm
+	$(BUILD)/host/test_bm $(BUILD)/demo.bm $(BUILD)/anim-figure.bm $(BUILD)/studio3d-sd/carts/blocks.bm
 
-# bm Studio's test cartridges (and studio-test-anim.bm), for the QEMU tests:
-# test-studio writes them too; without Node they are not made and those
-# tests say "skipped"
-$(BUILD)/studio-test.bm: tests/studio/test_core.js $(wildcard sdk/studio/js/*.js)
-	@if command -v node >/dev/null 2>&1; then node tests/studio/test_core.js $@; \
-	else echo "$@: node not found, not made"; fi
-
-# The same in a browser (Playwright + Chromium, not needed by `make test`):
-# bm Studio and bm Animator with the mouse, saving; screenshots in build/studio/
-test-studio-ui:
-	node tests/studio/test_ui.js $(BUILD)/studio
-	node tests/studio/test_animator_ui.js $(BUILD)/studio
-
-# The showreel at the top of the README (docs/showreel.gif and .mp4): a
-# villager made from nothing in bm Studio and bm Animator (Playwright +
-# Chromium), then the map in the SDK, the code in bm Code with the assistant
-# and the game, on the console in QEMU; ffmpeg puts it together (about 4
-# minutes, tools/showreel/)
+# The showreel at the top of the README (docs/showreel.gif and .mp4): the
+# villager of Studio Village in a new cartridge, the map in the SDK, the
+# code in bm Code with the assistant and the game, on the console in QEMU;
+# the cards drawn by Chromium (Playwright), ffmpeg puts it together
+# (tools/showreel/)
 SHOWREEL := $(BUILD)/showreel
 showreel: $(BUILD)/kernel.img
-	node tools/showreel/web.js $(SHOWREEL)/web
-	$(PYTHON) tools/showreel/console.py $(BUILD) $(SHOWREEL)/web $(SHOWREEL)/console
+	$(PYTHON) tools/showreel/console.py $(BUILD) $(SHOWREEL)/console
 	node tools/showreel/cards.js $(SHOWREEL)/cards
 	$(PYTHON) tools/showreel/assemble.py $(SHOWREEL) docs/showreel.mp4 docs/showreel.gif
-
-# bm Studio and bm Animator on http://localhost:8765 (they also open from
-# the files, sdk/studio/index.html and sdk/animator/index.html, in Chrome or Edge)
-studio:
-	@echo "bm Studio:   http://localhost:8765/studio/"
-	@echo "bm Animator: http://localhost:8765/animator/   (Ctrl+C to stop)"
-	$(PYTHON) -m http.server 8765 --bind 127.0.0.1 --directory sdk
 
 # Rasterizer bench (M33): checksums of fixed 3D scenes (a change to r3d.c
 # that should not change the picture must keep them), and with

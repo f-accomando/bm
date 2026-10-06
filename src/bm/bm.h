@@ -32,7 +32,7 @@
  *            times. A cartridge has SHEET or SHEET8, not both.
  *   6 AUDIO  the sound bank: sounds, sound effects, patterns and songs
  *            (format in src/audio/player.h), played by sfx() and music()
- *   8 MESH   3D models (made with bm Studio, sdk/studio, or packed by
+ *   8 MESH   3D models (made with bm Studio, or packed by
  *            mkbm.py --models): u16 models (1..256), u16 texture inset
  *            (1/256 of a sheet pixel: the loader moves the texture corners
  *            of each face that far inwards, so the next tile of the sheet
@@ -57,8 +57,8 @@
  *                        textured face of a "lit" model has its light (one
  *                        for the whole face) in the u16 reserved: RGB 5-6-5,
  *                        where the top value is twice the texture as it is }.
- *   9 ANIM   skeletons and animations of MESH models (made with bm Animator,
- *            sdk/animator): u16 rigs, u16 reserved, u32 reserved, then per
+ *   9 ANIM   skeletons and animations of MESH models (made with bm
+ *            Animator): u16 rigs, u16 reserved, u32 reserved, then per
  *            rig:
  *              char[16] model name (the model it moves), u16 bones (1..64),
  *              u16 clips (0..255), u16 vertices (the model's), u16 reserved,
@@ -280,8 +280,8 @@ int bm_sheet8_unpack(const bm_cart_t *c, void (*set)(void *ctx, int x, int y, co
                       void *ctx);
 
 /* Packs a SHEET8 section: w x h palette indices `idx` (row by row), the
- * palette as `ncol` RGBA8888 colours (1..256). The runs are those of bm
- * Studio's encoder (core.js), so both give the same bytes. Returns a
+ * palette as `ncol` RGBA8888 colours (1..256). The runs are those of
+ * mkbm.py's encoder (scripts/mkbm.py sheet8), so both give the same bytes. Returns a
  * malloc'd section (*outlen bytes), or NULL without memory. */
 uint8_t *bm_sheet8_pack(int w, int h, const uint8_t *pal_rgba, int ncol, const uint8_t *idx, size_t *outlen);
 
