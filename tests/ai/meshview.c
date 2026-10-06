@@ -3,7 +3,7 @@
  * of every recipe, or one recipe large from a few angles and in the poses
  * of its animations, as PPM files, to look at them (make test-ai keeps the
  * checks in test_ai.c). A small software rasterizer: z-buffer, one light,
- * the faces that show clockwise (as r3d.c), the skinning of rig.js.
+ * the faces that show clockwise (as r3d.c), the skinning of animate().
  *
  *   meshview sheet OUT.ppm                    every recipe, seeds 1-3
  *   meshview one RECIPE OUT.ppm [seed] [words] four views and the clips
@@ -36,7 +36,7 @@ static img_t img_new(int w, int h, uint32_t bg)
     return i;
 }
 
-/* ---------------------------------------------------------------- skinning (rig.js) */
+/* ---------------------------------------------------------------- skinning (as animate()) */
 
 typedef float mat_t[12];
 

@@ -37,14 +37,12 @@ Se il gioco si ferma con un errore, l'SDK torna sulla riga in rosso (Ctrl+G la
 ritrova). I giochi si salvano in `/carts` con un nome 8.3 (es. `MIOGIOCO.BM`) e
 compaiono nel menu. Tutto il resto di questa guida vale anche per l'SDK.
 
-**Sul PC**, per i modelli 3D e la pixel art: **bm Studio**; per scheletri, animazioni e
-sprite pre-renderizzati: **bm Animator** ([sdk/README.md](../sdk/README.md)). Sono pagine
-web che aprono e salvano i `.bm` (anche direttamente sulla SD). L'SDK della console,
-quando salva, tiene i modelli e le animazioni. **Sulla console**, nella scheda Dev, ci
-sono **bm Studio** e **bm Animator** con gli stessi nomi (X sulla copertina di un gioco,
-*Open in bm Studio* / *Open in bm Animator*): costruiscono a blocchi e tessere, scelgono e
-spostano facce e angoli, dipingono sul modello, fanno scheletri, animazioni e sprite,
-salvano e provano il gioco, con la tastiera o il gamepad.
+Per i modelli 3D: **bm Studio**; per scheletri, animazioni e sprite pre-renderizzati: **bm
+Animator** ([sdk/README.md](../sdk/README.md)). Sono sulla console, nella scheda Dev (X sulla
+copertina di un gioco, *Open in bm Studio* / *Open in bm Animator*): costruiscono a blocchi e
+tessere, scelgono e spostano facce e angoli, dipingono sul modello, fanno scheletri,
+animazioni e sprite, salvano e provano il gioco, con la tastiera o il gamepad. L'SDK,
+quando salva, tiene i modelli e le animazioni; **bm Pixel** disegna lo sprite sheet.
 
 ## 1. Com'è fatta una cartuccia
 
@@ -336,8 +334,8 @@ end
 - 2D e 3D si mescolano: sfondo con `rectfill`/`map`, modelli con `draw3d`, HUD con
   `print` alla fine.
 
-**Con bm Studio** ([sdk/README.md](../sdk/README.md)): i modelli si fanno sul PC posando
-le tessere dello sprite sheet su una griglia e stanno nel `.bm`
+**Con bm Studio** ([sdk/README.md](../sdk/README.md)): i modelli si fanno sulla console
+posando le tessere dello sprite sheet su una griglia e stanno nel `.bm`
 stesso; nel gioco `model("nome")` li dà come mesh:
 
 ```lua
@@ -352,8 +350,8 @@ end
 
 `models()` dà i nomi, `bounds3d(m)` il box intorno al modello.
 
-**Animati con bm Animator**: lo scheletro e le animazioni (fatti sul PC, nel `.bm`) vengono
-con il modello; `animate(m, "walk", t)` mette il modello nella posa di "walk" al tempo `t`
+**Animati con bm Animator**: lo scheletro e le animazioni (fatti sulla console, nel `.bm`)
+vengono con il modello; `animate(m, "walk", t)` mette il modello nella posa di "walk" al tempo `t`
 (in secondi), prima di `draw3d`:
 
 ```lua

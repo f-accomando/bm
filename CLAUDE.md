@@ -106,32 +106,30 @@ screenshot in `docs/img/`), `README_OLD.md` (il README completo, in italiano),
 - Prove: `tests/studio/sdk_host.lua` (in `make test-studio`; ogni modello di gioco gira 400
   fotogrammi), QEMU `test_editor`, `test_sdk_suite`, `test_home_ui`. Guida: `sdk/README.md`.
 
-## bm Studio (sdk/studio)
+## bm Studio, bm Animator, bm Mesh, bm Pixel (gli strumenti 3D e 2D della console)
 
-- Applicazione per il PC (pagina web, niente build né dipendenze) per i modelli 3D a
-  tessere e la pixel art dello sheet; legge e scrive il `.bm`
-  (sezione MESH, tipo 8, `src/bm/bm.h`). Guida: `sdk/README.md`.
-- Numeri delle sezioni: 6 è AUDIO (banco di suoni), 8 MESH, 9 ANIM. I primi file di bm
-  Studio avevano MESH 6 e ANIM 7: kernel (`format.c`), `core.js` e `bmmesh.py` li leggono
+- **Solo sulla console** (decisione dell'utente, 2026-10-06): le versioni per il PC (pagine
+  web in JavaScript, `sdk/studio` e `sdk/animator`) sono state tolte, con i loro test e i
+  generatori JS degli asset (gli asset restano: `carts/village/models.bm`,
+  `carts/studio/sheet.png`, le copertine). Non reintrodurle senza una richiesta esplicita. Guida
+  degli strumenti: `sdk/README.md`; sul PC restano gli script (`mkbm.py --models`,
+  `bmmesh.py`, `bmres.py`, `tools/*2mesh.py`, `bmreduce.py`).
+- Numeri delle sezioni: 6 è AUDIO (banco di suoni), 8 MESH, 9 ANIM (`src/bm/bm.h`). I primi
+  file di bm Studio avevano MESH 6 e ANIM 7: kernel (`format.c`) e `bmmesh.py` li leggono
   ancora (un 6 senza la firma `BMAU` è MESH); si scrivono sempre 8 e 9.
-- `sdk/studio/js/core.js`, `tiles.js`, `edit.js` girano anche in Node (`make test-studio`);
-  l'interfaccia si prova con Playwright (`make test-studio-ui`, screenshot in
-  `build/studio/`). In questo ambiente: `/opt/node22/lib/node_modules/playwright`.
 - Convenzione dei vertici: una faccia si vede dal lato da cui appare in senso orario
   (`r3d.c`); verso glTF la z cambia segno e l'ordine dei vertici si inverte.
-- **bm Animator** (`sdk/animator`, usa i file di `sdk/studio/js`): scheletri e animazioni
-  nella sezione ANIM (tipo 9); `rig.js` e `animate()` in `runtime.c` fanno gli stessi
-  conti (cambiarli insieme). `sprites.js` (3D→sprite) è un rasterizzatore software.
-- **bm Studio e bm Animator della console** (decisione dell'utente: gli stessi nomi dei
-  programmi per il PC). `carts/studio/main.lua` (monitor `3`: build con block, tile,
+- Scheletri e animazioni nella sezione ANIM (tipo 9): `animate()` in `runtime.c` e la posa di
+  una clip in `carts/animator/main.lua` fanno gli stessi conti (cambiarli insieme).
+- **bm Studio e bm Animator**: `carts/studio/main.lua` (monitor `3`: build con block, tile,
   select, vertex, paint; pagina models) e `carts/animator/main.lua` (monitor `6`: play,
   rig, animate, sprites), incorporate, scheda Dev, opzioni "Open in bm Studio" / "Open in
   bm Animator"; si passano lo stesso file con `cart_tool(nome, path)`. Il codice comune
   (MESH/ANIM con `string.pack`, progetto, annulla, menu, dialoghi, schede, `nav()` per il
   puntatore della tastiera) è la libreria del kernel `src/script/bm3d.lua`
   (`require "bm3d"`); salvano con `cart_write` (`sections`, `sheet` solo se dipinto,
-  `from = false` per un progetto nuovo). `tile_face`/`place_faces` sono il port di
-  `edit.js` (le facce devono restare identiche, `check_studio3d.js`). Una pagina è un
+  `from = false` per un progetto nuovo). `tile_face`/`place_faces` fanno le facce delle
+  tessere e dei blocchi (`tests/studio/check_files.py` controlla quelle di BLOCKS.BM). Una pagina è un
   blocco `do ... end` (meno di 200 locali). Il puntatore di sistema (M32) c'è, ma non
   lo chiedono ancora (`mouse(true)`): per ora tastiera e pad. Scritte sulle righe di 16 pixel (i test in QEMU leggono lo
   schermo). Stessa estetica delle altre app (richiesta dell'utente): pannello a sinistra
@@ -147,14 +145,14 @@ screenshot in `docs/img/`), `README_OLD.md` (il README completo, in italiano),
   (`cart_meshes()`, `src/bm/meshcap.c`: il codice gira in uno stato Lua a parte con le API
   sostituite; i nomi dalle variabili). Salva con `cart_write(path, {sections=, lua=})`;
   lo scheletro di un modello segue i vertici (`vb`). Prove: `tests/studio/mesh_host.lua`,
-  `check_mesh.js`, `test_meshcap` (in `make test-bm`/`test-studio`), QEMU `test_mesh`.
+  `check_files.py`, `test_meshcap` (in `make test-bm`/`test-studio`), QEMU `test_mesh`.
 - **bm Pixel** (`carts/pixel/main.lua`, incorporata, scheda Dev, monitor `5`, opzioni "Open
   in bm Pixel"): la pixel art dello sprite sheet del progetto (`sget`/`sset`, `sspr` con
   zoom, `cart_sheet(w, h)` per la misura). Salva con `cart_write(path, {sheet = true,
   palette = ...})`: solo lo sheet cambia nel file, come SHEET8 con la tavolozza per prima
   (`sheet_section` in `runtime.c`, `bm_sheet8_pack` in `format.c`); i pixel non ridisegnati
   tengono i loro 24 bit. Attenzione in Lua: `cond and nil or x` dà sempre `x`. Prove:
-  `tests/studio/pixel_host.lua`, `check_pixel.js` (in `make test-studio`), QEMU `test_pixel`.
+  `tests/studio/pixel_host.lua`, `check_files.py` (in `make test-studio`), QEMU `test_pixel`.
 
 ## Risorse e scheda Lib (`docs/RISORSE.md`)
 

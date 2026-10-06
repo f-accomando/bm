@@ -1,5 +1,5 @@
 -- bm Studio on the console: the 3D models of a .bm, built with tiles and
--- blocks (as bm Studio on the PC).
+-- blocks.
 -- F1 build (block, tile, select, vertex, paint), F2 models, Esc menu;
 -- Ctrl+S save, F5 try the game, Ctrl+Z / Ctrl+Y undo / redo, [ ] model.
 -- Hold F12 (or ?) for the keys of the page. Gamepad: Y + left/right page,
@@ -240,7 +240,7 @@ local VIEWS = { "light", "flat", "wireframe" }
 local STEPS = { 1, 1 / 2, 1 / 4, 1 / 8, 1 / 16 }
 
 -- texture corners of a rect in corner order (bottom left, top left, top
--- right, bottom right), flipped, then turned `rot` quarter turns (edit.js)
+-- right, bottom right), flipped, then turned `rot` quarter turns
 local function rect_uv(rect, rot, flip)
   local x, y, w, h = rect[1], rect[2], rect[3], rect[4]
   local b = { { x, y + h }, { x, y }, { x + w, y }, { x + w, y + h } }
@@ -252,7 +252,7 @@ local function rect_uv(rect, rot, flip)
 end
 
 -- up on the floor: the horizontal axis nearest to where the camera looks,
--- so a tile shows the right way up (edit.js floorUp)
+-- so a tile shows the right way up
 local function floor_up(f)
   if abs(f[1]) > abs(f[3]) then return { f[1] > 0 and 1 or -1, 0, 0 } end
   return { 0, 0, f[3] < 0 and -1 or 1 }
@@ -1659,7 +1659,7 @@ T.run({
   menu_info = function(x, y)
     print("skeletons and animations:", x, y, C.DIM)
     print("bm Animator (menu)", x, y + 16, C.DIM)
-    print("the same files as bm Studio", x, y + 48, C.DIM)
-    print("and bm Animator on the PC", x, y + 64, C.DIM)
+    print("the same files as bm Mesh,", x, y + 48, C.DIM)
+    print("bm Pixel and the bm SDK", x, y + 64, C.DIM)
   end,
 })

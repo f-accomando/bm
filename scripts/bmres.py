@@ -446,7 +446,7 @@ def sheet_get(f):
 def sheet8_encode(w, h, rgba, seed=()):
     """a SHEET8 body with the colours of `seed` first (in their order), then
     the others as they appear; None over 256 colours. The runs are those of
-    mkbm.sheet8 (and bm Studio's core.js)."""
+    mkbm.sheet8."""
     pal, index, clear = [], {}, None
     for c in seed:
         c = bytes(c)

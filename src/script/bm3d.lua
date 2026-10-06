@@ -4,7 +4,7 @@
 -- written with string.pack and handed to the kernel with cart_data(); the
 -- project (the models as tables, undo, open, save with cart_write); the
 -- frame of the two programs (tabs, status bar, menu, dialogs, the keys) and
--- the 3D helpers. The same formats as bm Studio and bm Animator on the PC.
+-- the 3D helpers. The MESH and ANIM sections of src/bm/bm.h.
 --
 -- A program gives its pages to bm3d.run{...}: each page is a table with
 -- id, fkey ("f1"...), label, and the functions enter, key(k), pad(),

@@ -44,7 +44,7 @@ elenca. Il codice Lua come risorsa non è compreso: per ora resta fuori.
 1. **Lo stesso contenitore del `.bm`**: intestazione da 128 byte, tabella delle sezioni,
    CRC-32, stessi tipi di sezione. Una sezione passa da un `.bm` a un file di risorsa
    copiandola, e i lettori che esistono (C `format.c`, Python `mkbm.py`, `bmmesh.py`,
-   `bmaudio.py`, JS `core.js`, Lua in `bm3d.lua` e bm Sound) servono quasi come sono.
+   `bmaudio.py`, Lua in `bm3d.lua` e bm Sound) servono quasi come sono.
 2. **Una firma diversa, `BMRES`**: un file di risorsa non è un gioco. Il menu non lo
    elenca tra i giochi (guarda solo i `.bm`) e `bm_parse` lo rifiuta; gli strumenti usano
    una variante che accetta le due firme.
@@ -348,7 +348,8 @@ che nel progetto riceve i blocchi delle voci con `origin`).
 - Anteprime sul PC: `tools/bmrender.py` per i modelli (PNG), `make wav` per i suoni.
 - `mkbm.py --res FILE` (anche più volte) integra le risorse quando si compila: un gioco
   del repository può tenere i suoi file in `carts/<gioco>/res/`.
-- bm Studio e bm Animator sul PC aprono e salvano `.bmm`, `.bmi` e `.bmk`.
+- bm Studio e bm Animator della console apriranno e salveranno `.bmm`, `.bmi` e `.bmk`
+  (passo 7).
 
 ## 9. Compatibilità e test
 
@@ -356,7 +357,7 @@ che nel progetto riceve i blocchi delle voci con `origin`).
   INFO e SPRITES dentro un `.bm`; gli strumenti le conservano.
 - I pacchetti di `/bm/sounds` si continuano a leggere; bm Sound salva i nuovi come `.bms`
   in `/bm/lib`.
-- Il formato vive in quattro linguaggi (C, Lua, Python, JS): come per il banco di suoni
+- Il formato vive in tre linguaggi (C, Lua, Python): come per il banco di suoni
   (`make test-sound`), un test estrae, reintegra e confronta le sezioni byte per byte.
 - Ogni lettore controlla i dati prima di usarli (`bm_mesh_check`, `bm_anim_check`,
   `au_parse` lo fanno già), e un test prova file rovinati di proposito.
@@ -375,4 +376,4 @@ che nel progetto riceve i blocchi delle voci con `origin`).
 5. *Options*: *Copy into a project*, *Save to /bm/lib*, *Delete*; poi le app aprono i
    file di risorsa.
 6. Tag e dettagli (INFO) da *Options*; SPRITES in bm Pixel.
-7. bm Studio e bm Animator sul PC.
+7. bm Studio e bm Animator della console aprono e salvano i file di risorsa.

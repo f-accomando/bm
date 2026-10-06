@@ -1,91 +1,18 @@
-# bm Studio e bm Animator — le risorse delle cartucce `.bm`
+# Gli strumenti della console per le risorse dei `.bm`
 
-Due applicazioni per il PC fanno le risorse delle cartucce `.bm`, con le stesse regole:
-lavorano direttamente sul `.bm` (lo aprono, lo cambiano, lo salvano al suo posto, anche
-sulla SD), non toccano il codice del gioco, la mappa e le sezioni che non conoscono, e
-scambiano formati standard con gli altri programmi.
+Le risorse delle cartucce `.bm` (modelli 3D, scheletri e animazioni, pixel art dello
+sprite sheet, mesh nel codice) si fanno **sulla console**, nella scheda **Dev**, con la
+tastiera o il gamepad: **bm SDK** (il centro del progetto), **bm Studio** (modelli 3D a
+tessere), **bm Animator** (scheletri, animazioni, sprite pre-renderizzati), **bm Mesh**
+(vertici e facce, anche delle mesh che il codice costruisce) e **bm Pixel** (lo sprite
+sheet). Lavorano direttamente sul `.bm` (lo aprono, lo cambiano, lo salvano al suo posto
+sulla SD), non toccano il codice del gioco, la mappa e le sezioni che non conoscono, e dal
+menu dell'uno si passa all'altro sullo stesso file.
 
-- **bm Studio** (`sdk/studio/`): **modelli 3D a tessere** e la
-  **pixel art dello sprite sheet**
-  (anche come editor di PNG).
-- **bm Animator** (`sdk/animator/`): **scheletro** dei modelli (rigging), **animazione a
-  keyframe**, **animazione scheletrica** che la console riproduce, e le animazioni
-  **pre-renderizzate in sprite** per i giochi in 2D. [Vedi sotto](#bm-animator).
-
-Sono pagine web senza dipendenze (HTML + JavaScript, niente da installare né compilare).
-Un pulsante in alto passa dall'una all'altra portando il progetto aperto.
-
-Sulla console ci sono bm Studio e bm Animator con gli stessi nomi (scheda **Dev**), per
-tastiera e gamepad, sugli stessi file. [Vedi sotto](#sulla-console-bm-studio-e-bm-animator).
-
-## Aprirlo
-
-- **Doppio clic su `sdk/studio/index.html`** (o `sdk/animator/index.html`) con Chrome o
-  Edge (da Windows con WSL: `\\wsl$\<distro>\...\bm\sdk\studio\index.html`, oppure copia la
-  cartella `sdk` dove vuoi). Firefox e Safari funzionano, ma senza il salvataggio "al suo
-  posto": il `.bm` si scarica.
-- Oppure `make studio` e poi <http://localhost:8765/studio/> e
-  <http://localhost:8765/animator/> (da WSL si aprono anche dal browser di Windows).
-
-## Come si usa (l'essenziale)
-
-Un progetto è una cartuccia: **sprite sheet**, **modelli 3D**, copertina, titolo e codice.
-Un progetto nuovo parte con uno sheet di tessere 16×16 già disegnate (erba, pietra,
-mattoni, legno, tegole, finestre, una porta, piante...) e con un codice Lua che mostra i
-modelli sulla console, così si prova subito sul Pi.
-
-**Pagina 3D** (a sinistra la vista, a destra lo sheet):
-
-| Strumento | Tasto | Cosa fa |
-|---|---|---|
-| **Tile** | `1` | clic o trascina: posa le tessere scelte nello sheet sulla griglia; su una faccia le cambia la texture. `R` gira la tessera, `F` la specchia, Alt+clic prende la tessera di una faccia |
-| **Block** | `2` | cubi di una unità con la tessera su ogni lato; su una faccia, un cubo accanto. Tra due cubi vicini la parete sparisce da sola |
-| **Select** | `3` | clic, Shift+clic, rettangolo; trascina per spostare; frecce e PagSu/PagGiù di un quadretto (Shift: di un pixel); `R` gira, `T` ribalta, `M` specchia, `N` mostra l'altro lato, Invio mette la tessera scelta, `U` gira la texture, `+`/`−` ingrandisce e rimpicciolisce, Ctrl+D duplica, Canc cancella; "⇪" sposta le facce in un modello nuovo |
-| **Vertex** | `4` | sposta gli angoli (tetti, rampe, forme libere); `M` unisce più angoli in uno |
-| **Paint** | `5` | dipinge i pixel dello sheet direttamente sul modello; clic destro prende il colore |
-
-- **Camera**: trascina col tasto destro per girare, Shift+destro (o il tasto centrale)
-  per spostarla, rotellina per lo zoom, `Z` inquadra il modello, `Home` la rimette a posto.
-- **Griglia**: le tessere vanno sul piano della griglia (in automatico il pavimento o la
-  parete più di fronte alla camera; `P` la fissa). `[` `]`, PagSu/PagGiù o Ctrl+rotellina
-  la spostano di un quadretto. Una faccia sotto il mouse ha la precedenza: si costruisce
-  "attaccandosi" a quello che c'è.
-- **Clic destro** (senza trascinare) cancella la faccia sotto il mouse.
-- Il **pannello Tiles** sceglie le tessere (trascina per sceglierne più di una: una porta
-  alta due tessere si posa in un colpo solo) e ha matita, gomma, riempimento e contagocce
-  per ritoccare lo sheet senza cambiare pagina; "plain colour" posa facce di un colore pieno.
-- **Vista** (`L` luce, `K` facce posteriori, `W` fil di ferro): con la luce e le facce
-  posteriori nascoste si vede come sul Pi (la stessa convenzione della console: una
-  faccia si vede da un lato solo). "Colours of the console" mostra i colori RGB565.
-- La barra in basso conta facce, triangoli e angoli del modello e avvisa quando è
-  pesante per i 60 fps (circa 1200 triangoli per scena) o supera i 65535 angoli.
-
-**Pagina Pixel** (`Tab`): lo sprite sheet a tutto schermo, con matita (`B`), gomma (`E`),
-riempimento (`G`), contagocce (`I`, o clic destro), linea (`L`), rettangolo (`U`),
-selezione (`M`: si trascina per spostarla, con Alt una copia; Ctrl+C / Ctrl+X / Ctrl+V;
-`H`, `V`, `R` specchiano e girano), zoom con la rotellina. Le modifiche si vedono subito
-sui modelli. "Size…" cambia le dimensioni dello sheet (fino a 4096×4096).
-Si può usare anche da solo, come editor di PNG: aprendo un `.png` (File → Open), Ctrl+S
-risalva quel `.png` (al suo posto con Chrome/Edge); *Save as…* ne fa invece un `.bm`.
-
-**Pannello Cartridge**: titolo, autore, risoluzione, **copertina** (dalla vista 3D così
-com'è, o da un'immagine), il margine delle texture e il codice `main.lua`.
-
-**Pannello Models**: più modelli nello stesso `.bm` (una casa, un albero, un nemico...),
-con nome (fino a 15 caratteri), duplicati, ordine.
-
-Annulla e rifai: Ctrl+Z, Ctrl+Y. Salva: Ctrl+S. Tutti i tasti: F1.
-
-## I file
-
-| File | Cosa |
-|---|---|
-| **`.bm`** | il formato di lavoro: i modelli stanno nella sezione **MESH** della cartuccia (`src/bm/bm.h`), con lo sprite sheet come texture. Si apre, si modifica e si salva al suo posto |
-| **`.glb`** (glTF) | per scambiare modelli con altri programmi (Blender, il visualizzatore 3D di Windows). *Export* scrive i modelli con lo sheet come texture; *Add models from a .glb* importa anche modelli altrui: le loro texture finiscono nello sheet (rimpicciolite, se si vuole), i colori delle facce restano colori |
-| **`.png`** | lo sheet (o una parte) in entrata e in uscita; un'immagine può diventare lo sheet intero, un pezzo dello sheet o la copertina |
-| **`.lua`** | *Export this model as Lua code*: il modello come tabelle per `mesh()`, per chi costruisce le mesh nel codice |
-
-Si può anche trascinare un file sulla finestra.
+Sul PC ci sono gli strumenti a riga di comando sugli stessi file: `scripts/mkbm.py --models`
+(un `.glb` o un `.bm` di modelli dentro una cartuccia), `scripts/bmmesh.py`,
+`scripts/bmres.py` (le risorse), `tools/bmreduce.py`, `tools/cutout2mesh.py`,
+`tools/meshy2mesh.py`, `tools/local2mesh.py`, `tools/img2mesh.py`.
 
 ## I modelli in un gioco
 
@@ -112,107 +39,26 @@ end
   con `sset`, cambiano anche i modelli.
 
 **Sul Pi**: si copia il `.bm` in `carts/` sulla SD (o lo si manda con `tools/bm_net.py`).
-Un progetto nuovo ha come codice un visualizzatore: sinistra/destra cambia modello,
-su/giù zoom, A la luce, B la rotazione.
 
-**Per un gioco del repository** (costruito da `make`): si mette `models.glb` (File →
-*Export all models*) in `carts/<gioco>/`; `make` lo mette nella cartuccia con
-`mkbm.py --models`. Se il gioco non ha un suo `sheet.png`, lo sheet è quello del `.glb`.
-Esempio completo: `carts/village` (Studio Village, i cui modelli sono fatti con gli
-strumenti di bm Studio da `mkmodels.js`; `models.glb` si apre nello Studio).
+**Per un gioco del repository** (costruito da `make`): si mette `models.bm` (un `.bm` con
+i modelli e gli scheletri, salvato da bm Studio o bm Animator della console) o `models.glb`
+in `carts/<gioco>/`; `make` lo mette nella cartuccia con `mkbm.py --models`. Se il gioco non
+ha un suo `sheet.png`, lo sheet è quello di `models.bm` o del `.glb`. Esempio completo:
+`carts/village` (Studio Village: le case, gli alberi e il paesano con le sue tre animazioni
+stanno in `models.bm`).
 
 ## Limiti
 
-- Un modello ha al massimo **65535 angoli** e 65535 triangoli (oltre, lo Studio non salva; fino
-  al 2026-10-05 erano 4096 e 16384, e un kernel di prima rifiuta un modello più grande);
+- Un modello ha al massimo **65535 angoli** e 65535 triangoli (fino al 2026-10-05 erano 4096
+  e 16384, e un kernel di prima rifiuta un modello più grande);
   la console disegna circa **1200 triangoli a 60 fps** per scena.
 - Pixel pieni o trasparenti (alfa < 128 = trasparente), come per gli sprite.
 - Le texture che si ripetono (uv fuori da 0..1) non ci sono: bm allunga il bordo.
-- Il **margine delle texture** (0,25 px, pannello Cartridge) sposta gli angoli della
+- Ogni angolo segue **un** osso (niente pesi misti); 64 ossa per modello, 255 animazioni,
+  1024 keyframe per animazione; un keyframe è sempre la posa intera.
+- Il **margine delle texture** (0,25 px, nella sezione MESH) sposta gli angoli della
   texture di ogni faccia un po' verso l'interno, perché sul Pi la tessera accanto nello
   sheet non si veda lungo i bordi.
-
-## bm Animator
-
-Apre un `.bm` con dei modelli (fatti con bm Studio) e ne fa lo scheletro e le animazioni;
-parte con un esempio già pronto, un paesano con tre animazioni (idle, walk, wave). Tre
-pagine (`1` `2` `3`, o Tab):
-
-**Rig** — lo scheletro, sul modello a riposo:
-- **＋ Bone** (`N`) aggiunge un osso, figlio di quello scelto (il primo va dal fondo al
-  centro del modello). Un osso ha una **testa**, il punto intorno a cui gira, e una
-  **coda**. Si trascinano le giunture (testa e coda) col mouse, sulla griglia di 1/32;
-  le giunture nello stesso punto si muovono insieme (una catena resta unita), con Shift
-  solo quella dell'osso scelto. Nome e padre si cambiano a destra.
-- **⇋ Mirror** copia l'osso scelto e i suoi figli dall'altra parte (sinistra ↔ destra,
-  con i nomi `.L` / `.R`).
-- **Skin** (pelle): ogni faccia segue un osso. Si scelgono delle facce (clic, Shift+clic,
-  rettangolo) e **Assign** (`A`) le dà all'osso scelto; **Auto** dà ogni faccia all'osso
-  più vicino (parti rigide, come i giochi PS1), **Auto smooth** ogni angolo (il modello si
-  stira alle giunture). I colori mostrano chi segue chi (`C`).
-
-**Animate** — le pose sulla linea del tempo:
-- clic su un osso per sceglierlo; i tre **anelli** (x rosso, y verde, z blu) lo girano
-  (Shift: a scatti di 15°); trascinare la **coda** lo punta dove si vuole, trascinare la
-  **testa** lo sposta. A destra gli stessi valori in numeri.
-- **auto key**: ogni cambio della posa diventa un **keyframe** al tempo corrente (un
-  keyframe è la posa di tutto lo scheletro). `K` ne mette uno, Canc lo toglie; sulla linea
-  del tempo un clic sposta il tempo, i rombi (i keyframe) si trascinano, clic destro li
-  cancella.
-- Spazio riproduce, ←/→ un fotogramma, Shift+←/→ il keyframe prima/dopo; lunghezza,
-  fotogrammi al secondo, ciclo (loop) e il passaggio tra i keyframe: **linear**, **smooth**
-  (accelera e rallenta) o **step** (a scatti, niente in mezzo).
-- `M` specchia la posa (sinistra ↔ destra), Ctrl+C / Ctrl+V copia e incolla la posa, `R`
-  rimette l'osso a riposo; `O` mostra in trasparenza i keyframe prima e dopo (onion skin).
-- Più animazioni per modello (pannello a destra: New, Duplicate, Rename, Delete).
-
-**Sprites** — l'animazione **pre-renderizzata in sprite**, per i giochi in 2D:
-- si sceglie animazione, numero di fotogrammi, dimensione (per esempio 48×48), **direzioni**
-  (1, 2, 4 o 8: il modello girato intorno a sé), quanto si guarda dall'alto, camera piatta
-  (ortogonale) o in prospettiva;
-- l'aspetto: luce (anche a **bande**, cel shading), **contorno**, **colori** ridotti (una
-  tavolozza per tutti i fotogrammi), bordi lisci (disegno a 2× e riduzione);
-- l'anteprima gira e una griglia mostra tutti i fotogrammi (a destra i fotogrammi, in
-  basso le direzioni: davanti, poi girando in senso orario);
-- **Put in the sheet** mette la griglia nello sprite sheet della cartuccia (dove c'è posto,
-  o lo allarga) e dà il codice Lua per disegnarla con `sspr()`; **Export .png** la salva a
-  parte. Il disegno è un piccolo rasterizzatore in JavaScript: gli stessi pixel ogni volta.
-
-Nel gioco:
-
-```lua
-local man, t = nil, 0
-function _init() man = model("villager") end          -- con il suo scheletro
-function _update() t = t + 1 / 60 end
-function _draw()
-  cls(0) zclear()
-  camera3d(0, 2, -6, 0, -0.25)
-  animate(man, "walk", t)                              -- la posa di "walk" al tempo t
-  draw3d(man, 0, 0, 0)
-end
-```
-
-- `animate(m, "walk", t, "wave", t, k)` mescola due animazioni (`k` da 0 a 1: per passare
-  dall'una all'altra); `animate(m)` è la posa di riposo; restituisce la durata.
-- `clips(m)`: le animazioni, `{ {name=, length=, loop=}, ... }`.
-- `bone3d(m, "arm.L")`: dove si trovano la testa e la coda di un osso nella posa
-  (coordinate del modello; prima i tre numeri della testa, poi quelli della coda): per
-  attaccarci una spada, una lanterna...
-- Esempio: *Studio Village* (`carts/village`): il paesano cammina sul sentiero, saluta
-  alle estremità (due animazioni mescolate), di notte porta una luce (`bone3d`), e nell'angolo
-  c'è la sua versione a sprite pre-renderizzata.
-
-File: lo scheletro e le animazioni stanno nel `.bm` (sezione **ANIM**, `src/bm/bm.h`),
-accanto ai modelli; bm Studio li conserva quando modifica il modello (le facce nuove seguono
-il primo osso). **Export .glb** scrive il modello con giunture, pelle e animazioni (per
-Blender o il visualizzatore 3D di Windows; `smooth` diventa una curva campionata a 30 al
-secondo). Per un gioco del repository: `carts/<gioco>/models.bm` (un `.bm` con i modelli e
-gli scheletri) entra nella cartuccia da solo, con il suo sheet se il gioco non ha
-`sheet.png`.
-
-Limiti: ogni angolo segue **un** osso (niente pesi misti); 64 ossa per modello, 255
-animazioni, 1024 keyframe per animazione; un keyframe è sempre la posa intera. I `.glb`
-con scheletro di altri programmi non si importano (i modelli fermi sì, in bm Studio).
 
 ## Sulla console: bm SDK, il centro del progetto
 
@@ -285,9 +131,8 @@ Sulla console ci sono gli stessi due programmi, con gli stessi nomi: **bm Studio
 scheletri, animazioni e sprite). Sono cartucce incorporate nel kernel, nella scheda **Dev**;
 da un gioco si aprono con **X** sulla copertina, **Open in bm Studio** o **Open in bm
 Animator** (dal monitor i tasti `3` e `6`), e dal menu dell'uno si passa all'altro sullo
-stesso file (*Open in bm Animator*, *Open in bm Studio*). Leggono e scrivono le stesse
-sezioni MESH e ANIM dei programmi per il PC: un `.bm` fatto sul PC si apre sulla console e
-viceversa, e un gioco senza modelli può riceverne. Si usano con la tastiera o con il
+stesso file (*Open in bm Animator*, *Open in bm Studio*). Leggono e scrivono le sezioni
+MESH e ANIM del `.bm` (`src/bm/bm.h`), e un gioco senza modelli può riceverne. Si usano con la tastiera o con il
 gamepad (Bluetooth o USB); il mouse (M32) c'è nel menu, ma Studio e Animator non lo usano
 ancora.
 
@@ -419,8 +264,9 @@ tastiera) è la libreria del kernel `src/script/bm3d.lua` (`require "bm3d"`). Sa
 `cart_write`: nel file cambiano solo MESH e ANIM (e lo sheet, se è stato dipinto o ha
 ricevuto sprite); un `.bm` aperto e salvato senza modifiche resta uguale byte per byte.
 
-Restano solo sul PC: import ed export `.glb` e `.png`, la copertina da un'immagine; ogni
-angolo segue un osso (niente pesi misti) e un keyframe è la posa intera, come sul PC.
+Un `.glb` entra in una cartuccia dal PC con `scripts/mkbm.py --models` o
+`tools/meshy2mesh.py --glb`; ogni angolo segue un osso (niente pesi misti) e un keyframe è
+la posa intera.
 
 ## Sulla console: bm Mesh
 
@@ -428,8 +274,8 @@ angolo segue un osso (niente pesi misti) e un keyframe è la posa intera, come s
 **Dev**, oppure **X** sulla copertina di un gioco → **Open in bm Mesh** (dal monitor, il
 tasto `4`). Legge tre tipi di mesh di un `.bm`, segnati nella lista con una lettera:
 
-- **M**, i **modelli** della sezione MESH (quelli di bm Studio, sul PC e sulla console, con lo
-  scheletro di bm Animator se ce l'hanno): nel gioco `model("nome")`;
+- **M**, i **modelli** della sezione MESH (quelli di bm Studio, con lo scheletro di bm
+  Animator se ce l'hanno): nel gioco `model("nome")`;
 - **C**, le mesh **nel codice** scritte da bm Mesh: funzioni `mesh_nome()` alla fine di
   `main.lua`, tra le righe `-- [bm Mesh begin]` e `-- [bm Mesh end]`; nel gioco
   `local m = mesh_nome()` (in `_init` o dopo) e poi `draw3d(m, ...)`;
@@ -479,8 +325,8 @@ di ogni vertice segue i vertici aggiunti (quello del vertice da cui vengono) e t
 ossa e animazioni restano quelle di bm Animator.
 
 Compatibile con le altre app: i modelli sono quelli che leggono e scrivono bm Studio, bm
-Animator (sul PC e sulla console), `mkbm.py --models` e il kernel; le mesh nel codice hanno il formato
-di "Copy as Lua" di bm Studio (vertici, poi `a, b, c, colore` con `-1` per la texture, poi
+Animator, `mkbm.py --models` e il kernel; le mesh nel codice hanno il formato
+delle tabelle di `mesh()` (vertici, poi `a, b, c, colore` con `-1` per la texture, poi
 le coordinate dello sheet) e si aprono in bm Code come il resto del codice.
 
 ## Sulla console: bm Pixel
@@ -537,7 +383,7 @@ file con il nome lungo lo tiene). Lo sheet diventa una sezione **SHEET8** quando
 256 colori, con la tavolozza di bm Pixel per prima: riaprendo il file torna la stessa
 tavolozza, e la leggono anche l'SDK, bm Studio, bm Animator, `mkbm.py` e i giochi. La
 console tiene 16 bit per pixel (RGB565): un pixel che non è stato ridisegnato tiene i 24 bit
-che aveva nel file (quelli di bm Studio sul PC), uno ridisegnato prende quelli del colore
+che aveva nel file, uno ridisegnato prende quelli del colore
 della tavolozza. Anche gli sheet grandi si aprono (quello di Titan Clash, 2048×3448, parte
 rimpicciolito a 1/4); scriverli richiede qualche secondo, e intanto lo schermo dice
 "saving ...".
@@ -545,14 +391,11 @@ rimpicciolito a 1/4); scriverli richiede qualche secondo, e intanto lo schermo d
 ## Test
 
 ```sh
-make test-studio      # core in Node (.bm, ANIM, PNG, glTF anche animato, sprite, geometria), letto da Python e dal kernel
-make test-studio-ui   # nel browser con Playwright: bm Studio e bm Animator col mouse, screenshot in build/studio/
+make test-studio      # bm Studio, bm Animator, bm Mesh, bm Pixel e l'SDK della console sul PC, i loro file riletti da Python e dal kernel
 ```
 
-`make test` comprende `test-studio` (saltato senza Node) e, in QEMU, `test_models`,
-`test_sdk_keeps_models`, `test_village`, `test_animation` (un braccio che si alza sulla
-console emulata) e `test_studio_cart` (i `.bm` scritti dallo Studio, con il loro
-visualizzatore).
+`make test` comprende `test-studio` e, in QEMU, `test_models`, `test_sdk_keeps_models`,
+`test_village` e `test_animation` (un braccio che si alza sulla console emulata).
 
 bm Studio e bm Animator della console hanno un banco di prova sul PC
 (`tests/studio/tools3d_host.lua`, dentro `make test-studio`, con il Lua 5.4 della console):
@@ -561,11 +404,12 @@ tasti chip i loro nomi), i tasti e il gamepad simulati, e il percorso intero: bm
 sul villaggio, blocchi, tessere (anche più insieme), selezione e spostamenti, vertici,
 pittura, viste, modelli, annulla, salvataggio e riapertura; poi bm Animator sullo stesso
 file (`cart_tool`): ossa, specchio, nomi, padre, pelle, keyframe, onion, animazioni,
-sprite nello sheet, salvataggio. I file sono riletti da bm Studio (`check_studio3d.js`: le
-facce sono **identiche** a quelle dello Studio con gli stessi attrezzi), da `bmmesh.py` e
-dal parser del kernel (`test_bm`). In QEMU, `test_studio_animator` apre il villaggio in bm
-Studio dalle opzioni del gioco, prova gli attrezzi, costruisce, salva, prova il gioco,
-passa a bm Animator, anima, salva e mette gli sprite del paesano nello sheet.
+sprite nello sheet, salvataggio. I file sono riletti da Python
+(`tests/studio/check_files.py`: le facce del blocco girate verso fuori, la tessera rossa sul
+pavimento e quella sulla parete, lo scheletro e l'animazione) e dal parser del kernel
+(`test_bm`). In QEMU, `test_studio_animator` apre il villaggio in bm Studio dalle opzioni
+del gioco, prova gli attrezzi, costruisce, salva, prova il gioco, passa a bm Animator,
+anima, salva e mette gli sprite del paesano nello sheet.
 
 bm Mesh ha il suo banco di prova sul PC (`tests/studio/mesh_host.lua`, in `make
 test-studio`): `cart_meshes()` sostituito da un `load` del codice del gioco con le stesse
@@ -573,7 +417,7 @@ regole del kernel, e il percorso intero (le 13 mesh di Astro Wing, mesh → mode
 quello che il codice dà a `mesh()`, mesh → codice che rieseguito dà le stesse mesh,
 spostamenti, annulla, suddivisione, specchio, facce nuove, unione, colore, estrusione,
 duplicazione, il paesano con lo scheletro dopo vertici spostati e cancellati, salva come).
-I file che scrive sono riletti da bm Studio (`check_mesh.js`), da `bmmesh.py` e dal kernel
+I file che scrive sono riletti da `check_files.py`, da `bmmesh.py` e dal kernel
 (`test_meshcap`: ogni scheletro corrisponde al suo modello). `test_meshcap` prova anche la
 cattura vera (`src/bm/meshcap.c`) su Astro Wing, Texture Room e Chaos Kitchen. In QEMU,
 `test_mesh` apre Astro Wing dalle opzioni, copia la nave come modello, ne sposta i vertici,
@@ -584,49 +428,29 @@ test-studio`): lo sheet in una tabella con i colori come li tiene il kernel, `ca
 che lo scrive come lui, e tutti gli attrezzi (matita e tratto, linea, rettangolo, ovale,
 riempimento, contagocce, specchio, selezione, copia, incolla, sollevare e spostare,
 specchiare, girare, far scorrere, annulla e rifai, l'assistente, la tavolozza, lo sheet più
-alto, salva, riapri, sheet nuovo, prova il gioco). I file sono riletti da bm Studio
-(`check_pixel.js`: i pixel non ridisegnati con i loro 24 bit, la tavolozza, modelli e
-scheletri intatti) e dal kernel (`test_meshcap`); `test_bm` prova il packer SHEET8 del kernel
-(le stesse sequenze del codificatore di bm Studio), lo sheet al posto del vecchio in
-`bm_rewrite_with` e lo `sspr` ingrandito. In QEMU, `test_pixel` apre Studio Village dalle
-opzioni, disegna e salva: nel file cambiano solo i pixel disegnati, gli altri restano
-identici byte per byte; `test_pixel_big` fa lo stesso con lo sheet di Titan Clash
+alto, salva, riapri, sheet nuovo, prova il gioco). I file sono riletti da `check_files.py`
+(i pixel non ridisegnati con i loro 24 bit, la tavolozza, modelli e scheletri intatti) e
+dal kernel (`test_meshcap`); `test_bm` prova il packer SHEET8 del kernel, lo sheet al posto
+del vecchio in `bm_rewrite_with` e lo `sspr` ingrandito. In QEMU, `test_pixel` apre Studio
+Village dalle opzioni, disegna e salva: nel file cambiano solo i pixel disegnati, gli altri
+restano identici byte per byte; `test_pixel_big` fa lo stesso con lo sheet di Titan Clash
 (2048×3448): cambia un pixel solo e la tavolozza resta quella.
 
 ## Struttura
 
 ```
-sdk/studio/index.html        bm Studio
-sdk/studio/studio.css        l'aspetto (i colori dell'interfaccia della console)
-sdk/studio/js/core.js        formato .bm e sezioni, MESH, ANIM, SHEET8, PNG, glTF, codice Lua (anche in Node)
-sdk/studio/js/tiles.js       lo sheet iniziale, disegnato nel codice
-sdk/studio/js/edit.js        geometria degli strumenti: tessere, blocchi, raggi, spostamenti
-sdk/studio/js/rig.js         scheletri: quaternioni, pose, keyframe, pelle (gli stessi conti del kernel)
-sdk/studio/js/sprites.js     da 3D a sprite: un rasterizzatore software (anche in Node)
-sdk/studio/js/gltfskin.js    .glb con scheletro e animazioni
-sdk/studio/js/examples.js    il paesano d'esempio (scheletro e tre animazioni)
-sdk/studio/js/handoff.js     il progetto da un'applicazione all'altra
-sdk/studio/js/gl.js          rendering WebGL con la convenzione di bm (r3d.c)
-sdk/studio/js/view3d.js      vista 3D e strumenti di bm Studio
-sdk/studio/js/sheetview.js   lo sheet: scelta delle tessere ed editor dei pixel
-sdk/studio/js/app.js         bm Studio: file, annulla, pannelli, tasti
-sdk/animator/index.html      bm Animator
-sdk/animator/js/animator.js  bm Animator: vista con ossa e anelli, linea del tempo, sprite, file
-scripts/bmmesh.py            MESH e .glb per mkbm.py
-carts/studio/main.lua        bm Studio della console (incorporato nel kernel, scheda Dev)
-carts/animator/main.lua      bm Animator della console (incorporato nel kernel, scheda Dev)
-carts/studio/mkassets.js     lo sheet di bm Studio (le tessere iniziali) e le due copertine
+carts/editor/main.lua        bm SDK, il centro del progetto (incorporato nel kernel, scheda Dev)
+carts/studio/main.lua        bm Studio (incorporato nel kernel, scheda Dev)
+carts/animator/main.lua      bm Animator (incorporato nel kernel, scheda Dev)
 src/script/bm3d.lua          il codice comune ai due (require "bm3d")
-tests/studio/tools3d_host.lua     bm Studio e bm Animator sul PC, con le API di bm sostituite
-tests/studio/check_studio3d.js    i loro file riletti da bm Studio
 carts/mesh/main.lua          bm Mesh, l'editor delle mesh (incorporato nel kernel, scheda Dev)
-carts/mesh/mkcover.js        la sua copertina
 src/bm/meshcap.c             cart_meshes(): le mesh che il codice di un .bm costruisce
-tests/bm/test_meshcap.c      la cattura sulle cartucce vere
-tests/studio/mesh_host.lua   bm Mesh sul PC, con le API di bm sostituite
-tests/studio/check_mesh.js   i suoi file riletti da bm Studio
 carts/pixel/main.lua         bm Pixel, l'editor della pixel art (incorporato nel kernel, scheda Dev)
-carts/pixel/mkcover.js       la sua copertina
-tests/studio/pixel_host.lua  bm Pixel sul PC, con le API di bm sostituite
-tests/studio/check_pixel.js  i suoi file riletti da bm Studio
+scripts/bmmesh.py            MESH, ANIM e .glb per mkbm.py
+tests/studio/tools3d_host.lua    bm Studio e bm Animator sul PC, con le API di bm sostituite
+tests/studio/mesh_host.lua       bm Mesh sul PC
+tests/studio/pixel_host.lua      bm Pixel sul PC
+tests/studio/sdk_host.lua        il bm SDK sul PC (ogni modello di gioco gira 400 fotogrammi)
+tests/studio/check_files.py      i loro file riletti dal Python della build
+tests/bm/test_meshcap.c          la cattura sulle cartucce vere
 ```

@@ -25,6 +25,8 @@ import traceback
 HERE = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, os.path.join(HERE, "..", "tools"))
 sys.path.insert(0, os.path.join(HERE, "..", "scripts"))
+sys.path.insert(0, os.path.join(HERE, "studio"))
+import anim_figure  # noqa: E402
 import bm_load  # noqa: E402
 import bmmesh  # noqa: E402
 import mkbm  # noqa: E402
@@ -4311,51 +4313,6 @@ def test_yharnam(b, opts):
         q.close()
 
 
-def test_studio_cart(b, opts):
-    """A cartridge written by bm Studio (make test-studio: tests/studio/
-    test_core.js) plays on the console: the model viewer that a new project
-    gets as its code shows the models (bounds3d, model, models), with the
-    sections the kernel does not know left alone."""
-    path = b("studio-test.bm")
-    if not os.path.exists(path):
-        print("     skipped: no build/studio-test.bm (make test-studio needs Node)")
-        return
-    q = Qemu(b("kernel.img"))
-    try:
-        q.expect(MENU, timeout=30)
-        time.sleep(0.5)
-        # first the one with a skeleton: the viewer plays its animations (X: the next one)
-        with open(b("studio-test-anim.bm"), "rb") as f:
-            assert _upload(q, f.read())
-        time.sleep(1.5)
-        q.send("c")
-        time.sleep(0.5)
-        q.send("q")
-        out = q.expect("update+draw", timeout=10).decode(errors="replace")
-        assert "stopped with an error" not in out, out
-        time.sleep(0.5)
-        with open(path, "rb") as f:
-            assert _upload(q, f.read())
-        time.sleep(2.5)
-        for _ in range(10):
-            w, h, px = q.screendump()
-            cols = [tuple(px[(y * w + x) * 3:(y * w + x) * 3 + 3]) for y in range(0, h, 2) for x in range(0, w, 2)]
-            bg = sum(abs(r - 0x1C) < 12 and abs(g - 0x20) < 12 and abs(b_ - 0x30) < 12 for r, g, b_ in cols)
-            grass = sum(g > 70 and g > r + 15 and g > b_ + 15 for r, g, b_ in cols)
-            if grass > 50 and bg > len(cols) // 3:
-                break
-            time.sleep(0.5)
-        print(f"     studio cart: background {bg}, grass {grass} of {len(cols)}")
-        assert grass > 50 and bg > len(cols) // 3, (grass, bg)
-        q.send("d")                             # the next model
-        time.sleep(0.5)
-        q.send("q")
-        out = q.expect("update+draw", timeout=10).decode(errors="replace")
-        assert "stopped with an error" not in out, out
-    finally:
-        q.close()
-
-
 def test_studio_animator(b, opts):
     """bm Studio and bm Animator on the console (a game's options, "Open in
     bm Studio"; the menu's "Open in bm Animator"): bm Studio shows the
@@ -6598,16 +6555,10 @@ end
 
 
 def test_animation(b, opts):
-    """bm Animator: a model with a skeleton (ANIM, written by the Studio's
-    core in make test-studio) moves on the console: animate() poses it
-    (an arm turns up around its shoulder), clips() lists the animations,
-    bone3d() follows a bone, two clips mix."""
-    path = b("studio-test-anim.bm")
-    if not os.path.exists(path):
-        print("     skipped: no build/studio-test-anim.bm (make test-studio needs Node)")
-        return
-    secs = dict(bmmesh.cart_sections(open(path, "rb").read()))
-    cart = mkbm.pack(ANIM_CART.encode(), title="anim test", mesh=secs[bmmesh.SEC_MESH], extra=[(bmmesh.SEC_ANIM, secs[bmmesh.SEC_ANIM])])
+    """bm Animator: a model with a skeleton (ANIM) moves on the console:
+    animate() poses it (an arm turns up around its shoulder), clips() lists
+    the animations, bone3d() follows a bone, two clips mix."""
+    cart = anim_figure.cart(ANIM_CART.encode(), title="anim test")
     q = Qemu(b("kernel.img"))
     try:
         q.boot()

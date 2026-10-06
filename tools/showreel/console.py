@@ -1,17 +1,18 @@
 #!/usr/bin/env python3
 """
-The showreel, second half: the villager made in bm Studio and bm Animator
-(tools/showreel/web.js) goes on the console, in QEMU. In the SDK a small
-map is painted; in bm Code the assistant writes the movement with the
-arrows and the rest of the game is typed (the map becomes the 3D ground,
-the villager walks on it); then the game is played.
+The showreel, on the console in QEMU: the villager of Studio Village (its
+model, skeleton and walk, carts/village/models.bm) in a new cartridge whose
+code is one line. In the SDK a small map is painted; in bm Code the
+assistant writes the movement with the arrows and the rest of the game is
+typed (the map becomes the 3D ground, the villager walks on it); then the
+game is played.
 
-  python3 tools/showreel/console.py BUILD WEBDIR OUTDIR        the scenes
-  python3 tools/showreel/console.py BUILD WEBDIR OUTDIR --test  the game only
+  python3 tools/showreel/console.py BUILD OUTDIR        the scenes
+  python3 tools/showreel/console.py BUILD OUTDIR --test  the game only
 
-BUILD is the build directory (kernel.img), WEBDIR has villager.bm. OUTDIR
-gets frames/NNNNNN.png (QEMU screendumps, about 12 a second), frames.json
-(the time of each frame and the scene marks) and the cartridge as saved.
+BUILD is the build directory (kernel.img). OUTDIR gets frames/NNNNNN.png
+(QEMU screendumps, about 12 a second), frames.json (the time of each frame
+and the scene marks) and the cartridge as saved.
 """
 import json
 import os
@@ -143,6 +144,16 @@ def sections(data):
         typ, off, length, _ = struct.unpack_from("<IIII", data, 128 + 16 * i)
         out.append((typ, data[off:off + length]))
     return out
+
+
+def start_cart():
+    """The cartridge the scenes start from, "My Village": the models,
+    skeleton, animations and sheet of carts/village/models.bm and one line
+    of code: the game is written on the console."""
+    data = open(os.path.join(ROOT, "carts", "village", "models.bm"), "rb").read()
+    extra = [(t, b) for t, b in sections(data) if t != mkbm.SEC_LUA]
+    return mkbm.pack(b"-- My Village: a villager on a map\n", title="My Village", author="bm",
+                     res=struct.unpack_from("<HH", data, 12), extra=extra)
 
 
 def rebuild(data, lua=None, map_=None):
@@ -297,9 +308,9 @@ def walk(c, plan):
                 time.sleep(0.05 / len(keys))
 
 
-def test_game(build, web, out):
+def test_game(build, out):
     """--test: the final cartridge built directly, played, a few pictures."""
-    data = open(os.path.join(web, "villager.bm"), "rb").read()
+    data = start_cart()
     cart = rebuild(data, lua=final_lua(), map_=planned_map())
     os.makedirs(out, exist_ok=True)
     with open(os.path.join(out, "test.lua"), "w") as f:
@@ -322,12 +333,12 @@ def test_game(build, web, out):
             q.close()
 
 
-def scenes(build, web, out):
+def scenes(build, out):
     """The map in the SDK, the code in bm Code with the assistant, the game."""
     shutil.rmtree(out, ignore_errors=True)
     frames = os.path.join(out, "frames")
     os.makedirs(frames)
-    data = open(os.path.join(web, "villager.bm"), "rb").read()
+    data = start_cart()
     with tempfile.TemporaryDirectory() as tmp:
         q = boot(build, data, tmp)
         c = Console(q)
@@ -343,7 +354,9 @@ def scenes(build, web, out):
             c.keys(ENTER, 0.3)                          # Open in the SDK
             c.see(["opened /carts/myvill.bm"])
             cap.mark("map")
-            c.keys(F3, 0.8)                             # the map page
+            c.keys(F3, 0.8)                             # the sprites, then the map page
+            c.keys(F3, 0.8)
+            c.see(["layer 1/1 main"])
             c.keys("f", 1.2)                            # grass (tile 1) everywhere
             c.keys(TAB, 0.4)                            # the tile picker: the sand
             c.keys(RIGHT * (SAND - GRASS), 0.04)
@@ -457,11 +470,11 @@ def scenes(build, web, out):
 
 
 def main():
-    build, web, out = sys.argv[1:4]
+    build, out = sys.argv[1:3]
     if "--test" in sys.argv:
-        test_game(build, web, out)
+        test_game(build, out)
     else:
-        scenes(build, web, out)
+        scenes(build, out)
 
 
 if __name__ == "__main__":
